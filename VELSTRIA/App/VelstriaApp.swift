@@ -29,7 +29,9 @@ struct RootView: View {
     var body: some View {
         @Bindable var router = app.router
         ZStack {
-            if app.profile.onboardingCompleted {
+            if DebugLaunch.args.contains("-heroGallery") {
+                HeroGalleryView()
+            } else if app.profile.onboardingCompleted {
                 NavigationStack(path: $router.path) {
                     HomeView()
                         .navigationDestination(for: Route.self) { RouteDestination(route: $0) }

@@ -39,3 +39,10 @@ struct HeroPreview3DView: View {
         HeroPortraitView(heroID: heroID, size: 220)
     }
 }
+
+/// 全ヒーローの 3D モデル一覧（起動引数 -heroGallery）。hero-models が実装。
+struct HeroGalleryView: View {
+    var body: some View {
+        Text("Hero Gallery")
+    }
+}

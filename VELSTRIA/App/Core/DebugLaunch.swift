@@ -9,6 +9,7 @@ import VelstriaCore
 //   -route <name>         起動後に画面へ直行（例: heroes, heroDetail:H003, store, settings）
 //   -battle <mode>        起動後に戦闘開始（standard / ranked / practice / tutorial / spectate）
 //   -language <ja|en>     表示言語
+//   -heroGallery          ヒーロー 3D モデル一覧（hero-models の目視確認用）
 
 enum DebugLaunch {
     static var args: [String] { ProcessInfo.processInfo.arguments }
