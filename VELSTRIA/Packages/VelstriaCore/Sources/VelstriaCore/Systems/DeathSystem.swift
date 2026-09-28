@@ -225,7 +225,8 @@ public enum DeathSystem {
         if isShutdown {
             s.emit(.announcement(.shutdown(killerID: killerID, victimID: victimID)))
         }
-        if multi >= 2 {
+        // ダブル〜ペンタのみ告知（ペンタ後に復活した敵を 10 秒以内に倒してもペンタを繰り返さない）
+        if (2...Balance.Economy.maxMultiKill).contains(kh.multiKillCount) {
             s.emit(.announcement(.multiKill(killerID: killerID, count: multi)))
         }
         if Balance.Economy.killingSpreeStreaks.contains(kh.killStreak) {

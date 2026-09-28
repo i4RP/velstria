@@ -181,12 +181,10 @@ public enum ItemSystem {
 
     /// カテゴリ列から、各カテゴリの評価順に重複なく装備を割り当てる。
     static func build(plan: [ItemCategory], master: MasterData) -> [String] {
-        var used: [String] = []
+        let table = EconomyItemTable.table(for: master)
         var out: [String] = []
         for cat in plan {
-            let ranked = rankedItems(category: cat, master: master)
-            if let pick = ranked.first(where: { !used.contains($0.itemID) }) {
-                used.append(pick.itemID)
+            if let pick = table.rankedItems(cat).first(where: { !out.contains($0.itemID) }) {
                 out.append(pick.itemID)
             }
         }
@@ -195,26 +193,12 @@ public enum ItemSystem {
 
     /// カテゴリ内の完成品候補を評価順に並べる（上位 Tier → 評価値 → ID 昇順）。
     public static func rankedItems(category: ItemCategory, master: MasterData) -> [ItemDef] {
-        master.items.filter { $0.category == category }.sorted { a, b in
-            if a.tier != b.tier { return a.tier > b.tier }
-            let va = itemValue(a), vb = itemValue(b)
-            if va != vb { return va > vb }
-            return a.itemID < b.itemID
-        }
+        EconomyItemTable.table(for: master).rankedItems(category)
     }
 
     /// 推奨ビルド用の評価値（カテゴリの主要能力 + パッシブ% × 2）。
     static func itemValue(_ it: ItemDef) -> Double {
-        let main: Double
-        switch it.category {
-        case .attack: main = it.attack
-        case .magic: main = it.abilityPower + it.cooldownReductionPct * 2
-        case .defense: main = it.hp / 10 + it.armor + it.magicResist
-        case .movement: main = it.moveSpeed
-        case .utility: main = it.hp / 10 + it.cooldownReductionPct * 3
-        case .jungle: main = 0
-        }
-        return main + it.passivePercent * 2
+        EconomyItemTable.value(it, percent: it.passivePercent)
     }
 
     /// 推奨ビルドに沿って「次に買うべき装備」（所持 Gold で買えるもの。無ければ nil）。HUD のおすすめ購入・AI が使う。
@@ -265,6 +249,8 @@ public enum ItemStats {
     }
 
     public static func apply(items: [String], runes: [String], to stats: inout Stats, master: MasterData) {
+        // 毎 tick 全ヒーローで呼ばれるため、% 値は事前計算表から引く
+        let table = EconomyItemTable.table(for: master)
         var resourceRegenPct: Double = 0
         var hpRegenPct: Double = 0
 
@@ -286,7 +272,7 @@ public enum ItemStats {
         for id in items where !seen.contains(id) {
             seen.append(id)
             guard let it = master.item(id) else { continue }
-            let x = it.passivePercent / 100
+            let x = table.percent(item: it) / 100
             switch it.category {
             case .attack: stats.basicAttackDamageBonus += x
             case .magic: stats.skillDamageBonus += x
@@ -309,7 +295,7 @@ public enum ItemStats {
         var defensePct: Double = 0
         var moveSpeedPct: Double = 0
         for rune in validRunes(runes, master: master) {
-            let x = rune.percent / 100
+            let x = table.percent(rune: rune) / 100
             switch rune.path {
             case .valor:
                 attackPct += x

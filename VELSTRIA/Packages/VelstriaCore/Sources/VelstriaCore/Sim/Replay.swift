@@ -66,8 +66,15 @@ public final class ReplayRecorder {
 /// let player = ReplayPlayer(data: replay)
 /// while !player.isFinished { let events = player.stepOnce() }
 /// ```
+/// シークは再シミュレーションで行う。再生中に keyframeInterval tick 毎の状態を保存しておき、
+/// 後退（または保存済み区間への前進）はそのキーフレームから再開するので、長い試合でも待ち時間が一定に収まる。
 public final class ReplayPlayer {
+    /// 既定のキーフレーム間隔（tick）。30 秒毎（25 分の試合で 50 個・数 MB 程度）。
+    public static let defaultKeyframeInterval = 900
+
     public let data: ReplayData
+    /// キーフレームの間隔（tick）。
+    public let keyframeInterval: Int
     public private(set) var simulation: Simulation
     private let master: MasterData
     private let map: MapDefinition
@@ -75,9 +82,13 @@ public final class ReplayPlayer {
     private let frames: [ReplayFrame]
     /// 次に投入するフレームの位置。
     private var cursor = 0
+    /// 再生中に保存した状態（tick 昇順・重複なし）。
+    private var keyframes: [SimState] = []
 
-    public init(data: ReplayData, master: MasterData = .shared, map: MapDefinition = .standard) {
+    public init(data: ReplayData, master: MasterData = .shared, map: MapDefinition = .standard,
+                keyframeInterval: Int = ReplayPlayer.defaultKeyframeInterval) {
         self.data = data
+        self.keyframeInterval = max(1, keyframeInterval)
         self.master = master
         self.map = map
         self.frames = data.frames.enumerated()
@@ -92,6 +103,8 @@ public final class ReplayPlayer {
     public var isFinished: Bool { simulation.isEnded || currentTick >= data.finalTick }
     /// 再生位置 0...1（シークバー）。
     public var progress: Double { data.finalTick > 0 ? min(1, Double(currentTick) / Double(data.finalTick)) : 1 }
+    /// 保存済みキーフレームの tick（テスト・デバッグ用）。
+    var keyframeTicks: [Int] { keyframes.map(\.tick) }
 
     /// 次の tick の記録入力。
     private func takeCommands(forTick tick: Int) -> [HeroCommand] {
@@ -109,20 +122,38 @@ public final class ReplayPlayer {
     public func stepOnce() -> [SimEvent] {
         guard !isFinished else { return [] }
         let commands = takeCommands(forTick: currentTick + 1)
-        return simulation.step(commands: commands)
+        let events = simulation.step(commands: commands)
+        let t = currentTick
+        if t % keyframeInterval == 0, t > (keyframes.last?.tick ?? 0) {
+            keyframes.append(simulation.state)
+        }
+        return events
     }
 
-    /// 指定 tick へ移動する。後退時は最初から再シミュレーションする（イベントは破棄）。
+    /// 指定 tick へ移動する（途中のイベントは破棄）。
+    /// 目標以前で最も新しいキーフレームが現在位置より先にあるか、後退する場合はそこ（無ければ先頭）から再シミュレーションする。
     public func seek(toTick tick: Int) {
         let target = max(0, min(tick, data.finalTick))
-        if target < currentTick { restart() }
+        let keyframe = keyframes.last { $0.tick <= target }
+        if target < currentTick || (keyframe?.tick ?? -1) > currentTick {
+            if let keyframe {
+                resume(from: keyframe)
+            } else {
+                restart()
+            }
+        }
         while currentTick < target && !isFinished { stepOnce() }
     }
 
-    /// 先頭に戻す。
+    /// 先頭に戻す（保存済みキーフレームは同じ記録なので保持する）。
     public func restart() {
         simulation = Simulation(config: data.config, master: master, map: map)
         cursor = 0
+    }
+
+    private func resume(from snapshot: SimState) {
+        simulation = Simulation(snapshot: snapshot, master: master, map: map)
+        cursor = frames.firstIndex { $0.tick > snapshot.tick } ?? frames.count
     }
 }
 

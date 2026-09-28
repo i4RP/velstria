@@ -6,8 +6,12 @@ import Foundation
 public enum EconomyRewards {
     /// 練習場の無限 Gold が有効か。
     public static func hasInfiniteGold(_ ctx: SimContext) -> Bool {
-        let practice = ctx.config.mode == .practice || ctx.config.mode == .tutorial
-        return practice && ctx.config.practice?.infiniteGold == true
+        hasInfiniteGold(ctx.config)
+    }
+
+    public static func hasInfiniteGold(_ config: MatchConfig) -> Bool {
+        let practice = config.mode == .practice || config.mode == .tutorial
+        return practice && config.practice?.infiniteGold == true
     }
 
     /// ヒーローに Gold を付与する。
@@ -16,7 +20,12 @@ public enum EconomyRewards {
     public static func grantGold(_ s: inout SimState, heroIndex i: Int, amount: Double, at pos: Vec2? = nil,
                                  visible: Bool = true) {
         guard amount > 0, s.units[i].hero != nil else { return }
-        s.units[i].hero!.gold += amount
+        // 練習場の無限 Gold では所持金を固定値のまま保つ（HUD に一瞬 99999 超えが出ないように）
+        if hasInfiniteGold(s.config) {
+            s.units[i].hero!.gold = Balance.Economy.practiceGold
+        } else {
+            s.units[i].hero!.gold += amount
+        }
         s.units[i].hero!.score.goldEarned += amount
         if visible {
             s.emit(.goldGained(heroID: s.units[i].id, amount: amount, pos: pos ?? s.units[i].pos))
