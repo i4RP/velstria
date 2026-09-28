@@ -1,19 +1,43 @@
 import Foundation
 
-// 担当: core-economy（最小実装。再生側 ReplayPlayer と決定論テストを実装すること）
+// 担当: core-economy
+// リプレイ = 設定（シード含む）+ 人間入力列。AI は決定論なので再シミュレーションで完全再現できる。
 
 public struct ReplayFrame: Codable, Hashable, Sendable {
     public var tick: Int
     public var commands: [HeroCommand]
+
+    public init(tick: Int, commands: [HeroCommand]) {
+        self.tick = tick
+        self.commands = commands
+    }
 }
 
-/// リプレイ = 設定（シード含む）+ 人間入力列。AI は決定論なので再シミュレーションで完全再現できる。
 public struct ReplayData: Codable, Hashable, Sendable {
+    public static let currentFormatVersion = 1
+
     public var formatVersion: Int
     public var config: MatchConfig
     public var frames: [ReplayFrame]
     public var finalTick: Int
     public var summary: MatchSummary?
+
+    public init(formatVersion: Int = ReplayData.currentFormatVersion, config: MatchConfig, frames: [ReplayFrame],
+                finalTick: Int, summary: MatchSummary?) {
+        self.formatVersion = formatVersion
+        self.config = config
+        self.frames = frames
+        self.finalTick = finalTick
+        self.summary = summary
+    }
+
+    /// 現在のシミュレーションで再生できるか（ルール版数・形式が一致）。
+    public var isPlayable: Bool {
+        formatVersion == ReplayData.currentFormatVersion && config.simVersion == MatchConfig.currentSimVersion
+    }
+
+    /// 試合時間（秒）。
+    public var duration: Double { Double(finalTick) * Balance.dt }
 }
 
 public final class ReplayRecorder {
@@ -31,6 +55,121 @@ public final class ReplayRecorder {
     }
 
     public func finish(summary: MatchSummary?) -> ReplayData {
-        ReplayData(formatVersion: 1, config: config, frames: frames, finalTick: lastTick, summary: summary)
+        ReplayData(formatVersion: ReplayData.currentFormatVersion, config: config, frames: frames,
+                   finalTick: lastTick, summary: summary)
+    }
+}
+
+/// リプレイ再生。記録された人間入力を該当 tick に投入しながら同じ config でシミュレーションし直す。
+///
+/// ```
+/// let player = ReplayPlayer(data: replay)
+/// while !player.isFinished { let events = player.stepOnce() }
+/// ```
+public final class ReplayPlayer {
+    public let data: ReplayData
+    public private(set) var simulation: Simulation
+    private let master: MasterData
+    private let map: MapDefinition
+    /// tick 昇順に並べたフレーム。
+    private let frames: [ReplayFrame]
+    /// 次に投入するフレームの位置。
+    private var cursor = 0
+
+    public init(data: ReplayData, master: MasterData = .shared, map: MapDefinition = .standard) {
+        self.data = data
+        self.master = master
+        self.map = map
+        self.frames = data.frames.enumerated()
+            .sorted { $0.element.tick != $1.element.tick ? $0.element.tick < $1.element.tick : $0.offset < $1.offset }
+            .map(\.element)
+        self.simulation = Simulation(config: data.config, master: master, map: map)
+    }
+
+    public var state: SimState { simulation.state }
+    public var currentTick: Int { simulation.state.tick }
+    public var finalTick: Int { data.finalTick }
+    public var isFinished: Bool { simulation.isEnded || currentTick >= data.finalTick }
+    /// 再生位置 0...1（シークバー）。
+    public var progress: Double { data.finalTick > 0 ? min(1, Double(currentTick) / Double(data.finalTick)) : 1 }
+
+    /// 次の tick の記録入力。
+    private func takeCommands(forTick tick: Int) -> [HeroCommand] {
+        while cursor < frames.count, frames[cursor].tick < tick { cursor += 1 }
+        var out: [HeroCommand] = []
+        while cursor < frames.count, frames[cursor].tick == tick {
+            out += frames[cursor].commands
+            cursor += 1
+        }
+        return out
+    }
+
+    /// 1 tick 進め、その tick のイベントを返す（終了済みなら空）。
+    @discardableResult
+    public func stepOnce() -> [SimEvent] {
+        guard !isFinished else { return [] }
+        let commands = takeCommands(forTick: currentTick + 1)
+        return simulation.step(commands: commands)
+    }
+
+    /// 指定 tick へ移動する。後退時は最初から再シミュレーションする（イベントは破棄）。
+    public func seek(toTick tick: Int) {
+        let target = max(0, min(tick, data.finalTick))
+        if target < currentTick { restart() }
+        while currentTick < target && !isFinished { stepOnce() }
+    }
+
+    /// 先頭に戻す。
+    public func restart() {
+        simulation = Simulation(config: data.config, master: master, map: map)
+        cursor = 0
+    }
+}
+
+// MARK: - 状態ハッシュ（決定論の検証・デシンク検出）
+
+extension SimState {
+    /// ユニットの ID・種別・生死・位置・HP（0.01 単位に丸め）と主要な経済値の FNV-1a 64bit ハッシュ。
+    /// 同じ config・同じ入力なら同じ値になる（プラットフォーム非依存の整数化のみ使用）。
+    public func stateHash() -> UInt64 {
+        var h: UInt64 = 0xcbf2_9ce4_8422_2325
+        func mix(_ v: Int64) {
+            var x = UInt64(bitPattern: v)
+            for _ in 0..<8 {
+                h ^= x & 0xff
+                h = h &* 0x0000_0100_0000_01b3
+                x >>= 8
+            }
+        }
+        func mix(_ d: Double) {
+            guard d.isFinite else { mix(Int64.min); return }
+            let scaled = (d * 100).rounded()
+            mix(Int64(max(-9.0e18, min(9.0e18, scaled))))
+        }
+        mix(Int64(tick))
+        mix(Int64(phase.rawValue))
+        mix(Int64(winner?.rawValue ?? -1))
+        mix(Int64(units.count))
+        for u in units {
+            mix(Int64(u.id))
+            mix(Int64(u.kind.rawValue))
+            mix(Int64(u.team.rawValue))
+            mix(Int64(u.isAlive ? 1 : 0))
+            mix(u.pos.x)
+            mix(u.pos.y)
+            mix(u.hp)
+            if let hero = u.hero {
+                mix(Int64(hero.level))
+                mix(hero.xp)
+                mix(hero.gold)
+                mix(Int64(hero.items.count))
+                for id in hero.items { for b in id.utf8 { mix(Int64(b)) } }
+            }
+        }
+        for t in teams {
+            mix(Int64(t.kills))
+            mix(Int64(t.towersDestroyed))
+        }
+        return h
     }
 }
