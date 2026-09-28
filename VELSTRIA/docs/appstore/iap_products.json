@@ -1,0 +1,138 @@
+{
+  "_comment": "App Store Connect に登録する App 内課金の正本。DESIGN.md §13 と App/Services/StoreKitService.swift に一致させる（tools/validate_appstore_metadata.py が検証）。price_jpy は日本ストアの基準価格、price_usd_reference は他ストアの目安。",
+  "products": [
+    {
+      "product_id": "com.velstria.game.gem.60",
+      "type": "consumable",
+      "reference_name": "Astral Gem 60",
+      "paid_gems": 60,
+      "bonus_gems": 0,
+      "price_jpy": 160,
+      "price_usd_reference": "0.99",
+      "localizations": {
+        "ja": {
+          "display_name": "アストラルジェム 60個",
+          "description": "見た目アイテムの購入に使える有償ジェム60個"
+        },
+        "en-US": {
+          "display_name": "60 Astral Gems",
+          "description": "60 paid Astral Gems for cosmetic items."
+        }
+      }
+    },
+    {
+      "product_id": "com.velstria.game.gem.300",
+      "type": "consumable",
+      "reference_name": "Astral Gem 300 (+30)",
+      "paid_gems": 300,
+      "bonus_gems": 30,
+      "price_jpy": 800,
+      "price_usd_reference": "4.99",
+      "localizations": {
+        "ja": {
+          "display_name": "アストラルジェム 300個（+30）",
+          "description": "有償ジェム300個＋無償ボーナス30個"
+        },
+        "en-US": {
+          "display_name": "300 Astral Gems (+30 Bonus)",
+          "description": "300 paid Astral Gems plus 30 bonus gems."
+        }
+      }
+    },
+    {
+      "product_id": "com.velstria.game.gem.980",
+      "type": "consumable",
+      "reference_name": "Astral Gem 980 (+110)",
+      "paid_gems": 980,
+      "bonus_gems": 110,
+      "price_jpy": 2500,
+      "price_usd_reference": "14.99",
+      "localizations": {
+        "ja": {
+          "display_name": "アストラルジェム 980個（+110）",
+          "description": "有償ジェム980個＋無償ボーナス110個"
+        },
+        "en-US": {
+          "display_name": "980 Astral Gems (+110 Bonus)",
+          "description": "980 paid Astral Gems plus 110 bonus gems."
+        }
+      }
+    },
+    {
+      "product_id": "com.velstria.game.gem.1980",
+      "type": "consumable",
+      "reference_name": "Astral Gem 1980 (+260)",
+      "paid_gems": 1980,
+      "bonus_gems": 260,
+      "price_jpy": 4900,
+      "price_usd_reference": "29.99",
+      "localizations": {
+        "ja": {
+          "display_name": "アストラルジェム 1980個（+260）",
+          "description": "有償ジェム1980個＋無償ボーナス260個"
+        },
+        "en-US": {
+          "display_name": "1980 Astral Gems (+260 Bonus)",
+          "description": "1980 paid Astral Gems plus 260 bonus gems."
+        }
+      }
+    },
+    {
+      "product_id": "com.velstria.game.gem.3280",
+      "type": "consumable",
+      "reference_name": "Astral Gem 3280 (+600)",
+      "paid_gems": 3280,
+      "bonus_gems": 600,
+      "price_jpy": 8000,
+      "price_usd_reference": "49.99",
+      "localizations": {
+        "ja": {
+          "display_name": "アストラルジェム 3280個（+600）",
+          "description": "有償ジェム3280個＋無償ボーナス600個"
+        },
+        "en-US": {
+          "display_name": "3280 Astral Gems (+600 Bonus)",
+          "description": "3280 paid Astral Gems plus 600 bonus gems."
+        }
+      }
+    },
+    {
+      "product_id": "com.velstria.game.gem.6480",
+      "type": "consumable",
+      "reference_name": "Astral Gem 6480 (+1600)",
+      "paid_gems": 6480,
+      "bonus_gems": 1600,
+      "price_jpy": 15800,
+      "price_usd_reference": "99.99",
+      "localizations": {
+        "ja": {
+          "display_name": "アストラルジェム 6480個（+1600）",
+          "description": "有償ジェム6480個＋無償ボーナス1600個"
+        },
+        "en-US": {
+          "display_name": "6480 Astral Gems (+1600 Bonus)",
+          "description": "6480 paid Astral Gems plus 1600 bonus gems."
+        }
+      }
+    },
+    {
+      "product_id": "com.velstria.game.pass.premium",
+      "type": "non_consumable",
+      "reference_name": "Star Pass Premium Season 1",
+      "paid_gems": 0,
+      "bonus_gems": 0,
+      "price_jpy": 980,
+      "price_usd_reference": "5.99",
+      "localizations": {
+        "ja": {
+          "display_name": "スターパス プレミアム S1",
+          "description": "シーズン1のプレミアム報酬トラックを解放"
+        },
+        "en-US": {
+          "display_name": "Star Pass Premium: Season 1",
+          "description": "Unlocks the Season 1 premium reward track."
+        }
+      }
+    }
+  ]
+}

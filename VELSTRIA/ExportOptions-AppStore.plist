@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  App Store Connect 提出用の書き出し設定（xcodebuild -exportArchive -exportOptionsPlist）。
+
+  teamID: "__TEAM_ID__" はプレースホルダ。リポジトリには実際の Team ID を書かない。
+          tools/archive.sh が環境変数 TEAM_ID（Apple Developer の Membership 画面に表示される
+          英数字 10 桁）で置き換えた一時コピー build/ExportOptions.plist を使う。
+          手動で書き出す場合も、このファイルを直接編集せずコピーして置き換えること。
+  destination: export = .ipa をローカルに書き出すだけ（自動アップロードしない）。
+          アップロードは Xcode Organizer / Transporter で人が確認してから行う（docs/APPSTORE.md）。
+  uploadSymbols: dSYM を同梱し、App Store Connect / Xcode Organizer でクラッシュログをシンボル化する。
+  manageAppVersionAndBuildNumber: false = project.yml の MARKETING_VERSION / CURRENT_PROJECT_VERSION を使う。
+-->
+<plist version="1.0">
+<dict>
+	<key>method</key>
+	<string>app-store-connect</string>
+	<key>destination</key>
+	<string>export</string>
+	<key>teamID</key>
+	<string>__TEAM_ID__</string>
+	<key>signingStyle</key>
+	<string>automatic</string>
+	<key>uploadSymbols</key>
+	<true/>
+	<key>stripSwiftSymbols</key>
+	<true/>
+	<key>manageAppVersionAndBuildNumber</key>
+	<false/>
+	<key>testFlightInternalTestingOnly</key>
+	<false/>
+</dict>
+</plist>
