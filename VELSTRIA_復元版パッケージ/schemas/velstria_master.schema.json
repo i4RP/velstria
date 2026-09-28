@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VELSTRIA Master Data",
+  "type": "object",
+  "required": [
+    "meta",
+    "heroes",
+    "skills",
+    "equipment",
+    "store",
+    "requirements"
+  ],
+  "properties": {
+    "meta": {
+      "type": "object"
+    },
+    "heroes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "hero_id",
+          "display_name_ja",
+          "role"
+        ]
+      }
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "skill_id",
+          "hero_id",
+          "slot",
+          "name_ja"
+        ]
+      }
+    },
+    "equipment": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "item_id",
+          "name_ja",
+          "price_gold"
+        ]
+      }
+    },
+    "store": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "sku",
+          "name_ja",
+          "currency",
+          "price"
+        ]
+      }
+    },
+    "requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "req_id",
+          "requirement",
+          "acceptance"
+        ]
+      }
+    }
+  }
+}

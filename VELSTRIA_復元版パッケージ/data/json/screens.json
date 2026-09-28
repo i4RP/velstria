@@ -1,0 +1,513 @@
+[
+  {
+    "screen_id": "UI001",
+    "name_ja": "起動",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_001"
+  },
+  {
+    "screen_id": "UI002",
+    "name_ja": "年齢確認",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_002"
+  },
+  {
+    "screen_id": "UI003",
+    "name_ja": "利用規約",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_003"
+  },
+  {
+    "screen_id": "UI004",
+    "name_ja": "ログイン",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_004"
+  },
+  {
+    "screen_id": "UI005",
+    "name_ja": "アカウント連携",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_005"
+  },
+  {
+    "screen_id": "UI006",
+    "name_ja": "初回DL",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_006"
+  },
+  {
+    "screen_id": "UI007",
+    "name_ja": "ホーム",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_007"
+  },
+  {
+    "screen_id": "UI008",
+    "name_ja": "お知らせ",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_008"
+  },
+  {
+    "screen_id": "UI009",
+    "name_ja": "メール",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_009"
+  },
+  {
+    "screen_id": "UI010",
+    "name_ja": "フレンド",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_010"
+  },
+  {
+    "screen_id": "UI011",
+    "name_ja": "フレンド検索",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_011"
+  },
+  {
+    "screen_id": "UI012",
+    "name_ja": "チャット",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_012"
+  },
+  {
+    "screen_id": "UI013",
+    "name_ja": "パーティ",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_013"
+  },
+  {
+    "screen_id": "UI014",
+    "name_ja": "招待",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_014"
+  },
+  {
+    "screen_id": "UI015",
+    "name_ja": "プロフィール",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_015"
+  },
+  {
+    "screen_id": "UI016",
+    "name_ja": "戦績",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_016"
+  },
+  {
+    "screen_id": "UI017",
+    "name_ja": "実績",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_017"
+  },
+  {
+    "screen_id": "UI018",
+    "name_ja": "ランキング",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_018"
+  },
+  {
+    "screen_id": "UI019",
+    "name_ja": "ランク概要",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_019"
+  },
+  {
+    "screen_id": "UI020",
+    "name_ja": "ランク報酬",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_020"
+  },
+  {
+    "screen_id": "UI021",
+    "name_ja": "マッチ選択",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_021"
+  },
+  {
+    "screen_id": "UI022",
+    "name_ja": "ロビー",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_022"
+  },
+  {
+    "screen_id": "UI023",
+    "name_ja": "マッチング",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_023"
+  },
+  {
+    "screen_id": "UI024",
+    "name_ja": "ドラフト",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_024"
+  },
+  {
+    "screen_id": "UI025",
+    "name_ja": "ヒーロー選択",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_025"
+  },
+  {
+    "screen_id": "UI026",
+    "name_ja": "ロード",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_026"
+  },
+  {
+    "screen_id": "UI027",
+    "name_ja": "HUD",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_027"
+  },
+  {
+    "screen_id": "UI028",
+    "name_ja": "ショップ戦闘中",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_028"
+  },
+  {
+    "screen_id": "UI029",
+    "name_ja": "スコアボード",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_029"
+  },
+  {
+    "screen_id": "UI030",
+    "name_ja": "設定戦闘中",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_030"
+  },
+  {
+    "screen_id": "UI031",
+    "name_ja": "降参",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_031"
+  },
+  {
+    "screen_id": "UI032",
+    "name_ja": "リザルト",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_032"
+  },
+  {
+    "screen_id": "UI033",
+    "name_ja": "評価",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_033"
+  },
+  {
+    "screen_id": "UI034",
+    "name_ja": "通報",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_034"
+  },
+  {
+    "screen_id": "UI035",
+    "name_ja": "リプレイ",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_035"
+  },
+  {
+    "screen_id": "UI036",
+    "name_ja": "観戦",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_036"
+  },
+  {
+    "screen_id": "UI037",
+    "name_ja": "ヒーロー一覧",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_037"
+  },
+  {
+    "screen_id": "UI038",
+    "name_ja": "ヒーロー詳細",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_038"
+  },
+  {
+    "screen_id": "UI039",
+    "name_ja": "スキル詳細",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_039"
+  },
+  {
+    "screen_id": "UI040",
+    "name_ja": "装備一覧",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_040"
+  },
+  {
+    "screen_id": "UI041",
+    "name_ja": "装備詳細",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_041"
+  },
+  {
+    "screen_id": "UI042",
+    "name_ja": "ビルド編集",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_042"
+  },
+  {
+    "screen_id": "UI043",
+    "name_ja": "ルーン",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_043"
+  },
+  {
+    "screen_id": "UI044",
+    "name_ja": "スペル",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_044"
+  },
+  {
+    "screen_id": "UI045",
+    "name_ja": "ストアホーム",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_045"
+  },
+  {
+    "screen_id": "UI046",
+    "name_ja": "スキンストア",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_046"
+  },
+  {
+    "screen_id": "UI047",
+    "name_ja": "通貨購入",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_047"
+  },
+  {
+    "screen_id": "UI048",
+    "name_ja": "商品詳細",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_048"
+  },
+  {
+    "screen_id": "UI049",
+    "name_ja": "購入確認",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_049"
+  },
+  {
+    "screen_id": "UI050",
+    "name_ja": "購入完了",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_050"
+  },
+  {
+    "screen_id": "UI051",
+    "name_ja": "復元",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_051"
+  },
+  {
+    "screen_id": "UI052",
+    "name_ja": "イベント",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_052"
+  },
+  {
+    "screen_id": "UI053",
+    "name_ja": "イベント詳細",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_053"
+  },
+  {
+    "screen_id": "UI054",
+    "name_ja": "ミッション",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_054"
+  },
+  {
+    "screen_id": "UI055",
+    "name_ja": "バトルパス",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_055"
+  },
+  {
+    "screen_id": "UI056",
+    "name_ja": "報酬受取",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_056"
+  },
+  {
+    "screen_id": "UI057",
+    "name_ja": "インベントリ",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_057"
+  },
+  {
+    "screen_id": "UI058",
+    "name_ja": "コスメ",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_058"
+  },
+  {
+    "screen_id": "UI059",
+    "name_ja": "エモート",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_059"
+  },
+  {
+    "screen_id": "UI060",
+    "name_ja": "設定",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_060"
+  },
+  {
+    "screen_id": "UI061",
+    "name_ja": "操作設定",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_061"
+  },
+  {
+    "screen_id": "UI062",
+    "name_ja": "グラフィック",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_062"
+  },
+  {
+    "screen_id": "UI063",
+    "name_ja": "音声",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_063"
+  },
+  {
+    "screen_id": "UI064",
+    "name_ja": "言語",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_064"
+  },
+  {
+    "screen_id": "UI065",
+    "name_ja": "通知",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_065"
+  },
+  {
+    "screen_id": "UI066",
+    "name_ja": "プライバシー",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_066"
+  },
+  {
+    "screen_id": "UI067",
+    "name_ja": "サポート",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_067"
+  },
+  {
+    "screen_id": "UI068",
+    "name_ja": "FAQ",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_068"
+  },
+  {
+    "screen_id": "UI069",
+    "name_ja": "問い合わせ",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_069"
+  },
+  {
+    "screen_id": "UI070",
+    "name_ja": "パッチノート",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_070"
+  },
+  {
+    "screen_id": "UI071",
+    "name_ja": "チュートリアル",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_071"
+  },
+  {
+    "screen_id": "UI072",
+    "name_ja": "練習場",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_072"
+  },
+  {
+    "screen_id": "UI073",
+    "name_ja": "クレジット",
+    "entry_condition": "通常導線または対象機能から遷移",
+    "primary_actions": "表示・選択・確定・戻る",
+    "analytics_event": "view_ui_073"
+  }
+]

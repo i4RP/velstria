@@ -1,0 +1,1242 @@
+[
+  {
+    "effect_id": "FX_SK_001_1",
+    "name_ja": "城門の誓衛アルデン - 不落の誓い",
+    "effect_type": "Burst",
+    "duration_sec": 0.53,
+    "scale_m": 1.05,
+    "particle_budget": 137,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 城門の誓衛アルデン - 不落の誓い, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_001_2",
+    "name_ja": "城門の誓衛アルデン - Alden式・一閃",
+    "effect_type": "Trail",
+    "duration_sec": 0.71,
+    "scale_m": 1.3,
+    "particle_budget": 154,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 城門の誓衛アルデン - Alden式・一閃, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_001_3",
+    "name_ja": "城門の誓衛アルデン - 星環シフト1",
+    "effect_type": "Area",
+    "duration_sec": 0.89,
+    "scale_m": 1.55,
+    "particle_budget": 171,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 城門の誓衛アルデン - 星環シフト1, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_001_4",
+    "name_ja": "城門の誓衛アルデン - 境界制圧1",
+    "effect_type": "Shield",
+    "duration_sec": 1.07,
+    "scale_m": 1.8,
+    "particle_budget": 188,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 城門の誓衛アルデン - 境界制圧1, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_001_5",
+    "name_ja": "城門の誓衛アルデン - 第七門・閉鎖令",
+    "effect_type": "Projectile",
+    "duration_sec": 1.25,
+    "scale_m": 2.05,
+    "particle_budget": 205,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 城門の誓衛アルデン - 第七門・閉鎖令, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_002_1",
+    "name_ja": "星弦のリラ - 星屑の調律",
+    "effect_type": "Burst",
+    "duration_sec": 1.43,
+    "scale_m": 2.3,
+    "particle_budget": 222,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 星弦のリラ - 星屑の調律, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_002_2",
+    "name_ja": "星弦のリラ - Lyra式・一閃",
+    "effect_type": "Trail",
+    "duration_sec": 1.61,
+    "scale_m": 0.8,
+    "particle_budget": 239,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 星弦のリラ - Lyra式・一閃, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_002_3",
+    "name_ja": "星弦のリラ - 星環シフト2",
+    "effect_type": "Area",
+    "duration_sec": 1.79,
+    "scale_m": 1.05,
+    "particle_budget": 256,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 星弦のリラ - 星環シフト2, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_002_4",
+    "name_ja": "星弦のリラ - 境界制圧2",
+    "effect_type": "Shield",
+    "duration_sec": 0.35,
+    "scale_m": 1.3,
+    "particle_budget": 273,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 星弦のリラ - 境界制圧2, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_002_5",
+    "name_ja": "星弦のリラ - 天穹星弦",
+    "effect_type": "Projectile",
+    "duration_sec": 0.53,
+    "scale_m": 1.55,
+    "particle_budget": 290,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 星弦のリラ - 天穹星弦, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_003_1",
+    "name_ja": "灰刃のカエル - 残火の刻印",
+    "effect_type": "Burst",
+    "duration_sec": 0.71,
+    "scale_m": 1.8,
+    "particle_budget": 307,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 灰刃のカエル - 残火の刻印, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_003_2",
+    "name_ja": "灰刃のカエル - Kael式・一閃",
+    "effect_type": "Trail",
+    "duration_sec": 0.89,
+    "scale_m": 2.05,
+    "particle_budget": 324,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 灰刃のカエル - Kael式・一閃, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_003_3",
+    "name_ja": "灰刃のカエル - 星環シフト3",
+    "effect_type": "Area",
+    "duration_sec": 1.07,
+    "scale_m": 2.3,
+    "particle_budget": 341,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 灰刃のカエル - 星環シフト3, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_003_4",
+    "name_ja": "灰刃のカエル - 境界制圧3",
+    "effect_type": "Shield",
+    "duration_sec": 1.25,
+    "scale_m": 0.8,
+    "particle_budget": 358,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 灰刃のカエル - 境界制圧3, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_003_5",
+    "name_ja": "灰刃のカエル - 灰燼断界",
+    "effect_type": "Projectile",
+    "duration_sec": 1.43,
+    "scale_m": 1.05,
+    "particle_budget": 375,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 灰刃のカエル - 灰燼断界, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_004_1",
+    "name_ja": "潮祈のミレア - 潮騒の加護",
+    "effect_type": "Burst",
+    "duration_sec": 1.61,
+    "scale_m": 1.3,
+    "particle_budget": 392,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 潮祈のミレア - 潮騒の加護, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_004_2",
+    "name_ja": "潮祈のミレア - Mirea式・一閃",
+    "effect_type": "Trail",
+    "duration_sec": 1.79,
+    "scale_m": 1.55,
+    "particle_budget": 409,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 潮祈のミレア - Mirea式・一閃, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_004_3",
+    "name_ja": "潮祈のミレア - 星環シフト4",
+    "effect_type": "Area",
+    "duration_sec": 0.35,
+    "scale_m": 1.8,
+    "particle_budget": 426,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 潮祈のミレア - 星環シフト4, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_004_4",
+    "name_ja": "潮祈のミレア - 境界制圧4",
+    "effect_type": "Shield",
+    "duration_sec": 0.53,
+    "scale_m": 2.05,
+    "particle_budget": 443,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 潮祈のミレア - 境界制圧4, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_004_5",
+    "name_ja": "潮祈のミレア - 大潮祈祷",
+    "effect_type": "Projectile",
+    "duration_sec": 0.71,
+    "scale_m": 2.3,
+    "particle_budget": 460,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 潮祈のミレア - 大潮祈祷, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_005_1",
+    "name_ja": "黒雷のヴォス - 雷脈充填",
+    "effect_type": "Burst",
+    "duration_sec": 0.89,
+    "scale_m": 0.8,
+    "particle_budget": 477,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 黒雷のヴォス - 雷脈充填, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_005_2",
+    "name_ja": "黒雷のヴォス - Voss式・一閃",
+    "effect_type": "Trail",
+    "duration_sec": 1.07,
+    "scale_m": 1.05,
+    "particle_budget": 494,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 黒雷のヴォス - Voss式・一閃, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_005_3",
+    "name_ja": "黒雷のヴォス - 星環シフト5",
+    "effect_type": "Area",
+    "duration_sec": 1.25,
+    "scale_m": 1.3,
+    "particle_budget": 511,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 黒雷のヴォス - 星環シフト5, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_005_4",
+    "name_ja": "黒雷のヴォス - 境界制圧5",
+    "effect_type": "Shield",
+    "duration_sec": 1.43,
+    "scale_m": 1.55,
+    "particle_budget": 528,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 黒雷のヴォス - 境界制圧5, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_005_5",
+    "name_ja": "黒雷のヴォス - 黒雷天墜",
+    "effect_type": "Projectile",
+    "duration_sec": 1.61,
+    "scale_m": 1.8,
+    "particle_budget": 125,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 黒雷のヴォス - 黒雷天墜, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_006_1",
+    "name_ja": "月灯のセレン - 月影の灯",
+    "effect_type": "Burst",
+    "duration_sec": 1.79,
+    "scale_m": 2.05,
+    "particle_budget": 142,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 月灯のセレン - 月影の灯, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_006_2",
+    "name_ja": "月灯のセレン - Seren式・一閃",
+    "effect_type": "Trail",
+    "duration_sec": 0.35,
+    "scale_m": 2.3,
+    "particle_budget": 159,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 月灯のセレン - Seren式・一閃, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_006_3",
+    "name_ja": "月灯のセレン - 星環シフト6",
+    "effect_type": "Area",
+    "duration_sec": 0.53,
+    "scale_m": 0.8,
+    "particle_budget": 176,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 月灯のセレン - 星環シフト6, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_006_4",
+    "name_ja": "月灯のセレン - 境界制圧6",
+    "effect_type": "Shield",
+    "duration_sec": 0.71,
+    "scale_m": 1.05,
+    "particle_budget": 193,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 月灯のセレン - 境界制圧6, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_006_5",
+    "name_ja": "月灯のセレン - 満月灯界",
+    "effect_type": "Projectile",
+    "duration_sec": 0.89,
+    "scale_m": 1.3,
+    "particle_budget": 210,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 月灯のセレン - 満月灯界, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_007_1",
+    "name_ja": "岩脈のガルク - 岩心",
+    "effect_type": "Burst",
+    "duration_sec": 1.07,
+    "scale_m": 1.55,
+    "particle_budget": 227,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 岩脈のガルク - 岩心, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_007_2",
+    "name_ja": "岩脈のガルク - Garruk式・一閃",
+    "effect_type": "Trail",
+    "duration_sec": 1.25,
+    "scale_m": 1.8,
+    "particle_budget": 244,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 岩脈のガルク - Garruk式・一閃, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_007_3",
+    "name_ja": "岩脈のガルク - 星環シフト7",
+    "effect_type": "Area",
+    "duration_sec": 1.43,
+    "scale_m": 2.05,
+    "particle_budget": 261,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 岩脈のガルク - 星環シフト7, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_007_4",
+    "name_ja": "岩脈のガルク - 境界制圧7",
+    "effect_type": "Shield",
+    "duration_sec": 1.61,
+    "scale_m": 2.3,
+    "particle_budget": 278,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 岩脈のガルク - 境界制圧7, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_007_5",
+    "name_ja": "岩脈のガルク - 地脈隆起",
+    "effect_type": "Projectile",
+    "duration_sec": 1.79,
+    "scale_m": 0.8,
+    "particle_budget": 295,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 岩脈のガルク - 地脈隆起, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_008_1",
+    "name_ja": "風標のニア - 追い風",
+    "effect_type": "Burst",
+    "duration_sec": 0.35,
+    "scale_m": 1.05,
+    "particle_budget": 312,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 風標のニア - 追い風, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_008_2",
+    "name_ja": "風標のニア - Nia式・一閃",
+    "effect_type": "Trail",
+    "duration_sec": 0.53,
+    "scale_m": 1.3,
+    "particle_budget": 329,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 風標のニア - Nia式・一閃, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_008_3",
+    "name_ja": "風標のニア - 星環シフト8",
+    "effect_type": "Area",
+    "duration_sec": 0.71,
+    "scale_m": 1.55,
+    "particle_budget": 346,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 風標のニア - 星環シフト8, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_008_4",
+    "name_ja": "風標のニア - 境界制圧8",
+    "effect_type": "Shield",
+    "duration_sec": 0.89,
+    "scale_m": 1.8,
+    "particle_budget": 363,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 風標のニア - 境界制圧8, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_008_5",
+    "name_ja": "風標のニア - 風界標定",
+    "effect_type": "Projectile",
+    "duration_sec": 1.07,
+    "scale_m": 2.05,
+    "particle_budget": 380,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 風標のニア - 風界標定, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_009_1",
+    "name_ja": "機巧士オリン - 過給機構",
+    "effect_type": "Burst",
+    "duration_sec": 1.25,
+    "scale_m": 2.3,
+    "particle_budget": 397,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 機巧士オリン - 過給機構, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_009_2",
+    "name_ja": "機巧士オリン - Orin式・一閃",
+    "effect_type": "Trail",
+    "duration_sec": 1.43,
+    "scale_m": 0.8,
+    "particle_budget": 414,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 機巧士オリン - Orin式・一閃, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_009_3",
+    "name_ja": "機巧士オリン - 星環シフト9",
+    "effect_type": "Area",
+    "duration_sec": 1.61,
+    "scale_m": 1.05,
+    "particle_budget": 431,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 機巧士オリン - 星環シフト9, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_009_4",
+    "name_ja": "機巧士オリン - 境界制圧9",
+    "effect_type": "Shield",
+    "duration_sec": 1.79,
+    "scale_m": 1.3,
+    "particle_budget": 448,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 機巧士オリン - 境界制圧9, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_009_5",
+    "name_ja": "機巧士オリン - 零式過給",
+    "effect_type": "Projectile",
+    "duration_sec": 0.35,
+    "scale_m": 1.55,
+    "particle_budget": 465,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 機巧士オリン - 零式過給, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_010_1",
+    "name_ja": "焔冠のテッサ - 燃焼冠",
+    "effect_type": "Burst",
+    "duration_sec": 0.53,
+    "scale_m": 1.8,
+    "particle_budget": 482,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 焔冠のテッサ - 燃焼冠, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_010_2",
+    "name_ja": "焔冠のテッサ - Thessa式・一閃",
+    "effect_type": "Trail",
+    "duration_sec": 0.71,
+    "scale_m": 2.05,
+    "particle_budget": 499,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 焔冠のテッサ - Thessa式・一閃, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_010_3",
+    "name_ja": "焔冠のテッサ - 星環シフト10",
+    "effect_type": "Area",
+    "duration_sec": 0.89,
+    "scale_m": 2.3,
+    "particle_budget": 516,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 焔冠のテッサ - 星環シフト10, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_010_4",
+    "name_ja": "焔冠のテッサ - 境界制圧10",
+    "effect_type": "Shield",
+    "duration_sec": 1.07,
+    "scale_m": 0.8,
+    "particle_budget": 533,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 焔冠のテッサ - 境界制圧10, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_010_5",
+    "name_ja": "焔冠のテッサ - 焔冠戴天",
+    "effect_type": "Projectile",
+    "duration_sec": 1.25,
+    "scale_m": 1.05,
+    "particle_budget": 130,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 焔冠のテッサ - 焔冠戴天, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_011_1",
+    "name_ja": "鉄翼のルーク - 翼装展開",
+    "effect_type": "Burst",
+    "duration_sec": 1.43,
+    "scale_m": 1.3,
+    "particle_budget": 147,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 鉄翼のルーク - 翼装展開, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_011_2",
+    "name_ja": "鉄翼のルーク - Rook式・一閃",
+    "effect_type": "Trail",
+    "duration_sec": 1.61,
+    "scale_m": 1.55,
+    "particle_budget": 164,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 鉄翼のルーク - Rook式・一閃, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_011_3",
+    "name_ja": "鉄翼のルーク - 星環シフト11",
+    "effect_type": "Area",
+    "duration_sec": 1.79,
+    "scale_m": 1.8,
+    "particle_budget": 181,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 鉄翼のルーク - 星環シフト11, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_011_4",
+    "name_ja": "鉄翼のルーク - 境界制圧11",
+    "effect_type": "Shield",
+    "duration_sec": 0.35,
+    "scale_m": 2.05,
+    "particle_budget": 198,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 鉄翼のルーク - 境界制圧11, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_011_5",
+    "name_ja": "鉄翼のルーク - 鉄翼急襲",
+    "effect_type": "Projectile",
+    "duration_sec": 0.53,
+    "scale_m": 2.3,
+    "particle_budget": 215,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 鉄翼のルーク - 鉄翼急襲, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_012_1",
+    "name_ja": "玻璃歌のエリネ - 共鳴硝子",
+    "effect_type": "Burst",
+    "duration_sec": 0.71,
+    "scale_m": 0.8,
+    "particle_budget": 232,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 玻璃歌のエリネ - 共鳴硝子, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_012_2",
+    "name_ja": "玻璃歌のエリネ - Elyne式・一閃",
+    "effect_type": "Trail",
+    "duration_sec": 0.89,
+    "scale_m": 1.05,
+    "particle_budget": 249,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 玻璃歌のエリネ - Elyne式・一閃, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_012_3",
+    "name_ja": "玻璃歌のエリネ - 星環シフト12",
+    "effect_type": "Area",
+    "duration_sec": 1.07,
+    "scale_m": 1.3,
+    "particle_budget": 266,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 玻璃歌のエリネ - 星環シフト12, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_012_4",
+    "name_ja": "玻璃歌のエリネ - 境界制圧12",
+    "effect_type": "Shield",
+    "duration_sec": 1.25,
+    "scale_m": 1.55,
+    "particle_budget": 283,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 玻璃歌のエリネ - 境界制圧12, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_012_5",
+    "name_ja": "玻璃歌のエリネ - 玻璃大合唱",
+    "effect_type": "Projectile",
+    "duration_sec": 1.43,
+    "scale_m": 1.8,
+    "particle_budget": 300,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 玻璃歌のエリネ - 玻璃大合唱, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_013_1",
+    "name_ja": "獣刻のダガン - 獣性解放",
+    "effect_type": "Burst",
+    "duration_sec": 1.61,
+    "scale_m": 2.05,
+    "particle_budget": 317,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 獣刻のダガン - 獣性解放, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_013_2",
+    "name_ja": "獣刻のダガン - Dagan式・一閃",
+    "effect_type": "Trail",
+    "duration_sec": 1.79,
+    "scale_m": 2.3,
+    "particle_budget": 334,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 獣刻のダガン - Dagan式・一閃, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_013_3",
+    "name_ja": "獣刻のダガン - 星環シフト13",
+    "effect_type": "Area",
+    "duration_sec": 0.35,
+    "scale_m": 0.8,
+    "particle_budget": 351,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 獣刻のダガン - 星環シフト13, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_013_4",
+    "name_ja": "獣刻のダガン - 境界制圧13",
+    "effect_type": "Shield",
+    "duration_sec": 0.53,
+    "scale_m": 1.05,
+    "particle_budget": 368,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 獣刻のダガン - 境界制圧13, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_013_5",
+    "name_ja": "獣刻のダガン - 獣王刻印",
+    "effect_type": "Projectile",
+    "duration_sec": 0.71,
+    "scale_m": 1.3,
+    "particle_budget": 385,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 獣刻のダガン - 獣王刻印, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_014_1",
+    "name_ja": "霧歩のシオ - 薄霧",
+    "effect_type": "Burst",
+    "duration_sec": 0.89,
+    "scale_m": 1.55,
+    "particle_budget": 402,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 霧歩のシオ - 薄霧, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_014_2",
+    "name_ja": "霧歩のシオ - Sio式・一閃",
+    "effect_type": "Trail",
+    "duration_sec": 1.07,
+    "scale_m": 1.8,
+    "particle_budget": 419,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 霧歩のシオ - Sio式・一閃, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_014_3",
+    "name_ja": "霧歩のシオ - 星環シフト14",
+    "effect_type": "Area",
+    "duration_sec": 1.25,
+    "scale_m": 2.05,
+    "particle_budget": 436,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 霧歩のシオ - 星環シフト14, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_014_4",
+    "name_ja": "霧歩のシオ - 境界制圧14",
+    "effect_type": "Shield",
+    "duration_sec": 1.43,
+    "scale_m": 2.3,
+    "particle_budget": 453,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 霧歩のシオ - 境界制圧14, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_014_5",
+    "name_ja": "霧歩のシオ - 霧界歩法",
+    "effect_type": "Projectile",
+    "duration_sec": 1.61,
+    "scale_m": 0.8,
+    "particle_budget": 470,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 霧歩のシオ - 霧界歩法, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_015_1",
+    "name_ja": "戦鐘のヴァルカ - 戦意共鳴",
+    "effect_type": "Burst",
+    "duration_sec": 1.79,
+    "scale_m": 1.05,
+    "particle_budget": 487,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 戦鐘のヴァルカ - 戦意共鳴, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_015_2",
+    "name_ja": "戦鐘のヴァルカ - Valka式・一閃",
+    "effect_type": "Trail",
+    "duration_sec": 0.35,
+    "scale_m": 1.3,
+    "particle_budget": 504,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 戦鐘のヴァルカ - Valka式・一閃, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_015_3",
+    "name_ja": "戦鐘のヴァルカ - 星環シフト15",
+    "effect_type": "Area",
+    "duration_sec": 0.53,
+    "scale_m": 1.55,
+    "particle_budget": 521,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 戦鐘のヴァルカ - 星環シフト15, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_015_4",
+    "name_ja": "戦鐘のヴァルカ - 境界制圧15",
+    "effect_type": "Shield",
+    "duration_sec": 0.71,
+    "scale_m": 1.8,
+    "particle_budget": 538,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 戦鐘のヴァルカ - 境界制圧15, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_015_5",
+    "name_ja": "戦鐘のヴァルカ - 終戦の鐘",
+    "effect_type": "Projectile",
+    "duration_sec": 0.89,
+    "scale_m": 2.05,
+    "particle_budget": 135,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 戦鐘のヴァルカ - 終戦の鐘, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_016_1",
+    "name_ja": "白環のイリス - 白環結界",
+    "effect_type": "Burst",
+    "duration_sec": 1.07,
+    "scale_m": 2.3,
+    "particle_budget": 152,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 白環のイリス - 白環結界, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_016_2",
+    "name_ja": "白環のイリス - Iris式・一閃",
+    "effect_type": "Trail",
+    "duration_sec": 1.25,
+    "scale_m": 0.8,
+    "particle_budget": 169,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 白環のイリス - Iris式・一閃, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_016_3",
+    "name_ja": "白環のイリス - 星環シフト16",
+    "effect_type": "Area",
+    "duration_sec": 1.43,
+    "scale_m": 1.05,
+    "particle_budget": 186,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 白環のイリス - 星環シフト16, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_016_4",
+    "name_ja": "白環のイリス - 境界制圧16",
+    "effect_type": "Shield",
+    "duration_sec": 1.61,
+    "scale_m": 1.3,
+    "particle_budget": 203,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 白環のイリス - 境界制圧16, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_016_5",
+    "name_ja": "白環のイリス - 白環再生",
+    "effect_type": "Projectile",
+    "duration_sec": 1.79,
+    "scale_m": 1.55,
+    "particle_budget": 220,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 白環のイリス - 白環再生, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_017_1",
+    "name_ja": "深淵鎖のモルド - 深鎖",
+    "effect_type": "Burst",
+    "duration_sec": 0.35,
+    "scale_m": 1.8,
+    "particle_budget": 237,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 深淵鎖のモルド - 深鎖, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_017_2",
+    "name_ja": "深淵鎖のモルド - Mord式・一閃",
+    "effect_type": "Trail",
+    "duration_sec": 0.53,
+    "scale_m": 2.05,
+    "particle_budget": 254,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 深淵鎖のモルド - Mord式・一閃, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_017_3",
+    "name_ja": "深淵鎖のモルド - 星環シフト17",
+    "effect_type": "Area",
+    "duration_sec": 0.71,
+    "scale_m": 2.3,
+    "particle_budget": 271,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 深淵鎖のモルド - 星環シフト17, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_017_4",
+    "name_ja": "深淵鎖のモルド - 境界制圧17",
+    "effect_type": "Shield",
+    "duration_sec": 0.89,
+    "scale_m": 0.8,
+    "particle_budget": 288,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 深淵鎖のモルド - 境界制圧17, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_017_5",
+    "name_ja": "深淵鎖のモルド - 深淵拘束",
+    "effect_type": "Projectile",
+    "duration_sec": 1.07,
+    "scale_m": 1.05,
+    "particle_budget": 305,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 深淵鎖のモルド - 深淵拘束, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_018_1",
+    "name_ja": "花星のセリア - 花星循環",
+    "effect_type": "Burst",
+    "duration_sec": 1.25,
+    "scale_m": 1.3,
+    "particle_budget": 322,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 花星のセリア - 花星循環, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_018_2",
+    "name_ja": "花星のセリア - Celia式・一閃",
+    "effect_type": "Trail",
+    "duration_sec": 1.43,
+    "scale_m": 1.55,
+    "particle_budget": 339,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 花星のセリア - Celia式・一閃, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_018_3",
+    "name_ja": "花星のセリア - 星環シフト18",
+    "effect_type": "Area",
+    "duration_sec": 1.61,
+    "scale_m": 1.8,
+    "particle_budget": 356,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 花星のセリア - 星環シフト18, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_018_4",
+    "name_ja": "花星のセリア - 境界制圧18",
+    "effect_type": "Shield",
+    "duration_sec": 1.79,
+    "scale_m": 2.05,
+    "particle_budget": 373,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 花星のセリア - 境界制圧18, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_018_5",
+    "name_ja": "花星のセリア - 花星満開",
+    "effect_type": "Projectile",
+    "duration_sec": 0.35,
+    "scale_m": 2.3,
+    "particle_budget": 390,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 花星のセリア - 花星満開, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_019_1",
+    "name_ja": "砦砕のブラム - 破城衝動",
+    "effect_type": "Burst",
+    "duration_sec": 0.53,
+    "scale_m": 0.8,
+    "particle_budget": 407,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 砦砕のブラム - 破城衝動, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_019_2",
+    "name_ja": "砦砕のブラム - Bram式・一閃",
+    "effect_type": "Trail",
+    "duration_sec": 0.71,
+    "scale_m": 1.05,
+    "particle_budget": 424,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 砦砕のブラム - Bram式・一閃, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_019_3",
+    "name_ja": "砦砕のブラム - 星環シフト19",
+    "effect_type": "Area",
+    "duration_sec": 0.89,
+    "scale_m": 1.3,
+    "particle_budget": 441,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 砦砕のブラム - 星環シフト19, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_019_4",
+    "name_ja": "砦砕のブラム - 境界制圧19",
+    "effect_type": "Shield",
+    "duration_sec": 1.07,
+    "scale_m": 1.55,
+    "particle_budget": 458,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 砦砕のブラム - 境界制圧19, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_019_5",
+    "name_ja": "砦砕のブラム - 城壁崩し",
+    "effect_type": "Projectile",
+    "duration_sec": 1.25,
+    "scale_m": 1.8,
+    "particle_budget": 475,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 砦砕のブラム - 城壁崩し, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_020_1",
+    "name_ja": "光矢のユナ - 光標",
+    "effect_type": "Burst",
+    "duration_sec": 1.43,
+    "scale_m": 2.05,
+    "particle_budget": 492,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 光矢のユナ - 光標, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_020_2",
+    "name_ja": "光矢のユナ - Yuna式・一閃",
+    "effect_type": "Trail",
+    "duration_sec": 1.61,
+    "scale_m": 2.3,
+    "particle_budget": 509,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 光矢のユナ - Yuna式・一閃, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_020_3",
+    "name_ja": "光矢のユナ - 星環シフト20",
+    "effect_type": "Area",
+    "duration_sec": 1.79,
+    "scale_m": 0.8,
+    "particle_budget": 526,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 光矢のユナ - 星環シフト20, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_020_4",
+    "name_ja": "光矢のユナ - 境界制圧20",
+    "effect_type": "Shield",
+    "duration_sec": 0.35,
+    "scale_m": 1.05,
+    "particle_budget": 123,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 光矢のユナ - 境界制圧20, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_020_5",
+    "name_ja": "光矢のユナ - 光矢流星",
+    "effect_type": "Projectile",
+    "duration_sec": 0.53,
+    "scale_m": 1.3,
+    "particle_budget": 140,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 光矢のユナ - 光矢流星, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_021_1",
+    "name_ja": "時砂のキロス - 時砂残響",
+    "effect_type": "Burst",
+    "duration_sec": 0.71,
+    "scale_m": 1.55,
+    "particle_budget": 157,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 時砂のキロス - 時砂残響, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_021_2",
+    "name_ja": "時砂のキロス - Kiros式・一閃",
+    "effect_type": "Trail",
+    "duration_sec": 0.89,
+    "scale_m": 1.8,
+    "particle_budget": 174,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 時砂のキロス - Kiros式・一閃, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_021_3",
+    "name_ja": "時砂のキロス - 星環シフト21",
+    "effect_type": "Area",
+    "duration_sec": 1.07,
+    "scale_m": 2.05,
+    "particle_budget": 191,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 時砂のキロス - 星環シフト21, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_021_4",
+    "name_ja": "時砂のキロス - 境界制圧21",
+    "effect_type": "Shield",
+    "duration_sec": 1.25,
+    "scale_m": 2.3,
+    "particle_budget": 208,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 時砂のキロス - 境界制圧21, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_021_5",
+    "name_ja": "時砂のキロス - 時砂逆転",
+    "effect_type": "Projectile",
+    "duration_sec": 1.43,
+    "scale_m": 0.8,
+    "particle_budget": 225,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 時砂のキロス - 時砂逆転, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_022_1",
+    "name_ja": "蒼爪のレア - 蒼爪連舞",
+    "effect_type": "Burst",
+    "duration_sec": 1.61,
+    "scale_m": 1.05,
+    "particle_budget": 242,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 蒼爪のレア - 蒼爪連舞, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_022_2",
+    "name_ja": "蒼爪のレア - Rhea式・一閃",
+    "effect_type": "Trail",
+    "duration_sec": 1.79,
+    "scale_m": 1.3,
+    "particle_budget": 259,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 蒼爪のレア - Rhea式・一閃, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_022_3",
+    "name_ja": "蒼爪のレア - 星環シフト22",
+    "effect_type": "Area",
+    "duration_sec": 0.35,
+    "scale_m": 1.55,
+    "particle_budget": 276,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 蒼爪のレア - 星環シフト22, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_022_4",
+    "name_ja": "蒼爪のレア - 境界制圧22",
+    "effect_type": "Shield",
+    "duration_sec": 0.53,
+    "scale_m": 1.8,
+    "particle_budget": 293,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 蒼爪のレア - 境界制圧22, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_022_5",
+    "name_ja": "蒼爪のレア - 蒼爪月輪",
+    "effect_type": "Projectile",
+    "duration_sec": 0.71,
+    "scale_m": 2.05,
+    "particle_budget": 310,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 蒼爪のレア - 蒼爪月輪, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_023_1",
+    "name_ja": "雷槍のトレン - 帯電槍",
+    "effect_type": "Burst",
+    "duration_sec": 0.89,
+    "scale_m": 2.3,
+    "particle_budget": 327,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 雷槍のトレン - 帯電槍, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_023_2",
+    "name_ja": "雷槍のトレン - Toren式・一閃",
+    "effect_type": "Trail",
+    "duration_sec": 1.07,
+    "scale_m": 0.8,
+    "particle_budget": 344,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 雷槍のトレン - Toren式・一閃, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_023_3",
+    "name_ja": "雷槍のトレン - 星環シフト23",
+    "effect_type": "Area",
+    "duration_sec": 1.25,
+    "scale_m": 1.05,
+    "particle_budget": 361,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 雷槍のトレン - 星環シフト23, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_023_4",
+    "name_ja": "雷槍のトレン - 境界制圧23",
+    "effect_type": "Shield",
+    "duration_sec": 1.43,
+    "scale_m": 1.3,
+    "particle_budget": 378,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 雷槍のトレン - 境界制圧23, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_023_5",
+    "name_ja": "雷槍のトレン - 雷槍天穿",
+    "effect_type": "Projectile",
+    "duration_sec": 1.61,
+    "scale_m": 1.55,
+    "particle_budget": 395,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 雷槍のトレン - 雷槍天穿, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_024_1",
+    "name_ja": "夢織のノア - 夢糸",
+    "effect_type": "Burst",
+    "duration_sec": 1.79,
+    "scale_m": 1.8,
+    "particle_budget": 412,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 夢織のノア - 夢糸, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_024_2",
+    "name_ja": "夢織のノア - Noa式・一閃",
+    "effect_type": "Trail",
+    "duration_sec": 0.35,
+    "scale_m": 2.05,
+    "particle_budget": 429,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 夢織のノア - Noa式・一閃, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_024_3",
+    "name_ja": "夢織のノア - 星環シフト24",
+    "effect_type": "Area",
+    "duration_sec": 0.53,
+    "scale_m": 2.3,
+    "particle_budget": 446,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 夢織のノア - 星環シフト24, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_024_4",
+    "name_ja": "夢織のノア - 境界制圧24",
+    "effect_type": "Shield",
+    "duration_sec": 0.71,
+    "scale_m": 0.8,
+    "particle_budget": 463,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 夢織のノア - 境界制圧24, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_SK_024_5",
+    "name_ja": "夢織のノア - 夢界縫合",
+    "effect_type": "Projectile",
+    "duration_sec": 0.89,
+    "scale_m": 1.05,
+    "particle_budget": 480,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 夢織のノア - 夢界縫合, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_COMMON_01",
+    "name_ja": "共通演出1",
+    "effect_type": "Burst",
+    "duration_sec": 1.07,
+    "scale_m": 1.3,
+    "particle_budget": 497,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 共通演出1, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_COMMON_02",
+    "name_ja": "共通演出2",
+    "effect_type": "Trail",
+    "duration_sec": 1.25,
+    "scale_m": 1.55,
+    "particle_budget": 514,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 共通演出2, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_COMMON_03",
+    "name_ja": "共通演出3",
+    "effect_type": "Area",
+    "duration_sec": 1.43,
+    "scale_m": 1.8,
+    "particle_budget": 531,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 共通演出3, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  },
+  {
+    "effect_id": "FX_COMMON_04",
+    "name_ja": "共通演出4",
+    "effect_type": "Shield",
+    "duration_sec": 1.61,
+    "scale_m": 2.05,
+    "particle_budget": 128,
+    "engine_notes": "Meshyで核となる立体メッシュ/紋章を生成。粒子、発光、トレイル、ディゾルブ、タイミングはゲームエンジン側で構築。",
+    "meshy_prompt": "original fantasy MOBA VFX mesh, 共通演出4, clean silhouette, game-ready, no text, no logo, PBR-friendly"
+  }
+]

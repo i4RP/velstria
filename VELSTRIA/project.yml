@@ -1,0 +1,113 @@
+name: VELSTRIA
+options:
+  bundleIdPrefix: com.velstria
+  deploymentTarget:
+    iOS: "18.0"
+  developmentLanguage: ja
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    # 署名チーム（App Store 提出前に設定: 例 BPZ8375UX5）
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+    TARGETED_DEVICE_FAMILY: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    DEAD_CODE_STRIPPING: YES
+    ENABLE_PREVIEWS: YES
+
+packages:
+  VelstriaCore:
+    path: Packages/VelstriaCore
+
+targets:
+  VELSTRIA:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+        excludes:
+          - "**/*.md"
+    dependencies:
+      - package: VelstriaCore
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: VELSTRIA
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleLocalizations: [ja, en]
+        CFBundleDevelopmentRegion: ja
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationLandscapeRight
+          - UIInterfaceOrientationLandscapeLeft
+        UIRequiresFullScreen: true
+        UIStatusBarHidden: true
+        UIViewControllerBasedStatusBarAppearance: true
+        UIApplicationSupportsIndirectInputEvents: true
+        UIRequiredDeviceCapabilities: [arm64, metal]
+        ITSAppUsesNonExemptEncryption: false
+        LSRequiresIPhoneOS: true
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.velstria.game
+        PRODUCT_NAME: VELSTRIA
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+        SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
+
+  VELSTRIATests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: AppTests
+    dependencies:
+      - target: VELSTRIA
+      - package: VelstriaCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.velstria.game.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/VELSTRIA.app/VELSTRIA
+        BUNDLE_LOADER: $(TEST_HOST)
+
+  VELSTRIAUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: AppUITests
+    dependencies:
+      - target: VELSTRIA
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.velstria.game.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: VELSTRIA
+
+schemes:
+  VELSTRIA:
+    build:
+      targets:
+        VELSTRIA: all
+        VELSTRIATests: [test]
+        VELSTRIAUITests: [test]
+    run:
+      config: Debug
+      storeKitConfiguration: App/Resources/Velstria.storekit
+    test:
+      config: Debug
+      targets:
+        - VELSTRIATests
+        - VELSTRIAUITests
+    archive:
+      config: Release

@@ -1,0 +1,10 @@
+﻿key,value
+mode_primary,5v5 MOBA / 3 lanes / jungle
+target_match_minutes,10-18
+team_size,5
+max_level,15
+starting_gold,300
+win_condition,敵Star Core（本拠点）の破壊
+server_authority,movement validation / combat / economy / match result
+fog_of_war,team vision + brush + reveal effects
+monetization,cosmetic-first; paid products must not add competitive combat power

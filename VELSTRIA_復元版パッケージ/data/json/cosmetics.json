@@ -1,0 +1,578 @@
+[
+  {
+    "cosmetic_id": "CO001",
+    "name_ja": "城門の誓衛アルデン HeroSkin 1",
+    "type": "HeroSkin",
+    "hero_id": "H001",
+    "rarity": "Common",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO002",
+    "name_ja": "星弦のリラ Recall 1",
+    "type": "Recall",
+    "hero_id": "",
+    "rarity": "Rare",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO003",
+    "name_ja": "灰刃のカエル Spawn 1",
+    "type": "Spawn",
+    "hero_id": "",
+    "rarity": "Epic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO004",
+    "name_ja": "潮祈のミレア Emote 1",
+    "type": "Emote",
+    "hero_id": "",
+    "rarity": "Mythic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO005",
+    "name_ja": "黒雷のヴォス AvatarFrame 1",
+    "type": "AvatarFrame",
+    "hero_id": "",
+    "rarity": "Common",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO006",
+    "name_ja": "月灯のセレン KillEffect 1",
+    "type": "KillEffect",
+    "hero_id": "",
+    "rarity": "Rare",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO007",
+    "name_ja": "岩脈のガルク HeroSkin 1",
+    "type": "HeroSkin",
+    "hero_id": "H007",
+    "rarity": "Epic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO008",
+    "name_ja": "風標のニア Recall 1",
+    "type": "Recall",
+    "hero_id": "",
+    "rarity": "Mythic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO009",
+    "name_ja": "機巧士オリン Spawn 1",
+    "type": "Spawn",
+    "hero_id": "",
+    "rarity": "Common",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO010",
+    "name_ja": "焔冠のテッサ Emote 1",
+    "type": "Emote",
+    "hero_id": "",
+    "rarity": "Rare",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO011",
+    "name_ja": "鉄翼のルーク AvatarFrame 1",
+    "type": "AvatarFrame",
+    "hero_id": "",
+    "rarity": "Epic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO012",
+    "name_ja": "玻璃歌のエリネ KillEffect 1",
+    "type": "KillEffect",
+    "hero_id": "",
+    "rarity": "Mythic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO013",
+    "name_ja": "獣刻のダガン HeroSkin 1",
+    "type": "HeroSkin",
+    "hero_id": "H013",
+    "rarity": "Common",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO014",
+    "name_ja": "霧歩のシオ Recall 1",
+    "type": "Recall",
+    "hero_id": "",
+    "rarity": "Rare",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO015",
+    "name_ja": "戦鐘のヴァルカ Spawn 1",
+    "type": "Spawn",
+    "hero_id": "",
+    "rarity": "Epic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO016",
+    "name_ja": "白環のイリス Emote 1",
+    "type": "Emote",
+    "hero_id": "",
+    "rarity": "Mythic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO017",
+    "name_ja": "深淵鎖のモルド AvatarFrame 1",
+    "type": "AvatarFrame",
+    "hero_id": "",
+    "rarity": "Common",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO018",
+    "name_ja": "花星のセリア KillEffect 1",
+    "type": "KillEffect",
+    "hero_id": "",
+    "rarity": "Rare",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO019",
+    "name_ja": "砦砕のブラム HeroSkin 1",
+    "type": "HeroSkin",
+    "hero_id": "H019",
+    "rarity": "Epic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO020",
+    "name_ja": "光矢のユナ Recall 1",
+    "type": "Recall",
+    "hero_id": "",
+    "rarity": "Mythic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO021",
+    "name_ja": "時砂のキロス Spawn 1",
+    "type": "Spawn",
+    "hero_id": "",
+    "rarity": "Common",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO022",
+    "name_ja": "蒼爪のレア Emote 1",
+    "type": "Emote",
+    "hero_id": "",
+    "rarity": "Rare",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO023",
+    "name_ja": "雷槍のトレン AvatarFrame 1",
+    "type": "AvatarFrame",
+    "hero_id": "",
+    "rarity": "Epic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO024",
+    "name_ja": "夢織のノア KillEffect 1",
+    "type": "KillEffect",
+    "hero_id": "",
+    "rarity": "Mythic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO025",
+    "name_ja": "城門の誓衛アルデン HeroSkin 2",
+    "type": "HeroSkin",
+    "hero_id": "H001",
+    "rarity": "Common",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO026",
+    "name_ja": "星弦のリラ Recall 2",
+    "type": "Recall",
+    "hero_id": "",
+    "rarity": "Rare",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO027",
+    "name_ja": "灰刃のカエル Spawn 2",
+    "type": "Spawn",
+    "hero_id": "",
+    "rarity": "Epic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO028",
+    "name_ja": "潮祈のミレア Emote 2",
+    "type": "Emote",
+    "hero_id": "",
+    "rarity": "Mythic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO029",
+    "name_ja": "黒雷のヴォス AvatarFrame 2",
+    "type": "AvatarFrame",
+    "hero_id": "",
+    "rarity": "Common",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO030",
+    "name_ja": "月灯のセレン KillEffect 2",
+    "type": "KillEffect",
+    "hero_id": "",
+    "rarity": "Rare",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO031",
+    "name_ja": "岩脈のガルク HeroSkin 2",
+    "type": "HeroSkin",
+    "hero_id": "H007",
+    "rarity": "Epic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO032",
+    "name_ja": "風標のニア Recall 2",
+    "type": "Recall",
+    "hero_id": "",
+    "rarity": "Mythic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO033",
+    "name_ja": "機巧士オリン Spawn 2",
+    "type": "Spawn",
+    "hero_id": "",
+    "rarity": "Common",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO034",
+    "name_ja": "焔冠のテッサ Emote 2",
+    "type": "Emote",
+    "hero_id": "",
+    "rarity": "Rare",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO035",
+    "name_ja": "鉄翼のルーク AvatarFrame 2",
+    "type": "AvatarFrame",
+    "hero_id": "",
+    "rarity": "Epic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO036",
+    "name_ja": "玻璃歌のエリネ KillEffect 2",
+    "type": "KillEffect",
+    "hero_id": "",
+    "rarity": "Mythic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO037",
+    "name_ja": "獣刻のダガン HeroSkin 2",
+    "type": "HeroSkin",
+    "hero_id": "H013",
+    "rarity": "Common",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO038",
+    "name_ja": "霧歩のシオ Recall 2",
+    "type": "Recall",
+    "hero_id": "",
+    "rarity": "Rare",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO039",
+    "name_ja": "戦鐘のヴァルカ Spawn 2",
+    "type": "Spawn",
+    "hero_id": "",
+    "rarity": "Epic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO040",
+    "name_ja": "白環のイリス Emote 2",
+    "type": "Emote",
+    "hero_id": "",
+    "rarity": "Mythic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO041",
+    "name_ja": "深淵鎖のモルド AvatarFrame 2",
+    "type": "AvatarFrame",
+    "hero_id": "",
+    "rarity": "Common",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO042",
+    "name_ja": "花星のセリア KillEffect 2",
+    "type": "KillEffect",
+    "hero_id": "",
+    "rarity": "Rare",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO043",
+    "name_ja": "砦砕のブラム HeroSkin 2",
+    "type": "HeroSkin",
+    "hero_id": "H019",
+    "rarity": "Epic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO044",
+    "name_ja": "光矢のユナ Recall 2",
+    "type": "Recall",
+    "hero_id": "",
+    "rarity": "Mythic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO045",
+    "name_ja": "時砂のキロス Spawn 2",
+    "type": "Spawn",
+    "hero_id": "",
+    "rarity": "Common",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO046",
+    "name_ja": "蒼爪のレア Emote 2",
+    "type": "Emote",
+    "hero_id": "",
+    "rarity": "Rare",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO047",
+    "name_ja": "雷槍のトレン AvatarFrame 2",
+    "type": "AvatarFrame",
+    "hero_id": "",
+    "rarity": "Epic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO048",
+    "name_ja": "夢織のノア KillEffect 2",
+    "type": "KillEffect",
+    "hero_id": "",
+    "rarity": "Mythic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO049",
+    "name_ja": "城門の誓衛アルデン HeroSkin 3",
+    "type": "HeroSkin",
+    "hero_id": "H001",
+    "rarity": "Common",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO050",
+    "name_ja": "星弦のリラ Recall 3",
+    "type": "Recall",
+    "hero_id": "",
+    "rarity": "Rare",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO051",
+    "name_ja": "灰刃のカエル Spawn 3",
+    "type": "Spawn",
+    "hero_id": "",
+    "rarity": "Epic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO052",
+    "name_ja": "潮祈のミレア Emote 3",
+    "type": "Emote",
+    "hero_id": "",
+    "rarity": "Mythic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO053",
+    "name_ja": "黒雷のヴォス AvatarFrame 3",
+    "type": "AvatarFrame",
+    "hero_id": "",
+    "rarity": "Common",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO054",
+    "name_ja": "月灯のセレン KillEffect 3",
+    "type": "KillEffect",
+    "hero_id": "",
+    "rarity": "Rare",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO055",
+    "name_ja": "岩脈のガルク HeroSkin 3",
+    "type": "HeroSkin",
+    "hero_id": "H007",
+    "rarity": "Epic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO056",
+    "name_ja": "風標のニア Recall 3",
+    "type": "Recall",
+    "hero_id": "",
+    "rarity": "Mythic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO057",
+    "name_ja": "機巧士オリン Spawn 3",
+    "type": "Spawn",
+    "hero_id": "",
+    "rarity": "Common",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO058",
+    "name_ja": "焔冠のテッサ Emote 3",
+    "type": "Emote",
+    "hero_id": "",
+    "rarity": "Rare",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO059",
+    "name_ja": "鉄翼のルーク AvatarFrame 3",
+    "type": "AvatarFrame",
+    "hero_id": "",
+    "rarity": "Epic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO060",
+    "name_ja": "玻璃歌のエリネ KillEffect 3",
+    "type": "KillEffect",
+    "hero_id": "",
+    "rarity": "Mythic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO061",
+    "name_ja": "獣刻のダガン HeroSkin 3",
+    "type": "HeroSkin",
+    "hero_id": "H013",
+    "rarity": "Common",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO062",
+    "name_ja": "霧歩のシオ Recall 3",
+    "type": "Recall",
+    "hero_id": "",
+    "rarity": "Rare",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO063",
+    "name_ja": "戦鐘のヴァルカ Spawn 3",
+    "type": "Spawn",
+    "hero_id": "",
+    "rarity": "Epic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO064",
+    "name_ja": "白環のイリス Emote 3",
+    "type": "Emote",
+    "hero_id": "",
+    "rarity": "Mythic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO065",
+    "name_ja": "深淵鎖のモルド AvatarFrame 3",
+    "type": "AvatarFrame",
+    "hero_id": "",
+    "rarity": "Common",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO066",
+    "name_ja": "花星のセリア KillEffect 3",
+    "type": "KillEffect",
+    "hero_id": "",
+    "rarity": "Rare",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO067",
+    "name_ja": "砦砕のブラム HeroSkin 3",
+    "type": "HeroSkin",
+    "hero_id": "H019",
+    "rarity": "Epic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO068",
+    "name_ja": "光矢のユナ Recall 3",
+    "type": "Recall",
+    "hero_id": "",
+    "rarity": "Mythic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO069",
+    "name_ja": "時砂のキロス Spawn 3",
+    "type": "Spawn",
+    "hero_id": "",
+    "rarity": "Common",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO070",
+    "name_ja": "蒼爪のレア Emote 3",
+    "type": "Emote",
+    "hero_id": "",
+    "rarity": "Rare",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO071",
+    "name_ja": "雷槍のトレン AvatarFrame 3",
+    "type": "AvatarFrame",
+    "hero_id": "",
+    "rarity": "Epic",
+    "competitive_power": 0
+  },
+  {
+    "cosmetic_id": "CO072",
+    "name_ja": "夢織のノア KillEffect 3",
+    "type": "KillEffect",
+    "hero_id": "",
+    "rarity": "Mythic",
+    "competitive_power": 0
+  }
+]

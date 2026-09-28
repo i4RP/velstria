@@ -1,0 +1,266 @@
+[
+  {
+    "module_id": "MOD01",
+    "name_ja": "認証",
+    "owner": "Backend",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD02",
+    "name_ja": "アカウント",
+    "owner": "Backend",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD03",
+    "name_ja": "パッチ配信",
+    "owner": "Shared",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD04",
+    "name_ja": "アセットDL",
+    "owner": "Backend",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD05",
+    "name_ja": "ホーム",
+    "owner": "Client",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD06",
+    "name_ja": "通知",
+    "owner": "Shared",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD07",
+    "name_ja": "フレンド",
+    "owner": "Backend",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD08",
+    "name_ja": "チャット",
+    "owner": "Backend",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD09",
+    "name_ja": "パーティ",
+    "owner": "Shared",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD10",
+    "name_ja": "マッチメイク",
+    "owner": "Backend",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD11",
+    "name_ja": "ランク",
+    "owner": "Backend",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD12",
+    "name_ja": "ドラフト",
+    "owner": "Shared",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD13",
+    "name_ja": "ヒーロー",
+    "owner": "Client",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD14",
+    "name_ja": "装備",
+    "owner": "Backend",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD15",
+    "name_ja": "ルーン",
+    "owner": "Shared",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD16",
+    "name_ja": "スペル",
+    "owner": "Backend",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD17",
+    "name_ja": "戦闘入力",
+    "owner": "Client",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD18",
+    "name_ja": "移動",
+    "owner": "Client",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD19",
+    "name_ja": "攻撃",
+    "owner": "Client",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD20",
+    "name_ja": "スキル",
+    "owner": "Client",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD21",
+    "name_ja": "当たり判定",
+    "owner": "Shared",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD22",
+    "name_ja": "視界",
+    "owner": "Backend",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD23",
+    "name_ja": "ミニオン",
+    "owner": "Backend",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD24",
+    "name_ja": "ジャングル",
+    "owner": "Shared",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD25",
+    "name_ja": "タワー",
+    "owner": "Backend",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD26",
+    "name_ja": "拠点",
+    "owner": "Backend",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD27",
+    "name_ja": "ゴールド",
+    "owner": "Shared",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD28",
+    "name_ja": "経験値",
+    "owner": "Backend",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD29",
+    "name_ja": "リスポーン",
+    "owner": "Backend",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD30",
+    "name_ja": "ショップ戦闘",
+    "owner": "Shared",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD31",
+    "name_ja": "スコア",
+    "owner": "Backend",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD32",
+    "name_ja": "降参",
+    "owner": "Backend",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD33",
+    "name_ja": "切断再接続",
+    "owner": "Shared",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD34",
+    "name_ja": "リザルト",
+    "owner": "Backend",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD35",
+    "name_ja": "リプレイ",
+    "owner": "Backend",
+    "priority": "P0"
+  },
+  {
+    "module_id": "MOD36",
+    "name_ja": "観戦",
+    "owner": "Client",
+    "priority": "P1"
+  },
+  {
+    "module_id": "MOD37",
+    "name_ja": "ストア",
+    "owner": "Backend",
+    "priority": "P1"
+  },
+  {
+    "module_id": "MOD38",
+    "name_ja": "課金照合",
+    "owner": "Backend",
+    "priority": "P1"
+  },
+  {
+    "module_id": "MOD39",
+    "name_ja": "イベント",
+    "owner": "Shared",
+    "priority": "P1"
+  },
+  {
+    "module_id": "MOD40",
+    "name_ja": "ミッション",
+    "owner": "Backend",
+    "priority": "P1"
+  },
+  {
+    "module_id": "MOD41",
+    "name_ja": "通報",
+    "owner": "Backend",
+    "priority": "P1"
+  },
+  {
+    "module_id": "MOD42",
+    "name_ja": "不正対策",
+    "owner": "Shared",
+    "priority": "P1"
+  },
+  {
+    "module_id": "MOD43",
+    "name_ja": "分析",
+    "owner": "Backend",
+    "priority": "P1"
+  },
+  {
+    "module_id": "MOD44",
+    "name_ja": "運営管理",
+    "owner": "Backend",
+    "priority": "P1"
+  }
+]

@@ -1,0 +1,62 @@
+[
+  {
+    "spell_id": "BS01",
+    "name_ja": "瞬歩",
+    "cooldown_sec": 90,
+    "description": "瞬歩を発動し、戦況を変える短時間の戦術効果を得る。"
+  },
+  {
+    "spell_id": "BS02",
+    "name_ja": "浄化",
+    "cooldown_sec": 100,
+    "description": "浄化を発動し、戦況を変える短時間の戦術効果を得る。"
+  },
+  {
+    "spell_id": "BS03",
+    "name_ja": "治癒波",
+    "cooldown_sec": 80,
+    "description": "治癒波を発動し、戦況を変える短時間の戦術効果を得る。"
+  },
+  {
+    "spell_id": "BS04",
+    "name_ja": "鉄壁",
+    "cooldown_sec": 75,
+    "description": "鉄壁を発動し、戦況を変える短時間の戦術効果を得る。"
+  },
+  {
+    "spell_id": "BS05",
+    "name_ja": "狩猟印",
+    "cooldown_sec": 45,
+    "description": "狩猟印を発動し、戦況を変える短時間の戦術効果を得る。"
+  },
+  {
+    "spell_id": "BS06",
+    "name_ja": "加速陣",
+    "cooldown_sec": 95,
+    "description": "加速陣を発動し、戦況を変える短時間の戦術効果を得る。"
+  },
+  {
+    "spell_id": "BS07",
+    "name_ja": "点火",
+    "cooldown_sec": 85,
+    "description": "点火を発動し、戦況を変える短時間の戦術効果を得る。"
+  },
+  {
+    "spell_id": "BS08",
+    "name_ja": "虚像",
+    "cooldown_sec": 110,
+    "description": "虚像を発動し、戦況を変える短時間の戦術効果を得る。"
+  },
+  {
+    "spell_id": "BS09",
+    "name_ja": "帰還門",
+    "cooldown_sec": 120,
+    "description": "帰還門を発動し、戦況を変える短時間の戦術効果を得る。"
+  },
+  {
+    "spell_id": "BS10",
+    "name_ja": "星鎖",
+    "cooldown_sec": 105,
+    "description": "星鎖を発動し、戦況を変える短時間の戦術効果を得る。"
+  }
+]

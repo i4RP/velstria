@@ -1,0 +1,38 @@
+[
+  {
+    "key": "mode_primary",
+    "value": "5v5 MOBA / 3 lanes / jungle"
+  },
+  {
+    "key": "target_match_minutes",
+    "value": "10-18"
+  },
+  {
+    "key": "team_size",
+    "value": 5
+  },
+  {
+    "key": "max_level",
+    "value": 15
+  },
+  {
+    "key": "starting_gold",
+    "value": 300
+  },
+  {
+    "key": "win_condition",
+    "value": "敵Star Core（本拠点）の破壊"
+  },
+  {
+    "key": "server_authority",
+    "value": "movement validation / combat / economy / match result"
+  },
+  {
+    "key": "fog_of_war",
+    "value": "team vision + brush + reveal effects"
+  },
+  {
+    "key": "monetization",
+    "value": "cosmetic-first; paid products must not add competitive combat power"
+  }
+]

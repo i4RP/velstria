@@ -1,0 +1,12 @@
+.DS_Store
+*.zip
+**/.build/
+**/DerivedData/
+**/*.xcodeproj/
+**/xcuserdata/
+**/.swiftpm/
+build/
+*.ipa
+*.xcarchive
+/tmp/
+.claude/worktrees/

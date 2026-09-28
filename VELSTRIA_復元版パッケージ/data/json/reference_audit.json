@@ -1,0 +1,646 @@
+[
+  {
+    "audit_id": "AUD-001",
+    "category": "Core Match",
+    "feature": "参考機能項目001",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-002",
+    "category": "Hero",
+    "feature": "参考機能項目002",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-003",
+    "category": "Equipment",
+    "feature": "参考機能項目003",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-004",
+    "category": "Ranked",
+    "feature": "参考機能項目004",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-005",
+    "category": "Social",
+    "feature": "参考機能項目005",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-006",
+    "category": "Store",
+    "feature": "参考機能項目006",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-007",
+    "category": "Events",
+    "feature": "参考機能項目007",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-008",
+    "category": "Account",
+    "feature": "参考機能項目008",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-009",
+    "category": "Replay",
+    "feature": "参考機能項目009",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-010",
+    "category": "Settings",
+    "feature": "参考機能項目010",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-011",
+    "category": "Safety",
+    "feature": "参考機能項目011",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-012",
+    "category": "Core Match",
+    "feature": "参考機能項目012",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-013",
+    "category": "Hero",
+    "feature": "参考機能項目013",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-014",
+    "category": "Equipment",
+    "feature": "参考機能項目014",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-015",
+    "category": "Ranked",
+    "feature": "参考機能項目015",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-016",
+    "category": "Social",
+    "feature": "参考機能項目016",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-017",
+    "category": "Store",
+    "feature": "参考機能項目017",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-018",
+    "category": "Events",
+    "feature": "参考機能項目018",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-019",
+    "category": "Account",
+    "feature": "参考機能項目019",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-020",
+    "category": "Replay",
+    "feature": "参考機能項目020",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-021",
+    "category": "Settings",
+    "feature": "参考機能項目021",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-022",
+    "category": "Safety",
+    "feature": "参考機能項目022",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-023",
+    "category": "Core Match",
+    "feature": "参考機能項目023",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-024",
+    "category": "Hero",
+    "feature": "参考機能項目024",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-025",
+    "category": "Equipment",
+    "feature": "参考機能項目025",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-026",
+    "category": "Ranked",
+    "feature": "参考機能項目026",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-027",
+    "category": "Social",
+    "feature": "参考機能項目027",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-028",
+    "category": "Store",
+    "feature": "参考機能項目028",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-029",
+    "category": "Events",
+    "feature": "参考機能項目029",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-030",
+    "category": "Account",
+    "feature": "参考機能項目030",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-031",
+    "category": "Replay",
+    "feature": "参考機能項目031",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-032",
+    "category": "Settings",
+    "feature": "参考機能項目032",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-033",
+    "category": "Safety",
+    "feature": "参考機能項目033",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-034",
+    "category": "Core Match",
+    "feature": "参考機能項目034",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-035",
+    "category": "Hero",
+    "feature": "参考機能項目035",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-036",
+    "category": "Equipment",
+    "feature": "参考機能項目036",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-037",
+    "category": "Ranked",
+    "feature": "参考機能項目037",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-038",
+    "category": "Social",
+    "feature": "参考機能項目038",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-039",
+    "category": "Store",
+    "feature": "参考機能項目039",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-040",
+    "category": "Events",
+    "feature": "参考機能項目040",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-041",
+    "category": "Account",
+    "feature": "参考機能項目041",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-042",
+    "category": "Replay",
+    "feature": "参考機能項目042",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-043",
+    "category": "Settings",
+    "feature": "参考機能項目043",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-044",
+    "category": "Safety",
+    "feature": "参考機能項目044",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-045",
+    "category": "Core Match",
+    "feature": "参考機能項目045",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-046",
+    "category": "Hero",
+    "feature": "参考機能項目046",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-047",
+    "category": "Equipment",
+    "feature": "参考機能項目047",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-048",
+    "category": "Ranked",
+    "feature": "参考機能項目048",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-049",
+    "category": "Social",
+    "feature": "参考機能項目049",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-050",
+    "category": "Store",
+    "feature": "参考機能項目050",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-051",
+    "category": "Events",
+    "feature": "参考機能項目051",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-052",
+    "category": "Account",
+    "feature": "参考機能項目052",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-053",
+    "category": "Replay",
+    "feature": "参考機能項目053",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-054",
+    "category": "Settings",
+    "feature": "参考機能項目054",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-055",
+    "category": "Safety",
+    "feature": "参考機能項目055",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-056",
+    "category": "Core Match",
+    "feature": "参考機能項目056",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-057",
+    "category": "Hero",
+    "feature": "参考機能項目057",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-058",
+    "category": "Equipment",
+    "feature": "参考機能項目058",
+    "status": "Publicly observable baseline",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-059",
+    "category": "Ranked",
+    "feature": "参考機能項目059",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-060",
+    "category": "Social",
+    "feature": "参考機能項目060",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-061",
+    "category": "Store",
+    "feature": "参考機能項目061",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-062",
+    "category": "Events",
+    "feature": "参考機能項目062",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-063",
+    "category": "Account",
+    "feature": "参考機能項目063",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-064",
+    "category": "Replay",
+    "feature": "参考機能項目064",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-065",
+    "category": "Settings",
+    "feature": "参考機能項目065",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-066",
+    "category": "Safety",
+    "feature": "参考機能項目066",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-067",
+    "category": "Core Match",
+    "feature": "参考機能項目067",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-068",
+    "category": "Hero",
+    "feature": "参考機能項目068",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-069",
+    "category": "Equipment",
+    "feature": "参考機能項目069",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-070",
+    "category": "Ranked",
+    "feature": "参考機能項目070",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-071",
+    "category": "Social",
+    "feature": "参考機能項目071",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-072",
+    "category": "Store",
+    "feature": "参考機能項目072",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-073",
+    "category": "Events",
+    "feature": "参考機能項目073",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-074",
+    "category": "Account",
+    "feature": "参考機能項目074",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-075",
+    "category": "Replay",
+    "feature": "参考機能項目075",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-076",
+    "category": "Settings",
+    "feature": "参考機能項目076",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-077",
+    "category": "Safety",
+    "feature": "参考機能項目077",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-078",
+    "category": "Core Match",
+    "feature": "参考機能項目078",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-079",
+    "category": "Hero",
+    "feature": "参考機能項目079",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-080",
+    "category": "Equipment",
+    "feature": "参考機能項目080",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-081",
+    "category": "Ranked",
+    "feature": "参考機能項目081",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-082",
+    "category": "Social",
+    "feature": "参考機能項目082",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-083",
+    "category": "Store",
+    "feature": "参考機能項目083",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-084",
+    "category": "Events",
+    "feature": "参考機能項目084",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-085",
+    "category": "Account",
+    "feature": "参考機能項目085",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-086",
+    "category": "Replay",
+    "feature": "参考機能項目086",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-087",
+    "category": "Settings",
+    "feature": "参考機能項目087",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-088",
+    "category": "Safety",
+    "feature": "参考機能項目088",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-089",
+    "category": "Core Match",
+    "feature": "参考機能項目089",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-090",
+    "category": "Hero",
+    "feature": "参考機能項目090",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-091",
+    "category": "Equipment",
+    "feature": "参考機能項目091",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  },
+  {
+    "audit_id": "AUD-092",
+    "category": "Ranked",
+    "feature": "参考機能項目092",
+    "status": "Needs in-app verification",
+    "note": "参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。"
+  }
+]

@@ -1,0 +1,76 @@
+import Foundation
+
+// 担当: 統合（契約）。入力を各システムへ振り分けるだけの薄い層。
+
+public enum CommandSystem {
+    public static func apply(_ commands: [HeroCommand], _ s: inout SimState, _ ctx: SimContext) {
+        for c in commands {
+            guard let i = s.index(of: c.heroID), s.units[i].kind == .hero, let hero = s.units[i].hero else { continue }
+            let dead = hero.isDead
+
+            switch c.command {
+            case .move(let dir):
+                guard !dead else { continue }
+                if dir.length < 0.05 {
+                    if case .direction = s.units[i].moveIntent { s.units[i].moveIntent = .none }
+                } else {
+                    s.units[i].moveIntent = .direction(dir.normalized)
+                    s.units[i].path = []
+                    s.units[i].attackTargetID = nil
+                    s.units[i].windupRemaining = nil
+                    RecallSystem.cancelChannel(&s, i)
+                }
+            case .moveTo(let p):
+                guard !dead else { continue }
+                s.units[i].moveIntent = .point(p)
+                s.units[i].path = []
+                s.units[i].attackTargetID = nil
+                s.units[i].windupRemaining = nil
+                RecallSystem.cancelChannel(&s, i)
+            case .stop:
+                s.units[i].moveIntent = .none
+                s.units[i].path = []
+                s.units[i].attackTargetID = nil
+            case .attack(let targetID):
+                guard !dead, let t = s.index(of: targetID), s.isTargetableEnemy(t, of: s.units[i].team) else { continue }
+                s.units[i].attackTargetID = targetID
+                s.units[i].moveIntent = .none
+                RecallSystem.cancelChannel(&s, i)
+            case .attackNearest(let priority):
+                guard !dead else { continue }
+                if let t = CombatSystem.selectTarget(&s, ctx, attacker: i, priority: priority) {
+                    s.units[i].attackTargetID = s.units[t].id
+                    s.units[i].moveIntent = .none
+                    RecallSystem.cancelChannel(&s, i)
+                }
+            case .castSkill(let slot, let target):
+                guard !dead else { continue }
+                if SkillSystem.cast(&s, ctx, heroIndex: i, slot: slot, target: target) {
+                    RecallSystem.cancelChannel(&s, i)
+                }
+            case .castSpell(let index, let target):
+                guard !dead else { continue }
+                if SpellSystem.cast(&s, ctx, heroIndex: i, spellIndex: index, target: target) {
+                    // 帰還門は自身が詠唱なので中断しない
+                    if s.units[i].hero?.channel?.kind != .teleport { RecallSystem.cancelChannel(&s, i) }
+                }
+            case .levelSkill(let slot):
+                SkillLeveling.levelUp(&s, ctx, heroIndex: i, slot: slot)
+            case .setAutoLevel(let enabled):
+                s.units[i].hero?.autoLevelSkills = enabled
+                if enabled { SkillLeveling.autoLevel(&s, ctx, heroIndex: i) }
+            case .buyItem(let itemID):
+                ItemSystem.buy(&s, ctx, heroIndex: i, itemID: itemID)
+            case .sellItem(let slotIndex):
+                ItemSystem.sell(&s, ctx, heroIndex: i, slotIndex: slotIndex)
+            case .recall:
+                guard !dead else { continue }
+                RecallSystem.startRecall(&s, ctx, heroIndex: i)
+            case .emote(let emoteID):
+                s.emit(.emote(heroID: s.units[i].id, emoteID: emoteID))
+            case .surrenderVote(let yes):
+                MatchFlowSystem.vote(&s, ctx, heroIndex: i, yes: yes)
+            }
+        }
+    }
+}

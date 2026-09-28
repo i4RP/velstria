@@ -1,0 +1,93 @@
+﻿audit_id,category,feature,status,note
+AUD-001,Core Match,参考機能項目001,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-002,Hero,参考機能項目002,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-003,Equipment,参考機能項目003,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-004,Ranked,参考機能項目004,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-005,Social,参考機能項目005,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-006,Store,参考機能項目006,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-007,Events,参考機能項目007,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-008,Account,参考機能項目008,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-009,Replay,参考機能項目009,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-010,Settings,参考機能項目010,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-011,Safety,参考機能項目011,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-012,Core Match,参考機能項目012,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-013,Hero,参考機能項目013,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-014,Equipment,参考機能項目014,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-015,Ranked,参考機能項目015,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-016,Social,参考機能項目016,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-017,Store,参考機能項目017,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-018,Events,参考機能項目018,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-019,Account,参考機能項目019,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-020,Replay,参考機能項目020,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-021,Settings,参考機能項目021,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-022,Safety,参考機能項目022,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-023,Core Match,参考機能項目023,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-024,Hero,参考機能項目024,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-025,Equipment,参考機能項目025,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-026,Ranked,参考機能項目026,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-027,Social,参考機能項目027,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-028,Store,参考機能項目028,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-029,Events,参考機能項目029,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-030,Account,参考機能項目030,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-031,Replay,参考機能項目031,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-032,Settings,参考機能項目032,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-033,Safety,参考機能項目033,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-034,Core Match,参考機能項目034,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-035,Hero,参考機能項目035,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-036,Equipment,参考機能項目036,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-037,Ranked,参考機能項目037,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-038,Social,参考機能項目038,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-039,Store,参考機能項目039,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-040,Events,参考機能項目040,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-041,Account,参考機能項目041,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-042,Replay,参考機能項目042,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-043,Settings,参考機能項目043,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-044,Safety,参考機能項目044,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-045,Core Match,参考機能項目045,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-046,Hero,参考機能項目046,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-047,Equipment,参考機能項目047,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-048,Ranked,参考機能項目048,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-049,Social,参考機能項目049,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-050,Store,参考機能項目050,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-051,Events,参考機能項目051,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-052,Account,参考機能項目052,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-053,Replay,参考機能項目053,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-054,Settings,参考機能項目054,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-055,Safety,参考機能項目055,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-056,Core Match,参考機能項目056,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-057,Hero,参考機能項目057,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-058,Equipment,参考機能項目058,Publicly observable baseline,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-059,Ranked,参考機能項目059,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-060,Social,参考機能項目060,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-061,Store,参考機能項目061,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-062,Events,参考機能項目062,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-063,Account,参考機能項目063,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-064,Replay,参考機能項目064,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-065,Settings,参考機能項目065,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-066,Safety,参考機能項目066,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-067,Core Match,参考機能項目067,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-068,Hero,参考機能項目068,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-069,Equipment,参考機能項目069,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-070,Ranked,参考機能項目070,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-071,Social,参考機能項目071,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-072,Store,参考機能項目072,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-073,Events,参考機能項目073,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-074,Account,参考機能項目074,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-075,Replay,参考機能項目075,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-076,Settings,参考機能項目076,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-077,Safety,参考機能項目077,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-078,Core Match,参考機能項目078,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-079,Hero,参考機能項目079,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-080,Equipment,参考機能項目080,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-081,Ranked,参考機能項目081,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-082,Social,参考機能項目082,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-083,Store,参考機能項目083,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-084,Events,参考機能項目084,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-085,Account,参考機能項目085,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-086,Replay,参考機能項目086,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-087,Settings,参考機能項目087,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-088,Safety,参考機能項目088,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-089,Core Match,参考機能項目089,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-090,Hero,参考機能項目090,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-091,Equipment,参考機能項目091,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。
+AUD-092,Ranked,参考機能項目092,Needs in-app verification,参考アプリの概念を抽象化し、VELSTRIAでは独自名称・独自数値・独自UIとして実装する。

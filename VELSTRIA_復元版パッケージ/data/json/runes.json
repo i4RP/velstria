@@ -1,0 +1,212 @@
+[
+  {
+    "rune_id": "RN01",
+    "name_ja": "勇気の星紋01",
+    "path": "Valor",
+    "tier": 1,
+    "effect": "条件達成時に主要能力を3%補助する。"
+  },
+  {
+    "rune_id": "RN02",
+    "name_ja": "秘術の星紋02",
+    "path": "Arcana",
+    "tier": 1,
+    "effect": "条件達成時に主要能力を4%補助する。"
+  },
+  {
+    "rune_id": "RN03",
+    "name_ja": "堅守の星紋03",
+    "path": "Resolve",
+    "tier": 1,
+    "effect": "条件達成時に主要能力を5%補助する。"
+  },
+  {
+    "rune_id": "RN04",
+    "name_ja": "狡知の星紋04",
+    "path": "Cunning",
+    "tier": 1,
+    "effect": "条件達成時に主要能力を6%補助する。"
+  },
+  {
+    "rune_id": "RN05",
+    "name_ja": "調和の星紋05",
+    "path": "Harmony",
+    "tier": 1,
+    "effect": "条件達成時に主要能力を7%補助する。"
+  },
+  {
+    "rune_id": "RN06",
+    "name_ja": "勇気の星紋06",
+    "path": "Valor",
+    "tier": 1,
+    "effect": "条件達成時に主要能力を8%補助する。"
+  },
+  {
+    "rune_id": "RN07",
+    "name_ja": "秘術の星紋07",
+    "path": "Arcana",
+    "tier": 1,
+    "effect": "条件達成時に主要能力を2%補助する。"
+  },
+  {
+    "rune_id": "RN08",
+    "name_ja": "堅守の星紋08",
+    "path": "Resolve",
+    "tier": 1,
+    "effect": "条件達成時に主要能力を3%補助する。"
+  },
+  {
+    "rune_id": "RN09",
+    "name_ja": "狡知の星紋09",
+    "path": "Cunning",
+    "tier": 1,
+    "effect": "条件達成時に主要能力を4%補助する。"
+  },
+  {
+    "rune_id": "RN10",
+    "name_ja": "調和の星紋10",
+    "path": "Harmony",
+    "tier": 1,
+    "effect": "条件達成時に主要能力を5%補助する。"
+  },
+  {
+    "rune_id": "RN11",
+    "name_ja": "勇気の星紋11",
+    "path": "Valor",
+    "tier": 2,
+    "effect": "条件達成時に主要能力を6%補助する。"
+  },
+  {
+    "rune_id": "RN12",
+    "name_ja": "秘術の星紋12",
+    "path": "Arcana",
+    "tier": 2,
+    "effect": "条件達成時に主要能力を7%補助する。"
+  },
+  {
+    "rune_id": "RN13",
+    "name_ja": "堅守の星紋13",
+    "path": "Resolve",
+    "tier": 2,
+    "effect": "条件達成時に主要能力を8%補助する。"
+  },
+  {
+    "rune_id": "RN14",
+    "name_ja": "狡知の星紋14",
+    "path": "Cunning",
+    "tier": 2,
+    "effect": "条件達成時に主要能力を2%補助する。"
+  },
+  {
+    "rune_id": "RN15",
+    "name_ja": "調和の星紋15",
+    "path": "Harmony",
+    "tier": 2,
+    "effect": "条件達成時に主要能力を3%補助する。"
+  },
+  {
+    "rune_id": "RN16",
+    "name_ja": "勇気の星紋16",
+    "path": "Valor",
+    "tier": 2,
+    "effect": "条件達成時に主要能力を4%補助する。"
+  },
+  {
+    "rune_id": "RN17",
+    "name_ja": "秘術の星紋17",
+    "path": "Arcana",
+    "tier": 2,
+    "effect": "条件達成時に主要能力を5%補助する。"
+  },
+  {
+    "rune_id": "RN18",
+    "name_ja": "堅守の星紋18",
+    "path": "Resolve",
+    "tier": 2,
+    "effect": "条件達成時に主要能力を6%補助する。"
+  },
+  {
+    "rune_id": "RN19",
+    "name_ja": "狡知の星紋19",
+    "path": "Cunning",
+    "tier": 2,
+    "effect": "条件達成時に主要能力を7%補助する。"
+  },
+  {
+    "rune_id": "RN20",
+    "name_ja": "調和の星紋20",
+    "path": "Harmony",
+    "tier": 2,
+    "effect": "条件達成時に主要能力を8%補助する。"
+  },
+  {
+    "rune_id": "RN21",
+    "name_ja": "勇気の星紋21",
+    "path": "Valor",
+    "tier": 3,
+    "effect": "条件達成時に主要能力を2%補助する。"
+  },
+  {
+    "rune_id": "RN22",
+    "name_ja": "秘術の星紋22",
+    "path": "Arcana",
+    "tier": 3,
+    "effect": "条件達成時に主要能力を3%補助する。"
+  },
+  {
+    "rune_id": "RN23",
+    "name_ja": "堅守の星紋23",
+    "path": "Resolve",
+    "tier": 3,
+    "effect": "条件達成時に主要能力を4%補助する。"
+  },
+  {
+    "rune_id": "RN24",
+    "name_ja": "狡知の星紋24",
+    "path": "Cunning",
+    "tier": 3,
+    "effect": "条件達成時に主要能力を5%補助する。"
+  },
+  {
+    "rune_id": "RN25",
+    "name_ja": "調和の星紋25",
+    "path": "Harmony",
+    "tier": 3,
+    "effect": "条件達成時に主要能力を6%補助する。"
+  },
+  {
+    "rune_id": "RN26",
+    "name_ja": "勇気の星紋26",
+    "path": "Valor",
+    "tier": 3,
+    "effect": "条件達成時に主要能力を7%補助する。"
+  },
+  {
+    "rune_id": "RN27",
+    "name_ja": "秘術の星紋27",
+    "path": "Arcana",
+    "tier": 3,
+    "effect": "条件達成時に主要能力を8%補助する。"
+  },
+  {
+    "rune_id": "RN28",
+    "name_ja": "堅守の星紋28",
+    "path": "Resolve",
+    "tier": 3,
+    "effect": "条件達成時に主要能力を2%補助する。"
+  },
+  {
+    "rune_id": "RN29",
+    "name_ja": "狡知の星紋29",
+    "path": "Cunning",
+    "tier": 3,
+    "effect": "条件達成時に主要能力を3%補助する。"
+  },
+  {
+    "rune_id": "RN30",
+    "name_ja": "調和の星紋30",
+    "path": "Harmony",
+    "tier": 3,
+    "effect": "条件達成時に主要能力を4%補助する。"
+  }
+]
