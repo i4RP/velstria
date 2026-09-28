@@ -70,6 +70,27 @@ enum LiveOpsService {
         return f.string(from: date)
     }
 
+    // MARK: 参照（UI が使う）
+
+    /// 今日のデイリーミッション（profile.missions.daily の ID 順）。
+    static func dailyMissions(profile: Profile) -> [MissionDef] { [] }
+    static func weeklyMissions(profile: Profile) -> [MissionDef] { [] }
+    static func missionDef(id: String) -> MissionDef? { nil }
+    static func activeEvents(now: Date) -> [EventDef] { events.filter { $0.start <= now && now < $0.end } }
+    /// 7 日周期のログインボーナス（index 0 = 1 日目）。
+    static func loginBonusCalendar() -> [MailAttachment] { [] }
+    static func passLevel(xp: Int) -> Int { min(passMaxLevel, xp / passXPPerLevel) }
+
+    // MARK: 受取（冪等。受取済み・条件未達なら nil / 空配列）
+
+    static func claimMission(id: String, profile: inout Profile, now: Date) -> [MailAttachment]? { nil }
+    static func claimPass(level: Int, premium: Bool, profile: inout Profile) -> MailAttachment? { nil }
+    static func claimAchievement(id: String, profile: inout Profile, now: Date) -> Int? { nil }
+    static func claimMail(id: UUID, profile: inout Profile) -> [MailAttachment] { [] }
+    static func claimAllMail(profile: inout Profile) -> [MailAttachment] { [] }
+    /// 添付を所持品へ反映（コイン・Gem(無償)・コスメ・ヒーロー・パス XP）。
+    static func grant(_ attachment: MailAttachment, to profile: inout Profile) {}
+
     /// 起動時: ログインボーナス・日替わり更新・初回メール。
     static func onLaunch(profile: inout Profile, master: MasterData, now: Date) {
         let key = dayKey(now)

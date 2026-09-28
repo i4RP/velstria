@@ -3,7 +3,27 @@ import VelstriaCore
 
 // 担当: app-services（最小実装。昇格/降格・星環王ポイント・ランク報酬を実装すること）
 
+struct LadderEntry: Identifiable, Equatable {
+    var id: String { name }
+    var name: String
+    var rating: Int
+    var tier: RankTier
+    var isPlayer: Bool
+}
+
 enum RankService {
+    /// 並べ替え用の通算ポイント。
+    static func rating(_ r: RankState) -> Int { r.tier.rawValue * 1000 + (3 - r.division) * 300 + r.stars * 100 + r.points }
+
+    /// 対 AI ランキング（決定論的に生成したライバル + プレイヤー、rating 降順）。
+    static func ladder(for profile: Profile) -> [LadderEntry] { [] }
+
+    /// 到達報酬。
+    static func tierRewards(_ tier: RankTier) -> [MailAttachment] { [] }
+
+    /// 到達済みかつ未受取なら受け取って true。
+    static func claimTierReward(_ tier: RankTier, profile: inout Profile) -> Bool { false }
+
     static func tierName(_ t: RankTier) -> String {
         switch t {
         case .meteorite: return L("隕鉄", "Meteorite")

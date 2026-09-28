@@ -57,6 +57,16 @@ final class PersistenceService {
         try? FileManager.default.removeItem(at: replaysDirectory.appendingPathComponent(meta.fileName))
     }
 
+    /// バックアップ用にプロフィールを書き出す（アカウント連携画面の「データのバックアップ」）。
+    func exportProfileData(_ profile: Profile) -> Data? {
+        try? JSONEncoder().encode(profile)
+    }
+
+    /// バックアップから復元（検証に失敗したら throw）。
+    func importProfile(from data: Data) throws -> Profile {
+        try JSONDecoder().decode(Profile.self, from: data)
+    }
+
     /// 全データ削除（プライバシー設定から）。
     func deleteAll() {
         try? FileManager.default.removeItem(at: directory)

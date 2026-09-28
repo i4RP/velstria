@@ -55,7 +55,23 @@ final class StoreKitService {
         .failed("not implemented")
     }
 
+    func purchasePremiumPass() async -> IAPResult {
+        .failed("not implemented")
+    }
+
     func restore() async -> Bool {
         false
+    }
+
+    /// 表示価格（StoreKit 取得済みならローカライズ価格、未取得なら参考価格）。
+    func displayPrice(for productID: String) -> String {
+        if let p = products[productID] { return p.displayPrice }
+        let ref = Self.gemProducts.first { $0.productID == productID }?.referencePriceJPY ?? 980
+        return "¥\(ref.formatted())"
+    }
+
+    /// 年齢区分による今月の残り購入可能額（円）。nil = 上限なし。
+    func monthlyLimitRemaining(profile: Profile, now: Date = Date()) -> Int? {
+        nil
     }
 }
