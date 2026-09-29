@@ -34,18 +34,19 @@ CATEGORIES: dict[str, tuple[re.Pattern, set[str], str]] = {
         re.compile(r"\b(creationDate|modificationDate|contentModificationDate|contentAccessDate|"
                    r"attributeModificationDate|addedToDirectoryDate|fileModificationDate|creationDateKey|"
                    r"contentModificationDateKey|contentAccessDateKey|attributesOfItem|getattrlist|"
-                   r"getattrlistbulk|fgetattrlist|fstatat|fstat|lstat)\b|\bstat\s*\("),
+                   r"getattrlistbulk|fgetattrlist|getattrlistat|fstatat|fstat|lstat|NSFileCreationDate|"
+                   r"NSFileModificationDate)\b|\bstat\s*\("),
         {"C617.1", "3B52.1", "0A2A.1", "DDA9.1"},
         "C617.1: アプリコンテナ内ファイルの日時・サイズ参照",
     ),
     "NSPrivacyAccessedAPICategorySystemBootTime": (
         re.compile(r"\bsystemUptime\b|\bmach_absolute_time\b"),
         {"35F9.1", "8FFB.1", "3D61.1"},
-        "35F9.1: 経過時間の計測（アプリ内のイベント間隔）",
+        "35F9.1: 経過時間の計測（効果音・触覚の再生間隔などアプリ内のイベント間隔）",
     ),
     "NSPrivacyAccessedAPICategoryDiskSpace": (
         re.compile(r"\b(volumeAvailableCapacity\w*|volumeTotalCapacity\w*|systemFreeSize|systemSize|"
-                   r"statfs|statvfs|fstatfs|fstatvfs)\b"),
+                   r"NSFileSystemFreeSize|NSFileSystemSize|statfs|statvfs|fstatfs|fstatvfs)\b"),
         {"85F4.1", "E174.1", "7D9E.1", "B728.1"},
         "E174.1: 書き込み前の空き容量確認",
     ),
