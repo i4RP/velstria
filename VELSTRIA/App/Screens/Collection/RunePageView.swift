@@ -121,6 +121,8 @@ struct RunePageView: View {
         let selected = editing == i
         let color = CollectionStyle.runePathColor(page.primaryPath)
         return Button {
+            // ページを切り替える前に編集中ページの空の名前を戻す
+            restoreEmptyName()
             nameFocused = false
             editing = i
             app.haptics.tap()
@@ -274,12 +276,10 @@ struct RunePageView: View {
                     .textInputAutocapitalization(.never)
                     .submitLabel(.done)
                     .focused($nameFocused)
-                    .onSubmit {
-                        update { page in
-                            if page.name.trimmingCharacters(in: .whitespaces).isEmpty {
-                                page.name = RuneMath.defaultPageName(index: editing)
-                            }
-                        }
+                    .onSubmit(restoreEmptyName)
+                    // 確定せずにフォーカスが外れた場合も空の名前を残さない
+                    .onChange(of: nameFocused) { _, focused in
+                        if !focused { restoreEmptyName() }
                     }
                     .accessibilityIdentifier("rune_page_name")
             }
@@ -325,8 +325,17 @@ struct RunePageView: View {
 
     // MARK: 操作
 
+    private func restoreEmptyName() {
+        update { page in
+            if page.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                page.name = RuneMath.defaultPageName(index: editing)
+            }
+        }
+    }
+
     private func addPage() {
         guard app.profile.runePages.count < RuneMath.maxPages else { return }
+        restoreEmptyName()
         let index = app.profile.runePages.count
         let path = RunePath.allCases[index % RunePath.allCases.count]
         app.profile.runePages.append(RuneMath.defaultPage(name: RuneMath.defaultPageName(index: index), path: path, master: app.master))

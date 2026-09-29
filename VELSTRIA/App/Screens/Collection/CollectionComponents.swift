@@ -87,7 +87,8 @@ struct CollectionDifficultyStars: View {
             }
         }
         .accessibilityElement()
-        .accessibilityLabel(L("難易度 \(value)/5", "Difficulty \(value) of 5"))
+        .accessibilityLabel(L("難易度 \(value)/5（\(CollectionStyle.difficultyName(value))）",
+                              "Difficulty \(value) of 5 (\(CollectionStyle.difficultyName(value)))"))
     }
 }
 

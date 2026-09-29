@@ -68,6 +68,17 @@ struct PurchaseConfirmSheet: View {
                         if let r = StoreCatalog.rarity(of: item, master: app.master) { CollectionRarityTag(rarity: r) }
                     }
                     balanceRows(price: price, before: before, after: after, insufficient: insufficient)
+                    let duplicates = StoreCatalog.ownedBundleContents(item, profile: profile, master: app.master)
+                    if !duplicates.isEmpty {
+                        // 購入前に「付与されない中身」を明示する
+                        Label(L("所持済みのコスメ \(duplicates.count) 点は付与されず、無償 AstralGem で補填されます",
+                                "\(duplicates.count) cosmetic(s) you already own won't be granted; you'll get free AstralGem instead"),
+                              systemImage: "info.circle.fill")
+                            .font(Theme.body(11))
+                            .foregroundStyle(Theme.gold)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("purchase_bundle_duplicates")
+                    }
                     if item.currency == .astralGem && !insufficient {
                         let split = StoreCatalog.gemSplit(cost: price, profile: profile)
                         Text(L("無償 Gem から優先して消費します（無償 \(split.free.formatted())・有償 \(split.paid.formatted())）",

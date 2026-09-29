@@ -281,6 +281,11 @@ enum BuildRules {
     /// 狩猟印（ジャングル装備の購入に必要なバトルスペル、DESIGN §7）。
     static let smiteSpellID = "BS05"
 
+    /// 狩猟印の表示名（英語はマスターの英語名に追従）。
+    static func smiteName(master: MasterData) -> String {
+        master.spell(smiteSpellID).map { MasterText.spell($0) } ?? smiteSpellID
+    }
+
     /// ジャングル装備を含み、かつ狩猟印を装備していないか（戦闘中に購入できない組み合わせ）。
     static func lacksSmite(_ build: [String], spells: [String], master: MasterData) -> Bool {
         build.contains { master.item($0)?.category == .jungle } && !spells.contains(smiteSpellID)
@@ -449,11 +454,11 @@ enum SpellLoadoutRules {
         return s
     }
 
-    /// 2 枠に揃える（不足は既定 BS01/BS03 で補完、重複は解消）。
-    static func normalized(_ spells: [String]) -> [String] {
+    /// 2 枠に揃える（不明 ID は除外、不足は既定 BS01/BS03 で補完、重複は解消）。
+    static func normalized(_ spells: [String], master: MasterData = .shared) -> [String] {
         let fallback = ["BS01", "BS03", "BS04"]
         var out: [String] = []
-        for id in spells + fallback where !out.contains(id) && !id.isEmpty {
+        for id in spells + fallback where !out.contains(id) && master.spell(id) != nil {
             out.append(id)
             if out.count == slotCount { break }
         }

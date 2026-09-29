@@ -65,6 +65,7 @@ struct StoreHomeView: View {
             if category == .effects {
                 HStack(spacing: 6) {
                     CollectionFilterChip(title: L("すべて", "All"), color: category.color, isSelected: effectFilter == nil) { effectFilter = nil }
+                        .accessibilityIdentifier("store_effect_all")
                     ForEach(category.cosmeticTypes, id: \.self) { t in
                         CollectionFilterChip(title: CollectionStyle.cosmeticTypeName(t), symbol: CollectionStyle.cosmeticTypeSymbol(t),
                                              color: category.color, isSelected: effectFilter == t) { effectFilter = t }
@@ -93,7 +94,8 @@ struct StoreFeaturedCarousel: View {
         let featured = StoreCatalog.featuredBundles(master: app.master, day: StoreCatalog.dayNumber(Date()))
         TabView(selection: $page) {
             ForEach(Array(featured.enumerated()), id: \.element.sku) { i, item in
-                StoreFeaturedBanner(item: item)
+                // 表示中のページだけ動かす（隣接ページも描画されるため）
+                StoreFeaturedBanner(item: item, animated: i == page && !reduceMotion)
                     .tag(i)
             }
         }
@@ -116,6 +118,7 @@ struct StoreFeaturedCarousel: View {
 
 struct StoreFeaturedBanner: View {
     let item: StoreItemDef
+    var animated = true
     @Environment(AppModel.self) private var app
 
     var body: some View {
@@ -152,16 +155,30 @@ struct StoreFeaturedBanner: View {
                             .foregroundStyle(.white)
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
-                        Text(contents.isEmpty ? L("限定コスメのセット", "A set of limited cosmetics")
+                        // 単品でも販売しているため「限定」等の根拠の無い訴求はしない
+                        Text(contents.isEmpty ? L("コスメのセット", "A set of cosmetics")
                                               : L("コスメ \(contents.count) 点のセット", "\(contents.count) cosmetics"))
                             .font(Theme.body(12))
                             .foregroundStyle(Theme.textSecondary)
                         Spacer(minLength: 0)
                         HStack(spacing: 10) {
-                            PriceTag(currency: item.currency, amount: EconomyService.price(of: item), size: 16)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(Capsule().fill(Color.black.opacity(0.4)))
+                            Group {
+                                if EconomyService.isOwned(item, profile: app.profile) {
+                                    Label(L("所持済み", "Owned"), systemImage: "checkmark.circle.fill")
+                                        .font(Theme.body(13))
+                                        .foregroundStyle(Theme.success)
+                                } else if StoreCatalog.isUnavailable(item, profile: app.profile) {
+                                    Text(L("上限到達", "Limit reached"))
+                                        .font(Theme.body(13))
+                                        .foregroundStyle(Theme.textSecondary)
+                                } else {
+                                    PriceTag(currency: item.currency, amount: EconomyService.price(of: item), size: 16,
+                                             insufficient: !StoreCatalog.canAfford(item, profile: app.profile))
+                                }
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Capsule().fill(Color.black.opacity(0.4)))
                             if item.purchaseLimit > 1 {
                                 Text(L("購入 \(count)/\(item.purchaseLimit)", "Bought \(count)/\(item.purchaseLimit)"))
                                     .font(Theme.body(11))
@@ -170,7 +187,7 @@ struct StoreFeaturedBanner: View {
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    BundlePreviewView(item: item, size: 120, animated: true)
+                    BundlePreviewView(item: item, size: 120, animated: animated)
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 14)

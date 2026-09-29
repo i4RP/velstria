@@ -155,6 +155,17 @@ final class CollectionStoreLogicTests: XCTestCase {
     func testLegalNoticesArePresentInBothLanguages() {
         XCTAssertTrue(StoreLegalText.paymentServicesAct.contains { $0.value.contains("有効期限はありません") })
         XCTAssertTrue(StoreLegalText.commercialTransactions.contains { $0.label == "返品・キャンセル" })
+        // docs/legal と同じ表示事項（苦情窓口・残高確認・端末内保存の注意・販売数量の制限）
+        let psa = StoreLegalText.paymentServicesAct
+        XCTAssertTrue(psa.contains { $0.label == "苦情・相談窓口" && $0.value.contains(FeatureFlags.supportEmail) })
+        XCTAssertTrue(psa.contains { $0.label == "残高の確認方法" })
+        XCTAssertTrue(psa.contains { $0.value.contains("端末内に保存") })
+        XCTAssertTrue(psa.contains { $0.value == FeatureFlags.termsURL.absoluteString })
+        XCTAssertTrue(StoreLegalText.monthlyLimitSummary.contains("5,000"))
+        XCTAssertTrue(StoreLegalText.monthlyLimitSummary.contains("10,000"))
+        XCTAssertTrue(StoreLegalText.commercialTransactions.contains { $0.value == StoreLegalText.monthlyLimitSummary })
+        XCTAssertTrue(psa.contains { $0.value == StoreLegalText.issuerName })
+        XCTAssertEqual(Set(psa.map(\.id)).count, psa.count)
         Loc.current = .en
         defer { Loc.current = .ja }
         XCTAssertTrue(StoreLegalText.paymentServicesAct.contains { $0.value.contains("No expiration") })
@@ -173,7 +184,7 @@ final class CollectionStoreLogicTests: XCTestCase {
         let skin = try XCTUnwrap(master.storeItem("SKU001"))
         let ja = StoreCatalog.policyRows(skin)
         XCTAssertEqual(ja.count, 3)
-        XCTAssertTrue(ja.contains { $0.value == skin.duplicatePolicy })
+        XCTAssertTrue(ja.contains { $0.value == skin.refundPolicy })
         XCTAssertTrue(ja.contains { $0.value.contains("1 回まで") })
         let bundle = try XCTUnwrap(master.storeItem("SKU097"))
         XCTAssertTrue(StoreCatalog.policyRows(bundle).contains { $0.value.contains("5 回まで") })
@@ -181,8 +192,46 @@ final class CollectionStoreLogicTests: XCTestCase {
         defer { Loc.current = .ja }
         let en = StoreCatalog.policyRows(skin)
         XCTAssertEqual(en.count, 3)
-        XCTAssertFalse(en.contains { $0.value == skin.duplicatePolicy })
+        XCTAssertFalse(en.contains { $0.value == skin.refundPolicy })
         XCTAssertTrue(en.contains { $0.label == "Refunds" })
+    }
+
+    func testDuplicateRuleIsResolvedPerProductType() throws {
+        // マスターの「購入不可または同価値通貨へ変換」をそのまま出さず、種別ごとの確定ルールを表示する
+        let skin = try XCTUnwrap(master.storeItem("SKU001"))
+        let unlock = try XCTUnwrap(master.storeItem("SKU079"))
+        let bundle = try XCTUnwrap(master.storeItem("SKU097"))
+        for item in [skin, unlock, bundle] {
+            let row = try XCTUnwrap(StoreCatalog.policyRows(item).first { $0.label == "重複時の扱い" })
+            XCTAssertEqual(row.value, StoreCatalog.duplicateRule(item))
+            XCTAssertNotEqual(row.value, item.duplicatePolicy)
+            XCTAssertFalse(row.value.contains("同価値"))
+        }
+        XCTAssertTrue(StoreCatalog.duplicateRule(skin).contains("購入できません"))
+        XCTAssertTrue(StoreCatalog.duplicateRule(bundle).contains("無償 AstralGem"))
+        Loc.current = .en
+        defer { Loc.current = .ja }
+        XCTAssertTrue(StoreCatalog.duplicateRule(unlock).hasPrefix("Can't be purchased"))
+    }
+
+    func testOwnedBundleContentsListsOnlyOwnedCosmeticsInsideBundles() throws {
+        let bundle = try XCTUnwrap(master.storeItem("SKU097"))
+        let contents = EconomyService.bundleContents(bundle.grantID, master: master)
+        var p = Profile()
+        XCTAssertEqual(StoreCatalog.ownedBundleContents(bundle, profile: p, master: master), [])
+        p.ownedCosmeticIDs = Array(contents.prefix(1)) + ["CO999"]
+        XCTAssertEqual(StoreCatalog.ownedBundleContents(bundle, profile: p, master: master), Array(contents.prefix(1)))
+        // バンドル以外は常に空
+        p.ownedCosmeticIDs = ["CO001"]
+        XCTAssertEqual(StoreCatalog.ownedBundleContents(try XCTUnwrap(master.storeItem("SKU001")), profile: p, master: master), [])
+    }
+
+    func testProductDescriptionUsesHeroNames() throws {
+        let unlock = try XCTUnwrap(master.storeItem("SKU079"))
+        XCTAssertTrue(ProductDetailView.description(unlock, master: master, lang: .ja).hasPrefix("岩脈のガルク"))
+        XCTAssertTrue(ProductDetailView.description(unlock, master: master, lang: .en).contains("Garruk"))
+        let bundle = try XCTUnwrap(master.storeItem("SKU097"))
+        XCTAssertFalse(ProductDetailView.description(bundle, master: master, lang: .ja).contains("同価値"))
     }
 
     func testLedgerSortingAndNames() {

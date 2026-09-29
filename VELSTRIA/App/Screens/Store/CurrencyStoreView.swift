@@ -32,6 +32,15 @@ struct CurrencyStoreView: View {
                             }
                             .accessibilityElement(children: .combine)
                             .transition(.opacity)
+                        } else if FeatureFlags.inAppPurchases && app.storeKit.products.isEmpty {
+                            // App Store の価格を取得できていない間は参考価格であることを明示する
+                            Label(L("App Store の価格を取得できていないため、参考価格（税込）を表示しています。購入時は App Store の価格が適用されます。",
+                                    "Couldn't load App Store prices; showing reference prices (tax incl.). The App Store price applies at purchase."),
+                                  systemImage: "info.circle")
+                                .font(Theme.body(10))
+                                .foregroundStyle(Theme.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("currency_reference_prices")
                         }
                         LazyVGrid(columns: columns, spacing: 10) {
                             ForEach(Array(StoreKitService.gemProducts.enumerated()), id: \.element.productID) { i, product in
@@ -100,7 +109,8 @@ struct CurrencyStoreView: View {
             return
         default:
             if case .pending = result { app.haptics.tap() } else { app.haptics.warning() }
-            if let m = IAPResultText.message(for: result, bracket: app.profile.ageBracket, remaining: remaining) {
+            let bracket = app.profile.ageBracket ?? (remaining != nil ? .under13 : nil)
+            if let m = IAPResultText.message(for: result, bracket: bracket, remaining: remaining) {
                 notice = CurrencyStoreNotice(title: m.title, body: m.body)
             }
         }
@@ -119,8 +129,10 @@ struct CurrencyStoreView: View {
                     balanceRow(L("合計", "Total"), app.profile.totalGem, color: Theme.textPrimary)
                 }
             }
-            if let limit = app.profile.ageBracket?.monthlySpendLimitJPY {
-                spendLimitPanel(limit: limit, remaining: remaining ?? limit)
+            // 年齢区分が未設定でもサービス側が上限を適用している場合（最も厳しい区分扱い）は表示する
+            if let bracket = app.profile.ageBracket ?? (remaining != nil ? .under13 : nil),
+               let limit = bracket.monthlySpendLimitJPY {
+                spendLimitPanel(bracket: bracket, limit: limit, remaining: remaining ?? limit)
             }
             StoreLegalDisclosure(title: L("資金決済法に基づく表示", "Payment Services Act Notice"),
                             rows: StoreLegalText.paymentServicesAct, id: "legal_payment_services")
@@ -167,13 +179,13 @@ struct CurrencyStoreView: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func spendLimitPanel(limit: Int, remaining: Int) -> some View {
+    private func spendLimitPanel(bracket: AgeBracket, limit: Int, remaining: Int) -> some View {
         let used = max(0, limit - remaining)
         return VStack(alignment: .leading, spacing: 5) {
             Label(L("月間購入上限", "Monthly Spending Limit"), systemImage: "person.badge.shield.checkmark.fill")
                 .font(Theme.heading(12))
                 .foregroundStyle(Theme.gold)
-            Text(IAPResultText.monthlyLimitDescription(app.profile.ageBracket) ?? "")
+            Text(IAPResultText.monthlyLimitDescription(bracket) ?? "")
                 .font(Theme.body(10))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -233,6 +245,13 @@ struct StoreGemPackCard: View {
                     }
                 }
                 .frame(height: 16)
+                // 付与される有償 Gem の合計（ボーナス分も有償として付与される。docs/legal の購入画面表示）
+                Text(L("有償 Gem 計 \((product.gems + product.bonusGems).formatted()) 個",
+                       "\((product.gems + product.bonusGems).formatted()) paid gems total"))
+                    .font(Theme.body(10))
+                    .foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 ZStack {
                     if isPurchasing {
                         ProgressView().tint(.black)
@@ -264,8 +283,9 @@ struct StoreGemPackCard: View {
                     .stroke(tierIndex >= 4 ? Theme.gold.opacity(0.6) : Theme.cyan.opacity(0.3), lineWidth: 1)
             )
             .overlay(alignment: .topLeading) {
+                // 販売実績に基づかない「人気」表示は避け、推奨と単価の事実（最多ボーナス）のみを示す
                 if tierIndex == 2 {
-                    Text(L("人気", "Popular"))
+                    Text(L("おすすめ", "Recommended"))
                         .font(.system(size: 9, weight: .heavy, design: .rounded))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 7)

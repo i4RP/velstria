@@ -161,16 +161,30 @@ enum StoreCatalog {
         }
     }
 
-    /// 商品毎の購入条件（重複時の扱い・返金）。マスターの文言は日本語のみのため英語は定型訳を使う。
+    /// 重複時の扱い。マスターの duplicate_policy は「購入不可または同価値通貨へ変換（商品設定で固定）」という
+    /// 両論併記のため、購入者に誤解を与えないよう商品種別ごとに確定した扱いを表示する（EconomyService の購入処理と一致）。
+    static func duplicateRule(_ item: StoreItemDef) -> String {
+        switch item.type {
+        case .cosmetic, .heroUnlock:
+            return L("所持済みの場合は購入できません。", "Can't be purchased if you already own it.")
+        case .bundle:
+            return L("所持済みのコスメは付与されず、代わりに無償 AstralGem が付与されます。中身をすべて所持している場合は購入できません。",
+                     "Cosmetics you already own aren't granted again; you receive free AstralGem instead. Can't be purchased if you own everything inside.")
+        }
+    }
+
+    /// バンドルの中身のうち所持済みのもの（購入しても付与されない分）。
+    static func ownedBundleContents(_ item: StoreItemDef, profile: Profile, master: MasterData) -> [String] {
+        guard item.type == .bundle else { return [] }
+        return EconomyService.bundleContents(item.grantID, master: master).filter { profile.ownedCosmeticIDs.contains($0) }
+    }
+
+    /// 商品毎の購入条件（重複時の扱い・返金・上限）。返金の文言はマスターが日本語のみのため英語は定型訳を使う。
     static func policyRows(_ item: StoreItemDef) -> [StoreLegalText.Row] {
-        let duplicate = Loc.isEnglish
-            ? "If you already own it, it can't be purchased or is converted into currency of equal value (fixed per product)."
-            : item.duplicatePolicy
         let refund = Loc.isEnglish
             ? "Unspent purchases are handled within the platform's rules."
             : item.refundPolicy
-        var rows: [StoreLegalText.Row] = []
-        if !item.duplicatePolicy.isEmpty { rows.append(.init(label: L("重複時の扱い", "Duplicates"), value: duplicate)) }
+        var rows: [StoreLegalText.Row] = [.init(label: L("重複時の扱い", "Duplicates"), value: duplicateRule(item))]
         if !item.refundPolicy.isEmpty { rows.append(.init(label: L("返金", "Refunds"), value: refund)) }
         if item.purchaseLimit > 0 {
             rows.append(.init(label: L("購入上限", "Purchase limit"),
@@ -337,30 +351,45 @@ enum StoreLegalText {
         let value: String
     }
 
-    // 事業者情報は App Store 公開時に確定値へ差し替える（docs/legal と一致させる）。
-    static let issuerName = "【発行者名（事業者名）】"
-    static let issuerAddress = "【所在地】"
-    static let responsiblePerson = "【運営統括責任者】"
+    // 事業者情報は docs/legal（payment_services_act_ja.md・tokushoho_ja.md）と同じプレースホルダで持ち、
+    // App Store 公開前にリポジトリ全体の {{…}} を確定値へ置き換える。表示内容も docs/legal と一致させる。
+    static let issuerName = "{{PUBLISHER_NAME}}"
+    static let issuerAddress = "{{POSTAL_ADDRESS}}"
+    static let responsiblePerson = "{{REPRESENTATIVE_NAME}}"
+    static let phoneNumber = "{{PHONE_NUMBER}}"
+
+    /// 年齢区分別の月間購入上限の説明（AgeBracket の値から生成し、DESIGN §12 と一致させる）。
+    static var monthlyLimitSummary: String {
+        let young = AgeBracket.age13to15.monthlySpendLimitJPY ?? 0
+        let teen = AgeBracket.age16to19.monthlySpendLimitJPY ?? 0
+        return L("年齢区分に応じた月間購入上限があります（15 歳以下 \(young.formatted()) 円、16〜19 歳 \(teen.formatted()) 円）。スターパス プレミアムはシーズンごとに 1 回のみ購入できます。",
+                 "Monthly spending limits apply by age (15 and under: ¥\(young.formatted()), 16–19: ¥\(teen.formatted())). Star Pass Premium can be bought once per season.")
+    }
 
     static var paymentServicesAct: [Row] {
         [
-            Row(label: L("前払式支払手段の名称", "Name of prepaid payment instrument"), value: L("AstralGem（有償分）", "AstralGem (paid)")),
-            Row(label: L("発行者", "Issuer"), value: issuerName),
-            Row(label: L("所在地", "Address"), value: issuerAddress),
-            Row(label: L("支払可能金額等", "Purchase amounts"),
-                value: L("各パックの購入画面に表示する金額（税込）。1 パックあたりの Gem 数は画面に表示します。",
-                         "Shown on each pack (tax included), together with the number of gems per pack.")),
+            Row(label: L("前払式支払手段の名称", "Name of prepaid payment instrument"), value: L("AstralGem（有償）", "AstralGem (paid)")),
+            Row(label: L("発行者の名称", "Issuer"), value: issuerName),
+            Row(label: L("支払可能金額等", "Amount available"),
+                value: L("購入した商品に表示された AstralGem の数量（ボーナス分を含みます。例: 800 円の商品で有償 AstralGem 330 個）。ゲーム内の報酬として無償で付与される AstralGem（無償分）は前払式支払手段に該当しません。",
+                         "The number of AstralGem shown on the purchased pack, bonus included (e.g. 330 paid gems for the ¥800 pack). Free AstralGem granted as in-game rewards is not a prepaid payment instrument.")),
             Row(label: L("有効期間", "Validity"), value: L("有効期限はありません。", "No expiration date.")),
             Row(label: L("使用できる場所", "Where it can be used"),
-                value: L("本アプリ内のストア（コスメ・バンドル）。戦闘能力に影響する商品は販売していません。",
-                         "The in-app store (cosmetics and bundles). No items affecting combat power are sold.")),
+                value: L("本アプリ内のストア（コスメ・バンドル等との交換）。戦闘能力に影響する商品は販売していません。",
+                         "The in-app store (exchange for cosmetics, bundles, etc.). No items affecting combat power are sold.")),
+            Row(label: L("苦情・相談窓口", "Complaints & inquiries"),
+                value: L("\(issuerName) サポート窓口\n所在地: \(issuerAddress)\n電話: \(phoneNumber)\nメール: \(FeatureFlags.supportEmail)",
+                         "\(issuerName) Support\nAddress: \(issuerAddress)\nPhone: \(phoneNumber)\nEmail: \(FeatureFlags.supportEmail)")),
+            Row(label: L("残高の確認方法", "Checking your balance"),
+                value: L("ストア・AstralGem 購入画面・インベントリで、有償分と無償分を区別して確認できます。",
+                         "Paid and free balances are shown separately in the Store, Buy AstralGem and Inventory screens.")),
             Row(label: L("利用上の注意", "Notes"),
-                value: L("無償 AstralGem から優先して使用されます。残高はストア上部とインベントリで確認できます。",
-                         "Free AstralGem is always spent first. Balances are shown in the store header and Inventory.")),
+                value: L("・無償 AstralGem から先に消費されます。\n・残高は端末内に保存されます。端末の紛失・初期化やアプリの削除で失われた残高は復元できません。\n・他の利用者への譲渡・貸与、現金その他の財産との交換はできません。",
+                         "• Free AstralGem is always spent first.\n• Balances are stored on this device. Balances lost by losing or resetting the device or deleting the app can't be restored.\n• Gems can't be transferred or lent to other players or exchanged for cash or other property.")),
+            Row(label: L("利用規約", "Terms of Use"), value: FeatureFlags.termsURL.absoluteString),
             Row(label: L("払い戻し", "Refunds"),
-                value: L("法令に定める場合を除き、払い戻しはできません。App Store での購入に関する返金は Apple の規約に従います。",
-                         "No refunds except as required by law. Refunds for App Store purchases follow Apple's policies.")),
-            Row(label: L("お問い合わせ", "Contact"), value: FeatureFlags.supportEmail),
+                value: L("法令に定める場合を除き、払い戻しはできません。本アプリの提供終了など法令に定める事由が生じた場合は、資金決済法第 20 条に基づき未使用の有償 AstralGem を払い戻します。",
+                         "No refunds except as required by law. If the service ends or another statutory event occurs, unused paid AstralGem will be refunded under Article 20 of the Payment Services Act.")),
         ]
     }
 
@@ -369,18 +398,28 @@ enum StoreLegalText {
             Row(label: L("販売事業者", "Seller"), value: issuerName),
             Row(label: L("運営統括責任者", "Responsible person"), value: responsiblePerson),
             Row(label: L("所在地", "Address"), value: issuerAddress),
-            Row(label: L("電話番号", "Phone"), value: L("請求があった場合は遅滞なく開示します。", "Disclosed without delay upon request.")),
+            Row(label: L("電話番号", "Phone"),
+                value: L("\(phoneNumber)（お問い合わせはできるだけメールでお願いします）", "\(phoneNumber) (please contact us by email where possible)")),
             Row(label: L("メールアドレス", "Email"), value: FeatureFlags.supportEmail),
-            Row(label: L("販売価格", "Price"), value: L("各商品の購入画面に表示（税込）。", "Shown on each product (tax included).")),
+            Row(label: L("販売価格", "Price"), value: L("各商品の購入画面に表示された価格（税込）。", "The price shown on each product (tax included).")),
             Row(label: L("商品代金以外の必要料金", "Additional fees"),
-                value: L("インターネット接続に必要な通信料はお客様のご負担となります。", "Data charges for internet access are borne by the customer.")),
-            Row(label: L("支払方法", "Payment method"), value: L("App Store 決済（Apple アカウントに登録のお支払い方法）。", "App Store billing (payment method on your Apple Account).")),
-            Row(label: L("支払時期", "Payment timing"), value: L("購入手続き完了時（App Store の規約に従います）。", "At purchase, per App Store terms.")),
-            Row(label: L("引渡時期", "Delivery"), value: L("決済完了後、直ちにアカウントへ付与します。", "Delivered to your account immediately after payment.")),
+                value: L("アプリのダウンロード・更新に必要な通信料はお客様のご負担となります。",
+                         "Data charges for downloading and updating the app are borne by the customer.")),
+            Row(label: L("支払方法", "Payment method"),
+                value: L("App Store が提供する決済方法（Apple Account に登録された支払方法）。",
+                         "Payment methods provided by the App Store (registered to your Apple Account).")),
+            Row(label: L("支払時期", "Payment timing"), value: L("App Store の定める時期。", "As determined by the App Store.")),
+            Row(label: L("商品の引渡時期", "Delivery"),
+                value: L("購入手続き完了後、直ちにアプリ内で付与します。", "Delivered in the app immediately after the purchase completes.")),
             Row(label: L("返品・キャンセル", "Returns & cancellation"),
-                value: L("デジタルコンテンツの性質上、購入後の返品・キャンセルはできません。返金は Apple の規約に従います。",
-                         "Due to the nature of digital content, purchases cannot be returned or cancelled. Refunds follow Apple's policies.")),
-            Row(label: L("動作環境", "Requirements"), value: L("iOS 18.0 以降の iPhone", "iPhone with iOS 18.0 or later")),
+                value: L("デジタルコンテンツの性質上、購入後の返品・キャンセルはできません。返金は Apple の定める手続き（https://reportaproblem.apple.com）により Apple が判断します。",
+                         "Due to the nature of digital content, purchases can't be returned or cancelled. Refunds are decided by Apple through its procedure (https://reportaproblem.apple.com).")),
+            Row(label: L("販売数量の制限", "Purchase limits"), value: monthlyLimitSummary),
+            Row(label: L("動作環境", "Requirements"),
+                value: L("iOS 18.0 以降を搭載した iPhone。", "iPhone with iOS 18.0 or later.")),
+            Row(label: L("特記事項", "Note"),
+                value: L("有償アイテムはゲーム内の外見等を変更するもので、試合の勝敗に影響する能力は販売していません。",
+                         "Paid items change in-game appearance only; nothing that affects match outcomes is sold.")),
         ]
     }
 }

@@ -101,6 +101,45 @@ final class CollectionUITests: XCTestCase {
         XCTAssertTrue(element(app, "toast").waitForExistence(timeout: 5))
     }
 
+    func testBuildEditorSmiteNoticeLinksToSpells() {
+        // 既定スペル（瞬歩・治癒波）のままジャングル装備を入れると、狩猟印の案内からスペル設定へ進める
+        let app = launch(route: "buildEditor:H006")
+        let jungle = element(app, "build_category_Jungle")
+        XCTAssertTrue(jungle.waitForExistence(timeout: 10))
+        jungle.tap()
+        element(app, "build_item_EQ006").tap()
+        let notice = element(app, "build_smite_notice")
+        XCTAssertTrue(notice.waitForExistence(timeout: 5))
+        snapshot(app, "build_editor_smite_notice")
+        notice.tap()
+        XCTAssertTrue(element(app, "spell_BS05").waitForExistence(timeout: 5))
+    }
+
+    func testEnglishPurchaseConfirmSheet() {
+        let app = launch(route: "productDetail:SKU001", language: "en")
+        let buy = element(app, "product_buy")
+        XCTAssertTrue(buy.waitForExistence(timeout: 10))
+        buy.tap()
+        XCTAssertTrue(element(app, "purchase_confirm").waitForExistence(timeout: 5))
+        snapshot(app, "purchase_confirm_en")
+        element(app, "purchase_cancel").tap()
+        XCTAssertTrue(buy.waitForExistence(timeout: 5))
+    }
+
+    func testRunePageNameIsRestoredWhenCleared() {
+        let app = launch(route: "runes")
+        let field = element(app, "rune_page_name")
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.tap()
+        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 12))
+        XCTAssertNotEqual(field.value as? String, "ページ1", "名前が消去されていない")
+        // 空のままページを追加して切り替えても、元のページ名は既定名に戻る
+        element(app, "rune_page_add").tap()
+        let first = element(app, "rune_page_0")
+        XCTAssertTrue(first.waitForExistence(timeout: 5))
+        XCTAssertTrue(first.label.hasPrefix("ページ1"), first.label)
+    }
+
     func testRunePageEditing() {
         let app = launch(route: "runes")
         let arcana = element(app, "rune_path_Arcana")

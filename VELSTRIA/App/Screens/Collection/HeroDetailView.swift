@@ -572,5 +572,6 @@ private struct HeroBuildSection: View {
         }
         .buttonStyle(CollectionPressStyle())
         .accessibilityLabel("\(index + 1). \(MasterText.item(item))")
+        .accessibilityIdentifier("herodetail_build_\(index)_\(item.itemID)")
     }
 }

@@ -96,8 +96,10 @@ private struct ItemSummaryPanel: View {
                         .font(Theme.body(10))
                         .foregroundStyle(Theme.textSecondary)
                     if item.category == .movement || item.category == .jungle {
+                        let smite = BuildRules.smiteName(master: app.master)
                         Label(item.category == .movement ? L("移動系装備は 1 つまで", "Limit one Movement item")
-                                                         : L("ジャングル系装備は 1 つまで（狩猟印推奨）", "Limit one Jungle item (Smite recommended)"),
+                                                         : L("ジャングル系装備は 1 つまで・購入には「\(smite)」が必要",
+                                                             "Limit one Jungle item; requires \(smite) to buy"),
                               systemImage: "exclamationmark.circle")
                             .font(Theme.body(11))
                             .foregroundStyle(Theme.textSecondary)

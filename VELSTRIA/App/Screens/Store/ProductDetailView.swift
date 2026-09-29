@@ -255,22 +255,27 @@ struct ProductDetailView: View {
 
     enum DescriptionLanguage { case ja, en }
 
+    /// 説明文中のヒーロー名（英語は表示言語が英語なら英語マスター名、無ければコードネーム）。
+    private static func heroName(_ h: HeroDef, ja: Bool) -> String {
+        ja ? h.displayNameJa : MasterText.name(id: h.heroID, ja: h.codeName)
+    }
+
     /// 種類別の説明文（マスターに説明が無いため生成する）。
     static func description(_ item: StoreItemDef, master: MasterData, lang: DescriptionLanguage) -> String {
         let ja = lang == .ja
         switch item.type {
         case .heroUnlock:
-            let name = master.hero(item.grantID).map { ja ? $0.displayNameJa : $0.codeName } ?? item.grantID
+            let name = master.hero(item.grantID).map { heroName($0, ja: ja) } ?? item.grantID
             return ja ? "\(name)を解放し、すべてのモードで使用できるようにします。"
                       : "Unlocks \(name) for use in every mode."
         case .bundle:
-            return ja ? "複数のコスメをまとめた星環バンドルです。所持済みのコスメは重複して付与されず、商品設定に従って通貨で補填されます。"
-                      : "A Star Ring bundle containing multiple cosmetics. Cosmetics you already own aren't granted twice; they're compensated with currency per the product settings."
+            return ja ? "複数のコスメをまとめた星環バンドルです。所持済みのコスメは重複して付与されません。"
+                      : "A Star Ring bundle containing multiple cosmetics. Cosmetics you already own aren't granted twice."
         case .cosmetic:
             guard let c = master.cosmetic(item.grantID) else { return "" }
             switch c.type {
             case .heroSkin:
-                let name = master.hero(c.heroID).map { ja ? $0.displayNameJa : $0.codeName } ?? c.heroID
+                let name = master.hero(c.heroID).map { heroName($0, ja: ja) } ?? c.heroID
                 return ja ? "\(name)の外見を変更するスキンです。能力値やスキル性能は変わりません。"
                           : "A skin that changes how \(name) looks. Stats and abilities are unchanged."
             case .recall:

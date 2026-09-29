@@ -259,6 +259,14 @@ final class CollectionLogicTests: XCTestCase {
         XCTAssertEqual(SpellLoadoutRules.assigning("BS07", slot: 1, in: ["BS01", "BS03"]), ["BS01", "BS07"])
         XCTAssertEqual(SpellLoadoutRules.normalized(["BS03", "BS03"]), ["BS03", "BS01"])
         XCTAssertEqual(SpellLoadoutRules.normalized([]), ["BS01", "BS03"])
+        // 不明な ID（古いデータ等）は除外して既定で補う
+        XCTAssertEqual(SpellLoadoutRules.normalized(["BS99", "BS07"]), ["BS07", "BS01"])
+        XCTAssertEqual(SpellLoadoutRules.normalized(["", "BS01"]), ["BS01", "BS03"])
+    }
+
+    func testSmiteNameFollowsMasterSpellName() {
+        XCTAssertEqual(BuildRules.smiteName(master: master), "狩猟印")
+        XCTAssertEqual(BuildRules.smiteName(master: master), master.spell(BuildRules.smiteSpellID).map { MasterText.spell($0) })
     }
 
     func testEffectiveSpellsUseHeroOverride() {

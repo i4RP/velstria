@@ -11,6 +11,7 @@ struct BuildEditorView: View {
     @State private var selectedSlot: Int?
     @State private var category: ItemCategory?
     @State private var warning: String?
+    @State private var confirmReset = false
 
     private let columns = [GridItem(.adaptive(minimum: 84), spacing: 8)]
 
@@ -18,15 +19,19 @@ struct BuildEditorView: View {
         ScreenScaffold(title: L("ビルド編集", "Build Editor")) {
             if let hero = app.master.hero(heroID) {
                 HStack(alignment: .top, spacing: 12) {
-                    ScrollView {
-                        editorPanel(hero)
-                    }
-                    .scrollIndicators(.hidden)
-                    .frame(width: 272)
+                    editorPanel(hero)
+                        .frame(width: 272)
+                        .padding(.bottom, 8)
                     catalog
                 }
                 .padding(.horizontal, 20)
                 .onAppear(perform: load)
+                .confirmationDialog(L("保存済みのカスタムビルドを削除して、おすすめビルドに戻しますか？",
+                                      "Delete your saved custom build and go back to the recommended build?"),
+                                    isPresented: $confirmReset, titleVisibility: .visible) {
+                    Button(L("おすすめに戻す", "Reset to Recommended"), role: .destructive) { resetToRecommended() }
+                    Button(L("キャンセル", "Cancel"), role: .cancel) {}
+                }
             } else {
                 CollectionEmptyState(symbol: "questionmark.circle", title: L("ヒーローが見つかりません", "Hero not found"))
             }
@@ -51,41 +56,43 @@ struct BuildEditorView: View {
                 HeroPortraitView(heroID: hero.heroID, size: 34)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(MasterText.hero(hero)).font(Theme.heading(13)).foregroundStyle(Theme.textPrimary).lineLimit(1)
-                    Text(isCustom ? L("カスタムビルド", "Custom build") : L("おすすめビルド", "Recommended build"))
-                        .font(Theme.body(10))
-                        .foregroundStyle(isCustom ? Theme.gold : Theme.textSecondary)
+                    HStack(spacing: 4) {
+                        Text(isCustom ? L("カスタムビルド", "Custom build") : L("おすすめビルド", "Recommended build"))
+                            .foregroundStyle(isCustom ? Theme.gold : Theme.textSecondary)
+                        if isDirty {
+                            Label(L("未保存", "Unsaved"), systemImage: "pencil")
+                                .foregroundStyle(Theme.gold)
+                        }
+                    }
+                    .font(Theme.body(10))
+                    .lineLimit(1)
                 }
                 Spacer(minLength: 0)
-                if isDirty {
-                    CollectionInfoTag(text: L("未保存", "Unsaved"), symbol: "pencil", color: Theme.gold)
+                VStack(alignment: .trailing, spacing: 1) {
+                    GoldPriceLabel(amount: BuildRules.totalCost(build, master: app.master), size: 13)
+                    Text("\(build.count)/\(BuildRules.slotCount)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("build_total")
             }
-            LazyVGrid(columns: Array(repeating: GridItem(.fixed(62), spacing: 10), count: 3), spacing: 8) {
+            // 小さい画面でも枠・操作・保存ボタンがスクロールなしで収まる大きさにする
+            LazyVGrid(columns: Array(repeating: GridItem(.fixed(Self.slotSize), spacing: 12), count: 3), spacing: 8) {
                 ForEach(0..<BuildRules.slotCount, id: \.self) { i in
                     slotView(i)
                 }
             }
             .frame(maxWidth: .infinity)
+            .padding(.top, 2)
             selectionControls
-            if let warning {
-                Label(warning, systemImage: "exclamationmark.triangle.fill")
-                    .font(Theme.body(11))
-                    .foregroundStyle(Theme.danger)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .transition(.opacity)
-            }
-            if BuildRules.lacksSmite(build, spells: SpellLoadoutRules.effective(heroID: heroID, profile: app.profile), master: app.master) {
-                smiteNotice
-            }
-            HStack {
-                Text(L("合計", "Total")).font(Theme.body(12)).foregroundStyle(Theme.textSecondary)
-                GoldPriceLabel(amount: BuildRules.totalCost(build, master: app.master), size: 13)
-                Spacer()
-                Text("\(build.count)/\(BuildRules.slotCount)").font(Theme.mono(12)).foregroundStyle(Theme.textSecondary)
-            }
+            Spacer(minLength: 0)
             HStack(spacing: 8) {
                 Button {
-                    resetToRecommended()
+                    // 保存済みのカスタムビルドを消す操作なので確認を挟む
+                    if app.profile.customBuilds[heroID] != nil {
+                        confirmReset = true
+                    } else {
+                        resetToRecommended()
+                    }
                 } label: {
                     Label(L("推奨に戻す", "Reset"), systemImage: "arrow.counterclockwise")
                         .lineLimit(1)
@@ -110,7 +117,21 @@ struct BuildEditorView: View {
         .padding(10)
         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.panel))
         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.panelStroke, lineWidth: 1))
-        .animation(.easeInOut(duration: 0.2), value: warning)
+    }
+
+    private static let slotSize: CGFloat = 56
+
+    /// 追加できなかった理由（カタログの上に表示し、追加操作のすぐ近くで気付けるようにする）。
+    private func warningBanner(_ text: String) -> some View {
+        Label(text, systemImage: "exclamationmark.triangle.fill")
+            .font(Theme.body(11))
+            .foregroundStyle(Theme.danger)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Theme.danger.opacity(0.12)))
+            .accessibilityIdentifier("build_warning")
     }
 
     /// ジャングル装備は狩猟印が無いと購入できないため、スペル設定へ誘導する。
@@ -121,8 +142,9 @@ struct BuildEditorView: View {
         } label: {
             HStack(spacing: 6) {
                 SpellIconView(spellID: BuildRules.smiteSpellID, size: 24)
-                Text(L("ジャングル装備の購入には「狩猟印」が必要です。スペルを設定 ›",
-                       "Jungle items require Smite. Set up spells ›"))
+                let smite = BuildRules.smiteName(master: app.master)
+                Text(L("ジャングル装備の購入には「\(smite)」が必要です。スペルを設定 ›",
+                       "Jungle items require \(smite). Set up spells ›"))
                     .font(Theme.body(10))
                     .foregroundStyle(Theme.gold)
                     .multilineTextAlignment(.leading)
@@ -157,7 +179,7 @@ struct BuildEditorView: View {
                                     style: StrokeStyle(lineWidth: selected ? 2.5 : 1, dash: item == nil ? [4, 3] : []))
                     )
                 if let item {
-                    ItemIconView(item: item, size: 50)
+                    ItemIconView(item: item, size: Self.slotSize - 10)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .transition(.scale.combined(with: .opacity))
                 } else {
@@ -173,7 +195,7 @@ struct BuildEditorView: View {
                     .background(Circle().fill(item == nil ? Color.white.opacity(0.1) : Theme.gold))
                     .padding(3)
             }
-            .frame(width: 62, height: 62)
+            .frame(width: Self.slotSize, height: Self.slotSize)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -230,11 +252,22 @@ struct BuildEditorView: View {
     private var catalog: some View {
         let items = ItemMath.filtered(app.master.items, category: category, tier: nil)
             .sorted { $0.tier != $1.tier ? $0.tier > $1.tier : $0.itemID < $1.itemID }
-        return VStack(spacing: 2) {
+        let lacksSmite = BuildRules.lacksSmite(build, spells: SpellLoadoutRules.effective(heroID: heroID, profile: app.profile),
+                                               master: app.master)
+        return VStack(spacing: 4) {
+            if let warning {
+                warningBanner(warning)
+                    .transition(.opacity)
+            }
+            if lacksSmite {
+                smiteNotice
+                    .transition(.opacity)
+            }
             ScrollView(.horizontal) {
                 HStack(spacing: 6) {
                     CollectionFilterChip(title: L("すべて", "All"), symbol: "square.grid.2x2.fill", color: Theme.cyan,
                                          isSelected: category == nil) { category = nil }
+                        .accessibilityIdentifier("build_category_all")
                     ForEach(ItemCategory.allCases, id: \.self) { c in
                         CollectionFilterChip(title: CollectionStyle.categoryName(c), symbol: CollectionStyle.categorySymbol(c),
                                              color: CollectionStyle.categoryColor(c), isSelected: category == c, showsTitle: false) {
@@ -255,6 +288,8 @@ struct BuildEditorView: View {
             }
             .scrollIndicators(.hidden)
         }
+        .animation(.easeInOut(duration: 0.2), value: warning)
+        .animation(.easeInOut(duration: 0.2), value: lacksSmite)
     }
 
     private func catalogCell(_ item: ItemDef) -> some View {
