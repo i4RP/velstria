@@ -24,6 +24,13 @@ public struct SurrenderTally: Hashable, Sendable {
     public var pending: Int
     /// 成立に必要な賛成数。
     public var needed: Int
+
+    public init(yes: Int, no: Int, pending: Int, needed: Int) {
+        self.yes = yes
+        self.no = no
+        self.pending = pending
+        self.needed = needed
+    }
 }
 
 public enum MatchFlowSystem {

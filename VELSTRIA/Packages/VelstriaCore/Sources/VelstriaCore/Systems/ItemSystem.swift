@@ -22,6 +22,13 @@ public struct PurchaseQuote: Hashable, Sendable {
     /// nil なら購入可能。
     public var failure: PurchaseFailure?
 
+    public init(itemID: String, cost: Double, consumedSlots: [Int], failure: PurchaseFailure?) {
+        self.itemID = itemID
+        self.cost = cost
+        self.consumedSlots = consumedSlots
+        self.failure = failure
+    }
+
     public var canBuy: Bool { failure == nil }
 }
 
