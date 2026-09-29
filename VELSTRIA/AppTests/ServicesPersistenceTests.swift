@@ -148,6 +148,57 @@ final class ServicesPersistenceTests: XCTestCase {
         XCTAssertEqual(decoded.playerID, p.playerID)
     }
 
+    /// 配列の要素・辞書の値に欠けたキー（旧版の MailItem などにフィールドが追加された場合）も既定値で補い、
+    /// プロフィール全体が読めなくなることを防ぐ。
+    func testMigrationFillsMissingKeysInsideArraysAndDictionaries() throws {
+        let s = make()
+        var p = profile(coins: 7)
+        p.mail = [MailItem(date: Date(timeIntervalSince1970: 1_800_000_000), title: "旧メール", body: "本文",
+                           attachments: [MailAttachment(kind: .gem, amount: 30)], read: true)]
+        p.achievements["ACH_FIRST_WIN"] = AchievementProgress(progress: 1, unlockedAt: Date(timeIntervalSince1970: 1_800_000_000))
+        p.career.perHero["H003"] = HeroCareer(matches: 4, wins: 3, kills: 10, deaths: 2, assists: 5, mvps: 1)
+        p.missions.daily = [MissionProgress(id: "D01", progress: 2, claimed: false)]
+        p.runePages = [RunePage(name: "Page", primaryPath: .arcana, runeIDs: ["R1", "R2", "R3"])]
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(p)) as? [String: Any])
+        func strip(_ key: String, from value: Any?) -> Any? {
+            guard var o = value as? [String: Any] else { return value }
+            o.removeValue(forKey: key)
+            return o
+        }
+        var mail = try XCTUnwrap(object["mail"] as? [[String: Any]])
+        mail[0].removeValue(forKey: "claimed")
+        mail[0]["attachments"] = (mail[0]["attachments"] as? [Any])?.map { strip("amount", from: $0) as Any }
+        object["mail"] = mail
+        var achievements = try XCTUnwrap(object["achievements"] as? [String: Any])
+        achievements["ACH_FIRST_WIN"] = strip("claimed", from: achievements["ACH_FIRST_WIN"])
+        object["achievements"] = achievements
+        var career = try XCTUnwrap(object["career"] as? [String: Any])
+        var perHero = try XCTUnwrap(career["perHero"] as? [String: Any])
+        perHero["H003"] = strip("mvps", from: perHero["H003"])
+        career["perHero"] = perHero
+        object["career"] = career
+        var missions = try XCTUnwrap(object["missions"] as? [String: Any])
+        missions["daily"] = (missions["daily"] as? [Any])?.map { strip("claimed", from: $0) as Any }
+        object["missions"] = missions
+        object["runePages"] = (object["runePages"] as? [Any])?.map { strip("id", from: $0) as Any }
+
+        let data = try JSONSerialization.data(withJSONObject: object)
+        XCTAssertThrowsError(try JSONDecoder().decode(Profile.self, from: data), "前提: そのままでは読めない")
+        let decoded = try s.decodeProfile(data)
+        XCTAssertEqual(decoded.starlightCoin, 7)
+        XCTAssertEqual(decoded.mail.first?.title, "旧メール")
+        XCTAssertEqual(decoded.mail.first?.read, true)
+        XCTAssertEqual(decoded.mail.first?.claimed, false)
+        XCTAssertEqual(decoded.mail.first?.attachments, [MailAttachment(kind: .gem, amount: 0)], "欠けたキーは要素型の既定値")
+        XCTAssertNotNil(decoded.achievements["ACH_FIRST_WIN"]?.unlockedAt)
+        XCTAssertEqual(decoded.achievements["ACH_FIRST_WIN"]?.claimed, false)
+        XCTAssertEqual(decoded.career.perHero["H003"]?.wins, 3)
+        XCTAssertEqual(decoded.career.perHero["H003"]?.mvps, 0)
+        XCTAssertEqual(decoded.missions.daily, [MissionProgress(id: "D01", progress: 2, claimed: false)])
+        XCTAssertEqual(decoded.runePages.first?.name, "Page")
+        XCTAssertEqual(decoded.runePages.first?.runeIDs, ["R1", "R2", "R3"])
+    }
+
     func testExportImport() throws {
         let s = make()
         let p = profile(coins: 99)

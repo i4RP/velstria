@@ -266,17 +266,17 @@ enum LiveOpsService {
         NoticeDef(id: "NT003", date: localDate(2026, 10, 1),
                   titleJa: "イベント「星環の開幕祭」開催（〜12/31）",
                   titleEn: "Event: Star Ring Launch Festival (until Dec 31)",
-                  bodyJa: "2026 年 10 月 1 日〜12 月 31 日の期間中、イベントミッションをクリアすると AstralGem や限定アバターフレームを獲得できます。\n"
+                  bodyJa: "2026 年 10 月 1 日〜12 月 31 日の期間中、イベントミッションをクリアすると AstralGem やエピックのアバターフレームを獲得できます。\n"
                       + "また毎週土日は「週末スターブースト」で試合の StarlightCoin 報酬が 50% 増加します。",
-                  bodyEn: "From October 1 to December 31, 2026, clear event missions to earn AstralGem and an exclusive avatar frame.\n"
+                  bodyEn: "From October 1 to December 31, 2026, clear event missions to earn AstralGem and an Epic avatar frame.\n"
                       + "Every Saturday and Sunday, Weekend Star Boost increases StarlightCoin match rewards by 50%."),
         NoticeDef(id: "NT004", date: localDate(2026, 10, 1),
                   titleJa: "スターパス シーズン 1 開幕",
                   titleEn: "Star Pass Season 1 has begun",
                   bodyJa: "試合やミッションでパス XP を集めてスターパスを進めましょう。全 30 段階、1 段階 1,000 XP です。\n"
-                      + "無料トラックでは StarlightCoin・AstralGem・コスメを、プレミアムトラックでは限定コスメや追加の AstralGem を獲得できます。",
+                      + "無料トラックでは StarlightCoin・AstralGem・コスメを、プレミアムトラックではエピック・ミシックのコスメと追加の StarlightCoin・AstralGem を獲得できます。",
                   bodyEn: "Earn Pass XP from matches and missions to advance the Star Pass: 30 levels, 1,000 XP each.\n"
-                      + "The free track offers StarlightCoin, AstralGem and cosmetics; the premium track adds exclusive cosmetics and more AstralGem."),
+                      + "The free track offers StarlightCoin, AstralGem and cosmetics; the premium track adds Epic and Mythic cosmetics plus extra StarlightCoin and AstralGem."),
     ]
 
     // MARK: - 定義: イベント
@@ -291,8 +291,8 @@ enum LiveOpsService {
     private static var launchEvent: EventDef {
         EventDef(id: launchEventID,
                  titleJa: "星環の開幕祭", titleEn: "Star Ring Launch Festival",
-                 detailJa: "配信開始を記念したイベント。期間中にイベントミッションを達成して AstralGem と限定アバターフレームを手に入れよう。",
-                 detailEn: "A festival celebrating launch. Complete event missions to earn AstralGem and an exclusive avatar frame.",
+                 detailJa: "配信開始を記念したイベント。期間中にイベントミッションを達成して AstralGem とエピックのアバターフレームを手に入れよう。",
+                 detailEn: "A festival celebrating launch. Complete event missions to earn AstralGem and an Epic avatar frame.",
                  start: localDate(2026, 10, 1), end: localDate(2027, 1, 1),
                  missionIDs: eventPool.map(\.id))
     }

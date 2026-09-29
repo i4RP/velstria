@@ -183,20 +183,68 @@ final class PersistenceService: @unchecked Sendable {
     }
 
     /// 既定値の Profile を土台に、保存データのキーを再帰的に上書きする（旧版で欠けているキーを補う）。
+    /// 合成 Codable は既定値付きのプロパティでもキー欠落でデコードに失敗するため、
+    /// 配列の要素・辞書の値（メール・戦績・実績など）も要素型の既定値で補う（elementTemplates）。
     static func mergingDefaults(into loaded: [String: Any]) -> [String: Any] {
-        guard let defaultsData = try? makeEncoder().encode(Profile()),
-              let defaults = (try? JSONSerialization.jsonObject(with: defaultsData)) as? [String: Any] else {
-            return loaded
-        }
-        return deepMerge(base: defaults, over: loaded)
+        guard let defaults = jsonObject(Profile()) else { return loaded }
+        return deepMerge(base: defaults, over: loaded, path: "")
     }
 
-    private static func deepMerge(base: [String: Any], over: [String: Any]) -> [String: Any] {
+    private static func jsonObject<T: Encodable>(_ value: T) -> [String: Any]? {
+        guard let data = try? makeEncoder().encode(value) else { return nil }
+        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    }
+
+    /// 要素型の既定値（JSON）。キーは Profile からのパス（配列の要素は "[]"、辞書の値は "{}"）。
+    /// Profile に配列・辞書の要素型を追加したらここにも加えること。
+    private static let elementTemplates: [String: [String: Any]] = {
+        let epoch = Date(timeIntervalSinceReferenceDate: 0)
+        let pairs: [(String, [String: Any]?)] = [
+            ("mail[]", jsonObject(MailItem(date: epoch, title: "", body: ""))),
+            ("mail[].attachments[]", jsonObject(MailAttachment(kind: .coin))),
+            ("matchHistory[]", jsonObject(MatchRecord(
+                date: epoch, mode: .standard, difficulty: .normal, won: nil, duration: 0, heroID: "", kills: 0,
+                deaths: 0, assists: 0, creepScore: 0, gold: 0, damageToHeroes: 0, grade: "", isMVP: false,
+                items: [], replayID: nil, summary: nil))),
+            ("replays[]", jsonObject(ReplayMeta(date: epoch, fileName: "", mode: .standard, heroID: nil, won: nil, duration: 0))),
+            ("runePages[]", jsonObject(RunePage(name: "", primaryPath: .valor, runeIDs: ["", "", ""]))),
+            ("purchaseLedger[]", jsonObject(PurchaseRecord(transactionID: 0, productID: "", gemsGranted: 0, priceJPY: 0, date: epoch))),
+            ("storePurchases[]", jsonObject(StorePurchaseCount(sku: "", count: 0))),
+            ("missions.daily[]", jsonObject(MissionProgress(id: ""))),
+            ("missions.weekly[]", jsonObject(MissionProgress(id: ""))),
+            ("achievements{}", jsonObject(AchievementProgress())),
+            ("career.perHero{}", jsonObject(HeroCareer())),
+        ]
+        var table: [String: [String: Any]] = [:]
+        for (path, template) in pairs {
+            if let template { table[path] = template }
+        }
+        return table
+    }()
+
+    private static func deepMerge(base: [String: Any], over: [String: Any], path: String) -> [String: Any] {
         var result = base
         for key in over.keys.sorted() {
             let value = over[key]!
-            if let b = result[key] as? [String: Any], let o = value as? [String: Any] {
-                result[key] = deepMerge(base: b, over: o)
+            let childPath = path.isEmpty ? key : "\(path).\(key)"
+            if let template = elementTemplates[childPath + "[]"], let array = value as? [Any] {
+                result[key] = array.map { element -> Any in
+                    guard let object = element as? [String: Any] else { return element }
+                    return deepMerge(base: template, over: object, path: childPath + "[]")
+                }
+            } else if let template = elementTemplates[childPath + "{}"], let dict = value as? [String: Any] {
+                var merged: [String: Any] = [:]
+                for k in dict.keys.sorted() {
+                    let element = dict[k]!
+                    if let object = element as? [String: Any] {
+                        merged[k] = deepMerge(base: template, over: object, path: childPath + "{}")
+                    } else {
+                        merged[k] = element
+                    }
+                }
+                result[key] = merged
+            } else if let b = result[key] as? [String: Any], let o = value as? [String: Any] {
+                result[key] = deepMerge(base: b, over: o, path: childPath)
             } else {
                 result[key] = value
             }
