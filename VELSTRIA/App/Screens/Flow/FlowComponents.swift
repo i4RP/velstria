@@ -882,10 +882,18 @@ enum FlowText {
         return String(format: "%d:%02d", s / 60, s % 60)
     }
 
+    /// 言語・書式ごとに使い回す（一覧の各行で DateFormatter を作り直さない）。UI スレッドからのみ使う。
+    nonisolated(unsafe) private static var dateFormatters: [String: DateFormatter] = [:]
+
     static func date(_ d: Date, time: Bool = true) -> String {
+        let english = Loc.isEnglish
+        let format = english ? (time ? "MMM d, yyyy HH:mm" : "MMM d, yyyy") : (time ? "yyyy/MM/dd HH:mm" : "yyyy/MM/dd")
+        let key = (english ? "en|" : "ja|") + format
+        if let f = dateFormatters[key] { return f.string(from: d) }
         let f = DateFormatter()
-        f.locale = Locale(identifier: Loc.isEnglish ? "en_US" : "ja_JP")
-        f.dateFormat = Loc.isEnglish ? (time ? "MMM d, yyyy HH:mm" : "MMM d, yyyy") : (time ? "yyyy/MM/dd HH:mm" : "yyyy/MM/dd")
+        f.locale = Locale(identifier: english ? "en_US" : "ja_JP")
+        f.dateFormat = format
+        dateFormatters[key] = f
         return f.string(from: d)
     }
 

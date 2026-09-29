@@ -53,6 +53,7 @@ struct LoadingScreenView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
         }
+        .persistentSystemOverlays(.hidden)
         .task { await load() }
         .onAppear {
             app.audio.stopMusic()
@@ -91,8 +92,25 @@ struct LoadingScreenView: View {
         .accessibilityElement(children: .combine)
     }
 
+    /// 色だけに頼らずチームを示す見出し（形 + 名前 + 対象の段を指す矢印。ブルーは上段、レッドは下段）。
+    private func teamTag(_ team: Team) -> some View {
+        let color = Theme.teamColor(team, colorblind: app.profile.settings.colorblindMode)
+        let human = launch.replay == nil ? launch.config.humanSlot?.team : nil
+        let title = human.map { $0 == team ? L("味方", "Allies") : L("敵", "Enemies") } ?? FlowText.team(team)
+        return HStack(spacing: 4) {
+            Image(systemName: FlowText.teamSymbol(team))
+            Text(title)
+            Image(systemName: team == .blue ? "chevron.up" : "chevron.down").font(.system(size: 9, weight: .heavy))
+        }
+        .font(Theme.heading(11))
+        .foregroundStyle(color)
+        .lineLimit(1)
+        .fixedSize()
+    }
+
     private var vsDivider: some View {
         HStack(spacing: 12) {
+            teamTag(.blue)
             Rectangle().fill(LinearGradient(colors: [.clear, Theme.teamColor(.blue, colorblind: app.profile.settings.colorblindMode)], startPoint: .leading, endPoint: .trailing))
                 .frame(height: 1.5)
             Text("VS")
@@ -103,6 +121,7 @@ struct LoadingScreenView: View {
                 .opacity(appeared ? 1 : 0)
             Rectangle().fill(LinearGradient(colors: [Theme.teamColor(.red, colorblind: app.profile.settings.colorblindMode), .clear], startPoint: .leading, endPoint: .trailing))
                 .frame(height: 1.5)
+            teamTag(.red)
         }
         .frame(height: 24)
         .accessibilityHidden(true)

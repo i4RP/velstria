@@ -136,7 +136,7 @@ struct DraftStep: View {
         let banned = d.bannedHeroIDs.contains(h.heroID)
         let picked = d.pickedHeroIDs.contains(h.heroID)
         let turn = d.currentTurn
-        let unownedForPick = !app.owns(heroID: h.heroID) && turn?.action != .ban
+        let unownedForPick = turn?.action != .ban && !d.isPlayerPickable(h.heroID)
         let hovered = (turn?.isPlayer == true && model.draftHover == h.heroID) || aiHover == h.heroID
         return HeroGridCell(hero: h, selected: hovered, locked: unownedForPick && !banned && !picked,
                             unavailable: banned || picked, unavailableLabel: banned ? "BAN" : (picked ? "PICK" : nil))
@@ -196,6 +196,9 @@ struct DraftStep: View {
             withAnimation(.spring(duration: 0.25)) { model.draftHover = h.heroID }
         } else if d.isTaken(h.heroID) {
             FlowFX.error(app)
+        } else if turn.action == .ban {
+            FlowFX.error(app)
+            app.showToast(L("BAN するとピックできる所持ヒーローがいなくなります", "Banning this hero would leave you no hero to pick"))
         } else {
             FlowFX.error(app)
             app.showToast(L("未所持のヒーローはピックできません", "You can only pick heroes you own"))

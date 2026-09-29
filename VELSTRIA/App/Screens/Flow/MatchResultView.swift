@@ -80,11 +80,17 @@ struct MatchResultView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 6)
+            // 戦闘の全画面表示ではルートのトーストが隠れるため、ここにも重ねる
+            ToastOverlay()
         }
+        .persistentSystemOverlays(.hidden)
         .sheet(isPresented: $showReport) {
             MatchReportSheet(outcome: outcome).environment(app)
         }
         .onAppear {
+            if outcome.launch.config.mode == .tutorial && outcome.launch.replay == nil && !app.profile.tutorialCompleted {
+                app.profile.tutorialCompleted = true
+            }
             withAnimation(.spring(duration: 0.9, bounce: 0.3).delay(0.1)) { bannerIn = true }
             switch bannerKind {
             case .victory:
@@ -372,7 +378,8 @@ private struct EvaluationTab: View {
                                 .foregroundStyle(Theme.textSecondary)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.7)
-                            Text(String(format: "%+.1f", line.value))
+                            // 0 × −1.5 の -0.0 を "+0.0" と表示する
+                            Text(String(format: "%+.1f", line.value == 0 ? 0 : line.value))
                                 .font(Theme.mono(12))
                                 .foregroundStyle(line.value < 0 ? Theme.danger : (line.value > 0 ? Theme.success : Theme.textSecondary))
                                 .frame(width: 52, alignment: .trailing)
@@ -808,6 +815,7 @@ struct MatchReportSheet: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
+            ToastOverlay()
         }
         .preferredColorScheme(.dark)
         .alert(L("メールアプリを開けませんでした", "Couldn't Open Mail"), isPresented: $mailFailed) {

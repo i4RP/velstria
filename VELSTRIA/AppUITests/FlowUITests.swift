@@ -139,8 +139,11 @@ final class FlowUITests: XCTestCase {
         XCTAssertTrue(element(app, "home_play").waitForExistence(timeout: 10))
     }
 
+    /// ドラフトの AI 選択を固定するシード（H010 を BAN した後の AI の BAN に H003 が含まれない。FlowDraftTests で検証）。
+    static let draftSeed = "20261001"
+
     func testRankedDraft() {
-        let app = launch(["-skipOnboarding", "-language", "ja"])
+        let app = launch(["-skipOnboarding", "-language", "ja", "-flowSeed", Self.draftSeed])
         tap(app, "home_play", timeout: 15)
         tap(app, "flow_mode_ranked")
 
@@ -153,6 +156,10 @@ final class FlowUITests: XCTestCase {
         // AI の BAN 3 回の後、プレイヤーのピック（B1）
         sleep(1)
         XCTAssertTrue(element(app, "flow_draft_timer").waitForExistence(timeout: 20))
+        // 未所持ヒーローはピックできず、全画面の対戦フロー上でもトーストで理由が見える
+        tap(app, "flow_hero_H007")
+        XCTAssertTrue(element(app, "toast").waitForExistence(timeout: 3), "対戦フロー内のトーストが表示されない")
+        snap("draft_02a_toast")
         tap(app, "flow_hero_H003")
         snap("draft_02_pick")
         tap(app, "flow_lock")
@@ -163,6 +170,37 @@ final class FlowUITests: XCTestCase {
         tap(app, "flow_next")
         XCTAssertTrue(element(app, "flow_confirm").waitForExistence(timeout: 5))
         snap("draft_04_ready")
+    }
+
+    /// 観戦（AI 同士）のリザルト: 観戦用の見出しで、報酬なし・「もう一度」なし。
+    func testSpectateResult() {
+        let app = launch(["-skipOnboarding", "-language", "en", "-battle", "spectate"])
+        XCTAssertTrue(element(app, "loading_progress").waitForExistence(timeout: 10))
+        tap(app, "battle_stub_simulate", timeout: 20)
+        XCTAssertTrue(element(app, "result_close").waitForExistence(timeout: 900))
+        XCTAssertTrue(element(app, "result_banner").exists)
+        XCTAssertFalse(element(app, "result_again").exists, "観戦では「もう一度」を出さない")
+        sleep(2)
+        snap("result_spectate_en")
+        tap(app, "result_tab_rewards")
+        snap("result_spectate_rewards_en")
+        tap(app, "result_close")
+        XCTAssertTrue(element(app, "home_play").waitForExistence(timeout: 10))
+    }
+
+    /// 練習場のリザルト（1 人）: 評価タブと報酬対象外の表示。
+    func testPracticeResult() {
+        let app = launch(["-skipOnboarding", "-language", "ja", "-battle", "practice"])
+        XCTAssertTrue(element(app, "loading_progress").waitForExistence(timeout: 10))
+        snap("loading_practice")
+        tap(app, "battle_stub_simulate", timeout: 20)
+        XCTAssertTrue(element(app, "result_close").waitForExistence(timeout: 900))
+        XCTAssertFalse(element(app, "result_again").exists)
+        tap(app, "result_tab_eval")
+        sleep(1)
+        snap("result_practice_eval")
+        tap(app, "result_close")
+        XCTAssertTrue(element(app, "home_play").waitForExistence(timeout: 10))
     }
 
     func testEnglishScreens() {

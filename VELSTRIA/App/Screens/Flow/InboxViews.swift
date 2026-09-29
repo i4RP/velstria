@@ -362,7 +362,11 @@ struct MailView: View {
         let removable = app.profile.mail.filter { isRemovable($0) }.map(\.id)
         guard !removable.isEmpty else { return }
         app.profile.mail.removeAll { removable.contains($0.id) }
-        if let s = selectedID, removable.contains(s) { selectedID = nil }
+        if let s = selectedID, removable.contains(s) {
+            selectedID = nil
+            // 詳細に表示される先頭のメールを既読にする
+            if let first = mails.first { open(first.id, silent: true) }
+        }
         FlowFX.tap(app)
         app.showToast(L("\(removable.count) 件のメールを削除しました", "Deleted \(removable.count) mail"))
     }

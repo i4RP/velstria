@@ -45,6 +45,12 @@ final class MatchFlowModel {
         return rng.next()
     }
 
+    /// フローのシード。UI テスト（-uiTesting）に限り `-flowSeed <n>` で固定できる（ドラフトの AI 選択を再現するため）。
+    static func initialSeed() -> UInt64 {
+        if DebugLaunch.isUITesting, let s = DebugLaunch.value(after: "-flowSeed").flatMap({ UInt64($0) }) { return s }
+        return timeSeed()
+    }
+
     func configure(profile: Profile, master: MasterData) {
         guard !configured else { return }
         configured = true
@@ -134,7 +140,7 @@ final class MatchFlowModel {
 
 struct MatchFlowView: View {
     @Environment(AppModel.self) private var app
-    @State private var model = MatchFlowModel(seed: MatchFlowModel.timeSeed())
+    @State private var model = MatchFlowModel(seed: MatchFlowModel.initialSeed())
 
     var body: some View {
         ZStack {
@@ -155,11 +161,14 @@ struct MatchFlowView: View {
                     .transition(.opacity)
                     .zIndex(2)
             }
+            // 全画面表示ではルートのトーストが隠れるため、ここにも重ねる
+            ToastOverlay().zIndex(3)
         }
         .animation(.spring(duration: 0.45, bounce: 0.12), value: model.step)
         .animation(.easeInOut(duration: 0.2), value: model.spellPickerSlot)
         .preferredColorScheme(.dark)
         .statusBarHidden(true)
+        .persistentSystemOverlays(.hidden)
         .onAppear {
             model.configure(profile: app.profile, master: app.master)
             switch MatchFlowIntent.consume() {

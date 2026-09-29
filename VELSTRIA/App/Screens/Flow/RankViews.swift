@@ -249,7 +249,8 @@ struct RankOverviewView: View {
                 .accessibilityIdentifier("rank_rewards")
             }
         }
-        .padding(.top, 2)
+        // 「ランク戦を開始」の発光がスクロール領域の上端で切れないよう余白を取る
+        .padding(.top, 10)
     }
 
     private var tierLadder: some View {
@@ -299,7 +300,7 @@ struct RankOverviewView: View {
     private var rules: some View {
         VStack(alignment: .leading, spacing: 6) {
             FlowSectionTitle(title: L("ルール", "Rules"), symbol: "info.circle.fill")
-            ruleRow("arrow.up.circle.fill", Theme.success, L("勝利で星 +1。星 3 つで次の段階へ昇格します。", "Win: +1 star. Three stars promote you to the next division."))
+            ruleRow("arrow.up.circle.fill", Theme.success, L("勝利で星 +1。星 3 つの状態で勝利すると次の段階へ昇格します。", "Win: +1 star. Winning with three stars promotes you to the next division."))
             ruleRow("arrow.down.circle.fill", Theme.danger, L("敗北で星 −1（隕鉄では降格しません）。", "Loss: −1 star (no demotion in Meteorite)."))
             ruleRow("cpu", Theme.cyan, L("ランクが上がるほど AI が強くなります。", "Higher ranks face stronger AI."))
             ruleRow("hand.raised.fill", Theme.gold, L("ランク戦では各チーム 2 体ずつ BAN してからピックします。", "In ranked, each team bans two heroes before picking."))

@@ -380,3 +380,114 @@ final class FlowResultTests: XCTestCase {
         XCTAssertTrue(HomeBadges.firstWinAvailable(p, now: now.addingTimeInterval(86_400)))
     }
 }
+
+// MARK: - レビュー修正の回帰テスト
+
+final class FlowReviewFixTests: XCTestCase {
+    /// 所持ヒーローが 1 体だけでも、BAN でピック候補が無くならずドラフトが最後まで進む。
+    func testDraftNeverStrandsPlayerWithSingleOwnedHero() {
+        for seed in UInt64(0)..<40 {
+            var d = DraftEngine(seed: seed, ownedHeroIDs: ["H003"])
+            // プレイヤー自身も最後の所持ヒーローは BAN できない
+            XCTAssertFalse(d.canPlayerSelect("H003"))
+            XCTAssertTrue(d.canPlayerSelect("H004"))
+            XCTAssertFalse(d.commit("H003"))
+            XCTAssertTrue(d.commit(nil))
+            while let t = d.currentTurn {
+                let choice = t.isPlayer ? d.autoChoiceForPlayer(preferred: ["H003"]) : d.aiChoice()
+                guard d.commit(choice) else { return XCTFail("seed \(seed): 手番 \(d.turnIndex) で停止") }
+            }
+            XCTAssertFalse(d.bannedHeroIDs.contains("H003"), "seed \(seed)")
+            XCTAssertEqual(d.playerPick?.heroID, "H003", "seed \(seed)")
+        }
+    }
+
+    /// 所持ヒーローが無い（壊れた復元データ）場合も、空いているヒーローでピックでき、ドラフトが止まらない。
+    func testDraftFallsBackWhenNoOwnedHeroIsAvailable() {
+        var d = DraftEngine(seed: 7, ownedHeroIDs: [])
+        while let t = d.currentTurn {
+            let choice = t.isPlayer ? (t.action == .ban ? nil : d.autoChoiceForPlayer(preferred: [])) : d.aiChoice()
+            guard d.commit(choice) else { return XCTFail("手番 \(d.turnIndex) で停止") }
+        }
+        XCTAssertTrue(d.isComplete)
+        XCTAssertNotNil(d.playerPick)
+        XCTAssertEqual(Set(d.pickedHeroIDs).count, 10)
+    }
+
+    /// UI テスト（FlowUITests.testRankedDraft）が前提にするシードの AI BAN。
+    func testUITestDraftSeedKeepsH003Available() throws {
+        let seed = try XCTUnwrap(UInt64(FlowUITestsSeed.draft))
+        var d = DraftEngine(seed: seed, ownedHeroIDs: Profile().ownedHeroIDs)
+        XCTAssertTrue(d.commit("H010"))
+        while let t = d.currentTurn, t.action == .ban { XCTAssertTrue(d.commit(d.aiChoice())) }
+        XCTAssertFalse(d.bannedHeroIDs.contains("H003"))
+        XCTAssertTrue(d.canPlayerSelect("H003"))
+    }
+
+    func testBackupRestoreKeepsDevicePurchaseRecordsAndAge() {
+        let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+        var current = Profile()
+        current.displayName = "NewPhone"
+        current.ageBracket = .age13to15
+        current.acceptedTermsVersion = 3
+        current.onboardingCompleted = true
+        current.firstResourcePrepared = true
+        current.monthlySpendJPY = ["2027-01": 4_000, "2027-02": 800]
+        current.purchaseLedger = [
+            PurchaseRecord(transactionID: 2, productID: "gem.300", gemsGranted: 330, priceJPY: 800, date: t0.addingTimeInterval(60)),
+            PurchaseRecord(transactionID: 3, productID: "gem.60", gemsGranted: 60, priceJPY: 160, date: t0.addingTimeInterval(120), revoked: true),
+        ]
+        var backup = Profile()
+        backup.displayName = "OldPhone"
+        backup.ageBracket = .adult
+        backup.acceptedTermsVersion = 1
+        backup.onboardingCompleted = true
+        backup.firstResourcePrepared = false
+        backup.starlightCoin = 12_345
+        backup.monthlySpendJPY = ["2027-01": 160, "2026-12": 2_500]
+        backup.purchaseLedger = [
+            PurchaseRecord(transactionID: 1, productID: "gem.980", gemsGranted: 1090, priceJPY: 2500, date: t0),
+            PurchaseRecord(transactionID: 3, productID: "gem.60", gemsGranted: 60, priceJPY: 160, date: t0.addingTimeInterval(120)),
+        ]
+
+        let merged = BackupRestore.merged(imported: backup, current: current)
+        // 復元したいデータはバックアップのもの
+        XCTAssertEqual(merged.displayName, "OldPhone")
+        XCTAssertEqual(merged.starlightCoin, 12_345)
+        XCTAssertEqual(merged.playerID, backup.playerID)
+        // 年齢区分・課金の記録は巻き戻さない
+        XCTAssertEqual(merged.ageBracket, .age13to15)
+        XCTAssertEqual(merged.monthlySpendJPY, ["2027-01": 4_000, "2027-02": 800, "2026-12": 2_500])
+        XCTAssertEqual(merged.purchaseLedger.map(\.transactionID), [1, 2, 3])
+        XCTAssertEqual(merged.purchaseLedger.last?.revoked, true)
+        // 同意済みの規約は戻さない・初回準備は端末の値
+        XCTAssertEqual(merged.acceptedTermsVersion, 3)
+        XCTAssertTrue(merged.firstResourcePrepared)
+        XCTAssertTrue(merged.onboardingCompleted)
+
+        // 名前が壊れたバックアップは現在の名前を使う
+        backup.displayName = " "
+        XCTAssertEqual(BackupRestore.merged(imported: backup, current: current).displayName, "NewPhone")
+    }
+
+    func testDateFormattingFollowsLanguage() {
+        let saved = Loc.current
+        defer { Loc.current = saved }
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = .current
+        let d = utc.date(from: DateComponents(year: 2026, month: 9, day: 29, hour: 7, minute: 5))!
+        Loc.current = .ja
+        XCTAssertEqual(FlowText.date(d), "2026/09/29 07:05")
+        XCTAssertEqual(FlowText.date(d, time: false), "2026/09/29")
+        Loc.current = .en
+        XCTAssertEqual(FlowText.date(d), "Sep 29, 2026 07:05")
+        XCTAssertEqual(FlowText.date(d, time: false), "Sep 29, 2026")
+        Loc.current = .ja
+        XCTAssertEqual(FlowText.date(d, time: false), "2026/09/29", "言語を戻すと書式も戻る")
+    }
+}
+
+/// UI テストと共有するシード（UI テストのターゲットはアプリ本体を import できないため文字列で持つ）。
+enum FlowUITestsSeed {
+    static let draft = "20261001"
+}

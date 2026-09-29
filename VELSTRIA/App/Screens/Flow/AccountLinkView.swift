@@ -139,8 +139,8 @@ struct AccountLinkView: View {
             Label(L("復元", "Restore"), systemImage: "square.and.arrow.down.fill")
                 .font(Theme.heading(15))
                 .foregroundStyle(Theme.cyan)
-            Text(L("バックアップファイルを読み込みます。現在のデータは置き換えられます。",
-                   "Load a backup file. Your current data will be replaced."))
+            Text(L("バックアップファイルを読み込みます。現在のデータは置き換えられます（この端末の年齢区分と購入の記録は保持されます）。",
+                   "Load a backup file. Your current data will be replaced (this device's age group and purchase records are kept)."))
                 .font(Theme.body(11))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -206,13 +206,14 @@ struct AccountLinkView: View {
     private var importMessage: String {
         guard let p = pendingImport else { return "" }
         let name = p.displayName.isEmpty ? "—" : p.displayName
-        return L("バックアップ: \(name)（Lv.\(p.accountLevel)・\(p.career.matches) 試合・ヒーロー \(p.ownedHeroIDs.count) 体）\n現在のデータは上書きされ、元に戻せません。",
-                 "Backup: \(name) (Lv.\(p.accountLevel), \(p.career.matches) matches, \(p.ownedHeroIDs.count) heroes)\nYour current data will be overwritten. This can't be undone.")
+        return L("バックアップ: \(name)（Lv.\(p.accountLevel)・\(p.career.matches) 試合・ヒーロー \(p.ownedHeroIDs.count) 体）\n現在のデータは上書きされ、元に戻せません。この端末の年齢区分と購入の記録は引き継がれます。",
+                 "Backup: \(name) (Lv.\(p.accountLevel), \(p.career.matches) matches, \(p.ownedHeroIDs.count) heroes)\nYour current data will be overwritten. This can't be undone. This device's age group and purchase records are kept.")
     }
 
     private func applyImport() {
-        guard let p = pendingImport else { return }
+        guard let imported = pendingImport else { return }
         pendingImport = nil
+        let p = BackupRestore.merged(imported: imported, current: app.profile)
         app.profile = p
         app.persistence.saveNow(p)
         FlowFX.reward(app)

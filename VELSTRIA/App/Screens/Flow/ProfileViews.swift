@@ -522,6 +522,8 @@ private struct RecordDetailSheet: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
+            // シートではルートのトーストが隠れるため、ここにも重ねる
+            ToastOverlay()
         }
         .preferredColorScheme(.dark)
     }

@@ -15,10 +15,10 @@ struct MatchScoreTable: View {
         }
     }
 
-    /// 人間のチームを上に。観戦ではブルーが上。
+    /// 人間のチームを上に。観戦ではブルーが上。選手のいないチーム（練習場の敵側など）は出さない。
     private var orderedTeams: [Team] {
         let first = summary.humanTeam ?? .blue
-        return [first, first.opponent]
+        return [first, first.opponent].filter { team in summary.players.contains { $0.team == team } }
     }
 }
 

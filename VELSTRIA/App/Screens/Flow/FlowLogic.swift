@@ -239,10 +239,26 @@ struct DraftEngine: Equatable {
         bannedHeroIDs.contains(heroID) || pickedHeroIDs.contains(heroID)
     }
 
+    /// プレイヤーがまだ選べる所持ヒーロー（ID 昇順）。
+    var playerOwnedAvailable: [String] {
+        heroIDs.filter { ownedHeroIDs.contains($0) && !isTaken($0) }
+    }
+
+    /// プレイヤーがピックできるヒーローか。所持ヒーローが 1 体も残っていない場合（復元データの欠損など）は
+    /// ドラフトが止まらないよう、空いている全ヒーローを選べるようにする。
+    func isPlayerPickable(_ heroID: String) -> Bool {
+        ownedHeroIDs.contains(heroID) || playerOwnedAvailable.isEmpty
+    }
+
+    /// BAN するとプレイヤーのピック候補（所持ヒーロー）が無くなるか。ピック前の BAN でのみ守る。
+    func banWouldStrandPlayer(_ heroID: String) -> Bool {
+        playerPick == nil && ownedHeroIDs.contains(heroID) && playerOwnedAvailable.count <= 1
+    }
+
     /// プレイヤーの手番で、このヒーローを選べるか（ピックは所持ヒーローのみ）。
     func canPlayerSelect(_ heroID: String) -> Bool {
         guard let t = currentTurn, t.isPlayer, heroIDs.contains(heroID), !isTaken(heroID) else { return false }
-        return t.action == .ban || ownedHeroIDs.contains(heroID)
+        return t.action == .ban ? !banWouldStrandPlayer(heroID) : isPlayerPickable(heroID)
     }
 
     func openPositions(for team: Team) -> [LanePosition] {
@@ -266,12 +282,12 @@ struct DraftEngine: Equatable {
         switch turn.action {
         case .ban:
             if let id = heroID {
-                guard heroIDs.contains(id), !isTaken(id) else { return false }
+                guard heroIDs.contains(id), !isTaken(id), !banWouldStrandPlayer(id) else { return false }
             }
             if turn.team == .blue { blueBans.append(heroID) } else { redBans.append(heroID) }
         case .pick:
             guard let id = heroID, let role = role(of: id), !isTaken(id) else { return false }
-            if turn.isPlayer && !ownedHeroIDs.contains(id) { return false }
+            if turn.isPlayer && !isPlayerPickable(id) { return false }
             let pick = DraftPick(heroID: id, position: bestOpenPosition(for: role, team: turn.team), isPlayer: turn.isPlayer)
             if turn.team == .blue { bluePicks.append(pick) } else { redPicks.append(pick) }
         }
@@ -285,7 +301,7 @@ struct DraftEngine: Equatable {
         let available = heroIDs.filter { !isTaken($0) }
         switch turn.action {
         case .ban:
-            return rng.pick(available)
+            return rng.pick(available.filter { !banWouldStrandPlayer($0) })
         case .pick:
             let target = openPositions(for: turn.team).first ?? .mid
             for role in MatchFactory.preferredRoles(for: target) {
@@ -328,6 +344,46 @@ struct DraftEngine: Equatable {
             config.players[i].displayName = "\(master.hero(h)?.codeName ?? h)_AI"
             config.players[i].skinID = nil
         }
+    }
+}
+
+// MARK: - バックアップの復元（UI005）
+
+/// 復元データと現在のデータを統合する。
+/// 端末で申告した年齢区分・課金の記録は巻き戻さない（古いバックアップで当月の課金額を戻したり、
+/// 年齢区分を差し替えたりして、年齢別の月間購入上限（DESIGN §12）を回避できないようにする）。
+enum BackupRestore {
+    static func merged(imported: Profile, current: Profile) -> Profile {
+        var p = imported
+
+        // 年齢区分はこの端末で最後に申告したもの
+        p.ageBracket = current.ageBracket ?? imported.ageBracket
+
+        // 課金台帳は Transaction.id で和集合（どちらかで取り消し済みなら取り消し扱い）
+        var ledger = imported.purchaseLedger
+        for record in current.purchaseLedger {
+            if let i = ledger.firstIndex(where: { $0.transactionID == record.transactionID }) {
+                ledger[i].revoked = ledger[i].revoked || record.revoked
+            } else {
+                ledger.append(record)
+            }
+        }
+        p.purchaseLedger = ledger.sorted { $0.date == $1.date ? $0.transactionID < $1.transactionID : $0.date < $1.date }
+
+        // 月ごとの課金額は大きい方（上限判定が緩くならない側）
+        for month in current.monthlySpendJPY.keys.sorted() {
+            p.monthlySpendJPY[month] = max(p.monthlySpendJPY[month] ?? 0, current.monthlySpendJPY[month] ?? 0)
+        }
+
+        // 同意済みの規約・完了済みのオンボーディングは戻さない。初回準備は端末ごとの処理なので現在の値
+        p.acceptedTermsVersion = max(imported.acceptedTermsVersion, current.acceptedTermsVersion)
+        p.onboardingCompleted = imported.onboardingCompleted || current.onboardingCompleted
+        p.tutorialCompleted = imported.tutorialCompleted || current.tutorialCompleted
+        p.firstResourcePrepared = current.firstResourcePrepared
+        if PlayerNameRules.validate(p.displayName) != nil, PlayerNameRules.validate(current.displayName) == nil {
+            p.displayName = current.displayName
+        }
+        return p
     }
 }
 
