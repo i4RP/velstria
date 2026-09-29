@@ -9,7 +9,8 @@ import VelstriaCore
 // - 重複ポリシー（マスター duplicate_policy「購入不可または同価値通貨へ変換（商品設定で固定）」の v1.0 設定）:
 //     コスメ / ヒーロー単品 → 所持済みなら購入不可（alreadyOwned）
 //     バンドル            → 中身が全て所持済みなら購入不可。一部所持の場合は購入でき、
-//                           所持済みの中身 1 つにつき「その Gem 価格の 50%」を無償 Gem で返還する。
+//                           所持済みの中身 1 つにつき「その Gem 価格の 50%」を無償 Gem で返還する
+//                           （ただし支払額のうち重複分の按分額が上限。bundlePreview 参照）。
 // - バンドルの中身（決定論的な対応表）:
 //     BUNDLE_nn（nn = 1 始まり）→ マスターのコスメ（cosmetic_id 昇順）の [4(nn−1), 4(nn−1)+3] 番目の 4 個。
 //     例: BUNDLE_01 = CO001〜CO004、BUNDLE_18 = CO069〜CO072。
@@ -173,17 +174,27 @@ enum EconomyService {
     }
 
     /// バンドル購入時の内訳。
+    /// 返還 Gem は重複 1 つにつき単品 Gem 価格の 50% だが、バンドルの支払額のうち重複分が占める按分額
+    /// （価格 × 重複分の単品価値 / 中身の単品価値合計）を上限とする。
+    /// 単品価値に比べて安いバンドルで、返還が支払額を上回って Gem が増えるのを防ぐため。
     static func bundlePreview(_ item: StoreItemDef, profile: Profile, master: MasterData = .shared) -> BundlePreview {
         let contents = bundleContents(item.grantID, master: master)
         var preview = BundlePreview(newItems: [], duplicates: [], refundGems: 0, totalValueGems: 0)
+        var duplicateValue = 0
         for id in contents {
-            preview.totalValueGems += gemPrice(ofCosmetic: id, master: master)
+            let value = gemPrice(ofCosmetic: id, master: master)
+            preview.totalValueGems += value
             if profile.ownedCosmeticIDs.contains(id) {
                 preview.duplicates.append(id)
                 preview.refundGems += duplicateRefundGems(cosmeticID: id, master: master)
+                duplicateValue += value
             } else {
                 preview.newItems.append(id)
             }
+        }
+        if item.currency == .astralGem, preview.totalValueGems > 0 {
+            let share = Double(price(of: item)) * Double(duplicateValue) / Double(preview.totalValueGems)
+            preview.refundGems = min(preview.refundGems, max(0, Int(share.rounded(.down))))
         }
         return preview
     }

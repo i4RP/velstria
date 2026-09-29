@@ -80,6 +80,18 @@ final class ServicesRewardTests: XCTestCase {
         XCTAssertEqual(p.lastFirstWinDayKey, "2026-10-08")
     }
 
+    /// 端末時刻を前後させても初勝利ボーナスを取り直せない（日付キーが進んだ時だけ付与）。
+    func testFirstWinBonusCannotBeReclaimedByTurningClockBack() {
+        var p = Profile()
+        let day1 = ServicesFixtures.date(2026, 10, 7, hour: 9)
+        let day2 = ServicesFixtures.date(2026, 10, 8, hour: 9)
+        XCTAssertEqual(apply(ServicesFixtures.outcome(won: true), &p, now: day2).firstWinBonus, 300)
+        XCTAssertEqual(apply(ServicesFixtures.outcome(won: true), &p, now: day1).firstWinBonus, 0, "前日に戻しても付与しない")
+        XCTAssertEqual(apply(ServicesFixtures.outcome(won: true), &p, now: day2).firstWinBonus, 0, "同じ日に戻しても付与しない")
+        XCTAssertEqual(p.lastFirstWinDayKey, "2026-10-08")
+        XCTAssertEqual(apply(ServicesFixtures.outcome(won: true), &p, now: ServicesFixtures.date(2026, 10, 9)).firstWinBonus, 300)
+    }
+
     func testExcludedModesGiveNothingAndRecordNothing() {
         let cases: [BattleOutcome] = [
             ServicesFixtures.outcome(mode: .practice, withReplay: true),

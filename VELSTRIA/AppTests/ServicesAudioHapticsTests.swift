@@ -1,4 +1,6 @@
 import XCTest
+import AVFoundation
+import UIKit
 @testable import VELSTRIA
 
 final class ServicesAudioSynthTests: XCTestCase {
@@ -97,6 +99,32 @@ final class ServicesAudioServiceTests: XCTestCase {
         audio.playMusic(.victory)
         XCTAssertEqual(audio.currentTrack, .victory)
         audio.stopMusic()
+    }
+
+    /// 割り込み・メディアサービスのリセット（エンジンとノードの作り直し）の後も、再生要求で落ちずに鳴らせる。
+    func testSurvivesInterruptionAndMediaServicesReset() async throws {
+        let audio = AudioService()
+        await audio.waitUntilSFXReady()
+        audio.playMusic(.menu)
+        let center = NotificationCenter.default
+        center.post(name: AVAudioSession.interruptionNotification, object: nil,
+                    userInfo: [AVAudioSessionInterruptionTypeKey: AVAudioSession.InterruptionType.began.rawValue])
+        try await Task.sleep(nanoseconds: 50_000_000)
+        audio.play(.hit)
+        center.post(name: AVAudioSession.interruptionNotification, object: nil,
+                    userInfo: [AVAudioSessionInterruptionTypeKey: AVAudioSession.InterruptionType.ended.rawValue])
+        center.post(name: AVAudioSession.mediaServicesWereResetNotification, object: nil)
+        center.post(name: .AVAudioEngineConfigurationChange, object: nil)
+        center.post(name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
+        try await Task.sleep(nanoseconds: 50_000_000)
+        for sfx in SFX.allCases { audio.play(sfx) }
+        for _ in 0..<20 { audio.play(.gold, gain: 0.7) }
+        audio.playMusic(.battle)
+        XCTAssertEqual(audio.currentTrack, .battle)
+        audio.playMusic(.defeat)
+        XCTAssertEqual(audio.currentTrack, .defeat)
+        audio.stopMusic()
+        XCTAssertNil(audio.currentTrack)
     }
 }
 

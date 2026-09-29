@@ -70,6 +70,7 @@ final class StoreKitService {
     @ObservationIgnored private weak var app: AppModel?
     @ObservationIgnored private var updatesTask: Task<Void, Never>?
     @ObservationIgnored private var started = false
+    @ObservationIgnored private var loadTask: Task<Void, Never>?
 
     init() {}
 
@@ -88,8 +89,19 @@ final class StoreKitService {
     }
 
     /// 商品情報を取得する（失敗時は lastError を設定し、表示は参考価格にフォールバック）。
+    /// 取得中に呼ばれた場合は進行中の取得の完了を待つ（起動直後の購入操作で「取得できない」にならないように）。
     func loadProducts() async {
-        guard !isLoading else { return }
+        if let inFlight = loadTask {
+            await inFlight.value
+            return
+        }
+        let task = Task { await self.fetchProducts() }
+        loadTask = task
+        await task.value
+        loadTask = nil
+    }
+
+    private func fetchProducts() async {
         isLoading = true
         defer { isLoading = false }
         do {
@@ -167,6 +179,9 @@ final class StoreKitService {
         if productID == Self.premiumPassProductID && app.profile.pass.hasPremium {
             return .failed(L("スターパス プレミアムは購入済みです。", "You already own the Star Pass Premium."))
         }
+        // 以降は await を挟むため、連打で購入が二重に始まらないよう先に処理中にする
+        purchasingProductID = productID
+        defer { purchasingProductID = nil }
         if products[productID] == nil { await loadProducts() }
         guard let product = products[productID] else {
             return .failed(L("商品情報を取得できませんでした。", "Could not load the product."))
@@ -178,8 +193,6 @@ final class StoreKitService {
             return .limitExceeded
         }
 
-        purchasingProductID = productID
-        defer { purchasingProductID = nil }
         var options: Set<Product.PurchaseOption> = []
         if let token = UUID(uuidString: app.profile.playerID) {
             options.insert(.appAccountToken(token))

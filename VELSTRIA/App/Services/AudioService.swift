@@ -325,6 +325,9 @@ final class AudioService {
     @discardableResult
     private func restartEngineAndMusic() -> Bool {
         guard startEngine() else { return false }
+        // エンジン停止後もプレイヤーの isPlaying が true のまま残ることがあり、その場合 play() が呼ばれず無音になる。
+        // 一度止めて状態を揃え、次の再生要求で play() し直す（溜まった古い予約も破棄される）。
+        for p in sfxPlayers { p.stop() }
         for i in sfxBusyUntil.indices { sfxBusyUntil[i] = 0 }
         guard let track = currentTrack, track.loops else { return true }
         guard let buffer = musicBuffers[track] else {

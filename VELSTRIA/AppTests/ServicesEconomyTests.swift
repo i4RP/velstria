@@ -106,6 +106,32 @@ final class ServicesEconomyTests: XCTestCase {
         XCTAssertEqual(EconomyService.purchase(sku: "SKU097", profile: &p, master: master), .alreadyOwned)
     }
 
+    /// 安いバンドルでは重複返還が支払額の按分で頭打ちになり、購入で Gem が増えることはない。
+    func testBundleRefundNeverExceedsPricePaid() {
+        var p = Profile()
+        p.freeGem = 1000
+        p.ownedCosmeticIDs = ["CO022", "CO023", "CO024"]
+        let item = master.storeItem("SKU102")! // BUNDLE_06 = CO021〜CO024、546 Gem
+        XCTAssertEqual(EconomyService.bundleContents(item.grantID, master: master), ["CO021", "CO022", "CO023", "CO024"])
+        let preview = EconomyService.bundlePreview(item, profile: p)
+        XCTAssertEqual(preview.duplicates, ["CO022", "CO023", "CO024"])
+        // 50% 返還なら 130 + 260 + 440 = 830 だが、546 × 1660 / 1780 = 509.19… が上限
+        XCTAssertEqual(preview.refundGems, 509)
+        XCTAssertEqual(EconomyService.purchase(sku: "SKU102", profile: &p, master: master), .success(granted: ["CO021"]))
+        XCTAssertEqual(p.freeGem, 1000 - 546 + 509)
+
+        // 全バンドル × 所持パターン（全所持以外）で返還 < 支払額
+        for bundle in EconomyService.storeItems(ofType: .bundle) {
+            let contents = EconomyService.bundleContents(bundle.grantID, master: master)
+            for mask in 0..<((1 << contents.count) - 1) {
+                var q = Profile()
+                q.ownedCosmeticIDs = contents.enumerated().filter { mask & (1 << $0.offset) != 0 }.map(\.element)
+                let refund = EconomyService.bundlePreview(bundle, profile: q).refundGems
+                XCTAssertLessThan(refund, EconomyService.price(of: bundle), "\(bundle.sku) mask \(mask)")
+            }
+        }
+    }
+
     /// 購入直後に所持数の実績（コスメ 10 個）が解除される。
     func testPurchaseReevaluatesCollectionAchievement() {
         var p = Profile()

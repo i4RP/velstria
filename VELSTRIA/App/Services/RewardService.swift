@@ -5,7 +5,7 @@ import VelstriaCore
 // 試合報酬（DESIGN §12）:
 // - 対象: 通常戦・ランク戦のみ。リプレイ再生・観戦・練習場・チュートリアル・途中離脱は報酬なし・記録なし。
 // - Coin: 勝利 220 / 敗北 110 × 時間係数 min(1, 分/12)（下限 0.3）。週末スターブースト中は +50%（coins に含める）。
-// - 初勝利ボーナス: その日（端末ローカル日付）の最初の勝利に +300。
+// - 初勝利ボーナス: その日（端末ローカル日付）の最初の勝利に +300（日付キーが前回より進んだ時のみ）。
 // - アカウント XP: 勝利 120 / 敗北 80。次のレベルまで 400 + 100×Lv、最大 Lv 60（最大到達後の XP は 0 に固定）。
 // - ランク戦は RankService.apply。パス XP: 勝利 150 / 敗北 100。
 // - ミッション進捗・通算成績（ヒーロー別・MVP・連勝・ペンタキル）・戦績（最新 50 件）・リプレイ保存（最新 20 件）・実績評価。
@@ -121,7 +121,8 @@ enum RewardService {
         }
         report.coins = baseCoins + report.eventBonusCoins
         let today = LiveOpsService.dayKey(now)
-        if won && profile.lastFirstWinDayKey != today {
+        // 日付キーが進んだ時だけ付与する（端末時刻を前後させての再取得を防ぐ。ログインボーナスと同じ基準）
+        if won && today > profile.lastFirstWinDayKey {
             report.firstWinBonus = firstWinBonusCoins
             profile.lastFirstWinDayKey = today
         }

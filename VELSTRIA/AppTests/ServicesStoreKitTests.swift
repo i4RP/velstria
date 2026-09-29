@@ -156,3 +156,44 @@ final class ServicesStoreKitTests: XCTestCase {
         XCTAssertEqual(pass["familyShareable"] as? Bool, false)
     }
 }
+
+/// StoreKitService の状態管理（StoreKit の商品が取得できないテスト環境でも検証できる範囲）。
+@MainActor
+final class ServicesStoreKitServiceStateTests: XCTestCase {
+    /// 連打などで購入が同時に始まった場合、後から来た方は「処理中」で弾かれ、終了後に処理中フラグが戻る。
+    func testConcurrentPurchaseIsRejectedAndFlagResets() async {
+        let persistence = ServicesFixtures.tempPersistence()
+        defer { try? FileManager.default.removeItem(at: persistence.directory) }
+        let app = AppModel(persistence: persistence)
+        app.profile.ageBracket = .adult
+        let store = app.storeKit
+        let inProgress = IAPResult.failed(L("他の購入を処理中です。", "Another purchase is in progress."))
+        async let first = store.purchase(productID: "com.velstria.game.gem.60")
+        async let second = store.purchase(productID: "com.velstria.game.gem.300")
+        let results = await [first, second]
+        XCTAssertEqual(results.filter { $0 == inProgress }.count, 1, "\(results)")
+        XCTAssertNil(store.purchasingProductID)
+        XCTAssertEqual(app.profile.paidGem, 0)
+        XCTAssertTrue(app.profile.purchaseLedger.isEmpty)
+    }
+
+    /// 商品取得の同時要求は進行中の取得を待って終わる（取得中フラグも戻る）。
+    func testConcurrentProductLoadsShareOneRequest() async {
+        let store = StoreKitService()
+        async let a: Void = store.loadProducts()
+        async let b: Void = store.loadProducts()
+        _ = await (a, b)
+        XCTAssertFalse(store.isLoading)
+    }
+
+    /// 購入済みのプレミアムは StoreKit に問い合わせずに弾く。
+    func testPremiumAlreadyOwnedIsRejected() async {
+        let persistence = ServicesFixtures.tempPersistence()
+        defer { try? FileManager.default.removeItem(at: persistence.directory) }
+        let app = AppModel(persistence: persistence)
+        app.profile.pass.hasPremium = true
+        let result = await app.storeKit.purchasePremiumPass()
+        XCTAssertEqual(result, .failed(L("スターパス プレミアムは購入済みです。", "You already own the Star Pass Premium.")))
+        XCTAssertNil(app.storeKit.purchasingProductID)
+    }
+}
