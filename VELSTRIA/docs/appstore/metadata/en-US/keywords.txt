@@ -1,0 +1,1 @@
+strategy,action,hero,lane,battle,ranked,fantasy,tower,jungle,rpg,team,solo,tactics,bots,magic

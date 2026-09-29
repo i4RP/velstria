@@ -10,15 +10,35 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
+    # バージョン: MARKETING_VERSION = App Store の表示バージョン、CURRENT_PROJECT_VERSION = ビルド番号
+    # （App Store Connect へアップロードするたびに増やす。tools/archive.sh は BUILD_NUMBER で上書き可能）
     MARKETING_VERSION: "1.0.0"
     CURRENT_PROJECT_VERSION: "1"
-    # 署名チーム（App Store 提出前に設定: 例 BPZ8375UX5）
+    # 署名チームはリポジトリに固定しない（空のまま）。
+    # アーカイブ時に tools/archive.sh が TEAM_ID 環境変数から DEVELOPMENT_TEAM=<10 桁の Team ID> を渡す。
+    # Xcode で実機実行する場合は Signing & Capabilities でチームを選ぶ（xcodegen 再生成で空に戻る）。
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Automatic
     TARGETED_DEVICE_FAMILY: "1"
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     DEAD_CODE_STRIPPING: YES
     ENABLE_PREVIEWS: YES
+  configs:
+    Debug:
+      DEBUG_INFORMATION_FORMAT: dwarf
+      SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+    Release:
+      # App Store 提出ビルド: 全体最適化・dSYM 生成（クラッシュログのシンボル化）・製品検証
+      SWIFT_COMPILATION_MODE: wholemodule
+      SWIFT_OPTIMIZATION_LEVEL: "-O"
+      GCC_OPTIMIZATION_LEVEL: s
+      DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
+      VALIDATE_PRODUCT: YES
+      ENABLE_BITCODE: NO
+      ENABLE_TESTABILITY: NO
+      ENABLE_NS_ASSERTIONS: NO
+      COPY_PHASE_STRIP: NO
+      STRIP_INSTALLED_PRODUCT: YES
 
 packages:
   VelstriaCore:
@@ -32,6 +52,15 @@ targets:
       - path: App
         excludes:
           - "**/*.md"
+          - Resources/PrivacyInfo.xcprivacy
+          - Resources/Velstria.storekit
+      # プライバシーマニフェストは確実にリソースとしてバンドルへ入れる
+      - path: App/Resources/PrivacyInfo.xcprivacy
+        buildPhase: resources
+      # StoreKit 構成ファイルは scheme の Run（Xcode 上のローカル課金テスト）専用。
+      # プロジェクトには表示するが、出荷バンドルには入れない（テスト用の商品定義を同梱しない）
+      - path: App/Resources/Velstria.storekit
+        buildPhase: none
     dependencies:
       - package: VelstriaCore
     info:
@@ -42,8 +71,12 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleLocalizations: [ja, en]
         CFBundleDevelopmentRegion: ja
+        NSHumanReadableCopyright: "© 2026 VELSTRIA"
         UILaunchScreen:
           UIColorName: LaunchBackground
+          UIImageName: LaunchLogo
+          UIImageRespectsSafeAreaInsets: true
+        UIUserInterfaceStyle: Dark
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationLandscapeRight
           - UIInterfaceOrientationLandscapeLeft
@@ -60,6 +93,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.velstria.game
         PRODUCT_NAME: VELSTRIA
+        # iPhone 専用（xcodegen の iOS プリセットはターゲット側で "1,2" を入れるため明示的に上書きする）
+        TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         SUPPORTS_MACCATALYST: NO
@@ -77,6 +112,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.velstria.game.tests
+        TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: $(BUILT_PRODUCTS_DIR)/VELSTRIA.app/VELSTRIA
         BUNDLE_LOADER: $(TEST_HOST)
@@ -91,6 +127,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.velstria.game.uitests
+        TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: YES
         TEST_TARGET_NAME: VELSTRIA
 
@@ -109,5 +146,10 @@ schemes:
       targets:
         - VELSTRIATests
         - VELSTRIAUITests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
     archive:
       config: Release
+      revealArchiveInOrganizer: true

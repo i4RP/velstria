@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  VELSTRIA プライバシーマニフェスト。
+  - トラッキングなし・トラッキングドメインなし。
+  - 収集データなし（プロフィール・リプレイ・購入台帳はすべて端末内の Application Support に保存し、外部送信しない）。
+  - Required Reason API は tools/privacy_audit.py でコードを走査して宣言漏れがないことを確認する。
+    UserDefaults (CA92.1): アプリ自身の設定値の読み書きのみ。
+    File timestamp (C617.1): アプリコンテナ内のセーブ/リプレイファイルの日時・サイズ参照のみ。
+    System boot time (35F9.1): 効果音・触覚の再生間隔など、アプリ内のイベント間の経過時間の計測のみ
+      （ProcessInfo.systemUptime。端末の起動時刻そのものは扱わず、外部送信もしない）。
+-->
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>C617.1</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategorySystemBootTime</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>35F9.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>
