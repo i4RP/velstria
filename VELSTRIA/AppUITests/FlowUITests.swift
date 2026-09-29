@@ -129,7 +129,13 @@ final class FlowUITests: XCTestCase {
         XCTAssertTrue(element(app, "report_send").waitForExistence(timeout: 5))
         snap("result_04_report")
         tap(app, "report_close")
-        tap(app, "result_close", timeout: 5)
+
+        // もう一度: リザルトを閉じた後、同じ難易度でヒーロー選択から再開する
+        tap(app, "result_again", timeout: 5)
+        XCTAssertTrue(element(app, "flow_next").waitForExistence(timeout: 10), "対戦フローが開き直されない")
+        snap("result_05_again")
+        tap(app, "flow_back")
+        tap(app, "flow_close")
         XCTAssertTrue(element(app, "home_play").waitForExistence(timeout: 10))
     }
 
