@@ -115,28 +115,71 @@ final class WorldTowerTests: XCTestCase {
         XCTAssertEqual(TowerSystem.attackDamage(&s, ctx, towerIndex: tower, targetIndex: a), base, accuracy: 1e-9)
     }
 
+    /// タワー → ミニオンの 1 発は確定ダメージとして適用される（CombatSystem の契約）。
+    func shootMinion(_ s: inout SimState, _ ctx: SimContext, tower: Int, minion m: Int) {
+        let dmg = TowerSystem.attackDamage(&s, ctx, towerIndex: tower, targetIndex: m)
+        CombatSystem.applyDamage(&s, ctx, sourceID: s.units[tower].id, targetIndex: m, amount: dmg,
+                                 type: .trueDamage, source: .tower)
+    }
+
     func testMinionDamageIsPercentOfMaxHP() {
         var (s, ctx, tower) = makeLaneFight()
         for (type, pct) in [(MinionType.melee, 0.45), (.ranged, 0.70), (.siege, 0.14)] {
             let m = Kit.addMinion(&s, ctx, type: type, team: .red, pos: Vec2(4700, 4700))
             let maxHP = s.units[m].stats.maxHP
-            let dmg = TowerSystem.attackDamage(&s, ctx, towerIndex: tower, targetIndex: m)
-            CombatSystem.applyDamage(&s, ctx, sourceID: s.units[tower].id, targetIndex: m, amount: dmg,
-                                     type: .physical, source: .tower)
+            shootMinion(&s, ctx, tower: tower, minion: m)
             XCTAssertEqual(maxHP - s.units[m].hp, pct * maxHP, accuracy: 1e-6, "\(type)")
         }
+        // 攻城ミニオンは防御 40 だが、割合ダメージは防御の影響を受けない
+        let siege = Kit.addMinion(&s, ctx, type: .siege, team: .red, pos: Vec2(4700, 4700))
+        XCTAssertEqual(s.units[siege].stats.armor, 40)
+        XCTAssertEqual(TowerSystem.attackDamage(&s, ctx, towerIndex: tower, targetIndex: siege),
+                       0.14 * s.units[siege].stats.maxHP, accuracy: 1e-9)
         // 近接 3 発・遠隔 2 発・攻城 8 発で倒れる
         for (type, shots) in [(MinionType.melee, 3), (.ranged, 2), (.siege, 8)] {
             let m = Kit.addMinion(&s, ctx, type: type, team: .red, pos: Vec2(4700, 4700))
             var n = 0
             while s.units[m].isAlive {
-                let dmg = TowerSystem.attackDamage(&s, ctx, towerIndex: tower, targetIndex: m)
-                CombatSystem.applyDamage(&s, ctx, sourceID: s.units[tower].id, targetIndex: m, amount: dmg,
-                                         type: .physical, source: .tower)
+                shootMinion(&s, ctx, tower: tower, minion: m)
                 n += 1
             }
             XCTAssertEqual(n, shots, "\(type)")
         }
+    }
+
+    func testMinionPercentDamageCancelsBonusesAndReductions() {
+        var (s, ctx, tower) = makeLaneFight()
+        // 強化ミニオン（HP ×1.5）+ 被ダメ軽減 20%、タワーに与ダメ +10% が付いていても 1 発 45%
+        let m = Kit.addMinion(&s, ctx, type: .melee, team: .red, pos: Vec2(4700, 4700))
+        s.units[m].baseStats.maxHP *= 1.5
+        s.units[m].statuses.append(StatusEffect(kind: .damageReduction, duration: 5, magnitude: 0.2))
+        s.units[tower].statuses.append(StatusEffect(kind: .damageBoost, duration: 5, magnitude: 0.1))
+        StatCalculator.recompute(&s, m, ctx)
+        StatCalculator.recompute(&s, tower, ctx)
+        s.units[m].hp = s.units[m].stats.maxHP
+        let maxHP = s.units[m].stats.maxHP
+        shootMinion(&s, ctx, tower: tower, minion: m)
+        XCTAssertEqual(maxHP - s.units[m].hp, 0.45 * maxHP, accuracy: 1e-6)
+    }
+
+    func testRetargetCancelsWindup() {
+        var (s, ctx, tower) = makeLaneFight()
+        let minion = Kit.addMinion(&s, ctx, team: .red, pos: Vec2(4700, 4700))
+        let enemy = Kit.addHero(&s, ctx, team: .red, pos: Vec2(4850, 4850))
+        let ally = Kit.addHero(&s, ctx, team: .blue, pos: Vec2(4600, 4500))
+        VisionSystem.update(&s, ctx)
+        TowerSystem.update(&s, ctx)
+        XCTAssertEqual(s.units[tower].attackTargetID, s.units[minion].id)
+        s.units[tower].windupRemaining = 0.1
+        // 同じ対象のままなら前隙は続く
+        TowerSystem.update(&s, ctx)
+        XCTAssertEqual(s.units[tower].windupRemaining, 0.1)
+        // 救援で対象が変わると前隙は取り消され、新しい対象へ撃ち直す
+        CombatSystem.applyDamage(&s, ctx, sourceID: s.units[enemy].id, targetIndex: ally, amount: 50,
+                                 type: .physical, source: .basicAttack)
+        TowerSystem.update(&s, ctx)
+        XCTAssertEqual(s.units[tower].attackTargetID, s.units[enemy].id)
+        XCTAssertNil(s.units[tower].windupRemaining)
     }
 
     func testOuterTowerEarlyProtection() {
@@ -193,17 +236,13 @@ final class WorldTowerTests: XCTestCase {
         Kit.kill(&s, idx(.top, .inner))
         XCTAssertFalse(TowerSystem.isInvulnerable(s, ctx, index: idx(.top, .base)))
         XCTAssertTrue(TowerSystem.isInvulnerable(s, ctx, index: core))
-        TowerSystem.update(&s, ctx)
-        XCTAssertFalse(s.events.contains(.announcement(.coreVulnerable(team: .blue))))
 
         Kit.kill(&s, idx(.top, .base))
         XCTAssertFalse(TowerSystem.isInvulnerable(s, ctx, index: core))
         XCTAssertGreaterThan(CombatSystem.applyDamage(&s, ctx, sourceID: nil, targetIndex: core, amount: 500,
                                                       type: .trueDamage, source: .spell), 0)
-        // Core 露出の告知は 1 度だけ
-        TowerSystem.update(&s, ctx)
-        TowerSystem.update(&s, ctx)
-        XCTAssertEqual(s.events.filter { $0 == .announcement(.coreVulnerable(team: .blue)) }.count, 1)
+        // 他レーンの内塔・基部塔は引き続き前段の外塔が守る
+        XCTAssertTrue(TowerSystem.isInvulnerable(s, ctx, index: idx(.bot, .base)))
         // 前計算版（ミニオンの索敵用）と一致
         let table = WorldTargeting.structureInvulnerability(s)
         for i in s.units.indices where s.units[i].isStructure {

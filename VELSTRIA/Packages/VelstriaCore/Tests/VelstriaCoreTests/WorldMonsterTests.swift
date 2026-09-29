@@ -179,6 +179,53 @@ final class WorldMonsterTests: XCTestCase {
         XCTAssertEqual(s.units[m].monster?.leashing, false)
     }
 
+    func testKeepsFightingWhenLastAttackerIsLostToSourcelessDamage() {
+        var (s, ctx, m) = makeOpenField()
+        let home = s.units[m].monster!.home
+        let hero = Kit.addHero(&s, ctx, team: .blue, pos: home + Vec2(300, 0))
+        CombatSystem.applyDamage(&s, ctx, sourceID: s.units[hero].id, targetIndex: m, amount: 500,
+                                 type: .trueDamage, source: .basicAttack)
+        MonsterSystem.update(&s, ctx)
+        XCTAssertEqual(s.units[m].attackTargetID, s.units[hero].id)
+        let hpMidFight = s.units[m].hp
+        // 発生源の無いダメージ（環境・持続ダメージ等）で lastAttackerID が消えても、交戦中の相手を追い続ける
+        s.units[m].lastAttackerID = nil
+        MonsterSystem.update(&s, ctx)
+        XCTAssertEqual(s.units[m].attackTargetID, s.units[hero].id)
+        XCTAssertEqual(s.units[m].monster?.leashing, false)
+        XCTAssertEqual(s.units[m].hp, hpMidFight, "must not reset (full heal) mid-fight")
+        // 交戦相手が倒れたらリセット（巣に居るのでその場で全回復）
+        Kit.kill(&s, hero)
+        MonsterSystem.update(&s, ctx)
+        XCTAssertNil(s.units[m].attackTargetID)
+        XCTAssertEqual(s.units[m].hp, s.units[m].stats.maxHP)
+    }
+
+    func testLeashClearsAndBlocksCrowdControl() {
+        var (s, ctx, m) = makeOpenField()
+        let home = s.units[m].monster!.home
+        let hero = Kit.addHero(&s, ctx, team: .blue, pos: home + Vec2(1200, 0))
+        CombatSystem.applyDamage(&s, ctx, sourceID: s.units[hero].id, targetIndex: m, amount: 100,
+                                 type: .trueDamage, source: .basicAttack)
+        CombatSystem.applyCC(&s, ctx, sourceID: s.units[hero].id, targetIndex: m, cc: .slow, isUltimate: false,
+                             from: s.units[hero].pos)
+        XCTAssertTrue(s.units[m].has(.slow))
+        s.units[m].pos = home + Vec2(Balance.leashRadius + 10, 0)
+        MonsterSystem.update(&s, ctx)
+        XCTAssertEqual(s.units[m].monster?.leashing, true)
+        // リセット開始で弱体は外れ、帰還中は CC を受けない
+        XCTAssertFalse(s.units[m].has(.slow))
+        XCTAssertTrue(s.units[m].has(.ccImmune))
+        CombatSystem.applyCC(&s, ctx, sourceID: s.units[hero].id, targetIndex: m, cc: .stun, isUltimate: true,
+                             from: s.units[hero].pos)
+        XCTAssertFalse(s.units[m].has(.stun))
+        // 到着で保護は外れる
+        s.units[m].pos = home
+        MonsterSystem.update(&s, ctx)
+        XCTAssertFalse(s.units[m].has(.ccImmune))
+        XCTAssertFalse(s.units[m].has(.invulnerable))
+    }
+
     func testBossesUseShorterLeash() {
         var (s, ctx, m) = makeOpenField(kind: .astralWyrm)
         let home = s.units[m].monster!.home

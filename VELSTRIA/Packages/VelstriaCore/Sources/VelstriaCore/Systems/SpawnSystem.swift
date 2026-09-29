@@ -17,8 +17,6 @@ public struct WorldState: Codable, Hashable, Sendable {
     public var dummyIDs: [EntityID?] = []
     /// 各人形の再出現時刻（nil = 出現中）。
     public var dummyRespawnAt: [Double?] = []
-    /// Core が攻撃可能になった告知を出したか（index = Team.rawValue）。
-    public var coreExposedAnnounced: [Bool] = [false, false]
 
     public init() {}
 }
@@ -333,6 +331,8 @@ public enum UnitFactory {
         st.attackSpeed = 1
         var u = Unit(id: 0, kind: .dummy, team: team, pos: pos, radius: Balance.dummyRadius, stats: st)
         u.statuses.append(StatusEffect(kind: .revealed, duration: 60, tag: dummyTag))
+        // 次の視界更新（最大 3 tick 後）を待たずに出現直後から狙えるようにする
+        u.visibleMask = Team.blue.visionBit | Team.red.visionBit
         return u
     }
 }

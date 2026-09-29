@@ -51,7 +51,7 @@ public enum VisionSystem {
         }
         for i in s.units.indices {
             let team = s.units[i].team
-            guard team == .blue || team == .red, let radius = sightRadius(s.units[i]) else { continue }
+            guard team == .blue || team == .red, let radius = sightRadius(s, i) else { continue }
             let pos = s.units[i].pos
             stamp(&cells, cols: cols, rows: rows, center: pos, radius: radius, bit: team.visionBit)
             observers[team.rawValue].append(Observer(pos: pos, brush: s.units[i].brushIndex,
@@ -65,7 +65,7 @@ public enum VisionSystem {
         for i in s.units.indices {
             let team = s.units[i].team
             var mask: UInt8 = team.visionBit
-            let target = Target(s.units[i])
+            let target = Target(s, i)
             for viewer in Team.players where viewer != team {
                 if isVisible(target, to: viewer, cells: cells, cols: cols, rows: rows,
                              observers: observers[viewer.rawValue], ctx: ctx) {
@@ -85,31 +85,34 @@ public enum VisionSystem {
         var revealed: Bool
         var stealthed: Bool
 
-        init(_ u: Unit) {
-            pos = u.pos
-            brush = u.brushIndex
-            alive = u.isAlive && u.hero?.isDead != true
-            isStructure = u.isStructure
+        /// units[i] の要約（Unit 全体をコピーしないよう、必要な項目だけを読む）。
+        init(_ s: SimState, _ i: Int) {
+            pos = s.units[i].pos
+            brush = s.units[i].brushIndex
+            alive = s.units[i].isAlive && (s.units[i].hero?.respawnTimer ?? 0) <= 0
+            isStructure = s.units[i].isStructure
             var revealed = false, stealthed = false
-            for st in u.statuses {
-                if st.kind == .revealed { revealed = true } else if st.kind == .stealth { stealthed = true }
+            for k in s.units[i].statuses.indices {
+                let kind = s.units[i].statuses[k].kind
+                if kind == .revealed { revealed = true } else if kind == .stealth { stealthed = true }
             }
             self.revealed = revealed
             self.stealthed = stealthed
         }
     }
 
-    /// ユニットの視界半径（視界を与えないユニットは nil）。死亡中のヒーローは視界なし。
-    static func sightRadius(_ u: Unit) -> Double? {
-        guard u.isAlive else { return nil }
-        switch u.kind {
+    /// units[i] の視界半径（視界を与えないユニットは nil）。死亡中のヒーローは視界なし。
+    static func sightRadius(_ s: SimState, _ i: Int) -> Double? {
+        guard s.units[i].isAlive else { return nil }
+        let sight = s.units[i].stats.sightRange
+        switch s.units[i].kind {
         case .hero:
-            guard u.hero?.isDead != true else { return nil }
-            return u.stats.sightRange > 0 ? u.stats.sightRange : Balance.heroSight
+            guard (s.units[i].hero?.respawnTimer ?? 0) <= 0 else { return nil }
+            return sight > 0 ? sight : Balance.heroSight
         case .minion:
-            return u.stats.sightRange > 0 ? u.stats.sightRange : Balance.minionSight
+            return sight > 0 ? sight : Balance.minionSight
         case .tower, .core:
-            return u.stats.sightRange > 0 ? u.stats.sightRange : Balance.towerSight
+            return sight > 0 ? sight : Balance.towerSight
         case .monster, .dummy:
             return nil
         }

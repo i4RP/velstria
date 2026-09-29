@@ -8,12 +8,12 @@ public enum TowerSystem {
         let candidates = WorldTargeting.candidates(s)
         let grid = WorldSpatialIndex(candidates)
         for i in s.units.indices where s.units[i].isStructure && s.units[i].isAlive {
-            if s.units[i].kind == .core { announceCoreExposure(&s, ctx, coreIndex: i) }
             let pick = chooseTarget(s, towerIndex: i, candidates: candidates, grid: grid)
             let newID = pick.map { s.units[$0].id }
             if newID != s.units[i].attackTargetID {
                 s.units[i].attackTargetID = newID
-                // ターゲット変更で連続命中ボーナスをリセット
+                // ターゲット変更: 前隙を取り消して新しい対象へ撃ち直し、連続命中ボーナスをリセット
+                s.units[i].windupRemaining = nil
                 s.units[i].tower?.rampTargetID = nil
                 s.units[i].tower?.rampHits = 0
             }
@@ -85,19 +85,10 @@ public enum TowerSystem {
         return tower.pos.distanceSquared(to: v.pos) <= reach * reach
     }
 
-    /// 基部塔が落ちて Core が攻撃可能になった瞬間に 1 度だけ告知する。
-    static func announceCoreExposure(_ s: inout SimState, _ ctx: SimContext, coreIndex i: Int) {
-        let team = s.units[i].team
-        guard team != .neutral, team.rawValue < s.world.coreExposedAnnounced.count,
-              !s.world.coreExposedAnnounced[team.rawValue], !isInvulnerable(s, ctx, index: i) else { return }
-        s.world.coreExposedAnnounced[team.rawValue] = true
-        s.emit(.announcement(.coreVulnerable(team: team)))
-    }
-
     // MARK: - ダメージ
 
     /// 構造物（タワー/Core）の通常攻撃 1 発のダメージ（対ミニオンは最大 HP 割合、対ヒーローは連続命中補正込み）。
-    /// CombatSystem が構造物の攻撃命中時に呼ぶ。
+    /// CombatSystem が構造物の攻撃命中時に呼ぶ。対ミニオンの値は確定ダメージとして適用される前提。
     public static func attackDamage(_ s: inout SimState, _ ctx: SimContext, towerIndex i: Int, targetIndex t: Int) -> Double {
         let tower = s.units[i]
         let target = s.units[t]
@@ -111,12 +102,12 @@ public enum TowerSystem {
             case .ranged: pct = Balance.towerRangedMinionDamagePct
             case .siege: pct = Balance.towerSiegeMinionDamagePct
             }
-            // 最終的に最大 HP の pct だけ削れるよう、この後 CombatSystem が掛ける
-            // 与ダメ補正・物理防御・被ダメ軽減をあらかじめ打ち消しておく（DESIGN §5 の順序）
+            // CombatSystem は構造物 → ミニオンの弾を確定ダメージ（防御無視）として適用する。
+            // 最終的に最大 HP の pct だけ削れるよう、その際に掛かる与ダメ補正と被ダメ軽減（DESIGN §5 の 3・5）を
+            // あらかじめ打ち消しておく
             let bonus = max(0.05, 1 + tower.stats.damageBonus)
-            let armorFactor = 100 / (100 + max(0, target.stats.armor))
-            let reduction = 1 - min(Balance.maxDamageReduction, max(0, target.stats.damageReduction))
-            return pct * target.stats.maxHP / (bonus * armorFactor * max(0.05, reduction))
+            let reduction = max(0.05, 1 - min(Balance.maxDamageReduction, max(0, target.stats.damageReduction)))
+            return pct * target.stats.maxHP / (bonus * reduction)
         case .hero, .dummy:
             var hits = 0
             if tower.tower?.rampTargetID == target.id { hits = tower.tower?.rampHits ?? 0 }
