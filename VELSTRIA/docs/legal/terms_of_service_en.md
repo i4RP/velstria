@@ -12,7 +12,7 @@ These Terms of Service (the "Terms") govern your use of the iPhone game "VELSTRI
 
 ## 2. Definitions
 1. "Paid Items": in-game currencies and items obtained through In-App Purchases.
-2. "Astral Gems": an in-game currency. "Paid Gems" are obtained through In-App Purchases; "Bonus Gems" are granted free of charge as bonuses or rewards.
+2. "Astral Gems": an in-game currency. "Paid Gems" are obtained through In-App Purchases (including any bonus included with a purchase); "Free Gems" are granted free of charge as in-game rewards.
 3. "Starlight Coins": an in-game currency granted free of charge through gameplay.
 4. "Content": heroes, skins, emotes and other digital content available in the App.
 
@@ -25,7 +25,7 @@ We grant you a non-exclusive, non-transferable license to use the App for person
 
 ## 5. In-game currencies and items
 1. Astral Gems and Starlight Coins can only be exchanged for Content within the App. They have no cash value and cannot be refunded, exchanged for money, or transferred or lent to anyone else, except where refunds are required by law.
-2. When you spend Astral Gems, Bonus Gems are used first, and Paid Gems are used only for the remaining amount.
+2. When you spend Astral Gems, Free Gems are used first, and Paid Gems are used only for the remaining amount.
 3. Paid Gems do not expire.
 4. Paid Items change appearance and similar content only; they never increase in-match combat power.
 5. Your data is stored only on your device. We cannot restore data lost because a device is lost, broken or reset, or because the App was deleted. Use the App's backup feature as needed.

@@ -210,8 +210,9 @@ def active_desc(skill: dict, hero: dict, name: str) -> str:
         return f"Slashes in a 90° cone ahead. Enemies hit take {dmg} base {dtype} damage{plural}."
     if slot == "Skill2":
         if ranged:
-            return (f"Blinks a short distance and empowers the next basic attack, which deals bonus "
-                    f"{dtype} damage (base {dmg}){single}.")
+            # DESIGN §6: 短距離ブリンク(350) + 次の通常攻撃にスキル基礎値の +50%
+            return (f"Blinks 350 units in the target direction. The next basic attack deals bonus {dtype} "
+                    f"damage equal to 50% of {dmg} base damage{single}.")
         return (f"Dashes {rng + 100} units in the target direction. Enemies near the landing point take "
                 f"{dmg} base {dtype} damage{plural}.")
     if slot == "Skill3":

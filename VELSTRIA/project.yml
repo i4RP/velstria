@@ -53,9 +53,14 @@ targets:
         excludes:
           - "**/*.md"
           - Resources/PrivacyInfo.xcprivacy
+          - Resources/Velstria.storekit
       # プライバシーマニフェストは確実にリソースとしてバンドルへ入れる
       - path: App/Resources/PrivacyInfo.xcprivacy
         buildPhase: resources
+      # StoreKit 構成ファイルは scheme の Run（Xcode 上のローカル課金テスト）専用。
+      # プロジェクトには表示するが、出荷バンドルには入れない（テスト用の商品定義を同梱しない）
+      - path: App/Resources/Velstria.storekit
+        buildPhase: none
     dependencies:
       - package: VelstriaCore
     info:

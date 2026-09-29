@@ -84,14 +84,15 @@ App Store Connect（ASC）への v1.0 提出に必要なもの一式と手順。
 - データ収集: **「データを収集しない」（Data Not Collected）** → 詳細と根拠は [app_privacy.md](appstore/app_privacy.md)。
 - トラッキング: なし（App Tracking Transparency のダイアログも出さない）。
 - プライバシーマニフェスト `PrivacyInfo.xcprivacy`: トラッキングなし・収集データなし・Required Reason API は
-  UserDefaults（CA92.1）と File timestamp（C617.1）。コードに API を追加したら `python3 tools/privacy_audit.py` で宣言漏れを確認する。
+  UserDefaults（CA92.1）、File timestamp（C617.1: リプレイファイルの更新日時）、System boot time（35F9.1: 効果音・触覚の再生間隔の計測に
+  `ProcessInfo.systemUptime` を使用）。コードに API を追加したら `python3 tools/privacy_audit.py` で宣言漏れを確認する。
 
 ## 6. 審査に関する情報（App Review Information）
 
 - サインイン: **不要**（アカウント機能なし。デモアカウント欄は空欄のまま「サインインは不要」にする）。
 - 連絡先: `metadata/review_information/first_name.txt` などを記入。
 - メモ: `metadata/review_information/notes.txt`（英語。審査担当は英語で読む）。日本語訳と各記載の根拠は [review_notes.md](appstore/review_notes.md)。
-- 添付: 任意で 30 秒程度のプレイ動画（ホーム → 対戦 → 通貨ストアの購入まで）を添付すると質問の往復を減らせる。
+- 添付: 任意で 30 秒程度のプレイ動画（ホーム → 対戦開始 → ストア > Gem を購入 の購入まで）を添付すると質問の往復を減らせる。
 
 ## 7. 輸出コンプライアンス・コンテンツ権利
 

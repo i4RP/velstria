@@ -1,5 +1,5 @@
 {
-  "_comment": "App Store Connect に登録する App 内課金の正本。DESIGN.md §13 と App/Services/StoreKitService.swift に一致させる（tools/validate_appstore_metadata.py が検証）。price_jpy は日本ストアの基準価格、price_usd_reference は他ストアの目安。",
+  "_comment": "App Store Connect に登録する App 内課金の正本。DESIGN.md §13 と App/Services/StoreKitService.swift に一致させる（tools/validate_appstore_metadata.py が検証）。price_jpy は日本ストアの基準価格、price_usd_reference は他ストアの目安。bonus_gems は有償ジェムに含めて付与する（付与総数 = paid_gems + bonus_gems、すべて有償）。",
   "products": [
     {
       "product_id": "com.velstria.game.gem.60",
@@ -12,11 +12,11 @@
       "localizations": {
         "ja": {
           "display_name": "アストラルジェム 60個",
-          "description": "見た目アイテムの購入に使える有償ジェム60個"
+          "description": "見た目アイテムの購入に使えるジェム60個"
         },
         "en-US": {
           "display_name": "60 Astral Gems",
-          "description": "60 paid Astral Gems for cosmetic items."
+          "description": "60 Astral Gems for cosmetic items."
         }
       }
     },
@@ -31,11 +31,11 @@
       "localizations": {
         "ja": {
           "display_name": "アストラルジェム 300個（+30）",
-          "description": "有償ジェム300個＋無償ボーナス30個"
+          "description": "ジェム300個＋ボーナス30個（計330個）"
         },
         "en-US": {
           "display_name": "300 Astral Gems (+30 Bonus)",
-          "description": "300 paid Astral Gems plus 30 bonus gems."
+          "description": "300 Astral Gems + 30 bonus (330 total)."
         }
       }
     },
@@ -50,11 +50,11 @@
       "localizations": {
         "ja": {
           "display_name": "アストラルジェム 980個（+110）",
-          "description": "有償ジェム980個＋無償ボーナス110個"
+          "description": "ジェム980個＋ボーナス110個（計1090個）"
         },
         "en-US": {
           "display_name": "980 Astral Gems (+110 Bonus)",
-          "description": "980 paid Astral Gems plus 110 bonus gems."
+          "description": "980 Astral Gems + 110 bonus (1090 total)."
         }
       }
     },
@@ -69,11 +69,11 @@
       "localizations": {
         "ja": {
           "display_name": "アストラルジェム 1980個（+260）",
-          "description": "有償ジェム1980個＋無償ボーナス260個"
+          "description": "ジェム1980個＋ボーナス260個（計2240個）"
         },
         "en-US": {
           "display_name": "1980 Astral Gems (+260 Bonus)",
-          "description": "1980 paid Astral Gems plus 260 bonus gems."
+          "description": "1980 Astral Gems + 260 bonus (2240 total)."
         }
       }
     },
@@ -88,11 +88,11 @@
       "localizations": {
         "ja": {
           "display_name": "アストラルジェム 3280個（+600）",
-          "description": "有償ジェム3280個＋無償ボーナス600個"
+          "description": "ジェム3280個＋ボーナス600個（計3880個）"
         },
         "en-US": {
           "display_name": "3280 Astral Gems (+600 Bonus)",
-          "description": "3280 paid Astral Gems plus 600 bonus gems."
+          "description": "3280 Astral Gems + 600 bonus (3880 total)."
         }
       }
     },
@@ -107,11 +107,11 @@
       "localizations": {
         "ja": {
           "display_name": "アストラルジェム 6480個（+1600）",
-          "description": "有償ジェム6480個＋無償ボーナス1600個"
+          "description": "ジェム6480個＋ボーナス1600個（計8080個）"
         },
         "en-US": {
           "display_name": "6480 Astral Gems (+1600 Bonus)",
-          "description": "6480 paid Astral Gems plus 1600 bonus gems."
+          "description": "6480 Astral Gems + 1600 bonus (8080 total)."
         }
       }
     },

@@ -53,7 +53,7 @@
 - [ ] `python3 tools/gen_master_en.py --check` / `python3 tools/privacy_audit.py` が成功。
 - [ ] プライバシーポリシー・利用規約・サポートの URL を公開し、アプリ内リンク（`FeatureFlags`）と ASC の URL が一致して開ける。
 - [ ] 特定商取引法に基づく表記・資金決済法に基づく表示を Web とアプリ内（ストア画面から 1 タップ）に掲載。
-- [ ] 審査メモの導線（ホーム > 対戦、ホーム > ストア > 通貨ストア 等）を最終ビルドで照合し、[review_notes.md](review_notes.md) と notes.txt を更新。
+- [ ] 審査メモの導線（ホーム > 対戦開始、ホーム > ストア > Gem を購入 等）を最終ビルドで照合し、[review_notes.md](review_notes.md) と notes.txt を更新。
 - [ ] 7 つの App 内課金を ASC に登録（審査用スクリーンショット付き）し、バージョンに追加。
 - [ ] スクリーンショット 6.9 インチ × 日英（[screenshots.md](screenshots.md) の確認事項を満たす）。
 - [ ] 年齢制限 9+ の回答（[age_rating.md](age_rating.md)）、栄養ラベル「データを収集しない」（[app_privacy.md](app_privacy.md)）。

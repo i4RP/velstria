@@ -40,10 +40,11 @@ VELSTRIA は開発者のサーバーを持たず、以下のデータはすべ�
 | `NSPrivacyTracking` | false |
 | `NSPrivacyTrackingDomains` | 空 |
 | `NSPrivacyCollectedDataTypes` | 空（= 栄養ラベルの「収集しない」と一致） |
-| `NSPrivacyAccessedAPITypes` | UserDefaults: `CA92.1`（アプリ自身の設定値） / File timestamp: `C617.1`（アプリコンテナ内のセーブ・リプレイの日時/サイズ） |
+| `NSPrivacyAccessedAPITypes` | UserDefaults: `CA92.1`（アプリ自身の設定値） / File timestamp: `C617.1`（アプリコンテナ内のセーブ・リプレイの日時/サイズ） / System boot time: `35F9.1`（効果音・触覚の再生間隔などアプリ内のイベント間の経過時間。`ProcessInfo.systemUptime`） |
 
-- System boot time（`systemUptime` / `mach_absolute_time`）と Disk space API は現時点で未使用のため宣言していない。
-  使用を追加した場合は `python3 tools/privacy_audit.py` がエラーにするので、理由コード（例 `35F9.1`、`E174.1`）を追加する。
+- Disk space API は現時点で未使用のため宣言していない。
+  使用を追加した場合は `python3 tools/privacy_audit.py` がエラーにするので、理由コード（例 `E174.1`）を追加する。
+- 宣言済みの理由コードはいずれも「端末内で完結する用途」で、値を端末外へ送信しない（送信すると理由コードの条件を満たさない）。
 - 外部 SDK を追加する場合は、その SDK 自身のプライバシーマニフェストと署名を確認し、収集データがあれば栄養ラベルを更新する。
 
 ## 変更時のルール

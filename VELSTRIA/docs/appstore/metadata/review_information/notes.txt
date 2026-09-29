@@ -1,24 +1,24 @@
 VELSTRIA: Star Ring Arena is a fully offline 5v5 MOBA. Every teammate and opponent is computer-controlled (AI). There is no server, no account or login, no chat, no multiplayer and no user-generated content. No network connection is needed to play; only In-App Purchases use Apple's StoreKit.
 
 FIRST LAUNCH
-1. Accept the Terms of Service and the Privacy Policy.
-2. Select an age group. Please choose "20 or older". Younger age groups have monthly purchase limits (under 16: JPY 5,000 per month, 16-19: JPY 10,000 per month) that can block test purchases.
-3. Enter any player name. The tutorial can be played or skipped.
+1. Tap to start, then select an age group. Please choose "20 or older". Younger age groups have monthly purchase limits (15 and under: JPY 5,000 per month, 16-19: JPY 10,000 per month) that can block test purchases.
+2. Accept the Terms of Service and the Privacy Policy.
+3. Enter any player name. First-time setup runs entirely on the device (no download). The tutorial can be played or skipped.
 
 WHERE TO FIND EACH FEATURE
-- Play a match: Home > Play > Standard (vs AI, Easy / Normal / Hard) or Ranked (vs AI, draft with bans) > choose a hero > confirm the loadout. A match takes about 10-18 minutes.
-- To see a short session, use Home > Play > Practice. Practice can be left at any time from the in-match menu.
-- Tutorial: Settings > Tutorial.
-- Spectate an AI vs AI match: Home > Play > Spectate. Replays of your own matches: Profile > Replays.
-- Heroes, items, runes and battle spells: from the Home screen menu.
+- Play a match: Home > BATTLE > Standard (vs AI, choose Easy / Normal / Hard) > Choose Hero > Confirm > DEPLOY. Ranked (vs AI, draft with bans): Home > BATTLE > Ranked > Start Draft. A match takes about 10-18 minutes.
+- For a short session: Home > Practice. A practice match can be left at any time from the in-match menu.
+- Tutorial: Home > BATTLE > More > Tutorial (also Settings > Support > Tutorial).
+- Spectate an AI vs AI match: Home > Spectate. Replays of your own matches: Home > Replays.
+- Heroes, items and runes: Home > Heroes / Items / Runes. Battle spells and rune pages are chosen on the Choose Hero screen before each match.
 - Language: Settings > Language > English (by default the app follows the device language).
 - Delete all local data: Settings > Privacy.
-- Contact / support: Settings > Support.
+- Contact / support, Terms of Service and Privacy Policy: Settings > Support.
 
 IN-APP PURCHASES
 - 6 consumable Astral Gem packs: com.velstria.game.gem.60, .gem.300, .gem.980, .gem.1980, .gem.3280, .gem.6480
 - 1 non-consumable: com.velstria.game.pass.premium (Star Pass Premium, Season 1)
-Steps: Home > Store > Currency Store > tap a gem pack > confirm. The paid gem balance increases as soon as the verified transaction is finished. Gems are spent on cosmetic items in the Store. Star Pass Premium: Home > Star Pass > Unlock Premium. Restore Purchases is available in the Store.
+Steps: Home > Store > Get Gems (or tap the currency counter at the top of Home) > tap a gem pack > confirm. The paid gem balance (including the pack bonus) increases as soon as the verified transaction is finished. Gems are spent on cosmetic items in the Store. Star Pass Premium: Home > Star Pass > Premium. Restore Purchases: Home > Store > Restore (also on the Star Pass premium panel).
 
 Paid items are cosmetic only and never change combat stats. There are no randomized paid items (no loot boxes): every product shows exactly what you receive. Heroes are unlocked with Starlight Coins that are earned by playing, not with real money.
 
