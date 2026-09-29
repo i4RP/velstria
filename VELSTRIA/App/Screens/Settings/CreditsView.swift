@@ -26,6 +26,16 @@ enum CreditsCatalog {
     ]
 
     static let technologies = ["SwiftUI", "RealityKit", "StoreKit"]
+
+    /// 技術タグの記号（Apple 製品を表す制限付き SF Symbols は使わず、汎用記号にする）。
+    static func technologySymbol(_ tech: String) -> String {
+        switch tech {
+        case "SwiftUI": return "rectangle.3.group.fill"
+        case "RealityKit": return "cube.transparent.fill"
+        case "StoreKit": return "bag.fill"
+        default: return "hammer.fill"
+        }
+    }
 }
 
 struct CreditsView: View {
@@ -70,7 +80,7 @@ struct CreditsView: View {
                                 .foregroundStyle(Theme.textPrimary)
                             HStack(spacing: 8) {
                                 ForEach(CreditsCatalog.technologies, id: \.self) { tech in
-                                    LiveOpsTag(text: tech, symbol: "swift", color: Theme.cyan)
+                                    LiveOpsTag(text: tech, symbol: CreditsCatalog.technologySymbol(tech), color: Theme.cyan)
                                 }
                             }
                             Text(L("SwiftUI、RealityKit、StoreKit は Apple Inc. の商標です。",

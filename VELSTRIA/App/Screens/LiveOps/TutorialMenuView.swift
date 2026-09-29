@@ -101,8 +101,8 @@ enum TutorialCatalog {
                         titleJa: "帰還とスペル", titleEn: "Recall & Spells",
                         detailJa: "体力が減ったら帰還で泉に戻って回復。バトルスペルで危機を切り抜けます。",
                         detailEn: "Recall to your fountain to heal, and use battle spells to escape danger.",
-                        pointsJa: ["帰還は 6 秒の詠唱。攻撃を受けると中断", "瞬歩で距離を取り、治癒波で味方ごと回復"],
-                        pointsEn: ["Recall channels for 6s and breaks on damage", "Blink to escape; the healing spell heals an ally too"]),
+                        pointsJa: ["帰還は 6 秒の詠唱。移動・攻撃・被ダメージで中断", "瞬歩で距離を取り、治癒波で味方ごと回復"],
+                        pointsEn: ["Recall channels for 6s; moving, attacking or taking damage cancels it", "Blink to escape; the healing spell heals an ally too"]),
     ]
 
     static let tips: [TutorialTip] = [
