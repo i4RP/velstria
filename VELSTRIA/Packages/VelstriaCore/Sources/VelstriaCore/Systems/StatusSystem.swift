@@ -8,7 +8,16 @@ public enum StatusSystem {
     /// 状態効果・シールド・強化攻撃の時間経過と持続ダメージ。
     public static func update(_ s: inout SimState, _ ctx: SimContext) {
         let dt = Balance.dt
-        for i in s.units.indices where CombatSystem.isLiving(s, i) {
+        for i in s.units.indices {
+            guard CombatSystem.isLiving(s, i) else {
+                // 死亡処理（DeathSystem が respawnTimer を設定）済みのヒーローは、前の命のアシスト記録と強化攻撃を捨てる。
+                // 記録を残すと復活直後の再死亡で、前回の死亡前に与えたダメージがアシストとして数えられてしまう
+                if s.units[i].hero?.isDead == true {
+                    CombatSystem.clearAssistRecords(&s, i)
+                    if s.units[i].hero?.empoweredAttack != nil { s.units[i].hero?.empoweredAttack = nil }
+                }
+                continue
+            }
             if !s.units[i].statuses.isEmpty { tickStatuses(&s, ctx, i, dt: dt) }
 
             if !s.units[i].shields.isEmpty {

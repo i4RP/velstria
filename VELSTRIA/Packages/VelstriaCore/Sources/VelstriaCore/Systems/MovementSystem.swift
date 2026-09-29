@@ -20,7 +20,13 @@ public enum MovementSystem {
             let step = currentMoveSpeed(s, i) * Balance.dt
             switch s.units[i].moveIntent {
             case .none:
-                if !s.units[i].path.isEmpty { s.units[i].path.removeAll() }
+                // 攻撃コマンドは意図を .none に戻すため、射程外の攻撃対象はこの tick から追跡を続ける
+                if let chase = CombatSystem.chaseIntent(s, i), case .follow(let targetID, let range) = chase {
+                    s.units[i].moveIntent = chase
+                    follow(&s, ctx, i, targetID: targetID, range: range, step: step)
+                } else if !s.units[i].path.isEmpty {
+                    s.units[i].path.removeAll()
+                }
             case .direction(let dir):
                 moveInDirection(&s, ctx, i, direction: dir, step: step)
             case .point(let goal):
@@ -132,7 +138,9 @@ public enum MovementSystem {
         // 経路は一旦取り出して書き戻す（配列のコピーを避ける）
         var path = s.units[i].path
         s.units[i].path = []
-        if let last = path.last, last.distanceSquared(to: goal) > repathSq { path.removeAll() }
+        if !pathStillValid(ctx, path, goal: goal, radius: r, unwalkableTolerance: Balance.combatUnwalkableGoalTolerance) {
+            path.removeAll()
+        }
         if path.isEmpty {
             if old.distanceSquared(to: goal) <= Balance.combatArrivalDistance * Balance.combatArrivalDistance {
                 s.units[i].moveIntent = .none
@@ -191,8 +199,8 @@ public enum MovementSystem {
             path.removeAll()
             new = ctx.nav.resolveMove(from: old, to: old.moved(toward: targetPos, maxDistance: travel), radius: r)
         } else {
-            let repathSq = Balance.combatRepathDistance * Balance.combatRepathDistance
-            if let last = path.last, last.distanceSquared(to: targetPos) > repathSq { path.removeAll() }
+            // 対象が歩行不能な位置（障害物として焼き込まれた構造物など）に居る場合は、経路の終点から射程内に届けば十分
+            if !pathStillValid(ctx, path, goal: targetPos, radius: r, unwalkableTolerance: reach) { path.removeAll() }
             if path.isEmpty { path = planPath(ctx, from: old, to: targetPos, radius: r) }
             new = advance(ctx, from: old, along: &path, step: travel, radius: r)
             if isStuck(s, i, from: old, to: new, step: travel) { path.removeAll() }
@@ -200,6 +208,19 @@ public enum MovementSystem {
         s.units[i].pos = new
         faceMovement(&s, i, from: old, to: new)
         s.units[i].path = path
+    }
+
+    /// キャッシュ済みの経路をそのまま使えるか。終点が目標から combatRepathDistance 以内なら有効。
+    /// 目標が歩行不能（壁・構造物の中）な場合、経路の終点は最寄りの歩行可能点で目標から常にずれるため、
+    /// unwalkableTolerance 以内なら有効とみなす（毎 tick の経路探索を防ぐ）。isWalkable はずれた時だけ問い合わせる。
+    static func pathStillValid(_ ctx: SimContext, _ path: [Vec2], goal: Vec2, radius: Double,
+                               unwalkableTolerance: Double) -> Bool {
+        guard let last = path.last else { return false }
+        let d2 = last.distanceSquared(to: goal)
+        let repath = Balance.combatRepathDistance
+        if d2 <= repath * repath { return true }
+        let tolerance = max(repath, unwalkableTolerance)
+        return d2 <= tolerance * tolerance && !ctx.nav.isWalkable(goal, radius: radius)
     }
 
     /// 経路（末尾は歩行可能な目標点）。直進できれば A* を省略する。到達不能なら直進（壁ずり）で試みる。
@@ -287,8 +308,10 @@ public enum MovementSystem {
                     normal = delta / d
                 } else {
                     // 完全に重なった場合は ID から決まる方向へ
+                    // 剰余を非負に正規化する（abs は Int.min で落ちるため使わない）
                     let seed = Int(s.units[indices[a]].id) &* 7919 &+ Int(s.units[indices[b]].id) &* 104_729
-                    normal = Vec2.fromAngle(Double(abs(seed) % 360) * Double.pi / 180)
+                    let degrees = ((seed % 360) + 360) % 360
+                    normal = Vec2.fromAngle(Double(degrees) * Double.pi / 180)
                 }
                 let overlap = (minDist - d) * Balance.combatMinionSeparationStiffness
                 switch (movable[a], movable[b]) {

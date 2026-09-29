@@ -22,15 +22,19 @@ struct CombatSpatialGrid {
 
     init(positions: [Vec2], cellSize requested: Double) {
         self.positions = positions
+        // 範囲は有限の点だけで決める（NaN / ∞ が混ざっても Int 変換で落ちないように）
         var minX = Double.infinity, minY = Double.infinity
         var maxX = -Double.infinity, maxY = -Double.infinity
-        for p in positions {
+        for p in positions where p.x.isFinite && p.y.isFinite {
             minX = min(minX, p.x); minY = min(minY, p.y)
             maxX = max(maxX, p.x); maxY = max(maxY, p.y)
         }
-        if positions.isEmpty { minX = 0; minY = 0; maxX = 0; maxY = 0 }
-        let extent = max(maxX - minX, maxY - minY)
-        let size = max(requested, 1, extent / Double(Self.maxCellsPerAxis - 1))
+        if minX > maxX { minX = 0; minY = 0; maxX = 0; maxY = 0 }
+        var extent = max(maxX - minX, maxY - minY)
+        // 桁あふれ（±1e308 級の点）でも範囲を有限に保つ
+        if !extent.isFinite { minX = 0; minY = 0; maxX = 0; maxY = 0; extent = 0 }
+        let safeRequested = requested.isFinite ? requested : 1
+        let size = max(safeRequested, 1, extent / Double(Self.maxCellsPerAxis - 1))
         cellSize = size
         originX = minX
         originY = minY
@@ -48,19 +52,22 @@ struct CombatSpatialGrid {
         }
     }
 
-    private func column(_ x: Double) -> Int {
-        min(cols - 1, max(0, Int(((x - originX) / cellSize).rounded(.down))))
+    /// 座標 → セル番号（範囲外は端のセル、非有限値は 0）。Double のまま丸めてから Int にする。
+    private static func cell(_ v: Double, origin: Double, size: Double, count: Int) -> Int {
+        let f = ((v - origin) / size).rounded(.down)
+        guard f.isFinite else { return 0 }
+        return Int(min(Double(count - 1), max(0, f)))
     }
 
-    private func row(_ y: Double) -> Int {
-        min(rows - 1, max(0, Int(((y - originY) / cellSize).rounded(.down))))
-    }
+    private func column(_ x: Double) -> Int { Self.cell(x, origin: originX, size: cellSize, count: cols) }
+
+    private func row(_ y: Double) -> Int { Self.cell(y, origin: originY, size: cellSize, count: rows) }
 
     private func cellIndex(_ p: Vec2) -> Int { row(p.y) * cols + column(p.x) }
 
     /// p から中心間距離 radius 以内の要素番号を out に追加する（決定論的な順序）。
     func query(_ p: Vec2, radius: Double, into out: inout [Int]) {
-        guard !positions.isEmpty else { return }
+        guard !positions.isEmpty, p.x.isFinite, p.y.isFinite, radius.isFinite, radius >= 0 else { return }
         let c0 = column(p.x - radius), c1 = column(p.x + radius)
         let r0 = row(p.y - radius), r1 = row(p.y + radius)
         let r2 = radius * radius

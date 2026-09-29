@@ -78,6 +78,24 @@ final class CombatMovementTests: XCTestCase {
         XCTAssertEqual(w.s.units[h].pos.distance(to: goal), before - 10, accuracy: 1e-6)
     }
 
+    func testCachedPathValidityToleratesUnwalkableGoalOffset() {
+        let w = CombatWorld()
+        let edgePath = [Vec2(1, 5000)]
+        let r = Balance.heroRadius
+        // 目標が歩み寄れる地点なら 50 以内のずれだけ許す
+        XCTAssertTrue(MovementSystem.pathStillValid(w.ctx, edgePath, goal: Vec2(40, 5000), radius: r,
+                                                    unwalkableTolerance: 400))
+        XCTAssertFalse(MovementSystem.pathStillValid(w.ctx, [Vec2(5000, 5000)], goal: Vec2(5100, 5000), radius: r,
+                                                     unwalkableTolerance: 400))
+        // マップ外（歩行不能）の目標: 終点は最寄りの歩行可能点でずれるが、許容内なら作り直さない
+        XCTAssertTrue(MovementSystem.pathStillValid(w.ctx, edgePath, goal: Vec2(-300, 5000), radius: r,
+                                                    unwalkableTolerance: 400))
+        XCTAssertFalse(MovementSystem.pathStillValid(w.ctx, edgePath, goal: Vec2(-600, 5000), radius: r,
+                                                     unwalkableTolerance: 400))
+        XCTAssertFalse(MovementSystem.pathStillValid(w.ctx, [], goal: Vec2(40, 5000), radius: r,
+                                                     unwalkableTolerance: 400))
+    }
+
     func testFollowStopsWithinRange() {
         var w = CombatWorld()
         let h = w.addHero(team: .blue, at: origin)

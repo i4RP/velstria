@@ -12,8 +12,10 @@ extension Balance {
     public static let combatMinionProjectileSpeed: Double = 1100
     /// タワー / Core の通常攻撃弾速。
     public static let combatStructureProjectileSpeed: Double = 1400
-    /// 前隙中に対象が射程外へ出たとみなすまでの猶予距離。
-    public static let combatWindupRangeLeeway: Double = 30
+    /// 前隙中に対象が射程外へ出たとみなすまでの猶予距離（射程バッファ）。
+    /// 前隙（Lv1 近接で約 0.29 秒）の間に移動速度 ~270 の対象は ~80 動くため、歩いて逃げるだけでは
+    /// 取り消されず、突進・ブリンクなどで大きく離れた場合だけ取り消される値にする。
+    public static let combatWindupRangeLeeway: Double = 150
     /// 追跡は射程よりこの分だけ内側で止まる（射程境界での往復を防ぐ）。
     public static let combatFollowRangeMargin: Double = 10
     /// 追尾弾の最大飛行距離（安全装置）。
@@ -40,6 +42,8 @@ extension Balance {
     // MARK: 移動
     /// 経路の目標がこれ以上ずれたら再計算する。
     public static let combatRepathDistance: Double = 50
+    /// 歩行不能な目標（Core・壁の中の地点）へ向かう経路は、終点がこの距離以内なら作り直さない。
+    public static let combatUnwalkableGoalTolerance: Double = 400
     /// 地点移動の到着判定距離。
     public static let combatArrivalDistance: Double = 4
     /// 1 tick の移動量が歩幅のこの割合未満なら「詰まり」とみなす。

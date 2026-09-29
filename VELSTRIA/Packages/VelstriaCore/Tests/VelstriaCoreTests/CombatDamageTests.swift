@@ -303,6 +303,30 @@ final class CombatDamageTests: XCTestCase {
         XCTAssertEqual(w.s.units[v].hero?.recentSupporters, [])
     }
 
+    func testAssistRecordsAreKeptUntilDeathIsProcessedThenCleared() {
+        var w = CombatWorld()
+        let a = w.addHero(team: .blue, at: Vec2(1000, 1000))
+        let healer = w.addHero(team: .red, at: Vec2(1200, 1000))
+        let v = w.addHero(team: .red, at: Vec2(1100, 1000), stats: CombatWorld.stats(hp: 100))
+        w.s.time = 5
+        CombatSystem.heal(&w.s, w.ctx, sourceID: w.id(healer), targetIndex: v, amount: 1)
+        w.s.units[v].hp = 100
+        CombatSystem.applyDamage(&w.s, w.ctx, sourceID: w.id(a), targetIndex: v, amount: 500, type: .trueDamage,
+                                 source: .spell)
+        XCTAssertFalse(w.s.units[v].isAlive)
+        // DeathSystem が処理するまで（respawnTimer 未設定）は記録を残す
+        StatusSystem.update(&w.s, w.ctx)
+        XCTAssertEqual(w.s.units[v].hero?.recentDamagers.map(\.sourceID), [w.id(a)])
+
+        // 死亡処理後は前の命の記録を捨てる（復活直後の再死亡で古いアシストが付かない）
+        w.s.units[v].hero?.empoweredAttack = EmpoweredAttack(bonusDamage: 10, damageType: .magic)
+        w.s.units[v].hero?.respawnTimer = 6
+        StatusSystem.update(&w.s, w.ctx)
+        XCTAssertEqual(w.s.units[v].hero?.recentDamagers, [])
+        XCTAssertEqual(w.s.units[v].hero?.recentSupporters, [])
+        XCTAssertNil(w.s.units[v].hero?.empoweredAttack, "強化攻撃は死亡で失われる")
+    }
+
     func testHealAndShieldPowerAndHealingReceived() {
         var w = CombatWorld()
         var st = CombatWorld.stats()

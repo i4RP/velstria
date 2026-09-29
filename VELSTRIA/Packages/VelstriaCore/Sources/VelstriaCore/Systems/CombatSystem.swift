@@ -274,6 +274,13 @@ public enum CombatSystem {
         }
     }
 
+    /// アシスト記録をすべて捨てる（死亡処理が済んだヒーロー用）。
+    static func clearAssistRecords(_ s: inout SimState, _ i: Int) {
+        guard s.units[i].hero != nil else { return }
+        if !s.units[i].hero!.recentDamagers.isEmpty { s.units[i].hero!.recentDamagers.removeAll() }
+        if !s.units[i].hero!.recentSupporters.isEmpty { s.units[i].hero!.recentSupporters.removeAll() }
+    }
+
     // MARK: - 状態効果・CC
 
     /// 状態効果を付与（同一 kind + tag は重ねず、残り時間・強さはそれぞれ大きい方）。
@@ -501,23 +508,21 @@ public enum CombatSystem {
 
         if dist > reach {
             // 射程外: ヒーローとミニオンは追跡する（モンスター・構造物は各システムが移動を決める）
-            let kind = s.units[i].kind
-            if kind == .hero || kind == .minion {
+            if chasesAttackTarget(s.units[i].kind) {
                 // 経路キャッシュは MovementSystem が目標とのずれで検証するため、ここでは消さない
-                let followRange = max(0, range - Balance.combatFollowRangeMargin)
-                if s.units[i].moveIntent != .follow(targetID: tid, range: followRange) {
-                    s.units[i].moveIntent = .follow(targetID: tid, range: followRange)
-                }
+                let intent = MoveIntent.follow(targetID: tid, range: chaseRange(range))
+                if s.units[i].moveIntent != intent { s.units[i].moveIntent = intent }
             }
             return
         }
 
-        // 射程内: 立ち止まって対象を向く
+        // 射程内: 追跡をやめて対象を向く。ミニオンはレーン行進（.point）も止めて殴る。
+        // ヒーローの地点移動とモンスターの帰還（リーシュ）は各システムの判断なのでここでは消さない
         switch s.units[i].moveIntent {
         case .follow:
             s.units[i].moveIntent = .none
             s.units[i].path.removeAll()
-        case .point where s.units[i].kind != .hero:
+        case .point where s.units[i].kind == .minion:
             s.units[i].moveIntent = .none
             s.units[i].path.removeAll()
         default:
@@ -528,6 +533,25 @@ public enum CombatSystem {
         let interval = attackInterval(s.units[i].stats)
         s.units[i].windupRemaining = max(timeEpsilon * 2, interval * Balance.attackWindupRatio + carry)
         s.emit(.attackStarted(sourceID: s.units[i].id, targetID: tid))
+    }
+
+    /// 通常攻撃の対象を射程外から追跡する種別（モンスター・構造物は各システムが移動を決める）。
+    static func chasesAttackTarget(_ kind: UnitKind) -> Bool { kind == .hero || kind == .minion }
+
+    /// 追跡で止まる距離（射程境界での往復を防ぐため射程より少し内側）。
+    static func chaseRange(_ attackRange: Double) -> Double {
+        max(0, attackRange - Balance.combatFollowRangeMargin)
+    }
+
+    /// 移動意図が無いユニットの攻撃対象が射程外なら追跡の意図を返す（MovementSystem が使う）。
+    /// 攻撃コマンドは発行の度に意図を .none に戻すため、同じ tick の移動で追跡を続けるのに必要。
+    static func chaseIntent(_ s: SimState, _ i: Int) -> MoveIntent? {
+        guard chasesAttackTarget(s.units[i].kind), let tid = s.units[i].attackTargetID,
+              let t = s.index(of: tid), s.isTargetableEnemy(t, of: s.units[i].team) else { return nil }
+        let range = s.units[i].stats.attackRange
+        let reach = range + s.units[i].radius + s.units[t].radius
+        guard s.units[i].pos.distanceSquared(to: s.units[t].pos) > reach * reach else { return nil }
+        return .follow(targetID: tid, range: chaseRange(range))
     }
 
     /// 前隙完了: 近接は即命中、遠隔は追尾弾を発射する。overshoot = 前隙が 0 を超えて経過した端数。

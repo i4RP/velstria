@@ -72,6 +72,45 @@ final class CombatAttackTests: XCTestCase {
         XCTAssertTrue(w.damageEvents.isEmpty)
     }
 
+    func testWalkingTargetWithinLeewayDoesNotCancelWindup() {
+        var w = CombatWorld()
+        let a = w.addHero(team: .blue, at: Vec2(5000, 5000))
+        let t = w.addHero(team: .red, at: Vec2(5150, 5000))
+        w.s.units[a].attackTargetID = w.id(t)
+        w.tick(2)
+        XCTAssertNotNil(w.s.units[a].windupRemaining)
+        // 歩いて逃げる程度（射程外 100）なら前隙は続き、攻撃は命中する
+        let reach = 150 + 2 * Balance.heroRadius
+        w.s.units[t].pos = w.s.units[a].pos + Vec2(reach + 100, 0)
+        w.tick(12)
+        XCTAssertEqual(w.damageEvents.map(\.targetID), [w.id(t)])
+        XCTAssertEqual(starts(w), 1)
+    }
+
+    func testAttackCommandIntentResetDoesNotStallChase() {
+        var w = CombatWorld()
+        let a = w.addHero(team: .blue, at: Vec2(5000, 5000), stats: CombatWorld.stats(moveSpeed: 300))
+        let t = w.addHero(team: .red, at: Vec2(5000, 5000) + Vec2(1, 1).normalized * 800)
+        w.s.units[a].attackTargetID = w.id(t)
+        // 攻撃コマンド直後の状態（意図は .none）でも、同じ tick の移動で追跡する
+        w.s.units[a].moveIntent = .none
+        MovementSystem.update(&w.s, w.ctx)
+        XCTAssertEqual(w.s.units[a].pos.distance(to: Vec2(5000, 5000)), 10, accuracy: 1e-6)
+        XCTAssertEqual(w.s.units[a].moveIntent,
+                       .follow(targetID: w.id(t), range: 150 - Balance.combatFollowRangeMargin))
+
+        // 射程内・対象なし・構造物は追跡しない
+        let b = w.addHero(team: .blue, at: Vec2(6000, 6000))
+        w.s.units[b].moveIntent = .none
+        let tower = w.addUnit(.tower, team: .blue, at: Vec2(3000, 3000), radius: 110,
+                              stats: CombatWorld.stats(range: 750))
+        w.s.units[tower].attackTargetID = w.id(t)
+        MovementSystem.update(&w.s, w.ctx)
+        XCTAssertEqual(w.s.units[b].pos, Vec2(6000, 6000))
+        XCTAssertEqual(w.s.units[b].moveIntent, .none)
+        XCTAssertEqual(w.s.units[tower].moveIntent, .none)
+    }
+
     func testStunDuringWindupCancelsWithoutConsuming() {
         var w = CombatWorld()
         let a = w.addHero(team: .blue, at: Vec2(5000, 5000))
@@ -209,6 +248,23 @@ final class CombatAttackTests: XCTestCase {
         XCTAssertEqual(w.s.units[tower].moveIntent, .none)
         XCTAssertEqual(w.s.units[tower].pos, Vec2(5000, 5000))
         XCTAssertEqual(starts(w), 0)
+    }
+
+    func testInRangeMinionStopsLaneWalkButMonsterKeepsItsOwnMovement() {
+        var w = CombatWorld()
+        let target = w.addHero(team: .blue, at: Vec2(5000, 5000), stats: CombatWorld.stats(hp: 100_000))
+        let minion = w.addMinion(.melee, team: .red, at: Vec2(5100, 5100))
+        let monster = w.addUnit(.monster, team: .neutral, at: Vec2(4900, 4950), radius: 60,
+                                stats: CombatWorld.stats(range: 150, moveSpeed: 0))
+        w.s.units[minion].attackTargetID = w.id(target)
+        w.s.units[minion].moveIntent = .point(Vec2(3000, 3000))
+        w.s.units[monster].attackTargetID = w.id(target)
+        w.s.units[monster].moveIntent = .point(Vec2(3500, 3500))
+        CombatSystem.updateAttacks(&w.s, w.ctx)
+        XCTAssertEqual(w.s.units[minion].moveIntent, .none, "ミニオンは射程内でレーン行進を止めて殴る")
+        XCTAssertNotNil(w.s.units[minion].windupRemaining)
+        XCTAssertEqual(w.s.units[monster].moveIntent, .point(Vec2(3500, 3500)), "モンスターの移動は MonsterSystem が決める")
+        XCTAssertNotNil(w.s.units[monster].windupRemaining)
     }
 
     func testHeroesFirstPicksLowestEffectiveHealthHero() {
