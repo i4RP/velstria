@@ -36,6 +36,34 @@ enum LiveOpsClock {
     }
 }
 
+/// 画面を開いたまま日付が変わった時の日替わり処理。
+@MainActor
+enum LiveOpsDayRollover {
+    /// 最終ログイン日より日付が進んでいれば、起動時と同じ処理（ログインボーナス・デイリー / ウィークリーの更新）を行う。
+    /// 端末時刻が過去に戻った場合は何もしない。処理した場合 true。
+    @discardableResult
+    static func refreshIfNeeded(app: AppModel, now: Date = Date()) -> Bool {
+        guard needsRefresh(lastLoginDayKey: app.profile.lastLoginDayKey, today: LiveOpsService.dayKey(now)) else { return false }
+        var p = app.profile
+        LiveOpsService.onLaunch(profile: &p, master: app.master, now: now)
+        app.profile = p
+        return true
+    }
+
+    /// 日付キーは "yyyy-MM-dd" なので文字列比較で前後を判定できる。
+    nonisolated static func needsRefresh(lastLoginDayKey: String, today: String) -> Bool {
+        lastLoginDayKey.isEmpty || today > lastLoginDayKey
+    }
+
+    /// 画面の表示中、定期的に日付の変化を確認する（`.task` から呼ぶ。画面を閉じると終了）。
+    static func watch(_ app: AppModel) async {
+        while !Task.isCancelled {
+            refreshIfNeeded(app: app)
+            try? await Task.sleep(for: .seconds(15))
+        }
+    }
+}
+
 // MARK: - 書式
 
 enum LiveOpsFormat {
@@ -358,6 +386,60 @@ struct LiveOpsRewardChip: View {
     }
 }
 
+/// 左から並べ、幅が足りなければ次の行へ折り返す配置（報酬チップなど）。
+struct LiveOpsFlowLayout: Layout {
+    var spacing: CGFloat = 6
+    var lineSpacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let rows = arrange(maxWidth: proposal.width ?? .infinity, subviews: subviews)
+        let width = rows.map(\.width).max() ?? 0
+        let height = rows.map(\.height).reduce(0, +) + lineSpacing * CGFloat(max(0, rows.count - 1))
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var y = bounds.minY
+        for row in arrange(maxWidth: bounds.width, subviews: subviews) {
+            var x = bounds.minX
+            for item in row.items {
+                subviews[item.index].place(at: CGPoint(x: x, y: y + (row.height - item.size.height) / 2),
+                                           proposal: ProposedViewSize(item.size))
+                x += item.size.width + spacing
+            }
+            y += row.height + lineSpacing
+        }
+    }
+
+    private struct Row {
+        var items: [(index: Int, size: CGSize)] = []
+        var width: CGFloat = 0
+        var height: CGFloat = 0
+    }
+
+    private func arrange(maxWidth: CGFloat, subviews: Subviews) -> [Row] {
+        var rows: [Row] = []
+        var current = Row()
+        for index in subviews.indices {
+            var size = subviews[index].sizeThatFits(.unspecified)
+            // 1 つで行幅を超えるものは行幅に収める
+            if maxWidth.isFinite && size.width > maxWidth {
+                size = subviews[index].sizeThatFits(ProposedViewSize(width: maxWidth, height: nil))
+            }
+            let needed = current.items.isEmpty ? size.width : current.width + spacing + size.width
+            if !current.items.isEmpty && needed > maxWidth {
+                rows.append(current)
+                current = Row()
+            }
+            current.width = current.items.isEmpty ? size.width : current.width + spacing + size.width
+            current.height = max(current.height, size.height)
+            current.items.append((index, size))
+        }
+        if !current.items.isEmpty { rows.append(current) }
+        return rows
+    }
+}
+
 /// 44pt の丸いアイコンボタン（削除・再抽選など）。
 struct LiveOpsIconButton: View {
     let symbol: String
@@ -421,19 +503,20 @@ struct LiveOpsTileToggleStyle: ToggleStyle {
         Button {
             withAnimation(.easeOut(duration: 0.15)) { configuration.isOn.toggle() }
         } label: {
-            HStack(spacing: 6) {
-                configuration.label
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Theme.textPrimary)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Image(systemName: configuration.isOn ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(configuration.isOn ? tint : Theme.textSecondary.opacity(0.7))
-            }
+            // 記号を上段、名前を下段の 1 行に置き、狭いタイルでも語の途中で折り返さないようにする
+            configuration.label
+                .labelStyle(LiveOpsTileLabelStyle())
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundStyle(Theme.textPrimary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .overlay(alignment: .topTrailing) {
+                    Image(systemName: configuration.isOn ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(configuration.isOn ? tint : Theme.textSecondary.opacity(0.7))
+                }
             .padding(.horizontal, 10)
-            .frame(maxWidth: .infinity, minHeight: 48)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity, minHeight: 50)
             .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(configuration.isOn ? tint.opacity(0.16) : Color.white.opacity(0.06)))
             .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -441,6 +524,20 @@ struct LiveOpsTileToggleStyle: ToggleStyle {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// タイル用のラベル（記号を上、名前を下に 1 行で）。
+struct LiveOpsTileLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            configuration.icon
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(Theme.cyan)
+            configuration.title
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
     }
 }
 

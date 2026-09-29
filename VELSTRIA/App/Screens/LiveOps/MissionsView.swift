@@ -23,7 +23,7 @@ struct LiveOpsMissionEntry: Identifiable, Equatable {
         var list: [MailAttachment] = []
         if def.rewardCoins > 0 { list.append(MailAttachment(kind: .coin, amount: def.rewardCoins)) }
         if def.rewardPassXP > 0 { list.append(MailAttachment(kind: .passXP, amount: def.rewardPassXP)) }
-        return list
+        return list + LiveOpsMissions.extraRewards(def)
     }
 }
 
@@ -44,10 +44,22 @@ enum LiveOpsMissions {
         entries(LiveOpsService.weeklyMissions(profile: profile), progress: profile.missions.weekly)
     }
 
-    /// イベントミッション（進捗はデイリー → ウィークリーの順に ID で検索）。
+    /// イベントミッション。LiveOpsService は開催中イベントの進捗を profile.missions.weekly の
+    /// ウィークリー分の後ろに並べて保持するため、デイリー → ウィークリーの順に ID で検索する（未着手は進捗 0）。
     static func event(_ event: EventDef, profile: Profile) -> [LiveOpsMissionEntry] {
         let defs = event.missionIDs.compactMap { LiveOpsService.missionDef(id: $0) }
         return entries(defs, progress: profile.missions.daily + profile.missions.weekly)
+    }
+
+    /// Coin / パス XP 以外の追加報酬（イベントミッションの Gem・コスメなど）。
+    /// LiveOpsService 側で MissionDef に `extraRewards: [MailAttachment]` が追加される（契約の型には無い）ため、
+    /// コンパイル時に依存しないよう名前で読み取る。フィールドが無ければ空。
+    static func extraRewards(_ def: MissionDef) -> [MailAttachment] {
+        extraRewards(reflecting: def)
+    }
+
+    static func extraRewards(reflecting value: Any) -> [MailAttachment] {
+        Mirror(reflecting: value).children.first { $0.label == "extraRewards" }?.value as? [MailAttachment] ?? []
     }
 
     /// 表示順: 受取可能 → 進行中 → 受取済み（各グループ内は元の順）。
@@ -94,19 +106,20 @@ enum LiveOpsClaims {
                 granted += rewards
             }
         }
+        // 受取に失敗しても、受取処理内の日替わり更新（期限切れ報酬のメール送付など）は反映する
+        app.profile = p
         guard any else {
             app.audio.play(.uiError)
             app.haptics.warning()
             app.showToast(L("受け取れる報酬がありません", "Nothing to claim"))
             return nil
         }
-        app.profile = p
         return granted
     }
 
     /// 受取結果をポップアップ用の内容に変換（報酬が空ならトーストのみ）。
     static func content(for rewards: [MailAttachment], app: AppModel) -> RewardClaimContent? {
-        guard !rewards.isEmpty else {
+        guard !RewardClaimText.merged(rewards).isEmpty else {
             app.showToast(L("受け取りました", "Claimed"))
             return nil
         }
@@ -145,7 +158,7 @@ struct LiveOpsMissionRow: View {
                         .lineLimit(1)
                         .fixedSize()
                 }
-                HStack(spacing: 6) {
+                LiveOpsFlowLayout(spacing: 6, lineSpacing: 4) {
                     ForEach(Array(entry.rewards.enumerated()), id: \.offset) { _, reward in
                         LiveOpsRewardChip(attachment: reward)
                     }
@@ -219,10 +232,13 @@ struct MissionsView: View {
             .padding(.bottom, 10)
         }
         .rewardClaimPopup($reward)
+        // 表示中に 0:00 を過ぎたらミッションを入れ替える
+        .task { await LiveOpsDayRollover.watch(app) }
     }
 
     private func sidePanel(daily: [LiveOpsMissionEntry], weekly: [LiveOpsMissionEntry], current: [LiveOpsMissionEntry]) -> some View {
-        let claimable = current.filter { $0.state == .claimable }
+        // 「すべて受け取る」は表示中のタブに限らず、デイリー・ウィークリーの両方を対象にする
+        let claimable = (daily + weekly).filter { $0.state == .claimable }
         let done = current.filter { $0.state != .inProgress }.count
         return ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 10) {
@@ -288,7 +304,7 @@ struct MissionsView: View {
                     Text(L("スターパス", "Star Pass"))
                         .font(Theme.heading(14))
                         .foregroundStyle(Theme.textPrimary)
-                    Text(L("Lv \(level) · ミッションでパス XP 獲得", "Lv \(level) · Earn Pass XP"))
+                    Text(L("Lv \(level) · 対戦とミッションで XP 獲得", "Lv \(level) · Earn XP from matches & missions"))
                         .font(Theme.body(11))
                         .foregroundStyle(Theme.textSecondary)
                         .lineLimit(1)

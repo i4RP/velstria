@@ -228,9 +228,12 @@ private struct ReplayRow: View {
                     }
                 }
                 HStack(spacing: 10) {
-                    Label(result.text, systemImage: result.symbol)
-                        .font(Theme.heading(12))
-                        .foregroundStyle(result.color)
+                    // 観戦は種別タグと同じ表記になるため、勝敗が無い場合は省く
+                    if meta.won != nil || meta.mode != .spectate {
+                        Label(result.text, systemImage: result.symbol)
+                            .font(Theme.heading(12))
+                            .foregroundStyle(result.color)
+                    }
                     Label(LiveOpsFormat.duration(meta.duration), systemImage: "timer")
                     if let record {
                         Text("\(record.kills) / \(record.deaths) / \(record.assists)")

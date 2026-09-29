@@ -156,8 +156,8 @@ struct StarPassView: View {
                     LiveOpsProgressBar(fraction: Double(progress.current) / Double(max(1, progress.needed)), tint: Theme.gold)
                         .frame(maxWidth: 220)
                     Text(level >= LiveOpsService.passMaxLevel ? L("最大レベル到達", "Max level reached")
-                                                              : L("\(progress.current.formatted()) / \(progress.needed.formatted()) XP · ミッションで獲得",
-                                                                  "\(progress.current.formatted()) / \(progress.needed.formatted()) XP · from missions"))
+                                                              : L("\(progress.current.formatted()) / \(progress.needed.formatted()) XP · 対戦とミッションで獲得",
+                                                                  "\(progress.current.formatted()) / \(progress.needed.formatted()) XP · from matches & missions"))
                         .font(Theme.body(11))
                         .foregroundStyle(Theme.textSecondary)
                         .monospacedDigit()
@@ -226,8 +226,8 @@ struct StarPassView: View {
             Label(L("プレミアムトラック", "Premium Track"), systemImage: "crown.fill")
                 .font(Theme.heading(15))
                 .foregroundStyle(Theme.gold)
-            Text(L("購入すると、到達済みを含むすべての段でプレミアム報酬（コスメ・ジェムなど）を受け取れます。有効期間は現在のシーズン中です。",
-                   "Unlock premium rewards (cosmetics, gems and more) on every level, including ones already reached. Valid for the current season."))
+            Text(L("購入すると、\(StarPassTrack.seasonName(app.profile.pass.seasonID)) のプレミアムトラックが解放され、到達済みの段を含むすべての段でプレミアム報酬（コスメ・ジェムなど）を受け取れます。",
+                   "Unlocks the \(StarPassTrack.seasonName(app.profile.pass.seasonID)) premium track: claim premium rewards (cosmetics, gems and more) on every level, including ones already reached."))
             Text(L("報酬は見た目と通貨のみで、対戦での強さには影響しません。", "Rewards are cosmetic or currency only and never affect battle power."))
             if let remaining = app.storeKit.monthlyLimitRemaining(profile: app.profile) {
                 Text(L("今月の購入可能残額: ¥\(remaining.formatted())", "Remaining monthly limit: ¥\(remaining.formatted())"))
@@ -359,6 +359,10 @@ struct StarPassView: View {
             return
         }
         app.profile = p
+        guard !RewardClaimText.merged(granted).isEmpty else {
+            app.showToast(L("受け取りました", "Claimed"))
+            return
+        }
         let subtitle = slots.count == 1 ? L("スターパス Lv \(slots[0].level)", "Star Pass Lv \(slots[0].level)") : L("スターパス", "Star Pass")
         reward = RewardClaimContent(subtitle: subtitle, attachments: granted)
     }

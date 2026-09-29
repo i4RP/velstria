@@ -74,6 +74,7 @@ enum RewardClaimText {
     }
 
     /// 数量系（コイン・ジェム・パス XP）を合算し、コスメ・ヒーローは重複を除いて並べる（出現順を維持）。
+    /// 合計 0 以下の数量系（付与できなかった報酬の代替など）は表示しない。
     static func merged(_ list: [MailAttachment]) -> [MailAttachment] {
         var result: [MailAttachment] = []
         for a in list {
@@ -90,7 +91,7 @@ enum RewardClaimText {
                 }
             }
         }
-        return result
+        return result.filter { $0.kind == .cosmetic || $0.kind == .hero || $0.amount > 0 }
     }
 
     static func symbol(for type: CosmeticType) -> String {

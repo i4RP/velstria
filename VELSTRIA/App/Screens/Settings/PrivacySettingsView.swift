@@ -11,23 +11,33 @@ struct PrivacySettingsView: View {
     /// 2 段目の最終確認（アラート）。
     @State private var finalConfirm = false
 
+    private static let deletePanelID = "privacy_delete_panel"
+
     var body: some View {
         ScreenScaffold(title: L("プライバシー", "Privacy"), showsCurrencies: false) {
-            ScrollView(.vertical, showsIndicators: true) {
-                HStack(alignment: .top, spacing: 14) {
-                    VStack(spacing: 10) {
-                        storedPanel
-                        notCollectedPanel
+            ScrollViewReader { proxy in
+                ScrollView(.vertical, showsIndicators: true) {
+                    HStack(alignment: .top, spacing: 14) {
+                        VStack(spacing: 10) {
+                            storedPanel
+                            notCollectedPanel
+                        }
+                        .frame(maxWidth: .infinity)
+                        VStack(spacing: 10) {
+                            policyPanel
+                            deletePanel
+                                .id(Self.deletePanelID)
+                        }
+                        .frame(maxWidth: .infinity)
                     }
-                    .frame(maxWidth: .infinity)
-                    VStack(spacing: 10) {
-                        policyPanel
-                        deletePanel
-                    }
-                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 10)
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 10)
+                .onChange(of: armed) { _, isArmed in
+                    // 確認欄が画面外に出ないよう、開いたら削除欄の下端まで送る
+                    guard isArmed else { return }
+                    withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(Self.deletePanelID, anchor: .bottom) }
+                }
             }
         }
         .alert(L("最終確認", "Final Confirmation"), isPresented: $finalConfirm) {

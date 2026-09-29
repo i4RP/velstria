@@ -296,7 +296,8 @@ struct EventDetailView: View {
                 Panel {
                     LiveOpsEmptyState(symbol: "flag.slash",
                                       title: L("ミッションはありません", "No missions"),
-                                      message: L("このイベントには達成ミッションがありません。", "This event has no missions."))
+                                      message: L("このイベントには達成ミッションがありません。内容は左の説明をご覧ください。",
+                                                 "This event has no missions. See the description for details."))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             } else {

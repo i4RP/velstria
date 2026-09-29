@@ -91,6 +91,37 @@ final class LiveOpsScreensTests: XCTestCase {
         XCTAssertEqual(e.title, "Mission X")
     }
 
+    func testExtraRewardsAreReadByFieldName() {
+        struct WithExtras { var id = "EV"; var extraRewards = [MailAttachment(kind: .gem, amount: 50)] }
+        struct WithoutExtras { var id = "D" }
+        XCTAssertEqual(LiveOpsMissions.extraRewards(reflecting: WithExtras()), [MailAttachment(kind: .gem, amount: 50)])
+        XCTAssertTrue(LiveOpsMissions.extraRewards(reflecting: WithoutExtras()).isEmpty)
+        // 契約の MissionDef（追加報酬なし）は Coin / パス XP のみ
+        let e = LiveOpsMissionEntry(def: mission("Y", target: 1, coins: 100, xp: 50), progress: 1, claimed: false)
+        XCTAssertEqual(e.rewards, [MailAttachment(kind: .coin, amount: 100), MailAttachment(kind: .passXP, amount: 50)]
+                       + LiveOpsMissions.extraRewards(e.def))
+    }
+
+    func testDayRolloverKeyComparison() {
+        XCTAssertTrue(LiveOpsDayRollover.needsRefresh(lastLoginDayKey: "", today: "2026-09-29"))
+        XCTAssertTrue(LiveOpsDayRollover.needsRefresh(lastLoginDayKey: "2026-09-28", today: "2026-09-29"))
+        XCTAssertTrue(LiveOpsDayRollover.needsRefresh(lastLoginDayKey: "2026-12-31", today: "2027-01-01"))
+        XCTAssertFalse(LiveOpsDayRollover.needsRefresh(lastLoginDayKey: "2026-09-29", today: "2026-09-29"))
+        // 端末時刻が過去に戻った場合は処理しない
+        XCTAssertFalse(LiveOpsDayRollover.needsRefresh(lastLoginDayKey: "2026-09-30", today: "2026-09-29"))
+    }
+
+    @MainActor
+    func testDayRolloverRunsDailyRefreshOncePerDay() {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("LiveOpsRollover-\(UUID().uuidString)", isDirectory: true)
+        let app = AppModel(persistence: PersistenceService(directory: dir))
+        let now = Date()
+        app.profile.lastLoginDayKey = "2000-01-01"
+        XCTAssertTrue(LiveOpsDayRollover.refreshIfNeeded(app: app, now: now))
+        XCTAssertEqual(app.profile.lastLoginDayKey, LiveOpsService.dayKey(now))
+        XCTAssertFalse(LiveOpsDayRollover.refreshIfNeeded(app: app, now: now))
+    }
+
     func testEventPhaseBoundaries() {
         let start = Date(timeIntervalSince1970: 1_000_000)
         let event = EventDef(id: "E", titleJa: "イベント", titleEn: "Event", detailJa: "", detailEn: "",
@@ -170,6 +201,10 @@ final class LiveOpsScreensTests: XCTestCase {
             MailAttachment(kind: .cosmetic, amount: 1, refID: "CO001"),
             MailAttachment(kind: .hero, amount: 1, refID: "H010"),
         ])
+        // 付与できなかった報酬の代替（数量 0）は表示しない
+        XCTAssertTrue(RewardClaimText.merged([MailAttachment(kind: .gem, amount: 0)]).isEmpty)
+        XCTAssertEqual(RewardClaimText.merged([MailAttachment(kind: .gem, amount: 0), MailAttachment(kind: .gem, amount: 30)]),
+                       [MailAttachment(kind: .gem, amount: 30)])
     }
 
     func testRewardNamesAreLocalized() {
@@ -306,6 +341,11 @@ final class LiveOpsScreensTests: XCTestCase {
             XCTAssertFalse(tip.bodyJa.isEmpty)
             XCTAssertFalse(tip.bodyEn.isEmpty)
         }
+        // DESIGN §7: 帰還は 6 秒詠唱で、移動・攻撃・被ダメで中断
+        let recall = TutorialCatalog.chapters.last?.pointsJa.first ?? ""
+        XCTAssertTrue(recall.contains("6 秒") && recall.contains("移動") && recall.contains("攻撃") && recall.contains("被ダメージ"))
+        // DESIGN §4: 裏取り保護は「タワー射程内に（攻撃側の）ミニオンがいない時」
+        XCTAssertTrue(TutorialCatalog.tips.first { $0.id == "laning_tower" }?.bodyJa.contains("味方ミニオン") == true)
     }
 }
 
