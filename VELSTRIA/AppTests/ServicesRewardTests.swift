@@ -193,6 +193,7 @@ final class ServicesRewardTests: XCTestCase {
             if let rid = record.replayID { XCTAssertTrue(replayIDs.contains(rid)) }
         }
         XCTAssertEqual(p.matchHistory.filter { $0.replayID != nil }.count, 20)
+        persistence.waitForReplayWrites() // リプレイの書き込みはバックグラウンド
         let files = try? FileManager.default.contentsOfDirectory(atPath: persistence.replaysDirectory.path)
         XCTAssertEqual(files?.count, 20)
         XCTAssertNotNil(persistence.loadReplay(p.replays[0]))
@@ -205,6 +206,8 @@ final class ServicesRewardTests: XCTestCase {
         var p = Profile()
         let r = apply(ServicesFixtures.outcome(won: true, withReplay: true), &p, persistence: persistence)
         XCTAssertFalse(persistence.hasPendingSave)
+        // リプレイ本体はバックグラウンドで書き込まれる（バックグラウンド移行時も flushPendingSaves が完了を待つ）
+        persistence.flushPendingSaves()
         let loaded = try XCTUnwrap(PersistenceService(directory: persistence.directory).loadProfile())
         XCTAssertEqual(loaded.starlightCoin, p.starlightCoin)
         XCTAssertEqual(loaded.career.matches, 1)

@@ -11,6 +11,8 @@ import VelstriaCore
 // - schemaVersion によるマイグレーションフック（JSON オブジェクトの段階で変換 → 欠損キーを既定値で補完 → デコード）
 // - バックグラウンド移行・終了の通知で保留中の保存を書き出す（呼び出し側の saveNow 漏れに対する保険）
 // - 読み込み時に profile.replays とディスク上のリプレイを突き合わせる
+// - リプレイ（数百 KB〜数 MB の JSON）の符号化・書き込みは専用キューで行い、試合終了時にメインスレッドを止めない。
+//   書き込み中のファイルは存在扱いにし、読み込み・削除・全削除・バックグラウンド移行では書き込み完了を待つ。
 
 /// 読み込み・インポートの失敗理由。
 enum PersistenceError: Error, Equatable, LocalizedError {
@@ -67,6 +69,12 @@ final class PersistenceService: @unchecked Sendable {
     private var primaryIsValid = true
     private var lastRotation: Date?
     private var writeCount = 0
+
+    /// リプレイの符号化・書き込み用（プロフィールの保存と互いに待たないよう別キュー）。
+    private let replayQueue = DispatchQueue(label: "com.velstria.persistence.replay", qos: .utility)
+    /// 書き込み待ちのリプレイのファイル名（replayLock で保護。検索専用）。
+    private var pendingReplayNames: Set<String> = []
+    private let replayLock = NSLock()
 
     /// 直近の loadProfile の結果（メインスレッドから参照）。
     private(set) var lastLoadSource: ProfileLoadSource = .none
@@ -297,13 +305,14 @@ final class PersistenceService: @unchecked Sendable {
         }
     }
 
-    /// 保留中の保存があれば即座に書き込む（テスト・終了処理用）。
+    /// 保留中の保存があれば即座に書き込む（バックグラウンド移行・終了処理・テスト用）。書き込み中のリプレイも待つ。
     func flushPendingSaves() {
         queue.sync {
             guard let p = pendingProfile else { return }
             pendingProfile = nil
             writePrimary(p, rotate: true)
         }
+        waitForReplayWrites()
     }
 
     var hasPendingSave: Bool { queue.sync { pendingProfile != nil } }
@@ -346,31 +355,69 @@ final class PersistenceService: @unchecked Sendable {
 
     // MARK: - リプレイ
 
-    /// リプレイをファイルに保存する（ディスク上は常に最新 maxReplays 件まで）。
-    /// profile.replays への登録は `storeReplay(_:heroID:won:date:in:)` を使うこと。
-    func saveReplay(_ replay: ReplayData, heroID: String?, won: Bool?, date: Date) -> ReplayMeta? {
-        let meta = ReplayMeta(date: date, fileName: "\(UUID().uuidString).vreplay", mode: replay.config.mode,
-                              heroID: heroID, won: won, duration: Double(replay.finalTick) * Balance.dt)
-        guard let data = Self.encodeReplay(replay) else { return nil }
-        do {
-            try FileManager.default.createDirectory(at: replaysDirectory, withIntermediateDirectories: true)
-            try data.write(to: replaysDirectory.appendingPathComponent(meta.fileName), options: .atomic)
-        } catch {
-            return nil
-        }
-        enforceReplayFileCap(keeping: meta.fileName)
-        return meta
+    private func makeReplayMeta(_ replay: ReplayData, heroID: String?, won: Bool?, date: Date) -> ReplayMeta {
+        ReplayMeta(date: date, fileName: "\(UUID().uuidString).vreplay", mode: replay.config.mode,
+                   heroID: heroID, won: won, duration: Double(replay.finalTick) * Balance.dt)
     }
 
-    /// リプレイを保存して profile.replays（新しい順）に登録し、上限超過分・孤立ファイルを整理する。
-    /// 戦績の replayID もリプレイ一覧と矛盾しないように保つ。
+    /// リプレイをファイルに同期保存する（ディスク上は常に最新 maxReplays 件まで）。
+    /// 試合結果の保存と profile.replays への登録は `storeReplay(_:heroID:won:date:in:)` を使うこと。
+    func saveReplay(_ replay: ReplayData, heroID: String?, won: Bool?, date: Date) -> ReplayMeta? {
+        let meta = makeReplayMeta(replay, heroID: heroID, won: won, date: date)
+        let written: Bool = replayQueue.sync {
+            guard writeReplayFile(replay, fileName: meta.fileName) else { return false }
+            enforceReplayFileCap(keeping: meta.fileName)
+            return true
+        }
+        return written ? meta : nil
+    }
+
+    /// リプレイを profile.replays（新しい順）に登録し、ファイルの符号化・書き込みはバックグラウンドで行う。
+    /// 上限超過分・孤立ファイルを整理し、戦績の replayID もリプレイ一覧と矛盾しないように保つ。
+    /// 書き込みに失敗した場合（容量不足など）は、次回起動時の突き合わせでメタと戦績のリンクが外れる。
     @discardableResult
     func storeReplay(_ replay: ReplayData, heroID: String?, won: Bool?, date: Date,
                      in profile: inout Profile) -> ReplayMeta? {
-        guard let meta = saveReplay(replay, heroID: heroID, won: won, date: date) else { return nil }
+        let meta = makeReplayMeta(replay, heroID: heroID, won: won, date: date)
+        let name = meta.fileName
+        setReplayPending(name, true)
+        replayQueue.async { [self] in
+            _ = writeReplayFile(replay, fileName: name)
+            setReplayPending(name, false)
+        }
         profile.replays.insert(meta, at: 0)
         reconcileReplays(profile: &profile)
         return profile.replays.contains(where: { $0.id == meta.id }) ? meta : nil
+    }
+
+    /// replayQueue 上で呼ぶこと。
+    private func writeReplayFile(_ replay: ReplayData, fileName: String) -> Bool {
+        guard let data = Self.encodeReplay(replay) else { return false }
+        do {
+            try FileManager.default.createDirectory(at: replaysDirectory, withIntermediateDirectories: true)
+            try data.write(to: replaysDirectory.appendingPathComponent(fileName), options: .atomic)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    private func setReplayPending(_ name: String, _ pending: Bool) {
+        replayLock.lock()
+        if pending { pendingReplayNames.insert(name) } else { pendingReplayNames.remove(name) }
+        replayLock.unlock()
+    }
+
+    /// 書き込み待ちのリプレイか。
+    func isReplayWritePending(_ fileName: String) -> Bool {
+        replayLock.lock()
+        defer { replayLock.unlock() }
+        return pendingReplayNames.contains(fileName)
+    }
+
+    /// 書き込み待ちのリプレイがすべてディスクに書かれるまで待つ。
+    func waitForReplayWrites() {
+        replayQueue.sync {}
     }
 
     /// profile.replays とディスク上のファイルを突き合わせる:
@@ -386,27 +433,34 @@ final class PersistenceService: @unchecked Sendable {
             guard !seen.contains(meta.fileName) else { continue }
             seen.insert(meta.fileName)
             let url = replaysDirectory.appendingPathComponent(meta.fileName)
-            guard fm.fileExists(atPath: url.path) else { continue }
+            guard fm.fileExists(atPath: url.path) || isReplayWritePending(meta.fileName) else { continue }
             if kept.count < Self.maxReplays {
                 kept.append(meta)
+            } else if isReplayWritePending(meta.fileName) {
+                // 書き込み後に消す（同じキューで順に処理される）
+                replayQueue.async { try? FileManager.default.removeItem(at: url) }
             } else {
                 try? fm.removeItem(at: url)
             }
         }
         profile.replays = kept
         let keptNames = Set(kept.map(\.fileName))
-        for file in replayFiles() where !keptNames.contains(file.lastPathComponent) {
+        for file in replayFiles() {
+            let name = file.lastPathComponent
+            guard !keptNames.contains(name), !isReplayWritePending(name) else { continue }
             try? fm.removeItem(at: file)
         }
         unlinkMissingReplays(profile: &profile)
     }
 
     func loadReplay(_ meta: ReplayMeta) -> ReplayData? {
+        if isReplayWritePending(meta.fileName) { waitForReplayWrites() }
         guard let data = try? Data(contentsOf: replaysDirectory.appendingPathComponent(meta.fileName)) else { return nil }
         return Self.decodeReplay(data)
     }
 
     func deleteReplay(_ meta: ReplayMeta) {
+        if isReplayWritePending(meta.fileName) { waitForReplayWrites() }
         try? FileManager.default.removeItem(at: replaysDirectory.appendingPathComponent(meta.fileName))
     }
 
@@ -493,7 +547,9 @@ final class PersistenceService: @unchecked Sendable {
         var profile = try decodeProfile(data)
         Self.sanitize(&profile)
         let fm = FileManager.default
-        profile.replays.removeAll { !fm.fileExists(atPath: replaysDirectory.appendingPathComponent($0.fileName).path) }
+        profile.replays.removeAll {
+            !fm.fileExists(atPath: replaysDirectory.appendingPathComponent($0.fileName).path) && !isReplayWritePending($0.fileName)
+        }
         unlinkMissingReplays(profile: &profile)
         return profile
     }
@@ -502,6 +558,8 @@ final class PersistenceService: @unchecked Sendable {
 
     /// 全データ削除（プライバシー設定から）。保留中の保存も破棄する。
     func deleteAll() {
+        // 書き込み中のリプレイが削除後に残らないよう、先に書き終えさせる
+        waitForReplayWrites()
         queue.sync {
             pendingProfile = nil
             try? FileManager.default.removeItem(at: directory)

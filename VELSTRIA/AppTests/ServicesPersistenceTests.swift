@@ -265,6 +265,7 @@ final class ServicesPersistenceTests: XCTestCase {
         XCTAssertEqual(p.replays.count, 20)
         XCTAssertEqual(p.replays.first?.id, metas.last?.id, "新しい順")
         XCTAssertFalse(p.replays.contains { $0.id == metas[0].id }, "古いものから削除")
+        s.waitForReplayWrites()
         let files = try FileManager.default.contentsOfDirectory(atPath: s.replaysDirectory.path)
         XCTAssertEqual(files.count, 20)
         XCTAssertEqual(Set(files), Set(p.replays.map(\.fileName)))
@@ -304,12 +305,37 @@ final class ServicesPersistenceTests: XCTestCase {
         let orphan = s.replaysDirectory.appendingPathComponent("orphan.vreplay")
         try Data("orphan".utf8).write(to: orphan)
         s.saveNow(p)
+        s.waitForReplayWrites()
 
         let loaded = try XCTUnwrap(PersistenceService(directory: s.directory).loadProfile())
         XCTAssertEqual(loaded.replays.map(\.id), [kept.id])
         XCTAssertNil(loaded.matchHistory[0].replayID)
         XCTAssertFalse(FileManager.default.fileExists(atPath: orphan.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: s.replaysDirectory.appendingPathComponent(kept.fileName).path))
+    }
+
+    /// リプレイの符号化・書き込みはバックグラウンドで行い、書き込み中も一覧・突き合わせ・読み込みで矛盾しない。
+    func testReplayWriteIsAsynchronousButConsistent() throws {
+        let s = make()
+        var p = Profile()
+        let config = ServicesFixtures.config(mode: .standard)
+        let summary = ServicesFixtures.summary(mode: .standard, won: true, minutes: 12)
+        let replay = ServicesFixtures.replay(config: config, summary: summary, ticks: 1234)
+        let meta = try XCTUnwrap(s.storeReplay(replay, heroID: "H001", won: true, date: ServicesFixtures.weekday, in: &p))
+        XCTAssertEqual(p.replays.map(\.id), [meta.id])
+        // 書き込み中でも突き合わせで外れない
+        s.reconcileReplays(profile: &p)
+        XCTAssertEqual(p.replays.map(\.id), [meta.id])
+        // 読み込みは書き込みの完了を待つ
+        XCTAssertEqual(s.loadReplay(meta)?.finalTick, 1234)
+        XCTAssertFalse(s.isReplayWritePending(meta.fileName))
+        // 同期版は戻った時点でファイルがある
+        let direct = try XCTUnwrap(s.saveReplay(replay, heroID: nil, won: nil, date: ServicesFixtures.weekday))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: s.replaysDirectory.appendingPathComponent(direct.fileName).path))
+        // 全削除は書き込み中のリプレイも残さない
+        _ = s.storeReplay(replay, heroID: "H001", won: true, date: ServicesFixtures.weekday, in: &p)
+        s.deleteAll()
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: s.replaysDirectory.path), [])
     }
 
     /// バックグラウンド移行の通知で保留中の保存が書き出される。
