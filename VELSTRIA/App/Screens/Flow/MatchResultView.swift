@@ -100,25 +100,18 @@ struct MatchResultView: View {
         }
     }
 
+    /// モード・試合時間・終了理由（キル数は成績表の各チーム見出しに表示）。
     private var subheader: some View {
-        let blueKills = summary.teamKills.first ?? 0
-        let redKills = summary.teamKills.count > 1 ? summary.teamKills[1] : 0
-        let colorblind = app.profile.settings.colorblindMode
-        return VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 8) {
                 Text(outcome.launch.replay != nil ? L("リプレイ", "Replay") : FlowText.mode(summary.mode))
                     .font(Theme.heading(13))
                     .foregroundStyle(Theme.textPrimary)
+                    .fixedSize()
                 Label(FlowText.duration(summary.duration), systemImage: "clock")
                     .font(Theme.mono(12))
-                HStack(spacing: 4) {
-                    Text("\(blueKills)").foregroundStyle(Theme.teamColor(.blue, colorblind: colorblind))
-                    Text("-")
-                    Text("\(redKills)").foregroundStyle(Theme.teamColor(.red, colorblind: colorblind))
-                }
-                .font(Theme.mono(13))
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(L("キル数 ブルー \(blueKills) 対 レッド \(redKills)", "Kills: Blue \(blueKills), Red \(redKills)"))
+                    .fixedSize()
+                    .accessibilityLabel(L("試合時間 \(FlowText.duration(summary.duration))", "Duration \(FlowText.duration(summary.duration))"))
             }
             HStack(spacing: 6) {
                 Text(FlowText.endReason(summary.endReason))
@@ -128,10 +121,11 @@ struct MatchResultView: View {
                 }
             }
             .font(Theme.body(11))
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
         }
         .foregroundStyle(Theme.textSecondary)
-        .lineLimit(1)
-        .minimumScaleFactor(0.7)
+        .accessibilityElement(children: .combine)
     }
 
     private var dot: some View { Text("·").foregroundStyle(Theme.textSecondary.opacity(0.6)) }
@@ -505,8 +499,10 @@ private struct RewardsTab: View {
                     if report.firstWinBonus > 0 {
                         rewardCell(symbol: "sun.max.fill", tint: Theme.gold, title: L("初勝利ボーナス", "First win bonus"), value: "+\(shownBonus)")
                     }
-                    rewardCell(symbol: "bolt.fill", tint: Color(red: 1.0, green: 0.62, blue: 0.3), title: L("スターパス XP", "Star Pass XP"),
-                               value: "+\(report.passXP)")
+                    if report.passXP > 0 {
+                        rewardCell(symbol: "bolt.fill", tint: Color(red: 1.0, green: 0.62, blue: 0.3), title: L("スターパス XP", "Star Pass XP"),
+                                   value: "+\(report.passXP)")
+                    }
                 }
                 accountSection
                 if let before = report.rankBefore, let after = report.rankAfter {

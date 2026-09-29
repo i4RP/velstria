@@ -159,14 +159,20 @@ struct DraftStep: View {
             }
             Spacer(minLength: 4)
             if playerTurn && isBan {
-                Button(L("BAN しない", "No ban")) { commit(nil, timedOut: false) }
-                    .buttonStyle(SecondaryButtonStyle())
-                    .accessibilityIdentifier("flow_skip_ban")
+                Button {
+                    commit(nil, timedOut: false)
+                } label: {
+                    Text(L("BAN しない", "No ban")).lineLimit(1).fixedSize()
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .accessibilityIdentifier("flow_skip_ban")
             }
             Button {
                 commit(candidate, timedOut: false)
             } label: {
                 Label(isBan ? L("BAN する", "Ban") : L("ピック確定", "Lock In"), systemImage: isBan ? "nosign" : "lock.fill")
+                    .lineLimit(1)
+                    .fixedSize()
             }
             .buttonStyle(PrimaryButtonStyle(color: isBan ? Theme.danger : Theme.gold))
             .disabled(!playerTurn || candidate == nil)
@@ -296,6 +302,8 @@ private struct DraftTeamColumn: View {
                 Text(team == .blue ? L("味方", "Allies") : L("敵", "Enemies"))
                     .font(Theme.heading(12))
                     .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
                 Spacer()
                 ForEach(0..<DraftEngine.bansPerTeam, id: \.self) { i in banSlot(i) }
             }

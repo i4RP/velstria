@@ -232,6 +232,38 @@ final class FlowMatchModelTests: XCTestCase {
         }
     }
 
+    func testSkinMustBeOwnedAndMatchHero() throws {
+        var p = profile()
+        let skin = try XCTUnwrap(MasterData.shared.cosmetics.first { $0.type == .heroSkin && $0.heroID == "H001" })
+        p.equippedSkins["H001"] = skin.cosmeticID
+        let m = MatchFlowModel(seed: 1)
+        m.selectHero("H001", profile: p, master: .shared)
+        XCTAssertNil(m.skinID, "未所持のスキンは装備しない")
+        p.ownedCosmeticIDs = [skin.cosmeticID]
+        m.selectHero("H001", profile: p, master: .shared)
+        XCTAssertEqual(m.skinID, skin.cosmeticID)
+        m.startStandard()
+        let config = m.buildConfig(profile: p, master: .shared)
+        XCTAssertEqual(config?.humanSlot?.skinID, skin.cosmeticID)
+        // 別ヒーローへ切り替えると、そのヒーローの保存値（未設定）に戻る
+        m.selectHero("H003", profile: p, master: .shared)
+        XCTAssertNil(m.skinID)
+    }
+
+    func testConfigureStartsFromLastPickedOwnedHero() {
+        var p = profile()
+        p.lastPickedHeroID = "H020"
+        let m = MatchFlowModel(seed: 1)
+        m.configure(profile: p, master: .shared)
+        XCTAssertEqual(m.heroID, "H001", "未所持の前回ヒーローは使わず所持の先頭")
+        p.lastPickedHeroID = "H004"
+        p.preferredDifficulty = .hard
+        let m2 = MatchFlowModel(seed: 1)
+        m2.configure(profile: p, master: .shared)
+        XCTAssertEqual(m2.heroID, "H004")
+        XCTAssertEqual(m2.difficulty, .hard)
+    }
+
     func testRuneIDsFromSelectedPage() {
         var p = profile()
         p.runePages = [RunePage(name: "A", primaryPath: .valor, runeIDs: ["RN01", "", "RN11"])]
@@ -302,6 +334,9 @@ final class FlowResultTests: XCTestCase {
         XCTAssertEqual(FlowText.duration(-3), "0:00")
         XCTAssertEqual(FlowText.duration(.nan), "0:00")
         XCTAssertEqual(FlowText.kda(1, 2, 3), "1 / 2 / 3")
+        XCTAssertEqual(FlowText.compactNumber(9_876), 9_876.formatted())
+        XCTAssertEqual(FlowText.compactNumber(12_345), "12.3k")
+        XCTAssertEqual(FlowText.compactNumber(1_000_000), "1.0M")
         XCTAssertLessThan(FlowAccountXP.required(forLevel: 1), FlowAccountXP.required(forLevel: 10))
     }
 

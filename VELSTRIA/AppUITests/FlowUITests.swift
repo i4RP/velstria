@@ -36,20 +36,28 @@ final class FlowUITests: XCTestCase {
     }
 
     func testOnboardingReachesHome() {
-        let app = launch(["-language", "ja"])
+        runOnboarding(language: "ja")
+    }
+
+    func testOnboardingEnglish() {
+        runOnboarding(language: "en")
+    }
+
+    private func runOnboarding(language: String) {
+        let app = launch(["-language", language])
         XCTAssertTrue(element(app, "onb_start").waitForExistence(timeout: 15))
-        snap("onb_01_splash")
+        snap("onb_01_splash_\(language)")
         tap(app, "onb_start")
 
         XCTAssertTrue(element(app, "onb_age_2").waitForExistence(timeout: 5))
         tap(app, "onb_age_2")
-        snap("onb_02_age")
+        snap("onb_02_age_\(language)")
         tap(app, "onb_age_next")
 
         XCTAssertTrue(element(app, "onb_terms_accept").waitForExistence(timeout: 5))
         XCTAssertFalse(element(app, "onb_terms_next").isEnabled, "同意前は進めない")
         tap(app, "onb_terms_accept")
-        snap("onb_03_terms")
+        snap("onb_03_terms_\(language)")
         tap(app, "onb_terms_next")
 
         let field = element(app, "onb_name_field")
@@ -58,18 +66,18 @@ final class FlowUITests: XCTestCase {
         field.typeText("P")
         XCTAssertFalse(element(app, "onb_name_next").isEnabled, "1 文字では進めない")
         field.typeText("ilot")
-        snap("onb_04_name")
+        snap("onb_04_name_\(language)")
         tap(app, "onb_name_next")
 
         XCTAssertTrue(element(app, "onb_prepare_progress").waitForExistence(timeout: 5))
-        snap("onb_05_prepare")
+        snap("onb_05_prepare_\(language)")
 
         XCTAssertTrue(element(app, "onb_tutorial_skip").waitForExistence(timeout: 30))
-        snap("onb_06_tutorial")
+        snap("onb_06_tutorial_\(language)")
         tap(app, "onb_tutorial_skip")
 
         XCTAssertTrue(element(app, "home_play").waitForExistence(timeout: 10))
-        snap("home_ja")
+        snap("home_\(language)")
     }
 
     func testHomeMetaScreens() {

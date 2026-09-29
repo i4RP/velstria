@@ -286,17 +286,39 @@ private struct MatchModeStep: View {
                 .foregroundStyle(Theme.textPrimary)
             HStack(spacing: 6) {
                 ForEach(Difficulty.allCases, id: \.self) { d in
+                    let selected = model.difficulty == d
                     Button {
                         FlowFX.tap(app)
                         withAnimation(.spring(duration: 0.25)) { model.difficulty = d }
                     } label: {
-                        FlowChip(title: FlowText.difficulty(d), symbol: FlowText.difficultySymbol(d), selected: model.difficulty == d, tint: Theme.cyan)
+                        VStack(spacing: 2) {
+                            Image(systemName: FlowText.difficultySymbol(d)).font(.system(size: 14, weight: .bold))
+                            Text(FlowText.difficulty(d))
+                                .font(Theme.heading(12))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                        }
+                        .foregroundStyle(selected ? Color.black.opacity(0.85) : Theme.textPrimary)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(selected ? AnyShapeStyle(Theme.cyan) : AnyShapeStyle(Color.white.opacity(0.08))))
+                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(selected ? Color.white.opacity(0.6) : Theme.panelStroke, lineWidth: 1))
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(FlowText.difficulty(d))
                     .accessibilityIdentifier("flow_difficulty_\(d.rawValue)")
-                    .accessibilityAddTraits(model.difficulty == d ? .isSelected : [])
+                    .accessibilityAddTraits(selected ? .isSelected : [])
                 }
             }
+            Text(Self.difficultyDetail(model.difficulty))
+                .font(Theme.body(11))
+                .foregroundStyle(Theme.cyan)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+                .fixedSize(horizontal: false, vertical: true)
+                .contentTransition(.opacity)
             Label(L("勝利 220 コイン · 敗北 110 コイン", "Win 220 coins · Loss 110 coins"), systemImage: "star.circle.fill")
                 .font(Theme.body(11))
                 .foregroundStyle(Theme.gold)
@@ -313,6 +335,15 @@ private struct MatchModeStep: View {
         .padding(14)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .glass(cornerRadius: 18, tint: Theme.cyan.opacity(0.8))
+    }
+
+    /// 難易度ごとの AI の特徴（DESIGN §10）。
+    static func difficultyDetail(_ d: Difficulty) -> String {
+        switch d {
+        case .easy: return L("反応 0.6 秒・命中率 控えめ。はじめての方に。", "0.6s reactions, loose aim. Great for beginners.")
+        case .normal: return L("反応 0.35 秒・標準的な立ち回り。", "0.35s reactions, standard play.")
+        case .hard: return L("反応 0.15 秒・高い精度で集団行動をとる。", "0.15s reactions, precise aim and group tactics.")
+        }
     }
 
     private var rankedCard: some View {
