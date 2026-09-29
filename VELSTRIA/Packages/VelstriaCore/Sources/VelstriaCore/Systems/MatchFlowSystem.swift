@@ -30,8 +30,10 @@ public enum MatchFlowSystem {
     public static func update(_ s: inout SimState, _ ctx: SimContext) {
         guard s.phase == .playing else { return }
         // Core 破壊（添字順 = 決定論。同 tick 相打ちは Blue Core 側を先に判定）
-        for core in s.units where core.kind == .core && !core.isAlive && core.team != .neutral {
-            end(&s, winner: core.team.opponent, reason: .coreDestroyed)
+        for i in s.units.indices where s.units[i].kind == .core && !s.units[i].isAlive {
+            let team = s.units[i].team
+            guard team != .neutral else { continue }
+            end(&s, winner: team.opponent, reason: .coreDestroyed)
             return
         }
         // 降参投票の進行（AI 味方の投票・締切）

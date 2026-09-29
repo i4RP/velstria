@@ -84,7 +84,8 @@ public struct MatchSummary: Codable, Hashable, Sendable {
 /// MVP スコア・評価。
 ///
 /// MVP スコア（DESIGN §11）:
-///   (K×3 + A×2 − D×1.5) + ヒーローへの与ダメ/1000 + タワーダメ/1500 + (回復+シールド)/2000 + CS/20 + 勝利 3
+///   (K×3 + A×2 − D×1.5) + ヒーローへの与ダメ/1000 + タワーダメ/1500 + 回復量/2000 + CS/20 + 勝利 3
+///   （シールド量は §11 の式に含まれないので加えない）
 ///
 /// 評価（チーム内順位 = MVP スコア降順、同点は ID 昇順。KDA = (K+A)/max(1,D)）:
 ///   S: チーム内 1 位 かつ KDA ≥ 2.5
@@ -99,7 +100,7 @@ public enum ScoreSystem {
         var v = Double(sc.kills) * 3 + Double(sc.assists) * 2 - Double(sc.deaths) * 1.5
         v += sc.damageToHeroes / 1000
         v += sc.towerDamage / 1500
-        v += (sc.healingDone + sc.shieldingDone) / 2000
+        v += sc.healingDone / 2000
         v += Double(sc.creepScore) / 20
         if won { v += winBonus }
         // 表示・比較を安定させるため 0.01 単位に丸める

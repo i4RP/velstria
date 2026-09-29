@@ -185,6 +185,64 @@ final class EconomyReviewTests: XCTestCase {
         XCTAssertEqual(player.keyframeTicks, [300, 600])
     }
 
+    // MARK: - 報酬処理の堅牢性
+
+    /// HeroData を持たない hero 種別のユニット（不正な状態）が止め・与ダメ記録に居てもクラッシュせず、報酬も与えない。
+    func testHeroUnitWithoutHeroDataIsNeverCredited() {
+        var f = EconomyFixture.standard()
+        f.parkHeroesAtFountains()
+        f.s.firstBloodTaken = true
+        let v = f.heroes(.red)[0]
+        let blue = f.heroes(.blue)
+        var bogus = VelstriaCore.Unit(id: 0, kind: .hero, team: .blue, pos: Vec2(6000, 6000), radius: 55, stats: Stats())
+        bogus.hero = nil
+        let bogusID = f.s.addUnit(bogus)
+        let b = blue[1]
+        f.s.units[v].hero!.recentDamagers.append(DamageRecord(sourceID: bogusID, time: f.s.time - 1))
+        f.addDamager(victim: v, source: b, secondsAgo: 3)
+        let gb = f.hero(b).gold
+        // 止めが不正ユニット → 10 秒以内に与ダメのある正規ヒーロー b に帰属
+        let ev = f.kill(v, by: bogusID)
+        XCTAssertEqual(ev.heroKills.first?.killerID, f.id(b))
+        XCTAssertEqual(ev.heroKills.first?.assistIDs, [])
+        XCTAssertEqual(f.hero(b).gold - gb, 300)
+
+        // ミニオン・モンスター・タワーの止めでも報酬なし（チーム報酬は通常どおり）
+        let m = f.addMinion(.melee, team: .red, at: Vec2(6000, 6000))
+        f.kill(m, by: bogusID)
+        let t = f.tower(team: .red, lane: .bot, tier: .outer)
+        let golds = blue.map { f.hero($0).gold }
+        f.kill(t, by: bogusID)
+        for (n, i) in blue.enumerated() { XCTAssertEqual(f.hero(i).gold - golds[n], 120) }
+        f.kill(f.addMonster(.campLarge, at: Vec2(6000, 6000)), by: bogusID)
+    }
+
+    // MARK: - 帰還の到着地点
+
+    /// 帰還の到着地点は泉の中でチーム内の並び順に散らす（復活地点と同じ）。全員が 1 点に重ならない。
+    func testRecallDestinationsAreSpreadInsideFountain() {
+        var f = EconomyFixture.standard()
+        let blue = f.heroes(.blue)
+        for (n, i) in blue.enumerated() { f.place(i, at: Vec2(5000 + Double(n) * 100, 5000)) }
+        for i in blue { RecallSystem.startRecall(&f.s, f.ctx, heroIndex: i) }
+        for _ in 0..<Int((Balance.recallChannel / Balance.dt).rounded()) + 1 {
+            f.s.tick += 1
+            f.s.time = Double(f.s.tick) * Balance.dt
+            RecallSystem.update(&f.s, f.ctx)
+        }
+        let spots = blue.map { f.s.units[$0].pos }
+        for (n, i) in blue.enumerated() {
+            XCTAssertNil(f.hero(i).channel)
+            XCTAssertTrue(f.ctx.map.isInFountain(spots[n], team: .blue))
+            XCTAssertEqual(spots[n], RespawnSystem.respawnPosition(f.s, f.ctx, heroIndex: i))
+        }
+        for a in spots.indices {
+            for b in spots.indices where b > a {
+                XCTAssertGreaterThan(spots[a].distance(to: spots[b]), 2 * Balance.heroRadius)
+            }
+        }
+    }
+
     // MARK: - 試合中の不変条件
 
     /// AI 戦を回しながら、人間側は推奨購入を続ける。経済の不変条件が常に成り立つこと。

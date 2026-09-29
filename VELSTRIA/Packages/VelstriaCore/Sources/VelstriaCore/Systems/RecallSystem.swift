@@ -14,8 +14,9 @@ public enum RecallSystem {
         guard s.units[i].kind == .hero, s.units[i].isAlive, let h = s.units[i].hero, !h.isDead,
               h.channel == nil, s.units[i].canAct else { return }
         let duration = recallDuration(s.units[i])
-        let fountain = ctx.map.fountain(s.units[i].team)
-        s.units[i].hero?.channel = Channel(kind: .recall, duration: duration, target: fountain)
+        // 到着地点は泉の中でチーム内の並び順に散らす（復活と同じ配置。全員が泉の中心 1 点に重ならない）
+        let destination = RespawnSystem.respawnPosition(s, ctx, heroIndex: i)
+        s.units[i].hero?.channel = Channel(kind: .recall, duration: duration, target: destination)
         s.units[i].moveIntent = .none
         s.units[i].path = []
         s.units[i].attackTargetID = nil

@@ -5,18 +5,42 @@ import Foundation
 // （DESIGN §3, §4, §5, §8, §11）。CombatSystem が積んだ s.pendingDeaths を tick 毎に消化する。
 
 public enum DeathSystem {
+    /// 報酬処理中（パッシブのフック等）に新たに積まれた死亡を同じ tick で消化する最大回数。
+    /// ミニオン・モンスターは tick 末尾で除去されるため、次 tick へ持ち越すと報酬が失われる。
+    static let maxPasses = 4
+
     public static func process(_ s: inout SimState, _ ctx: SimContext) {
         guard !s.pendingDeaths.isEmpty else { return }
-        let deaths = s.pendingDeaths
-        s.pendingDeaths.removeAll()
-
-        // この処理より前から Core が無防備だったチーム（基部塔が既に落ちている）
-        var coreExposed = [false, false]
-        for u in s.units where u.kind == .tower && u.tower?.tier == .base && !u.isAlive && u.team != .neutral {
-            if !deaths.contains(where: { $0.victimID == u.id }) { coreExposed[u.team.rawValue] = true }
-        }
         var heroDiedOnTeam = [false, false]
         var processed: [EntityID] = []
+        var pass = 0
+        while !s.pendingDeaths.isEmpty && pass < maxPasses {
+            pass += 1
+            let deaths = s.pendingDeaths
+            s.pendingDeaths.removeAll()
+            processBatch(&s, ctx, deaths, processed: &processed, heroDiedOnTeam: &heroDiedOnTeam)
+        }
+
+        // 全滅（Ace）: この tick の死亡でチーム全員が倒れたら 1 回だけ告知
+        for team in Team.players where heroDiedOnTeam[team.rawValue] {
+            let heroes = s.heroIndices(team: team)
+            guard heroes.count >= 2, heroes.allSatisfy({ !s.units[$0].isAlive }) else { continue }
+            let acer = team.opponent
+            guard s.teams[acer.rawValue].lastAceTime < s.time else { continue }
+            s.teams[acer.rawValue].lastAceTime = s.time
+            s.emit(.announcement(.ace(team: acer)))
+        }
+    }
+
+    static func processBatch(_ s: inout SimState, _ ctx: SimContext, _ deaths: [PendingDeath],
+                             processed: inout [EntityID], heroDiedOnTeam: inout [Bool]) {
+        // この処理より前から Core が無防備だったチーム（基部塔が既に落ちている）
+        var coreExposed = [false, false]
+        for i in s.units.indices where s.units[i].kind == .tower && !s.units[i].isAlive {
+            let u = s.units[i]
+            guard u.tower?.tier == .base, u.team != .neutral else { continue }
+            if !deaths.contains(where: { $0.victimID == u.id }) { coreExposed[u.team.rawValue] = true }
+        }
 
         for d in deaths {
             guard !processed.contains(d.victimID), let v = s.index(of: d.victimID) else { continue }
@@ -44,16 +68,6 @@ public enum DeathSystem {
             case .dummy:
                 break
             }
-        }
-
-        // 全滅（Ace）: この tick の死亡でチーム全員が倒れたら 1 回だけ告知
-        for team in Team.players where heroDiedOnTeam[team.rawValue] {
-            let heroes = s.heroIndices(team: team)
-            guard heroes.count >= 2, heroes.allSatisfy({ !s.units[$0].isAlive }) else { continue }
-            let acer = team.opponent
-            guard s.teams[acer.rawValue].lastAceTime < s.time else { continue }
-            s.teams[acer.rawValue].lastAceTime = s.time
-            s.emit(.announcement(.ace(team: acer)))
         }
     }
 
@@ -84,18 +98,23 @@ public enum DeathSystem {
         Balance.Economy.heroKillXPBase + Balance.Economy.heroKillXPPerLevel * Double(victimLevel)
     }
 
+    /// HeroData を持つヒーローか（報酬処理で hero! を安全に使うための確認）。
+    static func isHero(_ s: SimState, _ i: Int) -> Bool {
+        s.units[i].kind == .hero && s.units[i].hero != nil
+    }
+
     /// キルの帰属先（ヒーロー添字）。止めがヒーローならそのヒーロー、
     /// ミニオン/タワー/モンスター/泉などなら 10 秒以内に最後にダメージを与えた敵ヒーロー。該当なしは nil（処刑）。
     public static func creditedKiller(_ s: SimState, victimIndex v: Int, killerID: EntityID?) -> Int? {
         let victimTeam = s.units[v].team
-        if let k = s.index(of: killerID), k != v, s.units[k].kind == .hero, s.units[k].team != victimTeam {
+        if let k = s.index(of: killerID), k != v, isHero(s, k), s.units[k].team != victimTeam {
             return k
         }
         guard let h = s.units[v].hero else { return nil }
         var best: Int?
         var bestTime = -Double.infinity
         for rec in h.recentDamagers where s.time - rec.time <= Balance.assistWindow {
-            guard let k = s.index(of: rec.sourceID), k != v, s.units[k].kind == .hero,
+            guard let k = s.index(of: rec.sourceID), k != v, isHero(s, k),
                   s.units[k].team != victimTeam, s.units[k].team != .neutral else { continue }
             // 同時刻は後に記録された方を優先
             if rec.time >= bestTime {
@@ -116,7 +135,7 @@ public enum DeathSystem {
         var ids: [EntityID] = []
         func add(_ id: EntityID) {
             guard id != s.units[k].id, !ids.contains(id), let a = s.index(of: id),
-                  s.units[a].kind == .hero, s.units[a].team == killerTeam else { return }
+                  isHero(s, a), s.units[a].team == killerTeam else { return }
             ids.append(id)
         }
         for rec in s.units[v].hero?.recentDamagers ?? [] where s.time - rec.time <= window {
@@ -246,7 +265,7 @@ public enum DeathSystem {
         guard let m = s.units[v].minion else { return }
         let pos = s.units[v].pos
         // Gold はヒーローのラストヒットのみ
-        if let k = s.index(of: killerID), s.units[k].kind == .hero, s.units[k].team != s.units[v].team {
+        if let k = s.index(of: killerID), isHero(s, k), s.units[k].team != s.units[v].team {
             s.units[k].hero?.score.minionKills += 1
             EconomyRewards.grantGold(&s, heroIndex: k, amount: Balance.Economy.minionGold(m.type), at: pos)
         }
@@ -264,7 +283,7 @@ public enum DeathSystem {
         guard let k = s.index(of: killerID) ?? s.index(of: s.units[v].lastAttackerID) else { return }
         let team = s.units[k].team
         guard team != .neutral else { return }
-        let killerHero: Int? = s.units[k].kind == .hero ? k : nil
+        let killerHero: Int? = isHero(s, k) ? k : nil
 
         // ラストヒット Gold（Jungle 装備で +20%）
         if let kh = killerHero {
@@ -337,7 +356,7 @@ public enum DeathSystem {
         let destroyer = victim.team.opponent
         s.teams[destroyer.rawValue].towersDestroyed += 1
 
-        if let k = s.index(of: killerID), s.units[k].kind == .hero, s.units[k].team == destroyer {
+        if let k = s.index(of: killerID), isHero(s, k), s.units[k].team == destroyer {
             s.units[k].hero?.score.towersDestroyed += 1
             EconomyRewards.grantGold(&s, heroIndex: k, amount: Balance.towerLastHitGold, at: victim.pos)
         }

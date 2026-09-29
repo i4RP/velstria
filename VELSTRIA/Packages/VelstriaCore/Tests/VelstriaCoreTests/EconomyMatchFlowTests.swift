@@ -154,9 +154,9 @@ final class EconomyMatchFlowTests: XCTestCase {
     func testMVPScoreFormula() {
         var sc = HeroScore()
         sc.kills = 5; sc.assists = 4; sc.deaths = 2
-        sc.damageToHeroes = 12000; sc.towerDamage = 3000; sc.healingDone = 1000; sc.shieldingDone = 1000
+        sc.damageToHeroes = 12000; sc.towerDamage = 3000; sc.healingDone = 2000; sc.shieldingDone = 5000
         sc.minionKills = 90; sc.monsterKills = 10
-        // 15 + 8 − 3 + 12 + 2 + 1 + 5 = 40
+        // 15 + 8 − 3 + 12 + 2 + 1 + 5 = 40（シールド量は数えない）
         XCTAssertEqual(ScoreSystem.mvpScore(sc, won: false), 40, accuracy: 1e-9)
         XCTAssertEqual(ScoreSystem.mvpScore(sc, won: true), 43, accuracy: 1e-9)
     }

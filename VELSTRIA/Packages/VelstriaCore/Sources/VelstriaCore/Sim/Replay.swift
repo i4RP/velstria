@@ -69,7 +69,7 @@ public final class ReplayRecorder {
 /// シークは再シミュレーションで行う。再生中に keyframeInterval tick 毎の状態を保存しておき、
 /// 後退（または保存済み区間への前進）はそのキーフレームから再開するので、長い試合でも待ち時間が一定に収まる。
 public final class ReplayPlayer {
-    /// 既定のキーフレーム間隔（tick）。30 秒毎（25 分の試合で 50 個・数 MB 程度）。
+    /// 既定のキーフレーム間隔（tick）。30 秒毎（状態 1 つ約 200KB。25 分の試合で 50 個・約 10MB）。
     public static let defaultKeyframeInterval = 900
 
     public let data: ReplayData
