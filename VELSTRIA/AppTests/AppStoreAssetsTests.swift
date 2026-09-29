@@ -55,6 +55,27 @@ final class AppStoreAssetsTests: XCTestCase {
         XCTAssertEqual(offenders, [])
     }
 
+    /// スキル説明が DESIGN §6 のアーキタイプ数値と一致すること（代表値の抜き取り）。
+    func testSkillDescriptionsFollowDesignArchetypes() throws {
+        let m = MasterData.shared
+        for s in m.skills {
+            let desc = try XCTUnwrap(overlay[s.skillID + ".desc"])
+            let hero = try XCTUnwrap(m.heroes.first { $0.heroID == s.heroID })
+            switch s.slot {
+            case .skill2 where hero.isRanged:
+                // 遠隔: 350 のブリンク + 次の通常攻撃にスキル基礎値の 50%
+                XCTAssertTrue(desc.contains("350 units") && desc.contains("50% of \(Int(s.baseDamage))"), "\(s.skillID): \(desc)")
+            case .skill2:
+                // 近接: range + 100 の突進
+                XCTAssertTrue(desc.contains("\(Int(s.range) + 100) units"), "\(s.skillID): \(desc)")
+            case .ultimate where hero.role == .vanguard:
+                XCTAssertTrue(desc.contains("\(Int(s.range) + 200) units"), "\(s.skillID): \(desc)")
+            default:
+                break
+            }
+        }
+    }
+
     func testCosmeticAndHeroNamesAreUniqueInEnglish() {
         let m = MasterData.shared
         let heroNames = m.heroes.compactMap { overlay[$0.heroID] }
@@ -104,6 +125,16 @@ final class AppStoreAssetsTests: XCTestCase {
         XCTAssertEqual(declared.count, apis.count, "型や理由の欠けたエントリがあります")
         XCTAssertEqual(declared.first { $0.0 == "NSPrivacyAccessedAPICategoryUserDefaults" }?.1, ["CA92.1"])
         XCTAssertEqual(declared.first { $0.0 == "NSPrivacyAccessedAPICategoryFileTimestamp" }?.1, ["C617.1"])
+        // 効果音・触覚の再生間隔に ProcessInfo.systemUptime を使う（app-services）
+        XCTAssertEqual(declared.first { $0.0 == "NSPrivacyAccessedAPICategorySystemBootTime" }?.1, ["35F9.1"])
+        let types = declared.map(\.0)
+        XCTAssertEqual(Set(types).count, types.count, "同じカテゴリが重複して宣言されています")
+    }
+
+    /// StoreKit 構成ファイルは Xcode 上のローカル課金テスト専用で、出荷バンドルに含めない。
+    func testStoreKitConfigurationIsNotShipped() {
+        XCTAssertNil(Bundle.main.url(forResource: "Velstria", withExtension: "storekit"),
+                     "Velstria.storekit がアプリバンドルに含まれています（project.yml で buildPhase: none にする）")
     }
 
     // MARK: Info.plist・アセット

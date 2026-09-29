@@ -22,6 +22,12 @@ WAIT_BATTLE_LATE=180 tools/screenshots.sh --skip-build --only 01_battle_teamfigh
 ```
 
 出力: `build/screenshots/<デバイス>/<言語>/NN_name.png`（`build/` は git 管理外）。
+App 内課金の審査用スクリーンショット（Gem 購入画面・スターパスのプレミアム欄）は同じ実行で
+`build/screenshots/<デバイス>/<言語>/review/iap_*.png` に保存される（製品ページには載せない。[in_app_purchases.md](in_app_purchases.md)）。
+
+新規シミュレータは起動直後にシステムの通知バナー（「Apple Intelligence の準備ができました」等）を表示するため、
+スクリプトは撮影前にアプリを `WAIT_WARMUP` 秒（既定 45 秒）起動したまま待ってからバナーの無い状態で撮影する。
+写り込んだ場合は `WAIT_WARMUP=90` などに増やして該当画面だけ撮り直す。
 スクリプトは専用シミュレータ `vel-shots-*` を作成して終了時に削除する。起動引数は `App/Core/DebugLaunch.swift` のもので、
 `-uiTesting` により毎回新しい一時プロフィールで起動する（実データに触れない）。
 
@@ -46,6 +52,7 @@ WAIT_BATTLE_LATE=180 tools/screenshots.sh --skip-build --only 01_battle_teamfigh
 ## 確認事項
 
 - [ ] デバッグ表示・プレースホルダ文言（「UI0xx — 画面名」など）が写っていない（UI 実装完了後に撮影する）。
+- [ ] システムの通知バナー・Dynamic Island のアクティビティが写っていない。
 - [ ] `-grant` で付与した大量の通貨がストア画面に写っていない（ストア系は `-grant` なしで撮影している）。
 - [ ] 英語版の画像に日本語が残っていない（`-language en` と `-AppleLanguages (en)` で撮影）。
 - [ ] 戦闘画面に流血・写実的な表現がない（年齢制限 9+ の前提）。

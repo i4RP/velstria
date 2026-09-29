@@ -66,6 +66,13 @@ REVIEW_SHOTS=(
     "iap_star_pass|-route starPass|$WAIT_SCREEN"
 )
 
+for tool in xcrun sips awk; do
+    command -v "$tool" >/dev/null || { echo "error: $tool が見つかりません" >&2; exit 1; }
+done
+if [[ "$SKIP_BUILD" == "0" ]]; then
+    command -v xcodegen >/dev/null || { echo "error: xcodegen が見つかりません（brew install xcodegen）" >&2; exit 1; }
+fi
+
 APP="$ROOT/.build/DerivedData/Build/Products/Release-iphonesimulator/VELSTRIA.app"
 if [[ -n "$ONLY" ]] && ! printf '%s\n' "${SHOTS[@]}" "${REVIEW_SHOTS[@]}" | grep -q "^$ONLY|"; then
     echo "error: --only に指定した名前 \"$ONLY\" の撮影定義がありません" >&2

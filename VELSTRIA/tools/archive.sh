@@ -34,7 +34,7 @@ if [[ -n "${BUILD_NUMBER:-}" && ! "$BUILD_NUMBER" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]];
     exit 1
 fi
 
-for tool in xcodegen xcodebuild python3 plutil; do
+for tool in xcodegen xcodebuild python3 plutil sips; do
     command -v "$tool" >/dev/null || { echo "error: $tool が見つかりません" >&2; exit 1; }
 done
 
