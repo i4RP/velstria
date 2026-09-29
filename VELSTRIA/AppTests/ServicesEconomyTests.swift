@@ -72,6 +72,9 @@ final class ServicesEconomyTests: XCTestCase {
         XCTAssertEqual(EconomyService.bundleContents("BUNDLE_01", master: master), ["CO001", "CO002", "CO003", "CO004"])
         XCTAssertEqual(EconomyService.bundleContents("BUNDLE_18", master: master), ["CO069", "CO070", "CO071", "CO072"])
         XCTAssertEqual(EconomyService.bundleContents("BUNDLE_00", master: master), [])
+        // コスメ数を超える番号は先頭へ回り込む（巨大な番号でも桁あふれしない）
+        XCTAssertEqual(EconomyService.bundleContents("BUNDLE_19", master: master), ["CO001", "CO002", "CO003", "CO004"])
+        XCTAssertEqual(EconomyService.bundleContents("BUNDLE_\(Int.max)", master: master).count, 4)
         XCTAssertEqual(EconomyService.bundleContents("CO001", master: master), [])
         var all: [String] = []
         for item in EconomyService.storeItems(ofType: .bundle) {

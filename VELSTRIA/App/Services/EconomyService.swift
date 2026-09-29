@@ -165,7 +165,8 @@ enum EconomyService {
         let all = master.cosmetics
         guard !all.isEmpty else { return [] }
         var result: [String] = []
-        let start = (number - 1) * bundleSize
+        // 先に剰余を取って巨大な番号でも桁あふれしないようにする（回り込みの結果は同じ）
+        let start = ((number - 1) % all.count) * bundleSize
         for k in 0..<bundleSize {
             let id = all[(start + k) % all.count].cosmeticID
             if !result.contains(id) { result.append(id) }
