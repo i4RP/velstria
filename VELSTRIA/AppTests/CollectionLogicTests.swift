@@ -157,6 +157,23 @@ final class CollectionLogicTests: XCTestCase {
         XCTAssertEqual(BuildRules.check("EQ010", adding: ["EQ004"], replacing: 0, master: master), .ok)
     }
 
+    func testJungleItemsRequireSmite() {
+        // EQ006 = Jungle
+        XCTAssertTrue(BuildRules.lacksSmite(["EQ001", "EQ006"], spells: ["BS01", "BS03"], master: master))
+        XCTAssertFalse(BuildRules.lacksSmite(["EQ001", "EQ006"], spells: ["BS05", "BS01"], master: master))
+        XCTAssertFalse(BuildRules.lacksSmite(["EQ001", "EQ002"], spells: ["BS01", "BS03"], master: master))
+        XCTAssertNotNil(master.spell(BuildRules.smiteSpellID))
+    }
+
+    func testRecommendedBuildIsSanitizedAndWithinSlots() {
+        for hero in master.heroes {
+            let build = BuildRules.recommended(for: hero.heroID, master: master)
+            XCTAssertLessThanOrEqual(build.count, BuildRules.slotCount)
+            XCTAssertEqual(BuildRules.sanitized(build, master: master), build)
+        }
+        XCTAssertEqual(BuildRules.recommended(for: "H999", master: master), [])
+    }
+
     func testSanitizedBuildDropsInvalidEntries() {
         let raw = ["EQ004", "EQ010", "BAD", "EQ001", "EQ001", "EQ006", "EQ012", "EQ002", "EQ003", "EQ005", "EQ007"]
         XCTAssertEqual(BuildRules.sanitized(raw, master: master), ["EQ004", "EQ001", "EQ006", "EQ002", "EQ003", "EQ005"])

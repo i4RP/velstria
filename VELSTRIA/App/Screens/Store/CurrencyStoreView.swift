@@ -136,6 +136,24 @@ struct CurrencyStoreView: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("currency_restore")
+            HStack(spacing: 0) {
+                Link(destination: FeatureFlags.termsURL) {
+                    Text(L("利用規約", "Terms of Use"))
+                        .foregroundStyle(Theme.textSecondary)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .accessibilityIdentifier("currency_terms")
+                Link(destination: FeatureFlags.privacyPolicyURL) {
+                    Text(L("プライバシーポリシー", "Privacy Policy"))
+                        .foregroundStyle(Theme.textSecondary)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .accessibilityIdentifier("currency_privacy")
+            }
+            .font(Theme.body(10))
+            .underline()
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
         }
     }
 
@@ -358,7 +376,7 @@ struct GemPurchaseCompleteOverlay: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.7).ignoresSafeArea()
+            Color.black.opacity(0.84).ignoresSafeArea()
             StoreCelebrationBurst(color: Theme.cyan).ignoresSafeArea().allowsHitTesting(false)
             VStack(spacing: 10) {
                 Text(L("購入完了！", "Purchased!"))
@@ -376,6 +394,7 @@ struct GemPurchaseCompleteOverlay: View {
                     .frame(minHeight: 44)
                     .accessibilityIdentifier("gem_purchase_done")
             }
+            .storeCelebrationCard(color: Theme.cyan, appeared: appeared)
         }
         .onAppear {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.6).delay(0.1)) { appeared = true }

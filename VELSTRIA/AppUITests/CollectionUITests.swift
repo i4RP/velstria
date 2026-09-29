@@ -146,10 +146,24 @@ final class CollectionUITests: XCTestCase {
         let equip = element(app, "purchase_equip")
         XCTAssertTrue(equip.waitForExistence(timeout: 5))
         equip.tap()
-        let back = element(app, "nav_back")
-        XCTAssertTrue(back.waitForExistence(timeout: 5))
-        // 商品詳細の「所持済み」表示を確認してから、インベントリ経由でエモート設定へ
+        // 商品詳細は「所持済み」表示になり、エモート設定へ進める
+        let slotsLink = element(app, "product_emote_slots")
+        XCTAssertTrue(slotsLink.waitForExistence(timeout: 5))
         XCTAssertFalse(element(app, "product_buy").exists)
+        slotsLink.tap()
+        // 装備したエモート（CO004）は枠 1 に入り、一覧に表示される
+        let slot0 = element(app, "emote_slot_0")
+        XCTAssertTrue(slot0.waitForExistence(timeout: 5))
+        XCTAssertTrue(slot0.label.contains("Emote 1"), slot0.label)
+        XCTAssertTrue(element(app, "emote_CO004").exists)
+        XCTAssertTrue(element(app, "emote_clear").exists)
+        snapshot(app, "emote_loadout_equipped")
+        element(app, "emote_clear").tap()
+        XCTAssertFalse(element(app, "emote_clear").waitForExistence(timeout: 1))
+        XCTAssertFalse(element(app, "emote_slot_0").label.contains("Emote 1"))
+        element(app, "emote_CO004").tap()
+        XCTAssertTrue(element(app, "emote_slot_0").label.contains("Emote 1"))
+        snapshot(app, "emote_loadout_reassigned")
     }
 
     func testEnglishInventoryAndCosmetics() {

@@ -100,7 +100,14 @@ struct PurchaseConfirmSheet: View {
                 Spacer()
                 PriceTag(currency: item.currency, amount: before, size: 13)
                 Image(systemName: "arrow.right").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.textSecondary)
-                PriceTag(currency: item.currency, amount: after, size: 13, insufficient: insufficient)
+                if insufficient {
+                    // 残高不足時は購入後残高ではなく不足額を示す
+                    Text(L("\((-after).formatted()) 不足", "\((-after).formatted()) short"))
+                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        .foregroundStyle(Theme.danger)
+                } else {
+                    PriceTag(currency: item.currency, amount: after, size: 13)
+                }
             }
             .accessibilityElement(children: .combine)
         }
@@ -158,7 +165,7 @@ struct PurchaseCompleteOverlay: View {
     var body: some View {
         let equipTarget = equipCandidate
         ZStack {
-            Color.black.opacity(0.7).ignoresSafeArea()
+            Color.black.opacity(0.84).ignoresSafeArea()
             StoreCelebrationBurst(color: rarityColor)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
@@ -199,7 +206,7 @@ struct PurchaseCompleteOverlay: View {
                         .accessibilityIdentifier("purchase_done")
                 }
             }
-            .padding(20)
+            .storeCelebrationCard(color: rarityColor, appeared: appeared)
         }
         .onAppear {
             withAnimation(.spring(response: 0.55, dampingFraction: 0.6).delay(0.1)) { appeared = true }
@@ -241,6 +248,24 @@ struct PurchaseCompleteOverlay: View {
             StoreItemPreview(item: completion.item, size: 130, animated: true)
                 .frame(height: 150)
         }
+    }
+}
+
+extension View {
+    /// 購入完了演出の中央カード（背景の画面と重なっても読めるよう不透明に近い板に載せる）。
+    func storeCelebrationCard(color: Color, appeared: Bool) -> some View {
+        self
+            .padding(.horizontal, 28)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(RadialGradient(colors: [color.opacity(0.28), Color(red: 0.06, green: 0.06, blue: 0.15).opacity(0.94)],
+                                         center: .center, startRadius: 10, endRadius: 260))
+            )
+            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(color.opacity(0.6), lineWidth: 1.5))
+            .shadow(color: color.opacity(0.35), radius: 24)
+            .scaleEffect(appeared ? 1 : 0.92)
+            .padding(12)
     }
 }
 

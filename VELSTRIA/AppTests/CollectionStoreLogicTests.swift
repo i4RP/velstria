@@ -169,6 +169,22 @@ final class CollectionStoreLogicTests: XCTestCase {
         }
     }
 
+    func testPolicyRowsFollowLanguage() throws {
+        let skin = try XCTUnwrap(master.storeItem("SKU001"))
+        let ja = StoreCatalog.policyRows(skin)
+        XCTAssertEqual(ja.count, 3)
+        XCTAssertTrue(ja.contains { $0.value == skin.duplicatePolicy })
+        XCTAssertTrue(ja.contains { $0.value.contains("1 回まで") })
+        let bundle = try XCTUnwrap(master.storeItem("SKU097"))
+        XCTAssertTrue(StoreCatalog.policyRows(bundle).contains { $0.value.contains("5 回まで") })
+        Loc.current = .en
+        defer { Loc.current = .ja }
+        let en = StoreCatalog.policyRows(skin)
+        XCTAssertEqual(en.count, 3)
+        XCTAssertFalse(en.contains { $0.value == skin.duplicatePolicy })
+        XCTAssertTrue(en.contains { $0.label == "Refunds" })
+    }
+
     func testLedgerSortingAndNames() {
         let old = PurchaseRecord(transactionID: 1, productID: "com.velstria.game.gem.300", gemsGranted: 330, priceJPY: 800,
                                  date: Date(timeIntervalSince1970: 1_000))

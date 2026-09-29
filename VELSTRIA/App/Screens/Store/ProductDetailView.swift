@@ -184,6 +184,18 @@ struct ProductDetailView: View {
                     .font(Theme.heading(15))
                     .foregroundStyle(Theme.success)
                 Spacer()
+                if let cosmetic, cosmetic.type == .emote {
+                    // エモートは 4 枠の配置を決める画面へ
+                    Button {
+                        app.haptics.tap()
+                        app.router.push(.emotes)
+                    } label: {
+                        Label(L("エモート設定", "Emote Slots"), systemImage: "bubble.left.and.bubble.right.fill")
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("product_emote_slots")
+                }
                 if let cosmetic {
                     if CosmeticInfo.isEquipped(cosmetic, profile: app.profile) {
                         Label(L("装備中", "Equipped"), systemImage: "checkmark.circle.fill")
