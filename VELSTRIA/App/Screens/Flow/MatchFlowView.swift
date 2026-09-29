@@ -27,6 +27,8 @@ final class MatchFlowModel {
     var draft: DraftEngine?
     /// ドラフトでプレイヤーが仮選択しているヒーロー。
     var draftHover: String?
+    /// AI 手番で決めた選択（演出中に画面が作り直されても同じ選択を使い、乱数を二重に進めない）。
+    var aiPending: (turnIndex: Int, heroID: String?)?
     /// 出撃準備で表示・起動する構成。
     var config: MatchConfig?
 
@@ -100,6 +102,7 @@ final class MatchFlowModel {
         kind = .ranked
         draft = DraftEngine(seed: seed, ownedHeroIDs: profile.ownedHeroIDs)
         draftHover = nil
+        aiPending = nil
         config = nil
         step = .draft
     }

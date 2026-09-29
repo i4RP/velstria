@@ -644,8 +644,10 @@ private struct RewardsTab: View {
         let required = { (lv: Int) in Double(max(1, FlowAccountXP.required(forLevel: lv))) }
         let xpNow = app.profile.accountXP
         let leveled = report.accountLevelAfter > report.accountLevelBefore
+        let xpBefore = FlowAccountXP.xpBefore(levelBefore: report.accountLevelBefore, levelAfter: report.accountLevelAfter,
+                                              xpAfter: xpNow, gained: report.accountXP)
         shownLevel = report.accountLevelBefore
-        xpValue = leveled ? 0.6 : max(0, Double(xpNow - report.accountXP)) / required(report.accountLevelBefore)
+        xpValue = Double(xpBefore) / required(report.accountLevelBefore)
         shownRank = report.rankBefore
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(250))

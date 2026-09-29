@@ -222,9 +222,15 @@ struct DraftStep: View {
             commit(choice, timedOut: true)
         } else {
             remaining = 0
-            var d = draft
-            let choice = d.aiChoice()
-            model.draft = d
+            let choice: String?
+            if let pending = model.aiPending, pending.turnIndex == draft.turnIndex {
+                choice = pending.heroID
+            } else {
+                var d = draft
+                choice = d.aiChoice()
+                model.draft = d
+                model.aiPending = (draft.turnIndex, choice)
+            }
             withAnimation(.easeInOut(duration: 0.2)) { aiHover = choice }
             try? await Task.sleep(for: .milliseconds(650 + (draft.turnIndex % 3) * 180))
             if Task.isCancelled { return }
@@ -250,6 +256,7 @@ struct DraftStep: View {
             aiHover = nil
         }
         model.draftHover = nil
+        model.aiPending = nil
         if turn.isPlayer {
             app.haptics.impact(.heavy)
             if turn.action == .pick, let pick = d.playerPick {

@@ -998,9 +998,19 @@ enum FlowText {
 }
 
 /// アカウント XP の必要量（Profile.accountXP は現在レベル内の XP として扱う）。
+/// 報酬側（RewardService）の成長曲線「次のレベルまで 400 + 100×Lv」と一致させる。
 enum FlowAccountXP {
     /// レベル L → L+1 に必要な XP。
     static func required(forLevel level: Int) -> Int {
-        300 + 60 * max(0, level - 1)
+        400 + 100 * max(1, level)
+    }
+
+    /// 試合前のレベル内 XP を逆算する（レベルアップを挟んでも正しく戻す）。0〜必要量に収める。
+    static func xpBefore(levelBefore: Int, levelAfter: Int, xpAfter: Int, gained: Int) -> Int {
+        var total = xpAfter - gained
+        if levelAfter > levelBefore {
+            for lv in levelBefore..<levelAfter { total += required(forLevel: lv) }
+        }
+        return min(max(0, total), required(forLevel: levelBefore))
     }
 }

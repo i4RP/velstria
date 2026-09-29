@@ -305,6 +305,18 @@ final class FlowResultTests: XCTestCase {
         XCTAssertLessThan(FlowAccountXP.required(forLevel: 1), FlowAccountXP.required(forLevel: 10))
     }
 
+    func testAccountXPBeforeIsReconstructed() {
+        // レベルアップなし: 200 → 320
+        XCTAssertEqual(FlowAccountXP.xpBefore(levelBefore: 3, levelAfter: 3, xpAfter: 320, gained: 120), 200)
+        // Lv1 で 450 XP（必要 500）+120 → Lv2・70 XP
+        let need1 = FlowAccountXP.required(forLevel: 1)
+        XCTAssertEqual(FlowAccountXP.xpBefore(levelBefore: 1, levelAfter: 2, xpAfter: 450 + 120 - need1, gained: 120), 450)
+        // 範囲外は丸める
+        XCTAssertEqual(FlowAccountXP.xpBefore(levelBefore: 5, levelAfter: 5, xpAfter: 10, gained: 120), 0)
+        XCTAssertLessThanOrEqual(FlowAccountXP.xpBefore(levelBefore: 1, levelAfter: 4, xpAfter: 99_999, gained: 1),
+                                 FlowAccountXP.required(forLevel: 1))
+    }
+
     func testLoadingProgressCurve() {
         var last = -1.0
         for i in 0...200 {

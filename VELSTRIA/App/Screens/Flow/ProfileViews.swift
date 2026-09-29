@@ -341,6 +341,7 @@ struct RecordsView: View {
                         .init(tab: Filter.all, title: L("すべて", "All"), symbol: "square.grid.2x2", identifier: "records_filter_all"),
                         .init(tab: Filter.standard, title: L("通常", "Standard"), symbol: "person.3.fill", identifier: "records_filter_standard"),
                         .init(tab: Filter.ranked, title: L("ランク", "Ranked"), symbol: "crown.fill", identifier: "records_filter_ranked"),
+                        .init(tab: Filter.other, title: L("その他", "Other"), symbol: "ellipsis.circle", identifier: "records_filter_other"),
                     ], selection: $filter)
                 }
                 if list.isEmpty {
