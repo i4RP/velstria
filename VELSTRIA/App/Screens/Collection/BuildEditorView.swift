@@ -74,6 +74,9 @@ struct BuildEditorView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .transition(.opacity)
             }
+            if BuildRules.lacksSmite(build, spells: SpellLoadoutRules.effective(heroID: heroID, profile: app.profile), master: app.master) {
+                smiteNotice
+            }
             HStack {
                 Text(L("合計", "Total")).font(Theme.body(12)).foregroundStyle(Theme.textSecondary)
                 GoldPriceLabel(amount: BuildRules.totalCost(build, master: app.master), size: 13)
@@ -108,6 +111,31 @@ struct BuildEditorView: View {
         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.panel))
         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.panelStroke, lineWidth: 1))
         .animation(.easeInOut(duration: 0.2), value: warning)
+    }
+
+    /// ジャングル装備は狩猟印が無いと購入できないため、スペル設定へ誘導する。
+    private var smiteNotice: some View {
+        Button {
+            app.haptics.tap()
+            app.router.push(.spells)
+        } label: {
+            HStack(spacing: 6) {
+                SpellIconView(spellID: BuildRules.smiteSpellID, size: 24)
+                Text(L("ジャングル装備の購入には「狩猟印」が必要です。スペルを設定 ›",
+                       "Jungle items require Smite. Set up spells ›"))
+                    .font(Theme.body(10))
+                    .foregroundStyle(Theme.gold)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 8)
+            .frame(minHeight: 44)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Theme.gold.opacity(0.1)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("build_smite_notice")
     }
 
     private func slotView(_ i: Int) -> some View {

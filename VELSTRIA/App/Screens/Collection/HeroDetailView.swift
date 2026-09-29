@@ -111,13 +111,32 @@ private struct HeroShowcasePanel: View {
     @Binding var pendingSKU: String?
     @Environment(AppModel.self) private var app
 
+    /// パネルの高さに合わせたポートレートの大きさ（下の情報・ボタンが収まる範囲で最大化）。
+    static func portraitSize(panelHeight h: CGFloat, locked: Bool) -> CGFloat {
+        let reserved: CGFloat = locked ? 244 : 190
+        return min(108, max(70, (h - reserved) / 1.58))
+    }
+
     var body: some View {
+        GeometryReader { geo in
+            content(portrait: Self.portraitSize(panelHeight: geo.size.height, locked: !app.owns(heroID: hero.heroID)))
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(LinearGradient(colors: [Theme.roleColor(hero.role).opacity(0.18), Theme.panel],
+                                     startPoint: .top, endPoint: .bottom))
+        )
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Theme.roleColor(hero.role).opacity(0.4), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func content(portrait: CGFloat) -> some View {
         let owned = app.owns(heroID: hero.heroID)
         let damageType = app.master.skill(hero: hero.heroID, slot: .skill1)?.damageType ?? .physical
-        ScrollView {
+        return ScrollView {
             VStack(spacing: 7) {
-                HeroAuraPortrait(heroID: hero.heroID, size: 74, color: Theme.roleColor(hero.role))
-                    .padding(.vertical, -6)
+                HeroAuraPortrait(heroID: hero.heroID, size: portrait, color: Theme.roleColor(hero.role))
+                    .padding(.vertical, -portrait * 0.08)
                 Text(MasterText.hero(hero))
                     .font(Theme.heading(17))
                     .foregroundStyle(Theme.textPrimary)
@@ -181,13 +200,6 @@ private struct HeroShowcasePanel: View {
             .padding(.horizontal, 8)
         }
         .scrollIndicators(.hidden)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(LinearGradient(colors: [Theme.roleColor(hero.role).opacity(0.18), Theme.panel],
-                                     startPoint: .top, endPoint: .bottom))
-        )
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Theme.roleColor(hero.role).opacity(0.4), lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private func startPractice() {

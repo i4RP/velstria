@@ -126,6 +126,12 @@ final class CollectionStoreLogicTests: XCTestCase {
         // 既に装備済みは成功扱い、満杯なら失敗
         XCTAssertTrue(CosmeticInfo.equip(try XCTUnwrap(master.cosmetic("CO010")), profile: &p))
         XCTAssertFalse(CosmeticInfo.equip(try XCTUnwrap(master.cosmetic("CO028")), profile: &p))
+        XCTAssertEqual(p.equippedEmotes.count, 4)
+        // 外すと空き枠ができ、次の装備は末尾へ入る
+        CosmeticInfo.unequip(.emote, profile: &p)
+        XCTAssertEqual(p.equippedEmotes, [])
+        XCTAssertTrue(CosmeticInfo.equip(try XCTUnwrap(master.cosmetic("CO028")), profile: &p))
+        XCTAssertEqual(p.equippedEmotes, ["CO028"])
     }
 
     func testIAPMessages() {

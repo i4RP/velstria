@@ -23,6 +23,16 @@ struct CurrencyStoreView: View {
                                 .font(Theme.body(12))
                                 .foregroundStyle(Theme.danger)
                         }
+                        if app.storeKit.isLoading {
+                            HStack(spacing: 6) {
+                                ProgressView().controlSize(.small).tint(Theme.cyan)
+                                Text(L("App Store から価格を取得中…", "Loading prices from the App Store…"))
+                                    .font(Theme.body(11))
+                                    .foregroundStyle(Theme.textSecondary)
+                            }
+                            .accessibilityElement(children: .combine)
+                            .transition(.opacity)
+                        }
                         LazyVGrid(columns: columns, spacing: 10) {
                             ForEach(Array(StoreKitService.gemProducts.enumerated()), id: \.element.productID) { i, product in
                                 StoreGemPackCard(product: product, tierIndex: i,

@@ -161,6 +161,24 @@ enum StoreCatalog {
         }
     }
 
+    /// 商品毎の購入条件（重複時の扱い・返金）。マスターの文言は日本語のみのため英語は定型訳を使う。
+    static func policyRows(_ item: StoreItemDef) -> [StoreLegalText.Row] {
+        let duplicate = Loc.isEnglish
+            ? "If you already own it, it can't be purchased or is converted into currency of equal value (fixed per product)."
+            : item.duplicatePolicy
+        let refund = Loc.isEnglish
+            ? "Unspent purchases are handled within the platform's rules."
+            : item.refundPolicy
+        var rows: [StoreLegalText.Row] = []
+        if !item.duplicatePolicy.isEmpty { rows.append(.init(label: L("重複時の扱い", "Duplicates"), value: duplicate)) }
+        if !item.refundPolicy.isEmpty { rows.append(.init(label: L("返金", "Refunds"), value: refund)) }
+        if item.purchaseLimit > 0 {
+            rows.append(.init(label: L("購入上限", "Purchase limit"),
+                              value: L("\(item.purchaseLimit) 回まで", "Up to \(item.purchaseLimit)")))
+        }
+        return rows
+    }
+
     static func typeSymbol(_ item: StoreItemDef, master: MasterData) -> String {
         switch item.type {
         case .cosmetic:
@@ -228,11 +246,10 @@ enum CosmeticInfo {
         case .killEffect: profile.equippedKillEffect = c.cosmeticID
         case .avatarFrame: profile.equippedAvatarFrame = c.cosmeticID
         case .emote:
-            var slots = EmoteSlots.normalized(profile.equippedEmotes)
+            let slots = EmoteSlots.normalized(profile.equippedEmotes)
             if slots.contains(c.cosmeticID) { return true }
-            guard let empty = slots.firstIndex(of: "") else { return false }
-            slots[empty] = c.cosmeticID
-            profile.equippedEmotes = slots
+            guard let empty = EmoteSlots.firstEmptySlot(in: slots) else { return false }
+            profile.equippedEmotes = EmoteSlots.assigning(c.cosmeticID, slot: empty, in: slots)
         }
         return true
     }
@@ -246,7 +263,7 @@ enum CosmeticInfo {
         case .spawn: profile.equippedSpawn = nil
         case .killEffect: profile.equippedKillEffect = nil
         case .avatarFrame: profile.equippedAvatarFrame = nil
-        case .emote: profile.equippedEmotes = EmoteSlots.normalized([])
+        case .emote: profile.equippedEmotes = []
         }
     }
 

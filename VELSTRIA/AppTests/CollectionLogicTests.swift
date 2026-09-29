@@ -255,13 +255,28 @@ final class CollectionLogicTests: XCTestCase {
 
     // MARK: エモート
 
-    func testEmoteSlotsAreAlwaysFour() {
-        XCTAssertEqual(EmoteSlots.normalized([]), ["", "", "", ""])
-        XCTAssertEqual(EmoteSlots.normalized(["A", "B", "C", "D", "E"]), ["A", "B", "C", "D"])
-        XCTAssertEqual(EmoteSlots.assigning("A", slot: 2, in: []), ["", "", "A", ""])
-        XCTAssertEqual(EmoteSlots.assigning("A", slot: 0, in: ["B", "", "A", ""]), ["A", "", "B", ""])
-        XCTAssertEqual(EmoteSlots.clearing(slot: 0, in: ["A", "B"]), ["", "B", "", ""])
-        XCTAssertEqual(EmoteSlots.pruned(["A", "X"], owned: ["A"]), ["A", "", "", ""])
+    func testEmoteSlotsAreCompactAndCappedAtFour() {
+        XCTAssertEqual(EmoteSlots.normalized([]), [])
+        XCTAssertEqual(EmoteSlots.normalized(["A", "", "B", "A", "C", "D", "E"]), ["A", "B", "C", "D"])
+        // 空き枠を指定すると最初の空き枠へ詰める
+        XCTAssertEqual(EmoteSlots.assigning("A", slot: 2, in: []), ["A"])
+        XCTAssertEqual(EmoteSlots.assigning("C", slot: 3, in: ["A", "B"]), ["A", "B", "C"])
+        // 埋まった枠は置換、装備済みを別の枠へ置くと入れ替え
+        XCTAssertEqual(EmoteSlots.assigning("X", slot: 1, in: ["A", "B", "C"]), ["A", "X", "C"])
+        XCTAssertEqual(EmoteSlots.assigning("C", slot: 0, in: ["A", "B", "C"]), ["C", "B", "A"])
+        XCTAssertEqual(EmoteSlots.assigning("B", slot: 3, in: ["A", "B"]), ["A", "B"])
+        XCTAssertEqual(EmoteSlots.assigning("E", slot: 3, in: ["A", "B", "C", "D"]), ["A", "B", "C", "E"])
+        XCTAssertEqual(EmoteSlots.assigning("E", slot: 4, in: ["A"]), ["A"])
+        // 空ける（後ろは詰まる）
+        XCTAssertEqual(EmoteSlots.clearing(slot: 0, in: ["A", "B"]), ["B"])
+        XCTAssertEqual(EmoteSlots.clearing(slot: 3, in: ["A", "B"]), ["A", "B"])
+        XCTAssertEqual(EmoteSlots.pruned(["A", "X", ""], owned: ["A"]), ["A"])
+        XCTAssertEqual(EmoteSlots.emote(at: 1, in: ["A", "B"]), "B")
+        XCTAssertNil(EmoteSlots.emote(at: 2, in: ["A", "B"]))
+        XCTAssertEqual(EmoteSlots.firstEmptySlot(in: ["A", "B"]), 2)
+        XCTAssertNil(EmoteSlots.firstEmptySlot(in: ["A", "B", "C", "D"]))
+        // 旧形式（"" 埋め 4 要素）も読める
+        XCTAssertEqual(EmoteSlots.normalized(["A", "", "", "B"]), ["A", "B"])
     }
 
     // MARK: ヒーロー一覧

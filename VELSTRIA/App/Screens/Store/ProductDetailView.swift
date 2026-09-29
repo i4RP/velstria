@@ -86,7 +86,30 @@ struct ProductDetailView: View {
             }
             Divider().overlay(Theme.panelStroke)
             purchaseRow(item, owned: owned, unavailable: unavailable, cosmetic: cosmetic)
+            policyBlock(item)
         }
+    }
+
+    /// 購入条件（重複・返金・上限）。
+    private func policyBlock(_ item: StoreItemDef) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            ForEach(StoreCatalog.policyRows(item)) { row in
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(row.label)
+                        .font(Theme.body(10))
+                        .foregroundStyle(Theme.textSecondary)
+                        .frame(width: 84, alignment: .leading)
+                    Text(row.value)
+                        .font(Theme.body(10))
+                        .foregroundStyle(Theme.textPrimary.opacity(0.8))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .accessibilityElement(children: .combine)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.04)))
     }
 
     private func heroInfo(_ hero: HeroDef) -> some View {
@@ -229,8 +252,8 @@ struct ProductDetailView: View {
             return ja ? "\(name)を解放し、すべてのモードで使用できるようにします。"
                       : "Unlocks \(name) for use in every mode."
         case .bundle:
-            return ja ? "複数のコスメをまとめた星環バンドルです。所持済みのコスメは重複して付与されません。"
-                      : "A Star Ring bundle containing multiple cosmetics. Cosmetics you already own are not granted twice."
+            return ja ? "複数のコスメをまとめた星環バンドルです。所持済みのコスメは重複して付与されず、商品設定に従って通貨で補填されます。"
+                      : "A Star Ring bundle containing multiple cosmetics. Cosmetics you already own aren't granted twice; they're compensated with currency per the product settings."
         case .cosmetic:
             guard let c = master.cosmetic(item.grantID) else { return "" }
             switch c.type {

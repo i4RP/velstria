@@ -2,7 +2,7 @@ import SwiftUI
 import VelstriaCore
 
 // 担当: ui-collection。UI059 エモート（所持エモートを 4 枠に装備）。
-// profile.equippedEmotes は常に 4 要素（空き枠は ""）で保存する。
+// profile.equippedEmotes は空き枠を詰めた最大 4 要素で保存する（EmoteSlots 参照）。
 
 struct EmoteLoadoutView: View {
     @Environment(AppModel.self) private var app
@@ -76,12 +76,12 @@ struct EmoteLoadoutView: View {
                 // 上・右・下・左
                 ForEach(0..<EmoteSlots.count, id: \.self) { i in
                     let angle = -Double.pi / 2 + Double(i) * .pi / 2
-                    slotButton(i, emoteID: slots[i])
+                    slotButton(i, emoteID: EmoteSlots.emote(at: i, in: slots), slots: slots)
                         .offset(x: cos(angle) * 84, y: sin(angle) * 84)
                 }
             }
             .frame(width: 240, height: 240)
-            if slots.indices.contains(slot), !slots[slot].isEmpty {
+            if EmoteSlots.emote(at: slot, in: slots) != nil {
                 Button {
                     app.profile.equippedEmotes = EmoteSlots.clearing(slot: slot, in: slots)
                     app.haptics.tap()
@@ -101,12 +101,13 @@ struct EmoteLoadoutView: View {
         }
     }
 
-    private func slotButton(_ i: Int, emoteID: String) -> some View {
+    private func slotButton(_ i: Int, emoteID: String?, slots: [String]) -> some View {
         let selected = slot == i
-        let emote = emoteID.isEmpty ? nil : app.master.cosmetic(emoteID)
+        let emote = emoteID.flatMap { app.master.cosmetic($0) }
         return Button {
             app.haptics.tap()
-            withAnimation(.spring(duration: 0.25)) { slot = i }
+            // 空き枠は前から詰めて使うため、2 つ目以降の空き枠を選んでも最初の空き枠を選択する
+            withAnimation(.spring(duration: 0.25)) { slot = min(i, slots.count) }
         } label: {
             ZStack {
                 if let emote {
@@ -178,7 +179,7 @@ struct EmoteLoadoutView: View {
         withAnimation(.spring(duration: 0.3)) {
             app.profile.equippedEmotes = next
             // 次の空き枠へ進む
-            if let empty = next.firstIndex(of: "") { slot = empty }
+            if let empty = EmoteSlots.firstEmptySlot(in: next) { slot = empty }
         }
     }
 }

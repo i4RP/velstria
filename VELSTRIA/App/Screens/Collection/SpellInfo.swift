@@ -71,7 +71,7 @@ struct SpellInfo: Identifiable, Equatable {
     }
 }
 
-/// スペルアイコン（円形・スペル毎の記号と色）。
+/// スペルアイコン（円形・スペル毎の記号と色）。他画面（対戦前フロー・HUD）からも `SpellIconView(spellID:size:)` で使う。
 struct SpellIconView: View {
     let spellID: String
     var size: CGFloat = 48
@@ -91,6 +91,7 @@ struct SpellIconView: View {
                 .shadow(color: info.color, radius: size * 0.08)
         }
         .frame(width: size, height: size)
-        .accessibilityHidden(true)
+        .accessibilityElement()
+        .accessibilityLabel(MasterData.shared.spell(spellID).map { MasterText.spell($0) } ?? spellID)
     }
 }

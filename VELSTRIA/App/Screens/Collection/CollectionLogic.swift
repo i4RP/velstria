@@ -278,6 +278,14 @@ enum BuildRules {
         return .ok
     }
 
+    /// 狩猟印（ジャングル装備の購入に必要なバトルスペル、DESIGN §7）。
+    static let smiteSpellID = "BS05"
+
+    /// ジャングル装備を含み、かつ狩猟印を装備していないか（戦闘中に購入できない組み合わせ）。
+    static func lacksSmite(_ build: [String], spells: [String], master: MasterData) -> Bool {
+        build.contains { master.item($0)?.category == .jungle } && !spells.contains(smiteSpellID)
+    }
+
     static func totalCost(_ build: [String], master: MasterData) -> Double {
         build.compactMap { master.item($0)?.priceGold }.reduce(0, +)
     }
@@ -459,38 +467,61 @@ enum SpellLoadoutRules {
     }
 }
 
-// MARK: - エモート（4 枠。空き枠は ""）
+// MARK: - エモート（最大 4 枠）
+// profile.equippedEmotes は「空き枠を詰めた最大 4 要素の ID 列」で保存する（EconomyService・戦闘 HUD と同じ表現）。
+// 枠 i の中身は ids[i]（i >= count は空き枠）。
 
 enum EmoteSlots {
     static let count = 4
 
-    /// 常に 4 要素（空き枠は ""）。
+    /// 空文字・重複を除き、最大 4 個に詰める（順序は保持）。
     static func normalized(_ ids: [String]) -> [String] {
-        var out = Array(ids.prefix(count))
-        while out.count < count { out.append("") }
+        var out: [String] = []
+        for id in ids where !id.isEmpty && !out.contains(id) {
+            out.append(id)
+            if out.count == count { break }
+        }
         return out
     }
 
-    /// slot に emoteID を装備。別枠に同じものがあればそこは入れ替える。
+    /// 表示用の枠 i の中身（空き枠は nil）。
+    static func emote(at slot: Int, in ids: [String]) -> String? {
+        let s = normalized(ids)
+        return s.indices.contains(slot) ? s[slot] : nil
+    }
+
+    /// 次に埋まる空き枠（満杯なら nil）。
+    static func firstEmptySlot(in ids: [String]) -> Int? {
+        let n = normalized(ids).count
+        return n < count ? n : nil
+    }
+
+    /// slot に emoteID を装備する。
+    /// 装備済みのエモートを別の埋まった枠へ置くと入れ替え、空き枠を指定した場合は末尾（最初の空き枠）へ詰める。
     static func assigning(_ emoteID: String, slot: Int, in current: [String]) -> [String] {
         var s = normalized(current)
-        guard (0..<count).contains(slot) else { return s }
-        if let other = s.firstIndex(of: emoteID), other != slot {
-            s[other] = s[slot]
+        guard !emoteID.isEmpty, (0..<count).contains(slot) else { return s }
+        if let other = s.firstIndex(of: emoteID) {
+            if s.indices.contains(slot) { s.swapAt(other, slot) }
+            return s
         }
-        s[slot] = emoteID
+        if s.indices.contains(slot) {
+            s[slot] = emoteID
+        } else if s.count < count {
+            s.append(emoteID)
+        }
         return s
     }
 
+    /// 枠を空ける（後ろの枠は前へ詰まる）。
     static func clearing(slot: Int, in current: [String]) -> [String] {
         var s = normalized(current)
-        guard (0..<count).contains(slot) else { return s }
-        s[slot] = ""
+        if s.indices.contains(slot) { s.remove(at: slot) }
         return s
     }
 
-    /// 所持していない ID を空き枠にする。
+    /// 所持していない ID を外す。
     static func pruned(_ ids: [String], owned: [String]) -> [String] {
-        normalized(ids).map { owned.contains($0) ? $0 : "" }
+        normalized(ids).filter { owned.contains($0) }
     }
 }
