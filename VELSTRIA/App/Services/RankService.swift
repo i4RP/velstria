@@ -239,6 +239,8 @@ enum RankService {
         for a in tierRewards(tier) {
             LiveOpsService.grant(a, to: &profile)
         }
+        // 報酬コスメで所持数の実績が進む
+        LiveOpsService.evaluateAchievements(profile: &profile, master: .shared, now: Date())
         return true
     }
 

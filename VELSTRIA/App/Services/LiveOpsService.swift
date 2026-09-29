@@ -11,9 +11,10 @@ import VelstriaCore
 // - 実績（26 件、試合後などに評価）、お知らせ（4 件、静的）
 // 日付はすべて端末ローカルの暦で扱う。未受取のまま期限切れになったミッション報酬はメールで届ける。
 //
-// イベントミッションの進捗は契約の MissionState に枠が無いため、profile.achievements に
-// キー "evm.<ミッションID>" で保存する（progress = 進捗数、claimed = 受取済み、unlockedAt は常に nil）。
-// 実績の一覧・件数は必ず `achievements` の定義から引くこと（辞書を列挙しない）。
+// イベントミッションの進捗は MissionState.weekly にウィークリー 4 件の後ろへ並べて保持する
+// （UI は daily + weekly から ID で進捗を引くため）。週の切替では持ち越し、イベント終了時に
+// 達成済み・未受取の報酬をメールで届けて枠を外す。ウィークリーの一覧は weeklyMissions(profile:) で引くこと。
+// 所持品が増える受取（ミッション・パス・メール・ランク報酬・ストア購入）の後は実績を再評価する。
 
 struct MissionDef: Identifiable, Equatable {
     enum Kind: String { case playMatches, winMatches, kills, assists, creepScore, destroyTowers, useHeroRole, dealDamage }
@@ -102,8 +103,6 @@ enum LiveOpsService {
     static let weekendCoinBonusRate = 0.5
     static let launchEventID = "EVT_LAUNCH"
     static let weekendEventID = "EVT_WEEKEND"
-    /// イベントミッション進捗の保存キー接頭辞（profile.achievements 内）。
-    static let eventMissionKeyPrefix = "evm."
 
     // MARK: - 定義: ミッション
 
@@ -437,22 +436,32 @@ enum LiveOpsService {
         dailyPool.first { $0.id == id } ?? weeklyPool.first { $0.id == id } ?? eventPool.first { $0.id == id }
     }
 
-    /// デイリー / ウィークリー / イベントのどれでも進捗を返す。
+    /// イベントミッションの ID か。
+    static func isEventMission(_ id: String) -> Bool { eventPool.contains { $0.id == id } }
+
+    /// イベントミッションを含むイベント（週末イベントはミッションを持たない）。
+    static func event(containingMission id: String) -> EventDef? {
+        launchEvent.missionIDs.contains(id) ? launchEvent : nil
+    }
+
+    /// 指定時刻にそのイベントミッションが進行・受取できるか。
+    static func isEventMissionActive(_ id: String, now: Date) -> Bool {
+        guard let e = event(containingMission: id) else { return false }
+        return e.start <= now && now < e.end
+    }
+
+    /// デイリー / ウィークリー / イベントのどれでも進捗を返す（イベントで未着手なら進捗 0）。
     static func missionProgress(id: String, profile: Profile) -> MissionProgress? {
         if let p = profile.missions.daily.first(where: { $0.id == id }) { return p }
         if let p = profile.missions.weekly.first(where: { $0.id == id }) { return p }
-        guard eventPool.contains(where: { $0.id == id }) else { return nil }
-        let entry = profile.achievements[eventMissionKeyPrefix + id] ?? AchievementProgress()
-        return MissionProgress(id: id, progress: clampedInt(entry.progress), claimed: entry.claimed)
+        return isEventMission(id) ? MissionProgress(id: id) : nil
     }
 
-    /// 達成済みかつ未受取のミッション数（バッジ表示用）。
+    /// 達成済みかつ未受取のミッション数（バッジ表示用。開催中イベントのミッションを含む）。
     static func claimableMissionCount(profile: Profile, now: Date = Date()) -> Int {
-        var ids = profile.missions.daily.map(\.id) + profile.missions.weekly.map(\.id)
-        for e in activeEvents(now: now) { ids += e.missionIDs }
-        return ids.filter { id in
-            guard let def = missionDef(id: id), let p = missionProgress(id: id, profile: profile) else { return false }
-            return !p.claimed && p.progress >= def.target
+        (profile.missions.daily + profile.missions.weekly).filter { p in
+            guard !p.claimed, let def = missionDef(id: p.id), p.progress >= def.target else { return false }
+            return !isEventMission(p.id) || isEventMissionActive(p.id, now: now)
         }.count
     }
 
@@ -574,7 +583,7 @@ enum LiveOpsService {
     // MARK: - 更新
 
     /// 日付・週が変わっていればデイリー / ウィークリーを入れ替える（達成済み未受取の報酬はメールで届ける）。
-    /// 端末時刻が過去に戻った場合は入れ替えない。
+    /// 端末時刻が過去に戻った場合は入れ替えない。イベントミッションの枠は週をまたいで持ち越し、イベント終了で外す。
     static func refreshMissions(profile: inout Profile, now: Date) {
         let dk = dayKey(now)
         let storedDay = profile.missions.dayKey
@@ -587,16 +596,43 @@ enum LiveOpsService {
         }
         let wk = weekKey(now)
         let storedWeek = profile.missions.weeklyKey
-        if storedWeek.isEmpty || wk > storedWeek {
-            mailUnclaimedRewards(profile.missions.weekly, profile: &profile, now: now)
-            profile.missions.weeklyKey = wk
-            profile.missions.weekly = weeklyPool.map { MissionProgress(id: $0.id) }
-        } else if profile.missions.weekly.isEmpty {
-            profile.missions.weekly = weeklyPool.map { MissionProgress(id: $0.id) }
+        var eventEntries: [MissionProgress] = []
+        for p in profile.missions.weekly where isEventMission(p.id) && !eventEntries.contains(where: { $0.id == p.id }) {
+            eventEntries.append(p)
         }
+        if storedWeek.isEmpty || wk > storedWeek {
+            mailUnclaimedRewards(profile.missions.weekly.filter { !isEventMission($0.id) }, profile: &profile, now: now)
+            profile.missions.weeklyKey = wk
+            profile.missions.weekly = weeklyPool.map { MissionProgress(id: $0.id) } + eventEntries
+        } else {
+            // 欠けたウィークリー枠の補完と並び順の正規化（ウィークリー 4 件 → イベント）
+            let regular = weeklyPool.map { def in
+                profile.missions.weekly.first { $0.id == def.id } ?? MissionProgress(id: def.id)
+            }
+            let normalized = regular + eventEntries
+            if normalized != profile.missions.weekly { profile.missions.weekly = normalized }
+        }
+        closeEndedEventMissions(profile: &profile, now: now)
     }
 
-    private static func mailUnclaimedRewards(_ list: [MissionProgress], profile: inout Profile, now: Date) {
+    /// 終了したイベントのミッション枠を外し、達成済み・未受取の報酬をメールで届ける。
+    private static func closeEndedEventMissions(profile: inout Profile, now: Date) {
+        let ended = profile.missions.weekly.filter { p in
+            guard isEventMission(p.id) else { return false }
+            guard let e = event(containingMission: p.id) else { return true }
+            return now >= e.end
+        }
+        guard !ended.isEmpty else { return }
+        mailUnclaimedRewards(ended, profile: &profile, now: now,
+                             title: L("未受取のイベント報酬", "Unclaimed event rewards"),
+                             body: L("終了したイベントのミッション報酬をお届けします。",
+                                     "Here are the mission rewards from an event that has ended."))
+        let endedIDs = ended.map(\.id)
+        profile.missions.weekly.removeAll { endedIDs.contains($0.id) }
+    }
+
+    private static func mailUnclaimedRewards(_ list: [MissionProgress], profile: inout Profile, now: Date,
+                                             title: String? = nil, body: String? = nil) {
         var attachments: [MailAttachment] = []
         for p in list where !p.claimed {
             guard let def = missionDef(id: p.id), p.progress >= def.target else { continue }
@@ -604,8 +640,8 @@ enum LiveOpsService {
         }
         guard !attachments.isEmpty else { return }
         sendMail(to: &profile,
-                 title: L("未受取のミッション報酬", "Unclaimed mission rewards"),
-                 body: L("期限が切れたミッションの報酬をお届けします。", "Here are the rewards from missions that have ended."),
+                 title: title ?? L("未受取のミッション報酬", "Unclaimed mission rewards"),
+                 body: body ?? L("期限が切れたミッションの報酬をお届けします。", "Here are the rewards from missions that have ended."),
                  attachments: mergeAttachments(attachments), now: now,
                  expiresAt: calendar.date(byAdding: .day, value: loginMailLifetimeDays, to: now))
     }
@@ -618,37 +654,28 @@ enum LiveOpsService {
         for i in profile.missions.daily.indices {
             if advance(&profile.missions.daily[i], input: input) { progressed.append(profile.missions.daily[i].id) }
         }
-        for i in profile.missions.weekly.indices {
+        for i in profile.missions.weekly.indices where !isEventMission(profile.missions.weekly[i].id) {
             if advance(&profile.missions.weekly[i], input: input) { progressed.append(profile.missions.weekly[i].id) }
         }
         for event in activeEvents(now: now) {
             for id in event.missionIDs {
-                guard let def = missionDef(id: id) else { continue }
-                let key = eventMissionKeyPrefix + id
-                var entry = profile.achievements[key] ?? AchievementProgress()
-                let current = clampedInt(entry.progress)
-                guard !entry.claimed, current < def.target else { continue }
-                let inc = increment(for: def, input: input)
-                guard inc > 0 else { continue }
-                entry.progress = Double(min(def.target, current + inc))
-                profile.achievements[key] = entry
-                progressed.append(id)
+                guard let def = missionDef(id: id), increment(for: def, input: input) > 0 else { continue }
+                // 初めて進捗した時に枠を作る
+                if !profile.missions.weekly.contains(where: { $0.id == id }) {
+                    profile.missions.weekly.append(MissionProgress(id: id))
+                }
+                guard let i = profile.missions.weekly.firstIndex(where: { $0.id == id }) else { continue }
+                if advance(&profile.missions.weekly[i], input: input) { progressed.append(id) }
             }
         }
         return progressed
-    }
-
-    /// 保存値（Double）を安全に整数化する（NaN・巨大値でトラップしないように）。
-    private static func clampedInt(_ value: Double) -> Int {
-        guard value.isFinite else { return 0 }
-        return Int(min(1_000_000_000, max(-1_000_000_000, value)))
     }
 
     private static func advance(_ p: inout MissionProgress, input: MatchProgressInput) -> Bool {
         guard !p.claimed, let def = missionDef(id: p.id), p.progress < def.target else { return false }
         let inc = increment(for: def, input: input)
         guard inc > 0 else { return false }
-        p.progress = min(def.target, p.progress + inc)
+        p.progress = min(def.target, max(0, p.progress) + inc)
         return true
     }
 
@@ -729,35 +756,37 @@ enum LiveOpsService {
     static func claimMission(id: String, profile: inout Profile, now: Date) -> [MailAttachment]? {
         refreshMissions(profile: &profile, now: now)
         guard let def = missionDef(id: id) else { return nil }
+        // イベントミッションは開催期間中のみ受け取れる（終了時の未受取分はメールで届く）
+        if isEventMission(id) && !isEventMissionActive(id, now: now) { return nil }
         if let i = profile.missions.daily.firstIndex(where: { $0.id == id }) {
             guard !profile.missions.daily[i].claimed, profile.missions.daily[i].progress >= def.target else { return nil }
             profile.missions.daily[i].claimed = true
         } else if let i = profile.missions.weekly.firstIndex(where: { $0.id == id }) {
             guard !profile.missions.weekly[i].claimed, profile.missions.weekly[i].progress >= def.target else { return nil }
             profile.missions.weekly[i].claimed = true
-        } else if eventPool.contains(where: { $0.id == id }) {
-            // イベント終了後は受け取れない
-            guard activeEvents(now: now).contains(where: { $0.missionIDs.contains(id) }) else { return nil }
-            let key = eventMissionKeyPrefix + id
-            guard var entry = profile.achievements[key], !entry.claimed, clampedInt(entry.progress) >= def.target else { return nil }
-            entry.claimed = true
-            profile.achievements[key] = entry
         } else {
             return nil
         }
-        return rewardAttachments(def).map { grantResolved($0, to: &profile) }
+        let granted = rewardAttachments(def).map { grantResolved($0, to: &profile) }
+        reevaluateAfterGrant(granted, profile: &profile, now: now)
+        return granted
     }
 
     /// 達成済みのミッションをまとめて受け取る。
     static func claimAllMissions(profile: inout Profile, now: Date) -> [MailAttachment] {
         refreshMissions(profile: &profile, now: now)
-        var ids = profile.missions.daily.map(\.id) + profile.missions.weekly.map(\.id)
-        for e in activeEvents(now: now) { ids += e.missionIDs }
+        let ids = profile.missions.daily.map(\.id) + profile.missions.weekly.map(\.id)
         var result: [MailAttachment] = []
         for id in ids {
             if let r = claimMission(id: id, profile: &profile, now: now) { result += r }
         }
         return mergeAttachments(result)
+    }
+
+    /// コスメ・ヒーローが増える受取の後に実績（所持数）を評価し直す。
+    private static func reevaluateAfterGrant(_ granted: [MailAttachment], profile: inout Profile, now: Date) {
+        guard granted.contains(where: { $0.kind == .cosmetic || $0.kind == .hero }) else { return }
+        evaluateAchievements(profile: &profile, master: .shared, now: now)
     }
 
     static func rewardAttachments(_ def: MissionDef) -> [MailAttachment] {
@@ -770,15 +799,18 @@ enum LiveOpsService {
     static func claimPass(level: Int, premium: Bool, profile: inout Profile) -> MailAttachment? {
         guard (1...passMaxLevel).contains(level), passLevel(xp: profile.pass.xp) >= level,
               let reward = passRewardTable.first(where: { $0.level == level }) else { return nil }
+        let granted: MailAttachment
         if premium {
             guard profile.pass.hasPremium, !profile.pass.claimedPremium.contains(level), let a = reward.premium else { return nil }
             profile.pass.claimedPremium.append(level)
-            return grantResolved(a, to: &profile)
+            granted = grantResolved(a, to: &profile)
         } else {
             guard !profile.pass.claimedFree.contains(level), let a = reward.free else { return nil }
             profile.pass.claimedFree.append(level)
-            return grantResolved(a, to: &profile)
+            granted = grantResolved(a, to: &profile)
         }
+        reevaluateAfterGrant([granted], profile: &profile, now: Date())
+        return granted
     }
 
     /// 受取可能なパス報酬をすべて受け取る。
@@ -810,7 +842,9 @@ enum LiveOpsService {
         guard !profile.mail[i].claimed, !isExpired(profile.mail[i], now: now) else { return [] }
         profile.mail[i].claimed = true
         let attachments = profile.mail[i].attachments
-        return attachments.map { grantResolved($0, to: &profile) }
+        let granted = attachments.map { grantResolved($0, to: &profile) }
+        reevaluateAfterGrant(granted, profile: &profile, now: now)
+        return granted
     }
 
     static func claimAllMail(profile: inout Profile) -> [MailAttachment] {

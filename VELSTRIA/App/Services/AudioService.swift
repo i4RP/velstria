@@ -4,11 +4,12 @@ import UIKit
 
 // 担当: app-services
 // AVAudioEngine による手続き生成の効果音・BGM（音源ファイルなし）。
-// - 効果音: 起動時に全 SFX の PCM を合成（AudioLibrary.swift）。8 個の AVAudioPlayerNode を使い回して重ねて鳴らす。
-// - BGM: 曲ごとに一度だけバックグラウンドでレンダリングし .loops でスケジュール。曲の切替はクロスフェード。
-//   メモリ節約のため、ループ曲のバッファは再生中の曲だけを保持する（スティンガーは小さいので保持）。
+// - 効果音: 初期化時に全 SFX の PCM をバックグラウンドで合成（AudioLibrary.swift）し、起動を妨げない。
+//   8 個の AVAudioPlayerNode を使い回して重ねて鳴らす。合成完了前の再生要求は無視する。
+// - BGM: 曲ごとに一度だけバックグラウンドでレンダリングしてバッファを保持し、.loops でスケジュールする。
+//   曲の切替はクロスフェード。メモリ警告時は再生中以外の曲のバッファを解放する（次回再生時に作り直す）。
 // - AVAudioSession は .ambient（消音スイッチに従い、他のアプリの音と混ざる）。
-// - 割り込み・エンジン構成変更・メディアサービスのリセット・フォアグラウンド復帰で再起動する。
+// - 割り込み・エンジン構成変更・フォアグラウンド復帰で再起動し、メディアサービスのリセット時はエンジンを作り直す。
 // - エンジンが起動できない環境では何もしない（クラッシュさせない）。
 
 enum SFX: String, CaseIterable {
@@ -40,9 +41,9 @@ final class AudioService {
     /// 全 SFX の合成が完了しているか。
     private(set) var sfxReady = false
 
-    private let engine = AVAudioEngine()
-    private let sfxMixer = AVAudioMixerNode()
-    private let musicMixer = AVAudioMixerNode()
+    private var engine = AVAudioEngine()
+    private var sfxMixer = AVAudioMixerNode()
+    private var musicMixer = AVAudioMixerNode()
     private var sfxPlayers: [AVAudioPlayerNode] = []
     /// 各プレイヤーが鳴り終わる予定時刻（systemUptime）。
     private var sfxBusyUntil: [TimeInterval] = []
@@ -58,6 +59,7 @@ final class AudioService {
     private var lastPlayed: [SFX: TimeInterval] = [:]
     private var musicBuffers: [MusicTrack: AVAudioPCMBuffer] = [:]
     private var renderingTracks: Set<MusicTrack> = []
+    private var sfxWaiters: [CheckedContinuation<Void, Never>] = []
 
     private var fadeTask: Task<Void, Never>?
     private var interrupted = false
@@ -67,9 +69,9 @@ final class AudioService {
     init() {
         configureSession()
         buildGraph()
-        synthesizeSFX()
         registerObservers()
         _ = startEngine()
+        synthesizeSFX()
         prepareMusic(.menu)
     }
 
@@ -133,17 +135,33 @@ final class AudioService {
         return best
     }
 
+    /// 全 SFX をバックグラウンドで合成する（起動処理をメインスレッドで待たせない）。
     private func synthesizeSFX() {
-        guard let monoFormat else { return }
-        for sfx in SFX.allCases {
-            var list: [AVAudioPCMBuffer] = []
-            for v in 0..<SFXSynth.variantCount(sfx) {
-                let samples = SFXSynth.render(sfx, variant: v)
-                if let buffer = Self.makeBuffer(format: monoFormat, left: samples, right: nil) { list.append(buffer) }
+        Task.detached(priority: .userInitiated) { [weak self] in
+            var rendered: [(SFX, [[Float]])] = []
+            for sfx in SFX.allCases {
+                rendered.append((sfx, (0..<SFXSynth.variantCount(sfx)).map { SFXSynth.render(sfx, variant: $0) }))
             }
-            sfxBuffers[sfx] = list
+            await self?.didSynthesize(rendered)
+        }
+    }
+
+    private func didSynthesize(_ rendered: [(SFX, [[Float]])]) {
+        if let monoFormat {
+            for (sfx, variants) in rendered {
+                sfxBuffers[sfx] = variants.compactMap { Self.makeBuffer(format: monoFormat, left: $0, right: nil) }
+            }
         }
         sfxReady = true
+        let waiters = sfxWaiters
+        sfxWaiters = []
+        for w in waiters { w.resume() }
+    }
+
+    /// 効果音の合成完了を待つ（ロード画面・テスト用。完了済みなら即座に戻る）。
+    func waitUntilSFXReady() async {
+        guard !sfxReady else { return }
+        await withCheckedContinuation { sfxWaiters.append($0) }
     }
 
     /// テスト・デバッグ用: 合成済みの長さ（秒）。
@@ -154,8 +172,9 @@ final class AudioService {
 
     // MARK: - BGM
 
+    /// 曲を再生する。同じループ曲の再指定は無視し、スティンガー（勝利・敗北）は再指定で頭から鳴らし直す。
     func playMusic(_ track: MusicTrack) {
-        guard track != currentTrack else { return }
+        guard track != currentTrack || !track.loops else { return }
         currentTrack = track
         if let buffer = musicBuffers[track] {
             startMusic(buffer, track: track)
@@ -166,14 +185,14 @@ final class AudioService {
 
     func stopMusic() {
         currentTrack = nil
-        guard graphReady else { return }
+        guard graphReady, musicPlayers.indices.contains(activeMusicPlayer) else { return }
         let outgoing = musicPlayers[activeMusicPlayer]
         fade(incoming: nil, outgoing: outgoing, duration: 0.6)
     }
 
     /// 曲を先にレンダリングしておく（ロード画面などで呼ぶと切替が即座になる）。
     func prepareMusic(_ track: MusicTrack) {
-        guard graphReady, musicBuffers[track] == nil, !renderingTracks.contains(track) else { return }
+        guard musicBuffers[track] == nil, !renderingTracks.contains(track) else { return }
         renderingTracks.insert(track)
         Task.detached(priority: .utility) { [weak self] in
             let rendered = MusicComposer.render(track)
@@ -181,26 +200,19 @@ final class AudioService {
         }
     }
 
+    /// レンダリング済みの曲か（テスト・デバッグ用）。
+    func isMusicPrepared(_ track: MusicTrack) -> Bool { musicBuffers[track] != nil }
+
     private func didRender(_ track: MusicTrack, _ rendered: RenderedMusic) {
         renderingTracks.remove(track)
         guard let stereoFormat,
               let buffer = Self.makeBuffer(format: stereoFormat, left: rendered.left, right: rendered.right) else { return }
         musicBuffers[track] = buffer
-        if currentTrack == track {
-            startMusic(buffer, track: track)
-        } else if track.loops && currentTrack?.loops == true {
-            // 別のループ曲を再生中なら、使わないループ曲はメモリから外す
-            musicBuffers[track] = nil
-        }
+        if currentTrack == track { startMusic(buffer, track: track) }
     }
 
     private func startMusic(_ buffer: AVAudioPCMBuffer, track: MusicTrack) {
-        guard graphReady else { return }
-        // 再生中以外のループ曲はメモリから外す（再生中プレイヤーはバッファを保持している）
-        for other in MusicTrack.allCases where other.loops && other != track {
-            musicBuffers[other] = nil
-        }
-        guard ensureEngineRunning() else { return }
+        guard graphReady, ensureEngineRunning() else { return }
         let outgoing = musicPlayers[activeMusicPlayer]
         activeMusicPlayer = 1 - activeMusicPlayer
         let incoming = musicPlayers[activeMusicPlayer]
@@ -229,6 +241,13 @@ final class AudioService {
         }
     }
 
+    /// メモリ警告: 再生中以外の曲のバッファを解放する（効果音は小さいので保持）。
+    private func releaseIdleMusic() {
+        for track in MusicTrack.allCases where track != currentTrack {
+            musicBuffers[track] = nil
+        }
+    }
+
     // MARK: - エンジン
 
     private func configureSession() {
@@ -247,6 +266,8 @@ final class AudioService {
         engine.attach(musicMixer)
         engine.connect(sfxMixer, to: engine.mainMixerNode, format: stereoFormat)
         engine.connect(musicMixer, to: engine.mainMixerNode, format: stereoFormat)
+        sfxPlayers = []
+        sfxBusyUntil = []
         for _ in 0..<Self.sfxPoolSize {
             let p = AVAudioPlayerNode()
             engine.attach(p)
@@ -254,6 +275,7 @@ final class AudioService {
             sfxPlayers.append(p)
             sfxBusyUntil.append(0)
         }
+        musicPlayers = []
         for _ in 0..<2 {
             let p = AVAudioPlayerNode()
             engine.attach(p)
@@ -261,9 +283,21 @@ final class AudioService {
             p.volume = 0
             musicPlayers.append(p)
         }
+        activeMusicPlayer = 0
         applyVolumes()
         engine.prepare()
         graphReady = true
+    }
+
+    /// エンジンとノードを作り直す（メディアサービスのリセット後は既存のノードが使えないため）。
+    private func rebuildEngine() {
+        fadeTask?.cancel()
+        engine.stop()
+        graphReady = false
+        engine = AVAudioEngine()
+        sfxMixer = AVAudioMixerNode()
+        musicMixer = AVAudioMixerNode()
+        buildGraph()
     }
 
     /// エンジンを起動する。失敗しても例外は出さない。
@@ -313,7 +347,8 @@ final class AudioService {
             let typeValue = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
             MainActor.assumeIsolated { self?.handleInterruption(typeValue: typeValue) }
         })
-        observers.append(center.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine,
+        // エンジンは作り直すことがあるため object を指定せず、自分のエンジンの状態だけを見る
+        observers.append(center.addObserver(forName: .AVAudioEngineConfigurationChange, object: nil,
                                             queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.handleConfigurationChange() }
         })
@@ -324,6 +359,10 @@ final class AudioService {
         observers.append(center.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil,
                                             queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.handleBecameActive() }
+        })
+        observers.append(center.addObserver(forName: UIApplication.didReceiveMemoryWarningNotification, object: nil,
+                                            queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.releaseIdleMusic() }
         })
     }
 
@@ -348,7 +387,7 @@ final class AudioService {
 
     private func handleMediaServicesReset() {
         configureSession()
-        engine.stop()
+        rebuildEngine()
         restartEngineAndMusic()
     }
 

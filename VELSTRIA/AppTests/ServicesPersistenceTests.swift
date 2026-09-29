@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 @testable import VELSTRIA
 import VelstriaCore
 
@@ -232,6 +233,42 @@ final class ServicesPersistenceTests: XCTestCase {
         XCTAssertEqual(p.replays.count, 19)
         XCTAssertFalse(p.matchHistory.contains { $0.replayID == victim.id })
         XCTAssertNil(s.loadReplay(victim))
+    }
+
+    /// 読み込み時に、ファイルの無いメタ・どのメタにも属さないファイル・切れた戦績リンクを整理する。
+    func testLoadReconcilesReplaysWithDisk() throws {
+        let s = make()
+        var p = Profile()
+        let config = ServicesFixtures.config(mode: .standard)
+        let summary = ServicesFixtures.summary(mode: .standard, won: true, minutes: 12)
+        let kept = try XCTUnwrap(s.storeReplay(ServicesFixtures.replay(config: config, summary: summary), heroID: "H001",
+                                               won: true, date: ServicesFixtures.weekday, in: &p))
+        let dangling = ReplayMeta(date: ServicesFixtures.weekday.addingTimeInterval(60), fileName: "missing.vreplay",
+                                  mode: .standard, heroID: "H001", won: true, duration: 10)
+        p.replays.insert(dangling, at: 0)
+        p.matchHistory = [MatchRecord(date: dangling.date, mode: .standard, difficulty: .normal, won: true, duration: 10,
+                                      heroID: "H001", kills: 0, deaths: 0, assists: 0, creepScore: 0, gold: 0,
+                                      damageToHeroes: 0, grade: "B", isMVP: false, items: [], replayID: dangling.id,
+                                      summary: nil)]
+        let orphan = s.replaysDirectory.appendingPathComponent("orphan.vreplay")
+        try Data("orphan".utf8).write(to: orphan)
+        s.saveNow(p)
+
+        let loaded = try XCTUnwrap(PersistenceService(directory: s.directory).loadProfile())
+        XCTAssertEqual(loaded.replays.map(\.id), [kept.id])
+        XCTAssertNil(loaded.matchHistory[0].replayID)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: orphan.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: s.replaysDirectory.appendingPathComponent(kept.fileName).path))
+    }
+
+    /// バックグラウンド移行の通知で保留中の保存が書き出される。
+    func testBackgroundNotificationFlushesPendingSave() {
+        let s = make(debounce: 30)
+        s.scheduleSave(profile(coins: 42))
+        XCTAssertTrue(s.hasPendingSave)
+        NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: nil)
+        XCTAssertFalse(s.hasPendingSave)
+        XCTAssertEqual(PersistenceService(directory: s.directory).loadProfile()?.starlightCoin, 42)
     }
 
     func testDeleteAll() {

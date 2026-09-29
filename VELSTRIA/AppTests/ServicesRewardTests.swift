@@ -186,14 +186,30 @@ final class ServicesRewardTests: XCTestCase {
         XCTAssertNotNil(persistence.loadReplay(p.replays[0]))
     }
 
+    /// 報酬・戦績・リプレイの紐付けはデバウンスを待たずに保存される。
+    func testRewardsArePersistedImmediately() throws {
+        let persistence = ServicesFixtures.tempPersistence(debounce: 30)
+        defer { try? FileManager.default.removeItem(at: persistence.directory) }
+        var p = Profile()
+        let r = apply(ServicesFixtures.outcome(won: true, withReplay: true), &p, persistence: persistence)
+        XCTAssertFalse(persistence.hasPendingSave)
+        let loaded = try XCTUnwrap(PersistenceService(directory: persistence.directory).loadProfile())
+        XCTAssertEqual(loaded.starlightCoin, p.starlightCoin)
+        XCTAssertEqual(loaded.career.matches, 1)
+        XCTAssertNotNil(r.replayID)
+        XCTAssertEqual(loaded.matchHistory.first?.replayID, r.replayID)
+        XCTAssertEqual(loaded.replays.first?.id, r.replayID)
+    }
+
     func testWeekendBoostAddsCoins() {
         var p = Profile()
         let saturday = ServicesFixtures.date(2026, 10, 3, hour: 15)
         let r = apply(ServicesFixtures.outcome(won: true, minutes: 15), &p, now: saturday)
-        XCTAssertEqual(r.coins, 220)
+        // ブースト分は coins に含める（リザルト画面は coins + firstWinBonus を表示する）
+        XCTAssertEqual(r.coins, 220 + 110)
         XCTAssertEqual(r.eventBonusCoins, 110)
         XCTAssertEqual(r.totalCoins, 220 + 110 + 300)
-        XCTAssertEqual(p.starlightCoin, 630)
+        XCTAssertEqual(p.starlightCoin, r.coins + r.firstWinBonus)
     }
 
     func testMissionProgressFromMatch() {

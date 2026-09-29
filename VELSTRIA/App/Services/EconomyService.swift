@@ -224,6 +224,8 @@ enum EconomyService {
             granted = preview.newItems
         }
         incrementPurchaseCount(sku: item.sku, profile: &profile)
+        // 所持数の実績（コスメ・ヒーロー）を購入直後に反映する
+        LiveOpsService.evaluateAchievements(profile: &profile, master: master, now: Date())
         return .success(granted: granted)
     }
 

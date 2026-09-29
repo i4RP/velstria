@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import VelstriaCore
 
 // 担当: app-services
@@ -8,6 +9,8 @@ import VelstriaCore
 // - 世代バックアップ: profile.json → profile.bak1 → profile.bak2 と繰り下げる（壊れたファイルは世代に入れない）
 // - 読み込み時に profile.json が壊れていれば、新しいバックアップから順に復旧する
 // - schemaVersion によるマイグレーションフック（JSON オブジェクトの段階で変換 → 欠損キーを既定値で補完 → デコード）
+// - バックグラウンド移行・終了の通知で保留中の保存を書き出す（呼び出し側の saveNow 漏れに対する保険）
+// - 読み込み時に profile.replays とディスク上のリプレイを突き合わせる
 
 /// 読み込み・インポートの失敗理由。
 enum PersistenceError: Error, Equatable, LocalizedError {
@@ -67,6 +70,7 @@ final class PersistenceService: @unchecked Sendable {
 
     /// 直近の loadProfile の結果（メインスレッドから参照）。
     private(set) var lastLoadSource: ProfileLoadSource = .none
+    private var lifecycleObservers: [NSObjectProtocol] = []
 
     init(directory: URL? = nil, saveDebounce: TimeInterval = PersistenceService.defaultSaveDebounce,
          backupRotationInterval: TimeInterval = 30) {
@@ -80,6 +84,16 @@ final class PersistenceService: @unchecked Sendable {
         self.backupRotationInterval = backupRotationInterval
         try? FileManager.default.createDirectory(at: self.directory, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: replaysDirectory, withIntermediateDirectories: true)
+        let center = NotificationCenter.default
+        for name in [UIApplication.didEnterBackgroundNotification, UIApplication.willTerminateNotification] {
+            lifecycleObservers.append(center.addObserver(forName: name, object: nil, queue: nil) { [weak self] _ in
+                self?.flushPendingSaves()
+            })
+        }
+    }
+
+    deinit {
+        for o in lifecycleObservers { NotificationCenter.default.removeObserver(o) }
     }
 
     var profileURL: URL { directory.appendingPathComponent("profile.json") }
@@ -125,6 +139,7 @@ final class PersistenceService: @unchecked Sendable {
                 continue
             }
             Self.sanitize(&profile)
+            reconcileReplays(profile: &profile)
             if index == 0 {
                 lastLoadSource = .primary
             } else {

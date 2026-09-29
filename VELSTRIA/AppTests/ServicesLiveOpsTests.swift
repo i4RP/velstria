@@ -148,10 +148,55 @@ final class ServicesLiveOpsTests: XCTestCase {
         let after = ServicesFixtures.date(2027, 2, 1)
         LiveOpsService.recordMatch(input(), profile: &q, now: after)
         XCTAssertEqual(LiveOpsService.missionProgress(id: "EV01", profile: q)?.progress, 0)
+        XCTAssertFalse(q.missions.weekly.contains { LiveOpsService.isEventMission($0.id) })
         // イベント進捗は実績の件数に数えない
         XCTAssertEqual(LiveOpsService.unlockedAchievementCount(profile: p), LiveOpsService.achievements.filter {
             p.achievements[$0.id]?.unlockedAt != nil
         }.count)
+    }
+
+    /// UI は daily + weekly から ID で進捗を引くため、イベントミッションは weekly の後ろに並び、週をまたいで持ち越す。
+    func testEventMissionProgressLivesInWeeklyAndCarriesOver() {
+        var p = Profile()
+        let week1 = ServicesFixtures.date(2026, 10, 14)
+        for _ in 0..<4 { LiveOpsService.recordMatch(input(won: true, kills: 5), profile: &p, now: week1) }
+        XCTAssertEqual(Array(p.missions.weekly.prefix(4).map(\.id)), LiveOpsService.weeklyMissionPool.map(\.id))
+        XCTAssertEqual(p.missions.weekly.first { $0.id == "EV01" }?.progress, 4)
+        XCTAssertEqual(p.missions.weekly.first { $0.id == "EV03" }?.progress, 20)
+        // ウィークリーの一覧にはイベントを混ぜない
+        XCTAssertEqual(LiveOpsService.weeklyMissions(profile: p).map(\.id), ["W01", "W02", "W03", "W04"])
+
+        let week2 = ServicesFixtures.date(2026, 10, 21)
+        LiveOpsService.recordMatch(input(won: true, kills: 5), profile: &p, now: week2)
+        XCTAssertEqual(p.missions.weeklyKey, LiveOpsService.weekKey(week2))
+        XCTAssertEqual(p.missions.weekly.first { $0.id == "W01" }?.progress, 1, "ウィークリーは新しい週で 0 から")
+        XCTAssertEqual(p.missions.weekly.first { $0.id == "EV01" }?.progress, 5, "イベントは持ち越し")
+        XCTAssertEqual(p.missions.weekly.first { $0.id == "EV03" }?.progress, 25)
+        XCTAssertEqual(p.missions.weekly.filter { $0.id == "EV01" }.count, 1)
+
+        // 達成済み・未受取はバッジに数える（イベント期間中のみ）
+        LiveOpsService.recordMatch(input(won: true, kills: 5), profile: &p, now: week2)
+        XCTAssertEqual(p.missions.weekly.first { $0.id == "EV02" }?.progress, 5)
+        XCTAssertEqual(p.missions.weekly.first { $0.id == "EV03" }?.progress, 30)
+        let claimable = LiveOpsService.claimableMissionCount(profile: p, now: week2)
+        XCTAssertGreaterThanOrEqual(claimable, 2)
+    }
+
+    /// イベント終了時: 達成済み・未受取の報酬はメールで届き、枠は外れる。終了後は直接受け取れない。
+    func testEndedEventMailsUnclaimedRewards() {
+        var p = Profile()
+        let dec = ServicesFixtures.date(2026, 12, 30)
+        for _ in 0..<10 { LiveOpsService.recordMatch(input(won: false, kills: 0), profile: &p, now: dec) }
+        XCTAssertEqual(p.missions.weekly.first { $0.id == "EV01" }?.progress, 10)
+        let mailBefore = p.mail.count
+        let jan = ServicesFixtures.date(2027, 1, 2)
+        XCTAssertNil(LiveOpsService.claimMission(id: "EV01", profile: &p, now: jan))
+        XCTAssertFalse(p.missions.weekly.contains { LiveOpsService.isEventMission($0.id) })
+        let eventMail = p.mail.first { mail in mail.attachments.contains { $0.kind == .gem && $0.amount == 50 } }
+        XCTAssertNotNil(eventMail, "EV01 の報酬（Gem 50）がメールで届く")
+        XCTAssertGreaterThan(p.mail.count, mailBefore)
+        // 未達成の EV02 / EV03 は届かない
+        XCTAssertFalse(p.mail.contains { mail in mail.attachments.contains { $0.kind == .gem && $0.amount == 80 } })
     }
 
     // MARK: スターパス

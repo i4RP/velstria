@@ -55,8 +55,11 @@ final class ServicesAudioSynthTests: XCTestCase {
 
 @MainActor
 final class ServicesAudioServiceTests: XCTestCase {
-    func testAudioServiceNeverCrashes() {
+    func testAudioServiceNeverCrashes() async {
         let audio = AudioService()
+        // 合成はバックグラウンドで行い、完了前の再生要求は無視される
+        audio.play(.uiTap)
+        await audio.waitUntilSFXReady()
         XCTAssertTrue(audio.sfxReady)
         for sfx in SFX.allCases {
             XCTAssertNotNil(audio.sfxDuration(sfx))
@@ -76,6 +79,24 @@ final class ServicesAudioServiceTests: XCTestCase {
         XCTAssertEqual(audio.currentTrack, .victory)
         audio.stopMusic()
         XCTAssertNil(audio.currentTrack)
+    }
+
+    /// ループ曲は一度だけレンダリングして保持し、スティンガーは再指定で鳴らし直せる。
+    func testMusicIsRenderedOnceAndStingersRetrigger() async throws {
+        let audio = AudioService()
+        audio.playMusic(.battle)
+        for _ in 0..<200 where !(audio.isMusicPrepared(.menu) && audio.isMusicPrepared(.battle)) {
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        XCTAssertTrue(audio.isMusicPrepared(.menu), "起動時に準備したメニュー曲は別の曲の再生中も保持する")
+        XCTAssertTrue(audio.isMusicPrepared(.battle))
+        audio.playMusic(.menu)
+        XCTAssertEqual(audio.currentTrack, .menu)
+        XCTAssertTrue(audio.isMusicPrepared(.battle))
+        audio.playMusic(.victory)
+        audio.playMusic(.victory)
+        XCTAssertEqual(audio.currentTrack, .victory)
+        audio.stopMusic()
     }
 }
 

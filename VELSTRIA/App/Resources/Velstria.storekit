@@ -157,10 +157,19 @@
   ],
   "settings" : {
     "_applicationInternalID" : "6743100000",
+    "_askToBuyEnabled" : false,
+    "_billingGracePeriodEnabled" : false,
+    "_billingIssuesEnabled" : false,
     "_developerTeamID" : "",
+    "_disableDialogs" : false,
     "_failTransactionsEnabled" : false,
     "_locale" : "ja",
-    "_storefront" : "JPN"
+    "_renewalBillingIssuesEnabled" : false,
+    "_storefront" : "JPN",
+    "_storeKitErrors" : [
+
+    ],
+    "_timeRate" : 0
   },
   "subscriptionGroups" : [
 

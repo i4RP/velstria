@@ -106,6 +106,17 @@ final class ServicesEconomyTests: XCTestCase {
         XCTAssertEqual(EconomyService.purchase(sku: "SKU097", profile: &p, master: master), .alreadyOwned)
     }
 
+    /// 購入直後に所持数の実績（コスメ 10 個）が解除される。
+    func testPurchaseReevaluatesCollectionAchievement() {
+        var p = Profile()
+        p.ownedCosmeticIDs = (11...19).map { String(format: "CO%03d", $0) }
+        p.freeGem = 1000
+        XCTAssertNil(p.achievements["ACH_COLLECT_10"]?.unlockedAt)
+        XCTAssertEqual(EconomyService.purchase(sku: "SKU001", profile: &p, master: master), .success(granted: ["CO001"]))
+        XCTAssertNotNil(p.achievements["ACH_COLLECT_10"]?.unlockedAt)
+        XCTAssertEqual(p.freeGem, 1000 - 120)
+    }
+
     func testEquipCosmetics() {
         var p = Profile()
         XCTAssertFalse(EconomyService.equip(cosmeticID: "CO001", profile: &p), "未所持は装備不可")
