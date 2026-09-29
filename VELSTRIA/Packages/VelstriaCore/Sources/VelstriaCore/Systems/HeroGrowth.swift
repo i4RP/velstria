@@ -1,11 +1,13 @@
 import Foundation
 
-// 担当: core-economy（最小実装。XP 分配・レベルアップ処理を実装すること）
+// 担当: core-economy
+// レベル成長・XP 付与/分配・スキルポイント（DESIGN §4, §6, §8）。
 
 public enum HeroGrowth {
     /// レベル成長込みの素の能力値（DESIGN §4）。
     public static func baseStats(def: HeroDef, level: Int) -> Stats {
-        let n = Double(max(1, level) - 1)
+        let lv = min(max(1, level), Balance.maxLevel)
+        let n = Double(lv - 1)
         var st = Stats()
         st.maxHP = def.baseHP + def.hpGrowth * n
         st.maxResource = def.resourceMax
@@ -17,8 +19,8 @@ public enum HeroGrowth {
         st.moveSpeed = def.moveSpeed
         st.attackRange = def.attackRange
         st.sightRange = Balance.heroSight
-        st.hpRegen = 4 + 0.6 * Double(level)
-        st.resourceRegen = def.resource == .energy ? Balance.energyRegenPerSecond : 3 + 0.35 * Double(level)
+        st.hpRegen = 4 + 0.6 * Double(lv)
+        st.resourceRegen = def.resource == .energy ? Balance.energyRegenPerSecond : 3 + 0.35 * Double(lv)
         return st
     }
 
@@ -28,9 +30,30 @@ public enum HeroGrowth {
         return Balance.xpToNext[level - 1]
     }
 
+    /// Lv1 から level に到達するまでの累計 XP。
+    public static func totalXP(toReach level: Int) -> Double {
+        let lv = min(max(1, level), Balance.maxLevel)
+        return Balance.xpToNext.prefix(lv - 1).reduce(0, +)
+    }
+
+    /// 次のレベルまでの進捗 0...1（HUD の XP バー。最大レベルは 1）。
+    public static func levelProgress(_ hero: HeroData) -> Double {
+        let need = xpToNext(level: hero.level)
+        guard need.isFinite, need > 0 else { return 1 }
+        return min(1, max(0, hero.xp / need))
+    }
+
+    /// 現在のレベルで保有しているべきスキルポイント総数（Lv1 で 1、以後 +1）。
+    public static func totalSkillPoints(level: Int) -> Int { max(1, level) }
+
+    /// 割り振り済みのスキルポイント数（パッシブを除く）。
+    public static func spentSkillPoints(_ hero: HeroData) -> Int {
+        SkillSlot.actives.reduce(0) { $0 + hero.rank($1) }
+    }
+
     /// XP を加算しレベルアップを処理する。
     public static func grantXP(_ s: inout SimState, _ ctx: SimContext, heroIndex i: Int, amount: Double) {
-        guard amount > 0, var h = s.units[i].hero else { return }
+        guard amount > 0, var h = s.units[i].hero, h.level < Balance.maxLevel else { return }
         h.xp += amount
         var leveled = false
         while h.level < Balance.maxLevel, h.xp >= xpToNext(level: h.level) {
@@ -44,6 +67,54 @@ public enum HeroGrowth {
         s.units[i].hero = h
         if leveled {
             StatCalculator.recompute(&s, i, ctx)
+            if h.autoLevelSkills { SkillLeveling.autoLevel(&s, ctx, heroIndex: i) }
+        }
+    }
+
+    /// ミニオン・モンスターの XP を team の周囲ヒーローで分配する（DESIGN §8）。
+    /// 1 人なら ×1.0、2 人以上なら合計 ×1.3 を等分。対象は pos から xpShareRadius 以内の生存ヒーロー。
+    public static func shareXP(_ s: inout SimState, _ ctx: SimContext, team: Team, around pos: Vec2, amount: Double) {
+        guard amount > 0, team != .neutral else { return }
+        let receivers = nearbyHeroes(s, team: team, around: pos, radius: Balance.xpShareRadius)
+        guard !receivers.isEmpty else { return }
+        let total = receivers.count == 1 ? amount : amount * Balance.Economy.groupXPMultiplier
+        let each = total / Double(receivers.count)
+        for i in receivers { grantXP(&s, ctx, heroIndex: i, amount: each) }
+    }
+
+    /// pos から radius 以内にいる team の生存ヒーロー（添字昇順）。
+    public static func nearbyHeroes(_ s: SimState, team: Team, around pos: Vec2, radius: Double) -> [Int] {
+        let r2 = radius * radius
+        return s.units.indices.filter { i in
+            let u = s.units[i]
+            guard u.kind == .hero, u.team == team, u.isAlive, u.hero?.isDead == false else { return false }
+            return u.pos.distanceSquared(to: pos) <= r2
+        }
+    }
+
+    /// 試合開始時（最初の tick）の初期化: 練習場の開始レベル反映・スキルポイント付与・自動習得。
+    /// 何度呼んでも結果が変わらない（冪等）。
+    public static func applyMatchStart(_ s: inout SimState, _ ctx: SimContext) {
+        let practice = ctx.config.mode == .practice || ctx.config.mode == .tutorial
+        let startLevel = practice ? min(Balance.maxLevel, max(1, ctx.config.practice?.startLevel ?? 1)) : 1
+        for i in s.heroIndices {
+            guard var h = s.units[i].hero else { continue }
+            let raised = h.level < startLevel
+            if raised {
+                h.level = startLevel
+                h.xp = 0
+            }
+            // 保有すべきポイント − 割り振り済み が不足していれば補う
+            let owed = totalSkillPoints(level: h.level) - spentSkillPoints(h)
+            if h.skillPoints < owed { h.skillPoints = owed }
+            s.units[i].hero = h
+            if raised {
+                StatCalculator.recompute(&s, i, ctx)
+                if s.units[i].isAlive {
+                    s.units[i].hp = s.units[i].stats.maxHP
+                    s.units[i].resource = s.units[i].stats.maxResource
+                }
+            }
             if h.autoLevelSkills { SkillLeveling.autoLevel(&s, ctx, heroIndex: i) }
         }
     }
