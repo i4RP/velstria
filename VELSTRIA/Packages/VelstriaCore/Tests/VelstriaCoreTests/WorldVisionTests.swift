@@ -132,6 +132,12 @@ final class WorldVisionTests: XCTestCase {
         let monster = s.addUnit(UnitFactory.makeMonster(kind: .campSmall, campID: 0, pos: Vec2(4300 + 500, 4300)))
         VisionSystem.update(&s, ctx)
         XCTAssertEqual(s.unit(monster)?.visibleMask, Team.blue.visionBit)
+        // 破壊された構造物（残骸）も両チームから見えるが、攻撃対象にはならない
+        let tower = Kit.structureIndex(s, team: .red, lane: .mid, tier: .outer)
+        Kit.kill(&s, tower)
+        VisionSystem.update(&s, ctx)
+        XCTAssertEqual(s.units[tower].visibleMask, Team.blue.visionBit | Team.red.visionBit)
+        XCTAssertFalse(s.isTargetableEnemy(tower, of: .blue))
     }
 
     func testVisibilityDrivesTargeting() {

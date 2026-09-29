@@ -5,7 +5,7 @@ import Foundation
 // 2) ユニット毎に各チームから見えるかを判定し visibleMask に書く:
 //    味方は常に可視。敵・中立は「格子が照らされている」かつ「草むら外、または同じ草むらに観測者が居る/観測者が 300 以内」
 //    かつ「ステルスでない、または観測者が 250 以内/自軍タワーの真視界 750 内/自軍の泉内」。.revealed は両チームに可視。
-//    構造物（タワー・Core）は地形として常に両チームに可視。
+//    構造物（タワー・Core）は地形として常に両チームに可視（破壊後も）。
 
 /// チーム視界格子。cells[row * cols + col] = その格子を見ているチームのビット集合（Team.visionBit）。
 public struct VisionState: Codable, Hashable, Sendable {
@@ -121,8 +121,10 @@ public enum VisionSystem {
     /// 敵チーム team から u が見えるか。
     static func isVisible(_ u: Target, to team: Team, cells: [UInt8], cols: Int, rows: Int,
                           observers: [Observer], ctx: SimContext) -> Bool {
+        // 構造物は地形の一部として常に見える（破壊後の残骸も。攻撃対象かどうかは isAlive で別に判定される）
+        if u.isStructure { return true }
         guard u.alive else { return false }
-        if u.isStructure || u.revealed { return true }
+        if u.revealed { return true }
         let c = min(cols - 1, max(0, Int(u.pos.x / Balance.visionCellSize)))
         let r = min(rows - 1, max(0, Int(u.pos.y / Balance.visionCellSize)))
         guard cells[r * cols + c] & team.visionBit != 0 else { return false }
