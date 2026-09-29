@@ -136,13 +136,15 @@ struct SpellLoadoutView: View {
             slot = i
         } label: {
             VStack(spacing: 4) {
-                SpellIconView(spellID: spellID, size: 50)
-                    .overlay(Circle().stroke(selected ? Theme.gold : Color.clear, lineWidth: 3).padding(-4))
-                    .scaleEffect(selected ? 1.06 : 1)
+                SpellIconView(spellID: spellID, size: 48)
+                    .overlay(Circle().stroke(selected ? Theme.gold : Color.clear, lineWidth: 2.5).padding(-4))
+                    .scaleEffect(selected ? 1.04 : 1)
+                    .padding(.vertical, 5)
                 Text(spell.map { MasterText.spell($0) } ?? "—")
                     .font(Theme.body(11))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.75)
                 Text(L("スペル\(i + 1)", "Spell \(i + 1)"))
                     .font(Theme.mono(9))
                     .foregroundStyle(selected ? Theme.gold : Theme.textSecondary)

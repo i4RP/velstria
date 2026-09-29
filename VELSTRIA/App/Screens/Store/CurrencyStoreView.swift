@@ -84,6 +84,7 @@ struct CurrencyStoreView: View {
         case .success(let gems):
             app.haptics.success()
             app.audio.play(.purchase)
+            app.showToast(L("AstralGem ×\(gems.formatted()) を受け取りました", "Received \(gems.formatted()) AstralGem"))
             receivedGems = gems
         case .cancelled:
             return

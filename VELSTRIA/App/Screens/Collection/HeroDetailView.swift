@@ -480,27 +480,25 @@ private struct HeroBuildSection: View {
     var body: some View {
         let isCustom = app.profile.customBuilds[hero.heroID] != nil
         let build = BuildRules.current(for: hero.heroID, profile: app.profile, master: app.master)
+        let recommended = BuildRules.recommended(for: hero.heroID, master: app.master)
         Panel(padding: 12) {
             VStack(alignment: .leading, spacing: 10) {
                 CollectionSectionTitle(title: isCustom ? L("カスタムビルド", "Custom Build") : L("おすすめビルド", "Recommended Build"),
                                        symbol: isCustom ? "person.fill" : "star.fill",
-                                       trailing: build.isEmpty ? nil : L("合計", "Total") + " \(Int(BuildRules.totalCost(build, master: app.master)))G")
+                                       trailing: build.isEmpty ? nil : totalLabel(build))
                 if build.isEmpty {
                     CollectionEmptyState(symbol: "shippingbox",
                                          title: L("ビルドが未設定です", "No build yet"),
                                          message: L("ビルド編集で購入順を決めておくと、戦闘中のおすすめ購入に反映されます。",
                                                     "Set up a purchase order in the build editor to use it as in-match recommendations."))
                 } else {
-                    ScrollView(.horizontal) {
-                        HStack(alignment: .top, spacing: 8) {
-                            ForEach(Array(build.enumerated()), id: \.offset) { i, id in
-                                if let item = app.master.item(id) {
-                                    buildStep(index: i, item: item)
-                                }
-                            }
-                        }
-                    }
-                    .scrollIndicators(.hidden)
+                    buildRow(build, iconSize: 50)
+                }
+                // カスタム使用中でも、ロール別のおすすめを参考として並べる
+                if isCustom && !recommended.isEmpty && recommended != build {
+                    CollectionSectionTitle(title: L("おすすめビルド（\(MasterText.role(hero.role))）", "Recommended (\(MasterText.role(hero.role)))"),
+                                           symbol: "star.fill", trailing: totalLabel(recommended))
+                    buildRow(recommended, iconSize: 40)
                 }
                 Button {
                     app.haptics.tap()
@@ -515,13 +513,34 @@ private struct HeroBuildSection: View {
         }
     }
 
-    private func buildStep(index: Int, item: ItemDef) -> some View {
+    private func totalLabel(_ build: [String]) -> String {
+        L("合計", "Total") + " \(Int(BuildRules.totalCost(build, master: app.master)).formatted())G"
+    }
+
+    private func buildRow(_ build: [String], iconSize: CGFloat) -> some View {
+        ScrollView(.horizontal) {
+            HStack(alignment: .top, spacing: 8) {
+                ForEach(Array(build.enumerated()), id: \.offset) { i, id in
+                    if let item = app.master.item(id) {
+                        buildStep(index: i, item: item, iconSize: iconSize)
+                    }
+                }
+            }
+            // 番号バッジのはみ出し分
+            .padding(.top, 4)
+            .padding(.leading, 4)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    private func buildStep(index: Int, item: ItemDef, iconSize: CGFloat) -> some View {
         Button {
+            app.haptics.tap()
             app.router.push(.itemDetail(item.itemID))
         } label: {
             VStack(spacing: 4) {
                 ZStack(alignment: .topLeading) {
-                    ItemIconView(item: item, size: 50)
+                    ItemIconView(item: item, size: iconSize)
                     Text("\(index + 1)")
                         .font(.system(size: 10, weight: .black, design: .rounded))
                         .foregroundStyle(.black)
