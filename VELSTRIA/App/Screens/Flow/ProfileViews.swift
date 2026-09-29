@@ -451,7 +451,10 @@ private struct RecordRow: View {
             .lineLimit(1)
             .minimumScaleFactor(0.7)
             GradeBadge(grade: r.grade, size: 26)
-            if r.isMVP { MVPBadge(compact: true) }
+            // MVP 欄は常に幅を確保して列を揃える
+            MVPBadge(compact: true)
+                .opacity(r.isMVP ? 1 : 0)
+                .accessibilityHidden(!r.isMVP)
             VStack(alignment: .trailing, spacing: 1) {
                 Text(FlowText.duration(r.duration)).font(Theme.mono(12)).foregroundStyle(Theme.textPrimary)
                 Text(FlowText.date(r.date)).font(Theme.body(10)).foregroundStyle(Theme.textSecondary)
@@ -664,7 +667,7 @@ struct AchievementsView: View {
                     Image(systemName: "lock.fill").foregroundStyle(Theme.textSecondary).frame(minHeight: 32)
                 }
             }
-            .frame(width: 104)
+            .frame(width: 126)
         }
         .padding(10)
         .glass(cornerRadius: 14, tint: unlocked ? Theme.gold : Theme.panelStroke, highlighted: unlocked && !p.claimed)

@@ -114,7 +114,7 @@ private struct ScoreRow: View {
         let s = player.score
         HStack(spacing: 6) {
             HStack(spacing: 7) {
-                HeroPortraitView(heroID: player.heroID, size: 30, showsRole: false)
+                HeroPortraitView(heroID: player.heroID, size: 28, showsRole: false)
                 VStack(alignment: .leading, spacing: 1) {
                     HStack(spacing: 4) {
                         Text(player.displayName)
@@ -144,7 +144,7 @@ private struct ScoreRow: View {
         .lineLimit(1)
         .minimumScaleFactor(0.7)
         .padding(.horizontal, 10)
-        .padding(.vertical, 5)
+        .padding(.vertical, 4)
         .background(player.isHuman ? Theme.gold.opacity(0.12) : Color.clear)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)

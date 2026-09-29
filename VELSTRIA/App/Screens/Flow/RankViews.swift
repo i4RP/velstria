@@ -209,35 +209,45 @@ struct RankOverviewView: View {
     }
 
     private var actions: some View {
-        HStack(spacing: 8) {
+        VStack(spacing: 8) {
             Button {
                 FlowFX.confirm(app)
                 MatchFlowIntent.present(.ranked, app: app)
             } label: {
-                Label(L("ランク戦を開始", "Play Ranked"), systemImage: "crown.fill").frame(maxWidth: .infinity)
+                Label(L("ランク戦を開始", "Play Ranked"), systemImage: "crown.fill")
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity)
             }
             .buttonStyle(PrimaryButtonStyle())
             .glowPulse(Theme.gold, radius: 10)
             .accessibilityIdentifier("rank_play")
-            Button {
-                FlowFX.tap(app)
-                app.router.push(.ranking)
-            } label: {
-                Label(L("ランキング", "Ladder"), systemImage: "list.number").frame(maxWidth: .infinity)
+            HStack(spacing: 8) {
+                Button {
+                    FlowFX.tap(app)
+                    app.router.push(.ranking)
+                } label: {
+                    Label(L("ランキング", "Ladder"), systemImage: "list.number")
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("rank_ladder")
+                Button {
+                    FlowFX.tap(app)
+                    app.router.push(.rankRewards)
+                } label: {
+                    Label(L("ランク報酬", "Rewards"), systemImage: "gift.fill")
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .frame(minHeight: 44)
+                .overlay(alignment: .topTrailing) { FlowCountBadge(count: HomeBadges.claimableRankRewards(app.profile)) }
+                .accessibilityIdentifier("rank_rewards")
             }
-            .buttonStyle(SecondaryButtonStyle())
-            .frame(minHeight: 44)
-            .accessibilityIdentifier("rank_ladder")
-            Button {
-                FlowFX.tap(app)
-                app.router.push(.rankRewards)
-            } label: {
-                Label(L("ランク報酬", "Rewards"), systemImage: "gift.fill").frame(maxWidth: .infinity)
-            }
-            .buttonStyle(SecondaryButtonStyle())
-            .frame(minHeight: 44)
-            .overlay(alignment: .topTrailing) { FlowCountBadge(count: HomeBadges.claimableRankRewards(app.profile)) }
-            .accessibilityIdentifier("rank_rewards")
         }
         .padding(.top, 2)
     }

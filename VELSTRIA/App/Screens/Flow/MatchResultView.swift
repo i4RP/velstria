@@ -46,18 +46,21 @@ struct MatchResultView: View {
                 .ignoresSafeArea()
             VStack(spacing: 6) {
                 ResultBanner(kind: bannerKind, appeared: bannerIn)
-                subheader
                 HStack(alignment: .top, spacing: 12) {
                     if let focus {
                         FocusPanel(player: focus, isSpectating: outcome.launch.isSpectating, appeared: bannerIn)
                             .frame(width: 204)
                     }
-                    VStack(spacing: 8) {
-                        FlowTabBar(items: [
-                            .init(tab: ResultTab.result, title: L("結果", "Results"), symbol: "tablecells", identifier: "result_tab_result"),
-                            .init(tab: ResultTab.evaluation, title: L("評価", "Rating"), symbol: "star.leadinghalf.filled", identifier: "result_tab_eval"),
-                            .init(tab: ResultTab.rewards, title: L("報酬", "Rewards"), symbol: "gift.fill", identifier: "result_tab_rewards"),
-                        ], selection: $tab)
+                    VStack(spacing: 6) {
+                        HStack(spacing: 10) {
+                            subheader
+                            Spacer(minLength: 6)
+                            FlowTabBar(items: [
+                                .init(tab: ResultTab.result, title: L("結果", "Results"), symbol: "tablecells", identifier: "result_tab_result"),
+                                .init(tab: ResultTab.evaluation, title: L("評価", "Rating"), symbol: "star.leadinghalf.filled", identifier: "result_tab_eval"),
+                                .init(tab: ResultTab.rewards, title: L("報酬", "Rewards"), symbol: "gift.fill", identifier: "result_tab_rewards"),
+                            ], selection: $tab)
+                        }
                         ScrollView {
                             Group {
                                 switch tab {
@@ -69,6 +72,7 @@ struct MatchResultView: View {
                             .padding(.bottom, 8)
                             .transition(.opacity)
                         }
+                        .scrollIndicators(.visible)
                     }
                 }
                 .frame(maxHeight: .infinity)
@@ -97,28 +101,34 @@ struct MatchResultView: View {
     }
 
     private var subheader: some View {
-        HStack(spacing: 10) {
-            Text(outcome.launch.replay != nil ? L("リプレイ", "Replay") : FlowText.mode(summary.mode))
-            dot
-            Label(FlowText.duration(summary.duration), systemImage: "clock")
-            dot
-            Text(FlowText.endReason(summary.endReason))
-            dot
-            HStack(spacing: 4) {
-                Text("\(summary.teamKills.first ?? 0)").foregroundStyle(Theme.teamColor(.blue, colorblind: app.profile.settings.colorblindMode))
-                Text("-")
-                Text("\(summary.teamKills.count > 1 ? summary.teamKills[1] : 0)").foregroundStyle(Theme.teamColor(.red, colorblind: app.profile.settings.colorblindMode))
+        let blueKills = summary.teamKills.first ?? 0
+        let redKills = summary.teamKills.count > 1 ? summary.teamKills[1] : 0
+        let colorblind = app.profile.settings.colorblindMode
+        return VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 8) {
+                Text(outcome.launch.replay != nil ? L("リプレイ", "Replay") : FlowText.mode(summary.mode))
+                    .font(Theme.heading(13))
+                    .foregroundStyle(Theme.textPrimary)
+                Label(FlowText.duration(summary.duration), systemImage: "clock")
+                    .font(Theme.mono(12))
+                HStack(spacing: 4) {
+                    Text("\(blueKills)").foregroundStyle(Theme.teamColor(.blue, colorblind: colorblind))
+                    Text("-")
+                    Text("\(redKills)").foregroundStyle(Theme.teamColor(.red, colorblind: colorblind))
+                }
+                .font(Theme.mono(13))
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(L("キル数 ブルー \(blueKills) 対 レッド \(redKills)", "Kills: Blue \(blueKills), Red \(redKills)"))
             }
-            .font(Theme.mono(13))
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(L("キル数 ブルー \(summary.teamKills.first ?? 0) 対 レッド \(summary.teamKills.count > 1 ? summary.teamKills[1] : 0)",
-                                  "Kills: Blue \(summary.teamKills.first ?? 0), Red \(summary.teamKills.count > 1 ? summary.teamKills[1] : 0)"))
-            if outcome.launch.isSpectating, let w = summary.winner {
-                dot
-                Text(L("\(FlowText.team(w))の勝利", "\(FlowText.team(w)) wins")).foregroundStyle(Theme.gold)
+            HStack(spacing: 6) {
+                Text(FlowText.endReason(summary.endReason))
+                if outcome.launch.isSpectating, let w = summary.winner {
+                    dot
+                    Text(L("\(FlowText.team(w))の勝利", "\(FlowText.team(w)) wins")).foregroundStyle(Theme.gold)
+                }
             }
+            .font(Theme.body(11))
         }
-        .font(Theme.body(12))
         .foregroundStyle(Theme.textSecondary)
         .lineLimit(1)
         .minimumScaleFactor(0.7)
@@ -272,38 +282,48 @@ private struct FocusPanel: View {
         let s = player.score
         ScrollView {
             VStack(spacing: 8) {
-                if isSpectating {
-                    Text(L("試合 MVP", "Match MVP")).font(Theme.heading(12)).foregroundStyle(Theme.gold)
+                HStack(spacing: 10) {
+                    ZStack(alignment: .bottomTrailing) {
+                        HeroPortraitView(heroID: player.heroID, size: 62, showsRole: false)
+                            .glowPulse(Theme.gold.opacity(player.isMVP ? 1 : 0.4), radius: 12)
+                        GradeBadge(grade: player.grade, size: 30)
+                            .offset(x: 10, y: 8)
+                            .scaleEffect(appeared ? 1 : 2.5)
+                            .opacity(appeared ? 1 : 0)
+                            .animation(.spring(duration: 0.6, bounce: 0.45).delay(0.5), value: appeared)
+                    }
+                    VStack(alignment: .leading, spacing: 3) {
+                        if isSpectating {
+                            Text(L("試合 MVP", "Match MVP")).font(Theme.heading(11)).foregroundStyle(Theme.gold)
+                        }
+                        Text(player.displayName)
+                            .font(Theme.heading(14))
+                            .foregroundStyle(Theme.textPrimary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                        Text(app.master.hero(player.heroID).map { MasterText.hero($0) } ?? player.heroID)
+                            .font(Theme.body(10))
+                            .foregroundStyle(Theme.textSecondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                        if player.isMVP { MVPBadge() }
+                    }
+                    Spacer(minLength: 0)
                 }
-                ZStack(alignment: .bottomTrailing) {
-                    HeroPortraitView(heroID: player.heroID, size: 74)
-                        .glowPulse(Theme.gold.opacity(player.isMVP ? 1 : 0.4), radius: 12)
-                    GradeBadge(grade: player.grade, size: 34)
-                        .offset(x: 12, y: 10)
-                        .scaleEffect(appeared ? 1 : 2.5)
-                        .opacity(appeared ? 1 : 0)
-                        .animation(.spring(duration: 0.6, bounce: 0.45).delay(0.5), value: appeared)
-                }
-                .padding(.top, 4)
-                VStack(spacing: 1) {
-                    Text(player.displayName)
-                        .font(Theme.heading(15))
+                .padding(.top, 2)
+                HStack(alignment: .firstTextBaseline) {
+                    Text(FlowText.kda(s.kills, s.deaths, s.assists))
+                        .font(.system(size: 22, weight: .heavy, design: .rounded))
                         .foregroundStyle(Theme.textPrimary)
+                        .monospacedDigit()
                         .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                    Text(app.master.hero(player.heroID).map { MasterText.hero($0) } ?? player.heroID)
-                        .font(Theme.body(11))
-                        .foregroundStyle(Theme.textSecondary)
-                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    Spacer(minLength: 4)
+                    Text("KDA \(String(format: "%.2f", s.kda))")
+                        .font(Theme.mono(11))
+                        .foregroundStyle(Theme.cyan)
                 }
-                if player.isMVP { MVPBadge() }
-                Text(FlowText.kda(s.kills, s.deaths, s.assists))
-                    .font(.system(size: 24, weight: .heavy, design: .rounded))
-                    .foregroundStyle(Theme.textPrimary)
-                    .monospacedDigit()
-                Text("KDA \(String(format: "%.2f", s.kda))")
-                    .font(Theme.mono(11))
-                    .foregroundStyle(Theme.cyan)
+                .accessibilityElement(children: .combine)
                 VStack(spacing: 4) {
                     statRow("Lv", "\(player.level)")
                     statRow("CS", "\(s.creepScore)")
@@ -346,10 +366,18 @@ private struct EvaluationTab: View {
                     FlowSectionTitle(title: L("MVP スコア内訳", "MVP Score Breakdown"), symbol: "function")
                     ForEach(breakdown.lines.indices, id: \.self) { i in
                         let line = breakdown.lines[i]
-                        HStack {
-                            Text(line.label).font(Theme.body(12)).foregroundStyle(Theme.textPrimary)
-                            Spacer()
-                            Text(line.detail).font(Theme.mono(10)).foregroundStyle(Theme.textSecondary)
+                        HStack(spacing: 6) {
+                            Text(line.label)
+                                .font(Theme.body(12))
+                                .foregroundStyle(Theme.textPrimary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.75)
+                            Spacer(minLength: 4)
+                            Text(line.detail)
+                                .font(Theme.mono(10))
+                                .foregroundStyle(Theme.textSecondary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
                             Text(String(format: "%+.1f", line.value))
                                 .font(Theme.mono(12))
                                 .foregroundStyle(line.value < 0 ? Theme.danger : (line.value > 0 ? Theme.success : Theme.textSecondary))

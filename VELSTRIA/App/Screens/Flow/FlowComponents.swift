@@ -668,6 +668,7 @@ struct FlowTabBar<Tab: Hashable>: View {
                     Label(item.title, systemImage: item.symbol)
                         .font(Theme.heading(14))
                         .lineLimit(1)
+                        .fixedSize()
                         .padding(.horizontal, 14)
                         .frame(minHeight: 44)
                         .foregroundStyle(selected ? Color.black.opacity(0.85) : Theme.textPrimary)
@@ -687,6 +688,7 @@ struct FlowTabBar<Tab: Hashable>: View {
         .padding(3)
         .background(Capsule().fill(Color.black.opacity(0.35)))
         .overlay(Capsule().stroke(Theme.panelStroke, lineWidth: 1))
+        .fixedSize()
     }
 }
 
@@ -888,6 +890,7 @@ enum FlowText {
     }
 
     static func compactNumber(_ v: Double) -> String {
+        if v >= 1_000_000 { return String(format: "%.1fM", v / 1_000_000) }
         if v >= 10_000 { return String(format: "%.1fk", v / 1000) }
         return Int(v.rounded()).formatted()
     }
