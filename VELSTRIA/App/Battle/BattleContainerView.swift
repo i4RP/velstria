@@ -33,6 +33,9 @@ struct BattleContainerView: View {
                 BattleHUDView(controller: controller) { outcome in
                     finish(outcome)
                 }
+                #if DEBUG
+                if DebugLaunch.isUITesting { uiTestFastForwardButton(controller) }
+                #endif
             }
         }
         .persistentSystemOverlays(.hidden)
@@ -62,6 +65,24 @@ struct BattleContainerView: View {
         app.audio.playMusic(.battle)
         loop.start(controller: c)
     }
+
+    #if DEBUG
+    /// UI テスト用の早送り（リザルトまでの画面遷移を短時間で検証する）。DEBUG かつ -uiTesting のみ。
+    private func uiTestFastForwardButton(_ controller: BattleController) -> some View {
+        Button("FF") {
+            Task {
+                await controller.debugFastForward()
+                finish(controller.makeOutcome(abandoned: false))
+            }
+        }
+        .font(Theme.mono(11))
+        .padding(6)
+        .background(Capsule().fill(Color.black.opacity(0.6)))
+        .accessibilityIdentifier("battle_stub_simulate")
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .padding(.bottom, 4)
+    }
+    #endif
 
     private func finish(_ outcome: BattleOutcome) {
         tearDown()

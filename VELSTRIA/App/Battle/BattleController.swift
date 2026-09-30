@@ -180,6 +180,21 @@ final class BattleController {
         Vec2(Double(drag.dx), -Double(drag.dy)).normalized
     }
 
+    #if DEBUG
+    /// UI テスト用: 描画ループを止め、試合を終了（または maxTime）まで早送りする。
+    /// 数百 tick ごとにメインスレッドを譲り、UI を固めない。
+    func debugFastForward(maxTime: Double = 25 * 60) async {
+        isPaused = true
+        while !sim.isEnded && sim.state.time < maxTime {
+            for _ in 0..<600 where !sim.isEnded { stepOnce() }
+            await Task.yield()
+        }
+        if !sim.isEnded { sim.abort() }
+        isEnded = true
+        hudTick &+= 1
+    }
+    #endif
+
     // MARK: 終了
 
     /// 試合結果（リザルト用）。
