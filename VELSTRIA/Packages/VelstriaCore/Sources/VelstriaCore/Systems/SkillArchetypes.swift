@@ -89,8 +89,8 @@ enum SkillArchetypes {
                              payload: payload(c, damage: n.damage), visual: visual)
 
         case .multiStrike:
-            emitCast(&s, caster: i, check: c, targeting: t, origin: origin, target: aim.unit.map { s.units[$0].pos } ?? origin,
-                     unit: aim.unit)
+            let focus = aim.unit.map { s.units[$0].pos } ?? origin
+            emitCast(&s, caster: i, check: c, targeting: t, origin: origin, target: focus, unit: aim.unit)
             // 0 / 0.3 / 0.6 秒の 3 連撃（術者に追従）。CC は初撃のみ
             let count = max(1, k.multiStrikeCount)
             let interval = count > 1 ? k.multiStrikeDuration / Double(count - 1) : 0

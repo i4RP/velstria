@@ -290,8 +290,8 @@ public enum SkillSystem {
         for i in s.units.indices where s.units[i].kind == .hero {
             guard s.units[i].hero != nil else { continue }
             for k in 0..<5 {
-                let v = s.units[i].hero!.skillCooldowns[k]
-                if v > 0 { s.units[i].hero!.skillCooldowns[k] = noCD ? 0 : max(0, v - dt) }
+                let v = s.units[i].hero?.skillCooldowns[k] ?? 0
+                if v > 0 { s.units[i].hero?.skillCooldowns[k] = noCD ? 0 : max(0, v - dt) }
             }
             SkillPassives.update(&s, ctx, i, dt: dt)
         }

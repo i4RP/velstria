@@ -28,22 +28,22 @@ enum SkillPassives {
     /// スキル発動の開始（命中処理より前）。アルカニストの「1 キャストにつき 1 回」をこのスロットで再び有効にする。
     static func beginCast(_ s: inout SimState, _ i: Int, slot: SkillSlot) {
         guard s.units[i].hero?.role == .arcanist else { return }
-        s.units[i].hero!.passive.stacks &= ~(1 << slot.rawValue)
+        s.units[i].hero?.passive.stacks &= ~(1 << slot.rawValue)
     }
 
     /// 毎 tick のタイマー（SkillSystem.update から）。
     static func update(_ s: inout SimState, _ ctx: SimContext, _ i: Int, dt: Double) {
         guard let role = s.units[i].hero?.role else { return }
-        if s.units[i].hero!.passive.cooldown > 0 {
-            s.units[i].hero!.passive.cooldown = max(0, s.units[i].hero!.passive.cooldown - dt)
+        if let cd = s.units[i].hero?.passive.cooldown, cd > 0 {
+            s.units[i].hero?.passive.cooldown = max(0, cd - dt)
         }
         switch role {
         case .assassin:
             updateAmbush(&s, i, dt: dt)
         case .duelist:
             // 攻撃速度バフが切れたらスタックを戻す（HUD 表示用）
-            if s.units[i].hero!.passive.stacks > 0 && !hasDuelistBuff(s, i) {
-                s.units[i].hero!.passive.stacks = 0
+            if (s.units[i].hero?.passive.stacks ?? 0) > 0 && !hasDuelistBuff(s.units[i].statuses) {
+                s.units[i].hero?.passive.stacks = 0
             }
         case .vanguard, .ranger, .arcanist, .support:
             break
@@ -56,7 +56,7 @@ enum SkillPassives {
         guard CombatSystem.isLiving(s, v), let h = s.units[v].hero, h.passive.cooldown <= 0,
               s.units[v].hpRatio < Balance.Skills.vanguardShieldThreshold else { return }
         let k = coefficient(s, v)
-        s.units[v].hero!.passive.cooldown = Balance.Skills.vanguardShieldCooldown
+        s.units[v].hero?.passive.cooldown = Balance.Skills.vanguardShieldCooldown
         CombatSystem.addShield(&s, ctx, sourceID: s.units[v].id, targetIndex: v,
                                amount: s.units[v].stats.maxHP * Balance.Skills.vanguardShieldRatio * k,
                                duration: Balance.Skills.vanguardShieldDuration, tag: Balance.Skills.vanguardPassiveTag)
@@ -64,16 +64,16 @@ enum SkillPassives {
 
     // MARK: - Duelist: 攻撃速度スタック
 
-    static func hasDuelistBuff(_ s: SimState, _ i: Int) -> Bool {
+    static func hasDuelistBuff(_ statuses: [StatusEffect]) -> Bool {
         let tag = Balance.Skills.duelistPassiveTag
-        return s.units[i].statuses.contains { $0.kind == .attackSpeedBoost && $0.tag == tag }
+        return statuses.contains { $0.kind == .attackSpeedBoost && $0.tag == tag }
     }
 
     static func duelistStack(_ s: inout SimState, _ ctx: SimContext, attacker a: Int) {
         guard CombatSystem.isLiving(s, a), s.units[a].hero != nil else { return }
-        let prev = hasDuelistBuff(s, a) ? s.units[a].hero!.passive.stacks : 0
+        let prev = hasDuelistBuff(s.units[a].statuses) ? (s.units[a].hero?.passive.stacks ?? 0) : 0
         let stacks = min(Balance.Skills.duelistMaxStacks, prev + 1)
-        s.units[a].hero!.passive.stacks = stacks
+        s.units[a].hero?.passive.stacks = stacks
         let k = coefficient(s, a)
         // 同じ tag は強さ・残り時間とも大きい方が残る: スタック増加で強くなり、持続は毎回 3 秒に戻る
         CombatSystem.addStatus(&s, targetIndex: a,
@@ -91,7 +91,7 @@ enum SkillPassives {
         let every = max(1, Balance.Skills.rangerCritEvery)
         let count = h.basicAttackCount
         guard count % every == every - 1, h.passive.value != Double(count) else { return nil }
-        s.units[a].hero!.passive.value = Double(count)
+        s.units[a].hero?.passive.value = Double(count)
         let k = coefficient(s, a)
         s.units[a].stats.critMultiplier = max(1, s.units[a].stats.critMultiplier) * k
         return true
@@ -103,11 +103,11 @@ enum SkillPassives {
         guard slot != .passive, let h = s.units[a].hero else { return }
         let bit = 1 << slot.rawValue
         guard h.passive.stacks & bit == 0 else { return }
-        s.units[a].hero!.passive.stacks |= bit
+        s.units[a].hero?.passive.stacks |= bit
         let amount = Balance.Skills.arcanistRefund * coefficient(s, a)
         for other in SkillSlot.actives where other != slot {
-            let v = s.units[a].hero!.skillCooldowns[other.rawValue]
-            if v > 0 { s.units[a].hero!.skillCooldowns[other.rawValue] = max(0, v - amount) }
+            let v = s.units[a].hero?.skillCooldowns[other.rawValue] ?? 0
+            if v > 0 { s.units[a].hero?.skillCooldowns[other.rawValue] = max(0, v - amount) }
         }
     }
 
@@ -137,30 +137,30 @@ enum SkillPassives {
 
     // MARK: - Assassin: 奇襲・キル/アシストで CD 短縮
 
-    static func isHidden(_ s: SimState, _ i: Int) -> Bool {
-        s.units[i].brushIndex != nil || s.units[i].has(.stealth)
+    static func isHidden(_ brushIndex: Int?, _ statuses: [StatusEffect]) -> Bool {
+        brushIndex != nil || statuses.contains { $0.kind == .stealth }
     }
 
     /// 草むら/ステルスに入ると奇襲が有効になり、隠れている間と出てから 3 秒間、最初のダメージを強化する。
     static func updateAmbush(_ s: inout SimState, _ i: Int, dt: Double) {
         guard CombatSystem.isLiving(s, i) else {
-            s.units[i].hero!.passive.flag = false
-            s.units[i].hero!.passive.timer = 0
-            s.units[i].hero!.passive.value = 0
+            s.units[i].hero?.passive.flag = false
+            s.units[i].hero?.passive.timer = 0
+            s.units[i].hero?.passive.value = 0
             return
         }
         let window = Balance.Skills.assassinAmbushWindow
-        if isHidden(s, i) {
-            if !s.units[i].hero!.passive.flag { s.units[i].hero!.passive.value = 1 }
-            s.units[i].hero!.passive.flag = true
-            s.units[i].hero!.passive.timer = window
+        if isHidden(s.units[i].brushIndex, s.units[i].statuses) {
+            if s.units[i].hero?.passive.flag == false { s.units[i].hero?.passive.value = 1 }
+            s.units[i].hero?.passive.flag = true
+            s.units[i].hero?.passive.timer = window
         } else {
-            s.units[i].hero!.passive.flag = false
-            let t = s.units[i].hero!.passive.timer
+            s.units[i].hero?.passive.flag = false
+            let t = s.units[i].hero?.passive.timer ?? 0
             if t > 0 {
                 let left = t - dt
-                s.units[i].hero!.passive.timer = max(0, left)
-                if left <= CombatSystem.timeEpsilon { s.units[i].hero!.passive.value = 0 }
+                s.units[i].hero?.passive.timer = max(0, left)
+                if left <= CombatSystem.timeEpsilon { s.units[i].hero?.passive.value = 0 }
             }
         }
     }
@@ -173,8 +173,8 @@ enum SkillPassives {
         default: return 0
         }
         guard s.units[t].kind == .hero, s.units[t].team != s.units[a].team, let p = s.units[a].hero?.passive,
-              p.value >= 1, p.timer > 0 || isHidden(s, a) else { return 0 }
-        s.units[a].hero!.passive.value = 0
+              p.value >= 1, p.timer > 0 || isHidden(s.units[a].brushIndex, s.units[a].statuses) else { return 0 }
+        s.units[a].hero?.passive.value = 0
         return Balance.Skills.assassinAmbushBonus * coefficient(s, a)
     }
 
@@ -182,8 +182,8 @@ enum SkillPassives {
         guard s.units[i].hero != nil else { return }
         let keep = 1 - Balance.Skills.assassinTakedownRefund
         for slot in SkillSlot.actives {
-            let v = s.units[i].hero!.skillCooldowns[slot.rawValue]
-            if v > 0 { s.units[i].hero!.skillCooldowns[slot.rawValue] = v * keep }
+            let v = s.units[i].hero?.skillCooldowns[slot.rawValue] ?? 0
+            if v > 0 { s.units[i].hero?.skillCooldowns[slot.rawValue] = v * keep }
         }
     }
 }

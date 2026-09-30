@@ -107,7 +107,7 @@ public enum SpellSystem {
         for i in s.units.indices where s.units[i].kind == .hero {
             guard let h = s.units[i].hero else { continue }
             for k in h.spellCooldowns.indices where h.spellCooldowns[k] > 0 {
-                s.units[i].hero!.spellCooldowns[k] = noCD ? 0 : max(0, h.spellCooldowns[k] - Balance.dt)
+                s.units[i].hero?.spellCooldowns[k] = noCD ? 0 : max(0, h.spellCooldowns[k] - Balance.dt)
             }
         }
     }
