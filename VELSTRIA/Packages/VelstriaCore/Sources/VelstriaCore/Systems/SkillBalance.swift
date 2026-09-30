@@ -9,11 +9,11 @@ extension Balance {
         // MARK: 全体係数（1v1 TTK スモーク `SkillBalanceTests` で調整）
         /// スキルダメージ倍率（DESIGN §6 の式の結果に掛ける）。index = SkillSlot.rawValue。
         /// マスターの base_damage は HP 基準値に対して小さいため、Lv1 の 1v1 でも 15 秒以内に決着する水準へ引き上げる。
-        public static let damageScaleBySlot: [Double] = [0, 3.4, 3.0, 3.0, 2.6]
+        public static let damageScaleBySlot: [Double] = [0, 4.0, 3.0, 3.0, 2.6]
         /// 回復・シールド系スキル（healZone / teamHeal）の倍率。
         public static let healScale: Double = 2.4
         /// クールダウン倍率（DESIGN §6 の式に掛ける）。
-        public static let cooldownScale: Double = 0.55
+        public static let cooldownScale: Double = 0.5
 
         // MARK: 照準
         /// 攻撃力スケーリングの係数（DESIGN §6: scaling_attack × 総攻撃力 × 0.6）。
