@@ -149,9 +149,11 @@ private struct HUDMinimapUnits: View {
     let projection: HUDMinimapProjection
 
     var body: some View {
-        let _ = model.minimapVersion
+        // バージョンを描画クロージャに取り込む（取り込まないと SwiftUI が同じ描画とみなして再描画しない）
+        let version = model.minimapVersion
         let buffer = model.minimap
         Canvas { ctx, _ in
+            _ = version
             let proj = projection
             let cb = buffer.colorblind
             let viewer = buffer.viewerTeam
