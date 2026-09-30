@@ -105,13 +105,13 @@ struct HeroAssembler {
 
     private mutating func finish(_ b: MeshBuilder, _ name: String) -> MeshResource {
         tris += b.triangleCount
-        return b.makeMesh(name: name) ?? Self.fallbackMesh
+        return b.makeAtlasMesh(name: name, glowingEyes: bp.glowingEyes) ?? Self.fallbackMesh
     }
 
     private mutating func finishOptional(_ b: MeshBuilder, _ name: String) -> MeshResource? {
         guard !b.isEmpty else { return nil }
         tris += b.triangleCount
-        return b.makeMesh(name: name)
+        return b.makeAtlasMesh(name: name, glowingEyes: bp.glowingEyes)
     }
 
     mutating func build(name: String) -> HeroMeshSet {

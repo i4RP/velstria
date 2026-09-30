@@ -487,6 +487,8 @@ struct MeshBuilder {
     private(set) var normals: [V3] = []
     private(set) var indices: [UInt32] = []
     private(set) var faceMaterials: [UInt32] = []
+    /// 頂点ごとのマテリアル番号（素片単位で 1 つなので頂点から決まる）。パレット UV に使う。
+    private(set) var vertexSlots: [UInt8] = []
 
     var isEmpty: Bool { indices.isEmpty }
     var triangleCount: Int { indices.count / 3 }
@@ -509,6 +511,7 @@ struct MeshBuilder {
             let l = simd_length(q)
             normals.append(l > 1e-8 ? q / l : V3(0, 1, 0))
         }
+        vertexSlots.append(contentsOf: repeatElement(UInt8(mat.rawValue), count: t.positions.count))
         let flip = det < 0
         var i = 0
         while i + 2 < t.indices.count {
@@ -522,12 +525,15 @@ struct MeshBuilder {
     /// 別の結合メッシュを変換して取り込む（部品を原点で作ってから配置する用）。
     mutating func merge(_ o: MeshBuilder, _ m: simd_float4x4) {
         let t = MeshTemplate(positions: o.positions, normals: o.normals, indices: o.indices)
-        let before = faceMaterials.count
+        let faceBase = faceMaterials.count
+        let vertexBase = vertexSlots.count
         add(t, m, .primary)
-        // add は全面を 1 つのマテリアルで登録するので、元の面ごとの番号で上書きする
-        for i in 0..<o.faceMaterials.count { faceMaterials[before + i] = o.faceMaterials[i] }
+        // add は 1 つのマテリアルで登録するので、元の番号で上書きする
+        for i in 0..<o.faceMaterials.count { faceMaterials[faceBase + i] = o.faceMaterials[i] }
+        for i in 0..<o.vertexSlots.count { vertexSlots[vertexBase + i] = o.vertexSlots[i] }
     }
 
+    /// マテリアル番号ごとのパーツを持つメッシュ（台座・効果用。materials は HeroMat の順）。
     func makeMesh(name: String) -> MeshResource? {
         guard !indices.isEmpty else { return nil }
         var d = MeshDescriptor(name: name)
@@ -536,6 +542,42 @@ struct MeshBuilder {
         d.primitives = .triangles(indices)
         d.materials = .perFace(faceMaterials)
         return try? MeshResource.generate(from: [d])
+    }
+
+    /// パレットアトラス用メッシュ（ヒーロー本体）。材質番号は HeroAtlasPart の順:
+    /// 0 = アトラス PBR（色は UV でパレットを参照）、1 = 半透明の布、2 = 発光（非照明）、3 = 金属。
+    /// 骨 1 本あたりの描画単位を 1〜3 に抑える。
+    func makeAtlasMesh(name: String, glowingEyes: Bool) -> MeshResource? {
+        guard !indices.isEmpty else { return nil }
+        var d = MeshDescriptor(name: name)
+        d.positions = MeshBuffers.Positions(positions)
+        d.normals = MeshBuffers.Normals(normals)
+        d.textureCoordinates = MeshBuffers.TextureCoordinates(vertexSlots.map { HeroPaletteAtlas.uv(slot: Int($0)) })
+        d.primitives = .triangles(indices)
+        let parts = faceMaterials.map { raw -> UInt32 in
+            HeroAtlasPart.of(HeroMat(rawValue: raw) ?? .primary, glowingEyes: glowingEyes).rawValue
+        }
+        if let first = parts.first, parts.allSatisfy({ $0 == first }) {
+            d.materials = .allFaces(first)
+        } else {
+            d.materials = .perFace(parts)
+        }
+        return try? MeshResource.generate(from: [d])
+    }
+}
+
+/// ヒーロー本体のマテリアル区分（ModelEntity.materials の添字）。
+enum HeroAtlasPart: UInt32, CaseIterable {
+    case surface, veil, glow, metal
+
+    static func of(_ slot: HeroMat, glowingEyes: Bool) -> HeroAtlasPart {
+        switch slot {
+        case .veil: return .veil
+        case .glow, .shine: return .glow
+        case .eye: return glowingEyes ? .glow : .surface
+        case .metal: return .metal
+        default: return .surface
+        }
     }
 }
 

@@ -243,84 +243,167 @@ enum HeroPalettes {
 
 // MARK: - マテリアル
 
+/// マテリアル番号ごとの表面特性。
+struct HeroSlotSurface {
+    var base: HSB
+    var roughness: Float
+    var metallic: Float
+    var emissive: HSB
+    /// 発光の強さ（emissiveIntensity 相当）。
+    var emissiveStrength: Float
+    var clearcoat: Float
+
+    static func of(_ slot: HeroMat, _ p: HeroPalette) -> HeroSlotSurface {
+        let (mr, mm) = p.metalKind.surface
+        switch slot {
+        case .primary:
+            // 上方カメラでも暗部が沈まないよう、基調色をわずかに自己発光させる
+            return HeroSlotSurface(base: p.primary, roughness: 0.55, metallic: 0.05, emissive: p.primary, emissiveStrength: 0.16, clearcoat: 0.25)
+        case .secondary:
+            return HeroSlotSurface(base: p.secondary, roughness: 0.6, metallic: 0.05, emissive: p.secondary, emissiveStrength: 0.14, clearcoat: 0)
+        case .metal:
+            if p.trimGlow > 0 {
+                return HeroSlotSurface(base: p.metal, roughness: mr, metallic: mm, emissive: p.glow, emissiveStrength: p.trimGlow, clearcoat: 0.3)
+            }
+            return HeroSlotSurface(base: p.metal, roughness: mr, metallic: mm, emissive: p.metal, emissiveStrength: 0.12,
+                                   clearcoat: mm > 0.5 ? 0.4 : 0)
+        case .skin:
+            return HeroSlotSurface(base: p.skin, roughness: 0.72, metallic: 0, emissive: p.skin, emissiveStrength: 0.22, clearcoat: 0)
+        case .dark:
+            return HeroSlotSurface(base: p.dark, roughness: 0.72, metallic: 0.05, emissive: p.dark, emissiveStrength: 0.1, clearcoat: 0)
+        case .accent:
+            if p.trimGlow > 0 {
+                return HeroSlotSurface(base: p.accent, roughness: 0.4, metallic: 0.1, emissive: p.accent,
+                                       emissiveStrength: 0.45 + p.trimGlow * 0.5, clearcoat: 0.3)
+            }
+            return HeroSlotSurface(base: p.accent, roughness: 0.42, metallic: 0.1, emissive: p.accent, emissiveStrength: 0.2, clearcoat: 0.3)
+        case .glow:
+            return HeroSlotSurface(base: p.glow.with(s: p.glow.s * 0.7), roughness: 0.3, metallic: 0, emissive: p.glow,
+                                   emissiveStrength: p.glowIntensity, clearcoat: 0)
+        case .hair:
+            return HeroSlotSurface(base: p.hair, roughness: 0.5, metallic: 0.05, emissive: p.hair, emissiveStrength: 0.16, clearcoat: 0.35)
+        case .eye:
+            if p.glowingEyes {
+                return HeroSlotSurface(base: p.glow, roughness: 0.3, metallic: 0, emissive: p.glow, emissiveStrength: 3, clearcoat: 0)
+            }
+            return HeroSlotSurface(base: HSB(0.65, 0.35, 0.12), roughness: 0.15, metallic: 0, emissive: HSB(0, 0, 0),
+                                   emissiveStrength: 0, clearcoat: 1)
+        case .cloth:
+            return HeroSlotSurface(base: p.cloth, roughness: 0.8, metallic: 0, emissive: p.cloth, emissiveStrength: 0.14, clearcoat: 0)
+        case .shine:
+            return HeroSlotSurface(base: HSB(0, 0, 1), roughness: 0.2, metallic: 0, emissive: HSB(0, 0, 1), emissiveStrength: 1.2, clearcoat: 0)
+        case .veil:
+            return HeroSlotSurface(base: p.veil, roughness: 0.6, metallic: 0, emissive: p.veil, emissiveStrength: 0.35, clearcoat: 0)
+        }
+    }
+}
+
+/// パレットアトラス: マテリアル番号ごとに 4×4 px のマスを横に並べた小さなテクスチャ群。
+/// ヒーロー本体は 1 つの PBR マテリアル（色・粗さ・金属度・発光・クリアコートをテクスチャで引く）で描く。
+enum HeroPaletteAtlas {
+    static let cell = 4
+    static let columns = 16
+    static var width: Int { cell * columns }
+
+    /// マテリアル番号のマス中心の UV。
+    static func uv(slot: Int) -> SIMD2<Float> {
+        SIMD2<Float>((Float(slot * cell) + Float(cell) / 2) / Float(width), 0.5)
+    }
+
+    @MainActor
+    static func texture(name: String, semantic: TextureResource.Semantic, pixel: (HeroMat) -> (CGFloat, CGFloat, CGFloat)) -> TextureResource? {
+        let w = width, h = cell
+        guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                  space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        ctx.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 1))
+        ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+        for slot in HeroMat.allCases {
+            let (r, g, b) = pixel(slot)
+            ctx.setFillColor(CGColor(red: r, green: g, blue: b, alpha: 1))
+            ctx.fill(CGRect(x: Int(slot.rawValue) * cell, y: 0, width: cell, height: h))
+        }
+        guard let image = ctx.makeImage() else { return nil }
+        // 色の混ざりを防ぐため、ミップマップと圧縮は使わない
+        let options = TextureResource.CreateOptions(semantic: semantic, compression: .none, mipmapsMode: .none)
+        return try? TextureResource(image: image, withName: name, options: options)
+    }
+
+    static func rgb(_ c: HSB) -> (CGFloat, CGFloat, CGFloat) {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        c.uiColor.getRed(&r, green: &g, blue: &b, alpha: &a)
+        return (r, g, b)
+    }
+}
+
 @MainActor
 enum HeroMaterialLibrary {
     private static var cache: [String: [RealityKit.Material]] = [:]
     private static var unlitCache: [String: RealityKit.Material] = [:]
 
-    /// パレットからマテリアル配列（HeroMat の順）を作る。同じキーは共有する。
+    /// ヒーロー本体のマテリアル（HeroAtlasPart の順）。同じキーは共有する。
+    /// RealityKit の PBR は発光テクスチャを参照しないため、発光部は非照明マテリアル、
+    /// Epic の発光縁取りは金属マテリアルの発光で表現する。
     static func materials(key: String, palette p: HeroPalette) -> [RealityKit.Material] {
         if let m = cache[key] { return m }
-        var list: [RealityKit.Material] = []
-        list.reserveCapacity(HeroMat.allCases.count)
-        for slot in HeroMat.allCases {
-            list.append(make(slot, p))
+        let surfaces = HeroMat.allCases.map { HeroSlotSurface.of($0, p) }
+        let base = HeroPaletteAtlas.texture(name: "\(key).base", semantic: .color) { slot in
+            let sf = surfaces[Int(slot.rawValue)]
+            // 発光部は非照明で描くので、明るい色をそのまま置く
+            if slot == .glow { return HeroPaletteAtlas.rgb(sf.emissive.with(s: sf.emissive.s * 0.75, b: 1)) }
+            if slot == .eye && p.glowingEyes { return HeroPaletteAtlas.rgb(sf.emissive.with(b: 1)) }
+            return HeroPaletteAtlas.rgb(sf.base)
         }
+        let rough = HeroPaletteAtlas.texture(name: "\(key).rough", semantic: .raw) {
+            let v = CGFloat(surfaces[Int($0.rawValue)].roughness); return (v, v, v)
+        }
+        let metal = HeroPaletteAtlas.texture(name: "\(key).metal", semantic: .raw) {
+            let v = CGFloat(surfaces[Int($0.rawValue)].metallic); return (v, v, v)
+        }
+        let coat = HeroPaletteAtlas.texture(name: "\(key).coat", semantic: .raw) {
+            let v = CGFloat(surfaces[Int($0.rawValue)].clearcoat); return (v, v, v)
+        }
+
+        var surface = PhysicallyBasedMaterial()
+        if let base, let rough, let metal {
+            surface.baseColor = .init(tint: .white, texture: .init(base))
+            surface.roughness = .init(scale: 1, texture: .init(rough))
+            surface.metallic = .init(scale: 1, texture: .init(metal))
+            if let coat {
+                surface.clearcoat = .init(scale: 1, texture: .init(coat))
+                surface.clearcoatRoughness = .init(floatLiteral: 0.2)
+            }
+        } else {
+            surface.baseColor = .init(tint: p.primary.uiColor)
+        }
+
+        let veilSurface = HeroSlotSurface.of(.veil, p)
+        var veil = PhysicallyBasedMaterial()
+        veil.baseColor = .init(tint: veilSurface.base.uiColor)
+        veil.roughness = .init(floatLiteral: veilSurface.roughness)
+        veil.emissiveColor = .init(color: veilSurface.emissive.uiColor)
+        veil.emissiveIntensity = veilSurface.emissiveStrength
+        veil.blending = .transparent(opacity: .init(floatLiteral: 0.55))
+        veil.faceCulling = .none
+
+        var glow = UnlitMaterial(color: .white)
+        if let base { glow.color = .init(tint: .white, texture: .init(base)) } else { glow.color = .init(tint: p.glow.uiColor) }
+
+        let m = HeroSlotSurface.of(.metal, p)
+        var metalMat = PhysicallyBasedMaterial()
+        metalMat.baseColor = .init(tint: m.base.uiColor)
+        metalMat.roughness = .init(floatLiteral: m.roughness)
+        metalMat.metallic = .init(floatLiteral: m.metallic)
+        metalMat.emissiveColor = .init(color: m.emissive.uiColor)
+        metalMat.emissiveIntensity = m.emissiveStrength
+        if m.clearcoat > 0 {
+            metalMat.clearcoat = .init(floatLiteral: m.clearcoat)
+            metalMat.clearcoatRoughness = .init(floatLiteral: 0.2)
+        }
+
+        let list: [RealityKit.Material] = [surface, veil, glow, metalMat]
         cache[key] = list
         return list
-    }
-
-    private static func pbr(_ c: HSB, rough: Float, metal: Float, lift: Float, emissive: HSB? = nil,
-                            intensity: Float = 0, clearcoat: Float = 0) -> PhysicallyBasedMaterial {
-        var m = PhysicallyBasedMaterial()
-        m.baseColor = .init(tint: c.uiColor)
-        m.roughness = .init(floatLiteral: rough)
-        m.metallic = .init(floatLiteral: metal)
-        if let e = emissive, intensity > 0 {
-            m.emissiveColor = .init(color: e.uiColor)
-            m.emissiveIntensity = intensity
-        } else if lift > 0 {
-            // 上方カメラでも暗部が沈まないよう、基調色をわずかに自己発光させる
-            m.emissiveColor = .init(color: c.uiColor)
-            m.emissiveIntensity = lift
-        }
-        if clearcoat > 0 {
-            m.clearcoat = .init(floatLiteral: clearcoat)
-            m.clearcoatRoughness = .init(floatLiteral: 0.2)
-        }
-        return m
-    }
-
-    private static func make(_ slot: HeroMat, _ p: HeroPalette) -> RealityKit.Material {
-        let (mr, mm) = p.metalKind.surface
-        switch slot {
-        case .primary:
-            return pbr(p.primary, rough: 0.55, metal: 0.05, lift: 0.16, clearcoat: 0.25)
-        case .secondary:
-            return pbr(p.secondary, rough: 0.6, metal: 0.05, lift: 0.14)
-        case .metal:
-            if p.trimGlow > 0 {
-                return pbr(p.metal, rough: mr, metal: mm, lift: 0, emissive: p.glow, intensity: p.trimGlow)
-            }
-            return pbr(p.metal, rough: mr, metal: mm, lift: 0.12, clearcoat: mm > 0.5 ? 0.4 : 0)
-        case .skin:
-            return pbr(p.skin, rough: 0.72, metal: 0, lift: 0.22)
-        case .dark:
-            return pbr(p.dark, rough: 0.72, metal: 0.05, lift: 0.1)
-        case .accent:
-            if p.trimGlow > 0 {
-                return pbr(p.accent, rough: 0.4, metal: 0.1, lift: 0, emissive: p.accent, intensity: 0.45 + p.trimGlow * 0.5)
-            }
-            return pbr(p.accent, rough: 0.42, metal: 0.1, lift: 0.2, clearcoat: 0.3)
-        case .glow:
-            return pbr(p.glow.with(s: p.glow.s * 0.7), rough: 0.3, metal: 0, lift: 0, emissive: p.glow, intensity: p.glowIntensity)
-        case .hair:
-            return pbr(p.hair, rough: 0.5, metal: 0.05, lift: 0.16, clearcoat: 0.35)
-        case .eye:
-            if p.glowingEyes {
-                return pbr(p.glow, rough: 0.3, metal: 0, lift: 0, emissive: p.glow, intensity: 3)
-            }
-            return pbr(HSB(0.65, 0.35, 0.12), rough: 0.15, metal: 0, lift: 0, clearcoat: 1)
-        case .cloth:
-            return pbr(p.cloth, rough: 0.8, metal: 0, lift: 0.14)
-        case .shine:
-            return pbr(HSB(0, 0, 1), rough: 0.2, metal: 0, lift: 0, emissive: HSB(0, 0, 1), intensity: 1.2)
-        case .veil:
-            var m = pbr(p.veil, rough: 0.6, metal: 0, lift: 0, emissive: p.veil, intensity: 0.35)
-            m.blending = .transparent(opacity: .init(floatLiteral: 0.55))
-            m.faceCulling = .none
-            return m
-        }
     }
 
     /// 発光エフェクト用の非照明マテリアル（半透明）。

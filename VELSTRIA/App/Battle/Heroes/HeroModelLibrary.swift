@@ -59,7 +59,6 @@ enum HeroModelLibrary {
         _ = HeroEffectMeshes.teamRingSolid
         _ = HeroEffectMeshes.teamRingDashed
         _ = HeroEffectMeshes.groundRing
-        _ = HeroEffectMeshes.glowSprite
     }
 
     static func meshSet(heroID: String, blueprint: HeroBlueprint) -> HeroMeshSet {
@@ -96,9 +95,6 @@ enum HeroEffectMeshes {
         }
         return b.makeMesh(name: "hero.groundRing") ?? MeshResource.generatePlane(width: 1.4, depth: 1.4)
     }()
-
-    /// 詠唱の光（カメラを向く板。放射グラデーションのテクスチャを貼る）。
-    static let glowSprite: MeshResource = MeshResource.generatePlane(width: 1, height: 1)
 
     private static func makeTeamRing(dashed: Bool) -> MeshResource {
         var b = MeshBuilder()
@@ -147,7 +143,7 @@ final class HeroModel: HeroModelHandle {
     private let wingR: ModelEntity?
     private let flag: ModelEntity?
     private let float: ModelEntity?
-    private let castGlow: ModelEntity
+    private let castGlow: Entity
     private let groundRing: ModelEntity
     private let teamRing: ModelEntity?
     private let aura: Entity?
@@ -254,11 +250,10 @@ final class HeroModel: HeroModelHandle {
         }
 
         // 詠唱の光（武器の先端）
-        castGlow = ModelEntity()
+        // 粒子は常にカメラを向くので、柔らかな光の玉として使う
+        castGlow = Entity()
         castGlow.name = "castGlow"
-        castGlow.components.set(ModelComponent(mesh: HeroEffectMeshes.glowSprite,
-                                               materials: [HeroMaterialLibrary.glowSprite(palette.glow)]))
-        castGlow.components.set(BillboardComponent())
+        castGlow.components.set(HeroModel.glowEmitter(color: palette.glow.with(s: palette.glow.s * 0.8, b: 1).uiColor))
         castGlow.position = ms.weaponTip
         castGlow.scale = V3(repeating: 0.001)
         castGlow.isEnabled = false
@@ -280,7 +275,7 @@ final class HeroModel: HeroModelHandle {
             ring.name = "teamRing"
             ring.components.set(ModelComponent(
                 mesh: team == .red ? HeroEffectMeshes.teamRingDashed : HeroEffectMeshes.teamRingSolid,
-                materials: [HeroMaterialLibrary.unlit(color, opacity: 0.9),
+                materials: [HeroMaterialLibrary.unlit(color, opacity: 0.82),
                             HeroMaterialLibrary.unlit(HSB(0, 0, 0), opacity: 0.32)]))
             body.addChild(ring)
             teamRing = ring
@@ -318,6 +313,25 @@ final class HeroModel: HeroModelHandle {
         var n = 1
         for c in e.children { n += countEntities(c) }
         return n
+    }
+
+    private static func glowEmitter(color: UIColor) -> ParticleEmitterComponent {
+        var p = ParticleEmitterComponent()
+        p.emitterShape = .sphere
+        p.emitterShapeSize = [0.02, 0.02, 0.02]
+        p.birthLocation = .volume
+        p.speed = 0.02
+        p.speedVariation = 0.02
+        p.particlesInheritTransform = true
+        p.mainEmitter.birthRate = 70
+        p.mainEmitter.lifeSpan = 0.22
+        p.mainEmitter.lifeSpanVariation = 0.05
+        p.mainEmitter.size = 0.2
+        p.mainEmitter.sizeVariation = 0.05
+        p.mainEmitter.color = .evolving(start: .single(color), end: .single(color.withAlphaComponent(0)))
+        p.mainEmitter.blendMode = .additive
+        p.mainEmitter.opacityCurve = .quickFadeInOut
+        return p
     }
 
     private static func auraEmitter(color: UIColor) -> ParticleEmitterComponent {
@@ -415,7 +429,7 @@ final class HeroModel: HeroModelHandle {
             glowVisible = showGlow
         }
         if showGlow {
-            castGlow.scale = V3(repeating: 0.25 + 0.35 * g)
+            castGlow.scale = V3(repeating: 0.6 + 0.6 * min(2.2, g))
         }
         let showRing = p.ring > 0.03
         if showRing != ringVisible {
