@@ -261,6 +261,44 @@ final class RenderSceneTests: XCTestCase {
         }
     }
 
+    /// 同じスタイル（色相・細長さ）のプールから出したスキル弾も、演出ごとの大きさ（scale_m）で描く。
+    func testPooledSkillProjectileUsesItsOwnEffectScale() {
+        let sim = Simulation(config: MatchFactory.botMatch(seed: 5))
+        let layer = ProjectileLayer(materials: RenderMaterials(colorblind: false), meshes: UnitMeshLibrary(), master: .shared,
+                                    quality: .preset(.medium))
+        var state = sim.state
+        guard let hero = state.units.first(where: { $0.kind == .hero }) else { return XCTFail("ヒーローがいない") }
+        let streaks = MasterData.shared.effects.filter { $0.effectType == .projectile || $0.effectType == .trail }
+        guard let a = streaks.first,
+              let b = streaks.first(where: { abs($0.scaleM - a.scaleM) > 0.2 })
+        else { return XCTFail("大きさの違う光条演出がない") }
+        func projectile(_ id: EntityID, _ visual: String) -> Projectile {
+            Projectile(id: id, ownerID: hero.id, team: hero.team, pos: hero.pos, motion: .linear(direction: Vec2(1, 0), maxDistance: 100),
+                       speed: 1000, payload: HitPayload(damage: 1, damageType: .physical, source: .basicAttack), visual: visual)
+        }
+        func sync() {
+            layer.sync(RenderFrame(state: state, alpha: 1, dt: 1.0 / 60, time: 0, viewerTeam: nil, humanID: nil, focusID: nil,
+                                   ended: false, winner: nil), heightOf: { _ in 1 })
+        }
+        XCTAssertEqual(layer.style(for: projectile(1, a.effectID), state: state),
+                       layer.style(for: projectile(2, b.effectID), state: state), "同じプールを使う")
+        state.projectiles = [projectile(1, a.effectID)]
+        sync()
+        XCTAssertEqual(layer.coreScale(of: 1), ProjectileLayer.skillScales(Float(a.scaleM), streak: true).core)
+        state.projectiles = []
+        sync()
+        XCTAssertEqual(layer.count, 0, "プールへ戻る")
+        state.projectiles = [projectile(2, b.effectID)]
+        sync()
+        XCTAssertEqual(layer.coreScale(of: 2), ProjectileLayer.skillScales(Float(b.scaleM), streak: true).core,
+                       "再利用した見た目を演出の大きさに合わせ直す")
+        state.projectiles = []
+        sync()
+        state.projectiles = [projectile(3, a.effectID)]
+        sync()
+        XCTAssertEqual(layer.coreScale(of: 3), ProjectileLayer.skillScales(Float(a.scaleM), streak: true).core)
+    }
+
     func testVFXBudget() {
         let vfx = VFXSystem(quality: .preset(.low), materials: RenderMaterials(colorblind: false), meshes: UnitMeshLibrary())
         let limit = RenderQuality.preset(.low).maxEmitters
