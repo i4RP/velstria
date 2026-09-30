@@ -6,14 +6,16 @@ import VelstriaCore
 
 // 担当: hero-models。3D プレビュー（ヒーロー詳細・ホーム用）と、ギャラリー用の複数体ステージ。
 
-/// ヒーロー詳細画面などで使う 3D プレビュー。台座の上でゆっくり回転し、ドラッグで回せる。背景は透明。
+/// ヒーロー詳細画面などで使う 3D プレビュー。台座の上でゆっくり回転し、横ドラッグで回せる。背景は透明。
+/// 視差効果を減らす（Reduce Motion）が有効な時は自動回転しない（ドラッグでは回せる）。
 struct HeroPreview3DView: View {
     let heroID: String
     var skinID: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HeroStageView(config: HeroStageConfig(slots: [HeroStageSlot(heroID: heroID, skinID: skinID)],
-                                              pedestal: true, autoRotate: true))
+                                              pedestal: true, autoRotate: !reduceMotion))
             .accessibilityElement()
             .accessibilityLabel(MasterData.shared.hero(heroID).map { MasterText.hero($0) } ?? heroID)
             .accessibilityIdentifier("hero_preview_3d")
@@ -72,6 +74,13 @@ final class HeroStageDriver {
     var dragYaw: Float = 0
     var dragBaseYaw: Float = 0
     var isDragging = false
+    /// 縦方向のドラッグ（スクロール）と判定した間は回転させない。
+    var isDragIgnored = false
+    /// 画面に表示されている間だけ進める（NavigationStack で奥へ遷移している間は止め、戻ったら再開する）。
+    /// フレーム更新の購読は RealityView の make でしか作れないため、非表示でも解除せずこのフラグで止める。
+    var isActive = true
+    /// 非表示から戻った直後などの大きな dt で姿勢が飛ばないようにする上限（秒）。
+    static let maxTickDelta: Double = 1.0 / 15.0
     private var autoYaw: Float = 0
     private var swayTime: Float = 0
     /// 並べた内容の最上端（m）。カメラの収まりに使う。
@@ -161,8 +170,9 @@ final class HeroStageDriver {
         }
     }
 
-    func tick(_ dt: Double) {
-        guard let c = config else { return }
+    func tick(_ rawDelta: Double) {
+        guard isActive, let c = config else { return }
+        let dt = min(max(0, rawDelta), HeroStageDriver.maxTickDelta)
         if c.autoRotate && !isDragging {
             // 正面を中心にゆっくり左右へ回る（顔が見えている時間を長く）
             swayTime += Float(dt)
@@ -255,6 +265,7 @@ struct HeroStageView: View {
                 driver.aspect = Float(geo.size.width / max(1, geo.size.height))
                 driver.apply(config)
                 driver.tick(0)
+                driver.subscription?.cancel()
                 driver.subscription = content.subscribe(to: SceneEvents.Update.self) { [weak driver] e in
                     driver?.tick(e.deltaTime)
                 }
@@ -262,21 +273,30 @@ struct HeroStageView: View {
                 driver.aspect = Float(geo.size.width / max(1, geo.size.height))
                 driver.apply(config)
             }
-            .gesture(
-                DragGesture(minimumDistance: 4)
+            // 縦スクロールの中に置かれても縦のドラッグはスクロールに譲る（横ドラッグだけで回す）
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 8)
                     .onChanged { v in
-                        if !driver.isDragging {
-                            driver.isDragging = true
-                            driver.dragBaseYaw = driver.dragYaw
+                        if !driver.isDragging && !driver.isDragIgnored {
+                            if abs(v.translation.width) > abs(v.translation.height) {
+                                driver.isDragging = true
+                                driver.dragBaseYaw = driver.dragYaw
+                            } else {
+                                driver.isDragIgnored = true
+                            }
                         }
+                        guard driver.isDragging else { return }
                         driver.dragYaw = driver.dragBaseYaw + Float(v.translation.width) * 0.012
                     }
-                    .onEnded { _ in driver.isDragging = false }
+                    .onEnded { _ in
+                        driver.isDragging = false
+                        driver.isDragIgnored = false
+                    }
             )
         }
-        .onDisappear {
-            driver.subscription?.cancel()
-            driver.subscription = nil
-        }
+        // 購読は解除しない（make は再実行されないため、解除すると戻った後に止まったままになる）。
+        // 非表示の間は tick を止め、RealityView が破棄されれば購読もシーンと一緒に無効になる。
+        .onAppear { driver.isActive = true }
+        .onDisappear { driver.isActive = false }
     }
 }

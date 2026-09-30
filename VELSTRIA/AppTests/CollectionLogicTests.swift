@@ -40,9 +40,91 @@ final class CollectionLogicTests: XCTestCase {
         XCTAssertEqual(SkillMath.ranks(for: .ultimate), [1, 2, 3])
     }
 
-    func testEffectiveAttackScalingAppliesGlobalFactor() throws {
+    // スキル詳細の数値はシミュレーション（SkillCatalog.numbers）と一致すること。
+
+    func testSkillNumbersIncludeSlotMultiplier() throws {
         let skill = try XCTUnwrap(master.skill("SK001_2"))
-        XCTAssertEqual(SkillMath.effectiveAttackScaling(skill), skill.scalingAttack * 0.6, accuracy: 1e-9)
+        let hero = try XCTUnwrap(master.hero(skill.heroID))
+        let scale = Balance.Skills.damageScale(.skill1)
+        XCTAssertEqual(SkillMath.numbers(skill, hero: hero, rank: 1).damage, skill.baseDamage * scale, accuracy: 1e-9)
+        XCTAssertEqual(SkillMath.numbers(skill, hero: hero, rank: 4).damage, skill.baseDamage * 1.9 * scale, accuracy: 1e-9)
+        // 係数もスロット倍率込み（攻撃力は 0.6 の共通補正も掛かる）
+        let s = SkillMath.scaling(skill, hero: hero)
+        XCTAssertEqual(s.damage.attack, skill.scalingAttack * Balance.skillAttackScalingFactor * scale, accuracy: 1e-9)
+        XCTAssertEqual(s.damage.power, skill.scalingPower * scale, accuracy: 1e-9)
+    }
+
+    func testSkillNumbersMatchSimulationForEverySkill() throws {
+        var stats = Stats()
+        stats.attack = 150
+        stats.abilityPower = 80
+        for skill in master.skills where skill.slot != .passive {
+            let hero = try XCTUnwrap(master.hero(skill.heroID))
+            let sim = SkillCatalog.numbers(for: skill, hero: hero, rank: 2, stats: stats)
+            let base = SkillMath.numbers(skill, hero: hero, rank: 2)
+            let s = SkillMath.scaling(skill, hero: hero)
+            // 表の基礎値 + 表示係数 × 能力値 = シミュレーションの値
+            XCTAssertEqual(base.damage + s.damage.attack * 150 + s.damage.power * 80, sim.damage, accuracy: 1e-6, skill.skillID)
+            XCTAssertEqual(base.heal + s.heal.attack * 150 + s.heal.power * 80, sim.heal, accuracy: 1e-6, skill.skillID)
+            XCTAssertEqual(base.hits, sim.hits, skill.skillID)
+        }
+    }
+
+    func testSupportSkillsShowHealInsteadOfRawDamage() throws {
+        // SK005_5 ヴォスの Ult（味方全体回復）: ダメージ 0、回復 = 基礎 × 2.4 × 1.2
+        let ult = try XCTUnwrap(master.skill("SK005_5"))
+        let voss = try XCTUnwrap(master.hero(ult.heroID))
+        let t = SkillCatalog.targeting(for: ult, hero: voss)
+        XCTAssertEqual(t.archetype, .teamHeal)
+        XCTAssertEqual(SkillMath.figures(t.archetype), [.heal, .shield])
+        let n = SkillMath.numbers(ult, hero: voss, rank: 1)
+        XCTAssertEqual(n.damage, 0)
+        XCTAssertEqual(n.heal, ult.baseDamage * Balance.Skills.healScale * Balance.Skills.teamHealRatio, accuracy: 1e-9)
+        XCTAssertEqual(SkillMath.figureValue(.heal, n), "590")
+        // SK005_4（回復ゾーン）: 敵へのダメージと味方の回復を両方出す
+        let zone = try XCTUnwrap(master.skill("SK005_4"))
+        XCTAssertEqual(SkillMath.figures(SkillCatalog.targeting(for: zone, hero: voss).archetype), [.damage, .heal])
+        let z = SkillMath.numbers(zone, hero: voss, rank: 1)
+        XCTAssertEqual(z.heal, zone.baseDamage * Balance.Skills.healScale * Balance.Skills.healZoneRatio, accuracy: 1e-9)
+    }
+
+    func testMultiStrikeAndEmpowerUseArchetypeRatios() throws {
+        // SK002_5 リラの Ult（連続斬り 45% × 3）、SK020_3 など遠隔 Skill2（強化攻撃 50%）
+        let ult = try XCTUnwrap(master.skill("SK002_5"))
+        let lyra = try XCTUnwrap(master.hero(ult.heroID))
+        let n = SkillMath.numbers(ult, hero: lyra, rank: 1)
+        XCTAssertEqual(n.hits, 3)
+        XCTAssertEqual(n.damage, ult.baseDamage * Balance.Skills.damageScale(.ultimate) * 0.45, accuracy: 1e-9)
+        XCTAssertTrue(SkillMath.figureValue(.damage, n).hasPrefix("3×"))
+        let ranged = try XCTUnwrap(master.heroes.first { $0.isRanged })
+        let blink = try XCTUnwrap(master.skill(hero: ranged.heroID, slot: .skill2))
+        XCTAssertEqual(SkillMath.figures(SkillCatalog.targeting(for: blink, hero: ranged).archetype), [.bonusDamage])
+        XCTAssertEqual(SkillMath.numbers(blink, hero: ranged, rank: 1).damage,
+                       blink.baseDamage * Balance.Skills.damageScale(.skill2) * 0.5, accuracy: 1e-9)
+    }
+
+    func testSkillDescriptionsUseSimulationNumbers() throws {
+        for lang in [AppLanguage.ja, .en] {
+            Loc.current = lang
+            for skill in master.skills where skill.slot != .passive {
+                let hero = try XCTUnwrap(master.hero(skill.heroID))
+                let n = SkillMath.numbers(skill, hero: hero, rank: 1)
+                let text = SkillMath.description(skill, hero: hero)
+                let main = n.damage > 0 ? n.damage : n.heal
+                XCTAssertTrue(text.contains(CollectionStyle.number(main, digits: 0)), "\(lang) \(skill.skillID): \(text)")
+                if n.heal > 0 {
+                    XCTAssertTrue(text.contains(CollectionStyle.number(n.heal, digits: 0)), "\(lang) \(skill.skillID): \(text)")
+                }
+                // マスターの仮文（全スキル共通の「指定方向へ効果を発生し」）は使わない
+                XCTAssertFalse(text.contains("指定方向へ効果を発生し"), "\(skill.skillID): \(text)")
+                XCTAssertFalse(text.contains("  "), "\(skill.skillID): \(text)")
+            }
+        }
+        Loc.current = .ja
+        let voss = try XCTUnwrap(master.hero("H005"))
+        let zone = try XCTUnwrap(master.skill("SK005_4"))
+        XCTAssertTrue(SkillMath.description(zone, hero: voss).contains("指定地点"))
+        XCTAssertTrue(SkillMath.description(zone, hero: voss).contains("回復"))
     }
 
     func testPassiveCoefficientAndText() throws {

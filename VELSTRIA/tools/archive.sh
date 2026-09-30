@@ -5,6 +5,9 @@
 #   TEAM_ID=ABCDE12345 tools/archive.sh
 #   TEAM_ID=ABCDE12345 BUILD_NUMBER=7 tools/archive.sh      # ビルド番号を上書き（App Store Connect では毎回増やす）
 #   TEAM_ID=ABCDE12345 STRICT=1 tools/archive.sh            # 提出直前: メタデータのプレースホルダ残りもエラーにする
+#   TEAM_ID=ABCDE12345 ALLOW_APP_PLACEHOLDERS=1 tools/archive.sh
+#       # 社内確認用に限り、アプリ内の未確定値（{{PUBLISHER_NAME}}・velstria.example 等）を警告に下げる。
+#       # 既定ではエラー（TestFlight のテスターにも仮の法定表示・開けないリンクが見えるため）
 #
 # 出力:
 #   build/VELSTRIA.xcarchive   アーカイブ（dSYM 含む）
@@ -48,11 +51,15 @@ step() { printf '\n==> %s\n' "$*"; }
 # 1) 提出前チェック（失敗したらアーカイブしない）
 step "提出前チェック"
 python3 tools/gen_master_en.py --check
+python3 tools/gen_master_ja.py --check
 python3 tools/privacy_audit.py
 if [[ "${STRICT:-0}" == "1" ]]; then
     python3 tools/validate_appstore_metadata.py --release
-else
+elif [[ "${ALLOW_APP_PLACEHOLDERS:-0}" == "1" ]]; then
+    echo "warning: ALLOW_APP_PLACEHOLDERS=1: アプリ内の未確定値（法定表示の事業者情報・サポート窓口・規約 URL）を許可します。外部テスト・審査には出さないこと" >&2
     python3 tools/validate_appstore_metadata.py
+else
+    python3 tools/validate_appstore_metadata.py --archive
 fi
 ICON="App/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png"
 if [[ "$(sips -g hasAlpha "$ICON" | awk '/hasAlpha/ {print $2}')" != "no" ]]; then

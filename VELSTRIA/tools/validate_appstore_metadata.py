@@ -3,7 +3,8 @@
 
 usage（リポジトリの VELSTRIA/ で）:
     python3 tools/validate_appstore_metadata.py            # 形式・文字数・課金 ID の整合（プレースホルダは警告）
-    python3 tools/validate_appstore_metadata.py --release  # 提出直前: プレースホルダ・仮 URL が残っていればエラー
+    python3 tools/validate_appstore_metadata.py --archive  # アーカイブ時: アプリに埋め込まれるプレースホルダ・仮 URL はエラー
+    python3 tools/validate_appstore_metadata.py --release  # 提出直前: プレースホルダ・仮 URL が残っていればすべてエラー
 
 検査内容:
   - docs/appstore/metadata/<locale>/*.txt（fastlane deliver 互換の配置）の文字数上限
@@ -14,9 +15,8 @@ usage（リポジトリの VELSTRIA/ で）:
   - App 内課金の表示名・説明の文字数
   - review_information/notes.txt の文字数
   - docs/legal/・docs/appstore/ に残ったプレースホルダ {{...}}
-  - アプリのソース（App/**/*.swift）に残ったプレースホルダ {{...}} と仮ドメイン（*.example）
-    （資金決済法・特商法の事業者情報 StoreLegalText、FeatureFlags のサポート窓口・URL など。出荷バイナリに入るため）
-  - metadata/<locale>/privacy_url.txt と FeatureFlags.privacyPolicyURLJa / privacyPolicyURLEn の一致
+  - App/ のソース・リソースに残ったプレースホルダ {{...}} と仮ドメイン（*.example）
+    （法定表示の事業者情報・サポート窓口・規約 URL。TestFlight を含むビルドに入るため --archive でもエラー）
 """
 from __future__ import annotations
 
@@ -33,8 +33,6 @@ IAP_JSON = APPSTORE / "iap_products.json"
 DESIGN = ROOT / "docs" / "DESIGN.md"
 STOREKIT_SERVICE = ROOT / "App" / "Services" / "StoreKitService.swift"
 STOREKIT_CONFIG = ROOT / "App" / "Resources" / "Velstria.storekit"
-APP_SOURCES = ROOT / "App"
-FEATURE_FLAGS = ROOT / "App" / "Core" / "FeatureFlags.swift"
 
 LOCALES = ["ja", "en-US"]
 # App Store Connect の上限（文字数）
@@ -67,13 +65,17 @@ IAP_DESC_MAX = 45
 REVIEW_NOTES_MAX = 4000
 PLACEHOLDER = re.compile(r"\{\{[A-Z0-9_]+\}\}")
 PLACEHOLDER_URL = re.compile(r"\.example(/|$)")
-# Swift の文字列リテラル内の仮ドメイン（RFC 2606 の .example は名前解決されない）
-SWIFT_PLACEHOLDER_HOST = re.compile(r'"[^"\n]*?[\w-]+\.example(?![\w.-])[^"\n]*"')
+# アプリのソース中の仮ドメイン（support@velstria.example / https://velstria.example/...）
+PLACEHOLDER_DOMAIN = re.compile(r"[A-Za-z0-9-]+\.example\b")
+APP = ROOT / "App"
+FEATURE_FLAGS = APP / "Core" / "FeatureFlags.swift"
+APP_SUFFIXES = {".swift", ".plist", ".json", ".strings", ".xcprivacy"}
 
 
 class Report:
-    def __init__(self, release: bool) -> None:
+    def __init__(self, release: bool, archive: bool = False) -> None:
         self.release = release
+        self.archive = archive or release
         self.errors: list[str] = []
         self.warnings: list[str] = []
 
@@ -85,6 +87,10 @@ class Report:
 
     def placeholder(self, msg: str) -> None:
         (self.error if self.release else self.warn)(msg)
+
+    def app_placeholder(self, msg: str) -> None:
+        """アプリに埋め込まれる値（テスターや審査員が目にする）。"""
+        (self.error if self.archive else self.warn)(msg)
 
 
 def read(path: pathlib.Path) -> str:
@@ -254,18 +260,15 @@ def check_placeholders(r: Report) -> None:
                 r.placeholder(f"{p.relative_to(ROOT)}: 未記入のプレースホルダ {', '.join(found)}")
 
 
-def check_app_sources(r: Report) -> None:
-    """アプリに同梱される文言・URL のプレースホルダ（docs を埋めてもアプリ側が残る事故を防ぐ）。"""
-    for p in sorted(APP_SOURCES.rglob("*.swift")):
-        for no, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
-            if line.lstrip().startswith("//"):
-                continue  # コメント（説明中の {{…}} 表記）は対象外
-            found = sorted(set(PLACEHOLDER.findall(line)))
+def check_app_placeholders(r: Report) -> None:
+    """App/ に残った {{...}} と仮ドメイン。事業者情報・連絡先・URL は人が確定値を入れる（ここでは一覧を出すだけ）。"""
+    for p in sorted(APP.rglob("*")):
+        if p.is_dir() or p.suffix not in APP_SUFFIXES:
+            continue
+        for no, line in enumerate(p.read_text(encoding="utf-8", errors="replace").splitlines(), start=1):
+            found = sorted(set(PLACEHOLDER.findall(line)) | set(m.group(0) for m in PLACEHOLDER_DOMAIN.finditer(line)))
             if found:
-                r.placeholder(f"{p.relative_to(ROOT)}:{no}: 未記入のプレースホルダ {', '.join(found)}")
-            hosts = SWIFT_PLACEHOLDER_HOST.findall(line)
-            if hosts:
-                r.placeholder(f"{p.relative_to(ROOT)}:{no}: 仮ドメイン（.example）のままです {', '.join(hosts)}")
+                r.app_placeholder(f"{p.relative_to(ROOT)}:{no}: アプリに未確定の値 {', '.join(found)}")
 
 
 def check_privacy_urls(r: Report) -> None:
@@ -286,11 +289,12 @@ def check_privacy_urls(r: Report) -> None:
 
 def main() -> int:
     release = "--release" in sys.argv[1:]
-    r = Report(release)
+    archive = "--archive" in sys.argv[1:]
+    r = Report(release, archive)
     check_metadata(r)
     check_iap(r)
     check_placeholders(r)
-    check_app_sources(r)
+    check_app_placeholders(r)
     check_privacy_urls(r)
     for w in r.warnings:
         print(f"warning: {w}")
@@ -299,7 +303,12 @@ def main() -> int:
     if r.errors:
         print(f"{len(r.errors)} 件のエラー", file=sys.stderr)
         return 1
-    mode = "提出直前モード" if release else "通常モード（プレースホルダは警告のみ。提出前に --release で確認）"
+    if release:
+        mode = "提出直前モード"
+    elif archive:
+        mode = "アーカイブモード（アプリ内のプレースホルダはエラー、メタデータ・法務文書は警告）"
+    else:
+        mode = "通常モード（プレースホルダは警告のみ。提出前に --release で確認）"
     print(f"ok: App Store メタデータの検証に合格（{mode}、警告 {len(r.warnings)} 件）")
     return 0
 

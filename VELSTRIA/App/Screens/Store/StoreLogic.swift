@@ -25,7 +25,7 @@ enum StoreCategory: String, CaseIterable, Identifiable {
         case .effects: return L("帰還・出現・キル", "Recall, spawn, kill")
         case .emotes: return L("戦闘中の意思表示", "Express yourself")
         case .frames: return L("プロフィールの枠", "Profile borders")
-        case .heroes: return L("Coin で解放", "Unlock with Coin")
+        case .heroes: return L("コインで解放", "Unlock with Coin")
         case .gems: return L("有償通貨の購入", "Buy premium gems")
         }
     }

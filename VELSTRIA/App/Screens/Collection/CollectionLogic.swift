@@ -16,11 +16,75 @@ enum SkillMath {
         base * (1 + Balance.skillDamagePerRank * Double(max(0, rank - 1)))
     }
 
-    /// 実戦のダメージ（DESIGN §6 の式 × スロット別の調整倍率 Balance.Skills.damageScaleBySlot）。
-    static func damage(_ skill: SkillDef, rank: Int) -> Double {
-        let scales = Balance.Skills.damageScaleBySlot
-        let scale = scales.indices.contains(skill.slot.rawValue) ? scales[skill.slot.rawValue] : 1
-        return damage(base: skill.baseDamage, rank: rank) * scale
+    /// 実戦の数値（シミュレーションと同じ `SkillCatalog.numbers`）。能力値ボーナス（攻撃力・魔力）を含めない値
+    /// ＝ 表示上の「基礎値」。スロット別の調整倍率（Balance.Skills.damageScaleBySlot）と
+    /// アーキタイプ補正（強化攻撃 50%・連続斬り 45%×3・回復倍率・味方全体回復のダメージなし など）は込み。
+    static func numbers(_ skill: SkillDef, hero: HeroDef, rank: Int) -> SkillNumbers {
+        SkillCatalog.numbers(for: skill, hero: hero, rank: rank, stats: Stats())
+    }
+
+    /// 攻撃力・魔力 1 あたりの増分（実効係数）。ダメージは 1 ヒットあたり、回復は味方 1 体あたり。
+    struct Scaling: Equatable {
+        var attack: Double
+        var power: Double
+        var isEmpty: Bool { attack <= 1e-9 && power <= 1e-9 }
+    }
+
+    /// ダメージ・回復の能力値係数。シミュレーションの式を差分で取り出す（式を二重に持たない）。
+    static func scaling(_ skill: SkillDef, hero: HeroDef) -> (damage: Scaling, heal: Scaling) {
+        let probe = 100.0
+        let base = numbers(skill, hero: hero, rank: 1)
+        var atk = Stats()
+        atk.attack = probe
+        var pow = Stats()
+        pow.abilityPower = probe
+        let a = SkillCatalog.numbers(for: skill, hero: hero, rank: 1, stats: atk)
+        let p = SkillCatalog.numbers(for: skill, hero: hero, rank: 1, stats: pow)
+        return (Scaling(attack: (a.damage - base.damage) / probe, power: (p.damage - base.damage) / probe),
+                Scaling(attack: (a.heal - base.heal) / probe, power: (p.heal - base.heal) / probe))
+    }
+
+    /// ランク表に出す数値の種類（アーキタイプで決まる）。
+    enum Figure: Equatable {
+        /// 1 ヒットのダメージ（連続斬りは「回数×1 撃」）。
+        case damage
+        /// ブリンク後の強化通常攻撃の追加ダメージ。
+        case bonusDamage
+        /// 味方 1 体あたりの回復量。
+        case heal
+        /// 味方 1 体あたりのシールド量。
+        case shield
+    }
+
+    static func figures(_ archetype: SkillArchetype) -> [Figure] {
+        switch archetype {
+        case .passive: return []
+        case .blinkEmpower: return [.bonusDamage]
+        case .healZone: return [.damage, .heal]
+        case .teamHeal: return [.heal, .shield]
+        case .cone, .lineSkillshot, .piercingLine, .dashStrike, .groundAoE, .selfAoE, .leapSlam, .multiStrike,
+             .targetedBlink:
+            return [.damage]
+        }
+    }
+
+    static func figureTitle(_ f: Figure) -> String {
+        switch f {
+        case .damage: return L("ダメージ", "Damage")
+        case .bonusDamage: return L("追加ダメージ", "Bonus Dmg")
+        case .heal: return L("回復", "Heal")
+        case .shield: return L("シールド", "Shield")
+        }
+    }
+
+    static func figureValue(_ f: Figure, _ n: SkillNumbers) -> String {
+        let num = { (v: Double) in CollectionStyle.number(v, digits: 0) }
+        switch f {
+        case .damage: return n.hits > 1 ? "\(n.hits)×\(num(n.damage))" : num(n.damage)
+        case .bonusDamage: return num(n.damage)
+        case .heal: return num(n.heal)
+        case .shield: return num(n.shield)
+        }
     }
 
     /// CD（CD 短縮なし）= cooldown × (1 − 0.06 × (rank − 1)) × 調整倍率。
@@ -33,9 +97,106 @@ enum SkillMath {
         SkillSystem.cost(for: skill, resource: resource)
     }
 
-    /// 攻撃力スケーリングの実効係数（総攻撃力 × scaling_attack × 0.6）。
-    static func effectiveAttackScaling(_ skill: SkillDef) -> Double {
-        skill.scalingAttack * Balance.skillAttackScalingFactor
+    /// スキルの説明文（ランク 1・能力値ボーナスなしの実戦値から生成。マスターの説明文は汎用の仮文のため使わない）。
+    /// パッシブは `passiveText`。
+    static func description(_ skill: SkillDef, hero: HeroDef) -> String {
+        guard skill.slot != .passive else { return passiveText(role: hero.role, heroNumber: hero.number) }
+        let k = Balance.Skills.self
+        let t = SkillCatalog.targeting(for: skill, hero: hero)
+        let n = numbers(skill, hero: hero, rank: 1)
+        let num = { (v: Double) in CollectionStyle.number(v, digits: 0) }
+        let sec = { (v: Double) in CollectionStyle.number(v, digits: 2) }
+        let pct = { (v: Double) in CollectionStyle.number(v * 100, digits: 1) }
+        let d = num(n.damage)
+        let range = num(t.range)
+        let typeJa = CollectionStyle.damageTypeName(skill.damageType)
+        let typeEn = CollectionStyle.damageTypeName(skill.damageType).lowercased()
+        let cc = skill.cc
+        let name = hero.codeName
+
+        // 日本語の CC 句（「<対象>を〜する」。対象を省くと「〜する」）
+        func ccJa(_ who: String?) -> String {
+            switch cc {
+            case .none: return ""
+            case .slow: return who.map { "\($0)の移動速度を低下させる" } ?? "移動速度を低下させる"
+            case .root: return (who.map { "\($0)を" } ?? "") + "移動不能にする"
+            case .stun: return (who.map { "\($0)を" } ?? "") + "スタンさせる"
+            case .knockback: return (who.map { "\($0)を" } ?? "") + "ノックバックさせる"
+            }
+        }
+        // 「<対象>に基礎 N の<種別>ダメージを与え(、CC)。」
+        func hitJa(_ subject: String, _ amount: String) -> String {
+            cc == .none ? "\(subject)に基礎 \(amount) の\(typeJa)ダメージを与える。"
+                : "\(subject)に基礎 \(amount) の\(typeJa)ダメージを与え、" + ccJa(nil) + "。"
+        }
+        // 英語の CC 句（複数の敵が主語 / 単体が主語 / 通常攻撃が主語 / 状態）
+        let ccPlural: String
+        let ccSingle: String
+        let ccVerb: String
+        let ccState: String
+        switch cc {
+        case .none: ccPlural = ""; ccSingle = ""; ccVerb = ""; ccState = ""
+        case .slow: ccPlural = " and are slowed"; ccSingle = " and is slowed"; ccVerb = " and slows the target"; ccState = "slowed"
+        case .root: ccPlural = " and are rooted"; ccSingle = " and is rooted"; ccVerb = " and roots the target"; ccState = "rooted"
+        case .stun: ccPlural = " and are stunned"; ccSingle = " and is stunned"; ccVerb = " and stuns the target"; ccState = "stunned"
+        case .knockback:
+            ccPlural = " and are knocked back"; ccSingle = " and is knocked back"
+            ccVerb = " and knocks the target back"; ccState = "knocked back"
+        }
+
+        switch t.archetype {
+        case .passive:
+            return passiveText(role: hero.role, heroNumber: hero.number)
+        case .cone:
+            let deg = num(k.coneHalfAngle * 2 * 180 / .pi)
+            return L("前方 \(deg)° の扇形を斬りつけ、" + hitJa("命中した敵", d),
+                     "Slashes in a \(deg)° cone ahead. Enemies hit take \(d) base \(typeEn) damage\(ccPlural).")
+        case .lineSkillshot:
+            return L("指定方向へスキルショットを放ち、" + hitJa("最初に命中した敵", d),
+                     "Fires a skillshot in the target direction. The first enemy hit takes \(d) base \(typeEn) damage\(ccSingle).")
+        case .dashStrike:
+            return L("指定方向へ \(range) 突進し、" + hitJa("着地点周辺の敵", d),
+                     "Dashes \(range) units in the target direction. Enemies near the landing point take \(d) base \(typeEn) damage\(ccPlural).")
+        case .blinkEmpower:
+            let jaCC = cc == .none ? "与える。" : "与え、" + ccJa(nil) + "。"
+            return L("指定方向へ \(range) ブリンクする。\(sec(k.empowerDuration)) 秒以内の次の通常攻撃は基礎 \(d) の\(typeJa)ダメージを追加で\(jaCC)",
+                     "Blinks \(range) units in the target direction. The next basic attack within \(sec(k.empowerDuration))s deals \(d) bonus base \(typeEn) damage\(ccVerb).")
+        case .groundAoE where skill.slot == .ultimate:
+            return L("\(sec(n.delay)) 秒の予告後、指定地点の広範囲を攻撃し、" + hitJa("範囲内の敵", d),
+                     "After a \(sec(n.delay))s warning, devastates a large area at the target location. Enemies inside take \(d) base \(typeEn) damage\(ccPlural).")
+        case .groundAoE:
+            return L("\(sec(n.delay)) 秒の予告後、指定地点で炸裂し、" + hitJa("範囲内の敵", d),
+                     "After a \(sec(n.delay))s warning, erupts at the target location. Enemies in the area take \(d) base \(typeEn) damage\(ccPlural).")
+        case .selfAoE:
+            return L("自身の周囲に衝撃波を放ち、" + hitJa("周囲の敵", d)
+                        + "自身は最大 HP の \(pct(k.selfShieldMaxHPRatio))% のシールドを得る（\(sec(n.shieldDuration)) 秒）。",
+                     "Releases a shockwave around \(name). Nearby enemies take \(d) base \(typeEn) damage\(ccPlural), and \(name) gains a shield equal to \(pct(k.selfShieldMaxHPRatio))% of max HP for \(sec(n.shieldDuration))s.")
+        case .healZone:
+            return L("\(sec(n.delay)) 秒後、指定地点に癒しの陣を展開する。範囲内の味方の HP を \(num(n.heal)) 回復し、" + hitJa("敵", d),
+                     "After \(sec(n.delay))s, creates a restorative field at the target location. Allies inside recover \(num(n.heal)) HP, while enemies take \(d) base \(typeEn) damage\(ccPlural).")
+        case .leapSlam:
+            return L("指定地点へ最大 \(range) 跳躍し、" + hitJa("着地点の広範囲の敵", d),
+                     "Leaps up to \(range) units to the target location. On landing, enemies in a wide area take \(d) base \(typeEn) damage\(ccPlural).")
+        case .multiStrike:
+            let reduction = pct(n.damageReduction)
+            let jaCC = cc == .none ? "" : "初撃で" + ccJa("対象") + "。"
+            let enCC = cc == .none ? "" : " The first hit leaves targets \(ccState)."
+            return L("範囲内の敵ヒーローを \(n.hits) 回攻撃し、1 撃ごとに基礎 \(d) の\(typeJa)ダメージを与える。\(jaCC)自身は \(sec(n.damageReductionDuration)) 秒間 被ダメージ −\(reduction)%。",
+                     "Strikes every enemy hero in range \(n.hits) times, each hit dealing \(d) base \(typeEn) damage.\(enCC) \(name) takes \(reduction)% less damage for \(sec(n.damageReductionDuration)) seconds.")
+        case .piercingLine:
+            return L("長さ \(range) の貫通する大矢を放ち、" + hitJa("直線上の全ての敵", d),
+                     "Fires a massive piercing arrow \(range) units long. All enemies in its path take \(d) base \(typeEn) damage\(ccPlural).")
+        case .teamHeal:
+            let jaCC = cc == .none ? "" : ccJa("周囲の敵") + "。"
+            let enCC = cc == .none ? "" : " Nearby enemies are \(ccState)."
+            return L("\(range) 以内の味方ヒーロー全員の HP を \(num(n.heal)) 回復し、\(num(n.shield)) のシールドを付与する（\(sec(n.shieldDuration)) 秒）。\(jaCC)",
+                     "Heals all allied heroes within \(range) units for \(num(n.heal)) HP and grants each a \(num(n.shield)) shield for \(sec(n.shieldDuration))s.\(enCC)")
+        case .targetedBlink:
+            let missing = pct(n.missingHealthRatio)
+            let enCC = cc == .none ? "" : " The target is \(ccState)."
+            return L("\(range) 以内の敵ヒーローの背後へ瞬間移動し、" + hitJa("対象", "\(d) + 失った HP の \(missing)%"),
+                     "Blinks behind an enemy hero within \(range) units and strikes for \(d) base \(typeEn) damage plus \(missing)% of the target's missing HP.\(enCC)")
+        }
     }
 
     /// CC の効果量と時間（Ult は強化版）。

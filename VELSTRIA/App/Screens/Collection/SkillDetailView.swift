@@ -168,10 +168,14 @@ private struct SkillInfoColumn: View {
                                       color: CollectionStyle.ccColor(skill.cc))
                 }
             }
-            Text(MasterText.description(id: skill.skillID, ja: skill.description))
-                .font(Theme.body(13))
-                .foregroundStyle(Theme.textPrimary.opacity(0.9))
-                .fixedSize(horizontal: false, vertical: true)
+            // パッシブは下の「パッシブ効果」に同じ内容を出すので省く
+            if skill.slot != .passive {
+                Text(SkillMath.description(skill, hero: hero))
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.textPrimary.opacity(0.9))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("skilldetail_description")
+            }
         }
     }
 
@@ -219,29 +223,35 @@ private struct SkillInfoColumn: View {
 
     private var rankTable: some View {
         let cost = SkillMath.cost(skill, resource: hero.resource)
+        let figures = SkillMath.figures(targeting.archetype)
         return Panel(padding: 12) {
             VStack(alignment: .leading, spacing: 6) {
                 CollectionSectionTitle(title: L("ランク別", "Per Rank"), symbol: "chart.line.uptrend.xyaxis",
-                                       trailing: L("基礎値 ×(1+0.3×(ランク−1))", "base ×(1+0.3×(rank−1))"))
+                                       trailing: L("能力値ボーナス除く", "Excl. stat bonuses"))
                 Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 5) {
                     GridRow {
                         Text(L("ランク", "Rank"))
-                        Text(L("基礎ダメージ", "Base Damage"))
+                        ForEach(Array(figures.enumerated()), id: \.offset) { _, f in
+                            Text(SkillMath.figureTitle(f))
+                        }
                         Text(L("CD", "Cooldown"))
                         Text(L("コスト", "Cost"))
                     }
                     .font(Theme.body(11))
                     .foregroundStyle(Theme.textSecondary)
-                    Divider().overlay(Theme.panelStroke).gridCellColumns(4)
+                    Divider().overlay(Theme.panelStroke).gridCellColumns(figures.count + 3)
                     ForEach(SkillMath.ranks(for: skill.slot), id: \.self) { r in
+                        let n = SkillMath.numbers(skill, hero: hero, rank: r)
                         GridRow {
                             HStack(spacing: 2) {
                                 ForEach(1...r, id: \.self) { _ in
                                     Image(systemName: "diamond.fill").font(.system(size: 7)).foregroundStyle(CollectionStyle.slotColor(skill.slot))
                                 }
                             }
-                            Text(CollectionStyle.number(SkillMath.damage(skill, rank: r), digits: 1))
-                                .foregroundStyle(Theme.textPrimary)
+                            ForEach(Array(figures.enumerated()), id: \.offset) { _, f in
+                                Text(SkillMath.figureValue(f, n))
+                                    .foregroundStyle(f == .heal || f == .shield ? Theme.success : Theme.textPrimary)
+                            }
                             Text(CollectionStyle.seconds(SkillMath.cooldown(skill, rank: r)))
                                 .foregroundStyle(Theme.cyan)
                             Text(CollectionStyle.number(cost, digits: 1))
@@ -250,6 +260,12 @@ private struct SkillInfoColumn: View {
                         .font(Theme.mono(12))
                         .accessibilityElement(children: .combine)
                     }
+                }
+                if let note = rankNote {
+                    Text(note)
+                        .font(Theme.body(10))
+                        .foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 if skill.slot == .ultimate {
                     Text(L("アルティメットは Lv \(Balance.ultimateUnlockLevels.map(String.init).joined(separator: "/")) で習得可能",
@@ -262,38 +278,73 @@ private struct SkillInfoColumn: View {
         }
     }
 
+    /// 表に出ない効果（割合ダメージ・自身のシールドなど）の補足。
+    private var rankNote: String? {
+        let n = SkillMath.numbers(skill, hero: hero, rank: 1)
+        let pct = { (v: Double) in CollectionStyle.number(v * 100, digits: 1) }
+        switch targeting.archetype {
+        case .targetedBlink:
+            return L("＋ 対象の失った HP の \(pct(n.missingHealthRatio))%", "+ \(pct(n.missingHealthRatio))% of the target's missing HP")
+        case .selfAoE:
+            return L("自身に最大 HP の \(pct(Balance.Skills.selfShieldMaxHPRatio))% のシールド（\(CollectionStyle.seconds(n.shieldDuration))）",
+                     "Self shield: \(pct(Balance.Skills.selfShieldMaxHPRatio))% of max HP (\(CollectionStyle.seconds(n.shieldDuration)))")
+        case .multiStrike:
+            return L("ダメージは「回数×1 撃」。自身の被ダメージ −\(pct(n.damageReduction))%（\(CollectionStyle.seconds(n.damageReductionDuration))）",
+                     "Damage is hits × per-hit damage. Self damage taken −\(pct(n.damageReduction))% (\(CollectionStyle.seconds(n.damageReductionDuration)))")
+        case .blinkEmpower:
+            return L("ブリンク後 \(CollectionStyle.seconds(Balance.Skills.empowerDuration)) 以内の次の通常攻撃に上乗せ",
+                     "Added to your next basic attack within \(CollectionStyle.seconds(Balance.Skills.empowerDuration)) of blinking")
+        case .teamHeal, .healZone:
+            return L("回復・シールドは味方 1 体あたり", "Heal and shield are per ally")
+        default:
+            return nil
+        }
+    }
+
     private var scaling: some View {
-        Panel(padding: 12) {
+        let s = SkillMath.scaling(skill, hero: hero)
+        let figures = SkillMath.figures(targeting.archetype)
+        let showsDamage = figures.contains(.damage) || figures.contains(.bonusDamage)
+        let showsHeal = figures.contains(.heal)
+        return Panel(padding: 12) {
             VStack(alignment: .leading, spacing: 6) {
                 CollectionSectionTitle(title: L("スケーリング", "Scaling"), symbol: "function")
-                HStack(spacing: 6) {
-                    Text(L("ダメージ =", "Damage ="))
-                    Text(L("基礎", "base")).foregroundStyle(Theme.textPrimary)
-                    if skill.scalingAttack > 0 {
-                        Text("+ \(L("攻撃力", "ATK")) ×\(CollectionStyle.number(SkillMath.effectiveAttackScaling(skill), digits: 3))")
-                            .foregroundStyle(Color(red: 1.0, green: 0.62, blue: 0.4))
-                    }
-                    if skill.scalingPower > 0 {
-                        Text("+ \(L("魔力", "Power")) ×\(CollectionStyle.number(skill.scalingPower, digits: 2))")
-                            .foregroundStyle(Color(red: 0.72, green: 0.6, blue: 1.0))
-                    }
+                if showsDamage {
+                    formulaRow(label: L("ダメージ =", "Damage ="), scaling: s.damage)
                 }
-                .font(Theme.mono(12))
-                .foregroundStyle(Theme.textSecondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                if skill.scalingAttack > 0 {
-                    Text(L("攻撃力係数 \(CollectionStyle.number(skill.scalingAttack, digits: 2)) × 0.6（スキル共通補正）",
-                           "Attack ratio \(CollectionStyle.number(skill.scalingAttack, digits: 2)) × 0.6 (global skill factor)"))
-                        .font(Theme.body(10))
-                        .foregroundStyle(Theme.textSecondary)
+                if showsHeal {
+                    formulaRow(label: L("回復 =", "Heal ="), scaling: s.heal)
                 }
+                Text(L("係数はスロット倍率・アーキタイプ補正込み（表の値と同じ条件）", "Ratios include slot and archetype multipliers, like the table"))
+                    .font(Theme.body(10))
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(L("CD 短縮は最大 \(Int(Balance.maxCooldownReduction * 100))% まで適用", "Cooldown reduction caps at \(Int(Balance.maxCooldownReduction * 100))%"))
                     .font(Theme.body(10))
                     .foregroundStyle(Theme.textSecondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    private func formulaRow(label: String, scaling: SkillMath.Scaling) -> some View {
+        HStack(spacing: 6) {
+            Text(label)
+            Text(L("基礎", "base")).foregroundStyle(Theme.textPrimary)
+            if scaling.attack > 1e-9 {
+                Text("+ \(L("攻撃力", "ATK")) ×\(CollectionStyle.number(scaling.attack, digits: 3))")
+                    .foregroundStyle(Color(red: 1.0, green: 0.62, blue: 0.4))
+            }
+            if scaling.power > 1e-9 {
+                Text("+ \(L("魔力", "Power")) ×\(CollectionStyle.number(scaling.power, digits: 3))")
+                    .foregroundStyle(Color(red: 0.72, green: 0.6, blue: 1.0))
+            }
+        }
+        .font(Theme.mono(12))
+        .foregroundStyle(Theme.textSecondary)
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+        .accessibilityElement(children: .combine)
     }
 
     private var ccBlock: some View {

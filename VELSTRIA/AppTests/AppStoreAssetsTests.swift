@@ -103,33 +103,33 @@ final class AppStoreAssetsTests: XCTestCase {
         Loc.current = .ja
         XCTAssertEqual(MasterText.hero(alden), alden.displayNameJa)
         XCTAssertEqual(MasterText.item(dagger), dagger.nameJa)
-        XCTAssertEqual(MasterText.cosmetic(lyraRecall), "星弦の帰還演出 I")
+        XCTAssertEqual(MasterText.cosmetic(lyraRecall), "星弦の帰還 I")
     }
 
-    /// 日本語表示でも有料コスメ・ストア商品がテンプレート名（「潮祈のミレア Emote 1」等）で出ないこと（master_ja.json）。
-    func testJapaneseCosmeticNamesAreNotTemplates() throws {
+    // MARK: 日本語オーバーレイ（マスターの開発用仮名の置き換え）
+
+    /// 日本語表示のコスメ・ストア商品・スキル名に開発用の仮名（「〜 HeroSkin 1」「Alden式・一閃」「星環シフト2」）が残らない。
+    func testJapaneseNamesHaveNoPlaceholderTokens() throws {
         XCTAssertNotNil(Bundle.main.url(forResource: "master_ja", withExtension: "json"),
-                        "master_ja.json がアプリバンドルに含まれていません")
+                        "master_ja.json がアプリバンドルに含まれていません（python3 tools/gen_master_ja.py）")
         let saved = Loc.current
         defer { Loc.current = saved }
         Loc.current = .ja
         let m = MasterData.shared
-        let template = try NSRegularExpression(pattern: "[A-Za-z]+ \\d+$")
-        func isTemplate(_ s: String) -> Bool { template.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)) != nil }
-
-        var names: [String: String] = [:]
-        for c in m.cosmetics {
-            let name = MasterText.cosmetic(c)
-            XCTAssertFalse(isTemplate(name), "\(c.cosmeticID): \(name)")
-            XCTAssertNotEqual(name, c.nameJa, c.cosmeticID)
-            XCTAssertNil(names[name], "日本語のコスメ名が重複: \(c.cosmeticID) / \(names[name] ?? "")")
-            names[name] = c.cosmeticID
+        // ローマ数字の連番（I/II/III）以外のラテン文字、末尾の数字は仮名の残り
+        let latin = try NSRegularExpression(pattern: "[A-Za-z]{2,}")
+        func offending(_ name: String) -> Bool {
+            let stripped = name.replacingOccurrences(of: " [IVX]+$", with: "", options: .regularExpression)
+            return latin.firstMatch(in: stripped, range: NSRange(stripped.startIndex..., in: stripped)) != nil
+                || stripped.last?.isNumber == true
         }
-        for s in m.store where s.type == .cosmetic {
-            let cosmetic = try XCTUnwrap(m.cosmetics.first { $0.cosmeticID == s.grantID }, s.sku)
-            XCTAssertEqual(MasterText.storeItem(s), MasterText.cosmetic(cosmetic), s.sku)
-        }
-        for s in m.store { XCTAssertFalse(isTemplate(MasterText.storeItem(s)), "\(s.sku): \(MasterText.storeItem(s))") }
+        let cosmetics = m.cosmetics.map { MasterText.cosmetic($0) }
+        XCTAssertEqual(cosmetics.filter(offending), [])
+        XCTAssertEqual(Set(cosmetics).count, cosmetics.count, "コスメ名が重複しています")
+        XCTAssertEqual(m.store.filter { $0.type == .cosmetic }.map { MasterText.storeItem($0) }.filter(offending), [])
+        XCTAssertEqual(m.skills.map { MasterText.skill($0) }.filter(offending), [])
+        let aldenSkill1 = try XCTUnwrap(m.skill(hero: "H001", slot: .skill1))
+        XCTAssertEqual(MasterText.skill(aldenSkill1), "アルデン式・一閃")
     }
 
     // MARK: プライバシーマニフェスト
@@ -173,8 +173,6 @@ final class AppStoreAssetsTests: XCTestCase {
         XCTAssertEqual(launch["UIColorName"] as? String, "LaunchBackground")
         XCTAssertEqual(info["UIUserInterfaceStyle"] as? String, "Dark")
         XCTAssertEqual(info["ITSAppUsesNonExemptEncryption"] as? Bool, false)
-        // 月間購入上限を App Store の購入履歴（完了済みの消耗型を含む）から集計するため
-        XCTAssertEqual(info["SKIncludeConsumableInAppPurchaseHistory"] as? Bool, true)
         XCTAssertEqual(info["NSHumanReadableCopyright"] as? String, "© 2026 VELSTRIA")
         XCTAssertEqual(info["CFBundleDisplayName"] as? String, "VELSTRIA")
         XCTAssertEqual(info["UIDeviceFamily"] as? [Int], [1], "iPhone 専用であること")

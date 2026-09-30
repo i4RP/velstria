@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""マスターデータの英語オーバーレイ（App/Resources/master_en.json）と、コスメの日本語表示名
-（App/Resources/master_ja.json）を生成・検証する。
+"""マスターデータの英語オーバーレイ（App/Resources/master_en.json）を生成・検証する。
 
 usage（リポジトリの VELSTRIA/ で）:
     python3 tools/gen_master_en.py           # 生成してから検証
@@ -8,8 +7,6 @@ usage（リポジトリの VELSTRIA/ で）:
 
 入力: Packages/VelstriaCore/Sources/VelstriaCore/Resources/master_runtime.json
 出力: App/Resources/master_en.json（フラットな {id: 英語テキスト}）
-      App/Resources/master_ja.json（{cosmetic_id / コスメの sku: 日本語表示名}。マスターのコスメ名は
-      「潮祈のミレア Emote 1」のようなテンプレートのため、有料コスメの表示名をここで与える）
 
 キー（アプリ側は App/Core/Localization.swift の MasterText が参照する）:
     <hero_id>                      "Alden, Gate Warden"
@@ -37,7 +34,6 @@ from decimal import ROUND_HALF_UP, Decimal
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SRC = ROOT / "Packages" / "VelstriaCore" / "Sources" / "VelstriaCore" / "Resources" / "master_runtime.json"
 DST = ROOT / "App" / "Resources" / "master_en.json"
-DST_JA = ROOT / "App" / "Resources" / "master_ja.json"
 
 # 表示名の最大長（カード・リストで 2 行に収まる目安）
 MAX_NAME_LEN = 40
@@ -373,60 +369,6 @@ COSMETIC_TYPES = {
 }
 ROMAN = {1: "I", 2: "II", 3: "III", 4: "IV", 5: "V", 6: "VI", 7: "VII", 8: "VIII", 9: "IX", 10: "X"}
 
-# 日本語の表示名（App/Resources/master_ja.json）。マスターのコスメ名 name_ja はテンプレート
-# （例「潮祈のミレア Emote 1」）のため、コスメと対応するストア商品だけ日本語の表示名を与える。
-# 英語名と同じ規則: ヒーロー専用スキンは個別名、汎用コスメは「<ヒーローの二つ名>の<種別> <ローマ数字>」。
-HERO_SKINS_JA = {
-    ("H001", 1): "星鍛のアルデン",
-    ("H001", 2): "日蝕の哨兵アルデン",
-    ("H001", 3): "極光城塞アルデン",
-    ("H007", 1): "黒曜巨人ガルク",
-    ("H007", 2): "溶岩脈ガルク",
-    ("H007", 3): "水晶巨像ガルク",
-    ("H013", 1): "霜牙のダガン",
-    ("H013", 2): "燼皮のダガン",
-    ("H013", 3): "天獣ダガン",
-    ("H019", 1): "攻城鉄甲ブラム",
-    ("H019", 2): "雷槌のブラム",
-    ("H019", 3): "星墜砕きのブラム",
-}
-# ヒーローの日本語表示名 → テーマ語（英語の HEROES のテーマ語に対応）
-COSMETIC_THEMES_JA = {
-    "城門の誓衛アルデン": "誓衛",
-    "星弦のリラ": "星弦",
-    "灰刃のカエル": "灰刃",
-    "潮祈のミレア": "潮祈",
-    "黒雷のヴォス": "黒雷",
-    "月灯のセレン": "月灯",
-    "岩脈のガルク": "岩脈",
-    "風標のニア": "風標",
-    "機巧士オリン": "機巧",
-    "焔冠のテッサ": "焔冠",
-    "鉄翼のルーク": "鉄翼",
-    "玻璃歌のエリネ": "玻璃歌",
-    "獣刻のダガン": "獣刻",
-    "霧歩のシオ": "霧歩",
-    "戦鐘のヴァルカ": "戦鐘",
-    "白環のイリス": "白環",
-    "深淵鎖のモルド": "深淵鎖",
-    "花星のセリア": "花星",
-    "砦砕のブラム": "砦砕",
-    "光矢のユナ": "光矢",
-    "時砂のキロス": "時砂",
-    "蒼爪のレア": "蒼爪",
-    "雷槍のトレン": "雷槍",
-    "夢織のノア": "夢織",
-}
-COSMETIC_TYPES_JA = {
-    "Recall": "帰還演出",
-    "Spawn": "降臨演出",
-    "Emote": "エモート",
-    "AvatarFrame": "フレーム",
-    "KillEffect": "撃破演出",
-}
-# 日本語表示名にテンプレートの英字（「Emote 1」「HeroSkin 1」等）が残っていないこと
-TEMPLATE_NAME = re.compile(r"[A-Za-z]+ \d+$")
-
 HERO_UNLOCK_PATTERN = re.compile(r"^(?P<hero>.+) 解放$")
 BUNDLE_PATTERN = re.compile(r"^星環バンドル(?P<no>\d{2})$")
 
@@ -603,57 +545,6 @@ def build(master: dict) -> dict[str, str]:
     return dict(sorted(out.items()))
 
 
-def build_ja(master: dict) -> dict[str, str]:
-    """日本語の表示名オーバーレイ（コスメ・コスメのストア商品のみ）。"""
-    out: dict[str, str] = {}
-    for c in master["cosmetics"]:
-        cid = c["cosmetic_id"]
-        m = COSMETIC_PATTERN.match(c["name_ja"])
-        if not m or m["type"] != c["type"]:
-            raise TranslationError(f"{cid}: コスメ名の文型が想定外です: {c['name_ja']}")
-        no = int(m["no"])
-        if c["type"] == "HeroSkin":
-            name = need(HERO_SKINS_JA, (c["hero_id"], no), cid)
-        else:
-            theme = need(COSMETIC_THEMES_JA, m["hero"], cid)
-            name = f"{theme}の{need(COSMETIC_TYPES_JA, c['type'], cid)} {ROMAN[no]}"
-        out[cid] = name
-    for st in master["store"]:
-        if st["type"] == "Cosmetic":
-            gid = st["grant_id"]
-            if gid not in out:
-                raise TranslationError(f"{st['sku']}: 付与コスメ {gid} がありません")
-            out[st["sku"]] = out[gid]
-    return dict(sorted(out.items()))
-
-
-def validate_ja(master: dict, overlay: dict[str, str]) -> list[str]:
-    errors: list[str] = []
-    expected = {c["cosmetic_id"] for c in master["cosmetics"]}
-    expected |= {st["sku"] for st in master["store"] if st["type"] == "Cosmetic"}
-    for key in sorted(expected - set(overlay)):
-        errors.append(f"日本語名がありません: {key}")
-    for key in sorted(set(overlay) - expected):
-        errors.append(f"日本語オーバーレイに想定外のキー: {key}")
-    seen: dict[str, str] = {}
-    for c in master["cosmetics"]:
-        name = overlay.get(c["cosmetic_id"])
-        if name is None:
-            continue
-        if name in seen:
-            errors.append(f"日本語名が重複: {c['cosmetic_id']} と {seen[name]} → {name!r}")
-        seen[name] = c["cosmetic_id"]
-    for key, value in overlay.items():
-        if not isinstance(value, str) or not value.strip() or value != value.strip():
-            errors.append(f"日本語名が空または前後に空白: {key}")
-            continue
-        if TEMPLATE_NAME.search(value) or not JAPANESE.search(value):
-            errors.append(f"日本語名がテンプレートのままです: {key} → {value!r}")
-        if len(value) > MAX_NAME_LEN:
-            errors.append(f"日本語名が長すぎます（{len(value)} > {MAX_NAME_LEN}）: {key} → {value!r}")
-    return errors
-
-
 # ---------------------------------------------------------------------------
 # 検証
 # ---------------------------------------------------------------------------
@@ -721,32 +612,24 @@ def main() -> int:
     master = json.loads(SRC.read_text(encoding="utf-8"))
     try:
         overlay = build(master)
-        overlay_ja = build_ja(master)
     except TranslationError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
     text = render(overlay)
-    text_ja = render(overlay_ja)
 
     if check_only:
-        for dst in (DST, DST_JA):
-            if not dst.exists():
-                print(f"error: {dst.relative_to(ROOT)} がありません。python3 tools/gen_master_en.py を実行してください",
-                      file=sys.stderr)
-                return 1
+        if not DST.exists():
+            print(f"error: {DST.relative_to(ROOT)} がありません。python3 tools/gen_master_en.py を実行してください",
+                  file=sys.stderr)
+            return 1
         on_disk = json.loads(DST.read_text(encoding="utf-8"))
         errors = validate(master, on_disk)
         if DST.read_text(encoding="utf-8") != text:
             errors.append(f"{DST.relative_to(ROOT)} が翻訳表・マスターと一致しません（再生成が必要）")
-        errors += validate_ja(master, json.loads(DST_JA.read_text(encoding="utf-8")))
-        if DST_JA.read_text(encoding="utf-8") != text_ja:
-            errors.append(f"{DST_JA.relative_to(ROOT)} が命名表・マスターと一致しません（再生成が必要）")
     else:
         DST.write_text(text, encoding="utf-8")
         print(f"wrote {DST.relative_to(ROOT)} ({len(overlay)} keys)")
-        DST_JA.write_text(text_ja, encoding="utf-8")
-        print(f"wrote {DST_JA.relative_to(ROOT)} ({len(overlay_ja)} keys)")
-        errors = validate(master, overlay) + validate_ja(master, overlay_ja)
+        errors = validate(master, overlay)
 
     if errors:
         for e in errors:

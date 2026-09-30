@@ -19,7 +19,8 @@ App Store Connect（ASC）への v1.0 提出に必要なもの一式と手順。
 | リリース判定チェックリスト | [release_checklist.md](appstore/release_checklist.md) |
 | 法務文書（Web 公開用） | `docs/legal/`（プライバシーポリシー・利用規約 日英、特定商取引法に基づく表記、資金決済法に基づく表示） |
 | アイコン・起動ロゴ生成 | `tools/make_icon.swift` |
-| 英語オーバーレイ・コスメの日本語表示名の生成・検証 | `tools/gen_master_en.py` → `App/Resources/master_en.json`, `App/Resources/master_ja.json` |
+| 英語オーバーレイ生成・検証 | `tools/gen_master_en.py` → `App/Resources/master_en.json` |
+| 日本語表示名オーバーレイ（マスターの仮名の置き換え） | `tools/gen_master_ja.py` → `App/Resources/master_ja.json` |
 | プライバシーマニフェスト | `App/Resources/PrivacyInfo.xcprivacy`、検査 `tools/privacy_audit.py` |
 | メタデータ検証 | `tools/validate_appstore_metadata.py` |
 | アーカイブ・書き出し | `tools/archive.sh`、`ExportOptions-AppStore.plist` |
@@ -32,25 +33,24 @@ App Store Connect（ASC）への v1.0 提出に必要なもの一式と手順。
 
 | プレースホルダ | 内容 | 使用箇所 |
 |---|---|---|
-| `{{PUBLISHER_NAME}}` | 販売事業者の正式名称（法人名または個人名） | copyright.txt、法務文書、**アプリ内** `App/Screens/Store/StoreLogic.swift`（`StoreLegalText.issuerName`） |
-| `{{REPRESENTATIVE_NAME}}` | 代表者 / 運営統括責任者 | 特定商取引法表記、資金決済法表示、**アプリ内** `StoreLegalText.responsiblePerson` |
-| `{{POSTAL_ADDRESS}}` | 所在地 | 法務文書、**アプリ内** `StoreLegalText.issuerAddress` |
-| `{{PHONE_NUMBER}}` | 電話番号（受付時間を併記） | 特定商取引法表記、資金決済法表示、**アプリ内** `StoreLegalText.phoneNumber`（受付時間は `StoreLegalText.phoneHours`） |
+| `{{PUBLISHER_NAME}}` | 販売事業者の正式名称（法人名または個人名） | copyright.txt、法務文書、アプリ内の資金決済法表示（`App/Screens/Store/StoreLogic.swift` の `StoreLegalText`） |
+| `{{REPRESENTATIVE_NAME}}` | 代表者 / 運営統括責任者 | 特定商取引法表記、資金決済法表示（アプリ内も同上） |
+| `{{POSTAL_ADDRESS}}` | 所在地 | 法務文書、アプリ内の資金決済法表示 |
+| `{{PHONE_NUMBER}}` | 電話番号（受付時間を併記） | 特定商取引法表記、資金決済法表示（アプリ内も同上） |
 | `{{SUPPORT_EMAIL}}` | サポート窓口メールアドレス | 法務文書（アプリ内は `FeatureFlags.supportEmail`） |
 | `{{EFFECTIVE_DATE}}` | 法務文書の施行日 | 法務文書 |
-| `{{TERMS_URL}}` | 利用規約の公開 URL（`FeatureFlags.termsURLJa` と同じ） | 資金決済法に基づく表示 |
+| `{{TERMS_URL}}` | 利用規約の公開 URL（`FeatureFlags.termsURL` と同じ） | 資金決済法に基づく表示 |
 | `{{COURT}}` | 合意管轄裁判所（例: 東京地方裁判所） | 利用規約 |
 | `{{REVIEW_CONTACT_*}}` | 審査担当からの連絡先（氏名・電話・メール） | review_information/*.txt |
-| `https://velstria.example/...` | サポート / マーケティング / プライバシーポリシー / 利用規約の公開 URL（日本語版と `/en/` の英語版） | metadata/*/…_url.txt、`App/Core/FeatureFlags.swift`（`privacyPolicyURLJa/En`・`termsURLJa/En`） |
-| `support@velstria.example` | アプリ内のサポート・通報メールの宛先 | `App/Core/FeatureFlags.swift`（`supportEmail`） |
+| `https://velstria.example/...` | サポート / マーケティング / プライバシーポリシーの公開 URL | metadata/*/…_url.txt、`App/Core/FeatureFlags.swift` |
 | `TEAM_ID` 環境変数 | Apple Developer Team ID（10 桁） | `tools/archive.sh`（リポジトリには書かない） |
 
-> URL を確定したら `App/Core/FeatureFlags.swift`（統合担当の契約ファイル）の `supportEmail` / `privacyPolicyURLJa`・`privacyPolicyURLEn` /
-> `termsURLJa`・`termsURLEn` も同じ値に更新すること（アプリは表示言語に合わせて日本語版・英語版を開く）。
+> URL を確定したら `App/Core/FeatureFlags.swift`（統合担当の契約ファイル）の `supportEmail` / `privacyPolicyURL` / `termsURL` も同じ値に更新すること。
 > 審査ではアプリ内のリンク先と ASC のプライバシーポリシー URL が実際に開けることを確認される。
-> `--release` はアプリのソース（`App/**/*.swift`）も検査し、`{{…}}` や `.example` が残っていればエラーにする
-> （資金決済法・特商法のアプリ内表示は ストア > Gem を購入 に出るため、docs だけ埋めても提出できない）。
-> `metadata/<locale>/privacy_url.txt` と `FeatureFlags.privacyPolicyURLJa/En` の不一致は常にエラー。
+>
+> アプリに埋め込まれる値（`App/` 内の `{{…}}` と `*.example`）は TestFlight のテスターにも見えるため、
+> `tools/archive.sh` は既定でエラーにして止める（`validate_appstore_metadata.py --archive`）。
+> 社内確認用に限り `ALLOW_APP_PLACEHOLDERS=1` で警告に下げられるが、外部テスト・審査に出すビルドでは使わないこと。
 
 ## 3. App 情報（App Information）
 
@@ -109,11 +109,13 @@ App Store Connect（ASC）への v1.0 提出に必要なもの一式と手順。
 
 ```sh
 cd VELSTRIA
-# 1) 生成物を最新化（アイコン・英語オーバーレイ）
+# 1) 生成物を最新化（アイコン・英語オーバーレイ・日本語表示名オーバーレイ）
 swift tools/make_icon.swift
 python3 tools/gen_master_en.py
+python3 tools/gen_master_ja.py
 # 2) 検証（アーカイブ時にも自動実行される）
 python3 tools/gen_master_en.py --check
+python3 tools/gen_master_ja.py --check
 python3 tools/privacy_audit.py
 python3 tools/validate_appstore_metadata.py --release
 # 3) アーカイブと .ipa 書き出し（アップロードはしない）
@@ -142,8 +144,7 @@ TEAM_ID=<10桁のTeamID> BUILD_NUMBER=<前回+1> STRICT=1 tools/archive.sh
 | `DEVELOPMENT_TEAM` | 空 | `tools/archive.sh` が `TEAM_ID` から注入 |
 
 Info.plist（project.yml の `info.properties` から生成）: `UILaunchScreen`（背景色 `LaunchBackground` + 画像 `LaunchLogo`）、
-`UIUserInterfaceStyle = Dark`、`NSHumanReadableCopyright = © 2026 VELSTRIA`、横画面のみ、`ITSAppUsesNonExemptEncryption = NO`、
-`SKIncludeConsumableInAppPurchaseHistory = YES`（年齢区分別の月間購入上限を App Store の購入履歴からも集計し、データ削除・再インストールで戻らないようにする）。
+`UIUserInterfaceStyle = Dark`、`NSHumanReadableCopyright = © 2026 VELSTRIA`、横画面のみ、`ITSAppUsesNonExemptEncryption = NO`。
 scheme の Run には StoreKit 構成ファイル `App/Resources/Velstria.storekit` を設定済み（Xcode 実行時の課金テスト用）。
 
 ## 9. アイコンと起動画面
