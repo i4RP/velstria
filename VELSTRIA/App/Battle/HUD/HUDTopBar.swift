@@ -97,6 +97,12 @@ struct HUDTopRight: View {
             HUDRoundButton(symbol: "pause.fill", label: L("ポーズ・設定", "Pause & Settings"), identifier: "hud_pause") {
                 model.openPanel(.pause)
             }
+            if model.isSpectating {
+                HUDRoundButton(symbol: "rectangle.portrait.and.arrow.right", label: L("観戦をやめる", "Leave"),
+                               identifier: "spectate_leave", tint: Theme.danger) {
+                    model.requestLeave()
+                }
+            }
         }
     }
 }

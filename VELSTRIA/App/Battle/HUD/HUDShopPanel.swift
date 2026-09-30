@@ -299,7 +299,8 @@ struct HUDShopDetail: View {
                             .foregroundStyle(.white.opacity(0.85))
                         }
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(item.passiveName.isEmpty ? L("パッシブ", "Passive") : item.passiveName)
+                            // マスターのパッシブ名は日本語のみなので英語表示では汎用名にする
+                            Text(item.passiveName.isEmpty || Loc.isEnglish ? L("パッシブ", "Passive") : item.passiveName)
                                 .font(.system(size: 11, weight: .heavy, design: .rounded))
                                 .foregroundStyle(Theme.gold)
                             Text(ItemMath.passiveEffectText(item))
@@ -310,17 +311,16 @@ struct HUDShopDetail: View {
                         .padding(.top, 2)
                         let parts = ItemMath.components(item, master: master)
                         if !parts.isEmpty {
-                            Text(L("素材", "Components"))
-                                .font(.system(size: 10, weight: .heavy, design: .rounded))
-                                .foregroundStyle(.white.opacity(0.6))
-                                .padding(.top, 2)
                             HStack(spacing: 4) {
+                                Text(L("素材", "Components"))
+                                    .font(.system(size: 10, weight: .heavy, design: .rounded))
+                                    .foregroundStyle(.white.opacity(0.6))
                                 ForEach(Array(parts.enumerated()), id: \.offset) { _, part in
                                     Button {
                                         model.shopSelectedItemID = part.itemID
                                         model.shopSelectedSlot = nil
                                     } label: {
-                                        ItemIconView(item: part, size: 28)
+                                        ItemIconView(item: part, size: 26)
                                             .overlay(alignment: .topTrailing) {
                                                 if shop.items.contains(part.itemID) {
                                                     Image(systemName: "checkmark.circle.fill")
@@ -329,7 +329,7 @@ struct HUDShopDetail: View {
                                                         .background(Circle().fill(Color.black))
                                                 }
                                             }
-                                            .frame(width: 36, height: 36)
+                                            .frame(width: 32, height: 32)
                                             .contentShape(Rectangle())
                                     }
                                     .buttonStyle(.plain)

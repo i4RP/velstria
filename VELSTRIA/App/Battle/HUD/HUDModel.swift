@@ -87,7 +87,6 @@ final class HUDModel {
     private(set) var lastLevelUp = 1
     private(set) var deathInfo: HUDDeathInfo?
     private(set) var endPhase: HUDEndPhase?
-    private(set) var purchasePulse = 0
     private(set) var isAiming = false
     private(set) var spectatorPaused = false
     private(set) var cameraFollowID: EntityID?
@@ -651,7 +650,6 @@ final class HUDModel {
                 }
             case .itemPurchased(let heroID, let itemID):
                 if heroID == humanID {
-                    purchasePulse &+= 1
                     if let item = controller.ctx.master.item(itemID) {
                         showToast(L("\(MasterText.item(item)) を購入", "Bought \(MasterText.item(item))"),
                                   symbol: "bag.fill", isError: false)
@@ -840,6 +838,12 @@ final class HUDModel {
 
     // MARK: 試合終了
 
+    /// 画面確認用: チュートリアルの進行状態を差し替える。
+    func debugSetTutorial(_ t: TutorialDirector) {
+        guard tutorial != nil else { return }
+        tutorial = t
+    }
+
     /// 画面確認用: 試合終了の演出だけを出す。
     func debugEnd(winner: Team?) {
         beginEnd(winner: winner, reason: .coreDestroyed)
@@ -942,6 +946,12 @@ final class HUDModel {
         panel = nil
         confirmingLeave = false
         if !spectatorPaused { controller.isPaused = false }
+    }
+
+    /// 観戦の「退出」: ポーズメニューを開いて退出の確認を出す。
+    func requestLeave() {
+        openPanel(.pause)
+        confirmingLeave = true
     }
 
     /// 外部（バックグラウンド移行）で一時停止された。

@@ -103,8 +103,7 @@ final class BattleHUDUITests: XCTestCase {
         tap(app, "spectate_speed_2x")
         XCTAssertTrue(element(app, "spectate_speed_2x").isSelected)
         snap("hud_spectate")
-        tap(app, "hud_pause")
-        tap(app, "pause_leave")
+        tap(app, "spectate_leave")
         tap(app, "leave_confirm")
         XCTAssertTrue(element(app, "spectate_speed_2x").waitForNonExistence(timeout: 10), "退出後も観戦画面のまま")
     }

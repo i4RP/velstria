@@ -231,7 +231,7 @@ struct HUDDeathOverlay: View {
                 .padding(.top, 4)
                 .accessibilityIdentifier("death_shop")
             }
-            .padding(.bottom, 60 * scale)
+            .padding(.bottom, 100 * scale)
         }
         .ignoresSafeArea()
         .transition(.opacity)
@@ -406,18 +406,8 @@ struct HUDSurrenderPanel: View {
                 .foregroundStyle(.white.opacity(0.7))
             if snapshot.passed == nil && snapshot.myVote == nil {
                 HStack(spacing: 8) {
-                    Button { model.voteSurrender(true) } label: {
-                        Label(L("賛成", "Yes"), systemImage: "hand.thumbsup.fill")
-                            .frame(minWidth: 70, minHeight: 36)
-                    }
-                    .buttonStyle(PrimaryButtonStyle(color: Theme.success))
-                    .accessibilityIdentifier("surrender_yes")
-                    Button { model.voteSurrender(false) } label: {
-                        Label(L("反対", "No"), systemImage: "hand.thumbsdown.fill")
-                            .frame(minWidth: 70, minHeight: 36)
-                    }
-                    .buttonStyle(PrimaryButtonStyle(color: Theme.danger))
-                    .accessibilityIdentifier("surrender_no")
+                    voteButton(yes: true)
+                    voteButton(yes: false)
                 }
             }
         }
@@ -426,5 +416,20 @@ struct HUDSurrenderPanel: View {
         .hudGlass(cornerRadius: 12, tint: Theme.gold.opacity(0.6))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("hud_surrender")
+    }
+
+    private func voteButton(yes: Bool) -> some View {
+        let color = yes ? Theme.success : Theme.danger
+        return Button { model.voteSurrender(yes) } label: {
+            Label(yes ? L("賛成", "Yes") : L("反対", "No"), systemImage: yes ? "hand.thumbsup.fill" : "hand.thumbsdown.fill")
+                .font(.system(size: 14, weight: .heavy, design: .rounded))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(Capsule().fill(LinearGradient(colors: [color, color.opacity(0.7)], startPoint: .top, endPoint: .bottom)))
+                .overlay(Capsule().strokeBorder(Color.white.opacity(0.45), lineWidth: 1))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(HUDPressStyle())
+        .accessibilityIdentifier(yes ? "surrender_yes" : "surrender_no")
     }
 }

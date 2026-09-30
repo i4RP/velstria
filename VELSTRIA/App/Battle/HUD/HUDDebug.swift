@@ -61,9 +61,36 @@ extension HUDModel {
         case "recall": recall()
         case "levelup":
             if let id = controller.humanHeroID { handle([.levelUp(heroID: id, level: 2)]) }
+        case "tutorialdone":
+            guard let id = controller.humanHeroID else { break }
+            debugCompleteTutorial(humanID: id)
         default: break
         }
         refresh()
+    }
+
+    /// チュートリアルの全手順を合成イベントで満たす。
+    private func debugCompleteTutorial(humanID id: EntityID) {
+        let dummy: EntityID = -1
+        func hit() -> SimEvent {
+            .damage(DamageEvent(sourceID: id, targetID: dummy, amount: 1, absorbed: 0, damageType: .physical,
+                                source: .basicAttack, isCrit: false, pos: .zero))
+        }
+        var t = TutorialDirector()
+        var p = Vec2(0, 0)
+        for _ in 0...7 {
+            t.observe(heroPosition: p, alive: true, skill1Rank: 0)
+            p = p + Vec2(100, 0)
+        }
+        for _ in 0..<TutorialDirector.dummyHitGoal { t.handle(hit(), humanID: id, dummyIDs: [dummy]) }
+        t.handle(.skillLeveled(heroID: id, slot: .skill1, rank: 1), humanID: id, dummyIDs: [])
+        t.noteSkillCommand(slot: .skill1, castable: true)
+        t.noteShopOpened()
+        t.handle(.itemPurchased(heroID: id, itemID: "EQ001"), humanID: id, dummyIDs: [])
+        t.handle(.structureDestroyed(unitID: 0, kind: .tower, team: .red, lane: .mid, tier: .outer, killerID: id),
+                 humanID: id, dummyIDs: [])
+        t.handle(.channelCompleted(heroID: id, kind: .recall, destination: .zero), humanID: id, dummyIDs: [])
+        debugSetTutorial(t)
     }
 }
 #endif
