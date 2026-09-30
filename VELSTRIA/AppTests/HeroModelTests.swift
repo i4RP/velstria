@@ -14,12 +14,24 @@ final class HeroModelTests: XCTestCase {
                                                   options: .battle)
             XCTAssertLessThanOrEqual(model.entityCount, 35, def.heroID)
             XCTAssertLessThan(model.triangleCount, 14_000, def.heroID)
-            print("HeroModelTests: \(def.heroID) 三角形 \(model.triangleCount) エンティティ \(model.entityCount)")
+            let parts = Self.drawParts(model.root)
+            XCTAssertLessThanOrEqual(parts, 55, "\(def.heroID) 描画単位が多すぎる")
+            print("HeroModelTests: \(def.heroID) 三角形 \(model.triangleCount) エンティティ \(model.entityCount) 描画単位 \(parts)")
             XCTAssertGreaterThan(model.triangleCount, 1_000, def.heroID)
             XCTAssertTrue((1.9...2.7).contains(model.overheadHeight), "\(def.heroID) \(model.overheadHeight)")
         }
         let elapsed = CFAbsoluteTimeGetCurrent() - start
         print("HeroModelTests: 24 体の初回生成 \(String(format: "%.2f", elapsed)) 秒")
+    }
+
+    /// ModelComponent のメッシュパーツ数（≒ 描画呼び出し数）。
+    private static func drawParts(_ e: Entity) -> Int {
+        var n = 0
+        if let model = e.components[ModelComponent.self] {
+            n += model.mesh.contents.models.reduce(0) { $0 + $1.parts.count }
+        }
+        for c in e.children { n += drawParts(c) }
+        return n
     }
 
     func testFeetAtOriginAndHeroHeight() {

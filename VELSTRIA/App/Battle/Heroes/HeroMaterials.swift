@@ -243,7 +243,7 @@ enum HeroPalettes {
 
 // MARK: - マテリアル
 
-/// マテリアル番号ごとの表面特性。
+/// マテリアル番号ごとの表面特性（アトラスの各マスと、金属・発光・半透明マテリアルの元）。
 struct HeroSlotSurface {
     var base: HSB
     var roughness: Float
@@ -257,7 +257,6 @@ struct HeroSlotSurface {
         let (mr, mm) = p.metalKind.surface
         switch slot {
         case .primary:
-            // 上方カメラでも暗部が沈まないよう、基調色をわずかに自己発光させる
             return HeroSlotSurface(base: p.primary, roughness: 0.55, metallic: 0.05, emissive: p.primary, emissiveStrength: 0.16, clearcoat: 0.25)
         case .secondary:
             return HeroSlotSurface(base: p.secondary, roughness: 0.6, metallic: 0.05, emissive: p.secondary, emissiveStrength: 0.14, clearcoat: 0)
