@@ -1,6 +1,6 @@
 import Foundation
 
-// 担当: 統合（契約）。core-bots が DraftAI で置き換え可能（シグネチャ維持）。
+// 担当: 統合（契約）。core-bots が DraftAI で改善（シグネチャ維持）。
 
 /// 試合構成（10 人の編成）を作るヘルパー。アプリ・テスト・観戦で共通利用。
 public enum MatchFactory {
@@ -37,6 +37,7 @@ public enum MatchFactory {
     }
 
     /// 人間 1 人 + AI 9 人の 5v5 を作る。banned / 人間のヒーローは AI が選ばない。
+    /// AI のピックは DraftAI（ポジション適性・編成の補完・相性）で、両チーム交互に行う。
     public static func standardMatch(mode: MatchMode = .standard, humanHeroID: String, humanName: String,
                                      humanTeam: Team = .blue, humanSpells: [String]? = nil,
                                      humanRunes: [String] = [], humanSkin: String? = nil,
@@ -48,6 +49,8 @@ public enum MatchFactory {
         var used = Set(banned + [humanHeroID])
         let humanDef = master.hero(humanHeroID)
         let humanPos = humanPosition ?? defaultPosition(for: humanDef?.role ?? .duelist)
+        var picks = draftTeams(used: &used, rng: &rng, master: master,
+                               fixed: [(humanTeam, humanPos, humanHeroID)])
         var players: [PlayerSlot] = []
         for team in Team.players {
             for pos in LanePosition.allCases {
@@ -57,7 +60,8 @@ public enum MatchFactory {
                                               skinID: humanSkin, displayName: humanName))
                     continue
                 }
-                let heroID = pickHero(for: pos, used: &used, rng: &rng, master: master)
+                let heroID = picks[team.rawValue][pos.rawValue] ?? pickHero(for: pos, used: &used, rng: &rng, master: master)
+                picks[team.rawValue][pos.rawValue] = heroID
                 let diff = team == humanTeam ? allyDifficulty : enemyDifficulty
                 let name = master.hero(heroID)?.codeName ?? heroID
                 players.append(PlayerSlot(team: team, heroID: heroID, controller: .bot, position: pos,
@@ -72,10 +76,12 @@ public enum MatchFactory {
     public static func botMatch(difficulty: Difficulty = .normal, seed: UInt64, master: MasterData = .shared) -> MatchConfig {
         var rng = SplitMix64(seed: seed ^ 0x9E37_79B9)
         var used = Set<String>()
+        var picks = draftTeams(used: &used, rng: &rng, master: master, fixed: [])
         var players: [PlayerSlot] = []
         for team in Team.players {
             for pos in LanePosition.allCases {
-                let heroID = pickHero(for: pos, used: &used, rng: &rng, master: master)
+                let heroID = picks[team.rawValue][pos.rawValue] ?? pickHero(for: pos, used: &used, rng: &rng, master: master)
+                picks[team.rawValue][pos.rawValue] = heroID
                 let name = master.hero(heroID)?.codeName ?? heroID
                 players.append(PlayerSlot(team: team, heroID: heroID, controller: .bot, position: pos,
                                           spells: defaultSpells(for: pos), displayName: "\(name)_AI",
@@ -96,6 +102,32 @@ public enum MatchFactory {
                            maxDuration: 60 * 60)
     }
 
+    /// ポジション順に Blue / Red 交互で AI がピックする。fixed は事前に決まっている枠（人間）。
+    /// 戻り値 [Team.rawValue][LanePosition.rawValue]。
+    static func draftTeams(used: inout Set<String>, rng: inout SplitMix64, master: MasterData,
+                           fixed: [(Team, LanePosition, String)]) -> [[String?]] {
+        var picks: [[String?]] = [[String?]](repeating: [String?](repeating: nil, count: LanePosition.allCases.count),
+                                             count: 2)
+        for (team, pos, id) in fixed where team != .neutral {
+            picks[team.rawValue][pos.rawValue] = id
+        }
+        for pos in LanePosition.allCases {
+            for team in Team.players where picks[team.rawValue][pos.rawValue] == nil {
+                let allies = picks[team.rawValue].compactMap { $0 }
+                let enemies = picks[team.opponent.rawValue].compactMap { $0 }
+                let available = master.heroes.map(\.heroID).filter { !used.contains($0) }
+                guard !available.isEmpty else { continue }
+                let id = DraftAI.draftPick(available: available, allyPicks: allies, enemyPicks: enemies,
+                                           position: pos, rng: &rng, master: master)
+                guard !id.isEmpty else { continue }
+                used.insert(id)
+                picks[team.rawValue][pos.rawValue] = id
+            }
+        }
+        return picks
+    }
+
+    /// ポジション適性のみでの抽選（DraftAI が候補を返せない時の予備）。
     static func pickHero(for pos: LanePosition, used: inout Set<String>, rng: inout SplitMix64,
                          master: MasterData) -> String {
         for role in preferredRoles(for: pos) {

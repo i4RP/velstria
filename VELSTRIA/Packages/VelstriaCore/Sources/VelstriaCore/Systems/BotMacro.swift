@@ -1,0 +1,360 @@
+import Foundation
+
+// 担当: core-bots
+// マクロ（DESIGN §10）: チーム方針（防衛・オブジェクト・集団での押し込み・押し切り）と、帰還・回復・買い物の段取り。
+
+enum BotMacro {
+    // MARK: - チーム方針（1Hz）
+
+    static func updatePlan(_ s: inout SimState, _ ctx: SimContext, team: Team) {
+        guard team.rawValue < s.bots.teams.count else { return }
+        let w = BotWorld(s, ctx)
+        var bots: [Int] = []
+        for h in w.heroes where s.units[h].team == team && s.units[h].hero?.controller == .bot {
+            bots.append(h)
+        }
+        guard !bots.isEmpty else {
+            s.bots.teams[team.rawValue].plan = BotTeamPlan()
+            return
+        }
+        let difficulty = s.units[bots[0]].hero?.botDifficulty ?? .normal
+        let profile = BotProfile.of(difficulty)
+        let aliveBots = bots.filter { s.units[$0].isAlive && s.units[$0].hero?.isDead != true }
+        let ourAlive = w.aliveHeroes[team.rawValue]
+        let enemyAlive = w.aliveHeroes[team.opponent.rawValue]
+        let enemyDead = w.deadHeroes[team.opponent.rawValue]
+        let old = s.bots.teams[team.rawValue].plan
+        let intel = s.bots.teams[team.rawValue]
+        let t = s.time
+
+        var plan = BotTeamPlan()
+        plan.since = t
+
+        // 1. 防衛: 敵ヒーローが自軍構造物に迫っている
+        if let st = threatenedStructure(s, w, intel, team: team, groupPhase: t >= profile.groupStart) {
+            plan.kind = .defend
+            plan.lane = st.lane ?? .mid
+            plan.targetID = st.id
+            plan.point = st.pos
+            let limit = t >= profile.groupStart || st.isCore || st.tier == .base ? 5 : 3
+            plan.members = nearest(s, aliveBots, to: st.pos, count: limit, within: t >= profile.groupStart ? .infinity : 6500)
+        }
+        // 2. 押し切り: 人数有利（敵が多数死亡）・終盤
+        else if enemyAlive > 0 || enemyDead > 0,
+                (enemyDead >= 3 || (enemyDead >= 2 && t >= profile.groupStart) || t >= Balance.Bot.lateSiege),
+                ourAlive >= min(3, max(1, enemyAlive)), let st = siegeTarget(s, w, team: team, preferred: old.lane) {
+            plan.kind = .siege
+            plan.lane = st.lane ?? .mid
+            plan.targetID = st.id
+            plan.point = st.pos
+            plan.members = aliveBots.map { s.units[$0].id }
+        }
+        // 3. 古環の巨像
+        else if t >= Balance.Bot.colossusStart, let camp = bossCamp(ctx, .ancientColossus), campAlive(s, camp),
+                (enemyDead >= 2 || ourAlive - enemyAlive >= 2
+                    || (old.kind == .colossus && t - old.since < Balance.Bot.objectiveTimeout && enemyDead >= 1)),
+                enemiesSeenNear(s, intel, camp.pos, radius: 1800, within: 3) <= max(0, ourAlive - 3) {
+            plan.kind = .colossus
+            plan.point = camp.pos
+            plan.members = aliveBots.map { s.units[$0].id }
+            if old.kind == .colossus { plan.since = old.since }
+        }
+        // 4. 星喰竜
+        else if t >= Balance.Bot.wyrmStart, let camp = bossCamp(ctx, .astralWyrm), campAlive(s, camp),
+                let members = wyrmTeam(s, aliveBots, groupPhase: t >= profile.groupStart, ourAlive: ourAlive,
+                                       enemyAlive: enemyAlive),
+                enemiesSeenNear(s, intel, camp.pos, radius: 2200, within: 4) == 0,
+                !(old.kind == .wyrm && t - old.since > Balance.Bot.objectiveTimeout) {
+            plan.kind = .wyrm
+            plan.point = camp.pos
+            plan.members = members
+            if old.kind == .wyrm { plan.since = old.since }
+        }
+        // 5. 集団で押し込み（mid 優先）
+        else if t >= profile.groupStart {
+            let lane = pushLane(s, w, team: team)
+            plan.kind = .push
+            plan.lane = lane
+            plan.members = pushMembers(s, aliveBots, count: profile.groupSize, lane: lane)
+            plan.point = BotLane.point(ctx.map, lane, team: team,
+                                       progress: w.front[team.rawValue][lane.rawValue] ?? 1500)
+            if old.kind == .push && old.lane == lane { plan.since = old.since }
+        }
+        if plan.kind == old.kind && plan.targetID == old.targetID && plan.lane == old.lane && old.kind != .none {
+            plan.since = old.since
+        }
+        plan.members.sort { $0 < $1 }
+        s.bots.teams[team.rawValue].plan = plan
+    }
+
+    /// 敵ヒーローに脅かされている自軍構造物（Core > 基部 > 内 > 外の順）。
+    static func threatenedStructure(_ s: SimState, _ w: BotWorld, _ intel: BotTeamIntel, team: Team,
+                                    groupPhase: Bool) -> BotStructureInfo? {
+        var best: BotStructureInfo?
+        var bestRank = -1
+        for st in w.structures where st.team == team {
+            let heroes = enemiesSeenNear(s, intel, st.pos, radius: st.reach + 700, within: 2)
+            var minions = 0
+            for m in w.minions where m.team != team && m.isVisible(to: team) {
+                if m.pos.distanceSquared(to: st.pos) < (st.reach + 250) * (st.reach + 250) { minions += 1 }
+            }
+            let deep = st.isCore || st.tier == .base
+            let threatened = heroes >= 2 || (heroes >= 1 && minions >= 3 && (st.tier != .outer || groupPhase))
+                || (deep && minions >= 3)
+            guard threatened else { continue }
+            if !groupPhase && st.tier == .outer && heroes < 2 { continue }
+            let rank = st.isCore ? 4 : 3 - st.tier.rawValue
+            if rank > bestRank {
+                bestRank = rank
+                best = st
+            }
+        }
+        return best
+    }
+
+    /// team の情報で、center の radius 以内に直近 within 秒以内に見えた敵ヒーロー数。
+    static func enemiesSeenNear(_ s: SimState, _ intel: BotTeamIntel, _ center: Vec2, radius: Double,
+                                within: Double) -> Int {
+        var n = 0
+        for k in intel.enemyIDs.indices where s.time - intel.lastSeenTime[k] <= within {
+            if intel.lastSeenPos[k].distanceSquared(to: center) <= radius * radius { n += 1 }
+        }
+        return n
+    }
+
+    /// 押し切りの目標: 攻撃可能な敵構造物のうち、前回のレーン（無ければ mid）を優先して最も手前。
+    static func siegeTarget(_ s: SimState, _ w: BotWorld, team: Team, preferred: Lane?) -> BotStructureInfo? {
+        let enemy = team.opponent
+        var candidates: [BotStructureInfo] = []
+        for st in w.structures where st.team == enemy && !st.invulnerable { candidates.append(st) }
+        guard !candidates.isEmpty else { return nil }
+        if let core = candidates.first(where: \.isCore) { return core }
+        let order: [Lane] = [preferred ?? .mid, .mid, .bot, .top]
+        for lane in order {
+            if let st = candidates.filter({ $0.lane == lane }).min(by: { $0.tier.rawValue < $1.tier.rawValue }) {
+                return st
+            }
+        }
+        return candidates[0]
+    }
+
+    /// 集団で押すレーン: mid の敵塔が残っていれば mid、無ければ最も手前の敵塔が残るレーン。
+    static func pushLane(_ s: SimState, _ w: BotWorld, team: Team) -> Lane {
+        if w.frontTower(team: team.opponent, lane: .mid) != nil { return .mid }
+        // mid の塔が全滅: Core が狙えるなら mid、狙えなければ残る塔のうち tier の低い（手前の）レーン
+        if let core = w.core(of: team.opponent), !core.invulnerable { return .mid }
+        var best: Lane = .mid
+        var bestTier = Int.max
+        for lane in [Lane.bot, .top] {
+            if let st = w.frontTower(team: team.opponent, lane: lane), st.tier.rawValue < bestTier {
+                bestTier = st.tier.rawValue
+                best = lane
+            }
+        }
+        return best
+    }
+
+    /// 押し込みのメンバー: 担当レーンが近い順（mid → jungle → support → carry → top）。
+    static func pushMembers(_ s: SimState, _ bots: [Int], count: Int, lane: Lane) -> [EntityID] {
+        func rank(_ p: LanePosition?) -> Int {
+            switch p {
+            case .mid?: return lane == .mid ? 0 : 3
+            case .jungle?: return 1
+            case .support?: return 2
+            case .carry?: return lane == .bot ? 0 : 3
+            case .top?: return lane == .top ? 0 : 4
+            case nil: return 5
+            }
+        }
+        let sorted = bots.sorted {
+            let ra = rank(s.units[$0].hero?.position), rb = rank(s.units[$1].hero?.position)
+            return ra != rb ? ra < rb : $0 < $1
+        }
+        return sorted.prefix(max(1, count)).map { s.units[$0].id }
+    }
+
+    /// 星喰竜に向かうメンバー（序盤はジャングル + bot の 2 人、集団期は全員）。
+    static func wyrmTeam(_ s: SimState, _ bots: [Int], groupPhase: Bool, ourAlive: Int, enemyAlive: Int) -> [EntityID]? {
+        let healthy = bots.filter { s.units[$0].hpRatio > 0.5 }
+        if groupPhase {
+            guard ourAlive >= enemyAlive, healthy.count >= 3 else { return nil }
+            return healthy.map { s.units[$0].id }
+        }
+        let crew = healthy.filter {
+            let p = s.units[$0].hero?.position
+            return p == .jungle || p == .carry || p == .support
+        }
+        guard crew.count >= 2, crew.contains(where: { s.units[$0].hero?.position == .jungle }) else { return nil }
+        return crew.map { s.units[$0].id }
+    }
+
+    static func nearest(_ s: SimState, _ bots: [Int], to p: Vec2, count: Int, within: Double) -> [EntityID] {
+        let sorted = bots.filter { s.units[$0].pos.distance(to: p) <= within }.sorted {
+            let da = s.units[$0].pos.distanceSquared(to: p), db = s.units[$1].pos.distanceSquared(to: p)
+            return da != db ? da < db : $0 < $1
+        }
+        return sorted.prefix(count).map { s.units[$0].id }
+    }
+
+    static func bossCamp(_ ctx: SimContext, _ kind: CampKind) -> CampSpot? {
+        ctx.map.camps.first { $0.kind == kind }
+    }
+
+    /// キャンプが出現中か（ボスの出現・撃破は全体告知されるため両チームが知っている）。
+    static func campAlive(_ s: SimState, _ camp: CampSpot) -> Bool {
+        camp.id < s.world.campRespawnAt.count && s.world.campRespawnAt[camp.id] == nil
+    }
+
+    // MARK: - 行動
+
+    /// チーム方針のメンバーなら方針に、そうでなければ役割（レーン・ジャングル）に従う。
+    static func act(_ s: inout SimState, _ ctx: SimContext, _ w: BotWorld, _ a: inout BotAgent,
+                    _ mem: inout BotHeroMemory) {
+        let plan = s.bots.teams[a.team.rawValue].plan
+        if plan.includes(a.id) {
+            switch plan.kind {
+            case .wyrm, .colossus:
+                objective(&s, ctx, w, &a, &mem, plan: plan)
+                return
+            case .push:
+                BotAI.setGoal(&mem, .push, s.time)
+                BotLaning.act(&s, ctx, w, &a, &mem, lane: plan.lane ?? .mid, mode: .push)
+                return
+            case .siege:
+                BotAI.setGoal(&mem, .push, s.time)
+                BotLaning.act(&s, ctx, w, &a, &mem, lane: plan.lane ?? .mid, mode: .siege)
+                return
+            case .defend:
+                BotAI.setGoal(&mem, .defend, s.time)
+                BotLaning.act(&s, ctx, w, &a, &mem, lane: plan.lane ?? .mid, mode: .defend)
+                return
+            case .none:
+                break
+            }
+        }
+        if mem.position == .jungle {
+            BotJungle.act(&s, ctx, w, &a, &mem)
+            return
+        }
+        let lane = mem.lane ?? .mid
+        BotAI.setGoal(&mem, .laning, s.time)
+        teleportToLane(&s, ctx, w, &a, lane: lane)
+        BotLaning.act(&s, ctx, w, &a, &mem, lane: lane, mode: .farm)
+    }
+
+    /// オブジェクト（星喰竜・古環の巨像）: 巣に集まり、揃ったら攻撃。狩猟印で止め。
+    static func objective(_ s: inout SimState, _ ctx: SimContext, _ w: BotWorld, _ a: inout BotAgent,
+                          _ mem: inout BotHeroMemory, plan: BotTeamPlan) {
+        BotAI.setGoal(&mem, .objective, s.time)
+        let pit = plan.point
+        let dist = a.pos.distance(to: pit)
+        var boss: Int?
+        for m in w.monsters {
+            guard let kind = s.units[m].monster?.kind, kind == .astralWyrm || kind == .ancientColossus,
+                  s.units[m].pos.distanceSquared(to: pit) < 1200 * 1200, s.isVisible(m, to: a.team) else { continue }
+            boss = m
+        }
+        let staging = pit + (ctx.map.fountain(a.team) - pit).normalized * 650
+        guard let b = boss, dist < 1300 else {
+            BotAI.move(s, ctx, &a, &mem, to: dist > 900 ? staging : pit)
+            return
+        }
+        // 仲間が揃うまで巣の手前で待つ（既に削り始めていれば加勢）
+        var gathered = 0
+        for id in plan.members {
+            if let h = s.index(of: id), s.units[h].isAlive, s.units[h].pos.distanceSquared(to: pit) < 1300 * 1300 {
+                gathered += 1
+            }
+        }
+        let started = s.units[b].hp < s.units[b].stats.maxHP * 0.98
+        guard started || gathered >= min(2, plan.members.count) else {
+            BotAI.move(s, ctx, &a, &mem, to: staging)
+            return
+        }
+        BotJungle.smite(&s, ctx, &a, b)
+        BotCombat.castFarmSkills(&s, ctx, &a, &mem, targets: [b], minCluster: 1)
+        BotAI.attack(s, &a, &mem, b)
+    }
+
+    /// 帰還門（BS09）を持っていれば、遠いレーンの味方タワーへ転移する。
+    static func teleportToLane(_ s: inout SimState, _ ctx: SimContext, _ w: BotWorld, _ a: inout BotAgent, lane: Lane) {
+        guard let h = s.units[a.i].hero, let idx = h.spells.firstIndex(of: "BS09"),
+              SpellSystem.canCast(s, ctx, heroIndex: a.i, spellIndex: idx),
+              ctx.map.isInFountain(a.pos, team: a.team),
+              let tower = w.frontTower(team: a.team, lane: lane), tower.pos.distance(to: a.pos) > 5000 else { return }
+        let dest = tower.pos + (ctx.map.fountain(a.team) - tower.pos).normalized * 250
+        a.emit(.castSpell(index: idx, target: .point(dest)))
+    }
+
+    // MARK: - 帰還
+
+    /// 撤退の締めくくり・回復・買い物のための帰還。行動したら true。
+    static func handleRecall(_ s: inout SimState, _ ctx: SimContext, _ w: BotWorld, _ a: inout BotAgent,
+                             _ mem: inout BotHeroMemory) -> Bool {
+        let i = a.i
+        guard let hero = s.units[i].hero else { return false }
+        let hpRatio = s.units[i].hpRatio
+        let fountain = ctx.map.fountain(a.team)
+        if ctx.map.isInFountain(a.pos, team: a.team) {
+            mem.recall = .none
+            if mem.goal == .retreat || mem.goal == .recall || mem.goal == .shopping {
+                BotAI.setGoal(&mem, mem.position == .jungle ? .jungling : .laning, s.time)
+            }
+            return false
+        }
+        var want = mem.recall != .none
+        if mem.goal == .retreat {
+            if hpRatio >= 0.6 && a.enemies.isEmpty {
+                // 劣勢で下がっただけで体力は十分: 役割へ戻る
+                BotAI.setGoal(&mem, mem.position == .jungle ? .jungling : .laning, s.time)
+            } else {
+                want = true
+            }
+        }
+        if !want { want = wantsRecall(s, ctx, a, mem, hero: hero) }
+        guard want else { return false }
+
+        BotAI.setGoal(&mem, .recall, s.time)
+        let danger = a.enemies.contains { $0.distance < Balance.Bot.recallSafeRadius }
+            || a.ghosts.contains { $0.distance < 900 }
+        let home = a.pos.distance(to: fountain)
+        if home < Balance.Bot.walkHomeDistance || danger || s.time - s.units[i].lastDamagedTime < 1.2 {
+            // 近い・追われている・被弾中: 歩いて戻る（安全になれば次の判断で詠唱）
+            mem.recall = home < Balance.Bot.walkHomeDistance ? .walking : .none
+            if danger { BotCombat.useDefensiveSpells(&s, ctx, w, &a, &mem, fighting: false) }
+            BotAI.move(s, ctx, &a, &mem, to: danger ? BotCombat.safePoint(s, ctx, w, a) : fountain)
+            return true
+        }
+        if hero.channel == nil {
+            // 攻撃・移動中の意図を消してから詠唱（CommandSystem が順に処理する）
+            a.emit(.stop)
+            a.emit(.recall)
+            mem.recall = .channeling
+            mem.recallIssuedTime = s.time
+        }
+        return true
+    }
+
+    /// 帰還したい理由（HP・リソース不足・買い物）。
+    static func wantsRecall(_ s: SimState, _ ctx: SimContext, _ a: BotAgent, _ mem: BotHeroMemory, hero: HeroData) -> Bool {
+        let u = s.units[a.i]
+        let hpRatio = u.hpRatio
+        let busyWithObjective = mem.goal == .objective || mem.goal == .teamfight
+        if hpRatio < 0.22 { return true }
+        if hpRatio < 0.35 && !busyWithObjective {
+            // キャンプを削っている途中のジャングラーは片付けてから
+            if mem.position == .jungle, u.attackTargetID != nil, s.time - u.lastDamagedTime < 1.5, hpRatio > 0.25 {
+                return false
+            }
+            return true
+        }
+        let resourceLow = u.stats.maxResource > 0 && u.resource < u.stats.maxResource * 0.12
+        if resourceLow && hpRatio < 0.6 { return true }
+        guard !busyWithObjective, a.enemies.isEmpty else { return false }
+        if hero.gold >= Balance.Bot.shopRecallGoldAlways { return true }
+        if hero.gold >= Balance.Bot.shopRecallGold && hpRatio < Balance.Bot.shopRecallMaxHP {
+            return hero.gold >= BotShop.goldForNextItem(hero, ctx: ctx)
+        }
+        return false
+    }
+}
