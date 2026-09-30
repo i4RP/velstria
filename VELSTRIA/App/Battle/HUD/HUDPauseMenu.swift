@@ -81,12 +81,14 @@ struct HUDPauseMenu: View {
     }
 
     private var modeName: String {
+        // リプレイは記録時の設定（通常戦・ランク戦など）のまま起動するので、モードより先に判定する
+        if model.controller.isReplay { return L("リプレイ", "Replay") }
         switch model.mode {
         case .standard: return L("通常戦", "Standard Match")
         case .ranked: return L("ランク戦", "Ranked Match")
         case .practice: return L("練習場", "Practice")
         case .tutorial: return L("チュートリアル", "Tutorial")
-        case .spectate: return model.controller.isReplay ? L("リプレイ", "Replay") : L("観戦", "Spectate")
+        case .spectate: return L("観戦", "Spectate")
         }
     }
 
