@@ -45,8 +45,11 @@ enum BotCombat {
         let killable = target.map { isKillable(s, ctx, a, $0.index) } ?? false
         let reach = s.units[i].stats.attackRange + s.units[i].radius + Balance.heroRadius
 
-        // 1. HP 不足: 撤退（目の前の確実なキルを除く）。脅威から離れていても再交戦はしない（帰還判断へ）
-        if hpRatio < retreatHP && !(killable && hpRatio > 0.12 && (target?.distance ?? .infinity) < reach + 80) {
+        // 1. HP 不足 + 不利（DESIGN §10）: 撤退。勝っている戦い（戦力比 1.15 以上）は 15% までは続ける。
+        //    目の前の確実なキルは除く。脅威から離れていても再交戦はしない（帰還判断へ）
+        let winning = fight.ratio >= 1.15 && !outnumbered && hpRatio > 0.15
+        if hpRatio < retreatHP && !winning
+            && !(killable && hpRatio > 0.12 && (target?.distance ?? .infinity) < reach + 80) {
             if threatened {
                 retreat(&s, ctx, w, &a, &mem)
                 return true
@@ -254,9 +257,20 @@ enum BotCombat {
     }
 
     /// 数秒の集中攻撃で倒せるか。
+    /// 自分と、対象の近くに居る味方の瞬間火力の合計で倒せるか（集中攻撃のキル圏）。
     static func isKillable(_ s: SimState, _ ctx: SimContext, _ a: BotAgent, _ t: Int) -> Bool {
         let hp = max(0, s.units[t].hp) + s.units[t].totalShield
-        return BotAI.burst(s, ctx, a.i, target: t) >= hp
+        var total = BotAI.burst(s, ctx, a.i, target: t, skills: a.skillsWork)
+        if total >= hp { return true }
+        let tp = s.units[t].pos
+        for al in a.allies {
+            let r = s.units[al].stats.attackRange + s.units[al].radius + s.units[t].radius + 250
+            guard s.units[al].pos.distanceSquared(to: tp) <= r * r else { continue }
+            // 味方のスキルは実際に使えているか分からないため通常攻撃のみで見積もる
+            total += BotAI.burst(s, ctx, al, target: t, skills: false)
+            if total >= hp { return true }
+        }
+        return false
     }
 
     // MARK: - 撤退
@@ -368,6 +382,7 @@ enum BotCombat {
             // 難易度によるスキル頻度
             guard s.rng.nextDouble() < a.profile.skillChance else { return }
             a.emit(.castSkill(slot: slot, target: target))
+            BotAI.noteSkillCast(&mem, slot: slot, tick: s.tick)
             mem.lastSkillTime = s.time
             return
         }
@@ -387,6 +402,7 @@ enum BotCombat {
             let dir = (safePoint(s, ctx, w, a) - a.pos).normalized
             guard dir != .zero else { return }
             a.emit(.castSkill(slot: slot, target: .direction(dir)))
+            BotAI.noteSkillCast(&mem, slot: slot, tick: s.tick)
             mem.lastSkillTime = s.time
             return
         }
@@ -441,6 +457,7 @@ enum BotCombat {
                 target = .unit(s.units[c].id)
             }
             a.emit(.castSkill(slot: slot, target: target))
+            BotAI.noteSkillCast(&mem, slot: slot, tick: s.tick)
             mem.lastSkillTime = s.time
             return
         }

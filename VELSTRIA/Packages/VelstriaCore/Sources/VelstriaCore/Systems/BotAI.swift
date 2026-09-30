@@ -93,6 +93,13 @@ public struct BotHeroMemory: Codable, Hashable, Sendable {
     public var fightStart: Double = -999
     public var lastSkillTime: Double = -999
     public var lastHarassTime: Double = -999
+    /// スキルの発動を試みた回数と、実際にクールダウンが始まった（発動した）回数。
+    /// 発動しない環境（沈黙・スキル未実装）では瞬間火力の見積もりからスキルを外す。
+    public var skillCastsTried: Int = 0
+    public var skillCastsLanded: Int = 0
+    /// 結果待ちのスキル（SkillSlot.rawValue、-1 = なし）と発行 tick。
+    public var pendingCastSlot: Int = -1
+    public var pendingCastTick: Int = 0
 
     public init(heroID: EntityID, team: Team, isBot: Bool, position: LanePosition) {
         self.heroID = heroID
@@ -171,6 +178,8 @@ struct BotAgent {
     let role: Role
     let position: LanePosition
     let isRanged: Bool
+    /// スキルが実際に発動する（瞬間火力に数える）。
+    let skillsWork: Bool
     var commands: [PlayerCommand] = []
     /// 反応済みの視認中の敵（近い順）。
     var enemies: [BotSighting] = []
@@ -339,10 +348,11 @@ public enum BotAI {
         var mem = s.bots.heroes[k]
         mem.lastDecisionTick = s.tick
         s.bots.decisions += 1
+        resolvePendingCast(s, &mem, unit: i)
         var a = BotAgent(i: i, slot: k, id: s.units[i].id, team: s.units[i].team,
                          profile: BotProfile.of(hero.botDifficulty), difficulty: hero.botDifficulty,
                          pos: s.units[i].pos, level: hero.level, role: hero.role, position: hero.position,
-                         isRanged: hero.isRanged)
+                         isRanged: hero.isRanged, skillsWork: skillsWork(mem))
         think(&s, ctx, w, &a, &mem)
         s.bots.heroes[k] = mem
         for c in a.commands { out.append(HeroCommand(heroID: a.id, command: c)) }
@@ -431,6 +441,26 @@ public enum BotAI {
             if st.hp <= dps * limit { return st }
         }
         return nil
+    }
+
+    /// 前回発行したスキルが発動したか（クールダウンが始まったか）を記録する。
+    static func resolvePendingCast(_ s: SimState, _ mem: inout BotHeroMemory, unit i: Int) {
+        guard mem.pendingCastSlot >= 0, s.tick > mem.pendingCastTick, let h = s.units[i].hero,
+              let slot = SkillSlot(rawValue: mem.pendingCastSlot) else { return }
+        mem.skillCastsTried += 1
+        if h.cooldown(slot) > 0 { mem.skillCastsLanded += 1 }
+        mem.pendingCastSlot = -1
+    }
+
+    /// スキル発動の結果待ちに登録する。
+    static func noteSkillCast(_ mem: inout BotHeroMemory, slot: SkillSlot, tick: Int) {
+        mem.pendingCastSlot = slot.rawValue
+        mem.pendingCastTick = tick
+    }
+
+    /// スキルが発動する環境か（数回試して一度も発動していなければ、瞬間火力にスキルを数えない）。
+    static func skillsWork(_ mem: BotHeroMemory) -> Bool {
+        mem.skillCastsTried < 3 || mem.skillCastsLanded > 0
     }
 
     static func setGoal(_ mem: inout BotHeroMemory, _ goal: BotGoal, _ time: Double) {
@@ -533,11 +563,11 @@ public enum BotAI {
     }
 
     /// ヒーロー i が対象 t に数秒で与えられる瞬間火力（準備済みスキル + 通常攻撃 3 発）。
-    static func burst(_ s: SimState, _ ctx: SimContext, _ i: Int, target t: Int) -> Double {
+    static func burst(_ s: SimState, _ ctx: SimContext, _ i: Int, target t: Int, skills: Bool = true) -> Double {
         guard let h = s.units[i].hero else { return 0 }
         var total = CombatSystem.estimateBasicAttackDamage(s, ctx, attacker: i, target: t) * 3
         let st = s.units[i].stats
-        for slot in SkillSlot.actives where h.rank(slot) > 0 && h.cooldown(slot) <= 0 {
+        for slot in SkillSlot.actives where skills && h.rank(slot) > 0 && h.cooldown(slot) <= 0 {
             guard let def = ctx.master.skill(hero: h.heroID, slot: slot) else { continue }
             let rank = Double(h.rank(slot) - 1)
             var dmg = def.baseDamage * (1 + Balance.skillDamagePerRank * rank)
