@@ -45,11 +45,14 @@ enum BotCombat {
         let killable = target.map { isKillable(s, ctx, a, $0.index) } ?? false
         let reach = s.units[i].stats.attackRange + s.units[i].radius + Balance.heroRadius
 
-        // 1. HP 不足: 撤退（目の前の確実なキルを除く）
-        if threatened && hpRatio < retreatHP
-            && !(killable && hpRatio > 0.12 && (target?.distance ?? .infinity) < reach + 80) {
-            retreat(&s, ctx, w, &a, &mem)
-            return true
+        // 1. HP 不足: 撤退（目の前の確実なキルを除く）。脅威から離れていても再交戦はしない（帰還判断へ）
+        if hpRatio < retreatHP && !(killable && hpRatio > 0.12 && (target?.distance ?? .infinity) < reach + 80) {
+            if threatened {
+                retreat(&s, ctx, w, &a, &mem)
+                return true
+            }
+            if mem.goal == .teamfight { BotAI.setGoal(&mem, .retreat, s.time) }
+            return false
         }
         // 2. 敵タワーに狙われている: 射程外へ（確実なキルの突入を除く）
         if towerShootsMe, let st = underTower, !(a.profile.divesForKill && killable && hpRatio > 0.5) {
@@ -204,6 +207,12 @@ enum BotCombat {
     static func pickTarget(_ s: SimState, _ ctx: SimContext, _ w: BotWorld, _ a: BotAgent,
                            _ mem: BotHeroMemory) -> BotSighting? {
         let range = s.units[a.i].stats.attackRange + s.units[a.i].radius
+        let mySpeed = MovementSystem.currentMoveSpeed(s, a.i)
+        // 候補の中で最も倒しやすい実効 HP（相対評価の基準）
+        var minEHP = Double.infinity
+        for e in a.enemies where e.distance - range - s.units[e.index].radius <= 750 {
+            minEHP = min(minEHP, CombatSystem.effectiveHealth(s.units[e.index]))
+        }
         var best: BotSighting?
         var bestScore = -Double.infinity
         for e in a.enemies {
@@ -211,21 +220,29 @@ enum BotCombat {
             if gap > 750 { continue }
             if CombatSystem.isInvulnerable(s, ctx, e.index) { continue }
             let u = s.units[e.index]
-            var score = (1 - u.hpRatio) * 2.2
-            if isKillable(s, ctx, a, e.index) { score += 3 }
+            let killable = isKillable(s, ctx, a, e.index)
+            // 逃げる相手に追いつけないなら追わない（射程内・倒せる相手を除く）
+            if gap > 60 && !killable {
+                let away = (e.pos - a.pos).normalized
+                let fleeing = e.velocity.dot(away)
+                if fleeing > mySpeed * 0.85 && gap > (a.isRanged ? 120 : 40) { continue }
+            }
+            // 柔らかい相手（実効 HP が低い）を優先し、硬い前衛を殴り続けない
+            let ehp = CombatSystem.effectiveHealth(u)
+            var score = 3.0 * minEHP / max(1, ehp) + (1 - u.hpRatio) * 1.5
+            if killable { score += 3 }
+            if gap <= 0 { score += 0.5 }
             switch u.hero?.role {
-            case .ranger?, .arcanist?: score += 0.8
-            case .assassin?: score += 0.4
+            case .ranger?, .arcanist?: score += 0.6
+            case .assassin?: score += 0.3
             case .support?: score += 0.2
             default: break
             }
-            // 実効 HP の低さ（2000 基準）
-            score += max(0, 1 - CombatSystem.effectiveHealth(u) / 4000)
-            score -= max(0, gap) / 350
+            score -= max(0, gap) / 300
             if w.enemyStructure(covering: e.pos, team: a.team, margin: 0) != nil { score -= 2.5 }
             if e.id == mem.targetID { score += 0.6 }
             // 味方と同じ相手を狙う（集中攻撃）
-            for al in a.allies where s.units[al].attackTargetID == e.id { score += 0.9 }
+            for al in a.allies where s.units[al].attackTargetID == e.id { score += 0.7 }
             if score > bestScore {
                 bestScore = score
                 best = e

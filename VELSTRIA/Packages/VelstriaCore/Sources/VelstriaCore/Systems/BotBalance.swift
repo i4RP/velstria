@@ -12,6 +12,10 @@ extension Balance {
         public static let planIntervalTicks = 30
         /// 視界から消えた敵を「居るかもしれない」とみなす秒数（霧の中の記憶）。
         public static let fogMemory: Double = 3.5
+        /// 帰還の詠唱を見た敵が戦線に戻るまでの見込み秒数。
+        public static let recallAwaySeconds: Double = 22
+        /// 泉付近で見た敵が戦線に戻るまでの見込み秒数。
+        public static let fountainAwaySeconds: Double = 12
 
         // MARK: 知覚
         /// 敵ヒーローを戦闘判断に含める半径。

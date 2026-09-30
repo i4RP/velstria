@@ -12,6 +12,28 @@ final class BotDiagnosticTests: XCTestCase {
             ? MatchFactory.standardMatch(humanHeroID: "H003", humanName: "Idle", allyDifficulty: diff,
                                          enemyDifficulty: diff, seed: seed)
             : MatchFactory.botMatch(difficulty: diff, seed: seed)
+        if let from = env["BOT_TRACE"].flatMap(Double.init) {
+            // 戦闘の細かい推移: 0.5 秒毎に全ヒーローの HP・目標・攻撃対象（1 行）
+            let sim = Simulation(config: cfg)
+            while !sim.isEnded && sim.state.time < from + 30 {
+                let ev = sim.step()
+                for e in ev {
+                    if case .heroKilled(let k) = e { print(String(format: "%.1f KILL %d by %d", sim.state.time, k.victimID, k.killerID ?? -1)) }
+                }
+                guard sim.state.time >= from, sim.state.tick % 15 == 0 else { continue }
+                var line = String(format: "%.1f", sim.state.time)
+                for i in sim.state.heroIndices {
+                    let u = sim.state.units[i]
+                    let m = sim.state.bots.memory(for: u.id)
+                    let g = m.map { "\($0.goal)".prefix(4) } ?? "-"
+                    let t = u.attackTargetID.map { String($0) } ?? "."
+                    line += String(format: " |%d%@ %3.0f%% %@>%@ (%4.0f,%4.0f)", u.id, u.team == .blue ? "b" : "r",
+                                   u.hpRatio * 100, String(g), t, u.pos.x / 10, u.pos.y / 10)
+                }
+                print(line)
+            }
+            return
+        }
         if let every = env["BOT_SNAP"].flatMap(Double.init) {
             snapshots(cfg, every: every, until: Double(env["BOT_UNTIL"] ?? "300") ?? 300)
             return
@@ -83,14 +105,35 @@ final class BotDiagnosticTests: XCTestCase {
         let sim = Simulation(config: MatchFactory.botMatch(difficulty: .normal, seed: seed))
         var counts = [[Int]](repeating: [Int](repeating: 0, count: BotGoal.allCases.count + 1), count: 10)
         let heroes = sim.state.heroIndices
-        while sim.state.time < until {
+        let from = Double(ProcessInfo.processInfo.environment["BOT_FROM"] ?? "0") ?? 0
+        var tfTicks = 0, tfInRange = 0, tfHeroTarget = 0, tfNoTarget = 0
+        while sim.state.time < until && !sim.isEnded {
             sim.step()
-            guard sim.state.tick % 30 == 0 else { continue }
+            if sim.state.time >= from {
+                for i in heroes {
+                    let u = sim.state.units[i]
+                    guard u.isAlive, sim.state.bots.memory(for: u.id)?.goal == .teamfight else { continue }
+                    tfTicks += 1
+                    guard let t = sim.state.index(of: u.attackTargetID) else { tfNoTarget += 1; continue }
+                    if sim.state.units[t].kind == .hero { tfHeroTarget += 1 }
+                    let reach = u.stats.attackRange + u.radius + sim.state.units[t].radius
+                    if u.pos.distance(to: sim.state.units[t].pos) <= reach + 5 { tfInRange += 1 }
+                }
+            }
+            guard sim.state.tick % 30 == 0, sim.state.time >= from else { continue }
             for (k, i) in heroes.enumerated() {
                 if sim.state.units[i].hero!.isDead { counts[k][BotGoal.allCases.count] += 1; continue }
                 let g = sim.state.bots.memory(for: sim.state.units[i].id)!.goal
                 counts[k][g.rawValue] += 1
             }
+        }
+        print("teamfight ticks \(tfTicks) inRange \(tfInRange) heroTarget \(tfHeroTarget) noTarget \(tfNoTarget)")
+        for i in heroes {
+            let h = sim.state.units[i].hero!
+            print(String(format: "%@ %@ dmgToHeroes %.0f taken %.0f towerDmg %.0f atk %.0f hp %.0f armor %.0f K/D/A %d/%d/%d",
+                         "\(sim.state.units[i].team)", "\(h.position)", h.score.damageToHeroes, h.score.damageTaken,
+                         h.score.towerDamage, sim.state.units[i].stats.attack, sim.state.units[i].stats.maxHP,
+                         sim.state.units[i].stats.armor, h.score.kills, h.score.deaths, h.score.assists))
         }
         let names = BotGoal.allCases.map { "\($0)" } + ["dead"]
         for (k, i) in heroes.enumerated() {

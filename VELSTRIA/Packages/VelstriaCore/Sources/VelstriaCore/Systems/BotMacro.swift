@@ -23,6 +23,7 @@ enum BotMacro {
         let ourAlive = w.aliveHeroes[team.rawValue]
         let enemyAlive = w.aliveHeroes[team.opponent.rawValue]
         let enemyDead = w.deadHeroes[team.opponent.rawValue]
+        let enemyAway = max(enemyDead, BotAI.enemiesAway(s, team: team))
         let old = s.bots.teams[team.rawValue].plan
         let intel = s.bots.teams[team.rawValue]
         let t = s.time
@@ -50,11 +51,11 @@ enum BotMacro {
         else if let keep = continueObjective(s, ctx, intel, old: old, team: team) {
             plan = keep
         }
-        // 3. 押し切り: 人数有利（敵が多数死亡）・巨像の加護・Core が露出・終盤
+        // 3. 押し切り: 人数有利（敵が死亡・帰還で戦線に居ない）・巨像の加護・Core が露出・終盤
         else if ourAlive >= 3 || ourAlive > enemyAlive,
-                enemyDead >= 3 || (enemyDead >= 2 && groupPhase)
+                enemyAway >= 3 || (enemyAway >= 2 && groupPhase)
                     || (blessed(s, aliveBots, .colossusBlessing) >= 3 && ourAlive >= enemyAlive)
-                    || (groupPhase && enemyDead >= 1 && w.core(of: team.opponent)?.invulnerable == false)
+                    || (groupPhase && enemyAway >= 1 && w.core(of: team.opponent)?.invulnerable == false)
                     || (t >= Balance.Bot.lateSiege && ourAlive >= enemyAlive),
                 let st = siegeTarget(s, w, team: team, preferred: old.lane) {
             plan.kind = .siege
@@ -63,9 +64,18 @@ enum BotMacro {
             plan.point = st.pos
             plan.members = aliveBots.map { s.units[$0].id }
         }
+        // 3b. 星喰竜の直後: 加護を得た面々で近くの bot レーンの塔を押す（集団期の前）
+        else if !groupPhase, blessed(s, aliveBots, .wyrmBlessing) >= 2,
+                let st = w.frontTower(team: team.opponent, lane: .bot) {
+            plan.kind = .push
+            plan.lane = .bot
+            plan.targetID = st.id
+            plan.point = st.pos
+            plan.members = aliveBots.filter { s.units[$0].has(.wyrmBlessing) }.map { s.units[$0].id }
+        }
         // 4. 古環の巨像（敵が減っている時・集団が近い時）
         else if t >= Balance.Bot.colossusStart, t >= retryAt, let camp = bossCamp(ctx, .ancientColossus),
-                campAlive(s, camp), enemyDead >= 2 || (ourAlive - enemyAlive >= 1 && center.distance(to: camp.pos) < 4500),
+                campAlive(s, camp), enemyAway >= 2 || (ourAlive - enemyAlive >= 1 && center.distance(to: camp.pos) < 4500),
                 aliveBots.count >= 3,
                 enemiesSeenNear(s, intel, camp.pos, radius: 2200, within: 4) == 0 {
             plan.kind = .colossus
@@ -84,11 +94,8 @@ enum BotMacro {
         }
         // 6. 集団で押し込み（mid 優先。目標の塔が残る間はレーンを変えない）
         else if groupPhase {
-            var lane = pushLane(s, w, team: team)
-            if old.kind == .push, let l = old.lane, w.frontTower(team: team.opponent, lane: l) != nil
-                || (l == .mid && w.core(of: team.opponent)?.invulnerable == false) {
-                lane = l
-            }
+            let lane = pushLane(s, ctx, w, intel, team: team, old: old, center: center,
+                                groupSize: min(profile.groupSize, aliveBots.count))
             plan.kind = .push
             plan.lane = lane
             plan.members = pushMembers(s, aliveBots, count: profile.groupSize, lane: lane)
@@ -180,16 +187,32 @@ enum BotMacro {
         return candidates[0]
     }
 
-    /// 集団で押すレーン: mid の敵塔が残っていれば mid、無ければ最も手前の敵塔が残るレーン。
-    static func pushLane(_ s: SimState, _ w: BotWorld, team: Team) -> Lane {
-        if w.frontTower(team: team.opponent, lane: .mid) != nil { return .mid }
-        // mid の塔が全滅: Core が狙えるなら mid、狙えなければ残る塔のうち tier の低い（手前の）レーン
-        if let core = w.core(of: team.opponent), !core.invulnerable { return .mid }
+    /// 集団で押すレーン。敵の集団が見えているレーンを避け（空いている塔を取って守りに来させる）、
+    /// 本拠点に近い塔・削れている塔・味方ウェーブが前に出ているレーンを選ぶ。今のレーンを少し優先する。
+    static func pushLane(_ s: SimState, _ ctx: SimContext, _ w: BotWorld, _ intel: BotTeamIntel, team: Team,
+                         old: BotTeamPlan, center: Vec2, groupSize: Int) -> Lane {
+        let enemy = team.opponent
         var best: Lane = .mid
-        var bestTier = Int.max
-        for lane in [Lane.bot, .top] {
-            if let st = w.frontTower(team: team.opponent, lane: lane), st.tier.rawValue < bestTier {
-                bestTier = st.tier.rawValue
+        var bestScore = -Double.infinity
+        for lane in Lane.allCases {
+            // 目標: レーンの最前の敵塔（無ければ攻撃可能な Core）
+            var target = w.frontTower(team: enemy, lane: lane)
+            if target == nil, let core = w.core(of: enemy), !core.invulnerable { target = core }
+            guard let st = target else { continue }
+            let len = w.laneLength[lane.rawValue]
+            let front = w.front[team.rawValue][lane.rawValue] ?? len * 0.3
+            let frontPos = BotLane.point(ctx.map, lane, team: team, progress: front)
+            let presence = enemiesSeenNear(s, intel, frontPos, radius: 2500, within: 8)
+                + enemiesSeenNear(s, intel, st.pos, radius: 1800, within: 8)
+            // 数で勝る相手なら狩りに行き、互角以上の集団は避ける
+            var score = presence > 0 && presence <= groupSize - 2 ? 0.8 : -Double(max(0, presence - groupSize + 2)) * 1.1
+            score += Double(st.tier.rawValue) * 0.5 + (st.isCore ? 2 : 0) + (1 - st.hp / max(1, st.maxHP)) * 1.5
+            if front > len * 0.5 { score += 0.6 }
+            score -= center.distance(to: frontPos) / 4000
+            if old.kind == .push && old.lane == lane { score += 0.9 }
+            if lane == .mid { score += 0.3 }
+            if score > bestScore {
+                bestScore = score
                 best = lane
             }
         }

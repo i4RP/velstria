@@ -116,6 +116,8 @@ public struct BotTeamIntel: Codable, Hashable, Sendable {
     public var lastSeenTick: [Int] = []
     /// 観測から推定した移動速度（ユニット/秒）。
     public var velocity: [Vec2] = []
+    /// 戦線を離れている（帰還の詠唱・泉に居るのを見た）と見なす時刻。死亡中は別に数える。
+    public var awayUntil: [Double] = []
     public var plan = BotTeamPlan()
     /// オブジェクトを諦めた後、再挑戦できる時刻。
     public var objectiveRetryAt: Double = 0
@@ -188,7 +190,7 @@ public enum BotAI {
         guard s.phase == .playing else { return [] }
         if !s.bots.initialized { initialize(&s, ctx) }
         guard s.bots.heroes.contains(where: \.isBot) else { return [] }
-        updateIntel(&s)
+        updateIntel(&s, ctx)
         let interval = Balance.Bot.planIntervalTicks
         for team in Team.players where s.tick % interval == (team == .blue ? 0 : interval / 2) {
             BotMacro.updatePlan(&s, ctx, team: team)
@@ -237,6 +239,7 @@ public enum BotAI {
             intel.lastSeenTime = [Double](repeating: -999, count: n)
             intel.lastSeenTick = [Int](repeating: -1, count: n)
             intel.velocity = [Vec2](repeating: .zero, count: n)
+            intel.awayUntil = [Double](repeating: -999, count: n)
             teams.append(intel)
         }
         s.bots.heroes = heroes
@@ -245,7 +248,7 @@ public enum BotAI {
     }
 
     /// 敵ヒーローの視認状況を毎 tick 記録する（反応遅延・霧の記憶・予測射撃の速度推定）。
-    static func updateIntel(_ s: inout SimState) {
+    static func updateIntel(_ s: inout SimState, _ ctx: SimContext) {
         let time = s.time
         let tick = s.tick
         for t in s.bots.teams.indices {
@@ -273,8 +276,29 @@ public enum BotAI {
                 s.bots.teams[t].lastSeenPos[k] = p
                 s.bots.teams[t].lastSeenTime[k] = time
                 s.bots.teams[t].lastSeenTick[k] = tick
+                // 帰還の詠唱（見える演出）・泉に居る敵はしばらく戦線に戻らない
+                let enemyTeam = s.units[e].team
+                if s.units[e].hero?.channel?.kind == .recall {
+                    s.bots.teams[t].awayUntil[k] = time + Balance.Bot.recallAwaySeconds
+                } else if p.distanceSquared(to: ctx.map.fountain(enemyTeam)) < 1500 * 1500 {
+                    s.bots.teams[t].awayUntil[k] = max(s.bots.teams[t].awayUntil[k], time + Balance.Bot.fountainAwaySeconds)
+                } else {
+                    s.bots.teams[t].awayUntil[k] = -999
+                }
             }
         }
+    }
+
+    /// team の情報で、戦線に居ない（死亡中・帰還中・泉）の敵の数。
+    static func enemiesAway(_ s: SimState, team: Team) -> Int {
+        guard team.rawValue < s.bots.teams.count else { return 0 }
+        let intel = s.bots.teams[team.rawValue]
+        var n = 0
+        for k in intel.enemyIDs.indices {
+            guard let e = s.index(of: intel.enemyIDs[k]) else { continue }
+            if !s.units[e].isAlive || s.units[e].hero?.isDead == true || s.time < intel.awayUntil[k] { n += 1 }
+        }
+        return n
     }
 
     /// ボットの知覚: 反応遅延を過ぎた視認中の敵、霧に消えた直後の敵、近くの味方。
