@@ -470,6 +470,56 @@ final class FlowReviewFixTests: XCTestCase {
         XCTAssertEqual(BackupRestore.merged(imported: backup, current: current).displayName, "NewPhone")
     }
 
+    /// バックアップの JSON を書き換えても、課金台帳で裏付けられない有償 Gem・プレミアムは付かない。
+    func testBackupRestoreCapsPaidItemsToPurchaseLedger() {
+        let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+        let gem980 = "com.bitcoinpay.velstria.gem.980"   // 980 + 110 = 1,090 個
+        let gem60 = "com.bitcoinpay.velstria.gem.60"
+        let current = Profile()
+
+        // 正規のバックアップ（購入 1,090 個のうち 90 個使用）はそのまま戻る
+        var legit = Profile()
+        legit.paidGem = 1_000
+        legit.purchaseLedger = [PurchaseRecord(transactionID: 10, productID: gem980, gemsGranted: 1_090, priceJPY: 2500, date: t0)]
+        XCTAssertEqual(BackupRestore.merged(imported: legit, current: current).paidGem, 1_000)
+
+        // 残高だけ書き換えたもの → 台帳の付与合計まで
+        var edited = legit
+        edited.paidGem = 999_999
+        edited.pass.hasPremium = true
+        let merged = BackupRestore.merged(imported: edited, current: current)
+        XCTAssertEqual(merged.paidGem, 1_090)
+        XCTAssertFalse(merged.pass.hasPremium, "台帳にプレミアムの購入が無い")
+
+        // 付与数の書き換え・未知の商品・同じ取引の重複は数えない
+        var forged = Profile()
+        forged.paidGem = 50_000
+        forged.purchaseLedger = [
+            PurchaseRecord(transactionID: 20, productID: gem60, gemsGranted: 99_999, priceJPY: 160, date: t0),
+            PurchaseRecord(transactionID: 21, productID: "com.example.fake", gemsGranted: 5_000, priceJPY: 0, date: t0),
+            PurchaseRecord(transactionID: 22, productID: gem60, gemsGranted: 60, priceJPY: 160, date: t0),
+            PurchaseRecord(transactionID: 22, productID: gem60, gemsGranted: 60, priceJPY: 160, date: t0),
+        ]
+        // gem.60 の取引 20 は 60 個 × 最大数量 10 まで、取引 22 は重複を 1 回だけ
+        XCTAssertEqual(BackupRestore.merged(imported: forged, current: current).paidGem, 660)
+
+        // この端末で取り消し（返金）済みの取引の分は戻らない
+        var refundedHere = Profile()
+        refundedHere.purchaseLedger = [PurchaseRecord(transactionID: 10, productID: gem980, gemsGranted: 0, priceJPY: 0, date: t0, revoked: true)]
+        XCTAssertEqual(BackupRestore.merged(imported: legit, current: refundedHere).paidGem, 0)
+
+        // プレミアムは台帳（バックアップ側・この端末側のどちらか）に有効な購入があれば引き継ぐ
+        var premium = Profile()
+        premium.pass.hasPremium = true
+        premium.purchaseLedger = [PurchaseRecord(transactionID: 30, productID: StoreKitService.premiumPassProductID,
+                                                 gemsGranted: 0, priceJPY: 980, date: t0)]
+        XCTAssertTrue(BackupRestore.merged(imported: premium, current: current).pass.hasPremium)
+        XCTAssertTrue(BackupRestore.merged(imported: Profile(), current: premium).pass.hasPremium)
+        var premiumRefunded = premium
+        premiumRefunded.purchaseLedger[0].revoked = true
+        XCTAssertFalse(BackupRestore.merged(imported: premium, current: premiumRefunded).pass.hasPremium)
+    }
+
     func testDateFormattingFollowsLanguage() {
         let saved = Loc.current
         defer { Loc.current = saved }
