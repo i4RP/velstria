@@ -381,6 +381,26 @@ final class BotBehaviorTests: XCTestCase {
         XCTAssertEqual(resumed.state.bots, sim.state.bots)
     }
 
+    func testSlotHandedToBotControlIsDrivenMidMatch() {
+        var f = BotFixture(config: MatchFactory.standardMatch(humanHeroID: "H003", humanName: "Leaver", seed: 4),
+                           time: 120)
+        let human = f.s.humanHeroIndex!
+        let id = f.s.units[human].id
+        var commanded = false
+        for _ in 0..<12 {
+            f.advance(Balance.dt)
+            commanded = commanded || BotAI.generateCommands(&f.s, f.ctx).contains { $0.heroID == id }
+        }
+        XCTAssertFalse(commanded, "a human slot is never driven by the AI")
+        f.s.units[human].hero?.controller = .bot
+        for _ in 0..<12 {
+            f.advance(Balance.dt)
+            commanded = commanded || BotAI.generateCommands(&f.s, f.ctx).contains { $0.heroID == id }
+        }
+        XCTAssertTrue(commanded, "after the hand-over the AI drives the hero")
+        XCTAssertTrue(f.memory(human).isBot)
+    }
+
     func testIdleHumanHeroIsNeverCommandedByBots() {
         let cfg = MatchFactory.standardMatch(humanHeroID: "H003", humanName: "Idle", seed: 17)
         let sim = Simulation(config: cfg)

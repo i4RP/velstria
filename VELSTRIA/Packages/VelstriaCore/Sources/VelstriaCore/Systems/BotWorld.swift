@@ -173,7 +173,8 @@ struct BotWorld {
     func frontTower(team: Team, lane: Lane) -> BotStructureInfo? {
         var best: BotStructureInfo?
         for st in structures where st.team == team && st.lane == lane && !st.isCore {
-            if best == nil || st.tier.rawValue < best!.tier.rawValue { best = st }
+            if let b = best, b.tier.rawValue <= st.tier.rawValue { continue }
+            best = st
         }
         return best
     }
@@ -224,7 +225,8 @@ struct BotWorld {
         for m in minions where m.lane == lane && m.team != team && m.isVisible(to: team) {
             let p = m.progress(for: team, length: len)
             n += 1
-            if best == nil || p < best! { best = p }
+            if let b = best, b <= p { continue }
+            best = p
         }
         guard let b = best else { return nil }
         return (b, n)

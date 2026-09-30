@@ -198,7 +198,14 @@ public enum BotAI {
     public static func generateCommands(_ s: inout SimState, _ ctx: SimContext) -> [HeroCommand] {
         guard s.phase == .playing else { return [] }
         if !s.bots.initialized { initialize(&s, ctx) }
-        guard s.bots.heroes.contains(where: \.isBot) else { return [] }
+        // 操作者は試合中に変わりうる（切断時の AI 代行など）ので毎 tick 同期する
+        var anyBot = false
+        for k in s.bots.heroes.indices {
+            let bot = s.index(of: s.bots.heroes[k].heroID).map { s.units[$0].hero?.controller == .bot } ?? false
+            if s.bots.heroes[k].isBot != bot { s.bots.heroes[k].isBot = bot }
+            anyBot = anyBot || bot
+        }
+        guard anyBot else { return [] }
         updateIntel(&s, ctx)
         let interval = Balance.Bot.planIntervalTicks
         for team in Team.players where s.tick % interval == (team == .blue ? 0 : interval / 2) {
