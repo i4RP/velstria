@@ -113,6 +113,7 @@ struct PrimaryButtonStyle: ButtonStyle {
             .foregroundStyle(Color.black.opacity(0.85))
             .padding(.horizontal, 22)
             .padding(.vertical, 11)
+            .frame(minHeight: 44)
             .background(
                 Capsule().fill(LinearGradient(colors: [color, color.opacity(0.75)], startPoint: .top, endPoint: .bottom))
             )
@@ -130,6 +131,7 @@ struct SecondaryButtonStyle: ButtonStyle {
             .foregroundStyle(Theme.textPrimary)
             .padding(.horizontal, 18)
             .padding(.vertical, 10)
+            .frame(minHeight: 44)
             .background(Capsule().fill(Color.white.opacity(configuration.isPressed ? 0.18 : 0.10)))
             .overlay(Capsule().stroke(Theme.panelStroke, lineWidth: 1))
     }

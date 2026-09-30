@@ -155,7 +155,7 @@ def design_products() -> dict[str, int]:
     """DESIGN.md §13 の表から Product ID → 価格(円)。"""
     out = {}
     for line in DESIGN.read_text(encoding="utf-8").splitlines():
-        m = re.match(r"^\|\s*(com\.velstria\.game\.[\w.]+)\s*\|.*\|\s*([\d,]+)\s*\|\s*$", line)
+        m = re.match(r"^\|\s*(com\.bitcoinpay\.velstria\.[\w.]+)\s*\|.*\|\s*([\d,]+)\s*\|\s*$", line)
         if m:
             out[m.group(1)] = int(m.group(2).replace(",", ""))
     return out

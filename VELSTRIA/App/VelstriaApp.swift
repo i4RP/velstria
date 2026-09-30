@@ -18,6 +18,8 @@ struct VelstriaApp: App {
                 }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .background { app.persistence.saveNow(app.profile) }
+                    // 日付を跨いで復帰した場合のログインボーナス・デイリー更新（同日なら何もしない）
+                    if phase == .active { LiveOpsService.onLaunch(profile: &app.profile, master: app.master, now: Date()) }
                 }
         }
     }
