@@ -97,6 +97,32 @@ final class SkillBalanceTests: XCTestCase {
         XCTAssertTrue(failures.isEmpty, "TTK が範囲外: \(failures)")
     }
 
+    /// 全 24 ヒーローの総当たり（Release のみ）。ロール代表以外も大きく外れないこと。
+    func testFullRosterStaysNearBand() throws {
+        #if DEBUG
+        throw XCTSkip("Release で実行する: swift test -c release --filter SkillBalanceTests")
+        #else
+        let ids = MasterData.shared.heroes.map(\.heroID)
+        var total = 0
+        var outside: [String] = []
+        var hard: [String] = []
+        for level in Self.levels {
+            for (x, a) in ids.enumerated() {
+                for b in ids[x...] {
+                    let r = Self.duel(a, b, level: level)
+                    total += 1
+                    let label = String(format: "Lv%d %@ vs %@: %.2f s", level, a, b, r.ttk)
+                    if r.ttk < Self.minTTK || r.ttk > Self.maxTTK { outside.append(label) }
+                    if r.ttk < 2.0 || r.ttk > 17.0 { hard.append(label) }
+                }
+            }
+        }
+        print("SkillBalanceTests roster: \(total) duels, \(outside.count) outside \(Self.minTTK)–\(Self.maxTTK) s: \(outside)")
+        XCTAssertTrue(hard.isEmpty, "\(hard)")
+        XCTAssertLessThanOrEqual(Double(outside.count), Double(total) * 0.02)
+        #endif
+    }
+
     func testDuelIsDeterministic() {
         let a = Self.duel("H002", "H006", level: 6)
         let b = Self.duel("H002", "H006", level: 6)
