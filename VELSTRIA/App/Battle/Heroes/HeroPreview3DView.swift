@@ -214,7 +214,7 @@ final class HeroStageDriver {
         if let m = pedestalMeshes {
             mesh = m
         } else {
-            var b = MeshBuilder()
+            var b = HeroMeshBuilder()
             let top = pedestalHeight
             b.lathe([V2(0.72, 0.0), V2(0.74, 0.03), V2(0.7, top - 0.03), V2(0.66, top), V2(0.0, top)], .zero, .primary,
                     segments: 40, capBottom: true)

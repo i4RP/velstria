@@ -21,8 +21,8 @@ struct HeroGearBuilder {
 
     // MARK: 右手
 
-    mutating func weapon() -> MeshBuilder {
-        var b = MeshBuilder()
+    mutating func weapon() -> HeroMeshBuilder {
+        var b = HeroMeshBuilder()
         switch bp.weapon {
         case .none:
             weaponTip = V3(0, 0.02, 0)
@@ -248,14 +248,14 @@ struct HeroGearBuilder {
 
     // MARK: 左手
 
-    func offhand() -> MeshBuilder {
-        var b = MeshBuilder()
+    func offhand() -> HeroMeshBuilder {
+        var b = HeroMeshBuilder()
         switch bp.offhand {
         case .none:
             break
         case .gateShield:
             // 原点で組んでから、外側へ少し向けて左腕の外に置く
-            var sh = MeshBuilder()
+            var sh = HeroMeshBuilder()
             var tower: [V2] = [V2(0.27, -0.3), V2(0.27, 0.3), V2(0.2, 0.3), V2(0.2, 0.43), V2(0.095, 0.43), V2(0.095, 0.35),
                                V2(-0.095, 0.35), V2(-0.095, 0.43), V2(-0.2, 0.43), V2(-0.2, 0.3), V2(-0.27, 0.3), V2(-0.27, -0.3)]
             tower.append(V2(0, -0.46))
@@ -282,7 +282,7 @@ struct HeroGearBuilder {
             for x: Float in [-0.06, 0, 0.06] { b.rod(o + V3(x, -0.18, 0), o + V3(x, 0.15, 0), 0.006, .glow) }
             b.extrude(starPolygon(points: 5, outer: 0.055, inner: 0.024), depth: 0.025, o + V3(0, 0.2, -0.01), .glow)
         case .ashBow:
-            var bw = MeshBuilder()
+            var bw = HeroMeshBuilder()
             bow(&bw, radius: 0.7, limbMat: .metal, glowEdge: true, spikes: true)
             b.merge(bw, trs(.zero, ry(0.6)))
         case .moonLantern:
@@ -333,7 +333,7 @@ struct HeroGearBuilder {
             dagger(&b, petalShape(), bladeMat: .accent, glowEdge: false)
             b.rbox(V3(0, 0.3, 0), V3(0.036, 0.24, 0.012), 0.005, .glow)
         case .lightBow:
-            var bw = MeshBuilder()
+            var bw = HeroMeshBuilder()
             bow(&bw, radius: 0.58, limbMat: .metal, glowEdge: true, spikes: false)
             let tipY = sin(Float(0.94)) * 0.58
             for s: Float in [-1, 1] { bw.sphere(V3(0, s * tipY, 0.58 - 0.02 - cos(0.94) * 0.58), 0.04, .glow, .low) }
@@ -348,12 +348,12 @@ struct HeroGearBuilder {
 
     // MARK: 部品
 
-    private func grip(_ b: inout MeshBuilder, _ half: Float) {
+    private func grip(_ b: inout HeroMeshBuilder, _ half: Float) {
         b.rod(V3(0, -half, 0), V3(0, half, 0), 0.024, .dark)
         b.sphere(V3(0, -half - 0.025, 0), 0.04, .metal, .low)
     }
 
-    private func dagger(_ b: inout MeshBuilder, _ shape: [V2], bladeMat: HeroMat, glowEdge: Bool) {
+    private func dagger(_ b: inout HeroMeshBuilder, _ shape: [V2], bladeMat: HeroMat, glowEdge: Bool) {
         grip(&b, 0.07)
         b.rbox(V3(0, 0.085, 0), V3(0.045, 0.04, 0.16), 0.014, .metal)
         b.blade(shape, depth: 0.032, V3(0, 0.1, 0), bladeMat)
@@ -372,7 +372,7 @@ struct HeroGearBuilder {
         [V2(0, 0), V2(0.065, 0.06), V2(0.08, 0.18), V2(0.045, 0.3), V2(0, 0.4), V2(-0.045, 0.3), V2(-0.08, 0.18), V2(-0.065, 0.06)]
     }
 
-    private func glassDagger(_ b: inout MeshBuilder) {
+    private func glassDagger(_ b: inout HeroMeshBuilder) {
         b.rod(V3(0, -0.07, 0), V3(0, 0.07, 0), 0.022, .dark)
         b.crystal(V3(0, -0.09, 0), radius: 0.03, height: 0.03, .glow, bottom: 1)
         b.crystal(V3(0, 0.09, 0), radius: 0.07, height: 0.05, .accent, rot: rx(.pi / 2), sides: 4, bottom: 1)
@@ -380,7 +380,7 @@ struct HeroGearBuilder {
         b.crystal(V3(0, 0.12, 0), radius: 0.028, height: 0.3, .glow, sides: 4, bottom: 0.1)
     }
 
-    private func katana(_ b: inout MeshBuilder, scale k: Float) {
+    private func katana(_ b: inout HeroMeshBuilder, scale k: Float) {
         b.rod(V3(0, -0.13 * k, 0), V3(0, 0.12 * k, 0), 0.023, .dark)
         b.sphere(V3(0, -0.14 * k, 0), 0.03, .metal, .low)
         b.rod(V3(0, 0.12 * k, 0), V3(0, 0.14 * k, 0), 0.065, .metal, segments: 12)
@@ -392,7 +392,7 @@ struct HeroGearBuilder {
         b.blade(edge, depth: 0.026, V3(0, 0.14 * k, 0), .glow)
     }
 
-    private func stoneFist(_ b: inout MeshBuilder, side s: Float) {
+    private func stoneFist(_ b: inout HeroMeshBuilder, side s: Float) {
         b.rbox(V3(0, -0.035, 0), V3(0.25, 0.25, 0.27), 0.075, .metal)
         b.rbox(V3(0, -0.14, -0.02), V3(0.27, 0.085, 0.23), 0.03, .metal)
         b.rbox(V3(s * 0.06, 0.08, 0.02), V3(0.13, 0.1, 0.13), 0.03, .metal, rot: rz(s * 0.4))
@@ -402,7 +402,7 @@ struct HeroGearBuilder {
         b.frustum(V3(0, 0.05, 0), V3(0, 0.15, 0), 0.105, 0.095, .metal)
     }
 
-    private func claw(_ b: inout MeshBuilder, side s: Float) {
+    private func claw(_ b: inout HeroMeshBuilder, side s: Float) {
         b.rbox(V3(0, -0.02, 0), V3(0.15, 0.15, 0.16), 0.045, .metal)
         b.frustum(V3(0, 0.03, 0), V3(0, 0.13, 0), 0.085, 0.078, .metal)
         b.sphere(V3(s * 0.078, -0.02, 0), 0.03, .glow, .low)
@@ -413,7 +413,7 @@ struct HeroGearBuilder {
         }
     }
 
-    private func needle(_ b: inout MeshBuilder) {
+    private func needle(_ b: inout HeroMeshBuilder) {
         b.rod(V3(0, -0.06, 0), V3(0, 0.06, 0), 0.036, .accent, segments: 12)
         b.rod(V3(0, 0.06, 0), V3(0, 0.078, 0), 0.052, .metal, segments: 12)
         b.rod(V3(0, -0.078, 0), V3(0, -0.06, 0), 0.052, .metal, segments: 12)
@@ -424,7 +424,7 @@ struct HeroGearBuilder {
     }
 
     /// 弓（YZ 平面、握りが原点、弦は背側 +Z）。
-    private func bow(_ b: inout MeshBuilder, radius R: Float, limbMat: HeroMat, glowEdge: Bool, spikes: Bool) {
+    private func bow(_ b: inout HeroMeshBuilder, radius R: Float, limbMat: HeroMat, glowEdge: Bool, spikes: Bool) {
         let span: Float = 1.9
         let c = V3(0, 0, R - 0.02)
         b.blade(crescentPolygon(radius: R, thickness: 0.06, span: span, offset: 0.0), depth: 0.055, c, limbMat)
@@ -448,8 +448,8 @@ struct HeroGearBuilder {
 
     // MARK: 旗
 
-    func flag() -> MeshBuilder {
-        var b = MeshBuilder()
+    func flag() -> HeroMeshBuilder {
+        var b = HeroMeshBuilder()
         guard bp.weapon == .windBanner else { return b }
         let shape: [V2] = [V2(0, 0), V2(-0.62, -0.03), V2(-0.5, -0.22), V2(-0.62, -0.42), V2(0, -0.38)]
         b.blade(shape, depth: 0.016, .zero, .accent)
@@ -460,8 +460,8 @@ struct HeroGearBuilder {
 
     // MARK: 背中
 
-    func back() -> MeshBuilder {
-        var b = MeshBuilder()
+    func back() -> HeroMeshBuilder {
+        var b = HeroMeshBuilder()
         let w = m.torsoW
         switch bp.back {
         case .none, .ironWings:
@@ -541,7 +541,7 @@ struct HeroGearBuilder {
         return b
     }
 
-    private func gear(_ b: inout MeshBuilder, _ c: V3, _ r: Float) {
+    private func gear(_ b: inout HeroMeshBuilder, _ c: V3, _ r: Float) {
         b.rod(c + V3(0, 0, -0.015), c + V3(0, 0, 0.015), r, .metal, segments: 14)
         for i in 0..<8 {
             let a = Float(i) / 8 * 2 * .pi
@@ -551,8 +551,8 @@ struct HeroGearBuilder {
     }
 
     /// 鉄の翼（片側）。根元が原点、外側へ広がる。
-    func wing(side s: Float) -> MeshBuilder {
-        var b = MeshBuilder()
+    func wing(side s: Float) -> HeroMeshBuilder {
+        var b = HeroMeshBuilder()
         guard bp.back == .ironWings else { return b }
         let tip = V3(s * 0.4, 0.3, 0.08)
         b.limb(.zero, tip, 0.04, 0.025, .metal)
@@ -572,8 +572,8 @@ struct HeroGearBuilder {
 
     // MARK: 浮遊物
 
-    mutating func floating() -> MeshBuilder {
-        var b = MeshBuilder()
+    mutating func floating() -> HeroMeshBuilder {
+        var b = HeroMeshBuilder()
         let headZ = m.torsoD * 0.5 + 0.2
         let headH = m.torsoLen + m.headY + 0.04
         switch bp.float {

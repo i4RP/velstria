@@ -255,6 +255,7 @@ public enum UnitFactory {
             }
             st.attackRange = Balance.towerRange
         }
+        st.maxHP *= Balance.structureHPScale
         st.attackSpeed = 1
         st.sightRange = Balance.towerSight
         var u = Unit(id: 0, kind: spot.isCore ? .core : .tower, team: spot.team, pos: spot.pos,

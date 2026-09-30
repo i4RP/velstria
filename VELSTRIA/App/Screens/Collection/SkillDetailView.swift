@@ -240,7 +240,7 @@ private struct SkillInfoColumn: View {
                                     Image(systemName: "diamond.fill").font(.system(size: 7)).foregroundStyle(CollectionStyle.slotColor(skill.slot))
                                 }
                             }
-                            Text(CollectionStyle.number(SkillMath.damage(base: skill.baseDamage, rank: r), digits: 1))
+                            Text(CollectionStyle.number(SkillMath.damage(skill, rank: r), digits: 1))
                                 .foregroundStyle(Theme.textPrimary)
                             Text(CollectionStyle.seconds(SkillMath.cooldown(skill, rank: r)))
                                 .foregroundStyle(Theme.cyan)

@@ -16,7 +16,14 @@ enum SkillMath {
         base * (1 + Balance.skillDamagePerRank * Double(max(0, rank - 1)))
     }
 
-    /// CD（CD 短縮なし）= cooldown × (1 − 0.06 × (rank − 1))。
+    /// 実戦のダメージ（DESIGN §6 の式 × スロット別の調整倍率 Balance.Skills.damageScaleBySlot）。
+    static func damage(_ skill: SkillDef, rank: Int) -> Double {
+        let scales = Balance.Skills.damageScaleBySlot
+        let scale = scales.indices.contains(skill.slot.rawValue) ? scales[skill.slot.rawValue] : 1
+        return damage(base: skill.baseDamage, rank: rank) * scale
+    }
+
+    /// CD（CD 短縮なし）= cooldown × (1 − 0.06 × (rank − 1)) × 調整倍率。
     static func cooldown(_ skill: SkillDef, rank: Int) -> Double {
         SkillSystem.cooldown(for: skill, rank: rank, cdr: 0)
     }

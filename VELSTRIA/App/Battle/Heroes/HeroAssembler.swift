@@ -103,12 +103,12 @@ struct HeroAssembler {
 
     private static let fallbackMesh = MeshResource.generateBox(size: 0.001)
 
-    private mutating func finish(_ b: MeshBuilder, _ name: String) -> MeshResource {
+    private mutating func finish(_ b: HeroMeshBuilder, _ name: String) -> MeshResource {
         tris += b.triangleCount
         return b.makeAtlasMesh(name: name, glowingEyes: bp.glowingEyes) ?? Self.fallbackMesh
     }
 
-    private mutating func finishOptional(_ b: MeshBuilder, _ name: String) -> MeshResource? {
+    private mutating func finishOptional(_ b: HeroMeshBuilder, _ name: String) -> MeshResource? {
         guard !b.isEmpty else { return nil }
         tris += b.triangleCount
         return b.makeAtlasMesh(name: name, glowingEyes: bp.glowingEyes)
@@ -182,8 +182,8 @@ struct HeroAssembler {
 
     // MARK: 腰
 
-    private func buildHips() -> MeshBuilder {
-        var b = MeshBuilder()
+    private func buildHips() -> HeroMeshBuilder {
+        var b = HeroMeshBuilder()
         let hw = m.torsoW / 2
         let zs = m.torsoD / m.torsoW
         b.rbox(V3(0, 0, 0), V3(m.torsoW * 0.8, 0.2, m.torsoD * 0.84), 0.08, pantsMat)
@@ -247,8 +247,8 @@ struct HeroAssembler {
         }
     }
 
-    private func buildTorso() -> MeshBuilder {
-        var b = MeshBuilder()
+    private func buildTorso() -> HeroMeshBuilder {
+        var b = HeroMeshBuilder()
         let hw = m.torsoW / 2
         let zs = m.torsoD / m.torsoW
         let L = m.torsoLen
@@ -319,8 +319,8 @@ struct HeroAssembler {
 
     // MARK: 腕
 
-    private func buildUpperArm(side s: Float) -> MeshBuilder {
-        var b = MeshBuilder()
+    private func buildUpperArm(side s: Float) -> HeroMeshBuilder {
+        var b = HeroMeshBuilder()
         let r = m.armR
         if bp.mechArmLeft && s < 0 {
             b.sphere(V3(0, 0, 0), r * 1.6, .metal)
@@ -368,8 +368,8 @@ struct HeroAssembler {
         return b
     }
 
-    private func buildForeArm(side s: Float) -> MeshBuilder {
-        var b = MeshBuilder()
+    private func buildForeArm(side s: Float) -> HeroMeshBuilder {
+        var b = HeroMeshBuilder()
         let r = m.armR
         let L = m.foreArm
         if bp.mechArmLeft && s < 0 {
@@ -410,8 +410,8 @@ struct HeroAssembler {
 
     // MARK: 脚
 
-    private func buildThigh(side s: Float) -> MeshBuilder {
-        var b = MeshBuilder()
+    private func buildThigh(side s: Float) -> HeroMeshBuilder {
+        var b = HeroMeshBuilder()
         b.limb(.zero, V3(0, -m.thigh, 0), m.legR, m.legR * 0.9, pantsMat)
         if bp.armor == .plate {
             b.rbox(V3(0, -m.thigh * 0.45, -m.legR * 0.55), V3(m.legR * 1.9, m.thigh * 0.6, m.legR * 0.9), 0.025, .metal)
@@ -419,8 +419,8 @@ struct HeroAssembler {
         return b
     }
 
-    private func buildShin(side s: Float) -> MeshBuilder {
-        var b = MeshBuilder()
+    private func buildShin(side s: Float) -> HeroMeshBuilder {
+        var b = HeroMeshBuilder()
         let r = m.legR
         let L = m.shin
         b.limb(.zero, V3(0, -(L - 0.1), 0), r * 0.9, r * 0.8, pantsMat)
@@ -445,8 +445,8 @@ struct HeroAssembler {
         }
     }
 
-    private func buildHead() -> MeshBuilder {
-        var b = MeshBuilder()
+    private func buildHead() -> HeroMeshBuilder {
+        var b = HeroMeshBuilder()
         let R = m.headR
         let c = V3(0, m.headY, 0)
         b.sphere(c, R, .skin, .high)
@@ -473,7 +473,7 @@ struct HeroAssembler {
         return b
     }
 
-    private func eye(_ b: inout MeshBuilder, _ c: V3, _ R: Float, _ s: Float) {
+    private func eye(_ b: inout HeroMeshBuilder, _ c: V3, _ R: Float, _ s: Float) {
         let yaw: Float = 0.34, pitch: Float = -0.06
         let dir = simd_normalize(V3(s * sin(yaw) * cos(pitch), sin(pitch), -cos(yaw) * cos(pitch)))
         let rot = simd_quatf(from: V3(0, 0, -1), to: dir)
@@ -485,7 +485,7 @@ struct HeroAssembler {
     }
 
     /// 前髪（額に沿って並べる）。
-    private func bangs(_ b: inout MeshBuilder, _ c: V3, _ R: Float, count: Int, spread: Float, size: Float) {
+    private func bangs(_ b: inout HeroMeshBuilder, _ c: V3, _ R: Float, count: Int, spread: Float, size: Float) {
         for i in 0..<count {
             let t = count == 1 ? 0 : Float(i) / Float(count - 1) * 2 - 1
             let dir = simd_normalize(V3(t * spread, 0.62, -0.78))
@@ -494,11 +494,11 @@ struct HeroAssembler {
         }
     }
 
-    private func hairCap(_ b: inout MeshBuilder, _ c: V3, _ R: Float, grow: Float = 1) {
+    private func hairCap(_ b: inout HeroMeshBuilder, _ c: V3, _ R: Float, grow: Float = 1) {
         b.ellipsoid(c + V3(0, R * 0.14, R * 0.16), V3(R * 1.08 * grow, R * 1.02 * grow, R * 1.06 * grow), .hair, detail: .high)
     }
 
-    private func hair(_ b: inout MeshBuilder, _ c: V3, _ R: Float) {
+    private func hair(_ b: inout HeroMeshBuilder, _ c: V3, _ R: Float) {
         switch bp.hair {
         case .none:
             break
@@ -582,7 +582,7 @@ struct HeroAssembler {
         }
     }
 
-    private func headGear(_ b: inout MeshBuilder, _ g: HeadGear, _ c: V3, _ R: Float) {
+    private func headGear(_ b: inout HeroMeshBuilder, _ g: HeadGear, _ c: V3, _ R: Float) {
         switch g {
         case .knightHelm:
             b.ellipsoid(c + V3(0, R * 0.16, R * 0.26), V3(R * 1.12, R * 1.08, R * 1.1), .metal, detail: .high)

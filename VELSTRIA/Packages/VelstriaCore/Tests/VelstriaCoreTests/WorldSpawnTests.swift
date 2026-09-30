@@ -314,14 +314,14 @@ final class WorldSpawnTests: XCTestCase {
         XCTAssertEqual(s.units.filter { $0.kind == .tower }.count, 18)
         XCTAssertEqual(s.units.filter { $0.kind == .core }.count, 2)
         let outer = s.units[WorldTestKit.structureIndex(s, team: .red, lane: .bot, tier: .outer)]
-        XCTAssertEqual(outer.stats.maxHP, 4200)
+        XCTAssertEqual(outer.stats.maxHP, 4200 * Balance.structureHPScale, accuracy: 1e-9)
         XCTAssertEqual(outer.stats.attack, 260)
         XCTAssertEqual(outer.stats.attackRange, 750)
         let base = s.units[WorldTestKit.structureIndex(s, team: .blue, lane: .top, tier: .base)]
-        XCTAssertEqual(base.stats.maxHP, 5000)
+        XCTAssertEqual(base.stats.maxHP, 5000 * Balance.structureHPScale, accuracy: 1e-9)
         XCTAssertEqual(base.stats.armor, 100)
         let core = s.units[WorldTestKit.structureIndex(s, team: .blue, lane: nil, tier: .base, core: true)]
-        XCTAssertEqual(core.stats.maxHP, 7000)
+        XCTAssertEqual(core.stats.maxHP, 7000 * Balance.structureHPScale, accuracy: 1e-9)
         XCTAssertEqual(core.stats.attack, 360)
         XCTAssertEqual(core.stats.attackRange, 800)
         XCTAssertEqual(core.radius, 250)

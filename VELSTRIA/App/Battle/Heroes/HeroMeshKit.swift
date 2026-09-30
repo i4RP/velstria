@@ -482,7 +482,7 @@ func crescentPolygon(radius: Float, thickness: Float, span: Float, offset: Float
 // MARK: - 結合
 
 /// 骨ごとの結合メッシュを作る。面ごとにマテリアル番号（HeroMat）を持つ。
-struct MeshBuilder {
+struct HeroMeshBuilder {
     private(set) var positions: [V3] = []
     private(set) var normals: [V3] = []
     private(set) var indices: [UInt32] = []
@@ -523,7 +523,7 @@ struct MeshBuilder {
     }
 
     /// 別の結合メッシュを変換して取り込む（部品を原点で作ってから配置する用）。
-    mutating func merge(_ o: MeshBuilder, _ m: simd_float4x4) {
+    mutating func merge(_ o: HeroMeshBuilder, _ m: simd_float4x4) {
         let t = MeshTemplate(positions: o.positions, normals: o.normals, indices: o.indices)
         let faceBase = faceMaterials.count
         let vertexBase = vertexSlots.count
@@ -595,7 +595,7 @@ enum MeshTemplates {
 
 enum MeshDetail { case tiny, low, mid, high }
 
-extension MeshBuilder {
+extension HeroMeshBuilder {
     mutating func sphere(_ c: V3, _ r: Float, _ mat: HeroMat, _ detail: MeshDetail = .mid) {
         ellipsoid(c, [r, r, r], mat, detail: detail)
     }

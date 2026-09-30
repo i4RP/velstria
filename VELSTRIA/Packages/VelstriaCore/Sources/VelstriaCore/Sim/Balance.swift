@@ -110,4 +110,6 @@ public enum Balance {
     public static let towerRampPerHit: Double = 0.30
     public static let towerRampMax: Double = 1.20
     public static let leashRadius: Double = 900
+    /// タワー・Core の最大 HP 倍率（AI 対戦の試合時間を 10〜18 分へ寄せる調整値。DESIGN §4 の表に掛ける）。
+    public static let structureHPScale: Double = 0.65
 }

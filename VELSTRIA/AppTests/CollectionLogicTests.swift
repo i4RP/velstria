@@ -22,8 +22,9 @@ final class CollectionLogicTests: XCTestCase {
 
     func testSkillCooldownDropsSixPercentPerRank() throws {
         let skill = try XCTUnwrap(master.skill("SK001_2"))
-        XCTAssertEqual(SkillMath.cooldown(skill, rank: 1), skill.cooldownSec, accuracy: 1e-9)
-        XCTAssertEqual(SkillMath.cooldown(skill, rank: 3), skill.cooldownSec * 0.88, accuracy: 1e-9)
+        let scale = Balance.Skills.cooldownScale
+        XCTAssertEqual(SkillMath.cooldown(skill, rank: 1), skill.cooldownSec * scale, accuracy: 1e-9)
+        XCTAssertEqual(SkillMath.cooldown(skill, rank: 3), skill.cooldownSec * 0.88 * scale, accuracy: 1e-9)
     }
 
     func testEnergyHeroesPaySixtyPercentCost() throws {

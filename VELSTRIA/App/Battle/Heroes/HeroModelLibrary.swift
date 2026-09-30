@@ -79,13 +79,13 @@ enum HeroEffectMeshes {
     /// 赤: 破線リング（色に頼らず形でも区別できる）。
     static let teamRingDashed: MeshResource = makeTeamRing(dashed: true)
     static let shadowOnly: MeshResource = {
-        var b = MeshBuilder()
+        var b = HeroMeshBuilder()
         b.add(MeshTemplate.flat(arcPoints(.zero, 0.44, 0, 2 * .pi, 32).dropLast()), trs(V3(0, 0.012, 0)), .secondary)
         return b.makeMesh(name: "hero.shadow") ?? MeshResource.generatePlane(width: 0.8, depth: 0.8)
     }()
 
     static let groundRing: MeshResource = {
-        var b = MeshBuilder()
+        var b = HeroMeshBuilder()
         b.add(MeshTemplate.annulus(inner: 0.64, outer: 0.72, segments: 56), trs(.zero), .primary)
         b.add(MeshTemplate.annulus(inner: 0.5, outer: 0.55, segments: 48, dashes: 12, dashFill: 0.55), trs(.zero), .primary)
         for i in 0..<4 {
@@ -97,7 +97,7 @@ enum HeroEffectMeshes {
     }()
 
     private static func makeTeamRing(dashed: Bool) -> MeshResource {
-        var b = MeshBuilder()
+        var b = HeroMeshBuilder()
         let ring = dashed
             ? MeshTemplate.annulus(inner: 0.5, outer: 0.585, segments: 60, dashes: 10, dashFill: 0.68)
             : MeshTemplate.annulus(inner: 0.5, outer: 0.585, segments: 60)

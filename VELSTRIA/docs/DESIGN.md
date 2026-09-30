@@ -81,6 +81,7 @@
 | 内塔 | 4600 | 290 | 750 | 1.0s | 90/90 |
 | 基部塔 | 5000 | 320 | 750 | 1.0s | 100/100 |
 | Star Core | 7000 | 360 | 800 | 1.0s | 110/110 |
+- 上表の HP には調整倍率 ×0.65（`Balance.structureHPScale`）を掛ける（AI 対戦 8 試合で平均約 15 分）。
 - 同一ヒーローへの連続命中毎に +30%（最大 +120%）。ターゲット変更でリセット。
 - ターゲット優先: 射程内で「味方ヒーローを攻撃した敵ヒーロー」> 最も近いミニオン > 最も近いヒーロー。
 - 外塔は 0:00–4:00 の間 受けるダメージ −40%（序盤保護）。
@@ -117,7 +118,8 @@
 - ランク: 基本スキル最大 4、Ult 最大 3（Lv 4/8/12 で習得可能）。Lv1 で 1 ポイント、以後レベル毎 +1。
 - 自動習得（既定 ON）: Ult > Skill1 > Skill2 > Skill3 の順で可能なもの。
 - ダメージ = base_damage × (1 + 0.30×(rank−1)) + scaling_attack × 総攻撃力 × 0.6 + scaling_power × 魔力
-- CD = cooldown_sec × (1 − 0.06×(rank−1)) × (1 − CD短縮)。CD短縮上限 40%。
+- CD = cooldown_sec × (1 − 0.06×(rank−1)) × (1 − CD短縮) × 0.5（調整倍率 `Balance.Skills.cooldownScale`）。CD短縮上限 40%。
+- 調整倍率（1v1 の TTK 3〜13 秒を目標に `SkillBalanceTests` で決定）: ダメージ ×[Skill1 4.0 / Skill2 3.0 / Skill3 3.0 / Ult 2.6]、回復・シールド系 ×2.4。
 - コスト = cost（Mana/Energy）。Energy ヒーローは cost × 0.6。
 - ダメージ種別はヒーロー毎（マスター damage_type）。
 - アーキタイプ（`SkillArchetype`）:
