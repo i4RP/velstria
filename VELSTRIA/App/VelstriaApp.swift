@@ -31,16 +31,16 @@ struct RootView: View {
     var body: some View {
         @Bindable var router = app.router
         ZStack {
+            #if DEBUG || SCREENSHOTS
+            // 開発用のヒーロー 3D モデル一覧（出荷ビルドには含めない。DebugLaunch 参照）
             if DebugLaunch.args.contains("-heroGallery") {
                 HeroGalleryView()
-            } else if app.profile.onboardingCompleted {
-                NavigationStack(path: $router.path) {
-                    HomeView()
-                        .navigationDestination(for: Route.self) { RouteDestination(route: $0) }
-                }
             } else {
-                OnboardingFlowView()
+                mainContent
             }
+            #else
+            mainContent
+            #endif
             ToastOverlay()
         }
         .id(app.profile.settings.language)
@@ -53,6 +53,19 @@ struct RootView: View {
         .preferredColorScheme(.dark)
         .statusBarHidden(true)
         .persistentSystemOverlays(.hidden)
+    }
+
+    @ViewBuilder
+    private var mainContent: some View {
+        @Bindable var router = app.router
+        if app.profile.onboardingCompleted {
+            NavigationStack(path: $router.path) {
+                HomeView()
+                    .navigationDestination(for: Route.self) { RouteDestination(route: $0) }
+            }
+        } else {
+            OnboardingFlowView()
+        }
     }
 }
 

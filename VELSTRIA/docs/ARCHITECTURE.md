@@ -97,4 +97,5 @@ xcrun simctl launch <UDID> com.bitcoinpay.velstria -uiTesting -skipOnboarding -g
 xcrun simctl io <UDID> screenshot /tmp/<担当名>-heroes.png
 xcrun simctl delete <UDID>
 ```
-起動引数の一覧は `App/Core/DebugLaunch.swift`。
+起動引数の一覧は `App/Core/DebugLaunch.swift`。起動引数は Debug ビルド（または `SCREENSHOTS` 条件付きの撮影用ビルド）でのみ有効で、
+App Store 用の Release アーカイブでは読まれない（`-grant`・`-skipOnboarding`・`-heroGallery` 等は出荷バイナリに含まれない）。

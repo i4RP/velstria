@@ -12,7 +12,10 @@ import VelstriaCore
 //   -galleryFreeze <秒>        指定秒だけ進めて静止
 //   -galleryDetail <heroID>    単体プレビュー（HeroPreview3DView）を表示
 //   -galleryYaw <度>           台の回転（側面・背面の確認）
+//
+// 開発用の目視確認画面のため DEBUG / SCREENSHOTS ビルドのみ（App Store 用アーカイブには含めない）。
 
+#if DEBUG || SCREENSHOTS
 struct HeroGalleryView: View {
     @Environment(AppModel.self) private var app
     @State private var page = 0
@@ -242,3 +245,4 @@ struct HeroGalleryView: View {
         }
     }
 }
+#endif
