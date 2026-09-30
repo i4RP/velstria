@@ -122,7 +122,7 @@ struct BotProfile {
                               divesForKill: false, groupSize: 4, farmSkillResource: 2, groupStart: 11 * 60)
         case .normal:
             return BotProfile(reaction: 0.35, accuracy: 0.75, skillChance: 0.7, engageRatio: 1.15, lastHitSkill: 0.8,
-                              divesForKill: false, groupSize: 4, farmSkillResource: 0.7, groupStart: 9.5 * 60)
+                              divesForKill: false, groupSize: 4, farmSkillResource: 0.7, groupStart: Balance.Bot.groupStart)
         case .hard:
             return BotProfile(reaction: 0.15, accuracy: 0.92, skillChance: 1.0, engageRatio: 1.1, lastHitSkill: 1.0,
                               divesForKill: true, groupSize: 5, farmSkillResource: 0.5, groupStart: 9 * 60)

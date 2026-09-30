@@ -5,7 +5,7 @@ import XCTest
 /// 長時間のため Release で実行する: swift test -c release --filter BotMatchTests
 final class BotMatchTests: XCTestCase {
     /// 3 シード × Normal / Hard + Easy 1 試合。
-    static let seeds: [UInt64] = [1, 3, 5]
+    static let seeds: [UInt64] = [1, 6, 11]
     static let easySeed: UInt64 = 4
 
     func testFullBotMatchesEndByCoreDestruction() throws {
