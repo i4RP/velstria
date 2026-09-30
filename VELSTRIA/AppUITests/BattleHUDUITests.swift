@@ -96,6 +96,23 @@ final class BattleHUDUITests: XCTestCase {
         XCTAssertTrue(element(app, "hud_attack").exists)
     }
 
+    /// ランク戦の途中退出は警告どおり敗北として記録され、報酬なしのリザルトへ進む。
+    func testRankedLeaveIsRecordedAsLoss() {
+        let app = launch(["-battle", "ranked", "-language", "en"])
+        tap(app, "hud_pause", timeout: 30)
+        tap(app, "pause_leave")
+        let confirm = element(app, "leave_confirm")
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        XCTAssertTrue(confirm.label.contains("Loss"), confirm.label)
+        confirm.tap()
+        let banner = element(app, "result_banner")
+        XCTAssertTrue(banner.waitForExistence(timeout: 15), "退出後にリザルトへ進まない")
+        XCTAssertTrue(banner.label.contains("DEFEAT"), banner.label)
+        tap(app, "result_tab_rewards")
+        XCTAssertTrue(app.staticTexts["No rewards for leaving early"].waitForExistence(timeout: 5))
+        snap("hud_ranked_leave_result")
+    }
+
     func testSpectateSpeedAndLeave() {
         let app = launch(["-battle", "spectate", "-language", "en"])
         XCTAssertTrue(element(app, "spectate_speed_2x").waitForExistence(timeout: 30))
