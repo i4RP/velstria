@@ -49,7 +49,7 @@
 - [ ] 利用者向けの返金案内（Apple の「問題を報告する」）がサポート画面・利用規約にある。
 
 ### ストア審査
-- [ ] `python3 tools/validate_appstore_metadata.py --release` がエラー 0（プレースホルダ・仮 URL なし）。
+- [ ] `python3 tools/validate_appstore_metadata.py --release` がエラー 0（プレースホルダ・仮 URL なし。アプリ内の `StoreLegalText`・`FeatureFlags` も対象）。
 - [ ] `python3 tools/gen_master_en.py --check` / `python3 tools/gen_master_ja.py --check` / `python3 tools/privacy_audit.py` が成功。
 - [ ] プライバシーポリシー・利用規約・サポートの URL を公開し、アプリ内リンク（`FeatureFlags`）と ASC の URL が一致して開ける。
 - [ ] 特定商取引法に基づく表記・資金決済法に基づく表示を Web とアプリ内（ストア画面から 1 タップ）に掲載。

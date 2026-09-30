@@ -33,10 +33,10 @@ App Store Connect（ASC）への v1.0 提出に必要なもの一式と手順。
 
 | プレースホルダ | 内容 | 使用箇所 |
 |---|---|---|
-| `{{PUBLISHER_NAME}}` | 販売事業者の正式名称（法人名または個人名） | copyright.txt、法務文書 |
-| `{{REPRESENTATIVE_NAME}}` | 代表者 / 運営統括責任者 | 特定商取引法表記、資金決済法表示 |
-| `{{POSTAL_ADDRESS}}` | 所在地 | 法務文書 |
-| `{{PHONE_NUMBER}}` | 電話番号（受付時間を併記） | 特定商取引法表記、資金決済法表示 |
+| `{{PUBLISHER_NAME}}` | 販売事業者の正式名称（法人名または個人名） | copyright.txt、法務文書、アプリ内の資金決済法表示（`App/Screens/Store/StoreLogic.swift` の `StoreLegalText`） |
+| `{{REPRESENTATIVE_NAME}}` | 代表者 / 運営統括責任者 | 特定商取引法表記、資金決済法表示（アプリ内も同上） |
+| `{{POSTAL_ADDRESS}}` | 所在地 | 法務文書、アプリ内の資金決済法表示 |
+| `{{PHONE_NUMBER}}` | 電話番号（受付時間を併記） | 特定商取引法表記、資金決済法表示（アプリ内も同上） |
 | `{{SUPPORT_EMAIL}}` | サポート窓口メールアドレス | 法務文書（アプリ内は `FeatureFlags.supportEmail`） |
 | `{{EFFECTIVE_DATE}}` | 法務文書の施行日 | 法務文書 |
 | `{{TERMS_URL}}` | 利用規約の公開 URL（`FeatureFlags.termsURL` と同じ） | 資金決済法に基づく表示 |
@@ -47,6 +47,10 @@ App Store Connect（ASC）への v1.0 提出に必要なもの一式と手順。
 
 > URL を確定したら `App/Core/FeatureFlags.swift`（統合担当の契約ファイル）の `supportEmail` / `privacyPolicyURL` / `termsURL` も同じ値に更新すること。
 > 審査ではアプリ内のリンク先と ASC のプライバシーポリシー URL が実際に開けることを確認される。
+>
+> アプリに埋め込まれる値（`App/` 内の `{{…}}` と `*.example`）は TestFlight のテスターにも見えるため、
+> `tools/archive.sh` は既定でエラーにして止める（`validate_appstore_metadata.py --archive`）。
+> 社内確認用に限り `ALLOW_APP_PLACEHOLDERS=1` で警告に下げられるが、外部テスト・審査に出すビルドでは使わないこと。
 
 ## 3. App 情報（App Information）
 
