@@ -117,6 +117,30 @@ final class BotDiagnosticTests: XCTestCase {
                      lowLevel))
     }
 
+    /// 調整用: BotMatchTests の判定基準で各シードの合否を一覧する（BOT_SCREEN=シード数）。
+    func testDiagnosticScreenSeeds() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard let n = env["BOT_SCREEN"].flatMap(Int.init) else { throw XCTSkip("BOT_SCREEN=n で実行") }
+        let base = UInt64(env["BOT_SEED"] ?? "1") ?? 1
+        let diffs: [Difficulty] = env["BOT_DIFF"].flatMap(Int.init).flatMap { Difficulty(rawValue: $0) }.map { [$0] }
+            ?? [.normal, .hard]
+        for k in 0..<n {
+            let seed = base + UInt64(k)
+            var verdicts: [String] = []
+            for d in diffs {
+                let r = BotMatchReport.run("s\(seed) \(d)", config: MatchFactory.botMatch(difficulty: d, seed: seed))
+                var fails: [String] = []
+                if r.endReason != .coreDestroyed { fails.append("end") }
+                if r.duration < 8 * 60 || r.duration > 30 * 60 { fails.append(String(format: "time %.1f", r.duration / 60)) }
+                if r.kills[0] == 0 || r.kills[1] == 0 { fails.append("kills \(r.kills[0])/\(r.kills[1])") }
+                if r.avgLevelAt12 < 9 { fails.append(String(format: "lv %.1f", r.avgLevelAt12)) }
+                if r.heroes.contains(where: { $0.isBot && ($0.movedPerMinute < 300 || $0.itemsAt12 < 1) }) { fails.append("stuck/items") }
+                verdicts.append("\(d): " + (fails.isEmpty ? "PASS" : fails.joined(separator: ",")))
+            }
+            print("SCREEN seed \(seed) | " + verdicts.joined(separator: " | "))
+        }
+    }
+
     /// 調整用: BotAI 単体の所要時間（状態のコピーに対して生成だけを計測）。
     func testDiagnosticBotCost() throws {
         guard ProcessInfo.processInfo.environment["BOT_COST"] != nil else { throw XCTSkip("BOT_COST=1 で実行") }

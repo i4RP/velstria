@@ -56,14 +56,19 @@ struct BotMatchReport {
         return hs.isEmpty ? 0 : Double(hs.map(\.finalItems).reduce(0, +)) / Double(hs.count)
     }
 
+    /// 12:00 時点のボット 1 人あたりの装備数。
+    var itemsAt12: Double {
+        let hs = heroes.filter(\.isBot)
+        return hs.isEmpty ? 0 : Double(hs.map(\.itemsAt12).reduce(0, +)) / Double(hs.count)
+    }
+
     static func tableHeader() -> String {
         "| match | duration | winner | kills B/R (exec) | towers B/R | wyrm B/R | colossus B/R | avg Lv @12:00 | items/hero @12:00 | items/hero end | ms/tick |\n"
             + "|---|---|---|---|---|---|---|---|---|---|---|"
     }
 
     var tableRow: String {
-        let bots = heroes.filter(\.isBot)
-        let items12 = bots.isEmpty ? 0 : Double(bots.map(\.itemsAt12).reduce(0, +)) / Double(bots.count)
+        let items12 = itemsAt12
         let m = Int(duration) / 60, sec = Int(duration) % 60
         return String(format: "| %@ | %d:%02d | %@ | %d / %d (%d) | %d / %d | %d / %d | %d / %d | %.1f | %.1f | %.1f | %.3f |",
                       label, m, sec, winner.map { "\($0)" } ?? "-", kills[0], kills[1], executions, towers[0], towers[1],

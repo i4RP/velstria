@@ -490,9 +490,11 @@ enum BotMacro {
         }
         let resourceLow = u.stats.maxResource > 0 && u.resource < u.stats.maxResource * 0.12
         if resourceLow && hpRatio < 0.6 { return true }
-        guard !busyWithObjective, a.enemies.isEmpty else { return false }
+        guard !busyWithObjective, a.enemies.isEmpty, hero.gold >= Balance.Bot.shopRecallGold else { return false }
+        // 買える物が無い（ビルド完成・枠が埋まっている）なら買い物のためには帰らない
+        guard ItemSystem.nextRecommendedPurchase(hero, ctx: ctx) != nil else { return false }
         if hero.gold >= Balance.Bot.shopRecallGoldAlways { return true }
-        if hero.gold >= Balance.Bot.shopRecallGold && hpRatio < Balance.Bot.shopRecallMaxHP {
+        if hpRatio < Balance.Bot.shopRecallMaxHP {
             return hero.gold >= min(BotShop.goldForNextItem(hero, ctx: ctx), 1250)
         }
         return false
