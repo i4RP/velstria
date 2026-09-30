@@ -16,17 +16,7 @@ struct HUDHeroPanel: View {
             HStack(spacing: 7 * s) {
                 HUDPortraitLevel(heroID: hero.heroID, level: hero.level, xp: hero.xpProgress, size: 46 * s,
                                  pulse: model.levelUpPulse)
-                VStack(alignment: .leading, spacing: 4 * s) {
-                    HUDBar(value: hero.hp, max: hero.maxHP, shield: hero.shield,
-                           color: hero.hpRatio < 0.3 ? HUDStyle.hpLow : HUDStyle.hp, height: 15 * s, showsText: true)
-                        .accessibilityElement()
-                        .accessibilityLabel(L("HP", "HP"))
-                        .accessibilityValue("\(HUDStyle.number(hero.hp)) / \(HUDStyle.number(hero.maxHP))")
-                    if hero.maxResource > 0 {
-                        HUDBar(value: hero.resource, max: hero.maxResource, shield: 0,
-                               color: HUDStyle.resourceColor(hero.resourceKind), height: 11 * s, showsText: true)
-                    }
-                }
+                HUDVitalsBars(model: model, scale: s)
             }
             HStack(spacing: 4 * s) {
                 HUDItemSlots(model: model, items: hero.items, slot: 31 * s)
@@ -53,6 +43,31 @@ struct HUDHeroPanel: View {
             }
         }
         .animation(.spring(duration: 0.3), value: model.quickBuyItemID)
+    }
+}
+
+/// HP・リソースのバー（毎 tick 変わる値だけを観測する）。
+struct HUDVitalsBars: View {
+    let model: HUDModel
+    let scale: CGFloat
+
+    var body: some View {
+        let v = model.vitals
+        VStack(alignment: .leading, spacing: 4 * scale) {
+            HUDBar(value: v.hp, max: v.maxHP, shield: v.shield,
+                   color: v.hpRatio < 0.3 ? HUDStyle.hpLow : HUDStyle.hp, height: 15 * scale, showsText: true)
+                .accessibilityElement()
+                .accessibilityLabel(L("HP", "HP"))
+                .accessibilityValue("\(HUDStyle.number(v.hp)) / \(HUDStyle.number(v.maxHP))")
+                .accessibilityIdentifier("hud_hp")
+            if v.maxResource > 0 {
+                HUDBar(value: v.resource, max: v.maxResource, shield: 0,
+                       color: HUDStyle.resourceColor(v.resourceKind), height: 11 * scale, showsText: true)
+                    .accessibilityElement()
+                    .accessibilityLabel(v.resourceKind == .energy ? L("エナジー", "Energy") : L("マナ", "Mana"))
+                    .accessibilityValue("\(HUDStyle.number(v.resource)) / \(HUDStyle.number(v.maxResource))")
+            }
+        }
     }
 }
 

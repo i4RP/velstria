@@ -37,17 +37,23 @@ struct HUDChannel: Equatable {
     var total: Double
 }
 
-struct HUDHeroSnapshot: Equatable {
-    var heroID = ""
-    var role: Role = .duelist
-    var level = 1
-    var xpProgress: Double = 0
+/// HP・リソース（毎 tick 変わるのでヒーローの他の情報と分けて観測させる）。
+struct HUDVitals: Equatable {
     var hp: Double = 0
     var maxHP: Double = 1
     var shield: Double = 0
     var resource: Double = 0
     var maxResource: Double = 0
     var resourceKind: ResourceKind = .mana
+
+    var hpRatio: Double { maxHP > 0 ? min(1, max(0, hp / maxHP)) : 0 }
+}
+
+struct HUDHeroSnapshot: Equatable {
+    var heroID = ""
+    var role: Role = .duelist
+    var level = 1
+    var xpProgress: Double = 0
     var gold = 0
     var items: [String] = []
     var statuses: [HUDStatusIcon] = []
@@ -55,8 +61,6 @@ struct HUDHeroSnapshot: Equatable {
     var respawn: Double = 0
     var channel: HUDChannel?
     var skillPoints = 0
-
-    var hpRatio: Double { maxHP > 0 ? min(1, max(0, hp / maxHP)) : 0 }
 }
 
 struct HUDSkillSnapshot: Equatable, Identifiable {

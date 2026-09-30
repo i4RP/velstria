@@ -98,10 +98,10 @@ private struct HUDRoot: View {
             HUDBannerLayer(model: model, layout: layout)
             if !ended && !tutorialDone { HUDTutorialLayer(model: model, layout: layout) }
             if !ended { HUDSurrenderLayer(model: model, layout: layout) }
-            HUDToastLayer(model: model, layout: layout, showControls: showControls)
             HUDAimOverlay(visual: model.aimVisual, layout: layout)
 
             HUDPanelsLayer(model: model, layout: layout)
+            HUDToastLayer(model: model, layout: layout, showControls: showControls)
 
             if tutorialDone && !ended, let tutorial = model.tutorial {
                 HUDTutorialComplete(model: model, director: tutorial)
@@ -131,8 +131,8 @@ private struct HUDVignetteLayer: View {
     let model: HUDModel
 
     var body: some View {
-        let hero = model.hero
-        HUDLowHealthVignette(active: !hero.isDead && hero.maxHP > 1 && hero.hpRatio < 0.3)
+        let v = model.vitals
+        HUDLowHealthVignette(active: !model.hero.isDead && v.maxHP > 1 && v.hpRatio < 0.3)
     }
 }
 
@@ -253,9 +253,13 @@ private struct HUDToastLayer: View {
     let showControls: Bool
 
     var body: some View {
+        // ショップを開いている間は所持品の上、それ以外はヒーローパネル（と詠唱バー）の上
+        let inShop = model.panel == .shop
+        let x = inShop || !showControls ? layout.width / 2 : layout.heroPanelCenterX
+        let y = inShop ? layout.bottomEdge - 84
+            : layout.bottomEdge - (showControls ? HUDRootMetrics.heroPanelHeight(layout) + 104 * min(layout.scale, 1.08) : 100)
         HUDToastView(toast: model.toast)
-            .position(x: showControls ? layout.heroPanelCenterX : layout.width / 2,
-                      y: layout.bottomEdge - (showControls ? HUDRootMetrics.heroPanelHeight(layout) + 34 : 100))
+            .position(x: x, y: y)
     }
 }
 

@@ -15,6 +15,8 @@ struct HUDJoystick: View {
     @State private var active = false
     @State private var base: CGPoint = .zero
     @State private var knob: CGVector = .zero
+    /// ジェスチャーが取り消された（onEnded が呼ばれない）場合も確実に止めるため。
+    @GestureState private var touching = false
 
     var body: some View {
         let r = layout.joystickRadius
@@ -59,10 +61,17 @@ struct HUDJoystick: View {
                 HUDHighlightRing(diameter: r * 2 + 16).position(layout.joystickRest)
             }
         }
+        .onChange(of: touching) { _, now in
+            guard !now, active else { return }
+            active = false
+            knob = .zero
+            model.joystickEnded()
+        }
     }
 
     private func drag(zone: CGRect) -> some Gesture {
         DragGesture(minimumDistance: 0, coordinateSpace: .named(HUDSpace.name))
+            .updating($touching) { _, state, _ in state = true }
             .onChanged { v in
                 let r = layout.joystickRadius
                 if !active {
@@ -103,6 +112,7 @@ struct HUDAttackButton: View {
     let diameter: CGFloat
     let highlighted: Bool
     @State private var pressed = false
+    @GestureState private var touching = false
 
     var body: some View {
         ZStack {
@@ -128,6 +138,7 @@ struct HUDAttackButton: View {
         .contentShape(Circle())
         .gesture(
             DragGesture(minimumDistance: 0)
+                .updating($touching) { _, state, _ in state = true }
                 .onChanged { _ in
                     if !pressed {
                         pressed = true
@@ -139,6 +150,11 @@ struct HUDAttackButton: View {
                     model.attackReleased()
                 }
         )
+        .onChange(of: touching) { _, now in
+            guard !now, pressed else { return }
+            pressed = false
+            model.attackReleased()
+        }
         .hudAccessibility(id: "hud_attack", label: L("通常攻撃", "Attack"),
                           value: L("長押しで攻撃を続ける", "Hold to keep attacking")) {
             model.attackPressed()
@@ -209,6 +225,7 @@ struct HUDSkillButton: View {
     let center: CGPoint
     let name: String
     let highlighted: Bool
+    @GestureState private var touching = false
 
     var body: some View {
         let color = Theme.roleColor(role)
@@ -267,12 +284,16 @@ struct HUDSkillButton: View {
         .contentShape(Circle())
         .gesture(
             DragGesture(minimumDistance: 0, coordinateSpace: .named(HUDSpace.name))
+                .updating($touching) { _, state, _ in state = true }
                 .onChanged { v in
                     model.abilityDragChanged(.skill(snapshot.slot), start: v.startLocation, location: v.location,
                                              buttonCenter: center)
                 }
                 .onEnded { v in model.abilityDragEnded(.skill(snapshot.slot), location: v.location) }
         )
+        .onChange(of: touching) { _, now in
+            if !now { model.abilityDragCancelled(.skill(snapshot.slot)) }
+        }
         .hudAccessibility(id: Self.identifier(snapshot.slot), label: "\(CollectionStyle.slotName(snapshot.slot)) \(name)",
                           value: accessibilityValue) {
             model.abilityDragChanged(.skill(snapshot.slot), start: center, location: center, buttonCenter: center)
@@ -328,6 +349,7 @@ struct HUDSpellButton: View {
     let snapshot: HUDSpellSnapshot
     let diameter: CGFloat
     let center: CGPoint
+    @GestureState private var touching = false
 
     var body: some View {
         let info = SpellInfo.of(snapshot.spellID)
@@ -361,12 +383,16 @@ struct HUDSpellButton: View {
         .contentShape(Circle())
         .gesture(
             DragGesture(minimumDistance: 0, coordinateSpace: .named(HUDSpace.name))
+                .updating($touching) { _, state, _ in state = true }
                 .onChanged { v in
                     model.abilityDragChanged(.spell(snapshot.index), start: v.startLocation, location: v.location,
                                              buttonCenter: center)
                 }
                 .onEnded { v in model.abilityDragEnded(.spell(snapshot.index), location: v.location) }
         )
+        .onChange(of: touching) { _, now in
+            if !now { model.abilityDragCancelled(.spell(snapshot.index)) }
+        }
         .hudAccessibility(id: "hud_spell\(snapshot.index + 1)",
                           label: MasterData.shared.spell(snapshot.spellID).map { MasterText.spell($0) } ?? snapshot.spellID,
                           value: snapshot.cooldown > 0 ? L("残り \(HUDStyle.cooldown(snapshot.cooldown)) 秒", "\(HUDStyle.cooldown(snapshot.cooldown)) seconds left")

@@ -67,6 +67,7 @@ final class HUDModel {
     private(set) var settings = GameSettings()
     private(set) var top = HUDTopSnapshot()
     private(set) var hero = HUDHeroSnapshot()
+    private(set) var vitals = HUDVitals()
     private(set) var skills: [HUDSkillSnapshot] = SkillSlot.actives.map { HUDSkillSnapshot(slot: $0) }
     private(set) var spells: [HUDSpellSnapshot] = [HUDSpellSnapshot(index: 0), HUDSpellSnapshot(index: 1)]
     private(set) var quickBuyItemID: String?
@@ -259,12 +260,15 @@ final class HUDModel {
         snap.role = h.role
         snap.level = h.level
         snap.xpProgress = (HeroGrowth.levelProgress(h) * 50).rounded() / 50
-        snap.hp = u.hp.rounded()
-        snap.maxHP = u.stats.maxHP.rounded()
-        snap.shield = u.totalShield.rounded()
-        snap.resource = u.resource.rounded()
-        snap.maxResource = u.stats.maxResource.rounded()
-        snap.resourceKind = h.resourceKind
+        var v = HUDVitals()
+        v.hp = u.hp.rounded()
+        v.maxHP = u.stats.maxHP.rounded()
+        v.shield = u.totalShield.rounded()
+        v.resource = u.resource.rounded()
+        v.maxResource = u.stats.maxResource.rounded()
+        v.resourceKind = h.resourceKind
+        if debugForceLowHP { v.hp = (v.maxHP * 0.22).rounded() }
+        if v != vitals { vitals = v }
         snap.gold = Int(h.gold)
         snap.items = h.items
         snap.isDead = h.isDead
@@ -281,7 +285,6 @@ final class HUDModel {
                 deathInfo = HUDDeathInfo(killerHeroID: "H005", killerKind: .hero, killerTeam: .red)
             }
         }
-        if debugForceLowHP { snap.hp = (snap.maxHP * 0.22).rounded() }
         if snap != hero { hero = snap }
 
         // スキル
@@ -1101,6 +1104,15 @@ final class HUDModel {
         lastActionAt = now
     }
 
+    /// ジェスチャーが取り消された（onEnded が来ない）場合の後始末。onEnded の後に呼ばれても何もしない。
+    func abilityDragCancelled(_ source: AimSource) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let session = self.aimSession, session.source == source else { return }
+            self.aimSession = nil
+            self.hideAim()
+        }
+    }
+
     private func beginSession(_ source: AimSource, start: CGPoint) -> AimSession? {
         let manual = settings.skillCastMode == .manual
         switch source {
@@ -1213,7 +1225,7 @@ final class HUDModel {
             } else if sn.silenced {
                 message = L("沈黙中はスキルを使えません", "Silenced")
             } else if !sn.affordable {
-                message = hero.resourceKind == .energy ? L("エナジーが足りません", "Not enough energy")
+                message = vitals.resourceKind == .energy ? L("エナジーが足りません", "Not enough energy")
                     : L("マナが足りません", "Not enough mana")
             } else {
                 message = L("今は使えません", "Can't cast right now")

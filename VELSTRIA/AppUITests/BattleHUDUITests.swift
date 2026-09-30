@@ -79,6 +79,23 @@ final class BattleHUDUITests: XCTestCase {
         XCTAssertTrue(element(app, "home_play").waitForExistence(timeout: 15), "退出後にホームへ戻らない")
     }
 
+    func testTutorialMoveStepAdvancesWithJoystick() {
+        let app = launch(["-battle", "tutorial", "-language", "en"])
+        let card = element(app, "tutorial_card")
+        XCTAssertTrue(card.waitForExistence(timeout: 30))
+        XCTAssertTrue(card.label.contains("Move Around"), card.label)
+        let stick = element(app, "hud_joystick")
+        let from = stick.coordinate(withNormalizedOffset: CGVector(dx: 0.35, dy: 0.65))
+        // スティックを右上へ倒したまま保持する（600 ユニット以上歩く）
+        from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 50, dy: -35)), withVelocity: .default,
+                   thenHoldForDuration: 4.0)
+        let advanced = NSPredicate(format: "label CONTAINS %@", "Basic Attacks")
+        expectation(for: advanced, evaluatedWith: element(app, "tutorial_card"))
+        waitForExpectations(timeout: 8)
+        snap("hud_tutorial_step2")
+        XCTAssertTrue(element(app, "hud_attack").exists)
+    }
+
     func testSpectateSpeedAndLeave() {
         let app = launch(["-battle", "spectate", "-language", "en"])
         XCTAssertTrue(element(app, "spectate_speed_2x").waitForExistence(timeout: 30))
