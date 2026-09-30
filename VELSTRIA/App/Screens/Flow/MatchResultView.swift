@@ -50,7 +50,8 @@ struct MatchResultView: View {
                 ResultBanner(kind: bannerKind, appeared: bannerIn)
                 HStack(alignment: .top, spacing: 12) {
                     if let focus {
-                        FocusPanel(player: focus, isSpectating: outcome.launch.isSpectating, appeared: bannerIn)
+                        // 「試合 MVP」の見出しは人間がいない観戦（MVP を表示している時）だけ。リプレイは人間の成績を出す
+                        FocusPanel(player: focus, showsMatchMVPCaption: summary.humanPlayer == nil, appeared: bannerIn)
                             .frame(width: 204)
                     }
                     VStack(spacing: 6) {
@@ -276,7 +277,8 @@ struct ResultBanner: View {
 
 private struct FocusPanel: View {
     let player: PlayerSummary
-    let isSpectating: Bool
+    /// 人間のいない観戦で MVP を表示している（「試合 MVP」の見出しを出す）。
+    let showsMatchMVPCaption: Bool
     let appeared: Bool
     @Environment(AppModel.self) private var app
 
@@ -295,7 +297,7 @@ private struct FocusPanel: View {
                             .animation(.spring(duration: 0.6, bounce: 0.45).delay(0.5), value: appeared)
                     }
                     VStack(alignment: .leading, spacing: 3) {
-                        if isSpectating {
+                        if showsMatchMVPCaption {
                             Text(L("試合 MVP", "Match MVP")).font(Theme.heading(11)).foregroundStyle(Theme.gold)
                         }
                         Text(player.displayName)
