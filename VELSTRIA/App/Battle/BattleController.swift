@@ -52,6 +52,9 @@ final class BattleController {
     /// 15Hz で増える。HUD はこれを参照して SimState を読み直す。
     private(set) var hudTick = 0
     private(set) var isEnded = false
+    /// 描画側の準備（地面テクスチャ・ウォームアップが済み、読み込み幕が上がる）が完了した。
+    /// これが立つまで予備駆動（BattleLoopFallback）は sim を進めず、HUD も表示しない。
+    private(set) var isPresentationReady = false
     var isPaused = false
     /// 観戦・リプレイの再生速度（1, 2, 4）。
     var speed: Double = 1
@@ -122,6 +125,12 @@ final class BattleController {
     }
 
     // MARK: ループ
+
+    /// 描画側の準備完了を通知する（BattleRenderer が読み込み幕を上げる時。予備駆動のタイムアウト時）。
+    func markPresentationReady() {
+        guard !isPresentationReady else { return }
+        isPresentationReady = true
+    }
 
     /// 描画フレーム毎に呼ぶ（dt = 実時間の経過秒）。
     func frame(dt: Double) {

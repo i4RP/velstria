@@ -138,7 +138,11 @@ final class BattleRenderer {
             warmupFrames -= 1
             world.sync(events: [], dt: Float(dt), rig: rig)
             world.updateCamera(rig: rig, dt: 0, snap: true)
-            if warmupFrames == 0 { view.liftCurtain() }
+            if warmupFrames == 0 {
+                view.liftCurtain()
+                // ここから試合開始（予備駆動は sim を進めずに待っている。HUD もここで表示する）
+                controller.markPresentationReady()
+            }
             return
         }
         if controller.isPaused {

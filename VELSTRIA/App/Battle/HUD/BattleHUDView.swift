@@ -58,6 +58,19 @@ private struct HUDRoot: View {
     let layout: HUDLayout
 
     var body: some View {
+        // 読み込み幕が上がるまで HUD を置かない（見えない HUD が操作・VoiceOver・UI テストの対象にならないように）
+        ZStack {
+            if model.isReady {
+                layers.transition(.opacity)
+            }
+        }
+        .frame(width: layout.width, height: layout.height)
+        .coordinateSpace(name: HUDSpace.name)
+        .animation(.easeOut(duration: 0.35), value: model.isReady)
+    }
+
+    @ViewBuilder
+    private var layers: some View {
         let spectating = model.isSpectating
         let settings = model.settings
         let ended = model.endPhase != nil
@@ -113,9 +126,6 @@ private struct HUDRoot: View {
             }
         }
         .frame(width: layout.width, height: layout.height)
-        .coordinateSpace(name: HUDSpace.name)
-        .opacity(model.isReady ? 1 : 0)
-        .animation(.easeOut(duration: 0.35), value: model.isReady)
         .animation(.easeInOut(duration: 0.4), value: tutorialDone)
         .animation(.easeInOut(duration: 0.4), value: ended)
     }

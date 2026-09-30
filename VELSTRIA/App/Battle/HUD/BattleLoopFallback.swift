@@ -3,7 +3,9 @@ import VelstriaCore
 
 // 担当: battle-hud。戦闘ループの予備駆動。
 // 通常は BattleSceneView（RealityKit の描画更新）が毎フレーム controller.frame(dt:) を呼ぶ。
-// 描画側がまだループを回していない間だけ CADisplayLink で frame(dt:) を呼び、
+// 描画側は読み込み幕が上がる時に controller.markPresentationReady() を呼んでから駆動を始めるので、
+// それまで（地面テクスチャ生成・ウォームアップ中）は sim を進めずに待ち、準備完了を見たら駆動せずに停止する。
+// 描画側が一定時間（readyTimeoutFrames）準備を終えない場合だけ、準備完了扱いにして CADisplayLink で frame(dt:) を呼び、
 // 自分以外の呼び出し（tick または補間係数の変化）を検出したら即座に停止して二重駆動を避ける。
 
 @MainActor
@@ -23,6 +25,10 @@ final class BattleLoopFallback {
     private var lastTimestamp: CFTimeInterval = 0
     private var expectedTick = -1
     private var expectedAlpha = -1.0
+    /// 描画側の準備を待ったフレーム数（一時停止中は数えない）。
+    private var waitedFrames = 0
+    /// 描画側の準備をこのフレーム数（60Hz で約 10 秒）待っても終わらなければ予備駆動に切り替える。
+    static let readyTimeoutFrames = 600
     /// 描画側がループを駆動していると判定して停止した。
     private(set) var yielded = false
 
@@ -47,6 +53,19 @@ final class BattleLoopFallback {
         guard let c = controller else {
             stop()
             return
+        }
+        if expectedTick < 0 {
+            // まだ一度も駆動していない
+            if c.isPresentationReady {
+                // 描画側が準備を終えて駆動を始めた → 予備駆動は不要
+                yielded = true
+                stop()
+                return
+            }
+            // 読み込み幕の裏では sim を進めない（開始告知・試合時間が幕の裏で進まないように）
+            if !c.isPaused { waitedFrames += 1 }
+            guard waitedFrames >= Self.readyTimeoutFrames else { return }
+            c.markPresentationReady()
         }
         let tick = c.sim.state.tick
         if expectedTick >= 0 && (tick != expectedTick || c.interpolationAlpha != expectedAlpha) {

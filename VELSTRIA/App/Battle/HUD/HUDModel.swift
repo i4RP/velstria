@@ -90,8 +90,9 @@ final class HUDModel {
     private(set) var isAiming = false
     private(set) var spectatorPaused = false
     private(set) var cameraFollowID: EntityID?
-    /// 最初の更新が終わった（それまで HUD は表示しない）。
-    private(set) var isReady = false
+    /// 最初の更新が終わり、描画側の読み込み幕が上がった（それまで HUD は表示せず、操作も受け付けない）。
+    var isReady: Bool { hasRefreshed && controller.isPresentationReady }
+    private var hasRefreshed = false
 
     var panel: HUDPanel?
     /// ショップ: nil = おすすめタブ。
@@ -176,7 +177,7 @@ final class HUDModel {
         }
         if isSpectating, case .followUnit(let id) = controller.cameraMode { cameraFollowID = id }
         refresh()
-        isReady = true
+        hasRefreshed = true
         #if DEBUG
         HUDDebug.apply(self)
         #endif
