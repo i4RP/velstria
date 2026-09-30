@@ -104,6 +104,15 @@ enum BotLaning {
         for h in w.heroes where s.units[h].team == a.team && s.units[h].isAlive && s.units[h].hero?.isDead != true {
             if s.units[h].pos.distanceSquared(to: st.pos) < 1600 * 1600 { allies += 1 }
         }
+        // 遠いうちは方針のレーンに沿って進む（最短路で敵の集団と鉢合わせない）
+        if d > st.reach + 1400 {
+            let map = ctx.map
+            let myProg = BotLane.progress(map, lane, team: a.team, a.pos)
+            let goalProg = BotLane.progress(map, lane, team: a.team, st.pos) - (st.reach + 350)
+            let next = min(goalProg, max(myProg, 0) + 1800)
+            BotAI.move(s, ctx, &a, &mem, to: BotLane.point(map, lane, team: a.team, progress: next))
+            return true
+        }
         let shield = w.minionsUnder(st, team: a.team)
         let towerOnMe = st.targetID == a.id
         // 盾が無く狙われていて体力が心もとなければ一度射程外へ（塔が落ちかけなら押し切る）
@@ -111,11 +120,18 @@ enum BotLaning {
             BotCombat.leaveTower(s, ctx, &a, &mem, st)
             return true
         }
-        if d <= reach + 40 || allies >= 2 || shield >= 1 || w.aliveHeroes[a.team.opponent.rawValue] == 0 {
+        // 攻め込む時機: ミニオンが盾になっている・敵の多くが戦線に居ない・ウェーブを待っても来ない
+        var waveComing = false
+        for m in w.minions where m.team == a.team && m.pos.distanceSquared(to: st.pos) < 2000 * 2000 {
+            waveComing = true
+            break
+        }
+        let window = BotAI.enemiesAway(s, team: a.team) >= 3 || w.aliveHeroes[a.team.opponent.rawValue] == 0
+        if shield >= 1 || window || (!waveComing && allies >= 3) || (d <= reach + 40 && allies >= 2 && st.hp < st.maxHP * 0.25) {
             BotAI.attack(s, &a, &mem, st.index)
             return true
         }
-        // 味方が揃うまで射程の外で待つ
+        // 味方とウェーブが揃うまで射程の外で待つ
         let away = (ctx.map.fountain(a.team) - st.pos).normalized
         BotAI.move(s, ctx, &a, &mem, to: st.pos + away * (st.reach + Balance.heroRadius + 250))
         return true

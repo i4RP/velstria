@@ -136,7 +136,7 @@ enum BotJungle {
                 return false
             }
             BotAI.setGoal(&mem, .roaming, s.time)
-            BotAI.move(s, ctx, &a, &mem, to: intel.lastSeenPos[k])
+            BotAI.move(s, ctx, &a, &mem, to: cutOff(ctx, w, a, target: intel.lastSeenPos[k]))
             return true
         }
         guard s.time >= 150, s.units[a.i].hpRatio > 0.6, s.time - mem.gankStart >= 2 else { return false }
@@ -154,8 +154,10 @@ enum BotJungle {
             let ratio = s.units[e].hpRatio
             let ownTower = w.frontTower(team: a.team, lane: lane.lane)
             let ownProg = ownTower.map { BotLane.progress(ctx.map, lane.lane, team: a.team, $0.pos) } ?? 700
-            let overextended = BotLane.progress(ctx.map, lane.lane, team: a.team, p) < ownProg + 1300
-            guard ratio < 0.55 || overextended else { continue }
+            // 自陣側に出過ぎている（レーン中央より手前、または味方の塔に近い）
+            let prog = BotLane.progress(ctx.map, lane.lane, team: a.team, p)
+            let overextended = prog < ownProg + 1300 || prog < w.laneLength[lane.lane.rawValue] * 0.5
+            guard ratio < 0.7 || overextended else { continue }
             // 味方のレーナーが近くに居ること
             var support = false
             for h in w.heroes where s.units[h].team == a.team && h != a.i && s.units[h].isAlive {
@@ -180,7 +182,16 @@ enum BotJungle {
         guard !path.isEmpty, length <= Balance.Bot.gankMaxPath else { return false }
         mem.gankTargetID = intel.enemyIDs[k]
         BotAI.setGoal(&mem, .roaming, s.time)
-        BotAI.move(s, ctx, &a, &mem, to: s.units[e].pos)
+        BotAI.move(s, ctx, &a, &mem, to: cutOff(ctx, w, a, target: s.units[e].pos))
         return true
+    }
+
+    /// ガンクの接近先: 遠いうちは対象の退路側（敵の塔の方向）へ回り込み、近づいたら対象そのもの。
+    static func cutOff(_ ctx: SimContext, _ w: BotWorld, _ a: BotAgent, target p: Vec2) -> Vec2 {
+        guard a.pos.distance(to: p) > 900 else { return p }
+        let lane = ctx.map.nearestLane(to: p).lane
+        let prog = BotLane.progress(ctx.map, lane, team: a.team, p)
+        // 相手の退路 = こちら視点で進行度が大きい方向
+        return BotLane.point(ctx.map, lane, team: a.team, progress: prog + 450)
     }
 }

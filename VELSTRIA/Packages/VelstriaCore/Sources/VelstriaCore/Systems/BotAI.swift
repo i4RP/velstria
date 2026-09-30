@@ -394,6 +394,13 @@ public enum BotAI {
         // 予告中の敵の範囲攻撃から出る
         if BotCombat.dodgeZones(s, ctx, &a, &mem) { return }
 
+        // 落ちかけの敵構造物（特に Core）が射程にあれば、戦闘より止めを優先する
+        if let st = finishableStructure(s, ctx, w, a) {
+            setGoal(&mem, .push, s.time)
+            attack(s, &a, &mem, st.index)
+            return
+        }
+
         // 戦闘・撤退
         if BotCombat.handleCombat(&s, ctx, w, &a, &mem) { return }
 
@@ -403,6 +410,27 @@ public enum BotAI {
         // 役割・チーム方針に沿った行動
         BotMacro.act(&s, ctx, w, &a, &mem)
         checkStuck(s, ctx, &a, &mem)
+    }
+
+    /// 止めを刺すべき敵構造物: 射程付近の無敵でない構造物のうち、近くの味方の通常攻撃（裏取り保護・序盤保護込み）で
+    /// 数秒以内に壊せるもの（Core は 9 秒、塔は 5 秒）。守りのヒーローと殴り合うより先に落とす。自分の HP が危険なら除く。
+    static func finishableStructure(_ s: SimState, _ ctx: SimContext, _ w: BotWorld, _ a: BotAgent) -> BotStructureInfo? {
+        guard s.units[a.i].hpRatio > 0.15 else { return nil }
+        let range = s.units[a.i].stats.attackRange + s.units[a.i].radius
+        for st in w.structures where st.team != a.team && st.team != .neutral && !st.invulnerable {
+            let reach = range + st.radius + 150
+            guard a.pos.distanceSquared(to: st.pos) <= reach * reach else { continue }
+            var dps = 0.0
+            for h in w.heroes where s.units[h].team == a.team && s.units[h].isAlive && s.units[h].hero?.isDead != true {
+                let r = s.units[h].stats.attackRange + s.units[h].radius + st.radius + 300
+                guard s.units[h].pos.distanceSquared(to: st.pos) <= r * r else { continue }
+                dps += CombatSystem.estimateBasicAttackDamage(s, ctx, attacker: h, target: st.index)
+                    * s.units[h].stats.attackSpeed
+            }
+            let limit = st.isCore ? 9.0 : 5.0
+            if st.hp <= dps * limit { return st }
+        }
+        return nil
     }
 
     static func setGoal(_ mem: inout BotHeroMemory, _ goal: BotGoal, _ time: Double) {

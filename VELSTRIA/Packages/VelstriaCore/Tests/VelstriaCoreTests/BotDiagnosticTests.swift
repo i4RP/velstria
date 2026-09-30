@@ -54,8 +54,15 @@ final class BotDiagnosticTests: XCTestCase {
             guard sim.state.time >= next else { continue }
             next += every
             let s = sim.state
-            print(String(format: "--- %.0fs plans B:%@ R:%@", s.time, "\(s.bots.teams[0].plan.kind)",
-                         "\(s.bots.teams[1].plan.kind)"))
+            let cores = s.units.filter { $0.kind == .core }.map { "\($0.team):\(Int($0.hp))" }.joined(separator: " ")
+            let minions = s.units.filter { $0.kind == .minion }
+            let nearCore = Team.players.map { team in
+                minions.filter { m in m.team != team && m.pos.distance(to: s.units.first { $0.kind == .core && $0.team == team }!.pos) < 1500 }.count
+            }
+            print(String(format: "--- %.0fs plans B:%@>%d R:%@>%d cores %@ enemyMinionsNearCore B:%d R:%d", s.time,
+                         "\(s.bots.teams[0].plan.kind)", s.bots.teams[0].plan.targetID ?? -1,
+                         "\(s.bots.teams[1].plan.kind)", s.bots.teams[1].plan.targetID ?? -1, cores,
+                         nearCore[0], nearCore[1]))
             for i in s.heroIndices {
                 let u = s.units[i]
                 guard let h = u.hero, let m = s.bots.memory(for: u.id) else { continue }
@@ -65,6 +72,40 @@ final class BotDiagnosticTests: XCTestCase {
                              h.gold, h.score.creepScore, "\(m.goal)", "\(u.moveIntent)", target, h.items.count))
             }
         }
+    }
+
+    /// 調整用: 複数シードの要約（試合時間の分布・キル・Lv）。BOT_BATCH=シード数、BOT_DIFF=難易度、BOT_HUMAN=1 で人間枠あり。
+    func testDiagnosticBatch() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard let n = env["BOT_BATCH"].flatMap(Int.init) else { throw XCTSkip("BOT_BATCH=n で実行") }
+        let diff = Difficulty(rawValue: Int(env["BOT_DIFF"] ?? "1") ?? 1) ?? .normal
+        let base = UInt64(env["BOT_SEED"] ?? "1") ?? 1
+        var durations: [Double] = []
+        var lines: [String] = []
+        var noKillTeams = 0
+        var timeouts = 0
+        var lowLevel = 0
+        for k in 0..<n {
+            let seed = base + UInt64(k)
+            let cfg = env["BOT_HUMAN"] != nil
+                ? MatchFactory.standardMatch(humanHeroID: "H003", humanName: "Idle", allyDifficulty: diff,
+                                             enemyDifficulty: diff, seed: seed)
+                : MatchFactory.botMatch(difficulty: diff, seed: seed)
+            let r = BotMatchReport.run("seed \(seed) \(diff)", config: cfg)
+            durations.append(r.duration)
+            if r.endReason != .coreDestroyed { timeouts += 1 }
+            if r.kills[0] == 0 || r.kills[1] == 0 { noKillTeams += 1 }
+            if r.avgLevelAt12 < 9 { lowLevel += 1 }
+            lines.append(r.tableRow)
+        }
+        print(BotMatchReport.tableHeader())
+        for l in lines { print(l) }
+        let sorted = durations.sorted()
+        let mean = durations.reduce(0, +) / Double(max(1, n))
+        let over30 = durations.filter { $0 > 30 * 60 }.count
+        print(String(format: "BATCH %@ n=%d mean %.1f min, median %.1f, max %.1f, >30min %d, timeouts %d, zero-kill teams %d, avgLv<9 %d",
+                     "\(diff)", n, mean / 60, sorted[n / 2] / 60, (sorted.last ?? 0) / 60, over30, timeouts, noKillTeams,
+                     lowLevel))
     }
 
     /// 調整用: BotAI 単体の所要時間（状態のコピーに対して生成だけを計測）。

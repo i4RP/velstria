@@ -34,9 +34,11 @@ enum BotMacro {
         let retryAt = s.bots.teams[team.rawValue].objectiveRetryAt
         let center = centroid(s, aliveBots)
 
-        // 1. 防衛: 敵ヒーローが自軍構造物を攻めている（直前の防衛は少し続けて行ったり来たりを防ぐ）
+        // 1. 防衛: 敵ヒーローが自軍構造物を攻めている（直前の防衛は少し続けて行ったり来たりを防ぐ）。
+        //    集団期に自分たちの押し込みが進んでいる時は、外塔・内塔は取り合いにして押し切りを優先する
         if let threat = threatenedStructure(s, w, intel, team: team, groupPhase: groupPhase)
-            ?? lingeringDefense(s, w, intel, old: old) {
+            ?? lingeringDefense(s, w, intel, old: old),
+           !(groupPhase && isRacing(s, w, old: old, team: team, threatened: threat.structure)) {
             let st = threat.structure
             plan.kind = .defend
             plan.lane = st.lane ?? .mid
@@ -59,7 +61,7 @@ enum BotMacro {
                     || (t >= Balance.Bot.lateSiege && ourAlive >= enemyAlive),
                 let st = siegeTarget(s, w, team: team, preferred: old.lane) {
             plan.kind = .siege
-            plan.lane = st.lane ?? .mid
+            plan.lane = approachLane(s, ctx, w, intel, team: team, target: st, old: old)
             plan.targetID = st.id
             plan.point = st.pos
             plan.members = aliveBots.map { s.units[$0].id }
@@ -140,6 +142,31 @@ enum BotMacro {
         return best
     }
 
+    /// 取り合い（ベースレース）を続けるべきか: 味方の集団が目標の構造物に取り付いていて、こちらの目標の方が削れている。
+    /// 守る側が Core の場合は、こちらも Core を削っていて相手の Core の方が低い時だけ。
+    static func isRacing(_ s: SimState, _ w: BotWorld, old: BotTeamPlan, team: Team,
+                         threatened: BotStructureInfo) -> Bool {
+        guard old.kind == .push || old.kind == .siege else { return false }
+        if threatened.isCore || threatened.tier == .base {
+            guard let theirCore = w.core(of: team.opponent), !theirCore.invulnerable, old.targetID == theirCore.id,
+                  let ourCore = w.core(of: team) else { return false }
+            let theirs = theirCore.hp / max(1, theirCore.maxHP)
+            let ours = ourCore.hp / max(1, ourCore.maxHP)
+            guard theirs < ours - 0.1 else { return false }
+        }
+        let target = w.structures.first { $0.id == old.targetID && $0.team != team }
+            ?? old.lane.flatMap { w.frontTower(team: team.opponent, lane: $0) }
+        guard let st = target, !st.invulnerable else { return false }
+        var near = 0
+        for id in old.members {
+            guard let h = s.index(of: id), s.units[h].isAlive, s.units[h].hero?.isDead != true else { continue }
+            if s.units[h].pos.distanceSquared(to: st.pos) < 1800 * 1800 { near += 1 }
+        }
+        let ours = st.hp / max(1, st.maxHP)
+        let theirs = threatened.hp / max(1, threatened.maxHP)
+        return near >= 2 && ours <= theirs + 0.2
+    }
+
     /// 直前まで守っていた構造物（生存中・開始から 12 秒以内）。
     static func lingeringDefense(_ s: SimState, _ w: BotWorld, _ intel: BotTeamIntel,
                                  old: BotTeamPlan) -> (structure: BotStructureInfo, heroes: Int, minions: Int)? {
@@ -187,6 +214,27 @@ enum BotMacro {
         return candidates[0]
     }
 
+    /// 押し切りで目標へ向かうレーン。塔はそのレーン、Core は塔が全滅したレーンのうち敵の集団が見えていない方
+    /// （両チームが同じ mid で鉢合わせて睨み合い続けないように）。
+    static func approachLane(_ s: SimState, _ ctx: SimContext, _ w: BotWorld, _ intel: BotTeamIntel, team: Team,
+                             target st: BotStructureInfo, old: BotTeamPlan) -> Lane {
+        if let lane = st.lane { return lane }
+        var best: Lane = .mid
+        var bestScore = -Double.infinity
+        for lane in Lane.allCases where w.frontTower(team: team.opponent, lane: lane) == nil {
+            let len = w.laneLength[lane.rawValue]
+            let approach = BotLane.point(ctx.map, lane, team: team, progress: len * 0.6)
+            var score = -Double(enemiesSeenNear(s, intel, approach, radius: 3000, within: 8))
+            if old.kind == .siege && old.lane == lane { score += 0.8 }
+            if lane == .mid { score += 0.2 }
+            if score > bestScore {
+                bestScore = score
+                best = lane
+            }
+        }
+        return best
+    }
+
     /// 集団で押すレーン。敵の集団が見えているレーンを避け（空いている塔を取って守りに来させる）、
     /// 本拠点に近い塔・削れている塔・味方ウェーブが前に出ているレーンを選ぶ。今のレーンを少し優先する。
     static func pushLane(_ s: SimState, _ ctx: SimContext, _ w: BotWorld, _ intel: BotTeamIntel, team: Team,
@@ -204,8 +252,9 @@ enum BotMacro {
             let frontPos = BotLane.point(ctx.map, lane, team: team, progress: front)
             let presence = enemiesSeenNear(s, intel, frontPos, radius: 2500, within: 8)
                 + enemiesSeenNear(s, intel, st.pos, radius: 1800, within: 8)
-            // 数で勝る相手なら狩りに行き、互角以上の集団は避ける
-            var score = presence > 0 && presence <= groupSize - 2 ? 0.8 : -Double(max(0, presence - groupSize + 2)) * 1.1
+            // 敵の集団が見えているレーンは避ける（空いている塔を取り、守りに来させて塔の下で迎え撃つ）。
+            // 大きく数で勝る時だけは狩りに行く
+            var score = presence > 0 && presence <= groupSize - 3 ? 0.6 : -Double(presence) * 1.1
             score += Double(st.tier.rawValue) * 0.5 + (st.isCore ? 2 : 0) + (1 - st.hp / max(1, st.maxHP)) * 1.5
             if front > len * 0.5 { score += 0.6 }
             score -= center.distance(to: frontPos) / 4000
