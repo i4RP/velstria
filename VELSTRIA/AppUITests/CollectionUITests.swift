@@ -81,6 +81,18 @@ final class CollectionUITests: XCTestCase {
         XCTAssertTrue(previewIsAnimating(preview), "スキル詳細から戻った後に 3D プレビューが止まっている")
     }
 
+    func testSkillDetailShowsSimulationHealForTeamHeal() {
+        // SK005_5 ヴォスの Ult（味方全体回復）: 実戦の回復量 205 × 2.4 × 1.2 = 590 を表と説明に出す
+        let app = launch(route: "skillDetail:SK005_5", language: "en")
+        let description = element(app, "skilldetail_description")
+        XCTAssertTrue(description.waitForExistence(timeout: 10))
+        XCTAssertTrue(description.label.contains("590 HP"), description.label)
+        // ランク 1 の回復量（表）
+        XCTAssertTrue(app.staticTexts["590"].exists)
+        app.scrollViews.containing(.any, identifier: "skilldetail_description").firstMatch.swipeUp(velocity: .slow)
+        snapshot(app, "skill_detail_team_heal_scaling")
+    }
+
     func testLockedHeroUnlockFlowShowsConfirmation() {
         // -grant なしは Coin 0 → 確認シートで残高不足を表示
         let app = launch(route: "heroDetail:H007", grant: false)

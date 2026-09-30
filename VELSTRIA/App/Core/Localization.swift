@@ -41,6 +41,7 @@ enum MasterText {
     }
 
     /// 説明文は "<id>.desc" キー。
+    /// スキルの説明はここを使わず `SkillMath.description`（シミュレーションの実戦値から日英で生成）を使う。
     static func description(id: String, ja: String) -> String {
         guard Loc.isEnglish else { return ja }
         return overlay["\(id).desc"] ?? ja
