@@ -295,6 +295,27 @@ final class RenderSceneTests: XCTestCase {
         XCTAssertEqual(overlay.activeCount, 0)
     }
 
+    func testRendererTeardownReleasesRenderer() {
+        let config = MatchFactory.practiceMatch(humanHeroID: "H003", humanName: "T", options: PracticeOptions(),
+                                                tutorial: false, seed: 1)
+        let controller = BattleController(launch: BattleLaunch(config: config))
+        weak var weakRenderer: BattleRenderer?
+        var view: BattleRenderView?
+        autoreleasepool {
+            let renderer = BattleRenderer(controller: controller, settings: RenderSettings(GameSettings()))
+            view = renderer.makeView()
+            weakRenderer = renderer
+            renderer.apply(settings: RenderSettings(quality: .preset(.high), frameRate: 30, showDamageNumbers: false,
+                                                    colorblind: false))
+            renderer.teardown()
+        }
+        XCTAssertNil(weakRenderer, "購読・クロージャが描画側を保持し続けない")
+        XCTAssertNotNil(view)
+        // 解除後もコントローラは単独で進められる（購読者が残っていない）
+        controller.frame(dt: 0.5)
+        XCTAssertGreaterThan(controller.state.tick, 0)
+    }
+
     func testOverheadBarReflectsValues() {
         let bar = OverheadBar(style: .hero(isSelf: true, showResource: true), fillColor: TeamColors.selfColor,
                               materials: RenderMaterials(colorblind: false), meshes: UnitMeshLibrary(), text: TextMeshCache(),

@@ -40,9 +40,31 @@ struct BattleARViewRepresentable: UIViewRepresentable {
     }
 }
 
-/// ARView + UIKit オーバーレイ（戦闘数値・デバッグ表示・読み込み幕）。
+/// 画面周辺をわずかに暗くする（視線を中央へ、四隅の HUD を読みやすく）。
+final class VignetteView: UIView {
+    override class var layerClass: AnyClass { CAGradientLayer.self }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isUserInteractionEnabled = false
+        backgroundColor = .clear
+        if let g = layer as? CAGradientLayer {
+            g.type = .radial
+            g.colors = [UIColor.clear.cgColor, UIColor(red: 0, green: 0.01, blue: 0.04, alpha: 0.32).cgColor]
+            g.locations = [0.62, 1.0]
+            g.startPoint = CGPoint(x: 0.5, y: 0.5)
+            g.endPoint = CGPoint(x: 1.08, y: 1.2)
+        }
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+}
+
+/// ARView + UIKit オーバーレイ（周辺減光・戦闘数値・デバッグ表示・読み込み幕）。
 final class BattleRenderView: UIView {
     let arView: ARView
+    let vignette = VignetteView(frame: .zero)
     let combatText: CombatTextOverlay
     let curtain = UIView()
     #if DEBUG
@@ -55,6 +77,7 @@ final class BattleRenderView: UIView {
         super.init(frame: .zero)
         backgroundColor = .black
         addSubview(arView)
+        addSubview(vignette)
         addSubview(combatText)
         #if DEBUG
         addSubview(debugOverlay)
@@ -70,6 +93,7 @@ final class BattleRenderView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         arView.frame = bounds
+        vignette.frame = bounds
         combatText.frame = bounds
         curtain.frame = bounds
         #if DEBUG
