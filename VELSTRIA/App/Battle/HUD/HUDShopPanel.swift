@@ -63,7 +63,7 @@ struct HUDShopPanel: View {
                 .padding(.horizontal, 4)
             }
             HStack(spacing: 4) {
-                Image(systemName: "circle.hexagongrid.fill").foregroundStyle(Theme.gold)
+                HUDCoin(size: 18)
                 Text("\(shop.gold)")
                     .font(.system(size: 17, weight: .heavy, design: .rounded))
                     .monospacedDigit()
@@ -241,7 +241,7 @@ struct HUDShopGrid: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                 HStack(spacing: 2) {
-                    Image(systemName: "circle.hexagongrid.fill").font(.system(size: 7))
+                    HUDCoin(size: 10)
                     Text("\(entry?.cost ?? Int(item.priceGold))")
                         .font(.system(size: 11, weight: .heavy, design: .rounded))
                         .monospacedDigit()
@@ -385,7 +385,7 @@ struct HUDShopDetail: View {
                 Button { model.buy(item.itemID) } label: {
                     HStack(spacing: 5) {
                         Text(L("購入", "Buy"))
-                        Image(systemName: "circle.hexagongrid.fill").font(.system(size: 11))
+                        HUDCoin(size: 14)
                         Text("\(cost)").monospacedDigit()
                         if discounted {
                             Text("\(Int(item.priceGold))")

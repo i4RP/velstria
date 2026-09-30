@@ -154,7 +154,7 @@ struct HUDSpectateScore: View {
     private func side(gold: Int, towers: Int, color: Color) -> some View {
         HStack(spacing: 6) {
             HStack(spacing: 2) {
-                Image(systemName: "circle.hexagongrid.fill").font(.system(size: 9)).foregroundStyle(Theme.gold)
+                HUDCoin(size: 11)
                 Text(String(format: "%.1fk", Double(gold) / 1000)).foregroundStyle(color)
             }
             HStack(spacing: 2) {

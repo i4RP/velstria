@@ -30,7 +30,7 @@ struct HUDHeroPanel: View {
             }
             HStack(spacing: 4 * s) {
                 HUDItemSlots(model: model, items: hero.items, slot: 31 * s)
-                HUDShopButton(model: model, gold: hero.gold, width: 64 * s,
+                HUDShopButton(model: model, gold: hero.gold, width: 60 * s,
                               highlighted: model.tutorial?.highlight == .shop)
             }
         }
@@ -241,6 +241,7 @@ struct HUDShopButton: View {
                 Image(systemName: "bag.fill")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(LinearGradient(colors: [.white, Theme.gold], startPoint: .top, endPoint: .bottom))
+                    .overlay(alignment: .bottomTrailing) { HUDCoin(size: 9).offset(x: 3, y: 2) }
                 Text("\(gold)")
                     .font(.system(size: 13, weight: .heavy, design: .rounded))
                     .monospacedDigit()

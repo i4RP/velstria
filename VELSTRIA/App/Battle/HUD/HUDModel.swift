@@ -90,6 +90,8 @@ final class HUDModel {
     private(set) var isAiming = false
     private(set) var spectatorPaused = false
     private(set) var cameraFollowID: EntityID?
+    /// 最初の更新が終わった（それまで HUD は表示しない）。
+    private(set) var isReady = false
 
     var panel: HUDPanel?
     /// ショップ: nil = おすすめタブ。
@@ -122,6 +124,10 @@ final class HUDModel {
     @ObservationIgnored private var lastSurrenderTally: (yes: Int, no: Int, needed: Int)?
     @ObservationIgnored private var targetingCache: [SkillTargeting?] = [nil, nil, nil, nil, nil]
     @ObservationIgnored private var lastErrorFeedback: TimeInterval = 0
+    /// 画面確認用の状態の再現（HUDDebug から DEBUG ビルドでのみ設定される）。
+    @ObservationIgnored var debugForceDeath = false
+    @ObservationIgnored var debugForceSurrender = false
+    @ObservationIgnored var debugForceLowHP = false
 
     static let attackRepeatInterval: Duration = .milliseconds(250)
     static let killFeedLifetime: TimeInterval = 7
@@ -152,6 +158,9 @@ final class HUDModel {
         started = true
         self.app = app
         self.onFinish = onFinish
+        #if DEBUG
+        HUDDebug.applySettings(app)
+        #endif
         settings = app.profile.settings
         minimap.viewerTeam = controller.viewerTeam
         if isTutorial { tutorial = TutorialDirector() }
@@ -167,6 +176,10 @@ final class HUDModel {
         }
         if isSpectating, case .followUnit(let id) = controller.cameraMode { cameraFollowID = id }
         refresh()
+        isReady = true
+        #if DEBUG
+        HUDDebug.apply(self)
+        #endif
     }
 
     func stop() {
@@ -261,6 +274,14 @@ final class HUDModel {
             snap.channel = HUDChannel(kind: ch.kind, remaining: (ch.remaining * 20).rounded() / 20, total: ch.total)
         }
         snap.statuses = Self.statusIcons(u)
+        if debugForceDeath {
+            snap.isDead = true
+            snap.respawn = 12.4
+            if deathInfo == nil {
+                deathInfo = HUDDeathInfo(killerHeroID: "H005", killerKind: .hero, killerTeam: .red)
+            }
+        }
+        if debugForceLowHP { snap.hp = (snap.maxHP * 0.22).rounded() }
         if snap != hero { hero = snap }
 
         // スキル
@@ -309,7 +330,7 @@ final class HUDModel {
             if pick != quickBuyItemID { quickBuyItemID = pick }
         }
 
-        if !h.isDead && deathInfo != nil { deathInfo = nil }
+        if !h.isDead && !debugForceDeath && deathInfo != nil { deathInfo = nil }
 
         // チュートリアル
         if var tut = tutorial {
@@ -544,6 +565,11 @@ final class HUDModel {
     // MARK: 降参（UI031）
 
     private func refreshSurrender(_ s: SimState, _ ctx: SimContext, time: TimeInterval) {
+        if debugForceSurrender {
+            let snap = HUDSurrenderSnapshot(yes: 2, no: 1, needed: 3, total: 5, secondsLeft: 11, myVote: nil, passed: nil)
+            if surrender != snap { surrender = snap }
+            return
+        }
         guard !isSpectating, MatchFlowSystem.surrenderEnabled(ctx), let team = humanTeam else { return }
         let can = MatchFlowSystem.canProposeSurrender(s, ctx, team: team)
         if can != canProposeSurrender { canProposeSurrender = can }
@@ -810,6 +836,11 @@ final class HUDModel {
     }
 
     // MARK: 試合終了
+
+    /// 画面確認用: 試合終了の演出だけを出す。
+    func debugEnd(winner: Team?) {
+        beginEnd(winner: winner, reason: .coreDestroyed)
+    }
 
     private func beginEnd(winner: Team?, reason: EndReason) {
         guard endPhase == nil, !finished else { return }

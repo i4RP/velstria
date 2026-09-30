@@ -67,6 +67,25 @@ extension View {
     }
 }
 
+/// Gold の硬貨アイコン。
+struct HUDCoin: View {
+    var size: CGFloat = 14
+
+    var body: some View {
+        ZStack {
+            Circle().fill(LinearGradient(colors: [Color(red: 1.0, green: 0.90, blue: 0.55), Color(red: 0.85, green: 0.58, blue: 0.12)],
+                                         startPoint: .topLeading, endPoint: .bottomTrailing))
+            Circle().strokeBorder(Color(red: 0.55, green: 0.35, blue: 0.05).opacity(0.8), lineWidth: max(0.8, size * 0.08))
+                .padding(size * 0.16)
+            Image(systemName: "star.fill")
+                .font(.system(size: size * 0.38, weight: .black))
+                .foregroundStyle(Color(red: 0.62, green: 0.40, blue: 0.06).opacity(0.85))
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+}
+
 /// 上部の丸いアイコンボタン（44pt）。
 struct HUDRoundButton: View {
     let symbol: String
@@ -204,7 +223,7 @@ struct HUDLayout: Equatable {
         index == 0 ? polar(151, outerRing) : polar(118, outerRing)
     }
 
-    var recallCenter: CGPoint { polar(186, outerRing) }
+    var recallCenter: CGPoint { polar(191, 196 * scale) }
 
     /// 右側クラスタの内側（画面中央側）の端。
     var clusterInnerEdge: CGFloat {
@@ -227,7 +246,7 @@ struct HUDLayout: Equatable {
     var joystickRadius: CGFloat { 58 * scale }
     var joystickKnob: CGFloat { 48 * scale }
     var joystickRest: CGPoint {
-        mirrored(CGPoint(x: leadingEdge + 34 * scale + joystickRadius, y: bottomEdge - 26 * scale - joystickRadius))
+        mirrored(CGPoint(x: leadingEdge + 16 * scale + joystickRadius, y: bottomEdge - 24 * scale - joystickRadius))
     }
 
     /// フローティングスティックの受付領域。
@@ -249,7 +268,7 @@ struct HUDLayout: Equatable {
 
     // MARK: 下部中央のヒーローパネル
 
-    var heroPanelWidth: CGFloat { 300 * min(scale, 1.08) }
+    var heroPanelWidth: CGFloat { 290 * min(scale, 1.08) }
 
     /// スティックとスキル群の間の中央。
     var heroPanelCenterX: CGFloat {

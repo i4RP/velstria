@@ -21,13 +21,17 @@ struct BattleHUDView: View {
     }
 
     var body: some View {
+        // Safe Area を読むため GeometryReader 自体は Safe Area 内に置き、HUD は画面全体へ広げる
         GeometryReader { geo in
-            let layout = HUDLayout(size: geo.size, safe: geo.safeAreaInsets, leftHanded: model.settings.leftHandedLayout)
+            let safe = geo.safeAreaInsets
+            let full = CGSize(width: geo.size.width + safe.leading + safe.trailing,
+                              height: geo.size.height + safe.top + safe.bottom)
+            let layout = HUDLayout(size: full, safe: safe, leftHanded: model.settings.leftHandedLayout)
             HUDRoot(model: model, layout: layout)
+                .offset(x: -safe.leading, y: -safe.top)
                 .onAppear { model.layout = layout }
                 .onChange(of: layout) { _, new in model.layout = new }
         }
-        .ignoresSafeArea()
         .background(HUDTicker(controller: controller, model: model))
         .onAppear { model.start(app: app, onFinish: onFinish) }
         .onDisappear { model.stop() }
@@ -83,6 +87,7 @@ private struct HUDRoot: View {
                 HUDScoreLayer(model: model, layout: layout)
                 HUDTopRight(model: model, scale: min(layout.scale, 1.1))
                     .fixedSize()
+                    .opacity(model.isAiming ? 0.25 : 1)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .padding(.top, layout.topEdge)
                     .padding(.trailing, layout.width - layout.trailingEdge)
@@ -109,6 +114,8 @@ private struct HUDRoot: View {
         }
         .frame(width: layout.width, height: layout.height)
         .coordinateSpace(name: HUDSpace.name)
+        .opacity(model.isReady ? 1 : 0)
+        .animation(.easeOut(duration: 0.35), value: model.isReady)
         .animation(.easeInOut(duration: 0.4), value: tutorialDone)
         .animation(.easeInOut(duration: 0.4), value: ended)
     }
