@@ -2,7 +2,7 @@ import SwiftUI
 import VelstriaCore
 
 // 担当: battle-hud。画面確認・UI テスト用の HUD 状態の再現（DEBUG ビルドかつ -uiTesting 起動時のみ有効）。
-//   -hudState <shop|scoreboard|pause|aim|death|victory|defeat|spree|surrender|lowhp|recall|levelup>
+//   -hudState <shop|scoreboard|pause|aim|death|victory|defeat|spree|surrender|lowhp|recall|levelup|tutoriallearn|tutorialdone>
 //   -hudLeftHanded / -hudColorblind / -hudManualCast / -hudFixedStick
 
 #if DEBUG
@@ -63,14 +63,17 @@ extension HUDModel {
             if let id = controller.humanHeroID { handle([.levelUp(heroID: id, level: 2)]) }
         case "tutorialdone":
             guard let id = controller.humanHeroID else { break }
-            debugCompleteTutorial(humanID: id)
+            debugCompleteTutorial(humanID: id, through: .recall)
+        case "tutoriallearn":
+            guard let id = controller.humanHeroID else { break }
+            debugCompleteTutorial(humanID: id, through: .attackDummy)
         default: break
         }
         refresh()
     }
 
-    /// チュートリアルの全手順を合成イベントで満たす。
-    private func debugCompleteTutorial(humanID id: EntityID) {
+    /// チュートリアルの手順を last まで合成イベントで満たす。
+    private func debugCompleteTutorial(humanID id: EntityID, through last: TutorialStep) {
         let dummy: EntityID = -1
         func hit() -> SimEvent {
             .damage(DamageEvent(sourceID: id, targetID: dummy, amount: 1, absorbed: 0, damageType: .physical,
@@ -83,6 +86,10 @@ extension HUDModel {
             p = p + Vec2(100, 0)
         }
         for _ in 0..<TutorialDirector.dummyHitGoal { t.handle(hit(), humanID: id, dummyIDs: [dummy]) }
+        if last == .attackDummy {
+            debugSetTutorial(t)
+            return
+        }
         t.handle(.skillLeveled(heroID: id, slot: .skill1, rank: 1), humanID: id, dummyIDs: [])
         t.noteSkillCommand(slot: .skill1, castable: true)
         t.noteShopOpened()
