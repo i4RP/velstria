@@ -26,6 +26,7 @@ final class BattleRenderer {
     private var world: BattleWorld?
     private var appliedFrameRate = 0
     private var wasPaused = false
+    private var paceAccumulator: Double = 0
 
     init(controller: BattleController, settings: RenderSettings) {
         self.controller = controller
@@ -108,14 +109,38 @@ final class BattleRenderer {
         world = w
         // 最初のフレームで追従対象へカメラを合わせる
         w.updateCamera(rig: rig, dt: 0, snap: true)
-        view.liftCurtain()
+        // 幕の裏で数フレーム描画し、マテリアル・粒子のパイプライン生成を済ませてから試合を始める
+        w.prewarmEffects()
+        warmupFrames = BattleRenderer.warmupFrameCount
+        // ウィンドウへ載った後に改めて指定する（載る前の指定は描画ループに反映されない）
+        appliedFrameRate = 0
+        applyFrameRate()
     }
+
+    static let warmupFrameCount = 18
+    private var warmupFrames = 0
 
     // MARK: ループ
 
-    private func onUpdate(deltaTime: Double) {
+    private func onUpdate(deltaTime rawDelta: Double) {
         guard let world, let view else { return }
+        // 30fps 設定: 描画ループが指定より速く回る環境（シミュレータ等）でも更新は 30Hz に間引く
+        var deltaTime = rawDelta
+        if settings.frameRate < 60 {
+            paceAccumulator += rawDelta
+            let interval = 1.0 / Double(settings.frameRate)
+            guard paceAccumulator >= interval * 0.9 else { return }
+            deltaTime = paceAccumulator
+            paceAccumulator = 0
+        }
         let dt = min(max(deltaTime, 0), 0.1)
+        if warmupFrames > 0 {
+            warmupFrames -= 1
+            world.sync(events: [], dt: Float(dt), rig: rig)
+            world.updateCamera(rig: rig, dt: 0, snap: true)
+            if warmupFrames == 0 { view.liftCurtain() }
+            return
+        }
         if controller.isPaused {
             // 一時停止中はシミュレーション・同期を止め、カメラ（自由視点）だけ動かす
             if !wasPaused { view.combatText.clear() }

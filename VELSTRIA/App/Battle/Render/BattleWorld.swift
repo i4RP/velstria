@@ -29,6 +29,9 @@ final class BattleWorld {
     private var pendingHealTimer: Float = 0
     private var shakeRequest: Float = 0
     private let master: MasterData
+    private var hueCache: [String: UIColor] = [:]
+    private let teamLightBlue: UIColor
+    private let teamLightRed: UIColor
     #if DEBUG
     private let showcase: RenderShowcase?
     #endif
@@ -42,6 +45,8 @@ final class BattleWorld {
         master = controller.ctx.master
         root.name = "world"
         materials = RenderMaterials(colorblind: settings.colorblind)
+        teamLightBlue = materials.teams.light(.blue).uiColor
+        teamLightRed = materials.teams.light(.red).uiColor
         map = MapScene(map: controller.ctx.map, materials: materials, quality: settings.quality, groundImage: groundImage)
         root.addChild(map.root)
         units = UnitLayer(materials: materials, meshes: meshes, text: text, master: controller.ctx.master)
@@ -116,7 +121,13 @@ final class BattleWorld {
         if let id = controller.humanHeroID, let p = units.worldPositionOf(id) {
             aimOrigin = Vec2(Double(p.x) * Balance.unitsPerMeter, Double(-p.z) * Balance.unitsPerMeter)
         }
-        aim.update(controller.aim, origin: aimOrigin, dt: dt)
+        #if DEBUG
+        var aimShown = controller.aim
+        if aimShown == nil { aimShown = showcase?.aim }
+        #else
+        let aimShown = controller.aim
+        #endif
+        aim.update(aimShown, origin: aimOrigin, dt: dt)
         // 草むら（視点ヒーローが入っている草むらを半透明に）
         if let hi = frame.state.humanHeroIndex, frame.viewerTeam != nil {
             map.setTranslucentBrush(frame.state.units[hi].brushIndex)
@@ -125,6 +136,20 @@ final class BattleWorld {
         }
         fog?.update(state: frame.state, dt: dt)
         flushHealText(dt: dt, frame: frame)
+    }
+
+    /// 演出の初回生成コストを読み込み幕の裏で払う（地面の下で各プリセットを 1 回ずつ再生）。
+    func prewarmEffects() {
+        var p = SIMD3<Float>(60, -3, -60)
+        if let id = controller.humanHeroID ?? controller.state.units.first(where: { $0.kind == .hero })?.id,
+           let hp = units.worldPositionOf(id) {
+            p = hp - SIMD3(0, 3, 0)
+        }
+        let presets: [VFXPreset] = [.hitSpark, .crit, .magicHit, .heal, .shield, .levelUp, .death, .heroDeath, .respawn,
+                                    .towerExplosion, .debris, .smoke, .gold, .skillBurst, .blink, .areaBlast, .trail]
+        for preset in presets { vfx.spawn(preset, at: p, color: FXColors.white, count: 1, important: true) }
+        vfx.ring(at: p, color: RGB(1, 1, 1), from: 0.5, to: 1, duration: 0.2)
+        vfx.flash(at: p, color: RGB(1, 1, 1), radius: 0.5, duration: 0.2)
     }
 
     func updateOverlay(dt: Float) {
@@ -160,16 +185,31 @@ final class BattleWorld {
     }
 
     private func heroColor(_ id: EntityID?, _ f: RenderFrame) -> UIColor {
-        if let id, let u = f.state.unit(id), let h = u.hero {
-            return UIColor(hue: CGFloat(Theme.heroHue(h.heroID)), saturation: 0.62, brightness: 1, alpha: 1)
+        if let id, let i = f.state.index(of: id), let heroID = f.state.units[i].hero?.heroID {
+            return hueColor(heroID)
         }
-        return UIColor(red: 0.7, green: 0.85, blue: 1, alpha: 1)
+        return FXColors.defaultMagic
+    }
+
+    /// ヒーロー色相の演出色（キャッシュ）。
+    private func hueColor(_ heroID: String) -> UIColor {
+        if let c = hueCache[heroID] { return c }
+        let c = UIColor(hue: CGFloat(Theme.heroHue(heroID)), saturation: 0.62, brightness: 1, alpha: 1)
+        hueCache[heroID] = c
+        return c
     }
 
     private func teamColor(_ id: EntityID?, _ f: RenderFrame) -> UIColor {
-        guard let id, let u = f.state.unit(id) else { return UIColor(white: 1, alpha: 1) }
-        if u.team == .neutral { return UIColor(red: 1, green: 0.7, blue: 0.35, alpha: 1) }
-        return materials.teams.light(u.team).uiColor
+        guard let id, let i = f.state.index(of: id) else { return FXColors.white }
+        return teamLight(f.state.units[i].team)
+    }
+
+    private func teamLight(_ team: Team) -> UIColor {
+        switch team {
+        case .blue: return teamLightBlue
+        case .red: return teamLightRed
+        case .neutral: return FXColors.neutral
+        }
     }
 
     private func spawnText(_ s: String, at p: SIMD3<Float>, style: CombatTextStyle) {
@@ -191,7 +231,7 @@ final class BattleWorld {
             onHeal(target: target, source: source, amount: amount, f)
         case .shieldGained(let target, _, let amount):
             guard isShown(target, f), let p = anchor(target, heightRatio: 0.5) else { break }
-            vfx.spawn(.shield, at: p, color: UIColor(red: 0.8, green: 0.92, blue: 1, alpha: 1), important: target == f.focusID)
+            vfx.spawn(.shield, at: p, color: FXColors.shield, important: target == f.focusID)
             if target == f.focusID, let tp = textAnchor(target) {
                 spawnText(CombatTextFormat.plus(amount), at: tp + SIMD3(-0.4, 0, 0), style: .shield)
             }
@@ -233,7 +273,7 @@ final class BattleWorld {
             guard kind == .minion || kind == .monster || kind == .dummy, isShown(id, f) else { break }
             let p = worldPosition(pos, height: 0.6)
             guard nearCamera(p) else { break }
-            let c = team == .neutral ? UIColor(red: 0.8, green: 0.7, blue: 1.0, alpha: 1) : materials.teams.light(team).uiColor
+            let c = team == .neutral ? FXColors.monsterDeath : teamLight(team)
             vfx.spawn(.death, at: p, color: c, scale: kind == .monster ? 1.6 : 1)
         case .heroKilled(let k):
             guard let p = anchor(k.victimID, heightRatio: 0.5) else { break }
@@ -243,16 +283,16 @@ final class BattleWorld {
         case .goldGained(let heroID, let amount, let pos):
             guard heroID == f.focusID, amount >= 1 else { break }
             let p = worldPosition(pos, height: 1.2)
-            vfx.spawn(.gold, at: p, color: .yellow, important: true)
+            vfx.spawn(.gold, at: p, color: FXColors.gold, important: true)
             spawnText(CombatTextFormat.plus(amount), at: p + SIMD3(0, 0.4, 0), style: .gold)
         case .levelUp(let heroID, _):
             guard isShown(heroID, f), let base = units.worldPositionOf(heroID) else { break }
-            vfx.spawn(.levelUp, at: base + SIMD3(0, 0.1, 0), color: UIColor(red: 1, green: 0.85, blue: 0.4, alpha: 1), important: true)
+            vfx.spawn(.levelUp, at: base + SIMD3(0, 0.1, 0), color: FXColors.levelUp, important: true)
             vfx.ring(at: base, color: RGB(1, 0.86, 0.45), from: 0.3, to: 1.8, duration: 0.7)
         case .structureDestroyed(let id, let kind, let team, _, _, _):
             guard let base = units.worldPositionOf(id) else { break }
             let top = base + SIMD3(0, kind == .core ? 3.6 : 4.6, 0)
-            vfx.spawn(.towerExplosion, at: top, color: materials.teams.light(team).uiColor, scale: kind == .core ? 1.6 : 1,
+            vfx.spawn(.towerExplosion, at: top, color: teamLight(team), scale: kind == .core ? 1.6 : 1,
                       important: true)
             vfx.spawn(.debris, at: top - SIMD3(0, 1.5, 0), color: .gray, scale: kind == .core ? 1.5 : 1, important: true)
             vfx.spawn(.smoke, at: base + SIMD3(0, 1.2, 0), color: .gray, scale: kind == .core ? 1.6 : 1, important: true)
@@ -268,7 +308,7 @@ final class BattleWorld {
             vfx.ring(at: p, color: materials.teams.light(f.state.unit(heroID)?.team ?? .blue), from: 2, to: 0.4, duration: 0.6)
         case .channelStarted(let heroID, let kind, _):
             guard isShown(heroID, f), let p = units.worldPositionOf(heroID) else { break }
-            let c: UIColor = kind == .recall ? teamColor(heroID, f) : UIColor(red: 0.85, green: 0.7, blue: 1, alpha: 1)
+            let c: UIColor = kind == .recall ? teamColor(heroID, f) : FXColors.teleport
             vfx.startLoop(id: heroID, at: p, color: c)
         case .channelCanceled(let heroID, _):
             vfx.stopLoop(id: heroID)
@@ -287,7 +327,7 @@ final class BattleWorld {
         let involvesFocus = d.sourceID == f.focusID || d.targetID == f.focusID
         if involvesFocus || nearCamera(p) {
             if d.isCrit {
-                vfx.spawn(.crit, at: p, color: UIColor(red: 1, green: 0.62, blue: 0.2, alpha: 1), important: involvesFocus)
+                vfx.spawn(.crit, at: p, color: FXColors.crit, important: involvesFocus)
             } else {
                 switch d.source {
                 case .skill, .spell:
@@ -299,8 +339,8 @@ final class BattleWorld {
                     if !minor || settings.quality.level == .high {
                         let c: UIColor
                         switch d.damageType {
-                        case .physical: c = UIColor(red: 1, green: 0.85, blue: 0.6, alpha: 1)
-                        case .magic: c = UIColor(red: 0.75, green: 0.6, blue: 1, alpha: 1)
+                        case .physical: c = FXColors.physical
+                        case .magic: c = FXColors.magic
                         case .trueDamage: c = .white
                         }
                         vfx.spawn(.hitSpark, at: p, color: c, scale: minor ? 0.7 : 1, count: minor ? 5 : nil, important: involvesFocus)
@@ -325,7 +365,7 @@ final class BattleWorld {
         guard amount >= 25, let p = units.worldPositionOf(target) else { return }
         if let last = lastHealFX[target], time - last < 0.5 { return }
         lastHealFX[target] = time
-        vfx.spawn(.heal, at: p + SIMD3(0, 0.2, 0), color: UIColor(red: 0.45, green: 1, blue: 0.55, alpha: 1),
+        vfx.spawn(.heal, at: p + SIMD3(0, 0.2, 0), color: FXColors.heal,
                   important: target == f.focusID)
     }
 
@@ -343,7 +383,7 @@ final class BattleWorld {
     }
 
     private func skillFX(_ c: SkillCastEvent, _ f: RenderFrame) {
-        let color = UIColor(hue: CGFloat(Theme.heroHue(c.heroID)), saturation: 0.62, brightness: 1, alpha: 1)
+        let color = hueColor(c.heroID)
         let effect = master.effect(c.effectID)
         let scale = Float(effect?.scaleM ?? 1.2)
         let origin = units.worldPositionOf(c.casterID) ?? worldPosition(c.origin)
@@ -397,22 +437,22 @@ final class BattleWorld {
         case "BS02":
             vfx.spawn(.skillBurst, at: p + SIMD3(0, 1, 0), color: .white, important: true)
         case "BS03":
-            vfx.spawn(.heal, at: p, color: UIColor(red: 0.45, green: 1, blue: 0.55, alpha: 1), scale: 1.4, important: true)
+            vfx.spawn(.heal, at: p, color: FXColors.heal, scale: 1.4, important: true)
             vfx.ring(at: p, color: RGB(0.45, 1, 0.55), from: 0.5, to: 8, duration: 0.6)
         case "BS04":
-            vfx.spawn(.shield, at: p + SIMD3(0, 0.9, 0), color: UIColor(red: 0.95, green: 0.85, blue: 0.5, alpha: 1), important: true)
+            vfx.spawn(.shield, at: p + SIMD3(0, 0.9, 0), color: FXColors.barrier, important: true)
         case "BS05":
             vfx.flash(at: tp, color: RGB(1, 0.85, 0.4), radius: 1.2, duration: 0.3)
-            vfx.spawn(.crit, at: tp, color: UIColor(red: 1, green: 0.8, blue: 0.3, alpha: 1), scale: 1.4, important: true)
+            vfx.spawn(.crit, at: tp, color: FXColors.smite, scale: 1.4, important: true)
         case "BS06":
             vfx.ring(at: p, color: RGB(0.5, 1, 0.95), from: 0.5, to: 2, duration: 0.5)
-            vfx.spawn(.blink, at: p + SIMD3(0, 0.6, 0), color: UIColor(red: 0.5, green: 1, blue: 0.95, alpha: 1))
+            vfx.spawn(.blink, at: p + SIMD3(0, 0.6, 0), color: FXColors.haste)
         case "BS07":
-            vfx.spawn(.magicHit, at: tp, color: UIColor(red: 1, green: 0.5, blue: 0.2, alpha: 1), scale: 1.3, important: true)
+            vfx.spawn(.magicHit, at: tp, color: FXColors.ignite, scale: 1.3, important: true)
         case "BS08":
-            vfx.spawn(.blink, at: p + SIMD3(0, 0.9, 0), color: UIColor(red: 0.7, green: 0.55, blue: 1, alpha: 1), important: true)
+            vfx.spawn(.blink, at: p + SIMD3(0, 0.9, 0), color: FXColors.ghost, important: true)
         case "BS10":
-            vfx.spawn(.magicHit, at: tp, color: UIColor(red: 0.75, green: 0.55, blue: 1, alpha: 1), scale: 1.2, important: true)
+            vfx.spawn(.magicHit, at: tp, color: FXColors.chain, scale: 1.2, important: true)
         default:
             vfx.spawn(.skillBurst, at: p + SIMD3(0, 1, 0), color: heroColor(caster, f), scale: 0.8)
         }
@@ -463,4 +503,26 @@ final class BattleWorld {
         zones.onTrigger = nil
         root.removeFromParent()
     }
+}
+
+/// 演出で繰り返し使う色（イベント毎の生成を避ける）。
+enum FXColors {
+    static let white = UIColor.white
+    static let defaultMagic = UIColor(red: 0.7, green: 0.85, blue: 1, alpha: 1)
+    static let neutral = UIColor(red: 1, green: 0.7, blue: 0.35, alpha: 1)
+    static let shield = UIColor(red: 0.8, green: 0.92, blue: 1, alpha: 1)
+    static let monsterDeath = UIColor(red: 0.8, green: 0.7, blue: 1.0, alpha: 1)
+    static let levelUp = UIColor(red: 1, green: 0.85, blue: 0.4, alpha: 1)
+    static let teleport = UIColor(red: 0.85, green: 0.7, blue: 1, alpha: 1)
+    static let crit = UIColor(red: 1, green: 0.62, blue: 0.2, alpha: 1)
+    static let physical = UIColor(red: 1, green: 0.85, blue: 0.6, alpha: 1)
+    static let magic = UIColor(red: 0.75, green: 0.6, blue: 1, alpha: 1)
+    static let heal = UIColor(red: 0.45, green: 1, blue: 0.55, alpha: 1)
+    static let barrier = UIColor(red: 0.95, green: 0.85, blue: 0.5, alpha: 1)
+    static let smite = UIColor(red: 1, green: 0.8, blue: 0.3, alpha: 1)
+    static let haste = UIColor(red: 0.5, green: 1, blue: 0.95, alpha: 1)
+    static let ignite = UIColor(red: 1, green: 0.5, blue: 0.2, alpha: 1)
+    static let ghost = UIColor(red: 0.7, green: 0.55, blue: 1, alpha: 1)
+    static let chain = UIColor(red: 0.75, green: 0.55, blue: 1, alpha: 1)
+    static let gold = UIColor(red: 1, green: 0.84, blue: 0.3, alpha: 1)
 }

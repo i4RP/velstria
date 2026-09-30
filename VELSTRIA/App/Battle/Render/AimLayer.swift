@@ -26,7 +26,7 @@ final class AimLayer {
     private var cancelling = false
     private var t: Float = 0
 
-    static let normalColor = RGB(0.55, 0.88, 1.0)
+    static let normalColor = RGB(0.86, 0.95, 1.0)
     static let allyColor = RGB(0.45, 1.0, 0.6)
     static let cancelColor = RGB(1.0, 0.3, 0.28)
 

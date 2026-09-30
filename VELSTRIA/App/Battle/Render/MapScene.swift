@@ -286,6 +286,17 @@ final class MapScene {
                 fountainSpires.append(spire)
             }
             let core = map.core(team)
+            // 泉 → Core の参道に吊りランタン
+            let along = (core - f).normalized, side = along.perpendicular
+            for t in [0.3, 0.62] {
+                for s in [-1.0, 1.0] {
+                    let lp = f + (core - f) * t + side * (560 * s)
+                    batch.add(at: w(lp)) { l, g in
+                        MapProps.lanternPost(&l, glow: &g, at: w(lp), height: 2.1,
+                                             yaw: Float(atan2(side.y * s, side.x * s)) + .pi)
+                    }
+                }
+            }
             for lane in Lane.allCases {
                 let path = map.lanePath(lane, for: team)
                 guard path.count >= 2 else { continue }

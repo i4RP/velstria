@@ -16,6 +16,8 @@ final class RenderShowcase {
     private var fired: [Bool] = Array(repeating: false, count: 32)
     private var destroyedTower: EntityID?
     private let master: MasterData
+    /// 照準表示の確認用（controller.aim が無いときに使う）。
+    private(set) var aim: AimIndicator?
 
     init(master: MasterData) {
         self.master = master
@@ -38,6 +40,27 @@ final class RenderShowcase {
         let hero = f.state.units[hi]
         guard let heroData = hero.hero else { return }
         let p = hero.pos
+        // 照準: 方向型 → 地点型 → 対象型 → 自身中心 → 貫通（キャンセル）を順に表示
+        let dir = Vec2(cos(Double(time) * 0.7), sin(Double(time) * 0.7))
+        func targeting(_ a: SkillArchetype, _ t: AimType, range: Double, radius: Double, allies: Bool = false) -> SkillTargeting {
+            SkillTargeting(archetype: a, aim: t, range: range, radius: radius, targetsAllies: allies)
+        }
+        if local < 3 {
+            aim = AimIndicator(kind: .skill(.skill1), targeting: targeting(.lineSkillshot, .direction, range: 900, radius: 160),
+                               origin: p, target: p + dir * 900, isCancelling: false)
+        } else if local < 6 {
+            aim = AimIndicator(kind: .skill(.skill3), targeting: targeting(.healZone, .point, range: 800, radius: 300, allies: true),
+                               origin: p, target: p + dir * 600, isCancelling: false)
+        } else if local < 9 {
+            aim = AimIndicator(kind: .skill(.ultimate), targeting: targeting(.targetedBlink, .unit, range: 700, radius: 100),
+                               origin: p, target: p + dir * 500, isCancelling: false)
+        } else if local < 10.5 {
+            aim = AimIndicator(kind: .spell(0), targeting: targeting(.selfAoE, .none, range: 0, radius: 350),
+                               origin: p, target: p, isCancelling: false)
+        } else {
+            aim = AimIndicator(kind: .skill(.ultimate), targeting: targeting(.piercingLine, .direction, range: 2000, radius: 140),
+                               origin: p, target: p + dir * 2000, isCancelling: true)
+        }
         let skills = master.skills(forHero: heroData.heroID)
         func effect(_ slot: SkillSlot) -> String { skills.first { $0.slot == slot }?.effectID ?? "" }
         func once(_ k: Int, _ at: Float, _ body: () -> Void) {
