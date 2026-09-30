@@ -59,6 +59,7 @@
 - [ ] 年齢制限 9+ の回答（[age_rating.md](age_rating.md)）、栄養ラベル「データを収集しない」（[app_privacy.md](app_privacy.md)）。
 - [ ] iPad（iPhone 互換モード）でも起動・操作・購入ができる。
 - [ ] 英語表示で日本語が残っていない（マスター名は `master_en.json`、UI 文言は `L("…", "…")`）。
+- [ ] 日本語表示で有料コスメ・ストア商品がテンプレート名（「… Emote 1」「… HeroSkin 1」）で出ない（`master_ja.json`）。
 - [ ] 戦闘描画に流血・写実的表現がない（年齢制限の前提）。
 - [ ] `TEAM_ID=… STRICT=1 tools/archive.sh` → Organizer で Validate App 成功 → アップロード。
 

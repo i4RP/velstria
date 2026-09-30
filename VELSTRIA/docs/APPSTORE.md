@@ -19,7 +19,7 @@ App Store Connect（ASC）への v1.0 提出に必要なもの一式と手順。
 | リリース判定チェックリスト | [release_checklist.md](appstore/release_checklist.md) |
 | 法務文書（Web 公開用） | `docs/legal/`（プライバシーポリシー・利用規約 日英、特定商取引法に基づく表記、資金決済法に基づく表示） |
 | アイコン・起動ロゴ生成 | `tools/make_icon.swift` |
-| 英語オーバーレイ生成・検証 | `tools/gen_master_en.py` → `App/Resources/master_en.json` |
+| 英語オーバーレイ・コスメの日本語表示名の生成・検証 | `tools/gen_master_en.py` → `App/Resources/master_en.json`, `App/Resources/master_ja.json` |
 | プライバシーマニフェスト | `App/Resources/PrivacyInfo.xcprivacy`、検査 `tools/privacy_audit.py` |
 | メタデータ検証 | `tools/validate_appstore_metadata.py` |
 | アーカイブ・書き出し | `tools/archive.sh`、`ExportOptions-AppStore.plist` |

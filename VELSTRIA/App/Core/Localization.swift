@@ -26,17 +26,22 @@ func L(_ ja: String, _ en: String) -> String {
 }
 
 /// マスターデータの表示名（英語は MasterText オーバーレイ、無ければ日本語）。
+/// 日本語もコスメ（とコスメのストア商品）だけは master_ja.json の表示名を使う
+/// （マスターの name_ja が「潮祈のミレア Emote 1」のようなテンプレート名のため。tools/gen_master_en.py が生成）。
 enum MasterText {
-    private static let overlay: [String: String] = {
-        guard let url = Bundle.main.url(forResource: "master_en", withExtension: "json"),
+    private static let overlay: [String: String] = load("master_en")
+    private static let overlayJa: [String: String] = load("master_ja")
+
+    private static func load(_ resource: String) -> [String: String] {
+        guard let url = Bundle.main.url(forResource: resource, withExtension: "json"),
               let data = try? Data(contentsOf: url),
               let dict = try? JSONDecoder().decode([String: String].self, from: data) else { return [:] }
         return dict
-    }()
+    }
 
     /// ID（hero_id / skill_id / item_id / spell_id / rune_id / cosmetic_id / sku）→ 表示名。
     static func name(id: String, ja: String) -> String {
-        guard Loc.isEnglish else { return ja }
+        guard Loc.isEnglish else { return overlayJa[id] ?? ja }
         return overlay[id] ?? ja
     }
 
