@@ -71,7 +71,7 @@ enum SkillAiming {
             // 移動スキル: 敵へ飛び込まず向き（移動方向）へ
             return SkillAim(direction: facing, point: pos + facing * t.range, unit: nil, distance: t.range)
         case .healZone:
-            let reach = autoAimReach(t)
+            let reach = t.reach
             if let u = bestEnemyHero(s, caster: i, reach: reach) ?? injuredAllyHero(s, caster: i, range: t.range)
                 ?? nearestEnemy(s, caster: i, reach: reach) {
                 return aim(at: u, s, caster: i, range: t.range, facing: facing)
@@ -79,21 +79,11 @@ enum SkillAiming {
             // 何も居なければ足元（自身を回復）
             return SkillAim(direction: facing, point: pos, unit: nil, distance: 0)
         default:
-            let reach = autoAimReach(t)
+            let reach = t.reach
             if let u = bestEnemyHero(s, caster: i, reach: reach) ?? nearestEnemy(s, caster: i, reach: reach) {
                 return aim(at: u, s, caster: i, range: t.range, facing: facing)
             }
             return SkillAim(direction: facing, point: pos + facing * t.range, unit: nil, distance: t.range)
-        }
-    }
-
-    /// 自動照準で対象を探す距離（地点・着地 AoE は効果半径まで届く）。
-    static func autoAimReach(_ t: SkillTargeting) -> Double {
-        switch t.archetype {
-        case .dashStrike, .groundAoE, .healZone, .leapSlam:
-            return t.range + t.radius
-        default:
-            return t.range
         }
     }
 

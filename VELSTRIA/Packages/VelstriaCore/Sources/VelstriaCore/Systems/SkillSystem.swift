@@ -30,6 +30,19 @@ public struct SkillTargeting: Codable, Hashable, Sendable {
     }
 }
 
+extension SkillTargeting {
+    /// 術者の中心から対象の縁までで、このスキルが敵に届く最大距離（AI の「撃てる距離か」の判定・自動照準）。
+    /// blinkEmpower はブリンク距離のみ（強化攻撃の射程は含まない）。teamHeal は敵への CC の半径。
+    public var reach: Double {
+        switch archetype {
+        case .passive: return 0
+        case .cone, .lineSkillshot, .piercingLine, .blinkEmpower, .targetedBlink: return range
+        case .dashStrike, .groundAoE, .healZone, .leapSlam: return range + radius
+        case .selfAoE, .multiStrike, .teamHeal: return radius
+        }
+    }
+}
+
 /// ランク・能力値込みのスキル数値（UI のツールチップ・AI の判断用）。
 /// ダメージ・回復は軽減前の生の値（与ダメ補正・防御は含まない）。
 public struct SkillNumbers: Codable, Hashable, Sendable {
@@ -236,7 +249,7 @@ public enum SkillSystem {
         validate(s, ctx, heroIndex: i, slot: slot) != nil
     }
 
-    /// 実効クールダウン（ランク・CD 短縮込み）。
+    /// 実効クールダウン（ランク・CD 短縮込み、調整倍率 Balance.Skills.cooldownScale 込み）。
     public static func cooldown(for skill: SkillDef, rank: Int, cdr: Double) -> Double {
         let reduction = min(Balance.maxCooldownReduction, max(0, cdr))
         return skill.cooldownSec * (1 - Balance.skillCooldownPerRank * Double(max(0, rank - 1))) * (1 - reduction)

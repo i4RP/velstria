@@ -58,16 +58,8 @@ final class SkillBalanceTests: XCTestCase {
     static func inReach(_ w: SkillWorld, _ me: Int, _ foe: Int, _ slot: SkillSlot) -> Bool {
         let t = w.targeting(me, slot)
         let dist = w.s.units[me].pos.distance(to: w.s.units[foe].pos) - w.s.units[foe].radius
-        switch t.archetype {
-        case .selfAoE, .multiStrike, .teamHeal:
-            return dist <= t.radius
-        case .blinkEmpower:
-            return dist <= t.range + w.s.units[me].stats.attackRange
-        case .passive:
-            return false
-        default:
-            return dist <= SkillAiming.autoAimReach(t)
-        }
+        if t.archetype == .blinkEmpower { return dist <= t.range + w.s.units[me].stats.attackRange }
+        return dist <= t.reach
     }
 
     func testRolePairDuelTimeToKill() {

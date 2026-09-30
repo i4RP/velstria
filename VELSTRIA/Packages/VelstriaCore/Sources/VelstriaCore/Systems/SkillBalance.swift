@@ -12,14 +12,9 @@ extension Balance {
         public static let damageScaleBySlot: [Double] = [0, 4.0, 3.0, 3.0, 2.6]
         /// 回復・シールド系スキル（healZone / teamHeal）の倍率。
         public static let healScale: Double = 2.4
-        /// クールダウン倍率（DESIGN §6 の式に掛ける）。
+        /// クールダウン倍率（DESIGN §6 の式に掛ける）。Lv1 はスキルが 1 つしか無いため CD を短くして持続火力を確保し、
+        /// ダメージ倍率は Lv12 の同時発動（バースト）で一撃死しない水準に抑える。
         public static let cooldownScale: Double = 0.5
-
-        // MARK: 照準
-        /// 攻撃力スケーリングの係数（DESIGN §6: scaling_attack × 総攻撃力 × 0.6）。
-        public static let attackScaling: Double = Balance.skillAttackScalingFactor
-        /// 自動照準（.none）で対象を探す際の追加距離（対象半径に加算）。
-        public static let autoAimSlack: Double = 0
 
         // MARK: Skill1
         /// 近接の前方扇形の半角（90° の扇）。
