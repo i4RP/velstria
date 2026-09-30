@@ -81,12 +81,14 @@ struct HUDPauseMenu: View {
     }
 
     private var modeName: String {
+        // リプレイは記録時の設定（通常戦・ランク戦など）のまま起動するので、モードより先に判定する
+        if model.controller.isReplay { return L("リプレイ", "Replay") }
         switch model.mode {
         case .standard: return L("通常戦", "Standard Match")
         case .ranked: return L("ランク戦", "Ranked Match")
         case .practice: return L("練習場", "Practice")
         case .tutorial: return L("チュートリアル", "Tutorial")
-        case .spectate: return model.controller.isReplay ? L("リプレイ", "Replay") : L("観戦", "Spectate")
+        case .spectate: return L("観戦", "Spectate")
         }
     }
 
@@ -143,7 +145,7 @@ struct HUDPauseMenu: View {
             Text(L("試合から退出しますか？", "Leave the match?"))
                 .font(Theme.heading(18))
                 .foregroundStyle(.white)
-            Text(countsAsLoss ? L("途中で退出すると敗北として記録されます。", "Leaving now counts as a loss.")
+            Text(countsAsLoss ? L("途中で退出すると敗北として記録され、報酬は獲得できません。", "Leaving now counts as a loss and grants no rewards.")
                               : L("進行状況は保存されません。", "Your progress in this session won't be kept."))
                 .font(.system(size: 13, weight: .medium, design: .rounded))
                 .foregroundStyle(.white.opacity(0.8))

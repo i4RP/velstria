@@ -24,6 +24,8 @@ final class ZoneLayer {
         var color = RGB(1, 1, 1)
         var fadeOut: Float?
         var triggered = false
+        /// 視界外へ出て一時的に隠している（ゾーン自体はまだ残っている）。
+        var hidden = false
     }
 
     private var active: [EntityID: Visual] = [:]
@@ -42,8 +44,8 @@ final class ZoneLayer {
 
     var count: Int { list.count + fading.count }
 
-    /// 表示中のゾーンか。
-    func isShown(_ id: EntityID) -> Bool { active[id] != nil }
+    /// 表示中のゾーンか（視界外で隠している予告は含まない）。
+    func isShown(_ id: EntityID) -> Bool { active[id].map { !$0.hidden } ?? false }
 
     /// ゾーン形状の外接円（sim 座標）。
     static func bounds(of z: AreaZone) -> (center: Vec2, radius: Double) {
@@ -123,14 +125,31 @@ final class ZoneLayer {
         let state = f.state
         for k in state.zones.indices {
             let z = state.zones[k]
-            if let viewer = f.viewerTeam, z.team != viewer, !state.vision.isLit(z.center, for: viewer) { continue }
+            if let viewer = f.viewerTeam, z.team != viewer, !state.vision.isLit(z.center, for: viewer) {
+                // 視界外の敵ゾーン: 表示中なら隠して残す（消えたゾーンと区別し、発動していないのに発動演出を出さない）
+                if let v = active[z.id] {
+                    v.lastSeen = stamp
+                    if !v.hidden {
+                        v.hidden = true
+                        v.node.isEnabled = false
+                    }
+                    // 視界外で発動した分は演出なしで済ませる（再び見えても二重に弾けない）
+                    if z.triggered { v.triggered = true }
+                }
+                continue
+            }
             let v: Visual
             if let existing = active[z.id] {
                 v = existing
+                if v.hidden {
+                    v.hidden = false
+                    v.node.isEnabled = true
+                }
             } else {
                 v = take()
                 v.id = z.id
                 v.fadeOut = nil
+                v.hidden = false
                 v.triggered = z.triggered
                 configure(v, zone: z, color: ZoneLayer.color(for: z, viewer: f.viewerTeam, teams: materials.teams))
                 v.node.components.remove(OpacityComponent.self)
@@ -184,6 +203,13 @@ final class ZoneLayer {
                 if active[v.id] === v { active[v.id] = nil }
                 list.swapAt(k, list.count - 1)
                 list.removeLast()
+                if v.hidden {
+                    // 視界外のまま消えた（見えない所で発動・終了した）: 演出を出さずに回収
+                    v.hidden = false
+                    v.node.isEnabled = false
+                    pool.append(v)
+                    continue
+                }
                 if !v.triggered {
                     v.triggered = true
                     onTrigger?(v.node.position, v.color, Float(v.fill.scale.x))

@@ -3,7 +3,10 @@ import VelstriaCore
 
 // 担当: app-services
 // 試合報酬（DESIGN §12）:
-// - 対象: 通常戦・ランク戦のみ。リプレイ再生・観戦・練習場・チュートリアル・途中離脱は報酬なし・記録なし。
+// - 対象: 通常戦・ランク戦のみ。リプレイ再生・観戦・練習場・チュートリアルは報酬なし・記録なし。
+// - 通常戦・ランク戦の途中退出（ポーズメニューの「退出（敗北）」）は報酬なしで敗北として記録する:
+//   ランク戦は RankService.apply(won: false)、通算成績（敗北・連勝リセット）と戦績（敗北）を更新する。
+//   Coin・XP・パス XP・ミッション・リプレイ保存は無し（退出で負け試合を消せないように、かつ退出で報酬を得られないように）。
 // - Coin: 勝利 220 / 敗北 110 × 時間係数 min(1, 分/12)（下限 0.3）。週末スターブースト中は +50%（coins に含める）。
 // - 初勝利ボーナス: その日（端末ローカル日付）の最初の勝利に +300（日付キーが前回より進んだ時のみ）。
 // - アカウント XP: 勝利 120 / 敗北 80。次のレベルまで 400 + 100×Lv、最大 Lv 60（最大到達後の XP は 0 に固定）。
@@ -28,8 +31,10 @@ struct RewardReport: Equatable {
     /// 新たに解除した実績 ID。
     var achievementsUnlocked: [String] = []
     var replaySaved = false
-    /// リプレイ・観戦・練習など報酬対象外。
+    /// リプレイ・観戦・練習など報酬対象外（途中退出も含む）。
     var noRewards = false
+    /// 通常戦・ランク戦の途中退出（報酬なし・敗北として記録済み）。
+    var abandonedLoss = false
 
     /// 勝利したか（引き分け・時間切れは false）。
     var won = false
@@ -82,6 +87,14 @@ enum RewardService {
         return outcome.summary.humanPlayer != nil
     }
 
+    /// 通常戦・ランク戦を途中退出した試合か（報酬なし・敗北として記録する）。
+    static func isAbandonedLoss(_ outcome: BattleOutcome) -> Bool {
+        let mode = outcome.launch.config.mode
+        guard outcome.abandoned, outcome.launch.replay == nil, !outcome.launch.isSpectating else { return false }
+        guard mode == .standard || mode == .ranked else { return false }
+        return outcome.summary.humanPlayer != nil
+    }
+
     /// アカウント XP を加算してレベルアップを処理する。
     static func addAccountXP(_ amount: Int, to profile: inout Profile) {
         guard amount > 0 else { return }
@@ -106,6 +119,11 @@ enum RewardService {
         report.accountXPAfter = profile.accountXP
         report.passLevelBefore = LiveOpsService.passLevel(xp: profile.pass.xp)
         report.passLevelAfter = report.passLevelBefore
+        if isAbandonedLoss(outcome), let human = outcome.summary.humanPlayer {
+            report.noRewards = true
+            applyAbandonedLoss(outcome, human: human, to: &profile, report: &report, persistence: persistence, now: now)
+            return report
+        }
         guard isRewardEligible(outcome), let human = outcome.summary.humanPlayer else {
             report.noRewards = true
             return report
@@ -186,6 +204,41 @@ enum RewardService {
 
         persistence.saveNow(profile)
         return report
+    }
+
+    /// 途中退出: 報酬なしで敗北として記録する（ランク・通算成績・戦績）。
+    private static func applyAbandonedLoss(_ outcome: BattleOutcome, human: PlayerSummary, to profile: inout Profile,
+                                           report: inout RewardReport, persistence: PersistenceService, now: Date) {
+        let summary = outcome.summary
+        let launch = outcome.launch
+        report.abandonedLoss = true
+        report.won = false
+
+        if launch.countsForRank || launch.config.mode == .ranked {
+            report.rankBefore = profile.rank
+            RankService.apply(won: false, to: &profile.rank)
+            report.rankAfter = profile.rank
+        }
+
+        // 退出した試合の MVP は数えない
+        var player = human
+        player.isMVP = false
+        updateCareer(&profile.career, human: player, won: false)
+
+        let record = MatchRecord(
+            date: now, mode: launch.config.mode, difficulty: enemyDifficulty(launch.config, humanTeam: human.team),
+            won: false, duration: summary.duration, heroID: human.heroID,
+            kills: human.score.kills, deaths: human.score.deaths, assists: human.score.assists,
+            creepScore: human.score.creepScore, gold: human.score.goldEarned,
+            damageToHeroes: human.score.damageToHeroes, grade: human.grade, isMVP: false,
+            items: human.items, replayID: nil, summary: summary)
+        profile.matchHistory.insert(record, at: 0)
+        if profile.matchHistory.count > maxMatchHistory {
+            profile.matchHistory.removeLast(profile.matchHistory.count - maxMatchHistory)
+        }
+        report.matchRecordID = record.id
+
+        persistence.saveNow(profile)
     }
 
     /// 通算成績とヒーロー別成績を更新する。

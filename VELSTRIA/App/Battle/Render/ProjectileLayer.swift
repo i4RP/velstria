@@ -39,6 +39,8 @@ final class ProjectileLayer {
         var startDistance: Double = 1
         var color: RGB
         var baseScale: SIMD3<Float>
+        /// スキル弾の演出倍率（EffectDef.scaleM）。同じスタイルでも演出ごとに違うので、プールから出す時に合わせ直す。
+        var effectScale: Float = 0
         var hasTrail = false
         var yaw: Float = 0
 
@@ -110,15 +112,14 @@ final class ProjectileLayer {
             var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
             c.getRed(&r, green: &g, blue: &b, alpha: &a)
             color = RGB(Double(r), Double(g), Double(b))
-            let k = Float(master.effect(visual)?.scaleM ?? 1.2)
-            coreScale = streak ? [0.14 * k, 0.14 * k, 0.75 * k] : SIMD3(repeating: 0.22 * k)
-            haloScale = 0.36 * k
+            (coreScale, haloScale) = Self.skillScales(effectScale(visual), streak: streak)
         }
         let core = ModelEntity(mesh: meshes.unitSphere, materials: [materials.unlit(color.mixed(RGB(1, 1, 1), 0.55))])
         core.scale = coreScale
         let halo = ModelEntity(mesh: meshes.unitSphere, materials: [materials.unlit(color, alpha: 0.35)])
-        halo.scale = SIMD3(haloScale, haloScale, max(haloScale, coreScale.z * 0.8))
+        halo.scale = Self.haloScale(haloScale, core: coreScale)
         let v = Visual(style: style, core: core, halo: halo, color: color, baseScale: coreScale)
+        if case .skill = style { v.effectScale = effectScale(visual) }
         v.entity.addChild(core)
         v.entity.addChild(halo)
         // 軌跡（中・高画質、目立つ弾のみ）
@@ -151,13 +152,47 @@ final class ProjectileLayer {
         return v
     }
 
+    /// スキル弾の演出倍率（EffectDef.scaleM。未定義は 1.2）。
+    private func effectScale(_ visual: String) -> Float {
+        Float(master.effect(visual)?.scaleM ?? 1.2)
+    }
+
+    /// スキル弾の芯の拡大率と光暈の半径。
+    static func skillScales(_ k: Float, streak: Bool) -> (core: SIMD3<Float>, halo: Float) {
+        (streak ? [0.14 * k, 0.14 * k, 0.75 * k] : SIMD3(repeating: 0.22 * k), 0.36 * k)
+    }
+
+    private static func haloScale(_ halo: Float, core: SIMD3<Float>) -> SIMD3<Float> {
+        SIMD3(halo, halo, max(halo, core.z * 0.8))
+    }
+
     private func take(_ style: Style, visual: String) -> Visual {
         if var l = pools[style], let v = l.popLast() {
             pools[style] = l
+            // スキル弾はスタイル（色相・細長さ）が同じでも演出ごとに大きさが違う（例: Ranger のスキル 1 と奥義）
+            if case .skill(_, let streak) = style {
+                let k = effectScale(visual)
+                if k != v.effectScale { resize(v, effectScale: k, streak: streak) }
+            }
             return v
         }
         return make(style, visual: visual)
     }
+
+    private func resize(_ v: Visual, effectScale k: Float, streak: Bool) {
+        let (core, halo) = Self.skillScales(k, streak: streak)
+        v.effectScale = k
+        v.baseScale = core
+        v.core.scale = core
+        v.halo.scale = Self.haloScale(halo, core: core)
+        if v.hasTrail, var p = v.entity.components[ParticleEmitterComponent.self] {
+            p.mainEmitter.size = halo * 0.55
+            v.entity.components.set(p)
+        }
+    }
+
+    /// 表示中の投射物の芯の拡大率（テスト用）。
+    func coreScale(of id: EntityID) -> SIMD3<Float>? { active[id]?.core.scale }
 
     private func recycle(_ v: Visual) {
         v.entity.isEnabled = false

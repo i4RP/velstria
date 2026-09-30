@@ -98,7 +98,8 @@ final class ServicesRewardTests: XCTestCase {
             ServicesFixtures.outcome(mode: .tutorial),
             ServicesFixtures.outcome(mode: .spectate, withReplay: true),
             ServicesFixtures.outcome(mode: .standard, isReplayPlayback: true),
-            ServicesFixtures.outcome(mode: .ranked, abandoned: true, countsForRank: true),
+            ServicesFixtures.outcome(mode: .practice, abandoned: true),
+            ServicesFixtures.outcome(mode: .standard, abandoned: true, isReplayPlayback: true),
         ]
         for o in cases {
             let original = Profile()
@@ -109,6 +110,57 @@ final class ServicesRewardTests: XCTestCase {
             XCTAssertEqual(r.coins, 0)
             XCTAssertFalse(r.replaySaved)
         }
+    }
+
+    /// 通常戦・ランク戦の途中退出は報酬なしで敗北として記録する（ポーズメニューの「退出（敗北）」の警告どおり）。
+    func testAbandonedStandardAndRankedCountAsLossWithoutRewards() {
+        var p = Profile()
+        p.rank.tier = .silverRing
+        p.rank.division = 2
+        p.rank.stars = 2
+        p.career.currentWinStreak = 3
+        let original = p
+        let r = apply(ServicesFixtures.outcome(mode: .ranked, won: nil, abandoned: true, withReplay: true, countsForRank: true,
+                                               isMVP: true), &p)
+        XCTAssertTrue(r.noRewards)
+        XCTAssertTrue(r.abandonedLoss)
+        XCTAssertFalse(r.won)
+        XCTAssertEqual(r.coins, 0)
+        XCTAssertEqual(r.totalCoins, 0)
+        XCTAssertEqual(r.accountXP, 0)
+        XCTAssertEqual(r.passXP, 0)
+        XCTAssertFalse(r.replaySaved)
+        XCTAssertTrue(r.missionsProgressed.isEmpty)
+        XCTAssertEqual(p.starlightCoin, original.starlightCoin)
+        XCTAssertEqual(p.accountXP, original.accountXP)
+        XCTAssertEqual(p.pass.xp, original.pass.xp)
+        XCTAssertEqual(p.missions, original.missions)
+        XCTAssertTrue(p.replays.isEmpty)
+        // ランク: 敗北として星 −1
+        XCTAssertEqual(r.rankBefore?.stars, 2)
+        XCTAssertEqual(r.rankAfter?.stars, 1)
+        XCTAssertEqual(p.rank.stars, 1)
+        XCTAssertEqual(p.rank.seasonLosses, 1)
+        // 通算成績・戦績: 敗北（MVP は数えない）
+        XCTAssertEqual(p.career.matches, 1)
+        XCTAssertEqual(p.career.wins, 0)
+        XCTAssertEqual(p.career.currentWinStreak, 0)
+        XCTAssertEqual(p.career.mvps, 0)
+        XCTAssertEqual(p.matchHistory.count, 1)
+        XCTAssertEqual(p.matchHistory.first?.id, r.matchRecordID)
+        XCTAssertEqual(p.matchHistory.first?.won, false)
+        XCTAssertEqual(p.matchHistory.first?.isMVP, false)
+        XCTAssertNil(p.matchHistory.first?.replayID)
+
+        // 通常戦: ランクは動かさず、戦績と通算成績だけ敗北
+        var q = Profile()
+        let s = apply(ServicesFixtures.outcome(mode: .standard, won: nil, abandoned: true), &q)
+        XCTAssertTrue(s.abandonedLoss)
+        XCTAssertNil(s.rankBefore)
+        XCTAssertEqual(q.rank, Profile().rank)
+        XCTAssertEqual(q.starlightCoin, Profile().starlightCoin)
+        XCTAssertEqual(q.career.matches, 1)
+        XCTAssertEqual(q.matchHistory.first?.won, false)
     }
 
     func testAccountLevelCurveAndCap() {
