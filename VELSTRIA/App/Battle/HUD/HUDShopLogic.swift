@@ -112,14 +112,15 @@ enum HUDShopLogic {
         }
     }
 
-    /// おすすめタブの一覧: 未所持のおすすめ装備と、その素材（重複なし・購入順）。
+    /// おすすめタブの一覧: 未所持のおすすめ装備と、その素材（素材が先・重複なし・購入順）。
     static func recommendedGridItems(_ path: [HUDShopPathStep], master: MasterData) -> [ItemDef] {
         var ids: [String] = []
-        for step in path where !step.owned {
-            guard let item = master.item(step.itemID) else { continue }
-            for part in item.buildFrom where !ids.contains(part) { ids.append(part) }
-            if !ids.contains(item.itemID) { ids.append(item.itemID) }
+        func add(_ id: String, depth: Int) {
+            guard depth < 4, !ids.contains(id), let item = master.item(id) else { return }
+            for part in item.buildFrom { add(part, depth: depth + 1) }
+            ids.append(id)
         }
+        for step in path where !step.owned { add(step.itemID, depth: 0) }
         return ids.compactMap { master.item($0) }
     }
 

@@ -215,7 +215,7 @@ struct HUDLayout: Equatable {
         case .skill3: return polar(101, 170 * scale)
         case .ultimate, .passive:
             let u = skillCenter(.ultimate)
-            return CGPoint(x: u.x + (leftHanded ? 30 : -30) * scale, y: u.y - 46 * scale)
+            return CGPoint(x: u.x, y: u.y - 54 * scale)
         }
     }
 
@@ -223,7 +223,7 @@ struct HUDLayout: Equatable {
         index == 0 ? polar(151, outerRing) : polar(118, outerRing)
     }
 
-    var recallCenter: CGPoint { polar(191, 196 * scale) }
+    var recallCenter: CGPoint { polar(186, 196 * scale) }
 
     /// 右側クラスタの内側（画面中央側）の端。
     var clusterInnerEdge: CGFloat {
