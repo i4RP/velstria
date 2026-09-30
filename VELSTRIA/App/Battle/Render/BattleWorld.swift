@@ -29,6 +29,9 @@ final class BattleWorld {
     private var pendingHealTimer: Float = 0
     private var shakeRequest: Float = 0
     private let master: MasterData
+    #if DEBUG
+    private let showcase: RenderShowcase?
+    #endif
 
     init(controller: BattleController, settings: RenderSettings, groundImage: CGImage?, arView: ARView,
          overlay: CombatTextOverlay) {
@@ -58,6 +61,9 @@ final class BattleWorld {
             fog = nil
         }
         units.prewarm()
+        #if DEBUG
+        showcase = RenderShowcase.isRequested ? RenderShowcase(master: controller.ctx.master) : nil
+        #endif
         zones.onTrigger = { [weak self] pos, color, radius in
             guard let self else { return }
             self.vfx.ring(at: pos, color: color, from: max(0.3, radius * 0.4), to: radius * 1.1, duration: 0.45)
@@ -80,7 +86,16 @@ final class BattleWorld {
 
     func sync(events: [SimEvent], dt: Float, rig: CameraRig) {
         time += dt
+        #if DEBUG
+        var frame = makeFrame(dt: dt)
+        if let showcase {
+            var injected: [SimEvent] = []
+            showcase.apply(&frame, events: &injected)
+            for e in injected { handle(e, frame: frame) }
+        }
+        #else
         let frame = makeFrame(dt: dt)
+        #endif
         for e in events { handle(e, frame: frame) }
         if shakeRequest > 0 {
             rig.addShake(shakeRequest)
@@ -130,6 +145,13 @@ final class BattleWorld {
         return p + SIMD3(0, units.headHeight(id) * heightRatio, 0)
     }
 
+    /// 戦闘数値の出現位置（HP バー・名前の上）。
+    private func textAnchor(_ id: EntityID) -> SIMD3<Float>? {
+        guard let p = units.worldPositionOf(id) else { return nil }
+        let bar: Float = units.hero(id) != nil ? 1.25 : 0.75
+        return p + SIMD3(0, units.headHeight(id) + bar, 0)
+    }
+
     private func nearCamera(_ p: SIMD3<Float>) -> Bool {
         guard let arView else { return true }
         let c = arView.cameraTransform.translation
@@ -170,7 +192,9 @@ final class BattleWorld {
         case .shieldGained(let target, _, let amount):
             guard isShown(target, f), let p = anchor(target, heightRatio: 0.5) else { break }
             vfx.spawn(.shield, at: p, color: UIColor(red: 0.8, green: 0.92, blue: 1, alpha: 1), important: target == f.focusID)
-            if target == f.focusID { spawnText(CombatTextFormat.plus(amount), at: p + SIMD3(0, 1.2, 0), style: .shield) }
+            if target == f.focusID, let tp = textAnchor(target) {
+                spawnText(CombatTextFormat.plus(amount), at: tp + SIMD3(-0.4, 0, 0), style: .shield)
+            }
         case .projectileHit(let pid, let tid, let pos):
             let info = projectiles.info(pid)
             let p = info?.pos ?? worldPosition(pos, height: 1)
@@ -230,7 +254,8 @@ final class BattleWorld {
             let top = base + SIMD3(0, kind == .core ? 3.6 : 4.6, 0)
             vfx.spawn(.towerExplosion, at: top, color: materials.teams.light(team).uiColor, scale: kind == .core ? 1.6 : 1,
                       important: true)
-            vfx.spawn(.death, at: base + SIMD3(0, 1, 0), color: UIColor(white: 0.55, alpha: 1), scale: 3, important: true)
+            vfx.spawn(.debris, at: top - SIMD3(0, 1.5, 0), color: .gray, scale: kind == .core ? 1.5 : 1, important: true)
+            vfx.spawn(.smoke, at: base + SIMD3(0, 1.2, 0), color: .gray, scale: kind == .core ? 1.6 : 1, important: true)
             vfx.flash(at: top, color: materials.teams.light(team), radius: kind == .core ? 4.5 : 3, duration: 0.45, alpha: 0.7)
             vfx.ring(at: base, color: materials.teams.light(team), from: 1, to: kind == .core ? 12 : 8, duration: 0.8)
             if let focus = f.focusID, let fp = units.worldPositionOf(focus), simd_distance(fp, base) < 20 {
@@ -286,11 +311,10 @@ final class BattleWorld {
             }
         }
         // 戦闘数値
-        if d.sourceID == f.focusID, d.targetID != f.focusID {
-            spawnText(CombatTextFormat.damage(d.amount, crit: d.isCrit), at: p + SIMD3(0, 0.6, 0),
-                      style: .dealt(d.damageType, crit: d.isCrit))
-        } else if d.targetID == f.focusID, d.source != .fountain || d.amount >= 1 {
-            spawnText(CombatTextFormat.damage(d.amount, crit: false), at: p + SIMD3(0, 0.8, 0), style: .taken)
+        if d.sourceID == f.focusID, d.targetID != f.focusID, let tp = textAnchor(d.targetID) {
+            spawnText(CombatTextFormat.damage(d.amount, crit: d.isCrit), at: tp, style: .dealt(d.damageType, crit: d.isCrit))
+        } else if d.targetID == f.focusID, let tp = textAnchor(d.targetID) {
+            spawnText(CombatTextFormat.damage(d.amount, crit: false), at: tp + SIMD3(0.35, 0, 0), style: .taken)
             if case .skill(.ultimate) = d.source { shakeRequest = max(shakeRequest, 0.45) }
         }
     }
@@ -310,11 +334,11 @@ final class BattleWorld {
         pendingHealTimer += dt
         guard pendingHealTimer >= 0.35 else { return }
         pendingHealTimer = 0
-        guard pendingHeal >= 5, let focus = f.focusID, let p = anchor(focus, heightRatio: 1) else {
+        guard pendingHeal >= 5, let focus = f.focusID, let p = textAnchor(focus) else {
             pendingHeal = 0
             return
         }
-        spawnText(CombatTextFormat.plus(pendingHeal), at: p + SIMD3(0.3, 0.3, 0), style: .heal)
+        spawnText(CombatTextFormat.plus(pendingHeal), at: p + SIMD3(-0.35, 0.1, 0), style: .heal)
         pendingHeal = 0
     }
 

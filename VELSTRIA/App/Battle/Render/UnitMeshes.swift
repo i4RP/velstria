@@ -68,8 +68,8 @@ final class UnitMeshLibrary {
         var b = MeshBuilder()
         for k in 0..<3 {
             let a = Float(k) / 3 * 2 * .pi
-            b.star(outer: 0.13, inner: 0.06, thickness: 0.04, color: .solid(.glowGold),
-                   transform: MX.t(cos(a) * 0.34, 0, -sin(a) * 0.34) * MX.rx(.pi / 2))
+            b.star(outer: 0.21, inner: 0.09, thickness: 0.06, color: .solid(.glowGold),
+                   transform: MX.t(cos(a) * 0.46, 0, -sin(a) * 0.46) * MX.rx(.pi / 2) * MX.rz(a))
         }
         return b.makeMesh(name: "stunStars")
     }()
@@ -286,8 +286,14 @@ final class UnitMeshLibrary {
                          transform: MX.t(0, 1.12, -0.52) * MX.rx(-0.25))
             glow.torus(majorRadius: 0.28, minorRadius: 0.035, segments: 16, sides: 4, color: .solid(rune),
                        transform: MX.t(0, 1.35, -0.58) * MX.rx(.pi / 2))
-            // 頭
+            // 頭と苔
             body.box(size: [0.42, 0.34, 0.4], color: .ramp(stone, from: 0.5, to: 1), transform: MX.t(0, 1.95, -0.08))
+            body.blob(radius: 0.2, jitter: 0.2, seed: 11, color: .solid(colossus ? .goldDark : .moss),
+                      transform: MX.t(0, 2.12, -0.02) * MX.s(1.1, 0.4, 1))
+            for s: Float in [-1, 1] {
+                body.blob(radius: 0.32, jitter: 0.2, seed: 12, color: .solid(colossus ? .colossusDark : .moss),
+                          transform: MX.t(0.45 * s, 1.95, 0.12) * MX.s(1, 0.45, 1))
+            }
             glow.box(size: [0.28, 0.06, 0.02], color: .solid(rune), transform: MX.t(0, 2.1, -0.29))
             // 肩の結晶
             for s: Float in [-1, 1] {
@@ -322,8 +328,10 @@ final class UnitMeshLibrary {
                 glow.sphere(radius: 0.08, segments: 6, rings: 4, color: .solid(.glowPink), transform: MX.t(0.27 * s, 0.14, -0.5))
                 // 翼膜
                 let uv = PaletteLayout.uv(.wyrmScaleDark)
-                body.triangle([0.35 * s, 0.1, 0.1], [1.3 * s, 0.6, 0.6], [0.4 * s, 0.05, 0.8], uv: uv)
-                body.triangle([0.4 * s, 0.05, 0.8], [1.3 * s, 0.6, 0.6], [0.35 * s, 0.1, 0.1], uv: uv)
+                body.triangle([0.35 * s, 0.05, 0.2], [1.6 * s, 0.75, 0.75], [0.45 * s, 0.0, 1.1], uv: uv)
+                body.triangle([0.45 * s, 0.0, 1.1], [1.6 * s, 0.75, 0.75], [0.35 * s, 0.05, 0.2], uv: uv)
+                body.frustum(bottomRadius: 0.04, topRadius: 0.02, height: 1.35, segments: 4, color: .solid(.horn),
+                             transform: MX.t(0.35 * s, 0.05, 0.2) * MX.ry(s > 0 ? -0.55 : 0.55) * MX.rz(-1.1 * s))
             }
             glow.crystal(radius: 0.08, height: 0.3, color: .solid(.glowPurple), transform: MX.t(0, 0.38, -0.2))
             pivot = .zero

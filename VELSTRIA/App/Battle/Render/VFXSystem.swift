@@ -18,6 +18,8 @@ enum VFXPreset: Equatable {
     case heroDeath
     case respawn
     case towerExplosion
+    case debris
+    case smoke
     case gold
     case skillBurst
     case blink
@@ -332,14 +334,15 @@ final class VFXSystem {
             m.dampingFactor = 1.2
             emitDuration = 0.25
         case .death:
-            n = 14; life = 0.6
-            p.speed = 1.8 * s
-            m.size = 0.16 * s
-            m.blendMode = .alpha
+            // 消滅の光粒（上へ昇って消える）
+            n = 14; life = 0.7
+            p.speed = 1.6 * s
+            m.size = 0.1 * s
+            m.image = starTexture
             m.opacityCurve = .linearFadeOut
-            m.acceleration = [0, 1.2, 0]
+            m.acceleration = [0, 2.4, 0]
             m.dampingFactor = 3
-            m.sizeMultiplierAtEndOfLifespan = 1.6
+            m.sizeMultiplierAtEndOfLifespan = 0.2
         case .heroDeath:
             n = 36; life = 1.1
             p.speed = 2.6
@@ -371,23 +374,38 @@ final class VFXSystem {
             m.dampingFactor = 1.5
             m.sizeMultiplierAtEndOfLifespan = 0.1
             m.color = .evolving(start: .single(UIColor(red: 1, green: 0.9, blue: 0.6, alpha: 1)), end: .single(color))
-            // 破片（重力で落ちる石）
-            var debris = ParticleEmitterComponent.ParticleEmitter()
-            debris.birthRate = 0
-            debris.lifeSpan = 1.4
-            debris.size = 0.22
-            debris.sizeVariation = 0.1
-            debris.blendMode = .alpha
-            debris.isLightingEnabled = false
-            debris.color = .constant(.random(a: UIColor(white: 0.55, alpha: 1), b: UIColor(red: 0.42, green: 0.38, blue: 0.36, alpha: 1)))
-            debris.acceleration = [0, -12, 0]
-            debris.opacityCurve = .linearFadeOut
-            debris.angularSpeed = 6
-            debris.image = dotTexture
-            p.spawnedEmitter = debris
-            p.spawnOccasion = .onBirth
-            p.spawnSpreadFactor = 0.5
-            p.spawnVelocityFactor = 0.8
+        case .debris:
+            n = 26; life = 1.3
+            p.emitterShapeSize = SIMD3(repeating: 0.8 * s)
+            p.birthDirection = .world
+            p.emissionDirection = [0, 1, 0]
+            p.speed = 5.5 * s
+            p.speedVariation = 2.5
+            m.spreadingAngle = 1.1
+            m.size = 0.16 * s
+            m.sizeVariation = 0.08
+            m.blendMode = .alpha
+            m.opacityCurve = .linearFadeOut
+            m.acceleration = [0, -14, 0]
+            m.angularSpeed = 5
+            m.sizeMultiplierAtEndOfLifespan = 0.8
+            // 粒子色は線形空間で扱われるため暗めに指定する
+            m.color = .constant(.random(a: UIColor(red: 0.13, green: 0.12, blue: 0.12, alpha: 1),
+                                        b: UIColor(red: 0.26, green: 0.22, blue: 0.19, alpha: 1)))
+        case .smoke:
+            n = 10; life = 1.6
+            p.emitterShapeSize = SIMD3(repeating: 1.2 * s)
+            p.birthDirection = .world
+            p.emissionDirection = [0, 1, 0]
+            p.speed = 0.9
+            m.size = 0.55 * s
+            m.sizeVariation = 0.2
+            m.blendMode = .alpha
+            m.opacityCurve = .gradualFadeInOut
+            m.sizeMultiplierAtEndOfLifespan = 2.2
+            m.dampingFactor = 1
+            m.color = .constant(.single(UIColor(red: 0.05, green: 0.05, blue: 0.07, alpha: 0.6)))
+            emitDuration = 0.2
         case .gold:
             n = 12; life = 0.8
             p.birthDirection = .world

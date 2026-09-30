@@ -260,12 +260,12 @@ enum GroundTextureGenerator {
                 while t < len {
                     let c = a + dir * t
                     if map.isInRiver(c) {
-                        for lateral in [-200.0, 0, 200] {
+                        for lateral in [-170.0, 0, 170] {
                             let p = c + nrm * (lateral + Double(rng.range(-40, 40)))
-                            fill(RGB(0.62, 0.60, 0.56), 0.95)
-                            ctx.fillEllipse(in: CGRect(x: p.x - 70, y: p.y - 55, width: 140, height: 110))
-                            fill(RGB(0.78, 0.76, 0.70), 0.9)
-                            ctx.fillEllipse(in: CGRect(x: p.x - 50, y: p.y - 30, width: 100, height: 75))
+                            fill(RGB(0.34, 0.38, 0.40), 0.9)
+                            ctx.fillEllipse(in: CGRect(x: p.x - 52, y: p.y - 44, width: 104, height: 88))
+                            fill(RGB(0.56, 0.58, 0.57), 0.9)
+                            ctx.fillEllipse(in: CGRect(x: p.x - 40, y: p.y - 26, width: 80, height: 62))
                         }
                     }
                     t += 190

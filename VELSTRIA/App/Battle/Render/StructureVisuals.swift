@@ -154,6 +154,7 @@ final class StructureVisual {
     private var phase: Float
     private var rangeAlpha: Float = 0
     private var opacityFloating: Float = 1
+    private var occlusionAlpha: Float = 1
 
     /// 攻撃の発射点（world 高さ）。
     var muzzleHeight: Float { isCore ? 3.4 : 4.5 }
@@ -229,8 +230,15 @@ final class StructureVisual {
         if immediate { floating.isEnabled = false }
     }
 
-    /// showRange: 視点ヒーローが敵タワーの射程付近にいる。
-    func update(_ f: RenderFrame, index i: Int, showRange: Bool) {
+    /// 追従ヒーローがこの構造物の奥（画面上で柱に隠れる位置）にいるか。
+    func occludes(_ p: SIMD3<Float>) -> Bool {
+        let c = root.position
+        let dz = c.z - p.z
+        return abs(p.x - c.x) < (isCore ? 3.4 : 1.7) && dz > 0.2 && dz < (isCore ? 6.5 : 4.6)
+    }
+
+    /// showRange: 視点ヒーローが敵タワーの射程付近にいる。occluding: 追従ヒーローを隠している（半透明にする）。
+    func update(_ f: RenderFrame, index i: Int, showRange: Bool, occluding: Bool = false) {
         let u = f.state.units[i]
         phase += f.dt
         if !u.isAlive && !destroyed { setDestroyed(immediate: false) }
@@ -247,6 +255,19 @@ final class StructureVisual {
                 if fallT >= 1 { floating.isEnabled = false }
             }
             return
+        }
+        // 追従ヒーローを隠す間は柱と結晶を半透明に
+        let occTarget: Float = occluding ? 0.4 : 1
+        if abs(occTarget - occlusionAlpha) > 0.01 {
+            occlusionAlpha += (occTarget - occlusionAlpha) * min(1, f.dt * 8)
+            if abs(occTarget - occlusionAlpha) < 0.02 { occlusionAlpha = occTarget }
+            if occlusionAlpha >= 0.995 {
+                intact.components.remove(OpacityComponent.self)
+                floating.components.remove(OpacityComponent.self)
+            } else {
+                intact.components.set(OpacityComponent(opacity: occlusionAlpha))
+                floating.components.set(OpacityComponent(opacity: occlusionAlpha))
+            }
         }
         let t = phase
         if isCore {

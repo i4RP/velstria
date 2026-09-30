@@ -85,6 +85,7 @@ final class UnitLayer {
         let state = f.state
         let viewerHero = f.humanID.flatMap { state.index(of: $0) }
         let viewerPos = viewerHero.map { state.units[$0].pos }
+        let focusWorld = f.focusID.flatMap { heroes[$0]?.root.position }
         for i in state.units.indices {
             let kind = state.units[i].kind
             let id = state.units[i].id
@@ -118,7 +119,8 @@ final class UnitLayer {
                     let reach = (kind == .core ? Balance.coreRange : Balance.towerRange) + 350
                     showRange = vp.distanceSquared(to: state.units[i].pos) < reach * reach
                 }
-                v.update(f, index: i, showRange: showRange)
+                let occluding = focusWorld.map { v.occludes($0) } ?? false
+                v.update(f, index: i, showRange: showRange, occluding: occluding)
             case .minion, .monster, .dummy:
                 let v: CreatureVisual
                 if let c = creatures[id] {

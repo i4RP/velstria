@@ -240,7 +240,7 @@ final class CreatureVisual {
             switch kind {
             case .campSmall: scale = 0.62; headHeight = 0.95
             case .campLarge: scale = 1.05; headHeight = 1.5
-            case .blueSentinel, .redSentinel: scale = 1.05; headHeight = 2.65
+            case .blueSentinel, .redSentinel: scale = 1.2; headHeight = 2.95
             case .astralWyrm: scale = 1.2; headHeight = 2.9
             case .ancientColossus: scale = 2.05; headHeight = 5.0
             }
@@ -257,13 +257,15 @@ final class CreatureVisual {
         if let m = pm.bodyGlow { body.addChild(ModelEntity(mesh: m, materials: [materials.glow])) }
         if case .monster(.astralWyrm) = key {
             // 頭（body メッシュ）を持ち上げ、胴の節を後ろへ並べる
-            if let head = body.children.first { head.position = [0, 1.25, -0.7] }
-            if body.children.count > 1 { body.children[1].position = [0, 1.25, -0.7] }
-            for k in 0..<9 {
+            for child in body.children {
+                child.position = [0, 1.6, -0.8]
+                child.scale = SIMD3(repeating: 1.25)
+            }
+            for k in 0..<10 {
                 let seg = Entity()
                 if let m = pm.part { seg.addChild(ModelEntity(mesh: m, materials: [materials.lit])) }
                 if k % 2 == 0, let m = pm.partGlow { seg.addChild(ModelEntity(mesh: m, materials: [materials.glow])) }
-                let r = 0.48 - Float(k) * 0.035
+                let r = 0.56 - Float(k) * 0.032
                 seg.scale = SIMD3(repeating: r)
                 body.addChild(seg)
                 segments.append(seg)
@@ -381,11 +383,14 @@ final class CreatureVisual {
         case .monster(.astralWyrm):
             offset.y = sin(idlePhase * 1.6) * 0.12
             pitch = -lunge * 0.25
+            // 首から尾へ弧を描いて下がる胴（うねりは尾ほど大きい）
+            let n = Float(max(1, segments.count - 1))
             for (k, seg) in segments.enumerated() {
                 let s = Float(k)
-                let sway = sin(idlePhase * 1.8 - s * 0.7 + walkPhase * 0.4) * (0.25 + s * 0.07)
-                let y = max(0.35, 1.05 - s * 0.1) + sin(idlePhase * 1.6 - s * 0.5) * 0.08
-                seg.position = [sway, y, -0.15 + s * 0.46]
+                let t = s / n
+                let sway = sin(idlePhase * 1.8 - s * 0.7 + walkPhase * 0.4) * (0.15 + t * 0.7)
+                let y = 0.35 + 1.05 * (1 - t) * (1 - t * 0.35) + sin(idlePhase * 1.6 - s * 0.6) * 0.09
+                seg.position = [sway, y, -0.3 + s * 0.44]
             }
         case .monster(.ancientColossus), .monster(.blueSentinel), .monster(.redSentinel):
             offset.y = moving ? abs(sin(walkPhase)) * 0.06 : sin(idlePhase * 1.2) * 0.02
