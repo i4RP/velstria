@@ -30,9 +30,9 @@ extension Balance {
         /// この距離より泉が近ければ帰還せず歩く。
         public static let walkHomeDistance: Double = 2200
         /// 買い物のための帰還（所持 Gold と HP の条件）。
-        public static let shopRecallGold: Double = 1300
-        public static let shopRecallGoldAlways: Double = 2300
-        public static let shopRecallMaxHP: Double = 0.75
+        public static let shopRecallGold: Double = 1000
+        public static let shopRecallGoldAlways: Double = 1900
+        public static let shopRecallMaxHP: Double = 0.85
 
         // MARK: レーン
         /// 敵タワーの射程（+ 半径）に対する安全余白。

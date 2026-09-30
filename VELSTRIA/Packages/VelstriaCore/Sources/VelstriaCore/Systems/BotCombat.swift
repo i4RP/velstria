@@ -14,68 +14,104 @@ struct BotFight {
 enum BotCombat {
     // MARK: - 交戦判断
 
-    /// 敵ヒーローが近い時の行動（交戦・撤退）。行動を決めたら true。
+    /// 敵ヒーローが近い時の行動（交戦・撤退・にらみ合い）。行動を決めたら true。
+    /// 交戦中（goal == .teamfight）・撤退中は判断にヒステリシスを持たせ、1 回毎に行ったり来たりしない。
     static func handleCombat(_ s: inout SimState, _ ctx: SimContext, _ w: BotWorld, _ a: inout BotAgent,
                              _ mem: inout BotHeroMemory) -> Bool {
         let i = a.i
         let hpRatio = s.units[i].hpRatio
         let underTower = w.enemyStructure(covering: a.pos, team: a.team, margin: 0)
-        let towerShootsMe = underTower.map { $0.targetID == a.id } ?? false
+        let towerShootsMe = underTower.map { $0.targetID == a.id && mustLeaveTower(s, w, a, mem, $0) } ?? false
+        let role: BotGoal = mem.position == .jungle ? .jungling : .laning
 
-        if a.enemies.isEmpty {
+        guard let nearest = a.enemies.first else {
             // 見えない敵に追われて撤退中なら帰還判断へ、タワーに撃たれていれば射程外へ
             if towerShootsMe, let st = underTower {
                 leaveTower(s, ctx, &a, &mem, st)
                 return true
             }
-            if mem.goal == .teamfight { BotAI.setGoal(&mem, mem.position == .jungle ? .jungling : .laning, s.time) }
+            if mem.goal == .teamfight { BotAI.setGoal(&mem, role, s.time) }
             return false
         }
 
-        let fight = evaluateFight(s, w, a, center: a.pos)
+        // 交戦地点（自分と最寄りの敵の中間）周辺の戦力比
+        let center = (a.pos + nearest.pos) * 0.5
+        let fight = evaluateFight(s, w, a, center: center)
         let outnumbered = fight.enemies > fight.allies + 1
         let retreatHP = outnumbered ? Balance.Bot.retreatHPOutnumbered : Balance.Bot.retreatHP
-        let nearest = a.enemies[0]
         let threatRange = s.units[nearest.index].stats.attackRange + 450
         let threatened = nearest.distance < threatRange || s.time - s.units[i].lastDamagedTime < 1.5
-
         let target = pickTarget(s, ctx, w, a, mem)
         let killable = target.map { isKillable(s, ctx, a, $0.index) } ?? false
+        let reach = s.units[i].stats.attackRange + s.units[i].radius + Balance.heroRadius
 
-        // 撤退: HP 不足（確実なキルが目前でない限り）・劣勢
-        if threatened {
-            let desperate = hpRatio < retreatHP && !(killable && hpRatio > 0.12 && (target?.distance ?? .infinity) < 400)
-            let losing = fight.ratio < Balance.Bot.fleeRatio && !(killable && fight.ratio > 0.4)
-            if desperate || losing {
-                retreat(&s, ctx, w, &a, &mem)
-                return true
-            }
+        // 1. HP 不足: 撤退（目の前の確実なキルを除く）
+        if threatened && hpRatio < retreatHP
+            && !(killable && hpRatio > 0.12 && (target?.distance ?? .infinity) < reach + 80) {
+            retreat(&s, ctx, w, &a, &mem)
+            return true
         }
+        // 2. 敵タワーに狙われている: 射程外へ（確実なキルの突入を除く）
         if towerShootsMe, let st = underTower, !(a.profile.divesForKill && killable && hpRatio > 0.5) {
             leaveTower(s, ctx, &a, &mem, st)
             return true
         }
 
-        guard let t = target else { return false }
-        // 敵ヒーローに殴られている（反撃するか）
+        let skirmish = s.time < a.profile.groupStart && fight.allies < 3
+            && mem.goal != .objective && mem.goal != .push && mem.goal != .defend
+        let groupFight = fight.allies >= 2 && fight.enemies >= 2 && !skirmish
+        // 1 対 1・レーンの 2 対 2 は明確な有利でのみ仕掛ける（互角の殴り合いでウェーブを放置しない）
+        let engageAt = groupFight ? a.profile.engageRatio : a.profile.engageRatio + 0.25
+
+        // 3. 撤退中: 十分な有利と体力が戻るまで撤退を続ける
+        if mem.goal == .retreat && threatened && !(hpRatio >= 0.55 && fight.ratio >= engageAt + 0.3) {
+            retreat(&s, ctx, w, &a, &mem)
+            return true
+        }
+
+        // 4. 交戦中: 撤退比率を割るまで戦い続ける
+        if mem.goal == .teamfight {
+            if fight.ratio < Balance.Bot.fleeRatio && !(killable && fight.ratio > 0.45) && threatened {
+                retreat(&s, ctx, w, &a, &mem)
+                return true
+            }
+            if let t = target, teamfight(&s, ctx, w, &a, &mem, target: t, killable: killable) { return true }
+            return posture(s, ctx, w, &a, &mem, nearest: nearest, fight: fight)
+        }
+
+        // 5. 交戦していない: 仕掛けるか・下がるか・にらみ合うか
         let attackedByHero = s.time - s.units[i].lastDamagedTime < 1.5
             && s.unit(s.units[i].lastAttackerID).map { $0.kind == .hero && $0.team != a.team } == true
-        // 集団戦の規模（2 対 2 以上）で味方が交戦中なら加勢する
-        let groupFight = fight.allies >= 2 && fight.enemies >= 2
         let allyInTrouble = a.allies.contains {
-            s.time - s.units[$0].lastCombatTime < 1.5 && s.units[$0].pos.distanceSquared(to: a.pos) < 1000 * 1000
+            s.time - s.units[$0].lastCombatTime < 1.5 && s.units[$0].pos.distanceSquared(to: a.pos) < 1100 * 1100
         }
-        var wantFight = fight.ratio >= a.profile.engageRatio || (killable && fight.ratio >= 0.7)
-        if !wantFight && fight.ratio >= 1.0 && (attackedByHero || (groupFight && (allyInTrouble || mem.goal == .teamfight))) {
-            wantFight = true
+        let wantFight = fight.ratio >= engageAt || (killable && fight.ratio >= 0.75)
+            || (attackedByHero && fight.ratio >= 1.0) || (groupFight && allyInTrouble && fight.ratio >= 0.95)
+        if wantFight, let t = target, teamfight(&s, ctx, w, &a, &mem, target: t, killable: killable) { return true }
+        if fight.ratio < Balance.Bot.fleeRatio && threatened {
+            retreat(&s, ctx, w, &a, &mem)
+            return true
         }
-        // 継続中の集団戦は多少の劣勢でも崩れない（逃げ遅れを防ぐため撤退比率より上なら続ける）
-        if !wantFight && mem.goal == .teamfight && groupFight && fight.ratio >= 0.85 { wantFight = true }
-        guard wantFight else {
-            if mem.goal == .teamfight { BotAI.setGoal(&mem, mem.position == .jungle ? .jungling : .laning, s.time) }
-            return false
-        }
-        return teamfight(&s, ctx, w, &a, &mem, target: t, killable: killable)
+        return posture(s, ctx, w, &a, &mem, nearest: nearest, fight: fight)
+    }
+
+    /// にらみ合い: 押し込み・防衛・オブジェクト中に敵の集団（2 人以上）の射程へ入りそうなら間合いを取る。
+    /// 1 人相手・十分離れている時は何もしない（マクロの移動を止めて睨み合いのまま固まらないように）。
+    static func posture(_ s: SimState, _ ctx: SimContext, _ w: BotWorld, _ a: inout BotAgent,
+                        _ mem: inout BotHeroMemory, nearest: BotSighting, fight: BotFight) -> Bool {
+        let role: BotGoal = mem.position == .jungle ? .jungling : .laning
+        if mem.goal == .teamfight { BotAI.setGoal(&mem, role, s.time) }
+        // レーン戦・ジャングルは各ロジックが間合いを取る
+        guard mem.goal == .push || mem.goal == .defend || mem.goal == .objective || mem.goal == .roaming,
+              fight.enemies >= 2 else { return false }
+        let keep = s.units[nearest.index].stats.attackRange + Balance.heroRadius * 2 + 150
+        guard nearest.distance < keep else { return false }
+        var dir = (a.pos - nearest.pos).normalized
+        let home = (safePoint(s, ctx, w, a) - a.pos).normalized
+        dir = (dir + home).normalized
+        if dir == .zero { dir = home }
+        BotAI.move(s, ctx, &a, &mem, to: nearest.pos + dir * (keep + 60))
+        return true
     }
 
     /// 対象を攻撃する（スキル・スペル・追跡制限・カイト）。行動したら true。
@@ -92,10 +128,7 @@ enum BotCombat {
         let dive = a.profile.divesForKill && killable && s.units[i].hpRatio > 0.5
         if t.distance > reach + 40 {
             let tooFar = t.pos.distance(to: mem.fightAnchor) > Balance.Bot.chaseLimit
-            if (targetTower != nil && !dive) || tooFar {
-                BotAI.setGoal(&mem, mem.position == .jungle ? .jungling : .laning, s.time)
-                return false
-            }
+            if (targetTower != nil && !dive) || tooFar { return false }
         }
         BotAI.setGoal(&mem, .teamfight, s.time)
 
@@ -117,29 +150,26 @@ enum BotCombat {
         return true
     }
 
-    /// 局地戦の戦力比。霧の中の敵は最大 HP で数える（見えない HP は読まない）。
+    /// 局地戦の戦力比（center の周囲 1400 の味方・敵）。霧の中の敵は最大 HP で数える（見えない HP は読まない）。
     static func evaluateFight(_ s: SimState, _ w: BotWorld, _ a: BotAgent, center: Vec2) -> BotFight {
         var aD = 0.0, aH = 0.0, eD = 0.0, eH = 0.0
-        let me = BotAI.strength(s, a.i)
-        aD += me.dps
-        aH += me.ehp
-        var allies = 1
-        for h in a.allies {
+        let r2 = 1400.0 * 1400.0
+        var allies = 0
+        for h in w.heroes where s.units[h].team == a.team && s.units[h].isAlive && s.units[h].hero?.isDead != true {
+            guard h == a.i || s.units[h].pos.distanceSquared(to: center) <= r2 else { continue }
             let st = BotAI.strength(s, h)
-            // 泉に居るだけの味方は戦力に数えない
-            if s.units[h].pos.distanceSquared(to: center) > 1300 * 1300 { continue }
             aD += st.dps
             aH += st.ehp
             allies += 1
         }
         var enemies = 0
-        for e in a.enemies {
+        for e in a.enemies where e.pos.distanceSquared(to: center) <= r2 {
             let st = BotAI.strength(s, e.index)
             eD += st.dps
             eH += st.ehp
             enemies += 1
         }
-        for g in a.ghosts where g.distance < 1100 {
+        for g in a.ghosts where g.pos.distanceSquared(to: center) <= 1100 * 1100 {
             let st = BotAI.strength(s, g.index)
             let full = s.units[g.index].stats.maxHP / max(1, s.units[g.index].hp + s.units[g.index].totalShield)
             eD += st.dps
@@ -155,15 +185,15 @@ enum BotCombat {
             eD += s.units[st.index].stats.attack * 1.5
             eH += 2500
         }
-        // ミニオン（近くのものだけ）
-        let r2 = 650.0 * 650.0
-        for m in w.minions where m.pos.distanceSquared(to: center) <= r2 {
-            if m.team == a.team {
-                aD += 22
-                aH += 200
-            } else if m.isVisible(to: a.team) {
-                eD += 22
-                eH += 200
+        // ミニオン: 敵ヒーローを殴ると自分の近くの敵ミニオンが一斉にこちらを狙う（救援要請）。
+        // 味方ミニオンは相手が反撃してきた時だけ加勢するので半分に数える
+        let foe = a.enemies.first?.pos ?? center
+        let m2 = 700.0 * 700.0
+        for m in w.minions {
+            if m.team != a.team, m.isVisible(to: a.team), m.pos.distanceSquared(to: a.pos) <= m2 {
+                eD += s.units[m.index].stats.attack / 1.3
+            } else if m.team == a.team, m.pos.distanceSquared(to: foe) <= m2 {
+                aD += s.units[m.index].stats.attack / 2.6
             }
         }
         let ratio = (aD * aH) / max(1, eD * eH)
@@ -194,6 +224,8 @@ enum BotCombat {
             score -= max(0, gap) / 350
             if w.enemyStructure(covering: e.pos, team: a.team, margin: 0) != nil { score -= 2.5 }
             if e.id == mem.targetID { score += 0.6 }
+            // 味方と同じ相手を狙う（集中攻撃）
+            for al in a.allies where s.units[al].attackTargetID == e.id { score += 0.9 }
             if score > bestScore {
                 bestScore = score
                 best = e
@@ -241,6 +273,22 @@ enum BotCombat {
         let p = st.pos + back * 380
         if a.pos.distanceSquared(to: p) < 200 * 200 && !a.enemies.isEmpty { return fountain }
         return p
+    }
+
+    /// 敵構造物に狙われた時に射程外へ出るべきか。押し込み中は体力に余裕があれば数発受けて狙いを味方と回し、
+    /// 落ちかけの構造物は味方と揃っていれば押し切る（全員が同じ塔で倒れないよう、連続命中が重なれば下がる）。
+    static func mustLeaveTower(_ s: SimState, _ w: BotWorld, _ a: BotAgent, _ mem: BotHeroMemory,
+                               _ st: BotStructureInfo) -> Bool {
+        let hp = s.units[a.i].hpRatio
+        let tower = s.units[st.index].tower
+        let ramp = tower?.rampTargetID == a.id ? (tower?.rampHits ?? 0) : 0
+        guard mem.goal == .push || mem.goal == .teamfight || mem.goal == .defend || mem.goal == .objective else { return true }
+        var allies = 0
+        for h in w.heroes where h != a.i && s.units[h].team == a.team && s.units[h].isAlive {
+            if s.units[h].pos.distanceSquared(to: st.pos) < 1300 * 1300 { allies += 1 }
+        }
+        if st.hp < st.maxHP * 0.3 && allies >= 2 && hp > 0.25 { return false }
+        return !(allies >= 1 && hp > 0.55 && ramp < 3)
     }
 
     /// 敵タワーの射程外へ出る（レーンを自陣側へ戻る）。

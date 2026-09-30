@@ -44,4 +44,86 @@ final class BotDiagnosticTests: XCTestCase {
             }
         }
     }
+
+    /// 調整用: BotAI 単体の所要時間（状態のコピーに対して生成だけを計測）。
+    func testDiagnosticBotCost() throws {
+        guard ProcessInfo.processInfo.environment["BOT_COST"] != nil else { throw XCTSkip("BOT_COST=1 で実行") }
+        let seed = UInt64(ProcessInfo.processInfo.environment["BOT_SEED"] ?? "1") ?? 1
+        let sim = Simulation(config: MatchFactory.botMatch(difficulty: .normal, seed: seed))
+        var botNs: UInt64 = 0
+        var stepNs: UInt64 = 0
+        var decisions = 0
+        var worst: UInt64 = 0
+        while !sim.isEnded && sim.state.time < 1500 {
+            var copy = sim.state
+            copy.tick += 1
+            copy.time = Double(copy.tick) * Balance.dt
+            let before = copy.bots.decisions
+            let t0 = DispatchTime.now().uptimeNanoseconds
+            _ = BotAI.generateCommands(&copy, sim.ctx)
+            let dt = DispatchTime.now().uptimeNanoseconds - t0
+            botNs += dt
+            worst = max(worst, dt)
+            decisions += copy.bots.decisions - before
+            let t1 = DispatchTime.now().uptimeNanoseconds
+            sim.step()
+            stepNs += DispatchTime.now().uptimeNanoseconds - t1
+        }
+        let ticks = Double(sim.state.tick)
+        print(String(format: "bot %.3f ms/tick, %.3f ms/decision, worst tick %.2f ms; step %.3f ms/tick",
+                     Double(botNs) / 1e6 / ticks, Double(botNs) / 1e6 / Double(max(1, decisions)),
+                     Double(worst) / 1e6, Double(stepNs) / 1e6 / ticks))
+    }
+
+    /// 調整用: 最初の 12 分の行動目標の時間配分（ポジション別）。
+    func testDiagnosticGoals() throws {
+        guard ProcessInfo.processInfo.environment["BOT_GOALS"] != nil else { throw XCTSkip("BOT_GOALS=1 で実行") }
+        let seed = UInt64(ProcessInfo.processInfo.environment["BOT_SEED"] ?? "1") ?? 1
+        let until = Double(ProcessInfo.processInfo.environment["BOT_UNTIL"] ?? "720") ?? 720
+        let sim = Simulation(config: MatchFactory.botMatch(difficulty: .normal, seed: seed))
+        var counts = [[Int]](repeating: [Int](repeating: 0, count: BotGoal.allCases.count + 1), count: 10)
+        let heroes = sim.state.heroIndices
+        while sim.state.time < until {
+            sim.step()
+            guard sim.state.tick % 30 == 0 else { continue }
+            for (k, i) in heroes.enumerated() {
+                if sim.state.units[i].hero!.isDead { counts[k][BotGoal.allCases.count] += 1; continue }
+                let g = sim.state.bots.memory(for: sim.state.units[i].id)!.goal
+                counts[k][g.rawValue] += 1
+            }
+        }
+        let names = BotGoal.allCases.map { "\($0)" } + ["dead"]
+        for (k, i) in heroes.enumerated() {
+            let h = sim.state.units[i].hero!
+            let parts = names.indices.filter { counts[k][$0] > 0 }.map { "\(names[$0])=\(counts[k][$0])" }
+            print("\(sim.state.units[i].team) \(h.position) lv\(h.level): \(parts.joined(separator: " "))")
+        }
+    }
+
+    /// 調整用: レーナーの近くで死んだ敵ミニオンのうち、本人がラストヒットした割合。
+    func testDiagnosticLastHits() throws {
+        guard ProcessInfo.processInfo.environment["BOT_LH"] != nil else { throw XCTSkip("BOT_LH=1 で実行") }
+        let sim = Simulation(config: MatchFactory.botMatch(difficulty: .hard, seed: 1))
+        var near = [Int](repeating: 0, count: 10), mine = [Int](repeating: 0, count: 10)
+        var others: [String] = []
+        let heroes = sim.state.heroIndices
+        while sim.state.time < 360 {
+            let before = sim.state
+            for e in sim.step() {
+                guard case .unitDied(_, let kind, let team, let killer, let pos) = e, kind == .minion else { continue }
+                for (k, i) in heroes.enumerated() where before.units[i].team != team {
+                    guard before.units[i].pos.distance(to: pos) < 1000, before.units[i].isAlive else { continue }
+                    near[k] += 1
+                    if killer == before.units[i].id { mine[k] += 1 } else {
+                        others.append(before.unit(killer).map { "\($0.kind)" } ?? "nil")
+                    }
+                }
+            }
+        }
+        for (k, i) in heroes.enumerated() {
+            let h = sim.state.units[i].hero!
+            print("\(sim.state.units[i].team) \(h.position) near \(near[k]) lastHit \(mine[k]) cs \(h.score.creepScore)")
+        }
+        for kind in ["minion", "hero", "tower", "nil"] { print(kind, others.filter { $0 == kind }.count) }
+    }
 }

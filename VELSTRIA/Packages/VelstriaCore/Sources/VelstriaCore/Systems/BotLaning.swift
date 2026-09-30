@@ -41,6 +41,7 @@ enum BotLaning {
 
         // 前隙中の攻撃は中断しない（移動コマンドは攻撃を取り消してしまう）
         if s.units[i].windupRemaining != nil, s.units[i].attackTargetID != nil { return }
+        if mode == .siege, siege(&s, ctx, w, &a, &mem, lane: lane) { return }
 
         // 1. ラストヒット
         let isSupport = a.position == .support && carryPresent(s, ctx, w, a, lane: lane) != nil
@@ -85,6 +86,39 @@ enum BotLaning {
         // 4. 待機位置へ
         let hold = holdPoint(s, ctx, w, a, lane: lane, mode: mode, tower: enemyTower, tanked: tanked)
         BotAI.move(s, ctx, &a, &mem, to: hold)
+    }
+
+    // MARK: - 押し切り
+
+    /// 押し切り: 方針の目標構造物（無ければレーンの最前タワー / Core）へ味方と揃って攻め込む。行動したら true。
+    static func siege(_ s: inout SimState, _ ctx: SimContext, _ w: BotWorld, _ a: inout BotAgent,
+                      _ mem: inout BotHeroMemory, lane: Lane) -> Bool {
+        let plan = s.bots.teams[a.team.rawValue].plan
+        let target = w.structures.first { $0.id == plan.targetID && $0.team != a.team }
+            ?? w.frontTower(team: a.team.opponent, lane: lane) ?? w.core(of: a.team.opponent)
+        guard let st = target, !st.invulnerable else { return false }
+        let i = a.i
+        let reach = s.units[i].stats.attackRange + s.units[i].radius + st.radius
+        let d = a.pos.distance(to: st.pos)
+        var allies = 0
+        for h in w.heroes where s.units[h].team == a.team && s.units[h].isAlive && s.units[h].hero?.isDead != true {
+            if s.units[h].pos.distanceSquared(to: st.pos) < 1600 * 1600 { allies += 1 }
+        }
+        let shield = w.minionsUnder(st, team: a.team)
+        let towerOnMe = st.targetID == a.id
+        // 盾が無く狙われていて体力が心もとなければ一度射程外へ（塔が落ちかけなら押し切る）
+        if towerOnMe && shield == 0 && BotCombat.mustLeaveTower(s, w, a, mem, st) {
+            BotCombat.leaveTower(s, ctx, &a, &mem, st)
+            return true
+        }
+        if d <= reach + 40 || allies >= 2 || shield >= 1 || w.aliveHeroes[a.team.opponent.rawValue] == 0 {
+            BotAI.attack(s, &a, &mem, st.index)
+            return true
+        }
+        // 味方が揃うまで射程の外で待つ
+        let away = (ctx.map.fountain(a.team) - st.pos).normalized
+        BotAI.move(s, ctx, &a, &mem, to: st.pos + away * (st.reach + Balance.heroRadius + 250))
+        return true
     }
 
     // MARK: - 位置取り

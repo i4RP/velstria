@@ -29,56 +29,76 @@ enum BotMacro {
 
         var plan = BotTeamPlan()
         plan.since = t
+        let groupPhase = t >= profile.groupStart
+        let retryAt = s.bots.teams[team.rawValue].objectiveRetryAt
+        let center = centroid(s, aliveBots)
 
-        // 1. 防衛: 敵ヒーローが自軍構造物に迫っている
-        if let st = threatenedStructure(s, w, intel, team: team, groupPhase: t >= profile.groupStart) {
+        // 1. 防衛: 敵ヒーローが自軍構造物を攻めている（直前の防衛は少し続けて行ったり来たりを防ぐ）
+        if let threat = threatenedStructure(s, w, intel, team: team, groupPhase: groupPhase)
+            ?? lingeringDefense(s, w, intel, old: old) {
+            let st = threat.structure
             plan.kind = .defend
             plan.lane = st.lane ?? .mid
             plan.targetID = st.id
             plan.point = st.pos
-            let limit = t >= profile.groupStart || st.isCore || st.tier == .base ? 5 : 3
-            plan.members = nearest(s, aliveBots, to: st.pos, count: limit, within: t >= profile.groupStart ? .infinity : 6500)
+            // 脅威に見合う人数（Core・基部塔は全員）
+            let deep = st.isCore || st.tier == .base
+            let limit = deep ? 5 : min(5, max(1, threat.heroes + (threat.minions >= 4 ? 1 : 0)))
+            plan.members = nearest(s, aliveBots, to: st.pos, count: limit, within: deep || groupPhase ? .infinity : 6500)
         }
-        // 2. 押し切り: 人数有利（敵が多数死亡）・終盤
-        else if enemyAlive > 0 || enemyDead > 0,
-                (enemyDead >= 3 || (enemyDead >= 2 && t >= profile.groupStart) || t >= Balance.Bot.lateSiege),
-                ourAlive >= min(3, max(1, enemyAlive)), let st = siegeTarget(s, w, team: team, preferred: old.lane) {
+        // 2. 進行中のオブジェクトを続ける（揃っている・横取りの危険が無い・時間内）
+        else if let keep = continueObjective(s, ctx, intel, old: old, team: team) {
+            plan = keep
+        }
+        // 3. 押し切り: 人数有利（敵が多数死亡）・巨像の加護・Core が露出・終盤
+        else if ourAlive >= 3 || ourAlive > enemyAlive,
+                enemyDead >= 3 || (enemyDead >= 2 && groupPhase)
+                    || (blessed(s, aliveBots, .colossusBlessing) >= 3 && ourAlive >= enemyAlive)
+                    || (groupPhase && enemyDead >= 1 && w.core(of: team.opponent)?.invulnerable == false)
+                    || (t >= Balance.Bot.lateSiege && ourAlive >= enemyAlive),
+                let st = siegeTarget(s, w, team: team, preferred: old.lane) {
             plan.kind = .siege
             plan.lane = st.lane ?? .mid
             plan.targetID = st.id
             plan.point = st.pos
             plan.members = aliveBots.map { s.units[$0].id }
         }
-        // 3. 古環の巨像
-        else if t >= Balance.Bot.colossusStart, let camp = bossCamp(ctx, .ancientColossus), campAlive(s, camp),
-                (enemyDead >= 2 || ourAlive - enemyAlive >= 2
-                    || (old.kind == .colossus && t - old.since < Balance.Bot.objectiveTimeout && enemyDead >= 1)),
-                enemiesSeenNear(s, intel, camp.pos, radius: 1800, within: 3) <= max(0, ourAlive - 3) {
+        // 4. 古環の巨像（敵が減っている時・集団が近い時）
+        else if t >= Balance.Bot.colossusStart, t >= retryAt, let camp = bossCamp(ctx, .ancientColossus),
+                campAlive(s, camp), enemyDead >= 2 || (ourAlive - enemyAlive >= 1 && center.distance(to: camp.pos) < 4500),
+                aliveBots.count >= 3,
+                enemiesSeenNear(s, intel, camp.pos, radius: 2200, within: 4) == 0 {
             plan.kind = .colossus
             plan.point = camp.pos
             plan.members = aliveBots.map { s.units[$0].id }
-            if old.kind == .colossus { plan.since = old.since }
         }
-        // 4. 星喰竜
-        else if t >= Balance.Bot.wyrmStart, let camp = bossCamp(ctx, .astralWyrm), campAlive(s, camp),
-                let members = wyrmTeam(s, aliveBots, groupPhase: t >= profile.groupStart, ourAlive: ourAlive,
+        // 5. 星喰竜（2:00 以降、近くに敵が見えない時。集団期は集団が近い時のみ）
+        else if t >= Balance.Bot.wyrmStart, t >= retryAt, let camp = bossCamp(ctx, .astralWyrm), campAlive(s, camp),
+                !groupPhase || enemyDead >= 1 || center.distance(to: camp.pos) < 4500,
+                let members = wyrmTeam(s, aliveBots, pit: camp.pos, groupPhase: groupPhase, ourAlive: ourAlive,
                                        enemyAlive: enemyAlive),
-                enemiesSeenNear(s, intel, camp.pos, radius: 2200, within: 4) == 0,
-                !(old.kind == .wyrm && t - old.since > Balance.Bot.objectiveTimeout) {
+                enemiesSeenNear(s, intel, camp.pos, radius: 2500, within: 5) == 0 {
             plan.kind = .wyrm
             plan.point = camp.pos
             plan.members = members
-            if old.kind == .wyrm { plan.since = old.since }
         }
-        // 5. 集団で押し込み（mid 優先）
-        else if t >= profile.groupStart {
-            let lane = pushLane(s, w, team: team)
+        // 6. 集団で押し込み（mid 優先。目標の塔が残る間はレーンを変えない）
+        else if groupPhase {
+            var lane = pushLane(s, w, team: team)
+            if old.kind == .push, let l = old.lane, w.frontTower(team: team.opponent, lane: l) != nil
+                || (l == .mid && w.core(of: team.opponent)?.invulnerable == false) {
+                lane = l
+            }
             plan.kind = .push
             plan.lane = lane
             plan.members = pushMembers(s, aliveBots, count: profile.groupSize, lane: lane)
             plan.point = BotLane.point(ctx.map, lane, team: team,
                                        progress: w.front[team.rawValue][lane.rawValue] ?? 1500)
-            if old.kind == .push && old.lane == lane { plan.since = old.since }
+        }
+        // オブジェクトを途中で諦めたら、しばらく再挑戦しない
+        if (old.kind == .wyrm || old.kind == .colossus) && plan.kind != old.kind {
+            let camp = bossCamp(ctx, old.kind == .wyrm ? .astralWyrm : .ancientColossus)
+            if let c = camp, campAlive(s, c) { s.bots.teams[team.rawValue].objectiveRetryAt = t + 45 }
         }
         if plan.kind == old.kind && plan.targetID == old.targetID && plan.lane == old.lane && old.kind != .none {
             plan.since = old.since
@@ -87,29 +107,51 @@ enum BotMacro {
         s.bots.teams[team.rawValue].plan = plan
     }
 
-    /// 敵ヒーローに脅かされている自軍構造物（Core > 基部 > 内 > 外の順）。
+    /// 攻められている自軍構造物と脅威の大きさ（Core > 基部 > 内 > 外の順）。
+    /// 塔が実際に削られている時だけ（レーン戦の押し引きでは動かない）。集団期より前の外塔は敵ヒーロー 2 人以上。
     static func threatenedStructure(_ s: SimState, _ w: BotWorld, _ intel: BotTeamIntel, team: Team,
-                                    groupPhase: Bool) -> BotStructureInfo? {
-        var best: BotStructureInfo?
+                                    groupPhase: Bool) -> (structure: BotStructureInfo, heroes: Int, minions: Int)? {
+        var best: (structure: BotStructureInfo, heroes: Int, minions: Int)?
         var bestRank = -1
         for st in w.structures where st.team == team {
-            let heroes = enemiesSeenNear(s, intel, st.pos, radius: st.reach + 700, within: 2)
+            guard s.time - s.units[st.index].lastDamagedTime < 4 else { continue }
+            let heroes = enemiesSeenNear(s, intel, st.pos, radius: st.reach + 600, within: 2)
             var minions = 0
             for m in w.minions where m.team != team && m.isVisible(to: team) {
                 if m.pos.distanceSquared(to: st.pos) < (st.reach + 250) * (st.reach + 250) { minions += 1 }
             }
             let deep = st.isCore || st.tier == .base
-            let threatened = heroes >= 2 || (heroes >= 1 && minions >= 3 && (st.tier != .outer || groupPhase))
-                || (deep && minions >= 3)
+            var threatened = heroes >= 1 || (deep && minions >= 3)
+            if !groupPhase && st.tier == .outer && !st.isCore { threatened = heroes >= 2 }
             guard threatened else { continue }
-            if !groupPhase && st.tier == .outer && heroes < 2 { continue }
             let rank = st.isCore ? 4 : 3 - st.tier.rawValue
             if rank > bestRank {
                 bestRank = rank
-                best = st
+                best = (st, heroes, minions)
             }
         }
         return best
+    }
+
+    /// 直前まで守っていた構造物（生存中・開始から 12 秒以内）。
+    static func lingeringDefense(_ s: SimState, _ w: BotWorld, _ intel: BotTeamIntel,
+                                 old: BotTeamPlan) -> (structure: BotStructureInfo, heroes: Int, minions: Int)? {
+        guard old.kind == .defend, s.time - old.since < 12,
+              let st = w.structures.first(where: { $0.id == old.targetID }) else { return nil }
+        return (st, max(1, old.members.count), 0)
+    }
+
+    /// kind のバフを持つ生存ボットの数。
+    static func blessed(_ s: SimState, _ bots: [Int], _ kind: StatusKind) -> Int {
+        bots.filter { s.units[$0].has(kind) }.count
+    }
+
+    /// 生存ボットの重心。
+    static func centroid(_ s: SimState, _ bots: [Int]) -> Vec2 {
+        guard !bots.isEmpty else { return Balance.mapCenter }
+        var sum = Vec2.zero
+        for b in bots { sum += s.units[b].pos }
+        return sum / Double(bots.count)
     }
 
     /// team の情報で、center の radius 以内に直近 within 秒以内に見えた敵ヒーロー数。
@@ -173,19 +215,38 @@ enum BotMacro {
         return sorted.prefix(max(1, count)).map { s.units[$0].id }
     }
 
-    /// 星喰竜に向かうメンバー（序盤はジャングル + bot の 2 人、集団期は全員）。
-    static func wyrmTeam(_ s: SimState, _ bots: [Int], groupPhase: Bool, ourAlive: Int, enemyAlive: Int) -> [EntityID]? {
-        let healthy = bots.filter { s.units[$0].hpRatio > 0.5 }
+    /// 星喰竜に向かうメンバー（序盤はジャングル + bot の 2〜3 人、集団期は全員）。巣から遠すぎる者は除く。
+    static func wyrmTeam(_ s: SimState, _ bots: [Int], pit: Vec2, groupPhase: Bool, ourAlive: Int,
+                         enemyAlive: Int) -> [EntityID]? {
+        let healthy = bots.filter { s.units[$0].hpRatio > 0.6 }
         if groupPhase {
             guard ourAlive >= enemyAlive, healthy.count >= 3 else { return nil }
             return healthy.map { s.units[$0].id }
         }
         let crew = healthy.filter {
             let p = s.units[$0].hero?.position
-            return p == .jungle || p == .carry || p == .support
+            return (p == .jungle || p == .carry || p == .support) && s.units[$0].pos.distance(to: pit) < 5000
         }
         guard crew.count >= 2, crew.contains(where: { s.units[$0].hero?.position == .jungle }) else { return nil }
         return crew.map { s.units[$0].id }
+    }
+
+    /// 進行中のオブジェクト方針を続けるか（生存メンバーで更新）。続けないなら nil。
+    static func continueObjective(_ s: SimState, _ ctx: SimContext, _ intel: BotTeamIntel, old: BotTeamPlan,
+                                  team: Team) -> BotTeamPlan? {
+        guard old.kind == .wyrm || old.kind == .colossus,
+              let camp = bossCamp(ctx, old.kind == .wyrm ? .astralWyrm : .ancientColossus), campAlive(s, camp),
+              s.time - old.since < Balance.Bot.objectiveTimeout else { return nil }
+        var plan = old
+        plan.members = old.members.filter { id in
+            guard let h = s.index(of: id), s.units[h].isAlive, s.units[h].hero?.isDead != true else { return false }
+            return s.units[h].hpRatio > 0.3
+        }
+        guard plan.members.count >= 2 else { return nil }
+        // 巣の近くの敵がこちらの人数以上なら諦める
+        let threats = enemiesSeenNear(s, intel, camp.pos, radius: 1800, within: 3)
+        guard threats < plan.members.count else { return nil }
+        return plan
     }
 
     static func nearest(_ s: SimState, _ bots: [Int], to p: Vec2, count: Int, within: Double) -> [EntityID] {
@@ -353,7 +414,7 @@ enum BotMacro {
         guard !busyWithObjective, a.enemies.isEmpty else { return false }
         if hero.gold >= Balance.Bot.shopRecallGoldAlways { return true }
         if hero.gold >= Balance.Bot.shopRecallGold && hpRatio < Balance.Bot.shopRecallMaxHP {
-            return hero.gold >= BotShop.goldForNextItem(hero, ctx: ctx)
+            return hero.gold >= min(BotShop.goldForNextItem(hero, ctx: ctx), 1250)
         }
         return false
     }

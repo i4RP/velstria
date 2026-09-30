@@ -117,6 +117,8 @@ public struct BotTeamIntel: Codable, Hashable, Sendable {
     /// 観測から推定した移動速度（ユニット/秒）。
     public var velocity: [Vec2] = []
     public var plan = BotTeamPlan()
+    /// オブジェクトを諦めた後、再挑戦できる時刻。
+    public var objectiveRetryAt: Double = 0
 
     public init(team: Team) {
         self.team = team
