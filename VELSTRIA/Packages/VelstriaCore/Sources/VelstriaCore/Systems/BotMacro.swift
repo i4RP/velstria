@@ -33,6 +33,7 @@ enum BotMacro {
         let groupPhase = t >= profile.groupStart
         let retryAt = s.bots.teams[team.rawValue].objectiveRetryAt
         let center = centroid(s, aliveBots)
+        let blessedDuo = aliveBots.filter { s.units[$0].has(.wyrmBlessing) && s.units[$0].hero?.position != .jungle }
 
         // 1. 防衛: 敵ヒーローが自軍構造物を攻めている（直前の防衛は少し続けて行ったり来たりを防ぐ）。
         //    集団期に自分たちの押し込みが進んでいる時は、外塔・内塔は取り合いにして押し切りを優先する
@@ -66,14 +67,15 @@ enum BotMacro {
             plan.point = st.pos
             plan.members = aliveBots.map { s.units[$0].id }
         }
-        // 3b. 星喰竜の直後: 加護を得た面々で近くの bot レーンの塔を押す（集団期の前）
-        else if !groupPhase, blessed(s, aliveBots, .wyrmBlessing) >= 2,
-                let st = w.frontTower(team: team.opponent, lane: .bot) {
+        // 3b. 星喰竜の直後: 加護を得た bot レーンの 2 人で、味方ウェーブが押している間だけ塔を押す（集団期の前）。
+        //     ジャングラーはキャンプへ戻る
+        else if !groupPhase, blessedDuo.count >= 2, let st = w.frontTower(team: team.opponent, lane: .bot),
+                (w.front[team.rawValue][Lane.bot.rawValue] ?? 0) > w.laneLength[Lane.bot.rawValue] * 0.5 {
             plan.kind = .push
             plan.lane = .bot
             plan.targetID = st.id
             plan.point = st.pos
-            plan.members = aliveBots.filter { s.units[$0].has(.wyrmBlessing) }.map { s.units[$0].id }
+            plan.members = blessedDuo.map { s.units[$0].id }
         }
         // 4. 古環の巨像（敵が減っている時・集団が近い時）
         else if t >= Balance.Bot.colossusStart, t >= retryAt, let camp = bossCamp(ctx, .ancientColossus),
