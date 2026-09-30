@@ -32,20 +32,25 @@ App Store Connect（ASC）への v1.0 提出に必要なもの一式と手順。
 
 | プレースホルダ | 内容 | 使用箇所 |
 |---|---|---|
-| `{{PUBLISHER_NAME}}` | 販売事業者の正式名称（法人名または個人名） | copyright.txt、法務文書 |
-| `{{REPRESENTATIVE_NAME}}` | 代表者 / 運営統括責任者 | 特定商取引法表記、資金決済法表示 |
-| `{{POSTAL_ADDRESS}}` | 所在地 | 法務文書 |
-| `{{PHONE_NUMBER}}` | 電話番号（受付時間を併記） | 特定商取引法表記、資金決済法表示 |
+| `{{PUBLISHER_NAME}}` | 販売事業者の正式名称（法人名または個人名） | copyright.txt、法務文書、**アプリ内** `App/Screens/Store/StoreLogic.swift`（`StoreLegalText.issuerName`） |
+| `{{REPRESENTATIVE_NAME}}` | 代表者 / 運営統括責任者 | 特定商取引法表記、資金決済法表示、**アプリ内** `StoreLegalText.responsiblePerson` |
+| `{{POSTAL_ADDRESS}}` | 所在地 | 法務文書、**アプリ内** `StoreLegalText.issuerAddress` |
+| `{{PHONE_NUMBER}}` | 電話番号（受付時間を併記） | 特定商取引法表記、資金決済法表示、**アプリ内** `StoreLegalText.phoneNumber`（受付時間は `StoreLegalText.phoneHours`） |
 | `{{SUPPORT_EMAIL}}` | サポート窓口メールアドレス | 法務文書（アプリ内は `FeatureFlags.supportEmail`） |
 | `{{EFFECTIVE_DATE}}` | 法務文書の施行日 | 法務文書 |
-| `{{TERMS_URL}}` | 利用規約の公開 URL（`FeatureFlags.termsURL` と同じ） | 資金決済法に基づく表示 |
+| `{{TERMS_URL}}` | 利用規約の公開 URL（`FeatureFlags.termsURLJa` と同じ） | 資金決済法に基づく表示 |
 | `{{COURT}}` | 合意管轄裁判所（例: 東京地方裁判所） | 利用規約 |
 | `{{REVIEW_CONTACT_*}}` | 審査担当からの連絡先（氏名・電話・メール） | review_information/*.txt |
-| `https://velstria.example/...` | サポート / マーケティング / プライバシーポリシーの公開 URL | metadata/*/…_url.txt、`App/Core/FeatureFlags.swift` |
+| `https://velstria.example/...` | サポート / マーケティング / プライバシーポリシー / 利用規約の公開 URL（日本語版と `/en/` の英語版） | metadata/*/…_url.txt、`App/Core/FeatureFlags.swift`（`privacyPolicyURLJa/En`・`termsURLJa/En`） |
+| `support@velstria.example` | アプリ内のサポート・通報メールの宛先 | `App/Core/FeatureFlags.swift`（`supportEmail`） |
 | `TEAM_ID` 環境変数 | Apple Developer Team ID（10 桁） | `tools/archive.sh`（リポジトリには書かない） |
 
-> URL を確定したら `App/Core/FeatureFlags.swift`（統合担当の契約ファイル）の `supportEmail` / `privacyPolicyURL` / `termsURL` も同じ値に更新すること。
+> URL を確定したら `App/Core/FeatureFlags.swift`（統合担当の契約ファイル）の `supportEmail` / `privacyPolicyURLJa`・`privacyPolicyURLEn` /
+> `termsURLJa`・`termsURLEn` も同じ値に更新すること（アプリは表示言語に合わせて日本語版・英語版を開く）。
 > 審査ではアプリ内のリンク先と ASC のプライバシーポリシー URL が実際に開けることを確認される。
+> `--release` はアプリのソース（`App/**/*.swift`）も検査し、`{{…}}` や `.example` が残っていればエラーにする
+> （資金決済法・特商法のアプリ内表示は ストア > Gem を購入 に出るため、docs だけ埋めても提出できない）。
+> `metadata/<locale>/privacy_url.txt` と `FeatureFlags.privacyPolicyURLJa/En` の不一致は常にエラー。
 
 ## 3. App 情報（App Information）
 

@@ -14,6 +14,9 @@ usage（リポジトリの VELSTRIA/ で）:
   - App 内課金の表示名・説明の文字数
   - review_information/notes.txt の文字数
   - docs/legal/・docs/appstore/ に残ったプレースホルダ {{...}}
+  - アプリのソース（App/**/*.swift）に残ったプレースホルダ {{...}} と仮ドメイン（*.example）
+    （資金決済法・特商法の事業者情報 StoreLegalText、FeatureFlags のサポート窓口・URL など。出荷バイナリに入るため）
+  - metadata/<locale>/privacy_url.txt と FeatureFlags.privacyPolicyURLJa / privacyPolicyURLEn の一致
 """
 from __future__ import annotations
 
@@ -30,6 +33,8 @@ IAP_JSON = APPSTORE / "iap_products.json"
 DESIGN = ROOT / "docs" / "DESIGN.md"
 STOREKIT_SERVICE = ROOT / "App" / "Services" / "StoreKitService.swift"
 STOREKIT_CONFIG = ROOT / "App" / "Resources" / "Velstria.storekit"
+APP_SOURCES = ROOT / "App"
+FEATURE_FLAGS = ROOT / "App" / "Core" / "FeatureFlags.swift"
 
 LOCALES = ["ja", "en-US"]
 # App Store Connect の上限（文字数）
@@ -62,6 +67,8 @@ IAP_DESC_MAX = 45
 REVIEW_NOTES_MAX = 4000
 PLACEHOLDER = re.compile(r"\{\{[A-Z0-9_]+\}\}")
 PLACEHOLDER_URL = re.compile(r"\.example(/|$)")
+# Swift の文字列リテラル内の仮ドメイン（RFC 2606 の .example は名前解決されない）
+SWIFT_PLACEHOLDER_HOST = re.compile(r'"[^"\n]*?[\w-]+\.example(?![\w.-])[^"\n]*"')
 
 
 class Report:
@@ -247,12 +254,44 @@ def check_placeholders(r: Report) -> None:
                 r.placeholder(f"{p.relative_to(ROOT)}: 未記入のプレースホルダ {', '.join(found)}")
 
 
+def check_app_sources(r: Report) -> None:
+    """アプリに同梱される文言・URL のプレースホルダ（docs を埋めてもアプリ側が残る事故を防ぐ）。"""
+    for p in sorted(APP_SOURCES.rglob("*.swift")):
+        for no, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+            if line.lstrip().startswith("//"):
+                continue  # コメント（説明中の {{…}} 表記）は対象外
+            found = sorted(set(PLACEHOLDER.findall(line)))
+            if found:
+                r.placeholder(f"{p.relative_to(ROOT)}:{no}: 未記入のプレースホルダ {', '.join(found)}")
+            hosts = SWIFT_PLACEHOLDER_HOST.findall(line)
+            if hosts:
+                r.placeholder(f"{p.relative_to(ROOT)}:{no}: 仮ドメイン（.example）のままです {', '.join(hosts)}")
+
+
+def check_privacy_urls(r: Report) -> None:
+    """ASC に登録するプライバシーポリシー URL とアプリ内リンク（言語別）の一致。"""
+    if not FEATURE_FLAGS.exists():
+        r.error(f"{FEATURE_FLAGS.relative_to(ROOT)} がありません")
+        return
+    text = FEATURE_FLAGS.read_text(encoding="utf-8")
+    for locale, name in [("ja", "privacyPolicyURLJa"), ("en-US", "privacyPolicyURLEn")]:
+        m = re.search(rf'\b{name}\s*=\s*URL\(string:\s*"([^"]+)"\)', text)
+        if not m:
+            r.error(f"{FEATURE_FLAGS.relative_to(ROOT)}: {name} が見つかりません")
+            continue
+        meta = META / locale / "privacy_url.txt"
+        if meta.exists() and read(meta).strip() != m.group(1):
+            r.error(f"{meta.relative_to(ROOT)}（{read(meta).strip()}）と FeatureFlags.{name}（{m.group(1)}）が一致しません")
+
+
 def main() -> int:
     release = "--release" in sys.argv[1:]
     r = Report(release)
     check_metadata(r)
     check_iap(r)
     check_placeholders(r)
+    check_app_sources(r)
+    check_privacy_urls(r)
     for w in r.warnings:
         print(f"warning: {w}")
     for e in r.errors:
