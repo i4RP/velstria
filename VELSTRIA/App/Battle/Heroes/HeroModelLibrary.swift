@@ -59,7 +59,7 @@ enum HeroModelLibrary {
         _ = HeroEffectMeshes.teamRingSolid
         _ = HeroEffectMeshes.teamRingDashed
         _ = HeroEffectMeshes.groundRing
-        _ = HeroEffectMeshes.glowOrb
+        _ = HeroEffectMeshes.glowSprite
     }
 
     static func meshSet(heroID: String, blueprint: HeroBlueprint) -> HeroMeshSet {
@@ -97,13 +97,8 @@ enum HeroEffectMeshes {
         return b.makeMesh(name: "hero.groundRing") ?? MeshResource.generatePlane(width: 1.4, depth: 1.4)
     }()
 
-    /// 詠唱の光（外殻 0・芯 1）。
-    static let glowOrb: MeshResource = {
-        var b = MeshBuilder()
-        b.add(MeshTemplate.sphere(segments: 12, rings: 8), trs(.zero), .primary)
-        b.add(MeshTemplate.sphere(segments: 10, rings: 6), trs(.zero, qIdentity, V3(0.5, 0.5, 0.5)), .secondary)
-        return b.makeMesh(name: "hero.glowOrb") ?? MeshResource.generateSphere(radius: 1)
-    }()
+    /// 詠唱の光（カメラを向く板。放射グラデーションのテクスチャを貼る）。
+    static let glowSprite: MeshResource = MeshResource.generatePlane(width: 1, height: 1)
 
     private static func makeTeamRing(dashed: Bool) -> MeshResource {
         var b = MeshBuilder()
@@ -235,6 +230,8 @@ final class HeroModel: HeroModelHandle {
         foreArmR.position = V3(0, -m.upperArm, 0)
         foreArmL.addChild(offhand)
         foreArmR.addChild(weapon)
+        weapon.scale = V3(repeating: bp.weaponScale)
+        offhand.scale = V3(repeating: bp.offhandScale)
         offhand.position = V3(0, -m.foreArm - 0.035, 0)
         weapon.position = V3(0, -m.foreArm - 0.035, 0)
         if let back {
@@ -259,9 +256,9 @@ final class HeroModel: HeroModelHandle {
         // 詠唱の光（武器の先端）
         castGlow = ModelEntity()
         castGlow.name = "castGlow"
-        castGlow.components.set(ModelComponent(mesh: HeroEffectMeshes.glowOrb, materials: [
-            HeroMaterialLibrary.unlit(palette.glow, opacity: 0.45),
-            HeroMaterialLibrary.unlit(palette.glow.with(s: palette.glow.s * 0.35, b: 1), opacity: 0.95)]))
+        castGlow.components.set(ModelComponent(mesh: HeroEffectMeshes.glowSprite,
+                                               materials: [HeroMaterialLibrary.glowSprite(palette.glow)]))
+        castGlow.components.set(BillboardComponent())
         castGlow.position = ms.weaponTip
         castGlow.isEnabled = false
         weapon.addChild(castGlow)
@@ -372,14 +369,15 @@ final class HeroModel: HeroModelHandle {
         hips.orientation = ry(p.hipsYaw) * rz(p.hipsRoll)
         torso.orientation = ry(p.torsoYaw - p.hipsYaw) * rx(-p.torsoPitch) * rz(p.torsoRoll)
         head.orientation = ry(p.headYaw) * rx(-p.headPitch) * rz(p.headRoll)
-        upperArmR.orientation = ry(p.armR.yaw) * rz(p.armR.out) * rx(p.armR.pitch)
-        upperArmL.orientation = ry(-p.armL.yaw) * rz(-p.armL.out) * rx(p.armL.pitch)
+        // 開き（out）は腕のローカルで先に回すので、腕を上げても外側へ開く
+        upperArmR.orientation = ry(p.armR.yaw) * rx(p.armR.pitch) * rz(p.armR.out)
+        upperArmL.orientation = ry(-p.armL.yaw) * rx(p.armL.pitch) * rz(-p.armL.out)
         foreArmR.orientation = rx(p.armR.elbow)
         foreArmL.orientation = rx(p.armL.elbow)
         weapon.orientation = weaponFollowsArm ? qIdentity : rx(p.weaponR - p.armR.pitch - p.armR.elbow)
         offhand.orientation = offhandFollowsArm ? qIdentity : rx(p.weaponL - p.armL.pitch - p.armL.elbow)
-        thighR.orientation = rz(p.legR.out) * rx(p.legR.pitch)
-        thighL.orientation = rz(-p.legL.out) * rx(p.legL.pitch)
+        thighR.orientation = rx(p.legR.pitch) * rz(p.legR.out)
+        thighL.orientation = rx(p.legL.pitch) * rz(-p.legL.out)
         shinR.orientation = rx(-p.legR.knee)
         shinL.orientation = rx(-p.legL.knee)
         back?.orientation = rx(-p.cape)
@@ -413,7 +411,7 @@ final class HeroModel: HeroModelHandle {
             glowVisible = showGlow
         }
         if showGlow {
-            castGlow.scale = V3(repeating: 0.05 + 0.1 * g)
+            castGlow.scale = V3(repeating: 0.25 + 0.35 * g)
         }
         let showRing = p.ring > 0.03
         if showRing != ringVisible {

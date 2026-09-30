@@ -135,6 +135,10 @@ struct HeroMotionProfile {
     var casts: [ActionClip]
     var twoHanded: Bool
     var bowHold: Bool
+    /// 盾持ち（詠唱・勝利でも盾を胸の前に保つ）。
+    var shieldHold: Bool
+    /// 長柄（杖・槍・大槌）は帰還中も立てて持つ。
+    var longWeapon: Bool
 
     init(blueprint bp: HeroBlueprint, metrics m: BodyMetrics) {
         var r = HeroPose()
@@ -148,6 +152,11 @@ struct HeroMotionProfile {
         r.wings = 0.2
         twoHanded = bp.twoHanded
         bowHold = bp.offhand == .ashBow || bp.offhand == .lightBow || bp.offhand == .harpBow
+        shieldHold = bp.offhand == .gateShield || bp.offhand == .hideShield
+        switch bp.attack {
+        case .staff, .thrust, .heavySwing: longWeapon = true
+        default: longWeapon = false
+        }
         legSwing = bp.build == .robed ? 0.55 : 1
         switch bp.attack {
         case .slash:
@@ -201,7 +210,19 @@ struct HeroMotionProfile {
 
         attack = HeroMotionProfile.attackClip(bp.attack, rest: r, left: false)
         attackAlt = bp.attack == .dualSlash || bp.attack == .punch ? HeroMotionProfile.attackClip(bp.attack, rest: r, left: true) : nil
-        casts = (0..<4).map { HeroMotionProfile.castClip(slot: $0, rest: r, style: bp.attack) }
+        let shield = shieldHold
+        casts = (0..<4).map { slot in
+            var clip = HeroMotionProfile.castClip(slot: slot, rest: r, style: bp.attack)
+            if shield && slot >= 2 {
+                // 盾は掲げず胸の前に構える（顔を隠さない）
+                let guardArm = ArmPose(pitch: 0.9, out: 0.35, yaw: 0.1, elbow: 0.7)
+                clip.windup.armL = guardArm
+                clip.strike.armL = guardArm
+                clip.windup.weaponL = 0
+                clip.strike.weaponL = 0
+            }
+            return clip
+        }
     }
 
     // MARK: 通常攻撃
@@ -574,10 +595,10 @@ struct HeroAnimator {
         p.headYaw = 0
         p.armR = ArmPose(pitch: 1.0, out: 0.05, yaw: 0.65, elbow: 1.25)
         p.armL = ArmPose(pitch: 1.0, out: 0.05, yaw: 0.65, elbow: 1.25)
-        p.weaponR = 0.1
-        p.weaponL = 0
-        p.glow = 0.55 + 0.25 * sin(time * 4)
-        p.ring = 1
+        p.weaponR = profile.longWeapon ? -0.1 : 2.5
+        p.weaponL = profile.bowHold || profile.shieldHold ? 0 : 2.5
+        p.glow = 0
+        p.ring = 0.9 + 0.1 * sin(time * 4)
         p.cape = 0.1
         p.wings = 0.5
         p.offset = .zero
@@ -596,8 +617,8 @@ struct HeroAnimator {
         p.headPitch = 0.12 + 0.1 * cos(t * 4)
         p.armR = ArmPose(pitch: 0.12 + 0.15 * sin(t * 3), out: 0.4, yaw: 0, elbow: 0.3)
         p.armL = ArmPose(pitch: 0.12 + 0.15 * cos(t * 3), out: 0.4, yaw: 0, elbow: 0.3)
-        p.weaponR = 2.4
-        p.weaponL = profile.bowHold ? 0.3 : 2.4
+        p.weaponR = profile.longWeapon ? 0.5 : 2.0
+        p.weaponL = profile.bowHold || profile.shieldHold ? 0.3 : 2.0
         p.cape = 0.08
         p.wings = 0
         return p
@@ -637,8 +658,10 @@ struct HeroAnimator {
         p.weaponR = 0.05
         if profile.twoHanded {
             p.armL = ArmPose(pitch: 2.9, out: 0.1, yaw: 0.35, elbow: 0.3)
+        } else if profile.shieldHold {
+            p.armL = ArmPose(pitch: 0.8, out: 0.45, yaw: 0.1, elbow: 0.8)
         } else {
-            p.armL = ArmPose(pitch: 2.3 + 0.2 * sin(time * 8), out: 0.55, yaw: 0, elbow: 0.6)
+            p.armL = ArmPose(pitch: 1.9 + 0.2 * sin(time * 8), out: 1.0, yaw: 0, elbow: 0.7)
         }
         p.weaponL = 0
         p.torsoPitch = -0.12

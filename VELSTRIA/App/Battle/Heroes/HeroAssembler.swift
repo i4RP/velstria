@@ -227,7 +227,7 @@ struct HeroAssembler {
             for i in 0..<7 {
                 let a = Float(i) / 7 * 2 * .pi
                 let p = V3(sin(a) * hw * 0.95, -0.08, -cos(a) * hw * 0.95 * zs)
-                b.ellipsoid(p, V3(0.085, 0.15, 0.03), i % 2 == 0 ? .primary : .accent, rot: ry(-a) * rx(-0.4))
+                b.ellipsoid(p, V3(0.085, 0.15, 0.03), i % 2 == 0 ? .primary : .accent, rot: ry(-a) * rx(-0.4), detail: .low)
             }
         case .kilt:
             b.lathe([V2(hw * 1.08, -0.13), V2(hw * 0.93, 0.06)], V3(0, 0, 0), .secondary, scale: V3(1, 1, zs), segments: 18)
@@ -473,7 +473,7 @@ struct HeroAssembler {
         let k = R / 0.33
         b.ellipsoid(c + dir * (R * 0.93), V3(0.056 * k, 0.08 * k, 0.04 * k), .eye, rot: rot, detail: .low)
         if !bp.glowingEyes {
-            b.sphere(c + dir * (R * 0.99) + V3(-s * 0.012 * k, 0.03 * k, 0), 0.019 * k, .shine, .low)
+            b.sphere(c + dir * (R * 0.99) + V3(-s * 0.012 * k, 0.03 * k, 0), 0.019 * k, .shine, .tiny)
         }
     }
 
@@ -733,12 +733,12 @@ struct HeroAssembler {
             for i in 0..<6 {
                 let a = Float(i) / 6 * 2 * .pi
                 let p = c + V3(sin(a) * R * 0.78, R * 0.6 + 0.04 * cos(a), -cos(a) * R * 0.78 + R * 0.12)
-                for k in 0..<5 {
-                    let pa = Float(k) / 5 * 2 * .pi
-                    b.ellipsoid(p + V3(cos(pa) * 0.035, 0.012, sin(pa) * 0.035), V3(0.035, 0.012, 0.022),
-                                i % 2 == 0 ? .accent : .cloth, rot: ry(-pa), detail: .low)
+                for k in 0..<4 {
+                    let pa = Float(k) / 4 * 2 * .pi + Float(i)
+                    b.ellipsoid(p + V3(cos(pa) * 0.036, 0.012, sin(pa) * 0.036), V3(0.038, 0.013, 0.025),
+                                i % 2 == 0 ? .accent : .cloth, rot: ry(-pa), detail: .tiny)
                 }
-                b.sphere(p + V3(0, 0.02, 0), 0.018, .glow, .low)
+                b.sphere(p + V3(0, 0.02, 0), 0.02, .glow, .tiny)
             }
         case .circlet:
             b.add(MeshTemplate.torus(minor: 0.05, segments: 24, sides: 6),

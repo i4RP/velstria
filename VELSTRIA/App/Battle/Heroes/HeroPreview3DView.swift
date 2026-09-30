@@ -47,6 +47,8 @@ struct HeroStageConfig: Equatable {
     var freezeAt: Double?
     /// 戦闘カメラ時に頭上 UI 位置の目印を出す。
     var showOverheadMarker = false
+    /// 台の初期回転（ラジアン、0 = 正面）。
+    var yaw: Float = 0
 }
 
 /// RealityView の中身を保持する（フレーム更新・ドラッグ回転）。
@@ -140,12 +142,13 @@ final class HeroStageDriver {
         let width = Float(n) * spacing
         switch c.camera {
         case .showcase:
-            let height: Float = c.pedestal ? 2.45 : 2.3
+            // 台座込みの全身が上下に余白を持って収まる距離
+            let height: Float = c.pedestal ? 2.75 : 2.35
             let distW = (width / 2) / halfH
             let distH = (height / 2) / halfV
-            let d = max(distW, distH) * 1.02
-            let target = V3(0, c.pedestal ? 1.12 : 1.02, 0)
-            camera.look(at: target, from: target + V3(0, d * 0.16, d), relativeTo: nil)
+            let d = max(distW, distH) * 1.03
+            let target = V3(0, c.pedestal ? 1.02 : 1.0, 0)
+            camera.look(at: target, from: target + V3(0, d * 0.13, d), relativeTo: nil)
         case .battle:
             // 戦闘カメラ相当（約 56° 見下ろし・遠景）
             let d: Float = max(15, (width / 2) / halfH * 1.05)
@@ -160,15 +163,12 @@ final class HeroStageDriver {
         if c.autoRotate && !isDragging {
             autoYaw += Float(dt) * 0.35
         }
-        turntable.orientation = ry(autoYaw + dragYaw + (c.camera == .showcase && !c.autoRotate ? 0 : 0))
+        // 各ヒーローをその場で回す（-Z 正面のモデルを +Z 側のカメラへ向けるため π を足す）
+        let yaw = ry(.pi + c.yaw + autoYaw + dragYaw)
+        for r in slotRoots { r.orientation = yaw }
         guard !frozen else { return }
         let speed = c.state == .run ? c.runSpeed : 0
         for m in models { m.update(dt: dt, moveSpeed: speed) }
-    }
-
-    /// ヒーローの正面をカメラへ向ける（ヒーローは -Z 正面、カメラは +Z 側）。
-    func faceCamera() {
-        for r in slotRoots { r.orientation = ry(.pi) }
     }
 
     // MARK: 照明・台座
@@ -245,14 +245,13 @@ struct HeroStageView: View {
                 content.add(driver.world)
                 driver.aspect = Float(geo.size.width / max(1, geo.size.height))
                 driver.apply(config)
-                driver.faceCamera()
+                driver.tick(0)
                 driver.subscription = content.subscribe(to: SceneEvents.Update.self) { [weak driver] e in
                     driver?.tick(e.deltaTime)
                 }
             } update: { _ in
                 driver.aspect = Float(geo.size.width / max(1, geo.size.height))
                 driver.apply(config)
-                driver.faceCamera()
             }
             .gesture(
                 DragGesture(minimumDistance: 4)

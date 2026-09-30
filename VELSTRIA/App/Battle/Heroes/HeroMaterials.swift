@@ -164,8 +164,10 @@ enum HeroPalettes {
     /// 既定パレット（基調色は Theme.heroHue、アクセントはモチーフ色）。
     static func base(heroID: String, blueprint bp: HeroBlueprint) -> HeroPalette {
         let h = Theme.heroHue(heroID)
+        // 黄緑系は彩度が強く出るので抑える
+        let yg = max(0, 1 - abs(h - 0.22) / 0.12)
         return HeroPalette(
-            primary: HSB(h, 0.66, 0.90),
+            primary: HSB(h, 0.66 - 0.14 * yg, 0.90 - 0.06 * yg),
             secondary: HSB(h + 0.015, 0.60, 0.46),
             metal: bp.metal.color,
             metalKind: bp.metal,
@@ -328,6 +330,41 @@ enum HeroMaterialLibrary {
             m.blending = .transparent(opacity: .init(floatLiteral: opacity))
         }
         unlitCache[key] = m
+        return m
+    }
+
+    private static var spriteCache: [String: RealityKit.Material] = [:]
+
+    /// 放射グラデーション（中心が白く、縁で透明）。
+    private static let glowTexture: TextureResource? = {
+        let size = 64
+        guard let ctx = CGContext(data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: size * 4,
+                                  space: CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        let colors = [UIColor(white: 1, alpha: 1).cgColor, UIColor(white: 1, alpha: 0.55).cgColor,
+                      UIColor(white: 1, alpha: 0.12).cgColor, UIColor(white: 1, alpha: 0).cgColor] as CFArray
+        let locations: [CGFloat] = [0, 0.18, 0.55, 1]
+        guard let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: locations) else {
+            return nil
+        }
+        let c = CGPoint(x: CGFloat(size) / 2, y: CGFloat(size) / 2)
+        ctx.drawRadialGradient(gradient, startCenter: c, startRadius: 0, endCenter: c, endRadius: CGFloat(size) / 2, options: [])
+        guard let image = ctx.makeImage() else { return nil }
+        return try? TextureResource(image: image, withName: "hero.glow", options: .init(semantic: .color))
+    }()
+
+    /// 発光スプライト用マテリアル（色ごとに共有）。
+    static func glowSprite(_ c: HSB) -> RealityKit.Material {
+        let key = String(format: "%.3f/%.3f/%.3f", c.h - floor(c.h), c.s, c.b)
+        if let m = spriteCache[key] { return m }
+        var m = UnlitMaterial(color: c.with(s: c.s * 0.8, b: 1).uiColor)
+        if let tex = glowTexture {
+            m.color = .init(tint: c.with(s: c.s * 0.8, b: 1).uiColor, texture: .init(tex))
+            m.blending = .transparent(opacity: .init(scale: 1, texture: .init(tex)))
+        } else {
+            m.blending = .transparent(opacity: .init(floatLiteral: 0.5))
+        }
+        spriteCache[key] = m
         return m
     }
 

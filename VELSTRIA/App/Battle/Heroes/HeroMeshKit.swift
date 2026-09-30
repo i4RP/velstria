@@ -519,6 +519,15 @@ struct MeshBuilder {
         }
     }
 
+    /// 別の結合メッシュを変換して取り込む（部品を原点で作ってから配置する用）。
+    mutating func merge(_ o: MeshBuilder, _ m: simd_float4x4) {
+        let t = MeshTemplate(positions: o.positions, normals: o.normals, indices: o.indices)
+        let before = faceMaterials.count
+        add(t, m, .primary)
+        // add は全面を 1 つのマテリアルで登録するので、元の面ごとの番号で上書きする
+        for i in 0..<o.faceMaterials.count { faceMaterials[before + i] = o.faceMaterials[i] }
+    }
+
     func makeMesh(name: String) -> MeshResource? {
         guard !indices.isEmpty else { return nil }
         var d = MeshDescriptor(name: name)
@@ -534,14 +543,15 @@ struct MeshBuilder {
 
 /// 共有テンプレート（単位形状）。
 enum MeshTemplates {
-    static let sphereHi = MeshTemplate.sphere(segments: 22, rings: 14)
-    static let sphereMid = MeshTemplate.sphere(segments: 14, rings: 10)
-    static let sphereLo = MeshTemplate.sphere(segments: 9, rings: 6)
-    static let dome = MeshTemplate.sphere(segments: 16, rings: 6, latFrom: 0, latTo: .pi / 2)
+    static let sphereHi = MeshTemplate.sphere(segments: 20, rings: 13)
+    static let sphereMid = MeshTemplate.sphere(segments: 13, rings: 9)
+    static let sphereLo = MeshTemplate.sphere(segments: 8, rings: 6)
+    static let sphereTiny = MeshTemplate.sphere(segments: 6, rings: 4)
+    static let dome = MeshTemplate.sphere(segments: 14, rings: 5, latFrom: 0, latTo: .pi / 2)
     static let cube = MeshTemplate.box([1, 1, 1])
 }
 
-enum MeshDetail { case low, mid, high }
+enum MeshDetail { case tiny, low, mid, high }
 
 extension MeshBuilder {
     mutating func sphere(_ c: V3, _ r: Float, _ mat: HeroMat, _ detail: MeshDetail = .mid) {
@@ -551,6 +561,7 @@ extension MeshBuilder {
     mutating func ellipsoid(_ c: V3, _ radii: V3, _ mat: HeroMat, rot: simd_quatf = qIdentity, detail: MeshDetail = .mid) {
         let t: MeshTemplate
         switch detail {
+        case .tiny: t = MeshTemplates.sphereTiny
         case .low: t = MeshTemplates.sphereLo
         case .mid: t = MeshTemplates.sphereMid
         case .high: t = MeshTemplates.sphereHi
@@ -573,7 +584,7 @@ extension MeshBuilder {
     }
 
     /// 両端が丸い肢（円錐台 + 端の球）。
-    mutating func limb(_ a: V3, _ b: V3, _ r0: Float, _ r1: Float, _ mat: HeroMat, segments: Int = 12) {
+    mutating func limb(_ a: V3, _ b: V3, _ r0: Float, _ r1: Float, _ mat: HeroMat, segments: Int = 11) {
         frustum(a, b, r0, r1, mat, segments: segments, caps: false)
         sphere(a, r0, mat, .low)
         sphere(b, r1, mat, .low)
@@ -592,12 +603,14 @@ extension MeshBuilder {
     }
 
     mutating func rbox(_ c: V3, _ size: V3, _ radius: Float, _ mat: HeroMat, rot: simd_quatf = qIdentity) {
-        add(MeshTemplate.roundedBox(size, radius: radius), trs(c, rot), mat)
+        // 小さな箱は角の分割を減らす
+        let steps = min(size.x, min(size.y, size.z)) < 0.1 || radius < 0.02 ? 1 : 2
+        add(MeshTemplate.roundedBox(size, radius: radius, steps: steps), trs(c, rot), mat)
     }
 
     /// トーラス（既定は Y 軸まわり＝水平）。
     mutating func torus(_ c: V3, _ R: Float, _ r: Float, _ mat: HeroMat, rot: simd_quatf = qIdentity,
-                        segments: Int = 20, sides: Int = 8, arc: Float = 2 * .pi) {
+                        segments: Int = 16, sides: Int = 6, arc: Float = 2 * .pi) {
         add(MeshTemplate.torus(minor: r / R, segments: segments, sides: sides, arc: arc), trs(c, rot, [R, R, R]), mat)
     }
 

@@ -11,6 +11,7 @@ import VelstriaCore
 //   -galleryTeam <blue|red|none>
 //   -galleryFreeze <秒>        指定秒だけ進めて静止
 //   -galleryDetail <heroID>    単体プレビュー（HeroPreview3DView）を表示
+//   -galleryYaw <度>           台の回転（側面・背面の確認）
 
 struct HeroGalleryView: View {
     @Environment(AppModel.self) private var app
@@ -22,6 +23,7 @@ struct HeroGalleryView: View {
     @State private var detailHeroID: String?
     @State private var detailSkin: String?
     @State private var didApplyArgs = false
+    @State private var yaw: Float = 0
 
     private var master: MasterData { app.master }
 
@@ -72,7 +74,7 @@ struct HeroGalleryView: View {
                 header
                 ZStack(alignment: .bottom) {
                     HeroStageView(config: HeroStageConfig(slots: slots, team: team, state: animState, camera: camera,
-                                                          freezeAt: freeze, showOverheadMarker: camera == .battle))
+                                                          freezeAt: freeze, showOverheadMarker: camera == .battle, yaw: yaw))
                     labels
                 }
                 stateBar
@@ -192,7 +194,7 @@ struct HeroGalleryView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     if let def = master.hero(heroID) {
                         Text(MasterText.hero(def)).font(Theme.title(22)).foregroundStyle(Theme.textPrimary)
-                        Label(def.roleJa, systemImage: Theme.roleSymbol(def.role))
+                        Label(MasterText.role(def.role), systemImage: Theme.roleSymbol(def.role))
                             .font(Theme.body(13)).foregroundStyle(Theme.roleColor(def.role))
                     }
                     ForEach([nil] + skins.map { Optional($0.cosmeticID) }, id: \.self) { id in
@@ -233,6 +235,7 @@ struct HeroGalleryView: View {
         default: break
         }
         if let f = DebugLaunch.value(after: "-galleryFreeze"), let t = Double(f) { freeze = t }
+        if let y = DebugLaunch.value(after: "-galleryYaw"), let d = Float(y) { yaw = d * .pi / 180 }
         if let d = DebugLaunch.value(after: "-galleryDetail") {
             detailHeroID = d
             detailSkin = DebugLaunch.value(after: "-gallerySkin")

@@ -46,19 +46,23 @@ struct HeroGearBuilder {
             b.rod(V3(0, -0.44, 0), V3(0, 0.86, 0), 0.027, .cloth)
             b.cone(V3(0, -0.44, 0), V3(0, -0.56, 0), 0.032, .metal)
             for y: Float in [-0.05, 0.32, 0.8] { b.torus(V3(0, y, 0), 0.034, 0.012, .metal) }
-            b.blade(crescentPolygon(radius: 0.19, thickness: 0.06, span: 4.3, offset: 0.05), depth: 0.05,
-                    V3(0, 1.02, 0), .accent, extra: rx(.pi / 2))
+            b.extrude(crescentPolygon(radius: 0.19, thickness: 0.055, span: 3.6, offset: 0.04), depth: 0.05,
+                      V3(0, 1.02, 0), .cloth, rot: rz(-.pi / 2))
+            for s: Float in [-1, 1] {
+                b.ellipsoid(V3(s * 0.19, 1.1, 0), V3(0.035, 0.06, 0.03), .accent, rot: rz(-s * 0.5), detail: .low)
+            }
             b.sphere(V3(0, 1.03, 0), 0.12, .glow)
             for s: Float in [-1, 1] {
                 b.ellipsoid(V3(0, 0.9, s * 0.09), V3(0.02, 0.08, 0.05), .accent, rot: rx(s * 0.5), detail: .low)
             }
             weaponTip = V3(0, 1.03, 0)
         case .lightningSpear:
-            b.rod(V3(0, -0.5, 0), V3(0, 0.95, 0), 0.025, .dark)
-            b.cone(V3(0, -0.5, 0), V3(0, -0.64, 0), 0.032, .metal)
-            let bolt: [V2] = [V2(-0.06, 0), V2(0.07, 0), V2(0.02, 0.14), V2(0.1, 0.14), V2(-0.02, 0.48), V2(0.0, 0.22), V2(-0.08, 0.22)]
+            b.rod(V3(0, -0.5, 0), V3(0, 0.95, 0), 0.027, .metal)
+            b.cone(V3(0, -0.5, 0), V3(0, -0.64, 0), 0.034, .metal)
+            for y: Float in [-0.3, 0.3, 0.6] { b.torus(V3(0, y, 0), 0.034, 0.011, .glow) }
+            let bolt: [V2] = [V2(-0.07, 0), V2(0.08, 0), V2(0.025, 0.15), V2(0.12, 0.15), V2(-0.025, 0.55), V2(0.0, 0.25), V2(-0.1, 0.25)]
             b.blade(bolt, depth: 0.04, V3(0, 0.95, 0), .metal)
-            b.blade(bolt.map { V2($0.x * 0.55, $0.y * 0.8 + 0.03) }, depth: 0.05, V3(0, 0.95, 0), .glow)
+            b.blade(bolt.map { V2($0.x * 0.7, $0.y * 0.86 + 0.03) }, depth: 0.052, V3(0, 0.95, 0), .glow)
             b.rbox(V3(0, 0.93, 0), V3(0.05, 0.05, 0.26), 0.02, .metal)
             for s: Float in [-1, 1] { b.sphere(V3(0, 0.93, s * 0.14), 0.035, .glow, .low) }
             b.torus(V3(0, 0.1, 0), 0.034, 0.012, .glow)
@@ -250,19 +254,21 @@ struct HeroGearBuilder {
         case .none:
             break
         case .gateShield:
-            let o = V3(-0.1, 0.1, -0.12)
+            // 原点で組んでから、外側へ少し向けて左腕の外に置く
+            var sh = MeshBuilder()
             var tower: [V2] = [V2(0.27, -0.3), V2(0.27, 0.3), V2(0.2, 0.3), V2(0.2, 0.43), V2(0.095, 0.43), V2(0.095, 0.35),
                                V2(-0.095, 0.35), V2(-0.095, 0.43), V2(-0.2, 0.43), V2(-0.2, 0.3), V2(-0.27, 0.3), V2(-0.27, -0.3)]
             tower.append(V2(0, -0.46))
-            b.extrude(tower, depth: 0.06, o, .primary)
-            b.extrude(tower.map { $0 * 1.08 + V2(0, -0.005) }, depth: 0.045, o + V3(0, 0, 0.02), .metal)
+            sh.extrude(tower, depth: 0.06, .zero, .primary)
+            sh.extrude(tower.map { $0 * 1.08 + V2(0, -0.005) }, depth: 0.045, V3(0, 0, 0.02), .metal)
             var arch: [V2] = [V2(0.105, 0.02), V2(0.105, -0.3), V2(-0.105, -0.3), V2(-0.105, 0.02)]
             arch.append(contentsOf: arcPoints(V2(0, 0.02), 0.105, .pi, 0, 8).dropFirst().dropLast())
-            b.extrude(arch, depth: 0.02, o + V3(0, 0, -0.035), .dark)
-            for x: Float in [-0.05, 0, 0.05] { b.box(o + V3(x, -0.12, -0.046), V3(0.016, 0.3, 0.012), .metal) }
-            b.box(o + V3(0, -0.1, -0.046), V3(0.2, 0.016, 0.012), .metal)
-            for s: Float in [-1, 1] { b.rbox(o + V3(s * 0.19, -0.02, -0.036), V3(0.035, 0.5, 0.02), 0.008, .metal) }
-            b.extrude([V2(0, 0.06), V2(0.045, 0), V2(0, -0.06), V2(-0.045, 0)], depth: 0.02, o + V3(0, 0.2, -0.04), .glow)
+            sh.extrude(arch, depth: 0.02, V3(0, 0, -0.035), .dark)
+            for x: Float in [-0.05, 0, 0.05] { sh.box(V3(x, -0.12, -0.046), V3(0.016, 0.3, 0.012), .metal) }
+            sh.box(V3(0, -0.1, -0.046), V3(0.2, 0.016, 0.012), .metal)
+            for s: Float in [-1, 1] { sh.rbox(V3(s * 0.19, -0.02, -0.036), V3(0.035, 0.5, 0.02), 0.008, .metal) }
+            sh.extrude([V2(0, 0.06), V2(0.045, 0), V2(0, -0.06), V2(-0.045, 0)], depth: 0.02, V3(0, 0.2, -0.04), .glow)
+            b.merge(sh, trs(V3(-0.15, 0.1, -0.1), ry(0.4)))
             b.rod(V3(0, -0.06, 0), V3(0, 0.08, 0), 0.022, .dark)
         case .harpBow:
             let o = V3(-0.02, 0.2, -0.04)
@@ -276,7 +282,9 @@ struct HeroGearBuilder {
             for x: Float in [-0.06, 0, 0.06] { b.rod(o + V3(x, -0.18, 0), o + V3(x, 0.15, 0), 0.006, .glow) }
             b.extrude(starPolygon(points: 5, outer: 0.055, inner: 0.024), depth: 0.025, o + V3(0, 0.2, -0.01), .glow)
         case .ashBow:
-            bow(&b, radius: 0.64, limbMat: .metal, glowEdge: true, spikes: true)
+            var bw = MeshBuilder()
+            bow(&bw, radius: 0.7, limbMat: .metal, glowEdge: true, spikes: true)
+            b.merge(bw, trs(.zero, ry(0.6)))
         case .moonLantern:
             b.torus(V3(0, 0, 0), 0.035, 0.011, .metal, rot: rz(.pi / 2))
             b.rod(V3(0, -0.02, 0), V3(0, -0.1, 0), 0.009, .metal)
@@ -325,8 +333,11 @@ struct HeroGearBuilder {
             dagger(&b, petalShape(), bladeMat: .accent, glowEdge: false)
             b.rbox(V3(0, 0.3, 0), V3(0.036, 0.24, 0.012), 0.005, .glow)
         case .lightBow:
-            bow(&b, radius: 0.52, limbMat: .metal, glowEdge: true, spikes: false)
-            for s: Float in [-1, 1] { b.sphere(V3(0, s * 0.41, 0.2), 0.035, .glow, .low) }
+            var bw = MeshBuilder()
+            bow(&bw, radius: 0.58, limbMat: .metal, glowEdge: true, spikes: false)
+            let tipY = sin(Float(0.94)) * 0.58
+            for s: Float in [-1, 1] { bw.sphere(V3(0, s * tipY, 0.58 - 0.02 - cos(0.94) * 0.58), 0.04, .glow, .low) }
+            b.merge(bw, trs(.zero, ry(0.6)))
         case .azureClaw:
             claw(&b, side: -1)
         case .dreamNeedle:
@@ -416,9 +427,9 @@ struct HeroGearBuilder {
     private func bow(_ b: inout MeshBuilder, radius R: Float, limbMat: HeroMat, glowEdge: Bool, spikes: Bool) {
         let span: Float = 1.9
         let c = V3(0, 0, R - 0.02)
-        b.blade(crescentPolygon(radius: R, thickness: 0.05, span: span, offset: 0.0), depth: 0.04, c, limbMat)
+        b.blade(crescentPolygon(radius: R, thickness: 0.06, span: span, offset: 0.0), depth: 0.055, c, limbMat)
         if glowEdge {
-            b.blade(crescentPolygon(radius: R - 0.035, thickness: 0.014, span: span * 0.9, offset: 0.0), depth: 0.05, c, .glow)
+            b.blade(crescentPolygon(radius: R - 0.04, thickness: 0.016, span: span * 0.9, offset: 0.0), depth: 0.065, c, .glow)
         }
         if spikes {
             for a: Float in [-0.72, -0.4, 0.4, 0.72] {
@@ -440,10 +451,10 @@ struct HeroGearBuilder {
     func flag() -> MeshBuilder {
         var b = MeshBuilder()
         guard bp.weapon == .windBanner else { return b }
-        let shape: [V2] = [V2(0, 0), V2(-0.48, -0.02), V2(-0.38, -0.17), V2(-0.48, -0.33), V2(0, -0.3)]
-        b.blade(shape, depth: 0.014, .zero, .accent)
-        b.torus(V3(0, -0.15, 0.2), 0.06, 0.012, .glow, rot: rz(.pi / 2), segments: 16, sides: 5)
-        b.extrude(starPolygon(points: 4, outer: 0.04, inner: 0.015), depth: 0.02, V3(0, -0.15, 0.2), .glow, rot: ry(.pi / 2))
+        let shape: [V2] = [V2(0, 0), V2(-0.62, -0.03), V2(-0.5, -0.22), V2(-0.62, -0.42), V2(0, -0.38)]
+        b.blade(shape, depth: 0.016, .zero, .accent)
+        b.torus(V3(0, -0.19, 0.25), 0.075, 0.014, .glow, rot: rz(.pi / 2), segments: 16, sides: 5)
+        b.extrude(starPolygon(points: 4, outer: 0.05, inner: 0.018), depth: 0.024, V3(0, -0.19, 0.25), .glow, rot: ry(.pi / 2))
         return b
     }
 
@@ -645,15 +656,17 @@ struct HeroGearBuilder {
             }
         case .hourglass:
             floatMotion = .hover(speed: 0.6)
-            floatAnchor = V3(0.46, 1.62, 0.05)
-            b.rod(V3(0, -0.13, 0), V3(0, -0.11, 0), 0.08, .metal, segments: 12)
-            b.rod(V3(0, 0.11, 0), V3(0, 0.13, 0), 0.08, .metal, segments: 12)
-            b.lathe([V2(0.065, -0.11), V2(0.06, -0.05), V2(0.015, 0.0), V2(0.06, 0.05), V2(0.065, 0.11)], .zero, .veil, segments: 14)
-            b.cone(V3(0, -0.11, 0), V3(0, -0.02, 0), 0.05, .glow, segments: 10)
-            b.cone(V3(0, 0.02, 0), V3(0, 0.07, 0), 0.02, .glow, segments: 8)
+            floatAnchor = V3(0.55, 1.72, 0.05)
+            let k: Float = 1.6
+            b.rod(V3(0, -0.13, 0) * k, V3(0, -0.11, 0) * k, 0.08 * k, .metal, segments: 12)
+            b.rod(V3(0, 0.11, 0) * k, V3(0, 0.13, 0) * k, 0.08 * k, .metal, segments: 12)
+            b.lathe([V2(0.065, -0.11), V2(0.06, -0.05), V2(0.015, 0.0), V2(0.06, 0.05), V2(0.065, 0.11)].map { $0 * k }, .zero,
+                    .veil, segments: 14)
+            b.cone(V3(0, -0.11, 0) * k, V3(0, -0.02, 0) * k, 0.05 * k, .glow, segments: 10)
+            b.cone(V3(0, 0.02, 0) * k, V3(0, 0.07, 0) * k, 0.02 * k, .glow, segments: 8)
             for i in 0..<3 {
                 let a = Float(i) / 3 * 2 * .pi
-                b.rod(V3(cos(a) * 0.075, -0.12, sin(a) * 0.075), V3(cos(a) * 0.075, 0.12, sin(a) * 0.075), 0.01, .metal)
+                b.rod(V3(cos(a) * 0.075, -0.12, sin(a) * 0.075) * k, V3(cos(a) * 0.075, 0.12, sin(a) * 0.075) * k, 0.012, .metal)
             }
         case .clawCrystals:
             floatMotion = .orbit(speed: 1.3)

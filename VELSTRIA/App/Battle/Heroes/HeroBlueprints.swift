@@ -71,6 +71,28 @@ struct HeroBlueprint {
     /// 首元のスカーフ。
     var scarf = false
 
+    /// 右手武器の表示倍率（上方カメラで読めるよう大きめ）。
+    var weaponScale: Float {
+        switch weapon {
+        case .siegeHammer, .tideStaff, .haloStaff, .aegisStaff, .thunderLance, .windBanner: return 1.08
+        case .lightningSpear: return 1.12
+        case .stoneFist: return 1.1
+        case .broadsword, .boneClub, .mistKatana: return 1.18
+        default: return 1.28
+        }
+    }
+
+    /// 左手装備の表示倍率。
+    var offhandScale: Float {
+        switch offhand {
+        case .gateShield: return 0.88
+        case .hideShield: return 0.95
+        case .stoneFist: return 1.1
+        case .ashBow, .lightBow: return 1.12
+        default: return 1.28
+        }
+    }
+
     /// 右手武器が腕に追従する（拳・爪）。
     var weaponFollowsArm: Bool { weapon == .stoneFist || weapon == .azureClaw }
     /// 両手持ち（左手を柄・銃身に添える）。
@@ -88,7 +110,7 @@ enum HeroBlueprints {
         // H001 城門の誓衛アルデン（Vanguard）: 城門塔の大盾・広刃剣・騎士兜
         HeroBlueprint(build: .heavy, armor: .plate, pauldron: .big, skirt: .tassets, hair: .none,
                       gear: [.knightHelm], weapon: .broadsword, offhand: .gateShield, back: .cape, float: .none,
-                      attack: .slash, metal: .gold, skin: .fair, hairColor: HSB(0.08, 0.5, 0.45),
+                      attack: .slash, metal: .silver, skin: .fair, hairColor: HSB(0.08, 0.5, 0.45),
                       accent: HSB(0.58, 0.72, 0.9), glow: HSB(0.13, 0.45, 1.0), scale: 1.06),
         // H002 星弦のリラ（Duelist）: 星弦の竪琴弓・星の細剣
         HeroBlueprint(build: .standard, armor: .light, pauldron: .small, skirt: .shortSkirt, hair: .ponytail,
@@ -201,7 +223,7 @@ enum HeroBlueprints {
         // H023 雷槍のトレン（Support）: 雷の騎槍・翼兜・雷球
         HeroBlueprint(build: .standard, armor: .plate, pauldron: .round, skirt: .kilt, hair: .short,
                       gear: [.wingedHelm], weapon: .thunderLance, offhand: .none, back: .cape, float: .thunderOrb,
-                      attack: .thrust, metal: .gold, skin: .tan, hairColor: HSB(0.08, 0.5, 0.3),
+                      attack: .thrust, metal: .silver, skin: .tan, hairColor: HSB(0.08, 0.5, 0.3),
                       accent: HSB(0.58, 0.75, 1.0), glow: HSB(0.55, 0.6, 1.0)),
         // H024 夢織のノア（Assassin）: 夢の糸・針の双刃・ナイトキャップ
         HeroBlueprint(build: .slim, armor: .cloth, pauldron: .none, skirt: .kilt, hair: .bob,
