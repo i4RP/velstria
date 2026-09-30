@@ -220,7 +220,6 @@ final class CreatureVisual {
     private var idlePhase: Float = 0
     private(set) var dyingT: Float?
     private var opacityApplied: Float = 1
-    private var lastPos = Vec2.zero
 
     init(key: CreatureKey, meshes: UnitMeshLibrary, materials: RenderMaterials, text: TextMeshCache) {
         self.key = key
@@ -292,7 +291,7 @@ final class CreatureVisual {
             }
         }
         bar = OverheadBar(style: barStyle, fillColor: barColor, materials: materials, meshes: meshes, text: text)
-        bar.root.position.y = headHeight * (key.isBoss ? 1 : 1) + 0.25
+        bar.root.position.y = headHeight + 0.25
         root.addChild(bar.root)
         let footprint: Float
         switch key {
@@ -314,7 +313,6 @@ final class CreatureVisual {
         visibility = 0
         opacityApplied = -1
         yaw = yawForFacing(facing)
-        lastPos = p
         idlePhase = Float(id % 17) * 0.7
         root.position = worldPosition(p)
         yawNode.orientation = simd_quatf(angle: yaw, axis: [0, 1, 0])
@@ -354,16 +352,12 @@ final class CreatureVisual {
         if abs(target - visibility) < 0.02 { visibility = target }
         applyOpacity(visibility)
         root.isEnabled = visibility > 0.01
-        guard root.isEnabled else {
-            lastPos = p
-            return
-        }
+        guard root.isEnabled else { return }
         root.position = worldPosition(p)
         let speed = Float(u.pos.distance(to: u.prevPos) / Balance.dt)
         let moving = speed > 20
         yaw = approachAngle(yaw, yawForFacing(u.facing), rate: 9, dt: dt)
         yawNode.orientation = simd_quatf(angle: yaw, axis: [0, 1, 0])
-        lastPos = p
         animate(time: f.time, dt: dt, speed: speed, moving: moving)
         // HP バー
         let maxHP = max(1, u.stats.maxHP)

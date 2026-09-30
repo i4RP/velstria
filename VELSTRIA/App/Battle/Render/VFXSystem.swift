@@ -112,14 +112,14 @@ final class VFXSystem {
 
     // MARK: パーティクル
 
-    /// important = false の演出は予算超過時に省略する。
+    /// important = false の演出は予算超過時に省略する。life = 粒子の寿命の上書き（EffectDef.durationSec）。
     func spawn(_ preset: VFXPreset, at p: SIMD3<Float>, color: UIColor, scale: Float = 1, count: Int? = nil,
-               important: Bool = false, direction: SIMD3<Float>? = nil) {
+               important: Bool = false, direction: SIMD3<Float>? = nil, life: Double? = nil) {
         if active.count >= quality.maxEmitters {
             guard important, let k = active.firstIndex(where: { !$0.important }) else { return }
             release(at: k)
         }
-        guard let (component, life) = makeEmitter(preset, color: color, scale: scale, count: count) else { return }
+        guard let (component, life) = makeEmitter(preset, color: color, scale: scale, count: count, life: life) else { return }
         let e = freeEmitters.popLast() ?? {
             let n = Entity()
             root.addChild(n)
@@ -254,7 +254,7 @@ final class VFXSystem {
     // MARK: プリセット
 
     private func makeEmitter(_ preset: VFXPreset, color: UIColor, scale s: Float,
-                             count: Int?) -> (ParticleEmitterComponent, Float)? {
+                             count: Int?, life lifeOverride: Double? = nil) -> (ParticleEmitterComponent, Float)? {
         var p = ParticleEmitterComponent()
         p.fieldSimulationSpace = .global
         p.birthLocation = .volume
@@ -475,6 +475,7 @@ final class VFXSystem {
             return (p, Float(life))
         }
         let total = quality.particles(count ?? n)
+        if let lifeOverride { life = max(0.25, min(2.0, lifeOverride)) }
         m.lifeSpan = life
         m.birthRate = Float(Double(total) / emitDuration)
         p.mainEmitter = m

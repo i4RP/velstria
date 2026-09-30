@@ -42,6 +42,20 @@ final class ZoneLayer {
 
     var count: Int { list.count + fading.count }
 
+    /// 表示中のゾーンか。
+    func isShown(_ id: EntityID) -> Bool { active[id] != nil }
+
+    /// ゾーン形状の外接円（sim 座標）。
+    static func bounds(of z: AreaZone) -> (center: Vec2, radius: Double) {
+        switch z.shape {
+        case .circle, .cone:
+            return (z.center, z.radius)
+        case .line(let direction, let length):
+            let half = max(0, length) / 2
+            return (z.center + direction.normalized * half, half + z.radius)
+        }
+    }
+
     static func color(for z: AreaZone, viewer: Team?, teams: TeamColors) -> RGB {
         if z.payload.affectsAllies && (z.payload.healAmount > 0 || z.payload.shieldAmount > 0) && !z.payload.affectsEnemies {
             return RGB(0.4, 1.0, 0.55)

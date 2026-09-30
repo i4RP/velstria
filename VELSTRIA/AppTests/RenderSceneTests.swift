@@ -171,6 +171,16 @@ final class RenderSceneTests: XCTestCase {
         map.setTranslucentBrush(nil)
         XCTAssertNil(map.brushEntities[3].components[OpacityComponent.self])
         XCTAssertEqual(map.fountainSpires.count, 2)
+        // スキル予告に重なる草むらは半透明（予告を草で隠さない）
+        let def = MapDefinition.standard
+        map.beginBrushMarks()
+        map.markBrushes(overlapping: def.brushes[5].rect.center, radius: 100, map: def)
+        map.applyBrushTranslucency()
+        XCTAssertTrue(map.isBrushTranslucent(5))
+        XCTAssertFalse(map.isBrushTranslucent(4))
+        map.beginBrushMarks()
+        map.applyBrushTranslucency()
+        XCTAssertFalse(map.isBrushTranslucent(5))
     }
 
     func testFogOfWarBuilds() {

@@ -13,7 +13,8 @@ final class MapScene {
     let root = Entity()
     /// index = MapDefinition.brushes の添字。
     private(set) var brushEntities: [ModelEntity] = []
-    private var translucentBrush: Int?
+    private var brushTranslucent: [Bool] = []
+    private var brushWanted: [Bool] = []
     private var waterModel: ModelEntity?
     private var waterMaterial: UnlitMaterial?
     private var waterTime: Float = 0
@@ -501,25 +502,55 @@ final class MapScene {
                     mb.grassClump(at: [lx, 0, lz], height: rng.range(0.95, 1.35), seed: rng.next())
                 }
             }
-            guard let mesh = mb.makeMesh(name: "brush_\(b.id)") else { continue }
-            let e = ModelEntity(mesh: mesh, materials: [materials.lit])
+            // 添字を MapDefinition.brushes と一致させるため、メッシュ生成に失敗しても空のエンティティを置く
+            let e = mb.makeMesh(name: "brush_\(b.id)").map { ModelEntity(mesh: $0, materials: [materials.lit]) } ?? ModelEntity()
             e.name = "brush_\(b.id)"
             e.position = center
             root.addChild(e)
             brushEntities.append(e)
+            brushTranslucent.append(false)
+            brushWanted.append(false)
         }
     }
 
     /// 視点ヒーローが入っている草むらを半透明にする（nil で全て不透明）。
     func setTranslucentBrush(_ index: Int?) {
-        guard index != translucentBrush else { return }
-        if let old = translucentBrush, old < brushEntities.count {
-            brushEntities[old].components.remove(OpacityComponent.self)
+        for k in brushTranslucent.indices { brushWanted[k] = k == index }
+        applyBrushTranslucency()
+    }
+
+    /// 半透明にしたい草むらを印付けする（毎フレーム beginBrushMarks → mark… → applyBrushTranslucency）。
+    func beginBrushMarks() {
+        for k in brushWanted.indices { brushWanted[k] = false }
+    }
+
+    func markBrushTranslucent(_ index: Int) {
+        guard brushWanted.indices.contains(index) else { return }
+        brushWanted[index] = true
+    }
+
+    /// 地面の円（sim 座標）と重なる草むらを印付けする（スキル予告を草で隠さない）。
+    func markBrushes(overlapping center: Vec2, radius: Double, map: MapDefinition) {
+        for k in map.brushes.indices where k < brushWanted.count {
+            let r = map.brushes[k].rect
+            let q = Vec2(min(max(center.x, r.minX), r.maxX), min(max(center.y, r.minY), r.maxY))
+            if q.distanceSquared(to: center) <= radius * radius { brushWanted[k] = true }
         }
-        if let i = index, i < brushEntities.count {
-            brushEntities[i].components.set(OpacityComponent(opacity: 0.38))
+    }
+
+    func applyBrushTranslucency() {
+        for k in brushTranslucent.indices where brushTranslucent[k] != brushWanted[k] {
+            brushTranslucent[k] = brushWanted[k]
+            if brushWanted[k] {
+                brushEntities[k].components.set(OpacityComponent(opacity: 0.38))
+            } else {
+                brushEntities[k].components.remove(OpacityComponent.self)
+            }
         }
-        translucentBrush = index
+    }
+
+    func isBrushTranslucent(_ index: Int) -> Bool {
+        brushTranslucent.indices.contains(index) && brushTranslucent[index]
     }
 
     // MARK: 水面

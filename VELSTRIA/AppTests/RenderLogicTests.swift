@@ -118,7 +118,8 @@ final class RenderLogicTests: XCTestCase {
         f.blend(1)
         var bytes = [UInt8](repeating: 0, count: 16 * 16 * 4)
         bytes.withUnsafeMutableBufferPointer { b in
-            f.write(into: b.baseAddress!, maxAlpha: 1, topDown: true)
+            guard let base = b.baseAddress else { return }
+            f.write(into: base, maxAlpha: 1, topDown: true)
         }
         let topAlpha = bytes[3]
         let bottomAlpha = bytes[(15 * 16) * 4 + 3]

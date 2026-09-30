@@ -130,12 +130,19 @@ final class BattleWorld {
         let aimShown = controller.aim
         #endif
         aim.update(aimShown, origin: aimOrigin, dt: dt)
-        // 草むら（視点ヒーローが入っている草むらを半透明に）
-        if let hi = frame.state.humanHeroIndex, frame.viewerTeam != nil {
-            map.setTranslucentBrush(frame.state.units[hi].brushIndex)
-        } else {
-            map.setTranslucentBrush(nil)
+        // 草むら: 視点ヒーローが入っている草むらと、表示中のスキル予告に重なる草むらを半透明に
+        map.beginBrushMarks()
+        if let hi = frame.state.humanHeroIndex, frame.viewerTeam != nil, let b = frame.state.units[hi].brushIndex {
+            map.markBrushTranslucent(b)
         }
+        let mapDef = controller.ctx.map
+        for k in frame.state.zones.indices {
+            let z = frame.state.zones[k]
+            guard zones.isShown(z.id) else { continue }
+            let bounds = ZoneLayer.bounds(of: z)
+            map.markBrushes(overlapping: bounds.center, radius: bounds.radius, map: mapDef)
+        }
+        map.applyBrushTranslucency()
         fog?.update(state: frame.state, dt: dt)
         flushHealText(dt: dt, frame: frame)
     }
@@ -388,6 +395,9 @@ final class BattleWorld {
         let color = hueColor(c.heroID)
         let effect = master.effect(c.effectID)
         let scale = Float(effect?.scaleM ?? 1.2)
+        // 演出の長さ（EffectDef.durationSec）を粒子と輪の寿命へ反映
+        let life = effect.map { max(0.25, min(2.0, $0.durationSec)) }
+        let ringTime = Float(life ?? 0.45) * 0.8
         let origin = units.worldPositionOf(c.casterID) ?? worldPosition(c.origin)
         let target = worldPosition(c.target)
         let radius = Float(c.radius / Balance.unitsPerMeter)
@@ -400,34 +410,44 @@ final class BattleWorld {
         switch c.archetype {
         case .cone:
             let mid = origin + (len > 0.1 ? simd_normalize(dir) * min(len, radius) * 0.5 : .zero) + SIMD3(0, 0.9, 0)
-            vfx.spawn(.skillBurst, at: mid, color: color, scale: scale, important: true)
+            vfx.spawn(.skillBurst, at: mid, color: color, scale: scale, important: true, life: life)
         case .dashStrike, .leapSlam:
             if len > 0.5 {
                 vfx.spawn(.trail, at: (origin + target) / 2 + SIMD3(0, 0.9, 0), color: color, scale: len / 2, important: true,
-                          direction: dir)
+                          direction: dir, life: life)
             }
-            vfx.ring(at: target, color: ringColor, from: 0.3, to: max(1, radius), duration: 0.45)
-            vfx.spawn(.areaBlast, at: target, color: color, scale: max(0.8, radius), important: true)
+            vfx.ring(at: target, color: ringColor, from: 0.3, to: max(1, radius), duration: ringTime)
+            vfx.spawn(.areaBlast, at: target, color: color, scale: max(0.8, radius), important: true, life: life)
         case .blinkEmpower, .targetedBlink:
-            vfx.spawn(.blink, at: origin + SIMD3(0, 0.9, 0), color: color, important: true)
+            vfx.spawn(.blink, at: origin + SIMD3(0, 0.9, 0), color: color, important: true, life: life)
         case .selfAoE, .teamHeal, .multiStrike:
-            vfx.ring(at: origin, color: ringColor, from: 0.4, to: max(1.2, radius), duration: 0.5)
-            vfx.spawn(.areaBlast, at: origin, color: color, scale: max(0.8, radius), important: true)
+            vfx.ring(at: origin, color: ringColor, from: 0.4, to: max(1.2, radius), duration: ringTime)
+            vfx.spawn(.areaBlast, at: origin, color: color, scale: max(0.8, radius), important: true, life: life)
         case .lineSkillshot, .piercingLine:
             let muzzle = origin + (len > 0.1 ? simd_normalize(dir) * 0.8 : .zero) + SIMD3(0, 1.1, 0)
             vfx.spawn(.skillBurst, at: muzzle, color: color, scale: 0.6, important: true)
         case .groundAoE, .healZone, .passive:
             vfx.spawn(.magicHit, at: origin + SIMD3(0, 1.4, 0), color: color, scale: 0.8, important: false)
         }
-        // 演出種別（EffectDef）による追加
+        // 演出種別（EffectDef.effectType）による追加。大きさは scale_m、長さは duration_sec
         switch effect?.effectType {
         case .shield:
-            vfx.spawn(.shield, at: origin + SIMD3(0, 0.9, 0), color: color, scale: max(1, scale * 0.7), important: true)
+            vfx.spawn(.shield, at: origin + SIMD3(0, 0.9, 0), color: color, scale: max(1, scale * 0.7), important: true, life: life)
+            vfx.flash(at: origin + SIMD3(0, 0.9, 0), color: ringColor, radius: max(1, scale * 0.8), duration: ringTime, alpha: 0.3)
         case .burst:
             if c.archetype != .cone {
-                vfx.spawn(.skillBurst, at: target + SIMD3(0, 0.8, 0), color: color, scale: scale * 0.7, important: false)
+                vfx.spawn(.skillBurst, at: target + SIMD3(0, 0.8, 0), color: color, scale: scale * 0.7, important: false, life: life)
             }
-        default:
+        case .area:
+            if c.archetype != .selfAoE && c.archetype != .teamHeal {
+                vfx.ring(at: target, color: ringColor, from: 0.3, to: max(scale, radius), duration: ringTime, alpha: 0.7)
+            }
+        case .trail:
+            if len > 0.5 && c.archetype != .dashStrike && c.archetype != .leapSlam {
+                vfx.spawn(.trail, at: (origin + target) / 2 + SIMD3(0, 0.9, 0), color: color, scale: len / 2, important: false,
+                          direction: dir, life: life)
+            }
+        case .projectile, .none:
             break
         }
     }
