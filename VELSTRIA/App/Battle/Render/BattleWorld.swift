@@ -30,6 +30,7 @@ final class BattleWorld {
     private var shakeRequest: Float = 0
     private let master: MasterData
     private var hueCache: [String: UIColor] = [:]
+    private var textStacks: [EntityID: TextStack] = [:]
     private let teamLightBlue: UIColor
     private let teamLightRed: UIColor
     #if DEBUG
@@ -221,10 +222,26 @@ final class BattleWorld {
         }
     }
 
-    private func spawnText(_ s: String, at p: SIMD3<Float>, style: CombatTextStyle) {
+    /// stackKey が同じ数値が短時間に続いたら上へずらして重ならないようにする。
+    private func spawnText(_ s: String, at p: SIMD3<Float>, style: CombatTextStyle, stackKey: EntityID? = nil) {
         guard settings.showDamageNumbers, let overlay else { return }
         textSeed &+= 1
-        overlay.spawn(text: s, world: p, style: style, seed: textSeed)
+        var pos = p
+        if let key = stackKey {
+            // 撃破済みユニットの記録を時々掃除する
+            if textStacks.count > 128 { textStacks = textStacks.filter { time - $0.value.time < 1 } }
+            var entry = textStacks[key] ?? TextStack(time: -10, count: 0)
+            entry.count = time - entry.time < 0.4 ? min(entry.count + 1, 4) : 0
+            entry.time = time
+            textStacks[key] = entry
+            pos += SIMD3(entry.count % 2 == 0 ? 0 : 0.3, Float(entry.count) * 0.34, 0)
+        }
+        overlay.spawn(text: s, world: pos, style: style, seed: textSeed)
+    }
+
+    private struct TextStack {
+        var time: Float
+        var count: Int
     }
 
     private func handle(_ e: SimEvent, frame f: RenderFrame) {
@@ -361,9 +378,11 @@ final class BattleWorld {
         }
         // 戦闘数値
         if d.sourceID == f.focusID, d.targetID != f.focusID, let tp = textAnchor(d.targetID) {
-            spawnText(CombatTextFormat.damage(d.amount, crit: d.isCrit), at: tp, style: .dealt(d.damageType, crit: d.isCrit))
+            spawnText(CombatTextFormat.damage(d.amount, crit: d.isCrit), at: tp, style: .dealt(d.damageType, crit: d.isCrit),
+                      stackKey: d.targetID)
         } else if d.targetID == f.focusID, let tp = textAnchor(d.targetID) {
-            spawnText(CombatTextFormat.damage(d.amount, crit: false), at: tp + SIMD3(0.35, 0, 0), style: .taken)
+            spawnText(CombatTextFormat.damage(d.amount, crit: false), at: tp + SIMD3(0.35, 0, 0), style: .taken,
+                      stackKey: d.targetID)
             if case .skill(.ultimate) = d.source { shakeRequest = max(shakeRequest, 0.45) }
         }
     }
@@ -373,6 +392,7 @@ final class BattleWorld {
         if target == f.focusID { pendingHeal += amount }
         guard amount >= 25, let p = units.worldPositionOf(target) else { return }
         if let last = lastHealFX[target], time - last < 0.5 { return }
+        if lastHealFX.count > 128 { lastHealFX = lastHealFX.filter { time - $0.value < 1 } }
         lastHealFX[target] = time
         vfx.spawn(.heal, at: p + SIMD3(0, 0.2, 0), color: FXColors.heal,
                   important: target == f.focusID)

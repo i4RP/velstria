@@ -133,12 +133,14 @@ final class OverheadBar {
         OverlayOrder.apply(shield, OverlayOrder.barShield)
         root.addChild(shield)
 
-        // 上端のハイライト（立体感）
-        let gloss = ModelEntity(mesh: quad, materials: [materials.unlit(RGB(1, 1, 1), alpha: 0.18, depthTest: false)])
-        gloss.position = [-w / 2, h * 0.3, 0]
-        gloss.scale = [w, h * 0.35, 1]
-        OverlayOrder.apply(gloss, OverlayOrder.barFront)
-        root.addChild(gloss)
+        // 上端のハイライト（立体感）。数の多いミニオン等はドローコール節約のため省く
+        if case .hero = style {
+            let gloss = ModelEntity(mesh: quad, materials: [materials.unlit(RGB(1, 1, 1), alpha: 0.18, depthTest: false)])
+            gloss.position = [-w / 2, h * 0.3, 0]
+            gloss.scale = [w, h * 0.35, 1]
+            OverlayOrder.apply(gloss, OverlayOrder.barFront)
+            root.addChild(gloss)
+        }
 
         if showsResource {
             let r = ModelEntity(mesh: quad, materials: [materials.unlit(resourceColor ?? RGB(0.35, 0.62, 1.0), alpha: 1, depthTest: false)])
