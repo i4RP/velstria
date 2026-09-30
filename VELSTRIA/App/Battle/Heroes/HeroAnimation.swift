@@ -1,0 +1,651 @@
+import Foundation
+import simd
+
+// 担当: hero-models。手続きアニメーション（姿勢の合成と状態間ブレンド）。
+// 姿勢は Float だけの値型で、毎フレームの評価はヒープ確保なしで行う。
+// 角度の符号: pitch + = 前へ（腕・脚は前方へ振る、胴・頭は前傾）。武器角 θ は胴座標の絶対角で 0 = 真上、-π/2 = 前方。
+
+struct ArmPose {
+    var pitch: Float = 0
+    var out: Float = 0
+    var yaw: Float = 0
+    var elbow: Float = 0
+
+    static func mix(_ a: ArmPose, _ b: ArmPose, _ t: Float) -> ArmPose {
+        ArmPose(pitch: a.pitch + (b.pitch - a.pitch) * t, out: a.out + (b.out - a.out) * t,
+                yaw: a.yaw + (b.yaw - a.yaw) * t, elbow: a.elbow + (b.elbow - a.elbow) * t)
+    }
+}
+
+struct LegPose {
+    var pitch: Float = 0
+    var out: Float = 0
+    var knee: Float = 0
+
+    static func mix(_ a: LegPose, _ b: LegPose, _ t: Float) -> LegPose {
+        LegPose(pitch: a.pitch + (b.pitch - a.pitch) * t, out: a.out + (b.out - a.out) * t, knee: a.knee + (b.knee - a.knee) * t)
+    }
+}
+
+struct HeroPose {
+    var offset = SIMD3<Float>(0, 0, 0)
+    var pitch: Float = 0
+    var roll: Float = 0
+    var yaw: Float = 0
+    var hipsDrop: Float = 0
+    var hipsYaw: Float = 0
+    var hipsRoll: Float = 0
+    var torsoPitch: Float = 0
+    var torsoYaw: Float = 0
+    var torsoRoll: Float = 0
+    var headPitch: Float = 0
+    var headYaw: Float = 0
+    var headRoll: Float = 0
+    var armR = ArmPose()
+    var armL = ArmPose()
+    var legR = LegPose()
+    var legL = LegPose()
+    var weaponR: Float = 0
+    var weaponL: Float = 0
+    var cape: Float = 0
+    var wings: Float = 0
+    var glow: Float = 0
+    var ring: Float = 0
+    var opacity: Float = 1
+
+    @inline(__always) private static func f(_ a: Float, _ b: Float, _ t: Float) -> Float { a + (b - a) * t }
+
+    /// 全項目の線形補間。
+    static func mix(_ a: HeroPose, _ b: HeroPose, _ t: Float) -> HeroPose {
+        var p = mixUpper(a, b, t)
+        p.offset = a.offset + (b.offset - a.offset) * t
+        p.pitch = f(a.pitch, b.pitch, t)
+        p.roll = f(a.roll, b.roll, t)
+        p.yaw = f(a.yaw, b.yaw, t)
+        p.hipsDrop = f(a.hipsDrop, b.hipsDrop, t)
+        p.hipsYaw = f(a.hipsYaw, b.hipsYaw, t)
+        p.hipsRoll = f(a.hipsRoll, b.hipsRoll, t)
+        p.legR = LegPose.mix(a.legR, b.legR, t)
+        p.legL = LegPose.mix(a.legL, b.legL, t)
+        p.cape = f(a.cape, b.cape, t)
+        p.opacity = f(a.opacity, b.opacity, t)
+        return p
+    }
+
+    /// 上半身（胴・頭・腕・武器・発光）だけ補間し、下半身は a を使う。
+    static func mixUpper(_ a: HeroPose, _ b: HeroPose, _ t: Float) -> HeroPose {
+        var p = a
+        p.torsoPitch = f(a.torsoPitch, b.torsoPitch, t)
+        p.torsoYaw = f(a.torsoYaw, b.torsoYaw, t)
+        p.torsoRoll = f(a.torsoRoll, b.torsoRoll, t)
+        p.headPitch = f(a.headPitch, b.headPitch, t)
+        p.headYaw = f(a.headYaw, b.headYaw, t)
+        p.headRoll = f(a.headRoll, b.headRoll, t)
+        p.armR = ArmPose.mix(a.armR, b.armR, t)
+        p.armL = ArmPose.mix(a.armL, b.armL, t)
+        p.weaponR = f(a.weaponR, b.weaponR, t)
+        p.weaponL = f(a.weaponL, b.weaponL, t)
+        p.wings = f(a.wings, b.wings, t)
+        p.glow = f(a.glow, b.glow, t)
+        p.ring = f(a.ring, b.ring, t)
+        return p
+    }
+}
+
+// MARK: - イージング
+
+@inline(__always) func clamp01(_ x: Float) -> Float { min(1, max(0, x)) }
+@inline(__always) func smooth01(_ x: Float) -> Float { let t = clamp01(x); return t * t * (3 - 2 * t) }
+@inline(__always) func easeOut(_ x: Float) -> Float { let t = clamp01(x); return 1 - (1 - t) * (1 - t) }
+@inline(__always) func easeIn(_ x: Float) -> Float { let t = clamp01(x); return t * t }
+
+/// 予備動作 → 打撃 → 戻りの 3 段クリップ（上半身）。
+struct ActionClip {
+    var windup: HeroPose
+    var strike: HeroPose
+    var windupTime: Float
+    var strikeTime: Float
+    var total: Float
+
+    /// base（現在の下半身と上半身の基準）から評価する。
+    func evaluate(base: HeroPose, t: Float) -> HeroPose {
+        let upper: HeroPose
+        if t < windupTime {
+            upper = HeroPose.mixUpper(base, windup, easeOut(t / windupTime))
+        } else if t < windupTime + strikeTime {
+            upper = HeroPose.mixUpper(windup, strike, easeIn((t - windupTime) / strikeTime))
+        } else if t < total {
+            upper = HeroPose.mixUpper(strike, base, smooth01((t - windupTime - strikeTime) / (total - windupTime - strikeTime)))
+        } else {
+            return base
+        }
+        return HeroPose.mixUpper(base, upper, 1)
+    }
+}
+
+/// ヒーロー固有の姿勢パラメータ（設計図から一度だけ作る）。
+struct HeroMotionProfile {
+    var rest = HeroPose()
+    var runSwingR: Float = 1
+    var runSwingL: Float = 1
+    var legSwing: Float = 1
+    var attack: ActionClip
+    /// 二刀の左手版（交互に振る）。
+    var attackAlt: ActionClip?
+    var casts: [ActionClip]
+    var twoHanded: Bool
+    var bowHold: Bool
+
+    init(blueprint bp: HeroBlueprint, metrics m: BodyMetrics) {
+        var r = HeroPose()
+        r.armR = ArmPose(pitch: 0.12, out: m.armRestOut, yaw: 0, elbow: 0.3)
+        r.armL = ArmPose(pitch: 0.12, out: m.armRestOut, yaw: 0, elbow: 0.3)
+        r.weaponR = -0.9
+        r.weaponL = 0
+        r.legR = LegPose(pitch: 0, out: bp.build == .heavy ? 0.08 : 0.05, knee: 0.06)
+        r.legL = r.legR
+        r.cape = 0.05
+        r.wings = 0.2
+        twoHanded = bp.twoHanded
+        bowHold = bp.offhand == .ashBow || bp.offhand == .lightBow || bp.offhand == .harpBow
+        legSwing = bp.build == .robed ? 0.55 : 1
+        switch bp.attack {
+        case .slash:
+            r.armR = ArmPose(pitch: 0.3, out: m.armRestOut, yaw: 0, elbow: 0.55)
+            r.weaponR = -1.0
+        case .heavySwing:
+            r.armR = ArmPose(pitch: 0.55, out: m.armRestOut * 0.6, yaw: 0.25, elbow: 1.5)
+            r.armL = ArmPose(pitch: 0.75, out: 0.05, yaw: 0.75, elbow: 1.2)
+            r.weaponR = 0.85
+            runSwingR = 0.25
+            runSwingL = 0.25
+        case .thrust:
+            r.armR = ArmPose(pitch: 0.22, out: m.armRestOut, yaw: 0, elbow: 0.75)
+            r.weaponR = -0.22
+            runSwingR = 0.5
+        case .dualSlash:
+            r.armR = ArmPose(pitch: 0.35, out: m.armRestOut + 0.1, yaw: 0, elbow: 0.9)
+            r.armL = ArmPose(pitch: 0.35, out: m.armRestOut + 0.1, yaw: 0, elbow: 0.9)
+            r.weaponR = -1.25
+            r.weaponL = -1.25
+        case .punch:
+            r.armR = ArmPose(pitch: 0.55, out: m.armRestOut, yaw: 0.2, elbow: 1.35)
+            r.armL = ArmPose(pitch: 0.55, out: m.armRestOut, yaw: 0.2, elbow: 1.35)
+            runSwingR = 0.7
+            runSwingL = 0.7
+        case .bow:
+            r.armL = ArmPose(pitch: 0.28, out: m.armRestOut, yaw: 0, elbow: 0.35)
+            runSwingL = 0.6
+        case .gun:
+            r.armR = ArmPose(pitch: 0.5, out: m.armRestOut, yaw: 0.35, elbow: 1.15)
+            r.armL = ArmPose(pitch: 0.75, out: 0.05, yaw: 0.65, elbow: 1.05)
+            r.weaponR = -0.75
+            runSwingR = 0.25
+            runSwingL = 0.25
+        case .staff:
+            r.armR = ArmPose(pitch: 0.2, out: m.armRestOut + 0.05, yaw: 0, elbow: 0.55)
+            r.weaponR = -0.08
+            runSwingR = 0.35
+        case .spellThrow:
+            r.armR = ArmPose(pitch: 0.3, out: m.armRestOut, yaw: 0, elbow: 1.0)
+            r.armL = ArmPose(pitch: 0.3, out: m.armRestOut, yaw: 0.15, elbow: 1.1)
+            r.weaponR = 0
+            runSwingR = 0.6
+        }
+        if bp.offhand == .gateShield || bp.offhand == .hideShield {
+            r.armL = ArmPose(pitch: 0.45, out: m.armRestOut + 0.05, yaw: 0.2, elbow: 0.9)
+            runSwingL = 0.3
+        }
+        if bp.weapon == .abyssCenser { r.weaponR = 0 }
+        rest = r
+
+        attack = HeroMotionProfile.attackClip(bp.attack, rest: r, left: false)
+        attackAlt = bp.attack == .dualSlash || bp.attack == .punch ? HeroMotionProfile.attackClip(bp.attack, rest: r, left: true) : nil
+        casts = (0..<4).map { HeroMotionProfile.castClip(slot: $0, rest: r, style: bp.attack) }
+    }
+
+    // MARK: 通常攻撃
+
+    private static func attackClip(_ style: AttackStyle, rest r: HeroPose, left: Bool) -> ActionClip {
+        var w = r, s = r
+        switch style {
+        case .slash:
+            w.armR = ArmPose(pitch: 2.7, out: 0.45, yaw: -0.2, elbow: 0.7)
+            w.weaponR = 0.9
+            w.torsoYaw = 0.35
+            w.torsoPitch = -0.08
+            s.armR = ArmPose(pitch: 0.45, out: 0.2, yaw: 0.55, elbow: 0.1)
+            s.weaponR = -2.0
+            s.torsoYaw = -0.4
+            s.torsoPitch = 0.16
+            return ActionClip(windup: w, strike: s, windupTime: 0.17, strikeTime: 0.09, total: 0.42)
+        case .heavySwing:
+            w.armR = ArmPose(pitch: 2.9, out: 0.2, yaw: 0.2, elbow: 0.5)
+            w.armL = ArmPose(pitch: 2.9, out: 0.1, yaw: 0.55, elbow: 0.5)
+            w.weaponR = 1.4
+            w.torsoPitch = -0.2
+            w.headPitch = -0.1
+            s.armR = ArmPose(pitch: 0.75, out: 0.1, yaw: 0.35, elbow: 0.1)
+            s.armL = ArmPose(pitch: 0.85, out: 0.0, yaw: 0.7, elbow: 0.2)
+            s.weaponR = -2.3
+            s.torsoPitch = 0.35
+            s.headPitch = 0.1
+            return ActionClip(windup: w, strike: s, windupTime: 0.3, strikeTime: 0.12, total: 0.62)
+        case .thrust:
+            w.armR = ArmPose(pitch: 0.7, out: 0.3, yaw: -0.15, elbow: 1.7)
+            w.weaponR = -1.45
+            w.torsoYaw = 0.42
+            s.armR = ArmPose(pitch: 1.45, out: 0.08, yaw: 0.25, elbow: 0.05)
+            s.weaponR = -1.62
+            s.torsoYaw = -0.28
+            s.torsoPitch = 0.2
+            return ActionClip(windup: w, strike: s, windupTime: 0.16, strikeTime: 0.08, total: 0.38)
+        case .dualSlash:
+            if left {
+                w.armL = ArmPose(pitch: 2.3, out: 0.55, yaw: -0.3, elbow: 0.8)
+                w.weaponL = 0.6
+                w.torsoYaw = -0.35
+                s.armL = ArmPose(pitch: 0.5, out: 0.15, yaw: 0.6, elbow: 0.15)
+                s.weaponL = -2.0
+                s.torsoYaw = 0.4
+            } else {
+                w.armR = ArmPose(pitch: 2.3, out: 0.55, yaw: -0.3, elbow: 0.8)
+                w.weaponR = 0.6
+                w.torsoYaw = 0.35
+                s.armR = ArmPose(pitch: 0.5, out: 0.15, yaw: 0.6, elbow: 0.15)
+                s.weaponR = -2.0
+                s.torsoYaw = -0.4
+            }
+            w.torsoPitch = -0.05
+            s.torsoPitch = 0.18
+            return ActionClip(windup: w, strike: s, windupTime: 0.13, strikeTime: 0.07, total: 0.34)
+        case .punch:
+            if left {
+                w.armL = ArmPose(pitch: 0.4, out: 0.3, yaw: -0.1, elbow: 1.9)
+                w.torsoYaw = -0.4
+                s.armL = ArmPose(pitch: 1.5, out: 0.05, yaw: 0.35, elbow: 0.05)
+                s.torsoYaw = 0.35
+            } else {
+                w.armR = ArmPose(pitch: 0.4, out: 0.3, yaw: -0.1, elbow: 1.9)
+                w.torsoYaw = 0.4
+                s.armR = ArmPose(pitch: 1.5, out: 0.05, yaw: 0.35, elbow: 0.05)
+                s.torsoYaw = -0.35
+            }
+            s.torsoPitch = 0.22
+            return ActionClip(windup: w, strike: s, windupTime: 0.13, strikeTime: 0.07, total: 0.34)
+        case .bow:
+            w.armL = ArmPose(pitch: 1.5, out: -0.05, yaw: 0.1, elbow: 0.05)
+            w.armR = ArmPose(pitch: 1.45, out: 0.2, yaw: 0.5, elbow: 2.1)
+            w.weaponL = 0
+            w.torsoYaw = 0.45
+            w.headYaw = -0.4
+            s.armL = w.armL
+            s.armR = ArmPose(pitch: 1.3, out: 0.5, yaw: -0.2, elbow: 1.0)
+            s.torsoYaw = 0.4
+            s.headYaw = -0.35
+            s.glow = 0.4
+            return ActionClip(windup: w, strike: s, windupTime: 0.3, strikeTime: 0.06, total: 0.55)
+        case .gun:
+            w.armR = ArmPose(pitch: 1.3, out: 0.15, yaw: 0.3, elbow: 0.35)
+            w.armL = ArmPose(pitch: 1.4, out: -0.1, yaw: 0.55, elbow: 0.5)
+            w.weaponR = -1.57
+            w.torsoYaw = 0.25
+            s.armR = ArmPose(pitch: 1.6, out: 0.15, yaw: 0.3, elbow: 0.55)
+            s.armL = ArmPose(pitch: 1.65, out: -0.1, yaw: 0.55, elbow: 0.65)
+            s.weaponR = -1.2
+            s.torsoYaw = 0.25
+            s.torsoPitch = -0.12
+            s.glow = 0.6
+            return ActionClip(windup: w, strike: s, windupTime: 0.16, strikeTime: 0.05, total: 0.4)
+        case .staff:
+            w.armR = ArmPose(pitch: 0.9, out: 0.2, yaw: -0.1, elbow: 1.2)
+            w.weaponR = 0.2
+            w.torsoPitch = -0.08
+            s.armR = ArmPose(pitch: 1.35, out: 0.1, yaw: 0.2, elbow: 0.15)
+            s.weaponR = -1.2
+            s.torsoPitch = 0.14
+            s.glow = 0.8
+            return ActionClip(windup: w, strike: s, windupTime: 0.18, strikeTime: 0.08, total: 0.45)
+        case .spellThrow:
+            w.armR = ArmPose(pitch: 1.0, out: 0.35, yaw: -0.3, elbow: 1.6)
+            w.weaponR = 0
+            w.torsoYaw = 0.35
+            s.armR = ArmPose(pitch: 1.5, out: 0.05, yaw: 0.2, elbow: 0.05)
+            s.weaponR = -1.2
+            s.torsoYaw = -0.3
+            s.torsoPitch = 0.14
+            s.glow = 0.9
+            return ActionClip(windup: w, strike: s, windupTime: 0.16, strikeTime: 0.08, total: 0.42)
+        }
+    }
+
+    // MARK: スキル詠唱
+
+    /// slot: 0 = Skill1 / 1 = Skill2 / 2 = Skill3 / 3 = Ultimate
+    private static func castClip(slot: Int, rest r: HeroPose, style: AttackStyle) -> ActionClip {
+        var w = r, s = r
+        let ranged = style == .bow || style == .gun || style == .staff || style == .spellThrow
+        switch slot {
+        case 0:
+            w.armR = ArmPose(pitch: 0.9, out: 0.3, yaw: -0.2, elbow: 1.6)
+            w.weaponR = ranged ? 0 : 0.4
+            w.torsoYaw = 0.45
+            w.glow = 0.6
+            s.armR = ArmPose(pitch: 1.55, out: 0.08, yaw: 0.2, elbow: 0.05)
+            s.weaponR = ranged ? -1.3 : -1.62
+            s.torsoYaw = -0.35
+            s.torsoPitch = 0.16
+            s.glow = 1.1
+            return ActionClip(windup: w, strike: s, windupTime: 0.18, strikeTime: 0.1, total: 0.55)
+        case 1:
+            w.armR = ArmPose(pitch: -0.7, out: 0.35, yaw: 0, elbow: 0.4)
+            w.armL = ArmPose(pitch: -0.7, out: 0.35, yaw: 0, elbow: 0.4)
+            w.torsoPitch = 0.3
+            w.headPitch = -0.2
+            w.glow = 0.5
+            w.wings = 0.1
+            s.armR = ArmPose(pitch: -0.9, out: 0.45, yaw: 0, elbow: 0.2)
+            s.armL = ArmPose(pitch: -0.9, out: 0.45, yaw: 0, elbow: 0.2)
+            s.torsoPitch = 0.42
+            s.headPitch = -0.3
+            s.glow = 0.9
+            s.wings = 0.0
+            return ActionClip(windup: w, strike: s, windupTime: 0.12, strikeTime: 0.12, total: 0.5)
+        case 2:
+            w.armR = ArmPose(pitch: 2.9, out: 0.3, yaw: 0, elbow: 0.3)
+            w.armL = ArmPose(pitch: 2.9, out: 0.3, yaw: 0, elbow: 0.3)
+            w.weaponR = 0.1
+            w.weaponL = 0.1
+            w.torsoPitch = -0.16
+            w.headPitch = -0.25
+            w.glow = 1.1
+            w.wings = 1
+            s.armR = ArmPose(pitch: 0.95, out: 0.25, yaw: 0.1, elbow: 0.1)
+            s.armL = ArmPose(pitch: 0.95, out: 0.25, yaw: 0.1, elbow: 0.1)
+            s.weaponR = -2.2
+            s.weaponL = -2.2
+            s.torsoPitch = 0.3
+            s.headPitch = 0.1
+            s.glow = 1.3
+            s.ring = 0.7
+            s.wings = 0.6
+            return ActionClip(windup: w, strike: s, windupTime: 0.3, strikeTime: 0.1, total: 0.7)
+        default:
+            w.armR = ArmPose(pitch: 2.6, out: 0.95, yaw: 0, elbow: 0.2)
+            w.armL = ArmPose(pitch: 2.6, out: 0.95, yaw: 0, elbow: 0.2)
+            w.weaponR = 0
+            w.weaponL = 0
+            w.torsoPitch = -0.25
+            w.headPitch = -0.4
+            w.glow = 1.7
+            w.ring = 1
+            w.wings = 1.2
+            s.armR = ArmPose(pitch: 1.3, out: 0.45, yaw: 0.15, elbow: 0.1)
+            s.armL = ArmPose(pitch: 1.3, out: 0.45, yaw: 0.15, elbow: 0.1)
+            s.weaponR = -1.5
+            s.weaponL = -0.6
+            s.torsoPitch = 0.25
+            s.headPitch = 0.05
+            s.glow = 2.2
+            s.ring = 1.3
+            s.wings = 1
+            return ActionClip(windup: w, strike: s, windupTime: 0.55, strikeTime: 0.15, total: 1.05)
+        }
+    }
+}
+
+// MARK: - アニメーター
+
+/// 状態機械 + ブレンド。HeroModel が毎フレーム evaluate して骨へ適用する。
+struct HeroAnimator {
+    let profile: HeroMotionProfile
+    /// 状態未指定の走行時の速度（m/s）。
+    let defaultRunSpeed: Float
+
+    private(set) var state: HeroAnimState = .idle
+    private(set) var stateTime: Float = 0
+    private(set) var time: Float = 0
+    private var runPhase: Float = 0
+    private var speed: Float = 0
+    private var snapshot = HeroPose()
+    private var blendTime: Float = 1
+    private var blendDuration: Float = 0.2
+    private var attackCount = 0
+    private(set) var current = HeroPose()
+
+    init(profile: HeroMotionProfile, defaultRunSpeed: Float) {
+        self.profile = profile
+        self.defaultRunSpeed = defaultRunSpeed
+        current = profile.rest
+        snapshot = profile.rest
+    }
+
+    var attackDuration: Float { profile.attack.total }
+
+    mutating func setState(_ s: HeroAnimState) {
+        if s == state {
+            // 攻撃中に再度 attack が来たら、打撃を過ぎていれば次の振りを始める
+            if s == .attack && stateTime >= profile.attack.windupTime + profile.attack.strikeTime {
+                attackCount += 1
+                begin(s, blend: 0.05)
+            }
+            return
+        }
+        if state == .attack && s != .attack { attackCount += 1 }
+        let blend: Float
+        switch s {
+        case .attack: blend = 0.05
+        case .cast: blend = 0.08
+        case .dead: blend = 0.1
+        case .stunned: blend = 0.1
+        case .channel, .victory: blend = 0.25
+        case .idle, .run: blend = state == .dead ? 0 : 0.2
+        }
+        begin(s, blend: blend)
+    }
+
+    private mutating func begin(_ s: HeroAnimState, blend: Float) {
+        snapshot = current
+        state = s
+        stateTime = 0
+        blendTime = 0
+        blendDuration = blend
+    }
+
+    /// dt 秒進めて姿勢を返す。moveSpeed は m/s。
+    mutating func advance(dt: Float, moveSpeed: Float) -> HeroPose {
+        let dt = min(max(dt, 0), 0.1)
+        time += dt
+        stateTime += dt
+        blendTime += dt
+        var target = moveSpeed
+        if state == .run && target < 0.2 { target = defaultRunSpeed }
+        if state == .dead || state == .channel || state == .stunned || state == .victory { target = 0 }
+        // 急な速度変化を平滑化
+        speed += (target - speed) * min(1, dt * 10)
+        runPhase += dt * speed * 3.7
+        if runPhase > 1000 { runPhase -= 2 * .pi * 150 }
+
+        let pose = evaluate()
+        if blendTime < blendDuration && blendDuration > 0 {
+            current = HeroPose.mix(snapshot, pose, smooth01(blendTime / blendDuration))
+        } else {
+            current = pose
+        }
+        return current
+    }
+
+    private func evaluate() -> HeroPose {
+        let loco = locomotion()
+        switch state {
+        case .idle, .run:
+            return loco
+        case .attack:
+            let alt = attackCount % 2 == 1
+            let clip = alt ? (profile.attackAlt ?? profile.attack) : profile.attack
+            // 攻撃状態が続く場合は一定周期で振り続ける
+            let period = clip.total + 0.12
+            let t = stateTime.truncatingRemainder(dividingBy: period)
+            return clip.evaluate(base: loco, t: t)
+        case .cast(let slot):
+            let idx: Int
+            switch slot {
+            case .passive, .skill1: idx = 0
+            case .skill2: idx = 1
+            case .skill3: idx = 2
+            case .ultimate: idx = 3
+            }
+            var p = profile.casts[idx].evaluate(base: loco, t: stateTime)
+            p.glow *= 1 + 0.15 * sin(time * 18)
+            return p
+        case .channel:
+            return channel(loco)
+        case .stunned:
+            return stunned(loco)
+        case .dead:
+            return dead()
+        case .victory:
+            return victory()
+        }
+    }
+
+    // MARK: 移動
+
+    private func locomotion() -> HeroPose {
+        let r = profile.rest
+        var p = r
+        let t = time
+        let breathe = sin(t * 2 * .pi / 2.8)
+        p.hipsDrop = 0.006 * (1 - breathe)
+        p.torsoPitch = 0.025 * breathe
+        p.headPitch = -0.02 * breathe + 0.03 * sin(t * 0.7)
+        p.headYaw = 0.2 * sin(t * 0.43) * sin(t * 0.17)
+        p.armR.out += 0.035 * breathe
+        p.armL.out += 0.035 * breathe
+        p.armR.pitch += 0.03 * sin(t * 2.2 + 0.5)
+        p.armL.pitch += 0.03 * sin(t * 2.2 + 1.3)
+        p.weaponR += 0.05 * sin(t * 1.3)
+        p.weaponL += 0.04 * sin(t * 1.1 + 0.8)
+        p.cape = r.cape + 0.035 * sin(t * 1.7)
+        p.wings = r.wings + 0.1 * sin(t * 1.1)
+
+        let w = smooth01((speed - 0.15) / 0.8)
+        guard w > 0.001 else { return p }
+        let k = min(1.35, max(0.45, speed / 3.3))
+        let ph = runPhase
+        let s = sin(ph), c = cos(ph)
+        var run = p
+        let A = 0.72 * k * profile.legSwing
+        run.legR.pitch = A * s
+        run.legL.pitch = -A * s
+        run.legR.knee = k * (0.25 + 1.05 * max(0, c))
+        run.legL.knee = k * (0.25 + 1.05 * max(0, -c))
+        run.legR.out = 0.03
+        run.legL.out = 0.03
+        run.offset.y = 0.05 * k * abs(c)
+        run.pitch = 0.16 * k
+        run.torsoYaw = 0.14 * k * s
+        run.hipsYaw = -0.12 * k * s
+        run.headPitch = -0.12 * k
+        run.headYaw = -run.torsoYaw * 0.6
+        let S = 0.85 * k
+        run.armR.pitch = r.armR.pitch - S * profile.runSwingR * s
+        run.armL.pitch = r.armL.pitch + S * profile.runSwingL * s
+        run.armR.elbow = r.armR.elbow + 0.45 * profile.runSwingR
+        run.armL.elbow = r.armL.elbow + 0.45 * profile.runSwingL
+        run.weaponR = r.weaponR + 0.08 * sin(ph * 2)
+        run.weaponL = r.weaponL + 0.06 * sin(ph * 2)
+        run.cape = 0.25 + 0.35 * k + 0.07 * sin(ph * 2)
+        run.wings = 0.0
+        return HeroPose.mix(p, run, w)
+    }
+
+    // MARK: 全身の状態
+
+    private func channel(_ base: HeroPose) -> HeroPose {
+        var p = base
+        p.hipsDrop = 0.2
+        p.pitch = 0.05
+        p.legL = LegPose(pitch: 1.25, out: 0.1, knee: 1.3)
+        p.legR = LegPose(pitch: -0.35, out: 0.08, knee: 1.75)
+        p.torsoPitch = 0.12
+        p.torsoYaw = 0
+        p.headPitch = 0.35 + 0.03 * sin(time * 2)
+        p.headYaw = 0
+        p.armR = ArmPose(pitch: 1.0, out: 0.05, yaw: 0.65, elbow: 1.25)
+        p.armL = ArmPose(pitch: 1.0, out: 0.05, yaw: 0.65, elbow: 1.25)
+        p.weaponR = 0.1
+        p.weaponL = 0
+        p.glow = 0.55 + 0.25 * sin(time * 4)
+        p.ring = 1
+        p.cape = 0.1
+        p.wings = 0.5
+        p.offset = .zero
+        return p
+    }
+
+    private func stunned(_ base: HeroPose) -> HeroPose {
+        var p = profile.rest
+        let t = time
+        p.roll = 0.1 * sin(t * 6)
+        p.pitch = -0.04 + 0.07 * cos(t * 5)
+        p.hipsDrop = 0.06
+        p.legR = LegPose(pitch: 0.05, out: 0.12, knee: 0.3)
+        p.legL = LegPose(pitch: -0.05, out: 0.12, knee: 0.3)
+        p.headRoll = 0.25 * sin(t * 4)
+        p.headPitch = 0.12 + 0.1 * cos(t * 4)
+        p.armR = ArmPose(pitch: 0.12 + 0.15 * sin(t * 3), out: 0.4, yaw: 0, elbow: 0.3)
+        p.armL = ArmPose(pitch: 0.12 + 0.15 * cos(t * 3), out: 0.4, yaw: 0, elbow: 0.3)
+        p.weaponR = 2.4
+        p.weaponL = profile.bowHold ? 0.3 : 2.4
+        p.cape = 0.08
+        p.wings = 0
+        return p
+    }
+
+    private func dead() -> HeroPose {
+        var p = profile.rest
+        let t = stateTime
+        let fall = easeIn(t / 0.45)
+        p.pitch = -1.3 * fall
+        p.offset = SIMD3<Float>(0, -0.5 * smooth01((t - 0.5) / 0.6), -0.35 * fall)
+        p.hipsDrop = 0.05 * fall
+        p.legR = LegPose(pitch: 0.3 * fall, out: 0.15, knee: 0.5 * fall)
+        p.legL = LegPose(pitch: 0.1 * fall, out: 0.15, knee: 0.3 * fall)
+        p.armR = ArmPose(pitch: 0.4 * fall, out: 0.3 + 0.9 * fall, yaw: 0, elbow: 0.2)
+        p.armL = ArmPose(pitch: 0.4 * fall, out: 0.3 + 0.9 * fall, yaw: 0, elbow: 0.2)
+        p.headPitch = -0.3 * fall
+        p.weaponR = profile.rest.weaponR + 1.2 * fall
+        p.cape = 0
+        p.wings = 0
+        p.opacity = 1 - smooth01((t - 0.45) / 0.6)
+        return p
+    }
+
+    private func victory() -> HeroPose {
+        var p = profile.rest
+        let period: Float = 1.15
+        let ph = stateTime.truncatingRemainder(dividingBy: period)
+        let hop: Float = ph < 0.5 ? sin(.pi * ph / 0.5) * 0.3 : 0
+        let crouch: Float = ph > 0.85 ? sin(.pi * (ph - 0.85) / 0.3) : 0
+        p.offset.y = hop
+        p.hipsDrop = 0.08 * crouch
+        p.legR.knee = 0.6 * crouch + (hop > 0 ? 0.5 : 0)
+        p.legL.knee = 0.6 * crouch + (hop > 0 ? 0.3 : 0)
+        p.legR.pitch = hop > 0 ? 0.3 : 0
+        p.armR = ArmPose(pitch: 2.95, out: 0.25, yaw: 0, elbow: 0.15)
+        p.weaponR = 0.05
+        if profile.twoHanded {
+            p.armL = ArmPose(pitch: 2.9, out: 0.1, yaw: 0.35, elbow: 0.3)
+        } else {
+            p.armL = ArmPose(pitch: 2.3 + 0.2 * sin(time * 8), out: 0.55, yaw: 0, elbow: 0.6)
+        }
+        p.weaponL = 0
+        p.torsoPitch = -0.12
+        p.headPitch = -0.3
+        p.glow = 0.5 + 0.3 * sin(time * 5)
+        p.cape = 0.3 + 0.3 * hop
+        p.wings = 1.1 + 0.2 * sin(time * 6)
+        return p
+    }
+}
