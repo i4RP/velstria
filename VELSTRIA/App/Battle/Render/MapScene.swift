@@ -30,6 +30,8 @@ final class MapScene {
         buildDecorations(map: map, materials: materials, quality: quality)
         buildBrushes(map: map, materials: materials, quality: quality)
         buildWater(map: map)
+        buildGroundDecals(map: map, materials: materials)
+        if quality.level != .low { buildDetailOverlay() }
     }
 
     // MARK: 地面
@@ -155,9 +157,9 @@ final class MapScene {
                     let p = Vec2(r.minX + 60 + Double(rng.nextFloat()) * (r.width - 120),
                                  r.minY + 60 + Double(rng.nextFloat()) * (r.height - 120))
                     let kind = treeKinds[Int(rng.nextFloat() * Float(treeKinds.count)) % treeKinds.count]
-                    let h = rng.range(3.4, 4.6)
+                    let h = rng.range(2.8, 3.8)
                     batch.add(at: w(p)) { l, _ in
-                        MapProps.tree(&l, at: w(p, 1.2), height: h, kind: kind, seed: seed &+ UInt64(1000 + k))
+                        MapProps.tree(&l, at: w(p, 1.1), height: h, kind: kind, seed: seed &+ UInt64(1000 + k))
                     }
                 }
                 // 縁の岩と光る結晶
@@ -185,15 +187,22 @@ final class MapScene {
             case .circle(let c, let radius):
                 let rM = Float(radius / 100)
                 batch.add(at: w(c)) { l, g in
-                    MapProps.rock(&l, at: w(c), size: rM * 0.95, flat: 0.75, seed: seed, mossy: true)
-                    let n = 3 + Int(rng.nextFloat() * 3)
+                    // 中央の高い柱 + 周囲の低い柱（崖の塊）
+                    MapProps.cliff(&l, at: w(c), radius: min(1.3, rM * 0.55), height: rng.range(1.7, 2.2), seed: seed)
+                    let n = max(3, Int(rM * 2.2))
                     for k in 0..<n {
-                        let a = Float(k) / Float(n) * 6.28 + rng.range(0, 1)
-                        let p = c + Vec2(Double(cos(a)), Double(sin(a))) * radius * 0.9
-                        MapProps.rock(&l, at: w(p), size: rng.range(0.35, 0.6), seed: seed &+ UInt64(k + 1))
+                        let a = Float(k) / Float(n) * 6.28 + rng.range(0, 0.5)
+                        let p = c + Vec2(Double(cos(a)), Double(sin(a))) * radius * 0.62
+                        MapProps.cliff(&l, at: w(p), radius: rng.range(0.6, 0.9), height: rng.range(0.9, 1.5),
+                                       seed: seed &+ UInt64(k + 1))
+                    }
+                    for k in 0..<(n + 2) {
+                        let a = rng.range(0, 6.28)
+                        let p = c + Vec2(Double(cos(a)), Double(sin(a))) * (radius + 30)
+                        MapProps.rock(&l, at: w(p), size: rng.range(0.22, 0.42), seed: seed &+ UInt64(50 + k), mossy: rng.chance(0.5))
                     }
                     if rM > 2.2 && rng.chance(0.8 * density) {
-                        MapProps.tree(&l, at: w(c + Vec2(Double(rng.range(-50, 50)), 60), rM * 0.6), height: rng.range(3.4, 4.2),
+                        MapProps.tree(&l, at: w(c + Vec2(Double(rng.range(-50, 50)), 60), 1.4), height: rng.range(2.8, 3.4),
                                       kind: treeKinds[Int(rng.nextFloat() * 7) % 7], seed: seed &+ 99)
                     }
                     if rng.chance(0.35) {
@@ -321,6 +330,148 @@ final class MapScene {
         }
     }
 
+    // MARK: 地面の輪郭（テクスチャでは滲む細部を平面メッシュで描く）
+
+    private func buildGroundDecals(map: MapDefinition, materials: RenderMaterials) {
+        var lit = MeshBuilder(reserve: 4096), glow = MeshBuilder(reserve: 2048)
+        let y: Float = 0.012
+        for team in Team.players {
+            let soft: Swatch = team == .blue ? .glowBlueSoft : .glowRedSoft
+            let strong: Swatch = team == .blue ? .glowBlue : .glowRed
+            let core = worldPosition(map.core(team)), fountain = worldPosition(map.fountain(team))
+            // 広場の石畳（24 分割 × 5 環、目地を残す）
+            var r: Float = 4.6
+            var ring = 0
+            while r < 14.2 {
+                let r1 = r + 1.85
+                let segs = 24 + ring * 4
+                for k in 0..<segs {
+                    let a0 = Float(k) / Float(segs) * 2 * .pi + Float(ring) * 0.13
+                    let sweep = 2 * .pi / Float(segs) - 0.06 / r1
+                    let shades: [Swatch] = [.paving1, .paving2, .paving3, .paving4, .paving2]
+                    let shade = shades[(k * 7 + ring * 3) % shades.count]
+                    lit.annulus(inner: r + 0.05, outer: r1 - 0.05, segments: 3, y: y, startAngle: a0, sweep: sweep,
+                                color: .solid(shade), transform: MX.t(core))
+                }
+                r = r1
+                ring += 1
+            }
+            glow.annulus(inner: 13.05, outer: 13.45, segments: 72, y: y + 0.004, color: .solid(strong), transform: MX.t(core))
+            glow.annulus(inner: 12.45, outer: 12.6, segments: 72, y: y + 0.004, color: .solid(soft), transform: MX.t(core))
+            glow.annulus(inner: 4.35, outer: 4.55, segments: 40, y: y + 0.004, color: .solid(soft), transform: MX.t(core))
+            // 泉の紋章
+            glow.annulus(inner: 6.95, outer: 7.45, segments: 64, y: y, color: .solid(strong), transform: MX.t(fountain))
+            glow.annulus(inner: 5.1, outer: 5.3, segments: 56, y: y, color: .solid(soft), transform: MX.t(fountain))
+            for k in 0..<8 {
+                let a0 = Float(k) / 8 * 2 * .pi, a1 = Float(k + 3) / 8 * 2 * .pi
+                let p0 = SIMD3<Float>(cos(a0) * 7.0, 0, -sin(a0) * 7.0), p1 = SIMD3<Float>(cos(a1) * 7.0, 0, -sin(a1) * 7.0)
+                let d = p1 - p0
+                let len = simd_length(d)
+                let yaw = atan2(-d.z, d.x)
+                glow.flatRect(width: len, depth: 0.14, y: y, color: .solid(soft),
+                              transform: MX.t(fountain + (p0 + p1) / 2) * MX.ry(yaw))
+            }
+        }
+        // タワー台座の輪
+        for t in map.towers where !t.isCore {
+            let soft: Swatch = t.team == .blue ? .glowBlueSoft : .glowRedSoft
+            glow.annulus(inner: 2.28, outer: 2.48, segments: 40, y: y, color: .solid(soft), transform: MX.t(worldPosition(t.pos)))
+        }
+        // ボスの巣の紋章
+        for camp in map.camps where camp.kind == .astralWyrm || camp.kind == .ancientColossus {
+            let rune: Swatch = camp.kind == .astralWyrm ? .glowPurple : .glowGold
+            let c = worldPosition(camp.pos)
+            glow.annulus(inner: 4.55, outer: 4.85, segments: 64, y: y, color: .solid(rune), transform: MX.t(c))
+            glow.annulus(inner: 3.72, outer: 3.86, segments: 56, y: y, color: .solid(rune), transform: MX.t(c))
+            for k in 0..<6 {
+                let a = Float(k) / 6 * 2 * .pi + 0.26
+                glow.star(outer: 0.34, inner: 0.15, thickness: 0.01, points: 4, color: .solid(rune),
+                          transform: MX.t(c + SIMD3(cos(a) * 4.25, y, -sin(a) * 4.25)))
+            }
+        }
+        if let mesh = lit.makeMesh(name: "decalsLit") {
+            let e = ModelEntity(mesh: mesh, materials: [materials.lit])
+            e.name = "decalsLit"
+            root.addChild(e)
+        }
+        if let mesh = glow.makeMesh(name: "decalsGlow") {
+            let e = ModelEntity(mesh: mesh, materials: [materials.glow])
+            e.name = "decalsGlow"
+            root.addChild(e)
+        }
+    }
+
+    /// 細かな砂粒・草の斑点のタイル（3 m 周期）を地面へ重ね、拡大時のぼけを抑える。
+    private func buildDetailOverlay() {
+        guard let img = MapScene.detailImage(),
+              let tex = try? TextureResource(image: img, options: .init(semantic: .color)) else { return }
+        let M = MapScene.mapMeters
+        var d = MeshDescriptor(name: "detail")
+        d.positions = MeshBuffers.Positions([[0, 0, 0], [M, 0, 0], [M, 0, -M], [0, 0, -M]])
+        d.normals = MeshBuffers.Normals([[0, 1, 0], [0, 1, 0], [0, 1, 0], [0, 1, 0]])
+        let tiles = M / 3
+        d.textureCoordinates = MeshBuffers.TextureCoordinates([[0, 0], [tiles, 0], [tiles, tiles], [0, tiles]])
+        d.primitives = .triangles([0, 1, 2, 0, 2, 3])
+        guard let mesh = try? MeshResource.generate(from: [d]) else { return }
+        var mat = UnlitMaterial(applyPostProcessToneMap: false)
+        var t = MaterialParameters.Texture(tex)
+        let sd = MTLSamplerDescriptor()
+        sd.minFilter = .linear
+        sd.magFilter = .linear
+        sd.mipFilter = .linear
+        sd.sAddressMode = .repeat
+        sd.tAddressMode = .repeat
+        t.sampler = .init(sd)
+        mat.color = .init(tint: .white, texture: t)
+        mat.blending = .transparent(opacity: .init(floatLiteral: 1))
+        mat.writesDepth = false
+        let e = ModelEntity(mesh: mesh, materials: [mat])
+        e.name = "groundDetail"
+        e.position.y = 0.004
+        OverlayOrder.apply(e, OverlayOrder.groundDetail)
+        root.addChild(e)
+    }
+
+    static func detailImage(size: Int = 256) -> CGImage? {
+        guard let ctx = CGContext(data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: size * 4,
+                                  space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        var rng = RenderRNG(seed: 777)
+        let s = CGFloat(size)
+        for _ in 0..<900 {
+            let x = CGFloat(rng.range(0, Float(size))), y = CGFloat(rng.range(0, Float(size)))
+            let r = CGFloat(rng.range(0.8, 2.6))
+            let dark = rng.chance(0.62)
+            let a = CGFloat(rng.range(0.10, dark ? 0.26 : 0.16))
+            let c: CGColor = dark ? CGColor(srgbRed: 0.02, green: 0.05, blue: 0.02, alpha: a)
+                : CGColor(srgbRed: 1, green: 1, blue: 0.85, alpha: a)
+            ctx.setFillColor(c)
+            // タイル境界で継ぎ目が出ないよう周囲にも複製
+            for dx in [-s, 0, s] {
+                for dy in [-s, 0, s] {
+                    ctx.fillEllipse(in: CGRect(x: x + dx - r, y: y + dy - r * 0.7, width: r * 2, height: r * 1.4))
+                }
+            }
+        }
+        // 短い草の筆致
+        ctx.setLineCap(.round)
+        for _ in 0..<260 {
+            let x = CGFloat(rng.range(0, Float(size))), y = CGFloat(rng.range(0, Float(size)))
+            let len = CGFloat(rng.range(2, 5))
+            let ang = CGFloat(rng.range(1.2, 1.9))
+            ctx.setStrokeColor(CGColor(srgbRed: 0.02, green: 0.08, blue: 0.02, alpha: CGFloat(rng.range(0.08, 0.2))))
+            ctx.setLineWidth(1)
+            for dx in [-s, 0, s] {
+                for dy in [-s, 0, s] {
+                    ctx.move(to: CGPoint(x: x + dx, y: y + dy))
+                    ctx.addLine(to: CGPoint(x: x + dx + cos(ang) * len, y: y + dy + sin(ang) * len))
+                    ctx.strokePath()
+                }
+            }
+        }
+        return ctx.makeImage()
+    }
+
     // MARK: 草むら
 
     private func buildBrushes(map: MapDefinition, materials: RenderMaterials, quality: RenderQuality) {
@@ -385,7 +536,7 @@ final class MapScene {
         sd.tAddressMode = .repeat
         t.sampler = .init(sd)
         mat.color = .init(tint: UIColor(red: 0.75, green: 0.95, blue: 1.0, alpha: 1), texture: t)
-        mat.blending = .transparent(opacity: .init(scale: 0.55, texture: t))
+        mat.blending = .transparent(opacity: .init(floatLiteral: 0.6))
         mat.writesDepth = false
         let e = ModelEntity(mesh: mesh, materials: [mat])
         e.name = "water"

@@ -195,16 +195,9 @@ enum GroundTextureGenerator {
                 ctx.move(to: CGPoint(x: p0.x, y: p0.y)); ctx.addLine(to: CGPoint(x: p1.x, y: p1.y))
             }
             ctx.strokePath()
-            stroke(rune, 0.85, width: 30)
+            // 紋章の滲み（輪郭は MapScene の平面メッシュ）
+            stroke(rune, 0.25, width: 90)
             ctx.strokeEllipse(in: circle(camp.pos, 470))
-            stroke(rune, 0.5, width: 14)
-            ctx.strokeEllipse(in: circle(camp.pos, 380))
-            for k in 0..<6 {
-                let a = Double(k) / 6 * 2 * .pi + 0.26
-                let p = camp.pos + Vec2(cos(a), sin(a)) * 425
-                fill(rune, 0.9)
-                ctx.fillEllipse(in: circle(p, 36))
-            }
         }
 
         // 7. レーン（土の道）と浅瀬
@@ -286,8 +279,6 @@ enum GroundTextureGenerator {
             ctx.fillEllipse(in: circle(t.pos, 330))
             fill(RGB(0.60, 0.58, 0.55))
             ctx.fillEllipse(in: circle(t.pos, 280))
-            stroke(teams.main(t.team), 0.55, width: 22)
-            ctx.strokeEllipse(in: circle(t.pos, 240))
         }
 
         // 9. 本拠点の広場と泉
@@ -302,20 +293,11 @@ enum GroundTextureGenerator {
             // 広場
             fill(RGB(0.34, 0.33, 0.35))
             ctx.fillEllipse(in: circle(core, 1520))
-            fill(RGB(0.60, 0.59, 0.58))
+            // 石畳の目地色（タイルは MapScene の平面メッシュ）
+            fill(RGB(0.36, 0.35, 0.37))
             ctx.fillEllipse(in: circle(core, 1450))
-            stroke(RGB(0.48, 0.47, 0.48), 0.9, width: 18)
-            for r in stride(from: 450.0, through: 1400, by: 190) { ctx.strokeEllipse(in: circle(core, r)) }
-            for k in 0..<24 {
-                let a = Double(k) / 24 * 2 * .pi
-                let p0 = core + Vec2(cos(a), sin(a)) * 450, p1 = core + Vec2(cos(a), sin(a)) * 1450
-                ctx.move(to: CGPoint(x: p0.x, y: p0.y)); ctx.addLine(to: CGPoint(x: p1.x, y: p1.y))
-            }
-            ctx.strokePath()
-            stroke(tc, 0.9, width: 45)
-            ctx.strokeEllipse(in: circle(core, 1330))
-            stroke(tc.mixed(RGB(1, 1, 1), 0.5), 0.6, width: 16)
-            ctx.strokeEllipse(in: circle(core, 1260))
+            stroke(tc, 0.35, width: 110)
+            ctx.strokeEllipse(in: circle(core, 1320))
             fill(RGB(0.70, 0.69, 0.68))
             ctx.fillEllipse(in: circle(core, 450))
             // 泉
@@ -323,19 +305,9 @@ enum GroundTextureGenerator {
             ctx.fillEllipse(in: circle(fountain, 860))
             fill(RGB(0.52, 0.54, 0.62))
             ctx.fillEllipse(in: circle(fountain, 800))
-            stroke(tc, 0.95, width: 50)
+            // 紋章の滲み（輪郭は MapScene の平面メッシュ）
+            stroke(tc, 0.3, width: 120)
             ctx.strokeEllipse(in: circle(fountain, 720))
-            stroke(tc.mixed(RGB(1, 1, 1), 0.4), 0.7, width: 20)
-            ctx.strokeEllipse(in: circle(fountain, 520))
-            // 八芒星
-            ctx.setStrokeColor(tc.mixed(RGB(1, 1, 1), 0.3).cgColor(alpha: 0.7))
-            ctx.setLineWidth(18)
-            for k in 0..<8 {
-                let a0 = Double(k) / 8 * 2 * .pi, a1 = Double(k + 3) / 8 * 2 * .pi
-                let p0 = fountain + Vec2(cos(a0), sin(a0)) * 700, p1 = fountain + Vec2(cos(a1), sin(a1)) * 700
-                ctx.move(to: CGPoint(x: p0.x, y: p0.y)); ctx.addLine(to: CGPoint(x: p1.x, y: p1.y))
-            }
-            ctx.strokePath()
         }
 
         // 10. 縁の陰影

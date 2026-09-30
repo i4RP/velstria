@@ -100,7 +100,8 @@ struct FogField {
         }
     }
 
-    /// RGBA8 へ書き出す（全チャンネル = 不透明度）。topDown = true で行 0 を sim y 最大側にする。
+    /// RGBA8 へ書き出す（RGB = 白、A = 不透明度。色はマテリアルの tint で決まる）。
+    /// topDown = true で行 0 を sim y 最大側にする。
     func write(into bytes: UnsafeMutablePointer<UInt8>, maxAlpha: Float, topDown: Bool) {
         let n = size
         current.withUnsafeBufferPointer { c in
@@ -108,11 +109,10 @@ struct FogField {
                 let srcRow = (topDown ? (n - 1 - y) : y) * n
                 let dst = bytes + y * n * 4
                 for x in 0..<n {
-                    let v = UInt8(max(0, min(255, c[srcRow + x] * maxAlpha * 255)))
-                    dst[x * 4] = v
-                    dst[x * 4 + 1] = v
-                    dst[x * 4 + 2] = v
-                    dst[x * 4 + 3] = v
+                    dst[x * 4] = 255
+                    dst[x * 4 + 1] = 255
+                    dst[x * 4 + 2] = 255
+                    dst[x * 4 + 3] = UInt8(max(0, min(255, c[srcRow + x] * maxAlpha * 255)))
                 }
             }
         }
@@ -139,7 +139,7 @@ final class FogOfWar {
     private var staging: MTLBuffer?
     private var cpuBytes: [UInt8]
     /// 霧の最大不透明度。
-    static let maxAlpha: Float = 0.6
+    static let maxAlpha: Float = 0.64
     static let color = RGB(0.02, 0.035, 0.09)
     /// テクスチャの行 0 が sim y 最大側（画像と同じ上→下の並び）。
     static let topDown = true
@@ -188,8 +188,9 @@ final class FogOfWar {
         sd.sAddressMode = .clampToEdge
         sd.tAddressMode = .clampToEdge
         t.sampler = .init(sd)
-        mat.color = .init(tint: FogOfWar.color.uiColor)
-        mat.blending = .transparent(opacity: .init(scale: 1, texture: t))
+        // Unlit の透明度は色テクスチャの A × opacity（opacity テクスチャだけでは反映されない）
+        mat.color = .init(tint: FogOfWar.color.uiColor, texture: t)
+        mat.blending = .transparent(opacity: .init(floatLiteral: 1))
         mat.writesDepth = false
         entity.model?.materials = [mat]
     }

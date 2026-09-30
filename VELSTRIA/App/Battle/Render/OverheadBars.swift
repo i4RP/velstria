@@ -3,13 +3,14 @@ import RealityKit
 import UIKit
 import VelstriaCore
 
-// 担当: battle-renderer。頭上の HP バー（BillboardComponent でカメラへ向ける）。
+// 担当: battle-renderer。頭上の HP バー（画面に平行なビルボード）。
 // 深度テストなしで常に最前面に描き、描画順は ModelSortGroup で固定する（背景 → 遅延 → HP → シールド → 文字）。
 // 1 m ≒ 36pt（cameraZoom = 1、iPhone 横画面）を目安に寸法を決める。
 
 enum OverlayOrder {
     /// 地面デカール・頭上 UI の描画順グループ。
     static let group = ModelSortGroup(depthPass: nil)
+    static let groundDetail: Int32 = -1
     static let fog: Int32 = 0
     static let groundDecal: Int32 = 1
     static let zoneFill: Int32 = 2
@@ -89,13 +90,15 @@ final class OverheadBar {
         self.text = text
         self.materials = materials
         root.name = "bar"
-        root.components.set(BillboardComponent())
+        // 画面に平行なビルボード。カメラは回転しないので姿勢は一定（親は回転させない）。
+        // BillboardComponent はワールド上方向を保つため、俯角 56° の画面端でバーが傾いて見える。
+        root.orientation = CameraRig.orientation
         var w: Float, h: Float
         switch style {
         case .hero: w = 1.9; h = 0.22
         case .minion: w = 0.95; h = 0.11
         case .monster(let boss): w = boss ? 2.4 : 1.25; h = boss ? 0.2 : 0.13
-        case .structure(let core): w = core ? 3.0 : 2.3; h = core ? 0.24 : 0.2
+        case .structure(let core): w = core ? 2.2 : 1.7; h = core ? 0.2 : 0.17
         }
         width = w
         height = h

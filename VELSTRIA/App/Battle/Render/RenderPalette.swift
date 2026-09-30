@@ -27,6 +27,8 @@ enum Swatch: Int, CaseIterable {
     // 発光（glow マテリアル用）
     case glowBlue, glowRed, glowGold, glowPurple, glowCyan, glowGreen, glowWhite, lanternWarm
     case glowBlueSoft, glowRedSoft, glowOrange, glowPink, waterDeep, waterLight, eye, runeTeal
+    // 石畳
+    case paving1, paving2, paving3, paving4
 }
 
 /// 縦グラデーション（t = 0 → 1）。
@@ -202,6 +204,10 @@ enum PaletteColors {
         case .waterLight: return RGB(0.40, 0.75, 0.85)
         case .eye: return RGB(1.0, 0.95, 0.60)
         case .runeTeal: return RGB(0.35, 0.95, 0.85)
+        case .paving1: return RGB(0.60, 0.59, 0.58)
+        case .paving2: return RGB(0.66, 0.65, 0.63)
+        case .paving3: return RGB(0.55, 0.55, 0.57)
+        case .paving4: return RGB(0.70, 0.68, 0.64)
         }
     }
 
@@ -214,8 +220,8 @@ enum PaletteColors {
         case .rock: return (RGB(0.25, 0.25, 0.31), RGB(0.68, 0.68, 0.72))
         case .cliff: return (RGB(0.20, 0.18, 0.24), RGB(0.56, 0.52, 0.54))
         case .grassBlade: return (RGB(0.10, 0.27, 0.14), RGB(0.55, 0.78, 0.34))
-        case .crystalBlue: return (teams.dark(.blue), RGB(0.80, 0.95, 1.0))
-        case .crystalRed: return (teams.dark(.red), teams.colorblind ? RGB(1.0, 0.92, 0.70) : RGB(1.0, 0.82, 0.80))
+        case .crystalBlue: return (teams.dark(.blue), RGB(0.62, 0.88, 1.0))
+        case .crystalRed: return (teams.dark(.red), teams.colorblind ? RGB(1.0, 0.86, 0.55) : RGB(1.0, 0.68, 0.64))
         case .crystalGold: return (RGB(0.55, 0.36, 0.10), RGB(1.0, 0.95, 0.70))
         case .crystalPurple: return (RGB(0.22, 0.10, 0.42), RGB(0.90, 0.78, 1.0))
         case .stonePillar: return (RGB(0.40, 0.39, 0.44), RGB(0.90, 0.89, 0.88))
@@ -315,21 +321,9 @@ final class RenderMaterials {
         return m
     }
 
-    /// テクスチャ付き Unlit（パーティクル以外のスプライト・デカール）。
-    static func texturedUnlit(_ tex: TextureResource, tint: UIColor = .white, alpha: Double = 1,
-                              depthTest: Bool = true) -> UnlitMaterial {
-        var m = UnlitMaterial(applyPostProcessToneMap: false)
-        m.color = .init(tint: tint, texture: .init(tex))
-        m.blending = .transparent(opacity: .init(scale: Float(alpha), texture: .init(tex)))
-        m.writesDepth = false
-        if !depthTest { m.readsDepth = false }
-        return m
-    }
-
     private static func key(_ c: RGB, alpha: Double, depthTest: Bool) -> UInt64 {
         func q(_ v: Double) -> UInt64 { UInt64(max(0, min(255, (v * 255).rounded()))) }
         return q(c.r) | q(c.g) << 8 | q(c.b) << 16 | q(alpha) << 24 | (depthTest ? 1 : 0) << 32
     }
 
-    func team(_ team: Team) -> RGB { teams.main(team) }
 }

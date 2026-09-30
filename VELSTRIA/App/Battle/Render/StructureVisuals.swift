@@ -51,7 +51,7 @@ final class StructureMeshes {
             pillar.torus(majorRadius: y < 2 ? 0.62 : 0.5, minorRadius: 0.07, segments: 16, sides: 4, color: .solid(.gold),
                          transform: MX.t(0, y, 0))
         }
-        pillar.frustum(bottomRadius: 0.42, topRadius: 0.78, height: 0.36, segments: 8, color: .solid(.stoneLight), phase: 0.39,
+        pillar.frustum(bottomRadius: 0.42, topRadius: 0.78, height: 0.36, segments: 8, color: .solid(.metalDark), phase: 0.39,
                        transform: MX.t(0, 3.76, 0))
         for k in 0..<4 {
             let a = Float(k) / 4 * 2 * .pi
