@@ -182,6 +182,11 @@ final class OverheadBar {
         }
     }
 
+    /// 表示中の値（テスト・デバッグ用）。
+    var displayedHP: Float { shownHP }
+    var displayedShield: Float { shownShield }
+    var displayedLevel: Int { shownLevel }
+
     /// 値を反映する（変化時のみエンティティを更新）。hp/shield は最大 HP 比（shield は hp + shield ≤ 1 に収める）。
     func update(hp: Float, shield sh: Float, resource res: Float?, level: Int?, dt: Float) {
         let hpC = max(0, min(1, hp))
