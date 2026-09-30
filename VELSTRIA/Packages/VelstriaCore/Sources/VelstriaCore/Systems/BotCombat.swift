@@ -130,7 +130,9 @@ enum BotCombat {
         let targetTower = w.enemyStructure(covering: t.pos, team: a.team, margin: 0)
         let dive = a.profile.divesForKill && killable && s.units[i].hpRatio > 0.5
         if t.distance > reach + 40 {
-            let tooFar = t.pos.distance(to: mem.fightAnchor) > Balance.Bot.chaseLimit
+            // 弱った相手（倒せる・HP 35% 未満）は自陣の塔に逃げ込むまで追う
+            let limit = killable || s.units[t.index].hpRatio < 0.35 ? Balance.Bot.chaseLimit * 2 : Balance.Bot.chaseLimit
+            let tooFar = t.pos.distance(to: mem.fightAnchor) > limit
             if (targetTower != nil && !dive) || tooFar { return false }
         }
         BotAI.setGoal(&mem, .teamfight, s.time)

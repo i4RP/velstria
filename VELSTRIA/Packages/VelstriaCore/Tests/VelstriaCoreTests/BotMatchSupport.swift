@@ -28,6 +28,8 @@ struct BotMatchReport {
     var winner: Team?
     var endReason: EndReason?
     var kills: [Int] = [0, 0]
+    /// 処刑（塔・ミニオン・泉のみで倒れた）の数。
+    var executions = 0
     var towers: [Int] = [0, 0]
     var wyrms: [Int] = [0, 0]
     var colossi: [Int] = [0, 0]
@@ -55,7 +57,7 @@ struct BotMatchReport {
     }
 
     static func tableHeader() -> String {
-        "| match | duration | winner | kills B/R | towers B/R | wyrm B/R | colossus B/R | avg Lv @12:00 | items/hero @12:00 | items/hero end | ms/tick |\n"
+        "| match | duration | winner | kills B/R (exec) | towers B/R | wyrm B/R | colossus B/R | avg Lv @12:00 | items/hero @12:00 | items/hero end | ms/tick |\n"
             + "|---|---|---|---|---|---|---|---|---|---|---|"
     }
 
@@ -63,8 +65,8 @@ struct BotMatchReport {
         let bots = heroes.filter(\.isBot)
         let items12 = bots.isEmpty ? 0 : Double(bots.map(\.itemsAt12).reduce(0, +)) / Double(bots.count)
         let m = Int(duration) / 60, sec = Int(duration) % 60
-        return String(format: "| %@ | %d:%02d | %@ | %d / %d | %d / %d | %d / %d | %d / %d | %.1f | %.1f | %.1f | %.3f |",
-                      label, m, sec, winner.map { "\($0)" } ?? "-", kills[0], kills[1], towers[0], towers[1],
+        return String(format: "| %@ | %d:%02d | %@ | %d / %d (%d) | %d / %d | %d / %d | %d / %d | %.1f | %.1f | %.1f | %.3f |",
+                      label, m, sec, winner.map { "\($0)" } ?? "-", kills[0], kills[1], executions, towers[0], towers[1],
                       wyrms[0], wyrms[1], colossi[0], colossi[1], avgLevelAt12, items12, itemsPerHero, msPerTick)
     }
 
@@ -89,9 +91,10 @@ struct BotMatchReport {
             for e in events {
                 switch e {
                 case .heroKilled(let k):
+                    // 処刑（敵ヒーローの関与なし）はチームのキルに数えない（SimState.teams と同じ基準）
                     if let v = slot[k.victimID] {
                         r.heroes[v].deaths += 1
-                        r.kills[r.heroes[v].team.opponent.rawValue] += 1
+                        if k.killerID != nil { r.kills[r.heroes[v].team.opponent.rawValue] += 1 } else { r.executions += 1 }
                     }
                     if let killer = k.killerID, let kk = slot[killer] { r.heroes[kk].kills += 1 }
                     if keepTimeline {

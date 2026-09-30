@@ -254,7 +254,7 @@ enum BotMacro {
                 + enemiesSeenNear(s, intel, st.pos, radius: 1800, within: 8)
             // 敵の集団が見えているレーンは避ける（空いている塔を取り、守りに来させて塔の下で迎え撃つ）。
             // 大きく数で勝る時だけは狩りに行く
-            var score = presence > 0 && presence <= groupSize - 3 ? 0.6 : -Double(presence) * 1.1
+            var score = presence > 0 && presence <= groupSize - 2 ? 0.6 : -Double(presence) * 1.1
             score += Double(st.tier.rawValue) * 0.5 + (st.isCore ? 2 : 0) + (1 - st.hp / max(1, st.maxHP)) * 1.5
             if front > len * 0.5 { score += 0.6 }
             score -= center.distance(to: frontPos) / 4000
