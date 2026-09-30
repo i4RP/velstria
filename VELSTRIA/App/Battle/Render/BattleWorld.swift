@@ -93,13 +93,15 @@ final class BattleWorld {
         time += dt
         #if DEBUG
         var frame = makeFrame(dt: dt)
+        frame.camera = rig.camera.position
         if let showcase {
             var injected: [SimEvent] = []
             showcase.apply(&frame, events: &injected)
             for e in injected { handle(e, frame: frame) }
         }
         #else
-        let frame = makeFrame(dt: dt)
+        var frame = makeFrame(dt: dt)
+        frame.camera = rig.camera.position
         #endif
         for e in events { handle(e, frame: frame) }
         if shakeRequest > 0 {

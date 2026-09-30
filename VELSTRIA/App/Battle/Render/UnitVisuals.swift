@@ -18,6 +18,8 @@ struct RenderFrame {
     var focusID: EntityID?
     var ended: Bool
     var winner: Team?
+    /// カメラの world 位置（HP バーの画面サイズ一定化に使う）。
+    var camera: SIMD3<Float> = SIMD3(60, 10, -50)
 
     @inline(__always)
     func interpolated(_ i: Int) -> Vec2 {
@@ -366,6 +368,7 @@ final class CreatureVisual {
         // HP バー
         let maxHP = max(1, u.stats.maxHP)
         bar.update(hp: Float(u.hp / maxHP), shield: Float(u.totalShield / maxHP), resource: nil, level: nil, dt: dt)
+        bar.keepScreenSize(camera: f.camera)
         bar.root.isEnabled = u.isAlive
         status.update(StatusIndicators.flags(of: u), dt: dt)
     }
@@ -562,6 +565,7 @@ final class HeroVisual {
             if isSelf, u.stats.maxResource > 0 { res = Float(u.resource / u.stats.maxResource) }
             bar.update(hp: Float(u.hp / maxHP), shield: Float(u.totalShield / maxHP), resource: res,
                        level: u.hero?.level, dt: dt)
+            bar.keepScreenSize(camera: f.camera)
             status.update(StatusIndicators.flags(of: u), dt: dt)
         } else {
             status.reset()

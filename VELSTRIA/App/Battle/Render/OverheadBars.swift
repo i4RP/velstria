@@ -182,6 +182,19 @@ final class OverheadBar {
         }
     }
 
+    /// この距離（m）で設計寸法どおりの大きさに見える。
+    static let referenceDistance: Float = 11
+    private var screenScale: Float = 1
+
+    /// 画面上の大きさを一定に保つ（カメラからの距離に比例して拡縮。手前の構造物のバーが巨大化しない）。
+    func keepScreenSize(camera: SIMD3<Float>) {
+        let world = (root.parent?.position ?? .zero) + root.position
+        let s = max(0.5, min(1.8, simd_distance(world, camera) / OverheadBar.referenceDistance))
+        guard abs(s - screenScale) > 0.01 else { return }
+        screenScale = s
+        root.scale = SIMD3(repeating: s)
+    }
+
     /// 表示中の値（テスト・デバッグ用）。
     var displayedHP: Float { shownHP }
     var displayedShield: Float { shownShield }

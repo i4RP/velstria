@@ -282,6 +282,7 @@ final class StructureVisual {
         }
         let maxHP = max(1, u.stats.maxHP)
         bar.update(hp: Float(u.hp / maxHP), shield: 0, resource: nil, level: nil, dt: f.dt)
+        bar.keepScreenSize(camera: f.camera)
         // 射程円（フェード）
         let target: Float = showRange ? 1 : 0
         rangeAlpha += (target - rangeAlpha) * min(1, f.dt * 6)
