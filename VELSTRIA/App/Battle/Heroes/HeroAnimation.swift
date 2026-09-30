@@ -1,5 +1,6 @@
 import Foundation
 import simd
+import VelstriaCore
 
 // 担当: hero-models。手続きアニメーション（姿勢の合成と状態間ブレンド）。
 // 姿勢は Float だけの値型で、毎フレームの評価はヒープ確保なしで行う。
@@ -163,9 +164,9 @@ struct HeroMotionProfile {
             r.armR = ArmPose(pitch: 0.3, out: m.armRestOut, yaw: 0, elbow: 0.55)
             r.weaponR = -1.0
         case .heavySwing:
-            r.armR = ArmPose(pitch: 0.55, out: m.armRestOut * 0.6, yaw: 0.25, elbow: 1.5)
-            r.armL = ArmPose(pitch: 0.75, out: 0.05, yaw: 0.75, elbow: 1.2)
-            r.weaponR = 0.85
+            // 大槌は体の横で立てて持つ（頭部が肩の外に並び、正面・上方どちらからも読める）
+            r.armR = ArmPose(pitch: 0.22, out: 0.38, yaw: 0, elbow: 0.5)
+            r.weaponR = -0.12
             runSwingR = 0.25
             runSwingL = 0.25
         case .thrust:
@@ -449,6 +450,9 @@ struct HeroAnimator {
             if s == .attack && stateTime >= profile.attack.windupTime + profile.attack.strikeTime {
                 attackCount += 1
                 begin(s, blend: 0.05)
+            } else if case .cast(let slot) = s, stateTime >= profile.casts[HeroAnimator.castIndex(slot)].total {
+                // 詠唱が終わった後の同じスロットの再詠唱
+                begin(s, blend: 0.08)
             }
             return
         }
@@ -463,6 +467,15 @@ struct HeroAnimator {
         case .idle, .run: blend = state == .dead ? 0 : 0.2
         }
         begin(s, blend: blend)
+    }
+
+    static func castIndex(_ slot: SkillSlot) -> Int {
+        switch slot {
+        case .passive, .skill1: return 0
+        case .skill2: return 1
+        case .skill3: return 2
+        case .ultimate: return 3
+        }
     }
 
     private mutating func begin(_ s: HeroAnimState, blend: Float) {
@@ -509,14 +522,7 @@ struct HeroAnimator {
             let t = stateTime.truncatingRemainder(dividingBy: period)
             return clip.evaluate(base: loco, t: t)
         case .cast(let slot):
-            let idx: Int
-            switch slot {
-            case .passive, .skill1: idx = 0
-            case .skill2: idx = 1
-            case .skill3: idx = 2
-            case .ultimate: idx = 3
-            }
-            var p = profile.casts[idx].evaluate(base: loco, t: stateTime)
+            var p = profile.casts[HeroAnimator.castIndex(slot)].evaluate(base: loco, t: stateTime)
             p.glow *= 1 + 0.15 * sin(time * 18)
             return p
         case .channel:

@@ -454,6 +454,13 @@ struct HeroAssembler {
         if !masked {
             for s: Float in [-1, 1] { eye(&b, c, R, s) }
         }
+        let mouthCovered = masked || bp.gear.contains(.mask) || bp.gear.contains(.beard)
+        if !mouthCovered {
+            // 小さな笑み（下向きの円弧）
+            let dir = simd_normalize(V3(0, -0.36, -0.93))
+            let rot = simd_quatf(from: V3(0, 0, -1), to: dir) * rx(.pi / 2) * ry(.pi * 0.2)
+            b.torus(c + dir * (R * 0.985), R * 0.085, R * 0.016, .eye, rot: rot, segments: 8, sides: 4, arc: .pi * 0.6)
+        }
         // 耳
         if !coversHair && !bp.gear.contains(.foxEars) {
             for s: Float in [-1, 1] {

@@ -54,11 +54,17 @@ struct HeroStageConfig: Equatable {
 /// RealityView の中身を保持する（フレーム更新・ドラッグ回転）。
 @MainActor
 final class HeroStageDriver {
-    let world = Entity()
-    let turntable = Entity()
-    let camera = PerspectiveCamera()
+    /// SwiftUI の再評価で何度も生成されうるため、エンティティは RealityView の make で初めて作る。
+    private(set) lazy var world: Entity = {
+        let w = Entity()
+        w.addChild(turntable)
+        w.addChild(camera)
+        HeroStageDriver.addLights(to: w)
+        return w
+    }()
+    private lazy var turntable = Entity()
+    private lazy var camera = PerspectiveCamera()
     private(set) var models: [HeroModel] = []
-    private var markers: [Entity] = []
     private var slotRoots: [Entity] = []
     var subscription: EventSubscription?
     var config: HeroStageConfig?
@@ -67,14 +73,10 @@ final class HeroStageDriver {
     var dragBaseYaw: Float = 0
     var isDragging = false
     private var autoYaw: Float = 0
+    private var swayTime: Float = 0
+    /// 並べた内容の最上端（m）。カメラの収まりに使う。
+    private var contentTop: Float = 2.0
     private var frozen = false
-    private var pedestal: Entity?
-
-    init() {
-        world.addChild(turntable)
-        world.addChild(camera)
-        HeroStageDriver.addLights(to: world)
-    }
 
     func apply(_ c: HeroStageConfig) {
         if config?.slots != c.slots || config?.team != c.team || config?.pedestal != c.pedestal
@@ -90,10 +92,7 @@ final class HeroStageDriver {
     private func rebuild(_ c: HeroStageConfig) {
         for r in slotRoots { r.removeFromParent() }
         slotRoots.removeAll()
-        markers.removeAll()
         models.removeAll()
-        pedestal?.removeFromParent()
-        pedestal = nil
         let master = MasterData.shared
         let options = HeroModelOptions(teamMarker: c.team != .neutral, shadow: !c.pedestal, colorblind: false, aura: true)
         for slot in c.slots {
@@ -111,12 +110,16 @@ final class HeroStageDriver {
                                      materials: [UnlitMaterial(color: .systemGreen)])
                 mk.position = [0, model.overheadHeight, 0]
                 holder.addChild(mk)
-                markers.append(mk)
             }
             model.setState(c.state)
             turntable.addChild(holder)
             slotRoots.append(holder)
             models.append(model)
+        }
+        contentTop = 2.0
+        for h in slotRoots {
+            let b = h.visualBounds(recursive: true, relativeTo: h, excludeInactive: false)
+            if b.max.y.isFinite { contentTop = max(contentTop, min(3.2, b.max.y)) }
         }
         frozen = false
         if let f = c.freezeAt {
@@ -142,13 +145,13 @@ final class HeroStageDriver {
         let width = Float(n) * spacing
         switch c.camera {
         case .showcase:
-            // 台座込みの全身が上下に余白を持って収まる距離
-            let height: Float = c.pedestal ? 2.75 : 2.35
-            let distW = (width / 2) / halfH
+            // 武器・浮遊物まで含めた全身が上下に余白を持って収まる距離
+            let height = contentTop * 1.12 + 0.45
+            let distW = (width / 2 + 0.3) / halfH
             let distH = (height / 2) / halfV
             let d = max(distW, distH) * 1.03
-            let target = V3(0, c.pedestal ? 1.02 : 1.0, 0)
-            camera.look(at: target, from: target + V3(0, d * 0.13, d), relativeTo: nil)
+            let target = V3(0, contentTop * 0.5, 0)
+            camera.look(at: target, from: target + V3(0, d * 0.12, d), relativeTo: nil)
         case .battle:
             // 戦闘カメラ相当（約 56° 見下ろし・遠景）
             let d: Float = max(15, (width / 2) / halfH * 1.05)
@@ -161,7 +164,9 @@ final class HeroStageDriver {
     func tick(_ dt: Double) {
         guard let c = config else { return }
         if c.autoRotate && !isDragging {
-            autoYaw += Float(dt) * 0.35
+            // 正面を中心にゆっくり左右へ回る（顔が見えている時間を長く）
+            swayTime += Float(dt)
+            autoYaw = 0.75 * sin(swayTime * 0.33)
         }
         // 各ヒーローをその場で回す（-Z 正面のモデルを +Z 側のカメラへ向けるため π を足す）
         let yaw = ry(.pi + c.yaw + autoYaw + dragYaw)
@@ -202,6 +207,7 @@ final class HeroStageDriver {
     }
 
     private static var pedestalMeshes: MeshResource?
+    private static let floorGlowMesh = MeshResource.generatePlane(width: 2.8, depth: 2.8)
 
     static func makePedestal(glow: HSB) -> Entity {
         let mesh: MeshResource
@@ -216,7 +222,6 @@ final class HeroStageDriver {
                   .glow)
             b.add(MeshTemplate.annulus(inner: 0.46, outer: 0.5, segments: 48, dashes: 16, dashFill: 0.5),
                   trs(V3(0, top + 0.002, 0)), .glow)
-            b.add(MeshTemplate.annulus(inner: 0.76, outer: 1.05, segments: 48), trs(V3(0, 0.004, 0)), .veil)
             mesh = b.makeMesh(name: "hero.pedestal") ?? MeshResource.generateCylinder(height: top, radius: 0.7)
             pedestalMeshes = mesh
         }
@@ -228,8 +233,12 @@ final class HeroStageDriver {
         base.emissiveIntensity = 0.4
         var materials = [RealityKit.Material](repeating: base, count: HeroMat.allCases.count)
         materials[Int(HeroMat.glow.rawValue)] = HeroMaterialLibrary.unlit(glow, opacity: 1)
-        materials[Int(HeroMat.veil.rawValue)] = HeroMaterialLibrary.unlit(glow, opacity: 0.18)
-        return ModelEntity(mesh: mesh, materials: materials)
+        let pedestal = ModelEntity(mesh: mesh, materials: materials)
+        // 足元の柔らかな光だまり
+        let floor = ModelEntity(mesh: floorGlowMesh, materials: [HeroMaterialLibrary.glowSprite(glow)])
+        floor.position.y = 0.004
+        pedestal.addChild(floor)
+        return pedestal
     }
 }
 
@@ -264,6 +273,10 @@ struct HeroStageView: View {
                     }
                     .onEnded { _ in driver.isDragging = false }
             )
+        }
+        .onDisappear {
+            driver.subscription?.cancel()
+            driver.subscription = nil
         }
     }
 }

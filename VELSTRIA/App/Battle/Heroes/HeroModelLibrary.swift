@@ -260,6 +260,7 @@ final class HeroModel: HeroModelHandle {
                                                materials: [HeroMaterialLibrary.glowSprite(palette.glow)]))
         castGlow.components.set(BillboardComponent())
         castGlow.position = ms.weaponTip
+        castGlow.scale = V3(repeating: 0.001)
         castGlow.isEnabled = false
         weapon.addChild(castGlow)
 
@@ -374,8 +375,11 @@ final class HeroModel: HeroModelHandle {
         upperArmL.orientation = ry(-p.armL.yaw) * rx(p.armL.pitch) * rz(-p.armL.out)
         foreArmR.orientation = rx(p.armR.elbow)
         foreArmL.orientation = rx(p.armL.elbow)
-        weapon.orientation = weaponFollowsArm ? qIdentity : rx(p.weaponR - p.armR.pitch - p.armR.elbow)
-        offhand.orientation = offhandFollowsArm ? qIdentity : rx(p.weaponL - p.armL.pitch - p.armL.elbow)
+        // 武器角は胴基準の絶対角: 腕の前後・開き・肘の回転を打ち消してから θ だけ傾ける
+        weapon.orientation = weaponFollowsArm ? qIdentity
+            : rx(-p.armR.elbow) * rz(-p.armR.out) * rx(p.weaponR - p.armR.pitch)
+        offhand.orientation = offhandFollowsArm ? qIdentity
+            : rx(-p.armL.elbow) * rz(p.armL.out) * rx(p.weaponL - p.armL.pitch)
         thighR.orientation = rx(p.legR.pitch) * rz(p.legR.out)
         thighL.orientation = rx(p.legL.pitch) * rz(-p.legL.out)
         shinR.orientation = rx(-p.legR.knee)

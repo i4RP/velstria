@@ -43,10 +43,11 @@ struct HSB: Equatable {
 }
 
 enum MetalKind: Equatable {
-    case silver, gold, bronze, iron, obsidian, stone, bone, brass
+    case silver, gold, bronze, iron, obsidian, stone, bone, brass, platinum
 
     var color: HSB {
         switch self {
+        case .platinum: return HSB(0.58, 0.05, 0.99)
         case .silver: return HSB(0.60, 0.07, 0.90)
         case .gold: return HSB(0.12, 0.62, 0.98)
         case .bronze: return HSB(0.07, 0.62, 0.78)
@@ -62,6 +63,7 @@ enum MetalKind: Equatable {
     var surface: (Float, Float) {
         switch self {
         case .silver, .gold, .brass: return (0.30, 0.85)
+        case .platinum: return (0.22, 0.75)
         case .bronze: return (0.38, 0.8)
         case .iron: return (0.42, 0.75)
         case .obsidian: return (0.22, 0.6)
@@ -73,7 +75,7 @@ enum MetalKind: Equatable {
     var swapped: MetalKind {
         switch self {
         case .gold, .brass, .bronze: return .silver
-        case .silver, .iron: return .gold
+        case .silver, .iron, .platinum: return .gold
         default: return self
         }
     }
@@ -200,14 +202,14 @@ enum HeroPalettes {
             p.metal = p.metalKind.color
             p.hair = p.hair.hueShifted(0.33)
         case 2:
-            // 夜影: 深い暗色 + 金の縁取り
+            // 夜影: 黒曜の鎧 + 金のアクセント
             p.primary = HSB(h, 0.50, 0.34)
             p.secondary = HSB(h, 0.45, 0.16)
             p.dark = HSB(h, 0.2, 0.09)
             p.cloth = HSB(h, 0.25, 0.55)
-            p.metalKind = .gold
-            p.metal = MetalKind.gold.color
-            p.accent = p.accent.with(s: min(1, p.accent.s + 0.2), b: 1)
+            p.metalKind = .obsidian
+            p.metal = HSB(h, 0.25, 0.4)
+            p.accent = HSB(0.12, 0.72, 1.0)
             p.glow = p.glow.with(s: min(1, p.glow.s + 0.2), b: 1)
             p.hair = HSB(p.hair.h, 0.25, 0.25)
         case 3:
@@ -216,8 +218,8 @@ enum HeroPalettes {
             p.secondary = HSB(h + 0.08, 0.40, 0.82)
             p.dark = HSB(h, 0.22, 0.46)
             p.cloth = HSB(0.13, 0.25, 1.0)
-            p.metalKind = .gold
-            p.metal = MetalKind.gold.color
+            p.metalKind = .platinum
+            p.metal = MetalKind.platinum.color
             p.accent = HSB(0.12, 0.6, 1.0)
             p.glow = HSB(0.52, 0.55, 1.0)
             p.hair = HSB(0.13, 0.18, 1.0)
@@ -232,7 +234,7 @@ enum HeroPalettes {
         p.veil = HSB(p.accent.h, 0.22, 1.0)
         if skin.isEpic {
             p.glowIntensity = 3.2
-            p.trimGlow = 0.55
+            p.trimGlow = 0.32
             p.aura = true
         }
         return p

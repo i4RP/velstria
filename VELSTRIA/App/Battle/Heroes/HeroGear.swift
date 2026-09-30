@@ -57,8 +57,8 @@ struct HeroGearBuilder {
             }
             weaponTip = V3(0, 1.03, 0)
         case .lightningSpear:
-            b.rod(V3(0, -0.5, 0), V3(0, 0.95, 0), 0.027, .metal)
-            b.cone(V3(0, -0.5, 0), V3(0, -0.64, 0), 0.034, .metal)
+            b.rod(V3(0, -0.4, 0), V3(0, 0.95, 0), 0.027, .metal)
+            b.cone(V3(0, -0.4, 0), V3(0, -0.5, 0), 0.034, .metal)
             for y: Float in [-0.3, 0.3, 0.6] { b.torus(V3(0, y, 0), 0.034, 0.011, .glow) }
             let bolt: [V2] = [V2(-0.07, 0), V2(0.08, 0), V2(0.025, 0.15), V2(0.12, 0.15), V2(-0.025, 0.55), V2(0.0, 0.25), V2(-0.1, 0.25)]
             b.blade(bolt, depth: 0.04, V3(0, 0.95, 0), .metal)
@@ -174,19 +174,19 @@ struct HeroGearBuilder {
             weaponTip = V3(0, 1.04, 0)
         case .abyssCenser:
             b.torus(V3(0, 0, 0), 0.045, 0.013, .metal, rot: rz(.pi / 2))
-            for i in 0..<6 {
+            for i in 0..<5 {
                 let y = -0.05 - Float(i) * 0.05
                 b.torus(V3(0, y, 0), 0.026, 0.008, .metal, rot: i % 2 == 0 ? rz(.pi / 2) : rx(.pi / 2), segments: 10, sides: 5)
             }
             let body: [V2] = [V2(0, -0.11), V2(0.08, -0.09), V2(0.12, 0.0), V2(0.11, 0.06), V2(0.07, 0.1), V2(0.025, 0.15), V2(0, 0.16)]
-            b.lathe(body, V3(0, -0.46, 0), .metal, segments: 14)
-            b.torus(V3(0, -0.46, 0), 0.118, 0.022, .glow, segments: 18)
+            b.lathe(body, V3(0, -0.4, 0), .metal, segments: 14)
+            b.torus(V3(0, -0.4, 0), 0.118, 0.022, .glow, segments: 18)
             for i in 0..<4 {
                 let a = Float(i) / 4 * 2 * .pi
-                b.cone(V3(cos(a) * 0.1, -0.44, sin(a) * 0.1), V3(cos(a) * 0.18, -0.42, sin(a) * 0.18), 0.025, .dark, segments: 6)
+                b.cone(V3(cos(a) * 0.1, -0.38, sin(a) * 0.1), V3(cos(a) * 0.18, -0.36, sin(a) * 0.18), 0.025, .dark, segments: 6)
             }
-            b.sphere(V3(0, -0.58, 0), 0.04, .glow, .low)
-            weaponTip = V3(0, -0.46, 0)
+            b.sphere(V3(0, -0.52, 0), 0.04, .glow, .low)
+            weaponTip = V3(0, -0.4, 0)
         case .petalBlade:
             dagger(&b, petalShape(), bladeMat: .accent, glowEdge: false)
             b.rbox(V3(0, 0.3, 0), V3(0.036, 0.24, 0.012), 0.005, .glow)

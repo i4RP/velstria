@@ -108,6 +108,23 @@ final class HeroModelTests: XCTestCase {
         XCTAssertTrue(ma === mb)
     }
 
+    func testUpdateCostForTenHeroes() {
+        let ids = ["H001", "H004", "H007", "H011", "H013", "H016", "H019", "H021", "H022", "H024"]
+        let models = ids.map {
+            HeroModelLibrary.makeHero(heroID: $0, skinID: nil, team: .blue, master: master, options: .battle)
+        }
+        for (i, m) in models.enumerated() { m.setState(i % 3 == 0 ? .attack : .run) }
+        let frames = 600
+        let start = CFAbsoluteTimeGetCurrent()
+        for _ in 0..<frames {
+            for m in models { m.update(dt: 1.0 / 60.0, moveSpeed: 330) }
+        }
+        let perFrameMs = (CFAbsoluteTimeGetCurrent() - start) / Double(frames) * 1000
+        print("HeroModelTests: 10 体の更新 \(String(format: "%.3f", perFrameMs)) ms/フレーム")
+        // Debug ビルド・シミュレータでも 1 フレームの予算を大きく下回ること
+        XCTAssertLessThan(perFrameMs, 4)
+    }
+
     func testBlueprintsAreDistinct() {
         XCTAssertEqual(HeroBlueprints.roster.count, 24)
         var signatures = Set<String>()
