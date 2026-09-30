@@ -104,7 +104,7 @@ enum BotMacro {
             plan.point = camp.pos
             plan.members = members
         }
-        // 6. 集団で押し込み（mid 優先。目標の塔が残る間はレーンを変えない）
+        // 6. 集団で押し込み（敵の集団が居ないレーンを選び、今のレーンを少し優先。同条件なら mid）
         else if groupPhase {
             let lane = pushLane(s, ctx, w, intel, team: team, old: old, center: center,
                                 groupSize: min(profile.groupSize, aliveBots.count))

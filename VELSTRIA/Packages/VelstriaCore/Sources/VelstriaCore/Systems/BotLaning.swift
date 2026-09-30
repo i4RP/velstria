@@ -30,21 +30,21 @@ enum BotLaning {
         let team = a.team
         let map = ctx.map
         let i = a.i
+        // 前隙中の攻撃は中断しない（移動コマンドは攻撃を取り消してしまう）
+        if s.units[i].windupRemaining != nil, s.units[i].attackTargetID != nil { return }
+        if mode == .siege, siege(&s, ctx, w, &a, &mem, lane: lane) { return }
+
         let range = s.units[i].stats.attackRange
         let myIDs = w.heroes.filter { s.units[$0].team == team }.map { s.units[$0].id }
-
         // 敵の最前タワー（レーンの塔が全滅なら Core）
         let enemyTower = w.frontTower(team: team.opponent, lane: lane) ?? w.core(of: team.opponent)
         let tanked = enemyTower.map { w.isTowerTanked($0, by: team, heroIDs: myIDs) } ?? false
         let enemyHeroesNear = a.enemies.contains { $0.distance < 1100 } || a.ghosts.contains { $0.distance < 900 }
         let laneEmpty = isLaneEmpty(s, a, lane: lane, map: map)
+        let carry = a.position == .support ? carryPresent(s, ctx, w, a, lane: lane) : nil
+        let isSupport = carry != nil
 
-        // 前隙中の攻撃は中断しない（移動コマンドは攻撃を取り消してしまう）
-        if s.units[i].windupRemaining != nil, s.units[i].attackTargetID != nil { return }
-        if mode == .siege, siege(&s, ctx, w, &a, &mem, lane: lane) { return }
-
-        // 1. ラストヒット
-        let isSupport = a.position == .support && carryPresent(s, ctx, w, a, lane: lane) != nil
+        // 1. ラストヒット（キャリーが居る間のサポートは譲る）
         let lh = lastHit(&s, ctx, w, a, lane: lane, tower: enemyTower, tanked: tanked)
         if let t = lh.now, !isSupport || mode != .farm {
             BotAI.attack(s, &a, &mem, t)
@@ -52,8 +52,7 @@ enum BotLaning {
         }
 
         // 2. サポートはキャリーを殴っている敵ヒーローを追い払う
-        if isSupport, s.units[i].hpRatio > 0.5, let carry = carryPresent(s, ctx, w, a, lane: lane),
-           let peel = attackerOf(s, a, ally: carry),
+        if let carry, s.units[i].hpRatio > 0.5, let peel = attackerOf(s, a, ally: carry),
            w.enemyStructure(covering: peel.pos, team: a.team, margin: 60) == nil {
             BotCombat.castSkills(&s, ctx, &a, &mem, target: peel, fighting: true)
             BotAI.attack(s, &a, &mem, peel.index)
