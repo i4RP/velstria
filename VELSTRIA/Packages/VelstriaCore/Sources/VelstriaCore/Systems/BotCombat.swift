@@ -224,6 +224,8 @@ enum BotCombat {
             let gap = e.distance - range - s.units[e.index].radius
             if gap > 750 { continue }
             if CombatSystem.isInvulnerable(s, ctx, e.index) { continue }
+            // 敵の泉（確定ダメージ地帯）に居る相手は追わない
+            if e.pos.distance(to: ctx.map.fountain(a.team.opponent)) < Balance.fountainRadius + 250 { continue }
             let u = s.units[e.index]
             let killable = isKillable(s, ctx, a, e.index, world: w)
             // 逃げる相手に追いつけないなら追わない（射程内・倒せる相手を除く）

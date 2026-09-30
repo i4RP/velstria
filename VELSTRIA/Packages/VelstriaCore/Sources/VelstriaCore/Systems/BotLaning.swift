@@ -261,7 +261,8 @@ enum BotLaning {
     /// 有利なら殴る敵ヒーロー（自分も相手も敵タワーの外、周囲の敵ミニオンが少ない）。
     static func harassTarget(_ s: SimState, _ ctx: SimContext, _ w: BotWorld, _ a: BotAgent,
                              _ mem: BotHeroMemory, isSupport: Bool) -> BotSighting? {
-        guard let e = a.enemies.first else { return nil }
+        guard let e = a.enemies.first,
+              e.pos.distance(to: ctx.map.fountain(a.team.opponent)) > Balance.fountainRadius + 250 else { return nil }
         let i = a.i
         let interval = a.difficulty == .easy ? 6.0 : (a.difficulty == .normal ? 3.5 : 2.5)
         guard s.time - mem.lastHarassTime >= interval, s.units[i].attackCooldown <= 0.05 else { return nil }
