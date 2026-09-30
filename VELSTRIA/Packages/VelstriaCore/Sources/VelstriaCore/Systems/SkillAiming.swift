@@ -106,14 +106,14 @@ enum SkillAiming {
 
     // MARK: - 候補探索（添字昇順・同値は添字の小さい方 = 決定論的）
 
-    /// reach（+ 対象半径）以内で HP + シールドが最小の、視認中の敵ヒーロー。
+    /// reach（+ 対象半径）以内で HP + シールドが最小の、視認中の敵ヒーロー（無敵中を除く）。
     static func bestEnemyHero(_ s: SimState, caster i: Int, reach: Double) -> Int? {
         let team = s.units[i].team
         let pos = s.units[i].pos
         var best: Int?
         var bestKey = Double.infinity
         for j in s.units.indices where s.units[j].kind == .hero {
-            guard s.isTargetableEnemy(j, of: team) else { continue }
+            guard s.isTargetableEnemy(j, of: team), !s.units[j].has(.invulnerable) else { continue }
             let r = reach + s.units[j].radius
             guard s.units[j].pos.distanceSquared(to: pos) <= r * r else { continue }
             let key = max(0, s.units[j].hp) + s.units[j].totalShield

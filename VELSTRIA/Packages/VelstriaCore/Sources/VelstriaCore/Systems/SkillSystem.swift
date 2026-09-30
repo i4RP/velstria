@@ -218,7 +218,8 @@ struct SkillCastCheck {
 
 public enum SkillSystem {
     /// スキル発動。成功で true（CD・コスト消費、.skillCast 発行）。
-    /// 検証: 生存・行動可能（スタン/打ち上げ/沈黙/強制移動中は不可）・ランク > 0・CD 完了・リソース ≥ コスト。
+    /// 検証: 生存・行動可能（スタン/打ち上げ/沈黙/強制移動中は不可、ルート中は突進・跳躍不可）・ランク > 0・CD 完了・
+    /// リソース ≥ コスト。
     /// 照準: .none は射程内の最適な敵ヒーロー → 最寄りの敵 → 向きの順に自動照準。地点は射程内に丸める。
     public static func cast(_ s: inout SimState, _ ctx: SimContext, heroIndex i: Int, slot: SkillSlot,
                             target: SkillTarget) -> Bool {
@@ -272,6 +273,13 @@ public enum SkillSystem {
         guard free || h.cooldown(slot) <= CombatSystem.timeEpsilon else { return nil }
         let cost = free ? 0 : cost(for: skill, resource: h.resourceKind)
         guard s.units[i].resource + 1e-9 >= cost else { return nil }
+        // ルート中は突進・跳躍できない（ブリンクは可）
+        if s.units[i].has(.root) {
+            switch SkillCatalog.targeting(for: skill, hero: def).archetype {
+            case .dashStrike, .leapSlam: return nil
+            default: break
+            }
+        }
         return SkillCastCheck(def: def, skill: skill, slot: slot, rank: rank, cost: cost, free: free)
     }
 

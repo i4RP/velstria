@@ -348,6 +348,12 @@ final class SkillArchetypeTests: XCTestCase {
         w.s.units[a].statuses.removeAll()
         CombatSystem.addStatus(&w.s, targetIndex: a, StatusEffect(kind: .root, duration: 1))
         XCTAssertTrue(w.cast(a, .skill3))
+        XCTAssertFalse(SkillSystem.canCast(w.s, w.ctx, heroIndex: a, slot: .skill2), "ルート中は突進できない")
+        XCTAssertFalse(w.cast(a, .skill2, .direction(Vec2(1, 0))))
+        var r = SkillWorld()
+        let ranger = r.addHero("H003", team: .blue, at: skillArena)
+        CombatSystem.addStatus(&r.s, targetIndex: ranger, StatusEffect(kind: .root, duration: 1))
+        XCTAssertTrue(r.cast(ranger, .skill2, .direction(Vec2(1, 0))), "ブリンクはルート中も可")
         // 死亡中
         var d = SkillWorld()
         let dead = d.addHero("H001", team: .blue, at: skillArena)
