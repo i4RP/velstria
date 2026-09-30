@@ -34,9 +34,9 @@ extension Balance {
         /// この距離より泉が近ければ帰還せず歩く。
         public static let walkHomeDistance: Double = 2200
         /// 買い物のための帰還（所持 Gold と HP の条件）。
-        public static let shopRecallGold: Double = 1000
+        public static let shopRecallGold: Double = 1250
         public static let shopRecallGoldAlways: Double = 1900
-        public static let shopRecallMaxHP: Double = 0.85
+        public static let shopRecallMaxHP: Double = 0.7
 
         // MARK: レーン
         /// 敵タワーの射程（+ 半径）に対する安全余白。
@@ -122,7 +122,7 @@ struct BotProfile {
                               divesForKill: false, groupSize: 4, farmSkillResource: 2, groupStart: 11 * 60)
         case .normal:
             return BotProfile(reaction: 0.35, accuracy: 0.75, skillChance: 0.7, engageRatio: 1.15, lastHitSkill: 0.8,
-                              divesForKill: false, groupSize: 4, farmSkillResource: 0.7, groupStart: Balance.Bot.groupStart)
+                              divesForKill: false, groupSize: 4, farmSkillResource: 0.7, groupStart: 9.5 * 60)
         case .hard:
             return BotProfile(reaction: 0.15, accuracy: 0.92, skillChance: 1.0, engageRatio: 1.1, lastHitSkill: 1.0,
                               divesForKill: true, groupSize: 5, farmSkillResource: 0.5, groupStart: 9 * 60)

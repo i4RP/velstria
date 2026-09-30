@@ -51,7 +51,16 @@ enum BotLaning {
             return
         }
 
-        // 2. ハラス（有利な小競り合い）
+        // 2. サポートはキャリーを殴っている敵ヒーローを追い払う
+        if isSupport, s.units[i].hpRatio > 0.5, let carry = carryPresent(s, ctx, w, a, lane: lane),
+           let peel = attackerOf(s, a, ally: carry),
+           w.enemyStructure(covering: peel.pos, team: a.team, margin: 60) == nil {
+            BotCombat.castSkills(&s, ctx, &a, &mem, target: peel, fighting: true)
+            BotAI.attack(s, &a, &mem, peel.index)
+            return
+        }
+
+        // 3. ハラス（有利な小競り合い）
         if mode != .siege, let target = harassTarget(s, ctx, w, a, mem, isSupport: isSupport) {
             mem.lastHarassTime = s.time
             BotCombat.castSkills(&s, ctx, &a, &mem, target: target, fighting: false)
@@ -59,7 +68,7 @@ enum BotLaning {
             return
         }
 
-        // 3. 押し込み（構造物 → ミニオン）
+        // 4. 押し込み（構造物 → ミニオン）
         let pushing = mode != .farm || laneEmpty || (isSupport == false && !enemyHeroesNear && s.time >= 5 * 60)
         if pushing && !lh.soon {
             if let st = enemyTower, !st.invulnerable, canHitStructure(s, w, a, st, tanked: tanked, mode: mode,
@@ -83,7 +92,7 @@ enum BotLaning {
             }
         }
 
-        // 4. 待機位置へ
+        // 5. 待機位置へ
         let hold = holdPoint(s, ctx, w, a, lane: lane, mode: mode, tower: enemyTower, tanked: tanked)
         BotAI.move(s, ctx, &a, &mem, to: hold)
     }
@@ -229,6 +238,13 @@ enum BotLaning {
             return h
         }
         return nil
+    }
+
+    /// 味方 ally を直近に殴った、視認中の敵ヒーロー（自分の射程付近に居るもの）。
+    static func attackerOf(_ s: SimState, _ a: BotAgent, ally: Int) -> BotSighting? {
+        guard s.time - s.units[ally].lastDamagedTime < 1.5, let id = s.units[ally].lastAttackerID else { return nil }
+        let reach = s.units[a.i].stats.attackRange + s.units[a.i].radius + Balance.heroRadius + 40
+        return a.enemies.first { $0.id == id && $0.distance <= reach }
     }
 
     /// 自分のレーン付近に敵ヒーローがしばらく見えていないか。

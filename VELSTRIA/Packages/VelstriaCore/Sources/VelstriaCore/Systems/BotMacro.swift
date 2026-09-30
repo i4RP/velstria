@@ -54,6 +54,14 @@ enum BotMacro {
         else if let keep = continueObjective(s, ctx, intel, old: old, team: team) {
             plan = keep
         }
+        // 2b. 終盤の古環の巨像: 押し切りの前に取る（強化ミニオンと 2 秒帰還で守りを崩す）
+        else if t >= Balance.Bot.lateSiege, t >= retryAt, let camp = bossCamp(ctx, .ancientColossus), campAlive(s, camp),
+                ourAlive >= enemyAlive, aliveBots.count >= 3, blessed(s, aliveBots, .colossusBlessing) == 0,
+                enemiesSeenNear(s, intel, camp.pos, radius: 2500, within: 5) == 0 {
+            plan.kind = .colossus
+            plan.point = camp.pos
+            plan.members = aliveBots.map { s.units[$0].id }
+        }
         // 3. 押し切り: 人数有利（敵が死亡・帰還で戦線に居ない）・巨像の加護・Core が露出・終盤
         else if ourAlive >= 3 || ourAlive > enemyAlive,
                 enemyAway >= 3 || (enemyAway >= 2 && groupPhase)
