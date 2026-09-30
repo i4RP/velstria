@@ -135,8 +135,10 @@ private struct HeroShowcasePanel: View {
         let damageType = app.master.skill(hero: hero.heroID, slot: .skill1)?.damageType ?? .physical
         return ScrollView {
             VStack(spacing: 7) {
-                HeroAuraPortrait(heroID: hero.heroID, size: portrait, color: Theme.roleColor(hero.role))
-                    .padding(.vertical, -portrait * 0.08)
+                // 装備中のスキンで表示する 3D プレビュー（横ドラッグで回転）。高さは従来の 2D 肖像と同じ枠。
+                HeroPreview3DView(heroID: hero.heroID, skinID: app.profile.equippedSkins[hero.heroID])
+                    .frame(maxWidth: .infinity)
+                    .frame(height: portrait * 1.54)
                 Text(MasterText.hero(hero))
                     .font(Theme.heading(17))
                     .foregroundStyle(Theme.textPrimary)

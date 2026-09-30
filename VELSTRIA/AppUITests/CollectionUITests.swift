@@ -55,6 +55,32 @@ final class CollectionUITests: XCTestCase {
         snapshot(app, "skill_detail_ult")
     }
 
+    /// 3D プレビューの見た目が一定時間で変わる（自動回転・待機モーションが動いている）か。
+    private func previewIsAnimating(_ preview: XCUIElement) -> Bool {
+        let first = preview.screenshot().pngRepresentation
+        Thread.sleep(forTimeInterval: 1.5)
+        let second = preview.screenshot().pngRepresentation
+        return first != second
+    }
+
+    func testHeroPreviewKeepsAnimatingAfterPushAndPop() {
+        let app = launch(route: "heroDetail:H001")
+        let preview = element(app, "hero_preview_3d")
+        XCTAssertTrue(preview.waitForExistence(timeout: 10))
+        Thread.sleep(forTimeInterval: 1.0)
+        XCTAssertTrue(previewIsAnimating(preview), "詳細を開いた直後に 3D プレビューが動いていない")
+        element(app, "herodetail_tab_skills").tap()
+        let skill = element(app, "skill_SK001_2")
+        XCTAssertTrue(skill.waitForExistence(timeout: 5))
+        skill.tap()
+        XCTAssertTrue(element(app, "skilldetail_switch_SK001_1").waitForExistence(timeout: 5))
+        element(app, "nav_back").tap()
+        XCTAssertTrue(preview.waitForExistence(timeout: 5))
+        Thread.sleep(forTimeInterval: 1.0)
+        snapshot(app, "hero_detail_preview_after_pop")
+        XCTAssertTrue(previewIsAnimating(preview), "スキル詳細から戻った後に 3D プレビューが止まっている")
+    }
+
     func testLockedHeroUnlockFlowShowsConfirmation() {
         // -grant なしは Coin 0 → 確認シートで残高不足を表示
         let app = launch(route: "heroDetail:H007", grant: false)
