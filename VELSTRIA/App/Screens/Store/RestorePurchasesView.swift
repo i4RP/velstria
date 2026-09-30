@@ -72,7 +72,8 @@ struct RestorePurchasesView: View {
                     .font(Theme.body(12))
                     .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
-                Text(L("使用済みの AstralGem（消耗型）は復元の対象外です。", "Spent AstralGem (consumable) cannot be restored."))
+                Text(L("AstralGem（消耗型）の残高は「購入の復元」では戻りません。機種変更の際は「アカウント・データ」のバックアップで引き継いでください。",
+                       "AstralGem balances (consumable) are not restored by Restore Purchases. When changing devices, carry them over with the backup in Account & Data."))
                     .font(Theme.body(11))
                     .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
