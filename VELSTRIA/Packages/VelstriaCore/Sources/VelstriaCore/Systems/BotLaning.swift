@@ -274,7 +274,11 @@ enum BotLaning {
         // 射程差で一方的に殴れる（遠隔 → 近接で相手の射程外）
         let theirReach = s.units[e.index].stats.attackRange + s.units[i].radius + s.units[e.index].radius
         let freePoke = e.distance > theirReach + 60
-        let edge = a.difficulty == .easy ? 0.2 : Balance.Bot.harassHPEdge
+        var edge = a.difficulty == .easy ? 0.2 : Balance.Bot.harassHPEdge
+        // クールダウン: こちらのスキルが多く使える（相手は使ったばかり）なら仕掛けやすい
+        if a.skillsWork {
+            edge -= 0.06 * Double(readySkills(s, i) - readySkills(s, e.index))
+        }
         guard mine > 0.45, freePoke || mine - theirs >= edge || theirs < 0.45 else { return nil }
         let myLevel = s.units[i].hero?.level ?? 1
         let theirLevel = s.units[e.index].hero?.level ?? 1
@@ -287,6 +291,14 @@ enum BotLaning {
         let tolerance = isSupport ? 3 : 2
         guard minions <= tolerance || theirs < 0.3 else { return nil }
         return e
+    }
+
+    /// 使えるスキルの数（習得済み・クールダウン明け）。
+    static func readySkills(_ s: SimState, _ i: Int) -> Int {
+        guard let h = s.units[i].hero else { return 0 }
+        var n = 0
+        for slot in SkillSlot.actives where h.rank(slot) > 0 && h.cooldown(slot) <= 0 { n += 1 }
+        return n
     }
 
     // MARK: - ラストヒット
