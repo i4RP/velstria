@@ -208,7 +208,7 @@ struct StoreWalletPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            walletRow(symbol: "star.circle.fill", color: Theme.gold, label: "Coin", amount: app.profile.starlightCoin)
+            walletRow(symbol: "star.circle.fill", color: Theme.gold, label: L("コイン", "Coin"), amount: app.profile.starlightCoin)
             walletRow(symbol: "diamond.fill", color: Theme.cyan, label: L("無償 Gem", "Free Gem"), amount: app.profile.freeGem)
             walletRow(symbol: "diamond.fill", color: Color(red: 0.72, green: 0.52, blue: 1.0), label: L("有償 Gem", "Paid Gem"),
                       amount: app.profile.paidGem)

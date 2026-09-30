@@ -48,6 +48,7 @@ step() { printf '\n==> %s\n' "$*"; }
 # 1) 提出前チェック（失敗したらアーカイブしない）
 step "提出前チェック"
 python3 tools/gen_master_en.py --check
+python3 tools/gen_master_ja.py --check
 python3 tools/privacy_audit.py
 if [[ "${STRICT:-0}" == "1" ]]; then
     python3 tools/validate_appstore_metadata.py --release

@@ -142,7 +142,7 @@ struct PurchaseConfirmSheet: View {
                     .frame(minHeight: 44)
                     .accessibilityIdentifier("purchase_get_currency")
                 } else {
-                    Text(L("Coin はバトル報酬で獲得できます", "Earn Coin by playing matches"))
+                    Text(L("コインはバトル報酬で獲得できます", "Earn Coin by playing matches"))
                         .font(Theme.body(11))
                         .foregroundStyle(Theme.textSecondary)
                 }

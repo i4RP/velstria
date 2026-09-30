@@ -103,6 +103,33 @@ final class AppStoreAssetsTests: XCTestCase {
         Loc.current = .ja
         XCTAssertEqual(MasterText.hero(alden), alden.displayNameJa)
         XCTAssertEqual(MasterText.item(dagger), dagger.nameJa)
+        XCTAssertEqual(MasterText.cosmetic(lyraRecall), "星弦の帰還 I")
+    }
+
+    // MARK: 日本語オーバーレイ（マスターの開発用仮名の置き換え）
+
+    /// 日本語表示のコスメ・ストア商品・スキル名に開発用の仮名（「〜 HeroSkin 1」「Alden式・一閃」「星環シフト2」）が残らない。
+    func testJapaneseNamesHaveNoPlaceholderTokens() throws {
+        XCTAssertNotNil(Bundle.main.url(forResource: "master_ja", withExtension: "json"),
+                        "master_ja.json がアプリバンドルに含まれていません（python3 tools/gen_master_ja.py）")
+        let saved = Loc.current
+        defer { Loc.current = saved }
+        Loc.current = .ja
+        let m = MasterData.shared
+        // ローマ数字の連番（I/II/III）以外のラテン文字、末尾の数字は仮名の残り
+        let latin = try NSRegularExpression(pattern: "[A-Za-z]{2,}")
+        func offending(_ name: String) -> Bool {
+            let stripped = name.replacingOccurrences(of: " [IVX]+$", with: "", options: .regularExpression)
+            return latin.firstMatch(in: stripped, range: NSRange(stripped.startIndex..., in: stripped)) != nil
+                || stripped.last?.isNumber == true
+        }
+        let cosmetics = m.cosmetics.map { MasterText.cosmetic($0) }
+        XCTAssertEqual(cosmetics.filter(offending), [])
+        XCTAssertEqual(Set(cosmetics).count, cosmetics.count, "コスメ名が重複しています")
+        XCTAssertEqual(m.store.filter { $0.type == .cosmetic }.map { MasterText.storeItem($0) }.filter(offending), [])
+        XCTAssertEqual(m.skills.map { MasterText.skill($0) }.filter(offending), [])
+        let aldenSkill1 = try XCTUnwrap(m.skill(hero: "H001", slot: .skill1))
+        XCTAssertEqual(MasterText.skill(aldenSkill1), "アルデン式・一閃")
     }
 
     // MARK: プライバシーマニフェスト

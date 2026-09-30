@@ -190,7 +190,7 @@ struct TutorialDirector: Equatable, Sendable {
 
     /// 報酬・次の目標の案内（完了時）。
     var rewardNote: String {
-        L("通常戦で勝利すると毎日の初勝利ボーナス +\(RewardService.firstWinBonusCoins) Coin を獲得できます。",
+        L("通常戦で勝利すると毎日の初勝利ボーナス +\(RewardService.firstWinBonusCoins) コインを獲得できます。",
           "Win a standard match to earn the daily first-win bonus of +\(RewardService.firstWinBonusCoins) Coins.")
     }
 

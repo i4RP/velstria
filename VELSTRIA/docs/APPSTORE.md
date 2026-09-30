@@ -20,6 +20,7 @@ App Store Connect（ASC）への v1.0 提出に必要なもの一式と手順。
 | 法務文書（Web 公開用） | `docs/legal/`（プライバシーポリシー・利用規約 日英、特定商取引法に基づく表記、資金決済法に基づく表示） |
 | アイコン・起動ロゴ生成 | `tools/make_icon.swift` |
 | 英語オーバーレイ生成・検証 | `tools/gen_master_en.py` → `App/Resources/master_en.json` |
+| 日本語表示名オーバーレイ（マスターの仮名の置き換え） | `tools/gen_master_ja.py` → `App/Resources/master_ja.json` |
 | プライバシーマニフェスト | `App/Resources/PrivacyInfo.xcprivacy`、検査 `tools/privacy_audit.py` |
 | メタデータ検証 | `tools/validate_appstore_metadata.py` |
 | アーカイブ・書き出し | `tools/archive.sh`、`ExportOptions-AppStore.plist` |
@@ -104,11 +105,13 @@ App Store Connect（ASC）への v1.0 提出に必要なもの一式と手順。
 
 ```sh
 cd VELSTRIA
-# 1) 生成物を最新化（アイコン・英語オーバーレイ）
+# 1) 生成物を最新化（アイコン・英語オーバーレイ・日本語表示名オーバーレイ）
 swift tools/make_icon.swift
 python3 tools/gen_master_en.py
+python3 tools/gen_master_ja.py
 # 2) 検証（アーカイブ時にも自動実行される）
 python3 tools/gen_master_en.py --check
+python3 tools/gen_master_ja.py --check
 python3 tools/privacy_audit.py
 python3 tools/validate_appstore_metadata.py --release
 # 3) アーカイブと .ipa 書き出し（アップロードはしない）

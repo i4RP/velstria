@@ -25,18 +25,23 @@ func L(_ ja: String, _ en: String) -> String {
     Loc.isEnglish ? en : ja
 }
 
-/// マスターデータの表示名（英語は MasterText オーバーレイ、無ければ日本語）。
+/// マスターデータの表示名（英語は master_en.json、日本語は master_ja.json のオーバーレイ。無ければマスターの日本語）。
 enum MasterText {
-    private static let overlay: [String: String] = {
-        guard let url = Bundle.main.url(forResource: "master_en", withExtension: "json"),
+    private static func loadOverlay(_ name: String) -> [String: String] {
+        guard let url = Bundle.main.url(forResource: name, withExtension: "json"),
               let data = try? Data(contentsOf: url),
               let dict = try? JSONDecoder().decode([String: String].self, from: data) else { return [:] }
         return dict
-    }()
+    }
+
+    private static let overlay: [String: String] = loadOverlay("master_en")
+    /// マスターの name_ja に残る開発用の仮名（「〜 HeroSkin 1」「Alden式・一閃」「星環シフト2」）の置き換え
+    /// （tools/gen_master_ja.py で生成）。
+    static let jaOverlay: [String: String] = loadOverlay("master_ja")
 
     /// ID（hero_id / skill_id / item_id / spell_id / rune_id / cosmetic_id / sku）→ 表示名。
     static func name(id: String, ja: String) -> String {
-        guard Loc.isEnglish else { return ja }
+        guard Loc.isEnglish else { return jaOverlay[id] ?? ja }
         return overlay[id] ?? ja
     }
 
