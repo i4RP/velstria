@@ -42,7 +42,7 @@ enum BotCombat {
         let threatRange = s.units[nearest.index].stats.attackRange + 450
         let threatened = nearest.distance < threatRange || s.time - s.units[i].lastDamagedTime < 1.5
         let target = pickTarget(s, ctx, w, a, mem)
-        let killable = target.map { isKillable(s, ctx, a, $0.index) } ?? false
+        let killable = target.map { isKillable(s, ctx, a, $0.index, world: w) } ?? false
         let reach = s.units[i].stats.attackRange + s.units[i].radius + Balance.heroRadius
 
         // 1. HP 不足 + 不利（DESIGN §10）: 撤退。勝っている戦い（戦力比 1.15 以上）は 15% までは続ける。
@@ -225,7 +225,7 @@ enum BotCombat {
             if gap > 750 { continue }
             if CombatSystem.isInvulnerable(s, ctx, e.index) { continue }
             let u = s.units[e.index]
-            let killable = isKillable(s, ctx, a, e.index)
+            let killable = isKillable(s, ctx, a, e.index, world: w)
             // 逃げる相手に追いつけないなら追わない（射程内・倒せる相手を除く）
             if gap > 60 && !killable {
                 let away = (e.pos - a.pos).normalized
@@ -256,18 +256,34 @@ enum BotCombat {
         return best
     }
 
-    /// 数秒の集中攻撃で倒せるか。
-    /// 自分と、対象の近くに居る味方の瞬間火力の合計で倒せるか（集中攻撃のキル圏）。
-    static func isKillable(_ s: SimState, _ ctx: SimContext, _ a: BotAgent, _ t: Int) -> Bool {
+    /// 自分と対象の近くに居る味方で倒せるか（集中攻撃のキル圏）。各自の瞬間火力に加え、遠隔は対象が
+    /// 自陣の構造物へ逃げ込むまでの時間も撃ち続けられるとみなす（逃げる相手を射程で追い撃つ）。
+    static func isKillable(_ s: SimState, _ ctx: SimContext, _ a: BotAgent, _ t: Int, world w: BotWorld? = nil) -> Bool {
         let hp = max(0, s.units[t].hp) + s.units[t].totalShield
-        var total = BotAI.burst(s, ctx, a.i, target: t, skills: a.skillsWork)
-        if total >= hp { return true }
         let tp = s.units[t].pos
+        // 対象が安全圏（自陣の構造物の射程）に着くまでの秒数（2〜6 秒）
+        var escape = 2.0
+        if let w {
+            var nearest = Double.infinity
+            for st in w.structures where st.team == s.units[t].team {
+                nearest = min(nearest, max(0, tp.distance(to: st.pos) - st.reach))
+            }
+            let speed = max(150, s.units[t].stats.moveSpeed)
+            escape = min(6, max(2, nearest / speed))
+        }
+        func chase(_ h: Int) -> Double {
+            guard s.units[h].hero?.isRanged == true else { return 0 }
+            // 追いながら撃つので効率は半分程度
+            return CombatSystem.estimateBasicAttackDamage(s, ctx, attacker: h, target: t) * s.units[h].stats.attackSpeed
+                * escape * 0.5
+        }
+        var total = BotAI.burst(s, ctx, a.i, target: t, skills: a.skillsWork) + chase(a.i)
+        if total >= hp { return true }
         for al in a.allies {
             let r = s.units[al].stats.attackRange + s.units[al].radius + s.units[t].radius + 250
             guard s.units[al].pos.distanceSquared(to: tp) <= r * r else { continue }
             // 味方のスキルは実際に使えているか分からないため通常攻撃のみで見積もる
-            total += BotAI.burst(s, ctx, al, target: t, skills: false)
+            total += BotAI.burst(s, ctx, al, target: t, skills: false) + chase(al)
             if total >= hp { return true }
         }
         return false

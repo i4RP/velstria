@@ -119,7 +119,7 @@ struct BotProfile {
         switch d {
         case .easy:
             return BotProfile(reaction: 0.6, accuracy: 0.55, skillChance: 0.35, engageRatio: 1.0, lastHitSkill: 0.4,
-                              divesForKill: false, groupSize: 3, farmSkillResource: 2, groupStart: 12 * 60)
+                              divesForKill: false, groupSize: 4, farmSkillResource: 2, groupStart: 11 * 60)
         case .normal:
             return BotProfile(reaction: 0.35, accuracy: 0.75, skillChance: 0.7, engageRatio: 1.15, lastHitSkill: 0.8,
                               divesForKill: false, groupSize: 4, farmSkillResource: 0.7, groupStart: Balance.Bot.groupStart)
