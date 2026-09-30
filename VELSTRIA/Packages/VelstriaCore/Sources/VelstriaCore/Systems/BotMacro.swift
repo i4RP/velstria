@@ -436,10 +436,15 @@ enum BotMacro {
             return false
         }
         var want = mem.recall != .none
-        if mem.goal == .retreat {
-            if hpRatio >= 0.6 && a.enemies.isEmpty {
-                // 劣勢で下がっただけで体力は十分: 役割へ戻る
-                BotAI.setGoal(&mem, mem.position == .jungle ? .jungling : .laning, s.time)
+        if mem.goal == .retreat && !want {
+            if hpRatio >= 0.45 {
+                // 劣勢で下がっただけで体力は残っている: 敵が居なくなるまで安全な位置で待ち、役割へ戻る
+                if a.enemies.isEmpty {
+                    BotAI.setGoal(&mem, mem.position == .jungle ? .jungling : .laning, s.time)
+                } else {
+                    BotAI.move(s, ctx, &a, &mem, to: BotCombat.safePoint(s, ctx, w, a))
+                    return true
+                }
             } else {
                 want = true
             }
@@ -452,8 +457,8 @@ enum BotMacro {
             || a.ghosts.contains { $0.distance < 900 }
         let home = a.pos.distance(to: fountain)
         if home < Balance.Bot.walkHomeDistance || danger || s.time - s.units[i].lastDamagedTime < 1.2 {
-            // 近い・追われている・被弾中: 歩いて戻る（安全になれば次の判断で詠唱）
-            mem.recall = home < Balance.Bot.walkHomeDistance ? .walking : .none
+            // 近い・追われている・被弾中: 歩いて戻る（安全になれば次の判断で詠唱）。帰ると決めたら泉に着くまで続ける
+            mem.recall = .walking
             if danger { BotCombat.useDefensiveSpells(&s, ctx, w, &a, &mem, fighting: false) }
             BotAI.move(s, ctx, &a, &mem, to: danger ? BotCombat.safePoint(s, ctx, w, a) : fountain)
             return true

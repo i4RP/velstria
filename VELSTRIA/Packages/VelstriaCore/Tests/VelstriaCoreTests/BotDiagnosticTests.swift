@@ -85,6 +85,8 @@ final class BotDiagnosticTests: XCTestCase {
         var noKillTeams = 0
         var timeouts = 0
         var lowLevel = 0
+        var posLevels = [Double](repeating: 0, count: 5)
+        var posCounts = [Double](repeating: 0, count: 5)
         for k in 0..<n {
             let seed = base + UInt64(k)
             let cfg = env["BOT_HUMAN"] != nil
@@ -97,7 +99,14 @@ final class BotDiagnosticTests: XCTestCase {
             if r.kills[0] == 0 || r.kills[1] == 0 { noKillTeams += 1 }
             if r.avgLevelAt12 < 9 { lowLevel += 1 }
             lines.append(r.tableRow)
+            for h in r.heroes where h.isBot {
+                posLevels[h.position.rawValue] += Double(h.levelAt12)
+                posCounts[h.position.rawValue] += 1
+            }
         }
+        print("level@12 by position: " + LanePosition.allCases.map {
+            String(format: "%@ %.1f", "\($0)", posLevels[$0.rawValue] / max(1, posCounts[$0.rawValue]))
+        }.joined(separator: ", "))
         print(BotMatchReport.tableHeader())
         for l in lines { print(l) }
         let sorted = durations.sorted()
