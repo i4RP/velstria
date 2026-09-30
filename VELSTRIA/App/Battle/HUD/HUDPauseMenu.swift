@@ -143,7 +143,7 @@ struct HUDPauseMenu: View {
             Text(L("試合から退出しますか？", "Leave the match?"))
                 .font(Theme.heading(18))
                 .foregroundStyle(.white)
-            Text(countsAsLoss ? L("途中で退出すると敗北として記録されます。", "Leaving now counts as a loss.")
+            Text(countsAsLoss ? L("途中で退出すると敗北として記録され、報酬は獲得できません。", "Leaving now counts as a loss and grants no rewards.")
                               : L("進行状況は保存されません。", "Your progress in this session won't be kept."))
                 .font(.system(size: 13, weight: .medium, design: .rounded))
                 .foregroundStyle(.white.opacity(0.8))

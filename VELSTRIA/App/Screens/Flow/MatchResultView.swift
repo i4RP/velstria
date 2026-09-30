@@ -27,6 +27,8 @@ struct MatchResultView: View {
     private var bannerKind: ResultBanner.Kind {
         if outcome.launch.replay != nil { return .replay }
         if outcome.launch.config.mode == .spectate { return .spectate }
+        // 通常戦・ランク戦の途中退出は敗北として記録している
+        if report.abandonedLoss { return .defeat }
         switch summary.humanWon {
         case true?: return .victory
         case false?: return .defeat
@@ -495,7 +497,17 @@ private struct RewardsTab: View {
     @State private var started = false
 
     var body: some View {
-        if report.noRewards {
+        if report.abandonedLoss {
+            VStack(alignment: .leading, spacing: 10) {
+                FlowEmptyState(symbol: "flag.slash", title: L("途中退出のため報酬はありません", "No rewards for leaving early"),
+                               message: L("試合を途中で退出したため、敗北として記録されました。", "You left the match, so it was recorded as a loss."))
+                    .frame(minHeight: 150)
+                if let before = report.rankBefore, let after = report.rankAfter {
+                    rankSection(before: before, after: after)
+                }
+            }
+            .onAppear { shownRank = report.rankAfter }
+        } else if report.noRewards {
             FlowEmptyState(symbol: "gift", title: L("この試合は報酬の対象外です", "No rewards for this match"),
                            message: L("練習場・チュートリアル・観戦・リプレイでは報酬を獲得できません。", "Practice, tutorial, spectating and replays don't grant rewards."))
                 .frame(minHeight: 180)
