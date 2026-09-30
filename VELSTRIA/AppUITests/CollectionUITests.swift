@@ -193,15 +193,15 @@ final class CollectionUITests: XCTestCase {
         // 装備したエモート（CO004）は枠 1 に入り、一覧に表示される
         let slot0 = element(app, "emote_slot_0")
         XCTAssertTrue(slot0.waitForExistence(timeout: 5))
-        XCTAssertTrue(slot0.label.contains("Emote 1"), slot0.label)
+        XCTAssertTrue(slot0.label.contains("潮祈のエモート I"), slot0.label)
         XCTAssertTrue(element(app, "emote_CO004").exists)
         XCTAssertTrue(element(app, "emote_clear").exists)
         snapshot(app, "emote_loadout_equipped")
         element(app, "emote_clear").tap()
         XCTAssertFalse(element(app, "emote_clear").waitForExistence(timeout: 1))
-        XCTAssertFalse(element(app, "emote_slot_0").label.contains("Emote 1"))
+        XCTAssertFalse(element(app, "emote_slot_0").label.contains("潮祈のエモート I"))
         element(app, "emote_CO004").tap()
-        XCTAssertTrue(element(app, "emote_slot_0").label.contains("Emote 1"))
+        XCTAssertTrue(element(app, "emote_slot_0").label.contains("潮祈のエモート I"))
         snapshot(app, "emote_loadout_reassigned")
     }
 

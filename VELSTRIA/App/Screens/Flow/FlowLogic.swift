@@ -375,6 +375,15 @@ enum BackupRestore {
             p.monthlySpendJPY[month] = max(p.monthlySpendJPY[month] ?? 0, current.monthlySpendJPY[month] ?? 0)
         }
 
+        // 課金で得たものは課金台帳で裏付けられる分だけ引き継ぐ（バックアップは編集できる JSON のため、
+        // "paidGem" や "hasPremium" の書き換えだけで有償 Gem・プレミアムが増えないようにする）。
+        // 有償 Gem は StoreKit の付与でのみ増えるので、正規のデータでは常に「取り消されていない付与の合計」以下になる。
+        // プレミアムは台帳に無くても、同じ Apple Account なら起動時の権利確認（currentEntitlements）で戻る。
+        p.paidGem = min(max(0, imported.paidGem), paidGemsSupported(by: p.purchaseLedger))
+        p.pass.hasPremium = p.purchaseLedger.contains {
+            $0.productID == StoreKitService.premiumPassProductID && !$0.revoked
+        }
+
         // 同意済みの規約・完了済みのオンボーディングは戻さない。初回準備は端末ごとの処理なので現在の値
         p.acceptedTermsVersion = max(imported.acceptedTermsVersion, current.acceptedTermsVersion)
         p.onboardingCompleted = imported.onboardingCompleted || current.onboardingCompleted
@@ -384,6 +393,19 @@ enum BackupRestore {
             p.displayName = current.displayName
         }
         return p
+    }
+
+    /// 台帳が裏付ける有償 Gem の上限（取り消されていない Gem 商品の付与数の合計）。
+    /// 1 件あたりは商品の付与数 ×（StoreKit の最大購入数量 10）までしか認めない。
+    static func paidGemsSupported(by ledger: [PurchaseRecord]) -> Int {
+        var seen = Set<UInt64>()
+        var total = 0
+        for record in ledger where !record.revoked && seen.insert(record.transactionID).inserted {
+            guard let product = StoreKitService.gemProduct(record.productID) else { continue }
+            let perUnit = product.gems + product.bonusGems
+            total += min(max(0, record.gemsGranted), perUnit * 10)
+        }
+        return total
     }
 }
 

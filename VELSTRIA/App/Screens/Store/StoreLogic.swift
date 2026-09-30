@@ -352,11 +352,15 @@ enum StoreLegalText {
     }
 
     // 事業者情報は docs/legal（payment_services_act_ja.md・tokushoho_ja.md）と同じプレースホルダで持ち、
-    // App Store 公開前にリポジトリ全体の {{…}} を確定値へ置き換える。表示内容も docs/legal と一致させる。
+    // App Store 公開前にリポジトリ全体の {{…}} を確定値へ置き換える（docs/APPSTORE.md §2 の表）。表示内容も docs/legal と一致させる。
+    // 未記入のまま出荷しないよう、tools/validate_appstore_metadata.py --release（STRICT=1 tools/archive.sh）が
+    // App/ のソースに残った {{…}} をエラーにする。
     static let issuerName = "{{PUBLISHER_NAME}}"
     static let issuerAddress = "{{POSTAL_ADDRESS}}"
     static let responsiblePerson = "{{REPRESENTATIVE_NAME}}"
     static let phoneNumber = "{{PHONE_NUMBER}}"
+    /// 電話の受付時間（docs/legal/tokushoho_ja.md の電話番号欄と一致させる）。
+    static var phoneHours: String { L("平日 10:00〜17:00", "weekdays 10:00–17:00 JST") }
 
     /// 年齢区分別の月間購入上限の説明（AgeBracket の値から生成し、DESIGN §12 と一致させる）。
     static var monthlyLimitSummary: String {
@@ -399,7 +403,8 @@ enum StoreLegalText {
             Row(label: L("運営統括責任者", "Responsible person"), value: responsiblePerson),
             Row(label: L("所在地", "Address"), value: issuerAddress),
             Row(label: L("電話番号", "Phone"),
-                value: L("\(phoneNumber)（お問い合わせはできるだけメールでお願いします）", "\(phoneNumber) (please contact us by email where possible)")),
+                value: L("\(phoneNumber)（受付時間: \(phoneHours)。お問い合わせはできるだけメールでお願いします）",
+                         "\(phoneNumber) (hours: \(phoneHours); please contact us by email where possible)")),
             Row(label: L("メールアドレス", "Email"), value: FeatureFlags.supportEmail),
             Row(label: L("販売価格", "Price"), value: L("各商品の購入画面に表示された価格（税込）。", "The price shown on each product (tax included).")),
             Row(label: L("商品代金以外の必要料金", "Additional fees"),

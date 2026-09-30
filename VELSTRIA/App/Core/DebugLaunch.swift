@@ -3,6 +3,11 @@ import VelstriaCore
 
 // 担当: 統合（契約）。UI テスト・スクリーンショット検証用の起動引数。
 //
+// 出荷ビルドでは無効: DEBUG（Xcode の Run / Test）または SCREENSHOTS（tools/screenshots.sh が
+// SWIFT_ACTIVE_COMPILATION_CONDITIONS に追加する）でコンパイルした場合だけ起動引数を読む。
+// App Store 用のアーカイブ（tools/archive.sh）はどちらも定義しないため、-grant・-skipOnboarding
+// （規約同意・年齢区分の省略）・-heroGallery などの隠し機能はバイナリに含まれない（ガイドライン 2.3.1）。
+//
 //   -uiTesting            一時ディレクトリの新規プロフィールで起動（実データに触れない）
 //   -skipOnboarding       オンボーディング完了済みにする
 //   -grant                Coin 100000 / Gem 10000 を付与し全ヒーロー解放
@@ -12,7 +17,15 @@ import VelstriaCore
 //   -heroGallery          ヒーロー 3D モデル一覧（hero-models の目視確認用）
 
 enum DebugLaunch {
+    /// 起動引数による検証用フックがこのビルドで有効か（出荷ビルドでは false）。
+    #if DEBUG || SCREENSHOTS
+    static let isEnabled = true
     static var args: [String] { ProcessInfo.processInfo.arguments }
+    #else
+    static let isEnabled = false
+    /// 出荷ビルドでは起動引数を一切読まない（下の判定はすべて偽になる）。
+    static var args: [String] { [] }
+    #endif
     static var isUITesting: Bool { args.contains("-uiTesting") }
 
     static func value(after flag: String) -> String? {
@@ -21,16 +34,19 @@ enum DebugLaunch {
     }
 
     static func makePersistence() -> PersistenceService {
+        #if DEBUG || SCREENSHOTS
         if isUITesting {
             let dir = FileManager.default.temporaryDirectory
                 .appendingPathComponent("VelstriaUITest-\(UUID().uuidString)", isDirectory: true)
             return PersistenceService(directory: dir)
         }
+        #endif
         return PersistenceService()
     }
 
     @MainActor
     static func apply(to app: AppModel) {
+        #if DEBUG || SCREENSHOTS
         var p = app.profile
         if args.contains("-skipOnboarding") {
             p.onboardingCompleted = true
@@ -70,8 +86,10 @@ enum DebugLaunch {
                                              countsForRank: ranked))
             }
         }
+        #endif
     }
 
+    #if DEBUG || SCREENSHOTS
     static func parseRoute(_ s: String) -> Route? {
         let parts = s.split(separator: ":", maxSplits: 1).map(String.init)
         let name = parts[0]
@@ -125,4 +143,5 @@ enum DebugLaunch {
         default: return nil
         }
     }
+    #endif
 }

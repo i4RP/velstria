@@ -206,8 +206,8 @@ struct AccountLinkView: View {
     private var importMessage: String {
         guard let p = pendingImport else { return "" }
         let name = p.displayName.isEmpty ? "—" : p.displayName
-        return L("バックアップ: \(name)（Lv.\(p.accountLevel)・\(p.career.matches) 試合・ヒーロー \(p.ownedHeroIDs.count) 体）\n現在のデータは上書きされ、元に戻せません。この端末の年齢区分と購入の記録は引き継がれます。",
-                 "Backup: \(name) (Lv.\(p.accountLevel), \(p.career.matches) matches, \(p.ownedHeroIDs.count) heroes)\nYour current data will be overwritten. This can't be undone. This device's age group and purchase records are kept.")
+        return L("バックアップ: \(name)（Lv.\(p.accountLevel)・\(p.career.matches) 試合・ヒーロー \(p.ownedHeroIDs.count) 体）\n現在のデータは上書きされ、元に戻せません。この端末の年齢区分と購入の記録は引き継がれます。有償 AstralGem とスターパス プレミアムは購入の記録で確認できる分だけ復元されます。",
+                 "Backup: \(name) (Lv.\(p.accountLevel), \(p.career.matches) matches, \(p.ownedHeroIDs.count) heroes)\nYour current data will be overwritten. This can't be undone. This device's age group and purchase records are kept. Paid AstralGem and Star Pass Premium are restored only as far as the purchase records support.")
     }
 
     private func applyImport() {
@@ -219,5 +219,10 @@ struct AccountLinkView: View {
         FlowFX.reward(app)
         app.showToast(L("データを復元しました", "Data restored"))
         prepareExport()
+        // 購入済みのプレミアム・当月の課金額を App Store 側の記録で確認し直す
+        Task {
+            await app.storeKit.refreshEntitlements()
+            await app.storeKit.syncMonthlySpendFromHistory()
+        }
     }
 }

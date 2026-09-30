@@ -11,10 +11,13 @@
 #       build/screenshots/<デバイス>/<言語>/review/iap_*.png   App 内課金の審査用スクリーンショット
 #   iPhone 17 Pro Max（6.9"）→ 2868×1320、iPhone 16e（6.1"）→ 2532×1170（App Store Connect の受付サイズ）
 #
-# 仕組み: 専用シミュレータ（vel-shots-*）を作成 → Release ビルドをインストール →
+# 仕組み: 専用シミュレータ（vel-shots-*）を作成 → 撮影用 Release ビルドをインストール →
 #   App/Core/DebugLaunch.swift の起動引数（-uiTesting 等）で各画面へ直行 → 撮影 →
 #   縦向きのフレームバッファを横向きに回転 → 終了時にシミュレータを削除。
 #   -uiTesting は一時ディレクトリのプロフィールを使うので、実データや他のシミュレータには触れない。
+#   起動引数のフックは出荷ビルドから外してあるため（DEBUG / SCREENSHOTS のみ）、撮影用ビルドは
+#   SWIFT_ACTIVE_COMPILATION_CONDITIONS に SCREENSHOTS を足して作る。App Store 用のアーカイブ
+#   （tools/archive.sh）は SCREENSHOTS を付けないので、このビルドを提出に使わないこと。
 #   新規シミュレータは起動直後にシステムの通知バナー（「Apple Intelligence の準備ができました」等）を出すため、
 #   撮影前に WAIT_WARMUP 秒アプリを起動したまま待ってバナーを流してから撮影する。
 set -euo pipefail
@@ -74,6 +77,8 @@ if [[ "$SKIP_BUILD" == "0" ]]; then
 fi
 
 APP="$ROOT/.build/DerivedData/Build/Products/Release-iphonesimulator/VELSTRIA.app"
+# 撮影用（SCREENSHOTS 付き）でビルドした印。以後に通常の Release ビルドで上書きされたら古くなる
+STAMP="$ROOT/.build/DerivedData/.screenshots-build"
 if [[ -n "$ONLY" ]] && ! printf '%s\n' "${SHOTS[@]}" "${REVIEW_SHOTS[@]}" | grep -q "^$ONLY|"; then
     echo "error: --only に指定した名前 \"$ONLY\" の撮影定義がありません" >&2
     exit 1
@@ -92,13 +97,18 @@ cleanup() {
 trap cleanup EXIT
 
 if [[ "$SKIP_BUILD" == "0" ]]; then
-    echo "==> Release シミュレータビルド"
+    echo "==> Release シミュレータビルド（撮影用: SCREENSHOTS で起動引数のフックを有効化）"
     xcodegen generate --quiet
     xcodebuild -project VELSTRIA.xcodeproj -scheme VELSTRIA -configuration Release \
         -destination 'generic/platform=iOS Simulator' -derivedDataPath "$ROOT/.build/DerivedData" \
-        build CODE_SIGNING_ALLOWED=NO -quiet
+        build CODE_SIGNING_ALLOWED=NO 'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) SCREENSHOTS' -quiet
+    touch "$STAMP"
 fi
 [[ -d "$APP" ]] || { echo "error: $APP がありません（--skip-build を外して実行）" >&2; exit 1; }
+if [[ ! -f "$STAMP" || "$APP/VELSTRIA" -nt "$STAMP" ]]; then
+    echo "error: $APP は撮影用ビルドではありません（起動引数が効かない）。--skip-build を外して実行" >&2
+    exit 1
+fi
 
 # 1 枚撮影: <出力先ディレクトリ> <名前> <起動引数> <待ち秒> <言語> <ロケール>
 capture() {

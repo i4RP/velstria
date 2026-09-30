@@ -103,6 +103,33 @@ final class AppStoreAssetsTests: XCTestCase {
         Loc.current = .ja
         XCTAssertEqual(MasterText.hero(alden), alden.displayNameJa)
         XCTAssertEqual(MasterText.item(dagger), dagger.nameJa)
+        XCTAssertEqual(MasterText.cosmetic(lyraRecall), "星弦の帰還演出 I")
+    }
+
+    /// 日本語表示でも有料コスメ・ストア商品がテンプレート名（「潮祈のミレア Emote 1」等）で出ないこと（master_ja.json）。
+    func testJapaneseCosmeticNamesAreNotTemplates() throws {
+        XCTAssertNotNil(Bundle.main.url(forResource: "master_ja", withExtension: "json"),
+                        "master_ja.json がアプリバンドルに含まれていません")
+        let saved = Loc.current
+        defer { Loc.current = saved }
+        Loc.current = .ja
+        let m = MasterData.shared
+        let template = try NSRegularExpression(pattern: "[A-Za-z]+ \\d+$")
+        func isTemplate(_ s: String) -> Bool { template.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)) != nil }
+
+        var names: [String: String] = [:]
+        for c in m.cosmetics {
+            let name = MasterText.cosmetic(c)
+            XCTAssertFalse(isTemplate(name), "\(c.cosmeticID): \(name)")
+            XCTAssertNotEqual(name, c.nameJa, c.cosmeticID)
+            XCTAssertNil(names[name], "日本語のコスメ名が重複: \(c.cosmeticID) / \(names[name] ?? "")")
+            names[name] = c.cosmeticID
+        }
+        for s in m.store where s.type == .cosmetic {
+            let cosmetic = try XCTUnwrap(m.cosmetics.first { $0.cosmeticID == s.grantID }, s.sku)
+            XCTAssertEqual(MasterText.storeItem(s), MasterText.cosmetic(cosmetic), s.sku)
+        }
+        for s in m.store { XCTAssertFalse(isTemplate(MasterText.storeItem(s)), "\(s.sku): \(MasterText.storeItem(s))") }
     }
 
     // MARK: プライバシーマニフェスト
@@ -146,6 +173,8 @@ final class AppStoreAssetsTests: XCTestCase {
         XCTAssertEqual(launch["UIColorName"] as? String, "LaunchBackground")
         XCTAssertEqual(info["UIUserInterfaceStyle"] as? String, "Dark")
         XCTAssertEqual(info["ITSAppUsesNonExemptEncryption"] as? Bool, false)
+        // 月間購入上限を App Store の購入履歴（完了済みの消耗型を含む）から集計するため
+        XCTAssertEqual(info["SKIncludeConsumableInAppPurchaseHistory"] as? Bool, true)
         XCTAssertEqual(info["NSHumanReadableCopyright"] as? String, "© 2026 VELSTRIA")
         XCTAssertEqual(info["CFBundleDisplayName"] as? String, "VELSTRIA")
         XCTAssertEqual(info["UIDeviceFamily"] as? [Int], [1], "iPhone 専用であること")

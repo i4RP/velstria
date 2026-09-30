@@ -31,6 +31,8 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 VELSTRIA</string>
+	<key>SKIncludeConsumableInAppPurchaseHistory</key>
+	<true/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

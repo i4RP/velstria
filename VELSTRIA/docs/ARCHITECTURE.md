@@ -18,7 +18,7 @@ VELSTRIA/
     Services/                      永続化・報酬・経済・ライブオプス・ランク・StoreKit・音・触覚
     Battle/                        戦闘描画（RealityKit）+ HUD（Wave 2）
     Screens/<Area>/                画面実装
-    Resources/                     Assets.xcassets, Velstria.storekit, PrivacyInfo.xcprivacy, master_en.json
+    Resources/                     Assets.xcassets, Velstria.storekit, PrivacyInfo.xcprivacy, master_en.json, master_ja.json
   AppTests/  AppUITests/
   docs/  DESIGN.md（ゲーム数値の正本） ARCHITECTURE.md（本書）
   tools/
@@ -57,7 +57,7 @@ VELSTRIA/
 | ui-flow | App/Screens/Flow/* |
 | ui-collection | App/Screens/Collection/*, App/Screens/Store/* |
 | ui-liveops | App/Screens/LiveOps/*, App/Screens/Settings/* |
-| appstore-assets | project.yml, App/Resources/Assets.xcassets, PrivacyInfo.xcprivacy, master_en.json, docs/APPSTORE*, docs/legal/*, tools/*（gen_runtime_data.py 以外） |
+| appstore-assets | project.yml, App/Resources/Assets.xcassets, PrivacyInfo.xcprivacy, master_en.json, master_ja.json, docs/APPSTORE*, docs/legal/*, tools/*（gen_runtime_data.py 以外） |
 | battle (Wave 2) | App/Battle/* |
 | 統合（契約） | Sim/Types, Balance, Stats, Unit, Effects, Commands, Events, MatchConfig, SimState, SimContext, Simulation, MatchFactory, Systems/CommandSystem, StatCalculator, App/Core/*, App/VelstriaApp.swift |
 
@@ -97,4 +97,5 @@ xcrun simctl launch <UDID> com.bitcoinpay.velstria -uiTesting -skipOnboarding -g
 xcrun simctl io <UDID> screenshot /tmp/<担当名>-heroes.png
 xcrun simctl delete <UDID>
 ```
-起動引数の一覧は `App/Core/DebugLaunch.swift`。
+起動引数の一覧は `App/Core/DebugLaunch.swift`。起動引数は Debug ビルド（または `SCREENSHOTS` 条件付きの撮影用ビルド）でのみ有効で、
+App Store 用の Release アーカイブでは読まれない（`-grant`・`-skipOnboarding`・`-heroGallery` 等は出荷バイナリに含まれない）。

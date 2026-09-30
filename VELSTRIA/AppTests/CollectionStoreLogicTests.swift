@@ -172,6 +172,50 @@ final class CollectionStoreLogicTests: XCTestCase {
         XCTAssertEqual(Set(StoreLegalText.commercialTransactions.map(\.id)).count, StoreLegalText.commercialTransactions.count)
     }
 
+    /// 事業者情報の未記入（{{…}}）は StoreLegalText の定数だけから来ること。
+    /// 定数を埋めれば表示から消え、tools/validate_appstore_metadata.py --release（App/ のソース検査）で検出できる。
+    func testLegalPlaceholdersComeOnlyFromIssuerConstants() throws {
+        let pattern = try NSRegularExpression(pattern: "\\{\\{[A-Z0-9_]+\\}\\}")
+        func tokens(_ s: String) -> Set<String> {
+            Set(pattern.matches(in: s, range: NSRange(s.startIndex..., in: s)).compactMap { Range($0.range, in: s).map { String(s[$0]) } })
+        }
+        let constants = [StoreLegalText.issuerName, StoreLegalText.issuerAddress,
+                         StoreLegalText.responsiblePerson, StoreLegalText.phoneNumber]
+        let allowed = constants.reduce(into: Set<String>()) { $0.formUnion(tokens($1)) }
+        let saved = Loc.current
+        defer { Loc.current = saved }
+        for lang in [AppLanguage.ja, .en] {
+            Loc.current = lang
+            for row in StoreLegalText.paymentServicesAct + StoreLegalText.commercialTransactions {
+                XCTAssertTrue(tokens(row.label).isEmpty, row.label)
+                XCTAssertTrue(tokens(row.value).isSubset(of: allowed), "\(lang) \(row.label): \(row.value)")
+            }
+            // 電話番号欄は docs/legal/tokushoho_ja.md と同じく受付時間を併記する
+            XCTAssertTrue(StoreLegalText.commercialTransactions.contains {
+                $0.value.contains(StoreLegalText.phoneNumber) && $0.value.contains(StoreLegalText.phoneHours)
+            })
+        }
+    }
+
+    /// プライバシーポリシー・利用規約のリンクは表示言語の版を開く（英語 = metadata/en-US/privacy_url.txt の /en/）。
+    func testLegalURLsFollowDisplayLanguage() {
+        let saved = Loc.current
+        defer { Loc.current = saved }
+        Loc.current = .ja
+        XCTAssertEqual(FeatureFlags.privacyPolicyURL, FeatureFlags.privacyPolicyURLJa)
+        XCTAssertEqual(FeatureFlags.termsURL, FeatureFlags.termsURLJa)
+        XCTAssertTrue(StoreLegalText.paymentServicesAct.contains { $0.value == FeatureFlags.termsURLJa.absoluteString })
+        Loc.current = .en
+        XCTAssertEqual(FeatureFlags.privacyPolicyURL, FeatureFlags.privacyPolicyURLEn)
+        XCTAssertEqual(FeatureFlags.termsURL, FeatureFlags.termsURLEn)
+        XCTAssertTrue(StoreLegalText.paymentServicesAct.contains { $0.value == FeatureFlags.termsURLEn.absoluteString })
+        XCTAssertNotEqual(FeatureFlags.privacyPolicyURLJa, FeatureFlags.privacyPolicyURLEn)
+        XCTAssertNotEqual(FeatureFlags.termsURLJa, FeatureFlags.termsURLEn)
+        for url in [FeatureFlags.privacyPolicyURLJa, FeatureFlags.privacyPolicyURLEn, FeatureFlags.termsURLJa, FeatureFlags.termsURLEn] {
+            XCTAssertEqual(url.scheme, "https", url.absoluteString)
+        }
+    }
+
     func testProductDescriptionsExistForEveryStoreItem() {
         for item in master.store {
             XCTAssertFalse(ProductDetailView.description(item, master: master, lang: .ja).isEmpty, item.sku)

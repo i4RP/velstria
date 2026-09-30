@@ -24,6 +24,8 @@
 - [ ] 有償ジェムより無償ジェムを先に消費する（DESIGN §13）。
 - [ ] 試合報酬の精算（`RewardService.apply`）は 1 試合 1 回だけ（リザルト画面の再表示・アプリ再起動で重複しない）。
 - [ ] 年齢区分別の月間上限（15 歳以下 5,000 円 / 16〜19 歳 10,000 円）を超える購入がブロックされる。
+      設定 > プライバシー > すべてのデータを削除（または再インストール）の後も、同じ Apple Account の当月購入分が
+      購入履歴（`Transaction.all`）から数えられ、上限が戻らないこと。
 - [ ] 手順は [in_app_purchases.md](in_app_purchases.md)「Sandbox での確認手順」。
 
 ## 2. 端末・運用検証（§164-2）
@@ -59,6 +61,7 @@
 - [ ] 年齢制限 9+ の回答（[age_rating.md](age_rating.md)）、栄養ラベル「データを収集しない」（[app_privacy.md](app_privacy.md)）。
 - [ ] iPad（iPhone 互換モード）でも起動・操作・購入ができる。
 - [ ] 英語表示で日本語が残っていない（マスター名は `master_en.json`、UI 文言は `L("…", "…")`）。
+- [ ] 日本語表示で有料コスメ・ストア商品がテンプレート名（「… Emote 1」「… HeroSkin 1」）で出ない（`master_ja.json`）。
 - [ ] 戦闘描画に流血・写実的表現がない（年齢制限の前提）。
 - [ ] `TEAM_ID=… STRICT=1 tools/archive.sh` → Organizer で Validate App 成功 → アップロード。
 

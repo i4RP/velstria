@@ -30,6 +30,8 @@ App 内課金の審査用スクリーンショット（Gem 購入画面・スタ
 写り込んだ場合は `WAIT_WARMUP=90` などに増やして該当画面だけ撮り直す。
 スクリプトは専用シミュレータ `vel-shots-*` を作成して終了時に削除する。起動引数は `App/Core/DebugLaunch.swift` のもので、
 `-uiTesting` により毎回新しい一時プロフィールで起動する（実データに触れない）。
+起動引数のフックは出荷ビルドから除外してあるため、スクリプトは `SWIFT_ACTIVE_COMPILATION_CONDITIONS` に `SCREENSHOTS` を足した
+撮影専用の Release ビルドを作る（このビルドは提出に使わない。提出用は `tools/archive.sh`）。
 
 ## 構成（撮影順 = 掲載順）
 

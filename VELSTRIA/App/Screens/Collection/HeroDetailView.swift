@@ -398,7 +398,8 @@ private struct HeroSkinsSection: View {
                 }
             }
             if skins.isEmpty {
-                Text(L("このヒーローの追加スキンは今後のシーズンで登場予定です。", "More skins for this hero are coming in future seasons."))
+                // 未発表の有料コンテンツを予告しない（審査ガイドライン 2.1 / 2.3）
+                Text(L("このヒーローはデフォルトスキンのみです。", "This hero has the default skin only."))
                     .font(Theme.body(12))
                     .foregroundStyle(Theme.textSecondary)
             }
