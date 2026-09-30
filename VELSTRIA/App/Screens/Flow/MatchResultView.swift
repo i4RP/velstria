@@ -727,7 +727,7 @@ struct MatchReportSheet: View {
     static let maxLength = 1000
 
     private var body_: String {
-        SupportMail.body(category: category, message: message.trimmingCharacters(in: .whitespacesAndNewlines),
+        ReportMail.body(category: category, message: message.trimmingCharacters(in: .whitespacesAndNewlines),
                          summary: outcome.summary, launch: outcome.launch, systemVersion: UIDevice.current.systemVersion)
     }
 
@@ -820,7 +820,7 @@ struct MatchReportSheet: View {
         .preferredColorScheme(.dark)
         .alert(L("メールアプリを開けませんでした", "Couldn't Open Mail"), isPresented: $mailFailed) {
             Button(L("内容をコピー", "Copy Report")) {
-                UIPasteboard.general.string = "To: \(FeatureFlags.supportEmail)\n\(SupportMail.subject(category: category))\n\n\(body_)"
+                UIPasteboard.general.string = "To: \(FeatureFlags.supportEmail)\n\(ReportMail.subject(category: category))\n\n\(body_)"
                 app.showToast(L("コピーしました", "Copied"))
             }
             Button("OK", role: .cancel) {}
@@ -830,7 +830,7 @@ struct MatchReportSheet: View {
     }
 
     private func send() {
-        guard let url = SupportMail.url(to: FeatureFlags.supportEmail, subject: SupportMail.subject(category: category), body: body_) else {
+        guard let url = ReportMail.url(to: FeatureFlags.supportEmail, subject: ReportMail.subject(category: category), body: body_) else {
             mailFailed = true
             return
         }

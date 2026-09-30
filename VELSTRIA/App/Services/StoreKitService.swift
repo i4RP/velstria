@@ -46,14 +46,14 @@ enum LedgerGrantResult: Equatable {
 @MainActor
 final class StoreKitService {
     nonisolated static let gemProducts: [GemProduct] = [
-        GemProduct(productID: "com.velstria.game.gem.60", gems: 60, bonusGems: 0, referencePriceJPY: 160),
-        GemProduct(productID: "com.velstria.game.gem.300", gems: 300, bonusGems: 30, referencePriceJPY: 800),
-        GemProduct(productID: "com.velstria.game.gem.980", gems: 980, bonusGems: 110, referencePriceJPY: 2500),
-        GemProduct(productID: "com.velstria.game.gem.1980", gems: 1980, bonusGems: 260, referencePriceJPY: 4900),
-        GemProduct(productID: "com.velstria.game.gem.3280", gems: 3280, bonusGems: 600, referencePriceJPY: 8000),
-        GemProduct(productID: "com.velstria.game.gem.6480", gems: 6480, bonusGems: 1600, referencePriceJPY: 15800),
+        GemProduct(productID: "com.bitcoinpay.velstria.gem.60", gems: 60, bonusGems: 0, referencePriceJPY: 160),
+        GemProduct(productID: "com.bitcoinpay.velstria.gem.300", gems: 300, bonusGems: 30, referencePriceJPY: 800),
+        GemProduct(productID: "com.bitcoinpay.velstria.gem.980", gems: 980, bonusGems: 110, referencePriceJPY: 2500),
+        GemProduct(productID: "com.bitcoinpay.velstria.gem.1980", gems: 1980, bonusGems: 260, referencePriceJPY: 4900),
+        GemProduct(productID: "com.bitcoinpay.velstria.gem.3280", gems: 3280, bonusGems: 600, referencePriceJPY: 8000),
+        GemProduct(productID: "com.bitcoinpay.velstria.gem.6480", gems: 6480, bonusGems: 1600, referencePriceJPY: 15800),
     ]
-    nonisolated static let premiumPassProductID = "com.velstria.game.pass.premium"
+    nonisolated static let premiumPassProductID = "com.bitcoinpay.velstria.pass.premium"
     nonisolated static let premiumPassReferencePriceJPY = 980
 
     nonisolated static var allProductIDs: [String] { gemProducts.map(\.productID) + [premiumPassProductID] }

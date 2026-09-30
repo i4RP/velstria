@@ -235,12 +235,12 @@ final class CollectionStoreLogicTests: XCTestCase {
     }
 
     func testLedgerSortingAndNames() {
-        let old = PurchaseRecord(transactionID: 1, productID: "com.velstria.game.gem.300", gemsGranted: 330, priceJPY: 800,
+        let old = PurchaseRecord(transactionID: 1, productID: "com.bitcoinpay.velstria.gem.300", gemsGranted: 330, priceJPY: 800,
                                  date: Date(timeIntervalSince1970: 1_000))
         let new = PurchaseRecord(transactionID: 2, productID: StoreKitService.premiumPassProductID, gemsGranted: 0, priceJPY: 980,
                                  date: Date(timeIntervalSince1970: 2_000))
         XCTAssertEqual(PurchaseLedgerText.sorted([old, new]).map(\.transactionID), [2, 1])
-        XCTAssertEqual(PurchaseLedgerText.productName("com.velstria.game.gem.300"), "AstralGem ×330")
+        XCTAssertEqual(PurchaseLedgerText.productName("com.bitcoinpay.velstria.gem.300"), "AstralGem ×330")
         XCTAssertEqual(PurchaseLedgerText.productName("unknown.id"), "unknown.id")
     }
 

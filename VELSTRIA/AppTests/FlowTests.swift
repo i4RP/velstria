@@ -305,10 +305,10 @@ final class FlowResultTests: XCTestCase {
 
     func testSupportMailEncoding() throws {
         let raw = "a b&c=d+e?\n日本語 #1"
-        let enc = SupportMail.encode(raw)
+        let enc = ReportMail.encode(raw)
         XCTAssertFalse(enc.contains(where: { " &=+?\n#".contains($0) }))
         XCTAssertEqual(enc.removingPercentEncoding, raw)
-        let url = try XCTUnwrap(SupportMail.url(to: "support@velstria.example", subject: "件名 & test", body: raw))
+        let url = try XCTUnwrap(ReportMail.url(to: "support@velstria.example", subject: "件名 & test", body: raw))
         XCTAssertEqual(url.scheme, "mailto")
         let comps = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false))
         XCTAssertEqual(comps.path, "support@velstria.example")
@@ -320,7 +320,7 @@ final class FlowResultTests: XCTestCase {
         let config = MatchFactory.standardMatch(humanHeroID: "H003", humanName: "SecretName", seed: 31)
         let summary = MatchSummary(mode: .standard, seed: 31, winner: .blue, endReason: .coreDestroyed, duration: 754,
                                    humanTeam: .blue, players: [player(k: 1, d: 1, a: 1)], teamKills: [10, 5], towersDestroyed: [6, 2])
-        let body = SupportMail.body(category: .bug, message: "hello", summary: summary,
+        let body = ReportMail.body(category: .bug, message: "hello", summary: summary,
                                     launch: BattleLaunch(config: config), systemVersion: "26.0")
         XCTAssertTrue(body.contains("Seed: 31"))
         XCTAssertTrue(body.contains("12:34"))

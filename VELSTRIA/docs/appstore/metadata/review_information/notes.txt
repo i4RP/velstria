@@ -16,8 +16,8 @@ WHERE TO FIND EACH FEATURE
 - Contact / support, Terms of Service and Privacy Policy: Settings > Support.
 
 IN-APP PURCHASES
-- 6 consumable Astral Gem packs: com.velstria.game.gem.60, .gem.300, .gem.980, .gem.1980, .gem.3280, .gem.6480
-- 1 non-consumable: com.velstria.game.pass.premium (Star Pass Premium, Season 1)
+- 6 consumable Astral Gem packs: com.bitcoinpay.velstria.gem.60, .gem.300, .gem.980, .gem.1980, .gem.3280, .gem.6480
+- 1 non-consumable: com.bitcoinpay.velstria.pass.premium (Star Pass Premium, Season 1)
 Steps: Home > Store > Get Gems (or tap the currency counter at the top of Home) > tap a gem pack > confirm. The paid gem balance (including the pack bonus) increases as soon as the verified transaction is finished. Gems are spent on cosmetic items in the Store. Star Pass Premium: Home > Star Pass > Premium. Restore Purchases: Home > Store > Restore (also on the Star Pass premium panel).
 
 Paid items are cosmetic only and never change combat stats. There are no randomized paid items (no loot boxes): every product shows exactly what you receive. Heroes are unlocked with Starlight Coins that are earned by playing, not with real money.

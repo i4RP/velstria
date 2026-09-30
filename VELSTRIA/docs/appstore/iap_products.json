@@ -2,7 +2,7 @@
   "_comment": "App Store Connect に登録する App 内課金の正本。DESIGN.md §13 と App/Services/StoreKitService.swift に一致させる（tools/validate_appstore_metadata.py が検証）。price_jpy は日本ストアの基準価格、price_usd_reference は他ストアの目安。bonus_gems は有償ジェムに含めて付与する（付与総数 = paid_gems + bonus_gems、すべて有償）。",
   "products": [
     {
-      "product_id": "com.velstria.game.gem.60",
+      "product_id": "com.bitcoinpay.velstria.gem.60",
       "type": "consumable",
       "reference_name": "Astral Gem 60",
       "paid_gems": 60,
@@ -21,7 +21,7 @@
       }
     },
     {
-      "product_id": "com.velstria.game.gem.300",
+      "product_id": "com.bitcoinpay.velstria.gem.300",
       "type": "consumable",
       "reference_name": "Astral Gem 300 (+30)",
       "paid_gems": 300,
@@ -40,7 +40,7 @@
       }
     },
     {
-      "product_id": "com.velstria.game.gem.980",
+      "product_id": "com.bitcoinpay.velstria.gem.980",
       "type": "consumable",
       "reference_name": "Astral Gem 980 (+110)",
       "paid_gems": 980,
@@ -59,7 +59,7 @@
       }
     },
     {
-      "product_id": "com.velstria.game.gem.1980",
+      "product_id": "com.bitcoinpay.velstria.gem.1980",
       "type": "consumable",
       "reference_name": "Astral Gem 1980 (+260)",
       "paid_gems": 1980,
@@ -78,7 +78,7 @@
       }
     },
     {
-      "product_id": "com.velstria.game.gem.3280",
+      "product_id": "com.bitcoinpay.velstria.gem.3280",
       "type": "consumable",
       "reference_name": "Astral Gem 3280 (+600)",
       "paid_gems": 3280,
@@ -97,7 +97,7 @@
       }
     },
     {
-      "product_id": "com.velstria.game.gem.6480",
+      "product_id": "com.bitcoinpay.velstria.gem.6480",
       "type": "consumable",
       "reference_name": "Astral Gem 6480 (+1600)",
       "paid_gems": 6480,
@@ -116,7 +116,7 @@
       }
     },
     {
-      "product_id": "com.velstria.game.pass.premium",
+      "product_id": "com.bitcoinpay.velstria.pass.premium",
       "type": "non_consumable",
       "reference_name": "Star Pass Premium Season 1",
       "paid_gems": 0,

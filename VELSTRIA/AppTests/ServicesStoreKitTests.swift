@@ -13,19 +13,19 @@ final class ServicesStoreKitTests: XCTestCase {
 
     func testGemGrantIsIdempotentByTransactionID() {
         var p = Profile()
-        XCTAssertEqual(grant(1001, "com.velstria.game.gem.300", &p), .grantedGems(330))
+        XCTAssertEqual(grant(1001, "com.bitcoinpay.velstria.gem.300", &p), .grantedGems(330))
         XCTAssertEqual(p.paidGem, 330)
         XCTAssertEqual(p.freeGem, 0)
         XCTAssertEqual(p.purchaseLedger.count, 1)
         XCTAssertEqual(p.purchaseLedger[0].gemsGranted, 330)
         XCTAssertEqual(p.monthlySpendJPY["2026-10"], 800)
         // 再配信（Transaction.updates / unfinished）でも二重付与しない
-        XCTAssertEqual(grant(1001, "com.velstria.game.gem.300", &p), .alreadyProcessed)
+        XCTAssertEqual(grant(1001, "com.bitcoinpay.velstria.gem.300", &p), .alreadyProcessed)
         XCTAssertEqual(p.paidGem, 330)
         XCTAssertEqual(p.purchaseLedger.count, 1)
         XCTAssertEqual(p.monthlySpendJPY["2026-10"], 800)
         // 別トランザクションは付与
-        XCTAssertEqual(grant(1002, "com.velstria.game.gem.60", price: 160, &p), .grantedGems(60))
+        XCTAssertEqual(grant(1002, "com.bitcoinpay.velstria.gem.60", price: 160, &p), .grantedGems(60))
         XCTAssertEqual(p.paidGem, 390)
         XCTAssertEqual(p.monthlySpendJPY["2026-10"], 960)
         XCTAssertEqual(grant(1003, "com.example.other", &p), .unknownProduct)
@@ -63,27 +63,27 @@ final class ServicesStoreKitTests: XCTestCase {
 
     func testRevocationRemovesUnspentPaidGems() {
         var p = Profile()
-        _ = grant(3001, "com.velstria.game.gem.980", price: 2500, &p) // 1090
+        _ = grant(3001, "com.bitcoinpay.velstria.gem.980", price: 2500, &p) // 1090
         XCTAssertTrue(EconomyService.spendGems(1000, profile: &p))
         XCTAssertEqual(p.paidGem, 90)
-        XCTAssertEqual(grant(3001, "com.velstria.game.gem.980", revoked: Date(), &p), .revoked(removedGems: 90))
+        XCTAssertEqual(grant(3001, "com.bitcoinpay.velstria.gem.980", revoked: Date(), &p), .revoked(removedGems: 90))
         XCTAssertEqual(p.paidGem, 0)
         XCTAssertTrue(p.purchaseLedger[0].revoked)
-        XCTAssertEqual(grant(3001, "com.velstria.game.gem.980", revoked: Date(), &p), .alreadyRevoked)
-        XCTAssertEqual(grant(3001, "com.velstria.game.gem.980", &p), .alreadyRevoked)
+        XCTAssertEqual(grant(3001, "com.bitcoinpay.velstria.gem.980", revoked: Date(), &p), .alreadyRevoked)
+        XCTAssertEqual(grant(3001, "com.bitcoinpay.velstria.gem.980", &p), .alreadyRevoked)
         XCTAssertEqual(p.paidGem, 0)
 
         // 無償 Gem は回収しない
         var q = Profile()
         q.freeGem = 500
-        _ = grant(3002, "com.velstria.game.gem.300", &q)
-        XCTAssertEqual(grant(3002, "com.velstria.game.gem.300", revoked: Date(), &q), .revoked(removedGems: 330))
+        _ = grant(3002, "com.bitcoinpay.velstria.gem.300", &q)
+        XCTAssertEqual(grant(3002, "com.bitcoinpay.velstria.gem.300", revoked: Date(), &q), .revoked(removedGems: 330))
         XCTAssertEqual(q.freeGem, 500)
 
         // 付与前に取り消されたトランザクションは後から届いても付与しない
         var r = Profile()
-        XCTAssertEqual(grant(3003, "com.velstria.game.gem.60", revoked: Date(), &r), .revoked(removedGems: 0))
-        XCTAssertEqual(grant(3003, "com.velstria.game.gem.60", &r), .alreadyRevoked)
+        XCTAssertEqual(grant(3003, "com.bitcoinpay.velstria.gem.60", revoked: Date(), &r), .revoked(removedGems: 0))
+        XCTAssertEqual(grant(3003, "com.bitcoinpay.velstria.gem.60", &r), .alreadyRevoked)
         XCTAssertEqual(r.paidGem, 0)
 
         // プレミアムの取り消し
@@ -118,7 +118,7 @@ final class ServicesStoreKitTests: XCTestCase {
 
     func testReferencePrices() {
         XCTAssertEqual(StoreKitService.referencePriceJPY(productID: StoreKitService.premiumPassProductID), 980)
-        XCTAssertEqual(StoreKitService.referencePriceJPY(productID: "com.velstria.game.gem.6480"), 15800)
+        XCTAssertEqual(StoreKitService.referencePriceJPY(productID: "com.bitcoinpay.velstria.gem.6480"), 15800)
         XCTAssertEqual(StoreKitService.referencePriceJPY(productID: "unknown"), 0)
     }
 
@@ -168,8 +168,8 @@ final class ServicesStoreKitServiceStateTests: XCTestCase {
         app.profile.ageBracket = .adult
         let store = app.storeKit
         let inProgress = IAPResult.failed(L("他の購入を処理中です。", "Another purchase is in progress."))
-        async let first = store.purchase(productID: "com.velstria.game.gem.60")
-        async let second = store.purchase(productID: "com.velstria.game.gem.300")
+        async let first = store.purchase(productID: "com.bitcoinpay.velstria.gem.60")
+        async let second = store.purchase(productID: "com.bitcoinpay.velstria.gem.300")
         let results = await [first, second]
         XCTAssertEqual(results.filter { $0 == inProgress }.count, 1, "\(results)")
         XCTAssertNil(store.purchasingProductID)

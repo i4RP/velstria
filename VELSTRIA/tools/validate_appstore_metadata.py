@@ -196,7 +196,7 @@ def check_iap(r: Report) -> None:
             r.error(f"{pid}: 価格 {p['price_jpy']} 円が DESIGN.md §13 の {design[pid]} 円と一致しません")
         if service.get(pid, -1) >= 0 and service[pid] != p["price_jpy"]:
             r.error(f"{pid}: 価格 {p['price_jpy']} 円が StoreKitService の参考価格 {service[pid]} 円と一致しません")
-        if pid.startswith("com.velstria.game.gem."):
+        if pid.startswith("com.bitcoinpay.velstria.gem."):
             expected = int(pid.rsplit(".", 1)[1])
             if p["paid_gems"] != expected or p["type"] != "consumable":
                 r.error(f"{pid}: 有償ジェム数/種別が Product ID と一致しません")

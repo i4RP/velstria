@@ -30,7 +30,7 @@
           "locale" : "en_US"
         }
       ],
-      "productID" : "com.velstria.game.gem.60",
+      "productID" : "com.bitcoinpay.velstria.gem.60",
       "referenceName" : "AstralGem 60",
       "type" : "Consumable"
     },
@@ -50,7 +50,7 @@
           "locale" : "en_US"
         }
       ],
-      "productID" : "com.velstria.game.gem.300",
+      "productID" : "com.bitcoinpay.velstria.gem.300",
       "referenceName" : "AstralGem 300",
       "type" : "Consumable"
     },
@@ -70,7 +70,7 @@
           "locale" : "en_US"
         }
       ],
-      "productID" : "com.velstria.game.gem.980",
+      "productID" : "com.bitcoinpay.velstria.gem.980",
       "referenceName" : "AstralGem 980",
       "type" : "Consumable"
     },
@@ -90,7 +90,7 @@
           "locale" : "en_US"
         }
       ],
-      "productID" : "com.velstria.game.gem.1980",
+      "productID" : "com.bitcoinpay.velstria.gem.1980",
       "referenceName" : "AstralGem 1980",
       "type" : "Consumable"
     },
@@ -110,7 +110,7 @@
           "locale" : "en_US"
         }
       ],
-      "productID" : "com.velstria.game.gem.3280",
+      "productID" : "com.bitcoinpay.velstria.gem.3280",
       "referenceName" : "AstralGem 3280",
       "type" : "Consumable"
     },
@@ -130,7 +130,7 @@
           "locale" : "en_US"
         }
       ],
-      "productID" : "com.velstria.game.gem.6480",
+      "productID" : "com.bitcoinpay.velstria.gem.6480",
       "referenceName" : "AstralGem 6480",
       "type" : "Consumable"
     },
@@ -150,7 +150,7 @@
           "locale" : "en_US"
         }
       ],
-      "productID" : "com.velstria.game.pass.premium",
+      "productID" : "com.bitcoinpay.velstria.pass.premium",
       "referenceName" : "Star Pass Premium S1",
       "type" : "NonConsumable"
     }

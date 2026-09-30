@@ -503,7 +503,7 @@ enum SupportReportCategory: String, CaseIterable, Identifiable {
     }
 }
 
-enum SupportMail {
+enum ReportMail {
     /// RFC 6068 の mailto 用に厳密にパーセントエンコードする（英数字と -._~ 以外すべて）。
     static func encode(_ s: String) -> String {
         let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")

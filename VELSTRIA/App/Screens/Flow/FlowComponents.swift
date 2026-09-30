@@ -452,24 +452,6 @@ struct RoleLabel: View {
     }
 }
 
-/// バトルスペルのアイコン。
-struct SpellIconView: View {
-    let spellID: String
-    var size: CGFloat = 28
-
-    var body: some View {
-        Image(systemName: FlowText.spellSymbol(spellID))
-            .font(.system(size: size * 0.5, weight: .bold))
-            .foregroundStyle(.white)
-            .frame(width: size, height: size)
-            .background(RoundedRectangle(cornerRadius: size * 0.25, style: .continuous)
-                .fill(LinearGradient(colors: [FlowText.spellColor(spellID), FlowText.spellColor(spellID).opacity(0.45)],
-                                     startPoint: .topLeading, endPoint: .bottomTrailing)))
-            .overlay(RoundedRectangle(cornerRadius: size * 0.25, style: .continuous).stroke(Color.white.opacity(0.35), lineWidth: 1))
-            .accessibilityLabel(FlowText.spellName(spellID))
-    }
-}
-
 /// ランク紋章（形 + 記号で識別できる）。
 struct RankEmblemView: View {
     let tier: RankTier

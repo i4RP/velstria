@@ -244,7 +244,8 @@ final class CombatDamageTests: XCTestCase {
                                  type: .trueDamage, source: .basicAttack)
 
         XCTAssertEqual(w.s.units[a].hero?.score.damageToHeroes, 100)
-        XCTAssertEqual(w.s.units[a].hero?.score.towerDamage, 60)
+        // 外塔は 4:00 まで ×0.6、護衛ミニオン無しの裏取り保護 ×0.5（DESIGN §4）→ 60 × 0.3 = 18
+        XCTAssertEqual(w.s.units[a].hero?.score.towerDamage, 18)
         XCTAssertEqual(w.s.units[v].hero?.score.damageTaken, 100)
         XCTAssertEqual(w.s.units[a].lastCombatTime, 42)
         XCTAssertEqual(w.s.units[v].lastCombatTime, 42)

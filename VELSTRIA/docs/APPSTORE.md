@@ -54,7 +54,7 @@ App Store Connect（ASC）への v1.0 提出に必要なもの一式と手順。
 | 名前（30 文字以内） | VELSTRIA - 星環の戦場 | VELSTRIA: Star Ring Arena |
 | サブタイトル（30 文字以内） | オフラインで遊べる5対5のMOBA | Offline 5v5 MOBA vs Smart AI |
 | プライマリ言語 | 日本語 | |
-| バンドル ID | `com.velstria.game` | |
+| バンドル ID | `com.bitcoinpay.velstria` | |
 | SKU（ASC 内部用） | `VELSTRIA-IOS-001` | |
 | カテゴリ | プライマリ: ゲーム（サブカテゴリ: アクション、ストラテジー）／セカンダリ: なし | Primary: Games (Action, Strategy) |
 | 著作権 | `2026 {{PUBLISHER_NAME}}` | |

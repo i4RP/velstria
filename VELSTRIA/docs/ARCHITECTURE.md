@@ -93,7 +93,7 @@ xcrun simctl create vel-<担当名> "iPhone 17 Pro"      # → UDID
 xcrun simctl boot <UDID>
 xcodebuild ... -destination 'id=<UDID>' build   # または generic ビルドの .app を install
 xcrun simctl install <UDID> .build/DerivedData/Build/Products/Debug-iphonesimulator/VELSTRIA.app
-xcrun simctl launch <UDID> com.velstria.game -uiTesting -skipOnboarding -grant -route heroes
+xcrun simctl launch <UDID> com.bitcoinpay.velstria -uiTesting -skipOnboarding -grant -route heroes
 xcrun simctl io <UDID> screenshot /tmp/<担当名>-heroes.png
 xcrun simctl delete <UDID>
 ```

@@ -202,12 +202,12 @@
 ## 13. 課金（StoreKit 2・消耗型）
 | Product ID | Gem | 価格帯(JPY) |
 |---|---|---|
-| com.velstria.game.gem.60 | 60 | 160 |
-| com.velstria.game.gem.300 | 300 (+30) | 800 |
-| com.velstria.game.gem.980 | 980 (+110) | 2,500 |
-| com.velstria.game.gem.1980 | 1980 (+260) | 4,900 |
-| com.velstria.game.gem.3280 | 3280 (+600) | 8,000 |
-| com.velstria.game.gem.6480 | 6480 (+1600) | 15,800 |
-| com.velstria.game.pass.premium | スターパス プレミアム（非消耗型、シーズン単位） | 980 |
+| com.bitcoinpay.velstria.gem.60 | 60 | 160 |
+| com.bitcoinpay.velstria.gem.300 | 300 (+30) | 800 |
+| com.bitcoinpay.velstria.gem.980 | 980 (+110) | 2,500 |
+| com.bitcoinpay.velstria.gem.1980 | 1980 (+260) | 4,900 |
+| com.bitcoinpay.velstria.gem.3280 | 3280 (+600) | 8,000 |
+| com.bitcoinpay.velstria.gem.6480 | 6480 (+1600) | 15,800 |
+| com.bitcoinpay.velstria.pass.premium | スターパス プレミアム（非消耗型、シーズン単位） | 980 |
 - 付与は `Transaction.id` で冪等化（台帳 `purchaseLedger`）。検証済みトランザクションのみ付与し `finish()`。
 - 有償 Gem を先に消費しない（無償 → 有償の順に消費）。表示は資金決済法の表記に準拠。

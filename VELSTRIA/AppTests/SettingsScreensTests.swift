@@ -72,7 +72,7 @@ final class SettingsScreensTests: XCTestCase {
 
     func testSupportMailURLEncodesSubjectAndBody() throws {
         let message = "対戦中に落ちました & 再現 = 100% #1 + α?\n2 行目"
-        let url = try XCTUnwrap(SupportMail.url(to: "support@velstria.example", category: .bug, message: message, info: info))
+        let url = try XCTUnwrap(ReportMail.url(to: "support@velstria.example", category: .bug, message: message, info: info))
         XCTAssertEqual(url.scheme, "mailto")
         let comps = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false))
         XCTAssertEqual(comps.path, "support@velstria.example")
@@ -87,10 +87,10 @@ final class SettingsScreensTests: XCTestCase {
     }
 
     func testSupportMailTrimsMessageAndUsesFixedTags() {
-        XCTAssertTrue(SupportMail.body(message: "  hello \n", info: info).hasPrefix("hello\n\n---\n"))
+        XCTAssertTrue(ReportMail.body(message: "  hello \n", info: info).hasPrefix("hello\n\n---\n"))
         XCTAssertEqual(Set(SupportCategory.allCases.map(\.subjectTag)).count, SupportCategory.allCases.count)
-        XCTAssertEqual(SupportMail.encode("a b&c=d"), "a%20b%26c%3Dd")
-        XCTAssertEqual(SupportMail.encode("日本"), "%E6%97%A5%E6%9C%AC")
+        XCTAssertEqual(ReportMail.encode("a b&c=d"), "a%20b%26c%3Dd")
+        XCTAssertEqual(ReportMail.encode("日本"), "%E6%97%A5%E6%9C%AC")
     }
 
     func testAppVersionInfoIsPopulated() {

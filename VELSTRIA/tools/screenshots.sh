@@ -78,7 +78,7 @@ if [[ -n "$ONLY" ]] && ! printf '%s\n' "${SHOTS[@]}" "${REVIEW_SHOTS[@]}" | grep
     echo "error: --only に指定した名前 \"$ONLY\" の撮影定義がありません" >&2
     exit 1
 fi
-BUNDLE_ID="com.velstria.game"
+BUNDLE_ID="com.bitcoinpay.velstria"
 OUT="$ROOT/build/screenshots"
 CREATED=()
 

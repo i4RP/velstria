@@ -8,13 +8,13 @@
 
 | # | Product ID | 種別 | 参照名 (Reference Name) | 付与 | 基準価格 (JPY) | 目安 (USD) |
 |---|---|---|---|---|---|---|
-| 1 | `com.velstria.game.gem.60` | 消耗型 Consumable | Astral Gem 60 | 有償 60 | ¥160 | $0.99 |
-| 2 | `com.velstria.game.gem.300` | 消耗型 Consumable | Astral Gem 300 (+30) | 有償 330（300 + ボーナス 30） | ¥800 | $4.99 |
-| 3 | `com.velstria.game.gem.980` | 消耗型 Consumable | Astral Gem 980 (+110) | 有償 1,090（980 + ボーナス 110） | ¥2,500 | $14.99 |
-| 4 | `com.velstria.game.gem.1980` | 消耗型 Consumable | Astral Gem 1980 (+260) | 有償 2,240（1,980 + ボーナス 260） | ¥4,900 | $29.99 |
-| 5 | `com.velstria.game.gem.3280` | 消耗型 Consumable | Astral Gem 3280 (+600) | 有償 3,880（3,280 + ボーナス 600） | ¥8,000 | $49.99 |
-| 6 | `com.velstria.game.gem.6480` | 消耗型 Consumable | Astral Gem 6480 (+1600) | 有償 8,080（6,480 + ボーナス 1,600） | ¥15,800 | $99.99 |
-| 7 | `com.velstria.game.pass.premium` | 非消耗型 Non-Consumable | Star Pass Premium Season 1 | スターパス S1 プレミアムトラック | ¥980 | $5.99 |
+| 1 | `com.bitcoinpay.velstria.gem.60` | 消耗型 Consumable | Astral Gem 60 | 有償 60 | ¥160 | $0.99 |
+| 2 | `com.bitcoinpay.velstria.gem.300` | 消耗型 Consumable | Astral Gem 300 (+30) | 有償 330（300 + ボーナス 30） | ¥800 | $4.99 |
+| 3 | `com.bitcoinpay.velstria.gem.980` | 消耗型 Consumable | Astral Gem 980 (+110) | 有償 1,090（980 + ボーナス 110） | ¥2,500 | $14.99 |
+| 4 | `com.bitcoinpay.velstria.gem.1980` | 消耗型 Consumable | Astral Gem 1980 (+260) | 有償 2,240（1,980 + ボーナス 260） | ¥4,900 | $29.99 |
+| 5 | `com.bitcoinpay.velstria.gem.3280` | 消耗型 Consumable | Astral Gem 3280 (+600) | 有償 3,880（3,280 + ボーナス 600） | ¥8,000 | $49.99 |
+| 6 | `com.bitcoinpay.velstria.gem.6480` | 消耗型 Consumable | Astral Gem 6480 (+1600) | 有償 8,080（6,480 + ボーナス 1,600） | ¥15,800 | $99.99 |
+| 7 | `com.bitcoinpay.velstria.pass.premium` | 非消耗型 Non-Consumable | Star Pass Premium Season 1 | スターパス S1 プレミアムトラック | ¥980 | $5.99 |
 
 - ボーナス分（+30 等）も購入の対価として付与するため、**有償ジェムに含めて**付与する（`StoreKitService` は `gems + bonusGems` を有償 Gem に加算）。
   無償ジェムはゲーム内報酬（ミッション・スターパス・イベント等）で得たものだけで、有償ジェムと分けて保持・表示する。
@@ -47,9 +47,9 @@
 
 ## スターパスの商品設計についての注意
 
-`com.velstria.game.pass.premium` は非消耗型なので、一度購入すると**恒久的に所有**扱いになる。
+`com.bitcoinpay.velstria.pass.premium` は非消耗型なので、一度購入すると**恒久的に所有**扱いになる。
 v1.0 ではシーズン 1 専用として販売し（表示名・説明にシーズン 1 と明記）、シーズン 2 以降は新しい Product ID
-（例 `com.velstria.game.pass.premium.s2`）を追加するか、非更新サブスクリプションに切り替える。
+（例 `com.bitcoinpay.velstria.pass.premium.s2`）を追加するか、非更新サブスクリプションに切り替える。
 既存購入者の S1 プレミアム報酬は復元で常に受け取れるようにする。
 
 ## Sandbox での確認手順（社内テスト）
