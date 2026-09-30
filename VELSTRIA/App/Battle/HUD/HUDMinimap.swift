@@ -160,9 +160,9 @@ private struct HUDMinimapUnits: View {
             // キャンプ
             for c in buffer.camps where c.alive {
                 let p = proj.point(c.pos)
-                let r: CGFloat = c.isBoss ? 4.5 : 2.6
+                let r: CGFloat = c.isBoss ? 4.5 : 2.0
                 ctx.fill(Path(ellipseIn: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2)),
-                         with: .color(Theme.gold.opacity(c.isBoss ? 0.95 : 0.7)))
+                         with: .color(Theme.gold.opacity(c.isBoss ? 0.95 : 0.55)))
                 if c.isBoss {
                     ctx.stroke(Path(ellipseIn: CGRect(x: p.x - r - 1.5, y: p.y - r - 1.5, width: r * 2 + 3, height: r * 2 + 3)),
                                with: .color(.white.opacity(0.6)), lineWidth: 1)
@@ -187,7 +187,7 @@ private struct HUDMinimapUnits: View {
             for d in buffer.units {
                 let p = proj.point(d.pos)
                 let color = d.team == .neutral ? Theme.gold.opacity(0.9) : Theme.teamColor(d.team, colorblind: cb)
-                let r: CGFloat = d.kind == .minion ? 1.7 : 2.2
+                let r: CGFloat = d.kind == .minion ? 2.0 : 2.4
                 let enemy = viewer.map { d.team != $0 && d.team != .neutral } ?? (d.team == .red)
                 let path = cb && enemy
                     ? Path(CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2))

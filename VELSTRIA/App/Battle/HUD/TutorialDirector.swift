@@ -159,8 +159,8 @@ struct TutorialDirector: Equatable, Sendable {
     var instruction: String {
         switch step {
         case .move:
-            return L("左下のスティックをドラッグしてヒーローを動かそう。",
-                     "Drag the stick at the bottom left to move your hero.")
+            return L("移動スティックをドラッグしてヒーローを動かそう。",
+                     "Drag the movement stick to move your hero.")
         case .attackDummy:
             return L("中央レーンの訓練人形に近づき、攻撃ボタンで 3 回攻撃しよう。",
                      "Walk to the training dummies in the mid lane and hit one 3 times with Attack.")
@@ -168,8 +168,8 @@ struct TutorialDirector: Equatable, Sendable {
             return L("スキル1 の近くに出た「＋」をタップして習得しよう。",
                      "Tap the “+” next to Skill 1 to learn it.")
         case .castSkill:
-            return L("スキル1 をタップで発動。ドラッグすると狙いを定められ、右上へ運ぶとキャンセル。",
-                     "Tap Skill 1 to cast. Drag to aim; drag to the top right to cancel.")
+            return L("スキル1 をタップで発動。ドラッグで狙いを定め、「キャンセル」まで運ぶと取り消せる。",
+                     "Tap Skill 1 to cast. Drag to aim, or drag onto “Cancel” to call it off.")
         case .openShop:
             return L("ゴールドのボタンからショップを開こう。倒れている間も買い物できる。",
                      "Open the shop from the gold button. You can shop even while dead.")

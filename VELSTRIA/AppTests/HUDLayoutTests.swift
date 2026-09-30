@@ -137,7 +137,9 @@ final class HUDLayoutTests: XCTestCase {
                        [.sound(.defeat, gain: 1), .haptic(.defeat)])
         XCTAssertEqual(BattleAudioDirector.cues(for: .matchEnded(winner: nil, reason: .aborted), context: c), [])
         XCTAssertEqual(BattleAudioDirector.cues(for: .announcement(.towerDestroyed(team: .red, lane: .mid, tier: .outer)), context: c),
-                       [.sound(.towerDestroyed, gain: 1)])
+                       [.sound(.towerDestroyed, gain: 1), .haptic(.announcement)])
+        XCTAssertEqual(BattleAudioDirector.cues(for: .announcement(.minionsSpawned), context: c),
+                       [.sound(.announcement, gain: 0.7)], "定期的な告知は触覚なし")
     }
 
     func testSkillSoundsAttenuateWithDistanceFromCamera() {

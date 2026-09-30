@@ -19,6 +19,8 @@ final class BattleAudioDirector {
         case kill
         case death
         case levelUp
+        /// 重要な告知（ファーストブラッド・マルチキル・塔・オブジェクトなど）。
+        case announcement
         case victory
         case defeat
     }
@@ -100,6 +102,7 @@ final class BattleAudioDirector {
         case .kill: app.haptics.success()
         case .death: app.haptics.impact(.heavy, intensity: 1)
         case .levelUp: app.haptics.impact(.light, intensity: 0.8)
+        case .announcement: app.haptics.impact(.medium, intensity: 0.6)
         case .victory: app.haptics.success()
         case .defeat: app.haptics.error()
         }
@@ -164,12 +167,12 @@ final class BattleAudioDirector {
             return hero == me ? [.sound(.uiError, gain: 0.8)] : []
         case .announcement(let a):
             switch a {
-            case .multiKill: return [.sound(.multiKill, gain: 1)]
-            case .towerDestroyed: return [.sound(.towerDestroyed, gain: 1)]
-            case .wyrmSlain, .colossusSlain: return [.sound(.objective, gain: 1)]
+            case .multiKill: return [.sound(.multiKill, gain: 1), .haptic(.announcement)]
+            case .towerDestroyed: return [.sound(.towerDestroyed, gain: 1), .haptic(.announcement)]
+            case .wyrmSlain, .colossusSlain: return [.sound(.objective, gain: 1), .haptic(.announcement)]
             case .victory: return []
             case .minionsSpawned, .matchStart, .wyrmSpawned, .colossusSpawned: return [.sound(.announcement, gain: 0.7)]
-            default: return [.sound(.announcement, gain: 1)]
+            default: return [.sound(.announcement, gain: 1), .haptic(.announcement)]
             }
         case .matchEnded(let winner, let reason):
             guard reason != .aborted else { return [] }
