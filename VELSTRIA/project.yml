@@ -84,6 +84,9 @@ targets:
         UIApplicationSupportsIndirectInputEvents: true
         UIRequiredDeviceCapabilities: [arm64, metal]
         ITSAppUsesNonExemptEncryption: false
+        # 完了済みの消耗型（Gem）も Transaction.all に含める（iOS 18+）。年齢区分別の月間購入上限を
+        # 端末内の記録だけでなく App Store の購入履歴から集計するため（StoreKitService.syncMonthlySpendFromHistory）
+        SKIncludeConsumableInAppPurchaseHistory: true
         LSRequiresIPhoneOS: true
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false

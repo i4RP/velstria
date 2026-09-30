@@ -173,6 +173,8 @@ final class AppStoreAssetsTests: XCTestCase {
         XCTAssertEqual(launch["UIColorName"] as? String, "LaunchBackground")
         XCTAssertEqual(info["UIUserInterfaceStyle"] as? String, "Dark")
         XCTAssertEqual(info["ITSAppUsesNonExemptEncryption"] as? Bool, false)
+        // 月間購入上限を App Store の購入履歴（完了済みの消耗型を含む）から集計するため
+        XCTAssertEqual(info["SKIncludeConsumableInAppPurchaseHistory"] as? Bool, true)
         XCTAssertEqual(info["NSHumanReadableCopyright"] as? String, "© 2026 VELSTRIA")
         XCTAssertEqual(info["CFBundleDisplayName"] as? String, "VELSTRIA")
         XCTAssertEqual(info["UIDeviceFamily"] as? [Int], [1], "iPhone 専用であること")

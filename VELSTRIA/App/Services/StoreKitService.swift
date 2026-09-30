@@ -5,7 +5,10 @@ import VelstriaCore
 // 担当: app-services
 // StoreKit 2（DESIGN §13）:
 // - start(): Transaction.updates の監視開始（アプリ起動直後）→ 商品取得 → 未完了トランザクション処理 → 権利の再確認
-// - 購入: 機能フラグ → 年齢区分の月間上限 → product.purchase() → 検証済みのみ付与 → 保存 → finish()
+//   → 購入履歴（Transaction.all）から月別課金額を再集計
+// - 購入: 機能フラグ → 購入履歴の再集計 → 年齢区分の月間上限 → product.purchase() → 検証済みのみ付与 → 保存 → finish()
+// - 月間上限の課金額は端末内の記録と App Store の購入履歴の大きい方（データ削除・再インストールで戻らない）。
+//   完了済みの消耗型を履歴に含めるため Info.plist に SKIncludeConsumableInAppPurchaseHistory = YES（project.yml）。
 // - 付与は Transaction.id で冪等（profile.purchaseLedger）。Gem は gems + bonusGems を有償 Gem へ。
 // - スターパス プレミアムは非消耗型。currentEntitlements から復元する。
 // - 返金・取り消し（revocationDate あり）は台帳を revoked にし、未消費の有償 Gem を付与数まで回収する。
@@ -71,6 +74,8 @@ final class StoreKitService {
     @ObservationIgnored private var updatesTask: Task<Void, Never>?
     @ObservationIgnored private var started = false
     @ObservationIgnored private var loadTask: Task<Void, Never>?
+    /// App Store の購入履歴で最も新しい購入日時（端末の時計を戻した場合の上限判定に使う）。
+    @ObservationIgnored private var latestHistoryPurchaseDate: Date?
 
     init() {}
 
@@ -86,6 +91,7 @@ final class StoreKitService {
         await loadProducts()
         await processUnfinishedTransactions()
         await refreshEntitlements()
+        await syncMonthlySpendFromHistory()
     }
 
     /// 商品情報を取得する（失敗時は lastError を設定し、表示は参考価格にフォールバック）。
@@ -154,6 +160,9 @@ final class StoreKitService {
     /// AppModel のプロフィールへ反映し、finish の前に確実に保存する。
     private func applyVerified(_ transaction: Transaction) -> LedgerGrantResult? {
         guard let app else { return nil }
+        if transaction.revocationDate == nil, transaction.ownershipType == .purchased {
+            latestHistoryPurchaseDate = max(latestHistoryPurchaseDate ?? transaction.purchaseDate, transaction.purchaseDate)
+        }
         var profile = app.profile
         let outcome = Self.applyTransaction(
             transactionID: transaction.id, productID: transaction.productID,
@@ -187,9 +196,11 @@ final class StoreKitService {
             return .failed(L("商品情報を取得できませんでした。", "Could not load the product."))
         }
 
-        // 年齢区分による月間上限（日本のストアフロントなら実価格、それ以外は参考価格で判定）
+        // 年齢区分による月間上限（日本のストアフロントなら実価格、それ以外は参考価格で判定）。
+        // 端末内の記録はデータ削除・再インストールで消えるため、判定前に App Store の購入履歴から今月分を取り直す
+        await syncMonthlySpendFromHistory()
         let price = await limitCheckPriceJPY(for: product)
-        if !Self.isWithinMonthlyLimit(priceJPY: price, profile: app.profile, now: Date()) {
+        if !Self.isWithinMonthlyLimit(priceJPY: price, profile: app.profile, now: limitReferenceDate()) {
             return .limitExceeded
         }
 
@@ -253,8 +264,39 @@ final class StoreKitService {
         }
         await processUnfinishedTransactions()
         await refreshEntitlements()
+        await syncMonthlySpendFromHistory()
         lastError = nil
         return true
+    }
+
+    /// App Store の購入履歴（Transaction.all）から月ごとの課金額を集計し、端末内の記録より大きければ引き上げる。
+    /// 「すべてのデータを削除」・再インストール・古いバックアップの復元で月間上限（年齢区分別）が戻らないようにする。
+    /// 完了済みの消耗型（Gem）が履歴に含まれるのは Info.plist の SKIncludeConsumableInAppPurchaseHistory = YES（iOS 18+）による。
+    /// 返金・取り消し済みと、ファミリー共有（本人の支払いではない）は数えない。
+    func syncMonthlySpendFromHistory() async {
+        var history: [String: Int] = [:]
+        var latest: Date?
+        let ids = Set(Self.allProductIDs)
+        for await result in Transaction.all {
+            guard case .verified(let t) = result, t.revocationDate == nil, t.ownershipType == .purchased,
+                  ids.contains(t.productID) else { continue }
+            history[LiveOpsService.monthKey(t.purchaseDate), default: 0] += Self.priceJPY(of: t)
+            latest = max(latest ?? t.purchaseDate, t.purchaseDate)
+        }
+        if let latest { latestHistoryPurchaseDate = max(latestHistoryPurchaseDate ?? latest, latest) }
+        guard let app else { return }
+        var profile = app.profile
+        Self.mergeMonthlySpend(history: history, into: &profile)
+        if profile != app.profile {
+            app.profile = profile
+            app.persistence.saveNow(profile)
+        }
+    }
+
+    /// 上限判定の基準日時（端末の時計 + App Store の署名付き履歴の購入日時）。
+    /// 端末内の台帳の日付はバックアップの編集で変えられるため使わない。
+    private func limitReferenceDate(now: Date = Date()) -> Date {
+        Self.limitReferenceDate(now: now, latestPurchase: latestHistoryPurchaseDate)
     }
 
     /// 現在の権利（非消耗型）を確認し、スターパス プレミアムを復元する。
@@ -284,7 +326,21 @@ final class StoreKitService {
 
     /// 年齢区分による今月の残り購入可能額（円）。nil = 上限なし。
     func monthlyLimitRemaining(profile: Profile, now: Date = Date()) -> Int? {
-        Self.remainingMonthlyAllowance(profile: profile, now: now)
+        Self.remainingMonthlyAllowance(profile: profile, now: limitReferenceDate(now: now))
+    }
+
+    /// 購入履歴の月別集計を端末内の記録へ統合する（月ごとに大きい方。上限判定が緩くならない側）。
+    nonisolated static func mergeMonthlySpend(history: [String: Int], into profile: inout Profile) {
+        for (month, amount) in history where amount > (profile.monthlySpendJPY[month] ?? 0) {
+            profile.monthlySpendJPY[month] = amount
+        }
+    }
+
+    /// 上限判定に使う「今」。端末の時計を過去の月へ戻しても、App Store が記録した最新の購入日時
+    /// （Apple のサーバー時刻）より前の月では判定しない。
+    nonisolated static func limitReferenceDate(now: Date, latestPurchase: Date?) -> Date {
+        guard let latestPurchase else { return now }
+        return max(now, latestPurchase)
     }
 
     /// 年齢区分が未設定の場合は最も厳しい区分（15 歳以下）として扱う。

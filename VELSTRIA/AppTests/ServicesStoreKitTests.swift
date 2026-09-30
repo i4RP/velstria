@@ -116,6 +116,41 @@ final class ServicesStoreKitTests: XCTestCase {
         XCTAssertEqual(StoreKitService.remainingMonthlyAllowance(profile: p, now: now), 0)
     }
 
+    /// 端末内の記録が消えても（すべてのデータを削除・再インストール）、App Store の購入履歴から当月の課金額を戻す。
+    func testMonthlySpendIsRebuiltFromPurchaseHistory() {
+        let now = ServicesFixtures.date(2026, 10, 20)
+        var wiped = Profile()
+        wiped.ageBracket = .age13to15
+        XCTAssertEqual(StoreKitService.remainingMonthlyAllowance(profile: wiped, now: now), 5000)
+        let history = ["2026-10": 4900, "2026-09": 160]
+        StoreKitService.mergeMonthlySpend(history: history, into: &wiped)
+        XCTAssertEqual(wiped.monthlySpendJPY, history)
+        XCTAssertEqual(StoreKitService.remainingMonthlyAllowance(profile: wiped, now: now), 100)
+        XCTAssertFalse(StoreKitService.isWithinMonthlyLimit(priceJPY: 160, profile: wiped, now: now))
+
+        // 月ごとに大きい方を採る（端末内の記録には返金済み分も残るため、履歴の方が小さいことがある）
+        var local = Profile()
+        local.monthlySpendJPY = ["2026-10": 5000, "2026-08": 800]
+        StoreKitService.mergeMonthlySpend(history: history, into: &local)
+        XCTAssertEqual(local.monthlySpendJPY, ["2026-10": 5000, "2026-09": 160, "2026-08": 800])
+    }
+
+    /// 端末の時計を過去の月に戻しても、App Store の履歴の最新購入日の月で判定する。
+    func testLimitReferenceDateIgnoresClockSetBack() {
+        let realPurchase = ServicesFixtures.date(2026, 10, 5)
+        let clockSetBack = ServicesFixtures.date(2026, 9, 15)
+        XCTAssertEqual(StoreKitService.limitReferenceDate(now: clockSetBack, latestPurchase: realPurchase), realPurchase)
+        let later = ServicesFixtures.date(2026, 11, 2)
+        XCTAssertEqual(StoreKitService.limitReferenceDate(now: later, latestPurchase: realPurchase), later)
+        XCTAssertEqual(StoreKitService.limitReferenceDate(now: later, latestPurchase: nil), later)
+
+        var p = Profile()
+        p.ageBracket = .under13
+        p.monthlySpendJPY["2026-10"] = 5000
+        let reference = StoreKitService.limitReferenceDate(now: clockSetBack, latestPurchase: realPurchase)
+        XCTAssertEqual(StoreKitService.remainingMonthlyAllowance(profile: p, now: reference), 0)
+    }
+
     func testReferencePrices() {
         XCTAssertEqual(StoreKitService.referencePriceJPY(productID: StoreKitService.premiumPassProductID), 980)
         XCTAssertEqual(StoreKitService.referencePriceJPY(productID: "com.bitcoinpay.velstria.gem.6480"), 15800)

@@ -142,7 +142,8 @@ TEAM_ID=<10桁のTeamID> BUILD_NUMBER=<前回+1> STRICT=1 tools/archive.sh
 | `DEVELOPMENT_TEAM` | 空 | `tools/archive.sh` が `TEAM_ID` から注入 |
 
 Info.plist（project.yml の `info.properties` から生成）: `UILaunchScreen`（背景色 `LaunchBackground` + 画像 `LaunchLogo`）、
-`UIUserInterfaceStyle = Dark`、`NSHumanReadableCopyright = © 2026 VELSTRIA`、横画面のみ、`ITSAppUsesNonExemptEncryption = NO`。
+`UIUserInterfaceStyle = Dark`、`NSHumanReadableCopyright = © 2026 VELSTRIA`、横画面のみ、`ITSAppUsesNonExemptEncryption = NO`、
+`SKIncludeConsumableInAppPurchaseHistory = YES`（年齢区分別の月間購入上限を App Store の購入履歴からも集計し、データ削除・再インストールで戻らないようにする）。
 scheme の Run には StoreKit 構成ファイル `App/Resources/Velstria.storekit` を設定済み（Xcode 実行時の課金テスト用）。
 
 ## 9. アイコンと起動画面
