@@ -9,6 +9,7 @@
 //   ASC_BUNDLE_ID   既定 com.bitcoinpay.velstria
 //
 // usage:
+//   node tools/asc.mjs create-app [name] [sku]         アプリレコードの作成を試す（Apple が API での作成を許可している場合のみ成功）
 //   node tools/asc.mjs status                         アプリとビルドの一覧
 //   node tools/asc.mjs wait-build <build>             ビルドの処理完了（VALID）を待つ
 //   node tools/asc.mjs internal <email> [<email>...]  内部テストグループを用意し、テスターを追加（ASC ユーザであること）
@@ -124,6 +125,31 @@ async function ensureBuildInGroup(group, build) {
 }
 
 const [cmd, ...rest] = process.argv.slice(2);
+
+if (cmd === "create-app") {
+  // API でのアプリレコード作成（Apple が許可していない場合はエラー内容を表示して終了）
+  const existing = await call("GET", `/v1/apps?filter[bundleId]=${encodeURIComponent(BUNDLE_ID)}`);
+  if (existing.data.length) { console.log(`既に存在: ${existing.data[0].attributes.name}`); process.exit(0); }
+  const bid = await call("GET", `/v1/bundleIds?filter[identifier]=${encodeURIComponent(BUNDLE_ID)}&limit=5`);
+  const exact = bid.data.find((b) => b.attributes.identifier === BUNDLE_ID);
+  if (!exact) fail(`Bundle ID ${BUNDLE_ID} が Developer に登録されていません`);
+  console.log(`Bundle ID: ${exact.attributes.identifier}（${exact.attributes.name}, id ${exact.id}）`);
+  const [name = "VELSTRIA - 星環の戦場", sku = "VELSTRIA-IOS-001"] = rest;
+  try {
+    const r = await call("POST", "/v1/apps", {
+      data: {
+        type: "apps",
+        attributes: { name, sku, primaryLocale: "ja", bundleId: BUNDLE_ID },
+        relationships: { bundleId: { data: { type: "bundleIds", id: exact.id } } },
+      },
+    });
+    console.log(`作成: ${r.data.attributes.name}（id ${r.data.id}）`);
+  } catch (e) {
+    fail(`アプリレコードを API で作成できませんでした:\n${e.message}`);
+  }
+  process.exit(0);
+}
+
 const app = await findApp();
 console.log(`アプリ: ${app.attributes.name}（${app.attributes.bundleId}, id ${app.id}）`);
 
