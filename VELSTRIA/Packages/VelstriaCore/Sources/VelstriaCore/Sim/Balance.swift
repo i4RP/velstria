@@ -39,6 +39,8 @@ public enum Balance {
     public static let energyRegenPerSecond: Double = 12
     public static let combatTimeout: Double = 5
     public static let minMoveSpeed: Double = 100
+    /// ヒーロー移動速度の倍率（マスターの move_speed に掛ける）。実機の体感調整で 1.35（平均 257.5 → 約 348 ユニット/秒）。
+    public static let heroMoveSpeedScale: Double = 1.35
     public static let critMultiplier: Double = 1.75
     public static let assistWindow: Double = 10
     public static let xpShareRadius: Double = 1400

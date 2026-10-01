@@ -16,7 +16,7 @@ public enum HeroGrowth {
         st.magicResist = def.baseMagicDefense + def.magicDefenseGrowth * n
         let baseAS = def.isRanged ? Balance.rangedAttackSpeed : Balance.meleeAttackSpeed
         st.attackSpeed = baseAS * (1 + Balance.attackSpeedPerLevel * n)
-        st.moveSpeed = def.moveSpeed
+        st.moveSpeed = def.moveSpeed * Balance.heroMoveSpeedScale
         st.attackRange = def.attackRange
         st.sightRange = Balance.heroSight
         st.hpRegen = 4 + 0.6 * Double(lv)
