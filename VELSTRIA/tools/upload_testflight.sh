@@ -19,9 +19,16 @@ plutil -replace destination -string upload "$OPTIONS"
 
 PLIST="$ARCHIVE/Products/Applications/VELSTRIA.app/Info.plist"
 echo "==> アップロード: $(plutil -extract CFBundleIdentifier raw "$PLIST") $(plutil -extract CFBundleShortVersionString raw "$PLIST") ($(plutil -extract CFBundleVersion raw "$PLIST"))"
+# App Store Connect API キーがあればそれで認証（無ければ Xcode にサインイン済みのアカウント）
+AUTH=()
+if [[ -n "${ASC_KEY_ID:-}" && -n "${ASC_ISSUER_ID:-}" ]]; then
+    KEY_PATH="${ASC_KEY_PATH:-$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8}"
+    AUTH=(-authenticationKeyPath "$KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
+    echo "==> 認証: App Store Connect API キー $ASC_KEY_ID"
+fi
 rm -rf build/upload
 if ! xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportPath build/upload \
-        -exportOptionsPlist "$OPTIONS" -allowProvisioningUpdates; then
+        -exportOptionsPlist "$OPTIONS" -allowProvisioningUpdates ${AUTH[@]+"${AUTH[@]}"}; then
     cat >&2 <<'EOF'
 
 error: アップロードに失敗しました。
