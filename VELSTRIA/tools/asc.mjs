@@ -49,11 +49,23 @@ function token() {
 }
 
 async function call(method, url, body) {
-  const res = await fetch(url.startsWith("http") ? url : API + url, {
-    method,
-    headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  // 一時的な通信エラー（接続タイムアウト等）は最大 5 回まで待って再試行する
+  let res;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      res = await fetch(url.startsWith("http") ? url : API + url, {
+        method,
+        headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (res.status >= 500 && attempt < 5) throw new Error(`HTTP ${res.status}`);
+      break;
+    } catch (e) {
+      if (attempt >= 5) throw e;
+      console.error(`  通信エラーのため再試行（${attempt}/5）: ${e.cause?.code || e.message}`);
+      await new Promise((r) => setTimeout(r, 5000 * attempt));
+    }
+  }
   const text = await res.text();
   const json = text ? JSON.parse(text) : {};
   if (!res.ok) {
