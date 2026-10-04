@@ -82,9 +82,9 @@ enum PostProcessShaderCache {
     /// コンパイルにかかった時間（ms。計測ログ用）。
     nonisolated(unsafe) private(set) static var compileMs: Double?
 
-    /// 既定の GPU 向けに作り始める（済み・作成中なら何もしない）。
+    /// 既定の GPU 向けに作り始める（済み・作成中なら何もしない。後処理を使わないシミュレータでは作らない）。
     static func prewarm() {
-        guard let device = MTLCreateSystemDefaultDevice() else { return }
+        guard PostProcessor.isAvailable, let device = MTLCreateSystemDefaultDevice() else { return }
         request(device: device) { _ in }
     }
 

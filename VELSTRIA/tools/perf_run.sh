@@ -66,7 +66,7 @@ fi
 echo "==> 計測: $DEVICE / $CONFIG / ${SECONDS_TO_RUN}s × ${SPEED} 倍速 ${QUALITY:+/ 画質 $QUALITY}"
 # 起動直後の通知バナー・初回のシステム処理が落ち着くまで待ってから起動する
 sleep 20
-LOG="$(mktemp)"
+LOG="${PERF_LOG:-$(mktemp)}"
 xcrun simctl launch --console-pty --terminate-running-process "$UDID" "$BUNDLE_ID" "${ARGS[@]}" > "$LOG" 2>&1 &
 LAUNCH_PID=$!
 DEADLINE=$(( $(date +%s) + SECONDS_TO_RUN + 240 ))
