@@ -1,97 +1,26 @@
 name: TestFlight
 
-# main に push されるたびに、コアのテスト → アーカイブ → App Store Connect（TestFlight）へアップロードまで行う。
-# 内部テストグループ（全ビルド自動配信）のテスターには、Apple の処理完了後に自動で届く。
-#
-# 必要な Secrets:
-#   ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_P8   App Store Connect API キー（アップロード・ビルド状態の確認）
-#   CI_DIST_P12_BASE64 / CI_DIST_P12_PASSWORD  CI 専用の配布証明書（Apple Distribution）と秘密鍵
-#   CI_PROFILE_BASE64                         App Store プロビジョニングプロファイル「VELSTRIA AppStore CI」
-# フォーク・プルリクエストでは動かない（push と手動実行のみ。Secrets はフォークに渡らない）。
+# production 以外のすべてのブランチへの push で、アーカイブして TestFlight（内部テスト）へ配信する。
+# 内部テストグループ「In」は全ビルド自動配信なので、Apple の処理完了後にテスターへ届く。
+# 「テスト内容」にブランチ名とコミットが入るので、どのブランチのビルドか TestFlight で見分けられる。
+# 中身は build-upload.yml（production.yml と共通）。フォーク・プルリクエストでは動かない（Secrets はフォークに渡らない）。
 on:
   push:
-    branches: [main]
-    paths: ["VELSTRIA/**", ".github/workflows/testflight.yml"]
+    branches-ignore: [production]
+    paths: ["VELSTRIA/**", ".github/workflows/**"]
   workflow_dispatch:
 
+# ブランチごとに 1 本ずつ（同じブランチの待機中の実行は新しい push で置き換わる）。ブランチ間は並行に走る
 concurrency:
-  group: testflight
+  group: testflight-${{ github.ref_name }}
   cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
-  upload:
-    runs-on: macos-26
-    timeout-minutes: 90
-    defaults:
-      run:
-        working-directory: VELSTRIA
-    env:
-      TEAM_ID: BPZ8375UX5
-      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-      ASC_KEY_PATH: ${{ github.workspace }}/AuthKey.p8
-      SIGNING: manual
-      PROFILE_NAME: VELSTRIA AppStore CI
-      ALLOW_APP_PLACEHOLDERS: "1" # 内部テスト用。外部テスト・審査に出すビルドでは外すこと
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: ビルド番号
-        # 手元でアップロード済みのビルド（〜4）より大きくするため 100 を足す
-        run: echo "BUILD_NUMBER=$((100 + ${{ github.run_number }}))" >> "$GITHUB_ENV"
-
-      - name: ツール準備
-        run: |
-          sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -n 1)"
-          xcodebuild -version
-          brew install xcodegen
-
-      - name: コアのテスト
-        working-directory: VELSTRIA/Packages/VelstriaCore
-        run: swift test -c release
-
-      - name: チュートリアルのテスト
-        run: |
-          xcodegen generate --quiet
-          xcodebuild test \
-            -project VELSTRIA.xcodeproj \
-            -scheme VELSTRIA \
-            -configuration Debug \
-            -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
-            -destination-timeout 120 \
-            -only-testing:VELSTRIATests/HUDTutorialTests \
-            -parallel-testing-enabled NO \
-            CODE_SIGNING_ALLOWED=NO
-
-      - name: 署名の準備
-        env:
-          CI_DIST_P12_BASE64: ${{ secrets.CI_DIST_P12_BASE64 }}
-          CI_DIST_P12_PASSWORD: ${{ secrets.CI_DIST_P12_PASSWORD }}
-          CI_PROFILE_BASE64: ${{ secrets.CI_PROFILE_BASE64 }}
-        run: tools/ci_signing_setup.sh
-
-      - name: API キーを配置
-        working-directory: ${{ github.workspace }}
-        env:
-          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
-        run: |
-          umask 077
-          printf '%s\n' "$ASC_KEY_P8" > AuthKey.p8
-
-      - name: アーカイブ
-        run: tools/archive.sh
-
-      - name: TestFlight へアップロード
-        run: tools/upload_testflight.sh
-
-      - name: ビルド処理の完了を待つ
-        run: node tools/asc.mjs wait-build "$BUILD_NUMBER"
-
-      - name: 後片付け
-        if: always()
-        run: |
-          tools/ci_signing_cleanup.sh || true
-          rm -f "${{ github.workspace }}/AuthKey.p8"
+  testflight:
+    uses: ./.github/workflows/build-upload.yml
+    with:
+      lane: beta
+    secrets: inherit

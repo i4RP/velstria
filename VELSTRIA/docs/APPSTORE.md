@@ -166,6 +166,27 @@ scheme の Run には StoreKit 構成ファイル `App/Resources/Velstria.storek
 6. 審査メモ・連絡先を入力し、「審査へ提出」。リリース方法は「手動でリリース」を推奨（承認後に公開タイミングを選べる）。
 7. 承認後、段階的リリース（7 日間）を有効にして公開し、クラッシュ率とレビューを監視する。
 
+### 10.1 production ブランチからの自動提出
+
+`production` ブランチに push すると GitHub Actions（`.github/workflows/production.yml`）が上の 2〜6 を自動で行う。
+公開方法の既定は「承認されたら自動で公開」（`AFTER_APPROVAL`）。承認後に公開タイミングを選びたい場合は、
+リポジトリの Variables に `ASC_RELEASE_TYPE=MANUAL` を設定する。
+
+| 段階 | 内容 | 止まる条件 |
+|---|---|---|
+| 提出前チェック（Linux） | `gen_master_*.py --check`・`privacy_audit.py`・`validate_appstore_metadata.py --release`、`asc.mjs release-check <MARKETING_VERSION>` | 仮値・プレースホルダが残っている／そのバージョン番号が承認済み・公開済み |
+| ビルド（macOS） | コア・チュートリアルのテスト → `STRICT=1` でアーカイブ → アップロード → 処理完了待ち | テスト失敗・署名失敗・Apple 側の処理失敗 |
+| 提出（`asc.mjs submit`） | `docs/appstore/metadata/` の掲載文・名前・サブタイトル・URL・カテゴリ・著作権・審査連絡先とメモを同期 → 輸出コンプライアンス・コンテンツの権利（未回答時のみ「第三者のコンテンツなし」）→ ビルドを紐付け → 審査に提出 | Web でしか設定できない項目が未設定（Apple のエラーに不足項目が列挙される） |
+
+- **初回だけ Web で設定が必要**（API で扱えない、または判断が必要な項目）: スクリーンショット（§ [screenshots.md](appstore/screenshots.md)）、
+  App のプライバシー（§5）、価格と配信状況（§4）、年齢制限（[age_rating.md](appstore/age_rating.md)）、App 内課金の登録とバージョンへの追加。
+  次のバージョンからは ASC が前のバージョンの値を引き継ぐ。
+- 審査中（審査待ちを含む）に再び push すると、その提出を取り下げて新しいビルドで出し直す（審査の順番は最後尾に戻る）。
+- 2 回目以降のリリース: `project.yml` の `MARKETING_VERSION` を上げ、`metadata/<言語>/release_notes.txt`（このバージョンの新機能）を
+  追加してから push する。無ければ提出段階で止まる。
+- 承認されたバージョン番号には TestFlight 用のビルドも追加できなくなるため、承認されたらすぐ `main` の `MARKETING_VERSION` を上げる。
+- 手元で確認するとき: `node tools/asc.mjs submit <ビルド番号> --dry-run`（読み取りだけで、行う変更を表示する）。
+
 ## 11. よくある却下理由と対策
 
 | ガイドライン | 想定リスク | 対策 |

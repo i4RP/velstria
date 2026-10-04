@@ -1,0 +1,67 @@
+name: App Store
+
+# production ブランチへの push で App Store に出す（本番反映）。
+#   1. 提出前チェック（Linux・数十秒）: 仮値・プレースホルダが残っていないか、このバージョン番号で出せるか
+#   2. build-upload.yml（lane=production）: テスト → STRICT アーカイブ → アップロード → 審査に提出
+# 公開方法は Variables の ASC_RELEASE_TYPE（既定 AFTER_APPROVAL = 承認されたら自動で公開）。
+# 審査中に再び push されたら、その提出を取り下げて新しいビルドで出し直す。
+# 公開済みのバージョン番号では出せないので、2 回目以降は VELSTRIA/project.yml の MARKETING_VERSION を上げ、
+# docs/appstore/metadata/<言語>/release_notes.txt を用意してから push する。
+# paths で絞らない（ブランチ作成時の push や、やり直しの push でも必ず動かすため）
+on:
+  push:
+    branches: [production]
+  workflow_dispatch:
+
+# 実行中の提出は止めない。待機中の実行は新しい push で置き換わる（最新の production だけが提出される）。
+# ref ごとに分け、production 以外から手動実行された（gate で弾かれる）実行が production の待機を押し出さないようにする
+concurrency:
+  group: appstore-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: 提出前チェック
+    # 手動実行も production ブランチからだけ受け付ける
+    if: github.ref == 'refs/heads/production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: VELSTRIA
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_PATH: ${{ github.workspace }}/AuthKey.p8
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: メタデータ・法定表示の仮値チェック
+        run: |
+          python3 tools/gen_master_en.py --check
+          python3 tools/gen_master_ja.py --check
+          python3 tools/privacy_audit.py
+          python3 tools/validate_appstore_metadata.py --release
+
+      - name: このバージョン番号で提出できるか
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          (umask 077; printf '%s\n' "$ASC_KEY_P8" > "$ASC_KEY_PATH")
+          version="$(awk -F'"' '/MARKETING_VERSION:/ {print $2; exit}' project.yml)"
+          echo "MARKETING_VERSION=$version"
+          node tools/asc.mjs release-check "$version"
+
+      - name: 後片付け
+        if: always()
+        run: rm -f "$ASC_KEY_PATH"
+
+  appstore:
+    needs: gate
+    uses: ./.github/workflows/build-upload.yml
+    with:
+      lane: production
+    secrets: inherit

@@ -33,12 +33,29 @@ xcodebuild -project VELSTRIA.xcodeproj -scheme VELSTRIA \
 cd Packages/VelstriaCore && swift test -c release
 ```
 
-## TestFlight への自動配信
+## 自動配信（TestFlight / App Store）
 
-`main` に push すると GitHub Actions（`.github/workflows/testflight.yml`）が
-コアのテスト → アーカイブ（手動署名）→ App Store Connect へのアップロード → 処理完了待ちを行います。
-内部テストグループは全ビルド自動配信の設定なので、処理完了後に TestFlight へ届きます。
-ビルド番号は `100 + 実行番号` です。手動実行は Actions の「Run workflow」から。
+| push 先 | ワークフロー | 行き先 |
+|---|---|---|
+| `production` 以外のすべてのブランチ | `.github/workflows/testflight.yml` | TestFlight 内部テスト（全ビルド自動配信のグループ「In」） |
+| `production` | `.github/workflows/production.yml` | App Store の審査に提出 → 承認されたら自動で公開 |
+
+TestFlight は `VELSTRIA/` か `.github/workflows/` に変更があるときだけ、production は push のたびに動きます（手動実行は Actions の「Run workflow」）。
+中身は共通の `build-upload.yml`: コアのテスト → チュートリアルのテスト → アーカイブ（手動署名）→ アップロード → 処理完了待ち →
+TestFlight の「テスト内容」にブランチ名・コミットを記入 →（production のみ）メタデータを同期して審査に提出。
+
+- ビルド番号は「2026-01-01 UTC からの経過秒」（並行して走っても重複せず増え続ける。手元からアップロードするときもこれより大きくする）。
+- **本番に出す**: `git push origin main:production`（main の内容を production に反映）。
+  - 提出前チェックで、ストア情報・法定表示・アプリ内表示に仮値（`{{PUBLISHER_NAME}}`、`velstria.example` 等）が 1 つでも残っていれば止まります
+    （`python3 VELSTRIA/tools/validate_appstore_metadata.py --release` がエラー 0 になるまで本番には出ません）。
+  - 審査中に再度 push すると、その提出を取り下げて新しいビルドで出し直します。
+  - 公開済みのバージョン番号では出せないので、2 回目以降は `VELSTRIA/project.yml` の `MARKETING_VERSION` を上げ、
+    `VELSTRIA/docs/appstore/metadata/<言語>/release_notes.txt`（このバージョンの新機能）を用意してから push します。
+  - 承認されたバージョン番号には TestFlight 用のビルドも追加できなくなります。承認されたらすぐ `main` の `MARKETING_VERSION` を上げてください
+    （上げるまで TestFlight へのアップロードは「MARKETING_VERSION を上げてください」で止まります）。
+  - 初回だけ App Store Connect の Web で、スクリーンショット・App のプライバシー・価格と配信状況・年齢制限・App 内課金を設定しておく
+    必要があります（API で扱えない、または判断が必要な項目。詳細は `VELSTRIA/docs/APPSTORE.md`「production ブランチからの自動提出」）。
+  - 承認後すぐ公開せず手動で公開したい場合は、リポジトリの Variables に `ASC_RELEASE_TYPE=MANUAL` を設定します。
 
 必要な Secrets（リポジトリ設定 → Secrets and variables → Actions）:
 `ASC_KEY_ID` / `ASC_ISSUER_ID` / `ASC_KEY_P8`（App Store Connect API キー）、
