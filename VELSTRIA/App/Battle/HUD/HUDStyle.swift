@@ -4,14 +4,18 @@ import VelstriaCore
 // 担当: battle-hud。戦闘 HUD の共通スタイルと画面配置（横画面・左利き反転・Safe Area 対応）。
 
 enum HUDStyle {
-    static let glassTop = Color(red: 0.10, green: 0.12, blue: 0.24).opacity(0.78)
-    static let glassBottom = Color(red: 0.03, green: 0.04, blue: 0.10).opacity(0.86)
-    static let rim = Color(red: 0.62, green: 0.70, blue: 1.0).opacity(0.45)
-    static let hp = Color(red: 0.30, green: 0.92, blue: 0.48)
+    static let surface = Color(red: 0.04, green: 0.08, blue: 0.17)
+    static let glassTop = Color(red: 0.10, green: 0.17, blue: 0.29).opacity(0.94)
+    static let glassBottom = surface.opacity(0.94)
+    static let rim = Color(red: 0.61, green: 0.78, blue: 1.0).opacity(0.32)
+    static let accent = Color(red: 0.38, green: 0.88, blue: 1.0)
+    static let violet = Color(red: 0.66, green: 0.51, blue: 1.0)
+    static let mutedText = Color(red: 0.69, green: 0.78, blue: 0.89)
+    static let hp = Color(red: 0.64, green: 0.95, blue: 0.38)
     static let hpLow = Color(red: 1.0, green: 0.30, blue: 0.32)
-    static let mana = Color(red: 0.32, green: 0.62, blue: 1.0)
+    static let mana = Color(red: 0.32, green: 0.74, blue: 1.0)
     static let energy = Color(red: 1.0, green: 0.86, blue: 0.30)
-    static let xp = Color(red: 0.62, green: 0.48, blue: 1.0)
+    static let xp = violet
     static let shield = Color.white.opacity(0.88)
 
     static func number(_ v: Double) -> String { String(Int(max(0, v).rounded())) }
@@ -47,6 +51,7 @@ struct HUDGlass: ViewModifier {
                     .strokeBorder(LinearGradient(colors: [tint, tint.opacity(0.12)], startPoint: .top, endPoint: .bottom),
                                   lineWidth: 1)
             )
+            .shadow(color: Color.black.opacity(0.24), radius: 5, y: 3)
     }
 }
 
@@ -103,7 +108,8 @@ struct HUDRoundButton: View {
                 .frame(width: size, height: size)
                 .background(Circle().fill(LinearGradient(colors: [HUDStyle.glassTop, HUDStyle.glassBottom],
                                                          startPoint: .top, endPoint: .bottom)))
-                .overlay(Circle().strokeBorder(HUDStyle.rim, lineWidth: 1))
+                .overlay(Circle().strokeBorder(HUDStyle.rim, lineWidth: 1.2))
+                .shadow(color: .black.opacity(0.25), radius: 3, y: 2)
                 .contentShape(Circle())
         }
         .buttonStyle(HUDPressStyle())
@@ -125,6 +131,7 @@ struct HUDPressStyle: ButtonStyle {
 struct HUDHighlightRing: View {
     var diameter: CGFloat
     @State private var on = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Circle()
@@ -134,6 +141,7 @@ struct HUDHighlightRing: View {
             .opacity(on ? 0.25 : 1)
             .shadow(color: Theme.gold.opacity(0.9), radius: 8)
             .onAppear {
+                guard !reduceMotion else { return }
                 withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) { on = true }
             }
             .allowsHitTesting(false)
@@ -170,7 +178,7 @@ struct HUDLayout: Equatable {
     var topEdge: CGFloat { max(safe.top, 6) }
 
     /// 右手配置の x を現在の配置へ。
-    func mx(_ x: CGFloat) -> CGFloat { leftHanded ? size.width - x : x }
+    func mx(_ x: CGFloat) -> CGFloat { leftHanded ? leadingEdge + trailingEdge - x : x }
 
     // MARK: 右側クラスタ（攻撃・スキル・スペル・帰還）
 
@@ -257,18 +265,36 @@ struct HUDLayout: Equatable {
 
     /// フローティングスティックの受付領域。
     var joystickZone: CGRect {
-        let top = minimapFrame.maxY + 10
+        let top = minimapDockFrame.maxY + 8
         let panelNear = leftHanded ? size.width - (heroPanelCenterX + heroPanelWidth / 2) : heroPanelCenterX - heroPanelWidth / 2
         let w = max(140, min(size.width * 0.42, panelNear - 4))
         return CGRect(x: leftHanded ? size.width - w : 0, y: top, width: w, height: size.height - top)
     }
 
+    /// 固定スティックも地図ボタンの下から入力を受ける。
+    var fixedJoystickZone: CGRect {
+        let reach = joystickRadius * 1.5
+        let top = max(joystickRest.y - reach, minimapDockFrame.maxY + 8)
+        return CGRect(x: joystickRest.x - reach, y: top, width: reach * 2,
+                      height: max(0, joystickRest.y + reach - top))
+    }
+
     // MARK: 上部
 
-    var minimapSize: CGFloat { min(158, max(118, size.height * 0.34)) }
+    var minimapSize: CGFloat { min(172, max(138, size.height * 0.38)) }
     var minimapFrame: CGRect {
-        CGRect(x: leadingEdge + 2, y: topEdge, width: minimapSize, height: minimapSize)
+        let x = leftHanded ? trailingEdge - minimapSize - 2 : leadingEdge + 2
+        return CGRect(x: x, y: topEdge, width: minimapSize, height: minimapSize)
     }
+
+    /// 地図と拡大ボタンをまとめた領域。移動スティックの入力領域から除外する。
+    var minimapDockFrame: CGRect {
+        CGRect(x: minimapFrame.minX, y: topEdge, width: minimapSize, height: minimapSize + 48)
+    }
+
+    var tacticalMapSize: CGFloat { min(340, max(180, bottomEdge - topEdge - 88)) }
+    var tacticalLegendWidth: CGFloat { min(190, max(148, width * 0.22)) }
+    var topInfoAlignment: Alignment { leftHanded ? .topLeading : .topTrailing }
 
     var topButtonSize: CGFloat { 44 }
 

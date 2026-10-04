@@ -11,51 +11,63 @@ struct HUDScoreCapsule: View {
     var body: some View {
         let blue = Theme.teamColor(.blue, colorblind: colorblind)
         let red = Theme.teamColor(.red, colorblind: colorblind)
-        HStack(spacing: 10 * scale) {
-            teamSide(top.blueKills, color: blue, symbol: "circle.fill", leading: true)
-            VStack(spacing: 0) {
+        HStack(spacing: 9 * scale) {
+            teamSide(top.blueKills, towers: top.blueTowers, color: blue, symbol: "circle.fill")
+            VStack(spacing: 1) {
                 Text(HUDStyle.clock(Double(top.seconds)))
-                    .font(.system(size: 15 * scale, weight: .heavy, design: .rounded))
+                    .font(.system(size: 20 * scale, weight: .black, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(.white)
-                Image(systemName: "shield.lefthalf.filled")
-                    .font(.system(size: 8 * scale, weight: .bold))
-                    .foregroundStyle(Theme.gold.opacity(0.8))
+                Text(L("経過時間", "ELAPSED"))
+                    .font(.system(size: 7 * scale, weight: .heavy, design: .rounded))
+                    .tracking(1.2 * scale)
+                    .foregroundStyle(HUDStyle.mutedText)
             }
-            .frame(minWidth: 54 * scale)
-            teamSide(top.redKills, color: red, symbol: "diamond.fill", leading: false)
+            .frame(minWidth: 70 * scale)
+            .padding(.horizontal, 3 * scale)
+            .overlay(alignment: .leading) { Rectangle().fill(blue.opacity(0.4)).frame(width: 1, height: 22 * scale) }
+            .overlay(alignment: .trailing) { Rectangle().fill(red.opacity(0.4)).frame(width: 1, height: 22 * scale) }
+            teamSide(top.redKills, towers: top.redTowers, color: red, symbol: "diamond.fill")
         }
-        .padding(.horizontal, 14 * scale)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 12 * scale)
+        .padding(.vertical, 5 * scale)
         .background(
-            Capsule().fill(LinearGradient(colors: [HUDStyle.glassTop, HUDStyle.glassBottom], startPoint: .top, endPoint: .bottom))
+            RoundedRectangle(cornerRadius: 18 * scale, style: .continuous)
+                .fill(LinearGradient(colors: [HUDStyle.glassTop, HUDStyle.glassBottom], startPoint: .top, endPoint: .bottom))
         )
         .overlay(
-            Capsule().strokeBorder(LinearGradient(colors: [blue.opacity(0.8), Theme.gold.opacity(0.6), red.opacity(0.8)],
-                                                  startPoint: .leading, endPoint: .trailing), lineWidth: 1.2)
+            RoundedRectangle(cornerRadius: 18 * scale, style: .continuous)
+                .strokeBorder(LinearGradient(colors: [blue.opacity(0.85), HUDStyle.rim, red.opacity(0.85)],
+                                             startPoint: .leading, endPoint: .trailing), lineWidth: 1.2)
         )
+        .shadow(color: .black.opacity(0.28), radius: 5, y: 3)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(L("キル数 ブルー \(top.blueKills) 対 レッド \(top.redKills)、経過 \(HUDStyle.clock(Double(top.seconds)))",
-                              "Kills Blue \(top.blueKills) to Red \(top.redKills), time \(HUDStyle.clock(Double(top.seconds)))"))
+        .accessibilityLabel(L("キル数 ブルー \(top.blueKills) 対 レッド \(top.redKills)、破壊タワー ブルー \(top.blueTowers) 対 レッド \(top.redTowers)、経過 \(HUDStyle.clock(Double(top.seconds)))",
+                              "Kills Blue \(top.blueKills) to Red \(top.redKills), towers destroyed Blue \(top.blueTowers) to Red \(top.redTowers), time \(HUDStyle.clock(Double(top.seconds)))"))
         .accessibilityIdentifier("hud_score")
     }
 
     /// チームのキル数（色に加えて形でも区別する: ブルー = 丸、レッド = ひし形）。
-    private func teamSide(_ kills: Int, color: Color, symbol: String, leading: Bool) -> some View {
-        HStack(spacing: 5 * scale) {
-            if leading {
-                Image(systemName: symbol).font(.system(size: 9 * scale, weight: .bold)).foregroundStyle(color)
+    private func teamSide(_ kills: Int, towers: Int, color: Color, symbol: String) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 4 * scale) {
+                Image(systemName: symbol)
+                    .font(.system(size: 6 * scale, weight: .black))
+                    .foregroundStyle(color)
+                Text("\(kills)")
+                    .font(.system(size: 21 * scale, weight: .black, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.white)
             }
-            Text("\(kills)")
-                .font(.system(size: 22 * scale, weight: .black, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(color)
-                .shadow(color: color.opacity(0.6), radius: 4)
-                .frame(minWidth: 28 * scale, alignment: leading ? .trailing : .leading)
-            if !leading {
-                Image(systemName: symbol).font(.system(size: 9 * scale, weight: .bold)).foregroundStyle(color)
+            HStack(spacing: 3 * scale) {
+                Image(systemName: "building.2.fill")
+                Text("\(towers)")
+                    .monospacedDigit()
             }
+            .font(.system(size: 8 * scale, weight: .heavy, design: .rounded))
+            .foregroundStyle(color)
         }
+        .frame(minWidth: 44 * scale)
     }
 }
 
@@ -67,28 +79,36 @@ struct HUDTopRight: View {
         let top = model.top
         HStack(spacing: 6) {
             if !model.isSpectating {
-                HStack(spacing: 8) {
-                    HStack(spacing: 2) {
-                        Text("\(top.kills)").foregroundStyle(.white)
-                        Text("/").foregroundStyle(.white.opacity(0.45))
-                        Text("\(top.deaths)").foregroundStyle(Theme.danger)
-                        Text("/").foregroundStyle(.white.opacity(0.45))
-                        Text("\(top.assists)").foregroundStyle(.white)
+                HStack(spacing: 9 * scale) {
+                    VStack(spacing: 1) {
+                        Text("K / D / A")
+                            .font(.system(size: 7 * scale, weight: .bold, design: .rounded))
+                            .foregroundStyle(HUDStyle.mutedText)
+                        HStack(spacing: 3 * scale) {
+                            Text("\(top.kills)").foregroundStyle(.white)
+                            Text("/").foregroundStyle(HUDStyle.mutedText.opacity(0.6))
+                            Text("\(top.deaths)").foregroundStyle(.white)
+                            Text("/").foregroundStyle(HUDStyle.mutedText.opacity(0.6))
+                            Text("\(top.assists)").foregroundStyle(.white)
+                        }
                     }
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("K/D/A \(top.kills) / \(top.deaths) / \(top.assists)")
-                    HStack(spacing: 3) {
-                        Image(systemName: "person.3.fill").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.gold)
+                    Rectangle().fill(HUDStyle.rim).frame(width: 1, height: 19 * scale)
+                    VStack(spacing: 1) {
+                        Text("CS")
+                            .font(.system(size: 7 * scale, weight: .bold, design: .rounded))
+                            .foregroundStyle(HUDStyle.mutedText)
                         Text("\(top.creepScore)").foregroundStyle(.white)
                     }
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("CS \(top.creepScore)")
                 }
-                .font(.system(size: 13 * scale, weight: .heavy, design: .rounded))
+                .font(.system(size: 12 * scale, weight: .heavy, design: .rounded))
                 .monospacedDigit()
                 .padding(.horizontal, 10)
-                .frame(height: 30)
-                .hudGlass(cornerRadius: 15)
+                .frame(height: 36 * scale)
+                .hudGlass(cornerRadius: 12)
             }
             HUDRoundButton(symbol: "list.bullet.rectangle.fill", label: L("スコアボード", "Scoreboard"),
                            identifier: "hud_scoreboard") {

@@ -50,22 +50,39 @@ jobs:
         working-directory: VELSTRIA/Packages/VelstriaCore
         run: swift test -c release
 
-      - name: チュートリアル・攻撃ボタン・操作設定のテスト
+      - name: HUD・チュートリアルの単体テストと UI テスト
         run: |
           xcodegen generate --quiet
+          mkdir -p build
           xcodebuild test \
             -project VELSTRIA.xcodeproj \
             -scheme VELSTRIA \
             -configuration Debug \
             -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
             -destination-timeout 120 \
+            -resultBundlePath build/HUDTests.xcresult \
             -only-testing:VELSTRIATests/HUDTutorialTests \
-            -only-testing:VELSTRIATests/HUDAttackTests \
+            -only-testing:VELSTRIATests/HUDMinimapPrecisionTests \
+            -only-testing:VELSTRIATests/HUDTacticalMapTests \
             -only-testing:VELSTRIATests/HUDLayoutTests \
+            -only-testing:VELSTRIATests/HUDAimTests \
+            -only-testing:VELSTRIATests/HUDShopTests \
+            -only-testing:VELSTRIATests/HUDAttackTests \
             -only-testing:VELSTRIATests/SettingsScreensTests \
-            -only-testing:VELSTRIAUITests/BattleHUDUITests/testPracticeControlsShopPauseAndLeave \
+            -only-testing:VELSTRIATests/RenderLogicTests \
+            -only-testing:VELSTRIAUITests/HUDTacticalMapUITests \
+            -only-testing:VELSTRIAUITests/BattleHUDUITests \
             -parallel-testing-enabled NO \
             CODE_SIGNING_ALLOWED=NO
+
+      - name: HUD テスト結果とスクリーンショットを保存
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hud-tests-${{ github.run_id }}-${{ github.run_attempt }}
+          path: VELSTRIA/build/HUDTests.xcresult
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: 署名の準備
         env:

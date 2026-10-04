@@ -12,23 +12,37 @@ struct HUDHeroPanel: View {
     var body: some View {
         let hero = model.hero
         let s = min(layout.scale, 1.08)
-        VStack(alignment: .leading, spacing: 3 * s) {
-            HStack(spacing: 7 * s) {
-                HUDPortraitLevel(heroID: hero.heroID, level: hero.level, xp: hero.xpProgress, size: 46 * s,
+        VStack(alignment: .leading, spacing: 2 * s) {
+            HStack(spacing: 9 * s) {
+                HUDPortraitLevel(heroID: hero.heroID, level: hero.level, xp: hero.xpProgress, size: 50 * s,
                                  pulse: model.levelUpPulse)
-                HUDVitalsBars(model: model, scale: s)
+                VStack(alignment: .leading, spacing: 3 * s) {
+                    HStack(spacing: 4 * s) {
+                        Image(systemName: Theme.roleSymbol(hero.role))
+                            .foregroundStyle(Theme.roleColor(hero.role))
+                        Text(MasterData.shared.hero(hero.heroID).map { MasterText.hero($0) } ?? hero.heroID)
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                        Spacer(minLength: 0)
+                    }
+                    .font(.system(size: 9 * s, weight: .heavy, design: .rounded))
+                    HUDVitalsBars(model: model, scale: s)
+                }
             }
             HStack(spacing: 4 * s) {
-                HUDItemSlots(model: model, items: hero.items, slot: 31 * s)
-                HUDShopButton(model: model, gold: hero.gold, width: 60 * s,
+                HUDItemSlots(model: model, items: hero.items, slot: 30 * s)
+                HUDShopButton(model: model, gold: hero.gold, width: 62 * s,
                               highlighted: model.tutorial?.highlight == .shop)
             }
+            .padding(.top, 1 * s)
+            .overlay(alignment: .top) { Rectangle().fill(HUDStyle.rim.opacity(0.6)).frame(height: 0.5) }
         }
         .padding(.horizontal, 8 * s)
-        .padding(.top, 6 * s)
+        .padding(.top, 7 * s)
         .padding(.bottom, 2 * s)
         .frame(width: layout.heroPanelWidth)
-        .hudGlass(cornerRadius: 14)
+        .hudGlass(cornerRadius: 18, tint: HUDStyle.accent.opacity(0.45))
         .overlay(alignment: .topLeading) {
             HUDStatusRow(statuses: hero.statuses, size: 22 * s)
                 .offset(x: 4 * s, y: -26 * s)
@@ -53,16 +67,16 @@ struct HUDVitalsBars: View {
 
     var body: some View {
         let v = model.vitals
-        VStack(alignment: .leading, spacing: 4 * scale) {
+        VStack(alignment: .leading, spacing: 3 * scale) {
             HUDBar(value: v.hp, max: v.maxHP, shield: v.shield,
-                   color: v.hpRatio < 0.3 ? HUDStyle.hpLow : HUDStyle.hp, height: 15 * scale, showsText: true)
+                   color: v.hpRatio < 0.3 ? HUDStyle.hpLow : HUDStyle.hp, height: 17 * scale, showsText: true)
                 .accessibilityElement()
                 .accessibilityLabel(L("HP", "HP"))
                 .accessibilityValue("\(HUDStyle.number(v.hp)) / \(HUDStyle.number(v.maxHP))")
                 .accessibilityIdentifier("hud_hp")
             if v.maxResource > 0 {
                 HUDBar(value: v.resource, max: v.maxResource, shield: 0,
-                       color: HUDStyle.resourceColor(v.resourceKind), height: 11 * scale, showsText: true)
+                       color: HUDStyle.resourceColor(v.resourceKind), height: 10 * scale, showsText: true)
                     .accessibilityElement()
                     .accessibilityLabel(v.resourceKind == .energy ? L("エナジー", "Energy") : L("マナ", "Mana"))
                     .accessibilityValue("\(HUDStyle.number(v.resource)) / \(HUDStyle.number(v.maxResource))")
@@ -82,22 +96,25 @@ struct HUDPortraitLevel: View, Equatable {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(Color.black.opacity(0.5), lineWidth: 4)
+                .fill(HUDStyle.surface)
             Circle()
-                .trim(from: 0, to: xp)
+                .stroke(HUDStyle.violet.opacity(0.2), lineWidth: 4)
+            Circle()
+                .trim(from: 0, to: min(1, max(0, xp)))
                 .stroke(HUDStyle.xp, style: StrokeStyle(lineWidth: 4, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .animation(.easeOut(duration: 0.3), value: xp)
             if !heroID.isEmpty {
                 HeroPortraitView(heroID: heroID, size: size - 10, showsRole: false)
                     .clipShape(Circle())
+                    .overlay(Circle().strokeBorder(Color.white.opacity(0.3), lineWidth: 1))
             }
             Text("\(level)")
                 .font(.system(size: size * 0.24, weight: .black, design: .rounded))
                 .foregroundStyle(.white)
                 .frame(width: size * 0.40, height: size * 0.40)
-                .background(Circle().fill(Color(red: 0.12, green: 0.10, blue: 0.28)))
-                .overlay(Circle().strokeBorder(HUDStyle.xp, lineWidth: 1.2))
+                .background(Circle().fill(HUDStyle.violet))
+                .overlay(Circle().strokeBorder(HUDStyle.surface, lineWidth: 2))
                 .offset(x: size * 0.36, y: size * 0.36)
             HUDLevelUpFlash(trigger: pulse, size: size)
         }
@@ -112,6 +129,7 @@ struct HUDLevelUpFlash: View {
     let trigger: Int
     let size: CGFloat
     @State private var shown = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Circle()
@@ -120,6 +138,7 @@ struct HUDLevelUpFlash: View {
             .scaleEffect(shown ? 1.8 : 1)
             .opacity(shown ? 0 : (trigger > 0 ? 1 : 0))
             .onChange(of: trigger) {
+                guard !reduceMotion else { shown = true; return }
                 shown = false
                 withAnimation(.easeOut(duration: 0.8)) { shown = true }
             }
@@ -142,9 +161,9 @@ struct HUDBar: View, Equatable {
             let vw = g.size.width * CGFloat(Swift.max(0, value) / total)
             let sw = g.size.width * CGFloat(Swift.max(0, shield) / total)
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.black.opacity(0.55))
-                Capsule()
-                    .fill(LinearGradient(colors: [color, color.opacity(0.7)], startPoint: .top, endPoint: .bottom))
+                RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Color.black.opacity(0.48))
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(LinearGradient(colors: [color, color.opacity(0.84)], startPoint: .top, endPoint: .bottom))
                     .frame(width: vw)
                     .animation(.easeOut(duration: 0.15), value: vw)
                 if sw > 0.5 {
@@ -163,15 +182,19 @@ struct HUDBar: View, Equatable {
                 if showsText {
                     Text(shield > 0.5 ? "\(HUDStyle.number(value)) +\(HUDStyle.number(shield)) / \(HUDStyle.number(max))"
                                       : "\(HUDStyle.number(value)) / \(HUDStyle.number(max))")
-                        .font(.system(size: Swift.max(8, height * 0.68), weight: .bold, design: .rounded))
+                        .font(.system(size: Swift.max(8, height * 0.62), weight: .heavy, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(.white)
-                        .shadow(color: .black, radius: 1)
+                        .shadow(color: .black, radius: 1, y: 1)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .padding(.horizontal, 4)
+                        .background(Capsule().fill(Color.black.opacity(0.52)))
                         .frame(maxWidth: .infinity)
                 }
             }
-            .clipShape(Capsule())
-            .overlay(Capsule().strokeBorder(Color.white.opacity(0.28), lineWidth: 0.8))
+            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Color.white.opacity(0.25), lineWidth: 0.8))
         }
         .frame(height: height)
     }
@@ -223,11 +246,15 @@ struct HUDItemSlots: View {
                 Button { model.openShop(slot: k < items.count ? k : nil) } label: {
                     ZStack {
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill(Color.black.opacity(0.5))
+                            .fill(HUDStyle.surface.opacity(0.9))
                             .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
                                 .strokeBorder(Color.white.opacity(0.18), lineWidth: 0.8))
                         if k < items.count, let item = MasterData.shared.item(items[k]) {
                             ItemIconView(item: item, size: slot - 2)
+                        } else {
+                            Image(systemName: "plus")
+                                .font(.system(size: slot * 0.27, weight: .medium))
+                                .foregroundStyle(HUDStyle.mutedText.opacity(0.3))
                         }
                     }
                     .frame(width: slot, height: slot)
@@ -252,24 +279,29 @@ struct HUDShopButton: View {
 
     var body: some View {
         Button { model.openShop() } label: {
-            HStack(spacing: 3) {
-                Image(systemName: "bag.fill")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(LinearGradient(colors: [.white, Theme.gold], startPoint: .top, endPoint: .bottom))
-                    .overlay(alignment: .bottomTrailing) { HUDCoin(size: 9).offset(x: 3, y: 2) }
-                Text("\(gold)")
-                    .font(.system(size: 13, weight: .heavy, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(Theme.gold)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
+            VStack(spacing: 2) {
+                HStack(spacing: 3) {
+                    Image(systemName: "bag.fill")
+                    Text(L("ショップ", "SHOP"))
+                }
+                .font(.system(size: 7, weight: .black, design: .rounded))
+                .foregroundStyle(HUDStyle.surface)
+                HStack(spacing: 3) {
+                    HUDCoin(size: 10)
+                    Text("\(gold)")
+                        .font(.system(size: 13, weight: .black, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(HUDStyle.surface)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                }
             }
             .padding(.horizontal, 5)
             .frame(width: width, height: 38)
             .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(LinearGradient(colors: [Color(red: 0.32, green: 0.24, blue: 0.08), Color.black.opacity(0.7)],
+                .fill(LinearGradient(colors: [Color(red: 1, green: 0.88, blue: 0.43), Theme.gold],
                                      startPoint: .top, endPoint: .bottom)))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Theme.gold.opacity(0.8), lineWidth: 1.2))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.white.opacity(0.65), lineWidth: 1))
             .frame(height: 44)
             .contentShape(Rectangle())
         }
@@ -288,6 +320,7 @@ struct HUDQuickBuyButton: View {
     let size: CGFloat
     let highlighted: Bool
     @State private var pulse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button { model.quickBuy() } label: {
@@ -311,6 +344,7 @@ struct HUDQuickBuyButton: View {
         .buttonStyle(HUDPressStyle())
         .overlay { if highlighted { HUDHighlightRing(diameter: size + 18) } }
         .onAppear {
+            guard !reduceMotion else { return }
             withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) { pulse = true }
         }
         .accessibilityLabel(L("おすすめ装備を購入: \(MasterData.shared.item(itemID).map { MasterText.item($0) } ?? itemID)",

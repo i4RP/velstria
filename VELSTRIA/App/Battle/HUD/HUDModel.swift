@@ -43,7 +43,12 @@ final class HUDModel {
         var pos: Vec2
         var team: Team
         var hue: Double
+        var heroID: String
         var seenAt: Double
+    }
+
+    private struct CampObservation {
+        var respawnAt: Double?
     }
 
     private struct QuickBuyKey: Equatable {
@@ -73,6 +78,7 @@ final class HUDModel {
     private(set) var quickBuyItemID: String?
     private(set) var shop = HUDShopState()
     private(set) var minimapVersion = 0
+    private(set) var isTacticalMapOpen = false
     private(set) var spectate = HUDSpectateSnapshot()
     private(set) var scoreboard = HUDScoreboardSnapshot()
     private(set) var surrender: HUDSurrenderSnapshot?
@@ -122,6 +128,8 @@ final class HUDModel {
     @ObservationIgnored private var quickBuyKey: QuickBuyKey?
     @ObservationIgnored private var shopKey: QuickBuyKey?
     @ObservationIgnored private var ghosts: [Ghost] = []
+    @ObservationIgnored private var lastMinimapTime: Double = 0
+    @ObservationIgnored private var campObservations: [Int: CampObservation] = [:]
     @ObservationIgnored private var surrenderResultUntil: TimeInterval = 0
     @ObservationIgnored private var lastSurrenderTally: (yes: Int, no: Int, needed: Int)?
     @ObservationIgnored private var targetingCache: [SkillTargeting?] = [nil, nil, nil, nil, nil]
@@ -149,7 +157,7 @@ final class HUDModel {
     var mode: MatchMode { controller.launch.config.mode }
     var humanTeam: Team? { isSpectating ? nil : .blue }
     /// 操作を受け付けるか。
-    var canControl: Bool { !isSpectating && endPhase == nil && !finished && !(tutorial?.isComplete ?? false) }
+    var canControl: Bool { !isSpectating && !isTacticalMapOpen && endPhase == nil && !finished && !(tutorial?.isComplete ?? false) }
 
     private var now: TimeInterval { ProcessInfo.processInfo.systemUptime }
 
@@ -185,6 +193,7 @@ final class HUDModel {
     }
 
     func stop() {
+        setTacticalMap(open: false)
         if let subscription { controller.unsubscribe(subscription) }
         subscription = nil
         attackReleased()
@@ -224,6 +233,7 @@ final class HUDModel {
         if let hi = controller.humanIndex {
             refreshHero(s, ctx, hi, time: t)
         }
+        if tutorial?.isComplete == true { setTacticalMap(open: false) }
         refreshMinimap(s, ctx)
         if isSpectating { refreshSpectate(s) }
         if panel == .scoreboard { refreshScoreboard(s) }
@@ -403,20 +413,30 @@ final class HUDModel {
 
     // MARK: ミニマップ
 
-    private func refreshMinimap(_ s: SimState, _ ctx: SimContext) {
+    func refreshMinimap(_ s: SimState, _ ctx: SimContext) {
         let viewer = controller.viewerTeam
         let humanID = controller.humanHeroID
+        if s.time < lastMinimapTime || minimap.viewerTeam != viewer {
+            ghosts.removeAll(keepingCapacity: true)
+            campObservations.removeAll(keepingCapacity: true)
+        }
+        lastMinimapTime = s.time
         minimap.units.removeAll(keepingCapacity: true)
         minimap.heroes.removeAll(keepingCapacity: true)
         minimap.structures.removeAll(keepingCapacity: true)
         minimap.camps.removeAll(keepingCapacity: true)
         minimap.colorblind = settings.colorblindMode
+        minimap.viewerTeam = viewer
+        minimap.mapSize = ctx.map.size
+        minimap.vision = s.vision
         var humanDot: HUDMinimapBuffer.Dot?
         for i in s.units.indices {
             let u = s.units[i]
+            let displayedPosition = Vec2.lerp(u.prevPos, u.pos, Double(Float(controller.interpolationAlpha)))
             switch u.kind {
             case .tower, .core:
-                minimap.structures.append(.init(pos: u.pos, team: u.team, alive: u.isAlive, isCore: u.kind == .core))
+                minimap.structures.append(.init(pos: u.pos, team: u.team, alive: u.isAlive, isCore: u.kind == .core,
+                                                hpFraction: min(1, max(0, u.hp / max(1, u.stats.maxHP)))))
             case .hero:
                 guard let h = u.hero else { continue }
                 let visible = viewer.map { s.isVisible(i, to: $0) } ?? true
@@ -426,15 +446,18 @@ final class HUDModel {
                     continue
                 }
                 if visible {
-                    let dot = HUDMinimapBuffer.Dot(pos: u.pos, team: u.team, kind: .hero, hue: hue, isHuman: u.id == humanID,
-                                                   isFocus: u.id == cameraFollowID, alpha: 1)
+                    let dot = HUDMinimapBuffer.Dot(pos: displayedPosition, team: u.team, kind: .hero, hue: hue,
+                                                   isHuman: u.id == humanID, isFocus: u.id == cameraFollowID, alpha: 1,
+                                                   heroID: h.heroID, facing: Vec2.fromAngle(u.facing),
+                                                   visionRadius: u.stats.sightRange > 0 ? u.stats.sightRange : Balance.heroSight)
                     if dot.isHuman { humanDot = dot } else { minimap.heroes.append(dot) }
                     if let viewer, u.team != viewer {
                         if let k = ghosts.firstIndex(where: { $0.id == u.id }) {
-                            ghosts[k].pos = u.pos
+                            ghosts[k].pos = displayedPosition
                             ghosts[k].seenAt = s.time
                         } else {
-                            ghosts.append(Ghost(id: u.id, pos: u.pos, team: u.team, hue: hue, seenAt: s.time))
+                            ghosts.append(Ghost(id: u.id, pos: displayedPosition, team: u.team, hue: hue,
+                                                heroID: h.heroID, seenAt: s.time))
                         }
                     }
                 } else if let k = ghosts.firstIndex(where: { $0.id == u.id }) {
@@ -442,7 +465,8 @@ final class HUDModel {
                     if age <= Self.ghostLifetime {
                         let g = ghosts[k]
                         minimap.heroes.append(.init(pos: g.pos, team: g.team, kind: .hero, hue: g.hue, isHuman: false,
-                                                    isFocus: false, alpha: max(0.2, 0.55 * (1 - age / Self.ghostLifetime))))
+                                                    isFocus: false, alpha: max(0.2, 0.55 * (1 - age / Self.ghostLifetime)),
+                                                    heroID: g.heroID))
                     } else {
                         ghosts.remove(at: k)
                     }
@@ -451,46 +475,66 @@ final class HUDModel {
                 guard u.isAlive else { continue }
                 let visible = viewer.map { s.isVisible(i, to: $0) } ?? true
                 guard visible else { continue }
-                minimap.units.append(.init(pos: u.pos, team: u.team, kind: u.kind, hue: 0, isHuman: false,
+                minimap.units.append(.init(pos: displayedPosition, team: u.team, kind: u.kind, hue: 0, isHuman: false,
                                            isFocus: false, alpha: 1))
             }
         }
         if let humanDot { minimap.heroes.append(humanDot) }
         let camps = ctx.map.camps
         for (k, camp) in camps.enumerated() {
-            let alive = k < s.world.campRespawnAt.count ? s.world.campRespawnAt[k] == nil : false
+            let isBoss = camp.kind == .astralWyrm || camp.kind == .ancientColossus
+            let observed = viewer.map { s.vision.isLit(camp.pos, for: $0) } ?? true
+            var known = campObservations[k] ?? CampObservation(respawnAt: camp.firstSpawn)
+            if isBoss || observed {
+                known.respawnAt = k < s.world.campRespawnAt.count ? s.world.campRespawnAt[k] : camp.firstSpawn
+            } else if let at = known.respawnAt, at <= s.time {
+                // An unseen ordinary camp retains its last-known status; hidden clears must not leak.
+                known.respawnAt = nil
+            }
+            campObservations[k] = known
+            let nextSpawn = known.respawnAt
+            let alive = nextSpawn == nil
             minimap.camps.append(.init(pos: camp.pos, alive: alive,
-                                       isBoss: camp.kind == .astralWyrm || camp.kind == .ancientColossus))
+                                       isBoss: isBoss,
+                                       kind: camp.kind, respawnRemaining: nextSpawn.map { max(0, $0 - s.time) }))
         }
-        minimap.viewport = cameraViewport(s)
+        refreshMinimapCamera()
         minimapVersion &+= 1
     }
 
-    /// カメラの表示範囲の概算（sim 座標）。
-    private func cameraViewport(_ s: SimState) -> Rect2? {
-        let center: Vec2
-        switch controller.cameraMode {
-        case .followHero:
-            guard let id = controller.humanHeroID, let u = s.unit(id) else { return nil }
-            center = u.pos
-        case .followUnit(let id):
-            guard let u = s.unit(id) else { return nil }
-            center = u.pos
-        case .free(let p):
-            center = p
-        }
-        let aspect = layout.map { Double($0.width / max(1, $0.height)) } ?? 2.16
-        let halfH = 720 * controller.cameraZoom
-        return Rect2(center: center, width: halfH * 2 * aspect, height: halfH * 2)
+    /// Called by the camera clock as well as simulation refreshes, including paused spectators.
+    func refreshMinimapCamera() {
+        let projection = HUDMinimapProjection(size: 1, mapSize: controller.ctx.map.size)
+        let polygon = projection.clippedPolygon(controller.renderedCameraViewport)
+        guard polygon != minimap.viewportPolygon else { return }
+        minimap.viewportPolygon = polygon
+        minimapVersion &+= 1
     }
 
     func minimapDragged(to p: Vec2) {
-        controller.cameraMode = .free(p)
+        guard p.x.isFinite, p.y.isFinite else { return }
+        let mapSize = controller.ctx.map.size
+        controller.cameraMode = .free(Vec2(min(mapSize, max(0, p.x)), min(mapSize, max(0, p.y))))
         if isSpectating { cameraFollowID = nil }
     }
 
     func minimapReleased() {
         if !isSpectating { controller.cameraMode = .followHero }
+    }
+
+    func setTacticalMap(open: Bool) {
+        guard open != isTacticalMapOpen else { return }
+        if open {
+            guard endPhase == nil, !finished, tutorial?.isComplete != true else { return }
+            closePanel()
+            cancelAim()
+            attackReleased()
+            joystickEnded()
+            isTacticalMapOpen = true
+        } else {
+            isTacticalMapOpen = false
+            minimapReleased()
+        }
     }
 
     // MARK: 観戦
@@ -857,6 +901,7 @@ final class HUDModel {
 
     private func beginEnd(winner: Team?, reason: EndReason) {
         guard endPhase == nil, !finished else { return }
+        setTacticalMap(open: false)
         let kind: HUDMatchResultKind
         if isSpectating {
             kind = winner.map { .teamWin($0) } ?? .draw
@@ -902,6 +947,7 @@ final class HUDModel {
 
     private func finish(abandoned: Bool) {
         guard !finished else { return }
+        setTacticalMap(open: false)
         finished = true
         panel = nil
         confirmingLeave = false
@@ -921,6 +967,7 @@ final class HUDModel {
 
     func openPanel(_ p: HUDPanel) {
         guard endPhase == nil, !finished else { return }
+        setTacticalMap(open: false)
         app?.audio.play(.uiTap)
         if p == .shop { tutorial?.noteShopOpened() }
         panel = p
@@ -962,6 +1009,7 @@ final class HUDModel {
 
     /// 外部（バックグラウンド移行）で一時停止された。
     func externallyPaused() {
+        setTacticalMap(open: false)
         guard endPhase == nil, !finished, panel != .pause, !spectatorPaused else { return }
         cancelAim()
         attackReleased()

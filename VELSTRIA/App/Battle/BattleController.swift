@@ -51,6 +51,8 @@ final class BattleController {
 
     /// 15Hz で増える。HUD はこれを参照して SimState を読み直す。
     private(set) var hudTick = 0
+    /// Camera presentation has its own clock so the map outline also moves while the sim is paused.
+    private(set) var cameraViewportTick = 0
     private(set) var isEnded = false
     /// 描画側の準備（地面テクスチャ・ウォームアップが済み、読み込み幕が上がる）が完了した。
     /// これが立つまで予備駆動（BattleLoopFallback）は sim を進めず、HUD も表示しない。
@@ -67,6 +69,9 @@ final class BattleController {
     @ObservationIgnored var aim: AimIndicator?
     /// 補間係数（前 tick → 現 tick）。
     @ObservationIgnored private(set) var interpolationAlpha: Double = 0
+    @ObservationIgnored private(set) var renderedCameraViewport: [Vec2] = []
+    @ObservationIgnored private var cameraViewportAccumulator: Double = 0
+    @ObservationIgnored private var cameraViewportDirty = false
 
     @ObservationIgnored private var accumulator: Double = 0
     @ObservationIgnored private var hudAccumulator: Double = 0
@@ -125,6 +130,19 @@ final class BattleController {
     }
 
     // MARK: ループ
+
+    func updateCameraViewport(_ polygon: [Vec2], dt: Double) {
+        let first = renderedCameraViewport.isEmpty
+        if renderedCameraViewport != polygon {
+            renderedCameraViewport = polygon
+            cameraViewportDirty = true
+        }
+        cameraViewportAccumulator += max(0, dt)
+        guard cameraViewportDirty, first || cameraViewportAccumulator >= 1.0 / 30.0 else { return }
+        cameraViewportAccumulator = 0
+        cameraViewportDirty = false
+        cameraViewportTick &+= 1
+    }
 
     /// 描画側の準備完了を通知する（BattleRenderer が読み込み幕を上げる時。予備駆動のタイムアウト時）。
     func markPresentationReady() {

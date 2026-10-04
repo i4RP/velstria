@@ -47,7 +47,7 @@ final class HUDLayoutTests: XCTestCase {
                     XCTAssertLessThanOrEqual(c.center.x + c.radius, d.size.width - d.side + 0.5, "\(d.name) \(c.name) が右の Safe Area にかかる")
                     XCTAssertLessThanOrEqual(c.center.y + c.radius, d.size.height - d.bottom + 0.5, "\(d.name) \(c.name) がホームインジケータにかかる")
                     XCTAssertGreaterThan(c.center.y - c.radius, l.minimapFrame.minY, "\(d.name) \(c.name) が画面上端を越える")
-                    let map = l.minimapFrame
+                    let map = l.minimapDockFrame
                     let nearest = CGPoint(x: min(max(c.center.x, map.minX), map.maxX),
                                           y: min(max(c.center.y, map.minY), map.maxY))
                     XCTAssertGreaterThan(hypot(c.center.x - nearest.x, c.center.y - nearest.y), c.radius,
@@ -133,7 +133,7 @@ final class HUDLayoutTests: XCTestCase {
                     XCTAssertLessThanOrEqual(rect.maxX, d.size.width - d.side)
                     XCTAssertGreaterThanOrEqual(rect.minY, l.topEdge)
                     XCTAssertLessThanOrEqual(rect.maxY, l.bottomEdge)
-                    XCTAssertFalse(rect.intersects(l.minimapFrame))
+                    XCTAssertFalse(rect.intersects(l.minimapDockFrame))
                     for circle in circles {
                         let nearest = CGPoint(x: min(max(circle.center.x, rect.minX), rect.maxX),
                                               y: min(max(circle.center.y, rect.minY), rect.maxY))

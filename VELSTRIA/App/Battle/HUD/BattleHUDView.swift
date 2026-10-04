@@ -49,6 +49,7 @@ private struct HUDTicker: View {
     var body: some View {
         Color.clear
             .onChange(of: controller.hudTick) { model.refresh() }
+            .onChange(of: controller.cameraViewportTick) { model.refreshMinimapCamera() }
             .accessibilityHidden(true)
     }
 }
@@ -95,23 +96,30 @@ private struct HUDRoot: View {
                 if spectating && !ended {
                     HUDSpectateLayer(model: model, layout: layout)
                 }
-                HUDMinimapView(model: model, size: layout.minimapSize)
-                    .position(x: layout.minimapFrame.midX, y: layout.minimapFrame.midY)
+                HUDMinimapDock(model: model, layout: layout)
                 HUDScoreLayer(model: model, layout: layout)
                 HUDTopRight(model: model, scale: min(layout.scale, 1.1))
                     .fixedSize()
                     .opacity(model.isAiming ? 0.25 : 1)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: layout.topInfoAlignment)
                     .padding(.top, layout.topEdge)
+                    .padding(.leading, layout.leadingEdge)
                     .padding(.trailing, layout.width - layout.trailingEdge)
                 HUDKillFeedLayer(model: model, layout: layout)
             }
             .opacity(settings.hudOpacity)
+            .allowsHitTesting(!model.isTacticalMapOpen)
+            .accessibilityHidden(model.isTacticalMapOpen)
 
             HUDBannerLayer(model: model, layout: layout)
             if !ended && !tutorialDone { HUDTutorialLayer(model: model, layout: layout) }
             if !ended { HUDSurrenderLayer(model: model, layout: layout) }
             HUDAimOverlay(visual: model.aimVisual, layout: layout)
+
+            if model.isTacticalMapOpen && !ended && !tutorialDone {
+                HUDTacticalMap(model: model, layout: layout)
+                    .zIndex(1)
+            }
 
             HUDPanelsLayer(model: model, layout: layout)
             HUDToastLayer(model: model, layout: layout, showControls: showControls)
@@ -212,8 +220,9 @@ private struct HUDKillFeedLayer: View {
     var body: some View {
         HUDKillFeed(entries: model.killFeed, colorblind: model.settings.colorblindMode)
             .opacity(model.isAiming ? 0 : 1)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: layout.topInfoAlignment)
             .padding(.top, layout.topEdge + 52)
+            .padding(.leading, layout.leadingEdge)
             .padding(.trailing, layout.width - layout.trailingEdge)
     }
 }
@@ -249,7 +258,8 @@ private struct HUDSurrenderLayer: View {
             if let surrender = model.surrender {
                 HUDSurrenderPanel(model: model, snapshot: surrender)
                     .fixedSize()
-                    .position(x: layout.minimapFrame.minX + 110, y: layout.minimapFrame.maxY + 84)
+                    .position(x: layout.leftHanded ? layout.minimapFrame.maxX - 110 : layout.minimapFrame.minX + 110,
+                              y: layout.minimapDockFrame.maxY + 70)
                     .transition(.move(edge: .leading).combined(with: .opacity))
             }
         }

@@ -134,6 +134,7 @@ final class BattleRenderer {
             paceAccumulator = 0
         }
         let dt = min(max(deltaTime, 0), 0.1)
+        defer { publishCameraViewport(dt: dt) }
         if warmupFrames > 0 {
             warmupFrames -= 1
             world.sync(events: [], dt: Float(dt), rig: rig)
@@ -171,6 +172,11 @@ final class BattleRenderer {
 
     // MARK: 設定
 
+    private func publishCameraViewport(dt: Double) {
+        guard let size = view?.arView.bounds.size, size.width > 0, size.height > 0 else { return }
+        controller.updateCameraViewport(rig.groundFootprint(aspectRatio: Float(size.width / size.height)), dt: dt)
+    }
+
     func apply(settings new: RenderSettings) {
         guard new != settings else { return }
         let old = settings
@@ -191,6 +197,7 @@ final class BattleRenderer {
     // MARK: 破棄
 
     func teardown() {
+        controller.updateCameraViewport([], dt: 1)
         loadTask?.cancel()
         loadTask = nil
         updateSubscription?.cancel()

@@ -1,6 +1,7 @@
 import Foundation
 import RealityKit
 import simd
+import VelstriaCore
 
 // 担当: battle-renderer。見下ろしカメラ（透視 ~48°、俯角 56°、回転なし）。
 // 注視点を臨界減衰バネで追従し、地図内にクランプ。大きな出来事で小さく揺らす（トラウマ方式）。
@@ -88,6 +89,31 @@ final class CameraRig {
         baseDistance * Float(min(max(zoom, 0.7), 1.4))
     }
 
+    /// Screen corners intersected with y = 0, in clockwise sim coordinates.
+    /// Uses the rendered pose, including damping, map-edge clamping, zoom and camera shake.
+    func groundFootprint(aspectRatio: Float) -> [Vec2] {
+        Self.groundFootprint(position: camera.position, orientation: camera.orientation,
+                             verticalFieldOfView: Self.fovDegrees, aspectRatio: aspectRatio)
+    }
+
+    static func groundFootprint(position: SIMD3<Float>, orientation: simd_quatf,
+                                verticalFieldOfView: Float, aspectRatio: Float) -> [Vec2] {
+        guard aspectRatio.isFinite, aspectRatio > 0, position.y > 0,
+              verticalFieldOfView > 0, verticalFieldOfView < 180 else { return [] }
+        let halfHeight = tan(verticalFieldOfView * .pi / 360)
+        let corners: [SIMD2<Float>] = [SIMD2(-1, 1), SIMD2(1, 1), SIMD2(1, -1), SIMD2(-1, -1)]
+        var points: [Vec2] = []
+        points.reserveCapacity(4)
+        for corner in corners {
+            let ray = orientation.act(SIMD3(corner.x * halfHeight * aspectRatio, corner.y * halfHeight, -1))
+            guard ray.y < -0.00001 else { return [] }
+            let hit = position + ray * (-position.y / ray.y)
+            guard hit.x.isFinite, hit.z.isFinite else { return [] }
+            points.append(Vec2(Double(hit.x) * Balance.unitsPerMeter, -Double(hit.z) * Balance.unitsPerMeter))
+        }
+        return points
+    }
+
     /// 揺れを加える（0〜1、重ねると加算で上限 1）。
     func addShake(_ amount: Float) {
         trauma = min(1, trauma + amount)
@@ -96,7 +122,8 @@ final class CameraRig {
     /// target = 追従対象の world (x, z)。snap = true で即座に移動（遠距離のワープ時）。
     func update(target: SIMD2<Float>, zoom: Double, free: Bool, dt: Float, mapMeters: Float) {
         time += dt
-        let desired = CameraRig.clampFocus(target + SIMD2(0, -CameraRig.focusLead), mapMeters: mapMeters)
+        let lead = free ? SIMD2<Float>.zero : SIMD2(0, -CameraRig.focusLead)
+        let desired = CameraRig.clampFocus(target + lead, mapMeters: mapMeters)
         if !initialized || simd_distance(desired, focus.value) > 25 {
             focus.snap(to: desired)
             distance.value = CameraRig.distance(forZoom: zoom)
