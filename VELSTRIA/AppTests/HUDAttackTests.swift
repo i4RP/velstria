@@ -133,6 +133,26 @@ final class HUDAttackTests: XCTestCase {
     }
 
     @MainActor
+    func testClosingTacticalMapRestoresAllAttackButtonCommands() {
+        let f = fixture()
+        defer { f.model.stop() }
+
+        f.model.setTacticalMap(open: true)
+        for button in AttackButtonSlot.allCases {
+            f.model.attackPressed(button: button)
+            f.model.attackReleased(button: button)
+        }
+        XCTAssertTrue(recordedPriorities(f.model).isEmpty)
+
+        f.model.setTacticalMap(open: false)
+        for button in AttackButtonSlot.allCases {
+            f.model.attackPressed(button: button)
+            f.model.attackReleased(button: button)
+        }
+        XCTAssertEqual(recordedPriorities(f.model), [.structuresFirst, .heroesFirst, .minionsFirst])
+    }
+
+    @MainActor
     func testExternalPauseClearsHoldBeforeResuming() async throws {
         let f = fixture()
         defer { f.model.stop() }

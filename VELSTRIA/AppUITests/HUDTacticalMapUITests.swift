@@ -36,7 +36,12 @@ final class HUDTacticalMapUITests: XCTestCase {
         add(screenshot)
         element(app, "hud_tactical_close").tap()
         XCTAssertTrue(element(app, "hud_tactical_panel").waitForNonExistence(timeout: 5))
-        XCTAssertTrue(element(app, "hud_attack").isHittable)
-        XCTAssertTrue(expand.isHittable)
+        // SwiftUI's custom HUD accessibility elements can report isHittable=false
+        // even when XCTest successfully taps them. Verify restored interactions.
+        element(app, "hud_attack").tap()
+        expand.tap()
+        XCTAssertTrue(tactical.waitForExistence(timeout: 5), "Closing the map must restore the HUD's input")
+        element(app, "hud_tactical_close").tap()
+        XCTAssertTrue(element(app, "hud_tactical_panel").waitForNonExistence(timeout: 5))
     }
 }
