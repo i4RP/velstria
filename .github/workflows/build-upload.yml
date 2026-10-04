@@ -75,12 +75,24 @@ jobs:
             -parallel-testing-enabled NO \
             CODE_SIGNING_ALLOWED=NO
 
+      - name: HUD テストのスクリーンショットを書き出す
+        if: always()
+        continue-on-error: true
+        run: |
+          if [[ -d build/HUDTests.xcresult ]]; then
+            xcrun xcresulttool export attachments \
+              --path build/HUDTests.xcresult \
+              --output-path build/HUDScreenshots
+          fi
+
       - name: HUD テスト結果とスクリーンショットを保存
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: hud-tests-${{ github.run_id }}-${{ github.run_attempt }}
-          path: VELSTRIA/build/HUDTests.xcresult
+          path: |
+            VELSTRIA/build/HUDTests.xcresult
+            VELSTRIA/build/HUDScreenshots
           if-no-files-found: warn
           retention-days: 14
 
