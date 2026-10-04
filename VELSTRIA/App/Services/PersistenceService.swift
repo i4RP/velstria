@@ -585,6 +585,12 @@ enum ProfileMigrator {
             settings["bgmVolume"] = 0
             obj["settings"] = settings
         }),
+        // v2 → v3: 効果音の既定もミュートに変えたため、保存済みの効果音量も 0 にする
+        (from: 2, apply: { obj in
+            guard var settings = obj["settings"] as? [String: Any] else { return }
+            settings["sfxVolume"] = 0
+            obj["settings"] = settings
+        }),
     ]
 
     static func migrate(_ object: inout [String: Any], from version: Int) {

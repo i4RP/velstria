@@ -34,7 +34,7 @@ final class AudioService {
     static let crossfadeDuration: TimeInterval = 0.8
 
     private(set) var bgmVolume: Double = GameSettings().bgmVolume
-    private(set) var sfxVolume: Double = 0.8
+    private(set) var sfxVolume: Double = GameSettings().sfxVolume
     private(set) var voiceVolume: Double = 0.8
     /// 再生中（または準備中）の曲。
     private(set) var currentTrack: MusicTrack?

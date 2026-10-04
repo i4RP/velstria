@@ -58,7 +58,8 @@ struct GameSettings: Codable, Equatable {
     var language: AppLanguage = .system
     /// 開発中は同じ曲を繰り返し聴かないよう既定 0（ミュート）。
     var bgmVolume: Double = 0
-    var sfxVolume: Double = 0.8
+    /// 効果音も既定 0（ミュート）。設定画面・一時停止メニューで上げられる。
+    var sfxVolume: Double = 0
     var voiceVolume: Double = 0.8
     var hapticsEnabled = true
     var graphicsQuality: GraphicsQuality = .medium
@@ -277,7 +278,7 @@ struct StorePurchaseCount: Codable, Equatable {
 }
 
 struct Profile: Codable, Equatable {
-    var schemaVersion = 2
+    var schemaVersion = 3
     var playerID: String = UUID().uuidString
     var displayName: String = ""
     var createdAt = Date()

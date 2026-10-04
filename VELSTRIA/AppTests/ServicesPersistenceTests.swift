@@ -128,7 +128,7 @@ final class ServicesPersistenceTests: XCTestCase {
     func testMigrationFillsMissingKeys() throws {
         let s = make()
         var p = profile(coins: 42)
-        p.settings.sfxVolume = 0.25
+        p.settings.voiceVolume = 0.25
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(p)) as? [String: Any])
         // 旧版を想定: いくつかのキーが存在しない
         object.removeValue(forKey: "pass")
@@ -141,30 +141,48 @@ final class ServicesPersistenceTests: XCTestCase {
         let data = try JSONSerialization.data(withJSONObject: object)
         let decoded = try s.decodeProfile(data)
         XCTAssertEqual(decoded.starlightCoin, 42)
-        XCTAssertEqual(decoded.settings.sfxVolume, 0.25)
+        XCTAssertEqual(decoded.settings.voiceVolume, 0.25)
         XCTAssertEqual(decoded.settings.hudOpacity, 1.0)
         XCTAssertEqual(decoded.pass, PassState())
         XCTAssertEqual(decoded.schemaVersion, PersistenceService.currentSchemaVersion)
         XCTAssertEqual(decoded.playerID, p.playerID)
     }
 
-    func testMigrationV1MutesBGM() throws {
+    func testMigrationV1MutesBGMAndSFX() throws {
         let s = make()
         var p = profile(coins: 7)
         p.settings.bgmVolume = 0.7
-        p.settings.sfxVolume = 0.6
+        p.settings.sfxVolume = 0.8
+        p.settings.voiceVolume = 0.6
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(p)) as? [String: Any])
         object["schemaVersion"] = 1
         let decoded = try s.decodeProfile(JSONSerialization.data(withJSONObject: object))
         XCTAssertEqual(decoded.settings.bgmVolume, 0)
-        XCTAssertEqual(decoded.settings.sfxVolume, 0.6)
+        XCTAssertEqual(decoded.settings.sfxVolume, 0)
+        XCTAssertEqual(decoded.settings.voiceVolume, 0.6)
         XCTAssertEqual(decoded.starlightCoin, 7)
         XCTAssertEqual(decoded.schemaVersion, PersistenceService.currentSchemaVersion)
 
-        // 現行版で保存した BGM 音量はそのまま
+        // 現行版で保存した音量はそのまま
         p.settings.bgmVolume = 0.5
+        p.settings.sfxVolume = 0.4
         let current = try s.decodeProfile(JSONEncoder().encode(p))
         XCTAssertEqual(current.settings.bgmVolume, 0.5)
+        XCTAssertEqual(current.settings.sfxVolume, 0.4)
+    }
+
+    /// v2（BGM だけミュート済み）からは効果音だけを 0 にし、ユーザーが上げた BGM 音量は保つ。
+    func testMigrationV2MutesSFXOnly() throws {
+        let s = make()
+        var p = profile(coins: 3)
+        p.settings.bgmVolume = 0.5
+        p.settings.sfxVolume = 0.8
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(p)) as? [String: Any])
+        object["schemaVersion"] = 2
+        let decoded = try s.decodeProfile(JSONSerialization.data(withJSONObject: object))
+        XCTAssertEqual(decoded.settings.bgmVolume, 0.5)
+        XCTAssertEqual(decoded.settings.sfxVolume, 0)
+        XCTAssertEqual(decoded.schemaVersion, PersistenceService.currentSchemaVersion)
     }
 
     /// 配列の要素・辞書の値に欠けたキー（旧版の MailItem などにフィールドが追加された場合）も既定値で補い、
