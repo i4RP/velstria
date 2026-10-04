@@ -45,6 +45,13 @@ final class RenderLayerTests: XCTestCase {
         XCTAssertNotEqual(GroundLayer.markingTop, GroundLayer.markingLine)
     }
 
+    func testAmbientParticlesSitAboveFogPlane() {
+        // 河川のきらめきは霧の板（半透明・深度を書かない）より上から出す（板の上下を出入りすると明滅する）
+        XCTAssertGreaterThanOrEqual(GroundLayer.ambient - GroundLayer.fog, 0.03)
+        XCTAssertFalse(GroundLayer.overlays.contains(GroundLayer.ambient), "粒子の放出面は平面の表示の段に含めない")
+        XCTAssertGreaterThan(AmbientParticles.fountainTop, GroundLayer.fog, "泉のきらめきは台座の上（地面付近ではない）")
+    }
+
     func testHeroFootMarkersSitAboveStaticMarkings() {
         // ヒーローの丸影・チームリング・矢印（HeroEffectMeshes）が石畳・紋章・Core の輪より上にあること
         for mesh in [HeroEffectMeshes.teamRingSolid, HeroEffectMeshes.teamRingDashed, HeroEffectMeshes.shadowOnly] {

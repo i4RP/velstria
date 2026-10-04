@@ -134,6 +134,19 @@ final class StructureMeshes {
         sets[team.rawValue] = s
         return s
     }
+
+    /// 作成済みのメッシュ全て（ウォームアップの陳列用）。
+    var builtMeshes: [MeshResource] {
+        var out: [MeshResource] = []
+        for k in sets.keys.sorted() {
+            guard let s = sets[k] else { continue }
+            for m in [s.plinth, s.pillar, s.pillarGlow, s.crystal, s.shards, s.coreBase, s.coreBaseGlow, s.coreStar,
+                      s.coreRing, s.coreRingSmall] {
+                if let m { out.append(m) }
+            }
+        }
+        return out
+    }
 }
 
 @MainActor

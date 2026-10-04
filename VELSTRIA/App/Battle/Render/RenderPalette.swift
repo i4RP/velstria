@@ -288,12 +288,15 @@ final class RenderMaterials {
                                  locations: [0, 0.55, 0.8, 1]) else { return nil }
         let c = CGPoint(x: n / 2, y: n / 2)
         ctx.drawRadialGradient(g, startCenter: c, startRadius: 0, endCenter: c, endRadius: CGFloat(n) / 2, options: [])
+        AssetLedger.record(.texture, "contactShadow")
         guard let img = ctx.makeImage(),
               let tex = try? TextureResource(image: img, options: .init(semantic: .color)) else { return nil }
+        AssetLedger.record(.material, "contactShadow")
         var m = UnlitMaterial(applyPostProcessToneMap: false)
         m.color = .init(tint: .white, texture: .init(tex))
         m.blending = .transparent(opacity: .init(floatLiteral: 0.5))
         m.writesDepth = false
+        AssetLedger.record(.mesh, "contactShadow")
         return (MeshResource.generatePlane(width: 1, depth: 1), m)
     }()
 
@@ -301,8 +304,11 @@ final class RenderMaterials {
         teams = TeamColors(colorblind: colorblind)
         var tex: TextureResource?
         if let img = PaletteColors.makeImage(teams: teams) {
+            AssetLedger.record(.texture, "palette")
             tex = try? TextureResource(image: img, options: .init(semantic: .color, mipmapsMode: .none))
         }
+        AssetLedger.record(.material, "palette lit")
+        AssetLedger.record(.material, "palette glow")
         paletteTexture = tex
         var pbr = PhysicallyBasedMaterial()
         if let tex {
@@ -342,6 +348,14 @@ final class RenderMaterials {
         }
         unlitCache[key] = m
         return m
+    }
+
+    /// 作成済みの単色 Unlit 全て（ウォームアップの陳列で一度ずつ描く）。
+    var builtUnlit: [UnlitMaterial] { unlitCache.keys.sorted().compactMap { unlitCache[$0] } }
+
+    /// 単色 Unlit を作っておく（読み込み幕の裏）。
+    func prewarmUnlit(_ list: [(color: RGB, alpha: Double, depthTest: Bool)]) {
+        for e in list { _ = unlit(e.color, alpha: e.alpha, depthTest: e.depthTest) }
     }
 
     private static func key(_ c: RGB, alpha: Double, depthTest: Bool) -> UInt64 {

@@ -46,10 +46,47 @@ final class AimLayer {
         root.isEnabled = false
     }
 
+    /// 照準の色の全て（マテリアルの事前生成に使う）。
+    static let colors = [normalColor, allyColor, cancelColor]
+    /// 線・塗り・射程の塗りの不透明度。
+    static let alphas = (solid: 0.85, soft: 0.2, faint: 0.07)
+    /// 射程リングの線幅（m）。
+    static let rangeRingThickness: Float = 0.08
+
+    /// 射程リングのメッシュ半径（0.05 m 単位）。
+    static func rangeRingRadius(_ range: Float) -> Float { (range * 20).rounded() / 20 }
+
+    /// 照準の形状・全色のマテリアルと、ranges（m）の射程リングを作る（読み込み幕の裏。初めて照準した瞬間の生成をなくす）。
+    func prewarm(ranges: [Float]) {
+        for c in AimLayer.colors { paint(c) }
+        for r in ranges where r > 0.3 {
+            _ = meshes.ring(radius: AimLayer.rangeRingRadius(r), thickness: AimLayer.rangeRingThickness)
+        }
+        // 見た目の状態は初回の照準で塗り直す
+        shown = nil
+        solidMaterial = nil
+        ringRadius = -1
+    }
+
+    /// 人間ヒーローのスキル・スペルの射程（m。射程リングは 0.3 m 超のみ描く）。
+    static func plannedRanges(state: SimState, humanID: EntityID?, master: MasterData) -> [Float] {
+        guard let id = humanID, let u = state.unit(id), let h = u.hero, let def = master.hero(h.heroID) else { return [] }
+        var out: [Float] = []
+        for slot in SkillSlot.actives {
+            guard let sk = master.skill(hero: h.heroID, slot: slot) else { continue }
+            let t = SkillCatalog.targeting(for: sk, hero: def)
+            out.append(Float(t.range / Balance.unitsPerMeter))
+        }
+        for spell in h.spells {
+            if let t = HUDSpellAim.targeting(spellID: spell) { out.append(Float(t.range / Balance.unitsPerMeter)) }
+        }
+        return out
+    }
+
     private func paint(_ c: RGB) {
-        let solid = materials.unlit(c, alpha: 0.85)
-        let soft = materials.unlit(c, alpha: 0.2)
-        let faint = materials.unlit(c, alpha: 0.07)
+        let solid = materials.unlit(c, alpha: AimLayer.alphas.solid)
+        let soft = materials.unlit(c, alpha: AimLayer.alphas.soft)
+        let faint = materials.unlit(c, alpha: AimLayer.alphas.faint)
         solidMaterial = solid
         ringRadius = -1
         rangeFill.model = meshes.unitDisc.map { ModelComponent(mesh: $0, materials: [faint]) }
@@ -93,11 +130,12 @@ final class AimLayer {
         rangeRing.isEnabled = hasRange
         rangeFill.isEnabled = hasRange
         if hasRange {
-            let q = (range * 20).rounded() / 20
+            let q = AimLayer.rangeRingRadius(range)
             if q != ringRadius, let solid = solidMaterial {
                 ringRadius = q
                 // 線幅 8 cm 固定（最も遠い画面上端でも 2.5 px 以上）
-                rangeRing.model = meshes.ring(radius: q, thickness: 0.08).map { ModelComponent(mesh: $0, materials: [solid]) }
+                rangeRing.model = meshes.ring(radius: q, thickness: AimLayer.rangeRingThickness)
+                    .map { ModelComponent(mesh: $0, materials: [solid]) }
             }
             rangeRing.position = o
             rangeRing.scale = [1, 1, 1]

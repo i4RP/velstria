@@ -6,8 +6,17 @@ import VelstriaCore
 
 // 担当: battle-renderer。パーティクル（ParticleEmitterComponent）のプリセットとプール、
 // 安価なメッシュ演出（広がる輪・閃光球）。同時放出体の数と粒子数は画質設定で制限する。
+//
+// 放出体は種類（preset）ごとのプールに、その種類の ParticleEmitterComponent を付けたまま保持する。
+// 再生のたびに色・大きさ・数を既存の部品へ書き戻して restart() するだけで、部品の構築・付け外しはしない
+// （外して付け直すと RealityKit が粒子系をその場で作り直し、戦闘中の初回・多発時のヒッチになる）。
+// 見た目は従来（再生毎に新しい部品を作る）と同じ: configure は種類ごとに決まった項目を全て書くので、同じ種類の部品へ
+// 書き戻した値は新規に作った値と一致する。値の書き戻し・restart は構築ではないので AssetLedger の .emitter に数えない
+// （.emitter は ParticleEmitterComponent() を呼ぶ箇所 = 読み込み中のプール生成だけ）。種類のプールが尽きた時に他の種類の
+// 空きを借りる場合も、既定値の雛形（1 度だけ構築）の写しから設定し直すだけで構築しない。
+// プールの大きさは試合開始時の画質（利用者が選んだ画質）で決め、試合中に画質が下がっても作り直さない。
 
-enum VFXPreset: Equatable {
+enum VFXPreset: CaseIterable, Hashable {
     case hitSpark
     case crit
     case magicHit
@@ -32,19 +41,49 @@ enum VFXPreset: Equatable {
 final class VFXSystem {
     let root = Entity()
     private var quality: RenderQuality
+    /// プールの大きさを決めた画質（試合開始時の設定。適応で下げても作り直さない）。
+    let poolQuality: RenderQuality
     private let materials: RenderMaterials
     private let meshes: UnitMeshLibrary
 
+    /// プールの放出体（種類ごとの部品を付けたまま保持する）。
+    @MainActor
+    final class Emitter {
+        let entity = Entity()
+        fileprivate(set) var preset: VFXPreset
+        /// 付いている部品がこの種類の設定か（他の種類のプールから借りた直後は false = 既定値の雛形から設定し直す）。
+        fileprivate var configured = true
+
+        fileprivate init(preset: VFXPreset) { self.preset = preset }
+    }
+
     private struct Active {
-        var entity: Entity
+        var emitter: Emitter
         var until: Float
         var important: Bool
     }
 
-    private var freeEmitters: [Entity] = []
+    private var free: [VFXPreset: [Emitter]] = [:]
     private var active: [Active] = []
-    private var loops: [EntityID: Entity] = [:]
+    private var loops: [EntityID: Emitter] = [:]
     private var time: Float = 0
+    /// プールを事前に作った（以後は作らずに使い回す）。
+    private var prewarmed = false
+
+    /// 計測用の集計（再生数・種類ごとの同時再生の最大・プールが尽きて借りた/打ち切った回数）。
+    struct Stats {
+        var spawns = 0
+        var peak: [VFXPreset: Int] = [:]
+        var borrowed = 0
+        var stolen = 0
+    }
+    private(set) var stats = Stats()
+    private var activeByPreset: [VFXPreset: Int] = [:]
+    /// 既定値の部品（他の種類から借りた放出体を設定し直す時の初期値。構築は 1 度だけ）。
+    private lazy var blank: ParticleEmitterComponent = {
+        AssetLedger.record(.emitter, "vfx blank template")
+        return ParticleEmitterComponent()
+    }()
 
     // メッシュ演出
     private struct MeshFX {
@@ -57,11 +96,19 @@ final class VFXSystem {
         var kind: Int
     }
 
+    /// 同時に表示できるメッシュ演出（輪 + 閃光）の上限。プールは輪・閃光それぞれこの数まで事前に作る。
+    static let meshFXCap = 40
+    /// 輪の Unlit の不透明度（半透明 = 深度を書かない）と閃光（不透明。フェードは OpacityComponent）。
+    static let ringAlpha = 0.99
+    static let flashAlpha = 0.999
+
     private var freeRings: [ModelEntity] = []
     private var freeFlashes: [ModelEntity] = []
+    private var ringCount = 0
+    private var flashCount = 0
     private var meshFX: [MeshFX] = []
 
-    private(set) lazy var dotTexture: TextureResource? = VFXSystem.makeTexture(size: 64) { ctx, s in
+    private(set) lazy var dotTexture: TextureResource? = VFXSystem.makeTexture(size: 64, name: "vfx dot") { ctx, s in
         let colors = [CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 1), CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 0)]
         if let g = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB), colors: colors as CFArray, locations: [0, 1]) {
             ctx.drawRadialGradient(g, startCenter: CGPoint(x: s / 2, y: s / 2), startRadius: 0,
@@ -69,7 +116,7 @@ final class VFXSystem {
         }
     }
 
-    private(set) lazy var starTexture: TextureResource? = VFXSystem.makeTexture(size: 64) { ctx, s in
+    private(set) lazy var starTexture: TextureResource? = VFXSystem.makeTexture(size: 64, name: "vfx star") { ctx, s in
         let c = s / 2
         let colors = [CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 1), CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 0)]
         if let g = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB), colors: colors as CFArray, locations: [0, 1]) {
@@ -93,22 +140,157 @@ final class VFXSystem {
 
     init(quality: RenderQuality, materials: RenderMaterials, meshes: UnitMeshLibrary) {
         self.quality = quality
+        poolQuality = quality
         self.materials = materials
         self.meshes = meshes
         root.name = "vfx"
         active.reserveCapacity(64)
         meshFX.reserveCapacity(48)
-        for _ in 0..<min(12, quality.maxEmitters) {
-            let e = Entity()
-            e.isEnabled = false
-            root.addChild(e)
-            freeEmitters.append(e)
-        }
     }
 
     func apply(quality q: RenderQuality) { quality = q }
 
     var activeCount: Int { active.count + loops.count + meshFX.count }
+
+    /// プールの放出体の総数（テスト・計測用）。
+    var pooledEmitterCount: Int { free.values.reduce(0) { $0 + $1.count } + active.count + loops.count }
+
+    // MARK: 事前生成
+
+    /// 種類ごとの初期の割り当ての重み（観戦試合の headless 計測での同時再生の最大: 1 倍速 150 秒と 4 倍速 9 分の中間）。
+    /// 実際の配分は借り合いで使われ方に合わせて変わる（1 倍速で借りるのは再生の約 3%）。
+    static func weight(_ preset: VFXPreset) -> Int {
+        switch preset {
+        case .hitSpark: return 20
+        case .magicHit: return 10
+        case .blink: return 8
+        case .levelUp, .skillBurst, .areaBlast, .trail: return 5
+        case .shield: return 4
+        case .death, .gold: return 3
+        case .heal, .crit: return 2
+        case .heroDeath, .respawn, .towerExplosion, .debris, .smoke: return 1
+        case .recallLoop: return 0
+        }
+    }
+
+    /// 帰還・転移ループの初期の割り当て（同時に詠唱するヒーローがこれを超えたら他の種類から借りる）。
+    static let loopCapacity = 4
+
+    /// 種類ごとの初期のプールの大きさ。合計はおよそ maxEmitters（+ ループ）で、どの種類も最低 1 つ。
+    /// 放出体は付けたままの粒子系 1 つにつき約 1 MB（シミュレータ実測）を常に持つため、合計を同時再生の上限に合わせる
+    /// （種類ごとに上限まで持つと高画質で 200 個超 = 数百 MB になる）。使われ方の偏りは借り合いで吸収する。
+    static func capacity(_ preset: VFXPreset, maxEmitters m: Int) -> Int {
+        if preset == .recallLoop { return loopCapacity }
+        let total = VFXPreset.allCases.reduce(0) { $0 + weight($1) }
+        return max(1, Int((Float(weight(preset) * m) / Float(total)).rounded()))
+    }
+
+    /// 放出体のプールを試合開始時の画質の上限まで作る（読み込み幕の裏。種類ごとに部品を構築して付けておく）。
+    func prewarmEmitters() {
+        _ = dotTexture
+        _ = starTexture
+        _ = blank
+        prewarmed = true
+        for preset in VFXPreset.allCases {
+            let want = VFXSystem.capacity(preset, maxEmitters: poolQuality.maxEmitters)
+            var list = free[preset] ?? []
+            while list.count < want { list.append(makeEmitter(preset)) }
+            free[preset] = list
+        }
+    }
+
+    /// 輪・閃光のプールを上限まで作る。
+    func prewarmMeshFX() {
+        while ringCount < VFXSystem.meshFXCap { freeRings.append(makeRing()) }
+        while flashCount < VFXSystem.meshFXCap { freeFlashes.append(makeFlash()) }
+    }
+
+    private func makeEmitter(_ preset: VFXPreset) -> Emitter {
+        AssetLedger.record(.entity, "vfx emitter")
+        AssetLedger.record(.emitter, "\(preset)")
+        let em = Emitter(preset: preset)
+        var c = ParticleEmitterComponent()
+        _ = configure(&c, preset, color: FXColors.white, scale: 1, count: nil)
+        em.entity.components.set(c)
+        em.entity.isEnabled = false
+        root.addChild(em.entity)
+        return em
+    }
+
+    private func makeRing() -> ModelEntity {
+        AssetLedger.record(.entity, "vfx ring")
+        ringCount += 1
+        let m = ModelEntity(mesh: meshes.ring(radius: 1, thickness: 0.12) ?? meshes.unitSphere, materials: [])
+        OverlayOrder.apply(m, OverlayOrder.vfxRing)
+        m.isEnabled = false
+        root.addChild(m)
+        return m
+    }
+
+    private func makeFlash() -> ModelEntity {
+        AssetLedger.record(.entity, "vfx flash")
+        flashCount += 1
+        let m = ModelEntity(mesh: meshes.unitSphere, materials: [])
+        m.isEnabled = false
+        root.addChild(m)
+        return m
+    }
+
+    /// 種類のプールから放出体を取り出す。事前生成済み（prewarmEmitters 後）なら空でも作らずに、
+    /// 1. 他の種類の空きを借りて設定し直す（以後はその種類のプールへ戻る = 使われ方に合わせて配分が変わる）
+    /// 2. 空きが無ければ再生中で最も古いもの（同じ種類を優先、ループは除く）を打ち切って使い回す
+    /// 事前生成していなければ新しく作る（台帳に記録。テスト用の単体の VFXSystem だけ）。
+    private func take(_ preset: VFXPreset) -> Emitter {
+        if let em = free[preset]?.popLast() { return em }
+        if prewarmed {
+            if let donor = free.max(by: { $0.value.count < $1.value.count }), donor.value.count > 0,
+               let em = free[donor.key]?.popLast() {
+                em.preset = preset
+                em.configured = false
+                stats.borrowed += 1
+                return em
+            }
+            var oldest: Int?
+            for k in active.indices {
+                let same = active[k].emitter.preset == preset
+                guard let o = oldest else { oldest = k; continue }
+                let oSame = active[o].emitter.preset == preset
+                if same != oSame { if same { oldest = k }; continue }
+                if active[k].until < active[o].until { oldest = k }
+            }
+            if let k = oldest {
+                let em = active[k].emitter
+                active.swapAt(k, active.count - 1)
+                active.removeLast()
+                activeByPreset[em.preset, default: 1] -= 1
+                if em.preset != preset {
+                    em.preset = preset
+                    em.configured = false
+                }
+                stats.stolen += 1
+                return em
+            }
+        }
+        return makeEmitter(preset)
+    }
+
+    /// 放出体を再生する（部品は付けたまま値を合わせて restart。構築しない）。戻り値は回収までの秒数。
+    private func fire(_ em: Emitter, at p: SIMD3<Float>, color: UIColor, scale: Float, count: Int?,
+                      direction: SIMD3<Float>?, life: Double?) -> Float {
+        var c = em.configured ? (em.entity.components[ParticleEmitterComponent.self] ?? blank) : blank
+        em.configured = true
+        let until = configure(&c, em.preset, color: color, scale: scale, count: count, life: life)
+        c.restart()
+        em.entity.position = p
+        if let d = direction, simd_length(d) > 1e-4 {
+            em.entity.orientation = simd_quatf(from: [0, 1, 0], to: simd_normalize(d))
+        } else {
+            em.entity.orientation = simd_quatf(angle: 0, axis: [0, 1, 0])
+        }
+        em.entity.components.set(c)
+        em.entity.isEnabled = true
+        return until
+    }
 
     // MARK: パーティクル
 
@@ -119,61 +301,50 @@ final class VFXSystem {
             guard important, let k = active.firstIndex(where: { !$0.important }) else { return }
             release(at: k)
         }
-        guard let (component, life) = makeEmitter(preset, color: color, scale: scale, count: count, life: life) else { return }
-        let e = freeEmitters.popLast() ?? {
-            AssetLedger.record(.entity, "vfx emitter")
-            let n = Entity()
-            root.addChild(n)
-            return n
-        }()
-        e.position = p
-        if let d = direction, simd_length(d) > 1e-4 {
-            e.orientation = simd_quatf(from: [0, 1, 0], to: simd_normalize(d))
-        } else {
-            e.orientation = simd_quatf(angle: 0, axis: [0, 1, 0])
-        }
-        e.components.set(component)
-        e.isEnabled = true
-        active.append(Active(entity: e, until: time + life, important: important))
+        let em = take(preset)
+        let until = fire(em, at: p, color: color, scale: scale, count: count, direction: direction, life: life)
+        active.append(Active(emitter: em, until: time + until, important: important))
+        noteActive(preset)
+    }
+
+    private func noteActive(_ preset: VFXPreset) {
+        stats.spawns += 1
+        let n = (activeByPreset[preset] ?? 0) + 1
+        activeByPreset[preset] = n
+        if n > stats.peak[preset] ?? 0 { stats.peak[preset] = n }
     }
 
     /// 帰還・転移の詠唱中ループ。
     func startLoop(id: EntityID, at p: SIMD3<Float>, color: UIColor) {
-        guard loops[id] == nil, let (c, _) = makeEmitter(.recallLoop, color: color, scale: 1, count: nil) else { return }
-        let e = freeEmitters.popLast() ?? {
-            AssetLedger.record(.entity, "vfx emitter")
-            let n = Entity()
-            root.addChild(n)
-            return n
-        }()
-        e.position = p
-        e.orientation = simd_quatf(angle: 0, axis: [0, 1, 0])
-        e.components.set(c)
-        e.isEnabled = true
-        loops[id] = e
+        guard loops[id] == nil else { return }
+        let em = take(.recallLoop)
+        _ = fire(em, at: p, color: color, scale: 1, count: nil, direction: nil, life: nil)
+        loops[id] = em
+        noteActive(.recallLoop)
     }
 
     func moveLoop(id: EntityID, to p: SIMD3<Float>) {
-        loops[id]?.position = p
+        loops[id]?.entity.position = p
     }
 
     func stopLoop(id: EntityID) {
-        guard let e = loops.removeValue(forKey: id) else { return }
-        if var c = e.components[ParticleEmitterComponent.self] {
+        guard let em = loops.removeValue(forKey: id) else { return }
+        if var c = em.entity.components[ParticleEmitterComponent.self] {
             c.isEmitting = false
-            e.components.set(c)
+            em.entity.components.set(c)
         }
         // 残った粒子が消えるまで待ってから回収
-        active.append(Active(entity: e, until: time + 1.0, important: false))
+        active.append(Active(emitter: em, until: time + 1.0, important: false))
     }
 
     func hasLoop(_ id: EntityID) -> Bool { loops[id] != nil }
 
+    /// 回収（部品は外さず、エンティティを止めてプールへ戻す）。
     private func release(at k: Int) {
-        let e = active[k].entity
-        e.components.remove(ParticleEmitterComponent.self)
-        e.isEnabled = false
-        freeEmitters.append(e)
+        let em = active[k].emitter
+        activeByPreset[em.preset, default: 1] -= 1
+        em.entity.isEnabled = false
+        free[em.preset, default: []].append(em)
         active.swapAt(k, active.count - 1)
         active.removeLast()
     }
@@ -182,16 +353,14 @@ final class VFXSystem {
 
     /// 地面で広がる輪。
     func ring(at p: SIMD3<Float>, color: RGB, from r0: Float, to r1: Float, duration: Float, alpha: Float = 0.9) {
-        guard meshFX.count < 40 else { return }
-        let e = freeRings.popLast() ?? {
-            AssetLedger.record(.entity, "vfx rings")
-            let m = ModelEntity(mesh: meshes.ring(radius: 1, thickness: 0.12) ?? meshes.unitSphere, materials: [])
-            OverlayOrder.apply(m, OverlayOrder.vfxRing)
-            root.addChild(m)
-            return m
-        }()
+        guard meshFX.count < VFXSystem.meshFXCap else { return }
+        startRing(at: p, color: color, from: r0, to: r1, duration: duration, alpha: alpha)
+    }
+
+    private func startRing(at p: SIMD3<Float>, color: RGB, from r0: Float, to r1: Float, duration: Float, alpha: Float) {
+        let e = freeRings.popLast() ?? makeRing()
         // 半透明（深度を書かない）にして、足元のリングを欠けさせない。高さは呼び出し元によらず固定
-        e.model?.materials = [materials.unlit(color, alpha: 0.99)]
+        e.model?.materials = [materials.unlit(color, alpha: VFXSystem.ringAlpha)]
         e.position = SIMD3(p.x, GroundLayer.vfxRing, p.z)
         e.scale = [r0, 1, r0]
         e.isEnabled = true
@@ -202,20 +371,47 @@ final class VFXSystem {
 
     /// 閃光球（膨らんで消える）。
     func flash(at p: SIMD3<Float>, color: RGB, radius: Float, duration: Float, alpha: Float = 0.55) {
-        guard meshFX.count < 40 else { return }
-        let e = freeFlashes.popLast() ?? {
-            AssetLedger.record(.entity, "vfx flashes")
-            let m = ModelEntity(mesh: meshes.unitSphere, materials: [])
-            root.addChild(m)
-            return m
-        }()
-        e.model?.materials = [materials.unlit(color, alpha: 0.999)]
+        guard meshFX.count < VFXSystem.meshFXCap else { return }
+        startFlash(at: p, color: color, radius: radius, duration: duration, alpha: alpha)
+    }
+
+    private func startFlash(at p: SIMD3<Float>, color: RGB, radius: Float, duration: Float, alpha: Float) {
+        let e = freeFlashes.popLast() ?? makeFlash()
+        e.model?.materials = [materials.unlit(color, alpha: VFXSystem.flashAlpha)]
         e.position = p
         e.scale = SIMD3(repeating: radius * 0.4)
         e.isEnabled = true
         e.components.set(OpacityComponent(opacity: alpha))
         meshFX.append(MeshFX(entity: e, start: time, duration: duration, fromScale: SIMD3(repeating: radius * 0.4),
                              toScale: SIMD3(repeating: radius), alpha: alpha, kind: 1))
+    }
+
+    // MARK: ウォームアップ（読み込み幕の裏）
+
+    /// プールの放出体を全て（予算・種類の上限によらず）一度ずつ再生し、輪と閃光も出す。
+    /// 各放出体の粒子系の初期化とパイプライン生成を幕の裏で済ませる。center の周りの半径 spread に並べる。
+    func fireWarmup(around center: SIMD3<Float>, spread: Float, ringColors: [RGB], flashColors: [RGB]) {
+        var n = 0
+        for preset in VFXPreset.allCases {
+            guard let list = free.removeValue(forKey: preset) else { continue }
+            for em in list {
+                let a = Float(n) * 2.399963
+                let r = spread * (0.25 + 0.75 * Float((n * 37) % 100) / 100)
+                n += 1
+                let p = center + SIMD3(cos(a) * r, 0.6, sin(a) * r * 0.5)
+                let until = fire(em, at: p, color: FXColors.white, scale: 1, count: nil, direction: nil, life: nil)
+                active.append(Active(emitter: em, until: time + max(until, 0.5), important: true))
+                activeByPreset[preset, default: 0] += 1
+            }
+        }
+        for (k, c) in ringColors.enumerated() {
+            let p = center + SIMD3(Float(k % 6) - 2.5, 0, Float(k / 6) * 0.6 - 1)
+            startRing(at: p, color: c, from: 0.4, to: 0.8, duration: 1.5, alpha: 0.8)
+        }
+        for (k, c) in flashColors.enumerated() {
+            let p = center + SIMD3(Float(k % 6) - 2.5, 1.2, Float(k / 6) * 0.6 - 1)
+            startFlash(at: p, color: c, radius: 0.3, duration: 1.5, alpha: 0.5)
+        }
     }
 
     // MARK: 更新
@@ -244,24 +440,34 @@ final class VFXSystem {
         }
     }
 
+    /// 全ての再生を止めてプールへ戻す（ウォームアップの終了・破棄）。部品は付けたまま。
     func clear() {
         while !active.isEmpty { release(at: active.count - 1) }
-        for (_, e) in loops {
-            e.components.remove(ParticleEmitterComponent.self)
-            e.isEnabled = false
-            freeEmitters.append(e)
+        activeByPreset.removeAll()
+        stats = Stats()
+        for (_, em) in loops {
+            if var c = em.entity.components[ParticleEmitterComponent.self] {
+                c.isEmitting = false
+                em.entity.components.set(c)
+            }
+            em.entity.isEnabled = false
+            free[em.preset, default: []].append(em)
         }
         loops.removeAll()
-        for fx in meshFX { fx.entity.isEnabled = false }
+        for fx in meshFX {
+            fx.entity.isEnabled = false
+            if fx.kind == 0 { freeRings.append(fx.entity) } else { freeFlashes.append(fx.entity) }
+        }
         meshFX.removeAll()
     }
 
     // MARK: プリセット
 
-    private func makeEmitter(_ preset: VFXPreset, color: UIColor, scale s: Float,
-                             count: Int?, life lifeOverride: Double? = nil) -> (ParticleEmitterComponent, Float)? {
-        AssetLedger.record(.emitter, "\(preset)")
-        var p = ParticleEmitterComponent()
+    /// preset の設定を部品へ書き込む（新規の部品にも、同じ種類で使い回す部品にも同じ値になる: 種類ごとに書く項目が
+    /// 決まっているため、前回の値は全て上書きされる）。戻り値は回収までの秒数。
+    @discardableResult
+    private func configure(_ p: inout ParticleEmitterComponent, _ preset: VFXPreset, color: UIColor, scale s: Float,
+                           count: Int?, life lifeOverride: Double? = nil) -> Float {
         p.fieldSimulationSpace = .global
         p.birthLocation = .volume
         p.birthDirection = .normal
@@ -478,7 +684,7 @@ final class VFXSystem {
             p.mainEmitter = m
             p.timing = .repeating(warmUp: nil, emit: .init(duration: 1), idle: nil)
             p.isEmitting = true
-            return (p, Float(life))
+            return Float(life)
         }
         let total = quality.particles(count ?? n)
         if let lifeOverride { life = max(0.25, min(2.0, lifeOverride)) }
@@ -487,10 +693,11 @@ final class VFXSystem {
         p.mainEmitter = m
         p.timing = .once(warmUp: nil, emit: .init(duration: emitDuration))
         p.isEmitting = true
-        return (p, Float(life + emitDuration) + 0.25)
+        return Float(life + emitDuration) + 0.25
     }
 
-    private static func makeTexture(size: Int, draw: (CGContext, CGFloat) -> Void) -> TextureResource? {
+    private static func makeTexture(size: Int, name: String, draw: (CGContext, CGFloat) -> Void) -> TextureResource? {
+        AssetLedger.record(.texture, name)
         guard let ctx = CGContext(data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: size * 4,
                                   space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
                                   bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }

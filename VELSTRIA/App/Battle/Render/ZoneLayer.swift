@@ -58,21 +58,102 @@ final class ZoneLayer {
         }
     }
 
+    static let healColor = RGB(0.4, 1.0, 0.55)
+    static let allyColor = RGB(0.45, 0.85, 1.0)
+    static let enemyColor = RGB(1.0, 0.33, 0.30)
+    static let neutralColor = RGB(1.0, 0.62, 0.25)
+    /// ゾーンの色の全て（マテリアルの事前生成に使う）。
+    static let colors = [healColor, allyColor, enemyColor, neutralColor]
+    /// 塗り・予告の進捗・縁の不透明度。
+    static let alphas = (fill: 0.16, progress: 0.28, edge: 0.9)
+    /// 円ゾーンの縁の太さ（m）。
+    static let edgeThickness: Float = 0.1
+
     static func color(for z: AreaZone, viewer: Team?, teams: TeamColors) -> RGB {
         if z.payload.affectsAllies && (z.payload.healAmount > 0 || z.payload.shieldAmount > 0) && !z.payload.affectsEnemies {
-            return RGB(0.4, 1.0, 0.55)
+            return healColor
         }
-        if z.payload.healAmount > 0 && z.team == (viewer ?? .blue) { return RGB(0.4, 1.0, 0.55) }
+        if z.payload.healAmount > 0 && z.team == (viewer ?? .blue) { return healColor }
         switch z.team {
-        case .neutral: return RGB(1.0, 0.62, 0.25)
+        case .neutral: return neutralColor
         default:
             let ally = z.team == (viewer ?? .blue)
-            return ally ? RGB(0.45, 0.85, 1.0) : RGB(1.0, 0.33, 0.30)
+            return ally ? allyColor : enemyColor
         }
+    }
+
+    /// 試合のヒーローのスキルが作るゾーンの半径（m）。SkillArchetypes で ZoneSystem.spawn する型だけ（いずれも円）。
+    static func plannedRadii(state: SimState, master: MasterData) -> [Float] {
+        var out = Set<Int>()
+        for u in state.units where u.kind == .hero {
+            guard let h = u.hero, let def = master.hero(h.heroID) else { continue }
+            for slot in SkillSlot.actives {
+                guard let sk = master.skill(hero: h.heroID, slot: slot) else { continue }
+                let t = SkillCatalog.targeting(for: sk, hero: def)
+                switch t.archetype {
+                case .dashStrike, .groundAoE, .healZone, .leapSlam, .multiStrike:
+                    // UnitMeshLibrary.ring と同じ 0.05 m 単位
+                    out.insert(Int((Float(t.radius / Balance.unitsPerMeter) * 20).rounded()))
+                default:
+                    continue
+                }
+            }
+        }
+        return out.sorted().map { Float($0) / 20 }
+    }
+
+    /// ゾーンの見た目のプールが count 個になるまで作り、円の縁のメッシュを radii の半径ぶん作る。
+    func prewarm(count: Int, radii: [Float]) {
+        while pool.count < count { pool.append(makeVisual()) }
+        _ = meshes.unitDisc
+        _ = meshes.groundStrip
+        for r in radii { _ = meshes.ring(radius: r, thickness: ZoneLayer.edgeThickness) }
+        for c in ZoneLayer.colors {
+            _ = materials.unlit(c, alpha: ZoneLayer.alphas.fill)
+            _ = materials.unlit(c, alpha: ZoneLayer.alphas.progress)
+            _ = materials.unlit(c, alpha: ZoneLayer.alphas.edge)
+        }
+    }
+
+    /// プールに待機中の数（テスト用）。
+    var pooledCount: Int { pool.count }
+
+    // MARK: ウォームアップ（読み込み幕の裏）
+
+    private var warmupShown: [Visual] = []
+
+    /// プールの見た目を全て陳列する（色・半径を巡回。半分はフェード中の半透明）。
+    func showWarmup(radii: [Float], slot: () -> SIMD3<Float>) {
+        let rs = radii.isEmpty ? [1] : radii
+        for (k, v) in pool.enumerated() {
+            let c = ZoneLayer.colors[k % ZoneLayer.colors.count]
+            configureCircle(v, radius: rs[k % rs.count], color: c)
+            v.progress.scale = [rs[k % rs.count] * 0.6, 1, rs[k % rs.count] * 0.6]
+            v.node.position = slot()
+            v.node.orientation = simd_quatf(angle: 0, axis: [0, 1, 0])
+            if k % 2 == 1 { v.node.components.set(OpacityComponent(opacity: 0.5)) }
+            v.node.isEnabled = true
+            warmupShown.append(v)
+        }
+        pool.removeAll()
+    }
+
+    /// 陳列した見た目をプールへ戻す。
+    func endWarmup() {
+        for v in warmupShown {
+            v.node.isEnabled = false
+            v.node.components.remove(OpacityComponent.self)
+            pool.append(v)
+        }
+        warmupShown.removeAll()
     }
 
     private func take() -> Visual {
         if let v = pool.popLast() { return v }
+        return makeVisual()
+    }
+
+    private func makeVisual() -> Visual {
         AssetLedger.record(.entity, "zone visual")
         let v = Visual()
         v.node.addChild(v.fill)
@@ -81,26 +162,38 @@ final class ZoneLayer {
         OverlayOrder.apply(v.fill, OverlayOrder.zoneFill)
         OverlayOrder.apply(v.progress, OverlayOrder.zoneFill)
         OverlayOrder.apply(v.edge, OverlayOrder.zoneEdge)
+        v.node.isEnabled = false
         root.addChild(v.node)
         return v
     }
 
+    private func configureCircle(_ v: Visual, radius r: Float, color: RGB) {
+        let fillMat = materials.unlit(color, alpha: ZoneLayer.alphas.fill)
+        let progMat = materials.unlit(color, alpha: ZoneLayer.alphas.progress)
+        let edgeMat = materials.unlit(color, alpha: ZoneLayer.alphas.edge)
+        v.color = color
+        v.fill.position = .zero
+        v.progress.position = [0, 0.004, 0]
+        v.edge.position = [0, 0.008, 0]
+        v.fill.model = meshes.unitDisc.map { ModelComponent(mesh: $0, materials: [fillMat]) }
+        v.progress.model = meshes.unitDisc.map { ModelComponent(mesh: $0, materials: [progMat]) }
+        v.edge.model = meshes.ring(radius: r, thickness: ZoneLayer.edgeThickness).map { ModelComponent(mesh: $0, materials: [edgeMat]) }
+        v.fill.scale = [r, 1, r]
+        v.edge.scale = [1, 1, 1]
+    }
+
     private func configure(_ v: Visual, zone z: AreaZone, color: RGB) {
         let r = Float(z.radius / Balance.unitsPerMeter)
-        let fillMat = materials.unlit(color, alpha: 0.16)
-        let progMat = materials.unlit(color, alpha: 0.28)
-        let edgeMat = materials.unlit(color, alpha: 0.9)
+        let fillMat = materials.unlit(color, alpha: ZoneLayer.alphas.fill)
+        let progMat = materials.unlit(color, alpha: ZoneLayer.alphas.progress)
+        let edgeMat = materials.unlit(color, alpha: ZoneLayer.alphas.edge)
         v.color = color
         v.fill.position = .zero
         v.progress.position = [0, 0.004, 0]
         v.edge.position = [0, 0.008, 0]
         switch z.shape {
         case .circle:
-            v.fill.model = meshes.unitDisc.map { ModelComponent(mesh: $0, materials: [fillMat]) }
-            v.progress.model = meshes.unitDisc.map { ModelComponent(mesh: $0, materials: [progMat]) }
-            v.edge.model = meshes.ring(radius: r, thickness: 0.1).map { ModelComponent(mesh: $0, materials: [edgeMat]) }
-            v.fill.scale = [r, 1, r]
-            v.edge.scale = [1, 1, 1]
+            configureCircle(v, radius: r, color: color)
         case .cone(_, let half):
             let h = Float(half)
             v.fill.model = meshes.sector(halfAngle: h, outline: false).map { ModelComponent(mesh: $0, materials: [fillMat]) }

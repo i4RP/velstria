@@ -37,14 +37,76 @@ final class UnitLayer {
 
     var liveCount: Int { heroList.count + structureList.count + activeCreatures.count + dying.count }
 
-    /// 事前生成（試合開始時のミニオン 1 波ぶん + 余裕）。
+    /// 事前生成（既定: 試合開始時のミニオン 1 波ぶん + 余裕。試合では BattleWorld のウォームアップが
+    /// creaturePoolSizes の数まで作る）。
     func prewarm() {
         for team in Team.players {
-            for (type, n) in [(MinionType.melee, 10), (.ranged, 10), (.siege, 3)] {
-                for _ in 0..<n { recycle(make(.minion(type, team))) }
+            for (type, n) in [(MinionType.melee, 10), (.ranged, 10), (.siege, 3)] { prewarm(.minion(type, team), count: n) }
+        }
+    }
+
+    /// key のプールが count 体になるまで作る（無効のまま。状態表示・HP バーも含めて全て作る）。
+    func prewarm(_ key: CreatureKey, count: Int) {
+        var have = pools[key]?.count ?? 0
+        while have < count {
+            recycle(make(key))
+            have += 1
+        }
+    }
+
+    /// プールに待機中の数（テスト・計測用）。
+    func pooledCount(_ key: CreatureKey) -> Int { pools[key]?.count ?? 0 }
+
+    /// 試合で必要になりうるクリーチャーの見た目の数（読み込み幕の裏で作り切る）。
+    /// - ミニオン: 進軍が止まったレーンに波が溜まる・死亡演出（0.9 秒）の重なり・10:00 以降の近接 +1 を含む実測の最大
+    ///   （観戦 8 試合・各 12〜21 分の headless 計測で近接 33・遠隔 34・攻城 6 / チーム）に余裕を足した数。
+    /// - モンスター: 地図のキャンプ構成どおり（再出現は 60 秒以上後なので死亡演出と重ならない）。
+    /// - 人形: 練習モードの配置数 + 1（撃破 → 4 秒後の再出現と死亡演出の重なり）。
+    static func creaturePoolSizes(map: MapDefinition, dummySpots: Int) -> [(key: CreatureKey, count: Int)] {
+        var out: [(key: CreatureKey, count: Int)] = []
+        for team in Team.players {
+            out.append((.minion(.melee, team), minionPool.melee))
+            out.append((.minion(.ranged, team), minionPool.ranged))
+            out.append((.minion(.siege, team), minionPool.siege))
+        }
+        var monsters: [MonsterKind: Int] = [:]
+        for camp in map.camps {
+            for m in SpawnSystem.campMembers(camp.kind) { monsters[m.kind, default: 0] += 1 }
+        }
+        for kind in monsters.keys.sorted(by: { $0.rawValue < $1.rawValue }) {
+            out.append((.monster(kind), monsters[kind] ?? 0))
+        }
+        if dummySpots > 0 { out.append((.dummy, dummySpots + 1)) }
+        return out
+    }
+
+    /// ミニオンのプール（チームあたり）。
+    static let minionPool = (melee: 36, ranged: 36, siege: 8)
+
+    // MARK: ウォームアップ（読み込み幕の裏）
+
+    private var warmupSamples: [CreatureVisual] = []
+
+    /// 各種類の見た目を 2 体ずつ（不透明と半透明）プールから借りて陳列し、状態表示も全て出す。
+    func showWarmupSamples(slot: () -> SIMD3<Float>) {
+        for key in pools.keys.sorted(by: { "\($0)" < "\($1)" }) {
+            for opacity: Float in [1, 0.5] {
+                guard var list = pools[key], let v = list.popLast() else { break }
+                pools[key] = list
+                v.showForWarmup(at: slot(), opacity: opacity)
+                warmupSamples.append(v)
             }
         }
     }
+
+    /// 陳列した見た目をプールへ戻す。
+    func endWarmup() {
+        for v in warmupSamples { recycle(v) }
+        warmupSamples.removeAll()
+    }
+
+    /// 構造物のメッシュ（陳列用）。
+    var structureMeshList: [MeshResource] { structureMeshes.builtMeshes }
 
     private func make(_ key: CreatureKey) -> CreatureVisual {
         AssetLedger.record(.entity, "creature \(key)")

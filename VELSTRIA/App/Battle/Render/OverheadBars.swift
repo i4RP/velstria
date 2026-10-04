@@ -56,6 +56,15 @@ final class TextMeshCache {
 
     private var cache: [String: Entry] = [:]
 
+    /// 作成済みの文字メッシュ（ウォームアップの陳列用）。
+    var builtMeshes: [MeshResource] { cache.keys.sorted().compactMap { cache[$0]?.mesh } }
+
+    /// レベル表示（1〜最大レベル）と名前を作っておく（読み込み幕の裏。レベルアップの瞬間の CoreText 分割をなくす）。
+    func prewarm(names: [String]) {
+        for level in 1...Balance.maxLevel { _ = mesh("\(level)", size: OverheadBar.levelTextSize) }
+        for name in names { _ = mesh(name, size: OverheadBar.nameTextSize) }
+    }
+
     func mesh(_ text: String, size: Float) -> Entry? {
         let key = "\(size)|\(text)"
         if let e = cache[key] { return e }
@@ -186,7 +195,7 @@ final class OverheadBar {
             OverlayOrder.apply(lt, OverlayOrder.barText)
             root.addChild(lt)
             levelText = lt
-            if let name, let e = text.mesh(name, size: 0.24) {
+            if let name, let e = text.mesh(name, size: OverheadBar.nameTextSize) {
                 let nt = ModelEntity(mesh: e.mesh, materials: [materials.unlit(isSelf ? RGB(1, 0.95, 0.78) : RGB(0.96, 0.97, 1.0),
                                                                              alpha: 1, depthTest: false)])
                 let scale: Float = e.width > w + 0.3 ? (w + 0.3) / e.width : 1
@@ -198,6 +207,13 @@ final class OverheadBar {
             }
         }
     }
+
+    /// レベル・名前の文字の大きさ（TextMeshCache のキー。事前生成と同じ値を使う）。
+    static let levelTextSize: Float = 0.26
+    static let nameTextSize: Float = 0.24
+    /// バーの色（マテリアルの事前生成に使う）。
+    static let monsterFill = RGB(0.95, 0.62, 0.28)
+    static let dummyFill = RGB(0.95, 0.4, 0.4)
 
     /// この距離（m）で設計寸法どおりの大きさに見える。
     static let referenceDistance: Float = 11
@@ -253,7 +269,7 @@ final class OverheadBar {
                 r.scale.x = max(0.0001, width * v)
             }
         }
-        if let level, level != shownLevel, let lt = levelText, let e = text.mesh("\(level)", size: 0.26) {
+        if let level, level != shownLevel, let lt = levelText, let e = text.mesh("\(level)", size: OverheadBar.levelTextSize) {
             shownLevel = level
             lt.components.set(ModelComponent(mesh: e.mesh, materials: [levelMaterial]))
             lt.position.x = -width / 2 - 0.035 - 0.2 + e.offsetX

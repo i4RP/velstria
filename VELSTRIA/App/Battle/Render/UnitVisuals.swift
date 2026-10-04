@@ -50,6 +50,8 @@ func yawForFacing(_ facing: Double) -> Float { Float(facing - Double.pi / 2) }
 
 // MARK: - 状態表示（気絶・束縛・減速・シールド・帰還）
 
+/// 表示物はすべて生成時に作って無効にしておき、状態が付いたら isEnabled を切り替えるだけにする
+/// （集団戦で多数のユニットが同時に初めて気絶・減速した時にエンティティ生成が重ならないように）。
 @MainActor
 final class StatusIndicators {
     let root = Entity()
@@ -58,18 +60,40 @@ final class StatusIndicators {
     private var slow: ModelEntity?
     private var bubble: ModelEntity?
     private var recall: ModelEntity?
+    /// 帰還リングの今の色（帰還 = チーム色、転移 = 紫）。色が変わったらマテリアルだけ差し替える。
+    private var recallColorTeam: Team?
     private let meshes: UnitMeshLibrary
     private let materials: RenderMaterials
     private let headHeight: Float
     private let size: Float
     private var t: Float = 0
 
-    init(meshes: UnitMeshLibrary, materials: RenderMaterials, headHeight: Float, size: Float) {
+    /// 帰還・転移の輪の色（転移）。
+    static let teleportColor = RGB(0.85, 0.7, 1.0)
+    static let bubbleColor = RGB(0.72, 0.9, 1.0)
+    static let bubbleAlpha = 0.2
+    static let recallAlpha = 0.9
+
+    /// recallTeam: 詠唱できるユニット（ヒーロー）のチーム。指定すると帰還リングも事前に作る。
+    init(meshes: UnitMeshLibrary, materials: RenderMaterials, headHeight: Float, size: Float, recallTeam: Team? = nil) {
         self.meshes = meshes
         self.materials = materials
         self.headHeight = headHeight
         self.size = size
         root.name = "status"
+        stun = make(meshes.stunStars, glow: true, y: headHeight + 0.25, scale: 1)
+        rootFX = make(meshes.rootVines, glow: true, y: 0.02, scale: size)
+        // 輪の高さを体格によらず statusRing に揃える（以前は 0.044〜0.124 m に散り、他の地面表示と同じ高さに
+        // なったり霧の板より上に出たりした）。等倍拡大のまま原点を下げるので氷の結晶の比率は変わらない
+        slow = make(meshes.slowRing, glow: true, y: GroundLayer.statusRing - UnitMeshLibrary.slowRingY * size, scale: size)
+        bubble = makeBubble()
+        if let recallTeam { recall = makeRecall(recallTeam) }
+        reset()
+    }
+
+    /// 帰還リングの色（転移は紫、帰還はチームの明色）。
+    static func recallColor(_ team: Team, materials: RenderMaterials) -> RGB {
+        team == .neutral ? teleportColor : materials.teams.light(team)
     }
 
     struct Flags: Equatable {
@@ -97,30 +121,19 @@ final class StatusIndicators {
 
     func update(_ f: Flags, dt: Float) {
         t += dt
-        if f.stunned {
-            let e = stun ?? make(meshes.stunStars, glow: true, y: headHeight + 0.25, scale: 1)
-            stun = e
+        if f.stunned, let e = stun {
             e.isEnabled = true
             e.orientation = simd_quatf(angle: t * 4.5, axis: [0, 1, 0])
         } else { stun?.isEnabled = false }
-        if f.rooted {
-            let e = rootFX ?? make(meshes.rootVines, glow: true, y: 0.02, scale: size)
-            rootFX = e
+        if f.rooted, let e = rootFX {
             e.isEnabled = true
             e.scale = SIMD3(repeating: size * (1 + sin(t * 6) * 0.03))
         } else { rootFX?.isEnabled = false }
-        if f.slowed {
-            // 輪の高さを体格によらず statusRing に揃える（以前は 0.044〜0.124 m に散り、他の地面表示と同じ高さに
-            // なったり霧の板より上に出たりした）。等倍拡大のまま原点を下げるので氷の結晶の比率は変わらない
-            let e = slow ?? make(meshes.slowRing, glow: true, y: GroundLayer.statusRing - UnitMeshLibrary.slowRingY * size,
-                                 scale: size)
-            slow = e
+        if f.slowed, let e = slow {
             e.isEnabled = true
             e.orientation = simd_quatf(angle: -t * 1.2, axis: [0, 1, 0])
         } else { slow?.isEnabled = false }
-        if f.shielded {
-            let e = bubble ?? makeBubble()
-            bubble = e
+        if f.shielded, let e = bubble {
             e.isEnabled = true
             let pulse = 1 + sin(t * 3.2) * 0.025
             e.scale = SIMD3(size * 0.95, headHeight * 0.62, size * 0.95) * pulse
@@ -128,6 +141,11 @@ final class StatusIndicators {
         if let team = f.recallTeam {
             let e = recall ?? makeRecall(team)
             recall = e
+            if recallColorTeam != team {
+                recallColorTeam = team
+                e.model?.materials = [materials.unlit(StatusIndicators.recallColor(team, materials: materials),
+                                                      alpha: StatusIndicators.recallAlpha)]
+            }
             e.isEnabled = true
             e.orientation = simd_quatf(angle: t * 1.6, axis: [0, 1, 0])
             let s = size * (1.25 + sin(t * 5) * 0.04)
@@ -146,7 +164,8 @@ final class StatusIndicators {
 
     private func makeBubble() -> ModelEntity {
         AssetLedger.record(.entity, "status bubble")
-        let e = ModelEntity(mesh: meshes.unitSphere, materials: [materials.unlit(RGB(0.72, 0.9, 1.0), alpha: 0.2)])
+        let e = ModelEntity(mesh: meshes.unitSphere,
+                            materials: [materials.unlit(StatusIndicators.bubbleColor, alpha: StatusIndicators.bubbleAlpha)])
         e.position.y = headHeight * 0.5
         root.addChild(e)
         return e
@@ -154,13 +173,21 @@ final class StatusIndicators {
 
     private func makeRecall(_ team: Team) -> ModelEntity {
         AssetLedger.record(.entity, "status recall")
-        let c = team == .neutral ? RGB(0.85, 0.7, 1.0) : materials.teams.light(team)
+        let c = StatusIndicators.recallColor(team, materials: materials)
         let e = ModelEntity(mesh: meshes.ring(radius: 1, thickness: 0.1) ?? meshes.unitSphere,
-                            materials: [materials.unlit(c, alpha: 0.9)])
+                            materials: [materials.unlit(c, alpha: StatusIndicators.recallAlpha)])
         e.position.y = GroundLayer.castRing
         OverlayOrder.apply(e, OverlayOrder.castRing)
         root.addChild(e)
+        recallColorTeam = team
         return e
+    }
+
+    /// ウォームアップの陳列用: 全ての表示を出す（reset で戻す）。
+    func showAllForWarmup() {
+        for e in [stun, rootFX, slow, bubble, recall] { e?.isEnabled = true }
+        bubble?.scale = SIMD3(size * 0.95, headHeight * 0.62, size * 0.95)
+        recall?.scale = [size * 1.25, 1, size * 1.25]
     }
 
     func reset() {
@@ -233,7 +260,7 @@ final class CreatureVisual {
         root.addChild(yawNode)
         yawNode.addChild(body)
         let pm: PartMeshes
-        var barColor = RGB(0.95, 0.62, 0.28)
+        var barColor = OverheadBar.monsterFill
         var barStyle: OverheadBar.Style = .monster(boss: false)
         switch key {
         case .minion(let type, let team):
@@ -256,7 +283,7 @@ final class CreatureVisual {
             pm = meshes.dummy
             scale = 1
             headHeight = 2.0
-            barColor = RGB(0.95, 0.4, 0.4)
+            barColor = OverheadBar.dummyFill
             barStyle = .minion
         }
         body.scale = SIMD3(repeating: scale)
@@ -345,6 +372,20 @@ final class CreatureVisual {
         root.components.remove(OpacityComponent.self)
         opacityApplied = 1
         dyingT = nil
+        status.reset()
+    }
+
+    /// ウォームアップの陳列用: world 位置 p に不透明度 opacity で表示する（状態表示も全て出す）。deactivate で戻す。
+    func showForWarmup(at p: SIMD3<Float>, opacity: Float) {
+        dyingT = nil
+        root.position = p
+        yawNode.orientation = simd_quatf(angle: 0, axis: [0, 1, 0])
+        body.position = .zero
+        bar.root.isEnabled = true
+        status.showAllForWarmup()
+        root.isEnabled = true
+        opacityApplied = -1
+        applyOpacity(opacity)
     }
 
     func beginAttack() { attackT = 0 }
@@ -517,7 +558,8 @@ final class HeroVisual {
                           meshes: meshes, text: text, name: h?.displayName, resourceColor: resColor)
         bar.root.position.y = handle.overheadHeight + 0.45
         root.addChild(bar.root)
-        status = StatusIndicators(meshes: meshes, materials: materials, headHeight: handle.overheadHeight, size: 0.85)
+        status = StatusIndicators(meshes: meshes, materials: materials, headHeight: handle.overheadHeight, size: 0.85,
+                                  recallTeam: u.team)
         root.addChild(status.root)
         yaw = yawForFacing(u.facing)
         root.position = worldPosition(u.pos)

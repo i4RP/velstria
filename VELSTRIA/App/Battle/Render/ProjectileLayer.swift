@@ -41,7 +41,12 @@ final class ProjectileLayer {
         var baseScale: SIMD3<Float>
         /// スキル弾の演出倍率（EffectDef.scaleM）。同じスタイルでも演出ごとに違うので、プールから出す時に合わせ直す。
         var effectScale: Float = 0
-        var hasTrail = false
+        /// 軌跡を付けるスタイル（塔・強化・スキル弾）。
+        var wantsTrail = false
+        /// 軌跡の大きさ（光暈の半径 × 0.55）。
+        var trailSize: Float = 0
+        /// 表示中に借りている軌跡の放出体。
+        var trail: Entity?
         var yaw: Float = 0
 
         init(style: Style, core: ModelEntity, halo: ModelEntity, color: RGB, baseScale: SIMD3<Float>) {
@@ -57,17 +62,183 @@ final class ProjectileLayer {
     private var list: [Visual] = []
     private var pools: [Style: [Visual]] = [:]
     private var stamp = 0
+    /// 軌跡の放出体を作るか（試合開始時の画質で決める。試合中に画質が下がったら放出だけ止める）。
+    private let buildsTrails: Bool
+    /// 軌跡の放出体のプール。弾の見た目とは別のエンティティで、表示中の弾の位置へ毎フレーム合わせる。
+    /// 付けたままの粒子系は 1 つにつき約 1 MB を常に持つ（シミュレータ実測）ため、弾の見た目ごとには付けず、
+    /// 同時に飛ぶ軌跡付きの弾の数だけ持つ。尽きた時はその弾だけ軌跡なし（作らない）。
+    private var freeTrails: [Entity] = []
+    private var trailsPrewarmed = false
+    /// 軌跡の放出体の数（観戦 9 分・4 倍速の headless 計測で同時に飛ぶ軌跡付きの弾の最大は 9）。
+    static let trailPoolSize = 16
+    /// 軌跡が尽きて省いた回数（計測用）。
+    private(set) var trailsSkipped = 0
+    private var trailsInUse = 0
+    /// 同時に使った軌跡の最大（計測用）。
+    private(set) var peakTrails = 0
 
     init(materials: RenderMaterials, meshes: UnitMeshLibrary, master: MasterData, quality: RenderQuality) {
         self.materials = materials
         self.meshes = meshes
         self.master = master
         self.quality = quality
+        buildsTrails = quality.projectileTrails
         root.name = "projectiles"
         list.reserveCapacity(64)
     }
 
     func apply(quality q: RenderQuality) { quality = q }
+
+    // MARK: 事前生成
+
+    /// スタイルのプールが count 個になるまで作る（無効のまま。軌跡の放出体も構築して付けておく）。
+    func prewarm(_ style: Style, visual: String, count: Int) {
+        var have = pools[style]?.count ?? 0
+        while have < count {
+            recycle(make(style, visual: visual))
+            have += 1
+        }
+    }
+
+    /// プールに待機中の数（テスト・計測用）。
+    func pooledCount(_ style: Style) -> Int { pools[style]?.count ?? 0 }
+
+    /// 軌跡の放出体を作る（中・高画質。無効のまま部品を付けておく）。
+    func prewarmTrails() {
+        trailsPrewarmed = true
+        guard buildsTrails else { return }
+        while freeTrails.count < ProjectileLayer.trailPoolSize { freeTrails.append(makeTrail()) }
+    }
+
+    var pooledTrailCount: Int { freeTrails.count }
+
+    private func makeTrail() -> Entity {
+        AssetLedger.record(.entity, "projectile trail")
+        AssetLedger.record(.emitter, "projectile trail")
+        var p = ParticleEmitterComponent()
+        p.fieldSimulationSpace = .global
+        p.emitterShape = .sphere
+        p.emitterShapeSize = SIMD3(repeating: 0.05)
+        p.speed = 0.05
+        var m = p.mainEmitter
+        m.birthRate = Float(quality.particles(70))
+        m.lifeSpan = 0.3
+        m.size = 0.2
+        m.sizeMultiplierAtEndOfLifespan = 0.1
+        m.blendMode = .additive
+        m.opacityCurve = .linearFadeOut
+        m.color = .constant(.single(.white))
+        m.isLightingEnabled = false
+        p.mainEmitter = m
+        p.timing = .repeating(warmUp: nil, emit: .init(duration: 10), idle: nil)
+        let e = Entity()
+        e.name = "projectileTrail"
+        e.components.set(p)
+        e.isEnabled = false
+        root.addChild(e)
+        return e
+    }
+
+    /// 表示を始めた弾に軌跡を付ける（色・大きさ・粒子数を書き換えて restart。構築しない）。
+    private func attachTrail(_ v: Visual) {
+        guard v.wantsTrail, quality.projectileTrails, v.trail == nil else { return }
+        let t: Entity
+        if let e = freeTrails.popLast() {
+            t = e
+        } else if !trailsPrewarmed && buildsTrails {
+            t = makeTrail()
+        } else {
+            trailsSkipped += 1
+            return
+        }
+        guard var pe = t.components[ParticleEmitterComponent.self] else { return }
+        pe.mainEmitter.color = .constant(.single(v.color.uiColor))
+        pe.mainEmitter.size = v.trailSize
+        pe.mainEmitter.birthRate = Float(quality.particles(70))
+        pe.isEmitting = true
+        pe.restart()
+        t.position = v.entity.position
+        t.components.set(pe)
+        t.isEnabled = true
+        v.trail = t
+        trailsInUse += 1
+        peakTrails = max(peakTrails, trailsInUse)
+    }
+
+    private func detachTrail(_ v: Visual) {
+        guard let t = v.trail else { return }
+        v.trail = nil
+        trailsInUse -= 1
+        if var pe = t.components[ParticleEmitterComponent.self] {
+            pe.isEmitting = false
+            t.components.set(pe)
+        }
+        t.isEnabled = false
+        freeTrails.append(t)
+    }
+
+    /// 試合で出うる投射物の見た目と、同時に必要になりうる数。
+    /// 通常攻撃・塔はチーム別、スキル弾は試合のヒーローのスキル定義（SkillCatalog の照準 + EffectDef）から求める。
+    /// 数は観戦 8 試合の headless 計測の最大（ヒーロー弾 3・ミニオン弾 18・塔 3・スキル弾 2 / スタイル）に余裕を足した値。
+    static func plannedStyles(state: SimState, master: MasterData) -> [(style: Style, visual: String, count: Int)] {
+        var out: [(style: Style, visual: String, count: Int)] = []
+        for team in Team.players {
+            out.append((.heroBolt(team), "basic_attack", 6))
+            out.append((.minionBolt(team), "basic_attack", 24))
+            out.append((.tower(team), "tower_shot", 5))
+        }
+        out.append((.empowered, "empowered_attack", 4))
+        var seen = Set<Style>()
+        for u in state.units where u.kind == .hero {
+            guard let h = u.hero, let def = master.hero(h.heroID) else { continue }
+            let hue = Int(Theme.heroHue(h.heroID) * 1000)
+            for slot in SkillSlot.actives {
+                guard let sk = master.skill(hero: h.heroID, slot: slot) else { continue }
+                let t = SkillCatalog.targeting(for: sk, hero: def)
+                let type = master.effect(sk.effectID)?.effectType
+                let streakByType = type == .projectile || type == .trail
+                let style: Style
+                switch t.archetype {
+                case .lineSkillshot: style = .skill(hue: hue, streak: streakByType)
+                case .piercingLine: style = .skill(hue: hue, streak: true)
+                case .blinkEmpower:
+                    // 強化通常攻撃の追加弾（演出 ID が無ければ empowered_attack）
+                    if sk.effectID.isEmpty { continue }
+                    style = .skill(hue: hue, streak: streakByType)
+                default: continue
+                }
+                guard seen.insert(style).inserted else { continue }
+                out.append((style, sk.effectID, 3))
+            }
+        }
+        return out
+    }
+
+    // MARK: ウォームアップ（読み込み幕の裏）
+
+    private var warmupShown: [Visual] = []
+
+    /// プールの見た目を全て陳列し、軌跡の放出体も全て一度ずつ動かす（粒子系の初期化を幕の裏で済ませる）。
+    func showWarmup(slot: () -> SIMD3<Float>) {
+        for style in pools.keys.sorted(by: { "\($0)" < "\($1)" }) {
+            guard let l = pools.removeValue(forKey: style) else { continue }
+            for v in l {
+                v.entity.position = slot()
+                v.entity.isEnabled = true
+                attachTrail(v)
+                warmupShown.append(v)
+            }
+        }
+    }
+
+    /// 陳列した見た目をプールへ戻す。
+    func endWarmup() {
+        for v in warmupShown { recycle(v) }
+        warmupShown.removeAll()
+        trailsInUse = 0
+        peakTrails = 0
+        trailsSkipped = 0
+    }
 
     var count: Int { list.count }
 
@@ -123,33 +294,12 @@ final class ProjectileLayer {
         if case .skill = style { v.effectScale = effectScale(visual) }
         v.entity.addChild(core)
         v.entity.addChild(halo)
-        // 軌跡（中・高画質、目立つ弾のみ）
-        let wantsTrail: Bool
+        // 軌跡（中・高画質、目立つ弾のみ。放出体は表示中だけ軌跡のプールから借りる）
         switch style {
-        case .tower, .empowered, .skill: wantsTrail = quality.projectileTrails
-        default: wantsTrail = false
+        case .tower, .empowered, .skill: v.wantsTrail = buildsTrails
+        default: v.wantsTrail = false
         }
-        if wantsTrail {
-            AssetLedger.record(.emitter, "projectile trail \(style)")
-            var p = ParticleEmitterComponent()
-            p.fieldSimulationSpace = .global
-            p.emitterShape = .sphere
-            p.emitterShapeSize = SIMD3(repeating: 0.05)
-            p.speed = 0.05
-            var m = p.mainEmitter
-            m.birthRate = Float(quality.particles(70))
-            m.lifeSpan = 0.3
-            m.size = haloScale * 0.55
-            m.sizeMultiplierAtEndOfLifespan = 0.1
-            m.blendMode = .additive
-            m.opacityCurve = .linearFadeOut
-            m.color = .constant(.single(color.uiColor))
-            m.isLightingEnabled = false
-            p.mainEmitter = m
-            p.timing = .repeating(warmUp: nil, emit: .init(duration: 10), idle: nil)
-            v.entity.components.set(p)
-            v.hasTrail = true
-        }
+        v.trailSize = haloScale * 0.55
         root.addChild(v.entity)
         return v
     }
@@ -187,9 +337,10 @@ final class ProjectileLayer {
         v.baseScale = core
         v.core.scale = core
         v.halo.scale = Self.haloScale(halo, core: core)
-        if v.hasTrail, var p = v.entity.components[ParticleEmitterComponent.self] {
-            p.mainEmitter.size = halo * 0.55
-            v.entity.components.set(p)
+        v.trailSize = halo * 0.55
+        if let t = v.trail, var p = t.components[ParticleEmitterComponent.self] {
+            p.mainEmitter.size = v.trailSize
+            t.components.set(p)
         }
     }
 
@@ -198,10 +349,7 @@ final class ProjectileLayer {
 
     private func recycle(_ v: Visual) {
         v.entity.isEnabled = false
-        if v.hasTrail, var p = v.entity.components[ParticleEmitterComponent.self] {
-            p.isEmitting = false
-            v.entity.components.set(p)
-        }
+        detachTrail(v)
         pools[v.style, default: []].append(v)
     }
 
@@ -217,6 +365,7 @@ final class ProjectileLayer {
                 continue
             }
             let v: Visual
+            var isNew = false
             if let existing = active[p.id] {
                 v = existing
             } else {
@@ -239,11 +388,7 @@ final class ProjectileLayer {
                 active[p.id] = v
                 list.append(v)
                 v.entity.isEnabled = true
-                if v.hasTrail, var pe = v.entity.components[ParticleEmitterComponent.self] {
-                    pe.isEmitting = true
-                    pe.restart()
-                    v.entity.components.set(pe)
-                }
+                isNew = true
             }
             v.lastSeen = stamp
             let pos = Vec2.lerp(p.prevPos, p.pos, Double(f.alpha))
@@ -258,6 +403,9 @@ final class ProjectileLayer {
                 v.yaw = Float(atan2(d.y, d.x)) - .pi / 2
             }
             v.entity.orientation = simd_quatf(angle: v.yaw, axis: [0, 1, 0])
+            // 軌跡は弾の位置に合わせる（試合中に軌跡が切られた間 = 画質の自動調整では付けない）
+            if isNew { attachTrail(v) }
+            v.trail?.position = v.entity.position
             if case .tower = v.style {
                 let s = 1 + sin(f.time * 30 + Float(p.id)) * 0.12
                 v.core.scale = v.baseScale * s

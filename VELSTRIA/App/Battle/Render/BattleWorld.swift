@@ -20,6 +20,11 @@ final class BattleWorld {
     let vfx: VFXSystem
     let aim: AimLayer
     let fog: FogOfWar?
+    let ambient: AmbientParticles
+    /// 読み込み幕の裏の陳列（makeWarmupPlan が開き、finishWarmup で片付ける。WorldWarmup.swift）。
+    var gallery: WarmupGallery?
+    /// 陳列を開いた時の sim の tick（sim が進んだら幕が上がったとみなして片付ける安全策）。
+    var galleryTick = 0
     private weak var arView: ARView?
     private weak var overlay: CombatTextOverlay?
     private var time: Float = 0
@@ -60,13 +65,15 @@ final class BattleWorld {
         root.addChild(vfx.root)
         aim = AimLayer(materials: materials, meshes: meshes)
         root.addChild(aim.root)
+        ambient = AmbientParticles(map: controller.ctx.map, teams: materials.teams, texture: vfx.starTexture,
+                                   quality: settings.quality)
+        root.addChild(ambient.root)
         if let viewer = controller.viewerTeam {
             fog = FogOfWar(team: viewer, size: settings.quality.fogTextureSize)
             if let fog { root.addChild(fog.entity) }
         } else {
             fog = nil
         }
-        units.prewarm()
         #if DEBUG
         showcase = RenderShowcase.isRequested ? RenderShowcase(master: controller.ctx.master) : nil
         #endif
@@ -91,6 +98,9 @@ final class BattleWorld {
     // MARK: 毎フレーム
 
     func sync(events: [SimEvent], dt: Float, rig: CameraRig) {
+        // 陳列を片付け忘れたまま試合が始まった（finishWarmup が呼ばれなかった）場合の安全策
+        if gallery != nil, controller.state.tick != galleryTick { finishWarmup() }
+        gallery?.update(dt: dt)
         time += dt
         #if DEBUG
         var frame = makeFrame(dt: dt)
@@ -145,25 +155,6 @@ final class BattleWorld {
         flushHealText(dt: dt, frame: frame)
     }
 
-    /// 読み込み幕の裏で行う準備（Perf/WarmupPlan.swift）。BattleRenderer が順に実行してから幕を上げる。
-    func makeWarmupPlan() -> [WarmupStep] {
-        [WarmupStep("effects") { [weak self] in self?.prewarmEffects() }]
-    }
-
-    /// 演出の初回生成コストを読み込み幕の裏で払う（地面の下で各プリセットを 1 回ずつ再生）。
-    func prewarmEffects() {
-        var p = SIMD3<Float>(60, -3, -60)
-        if let id = controller.humanHeroID ?? controller.state.units.first(where: { $0.kind == .hero })?.id,
-           let hp = units.worldPositionOf(id) {
-            p = hp - SIMD3(0, 3, 0)
-        }
-        let presets: [VFXPreset] = [.hitSpark, .crit, .magicHit, .heal, .shield, .levelUp, .death, .heroDeath, .respawn,
-                                    .towerExplosion, .debris, .smoke, .gold, .skillBurst, .blink, .areaBlast, .trail]
-        for preset in presets { vfx.spawn(preset, at: p, color: FXColors.white, count: 1, important: true) }
-        vfx.ring(at: p, color: RGB(1, 1, 1), from: 0.5, to: 1, duration: 0.2)
-        vfx.flash(at: p, color: RGB(1, 1, 1), radius: 0.5, duration: 0.2)
-    }
-
     func updateOverlay(dt: Float) {
         guard let overlay, let arView else { return }
         overlay.update(dt: dt) { p in arView.project(p) }
@@ -204,11 +195,18 @@ final class BattleWorld {
     }
 
     /// ヒーロー色相の演出色（キャッシュ）。
-    private func hueColor(_ heroID: String) -> UIColor {
+    func hueColor(_ heroID: String) -> UIColor {
         if let c = hueCache[heroID] { return c }
         let c = UIColor(hue: CGFloat(Theme.heroHue(heroID)), saturation: 0.62, brightness: 1, alpha: 1)
         hueCache[heroID] = c
         return c
+    }
+
+    /// 演出色（UIColor）→ 輪・閃光の単色マテリアル用の RGB（変換できない色は既定の淡青）。
+    static func ringRGB(_ color: UIColor) -> RGB {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        guard color.getRed(&r, green: &g, blue: &b, alpha: &a) else { return FXRings.skillDefault }
+        return RGB(Double(r), Double(g), Double(b))
     }
 
     private func teamColor(_ id: EntityID?, _ f: RenderFrame) -> UIColor {
@@ -306,7 +304,7 @@ final class BattleWorld {
         case .heroKilled(let k):
             guard let p = anchor(k.victimID, heightRatio: 0.5) else { break }
             vfx.spawn(.heroDeath, at: p, color: teamColor(k.victimID, f), important: true)
-            vfx.ring(at: SIMD3(p.x, 0, p.z), color: RGB(0.9, 0.9, 1.0), from: 0.4, to: 2.4, duration: 0.6)
+            vfx.ring(at: SIMD3(p.x, 0, p.z), color: FXRings.heroDeath, from: 0.4, to: 2.4, duration: 0.6)
             if k.victimID == f.focusID { shakeRequest = max(shakeRequest, 0.25) }
         case .goldGained(let heroID, let amount, let pos):
             guard heroID == f.focusID, amount >= 1 else { break }
@@ -316,7 +314,7 @@ final class BattleWorld {
         case .levelUp(let heroID, _):
             guard isShown(heroID, f), let base = units.worldPositionOf(heroID) else { break }
             vfx.spawn(.levelUp, at: base + SIMD3(0, 0.1, 0), color: FXColors.levelUp, important: true)
-            vfx.ring(at: base, color: RGB(1, 0.86, 0.45), from: 0.3, to: 1.8, duration: 0.7)
+            vfx.ring(at: base, color: FXRings.levelUp, from: 0.3, to: 1.8, duration: 0.7)
         case .structureDestroyed(let id, let kind, let team, _, _, _):
             guard let base = units.worldPositionOf(id) else { break }
             let top = base + SIMD3(0, kind == .core ? 3.6 : 4.6, 0)
@@ -425,9 +423,7 @@ final class BattleWorld {
         let radius = Float(c.radius / Balance.unitsPerMeter)
         let dir = target - origin
         let len = simd_length(dir)
-        var ringColor = RGB(0.8, 0.9, 1)
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        if color.getRed(&r, green: &g, blue: &b, alpha: &a) { ringColor = RGB(Double(r), Double(g), Double(b)) }
+        let ringColor = BattleWorld.ringRGB(color)
         // アーキタイプ別の主演出
         switch c.archetype {
         case .cone:
@@ -482,14 +478,14 @@ final class BattleWorld {
             vfx.spawn(.skillBurst, at: p + SIMD3(0, 1, 0), color: .white, important: true)
         case "BS03":
             vfx.spawn(.heal, at: p, color: FXColors.heal, scale: 1.4, important: true)
-            vfx.ring(at: p, color: RGB(0.45, 1, 0.55), from: 0.5, to: 8, duration: 0.6)
+            vfx.ring(at: p, color: FXRings.heal, from: 0.5, to: 8, duration: 0.6)
         case "BS04":
             vfx.spawn(.shield, at: p + SIMD3(0, 0.9, 0), color: FXColors.barrier, important: true)
         case "BS05":
-            vfx.flash(at: tp, color: RGB(1, 0.85, 0.4), radius: 1.2, duration: 0.3)
+            vfx.flash(at: tp, color: FXRings.smite, radius: 1.2, duration: 0.3)
             vfx.spawn(.crit, at: tp, color: FXColors.smite, scale: 1.4, important: true)
         case "BS06":
-            vfx.ring(at: p, color: RGB(0.5, 1, 0.95), from: 0.5, to: 2, duration: 0.5)
+            vfx.ring(at: p, color: FXRings.haste, from: 0.5, to: 2, duration: 0.5)
             vfx.spawn(.blink, at: p + SIMD3(0, 0.6, 0), color: FXColors.haste)
         case "BS07":
             vfx.spawn(.magicHit, at: tp, color: FXColors.ignite, scale: 1.3, important: true)
@@ -505,6 +501,12 @@ final class BattleWorld {
     // MARK: カメラ
 
     func updateCamera(rig: CameraRig, dt: Float, snap: Bool) {
+        let (target, free) = cameraFocus()
+        rig.update(target: target, zoom: controller.cameraZoom, free: free, dt: dt, mapMeters: MapScene.mapMeters)
+    }
+
+    /// カメラの注視点（world x・z）と自由視点か。
+    func cameraFocus() -> (target: SIMD2<Float>, free: Bool) {
         var target = SIMD2<Float>(repeating: 0)
         var free = false
         switch controller.cameraMode {
@@ -527,19 +529,23 @@ final class BattleWorld {
             target = SIMD2(p.x, p.z)
             free = true
         }
-        rig.update(target: target, zoom: controller.cameraZoom, free: free, dt: dt, mapMeters: MapScene.mapMeters)
+        return (target, free)
     }
 
     // MARK: 設定・破棄
 
+    /// 設定の反映。画質の変更（利用者の選んだ画質の範囲内での自動調整を含む）では何も作らない:
+    /// 放出体の上限・粒子数・軌跡・環境パーティクルは事前に作ったものの有効/無効と値の書き換えだけで切り替える。
     func apply(settings new: RenderSettings) {
         settings = new
         vfx.apply(quality: new.quality)
         projectiles.apply(quality: new.quality)
+        ambient.apply(quality: new.quality)
         if !new.showDamageNumbers { overlay?.clear() }
     }
 
     func teardown() {
+        finishWarmup()
         vfx.clear()
         units.teardown()
         projectiles.teardown()
@@ -547,6 +553,18 @@ final class BattleWorld {
         zones.onTrigger = nil
         root.removeFromParent()
     }
+}
+
+/// 輪・閃光の色（単色マテリアルのキー。事前生成と同じ値を使う）。
+enum FXRings {
+    static let white = RGB(1, 1, 1)
+    static let heroDeath = RGB(0.9, 0.9, 1.0)
+    static let levelUp = RGB(1, 0.86, 0.45)
+    /// スキル演出の既定（色相が取れない時）。
+    static let skillDefault = RGB(0.8, 0.9, 1)
+    static let heal = RGB(0.45, 1, 0.55)
+    static let haste = RGB(0.5, 1, 0.95)
+    static let smite = RGB(1, 0.85, 0.4)
 }
 
 /// 演出で繰り返し使う色（イベント毎の生成を避ける）。

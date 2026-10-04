@@ -24,7 +24,16 @@ final class UnitMeshLibrary {
     private var monsterCache: [Int: PartMeshes] = [:]
     private var ringCache: [Int: MeshResource] = [:]
     private var discCache: [Int: MeshResource] = [:]
-    private var sectorCache: [Int: MeshResource] = [:]
+    private var sectorCache: [SectorKey: MeshResource] = [:]
+    /// 人形のメッシュを作ったか（練習モードのみ。ウォームアップの陳列に含める）。
+    private(set) var dummyBuilt = false
+
+    /// 扇形のキャッシュキー。縁の太さも含める（含めないと最初に作った呼び出し元の太さが他の扇形にも使われる）。
+    private struct SectorKey: Hashable {
+        var halfAngle: Int
+        var thickness: Int
+        var outline: Bool
+    }
 
     /// 左端原点・+Z 向きの単位四角形（HP バー）。
     lazy var barQuad: MeshResource? = {
@@ -129,7 +138,8 @@ final class UnitMeshLibrary {
 
     /// 扇形（中心から +x 方向を中心に ±halfAngle、半径 1）。outline = true で縁取りの弧帯。
     func sector(halfAngle: Float, outline: Bool, thicknessRatio: Float = 0.06) -> MeshResource? {
-        let key = Int((halfAngle * 100).rounded()) * 10 + (outline ? 1 : 0)
+        let key = SectorKey(halfAngle: Int((halfAngle * 100).rounded()),
+                            thickness: outline ? Int((thicknessRatio * 1000).rounded()) : 0, outline: outline)
         if let m = sectorCache[key] { return m }
         var b = MeshBuilder()
         let segs = max(8, Int(halfAngle * 24))
@@ -147,7 +157,7 @@ final class UnitMeshLibrary {
         } else {
             b.annulus(inner: 0, outer: 1, segments: segs, startAngle: -halfAngle, sweep: halfAngle * 2, color: .solid(.white))
         }
-        let m = b.makeMesh(name: "sector_\(key)")
+        let m = b.makeMesh(name: "sector_\(key.halfAngle)_\(key.thickness)_\(outline ? 1 : 0)")
         sectorCache[key] = m
         return m
     }
@@ -355,6 +365,7 @@ final class UnitMeshLibrary {
     }
 
     lazy var dummy: PartMeshes = {
+        dummyBuilt = true
         var body = MeshBuilder(), glow = MeshBuilder()
         body.cylinder(radius: 0.07, height: 1.2, segments: 6, color: .solid(.woodDark))
         body.frustum(bottomRadius: 0.5, topRadius: 0.45, height: 0.12, segments: 8, color: .solid(.stoneDark))
@@ -394,4 +405,35 @@ final class UnitMeshLibrary {
                   capTop: true)
         return b.makeMesh(name: "rubble")
     }()
+
+    // MARK: ウォームアップ
+
+    /// 試合で使う共通形状を全て作る（読み込み幕の裏。プレイ中の初回生成をなくす）。
+    func prewarmCommon() {
+        _ = barQuad
+        _ = groundStrip
+        _ = arrowHead
+        _ = unitSphere
+        _ = stunStars
+        _ = rootVines
+        _ = slowRing
+        _ = unitDisc
+        _ = rubble
+    }
+
+    /// 作成済みのメッシュ全て（陳列で一度ずつ描き、GPU への転送を幕の裏で済ませる）。
+    var builtMeshes: [MeshResource] {
+        var out: [MeshResource] = []
+        func add(_ m: MeshResource?) { if let m { out.append(m) } }
+        func add(_ p: PartMeshes) { add(p.body); add(p.bodyGlow); add(p.part); add(p.partGlow) }
+        for k in minionCache.keys.sorted() { add(minionCache[k]!) }
+        for k in monsterCache.keys.sorted() { add(monsterCache[k]!) }
+        if dummyBuilt { add(dummy) }
+        for k in ringCache.keys.sorted() { add(ringCache[k]) }
+        for k in discCache.keys.sorted() { add(discCache[k]) }
+        for m in sectorCache.values { add(m) }
+        for m in [barQuad, groundStrip, arrowHead, stunStars, rootVines, slowRing, unitDisc, rubble] { add(m) }
+        add(unitSphere)
+        return out
+    }
 }

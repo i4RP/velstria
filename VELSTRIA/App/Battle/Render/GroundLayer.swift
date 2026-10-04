@@ -51,6 +51,9 @@ enum GroundLayer {
     static let aim: Float = 0.070
     /// 戦場の霧の板。
     static let fog: Float = 0.10
+    /// 環境パーティクル（河川のきらめき）の放出面。霧の板より上に置き、半透明の板との前後を深度で決める
+    /// （霧の板と同じ高さ付近だと粒子が板を出入りして明滅する）。平面ではないので overlays には含めない。
+    static let ambient: Float = 0.14
 
     /// 不透明な静的平面（xz で重なりうる順に下から）。テストで間隔を検証する。
     static let opaqueStack: [Float] = [ground, paving, marking, markingLine, markingTop]
