@@ -40,6 +40,28 @@ final class SettingsScreensTests: XCTestCase {
         XCTAssertEqual(reset.bottomAttackPriority, .minionsFirst)
     }
 
+    /// 音は既定でミュート（BGM・効果音とも 0）。初期値に戻す・旧版からの移行でも 0 になる。
+    /// TestFlight へ上げる前の CI でこのテストを回し、古い既定（効果音 80%・BGM 70%）への逆戻りを止める。
+    func testAudioDefaultsAreMuted() {
+        XCTAssertEqual(GameSettings().bgmVolume, 0)
+        XCTAssertEqual(GameSettings().sfxVolume, 0)
+        var s = GameSettings()
+        s.bgmVolume = 0.7
+        s.sfxVolume = 0.8
+        let reset = SettingsDefaults.reset(s)
+        XCTAssertEqual(reset.bgmVolume, 0)
+        XCTAssertEqual(reset.sfxVolume, 0)
+        // 旧版（v1: BGM 70%・効果音 80% / v2: 効果音 80%）の保存データも 0 になる
+        for version in [1, 2] {
+            var object: [String: Any] = ["schemaVersion": version,
+                                         "settings": ["bgmVolume": 0.7, "sfxVolume": 0.8, "voiceVolume": 0.8]]
+            ProfileMigrator.migrate(&object, from: version)
+            let settings = object["settings"] as? [String: Any]
+            XCTAssertEqual((settings?["sfxVolume"] as? NSNumber)?.doubleValue, 0, "v\(version) の効果音")
+            if version == 1 { XCTAssertEqual((settings?["bgmVolume"] as? NSNumber)?.doubleValue, 0, "v1 の BGM") }
+        }
+    }
+
     func testAttackButtonDefaultsFollowTopCenterBottomOrder() {
         let settings = GameSettings()
         XCTAssertEqual(AttackButtonSlot.allCases, [.top, .center, .bottom])
