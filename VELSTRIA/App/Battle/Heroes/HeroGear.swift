@@ -710,3 +710,26 @@ struct HeroGearBuilder {
         return b
     }
 }
+
+// MARK: - Prop の取り付け
+
+extension HeroGearBuilder {
+    /// Prop_<kind>.usdz（正規化済み: HeroPropTemplate の規約。面が ±Z の副手も正規化の yaw で上の weapon() / offhand() の
+    /// 組み立て前の向きにしてある）を、ここの座標へ合わせる補正。
+    /// yaw: 手続き側で組んだ後に掛けた残りの回転（盾の ry(0.4)・弓の ry(0.6)）。正規化の yaw とは別物で、両方掛けて正しい。
+    /// center: 握りでなく範囲の中心を手続きの範囲の中心へ合わせる（腕の外に置く盾・本、握りと弦の間が原点になる弓）。
+    /// turn: 予備。yaw を掛けずに正規化した Prop（薄い向き ±X・正面 +X）で横の広い向きが手続きと食い違う時だけ回す向き
+    /// （+1 = ry(+90°) で +X → -Z = 正面を前へ、-1 = +X → +Z = 上面を +Z へ）。yaw 済みの Prop では広い向きが一致するので回さない。
+    static func propMount(_ kind: String) -> (turn: Float, yaw: Float, center: Bool) {
+        switch kind {
+        case "\(OffhandKind.gateShield)": return (1, 0.4, true)  // 盾面 -Z、trs((-0.15, 0.1, -0.1), ry(0.4)) で腕の外へ
+        case "\(OffhandKind.hideShield)": return (1, 0, true)    // 盾面 -Z、o = (-0.1, 0.08, -0.1)
+        case "\(OffhandKind.harpBow)": return (1, 0, true)       // XY 平面、o = (-0.02, 0.2, -0.04)
+        case "\(OffhandKind.grimoire)": return (1, 0, true)      // o = (-0.03, 0.06, -0.06)
+        case "\(WeaponKind.mechCrossbow)": return (-1, 0, false) // 弓は ±X、上面 +Z
+        // bow() は YZ 平面・握りが原点で弓先と弦が +Z、ry(0.6)。Prop は握りの断面に弦が入り原点が握りと弦の間になるので中心で合わせる
+        case "\(OffhandKind.ashBow)", "\(OffhandKind.lightBow)": return (1, 0.6, true)
+        default: return (1, 0, false)
+        }
+    }
+}

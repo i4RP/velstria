@@ -50,6 +50,8 @@ struct BattleContainerView: View {
 
     private func startIfNeeded() {
         guard controller == nil else { return }
+        // 保険: 戦闘描画より前にヒーローのアセットを揃える（ロード画面で 1 人ずつ済んでいればキャッシュ参照だけ）
+        HeroModelLibrary.preload(players: launch.config.players.map { ($0.heroID, $0.skinID) }, master: app.master)
         let c = BattleController(launch: launch)
         let settings = app.profile.settings
         c.cameraZoom = settings.cameraZoom

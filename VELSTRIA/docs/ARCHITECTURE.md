@@ -85,6 +85,23 @@ VELSTRIA/
 - プロフィール変更は `app.profile.xxx = ...`（自動保存）。ロジックは Services 側の関数を使う。
 - ネットワーク通信なし（オフライン完結）。外部リンクは `Link` / `openURL`。
 
+## ヒーローの 3D モデル（Tripo 生成アセット）
+- 表示は `HeroModelLibrary.makeHero`（`HeroDisplayModel`）。同梱の `Hero_<heroID>.usdz` があればスキンメッシュ
+  （`SkinnedHeroModel`）、無ければ手続き生成（`HeroModel`）。どちらも同じ `HeroAnimator` / `HeroPose` で動き、
+  スキンメッシュは `HeroSkeletonRig` が姿勢を Mixamo 名の骨へリターゲットする（武器・浮遊物・足元表示は従来の部品を手の骨に付ける）。
+- 読み込みは `LoadingScreenView` で `HeroModelLibrary.purge` → 1 人ずつ `preloadAsync`（USDZ はメインスレッド外）。
+  戦闘中に USDZ を同期で読まない。
+- アセットの生成・取り込み: `tools/tripo.mjs`（Tripo API v3。キーは `TRIPO_API_KEY` か `~/.config/tripo/api_key`、
+  リポジトリに置かない）→ `tools/blender/normalize_*.py`（Blender ヘッドレスで USDZ へ正規化）→ `verify_usdz.swift` の検査に
+  通ったものだけ `App/Resources/Heroes/` へ。規約・手順は `App/Resources/Heroes/README.md`、プロンプトは `tools/tripo/assets.json`。
+  ```sh
+  node tools/tripo.mjs balance                      # 残高（1 credit = $0.01）
+  node tools/tripo.mjs estimate all                 # 必要クレジットの見積もり
+  node tools/tripo.mjs run heroes H001 --until concept   # まずコンセプト画像だけ作って確認
+  node tools/tripo.mjs run heroes H001 --max-credits 90  # モデル → リグ判定 → リグ
+  node tools/tripo.mjs import heroes H001           # 正規化 → 検査 → App/Resources/Heroes/Hero_H001.usdz
+  ```
+
 ## ビルド・テスト
 ```sh
 # コア

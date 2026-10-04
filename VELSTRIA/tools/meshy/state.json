@@ -1,0 +1,1729 @@
+{
+  "version": 1,
+  "assets": {
+    "heroes/H002": {
+      "stages": {
+        "model": {
+          "status": "SUCCEEDED",
+          "task_id": "01a1076f-0a92-73d9-8f8f-2606f3afa909",
+          "input": null,
+          "input_sha256": "f680eaa54259ea0e39d72b6cbffc9d2bc862383d47ec4c84827bc6c2afd136b5",
+          "request": {
+            "image_url": "data:image/jpeg;base64,<build/tripo/heroes/H002/concept.png 253610 bytes sha256 f680eaa54259ea0e…>",
+            "ai_model": "latest",
+            "should_texture": true,
+            "enable_pbr": true,
+            "texture_resolution": "2k",
+            "should_remesh": true,
+            "topology": "triangle",
+            "target_polycount": 10000,
+            "pose_mode": "t-pose"
+          },
+          "estimate": 30,
+          "balance_before": 1045,
+          "submitted_at": "2026-10-04T15:01:19.993Z",
+          "completed_at": "2026-10-04T15:04:10.075Z",
+          "progress": 100,
+          "credits_consumed": 30,
+          "outputs": [
+            "model_url",
+            "model_urls.glb",
+            "model_urls.fbx",
+            "model_urls.usdz",
+            "model_urls.obj",
+            "model_urls.mtl",
+            "model_urls.stl",
+            "thumbnail_url",
+            "texture_urls[0].base_color",
+            "texture_urls[0].metallic",
+            "texture_urls[0].roughness",
+            "texture_urls[0].normal"
+          ],
+          "files": {
+            "model.glb": {
+              "path": "build/meshy/heroes/H002/model.glb",
+              "bytes": 11830560,
+              "sha256": "a2e15cf43741f58c19ed70074497e47b76505e11890a67e066764ba006380fec",
+              "info": {
+                "tris": 10241,
+                "joints": 0,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "preview.png": {
+              "path": "build/meshy/heroes/H002/preview.png",
+              "bytes": 91661,
+              "sha256": "218078d83a8f61625a7b78b573d44ae74e0c34509e2b1dc2f7f40080a8ba3068"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:04:13.513Z",
+          "expires_at": "2026-10-07T15:04:10.075Z"
+        },
+        "rig": {
+          "status": "SUCCEEDED",
+          "task_id": "01a10771-b1d2-71fa-9923-fe1e947fce06",
+          "input": "01a1076f-0a92-73d9-8f8f-2606f3afa909",
+          "input_sha256": null,
+          "request": {
+            "input_task_id": "01a1076f-0a92-73d9-8f8f-2606f3afa909",
+            "height_meters": 1.7
+          },
+          "estimate": 5,
+          "balance_before": 1015,
+          "submitted_at": "2026-10-04T15:04:13.651Z",
+          "completed_at": "2026-10-04T15:04:29.398Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "outputs": [
+            "result.rigged_character_fbx_url",
+            "result.rigged_character_glb_url",
+            "result.basic_animations.walking_glb_url",
+            "result.basic_animations.walking_fbx_url",
+            "result.basic_animations.walking_armature_glb_url",
+            "result.basic_animations.running_glb_url",
+            "result.basic_animations.running_fbx_url",
+            "result.basic_animations.running_armature_glb_url"
+          ],
+          "files": {
+            "rigged.glb": {
+              "path": "build/meshy/heroes/H002/rigged.glb",
+              "bytes": 12515908,
+              "sha256": "b55f8b065a9761f17a802c786e29e78f16b6534973dc5ba5afe9deaf2918e08e",
+              "info": {
+                "tris": 10241,
+                "joints": 24,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "rigged.fbx": {
+              "path": "build/meshy/heroes/H002/rigged.fbx",
+              "bytes": 4303100,
+              "sha256": "0f74da2eddf550fe5eeb3f7bc423fa9e7f60a70c85a52fb61c34a81ad1cb2e5e"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:04:35.248Z",
+          "expires_at": "2026-10-07T15:04:29.398Z"
+        }
+      },
+      "delivered": {
+        "glb": {
+          "path": "build/tripo/heroes/H002/rigged.glb",
+          "sha256": "b55f8b065a9761f17a802c786e29e78f16b6534973dc5ba5afe9deaf2918e08e",
+          "from": "build/meshy/heroes/H002/rigged.glb",
+          "at": "2026-10-04T15:04:35.267Z"
+        }
+      }
+    },
+    "heroes/H003": {
+      "stages": {
+        "model": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107a2-2687-7308-ab5e-5061954f475a",
+          "input": null,
+          "input_sha256": "7706be36de0b25709a18add2f88456a89342964a6f73e5aff245bb869310dd1a",
+          "request": {
+            "image_url": "data:image/jpeg;base64,<build/tripo/heroes/H003/concept.png 239534 bytes sha256 7706be36de0b2570…>",
+            "ai_model": "latest",
+            "should_texture": true,
+            "enable_pbr": true,
+            "texture_resolution": "2k",
+            "should_remesh": true,
+            "topology": "triangle",
+            "target_polycount": 10000,
+            "pose_mode": "t-pose"
+          },
+          "estimate": 30,
+          "balance_before": 950,
+          "submitted_at": "2026-10-04T15:57:09.505Z",
+          "completed_at": "2026-10-04T15:59:41.689Z",
+          "progress": 100,
+          "credits_consumed": 30,
+          "outputs": [
+            "model_url",
+            "model_urls.glb",
+            "model_urls.fbx",
+            "model_urls.usdz",
+            "model_urls.obj",
+            "model_urls.mtl",
+            "model_urls.stl",
+            "thumbnail_url",
+            "texture_urls[0].base_color",
+            "texture_urls[0].metallic",
+            "texture_urls[0].roughness",
+            "texture_urls[0].normal"
+          ],
+          "files": {
+            "model.glb": {
+              "path": "build/meshy/heroes/H003/model.glb",
+              "bytes": 10854336,
+              "sha256": "5af74a6948912c3b121bbfbae05caf6eb0835414d7e7b6314136bca09745261d",
+              "info": {
+                "tris": 10325,
+                "joints": 0,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "preview.png": {
+              "path": "build/meshy/heroes/H003/preview.png",
+              "bytes": 93213,
+              "sha256": "edbe29ea1fe8878654c984e602d0c0aacee692ef22690b4a03e0510249b25d77"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:59:45.154Z",
+          "expires_at": "2026-10-07T15:59:41.689Z"
+        },
+        "rig": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107a4-8852-7306-a7d4-ee752f7f6d74",
+          "input": "01a107a2-2687-7308-ab5e-5061954f475a",
+          "input_sha256": null,
+          "request": {
+            "input_task_id": "01a107a2-2687-7308-ab5e-5061954f475a",
+            "height_meters": 1.7
+          },
+          "estimate": 5,
+          "balance_before": 830,
+          "submitted_at": "2026-10-04T15:59:45.305Z",
+          "completed_at": "2026-10-04T16:00:00.320Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "outputs": [
+            "result.rigged_character_fbx_url",
+            "result.rigged_character_glb_url",
+            "result.basic_animations.walking_glb_url",
+            "result.basic_animations.walking_fbx_url",
+            "result.basic_animations.walking_armature_glb_url",
+            "result.basic_animations.running_glb_url",
+            "result.basic_animations.running_fbx_url",
+            "result.basic_animations.running_armature_glb_url"
+          ],
+          "files": {
+            "rigged.glb": {
+              "path": "build/meshy/heroes/H003/rigged.glb",
+              "bytes": 11469688,
+              "sha256": "5a96c3d119594d0544235414bafb1c0ba83a1dbf18bb68153a344592fbade014",
+              "info": {
+                "tris": 10325,
+                "joints": 24,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "rigged.fbx": {
+              "path": "build/meshy/heroes/H003/rigged.fbx",
+              "bytes": 4131916,
+              "sha256": "528db0d0c518fab4098b3edcd62b0fee4a5033ccc9fb74601389180003957277"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:00:09.399Z",
+          "expires_at": "2026-10-07T16:00:00.320Z"
+        }
+      },
+      "delivered": {
+        "glb": {
+          "path": "build/tripo/heroes/H003/rigged.glb",
+          "sha256": "5a96c3d119594d0544235414bafb1c0ba83a1dbf18bb68153a344592fbade014",
+          "from": "build/meshy/heroes/H003/rigged.glb",
+          "at": "2026-10-04T16:00:09.454Z"
+        }
+      }
+    },
+    "heroes/H004": {
+      "stages": {
+        "model": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107a2-2b5c-7694-804e-b0fb3cb65bff",
+          "input": null,
+          "input_sha256": "89ff0122deb2f979672e9cedef824fa0c89ab1d64db0f80e789c4fda785d4f11",
+          "request": {
+            "image_url": "data:image/jpeg;base64,<build/tripo/heroes/H004/concept.png 271590 bytes sha256 89ff0122deb2f979…>",
+            "ai_model": "latest",
+            "should_texture": true,
+            "enable_pbr": true,
+            "texture_resolution": "2k",
+            "should_remesh": true,
+            "topology": "triangle",
+            "target_polycount": 10000,
+            "pose_mode": "t-pose"
+          },
+          "estimate": 30,
+          "balance_before": 920,
+          "submitted_at": "2026-10-04T15:57:10.738Z",
+          "completed_at": "2026-10-04T15:59:52.513Z",
+          "progress": 100,
+          "credits_consumed": 30,
+          "outputs": [
+            "model_url",
+            "model_urls.glb",
+            "model_urls.fbx",
+            "model_urls.usdz",
+            "model_urls.obj",
+            "model_urls.mtl",
+            "model_urls.stl",
+            "thumbnail_url",
+            "texture_urls[0].base_color",
+            "texture_urls[0].metallic",
+            "texture_urls[0].roughness",
+            "texture_urls[0].normal"
+          ],
+          "files": {
+            "model.glb": {
+              "path": "build/meshy/heroes/H004/model.glb",
+              "bytes": 10873044,
+              "sha256": "40e1ee10050b26f718f8feefa1051863226bb5b7542d5efc4f35e8774e47295a",
+              "info": {
+                "tris": 10247,
+                "joints": 0,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "preview.png": {
+              "path": "build/meshy/heroes/H004/preview.png",
+              "bytes": 89928,
+              "sha256": "4d0b749c4c5adaa41461b37fe79991093505c2e29ebb28f9b3b1c04672a940f7"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:59:56.186Z",
+          "expires_at": "2026-10-07T15:59:52.513Z"
+        },
+        "rig": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107a4-b34a-70dc-a643-f5b44adb4866",
+          "input": "01a107a2-2b5c-7694-804e-b0fb3cb65bff",
+          "input_sha256": null,
+          "request": {
+            "input_task_id": "01a107a2-2b5c-7694-804e-b0fb3cb65bff",
+            "height_meters": 1.7
+          },
+          "estimate": 5,
+          "balance_before": 825,
+          "submitted_at": "2026-10-04T15:59:56.348Z",
+          "completed_at": "2026-10-04T16:00:10.957Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "outputs": [
+            "result.rigged_character_fbx_url",
+            "result.rigged_character_glb_url",
+            "result.basic_animations.walking_glb_url",
+            "result.basic_animations.walking_fbx_url",
+            "result.basic_animations.walking_armature_glb_url",
+            "result.basic_animations.running_glb_url",
+            "result.basic_animations.running_fbx_url",
+            "result.basic_animations.running_armature_glb_url"
+          ],
+          "files": {
+            "rigged.glb": {
+              "path": "build/meshy/heroes/H004/rigged.glb",
+              "bytes": 11531356,
+              "sha256": "53ffb24cb678a0bb1e5aeccd9aa228e93b0e43381969cfdf98022df762435f68",
+              "info": {
+                "tris": 10247,
+                "joints": 24,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "rigged.fbx": {
+              "path": "build/meshy/heroes/H004/rigged.fbx",
+              "bytes": 4355212,
+              "sha256": "c4f473dfe0af71f5f531c829b3231dec8f104ea5504a951c0633536258491ae5"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:00:21.118Z",
+          "expires_at": "2026-10-07T16:00:10.957Z"
+        }
+      },
+      "delivered": {
+        "glb": {
+          "path": "build/tripo/heroes/H004/rigged.glb",
+          "sha256": "53ffb24cb678a0bb1e5aeccd9aa228e93b0e43381969cfdf98022df762435f68",
+          "from": "build/meshy/heroes/H004/rigged.glb",
+          "at": "2026-10-04T16:00:21.307Z"
+        }
+      }
+    },
+    "heroes/H005": {
+      "stages": {
+        "model": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107a4-e7ea-7626-b066-63ade41e1542",
+          "input": null,
+          "input_sha256": "780a15bf0c8e71d3e1f7d31a77248a89304a358135dd06e877705b77d9bfaf29",
+          "request": {
+            "image_url": "data:image/jpeg;base64,<build/tripo/heroes/H005/concept.png 275107 bytes sha256 780a15bf0c8e71d3…>",
+            "ai_model": "latest",
+            "should_texture": true,
+            "enable_pbr": true,
+            "texture_resolution": "2k",
+            "should_remesh": true,
+            "topology": "triangle",
+            "target_polycount": 10000,
+            "pose_mode": "t-pose"
+          },
+          "estimate": 30,
+          "balance_before": 820,
+          "submitted_at": "2026-10-04T16:00:09.664Z",
+          "completed_at": "2026-10-04T16:02:51.056Z",
+          "progress": 100,
+          "credits_consumed": 30,
+          "outputs": [
+            "model_url",
+            "model_urls.glb",
+            "model_urls.fbx",
+            "model_urls.usdz",
+            "model_urls.obj",
+            "model_urls.mtl",
+            "model_urls.stl",
+            "thumbnail_url",
+            "texture_urls[0].base_color",
+            "texture_urls[0].metallic",
+            "texture_urls[0].roughness",
+            "texture_urls[0].normal"
+          ],
+          "files": {
+            "model.glb": {
+              "path": "build/meshy/heroes/H005/model.glb",
+              "bytes": 10927536,
+              "sha256": "681920513eeee229e6f56f2f0a286d3cebab3822ecbf33032cddcdc6448e0a68",
+              "info": {
+                "tris": 10320,
+                "joints": 0,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "preview.png": {
+              "path": "build/meshy/heroes/H005/preview.png",
+              "bytes": 108657,
+              "sha256": "26c052d1e826792a9004d2e49212e17fa363e2af42f1d0fd930d7f5be1d53ac0"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:02:53.447Z",
+          "expires_at": "2026-10-07T16:02:51.056Z"
+        },
+        "rig": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107a7-67d5-757d-a072-0dbbf23f0fcc",
+          "input": "01a107a4-e7ea-7626-b066-63ade41e1542",
+          "input_sha256": null,
+          "request": {
+            "input_task_id": "01a107a4-e7ea-7626-b066-63ade41e1542",
+            "height_meters": 1.7
+          },
+          "estimate": 5,
+          "balance_before": 730,
+          "submitted_at": "2026-10-04T16:02:53.614Z",
+          "completed_at": "2026-10-04T16:03:08.773Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "outputs": [
+            "result.rigged_character_fbx_url",
+            "result.rigged_character_glb_url",
+            "result.basic_animations.walking_glb_url",
+            "result.basic_animations.walking_fbx_url",
+            "result.basic_animations.walking_armature_glb_url",
+            "result.basic_animations.running_glb_url",
+            "result.basic_animations.running_fbx_url",
+            "result.basic_animations.running_armature_glb_url"
+          ],
+          "files": {
+            "rigged.glb": {
+              "path": "build/meshy/heroes/H005/rigged.glb",
+              "bytes": 11565668,
+              "sha256": "f84cde6a575170f26d7a17da32fe4cf8598d87deb76292f1d9bfbada2c8053da",
+              "info": {
+                "tris": 10320,
+                "joints": 24,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "rigged.fbx": {
+              "path": "build/meshy/heroes/H005/rigged.fbx",
+              "bytes": 4061596,
+              "sha256": "b98b6183b21f4a7bcffbc42b9b2942f7fda2f69b02ed2d6044a3f5977aaf7638"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:03:14.494Z",
+          "expires_at": "2026-10-07T16:03:08.773Z"
+        }
+      },
+      "delivered": {
+        "glb": {
+          "path": "build/tripo/heroes/H005/rigged.glb",
+          "sha256": "f84cde6a575170f26d7a17da32fe4cf8598d87deb76292f1d9bfbada2c8053da",
+          "from": "build/meshy/heroes/H005/rigged.glb",
+          "at": "2026-10-04T16:03:14.522Z"
+        }
+      }
+    },
+    "heroes/H006": {
+      "stages": {
+        "model": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107a5-183b-7482-a6ba-41cdbf6c5b38",
+          "input": null,
+          "input_sha256": "1a9d0c280dfb7804a5e10117cdc93b4ea7d30d9dd12ea77bbee3effb6b206490",
+          "request": {
+            "image_url": "data:image/jpeg;base64,<build/tripo/heroes/H006/concept.png 227901 bytes sha256 1a9d0c280dfb7804…>",
+            "ai_model": "latest",
+            "should_texture": true,
+            "enable_pbr": true,
+            "texture_resolution": "2k",
+            "should_remesh": true,
+            "topology": "triangle",
+            "target_polycount": 10000,
+            "pose_mode": "t-pose"
+          },
+          "estimate": 30,
+          "balance_before": 790,
+          "submitted_at": "2026-10-04T16:00:22.002Z",
+          "completed_at": "2026-10-04T16:02:51.238Z",
+          "progress": 100,
+          "credits_consumed": 30,
+          "outputs": [
+            "model_url",
+            "model_urls.glb",
+            "model_urls.fbx",
+            "model_urls.usdz",
+            "model_urls.obj",
+            "model_urls.mtl",
+            "model_urls.stl",
+            "thumbnail_url",
+            "texture_urls[0].base_color",
+            "texture_urls[0].metallic",
+            "texture_urls[0].roughness",
+            "texture_urls[0].normal"
+          ],
+          "files": {
+            "model.glb": {
+              "path": "build/meshy/heroes/H006/model.glb",
+              "bytes": 10590684,
+              "sha256": "e1d45c1859d8f650462b95bd423e882c0994ed46913a4e13fddb3d4484b40ea8",
+              "info": {
+                "tris": 10365,
+                "joints": 0,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "preview.png": {
+              "path": "build/meshy/heroes/H006/preview.png",
+              "bytes": 90775,
+              "sha256": "54c73784c11899383b25c00f7ba2f267db4a4dfe6d231aac2e29fec1d4ae0e54"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:02:54.220Z",
+          "expires_at": "2026-10-07T16:02:51.238Z"
+        },
+        "rig": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107a7-75e3-72f8-95db-3d466f1bb430",
+          "input": "01a107a5-183b-7482-a6ba-41cdbf6c5b38",
+          "input_sha256": null,
+          "request": {
+            "input_task_id": "01a107a5-183b-7482-a6ba-41cdbf6c5b38",
+            "height_meters": 1.7
+          },
+          "estimate": 5,
+          "balance_before": 725,
+          "submitted_at": "2026-10-04T16:02:57.536Z",
+          "completed_at": "2026-10-04T16:03:12.385Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "outputs": [
+            "result.rigged_character_fbx_url",
+            "result.rigged_character_glb_url",
+            "result.basic_animations.walking_glb_url",
+            "result.basic_animations.walking_fbx_url",
+            "result.basic_animations.walking_armature_glb_url",
+            "result.basic_animations.running_glb_url",
+            "result.basic_animations.running_fbx_url",
+            "result.basic_animations.running_armature_glb_url"
+          ],
+          "files": {
+            "rigged.glb": {
+              "path": "build/meshy/heroes/H006/rigged.glb",
+              "bytes": 11187620,
+              "sha256": "8082dcd753b80c8edb99e6dfe6370b59ae3e32093078cb7041b73fa9100411a1",
+              "info": {
+                "tris": 10365,
+                "joints": 24,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "rigged.fbx": {
+              "path": "build/meshy/heroes/H006/rigged.fbx",
+              "bytes": 3852652,
+              "sha256": "e778878229c21a8126e163e0be5f4133d466156f50b0e8af19ba5e715a11291e"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:03:17.402Z",
+          "expires_at": "2026-10-07T16:03:12.385Z"
+        }
+      },
+      "delivered": {
+        "glb": {
+          "path": "build/tripo/heroes/H006/rigged.glb",
+          "sha256": "8082dcd753b80c8edb99e6dfe6370b59ae3e32093078cb7041b73fa9100411a1",
+          "from": "build/meshy/heroes/H006/rigged.glb",
+          "at": "2026-10-04T16:03:17.428Z"
+        }
+      }
+    },
+    "heroes/H008": {
+      "stages": {
+        "model": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107a7-ba1f-74c0-a861-5c8fc311de1a",
+          "input": null,
+          "input_sha256": "1c73066570f10071d26c2928fe169200debc0b874b5771f9d2d4e4e42d9e1ce8",
+          "request": {
+            "image_url": "data:image/jpeg;base64,<build/tripo/heroes/H008/concept.png 250296 bytes sha256 1c73066570f10071…>",
+            "ai_model": "latest",
+            "should_texture": true,
+            "enable_pbr": true,
+            "texture_resolution": "2k",
+            "should_remesh": true,
+            "topology": "triangle",
+            "target_polycount": 10000,
+            "pose_mode": "t-pose"
+          },
+          "estimate": 30,
+          "balance_before": 720,
+          "submitted_at": "2026-10-04T16:03:14.681Z",
+          "completed_at": "2026-10-04T16:06:18.844Z",
+          "progress": 100,
+          "credits_consumed": 30,
+          "outputs": [
+            "model_url",
+            "model_urls.glb",
+            "model_urls.fbx",
+            "model_urls.usdz",
+            "model_urls.obj",
+            "model_urls.mtl",
+            "model_urls.stl",
+            "thumbnail_url",
+            "texture_urls[0].base_color",
+            "texture_urls[0].metallic",
+            "texture_urls[0].roughness",
+            "texture_urls[0].normal"
+          ],
+          "files": {
+            "model.glb": {
+              "path": "build/meshy/heroes/H008/model.glb",
+              "bytes": 11898796,
+              "sha256": "0c48837769d2e4da4a56283a4698c262c79c4d7997af4874591be5a45be6729d",
+              "info": {
+                "tris": 10289,
+                "joints": 0,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "preview.png": {
+              "path": "build/meshy/heroes/H008/preview.png",
+              "bytes": 83586,
+              "sha256": "377f22867d655bc55443307c1e7b1dc583fd7c9649fd2c0b70104fb2e0980b88"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:06:21.200Z",
+          "expires_at": "2026-10-07T16:06:18.844Z"
+        },
+        "rig": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107aa-9219-7207-847f-648ad17b0bdd",
+          "input": "01a107a7-ba1f-74c0-a861-5c8fc311de1a",
+          "input_sha256": null,
+          "request": {
+            "input_task_id": "01a107a7-ba1f-74c0-a861-5c8fc311de1a",
+            "height_meters": 1.7
+          },
+          "estimate": 5,
+          "balance_before": 565,
+          "submitted_at": "2026-10-04T16:06:21.363Z",
+          "completed_at": "2026-10-04T16:06:36.916Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "outputs": [
+            "result.rigged_character_fbx_url",
+            "result.rigged_character_glb_url",
+            "result.basic_animations.walking_glb_url",
+            "result.basic_animations.walking_fbx_url",
+            "result.basic_animations.walking_armature_glb_url",
+            "result.basic_animations.running_glb_url",
+            "result.basic_animations.running_fbx_url",
+            "result.basic_animations.running_armature_glb_url"
+          ],
+          "files": {
+            "rigged.glb": {
+              "path": "build/meshy/heroes/H008/rigged.glb",
+              "bytes": 12555080,
+              "sha256": "ce543e6a892cdfc5d508a90c10dfa495429d52ae933098234f038ed4ae3dbbc6",
+              "info": {
+                "tris": 10289,
+                "joints": 24,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "rigged.fbx": {
+              "path": "build/meshy/heroes/H008/rigged.fbx",
+              "bytes": 4504476,
+              "sha256": "0f0c3f226f6efeb1c16302a443aa40d7c928233b8aa0554e8d7a898bb1b0a15c"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:06:42.190Z",
+          "expires_at": "2026-10-07T16:06:36.916Z"
+        }
+      },
+      "delivered": {
+        "glb": {
+          "path": "build/tripo/heroes/H008/rigged.glb",
+          "sha256": "ce543e6a892cdfc5d508a90c10dfa495429d52ae933098234f038ed4ae3dbbc6",
+          "from": "build/meshy/heroes/H008/rigged.glb",
+          "at": "2026-10-04T16:06:42.268Z"
+        }
+      }
+    },
+    "heroes/H010": {
+      "stages": {
+        "model": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107a7-c47c-712b-b4e3-e7aaa8fe9294",
+          "input": null,
+          "input_sha256": "a763232bfa9f82e9d511bbce5b91a5bfd98676840dc907de087d72955659a0e5",
+          "request": {
+            "image_url": "data:image/jpeg;base64,<build/tripo/heroes/H010/concept.png 287677 bytes sha256 a763232bfa9f82e9…>",
+            "ai_model": "latest",
+            "should_texture": true,
+            "enable_pbr": true,
+            "texture_resolution": "2k",
+            "should_remesh": true,
+            "topology": "triangle",
+            "target_polycount": 10000,
+            "pose_mode": "t-pose"
+          },
+          "estimate": 30,
+          "balance_before": 690,
+          "submitted_at": "2026-10-04T16:03:17.590Z",
+          "completed_at": "2026-10-04T16:05:53.674Z",
+          "progress": 100,
+          "credits_consumed": 30,
+          "outputs": [
+            "model_url",
+            "model_urls.glb",
+            "model_urls.fbx",
+            "model_urls.usdz",
+            "model_urls.obj",
+            "model_urls.mtl",
+            "model_urls.stl",
+            "thumbnail_url",
+            "texture_urls[0].base_color",
+            "texture_urls[0].metallic",
+            "texture_urls[0].roughness",
+            "texture_urls[0].normal"
+          ],
+          "files": {
+            "model.glb": {
+              "path": "build/meshy/heroes/H010/model.glb",
+              "bytes": 11177640,
+              "sha256": "b9bfea010734a58d4293e676af9f56d70ee33de6145e1feb436d81b300a28d4a",
+              "info": {
+                "tris": 10298,
+                "joints": 0,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "preview.png": {
+              "path": "build/meshy/heroes/H010/preview.png",
+              "bytes": 95883,
+              "sha256": "47e65d81d70b5d68cdbf7e2c1537e2c3eefb24c6ae28f6da1b648deb8528bd23"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:05:56.675Z",
+          "expires_at": "2026-10-07T16:05:53.674Z"
+        },
+        "rig": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107aa-344c-7185-9083-eba325d964b7",
+          "input": "01a107a7-c47c-712b-b4e3-e7aaa8fe9294",
+          "input_sha256": null,
+          "request": {
+            "input_task_id": "01a107a7-c47c-712b-b4e3-e7aaa8fe9294",
+            "height_meters": 1.7
+          },
+          "estimate": 5,
+          "balance_before": 600,
+          "submitted_at": "2026-10-04T16:05:57.334Z",
+          "completed_at": "2026-10-04T16:06:12.706Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "outputs": [
+            "result.rigged_character_fbx_url",
+            "result.rigged_character_glb_url",
+            "result.basic_animations.walking_glb_url",
+            "result.basic_animations.walking_fbx_url",
+            "result.basic_animations.walking_armature_glb_url",
+            "result.basic_animations.running_glb_url",
+            "result.basic_animations.running_fbx_url",
+            "result.basic_animations.running_armature_glb_url"
+          ],
+          "files": {
+            "rigged.glb": {
+              "path": "build/meshy/heroes/H010/rigged.glb",
+              "bytes": 11806304,
+              "sha256": "a89e80a81d0751bb6df95018a2cccf8d9c124d32c5275cb40afee17e300a855d",
+              "info": {
+                "tris": 10298,
+                "joints": 24,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "rigged.fbx": {
+              "path": "build/meshy/heroes/H010/rigged.fbx",
+              "bytes": 4400844,
+              "sha256": "3d0de1abb36c53e32b2a5aa1bd948dbadf989d61155c83debf20ae732cb5a668"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:06:18.719Z",
+          "expires_at": "2026-10-07T16:06:12.706Z"
+        }
+      },
+      "delivered": {
+        "glb": {
+          "path": "build/tripo/heroes/H010/rigged.glb",
+          "sha256": "a89e80a81d0751bb6df95018a2cccf8d9c124d32c5275cb40afee17e300a855d",
+          "from": "build/meshy/heroes/H010/rigged.glb",
+          "at": "2026-10-04T16:06:18.840Z"
+        }
+      }
+    },
+    "heroes/H012": {
+      "stages": {
+        "model": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107aa-8a84-75fc-9cac-2332e1ae489c",
+          "input": null,
+          "input_sha256": "d9c2847030259996eeaf79563275c49707456b55ff4f2266e09721eda374e1b3",
+          "request": {
+            "image_url": "data:image/jpeg;base64,<build/tripo/heroes/H012/concept.png 255311 bytes sha256 d9c2847030259996…>",
+            "ai_model": "latest",
+            "should_texture": true,
+            "enable_pbr": true,
+            "texture_resolution": "2k",
+            "should_remesh": true,
+            "topology": "triangle",
+            "target_polycount": 10000,
+            "pose_mode": "t-pose"
+          },
+          "estimate": 30,
+          "balance_before": 595,
+          "submitted_at": "2026-10-04T16:06:19.003Z",
+          "completed_at": "2026-10-04T16:08:42.846Z",
+          "progress": 100,
+          "credits_consumed": 30,
+          "outputs": [
+            "model_url",
+            "model_urls.glb",
+            "model_urls.fbx",
+            "model_urls.usdz",
+            "model_urls.obj",
+            "model_urls.mtl",
+            "model_urls.stl",
+            "thumbnail_url",
+            "texture_urls[0].base_color",
+            "texture_urls[0].metallic",
+            "texture_urls[0].roughness",
+            "texture_urls[0].normal"
+          ],
+          "files": {
+            "model.glb": {
+              "path": "build/meshy/heroes/H012/model.glb",
+              "bytes": 12287500,
+              "sha256": "2e270d4774a3fddcd34ab5c673f36589a32fe4eec19c5725b9ca785cd4d6feb9",
+              "info": {
+                "tris": 10339,
+                "joints": 0,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "preview.png": {
+              "path": "build/meshy/heroes/H012/preview.png",
+              "bytes": 92518,
+              "sha256": "aad516b2bf998fa9512af6fa633798ce89dcfe797e98d97b8f3c0ca926bdeee4"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:08:45.861Z",
+          "expires_at": "2026-10-07T16:08:42.846Z"
+        },
+        "rig": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107ac-c857-735a-9221-589d6bdefadc",
+          "input": "01a107aa-8a84-75fc-9cac-2332e1ae489c",
+          "input_sha256": null,
+          "request": {
+            "input_task_id": "01a107aa-8a84-75fc-9cac-2332e1ae489c",
+            "height_meters": 1.7
+          },
+          "estimate": 5,
+          "balance_before": 500,
+          "submitted_at": "2026-10-04T16:08:46.032Z",
+          "completed_at": "2026-10-04T16:09:01.909Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "outputs": [
+            "result.rigged_character_fbx_url",
+            "result.rigged_character_glb_url",
+            "result.basic_animations.walking_glb_url",
+            "result.basic_animations.walking_fbx_url",
+            "result.basic_animations.walking_armature_glb_url",
+            "result.basic_animations.running_glb_url",
+            "result.basic_animations.running_fbx_url",
+            "result.basic_animations.running_armature_glb_url"
+          ],
+          "files": {
+            "rigged.glb": {
+              "path": "build/meshy/heroes/H012/rigged.glb",
+              "bytes": 12954332,
+              "sha256": "eb1b8d4aa7706458cc08011d1a69f7b4f0ba4ab72f1b0d927961ebdb270beedd",
+              "info": {
+                "tris": 10339,
+                "joints": 24,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "rigged.fbx": {
+              "path": "build/meshy/heroes/H012/rigged.fbx",
+              "bytes": 4609484,
+              "sha256": "2ec16d95cdb5ce9dbde13cb6d15a95788157db48aa768c8f79a04cd21f7f72d9"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:09:10.289Z",
+          "expires_at": "2026-10-07T16:09:01.909Z"
+        }
+      },
+      "delivered": {
+        "glb": {
+          "path": "build/tripo/heroes/H012/rigged.glb",
+          "sha256": "eb1b8d4aa7706458cc08011d1a69f7b4f0ba4ab72f1b0d927961ebdb270beedd",
+          "from": "build/meshy/heroes/H012/rigged.glb",
+          "at": "2026-10-04T16:09:10.359Z"
+        }
+      }
+    },
+    "heroes/H014": {
+      "stages": {
+        "model": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107aa-e66a-7241-8e43-3c10752d8d6b",
+          "input": null,
+          "input_sha256": "b8d05152912b2aeeea9078f92c132b047167704e031d309ae4b0216ceb01fc05",
+          "request": {
+            "image_url": "data:image/jpeg;base64,<build/tripo/heroes/H014/concept.png 260933 bytes sha256 b8d05152912b2aee…>",
+            "ai_model": "latest",
+            "should_texture": true,
+            "enable_pbr": true,
+            "texture_resolution": "2k",
+            "should_remesh": true,
+            "topology": "triangle",
+            "target_polycount": 10000,
+            "pose_mode": "t-pose"
+          },
+          "estimate": 30,
+          "balance_before": 560,
+          "submitted_at": "2026-10-04T16:06:42.475Z",
+          "completed_at": "2026-10-04T16:08:55.481Z",
+          "progress": 100,
+          "credits_consumed": 30,
+          "outputs": [
+            "model_url",
+            "model_urls.glb",
+            "model_urls.fbx",
+            "model_urls.usdz",
+            "model_urls.obj",
+            "model_urls.mtl",
+            "model_urls.stl",
+            "thumbnail_url",
+            "texture_urls[0].base_color",
+            "texture_urls[0].metallic",
+            "texture_urls[0].roughness",
+            "texture_urls[0].normal"
+          ],
+          "files": {
+            "model.glb": {
+              "path": "build/meshy/heroes/H014/model.glb",
+              "bytes": 11402140,
+              "sha256": "612684a26b28d50ec1bce88b036ba643f921db656a3db496423ccb455a1226e7",
+              "info": {
+                "tris": 10219,
+                "joints": 0,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "preview.png": {
+              "path": "build/meshy/heroes/H014/preview.png",
+              "bytes": 85875,
+              "sha256": "a3fbfee9f82d3f6b4f6d45dd8f5acd8d64e91613397997dff58f5e3c9b3ee26a"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:08:58.910Z",
+          "expires_at": "2026-10-07T16:08:55.481Z"
+        },
+        "rig": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107ad-0388-75d4-bb1a-350ac19f7f07",
+          "input": "01a107aa-e66a-7241-8e43-3c10752d8d6b",
+          "input_sha256": null,
+          "request": {
+            "input_task_id": "01a107aa-e66a-7241-8e43-3c10752d8d6b",
+            "height_meters": 1.7
+          },
+          "estimate": 5,
+          "balance_before": 495,
+          "submitted_at": "2026-10-04T16:08:59.062Z",
+          "completed_at": "2026-10-04T16:09:16.457Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "outputs": [
+            "result.rigged_character_fbx_url",
+            "result.rigged_character_glb_url",
+            "result.basic_animations.walking_glb_url",
+            "result.basic_animations.walking_fbx_url",
+            "result.basic_animations.walking_armature_glb_url",
+            "result.basic_animations.running_glb_url",
+            "result.basic_animations.running_fbx_url",
+            "result.basic_animations.running_armature_glb_url"
+          ],
+          "files": {
+            "rigged.glb": {
+              "path": "build/meshy/heroes/H014/rigged.glb",
+              "bytes": 11975448,
+              "sha256": "da9e159ba1e299f497bf36f48a833fa09cf6f92959359803fcc92ce0cb97fa14",
+              "info": {
+                "tris": 10219,
+                "joints": 24,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "rigged.fbx": {
+              "path": "build/meshy/heroes/H014/rigged.fbx",
+              "bytes": 4492188,
+              "sha256": "f99c25f1228e60d9cb670bc193538b8fa8244fa262ddf4cc43cc885630ba157c"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:09:21.112Z",
+          "expires_at": "2026-10-07T16:09:16.457Z"
+        }
+      },
+      "delivered": {
+        "glb": {
+          "path": "build/tripo/heroes/H014/rigged.glb",
+          "sha256": "da9e159ba1e299f497bf36f48a833fa09cf6f92959359803fcc92ce0cb97fa14",
+          "from": "build/meshy/heroes/H014/rigged.glb",
+          "at": "2026-10-04T16:09:21.154Z"
+        }
+      }
+    },
+    "heroes/H016": {
+      "stages": {
+        "model": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107ad-2a8c-7266-8664-de139d30e754",
+          "input": null,
+          "input_sha256": "b2f5d349d0677e6f6721ed2eaee4cd389e4f451f508eb89cad54cf19e5e99c1f",
+          "request": {
+            "image_url": "data:image/jpeg;base64,<build/tripo/heroes/H016/concept.png 241591 bytes sha256 b2f5d349d0677e6f…>",
+            "ai_model": "latest",
+            "should_texture": true,
+            "enable_pbr": true,
+            "texture_resolution": "2k",
+            "should_remesh": true,
+            "topology": "triangle",
+            "target_polycount": 10000,
+            "pose_mode": "t-pose"
+          },
+          "estimate": 30,
+          "balance_before": 490,
+          "submitted_at": "2026-10-04T16:09:11.057Z",
+          "completed_at": "2026-10-04T16:11:27.959Z",
+          "progress": 100,
+          "credits_consumed": 30,
+          "outputs": [
+            "model_url",
+            "model_urls.glb",
+            "model_urls.fbx",
+            "model_urls.usdz",
+            "model_urls.obj",
+            "model_urls.mtl",
+            "model_urls.stl",
+            "thumbnail_url",
+            "texture_urls[0].base_color",
+            "texture_urls[0].metallic",
+            "texture_urls[0].roughness",
+            "texture_urls[0].normal"
+          ],
+          "files": {
+            "model.glb": {
+              "path": "build/meshy/heroes/H016/model.glb",
+              "bytes": 9490000,
+              "sha256": "6cde03ef2177a5aae38eb8f9415ce7754bc4f0eaa2ba0088322534d70ece30a7",
+              "info": {
+                "tris": 10232,
+                "joints": 0,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "preview.png": {
+              "path": "build/meshy/heroes/H016/preview.png",
+              "bytes": 91826,
+              "sha256": "5e2ceb36353461b552ca81690f7f202ad17693126439ddaf0a8c81d0af2f13b1"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:11:31.544Z",
+          "expires_at": "2026-10-07T16:11:27.959Z"
+        },
+        "rig": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107af-4f70-7004-84be-4c10030720ff",
+          "input": "01a107ad-2a8c-7266-8664-de139d30e754",
+          "input_sha256": null,
+          "request": {
+            "input_task_id": "01a107ad-2a8c-7266-8664-de139d30e754",
+            "height_meters": 1.7
+          },
+          "estimate": 5,
+          "balance_before": 370,
+          "submitted_at": "2026-10-04T16:11:31.678Z",
+          "completed_at": "2026-10-04T16:11:45.811Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "outputs": [
+            "result.rigged_character_fbx_url",
+            "result.rigged_character_glb_url",
+            "result.basic_animations.walking_glb_url",
+            "result.basic_animations.walking_fbx_url",
+            "result.basic_animations.walking_armature_glb_url",
+            "result.basic_animations.running_glb_url",
+            "result.basic_animations.running_fbx_url",
+            "result.basic_animations.running_armature_glb_url"
+          ],
+          "files": {
+            "rigged.glb": {
+              "path": "build/meshy/heroes/H016/rigged.glb",
+              "bytes": 10086736,
+              "sha256": "23045849854d6c04d288e3f72da332942ae6473a3db21415eb035db53384de90",
+              "info": {
+                "tris": 10232,
+                "joints": 24,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "rigged.fbx": {
+              "path": "build/meshy/heroes/H016/rigged.fbx",
+              "bytes": 3651820,
+              "sha256": "8450c55216809777828ff59a42b57f3d7bf3ccf78daee6b51e5374d7767e981e"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:11:47.524Z",
+          "expires_at": "2026-10-07T16:11:45.811Z"
+        }
+      },
+      "delivered": {
+        "glb": {
+          "path": "build/tripo/heroes/H016/rigged.glb",
+          "sha256": "23045849854d6c04d288e3f72da332942ae6473a3db21415eb035db53384de90",
+          "from": "build/meshy/heroes/H016/rigged.glb",
+          "at": "2026-10-04T16:11:47.971Z"
+        }
+      }
+    },
+    "heroes/H018": {
+      "stages": {
+        "model": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107ad-5405-73ed-8156-dfb044149778",
+          "input": null,
+          "input_sha256": "1f01cd9fbcf2e3b078dcc73808010fa58b3b9a00813a740086fd5b26b54a24dd",
+          "request": {
+            "image_url": "data:image/jpeg;base64,<build/tripo/heroes/H018/concept.png 171544 bytes sha256 1f01cd9fbcf2e3b0…>",
+            "ai_model": "latest",
+            "should_texture": true,
+            "enable_pbr": true,
+            "texture_resolution": "2k",
+            "should_remesh": true,
+            "topology": "triangle",
+            "target_polycount": 10000,
+            "pose_mode": "t-pose"
+          },
+          "estimate": 30,
+          "balance_before": 460,
+          "submitted_at": "2026-10-04T16:09:21.404Z",
+          "completed_at": "2026-10-04T16:12:30.205Z",
+          "progress": 100,
+          "credits_consumed": 30,
+          "outputs": [
+            "model_url",
+            "model_urls.glb",
+            "model_urls.fbx",
+            "model_urls.usdz",
+            "model_urls.obj",
+            "model_urls.mtl",
+            "model_urls.stl",
+            "thumbnail_url",
+            "texture_urls[0].base_color",
+            "texture_urls[0].metallic",
+            "texture_urls[0].roughness",
+            "texture_urls[0].normal"
+          ],
+          "files": {
+            "model.glb": {
+              "path": "build/meshy/heroes/H018/model.glb",
+              "bytes": 10012088,
+              "sha256": "5a7457677dc868473b57c21191374d44eff3665decfd09d65c51f332fce64338",
+              "info": {
+                "tris": 10031,
+                "joints": 0,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "preview.png": {
+              "path": "build/meshy/heroes/H018/preview.png",
+              "bytes": 83256,
+              "sha256": "fe9b6afb70b4ffd6b55a04302e4b1d90c6da61998a9d556d954aeb5587fdcf10"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:12:37.146Z",
+          "expires_at": "2026-10-07T16:12:30.205Z"
+        },
+        "rig": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107b0-51ff-75c1-a57f-17d51284cefa",
+          "input": "01a107ad-5405-73ed-8156-dfb044149778",
+          "input_sha256": null,
+          "request": {
+            "input_task_id": "01a107ad-5405-73ed-8156-dfb044149778",
+            "height_meters": 1.7
+          },
+          "estimate": 5,
+          "balance_before": 335,
+          "submitted_at": "2026-10-04T16:12:38.131Z",
+          "completed_at": "2026-10-04T16:12:55.563Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "outputs": [
+            "result.rigged_character_fbx_url",
+            "result.rigged_character_glb_url",
+            "result.basic_animations.walking_glb_url",
+            "result.basic_animations.walking_fbx_url",
+            "result.basic_animations.walking_armature_glb_url",
+            "result.basic_animations.running_glb_url",
+            "result.basic_animations.running_fbx_url",
+            "result.basic_animations.running_armature_glb_url"
+          ],
+          "files": {
+            "rigged.glb": {
+              "path": "build/meshy/heroes/H018/rigged.glb",
+              "bytes": 10710168,
+              "sha256": "b478ff9e175578b6723b622ca889fd900c77743aea48352fd4c7715557308d75",
+              "info": {
+                "tris": 10031,
+                "joints": 24,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "rigged.fbx": {
+              "path": "build/meshy/heroes/H018/rigged.fbx",
+              "bytes": 3437532,
+              "sha256": "8b310fc158f4f30375daebcfdc0d40e1891cce77b11d5d9e664830e0d9860b92"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:13:04.096Z",
+          "expires_at": "2026-10-07T16:12:55.563Z"
+        }
+      },
+      "delivered": {
+        "glb": {
+          "path": "build/tripo/heroes/H018/rigged.glb",
+          "sha256": "b478ff9e175578b6723b622ca889fd900c77743aea48352fd4c7715557308d75",
+          "from": "build/meshy/heroes/H018/rigged.glb",
+          "at": "2026-10-04T16:13:04.510Z"
+        }
+      }
+    },
+    "heroes/H020": {
+      "stages": {
+        "model": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107af-8f29-75fc-9e03-4fd1f498765c",
+          "input": null,
+          "input_sha256": "738704a33a9ee4087574d7f011e6728f2d82165b4cc6063fd2daa8fc14bc467c",
+          "request": {
+            "image_url": "data:image/jpeg;base64,<build/tripo/heroes/H020/concept.png 265575 bytes sha256 738704a33a9ee408…>",
+            "ai_model": "latest",
+            "should_texture": true,
+            "enable_pbr": true,
+            "texture_resolution": "2k",
+            "should_remesh": true,
+            "topology": "triangle",
+            "target_polycount": 10000,
+            "pose_mode": "t-pose"
+          },
+          "estimate": 30,
+          "balance_before": 365,
+          "submitted_at": "2026-10-04T16:11:48.254Z",
+          "completed_at": "2026-10-04T16:14:06.628Z",
+          "progress": 100,
+          "credits_consumed": 30,
+          "outputs": [
+            "model_url",
+            "model_urls.glb",
+            "model_urls.fbx",
+            "model_urls.usdz",
+            "model_urls.obj",
+            "model_urls.mtl",
+            "model_urls.stl",
+            "thumbnail_url",
+            "texture_urls[0].base_color",
+            "texture_urls[0].metallic",
+            "texture_urls[0].roughness",
+            "texture_urls[0].normal"
+          ],
+          "files": {
+            "model.glb": {
+              "path": "build/meshy/heroes/H020/model.glb",
+              "bytes": 12029964,
+              "sha256": "e949e8e5e2f12a11801bdd60f9de7d3484c01fb6693174a3ebe80ba526be83b3",
+              "info": {
+                "tris": 10293,
+                "joints": 0,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "preview.png": {
+              "path": "build/meshy/heroes/H020/preview.png",
+              "bytes": 91526,
+              "sha256": "713df5d829efb8ea2997c70a5f7a7c29b8146590f3881abc4f8d9962cfaac6e2"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:14:15.697Z",
+          "expires_at": "2026-10-07T16:14:06.628Z"
+        },
+        "rig": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107b1-d513-73b8-bc9c-4df31ba437fc",
+          "input": "01a107af-8f29-75fc-9e03-4fd1f498765c",
+          "input_sha256": null,
+          "request": {
+            "input_task_id": "01a107af-8f29-75fc-9e03-4fd1f498765c",
+            "height_meters": 1.7
+          },
+          "estimate": 5,
+          "balance_before": 300,
+          "submitted_at": "2026-10-04T16:14:16.749Z",
+          "completed_at": "2026-10-04T16:14:32.324Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "outputs": [
+            "result.rigged_character_fbx_url",
+            "result.rigged_character_glb_url",
+            "result.basic_animations.walking_glb_url",
+            "result.basic_animations.walking_fbx_url",
+            "result.basic_animations.walking_armature_glb_url",
+            "result.basic_animations.running_glb_url",
+            "result.basic_animations.running_fbx_url",
+            "result.basic_animations.running_armature_glb_url"
+          ],
+          "files": {
+            "rigged.glb": {
+              "path": "build/meshy/heroes/H020/rigged.glb",
+              "bytes": 12680588,
+              "sha256": "11b4c87ec461da3b56e0670a571d895e07656cb2eab434f21736f0f47dbba9f2",
+              "info": {
+                "tris": 10293,
+                "joints": 24,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "rigged.fbx": {
+              "path": "build/meshy/heroes/H020/rigged.fbx",
+              "bytes": 4699164,
+              "sha256": "a0d3465912c1e5d424aa4ef81eb414c06e71b9a6220253500bf8daf3358c07f0"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:14:39.757Z",
+          "expires_at": "2026-10-07T16:14:32.324Z"
+        }
+      },
+      "delivered": {
+        "glb": {
+          "path": "build/tripo/heroes/H020/rigged.glb",
+          "sha256": "11b4c87ec461da3b56e0670a571d895e07656cb2eab434f21736f0f47dbba9f2",
+          "from": "build/meshy/heroes/H020/rigged.glb",
+          "at": "2026-10-04T16:14:40.075Z"
+        }
+      }
+    },
+    "heroes/H022": {
+      "stages": {
+        "model": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107b0-bc55-7640-82fb-fb8a3dbd0d31",
+          "input": null,
+          "input_sha256": "7e4b52f6f74920bb1bf4fedd8457fe56b965486ebc254507b1bc97983299c09a",
+          "request": {
+            "image_url": "data:image/jpeg;base64,<build/tripo/heroes/H022/concept.png 265458 bytes sha256 7e4b52f6f74920bb…>",
+            "ai_model": "latest",
+            "should_texture": true,
+            "enable_pbr": true,
+            "texture_resolution": "2k",
+            "should_remesh": true,
+            "topology": "triangle",
+            "target_polycount": 10000,
+            "pose_mode": "t-pose"
+          },
+          "estimate": 30,
+          "balance_before": 330,
+          "submitted_at": "2026-10-04T16:13:04.806Z",
+          "completed_at": "2026-10-04T16:15:47.411Z",
+          "progress": 100,
+          "credits_consumed": 30,
+          "outputs": [
+            "model_url",
+            "model_urls.glb",
+            "model_urls.fbx",
+            "model_urls.usdz",
+            "model_urls.obj",
+            "model_urls.mtl",
+            "model_urls.stl",
+            "thumbnail_url",
+            "texture_urls[0].base_color",
+            "texture_urls[0].metallic",
+            "texture_urls[0].roughness",
+            "texture_urls[0].normal"
+          ],
+          "files": {
+            "model.glb": {
+              "path": "build/meshy/heroes/H022/model.glb",
+              "bytes": 12348092,
+              "sha256": "f0cce3d9a842115de813524c4556d026cff2c043c0a2ede26be0741d846810f1",
+              "info": {
+                "tris": 10364,
+                "joints": 0,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "preview.png": {
+              "path": "build/meshy/heroes/H022/preview.png",
+              "bytes": 94566,
+              "sha256": "8db44f87950c86cd097c213315b1e36889af42a6fab74db074329ce3f1617078"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:15:53.445Z",
+          "expires_at": "2026-10-07T16:15:47.411Z"
+        },
+        "rig": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107b3-4ede-76d4-8c53-7a75cb07116b",
+          "input": "01a107b0-bc55-7640-82fb-fb8a3dbd0d31",
+          "input_sha256": null,
+          "request": {
+            "input_task_id": "01a107b0-bc55-7640-82fb-fb8a3dbd0d31",
+            "height_meters": 1.7
+          },
+          "estimate": 5,
+          "balance_before": 265,
+          "submitted_at": "2026-10-04T16:15:53.613Z",
+          "completed_at": "2026-10-04T16:16:08.816Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "outputs": [
+            "result.rigged_character_fbx_url",
+            "result.rigged_character_glb_url",
+            "result.basic_animations.walking_glb_url",
+            "result.basic_animations.walking_fbx_url",
+            "result.basic_animations.walking_armature_glb_url",
+            "result.basic_animations.running_glb_url",
+            "result.basic_animations.running_fbx_url",
+            "result.basic_animations.running_armature_glb_url"
+          ],
+          "files": {
+            "rigged.glb": {
+              "path": "build/meshy/heroes/H022/rigged.glb",
+              "bytes": 13034260,
+              "sha256": "4f54f5b0902d86a3275e220a238c16826ef3a0c19986c5ff883f35c712068767",
+              "info": {
+                "tris": 10364,
+                "joints": 24,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "rigged.fbx": {
+              "path": "build/meshy/heroes/H022/rigged.fbx",
+              "bytes": 4662156,
+              "sha256": "c3d55a505660ad2ebd36236ed4eb3ff29eae02fc53782e2d510abb368e60fa0d"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:16:28.762Z",
+          "expires_at": "2026-10-07T16:16:08.816Z"
+        }
+      },
+      "delivered": {
+        "glb": {
+          "path": "build/tripo/heroes/H022/rigged.glb",
+          "sha256": "4f54f5b0902d86a3275e220a238c16826ef3a0c19986c5ff883f35c712068767",
+          "from": "build/meshy/heroes/H022/rigged.glb",
+          "at": "2026-10-04T16:16:29.270Z"
+        }
+      }
+    },
+    "heroes/H024": {
+      "stages": {
+        "model": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107b2-32a1-734c-8ca2-12b3abd5a317",
+          "input": null,
+          "input_sha256": "3c22da89274dac3a70c0973963f0bc31eef12ee2ec194b1469eaf231c65408b6",
+          "request": {
+            "image_url": "data:image/jpeg;base64,<build/tripo/heroes/H024/concept.png 222136 bytes sha256 3c22da89274dac3a…>",
+            "ai_model": "latest",
+            "should_texture": true,
+            "enable_pbr": true,
+            "texture_resolution": "2k",
+            "should_remesh": true,
+            "topology": "triangle",
+            "target_polycount": 10000,
+            "pose_mode": "t-pose"
+          },
+          "estimate": 30,
+          "balance_before": 295,
+          "submitted_at": "2026-10-04T16:14:40.478Z",
+          "completed_at": "2026-10-04T16:16:59.669Z",
+          "progress": 100,
+          "credits_consumed": 30,
+          "outputs": [
+            "model_url",
+            "model_urls.glb",
+            "model_urls.fbx",
+            "model_urls.usdz",
+            "model_urls.obj",
+            "model_urls.mtl",
+            "model_urls.stl",
+            "thumbnail_url",
+            "texture_urls[0].base_color",
+            "texture_urls[0].metallic",
+            "texture_urls[0].roughness",
+            "texture_urls[0].normal"
+          ],
+          "files": {
+            "model.glb": {
+              "path": "build/meshy/heroes/H024/model.glb",
+              "bytes": 10814960,
+              "sha256": "d5b9467f6c29b365e083aeb0883a6d8c8503cf2f14fad5f5034c87512e9e67c4",
+              "info": {
+                "tris": 10321,
+                "joints": 0,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "preview.png": {
+              "path": "build/meshy/heroes/H024/preview.png",
+              "bytes": 88086,
+              "sha256": "31e2ed43dc44f821d190f8535010e1543e21e7b0e046f21e3b263986d9f51b7a"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:17:03.380Z",
+          "expires_at": "2026-10-07T16:16:59.669Z"
+        },
+        "rig": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107b4-5fdf-719d-8e11-5e2e722827fa",
+          "input": "01a107b2-32a1-734c-8ca2-12b3abd5a317",
+          "input_sha256": null,
+          "request": {
+            "input_task_id": "01a107b2-32a1-734c-8ca2-12b3abd5a317",
+            "height_meters": 1.7
+          },
+          "estimate": 5,
+          "balance_before": 260,
+          "submitted_at": "2026-10-04T16:17:03.560Z",
+          "completed_at": "2026-10-04T16:17:18.940Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "outputs": [
+            "result.rigged_character_fbx_url",
+            "result.rigged_character_glb_url",
+            "result.basic_animations.walking_glb_url",
+            "result.basic_animations.walking_fbx_url",
+            "result.basic_animations.walking_armature_glb_url",
+            "result.basic_animations.running_glb_url",
+            "result.basic_animations.running_fbx_url",
+            "result.basic_animations.running_armature_glb_url"
+          ],
+          "files": {
+            "rigged.glb": {
+              "path": "build/meshy/heroes/H024/rigged.glb",
+              "bytes": 11481276,
+              "sha256": "a1a15b497b16e5b62b8d600ddcd54168ab6bae0c5770a941621883e508da543e",
+              "info": {
+                "tris": 10321,
+                "joints": 24,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "rigged.fbx": {
+              "path": "build/meshy/heroes/H024/rigged.fbx",
+              "bytes": 4019356,
+              "sha256": "a529bbffd8d8a85bcc3e05483b628b5e71e859a22c099e6e2834a6de03fff311"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:17:26.456Z",
+          "expires_at": "2026-10-07T16:17:18.940Z"
+        }
+      },
+      "delivered": {
+        "glb": {
+          "path": "build/tripo/heroes/H024/rigged.glb",
+          "sha256": "a1a15b497b16e5b62b8d600ddcd54168ab6bae0c5770a941621883e508da543e",
+          "from": "build/meshy/heroes/H024/rigged.glb",
+          "at": "2026-10-04T16:17:26.657Z"
+        }
+      }
+    }
+  },
+  "note": "tools/meshy.mjs が自動生成。task_id・状態・消費クレジット・ハッシュ・ローカルパスのみ（秘密情報なし）",
+  "updated_at": "2026-10-04T16:17:26.657Z"
+}

@@ -10,4 +10,12 @@ build/
 *.xcarchive
 /tmp/
 .claude/worktrees/
+
+# tools/tripo.mjs のロック・一時ファイル
+VELSTRIA/tools/tripo/state.json.lock
+VELSTRIA/tools/tripo/state.json.*.tmp
+
+# tools/meshy.mjs のロック・一時ファイル
+VELSTRIA/tools/meshy/state.json.lock
+VELSTRIA/tools/meshy/state.json.*.tmp
 __pycache__/

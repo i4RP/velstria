@@ -49,7 +49,7 @@ final class HeroModelSkinTests: XCTestCase {
     func testSkinnedModelsBuild() {
         for c in master.cosmetics where c.type == .heroSkin {
             let model = HeroModelLibrary.makeHero(heroID: c.heroID, skinID: c.cosmeticID, team: .red, master: master,
-                                                  options: .battle)
+                                                  options: HeroModelOptions.battle.with(mesh: .procedural))
             XCTAssertEqual(model.skin.cosmeticID, c.cosmeticID)
             XCTAssertEqual(model.root.findEntity(named: "aura") != nil, c.rarity == .epic, c.cosmeticID)
             XCTAssertLessThanOrEqual(model.entityCount, 35)

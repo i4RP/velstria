@@ -32,10 +32,12 @@ enum HeroAnimState: Equatable {
     case victory
 }
 
-/// 手続き生成ヒーローモデルの操作ハンドル。
+/// ヒーローモデルの操作ハンドル。同梱 Hero_<id>.usdz（Tripo 生成・自動リグのスキンメッシュ）があればそれを、
+/// 無ければ手続き生成モデルを返す（どちらも同じ手続きアニメーションで動く）。
 @MainActor
 protocol HeroModelHandle: AnyObject {
-    /// シーンに追加するルート（足元が原点、正面 -Z、身長 ≒ 1.8 m）。
+    /// シーンに追加するルート（足元が原点、正面 -Z）。身長はブループリントの拡縮（約 0.96〜1.12）を掛ける前で、
+    /// スキンメッシュ ≒ 1.70 m（正規化の規約）、手続き ≒ 1.67 m。
     var root: Entity { get }
     /// 頭上 UI（HP バー等）を置く高さ（m）。
     var overheadHeight: Float { get }

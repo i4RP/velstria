@@ -6,12 +6,15 @@ import VelstriaCore
 @MainActor
 final class HeroModelTests: XCTestCase {
     private let master = MasterData.shared
+    /// 手続きモデルの構造（骨エンティティ名・三角形数など）を前提にするため、同梱アセットの有無に関係なく手続き生成に固定する。
+    private static var battle: HeroModelOptions { HeroModelOptions.battle.with(mesh: .procedural) }
+    private static let showcase = HeroModelOptions.showcase.with(mesh: .procedural)
 
     func testAllHeroesBuildWithinBudget() {
         let start = CFAbsoluteTimeGetCurrent()
         for def in master.heroes {
             let model = HeroModelLibrary.makeHero(heroID: def.heroID, skinID: nil, team: .blue, master: master,
-                                                  options: .battle)
+                                                  options: Self.battle)
             XCTAssertLessThanOrEqual(model.entityCount, 35, def.heroID)
             XCTAssertLessThan(model.triangleCount, 14_000, def.heroID)
             let parts = Self.drawParts(model.root)
@@ -37,7 +40,7 @@ final class HeroModelTests: XCTestCase {
     func testFeetAtOriginAndHeroHeight() {
         for def in master.heroes {
             let model = HeroModelLibrary.makeHero(heroID: def.heroID, skinID: nil, team: .neutral, master: master,
-                                                  options: .showcase)
+                                                  options: Self.showcase)
             model.update(dt: 1.0 / 60.0, moveSpeed: 0)
             let head = model.root.findEntity(named: "head")
             XCTAssertNotNil(head, def.heroID)
@@ -55,7 +58,7 @@ final class HeroModelTests: XCTestCase {
 
     func testFacesMinusZ() {
         // 顔（目）は頭の -Z 側にある: 頭メッシュの重心より前方に目がある
-        let model = HeroModelLibrary.makeHero(heroID: "H002", skinID: nil, team: .neutral, master: master, options: .showcase)
+        let model = HeroModelLibrary.makeHero(heroID: "H002", skinID: nil, team: .neutral, master: master, options: Self.showcase)
         guard let head = model.root.findEntity(named: "head") else { return XCTFail("head") }
         let b = head.visualBounds(recursive: false, relativeTo: nil)
         // 髪（後頭部）の方が後ろへ張り出すので、中心は +Z 側に寄る
@@ -78,7 +81,7 @@ final class HeroModelTests: XCTestCase {
     }
 
     func testDeathFadesAndRespawnRestores() {
-        let model = HeroModelLibrary.makeHero(heroID: "H019", skinID: nil, team: .blue, master: master, options: .battle)
+        let model = HeroModelLibrary.makeHero(heroID: "H019", skinID: nil, team: .blue, master: master, options: Self.battle)
         guard let body = model.root.children.first else { return XCTFail("body") }
         model.setState(.dead)
         for _ in 0..<90 { model.update(dt: 1.0 / 60.0, moveSpeed: 0) }
@@ -90,7 +93,7 @@ final class HeroModelTests: XCTestCase {
     }
 
     func testAnimationStaysFinite() {
-        let model = HeroModelLibrary.makeHero(heroID: "H011", skinID: nil, team: .blue, master: master, options: .battle)
+        let model = HeroModelLibrary.makeHero(heroID: "H011", skinID: nil, team: .blue, master: master, options: Self.battle)
         let states: [HeroAnimState] = [.idle, .run, .attack, .attack, .cast(.skill1), .cast(.skill2), .cast(.skill3),
                                        .cast(.ultimate), .channel, .stunned, .dead, .idle, .victory]
         for (i, s) in states.enumerated() {
@@ -112,8 +115,8 @@ final class HeroModelTests: XCTestCase {
     }
 
     func testMeshesAndMaterialsAreShared() {
-        let a = HeroModelLibrary.makeHero(heroID: "H004", skinID: nil, team: .blue, master: master, options: .battle)
-        let b = HeroModelLibrary.makeHero(heroID: "H004", skinID: nil, team: .red, master: master, options: .battle)
+        let a = HeroModelLibrary.makeHero(heroID: "H004", skinID: nil, team: .blue, master: master, options: Self.battle)
+        let b = HeroModelLibrary.makeHero(heroID: "H004", skinID: nil, team: .red, master: master, options: Self.battle)
         let ma = (a.root.findEntity(named: "torso") as? ModelEntity)?.model?.mesh
         let mb = (b.root.findEntity(named: "torso") as? ModelEntity)?.model?.mesh
         XCTAssertNotNil(ma)
@@ -123,7 +126,7 @@ final class HeroModelTests: XCTestCase {
     func testUpdateCostForTenHeroes() {
         let ids = ["H001", "H004", "H007", "H011", "H013", "H016", "H019", "H021", "H022", "H024"]
         let models = ids.map {
-            HeroModelLibrary.makeHero(heroID: $0, skinID: nil, team: .blue, master: master, options: .battle)
+            HeroModelLibrary.makeHero(heroID: $0, skinID: nil, team: .blue, master: master, options: Self.battle)
         }
         for (i, m) in models.enumerated() { m.setState(i % 3 == 0 ? .attack : .run) }
         let frames = 600

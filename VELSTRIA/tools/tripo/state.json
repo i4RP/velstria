@@ -1,0 +1,1905 @@
+{
+  "version": 1,
+  "assets": {
+    "heroes/H001": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "ab98fc2e-4346-4cfc-8ad2-d009575501d0",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Burly armored knight guardian (man), heavy broad build. Full silver plate armor with golden-yellow enamel panels, huge rounded pauldrons with castle-battlement rims, layered plate tassets over the hips, golden-yellow tabard with an azure-blue gate emblem. Closed silver knight helmet with a T-shaped visor. Knee-length golden-yellow cape with azure trim on the back. Heavy silver boots. Palette: silver, golden yellow, azure blue, pale gold. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T14:48:47.722Z",
+          "completed_at": "2026-10-04T14:49:31.448333Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H001/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T14:49:35.743Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "afd0d642-9f5a-4e9e-8b72-715d228b85b7",
+          "input": "ab98fc2e-4346-4cfc-8ad2-d009575501d0",
+          "request": {
+            "input": "ab98fc2e-4346-4cfc-8ad2-d009575501d0",
+            "model": "P1-20260311",
+            "face_limit": 10000,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-04T14:49:45.766Z",
+          "completed_at": "2026-10-04T14:50:48.780513Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H001/model.glb",
+            "preview": "build/tripo/heroes/H001/preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T14:50:51.865Z"
+        },
+        "rigcheck": {
+          "status": "success",
+          "task_id": "4b908ec9-c306-4de7-b77f-87e8057517cd",
+          "input": "afd0d642-9f5a-4e9e-8b72-715d228b85b7",
+          "request": {
+            "input": "afd0d642-9f5a-4e9e-8b72-715d228b85b7"
+          },
+          "estimate": 0,
+          "submitted_at": "2026-10-04T14:50:51.867Z",
+          "completed_at": "2026-10-04T14:50:52.982175Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": {
+            "riggable": true,
+            "rig_type": "biped"
+          },
+          "files": {},
+          "error": null,
+          "updated_at": "2026-10-04T14:50:58.768Z"
+        },
+        "rig": {
+          "status": "success",
+          "task_id": "f4c1fd78-5584-46db-b887-6b9ba8ab376a",
+          "input": "afd0d642-9f5a-4e9e-8b72-715d228b85b7",
+          "request": {
+            "input": "afd0d642-9f5a-4e9e-8b72-715d228b85b7",
+            "model": "v1.0-20240301",
+            "rig_type": "biped",
+            "spec": "mixamo",
+            "out_format": "glb"
+          },
+          "estimate": 25,
+          "submitted_at": "2026-10-04T14:50:59.318Z",
+          "completed_at": "2026-10-04T14:51:07.790006Z",
+          "progress": 100,
+          "credits_consumed": 25,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H001/rigged.glb"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T14:51:13.065Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-04T14:51:32.158Z",
+        "out": "App/Resources/Heroes/Hero_H001.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H001/import_report.json",
+        "log": "build/tripo/heroes/H001/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H001/import_verify.log"
+      }
+    },
+    "heroes/H002": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "09d04b55-bad6-4104-9ddc-0efc4190205b",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Agile young woman duelist, athletic standard build, fair skin. Vivid lime-green light tunic with a fitted silver breastplate and small silver shoulder guards, short pleated lime-green skirt over fitted leggings, knee-high boots. Long pale-blonde high ponytail with a golden star hairpin. Golden star-shaped trims and a long sash tied at the waist with ribbon ends trailing behind. Palette: lime green, silver, warm gold, small cyan gems. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T14:55:47.923Z",
+          "completed_at": "2026-10-04T14:56:17.366620Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H002/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T14:56:19.011Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-04T15:17:22.907Z",
+        "out": "App/Resources/Heroes/Hero_H002.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H002/import_report.json",
+        "log": "build/tripo/heroes/H002/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H002/import_verify.log"
+      }
+    },
+    "heroes/H003": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "6d253434-4eb8-4b79-96d0-f88ced5ee2ba",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Rugged ranger (man), lean standard build, tan skin. Emerald-green leather armor with the hood up over short ash-gray hair, face visible, small iron shoulder guards, ember-orange scarf around the neck, dark green belt with a cloth loincloth flap, leather bracers and boots. Leather quiver full of arrows strapped on the back. Iron buckles. Palette: emerald green, dark forest green, ash gray, ember orange. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T14:56:18.627Z",
+          "completed_at": "2026-10-04T14:56:59.670288Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H003/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T14:57:00.928Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-04T16:18:46.632Z",
+        "out": "App/Resources/Heroes/Hero_H003.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H003/import_report.json",
+        "log": "build/tripo/heroes/H003/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H003/import_verify.log"
+      }
+    },
+    "heroes/H004": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "69759057-e300-4a86-b191-2ab95184f57f",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Graceful young woman tide priestess, slender robed build, fair skin. Long sky-blue robe split at the front with side slits, worn over fitted opaque pearl-white trousers tucked into boots (no bare skin on the legs), pearl-white inner layers, small silver wave-shaped shoulder pieces, silver wave-pattern belt. Long deep navy-blue hair. Crown of coral-pink seashells and pearls. Coral-pink trims. Palette: sky blue, pearl white, silver, coral pink, aqua. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo, bare thighs, exposed underwear, revealing outfit",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T15:14:19.981Z",
+          "completed_at": "2026-10-04T15:15:06.337068Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H004/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:15:08.827Z"
+        }
+      },
+      "history": [
+        {
+          "stage": "concept",
+          "archived_at": "2026-10-04T15:14:19.464Z",
+          "status": "success",
+          "task_id": "4803050c-e00e-4067-bedd-da6b8e1bdadd",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Graceful young woman tide priestess, slender robed build, fair skin. Long sky-blue robe split at the front with side slits so both legs and boots stay visible, pearl-white inner layers, small silver wave-shaped shoulder pieces, silver wave-pattern belt. Long deep navy-blue hair. Crown of coral-pink seashells and pearls. Coral-pink trims. Palette: sky blue, pearl white, silver, coral pink, aqua. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T14:57:00.654Z",
+          "completed_at": "2026-10-04T14:57:45.878608Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H004/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T14:57:49.360Z"
+        }
+      ],
+      "import": {
+        "at": "2026-10-04T16:19:18.876Z",
+        "out": "App/Resources/Heroes/Hero_H004.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H004/import_report.json",
+        "log": "build/tripo/heroes/H004/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H004/import_verify.log"
+      }
+    },
+    "heroes/H005": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "6f7f606e-6597-49a4-822d-9ff74f3a374d",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Stern storm sorcerer (man), lean robed build, pale skin. Indigo blue-violet robe split at the front so legs and boots stay visible, black obsidian armor pieces on chest and forearms, jagged violet crystal shoulder pauldrons, zigzag lightning-bolt trims in electric violet. Spiky white hair. Tattered dark indigo cape on the back. Palette: indigo, obsidian black, electric violet, white. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T14:57:48.946Z",
+          "completed_at": "2026-10-04T14:58:23.605695Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H005/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T14:58:25.794Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-04T16:19:32.889Z",
+        "out": "App/Resources/Heroes/Hero_H005.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H005/import_report.json",
+        "log": "build/tripo/heroes/H005/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H005/import_verify.log"
+      }
+    },
+    "heroes/H006": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "32906edd-bf84-4a65-a047-47f2d1452010",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Nimble stealthy young woman scout, slim build, fair skin. Fitted orchid-purple leather armor, hood up over short lavender-gray hair, cloth mask covering the lower face, silver crescent-moon pin on the hood, short split kilt over leggings, soft boots, silver bracers. Long scarf tails flowing behind from the neck. Pale-gold crescent moon trims. Palette: orchid purple, dark plum, silver, pale gold. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T14:58:25.516Z",
+          "completed_at": "2026-10-04T14:59:03.819747Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H006/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T14:59:07.792Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-04T16:19:39.623Z",
+        "out": "App/Resources/Heroes/Hero_H006.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H006/import_report.json",
+        "log": "build/tripo/heroes/H006/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H006/import_verify.log"
+      }
+    },
+    "heroes/H007": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "5e2c6907-1749-4b05-9a0f-f5b113d3839e",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Massive stone brawler (man), very heavy bulky build, tan skin. Armor of rough granite-gray rock plates on chest and shoulders with glowing orange lava veins, huge boulder-like rock pauldrons, crimson-rose cloth loincloth and headband, dark auburn mohawk and thick beard. Both forearms and hands encased in huge blocky stone gauntlets with open fingers. Bare muscular arms between rock plates. Palette: granite gray, crimson rose, warm taupe, glowing orange. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T14:59:07.360Z",
+          "completed_at": "2026-10-04T14:59:46.635042Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H007/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T14:59:49.619Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "7036b0b3-6d5d-4985-9f5b-a4bea40a89c5",
+          "input": "5e2c6907-1749-4b05-9a0f-f5b113d3839e",
+          "request": {
+            "input": "5e2c6907-1749-4b05-9a0f-f5b113d3839e",
+            "model": "P1-20260311",
+            "face_limit": 10000,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-04T15:57:07.865Z",
+          "completed_at": "2026-10-04T15:58:08.235548Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H007/model.glb",
+            "preview": "build/tripo/heroes/H007/preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:58:14.282Z"
+        },
+        "rigcheck": {
+          "status": "success",
+          "task_id": "dee8a8f0-cba3-474c-a41a-e4658ac54cad",
+          "input": "7036b0b3-6d5d-4985-9f5b-a4bea40a89c5",
+          "request": {
+            "input": "7036b0b3-6d5d-4985-9f5b-a4bea40a89c5"
+          },
+          "estimate": 0,
+          "submitted_at": "2026-10-04T15:58:14.293Z",
+          "completed_at": "2026-10-04T15:58:15.401120Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": {
+            "riggable": true,
+            "rig_type": "biped"
+          },
+          "files": {},
+          "error": null,
+          "updated_at": "2026-10-04T15:58:15.660Z"
+        },
+        "rig": {
+          "status": "success",
+          "task_id": "2e0a7cc0-e262-4580-98dc-eacc5d0a8f21",
+          "input": "7036b0b3-6d5d-4985-9f5b-a4bea40a89c5",
+          "request": {
+            "input": "7036b0b3-6d5d-4985-9f5b-a4bea40a89c5",
+            "model": "v1.0-20240301",
+            "rig_type": "biped",
+            "spec": "mixamo",
+            "out_format": "glb"
+          },
+          "estimate": 25,
+          "submitted_at": "2026-10-04T15:58:15.912Z",
+          "completed_at": "2026-10-04T15:58:23.464885Z",
+          "progress": 100,
+          "credits_consumed": 25,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H007/rigged.glb"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:58:29.633Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-04T16:02:21.334Z",
+        "out": "App/Resources/Heroes/Hero_H007.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H007/import_report.json",
+        "log": "build/tripo/heroes/H007/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H007/import_verify.log"
+      }
+    },
+    "heroes/H008": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "a802c29d-9836-4147-8d94-a3f1cf1c531e",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Lively young woman wind dancer, athletic standard build, fair skin. Warm amber-orange light tunic with a fitted silver breastplate, feathered shoulder pauldrons, short layered skirt over leggings, light boots. Short copper-red hair with a turquoise feather hairpin. Long turquoise wind ribbons fluttering from the belt and shoulders behind her. Palette: amber orange, silver, turquoise, cream. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T14:59:49.381Z",
+          "completed_at": "2026-10-04T15:00:21.196028Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H008/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:00:26.081Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-04T16:19:46.721Z",
+        "out": "App/Resources/Heroes/Hero_H008.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H008/import_report.json",
+        "log": "build/tripo/heroes/H008/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H008/import_verify.log"
+      }
+    },
+    "heroes/H009": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "99ba60b3-a1ff-4692-bb94-f0c077eaa1b1",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Inventor engineer (man), standard build, tan skin. Olive-green work coat armor with brass mechanical plating, round brass shoulder guards, short kilt over cargo trousers and heavy boots. His own left arm (on the viewer's right side of the image) is entirely a mechanical brass prosthetic with pistons and gears, hand open; his right arm is a normal human arm. Brass goggles pushed up on short dark-brown hair. Bulky brass gear backpack with cogs and pipes on the back. Palette: olive green, brass, copper orange, dark brown. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T15:00:25.713Z",
+          "completed_at": "2026-10-04T15:00:59.595885Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H009/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:01:02.178Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "4e5132dd-06ee-4711-91ff-3bae00ac3c5b",
+          "input": "99ba60b3-a1ff-4692-bb94-f0c077eaa1b1",
+          "request": {
+            "input": "99ba60b3-a1ff-4692-bb94-f0c077eaa1b1",
+            "model": "P1-20260311",
+            "face_limit": 10000,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-04T15:57:09.254Z",
+          "completed_at": "2026-10-04T15:58:10.201442Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H009/model.glb",
+            "preview": "build/tripo/heroes/H009/preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:58:15.177Z"
+        },
+        "rigcheck": {
+          "status": "success",
+          "task_id": "e415132d-05e6-474d-b726-b33e1504c581",
+          "input": "4e5132dd-06ee-4711-91ff-3bae00ac3c5b",
+          "request": {
+            "input": "4e5132dd-06ee-4711-91ff-3bae00ac3c5b"
+          },
+          "estimate": 0,
+          "submitted_at": "2026-10-04T15:58:15.194Z",
+          "completed_at": "2026-10-04T15:58:16.253908Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": {
+            "riggable": true,
+            "rig_type": "biped"
+          },
+          "files": {},
+          "error": null,
+          "updated_at": "2026-10-04T15:58:16.473Z"
+        },
+        "rig": {
+          "status": "success",
+          "task_id": "77c912a1-18ad-44d0-bb61-c032e7c884df",
+          "input": "4e5132dd-06ee-4711-91ff-3bae00ac3c5b",
+          "request": {
+            "input": "4e5132dd-06ee-4711-91ff-3bae00ac3c5b",
+            "model": "v1.0-20240301",
+            "rig_type": "biped",
+            "spec": "mixamo",
+            "out_format": "glb"
+          },
+          "estimate": 25,
+          "submitted_at": "2026-10-04T15:58:17.622Z",
+          "completed_at": "2026-10-04T15:58:22.690433Z",
+          "progress": 100,
+          "credits_consumed": 25,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H009/rigged.glb"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:58:25.154Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-04T16:02:29.348Z",
+        "out": "App/Resources/Heroes/Hero_H009.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H009/import_report.json",
+        "log": "build/tripo/heroes/H009/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H009/import_verify.log"
+      }
+    },
+    "heroes/H010": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "c4227229-d2f1-4789-a3c7-ebed6a336471",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Confident young woman fire mage, slender robed build, fair skin. Jade-green robe with gold trim split at the front, worn over fitted opaque dark-green trousers tucked into boots (no bare skin on the legs), small ornate gold shoulder pieces, flame-orange sash at the waist, gold flame-pattern embroidery. Long flowing red-orange hair. Gold crown shaped like stylized flames. Palette: jade green, gold, flame orange, red. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo, bare thighs, exposed underwear, revealing outfit",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T15:15:07.835Z",
+          "completed_at": "2026-10-04T15:15:51.256132Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H010/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:15:55.953Z"
+        }
+      },
+      "history": [
+        {
+          "stage": "concept",
+          "archived_at": "2026-10-04T15:14:19.467Z",
+          "status": "success",
+          "task_id": "b2521214-8f31-4bd1-a075-ac48cac80a58",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Confident young woman fire mage, slender robed build, fair skin. Jade-green robe with gold trim split at the front so legs and boots stay visible, small ornate gold shoulder pieces, flame-orange sash at the waist, gold flame-pattern embroidery. Long flowing red-orange hair. Gold crown shaped like stylized flames. Palette: jade green, gold, flame orange, red. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T15:01:01.906Z",
+          "completed_at": "2026-10-04T15:01:41.349748Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H010/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:01:43.767Z"
+        }
+      ],
+      "import": {
+        "at": "2026-10-04T16:19:55.090Z",
+        "out": "App/Resources/Heroes/Hero_H010.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H010/import_report.json",
+        "log": "build/tripo/heroes/H010/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H010/import_verify.log"
+      }
+    },
+    "heroes/H011": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "29e7f248-a3c6-4afc-a216-a8f38a6b1478",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Steadfast guardian (man), sturdy standard build, tan skin. Turquoise-cyan surcoat over iron plate armor, round iron shoulder guards, iron plate kilt, iron greaves. Iron helmet with a slit visor over short dark slate hair. Small flat iron plate on the upper back. Steel blue-gray trims and small glowing cyan lamps on the chest. Palette: cyan turquoise, iron gray, steel blue. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T15:01:43.469Z",
+          "completed_at": "2026-10-04T15:02:39.631521Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H011/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:02:42.685Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "8de3d3aa-5b3a-40dd-925a-ff8467bbfc91",
+          "input": "29e7f248-a3c6-4afc-a216-a8f38a6b1478",
+          "request": {
+            "input": "29e7f248-a3c6-4afc-a216-a8f38a6b1478",
+            "model": "P1-20260311",
+            "face_limit": 10000,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-04T15:57:10.536Z",
+          "completed_at": "2026-10-04T15:58:11.761642Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H011/model.glb",
+            "preview": "build/tripo/heroes/H011/preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:58:16.318Z"
+        },
+        "rigcheck": {
+          "status": "success",
+          "task_id": "51be0a38-0c61-4b1c-bbb7-e8090af0aa2b",
+          "input": "8de3d3aa-5b3a-40dd-925a-ff8467bbfc91",
+          "request": {
+            "input": "8de3d3aa-5b3a-40dd-925a-ff8467bbfc91"
+          },
+          "estimate": 0,
+          "submitted_at": "2026-10-04T15:58:16.433Z",
+          "completed_at": "2026-10-04T15:58:18.033182Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": {
+            "riggable": true,
+            "rig_type": "biped"
+          },
+          "files": {},
+          "error": null,
+          "updated_at": "2026-10-04T15:58:22.879Z"
+        },
+        "rig": {
+          "status": "success",
+          "task_id": "1133f510-7f88-4405-ae1a-b32130969e55",
+          "input": "8de3d3aa-5b3a-40dd-925a-ff8467bbfc91",
+          "request": {
+            "input": "8de3d3aa-5b3a-40dd-925a-ff8467bbfc91",
+            "model": "v1.0-20240301",
+            "rig_type": "biped",
+            "spec": "mixamo",
+            "out_format": "glb"
+          },
+          "estimate": 25,
+          "submitted_at": "2026-10-04T15:58:23.649Z",
+          "completed_at": "2026-10-04T15:58:30.233426Z",
+          "progress": 100,
+          "credits_consumed": 25,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H011/rigged.glb"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:58:37.284Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-04T16:02:37.338Z",
+        "out": "App/Resources/Heroes/Hero_H011.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H011/import_report.json",
+        "log": "build/tripo/heroes/H011/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H011/import_verify.log"
+      }
+    },
+    "heroes/H012": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "f7a3917f-0fb4-4464-bb70-25219009f8fc",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Elegant stealthy young woman, slim build, pale skin. Sapphire-blue fitted light armor with silver edges, faceted clear ice-blue crystal shoulder pauldrons, short split kilt over leggings, slim boots. Pale ice-blue bob haircut. Translucent crystal glass visor over the eyes. Long scarf tails flowing behind. Palette: sapphire blue, silver, ice cyan, white. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T15:02:42.401Z",
+          "completed_at": "2026-10-04T15:03:22.819774Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H012/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:03:25.321Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-04T16:20:02.562Z",
+        "out": "App/Resources/Heroes/Hero_H012.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H012/import_report.json",
+        "log": "build/tripo/heroes/H012/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H012/import_verify.log"
+      }
+    },
+    "heroes/H013": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "b132beb0-7ae0-4202-8fc7-dbe69d2b8a9d",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Fierce beast-tribe warrior (man), heavy muscular build, deep brown skin. Violet-dyed fur and hide armor, big fur shoulder pauldrons, ivory bone plates on the chest, hide loincloth, fur-wrapped boots. Wild dark hair under a horned beast-skull mask worn on the head. Thick fur cape on the back. Glowing red tribal brand markings. Palette: violet, ivory bone, dark brown fur, red. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T15:03:24.961Z",
+          "completed_at": "2026-10-04T15:04:05.001077Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H013/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:04:06.943Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "0524fba0-f49a-4c62-97cd-323856e17b46",
+          "input": "b132beb0-7ae0-4202-8fc7-dbe69d2b8a9d",
+          "request": {
+            "input": "b132beb0-7ae0-4202-8fc7-dbe69d2b8a9d",
+            "model": "P1-20260311",
+            "face_limit": 10000,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-04T15:58:25.464Z",
+          "completed_at": "2026-10-04T15:59:31.678633Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H013/model.glb",
+            "preview": "build/tripo/heroes/H013/preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:59:37.643Z"
+        },
+        "rigcheck": {
+          "status": "success",
+          "task_id": "36c9453d-5c0f-453b-baea-eeafcdcbf8c5",
+          "input": "0524fba0-f49a-4c62-97cd-323856e17b46",
+          "request": {
+            "input": "0524fba0-f49a-4c62-97cd-323856e17b46"
+          },
+          "estimate": 0,
+          "submitted_at": "2026-10-04T15:59:37.650Z",
+          "completed_at": "2026-10-04T15:59:39.305136Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": {
+            "riggable": true,
+            "rig_type": "biped"
+          },
+          "files": {},
+          "error": null,
+          "updated_at": "2026-10-04T15:59:44.368Z"
+        },
+        "rig": {
+          "status": "success",
+          "task_id": "fcdb9936-bb9c-4636-a6c4-a9a6ebce2faa",
+          "input": "0524fba0-f49a-4c62-97cd-323856e17b46",
+          "request": {
+            "input": "0524fba0-f49a-4c62-97cd-323856e17b46",
+            "model": "v1.0-20240301",
+            "rig_type": "biped",
+            "spec": "mixamo",
+            "out_format": "glb"
+          },
+          "estimate": 25,
+          "submitted_at": "2026-10-04T15:59:45.181Z",
+          "completed_at": "2026-10-04T15:59:50.791337Z",
+          "progress": 100,
+          "credits_consumed": 25,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H013/rigged.glb"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:59:52.788Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-04T16:02:47.908Z",
+        "out": "App/Resources/Heroes/Hero_H013.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H013/import_report.json",
+        "log": "build/tripo/heroes/H013/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H013/import_verify.log"
+      }
+    },
+    "heroes/H014": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "0daa1dc1-2111-43e2-82c4-244240509eb1",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Calm young martial artist (man), slim build, fair skin. Rose-pink wrapped cloth outfit, fitted silver chest guard, short pleated kilt over leggings, split-toe boots. Dark navy-black hair tied in a topknot with a lavender ribbon. Pale lavender misty cloak flowing from the shoulders. Palette: rose pink, pale lavender, silver, navy black. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T15:04:06.556Z",
+          "completed_at": "2026-10-04T15:04:53.435926Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H014/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:04:59.930Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-04T16:20:08.117Z",
+        "out": "App/Resources/Heroes/Hero_H014.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H014/import_report.json",
+        "log": "build/tripo/heroes/H014/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H014/import_verify.log"
+      }
+    },
+    "heroes/H015": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "b473ab49-7cf8-4aae-811a-cb85215e51fa",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Bold young woman adventurer, sturdy standard build, fair skin. Burnt-orange leather armor with bronze plates, round bronze shoulder guards, short kilt over trousers, fur-trimmed boots. Golden-blonde long braids under a bronze horned helmet. A big bronze war bell carried on the back in a leather harness. Amber trims. Palette: burnt orange, bronze, amber, golden blonde. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T15:04:59.532Z",
+          "completed_at": "2026-10-04T15:05:40.795588Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H015/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:05:47.171Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "70230abe-21ea-4978-8b90-17fdc5127a01",
+          "input": "b473ab49-7cf8-4aae-811a-cb85215e51fa",
+          "request": {
+            "input": "b473ab49-7cf8-4aae-811a-cb85215e51fa",
+            "model": "P1-20260311",
+            "face_limit": 10000,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-04T15:58:29.831Z",
+          "completed_at": "2026-10-04T15:59:39.580829Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H015/model.glb",
+            "preview": "build/tripo/heroes/H015/preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:59:46.913Z"
+        },
+        "rigcheck": {
+          "status": "success",
+          "task_id": "3a32bc9c-3ef4-4df7-97b8-5c89e810aa8d",
+          "input": "70230abe-21ea-4978-8b90-17fdc5127a01",
+          "request": {
+            "input": "70230abe-21ea-4978-8b90-17fdc5127a01"
+          },
+          "estimate": 0,
+          "submitted_at": "2026-10-04T15:59:46.920Z",
+          "completed_at": "2026-10-04T15:59:48.189406Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": {
+            "riggable": true,
+            "rig_type": "biped"
+          },
+          "files": {},
+          "error": null,
+          "updated_at": "2026-10-04T15:59:52.814Z"
+        },
+        "rig": {
+          "status": "success",
+          "task_id": "2d70e3f1-1718-4ed6-a10a-824724e875d7",
+          "input": "70230abe-21ea-4978-8b90-17fdc5127a01",
+          "request": {
+            "input": "70230abe-21ea-4978-8b90-17fdc5127a01",
+            "model": "v1.0-20240301",
+            "rig_type": "biped",
+            "spec": "mixamo",
+            "out_format": "glb"
+          },
+          "estimate": 25,
+          "submitted_at": "2026-10-04T15:59:54.266Z",
+          "completed_at": "2026-10-04T16:00:02.976107Z",
+          "progress": 100,
+          "credits_consumed": 25,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H015/rigged.glb"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:00:10.165Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-04T16:03:00.365Z",
+        "out": "App/Resources/Heroes/Hero_H015.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H015/import_report.json",
+        "log": "build/tripo/heroes/H015/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H015/import_verify.log"
+      }
+    },
+    "heroes/H016": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "20046385-d83a-4faf-8138-a17dd47a6371",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Serene young woman light mage, slender robed build, fair skin. Long chartreuse yellow-green and white layered robe split at the front, worn over fitted opaque white trousers tucked into boots (no bare skin on the legs), small gold shoulder pieces, white cloth sash, gold trims. Long straight white hair with a thin gold circlet on the forehead. Palette: chartreuse, white, gold, pale gold. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo, bare thighs, exposed underwear, revealing outfit",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T15:15:55.629Z",
+          "completed_at": "2026-10-04T15:16:21.997456Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H016/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:16:27.314Z"
+        }
+      },
+      "history": [
+        {
+          "stage": "concept",
+          "archived_at": "2026-10-04T15:14:19.468Z",
+          "status": "success",
+          "task_id": "052c53bc-8af4-4674-af7a-b3a27c5712e1",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Serene young woman light mage, slender robed build, fair skin. Long chartreuse yellow-green and white layered robe split at the front so legs and boots stay visible, small gold shoulder pieces, white cloth sash, gold trims. Long straight white hair with a thin gold circlet on the forehead. Palette: chartreuse, white, gold, pale gold. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T15:05:46.860Z",
+          "completed_at": "2026-10-04T15:06:15.290398Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H016/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:06:17.685Z"
+        }
+      ],
+      "import": {
+        "at": "2026-10-04T16:20:13.603Z",
+        "out": "App/Resources/Heroes/Hero_H016.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H016/import_report.json",
+        "log": "build/tripo/heroes/H016/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H016/import_verify.log"
+      }
+    },
+    "heroes/H017": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "3c2a3ee6-6357-4a8f-affb-dd035b1cdf93",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Ominous hooded cultist, gaunt robed build, ashen gray-green skin. Bright green and dark green layered robe split at the front so legs and boots stay visible, iron chain belt, iron bracers. Deep hood hiding the face in shadow with two glowing violet eyes, a dark iron mask over the mouth. Tattered dark purple cape on the back. Palette: green, dark green, iron gray, dark purple, glowing violet. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T15:06:17.304Z",
+          "completed_at": "2026-10-04T15:07:30.874320Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H017/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:07:35.026Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "47fbad31-f33b-47fa-9c1a-430b125382c5",
+          "input": "3c2a3ee6-6357-4a8f-affb-dd035b1cdf93",
+          "request": {
+            "input": "3c2a3ee6-6357-4a8f-affb-dd035b1cdf93",
+            "model": "P1-20260311",
+            "face_limit": 10000,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-04T15:58:37.952Z",
+          "completed_at": "2026-10-04T15:59:43.644474Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H017/model.glb",
+            "preview": "build/tripo/heroes/H017/preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:59:49.061Z"
+        },
+        "rigcheck": {
+          "status": "success",
+          "task_id": "5689135d-aaaf-4cde-85a9-9fe3b062cee9",
+          "input": "47fbad31-f33b-47fa-9c1a-430b125382c5",
+          "request": {
+            "input": "47fbad31-f33b-47fa-9c1a-430b125382c5"
+          },
+          "estimate": 0,
+          "submitted_at": "2026-10-04T15:59:49.064Z",
+          "completed_at": "2026-10-04T15:59:50.029300Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": {
+            "riggable": true,
+            "rig_type": "biped"
+          },
+          "files": {},
+          "error": null,
+          "updated_at": "2026-10-04T15:59:54.953Z"
+        },
+        "rig": {
+          "status": "success",
+          "task_id": "b613c058-ef9e-4f4b-81e4-8139afde1ef0",
+          "input": "47fbad31-f33b-47fa-9c1a-430b125382c5",
+          "request": {
+            "input": "47fbad31-f33b-47fa-9c1a-430b125382c5",
+            "model": "v1.0-20240301",
+            "rig_type": "biped",
+            "spec": "mixamo",
+            "out_format": "glb"
+          },
+          "estimate": 25,
+          "submitted_at": "2026-10-04T15:59:55.136Z",
+          "completed_at": "2026-10-04T16:00:01.365535Z",
+          "progress": 100,
+          "credits_consumed": 25,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H017/rigged.glb"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:00:05.519Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-04T16:03:12.615Z",
+        "out": "App/Resources/Heroes/Hero_H017.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H017/import_report.json",
+        "log": "build/tripo/heroes/H017/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H017/import_verify.log"
+      }
+    },
+    "heroes/H018": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "c9839924-0c65-474a-a086-4ec5c8ad18dc",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Playful adult woman, slim build, fair skin. Mint-aqua fitted cloth outfit with gold trims, skirt of layered pink flower petals over leggings, light shoes. Pink bob haircut with a crown of pink blossoms and a small gold crescent pin. Palette: mint aqua, blossom pink, gold. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T15:07:34.585Z",
+          "completed_at": "2026-10-04T15:08:07.834698Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H018/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:08:11.169Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-04T16:20:18.133Z",
+        "out": "App/Resources/Heroes/Hero_H018.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H018/import_report.json",
+        "log": "build/tripo/heroes/H018/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H018/import_verify.log"
+      }
+    },
+    "heroes/H019": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "def474dc-f544-41c6-96b5-07aae3a02c46",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Colossal siege warrior (man), very heavy broad build, tan skin. Thick cobalt-blue and iron plate armor with riveted bands, enormous iron shoulder pauldrons, plate tassets, heavy iron boots. Closed iron helmet with two large curved horns. Orange-hot glowing rivets and orange cloth straps. Palette: cobalt blue, iron gray, orange. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T15:08:11.033Z",
+          "completed_at": "2026-10-04T15:08:54.137134Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H019/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:08:59.403Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "b320bce0-be09-4fa3-81d3-b496ebc19ccf",
+          "input": "def474dc-f544-41c6-96b5-07aae3a02c46",
+          "request": {
+            "input": "def474dc-f544-41c6-96b5-07aae3a02c46",
+            "model": "P1-20260311",
+            "face_limit": 10000,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-04T15:59:53.096Z",
+          "completed_at": "2026-10-04T16:01:14.792512Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H019/model.glb",
+            "preview": "build/tripo/heroes/H019/preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:01:21.593Z"
+        },
+        "rigcheck": {
+          "status": "success",
+          "task_id": "92f37ab9-f197-4d8e-bc74-0d54eb5a90e7",
+          "input": "b320bce0-be09-4fa3-81d3-b496ebc19ccf",
+          "request": {
+            "input": "b320bce0-be09-4fa3-81d3-b496ebc19ccf"
+          },
+          "estimate": 0,
+          "submitted_at": "2026-10-04T16:01:21.595Z",
+          "completed_at": "2026-10-04T16:01:22.989063Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": {
+            "riggable": true,
+            "rig_type": "biped"
+          },
+          "files": {},
+          "error": null,
+          "updated_at": "2026-10-04T16:01:28.234Z"
+        },
+        "rig": {
+          "status": "success",
+          "task_id": "f854a1fa-2871-4d4d-9bb3-590cca1d7c8b",
+          "input": "b320bce0-be09-4fa3-81d3-b496ebc19ccf",
+          "request": {
+            "input": "b320bce0-be09-4fa3-81d3-b496ebc19ccf",
+            "model": "v1.0-20240301",
+            "rig_type": "biped",
+            "spec": "mixamo",
+            "out_format": "glb"
+          },
+          "estimate": 25,
+          "submitted_at": "2026-10-04T16:01:29.101Z",
+          "completed_at": "2026-10-04T16:01:34.796157Z",
+          "progress": 100,
+          "credits_consumed": 25,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H019/rigged.glb"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:01:37.920Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-04T16:03:23.176Z",
+        "out": "App/Resources/Heroes/Hero_H019.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H019/import_report.json",
+        "log": "build/tripo/heroes/H019/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H019/import_verify.log"
+      }
+    },
+    "heroes/H020": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "04d78e14-8883-4cb3-885a-5e8c0b3cdf5a",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Bright young woman adventurer, athletic standard build, fair skin. Amethyst-purple light armor with gold edges, small gold shoulder guards, short pleated skirt over leggings, knee boots. Golden-blonde twin tails tied with golden ribbons. Golden arrow-shaped trims on the chest. Palette: amethyst purple, gold, golden yellow, white. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T15:08:59.015Z",
+          "completed_at": "2026-10-04T15:09:36.295139Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H020/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:09:41.390Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-04T16:20:23.248Z",
+        "out": "App/Resources/Heroes/Hero_H020.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H020/import_report.json",
+        "log": "build/tripo/heroes/H020/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H020/import_verify.log"
+      }
+    },
+    "heroes/H021": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "370b3717-f6e2-41ba-8491-405fcbaa6a6e",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Weathered desert drifter (man), lean standard build, tan skin. Long magenta-fuchsia leather coat with brass buckles, small brass shoulder guards, plum vest, belts with sand-gold hourglass ornaments, tall boots. Wide-brimmed hat over short sandy-blond hair, sand-gold scarf around the neck. Palette: magenta, plum, brass, sand gold. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T15:09:41.123Z",
+          "completed_at": "2026-10-04T15:10:15.927468Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H021/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:10:18.896Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "ffd9aac0-2c87-477e-8b97-ad481ecac8bb",
+          "input": "370b3717-f6e2-41ba-8491-405fcbaa6a6e",
+          "request": {
+            "input": "370b3717-f6e2-41ba-8491-405fcbaa6a6e",
+            "model": "P1-20260311",
+            "face_limit": 10000,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-04T16:00:06.306Z",
+          "completed_at": "2026-10-04T16:01:24.690328Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H021/model.glb",
+            "preview": "build/tripo/heroes/H021/preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:01:28.750Z"
+        },
+        "rigcheck": {
+          "status": "success",
+          "task_id": "588df805-2124-4c0f-9320-abac520c2ead",
+          "input": "ffd9aac0-2c87-477e-8b97-ad481ecac8bb",
+          "request": {
+            "input": "ffd9aac0-2c87-477e-8b97-ad481ecac8bb"
+          },
+          "estimate": 0,
+          "submitted_at": "2026-10-04T16:01:29.630Z",
+          "completed_at": "2026-10-04T16:01:31.475049Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": {
+            "riggable": true,
+            "rig_type": "biped"
+          },
+          "files": {},
+          "error": null,
+          "updated_at": "2026-10-04T16:01:36.089Z"
+        },
+        "rig": {
+          "status": "success",
+          "task_id": "172afe92-c307-4889-85c5-4fb8253a994a",
+          "input": "ffd9aac0-2c87-477e-8b97-ad481ecac8bb",
+          "request": {
+            "input": "ffd9aac0-2c87-477e-8b97-ad481ecac8bb",
+            "model": "v1.0-20240301",
+            "rig_type": "biped",
+            "spec": "mixamo",
+            "out_format": "glb"
+          },
+          "estimate": 25,
+          "submitted_at": "2026-10-04T16:01:36.644Z",
+          "completed_at": "2026-10-04T16:01:45.664395Z",
+          "progress": 100,
+          "credits_consumed": 25,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H021/rigged.glb"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:01:50.239Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-04T16:03:32.514Z",
+        "out": "App/Resources/Heroes/Hero_H021.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H021/import_report.json",
+        "log": "build/tripo/heroes/H021/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H021/import_verify.log"
+      }
+    },
+    "heroes/H022": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "c33c6a63-66f3-4a4b-9da1-53ce0108d011",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Wild young woman beast mage, slender robed build, fair skin. Scarlet-red robe with silver trims split at the front, worn over fitted opaque dark navy-blue trousers tucked into boots (no bare skin on the legs or hips), small silver shoulder pieces. Wild pale ice-blue hair with fox ears on top of the head. Silver gauntlets on both forearms with three curved azure crystal claws over the back of each open hand. Azure gem accents. Palette: scarlet red, silver, azure blue, ice white. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo, bare thighs, exposed underwear, revealing outfit",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T15:16:26.937Z",
+          "completed_at": "2026-10-04T15:17:04.427872Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H022/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:17:09.571Z"
+        }
+      },
+      "history": [
+        {
+          "stage": "concept",
+          "archived_at": "2026-10-04T15:15:08.828Z",
+          "status": "success",
+          "task_id": "cc4a8919-d310-48e8-8d86-256d4a75b94a",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Wild young woman beast mage, slender robed build, fair skin. Scarlet-red robe with silver trims split at the front so legs and boots stay visible, small silver shoulder pieces. Wild pale ice-blue hair with fox ears on top of the head. Silver gauntlets on both forearms with three curved azure crystal claws over the back of each open hand. Azure gem accents. Palette: scarlet red, silver, azure blue, ice white. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T15:10:18.376Z",
+          "completed_at": "2026-10-04T15:10:54.938163Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H022/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:11:01.111Z"
+        }
+      ],
+      "import": {
+        "at": "2026-10-04T16:20:27.520Z",
+        "out": "App/Resources/Heroes/Hero_H022.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H022/import_report.json",
+        "log": "build/tripo/heroes/H022/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H022/import_verify.log"
+      }
+    },
+    "heroes/H023": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "3c90db37-8cc5-4c6b-a152-1b33dd5dade8",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Noble armored guardian (man), sturdy standard build, tan skin. Silver plate armor with a mustard-yellow cloth surcoat, round silver pauldrons, plate kilt, silver greaves. Open-faced silver helmet with small wing ornaments on both sides, short dark-brown hair. Long azure-blue cape on the back. Zigzag lightning trims in azure. Palette: silver, mustard yellow, azure blue. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T15:11:00.854Z",
+          "completed_at": "2026-10-04T15:11:33.615792Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H023/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:11:37.361Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "d2756658-96a8-4c0d-ab46-1cf117e19fa2",
+          "input": "3c90db37-8cc5-4c6b-a152-1b33dd5dade8",
+          "request": {
+            "input": "3c90db37-8cc5-4c6b-a152-1b33dd5dade8",
+            "model": "P1-20260311",
+            "face_limit": 10000,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-04T16:00:10.434Z",
+          "completed_at": "2026-10-04T16:01:35.354068Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H023/model.glb",
+            "preview": "build/tripo/heroes/H023/preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:01:38.228Z"
+        },
+        "rigcheck": {
+          "status": "success",
+          "task_id": "4af5b4e1-64c3-4270-b676-7976ae9643d0",
+          "input": "d2756658-96a8-4c0d-ab46-1cf117e19fa2",
+          "request": {
+            "input": "d2756658-96a8-4c0d-ab46-1cf117e19fa2"
+          },
+          "estimate": 0,
+          "submitted_at": "2026-10-04T16:01:38.229Z",
+          "completed_at": "2026-10-04T16:01:39.537388Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": {
+            "riggable": true,
+            "rig_type": "biped"
+          },
+          "files": {},
+          "error": null,
+          "updated_at": "2026-10-04T16:01:44.893Z"
+        },
+        "rig": {
+          "status": "success",
+          "task_id": "7d4a5198-7785-46e1-87c6-a1a8c15461b1",
+          "input": "d2756658-96a8-4c0d-ab46-1cf117e19fa2",
+          "request": {
+            "input": "d2756658-96a8-4c0d-ab46-1cf117e19fa2",
+            "model": "v1.0-20240301",
+            "rig_type": "biped",
+            "spec": "mixamo",
+            "out_format": "glb"
+          },
+          "estimate": 25,
+          "submitted_at": "2026-10-04T16:01:45.468Z",
+          "completed_at": "2026-10-04T16:01:56.369902Z",
+          "progress": 100,
+          "credits_consumed": 25,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H023/rigged.glb"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T16:01:58.823Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-04T16:03:40.003Z",
+        "out": "App/Resources/Heroes/Hero_H023.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H023/import_report.json",
+        "log": "build/tripo/heroes/H023/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H023/import_verify.log"
+      }
+    },
+    "heroes/H024": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "e7b15ae8-60a6-4e45-bb1f-df1c6b310d8d",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Dreamy adult woman, slim build, fair skin. Soft layered lime-green and lilac cloth outfit with silver trims, short ruffled kilt over striped leggings, soft boots. Lavender bob hair under a long floppy lilac nightcap with a silver crescent pin. Silver thread-spool ornaments on the belt. Palette: lime green, lilac, lavender, silver. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-04T15:11:37.021Z",
+          "completed_at": "2026-10-04T15:12:13.066966Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/heroes/H024/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-04T15:12:19.749Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-04T16:20:32.304Z",
+        "out": "App/Resources/Heroes/Hero_H024.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H024/import_report.json",
+        "log": "build/tripo/heroes/H024/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H024/import_verify.log"
+      }
+    }
+  },
+  "note": "tools/tripo.mjs が自動生成。task_id・状態・消費クレジット・ローカルパスのみ（秘密情報なし）",
+  "updated_at": "2026-10-04T16:20:32.304Z"
+}

@@ -66,7 +66,7 @@ final class HeroStageDriver {
     }()
     private lazy var turntable = Entity()
     private lazy var camera = PerspectiveCamera()
-    private(set) var models: [HeroModel] = []
+    private(set) var models: [any HeroDisplayModel] = []
     private var slotRoots: [Entity] = []
     var subscription: EventSubscription?
     var config: HeroStageConfig?

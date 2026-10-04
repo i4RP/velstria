@@ -6,6 +6,17 @@ import VelstriaCore
 
 // 担当: hero-models。ヒーローモデルの生成口・共有キャッシュ・手続きアニメーションの適用。
 // メッシュはヒーロー ID ごと、マテリアルはヒーロー × スキンごとに共有し、インスタンスはエンティティ階層だけを持つ。
+// 同梱の Hero_<id>.usdz（Tripo 生成のスキンメッシュ）があればそれを使い（SkinnedHeroModel）、無ければ手続きモデル。
+
+/// 本体メッシュの出所。
+enum HeroMeshSource: Equatable {
+    /// 同梱アセット（Hero_<id>.usdz / Hero_<id>_<cosmeticID>.usdz）があればスキンメッシュ、無ければ手続き生成。
+    case auto
+    /// 常に手続き生成（構造を前提にするテスト用）。
+    case procedural
+    /// 指定 USDZ のスキンメッシュ（テスト用。読めない・骨が足りない時は手続き生成）。
+    case skinned(URL)
+}
 
 /// 生成オプション（戦闘・プレビューで使い分ける）。
 struct HeroModelOptions {
@@ -17,12 +28,33 @@ struct HeroModelOptions {
     var colorblind = false
     /// Epic スキンのオーラ粒子。
     var aura = true
+    /// 本体メッシュの出所。
+    var mesh: HeroMeshSource = .auto
 
     @MainActor static var battle: HeroModelOptions {
         HeroModelOptions(teamMarker: true, shadow: true, colorblind: HeroModelLibrary.colorblindTeamMarkers, aura: true)
     }
 
     static let showcase = HeroModelOptions(teamMarker: false, shadow: false, colorblind: false, aura: true)
+
+    func with(mesh: HeroMeshSource) -> HeroModelOptions {
+        var o = self
+        o.mesh = mesh
+        return o
+    }
+}
+
+/// プレビュー・ギャラリー・テストが使う共通面（手続きモデル HeroModel / スキンメッシュ SkinnedHeroModel）。
+@MainActor
+protocol HeroDisplayModel: HeroModelHandle {
+    var heroID: String { get }
+    var skin: HeroSkinInfo { get }
+    var state: HeroAnimState { get }
+    /// 骨・装備・効果を含むエンティティ数（性能確認用）。
+    var entityCount: Int { get }
+    var triangleCount: Int { get }
+    /// スキンメッシュ（同梱アセット）で表示しているか。
+    var isSkinned: Bool { get }
 }
 
 @MainActor
@@ -36,9 +68,9 @@ enum HeroModelLibrary {
         makeHero(heroID: heroID, skinID: skinID, team: team, master: master, options: .battle)
     }
 
-    /// 具象型で返す生成口（プレビュー・ギャラリー用）。
+    /// プレビュー・ギャラリー用の生成口。
     static func makeHero(heroID: String, skinID: String?, team: Team, master: MasterData,
-                         options: HeroModelOptions) -> HeroModel {
+                         options: HeroModelOptions) -> any HeroDisplayModel {
         let def = master.hero(heroID)
         let bp = HeroBlueprints.blueprint(heroID: heroID, role: def?.role)
         let meshes = meshSet(heroID: heroID, blueprint: bp)
@@ -46,19 +78,99 @@ enum HeroModelLibrary {
         let palette = HeroPalettes.palette(heroID: heroID, blueprint: bp, skin: skin)
         let materials = HeroMaterialLibrary.materials(key: "\(heroID)#\(skin.variant)#\(skin.isEpic)", palette: palette)
         let runSpeed = Float((def?.moveSpeed ?? 330) / Balance.unitsPerMeter)
+        if let (template, tinted) = skinnedTemplate(heroID: heroID, skin: skin, source: options.mesh),
+           let model = SkinnedHeroModel(heroID: heroID, skin: skin, blueprint: bp, template: template,
+                                        tintBody: tinted, meshes: meshes, materials: materials, palette: palette,
+                                        team: team, options: options, defaultRunSpeed: runSpeed) {
+            return model
+        }
         return HeroModel(heroID: heroID, skin: skin, blueprint: bp, meshes: meshes, materials: materials,
                          palette: palette, team: team, options: options, defaultRunSpeed: runSpeed)
     }
 
-    /// 試合のロード中に呼ぶと、初回表示時のメッシュ生成を避けられる。
-    static func preload(heroIDs: [String], master: MasterData) {
-        for id in heroIDs {
-            let bp = HeroBlueprints.blueprint(heroID: id, role: master.hero(id)?.role)
-            _ = meshSet(heroID: id, blueprint: bp)
+    /// スキンメッシュのテンプレート。tinted = スキン専用アセットが無く、本体アセットを色味で塗り分ける。
+    private static func skinnedTemplate(heroID: String, skin: HeroSkinInfo,
+                                        source: HeroMeshSource) -> (SkinnedHeroTemplate, Bool)? {
+        switch source {
+        case .procedural:
+            return nil
+        case .skinned(let url):
+            return HeroAssetLibrary.heroTemplate(url).map { ($0, true) }
+        case .auto:
+            if let id = skin.cosmeticID, let url = HeroAssetLibrary.bundledURL("Hero_\(heroID)_\(id)"),
+               let t = HeroAssetLibrary.heroTemplate(url) {
+                return (t, false)
+            }
+            guard let url = HeroAssetLibrary.bundledURL("Hero_\(heroID)") else { return nil }
+            return HeroAssetLibrary.heroTemplate(url).map { ($0, true) }
         }
+    }
+
+    /// まとめて読み込む（purge → 全員の preload）。読み込み済みならキャッシュ参照だけ（戦闘開始時の保険・テスト用）。
+    /// ロード画面は purge の後に preload(heroID:skinID:) を 1 人ずつ呼び、画面を止めない。
+    static func preload(players: [(heroID: String, skinID: String?)], master: MasterData) {
+        purge(keepingPlayers: players, master: master)
+        for (id, skinID) in players { preload(heroID: id, skinID: skinID, master: master) }
+    }
+
+    static func preload(heroIDs: [String], master: MasterData) {
+        preload(players: heroIDs.map { ($0, nil) }, master: master)
+    }
+
+    /// 1 人分（スキン込み）のメッシュ・マテリアル・同梱アセットを読み込み、試合中に USDZ を同期で読まないようにする。
+    /// 何も捨てない（同じヒーローを何度呼んでもキャッシュ参照だけ）。
+    static func preload(heroID id: String, skinID: String?, master: MasterData) {
+        let bp = HeroBlueprints.blueprint(heroID: id, role: master.hero(id)?.role)
+        _ = meshSet(heroID: id, blueprint: bp)
+        let skin = HeroSkins.resolve(heroID: id, skinID: skinID, master: master)
+        let palette = HeroPalettes.palette(heroID: id, blueprint: bp, skin: skin)
+        _ = HeroMaterialLibrary.materials(key: "\(id)#\(skin.variant)#\(skin.isEpic)", palette: palette)
         _ = HeroEffectMeshes.teamRingSolid
         _ = HeroEffectMeshes.teamRingDashed
         _ = HeroEffectMeshes.groundRing
+        _ = HeroEffectMeshes.shadowOnly
+        guard let (template, tinted) = skinnedTemplate(heroID: id, skin: skin, source: .auto) else { return }
+        if tinted { _ = template.materials(tint: HeroAssetLibrary.skinTint(palette, variant: skin.variant)) }
+        for kind in propKinds(bp) { _ = HeroAssetLibrary.propTemplate(kind) }
+    }
+
+    /// 非同期版の 1 人分。同梱 USDZ（スキン専用 → 本体、武器・副手）の読み込み・パースをメインスレッドの外で待ち、
+    /// 残り（手続きメッシュ・マテリアル・着色）は同期版で行う（USDZ はキャッシュ参照だけになる）。
+    static func preloadAsync(heroID id: String, skinID: String?, master: MasterData) async {
+        let bp = HeroBlueprints.blueprint(heroID: id, role: master.hero(id)?.role)
+        let skin = HeroSkins.resolve(heroID: id, skinID: skinID, master: master)
+        var found = false
+        if let cid = skin.cosmeticID, let url = HeroAssetLibrary.bundledURL("Hero_\(id)_\(cid)") {
+            found = await HeroAssetLibrary.loadHeroTemplate(url) != nil
+        }
+        if !found, let url = HeroAssetLibrary.bundledURL("Hero_\(id)") {
+            found = await HeroAssetLibrary.loadHeroTemplate(url) != nil
+        }
+        if found {
+            for kind in propKinds(bp) { _ = await HeroAssetLibrary.loadPropTemplate(kind) }
+        }
+        preload(heroID: id, skinID: skinID, master: master)
+    }
+
+    /// 試合に使わない読み込み済みテンプレートを捨てる（メモリ上限）。読み込みはしない（URL の解決だけ）ので、
+    /// ロード画面の最初に呼んでから preload(heroID:skinID:) を進める。試合で使うものは残すので読み直さない。
+    static func purge(keepingPlayers players: [(heroID: String, skinID: String?)], master: MasterData) {
+        var keepHeroes = Set<URL>(), keepProps = Set<String>()
+        for (id, skinID) in players {
+            // 使う候補（スキン専用・本体）をどちらも残す。読み込み前なので、壊れたスキン専用の代わりに本体を使う場合も含める
+            let skin = HeroSkins.resolve(heroID: id, skinID: skinID, master: master)
+            let urls = [skin.cosmeticID.flatMap { HeroAssetLibrary.bundledURL("Hero_\(id)_\($0)") },
+                        HeroAssetLibrary.bundledURL("Hero_\(id)")].compactMap { $0 }
+            guard !urls.isEmpty else { continue }
+            keepHeroes.formUnion(urls)
+            keepProps.formUnion(propKinds(HeroBlueprints.blueprint(heroID: id, role: master.hero(id)?.role)))
+        }
+        HeroAssetLibrary.purge(keepingHeroes: keepHeroes, props: keepProps)
+    }
+
+    /// スキンメッシュで Prop_<kind>.usdz を探す武器・副手（体に付ける籠手・爪は除く）。
+    private static func propKinds(_ bp: HeroBlueprint) -> [String] {
+        ["\(bp.weapon)", "\(bp.offhand)"].filter { !SkinnedHeroModel.bodyWornGear.contains($0) }
     }
 
     static func meshSet(heroID: String, blueprint: HeroBlueprint) -> HeroMeshSet {
@@ -67,6 +179,13 @@ enum HeroModelLibrary {
         let set = assembler.build(name: "hero.\(heroID)")
         meshCache[heroID] = set
         return set
+    }
+
+    /// update(moveSpeed:) の速度を m/s へ（sim ユニット/秒。20 以下は m/s とみなす）。
+    static func metersPerSecond(_ moveSpeed: Double) -> Float {
+        var speed = Float(max(0, moveSpeed))
+        if speed > 20 { speed /= Float(Balance.unitsPerMeter) }
+        return speed
     }
 }
 
@@ -116,7 +235,7 @@ enum HeroEffectMeshes {
 
 /// 手続き生成ヒーロー。root 直下に body（死亡フェード用）→ motion（全身の移動・傾き）→ 骨の階層。
 @MainActor
-final class HeroModel: HeroModelHandle {
+final class HeroModel: HeroDisplayModel {
     let root = Entity()
     let overheadHeight: Float
     let heroID: String
@@ -124,6 +243,7 @@ final class HeroModel: HeroModelHandle {
     /// 骨・装備・効果を含むエンティティ数（性能確認用）。
     private(set) var entityCount = 0
     let triangleCount: Int
+    var isSkinned: Bool { false }
 
     private let body = Entity()
     private let motion = Entity()
@@ -145,10 +265,7 @@ final class HeroModel: HeroModelHandle {
     private let wingR: ModelEntity?
     private let flag: ModelEntity?
     private let float: ModelEntity?
-    private let castGlow: Entity
-    private let groundRing: ModelEntity
-    private let teamRing: ModelEntity?
-    private let aura: Entity?
+    private var effects: HeroEffects
 
     private let metrics: BodyMetrics
     private let floatMotion: FloatMotion
@@ -156,10 +273,6 @@ final class HeroModel: HeroModelHandle {
     private let weaponFollowsArm: Bool
     private let offhandFollowsArm: Bool
     private var animator: HeroAnimator
-    private var appliedOpacity: Float = 1
-    private var glowVisible = false
-    private var ringVisible = false
-    private var auraVisible = true
 
     init(heroID: String, skin: HeroSkinInfo, blueprint bp: HeroBlueprint, meshes ms: HeroMeshSet,
          materials: [RealityKit.Material], palette: HeroPalette, team: Team, options: HeroModelOptions,
@@ -251,112 +364,13 @@ final class HeroModel: HeroModelHandle {
             float.position = ms.floatAnchor
         }
 
-        // 詠唱の光（武器の先端）
-        // 粒子は常にカメラを向くので、柔らかな光の玉として使う
-        castGlow = Entity()
-        castGlow.name = "castGlow"
-        castGlow.components.set(HeroModel.glowEmitter(color: palette.glow.with(s: palette.glow.s * 0.8, b: 1).uiColor))
-        castGlow.position = ms.weaponTip
-        castGlow.scale = V3(repeating: 0.001)
-        castGlow.isEnabled = false
-        weapon.addChild(castGlow)
-
-        // 帰還・奥義の足元の輪
-        groundRing = ModelEntity()
-        groundRing.name = "groundRing"
-        groundRing.components.set(ModelComponent(mesh: HeroEffectMeshes.groundRing,
-                                                 materials: [HeroMaterialLibrary.unlit(palette.glow, opacity: 0.8)]))
-        groundRing.position = V3(0, GroundLayer.castRing, 0)
-        groundRing.isEnabled = false
-        OverlayOrder.apply(groundRing, OverlayOrder.castRing)
-        body.addChild(groundRing)
-
-        // チームリングと丸影
-        if options.teamMarker && team != .neutral {
-            let color = UIColor(Theme.teamColor(team, colorblind: options.colorblind))
-            let ring = ModelEntity()
-            ring.name = "teamRing"
-            ring.components.set(ModelComponent(
-                mesh: team == .red ? HeroEffectMeshes.teamRingDashed : HeroEffectMeshes.teamRingSolid,
-                materials: [HeroMaterialLibrary.unlit(color, opacity: 0.82),
-                            HeroMaterialLibrary.unlit(HSB(0, 0, 0), opacity: 0.32)]))
-            OverlayOrder.apply(ring, OverlayOrder.unitMarker)
-            body.addChild(ring)
-            teamRing = ring
-        } else if options.shadow {
-            let shadow = ModelEntity()
-            shadow.name = "shadow"
-            shadow.components.set(ModelComponent(mesh: HeroEffectMeshes.shadowOnly, materials: [
-                HeroMaterialLibrary.unlit(HSB(0, 0, 0), opacity: 0.32),
-                HeroMaterialLibrary.unlit(HSB(0, 0, 0), opacity: 0.32)]))
-            OverlayOrder.apply(shadow, OverlayOrder.unitMarker)
-            body.addChild(shadow)
-            teamRing = shadow
-        } else {
-            teamRing = nil
-        }
-
-        // Epic スキンのオーラ
-        if palette.aura && options.aura {
-            let e = Entity()
-            e.name = "aura"
-            e.components.set(HeroModel.auraEmitter(color: palette.glow.uiColor))
-            e.position = V3(0, 0.1, 0)
-            body.addChild(e)
-            aura = e
-        } else {
-            aura = nil
-        }
+        effects = HeroEffects(body: body, glowParent: weapon, weaponTip: ms.weaponTip, palette: palette, team: team,
+                              options: options)
 
         animator = HeroAnimator(profile: HeroMotionProfile(blueprint: bp, metrics: ms.metrics),
                                 defaultRunSpeed: defaultRunSpeed)
-        entityCount = HeroModel.countEntities(root)
+        entityCount = HeroEffects.countEntities(root)
         apply(animator.current, time: 0)
-    }
-
-    private static func countEntities(_ e: Entity) -> Int {
-        var n = 1
-        for c in e.children { n += countEntities(c) }
-        return n
-    }
-
-    private static func glowEmitter(color: UIColor) -> ParticleEmitterComponent {
-        var p = ParticleEmitterComponent()
-        p.emitterShape = .sphere
-        p.emitterShapeSize = [0.02, 0.02, 0.02]
-        p.birthLocation = .volume
-        p.speed = 0.02
-        p.speedVariation = 0.02
-        p.particlesInheritTransform = true
-        p.mainEmitter.birthRate = 70
-        p.mainEmitter.lifeSpan = 0.22
-        p.mainEmitter.lifeSpanVariation = 0.05
-        p.mainEmitter.size = 0.2
-        p.mainEmitter.sizeVariation = 0.05
-        p.mainEmitter.color = .evolving(start: .single(color), end: .single(color.withAlphaComponent(0)))
-        p.mainEmitter.blendMode = .additive
-        p.mainEmitter.opacityCurve = .quickFadeInOut
-        return p
-    }
-
-    private static func auraEmitter(color: UIColor) -> ParticleEmitterComponent {
-        var p = ParticleEmitterComponent()
-        p.emitterShape = .cylinder
-        p.emitterShapeSize = [0.42, 0.04, 0.42]
-        p.birthLocation = .surface
-        p.emissionDirection = [0, 1, 0]
-        p.speed = 0.22
-        p.speedVariation = 0.08
-        p.mainEmitter.birthRate = 20
-        p.mainEmitter.lifeSpan = 1.5
-        p.mainEmitter.lifeSpanVariation = 0.3
-        p.mainEmitter.size = 0.035
-        p.mainEmitter.sizeVariation = 0.015
-        p.mainEmitter.acceleration = [0, 0.25, 0]
-        p.mainEmitter.color = .evolving(start: .single(color), end: .single(color.withAlphaComponent(0)))
-        p.mainEmitter.blendMode = .additive
-        p.mainEmitter.opacityCurve = .quickFadeInOut
-        return p
     }
 
     // MARK: HeroModelHandle
@@ -368,16 +382,19 @@ final class HeroModel: HeroModelHandle {
         animator.setState(state)
         if wasDead && state != .dead {
             // 復活: 即座に不透明へ戻す
-            setOpacity(1)
+            effects.setOpacity(1, body: body)
         }
     }
 
     func update(dt: Double, moveSpeed: Double) {
         // moveSpeed は sim ユニット/秒（HeroDef.moveSpeed と同じ単位）。20 以下は m/s とみなす。
-        var speed = Float(max(0, moveSpeed))
-        if speed > 20 { speed /= Float(Balance.unitsPerMeter) }
-        let pose = animator.advance(dt: Float(dt), moveSpeed: speed)
+        let pose = animator.advance(dt: Float(dt), moveSpeed: HeroModelLibrary.metersPerSecond(moveSpeed))
         apply(pose, time: animator.time)
+    }
+
+    /// 任意の姿勢を適用する（テスト用。スキンメッシュとの比較に使う）。
+    func applyPose(_ p: HeroPose, time: Float = 0) {
+        apply(p, time: time)
     }
 
     // MARK: 適用
@@ -427,6 +444,86 @@ final class HeroModel: HeroModelHandle {
             }
         }
 
+        effects.apply(p, time: t, dead: animator.state == .dead, body: body)
+    }
+}
+
+// MARK: - 共通の効果
+
+/// 手続き・スキンメッシュの両モデルが共有する効果（詠唱の光・足元の輪・チームリング / 丸影・Epic オーラ・死亡フェード）。
+@MainActor
+struct HeroEffects {
+    let castGlow: Entity
+    let groundRing: ModelEntity
+    let teamRing: ModelEntity?
+    let aura: Entity?
+    private var appliedOpacity: Float = 1
+    private var glowVisible = false
+    private var ringVisible = false
+    private var auraVisible = true
+
+    /// castGlow は glowParent（武器）の weaponTip に、輪・チームリング・オーラは body の下に置く。
+    init(body: Entity, glowParent: Entity, weaponTip: V3, palette: HeroPalette, team: Team, options: HeroModelOptions) {
+        // 詠唱の光（武器の先端）
+        // 粒子は常にカメラを向くので、柔らかな光の玉として使う
+        castGlow = Entity()
+        castGlow.name = "castGlow"
+        castGlow.components.set(HeroEffects.glowEmitter(color: palette.glow.with(s: palette.glow.s * 0.8, b: 1).uiColor))
+        castGlow.position = weaponTip
+        castGlow.scale = V3(repeating: 0.001)
+        castGlow.isEnabled = false
+        glowParent.addChild(castGlow)
+
+        // 帰還・奥義の足元の輪
+        groundRing = ModelEntity()
+        groundRing.name = "groundRing"
+        groundRing.components.set(ModelComponent(mesh: HeroEffectMeshes.groundRing,
+                                                 materials: [HeroMaterialLibrary.unlit(palette.glow, opacity: 0.8)]))
+        groundRing.position = V3(0, GroundLayer.castRing, 0)
+        groundRing.isEnabled = false
+        OverlayOrder.apply(groundRing, OverlayOrder.castRing)
+        body.addChild(groundRing)
+
+        // チームリングと丸影
+        if options.teamMarker && team != .neutral {
+            let color = UIColor(Theme.teamColor(team, colorblind: options.colorblind))
+            let ring = ModelEntity()
+            ring.name = "teamRing"
+            ring.components.set(ModelComponent(
+                mesh: team == .red ? HeroEffectMeshes.teamRingDashed : HeroEffectMeshes.teamRingSolid,
+                materials: [HeroMaterialLibrary.unlit(color, opacity: 0.82),
+                            HeroMaterialLibrary.unlit(HSB(0, 0, 0), opacity: 0.32)]))
+            OverlayOrder.apply(ring, OverlayOrder.unitMarker)
+            body.addChild(ring)
+            teamRing = ring
+        } else if options.shadow {
+            let shadow = ModelEntity()
+            shadow.name = "shadow"
+            shadow.components.set(ModelComponent(mesh: HeroEffectMeshes.shadowOnly, materials: [
+                HeroMaterialLibrary.unlit(HSB(0, 0, 0), opacity: 0.32),
+                HeroMaterialLibrary.unlit(HSB(0, 0, 0), opacity: 0.32)]))
+            OverlayOrder.apply(shadow, OverlayOrder.unitMarker)
+            body.addChild(shadow)
+            teamRing = shadow
+        } else {
+            teamRing = nil
+        }
+
+        // Epic スキンのオーラ
+        if palette.aura && options.aura {
+            let e = Entity()
+            e.name = "aura"
+            e.components.set(HeroEffects.auraEmitter(color: palette.glow.uiColor))
+            e.position = V3(0, 0.1, 0)
+            body.addChild(e)
+            aura = e
+        } else {
+            aura = nil
+        }
+    }
+
+    /// 発光・足元の輪・オーラ・透明度を姿勢に合わせる（毎フレーム）。
+    mutating func apply(_ p: HeroPose, time t: Float, dead: Bool, body: Entity) {
         let g = p.glow
         let showGlow = g > 0.03
         if showGlow != glowVisible {
@@ -446,16 +543,16 @@ final class HeroModel: HeroModelHandle {
             groundRing.orientation = ry(t * 1.4)
         }
         if let aura {
-            let show = animator.state != .dead
+            let show = !dead
             if show != auraVisible {
                 aura.isEnabled = show
                 auraVisible = show
             }
         }
-        setOpacity(p.opacity)
+        setOpacity(p.opacity, body: body)
     }
 
-    private func setOpacity(_ o: Float) {
+    mutating func setOpacity(_ o: Float, body: Entity) {
         let v = min(1, max(0, o))
         guard abs(v - appliedOpacity) > 0.004 || (v >= 0.999 && appliedOpacity < 1) else { return }
         if v >= 0.999 {
@@ -465,5 +562,50 @@ final class HeroModel: HeroModelHandle {
             body.components.set(OpacityComponent(opacity: v))
             appliedOpacity = v
         }
+    }
+
+    static func countEntities(_ e: Entity) -> Int {
+        var n = 1
+        for c in e.children { n += countEntities(c) }
+        return n
+    }
+
+    private static func glowEmitter(color: UIColor) -> ParticleEmitterComponent {
+        var p = ParticleEmitterComponent()
+        p.emitterShape = .sphere
+        p.emitterShapeSize = [0.02, 0.02, 0.02]
+        p.birthLocation = .volume
+        p.speed = 0.02
+        p.speedVariation = 0.02
+        p.particlesInheritTransform = true
+        p.mainEmitter.birthRate = 70
+        p.mainEmitter.lifeSpan = 0.22
+        p.mainEmitter.lifeSpanVariation = 0.05
+        p.mainEmitter.size = 0.2
+        p.mainEmitter.sizeVariation = 0.05
+        p.mainEmitter.color = .evolving(start: .single(color), end: .single(color.withAlphaComponent(0)))
+        p.mainEmitter.blendMode = .additive
+        p.mainEmitter.opacityCurve = .quickFadeInOut
+        return p
+    }
+
+    private static func auraEmitter(color: UIColor) -> ParticleEmitterComponent {
+        var p = ParticleEmitterComponent()
+        p.emitterShape = .cylinder
+        p.emitterShapeSize = [0.42, 0.04, 0.42]
+        p.birthLocation = .surface
+        p.emissionDirection = [0, 1, 0]
+        p.speed = 0.22
+        p.speedVariation = 0.08
+        p.mainEmitter.birthRate = 20
+        p.mainEmitter.lifeSpan = 1.5
+        p.mainEmitter.lifeSpanVariation = 0.3
+        p.mainEmitter.size = 0.035
+        p.mainEmitter.sizeVariation = 0.015
+        p.mainEmitter.acceleration = [0, 0.25, 0]
+        p.mainEmitter.color = .evolving(start: .single(color), end: .single(color.withAlphaComponent(0)))
+        p.mainEmitter.blendMode = .additive
+        p.mainEmitter.opacityCurve = .quickFadeInOut
+        return p
     }
 }

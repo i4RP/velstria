@@ -1,0 +1,334 @@
+{
+  "$comment": "Tripo v3 生成用マニフェスト（tools/tripo.mjs が読む・手書き）。配色は HeroBlueprints / Theme.heroHue / HeroPalettes に合わせる。武器・浮遊物・光輪・翼・発光エフェクトは実行時に付けるので本体には描かない。本体の役名は武器を連想させない語にする（assassin・gunner など）。まず run heroes ... --until concept でコンセプト画像に武器・ホルスター・鞘が無いことを確かめてから model 以降を買う。",
+  "style": {
+    "bodyPrefix": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view.",
+    "bodySuffix": "Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo.",
+    "bodyNegative": "weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo, bare thighs, exposed underwear, revealing outfit",
+    "propPrefix": "Single stylized fantasy MOBA game item, one object only, upright and perfectly vertical:",
+    "propSuffix": "Orthographic view, centered with margin, whole object visible, plain light-gray background, even soft lighting, stylized hand-painted texture, chunky readable shapes for a top-down game camera, no hands, no text, no logo.",
+    "propNegative": "hand, person, character, multiple objects, duplicates, tilted, diagonal, cropped, perspective, cast shadow, floor, particles, smoke, sparks, background scenery, text, watermark, logo",
+    "skinPrefix": "Repaint this exact character keeping the same design, shapes and details; change only colors, materials and surface patterns.",
+    "skinSuffix": "Keep the original face and skin tone. Stylized hand-painted game texture, clean readable color blocks."
+  },
+  "heroes": [
+    {
+      "id": "H001", "name_ja": "城門の誓衛アルデン", "name_en": "Alden, Gate Warden", "role": "Vanguard",
+      "prompt": "Burly armored knight guardian (man), heavy broad build. Full silver plate armor with golden-yellow enamel panels, huge rounded pauldrons with castle-battlement rims, layered plate tassets over the hips, golden-yellow tabard with an azure-blue gate emblem. Closed silver knight helmet with a T-shaped visor. Knee-length golden-yellow cape with azure trim on the back. Heavy silver boots. Palette: silver, golden yellow, azure blue, pale gold.",
+      "notes": "武器 broadsword・副手 gateShield は Prop。blueprint.scale 1.06。H023 と配色が近いので閉じた兜・城壁の肩当て・金のマントで区別。"
+    },
+    {
+      "id": "H002", "name_ja": "星弦のリラ", "name_en": "Lyra, Starstring", "role": "Duelist",
+      "prompt": "Agile young woman duelist, athletic standard build, fair skin. Vivid lime-green light tunic with a fitted silver breastplate and small silver shoulder guards, short pleated lime-green skirt over fitted leggings, knee-high boots. Long pale-blonde high ponytail with a golden star hairpin. Golden star-shaped trims and a long sash tied at the waist with ribbon ends trailing behind. Palette: lime green, silver, warm gold, small cyan gems.",
+      "notes": "武器 starRapier・副手 harpBow は Prop。星の粒（starMotes）は実行時。H024 と同系の緑なのでポニーテール・金の星で区別。"
+    },
+    {
+      "id": "H003", "name_ja": "灰刃のカエル", "name_en": "Kael, Ashblade", "role": "Ranger",
+      "prompt": "Rugged ranger (man), lean standard build, tan skin. Emerald-green leather armor with the hood up over short ash-gray hair, face visible, small iron shoulder guards, ember-orange scarf around the neck, dark green belt with a cloth loincloth flap, leather bracers and boots. Leather quiver full of arrows strapped on the back. Iron buckles. Palette: emerald green, dark forest green, ash gray, ember orange.",
+      "notes": "副手 ashBow は Prop（右手は素手）。矢筒は本体に含める。"
+    },
+    {
+      "id": "H004", "name_ja": "潮祈のミレア", "name_en": "Mirea, Tidecaller", "role": "Arcanist",
+      "prompt": "Graceful young woman tide priestess, slender robed build, fair skin. Long sky-blue robe split at the front with side slits, worn over fitted opaque pearl-white trousers tucked into boots (no bare skin on the legs), pearl-white inner layers, small silver wave-shaped shoulder pieces, silver wave-pattern belt. Long deep navy-blue hair. Crown of coral-pink seashells and pearls. Coral-pink trims. Palette: sky blue, pearl white, silver, coral pink, aqua.",
+      "notes": "武器 tideStaff は Prop、水球（waterOrb）は実行時。ローブは脚が分かれるよう前開き（リグの脚変形対策）。"
+    },
+    {
+      "id": "H005", "name_ja": "黒雷のヴォス", "name_en": "Voss, Blackthunder", "role": "Support",
+      "prompt": "Stern storm sorcerer (man), lean robed build, pale skin. Indigo blue-violet robe split at the front so legs and boots stay visible, black obsidian armor pieces on chest and forearms, jagged violet crystal shoulder pauldrons, zigzag lightning-bolt trims in electric violet. Spiky white hair. Tattered dark indigo cape on the back. Palette: indigo, obsidian black, electric violet, white.",
+      "notes": "武器 lightningSpear は Prop、雷の光輪（lightningHalo）は実行時。"
+    },
+    {
+      "id": "H006", "name_ja": "月灯のセレン", "name_en": "Seren, Moonlantern", "role": "Assassin",
+      "prompt": "Nimble stealthy young woman scout, slim build, fair skin. Fitted orchid-purple leather armor, hood up over short lavender-gray hair, cloth mask covering the lower face, silver crescent-moon pin on the hood, short split kilt over leggings, soft boots, silver bracers. Long scarf tails flowing behind from the neck. Pale-gold crescent moon trims. Palette: orchid purple, dark plum, silver, pale gold.",
+      "notes": "武器 crescentDagger・副手 moonLantern は Prop。blueprint.scale 0.97。"
+    },
+    {
+      "id": "H007", "name_ja": "岩脈のガルク", "name_en": "Garruk, Stonevein", "role": "Vanguard",
+      "prompt": "Massive stone brawler (man), very heavy bulky build, tan skin. Armor of rough granite-gray rock plates on chest and shoulders with glowing orange lava veins, huge boulder-like rock pauldrons, crimson-rose cloth loincloth and headband, dark auburn mohawk and thick beard. Both forearms and hands encased in huge blocky stone gauntlets with open fingers. Bare muscular arms between rock plates. Palette: granite gray, crimson rose, warm taupe, glowing orange.",
+      "notes": "岩の籠手は前腕と一体の装着物として本体に含める（Prop_stoneFist は任意・既定スキップ）。本体 USDZ がある場合は手続き版の拳メッシュを付けないこと。blueprint.scale 1.1。"
+    },
+    {
+      "id": "H008", "name_ja": "風標のニア", "name_en": "Nia, Windvane", "role": "Duelist",
+      "prompt": "Lively young woman wind dancer, athletic standard build, fair skin. Warm amber-orange light tunic with a fitted silver breastplate, feathered shoulder pauldrons, short layered skirt over leggings, light boots. Short copper-red hair with a turquoise feather hairpin. Long turquoise wind ribbons fluttering from the belt and shoulders behind her. Palette: amber orange, silver, turquoise, cream.",
+      "notes": "武器 windBanner は Prop（旗布は実行時の手続きメッシュ）。"
+    },
+    {
+      "id": "H009", "name_ja": "機巧士オリン", "name_en": "Orin, the Artificer", "role": "Ranger",
+      "prompt": "Inventor engineer (man), standard build, tan skin. Olive-green work coat armor with brass mechanical plating, round brass shoulder guards, short kilt over cargo trousers and heavy boots. His own left arm (on the viewer's right side of the image) is entirely a mechanical brass prosthetic with pistons and gears, hand open; his right arm is a normal human arm. Brass goggles pushed up on short dark-brown hair. Bulky brass gear backpack with cogs and pipes on the back. Palette: olive green, brass, copper orange, dark brown.",
+      "notes": "武器 mechCrossbow は Prop（両手持ち）。機械の左腕・歯車の背嚢は本体に含める。"
+    },
+    {
+      "id": "H010", "name_ja": "焔冠のテッサ", "name_en": "Thessa, Flamecrown", "role": "Arcanist",
+      "prompt": "Confident young woman fire mage, slender robed build, fair skin. Jade-green robe with gold trim split at the front, worn over fitted opaque dark-green trousers tucked into boots (no bare skin on the legs), small ornate gold shoulder pieces, flame-orange sash at the waist, gold flame-pattern embroidery. Long flowing red-orange hair. Gold crown shaped like stylized flames. Palette: jade green, gold, flame orange, red.",
+      "notes": "手の炎（handFlame）・魔導書 grimoire・火球（fireOrbs）は実行時 / Prop。"
+    },
+    {
+      "id": "H011", "name_ja": "鉄翼のルーク", "name_en": "Rook, Ironwing", "role": "Support",
+      "prompt": "Steadfast guardian (man), sturdy standard build, tan skin. Turquoise-cyan surcoat over iron plate armor, round iron shoulder guards, iron plate kilt, iron greaves. Iron helmet with a slit visor over short dark slate hair. Small flat iron plate on the upper back. Steel blue-gray trims and small glowing cyan lamps on the chest. Palette: cyan turquoise, iron gray, steel blue.",
+      "notes": "鉄の翼（ironWings）は実行時の別メッシュ（羽ばたき）なので本体に描かない。武器 aegisStaff は Prop。blueprint.scale 1.03。"
+    },
+    {
+      "id": "H012", "name_ja": "玻璃歌のエリネ", "name_en": "Elyne, Crystalsong", "role": "Assassin",
+      "prompt": "Elegant stealthy young woman, slim build, pale skin. Sapphire-blue fitted light armor with silver edges, faceted clear ice-blue crystal shoulder pauldrons, short split kilt over leggings, slim boots. Pale ice-blue bob haircut. Translucent crystal glass visor over the eyes. Long scarf tails flowing behind. Palette: sapphire blue, silver, ice cyan, white.",
+      "notes": "両手の glassDagger は Prop、硝子片（glassShards）は実行時。blueprint.scale 0.97。"
+    },
+    {
+      "id": "H013", "name_ja": "獣刻のダガン", "name_en": "Dagan, Beastbrand", "role": "Vanguard",
+      "prompt": "Fierce beast-tribe warrior (man), heavy muscular build, deep brown skin. Violet-dyed fur and hide armor, big fur shoulder pauldrons, ivory bone plates on the chest, hide loincloth, fur-wrapped boots. Wild dark hair under a horned beast-skull mask worn on the head. Thick fur cape on the back. Glowing red tribal brand markings. Palette: violet, ivory bone, dark brown fur, red.",
+      "notes": "武器 boneClub・副手 hideShield は Prop。blueprint.scale 1.08。"
+    },
+    {
+      "id": "H014", "name_ja": "霧歩のシオ", "name_en": "Sio, Mistwalker", "role": "Duelist",
+      "prompt": "Calm young martial artist (man), slim build, fair skin. Rose-pink wrapped cloth outfit, fitted silver chest guard, short pleated kilt over leggings, split-toe boots. Dark navy-black hair tied in a topknot with a lavender ribbon. Pale lavender misty cloak flowing from the shoulders. Palette: rose pink, pale lavender, silver, navy black.",
+      "notes": "武器 mistKatana・副手 shortBlade は Prop。"
+    },
+    {
+      "id": "H015", "name_ja": "戦鐘のヴァルカ", "name_en": "Valka, Warbell", "role": "Ranger",
+      "prompt": "Bold young woman adventurer, sturdy standard build, fair skin. Burnt-orange leather armor with bronze plates, round bronze shoulder guards, short kilt over trousers, fur-trimmed boots. Golden-blonde long braids under a bronze horned helmet. A big bronze war bell carried on the back in a leather harness. Amber trims. Palette: burnt orange, bronze, amber, golden blonde.",
+      "notes": "武器 bellBlunderbuss は Prop（両手持ち）。背の戦鐘は本体に含める。blueprint.scale 1.02。"
+    },
+    {
+      "id": "H016", "name_ja": "白環のイリス", "name_en": "Iris, White Halo", "role": "Arcanist",
+      "prompt": "Serene young woman light mage, slender robed build, fair skin. Long chartreuse yellow-green and white layered robe split at the front, worn over fitted opaque white trousers tucked into boots (no bare skin on the legs), small gold shoulder pieces, white cloth sash, gold trims. Long straight white hair with a thin gold circlet on the forehead. Palette: chartreuse, white, gold, pale gold.",
+      "notes": "白い光輪（whiteHalo）は実行時、武器 haloStaff は Prop。"
+    },
+    {
+      "id": "H017", "name_ja": "深淵鎖のモルド", "name_en": "Mord, Abysschain", "role": "Support",
+      "prompt": "Ominous hooded cultist, gaunt robed build, ashen gray-green skin. Bright green and dark green layered robe split at the front so legs and boots stay visible, iron chain belt, iron bracers. Deep hood hiding the face in shadow with two glowing violet eyes, a dark iron mask over the mouth. Tattered dark purple cape on the back. Palette: green, dark green, iron gray, dark purple, glowing violet.",
+      "notes": "深淵の鎖（abyssChains）は実行時、香炉 abyssCenser は Prop。"
+    },
+    {
+      "id": "H018", "name_ja": "花星のセリア", "name_en": "Celia, Blossomstar", "role": "Assassin",
+      "prompt": "Playful adult woman, slim build, fair skin. Mint-aqua fitted cloth outfit with gold trims, skirt of layered pink flower petals over leggings, light shoes. Pink bob haircut with a crown of pink blossoms and a small gold crescent pin. Palette: mint aqua, blossom pink, gold.",
+      "notes": "両手の petalBlade は Prop、花弁（petals）は実行時。blueprint.scale 0.96。"
+    },
+    {
+      "id": "H019", "name_ja": "砦砕のブラム", "name_en": "Bram, Fortbreaker", "role": "Vanguard",
+      "prompt": "Colossal siege warrior (man), very heavy broad build, tan skin. Thick cobalt-blue and iron plate armor with riveted bands, enormous iron shoulder pauldrons, plate tassets, heavy iron boots. Closed iron helmet with two large curved horns. Orange-hot glowing rivets and orange cloth straps. Palette: cobalt blue, iron gray, orange.",
+      "notes": "武器 siegeHammer は Prop（両手持ち）。blueprint.scale 1.12。"
+    },
+    {
+      "id": "H020", "name_ja": "光矢のユナ", "name_en": "Yuna, Lightarrow", "role": "Duelist",
+      "prompt": "Bright young woman adventurer, athletic standard build, fair skin. Amethyst-purple light armor with gold edges, small gold shoulder guards, short pleated skirt over leggings, knee boots. Golden-blonde twin tails tied with golden ribbons. Golden arrow-shaped trims on the chest. Palette: amethyst purple, gold, golden yellow, white.",
+      "notes": "武器 lightArrowBlade・副手 lightBow は Prop。"
+    },
+    {
+      "id": "H021", "name_ja": "時砂のキロス", "name_en": "Kiros, Timesand", "role": "Ranger",
+      "prompt": "Weathered desert drifter (man), lean standard build, tan skin. Long magenta-fuchsia leather coat with brass buckles, small brass shoulder guards, plum vest, belts with sand-gold hourglass ornaments, tall boots. Wide-brimmed hat over short sandy-blond hair, sand-gold scarf around the neck. Palette: magenta, plum, brass, sand gold.",
+      "notes": "武器 sandRifle は Prop（両手持ち）、砂時計（hourglass）は実行時。"
+    },
+    {
+      "id": "H022", "name_ja": "蒼爪のレア", "name_en": "Rhea, Azureclaw", "role": "Arcanist",
+      "prompt": "Wild young woman beast mage, slender robed build, fair skin. Scarlet-red robe with silver trims split at the front, worn over fitted opaque dark navy-blue trousers tucked into boots (no bare skin on the legs or hips), small silver shoulder pieces. Wild pale ice-blue hair with fox ears on top of the head. Silver gauntlets on both forearms with three curved azure crystal claws over the back of each open hand. Azure gem accents. Palette: scarlet red, silver, azure blue, ice white.",
+      "notes": "蒼爪は前腕と一体の装着物として本体に含める（Prop_azureClaw は任意・既定スキップ）。爪の結晶（clawCrystals）は実行時。"
+    },
+    {
+      "id": "H023", "name_ja": "雷槍のトレン", "name_en": "Toren, Thunderspear", "role": "Support",
+      "prompt": "Noble armored guardian (man), sturdy standard build, tan skin. Silver plate armor with a mustard-yellow cloth surcoat, round silver pauldrons, plate kilt, silver greaves. Open-faced silver helmet with small wing ornaments on both sides, short dark-brown hair. Long azure-blue cape on the back. Zigzag lightning trims in azure. Palette: silver, mustard yellow, azure blue.",
+      "notes": "武器 thunderLance は Prop、雷球（thunderOrb）は実行時。兜の小翼は本体に含める（背中の翼ではない）。"
+    },
+    {
+      "id": "H024", "name_ja": "夢織のノア", "name_en": "Noa, Dreamweaver", "role": "Assassin",
+      "prompt": "Dreamy adult woman, slim build, fair skin. Soft layered lime-green and lilac cloth outfit with silver trims, short ruffled kilt over striped leggings, soft boots. Lavender bob hair under a long floppy lilac nightcap with a silver crescent pin. Silver thread-spool ornaments on the belt. Palette: lime green, lilac, lavender, silver.",
+      "notes": "両手の dreamNeedle は Prop、夢の糸（dreamThreads）は実行時。blueprint.scale 0.96。"
+    }
+  ],
+  "props": [
+    {
+      "kind": "broadsword", "heroes": ["H001"], "grip": 0.1, "optional": false,
+      "prompt": "a broad one-handed knight sword, front view of the flat of the blade, blade tip pointing straight up and hilt at the bottom, wide straight double-edged silver blade with a pale-gold glowing fuller, square silver crossguard, dark leather-wrapped grip, round silver pommel with a golden gem, small azure-blue enamel accents."
+    },
+    {
+      "kind": "starRapier", "heroes": ["H002"], "grip": 0.12, "optional": false,
+      "prompt": "a slender star rapier, front view, thin tapering silver blade pointing straight up, ornate silver cup guard with a curved knuckle bow, glowing cyan line along the blade, lime-green wrapped grip, golden five-pointed star pommel at the bottom."
+    },
+    {
+      "kind": "tideStaff", "heroes": ["H004"], "grip": 0.32, "optional": false,
+      "prompt": "a tide priestess staff, front view, long slender pearl-white shaft with three silver rings, at the top a crescent wave crest cradling a large glowing aqua water orb, small coral-pink shell ornaments beside the orb, silver spike cap at the bottom."
+    },
+    {
+      "kind": "lightningSpear", "heroes": ["H005"], "grip": 0.27, "optional": false,
+      "prompt": "a black lightning spear, front view, long obsidian-black shaft with glowing violet rings, spearhead shaped like a jagged zigzag lightning bolt in black metal with a glowing violet core pointing up, short crossbar with two violet orbs below the head, pointed black butt cap."
+    },
+    {
+      "kind": "crescentDagger", "heroes": ["H006"], "grip": 0.18, "optional": false,
+      "prompt": "a crescent moon dagger, front view of the flat of the blade, short curved silver blade shaped like a crescent moon pointing up, its outer curved cutting edge bulging to the right side of the image, pale-gold glowing inner edge, small silver crossguard, dark purple wrapped grip, round silver pommel at the bottom."
+    },
+    {
+      "kind": "stoneFist", "heroes": ["H007"], "grip": 0.5, "optional": true, "bodyWorn": true,
+      "prompt": "a huge stone gauntlet, front view, blocky granite-gray rock fist with a short forearm cuff on top, glowing orange lava cracks and two small orange crystals.",
+      "notes": "前腕の装着物。本体（H007）のメッシュに含める。実行時は Prop として付けない（SkinnedHeroModel.bodyWornGear）ので import は bodyWorn を取り込まない。"
+    },
+    {
+      "kind": "windBanner", "heroes": ["H008"], "grip": 0.3, "optional": false,
+      "prompt": "a slender wind-vane spear, front view, long silver pole, leaf-shaped silver spearhead pointing up with a glowing turquoise center line, two turquoise rings on the upper shaft, pointed silver butt cap.",
+      "negative": "flag, banner cloth, pennant, fabric",
+      "notes": "旗布は実行時の手続きメッシュ（flagAnchor）で付けるので槍だけ。"
+    },
+    {
+      "kind": "mechCrossbow", "heroes": ["H009"], "grip": 0.35, "optional": false, "axis": "vertical", "yaw": -90, "side": "gun",
+      "prompt": "a mechanical repeating crossbow seen from directly above, front end pointing up, brass bow limbs spread left and right near the top, olive-green stock running down the center, brass gear wheel on the side, bolt magazine on top, glowing orange string, short grip handle at the bottom.",
+      "notes": "手続き版は弓が ±X に広がり上面が +Z。上から見た画像の正面（上面）を正規化で yaw -90 して +Z へ、左右の弓は ±X へ。"
+    },
+    {
+      "kind": "handFlame", "heroes": ["H010"], "grip": 0.15, "optional": true,
+      "prompt": "a solid stylized flame sculpture, front view, teardrop-shaped fireball rising upward with three curling flame tongues, orange and gold.",
+      "notes": "魔法の炎。発光エフェクトは手続き版のほうが良いので既定スキップ。"
+    },
+    {
+      "kind": "aegisStaff", "heroes": ["H011"], "grip": 0.3, "optional": false,
+      "prompt": "an iron lantern staff, front view, long iron shaft, at the top an iron cage lantern of four bars around a glowing cyan orb under a pointed iron cap, small steel blue-gray feather-shaped fins on both sides of the lantern, iron spike at the bottom."
+    },
+    {
+      "kind": "glassDagger", "heroes": ["H012"], "grip": 0.2, "optional": false,
+      "prompt": "a glass crystal dagger, front view, long four-sided clear ice-blue crystal blade pointing up with a glowing light-blue core, diamond-shaped crystal crossguard, short dark sapphire-blue wrapped grip, small crystal pommel at the bottom."
+    },
+    {
+      "kind": "boneClub", "heroes": ["H013"], "grip": 0.15, "optional": false,
+      "prompt": "a primitive bone club, front view, thick ivory bone shaft widening toward the top, large knobbed bone head ringed with curved ivory fangs, glowing red band below the head, dark violet leather wrap at the bottom grip, small bone knob at the very bottom."
+    },
+    {
+      "kind": "mistKatana", "heroes": ["H014"], "grip": 0.12, "optional": false,
+      "prompt": "a mist katana, front view of the flat of the blade, long slightly curved single-edged silver blade pointing up with the pale misty-blue glowing cutting edge on the right side of the image, round silver guard, long dark navy-black wrapped hilt with rose-pink diamond pattern, small silver pommel at the bottom."
+    },
+    {
+      "kind": "shortBlade", "heroes": ["H014"], "grip": 0.15, "optional": false,
+      "prompt": "a short curved companion blade, front view of the flat of the blade, slightly curved single-edged silver blade pointing up with the pale misty-blue glowing cutting edge on the right side of the image, small round silver guard, dark navy-black wrapped hilt with rose-pink pattern."
+    },
+    {
+      "kind": "bellBlunderbuss", "heroes": ["H015"], "grip": 0.33, "optional": false, "side": "gun",
+      "prompt": "a bell-mouthed blunderbuss, side profile view, standing with the muzzle pointing up and the stock at the bottom, short thick bronze barrel ending in a wide flared bell-shaped muzzle with a glowing golden rim, two amber bands on the barrel, burnt-orange wooden stock, small trigger guard, the top of the gun facing the left side of the image and the trigger guard facing the right side."
+    },
+    {
+      "kind": "haloStaff", "heroes": ["H016"], "grip": 0.3, "optional": false,
+      "prompt": "a halo staff, front view, long slender gold shaft, at the top a large gold ring standing upright with a glowing pale-gold crystal in its center and four small glowing pearls around the ring, small gold spike above the ring, gold spike at the bottom."
+    },
+    {
+      "kind": "abyssCenser", "heroes": ["H017"], "grip": 0.94, "optional": false,
+      "prompt": "an abyss censer hanging straight down, front view, small iron ring at the top, short chain of iron links, round dark iron incense burner with four claw-like spikes and a glowing violet band, small glowing violet bead at the bottom.",
+      "notes": "吊り下げ式。握り（輪）が上端なので grip は 0.94。"
+    },
+    {
+      "kind": "petalBlade", "heroes": ["H018"], "grip": 0.2, "optional": false,
+      "prompt": "a petal dagger, front view of the flat of the blade, short leaf-and-petal-shaped blossom-pink blade pointing up with a glowing pink center vein, small gold crossguard, mint-aqua wrapped grip, round gold pommel at the bottom."
+    },
+    {
+      "kind": "siegeHammer", "heroes": ["H019"], "grip": 0.2, "optional": false,
+      "prompt": "a huge siege war hammer, front view, long dark iron-banded haft with orange-wrapped rings, at the top a massive rectangular iron hammer head extending left and right with flat battering-ram faces, cobalt-blue painted band around the head, glowing orange diamond rivets, short iron spike on top."
+    },
+    {
+      "kind": "lightArrowBlade", "heroes": ["H020"], "grip": 0.2, "optional": false,
+      "prompt": "a light-arrow sword, front view, short straight blade shaped like a giant glowing golden arrowhead pointing up, small gold crossguard, amethyst-purple wrapped grip, three golden feather fletchings forming the pommel at the bottom."
+    },
+    {
+      "kind": "sandRifle", "heroes": ["H021"], "grip": 0.29, "optional": false, "side": "gun",
+      "prompt": "a time-sand long rifle, side profile view, standing with the long thin brass barrel pointing up and the stock at the bottom, plum-purple wooden stock, brass receiver with a round sand-gold gear dial and a small glowing amber hourglass crystal, slim scope tube along the barrel, the top of the rifle with the scope facing the left side of the image."
+    },
+    {
+      "kind": "azureClaw", "heroes": ["H022"], "grip": 0.8, "optional": true, "bodyWorn": true,
+      "prompt": "an azure claw gauntlet, front view, silver hand guard at the top with three long curved azure crystal claw blades extending downward, glowing blue gem on the back of the hand.",
+      "notes": "前腕の装着物。本体（H022）のメッシュに含める。実行時は Prop として付けない（SkinnedHeroModel.bodyWornGear）ので import は bodyWorn を取り込まない。"
+    },
+    {
+      "kind": "thunderLance", "heroes": ["H023"], "grip": 0.2, "optional": false,
+      "prompt": "a thunder jousting lance, front view, long tapering conical silver lance pointing up, wide round silver hand guard near the bottom, three glowing sky-blue rings around the cone, glowing blue tip, short dark grip with a round pommel below the guard."
+    },
+    {
+      "kind": "dreamNeedle", "heroes": ["H024"], "grip": 0.13, "optional": false,
+      "prompt": "a dream needle stiletto, front view, long thin silver needle blade like a giant sewing needle pointing up with a small eye loop near the base, short lilac cylindrical grip with silver end caps and two glowing lilac rings."
+    },
+    {
+      "kind": "gateShield", "heroes": ["H001"], "grip": 0.5, "optional": false, "yaw": 90,
+      "prompt": "a tall castle-gate tower shield, front view of the shield face, outline shaped like a castle tower with battlement notches along the top and a pointed bottom, golden-yellow face framed by a silver rim, dark arched gateway in the center with a silver portcullis grid, two vertical silver straps on the sides, small glowing pale-gold diamond gem above the gate.",
+      "notes": "手続き版の盾面は -Z（前方）向き。正規化で yaw 90（画像の正面 -> -Z）。"
+    },
+    {
+      "kind": "harpBow", "heroes": ["H002"], "grip": 0.1, "optional": false, "axis": "vertical", "yaw": 90,
+      "prompt": "a star-string harp bow shaped like a small lyre, front view, two mirrored silver crescent horns curving up and outward from a golden grip bar at the bottom, joined by a silver crossbar at the top, three glowing cyan strings stretched vertically, glowing golden five-pointed star ornament on top.",
+      "notes": "竪琴の底（握り棒）を持つので grip は低め。手続き版は XY 平面（面が ±Z）なので正規化で yaw 90（画像の正面 -> -Z）。"
+    },
+    {
+      "kind": "ashBow", "heroes": ["H003"], "grip": 0.5, "optional": false, "side": "bow",
+      "prompt": "an ash-blade longbow, side view, tall curved recurve bow with dark ash-gray iron limbs, four small blade spikes along the back of the limbs, glowing ember-orange inner edge, dark wrapped grip in the middle, thin glowing ember-orange string, the bow curving to the right with the string on the left side of the image."
+    },
+    {
+      "kind": "moonLantern", "heroes": ["H006"], "grip": 0.95, "optional": false,
+      "prompt": "a moon lantern hanging from a small ring at the top, front view, short silver chain, cone-shaped silver cap, round frosted pale glass globe with a glowing pale-gold crescent moon inside, four slim silver bars around the globe, silver cone at the bottom.",
+      "notes": "吊り下げ式。握り（輪）が上端なので grip は 0.95。"
+    },
+    {
+      "kind": "grimoire", "heroes": ["H010"], "grip": 0.5, "optional": false, "axis": "vertical", "yaw": 180,
+      "prompt": "a closed spellbook grimoire standing upright, front cover facing the viewer, thick dark-green leather cover, gold corner caps, glowing orange six-pointed star emblem in the center, orange clasp strap on the left edge, cream page edges."
+    },
+    {
+      "kind": "hideShield", "heroes": ["H013"], "grip": 0.5, "optional": false, "axis": "vertical", "yaw": 90,
+      "prompt": "a round beast-hide shield, front view of the shield face, violet-dyed stretched hide over a round frame, ivory bone rim, central bone boss, five ivory fang spikes pointing outward around the rim, three glowing red chevron marks painted on the hide.",
+      "notes": "手続き版の盾面は -Z（前方）向き。正規化で yaw 90（画像の正面 -> -Z）。丸盾は PCA の長軸が面内で揺れるので axis vertical（画像の上をそのまま上に）。"
+    },
+    {
+      "kind": "lightBow", "heroes": ["H020"], "grip": 0.5, "optional": false, "side": "bow",
+      "prompt": "a light bow, side view, slender curved recurve bow with polished gold limbs, glowing pale-gold inner edge, amethyst-purple wrapped grip in the middle, glowing pearls at both tips, thin glowing golden string, the bow curving to the right with the string on the left side of the image."
+    }
+  ],
+  "skins": [
+    {
+      "cosmeticID": "CO001", "heroID": "H001", "variant": 1, "variantName": "反転星 Inverse Star", "rarity": "Common",
+      "name_ja": "星鍛のアルデン", "name_en": "Starforged Alden",
+      "prompt": "Heavy knight with castle-battlement pauldrons. Royal-blue enamel armor panels, tabard and cape, deep navy cloth, polished gold plate armor instead of silver, warm orange trims, small engraved gold star motifs on the pauldrons, chest and cape, pale blue gem accents."
+    },
+    {
+      "cosmeticID": "CO025", "heroID": "H001", "variant": 2, "variantName": "夜影 Nightshade", "rarity": "Common",
+      "name_ja": "蝕の哨兵アルデン", "name_en": "Eclipse Sentinel Alden",
+      "prompt": "Heavy knight with castle-battlement pauldrons. Blackened obsidian plate armor in a blackened olive-bronze night palette with deep olive-gold undertones, near-black tabard and cape, thin silver edge trims, bright gold eclipse-ring emblem on the chest and gold accents, faint warm-gold glowing gem."
+    },
+    {
+      "cosmeticID": "CO049", "heroID": "H001", "variant": 3, "variantName": "天光 Celestial", "rarity": "Common",
+      "name_ja": "極光の城塞アルデン", "name_en": "Aurora Bastion Alden",
+      "prompt": "Heavy knight with castle-battlement pauldrons. Radiant white enamel armor with platinum plate, pale gold trims, soft pale yellow-green tabard and cape lining, warm gold accents, soft aqua glowing gems and faint aurora-like aqua highlights along the edges."
+    },
+    {
+      "cosmeticID": "CO007", "heroID": "H007", "variant": 1, "variantName": "反転星 Inverse Star", "rarity": "Epic",
+      "name_ja": "黒曜の巨人ガルク", "name_en": "Obsidian Titan Garruk",
+      "prompt": "Massive stone brawler with rock armor and stone gauntlets. Rock plates turned glossy black obsidian with teal-aquamarine crystal veins, teal loincloth and headband, slate-blue accents, glowing azure-blue cracks and gems, small star-shaped crystal inlays, dark green mohawk and beard. Ornate epic finish with glowing trim lines and engraved patterns."
+    },
+    {
+      "cosmeticID": "CO031", "heroID": "H007", "variant": 2, "variantName": "夜影 Nightshade", "rarity": "Epic",
+      "name_ja": "溶岩脈のガルク", "name_en": "Magma Vein Garruk",
+      "prompt": "Massive stone brawler with rock armor and stone gauntlets. Black basalt rock with deep crimson undertones, glowing molten orange-gold magma veins running through every rock plate, gold accents, thin silver edges, dark maroon loincloth and headband, near-black mohawk and beard. Ornate epic finish with glowing trim lines."
+    },
+    {
+      "cosmeticID": "CO055", "heroID": "H007", "variant": 3, "variantName": "天光 Celestial", "rarity": "Epic",
+      "name_ja": "水晶の巨像ガルク", "name_en": "Crystal Colossus Garruk",
+      "prompt": "Massive stone brawler with rock armor and stone gauntlets. White quartz crystal rock plates with pale gold veins, platinum details, soft peach and white cloth, warm gold accents, softly glowing aqua crystal cracks, pale golden-white mohawk and beard. Ornate epic radiant finish with glowing trim lines."
+    },
+    {
+      "cosmeticID": "CO013", "heroID": "H013", "variant": 1, "variantName": "反転星 Inverse Star", "rarity": "Common",
+      "name_ja": "霜牙のダガン", "name_en": "Frostfang Dagan",
+      "prompt": "Beast-tribe warrior with fur armor, bone plates and a horned skull mask. Frosty pale lime-green dyed fur and hide, frost-covered bone plates and fangs with pale icy-blue tint, glowing cyan tribal markings, small star-shaped frost glyphs, dark green hair."
+    },
+    {
+      "cosmeticID": "CO037", "heroID": "H013", "variant": 2, "variantName": "夜影 Nightshade", "rarity": "Common",
+      "name_ja": "熾火纏いのダガン", "name_en": "Emberhide Dagan",
+      "prompt": "Beast-tribe warrior with fur armor, bone plates and a horned skull mask. Dark violet-black fur and charred hide, charcoal bone plates with thin silver edges, smoldering ember-orange and gold accents, glowing deep-red ember markings, very dark hair."
+    },
+    {
+      "cosmeticID": "CO061", "heroID": "H013", "variant": 3, "variantName": "天光 Celestial", "rarity": "Common",
+      "name_ja": "天獣のダガン", "name_en": "Celestial Beast Dagan",
+      "prompt": "Beast-tribe warrior with fur armor, bone plates and a horned skull mask. Snow-white fur and pale hide, polished platinum and ivory bone plates, soft orchid-pink cloth wraps, warm gold accents, softly glowing aqua markings, pale golden-white hair."
+    },
+    {
+      "cosmeticID": "CO019", "heroID": "H019", "variant": 1, "variantName": "反転星 Inverse Star", "rarity": "Epic",
+      "name_ja": "鉄の攻城兵ブラム", "name_en": "Iron Siege Bram",
+      "prompt": "Colossal plate-armored siege warrior with a horned helmet. Amber-gold enamel armor panels, polished gold plate and horns instead of iron, azure-blue cloth straps, glowing blue rivets, small engraved star motifs. Ornate epic finish with glowing azure trim lines and engraved patterns."
+    },
+    {
+      "cosmeticID": "CO043", "heroID": "H019", "variant": 2, "variantName": "夜影 Nightshade", "rarity": "Epic",
+      "name_ja": "雷の破城槌ブラム", "name_en": "Thunder Ram Bram",
+      "prompt": "Colossal plate-armored siege warrior with a horned helmet. Blackened obsidian plate in a blackened navy-steel night palette with deep navy-blue undertones, thin silver edges, bright gold accents, glowing golden-orange rivets and crackling lightning engravings. Ornate epic finish with glowing trim lines."
+    },
+    {
+      "cosmeticID": "CO067", "heroID": "H019", "variant": 3, "variantName": "天光 Celestial", "rarity": "Epic",
+      "name_ja": "星墜の破砕者ブラム", "name_en": "Starfall Breaker Bram",
+      "prompt": "Colossal plate-armored siege warrior with a horned helmet. Gleaming white enamel and platinum plate, soft periwinkle-violet cloth straps, warm gold accents and star-shaped gold studs, falling-star engravings, softly glowing aqua trim lines. Ornate epic radiant finish."
+    }
+  ]
+}

@@ -13,6 +13,7 @@ import VelstriaCore
 //   -grant                Coin 100000 / Gem 10000 を付与し全ヒーロー解放
 //   -route <name>         起動後に画面へ直行（例: heroes, heroDetail:H003, store, settings）
 //   -battle <mode>        起動後に戦闘開始（standard / ranked / practice / tutorial / spectate）
+//   -hero <heroID>        -battle で自分が使うヒーロー（省略時は最後に選んだヒーロー、無ければ H003）
 //   -language <ja|en>     表示言語
 //   -heroGallery          ヒーロー 3D モデル一覧（hero-models の目視確認用）
 
@@ -70,7 +71,7 @@ enum DebugLaunch {
             app.router.path = [route]
         }
         if let mode = value(after: "-battle") {
-            let hero = p.lastPickedHeroID ?? "H003"
+            let hero = value(after: "-hero").flatMap { app.master.hero($0)?.heroID } ?? p.lastPickedHeroID ?? "H003"
             let seed: UInt64 = 20261001
             let name = p.displayName.isEmpty ? "Tester" : p.displayName
             switch mode {

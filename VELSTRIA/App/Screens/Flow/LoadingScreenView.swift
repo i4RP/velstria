@@ -208,23 +208,36 @@ struct LoadingScreenView: View {
         let stalls = (0..<n).map { _ in 0.3 + rng.nextDouble() * 0.4 }
         progress = Array(repeating: 0, count: n)
         tipIndex = FlowTips.startIndex(seed: launch.config.seed)
-        // 実処理: 登場ヒーローのマスター参照を解決しておく
+        // 実処理: 登場ヒーローのマスター参照を解決し、3D モデル（メッシュ・同梱 USDZ）を読み込んでおく
         for slot in launch.config.players {
             _ = app.master.hero(slot.heroID)
             _ = app.master.skills(forHero: slot.heroID)
         }
+        // 前の試合のテンプレートを先に捨て、読み込みは 1 tick に 1 人ずつ（まとめて読むと最初のフレームが止まる）
+        let players = launch.config.players.map { (heroID: $0.heroID, skinID: $0.skinID) }
+        HeroModelLibrary.purge(keepingPlayers: players, master: app.master)
+        var loaded = 0
         let start = Date()
         var tipRotated = false
         while !Task.isCancelled {
             try? await Task.sleep(for: .milliseconds(40))
+            if loaded < players.count {
+                // USDZ の読み込みはメインスレッドの外で待つ（ロード画面のアニメーションを止めない）
+                await HeroModelLibrary.preloadAsync(heroID: players[loaded].heroID, skinID: players[loaded].skinID,
+                                                    master: app.master)
+                loaded += 1
+            }
             let t = Date().timeIntervalSince(start)
-            progress = (0..<n).map { i in Self.stalledProgress(min(1, t / durations[i]), stall: stalls[i]) }
+            // 読み込み前のカードは 100% にしない
+            progress = (0..<n).map { i in
+                min(i < loaded ? 1 : 0.95, Self.stalledProgress(min(1, t / durations[i]), stall: stalls[i]))
+            }
             overall = min(1, t / Self.minimumDuration)
             if !tipRotated && t > 1.1 {
                 tipRotated = true
                 withAnimation(.easeInOut(duration: 0.4)) { tipIndex += 1 }
             }
-            if t >= Self.minimumDuration && progress.allSatisfy({ $0 >= 1 }) { break }
+            if t >= Self.minimumDuration && loaded == players.count && progress.allSatisfy({ $0 >= 1 }) { break }
         }
         if Task.isCancelled { return }
         app.audio.play(.announcement)
