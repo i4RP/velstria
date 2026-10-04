@@ -41,6 +41,11 @@ final class PerfRun {
         DebugLaunch.value(after: "-perfSpeed").flatMap(Double.init).map { min(max($0, 0.25), 8) } ?? 1
     }
     static var exitWhenDone: Bool { DebugLaunch.args.contains("-perfExit") }
+    /// -perfQuality <low|medium|high>: 保存済みの画質設定を上書きして計測する。
+    static var requestedQuality: GraphicsQuality? {
+        guard let name = DebugLaunch.value(after: "-perfQuality") else { return nil }
+        return GraphicsQuality.allCases.first { "\($0)" == name }
+    }
 
     let seconds: Double
     private var elapsed: Double = 0

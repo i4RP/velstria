@@ -45,6 +45,10 @@ final class BattleRenderer {
     #endif
 
     init(controller: BattleController, settings: RenderSettings) {
+        var settings = settings
+        #if DEBUG || SCREENSHOTS
+        if let q = PerfRun.requestedQuality { settings.quality = .preset(q) }
+        #endif
         self.controller = controller
         self.settings = settings
         post = PostProcessor(settings: PostProcessor.isAvailable ? .preset(settings.quality.level) : .preset(.low))
