@@ -35,6 +35,11 @@ enum SkillCastMode: Int, Codable, CaseIterable, Identifiable {
     var id: Int { rawValue }
 }
 
+enum AttackButtonSlot: String, CaseIterable, Identifiable {
+    case top, center, bottom
+    var id: String { rawValue }
+}
+
 enum AgeBracket: Int, Codable, CaseIterable, Identifiable {
     case under13, age13to15, age16to19, adult
     var id: Int { rawValue }
@@ -61,7 +66,10 @@ struct GameSettings: Codable, Equatable {
     var showDamageNumbers = true
     var joystickMode: JoystickMode = .floating
     var skillCastMode: SkillCastMode = .smart
+    /// 中央ボタンの優先対象。既存の保存データのキーを維持する。
     var attackPriority: TargetPriority = .heroesFirst
+    var topAttackPriority: TargetPriority = .structuresFirst
+    var bottomAttackPriority: TargetPriority = .minionsFirst
     /// 1.0 = 既定。0.8〜1.3。
     var cameraZoom: Double = 1.0
     var leftHandedLayout = false
@@ -73,6 +81,51 @@ struct GameSettings: Codable, Equatable {
     var notificationsEnabled = false
     var autoLevelSkills = true
     var showRecommendedItems = true
+
+    func attackPriority(for slot: AttackButtonSlot) -> TargetPriority {
+        switch slot {
+        case .top: return topAttackPriority
+        case .center: return attackPriority
+        case .bottom: return bottomAttackPriority
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case language, bgmVolume, sfxVolume, voiceVolume, hapticsEnabled
+        case graphicsQuality, frameRate, showDamageNumbers, joystickMode, skillCastMode
+        case attackPriority, topAttackPriority, bottomAttackPriority
+        case cameraZoom, leftHandedLayout, colorblindMode, hudOpacity, subtitlesEnabled
+        case notificationsEnabled, autoLevelSkills, showRecommendedItems
+    }
+}
+
+extension GameSettings {
+    /// 旧版にない設定だけを初期値で補い、保存済みの選択はそのまま読み込む。
+    init(from decoder: Decoder) throws {
+        self.init()
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        language = try values.decodeIfPresent(AppLanguage.self, forKey: .language) ?? language
+        bgmVolume = try values.decodeIfPresent(Double.self, forKey: .bgmVolume) ?? bgmVolume
+        sfxVolume = try values.decodeIfPresent(Double.self, forKey: .sfxVolume) ?? sfxVolume
+        voiceVolume = try values.decodeIfPresent(Double.self, forKey: .voiceVolume) ?? voiceVolume
+        hapticsEnabled = try values.decodeIfPresent(Bool.self, forKey: .hapticsEnabled) ?? hapticsEnabled
+        graphicsQuality = try values.decodeIfPresent(GraphicsQuality.self, forKey: .graphicsQuality) ?? graphicsQuality
+        frameRate = try values.decodeIfPresent(FrameRateOption.self, forKey: .frameRate) ?? frameRate
+        showDamageNumbers = try values.decodeIfPresent(Bool.self, forKey: .showDamageNumbers) ?? showDamageNumbers
+        joystickMode = try values.decodeIfPresent(JoystickMode.self, forKey: .joystickMode) ?? joystickMode
+        skillCastMode = try values.decodeIfPresent(SkillCastMode.self, forKey: .skillCastMode) ?? skillCastMode
+        attackPriority = try values.decodeIfPresent(TargetPriority.self, forKey: .attackPriority) ?? attackPriority
+        topAttackPriority = try values.decodeIfPresent(TargetPriority.self, forKey: .topAttackPriority) ?? topAttackPriority
+        bottomAttackPriority = try values.decodeIfPresent(TargetPriority.self, forKey: .bottomAttackPriority) ?? bottomAttackPriority
+        cameraZoom = try values.decodeIfPresent(Double.self, forKey: .cameraZoom) ?? cameraZoom
+        leftHandedLayout = try values.decodeIfPresent(Bool.self, forKey: .leftHandedLayout) ?? leftHandedLayout
+        colorblindMode = try values.decodeIfPresent(Bool.self, forKey: .colorblindMode) ?? colorblindMode
+        hudOpacity = try values.decodeIfPresent(Double.self, forKey: .hudOpacity) ?? hudOpacity
+        subtitlesEnabled = try values.decodeIfPresent(Bool.self, forKey: .subtitlesEnabled) ?? subtitlesEnabled
+        notificationsEnabled = try values.decodeIfPresent(Bool.self, forKey: .notificationsEnabled) ?? notificationsEnabled
+        autoLevelSkills = try values.decodeIfPresent(Bool.self, forKey: .autoLevelSkills) ?? autoLevelSkills
+        showRecommendedItems = try values.decodeIfPresent(Bool.self, forKey: .showRecommendedItems) ?? showRecommendedItems
+    }
 }
 
 struct RunePage: Codable, Equatable, Identifiable {

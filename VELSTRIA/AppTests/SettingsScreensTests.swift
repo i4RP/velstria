@@ -26,12 +26,69 @@ final class SettingsScreensTests: XCTestCase {
         s.hudOpacity = 0.5
         s.joystickMode = .fixed
         s.bgmVolume = 0.1
+        s.topAttackPriority = .lowestHealth
+        s.attackPriority = .minionsFirst
+        s.bottomAttackPriority = .heroesFirst
         let reset = SettingsDefaults.reset(s)
         XCTAssertEqual(reset.language, .en)
         XCTAssertTrue(reset.notificationsEnabled)
         XCTAssertEqual(reset.hudOpacity, GameSettings().hudOpacity)
         XCTAssertEqual(reset.joystickMode, GameSettings().joystickMode)
         XCTAssertEqual(reset.bgmVolume, GameSettings().bgmVolume)
+        XCTAssertEqual(reset.topAttackPriority, .structuresFirst)
+        XCTAssertEqual(reset.attackPriority, .heroesFirst)
+        XCTAssertEqual(reset.bottomAttackPriority, .minionsFirst)
+    }
+
+    func testAttackButtonDefaultsFollowTopCenterBottomOrder() {
+        let settings = GameSettings()
+        XCTAssertEqual(AttackButtonSlot.allCases, [.top, .center, .bottom])
+        XCTAssertEqual(settings.attackPriority(for: .top), .structuresFirst)
+        XCTAssertEqual(settings.attackPriority(for: .center), .heroesFirst)
+        XCTAssertEqual(settings.attackPriority(for: .bottom), .minionsFirst)
+    }
+
+    func testAttackButtonSettingsRoundTripIndependently() throws {
+        var settings = GameSettings()
+        settings.topAttackPriority = .lowestHealth
+        settings.attackPriority = .minionsFirst
+        settings.bottomAttackPriority = .heroesFirst
+        let data = try JSONEncoder().encode(settings)
+        let decoded = try JSONDecoder().decode(GameSettings.self, from: data)
+        XCTAssertEqual(decoded, settings)
+        XCTAssertEqual(decoded.attackPriority(for: .top), .lowestHealth)
+        XCTAssertEqual(decoded.attackPriority(for: .center), .minionsFirst)
+        XCTAssertEqual(decoded.attackPriority(for: .bottom), .heroesFirst)
+    }
+
+    func testLegacyProfileDecodingPreservesSettingsAndAddsAttackButtons() throws {
+        var profile = Profile()
+        profile.displayName = "Existing player"
+        profile.starlightCoin = 123
+        profile.settings.attackPriority = .lowestHealth
+        profile.settings.language = .en
+        profile.settings.bgmVolume = 0.25
+        profile.settings.hapticsEnabled = false
+        profile.settings.leftHandedLayout = true
+        profile.settings.joystickMode = .fixed
+        profile.settings.skillCastMode = .manual
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(profile)) as? [String: Any])
+        var settings = try XCTUnwrap(object["settings"] as? [String: Any])
+        settings.removeValue(forKey: "topAttackPriority")
+        settings.removeValue(forKey: "bottomAttackPriority")
+        object["settings"] = settings
+
+        let data = try JSONSerialization.data(withJSONObject: object)
+        let decoded = try JSONDecoder().decode(Profile.self, from: data)
+        XCTAssertEqual(decoded, profile)
+        XCTAssertEqual(decoded.settings.attackPriority(for: .top), .structuresFirst)
+        XCTAssertEqual(decoded.settings.attackPriority(for: .center), .lowestHealth)
+        XCTAssertEqual(decoded.settings.attackPriority(for: .bottom), .minionsFirst)
+    }
+
+    func testMissingAttackSettingsDecodeWithDefaults() throws {
+        let decoded = try JSONDecoder().decode(GameSettings.self, from: Data("{}".utf8))
+        XCTAssertEqual(decoded, GameSettings())
     }
 
     @MainActor
@@ -43,6 +100,11 @@ final class SettingsScreensTests: XCTestCase {
         XCTAssertEqual(app.profile.settings.hudOpacity, 0.6)
         settingsBinding(app, \.attackPriority).wrappedValue = .lowestHealth
         XCTAssertEqual(app.profile.settings.attackPriority, .lowestHealth)
+        settingsBinding(app, \.topAttackPriority).wrappedValue = .minionsFirst
+        settingsBinding(app, \.bottomAttackPriority).wrappedValue = .structuresFirst
+        XCTAssertEqual(app.profile.settings.attackPriority(for: .top), .minionsFirst)
+        XCTAssertEqual(app.profile.settings.attackPriority(for: .center), .lowestHealth)
+        XCTAssertEqual(app.profile.settings.attackPriority(for: .bottom), .structuresFirst)
         XCTAssertEqual(binding.wrappedValue, 0.6)
     }
 
@@ -54,7 +116,11 @@ final class SettingsScreensTests: XCTestCase {
                 XCTAssertFalse(SettingsText.joystickDetail(m).isEmpty)
             }
             for m in SkillCastMode.allCases { XCTAssertFalse(SettingsText.castModeDetail(m).isEmpty) }
-            for p in SettingsText.allPriorities { XCTAssertFalse(SettingsText.attackPriorityDetail(p).isEmpty) }
+            for p in SettingsText.allPriorities {
+                XCTAssertFalse(SettingsText.attackPriorityDetail(p).isEmpty)
+                XCTAssertFalse(SettingsText.attackPrioritySymbol(p).isEmpty)
+            }
+            for slot in AttackButtonSlot.allCases { XCTAssertFalse(SettingsText.attackButtonSlot(slot).isEmpty) }
             for q in GraphicsQuality.allCases { XCTAssertFalse(SettingsText.qualityDetail(q).isEmpty) }
             for f in FrameRateOption.allCases { XCTAssertFalse(SettingsText.frameRateDetail(f).isEmpty) }
             for l in AppLanguage.allCases { XCTAssertFalse(SettingsText.language(l).isEmpty) }

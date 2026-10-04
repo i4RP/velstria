@@ -43,10 +43,27 @@ enum SettingsText {
 
     static func attackPriority(_ p: TargetPriority) -> String {
         switch p {
-        case .heroesFirst: return L("ヒーロー", "Heroes")
+        case .heroesFirst: return L("敵ヒーロー", "Heroes")
         case .minionsFirst: return L("ミニオン", "Minions")
-        case .structuresFirst: return L("建物", "Structures")
+        case .structuresFirst: return L("タワー", "Towers")
         case .lowestHealth: return L("低HP", "Low HP")
+        }
+    }
+
+    static func attackPrioritySymbol(_ p: TargetPriority) -> String {
+        switch p {
+        case .heroesFirst: return "person.fill"
+        case .minionsFirst: return "pawprint.fill"
+        case .structuresFirst: return "building.2.fill"
+        case .lowestHealth: return "heart.fill"
+        }
+    }
+
+    static func attackButtonSlot(_ slot: AttackButtonSlot) -> String {
+        switch slot {
+        case .top: return L("上の攻撃ボタン", "Top attack button")
+        case .center: return L("中央の攻撃ボタン", "Center attack button")
+        case .bottom: return L("下の攻撃ボタン", "Bottom attack button")
         }
     }
 

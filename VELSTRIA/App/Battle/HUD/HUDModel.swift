@@ -108,6 +108,7 @@ final class HUDModel {
     @ObservationIgnored private(set) var finished = false
     @ObservationIgnored private var attackTask: Task<Void, Never>?
     @ObservationIgnored private(set) var attackHeld = false
+    @ObservationIgnored private var heldAttackButton: AttackButtonSlot?
     @ObservationIgnored private var lastActionAt: TimeInterval = 0
     @ObservationIgnored private var joystickActive = false
     @ObservationIgnored private var joystickVector: CGVector = .zero
@@ -186,11 +187,10 @@ final class HUDModel {
     func stop() {
         if let subscription { controller.unsubscribe(subscription) }
         subscription = nil
-        attackTask?.cancel()
+        attackReleased()
         bannerTask?.cancel()
         toastTask?.cancel()
         endTask?.cancel()
-        attackHeld = false
         controller.aim = nil
     }
 
@@ -1010,8 +1010,10 @@ final class HUDModel {
         lastSentMove = dir
     }
 
-    func attackPressed() {
-        guard canControl else { return }
+    func attackPressed(button: AttackButtonSlot = .center) {
+        guard canControl, !controller.isPaused, !hero.isDead else { return }
+        syncSettings()
+        heldAttackButton = button
         attackHeld = true
         sendAttack()
         attackTask?.cancel()
@@ -1024,15 +1026,18 @@ final class HUDModel {
         }
     }
 
-    func attackReleased() {
+    func attackReleased(button: AttackButtonSlot? = nil) {
+        // 別の攻撃ボタンへ押し替えた後、前の指を離しても新しい長押しを止めない。
+        if let button, heldAttackButton != button { return }
+        heldAttackButton = nil
         attackHeld = false
         attackTask?.cancel()
         attackTask = nil
     }
 
     private func sendAttack() {
-        guard !controller.isPaused, !hero.isDead else { return }
-        controller.send(.attackNearest(priority: settings.attackPriority))
+        guard canControl, !controller.isPaused, !hero.isDead, let button = heldAttackButton else { return }
+        controller.send(.attackNearest(priority: settings.attackPriority(for: button)))
         lastActionAt = now
     }
 

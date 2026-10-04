@@ -175,6 +175,9 @@ struct HUDLayout: Equatable {
     // MARK: 右側クラスタ（攻撃・スキル・スペル・帰還）
 
     var attackDiameter: CGFloat { 86 * scale }
+    func attackDiameter(for slot: AttackButtonSlot) -> CGFloat {
+        slot == .center ? attackDiameter : 54 * scale
+    }
     var skillDiameter: CGFloat { 60 * scale }
     var ultDiameter: CGFloat { 66 * scale }
     var spellDiameter: CGFloat { 50 * scale }
@@ -182,48 +185,51 @@ struct HUDLayout: Equatable {
     var levelBadgeDiameter: CGFloat { 30 * scale }
 
     private var attackCenterRight: CGPoint {
-        CGPoint(x: trailingEdge - 16 * scale - attackDiameter / 2, y: bottomEdge - 10 * scale - attackDiameter / 2)
+        CGPoint(x: trailingEdge - 8 * scale - attackDiameter / 2, y: bottomEdge - 121 * scale)
     }
 
     var attackCenter: CGPoint { mirrored(attackCenterRight) }
 
-    /// 攻撃ボタン中心からの極座標（度、画面上方向が +90°）。右手配置基準。
-    private func polar(_ degrees: CGFloat, _ radius: CGFloat) -> CGPoint {
-        let a = degrees * .pi / 180
+    /// 上下の優先攻撃ボタンは中央の大きなボタンと縦に並べる。
+    func attackCenter(for slot: AttackButtonSlot) -> CGPoint {
+        switch slot {
+        case .top: return actionPoint(x: 0, y: -74)
+        case .center: return attackCenter
+        case .bottom: return actionPoint(x: 0, y: 74)
+        }
+    }
+
+    /// 中央攻撃ボタンからの位置。スキル群は攻撃列の内側へ配置する。
+    private func actionPoint(x: CGFloat, y: CGFloat) -> CGPoint {
         let c = attackCenterRight
-        return mirrored(CGPoint(x: c.x + cos(a) * radius, y: c.y - sin(a) * radius))
+        return mirrored(CGPoint(x: c.x + x * scale, y: c.y + y * scale))
     }
 
     private func mirrored(_ p: CGPoint) -> CGPoint { CGPoint(x: mx(p.x), y: p.y) }
 
-    private var skillRing: CGFloat { 124 * scale }
-    private var outerRing: CGFloat { 204 * scale }
-
     func skillCenter(_ slot: SkillSlot) -> CGPoint {
         switch slot {
-        case .skill1: return polar(182, skillRing)
-        case .skill2: return polar(148, skillRing)
-        case .skill3: return polar(114, skillRing)
-        case .ultimate, .passive: return polar(80, skillRing)
+        case .skill1: return actionPoint(x: -163, y: 76)
+        case .skill2: return actionPoint(x: -93, y: 69)
+        case .skill3: return actionPoint(x: -77, y: -3)
+        case .ultimate, .passive: return actionPoint(x: -76, y: -72)
         }
     }
 
     func levelBadgeCenter(_ slot: SkillSlot) -> CGPoint {
         switch slot {
-        case .skill1: return polar(166, 168 * scale)
-        case .skill2: return polar(133, 168 * scale)
-        case .skill3: return polar(101, 170 * scale)
-        case .ultimate, .passive:
-            let u = skillCenter(.ultimate)
-            return CGPoint(x: u.x, y: u.y - 54 * scale)
+        case .skill1: return actionPoint(x: -210, y: 30)
+        case .skill2: return actionPoint(x: -142, y: 19)
+        case .skill3: return actionPoint(x: -138, y: -32)
+        case .ultimate, .passive: return actionPoint(x: -123, y: -129)
         }
     }
 
     func spellCenter(_ index: Int) -> CGPoint {
-        index == 0 ? polar(151, outerRing) : polar(118, outerRing)
+        index == 0 ? actionPoint(x: -204, y: -26) : actionPoint(x: -181, y: -90)
     }
 
-    var recallCenter: CGPoint { polar(186, 196 * scale) }
+    var recallCenter: CGPoint { actionPoint(x: -218, y: 89) }
 
     /// 右側クラスタの内側（画面中央側）の端。
     var clusterInnerEdge: CGFloat {

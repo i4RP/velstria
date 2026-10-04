@@ -109,6 +109,7 @@ struct HUDJoystick: View {
 
 struct HUDAttackButton: View {
     let model: HUDModel
+    let slot: AttackButtonSlot
     let diameter: CGFloat
     let highlighted: Bool
     @State private var pressed = false
@@ -125,8 +126,9 @@ struct HUDAttackButton: View {
             Circle()
                 .strokeBorder(Color.black.opacity(0.45), lineWidth: 1)
                 .padding(diameter * 0.07)
-            HUDCrossedSwords()
-                .fill(LinearGradient(colors: [.white, Theme.gold], startPoint: .top, endPoint: .bottom))
+            Image(systemName: SettingsText.attackPrioritySymbol(model.settings.attackPriority(for: slot)))
+                .font(.system(size: diameter * 0.40, weight: .bold))
+                .foregroundStyle(LinearGradient(colors: [.white, Theme.gold], startPoint: .top, endPoint: .bottom))
                 .frame(width: diameter * 0.5, height: diameter * 0.5)
                 .shadow(color: Theme.gold.opacity(0.8), radius: pressed ? 8 : 3)
         }
@@ -142,23 +144,29 @@ struct HUDAttackButton: View {
                 .onChanged { _ in
                     if !pressed {
                         pressed = true
-                        model.attackPressed()
+                        model.attackPressed(button: slot)
                     }
                 }
                 .onEnded { _ in
                     pressed = false
-                    model.attackReleased()
+                    model.attackReleased(button: slot)
                 }
         )
         .onChange(of: touching) { _, now in
             guard !now, pressed else { return }
             pressed = false
-            model.attackReleased()
+            model.attackReleased(button: slot)
         }
-        .hudAccessibility(id: "hud_attack", label: L("通常攻撃", "Attack"),
-                          value: L("長押しで攻撃を続ける", "Hold to keep attacking")) {
-            model.attackPressed()
-            model.attackReleased()
+        .onDisappear {
+            pressed = false
+            model.attackReleased(button: slot)
+        }
+        .hudAccessibility(id: slot == .center ? "hud_attack" : "hud_attack_\(slot.rawValue)",
+                          label: "\(SettingsText.attackButtonSlot(slot)): \(SettingsText.attackPriority(model.settings.attackPriority(for: slot)))",
+                          value: SettingsText.attackPriorityDetail(model.settings.attackPriority(for: slot))
+                            + " " + L("長押しで攻撃を続ける", "Hold to keep attacking")) {
+            model.attackPressed(button: slot)
+            model.attackReleased(button: slot)
         }
     }
 }
@@ -439,6 +447,7 @@ struct HUDRecallButton: View {
 }
 
 struct HUDLevelBadge: View {
+    static let touchDiameter: CGFloat = 44
     let model: HUDModel
     let slot: SkillSlot
     let diameter: CGFloat
@@ -458,7 +467,7 @@ struct HUDLevelBadge: View {
                     .foregroundStyle(Color.black.opacity(0.8))
             }
             .offset(y: bob ? -2 : 2)
-            .frame(width: 44, height: 44)
+            .frame(width: Self.touchDiameter, height: Self.touchDiameter)
             .contentShape(Rectangle())
         }
         .buttonStyle(HUDPressStyle())
@@ -491,10 +500,16 @@ struct HUDActionCluster: View {
         let hero = model.hero
         let skills = model.skills
         let highlight = model.tutorial?.highlight
+        let attackHighlight: AttackButtonSlot = model.tutorial?.step == .destroyTower
+            ? AttackButtonSlot.allCases.first(where: { model.settings.attackPriority(for: $0) == .structuresFirst }) ?? .center
+            : .center
         let master = MasterData.shared
         ZStack {
-            HUDAttackButton(model: model, diameter: layout.attackDiameter, highlighted: highlight == .attack)
-                .position(layout.attackCenter)
+            ForEach(AttackButtonSlot.allCases) { slot in
+                HUDAttackButton(model: model, slot: slot, diameter: layout.attackDiameter(for: slot),
+                                highlighted: highlight == .attack && slot == attackHighlight)
+                    .position(layout.attackCenter(for: slot))
+            }
             ForEach(skills) { sn in
                 let d = sn.slot == .ultimate ? layout.ultDiameter : layout.skillDiameter
                 let c = layout.skillCenter(sn.slot)

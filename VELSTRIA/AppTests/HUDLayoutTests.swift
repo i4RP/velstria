@@ -9,6 +9,7 @@ import VelstriaCore
 final class HUDLayoutTests: XCTestCase {
     /// 横画面の論理サイズと Safe Area（左右 = Dynamic Island / ノッチ側、下 = ホームインジケータ）。
     private let devices: [(name: String, size: CGSize, side: CGFloat, bottom: CGFloat)] = [
+        ("iPhone 13 mini", CGSize(width: 812, height: 375), 44, 21),
         ("iPhone 16e", CGSize(width: 844, height: 390), 47, 21),
         ("iPhone 17 Pro", CGSize(width: 874, height: 402), 62, 20),
         ("iPhone 17 Pro Max", CGSize(width: 956, height: 440), 62, 20),
@@ -21,7 +22,9 @@ final class HUDLayoutTests: XCTestCase {
     }
 
     private func controls(_ l: HUDLayout) -> [Circle2] {
-        var out = [Circle2(name: "attack", center: l.attackCenter, radius: l.attackDiameter / 2)]
+        var out = AttackButtonSlot.allCases.map {
+            Circle2(name: "attack_\($0.rawValue)", center: l.attackCenter(for: $0), radius: l.attackDiameter(for: $0) / 2)
+        }
         for slot in SkillSlot.actives {
             out.append(Circle2(name: "skill\(slot.rawValue)", center: l.skillCenter(slot),
                                radius: (slot == .ultimate ? l.ultDiameter : l.skillDiameter) / 2))
@@ -44,6 +47,11 @@ final class HUDLayoutTests: XCTestCase {
                     XCTAssertLessThanOrEqual(c.center.x + c.radius, d.size.width - d.side + 0.5, "\(d.name) \(c.name) が右の Safe Area にかかる")
                     XCTAssertLessThanOrEqual(c.center.y + c.radius, d.size.height - d.bottom + 0.5, "\(d.name) \(c.name) がホームインジケータにかかる")
                     XCTAssertGreaterThan(c.center.y - c.radius, l.minimapFrame.minY, "\(d.name) \(c.name) が画面上端を越える")
+                    let map = l.minimapFrame
+                    let nearest = CGPoint(x: min(max(c.center.x, map.minX), map.maxX),
+                                          y: min(max(c.center.y, map.minY), map.maxY))
+                    XCTAssertGreaterThan(hypot(c.center.x - nearest.x, c.center.y - nearest.y), c.radius,
+                                         "\(d.name) \(c.name) がミニマップと重なる")
                 }
                 for i in cs.indices {
                     for j in cs.indices where j > i {
@@ -77,7 +85,9 @@ final class HUDLayoutTests: XCTestCase {
         for d in devices {
             let l = HUDLayout(size: d.size, safe: EdgeInsets(top: 0, leading: d.side, bottom: d.bottom, trailing: d.side),
                               leftHanded: false)
-            XCTAssertGreaterThanOrEqual(l.attackDiameter, 44)
+            for slot in AttackButtonSlot.allCases {
+                XCTAssertGreaterThanOrEqual(l.attackDiameter(for: slot), 44)
+            }
             XCTAssertGreaterThanOrEqual(l.skillDiameter, 44)
             XCTAssertGreaterThanOrEqual(l.ultDiameter, 44)
             XCTAssertGreaterThanOrEqual(l.spellDiameter, 44)
@@ -88,16 +98,73 @@ final class HUDLayoutTests: XCTestCase {
     }
 
     func testLeftHandedMirrorsControls() {
-        let size = CGSize(width: 844, height: 390)
-        let safe = EdgeInsets(top: 0, leading: 47, bottom: 21, trailing: 47)
-        let r = HUDLayout(size: size, safe: safe, leftHanded: false)
-        let l = HUDLayout(size: size, safe: safe, leftHanded: true)
-        XCTAssertEqual(r.attackCenter.x, size.width - l.attackCenter.x, accuracy: 1e-6)
-        XCTAssertEqual(r.attackCenter.y, l.attackCenter.y, accuracy: 1e-6)
-        XCTAssertEqual(r.joystickRest.x, size.width - l.joystickRest.x, accuracy: 1e-6)
-        XCTAssertLessThan(l.attackCenter.x, size.width / 2)
-        XCTAssertLessThan(l.cancelCenter.x, size.width / 2, "キャンセル領域もスキル側へ")
-        XCTAssertGreaterThan(l.joystickZone.minX, size.width / 2 - 1)
+        for d in devices {
+            let safe = EdgeInsets(top: 0, leading: d.side, bottom: d.bottom, trailing: d.side)
+            let r = HUDLayout(size: d.size, safe: safe, leftHanded: false)
+            let l = HUDLayout(size: d.size, safe: safe, leftHanded: true)
+            for (right, left) in zip(controls(r), controls(l)) {
+                XCTAssertEqual(right.center.x, d.size.width - left.center.x, accuracy: 1e-6, right.name)
+                XCTAssertEqual(right.center.y, left.center.y, accuracy: 1e-6, right.name)
+                XCTAssertEqual(right.radius, left.radius, accuracy: 1e-6, right.name)
+            }
+            XCTAssertEqual(r.joystickRest.x, d.size.width - l.joystickRest.x, accuracy: 1e-6)
+            XCTAssertLessThan(l.attackCenter.x, d.size.width / 2)
+            XCTAssertLessThan(l.cancelCenter.x, d.size.width / 2, "キャンセル領域もスキル側へ")
+            XCTAssertGreaterThan(l.joystickZone.minX, d.size.width / 2 - 1)
+        }
+    }
+
+    @MainActor
+    func testLevelBadgeTouchRectanglesDoNotOverlapControls() {
+        let half = HUDLevelBadge.touchDiameter / 2
+        XCTAssertGreaterThanOrEqual(HUDLevelBadge.touchDiameter, 44)
+        for d in devices {
+            for left in [false, true] {
+                let safe = EdgeInsets(top: 0, leading: d.side, bottom: d.bottom, trailing: d.side)
+                let l = HUDLayout(size: d.size, safe: safe, leftHanded: left)
+                let circles = controls(l).filter { !$0.name.hasPrefix("level") }
+                let badges = SkillSlot.actives.map { slot in
+                    let center = l.levelBadgeCenter(slot)
+                    return CGRect(x: center.x - half, y: center.y - half,
+                                  width: HUDLevelBadge.touchDiameter, height: HUDLevelBadge.touchDiameter)
+                }
+                for (index, rect) in badges.enumerated() {
+                    XCTAssertGreaterThanOrEqual(rect.minX, d.side)
+                    XCTAssertLessThanOrEqual(rect.maxX, d.size.width - d.side)
+                    XCTAssertGreaterThanOrEqual(rect.minY, l.topEdge)
+                    XCTAssertLessThanOrEqual(rect.maxY, l.bottomEdge)
+                    XCTAssertFalse(rect.intersects(l.minimapFrame))
+                    for circle in circles {
+                        let nearest = CGPoint(x: min(max(circle.center.x, rect.minX), rect.maxX),
+                                              y: min(max(circle.center.y, rect.minY), rect.maxY))
+                        XCTAssertGreaterThan(hypot(circle.center.x - nearest.x, circle.center.y - nearest.y),
+                                             circle.radius + 2, "\(d.name) 習得ボタン \(index) と \(circle.name) のタップ領域")
+                    }
+                    for other in badges.dropFirst(index + 1) {
+                        XCTAssertFalse(rect.insetBy(dx: -1, dy: -1).intersects(other.insetBy(dx: -1, dy: -1)))
+                    }
+                }
+            }
+        }
+    }
+
+    func testAttackButtonsStayInTopCenterBottomOrder() {
+        for d in devices {
+            for left in [false, true] {
+                let safe = EdgeInsets(top: 0, leading: d.side, bottom: d.bottom, trailing: d.side)
+                let l = HUDLayout(size: d.size, safe: safe, leftHanded: left)
+                let top = l.attackCenter(for: .top)
+                let center = l.attackCenter(for: .center)
+                let bottom = l.attackCenter(for: .bottom)
+                XCTAssertEqual(top.x, center.x)
+                XCTAssertEqual(center.x, bottom.x)
+                XCTAssertLessThan(top.y + l.attackDiameter(for: .top) / 2, center.y - l.attackDiameter / 2)
+                XCTAssertLessThan(center.y + l.attackDiameter / 2, bottom.y - l.attackDiameter(for: .bottom) / 2)
+                XCTAssertGreaterThan(l.attackDiameter, l.attackDiameter(for: .top))
+                XCTAssertGreaterThan(l.attackDiameter, l.attackDiameter(for: .bottom))
+                XCTAssertEqual(center, l.attackCenter, "中央の攻撃ボタンをメイン操作として扱う")
+            }
+        }
     }
 
     // MARK: 効果音・触覚

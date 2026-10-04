@@ -23,11 +23,24 @@ struct ControlSettingsView: View {
                                               options: SkillCastMode.allCases.map { ($0, SettingsText.castMode($0)) },
                                               selection: settingsBinding(app, \.skillCastMode), identifier: "controls_cast")
                         }
-                        SettingsSection(title: L("攻撃優先", "Attack Priority"), symbol: "scope") {
-                            SettingsChoiceRow(title: L("通常攻撃の対象", "Basic attack target"),
-                                              detail: SettingsText.attackPriorityDetail(s.attackPriority), symbol: "target",
+                        SettingsSection(title: L("攻撃ボタンの優先対象", "Attack Button Priorities"), symbol: "scope") {
+                            SettingsChoiceRow(title: SettingsText.attackButtonSlot(.top),
+                                              detail: SettingsText.attackPriorityDetail(s.topAttackPriority),
+                                              symbol: SettingsText.attackPrioritySymbol(s.topAttackPriority),
+                                              options: SettingsText.allPriorities.map { ($0, SettingsText.attackPriority($0)) },
+                                              selection: settingsBinding(app, \.topAttackPriority), identifier: "controls_priority_top")
+                            SettingsDivider()
+                            SettingsChoiceRow(title: SettingsText.attackButtonSlot(.center),
+                                              detail: SettingsText.attackPriorityDetail(s.attackPriority),
+                                              symbol: SettingsText.attackPrioritySymbol(s.attackPriority),
                                               options: SettingsText.allPriorities.map { ($0, SettingsText.attackPriority($0)) },
                                               selection: settingsBinding(app, \.attackPriority), identifier: "controls_priority")
+                            SettingsDivider()
+                            SettingsChoiceRow(title: SettingsText.attackButtonSlot(.bottom),
+                                              detail: SettingsText.attackPriorityDetail(s.bottomAttackPriority),
+                                              symbol: SettingsText.attackPrioritySymbol(s.bottomAttackPriority),
+                                              options: SettingsText.allPriorities.map { ($0, SettingsText.attackPriority($0)) },
+                                              selection: settingsBinding(app, \.bottomAttackPriority), identifier: "controls_priority_bottom")
                         }
                         SettingsSection(title: L("レイアウトとカメラ", "Layout & Camera"), symbol: "rectangle.3.group.fill") {
                             SettingsToggleRow(title: L("左利きレイアウト", "Left-handed Layout"),
@@ -88,7 +101,11 @@ struct ControlLayoutPreview: View {
                     legend("circle.circle", settings.joystickMode == .floating ? L("スティック: 触れた位置に出現", "Stick: appears on touch")
                                                                             : L("スティック: 定位置", "Stick: fixed position"))
                     legend("hand.tap.fill", "\(L("発動", "Cast")): \(SettingsText.castMode(settings.skillCastMode))")
-                    legend("scope", "\(L("優先", "Priority")): \(SettingsText.attackPriority(settings.attackPriority))")
+                    ForEach(AttackButtonSlot.allCases) { slot in
+                        let priority = settings.attackPriority(for: slot)
+                        legend(SettingsText.attackPrioritySymbol(priority),
+                               "\(SettingsText.attackButtonSlot(slot)): \(SettingsText.attackPriority(priority))")
+                    }
                 }
             }
         }
@@ -135,7 +152,7 @@ struct ControlLayoutPreview: View {
                     joystick(size: h * 0.42)
                         .position(x: left ? w * 0.15 : w * 0.85, y: h * 0.70)
                     skills(size: h * 0.5)
-                        .position(x: left ? w * 0.80 : w * 0.20, y: h * 0.66)
+                        .position(x: left ? w * 0.80 : w * 0.20, y: h * 0.62)
                     RoundedRectangle(cornerRadius: 3)
                         .fill(Color.black.opacity(0.5))
                         .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.white.opacity(0.5), lineWidth: 0.5))
@@ -168,29 +185,35 @@ struct ControlLayoutPreview: View {
         }
     }
 
-    /// 攻撃ボタン（金）と、その内側に弧状に並ぶスキル 4 つ（最後が Ult）。
+    /// 縦に並ぶ攻撃ボタン 3 つと、その内側のスキル 4 つ（最後が Ult）。
     private func skills(size: CGFloat) -> some View {
-        let small = size * 0.32
-        // 右手配置では攻撃ボタンを右下、左利き配置では左右反転
+        let scale = size * 0.48 / 86
+        let skillOffsets = [CGPoint(x: -163, y: 76), CGPoint(x: -93, y: 69),
+                            CGPoint(x: -77, y: -3), CGPoint(x: -76, y: -72)]
+        // 左利き配置でも攻撃ボタンの上下順は維持する。
         let mirror: CGFloat = settings.leftHandedLayout ? -1 : 1
         let attackX = size * 0.30 * mirror
-        let attackY = size * 0.22
+        let attackY = size * 0.10
         return ZStack {
-            Circle()
-                .fill(Theme.gold.opacity(0.85))
-                .frame(width: size * 0.52, height: size * 0.52)
-                .overlay(Image(systemName: "scope").font(.system(size: size * 0.2, weight: .bold)).foregroundStyle(.black.opacity(0.7)))
-                .offset(x: attackX, y: attackY)
-            ForEach(0..<4, id: \.self) { i in
-                let angle = 180.0 - Double(i) * 30
-                let r = size * 0.6
-                let dx = CGFloat(cos(angle * .pi / 180)) * r * mirror
-                let dy = -CGFloat(sin(angle * .pi / 180)) * r
+            ForEach(AttackButtonSlot.allCases) { slot in
+                let diameter = scale * (slot == .center ? 86 : 54)
+                let offset = scale * (slot == .top ? -74 : slot == .bottom ? 74 : 0)
+                Circle()
+                    .fill(Theme.gold.opacity(slot == .center ? 0.85 : 0.65))
+                    .frame(width: diameter, height: diameter)
+                    .overlay(Image(systemName: SettingsText.attackPrioritySymbol(settings.attackPriority(for: slot)))
+                        .font(.system(size: diameter * 0.43, weight: .bold))
+                        .foregroundStyle(.black.opacity(0.7)))
+                    .offset(x: attackX, y: attackY + offset)
+            }
+            ForEach(0..<skillOffsets.count, id: \.self) { i in
+                let diameter = scale * (i == 3 ? 66 : 60)
                 Circle()
                     .fill(i == 3 ? Theme.cyan.opacity(0.9) : Color.white.opacity(0.3))
                     .overlay(Circle().stroke(Color.white.opacity(0.7), lineWidth: 0.5))
-                    .frame(width: small, height: small)
-                    .offset(x: attackX + dx, y: attackY + dy)
+                    .frame(width: diameter, height: diameter)
+                    .offset(x: attackX + skillOffsets[i].x * scale * mirror,
+                            y: attackY + skillOffsets[i].y * scale)
             }
         }
     }
@@ -198,6 +221,9 @@ struct ControlLayoutPreview: View {
     private var accessibilitySummary: String {
         let side = settings.leftHandedLayout ? L("スティック右・スキル左", "stick right, skills left")
                                              : L("スティック左・スキル右", "stick left, skills right")
-        return "\(L("HUD プレビュー", "HUD preview")): \(side), \(L("不透明度", "opacity")) \(SettingsText.percent(settings.hudOpacity))"
+        let attacks = AttackButtonSlot.allCases.map {
+            "\(SettingsText.attackButtonSlot($0)): \(SettingsText.attackPriority(settings.attackPriority(for: $0)))"
+        }.joined(separator: ", ")
+        return "\(L("HUD プレビュー", "HUD preview")): \(side), \(attacks), \(L("不透明度", "opacity")) \(SettingsText.percent(settings.hudOpacity))"
     }
 }

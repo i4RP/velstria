@@ -37,6 +37,13 @@ final class BattleHUDUITests: XCTestCase {
     func testPracticeControlsShopPauseAndLeave() {
         let app = launch(["-battle", "practice", "-language", "ja"])
         XCTAssertTrue(element(app, "hud_attack").waitForExistence(timeout: 30), "HUD が表示されない")
+        let towerAttack = element(app, "hud_attack_top")
+        let heroAttack = element(app, "hud_attack")
+        let minionAttack = element(app, "hud_attack_bottom")
+        XCTAssertTrue(towerAttack.exists)
+        XCTAssertTrue(minionAttack.exists)
+        XCTAssertLessThan(towerAttack.frame.maxY, heroAttack.frame.minY)
+        XCTAssertLessThan(heroAttack.frame.maxY, minionAttack.frame.minY)
         snap("hud_practice")
 
         // スティックを少し倒す
@@ -46,6 +53,8 @@ final class BattleHUDUITests: XCTestCase {
         from.press(forDuration: 0.1, thenDragTo: from.withOffset(CGVector(dx: 60, dy: -30)))
 
         tap(app, "hud_attack")
+        tap(app, "hud_attack_top")
+        tap(app, "hud_attack_bottom")
         tap(app, "hud_skill1")
         for id in ["hud_skill2", "hud_skill3", "hud_ult", "hud_spell1", "hud_spell2", "hud_recall", "hud_minimap"] {
             XCTAssertTrue(element(app, id).exists, "\(id) が無い")
@@ -117,6 +126,8 @@ final class BattleHUDUITests: XCTestCase {
         let app = launch(["-battle", "spectate", "-language", "en"])
         XCTAssertTrue(element(app, "spectate_speed_2x").waitForExistence(timeout: 30))
         XCTAssertFalse(element(app, "hud_attack").exists, "観戦では操作ボタンを出さない")
+        XCTAssertFalse(element(app, "hud_attack_top").exists)
+        XCTAssertFalse(element(app, "hud_attack_bottom").exists)
         tap(app, "spectate_speed_2x")
         XCTAssertTrue(element(app, "spectate_speed_2x").isSelected)
         snap("hud_spectate")

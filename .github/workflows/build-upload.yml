@@ -50,7 +50,7 @@ jobs:
         working-directory: VELSTRIA/Packages/VelstriaCore
         run: swift test -c release
 
-      - name: チュートリアルのテスト
+      - name: チュートリアル・攻撃ボタン・操作設定のテスト
         run: |
           xcodegen generate --quiet
           xcodebuild test \
@@ -60,6 +60,10 @@ jobs:
             -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
             -destination-timeout 120 \
             -only-testing:VELSTRIATests/HUDTutorialTests \
+            -only-testing:VELSTRIATests/HUDAttackTests \
+            -only-testing:VELSTRIATests/HUDLayoutTests \
+            -only-testing:VELSTRIATests/SettingsScreensTests \
+            -only-testing:VELSTRIAUITests/BattleHUDUITests/testPracticeControlsShopPauseAndLeave \
             -parallel-testing-enabled NO \
             CODE_SIGNING_ALLOWED=NO
 
