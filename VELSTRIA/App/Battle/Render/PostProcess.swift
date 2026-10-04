@@ -36,6 +36,129 @@ struct PostProcessSettings: Equatable {
     }
 }
 
+/// 後処理のシェーダー・パイプライン（GPU ごとに 1 回だけ作り、試合をまたいで使い回す）。
+final class PostProcessPipelines: @unchecked Sendable {
+    let device: MTLDevice
+    let library: MTLLibrary
+    let prefilter: MTLComputePipelineState
+    let downsample: MTLComputePipelineState
+    let upsample: MTLComputePipelineState
+    private let lock = NSLock()
+    private var composites: [UInt: MTLRenderPipelineState] = [:]
+
+    init(device: MTLDevice, library: MTLLibrary, prefilter: MTLComputePipelineState, downsample: MTLComputePipelineState,
+         upsample: MTLComputePipelineState) {
+        self.device = device
+        self.library = library
+        self.prefilter = prefilter
+        self.downsample = downsample
+        self.upsample = upsample
+    }
+
+    /// 出力形式 format の合成パイプライン（未作成なら nil。どのスレッドからでもよい）。
+    func composite(_ format: MTLPixelFormat) -> MTLRenderPipelineState? {
+        lock.lock()
+        defer { lock.unlock() }
+        return composites[format.rawValue]
+    }
+
+    func store(_ pipeline: MTLRenderPipelineState, for format: MTLPixelFormat) {
+        lock.lock()
+        composites[format.rawValue] = pipeline
+        lock.unlock()
+    }
+}
+
+/// 後処理パイプラインの作成窓口（端末で 1 つ）。ロード画面（BattlePreload）から先行して作り始め、
+/// BattleRenderer の PostProcessor は出来上がったものを受け取る（2 試合目以降はコンパイルしない）。
+/// コンパイルとパイプライン生成は自前の背景キューで同期 API を使って行う。Metal の完了ハンドラ
+/// （Metal のコンパイラキュー上）から同期 API を呼ぶと同じキューを待ってトラップするため、完了ハンドラ版は使わない。
+enum PostProcessShaderCache {
+    private static let lock = NSLock()
+    private static let queue = DispatchQueue(label: "velstria.postprocess.compile", qos: .userInitiated)
+    nonisolated(unsafe) private static var ready: PostProcessPipelines?
+    nonisolated(unsafe) private static var compiling = false
+    nonisolated(unsafe) private static var waiters: [@Sendable (PostProcessPipelines?) -> Void] = []
+    /// コンパイルにかかった時間（ms。計測ログ用）。
+    nonisolated(unsafe) private(set) static var compileMs: Double?
+
+    /// 既定の GPU 向けに作り始める（済み・作成中なら何もしない）。
+    static func prewarm() {
+        guard let device = MTLCreateSystemDefaultDevice() else { return }
+        request(device: device) { _ in }
+    }
+
+    /// 作成済みなら返す（lock を取るだけなので描画スレッドから呼んでよい）。
+    static func pipelines(for device: MTLDevice) -> PostProcessPipelines? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let r = ready, r.device.registryID == device.registryID else { return nil }
+        return r
+    }
+
+    static var isReady: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return ready != nil
+    }
+
+    /// 作成を依頼する。completion（失敗時は nil）は常に背景キューから非同期に呼ぶ（呼び出し側の lock の中では呼ばない）。
+    static func request(device: MTLDevice, completion: @escaping @Sendable (PostProcessPipelines?) -> Void) {
+        lock.lock()
+        if let r = ready, r.device.registryID == device.registryID {
+            lock.unlock()
+            queue.async { completion(r) }
+            return
+        }
+        waiters.append(completion)
+        guard !compiling else {
+            lock.unlock()
+            return
+        }
+        compiling = true
+        lock.unlock()
+        queue.async {
+            let t0 = CFAbsoluteTimeGetCurrent()
+            let built = build(device: device)
+            lock.lock()
+            if let built {
+                ready = built
+                compileMs = (CFAbsoluteTimeGetCurrent() - t0) * 1000
+            }
+            compiling = false
+            let callbacks = waiters
+            waiters.removeAll()
+            lock.unlock()
+            for c in callbacks { c(built) }
+        }
+    }
+
+    /// 背景キューで同期にコンパイルする。実機の描画先として最も多い形式の合成パイプラインも先に作る（最初のフレームを待たせない）。
+    private static func build(device: MTLDevice) -> PostProcessPipelines? {
+        let options = MTLCompileOptions()
+        options.mathMode = .fast
+        let lib: MTLLibrary
+        do {
+            lib = try device.makeLibrary(source: PostProcessor.shaderSource, options: options)
+        } catch {
+            #if DEBUG
+            NSLog("%@", "[PostProcess] shader compile failed: \(error)")
+            #endif
+            return nil
+        }
+        func compute(_ name: String) -> MTLComputePipelineState? {
+            lib.makeFunction(name: name).flatMap { try? device.makeComputePipelineState(function: $0) }
+        }
+        guard let pre = compute("velBloomPrefilter"), let dn = compute("velBloomDownsample"),
+              let up = compute("velBloomUpsample") else { return nil }
+        let p = PostProcessPipelines(device: device, library: lib, prefilter: pre, downsample: dn, upsample: up)
+        if let srgb = PostProcessor.makeComposite(for: .bgra8Unorm_srgb, device: device, library: lib) {
+            p.store(srgb, for: .bgra8Unorm_srgb)
+        }
+        return p
+    }
+}
+
 /// renderCallbacks から（RealityKit の描画スレッドで）呼ばれる。設定・パイプラインは lock で守る。
 final class PostProcessor: @unchecked Sendable {
     /// iOS シミュレータの RealityKit は postProcess を呼ばない。シェーダーのコンパイル（読み込み中の CPU）や
@@ -53,29 +176,49 @@ final class PostProcessor: @unchecked Sendable {
     private var downsample: MTLComputePipelineState?
     private var upsample: MTLComputePipelineState?
     private var library: MTLLibrary?
-    private var compositePipelines: [UInt: MTLRenderPipelineState] = [:]
+    /// 端末共通のコンパイル結果（合成パイプラインは出力形式ごとにここへ溜まり、試合をまたいで使い回す）。
+    private var pipelines: PostProcessPipelines?
     /// 合成パイプラインを作成中の出力形式（描画スレッドを止めないよう非同期に作る）。
     private var pendingFormats: Set<UInt> = []
     private var down: [MTLTexture] = []
     private var up: [MTLTexture] = []
-    private var chainKey = SIMD3<Int>(0, 0, 0)
+    /// 縮小用テクスチャを確保した画面サイズ。段数は確保済み以下なら作り直さない（自動調整で段数を減らしても確保し直さない）。
+    private var chainSize = SIMD2<Int>(0, 0)
     private var compiling = false
     /// 作り直し（resetLocked）の世代。古いコンパイル結果を後から書き込まない。
     private var generation = 0
     /// コンパイル失敗の回数。上限に達したら後処理を外す（何もしない全画面コピーを毎フレーム払わない）。
     private var failures = 0
     private var gaveUp = false
+    /// ブルーム・合成まで通したフレームがある（パイプライン・縮小用テクスチャが揃い、以後の描画でシェーダーを作らない）。
+    private var fullPassDone = false
     static let maxFailures = 3
 
     init(settings: PostProcessSettings) {
         self.settings = settings
         // 読み込み中（地面テクスチャ生成の裏）にコンパイルを済ませ、幕が上がった最初のフレームから効かせる。
+        // ロード画面で PostProcessShaderCache.prewarm 済みなら出来上がったものを受け取るだけ。
         // iOS の GPU は 1 つなので、描画系の device と同じ。違えば process で作り直す
         if settings.enabled, let device = MTLCreateSystemDefaultDevice() {
             lock.lock()
             prepareLocked(device: device)
             lock.unlock()
         }
+    }
+
+    /// 幕を上げてよいか（後処理が無効・断念済み、またはブルーム・合成まで通したフレームがある）。
+    /// どのスレッドから呼んでもよい。
+    var isReady: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return !settings.enabled || gaveUp || fullPassDone
+    }
+
+    /// パイプラインが揃っている（最初のフレームを待たずに分かる部分。テスト・計測用）。
+    var hasPipelines: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return library != nil && prefilter != nil && downsample != nil && upsample != nil
     }
 
     /// 取り付け済みの ARView。renderCallbacks は描画が始まる前（ウィンドウに載る前）に触ると落ちるため、
@@ -144,53 +287,43 @@ final class PostProcessor: @unchecked Sendable {
         prepareLocked(device: device)
     }
 
-    /// シェーダーを非同期にコンパイルする（lock 保持中に呼ぶ）。
-    /// コンパイルとパイプライン生成は自前の背景キューで同期 API を使って行う。Metal の完了ハンドラ
-    /// （Metal のコンパイラキュー上）から同期 API を呼ぶと同じキューを待ってトラップするため、完了ハンドラ版は使わない。
-    /// lock は生成中に持たない（結果を書き込むときだけ取る）。
+    /// パイプラインを受け取る（lock 保持中に呼ぶ）。作成済みならその場で、未作成なら PostProcessShaderCache に依頼して
+    /// 背景キューで出来上がるのを待つ（lock は生成中に持たない。結果を書き込むときだけ取る）。
     private func prepareLocked(device: MTLDevice) {
         guard self.device == nil, !compiling, !gaveUp else { return }
+        if let p = PostProcessShaderCache.pipelines(for: device) {
+            adoptLocked(p)
+            return
+        }
         compiling = true
         let gen = generation
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let options = MTLCompileOptions()
-            options.mathMode = .fast
-            var lib: MTLLibrary?
-            do {
-                lib = try device.makeLibrary(source: PostProcessor.shaderSource, options: options)
-            } catch {
-                #if DEBUG
-                NSLog("%@", "[PostProcess] shader compile failed: \(error)")
-                #endif
-            }
-            func compute(_ name: String) -> MTLComputePipelineState? {
-                lib?.makeFunction(name: name).flatMap { try? device.makeComputePipelineState(function: $0) }
-            }
-            let pre = compute("velBloomPrefilter"), dn = compute("velBloomDownsample"), upPipe = compute("velBloomUpsample")
-            // 実機の描画先として最も多い形式は先に作っておく（最初のフレームを待たせない）
-            let srgb = lib.flatMap { PostProcessor.makeComposite(for: .bgra8Unorm_srgb, device: device, library: $0) }
+        PostProcessShaderCache.request(device: device) { [weak self] p in
             guard let self else { return }
             self.lock.lock()
             defer { self.lock.unlock() }
             guard gen == self.generation else { return }
             self.compiling = false
-            guard let lib, let pre, let dn, let upPipe else {
+            guard let p else {
                 // 一時的な失敗（コンパイラの中断など）は次のフレームで作り直す。続けば諦めて外す
                 self.noteFailureLocked()
                 return
             }
-            self.device = device
-            self.library = lib
-            self.prefilter = pre
-            self.downsample = dn
-            self.upsample = upPipe
-            if let srgb { self.compositePipelines[MTLPixelFormat.bgra8Unorm_srgb.rawValue] = srgb }
+            self.adoptLocked(p)
         }
     }
 
+    private func adoptLocked(_ p: PostProcessPipelines) {
+        pipelines = p
+        device = p.device
+        library = p.library
+        prefilter = p.prefilter
+        downsample = p.downsample
+        upsample = p.upsample
+    }
+
     /// 合成パイプライン（全画面三角形 → 出力形式 format）。背景キューから呼ぶ（同期でコンパイルする）。
-    private static func makeComposite(for format: MTLPixelFormat, device: MTLDevice,
-                                      library: MTLLibrary) -> MTLRenderPipelineState? {
+    fileprivate static func makeComposite(for format: MTLPixelFormat, device: MTLDevice,
+                                          library: MTLLibrary) -> MTLRenderPipelineState? {
         let d = MTLRenderPipelineDescriptor()
         d.vertexFunction = library.makeFunction(name: "velFullscreenVertex")
         d.fragmentFunction = library.makeFunction(name: "velCompositeFragment")
@@ -216,41 +349,39 @@ final class PostProcessor: @unchecked Sendable {
         prefilter = nil
         downsample = nil
         upsample = nil
-        compositePipelines.removeAll()
+        pipelines = nil
         pendingFormats.removeAll()
         down.removeAll()
         up.removeAll()
-        chainKey = .zero
+        chainSize = .zero
         compiling = false
+        fullPassDone = false
     }
 
     /// 合成パイプラインを非同期に作り始める（lock 保持中に呼ぶ。完成までは元画像を写す）。
-    private func requestCompositeLocked(for format: MTLPixelFormat, device: MTLDevice, library: MTLLibrary) {
+    private func requestCompositeLocked(for format: MTLPixelFormat, pipelines p: PostProcessPipelines) {
         let key = format.rawValue
-        guard compositePipelines[key] == nil, !pendingFormats.contains(key) else { return }
+        guard p.composite(format) == nil, !pendingFormats.contains(key) else { return }
         pendingFormats.insert(key)
         let gen = generation
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let pipeline = PostProcessor.makeComposite(for: format, device: device, library: library)
+            let pipeline = PostProcessor.makeComposite(for: format, device: p.device, library: p.library)
+            if let pipeline { p.store(pipeline, for: format) }
             guard let self else { return }
             self.lock.lock()
             defer { self.lock.unlock() }
             guard gen == self.generation else { return }
             self.pendingFormats.remove(key)
-            if let pipeline {
-                self.compositePipelines[key] = pipeline
-            } else {
-                self.noteFailureLocked()
-            }
+            if pipeline == nil { self.noteFailureLocked() }
         }
     }
 
     private func ensureChain(device: MTLDevice, width: Int, height: Int, levels: Int) -> Bool {
-        let key = SIMD3(width, height, levels)
-        if key == chainKey, down.count == levels { return true }
+        let size = SIMD2(width, height)
+        if size == chainSize, down.count >= levels { return true }
         down.removeAll()
         up.removeAll()
-        chainKey = .zero
+        chainSize = .zero
         var w = width, h = height
         for _ in 0..<levels {
             w = max(1, w / 2)
@@ -268,7 +399,7 @@ final class PostProcessor: @unchecked Sendable {
             down.append(a)
             up.append(b)
         }
-        chainKey = key
+        chainSize = size
         return true
     }
 
@@ -283,13 +414,13 @@ final class PostProcessor: @unchecked Sendable {
             resetLocked()
         }
         if library == nil { prepareLocked(device: ctx.device) }
-        guard s.enabled, !gaveUp, let library, let device else {
+        guard s.enabled, !gaveUp, let pipelines, let device else {
             PostProcessor.copy(ctx)
             return
         }
         let src = ctx.sourceColorTexture, dst = ctx.targetColorTexture
-        guard let composite = compositePipelines[dst.pixelFormat.rawValue] else {
-            requestCompositeLocked(for: dst.pixelFormat, device: device, library: library)
+        guard let composite = pipelines.composite(dst.pixelFormat) else {
+            requestCompositeLocked(for: dst.pixelFormat, pipelines: pipelines)
             PostProcessor.copy(ctx)
             return
         }
@@ -345,6 +476,7 @@ final class PostProcessor: @unchecked Sendable {
         renc.setFragmentBytes(&cp, length: MemoryLayout<CompositeParams>.stride, index: 0)
         renc.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
         renc.endEncoding()
+        if bloomTexture != nil || s.bloomIntensity <= 0 || levels < 2 { fullPassDone = true }
     }
 
     private static func dispatch(_ enc: MTLComputeCommandEncoder, _ p: MTLComputePipelineState, _ out: MTLTexture) {

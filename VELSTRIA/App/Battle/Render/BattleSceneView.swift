@@ -61,12 +61,75 @@ final class VignetteView: UIView {
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 }
 
+/// 読み込み幕（戦場の準備中に ARView を覆う）。下部に細い進捗バー・割合・いま行っている準備を出す
+/// （ロード画面の進捗表示と同じ金色・等幅数字）。
+final class LoadingCurtainView: UIView {
+    private let track = UIView()
+    private let fill = UIView()
+    private let label = UILabel()
+    private let percent = UILabel()
+    /// 表示中の進み具合（0〜1。戻らない）。
+    private(set) var progress: Double = 0
+    private(set) var text = ""
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = UIColor(red: 0.03, green: 0.04, blue: 0.10, alpha: 1)
+        isUserInteractionEnabled = false
+        let gold = UIColor(Theme.gold)
+        track.backgroundColor = UIColor(white: 1, alpha: 0.12)
+        track.layer.cornerRadius = 1.5
+        track.clipsToBounds = true
+        fill.backgroundColor = gold
+        fill.layer.cornerRadius = 1.5
+        track.addSubview(fill)
+        let rounded = UIFont.systemFont(ofSize: 11, weight: .bold)
+        label.font = rounded.fontDescriptor.withDesign(.rounded).map { UIFont(descriptor: $0, size: 11) } ?? rounded
+        label.textColor = UIColor(Theme.textSecondary)
+        label.lineBreakMode = .byTruncatingTail
+        percent.font = UIFont.monospacedDigitSystemFont(ofSize: 12, weight: .semibold)
+        percent.textColor = gold
+        percent.textAlignment = .right
+        percent.text = "0%"
+        addSubview(track)
+        addSubview(label)
+        addSubview(percent)
+        accessibilityIdentifier = "battle_loading_curtain"
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    func set(progress p: Double, label newText: String) {
+        let v = max(progress, min(1, max(0, p)))
+        let pct = Int((v * 100).rounded(.down))
+        if pct != Int((progress * 100).rounded(.down)) || percent.text == nil { percent.text = "\(pct)%" }
+        progress = v
+        if newText != text {
+            text = newText
+            label.text = newText
+        }
+        setNeedsLayout()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let width = min(300, max(160, bounds.width * 0.32))
+        let bottom = bounds.height - max(safeAreaInsets.bottom, 14) - 26
+        let x = (bounds.width - width) / 2
+        track.frame = CGRect(x: x, y: bottom, width: width, height: 3)
+        fill.frame = CGRect(x: 0, y: 0, width: width * CGFloat(progress), height: 3)
+        percent.frame = CGRect(x: x + width - 56, y: bottom - 20, width: 56, height: 16)
+        label.frame = CGRect(x: x, y: bottom - 20, width: width - 60, height: 16)
+    }
+}
+
 /// ARView + UIKit オーバーレイ（周辺減光・戦闘数値・デバッグ表示・読み込み幕）。
 final class BattleRenderView: UIView {
     let arView: ARView
     let vignette = VignetteView(frame: .zero)
     let combatText: CombatTextOverlay
-    let curtain = UIView()
+    let curtain = LoadingCurtainView(frame: .zero)
     #if DEBUG
     let debugOverlay = DebugStatsOverlay()
     #endif
@@ -82,8 +145,6 @@ final class BattleRenderView: UIView {
         #if DEBUG
         addSubview(debugOverlay)
         #endif
-        curtain.backgroundColor = UIColor(red: 0.03, green: 0.04, blue: 0.10, alpha: 1)
-        curtain.isUserInteractionEnabled = false
         addSubview(curtain)
     }
 
@@ -99,8 +160,14 @@ final class BattleRenderView: UIView {
         #if DEBUG
         // ミニマップ（左上）の下に小さく
         let inset = safeAreaInsets
-        debugOverlay.frame = CGRect(x: max(8, inset.left + 6), y: max(8, inset.top) + 176, width: 150, height: 30)
+        debugOverlay.frame = CGRect(x: max(8, inset.left + 6), y: max(8, inset.top) + 176, width: 196, height: 30)
         #endif
+    }
+
+    /// 読み込み幕の進捗（0〜1）と、いま行っている準備の表示。
+    func setLoading(progress: Double, label: String) {
+        guard !curtain.isHidden else { return }
+        curtain.set(progress: progress, label: label)
     }
 
     func liftCurtain() {

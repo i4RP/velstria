@@ -13,6 +13,8 @@ final class DebugStatsOverlay: UILabel {
     private var elapsed: Double = 0
     /// 直近の集計値（テスト・計測ログ用）。
     private(set) var lastFPS: Double = 0
+    /// 2 行目の末尾に添える情報（画質の自動調整の段など）。
+    var detail = ""
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -41,9 +43,9 @@ final class DebugStatsOverlay: UILabel {
         guard elapsed >= 0.5 else { return }
         let n = Double(max(1, frames))
         lastFPS = n / max(0.0001, frameTimeSum)
-        text = String(format: " %.0f fps  %.1fms (max %.1f)\n sim %.2fms  sync %.2fms  e%d",
+        text = String(format: " %.0f fps  %.1fms (max %.1f)\n sim %.2fms  sync %.2fms  e%d %@",
                       lastFPS, frameTimeSum / n * 1000, worstFrame * 1000, simTimeSum / n * 1000, syncTimeSum / n * 1000,
-                      entities)
+                      entities, detail)
         frames = 0
         frameTimeSum = 0
         simTimeSum = 0

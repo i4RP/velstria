@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import UIKit
 import VelstriaCore
 
 // 担当: battle-renderer。
@@ -363,5 +364,109 @@ enum GroundTextureGenerator {
             ctx.draw(noise, in: CGRect(x: 0, y: 0, width: size, height: size))
         }
         return ctx.makeImage()
+    }
+}
+
+/// 生成済みの地面テクスチャ（CGImage）の共有キャッシュ。地図・一辺・色覚設定が同じなら試合をまたいで使い回す。
+/// ロード画面（BattlePreload）が次の試合の分を先に作り始め、BattleRenderer は出来上がりを受け取るだけになる。
+/// 同時に生成中のものは 1 つの Task を共有する（同じ画像を 2 回作らない）。保持は直近 capacity 件で、メモリ警告で手放す。
+@MainActor
+enum GroundTextureCache {
+    struct Key: Hashable {
+        let map: MapDefinition
+        let size: Int
+        let colorblind: Bool
+    }
+
+    /// 保持する画像の数（2048² で 16 MB / 1024² で 4 MB）。
+    static let capacity = 1
+    private static var images: [Key: CGImage] = [:]
+    private static var order: [Key] = []
+    private static var tasks: [Key: Task<CGImage?, Never>] = [:]
+    private static var memoryObserver: NSObjectProtocol?
+    /// 実際に生成した回数（テスト・計測用）。
+    private(set) static var generatedCount = 0
+    /// 直近の生成にかかった時間（ms。計測ログ用）。
+    private(set) static var lastGenerateMs: Double?
+
+    static func key(map: MapDefinition, size: Int, colorblind: Bool) -> Key {
+        Key(map: map, size: max(64, size), colorblind: colorblind)
+    }
+
+    /// 生成済みなら返す（待たない）。
+    static func cached(map: MapDefinition, size: Int, colorblind: Bool) -> CGImage? {
+        images[key(map: map, size: size, colorblind: colorblind)]
+    }
+
+    /// 生成中か。
+    static func isGenerating(map: MapDefinition, size: Int, colorblind: Bool) -> Bool {
+        tasks[key(map: map, size: size, colorblind: colorblind)] != nil
+    }
+
+    /// 生成を先に始める（済み・生成中なら何もしない）。
+    static func prefetch(map: MapDefinition, size: Int, colorblind: Bool) {
+        let k = key(map: map, size: size, colorblind: colorblind)
+        guard images[k] == nil else { return }
+        _ = task(for: k)
+    }
+
+    /// 画像を得る（生成済みならすぐ、生成中ならその完了を待つ、無ければメインスレッド外で生成する）。
+    static func image(map: MapDefinition, size: Int, colorblind: Bool) async -> CGImage? {
+        let k = key(map: map, size: size, colorblind: colorblind)
+        if let img = images[k] {
+            touch(k)
+            return img
+        }
+        return await task(for: k).value
+    }
+
+    /// メモリ警告を受けた（すべて手放す）。
+    static func handleMemoryWarning() { evictAll() }
+
+    /// すべて手放す（メモリ警告・テスト）。生成中のものは完了後にキャッシュへ入る。
+    static func evictAll() {
+        images.removeAll()
+        order.removeAll()
+    }
+
+    private static func task(for k: Key) -> Task<CGImage?, Never> {
+        if let t = tasks[k] { return t }
+        observeMemoryWarnings()
+        let t = Task { @MainActor () -> CGImage? in
+            let start = CACurrentMediaTime()
+            let img = await Task.detached(priority: .userInitiated) {
+                GroundTextureGenerator.makeImage(map: k.map, size: k.size, colorblind: k.colorblind)
+            }.value
+            generatedCount += 1
+            lastGenerateMs = (CACurrentMediaTime() - start) * 1000
+            tasks[k] = nil
+            if let img { store(img, for: k) }
+            return img
+        }
+        tasks[k] = t
+        return t
+    }
+
+    private static func store(_ img: CGImage, for k: Key) {
+        images[k] = img
+        touch(k)
+        while order.count > capacity {
+            let old = order.removeFirst()
+            images[old] = nil
+        }
+    }
+
+    private static func touch(_ k: Key) {
+        order.removeAll { $0 == k }
+        order.append(k)
+    }
+
+    private static func observeMemoryWarnings() {
+        guard memoryObserver == nil else { return }
+        memoryObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didReceiveMemoryWarningNotification, object: nil, queue: .main
+        ) { _ in
+            MainActor.assumeIsolated { GroundTextureCache.handleMemoryWarning() }
+        }
     }
 }
