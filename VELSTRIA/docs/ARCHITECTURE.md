@@ -22,7 +22,7 @@ VELSTRIA/
   AppTests/  AppUITests/
   docs/  DESIGN.md（ゲーム数値の正本） ARCHITECTURE.md（本書）
   tools/
-    portraits/                     ヒーロー / スキンのポートレート画像の生成仕様と取り込み（下記）
+    portraits/                     ヒーロー / スキンのポートレートと装備アイコンの画像の生成仕様と取り込み（下記）
 ```
 - 最低 iOS 18.0、iPhone のみ、横画面固定、Swift 5 言語モード（Swift 6.2 コンパイラ）。
 - ヒーロー（24）とヒーロースキン（12）のポートレートは描き下ろしの生成画像。仕様（画風・造形）は
@@ -30,6 +30,10 @@ VELSTRIA/
   `tools/portraits/portraits.py`（Codex CLI の画像生成 → `build/portraits/` に原寸 → `install` で 640px JPEG を
   `Assets.xcassets/HeroPortraits`・`SkinPortraits` へ）。表示は `HeroPortraitView` / `SkinPortraitView`（`PortraitArt`）。
   ヒーローやスキンを追加したら仕様に追記して生成・取り込みする（`AppStoreAssetsTests` が欠けを検出）。
+- 装備（72）のアイコンも装備毎の描き下ろしの生成画像。仕様は `tools/portraits/item_icons.json`（画風、Tier 別の格、
+  カテゴリ別の色、装備毎の造形。同名の装備も番号毎に別の造形）、`portraits.py install items` で 384px JPEG を
+  `Assets.xcassets/ItemIcons` へ。表示は `ItemIconView`（絵柄の上に Tier の枠と印を重ねる。アートの無い ID は
+  カテゴリの色と記号の手続き生成にフォールバック）。装備を追加したら仕様に追記して生成・取り込みする。
 - 仕様パッケージ `../VELSTRIA_復元版パッケージ/` がコンテンツ正本。`docs/DESIGN.md` がルール・数値の正本。
 
 ## シミュレーション（VelstriaCore）

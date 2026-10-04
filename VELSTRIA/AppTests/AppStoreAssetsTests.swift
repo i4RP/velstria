@@ -211,4 +211,18 @@ final class AppStoreAssetsTests: XCTestCase {
         XCTAssertEqual(missing, [], "ポートレート画像がありません（tools/portraits/ で生成・取り込み）")
         XCTAssertNil(PortraitArt.hero("H999"), "未知の ID は頭文字の暫定表示にフォールバックする")
     }
+
+    /// 全装備に固有の描き下ろしアイコンがあること（tools/portraits/portraits.py install items）。
+    @MainActor
+    func testEveryItemHasIconArt() {
+        var missing: [String] = []
+        for it in MasterData.shared.items {
+            guard let img = PortraitArt.item(it.itemID) else { missing.append(it.itemID); continue }
+            XCTAssertEqual(img.size.width, img.size.height, "\(it.itemID) のアイコンが正方形ではありません")
+            // 最大表示 70pt × 3x = 210px
+            XCTAssertGreaterThanOrEqual(img.size.width * img.scale, 256, "\(it.itemID) のアイコンの解像度が不足")
+        }
+        XCTAssertEqual(missing, [], "装備アイコンがありません（tools/portraits/ で生成・取り込み）")
+        XCTAssertNil(PortraitArt.item("EQ999"), "未知の ID は手続き生成の暫定表示にフォールバックする")
+    }
 }

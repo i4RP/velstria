@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""ヒーロー / スキンのポートレート画像の生成と取り込み。
+"""ヒーロー / スキンのポートレートと装備アイコンの画像の生成と取り込み。
 
 仕様（画風・各ヒーローの造形）は tools/portraits/portraits.json。造形は
 App/Battle/Heroes/HeroBlueprints.swift（3D モデル）に合わせてある。
+装備アイコン（EQ001〜）の仕様は tools/portraits/item_icons.json（画風・Tier 別の格・カテゴリ別の色・各装備の造形）。
 
   python3 tools/portraits/portraits.py prompt H001          # 生成プロンプトを表示
   python3 tools/portraits/portraits.py generate H001 [--extra "..."] [--tag a2]
   python3 tools/portraits/portraits.py select H001 a2       # 候補 H001_a2.png を採用版 H001.png にする
-  python3 tools/portraits/portraits.py install              # 採用版を Assets.xcassets へ（640px JPEG）
-  python3 tools/portraits/portraits.py sheet out.png [ID,ID,...|all] [セル px]  # 一覧画像（確認用）
+  python3 tools/portraits/portraits.py install [heroes,skins,items]  # 採用版を Assets.xcassets へ（JPEG、既定は全部）
+  python3 tools/portraits/portraits.py sheet out.png [ID,ID,...|all|items] [セル px]  # 一覧画像（確認用）
 
 生成は Codex CLI（ChatGPT ログイン）の画像生成ツールを使う。API キーは不要。
 元画像（約 1254px PNG）は build/portraits/（git 管理外）に置き、アプリには縮小版だけを入れる。
@@ -26,16 +27,23 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]  # VELSTRIA/
 SPEC = Path(__file__).with_name("portraits.json")
+ITEM_SPEC = Path(__file__).with_name("item_icons.json")
 RAW = ROOT / "build" / "portraits"
 ASSETS = ROOT / "App" / "Resources" / "Assets.xcassets"
 HERO_FOLDER = "HeroPortraits"
 SKIN_FOLDER = "SkinPortraits"
+ITEM_FOLDER = "ItemIcons"
 PIXELS = 640
+ITEM_PIXELS = 384  # 最大表示 70pt × 3x = 210px に余裕を持たせる
 JPEG_QUALITY = 82
 
 
 def spec():
     return json.loads(SPEC.read_text())
+
+
+def item_spec():
+    return json.loads(ITEM_SPEC.read_text())
 
 
 def entry(sid):
@@ -49,7 +57,29 @@ def entry(sid):
     sys.exit(f"unknown id: {sid}")
 
 
+def item_entry(sid):
+    s = item_spec()
+    for it in s["items"]:
+        if it["id"] == sid:
+            return s, it
+    return None
+
+
+def build_item_prompt(s, it):
+    cat = s["categories"][it["category"]]
+    return (s["style"].format(background=cat["background"])
+            + "\n\n" + s["tiers"][str(it["tier"])]
+            + "\n\n" + cat["accent"]
+            + f"\n\nItem '{it['name']}': {it['description']}")
+
+
 def build_prompt(sid, extra=""):
+    found = item_entry(sid)
+    if found:
+        text = build_item_prompt(*found)
+        if extra:
+            text += "\n\nAdditional direction: " + extra
+        return text
     s, e, is_skin = entry(sid)
     if is_skin:
         _, hero, _ = entry(e["hero"])
@@ -90,7 +120,10 @@ class Slot:
 
 
 def generate(sid, extra="", tag=None, attempts=3):
-    _, e, is_skin = entry(sid)
+    if item_entry(sid):
+        e, is_skin = None, False
+    else:
+        _, e, is_skin = entry(sid)
     RAW.mkdir(parents=True, exist_ok=True)
     out = RAW / (f"{sid}_{tag}.png" if tag else f"{sid}.png")
     prompt = build_prompt(sid, extra)
@@ -144,13 +177,21 @@ def write_json(path, obj):
     path.write_text(json.dumps(obj, indent=2) + "\n")
 
 
-def install():
+def install(names=("heroes", "skins", "items")):
     s = spec()
-    groups = [(HERO_FOLDER, [h["id"] for h in s["heroes"]]), (SKIN_FOLDER, [k["id"] for k in s["skins"]])]
-    missing = [i for _, ids in groups for i in ids if not (RAW / f"{i}.png").exists()]
+    all_groups = {
+        "heroes": (HERO_FOLDER, [h["id"] for h in s["heroes"]], PIXELS),
+        "skins": (SKIN_FOLDER, [k["id"] for k in s["skins"]], PIXELS),
+        "items": (ITEM_FOLDER, [it["id"] for it in item_spec()["items"]], ITEM_PIXELS),
+    }
+    unknown = [n for n in names if n not in all_groups]
+    if unknown:
+        sys.exit("unknown group: " + ", ".join(unknown))
+    groups = [all_groups[n] for n in names]
+    missing = [i for _, ids, _ in groups for i in ids if not (RAW / f"{i}.png").exists()]
     if missing:
-        sys.exit("missing raw portraits: " + ", ".join(missing))
-    for folder, ids in groups:
+        sys.exit("missing raw images: " + ", ".join(missing))
+    for folder, ids, pixels in groups:
         base = ASSETS / folder
         if base.exists():
             shutil.rmtree(base)
@@ -160,18 +201,26 @@ def install():
         for i in ids:
             d = base / f"{i}.imageset"
             d.mkdir()
+            # 生成画像は縁が半透明のことがある。sips の JPEG 化は透明部を白で埋めるので、先に黒地へ合成する
+            flat = RAW / ".flat.png"
+            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(RAW / f"{i}.png"), "-filter_complex",
+                            "[0:v]split[a][b];[a]format=rgb24,drawbox=c=black:t=fill[bg];[bg][b]overlay=format=auto,format=rgb24",
+                            "-frames:v", "1", str(flat)], check=True, capture_output=True)
             subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", str(JPEG_QUALITY),
-                            "-z", str(PIXELS), str(PIXELS), str(RAW / f"{i}.png"), "--out", str(d / f"{i}.jpg")],
+                            "-z", str(pixels), str(pixels), str(flat), "--out", str(d / f"{i}.jpg")],
                            check=True, capture_output=True)
+            flat.unlink()
             write_json(d / "Contents.json", {
                 "images": [{"filename": f"{i}.jpg", "idiom": "universal"}],
                 "info": {"author": "xcode", "version": 1},
             })
-    total = sum(p.stat().st_size for p in ASSETS.glob("*Portraits/*.imageset/*.jpg"))
-    print(f"installed {sum(len(ids) for _, ids in groups)} portraits ({total / 1024:.0f} KB)")
+    total = sum(p.stat().st_size for folder, _, _ in groups for p in (ASSETS / folder).glob("*.imageset/*.jpg"))
+    print(f"installed {sum(len(ids) for _, ids, _ in groups)} images ({total / 1024:.0f} KB)")
 
 
 def sheet(out, ids=None, cols=6, cell=256):
+    if ids == ["items"]:
+        ids = [it["id"] for it in item_spec()["items"]]
     s = spec()
     ids = ids or [h["id"] for h in s["heroes"]] + [k["id"] for k in s["skins"]]
     missing = [i for i in ids if not (RAW / f"{i}.png").exists()]
@@ -213,7 +262,7 @@ def main(argv):
     elif cmd == "select":
         select(argv[2], argv[3])
     elif cmd == "install":
-        install()
+        install(tuple(argv[2].split(",")) if len(argv) > 2 else ("heroes", "skins", "items"))
     elif cmd == "sheet":
         out = argv[2] if len(argv) > 2 else str(RAW / "sheet.png")
         ids = argv[3].split(",") if len(argv) > 3 and argv[3] != "all" else None

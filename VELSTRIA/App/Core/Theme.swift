@@ -202,14 +202,17 @@ struct ScreenScaffold<Content: View>: View {
     }
 }
 
-/// ポートレートの描き下ろしアート（Assets.xcassets の HeroPortraits / SkinPortraits）。
-/// 生成元は tools/portraits/（仕様 portraits.json、取り込み portraits.py install）。
+/// 描き下ろしアート（Assets.xcassets の HeroPortraits / SkinPortraits / ItemIcons）。
+/// 生成元は tools/portraits/（仕様 portraits.json・item_icons.json、取り込み portraits.py install）。
 enum PortraitArt {
     @MainActor private static var cache: [String: UIImage?] = [:]
 
     @MainActor static func hero(_ heroID: String) -> UIImage? { image("HeroPortraits/\(heroID)") }
 
     @MainActor static func skin(_ cosmeticID: String) -> UIImage? { image("SkinPortraits/\(cosmeticID)") }
+
+    /// 装備アイコン（Assets.xcassets の ItemIcons。仕様は tools/portraits/item_icons.json）。
+    @MainActor static func item(_ itemID: String) -> UIImage? { image("ItemIcons/\(itemID)") }
 
     @MainActor private static func image(_ name: String) -> UIImage? {
         if let hit = cache[name] { return hit }

@@ -307,7 +307,8 @@ struct CollectionPolygonShape: Shape {
     }
 }
 
-/// 装備アイコン（カテゴリ = 色と記号、Tier = 枠形状と装飾、ID = 模様の角度）。
+/// 装備アイコン（絵柄 = 装備毎の描き下ろしアート、Tier = 枠形状と装飾）。
+/// アートの無い ID はカテゴリの色と記号 + ID 毎の模様の手続き生成で表示する。
 struct ItemIconView: View {
     let item: ItemDef
     var size: CGFloat = 52
@@ -321,34 +322,22 @@ struct ItemIconView: View {
     }
 
     var body: some View {
-        let color = CollectionStyle.categoryColor(item.category)
         let tierColor = CollectionStyle.tierColor(item.tier)
-        let number = Int(item.itemID.dropFirst(2)) ?? 0
-        let angle = Double((number * 37) % 180)
         let shape = CollectionChamferShape(chamfer: chamfer)
         ZStack {
-            shape.fill(LinearGradient(colors: [color.opacity(0.55), Color.black.opacity(0.75)],
-                                      startPoint: .topLeading, endPoint: .bottomTrailing))
-            // ID 毎の模様（同カテゴリ・同 Tier の装備を見分ける）
-            Canvas { ctx, sz in
-                let step = sz.width / 6
-                ctx.rotate(by: .degrees(angle))
-                for i in -8...8 {
-                    let x = Double(i) * step
-                    var line = Path()
-                    line.move(to: CGPoint(x: x, y: -sz.height * 1.5))
-                    line.addLine(to: CGPoint(x: x, y: sz.height * 1.5))
-                    ctx.stroke(line, with: .color(.white.opacity(i % 2 == 0 ? 0.08 : 0.04)), lineWidth: step * 0.35)
-                }
+            if let art = PortraitArt.item(item.itemID) {
+                Image(uiImage: art)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(shape)
+                // Tier の印の下地（明るい絵柄の上でも印が読めるように）
+                shape.fill(LinearGradient(colors: [.clear, .black.opacity(0.5)],
+                                          startPoint: UnitPoint(x: 0.5, y: 0.66), endPoint: .bottom))
+            } else {
+                proceduralArt(shape: shape)
             }
-            .clipShape(shape)
-            Circle()
-                .fill(RadialGradient(colors: [color.opacity(0.7), .clear], center: .center, startRadius: 1, endRadius: size * 0.42))
-                .padding(size * 0.08)
-            Image(systemName: CollectionStyle.categorySymbol(item.category))
-                .font(.system(size: size * 0.38, weight: .black))
-                .foregroundStyle(LinearGradient(colors: [.white, color.opacity(0.9)], startPoint: .top, endPoint: .bottom))
-                .shadow(color: color.opacity(0.8), radius: size * 0.06)
             // Tier の印
             HStack(spacing: size * 0.04) {
                 ForEach(0..<max(1, min(3, item.tier)), id: \.self) { _ in
@@ -368,6 +357,36 @@ struct ItemIconView: View {
         .frame(width: size, height: size)
         .shadow(color: item.tier >= 3 ? tierColor.opacity(0.35) : .clear, radius: size * 0.08)
         .accessibilityHidden(true)
+    }
+
+    /// 暫定表示（カテゴリ = 色と記号、ID = 模様の角度）。
+    @ViewBuilder
+    private func proceduralArt(shape: CollectionChamferShape) -> some View {
+        let color = CollectionStyle.categoryColor(item.category)
+        let number = Int(item.itemID.dropFirst(2)) ?? 0
+        let angle = Double((number * 37) % 180)
+        shape.fill(LinearGradient(colors: [color.opacity(0.55), Color.black.opacity(0.75)],
+                                  startPoint: .topLeading, endPoint: .bottomTrailing))
+        // ID 毎の模様（同カテゴリ・同 Tier の装備を見分ける）
+        Canvas { ctx, sz in
+            let step = sz.width / 6
+            ctx.rotate(by: .degrees(angle))
+            for i in -8...8 {
+                let x = Double(i) * step
+                var line = Path()
+                line.move(to: CGPoint(x: x, y: -sz.height * 1.5))
+                line.addLine(to: CGPoint(x: x, y: sz.height * 1.5))
+                ctx.stroke(line, with: .color(.white.opacity(i % 2 == 0 ? 0.08 : 0.04)), lineWidth: step * 0.35)
+            }
+        }
+        .clipShape(shape)
+        Circle()
+            .fill(RadialGradient(colors: [color.opacity(0.7), .clear], center: .center, startRadius: 1, endRadius: size * 0.42))
+            .padding(size * 0.08)
+        Image(systemName: CollectionStyle.categorySymbol(item.category))
+            .font(.system(size: size * 0.38, weight: .black))
+            .foregroundStyle(LinearGradient(colors: [.white, color.opacity(0.9)], startPoint: .top, endPoint: .bottom))
+            .shadow(color: color.opacity(0.8), radius: size * 0.06)
     }
 }
 
