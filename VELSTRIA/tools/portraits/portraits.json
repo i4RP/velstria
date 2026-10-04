@@ -1,0 +1,308 @@
+{
+  "style": "Square 1:1 hero portrait icon for VELSTRIA, a premium fantasy mobile MOBA game. Hand-painted splash-art quality: painterly semi-realistic digital painting, crisp detail, dramatic rim lighting and strong value contrast so the character reads clearly even at very small icon sizes. Tight head-and-shoulders close-up: the face (or helmet / mask) is large and placed slightly above the center, the top of the head close to the top edge, shoulders and the signature weapon partially visible. 3/4 view toward the viewer, confident expression. Background: deep starry cosmic nebula tinted {background}, soft bokeh, a subtle glow behind the character. Tasteful all-ages costume design for a 9+ rated game: no cleavage, no bare chest or midriff on female characters, no revealing outfits. Absolutely no text, letters, numbers, logos, signature, watermark, border, frame or UI elements. Full-bleed square image; keep the bottom-right corner free of important detail (a small badge is overlaid there).",
+  "skin_style": "Use the attached image as the identity reference: the SAME character (same face, species, body type, hairstyle silhouette and signature weapon type), the same tight head-and-shoulders framing, camera angle and painterly art style. Redesign only the costume, armor materials, colors and magical effects as the alternate skin described below. Background: deep starry cosmic nebula tinted {background}. Tasteful all-ages costume design for a 9+ rated game: no cleavage, no bare chest or midriff on female characters, no revealing outfits. Absolutely no text, letters, numbers, logos, signature, watermark, border, frame or UI elements. Full-bleed square image; keep the bottom-right corner free of important detail.",
+  "heroes": [
+    {
+      "id": "H001",
+      "name": "Alden",
+      "ja": "城門の誓衛アルデン",
+      "role": "Vanguard",
+      "background": "warm golden amber",
+      "description": "Alden, the Gate Oathguard: a stalwart male knight with a stern weathered face, short brown beard and determined eyes, wearing an open-faced silver knight helmet. Heavy polished silver plate armor with big rounded pauldrons, golden-amber enamel armor panels and sky-blue trims, a heavy cape. He braces a massive tower shield shaped like a fortified castle gate (portcullis motif) and holds a broad-bladed longsword. Warm golden holy light glints on the steel."
+    },
+    {
+      "id": "H002",
+      "name": "Lyra",
+      "ja": "星弦のリラ",
+      "role": "Duelist",
+      "background": "fresh spring green",
+      "description": "Lyra of the Star Strings: an agile young female duelist with pale blonde hair in a high ponytail and a small golden star-shaped hairpin. Light elegant armor in spring-green with gold trims and a flowing sash. She holds a slender star-tipped rapier and carries a harp-shaped bow strung with glowing aqua strings; tiny aqua star motes float around her."
+    },
+    {
+      "id": "H003",
+      "name": "Kael",
+      "ja": "灰刃のカエル",
+      "role": "Ranger",
+      "background": "deep jade green",
+      "description": "Kael of the Ash Blade: a lean, sharp-eyed male ranger with tanned skin and short ash-grey hair under a dark leather hood, a scarf around his neck. Jade-green leather ranger armor with iron buckles and ember-orange trims, a quiver of arrows on his back. He draws a recurve bow whose limbs are blackened ash-steel blades, the nocked arrow glowing with smoldering ember-orange fire and drifting ash."
+    },
+    {
+      "id": "H004",
+      "name": "Mirea",
+      "ja": "潮祈のミレア",
+      "role": "Arcanist",
+      "background": "azure ocean blue",
+      "description": "Mirea the Tide Prayer: a graceful female sea mage with long flowing deep ocean-blue hair and a delicate silver crown made of seashells and pearls. Modest high-collared azure-blue layered robes covering the shoulders and chest, with coral-pink trims. She holds a tall silver staff crowned with a swirling wave, and a glowing aqua sphere of water floats beside her hand, droplets orbiting it."
+    },
+    {
+      "id": "H005",
+      "name": "Voss",
+      "ja": "黒雷のヴォス",
+      "role": "Support",
+      "background": "dark indigo violet",
+      "description": "Voss of the Black Thunder: a gaunt, intense male storm mage with pale skin and spiky white hair, eyes crackling with violet light. Indigo robes with obsidian-black crystal shoulder pieces and a tattered dark cape. He grips a jagged obsidian spear wreathed in violet lightning, and a ring of violet lightning (a halo of electricity) hovers behind his head."
+    },
+    {
+      "id": "H006",
+      "name": "Seren",
+      "ja": "月灯のセレン",
+      "role": "Assassin",
+      "background": "night orchid magenta",
+      "description": "Seren of the Moon Lantern: a slim, mysterious female assassin wearing a close hood and a cloth mask covering the lower half of her face, only her calm lavender eyes visible; strands of lavender-silver hair and a silver crescent-moon hairpin. Dark orchid-magenta leather outfit with long scarf tails. She holds a silver crescent-moon dagger and a small lantern that glows with pale golden moonlight."
+    },
+    {
+      "id": "H007",
+      "name": "Garruk",
+      "ja": "岩脈のガルク",
+      "role": "Vanguard",
+      "background": "deep crimson rose",
+      "description": "Garruk of the Rock Vein: a towering, muscular male brute with tanned skin, a dark reddish-brown mohawk, a thick braided beard and a cloth headband. His armor is made of rough stone slabs with huge boulder shoulder guards and crimson-rose cloth wraps. Both fists are encased in enormous rock gauntlets split by glowing molten-orange cracks, embers rising."
+    },
+    {
+      "id": "H008",
+      "name": "Nia",
+      "ja": "風標のニア",
+      "role": "Duelist",
+      "background": "bright tangerine orange",
+      "description": "Nia of the Wind Banner: a spirited young female duelist with short windswept auburn hair and a feather hairpin. Light tangerine-orange armor with feathered shoulder pieces and teal trims, long teal wind ribbons fluttering behind her. She wields a silver spear that carries a long flowing banner, swirling teal wind currents around the spearhead."
+    },
+    {
+      "id": "H009",
+      "name": "Orin",
+      "ja": "機巧士オリン",
+      "role": "Ranger",
+      "background": "chartreuse yellow-green",
+      "description": "Orin the Artificer: a clever male engineer with tanned skin, short brown hair and brass goggles pushed up on his forehead, a confident grin. Mechanical brass armor with chartreuse-green panels and copper-orange trims, a gear-laden backpack with small cogs. His left arm is a full brass mechanical prosthetic; he shoulders a heavy repeating mechanical crossbow, its bolts glowing amber."
+    },
+    {
+      "id": "H010",
+      "name": "Thessa",
+      "ja": "焔冠のテッサ",
+      "role": "Arcanist",
+      "background": "emerald green with ember sparks",
+      "description": "Thessa of the Flame Crown: a fierce female fire sorceress with long fiery red hair and a golden crown made of living flames above her brow. Emerald-green robes with gold embroidery and orange trims. One hand holds an open golden-bound grimoire, the other blazes with roaring orange fire, and several small fireballs orbit around her."
+    },
+    {
+      "id": "H011",
+      "name": "Rook",
+      "ja": "鉄翼のルーク",
+      "role": "Support",
+      "background": "turquoise cyan",
+      "description": "Rook of the Iron Wings: a steadfast male guardian-priest with tanned skin and short dark slate hair, wearing an iron half-visor over his eyes. Iron plate armor with rounded pauldrons and turquoise-cyan panels, large mechanical iron wings folded behind his back. He holds a tall aegis staff topped with a protective lantern that glows soft cyan light."
+    },
+    {
+      "id": "H012",
+      "name": "Elyne",
+      "ja": "玻璃歌のエリネ",
+      "role": "Assassin",
+      "background": "royal sapphire blue",
+      "description": "Elyne of the Glass Song: a slender, pale female assassin with a sleek icy pale-blue bob haircut and a translucent glass visor over her eyes. Royal-blue light armor with sharp crystal shoulder pieces and scarf tails. She holds twin daggers made of clear glass, and razor-thin glass shards float around her, refracting pale cyan light like a frozen melody."
+    },
+    {
+      "id": "H013",
+      "name": "Dagan",
+      "ja": "獣刻のダガン",
+      "role": "Vanguard",
+      "background": "deep royal purple",
+      "description": "Dagan of the Beast Mark: a massive male tribal warrior with deep dark skin and wild dark-brown hair, wearing the bleached skull mask of a great horned beast over the top of his head, his fierce eyes visible below it. Fur and leather armor with heavy fur pauldrons and a fur cape, purple war paint and glowing red tribal carvings on his skin. He holds a huge bone club and a round hide-and-bone shield."
+    },
+    {
+      "id": "H014",
+      "name": "Sio",
+      "ja": "霧歩のシオ",
+      "role": "Duelist",
+      "background": "misty rose pink",
+      "description": "Sio the Mist Walker: a lean, calm young male swordsman with near-black navy hair tied in a high topknot with a pale ribbon. Rose-pink and white layered cloth garb with a long hooded mist cloak whose edges dissolve into drifting fog. He holds a slim katana trailing pale blue mist in one hand and a short blade in the other."
+    },
+    {
+      "id": "H015",
+      "name": "Valka",
+      "ja": "戦鐘のヴァルカ",
+      "role": "Ranger",
+      "background": "burnt orange",
+      "description": "Valka of the War Bell: a bold female gunner with golden blonde braids under a bronze viking helmet with small wings. Orange leather armor with rounded bronze pauldrons. She shoulders a heavy bronze hand-cannon (blunderbuss) whose muzzle flares out like a bell, a large bronze war bell strapped on her back, warm golden sparks."
+    },
+    {
+      "id": "H016",
+      "name": "Iris",
+      "ja": "白環のイリス",
+      "role": "Arcanist",
+      "background": "pale lime and teal",
+      "description": "Iris of the White Halo: a serene young female arcanist with long flowing silver-white hair and a slender golden circlet on her forehead. Layered white robes with pale lime-green panels and gold trim. She holds a tall golden staff topped with a glowing ring, and a large softly glowing white halo floats behind her head."
+    },
+    {
+      "id": "H017",
+      "name": "Mord",
+      "ja": "深淵鎖のモルド",
+      "role": "Support",
+      "background": "abyssal dark green and violet",
+      "description": "Mord of the Abyss Chain: an ominous male occultist with ashen grey skin, his face hidden in the shadow of a deep hood and a dark mask, only two glowing violet eyes visible. Dark green and black robes with a tattered cape. He swings a smoking iron censer lantern on a chain, and spectral chains glowing violet float and coil around him."
+    },
+    {
+      "id": "H018",
+      "name": "Celia",
+      "ja": "花星のセリア",
+      "role": "Assassin",
+      "background": "mint teal",
+      "description": "Celia of the Flower Star: a petite, graceful female assassin with a pink bob haircut, a crown of flowers and a golden crescent hairpin. Mint-teal cloth outfit with a skirt of layered flower petals and golden accents. She holds twin curved blades shaped like flower petals, and pink blossom petals swirl around her."
+    },
+    {
+      "id": "H019",
+      "name": "Bram",
+      "ja": "砦砕のブラム",
+      "role": "Vanguard",
+      "background": "cobalt blue",
+      "description": "Bram the Fortress Breaker: a hulking male warrior in a heavy iron helmet with two great curved horns, his scarred tanned jaw and fierce eyes visible. Massive iron plate armor with huge pauldrons and cobalt-blue panels, orange trims. He rests an enormous iron siege hammer on his shoulder, its head glowing with orange heat."
+    },
+    {
+      "id": "H020",
+      "name": "Yuna",
+      "ja": "光矢のユナ",
+      "role": "Duelist",
+      "background": "violet purple",
+      "description": "Yuna of the Light Arrow: an energetic young female duelist with golden blonde twin tails tied with ribbons. Light violet-and-gold armor. She wields a radiant blade forged from a giant arrow of light and carries a golden bow; motes of warm golden light trail around her."
+    },
+    {
+      "id": "H021",
+      "name": "Kiros",
+      "ja": "時砂のキロス",
+      "role": "Ranger",
+      "background": "magenta fuchsia with golden sand",
+      "description": "Kiros of the Time Sand: a calm male sharpshooter with tanned skin, short sandy-brown hair and a wide-brimmed hat, a scarf around his neck. Long fuchsia-magenta leather coat with brass buckles. He holds a long ornate brass rifle, and a glowing hourglass floats beside him with golden sand swirling out of it."
+    },
+    {
+      "id": "H022",
+      "name": "Rhea",
+      "ja": "蒼爪のレア",
+      "role": "Arcanist",
+      "background": "vermilion red",
+      "description": "Rhea of the Azure Claw: a wild female fox-eared mage with untamed icy pale-blue hair and fox ears. Vermilion-red robes with silver trims. Both hands are fitted with long glowing azure crystal claws, and azure claw-shaped crystals float around her, crackling with blue arcane energy."
+    },
+    {
+      "id": "H023",
+      "name": "Toren",
+      "ja": "雷槍のトレン",
+      "role": "Support",
+      "background": "golden yellow",
+      "description": "Toren of the Thunder Lance: a noble male lancer with tanned skin and short dark-brown hair, wearing a silver winged helmet. Silver plate armor with rounded pauldrons and golden-yellow panels, bright blue trims, a cape. He holds a long silver lance crackling with blue-white lightning, and a sphere of lightning hovers near him."
+    },
+    {
+      "id": "H024",
+      "name": "Noa",
+      "ja": "夢織のノア",
+      "role": "Assassin",
+      "background": "soft spring green and lilac",
+      "description": "Noa the Dream Weaver: a dreamy, playful female assassin with a lavender bob haircut, a floppy nightcap and a silver crescent hairpin, half-lidded eyes. A cozy high-necked light-green and lilac cloth outfit with long sleeves (shoulders and chest covered). She holds twin long silver needles like stilettos, and glowing violet dream threads weave and float around her."
+    }
+  ],
+  "skins": [
+    {
+      "id": "CO001",
+      "hero": "H001",
+      "name": "Starforged Alden",
+      "ja": "星鍛のアルデン",
+      "rarity": "Common",
+      "background": "deep royal blue",
+      "description": "Starforged skin: armor re-forged from star metal — deep royal-blue armor panels with gold metal plating instead of silver, constellation engravings across the shield and pauldrons, faint starlight glimmering on the sword."
+    },
+    {
+      "id": "CO025",
+      "hero": "H001",
+      "name": "Eclipse Sentinel Alden",
+      "ja": "蝕の哨兵アルデン",
+      "rarity": "Common",
+      "background": "black and dark gold eclipse",
+      "description": "Eclipse Sentinel skin: blackened obsidian plate armor with gold trims, the gate shield bearing a solar-eclipse emblem with a ring of golden corona light, a dark cape; brooding night atmosphere."
+    },
+    {
+      "id": "CO049",
+      "hero": "H001",
+      "name": "Aurora Citadel Alden",
+      "ja": "極光の城塞アルデン",
+      "rarity": "Common",
+      "background": "aurora teal and soft white",
+      "description": "Aurora Citadel skin: gleaming white and platinum armor with gold filigree, the gate shield shaped like a radiant crystal citadel, ribbons of aqua aurora light flowing around him."
+    },
+    {
+      "id": "CO007",
+      "hero": "H007",
+      "name": "Obsidian Giant Garruk",
+      "ja": "黒曜の巨人ガルク",
+      "rarity": "Epic",
+      "background": "dark teal",
+      "description": "Obsidian Giant skin (Epic): his rock armor and gauntlets become glossy black volcanic obsidian glass with sharp faceted edges, veins of glowing teal energy, gold bands on the gauntlets, a powerful teal aura around him. More ornate and imposing than the base design."
+    },
+    {
+      "id": "CO031",
+      "hero": "H007",
+      "name": "Lava Vein Garruk",
+      "ja": "溶岩脈のガルク",
+      "rarity": "Epic",
+      "background": "smoldering black and red",
+      "description": "Lava Vein skin (Epic): charred black basalt armor and gauntlets split by rivers of bright molten lava, dripping magma and rising embers, gold accents, a fiery aura. More ornate and imposing than the base design."
+    },
+    {
+      "id": "CO055",
+      "hero": "H007",
+      "name": "Crystal Colossus Garruk",
+      "ja": "水晶の巨像ガルク",
+      "rarity": "Epic",
+      "background": "pale aqua and white",
+      "description": "Crystal Colossus skin (Epic): armor and gauntlets made of translucent white and pale-blue quartz crystal clusters, platinum and gold bands, glowing aqua light refracting through the crystals, a shimmering aura. More ornate and imposing than the base design."
+    },
+    {
+      "id": "CO013",
+      "hero": "H013",
+      "name": "Frostfang Dagan",
+      "ja": "霜牙のダガン",
+      "rarity": "Common",
+      "background": "icy blue",
+      "description": "Frostfang skin: the beast mask becomes the skull of a frost wolf with icy fangs, white snow-fur pauldrons and cape, frost-covered bone club and shield, glowing icy-blue tribal marks, falling snow."
+    },
+    {
+      "id": "CO037",
+      "hero": "H013",
+      "name": "Emberclad Dagan",
+      "ja": "熾火纏いのダガン",
+      "rarity": "Common",
+      "background": "dark charcoal with ember orange",
+      "description": "Emberclad skin: charred black fur and scorched bone armor with gold accents, smoldering ember-orange cracks in the bone club and mask, drifting sparks and glowing orange tribal marks."
+    },
+    {
+      "id": "CO061",
+      "hero": "H013",
+      "name": "Celestial Beast Dagan",
+      "ja": "天獣のダガン",
+      "rarity": "Common",
+      "background": "white gold and sky aqua",
+      "description": "Celestial Beast skin: the mask becomes a radiant white-and-gold celestial beast skull, white fur trimmed with gold, the club and shield inlaid with platinum and glowing aqua runes, a soft heavenly glow."
+    },
+    {
+      "id": "CO019",
+      "hero": "H019",
+      "name": "Iron Siege Bram",
+      "ja": "鉄の攻城兵ブラム",
+      "rarity": "Epic",
+      "background": "smoky amber",
+      "description": "Iron Siege skin (Epic): heavily riveted dark iron siege armor with amber-orange panels and brass gears, smoke and sparks, the siege hammer turned into a massive piston-driven battering ram hammer, a glowing amber aura. More ornate and imposing than the base design."
+    },
+    {
+      "id": "CO043",
+      "hero": "H019",
+      "name": "Thunder Ram Bram",
+      "ja": "雷の破城槌ブラム",
+      "rarity": "Epic",
+      "background": "stormy dark navy",
+      "description": "Thunder Ram skin (Epic): blackened obsidian armor with gold trims, the horned helmet and siege hammer crackling with bright blue-white lightning bolts, storm clouds behind, an electric aura. More ornate and imposing than the base design."
+    },
+    {
+      "id": "CO067",
+      "hero": "H019",
+      "name": "Starfall Breaker Bram",
+      "ja": "星墜の破砕者ブラム",
+      "rarity": "Epic",
+      "background": "cosmic white gold with falling meteors",
+      "description": "Starfall Breaker skin (Epic): radiant white and platinum armor with gold filigree, the siege hammer head forged from a glowing fallen star (meteorite) trailing aqua starlight, meteors streaking behind, a celestial aura. More ornate and imposing than the base design."
+    }
+  ]
+}

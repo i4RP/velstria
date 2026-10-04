@@ -202,7 +202,24 @@ struct ScreenScaffold<Content: View>: View {
     }
 }
 
-/// 手続き生成のヒーローポートレート（3D モデル導入前の暫定アート）。
+/// ポートレートの描き下ろしアート（Assets.xcassets の HeroPortraits / SkinPortraits）。
+/// 生成元は tools/portraits/（仕様 portraits.json、取り込み portraits.py install）。
+enum PortraitArt {
+    @MainActor private static var cache: [String: UIImage?] = [:]
+
+    @MainActor static func hero(_ heroID: String) -> UIImage? { image("HeroPortraits/\(heroID)") }
+
+    @MainActor static func skin(_ cosmeticID: String) -> UIImage? { image("SkinPortraits/\(cosmeticID)") }
+
+    @MainActor private static func image(_ name: String) -> UIImage? {
+        if let hit = cache[name] { return hit }
+        let img = UIImage(named: name)
+        cache[name] = img
+        return img
+    }
+}
+
+/// ヒーローポートレート（描き下ろしアート。アートの無い ID は色面 + 頭文字の暫定表示）。
 struct HeroPortraitView: View {
     let heroID: String
     var size: CGFloat = 64
@@ -213,14 +230,23 @@ struct HeroPortraitView: View {
         let def = app.master.hero(heroID)
         let hue = Theme.heroHue(heroID)
         ZStack {
-            RoundedRectangle(cornerRadius: size * 0.2, style: .continuous)
-                .fill(LinearGradient(colors: [Color(hue: hue, saturation: 0.65, brightness: 0.85),
-                                              Color(hue: hue, saturation: 0.8, brightness: 0.30)],
-                                     startPoint: .topLeading, endPoint: .bottomTrailing))
-            Text(String(def?.codeName.prefix(1) ?? "?"))
-                .font(.system(size: size * 0.5, weight: .black, design: .serif))
-                .foregroundStyle(.white.opacity(0.92))
-                .shadow(color: .black.opacity(0.4), radius: 3)
+            if let art = PortraitArt.hero(heroID) {
+                Image(uiImage: art)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(RoundedRectangle(cornerRadius: size * 0.2, style: .continuous))
+            } else {
+                RoundedRectangle(cornerRadius: size * 0.2, style: .continuous)
+                    .fill(LinearGradient(colors: [Color(hue: hue, saturation: 0.65, brightness: 0.85),
+                                                  Color(hue: hue, saturation: 0.8, brightness: 0.30)],
+                                         startPoint: .topLeading, endPoint: .bottomTrailing))
+                Text(String(def?.codeName.prefix(1) ?? "?"))
+                    .font(.system(size: size * 0.5, weight: .black, design: .serif))
+                    .foregroundStyle(.white.opacity(0.92))
+                    .shadow(color: .black.opacity(0.4), radius: 3)
+            }
             if showsRole, let role = def?.role {
                 Image(systemName: Theme.roleSymbol(role))
                     .font(.system(size: size * 0.2, weight: .bold))

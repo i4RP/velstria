@@ -2,7 +2,7 @@ import SwiftUI
 import VelstriaCore
 
 // 担当: ui-collection。コスメ・商品の手続き生成プレビュー（3D アセット導入前の表示）。
-// 種類毎: スキン = 色替えポートレート、帰還 = 渦巻くリング、出現 = 立ち上る光柱、
+// 種類毎: スキン = 描き下ろしポートレート（tools/portraits/）、帰還 = 渦巻くリング、出現 = 立ち上る光柱、
 // キル演出 = 放射バースト、エモート = 記号入り吹き出し、フレーム = 装飾枠。
 
 struct CosmeticPreviewView: View {
@@ -16,7 +16,7 @@ struct CosmeticPreviewView: View {
         Group {
             if cosmetic.type == .heroSkin {
                 SkinPortraitView(heroID: cosmetic.heroID, variant: CosmeticInfo.variant(of: cosmetic),
-                                 rarity: cosmetic.rarity, size: size)
+                                 rarity: cosmetic.rarity, size: size, cosmeticID: cosmetic.cosmeticID)
             } else {
                 effectTile
             }
@@ -314,12 +314,13 @@ enum CosmeticPainter {
     }
 }
 
-/// スキンのプレビュー（ヒーローポートレートをスキン毎に色替え + レアリティ枠）。
+/// スキンのプレビュー（スキンの描き下ろしアート + レアリティ枠。アートが無ければヒーローポートレートを色替え）。
 struct SkinPortraitView: View {
     let heroID: String
     let variant: Int
     let rarity: Rarity
     var size: CGFloat = 96
+    var cosmeticID: String?
 
     static func hueShift(_ variant: Int) -> Double {
         [150, 230, 60][((variant % 3) + 3) % 3]
@@ -328,6 +329,33 @@ struct SkinPortraitView: View {
     var body: some View {
         let rc = Theme.rarityColor(rarity)
         let shape = RoundedRectangle(cornerRadius: size * 0.2, style: .continuous)
+        ZStack {
+            if let art = cosmeticID.flatMap({ PortraitArt.skin($0) }) {
+                Image(uiImage: art)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(shape)
+            } else {
+                recolored(shape)
+            }
+            shape.strokeBorder(LinearGradient(colors: [rc, rc.opacity(0.45), rc], startPoint: .topLeading, endPoint: .bottomTrailing),
+                               lineWidth: max(2, size * 0.045))
+            Text(["I", "II", "III", "IV", "V"][min(4, max(0, variant))])
+                .font(.system(size: max(8, size * 0.12), weight: .black, design: .serif))
+                .foregroundStyle(Color.black.opacity(0.85))
+                .padding(.horizontal, size * 0.05)
+                .background(Capsule().fill(rc))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                .padding(size * 0.07)
+        }
+        .frame(width: size, height: size)
+        .shadow(color: rc.opacity(0.45), radius: size * 0.06)
+    }
+
+    /// アートの無いスキン: ヒーローポートレートの色替え + バリエーション毎の模様。
+    private func recolored(_ shape: RoundedRectangle) -> some View {
         ZStack {
             HeroPortraitView(heroID: heroID, size: size, showsRole: false)
                 .hueRotation(.degrees(Self.hueShift(variant)))
@@ -362,18 +390,7 @@ struct SkinPortraitView: View {
             }
             .clipShape(shape)
             .allowsHitTesting(false)
-            shape.strokeBorder(LinearGradient(colors: [rc, rc.opacity(0.45), rc], startPoint: .topLeading, endPoint: .bottomTrailing),
-                               lineWidth: max(2, size * 0.045))
-            Text(["I", "II", "III", "IV", "V"][min(4, max(0, variant))])
-                .font(.system(size: max(8, size * 0.12), weight: .black, design: .serif))
-                .foregroundStyle(Color.black.opacity(0.85))
-                .padding(.horizontal, size * 0.05)
-                .background(Capsule().fill(rc))
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                .padding(size * 0.07)
         }
-        .frame(width: size, height: size)
-        .shadow(color: rc.opacity(0.45), radius: size * 0.06)
     }
 }
 

@@ -193,4 +193,22 @@ final class AppStoreAssetsTests: XCTestCase {
         XCTAssertNotNil(UIColor(named: "LaunchBackground"))
         XCTAssertNotNil(UIColor(named: "AccentColor"))
     }
+
+    /// 全ヒーロー・全ヒーロースキンに描き下ろしポートレートがあること（tools/portraits/portraits.py install）。
+    @MainActor
+    func testEveryHeroAndSkinHasPortraitArt() {
+        let m = MasterData.shared
+        var missing: [String] = []
+        for h in m.heroes {
+            guard let img = PortraitArt.hero(h.heroID) else { missing.append(h.heroID); continue }
+            XCTAssertEqual(img.size.width, img.size.height, "\(h.heroID) のポートレートが正方形ではありません")
+            XCTAssertGreaterThanOrEqual(img.size.width * img.scale, 512, "\(h.heroID) のポートレートの解像度が不足")
+        }
+        for c in m.cosmetics where c.type == .heroSkin {
+            guard let img = PortraitArt.skin(c.cosmeticID) else { missing.append(c.cosmeticID); continue }
+            XCTAssertEqual(img.size.width, img.size.height, "\(c.cosmeticID) のポートレートが正方形ではありません")
+        }
+        XCTAssertEqual(missing, [], "ポートレート画像がありません（tools/portraits/ で生成・取り込み）")
+        XCTAssertNil(PortraitArt.hero("H999"), "未知の ID は頭文字の暫定表示にフォールバックする")
+    }
 }

@@ -10,3 +10,4 @@ build/
 *.xcarchive
 /tmp/
 .claude/worktrees/
+__pycache__/
