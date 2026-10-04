@@ -92,6 +92,9 @@ targets:
         # 端末内の記録だけでなく App Store の購入履歴から集計するため（StoreKitService.syncMonthlySpendFromHistory）
         SKIncludeConsumableInAppPurchaseHistory: true
         LSRequiresIPhoneOS: true
+        # ゲームモード（iOS 18+）: 起動中はバックグラウンドの処理・無線の遅延を抑える。ゲームとして分類されている必要がある
+        LSApplicationCategoryType: public.app-category.action-games
+        GCSupportsGameMode: true
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
     settings:
