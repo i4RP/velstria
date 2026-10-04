@@ -513,7 +513,7 @@ final class MapScene {
         }
     }
 
-    /// 視点ヒーローが入っている草むらを半透明にする（nil で全て不透明）。
+    /// 指定した草むらを半透明にする（nil で全て不透明）。
     func setTranslucentBrush(_ index: Int?) {
         for k in brushTranslucent.indices { brushWanted[k] = k == index }
         applyBrushTranslucency()

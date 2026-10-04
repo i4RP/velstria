@@ -131,11 +131,8 @@ final class BattleWorld {
         let aimShown = controller.aim
         #endif
         aim.update(aimShown, origin: aimOrigin, dt: dt)
-        // 草むら: 視点ヒーローが入っている草むらと、表示中のスキル予告に重なる草むらを半透明に
+        // 草むら: 表示中のスキル予告に重なる草むらを半透明に
         map.beginBrushMarks()
-        if let hi = frame.state.humanHeroIndex, frame.viewerTeam != nil, let b = frame.state.units[hi].brushIndex {
-            map.markBrushTranslucent(b)
-        }
         let mapDef = controller.ctx.map
         for k in frame.state.zones.indices {
             let z = frame.state.zones[k]

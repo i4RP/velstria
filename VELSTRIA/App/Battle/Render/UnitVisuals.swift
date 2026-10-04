@@ -470,6 +470,7 @@ final class HeroVisual {
     private var yaw: Float = 0
     var visibility: Float = 1
     private var opacityApplied: Float = 1
+    private var brushOpacity: Float = 1
     private var castUntil: Float = -1
     private var castSlot: SkillSlot = .skill1
     private var attackUntil: Float = -1
@@ -527,6 +528,17 @@ final class HeroVisual {
         let deathFade: Float = dead ? max(0, 1 - max(0, deadTime - 2.2) / 0.6) : 1
         let alpha = visibility * deathFade
         applyOpacity(alpha)
+        // 草むらの中では操作中のヒーロー本体だけを薄くし、HP バー・足元リングは読みやすく保つ。
+        let brushTarget: Float = id == f.humanID && f.viewerTeam != nil && !dead && u.brushIndex != nil ? 0.65 : 1
+        if brushOpacity != brushTarget {
+            brushOpacity += (brushTarget - brushOpacity) * min(1, dt * 9)
+            if abs(brushTarget - brushOpacity) < 0.005 { brushOpacity = brushTarget }
+            if brushOpacity == 1 {
+                modelRoot.components.remove(OpacityComponent.self)
+            } else {
+                modelRoot.components.set(OpacityComponent(opacity: brushOpacity))
+            }
+        }
         root.isEnabled = alpha > 0.01
         let p = f.interpolated(i)
         root.position = worldPosition(p)
