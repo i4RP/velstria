@@ -51,7 +51,8 @@ enum AgeBracket: Int, Codable, CaseIterable, Identifiable {
 
 struct GameSettings: Codable, Equatable {
     var language: AppLanguage = .system
-    var bgmVolume: Double = 0.7
+    /// 開発中は同じ曲を繰り返し聴かないよう既定 0（ミュート）。
+    var bgmVolume: Double = 0
     var sfxVolume: Double = 0.8
     var voiceVolume: Double = 0.8
     var hapticsEnabled = true
@@ -223,7 +224,7 @@ struct StorePurchaseCount: Codable, Equatable {
 }
 
 struct Profile: Codable, Equatable {
-    var schemaVersion = 1
+    var schemaVersion = 2
     var playerID: String = UUID().uuidString
     var displayName: String = ""
     var createdAt = Date()

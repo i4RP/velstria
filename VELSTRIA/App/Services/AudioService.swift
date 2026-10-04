@@ -33,7 +33,7 @@ final class AudioService {
     static let musicGain: Float = 0.55
     static let crossfadeDuration: TimeInterval = 0.8
 
-    private(set) var bgmVolume: Double = 0.7
+    private(set) var bgmVolume: Double = GameSettings().bgmVolume
     private(set) var sfxVolume: Double = 0.8
     private(set) var voiceVolume: Double = 0.8
     /// 再生中（または準備中）の曲。

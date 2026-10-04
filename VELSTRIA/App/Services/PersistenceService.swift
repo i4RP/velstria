@@ -576,10 +576,16 @@ final class PersistenceService: @unchecked Sendable {
 enum ProfileMigrator {
     typealias Step = (from: Int, apply: (inout [String: Any]) -> Void)
 
-    /// v1 が初版のため、現在は変換なし。
-    /// 例: v1 → v2 で名前変更した場合
-    ///   (from: 1, apply: { obj in obj["newKey"] = obj.removeValue(forKey: "oldKey") })
-    static let steps: [Step] = []
+    /// 例: 名前変更した場合
+    ///   (from: N, apply: { obj in obj["newKey"] = obj.removeValue(forKey: "oldKey") })
+    static let steps: [Step] = [
+        // v1 → v2: BGM の既定をミュートに変えたため、保存済みの BGM 音量も 0 にする
+        (from: 1, apply: { obj in
+            guard var settings = obj["settings"] as? [String: Any] else { return }
+            settings["bgmVolume"] = 0
+            obj["settings"] = settings
+        }),
+    ]
 
     static func migrate(_ object: inout [String: Any], from version: Int) {
         var v = version
