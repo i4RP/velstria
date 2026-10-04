@@ -412,6 +412,8 @@ enum HeroMaterialLibrary {
         var m = UnlitMaterial(color: c.uiColor)
         if opacity < 0.999 {
             m.blending = .transparent(opacity: .init(floatLiteral: opacity))
+            // 半透明の足元表示が深度を書くと、後から描く半透明の板との前後が乱れる（RenderMaterials.unlit と同じ扱い）
+            m.writesDepth = false
         }
         unlitCache[key] = m
         return m

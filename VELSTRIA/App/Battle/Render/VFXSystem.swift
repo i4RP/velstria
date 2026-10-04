@@ -183,12 +183,13 @@ final class VFXSystem {
         guard meshFX.count < 40 else { return }
         let e = freeRings.popLast() ?? {
             let m = ModelEntity(mesh: meshes.ring(radius: 1, thickness: 0.12) ?? meshes.unitSphere, materials: [])
-            OverlayOrder.apply(m, OverlayOrder.ring)
+            OverlayOrder.apply(m, OverlayOrder.vfxRing)
             root.addChild(m)
             return m
         }()
-        e.model?.materials = [materials.unlit(color, alpha: 0.999)]
-        e.position = p + SIMD3(0, 0.06, 0)
+        // 半透明（深度を書かない）にして、足元のリングを欠けさせない。高さは呼び出し元によらず固定
+        e.model?.materials = [materials.unlit(color, alpha: 0.99)]
+        e.position = SIMD3(p.x, GroundLayer.vfxRing, p.z)
         e.scale = [r0, 1, r0]
         e.isEnabled = true
         e.components.set(OpacityComponent(opacity: alpha))

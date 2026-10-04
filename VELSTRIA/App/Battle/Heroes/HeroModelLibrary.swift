@@ -80,7 +80,7 @@ enum HeroEffectMeshes {
     static let teamRingDashed: MeshResource = makeTeamRing(dashed: true)
     static let shadowOnly: MeshResource = {
         var b = HeroMeshBuilder()
-        b.add(MeshTemplate.flat(arcPoints(.zero, 0.44, 0, 2 * .pi, 32).dropLast()), trs(V3(0, 0.012, 0)), .secondary)
+        b.add(MeshTemplate.flat(arcPoints(.zero, 0.44, 0, 2 * .pi, 32).dropLast()), trs(V3(0, GroundLayer.unitShadow, 0)), .secondary)
         return b.makeMesh(name: "hero.shadow") ?? MeshResource.generatePlane(width: 0.8, depth: 0.8)
     }()
 
@@ -101,10 +101,12 @@ enum HeroEffectMeshes {
         let ring = dashed
             ? MeshTemplate.annulus(inner: 0.5, outer: 0.585, segments: 60, dashes: 10, dashFill: 0.68)
             : MeshTemplate.annulus(inner: 0.5, outer: 0.585, segments: 60)
-        b.add(ring, trs(V3(0, 0.02, 0)), .primary)
+        // 高さは GroundLayer（石畳・地面の印より上。同一平面だと Z-fighting でちらつく）
+        b.add(ring, trs(V3(0, GroundLayer.teamMarker, 0)), .primary)
         // 正面（-Z）の矢印
-        b.add(MeshTemplate.flat([V2(-0.11, -0.6), V2(0, -0.74), V2(0.11, -0.6), V2(0, -0.645)]), trs(V3(0, 0.021, 0)), .primary)
-        b.add(MeshTemplate.flat(arcPoints(.zero, 0.44, 0, 2 * .pi, 32).dropLast()), trs(V3(0, 0.012, 0)), .secondary)
+        b.add(MeshTemplate.flat([V2(-0.11, -0.6), V2(0, -0.74), V2(0.11, -0.6), V2(0, -0.645)]),
+              trs(V3(0, GroundLayer.teamMarker + 0.001, 0)), .primary)
+        b.add(MeshTemplate.flat(arcPoints(.zero, 0.44, 0, 2 * .pi, 32).dropLast()), trs(V3(0, GroundLayer.unitShadow, 0)), .secondary)
         return b.makeMesh(name: dashed ? "hero.teamRing.dashed" : "hero.teamRing.solid")
             ?? MeshResource.generatePlane(width: 1.2, depth: 1.2)
     }
@@ -264,8 +266,9 @@ final class HeroModel: HeroModelHandle {
         groundRing.name = "groundRing"
         groundRing.components.set(ModelComponent(mesh: HeroEffectMeshes.groundRing,
                                                  materials: [HeroMaterialLibrary.unlit(palette.glow, opacity: 0.8)]))
-        groundRing.position = V3(0, 0.03, 0)
+        groundRing.position = V3(0, GroundLayer.castRing, 0)
         groundRing.isEnabled = false
+        OverlayOrder.apply(groundRing, OverlayOrder.castRing)
         body.addChild(groundRing)
 
         // チームリングと丸影
@@ -277,6 +280,7 @@ final class HeroModel: HeroModelHandle {
                 mesh: team == .red ? HeroEffectMeshes.teamRingDashed : HeroEffectMeshes.teamRingSolid,
                 materials: [HeroMaterialLibrary.unlit(color, opacity: 0.82),
                             HeroMaterialLibrary.unlit(HSB(0, 0, 0), opacity: 0.32)]))
+            OverlayOrder.apply(ring, OverlayOrder.unitMarker)
             body.addChild(ring)
             teamRing = ring
         } else if options.shadow {
@@ -285,6 +289,7 @@ final class HeroModel: HeroModelHandle {
             shadow.components.set(ModelComponent(mesh: HeroEffectMeshes.shadowOnly, materials: [
                 HeroMaterialLibrary.unlit(HSB(0, 0, 0), opacity: 0.32),
                 HeroMaterialLibrary.unlit(HSB(0, 0, 0), opacity: 0.32)]))
+            OverlayOrder.apply(shadow, OverlayOrder.unitMarker)
             body.addChild(shadow)
             teamRing = shadow
         } else {

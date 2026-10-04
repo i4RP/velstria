@@ -87,9 +87,12 @@ final class UnitMeshLibrary {
     }()
 
     /// 減速の氷の輪。
+    /// 鈍足の輪の、メッシュ内での高さ。
+    static let slowRingY: Float = 0.04
+
     lazy var slowRing: MeshResource? = {
         var b = MeshBuilder()
-        b.annulus(inner: 0.5, outer: 0.62, segments: 28, y: 0.04, color: .solid(.glowBlueSoft))
+        b.annulus(inner: 0.5, outer: 0.62, segments: 28, y: UnitMeshLibrary.slowRingY, color: .solid(.glowBlueSoft))
         for k in 0..<6 {
             let a = Float(k) / 6 * 2 * .pi + 0.2
             b.crystal(radius: 0.05, height: 0.22, color: .solid(.glowBlueSoft),

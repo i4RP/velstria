@@ -273,8 +273,17 @@ enum GroundTextureGenerator {
             }
         }
 
-        // 8. タワーの台座
+        // 8. タワーの台座（周りに接地の陰り = 焼き込みの環境遮蔽。太陽の影が無い画質でも台座が地面に据わって見える）
+        let aoColors = [CGColor(srgbRed: 0.03, green: 0.05, blue: 0.04, alpha: 0.5),
+                        CGColor(srgbRed: 0.03, green: 0.05, blue: 0.04, alpha: 0.18),
+                        CGColor(srgbRed: 0.03, green: 0.05, blue: 0.04, alpha: 0)] as CFArray
+        let ao = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB), colors: aoColors, locations: [0, 0.4, 1])
         for t in map.towers where !t.isCore {
+            if let ao {
+                let c = CGPoint(x: t.pos.x, y: t.pos.y)
+                ctx.drawRadialGradient(ao, startCenter: c, startRadius: 300, endCenter: c, endRadius: 470,
+                                       options: [.drawsBeforeStartLocation])
+            }
             fill(RGB(0.30, 0.28, 0.27), 0.6)
             ctx.fillEllipse(in: circle(t.pos, 330))
             fill(RGB(0.60, 0.58, 0.55))
@@ -290,17 +299,7 @@ enum GroundTextureGenerator {
             ctx.move(to: CGPoint(x: fountain.x, y: fountain.y))
             ctx.addLine(to: CGPoint(x: core.x, y: core.y))
             ctx.strokePath()
-            // 広場
-            fill(RGB(0.34, 0.33, 0.35))
-            ctx.fillEllipse(in: circle(core, 1520))
-            // 石畳の目地色（タイルは MapScene の平面メッシュ）
-            fill(RGB(0.36, 0.35, 0.37))
-            ctx.fillEllipse(in: circle(core, 1450))
-            stroke(tc, 0.35, width: 110)
-            ctx.strokeEllipse(in: circle(core, 1320))
-            fill(RGB(0.70, 0.69, 0.68))
-            ctx.fillEllipse(in: circle(core, 450))
-            // 泉
+            // 泉（Core の広場と重なる部分は下の広場で覆い、広場の外側の三日月だけが見える）
             fill(RGB(0.32, 0.33, 0.40))
             ctx.fillEllipse(in: circle(fountain, 860))
             fill(RGB(0.52, 0.54, 0.62))
@@ -308,6 +307,15 @@ enum GroundTextureGenerator {
             // 紋章の滲み（輪郭は MapScene の平面メッシュ）
             stroke(tc, 0.3, width: 120)
             ctx.strokeEllipse(in: circle(fountain, 720))
+            // 石畳（MapScene の平面メッシュ、半径 4.65〜15.65 m）の下の目地色と、外周の細い縁。
+            // 目地は一色にする: 下に泉の円盤やチーム色の線があると、細い目地から色が覗いて動くとちらつく。
+            // 縁は細く留める（基部タワーは Core から 15.0〜15.6 m にあり、太い縁だと台座の陰りを横切る）
+            fill(RGB(0.34, 0.33, 0.35))
+            ctx.fillEllipse(in: circle(core, 1585))
+            fill(RGB(0.36, 0.35, 0.37))
+            ctx.fillEllipse(in: circle(core, 1575))
+            fill(RGB(0.70, 0.69, 0.68))
+            ctx.fillEllipse(in: circle(core, 450))
         }
 
         // 10. 縁の陰影

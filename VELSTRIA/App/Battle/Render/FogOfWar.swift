@@ -6,8 +6,9 @@ import UIKit
 import VelstriaCore
 
 // 担当: battle-renderer。戦場の霧（非観戦）。
-// state.vision.cells（60×60）→ 双線形で N×N へ拡大 → ボックスぼかし 2 回 → 時間方向に補間、を 10Hz で行い、
-// 地面すぐ上の半透明な板の不透明度テクスチャ（LowLevelTexture）へ転送する。
+// state.vision.cells（60×60）→ 双線形で N×N へ拡大 → ボックスぼかし 2 回、を 10Hz で行い（視界は 3 tick 毎にしか変わらない）、
+// 時間方向の補間は毎フレーム指数的に行って地面すぐ上の半透明な板の不透明度テクスチャ（LowLevelTexture）へ転送する
+// （10Hz で段階的に動かすと、走っている間に霧の縁がカクついて見える）。
 
 /// 霧の濃度場（純粋な計算部分。テスト可能）。0 = 見えている、1 = 霧。
 struct FogField {
@@ -90,14 +91,26 @@ struct FogField {
         }
     }
 
-    /// 現在値を目標へ k だけ近づける（0〜1）。
-    mutating func blend(_ k: Float) {
+    /// 現在値を目標へ k だけ近づける（0〜1）。戻り値 = 補間後に残った差の最大値。
+    @discardableResult
+    mutating func blend(_ k: Float) -> Float {
         let kk = max(0, min(1, k))
+        var residual: Float = 0
         current.withUnsafeMutableBufferPointer { c in
             target.withUnsafeBufferPointer { t in
-                for i in 0..<c.count { c[i] += (t[i] - c[i]) * kk }
+                for i in 0..<c.count {
+                    let d = t[i] - c[i]
+                    // 1/255 の 1/4 未満の差は詰め切る（いつまでも転送し続けない）
+                    if abs(d) < 0.001 {
+                        c[i] = t[i]
+                    } else {
+                        c[i] += d * kk
+                        residual = max(residual, abs(t[i] - c[i]))
+                    }
+                }
             }
         }
+        return residual
     }
 
     /// RGBA8 へ書き出す（RGB = 白、A = 不透明度。色はマテリアルの tint で決まる）。
@@ -136,7 +149,11 @@ final class FogOfWar {
     private var texture: TextureResource?
     private var device: MTLDevice?
     private var queue: MTLCommandQueue?
-    private var staging: MTLBuffer?
+    /// 転送用バッファ（GPU が前のフレームの転送で読んでいる間に書き換えないよう 3 本を順に使う）。
+    private var staging: [MTLBuffer] = []
+    private var stagingIndex = 0
+    /// 補間がまだ目標に届いていない（毎フレーム転送する）。
+    private var blending = true
     private var cpuBytes: [UInt8]
     /// 霧の最大不透明度。
     static let maxAlpha: Float = 0.64
@@ -160,18 +177,18 @@ final class FogOfWar {
         guard let mesh = try? MeshResource.generate(from: [d]) else { return nil }
         entity = ModelEntity(mesh: mesh, materials: [])
         entity.name = "fog"
-        entity.position.y = 0.1
+        entity.position.y = GroundLayer.fog
         OverlayOrder.apply(entity, OverlayOrder.fog)
 
         // GPU テクスチャ（LowLevelTexture）。使えない環境では CGImage 経由で置き換える
-        if let dev = MTLCreateSystemDefaultDevice(), let q = dev.makeCommandQueue(),
-           let buf = dev.makeBuffer(length: n * n * 4, options: .storageModeShared) {
+        if let dev = MTLCreateSystemDefaultDevice(), let q = dev.makeCommandQueue() {
+            let buffers = (0..<3).compactMap { _ in dev.makeBuffer(length: n * n * 4, options: .storageModeShared) }
             let desc = LowLevelTexture.Descriptor(textureType: .type2D, pixelFormat: .rgba8Unorm, width: n, height: n,
                                                   depth: 1, mipmapLevelCount: 1, textureUsage: [.shaderRead])
-            if let llt = try? LowLevelTexture(descriptor: desc), let tex = try? TextureResource(from: llt) {
+            if buffers.count == 3, let llt = try? LowLevelTexture(descriptor: desc), let tex = try? TextureResource(from: llt) {
                 device = dev
                 queue = q
-                staging = buf
+                staging = buffers
                 lowLevel = llt
                 texture = tex
             }
@@ -195,25 +212,40 @@ final class FogOfWar {
         entity.model?.materials = [mat]
     }
 
-    /// 10Hz で霧を更新する。
+    /// 目標の霧は 10Hz で作り直し、表示は毎フレーム目標へ滑らかに近づける（時定数 1/8 秒 ≒ 従来の 10Hz × 55%）。
     func update(state: SimState, dt: Float) {
         accumulator += dt
-        guard accumulator >= 0.1 else { return }
-        let k: Float = accumulator > 0.5 ? 1 : 0.55
-        accumulator = 0
-        field.computeTarget(cells: state.vision.cells, cols: state.vision.cols, rows: state.vision.rows, bit: team.visionBit)
-        field.blend(k)
+        var retargeted = false
+        if accumulator >= 0.1 {
+            let first = accumulator > 0.5
+            accumulator = 0
+            field.computeTarget(cells: state.vision.cells, cols: state.vision.cols, rows: state.vision.rows, bit: team.visionBit)
+            if first { field.blend(1) }
+            blending = true
+            retargeted = true
+        }
+        guard blending else { return }
+        guard lowLevel != nil else {
+            // GPU 転送が使えない環境（CGImage で差し替え）は重いので従来どおり 10Hz で進める
+            guard retargeted else { return }
+            blending = field.blend(0.55) > 0
+            upload()
+            return
+        }
+        blending = field.blend(1 - exp(-max(0, dt) * 8)) > 0
         upload()
     }
 
     private func upload() {
         let n = field.size
-        if let llt = lowLevel, let queue, let staging, let cb = queue.makeCommandBuffer() {
-            field.write(into: staging.contents().bindMemory(to: UInt8.self, capacity: n * n * 4), maxAlpha: FogOfWar.maxAlpha,
+        if let llt = lowLevel, let queue, staging.count == 3, let cb = queue.makeCommandBuffer() {
+            stagingIndex = (stagingIndex + 1) % staging.count
+            let buf = staging[stagingIndex]
+            field.write(into: buf.contents().bindMemory(to: UInt8.self, capacity: n * n * 4), maxAlpha: FogOfWar.maxAlpha,
                         topDown: FogOfWar.topDown)
             let dst = llt.replace(using: cb)
             if let blit = cb.makeBlitCommandEncoder() {
-                blit.copy(from: staging, sourceOffset: 0, sourceBytesPerRow: n * 4, sourceBytesPerImage: n * n * 4,
+                blit.copy(from: buf, sourceOffset: 0, sourceBytesPerRow: n * 4, sourceBytesPerImage: n * n * 4,
                           sourceSize: MTLSize(width: n, height: n, depth: 1), to: dst, destinationSlice: 0,
                           destinationLevel: 0, destinationOrigin: MTLOrigin(x: 0, y: 0, z: 0))
                 blit.endEncoding()

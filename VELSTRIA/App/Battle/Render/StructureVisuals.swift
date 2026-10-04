@@ -71,7 +71,7 @@ final class StructureMeshes {
             pillar.frustum(bottomRadius: 0.12, topRadius: 0, height: 0.14, segments: 4, color: .solid(.metalDark),
                            transform: MX.t(cos(b) * 1.28, 0.75, -sin(b) * 1.28))
         }
-        pillarGlow.annulus(inner: 0.46, outer: 0.56, segments: 16, y: 4.125, color: .solid(rune))
+        pillarGlow.annulus(inner: 0.46, outer: 0.56, segments: 16, y: 4.132, color: .solid(rune))
         s.pillar = pillar.makeMesh(name: "towerPillar_\(team.rawValue)")
         s.pillarGlow = pillarGlow.makeMesh(name: "towerPillarGlow_\(team.rawValue)")
 
@@ -94,8 +94,9 @@ final class StructureMeshes {
                          transform: MX.t(0, 0.4, 0))
         coreBase.frustum(bottomRadius: 1.5, topRadius: 1.2, height: 0.5, segments: 12, color: .solid(.stoneLight),
                          transform: MX.t(0, 0.74, 0))
-        coreGlow.annulus(inner: 2.2, outer: 2.38, segments: 36, y: 0.745, color: .solid(rune))
-        coreGlow.annulus(inner: 1.0, outer: 1.12, segments: 24, y: 1.245, color: .solid(rune))
+        // 台座の天面（0.74 / 1.24）から 12 mm 浮かせる
+        coreGlow.annulus(inner: 2.2, outer: 2.38, segments: 36, y: 0.752, color: .solid(rune))
+        coreGlow.annulus(inner: 1.0, outer: 1.12, segments: 24, y: 1.252, color: .solid(rune))
         for k in 0..<6 {
             let a = Float(k) / 6 * 2 * .pi + .pi / 6
             let p = SIMD3<Float>(cos(a) * 2.95, 0.4, -sin(a) * 2.95)
@@ -212,9 +213,9 @@ final class StructureVisual {
         let range = Float((isCore ? Balance.coreRange : Balance.towerRange) / Balance.unitsPerMeter)
         rangeRing = ModelEntity(mesh: unitMeshes.ring(radius: range, thickness: 0.12) ?? unitMeshes.unitSphere,
                                 materials: [materials.unlit(RGB(1.0, 0.35, 0.3), alpha: 0.85)])
-        rangeRing.position.y = 0.05
+        rangeRing.position.y = GroundLayer.rangeRing
         rangeRing.isEnabled = false
-        OverlayOrder.apply(rangeRing, OverlayOrder.ring)
+        OverlayOrder.apply(rangeRing, OverlayOrder.rangeRing)
         root.addChild(rangeRing)
         if !u.isAlive { setDestroyed(immediate: true) }
     }

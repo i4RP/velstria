@@ -25,6 +25,9 @@ final class AimLayer {
     private var shown: AimIndicator?
     private var cancelling = false
     private var t: Float = 0
+    private var solidMaterial: UnlitMaterial?
+    /// 射程リングのメッシュを作った半径（0.05 m 単位。単位円を拡大すると多角形が目立ち線幅も変わるため実寸で作る）。
+    private var ringRadius: Float = -1
 
     static let normalColor = RGB(0.86, 0.95, 1.0)
     static let allyColor = RGB(0.45, 1.0, 0.6)
@@ -47,7 +50,8 @@ final class AimLayer {
         let solid = materials.unlit(c, alpha: 0.85)
         let soft = materials.unlit(c, alpha: 0.2)
         let faint = materials.unlit(c, alpha: 0.07)
-        rangeRing.model = meshes.ring(radius: 1, thickness: 0.012).map { ModelComponent(mesh: $0, materials: [solid]) }
+        solidMaterial = solid
+        ringRadius = -1
         rangeFill.model = meshes.unitDisc.map { ModelComponent(mesh: $0, materials: [faint]) }
         strip.model = meshes.groundStrip.map { ModelComponent(mesh: $0, materials: [soft]) }
         stripEdgeL.model = meshes.groundStrip.map { ModelComponent(mesh: $0, materials: [solid]) }
@@ -78,7 +82,7 @@ final class AimLayer {
         let origin = liveOrigin ?? aim.origin
         let delta = aim.target - aim.origin
         let target = origin + delta
-        let o = worldPosition(origin, height: 0.07)
+        let o = worldPosition(origin, height: GroundLayer.aim)
         let range = Float(aim.targeting.range / Balance.unitsPerMeter)
         let radius = Float(aim.targeting.radius / Balance.unitsPerMeter)
         let dirLen = delta.length
@@ -89,8 +93,14 @@ final class AimLayer {
         rangeRing.isEnabled = hasRange
         rangeFill.isEnabled = hasRange
         if hasRange {
+            let q = (range * 20).rounded() / 20
+            if q != ringRadius, let solid = solidMaterial {
+                ringRadius = q
+                // 線幅 8 cm 固定（最も遠い画面上端でも 2.5 px 以上）
+                rangeRing.model = meshes.ring(radius: q, thickness: 0.08).map { ModelComponent(mesh: $0, materials: [solid]) }
+            }
             rangeRing.position = o
-            rangeRing.scale = [range, 1, range]
+            rangeRing.scale = [1, 1, 1]
             rangeFill.position = o - SIMD3(0, 0.005, 0)
             rangeFill.scale = [range, 1, range]
         }
@@ -138,7 +148,7 @@ final class AimLayer {
                 arrow.scale = [0.75, 1, aw]
             }
         case .point:
-            let tp = worldPosition(target, height: 0.075)
+            let tp = worldPosition(target, height: GroundLayer.aim + 0.005)
             let r = max(radius, 0.6)
             targetFill.isEnabled = true
             targetRing.isEnabled = true
@@ -154,7 +164,7 @@ final class AimLayer {
                 strip.scale = [Float(dirLen / 100), 1, 0.08]
             }
         case .unit:
-            let tp = worldPosition(target, height: 0.075)
+            let tp = worldPosition(target, height: GroundLayer.aim + 0.005)
             targetRing.isEnabled = true
             targetRing.position = tp
             let pulse: Float = 0.9 + sin(t * 10) * 0.08

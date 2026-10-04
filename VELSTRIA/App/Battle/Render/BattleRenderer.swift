@@ -23,6 +23,11 @@ final class BattleRenderer {
     private let rig = CameraRig()
     private let sun = DirectionalLight()
     private let fill = DirectionalLight()
+    private let post: PostProcessor
+    private var postAttached = false
+    private var thermalObserver: NSObjectProtocol?
+    /// 端末が高温（.serious 以上）のあいだ後処理を止めて GPU 負荷を下げる（試合後半のフレーム落ち・発熱対策）。
+    private var thermalThrottled = false
     private var world: BattleWorld?
     private var appliedFrameRate = 0
     private var wasPaused = false
@@ -31,6 +36,7 @@ final class BattleRenderer {
     init(controller: BattleController, settings: RenderSettings) {
         self.controller = controller
         self.settings = settings
+        post = PostProcessor(settings: .preset(settings.quality.level))
         pendingEvents.reserveCapacity(256)
     }
 
@@ -62,6 +68,12 @@ final class BattleRenderer {
         eventToken = controller.subscribe { [weak self] events in
             self?.pendingEvents.append(contentsOf: events)
         }
+        thermalObserver = NotificationCenter.default.addObserver(
+            forName: ProcessInfo.thermalStateDidChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.updateThermalState() }
+        }
+        updateThermalState()
         startLoading()
         return v
     }
@@ -80,12 +92,44 @@ final class BattleRenderer {
         applyShadows()
     }
 
+    /// 影マップが覆う範囲（太陽に垂直な面での半径 m）。横長 iPhone（2.16:1）・ズーム 1.3 で画面に映る地面は
+    /// 光の座標で半径 18.3 m（中心を shadowCenterOffset に置いた場合）+ 揺れの余白。
+    static let shadowHalfExtent: Float = 20
+    /// 画面に映る地面を光の座標で囲んだ箱の中心（注視点からのずれ、ズーム 1 あたり。world x・z）。
+    /// 太陽の向き・カメラの俯角 56°・縦画角 48°・2.16:1 から求めた値（同じ光線上なら地面のどの点でも同じ箱になる）。
+    static let shadowCenterOffset = SIMD2<Float>(-0.79, -6.11)
+    /// 影マップの画素格子へ丸める刻み。2·範囲/256 は 256〜4096 px のどの解像度でも画素幅の整数倍になる。
+    static let shadowSnapStep: Float = 2 * shadowHalfExtent / 256
+
     private func applyShadows() {
         if settings.quality.shadows {
-            sun.shadow = DirectionalLightComponent.Shadow(shadowProjection: .automatic(maximumDistance: 34), depthBias: 1.6)
+            // .automatic はカメラの視錐台へ毎フレーム合わせ直すため、カメラが動くと影の縁が這うように揺らぐ。
+            // 範囲固定の正射影にして太陽を注視点へ追従させ、位置を画素格子に丸める（followSun）
+            sun.shadow = DirectionalLightComponent.Shadow(
+                shadowProjection: .fixed(zNear: 1, zFar: 100, orthographicScale: BattleRenderer.shadowHalfExtent), depthBias: 1.6)
+            followSun()
         } else {
             sun.shadow = nil
         }
+    }
+
+    /// 太陽（影の投影の中心）を画面に映る地面の中心へ動かす。向きは固定で、光の座標の x・y を画素格子に丸める。
+    private func followSun() {
+        guard settings.quality.shadows else { return }
+        let f = rig.focus.value
+        let zoom = Float(min(max(controller.cameraZoom, 0.7), 1.4))
+        let o = BattleRenderer.shadowCenterOffset * zoom
+        let c = SIMD3<Float>(f.x + o.x, 0, f.y + o.y)
+        sun.position = BattleRenderer.snappedSunPosition(center: c, orientation: sun.orientation)
+    }
+
+    /// 光の右・上の軸で丸めた太陽の位置（中心から光の逆向きに 50 m 下がった点）。
+    static func snappedSunPosition(center c: SIMD3<Float>, orientation q: simd_quatf) -> SIMD3<Float> {
+        let right = q.act([1, 0, 0]), up = q.act([0, 1, 0]), forward = q.act([0, 0, -1])
+        let step = shadowSnapStep
+        let a = (simd_dot(c, right) / step).rounded() * step
+        let b = (simd_dot(c, up) / step).rounded() * step
+        return right * a + up * b + forward * (simd_dot(c, forward) - 50)
     }
 
     private func startLoading() {
@@ -124,6 +168,11 @@ final class BattleRenderer {
 
     private func onUpdate(deltaTime rawDelta: Double) {
         guard let world, let view else { return }
+        // 後処理はウィンドウへ載って描画が回り始めてから取り付ける（描画系の準備前に renderCallbacks を触ると落ちる）
+        if !postAttached, view.arView.window != nil {
+            postAttached = true
+            post.attach(to: view.arView)
+        }
         // 30fps 設定: 描画ループが指定より速く回る環境（シミュレータ等）でも更新は 30Hz に間引く
         var deltaTime = rawDelta
         if settings.frameRate < 60 {
@@ -139,6 +188,7 @@ final class BattleRenderer {
             warmupFrames -= 1
             world.sync(events: [], dt: Float(dt), rig: rig)
             world.updateCamera(rig: rig, dt: 0, snap: true)
+            followSun()
             if warmupFrames == 0 {
                 view.liftCurtain()
                 // ここから試合開始（予備駆動は sim を進めずに待っている。HUD もここで表示する）
@@ -152,6 +202,7 @@ final class BattleRenderer {
             wasPaused = true
             pendingEvents.removeAll(keepingCapacity: true)
             world.updateCamera(rig: rig, dt: Float(dt), snap: false)
+            followSun()
             return
         }
         wasPaused = false
@@ -161,6 +212,7 @@ final class BattleRenderer {
         world.sync(events: pendingEvents, dt: Float(dt), rig: rig)
         pendingEvents.removeAll(keepingCapacity: true)
         world.updateCamera(rig: rig, dt: Float(dt), snap: false)
+        followSun()
         world.updateOverlay(dt: Float(dt))
         let t2 = CACurrentMediaTime()
         #if DEBUG
@@ -183,7 +235,21 @@ final class BattleRenderer {
         settings = new
         if new.frameRate != old.frameRate { applyFrameRate() }
         if new.quality.shadows != old.quality.shadows { applyShadows() }
+        if new.quality.level != old.quality.level { post.apply(postSettings) }
         world?.apply(settings: new)
+    }
+
+    private func updateThermalState() {
+        let state = ProcessInfo.processInfo.thermalState
+        let throttled = state == .serious || state == .critical
+        guard throttled != thermalThrottled else { return }
+        thermalThrottled = throttled
+        post.apply(postSettings)
+    }
+
+    /// 画質設定と端末の温度から決まる後処理の設定。
+    private var postSettings: PostProcessSettings {
+        thermalThrottled ? .preset(.low) : .preset(settings.quality.level)
     }
 
     private func applyFrameRate() {
@@ -206,10 +272,15 @@ final class BattleRenderer {
             controller.unsubscribe(token)
             eventToken = nil
         }
+        if let thermalObserver {
+            NotificationCenter.default.removeObserver(thermalObserver)
+            self.thermalObserver = nil
+        }
         pendingEvents.removeAll()
         world?.teardown()
         world = nil
         anchor.removeFromParent()
+        post.detach()
         if let arView = view?.arView {
             arView.scene.anchors.removeAll()
         }

@@ -158,7 +158,7 @@ final class ZoneLayer {
                 list.append(v)
             }
             v.lastSeen = stamp
-            v.node.position = worldPosition(z.center, height: 0.045)
+            v.node.position = worldPosition(z.center, height: GroundLayer.zone)
             var yaw: Float = 0
             switch z.shape {
             case .cone(let d, _), .line(let d, _):

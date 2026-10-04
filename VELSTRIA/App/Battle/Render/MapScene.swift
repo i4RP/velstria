@@ -15,10 +15,13 @@ final class MapScene {
     private(set) var brushEntities: [ModelEntity] = []
     private var brushTranslucent: [Bool] = []
     private var brushWanted: [Bool] = []
+    /// 草むらの表示中の不透明度（目標へ短くフェードする。瞬時に切り替えると出入りの瞬間にパッと変わる）。
+    private var brushAlpha: [Float] = []
+    static let brushTranslucentAlpha: Float = 0.38
+    static let brushFadeTime: Float = 0.15
     private var waterModel: ModelEntity?
     private var waterMaterial: UnlitMaterial?
     private var waterTime: Float = 0
-    private var waterAccumulator: Float = 0
     private(set) var fountainSpires: [Entity] = []
 
     /// 地図の境界（m）。
@@ -69,6 +72,8 @@ final class MapScene {
         mat.specular = .init(floatLiteral: 0.08)
         let ground = ModelEntity(mesh: mesh, materials: [mat])
         ground.name = "ground"
+        // 平らな面は影を受けるだけ（影マップへ描かない: 自己影のちらつき防止・影パスの軽量化）
+        ground.components.set(DynamicLightShadowComponent(castsShadow: false))
         root.addChild(ground)
     }
 
@@ -96,7 +101,8 @@ final class MapScene {
         mat.metallic = .init(floatLiteral: 0)
         let outer = ModelEntity(mesh: mesh, materials: [mat])
         outer.name = "outerGround"
-        outer.position = [M / 2, -0.04, -M / 2]
+        outer.position = [M / 2, GroundLayer.outerGround, -M / 2]
+        outer.components.set(DynamicLightShadowComponent(castsShadow: false))
         root.addChild(outer)
     }
 
@@ -344,14 +350,15 @@ final class MapScene {
 
     // MARK: 地面の輪郭（テクスチャでは滲む細部を平面メッシュで描く）
 
+    /// 高さは GroundLayer の段に分ける（重なる印を同じ高さに置くと Z-fighting でちらつく）:
+    /// 石畳 paving < 泉の輪・タワーの輪 marking < 八芒星 markingLine < Core の輪 markingTop。
     private func buildGroundDecals(map: MapDefinition, materials: RenderMaterials) {
         var lit = MeshBuilder(reserve: 4096), glow = MeshBuilder(reserve: 2048)
-        let y: Float = 0.012
         for team in Team.players {
             let soft: Swatch = team == .blue ? .glowBlueSoft : .glowRedSoft
             let strong: Swatch = team == .blue ? .glowBlue : .glowRed
             let core = worldPosition(map.core(team)), fountain = worldPosition(map.fountain(team))
-            // 広場の石畳（24 分割 × 5 環、目地を残す）
+            // 広場の石畳（24〜44 分割 × 6 環、目地を残す）
             var r: Float = 4.6
             var ring = 0
             while r < 14.2 {
@@ -359,56 +366,63 @@ final class MapScene {
                 let segs = 24 + ring * 4
                 for k in 0..<segs {
                     let a0 = Float(k) / Float(segs) * 2 * .pi + Float(ring) * 0.13
-                    let sweep = 2 * .pi / Float(segs) - 0.06 / r1
+                    // 横の目地は内周で 8 cm（細すぎる目地は画素未満になり、動くと明滅する）
+                    let sweep = 2 * .pi / Float(segs) - 0.08 / r
                     let shades: [Swatch] = [.paving1, .paving2, .paving3, .paving4, .paving2]
                     let shade = shades[(k * 7 + ring * 3) % shades.count]
-                    lit.annulus(inner: r + 0.05, outer: r1 - 0.05, segments: 3, y: y, startAngle: a0, sweep: sweep,
-                                color: .solid(shade), transform: MX.t(core))
+                    lit.annulus(inner: r + 0.05, outer: r1 - 0.05, segments: 3, y: GroundLayer.paving, startAngle: a0,
+                                sweep: sweep, color: .solid(shade), transform: MX.t(core))
                 }
                 r = r1
                 ring += 1
             }
-            glow.annulus(inner: 13.05, outer: 13.45, segments: 72, y: y + 0.004, color: .solid(strong), transform: MX.t(core))
-            glow.annulus(inner: 12.45, outer: 12.6, segments: 72, y: y + 0.004, color: .solid(soft), transform: MX.t(core))
-            glow.annulus(inner: 4.35, outer: 4.55, segments: 40, y: y + 0.004, color: .solid(soft), transform: MX.t(core))
-            // 泉の紋章
-            glow.annulus(inner: 6.95, outer: 7.45, segments: 64, y: y, color: .solid(strong), transform: MX.t(fountain))
-            glow.annulus(inner: 5.1, outer: 5.3, segments: 56, y: y, color: .solid(soft), transform: MX.t(fountain))
+            let top = GroundLayer.markingTop
+            glow.annulus(inner: 13.05, outer: 13.45, segments: 72, y: top, color: .solid(strong), transform: MX.t(core))
+            glow.annulus(inner: 12.45, outer: 12.6, segments: 72, y: top, color: .solid(soft), transform: MX.t(core))
+            glow.annulus(inner: 4.35, outer: 4.55, segments: 40, y: top, color: .solid(soft), transform: MX.t(core))
+            // 泉の紋章（Core の広場と重なる: 泉と Core は 11.3 m しか離れていない）
+            glow.annulus(inner: 6.95, outer: 7.45, segments: 64, y: GroundLayer.marking, color: .solid(strong),
+                         transform: MX.t(fountain))
+            glow.annulus(inner: 5.1, outer: 5.3, segments: 56, y: GroundLayer.marking, color: .solid(soft),
+                         transform: MX.t(fountain))
             for k in 0..<8 {
                 let a0 = Float(k) / 8 * 2 * .pi, a1 = Float(k + 3) / 8 * 2 * .pi
                 let p0 = SIMD3<Float>(cos(a0) * 7.0, 0, -sin(a0) * 7.0), p1 = SIMD3<Float>(cos(a1) * 7.0, 0, -sin(a1) * 7.0)
                 let d = p1 - p0
                 let len = simd_length(d)
                 let yaw = atan2(-d.z, d.x)
-                glow.flatRect(width: len, depth: 0.14, y: y, color: .solid(soft),
+                glow.flatRect(width: len, depth: 0.14, y: GroundLayer.markingLine, color: .solid(soft),
                               transform: MX.t(fountain + (p0 + p1) / 2) * MX.ry(yaw))
             }
         }
         // タワー台座の輪
         for t in map.towers where !t.isCore {
             let soft: Swatch = t.team == .blue ? .glowBlueSoft : .glowRedSoft
-            glow.annulus(inner: 2.28, outer: 2.48, segments: 40, y: y, color: .solid(soft), transform: MX.t(worldPosition(t.pos)))
+            glow.annulus(inner: 2.28, outer: 2.48, segments: 40, y: GroundLayer.marking, color: .solid(soft),
+                         transform: MX.t(worldPosition(t.pos)))
         }
         // ボスの巣の紋章
         for camp in map.camps where camp.kind == .astralWyrm || camp.kind == .ancientColossus {
             let rune: Swatch = camp.kind == .astralWyrm ? .glowPurple : .glowGold
             let c = worldPosition(camp.pos)
-            glow.annulus(inner: 4.55, outer: 4.85, segments: 64, y: y, color: .solid(rune), transform: MX.t(c))
-            glow.annulus(inner: 3.72, outer: 3.86, segments: 56, y: y, color: .solid(rune), transform: MX.t(c))
+            glow.annulus(inner: 4.55, outer: 4.85, segments: 64, y: GroundLayer.marking, color: .solid(rune), transform: MX.t(c))
+            glow.annulus(inner: 3.72, outer: 3.86, segments: 56, y: GroundLayer.marking, color: .solid(rune), transform: MX.t(c))
             for k in 0..<6 {
                 let a = Float(k) / 6 * 2 * .pi + 0.26
-                glow.star(outer: 0.34, inner: 0.15, thickness: 0.01, points: 4, color: .solid(rune),
-                          transform: MX.t(c + SIMD3(cos(a) * 4.25, y, -sin(a) * 4.25)))
+                glow.star(outer: 0.34, inner: 0.15, thickness: GroundLayer.bossStarThickness, points: 4, color: .solid(rune),
+                          transform: MX.t(c + SIMD3(cos(a) * 4.25, GroundLayer.markingLine, -sin(a) * 4.25)))
             }
         }
         if let mesh = lit.makeMesh(name: "decalsLit") {
             let e = ModelEntity(mesh: mesh, materials: [materials.lit])
             e.name = "decalsLit"
+            e.components.set(DynamicLightShadowComponent(castsShadow: false))
             root.addChild(e)
         }
         if let mesh = glow.makeMesh(name: "decalsGlow") {
             let e = ModelEntity(mesh: mesh, materials: [materials.glow])
             e.name = "decalsGlow"
+            e.components.set(DynamicLightShadowComponent(castsShadow: false))
             root.addChild(e)
         }
     }
@@ -439,7 +453,7 @@ final class MapScene {
         mat.writesDepth = false
         let e = ModelEntity(mesh: mesh, materials: [mat])
         e.name = "groundDetail"
-        e.position.y = 0.004
+        e.position.y = GroundLayer.detail
         OverlayOrder.apply(e, OverlayOrder.groundDetail)
         root.addChild(e)
     }
@@ -510,13 +524,15 @@ final class MapScene {
             brushEntities.append(e)
             brushTranslucent.append(false)
             brushWanted.append(false)
+            brushAlpha.append(1)
         }
     }
 
-    /// 指定した草むらを半透明にする（nil で全て不透明）。
+    /// 指定した草むらを半透明にする（nil で全て不透明）。フェードせず即座に切り替える。
     func setTranslucentBrush(_ index: Int?) {
         for k in brushTranslucent.indices { brushWanted[k] = k == index }
         applyBrushTranslucency()
+        for k in brushAlpha.indices { setBrushAlpha(k, brushTranslucent[k] ? MapScene.brushTranslucentAlpha : 1) }
     }
 
     /// 半透明にしたい草むらを印付けする（毎フレーム beginBrushMarks → mark… → applyBrushTranslucency）。
@@ -538,14 +554,28 @@ final class MapScene {
         }
     }
 
+    /// 印付けの結果を確定する。見た目は update(dt:) で目標の不透明度へフェードする。
     func applyBrushTranslucency() {
-        for k in brushTranslucent.indices where brushTranslucent[k] != brushWanted[k] {
-            brushTranslucent[k] = brushWanted[k]
-            if brushWanted[k] {
-                brushEntities[k].components.set(OpacityComponent(opacity: 0.38))
-            } else {
-                brushEntities[k].components.remove(OpacityComponent.self)
-            }
+        for k in brushTranslucent.indices { brushTranslucent[k] = brushWanted[k] }
+    }
+
+    private func fadeBrushes(dt: Float) {
+        let step = dt / MapScene.brushFadeTime * (1 - MapScene.brushTranslucentAlpha)
+        for k in brushAlpha.indices {
+            let target: Float = brushTranslucent[k] ? MapScene.brushTranslucentAlpha : 1
+            let a = brushAlpha[k]
+            guard a != target else { continue }
+            setBrushAlpha(k, a < target ? min(target, a + step) : max(target, a - step))
+        }
+    }
+
+    private func setBrushAlpha(_ k: Int, _ a: Float) {
+        guard brushAlpha[k] != a else { return }
+        brushAlpha[k] = a
+        if a >= 0.999 {
+            brushEntities[k].components.remove(OpacityComponent.self)
+        } else {
+            brushEntities[k].components.set(OpacityComponent(opacity: a))
         }
     }
 
@@ -583,7 +613,8 @@ final class MapScene {
         let e = ModelEntity(mesh: mesh, materials: [mat])
         e.name = "water"
         let M = MapScene.mapMeters
-        e.position = [M / 2, 0.025, -M / 2]
+        e.position = [M / 2, GroundLayer.water, -M / 2]
+        OverlayOrder.apply(e, OverlayOrder.water)
         // 河川は sim (0,12000)→(12000,0) = world (0,-120)→(120,0)（+x かつ +z 方向）
         e.orientation = simd_quatf(angle: -.pi / 4, axis: [0, 1, 0])
         root.addChild(e)
@@ -591,17 +622,19 @@ final class MapScene {
         waterMaterial = mat
     }
 
-    /// 水面のきらめきを流す（15Hz でマテリアル更新）。
+    /// 水面のきらめきを流す（毎フレーム。間引くと 1 px 程度の段差で動いて見える）。
     func update(dt: Float) {
         waterTime += dt
-        waterAccumulator += dt
+        fadeBrushes(dt: dt)
         for (k, s) in fountainSpires.enumerated() {
             s.orientation = simd_quatf(angle: waterTime * 0.6 + Float(k), axis: [0, 1, 0])
             s.position.y = 1.6 + sin(waterTime * 1.3 + Float(k)) * 0.12
         }
-        guard waterAccumulator >= 1.0 / 15.0, var mat = waterMaterial, let model = waterModel else { return }
-        waterAccumulator = 0
-        mat.textureCoordinateTransform = .init(offset: SIMD2(waterTime * 0.035, waterTime * 0.011))
+        guard var mat = waterMaterial, let model = waterModel, model.isEnabled else { return }
+        // 周期 1 で巻き戻しても見た目は同じ（UV は repeat）。長時間でも浮動小数の精度を落とさない
+        let u = (waterTime * 0.035).truncatingRemainder(dividingBy: 1)
+        let v = (waterTime * 0.011).truncatingRemainder(dividingBy: 1)
+        mat.textureCoordinateTransform = .init(offset: SIMD2(u, v))
         waterMaterial = mat
         model.model?.materials = [mat]
     }

@@ -8,15 +8,27 @@ import VelstriaCore
 // 1 m ≒ 36pt（cameraZoom = 1、iPhone 横画面）を目安に寸法を決める。
 
 enum OverlayOrder {
-    /// 地面デカール・頭上 UI の描画順グループ。
+    /// 地面デカール・頭上 UI の描画順グループ。半透明で深度を書かない地面の表示は全てこのグループに入れ、
+    /// 前後関係を高さや距離ソートではなくこの順で固定する（グループ外の半透明物との順序は未定義のため）。
     static let group = ModelSortGroup(depthPass: nil)
-    static let groundDetail: Int32 = -1
+    static let groundDetail: Int32 = -3
+    static let water: Int32 = -2
+    /// 霧より先に描く地面デカール（霧で覆われるべきもの: ミニオン・モンスターの接地影）。
+    static let groundDecal: Int32 = -1
     static let fog: Int32 = 0
-    static let groundDecal: Int32 = 1
-    static let zoneFill: Int32 = 2
-    static let zoneEdge: Int32 = 3
-    static let ring: Int32 = 4
-    static let aim: Int32 = 5
+    static let zoneFill: Int32 = 1
+    static let zoneEdge: Int32 = 2
+    /// 選択リング（味方・敵）。
+    static let ring: Int32 = 3
+    /// 自ヒーローのリング（味方のリングと重なっても常に上: 同じ順だと重なりの色が入れ替わって見える）。
+    static let selfRing: Int32 = 4
+    /// ヒーローの丸影・チームリング・正面の矢印（1 つのエンティティ）。選択リングより上に描いて向きの矢印を隠さない。
+    static let unitMarker: Int32 = 5
+    /// 帰還・奥義の足元の輪（自分のリングより上）。
+    static let castRing: Int32 = 6
+    static let rangeRing: Int32 = 7
+    static let vfxRing: Int32 = 8
+    static let aim: Int32 = 9
     static let barBack: Int32 = 20
     static let barLag: Int32 = 21
     static let barFill: Int32 = 22
@@ -26,6 +38,8 @@ enum OverlayOrder {
 
     static func apply(_ e: Entity, _ order: Int32) {
         e.components.set(ModelSortGroupComponent(group: group, order: order))
+        // 地面の表示・頭上 UI は影を落とさない（影マップの薄い板が動くとちらつく）
+        e.components.set(DynamicLightShadowComponent(castsShadow: false))
     }
 }
 

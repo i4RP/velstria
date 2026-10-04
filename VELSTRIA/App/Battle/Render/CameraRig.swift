@@ -22,6 +22,11 @@ struct CriticallyDampedSpring {
         let temp = (velocity + omega * change) * dt
         velocity = (velocity - omega * temp) * decay
         value = target + (change + temp) * decay
+        // 漸近的に止まるばねを静止させる（0.1 mm 未満の動きが続くと、細い線や影の縁が止まった後も揺らぐ）
+        if simd_length_squared(value - target) < 1e-8, simd_length_squared(velocity) < 1e-6 {
+            value = target
+            velocity = .zero
+        }
     }
 
     mutating func snap(to v: SIMD2<Float>) {
@@ -44,6 +49,10 @@ struct CriticallyDampedScalar {
         let temp = (velocity + omega * change) * dt
         velocity = (velocity - omega * temp) * decay
         value = target + (change + temp) * decay
+        if abs(value - target) < 1e-4, abs(velocity) < 1e-3 {
+            value = target
+            velocity = 0
+        }
     }
 }
 

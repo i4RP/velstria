@@ -110,7 +110,10 @@ final class StatusIndicators {
             e.scale = SIMD3(repeating: size * (1 + sin(t * 6) * 0.03))
         } else { rootFX?.isEnabled = false }
         if f.slowed {
-            let e = slow ?? make(meshes.slowRing, glow: true, y: 0.02, scale: size)
+            // 輪の高さを体格によらず statusRing に揃える（以前は 0.044〜0.124 m に散り、他の地面表示と同じ高さに
+            // なったり霧の板より上に出たりした）。等倍拡大のまま原点を下げるので氷の結晶の比率は変わらない
+            let e = slow ?? make(meshes.slowRing, glow: true, y: GroundLayer.statusRing - UnitMeshLibrary.slowRingY * size,
+                                 scale: size)
             slow = e
             e.isEnabled = true
             e.orientation = simd_quatf(angle: -t * 1.2, axis: [0, 1, 0])
@@ -151,8 +154,8 @@ final class StatusIndicators {
         let c = team == .neutral ? RGB(0.85, 0.7, 1.0) : materials.teams.light(team)
         let e = ModelEntity(mesh: meshes.ring(radius: 1, thickness: 0.1) ?? meshes.unitSphere,
                             materials: [materials.unlit(c, alpha: 0.9)])
-        e.position.y = 0.04
-        OverlayOrder.apply(e, OverlayOrder.ring)
+        e.position.y = GroundLayer.castRing
+        OverlayOrder.apply(e, OverlayOrder.castRing)
         root.addChild(e)
         return e
     }
@@ -301,6 +304,16 @@ final class CreatureVisual {
         }
         status = StatusIndicators(meshes: meshes, materials: materials, headHeight: headHeight, size: footprint)
         root.addChild(status.root)
+        if let cs = materials.contactShadow {
+            let blob = ModelEntity(mesh: cs.mesh, materials: [cs.material])
+            blob.name = "contactShadow"
+            let d = footprint * 2.2
+            blob.scale = [d, 1, d]
+            blob.position.y = GroundLayer.unitShadow
+            // 霧より先・ヒーローの足元表示より先に描く（チームリングを暗くしない。描画順が同じだと重なりが明滅する）
+            OverlayOrder.apply(blob, OverlayOrder.groundDecal)
+            root.addChild(blob)
+        }
     }
 
     /// プールから取り出して ID に割り当てる。
@@ -492,8 +505,8 @@ final class HeroVisual {
         let ringColor = isSelf ? TeamColors.selfColor : materials.teams.main(u.team)
         ring = ModelEntity(mesh: meshes.ring(radius: 0.72, thickness: isSelf ? 0.13 : 0.09) ?? meshes.unitSphere,
                            materials: [materials.unlit(ringColor, alpha: isSelf ? 0.95 : 0.8)])
-        ring.position.y = 0.035
-        OverlayOrder.apply(ring, OverlayOrder.ring)
+        ring.position.y = GroundLayer.unitRing
+        OverlayOrder.apply(ring, isSelf ? OverlayOrder.selfRing : OverlayOrder.ring)
         root.addChild(ring)
         let fill = isSelf ? TeamColors.selfColor : materials.teams.main(u.team)
         let resColor = h?.resourceKind == .energy ? RGB(1.0, 0.84, 0.3) : RGB(0.35, 0.62, 1.0)

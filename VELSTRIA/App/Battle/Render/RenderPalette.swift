@@ -275,6 +275,28 @@ final class RenderMaterials {
 
     private var unlitCache: [UInt64: UnlitMaterial] = [:]
 
+    /// 足元の接地影（中心が濃く縁へ柔らかく消える黒い円。半透明・深度書き込みなし）。
+    /// 太陽の影が無い画質（既定の medium）でもユニットが地面から浮いて見えないようにする。
+    private(set) lazy var contactShadow: (mesh: MeshResource, material: UnlitMaterial)? = {
+        let n = 64
+        guard let ctx = CGContext(data: nil, width: n, height: n, bitsPerComponent: 8, bytesPerRow: n * 4,
+                                  space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        // 不透明度の分布: 中心 1 → 半径 55% で 0.85 → 80% で 0.35 → 縁 0（なめらかに消える）
+        let colors = [(0.0, 1.0), (0.55, 0.85), (0.8, 0.35), (1.0, 0.0)].map { CGColor(gray: 0, alpha: $0.1) }
+        guard let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceGray(), colors: colors as CFArray,
+                                 locations: [0, 0.55, 0.8, 1]) else { return nil }
+        let c = CGPoint(x: n / 2, y: n / 2)
+        ctx.drawRadialGradient(g, startCenter: c, startRadius: 0, endCenter: c, endRadius: CGFloat(n) / 2, options: [])
+        guard let img = ctx.makeImage(),
+              let tex = try? TextureResource(image: img, options: .init(semantic: .color)) else { return nil }
+        var m = UnlitMaterial(applyPostProcessToneMap: false)
+        m.color = .init(tint: .white, texture: .init(tex))
+        m.blending = .transparent(opacity: .init(floatLiteral: 0.5))
+        m.writesDepth = false
+        return (MeshResource.generatePlane(width: 1, depth: 1), m)
+    }()
+
     init(colorblind: Bool) {
         teams = TeamColors(colorblind: colorblind)
         var tex: TextureResource?
