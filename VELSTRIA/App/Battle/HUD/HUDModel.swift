@@ -677,7 +677,12 @@ final class HUDModel {
                 break
             }
             if var tut = tutorial, let humanID {
+                let previousStep = tut.step
                 tut.handle(e, humanID: humanID, dummyIDs: dummyIDs)
+                if previousStep.rawValue < TutorialStep.destroyTower.rawValue,
+                   tut.step.rawValue >= TutorialStep.destroyTower.rawValue {
+                    controller.send(.removeTutorialDummies)
+                }
                 if tut != tutorial { tutorial = tut }
             }
         }

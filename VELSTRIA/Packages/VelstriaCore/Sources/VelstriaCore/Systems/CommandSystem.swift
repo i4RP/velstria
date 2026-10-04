@@ -70,6 +70,9 @@ public enum CommandSystem {
                 s.emit(.emote(heroID: s.units[i].id, emoteID: emoteID))
             case .surrenderVote(let yes):
                 MatchFlowSystem.vote(&s, ctx, heroIndex: i, yes: yes)
+            case .removeTutorialDummies:
+                guard ctx.config.mode == .tutorial, c.heroID == s.humanHeroID else { continue }
+                SpawnSystem.removeTutorialDummies(&s)
             }
         }
     }

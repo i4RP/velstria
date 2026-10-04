@@ -53,6 +53,19 @@ jobs:
         working-directory: VELSTRIA/Packages/VelstriaCore
         run: swift test -c release
 
+      - name: チュートリアルのテスト
+        run: |
+          xcodegen generate --quiet
+          xcodebuild test \
+            -project VELSTRIA.xcodeproj \
+            -scheme VELSTRIA \
+            -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
+            -destination-timeout 120 \
+            -only-testing:VELSTRIATests/HUDTutorialTests \
+            -parallel-testing-enabled NO \
+            CODE_SIGNING_ALLOWED=NO
+
       - name: 署名の準備
         env:
           CI_DIST_P12_BASE64: ${{ secrets.CI_DIST_P12_BASE64 }}

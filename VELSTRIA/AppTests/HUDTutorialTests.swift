@@ -153,6 +153,44 @@ final class HUDTutorialTests: XCTestCase {
         XCTAssertEqual(t.step, .recall, "先に塔を壊していれば塔の手順は飛ばす")
     }
 
+    @MainActor
+    func testHUDRemovesDummiesWhenPurchaseAdvancesToTower() throws {
+        let saved = Loc.current
+        defer { Loc.current = saved }
+        let app = AppModel(persistence: ServicesFixtures.tempPersistence())
+        // 通常購入・おすすめ購入・塔を先に壊した場合のいずれも人形を退場させる。
+        for (openShop, towerDestroyed) in [(true, false), (false, false), (true, true)] {
+            let config = MatchFactory.practiceMatch(humanHeroID: "H001", humanName: "T",
+                                                     options: PracticeOptions(), tutorial: true, seed: 5)
+            let controller = BattleController(launch: BattleLaunch(config: config))
+            let model = HUDModel(controller: controller)
+            model.start(app: app) { _ in }
+            defer { model.stop() }
+            let humanID = try XCTUnwrap(controller.humanHeroID)
+            let dummyIDs = controller.state.world.dummyIDs.compactMap { $0 }
+            XCTAssertEqual(dummyIDs.count, 3)
+
+            var t = TutorialDirector()
+            walk(&t)
+            for id in dummyIDs { t.handle(hit(humanID, id), humanID: humanID, dummyIDs: dummyIDs) }
+            t.handle(.skillLeveled(heroID: humanID, slot: .skill1, rank: 1), humanID: humanID, dummyIDs: dummyIDs)
+            t.noteSkillCommand(slot: .skill1, castable: true)
+            if openShop { t.noteShopOpened() }
+            if towerDestroyed { t.handle(midOuterDestroyed(), humanID: humanID, dummyIDs: dummyIDs) }
+            model.debugSetTutorial(t)
+
+            model.handle([.purchaseFailed(heroID: humanID, itemID: "EQ001", reason: PurchaseFailure.notEnoughGold.rawValue)])
+            controller.frame(dt: Balance.dt)
+            XCTAssertEqual(controller.state.units.filter { $0.kind == .dummy }.count, 3)
+
+            model.handle([.itemPurchased(heroID: humanID, itemID: "EQ001")])
+            XCTAssertEqual(model.tutorial?.step, towerDestroyed ? .recall : .destroyTower)
+            controller.frame(dt: Balance.dt)
+            XCTAssertFalse(controller.state.units.contains { $0.kind == .dummy })
+            XCTAssertTrue(controller.state.world.dummySpots.isEmpty)
+        }
+    }
+
     func testTextsExistInBothLanguages() {
         let saved = Loc.current
         defer { Loc.current = saved }

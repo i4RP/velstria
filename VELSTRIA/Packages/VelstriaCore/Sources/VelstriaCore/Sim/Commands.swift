@@ -33,6 +33,8 @@ public enum PlayerCommand: Codable, Hashable, Sendable {
     case recall
     case emote(emoteID: String)
     case surrenderVote(yes: Bool)
+    /// チュートリアルのタワー練習へ進む際、訓練人形と再出現予約を取り除く。
+    case removeTutorialDummies
 }
 
 public struct HeroCommand: Codable, Hashable, Sendable {

@@ -163,6 +163,18 @@ public enum SpawnSystem {
 
     // MARK: - 練習用人形
 
+    /// ミニオンが進軍できるよう人形を退場させ、再出現も止める。
+    static func removeTutorialDummies(_ s: inout SimState) {
+        for i in s.units.indices where s.units[i].kind == .dummy {
+            // 添字は tick 末尾まで維持する。撃破イベント・報酬は発生させない。
+            s.units[i].isAlive = false
+            s.units[i].hp = 0
+        }
+        s.world.dummySpots.removeAll()
+        s.world.dummyIDs.removeAll()
+        s.world.dummyRespawnAt.removeAll()
+    }
+
     /// Blue mid 外塔の前方（タワー射程外）に横一列。
     static func dummySpots(_ map: MapDefinition) -> [Vec2] {
         let tower = map.towers.first { $0.team == .blue && $0.lane == .mid && $0.tier == .outer && !$0.isCore }?.pos
