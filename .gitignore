@@ -19,3 +19,6 @@ VELSTRIA/tools/tripo/state.json.*.tmp
 VELSTRIA/tools/meshy/state.json.lock
 VELSTRIA/tools/meshy/state.json.*.tmp
 __pycache__/
+
+# tools/stage/stage_meshy.mjs の一時ファイル
+VELSTRIA/tools/stage/meshy_state.json.*.tmp

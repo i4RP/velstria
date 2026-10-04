@@ -15,6 +15,7 @@ import VelstriaCore
 //   -battle <mode>        起動後に戦闘開始（standard / ranked / practice / tutorial / spectate）
 //   -hero <heroID>        -battle で自分が使うヒーロー（省略時は最後に選んだヒーロー、無ければ H003）
 //   -language <ja|en>     表示言語
+//   -graphics <low|medium|high>  画質
 //   -heroGallery          ヒーロー 3D モデル一覧（hero-models の目視確認用）
 
 enum DebugLaunch {
@@ -64,6 +65,9 @@ enum DebugLaunch {
         }
         if let lang = value(after: "-language"), let l = AppLanguage(rawValue: lang) {
             p.settings.language = l
+        }
+        if let g = value(after: "-graphics"), let q = GraphicsQuality.allCases.first(where: { "\($0)" == g }) {
+            p.settings.graphicsQuality = q
         }
         app.profile = p
 

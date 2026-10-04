@@ -5,7 +5,7 @@ import VelstriaCore
 
 // 担当: battle-renderer（性能）。試合の前に「作れるものは先に作る」入口（ロード画面・戦闘画面の生成時に呼ぶ）。
 //
-// - 地面テクスチャ（CoreGraphics。GroundTextureCache が試合をまたいで使い回す）
+// - ステージの配置・配合マップ（StagePrep。素材が無ければ従来の地面テクスチャ: GroundTextureCache が試合をまたいで使い回す）
 // - マテリアルのシェーダー（iOS 18 の PhysicallyBasedMaterial.Program / UnlitMaterial.Program を非同期に作る）
 // - 後処理（ブルーム・色調整）の Metal パイプライン（PostProcessShaderCache）
 // いずれも何度呼んでもよく、生成中・生成済みなら何もしない。重い処理はメインスレッドの外で行う（RealityKit のエンジン起動だけはメインスレッド）。
@@ -18,7 +18,12 @@ enum BattlePreload {
     }
 
     static func begin(render: RenderSettings, map: MapDefinition) {
-        GroundTextureCache.prefetch(map: map, size: render.quality.groundTextureSize, colorblind: render.colorblind)
+        // ステージ（docs/STAGE.md）の素材があれば地形はそちら（従来の地面画像は作らない）
+        if StageAssets.isBundled {
+            StagePrep.prefetch(map: map, quality: render.quality)
+        } else {
+            GroundTextureCache.prefetch(map: map, size: render.quality.groundTextureSize, colorblind: render.colorblind)
+        }
         MaterialPrograms.prewarm()
         if PostProcessSettings.preset(render.quality.level).enabled { PostProcessShaderCache.prewarm() }
     }

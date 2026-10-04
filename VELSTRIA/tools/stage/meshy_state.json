@@ -1,0 +1,222 @@
+{
+  "version": 1,
+  "assets": {
+    "tree_round": {
+      "status": "SUCCEEDED",
+      "input_sha256": "b26b94401610fe6d9a2be9c1085f5f23844545c5cad8071d0f4bfa19990d9ac1",
+      "request": {
+        "image_url": "build/stage/art/tree_round.png",
+        "ai_model": "latest",
+        "should_texture": true,
+        "enable_pbr": true,
+        "texture_resolution": "2k",
+        "should_remesh": true,
+        "topology": "triangle",
+        "target_polycount": 12000
+      },
+      "balance_before": 890,
+      "task_id": "01a107a4-0f33-7357-8790-518fe5c9301f",
+      "submitted_at": "2026-10-04T15:59:15.818Z",
+      "credits": 30,
+      "files": {
+        "model.glb": 14013840,
+        "thumbnail.png": 224418,
+        "base_color.png": 5889224,
+        "metallic.png": 21828,
+        "roughness.png": 1640523,
+        "normal.png": 7501540
+      },
+      "completed_at": "2026-10-04T16:04:45.018Z"
+    },
+    "cliff_rock_a": {
+      "status": "SUCCEEDED",
+      "input_sha256": "9f7d526ee8b69094aad31e3dc9b6e63276444277c91c2572ce3a7987909ae5e3",
+      "request": {
+        "image_url": "build/stage/art/cliff_rock_a.png",
+        "ai_model": "latest",
+        "should_texture": true,
+        "enable_pbr": true,
+        "texture_resolution": "2k",
+        "should_remesh": true,
+        "topology": "triangle",
+        "target_polycount": 12000
+      },
+      "balance_before": 890,
+      "task_id": "01a107a4-0e23-75d3-93ec-962bf968fff1",
+      "submitted_at": "2026-10-04T15:59:15.501Z",
+      "credits": 30,
+      "files": {
+        "model.glb": 11835592,
+        "thumbnail.png": 131581,
+        "base_color.png": 6359528,
+        "metallic.png": 19429,
+        "roughness.png": 1553075,
+        "normal.png": 5542128
+      },
+      "completed_at": "2026-10-04T16:02:17.637Z"
+    },
+    "boulder": {
+      "status": "SUCCEEDED",
+      "input_sha256": "ee39ea1bdb9f7a1ebf6e37bd575cb83bcabf520ac2677e222a0706bb8afcc62c",
+      "request": {
+        "image_url": "build/stage/art/boulder.png",
+        "ai_model": "latest",
+        "should_texture": true,
+        "enable_pbr": true,
+        "texture_resolution": "2k",
+        "should_remesh": true,
+        "topology": "triangle",
+        "target_polycount": 12000
+      },
+      "balance_before": 760,
+      "task_id": "01a107a6-db95-7349-b7b0-ca52c03f1e80",
+      "submitted_at": "2026-10-04T16:02:19.184Z",
+      "credits": 30,
+      "files": {
+        "model.glb": 10555336,
+        "thumbnail.png": 185020,
+        "base_color.png": 5145218,
+        "metallic.png": 26140,
+        "roughness.png": 1449904,
+        "normal.png": 4910101
+      },
+      "completed_at": "2026-10-04T16:05:20.305Z"
+    },
+    "bush": {
+      "status": "SUCCEEDED",
+      "input_sha256": "30a98b8d3b6bd1a86f81b036d57f4a5114649a048872f2ec6cf4f6a7ede28725",
+      "request": {
+        "image_url": "build/stage/art/bush.png",
+        "ai_model": "latest",
+        "should_texture": true,
+        "enable_pbr": true,
+        "texture_resolution": "2k",
+        "should_remesh": true,
+        "topology": "triangle",
+        "target_polycount": 12000
+      },
+      "balance_before": 660,
+      "task_id": "01a107a9-1d00-73d3-bc14-320c8440645a",
+      "submitted_at": "2026-10-04T16:04:46.764Z",
+      "credits": 30,
+      "files": {
+        "model.glb": 12409300,
+        "thumbnail.png": 131194,
+        "base_color.png": 5069252,
+        "metallic.png": 24146,
+        "roughness.png": 1411012,
+        "normal.png": 7011292
+      },
+      "completed_at": "2026-10-04T16:09:44.506Z"
+    },
+    "cliff_rock_b": {
+      "status": "SUCCEEDED",
+      "input_sha256": "467fe9f82c58387cffd1fd0a5853dcdfb2bfc5362d348d862956f6587b65b06a",
+      "request": {
+        "image_url": "build/stage/art/cliff_rock_b.png",
+        "ai_model": "latest",
+        "should_texture": true,
+        "enable_pbr": true,
+        "texture_resolution": "2k",
+        "should_remesh": true,
+        "topology": "triangle",
+        "target_polycount": 12000
+      },
+      "balance_before": 630,
+      "task_id": "01a107a9-a746-75db-9b04-c72f0ba82040",
+      "submitted_at": "2026-10-04T16:05:22.188Z",
+      "credits": 30,
+      "files": {
+        "model.glb": 11207028,
+        "thumbnail.png": 184254,
+        "base_color.png": 5763356,
+        "metallic.png": 26497,
+        "roughness.png": 1497667,
+        "normal.png": 5238307
+      },
+      "completed_at": "2026-10-04T16:08:03.314Z"
+    },
+    "tree_tall": {
+      "status": "SUCCEEDED",
+      "input_sha256": "067cc32b916cc6fd11328b6b31c8d58a7b368cf93d468b4b723eaa57f5f2599e",
+      "request": {
+        "image_url": "build/stage/art/tree_tall.png",
+        "ai_model": "latest",
+        "should_texture": true,
+        "enable_pbr": true,
+        "texture_resolution": "2k",
+        "should_remesh": true,
+        "topology": "triangle",
+        "target_polycount": 12000
+      },
+      "balance_before": 530,
+      "task_id": "01a107ac-241e-7112-8e18-2b00b20b2699",
+      "submitted_at": "2026-10-04T16:08:05.285Z",
+      "credits": 30,
+      "files": {
+        "model.glb": 12555912,
+        "thumbnail.png": 94599,
+        "base_color.png": 5066358,
+        "metallic.png": 29385,
+        "roughness.png": 1540975,
+        "normal.png": 6540068
+      },
+      "completed_at": "2026-10-04T16:11:26.559Z"
+    },
+    "ruin_pillar": {
+      "status": "SUCCEEDED",
+      "input_sha256": "ed16c290b3e41975bb56e2717010e4a8e7140e9d19a811b7249801b5654907e3",
+      "request": {
+        "image_url": "build/stage/art/ruin_pillar.png",
+        "ai_model": "latest",
+        "should_texture": true,
+        "enable_pbr": true,
+        "texture_resolution": "2k",
+        "should_remesh": true,
+        "topology": "triangle",
+        "target_polycount": 12000
+      },
+      "balance_before": 430,
+      "task_id": "01a107ad-b395-7332-8623-d59509ee120e",
+      "submitted_at": "2026-10-04T16:09:47.616Z",
+      "credits": 30,
+      "files": {
+        "model.glb": 12308032,
+        "thumbnail.png": 139120,
+        "base_color.png": 5851155,
+        "metallic.png": 64771,
+        "roughness.png": 1549858,
+        "normal.png": 5466120
+      },
+      "completed_at": "2026-10-04T16:12:44.512Z"
+    },
+    "ruin_arch": {
+      "status": "SUCCEEDED",
+      "input_sha256": "6283b2cc8b7b122444a5e9632bfba019013d4d1783f240b9346e3339db190c0f",
+      "request": {
+        "image_url": "build/stage/art/ruin_arch.png",
+        "ai_model": "latest",
+        "should_texture": true,
+        "enable_pbr": true,
+        "texture_resolution": "2k",
+        "should_remesh": true,
+        "topology": "triangle",
+        "target_polycount": 12000
+      },
+      "balance_before": 400,
+      "task_id": "01a107af-3ce5-7563-9adc-3f78945e54c7",
+      "submitted_at": "2026-10-04T16:11:28.407Z",
+      "credits": 30,
+      "files": {
+        "model.glb": 13392968,
+        "thumbnail.png": 145122,
+        "base_color.png": 6312994,
+        "metallic.png": 41153,
+        "roughness.png": 1641902,
+        "normal.png": 6029595
+      },
+      "completed_at": "2026-10-04T16:13:49.223Z"
+    }
+  },
+  "inflight": 0
+}

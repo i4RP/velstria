@@ -28,15 +28,35 @@ final class MapScene {
     /// 地図の境界（m）。
     static let mapMeters: Float = Float(Balance.mapSize / Balance.unitsPerMeter)
 
+    /// 素材から作ったステージ（docs/STAGE.md）。素材やシェーダーが使えない環境では nil で、従来の手続き生成の地形を使う。
+    private(set) var stage: StageScene?
+
     init(map: MapDefinition, materials: RenderMaterials, quality: RenderQuality, groundImage: CGImage?) {
         root.name = "map"
-        buildGround(image: groundImage, quality: quality)
+        if let plan = StagePrep.take(map: map, quality: quality), let stage = StageScene(plan: plan) {
+            self.stage = stage
+            root.addChild(stage.root)
+            for e in stage.brushEntities { adoptBrush(e) }
+            buildDecorations(map: map, materials: materials, quality: quality, terrain: false)
+            buildGroundDecals(map: map, materials: materials, paving: false)
+            return
+        }
+        buildGround(image: groundImage ?? GroundTextureGenerator.makeImage(map: map, size: quality.groundTextureSize,
+                                                                           colorblind: materials.teams.colorblind),
+                    quality: quality)
         buildOuterGround()
-        buildDecorations(map: map, materials: materials, quality: quality)
+        buildDecorations(map: map, materials: materials, quality: quality, terrain: true)
         buildBrushes(map: map, materials: materials, quality: quality)
         buildWater(map: map)
-        buildGroundDecals(map: map, materials: materials)
+        buildGroundDecals(map: map, materials: materials, paving: true)
         if quality.level != .low { buildDetailOverlay() }
+    }
+
+    private func adoptBrush(_ e: ModelEntity) {
+        brushEntities.append(e)
+        brushTranslucent.append(false)
+        brushWanted.append(false)
+        brushAlpha.append(1)
     }
 
     // MARK: 地面
@@ -130,7 +150,8 @@ final class MapScene {
         }
     }
 
-    private func buildDecorations(map: MapDefinition, materials: RenderMaterials, quality: RenderQuality) {
+    /// terrain = false のときは拠点の飾り（泉・ランタン・門柱）だけを作る（壁・外周の森・草花はステージが描く）。
+    private func buildDecorations(map: MapDefinition, materials: RenderMaterials, quality: RenderQuality, terrain: Bool) {
         var batch = ChunkBatch()
         var rng = RenderRNG(seed: 0xDEC0)
         let density = quality.decorationDensity
@@ -139,7 +160,7 @@ final class MapScene {
         func w(_ p: Vec2, _ h: Float = 0) -> SIMD3<Float> { worldPosition(p, height: h) }
 
         // 障害物: 崖の塊 + 木
-        for (oi, o) in map.obstacles.enumerated() {
+        for (oi, o) in map.obstacles.enumerated() where terrain {
             let seed = UInt64(oi) &* 7919
             switch o {
             case .rect(let r):
@@ -223,7 +244,7 @@ final class MapScene {
         // 外周の森（地図の外側 1.5〜14 m）
         let M = MapScene.mapMeters
         let ringStep: Float = 2.6 / max(0.6, density)
-        for side in 0..<4 {
+        for side in 0..<4 where terrain {
             var t: Float = -14
             while t < M + 14 {
                 for row in 0..<4 {
@@ -251,7 +272,7 @@ final class MapScene {
         }
 
         // ジャングルの小物（レーン・河川・構造物・キャンプから離れた場所のみ）
-        let floraCount = Int(260 * density)
+        let floraCount = terrain ? Int(260 * density) : 0
         var placed = 0, attempts = 0
         while placed < floraCount && attempts < floraCount * 8 {
             attempts += 1
@@ -321,7 +342,7 @@ final class MapScene {
         }
 
         // ボスの巣の縁石
-        for camp in map.camps where camp.kind == .astralWyrm || camp.kind == .ancientColossus {
+        for camp in map.camps where terrain && (camp.kind == .astralWyrm || camp.kind == .ancientColossus) {
             let rune: Swatch = camp.kind == .astralWyrm ? .glowPurple : .glowGold
             let n = 8
             for k in 0..<n {
@@ -353,7 +374,8 @@ final class MapScene {
 
     /// 高さは GroundLayer の段に分ける（重なる印を同じ高さに置くと Z-fighting でちらつく）:
     /// 石畳 paving < 泉の輪・タワーの輪 marking < 八芒星 markingLine < Core の輪 markingTop。
-    private func buildGroundDecals(map: MapDefinition, materials: RenderMaterials) {
+    /// paving = false のときは広場の石畳を作らない（ステージの地面が石畳を描く）。
+    private func buildGroundDecals(map: MapDefinition, materials: RenderMaterials, paving: Bool) {
         var lit = MeshBuilder(reserve: 4096), glow = MeshBuilder(reserve: 2048)
         for team in Team.players {
             let soft: Swatch = team == .blue ? .glowBlueSoft : .glowRedSoft
@@ -362,7 +384,7 @@ final class MapScene {
             // 広場の石畳（24〜44 分割 × 6 環、目地を残す）
             var r: Float = 4.6
             var ring = 0
-            while r < 14.2 {
+            while paving && r < 14.2 {
                 let r1 = r + 1.85
                 let segs = 24 + ring * 4
                 for k in 0..<segs {

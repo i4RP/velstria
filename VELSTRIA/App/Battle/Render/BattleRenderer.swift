@@ -209,13 +209,22 @@ final class BattleRenderer {
         let map = controller.ctx.map
         let size = settings.quality.groundTextureSize
         let colorblind = settings.colorblind
-        let state = GroundTextureCache.cached(map: map, size: size, colorblind: colorblind) != nil ? "cache hit"
+        let quality = settings.quality
+        // ステージ（docs/STAGE.md）は配置・配合マップを背景で作る（ロード画面の BattlePreload が先に始めている）。
+        // 素材やシェーダーが使えず作れなかったときだけ従来の地面画像を使う
+        let useStage = StageAssets.isBundled
+        let state = useStage ? "stage" : GroundTextureCache.cached(map: map, size: size, colorblind: colorblind) != nil ? "cache hit"
             : GroundTextureCache.isGenerating(map: map, size: size, colorblind: colorblind) ? "prefetched" : "generated"
         let t0 = CACurrentMediaTime()
         loadTask = Task { [weak self] in
-            let image = await GroundTextureCache.image(map: map, size: size, colorblind: colorblind)
+            var image: CGImage?
+            if !useStage {
+                image = await GroundTextureCache.image(map: map, size: size, colorblind: colorblind)
+            } else if !(await StagePrep.ready(map: map, quality: quality)) {
+                image = await GroundTextureCache.image(map: map, size: size, colorblind: colorblind)
+            }
             guard let self, !Task.isCancelled else { return }
-            self.note(String(format: "ground texture %d² %@, waited %.0f ms", size, state, (CACurrentMediaTime() - t0) * 1000))
+            self.note(String(format: "ground %@ (%d²), waited %.0f ms", state, size, (CACurrentMediaTime() - t0) * 1000))
             self.buildWorld(groundImage: image)
         }
     }
@@ -516,6 +525,7 @@ final class BattleRenderer {
         loadInterval = nil
         loadTask?.cancel()
         loadTask = nil
+        StagePrep.discard()
         updateSubscription?.cancel()
         updateSubscription = nil
         if let token = eventToken {

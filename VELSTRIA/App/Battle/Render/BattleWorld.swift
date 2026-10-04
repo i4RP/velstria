@@ -502,7 +502,11 @@ final class BattleWorld {
 
     func updateCamera(rig: CameraRig, dt: Float, snap: Bool) {
         let (target, free) = cameraFocus()
-        rig.update(target: target, zoom: controller.cameraZoom, free: free, dt: dt, mapMeters: MapScene.mapMeters)
+        var zoom = controller.cameraZoom
+        #if DEBUG
+        if let z = StageDebug.cameraZoom { zoom = z }
+        #endif
+        rig.update(target: target, zoom: zoom, free: free, dt: dt, mapMeters: MapScene.mapMeters)
     }
 
     /// カメラの注視点（world x・z）と自由視点か。
@@ -529,6 +533,9 @@ final class BattleWorld {
             target = SIMD2(p.x, p.z)
             free = true
         }
+        #if DEBUG
+        if let t = StageDebug.cameraTarget { return (t, true) }
+        #endif
         return (target, free)
     }
 
