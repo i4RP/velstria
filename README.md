@@ -18,6 +18,7 @@ iPhone 向けの 5v5・3 レーン MOBA（v1.0 はオフライン対 AI）。ネ
 | `VELSTRIA/tools/` | アーカイブ・TestFlight アップロード・App Store Connect API・各種検証 |
 | `VELSTRIA/tools/portraits/` | ヒーロー / スキンのポートレート画像の生成仕様と取り込み |
 | `VELSTRIA_復元版パッケージ/` | 仕様パッケージ（要件定義書・コンテンツマスター） |
+| `AGENTS.md` / `CLAUDE.md` | エージェント向けの作業ルール（TestFlight への配信は必ず GitHub 経由） |
 
 ## ビルド
 
