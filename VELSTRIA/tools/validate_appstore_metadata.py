@@ -5,6 +5,17 @@ usage（リポジトリの VELSTRIA/ で）:
     python3 tools/validate_appstore_metadata.py            # 形式・文字数・課金 ID の整合（プレースホルダは警告）
     python3 tools/validate_appstore_metadata.py --archive  # アーカイブ時: アプリに埋め込まれるプレースホルダ・仮 URL はエラー
     python3 tools/validate_appstore_metadata.py --release  # 提出直前: プレースホルダ・仮 URL が残っていればすべてエラー
+    python3 tools/validate_appstore_metadata.py --release --check-urls
+        # 上に加えて公開 URL を実際に取得する（ネットワークが必要。production の提出前チェック専用。
+        #   アーカイブ・TestFlight では使わない）
+
+--check-urls:
+  metadata/<locale>/ の privacy_url / support_url / marketing_url と FeatureFlags.swift のプライバシーポリシー・利用規約 URL を
+  GET し、リダイレクト（308 を含む）をたどった最終応答が https の HTTP 200 であることを確認する（タイムアウト 15 秒、
+  通信エラー・5xx・429 は Retry-After か 5 秒・10 秒待って計 3 回まで試行、失敗はまとめて報告）。日本語のパス・ドメインは
+  %xx・xn-- に変換して取得する。仮の URL（*.example・{{...}}）は取得せずエラーにする。
+  プライバシーポリシーが開けないと審査で 5.1.1 の却下になる。到達確認だけが誤判定で提出を止めるときは、
+  環境変数 RELEASE_CHECK_ALLOW に urls を含めると（asc.mjs release-check と共通）エラーを警告に格下げする。
 
 検査内容:
   - docs/appstore/metadata/<locale>/*.txt（fastlane deliver 互換の配置）の文字数上限
@@ -20,10 +31,17 @@ usage（リポジトリの VELSTRIA/ で）:
 """
 from __future__ import annotations
 
+import http.client
 import json
+import os
 import pathlib
 import re
 import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 APPSTORE = ROOT / "docs" / "appstore"
@@ -70,6 +88,14 @@ PLACEHOLDER_DOMAIN = re.compile(r"[A-Za-z0-9-]+\.example\b")
 APP = ROOT / "App"
 FEATURE_FLAGS = APP / "Core" / "FeatureFlags.swift"
 APP_SUFFIXES = {".swift", ".plist", ".json", ".strings", ".xcprivacy"}
+# アプリ内から開く公開 URL（FeatureFlags.swift の定数名）
+FEATURE_FLAG_URLS = ["privacyPolicyURLJa", "privacyPolicyURLEn", "termsURLJa", "termsURLEn"]
+URL_TIMEOUT = 15
+# 通信エラー・5xx・429 の試行回数と待ち時間（秒。Retry-After があればそれに従い、上限 URL_RETRY_WAIT_MAX）
+URL_ATTEMPTS = 3
+URL_RETRY_WAIT = 5
+URL_RETRY_WAIT_MAX = 30
+URL_USER_AGENT = "Mozilla/5.0 (compatible; VELSTRIA-metadata-check/1.0)"
 
 
 class Report:
@@ -271,6 +297,12 @@ def check_app_placeholders(r: Report) -> None:
                 r.app_placeholder(f"{p.relative_to(ROOT)}:{no}: アプリに未確定の値 {', '.join(found)}")
 
 
+def feature_flag_url(text: str, name: str) -> str | None:
+    """FeatureFlags.swift の `static let <name> = URL(string: "...")!` の文字列。"""
+    m = re.search(rf'\b{name}\s*=\s*URL\(string:\s*"([^"]+)"\)', text)
+    return m.group(1) if m else None
+
+
 def check_privacy_urls(r: Report) -> None:
     """ASC に登録するプライバシーポリシー URL とアプリ内リンク（言語別）の一致。"""
     if not FEATURE_FLAGS.exists():
@@ -278,24 +310,135 @@ def check_privacy_urls(r: Report) -> None:
         return
     text = FEATURE_FLAGS.read_text(encoding="utf-8")
     for locale, name in [("ja", "privacyPolicyURLJa"), ("en-US", "privacyPolicyURLEn")]:
-        m = re.search(rf'\b{name}\s*=\s*URL\(string:\s*"([^"]+)"\)', text)
-        if not m:
+        url = feature_flag_url(text, name)
+        if not url:
             r.error(f"{FEATURE_FLAGS.relative_to(ROOT)}: {name} が見つかりません")
             continue
         meta = META / locale / "privacy_url.txt"
-        if meta.exists() and read(meta).strip() != m.group(1):
-            r.error(f"{meta.relative_to(ROOT)}（{read(meta).strip()}）と FeatureFlags.{name}（{m.group(1)}）が一致しません")
+        if meta.exists() and read(meta).strip() != url:
+            r.error(f"{meta.relative_to(ROOT)}（{read(meta).strip()}）と FeatureFlags.{name}（{url}）が一致しません")
+
+
+def public_urls() -> dict[str, list[str]]:
+    """到達確認する URL → 記載箇所（同じ URL は 1 回だけ取得する）。"""
+    out: dict[str, list[str]] = {}
+    for locale in LOCALES:
+        for name in URL_FILES:
+            p = META / locale / name
+            if p.exists() and read(p).strip():
+                out.setdefault(read(p).strip(), []).append(str(p.relative_to(ROOT)))
+    if FEATURE_FLAGS.exists():
+        text = FEATURE_FLAGS.read_text(encoding="utf-8")
+        for name in FEATURE_FLAG_URLS:
+            url = feature_flag_url(text, name)
+            if url:
+                out.setdefault(url, []).append(f"FeatureFlags.{name}")
+    return out
+
+
+class _FollowRedirects(urllib.request.HTTPRedirectHandler):
+    """308 もたどる（urllib が 308 に対応したのは Python 3.11 から。macOS 標準の 3.9 で手元実行したとき、
+    .html の除去・末尾スラッシュの正規化を 308 で返すホスティングを誤ってエラーにしないため）。"""
+
+    http_error_308 = urllib.request.HTTPRedirectHandler.http_error_302
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
+        # 308 は 307 と同じくメソッドを変えないリダイレクト（ここでは GET だけを送る）
+        return super().redirect_request(req, fp, 307 if code == 308 else code, msg, headers, newurl)
+
+
+_URL_OPENER = urllib.request.build_opener(_FollowRedirects)
+
+
+def ascii_url(url: str) -> str:
+    """日本語のホスト名・パスや空白を含む URL を、送信できる ASCII の形にする（%xx 済みの部分はそのまま）。"""
+    parts = urllib.parse.urlsplit(url)
+    netloc = parts.netloc
+    if not netloc.isascii():  # 日本語ドメインは IDNA（xn--）に変換する
+        host = (parts.hostname or "").encode("idna").decode("ascii")
+        netloc = host + (f":{parts.port}" if parts.port else "")
+    path = urllib.parse.quote(parts.path, safe="/%:@!$&'()*+,;=~")
+    query = urllib.parse.quote(parts.query, safe="/%:@!$&'()*+,;=?~")
+    return urllib.parse.urlunsplit((parts.scheme, netloc, path, query, ""))
+
+
+def retry_wait(e: Exception | None, attempt: int) -> float:
+    """再試行までの秒数。Retry-After（秒）があればそれに従い（上限 URL_RETRY_WAIT_MAX）、無ければ回数に応じて延ばす。"""
+    after = e.headers.get("Retry-After") if isinstance(e, urllib.error.HTTPError) and e.headers else None
+    if after and after.strip().isdigit():
+        return min(float(after.strip()), URL_RETRY_WAIT_MAX)
+    return URL_RETRY_WAIT * attempt
+
+
+def fetch_url(url: str) -> str | None:
+    """URL を取得し、問題があれば理由を返す（正常なら None。例外は外に出さない）。
+    通信エラー・5xx・429 は待ってから再試行する（計 URL_ATTEMPTS 回）。"""
+    if PLACEHOLDER_URL.search(url) or PLACEHOLDER.search(url):
+        return "仮の URL のままです（取得しない）"
+    if not url.startswith("https://"):
+        return "https の URL ではありません"
+    try:
+        req = urllib.request.Request(ascii_url(url), headers={"User-Agent": URL_USER_AGENT, "Accept": "text/html,*/*"})
+    except (ValueError, UnicodeError) as e:  # ポート番号やホスト名が不正
+        return f"URL の形式が不正です: {type(e).__name__}: {e}"
+    problem = ""
+    for attempt in range(1, URL_ATTEMPTS + 1):
+        retryable: Exception | None = None
+        try:
+            # リダイレクト（301/302/303/307/308）をたどり、最終的な URL と状態を見る
+            with _URL_OPENER.open(req, timeout=URL_TIMEOUT) as res:
+                final = res.geturl()
+                if res.status != 200:
+                    return f"HTTP {res.status}（最終 URL {final}）"
+                if not final.startswith("https://"):
+                    return f"リダイレクト先が https ではありません: {final}"
+                return None
+        except urllib.error.HTTPError as e:
+            problem = f"HTTP {e.code}（最終 URL {e.geturl()}）"
+            if e.code < 500 and e.code != 429:
+                return problem
+            retryable = e
+        except http.client.InvalidURL as e:  # 再試行しても変わらない
+            return f"URL の形式が不正です: {e}"
+        except (OSError, http.client.HTTPException) as e:  # URLError（DNS・TLS・接続拒否）・タイムアウト・途中で切れた応答
+            problem = f"接続できません: {str(getattr(e, 'reason', None) or e) or type(e).__name__}"
+        except Exception as e:  # noqa: BLE001 想定外の例外も理由として返す（他の URL の確認・まとめての報告・urls の格下げを続ける）
+            return f"取得できません: {type(e).__name__}: {e}"
+        if attempt < URL_ATTEMPTS:
+            time.sleep(retry_wait(retryable, attempt))
+    return f"{problem}（{URL_ATTEMPTS} 回試行）"
+
+
+def check_url_reachability(r: Report) -> None:
+    """公開 URL が実際に開けること（--check-urls）。失敗はまとめて報告する。"""
+    allowed = "urls" in {s.strip() for s in os.environ.get("RELEASE_CHECK_ALLOW", "").split(",")}
+    urls = public_urls()
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results = dict(zip(urls, pool.map(fetch_url, urls)))
+    for url, problem in results.items():
+        if problem is None:
+            continue
+        msg = f"URL を開けません: {url} — {problem}（{', '.join(urls[url])}）"
+        if allowed:
+            r.warn(f"{msg}（RELEASE_CHECK_ALLOW=urls のため続行）")
+        else:
+            r.error(msg)
+    ok = sum(1 for p in results.values() if p is None)
+    print(f"URL の到達確認: {ok} / {len(results)} 件が HTTP 200")
 
 
 def main() -> int:
     release = "--release" in sys.argv[1:]
     archive = "--archive" in sys.argv[1:]
+    check_urls = "--check-urls" in sys.argv[1:]
     r = Report(release, archive)
     check_metadata(r)
     check_iap(r)
     check_placeholders(r)
     check_app_placeholders(r)
     check_privacy_urls(r)
+    if check_urls:
+        check_url_reachability(r)
     for w in r.warnings:
         print(f"warning: {w}")
     for e in r.errors:
@@ -309,6 +452,8 @@ def main() -> int:
         mode = "アーカイブモード（アプリ内のプレースホルダはエラー、メタデータ・法務文書は警告）"
     else:
         mode = "通常モード（プレースホルダは警告のみ。提出前に --release で確認）"
+    if check_urls:
+        mode += "・URL の到達確認あり"
     print(f"ok: App Store メタデータの検証に合格（{mode}、警告 {len(r.warnings)} 件）")
     return 0
 

@@ -8,6 +8,9 @@
 //   ASC_KEY_PATH    .p8 の場所（省略時 ~/.appstoreconnect/private_keys/AuthKey_<ASC_KEY_ID>.p8）
 //   ASC_BUNDLE_ID   既定 com.bitcoinpay.velstria
 //   ASC_RELEASE_TYPE  submit 時の公開方法。AFTER_APPROVAL（既定: 承認されたら自動で公開）/ MANUAL（承認後に手動で公開）
+//   RELEASE_CHECK_ALLOW  release-check の検査 ID をカンマ区切りで指定すると、その検査のエラーを警告に格下げして続行する
+//                     （誤判定で正しい提出が止まるときの逃げ道と、iap-attach の「Web で確認した」申告。CI ではリポジトリの
+//                     Variables に設定する）
 //
 // usage:
 //   node tools/asc.mjs create-app [name] [sku]         アプリレコードの作成を試す（Apple が API での作成を許可している場合のみ成功）
@@ -16,7 +19,25 @@
 //   node tools/asc.mjs internal <email> [<email>...]  内部テストグループを用意し、テスターを追加（ASC ユーザであること）
 //   node tools/asc.mjs testers                        ベータグループとテスターの一覧
 //   node tools/asc.mjs beta-notes <build> <text>      TestFlight の「テスト内容」を設定（ブランチ・コミットの表示用）
-//   node tools/asc.mjs release-check <version>        App Store に <version> を出せるか確認（公開済みなら MARKETING_VERSION を上げる）
+//   node tools/asc.mjs release-check <version> [--allow=<ID>,...]
+//                                                     App Store に <version> を出せるか確認する（読み取りだけ。GET 以外は送らない）。
+//                                                     公開済みの番号なら即終了（MARKETING_VERSION を上げる）。続けて submit が使う
+//                                                     バージョン・App 情報について、提出・公開の前に必要な Web の設定をまとめて
+//                                                     確認し、1 つでも欠けていれば終了コード 1。検査 ID（--allow / RELEASE_CHECK_ALLOW で格下げ可）:
+//                                                       screenshots    主言語の iPhone スクリーンショット（6.9 か 6.5 インチ）が無い
+//                                                       iap            iap_products.json の課金が未登録・種別違い・提出できない状態
+//                                                                      （FeatureFlags.inAppPurchases = true のとき）
+//                                                       iap-attach     未承認の課金がある。バージョンへの追加は API で確認できないため、
+//                                                                      Web で追加を確かめたらこの ID を許可して続行する（全件承認後は出ない）
+//                                                       age-rating     年齢制限の質問票が未回答
+//                                                       price          価格が未設定（無料でも明示が必要）
+//                                                       availability   配信する国と地域が未設定（Apple の提出検査では止まらないが、
+//                                                                      docs/APPSTORE.md §4 の配信方針どおりに明示させる）
+//                                                       release-notes  2 回目以降なのに release_notes.txt が無い言語がある
+//                                                       urls           （validate_appstore_metadata.py --check-urls 用。ここでは使わない）
+//                                                     警告だけ出す項目: コンテンツの権利が未回答（submit が「第三者のコンテンツなし」で
+//                                                     自動申告する）、初回リリースのみ API で確認できない App のプライバシーと
+//                                                     Mac / Vision Pro での配信。GitHub Actions では警告・エラーを注釈と手順のまとめにも出す
 //   node tools/asc.mjs submit <build> [--dry-run]     ビルドを App Store バージョンに紐付け、メタデータ（docs/appstore/metadata）を
 //                                                     同期して審査に提出する。--dry-run は読み取りだけで、行う変更を表示する
 import crypto from "node:crypto";
@@ -54,7 +75,11 @@ function token() {
   return `${header}.${payload}.${b64url(sig)}`;
 }
 
+// 読み取り専用の実行（release-check）。GET 以外を送ろうとしたら送信前に止める
+let readOnly = false;
+
 async function call(method, url, body) {
+  if (readOnly && method !== "GET") throw new Error(`読み取り専用の実行で ${method} ${url} を送ろうとしました`);
   // 一時的な通信エラー（接続タイムアウト等）は最大 5 回まで待って再試行する
   let res;
   for (let attempt = 1; ; attempt++) {
@@ -86,6 +111,27 @@ async function call(method, url, body) {
     throw err;
   }
   return json;
+}
+
+// 未設定の項目は 404 で返る（価格・配信状況など）。404 だけ null にして、それ以外のエラーはそのまま投げる
+async function getOrNull(url) {
+  try {
+    return await call("GET", url);
+  } catch (e) {
+    if (e.status === 404) return null;
+    throw e;
+  }
+}
+
+// 一覧を links.next をたどってすべて取得する
+async function getAll(url) {
+  const data = [];
+  for (let next = url; next;) {
+    const r = await call("GET", next);
+    data.push(...r.data);
+    next = r.links?.next;
+  }
+  return data;
 }
 
 async function findApp() {
@@ -148,7 +194,8 @@ async function ensureBuildInGroup(group, build) {
 
 // ---- App Store 提出（production） ----
 
-const META_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "docs", "appstore", "metadata");
+const APP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const META_DIR = path.join(APP_ROOT, "docs", "appstore", "metadata");
 // appVersionState（新）と appStoreState（旧）の両方の値を扱う
 const EDITABLE = new Set(["PREPARE_FOR_SUBMISSION", "DEVELOPER_REJECTED", "REJECTED", "METADATA_REJECTED",
   "INVALID_BINARY", "READY_FOR_REVIEW"]);
@@ -163,6 +210,9 @@ const LIVE_ONCE = new Set(["READY_FOR_DISTRIBUTION", "READY_FOR_SALE", "REPLACED
   "REMOVED_FROM_SALE", "DEVELOPER_REMOVED_FROM_SALE"]);
 
 const versionState = (v) => v.attributes.appVersionState || v.attributes.appStoreState;
+// 一度でも公開されたバージョンが無ければ初回リリース（「このバージョンの新機能」は入力できない）
+const isFirstRelease = (versions) => !versions.some((v) => LIVE_ONCE.has(versionState(v)));
+const infoState = (x) => x.attributes.state || x.attributes.appStoreState;
 // "1.0" と "1.0.0" は同じバージョンとして扱う（末尾の .0 を落として比較）
 const normVersion = (s) => String(s).split(".").map(Number).join(".").replace(/(\.0)+$/, "");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -178,6 +228,16 @@ async function iosVersions(appID) {
   const r = await call("GET", `/v1/apps/${appID}/appStoreVersions?filter[platform]=IOS&limit=50`
     + "&fields[appStoreVersions]=versionString,appVersionState,appStoreState,releaseType,createdDate");
   return r.data;
+}
+
+async function appInfos(appID) {
+  return (await call("GET", `/v1/apps/${appID}/appInfos?limit=200&fields[appInfos]=state,appStoreState,appStoreAgeRating`)).data;
+}
+
+// submit が名前・カテゴリを書き込む App 情報（公開中でないもの）。release-check も同じものを確認する
+function editableAppInfo(infos) {
+  return infos.find((x) => infoState(x) === "PREPARE_FOR_SUBMISSION")
+    || infos.find((x) => EDITABLE_INFO.has(infoState(x)));
 }
 
 function readMeta(rel) {
@@ -294,6 +354,301 @@ async function releaseCheck(appID, marketing) {
   return { versions, open };
 }
 
+// ---- 提出前チェック（release-check。submit や審査で初めて気づく Web 側の不足と、docs/APPSTORE.md の方針に反する未設定を、
+//      ビルド前に GET だけで挙げる） ----
+
+const IAP_JSON = path.join(APP_ROOT, "docs", "appstore", "iap_products.json");
+const FEATURE_FLAGS = path.join(APP_ROOT, "App", "Core", "FeatureFlags.swift");
+// 検査 ID → 内容（ファイル先頭の usage と一致させる）。RELEASE_CHECK_ALLOW / --allow で ID ごとにエラーを警告へ格下げできる
+const RELEASE_CHECKS = {
+  screenshots: "主言語の iPhone スクリーンショット",
+  iap: "App 内課金の登録と状態",
+  "iap-attach": "未承認の App 内課金のバージョンへの追加（API で確認できないため Web で確かめて許可する）",
+  "age-rating": "年齢制限の質問票",
+  price: "価格",
+  availability: "配信する国と地域",
+  "release-notes": "このバージョンの新機能（release_notes.txt）",
+  urls: "公開 URL の到達確認（validate_appstore_metadata.py --check-urls）",
+};
+// 提出に必須の iPhone の枠: 6.9 / 6.7 インチ（API の値は APP_IPHONE_67）か 6.5 インチ（APP_IPHONE_65）のどちらか
+const REQUIRED_IPHONE_SHOTS = ["APP_IPHONE_67", "APP_IPHONE_65"];
+// アップロード済み（COMPLETE = 処理済み、UPLOAD_COMPLETE = 処理中）。AWAITING_UPLOAD・FAILED は数えない
+const SHOT_UPLOADED = new Set(["COMPLETE", "UPLOAD_COMPLETE"]);
+// App 内課金のうち審査に出せる・審査中・承認済みの状態。これ以外は Web で直すまで提出できない
+const IAP_SUBMITTABLE = new Set(["READY_TO_SUBMIT", "WAITING_FOR_REVIEW", "IN_REVIEW", "PENDING_BINARY_APPROVAL", "APPROVED"]);
+const IAP_STATE_HINT = {
+  MISSING_METADATA: "表示名・説明・価格・配信地域・審査用スクリーンショットのどれかが未入力",
+  WAITING_FOR_UPLOAD: "ホストするコンテンツのアップロード待ち",
+  PROCESSING_CONTENT: "ホストするコンテンツの処理中",
+  DEVELOPER_ACTION_NEEDED: "審査で修正を求められている",
+  REJECTED: "却下されている",
+  REMOVED_FROM_SALE: "販売停止中",
+  DEVELOPER_REMOVED_FROM_SALE: "販売停止中",
+};
+const IAP_TYPE = { consumable: "CONSUMABLE", non_consumable: "NON_CONSUMABLE" };
+// 年齢制限の質問票で回答が必須の項目（回答済みのアプリでも null のまま残る kidsAgeBand・socialMedia・
+// socialMediaAgeRestricted・gracRatingClassificationNumber・developerAgeRatingInfoUrl と、既定値のある *Override は含めない）
+const AGE_RATING_REQUIRED = ["advertising", "alcoholTobaccoOrDrugUseOrReferences", "contests", "gambling",
+  "gamblingSimulated", "gunsOrOtherWeapons", "healthOrWellnessTopics", "lootBox", "medicalOrTreatmentInformation",
+  "messagingAndChat", "parentalControls", "profanityOrCrudeHumor", "ageAssurance", "sexualContentGraphicAndNudity",
+  "sexualContentOrNudity", "horrorOrFearThemes", "matureOrSuggestiveThemes", "unrestrictedWebAccess",
+  "userGeneratedContent", "violenceCartoonOrFantasy", "violenceRealisticProlongedGraphicOrSadistic", "violenceRealistic"];
+const EXPECTED_AGE_RATING = "NINE_PLUS"; // docs/appstore/age_rating.md
+
+// ローカライズの iPhone / iPad などの枠ごとの枚数 { APP_IPHONE_67: { uploaded, other } }
+async function screenshotCounts(localizationID) {
+  const r = await call("GET", `/v1/appStoreVersionLocalizations/${localizationID}/appScreenshotSets?limit=50`
+    + "&include=appScreenshots&limit[appScreenshots]=50"
+    + "&fields[appScreenshotSets]=screenshotDisplayType,appScreenshots&fields[appScreenshots]=assetDeliveryState");
+  const state = new Map((r.included || []).filter((x) => x.type === "appScreenshots")
+    .map((x) => [x.id, x.attributes.assetDeliveryState?.state]));
+  const out = {};
+  for (const set of r.data) {
+    const ids = (set.relationships?.appScreenshots?.data || []).map((x) => x.id);
+    const uploaded = ids.filter((id) => SHOT_UPLOADED.has(state.get(id))).length;
+    out[set.attributes.screenshotDisplayType] = { uploaded, other: ids.length - uploaded };
+  }
+  return out;
+}
+
+// すべての検査を行い、問題をまとめて返す（途中で止めない）。errors は { id, msg }
+async function preSubmitChecks(appID, versions, open) {
+  const errors = [];
+  const warnings = [];
+  const passed = [];
+  const error = (id, msg) => errors.push({ id, msg });
+  const warn = (msg) => warnings.push(msg);
+  const ok = (msg) => passed.push(msg);
+  // API が想定外のエラーを返した検査もその ID のエラーにする（他の検査は続ける。誤判定と同じく格下げできる）
+  const check = async (id, fn) => {
+    try {
+      await fn();
+    } catch (e) {
+      error(id, `確認できませんでした: ${e.message}`);
+    }
+  };
+  const { meta } = loadMetadata();
+  const firstRelease = isFirstRelease(versions);
+  const appAttrs = (await call("GET", `/v1/apps/${appID}?fields[apps]=primaryLocale,contentRightsDeclaration`)).data.attributes;
+  const primary = appAttrs.primaryLocale;
+
+  // スクリーンショット（submit が紐付けるバージョン = releaseCheck の open）
+  await check("screenshots", async () => {
+    if (!open) {
+      warn("提出時に App Store バージョンを新しく作るため、スクリーンショットは確認できません（前のバージョンから引き継がれる）");
+      return;
+    }
+    const locs = (await call("GET", `/v1/appStoreVersions/${open.id}/appStoreVersionLocalizations?limit=50`
+      + "&fields[appStoreVersionLocalizations]=locale")).data;
+    const locales = [primary, ...Object.keys(meta.locales).filter((l) => l !== primary)];
+    for (const locale of locales) {
+      const loc = locs.find((x) => x.attributes.locale === locale);
+      const counts = loc ? await screenshotCounts(loc.id) : {};
+      const have = Object.entries(counts)
+        .map(([type, c]) => `${type} ${c.uploaded} 枚${c.other ? `（未完了・失敗 ${c.other} 枚）` : ""}`).join(", ") || "なし";
+      if (REQUIRED_IPHONE_SHOTS.some((type) => counts[type]?.uploaded > 0)) {
+        ok(`スクリーンショット ${locale}: ${have}`);
+        continue;
+      }
+      const msg = `${locale} の iPhone スクリーンショット（6.9 インチ = APP_IPHONE_67 か 6.5 インチ = APP_IPHONE_65）がありません`
+        + `（登録済み: ${have}${loc ? "" : "。この言語のバージョン情報が未作成で、submit が作成する"}）`;
+      if (locale === primary) {
+        error("screenshots", `主言語 ${msg}。docs/appstore/screenshots.md の手順で撮影し、Web でバージョン ${open.attributes.versionString} に登録してください`);
+      } else {
+        warn(`${msg}。この言語の製品ページには主言語（${primary}）の画像が使われます`);
+      }
+    }
+  });
+
+  // App 内課金（FeatureFlags.inAppPurchases が有効なら iap_products.json の全商品が登録済みで提出できる状態であること）
+  await check("iap", async () => {
+    const flag = /\bstatic\s+let\s+inAppPurchases\s*=\s*(true|false)\b/.exec(fs.readFileSync(FEATURE_FLAGS, "utf8"));
+    if (!flag) warn("App/Core/FeatureFlags.swift に inAppPurchases が見つかりません（有効として確認します）");
+    if (flag?.[1] === "false") {
+      ok("App 内課金: FeatureFlags.inAppPurchases = false のため確認しない");
+      return;
+    }
+    const products = JSON.parse(fs.readFileSync(IAP_JSON, "utf8")).products;
+    const registered = await getAll(`/v1/apps/${appID}/inAppPurchasesV2?limit=200`
+      + "&fields[inAppPurchases]=productId,inAppPurchaseType,state");
+    const byID = new Map(registered.map((x) => [x.attributes.productId, x.attributes]));
+    const missing = products.filter((p) => !byID.has(p.product_id)).map((p) => p.product_id);
+    if (missing.length) {
+      error("iap", `App Store Connect に未登録の App 内課金があります（登録 ${products.length - missing.length} / `
+        + `iap_products.json ${products.length} 件）: ${missing.join(", ")}。docs/appstore/in_app_purchases.md の内容で Web から登録してください`);
+    }
+    for (const p of products) {
+      const a = byID.get(p.product_id);
+      if (!a) continue;
+      if (a.inAppPurchaseType !== IAP_TYPE[p.type]) {
+        error("iap", `${p.product_id}: 種別が ${a.inAppPurchaseType} です（iap_products.json は ${IAP_TYPE[p.type] || p.type}）`);
+      }
+      if (!IAP_SUBMITTABLE.has(a.state)) {
+        error("iap", `${p.product_id}: 状態が ${a.state} のため審査に出せません（${IAP_STATE_HINT[a.state] || "Web で確認"}）`);
+      }
+    }
+    // 未承認の課金をバージョンに追加したかは API で追加も確認もできない。追加し忘れても submit は App だけを提出して成功し、
+    // ガイドライン 2.1 で却下される。警告だとログに埋もれるため、Web で確かめたことを RELEASE_CHECK_ALLOW=iap-attach で申告させる
+    const notApproved = products.filter((p) => byID.get(p.product_id)?.state !== "APPROVED").map((p) => p.product_id);
+    if (notApproved.length) {
+      error("iap-attach", `App 内課金 ${notApproved.length} 件がまだ承認されていません（${notApproved.join(", ")}）。`
+        + "初めて審査に出す App 内課金は、Web のバージョンページ「App 内課金とサブスクリプション」でこのバージョンに追加してください"
+        + "（API では追加も確認もできず、追加し忘れると App だけが提出されてガイドライン 2.1 で却下される）。"
+        + "追加を確かめたら RELEASE_CHECK_ALLOW に iap-attach を入れて再実行してください（すべて承認されたら外す）");
+    } else {
+      ok(`App 内課金: ${products.length} 件すべて承認済み`);
+    }
+  });
+
+  // 年齢制限（submit が書き込むのと同じ App 情報。無ければ公開中のもの）
+  await check("age-rating", async () => {
+    const infos = await appInfos(appID);
+    const info = editableAppInfo(infos) || infos[0];
+    if (!info) {
+      error("age-rating", "App 情報がありません");
+      return;
+    }
+    const decl = (await call("GET", `/v1/appInfos/${info.id}/ageRatingDeclaration`)).data.attributes;
+    const unanswered = AGE_RATING_REQUIRED.filter((k) => decl[k] == null);
+    const rating = info.attributes.appStoreAgeRating;
+    if (unanswered.length) {
+      error("age-rating", `年齢制限の質問票が未回答です（${unanswered.length} 項目: ${unanswered.join(", ")}）。`
+        + "docs/appstore/age_rating.md の回答を Web の「App 情報 > 年齢制限」で入力してください");
+    } else if (rating && rating !== EXPECTED_AGE_RATING) {
+      warn(`年齢制限が ${rating} です（docs/appstore/age_rating.md の想定は 9+ = ${EXPECTED_AGE_RATING}）。回答を確認してください`);
+    } else {
+      ok(`年齢制限: ${rating || "回答済み"}`);
+    }
+  });
+
+  // 価格（未設定だと価格スケジュールの manualPrices が 404 になる。無料も「無料」を選んで保存しないと未設定のまま）
+  await check("price", async () => {
+    const schedule = await getOrNull(`/v1/apps/${appID}/appPriceSchedule`);
+    const prices = schedule && await getOrNull(`/v1/appPriceSchedules/${schedule.data.id}/manualPrices?limit=50`
+      + "&include=appPricePoint,territory");
+    if (!prices?.data.length) {
+      error("price", "価格が未設定です。無料でも Web の「価格および配信状況」で価格（無料）を設定してください（docs/APPSTORE.md §4）");
+      return;
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    const current = prices.data.find((x) => (!x.attributes.startDate || x.attributes.startDate <= today)
+      && (!x.attributes.endDate || x.attributes.endDate > today)) || prices.data[0];
+    const pointID = current.relationships?.appPricePoint?.data?.id;
+    const price = (prices.included || []).find((x) => x.type === "appPricePoints" && x.id === pointID)?.attributes.customerPrice;
+    const territory = current.relationships?.territory?.data?.id || "?";
+    if (price != null && Number(price) !== 0) {
+      warn(`価格が無料ではありません（${territory} ${price}）。docs/APPSTORE.md §4 は無料（App 内課金あり）`);
+    } else {
+      ok(`価格: ${price != null ? "無料" : "設定済み"}（基準 ${territory}）`);
+    }
+  });
+
+  // 配信する国と地域（未設定だと appAvailabilityV2 が 404）。Apple の提出検査ではこれで止まらない（同じアカウントの別アプリは
+  // 404 のまま審査に提出できた）。それでも未設定のまま承認されると、中国本土を含むのか・どこにも配信されないのかが決まらず
+  // docs/APPSTORE.md §4（中国本土は除外・日本で配信）に反するため、明示的な設定を必須にしている
+  await check("availability", async () => {
+    const availability = await getOrNull(`/v1/apps/${appID}/appAvailabilityV2`);
+    if (!availability) {
+      error("availability", "配信する国と地域が未設定です。提出はできてしまうが配信先が方針どおりにならないため、"
+        + "Web の「価格および配信状況」で設定してください（docs/APPSTORE.md §4: 中国本土は除外・日本で配信）");
+      return;
+    }
+    const territories = await getAll(`/v2/appAvailabilities/${availability.data.id}/territoryAvailabilities?limit=200`
+      + "&include=territory&fields[territoryAvailabilities]=available,territory");
+    const on = territories.filter((x) => x.attributes.available).map((x) => x.relationships?.territory?.data?.id);
+    if (!on.length) {
+      error("availability", "配信する国と地域が 1 つも選ばれていません（docs/APPSTORE.md §4）");
+      return;
+    }
+    if (!on.includes("JPN")) warn("日本（JPN）で配信しない設定です（docs/APPSTORE.md §4）");
+    if (on.includes("CHN")) warn("中国本土（CHN）で配信する設定です。ゲームは版号が必要なため除外する方針です（docs/APPSTORE.md §4）");
+    ok(`配信: ${on.length} の国と地域`);
+  });
+
+  // このバージョンの新機能（submit と同じ判定。2 回目以降は全言語に必要）
+  await check("release-notes", async () => {
+    if (firstRelease) {
+      ok("このバージョンの新機能: 初回リリースのため不要");
+      return;
+    }
+    const lacking = Object.entries(meta.locales).filter(([, m]) => !m.version.whatsNew).map(([loc]) => loc);
+    for (const loc of lacking) {
+      error("release-notes", `2 回目以降のリリースには docs/appstore/metadata/${loc}/release_notes.txt（このバージョンの新機能）が必要です`);
+    }
+    if (!lacking.length) ok(`このバージョンの新機能: ${Object.keys(meta.locales).join(", ")}`);
+  });
+
+  // API で確認できない項目（警告のみ）
+  if (!appAttrs.contentRightsDeclaration) {
+    warn("コンテンツの権利が未回答です。submit が自動で DOES_NOT_USE_THIRD_PARTY_CONTENT（第三者のコンテンツを含まない）と申告します。"
+      + "ヒーロー・スキンのポートレートなど生成 AI で作った画像を含むため、この申告でよいか docs/appstore/compliance.md で確認し、"
+      + "違う場合は先に Web の「App 情報 > コンテンツの権利」で回答してください");
+  } else {
+    ok(`コンテンツの権利: ${appAttrs.contentRightsDeclaration}`);
+  }
+  if (firstRelease) {
+    // 2 回目以降は前のバージョンの回答・設定が引き継がれる
+    warn("App のプライバシー（栄養ラベル）は API で確認できません。Web で「データを収集しない」を公開済みか確認してください"
+      + "（docs/appstore/app_privacy.md）");
+    warn("Apple Silicon Mac / Apple Vision Pro での配信可否は API で確認できません。Web の「価格および配信状況」で"
+      + "オフになっているか確認してください（docs/APPSTORE.md §4）");
+  }
+  return { errors, warnings, passed };
+}
+
+// GitHub Actions のワークフローコマンドの値（% と改行を符号化する）
+const ghaEscape = (s) => String(s).replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+
+// GitHub Actions の手順のまとめ（Summary）に結果の一覧を書く。注釈は手順ごとに 10 件までしか出ないため、全件はここで見せる
+function writeStepSummary(blocking, warnings, passed) {
+  const file = process.env.GITHUB_STEP_SUMMARY;
+  if (!file) return;
+  const list = (items) => items.map((x) => `- ${x.replace(/\n/g, " ")}`).join("\n");
+  const lines = [
+    "### 提出前チェック（App Store Connect の設定）",
+    blocking.length ? `**エラー ${blocking.length} 件**（Web で直して push し直す。誤判定・確認済みなら Variables の RELEASE_CHECK_ALLOW に検査 ID）`
+      : `合格（警告 ${warnings.length} 件）`,
+  ];
+  if (blocking.length) lines.push("", "#### エラー", list(blocking.map((e) => `\`${e.id}\` ${e.msg}`)));
+  if (warnings.length) lines.push("", "#### 警告（提出は続く。却下につながるものがないか確認する）", list(warnings));
+  if (passed.length) lines.push("", "<details><summary>確認済み</summary>", "", list(passed), "", "</details>");
+  fs.appendFileSync(file, `${lines.join("\n")}\n`);
+}
+
+// 検査結果を表示し、格下げされていないエラーがあれば終了コード 1。
+// GitHub Actions ではログを開かなくても見えるよう、警告・エラーを注釈（::warning / ::error）と手順のまとめにも出す
+function reportPreSubmit({ errors, warnings: plain, passed }, allowArgs) {
+  const raw = [process.env.RELEASE_CHECK_ALLOW || "", ...allowArgs].join(",");
+  const allow = new Set(raw.split(",").map((s) => s.trim()).filter(Boolean));
+  // 許可で格下げしたエラーは、ほかの警告より先に出す（注釈は 10 件までなので、重要なものを落とさない）
+  const warnings = errors.filter((x) => allow.has(x.id))
+    .map((e) => `[${e.id}] ${e.msg}（RELEASE_CHECK_ALLOW / --allow で許可されているため続行）`);
+  for (const id of allow) {
+    if (!(id in RELEASE_CHECKS)) warnings.push(`RELEASE_CHECK_ALLOW の「${id}」は不明な検査 ID です（${Object.keys(RELEASE_CHECKS).join(", ")}）`);
+  }
+  warnings.push(...plain);
+  const blocking = errors.filter((e) => !allow.has(e.id));
+  const gha = process.env.GITHUB_ACTIONS === "true";
+  for (const p of passed) console.log(`  ok: ${p}`);
+  for (const w of warnings) {
+    if (gha) console.log(`::warning title=提出前チェック::${ghaEscape(w)}`);
+    else console.warn(`warning: ${w}`);
+  }
+  for (const e of blocking) {
+    if (gha) console.log(`::error title=提出前チェック（${e.id}）::${ghaEscape(e.msg)}`);
+    else console.error(`error[${e.id}]: ${e.msg}`);
+  }
+  writeStepSummary(blocking, warnings, passed);
+  if (blocking.length) {
+    const ids = [...new Set(blocking.map((e) => e.id))];
+    fail(`提出前チェックで ${blocking.length} 件のエラー（${ids.join(", ")}）。App Store Connect の Web で設定してから production に push し直してください。\n`
+      + `  判定が誤っていて提出できる状態（iap-attach は Web でバージョンへの追加を確かめた後）なら、リポジトリの Variables に`
+      + ` RELEASE_CHECK_ALLOW=${ids.join(",")} を設定して再実行すると`
+      + "警告として続行します（手元では --allow=<ID>,...）");
+  }
+  console.log(`ok: 提出前チェックに合格（警告 ${warnings.length} 件）`);
+}
+
 async function upsertLocalizations(kind, parent, existing, wanted, dry) {
   // kind: appStoreVersionLocalizations（親 appStoreVersion）/ appInfoLocalizations（親 appInfo）
   const parentType = kind === "appStoreVersionLocalizations" ? "appStoreVersions" : "appInfos";
@@ -364,7 +719,7 @@ async function submitBuild(appID, buildVersion, dry) {
       target = r.data;
     }
   }
-  const isFirstRelease = !versions.some((v) => LIVE_ONCE.has(versionState(v)));
+  const firstRelease = isFirstRelease(versions);
 
   // 2) バージョンの属性（番号はビルドに合わせる・公開方法・著作権）
   const vAttrs = defined({
@@ -382,20 +737,18 @@ async function submitBuild(appID, buildVersion, dry) {
   const versionLocs = {};
   for (const [loc, m] of Object.entries(meta.locales)) {
     const { whatsNew, ...rest } = m.version;
-    if (!isFirstRelease && !whatsNew) {
+    if (!firstRelease && !whatsNew) {
       fail(`2 回目以降のリリースには docs/appstore/metadata/${loc}/release_notes.txt（このバージョンの新機能）が必要です`);
     }
-    versionLocs[loc] = isFirstRelease ? rest : { ...rest, whatsNew };
+    versionLocs[loc] = firstRelease ? rest : { ...rest, whatsNew };
   }
   const curVLocs = target.id === "(new)" ? [] : (await call("GET",
     `/v1/appStoreVersions/${target.id}/appStoreVersionLocalizations?limit=50`)).data;
   await upsertLocalizations("appStoreVersionLocalizations", target, curVLocs, versionLocs, dry);
 
   // 4) App 情報（名前・サブタイトル・プライバシーポリシー URL・カテゴリ）。公開中でない appInfo だけが編集できる
-  const infos = (await call("GET", `/v1/apps/${appID}/appInfos?limit=200&fields[appInfos]=state,appStoreState`)).data;
-  const infoState = (x) => x.attributes.state || x.attributes.appStoreState;
-  const info = infos.find((x) => infoState(x) === "PREPARE_FOR_SUBMISSION")
-    || infos.find((x) => EDITABLE_INFO.has(infoState(x)));
+  const infos = await appInfos(appID);
+  const info = editableAppInfo(infos);
   if (!info && !dry) {
     fail(`編集可能な App 情報がありません（${infos.map(infoState).join(", ")}）。名前・サブタイトル・プライバシーポリシー URL を同期できないため中止します`);
   }
@@ -544,6 +897,7 @@ async function setBetaNotes(build, text) {
 }
 
 const [cmd, ...rest] = process.argv.slice(2);
+readOnly = cmd === "release-check";
 
 if (cmd === "create-app") {
   // API でのアプリレコード作成（Apple が許可していない場合はエラー内容を表示して終了）
@@ -628,14 +982,17 @@ switch (cmd) {
     break;
   }
   case "release-check": {
-    const marketing = rest[0] || fail("バージョン（例 1.0.0）を指定してください");
-    const { open } = await releaseCheck(app.id, marketing);
+    const marketing = rest.find((x) => !x.startsWith("--")) || fail("バージョン（例 1.0.0）を指定してください");
+    const { versions, open } = await releaseCheck(app.id, marketing);
     if (!open) console.log(`App Store バージョン ${marketing} を新しく作成して提出します`);
     else if (UNDER_REVIEW.has(versionState(open))) {
       console.log(`バージョン ${open.attributes.versionString} は審査中（${versionState(open)}）です。取り下げて新しいビルドで出し直します`);
     } else {
       console.log(`編集中のバージョン ${open.attributes.versionString}（${versionState(open)}）に ${marketing} のビルドを紐付けて提出します`);
     }
+    console.log("提出前チェック（App Store Connect の設定。読み取りのみ）:");
+    reportPreSubmit(await preSubmitChecks(app.id, versions, open),
+      rest.filter((x) => x.startsWith("--allow=")).map((x) => x.slice("--allow=".length)));
     break;
   }
   case "submit": {
@@ -645,5 +1002,5 @@ switch (cmd) {
   }
   default:
     fail("usage: node tools/asc.mjs status | wait-build <build> | internal <email>... | testers"
-      + " | beta-notes <build> <text> | release-check <version> | submit <build> [--dry-run]");
+      + " | beta-notes <build> <text> | release-check <version> [--allow=<ID>,...] | submit <build> [--dry-run]");
 }

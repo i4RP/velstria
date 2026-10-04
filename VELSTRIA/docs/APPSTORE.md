@@ -174,13 +174,28 @@ scheme の Run には StoreKit 構成ファイル `App/Resources/Velstria.storek
 
 | 段階 | 内容 | 止まる条件 |
 |---|---|---|
-| 提出前チェック（Linux） | `gen_master_*.py --check`・`privacy_audit.py`・`validate_appstore_metadata.py --release`、`asc.mjs release-check <MARKETING_VERSION>` | 仮値・プレースホルダが残っている／そのバージョン番号が承認済み・公開済み |
+| 提出前チェック（Linux） | `gen_master_*.py --check`・`privacy_audit.py`・`validate_appstore_metadata.py --release --check-urls`、`asc.mjs release-check <MARKETING_VERSION>`（読み取りのみ） | 仮値・プレースホルダが残っている／公開 URL が https の HTTP 200 で開けない／そのバージョン番号が承認済み・公開済み／下の Web 設定が足りない |
 | ビルド（macOS） | コア・チュートリアルのテスト → `STRICT=1` でアーカイブ → アップロード → 処理完了待ち | テスト失敗・署名失敗・Apple 側の処理失敗 |
 | 提出（`asc.mjs submit`） | `docs/appstore/metadata/` の掲載文・名前・サブタイトル・URL・カテゴリ・著作権・審査連絡先とメモを同期 → 輸出コンプライアンス・コンテンツの権利（未回答時のみ「第三者のコンテンツなし」）→ ビルドを紐付け → 審査に提出 | Web でしか設定できない項目が未設定（Apple のエラーに不足項目が列挙される） |
 
 - **初回だけ Web で設定が必要**（API で扱えない、または判断が必要な項目）: スクリーンショット（§ [screenshots.md](appstore/screenshots.md)）、
   App のプライバシー（§5）、価格と配信状況（§4）、年齢制限（[age_rating.md](appstore/age_rating.md)）、App 内課金の登録とバージョンへの追加。
   次のバージョンからは ASC が前のバージョンの値を引き継ぐ。
+- 提出前チェック（`asc.mjs release-check`）は、submit が使うバージョン・App 情報について次を確認し、提出・公開の前に足りないものを
+  まとめて挙げてビルド前に止める（検査 ID）: 主言語の iPhone スクリーンショット 6.9 か 6.5 インチ（`screenshots`）、
+  `iap_products.json` の課金の登録・種別・提出できる状態（`iap`。`FeatureFlags.inAppPurchases = true` のとき）、
+  未承認の課金のバージョンへの追加（`iap-attach`）、年齢制限の回答（`age-rating`）、価格（`price`）、配信する国と地域（`availability`）、
+  2 回目以降の `release_notes.txt`（`release-notes`）。公開 URL の到達確認は `urls`。
+  - `availability` は Apple の提出検査では止まらない（`appAvailabilityV2` が 404 = 未設定のまま審査に提出できた実例がある）。
+    未設定のまま承認されると配信先が §4 の方針（中国本土は除外・日本で配信）どおりにならないため、明示的な設定を必須にしている。
+  - `iap-attach` は未承認の課金がある間は必ず止まる。初めての課金をバージョンに追加したかは API で追加も確認もできず、
+    追加し忘れても submit は App だけを提出して成功し、ガイドライン 2.1 で却下されるため。Web のバージョンページ
+    「App 内課金とサブスクリプション」で追加を確かめてから `RELEASE_CHECK_ALLOW` に `iap-attach` を入れる（すべて承認されたら外す）。
+  - 警告だけ出す項目: コンテンツの権利が未回答（submit が「第三者のコンテンツなし」で自動申告する。回答済みなら確認済みとして表示）、
+    初回リリースのみ API で確認できない App のプライバシー（§5）と Mac / Vision Pro での配信（§4）。
+  - GitHub Actions では警告・エラーを実行画面の注釈と手順のまとめ（Summary）にも出す（注釈は 10 件までなので全件は Summary で見る）。
+- 判定が誤っていて実際には提出できる場合は、リポジトリの Variables に `RELEASE_CHECK_ALLOW=<ID>,...` を設定して再実行すると、
+  その検査のエラーを警告に格下げして続行する（手元では `node tools/asc.mjs release-check 1.0.0 --allow=<ID>,...`）。直ったら外す。
 - 審査中（審査待ちを含む）に再び push すると、その提出を取り下げて新しいビルドで出し直す（審査の順番は最後尾に戻る）。
 - 2 回目以降のリリース: `project.yml` の `MARKETING_VERSION` を上げ、`metadata/<言語>/release_notes.txt`（このバージョンの新機能）を
   追加してから push する。無ければ提出段階で止まる。
