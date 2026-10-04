@@ -6,6 +6,7 @@
 #   TEAM_ID=ABCDE12345 BUILD_NUMBER=7 tools/archive.sh      # ビルド番号を上書き（App Store Connect では毎回増やす）
 #   TEAM_ID=ABCDE12345 STRICT=1 tools/archive.sh            # 提出直前: メタデータのプレースホルダ残りもエラーにする
 #   TEAM_ID=ABCDE12345 ALLOW_APP_PLACEHOLDERS=1 tools/archive.sh
+#   SIGNING=manual PROFILE_NAME="VELSTRIA AppStore CI" ... tools/archive.sh   # CI: 配布証明書 + プロファイルで手動署名
 #       # 社内確認用に限り、アプリ内の未確定値（{{PUBLISHER_NAME}}・velstria.example 等）を警告に下げる。
 #       # 既定ではエラー（TestFlight のテスターにも仮の法定表示・開けないリンクが見えるため）
 #
@@ -92,6 +93,13 @@ ARCHIVE_ARGS=(
     DEVELOPMENT_TEAM="$TEAM_ID"
     ${AUTH[@]+"${AUTH[@]}"}
 )
+# SIGNING=manual（CI）: キーチェーンに入れた配布証明書と App Store プロファイル（PROFILE_NAME）で手動署名する。
+# クラウド署名の権限が無い API キーでも書き出せ、ランナー毎に開発証明書が増えることもない。
+if [[ "${SIGNING:-automatic}" == "manual" ]]; then
+    [[ -n "${PROFILE_NAME:-}" ]] || { echo "error: SIGNING=manual には PROFILE_NAME（プロファイル名）が必要です" >&2; exit 1; }
+    ARCHIVE_ARGS+=(VELSTRIA_CODE_SIGN_STYLE=Manual "VELSTRIA_CODE_SIGN_IDENTITY=Apple Distribution"
+                   "VELSTRIA_PROFILE_SPECIFIER=$PROFILE_NAME")
+fi
 if [[ -n "${BUILD_NUMBER:-}" ]]; then
     ARCHIVE_ARGS+=(CURRENT_PROJECT_VERSION="$BUILD_NUMBER")
 fi
@@ -101,6 +109,11 @@ xcodebuild archive "${ARCHIVE_ARGS[@]}"
 step "xcodebuild -exportArchive (app-store-connect / export only)"
 cp ExportOptions-AppStore.plist "$EXPORT_OPTIONS"
 plutil -replace teamID -string "$TEAM_ID" "$EXPORT_OPTIONS"
+if [[ "${SIGNING:-automatic}" == "manual" ]]; then
+    plutil -replace signingStyle -string manual "$EXPORT_OPTIONS"
+    plutil -replace signingCertificate -string "Apple Distribution" "$EXPORT_OPTIONS"
+    plutil -replace provisioningProfiles -json "{\"com.bitcoinpay.velstria\": \"$PROFILE_NAME\"}" "$EXPORT_OPTIONS"
+fi
 if [[ "$(plutil -extract destination raw "$EXPORT_OPTIONS")" != "export" ]]; then
     echo "error: ExportOptions の destination が export ではありません（自動アップロードは禁止）" >&2
     exit 1

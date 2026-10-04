@@ -17,6 +17,10 @@ settings:
     # 署名チーム: BITCOINPAY K.K.（tools/archive.sh は TEAM_ID 環境変数で上書き可能）
     DEVELOPMENT_TEAM: BPZ8375UX5
     CODE_SIGN_STYLE: Automatic
+    # アプリ本体の署名方式（ローカルは自動署名。CI は tools/archive.sh が SIGNING=manual で手動署名に切り替える）
+    VELSTRIA_CODE_SIGN_STYLE: Automatic
+    VELSTRIA_CODE_SIGN_IDENTITY: Apple Development
+    VELSTRIA_PROFILE_SPECIFIER: ""
     TARGETED_DEVICE_FAMILY: "1"
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     DEAD_CODE_STRIPPING: YES
@@ -94,6 +98,9 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bitcoinpay.velstria
         PRODUCT_NAME: VELSTRIA
+        CODE_SIGN_STYLE: $(VELSTRIA_CODE_SIGN_STYLE)
+        CODE_SIGN_IDENTITY: $(VELSTRIA_CODE_SIGN_IDENTITY)
+        PROVISIONING_PROFILE_SPECIFIER: $(VELSTRIA_PROFILE_SPECIFIER)
         # iPhone 専用（xcodegen の iOS プリセットはターゲット側で "1,2" を入れるため明示的に上書きする）
         TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
