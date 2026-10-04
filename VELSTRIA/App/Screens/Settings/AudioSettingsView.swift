@@ -11,6 +11,25 @@ struct AudioSettingsView: View {
             ScrollView(.vertical, showsIndicators: true) {
                 HStack(alignment: .top, spacing: 14) {
                     SettingsSection(title: L("音量", "Volume"), symbol: "speaker.wave.2.fill") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(L("メニュー BGM", "Menu Music"))
+                                .font(Theme.body(13))
+                                .foregroundStyle(Theme.textPrimary)
+                            Picker(L("メニュー BGM", "Menu Music"), selection: Binding(
+                                get: { MusicTrack(rawValue: app.profile.settings.bgmTrack).flatMap { $0.isMenuTrack ? $0 : nil } ?? .menu },
+                                set: { track in
+                                    app.profile.settings.bgmTrack = track.rawValue
+                                    app.audio.apply(settings: app.profile.settings)
+                                    app.audio.playMusic(track)
+                                }
+                            )) {
+                                ForEach(MusicTrack.selectableMenuTracks, id: \.rawValue) { track in
+                                    Text(track.displayName).tag(track)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .accessibilityIdentifier("audio_bgm_track")
+                        }
                         SettingsSliderRow(title: L("BGM", "Music"), symbol: "music.note",
                                           value: settingsBinding(app, \.bgmVolume), range: 0...1, step: 0.05,
                                           format: SettingsText.percent, identifier: "audio_bgm") { preview() }

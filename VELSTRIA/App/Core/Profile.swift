@@ -58,6 +58,7 @@ struct GameSettings: Codable, Equatable {
     var language: AppLanguage = .system
     /// 開発中は同じ曲を繰り返し聴かないよう既定 0（ミュート）。
     var bgmVolume: Double = 0
+    var bgmTrack: String = "menu"
     /// 効果音も既定 0（ミュート）。設定画面・一時停止メニューで上げられる。
     var sfxVolume: Double = 0
     var voiceVolume: Double = 0.8
@@ -92,7 +93,7 @@ struct GameSettings: Codable, Equatable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case language, bgmVolume, sfxVolume, voiceVolume, hapticsEnabled
+        case language, bgmVolume, bgmTrack, sfxVolume, voiceVolume, hapticsEnabled
         case graphicsQuality, frameRate, showDamageNumbers, joystickMode, skillCastMode
         case attackPriority, topAttackPriority, bottomAttackPriority
         case cameraZoom, leftHandedLayout, colorblindMode, hudOpacity, subtitlesEnabled
@@ -107,6 +108,7 @@ extension GameSettings {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         language = try values.decodeIfPresent(AppLanguage.self, forKey: .language) ?? language
         bgmVolume = try values.decodeIfPresent(Double.self, forKey: .bgmVolume) ?? bgmVolume
+        bgmTrack = try values.decodeIfPresent(String.self, forKey: .bgmTrack) ?? bgmTrack
         sfxVolume = try values.decodeIfPresent(Double.self, forKey: .sfxVolume) ?? sfxVolume
         voiceVolume = try values.decodeIfPresent(Double.self, forKey: .voiceVolume) ?? voiceVolume
         hapticsEnabled = try values.decodeIfPresent(Bool.self, forKey: .hapticsEnabled) ?? hapticsEnabled

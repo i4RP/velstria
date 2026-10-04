@@ -290,7 +290,10 @@ enum MusicComposer {
     static func render(_ track: MusicTrack) -> RenderedMusic {
         let canvas: SynthCanvas
         switch track {
-        case .menu: canvas = renderMenu()
+        case .menu: canvas = renderMenu(style: 0)
+        case .menuDream: canvas = renderMenu(style: 1)
+        case .menuAdventure: canvas = renderMenu(style: 2)
+        case .menuAurora: canvas = renderMenu(style: 3)
         case .battle: canvas = renderBattle()
         case .victory: canvas = renderVictory()
         case .defeat: canvas = renderDefeat()
@@ -314,15 +317,19 @@ enum MusicComposer {
 
     // MARK: メニュー（84 BPM、16 小節、Dm–B♭–F–C–Dm–B♭–Gm–A を 2 小節ずつ）
 
-    private static func renderMenu() -> SynthCanvas {
-        let beat = 60.0 / 84
+    private static func renderMenu(style: Int) -> SynthCanvas {
+        let beat = 60.0 / [84.0, 72.0, 98.0, 78.0][style]
         let bar = beat * 4
         let bars = 16
         var main = SynthCanvas(duration: bar * Double(bars), sampleRate: sampleRate, stereo: true, loop: true)
         var arp = SynthCanvas(duration: bar * Double(bars), sampleRate: sampleRate, stereo: true, loop: true)
-        let progression = [dm, bb, f, c, dm, bb, gm, a]
-        var rng = SplitMix64(seed: 0x4D45_4E55) // 同じ曲は常に同じ音になるよう固定シード
-        let pattern = [0, 1, 2, 3, 1, 2, 3, 2]
+        let progressions = [[dm, bb, f, c, dm, bb, gm, a], [f, c, dm, bb, f, c, gm, bb],
+                            [c, gm, dm, f, c, gm, bb, f], [bb, f, c, dm, bb, f, gm, c]]
+        let progression = progressions[style]
+        var rng = SplitMix64(seed: 0x4D45_4E55 + UInt64(style)) // 曲ごとに安定した異なる揺らぎ
+        let patterns = [[0, 1, 2, 3, 1, 2, 3, 2], [0, 2, 1, 3, 2, 1, 3, 0],
+                        [0, 1, 0, 2, 3, 2, 1, 3], [0, 2, 3, 1, 0, 3, 2, 1]]
+        let pattern = patterns[style]
 
         for (s, chord) in progression.enumerated() {
             let start = Double(s) * 2 * bar

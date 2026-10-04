@@ -20,10 +20,24 @@ enum SFX: String, CaseIterable {
 }
 
 enum MusicTrack: String, CaseIterable {
-    case menu, battle, victory, defeat
+    case menu, menuDream, menuAdventure, menuAurora, battle, victory, defeat
+
+    static var selectableMenuTracks: [MusicTrack] { [.menu, .menuDream, .menuAdventure, .menuAurora] }
+    var displayName: String {
+        switch self {
+        case .menu: return "静かな星明かり"
+        case .menuDream: return "夢の水辺"
+        case .menuAdventure: return "旅立ちの朝"
+        case .menuAurora: return "オーロラの庭"
+        case .battle: return "戦闘"
+        case .victory: return "勝利"
+        case .defeat: return "敗北"
+        }
+    }
+    var isMenuTrack: Bool { Self.selectableMenuTracks.contains(self) }
 
     /// ループ再生する曲か（勝利・敗北は 1 回だけ鳴るスティンガー）。
-    var loops: Bool { self == .menu || self == .battle }
+    var loops: Bool { isMenuTrack || self == .battle }
 }
 
 @MainActor
@@ -34,6 +48,7 @@ final class AudioService {
     static let crossfadeDuration: TimeInterval = 0.8
 
     private(set) var bgmVolume: Double = GameSettings().bgmVolume
+    private var selectedMenuTrack: MusicTrack = .menu
     private(set) var sfxVolume: Double = GameSettings().sfxVolume
     private(set) var voiceVolume: Double = 0.8
     /// 再生中（または準備中）の曲。
@@ -79,9 +94,11 @@ final class AudioService {
 
     func apply(settings: GameSettings) {
         bgmVolume = min(1, max(0, settings.bgmVolume))
+        selectedMenuTrack = MusicTrack(rawValue: settings.bgmTrack).flatMap { $0.isMenuTrack ? $0 : nil } ?? .menu
         sfxVolume = min(1, max(0, settings.sfxVolume))
         voiceVolume = min(1, max(0, settings.voiceVolume))
         applyVolumes()
+        if currentTrack?.isMenuTrack == true, currentTrack != selectedMenuTrack { playMusic(selectedMenuTrack) }
     }
 
     private func applyVolumes() {
@@ -174,6 +191,7 @@ final class AudioService {
 
     /// 曲を再生する。同じループ曲の再指定は無視し、スティンガー（勝利・敗北）は再指定で頭から鳴らし直す。
     func playMusic(_ track: MusicTrack) {
+        let track = track == .menu ? selectedMenuTrack : track
         guard track != currentTrack || !track.loops else { return }
         currentTrack = track
         if let buffer = musicBuffers[track] {
