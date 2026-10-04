@@ -38,6 +38,14 @@ struct PostProcessSettings: Equatable {
 
 /// renderCallbacks から（RealityKit の描画スレッドで）呼ばれる。設定・パイプラインは lock で守る。
 final class PostProcessor: @unchecked Sendable {
+    /// iOS シミュレータの RealityKit は postProcess を呼ばない。シェーダーのコンパイル（読み込み中の CPU）や
+    /// コールバックの取り付けは無駄なので、シミュレータでは後処理を使わない。
+    #if targetEnvironment(simulator)
+    static let isAvailable = false
+    #else
+    static let isAvailable = true
+    #endif
+
     private let lock = NSLock()
     private var settings: PostProcessSettings
     private var device: MTLDevice?

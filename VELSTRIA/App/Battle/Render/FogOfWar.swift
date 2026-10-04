@@ -152,8 +152,11 @@ final class FogOfWar {
     /// 転送用バッファ（GPU が前のフレームの転送で読んでいる間に書き換えないよう 3 本を順に使う）。
     private var staging: [MTLBuffer] = []
     private var stagingIndex = 0
-    /// 補間がまだ目標に届いていない（毎フレーム転送する）。
+    /// 補間がまだ目標に届いていない（転送を続ける）。
     private var blending = true
+    /// GPU への転送の間引き（最大 30Hz）。RealityKit は転送の完了を待ってから描くため、毎フレーム転送すると詰まる。
+    private var uploadAccumulator: Float = 1
+    static let uploadInterval: Float = 1.0 / 30.0
     private var cpuBytes: [UInt8]
     /// 霧の最大不透明度。
     static let maxAlpha: Float = 0.64
@@ -233,6 +236,10 @@ final class FogOfWar {
             return
         }
         blending = field.blend(1 - exp(-max(0, dt) * 8)) > 0
+        uploadAccumulator += dt
+        // 補間は毎フレーム進め、転送は最大 30Hz（目標に届いた瞬間は必ず転送して最終状態を出す）
+        guard uploadAccumulator >= FogOfWar.uploadInterval || !blending else { return }
+        uploadAccumulator = 0
         upload()
     }
 

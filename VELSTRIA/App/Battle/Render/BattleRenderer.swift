@@ -36,7 +36,7 @@ final class BattleRenderer {
     init(controller: BattleController, settings: RenderSettings) {
         self.controller = controller
         self.settings = settings
-        post = PostProcessor(settings: .preset(settings.quality.level))
+        post = PostProcessor(settings: PostProcessor.isAvailable ? .preset(settings.quality.level) : .preset(.low))
         pendingEvents.reserveCapacity(256)
     }
 
@@ -171,7 +171,7 @@ final class BattleRenderer {
         // 後処理はウィンドウへ載って描画が回り始めてから取り付ける（描画系の準備前に renderCallbacks を触ると落ちる）
         if !postAttached, view.arView.window != nil {
             postAttached = true
-            post.attach(to: view.arView)
+            if PostProcessor.isAvailable { post.attach(to: view.arView) }
         }
         // 30fps 設定: 描画ループが指定より速く回る環境（シミュレータ等）でも更新は 30Hz に間引く
         var deltaTime = rawDelta
@@ -249,7 +249,7 @@ final class BattleRenderer {
 
     /// 画質設定と端末の温度から決まる後処理の設定。
     private var postSettings: PostProcessSettings {
-        thermalThrottled ? .preset(.low) : .preset(settings.quality.level)
+        thermalThrottled || !PostProcessor.isAvailable ? .preset(.low) : .preset(settings.quality.level)
     }
 
     private func applyFrameRate() {

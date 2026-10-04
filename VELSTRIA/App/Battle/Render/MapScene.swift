@@ -22,6 +22,7 @@ final class MapScene {
     private var waterModel: ModelEntity?
     private var waterMaterial: UnlitMaterial?
     private var waterTime: Float = 0
+    private var waterAccumulator: Float = 0
     private(set) var fountainSpires: [Entity] = []
 
     /// 地図の境界（m）。
@@ -622,7 +623,7 @@ final class MapScene {
         waterMaterial = mat
     }
 
-    /// 水面のきらめきを流す（毎フレーム。間引くと 1 px 程度の段差で動いて見える）。
+    /// 水面のきらめきを流す（30Hz。1 段の移動は 0.7 cm ≒ 画面上 1 px 未満。マテリアルの差し替えは毎フレームだと重い）。
     func update(dt: Float) {
         waterTime += dt
         fadeBrushes(dt: dt)
@@ -630,7 +631,9 @@ final class MapScene {
             s.orientation = simd_quatf(angle: waterTime * 0.6 + Float(k), axis: [0, 1, 0])
             s.position.y = 1.6 + sin(waterTime * 1.3 + Float(k)) * 0.12
         }
-        guard var mat = waterMaterial, let model = waterModel, model.isEnabled else { return }
+        waterAccumulator += dt
+        guard waterAccumulator >= 1.0 / 30.0, var mat = waterMaterial, let model = waterModel, model.isEnabled else { return }
+        waterAccumulator = 0
         // 周期 1 で巻き戻しても見た目は同じ（UV は repeat）。長時間でも浮動小数の精度を落とさない
         let u = (waterTime * 0.035).truncatingRemainder(dividingBy: 1)
         let v = (waterTime * 0.011).truncatingRemainder(dividingBy: 1)
