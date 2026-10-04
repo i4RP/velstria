@@ -1,0 +1,62 @@
+name: TestFlight
+
+# main に push されるたびにアーカイブして App Store Connect（TestFlight）へアップロードする。
+# 必要な Secrets: ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_P8（.p8 の中身）
+on:
+  push:
+    branches: [main]
+    paths: ["VELSTRIA/**", ".github/workflows/testflight.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    runs-on: macos-26
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: VELSTRIA
+    env:
+      TEAM_ID: BPZ8375UX5
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_PATH: ${{ github.workspace }}/AuthKey.p8
+      ALLOW_APP_PLACEHOLDERS: "1" # 内部テスト用。外部テスト・審査では外すこと
+      # 既存ビルド（〜3）より大きくするため run_number に下駄を履かせる
+      BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ビルド番号
+        run: echo "BUILD_NUMBER=$((100 + ${{ github.run_number }}))" >> "$GITHUB_ENV"
+
+      - name: ツール準備
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -n 1)"
+          xcodebuild -version
+          brew install xcodegen
+
+      - name: API キーを配置
+        working-directory: ${{ github.workspace }}
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          umask 077
+          printf '%s\n' "$ASC_KEY_P8" > AuthKey.p8
+
+      - name: アーカイブ
+        run: tools/archive.sh
+
+      - name: TestFlight へアップロード
+        run: tools/upload_testflight.sh
+
+      - name: ビルド処理の完了を待つ
+        run: node tools/asc.mjs wait-build "$BUILD_NUMBER"
+
+      - name: 後片付け
+        if: always()
+        working-directory: ${{ github.workspace }}
+        run: rm -f AuthKey.p8

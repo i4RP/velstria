@@ -75,6 +75,12 @@ xcodegen generate --quiet
 step "xcodebuild archive (Release)"
 rm -rf "$ARCHIVE" "$EXPORT_DIR"
 mkdir -p "$ROOT/build"
+# App Store Connect API キーがあればそれで認証（CI 用。無ければ Xcode にサインイン済みのアカウント）
+AUTH=()
+if [[ -n "${ASC_KEY_ID:-}" && -n "${ASC_ISSUER_ID:-}" ]]; then
+    KEY_PATH="${ASC_KEY_PATH:-$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8}"
+    AUTH=(-authenticationKeyPath "$KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
+fi
 ARCHIVE_ARGS=(
     -project VELSTRIA.xcodeproj
     -scheme VELSTRIA
@@ -84,6 +90,7 @@ ARCHIVE_ARGS=(
     -derivedDataPath "$DERIVED"
     -allowProvisioningUpdates
     DEVELOPMENT_TEAM="$TEAM_ID"
+    ${AUTH[@]+"${AUTH[@]}"}
 )
 if [[ -n "${BUILD_NUMBER:-}" ]]; then
     ARCHIVE_ARGS+=(CURRENT_PROJECT_VERSION="$BUILD_NUMBER")
@@ -102,7 +109,7 @@ xcodebuild -exportArchive \
     -archivePath "$ARCHIVE" \
     -exportPath "$EXPORT_DIR" \
     -exportOptionsPlist "$EXPORT_OPTIONS" \
-    -allowProvisioningUpdates
+    -allowProvisioningUpdates ${AUTH[@]+"${AUTH[@]}"}
 
 # 5) 成果物の確認
 step "成果物の確認"
