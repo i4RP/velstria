@@ -1,4 +1,5 @@
 import Combine
+import os
 import QuartzCore
 import RealityKit
 import UIKit
@@ -32,17 +33,31 @@ final class BattleRenderer {
     private var appliedFrameRate = 0
     private var wasPaused = false
     private var paceAccumulator: Double = 0
+    /// フレーム時間・ヒッチの集計（出荷ビルドでも常時。Perf/FrameStats.swift）。
+    let frameStats: FrameStats
+    private var loadStart: Double = 0
+    private var buildStart: Double = 0
+    private var liveStarted = false
+    private var loadInterval: OSSignpostIntervalState?
+    #if DEBUG || SCREENSHOTS
+    private var perfRun: PerfRun?
+    private var warmupFramesUsed = 0
+    #endif
 
     init(controller: BattleController, settings: RenderSettings) {
         self.controller = controller
         self.settings = settings
         post = PostProcessor(settings: PostProcessor.isAvailable ? .preset(settings.quality.level) : .preset(.low))
+        frameStats = FrameStats(frameRate: settings.frameRate)
         pendingEvents.reserveCapacity(256)
     }
 
     // MARK: 構築
 
     func makeView() -> BattleRenderView {
+        loadStart = CACurrentMediaTime()
+        AssetLedger.beginLoading()
+        loadInterval = FrameStats.signposter.beginInterval("battle.load")
         let arView = ARView(frame: .zero, cameraMode: .nonAR, automaticallyConfigureSession: false)
         arView.renderOptions = [
             .disableMotionBlur, .disableDepthOfField, .disableCameraGrain, .disablePersonOcclusion,
@@ -147,6 +162,7 @@ final class BattleRenderer {
 
     private func buildWorld(groundImage: CGImage?) {
         guard world == nil, let view else { return }
+        buildStart = CACurrentMediaTime()
         let w = BattleWorld(controller: controller, settings: settings, groundImage: groundImage,
                             arView: view.arView, overlay: view.combatText)
         anchor.addChild(w.root)
@@ -154,7 +170,7 @@ final class BattleRenderer {
         // 最初のフレームで追従対象へカメラを合わせる
         w.updateCamera(rig: rig, dt: 0, snap: true)
         // 幕の裏で数フレーム描画し、マテリアル・粒子のパイプライン生成を済ませてから試合を始める
-        w.prewarmEffects()
+        for step in w.makeWarmupPlan() { step.run() }
         warmupFrames = BattleRenderer.warmupFrameCount
         // ウィンドウへ載った後に改めて指定する（載る前の指定は描画ループに反映されない）
         appliedFrameRate = 0
@@ -186,6 +202,9 @@ final class BattleRenderer {
         defer { publishCameraViewport(dt: dt) }
         if warmupFrames > 0 {
             warmupFrames -= 1
+            #if DEBUG || SCREENSHOTS
+            warmupFramesUsed += 1
+            #endif
             world.sync(events: [], dt: Float(dt), rig: rig)
             world.updateCamera(rig: rig, dt: 0, snap: true)
             followSun()
@@ -193,6 +212,7 @@ final class BattleRenderer {
                 view.liftCurtain()
                 // ここから試合開始（予備駆動は sim を進めずに待っている。HUD もここで表示する）
                 controller.markPresentationReady()
+                beginLive()
             }
             return
         }
@@ -213,14 +233,57 @@ final class BattleRenderer {
         pendingEvents.removeAll(keepingCapacity: true)
         world.updateCamera(rig: rig, dt: Float(dt), snap: false)
         followSun()
-        world.updateOverlay(dt: Float(dt))
         let t2 = CACurrentMediaTime()
+        world.updateOverlay(dt: Float(dt))
+        let t3 = CACurrentMediaTime()
+        frameStats.record(frameDt: deltaTime, sim: t1 - t0, sync: t2 - t1, overlay: t3 - t2)
         #if DEBUG
-        view.debugOverlay.record(frameDt: deltaTime, sim: t1 - t0, sync: t2 - t1, entities: world.liveEntityCount)
-        #else
-        _ = t2
+        view.debugOverlay.record(frameDt: deltaTime, sim: t1 - t0, sync: t3 - t1, entities: world.liveEntityCount)
+        #endif
+        #if DEBUG || SCREENSHOTS
+        if let perfRun, perfRun.tick(dt: deltaTime, entities: world.liveEntityCount) { finishPerfRun(perfRun) }
         #endif
     }
+
+    // MARK: 計測
+
+    /// 幕が上がった（ここから先の生成・ヒッチはプレイ中のものとして数える）。
+    private func beginLive() {
+        guard !liveStarted else { return }
+        liveStarted = true
+        AssetLedger.beginLive()
+        frameStats.reset()
+        frameStats.setFrameRate(settings.frameRate)
+        frameStats.beginLive()
+        if let loadInterval { FrameStats.signposter.endInterval("battle.load", loadInterval) }
+        loadInterval = nil
+        #if DEBUG || SCREENSHOTS
+        if let seconds = PerfRun.requestedSeconds {
+            perfRun = PerfRun(seconds: seconds)
+            controller.speed = PerfRun.requestedSpeed
+        }
+        liveAt = CACurrentMediaTime()
+        #endif
+    }
+
+    #if DEBUG || SCREENSHOTS
+    private var liveAt: Double = 0
+
+    private func finishPerfRun(_ run: PerfRun) {
+        let loadMs = (liveAt - loadStart) * 1000
+        let warmupMs = (liveAt - buildStart) * 1000
+        let frames = warmupFramesUsed
+        let settings = settings
+        let speed = controller.speed
+        run.finish { thermal, footprint, entities in
+            PerfReport(device: PerfRun.deviceModel, os: UIDevice.current.systemVersion, build: PerfRun.buildName,
+                       quality: "\(settings.quality.level)", frameRate: settings.frameRate, speed: speed,
+                       requestedSeconds: run.seconds, loadMs: loadMs, warmupMs: warmupMs, warmupFrames: frames,
+                       frame: frameStats.summary(), ledger: AssetLedger.snapshot(), thermalStates: thermal,
+                       peakFootprintMB: footprint, peakEntities: entities, notes: [])
+        }
+    }
+    #endif
 
     // MARK: 設定
 
@@ -255,6 +318,7 @@ final class BattleRenderer {
     private func applyFrameRate() {
         guard let arView = view?.arView, appliedFrameRate != settings.frameRate else { return }
         appliedFrameRate = settings.frameRate
+        frameStats.setFrameRate(settings.frameRate)
         // ARView は公開の preferredFramesPerSecond を持たないため、RealityKit のフレームレート指定を使う
         arView.__enableAutomaticFrameRate = false
         arView.__preferredFrameRate = Float(settings.frameRate)
@@ -264,6 +328,10 @@ final class BattleRenderer {
 
     func teardown() {
         controller.updateCameraViewport([], dt: 1)
+        frameStats.endLive()
+        AssetLedger.end()
+        if let loadInterval { FrameStats.signposter.endInterval("battle.load", loadInterval) }
+        loadInterval = nil
         loadTask?.cancel()
         loadTask = nil
         updateSubscription?.cancel()

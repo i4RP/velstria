@@ -136,6 +136,7 @@ final class StatusIndicators {
     }
 
     private func make(_ mesh: MeshResource?, glow: Bool, y: Float, scale: Float) -> ModelEntity {
+        AssetLedger.record(.entity, "status indicator")
         let e = ModelEntity(mesh: mesh ?? meshes.unitSphere, materials: [glow ? materials.glow : materials.lit])
         e.position.y = y
         e.scale = SIMD3(repeating: scale)
@@ -144,6 +145,7 @@ final class StatusIndicators {
     }
 
     private func makeBubble() -> ModelEntity {
+        AssetLedger.record(.entity, "status bubble")
         let e = ModelEntity(mesh: meshes.unitSphere, materials: [materials.unlit(RGB(0.72, 0.9, 1.0), alpha: 0.2)])
         e.position.y = headHeight * 0.5
         root.addChild(e)
@@ -151,6 +153,7 @@ final class StatusIndicators {
     }
 
     private func makeRecall(_ team: Team) -> ModelEntity {
+        AssetLedger.record(.entity, "status recall")
         let c = team == .neutral ? RGB(0.85, 0.7, 1.0) : materials.teams.light(team)
         let e = ModelEntity(mesh: meshes.ring(radius: 1, thickness: 0.1) ?? meshes.unitSphere,
                             materials: [materials.unlit(c, alpha: 0.9)])

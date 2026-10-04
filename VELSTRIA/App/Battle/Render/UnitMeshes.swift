@@ -33,6 +33,7 @@ final class UnitMeshLibrary {
         d.normals = MeshBuffers.Normals([[0, 0, 1], [0, 0, 1], [0, 0, 1], [0, 0, 1]])
         d.textureCoordinates = MeshBuffers.TextureCoordinates([[0, 0], [1, 0], [1, 1], [0, 1]])
         d.primitives = .triangles([0, 1, 2, 0, 2, 3])
+        AssetLedger.record(.mesh, "barQuad")
         return try? MeshResource.generate(from: [d])
     }()
 
@@ -43,6 +44,7 @@ final class UnitMeshLibrary {
         d.normals = MeshBuffers.Normals([[0, 0, 1], [0, 0, 1], [0, 0, 1], [0, 0, 1]])
         d.textureCoordinates = MeshBuffers.TextureCoordinates([[0, 0], [1, 0], [1, 1], [0, 1]])
         d.primitives = .triangles([0, 1, 2, 0, 2, 3])
+        AssetLedger.record(.mesh, "centeredQuad")
         return try? MeshResource.generate(from: [d])
     }()
 
@@ -61,7 +63,10 @@ final class UnitMeshLibrary {
         return b.makeMesh(name: "arrowHead")
     }()
 
-    lazy var unitSphere: MeshResource = MeshResource.generateSphere(radius: 1)
+    lazy var unitSphere: MeshResource = {
+        AssetLedger.record(.mesh, "unitSphere")
+        return MeshResource.generateSphere(radius: 1)
+    }()
 
     /// 気絶の星（3 つが円周上）。
     lazy var stunStars: MeshResource? = {

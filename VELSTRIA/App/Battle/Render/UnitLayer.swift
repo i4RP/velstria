@@ -47,6 +47,7 @@ final class UnitLayer {
     }
 
     private func make(_ key: CreatureKey) -> CreatureVisual {
+        AssetLedger.record(.entity, "creature \(key)")
         let v = CreatureVisual(key: key, meshes: meshes, materials: materials, text: text)
         v.root.isEnabled = false
         root.addChild(v.root)

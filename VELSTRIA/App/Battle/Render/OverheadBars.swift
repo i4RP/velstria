@@ -61,6 +61,7 @@ final class TextMeshCache {
         if let e = cache[key] { return e }
         let base = UIFont.systemFont(ofSize: CGFloat(size), weight: .heavy)
         let font = base.fontDescriptor.withDesign(.rounded).map { UIFont(descriptor: $0, size: CGFloat(size)) } ?? base
+        AssetLedger.record(.textMesh, "\"\(text)\" size \(size)")
         let mesh = MeshResource.generateText(text, extrusionDepth: 0.001, font: font, containerFrame: .zero,
                                              alignment: .center, lineBreakMode: .byTruncatingTail)
         let b = mesh.bounds

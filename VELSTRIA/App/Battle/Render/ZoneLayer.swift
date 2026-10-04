@@ -73,6 +73,7 @@ final class ZoneLayer {
 
     private func take() -> Visual {
         if let v = pool.popLast() { return v }
+        AssetLedger.record(.entity, "zone visual")
         let v = Visual()
         v.node.addChild(v.fill)
         v.node.addChild(v.progress)

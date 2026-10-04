@@ -145,6 +145,11 @@ final class BattleWorld {
         flushHealText(dt: dt, frame: frame)
     }
 
+    /// 読み込み幕の裏で行う準備（Perf/WarmupPlan.swift）。BattleRenderer が順に実行してから幕を上げる。
+    func makeWarmupPlan() -> [WarmupStep] {
+        [WarmupStep("effects") { [weak self] in self?.prewarmEffects() }]
+    }
+
     /// 演出の初回生成コストを読み込み幕の裏で払う（地面の下で各プリセットを 1 回ずつ再生）。
     func prewarmEffects() {
         var p = SIMD3<Float>(60, -3, -60)

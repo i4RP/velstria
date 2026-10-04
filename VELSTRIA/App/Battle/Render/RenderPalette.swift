@@ -327,6 +327,7 @@ final class RenderMaterials {
     func unlit(_ c: RGB, alpha: Double = 1, depthTest: Bool = true) -> UnlitMaterial {
         let key = Self.key(c, alpha: alpha, depthTest: depthTest)
         if let m = unlitCache[key] { return m }
+        AssetLedger.record(.material, "unlit \(key)")
         var m = UnlitMaterial(applyPostProcessToneMap: false)
         m.color = .init(tint: c.uiColor)
         if alpha < 0.999 {

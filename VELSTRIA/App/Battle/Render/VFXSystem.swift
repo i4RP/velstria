@@ -121,6 +121,7 @@ final class VFXSystem {
         }
         guard let (component, life) = makeEmitter(preset, color: color, scale: scale, count: count, life: life) else { return }
         let e = freeEmitters.popLast() ?? {
+            AssetLedger.record(.entity, "vfx emitter")
             let n = Entity()
             root.addChild(n)
             return n
@@ -140,6 +141,7 @@ final class VFXSystem {
     func startLoop(id: EntityID, at p: SIMD3<Float>, color: UIColor) {
         guard loops[id] == nil, let (c, _) = makeEmitter(.recallLoop, color: color, scale: 1, count: nil) else { return }
         let e = freeEmitters.popLast() ?? {
+            AssetLedger.record(.entity, "vfx emitter")
             let n = Entity()
             root.addChild(n)
             return n
@@ -182,6 +184,7 @@ final class VFXSystem {
     func ring(at p: SIMD3<Float>, color: RGB, from r0: Float, to r1: Float, duration: Float, alpha: Float = 0.9) {
         guard meshFX.count < 40 else { return }
         let e = freeRings.popLast() ?? {
+            AssetLedger.record(.entity, "vfx rings")
             let m = ModelEntity(mesh: meshes.ring(radius: 1, thickness: 0.12) ?? meshes.unitSphere, materials: [])
             OverlayOrder.apply(m, OverlayOrder.vfxRing)
             root.addChild(m)
@@ -201,6 +204,7 @@ final class VFXSystem {
     func flash(at p: SIMD3<Float>, color: RGB, radius: Float, duration: Float, alpha: Float = 0.55) {
         guard meshFX.count < 40 else { return }
         let e = freeFlashes.popLast() ?? {
+            AssetLedger.record(.entity, "vfx flashes")
             let m = ModelEntity(mesh: meshes.unitSphere, materials: [])
             root.addChild(m)
             return m
@@ -256,6 +260,7 @@ final class VFXSystem {
 
     private func makeEmitter(_ preset: VFXPreset, color: UIColor, scale s: Float,
                              count: Int?, life lifeOverride: Double? = nil) -> (ParticleEmitterComponent, Float)? {
+        AssetLedger.record(.emitter, "\(preset)")
         var p = ParticleEmitterComponent()
         p.fieldSimulationSpace = .global
         p.birthLocation = .volume

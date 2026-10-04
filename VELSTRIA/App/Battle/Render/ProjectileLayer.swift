@@ -95,6 +95,7 @@ final class ProjectileLayer {
     }
 
     private func make(_ style: Style, visual: String) -> Visual {
+        AssetLedger.record(.entity, "projectile \(style)")
         let color: RGB
         var coreScale: SIMD3<Float>
         var haloScale: Float
@@ -129,6 +130,7 @@ final class ProjectileLayer {
         default: wantsTrail = false
         }
         if wantsTrail {
+            AssetLedger.record(.emitter, "projectile trail \(style)")
             var p = ParticleEmitterComponent()
             p.fieldSimulationSpace = .global
             p.emitterShape = .sphere

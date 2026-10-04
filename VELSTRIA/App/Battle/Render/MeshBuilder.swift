@@ -299,6 +299,7 @@ struct MeshBuilder {
     @MainActor
     func makeMesh(name: String) -> MeshResource? {
         guard !isEmpty else { return nil }
+        AssetLedger.record(.mesh, name)
         return try? MeshResource.generate(from: [makeDescriptor(name: name)])
     }
 
