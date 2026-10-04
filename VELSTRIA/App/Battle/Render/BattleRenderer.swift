@@ -297,6 +297,10 @@ final class BattleRenderer {
     }
 
     func apply(settings new: RenderSettings) {
+        #if DEBUG || SCREENSHOTS
+        var new = new
+        if let q = PerfRun.requestedQuality { new.quality = .preset(q) }
+        #endif
         guard new != settings else { return }
         let old = settings
         settings = new
