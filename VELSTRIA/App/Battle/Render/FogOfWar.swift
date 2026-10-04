@@ -9,6 +9,8 @@ import VelstriaCore
 // state.vision.cells（60×60）→ 双線形で N×N へ拡大 → ボックスぼかし 2 回、を 10Hz で行い（視界は 3 tick 毎にしか変わらない）、
 // 時間方向の補間は毎フレーム指数的に行って地面すぐ上の半透明な板の不透明度テクスチャ（LowLevelTexture）へ転送する
 // （10Hz で段階的に動かすと、走っている間に霧の縁がカクついて見える）。
+// 目標の計算（拡大・ぼかし）は背景キュー（FogWorker）で行い、出来上がった配列を表示側と入れ替える（二重バッファ）。
+// メインスレッドに残るのは毎フレームの補間と転送だけで、補間が目標に届いたら転送も止める。
 
 /// 霧の濃度場（純粋な計算部分。テスト可能）。0 = 見えている、1 = 霧。
 struct FogField {
@@ -27,7 +29,28 @@ struct FogField {
 
     /// 視界格子から目標の霧濃度を作る。bit = 視点チームの Team.visionBit。行 0 = sim y の最小側。
     mutating func computeTarget(cells: [UInt8], cols: Int, rows: Int, bit: UInt8) {
-        let n = size
+        FogField.fillTarget(&target, temp: &temp, size: size, cells: cells, cols: cols, rows: rows, bit: bit)
+        if !initialized {
+            current = target
+            initialized = true
+        }
+    }
+
+    /// 背景で作った目標を差し込む。中身を入れ替え、t には古い目標が戻る（次の計算の作業領域に回す）。
+    mutating func swapTarget(_ t: inout [Float]) {
+        guard t.count == size * size else { return }
+        swap(&target, &t)
+        if !initialized {
+            current = target
+            initialized = true
+        }
+    }
+
+    /// 目標の霧濃度を target へ書く（純関数。どのスレッドからでもよい）。temp はぼかしの作業領域（size² 要素）。
+    static func fillTarget(_ target: inout [Float], temp: inout [Float], size n: Int, cells: [UInt8], cols: Int, rows: Int,
+                           bit: UInt8) {
+        if target.count != n * n { target = [Float](repeating: 1, count: n * n) }
+        if temp.count != n * n { temp = [Float](repeating: 1, count: n * n) }
         guard cols > 0, rows > 0, cells.count >= cols * rows else {
             for i in target.indices { target[i] = 0 }
             return
@@ -56,17 +79,12 @@ struct FogField {
             }
         }
         let radius = max(1, n / 64)
-        blur(radius: radius)
-        blur(radius: radius)
-        if !initialized {
-            current = target
-            initialized = true
-        }
+        blur(&target, temp: &temp, size: n, radius: radius)
+        blur(&target, temp: &temp, size: n, radius: radius)
     }
 
     /// 横・縦の移動和ボックスぼかし（半径 r）。
-    private mutating func blur(radius r: Int) {
-        let n = size
+    private static func blur(_ target: inout [Float], temp: inout [Float], size n: Int, radius r: Int) {
         let inv = 1 / Float(r * 2 + 1)
         target.withUnsafeMutableBufferPointer { t in
             temp.withUnsafeMutableBufferPointer { tmp in
@@ -139,12 +157,52 @@ struct FogField {
     }
 }
 
+/// 霧の目標計算を背景キューで行う（計算用の配列を使い回し、表示側と受け渡しで入れ替える二重バッファ）。
+final class FogWorker: @unchecked Sendable {
+    private static let queue = DispatchQueue(label: "velstria.fog", qos: .userInitiated)
+    let size: Int
+    private let lock = NSLock()
+    /// 次の計算に使う配列（lock で守る）。
+    private var spare: [[Float]] = []
+    /// ぼかしの作業領域（直列キューの中だけで触る）。
+    private var temp: [Float] = []
+
+    init(size: Int) { self.size = size }
+
+    /// 目標を背景キューで計算し、completion をメインスレッドで呼ぶ。
+    func compute(cells: [UInt8], cols: Int, rows: Int, bit: UInt8, completion: @escaping @Sendable ([Float]) -> Void) {
+        FogWorker.queue.async { [self] in
+            var out = takeSpare()
+            FogField.fillTarget(&out, temp: &temp, size: size, cells: cells, cols: cols, rows: rows, bit: bit)
+            DispatchQueue.main.async { completion(out) }
+        }
+    }
+
+    /// 表示側から戻った古い目標を次の計算に回す。
+    func recycle(_ buffer: [Float]) {
+        lock.lock()
+        if spare.count < 2 { spare.append(buffer) }
+        lock.unlock()
+    }
+
+    private func takeSpare() -> [Float] {
+        lock.lock()
+        defer { lock.unlock() }
+        return spare.popLast() ?? [Float](repeating: 1, count: size * size)
+    }
+}
+
 @MainActor
 final class FogOfWar {
     let entity: ModelEntity
     private var field: FogField
     private let team: Team
+    private let worker: FogWorker
     private var accumulator: Float = 1
+    /// 背景で計算中（結果が戻るまで次を投げない）。
+    private(set) var isComputing = false
+    /// 新しい目標を受け取った（CPU 転送の環境はこのときだけ進める）。
+    private var retargetPending = false
     private var lowLevel: LowLevelTexture?
     private var texture: TextureResource?
     private var device: MTLDevice?
@@ -164,10 +222,14 @@ final class FogOfWar {
     /// テクスチャの行 0 が sim y 最大側（画像と同じ上→下の並び）。
     static let topDown = true
 
+    /// 表示中の濃度場（テスト用）。
+    var displayedField: FogField { field }
+
     init?(team: Team, size: Int) {
         self.team = team
         field = FogField(size: size)
         let n = field.size
+        worker = FogWorker(size: n)
         cpuBytes = [UInt8](repeating: 255, count: n * n * 4)
         // 霧の板（地図全体、地面の少し上）
         let M = MapScene.mapMeters
@@ -178,6 +240,7 @@ final class FogOfWar {
         d.textureCoordinates = MeshBuffers.TextureCoordinates([uv(0, 0), uv(1, 0), uv(1, 1), uv(0, 1)])
         d.primitives = .triangles([0, 1, 2, 0, 2, 3])
         guard let mesh = try? MeshResource.generate(from: [d]) else { return nil }
+        AssetLedger.record(.mesh, "fog plane")
         entity = ModelEntity(mesh: mesh, materials: [])
         entity.name = "fog"
         entity.position.y = GroundLayer.fog
@@ -194,10 +257,12 @@ final class FogOfWar {
                 staging = buffers
                 lowLevel = llt
                 texture = tex
+                AssetLedger.record(.texture, "fog \(n)² (LowLevelTexture)")
             }
         }
         if texture == nil, let img = FogOfWar.image(bytes: cpuBytes, size: n) {
             texture = try? TextureResource(image: img, options: .init(semantic: .raw, mipmapsMode: .none))
+            AssetLedger.record(.texture, "fog \(n)² (CGImage)")
         }
         guard let texture else { return nil }
         var mat = UnlitMaterial(applyPostProcessToneMap: false)
@@ -212,35 +277,52 @@ final class FogOfWar {
         mat.color = .init(tint: FogOfWar.color.uiColor, texture: t)
         mat.blending = .transparent(opacity: .init(floatLiteral: 1))
         mat.writesDepth = false
+        AssetLedger.record(.material, "fog unlit")
         entity.model?.materials = [mat]
     }
 
-    /// 目標の霧は 10Hz で作り直し、表示は毎フレーム目標へ滑らかに近づける（時定数 1/8 秒 ≒ 従来の 10Hz × 55%）。
+    /// 目標の霧は 10Hz で作り直し（背景キュー）、表示は毎フレーム目標へ滑らかに近づける（時定数 1/8 秒 ≒ 従来の 10Hz × 55%）。
     func update(state: SimState, dt: Float) {
         accumulator += dt
-        var retargeted = false
-        if accumulator >= 0.1 {
+        // 前の計算の結果待ちで遅れているだけの間は「久しぶり」に数えない
+        if isComputing { accumulator = min(accumulator, 0.1) }
+        if accumulator >= 0.1, !isComputing {
+            // 久しぶりの計算（最初・長い中断の後）は補間せずに目標へ合わせる
             let first = accumulator > 0.5
             accumulator = 0
-            field.computeTarget(cells: state.vision.cells, cols: state.vision.cols, rows: state.vision.rows, bit: team.visionBit)
-            if first { field.blend(1) }
-            blending = true
-            retargeted = true
+            isComputing = true
+            let vision = state.vision
+            worker.compute(cells: vision.cells, cols: vision.cols, rows: vision.rows, bit: team.visionBit) { [weak self] t in
+                MainActor.assumeIsolated { self?.receive(t, first: first) }
+            }
         }
         guard blending else { return }
         guard lowLevel != nil else {
-            // GPU 転送が使えない環境（CGImage で差し替え）は重いので従来どおり 10Hz で進める
-            guard retargeted else { return }
+            // GPU 転送が使えない環境（CGImage で差し替え）は重いので従来どおり 10Hz（新しい目標が来た時）だけ進める
+            guard retargetPending else { return }
+            retargetPending = false
             blending = field.blend(0.55) > 0
             upload()
             return
         }
+        retargetPending = false
         blending = field.blend(1 - exp(-max(0, dt) * 8)) > 0
         uploadAccumulator += dt
         // 補間は毎フレーム進め、転送は最大 30Hz（目標に届いた瞬間は必ず転送して最終状態を出す）
         guard uploadAccumulator >= FogOfWar.uploadInterval || !blending else { return }
         uploadAccumulator = 0
         upload()
+    }
+
+    /// 背景で出来た目標を表示側と入れ替える（メインスレッド）。
+    private func receive(_ target: [Float], first: Bool) {
+        isComputing = false
+        var t = target
+        field.swapTarget(&t)
+        worker.recycle(t)
+        if first { field.blend(1) }
+        blending = true
+        retargetPending = true
     }
 
     private func upload() {
@@ -265,6 +347,7 @@ final class FogOfWar {
                 }
             }
             if let img = FogOfWar.image(bytes: cpuBytes, size: n) {
+                AssetLedger.record(.texture, "fog replace (CGImage fallback)")
                 try? texture.replace(withImage: img, options: .init(semantic: .raw, mipmapsMode: .none))
             }
         }

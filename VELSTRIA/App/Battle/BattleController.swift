@@ -80,8 +80,15 @@ final class BattleController {
     @ObservationIgnored private var subscribers: [UUID: ([SimEvent]) -> Void] = [:]
     @ObservationIgnored private var subscriberOrder: [UUID] = []
 
+    /// 1 描画フレームで進める sim の最大 step 数（早送り時）。
     static let maxStepsPerFrame = 12
+    /// 通常速度（speed ≤ 1）での上限。遅れたフレームの後に 1 フレームで大量の step を回すと、その分の演出が
+    /// 次のフレームに集中してさらに遅れる（死のスパイラル）。上限を超えた遅れは追いかけずに捨てる（時間の伸び。sim の結果は変わらない）。
+    static let maxCatchUpSteps = 4
     static let hudInterval = 1.0 / 15.0
+
+    /// 速度に応じた 1 フレームの step 上限。
+    static func maxSteps(speed: Double) -> Int { speed > 1 ? maxStepsPerFrame : maxCatchUpSteps }
 
     init(launch: BattleLaunch) {
         self.launch = launch
@@ -154,8 +161,9 @@ final class BattleController {
     func frame(dt: Double) {
         guard !isEnded, !isPaused else { return }
         accumulator += min(dt, 0.25) * speed
+        let maxSteps = Self.maxSteps(speed: speed)
         var steps = 0
-        while accumulator >= Balance.dt && steps < Self.maxStepsPerFrame {
+        while accumulator >= Balance.dt && steps < maxSteps {
             stepOnce()
             accumulator -= Balance.dt
             steps += 1
@@ -165,7 +173,7 @@ final class BattleController {
                 break
             }
         }
-        if steps == Self.maxStepsPerFrame { accumulator = min(accumulator, Balance.dt) }
+        if steps == maxSteps { accumulator = min(accumulator, Balance.dt) }
         interpolationAlpha = min(1, accumulator / Balance.dt)
 
         hudAccumulator += dt
