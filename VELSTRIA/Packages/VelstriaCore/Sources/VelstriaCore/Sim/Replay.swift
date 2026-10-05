@@ -95,7 +95,7 @@ public final class ReplayPlayer {
         self.frames = data.frames.enumerated()
             .sorted { $0.element.tick != $1.element.tick ? $0.element.tick < $1.element.tick : $0.offset < $1.offset }
             .map(\.element)
-        self.simulation = Simulation(config: data.config, master: master, map: map)
+        self.simulation = Simulation(config: data.config, master: master, map: self.map)
     }
 
     public var state: SimState { simulation.state }
