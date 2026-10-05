@@ -189,8 +189,11 @@ struct HeroMotionProfile {
             runSwingR = 0.7
             runSwingL = 0.7
         case .bow:
-            r.armL = ArmPose(pitch: 0.28, out: m.armRestOut, yaw: 0, elbow: 0.35)
+            // 射手の構え: 弓手(左)を前へ、引き手(右)を弦の近く(胸前)に添える
+            r.armL = ArmPose(pitch: 0.55, out: m.armRestOut, yaw: 0.06, elbow: 0.32)
+            r.armR = ArmPose(pitch: 0.42, out: m.armRestOut, yaw: 0.5, elbow: 1.3)
             runSwingL = 0.6
+            runSwingR = 0.6
         case .gun:
             r.armR = ArmPose(pitch: 0.5, out: m.armRestOut, yaw: 0.35, elbow: 1.15)
             r.armL = ArmPose(pitch: 0.75, out: 0.05, yaw: 0.65, elbow: 1.05)
@@ -298,7 +301,7 @@ struct HeroMotionProfile {
             // attackCount が偶数 → 斬り下ろし(else)、奇数 → 薙ぎ払い(left) が交互に出る。
             if left {
                 // 薙ぎ払い: 左主手を横から水平に振り抜き、逆手が低く追従して前を一文字に薙ぐ
-                w.armL = ArmPose(pitch: 1.35, out: 0.5, yaw: -0.4, elbow: 0.85)   // 主手: 横へ引いて溜める
+                w.armL = ArmPose(pitch: 1.35, out: 0.44, yaw: -0.4, elbow: 0.85)  // 主手: 横へ引いて溜める(スリム体型に合わせ開きを控えめ)
                 w.weaponL = 0.2
                 w.armR = ArmPose(pitch: 1.5, out: 0.35, yaw: 0.1, elbow: 0.9)     // 逆手: 反対側へ構える
                 w.weaponR = -0.2
@@ -317,9 +320,9 @@ struct HeroMotionProfile {
                 return ActionClip(windup: w, strike: s, windupTime: 0.1, strikeTime: 0.06, total: 0.28)
             } else {
                 // 斬り下ろし: 右主手が高い弧で斬り下ろし、逆手が低い弧で薙いで交差する
-                w.armR = ArmPose(pitch: 2.5, out: 0.6, yaw: -0.35, elbow: 0.7)    // 主手: 振りかぶる
+                w.armR = ArmPose(pitch: 2.5, out: 0.52, yaw: -0.35, elbow: 0.7)   // 主手: 振りかぶる(スリム体型に合わせ開きを控えめ)
                 w.weaponR = 0.85
-                w.armL = ArmPose(pitch: 0.12, out: 0.5, yaw: -0.18, elbow: 1.5)   // 逆手: 低く引いて溜める
+                w.armL = ArmPose(pitch: 0.12, out: 0.44, yaw: -0.18, elbow: 1.5)  // 逆手: 低く引いて溜める(スリム体型に合わせ開きを控えめ)
                 w.weaponL = -0.3
                 w.torsoYaw = 0.44
                 w.torsoRoll = -0.12
@@ -351,17 +354,21 @@ struct HeroMotionProfile {
             s.torsoPitch = 0.22
             return ActionClip(windup: w, strike: s, windupTime: 0.13, strikeTime: 0.07, total: 0.34)
         case .bow:
-            w.armL = ArmPose(pitch: 1.5, out: -0.05, yaw: 0.1, elbow: 0.05)
-            w.armR = ArmPose(pitch: 1.45, out: 0.2, yaw: 0.5, elbow: 2.1)
+            // モンハン弓風: 的へ半身に構え、弓手(左)を的へロック、引き手(右)を顔の近くまで満引き。
+            // 発射で弦を離し、引き手が後方へ弾ける(反動)。弓手もわずかに戻る。out は体格(armRestOut)基準に相対化。
+            w.armL = ArmPose(pitch: 1.48, out: r.armL.out - 0.14, yaw: 0.12, elbow: 0.05)  // 弓手: 的へ伸ばしてロック
             w.weaponL = 0
-            w.torsoYaw = 0.45
-            w.headYaw = -0.4
-            s.armL = w.armL
-            s.armR = ArmPose(pitch: 1.3, out: 0.5, yaw: -0.2, elbow: 1.0)
-            s.torsoYaw = 0.4
-            s.headYaw = -0.35
-            s.glow = 0.4
-            return ActionClip(windup: w, strike: s, windupTime: 0.3, strikeTime: 0.06, total: 0.55)
+            w.armR = ArmPose(pitch: 1.5, out: r.armL.out + 0.14, yaw: 0.55, elbow: 2.25)   // 引き手: 顔の近くまで満引き
+            w.torsoYaw = 0.58
+            w.torsoPitch = 0.04
+            w.headYaw = -0.5                                                                // 矢の線に沿って的を狙う
+            s.armL = ArmPose(pitch: 1.42, out: r.armL.out - 0.12, yaw: 0.1, elbow: 0.14)    // 弓手: 発射でわずかに戻る
+            s.weaponL = 0
+            s.armR = ArmPose(pitch: 1.22, out: r.armL.out + 0.42, yaw: -0.4, elbow: 1.15)   // 引き手: 弦を離して後方へ弾ける
+            s.torsoYaw = 0.5
+            s.headYaw = -0.44
+            s.glow = 0.55
+            return ActionClip(windup: w, strike: s, windupTime: 0.3, strikeTime: 0.05, total: 0.52)
         case .gun:
             w.armR = ArmPose(pitch: 1.3, out: 0.15, yaw: 0.3, elbow: 0.35)
             w.armL = ArmPose(pitch: 1.4, out: -0.1, yaw: 0.55, elbow: 0.5)
