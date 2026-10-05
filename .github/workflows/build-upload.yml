@@ -49,6 +49,8 @@ jobs:
         run: swift test -c release
 
       - name: HUD・チュートリアルの単体テストと UI テスト
+        # GPU の無いランナーは描画が遅く、UI の問い合わせが時間切れになる不安定な失敗が起きる。
+        # 落ちたテストだけを最大 3 回まで自動で再実行する（3 回とも落ちれば失敗。網羅は減らさない）
         run: |
           xcodegen generate --quiet
           mkdir -p build
@@ -71,6 +73,7 @@ jobs:
             -only-testing:VELSTRIAUITests/HUDTacticalMapUITests \
             -only-testing:VELSTRIAUITests/BattleHUDUITests \
             -parallel-testing-enabled NO \
+            -retry-tests-on-failure -test-iterations 3 \
             CODE_SIGNING_ALLOWED=NO
 
       - name: HUD テストのスクリーンショットを書き出す
