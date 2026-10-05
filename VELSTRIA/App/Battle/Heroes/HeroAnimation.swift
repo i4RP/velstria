@@ -216,7 +216,7 @@ struct HeroMotionProfile {
         rest = r
 
         attack = HeroMotionProfile.attackClip(bp.attack, rest: r, left: false)
-        attackAlt = bp.attack == .dualSlash || bp.attack == .punch || bp.attack == .thrust ? HeroMotionProfile.attackClip(bp.attack, rest: r, left: true) : nil
+        attackAlt = bp.attack == .dualSlash || bp.attack == .punch || bp.attack == .thrust || bp.attack == .slash ? HeroMotionProfile.attackClip(bp.attack, rest: r, left: true) : nil
         let shield = shieldHold
         casts = (0..<4).map { slot in
             var clip = HeroMotionProfile.castClip(slot: slot, rest: r, style: bp.attack)
@@ -238,27 +238,52 @@ struct HeroMotionProfile {
         var w = r, s = r
         switch style {
         case .slash:
-            w.armR = ArmPose(pitch: 2.7, out: 0.45, yaw: -0.2, elbow: 0.7)
-            w.weaponR = 0.9
-            w.torsoYaw = 0.35
-            w.torsoPitch = -0.08
-            s.armR = ArmPose(pitch: 0.45, out: 0.2, yaw: 0.55, elbow: 0.1)
-            s.weaponR = -2.0
-            s.torsoYaw = -0.4
-            s.torsoPitch = 0.16
-            return ActionClip(windup: w, strike: s, windupTime: 0.17, strikeTime: 0.09, total: 0.42)
+            // 太刀/片手剣風: 体幹のひねりで振り切る。連打は 袈裟斬り(下ろし, else) → 横薙ぎ(left) の2段。
+            // 盾・オフハンドは構えたまま(armL は触らない)。out は体格基準(rest=armRestOut)に相対化。
+            if left {
+                // 横薙ぎ: 右へ引いて水平に振り抜く
+                w.armR = ArmPose(pitch: 1.5, out: r.armR.out + 0.5, yaw: -0.45, elbow: 0.5)
+                w.weaponR = 1.1
+                w.torsoYaw = -0.4
+                w.torsoRoll = -0.1
+                w.headYaw = -0.2
+                s.armR = ArmPose(pitch: 1.05, out: r.armR.out + 0.1, yaw: 0.7, elbow: 0.1)
+                s.weaponR = -1.5
+                s.torsoYaw = 0.5
+                s.torsoRoll = 0.12
+                s.torsoPitch = 0.12
+                s.headYaw = 0.22
+                return ActionClip(windup: w, strike: s, windupTime: 0.14, strikeTime: 0.07, total: 0.36)
+            } else {
+                // 袈裟斬り: 振りかぶって斜め下へ斬り下ろす
+                w.armR = ArmPose(pitch: 2.75, out: r.armR.out + 0.3, yaw: -0.2, elbow: 0.6)
+                w.weaponR = 0.95
+                w.torsoYaw = 0.4
+                w.torsoRoll = 0.08
+                w.torsoPitch = -0.1
+                w.headYaw = 0.15
+                s.armR = ArmPose(pitch: 0.42, out: r.armR.out + 0.08, yaw: 0.58, elbow: 0.08)
+                s.weaponR = -2.1
+                s.torsoYaw = -0.45
+                s.torsoRoll = -0.12
+                s.torsoPitch = 0.22
+                s.headYaw = -0.2
+                s.headPitch = 0.08
+                return ActionClip(windup: w, strike: s, windupTime: 0.16, strikeTime: 0.08, total: 0.4)
+            }
         case .heavySwing:
-            w.armR = ArmPose(pitch: 2.9, out: 0.2, yaw: 0.2, elbow: 0.5)
-            w.armL = ArmPose(pitch: 2.9, out: 0.1, yaw: 0.55, elbow: 0.5)
-            w.weaponR = 1.4
-            w.torsoPitch = -0.2
-            w.headPitch = -0.1
-            s.armR = ArmPose(pitch: 0.75, out: 0.1, yaw: 0.35, elbow: 0.1)
-            s.armL = ArmPose(pitch: 0.85, out: 0.0, yaw: 0.7, elbow: 0.2)
-            s.weaponR = -2.3
-            s.torsoPitch = 0.35
-            s.headPitch = 0.1
-            return ActionClip(windup: w, strike: s, windupTime: 0.3, strikeTime: 0.12, total: 0.62)
+            // 大槌/ハンマー風: 大きく振りかぶって(深い溜め)、全身で上段から叩きつける。着弾を見下ろす。
+            w.armR = ArmPose(pitch: 3.0, out: 0.22, yaw: 0.18, elbow: 0.45)
+            w.armL = ArmPose(pitch: 3.0, out: 0.12, yaw: 0.5, elbow: 0.45)
+            w.weaponR = 1.6
+            w.torsoPitch = -0.28                 // 深く反って溜め
+            w.headPitch = -0.16
+            s.armR = ArmPose(pitch: 0.7, out: 0.1, yaw: 0.32, elbow: 0.08)
+            s.armL = ArmPose(pitch: 0.8, out: 0.0, yaw: 0.68, elbow: 0.18)
+            s.weaponR = -2.45                     // 真下へ叩きつけ
+            s.torsoPitch = 0.42                   // 体ごと前へ落とす
+            s.headPitch = 0.22                    // 着弾を見る
+            return ActionClip(windup: w, strike: s, windupTime: 0.32, strikeTime: 0.12, total: 0.64)
         case .thrust:
             // モンハン ランス風: 穂先を水平に保ってまっすぐ前へ突き出す踏み込み突き。左手を柄に添えて体ごと乗せる。
             // 連打は 中段突き(else) → 上段突き(left) の2段コンボ。穂先は水平〜やや上に保ち、跳ね上げない。
@@ -338,19 +363,22 @@ struct HeroMotionProfile {
                 return ActionClip(windup: w, strike: s, windupTime: 0.12, strikeTime: 0.06, total: 0.30)
             }
         case .punch:
+            // 拳/爪風: 腰のひねりで体重を乗せて打ち抜くストレート。左右交互。
             if left {
-                w.armL = ArmPose(pitch: 0.4, out: 0.3, yaw: -0.1, elbow: 1.9)
-                w.torsoYaw = -0.4
-                s.armL = ArmPose(pitch: 1.5, out: 0.05, yaw: 0.35, elbow: 0.05)
-                s.torsoYaw = 0.35
+                w.armL = ArmPose(pitch: 0.35, out: 0.28, yaw: -0.12, elbow: 2.0)  // 腰だめに深く引く
+                w.torsoYaw = -0.45
+                s.armL = ArmPose(pitch: 1.5, out: 0.05, yaw: 0.38, elbow: 0.04)   // まっすぐ打ち抜く
+                s.torsoYaw = 0.4
             } else {
-                w.armR = ArmPose(pitch: 0.4, out: 0.3, yaw: -0.1, elbow: 1.9)
-                w.torsoYaw = 0.4
-                s.armR = ArmPose(pitch: 1.5, out: 0.05, yaw: 0.35, elbow: 0.05)
-                s.torsoYaw = -0.35
+                w.armR = ArmPose(pitch: 0.35, out: 0.28, yaw: -0.12, elbow: 2.0)
+                w.torsoYaw = 0.45
+                s.armR = ArmPose(pitch: 1.5, out: 0.05, yaw: 0.38, elbow: 0.04)
+                s.torsoYaw = -0.4
             }
-            s.torsoPitch = 0.22
-            return ActionClip(windup: w, strike: s, windupTime: 0.13, strikeTime: 0.07, total: 0.34)
+            w.torsoPitch = -0.06
+            s.torsoPitch = 0.26                   // 体重を乗せる
+            s.headPitch = 0.08
+            return ActionClip(windup: w, strike: s, windupTime: 0.12, strikeTime: 0.06, total: 0.32)
         case .bow:
             // モンハン弓風: 的へ半身に構え、弓手(左)を的へロック、引き手(右)を顔の近くまで満引き。
             // 発射で弦を離し、引き手が後方へ弾ける(反動)。弓手もわずかに戻る。out は体格(armRestOut)基準に相対化。
@@ -368,36 +396,49 @@ struct HeroMotionProfile {
             s.glow = 0.55
             return ActionClip(windup: w, strike: s, windupTime: 0.3, strikeTime: 0.05, total: 0.52)
         case .gun:
-            w.armR = ArmPose(pitch: 1.3, out: 0.15, yaw: 0.3, elbow: 0.35)
-            w.armL = ArmPose(pitch: 1.4, out: -0.1, yaw: 0.55, elbow: 0.5)
-            w.weaponR = -1.57
-            w.torsoYaw = 0.25
-            s.armR = ArmPose(pitch: 1.6, out: 0.15, yaw: 0.3, elbow: 0.55)
-            s.armL = ArmPose(pitch: 1.65, out: -0.1, yaw: 0.55, elbow: 0.65)
-            s.weaponR = -1.2
-            s.torsoYaw = 0.25
-            s.torsoPitch = -0.12
-            s.glow = 0.6
-            return ActionClip(windup: w, strike: s, windupTime: 0.16, strikeTime: 0.05, total: 0.4)
+            // 銃風: 両手で構えて撃つ。発砲で銃口が跳ね上がり(反動)、肩と体で後ろへいなす。銃口は強く発光。
+            w.armR = ArmPose(pitch: 1.32, out: 0.15, yaw: 0.3, elbow: 0.35)
+            w.armL = ArmPose(pitch: 1.42, out: -0.1, yaw: 0.55, elbow: 0.5)
+            w.weaponR = -1.57                     // 水平に狙う
+            w.torsoYaw = 0.26
+            s.armR = ArmPose(pitch: 1.66, out: 0.15, yaw: 0.3, elbow: 0.6)
+            s.armL = ArmPose(pitch: 1.7, out: -0.1, yaw: 0.55, elbow: 0.7)
+            s.weaponR = -1.08                     // 銃口が跳ね上がる(反動)
+            s.torsoYaw = 0.28
+            s.torsoPitch = -0.16                  // 反動を後ろへいなす
+            s.headPitch = -0.06
+            s.glow = 0.9                          // マズルフラッシュ
+            return ActionClip(windup: w, strike: s, windupTime: 0.14, strikeTime: 0.04, total: 0.38)
         case .staff:
-            w.armR = ArmPose(pitch: 0.9, out: 0.2, yaw: -0.1, elbow: 1.2)
-            w.weaponR = 0.2
-            w.torsoPitch = -0.08
-            s.armR = ArmPose(pitch: 1.35, out: 0.1, yaw: 0.2, elbow: 0.15)
-            s.weaponR = -1.2
-            s.torsoPitch = 0.14
-            s.glow = 0.8
-            return ActionClip(windup: w, strike: s, windupTime: 0.18, strikeTime: 0.08, total: 0.45)
+            // 杖風: 杖を掲げて力を溜め(発光)、decisive に前へ突き出して放つ(強発光)。
+            w.armR = ArmPose(pitch: 0.95, out: 0.2, yaw: -0.12, elbow: 1.25)
+            w.weaponR = 0.25
+            w.torsoPitch = -0.1
+            w.torsoYaw = 0.18
+            w.glow = 0.5                          // 溜めの光
+            s.armR = ArmPose(pitch: 1.4, out: 0.1, yaw: 0.22, elbow: 0.12)
+            s.weaponR = -1.25                     // 前へ突き出して放つ
+            s.torsoPitch = 0.18
+            s.torsoYaw = -0.1
+            s.headPitch = 0.06
+            s.glow = 1.0                          // 放出
+            return ActionClip(windup: w, strike: s, windupTime: 0.2, strikeTime: 0.07, total: 0.46)
         case .spellThrow:
-            w.armR = ArmPose(pitch: 1.0, out: 0.35, yaw: -0.3, elbow: 1.6)
+            // 呪文風: 大きく振りかぶって力を溜め(発光)、体ごと回して前へ放つ(強発光バースト)。
+            w.armR = ArmPose(pitch: 1.0, out: 0.35, yaw: -0.32, elbow: 1.7)
             w.weaponR = 0
-            w.torsoYaw = 0.35
-            s.armR = ArmPose(pitch: 1.5, out: 0.05, yaw: 0.2, elbow: 0.05)
+            w.torsoYaw = 0.42
+            w.torsoRoll = -0.08
+            w.headYaw = 0.12
+            w.glow = 0.4                          // 溜めの光
+            s.armR = ArmPose(pitch: 1.52, out: 0.05, yaw: 0.22, elbow: 0.04)
             s.weaponR = -1.2
-            s.torsoYaw = -0.3
-            s.torsoPitch = 0.14
-            s.glow = 0.9
-            return ActionClip(windup: w, strike: s, windupTime: 0.16, strikeTime: 0.08, total: 0.42)
+            s.torsoYaw = -0.36
+            s.torsoRoll = 0.1
+            s.torsoPitch = 0.16
+            s.headYaw = -0.12
+            s.glow = 1.05                         // 放出バースト
+            return ActionClip(windup: w, strike: s, windupTime: 0.16, strikeTime: 0.07, total: 0.42)
         }
     }
 
