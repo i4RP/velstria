@@ -3,6 +3,10 @@ import XCTest
 // 担当: battle-hud。戦闘 HUD の通し UI テスト（練習場: 移動・攻撃・スキル・ショップ・スコアボード・ポーズ・退出、観戦: 速度変更・退出）。
 
 final class BattleHUDUITests: XCTestCase {
+    /// 起動 → ロード画面（ヒーローの読み込み）→ 戦闘の幕の裏の準備 → HUD 表示までの待ち。
+    /// GPU の無い CI のランナーでは描画が遅く 30 秒を超えることがあるため余裕を持たせる。
+    static let battleStartTimeout: TimeInterval = 60
+
     override func setUp() {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
@@ -36,7 +40,7 @@ final class BattleHUDUITests: XCTestCase {
 
     func testPracticeControlsShopPauseAndLeave() {
         let app = launch(["-battle", "practice", "-language", "ja"])
-        XCTAssertTrue(element(app, "hud_attack").waitForExistence(timeout: 30), "HUD が表示されない")
+        XCTAssertTrue(element(app, "hud_attack").waitForExistence(timeout: BattleHUDUITests.battleStartTimeout), "HUD が表示されない")
         let towerAttack = element(app, "hud_attack_top")
         let heroAttack = element(app, "hud_attack")
         let minionAttack = element(app, "hud_attack_bottom")
@@ -108,7 +112,7 @@ final class BattleHUDUITests: XCTestCase {
     /// ランク戦の途中退出は警告どおり敗北として記録され、報酬なしのリザルトへ進む。
     func testRankedLeaveIsRecordedAsLoss() {
         let app = launch(["-battle", "ranked", "-language", "en"])
-        tap(app, "hud_pause", timeout: 30)
+        tap(app, "hud_pause", timeout: BattleHUDUITests.battleStartTimeout)
         tap(app, "pause_leave")
         let confirm = element(app, "leave_confirm")
         XCTAssertTrue(confirm.waitForExistence(timeout: 5))
@@ -124,7 +128,7 @@ final class BattleHUDUITests: XCTestCase {
 
     func testSpectateSpeedAndLeave() {
         let app = launch(["-battle", "spectate", "-language", "en"])
-        XCTAssertTrue(element(app, "spectate_speed_2x").waitForExistence(timeout: 30))
+        XCTAssertTrue(element(app, "spectate_speed_2x").waitForExistence(timeout: BattleHUDUITests.battleStartTimeout))
         XCTAssertFalse(element(app, "hud_attack").exists, "観戦では操作ボタンを出さない")
         XCTAssertFalse(element(app, "hud_attack_top").exists)
         XCTAssertFalse(element(app, "hud_attack_bottom").exists)

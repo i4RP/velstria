@@ -19,7 +19,7 @@ final class HUDTacticalMapUITests: XCTestCase {
         if leftHanded { app.launchArguments.append("-hudLeftHanded") }
         app.launch()
         let expand = element(app, "hud_minimap_expand")
-        XCTAssertTrue(expand.waitForExistence(timeout: 30))
+        XCTAssertTrue(expand.waitForExistence(timeout: BattleHUDUITests.battleStartTimeout))
         let map = element(app, "hud_minimap")
         let attack = element(app, "hud_attack")
         XCTAssertEqual(map.frame.midX > attack.frame.midX, leftHanded)

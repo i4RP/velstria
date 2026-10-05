@@ -24,7 +24,7 @@ enum BattlePreload {
         } else {
             GroundTextureCache.prefetch(map: map, size: render.quality.groundTextureSize, colorblind: render.colorblind)
         }
-        MaterialPrograms.prewarm()
+        if MaterialPrograms.prewarmsOnThisDevice { MaterialPrograms.prewarm() }
         if PostProcessSettings.preset(render.quality.level).enabled { PostProcessShaderCache.prewarm() }
     }
 }
@@ -42,6 +42,18 @@ enum MaterialPrograms {
     private static var task: Task<Void, Never>?
     /// 生成にかかった時間（ms。計測ログ用）。
     private(set) static var buildMs: Double?
+
+    /// 先行生成を行う環境か。シミュレータ（特に GPU の無い CI のランナー）ではシェーダーのコンパイルが極端に遅く、
+    /// 同じ時間帯のヒーロー USDZ の読み込み（RealityKit）を待たせてロード画面が数十秒止まるため行わない
+    /// （シミュレータでも幕の裏の陳列で一度描くので、試合中に作り始めることはない）。
+    #if targetEnvironment(simulator)
+    static let prewarmsOnThisDevice = false
+    #else
+    static let prewarmsOnThisDevice = true
+    #endif
+
+    /// 幕を上げる前の待ち合わせ（先行生成しない環境では待たない）。
+    static var isReadyForWarmup: Bool { !prewarmsOnThisDevice || isReady }
 
     static var isReady: Bool {
         pbrOpaque != nil && pbrTransparent != nil && unlitOpaque != nil && unlitTransparent != nil

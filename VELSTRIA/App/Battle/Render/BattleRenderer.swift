@@ -255,7 +255,7 @@ final class BattleRenderer {
 
     /// 幕を上げる前に揃っていてほしいもの。
     private func warmupGates() -> [WarmupScheduler.Gate] {
-        var gates = [WarmupScheduler.Gate("materialPrograms") { MaterialPrograms.isReady }]
+        var gates = [WarmupScheduler.Gate("materialPrograms") { MaterialPrograms.isReadyForWarmup }]
         #if !targetEnvironment(simulator)
         // シミュレータでは renderCallbacks.postProcess が呼ばれないため待たない
         let post = post
