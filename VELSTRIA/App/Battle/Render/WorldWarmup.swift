@@ -92,6 +92,8 @@ extension BattleWorld {
     func finishWarmup() {
         guard let g = gallery else { return }
         gallery = nil
+        // 陳列のために点けた環境パーティクルを現在の画質（自動調整後）に戻す
+        ambient.apply(quality: settings.quality)
         vfx.clear()
         units.endWarmup()
         projectiles.endWarmup()
@@ -176,6 +178,8 @@ extension BattleWorld {
     /// 全ての放出体（種類・数の上限によらず）・輪・閃光を一度ずつ再生する。
     private func fireGalleryEffects() {
         guard let g = gallery else { return }
+        // 環境パーティクルは画質の自動調整で切っていても一度動かす（戻した時に粒子系を作らない）
+        if ambient.emitterCount > 0 { ambient.root.isEnabled = true }
         let colors = plannedUnlitMaterials()
         let rings = colors.filter { $0.alpha == VFXSystem.ringAlpha }.map(\.color)
         let flashes = colors.filter { $0.alpha == VFXSystem.flashAlpha }.map(\.color)

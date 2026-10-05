@@ -22,7 +22,8 @@ final class RenderWarmupTests: XCTestCase {
     }
 
     /// BattleRenderer.buildWorld と同じ順: 世界を作る → カメラを合わせる → 準備の段を全て実行 → 幕の裏で数フレーム → 片付け。
-    private func makeHarness(_ config: MatchConfig, quality: RenderQuality, finishWarmup: Bool = true) -> Harness {
+    private func makeHarness(_ config: MatchConfig, quality: RenderQuality, governed: RenderQuality? = nil,
+                             finishWarmup: Bool = true) -> Harness {
         AssetLedger.beginLoading()
         let controller = BattleController(launch: BattleLaunch(config: config))
         let arView = ARView(frame: CGRect(x: 0, y: 0, width: 844, height: 390), cameraMode: .nonAR,
@@ -30,6 +31,10 @@ final class RenderWarmupTests: XCTestCase {
         let overlay = CombatTextOverlay(frame: arView.bounds)
         let settings = RenderSettings(quality: quality, frameRate: 60, showDamageNumbers: true, colorblind: false)
         let world = BattleWorld(controller: controller, settings: settings, groundImage: nil, arView: arView, overlay: overlay)
+        // BattleRenderer.buildWorld と同じく、ユーザー設定の上限で作ってから自動調整後の値を反映する
+        if let governed {
+            world.apply(settings: RenderSettings(quality: governed, frameRate: 60, showDamageNumbers: true, colorblind: false))
+        }
         let rig = CameraRig()
         let anchor = AnchorEntity(world: .zero)
         anchor.addChild(rig.camera)
@@ -163,6 +168,32 @@ final class RenderWarmupTests: XCTestCase {
             }
             h.world.apply(settings: RenderSettings(quality: q, frameRate: 60, showDamageNumbers: true, colorblind: false))
         }
+        assertNothingCreatedWhileLive()
+    }
+
+    /// 低電力モード・高温で始まった試合（自動調整で画質を下げた状態で開始）でも、プールはユーザー設定の上限で作られ、
+    /// 画質が戻った後の軌跡・環境パーティクル・演出を作らずに出せる。
+    func testMatchStartingThrottledStillPoolsForTheUserLevel() {
+        var throttled = RenderQuality.preset(.high)
+        throttled.particleScale = 0.6
+        throttled.maxEmitters = 26
+        throttled.projectileTrails = false
+        throttled.ambientParticles = false
+        let full = makeHarness(MatchFactory.botMatch(seed: 3), quality: .preset(.high))
+        let fullEmitters = full.world.vfx.pooledEmitterCount
+        AssetLedger.end()
+        var h = makeHarness(MatchFactory.botMatch(seed: 3), quality: .preset(.high), governed: throttled)
+        XCTAssertEqual(h.world.projectiles.pooledTrailCount, ProjectileLayer.trailPoolSize, "軌跡は高画質の分だけ作る")
+        XCTAssertEqual(h.world.vfx.pooledEmitterCount, fullEmitters, "放出体のプールは高画質と同じ大きさ")
+        XCTAssertFalse(h.world.ambient.isEnabled, "幕が上がる時点では自動調整後の画質（環境パーティクルなし）")
+        // 画質が戻る（低電力モード解除・冷却）
+        play(&h, until: 60) { h in
+            if h.controller.state.time > 20, !h.world.ambient.isEnabled {
+                h.world.apply(settings: RenderSettings(quality: .preset(.high), frameRate: 60, showDamageNumbers: true,
+                                                       colorblind: false))
+            }
+        }
+        XCTAssertTrue(h.world.ambient.isEnabled)
         assertNothingCreatedWhileLive()
     }
 

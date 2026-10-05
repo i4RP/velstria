@@ -2,7 +2,8 @@ import XCTest
 @testable import VELSTRIA
 
 // battle-renderer（性能）: 読み込み幕の裏のウォームアップ（WarmupScheduler）。
-// 重い段は 1 フレームに 1 つ・軽い段は予算内でまとめる、影の両状態、落ち着き + ゲートで完了、上限で必ず終わることを確かめる。
+// 段は 1 フレームの予算内でまとめ（重い段は予算の前半でだけ始める。描画が遅いと予算を広げる）、影の両状態、
+// 落ち着き + ゲートで完了、上限で必ず終わることを確かめる。
 
 @MainActor
 final class WarmupSchedulerTests: XCTestCase {
@@ -32,21 +33,41 @@ final class WarmupSchedulerTests: XCTestCase {
         return s.frame(dt: dt)
     }
 
-    func testHeavyStepsRunOnePerFrame() {
+    func testHeavyStepsStartOnlyInTheFirstHalfOfTheBudget() {
         let clock = Clock()
         var ran: [[String]] = []
         var current: [String] = []
-        let s = makeScheduler([("heroes", true, 0.004), ("monsters", true, 0.001), ("text", false, 0.001)], clock: clock) {
+        // 60fps: 予算 10 ms。heroes（6 ms）の後は前半（5 ms）を過ぎているので重い monsters は次のフレームへ
+        let s = makeScheduler([("heroes", true, 0.006), ("monsters", true, 0.001), ("text", false, 0.001),
+                               ("props", true, 0.002)], clock: clock) {
             current.append($0)
         }
-        for _ in 0..<3 {
+        while s.phase == .steps {
             current = []
             _ = frame(s, clock)
             ran.append(current)
         }
-        XCTAssertEqual(ran, [["heroes"], ["monsters"], ["text"]], "重い段は軽くても単独のフレームで実行する")
-        XCTAssertEqual(s.timings.map(\.frame), [1, 2, 3])
-        XCTAssertEqual(s.timings.first?.ms ?? 0, 4, accuracy: 1e-6)
+        XCTAssertEqual(ran, [["heroes"], ["monsters", "text", "props"]])
+        XCTAssertEqual(s.timings.map(\.frame), [1, 2, 2, 2])
+        XCTAssertEqual(s.timings.first?.ms ?? 0, 6, accuracy: 1e-6)
+    }
+
+    /// 描画が遅い環境（GPU の無い CI など）では予算を広げ、段の数だけフレームを費やさない。
+    func testSlowFramesWidenTheBudget() {
+        let clock = Clock()
+        var perFrame: [Int] = []
+        var count = 0
+        let spec = (0..<12).map { ("heavy\($0)", true, 0.010) }
+        let s = makeScheduler(spec, clock: clock) { _ in count += 1 }
+        XCTAssertEqual(s.stepBudget(previousDt: 1.0 / 60), 0.010, accuracy: 1e-9)
+        XCTAssertEqual(s.stepBudget(previousDt: 0.3), 0.060, accuracy: 1e-9, "上限 60 ms")
+        while s.phase == .steps {
+            count = 0
+            _ = frame(s, clock, dt: 0.3)
+            perFrame.append(count)
+        }
+        // 予算 60 ms・重い段は 30 ms 未満で開始 → 10 ms の段が 3 つずつ
+        XCTAssertEqual(perFrame, [3, 3, 3, 3])
     }
 
     func testLightStepsShareTheFrameBudget() {
@@ -60,8 +81,8 @@ final class WarmupSchedulerTests: XCTestCase {
             _ = frame(s, clock)
             perFrame.append(count)
         }
-        // 2.1 ms × 3 = 6.3 ms で予算（6 ms）に達する → 3・3・3・1 と分かれ、重い段は軽い段の後のフレームに単独で入る
-        XCTAssertEqual(perFrame, [3, 3, 3, 1, 1])
+        // 2.1 ms × 5 = 10.5 ms で予算（10 ms）に達する → 5・5、重い段は前半を過ぎているので次のフレームの先頭で実行
+        XCTAssertEqual(perFrame, [5, 5, 1])
         XCTAssertEqual(s.timings.last?.name, "heavy")
         XCTAssertEqual(s.nextStep, spec.count)
         XCTAssertTrue(s.notes.contains { $0.contains("heavy [heavy]") }, "段の所要は計測ログに残る")

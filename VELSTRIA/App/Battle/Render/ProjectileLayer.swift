@@ -140,8 +140,9 @@ final class ProjectileLayer {
     }
 
     /// 表示を始めた弾に軌跡を付ける（色・大きさ・粒子数を書き換えて restart。構築しない）。
-    private func attachTrail(_ v: Visual) {
-        guard v.wantsTrail, quality.projectileTrails, v.trail == nil else { return }
+    /// force = ウォームアップの陳列（画質の自動調整で今は切っていても、後で戻せるよう粒子系を幕の裏で一度動かす）。
+    private func attachTrail(_ v: Visual, force: Bool = false) {
+        guard v.wantsTrail, quality.projectileTrails || force, v.trail == nil else { return }
         let t: Entity
         if let e = freeTrails.popLast() {
             t = e
@@ -225,7 +226,7 @@ final class ProjectileLayer {
             for v in l {
                 v.entity.position = slot()
                 v.entity.isEnabled = true
-                attachTrail(v)
+                attachTrail(v, force: true)
                 warmupShown.append(v)
             }
         }

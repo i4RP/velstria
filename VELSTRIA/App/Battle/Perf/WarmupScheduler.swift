@@ -5,7 +5,9 @@ import QuartzCore
 // 担当: battle-renderer（性能）。読み込み幕の裏のウォームアップを複数フレームに分けて実行し、
 // 「準備ができた」という合図で幕を上げる（固定フレーム数で上げない）。
 //
-// 1. 準備の段（BattleWorld.makeWarmupPlan）: 重い段は 1 フレームに 1 つ、軽い段は 1 フレーム約 6 ms の予算内でまとめて実行
+// 1. 準備の段（BattleWorld.makeWarmupPlan）: 1 フレームの予算（通常 10 ms）内でまとめて実行。重い段は予算の前半でだけ始める。
+//    描画が遅い環境（GPU の無い CI のシミュレータ・高負荷時）では前フレームの間隔の半分（最大 60 ms）まで詰め、
+//    段の数だけフレームを費やして読み込みが何十秒にも延びないようにする
 // 2. 影の両状態: 画質の自動調整が影を切り替えうるとき、太陽の影を反転した状態で数フレーム描く（試合中に影のシェーダーを作らない）
 // 3. 落ち着き待ち（ギャラリー）: 目標間隔の 1.5 倍未満のフレームが N 回続き、かつ各ゲート
 //    （マテリアルの Program・後処理のパイプライン）が揃ったら完了。どれかが揃わなくても上限（約 3 秒）で必ず終える
@@ -14,8 +16,14 @@ import QuartzCore
 @MainActor
 final class WarmupScheduler {
     struct Config {
-        /// 軽い段に使う 1 フレームの予算（秒）。
-        var lightBudget: Double = 0.006
+        /// 準備の段に使う 1 フレームの予算（秒）。60fps の端末ではロード表示のアニメーションを止めない範囲。
+        var stepBudget: Double = 0.010
+        /// 描画が遅いとき、前フレームの間隔のこの割合まで予算を広げる（表示はどのみち滑らかでないため、早く終える方を取る）。
+        var slowFrameShare: Double = 0.5
+        /// 予算の上限（秒）。
+        var maxBudget: Double = 0.060
+        /// 重い段（予算を超えうる）は、そのフレームの経過が予算のこの割合未満のときだけ始める。
+        var heavyStartShare: Double = 0.5
         /// 落ち着いたとみなす連続フレーム数と、そのフレーム間隔の上限（目標間隔の倍率）。
         var stableFrames = 8
         var stableFactor = 1.5
@@ -135,7 +143,7 @@ final class WarmupScheduler {
             interval = FrameStats.signposter.beginInterval("battle.warmup")
         }
         if phase == .steps {
-            runSteps()
+            runSteps(previousDt: dt)
             guard nextStep >= steps.count else { return Directive() }
             stepsEnd = clock()
             notes.append(String(format: "warmup steps: %d in %d frames, %.0f ms", steps.count, frameCount,
@@ -172,18 +180,23 @@ final class WarmupScheduler {
         return Directive()
     }
 
-    /// 重い段は 1 フレームに 1 つ（そのフレームでは他を実行しない）、軽い段は予算内で続けて実行する。
-    private func runSteps() {
+    /// このフレームの予算（前フレームの間隔が長いほど広げる）。
+    func stepBudget(previousDt dt: Double) -> Double {
+        min(config.maxBudget, max(config.stepBudget, dt * config.slowFrameShare))
+    }
+
+    /// 予算内で段を続けて実行する。各フレーム最低 1 段は進め、重い段は予算の前半でだけ始める。
+    private func runSteps(previousDt: Double) {
+        let budget = stepBudget(previousDt: previousDt)
         let frameStart = clock()
         var ranAny = false
         while nextStep < steps.count {
             let step = steps[nextStep]
-            if step.heavy && ranAny { break }
+            let used = clock() - frameStart
+            if ranAny && (used >= budget || (step.heavy && used >= budget * config.heavyStartShare)) { break }
             run(step)
             nextStep += 1
             ranAny = true
-            if step.heavy { break }
-            if clock() - frameStart >= config.lightBudget { break }
         }
     }
 

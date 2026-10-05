@@ -223,8 +223,11 @@ final class BattleRenderer {
     private func buildWorld(groundImage: CGImage?) {
         guard world == nil, let view else { return }
         buildStart = CACurrentMediaTime()
-        let w = BattleWorld(controller: controller, settings: governed.settings, groundImage: groundImage,
+        // プール（放出体・軌跡・環境パーティクル）はユーザーが選んだ画質の上限で作り、自動調整の値はその後で反映する。
+        // 低電力モード・高温で始まった試合でも、画質が戻った時に作らずに軌跡・演出を出せるようにする
+        let w = BattleWorld(controller: controller, settings: settings, groundImage: groundImage,
                             arView: view.arView, overlay: view.combatText)
+        if governed.settings != settings { w.apply(settings: governed.settings) }
         anchor.addChild(w.root)
         world = w
         // 最初のフレームで追従対象へカメラを合わせる

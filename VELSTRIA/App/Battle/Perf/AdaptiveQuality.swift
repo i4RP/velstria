@@ -160,7 +160,9 @@ struct AdaptiveQuality {
         }
         if lowPower { floor = max(floor, config.lowPowerFloor) }
         guard floor > .full else { return 0 }
-        return steps.firstIndex { $0 >= floor } ?? steps.count - 1
+        // 省いた段（その画質では効果が無い段）は直前の段と同じ出力なので、floor 以下で最も重い段を選べば
+        // floor と同じ出力になる（firstIndex で次の段へ進むと、解像度まで下げすぎる）
+        return steps.lastIndex { $0 <= floor } ?? 0
     }
 
     // MARK: 入力
