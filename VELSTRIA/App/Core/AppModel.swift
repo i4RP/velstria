@@ -136,6 +136,12 @@ final class AppModel {
     private func wire(_ session: OnlineSession) {
         session.onMatchStart = { [weak self] config, seat in
             guard let self, let seat, config.players.indices.contains(seat) else { return }
+            if self.activeBattle != nil {
+                // 別の戦闘中（練習場など）に開始の合図が来た: 進行中の戦闘は守り、自分の枠は AI に任せる
+                session.declineMatch()
+                self.showToast(L("オンライン対戦が始まりましたが、戦闘中のため参加できませんでした", "The online match started while you were in another battle"))
+                return
+            }
             var p = self.profile
             p.lastPickedHeroID = config.players[seat].heroID
             self.profile = p

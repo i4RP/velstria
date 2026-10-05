@@ -24,8 +24,14 @@ enum OnlineProtocol {
     static let maxMessageBytes = 32 * 1024 * 1024
     /// 状態ハッシュを報告する間隔（tick）。
     static let hashInterval = 30
-    /// クライアントの読み込み完了をホストが待つ上限（秒）。超えたら揃っていなくても開始する。
+    /// クライアントの読み込み完了をホストが待つ上限（秒）。超えたら揃っていなくても開始する（遅れた参加者にはスナップショットを渡す）。
     static let loadTimeout: TimeInterval = 90
+    /// 相手から何も届かない時間がこれを超えたら切断とみなす（秒）。ping は 2 秒毎なので通常は途切れない。
+    static let livenessTimeout: TimeInterval = 20
+    /// 接続の確立を待つ上限（秒）。相手が見つからない・ローカルネットワークが拒否された時に「接続中」のままにしない。
+    static let connectTimeout: TimeInterval = 15
+    /// Bonjour のサービス名の上限（UTF-8 バイト。超えると広告に失敗する）。
+    static let maxServiceNameBytes = 63
     /// 座席数（5v5）。
     static let seatCount = Team.players.count * LanePosition.allCases.count
 }
@@ -155,6 +161,10 @@ enum OnlineMessage: Codable {
     case hash(tick: Int, value: UInt64)
     /// ホスト → クライアント: 再同期用の状態。受け取ったら自分の状態を置き換える。
     case snapshot(SimState)
+    /// クライアント → ホスト: 試合から抜けた（部屋には残る）。ホストはそのヒーローを AI に引き継ぐ。
+    case abandonMatch
+    /// ホスト → 全員: ホストが試合を途中で終えた（退出・中断）。クライアントは自分の試合も中断終了する。
+    case matchAborted(reason: String)
     /// どちらか → 相手: 退出（切断の前に送る）。
     case leave
     /// 往復遅延の計測。
@@ -174,7 +184,8 @@ extension OnlineMessage: Equatable {
         case (.setLoadout(let x), .setLoadout(let y)): return x == y
         case (.setReady(let x), .setReady(let y)): return x == y
         case (.startMatch(let x), .startMatch(let y)): return x == y
-        case (.loaded, .loaded), (.leave, .leave): return true
+        case (.loaded, .loaded), (.leave, .leave), (.abandonMatch, .abandonMatch): return true
+        case (.matchAborted(let x), .matchAborted(let y)): return x == y
         case (.input(let x), .input(let y)): return x == y
         case (.frames(let x), .frames(let y)): return x == y
         case (.hash(let t1, let v1), .hash(let t2, let v2)): return t1 == t2 && v1 == v2

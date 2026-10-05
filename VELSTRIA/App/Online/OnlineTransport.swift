@@ -210,6 +210,14 @@ final class NWOnlineConnection: OnlineConnection {
         }
         connection.start(queue: queue)
         receiveLoop()
+        // 相手が見つからない（.waiting のまま）・ローカルネットワークが拒否された時に「接続中」のままにしない
+        DispatchQueue.main.asyncAfter(deadline: .now() + OnlineProtocol.connectTimeout) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.state == .connecting else { return }
+                self.fail(L("接続できませんでした（相手が見つからないか、ローカルネットワークへのアクセスが許可されていません）",
+                            "Could not connect (host not found, or local network access is not allowed)"))
+            }
+        }
     }
 
     private func handle(nwState: NWConnection.State) {
@@ -336,8 +344,9 @@ final class NWOnlineListener {
             return
         }
         if advertises {
-            l.service = NWListener.Service(name: roomName, type: OnlineProtocol.bonjourType,
-                                           txtRecord: NWTXTRecord(["name": roomName, "v": "\(OnlineProtocol.version)"]))
+            let name = Self.serviceName(roomName)
+            l.service = NWListener.Service(name: name, type: OnlineProtocol.bonjourType,
+                                           txtRecord: NWTXTRecord(["name": name, "v": "\(OnlineProtocol.version)"]))
         }
         l.stateUpdateHandler = { [weak self] st in
             DispatchQueue.main.async { MainActor.assumeIsolated { self?.handle(nwState: st, requestedPort: port) } }
@@ -354,6 +363,14 @@ final class NWOnlineListener {
         }
         listener = l
         l.start(queue: queue)
+    }
+
+    /// Bonjour のサービス名（63 バイト以内に切り詰める。空なら既定名）。
+    static func serviceName(_ roomName: String) -> String {
+        var name = roomName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if name.isEmpty { name = "VELSTRIA" }
+        while name.utf8.count > OnlineProtocol.maxServiceNameBytes { name.removeLast() }
+        return name
     }
 
     private func handle(nwState: NWListener.State, requestedPort: UInt16?) {
