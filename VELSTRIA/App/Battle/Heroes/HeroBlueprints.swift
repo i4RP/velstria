@@ -117,11 +117,11 @@ enum HeroBlueprints {
                       gear: [.starPin], weapon: .starRapier, offhand: .harpBow, back: .sash, float: .starMotes,
                       attack: .thrust, metal: .silver, skin: .fair, hairColor: HSB(0.13, 0.35, 1.0),
                       accent: HSB(0.13, 0.55, 1.0), glow: HSB(0.52, 0.45, 1.0)),
-        // H003 灰刃のカエル（Ranger）: 灰刃の弓・フード・矢筒
-        HeroBlueprint(build: .standard, armor: .leather, pauldron: .small, skirt: .loincloth, hair: .short,
-                      gear: [.hood], weapon: .none, offhand: .ashBow, back: .quiver, float: .none,
-                      attack: .bow, metal: .iron, skin: .tan, hairColor: HSB(0.0, 0.0, 0.62),
-                      accent: HSB(0.06, 0.85, 1.0), glow: HSB(0.06, 0.9, 1.0), scarf: true),
+        // H003 月弓のフィリエル（Ranger）: 月の弓・三日月の額冠・銀白の長髪・矢筒
+        HeroBlueprint(build: .slim, armor: .light, pauldron: .small, skirt: .shortSkirt, hair: .long,
+                      gear: [.circlet, .crescentPin], weapon: .none, offhand: .ashBow, back: .quiver, float: .none,
+                      attack: .bow, metal: .gold, skin: .fair, hairColor: HSB(0.55, 0.12, 0.96),
+                      accent: HSB(0.5, 0.7, 0.85), glow: HSB(0.52, 0.45, 1.0)),
         // H004 潮祈のミレア（Arcanist）: 潮の杖と水球
         HeroBlueprint(build: .robed, armor: .cloth, pauldron: .small, skirt: .robe, hair: .long,
                       gear: [.shellCrown], weapon: .tideStaff, offhand: .none, back: .none, float: .waterOrb,

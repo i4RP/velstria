@@ -22,9 +22,9 @@
       "notes": "武器 starRapier・副手 harpBow は Prop。星の粒（starMotes）は実行時。H024 と同系の緑なのでポニーテール・金の星で区別。"
     },
     {
-      "id": "H003", "name_ja": "灰刃のカエル", "name_en": "Kael, Ashblade", "role": "Ranger",
+      "id": "H003", "name_ja": "月弓のフィリエル", "name_en": "Firiel, Moonbow", "role": "Ranger",
       "prompt": "Graceful young moon-elf archer woman, slender standard build, fair skin, long pointed elf ears. Very long straight silver-white hair with pale-blue tips and a bright blue gem-and-crescent-moon tiara. Fitted white and teal-blue marksman outfit: cropped white jacket with high collar and gold trims, small silver-gold shoulder guards, short layered white-and-teal skirt over fitted opaque white leggings, knee-high teal boots with gold crescent cuffs, white fingerless gloves with teal gauntlet bracers. Long teal sash trailing from the waist. Slim leather quiver of moonlight arrows strapped on the back. Palette: pearl white, moon teal-blue, gold, pale silver, soft violet gems.",
-      "notes": "副手 ashBow は Prop（右手は素手）。矢筒は本体に含める。月のエルフの弓手（モバイルレジェンドのマイヤ風）に作り直し。"
+      "notes": "副手 ashBow は Prop（右手は素手）。矢筒は本体に含める。2026-10-05 灰刃のカエル（男性のレンジャー）から月のエルフの弓手「月弓のフィリエル」へ作り直し。"
     },
     {
       "id": "H004", "name_ja": "潮祈のミレア", "name_en": "Mirea, Tidecaller", "role": "Arcanist",
@@ -248,7 +248,7 @@
     },
     {
       "kind": "ashBow", "heroes": ["H003"], "grip": 0.5, "optional": false, "side": "bow",
-      "prompt": "an ash-blade longbow, side view, tall curved recurve bow with dark ash-gray iron limbs, four small blade spikes along the back of the limbs, glowing ember-orange inner edge, dark wrapped grip in the middle, thin glowing ember-orange string, the bow curving to the right with the string on the left side of the image."
+      "prompt": "a moon-elf longbow, side view, tall slender curved bow with pearl-white and silver limbs, gold crescent-moon tips at both ends, thin glowing teal-blue inner edge, white wrapped grip with a small teal gem in the middle, thin glowing pale-blue string, the bow curving to the right with the string on the left side of the image."
     },
     {
       "kind": "moonLantern", "heroes": ["H006"], "grip": 0.95, "optional": false,

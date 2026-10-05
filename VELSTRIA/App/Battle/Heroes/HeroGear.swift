@@ -282,8 +282,9 @@ struct HeroGearBuilder {
             for x: Float in [-0.06, 0, 0.06] { b.rod(o + V3(x, -0.18, 0), o + V3(x, 0.15, 0), 0.006, .glow) }
             b.extrude(starPolygon(points: 5, outer: 0.055, inner: 0.024), depth: 0.025, o + V3(0, 0.2, -0.01), .glow)
         case .ashBow:
+            // 月弓（H003 フィリエル）: 金の細い弓身に月光の内縁。棘は付けない
             var bw = HeroMeshBuilder()
-            bow(&bw, radius: 0.7, limbMat: .metal, glowEdge: true, spikes: true)
+            bow(&bw, radius: 0.7, limbMat: .metal, glowEdge: true, spikes: false)
             b.merge(bw, trs(.zero, ry(0.6)))
         case .moonLantern:
             b.torus(V3(0, 0, 0), 0.035, 0.011, .metal, rot: rz(.pi / 2))
