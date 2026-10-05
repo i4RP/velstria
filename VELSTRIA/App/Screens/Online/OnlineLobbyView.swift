@@ -60,6 +60,7 @@ private struct OnlineEntryView: View {
                 TextField(L("部屋の名前", "Room name"), text: $roomName)
                     .textFieldStyle(.roundedBorder)
                     .font(Theme.body(14))
+                    .onChange(of: roomName) { _, v in if v.count > 20 { roomName = String(v.prefix(20)) } }
                     .accessibilityIdentifier("online_room_name")
                 Button {
                     FlowFX.confirm(app)
@@ -181,10 +182,10 @@ struct OnlineRoomView: View {
             } else if room.phase != .lobby && mySeat == nil {
                 inProgressView
             } else {
-                HStack(alignment: .top, spacing: 12) {
-                    seatsPanel.frame(width: 330)
+                HStack(alignment: .top, spacing: 10) {
+                    seatsPanel.frame(width: 300)
                     pickPanel.frame(maxWidth: .infinity)
-                    sidePanel.frame(width: 230)
+                    sidePanel.frame(width: 210)
                 }
             }
         }

@@ -106,6 +106,7 @@ Packages/VelstriaCore/Sources/VelstriaCore/Sim/MatchFactoryOnline.swift  複数�
    自分の座席番号は `BattleLaunch.onlineSeat`（= `config.players` の添字）。`BattleController.localHeroID` はそこから決まり、
    `humanHeroID` / `localTeam` / `viewerTeam`（霧の視点）は自分の座席のもの（Red 側のこともある。カメラは回転しない）。
 2. 読み込み: 各クライアントは戦闘画面で `OnlineSession.attach` → `.loaded` を送る。ホストは座っている全員の `loaded`（または 90 秒）を待ってから進め始める。
+   一度進め始めたら以後は待たない。遅れて `loaded` が届いた参加者（時間切れ後の読み込み・再接続）には現在の `SimState` スナップショットを渡す。
 3. 戦闘: ホストは `自分の入力 + 届いたクライアント入力（+ 操作者切り替え）` で `Simulation.step` し、その tick に適用した入力列を
    `ReplayFrame` として全員へ配る（空の tick も送る。クライアントの時計になる）。描画フレームの終わりにまとめて 1 メッセージで送る。
    クライアントは入力をホストへ送るだけで自分では適用せず、届いた tick の入力で step する（遅れて再生。届かなければ補間係数 1 で待ち、
@@ -114,15 +115,20 @@ Packages/VelstriaCore/Sources/VelstriaCore/Sim/MatchFactoryOnline.swift  複数�
 4. 検証と再同期: クライアントは `OnlineProtocol.hashInterval`（30 tick）毎に `SimState.stateHash()` を報告し、ホストは自分の記録と比べる。
    食い違えばホストの `SimState` スナップショット（Codable、約 200KB）を送り、クライアントは `Simulation.restore(from:)` で置き換えて
    それ以前の配信を捨てる。
-5. 切断: 試合中にクライアントが落ちるとホストは `PlayerCommand.setController(.bot)` を発行して AI に引き継ぐ（座席は保つ）。
-   同じ playerID で再接続すると構成 → 読み込み → スナップショット → `setController(.human)` で戻る。ホストが落ちるとクライアントの試合は中断終了。
-6. 一時停止・バックグラウンド: オンライン中は `isPaused` で世界を止めない（メニューを開くだけ）。
-   `MatchMode.online` は報酬・ランク・戦績の対象外（`RewardService`）。降参投票は有効。
+5. 切断・離脱: 試合中にクライアントが落ちるとホストは `PlayerCommand.setController(.bot)` を発行して AI に引き継ぐ（座席は保つ）。
+   同じ playerID で再接続すると構成 → 読み込み → スナップショット → `setController(.human)` で戻る（古い接続が残っていても置き換える）。
+   試合が終わっても戻らなかった参加者は席を空ける。クライアントが自分で退出すると `.abandonMatch` を送り、ホストは AI に引き継ぐ（部屋には残る）。
+   ホストが退出・中断すると `.matchAborted` を配り、クライアントは届いていた配信を消化してから中断終了する。ホストが落ちた（切断）時も同様に中断終了。
+   生存確認: 双方が 2 秒毎に ping し、20 秒（`livenessTimeout`）何も届かない相手は切断扱い。接続は 15 秒で確立しなければ失敗にする。
+6. 一時停止・バックグラウンド: オンライン中は `BattleController.isPaused` が常に false（メニューを開くだけで世界は止まらない）。
+   ホストがバックグラウンドに入ると iOS がアプリを止めるので全員が止まり、20 秒を超えると参加者側は切断扱いになる（復帰したホストは AI 相手に続行）。
+   クライアントがバックグラウンドに入ると復帰後に溜まった配信を早送りで消化する（長ければ切断 → AI 引き継ぎ）。
+   `MatchMode.online` は報酬・ランク・戦績の対象外（`RewardService`）。降参投票は有効。配信は座っていて抜けていない参加者にだけ送る。
 
 検証用の起動引数（Debug のみ）: `-onlineHost [port]`、`-onlineJoin <host:port>`、`-onlineAuto`（自動で着席・ピック・準備完了、ホストは揃えば開始）。
 2 台のシミュレータで `-onlineHost -onlineAuto` と `-onlineJoin 127.0.0.1:47814 -onlineAuto` を起動すると対戦が始まる。
-テスト: `OnlineCoreTests`（コア）、`OnlineProtocolTests` / `OnlineSessionTests`（ループバックでロビー → 同期 → 再同期 → 切断 → 再接続）/
-`OnlineTransportTests`（localhost の TCP）。
+テスト: `OnlineCoreTests`（コア）、`OnlineProtocolTests` / `OnlineSessionTests`（ループバックでロビー → 同期 → 遅延 → 再同期 → 切断 → 再接続 →
+離脱 → 中断 → 生存確認）/ `OnlineTransportTests`（localhost の TCP、接続失敗の時間切れ）。CI（build-upload.yml）でも実行する。
 
 ## ヒーローの 3D モデル（Tripo 生成アセット）
 - 表示は `HeroModelLibrary.makeHero`（`HeroDisplayModel`）。同梱の `Hero_<heroID>.usdz` があればスキンメッシュ

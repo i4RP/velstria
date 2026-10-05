@@ -48,7 +48,7 @@ jobs:
         working-directory: VELSTRIA/Packages/VelstriaCore
         run: swift test -c release
 
-      - name: HUD・チュートリアルの単体テストと UI テスト
+      - name: HUD・チュートリアル・オンライン対戦の単体テストと UI テスト
         # GPU の無いランナーは描画が遅く、UI の問い合わせが時間切れになる不安定な失敗が起きる。
         # 落ちたテストだけを最大 3 回まで自動で再実行する（3 回とも落ちれば失敗。網羅は減らさない）
         run: |
@@ -70,6 +70,9 @@ jobs:
             -only-testing:VELSTRIATests/HUDAttackTests \
             -only-testing:VELSTRIATests/SettingsScreensTests \
             -only-testing:VELSTRIATests/RenderLogicTests \
+            -only-testing:VELSTRIATests/OnlineProtocolTests \
+            -only-testing:VELSTRIATests/OnlineSessionTests \
+            -only-testing:VELSTRIATests/OnlineTransportTests \
             -only-testing:VELSTRIAUITests/HUDTacticalMapUITests \
             -only-testing:VELSTRIAUITests/BattleHUDUITests \
             -parallel-testing-enabled NO \

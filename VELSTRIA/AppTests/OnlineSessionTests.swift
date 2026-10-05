@@ -384,6 +384,183 @@ final class OnlineSessionTests: XCTestCase {
         XCTAssertEqual(host.state.unit(client.humanHeroID)?.hero?.controller, .bot, "ヒーロー確定後に AI へ引き継ぐ")
     }
 
+    func testReconnectOverStaleConnectionGetsSnapshot() {
+        // 古い接続がまだ生きているうちに同じ playerID で繋ぎ直す（経路が片側だけ死んだ時）
+        let s = startedMatch()
+        let (host, client) = controllers(s)
+        s.pair.host.attach(controller: host)
+        s.pair.client.attach(controller: client)
+        run(host, client, frames: 60)
+        let clientHero = client.humanHeroID!
+
+        let (a2, b2) = LoopbackConnection.pair()
+        s.pair.host.accept(a2)
+        let client2 = OnlineSession.join(peerID: "guest", name: "Guest", connection: b2)
+        XCTAssertEqual(s.pair.clientLink.state, .closed, "古い接続は置き換えられて閉じる")
+        XCTAssertEqual(client2.status, .loading)
+        XCTAssertEqual(client2.room.config, s.config)
+        XCTAssertTrue(s.pair.host.canBegin, "再接続の読み込み待ちでホストは止まらない")
+        run(host, host, frames: 30)
+
+        let controller2 = BattleController(launch: BattleLaunch(config: s.config, onlineSeat: redMid), online: client2)
+        client2.attach(controller: controller2)
+        XCTAssertEqual(client2.resyncCount, 1, "進んでいる試合に入るのでスナップショットが届く")
+        run(host, controller2, frames: 60)
+        catchUp(controller2, to: host)
+        XCTAssertEqual(controller2.state.stateHash(), host.state.stateHash())
+        XCTAssertEqual(host.state.unit(clientHero)?.hero?.controller, .human)
+        XCTAssertEqual(controller2.onlineStatus, .none)
+    }
+
+    func testLateLoaderAfterTimeoutGetsSnapshot() {
+        let s = startedMatch()
+        let (host, client) = controllers(s)
+        s.pair.host.attach(controller: host)
+        XCTAssertFalse(s.pair.host.canBegin)
+        // 読み込み待ちの上限を過ぎたら参加者抜きで進め始める
+        let start = Date()
+        s.pair.host.now = { start.addingTimeInterval(OnlineProtocol.loadTimeout + 1) }
+        XCTAssertTrue(s.pair.host.canBegin)
+        run(host, host, frames: 90)
+        XCTAssertGreaterThan(host.state.tick, 0)
+
+        // 遅れて読み込みを終えた参加者には現在の状態が渡り、以後同期する
+        s.pair.client.attach(controller: client)
+        XCTAssertEqual(s.pair.client.resyncCount, 1)
+        run(host, client, frames: 60)
+        catchUp(client, to: host)
+        XCTAssertEqual(client.state.stateHash(), host.state.stateHash())
+        XCTAssertEqual(host.state.unit(client.humanHeroID)?.hero?.controller, .human)
+    }
+
+    func testHostAbortPropagatesToClients() {
+        let s = startedMatch()
+        let (host, client) = controllers(s)
+        s.pair.host.attach(controller: host)
+        s.pair.client.attach(controller: client)
+        run(host, client, frames: 30)
+        // ホストだけ進めてから退出（配信はクライアントのバッファに残る）
+        for _ in 0..<10 { host.frame(dt: Balance.dt) }
+        let hostTick = host.state.tick
+        _ = host.makeOutcome(abandoned: true)
+        s.pair.host.matchEnded(aborted: true)
+        XCTAssertTrue(s.pair.client.isConnected)
+        XCTAssertFalse(s.pair.client.isMatchLive)
+        XCTAssertEqual(s.pair.client.room.phase, .lobby)
+        // 届いていた分は消化してから中断終了する
+        for _ in 0..<20 { client.frame(dt: Balance.dt) }
+        XCTAssertTrue(client.isEnded)
+        XCTAssertEqual(client.state.endReason, .aborted)
+        XCTAssertEqual(client.state.tick, hostTick, "中断前の配信は最後まで再生する")
+        XCTAssertEqual(client.onlineStatus, .disconnected)
+        // 部屋には残っていて、次の試合を始められる
+        s.pair.client.matchEnded(aborted: false)
+        XCTAssertEqual(s.pair.host.room.peers.count, 2)
+        s.pair.host.setReady(true)
+        s.pair.client.setReady(true)
+        XCTAssertTrue(s.pair.host.startMatch(master: .shared, seed: 9))
+    }
+
+    func testClientAbandonHandsHeroToBotAndStaysInRoom() {
+        let s = startedMatch()
+        let (host, client) = controllers(s)
+        s.pair.host.attach(controller: host)
+        s.pair.client.attach(controller: client)
+        run(host, client, frames: 30)
+        let clientHero = client.humanHeroID!
+        _ = client.makeOutcome(abandoned: true)
+        s.pair.client.matchEnded(aborted: true)
+        host.frame(dt: Balance.dt)
+        XCTAssertEqual(host.state.unit(clientHero)?.hero?.controller, .bot)
+        XCTAssertTrue(s.pair.host.room.peers.contains { $0.id == "guest" })
+        XCTAssertEqual(s.pair.host.room.seatIndex(of: "guest"), redMid)
+        // 抜けた参加者には配信しない（溜まらない）
+        run(host, host, frames: 30)
+        XCTAssertEqual(s.pair.client.bufferedFrames, 0)
+        s.pair.host.matchEnded()
+        XCTAssertEqual(s.pair.client.room.phase, .lobby)
+        s.pair.host.setReady(true)
+        s.pair.client.setReady(true)
+        XCTAssertTrue(s.pair.host.startMatch(master: .shared, seed: 10))
+    }
+
+    func testDroppedPeerIsRemovedWhenMatchEnds() {
+        let s = startedMatch()
+        let (host, client) = controllers(s)
+        s.pair.host.attach(controller: host)
+        s.pair.client.attach(controller: client)
+        run(host, client, frames: 10)
+        s.pair.clientLink.close()
+        host.frame(dt: Balance.dt)
+        XCTAssertEqual(s.pair.host.room.seatIndex(of: "guest"), redMid, "試合中は席を保つ")
+        s.pair.host.matchEnded()
+        XCTAssertNil(s.pair.host.room.seatIndex(of: "guest"), "戻らなかった参加者の席は空く")
+        XCTAssertEqual(s.pair.host.room.peers.map(\.id), ["host"])
+        s.pair.host.setReady(true)
+        XCTAssertTrue(s.pair.host.room.canStart)
+    }
+
+    func testHostPauseDoesNotStopTheWorld() {
+        let s = startedMatch()
+        let (host, client) = controllers(s)
+        s.pair.host.attach(controller: host)
+        s.pair.client.attach(controller: client)
+        host.isPaused = true
+        XCTAssertFalse(host.isPaused, "オンラインでは一時停止にならない")
+        run(host, client, frames: 30)
+        XCTAssertGreaterThanOrEqual(host.state.tick, 29)
+        client.isPaused = true
+        XCTAssertFalse(client.isPaused)
+    }
+
+    func testUnseatedPeerDoesNotReceiveFrames() {
+        let s = startedMatch()
+        let (host, client) = controllers(s)
+        s.pair.host.attach(controller: host)
+        s.pair.client.attach(controller: client)
+        // 試合中に座席なしで待っている参加者はいない（試合中の新規参加は拒否）ので、ロビーで座らずにいた参加者で確認する
+        _ = (host, client)
+        let p2 = makePair(clientID: "watcher")
+        p2.host.takeSeat(blueMid)
+        p2.host.setLoadout(OnlineLoadout(heroID: "H001"))
+        p2.host.setReady(true)
+        var watcherStart = false
+        p2.client.onMatchStart = { _, _ in watcherStart = true }
+        XCTAssertTrue(p2.host.startMatch(master: .shared, seed: 3))
+        XCTAssertFalse(watcherStart, "座っていない参加者には開始の合図を送らない")
+        XCTAssertEqual(p2.client.room.phase, .loading, "部屋の状態は届く")
+        let h2 = BattleController(launch: BattleLaunch(config: p2.host.room.config!, onlineSeat: blueMid), online: p2.host)
+        p2.host.attach(controller: h2)
+        run(h2, h2, frames: 30)
+        XCTAssertEqual(p2.client.bufferedFrames, 0)
+    }
+
+    func testLivenessTimeoutDisconnectsSilentPeer() {
+        let p = makePair()
+        var hostClock = ProcessInfo.processInfo.systemUptime
+        p.host.uptime = { hostClock }
+        p.host.ping()
+        p.client.takeSeat(redMid)   // 応答があれば切れない
+        hostClock += OnlineProtocol.livenessTimeout - 1
+        p.host.ping()
+        XCTAssertTrue(p.client.isConnected)
+        hostClock += OnlineProtocol.livenessTimeout + 1
+        p.client.takeSeat(redMid)   // この受信は hostClock 更新前の時刻で記録されている
+        p.host.uptime = { hostClock + OnlineProtocol.livenessTimeout + 1 }
+        p.host.ping()
+        XCTAssertFalse(p.client.isConnected, "長く何も届かない参加者は切断される")
+        XCTAssertEqual(p.host.room.peers.map(\.id), ["host"])
+
+        // クライアント側も同様にホストの無応答を検出する
+        let q = makePair()
+        var clientClock = ProcessInfo.processInfo.systemUptime
+        q.client.uptime = { clientClock }
+        q.client.ping()
+        clientClock += OnlineProtocol.livenessTimeout + 1
+        q.client.ping()
+        guard case .disconnected = q.client.status else { return XCTFail("ホストの無応答で切断: \(q.client.status)") }
+    }
+
     func testMatchEndedReturnsRoomToLobby() {
         let s = startedMatch()
         let (host, client) = controllers(s)

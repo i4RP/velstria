@@ -80,7 +80,12 @@ final class BattleController {
     /// 描画側の準備（地面テクスチャ・ウォームアップが済み、読み込み幕が上がる）が完了した。
     /// これが立つまで予備駆動（BattleLoopFallback）は sim を進めず、HUD も表示しない。
     private(set) var isPresentationReady = false
-    var isPaused = false
+    /// 一時停止。オンライン対戦では世界を止められない（他の参加者がいる）ので常に false を返す（メニューは HUD が開くだけ）。
+    var isPaused: Bool {
+        get { isOnline ? false : pauseRequested }
+        set { pauseRequested = newValue }
+    }
+    private var pauseRequested = false
     /// 観戦・リプレイの再生速度（1, 2, 4）。
     var speed: Double = 1
     var cameraMode: CameraMode = .followHero
@@ -211,7 +216,7 @@ final class BattleController {
     func frame(dt: Double) {
         guard !isEnded else { return }
         if let online {
-            // オンライン対戦は一時停止しても世界が止まらない（メニューを開いているだけ）
+            // オンライン対戦は一時停止しても世界が止まらない（isPaused は常に false。メニューを開いているだけ）
             if online.isHost { advanceOnlineHost(dt: dt, online: online) } else { advanceOnlineClient(dt: dt, online: online) }
         } else {
             guard !isPaused else { return }
@@ -270,11 +275,14 @@ final class BattleController {
     }
 
     /// クライアント: 届いた tick の入力だけで進める。届かない間は待ち、溜まったら追いつく。
+    /// ホストを失った（切断・ホストの中断）時は、届いている分を消化してから中断終了する（自然に終わっていればそのまま終わる）。
     private func advanceOnlineClient(dt: Double, online: OnlineBattleLink) {
         if let snapshot = online.takeSnapshot() { restore(snapshot) }
-        guard online.isConnected else {
+        let live = online.isMatchLive
+        let buffered = online.bufferedFrames
+        guard live || buffered > 0 else {
             if !sim.isEnded {
-                // ホストを失った: 中断終了。step は ended では何もしないので、終了イベントは直接配る（HUD が終了演出を出す）
+                // step は ended では何もしないので、終了イベントは直接配る（HUD が終了演出を出す）
                 sim.abort()
                 dispatch([.matchEnded(winner: nil, reason: .aborted)])
             }
@@ -283,12 +291,11 @@ final class BattleController {
             return
         }
         accumulator += min(dt, 0.25)
-        let buffered = online.bufferedFrames
-        let maxSteps = buffered > Self.onlineCatchUpThreshold ? Self.maxStepsPerFrame : Self.maxCatchUpSteps
+        let maxSteps = (!live || buffered > Self.onlineCatchUpThreshold) ? Self.maxStepsPerFrame : Self.maxCatchUpSteps
         var steps = 0
         var starved = false
         while steps < maxSteps {
-            let wantsStep = accumulator >= Balance.dt || (buffered - steps) > Self.onlineJitterBuffer
+            let wantsStep = !live || accumulator >= Balance.dt || (buffered - steps) > Self.onlineJitterBuffer
             guard wantsStep else { break }
             guard let frame = online.frame(forTick: sim.state.tick + 1) else {
                 starved = true

@@ -17,6 +17,8 @@ protocol OnlineBattleLink: AnyObject {
     var isHost: Bool { get }
     /// 相手と繋がっている（クライアント: ホストと。ホスト: 待ち受け中）。
     var isConnected: Bool { get }
+    /// 試合が続いている（クライアント: ホストと繋がっていて、ホストが試合を中断していない）。
+    var isMatchLive: Bool { get }
     /// ホスト: 座っている全員の読み込みが済んだ（または待ち時間切れ）。クライアントは常に true。
     var canBegin: Bool { get }
     /// 戦闘画面がシミュレーションを作った。座席 → ヒーロー ID の対応を確定し、クライアントは loaded を送る。
@@ -75,6 +77,8 @@ final class OnlineSession: OnlineBattleLink {
     @ObservationIgnored var onDisconnected: ((String) -> Void)?
     /// テスト用: 現在時刻の供給。
     @ObservationIgnored var now: () -> Date = { Date() }
+    /// テスト用: 単調時刻の供給（往復遅延・生存確認）。
+    @ObservationIgnored var uptime: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
 
     // ホスト側
     @ObservationIgnored private var listener: NWOnlineListener?
@@ -95,9 +99,19 @@ final class OnlineSession: OnlineBattleLink {
     @ObservationIgnored private var rememberedLoadouts: [OnlinePeerID: OnlineLoadout] = [:]
     /// 座席 → 操作者の切り替え予約（読み込み中に落ちた時など、ヒーロー ID が確定する前に積む）。
     @ObservationIgnored private var pendingHandovers: [(seat: Int, controller: Controller)] = []
+    /// 試合の途中で抜けた参加者（部屋には残る。配信しない）。
+    @ObservationIgnored private var abandonedPeers: Set<OnlinePeerID> = []
+    /// ホストが進め始めた（以後は読み込み待ちで止まらない）。
+    @ObservationIgnored private var hasBegun = false
+    /// 接続毎の最後の受信時刻（生存確認）。
+    @ObservationIgnored private var lastInbound: [UUID: TimeInterval] = [:]
 
     // クライアント側
     @ObservationIgnored private var connection: OnlineConnection?
+    /// 試合の配信を受け取る（startMatch から matchEnded / 離脱まで）。
+    @ObservationIgnored private var acceptsFrames = false
+    /// ホストが試合を中断した。
+    @ObservationIgnored private var hostAborted = false
     @ObservationIgnored private var frameBuffer: [ReplayFrame] = []
     @ObservationIgnored private var pendingSnapshot: SimState?
     @ObservationIgnored private var outgoingInputs: [HeroCommand] = []
@@ -113,8 +127,8 @@ final class OnlineSession: OnlineBattleLink {
 
     static let maxEvents = 30
     static let pingInterval: TimeInterval = 2
-    /// ホストが保持する照合用ハッシュの数（tick 単位）。
-    static let hashHistoryLimit = 20
+    /// ホストが保持する照合用ハッシュの数（hashInterval 毎に 1 つ。600 = 10 分遅れまで照合できる）。
+    static let hashHistoryLimit = 600
 
     private init(role: Role, peerID: OnlinePeerID, name: String, room: OnlineRoom) {
         self.role = role
@@ -150,6 +164,13 @@ final class OnlineSession: OnlineBattleLink {
         switch role {
         case .host: return true
         case .client: return connection?.state == .ready
+        }
+    }
+
+    var isMatchLive: Bool {
+        switch role {
+        case .host: return !closed
+        case .client: return isConnected && !hostAborted
         }
     }
 
@@ -207,6 +228,7 @@ final class OnlineSession: OnlineBattleLink {
 
     private func hostLost(_ c: OnlineConnection) {
         connections[c.id] = nil
+        lastInbound[c.id] = nil
         guard let peerID = peerByConnection.removeValue(forKey: c.id) else { return }
         connectionByPeer[peerID] = nil
         pingSentAt[c.id] = nil
@@ -228,6 +250,7 @@ final class OnlineSession: OnlineBattleLink {
     }
 
     private func hostReceived(_ m: OnlineMessage, from c: OnlineConnection) {
+        lastInbound[c.id] = uptime()
         if case .hello(let hello) = m {
             handleHello(hello, from: c)
             return
@@ -249,12 +272,24 @@ final class OnlineSession: OnlineBattleLink {
         case .loaded:
             guard let i = room.peers.firstIndex(where: { $0.id == peerID }) else { return }
             room.peers[i].loaded = true
-            if droppedPeers.remove(peerID) != nil {
-                // 再接続: 現在の状態を渡し、ヒーローを人間に戻す
+            let returning = droppedPeers.remove(peerID) != nil
+            // 途中参加（再接続・遅れての読み込み・古い接続が残ったままの再接続）: 既に進んでいれば現在の状態を渡す
+            if let controller, controller.state.tick > 0 {
                 sendSnapshot(to: peerID)
+            }
+            if returning || controller.map({ $0.state.tick > 0 }) == true {
+                // ヒーローを人間に戻す（元から人間なら何もしない）
                 if let seat = room.seatIndex(of: peerID) { pendingHandovers.append((seat, .human)) }
+            }
+            if returning {
                 note(L("\(room.peers[i].name) が再接続しました", "\(room.peers[i].name) reconnected"))
             }
+        case .abandonMatch:
+            guard room.phase != .lobby, abandonedPeers.insert(peerID).inserted else { return }
+            if let i = room.peers.firstIndex(where: { $0.id == peerID }) { room.peers[i].loaded = true }
+            if let seat = room.seatIndex(of: peerID) { pendingHandovers.append((seat, .bot)) }
+            note(L("\(room.peer(peerID)?.name ?? "?") が試合から抜けました（AI が引き継ぎます）",
+                   "\(room.peer(peerID)?.name ?? "?") left the match (AI takes over)"))
         case .input(let commands):
             guard room.phase == .playing || room.phase == .loading else { return }
             guard let seat = room.seatIndex(of: peerID), heroIDBySeat.indices.contains(seat) else { return }
@@ -280,10 +315,10 @@ final class OnlineSession: OnlineBattleLink {
             c.send(.pong(n))
         case .pong(let n):
             if let sent = pingSentAt[c.id]?.removeValue(forKey: n) {
-                let rtt = ProcessInfo.processInfo.systemUptime - sent
+                let rtt = uptime() - sent
                 if let i = room.peers.firstIndex(where: { $0.id == peerID }) { room.peers[i].rtt = rtt }
             }
-        case .hello, .welcome, .reject, .room, .startMatch, .frames, .snapshot:
+        case .hello, .welcome, .reject, .room, .startMatch, .frames, .snapshot, .matchAborted:
             break
         }
     }
@@ -314,6 +349,8 @@ final class OnlineSession: OnlineBattleLink {
             if let old = connections[existing] {
                 peerByConnection[existing] = nil
                 connections[existing] = nil
+                lastInbound[existing] = nil
+                pingSentAt[existing] = nil
                 old.close()
             }
         }
@@ -465,7 +502,7 @@ final class OnlineSession: OnlineBattleLink {
         for i in room.peers.indices { room.peers[i].loaded = false }
         matchStartedAt = now()
         resetBattleBuffers()
-        broadcast(.startMatch(config: config))
+        broadcastToParticipants(.startMatch(config: config))
         broadcastRoom()
         status = .loading
         note(L("試合を開始します", "Starting the match"))
@@ -473,17 +510,42 @@ final class OnlineSession: OnlineBattleLink {
         return true
     }
 
-    /// 戦闘が終わった（リザルトへ）。ホストは部屋をロビーに戻す。
-    func matchEnded() {
+    /// 戦闘が終わった（リザルトへ）。aborted = 自分が途中で抜けた / 中断した。
+    /// ホストは参加者に中断を伝えて部屋をロビーに戻す。クライアントは途中なら「抜けた」とホストに伝える。
+    func matchEnded(aborted: Bool = false) {
         detach()
-        guard role == .host else { return }
-        room.phase = .lobby
-        room.config = nil
-        for i in room.seats.indices { room.seats[i].ready = false }
-        for i in room.peers.indices { room.peers[i].loaded = false }
-        droppedPeers.removeAll()
-        status = .lobby
-        broadcastRoom()
+        switch role {
+        case .host:
+            if aborted && room.phase != .lobby {
+                broadcastToParticipants(.matchAborted(reason: L("ホストが試合を終了しました", "The host ended the match")))
+            }
+            room.phase = .lobby
+            room.config = nil
+            // 試合中に落ちて戻らなかった参加者は席を空ける（準備完了できず部屋が始められなくなる）
+            for peerID in droppedPeers {
+                vacate(peerID)
+                rememberedLoadouts[peerID] = nil
+                room.peers.removeAll { $0.id == peerID }
+            }
+            droppedPeers.removeAll()
+            abandonedPeers.removeAll()
+            for i in room.seats.indices { room.seats[i].ready = false }
+            for i in room.peers.indices { room.peers[i].loaded = false }
+            status = .lobby
+            broadcastRoom()
+        case .client:
+            acceptsFrames = false
+            frameBuffer.removeAll()
+            if aborted && room.phase != .lobby && !hostAborted { connection?.send(.abandonMatch) }
+        }
+    }
+
+    /// 試合を始められない状態（別の戦闘中など）で開始の合図が来た: 自分の枠は AI に任せる。
+    func declineMatch() {
+        guard role == .client else { return }
+        acceptsFrames = false
+        frameBuffer.removeAll()
+        connection?.send(.abandonMatch)
     }
 
     /// 部屋から出る（全接続を閉じる）。
@@ -538,13 +600,16 @@ final class OnlineSession: OnlineBattleLink {
         closed = true
         pingTimer?.invalidate()
         pingTimer = nil
+        let c = connection
         connection = nil
+        c?.close()
         status = .disconnected(reason)
         note(reason)
         onDisconnected?(reason)
     }
 
     private func clientReceived(_ m: OnlineMessage) {
+        if let c = connection { lastInbound[c.id] = uptime() }
         switch m {
         case .welcome(let room):
             self.room = room
@@ -562,10 +627,17 @@ final class OnlineSession: OnlineBattleLink {
             room.phase = .loading
             status = .loading
             resetBattleBuffers()
+            acceptsFrames = true
+            hostAborted = false
             onMatchStart?(config, room.seatIndex(of: localPeerID))
         case .frames(let frames):
+            guard acceptsFrames else { return }
             if status == .loading { status = .playing }
             frameBuffer.append(contentsOf: frames)
+        case .matchAborted(let reason):
+            guard acceptsFrames else { return }
+            hostAborted = true
+            note(reason)
         case .snapshot(let state):
             pendingSnapshot = state
             resyncCount += 1
@@ -576,14 +648,14 @@ final class OnlineSession: OnlineBattleLink {
             connection?.send(.pong(n))
         case .pong(let n):
             if let c = connection, let sent = pingSentAt[c.id]?.removeValue(forKey: n) {
-                rtt = ProcessInfo.processInfo.systemUptime - sent
+                rtt = uptime() - sent
             }
-        case .hello, .takeSeat, .setLoadout, .setReady, .loaded, .input, .hash:
+        case .hello, .takeSeat, .setLoadout, .setReady, .loaded, .input, .hash, .abandonMatch:
             break
         }
     }
 
-    // MARK: - 往復遅延
+    // MARK: - 往復遅延・生存確認
 
     private func startPing() {
         pingTimer?.invalidate()
@@ -594,17 +666,31 @@ final class OnlineSession: OnlineBattleLink {
         pingTimer = t
     }
 
-    private func ping() {
+    /// 2 秒毎: ping を送り、長く何も届いていない相手は切断扱いにする（テストから直接呼べる）。
+    func ping() {
         guard !closed else { return }
         pingSequence &+= 1
         let n = pingSequence
-        let t = ProcessInfo.processInfo.systemUptime
+        let t = uptime()
         let targets: [OnlineConnection]
         switch role {
         case .host: targets = connections.compactMap { peerByConnection[$0.key] != nil ? $0.value : nil }
         case .client: targets = connection.map { [$0] } ?? []
         }
         for c in targets where c.state == .ready {
+            if let last = lastInbound[c.id], t - last > OnlineProtocol.livenessTimeout {
+                switch role {
+                case .host:
+                    note(L("\(room.peer(peerByConnection[c.id] ?? "")?.name ?? "?") から応答がありません。切断します",
+                           "No response from \(room.peer(peerByConnection[c.id] ?? "")?.name ?? "?"); disconnecting"))
+                    c.close()
+                    hostLost(c)
+                case .client:
+                    disconnected(L("ホストから応答がありません", "The host stopped responding"))
+                }
+                continue
+            }
+            if lastInbound[c.id] == nil { lastInbound[c.id] = t }
             var sent = pingSentAt[c.id] ?? [:]
             sent[n] = t
             if sent.count > 8 { sent = sent.filter { $0.key > n &- 8 } }
@@ -617,9 +703,13 @@ final class OnlineSession: OnlineBattleLink {
 
     var canBegin: Bool {
         guard role == .host else { return true }
+        if hasBegun { return true }
         let seated = room.peers.filter { room.seat(of: $0.id) != nil }
-        if seated.allSatisfy(\.loaded) { return true }
-        if let t = matchStartedAt, now().timeIntervalSince(t) > OnlineProtocol.loadTimeout { return true }
+        if seated.allSatisfy(\.loaded) || (matchStartedAt.map { now().timeIntervalSince($0) > OnlineProtocol.loadTimeout } ?? false) {
+            // 一度進め始めたら、以後の再接続・遅れた読み込みでは止まらない（遅れた側にはスナップショットを渡す）
+            hasBegun = true
+            return true
+        }
         return false
     }
 
@@ -631,6 +721,9 @@ final class OnlineSession: OnlineBattleLink {
         hashTicks.removeAll()
         resyncedAt.removeAll()
         pendingHandovers.removeAll()
+        abandonedPeers.removeAll()
+        hasBegun = false
+        hostAborted = false
         frameBuffer.removeAll()
         pendingSnapshot = nil
         outgoingInputs.removeAll()
@@ -682,9 +775,17 @@ final class OnlineSession: OnlineBattleLink {
         }
     }
 
+    /// 試合に参加している（座っていて抜けていない）参加者だけに配る。
+    private func broadcastToParticipants(_ m: OnlineMessage) {
+        for (id, c) in connections {
+            guard let peerID = peerByConnection[id], room.seat(of: peerID) != nil, !abandonedPeers.contains(peerID) else { continue }
+            c.send(m)
+        }
+    }
+
     private func flushFrames() {
         guard !outgoingFrames.isEmpty else { return }
-        broadcast(.frames(outgoingFrames))
+        broadcastToParticipants(.frames(outgoingFrames))
         outgoingFrames.removeAll(keepingCapacity: true)
     }
 

@@ -190,7 +190,7 @@ struct BattleSessionView: View {
         case .battle:
             BattleContainerView(launch: launch) { outcome in
                 let mode = launch.config.mode
-                if launch.isOnline { app.online?.matchEnded() }
+                if launch.isOnline { app.online?.matchEnded(aborted: outcome.abandoned || outcome.summary.endReason == .aborted) }
                 if outcome.abandoned && (mode == .practice || mode == .tutorial) {
                     if mode == .tutorial { app.profile.tutorialCompleted = true }
                     app.dismissBattle()

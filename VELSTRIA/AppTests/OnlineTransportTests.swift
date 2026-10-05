@@ -34,18 +34,19 @@ final class OnlineTransportTests: XCTestCase {
         await wait(timeout: 5) { client.room.seatIndex(of: "guest") == redMid }
         XCTAssertEqual(host.room.seatIndex(of: "guest"), redMid)
 
-        // 大きなメッセージ（スナップショット相当）も届く
-        let config = MatchFactory.onlineMatch(humans: [OnlineHumanSlot(team: .red, position: .mid, heroID: "H001", displayName: "Guest")], seed: 1)
-        let state = Simulation(config: config).state
-        var received: SimState?
-        connection.onMessage = { m in if case .snapshot(let s) = m { received = s } }
-        // ホスト側の接続を直接使うため、もう一本つなぐ
+        // ホストが部屋を閉じると leave が届いて切断される
         host.leave()
-        _ = state
         await wait(timeout: 2) { !client.isConnected }
         XCTAssertFalse(client.isConnected)
         guard case .disconnected = client.status else { return XCTFail("ホストの退出で切断: \(client.status)") }
-        _ = received
+    }
+
+    func testConnectToUnreachableAddressFailsWithinTimeout() async {
+        // 誰も待ち受けていないポートへの接続は失敗で終わる（「接続中」のままにしない）
+        let connection = NWOnlineConnection(host: "127.0.0.1", port: 1)
+        let client = OnlineSession.join(peerID: "guest", name: "Guest", connection: connection)
+        await wait(timeout: OnlineProtocol.connectTimeout + 5) { client.status != .connecting }
+        guard case .disconnected = client.status else { return XCTFail("到達できない相手で失敗: \(client.status)") }
     }
 
     func testLargeMessageOverLocalhost() async throws {
