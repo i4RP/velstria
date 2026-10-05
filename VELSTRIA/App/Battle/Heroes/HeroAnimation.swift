@@ -954,7 +954,10 @@ struct HeroAnimator {
         p.weaponR = profile.rest.weaponR + 1.2 * fall
         p.cape = 0
         p.wings = 0
-        p.opacity = 1 - smooth01((t - 0.45) / 0.6)
+        // 死亡クリップは倒れきってから消す（手続きの倒れ方は 0.45 秒で消え始める）
+        var fadeStart: Float = 0.45
+        if let b = clips.binding, let d = b.death { fadeStart = b.library.clips[d].endTime + 0.15 }
+        p.opacity = 1 - smooth01((t - fadeStart) / 0.6)
         return p
     }
 

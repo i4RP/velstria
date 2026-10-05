@@ -594,6 +594,17 @@ final class HeroVisual {
 
     func noteAttack(time: Float) { attackUntil = time + 0.32 }
 
+    /// 通常攻撃の振り始め。状態を先に攻撃へ移してから振る（HeroAnimator は setState → playAttack の順を前提に巡回する）。
+    func beginAttack(windup: Double, interval: Double, time: Float) {
+        attackUntil = max(attackUntil, time + Float(windup) + 0.12)
+        if animState != .attack && !(castUntil > time) && animState != .dead {
+            animState = .attack
+            handle.setState(.attack)
+        }
+        guard animState == .attack else { return }
+        handle.playAttack(windup: windup, interval: interval)
+    }
+
     func update(_ f: RenderFrame, index i: Int, visible: Bool) {
         let u = f.state.units[i]
         let dt = f.dt

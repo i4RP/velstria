@@ -255,6 +255,11 @@ final class UnitLayer {
         if let c = creatures[sourceID] { c.beginAttack() } else if let h = heroes[sourceID] { h.noteAttack(time: time) }
     }
 
+    /// ヒーローの通常攻撃の開始（windup = 命中・発射までの秒、interval = 攻撃間隔の秒）。
+    func noteAttackStart(sourceID: EntityID, windup: Double, interval: Double, time: Float) {
+        heroes[sourceID]?.beginAttack(windup: windup, interval: interval, time: time)
+    }
+
     func noteHit(targetID: EntityID) {
         creatures[targetID]?.hit()
     }

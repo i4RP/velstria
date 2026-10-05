@@ -382,7 +382,7 @@
    "name": "death_back",
    "action": 189,
    "start": 1,
-   "end": 67,
+   "end": 46,
    "rootXZ": 0.5,
    "yaw": 0
   },
@@ -390,7 +390,7 @@
    "name": "death_forward",
    "action": 184,
    "start": 1,
-   "end": 66,
+   "end": 57,
    "rootXZ": 0.5,
    "yaw": 0
   },

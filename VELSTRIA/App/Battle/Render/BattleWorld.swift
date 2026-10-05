@@ -392,6 +392,13 @@ final class BattleWorld {
         switch e {
         case .attackStarted(let src, _):
             units.noteAttack(sourceID: src, time: time)
+            // スキンメッシュのヒーローは攻撃クリップの打撃をシムの命中・発射（予備動作の終わり）へ合わせる
+            if let i = f.state.index(of: src) {
+                let u = f.state.units[i]
+                let interval = CombatSystem.attackInterval(u.stats)
+                units.noteAttackStart(sourceID: src, windup: u.windupRemaining ?? interval * Balance.attackWindupRatio,
+                                      interval: interval, time: time)
+            }
         case .attackReleased(let src, _, _):
             units.noteAttack(sourceID: src, time: time)
         case .damage(let d):

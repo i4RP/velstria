@@ -250,7 +250,8 @@ final class SkinnedHeroModelTests: XCTestCase {
         m.root.position = pos
         let body = try XCTUnwrap(m.root.children.first)
         m.setState(.dead)
-        for _ in 0..<90 { m.update(dt: 1.0 / 60.0, moveSpeed: 0) }
+        // 死亡クリップ（倒れきってから消える。death_back は約 1.5 秒 + 0.15 秒 + 透明化 0.6 秒）の後まで進める
+        for _ in 0..<180 { m.update(dt: 1.0 / 60.0, moveSpeed: 0) }
         XCTAssertLessThan(body.components[OpacityComponent.self]?.opacity ?? 1, 0.05)
         m.setState(.idle)
         m.update(dt: 1.0 / 60.0, moveSpeed: 0)

@@ -619,17 +619,19 @@ final class SkinnedHeroModel: HeroDisplayModel {
         for e in skinnedEntities { e.jointTransforms = poser.local }
 
         // 武器は手首から握りの分だけ前腕の向きへずらし、向きは手続きモデルと同じ（胴基準の絶対角）。
-        // クリップが腕を動かしている間は手の区間に持たせ（握りの向き = 割り当ての grip）、重みで手続きと混ぜる
+        // クリップが腕を動かしている間は手の区間に持たせ、重みで手続きと混ぜる。向きは割り当ての grip（振る武器）か、
+        // grip が nil なら手続きの武器角をクリップの胴に対して保つ（杖・槍・銃・弓・盾。手首の向きで寝かせない）。
+        // 手続きの weaponR(followsArm: false) = 胴 · ry(腕の yaw) · rx(武器角) なので、胴だけクリップのものに替える
         let rig = poser.rig
         let gripR = V3(0, -rig.gripR, 0), gripL = V3(0, -rig.gripL, 0)
         let handPosR = poser.position[handR], handPosL = poser.position[handL]
         if wu > 0, let m = animator.motion {
             weapon.position = simd_mix(handPosR + q.foreArmR.act(gripR), handPosR + q.handR.act(gripR), V3(repeating: wu))
-            weapon.orientation = weaponFollowsArm ? q.handR
-                : simd_slerp(qp.weaponR(p, followsArm: false), q.handR * m.weaponGrip, wu)
+            let heldR = m.weaponGrip.map { q.handR * $0 } ?? q.torso * ry(p.armR.yaw) * rx(p.weaponR)
+            weapon.orientation = weaponFollowsArm ? q.handR : simd_slerp(qp.weaponR(p, followsArm: false), heldR, wu)
             offhand.position = simd_mix(handPosL + q.foreArmL.act(gripL), handPosL + q.handL.act(gripL), V3(repeating: wu))
-            offhand.orientation = offhandFollowsArm ? q.handL
-                : simd_slerp(qp.weaponL(p, followsArm: false), q.handL * m.offhandGrip, wu)
+            let heldL = m.offhandGrip.map { q.handL * $0 } ?? q.torso * ry(-p.armL.yaw) * rx(p.weaponL)
+            offhand.orientation = offhandFollowsArm ? q.handL : simd_slerp(qp.weaponL(p, followsArm: false), heldL, wu)
         } else {
             weapon.position = handPosR + q.foreArmR.act(gripR)
             weapon.orientation = q.weaponR(p, followsArm: weaponFollowsArm)

@@ -80,8 +80,34 @@
   一致すること（1° 以内）を毎回確かめる。
 
 ## 実行時
-- `HeroMotionClips`（App/Battle/Heroes/HeroMotionClips.swift）が JSON を 1 度だけ読み、区間回転を補間（slerp）して返す。
-- `HeroAnimator` は手続きの `HeroPose` に加えて「重ねるクリップ・時刻・重み・マスク（全身 / 上半身）」を持ち、
+- `HeroMotionClips`（App/Battle/Heroes/HeroMotionClips.swift）が JSON を 1 度だけ読む（戦闘はロード中にテンプレートと並行して
+  非同期で読む。プレビュー・テストは同期）。無い・壊れていれば空のライブラリ = 手続きアニメーションだけで動く。
+- `HeroMotionSets`（HeroMotionSets.swift）がヒーローごとの割り当て: 通常攻撃（順に繰り返す）、Skill1〜Ultimate の詠唱、
+  待機・死亡・勝利。ライブラリに無い名前は黙って落とす。移動は手続き（速度に合わせた歩幅）、帰還の膝立ちも手続き。
+- `HeroClipLayer`（HeroAnimation.swift）が手続きの `HeroPose` に重ねるクリップ・時刻・重み・マスクを持ち、
   `SkinnedHeroModel.apply` が区間ごとに手続きとクリップを slerp してから `HeroSkeletonPoser.solve` する。
-- クリップ再生中、武器は手の区間（handR / handL）に追従する（手続きの武器角とは重みで混ぜる）。
+- 通常攻撃: シムの `attackStarted` で描画側が `setState(.attack)` → `HeroModelHandle.playAttack(windup:interval:)` の順に呼ぶ
+  （windup = シムの予備動作の残り = 命中・発射までの秒）。クリップの `impact` が windup 秒後に来るよう、打撃までを 0.5〜4 倍速で
+  再生し（範囲外なら開始位置をずらす）、打撃の後は次の攻撃までに戻りが収まる速さ（1 倍以上）。`setState(.attack)` だけなら
+  既定の拍（windup 0.3 秒・間隔 0.9 秒）で回す（プレビュー・ギャラリー）。
+- 詠唱: 呼び出しの 0.12 秒後に `impact` が来る位置から等速で再生（シムの効果は詠唱の tick に出るため予備動作は短い）。
+- マスク: 立ち止まっていれば全身、移動中は上半身だけ（攻撃・詠唱とも。足の滑りを避ける）。全身の間は手続きの全身の傾き・
+  浮き沈み・腰の沈みをクリップの重みの分だけ止める。
+- ループのクリップは状態（待機など）の時だけループする。攻撃・詠唱・死亡に割り当てたループのクリップは 1 周で終える。
+- `impact` が無いクリップは `release`、それも無ければ全長の 40% を打撃とする。
+- 手・足の区間で骨を駆動するのは、手首・足首が前腕・脛の子孫で、間の骨がすべてレスト（未駆動）の時だけ。それ以外は従来どおり親に追従。
+- 死亡クリップは最後のフレームで止め、倒れきってから（クリップの終わり + 0.15 秒）透明にする。
+- 武器: クリップ再生中は手の区間に付ける（位置）。向きは割り当ての grip があれば手の区間 × grip（振る武器。既定の拳の握り =
+  +Y を手の区間の正面 -Z へ）、grip が nil なら手続きの武器角をクリップの胴に対して保つ（杖・槍・銃・弓・盾・灯籠）。
+  体に付ける籠手・爪は手の区間そのもの。
 - 手続きモデル（スキンメッシュが無いヒーロー）は従来の手続きクリップのまま。
+
+## クリップの作り方（tools/heroref）
+1. 動作の購入: `node tools/meshy.mjs anim --rig H002 --actions <id,...>`（1 動作 3 credits、既存の rig を使う。rig は 3 日で失効）。
+2. 全長の抽出（解析用）: `build/heroref/raw_spec.json`（全 action を範囲指定なしで並べたもの）→ `build/heroref/raw_clips.json`。
+3. 切り出し表 `tools/heroref/clip_defs.json`（元フレーム = 最初のキーが 1、impact、yaw の決め方）→
+   `python3 tools/heroref/make_clips.py` が `tools/heroref/clips.json` を作る。yaw: 省略 = 打撃の瞬間の胴を正面へ、
+   `hand` / `handL` = 肩 → 手首を正面へ、`travel` = 腰の移動方向を正面へ、数値 = 度。
+4. 抽出: `extract_clips.py --spec tools/heroref/clips.json --out App/Resources/Heroes/HeroMotionClips.json`。
+5. 目視: `preview_clip.py --clip <名前> --hero H001 --weapon R,L --at "impact-6,impact,impact+4" --view overhead`
+   （overhead = 真上、正面が画面の上。棒は握りの向き）。
