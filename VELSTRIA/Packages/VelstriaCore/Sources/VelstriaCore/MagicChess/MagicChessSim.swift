@@ -111,11 +111,14 @@ public final class MagicChessSim {
     }
 
     private func resolveEliminations() {
-        let dyingIDs = state.players.filter { $0.alive && $0.hp <= 0 }.map(\.id).sorted()
-        guard !dyingIDs.isEmpty else { return }
+        // HP 昇順（最も削られた順）に脱落させる。同 HP は id 昇順。最後の 1 人は必ず残す（勝者確定のため）。
+        var dying = state.players.filter { $0.alive && $0.hp <= 0 }
+        guard !dying.isEmpty else { return }
+        dying.sort { $0.hp != $1.hp ? $0.hp < $1.hp : $0.id < $1.id }
         var remaining = state.aliveCount
-        for id in dyingIDs {
-            guard let i = state.index(of: id) else { continue }
+        for p in dying {
+            if remaining <= 1 { break }   // 全員同時に 0 以下でも 1 人は生存＝勝者
+            guard let i = state.index(of: p.id) else { continue }
             state.players[i].alive = false
             state.players[i].placement = remaining   // 今生きている人数 = この脱落の順位
             remaining -= 1

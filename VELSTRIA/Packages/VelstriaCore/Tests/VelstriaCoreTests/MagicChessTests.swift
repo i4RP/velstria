@@ -52,7 +52,7 @@ final class MagicChessTests: XCTestCase {
         XCTAssertEqual(a.state.round, b.state.round)
     }
 
-    func testSynergyCounting() {
+    func testSynergyCounting() throws {
         let master = MasterData.shared
         // 同一ロールのユニーク 2 体でシナジー第1段階になる。
         let rangers = master.heroes.filter { $0.role == .ranger }.prefix(2).map(\.heroID)

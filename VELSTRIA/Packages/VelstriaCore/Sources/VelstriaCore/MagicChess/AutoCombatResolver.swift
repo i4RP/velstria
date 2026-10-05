@@ -70,7 +70,7 @@ public enum AutoCombatResolver {
         let damageBonus: Double
         let magicDamage: Bool
         var cooldown: Double
-        var targetIndex: Int?
+        var targetIndex: Int? = nil
         var alive: Bool { hp > 0 }
     }
 
@@ -102,7 +102,8 @@ public enum AutoCombatResolver {
                     fighters[i].cooldown -= dt
                     if fighters[i].cooldown <= 0 {
                         attack(&fighters, attacker: i, target: t, rng: &rng)
-                        fighters[i].cooldown += 1.0 / max(0.1, fighters[i].attackSpeed)
+                        let period = 1.0 / max(0.1, fighters[i].attackSpeed)
+                        fighters[i].cooldown += period
                     }
                 } else {
                     let dir = (fighters[t].pos - fighters[i].pos).normalized
