@@ -166,6 +166,127 @@
       "stages": {
         "concept": {
           "status": "success",
+          "task_id": "4d4fa373-91e9-4d62-81f7-4e94c1ee51e3",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Graceful young moon-elf archer woman, slender standard build, fair skin, long pointed elf ears. Very long straight silver-white hair with pale-blue tips and a bright blue gem-and-crescent-moon tiara. Fitted white and teal-blue marksman outfit: cropped white jacket with high collar and gold trims, small silver-gold shoulder guards, short layered white-and-teal skirt over fitted opaque white leggings, knee-high teal boots with gold crescent cuffs, white fingerless gloves with teal gauntlet bracers. Long teal sash trailing from the waist. Slim leather quiver of moonlight arrows strapped on the back. Palette: pearl white, moon teal-blue, gold, pale silver, soft violet gems. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo, bare thighs, exposed underwear, revealing outfit",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-05T02:32:34.056Z",
+          "completed_at": "2026-10-05T02:33:05.595922Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build\\tripo\\heroes\\H003\\concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-05T02:33:11.830Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "0233be2b-5f20-4964-b81e-813551fd216c",
+          "input": "4d4fa373-91e9-4d62-81f7-4e94c1ee51e3",
+          "request": {
+            "input": "4d4fa373-91e9-4d62-81f7-4e94c1ee51e3",
+            "model": "P1-20260311",
+            "face_limit": 10000,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-05T02:33:24.728Z",
+          "completed_at": "2026-10-05T02:34:33.661332Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build\\tripo\\heroes\\H003\\model.glb",
+            "preview": "build\\tripo\\heroes\\H003\\preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-05T02:34:40.728Z"
+        },
+        "rigcheck": {
+          "status": "success",
+          "task_id": "b04f1742-d4f2-47d9-9876-ac25f90eca2f",
+          "input": "0233be2b-5f20-4964-b81e-813551fd216c",
+          "request": {
+            "input": "0233be2b-5f20-4964-b81e-813551fd216c"
+          },
+          "estimate": 0,
+          "submitted_at": "2026-10-05T02:34:40.730Z",
+          "completed_at": "2026-10-05T02:34:41.943664Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": {
+            "riggable": true,
+            "rig_type": "biped"
+          },
+          "files": {},
+          "error": null,
+          "updated_at": "2026-10-05T02:34:47.835Z"
+        },
+        "rig": {
+          "status": "success",
+          "task_id": "995295f6-6acb-465a-8cdd-7582a3a09b8d",
+          "input": "0233be2b-5f20-4964-b81e-813551fd216c",
+          "request": {
+            "input": "0233be2b-5f20-4964-b81e-813551fd216c",
+            "model": "v1.0-20240301",
+            "rig_type": "biped",
+            "spec": "mixamo",
+            "out_format": "glb"
+          },
+          "estimate": 25,
+          "submitted_at": "2026-10-05T02:34:48.329Z",
+          "completed_at": "2026-10-05T02:34:55.158735Z",
+          "progress": 100,
+          "credits_consumed": 25,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build\\tripo\\heroes\\H003\\rigged.glb"
+          },
+          "error": null,
+          "updated_at": "2026-10-05T02:35:02.188Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-04T16:18:46.632Z",
+        "out": "App/Resources/Heroes/Hero_H003.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H003/import_report.json",
+        "log": "build/tripo/heroes/H003/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H003/import_verify.log"
+      },
+      "history": [
+        {
+          "stage": "concept",
+          "archived_at": "2026-10-05T02:31:32.753Z",
+          "status": "success",
           "task_id": "6d253434-4eb8-4b79-96d0-f88ced5ee2ba",
           "input": null,
           "request": {
@@ -191,16 +312,38 @@
           },
           "error": null,
           "updated_at": "2026-10-04T14:57:00.928Z"
+        },
+        {
+          "stage": "concept",
+          "archived_at": "2026-10-05T02:32:33.520Z",
+          "status": "success",
+          "task_id": "a822b980-b68e-4b8e-972d-55cc06624322",
+          "input": null,
+          "request": {
+            "prompt": "Single original unarmed fantasy MOBA hero, full body, strict T-pose: arms straight out horizontally, open empty hands with spread fingers, legs straight with feet slightly apart, front view. Rugged ranger (man), lean standard build, tan skin. Emerald-green leather armor with the hood up over short ash-gray hair, face visible, small iron shoulder guards, ember-orange scarf around the neck, dark green belt with a cloth loincloth flap, leather bracers and boots. Leather quiver full of arrows strapped on the back. Iron buckles. Palette: emerald green, dark forest green, ash gray, ember orange. Stylized hand-painted game art, clean readable silhouette for a top-down camera, slightly large head (about 1/5 of height), sturdy legs and feet, character centered with margin, plain light-gray background, even soft lighting, no text, no logo. --no weapon, sword, dagger, shield, bow, staff, spear, gun, book, lantern, held item, holster, scabbard, sheath, floating orb, halo, wings on back, particles, magic effects, extra limbs, cropped, multiple characters, text, watermark, logo, bare thighs, exposed underwear, revealing outfit",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false,
+            "template": "t_pose"
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-05T02:31:33.331Z",
+          "completed_at": "2026-10-05T02:32:16.505171Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build\\tripo\\heroes\\H003\\concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-05T02:32:21.703Z"
         }
-      },
-      "import": {
-        "at": "2026-10-04T16:18:46.632Z",
-        "out": "App/Resources/Heroes/Hero_H003.usdz",
-        "status": "success",
-        "report": "build/tripo/heroes/H003/import_report.json",
-        "log": "build/tripo/heroes/H003/import_normalize.log",
-        "verifyLog": "build/tripo/heroes/H003/import_verify.log"
-      }
+      ]
     },
     "heroes/H004": {
       "stages": {
@@ -1937,5 +2080,5 @@
     }
   },
   "note": "tools/tripo.mjs が自動生成。task_id・状態・消費クレジット・ローカルパスのみ（秘密情報なし）",
-  "updated_at": "2026-10-05T00:41:00.959Z"
+  "updated_at": "2026-10-05T02:35:02.188Z"
 }

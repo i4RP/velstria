@@ -369,6 +369,7 @@ final class HeroModel: HeroDisplayModel {
 
         animator = HeroAnimator(profile: HeroMotionProfile(blueprint: bp, metrics: ms.metrics),
                                 defaultRunSpeed: defaultRunSpeed)
+        animator.legLength = (ms.metrics.thigh + ms.metrics.shin) * bp.scale
         entityCount = HeroEffects.countEntities(root)
         apply(animator.current, time: 0)
     }

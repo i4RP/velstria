@@ -147,7 +147,8 @@ struct HeroMotionProfile {
         r.armL = ArmPose(pitch: 0.12, out: m.armRestOut, yaw: 0, elbow: 0.3)
         r.weaponR = -0.9
         r.weaponL = 0
-        r.legR = LegPose(pitch: 0, out: bp.build == .heavy ? 0.08 : 0.05, knee: 0.06)
+        // 足を肩幅より少し開いた、どっしり構えた立ち姿
+        r.legR = LegPose(pitch: 0, out: bp.build == .heavy ? 0.12 : 0.09, knee: 0.08)
         r.legL = r.legR
         r.cape = 0.05
         r.wings = 0.2
@@ -423,6 +424,8 @@ struct HeroAnimator {
     let profile: HeroMotionProfile
     /// 状態未指定の走行時の速度（m/s）。
     let defaultRunSpeed: Float
+    /// 腰から足首までの長さ（m、モデルの拡縮込み）。歩幅と足の運びを地面の動きへ合わせるのに使う。
+    var legLength: Float = 0.56
 
     private(set) var state: HeroAnimState = .idle
     private(set) var stateTime: Float = 0
@@ -497,7 +500,9 @@ struct HeroAnimator {
         if state == .dead || state == .channel || state == .stunned || state == .victory { target = 0 }
         // 急な速度変化を平滑化
         speed += (target - speed) * min(1, dt * 10)
-        runPhase += dt * speed * 3.7
+        // 1 歩（半周期）で足が進む距離 = 2·L·sin(A) が、その間に体が進む距離と一致するように位相を進める
+        let sweep = sin(legSwingAngle(speed: speed))
+        if speed > 0.01 { runPhase += dt * .pi * speed / (2 * max(0.2, legLength) * max(0.1, sweep)) }
         if runPhase > 1000 { runPhase -= 2 * .pi * 150 }
 
         let pose = evaluate()
@@ -538,6 +543,11 @@ struct HeroAnimator {
 
     // MARK: 移動
 
+    /// 走行時の脚の前後振り角（rad）。速いほど大きく振る。
+    private func legSwingAngle(speed: Float) -> Float {
+        0.72 * min(1.35, max(0.45, speed / 3.3)) * profile.legSwing
+    }
+
     private func locomotion() -> HeroPose {
         let r = profile.rest
         var p = r
@@ -562,24 +572,32 @@ struct HeroAnimator {
         let ph = runPhase
         let s = sin(ph), c = cos(ph)
         var run = p
-        let A = 0.72 * k * profile.legSwing
-        run.legR.pitch = A * s
-        run.legL.pitch = -A * s
-        run.legR.knee = k * (0.25 + 1.05 * max(0, c))
-        run.legL.knee = k * (0.25 + 1.05 * max(0, -c))
-        run.legR.out = 0.03
-        run.legL.out = 0.03
-        run.offset.y = 0.05 * k * abs(c)
-        run.pitch = 0.16 * k
-        run.torsoYaw = 0.14 * k * s
-        run.hipsYaw = -0.12 * k * s
-        run.headPitch = -0.12 * k
-        run.headYaw = -run.torsoYaw * 0.6
-        let S = 0.85 * k
+        let A = legSwingAngle(speed: speed)
+        // 足の前後振りは三角波寄り（接地中は一定の速さで後ろへ流れる = 地面を蹴って進んで見える）
+        let tri = asin(0.95 * s) / asin(0.95)
+        run.legR.pitch = A * tri
+        run.legL.pitch = -A * tri
+        // 振り出し側の膝を高く畳み、接地側はほぼ伸ばす
+        run.legR.knee = k * (0.12 + 1.35 * max(0, c))
+        run.legL.knee = k * (0.12 + 1.35 * max(0, -c))
+        run.legR.out = 0.04
+        run.legL.out = 0.04
+        // 接地ごとに腰が沈み、蹴り出しで浮く
+        run.offset.y = 0.06 * k * abs(c)
+        run.hipsDrop = 0.02 * k * (1 - abs(c))
+        run.pitch = 0.24 * k
+        run.torsoPitch = -0.08 * k
+        run.torsoYaw = 0.2 * k * s
+        run.hipsYaw = -0.14 * k * s
+        run.hipsRoll = 0.05 * k * s
+        run.headPitch = -0.2 * k
+        run.headYaw = -run.torsoYaw * 0.8
+        // 腕は肘を畳んだまま小さめに振る（棒立ちで振り回さない）
+        let S = 0.7 * k
         run.armR.pitch = r.armR.pitch - S * profile.runSwingR * s
         run.armL.pitch = r.armL.pitch + S * profile.runSwingL * s
-        run.armR.elbow = r.armR.elbow + 0.45 * profile.runSwingR
-        run.armL.elbow = r.armL.elbow + 0.45 * profile.runSwingL
+        run.armR.elbow = r.armR.elbow + 0.75 * profile.runSwingR
+        run.armL.elbow = r.armL.elbow + 0.75 * profile.runSwingL
         run.weaponR = r.weaponR + 0.08 * sin(ph * 2)
         run.weaponL = r.weaponL + 0.06 * sin(ph * 2)
         run.cape = 0.25 + 0.35 * k + 0.07 * sin(ph * 2)

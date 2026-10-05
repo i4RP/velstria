@@ -508,6 +508,7 @@ final class SkinnedHeroModel: HeroDisplayModel {
 
         animator = HeroAnimator(profile: HeroMotionProfile(blueprint: bp, metrics: ms.metrics),
                                 defaultRunSpeed: defaultRunSpeed)
+        animator.legLength = skinLeg * bp.scale
         entityCount = HeroEffects.countEntities(root)
         apply(animator.current, time: 0)
     }

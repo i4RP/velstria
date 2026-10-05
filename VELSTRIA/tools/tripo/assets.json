@@ -23,8 +23,8 @@
     },
     {
       "id": "H003", "name_ja": "灰刃のカエル", "name_en": "Kael, Ashblade", "role": "Ranger",
-      "prompt": "Rugged ranger (man), lean standard build, tan skin. Emerald-green leather armor with the hood up over short ash-gray hair, face visible, small iron shoulder guards, ember-orange scarf around the neck, dark green belt with a cloth loincloth flap, leather bracers and boots. Leather quiver full of arrows strapped on the back. Iron buckles. Palette: emerald green, dark forest green, ash gray, ember orange.",
-      "notes": "副手 ashBow は Prop（右手は素手）。矢筒は本体に含める。"
+      "prompt": "Graceful young moon-elf archer woman, slender standard build, fair skin, long pointed elf ears. Very long straight silver-white hair with pale-blue tips and a bright blue gem-and-crescent-moon tiara. Fitted white and teal-blue marksman outfit: cropped white jacket with high collar and gold trims, small silver-gold shoulder guards, short layered white-and-teal skirt over fitted opaque white leggings, knee-high teal boots with gold crescent cuffs, white fingerless gloves with teal gauntlet bracers. Long teal sash trailing from the waist. Slim leather quiver of moonlight arrows strapped on the back. Palette: pearl white, moon teal-blue, gold, pale silver, soft violet gems.",
+      "notes": "副手 ashBow は Prop（右手は素手）。矢筒は本体に含める。月のエルフの弓手（モバイルレジェンドのマイヤ風）に作り直し。"
     },
     {
       "id": "H004", "name_ja": "潮祈のミレア", "name_en": "Mirea, Tidecaller", "role": "Arcanist",
