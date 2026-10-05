@@ -33,8 +33,14 @@
 	<string>public.app-category.action-games</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_velstria._tcp</string>
+	</array>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 VELSIA</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>近くのプレイヤーとオンライン対戦するために、同じネットワーク上の VELSIA を探して接続します。</string>
 	<key>SKIncludeConsumableInAppPurchaseHistory</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

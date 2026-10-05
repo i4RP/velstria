@@ -408,6 +408,9 @@ private struct HomeMenuBar: View {
             Entry(symbol: "play.rectangle.fill", title: L("リプレイ", "Replays"), route: .replays, id: "home_replays"),
             Entry(symbol: "eye.fill", title: L("観戦", "Spectate"), route: .spectateSetup, id: "home_spectateSetup"),
             Entry(symbol: "figure.run", title: L("練習場", "Practice"), route: .practiceSetup, id: "home_practiceSetup"),
+        ] + (FeatureFlags.lanMatch
+             ? [Entry(symbol: "antenna.radiowaves.left.and.right", title: L("オンライン", "Online"), route: .onlineLobby, id: "home_online")]
+             : []) + [
             Entry(symbol: "gearshape.fill", title: L("設定", "Settings"), route: .settings, id: "home_settings"),
         ]
     }

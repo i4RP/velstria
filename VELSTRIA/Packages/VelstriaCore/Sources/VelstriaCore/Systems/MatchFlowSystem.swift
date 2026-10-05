@@ -67,7 +67,7 @@ public enum MatchFlowSystem {
 
     /// 降参が使えるモードか（対 AI 戦のみ。練習場・チュートリアル・観戦は不可）。
     public static func surrenderEnabled(_ ctx: SimContext) -> Bool {
-        ctx.config.mode == .standard || ctx.config.mode == .ranked
+        ctx.config.mode == .standard || ctx.config.mode == .ranked || ctx.config.mode == .online
     }
 
     /// team が今、降参を提案できるか（HUD のボタン活性）。

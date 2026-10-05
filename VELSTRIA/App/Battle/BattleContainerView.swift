@@ -33,6 +33,7 @@ struct BattleContainerView: View {
                 BattleHUDView(controller: controller) { outcome in
                     finish(outcome)
                 }
+                if controller.isOnline { OnlineBattleOverlay(controller: controller) }
                 #if DEBUG
                 if DebugLaunch.isUITesting { uiTestFastForwardButton(controller) }
                 #endif
@@ -43,7 +44,8 @@ struct BattleContainerView: View {
         .onAppear(perform: startIfNeeded)
         .onDisappear(perform: tearDown)
         .onChange(of: scenePhase) { _, phase in
-            guard let controller, phase != .active, !controller.isEnded else { return }
+            // オンライン対戦は世界を止められない（他の参加者がいる）
+            guard let controller, phase != .active, !controller.isEnded, !controller.isOnline else { return }
             controller.isPaused = true
         }
     }
@@ -52,7 +54,7 @@ struct BattleContainerView: View {
         guard controller == nil else { return }
         // 保険: 戦闘描画より前にヒーローのアセットを揃える（ロード画面で 1 人ずつ済んでいればキャッシュ参照だけ）
         HeroModelLibrary.preload(players: launch.config.players.map { ($0.heroID, $0.skinID) }, master: app.master)
-        let c = BattleController(launch: launch)
+        let c = BattleController(launch: launch, online: launch.isOnline ? app.online : nil)
         let settings = app.profile.settings
         c.cameraZoom = settings.cameraZoom
         if !c.isSpectating {
@@ -61,6 +63,7 @@ struct BattleContainerView: View {
             c.send(.setAutoLevel(enabled: auto))
         }
         controller = c
+        if c.isOnline { app.online?.attach(controller: c) }
         let director = BattleAudioDirector(controller: c, app: app)
         director.start()
         audioDirector = director
@@ -95,5 +98,43 @@ struct BattleContainerView: View {
         loop.stop()
         audioDirector?.stop()
         controller?.aim = nil
+        if controller?.isOnline == true { app.online?.detach() }
+    }
+}
+
+/// オンライン対戦の待機・切断表示（HUD の上に重ねる）。
+struct OnlineBattleOverlay: View {
+    let controller: BattleController
+
+    var body: some View {
+        let status = controller.onlineStatus
+        ZStack {
+            if status != .none {
+                VStack(spacing: 8) {
+                    ProgressView().tint(Theme.gold)
+                    Text(text(status))
+                        .font(Theme.heading(15))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(18)
+                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.black.opacity(0.7)))
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Theme.panelStroke))
+                .transition(.opacity)
+                .accessibilityIdentifier("online_battle_status")
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: status)
+        .allowsHitTesting(false)
+    }
+
+    private func text(_ s: OnlineBattleStatus) -> String {
+        switch s {
+        case .none: return ""
+        case .waitingForPlayers: return L("他のプレイヤーの読み込みを待っています…", "Waiting for other players to load…")
+        case .waitingForHost(let seconds):
+            return L("ホストからの配信を待っています… (\(Int(seconds)) 秒)", "Waiting for the host… (\(Int(seconds))s)")
+        case .disconnected: return L("接続が切れました。試合を終了します", "Connection lost. Ending the match")
+        }
     }
 }

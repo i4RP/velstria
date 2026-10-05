@@ -214,6 +214,8 @@ public enum MatchMode: Int, Codable, Hashable, Sendable {
     case tutorial
     /// 観戦（10 体すべて AI）。
     case spectate
+    /// オンライン対戦（リッスンサーバー: 人間が複数、空いた枠は AI。報酬・ランクの対象外）。
+    case online
 }
 
 public enum MatchPhase: Int, Codable, Hashable, Sendable {

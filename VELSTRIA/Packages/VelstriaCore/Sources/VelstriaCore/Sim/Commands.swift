@@ -35,6 +35,9 @@ public enum PlayerCommand: Codable, Hashable, Sendable {
     case surrenderVote(yes: Bool)
     /// チュートリアルのタワー練習へ進む際、訓練人形と再出現予約を取り除く。
     case removeTutorialDummies
+    /// 操作者の切り替え（オンライン対戦: 切断した人間の枠を AI に引き継ぐ / 再接続で人間に戻す）。
+    /// ホスト（権威シミュレーション）だけが発行し、クライアントは配信された入力として再生する。
+    case setController(Controller)
 }
 
 public struct HeroCommand: Codable, Hashable, Sendable {

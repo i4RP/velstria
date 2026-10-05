@@ -54,6 +54,8 @@ enum Route: Hashable {
     case credits                 // UI073
     case replays                 // UI035
     case spectateSetup           // UI036
+    // online
+    case onlineLobby
 }
 
 @Observable
@@ -117,6 +119,7 @@ struct RouteDestination: View {
         case .credits: CreditsView()
         case .replays: ReplayListView()
         case .spectateSetup: SpectateSetupView()
+        case .onlineLobby: OnlineLobbyView()
         }
     }
 }

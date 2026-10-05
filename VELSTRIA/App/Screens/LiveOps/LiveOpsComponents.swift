@@ -99,6 +99,7 @@ enum LiveOpsFormat {
         case .practice: return L("練習場", "Practice")
         case .tutorial: return L("チュートリアル", "Tutorial")
         case .spectate: return L("観戦", "Spectate")
+        case .online: return L("オンライン対戦", "Online")
         }
     }
 
@@ -109,6 +110,7 @@ enum LiveOpsFormat {
         case .practice: return "target"
         case .tutorial: return "graduationcap.fill"
         case .spectate: return "eye.fill"
+        case .online: return "antenna.radiowaves.left.and.right"
         }
     }
 

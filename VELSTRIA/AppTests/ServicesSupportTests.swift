@@ -30,6 +30,9 @@ enum ServicesFixtures {
                                               tutorial: mode == .tutorial, seed: seed)
         case .spectate:
             return MatchFactory.botMatch(seed: seed)
+        case .online:
+            return MatchFactory.onlineMatch(humans: [OnlineHumanSlot(team: .blue, position: .mid, heroID: heroID, displayName: "Tester")],
+                                            seed: seed)
         }
     }
 

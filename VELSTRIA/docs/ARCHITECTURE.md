@@ -83,7 +83,46 @@ VELSTRIA/
 - 色だけに依存しない（ロールは `Theme.roleSymbol`、チームは形/ラベルでも区別）。
 - 画面遷移: `app.router.push(.heroes)`、対戦フロー `app.router.isMatchFlowPresented = true`、戦闘 `app.startBattle(BattleLaunch(...))`。
 - プロフィール変更は `app.profile.xxx = ...`（自動保存）。ロジックは Services 側の関数を使う。
-- ネットワーク通信なし（オフライン完結）。外部リンクは `Link` / `openURL`。
+- 通常プレイはネットワーク通信なし（オフライン完結）。外部リンクは `Link` / `openURL`。
+  例外はオンライン対戦（下記。同一 LAN の端末間通信のみ、外部サーバーなし）。
+
+## オンライン対戦（リッスンサーバー方式、開発期間用）
+`FeatureFlags.lanMatch` で有効。参加者の 1 台が **ホスト**（権威シミュレーション）になり、他は **クライアント**として入力を送る。
+外部サーバーは無い。同一 LAN の部屋を Bonjour（`_velstria._tcp`）で探すか、ホストの IP:ポート（既定 47814）を入力して TCP で繋ぐ。
+Info.plist に `NSLocalNetworkUsageDescription` / `NSBonjourServices` が必要（project.yml に定義）。
+
+```
+App/Online/
+  OnlineProtocol.swift   メッセージ（OnlineMessage）・部屋モデル（OnlineRoom / OnlineSeat / OnlineLoadout）・長さ区切り JSON の符号化（OnlineFramer）
+  OnlineTransport.swift  接続の抽象（OnlineConnection）。LoopbackConnection（テスト）、NWOnlineConnection / NWOnlineListener / NWOnlineBrowser（Network.framework）
+  OnlineSession.swift    部屋への参加状態（ホスト or クライアント）。ロビー操作、戦闘中の入力中継、ハッシュ照合、再同期、切断 → AI 引き継ぎ、再接続
+App/Screens/Online/OnlineLobbyView.swift  入口（部屋を作る / 探す / アドレス入力）と部屋（座席・ピック・準備完了・開始）
+Packages/VelstriaCore/Sources/VelstriaCore/Sim/MatchFactoryOnline.swift  複数人間の 5v5 構成（`MatchFactory.onlineMatch`、座席番号 = players の添字）
+```
+
+同期の仕組み（決定論シミュレーションの入力同期。AI は両側で同じ計算をするので送らない）:
+1. ロビー: ホストが `OnlineRoom` の正本を持ち、変化のたびに全体を配る。座席（Blue 5 / Red 5）に着いた人間がピックして準備完了、ホストが開始。
+   `OnlineRoom.makeConfig` が `MatchFactory.onlineMatch` で `MatchConfig`（`mode: .online`）を作り、全員に同じ構成が届く。
+   自分の座席番号は `BattleLaunch.onlineSeat`（= `config.players` の添字）。`BattleController.localHeroID` はそこから決まり、
+   `humanHeroID` / `localTeam` / `viewerTeam`（霧の視点）は自分の座席のもの（Red 側のこともある。カメラは回転しない）。
+2. 読み込み: 各クライアントは戦闘画面で `OnlineSession.attach` → `.loaded` を送る。ホストは座っている全員の `loaded`（または 90 秒）を待ってから進め始める。
+3. 戦闘: ホストは `自分の入力 + 届いたクライアント入力（+ 操作者切り替え）` で `Simulation.step` し、その tick に適用した入力列を
+   `ReplayFrame` として全員へ配る（空の tick も送る。クライアントの時計になる）。描画フレームの終わりにまとめて 1 メッセージで送る。
+   クライアントは入力をホストへ送るだけで自分では適用せず、届いた tick の入力で step する（遅れて再生。届かなければ補間係数 1 で待ち、
+   `onlineJitterBuffer` tick より溜まれば時計を待たずに進め、`onlineCatchUpThreshold` より溜まれば早送りで追いつく）。
+   クライアントは他人のヒーローを操作できない（ホストが座席のヒーロー ID で検証し、`setController` は捨てる）。
+4. 検証と再同期: クライアントは `OnlineProtocol.hashInterval`（30 tick）毎に `SimState.stateHash()` を報告し、ホストは自分の記録と比べる。
+   食い違えばホストの `SimState` スナップショット（Codable、約 200KB）を送り、クライアントは `Simulation.restore(from:)` で置き換えて
+   それ以前の配信を捨てる。
+5. 切断: 試合中にクライアントが落ちるとホストは `PlayerCommand.setController(.bot)` を発行して AI に引き継ぐ（座席は保つ）。
+   同じ playerID で再接続すると構成 → 読み込み → スナップショット → `setController(.human)` で戻る。ホストが落ちるとクライアントの試合は中断終了。
+6. 一時停止・バックグラウンド: オンライン中は `isPaused` で世界を止めない（メニューを開くだけ）。
+   `MatchMode.online` は報酬・ランク・戦績の対象外（`RewardService`）。降参投票は有効。
+
+検証用の起動引数（Debug のみ）: `-onlineHost [port]`、`-onlineJoin <host:port>`、`-onlineAuto`（自動で着席・ピック・準備完了、ホストは揃えば開始）。
+2 台のシミュレータで `-onlineHost -onlineAuto` と `-onlineJoin 127.0.0.1:47814 -onlineAuto` を起動すると対戦が始まる。
+テスト: `OnlineCoreTests`（コア）、`OnlineProtocolTests` / `OnlineSessionTests`（ループバックでロビー → 同期 → 再同期 → 切断 → 再接続）/
+`OnlineTransportTests`（localhost の TCP）。
 
 ## ヒーローの 3D モデル（Tripo 生成アセット）
 - 表示は `HeroModelLibrary.makeHero`（`HeroDisplayModel`）。同梱の `Hero_<heroID>.usdz` があればスキンメッシュ

@@ -67,7 +67,7 @@ final class BattleAudioDirector {
         guard let controller, let app else { return }
         let s = controller.sim.state
         let humanIndex = controller.humanIndex
-        var ctx = Context(humanID: controller.humanHeroID, humanTeam: controller.isSpectating ? nil : .blue,
+        var ctx = Context(humanID: controller.humanHeroID, humanTeam: controller.localTeam,
                           humanMaxHP: humanIndex.map { s.units[$0].stats.maxHP } ?? 1,
                           listener: humanIndex.map { s.units[$0].pos } ?? Balance.mapCenter,
                           isSpectating: controller.isSpectating)
