@@ -461,8 +461,9 @@ final class SkinnedHeroModelTests: XCTestCase {
             XCTAssertTrue(m.offhand.children.isEmpty, "\(id) 左手に Prop が付いている")
             XCTAssertNotNil(m.weapon.findEntity(named: "castGlow"), "\(id) 詠唱の光の親が無い")
         }
-        // 通常の武器は従来どおり付く
-        XCTAssertNotNil(try makeSkinned("H001").weapon.model)
+        // 通常の武器は従来どおり付く（同梱の Prop_broadsword.usdz があればそれ、無ければ手続きメッシュ）
+        let sword = try makeSkinned("H001").weapon
+        XCTAssertTrue(sword.model != nil || sword.findEntity(named: "propFit") != nil, "H001 の剣が付いていない")
     }
 
     /// 長さ 1 m の箱の Prop（握りは下端から grip の割合）。

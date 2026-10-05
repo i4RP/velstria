@@ -1898,8 +1898,44 @@
         "log": "build/tripo/heroes/H024/import_normalize.log",
         "verifyLog": "build/tripo/heroes/H024/import_verify.log"
       }
+    },
+    "props/gateShield": {
+      "stages": {},
+      "import": {
+        "at": "2026-10-05T00:39:27.146Z",
+        "out": "App/Resources/Heroes/Prop_gateShield.usdz",
+        "status": "success",
+        "report": "build/tripo/props/gateShield/import_report.json",
+        "log": "build/tripo/props/gateShield/import_normalize.log",
+        "verifyLog": "build/tripo/props/gateShield/import_verify.log",
+        "provider": "meshy"
+      }
+    },
+    "props/broadsword": {
+      "stages": {},
+      "import": {
+        "at": "2026-10-05T00:39:34.534Z",
+        "out": "App/Resources/Heroes/Prop_broadsword.usdz",
+        "status": "success",
+        "report": "build/tripo/props/broadsword/import_report.json",
+        "log": "build/tripo/props/broadsword/import_normalize.log",
+        "verifyLog": "build/tripo/props/broadsword/import_verify.log",
+        "provider": "meshy"
+      }
+    },
+    "props/lightningSpear": {
+      "stages": {},
+      "import": {
+        "at": "2026-10-05T00:41:00.952Z",
+        "out": "App/Resources/Heroes/Prop_lightningSpear.usdz",
+        "status": "success",
+        "report": "build/tripo/props/lightningSpear/import_report.json",
+        "log": "build/tripo/props/lightningSpear/import_normalize.log",
+        "verifyLog": "build/tripo/props/lightningSpear/import_verify.log",
+        "provider": "meshy"
+      }
     }
   },
   "note": "tools/tripo.mjs が自動生成。task_id・状態・消費クレジット・ローカルパスのみ（秘密情報なし）",
-  "updated_at": "2026-10-04T16:20:32.304Z"
+  "updated_at": "2026-10-05T00:41:00.959Z"
 }

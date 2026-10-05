@@ -1722,8 +1722,308 @@
           "at": "2026-10-04T16:17:26.657Z"
         }
       }
+    },
+    "props/gateShield": {
+      "stages": {
+        "concept": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107f4-9d24-708d-a669-28ab8b5b1738",
+          "input": null,
+          "input_sha256": null,
+          "request": {
+            "ai_model": "nano-banana-2",
+            "prompt": "Single stylized fantasy MOBA game item, one object only, upright and perfectly vertical: a tall castle-gate tower shield, front view of the shield face, outline shaped like a castle tower with battlement notches along the top and a pointed bottom, golden-yellow face framed by a silver rim, dark arched gateway in the center with a silver portcullis grid, two vertical silver straps on the sides, small glowing pale-gold diamond gem above the gate. Orthographic view, centered with margin, whole object visible, plain light-gray background, even soft lighting, stylized hand-painted texture, chunky readable shapes for a top-down game camera, no hands, no text, no logo. Avoid: hand, person, character, multiple objects, duplicates, tilted, diagonal, cropped, perspective, cast shadow, floor, particles, smoke, sparks, background scenery, text, watermark, logo.",
+            "aspect_ratio": "3:4"
+          },
+          "estimate": 6,
+          "balance_before": 255,
+          "submitted_at": "2026-10-04T17:27:13.863Z",
+          "completed_at": "2026-10-04T17:27:23.305Z",
+          "progress": 100,
+          "credits_consumed": 6,
+          "outputs": [
+            "image_urls[0]"
+          ],
+          "files": {
+            "concept.png": {
+              "path": "build/meshy/props/gateShield/concept.png",
+              "bytes": 932397,
+              "sha256": "1649a2d25ec83c0d2db4222f1a4d5f6a2fed16f866b48a46327507c54ec41d83"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T17:27:26.988Z",
+          "expires_at": "2026-10-07T17:27:23.305Z"
+        },
+        "model": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107f5-0624-73aa-ae73-cf17582496bd",
+          "input": null,
+          "input_sha256": "1649a2d25ec83c0d2db4222f1a4d5f6a2fed16f866b48a46327507c54ec41d83",
+          "request": {
+            "image_url": "data:image/png;base64,<build/meshy/props/gateShield/concept.png 932397 bytes sha256 1649a2d25ec83c0d…>",
+            "model_type": "smart-topology",
+            "ai_model": "meshy-t2",
+            "target_polycount": 2500,
+            "should_texture": true,
+            "enable_pbr": true,
+            "texture_resolution": "2k",
+            "target_formats": [
+              "glb"
+            ]
+          },
+          "estimate": 15,
+          "balance_before": 243,
+          "submitted_at": "2026-10-04T17:27:40.614Z",
+          "completed_at": "2026-10-04T17:29:49.064Z",
+          "progress": 100,
+          "credits_consumed": 15,
+          "outputs": [
+            "model_url",
+            "model_urls.glb",
+            "thumbnail_url",
+            "texture_urls[0].base_color",
+            "texture_urls[0].metallic",
+            "texture_urls[0].roughness",
+            "texture_urls[0].normal"
+          ],
+          "files": {
+            "model.glb": {
+              "path": "build/meshy/props/gateShield/model.glb",
+              "bytes": 6649436,
+              "sha256": "81d6109e45efa7d5d523c95e2215d2346e0433688b80117105ceaf2f9c417672",
+              "info": {
+                "tris": 2521,
+                "joints": 0,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "preview.png": {
+              "path": "build/meshy/props/gateShield/preview.png",
+              "bytes": 153489,
+              "sha256": "d527c6fdf6cfb14bd664f22e087a6452aef75f2a4bdc96d509b3502b638a803b"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T17:29:51.249Z",
+          "expires_at": "2026-10-07T17:29:49.064Z"
+        }
+      },
+      "delivered": {
+        "glb": {
+          "path": "build/tripo/props/gateShield/model.glb",
+          "sha256": "81d6109e45efa7d5d523c95e2215d2346e0433688b80117105ceaf2f9c417672",
+          "from": "build/meshy/props/gateShield/model.glb",
+          "front": "+z",
+          "at": "2026-10-04T17:29:51.289Z"
+        }
+      }
+    },
+    "props/broadsword": {
+      "stages": {
+        "concept": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107f4-9e74-70c2-bb3a-9da939ce2cc7",
+          "input": null,
+          "input_sha256": null,
+          "request": {
+            "ai_model": "nano-banana-2",
+            "prompt": "Single stylized fantasy MOBA game item, one object only, upright and perfectly vertical: a broad one-handed knight sword, front view of the flat of the blade, blade tip pointing straight up and hilt at the bottom, wide straight double-edged silver blade with a pale-gold glowing fuller, square silver crossguard, dark leather-wrapped grip, round silver pommel with a golden gem, small azure-blue enamel accents. Orthographic view, centered with margin, whole object visible, plain light-gray background, even soft lighting, stylized hand-painted texture, chunky readable shapes for a top-down game camera, no hands, no text, no logo. Avoid: hand, person, character, multiple objects, duplicates, tilted, diagonal, cropped, perspective, cast shadow, floor, particles, smoke, sparks, background scenery, text, watermark, logo.",
+            "aspect_ratio": "3:4"
+          },
+          "estimate": 6,
+          "balance_before": 249,
+          "submitted_at": "2026-10-04T17:27:14.206Z",
+          "completed_at": "2026-10-04T17:27:23.533Z",
+          "progress": 100,
+          "credits_consumed": 6,
+          "outputs": [
+            "image_urls[0]"
+          ],
+          "files": {
+            "concept.png": {
+              "path": "build/meshy/props/broadsword/concept.png",
+              "bytes": 803587,
+              "sha256": "cfc4ef9516fed5f1f603293be7a09e9124cc9a4a26ca90de63729f8c169a241f"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T17:27:27.307Z",
+          "expires_at": "2026-10-07T17:27:23.533Z"
+        },
+        "model": {
+          "status": "SUCCEEDED",
+          "task_id": "01a107f5-0f64-77e7-8ec7-95856485044d",
+          "input": null,
+          "input_sha256": "cfc4ef9516fed5f1f603293be7a09e9124cc9a4a26ca90de63729f8c169a241f",
+          "request": {
+            "image_url": "data:image/png;base64,<build/meshy/props/broadsword/concept.png 803587 bytes sha256 cfc4ef9516fed5f1…>",
+            "model_type": "smart-topology",
+            "ai_model": "meshy-t2",
+            "target_polycount": 2500,
+            "should_texture": true,
+            "enable_pbr": true,
+            "texture_resolution": "2k",
+            "target_formats": [
+              "glb"
+            ]
+          },
+          "estimate": 15,
+          "balance_before": 228,
+          "submitted_at": "2026-10-04T17:27:43.044Z",
+          "completed_at": "2026-10-04T17:29:50.101Z",
+          "progress": 100,
+          "credits_consumed": 15,
+          "outputs": [
+            "model_url",
+            "model_urls.glb",
+            "thumbnail_url",
+            "texture_urls[0].base_color",
+            "texture_urls[0].metallic",
+            "texture_urls[0].roughness",
+            "texture_urls[0].normal"
+          ],
+          "files": {
+            "model.glb": {
+              "path": "build/meshy/props/broadsword/model.glb",
+              "bytes": 6779864,
+              "sha256": "da36bdcf43e9954f3b4a33e9b336d8e64d677c47e6ee70f6b7d52c07d3d2362e",
+              "info": {
+                "tris": 2520,
+                "joints": 0,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "preview.png": {
+              "path": "build/meshy/props/broadsword/preview.png",
+              "bytes": 37297,
+              "sha256": "2ad4eca546d0eef635d5eeb5a8a0aa9dfb63d96acd10b529cbbe6eb3087dddcf"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-04T17:29:52.629Z",
+          "expires_at": "2026-10-07T17:29:50.101Z"
+        }
+      },
+      "delivered": {
+        "glb": {
+          "path": "build/tripo/props/broadsword/model.glb",
+          "sha256": "da36bdcf43e9954f3b4a33e9b336d8e64d677c47e6ee70f6b7d52c07d3d2362e",
+          "from": "build/meshy/props/broadsword/model.glb",
+          "front": "+z",
+          "at": "2026-10-04T17:29:52.656Z"
+        }
+      }
+    },
+    "props/lightningSpear": {
+      "stages": {
+        "concept": {
+          "status": "SUCCEEDED",
+          "task_id": "01a1097c-b1f6-711e-ba1c-9220215be2e3",
+          "input": null,
+          "input_sha256": null,
+          "request": {
+            "ai_model": "nano-banana-2",
+            "prompt": "Single stylized fantasy MOBA game item, one object only, upright and perfectly vertical: a black lightning spear, front view, long obsidian-black shaft with glowing violet rings, spearhead shaped like a jagged zigzag lightning bolt in black metal with a glowing violet core pointing up, short crossbar with two violet orbs below the head, pointed black butt cap. Orthographic view, centered with margin, whole object visible, plain light-gray background, even soft lighting, stylized hand-painted texture, chunky readable shapes for a top-down game camera, no hands, no text, no logo. Avoid: hand, person, character, multiple objects, duplicates, tilted, diagonal, cropped, perspective, cast shadow, floor, particles, smoke, sparks, background scenery, text, watermark, logo.",
+            "aspect_ratio": "3:4"
+          },
+          "estimate": 6,
+          "balance_before": 54,
+          "submitted_at": "2026-10-05T00:35:29.295Z",
+          "completed_at": "2026-10-05T00:35:36.654Z",
+          "progress": 100,
+          "credits_consumed": 6,
+          "outputs": [
+            "image_urls[0]"
+          ],
+          "files": {
+            "concept.png": {
+              "path": "build/meshy/props/lightningSpear/concept.png",
+              "bytes": 741945,
+              "sha256": "2ce73b280621daef76acf4b407a25d33c8ff2f339056e8268797701d8aa7fb2f"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-05T00:35:41.198Z",
+          "expires_at": "2026-10-08T00:35:36.654Z"
+        },
+        "model": {
+          "status": "SUCCEEDED",
+          "task_id": "01a1097c-e253-734b-b94f-8b405ef42d09",
+          "input": null,
+          "input_sha256": "2ce73b280621daef76acf4b407a25d33c8ff2f339056e8268797701d8aa7fb2f",
+          "request": {
+            "image_url": "data:image/png;base64,<build/meshy/props/lightningSpear/concept.png 741945 bytes sha256 2ce73b280621daef…>",
+            "model_type": "smart-topology",
+            "ai_model": "meshy-t2",
+            "target_polycount": 2500,
+            "should_texture": true,
+            "enable_pbr": true,
+            "texture_resolution": "2k",
+            "target_formats": [
+              "glb"
+            ]
+          },
+          "estimate": 15,
+          "balance_before": 48,
+          "submitted_at": "2026-10-05T00:35:41.344Z",
+          "completed_at": "2026-10-05T00:36:07.394Z",
+          "progress": 100,
+          "credits_consumed": 15,
+          "outputs": [
+            "model_url",
+            "model_urls.glb",
+            "thumbnail_url",
+            "texture_urls[0].base_color",
+            "texture_urls[0].metallic",
+            "texture_urls[0].roughness",
+            "texture_urls[0].normal"
+          ],
+          "files": {
+            "model.glb": {
+              "path": "build/meshy/props/lightningSpear/model.glb",
+              "bytes": 7096764,
+              "sha256": "f193c165382b7fc6cc5dae76a5cf0a6528cffc4102301fe698297fae5ad42e0a",
+              "info": {
+                "tris": 2639,
+                "joints": 0,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "preview.png": {
+              "path": "build/meshy/props/lightningSpear/preview.png",
+              "bytes": 22370,
+              "sha256": "735a0e7452ae2c6e61efe75e8579aca73c98d89edafb068bc7d2566366f44404"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-05T00:36:10.958Z",
+          "expires_at": "2026-10-08T00:36:07.394Z"
+        }
+      },
+      "delivered": {
+        "glb": {
+          "path": "build/tripo/props/lightningSpear/model.glb",
+          "sha256": "f193c165382b7fc6cc5dae76a5cf0a6528cffc4102301fe698297fae5ad42e0a",
+          "from": "build/meshy/props/lightningSpear/model.glb",
+          "front": "+z",
+          "at": "2026-10-05T00:36:11.094Z"
+        }
+      }
     }
   },
   "note": "tools/meshy.mjs が自動生成。task_id・状態・消費クレジット・ハッシュ・ローカルパスのみ（秘密情報なし）",
-  "updated_at": "2026-10-04T16:17:26.657Z"
+  "updated_at": "2026-10-04T17:29:52.656Z"
 }

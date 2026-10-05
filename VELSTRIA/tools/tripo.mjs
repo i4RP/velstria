@@ -19,7 +19,7 @@
 //   node tools/tripo.mjs balance                                    残高（無料 API）
 //   node tools/tripo.mjs estimate [heroes|props|skins|all] [ids...]  見積り（credits と USD、残高と比較）
 //   node tools/tripo.mjs run heroes [H001 ...|--all] [--until concept|model|rigcheck|rig] [--faces N]
-//   node tools/tripo.mjs run props  [<kind> ...|--all] [--include-optional] [--faces N]
+//   node tools/tripo.mjs run props  [<kind> ...|--all] [--include-optional] [--faces N] [--replace-meshy]
 //   node tools/tripo.mjs run skins  [<cosmeticID> ...|--all] [--style-image]
 //       共通: [--dry-run] [--max-credits N] [--force <stage>[,<stage>]|all] [--concurrency N] [--allow-partial]
 //   node tools/tripo.mjs status                                     全アセット × 段階の状態・消費・ローカルファイル
@@ -28,10 +28,12 @@
 //       ヒーロー・スキン: [--height M] [--forward auto|+x|-x|+z|-z]  Prop: [--length M] [--axis auto|up|pca|vertical]
 //       tools/blender/normalize_{hero,prop}.py で一時ファイルへ正規化 → tools/blender/verify_usdz.swift で検査 → 合格したものだけ
 //       App/Resources/Heroes へ rename で置き換える（不合格なら既存のファイルはそのまま）。Prop の --grip / axis / front /
-//       yaw / side は assets.json の値。ヒーロー・スキンは build/tripo/<cat>/<id>/rigged.fbx があれば rigged.glb より優先。
+//       yaw / side は assets.json の値（tools/meshy.mjs が置いた model.glb は同じフォルダの source.json の front（+z）と
+//       assets.json の props[].meshy の上書きを重ねる）。ヒーロー・スキンは build/tripo/<cat>/<id>/rigged.fbx があれば rigged.glb より優先。
 //       bodyWorn の Prop（stoneFist・azureClaw）は実行時に付けないので取り込まない
 //
 // --dry-run は送信予定のリクエスト本文と出力先を表示するだけ（有料 API を呼ばず、state.json も変更しない）。
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -177,7 +179,7 @@ class Semaphore {
 // MARK: - 引数
 
 const VALUE_FLAGS = new Set(["until", "faces", "max-credits", "force", "concurrency", "height", "texture-size", "max-faces", "forward", "length", "axis"]);
-const BOOL_FLAGS = new Set(["all", "dry-run", "include-optional", "style-image", "no-style-image", "allow-partial", "help"]);
+const BOOL_FLAGS = new Set(["all", "dry-run", "include-optional", "style-image", "no-style-image", "allow-partial", "replace-meshy", "help"]);
 
 function parseArgs(argv) {
   const pos = [];
@@ -228,6 +230,7 @@ function parseArgs(argv) {
     noStyleImage: !flags["style-image"],
     styleImageFlag: flags["style-image"] ? "--style-image" : flags["no-style-image"] ? "--no-style-image" : null,
     allowPartial: !!flags["allow-partial"],
+    replaceMeshy: !!flags["replace-meshy"],
     help: !!flags.help,
     until: flags.until,
     faces: intFlag("faces", FACE_RANGE[0], FACE_RANGE[1]),
@@ -1049,6 +1052,14 @@ async function cmdRun(cat, ids, o) {
   const beyond = [...o.force].filter((f) => f !== "all" && !inRun.includes(f));
   if (beyond.length) fail(`--force ${beyond.join(",")} は --until ${o.until} より後の段階です（送信せずに既存の結果を履歴へ移すことになるため中止）`);
   let assets = select(cat, ids, o);
+  // tools/meshy.mjs が置いた model.glb（source.json の sha256 が一致）は、Tripo の model を送ると課金した上で上書きしてしまう
+  // → 送信前に外す（--replace-meshy で Tripo の model に戻す。上書き後は source.json が外れて Tripo の向きで取り込む）
+  if (cat === "props" && !o.replaceMeshy) {
+    const meshy = assets.filter((a) => planStages(a, o).some((p) => p.stage === "model" && p.action === "submit") && propSource(a, { quiet: true }));
+    for (const a of meshy) log(`  ${a.key}: ${rel(path.join(assetDir(a), "model.glb"))} は tools/meshy.mjs 製（source.json）→ スキップ（Tripo で作り直すなら --replace-meshy）`);
+    assets = assets.filter((a) => !meshy.includes(a));
+    if (meshy.length && ids.length) process.exitCode = 1;
+  }
   const plans = assets.map((a) => ({ a, plan: planStages(a, o) }));
 
   if (o.dry) {
@@ -1261,16 +1272,51 @@ function verifierCommand() {
   return verifierCache;
 }
 
-// 検査の引数。ヒーロー・スキンは身長、Prop は握り・長さと、assets.json の yaw / axis から決まる薄い向き・長軸
-function verifyArgs(a, io) {
+// Prop の model.glb の出どころ（tools/meshy.mjs が置く source.json）。sha256 が今の model.glb と一致するときだけ有効
+// （Tripo が model.glb を作り直したら外れる）。無い・合わない → null（Tripo の GLB とみなす）
+const PROP_FRONTS = new Set(["+x", "-x", "+z", "-z"]);
+// assets.json の props[] に出どころ別の上書き（"meshy": {...}）を置けるのは既知の出どころだけ（"grip" などの項目と取り違えない）
+const PROP_PROVIDERS = new Set(["meshy"]);
+function propSource(a, { quiet = false } = {}) {
+  const file = path.join(assetDir(a), "source.json");
+  const model = path.join(assetDir(a), "model.glb");
+  if (!fs.existsSync(file) || !fs.existsSync(model)) return null;
+  let src;
+  try { src = JSON.parse(fs.readFileSync(file, "utf8")); } catch { if (!quiet) log(`  ${rel(file)} を読めないので無視します`); return null; }
+  const h = crypto.createHash("sha256").update(fs.readFileSync(model)).digest("hex");
+  if (src.sha256 !== h) { if (!quiet) log(`  ${rel(file)} は今の model.glb と sha256 が合わないので無視します（Tripo の GLB とみなす）`); return null; }
+  if (src.front !== undefined && !PROP_FRONTS.has(src.front)) fail(`${rel(file)} の front が不正です: ${src.front}`);
+  return { provider: String(src.provider || "unknown"), front: src.front };
+}
+
+// Prop の正規化の値。assets.json の値に、出どころ（source.json）の front と、出どころ別の上書き
+// （例: "meshy": { "yaw": 90 }。キーは front / yaw / side / axis）を重ねる。--axis（io.axis）が最優先
+function propParams(a, io) {
+  const e = a.entry;
+  const src = propSource(a);
+  const raw = src && PROP_PROVIDERS.has(src.provider) && Object.hasOwn(e, src.provider) ? e[src.provider] : null;
+  const over = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+  const pick = (k) => (over[k] !== undefined ? over[k] : k === "front" && src?.front !== undefined ? src.front : e[k]);
+  return {
+    provider: src?.provider ?? "tripo",
+    grip: e.grip ?? 0.5,
+    front: pick("front"),
+    yaw: pick("yaw"),
+    side: pick("side"),
+    axis: io.axis ?? pick("axis"),
+  };
+}
+
+// 検査の引数。ヒーロー・スキンは身長、Prop は握り・長さと、propParams の yaw / axis から決まる薄い向き・長軸
+function verifyArgs(a, io, pp = a.cat === "props" ? propParams(a, io) : null) {
   if (a.cat !== "props") return ["--expect", "hero", "--height", String(io.height ?? 1.7)];
-  const yaw = ((Number(a.entry.yaw ?? 0) % 360) + 360) % 360;
+  const yaw = ((Number(pp.yaw ?? 0) % 360) + 360) % 360;
   // normalize_prop.py は薄い向きを ±X に置いてから yaw を掛ける: ±90° なら ±Z、0/180° なら ±X、それ以外は調べない
   const thin = yaw === 90 || yaw === 270 ? "z" : yaw === 0 || yaw === 180 ? "x" : "any";
   // 長軸（PCA の第 1 軸）が Y に来たかは、面が ±X の Prop で axis vertical でないときだけ調べる
-  const axis = io.axis ?? a.entry.axis ?? "auto";
+  const axis = pp.axis ?? "auto";
   const long = thin === "x" && axis !== "vertical" ? "y" : "any";
-  return ["--expect", "prop", "--grip", String(a.entry.grip ?? 0.5), "--length", String(io.length ?? 1.0),
+  return ["--expect", "prop", "--grip", String(pp.grip), "--length", String(io.length ?? 1.0),
     "--thin-axis", thin, "--long-axis", long];
 }
 
@@ -1335,22 +1381,24 @@ function cmdImport(catArg, ids, o) {
       const verifyLog = path.join(assetDir(a), "import_verify.log");
       const normLog = path.join(assetDir(a), "import_normalize.log");
       const extra = [];
+      const pp = cat === "props" ? propParams(a, io) : null;
       if (cat === "props") {
-        extra.push("--grip", String(a.entry.grip ?? 0.5));
+        extra.push("--grip", String(pp.grip));
         if (io.length !== undefined) extra.push("--length", String(io.length));
-        const axis = io.axis ?? a.entry.axis;
-        if (axis !== undefined) extra.push("--axis", axis);
-        // 正面・回転・符号の確認は assets.json の値（= 形式で渡す。"-90" や "-x" を値として読ませるため）
-        if (a.entry.front !== undefined) extra.push(`--front=${a.entry.front}`);
-        if (a.entry.yaw !== undefined) extra.push(`--yaw=${Number(a.entry.yaw)}`);
-        if (a.entry.side !== undefined) extra.push(`--side=${a.entry.side}`);
+        if (pp.axis !== undefined) extra.push("--axis", pp.axis);
+        // 正面・回転・符号の確認は assets.json（+ source.json の出どころ）の値（= 形式で渡す。"-90" や "-x" を値として読ませるため）。
+        // Meshy の GLB は正面が +Z、Tripo は +X（normalize_prop.py の既定）
+        if (pp.front !== undefined) extra.push(`--front=${pp.front}`);
+        if (pp.yaw !== undefined) extra.push(`--yaw=${Number(pp.yaw)}`);
+        if (pp.side !== undefined) extra.push(`--side=${pp.side}`);
+        if (pp.provider !== "tripo") log(`${a.key}: model.glb は ${pp.provider} 製（source.json）→ front ${pp.front ?? "+x"}`);
       } else {
         if (io.height !== undefined) extra.push("--height", String(io.height));
         if (io.forward !== undefined) extra.push("--forward", io.forward);
       }
       if (io.textureSize !== undefined) extra.push("--texture-size", String(io.textureSize));
       if (io.maxFaces !== undefined) extra.push("--max-faces", String(io.maxFaces));
-      const vargs = verifyArgs(a, io);
+      const vargs = verifyArgs(a, io, pp);
       if (!fs.existsSync(t.input)) {
         if (ids.length || o.dry) log(`${a.key}: 入力がありません（${rel(t.input)}）→ スキップ`);
         skipped.push(a.key);
@@ -1411,7 +1459,7 @@ function cmdImport(catArg, ids, o) {
       const checks = vout.split("\n").filter((l) => l.startsWith("PASS")).length;
       log(`  OK ${fmtBytes(fs.statSync(t.out).size)}、検査 PASS ${checks} 項目、${elapsed(t0)}`);
       printReport(report);
-      record(a, t, { status: "success", report: rel(report), log: rel(normLog), verifyLog: rel(verifyLog) });
+      record(a, t, { status: "success", report: rel(report), log: rel(normLog), verifyLog: rel(verifyLog), ...(pp ? { provider: pp.provider } : {}) });
       okCount++;
     }
   }
@@ -1428,7 +1476,7 @@ function usage() {
   node tools/tripo.mjs estimate [heroes|props|skins|all] [ids...]  見積り（credits と USD、残高と比較）
   node tools/tripo.mjs run heroes [H001 ...|--all] [--until concept|model|rigcheck|rig] [--faces N]
                                                                    コンセプト → モデル(P1) → rig-check → リグ
-  node tools/tripo.mjs run props  [<kind> ...|--all] [--include-optional] [--faces N]
+  node tools/tripo.mjs run props  [<kind> ...|--all] [--include-optional] [--faces N] [--replace-meshy]
                                                                    コンセプト → モデル(P1, 画像の向きに合わせる)
   node tools/tripo.mjs run skins  [<cosmeticID> ...|--all] [--style-image]
                                                                    ヒーローのモデルに再テクスチャ → リグ
@@ -1438,6 +1486,7 @@ function usage() {
             --force <stage>    指定段階（以降）を作り直す（カンマ区切り可、all で全段階）
             --concurrency N    同時に進めるタスク数（既定 3。画像生成は常に 1 本ずつ）
             --allow-partial    残高が見積りに満たなくても始める（尽きたら送信を止める）
+            --replace-meshy    props: tools/meshy.mjs が置いた model.glb（source.json）を Tripo の model で上書きしてよい
   node tools/tripo.mjs status                                     全アセット × 段階の状態・消費・ローカルファイル
   node tools/tripo.mjs task <task_id>                             タスクの生 JSON
   node tools/tripo.mjs import [heroes|props|skins] [ids...|--all] [--dry-run] [--texture-size PX] [--max-faces N]
