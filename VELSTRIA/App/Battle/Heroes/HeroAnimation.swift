@@ -171,9 +171,12 @@ struct HeroMotionProfile {
             runSwingR = 0.25
             runSwingL = 0.25
         case .thrust:
-            r.armR = ArmPose(pitch: 0.22, out: m.armRestOut, yaw: 0, elbow: 0.75)
-            r.weaponR = -0.22
+            // ランスの構え: 穂先を前へ下げて半身に構え、左手を柄に添える中段の構え
+            r.armR = ArmPose(pitch: 0.6, out: m.armRestOut, yaw: 0.08, elbow: 1.0)
+            r.weaponR = -1.0
+            r.armL = ArmPose(pitch: 0.7, out: m.armRestOut, yaw: 0.25, elbow: 1.2)
             runSwingR = 0.5
+            runSwingL = 0.5
         case .dualSlash:
             // 双剣の構え: 刃を低く前へ開き、主手を前・逆手をやや引いた半身の居合腰
             r.armR = ArmPose(pitch: 0.5, out: m.armRestOut + 0.14, yaw: 0.1, elbow: 1.05)
@@ -212,7 +215,7 @@ struct HeroMotionProfile {
         rest = r
 
         attack = HeroMotionProfile.attackClip(bp.attack, rest: r, left: false)
-        attackAlt = bp.attack == .dualSlash || bp.attack == .punch ? HeroMotionProfile.attackClip(bp.attack, rest: r, left: true) : nil
+        attackAlt = bp.attack == .dualSlash || bp.attack == .punch || bp.attack == .thrust ? HeroMotionProfile.attackClip(bp.attack, rest: r, left: true) : nil
         let shield = shieldHold
         casts = (0..<4).map { slot in
             var clip = HeroMotionProfile.castClip(slot: slot, rest: r, style: bp.attack)
@@ -256,14 +259,40 @@ struct HeroMotionProfile {
             s.headPitch = 0.1
             return ActionClip(windup: w, strike: s, windupTime: 0.3, strikeTime: 0.12, total: 0.62)
         case .thrust:
-            w.armR = ArmPose(pitch: 0.7, out: 0.3, yaw: -0.15, elbow: 1.7)
-            w.weaponR = -1.45
-            w.torsoYaw = 0.42
-            s.armR = ArmPose(pitch: 1.45, out: 0.08, yaw: 0.25, elbow: 0.05)
-            s.weaponR = -1.62
-            s.torsoYaw = -0.28
-            s.torsoPitch = 0.2
-            return ActionClip(windup: w, strike: s, windupTime: 0.16, strikeTime: 0.08, total: 0.38)
+            // モンハン ランス風: 穂先を水平に保ってまっすぐ前へ突き出す踏み込み突き。左手を柄に添えて体ごと乗せる。
+            // 連打は 中段突き(else) → 上段突き(left) の2段コンボ。穂先は水平〜やや上に保ち、跳ね上げない。
+            if left {
+                // 上段突き: やや上向きに素早く突き上げる追撃
+                w.armR = ArmPose(pitch: 0.95, out: 0.26, yaw: -0.18, elbow: 1.9)
+                w.weaponR = -1.15
+                w.armL = ArmPose(pitch: 1.1, out: 0.12, yaw: 0.4, elbow: 1.45)
+                w.torsoYaw = 0.44
+                w.torsoPitch = -0.14
+                w.headPitch = -0.08
+                s.armR = ArmPose(pitch: 1.55, out: 0.06, yaw: 0.24, elbow: 0.02)
+                s.weaponR = -1.2
+                s.armL = ArmPose(pitch: 1.2, out: 0.1, yaw: 0.18, elbow: 0.9)
+                s.torsoYaw = -0.3
+                s.torsoPitch = 0.24
+                s.headPitch = -0.02
+                return ActionClip(windup: w, strike: s, windupTime: 0.12, strikeTime: 0.05, total: 0.30)
+            } else {
+                // 中段突き: 水平にまっすぐ踏み込んで突く主体
+                w.armR = ArmPose(pitch: 0.55, out: 0.28, yaw: -0.2, elbow: 1.95)   // 右: 深く引いて溜める
+                w.weaponR = -1.4
+                w.armL = ArmPose(pitch: 0.95, out: 0.12, yaw: 0.45, elbow: 1.5)    // 左: 柄に添えて引く
+                w.torsoYaw = 0.5
+                w.torsoPitch = -0.12                                               // 半身で反って溜め
+                w.headYaw = 0.12
+                s.armR = ArmPose(pitch: 1.2, out: 0.06, yaw: 0.28, elbow: 0.02)    // 右: 水平にまっすぐ突き出す
+                s.weaponR = -1.55
+                s.armL = ArmPose(pitch: 1.05, out: 0.1, yaw: 0.2, elbow: 0.95)     // 左: 添えて押し出す
+                s.torsoYaw = -0.34
+                s.torsoPitch = 0.3                                                 // 体ごと前へ踏み込む
+                s.headPitch = 0.12
+                s.headYaw = -0.1
+                return ActionClip(windup: w, strike: s, windupTime: 0.15, strikeTime: 0.06, total: 0.36)
+            }
         case .dualSlash:
             // モンハン双剣風: 両刃を使う交差斬りを、2 拍で弧が変わる手数のコンボにする。
             // attackCount が偶数 → 斬り下ろし(else)、奇数 → 薙ぎ払い(left) が交互に出る。
