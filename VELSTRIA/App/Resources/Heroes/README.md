@@ -87,6 +87,29 @@
 | hideShield | 0.50 | axis vertical, yaw 90 | 丸盾の面（中央の突起）-Z、元画像の上 +Y、最も薄い Z | 同じ（propMount center） |
 | stoneFist / azureClaw | - | bodyWorn | 取り込まない | 付けない（本体に含む） |
 
+## 生成（tools/tripo.mjs run）
+- ヒーロー: concept（画像）→ model（P1 image-to-model、face_limit 10000、PBR・HD テクスチャ）→ rigcheck → rig（Mixamo 骨の biped）。
+  進捗は `tools/tripo/state.json`、ダウンロード物は `build/tripo/heroes/<ID>/`（`concept.png` / `model.glb` / `rigged.glb`）。
+- 既定の concept は Tripo の text-to-image（`assets.json` の `style` + ヒーロー別の `prompt`、5 credits）。
+- `--concept-source fullbody`: concept を Tripo で作らず、`tools/heroref/fullbody.py` が作った全身 T ポーズの採用版
+  `build/heroref/<ID>/fullbody.png`（`HEROREF_BUILD_DIR` で変更可）を `concept.png` へ写す（0 credits、PNG・256 px 以上・20 MB 以下）。
+  model はその `concept.png` を `POST /files`（無料）で上げた file_token を `input` にして作る（予算・残高の確認を通った後、送信の直前に上げる）。
+  ```sh
+  python3 tools/heroref/fullbody.py generate H004 --tag t1 && python3 tools/heroref/fullbody.py select H004 t1
+  node tools/tripo.mjs run heroes H004 --concept-source fullbody --dry-run      # 計画だけ（送信・state・ファイルに触れない）
+  node tools/tripo.mjs run heroes H004 --concept-source fullbody --until rig    # 85 credits（model 60 + rig 25）
+  node tools/tripo.mjs import heroes H004
+  ```
+  - state.json の concept は `local: true`・`task_id: null`・`source {kind, path, sha256, tag, width, height}`・`credits_consumed: 0`。
+    model には上げた画像の控え `upload {file, sha256, file_token}` が残る（API キーは残さない）。
+  - 前回の concept が Tripo 製か、sha256 の違うローカル画像なら、concept 以降（model / rigcheck / rig。`--until` より後の段階も）を
+    `--force` と同じく `history` へ移して作り直す。同じ画像なら何も作り直さない。
+  - 一度ローカル画像にした concept は、`--concept-source` を付けない run でも `concept.png` を上げて使い続ける
+    （`concept.png` が記録の sha256 と違えば止まる → `--concept-source fullbody` で写し直す）。Tripo の画像へ戻すなら `--force concept`。
+  - 参照画像が無い・使えないヒーローが 1 体でもあれば run は何も始めない（`--dry-run` は一覧を出して終了コード 1）。
+- タスクは作った API キーからしか見えない。キーを差し替えると古いタスクの `GET /tasks/{id}` は存在しないタスクと同じ
+  HTTP 404 / code 2001 になる（ダウンロードし直し・再開・`task` はその旨を表示する）。作り直しは新しいタスクなので影響しない。
+
 ## 取り込みの関門（tools/tripo.mjs import）
 1. `normalize_hero.py` / `normalize_prop.py` で一時ディレクトリ（`$TMPDIR/velstria-import-*`。このフォルダの外）へ正規化する。
    不合格なら理由がレポート（`build/tripo/<cat>/<id>/import_report.json` の `errors`）に残る。

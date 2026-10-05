@@ -198,6 +198,10 @@ def rebind(mesh, arm):
 WEIGHT_ROLES = ("head", "leftarm", "leftforearm", "rightarm", "rightforearm",
                 "leftupleg", "leftleg", "rightupleg", "rightleg")
 MAX_DOMINANT_SHARE = 0.5
+# 髪・冠の頂点が多いヒーローは頭が半数を超えることがある（ポートレート準拠の H002 で 55%）。曲げる骨がすべて生きていて
+# 支配骨が十分多ければ（ダミー結合ではない）、頭だけはこの割合まで許す
+MAX_HEAD_SHARE = 0.65
+MIN_BONES_FOR_HEAD_SHARE = 12
 # メッシュの外接箱の内側にあるべき骨（余白はメッシュ高さの BOUND_PAD）
 BOUND_ROLES = ("hips", "spine", "head", "leftarm", "leftforearm", "lefthand", "rightarm", "rightforearm",
                "righthand", "leftupleg", "leftleg", "leftfoot", "rightupleg", "rightleg", "rightfoot")
@@ -237,7 +241,10 @@ def check_weights(mesh, arm):
     top_name, top = max(hist.items(), key=lambda kv: kv[1]) if hist else ("", 0)
     nc.log(f"weights: {len(hist)} dominant bones, top {top_name} {top}/{total}, unweighted {unweighted}")
     errs = []
-    if dead or top > MAX_DOMINANT_SHARE * total:
+    limit = MAX_DOMINANT_SHARE
+    if nc.canonical_bone(top_name) == "head" and not dead and len(hist) >= MIN_BONES_FOR_HEAD_SHARE:
+        limit = MAX_HEAD_SHARE
+    if dead or top > limit * total:
         errs.append(f"skin weights look like a dummy bind: top {top_name} {top}/{total} vertices, "
                     f"no vertices dominated by {dead}")
     if unweighted:

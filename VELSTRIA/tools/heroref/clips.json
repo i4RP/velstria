@@ -1,0 +1,786 @@
+{
+ "$comment": "tools/heroref/make_clips.py が clip_defs.json から作る（手で直さない）。キーの意味は tools/blender/extract_clips.py の先頭。フレームは Meshy の元フレーム（最初のキー = 1）。",
+ "version": 1,
+ "clips": [
+  {
+   "name": "sword_slash_l",
+   "source": {
+    "rig": "H002",
+    "action_id": 97
+   },
+   "start": 28,
+   "end": 58,
+   "yaw": 38.8,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 42
+   }
+  },
+  {
+   "name": "sword_slash_l2",
+   "source": {
+    "rig": "H002",
+    "action_id": 97
+   },
+   "start": 8,
+   "end": 36,
+   "yaw": -15.2,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 22
+   }
+  },
+  {
+   "name": "sword_combo_1",
+   "source": {
+    "rig": "H002",
+    "action_id": 105
+   },
+   "start": 10,
+   "end": 38,
+   "yaw": 57.5,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 24
+   }
+  },
+  {
+   "name": "sword_combo_2",
+   "source": {
+    "rig": "H002",
+    "action_id": 105
+   },
+   "start": 36,
+   "end": 58,
+   "yaw": -74.4,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 47
+   }
+  },
+  {
+   "name": "sword_combo_3",
+   "source": {
+    "rig": "H002",
+    "action_id": 105
+   },
+   "start": 56,
+   "end": 84,
+   "yaw": 6.5,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 67
+   }
+  },
+  {
+   "name": "sword_combo2_a",
+   "source": {
+    "rig": "H002",
+    "action_id": 92
+   },
+   "start": 6,
+   "end": 30,
+   "yaw": -52.4,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 19
+   }
+  },
+  {
+   "name": "sword_combo2_b",
+   "source": {
+    "rig": "H002",
+    "action_id": 92
+   },
+   "start": 28,
+   "end": 50,
+   "yaw": -48.6,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 36
+   }
+  },
+  {
+   "name": "sword_slash_r",
+   "source": {
+    "rig": "H002",
+    "action_id": 219
+   },
+   "start": 4,
+   "end": 32,
+   "yaw": -49.7,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 17
+   }
+  },
+  {
+   "name": "sword_charged",
+   "source": {
+    "rig": "H002",
+    "action_id": 242
+   },
+   "start": 18,
+   "end": 58,
+   "yaw": 48.7,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 37
+   }
+  },
+  {
+   "name": "sword_upward",
+   "source": {
+    "rig": "H002",
+    "action_id": 221
+   },
+   "start": 14,
+   "end": 52,
+   "yaw": -69.3,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 32
+   }
+  },
+  {
+   "name": "thrust",
+   "source": {
+    "rig": "H002",
+    "action_id": 240
+   },
+   "start": 28,
+   "end": 66,
+   "yaw": -9.4,
+   "rootXZ": 0.35,
+   "events": {
+    "impact": 45
+   }
+  },
+  {
+   "name": "sword_judgment",
+   "source": {
+    "rig": "H002",
+    "action_id": 102
+   },
+   "start": 8,
+   "end": 60,
+   "yaw": 45.9,
+   "rootXZ": 0.3,
+   "events": {
+    "impact": 31
+   }
+  },
+  {
+   "name": "jump_attack",
+   "source": {
+    "rig": "H002",
+    "action_id": 86
+   },
+   "start": 40,
+   "end": 110,
+   "yaw": -2.7,
+   "rootXZ": 0.35,
+   "events": {
+    "impact": 80
+   }
+  },
+  {
+   "name": "overhead_2h",
+   "source": {
+    "rig": "H002",
+    "action_id": 4
+   },
+   "start": 14,
+   "end": 50,
+   "yaw": -71.7,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 33
+   }
+  },
+  {
+   "name": "hammer_swing",
+   "source": {
+    "rig": "H002",
+    "action_id": 128
+   },
+   "start": 18,
+   "end": 55,
+   "yaw": 43.8,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 47
+   }
+  },
+  {
+   "name": "axe_chop",
+   "source": {
+    "rig": "H002",
+    "action_id": 237
+   },
+   "start": 100,
+   "end": 160,
+   "yaw": 17.2,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 134
+   }
+  },
+  {
+   "name": "axe_spin",
+   "source": {
+    "rig": "H002",
+    "action_id": 238
+   },
+   "start": 6,
+   "end": 50,
+   "yaw": -70.0,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 29
+   }
+  },
+  {
+   "name": "reaping",
+   "source": {
+    "rig": "H002",
+    "action_id": 99
+   },
+   "start": 90,
+   "end": 140,
+   "yaw": 60.9,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 118
+   }
+  },
+  {
+   "name": "dual_combo_a",
+   "source": {
+    "rig": "H002",
+    "action_id": 241
+   },
+   "start": 44,
+   "end": 74,
+   "yaw": 12.3,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 61
+   }
+  },
+  {
+   "name": "dual_combo_b",
+   "source": {
+    "rig": "H002",
+    "action_id": 241
+   },
+   "start": 20,
+   "end": 48,
+   "yaw": -37.8,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 36
+   }
+  },
+  {
+   "name": "dual_combo_c",
+   "source": {
+    "rig": "H002",
+    "action_id": 199
+   },
+   "start": 6,
+   "end": 32,
+   "yaw": -20.5,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 21
+   }
+  },
+  {
+   "name": "dual_combo_d",
+   "source": {
+    "rig": "H002",
+    "action_id": 199
+   },
+   "start": 30,
+   "end": 52,
+   "yaw": 18.4,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 39
+   }
+  },
+  {
+   "name": "dual_spin",
+   "source": {
+    "rig": "H002",
+    "action_id": 91
+   },
+   "start": 1,
+   "end": 80,
+   "yaw": -20.5,
+   "rootXZ": 0.3,
+   "events": {
+    "impact": 48
+   }
+  },
+  {
+   "name": "bow_shot",
+   "source": {
+    "rig": "H002",
+    "action_id": 225
+   },
+   "start": 1,
+   "end": 31,
+   "yaw": -100,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 17
+   }
+  },
+  {
+   "name": "bow_shot_b",
+   "source": {
+    "rig": "H002",
+    "action_id": 227
+   },
+   "start": 1,
+   "end": 21,
+   "yaw": -97.9,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 8
+   }
+  },
+  {
+   "name": "bow_draw_back",
+   "source": {
+    "rig": "H002",
+    "action_id": 222
+   },
+   "start": 100,
+   "end": 236,
+   "yaw": -40,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 193
+   }
+  },
+  {
+   "name": "gun_fire",
+   "source": {
+    "rig": "H002",
+    "action_id": 95
+   },
+   "start": 5,
+   "end": 30,
+   "yaw": 9.1,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 12
+   }
+  },
+  {
+   "name": "gun_kneel_shot",
+   "source": {
+    "rig": "H002",
+    "action_id": 104
+   },
+   "start": 8,
+   "end": 60,
+   "yaw": -174,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 30
+   }
+  },
+  {
+   "name": "cast_a",
+   "source": {
+    "rig": "H002",
+    "action_id": 129
+   },
+   "start": 4,
+   "end": 40,
+   "yaw": 23.1,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 19
+   }
+  },
+  {
+   "name": "cast_b",
+   "source": {
+    "rig": "H002",
+    "action_id": 130
+   },
+   "start": 15,
+   "end": 60,
+   "yaw": -3.2,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 43
+   }
+  },
+  {
+   "name": "cast_c",
+   "source": {
+    "rig": "H002",
+    "action_id": 131
+   },
+   "start": 15,
+   "end": 60,
+   "yaw": 4.8,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 38
+   }
+  },
+  {
+   "name": "cast_push",
+   "source": {
+    "rig": "H002",
+    "action_id": 132
+   },
+   "start": 10,
+   "end": 60,
+   "yaw": -4.5,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 29
+   }
+  },
+  {
+   "name": "cast_throw",
+   "source": {
+    "rig": "H002",
+    "action_id": 133
+   },
+   "start": 3,
+   "end": 36,
+   "yaw": -18.7,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 16
+   }
+  },
+  {
+   "name": "cast_d",
+   "source": {
+    "rig": "H002",
+    "action_id": 135
+   },
+   "start": 10,
+   "end": 50,
+   "yaw": -68.8,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 30
+   }
+  },
+  {
+   "name": "cast_point",
+   "source": {
+    "rig": "H002",
+    "action_id": 136
+   },
+   "start": 12,
+   "end": 50,
+   "yaw": -13.3,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 28
+   }
+  },
+  {
+   "name": "cast_charged",
+   "source": {
+    "rig": "H002",
+    "action_id": 125
+   },
+   "start": 20,
+   "end": 72,
+   "yaw": 4.3,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 52
+   }
+  },
+  {
+   "name": "ground_slam",
+   "source": {
+    "rig": "H002",
+    "action_id": 127
+   },
+   "start": 30,
+   "end": 80,
+   "yaw": -43.1,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 51
+   }
+  },
+  {
+   "name": "cast_channel",
+   "source": {
+    "rig": "H002",
+    "action_id": 137
+   },
+   "start": 1,
+   "end": 40,
+   "loop": true,
+   "yaw": 11.3,
+   "rootXZ": 0
+  },
+  {
+   "name": "punch_a",
+   "source": {
+    "rig": "H002",
+    "action_id": 198
+   },
+   "start": 8,
+   "end": 30,
+   "yaw": 61.8,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 19
+   }
+  },
+  {
+   "name": "punch_a2",
+   "source": {
+    "rig": "H002",
+    "action_id": 198
+   },
+   "start": 30,
+   "end": 55,
+   "yaw": -27.1,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 39
+   }
+  },
+  {
+   "name": "punch_b",
+   "source": {
+    "rig": "H002",
+    "action_id": 200
+   },
+   "start": 12,
+   "end": 34,
+   "yaw": 15.8,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 24
+   }
+  },
+  {
+   "name": "hook_l",
+   "source": {
+    "rig": "H002",
+    "action_id": 193
+   },
+   "start": 1,
+   "end": 28,
+   "yaw": 116.6,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 11
+   }
+  },
+  {
+   "name": "uppercut_r",
+   "source": {
+    "rig": "H002",
+    "action_id": 195
+   },
+   "start": 4,
+   "end": 36,
+   "yaw": -29.2,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 17
+   }
+  },
+  {
+   "name": "double_punch",
+   "source": {
+    "rig": "H002",
+    "action_id": 214
+   },
+   "start": 26,
+   "end": 62,
+   "yaw": -1.2,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 41
+   }
+  },
+  {
+   "name": "elbow",
+   "source": {
+    "rig": "H002",
+    "action_id": 212
+   },
+   "start": 26,
+   "end": 52,
+   "yaw": -18.1,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 39
+   }
+  },
+  {
+   "name": "javelin_throw",
+   "source": {
+    "rig": "H002",
+    "action_id": 421
+   },
+   "start": 36,
+   "end": 80,
+   "yaw": -78.1,
+   "rootXZ": 0.25,
+   "events": {
+    "impact": 59
+   }
+  },
+  {
+   "name": "idle",
+   "source": {
+    "rig": "H002",
+    "action_id": 0
+   },
+   "start": 1,
+   "end": 121,
+   "loop": true,
+   "yaw": 24.5,
+   "rootXZ": 0
+  },
+  {
+   "name": "idle_b",
+   "source": {
+    "rig": "H002",
+    "action_id": 11
+   },
+   "start": 1,
+   "end": 57,
+   "loop": true,
+   "yaw": 12.2,
+   "rootXZ": 0
+  },
+  {
+   "name": "combat_idle",
+   "source": {
+    "rig": "H002",
+    "action_id": 89
+   },
+   "start": 1,
+   "end": 51,
+   "loop": true,
+   "yaw": 54.2,
+   "rootXZ": 0
+  },
+  {
+   "name": "ready_idle",
+   "source": {
+    "rig": "H002",
+    "action_id": 245
+   },
+   "start": 1,
+   "end": 55,
+   "loop": true,
+   "yaw": 42.0,
+   "rootXZ": 0
+  },
+  {
+   "name": "run_a",
+   "source": {
+    "rig": "H002",
+    "action_id": 657
+   },
+   "start": 1,
+   "end": 25,
+   "loop": true,
+   "yaw": -1.5,
+   "rootXZ": 0
+  },
+  {
+   "name": "death_back",
+   "source": {
+    "rig": "H002",
+    "action_id": 189
+   },
+   "start": 1,
+   "end": 67,
+   "rootXZ": 0.5
+  },
+  {
+   "name": "death_forward",
+   "source": {
+    "rig": "H002",
+    "action_id": 184
+   },
+   "start": 1,
+   "end": 66,
+   "rootXZ": 0.5
+  },
+  {
+   "name": "victory_pump",
+   "source": {
+    "rig": "H002",
+    "action_id": 403
+   },
+   "start": 1,
+   "end": 46,
+   "yaw": -4.2,
+   "rootXZ": 0
+  },
+  {
+   "name": "victory_cheer",
+   "source": {
+    "rig": "H002",
+    "action_id": 412
+   },
+   "start": 20,
+   "end": 120,
+   "yaw": 6.6,
+   "rootXZ": 0
+  },
+  {
+   "name": "hit",
+   "source": {
+    "rig": "H002",
+    "action_id": 178
+   },
+   "start": 1,
+   "end": 40,
+   "rootXZ": 0
+  },
+  {
+   "name": "kneel",
+   "source": {
+    "rig": "H002",
+    "action_id": 365
+   },
+   "start": 1,
+   "end": 7,
+   "loop": true,
+   "yaw": -11.0,
+   "rootXZ": 0
+  },
+  {
+   "name": "dodge_spin",
+   "source": {
+    "rig": "H002",
+    "action_id": 384
+   },
+   "start": 1,
+   "end": 36,
+   "yaw": -46.3,
+   "rootXZ": 0.4,
+   "events": {
+    "impact": 20
+   }
+  }
+ ]
+}

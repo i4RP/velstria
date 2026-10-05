@@ -388,6 +388,8 @@ final class SkinnedHeroModelTests: XCTestCase {
             (.upLegL, .legL, "thighL"), (.legL, .footL, "shinL")]
         for id in ["H001", "H007"] {
             let s = try makeSkinned(id)
+            // 手続きどうしの比較（同梱のモーションクリップが重なると腕・武器の向きが変わる）
+            s.useMotion(nil, library: .empty)
             let pm = HeroModelLibrary.makeHero(heroID: id, skinID: nil, team: .neutral, master: master,
                                                options: HeroModelOptions.showcase.with(mesh: .procedural))
             let proc = try XCTUnwrap(pm as? HeroModel)

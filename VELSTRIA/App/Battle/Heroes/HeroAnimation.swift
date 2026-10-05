@@ -2,8 +2,9 @@ import Foundation
 import simd
 import VelstriaCore
 
-// 担当: hero-models。手続きアニメーション（姿勢の合成と状態間ブレンド）。
+// 担当: hero-models。手続きアニメーション（姿勢の合成と状態間ブレンド）と、その上に重ねるモーションクリップの層。
 // 姿勢は Float だけの値型で、毎フレームの評価はヒープ確保なしで行う。
+// クリップ（docs/HERO_MOTION.md）はスキンメッシュのヒーローだけが使い（HeroClipLayer）、手続きモデルは従来どおり。
 // 角度の符号: pitch + = 前へ（腕・脚は前方へ振る、胴・頭は前傾）。武器角 θ は胴座標の絶対角で 0 = 真上、-π/2 = 前方。
 
 struct ArmPose {
@@ -545,28 +546,76 @@ struct HeroAnimator {
     private var blendDuration: Float = 0.2
     private var attackCount = 0
     private(set) var current = HeroPose()
+    /// 重ねるモーションクリップ（binding が nil なら何もしない = 手続きのみ）。
+    private(set) var clips: HeroClipLayer
+    /// 通常攻撃のクリップを状態だけで回す（setState(.attack)）。playAttack が来たら false（シムの拍に合わせる）。
+    private var attackAuto = true
+    private var attackCursor = 0
+    /// setState(.attack) が自動の拍で始めたばかり（まだ進めていない）の振り。直後の playAttack は同じ振りを
+    /// シムの拍で始め直す（setState → playAttack の順に呼ばれても割り当ての順を 1 つ飛ばさない）。
+    private var autoAttackPending = false
 
-    init(profile: HeroMotionProfile, defaultRunSpeed: Float) {
+    init(profile: HeroMotionProfile, defaultRunSpeed: Float, motion: HeroMotionBinding? = nil) {
         self.profile = profile
         self.defaultRunSpeed = defaultRunSpeed
         current = profile.rest
         snapshot = profile.rest
+        clips = HeroClipLayer(binding: motion)
+        // 最初の状態（待機）は setState が来ないので、ここで待機のクリップを始める（無ければ何もしない）
+        enterClips(state, from: state, autoAttack: true)
+    }
+
+    /// クリップの割り当てを差し替える（テスト・ギャラリー用）。今の状態のクリップから始め直す。
+    mutating func setMotion(_ motion: HeroMotionBinding?) {
+        clips = HeroClipLayer(binding: motion)
+        attackCursor = 0
+        enterClips(state, from: state, autoAttack: true)
     }
 
     var attackDuration: Float { profile.attack.total }
 
     mutating func setState(_ s: HeroAnimState) {
+        transition(s, autoAttack: true)
+    }
+
+    /// 通常攻撃を 1 回振る（シムの攻撃開始時に呼ぶ）。クリップの打撃の瞬間が windup 秒後に来るよう再生速度を決め、
+    /// 戻りは interval - windup 秒に収める。攻撃状態でなければ攻撃状態へ移る。クリップが無ければ手続きの振りだけ。
+    mutating func playAttack(windup: Float, interval: Float) {
+        if state == .attack {
+            // 手続きの振りも、打撃を過ぎていれば次の振りへ（setState(.attack) の再指定と同じ）
+            if stateTime >= profile.attack.windupTime + profile.attack.strikeTime {
+                attackCount += 1
+                begin(.attack, blend: 0.05)
+            }
+        } else {
+            transition(.attack, autoAttack: false)
+        }
+        if autoAttackPending, let b = clips.binding, !b.attacks.isEmpty {
+            attackCursor = (attackCursor + b.attacks.count - 1) % b.attacks.count
+        }
+        autoAttackPending = false
+        attackAuto = false
+        startAttackClip(windup: windup, interval: interval)
+    }
+
+    private mutating func transition(_ s: HeroAnimState, autoAttack: Bool) {
         if s == state {
             // 攻撃中に再度 attack が来たら、打撃を過ぎていれば次の振りを始める
             if s == .attack && stateTime >= profile.attack.windupTime + profile.attack.strikeTime {
                 attackCount += 1
                 begin(s, blend: 0.05)
+                // 状態だけで回している時は、クリップも打撃を過ぎていれば次へ（playAttack の拍で回している時は触らない）
+                if autoAttack && attackAuto && (clips.role != .attack || !clips.isActive || clips.clipTime >= clips.impactTime) {
+                    startAutoAttackClip()
+                }
             } else if case .cast(let slot) = s, stateTime >= profile.casts[HeroAnimator.castIndex(slot)].total {
                 // 詠唱が終わった後の同じスロットの再詠唱
                 begin(s, blend: 0.08)
+                startCastClip(slot)
             }
             return
         }
+        let prev = state
         if state == .attack && s != .attack { attackCount += 1 }
         let blend: Float
         switch s {
@@ -578,6 +627,7 @@ struct HeroAnimator {
         case .idle, .run: blend = state == .dead ? 0 : 0.2
         }
         begin(s, blend: blend)
+        enterClips(s, from: prev, autoAttack: autoAttack)
     }
 
     /// スロットの詠唱モーションの長さ（秒）。
@@ -622,7 +672,137 @@ struct HeroAnimator {
         } else {
             current = pose
         }
+        autoAttackPending = false
+        if clips.isActive {
+            clips.advance(dt: dt, speed: speed)
+            if clips.finished && !clips.fadingOut && !clips.holdAtEnd { clipFinished() }
+        }
         return current
+    }
+
+    // MARK: クリップの層
+
+    /// setState(.attack) だけで回す時の拍（プレビュー・ギャラリー）。
+    static let autoWindup: Float = 0.3
+    static let autoInterval: Float = 0.9
+    /// 詠唱の呼び出しから打撃（効果の発生）までの秒数。
+    static let castLead: Float = 0.12
+
+    /// クリップの重み（上半身・下半身、0〜1）。下半身の重みの分だけ手続きの全身の傾き・浮き沈み・腰の沈みを止める。
+    var clipUpperWeight: Float { clips.isActive ? clips.upperWeight : 0 }
+    var clipLowerWeight: Float { clips.isActive ? clips.lowerWeight : 0 }
+    /// 再生中のクリップ（手続きの武器向きと混ぜる時の握り）。
+    var motion: HeroMotionBinding? { clips.binding }
+
+    /// 手続きの区間回転 q にクリップを重ねる。hipsOffset には腰のずれ（脚の長さ単位）を足す。
+    func overlay(into q: inout HeroSegmentRotations, hipsOffset: inout V3) {
+        clips.overlay(into: &q, hipsOffset: &hipsOffset)
+    }
+
+    /// 状態が変わった時のクリップ。割り当てが無い動作は今のクリップを消して手続きへ戻す。
+    private mutating func enterClips(_ s: HeroAnimState, from prev: HeroAnimState, autoAttack: Bool) {
+        guard let b = clips.binding else { return }
+        switch s {
+        case .attack:
+            attackAuto = true
+            if autoAttack { startAutoAttackClip() }
+        case .cast(let slot):
+            startCastClip(slot)
+        case .dead:
+            if let d = b.death {
+                clips.start(d, role: .death, from: 0, fullBody: true, speedMask: false, hold: true)
+            } else {
+                clips.stop()
+            }
+        case .victory, .stunned, .channel:
+            startStateClip(s)
+        case .idle, .run:
+            // 復活は手続きと同じく即座に切り替える
+            if prev == .dead { clips.cut() }
+            // 攻撃・詠唱のクリップは戻りまで再生してから（シムの攻撃状態は戻りの途中で終わる）
+            if clips.isActive && !clips.fadingOut && !clips.finished && (clips.role == .attack || clips.role == .cast) { return }
+            startStateClip(s)
+        }
+    }
+
+    /// 状態のループ（待機・移動・勝利・行動不能・帰還）。非ループのクリップは最後のフレームで止める。
+    private mutating func startStateClip(_ s: HeroAnimState) {
+        guard let b = clips.binding else { return }
+        let c: Int?
+        switch s {
+        case .idle: c = b.idle
+        case .run: c = b.run
+        case .victory: c = b.victory
+        case .stunned: c = b.stunned
+        case .channel: c = b.channel
+        default: c = nil
+        }
+        guard let c else { return clips.stop() }
+        if clips.isActive && clips.clip == c && clips.role == .state && !clips.fadingOut { return }
+        clips.start(c, role: .state, from: 0, fullBody: true, speedMask: false, hold: true, runRate: s == .run)
+    }
+
+    /// 通常攻撃のクリップ（割り当てを順に繰り返す）。打撃の瞬間を windup 秒後に合わせる:
+    /// 打撃までの速度 = 打撃の時刻 / windup（0.5〜4 倍）。範囲外なら開始位置をずらして（負なら先頭で待って）時刻を守る。
+    /// 打撃の後は戻りが max(0.2, interval - windup) 秒に収まる速度（1 倍以上）。
+    private mutating func startAttackClip(windup: Float, interval: Float) {
+        guard let b = clips.binding, !b.attacks.isEmpty else { return clips.stop() }
+        let c = b.attacks[attackCursor % b.attacks.count]
+        attackCursor = (attackCursor + 1) % b.attacks.count
+        let info = b.library.clips[c]
+        let w = max(0.02, windup.isFinite ? windup : HeroAnimator.autoWindup)
+        let impact = info.impactTime
+        let pre = min(4, max(0.5, impact / w))
+        let recovery = max(0, info.endTime - impact)
+        let available = max(0.2, (interval.isFinite ? interval : HeroAnimator.autoInterval) - w)
+        let post = max(1, recovery / available)
+        clips.start(c, role: .attack, from: impact - pre * w, preRate: pre, postRate: post,
+                    fullBody: b.attackMask == .full, speedMask: true, hold: false)
+    }
+
+    /// setState(.attack) だけで回す時の振り（既定の拍）。
+    private mutating func startAutoAttackClip() {
+        startAttackClip(windup: HeroAnimator.autoWindup, interval: HeroAnimator.autoInterval)
+        autoAttackPending = clips.isActive && clips.role == .attack
+    }
+
+    /// 詠唱のクリップ: 呼び出しの castLead 秒後に打撃が来るよう打撃の手前から始め、等速で最後まで再生する。
+    /// 立ち止まっていれば全身、移動中は上半身（足の滑りを避ける。攻撃と同じ規則）。
+    private mutating func startCastClip(_ slot: SkillSlot) {
+        guard let b = clips.binding else { return }
+        guard let c = b.cast(HeroAnimator.castIndex(slot)) else { return clips.stop() }
+        let info = b.library.clips[c]
+        clips.start(c, role: .cast, from: max(0, info.impactTime - HeroAnimator.castLead),
+                    fullBody: true, speedMask: true, hold: false)
+    }
+
+    /// 非ループのクリップが終わった時。
+    private mutating func clipFinished() {
+        switch clips.role {
+        case .attack:
+            if state == .attack {
+                // 状態だけで回している時は次の振りへ。playAttack の拍で回している時は次の呼び出しまで最後の姿勢で待つ
+                if attackAuto {
+                    startAutoAttackClip()
+                } else {
+                    clips.holdAtEnd = true
+                }
+            } else {
+                afterAction()
+            }
+        case .cast:
+            afterAction()
+        case .death, .state:
+            clips.holdAtEnd = true
+        }
+    }
+
+    /// 攻撃・詠唱の後: 待機・移動のループがあればそれへ、無ければ手続きへ戻す。
+    private mutating func afterAction() {
+        switch state {
+        case .idle, .run: startStateClip(state)
+        default: clips.stop()
+        }
     }
 
     private func evaluate() -> HeroPose {
@@ -805,5 +985,201 @@ struct HeroAnimator {
         p.cape = 0.3 + 0.3 * hop
         p.wings = 1.1 + 0.2 * sin(time * 6)
         return p
+    }
+}
+
+// MARK: - クリップの層
+
+/// 重ねるクリップの役割（終わった後の扱いが違う）。
+enum HeroClipRole: Equatable {
+    /// 通常攻撃（打撃の瞬間をシムに合わせる）。
+    case attack
+    /// スキル詠唱（最後まで再生して消える）。
+    case cast
+    /// 死亡（最後のフレームで止まる）。
+    case death
+    /// 状態のクリップ（待機・移動・勝利・行動不能・帰還。非ループは最後のフレームで止まる）。
+    case state
+}
+
+/// モーションクリップを手続きの姿勢へ重ねる層（HeroAnimator が持つ）。値型で、毎フレームのヒープ確保をしない。
+/// 時刻は「打撃まで preRate 倍・打撃の後 postRate 倍」の 2 段で進め、重みは上半身・下半身を別々に
+/// フェード（入り fadeIn 秒・抜け fadeOut 秒）する。クリップの切り替えは前のクリップの姿勢から fadeIn 秒でつなぐ。
+struct HeroClipLayer {
+    static let fadeIn: Float = 0.08
+    static let fadeOut: Float = 0.15
+    /// これより遅ければ立ち止まっている（speedMask のクリップに全身を許す）。m/s。
+    static let stationarySpeed: Float = 0.3
+
+    private(set) var binding: HeroMotionBinding?
+    /// 再生中のクリップ（ライブラリの添字、-1 = 無し）。
+    private(set) var clip = -1
+    private(set) var role: HeroClipRole = .state
+    /// クリップ内の時刻（秒）。負の間は先頭のフレームで待つ。
+    private(set) var clipTime: Float = 0
+    /// 打撃の時刻・再生の終わり（クリップ内の秒）。
+    private(set) var impactTime: Float = 0
+    private(set) var endTime: Float = 0
+    private(set) var preRate: Float = 1
+    private(set) var postRate: Float = 1
+    private var loop = false
+    /// 移動のループ: 速度に比例して再生する。
+    private var runRate = false
+    /// 下半身にも重ねる。
+    private var fullBody = true
+    /// 移動中（stationarySpeed 以上）は上半身だけにする。
+    private var speedMask = false
+    private var rootXZ: Float = 0
+    /// 非ループのクリップが終わりまで来た。
+    private(set) var finished = false
+    /// 終わったら最後のフレームで止めておく（死亡・状態のクリップ・拍待ちの攻撃）。
+    var holdAtEnd = false
+    private(set) var fadingOut = false
+    private var upperLinear: Float = 0
+    private var lowerLinear: Float = 0
+    /// クロスフェード（前のクリップの姿勢 → 新しいクリップ）の進み 0〜1。
+    private var xfade: Float = 1
+    private var fromPose = HeroSegmentRotations()
+    private var fromRoot = V3.zero
+    /// クリップの姿勢（手続きと混ぜる前）と腰のずれ（脚の長さ単位、rootXZ 適用後）。
+    private(set) var pose = HeroSegmentRotations()
+    private(set) var root = V3.zero
+
+    init(binding: HeroMotionBinding?) {
+        self.binding = binding
+    }
+
+    var isActive: Bool { clip >= 0 }
+    var upperWeight: Float { smooth01(upperLinear) }
+    var lowerWeight: Float { smooth01(lowerLinear) }
+    /// 再生位置（フレーム、先頭で待っている間は 0）。
+    var frame: Float {
+        guard clip >= 0, let lib = binding?.library else { return 0 }
+        return max(0, clipTime) * lib.clips[clip].fps
+    }
+    /// 再生中のクリップ名（テスト・デバッグ用）。
+    var clipName: String? {
+        guard clip >= 0, let lib = binding?.library else { return nil }
+        return lib.clips[clip].name
+    }
+
+    /// クリップを始める。重みが残っていれば今の姿勢からつなぐ。
+    mutating func start(_ c: Int, role: HeroClipRole, from t0: Float, preRate: Float = 1, postRate: Float = 1,
+                        fullBody: Bool, speedMask: Bool, hold: Bool, runRate: Bool = false) {
+        guard let lib = binding?.library, c >= 0, c < lib.clips.count else { return }
+        let info = lib.clips[c]
+        if clip >= 0 && (upperLinear > 0 || lowerLinear > 0) {
+            fromPose = pose
+            fromRoot = root
+            xfade = 0
+        } else {
+            xfade = 1
+        }
+        clip = c
+        self.role = role
+        clipTime = t0.isFinite ? t0 : 0
+        impactTime = info.impactTime
+        endTime = info.endTime
+        self.preRate = max(0.01, preRate)
+        self.postRate = max(0.01, postRate)
+        // 繰り返すのは状態のクリップだけ。攻撃・詠唱・死亡にループのクリップを割り当てても 1 周で終える
+        // （ループのままだと finished にならず、待機・移動へ戻っても重なり続ける）
+        loop = info.loop && role == .state
+        self.runRate = runRate
+        self.fullBody = fullBody
+        self.speedMask = speedMask
+        rootXZ = info.rootXZ
+        finished = false
+        holdAtEnd = hold
+        fadingOut = false
+        resample()
+    }
+
+    /// フェードアウトして手続きへ戻す。
+    mutating func stop() {
+        if clip >= 0 { fadingOut = true }
+    }
+
+    /// 即座に消す（復活）。
+    mutating func cut() {
+        clip = -1
+        upperLinear = 0
+        lowerLinear = 0
+        fadingOut = false
+        finished = false
+    }
+
+    /// dt 秒進める（speed は m/s。マスクと移動ループの速度に使う）。
+    mutating func advance(dt: Float, speed: Float) {
+        guard clip >= 0 else { return }
+        if !finished {
+            if loop {
+                let rate = runRate ? min(1.6, max(0.6, speed / 3.3)) : preRate
+                clipTime += dt * rate
+                if endTime > 0 {
+                    clipTime = clipTime.truncatingRemainder(dividingBy: endTime)
+                    if clipTime < 0 { clipTime += endTime }
+                }
+            } else {
+                // 打撃までは preRate、打撃の後は postRate（1 フレームの中で打撃をまたいでも時刻を守る）
+                var rest = dt
+                if clipTime < impactTime {
+                    let toImpact = (impactTime - clipTime) / preRate
+                    if rest < toImpact {
+                        clipTime += rest * preRate
+                        rest = 0
+                    } else {
+                        clipTime = impactTime
+                        rest -= toImpact
+                    }
+                }
+                if rest > 0 { clipTime += rest * postRate }
+                if clipTime >= endTime {
+                    clipTime = endTime
+                    finished = true
+                }
+            }
+        }
+        let upperTarget: Float = fadingOut ? 0 : 1
+        let lowerTarget: Float = fadingOut || !fullBody || (speedMask && speed >= Self.stationarySpeed) ? 0 : 1
+        upperLinear = Self.approach(upperLinear, upperTarget, dt)
+        lowerLinear = Self.approach(lowerLinear, lowerTarget, dt)
+        xfade = min(1, xfade + dt / Self.fadeIn)
+        if fadingOut && upperLinear <= 0 && lowerLinear <= 0 {
+            clip = -1
+            return
+        }
+        resample()
+    }
+
+    @inline(__always) private static func approach(_ v: Float, _ target: Float, _ dt: Float) -> Float {
+        v < target ? min(target, v + dt / fadeIn) : max(target, v - dt / fadeOut)
+    }
+
+    private mutating func resample() {
+        guard clip >= 0, let lib = binding?.library else { return }
+        var q = HeroSegmentRotations()
+        var r = V3.zero
+        lib.sample(clip, time: clipTime, into: &q, root: &r)
+        r.x *= rootXZ
+        r.z *= rootXZ
+        if xfade < 1 {
+            let t = smooth01(xfade)
+            var from = fromPose
+            from.blend(toward: q, upper: t, lower: t)
+            q = from
+            r = fromRoot + (r - fromRoot) * t
+        }
+        pose = q
+        root = r
+    }
+
+    /// 手続きの区間回転 q へ重ねる（上半身・下半身の重みで slerp）。腰のずれは下半身の重みを掛けて足す。
+    func overlay(into q: inout HeroSegmentRotations, hipsOffset: inout V3) {
+        guard clip >= 0 else { return }
+        let wu = upperWeight, wl = lowerWeight
+        guard wu > 0 || wl > 0 else { return }
+        q.blend(toward: pose, upper: wu, lower: wl)
+        hipsOffset += root * wl
     }
 }

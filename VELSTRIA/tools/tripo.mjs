@@ -14,11 +14,16 @@
 //   TRIPO_BUILD_DIR    ダウンロード物・取り込みレポート・検査ツールのバイナリ（既定 build/tripo/）
 //   TRIPO_RESOURCES_DIR 取り込み先（既定 App/Resources/Heroes/）
 //     この 3 つはリポジトリを汚さずに取り込みを試すためのもの（合成リグを置いた一時ディレクトリを指す）
+//   HEROREF_BUILD_DIR  --concept-source fullbody の参照画像の置き場所（既定 build/heroref/。tools/heroref/fullbody.py と同じ）
 //
 // usage（VELSTRIA/ で実行）:
 //   node tools/tripo.mjs balance                                    残高（無料 API）
-//   node tools/tripo.mjs estimate [heroes|props|skins|all] [ids...]  見積り（credits と USD、残高と比較）
+//   node tools/tripo.mjs estimate [heroes|props|skins|all] [ids...] [--concept-source fullbody]
+//                                                                   見積り（credits と USD、残高と比較）
 //   node tools/tripo.mjs run heroes [H001 ...|--all] [--until concept|model|rigcheck|rig] [--faces N]
+//       [--concept-source fullbody]  concept を Tripo の text-to-image ではなくローカルの全身画像
+//       （build/heroref/<ID>/fullbody.png）の写しにする（0 credits）。model はその画像を POST /files で上げた file_token
+//       から作る。前回の concept（Tripo 製か、sha256 の違うローカル画像）は後段ごと履歴へ移して作り直す。同じ画像なら何もしない
 //   node tools/tripo.mjs run props  [<kind> ...|--all] [--include-optional] [--faces N] [--replace-meshy]
 //   node tools/tripo.mjs run skins  [<cosmeticID> ...|--all] [--style-image]
 //       共通: [--dry-run] [--max-credits N] [--force <stage>[,<stage>]|all] [--concurrency N] [--allow-partial]
@@ -56,6 +61,24 @@ const API = (process.env.TRIPO_API_BASE || "https://openapi.tripo3d.ai/v3").repl
 const BLENDER = process.env.BLENDER || "/Applications/Blender.app/Contents/MacOS/Blender";
 const KEY_FILE = path.join(os.homedir(), ".config", "tripo", "api_key");
 const PURCHASE_URL = "https://platform.tripo3d.ai/";
+const HEROREF_DIR = envDir("HEROREF_BUILD_DIR", path.join(ROOT, "build", "heroref"));
+
+// --concept-source: concept 段階を Tripo の text-to-image ではなくローカルの画像で置き換える（ヒーローのみ）。
+// file は採用版の画像、tagFile は fullbody.py select が書く採用候補のタグ（記録用）
+const CONCEPT_SOURCES = {
+  fullbody: {
+    file: (a) => path.join(HEROREF_DIR, a.id, "fullbody.png"),
+    tagFile: (a) => path.join(HEROREF_DIR, a.id, "fullbody.source"),
+    howTo: (a) => `python3 tools/heroref/fullbody.py generate ${a.id} --tag t1 && python3 tools/heroref/fullbody.py select ${a.id} t1`,
+  },
+};
+const UPLOAD_IMAGE_MAX = 20 << 20; // POST /files の画像は 20 MB まで（files.md）
+const MIN_IMAGE_PX = 256; // image-to-model の推奨最小解像度
+// ローカル画像を前段に持つ段階の input（送信直前に POST /files で得た file_token に差し替える）
+const UPLOAD_PLACEHOLDER = "<concept.png を POST /files でアップロードした file_token>";
+// 別の API キー（差し替え前のキーなど）で作ったタスクは今のキーの GET /tasks からは見えず、存在しないタスクと同じ
+// HTTP 404 / code 2001 になる（2026-10 に確認）。区別できないので、どちらの可能性も伝える
+const NOT_FOUND_WHY = "HTTP 404 / code 2001。別の API キー（差し替え前のキーなど）で作ったタスクは今のキーからは見えません";
 
 const IMAGE_MODEL = "seedream_v5";
 const MODEL_P1 = "P1-20260311";
@@ -178,7 +201,8 @@ class Semaphore {
 
 // MARK: - 引数
 
-const VALUE_FLAGS = new Set(["until", "faces", "max-credits", "force", "concurrency", "height", "texture-size", "max-faces", "forward", "length", "axis"]);
+const VALUE_FLAGS = new Set(["until", "faces", "max-credits", "force", "concurrency", "height", "texture-size", "max-faces", "forward", "length", "axis",
+  "concept-source"]);
 const BOOL_FLAGS = new Set(["all", "dry-run", "include-optional", "style-image", "no-style-image", "allow-partial", "replace-meshy", "help"]);
 
 function parseArgs(argv) {
@@ -240,6 +264,7 @@ function parseArgs(argv) {
       return n;
     })(),
     force: new Set(flags.force || []),
+    conceptSource: choiceFlag("concept-source", Object.keys(CONCEPT_SOURCES)),
     concurrency: intFlag("concurrency", 1, 10) ?? (Number.isInteger(envConc) && envConc >= 1 ? Math.min(envConc, 10) : 3),
     importOpts: {
       height: posFlag("height"),
@@ -268,6 +293,9 @@ class TripoError extends Error {
     return this.code === 2010 || (this.status === 403 && /credit/i.test(this.json?.message || ""));
   }
 }
+
+// GET /tasks/{id} の「見つからない」（存在しない・作成直後で未反映・別の API キーで作ったタスク）
+const taskNotFound = (e) => e instanceof TripoError && (e.status === 404 || e.code === 2001);
 
 function apiKey() {
   if (apiKeyCache) return apiKeyCache;
@@ -343,8 +371,7 @@ function shortageText(need, bal) {
   ].join("\n");
 }
 
-async function uploadFile(file) {
-  const buf = fs.readFileSync(file);
+async function uploadFile(file, buf = fs.readFileSync(file)) {
   const form = new FormData();
   form.append("file", new Blob([buf], { type: sniffMime(buf) }), path.basename(file));
   const data = await api("POST", "/files", undefined, { form });
@@ -388,6 +415,16 @@ function sniffMime(buf) {
   if (buf.length >= 12 && buf.toString("latin1", 0, 4) === "RIFF" && buf.toString("latin1", 8, 12) === "WEBP") return "image/webp";
   return "application/octet-stream";
 }
+
+// PNG の幅・高さ（IHDR）。PNG でなければ null
+function pngSize(buf) {
+  if (sniffMime(buf) !== "image/png" || buf.length < 24 || buf.toString("latin1", 12, 16) !== "IHDR") return null;
+  return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+}
+
+const sha256Of = (buf) => crypto.createHash("sha256").update(buf).digest("hex");
+const sha256File = (file) => sha256Of(fs.readFileSync(file));
+const shortSha = (h) => (h ? `${h.slice(0, 12)}…` : "?");
 
 function readHead(file, n = 16) {
   const fd = fs.openSync(file, "r");
@@ -593,6 +630,67 @@ function summarizeOutput(output) {
 
 const tag = (a, stage) => `${a.key} ${stage}`;
 
+// MARK: - ローカルのコンセプト（--concept-source）
+
+// 参照画像の検査と sha256。計画（見積り・置き換えの判定）と実行で同じ値を使うよう 1 回だけ読み、
+// 写すときに読み直した内容の sha256 と照合する（計画の後で差し替えられたら写さない）
+const conceptSrcCache = new Map();
+function conceptSource(a, o) {
+  if (!o.conceptSource || a.cat !== "heroes") return null;
+  if (conceptSrcCache.has(a.key)) return conceptSrcCache.get(a.key);
+  const def = CONCEPT_SOURCES[o.conceptSource];
+  const src = { kind: o.conceptSource, path: def.file(a) };
+  try {
+    const t = fs.readFileSync(def.tagFile(a), "utf8").trim();
+    if (t) src.tag = t;
+  } catch { /* select を通さず置いた画像 */ }
+  src.error = (() => {
+    if (!fs.existsSync(src.path)) return "ファイルがありません";
+    const size = fs.statSync(src.path).size;
+    if (size === 0) return "空のファイル";
+    if (size > UPLOAD_IMAGE_MAX) return `${fmtBytes(size)}（POST /files の画像は 20 MB まで）`;
+    const buf = fs.readFileSync(src.path);
+    const dim = pngSize(buf);
+    // 写し先は concept.png なので PNG に限る（fullbody.py は PNG だけを採用する）
+    if (!dim) return `PNG ではありません（${sniffMime(buf)}）`;
+    if (dim.width < MIN_IMAGE_PX || dim.height < MIN_IMAGE_PX) return `${dim.width}x${dim.height}（${MIN_IMAGE_PX}px 以上が必要）`;
+    Object.assign(src, dim, { sha256: sha256Of(buf) });
+    return null;
+  })();
+  if (!src.error) delete src.error;
+  conceptSrcCache.set(a.key, src);
+  return src;
+}
+
+// 既存の concept がこの参照画像の写しか（同じ種類・同じ sha256 なら後段も含めて作り直さない）
+function localConceptPlan(a, o) {
+  const src = conceptSource(a, o);
+  if (!src) return null;
+  const st = getStage(a, "concept");
+  const same = !src.error && st?.status === "success" && !!st.local && st.source?.kind === src.kind && st.source?.sha256 === src.sha256;
+  return { src, same };
+}
+
+// 履歴へ移し始める段階の番号（--force の指定と、concept をローカル画像で置き換えるとき 0）
+function effectiveForceIndex(a, o) {
+  const lc = localConceptPlan(a, o);
+  return lc && !lc.same ? 0 : forcedIndex(a.cat, o.force);
+}
+
+// 前段がローカル画像の concept なら、アップロードする concept.png のパス（それ以外は null = task_id を渡す）。
+// --concept-source を付けない run でも、state の concept が local ならその写しを使い続ける。
+// planned（dry-run）に concept があれば Tripo で作り直す予定なのでローカルではない
+function localInputFile(a, stage, o, planned = null) {
+  const src = sourceOf(a, stage);
+  if (!src || src.stage !== "concept") return null;
+  const local = conceptSource(src.asset, o) ? true
+    : planned?.has(`${src.asset.key}:concept`) ? false
+      : !!getStage(src.asset, "concept")?.local;
+  return local ? path.join(assetDir(src.asset), "concept.png") : null;
+}
+
+const describeSource = (s) => [s.kind, s.tag, s.width && `${s.width}x${s.height}`, `sha256 ${shortSha(s.sha256)}`].filter(Boolean).join("、");
+
 // MARK: - リクエスト本文
 
 function stagesFor(cat, until) {
@@ -674,7 +772,8 @@ async function styleImageFor(a, o) {
       const u = t?.status === "success" ? outputUrl(t.output, "image") : null;
       if (u) return { url: u };
     } catch (e) {
-      console.error(`  ${tag(a, "texture")} コンセプト画像の URL を取得できません: ${scrub(e.message)}`);
+      console.error(`  ${tag(a, "texture")} コンセプト画像の URL を取得できません: ${scrub(e.message)}`
+        + (taskNotFound(e) ? `（${NOT_FOUND_WHY}）。ローカルの concept.png を使います` : ""));
     }
   }
   const local = path.join(assetDir(hero), "concept.png");
@@ -688,12 +787,22 @@ async function styleImageFor(a, o) {
 
 // MARK: - 実行
 
+// action: submit（有料 POST）/ local（ローカル画像を写す、0 credits）/ missing（参照画像が無い・不正）/ done / resume / blocked。
+// why: 既存の結果を履歴へ移す理由（force = --force、concept = concept をローカル画像で置き換えるため）
 function planStages(a, o) {
   const list = stagesFor(a.cat, o.until);
-  const fi = forcedIndex(a.cat, o.force);
+  const lc = localConceptPlan(a, o);
+  const ffi = forcedIndex(a.cat, o.force);
+  const fi = effectiveForceIndex(a, o);
   return list.map((stage, i) => {
     const st = getStage(a, stage);
-    if (i >= fi) return { stage, action: "submit", st, forced: !!st };
+    const why = i >= ffi ? "force" : "concept";
+    if (lc && stage === "concept") {
+      if (lc.src.error) return { stage, action: "missing", st, src: lc.src };
+      if (i >= fi) return { stage, action: "local", st, src: lc.src, forced: !!st, why };
+      return { stage, action: "done", st };
+    }
+    if (i >= fi) return { stage, action: "submit", st, forced: !!st, why };
     if (!st) return { stage, action: "submit" };
     if (st.status === "success") return { stage, action: "done", st };
     if (resumable(st)) return { stage, action: "resume", st };
@@ -702,6 +811,7 @@ function planStages(a, o) {
   });
 }
 
+// ローカル画像の concept（local）は Tripo に送らないので 0
 const planCost = (plan) => plan.reduce((sum, p) => sum + (p.action === "submit" ? CREDITS[p.stage] : 0), 0);
 
 function skinPrereq(a) {
@@ -739,9 +849,15 @@ class Runner {
   }
 
   async runAsset(a) {
-    const fi = forcedIndex(a.cat, this.o.force);
+    const fi = effectiveForceIndex(a, this.o);
     if (fi < Infinity) {
       if (this.halted) return; // 作り直せないのに既存の結果だけ履歴へ移さない
+      const lc = localConceptPlan(a, this.o);
+      if (lc && !lc.same) {
+        // 後段は前の concept から作ったものなので、--until より後の段階も含めて履歴へ移す（残すと古いモデルを使い続ける）
+        const old = STAGES[a.cat].filter((s) => getStage(a, s));
+        if (old.length) log(`  ${a.key}: concept を ${lc.src.kind} の画像に置き換えるため ${old.join(" / ")} を履歴へ移します`);
+      }
       archiveFrom(a, STAGES[a.cat][fi]);
     }
     for (const stage of stagesFor(a.cat, this.o.until)) {
@@ -758,6 +874,7 @@ class Runner {
   }
 
   async ensureStage(a, stage) {
+    if (stage === "concept" && conceptSource(a, this.o)) return this.ensureLocalConcept(a);
     let st = getStage(a, stage);
     if (st?.status === "success") return this.finish(a, stage, null);
     if (st && UNSURE.has(st.status) && !resumable(st)) {
@@ -804,7 +921,82 @@ class Runner {
     }
   }
 
+  // --concept-source: 参照画像を concept.png へ写して concept を成功扱いにする（Tripo のタスクなし、0 credits）。
+  // 置き換え（前回と違う画像）の履歴への移動は runAsset が済ませている
+  async ensureLocalConcept(a) {
+    const src = conceptSource(a, this.o);
+    if (src.error) {
+      log(`  ${tag(a, "concept")} 参照画像を使えません: ${rel(src.path)}: ${src.error}`);
+      return false;
+    }
+    let buf;
+    try { buf = fs.readFileSync(src.path); } catch (e) {
+      log(`  ${tag(a, "concept")} 参照画像を読めません: ${rel(src.path)}: ${e.code || e.message}`);
+      return false;
+    }
+    const sha = sha256Of(buf);
+    if (sha !== src.sha256) {
+      log(`  ${tag(a, "concept")} ${rel(src.path)} が計画の後で変わりました（写さずに中止。もう一度実行してください）`);
+      return false;
+    }
+    const dest = path.join(assetDir(a), "concept.png");
+    const source = { kind: src.kind, path: rel(src.path), sha256: sha, ...(src.tag ? { tag: src.tag } : {}), width: src.width, height: src.height };
+    const copy = () => {
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.writeFileSync(`${dest}.part`, buf);
+      fs.renameSync(`${dest}.part`, dest);
+    };
+    const st = getStage(a, "concept");
+    if (st?.status === "success" && st.local && st.source?.kind === src.kind && st.source?.sha256 === sha) {
+      // 同じ画像: 後段はそのまま。写しが消えた・書き換わったときだけ写し直す（置き場所やタグの変更は記録だけ更新）
+      const intact = fs.existsSync(dest) && sha256File(dest) === sha;
+      if (!intact) {
+        copy();
+        log(`  ${tag(a, "concept")} ${rel(dest)} を写し直しました（${describeSource(source)}）`);
+      }
+      if (!intact || JSON.stringify(st.source) !== JSON.stringify(source)) setStage(a, "concept", { source, files: { image: rel(dest) } });
+      return this.finish(a, "concept", null);
+    }
+    if (st) archiveFrom(a, "concept"); // 通常は runAsset で移し済み（念のため。上書きして消さない）
+    copy();
+    const t = now();
+    setStage(a, "concept", {
+      status: "success", task_id: null, local: true, source, input: null, request: null, estimate: 0,
+      submitted_at: t, completed_at: t, progress: 100, credits_consumed: 0, output: null, files: { image: rel(dest) }, error: null,
+    });
+    log(`  ${tag(a, "concept")} ローカル画像: ${rel(src.path)} → ${rel(dest)}（${describeSource(source)}、0 credits）`);
+    return this.finish(a, "concept", null);
+  }
+
+  // ローカル画像の concept.png を POST /files（無料）へ上げて file_token を得る。上げる直前に concept の記録と照合する
+  async uploadLocalInput(a, stage, file) {
+    const src = sourceOf(a, stage);
+    const cst = getStage(src.asset, src.stage);
+    let buf;
+    try { buf = fs.readFileSync(file); } catch (e) { throw new Error(`${rel(file)} を読めません（${e.code || e.message}）`); }
+    const sha = sha256Of(buf);
+    if (sha !== cst?.source?.sha256) {
+      throw new Error(`${rel(file)} が ${tag(src.asset, src.stage)} の記録（sha256 ${shortSha(cst?.source?.sha256)}）と違います。`
+        + `--concept-source ${cst?.source?.kind ?? "fullbody"} を付けて写し直してください`);
+    }
+    const token = await uploadFile(file, buf);
+    log(`  ${tag(a, stage)} ${rel(file)} をアップロード（${fmtBytes(buf.length)}）: ${token}`);
+    return { file: rel(file), sha256: sha, file_token: token, uploaded_at: now() };
+  }
+
   async submitStage(a, stage) {
+    const localFile = localInputFile(a, stage, this.o);
+    if (localFile) {
+      const src = sourceOf(a, stage);
+      const cst = getStage(src.asset, src.stage);
+      if (!(cst?.status === "success" && cst.local)) {
+        log(`  ${tag(a, stage)} 前段 ${src.asset.key} ${src.stage}（ローカル画像）が未完了のため送信しません`);
+        return null;
+      }
+      // input は submit が予算・残高の確認を通した後でアップロードして差し替える
+      const body = buildBody(a, stage, UPLOAD_PLACEHOLDER, this.o, null);
+      return this.submit(a, stage, body, () => this.uploadLocalInput(a, stage, localFile));
+    }
     const input = inputFor(a, stage, null);
     if (sourceOf(a, stage) && !input) {
       const src = sourceOf(a, stage);
@@ -827,8 +1019,9 @@ class Runner {
     return this.submit(a, stage, body);
   }
 
-  // 予算確認 → 送信（残高の確認と送信が並行で食い違わないよう 1 本ずつ）
-  async submit(a, stage, body) {
+  // 予算確認 → 送信（残高の確認と送信が並行で食い違わないよう 1 本ずつ）。
+  // prepareUpload があれば確認を通った後で呼び、その file_token を input にする（止まるときは上げない）
+  async submit(a, stage, body, prepareUpload = null) {
     await this.submitLock.acquire();
     try {
       if (this.halted) return null;
@@ -850,8 +1043,12 @@ class Runner {
           return null;
         }
       }
+      // アップロードは無料で、失敗しても有料の POST は送っていないので段階の状態は変えない（例外は runAsset が表示）
+      const upload = prepareUpload ? await prepareUpload() : undefined;
+      if (upload) body = { ...body, input: upload.file_token };
       setStage(a, stage, {
-        status: "submitting", task_id: null, input: body.input ?? null, request: redactBody(body), estimate: need,
+        // upload: 上げた画像と file_token の控え（API キーは含まない）。undefined なら前回の控えを消す
+        status: "submitting", task_id: null, input: body.input ?? null, request: redactBody(body), upload, estimate: need,
         submitted_at: now(), completed_at: null, progress: 0, credits_consumed: null, output: null, files: {}, error: null,
       });
       let data;
@@ -898,7 +1095,7 @@ class Runner {
       try {
         task = await api("GET", `/tasks/${encodeURIComponent(tid)}`);
       } catch (e) {
-        if (e instanceof TripoError && e.status === 404) {
+        if (taskNotFound(e)) {
           // 作成直後は GET に反映されていないことがある → 送信から 60 秒（再開時も最低 3 回）は待って問い合わせ直す
           notFound++;
           if (Date.now() - submittedAt < NOT_FOUND_GRACE_MS || notFound < NOT_FOUND_MIN_TRIES) {
@@ -906,9 +1103,10 @@ class Runner {
             continue;
           }
           // task_id は残す（次回の run で問い合わせ直す。--force だと再課金になる）
-          setStage(a, stage, { status: "unknown", error: "タスクが見つかりません（404）" });
-          log(`  ${tag(a, stage)} タスク ${tid} が見つかりません（404）。次回の run で問い合わせ直します。`
-            + `Tripo の利用履歴でタスクが無いことを確かめてから --force ${stage} で作り直してください（作り直しは再課金）`);
+          setStage(a, stage, { status: "unknown", error: `タスクが見つかりません（${NOT_FOUND_WHY}）` });
+          log(`  ${tag(a, stage)} タスク ${tid} が見つかりません（${NOT_FOUND_WHY}）。次回の run で問い合わせ直します。`
+            + `API キーを差し替えたなら前のキーの利用履歴を、そうでなければ Tripo の利用履歴でタスクが無いことを確かめてから`
+            + ` --force ${stage} で作り直してください（作り直しは再課金）`);
           return null;
         }
         throw e;
@@ -964,13 +1162,36 @@ class Runner {
     const st = getStage(a, stage);
     const dir = assetDir(a);
     fs.mkdirSync(dir, { recursive: true });
+    if (st.local) {
+      // ローカル画像の段階（--concept-source）は Tripo のタスクが無く取り直せない → 写しを記録の sha256 と照合するだけ
+      for (const [, name] of specs) {
+        const dest = path.join(dir, name);
+        if (fs.existsSync(dest) && sha256File(dest) === st.source?.sha256) continue;
+        log(`  ${tag(a, stage)} ${rel(dest)} が無いか記録（${st.source?.kind ?? "?"}、sha256 ${shortSha(st.source?.sha256)}）と違います。`
+          + `--concept-source ${st.source?.kind ?? "fullbody"} を付けて写し直してください`);
+        // 段階は success のままで後段も確かめずに止まる（後段が成功済みだと「完了」に数えられる）→ 終了コードで知らせる
+        process.exitCode = 1;
+        return false;
+      }
+      return true;
+    }
     const files = { ...(st.files || {}) };
     let fresh = task;
     let changed = false;
     for (const [kind, name, required] of specs) {
       const dest = path.join(dir, name);
       if (files[kind] === rel(dest) && !badContent(dest, kind === "model" ? "model" : "image")) continue;
-      if (!fresh?.output) fresh = await api("GET", `/tasks/${encodeURIComponent(st.task_id)}`); // URL は期限付きなので取り直す
+      if (!fresh?.output) {
+        try {
+          fresh = await api("GET", `/tasks/${encodeURIComponent(st.task_id)}`); // URL は期限付きなので取り直す
+        } catch (e) {
+          if (!taskNotFound(e)) throw e;
+          log(`  ${tag(a, stage)} ${name} を取り直せません: タスク ${st.task_id} が見つかりません（${NOT_FOUND_WHY}）。`
+            + `${rel(dest)} を戻すか、--force ${stage} で作り直してください（再課金）`);
+          process.exitCode = 1; // 段階は success のままなので「未完了」に数えられない → 終了コードで知らせる
+          return false;
+        }
+      }
       const url = outputUrl(fresh?.output, kind);
       if (!url) {
         const keys = Object.keys(fresh?.output || {}).join(", ") || "なし";
@@ -1015,13 +1236,35 @@ function dryRun(cat, plans, o) {
     }
     for (const p of plan) {
       const head = `  ${pad(p.stage, 9)}`;
-      if (p.action === "done") { log(`${head}済み（${p.st.task_id}）→ スキップ`); continue; }
+      const sub = " ".repeat(dispWidth(head));
+      if (p.action === "missing") {
+        log(`${head}参照画像（--concept-source ${p.src.kind}）を使えません: ${rel(p.src.path)}: ${p.src.error} → run 全体を始めない`);
+        log(`${sub}作り方: ${CONCEPT_SOURCES[p.src.kind].howTo(a)}`);
+        break;
+      }
+      if (p.action === "local") {
+        const dest = path.join(assetDir(a), "concept.png");
+        log(`${head}ローカル画像を写す（Tripo に送らない）  見積り 0 credits: ${rel(p.src.path)} → ${rel(dest)}`);
+        log(`${sub}${describeSource(p.src)}`);
+        // 置き換えでは --until より後の段階も履歴へ移す（runAsset と同じ）
+        const old = STAGES[a.cat].filter((s) => getStage(a, s));
+        if (old.length) {
+          const prev = p.st ? (p.st.local ? `前回のローカル画像 sha256 ${shortSha(p.st.source?.sha256)}` : `Tripo の ${p.st.task_id ?? p.st.status}`) : "concept なし";
+          log(`${sub}既存の ${old.join(" / ")} を履歴へ移して作り直す（${p.why === "force" ? "--force" : `concept が変わる: ${prev}`}）`);
+        }
+        continue;
+      }
+      if (p.action === "done") {
+        log(`${head}済み（${p.st.local ? `ローカル画像 ${describeSource(p.st.source || {})}` : p.st.task_id}）→ スキップ`);
+        continue;
+      }
       if (p.action === "resume") {
         log(`${head}${p.st.status === "unknown" ? "前回 404 だったタスク" : "実行中"}（${p.st.task_id}, ${p.st.status}）→ ポーリングを再開`);
         continue;
       }
       if (p.action === "blocked") { log(`${head}前回の送信結果が不明（${p.st.status}）→ 送信しない。作り直すなら --force ${p.stage}`); continue; }
-      const input = inputFor(a, p.stage, planned);
+      const upload = localInputFile(a, p.stage, o, planned);
+      const input = upload ? UPLOAD_PLACEHOLDER : inputFor(a, p.stage, planned);
       const styleImage = p.stage === "texture" && !o.noStyleImage
         ? { url: `<${a.entry.heroID} のコンセプト画像 URL（送信直前に GET /tasks/{concept} で取得。無ければ concept.png をアップロードして file_token）>` }
         : null;
@@ -1029,8 +1272,10 @@ function dryRun(cat, plans, o) {
       const cost = CREDITS[p.stage];
       total += cost;
       planned.add(`${a.key}:${p.stage}`);
-      const note = p.forced ? "（--force: 既存の結果を履歴へ移して再送）" : p.st ? `（前回 ${p.st.status} → 再送）` : "";
-      log(`${head}POST ${ENDPOINTS[p.stage]}  見積り ${cost} credits${note}`);
+      const note = p.forced ? (p.why === "force" ? "（--force: 既存の結果を履歴へ移して再送）" : "（concept が変わるため既存の結果を履歴へ移して再送）")
+        : p.st ? `（前回 ${p.st.status} → 再送）` : "";
+      if (upload) log(`${head}POST /files（無料。予算・残高の確認を通った後、送信の直前）: ${rel(upload)} → file_token を input へ`);
+      log(`${upload ? sub : head}POST ${ENDPOINTS[p.stage]}  見積り ${cost} credits${note}`);
       printJSONIndented(body, "    ");
       const promptText = body.prompt ?? body.texture_prompt?.text;
       if (promptText) log(`    prompt ${promptText.length} 文字`);
@@ -1047,6 +1292,7 @@ async function cmdRun(cat, ids, o) {
   if (!STAGES[cat]) fail("run の対象は heroes | props | skins");
   if (o.faces !== undefined && cat === "skins") fail("--faces は heroes / props のみ");
   if (o.styleImageFlag && cat !== "skins") fail(`${o.styleImageFlag} は skins のみ`);
+  if (o.conceptSource && cat !== "heroes") fail("--concept-source は heroes のみ");
   validateForce(cat, o.force);
   const inRun = stagesFor(cat, o.until);
   const beyond = [...o.force].filter((f) => f !== "all" && !inRun.includes(f));
@@ -1061,12 +1307,22 @@ async function cmdRun(cat, ids, o) {
     if (meshy.length && ids.length) process.exitCode = 1;
   }
   const plans = assets.map((a) => ({ a, plan: planStages(a, o) }));
+  // 参照画像が無い・使えないヒーローがあれば何も始めない（一部だけ置き換えて残りを Tripo の concept のまま進めない）
+  const missing = plans.flatMap(({ plan }) => plan.filter((p) => p.action === "missing").map((p) => p.src));
+  const missingText = () => `参照画像（--concept-source ${o.conceptSource}）を使えません:\n`
+    + missing.map((s) => `  ${rel(s.path)}: ${s.error}`).join("\n")
+    + "\n  作り方: python3 tools/heroref/fullbody.py generate <ID> --tag t1 → 確認して select <ID> <tag>";
 
   if (o.dry) {
     DRY = true;
-    log(`[dry-run] run ${cat}: ${assets.length} 件。有料 API は呼ばず、state.json も変更しません`);
+    log(`[dry-run] run ${cat}: ${assets.length} 件。有料 API は呼ばず、state.json も変更しません`
+      + (o.conceptSource ? `（concept はローカル画像 ${o.conceptSource}: ${rel(HEROREF_DIR)}/<ID>/）` : ""));
     const total = dryRun(cat, plans, o);
     log(`\n[dry-run] 新規送信の見積り合計: ${total} credits（${usd(total)}）`);
+    if (missing.length) {
+      log(`[dry-run] ${missingText()}`);
+      process.exitCode = 1;
+    }
     if (hasApiKey()) {
       try {
         const bal = await getBalance();
@@ -1078,6 +1334,7 @@ async function cmdRun(cat, ids, o) {
     return;
   }
 
+  if (missing.length) fail(missingText());
   if (cat === "skins") {
     const blocked = assets.filter((a) => skinPrereq(a) && planStages(a, o).some((p) => p.stage === "texture" && p.action === "submit"));
     for (const a of blocked) log(`  ${a.key}: スキップ（${skinPrereq(a)}）`);
@@ -1087,7 +1344,8 @@ async function cmdRun(cat, ids, o) {
   const total = assets.reduce((sum, a) => sum + planCost(planStages(a, o)), 0);
   const bal = await getBalance();
   log(`run ${cat}: ${assets.length} 件、新規送信の見積り ${total} credits（${usd(total)}）、残高 ${fmtCredits(bal.balance)}（凍結 ${fmtCredits(bal.frozen)}）`
-    + (o.maxCredits !== undefined ? `、上限 --max-credits ${o.maxCredits}` : ""));
+    + (o.maxCredits !== undefined ? `、上限 --max-credits ${o.maxCredits}` : "")
+    + (o.conceptSource ? `、concept はローカル画像（${o.conceptSource}、0 credits）` : ""));
   const needNow = Math.min(total, o.maxCredits ?? Infinity);
   if (needNow > 0 && bal.balance < needNow && !o.allowPartial) {
     fail(`${shortageText(needNow, bal)}\n  途中まででよければ --allow-partial（残高が尽きた時点で送信を止めます）か --max-credits N`);
@@ -1119,6 +1377,9 @@ async function cmdRun(cat, ids, o) {
 async function cmdEstimate(catArg, ids, o) {
   const cats = !catArg || catArg === "all" ? ["heroes", "props", "skins"] : [catArg];
   if (cats.some((c) => !STAGES[c])) fail("estimate の対象は heroes | props | skins | all");
+  if (o.conceptSource && !cats.includes("heroes")) fail("--concept-source は heroes のみ");
+  // ローカル画像の concept は 0 credits（--concept-source はヒーローだけに効く）
+  const stageCost = (c, st) => (st === "concept" && c === "heroes" && o.conceptSource ? 0 : CREDITS[st]);
   const chosen = { heroes: [], props: [], skins: [] };
   if (ids.length) {
     for (const id of ids) {
@@ -1136,15 +1397,21 @@ async function cmdEstimate(catArg, ids, o) {
   for (const c of cats) {
     const list = chosen[c];
     if (!list.length) continue;
-    const per = STAGES[c].reduce((s, st) => s + CREDITS[st], 0);
+    const per = STAGES[c].reduce((s, st) => s + stageCost(c, st), 0);
     const rem = list.reduce((s, a) => s + planCost(planStages(a, { ...o, until: undefined, force: new Set() })), 0);
     full += per * list.length;
     remaining += rem;
-    rows.push([c, String(list.length), `${per}（${STAGES[c].map((st) => `${st} ${CREDITS[st]}`).join(" + ")}）`,
+    rows.push([c, String(list.length), `${per}（${STAGES[c].map((st) => `${st} ${stageCost(c, st)}`).join(" + ")}）`,
       `${per * list.length}（${usd(per * list.length)}）`, `${rem}（${usd(rem)}）`]);
   }
   rows.push(["合計", "", "", `${full}（${usd(full)}）`, `${remaining}（${usd(remaining)}）`]);
   table(rows);
+  if (o.conceptSource && chosen.heroes.length) {
+    // 未完了分は「参照画像の写しで concept を置き換え、後段を作り直す」前提。画像の無いヒーローもその前提で数える
+    const missing = chosen.heroes.filter((a) => conceptSource(a, o).error);
+    log(`  heroes の concept はローカル画像（${o.conceptSource}: ${rel(HEROREF_DIR)}/<ID>/）。前回と違う画像なら model 以降を作り直す前提`
+      + (missing.length ? `\n  参照画像が無い・使えない: ${missing.map((a) => a.id).join(" ")}（run は止まる）` : ""));
+  }
   if (cats.includes("props") && !ids.length) {
     const opt = manifest.assets.props.filter((a) => a.optional && !a.entry.bodyWorn);
     const worn = manifest.assets.props.filter((a) => a.entry.bodyWorn);
@@ -1164,6 +1431,7 @@ function cellFor(a, stage) {
   const st = getStage(a, stage);
   if (!st) return "-";
   if (st.status === "success") {
+    if (st.local) return `local ${st.source?.kind ?? ""}`.trim();
     if (stage === "rigcheck") {
       const o = st.output || {};
       return o.riggable === false || (o.rig_type && o.rig_type !== "biped") ? `NG ${o.rig_type ?? ""}`.trim() : `ok ${o.rig_type ?? ""}`.trim();
@@ -1473,9 +1741,14 @@ function cmdImport(catArg, ids, o) {
 function usage() {
   console.log(`Tripo v3 パイプライン（VELSTRIA/ で実行）
   node tools/tripo.mjs balance                                    残高（無料 API）
-  node tools/tripo.mjs estimate [heroes|props|skins|all] [ids...]  見積り（credits と USD、残高と比較）
-  node tools/tripo.mjs run heroes [H001 ...|--all] [--until concept|model|rigcheck|rig] [--faces N]
+  node tools/tripo.mjs estimate [heroes|props|skins|all] [ids...] [--concept-source fullbody]
+                                                                   見積り（credits と USD、残高と比較）
+  node tools/tripo.mjs run heroes [H001 ...|--all] [--until concept|model|rigcheck|rig] [--faces N] [--concept-source fullbody]
                                                                    コンセプト → モデル(P1) → rig-check → リグ
+                                                                   （--concept-source fullbody: コンセプトを Tripo で作らず
+                                                                   ${rel(HEROREF_DIR)}/<ID>/fullbody.png を写し（0 credits）、
+                                                                   POST /files で上げて image-to-model の input にする。
+                                                                   前回と違う画像なら model 以降を作り直す）
   node tools/tripo.mjs run props  [<kind> ...|--all] [--include-optional] [--faces N] [--replace-meshy]
                                                                    コンセプト → モデル(P1, 画像の向きに合わせる)
   node tools/tripo.mjs run skins  [<cosmeticID> ...|--all] [--style-image]
@@ -1495,7 +1768,7 @@ function usage() {
                                                                    → 合格したものだけ ${rel(RES_DIR)}/ へ（不合格は旧版のまま）
 
   置き場所の上書き（取り込みの試験用）: TRIPO_STATE_DIR（state.json）・TRIPO_BUILD_DIR（${rel(BUILD_DIR)}）・
-    TRIPO_RESOURCES_DIR（${rel(RES_DIR)}）
+    TRIPO_RESOURCES_DIR（${rel(RES_DIR)}）・HEROREF_BUILD_DIR（--concept-source の画像。${rel(HEROREF_DIR)}）
 
   API キー: TRIPO_API_KEY または ~/.config/tripo/api_key（リポジトリに置かない）
   クレジット購入・API キー管理: ${PURCHASE_URL}`);
@@ -1504,6 +1777,8 @@ function usage() {
 const [cmd, ...rest] = process.argv.slice(2);
 const o = parseArgs(rest);
 if (!cmd || cmd === "help" || o.help) { usage(); process.exit(cmd && cmd !== "help" && !o.help ? 1 : 0); }
+
+if (o.conceptSource && cmd !== "run" && cmd !== "estimate") fail("--concept-source は run / estimate のみ");
 
 try {
   if ((cmd === "run" || cmd === "import") && !o.dry) lockState();
@@ -1525,7 +1800,13 @@ try {
       break;
     case "task": {
       if (!o.pos[0]) fail("task_id を指定してください");
-      const t = await api("GET", `/tasks/${encodeURIComponent(o.pos[0])}`);
+      let t;
+      try {
+        t = await api("GET", `/tasks/${encodeURIComponent(o.pos[0])}`);
+      } catch (e) {
+        if (taskNotFound(e)) fail(`${e.message}\n  ${NOT_FOUND_WHY}（作ったときのキーで問い合わせてください）`);
+        throw e;
+      }
       console.log(JSON.stringify(t, null, 2));
       break;
     }

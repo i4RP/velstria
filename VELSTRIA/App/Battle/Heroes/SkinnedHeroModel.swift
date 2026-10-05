@@ -5,6 +5,7 @@ import UIKit
 import VelstriaCore
 
 // 担当: hero-models。同梱 USDZ（Tripo 生成・自動リグのスキンメッシュ）のヒーローを、手続きアニメーション（HeroAnimator → HeroPose）で動かす。
+// モーションクリップ（HeroMotionClips.json・HeroMotionSets）があれば、区間回転に重ねてから骨を置く（docs/HERO_MOTION.md）。
 // アセット規約: App/Resources/Heroes/Hero_<heroID>.usdz（スキン別 Hero_<heroID>_<cosmeticID>.usdz）、武器 Prop_<WeaponKind/OffhandKind>.usdz。
 // テンプレートは URL ごとに 1 度だけ読み込み、インスタンスは clone(recursive:) で作る（メッシュ・テクスチャは共有）。
 
@@ -59,6 +60,8 @@ enum HeroAssetLibrary {
         if let task = heroLoads[url] { return await task.value }
         let task = Task { @MainActor () -> SkinnedHeroTemplate? in
             let start = CFAbsoluteTimeGetCurrent()
+            // スキンメッシュが使うモーションクリップ（〜1 MB の JSON）も、USDZ と並行してメインスレッドの外で読む（読み込み済みなら何もしない）
+            async let motionClips: Void = HeroMotionClips.preloadAsync()
             loadCount += 1
             var template: SkinnedHeroTemplate?
             do {
@@ -66,6 +69,7 @@ enum HeroAssetLibrary {
             } catch {
                 heroAssetLog.error("\(url.lastPathComponent, privacy: .public): 読み込み失敗 \(error.localizedDescription, privacy: .public)")
             }
+            await motionClips
             // 待っている間に同期版が読み終えていれば、そちらを使う
             if let done = heroTemplates[url] { return done }
             heroTemplates[url] = .some(template)
@@ -389,6 +393,8 @@ final class SkinnedHeroModel: HeroDisplayModel {
     let haloScale: Float
     /// 腰の沈み（手続きの脚の長さ基準の m）をスキンの脚の長さへ伸ばす比。
     private let hipsDropScale: Float
+    /// クリップの腰のずれ（脚の長さ単位）→ m。レストの腰の高さ - 左右の足首の高さの平均（docs/HERO_MOTION.md の L）。
+    let clipLegLength: Float
     private let floatMotion: FloatMotion
     private let floatAnchor: V3
     private let weaponFollowsArm: Bool
@@ -427,6 +433,11 @@ final class SkinnedHeroModel: HeroDisplayModel {
         let skinLeg = legs.isEmpty ? rp[rig.index[.upLegL]!].y // 規約で足元は y = 0
             : legs.reduce(0, +) / Float(legs.count)
         hipsDropScale = min(2.5, max(0.5, skinLeg / (hm.thigh + hm.shin)))
+        let hipsY = rp[rig.index[.hips]!].y
+        let feetY: [Float] = [HeroJointRole.footL, .footR].compactMap { rig.index[$0].map { rp[$0].y } }
+        // 足首が無ければ足元（規約で y = 0）
+        let footY = feetY.isEmpty ? 0 : feetY.reduce(0, +) / Float(feetY.count)
+        clipLegLength = max(0.1, hipsY - footY)
 
         // 光輪: 手続きの頭の中心からのずれを、スキンの頭の大きさ・後頭部へ写す
         let k = template.headRadius / hm.headR
@@ -511,8 +522,13 @@ final class SkinnedHeroModel: HeroDisplayModel {
         effects = HeroEffects(body: body, glowParent: weapon, weaponTip: ms.weaponTip, palette: palette, team: team,
                               options: options)
 
+        // クリップの割り当て（ライブラリに無い名前は落とし、何も残らなければ手続きのみ）。
+        // ライブラリは戦闘ならロード中に読み込み済み（loadHeroTemplate が並行して HeroMotionClips.preloadAsync を待つ）、
+        // プレビュー・テストはここで同期に読む
+        let motionSet = HeroMotionSets.set(heroID: heroID)
         animator = HeroAnimator(profile: HeroMotionProfile(blueprint: bp, metrics: ms.metrics, heroID: heroID),
-                                defaultRunSpeed: defaultRunSpeed)
+                                defaultRunSpeed: defaultRunSpeed,
+                                motion: motionSet.flatMap { HeroMotionBinding(set: $0, library: HeroMotionClips.shared) })
         animator.legLength = skinLeg * bp.scale
         entityCount = HeroEffects.countEntities(root)
         apply(animator.current, time: 0)
@@ -558,15 +574,28 @@ final class SkinnedHeroModel: HeroDisplayModel {
         apply(pose, time: animator.time)
     }
 
+    func playAttack(windup: Double, interval: Double) {
+        let wasDead = animator.state == .dead
+        animator.playAttack(windup: Float(windup), interval: Float(interval))
+        if wasDead { effects.setOpacity(1, body: body) }
+    }
+
+    /// クリップの割り当てを差し替える（テスト・ギャラリー用。nil = 手続きのみ）。
+    func useMotion(_ set: HeroMotionSet?, library: HeroMotionLibrary) {
+        animator.setMotion(set.flatMap { HeroMotionBinding(set: $0, library: library) })
+    }
+
     // MARK: 検査用
 
     var rig: HeroSkeletonRig { poser.rig }
+    /// 重ねているクリップの層（テスト用）。
+    var clipLayer: HeroClipLayer { animator.clips }
     /// 脚の長さの比（hipsDrop の伸び率）。
     var legScale: Float { hipsDropScale }
 
-    /// 任意の姿勢を適用する（テスト用）。
+    /// 任意の姿勢を適用する（テスト用）。手続きの姿勢そのものを見るため、再生中のクリップは重ねない。
     func applyPose(_ p: HeroPose, time: Float = 0) {
-        apply(p, time: time)
+        apply(p, time: time, clips: false)
     }
 
     /// 骨の現在位置（ヒーロー空間 = motion のローカル）。
@@ -576,19 +605,37 @@ final class SkinnedHeroModel: HeroDisplayModel {
 
     // MARK: 適用
 
-    private func apply(_ p: HeroPose, time t: Float) {
-        motion.position = p.offset
-        motion.orientation = ry(p.yaw) * rx(-p.pitch) * rz(p.roll)
-        let q = HeroSegmentRotations(p)
-        poser.solve(q, hipsDrop: p.hipsDrop * hipsDropScale)
+    private func apply(_ p: HeroPose, time t: Float, clips: Bool = true) {
+        // クリップが下半身を動かす分だけ、手続きの全身の傾き・浮き沈み・腰の沈みを止める（倒れ方・跳ね方はクリップの腰が持つ）
+        let wl = clips ? animator.clipLowerWeight : 0, wu = clips ? animator.clipUpperWeight : 0
+        let k = 1 - wl
+        motion.position = p.offset * k
+        motion.orientation = ry(p.yaw) * rx(-p.pitch * k) * rz(p.roll * k)
+        let qp = HeroSegmentRotations(p)
+        var q = qp
+        var root = V3.zero
+        if clips { animator.overlay(into: &q, hipsOffset: &root) }
+        poser.solve(q, hipsDrop: p.hipsDrop * hipsDropScale * k, hipsOffset: root * clipLegLength)
         for e in skinnedEntities { e.jointTransforms = poser.local }
 
-        // 武器は手首から握りの分だけ前腕の向きへずらし、向きは手続きモデルと同じ（胴基準の絶対角）
+        // 武器は手首から握りの分だけ前腕の向きへずらし、向きは手続きモデルと同じ（胴基準の絶対角）。
+        // クリップが腕を動かしている間は手の区間に持たせ（握りの向き = 割り当ての grip）、重みで手続きと混ぜる
         let rig = poser.rig
-        weapon.position = poser.position[handR] + q.foreArmR.act(V3(0, -rig.gripR, 0))
-        weapon.orientation = q.weaponR(p, followsArm: weaponFollowsArm)
-        offhand.position = poser.position[handL] + q.foreArmL.act(V3(0, -rig.gripL, 0))
-        offhand.orientation = q.weaponL(p, followsArm: offhandFollowsArm)
+        let gripR = V3(0, -rig.gripR, 0), gripL = V3(0, -rig.gripL, 0)
+        let handPosR = poser.position[handR], handPosL = poser.position[handL]
+        if wu > 0, let m = animator.motion {
+            weapon.position = simd_mix(handPosR + q.foreArmR.act(gripR), handPosR + q.handR.act(gripR), V3(repeating: wu))
+            weapon.orientation = weaponFollowsArm ? q.handR
+                : simd_slerp(qp.weaponR(p, followsArm: false), q.handR * m.weaponGrip, wu)
+            offhand.position = simd_mix(handPosL + q.foreArmL.act(gripL), handPosL + q.handL.act(gripL), V3(repeating: wu))
+            offhand.orientation = offhandFollowsArm ? q.handL
+                : simd_slerp(qp.weaponL(p, followsArm: false), q.handL * m.offhandGrip, wu)
+        } else {
+            weapon.position = handPosR + q.foreArmR.act(gripR)
+            weapon.orientation = q.weaponR(p, followsArm: weaponFollowsArm)
+            offhand.position = handPosL + q.foreArmL.act(gripL)
+            offhand.orientation = q.weaponL(p, followsArm: offhandFollowsArm)
+        }
         if let wingL, let wingR {
             let sp = min(1.3, max(0, p.wings))
             let flap = 0.06 * sin(t * 2.4)

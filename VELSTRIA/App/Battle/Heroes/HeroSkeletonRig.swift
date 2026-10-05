@@ -31,19 +31,37 @@ enum HeroJointRole: String, CaseIterable {
     }
 }
 
-/// HeroPose から求めた区間ごとの回転（ヒーロー空間）。HeroModel.apply の骨階層と同じ合成順。
+/// 上半身・下半身のどちらへ重ねるか（クリップのマスク）。
+enum HeroClipMask: Equatable {
+    /// 全身（腰・脚・足も含む）。
+    case full
+    /// 上半身（胴・頭・腕・前腕・手）。腰・脚・足は手続きのまま。
+    case upper
+}
+
+/// 区間ごとの回転（ヒーロー空間）。HeroModel.apply の骨階層と同じ合成順。
+/// 並びはモーションクリップの区間（docs/HERO_MOTION.md）と同じ 15 個。手・足は手続きでは前腕・脛と同じ回転。
 struct HeroSegmentRotations {
     var hips = qIdentity
     var torso = qIdentity
     var head = qIdentity
     var armR = qIdentity
     var foreArmR = qIdentity
+    var handR = qIdentity
     var armL = qIdentity
     var foreArmL = qIdentity
+    var handL = qIdentity
     var thighR = qIdentity
     var shinR = qIdentity
+    var footR = qIdentity
     var thighL = qIdentity
     var shinL = qIdentity
+    var footL = qIdentity
+
+    /// 区間の数と名前（クリップ JSON の segments と同じ順）。
+    static let count = 15
+    static let names = ["hips", "torso", "head", "armR", "foreArmR", "handR", "armL", "foreArmL", "handL",
+                        "thighR", "shinR", "footR", "thighL", "shinL", "footL"]
 
     init() {}
 
@@ -59,15 +77,87 @@ struct HeroSegmentRotations {
         shinR = thighR * rx(-p.legR.knee)
         thighL = hips * rx(p.legL.pitch) * rz(-p.legL.out)
         shinL = thighL * rx(-p.legL.knee)
+        // 手続きは手首・足首を曲げない（C_手 = C_前腕 なので、従来の「親に追従」と同じ姿勢になる）
+        handR = foreArmR
+        handL = foreArmL
+        footR = shinR
+        footL = shinL
+    }
+
+    /// 添字（0..<count、names の順）で読み書きする。クリップの補間・重ね合わせ用。
+    subscript(i: Int) -> simd_quatf {
+        get {
+            switch i {
+            case 0: return hips
+            case 1: return torso
+            case 2: return head
+            case 3: return armR
+            case 4: return foreArmR
+            case 5: return handR
+            case 6: return armL
+            case 7: return foreArmL
+            case 8: return handL
+            case 9: return thighR
+            case 10: return shinR
+            case 11: return footR
+            case 12: return thighL
+            case 13: return shinL
+            default: return footL
+            }
+        }
+        set {
+            switch i {
+            case 0: hips = newValue
+            case 1: torso = newValue
+            case 2: head = newValue
+            case 3: armR = newValue
+            case 4: foreArmR = newValue
+            case 5: handR = newValue
+            case 6: armL = newValue
+            case 7: foreArmL = newValue
+            case 8: handL = newValue
+            case 9: thighR = newValue
+            case 10: shinR = newValue
+            case 11: footR = newValue
+            case 12: thighL = newValue
+            case 13: shinL = newValue
+            default: footL = newValue
+            }
+        }
+    }
+
+    /// 上半身の区間か（胴・頭・腕・前腕・手）。それ以外（腰・腿・脛・足）が下半身。
+    @inline(__always) static func isUpper(_ i: Int) -> Bool { i >= 1 && i <= 8 }
+
+    /// 区間ごとに c へ寄せる（上半身は upper、下半身は lower の重みで slerp。0 の側は触らない）。
+    mutating func blend(toward c: HeroSegmentRotations, upper: Float, lower: Float) {
+        for i in 0..<Self.count {
+            let w = Self.isUpper(i) ? upper : lower
+            if w <= 0 { continue }
+            self[i] = w >= 1 ? c[i] : simd_slerp(self[i], c[i], w)
+        }
+    }
+
+    /// マスク付きの重ね合わせ（.upper は下半身を残す）。
+    mutating func blend(toward c: HeroSegmentRotations, weight w: Float, mask: HeroClipMask) {
+        blend(toward: c, upper: w, lower: mask == .full ? w : 0)
+    }
+
+    /// a → b の区間ごとの slerp（クリップのフレーム補間・クロスフェード）。
+    static func slerp(_ a: HeroSegmentRotations, _ b: HeroSegmentRotations, _ t: Float) -> HeroSegmentRotations {
+        var r = a
+        r.blend(toward: b, upper: t, lower: t)
+        return r
     }
 
     /// 武器の向き（ヒーロー空間）。HeroModel の weapon / offhand のローカル回転を前腕の回転に重ねたもの。
+    /// 体に付ける籠手・爪（followsArm）は手の区間に追従する（手続きでは手 = 前腕）。
     func weaponR(_ p: HeroPose, followsArm: Bool) -> simd_quatf {
-        followsArm ? foreArmR : foreArmR * rx(-p.armR.elbow) * rz(-p.armR.out) * rx(p.weaponR - p.armR.pitch)
+        followsArm ? handR : foreArmR * rx(-p.armR.elbow) * rz(-p.armR.out) * rx(p.weaponR - p.armR.pitch)
     }
 
     func weaponL(_ p: HeroPose, followsArm: Bool) -> simd_quatf {
-        followsArm ? foreArmL : foreArmL * rx(-p.armL.elbow) * rz(p.armL.out) * rx(p.weaponL - p.armL.pitch)
+        followsArm ? handL : foreArmL * rx(-p.armL.elbow) * rz(p.armL.out) * rx(p.weaponL - p.armL.pitch)
     }
 }
 
@@ -97,6 +187,8 @@ struct HeroSkeletonRig {
         case head
         case armR, foreArmR, armL, foreArmL
         case thighR, shinR, thighL, shinL
+        /// 手・足（区間 handR / footR …）。前腕・脛の子孫で、間の骨がすべてレストの時だけ使う。
+        case handR, handL, footR, footL
     }
 
     let jointNames: [String]
@@ -213,6 +305,24 @@ struct HeroSkeletonRig {
             if (dir.map { simd_length($0) } ?? 0) < 1e-5, parent[j] >= 0 { dir = pr[j] - pr[parent[j]] }
             if let d = dir, simd_length(d) > 1e-5 { correction[j] = rotationBetween(d, down) }
         }
+        // 手・足は前腕・脛の補正をそのまま使う（docs/HERO_MOTION.md の C_手 = C_前腕、C_足 = C_脛）。
+        // 区間回転が前腕・脛と同じなら R = Q·C·R0_手 = 前腕の回転·（レストのローカル）となり、従来の「親に追従」と一致する。
+        // 前腕・脛の子孫でない・間に駆動される骨がある時は一致しないので、従来どおり親に追従させる。
+        func setEnd(_ role: HeroJointRole, _ limb: HeroJointRole, _ d: Drive) {
+            guard let j = index[role], let l = index[limb] else { return }
+            var p = parent[j]
+            while p >= 0 && p != l {
+                if drive[p] != .rest { return }
+                p = parent[p]
+            }
+            guard p == l else { return }
+            drive[j] = d
+            correction[j] = correction[l]
+        }
+        setEnd(.handR, .foreArmR, .handR)
+        setEnd(.handL, .foreArmL, .handL)
+        setEnd(.footR, .legR, .footR)
+        setEnd(.footL, .legL, .footL)
         self.drive = drive
         self.correction = correction
 
@@ -245,10 +355,11 @@ struct HeroSkeletonPoser {
         local = rig.restLocal
     }
 
-    /// 区間回転と腰の沈みからローカル変換を求める。
-    mutating func solve(_ q: HeroSegmentRotations, hipsDrop: Float) {
+    /// 区間回転と腰の沈み・ずれからローカル変換を求める。
+    /// hipsOffset: クリップの腰の位置（ヒーロー空間・m、脚の長さを掛けた後）。hipsDrop と足し合わせる。
+    mutating func solve(_ q: HeroSegmentRotations, hipsDrop: Float, hipsOffset: V3 = .zero) {
         let hips = rig.index[.hips] ?? -1
-        let drop = V3(0, -hipsDrop, 0)
+        let drop = V3(0, -hipsDrop, 0) + hipsOffset
         for j in rig.order {
             let p = rig.parent[j]
             let rest = rig.restLocal[j]
@@ -275,6 +386,10 @@ struct HeroSkeletonPoser {
             case .shinR: rot = q.shinR * rig.correction[j] * rig.restRotation[j]
             case .thighL: rot = q.thighL * rig.correction[j] * rig.restRotation[j]
             case .shinL: rot = q.shinL * rig.correction[j] * rig.restRotation[j]
+            case .handR: rot = q.handR * rig.correction[j] * rig.restRotation[j]
+            case .handL: rot = q.handL * rig.correction[j] * rig.restRotation[j]
+            case .footR: rot = q.footR * rig.correction[j] * rig.restRotation[j]
+            case .footL: rot = q.footL * rig.correction[j] * rig.restRotation[j]
             }
             rotation[j] = rot
             position[j] = pos

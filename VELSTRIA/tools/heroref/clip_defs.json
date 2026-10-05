@@ -1,0 +1,437 @@
+{
+ "$comment": "モーションクリップの切り出し表（tools/heroref/make_clips.py が clips.json を作る）。フレームは Meshy の元フレーム（最初のキー = 1）、impact は打撃・発射の瞬間、yaw 省略 = auto（打撃の瞬間の胴を正面へ）。",
+ "clips": [
+  {
+   "name": "sword_slash_l",
+   "action": 97,
+   "start": 28,
+   "end": 58,
+   "impact": 42
+  },
+  {
+   "name": "sword_slash_l2",
+   "action": 97,
+   "start": 8,
+   "end": 36,
+   "impact": 22
+  },
+  {
+   "name": "sword_combo_1",
+   "action": 105,
+   "start": 10,
+   "end": 38,
+   "impact": 24
+  },
+  {
+   "name": "sword_combo_2",
+   "action": 105,
+   "start": 36,
+   "end": 58,
+   "impact": 47
+  },
+  {
+   "name": "sword_combo_3",
+   "action": 105,
+   "start": 56,
+   "end": 84,
+   "impact": 67
+  },
+  {
+   "name": "sword_combo2_a",
+   "action": 92,
+   "start": 6,
+   "end": 30,
+   "impact": 19
+  },
+  {
+   "name": "sword_combo2_b",
+   "action": 92,
+   "start": 28,
+   "end": 50,
+   "impact": 36
+  },
+  {
+   "name": "sword_slash_r",
+   "action": 219,
+   "start": 4,
+   "end": 32,
+   "impact": 17
+  },
+  {
+   "name": "sword_charged",
+   "action": 242,
+   "start": 18,
+   "end": 58,
+   "impact": 37
+  },
+  {
+   "name": "sword_upward",
+   "action": 221,
+   "start": 14,
+   "end": 52,
+   "impact": 32
+  },
+  {
+   "name": "thrust",
+   "action": 240,
+   "start": 28,
+   "end": 66,
+   "impact": 45,
+   "rootXZ": 0.35
+  },
+  {
+   "name": "sword_judgment",
+   "action": 102,
+   "start": 8,
+   "end": 60,
+   "impact": 31,
+   "rootXZ": 0.3,
+   "yaw": "travel"
+  },
+  {
+   "name": "jump_attack",
+   "action": 86,
+   "start": 40,
+   "end": 110,
+   "impact": 80,
+   "rootXZ": 0.35,
+   "yaw": "travel"
+  },
+  {
+   "name": "overhead_2h",
+   "action": 4,
+   "start": 14,
+   "end": 50,
+   "impact": 33
+  },
+  {
+   "name": "hammer_swing",
+   "action": 128,
+   "start": 18,
+   "end": 55,
+   "impact": 47
+  },
+  {
+   "name": "axe_chop",
+   "action": 237,
+   "start": 100,
+   "end": 160,
+   "impact": 134
+  },
+  {
+   "name": "axe_spin",
+   "action": 238,
+   "start": 6,
+   "end": 50,
+   "impact": 29
+  },
+  {
+   "name": "reaping",
+   "action": 99,
+   "start": 90,
+   "end": 140,
+   "impact": 118
+  },
+  {
+   "name": "dual_combo_a",
+   "action": 241,
+   "start": 44,
+   "end": 74,
+   "impact": 61
+  },
+  {
+   "name": "dual_combo_b",
+   "action": 241,
+   "start": 20,
+   "end": 48,
+   "impact": 36
+  },
+  {
+   "name": "dual_combo_c",
+   "action": 199,
+   "start": 6,
+   "end": 32,
+   "impact": 21
+  },
+  {
+   "name": "dual_combo_d",
+   "action": 199,
+   "start": 30,
+   "end": 52,
+   "impact": 39
+  },
+  {
+   "name": "dual_spin",
+   "action": 91,
+   "start": 1,
+   "end": 80,
+   "impact": 48,
+   "rootXZ": 0.3,
+   "yaw": "travel"
+  },
+  {
+   "name": "bow_shot",
+   "action": 225,
+   "start": 1,
+   "end": 31,
+   "impact": 17,
+   "yaw": -100
+  },
+  {
+   "name": "bow_shot_b",
+   "action": 227,
+   "start": 1,
+   "end": 21,
+   "impact": 8,
+   "yaw": "aim"
+  },
+  {
+   "name": "bow_draw_back",
+   "action": 222,
+   "start": 100,
+   "end": 236,
+   "impact": 193,
+   "yaw": -40
+  },
+  {
+   "name": "gun_fire",
+   "action": 95,
+   "start": 5,
+   "end": 30,
+   "impact": 12,
+   "yaw": "hand"
+  },
+  {
+   "name": "gun_kneel_shot",
+   "action": 104,
+   "start": 8,
+   "end": 60,
+   "impact": 30,
+   "yaw": -174
+  },
+  {
+   "name": "cast_a",
+   "action": 129,
+   "start": 4,
+   "end": 40,
+   "impact": 19
+  },
+  {
+   "name": "cast_b",
+   "action": 130,
+   "start": 15,
+   "end": 60,
+   "impact": 43
+  },
+  {
+   "name": "cast_c",
+   "action": 131,
+   "start": 15,
+   "end": 60,
+   "impact": 38
+  },
+  {
+   "name": "cast_push",
+   "action": 132,
+   "start": 10,
+   "end": 60,
+   "impact": 29
+  },
+  {
+   "name": "cast_throw",
+   "action": 133,
+   "start": 3,
+   "end": 36,
+   "impact": 16
+  },
+  {
+   "name": "cast_d",
+   "action": 135,
+   "start": 10,
+   "end": 50,
+   "impact": 30
+  },
+  {
+   "name": "cast_point",
+   "action": 136,
+   "start": 12,
+   "end": 50,
+   "impact": 28,
+   "yaw": "hand"
+  },
+  {
+   "name": "cast_charged",
+   "action": 125,
+   "start": 20,
+   "end": 72,
+   "impact": 52
+  },
+  {
+   "name": "ground_slam",
+   "action": 127,
+   "start": 30,
+   "end": 80,
+   "impact": 51
+  },
+  {
+   "name": "cast_channel",
+   "action": 137,
+   "start": 1,
+   "end": 40,
+   "loop": true,
+   "rootXZ": 0
+  },
+  {
+   "name": "punch_a",
+   "action": 198,
+   "start": 8,
+   "end": 30,
+   "impact": 19
+  },
+  {
+   "name": "punch_a2",
+   "action": 198,
+   "start": 30,
+   "end": 55,
+   "impact": 39
+  },
+  {
+   "name": "punch_b",
+   "action": 200,
+   "start": 12,
+   "end": 34,
+   "impact": 24
+  },
+  {
+   "name": "hook_l",
+   "action": 193,
+   "start": 1,
+   "end": 28,
+   "impact": 11
+  },
+  {
+   "name": "uppercut_r",
+   "action": 195,
+   "start": 4,
+   "end": 36,
+   "impact": 17
+  },
+  {
+   "name": "double_punch",
+   "action": 214,
+   "start": 26,
+   "end": 62,
+   "impact": 41
+  },
+  {
+   "name": "elbow",
+   "action": 212,
+   "start": 26,
+   "end": 52,
+   "impact": 39
+  },
+  {
+   "name": "javelin_throw",
+   "action": 421,
+   "start": 36,
+   "end": 80,
+   "impact": 59,
+   "yaw": "hand"
+  },
+  {
+   "name": "idle",
+   "action": 0,
+   "start": 1,
+   "end": 121,
+   "loop": true,
+   "rootXZ": 0
+  },
+  {
+   "name": "idle_b",
+   "action": 11,
+   "start": 1,
+   "end": 57,
+   "loop": true,
+   "rootXZ": 0
+  },
+  {
+   "name": "combat_idle",
+   "action": 89,
+   "start": 1,
+   "end": 51,
+   "loop": true,
+   "rootXZ": 0
+  },
+  {
+   "name": "ready_idle",
+   "action": 245,
+   "start": 1,
+   "end": 55,
+   "loop": true,
+   "rootXZ": 0
+  },
+  {
+   "name": "run_a",
+   "action": 657,
+   "start": 1,
+   "end": 25,
+   "loop": true,
+   "rootXZ": 0
+  },
+  {
+   "name": "death_back",
+   "action": 189,
+   "start": 1,
+   "end": 67,
+   "rootXZ": 0.5,
+   "yaw": 0
+  },
+  {
+   "name": "death_forward",
+   "action": 184,
+   "start": 1,
+   "end": 66,
+   "rootXZ": 0.5,
+   "yaw": 0
+  },
+  {
+   "name": "victory_pump",
+   "action": 403,
+   "start": 1,
+   "end": 46,
+   "rootXZ": 0
+  },
+  {
+   "name": "victory_cheer",
+   "action": 412,
+   "start": 20,
+   "end": 120,
+   "rootXZ": 0
+  },
+  {
+   "name": "hit",
+   "action": 178,
+   "start": 1,
+   "end": 40,
+   "rootXZ": 0,
+   "yaw": 0
+  },
+  {
+   "name": "kneel",
+   "action": 365,
+   "start": 1,
+   "end": 7,
+   "loop": true,
+   "rootXZ": 0
+  },
+  {
+   "name": "dodge_spin",
+   "action": 384,
+   "start": 1,
+   "end": 36,
+   "impact": 20,
+   "rootXZ": 0.4,
+   "yaw": "travel"
+  }
+ ]
+}

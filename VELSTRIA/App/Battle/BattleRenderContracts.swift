@@ -46,6 +46,14 @@ protocol HeroModelHandle: AnyObject {
     func castDuration(_ slot: SkillSlot) -> Float
     /// 手続きアニメーションを進める（毎フレーム）。
     func update(dt: Double, moveSpeed: Double)
+    /// 通常攻撃を 1 回振る（シムの攻撃開始時に呼ぶ。windup = 発射・命中までの秒、interval = 次の攻撃までの秒）。
+    /// モーションクリップのあるスキンメッシュは打撃の瞬間を windup 秒後に合わせる。攻撃状態でなければ攻撃状態へ移る。
+    func playAttack(windup: Double, interval: Double)
+}
+
+extension HeroModelHandle {
+    /// 既定は何もしない（手続きモデルは setState(.attack) の手続きの振りのまま）。
+    func playAttack(windup: Double, interval: Double) {}
 }
 
 /// 描画担当が使うヒーローモデルの生成口。hero-models が `HeroModelLibrary.makeModel` を実装する。

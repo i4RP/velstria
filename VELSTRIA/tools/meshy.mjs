@@ -26,7 +26,27 @@
 //   node tools/meshy.mjs run props [<kind> ...|--all] [--until concept|model] [--faces N] [--replace-tripo]
 //       共通: [--dry-run] [--max-credits N] [--reserve N] [--force <stage>[,<stage>]|all] [--concurrency N] [--allow-partial]
 //   node tools/meshy.mjs status                                    アセット × 段階の状態・消費・置いたファイル
-//   node tools/meshy.mjs task <concept|model|rig> <task_id>        タスクの JSON（署名付き URL は伏せる）
+//   node tools/meshy.mjs task <concept|model|rig|anim> <task_id>   タスクの JSON（署名付き URL は伏せる）
+//
+// アニメーション（モーションクリップ抽出 tools/blender/extract_clips.py の入力。docs/HERO_MOTION.md）:
+//   node tools/meshy.mjs anim --rig H002 --actions 97,105,128 [--dry-run] [--max-credits N] [--fps 24|25|30|60]
+//       [--allow-partial] [--force anim] [--concurrency N]
+//     既存の rig タスク（state.json の heroes/<id> の rig）にライブラリのモーションを買って付け、GLB を保存する
+//     （POST /openapi/v1/animations の action_ids、1 action 3 credits、1 タスク 10 個まで → 10 個ずつに分ける）。
+//     保存先 build/meshy/anim/<id>/batch_<先頭の action_id>-<個数>.glb（1 action = 1 クリップ、action_ids の順。
+//     ライブラリ名のクリップ。同じ名前を別のタスクが使っていれば batch_<先頭>-<個数>_<task_id>.glb）と
+//     manifest.json（{ "<action_id>": { file, clip_index, name, task_id, credits, ... } }）。
+//     state.json の assets["heroes/<id>"].animations にタスク（task_id・action_ids・状態・消費）を記録する（URL は残さない）。
+//     manifest にあり中身も合う action（同じ rig のもの）は買わない。購入済みなら結果（保持期限切れなら手元の GLB）から
+//     無料で manifest を作り直す。前回の送信結果が不明な action は --force anim なしでは送らない。
+//     rig の結果の保持（3 日）が切れていれば送らない（作り直すなら run heroes <id> --force rig）。
+//     --fps は post_process change_fps。docs で変換後の出力として載っているのは FBX（processed_animation_fps_fbx_url →
+//     batch_*.<fps>fps.fbx）だけなので、抽出は既定（--fps なし）の GLB を使う
+//   node tools/meshy.mjs anim-basic --rig H002 [--dry-run] [--force anim]
+//     rig タスクの結果に付く無料の歩き・走り（result.basic_animations.*_glb_url）を build/meshy/anim/<id>/basic_{walking,running}.glb
+//     へ保存（控えは同じ場所の basic.json。state.json は書かない）
+//   node tools/meshy.mjs anim-library [--search 文字列] [--category Fighting]
+//     ライブラリの一覧（無料 API。build/meshy/anim/library.json にそのままの配列でキャッシュ、7 日で取り直す）
 //
 // 安全策（tripo.mjs と同じ）: 有料 POST は再送しない（受け付け前の 429 だけ、待ってから残高・下限を確かめ直して再送）。送信結果が不明な段階
 // （submitting / unknown、408 など拒否と確定できない 4xx も含む）は --force なしでは再送しない。state.json は排他ロック
@@ -79,8 +99,15 @@ const CATS = {
 const ALL_STAGES = ["concept", "model", "rig"];
 const stagesOf = (a) => CATS[a.cat].stages;
 const credit = (a, stage) => CATS[a.cat].credits[stage];
-const ENDPOINTS = { concept: "/openapi/v1/text-to-image", model: "/openapi/v1/image-to-3d", rig: "/openapi/v1/rigging" };
-const KIND_ALIASES = { concept: "concept", "text-to-image": "concept", model: "model", "image-to-3d": "model", rig: "rig", rigging: "rig" };
+const ENDPOINTS = {
+  concept: "/openapi/v1/text-to-image", model: "/openapi/v1/image-to-3d", rig: "/openapi/v1/rigging", anim: "/openapi/v1/animations",
+};
+const KIND_ALIASES = {
+  concept: "concept", "text-to-image": "concept", model: "model", "image-to-3d": "model", rig: "rig", rigging: "rig",
+  anim: "anim", animation: "anim", animations: "anim",
+};
+/** Animation（1 action あたり。action_ids は 1 タスク 10 個まで）。 */
+const ANIM_CREDITS = 3;
 const RIG_HEIGHT_M = 1.7;
 // Prop のコンセプト画像: nano-banana（3）は縦長の単体・無地の背景の指示に従いにくいので 1 段上の nano-banana-2（6）。
 // 3:4 は縦置きの武器・盾に合う縦長で、nano-banana 系が受け付ける比
@@ -192,7 +219,9 @@ class Semaphore {
 
 // MARK: - 引数
 
-const VALUE_FLAGS = new Set(["until", "faces", "max-credits", "reserve", "force", "concurrency", "source"]);
+const VALUE_FLAGS = new Set(["until", "faces", "max-credits", "reserve", "force", "concurrency", "source", "rig", "actions", "fps", "search",
+  "category"]);
+const ANIM_FPS = [24, 25, 30, 60]; // post_process change_fps が受け付ける値
 const BOOL_FLAGS = new Set(["all", "dry-run", "allow-partial", "replace-tripo", "help"]);
 
 function parseArgs(argv) {
@@ -223,9 +252,10 @@ function parseArgs(argv) {
     return n;
   };
   if (flags.source !== undefined && !["glb", "fbx"].includes(flags.source)) fail(`--source は glb | fbx: ${flags.source}`);
-  // 段階名はカテゴリごとに cmdRun で確かめ直す（heroes: model | rig、props: concept | model）
+  // 段階名はカテゴリごとに cmdRun で確かめ直す（heroes: model | rig、props: concept | model）。anim は anim / anim-basic 用
   if (flags.until !== undefined && !ALL_STAGES.includes(flags.until)) fail(`--until は ${ALL_STAGES.join(" | ")}: ${flags.until}`);
-  for (const f of flags.force || []) if (f !== "all" && !ALL_STAGES.includes(f)) fail(`--force は ${ALL_STAGES.join(" | ")} | all: ${f}`);
+  for (const f of flags.force || []) if (f !== "all" && f !== "anim" && !ALL_STAGES.includes(f)) fail(`--force は ${ALL_STAGES.join(" | ")} | all | anim: ${f}`);
+  if (flags.fps !== undefined && !ANIM_FPS.includes(Number(flags.fps))) fail(`--fps は ${ANIM_FPS.join(" | ")}: ${flags.fps}`);
   const envConc = process.env.MESHY_CONCURRENCY ? Number(process.env.MESHY_CONCURRENCY) : 3;
   return {
     pos,
@@ -250,6 +280,11 @@ function parseArgs(argv) {
       return n;
     })(),
     force: new Set(flags.force || []),
+    rig: flags.rig,
+    actions: flags.actions,
+    fps: flags.fps === undefined ? undefined : Number(flags.fps),
+    search: flags.search,
+    category: flags.category,
     concurrency: intFlag("concurrency", 1, 10) ?? (Number.isInteger(envConc) && envConc >= 1 ? Math.min(envConc, 10) : 3),
   };
 }
@@ -450,6 +485,29 @@ function glbInfo(file) {
     return { mime: img.mimeType, size: imageSize(buf.subarray(off, off + Math.min(bv.byteLength, 1 << 16))), bytes: bv.byteLength };
   });
   return { tris, skins: joints.length, joints: joints[0] || [], textures, materials: (g.materials || []).length, animations: (g.animations || []).length };
+}
+
+// GLB のアニメーション（クリップ名・長さ・キー数・キー間隔から推した fps）。glTF はアニメーションの時刻 accessor に
+// min/max を必須にしているので JSON チャンクだけで分かる
+function glbAnimations(file) {
+  const buf = fs.readFileSync(file);
+  if (buf.length < 20 || buf.toString("latin1", 0, 4) !== "glTF") return null;
+  const g = JSON.parse(buf.toString("utf8", 20, 20 + buf.readUInt32LE(12)));
+  return (g.animations || []).map((an, index) => {
+    let t0 = Infinity;
+    let t1 = 0;
+    let keys = 0;
+    for (const s of an.samplers || []) {
+      const acc = g.accessors?.[s.input];
+      if (!acc) continue;
+      t0 = Math.min(t0, num(acc.min?.[0]) ?? 0);
+      t1 = Math.max(t1, num(acc.max?.[0]) ?? 0);
+      keys = Math.max(keys, acc.count || 0);
+    }
+    const duration = Number.isFinite(t0) ? Math.max(0, t1 - t0) : 0;
+    const fps = duration > 0 && keys > 1 ? Math.round(((keys - 1) / duration) * 100) / 100 : null;
+    return { index, name: an.name ?? `#${index}`, duration: Math.round(duration * 1000) / 1000, keys, fps };
+  });
 }
 
 // MARK: - マニフェスト・状態
@@ -1248,6 +1306,7 @@ function dryRun(plans, o) {
 async function cmdRun(cat, ids, o) {
   if (!CATS[cat]) fail(`run の対象は ${Object.keys(CATS).join(" | ")}`);
   const stages = CATS[cat].stages;
+  if (o.force.has("anim")) fail("--force anim は anim / anim-basic 用です（run では段階名か all）");
   if (o.until && !stages.includes(o.until)) fail(`run ${cat} の --until は ${stages.join(" | ")}: ${o.until}`);
   for (const f of o.force) if (f !== "all" && !stages.includes(f)) fail(`run ${cat} の --force は ${stages.join(" | ")} | all: ${f}`);
   if (o.until && [...o.force].some((f) => f !== "all" && stages.indexOf(f) > stages.indexOf(o.until))) {
@@ -1338,6 +1397,649 @@ async function cmdRun(cat, ids, o) {
   if (incomplete.length || runner.halted) process.exitCode = 1;
 }
 
+// MARK: - アニメーション（既存のリグにライブラリのモーションを付ける）
+
+const ANIM_DIR = path.join(BUILD_DIR, "anim");
+const animDir = (a) => path.join(ANIM_DIR, a.id);
+const LIBRARY_PATH = path.join(ANIM_DIR, "library.json");
+const LIBRARY_MAX_AGE_MS = 7 * 24 * 3600_000; // 廃止された action が残らないよう時々取り直す（docs の推奨）
+const RESULT_KEEP_MS = 3 * 24 * 3600_000; // Meshy の結果の保持。state に expires_at が無いときの推定に使う
+// 送信から完了まで数分かかる。期限間際の rig へ送ると処理中に消えて失敗しうる（失敗は返金だが待ちが無駄）→ 余裕を見る
+const RIG_EXPIRY_MARGIN_MS = 10 * 60_000;
+const ANIM_BATCH = 10; // action_ids の上限（docs: 1〜10 個、重複不可）
+const BASIC_ANIMS = [["walking", "basic_walking.glb"], ["running", "basic_running.glb"]];
+
+function fmtDuration(ms) {
+  const m = Math.floor(Math.abs(ms) / 60_000);
+  const d = Math.floor(m / 1440);
+  const h = Math.floor((m % 1440) / 60);
+  return d ? `${d}日 ${h}時間` : h ? `${h}時間 ${m % 60}分` : `${m % 60}分`;
+}
+
+// ファイルを一時ファイル経由で書く（途中で落ちても壊れた JSON を残さない）
+function writeJsonAtomic(file, obj) {
+  if (DRY) throw new Error(`内部エラー: dry-run 中に ${rel(file)} を書こうとしました`);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const tmp = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(obj, null, 2) + "\n");
+  fs.renameSync(tmp, file);
+}
+
+function readJson(file, fallback) {
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch (e) {
+    if (e.code === "ENOENT") return fallback;
+    return fail(`${rel(file)} を読めません: ${e.message}（壊れている場合は退避してから再実行）`);
+  }
+}
+
+function rigHero(o) {
+  if (!o.rig) fail("--rig <ヒーロー ID> を指定してください（例: --rig H002）");
+  return select("heroes", [o.rig], o)[0];
+}
+
+function parseActionIds(s) {
+  if (!s) fail("--actions に action_id をカンマ区切りで指定してください（例: --actions 97,105,128。一覧は node tools/meshy.mjs anim-library）");
+  const out = [];
+  for (const t of String(s).split(",").map((x) => x.trim()).filter(Boolean)) {
+    const n = Number(t);
+    if (!/^\d+$/.test(t) || !Number.isSafeInteger(n)) fail(`--actions は 0 以上の整数のカンマ区切り: ${t}`);
+    // 同じ id を 2 回送ると 400（重複不可）。1 回にまとめる
+    if (out.includes(n)) { log(`  action ${n} が重複しています → 1 回だけ`); continue; }
+    out.push(n);
+  }
+  if (!out.length) fail("--actions が空です");
+  return out;
+}
+
+// ライブラリ一覧（無料 API）。キャッシュが無い・古い・要る id を含まないときだけ取り直す。write: false（dry-run）は保存しない
+async function loadLibrary(needIds = [], { write = true } = {}) {
+  let cached = null;
+  try {
+    if (Date.now() - fs.statSync(LIBRARY_PATH).mtimeMs < LIBRARY_MAX_AGE_MS) cached = JSON.parse(fs.readFileSync(LIBRARY_PATH, "utf8"));
+  } catch { cached = null; }
+  const covers = (list) => Array.isArray(list) && needIds.every((id) => list.some((x) => x?.action_id === id));
+  if (covers(cached)) return { map: new Map(cached.map((x) => [x.action_id, x])), from: rel(LIBRARY_PATH) };
+  if (!hasApiKey()) {
+    if (Array.isArray(cached)) return { map: new Map(cached.map((x) => [x.action_id, x])), from: `${rel(LIBRARY_PATH)}（API キーが無いため古いまま）` };
+    return { map: new Map(), from: null };
+  }
+  const { json } = await api("GET", `${ENDPOINTS.anim}/library`);
+  if (!Array.isArray(json)) throw new Error("ライブラリの応答が配列ではありません");
+  if (write) writeJsonAtomic(LIBRARY_PATH, json);
+  return { map: new Map(json.map((x) => [x.action_id, x])), from: write ? `API → ${rel(LIBRARY_PATH)}` : "API" };
+}
+
+const libCells = (item) => (item ? [item.name, `${item.category}/${item.sub_category}`] : ["（ライブラリに無い）", ""]);
+
+// rig タスクの id と結果の保持期限。期限は state の expires_at（無ければ完了 + 3 日）、remote なら GET（無料）で確かめ直す
+// （404 = 保持期限切れか削除）
+async function rigInfo(a, { remote = true } = {}) {
+  const st = getStage(a, "rig");
+  if (!(st?.status === "SUCCEEDED" && st.task_id)) {
+    fail(`${a.key} の rig が完了していません（${st ? st.status : "未実行"}）。先に node tools/meshy.mjs run heroes ${a.id}`);
+  }
+  const r = { tid: st.task_id, expiresMs: Date.parse(st.expires_at ?? "") || (Date.parse(st.completed_at ?? "") + RESULT_KEEP_MS) || null, task: null, gone: false, checked: false };
+  if (!remote) return r;
+  try {
+    r.task = (await getTask("rig", r.tid)).json;
+    r.checked = true;
+    r.expiresMs = num(r.task?.expires_at) || r.expiresMs;
+  } catch (e) {
+    if (!(e instanceof MeshyError && e.status === 404)) throw e;
+    r.gone = true;
+    r.checked = true;
+  }
+  return r;
+}
+
+function rigText(r) {
+  const src = r.checked ? "GET で確認" : "state.json の記録";
+  if (r.gone) return `rig ${r.tid}: 見つかりません（404。保持期限切れか削除）`;
+  if (r.task && r.task.status !== "SUCCEEDED") return `rig ${r.tid}: 状態 ${r.task.status}（SUCCEEDED でない）`;
+  if (!r.expiresMs) return `rig ${r.tid}: 保持期限不明（${src}）`;
+  const left = r.expiresMs - Date.now();
+  return `rig ${r.tid}: 保持期限 ${new Date(r.expiresMs).toISOString()}（${left > 0 ? `残り ${fmtDuration(left)}` : `${fmtDuration(left)} 前に期限切れ`}、${src}）`;
+}
+
+// 新しいアニメーションを買ってよい rig か（期限間際も不可）
+const rigUsable = (r) => !r.gone && (!r.task || r.task.status === "SUCCEEDED") && (!r.expiresMs || r.expiresMs - Date.now() > RIG_EXPIRY_MARGIN_MS);
+const rigExpiredText = (a, r) => `${rigText(r)}。この rig には新しいアニメーションを付けられません`
+  + `（作り直すなら node tools/meshy.mjs run heroes ${a.id} --force rig: ${CATS.heroes.credits.rig} credits。リグが変わるので買ったアニメーションも買い直し）`;
+
+const manifestPath = (a) => path.join(animDir(a), "manifest.json");
+const animRecords = (a) => state.assets[a.key]?.animations || [];
+
+function addAnimRecord(a, rec) {
+  const as = (state.assets[a.key] ||= { stages: {} });
+  (as.animations ||= []).push(rec);
+  rec.updated_at = now();
+  saveState();
+  return rec;
+}
+
+function patchAnim(rec, patch) {
+  Object.assign(rec, patch, { updated_at: now() });
+  saveState();
+  return rec;
+}
+
+const isResumable = (rec) => !!(rec?.task_id && (ACTIVE.has(rec.status) || rec.status === "unknown"));
+const expiredRec = (rec) => Date.parse(rec?.expires_at ?? "") < Date.now();
+const batchBase = (ids) => `batch_${ids[0]}-${ids.length}`;
+// 保存先のファイル名。基本は batch_<先頭>-<個数>.glb だが、同じ名前を別のタスクが使っていれば task_id を付ける
+// （--force anim で先頭と個数が同じ別の組を買うと前のファイルを上書きし、manifest の他の action が別のクリップを指す）
+const batchNameTaken = (a, name, manifest, tid) => animRecords(a).some((r) => r.task_id !== tid && r.file && path.basename(r.file) === name)
+  || Object.values(manifest).some((m) => m?.file === name && m.task_id !== tid);
+// rec の保存先。一度決めた名前は rec.file に残す（取り直し・再開で同じファイルへ）。並行する保存と同じ名前を取り合わないよう、
+// ダウンロードを待つ前に確保する（state.json へは保存時に書く）
+function batchFile(a, rec, manifest) {
+  if (rec.file) return path.join(animDir(a), path.basename(rec.file));
+  let name = `${batchBase(rec.action_ids)}.glb`;
+  if (batchNameTaken(a, name, manifest, rec.task_id)) name = `${batchBase(rec.action_ids)}_${rec.task_id}.glb`;
+  rec.file = rel(path.join(animDir(a), name));
+  return path.join(animDir(a), name);
+}
+const animBody = (rigTid, ids, o) => ({
+  rig_task_id: rigTid,
+  action_ids: ids,
+  ...(o.fps ? { post_process: { operation_type: "change_fps", fps: o.fps } } : {}),
+});
+
+// 要求された action ごとの扱い。同じ rig の記録だけを見る（rig を作り直したら骨とメッシュが変わるので買い直し）
+//   resume: 実行中（課金済み）のタスクを待つ（--force anim でも買い直さない）。404 で不明になったタスクも問い合わせ直す
+//           （こちらは --force anim なら買い直す。run の --force と同じ）
+//   done:   manifest にあり、ファイルの中身も合う
+//   fetch:  成功済みのタスクから取り直す（無料）。保持期限切れでも手元の GLB が記録と合えば manifest だけ書き直す
+//   blocked: 前回の送信結果が不明（課金済みの可能性）→ --force anim なしでは送らない
+//   submit: 新しく買う（未購入・失敗・保持期限切れで手元にも無い・--force anim）
+function planAnim(a, rigTid, ids, o, manifest) {
+  const force = o.force.has("anim");
+  const recs = animRecords(a).filter((r) => r.rig_task_id === rigTid);
+  const shaCache = new Map();
+  const fileOk = (file, sha) => {
+    if (!shaCache.has(file)) shaCache.set(file, fs.existsSync(file) && !badContent(file, "model") ? sha256File(file) : null);
+    return !!sha && shaCache.get(file) === sha;
+  };
+  const localOk = (r) => !!r.file && fileOk(path.join(animDir(a), path.basename(r.file)), r.sha256);
+  const plan = { rows: [], resume: new Map(), fetch: new Map(), submit: [] };
+  const push = (map, rec, id) => map.set(rec, [...(map.get(rec) || []), id]);
+  for (const id of ids) {
+    const rec = recs.findLast((r) => r.action_ids?.includes(id));
+    // 最新の記録が失敗・不明でも、それより前に成功したタスクがあればそこから無料で取り直せる
+    const ok = recs.findLast((r) => r.status === "SUCCEEDED" && r.task_id && r.action_ids?.includes(id) && (!expiredRec(r) || localOk(r)));
+    const m = manifest[String(id)];
+    let action;
+    let src = rec;
+    if ((ACTIVE.has(rec?.status) && rec.task_id) || (!force && isResumable(rec))) { action = "resume"; push(plan.resume, rec, id); }
+    else if (!force && m?.rig_task_id === rigTid && fileOk(path.join(animDir(a), String(m.file)), m.sha256)) action = "done";
+    else if (!force && ok) { action = "fetch"; src = ok; push(plan.fetch, ok, id); }
+    else if (!force && rec && UNSURE.has(rec.status)) action = "blocked";
+    else { action = "submit"; plan.submit.push(id); }
+    plan.rows.push({ id, action, rec: src, m, local: action === "fetch" && expiredRec(src) });
+  }
+  return plan;
+}
+
+const chunk = (xs, n) => Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i * n, i * n + n));
+
+function planRowText(row, rigTid, force) {
+  const { action, rec, m } = row;
+  if (action === "resume") return `実行中のタスクを待つ（${rec.task_id}, ${rec.status}）`;
+  if (action === "done") return `済み（${m.file} clip ${m.clip_index}）→ スキップ`;
+  if (action === "fetch") return `購入済み（${rec.task_id}）→ ${row.local ? "手元の GLB から manifest を書き直す（保持期限切れ）" : "取り直す（無料）"}`;
+  if (action === "blocked") return `前回の送信結果が不明（${rec.status}${rec.task_id ? ` ${rec.task_id}` : ""}）→ 送らない。Meshy の利用履歴を確かめ、買い直すなら --force anim`;
+  const why = [];
+  if (force && (m || rec)) why.push("--force anim で買い直し");
+  if (m && m.rig_task_id !== rigTid) why.push("manifest は別の rig のもの");
+  if (rec && TERMINAL_FAIL.has(rec.status)) why.push(`前回 ${rec.status}`);
+  if (rec?.status === "SUCCEEDED" && expiredRec(rec)) why.push("前回の結果は保持期限切れ");
+  return `購入 ${ANIM_CREDITS} credits${why.length ? `（${why.join("、")}）` : ""}`;
+}
+
+// クリップと action の対応。docs ではクリップは action_ids の順・名前はライブラリ名（同名が重なると後ろに action_id が付く）。
+// Meshy の GLB のクリップ名は "Armature|walking_man|baselayer" のような | 区切りなので、どれかの区切りが名前か key と
+// 一致すれば同じとみなす。名前で全部一意に決まればそれを使い（読み込み・書き出しで順番が変わっても取り違えない）、
+// 決まらなければ本数が合うときだけ順番どおり
+const normName = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+function clipMatches(clipName, item, id) {
+  if (!item) return false;
+  const parts = [clipName, ...String(clipName ?? "").split("|")].map(normName).filter(Boolean);
+  const names = [item.name, item.key].map(normName).filter(Boolean);
+  return parts.some((c) => names.some((n) => c === n || c === `${n}${id}`));
+}
+
+function mapClips(ids, clips, lib) {
+  const used = new Set();
+  const byName = [];
+  for (const id of ids) {
+    const hits = clips.filter((c) => !used.has(c.index) && clipMatches(c.name, lib.get(id), id));
+    if (hits.length !== 1) break;
+    used.add(hits[0].index);
+    byName.push(hits[0].index);
+  }
+  if (byName.length === ids.length) return { mapping: byName, how: "name" };
+  if (clips.length === ids.length) return { mapping: ids.map((_, k) => k), how: "order" };
+  return null;
+}
+
+// タスクの出力 URL からダウンロード。署名付き URL が期限切れなら（400/401/403/404/410）タスクを GET し直して 1 回だけ再試行
+async function downloadFromTask(getFresh, task, pick, dest, kind, label) {
+  let fresh = task ?? (await getFresh());
+  const url = pick(fresh);
+  if (!url) return { missing: true, keys: urlKeys(fresh) };
+  try {
+    return { size: await download(url, dest, kind) };
+  } catch (e) {
+    if (![400, 401, 403, 404, 410].includes(e.status)) throw e;
+    fresh = await getFresh();
+    const url2 = pick(fresh);
+    if (!url2) throw e;
+    log(`  ${label}: ダウンロード URL の期限切れとみなしタスクを取り直して再試行`);
+    return { size: await download(url2, dest, kind) };
+  }
+}
+
+// actionOf: クリップ番号 → action_id（Map。基本アニメーションなど対応が無ければ null）
+function printClips(clips, actionOf, lib, indent = "    ") {
+  const rows = [["clip", "名前", "長さ", "キー", "fps", ...(actionOf ? ["action", "ライブラリ名"] : [])]];
+  for (const c of clips) {
+    const id = actionOf?.get(c.index);
+    rows.push([String(c.index), c.name, `${c.duration}s`, String(c.keys), c.fps === null ? "-" : String(c.fps),
+      ...(actionOf ? [id === undefined ? "-" : String(id), id === undefined ? "-" : (lib.get(id)?.name ?? "?")] : [])]);
+  }
+  table(rows, indent);
+}
+
+class AnimRunner {
+  constructor(a, rigTid, lib, manifest, o) {
+    Object.assign(this, { a, rigTid, lib, manifest, o });
+    this.submitLock = new Semaphore(1);
+    this.halted = null;
+    this.committed = 0; // このランで確保した見積り（完了したものは実績に置き換え）
+    this.pending = new Map();
+    this.stats = { submitted: 0, success: 0, failed: 0, consumed: 0, saved: 0 };
+  }
+
+  label(rec) { return `${this.a.key} anim ${rec.action_ids.join(",")}`; }
+
+  halt(msg) {
+    if (this.halted) return;
+    this.halted = msg;
+    log(`\n${msg}\n  新しいタスクの送信を止めました（実行中のタスクは完了まで待ちます）`);
+  }
+
+  // 予算確認 → 送信（残高の確認と送信が食い違わないよう 1 本ずつ）。送信の扱いは Runner.submit と同じ
+  async submit(ids) {
+    await this.submitLock.acquire();
+    let rec;
+    try {
+      if (this.halted) return null;
+      const need = ANIM_CREDITS * ids.length;
+      if (this.o.maxCredits !== undefined && this.committed + need > this.o.maxCredits) {
+        this.halt(`--max-credits ${this.o.maxCredits} に達するため停止（このランの見積り ${fmtCredits(this.committed)} + 次の ${need}）`);
+        return null;
+      }
+      const bal = await getBalance();
+      if (bal < need) { this.halt(shortageText(need, bal)); return null; }
+      const body = animBody(this.rigTid, ids, this.o);
+      rec = addAnimRecord(this.a, {
+        task_id: null, rig_task_id: this.rigTid, action_ids: ids, fps: this.o.fps ?? null, request: body, status: "submitting",
+        estimate: need, balance_before: bal, submitted_at: now(), completed_at: null, expires_at: null, progress: 0,
+        credits_consumed: null, file: null, bytes: null, sha256: null, clips: null, outputs: null, error: null,
+      });
+      let json;
+      try {
+        ({ json } = await api("POST", ENDPOINTS.anim, body, { paid: true }));
+      } catch (e) {
+        // JSON の理由を伴う 4xx だけ「failed」（次回は送り直す）。5xx・通信エラー・タイムアウトはタスクが作られ課金済みの
+        // 可能性があるので「unknown」にし、次回は --force anim なしでは送らない
+        const definite = e instanceof MeshyError && DEFINITE_REJECT.has(e.status) && !!e.json;
+        if (definite) {
+          patchAnim(rec, { status: "failed", error: scrub(e.message) });
+          if (e.insufficientCredits) { this.halt(shortageText(need, await getBalance().catch(() => 0))); return null; }
+        } else {
+          this.committed += need;
+          patchAnim(rec, { status: "unknown", error: scrub(e.message) });
+          log(`  ${this.label(rec)} 送信結果が不明です（タスクが作られ課金済みの可能性）。Meshy の利用履歴を確認してください`);
+        }
+        throw e;
+      }
+      const tid = typeof json?.result === "string" ? json.result : null;
+      if (!tid) {
+        this.committed += need;
+        patchAnim(rec, { status: "unknown", error: "応答に result（task_id）がありません" });
+        throw new Error(`${ENDPOINTS.anim} の応答に result がありません`);
+      }
+      patchAnim(rec, { status: "PENDING", task_id: tid });
+      this.committed += need;
+      this.pending.set(rec, need);
+      this.stats.submitted++;
+      log(`  ${this.label(rec)} 送信: ${tid}（見積り ${need} credits、送信前の残高 ${fmtCredits(bal)}）`);
+      return rec;
+    } finally {
+      this.submitLock.release();
+    }
+  }
+
+  async runBatch(ids) {
+    if (this.halted) return false;
+    const rec = await this.submit(ids);
+    if (!rec) return false;
+    return this.waitAndSave(rec);
+  }
+
+  async waitAndSave(rec) {
+    const task = await this.poll(rec);
+    if (!task) return false;
+    const est = this.pending.get(rec);
+    this.pending.delete(rec);
+    if (task.status !== "SUCCEEDED") {
+      if (est !== undefined) this.committed -= est; // 失敗・取消は返金される
+      this.stats.failed++;
+      process.exitCode = 1;
+      return false;
+    }
+    const actual = num(task.consumed_credits);
+    if (est !== undefined) { this.committed += (actual ?? est) - est; this.stats.consumed += actual ?? 0; }
+    this.stats.success++;
+    patchAnim(rec, {
+      status: "SUCCEEDED", progress: 100, credits_consumed: actual, completed_at: msIso(task.finished_at) || now(),
+      expires_at: msIso(task.expires_at), outputs: urlKeys(task), error: null,
+    });
+    return this.save(rec, task);
+  }
+
+  // Retry-After（無ければ 5 秒）ごとに状態を確認（Runner.poll と同じ。404 は作成直後の遅れを待ってから unknown にする）
+  async poll(rec) {
+    const t0 = Date.now();
+    const submittedAt = Date.parse(rec.submitted_at ?? "") || t0;
+    const label = this.label(rec);
+    let lastLine = "";
+    let lastPrint = 0;
+    let notFound = 0;
+    for (;;) {
+      let task;
+      let res;
+      try {
+        ({ json: task, res } = await getTask("anim", rec.task_id));
+      } catch (e) {
+        if (e instanceof MeshyError && e.status === 404) {
+          notFound++;
+          if (Date.now() - submittedAt < NOT_FOUND_GRACE_MS || notFound < NOT_FOUND_MIN_TRIES) {
+            await sleep(Math.min(POLL_DEFAULT_MS * notFound, 15_000));
+            continue;
+          }
+          patchAnim(rec, { status: "unknown", error: "タスクが見つかりません（404）" });
+          log(`  ${label} タスク ${rec.task_id} が見つかりません（404）。次回の anim で問い合わせ直します。`
+            + "Meshy の利用履歴でタスクが無いことを確かめてから --force anim で買い直してください（再課金）");
+          process.exitCode = 1;
+          return null;
+        }
+        throw e;
+      }
+      notFound = 0;
+      const status = task?.status || "unknown";
+      const progress = num(task?.progress) ?? 0;
+      const line = `${status} ${Math.floor(progress / 10)}`;
+      if (line !== lastLine || Date.now() - lastPrint > 60_000) {
+        const q = status === "PENDING" && num(task?.preceding_tasks) ? `  待ち ${task.preceding_tasks}` : "";
+        log(`  ${pad(label, 26)} ${pad(status, 11)} ${String(progress).padStart(3)}%  ${pad(elapsed(t0), 7)} ${rec.task_id}${q}`);
+        lastLine = line;
+        lastPrint = Date.now();
+      }
+      if (status === "SUCCEEDED") return task;
+      if (TERMINAL_FAIL.has(status)) {
+        const te = task.task_error || {};
+        const err = [te.type, te.code, te.message].filter((x) => x !== undefined && x !== null && x !== "").join(" ") || null;
+        patchAnim(rec, { status, error: err, credits_consumed: num(task.consumed_credits), completed_at: msIso(task.finished_at) || now() });
+        log(`  ${label} ${status}${err ? `: ${err}` : ""}（失敗は返金。consumed_credits ${fmtCredits(num(task.consumed_credits))}）`);
+        return task;
+      }
+      if (rec.status !== status && ACTIVE.has(status)) patchAnim(rec, { status, progress, credits_consumed: num(task.consumed_credits) });
+      if (Date.now() - t0 > POLL_TIMEOUT_MS) {
+        log(`  ${label} ${Math.round(POLL_TIMEOUT_MS / 60000)} 分待っても完了しません。後で同じコマンドを実行すると続きから待ちます`);
+        process.exitCode = 1;
+        return null;
+      }
+      const ra = Number(res?.headers?.get("retry-after"));
+      await sleep(ra > 0 ? Math.min(Math.max(ra * 1000, 2000), 30_000) : POLL_DEFAULT_MS);
+    }
+  }
+
+  // 成功したタスクの GLB を保存し、クリップを action へ対応付けて manifest.json を書く。task が null なら GET し直す（URL は期限付き）
+  async save(rec, task) {
+    const ids = rec.action_ids;
+    const dir = animDir(this.a);
+    fs.mkdirSync(dir, { recursive: true });
+    const dest = batchFile(this.a, rec, this.manifest);
+    const base = path.basename(dest, ".glb");
+    const label = this.label(rec);
+    const getFresh = async () => (await getTask("anim", rec.task_id)).json;
+    let size;
+    if (rec.sha256 && fs.existsSync(dest) && !badContent(dest, "model") && sha256File(dest) === rec.sha256) {
+      size = fs.statSync(dest).size; // ファイルはそのまま（manifest が欠けただけ）
+    } else {
+      const r = await downloadFromTask(getFresh, task, (t) => t?.result?.animation_glb_url, dest, "model", label);
+      if (r.missing) {
+        log(`  ${label} 出力に animation_glb_url がありません（URL のあるキー: ${r.keys.join(", ") || "なし"}）。node tools/meshy.mjs task anim ${rec.task_id} で確認`);
+        process.exitCode = 1;
+        return false;
+      }
+      size = r.size;
+      this.stats.saved++;
+      log(`  ${label} 保存: ${rel(dest)}（${fmtBytes(size)}）`);
+    }
+    let fpsFbx = null;
+    if (rec.fps) {
+      // fps 変換の出力（FBX）。抽出には使わない控えなので取れなくても先へ進む
+      const fdest = path.join(dir, `${base}.${rec.fps}fps.fbx`);
+      try {
+        const r = await downloadFromTask(getFresh, task, (t) => t?.result?.processed_animation_fps_fbx_url, fdest, "fbx", label);
+        if (r.missing) log(`  ${label} processed_animation_fps_fbx_url は出力に無いため省略`);
+        else { fpsFbx = path.basename(fdest); log(`  ${label} 保存: ${rel(fdest)}（${fmtBytes(r.size)}）`); }
+      } catch (e) {
+        log(`  ${label} ${path.basename(fdest)} を取得できないため省略: ${e.message}`);
+      }
+    }
+    const sha = sha256File(dest);
+    const clips = glbAnimations(dest) || [];
+    const mapped = mapClips(ids, clips, this.lib);
+    const fileRec = { file: rel(dest), bytes: size, sha256: sha, clips: clips.map((c) => c.name) };
+    if (!mapped) {
+      const err = `クリップ ${clips.length} 本（${clips.map((c) => c.name).join(", ")}）を action ${ids.length} 個へ対応付けられません`;
+      patchAnim(rec, { ...fileRec, error: err });
+      log(`  ${label} ${err}。manifest は更新しません`);
+      process.exitCode = 1;
+      return false;
+    }
+    const { mapping, how } = mapped;
+    if (how === "name" && mapping.some((x, k) => x !== k)) log(`  ${label} 注意: クリップの順番が action_ids と違うため名前で対応付けました`);
+    const perAction = num(rec.credits_consumed) !== null ? rec.credits_consumed / ids.length : ANIM_CREDITS;
+    ids.forEach((id, k) => {
+      const c = clips[mapping[k]];
+      const item = this.lib.get(id);
+      if (item && !clipMatches(c.name, item, id)) log(`  ${label} 注意: clip ${c.index} の名前 "${c.name}" がライブラリ名 "${item.name}"（action ${id}）と一致しません（順番で対応付け）`);
+      this.manifest[String(id)] = {
+        file: path.basename(dest), clip_index: c.index, name: item?.name ?? c.name, clip_name: c.name, matched_by: how, task_id: rec.task_id,
+        credits: perAction, rig_task_id: rec.rig_task_id, sha256: sha, duration: c.duration, keys: c.keys, fps: c.fps,
+        ...(fpsFbx ? { fps_fbx: fpsFbx } : {}),
+      };
+    });
+    writeJsonAtomic(manifestPath(this.a), sortedManifest(this.manifest));
+    patchAnim(rec, { ...fileRec, error: null });
+    printClips(clips, new Map(ids.map((id, k) => [mapping[k], id])), this.lib);
+    return true;
+  }
+}
+
+const sortedManifest = (m) => Object.fromEntries(Object.entries(m).sort(([x], [y]) => Number(x) - Number(y)));
+
+async function cmdAnim(o) {
+  if ([...o.force].some((f) => f !== "anim")) fail("anim の --force は anim だけ（買い直し。実行中のタスクは買い直さない）");
+  const a = rigHero(o);
+  const ids = parseActionIds(o.actions);
+  if (o.dry) DRY = true;
+  const head = o.dry ? "[dry-run] " : "";
+  log(`${head}anim ${a.key}  ${a.label}${o.dry ? "（有料 API は呼ばず、state.json もファイルも変更しません）" : ""}`);
+  const r = await rigInfo(a, { remote: hasApiKey() });
+  log(`  ${rigText(r)}`);
+  const lib = await loadLibrary(ids, { write: !o.dry });
+  log(`  ライブラリ: ${lib.from ?? "取得できません（API キーが無くキャッシュも無い）"}`);
+  const unknownIds = lib.from ? ids.filter((id) => !lib.map.has(id)) : [];
+  if (unknownIds.length) fail(`ライブラリに無い action_id: ${unknownIds.join(", ")}（node tools/meshy.mjs anim-library で確認。廃止された id は送ると 400）`);
+
+  const manifest = readJson(manifestPath(a), {});
+  const plan = planAnim(a, r.tid, ids, o, manifest);
+  table(plan.rows.map((row) => [String(row.id), ...libCells(lib.map.get(row.id)), "→", planRowText(row, r.tid, o.force.has("anim"))]), "    ");
+
+  // 予算: --max-credits と残高に収まる数だけ買う（action 単位で切る。残りは次回）
+  let submit = plan.submit;
+  const notes = [];
+  if (submit.length && !rigUsable(r)) {
+    const msg = rigExpiredText(a, r);
+    if (!plan.resume.size && !plan.fetch.size) fail(msg);
+    log(`\nerror: ${msg}`);
+    process.exitCode = 1;
+    submit = [];
+  }
+  if (o.maxCredits !== undefined && submit.length * ANIM_CREDITS > o.maxCredits) {
+    const n = Math.floor(o.maxCredits / ANIM_CREDITS);
+    notes.push(`--max-credits ${o.maxCredits} のため ${n} 個だけ買います（次回へ: ${submit.slice(n).join(",")}）`);
+    submit = submit.slice(0, n);
+  }
+  let bal = null;
+  if (submit.length && (!o.dry || hasApiKey())) {
+    try { bal = await getBalance(); } catch (e) { if (!o.dry) throw e; log(`  残高を取得できません: ${e.message}`); }
+  }
+  if (bal !== null && bal < submit.length * ANIM_CREDITS) {
+    const n = Math.floor(bal / ANIM_CREDITS);
+    if (!o.allowPartial && !o.dry) fail(`${shortageText(submit.length * ANIM_CREDITS, bal)}\n  途中まででよければ --allow-partial（買える ${n} 個だけ）か --max-credits N`);
+    notes.push(`残高 ${fmtCredits(bal)} のため ${n} 個だけ${o.allowPartial ? "買います" : "（--allow-partial なら）"}（不足: ${submit.slice(n).join(",")}）`);
+    if (o.allowPartial) submit = submit.slice(0, n);
+  }
+  for (const n of notes) log(`  ${n}`);
+  const batches = chunk(submit, ANIM_BATCH);
+  const cost = submit.length * ANIM_CREDITS;
+
+  if (o.dry) {
+    // 表示だけ（batchFile は rec.file を確保するので dry-run では使わない）
+    const recFile = (rec) => rel(path.join(animDir(a), rec.file ? path.basename(rec.file) : `${batchBase(rec.action_ids)}.glb`));
+    for (const [rec, rids] of plan.resume) log(`\n  待つ: ${rec.task_id}（${rec.status}、action ${rec.action_ids.join(",")}）→ ${recFile(rec)}${rids.length < rec.action_ids.length ? "（他の action も含む）" : ""}`);
+    for (const [rec] of plan.fetch) log(`\n  取り直し: ${rec.task_id}（action ${rec.action_ids.join(",")}）→ ${recFile(rec)}`);
+    batches.forEach((b, i) => {
+      log(`\n  batch ${i + 1}/${batches.length}: POST ${API}${ENDPOINTS.anim}  見積り ${b.length * ANIM_CREDITS} credits（${b.length} × ${ANIM_CREDITS}）`);
+      printJSONIndented(animBody(r.tid, b, o), "    ");
+      const base = batchNameTaken(a, `${batchBase(b)}.glb`, manifest) ? `${batchBase(b)}_<task_id>` : batchBase(b);
+      log(`    → ${rel(path.join(animDir(a), `${base}.glb`))}${o.fps ? ` と ${base}.${o.fps}fps.fbx` : ""}`);
+      b.forEach((id, k) => log(`       clip ${k} = ${id} ${lib.map.get(id)?.name ?? "?"}`));
+    });
+    log(`    manifest: ${rel(manifestPath(a))}、state: ${rel(STATE_PATH)} の assets["${a.key}"].animations`);
+    log(`\n[dry-run] 新規送信の見積り合計: ${cost} credits（${submit.length} actions × ${ANIM_CREDITS}、${batches.length} タスク）`);
+    if (bal !== null) log(`[dry-run] 残高 ${fmtCredits(bal)}${bal < cost ? ` → 不足 ${fmtCredits(cost - bal)}。購入: ${PURCHASE_URL}` : ""}`);
+    if (plan.rows.some((x) => x.action === "blocked")) process.exitCode = 1;
+    return;
+  }
+
+  const runner = new AnimRunner(a, r.tid, lib.map, manifest, o);
+  process.on("SIGINT", () => {
+    console.error("\n中断しました。送信済みのタスクは Meshy 側で続行し、次回の anim で続きから待ちます"
+      + (o.force.has("anim") ? "（--force anim は外して再実行。付けたままだと買い直し＝再課金）" : ""));
+    process.exit(130);
+  });
+  if (cost) log(`\n新規送信 ${cost} credits（${submit.length} actions、${batches.length} タスク）、残高 ${fmtCredits(bal)}`
+    + (o.maxCredits !== undefined ? `、上限 --max-credits ${o.maxCredits}` : ""));
+  const jobs = [
+    ...[...plan.resume.keys()].map((rec) => () => { log(`  ${runner.label(rec)} 実行中のタスクを再開: ${rec.task_id}`); return runner.waitAndSave(rec); }),
+    ...[...plan.fetch.keys()].map((rec) => () => runner.save(rec, null)),
+    ...batches.map((b) => () => runner.runBatch(b)),
+  ];
+  let next = 0;
+  const worker = async () => {
+    while (next < jobs.length) {
+      const job = jobs[next++];
+      try { await job(); } catch (e) { log(`  ${a.key} anim エラー: ${e.message}`); process.exitCode = 1; }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(o.concurrency, jobs.length) }, worker));
+
+  const s = runner.stats;
+  let after = null;
+  if (s.submitted) { try { after = await getBalance(); } catch { /* 表示だけ */ } }
+  const final = readJson(manifestPath(a), {});
+  const missing = ids.filter((id) => final[String(id)]?.rig_task_id !== r.tid);
+  log(`\n完了: 送信 ${s.submitted}、成功 ${s.success}、失敗 ${s.failed}、消費 ${fmtCredits(s.consumed)} credits、保存 ${s.saved}`
+    + (after !== null && bal !== null ? `、残高 ${fmtCredits(bal)} → ${fmtCredits(after)}` : ""));
+  if (runner.halted) log(`停止理由: ${runner.halted.split("\n")[0]}`);
+  log(`manifest: ${rel(manifestPath(a))}（${ids.length - missing.length}/${ids.length} 個）`);
+  if (missing.length) { log(`未完了: ${missing.join(",")}`); process.exitCode = 1; }
+}
+
+// rig タスクの結果に付く無料の歩き・走り（スキン付き GLB）。抽出ツールの試験用。控えは basic.json（state.json は書かない
+// ＝ロック不要で run と並行してよい）
+async function cmdAnimBasic(o) {
+  if ([...o.force].some((f) => f !== "anim")) fail("anim-basic の --force は anim だけ（取り直し）");
+  const a = rigHero(o);
+  if (o.dry) DRY = true;
+  const dir = animDir(a);
+  const metaPath = path.join(dir, "basic.json");
+  const meta = readJson(metaPath, {});
+  const rigSt = getStage(a, "rig");
+  const have = ([, name]) => {
+    const f = meta.files?.[name];
+    const file = path.join(dir, name);
+    return meta.rig_task_id === rigSt?.task_id && f?.sha256 && fs.existsSync(file) && !badContent(file, "model") && sha256File(file) === f.sha256;
+  };
+  const todo = BASIC_ANIMS.filter((x) => o.force.has("anim") || !have(x));
+  log(`${o.dry ? "[dry-run] " : ""}anim-basic ${a.key}  ${a.label}（無料）`);
+  // 取るものが無ければ API は呼ばない（期限は state の記録で表示）
+  const r = await rigInfo(a, { remote: hasApiKey() && (todo.length > 0 || o.dry) });
+  log(`  ${rigText(r)}`);
+  for (const x of BASIC_ANIMS) if (!todo.includes(x)) log(`  ${x[1]}: 済み → スキップ`);
+  if (o.dry) {
+    for (const [kind, name] of todo) log(`  ${name}: GET ${API}${ENDPOINTS.rig}/${r.tid} の result.basic_animations.${kind}_glb_url → ${rel(path.join(dir, name))}`);
+    return;
+  }
+  if (todo.length) {
+    if (r.gone) fail(`${rigText(r)}。基本アニメーションは rig の結果なので取得できません（作り直すなら node tools/meshy.mjs run heroes ${a.id} --force rig）`);
+    if (r.task?.status !== "SUCCEEDED") fail(rigText(r));
+  }
+  fs.mkdirSync(dir, { recursive: true });
+  const getFresh = async () => (await getTask("rig", r.tid)).json;
+  const next = { rig_task_id: r.tid, files: { ...(meta.rig_task_id === r.tid ? meta.files : {}) } };
+  for (const [kind, name] of todo) {
+    const dest = path.join(dir, name);
+    const label = `${a.key} basic ${kind}`;
+    const res = await downloadFromTask(getFresh, r.task, (t) => t?.result?.basic_animations?.[`${kind}_glb_url`], dest, "model", label);
+    if (res.missing) {
+      log(`  ${label}: 出力に ${kind}_glb_url がありません（URL のあるキー: ${res.keys.join(", ") || "なし"}）`);
+      process.exitCode = 1;
+      continue;
+    }
+    next.files[name] = { bytes: res.size, sha256: sha256File(dest), saved_at: now() };
+    log(`  ${label} 保存: ${rel(dest)}（${fmtBytes(res.size)}）`);
+    writeJsonAtomic(metaPath, next);
+  }
+  for (const [, name] of BASIC_ANIMS) {
+    const file = path.join(dir, name);
+    if (badContent(file, "model")) continue;
+    const info = glbInfo(file);
+    const clips = glbAnimations(file) || [];
+    log(`\n  ${rel(file)}: 骨 ${info?.joints.length ?? "?"} 本、三角形 ${info?.tris ?? "?"}、クリップ ${clips.length} 本`);
+    printClips(clips, null, null);
+  }
+}
+
+async function cmdAnimLibrary(o) {
+  const lib = await loadLibrary([], { write: true });
+  if (!lib.from) fail("ライブラリを取得できません（API キーが無くキャッシュも無い）");
+  const q = (o.search || "").toLowerCase();
+  const items = [...lib.map.values()].filter((x) => (!q || `${x.name} ${x.key}`.toLowerCase().includes(q)) && (!o.category || x.category === o.category));
+  log(`ライブラリ: ${lib.from}（${items.length}/${lib.map.size} 件）`);
+  table([["id", "名前", "category", "sub_category"], ...items.map((x) => [String(x.action_id), x.name, x.category, x.sub_category])]);
+}
+
 // MARK: - 見積り・状態
 
 async function cmdEstimate(catArg, ids, o) {
@@ -1395,6 +2097,11 @@ function cmdStatus() {
       if (TERMINAL_FAIL.has(st.status)) failed++;
     }
     for (const h of as.history || []) if (h.status === "SUCCEEDED") consumed += num(h.credits_consumed) ?? 0;
+    for (const r of as.animations || []) {
+      if (r.status === "SUCCEEDED" || ACTIVE.has(r.status)) consumed += num(r.credits_consumed) ?? 0;
+      if (ACTIVE.has(r.status) || UNSURE.has(r.status)) active++;
+      if (TERMINAL_FAIL.has(r.status)) failed++;
+    }
   }
   log(`state: ${fs.existsSync(STATE_PATH) ? rel(STATE_PATH) : "（まだありません）"}${state.updated_at ? `（更新 ${state.updated_at}）` : ""}`);
   log(`ファイル: ${rel(BUILD_DIR)}/<heroes|props>/<id>/、配置先: ${rel(TRIPO_BUILD_DIR)}/<heroes|props>/<id>/（ヒーローのコンセプト画像もここから読む）`);
@@ -1407,10 +2114,18 @@ function cmdStatus() {
     const dir = assetDir(a);
     return fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => !f.endsWith(".part")).sort().join(" ") : "";
   };
+  // anim: 今の rig で購入済み（成功）の action 数 + 実行中・不明のタスク数
+  const animCell = (a) => {
+    const rigTid = getStage(a, "rig")?.task_id;
+    const recs = animRecords(a).filter((r) => r.rig_task_id === rigTid);
+    const ok = new Set(recs.filter((r) => r.status === "SUCCEEDED").flatMap((r) => r.action_ids || []));
+    const busy = recs.filter((r) => ACTIVE.has(r.status) || UNSURE.has(r.status)).length;
+    return ok.size || busy ? `${ok.size}${busy ? ` +実行中/不明 ${busy}` : ""}` : "-";
+  };
   log("\nheroes");
-  const hrows = [["ID", "名前", "concept", ...CATS.heroes.stages, "配置", "ローカル"]];
+  const hrows = [["ID", "名前", "concept", ...CATS.heroes.stages, "anim", "配置", "ローカル"]];
   for (const a of MANIFEST.heroes) {
-    hrows.push([a.id, a.label, fs.existsSync(conceptPath(a)) ? "あり" : "-", ...CATS.heroes.stages.map((s) => cellFor(a, s)), placedCell(a) || "-", localCell(a) || "-"]);
+    hrows.push([a.id, a.label, fs.existsSync(conceptPath(a)) ? "あり" : "-", ...CATS.heroes.stages.map((s) => cellFor(a, s)), animCell(a), placedCell(a) || "-", localCell(a) || "-"]);
   }
   table(hrows);
   log("\nprops");
@@ -1447,7 +2162,16 @@ function usage() {
             --replace-tripo    ${rel(TRIPO_BUILD_DIR)}/<cat>/<id>/ の Meshy 以外の rigged.* / model.glb を *.tripo.* へ退避して置き換える
                                （無いと、そのアセットは送信前に外す＝課金してから配置で断られない）
   node tools/meshy.mjs status                                    アセット × 段階の状態・消費・配置
-  node tools/meshy.mjs task <concept|model|rig> <task_id>        タスクの JSON（署名付き URL は伏せる）
+  node tools/meshy.mjs task <concept|model|rig|anim> <task_id>   タスクの JSON（署名付き URL は伏せる）
+
+  アニメーション（docs/HERO_MOTION.md の抽出の入力。保存先 ${rel(ANIM_DIR)}/<id>/）
+  node tools/meshy.mjs anim --rig <id> --actions 97,105,... [--dry-run] [--max-credits N] [--fps 24|25|30|60]
+                                                                  既存の rig にライブラリのモーションを買って付ける（1 action ${ANIM_CREDITS}、
+                                                                  10 個ずつ 1 タスク）→ batch_<先頭>-<個数>.glb と manifest.json
+      --force anim       購入済み・送信結果不明の action も買い直す（実行中のタスクは買い直さない）
+      --allow-partial    残高が足りなければ買える数だけ買う
+  node tools/meshy.mjs anim-basic --rig <id> [--dry-run]         rig の結果に付く無料の歩き・走り → basic_{walking,running}.glb
+  node tools/meshy.mjs anim-library [--search 文字列] [--category Fighting]   ライブラリの一覧（無料）
 
   取り込み: node tools/tripo.mjs import heroes <id>（rigged.fbx があれば rigged.glb より優先）
             node tools/tripo.mjs import props <kind>（source.json の front を使う）
@@ -1459,8 +2183,17 @@ const o = parseArgs(rest);
 if (!cmd || cmd === "help" || o.help) { usage(); process.exit(cmd && cmd !== "help" && !o.help ? 1 : 0); }
 
 try {
-  if (cmd === "run" && !o.dry) lockState();
+  if ((cmd === "run" || cmd === "anim") && !o.dry) lockState();
   switch (cmd) {
+    case "anim":
+      await cmdAnim(o);
+      break;
+    case "anim-basic":
+      await cmdAnimBasic(o);
+      break;
+    case "anim-library":
+      await cmdAnimLibrary(o);
+      break;
     case "balance":
       log(`残高 ${fmtCredits(await getBalance())} credits`);
       break;
@@ -1475,7 +2208,7 @@ try {
       break;
     case "task": {
       const stage = KIND_ALIASES[o.pos[0]];
-      if (!stage || !o.pos[1]) fail("使い方: node tools/meshy.mjs task <concept|model|rig> <task_id>");
+      if (!stage || !o.pos[1]) fail("使い方: node tools/meshy.mjs task <concept|model|rig|anim> <task_id>");
       const { json } = await getTask(stage, o.pos[1]);
       console.log(scrub(JSON.stringify(redactUrls(json), null, 2)));
       break;

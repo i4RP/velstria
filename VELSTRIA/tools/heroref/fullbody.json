@@ -1,0 +1,182 @@
+{
+  "$comment": "ヒーローのポートレート（tools/portraits）を参照に、3D 生成（Tripo image-to-model）の入力にする全身 T ポーズ画像の仕様。tools/heroref/fullbody.py が読む。武器・副手・浮遊物・翼・光輪・発光は実行時に付けるので描かせない。体に付ける装着物（籠手・爪・機械の腕・背中の鐘・矢筒・背嚢）は wear に書き、本体に含める。年齢区分 9+ のため露出させない。",
+  "template": [
+    "Full-body character reference image of the EXACT same character as in the attached portrait, for building a rigged 3D game model.",
+    "Keep identical: {keep}, and the overall color palette, materials and ornament style of the portrait.",
+    "Pose: strict T-pose, front orthographic view, perfectly symmetrical, standing upright. Both arms straight out horizontally at shoulder height, palms facing down, fingers together, hands empty. Legs straight, feet shoulder-width apart, the whole body from the top of the head (including any helmet, hat, crown or ears) to the soles of the feet visible with margin.",
+    "Costume adapted for 3D: {costume}. Sleeves are fitted to the arms down to the wrists with only short decorative cuffs: NO wide hanging sleeves and NO fabric hanging below the arms (the space under each arm must stay empty background). Any long hair falls straight down behind the back and does not cover the arms or hands. Each leg is clearly separate. Modest, fully covered outfit: no bare thighs, no bare midriff, no cleavage.",
+    "Body-worn parts to include: {wear}.",
+    "Remove completely: {remove}. The hands are empty. NO weapons, NO floating objects, NO magic effects, NO particles, NO glow aura.",
+    "Rendering: semi-realistic anime game art matching the portrait, heroic game proportions (head about 1/7 of the height), clean readable shapes, plain flat light-gray background, even soft lighting, no cast shadow, no text, no logo, single character only."
+  ],
+  "heroes": [
+    {
+      "id": "H001",
+      "keep": "his stern weathered male face with a short brown beard, the open-faced silver knight helmet, the heavy polished silver plate armor with big rounded pauldrons, golden-amber enamel armor panels and sky-blue trims",
+      "costume": "full plate armor with layered plate tassets over the hips, armored legs and heavy silver sabatons; a short golden-amber cape on the back ending above the knees",
+      "wear": "none",
+      "remove": "the castle-gate tower shield and the longsword"
+    },
+    {
+      "id": "H002",
+      "keep": "her young female face, the pale blonde high ponytail, the small golden star-shaped hairpin, the light elegant spring-green armor with gold trims and the sash",
+      "costume": "light green armor over a fitted tunic, the sash tied at the hips with short tails, fitted green trousers and knee-high boots with gold trims",
+      "wear": "none",
+      "remove": "the star-tipped rapier, the harp-shaped bow and its strings, the star motes"
+    },
+    {
+      "id": "H003",
+      "keep": "his lean tanned male face with sharp eyes, the short ash-grey hair under a dark leather hood, the scarf around the neck, the jade-green leather ranger armor with iron buckles and ember-orange trims",
+      "costume": "leather ranger armor, a belt with pouches, fitted leather trousers and sturdy boots",
+      "wear": "a quiver full of arrows strapped diagonally on his back (plain arrows, not burning)",
+      "remove": "the bow, the nocked arrow, all fire, embers and ash"
+    },
+    {
+      "id": "H004",
+      "keep": "her face, eye color, the long deep ocean-blue hair, the silver tiara of coral, seashells and pearls, the pearl earrings, the deep-blue and white layered robes with pink coral embroidery, silver trims and pearl ornaments",
+      "costume": "the robe ends just below the knees and is split at the front and sides; fitted dark-blue trousers and knee-high silver-trimmed boots underneath",
+      "wear": "none",
+      "remove": "the silver wave staff, the water orb and the water droplets"
+    },
+    {
+      "id": "H005",
+      "keep": "his gaunt pale male face with intense violet eyes, the spiky white hair, the indigo robes with obsidian-black crystal shoulder pieces, the tattered dark cape",
+      "costume": "the indigo robe ends at the knees and is split at the front and sides; dark trousers and boots underneath; the tattered cape ends above the knees",
+      "wear": "none",
+      "remove": "the obsidian spear, all violet lightning, the ring of lightning behind his head"
+    },
+    {
+      "id": "H006",
+      "keep": "her slim female figure, the close hood, the cloth mask over the lower half of her face, the calm lavender eyes, the lavender-silver hair strands, the silver crescent-moon hairpin, the dark orchid-magenta leather outfit",
+      "costume": "fitted orchid-magenta leather armor, scarf tails shortened to end at the waist, fitted leather trousers and soft boots",
+      "wear": "none",
+      "remove": "the crescent-moon dagger and the moon lantern"
+    },
+    {
+      "id": "H007",
+      "keep": "his towering muscular male build, tanned skin, the dark reddish-brown mohawk, the thick braided beard, the cloth headband, the rough stone-slab armor with huge boulder shoulder guards, the crimson-rose cloth wraps",
+      "costume": "a stone-slab chest plate and crimson cloth wraps cover the whole torso; heavy cloth trousers wrapped with crimson bands and stone-plated boots",
+      "wear": "enormous rock gauntlets encasing BOTH forearms and hands, split by glowing molten-orange cracks (the hands stay open in the T-pose)",
+      "remove": "embers, smoke and sparks"
+    },
+    {
+      "id": "H008",
+      "keep": "her young female face with freckles, the short windswept auburn hair, the feather hairpin, the light tangerine-orange armor with feathered shoulder pieces and teal trims",
+      "costume": "light orange armor over a fitted tunic, short teal ribbons tied at the waist, fitted trousers and boots",
+      "wear": "none",
+      "remove": "the spear, the banner, the wind currents"
+    },
+    {
+      "id": "H009",
+      "keep": "his tanned male face with a confident grin and stubble, the short brown hair, the brass goggles pushed up on his forehead, the mechanical brass armor with chartreuse-green panels and copper-orange trims",
+      "costume": "brass and chartreuse armor over a work tunic, a tool belt, sturdy work trousers and boots",
+      "wear": "his LEFT arm (on the right side of the image) is a full brass mechanical prosthetic arm from shoulder to fingers; a compact gear-laden backpack with small cogs on his back",
+      "remove": "the repeating crossbow and the glowing bolts"
+    },
+    {
+      "id": "H010",
+      "keep": "her fierce female face, the long fiery red hair, the golden crown shaped like flames above her brow (solid gold, not real fire), the emerald-green robes with gold embroidery and orange trims",
+      "costume": "the robe ends just below the knees and is split at the front and sides; fitted dark-green trousers and boots underneath",
+      "wear": "none",
+      "remove": "the grimoire, the fire in her hand, the orbiting fireballs"
+    },
+    {
+      "id": "H011",
+      "keep": "his steadfast tanned male face, the short dark slate hair, the iron half-visor over his eyes, the iron plate armor with rounded pauldrons and turquoise-cyan panels",
+      "costume": "iron plate armor with a short white tabard, armored legs and heavy boots",
+      "wear": "none",
+      "remove": "the mechanical iron wings (no wings at all on the back), the aegis staff and its lantern"
+    },
+    {
+      "id": "H012",
+      "keep": "her slender pale female face, the sleek icy pale-blue bob haircut, the translucent glass visor over her eyes, the royal-blue light armor with sharp crystal shoulder pieces",
+      "costume": "royal-blue light armor over a fitted bodysuit, scarf tails shortened to end at the waist, fitted trousers and boots",
+      "wear": "none",
+      "remove": "the twin glass daggers and the floating glass shards"
+    },
+    {
+      "id": "H013",
+      "keep": "his massive male build, deep dark skin, wild dark-brown hair, the bleached horned beast-skull mask worn over the top of his head with his fierce eyes visible below it, the heavy fur pauldrons, the purple war paint and red tribal markings on his face",
+      "costume": "fur and leather armor covering the whole torso, leather trousers with fur trims and fur boots; a short fur cape ending above the knees",
+      "wear": "none",
+      "remove": "the bone club and the round hide shield"
+    },
+    {
+      "id": "H014",
+      "keep": "his lean calm young male face, the near-black navy hair tied in a high topknot with a pale ribbon, the rose-pink and white layered cloth garb",
+      "costume": "rose-pink and white layered garb, a hooded short cape ending at the waist made of solid fabric (no fog), hakama-style trousers clearly separated at the legs and boots",
+      "wear": "none",
+      "remove": "the katana, the short blade and all mist"
+    },
+    {
+      "id": "H015",
+      "keep": "her bold female face, the golden blonde braids, the bronze viking helmet with small wings, the orange leather armor with rounded bronze pauldrons",
+      "costume": "orange leather armor, a belt with pouches, fitted leather trousers and boots",
+      "wear": "a large bronze war bell strapped on her back",
+      "remove": "the bell-mouthed hand-cannon and the golden sparks"
+    },
+    {
+      "id": "H016",
+      "keep": "her serene young female face, the long flowing silver-white hair, the slender golden circlet, the layered white robes with pale lime-green panels and gold trim",
+      "costume": "the robe ends just below the knees and is split at the front and sides; fitted white trousers and boots underneath",
+      "wear": "none",
+      "remove": "the golden ring-topped staff and the white halo behind her head"
+    },
+    {
+      "id": "H017",
+      "keep": "his ominous male figure, ashen grey skin, the deep hood and dark mask hiding his face with two glowing violet eyes, the dark green and black robes",
+      "costume": "the robe ends at the knees and is split at the front and sides; dark trousers and boots underneath; a tattered short cape ending above the knees",
+      "wear": "none",
+      "remove": "the censer lantern and its chain, the spectral chains, all smoke"
+    },
+    {
+      "id": "H018",
+      "keep": "her petite graceful female figure, the pink bob haircut, the crown of flowers, the golden crescent hairpin, the mint-teal cloth outfit with flower-petal motifs and golden accents",
+      "costume": "a short layered flower-petal skirt over fitted mint leggings that cover the legs completely, and soft boots",
+      "wear": "none",
+      "remove": "the twin petal-shaped blades and the swirling blossom petals"
+    },
+    {
+      "id": "H019",
+      "keep": "his hulking male build, the heavy iron helmet with two great curved horns, the scarred tanned jaw and fierce eyes, the massive iron plate armor with huge pauldrons, cobalt-blue panels and orange trims",
+      "costume": "massive plate armor, armored legs and heavy iron boots",
+      "wear": "none",
+      "remove": "the iron siege hammer and its glowing heat"
+    },
+    {
+      "id": "H020",
+      "keep": "her energetic young female face, the golden blonde twin tails tied with ribbons, the light violet-and-gold armor",
+      "costume": "light violet-and-gold armor over a fitted tunic, a short skirt over fitted leggings that cover the legs completely, and boots",
+      "wear": "none",
+      "remove": "the blade of light, the golden bow and the light motes"
+    },
+    {
+      "id": "H021",
+      "keep": "his calm tanned male face, the short sandy-brown hair, the wide-brimmed hat, the scarf around his neck, the long fuchsia-magenta leather coat with brass buckles",
+      "costume": "the long coat ends at the knees and is split at the front, back and sides; trousers and boots underneath",
+      "wear": "none",
+      "remove": "the brass rifle, the floating hourglass and the golden sand"
+    },
+    {
+      "id": "H022",
+      "keep": "her wild female face, the untamed icy pale-blue hair, the fox ears, the vermilion-red robes with silver trims",
+      "costume": "the robe ends just below the knees and is split at the front and sides; fitted dark trousers and boots underneath",
+      "wear": "silver gauntlets with long azure crystal claws on BOTH hands (solid crystal claws extending from the fingertips, no particles)",
+      "remove": "the floating claw-shaped crystals and the arcane energy"
+    },
+    {
+      "id": "H023",
+      "keep": "his noble tanned male face, the short dark-brown hair, the silver helmet with small wings on its sides, the silver plate armor with rounded pauldrons, golden-yellow panels and bright blue trims",
+      "costume": "plate armor, armored legs and boots; a short blue cape ending above the knees",
+      "wear": "none",
+      "remove": "the silver lance, the lightning sphere and all lightning"
+    },
+    {
+      "id": "H024",
+      "keep": "her dreamy female face with half-lidded eyes, the lavender bob haircut, the floppy nightcap, the silver crescent hairpin, the cozy high-necked light-green and lilac cloth outfit",
+      "costume": "a cozy layered tunic, loose lilac trousers and soft boots",
+      "wear": "none",
+      "remove": "the twin silver needles and the violet dream threads"
+    }
+  ]
+}

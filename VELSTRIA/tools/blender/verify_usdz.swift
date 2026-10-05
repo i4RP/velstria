@@ -194,7 +194,10 @@ func verifyHero(root: Entity, skinned: Entity, o: Opts) {
     let bend = ["Head", "LeftArm", "LeftForeArm", "RightArm", "RightForeArm", "LeftUpLeg", "LeftLeg", "RightUpLeg", "RightLeg"]
     let dominated = Set(dominant.keys.map { leaf(skel.joints[$0].name) })
     let dead = bend.filter { n in named(n) != nil && !dominated.contains { same($0, n) } }
-    check("skin weights are not a dummy bind", vertexCount > 0 && dead.isEmpty && (top?.value ?? 0) * 2 <= vertexCount,
+    // 髪・冠の頂点が多い頭は半数を超えてよい（曲げる骨がすべて生きていて支配骨が 12 本以上なら 65% まで。normalize_hero.py と同じ）
+    let headShare = same(topName, "Head") && dead.isEmpty && dominant.count >= 12
+    let topLimit = Double(vertexCount) * (headShare ? 0.65 : 0.5)
+    check("skin weights are not a dummy bind", vertexCount > 0 && dead.isEmpty && Double(top?.value ?? 0) <= topLimit,
           "\(dominant.count) dominant joints, top \(topName) \(top?.value ?? 0)/\(vertexCount)" + (dead.isEmpty ? "" : ", none on \(dead)"))
     let b = root.visualBounds(relativeTo: root)
     // 骨とメッシュの食い違い（軸・縮尺のずれたスキン）: 主要な骨がメッシュの外接箱（高さの 5% の余白）の内側にあるか

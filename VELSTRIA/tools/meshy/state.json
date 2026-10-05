@@ -122,7 +122,389 @@
           "from": "build/meshy/heroes/H002/rigged.glb",
           "at": "2026-10-04T15:04:35.267Z"
         }
-      }
+      },
+      "animations": [
+        {
+          "task_id": "01a1095a-018f-70a6-bf72-1d192f6b5131",
+          "rig_task_id": "01a10771-b1d2-71fa-9923-fe1e947fce06",
+          "action_ids": [
+            97,
+            105,
+            219,
+            242,
+            240,
+            128,
+            241,
+            225,
+            234,
+            129
+          ],
+          "fps": null,
+          "request": {
+            "rig_task_id": "01a10771-b1d2-71fa-9923-fe1e947fce06",
+            "action_ids": [
+              97,
+              105,
+              219,
+              242,
+              240,
+              128,
+              241,
+              225,
+              234,
+              129
+            ]
+          },
+          "status": "SUCCEEDED",
+          "estimate": 30,
+          "balance_before": 213,
+          "submitted_at": "2026-10-04T23:57:35.916Z",
+          "completed_at": "2026-10-04T23:58:03.354Z",
+          "expires_at": "2026-10-07T23:58:03.354Z",
+          "progress": 100,
+          "credits_consumed": 30,
+          "file": "build/meshy/anim/H002/batch_97-10.glb",
+          "bytes": 4821024,
+          "sha256": "4c424ee5af7bde448b8f9a2991a826c04acd9e9076728c80a6c8e9b12aaeaf04",
+          "clips": [
+            "Left_Slash",
+            "Triple_Combo_Attack",
+            "Right_Hand_Sword_Slash",
+            "Charged_Slash",
+            "Thrust_Slash",
+            "Heavy_Hammer_Swing",
+            "Weapon_Combo_2",
+            "Archery_Shot_1",
+            "Walk_Forward_While_Shooting",
+            "mage_soell_cast"
+          ],
+          "outputs": [
+            "result.animation_glb_url",
+            "result.animation_fbx_url"
+          ],
+          "error": null,
+          "updated_at": "2026-10-04T23:58:04.933Z"
+        },
+        {
+          "task_id": "01a1095e-cabe-7117-9dc9-846e4054f48c",
+          "rig_task_id": "01a10771-b1d2-71fa-9923-fe1e947fce06",
+          "action_ids": [
+            92,
+            221,
+            4,
+            237,
+            238,
+            99,
+            91,
+            199,
+            86,
+            102
+          ],
+          "fps": null,
+          "request": {
+            "rig_task_id": "01a10771-b1d2-71fa-9923-fe1e947fce06",
+            "action_ids": [
+              92,
+              221,
+              4,
+              237,
+              238,
+              99,
+              91,
+              199,
+              86,
+              102
+            ]
+          },
+          "status": "SUCCEEDED",
+          "estimate": 30,
+          "balance_before": 183,
+          "submitted_at": "2026-10-05T00:02:49.565Z",
+          "completed_at": "2026-10-05T00:03:23.800Z",
+          "expires_at": "2026-10-08T00:03:23.800Z",
+          "progress": 100,
+          "credits_consumed": 30,
+          "file": "build/meshy/anim/H002/batch_92-10.glb",
+          "bytes": 5006424,
+          "sha256": "3beb48f512dbd63802f66f671c32044c9feb23620255fd0a3f602b5243167ba9",
+          "clips": [
+            "Double_Combo_Attack",
+            "Charged_Upward_Slash",
+            "Attack",
+            "Charged_Axe_Chop",
+            "Axe_Spin_Attack",
+            "Reaping_Swing",
+            "Double_Blade_Spin",
+            "Weapon_Combo",
+            "Basic_Jump",
+            "Sword_Judgment"
+          ],
+          "outputs": [
+            "result.animation_glb_url",
+            "result.animation_fbx_url"
+          ],
+          "error": null,
+          "updated_at": "2026-10-05T00:03:27.060Z"
+        },
+        {
+          "task_id": "01a1095e-ce63-73c9-96b6-940d9c85aacb",
+          "rig_task_id": "01a10771-b1d2-71fa-9923-fe1e947fce06",
+          "action_ids": [
+            227,
+            222,
+            95,
+            104,
+            130,
+            131,
+            132,
+            133,
+            135,
+            136
+          ],
+          "fps": null,
+          "request": {
+            "rig_task_id": "01a10771-b1d2-71fa-9923-fe1e947fce06",
+            "action_ids": [
+              227,
+              222,
+              95,
+              104,
+              130,
+              131,
+              132,
+              133,
+              135,
+              136
+            ]
+          },
+          "status": "SUCCEEDED",
+          "estimate": 30,
+          "balance_before": 153,
+          "submitted_at": "2026-10-05T00:02:50.510Z",
+          "completed_at": "2026-10-05T00:03:15.078Z",
+          "expires_at": "2026-10-08T00:03:15.078Z",
+          "progress": 100,
+          "credits_consumed": 30,
+          "file": "build/meshy/anim/H002/batch_227-10.glb",
+          "bytes": 4879596,
+          "sha256": "e12f832bc24b94e3c78f5df41c3b8fcfdaa0c14ae2bcac4e43011725101245f9",
+          "clips": [
+            "Archery_Shot_3",
+            "Draw_and_Shoot_from_Back",
+            "Gun_Hold_Left_Turn",
+            "Side_Shot",
+            "mage_soell_cast_1",
+            "mage_soell_cast_2",
+            "mage_soell_cast_3",
+            "mage_soell_cast_4",
+            "mage_soell_cast_6",
+            "mage_soell_cast_7"
+          ],
+          "outputs": [
+            "result.animation_glb_url",
+            "result.animation_fbx_url"
+          ],
+          "error": null,
+          "updated_at": "2026-10-05T00:03:17.698Z"
+        },
+        {
+          "task_id": "01a1095e-d08e-74c5-9abf-1f55a6f06cbf",
+          "rig_task_id": "01a10771-b1d2-71fa-9923-fe1e947fce06",
+          "action_ids": [
+            137,
+            125,
+            127,
+            198,
+            200,
+            193,
+            195,
+            214,
+            212,
+            421
+          ],
+          "fps": null,
+          "request": {
+            "rig_task_id": "01a10771-b1d2-71fa-9923-fe1e947fce06",
+            "action_ids": [
+              137,
+              125,
+              127,
+              198,
+              200,
+              193,
+              195,
+              214,
+              212,
+              421
+            ]
+          },
+          "status": "SUCCEEDED",
+          "estimate": 30,
+          "balance_before": 123,
+          "submitted_at": "2026-10-05T00:02:51.065Z",
+          "completed_at": "2026-10-05T00:03:25.779Z",
+          "expires_at": "2026-10-08T00:03:25.779Z",
+          "progress": 100,
+          "credits_consumed": 30,
+          "file": "build/meshy/anim/H002/batch_137-10.glb",
+          "bytes": 4796184,
+          "sha256": "059030c9713216b84d9275f5c24c0259dc4b6274a63b8a49bdb7626766d6dad4",
+          "clips": [
+            "mage_soell_cast_8",
+            "Charged_Spell_Cast",
+            "Charged_Ground_Slam",
+            "Punch_Combo",
+            "Punch_Combo_1",
+            "Left_Hook_from_Guard",
+            "Right_Upper_Hook_from_Guard",
+            "Punch_Forward_with_Both_Fists",
+            "Elbow_Strike",
+            "Over_Shoulder_Throw"
+          ],
+          "outputs": [
+            "result.animation_glb_url",
+            "result.animation_fbx_url"
+          ],
+          "error": null,
+          "updated_at": "2026-10-05T00:03:28.239Z"
+        },
+        {
+          "task_id": "01a1095f-3ab3-7299-b060-83e0d351f51e",
+          "rig_task_id": "01a10771-b1d2-71fa-9923-fe1e947fce06",
+          "action_ids": [
+            0,
+            11,
+            89,
+            245,
+            85,
+            657,
+            189,
+            184,
+            403,
+            412
+          ],
+          "fps": null,
+          "request": {
+            "rig_task_id": "01a10771-b1d2-71fa-9923-fe1e947fce06",
+            "action_ids": [
+              0,
+              11,
+              89,
+              245,
+              85,
+              657,
+              189,
+              184,
+              403,
+              412
+            ]
+          },
+          "status": "SUCCEEDED",
+          "estimate": 30,
+          "balance_before": 93,
+          "submitted_at": "2026-10-05T00:03:17.963Z",
+          "completed_at": "2026-10-05T00:03:44.591Z",
+          "expires_at": "2026-10-08T00:03:44.591Z",
+          "progress": 100,
+          "credits_consumed": 30,
+          "file": "build/meshy/anim/H002/batch_0-10.glb",
+          "bytes": 4850240,
+          "sha256": "dc0fd47e7118bd4a76856c647d4038a4654acda302f8664c5f6d2088400842b6",
+          "clips": [
+            "Idle",
+            "Idle_02",
+            "Combat_Stance",
+            "Idle_5",
+            "Axe_Stance",
+            "run_fast_10_inplace",
+            "dying_backwards",
+            "Shot_and_Fall_Forward",
+            "Victory_Fist_Pump",
+            "victory"
+          ],
+          "outputs": [
+            "result.animation_glb_url",
+            "result.animation_fbx_url"
+          ],
+          "error": null,
+          "updated_at": "2026-10-05T00:03:46.687Z"
+        },
+        {
+          "task_id": null,
+          "rig_task_id": "01a10771-b1d2-71fa-9923-fe1e947fce06",
+          "action_ids": [
+            178,
+            365,
+            384,
+            464
+          ],
+          "fps": null,
+          "request": {
+            "rig_task_id": "01a10771-b1d2-71fa-9923-fe1e947fce06",
+            "action_ids": [
+              178,
+              365,
+              384,
+              464
+            ]
+          },
+          "status": "failed",
+          "estimate": 12,
+          "balance_before": 63,
+          "submitted_at": "2026-10-05T00:03:27.237Z",
+          "completed_at": null,
+          "expires_at": null,
+          "progress": 0,
+          "credits_consumed": null,
+          "file": null,
+          "bytes": null,
+          "sha256": null,
+          "clips": null,
+          "outputs": null,
+          "error": "POST /openapi/v1/animations → HTTP 400: This animation is no longer available: action_ids 464. See https://docs.meshy.ai/en/api/animation-library for available animation IDs.",
+          "updated_at": "2026-10-05T00:03:27.686Z"
+        },
+        {
+          "task_id": "01a10960-8232-7117-aef0-34559da989c8",
+          "rig_task_id": "01a10771-b1d2-71fa-9923-fe1e947fce06",
+          "action_ids": [
+            178,
+            365,
+            384
+          ],
+          "fps": null,
+          "request": {
+            "rig_task_id": "01a10771-b1d2-71fa-9923-fe1e947fce06",
+            "action_ids": [
+              178,
+              365,
+              384
+            ]
+          },
+          "status": "SUCCEEDED",
+          "estimate": 9,
+          "balance_before": 63,
+          "submitted_at": "2026-10-05T00:04:42.050Z",
+          "completed_at": "2026-10-05T00:04:54.781Z",
+          "expires_at": "2026-10-08T00:04:54.781Z",
+          "progress": 100,
+          "credits_consumed": 9,
+          "file": "build/meshy/anim/H002/batch_178-3.glb",
+          "bytes": 4468136,
+          "sha256": "0da4c51a338493da08a35b0440cb7c375cf8538863b045c5357358bdae604207",
+          "clips": [
+            "Hit_Reaction",
+            "Kneel_on_One_Knee_and_Stand",
+            "Quick_Step_and_Spin_Dodge"
+          ],
+          "outputs": [
+            "result.animation_glb_url",
+            "result.animation_fbx_url"
+          ],
+          "error": null,
+          "updated_at": "2026-10-05T00:05:02.515Z"
+        }
+      ]
     },
     "heroes/H003": {
       "stages": {
@@ -2025,5 +2407,5 @@
     }
   },
   "note": "tools/meshy.mjs が自動生成。task_id・状態・消費クレジット・ハッシュ・ローカルパスのみ（秘密情報なし）",
-  "updated_at": "2026-10-04T17:29:52.656Z"
+  "updated_at": "2026-10-05T00:05:02.525Z"
 }
