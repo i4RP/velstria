@@ -70,6 +70,8 @@ struct HeroMeshSet {
     var metrics: BodyMetrics
     /// 武器先端（武器ローカル）。詠唱の光を置く。
     var weaponTip: V3
+    /// 副手の先端（副手ローカル、HeroGearBuilder.offhandTip）。nil = 盾・本など先端を使わない副手。
+    var offhandTip: V3?
     /// 旗の取り付け位置（武器ローカル）。
     var flagAnchor: V3
     var floatMotion: FloatMotion
@@ -138,6 +140,7 @@ struct HeroAssembler {
             hips: hips, torso: torso, head: head, upperArmL: uaL, upperArmR: uaR, foreArmL: faL, foreArmR: faR,
             thighL: thL, thighR: thR, shinL: shL, shinR: shR, weapon: weapon, offhand: offhand, back: back,
             wingL: wingL, wingR: wingR, flag: flag, float: float, metrics: m, weaponTip: gear.weaponTip,
+            offhandTip: HeroGearBuilder.offhandTip(bp.offhand),
             flagAnchor: gear.flagAnchor, floatMotion: gear.floatMotion, floatAnchor: gear.floatAnchor,
             backAnchor: V3(0, m.torsoLen * 0.84, m.torsoD * 0.42), wingAnchor: V3(0, m.torsoLen * 0.8, m.torsoD * 0.5),
             triangleCount: tris)

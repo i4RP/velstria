@@ -43,7 +43,10 @@ final class BattleWorld {
     private var pendingHealTimer: Float = 0
     private var shakeRequest: Float = 0
     private let master: MasterData
-    private var hueCache: [String: UIColor] = [:]
+    private var fxColorCache: [String: UIColor] = [:]
+    /// このフレームの遠隔のヒーローの発射（攻撃者・対象）。発射炎はヒーローの姿勢を更新した後（units.sync の後）に
+    /// 発射位置（武器の先端）へ出す。
+    private var pendingMuzzles: [(source: EntityID, target: EntityID)] = []
     private var textStacks: [EntityID: TextStack] = [:]
     private let teamLightBlue: UIColor
     private let teamLightRed: UIColor
@@ -78,7 +81,8 @@ final class BattleWorld {
         teamLightRed = materials.teams.light(.red).uiColor
         map = MapScene(map: controller.ctx.map, materials: materials, quality: settings.quality, groundImage: groundImage)
         root.addChild(map.root)
-        units = UnitLayer(materials: materials, meshes: meshes, text: text, master: controller.ctx.master)
+        units = UnitLayer(materials: materials, meshes: meshes, text: text, master: controller.ctx.master,
+                          quality: settings.quality)
         root.addChild(units.root)
         projectiles = ProjectileLayer(materials: materials, meshes: meshes, master: controller.ctx.master, quality: settings.quality)
         root.addChild(projectiles.root)
@@ -166,7 +170,9 @@ final class BattleWorld {
         }
         map.update(dt: dt)
         units.sync(frame)
-        projectiles.sync(frame) { [units] id in units.headHeight(id) }
+        flushMuzzles(frame)
+        projectiles.sync(frame, heightOf: { [units] id in units.headHeight(id) },
+                         launchPoint: { [units] id in units.hero(id)?.handle.attackLaunchPoint() })
         zones.sync(frame)
         vfx.update(dt: dt)
         updateChannelLoops(frame)
@@ -332,16 +338,16 @@ final class BattleWorld {
 
     private func heroColor(_ id: EntityID?, _ f: RenderFrame) -> UIColor {
         if let id, let i = f.state.index(of: id), let heroID = f.state.units[i].hero?.heroID {
-            return hueColor(heroID)
+            return heroFXColor(heroID)
         }
         return FXColors.defaultMagic
     }
 
-    /// ヒーロー色相の演出色（キャッシュ）。
-    func hueColor(_ heroID: String) -> UIColor {
-        if let c = hueCache[heroID] { return c }
-        let c = UIColor(hue: CGFloat(Theme.heroHue(heroID)), saturation: 0.62, brightness: 1, alpha: 1)
-        hueCache[heroID] = c
+    /// ヒーローの演出の主色（blueprint.glow。HeroFXProfiles。キャッシュ）。UI の基調色 Theme.heroHue は使わない。
+    func heroFXColor(_ heroID: String) -> UIColor {
+        if let c = fxColorCache[heroID] { return c }
+        let c = HeroFXProfiles.primaryColor(heroID: heroID, role: master.hero(heroID)?.role).uiColor
+        fxColorCache[heroID] = c
         return c
     }
 
@@ -399,8 +405,9 @@ final class BattleWorld {
                 units.noteAttackStart(sourceID: src, windup: u.windupRemaining ?? interval * Balance.attackWindupRatio,
                                       interval: interval, time: time)
             }
-        case .attackReleased(let src, _, _):
+        case .attackReleased(let src, let target, let isRanged):
             units.noteAttack(sourceID: src, time: time)
+            if isRanged, units.hero(src) != nil { pendingMuzzles.append((src, target)) }
         case .damage(let d):
             units.noteHit(targetID: d.targetID)
             onDamage(d, f)
@@ -420,6 +427,10 @@ final class BattleWorld {
             guard nearCamera(p) else { break }
             if let info {
                 switch info.style {
+                case .heroShot(let heroID, _):
+                    guard let profile = HeroFXProfiles.profile(heroID) else { break }
+                    HeroAttackFX.rangedImpact(profile, at: p, direction: info.forward, vfx: vfx, quality: settings.quality,
+                                              important: tid == f.focusID || info.owner == f.focusID)
                 case .tower:
                     vfx.spawn(.magicHit, at: p, color: info.color.uiColor, scale: 1.4, important: tid == f.focusID)
                     vfx.flash(at: p, color: info.color, radius: 0.7, duration: 0.2)
@@ -543,6 +554,13 @@ final class BattleWorld {
                     vfx.spawn(.magicHit, at: p, color: heroColor(d.sourceID, f), important: involvesFocus)
                 case .basicAttack, .minion, .monster, .tower:
                     let src = d.sourceID.flatMap { f.state.unit($0) }
+                    // ヒーロー別の通常攻撃: 近接は武器の型の着弾、遠隔は投射物の着弾（.projectileHit）で出す
+                    if case .basicAttack = d.source, let src, src.kind == .hero, let heroID = src.hero?.heroID,
+                       let profile = HeroFXProfiles.profile(heroID) {
+                        if !profile.isRanged { meleeImpact(profile, attacker: src.id, target: d.targetID, at: p,
+                                                           important: involvesFocus) }
+                        break
+                    }
                     // ミニオン同士の小競り合いは控えめに
                     let minor = src?.kind == .minion && f.state.unit(d.targetID)?.kind == .minion
                     if !minor || settings.quality.level == .high {
@@ -594,8 +612,42 @@ final class BattleWorld {
         pendingHeal = 0
     }
 
+    // MARK: ヒーロー別の通常攻撃（HeroAttackFX）
+
+    /// 近接の通常攻撃の命中。当たり位置は対象の胴の手前（攻撃者の側へ 0.3 m）、向きは攻撃者 → 対象。
+    private func meleeImpact(_ profile: HeroFXProfile, attacker: EntityID, target: EntityID, at p: SIMD3<Float>,
+                             important: Bool) {
+        var dir = SIMD3<Float>(0, 0, -1)
+        if let a = units.worldPositionOf(attacker) {
+            let d = SIMD3<Float>(p.x - a.x, 0, p.z - a.z)
+            if simd_length(d) > 1e-3 { dir = simd_normalize(d) }
+        }
+        HeroAttackFX.meleeImpact(profile, at: p - dir * 0.3, direction: dir, vfx: vfx, quality: settings.quality,
+                                 important: important)
+    }
+
+    /// このフレームの遠隔の発射炎（ヒーローの姿勢を更新した後 = 今の武器の先端に出す）。
+    private func flushMuzzles(_ f: RenderFrame) {
+        guard !pendingMuzzles.isEmpty else { return }
+        for (src, target) in pendingMuzzles {
+            guard let i = f.state.index(of: src), let heroID = f.state.units[i].hero?.heroID,
+                  let profile = HeroFXProfiles.profile(heroID), profile.isRanged, f.isVisible(i),
+                  let hero = units.hero(src) else { continue }
+            let p = hero.handle.attackLaunchPoint() ?? (hero.root.position + SIMD3(0, hero.handle.overheadHeight * 0.6, 0))
+            let important = src == f.focusID || target == f.focusID
+            guard important || nearCamera(p) else { continue }
+            var dir = SIMD3<Float>(0, 0, -1)
+            if let t = anchor(target, heightRatio: 0.5) {
+                let d = t - p
+                if simd_length(d) > 1e-3 { dir = simd_normalize(d) }
+            }
+            HeroAttackFX.muzzle(profile, at: p, direction: dir, vfx: vfx, quality: settings.quality, important: important)
+        }
+        pendingMuzzles.removeAll(keepingCapacity: true)
+    }
+
     private func skillFX(_ c: SkillCastEvent, _ f: RenderFrame) {
-        let color = hueColor(c.heroID)
+        let color = heroFXColor(c.heroID)
         let effect = master.effect(c.effectID)
         let scale = Float(effect?.scaleM ?? 1.2)
         // 演出の長さ（EffectDef.durationSec）を粒子と輪の寿命へ反映
@@ -915,6 +967,7 @@ final class BattleWorld {
         vfx.apply(quality: new.quality)
         skillDirector.player.apply(quality: new.quality)
         projectiles.apply(quality: new.quality)
+        units.apply(quality: new.quality)
         ambient.apply(quality: new.quality)
         if !new.showDamageNumbers { overlay?.clear() }
     }

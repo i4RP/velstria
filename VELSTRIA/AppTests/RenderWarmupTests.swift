@@ -242,6 +242,39 @@ final class RenderWarmupTests: XCTestCase {
         assertNothingCreatedWhileLive()
     }
 
+    /// ヒーロー別の通常攻撃（24 人を 3 試合に分けて、高画質）: 武器の軌跡・ヒーロー別の弾と粒子の尾・発射炎・着弾を
+    /// 出しても、幕が上がった後に何も作らない。軌跡のプールも足りる。
+    func testHeroAttackFXCreateNothingWhileLive() {
+        let rosters: [[String]] = [
+            ["H003", "H004", "H005", "H009", "H010", "H011", "H015", "H016", "H017", "H021"],
+            ["H022", "H023", "H001", "H002", "H006", "H007", "H008", "H012", "H013", "H014"],
+            ["H018", "H019", "H020", "H024", "H001", "H012", "H003", "H010", "H017", "H022"],
+        ]
+        var trailFrames = 0, heroShots = 0, launched = 0
+        for (k, roster) in rosters.enumerated() {
+            var config = MatchFactory.botMatch(seed: 20261001 + UInt64(k))
+            for i in config.players.indices { config.players[i].heroID = roster[i] }
+            var h = makeHarness(config, quality: .preset(.high))
+            let melee = roster.filter { HeroFXProfiles.profile($0)?.isRanged == false }.count
+            XCTAssertGreaterThanOrEqual(h.world.units.weaponTrailCount, melee, "近接のヒーローに武器の軌跡を作る")
+            play(&h, until: 110)
+            XCTAssertEqual(h.world.projectiles.trailsSkipped, 0, "軌跡のプールは足りている（\(roster)）")
+            trailFrames += h.world.units.weaponTrailFrames
+            heroShots += h.world.projectiles.heroShotsShown
+            launched += h.world.projectiles.launchedFromWeapon
+            print("hero fx \(k): trails \(h.world.units.weaponTrailCount) frames \(h.world.units.weaponTrailFrames) "
+                  + "shots \(h.world.projectiles.heroShotsShown) from weapon \(h.world.projectiles.launchedFromWeapon) "
+                  + "trail peak \(h.world.projectiles.peakTrails) vfx peak "
+                  + VFXPreset.allCases.map { "\($0)=\(h.world.vfx.stats.peak[$0] ?? 0)" }.joined(separator: " "))
+            assertNothingCreatedWhileLive()
+            h.world.teardown()
+            AssetLedger.end()
+        }
+        XCTAssertGreaterThan(trailFrames, 0, "武器の軌跡を描いた")
+        XCTAssertGreaterThan(heroShots, 0, "ヒーロー別の弾を出した")
+        XCTAssertGreaterThan(launched, 0, "発射位置（武器の先端・弓・手）から出した")
+    }
+
     // MARK: 陳列・プール
 
     /// 陳列はカメラの注視点に開き、全プリセットの放出体・クリーチャー・投射物・ゾーン・ヒーローを描き、片付けで全て戻る。

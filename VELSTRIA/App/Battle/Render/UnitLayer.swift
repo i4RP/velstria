@@ -25,16 +25,36 @@ final class UnitLayer {
     private var pools: [CreatureKey: [CreatureVisual]] = [:]
     private var stamp = 0
     private var selfHeroID: EntityID?
+    /// 武器の軌跡のテクスチャ・マテリアル。試合開始時の画質（利用者が選んだ画質）が軌跡ありの時だけ作り、
+    /// 無ければヒーローの見た目に軌跡を作らない（試合中に画質を上げても作らない = 投射物の軌跡と同じ規則）。
+    private let trailKit: WeaponTrailKit?
+    /// 今の画質で武器の軌跡を出すか。
+    private var weaponTrailsOn: Bool
 
-    init(materials: RenderMaterials, meshes: UnitMeshLibrary, text: TextMeshCache, master: MasterData) {
+    init(materials: RenderMaterials, meshes: UnitMeshLibrary, text: TextMeshCache, master: MasterData,
+         quality: RenderQuality = .preset(.medium)) {
         self.materials = materials
         self.meshes = meshes
         self.text = text
         self.master = master
+        trailKit = quality.projectileTrails ? WeaponTrailKit() : nil
+        weaponTrailsOn = quality.projectileTrails
         root.name = "units"
         activeCreatures.reserveCapacity(128)
         dying.reserveCapacity(32)
     }
+
+    /// 画質の反映（作らない。武器の軌跡の表示の有無だけ切り替える）。
+    func apply(quality q: RenderQuality) {
+        weaponTrailsOn = q.projectileTrails
+        for h in heroList { h.weaponTrailsOn = weaponTrailsOn }
+    }
+
+    /// 作った武器の軌跡の帯の数（テスト・計測用）。
+    var weaponTrailCount: Int { heroList.reduce(0) { $0 + $1.weaponTrails.count } }
+
+    /// 武器の軌跡を描いたフレーム数の合計（テスト・計測用）。
+    var weaponTrailFrames: Int { heroList.reduce(0) { $0 + $1.weaponTrails.reduce(0) { $0 + $1.shownFrames } } }
 
     var liveCount: Int { heroList.count + structureList.count + activeCreatures.count + dying.count }
 
@@ -100,10 +120,16 @@ final class UnitLayer {
         }
     }
 
+    /// 武器の軌跡の帯を全て陳列する（UnlitMaterial のテクスチャ・半透明・両面のシェーダーを幕の裏で作らせる）。
+    func showWarmupTrails(slot: () -> SIMD3<Float>) {
+        for h in heroList { h.showWarmupTrails(slot: slot) }
+    }
+
     /// 陳列した見た目をプールへ戻す。
     func endWarmup() {
         for v in warmupSamples { recycle(v) }
         warmupSamples.removeAll()
+        for h in heroList { h.endWarmupTrails() }
     }
 
     /// 構造物のメッシュ（陳列用）。
@@ -160,7 +186,8 @@ final class UnitLayer {
                     v = h
                 } else {
                     v = HeroVisual(unit: state.units[i], isSelf: id == f.humanID, master: master, materials: materials,
-                                   meshes: meshes, text: text)
+                                   meshes: meshes, text: text, trailKit: trailKit)
+                    v.weaponTrailsOn = weaponTrailsOn
                     heroes[id] = v
                     heroList.append(v)
                     root.addChild(v.root)

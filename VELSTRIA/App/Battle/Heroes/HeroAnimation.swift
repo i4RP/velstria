@@ -142,6 +142,8 @@ struct HeroMotionProfile {
     var shieldHold: Bool
     /// 長柄（杖・槍・大槌）は帰還中も立てて持つ。
     var longWeapon: Bool
+    /// 通常攻撃が武器・拳の近接の振り（手続きの振りで武器の軌跡を出す）。
+    var meleeAttack: Bool
 
     init(blueprint bp: HeroBlueprint, metrics m: BodyMetrics, heroID: String? = nil) {
         var r = HeroPose()
@@ -160,6 +162,10 @@ struct HeroMotionProfile {
         switch bp.attack {
         case .staff, .thrust, .heavySwing: longWeapon = true
         default: longWeapon = false
+        }
+        switch bp.attack {
+        case .slash, .heavySwing, .thrust, .dualSlash, .punch: meleeAttack = true
+        case .bow, .gun, .staff, .spellThrow: meleeAttack = false
         }
         legSwing = bp.build == .robed ? 0.55 : 1
         switch bp.attack {
@@ -811,11 +817,7 @@ struct HeroAnimator {
         case .idle, .run:
             return loco
         case .attack:
-            let alt = attackCount % 2 == 1
-            let clip = alt ? (profile.attackAlt ?? profile.attack) : profile.attack
-            // 攻撃状態が続く場合は一定周期で振り続ける
-            let period = clip.total + 0.12
-            let t = stateTime.truncatingRemainder(dividingBy: period)
+            let (clip, t, _) = proceduralAttack
             return clip.evaluate(base: loco, t: t)
         case .cast(let slot):
             var p = profile.casts[HeroAnimator.castIndex(slot)].evaluate(base: loco, t: stateTime)
@@ -830,6 +832,45 @@ struct HeroAnimator {
         case .victory:
             return victory()
         }
+    }
+
+    /// 手続きの通常攻撃の振り（左右交互の型は奇数回目が左手）と振りの中の時刻。攻撃状態が続く間は一定周期で振り続ける。
+    private var proceduralAttack: (clip: ActionClip, time: Float, left: Bool) {
+        let alt = attackCount % 2 == 1
+        let clip = alt ? (profile.attackAlt ?? profile.attack) : profile.attack
+        let period = clip.total + 0.12
+        return (clip, stateTime.truncatingRemainder(dividingBy: period), alt && profile.attackAlt != nil)
+    }
+
+    // MARK: 武器の振り（軌跡・発射位置）
+
+    /// 再生中の通常攻撃・詠唱のクリップ（フェードアウト中・状態のクリップは除く）。
+    private var actionClip: HeroMotionClip? {
+        guard clips.isActive, !clips.fadingOut, clips.role == .attack || clips.role == .cast,
+              let lib = clips.binding?.library else { return nil }
+        return lib.clips[clips.clip]
+    }
+
+    /// 武器を振っている手。通常攻撃・詠唱のクリップは、近接のクリップ（melee）の打撃の前 swingLead 〜後 swingTail 秒
+    /// （クリップ時刻）の間だけ、クリップの打つ手。拍待ちで最後の姿勢に止まっている間は振っていない（手続きへ落とさない）。
+    /// クリップが無ければ手続きの通常攻撃（近接の型だけ）の打撃区間（予備動作の終わり〜打撃の終わり + swingTail 秒）。
+    var weaponSwing: (right: Bool, left: Bool) {
+        if let c = actionClip {
+            let t = clips.clipTime
+            guard c.melee, t >= clips.impactTime - HeroMotionClip.swingLead,
+                  t <= clips.impactTime + HeroMotionClip.swingTail else { return (false, false) }
+            return (c.strikeHand != .left, c.strikeHand != .right)
+        }
+        guard state == .attack, profile.meleeAttack else { return (false, false) }
+        let (clip, t, left) = proceduralAttack
+        guard t >= clip.windupTime, t <= clip.windupTime + clip.strikeTime + HeroMotionClip.swingTail else { return (false, false) }
+        return (!left, left)
+    }
+
+    /// 今の振りで打つ手（発射位置の左右）。クリップはその strikeHand、無ければ手続きの左右交互（既定は右）。
+    var strikeHand: HeroStrikeHand {
+        if let c = actionClip { return c.strikeHand }
+        return state == .attack && proceduralAttack.left ? .left : .right
     }
 
     // MARK: 移動

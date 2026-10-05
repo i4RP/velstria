@@ -539,9 +539,14 @@ final class HeroVisual {
     private var focusPulse: Float = 0
     private var isSelf: Bool
     private var lastResource: Double = -1
+    /// 近接の武器の軌跡（右手、二刀は左手も）。trailKit を渡され、演出表に軌跡があるヒーローだけ。root の子
+    /// （ヒーローの可視性・死亡のフェードを継ぐ）で、頂点は root 基準に書く。
+    private(set) var weaponTrails: [WeaponTrail] = []
+    /// 武器の軌跡を出すか（画質。低画質・自動調整で軌跡を切った間は false）。
+    var weaponTrailsOn = true
 
     init(unit u: VelstriaCore.Unit, isSelf: Bool, master: MasterData, materials: RenderMaterials, meshes: UnitMeshLibrary,
-         text: TextMeshCache) {
+         text: TextMeshCache, trailKit: WeaponTrailKit? = nil) {
         id = u.id
         team = u.team
         self.isSelf = isSelf
@@ -550,6 +555,18 @@ final class HeroVisual {
         root.name = "hero_\(u.id)"
         root.addChild(modelRoot)
         modelRoot.addChild(handle.root)
+        if let trailKit, let heroID = h?.heroID, let profile = HeroFXProfiles.profile(heroID), let style = profile.trail,
+           let material = trailKit.material(for: profile, trail: style) {
+            let bp = HeroBlueprints.blueprint(heroID: heroID, role: master.hero(heroID)?.role)
+            // 左手の帯は weaponTrailSample が左の刃を返すヒーロー（二刀の近接）だけ
+            let hands = bp.weapon != .none && HeroWeaponPoints.dualBlades.contains(bp.offhand) ? 2 : 1
+            for k in 0..<hands {
+                guard let t = WeaponTrail(style: style, material: material, name: k == 0 ? "weaponTrailR" : "weaponTrailL")
+                else { continue }
+                root.addChild(t.entity)
+                weaponTrails.append(t)
+            }
+        }
         let ringColor = isSelf ? TeamColors.selfColor : materials.teams.main(u.team)
         ring = ModelEntity(mesh: meshes.ring(radius: 0.72, thickness: isSelf ? 0.13 : 0.09) ?? meshes.unitSphere,
                            materials: [materials.unlit(ringColor, alpha: isSelf ? 0.95 : 0.8)])
@@ -647,6 +664,7 @@ final class HeroVisual {
         if root.isEnabled {
             handle.update(dt: Double(dt), moveSpeed: dead ? 0 : speed)
         }
+        updateWeaponTrails(time: f.time, dead: dead)
         // 足元リング・バー
         ring.isEnabled = !dead
         bar.root.isEnabled = !dead
@@ -673,6 +691,29 @@ final class HeroVisual {
         } else {
             status.reset()
         }
+    }
+
+    /// 武器の軌跡（ハンドルの更新の後 = 今フレームの姿勢の刃）。見えない・死亡・画質で切った間は消して標本を捨てる。
+    private func updateWeaponTrails(time: Float, dead: Bool) {
+        guard !weaponTrails.isEmpty else { return }
+        guard weaponTrailsOn, root.isEnabled, !dead else {
+            for t in weaponTrails where !t.isWarmup { t.reset() }
+            return
+        }
+        let sample = handle.weaponTrailSample()
+        let origin = root.position(relativeTo: nil)
+        weaponTrails[0].update(sample?.right, now: time, origin: origin)
+        if weaponTrails.count > 1 { weaponTrails[1].update(sample?.left, now: time, origin: origin) }
+    }
+
+    /// ウォームアップの陳列: 軌跡の帯を world 位置 slot に出す（endWarmupTrails で戻す）。
+    func showWarmupTrails(slot: () -> SIMD3<Float>) {
+        let origin = root.position(relativeTo: nil)
+        for t in weaponTrails { t.showForWarmup(at: slot() - origin) }
+    }
+
+    func endWarmupTrails() {
+        for t in weaponTrails { t.reset() }
     }
 
     /// sim の状態 → アニメーション状態（優先度: 死亡 > 勝利 > 行動不能 > 詠唱 > スキル > 攻撃 > 移動 > 待機）。

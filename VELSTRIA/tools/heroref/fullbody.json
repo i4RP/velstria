@@ -26,10 +26,10 @@
     },
     {
       "id": "H003",
-      "keep": "his lean tanned male face with sharp eyes, the short ash-grey hair under a dark leather hood, the scarf around the neck, the jade-green leather ranger armor with iron buckles and ember-orange trims",
-      "costume": "leather ranger armor, a belt with pouches, fitted leather trousers and sturdy boots",
-      "wear": "a quiver full of arrows strapped diagonally on his back (plain arrows, not burning)",
-      "remove": "the bow, the nocked arrow, all fire, embers and ash"
+      "keep": "her elegant moon-elf female face with pointed elf ears, the long silver-white hair with pale blue tips, the golden crescent-moon circlet on her brow, the white, teal and gold light ranger outfit with crescent motifs",
+      "costume": "a fitted white and teal tunic with gold trims, a short layered skirt over fitted leggings that cover the legs completely, and soft knee-high boots",
+      "wear": "a slim white-and-gold quiver of arrows strapped diagonally on her back (plain arrows, not glowing)",
+      "remove": "the moon bow, any nocked arrow, moonlight glow and sparkles"
     },
     {
       "id": "H004",

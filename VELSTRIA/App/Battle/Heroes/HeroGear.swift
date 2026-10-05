@@ -347,6 +347,23 @@ struct HeroGearBuilder {
         return b
     }
 
+    /// 副手の先端（副手ローカル。weaponTip の副手版で、武器の軌跡・発射位置に使う）。nil = 先端を使わない（盾・本）。
+    /// 刃は上の offhand() の刃先、弓は握り（矢を番える位置）、灯籠は火袋、籠手・爪は weaponTip と同じ。
+    static func offhandTip(_ kind: OffhandKind) -> V3? {
+        switch kind {
+        case .glassDagger: return V3(0, 0.48, 0)
+        case .petalBlade: return V3(0, 0.46, 0)
+        case .dreamNeedle: return V3(0, 0.52, 0)
+        // katana(scale: 0.62): 霧の刀の先端 0.96 × 0.62
+        case .shortBlade: return V3(0, 0.6, 0)
+        case .moonLantern: return V3(0, -0.26, 0)
+        case .harpBow, .ashBow, .lightBow: return .zero
+        case .stoneFist: return V3(0, -0.15, 0)
+        case .azureClaw: return V3(0, -0.3, -0.08)
+        case .none, .gateShield, .grimoire, .hideShield: return nil
+        }
+    }
+
     // MARK: 部品
 
     private func grip(_ b: inout HeroMeshBuilder, _ half: Float) {

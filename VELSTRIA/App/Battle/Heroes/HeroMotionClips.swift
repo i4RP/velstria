@@ -9,6 +9,11 @@ import simd
 
 private let motionLog = Logger(subsystem: "com.bitcoinpay.velstria", category: "HeroMotion")
 
+/// クリップの打撃で振る手（武器の軌跡・通常攻撃の発射位置）。
+enum HeroStrikeHand: Equatable {
+    case right, left, both
+}
+
 /// クリップ 1 本の情報。回転・腰の位置はライブラリの平坦な配列の rotBase / rootBase から frames 分。
 struct HeroMotionClip {
     let name: String
@@ -25,6 +30,22 @@ struct HeroMotionClip {
     let end: Float
     let rotBase: Int
     let rootBase: Int
+    /// 打撃が武器・拳の近接の振り（武器の軌跡を出す）。JSON の "melee"、無ければ名前で決める（isMeleeName）。
+    var melee = false
+    /// 打撃で振る手。ライブラリの読み込み時に前腕の角速度から決める（HeroMotionLibrary.measureStrikeHand）。
+    var strikeHand: HeroStrikeHand = .right
+
+    /// 武器を振っている区間: 打撃の前 swingLead 秒〜後 swingTail 秒（クリップ時刻。再生速度に比例して実時間は縮む）。
+    static let swingLead: Float = 0.18
+    static let swingTail: Float = 0.06
+    /// 左右の前腕の角速度の比がこれを超えれば速い側の片手で打つ、超えなければ両手。
+    static let strikeHandRatio: Float = 1.5
+
+    /// 名前の頭（最初の "_" まで）が詠唱・射撃・投擲・回避なら近接でない。それ以外（剣・二刀・拳・突き・跳び叩き等）は近接。
+    static func isMeleeName(_ name: String) -> Bool {
+        let head = name.split(separator: "_", maxSplits: 1).first.map(String.init) ?? name
+        return !["cast", "bow", "gun", "javelin", "dodge"].contains(head)
+    }
 
     /// 1 周の長さ（秒）。ループは最終フレーム → 先頭の 1 フレーム分を含む。
     var duration: Float { loop ? Float(frames) / fps : Float(max(0, frames - 1)) / fps }
@@ -46,7 +67,9 @@ final class HeroMotionLibrary: @unchecked Sendable {
     private let byName: [String: Int]
 
     init(clips: [HeroMotionClip], rot: [simd_quatf], root: [V3]) {
-        self.clips = clips
+        var list = clips
+        for i in list.indices { list[i].strikeHand = Self.measureStrikeHand(list[i], rot: rot) }
+        self.clips = list
         self.rot = rot
         self.root = root
         var byName: [String: Int] = [:]
@@ -86,6 +109,43 @@ final class HeroMotionLibrary: @unchecked Sendable {
         }
         let r0 = root[c.rootBase + i0], r1 = root[c.rootBase + i1]
         r = r0 + (r1 - r0) * a
+    }
+
+    /// 打撃で振る手: 武器を振っている区間（打撃の前 swingLead 〜後 swingTail 秒）の左右の前腕の角速度（胴に対する回転の
+    /// 中心差分の平均）を比べ、strikeHandRatio 倍より速い側の片手、どちらでもなければ両手。胴に対して測るのは、
+    /// 体のひねり・回転は左右の腕を同じだけ回し、打つ腕の見分けを鈍らせるため（hook_l の左・uppercut_r の右が分かれる）。
+    static func measureStrikeHand(_ c: HeroMotionClip, rot: [simd_quatf]) -> HeroStrikeHand {
+        let n = c.frames, stride = HeroSegmentRotations.count
+        guard n >= 2, c.rotBase >= 0, c.rotBase + n * stride <= rot.count else { return .right }
+        // 区間の添字（HeroSegmentRotations.names の順）
+        let torso = 1, foreArmR = 4, foreArmL = 7
+        let impact = c.impactTime * c.fps
+        let lo = max(0, Int((impact - HeroMotionClip.swingLead * c.fps).rounded(.down)))
+        let hi = min(n - 1, Int((impact + HeroMotionClip.swingTail * c.fps).rounded(.up)))
+        guard lo <= hi else { return .right }
+        func arm(_ f: Int, _ s: Int) -> simd_quatf {
+            let b = c.rotBase + f * stride
+            return rot[b + torso].inverse * rot[b + s]
+        }
+        // 差の回転の角度。acos(内積) は小さな角度で丸めの誤差が大きいので atan2 で求める
+        func angle(_ a: simd_quatf, _ b: simd_quatf) -> Float {
+            let d = a.inverse * b
+            return 2 * atan2(simd_length(d.imag), abs(d.real))
+        }
+        var right: Float = 0, left: Float = 0, count: Float = 0
+        for f in lo...hi {
+            let f0 = max(0, f - 1), f1 = min(n - 1, f + 1)
+            guard f1 > f0 else { continue }
+            let dt = Float(f1 - f0) / c.fps
+            right += angle(arm(f0, foreArmR), arm(f1, foreArmR)) / dt
+            left += angle(arm(f0, foreArmL), arm(f1, foreArmL)) / dt
+            count += 1
+        }
+        // どちらの腕も胴に対してほぼ止まっている（平均 0.1 rad/s 未満）なら既定の右
+        if count == 0 || max(right, left) < 0.1 * count { return .right }
+        if left > right * HeroMotionClip.strikeHandRatio { return .left }
+        if right > left * HeroMotionClip.strikeHandRatio { return .right }
+        return .both
     }
 
     /// 値で返す版（テスト・ツール用）。
@@ -169,11 +229,13 @@ extension HeroMotionLibrary {
                 guard let v = (events[key] as? NSNumber)?.floatValue, v.isFinite else { return nil }
                 return min(max(v, 0), Float(frames - 1))
             }
+            let impact = event("impact")
             let clip = HeroMotionClip(name: name, frames: frames, fps: clipFPS, loop: (c["loop"] as? Bool) ?? false,
                                       rootXZ: min(1, max(0, (c["rootXZ"] as? NSNumber)?.floatValue ?? 0)),
-                                      impact: event("impact"), release: event("release"),
+                                      impact: impact, release: event("release"),
                                       end: event("end") ?? Float(frames - 1),
-                                      rotBase: rot.count, rootBase: root.count)
+                                      rotBase: rot.count, rootBase: root.count,
+                                      melee: (c["melee"] as? Bool) ?? (impact != nil && HeroMotionClip.isMeleeName(name)))
             rot.reserveCapacity(rot.count + frames * names.count)
             for f in 0..<frames {
                 for k in 0..<names.count {

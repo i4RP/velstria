@@ -81,6 +81,7 @@ extension BattleWorld {
         steps.append(WarmupStep("gallery.units", heavy: true) { [weak self] in
             guard let self, let g = self.gallery else { return }
             self.units.showWarmupSamples(slot: g.nextSlot)
+            self.units.showWarmupTrails(slot: g.nextSlot)
             self.zones.showWarmup(radii: ZoneLayer.plannedRadii(state: self.controller.state, master: self.controller.ctx.master),
                                   slot: g.nextSlot)
             self.projectiles.showWarmup(slot: g.nextSlot)
@@ -140,9 +141,15 @@ extension BattleWorld {
         }
         rings += ZoneLayer.colors
         for heroID in Set(controller.state.units.compactMap { $0.hero?.heroID }).sorted() {
-            let c = BattleWorld.ringRGB(hueColor(heroID))
+            let c = BattleWorld.ringRGB(heroFXColor(heroID))
             rings.append(c)
             flashes.append(c)
+            // ヒーロー別の通常攻撃の着弾・発射の輪と閃光（HeroAttackFX）
+            if let profile = HeroFXProfiles.profile(heroID) {
+                let m = HeroAttackFX.meshColors(profile)
+                rings += m.rings
+                flashes += m.flashes
+            }
         }
         var out = rings.map { (color: $0, alpha: VFXSystem.ringAlpha, depthTest: true) }
         out += flashes.map { (color: $0, alpha: VFXSystem.flashAlpha, depthTest: true) }

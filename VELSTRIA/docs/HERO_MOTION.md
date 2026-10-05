@@ -70,6 +70,8 @@
 - `events` はクリップ先頭からのフレーム（小数可）。`impact` = 打撃・発射の瞬間（通常攻撃ではシムの命中・発射にこの瞬間を合わせる）。
   `release`（弓を離す等）、`end`（戻りの終わり。省略時は最終フレーム）を使ってもよい。
 - `loop: true` のクリップは最終フレームの次が先頭（先頭と末尾は滑らかにつながるよう切り出す）。
+- `melee`（省略可）: 打撃が武器・拳の近接の振りか（武器の軌跡を出す）。省略時は名前の頭（最初の `_` まで）が
+  `cast` / `bow` / `gun` / `javelin` / `dodge` でなく、`impact` があれば近接。
 
 ## 抽出（tools/blender/extract_clips.py）
 - 入力: Meshy の animations API の GLB（メッシュ・骨・クリップ入り、骨名は Meshy 名 → `norm_common.MESHY_TO_MIXAMO` で読み替え）。
@@ -101,6 +103,25 @@
   +Y を手の区間の正面 -Z へ）、grip が nil なら手続きの武器角をクリップの胴に対して保つ（杖・槍・銃・弓・盾・灯籠）。
   体に付ける籠手・爪は手の区間そのもの。
 - 手続きモデル（スキンメッシュが無いヒーロー）は従来の手続きクリップのまま。
+
+## 武器の軌跡・発射位置（HeroModelHandle.weaponTrailSample / attackLaunchPoint）
+- 打つ手 `strikeHand`（right / left / both）: 読み込み時にクリップごとに 1 度だけ決める（`HeroMotionLibrary.measureStrikeHand`）。
+  振りの区間（下記）の各フレームで、胴に対する foreArmR / foreArmL の回転の角速度（前後フレームの中心差分）を平均し、
+  片方が 1.5 倍より速ければその手、どちらでもなければ両手。胴に対して測るのは、体のひねり・回転が左右の腕を同じだけ回し、
+  打つ腕の見分けを鈍らせるため（同梱では hook_l・punch_a が左、uppercut_r・elbow・剣の連撃が右、二刀の回転斬りは両手）。
+- 振りの区間: 通常攻撃・詠唱のクリップのうち `melee` のものの、`impact` の前 0.18 秒〜後 0.06 秒（クリップ時刻なので
+  再生速度に比例して実時間は縮む）。この間だけ `strikeHand` の手の `swing` が真。拍待ちで最後の姿勢に止まっている間は偽。
+  クリップが無い時（手続きモデル・割り当ての無い動作）は手続きの通常攻撃（近接の型）の打撃区間（予備動作の終わり〜
+  打撃の終わり + 0.06 秒）、左右交互の型は奇数回目が左手。
+- 点は武器・副手エンティティのローカル（握りが原点）: 根元 = 原点、先端 = `HeroMeshSet.weaponTip` / `offhandTip`
+  （Prop は propFit で同じ座標、weaponScale はエンティティの拡縮）。左手の軌跡は二刀の近接（硝子の短剣・花弁の双刃・夢の針・
+  小太刀・三日月の短刀と組む月の灯籠）だけ。返す座標はワールド（`Entity.convert(position:to: nil)`、最後の update 時点）。
+- 発射位置: 武器の先端（杖・槍・銃口・掌の炎）。素手で副手に弓を持つ H003 は弓の握り、体に付ける籠手・爪は手のひら。
+  左右に同じ武器（爪・拳・二刀）を持ち、再生中のクリップの `strikeHand` が左なら左手の側（H022 の hook_l は左の爪）。
+- 描画側の使い方（App/Battle/Render）: ヒーロー別の演出表 `HeroFXProfiles`（色は設計図の glow / accent、Theme.heroHue は
+  使わない）。近接は `WeaponTrail`（LowLevelMesh の帯。読み込み中にヒーローの見た目 1 体につき 1〜2 本作り、`swing` の間だけ
+  標本を積む。低画質・軌跡を切った自動調整では出さない）、遠隔は `ProjectileLayer` のヒーロー別の弾（`attackLaunchPoint` から
+  出し、ずれは残り距離に比例して消す）と `HeroAttackFX` の発射炎（`.attackReleased` の後、姿勢の更新後に発射位置へ）・着弾。
 
 ## クリップの作り方（tools/heroref）
 1. 動作の購入: `node tools/meshy.mjs anim --rig H002 --actions <id,...>`（1 動作 3 credits、既存の rig を使う。rig は 3 日で失効）。

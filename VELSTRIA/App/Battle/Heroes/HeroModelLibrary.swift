@@ -272,6 +272,7 @@ final class HeroModel: HeroDisplayModel {
     private let floatAnchor: V3
     private let weaponFollowsArm: Bool
     private let offhandFollowsArm: Bool
+    private let weaponPoints: HeroWeaponPoints
     private var animator: HeroAnimator
     /// 歩幅の基準にする腰から足首までの長さ（m）。テストで手続きモデルと skinned モデルの走りの位相を揃えるのに使う。
     var legLength: Float {
@@ -290,6 +291,7 @@ final class HeroModel: HeroDisplayModel {
         triangleCount = ms.triangleCount
         weaponFollowsArm = bp.weaponFollowsArm
         offhandFollowsArm = bp.offhand == .stoneFist || bp.offhand == .azureClaw
+        weaponPoints = HeroWeaponPoints(blueprint: bp, meshes: ms)
         overheadHeight = (ms.metrics.headTop + 0.38) * bp.scale
 
         func part(_ mesh: MeshResource?, _ name: String) -> ModelEntity {
@@ -398,6 +400,15 @@ final class HeroModel: HeroDisplayModel {
         // moveSpeed は sim ユニット/秒（HeroDef.moveSpeed と同じ単位）。20 以下は m/s とみなす。
         let pose = animator.advance(dt: Float(dt), moveSpeed: HeroModelLibrary.metersPerSecond(moveSpeed))
         apply(pose, time: animator.time)
+    }
+
+    /// 発射位置・軌跡はスキンメッシュと同じ規則（手続きの振りは打撃区間、左右交互の型は奇数回目が左手）。
+    func attackLaunchPoint() -> SIMD3<Float>? {
+        weaponPoints.launchPosition(weapon: weapon, offhand: offhand, strikeHand: animator.strikeHand)
+    }
+
+    func weaponTrailSample() -> HeroWeaponTrailSample? {
+        weaponPoints.trailSample(weapon: weapon, offhand: offhand, swing: animator.weaponSwing)
     }
 
     /// 任意の姿勢を適用する（テスト用。スキンメッシュとの比較に使う）。

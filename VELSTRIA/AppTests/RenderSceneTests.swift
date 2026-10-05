@@ -250,15 +250,279 @@ final class RenderSceneTests: XCTestCase {
             Projectile(id: 99, ownerID: owner.id, team: owner.team, pos: owner.pos, motion: .linear(direction: Vec2(1, 0), maxDistance: 100),
                        speed: 1000, payload: HitPayload(damage: 1, damageType: .physical, source: .basicAttack), visual: visual)
         }
-        XCTAssertEqual(layer.style(for: projectile(owner: hero, visual: "basic_attack"), state: state), .heroBolt(hero.team))
+        let heroID = hero.hero?.heroID ?? ""
+        XCTAssertEqual(layer.style(for: projectile(owner: hero, visual: "basic_attack"), state: state),
+                       ProjectileLayer.basicStyle(heroID: heroID, team: hero.team))
         XCTAssertEqual(layer.style(for: projectile(owner: tower, visual: "tower_shot"), state: state), .tower(.red))
         XCTAssertEqual(layer.style(for: projectile(owner: hero, visual: "empowered_attack"), state: state), .empowered)
         let fx = MasterData.shared.effects.first { $0.effectType == .projectile }?.effectID ?? ""
-        if case .skill(_, let streak) = layer.style(for: projectile(owner: hero, visual: fx), state: state) {
+        if case .skill(let key, let streak) = layer.style(for: projectile(owner: hero, visual: fx), state: state) {
             XCTAssertTrue(streak, "Projectile 型の演出は細長い光条")
+            XCTAssertEqual(key, ProjectileLayer.colorKey(HeroFXProfiles.primaryColor(heroID: heroID)),
+                           "スキル弾はヒーローの演出の主色（blueprint.glow）")
         } else {
             XCTFail("スキル弾のスタイル")
         }
+        // 遠隔はヒーロー別の形、近接・演出表に無いヒーローは汎用の光弾
+        var other = state
+        other.units[heroIndex].hero?.heroID = "H010"
+        XCTAssertEqual(layer.style(for: projectile(owner: hero, visual: "basic_attack"), state: other),
+                       .heroShot(heroID: "H010", team: hero.team))
+        other.units[heroIndex].hero?.heroID = "H001"
+        XCTAssertEqual(layer.style(for: projectile(owner: hero, visual: "basic_attack"), state: other), .heroBolt(hero.team))
+        other.units[heroIndex].hero?.heroID = "H999"
+        XCTAssertEqual(layer.style(for: projectile(owner: hero, visual: "basic_attack"), state: other), .heroBolt(hero.team))
+    }
+
+    // MARK: ヒーロー別の通常攻撃の演出
+
+    /// H001〜H024 の全員に演出表があり、遠隔（射程 550）は投射物・発射炎、近接（射程 150）は武器の軌跡を持つ。
+    /// 色は設計図の glow（主色）と accent（副色）。
+    func testEveryHeroHasFXProfile() throws {
+        for n in 1...24 {
+            let id = String(format: "H%03d", n)
+            let p = try XCTUnwrap(HeroFXProfiles.profile(id), id)
+            let def = try XCTUnwrap(MasterData.shared.hero(id), id)
+            let bp = HeroBlueprints.blueprint(heroID: id, role: def.role)
+            XCTAssertEqual(p.heroID, id)
+            XCTAssertEqual(p.primary, HeroFXProfiles.rgb(bp.glow), id)
+            XCTAssertEqual(p.secondary, HeroFXProfiles.rgb(bp.accent), id)
+            XCTAssertEqual(HeroFXProfiles.primaryColor(heroID: id), p.primary)
+            XCTAssertEqual(p.isRanged, def.isRanged, "\(id): 演出表の遠近がシムの射程と一致")
+            if def.isRanged {
+                XCTAssertNotNil(p.shot, id)
+                XCTAssertNil(p.trail, id)
+                XCTAssertNotEqual(p.muzzle, HeroFXProfile.Muzzle.none, id)
+            } else {
+                let t = try XCTUnwrap(p.trail, id)
+                XCTAssertNil(p.shot, id)
+                XCTAssertNil(p.shotTrail, id)
+                XCTAssertLessThan(t.inner, t.outer, id)
+                XCTAssertTrue((0.08...0.3).contains(t.life), "\(id): 帯の長さ（秒）")
+                XCTAssertTrue((0.4...0.95).contains(t.opacity), "\(id): 白飛びしない不透明度")
+            }
+            // 芯はブルームの閾値（0.6）を超える明るさ
+            XCTAssertGreaterThan(max(p.core.r, max(p.core.g, p.core.b)), 0.6, id)
+        }
+        XCTAssertEqual(HeroFXProfiles.heroIDs.count, 24)
+        XCTAssertEqual(HeroFXProfiles.profile("H003")?.launch, .bow, "副手の弓から放つ")
+        XCTAssertEqual(HeroFXProfiles.profile("H007")?.launch, .hands)
+        XCTAssertEqual(HeroFXProfiles.profile("H022")?.launch, .hands)
+        XCTAssertEqual(HeroFXProfiles.profile("H010")?.launch, .weaponTip, "掌の炎 = 武器の先端")
+        XCTAssertEqual(HeroFXProfiles.profile("H017")?.shotTrail, .smoke)
+        XCTAssertNil(HeroFXProfiles.profile("H999"), "表に無いヒーローは汎用の演出")
+        // 表に無いヒーローの主色もロールの設計図の glow（UI の基調色 Theme.heroHue ではない）
+        XCTAssertEqual(HeroFXProfiles.primaryColor(heroID: "H999", role: .arcanist),
+                       HeroFXProfiles.rgb(HeroBlueprints.blueprint(heroID: "H999", role: .arcanist).glow))
+        // HSB → RGB
+        XCTAssertEqual(HeroFXProfiles.rgb(HSB(0, 1, 1)), RGB(1, 0, 0))
+        let cyan = HeroFXProfiles.rgb(HSB(0.5, 0.5, 1))
+        XCTAssertEqual(cyan.r, 0.5, accuracy: 1e-9)
+        XCTAssertEqual(cyan.g, 1, accuracy: 1e-9)
+        XCTAssertEqual(cyan.b, 1, accuracy: 1e-9)
+        XCTAssertEqual(ProjectileLayer.color(key: ProjectileLayer.colorKey(RGB(1, 0.5, 0))).g, 128.0 / 255, accuracy: 1e-9)
+    }
+
+    /// 遠隔の全員がヒーロー別のスタイルで事前生成の計画に入り、プールから出した弾は発射位置（武器の先端）から出て、
+    /// 着弾点で sim の位置に合う。全ての形・粒子の尾を出しても試合中（live）は何も作らない。
+    func testHeroShotsArePlannedPerHeroAndStartAtLaunchPoint() throws {
+        let sim = Simulation(config: MatchFactory.botMatch(seed: 5))
+        let heroIdx = sim.state.units.indices.filter { sim.state.units[$0].kind == .hero }
+        XCTAssertEqual(heroIdx.count, 10)
+        let ranged = HeroFXProfiles.heroIDs.filter { HeroFXProfiles.profile($0)?.isRanged == true }
+        XCTAssertEqual(ranged.count, 12)
+        // 遠隔の 12 人を 10 枠へ 2 回に分けて割り当てる
+        for chunk in [Array(ranged.prefix(10)), Array(ranged.suffix(10))] {
+            var state = sim.state
+            for (k, i) in heroIdx.enumerated() {
+                state.units[i].hero?.heroID = chunk[k]
+                state.units[i].hero?.isRanged = true
+            }
+            let plan = ProjectileLayer.plannedStyles(state: state, master: .shared)
+            for i in heroIdx {
+                let u = state.units[i]
+                let style = ProjectileLayer.Style.heroShot(heroID: u.hero?.heroID ?? "", team: u.team)
+                XCTAssertEqual(plan.first { $0.style == style }?.count, ProjectileLayer.heroShotPool, "\(style)")
+            }
+            AssetLedger.beginLoading()
+            let layer = ProjectileLayer(materials: RenderMaterials(colorblind: false), meshes: UnitMeshLibrary(), master: .shared,
+                                        quality: .preset(.high))
+            for p in plan { layer.prewarm(p.style, visual: p.visual, count: p.count) }
+            layer.prewarmTrails()
+            AssetLedger.beginLive()
+            // 各ヒーローが敵のヒーローへ撃つ（発射位置 = 足元から高さ 1.3 m・横へ 0.4 m）
+            func launch(_ id: EntityID) -> SIMD3<Float>? {
+                guard let u = state.unit(id) else { return nil }
+                return worldPosition(u.pos, height: 1.3) + SIMD3(0.4, 0, -0.3)
+            }
+            var shots: [Projectile] = []
+            for (k, i) in heroIdx.enumerated() {
+                let u = state.units[i]
+                guard let t = heroIdx.first(where: { state.units[$0].team != u.team }) else { continue }
+                shots.append(Projectile(id: EntityID(5000 + k), ownerID: u.id, team: u.team, pos: u.pos,
+                                        motion: .homing(targetID: state.units[t].id), speed: 1500,
+                                        payload: HitPayload(damage: 1, damageType: .physical, source: .basicAttack),
+                                        visual: "basic_attack"))
+            }
+            state.projectiles = shots
+            func sync() {
+                layer.sync(RenderFrame(state: state, alpha: 1, dt: 1.0 / 60, time: 0.5, viewerTeam: nil, humanID: nil, focusID: nil,
+                                       ended: false, winner: nil), heightOf: { _ in 1.7 }, launchPoint: launch)
+            }
+            sync()
+            XCTAssertEqual(layer.heroShotsShown, shots.count, "全員ヒーロー別の弾")
+            XCTAssertEqual(layer.launchedFromWeapon, shots.count, "発射位置から出す")
+            for p in shots {
+                let pos = try XCTUnwrap(layer.position(of: p.id))
+                let want = try XCTUnwrap(launch(p.ownerID))
+                XCTAssertLessThan(simd_distance(pos, want), 1e-3, "最初の位置は発射位置")
+            }
+            // 対象の位置まで進めると、発射位置のずれは消えて sim の位置に合う
+            for k in state.projectiles.indices {
+                guard case .homing(let tid) = state.projectiles[k].motion, let t = state.unit(tid) else { continue }
+                state.projectiles[k].pos = t.pos
+                state.projectiles[k].prevPos = t.pos
+            }
+            sync()
+            for p in state.projectiles {
+                let pos = try XCTUnwrap(layer.position(of: p.id))
+                let want = worldPosition(p.pos)
+                XCTAssertEqual(pos.x, want.x, accuracy: 1e-3)
+                XCTAssertEqual(pos.z, want.z, accuracy: 1e-3)
+            }
+            XCTAssertGreaterThan(layer.peakTrails, 0, "粒子の尾を持つ弾がある")
+            XCTAssertEqual(layer.trailsSkipped, 0)
+            state.projectiles = []
+            sync()
+            XCTAssertEqual(layer.count, 0, "プールへ戻る")
+            let snap = AssetLedger.snapshot()
+            XCTAssertEqual(snap.liveTotal, 0, "試合中の生成: \(snap.liveSamples)")
+            AssetLedger.end()
+        }
+    }
+
+    /// 武器の軌跡: 振りの間だけ帯が伸び（最新の列 = 今の刃）、振りが終わると寿命で消える。頂点は親（ヒーローの root）基準、
+    /// UV の u は古さ（新しい列ほど小さい）、v は根元 → 先端。
+    func testWeaponTrailGrowsDuringSwingAndFades() throws {
+        let profile = try XCTUnwrap(HeroFXProfiles.profile("H001"))
+        let style = try XCTUnwrap(profile.trail)
+        let kit = WeaponTrailKit()
+        let material = try XCTUnwrap(kit.material(for: profile, trail: style))
+        _ = kit.material(for: profile, trail: style)
+        XCTAssertEqual(kit.materialCount, 1, "ヒーロー ID ごとに 1 つ")
+        let trail = try XCTUnwrap(WeaponTrail(style: style, material: material, name: "test"))
+        let origin = SIMD3<Float>(10, 0, -20)
+        func blade(_ a: Float, swing: Bool) -> HeroWeaponTrailSample.Blade {
+            let base = origin + SIMD3(0, 1.2, 0)
+            return .init(base: base, tip: base + SIMD3(sin(a), 0, -cos(a)), swing: swing)
+        }
+        var t: Float = 0
+        trail.update(blade(0, swing: false), now: t, origin: origin)
+        XCTAssertFalse(trail.isShowing, "振っていない間は出ない")
+        var a: Float = 0
+        for _ in 0..<9 {
+            t += 1.0 / 60
+            a += 0.22
+            trail.update(blade(a, swing: true), now: t, origin: origin)
+            XCTAssertTrue(trail.isShowing, "振りの 1 フレーム目から帯になる（前フレームの刃から始める）")
+        }
+        let v = trail.vertices()
+        XCTAssertEqual(v.count, WeaponTrail.columns * 2)
+        let tip = blade(a, swing: true).tip - origin, base = blade(a, swing: true).base - origin
+        XCTAssertLessThan(simd_distance(v[1].position, base + (tip - base) * style.outer), 1e-3, "最新の列の外端 = 今の刃先の外")
+        XCTAssertLessThan(simd_distance(v[0].position, base + (tip - base) * style.inner), 1e-3)
+        for k in 1..<WeaponTrail.columns {
+            XCTAssertGreaterThanOrEqual(v[k * 2].uv.x, v[(k - 1) * 2].uv.x, "古い列ほど u が大きい")
+            XCTAssertLessThan(v[k * 2].uv.y, v[k * 2 + 1].uv.y, "v は根元 → 先端")
+        }
+        // 振りが終わると寿命の後に消える
+        for _ in 0..<(Int(style.life * 60) + 3) {
+            t += 1.0 / 60
+            trail.update(blade(a, swing: false), now: t, origin: origin)
+        }
+        XCTAssertFalse(trail.isShowing)
+        // 次の振りは新しい帯（前の振りとはつながない）
+        t += 0.5
+        trail.update(blade(0, swing: false), now: t, origin: origin)
+        t += 1.0 / 60
+        trail.update(blade(0.3, swing: true), now: t, origin: origin)
+        XCTAssertTrue(trail.isShowing)
+        trail.reset()
+        XCTAssertFalse(trail.isShowing)
+        // 陳列は更新で消えない（幕の裏で数フレーム描く）
+        trail.showForWarmup(at: .zero)
+        trail.update(nil, now: t + 1, origin: origin)
+        XCTAssertTrue(trail.isShowing)
+        trail.reset()
+        XCTAssertFalse(trail.isShowing)
+    }
+
+    /// 軌跡のテクスチャ: 古いほど・根元ほど薄く、寿命で透明。新しい先端ほど白い。
+    func testWeaponTrailTextureFadesWithAgeAndTowardBase() {
+        for look in HeroFXProfile.TrailLook.allCases {
+            XCTAssertGreaterThan(WeaponTrailKit.alpha(look: look, u: 0.05, v: 0.85), WeaponTrailKit.alpha(look: look, u: 0.6, v: 0.85),
+                                 "\(look): 古いほど薄い")
+            XCTAssertEqual(WeaponTrailKit.alpha(look: look, u: 1, v: 0.85), 0, accuracy: 1e-4, "\(look): 寿命で透明")
+            XCTAssertGreaterThan(WeaponTrailKit.alpha(look: look, u: 0.1, v: 0.85), WeaponTrailKit.alpha(look: look, u: 0.1, v: 0.1),
+                                 "\(look): 根元ほど薄い")
+            XCTAssertLessThan(WeaponTrailKit.alpha(look: look, u: 0.1, v: 0), 0.05, "\(look): 握りは透明")
+            XCTAssertGreaterThan(WeaponTrailKit.whiteness(look: look, u: 0, v: 1), WeaponTrailKit.whiteness(look: look, u: 0.5, v: 0.5))
+        }
+        let px = WeaponTrailKit.pixels(look: .blade, color: RGB(1, 0.5, 0), width: 8, height: 4)
+        XCTAssertEqual(px.count, 8 * 4 * 4)
+        for i in stride(from: 0, to: px.count, by: 4) {
+            XCTAssertLessThanOrEqual(px[i], px[i + 3], "アルファ乗算済み")
+        }
+    }
+
+    /// 近接のヒーローの見た目に武器の軌跡を作る（二刀は 2 本、遠隔は無し）。低画質の試合では作らない。
+    func testMeleeHeroesGetWeaponTrailsAndLowQualityNone() {
+        var config = MatchFactory.botMatch(seed: 11)
+        let ids = ["H001", "H006", "H007", "H012", "H014", "H003", "H010", "H018", "H019", "H024"]
+        XCTAssertEqual(config.players.count, ids.count)
+        for k in config.players.indices { config.players[k].heroID = ids[k] }
+        let sim = Simulation(config: config)
+        let medium = UnitLayer(materials: RenderMaterials(colorblind: false), meshes: UnitMeshLibrary(), text: TextMeshCache(),
+                               master: .shared, quality: .preset(.medium))
+        medium.sync(frame(sim, viewer: nil))
+        // 二刀（H006 は灯籠・H012・H014・H018・H024）は 2 本、H001・H007・H019 は 1 本、遠隔（H003・H010）は無し
+        XCTAssertEqual(medium.weaponTrailCount, 5 * 2 + 3)
+        let low = UnitLayer(materials: RenderMaterials(colorblind: false), meshes: UnitMeshLibrary(), text: TextMeshCache(),
+                            master: .shared, quality: .preset(.low))
+        low.sync(frame(sim, viewer: nil))
+        XCTAssertEqual(low.weaponTrailCount, 0)
+    }
+
+    /// ヒーロー別の着弾・発射: 1 回で出す粒子は 2 つまで（発射は 1 つ）、低画質は発射の粒子を出さず、予算も守る。
+    func testHeroAttackFXParticleCountsAndBudget() throws {
+        let materials = RenderMaterials(colorblind: false)
+        let high = VFXSystem(quality: .preset(.high), materials: materials, meshes: UnitMeshLibrary())
+        for id in HeroFXProfiles.heroIDs {
+            let p = try XCTUnwrap(HeroFXProfiles.profile(id))
+            let before = high.stats.spawns
+            if p.isRanged {
+                HeroAttackFX.rangedImpact(p, at: [0, 1, 0], direction: [0, 0, -1], vfx: high, quality: .preset(.high), important: true)
+            } else {
+                HeroAttackFX.meleeImpact(p, at: [0, 1, 0], direction: [0, 0, -1], vfx: high, quality: .preset(.high), important: true)
+            }
+            XCTAssertTrue((1...2).contains(high.stats.spawns - before), "\(id): 着弾の粒子は 1〜2")
+            let m0 = high.stats.spawns
+            HeroAttackFX.muzzle(p, at: [0, 1, 0], direction: [0, 0, -1], vfx: high, quality: .preset(.high), important: true)
+            XCTAssertLessThanOrEqual(high.stats.spawns - m0, 1, "\(id): 発射の粒子は 1 つまで")
+            high.update(dt: 3)
+        }
+        let lowQ = RenderQuality.preset(.low)
+        let low = VFXSystem(quality: lowQ, materials: materials, meshes: UnitMeshLibrary())
+        let blast = try XCTUnwrap(HeroFXProfiles.profile("H015"))
+        HeroAttackFX.muzzle(blast, at: .zero, direction: [0, 0, -1], vfx: low, quality: lowQ, important: true)
+        XCTAssertEqual(low.stats.spawns, 0, "低画質は発射の粒子を出さない")
+        for _ in 0..<5 {
+            for id in HeroFXProfiles.heroIDs {
+                let p = try XCTUnwrap(HeroFXProfiles.profile(id))
+                HeroAttackFX.meleeImpact(p, at: .zero, direction: [1, 0, 0], vfx: low, quality: lowQ, important: false)
+            }
+        }
+        XCTAssertLessThanOrEqual(low.activeCount, lowQ.maxEmitters + VFXSystem.meshFXCap, "軽微な演出は予算を超えない")
     }
 
     /// 視界外へ出た敵の予告は隠すだけで、発動演出（onTrigger）を出さない。見えている間に消えた単発ゾーンだけ弾ける。

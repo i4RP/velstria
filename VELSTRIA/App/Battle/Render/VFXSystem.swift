@@ -35,6 +35,14 @@ enum VFXPreset: CaseIterable, Hashable {
     case areaBlast
     case trail
     case recallLoop
+    /// 刃の当たり: 振りの向き（direction）へ扇状に飛ぶ細い火花（ヒーロー別の近接の着弾）。
+    case slashHit
+    /// 鈍器・炎の当たり: 上へ弾ける燃えさし。
+    case bluntHit
+    /// 水しぶき: 上へ跳ねて落ちる水滴。
+    case splash
+    /// 発射炎: 発射の向き（direction）へ短く吹く粒子。
+    case muzzle
 }
 
 @MainActor
@@ -161,8 +169,13 @@ final class VFXSystem {
     /// 実際の配分は借り合いで使われ方に合わせて変わる（1 倍速で借りるのは再生の約 3%）。
     static func weight(_ preset: VFXPreset) -> Int {
         switch preset {
-        case .hitSpark: return 20
+        // ヒーローの通常攻撃の着弾は slashHit / bluntHit などへ分けたので、火花はミニオン・モンスター・塔の分
+        case .hitSpark: return 16
         case .magicHit: return 10
+        case .slashHit: return 6
+        case .muzzle: return 5
+        case .bluntHit: return 3
+        case .splash: return 2
         case .blink: return 8
         case .levelUp, .skillBurst, .areaBlast, .trail: return 5
         case .shield: return 4
@@ -679,6 +692,65 @@ final class VFXSystem {
             m.opacityCurve = .linearFadeOut
             m.color = .evolving(start: .single(.white), end: .single(color))
             emitDuration = 0.12
+        case .slashHit:
+            // 振りの向き（局所 +Y = direction）の扇へ速く飛び、強く減速する細長い火花（白 → ヒーロー色）
+            n = 12; life = 0.26
+            p.emitterShapeSize = SIMD3(repeating: 0.08 * s)
+            p.birthDirection = .local
+            p.emissionDirection = [0, 1, 0]
+            p.speed = 4.4 * s
+            p.speedVariation = 1.6
+            m.spreadingAngle = 0.8
+            m.size = 0.06 * s
+            m.stretchFactor = 2.4
+            m.dampingFactor = 3.2
+            m.acceleration = [0, -4, 0]
+            m.color = .evolving(start: .single(.white), end: .single(color))
+        case .bluntHit:
+            // 上へ弾けて落ちる燃えさし（明るい芯色 → ヒーロー色。消える前に縮む）
+            n = 16; life = 0.5
+            p.emitterShapeSize = SIMD3(repeating: 0.18 * s)
+            p.birthDirection = .world
+            p.emissionDirection = [0, 1, 0]
+            p.speed = 3.0 * s
+            p.speedVariation = 1.5
+            m.spreadingAngle = 1.2
+            m.size = 0.08 * s
+            m.stretchFactor = 0.6
+            m.dampingFactor = 1.6
+            m.acceleration = [0, -6.5, 0]
+            m.sizeMultiplierAtEndOfLifespan = 0.25
+            m.color = .evolving(start: .single(UIColor(red: 1, green: 0.95, blue: 0.75, alpha: 1)), end: .single(color))
+        case .splash:
+            // 跳ねて落ちる水滴（白 → 水色。重力を強めに）
+            n = 18; life = 0.55
+            p.emitterShapeSize = SIMD3(repeating: 0.15 * s)
+            p.birthDirection = .world
+            p.emissionDirection = [0, 1, 0]
+            p.speed = 2.8 * s
+            p.speedVariation = 1.2
+            m.spreadingAngle = 0.95
+            m.size = 0.07 * s
+            m.stretchFactor = 0.9
+            m.dampingFactor = 0.8
+            m.acceleration = [0, -11, 0]
+            m.sizeMultiplierAtEndOfLifespan = 0.5
+            m.color = .evolving(start: .single(.white), end: .single(color))
+        case .muzzle:
+            // 発射の向き（局所 +Y = direction）へ短く吹いてすぐ止まる（白 → ヒーロー色）
+            n = 10; life = 0.2
+            p.emitterShapeSize = SIMD3(repeating: 0.05 * s)
+            p.birthDirection = .local
+            p.emissionDirection = [0, 1, 0]
+            p.speed = 4.8 * s
+            p.speedVariation = 2
+            m.spreadingAngle = 0.45
+            m.size = 0.09 * s
+            m.stretchFactor = 1.0
+            m.dampingFactor = 6
+            m.sizeMultiplierAtEndOfLifespan = 0.2
+            m.color = .evolving(start: .single(.white), end: .single(color))
+            emitDuration = 0.04
         case .recallLoop:
             n = 0; life = 0.95
             p.emitterShape = .cylinder

@@ -399,6 +399,7 @@ final class SkinnedHeroModel: HeroDisplayModel {
     private let floatAnchor: V3
     private let weaponFollowsArm: Bool
     private let offhandFollowsArm: Bool
+    private let weaponPoints: HeroWeaponPoints
     private var animator: HeroAnimator
     /// 歩幅の基準にする腰から足首までの長さ（m）。テストで手続きモデルと skinned モデルの走りの位相を揃えるのに使う。
     var legLength: Float {
@@ -456,6 +457,8 @@ final class SkinnedHeroModel: HeroDisplayModel {
         wingDepth = template.backDepth ?? ms.wingAnchor.z
         weaponFollowsArm = bp.weaponFollowsArm
         offhandFollowsArm = bp.offhand == .stoneFist || bp.offhand == .azureClaw
+        // 武器・副手のエンティティは手続きの武器座標のまま（Prop は propFit の中）なので、手続きの先端がそのまま使える
+        weaponPoints = HeroWeaponPoints(blueprint: bp, meshes: ms)
         overheadHeight = (template.bounds.max.y + 0.38) * bp.scale
 
         if tintBody, let tint = HeroAssetLibrary.skinTint(palette, variant: skin.variant) {
@@ -578,6 +581,14 @@ final class SkinnedHeroModel: HeroDisplayModel {
         let wasDead = animator.state == .dead
         animator.playAttack(windup: Float(windup), interval: Float(interval))
         if wasDead { effects.setOpacity(1, body: body) }
+    }
+
+    func attackLaunchPoint() -> SIMD3<Float>? {
+        weaponPoints.launchPosition(weapon: weapon, offhand: offhand, strikeHand: animator.strikeHand)
+    }
+
+    func weaponTrailSample() -> HeroWeaponTrailSample? {
+        weaponPoints.trailSample(weapon: weapon, offhand: offhand, swing: animator.weaponSwing)
     }
 
     /// クリップの割り当てを差し替える（テスト・ギャラリー用。nil = 手続きのみ）。
