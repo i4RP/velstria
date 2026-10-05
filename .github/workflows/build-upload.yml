@@ -1,40 +1,34 @@
 name: Build & Upload
 
-# testflight.yml（内部テスト）と production.yml（App Store 審査提出）から呼ばれる共通ジョブ。
+# testflight.yml（production 以外のブランチ）と production.yml（production ブランチ）から呼ばれる共通ジョブ。
 # テスト → アーカイブ（手動署名）→ App Store Connect へアップロード → 処理完了待ち →
-# TestFlight の「テスト内容」にブランチ・コミットを記入 →（production のみ）審査に提出。
+# 内部テスターへの配信を確認 → TestFlight の「テスト内容」にブランチ・コミットを記入。
+# App Store への審査提出・公開は行わない（ユーザー指示: 本番配信は不要。配信先は TestFlight の内部グループだけ）。
 #
 # 必要な Secrets（呼び出し側から secrets: inherit で渡す）:
-#   ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_P8   App Store Connect API キー（アップロード・ビルド状態・提出）
+#   ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_P8   App Store Connect API キー（アップロード・ビルド状態の確認）
 #   CI_DIST_P12_BASE64 / CI_DIST_P12_PASSWORD  CI 専用の配布証明書（Apple Distribution）と秘密鍵
 #   CI_PROFILE_BASE64                         App Store プロビジョニングプロファイル「VELSTRIA AppStore CI」
-# 任意の Variables: ASC_RELEASE_TYPE = AFTER_APPROVAL（既定: 承認後すぐ公開）/ MANUAL（承認後に手動で公開）
 on:
   workflow_call:
-    inputs:
-      lane:
-        description: "beta（内部テスト）または production（審査提出）"
-        type: string
-        required: true
 
 permissions:
   contents: read
 
 jobs:
   build:
-    name: ${{ inputs.lane == 'production' && 'App Store 提出' || 'TestFlight 配信' }}
+    name: TestFlight 配信
     runs-on: macos-26
     timeout-minutes: 150
     defaults:
       run:
         working-directory: VELSTRIA
     env:
-      LANE: ${{ inputs.lane }}
+      LANE: beta
       TEAM_ID: BPZ8375UX5
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       ASC_KEY_PATH: ${{ github.workspace }}/AuthKey.p8
-      ASC_RELEASE_TYPE: ${{ vars.ASC_RELEASE_TYPE || 'AFTER_APPROVAL' }}
       ASC_INTERNAL_GROUP_ID: 5e0acd82-35c1-4220-a98d-5c1d88370b7c # 既存の内部グループ「In」（全ビルド自動配信）
       SIGNING: manual
       PROFILE_NAME: VELSTRIA AppStore CI
@@ -129,27 +123,17 @@ jobs:
         # コミットメッセージは ${{ }} で埋め込まず git から読む（スクリプト注入対策）
         continue-on-error: true
         run: |
-          prefix=""
-          [[ "$LANE" == "production" ]] && prefix="【App Store 提出ビルド】"$'\n'
-          notes="$(printf '%sブランチ: %s\nコミット: %s %s（%s）' "$prefix" "$GITHUB_REF_NAME" "${GITHUB_SHA:0:7}" \
+          notes="$(printf 'ブランチ: %s\nコミット: %s %s（%s）' "$GITHUB_REF_NAME" "${GITHUB_SHA:0:7}" \
             "$(git log -1 --format=%s)" "$(git log -1 --format=%an)")"
           node tools/asc.mjs beta-notes "$BUILD_NUMBER" "$notes"
-
-      - name: App Store の審査に提出
-        if: inputs.lane == 'production'
-        run: node tools/asc.mjs submit "$BUILD_NUMBER"
 
       - name: 結果
         if: success()
         run: |
           {
-            echo "### ${LANE} — ビルド ${BUILD_NUMBER}"
+            echo "### TestFlight — ビルド ${BUILD_NUMBER}"
             echo "- ブランチ: \`${GITHUB_REF_NAME}\` / コミット: \`${GITHUB_SHA:0:7}\`"
-            if [[ "$LANE" == "production" ]]; then
-              echo "- App Store の審査に提出済み（公開方法: ${ASC_RELEASE_TYPE}）。TestFlight の内部テストにも届きます"
-            else
-              echo "- TestFlight の内部テストグループに配信済み"
-            fi
+            echo "- TestFlight の内部テストグループに配信済み"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: 後片付け

@@ -1,9 +1,10 @@
 name: TestFlight
 
-# production 以外のすべてのブランチへの push で、アーカイブして TestFlight（内部テスト）へ配信する。
+# production 以外のすべてのブランチへの push で、アーカイブして TestFlight（内部テスト）へ配信する
+# （production ブランチは production.yml が同じ内容で配信する）。
 # 内部テストグループ「In」は全ビルド自動配信なので、Apple の処理完了後にテスターへ届く。
 # 「テスト内容」にブランチ名とコミットが入るので、どのブランチのビルドか TestFlight で見分けられる。
-# 中身は build-upload.yml（production.yml と共通）。フォーク・プルリクエストでは動かない（Secrets はフォークに渡らない）。
+# 中身は build-upload.yml（production.yml と共通。App Store への提出は行わない）。フォーク・プルリクエストでは動かない（Secrets はフォークに渡らない）。
 on:
   push:
     branches-ignore: [production]
@@ -21,6 +22,4 @@ permissions:
 jobs:
   testflight:
     uses: ./.github/workflows/build-upload.yml
-    with:
-      lane: beta
     secrets: inherit

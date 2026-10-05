@@ -16,6 +16,6 @@ Claude Code・Codex ほか、このリポジトリで作業するすべてのエ
 - push した後は `gh run watch <run-id> -R i4RP/velstria --exit-status` で完了まで見届ける。失敗したら原因を直して
   push し直す。届いたかどうかは `node VELSTRIA/tools/asc.mjs status` / `testers` で確認できる
   （環境変数 `ASC_KEY_ID` / `ASC_ISSUER_ID` が必要）。
-- `production` ブランチへの push は App Store の審査提出（承認後に自動で公開）になる。本番に出す指示が無い限り
-  `production` には push しない。TestFlight 配信は `production` 以外のブランチ（通常は `main`）への push で行う。
+- App Store への審査提出・公開は行わない（ユーザー指示: 本番配信は不要）。`production` ブランチへの push も、他のブランチと
+  同じく TestFlight の内部グループ「In」への配信になる（提出する仕組みは削除済み）。通常は `main` への push で配信する。
 - リポジトリは公開。証明書・API キー・パスワードなどの秘密情報はコミットしない（CI は GitHub Secrets から読む）。

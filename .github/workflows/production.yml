@@ -1,75 +1,23 @@
-name: App Store
+name: TestFlight (production)
 
-# production ブランチへの push で App Store に出す（本番反映）。
-#   1. 提出前チェック（Linux・数十秒）: 仮値・プレースホルダが残っていないか、公開 URL が開けるか、このバージョン番号で
-#      出せるか、提出・公開の前に必要な Web 側の設定（スクリーンショット・App 内課金・年齢制限・価格・配信地域・新機能の文）が
-#      揃っているか。ビルド（15〜20 分）の後に submit や審査で初めて気づく不足をここで止める。誤判定で止まるとき、または
-#      App 内課金のバージョンへの追加を Web で確かめたとき（iap-attach）は、Variables の RELEASE_CHECK_ALLOW に検査 ID
-#      （カンマ区切り。tools/asc.mjs の usage）を入れて再実行すると警告として続行する。警告は実行画面の注釈と Summary にも出る
-#   2. build-upload.yml（lane=production）: テスト → STRICT アーカイブ → アップロード → 審査に提出
-# 公開方法は Variables の ASC_RELEASE_TYPE（既定 AFTER_APPROVAL = 承認されたら自動で公開）。
-# 審査中に再び push されたら、その提出を取り下げて新しいビルドで出し直す。
-# 公開済みのバージョン番号では出せないので、2 回目以降は VELSTRIA/project.yml の MARKETING_VERSION を上げ、
-# docs/appstore/metadata/<言語>/release_notes.txt を用意してから push する。
-# paths で絞らない（ブランチ作成時の push や、やり直しの push でも必ず動かすため）
+# production ブランチへの push でも、他のブランチと同じく TestFlight の内部テスト（内部グループ「In」）へ配信する。
+# App Store への審査提出・公開は行わない（ユーザー指示: 本番配信は不要。かつて入れていた提出前チェックと審査提出は削除済み）。
+# 「テスト内容」にブランチ名とコミットが入る。中身は build-upload.yml（testflight.yml と共通）。
+# paths で絞らない（production への push は、変更の中身によらず必ず配信する）。
 on:
   push:
     branches: [production]
   workflow_dispatch:
 
-# 実行中の提出は止めない。待機中の実行は新しい push で置き換わる（最新の production だけが提出される）。
-# ref ごとに分け、production 以外から手動実行された（gate で弾かれる）実行が production の待機を押し出さないようにする
+# 同じブランチの待機中の実行は新しい push で置き換わる（実行中のビルドは止めない）
 concurrency:
-  group: appstore-${{ github.ref }}
+  group: testflight-${{ github.ref_name }}
   cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
-  gate:
-    name: 提出前チェック
-    # 手動実行も production ブランチからだけ受け付ける
-    if: github.ref == 'refs/heads/production'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: VELSTRIA
-    env:
-      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-      ASC_KEY_PATH: ${{ github.workspace }}/AuthKey.p8
-      RELEASE_CHECK_ALLOW: ${{ vars.RELEASE_CHECK_ALLOW }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: メタデータ・法定表示の仮値チェックと公開 URL の到達確認
-        # --check-urls はネットワークに出る（ここ＝提出前チェックだけで使う。アーカイブ・TestFlight では使わない）
-        run: |
-          python3 tools/gen_master_en.py --check
-          python3 tools/gen_master_ja.py --check
-          python3 tools/privacy_audit.py
-          python3 tools/validate_appstore_metadata.py --release --check-urls
-
-      - name: このバージョン番号で提出できるか・App Store Connect の提出前設定
-        # 前の手順が失敗しても実行し、直すべき項目を 1 回の実行でまとめて見せる（読み取りのみ）
-        if: ${{ !cancelled() }}
-        env:
-          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
-        run: |
-          (umask 077; printf '%s\n' "$ASC_KEY_P8" > "$ASC_KEY_PATH")
-          version="$(awk -F'"' '/MARKETING_VERSION:/ {print $2; exit}' project.yml)"
-          echo "MARKETING_VERSION=$version"
-          node tools/asc.mjs release-check "$version"
-
-      - name: 後片付け
-        if: always()
-        run: rm -f "$ASC_KEY_PATH"
-
-  appstore:
-    needs: gate
+  testflight:
     uses: ./.github/workflows/build-upload.yml
-    with:
-      lane: production
     secrets: inherit

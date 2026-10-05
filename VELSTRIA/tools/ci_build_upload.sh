@@ -8,7 +8,7 @@
 #
 # 環境変数（archive.sh / upload_testflight.sh と共通）: TEAM_ID / SIGNING / PROFILE_NAME / ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_PATH
 #   LANE=beta        内部テスト用。アプリ内の仮値（法定表示・サポート URL）は警告に留める（ALLOW_APP_PLACEHOLDERS=1）
-#   LANE=production  審査提出用。仮値・プレースホルダが 1 つでも残っていればエラー（STRICT=1）
+#   （App Store への審査提出は行わないため、production レーンは廃止した）
 # 出力: 成功したビルド番号を GITHUB_ENV（あれば）に BUILD_NUMBER として書く。
 set -euo pipefail
 
@@ -17,8 +17,7 @@ cd "$(dirname "$0")/.."
 LANE="${LANE:-beta}"
 case "$LANE" in
     beta)       export ALLOW_APP_PLACEHOLDERS=1; unset STRICT ;;
-    production) export STRICT=1; unset ALLOW_APP_PLACEHOLDERS ;;
-    *) echo "error: LANE は beta か production を指定してください: $LANE" >&2; exit 1 ;;
+    *) echo "error: LANE は beta だけ指定できます（App Store への審査提出は行わない）: $LANE" >&2; exit 1 ;;
 esac
 
 EPOCH_2026=1767225600  # 2026-01-01T00:00:00Z
