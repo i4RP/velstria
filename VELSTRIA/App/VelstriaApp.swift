@@ -27,6 +27,7 @@ struct VelstriaApp: App {
 
 struct RootView: View {
     @Environment(AppModel.self) private var app
+    @State private var showsBrandLaunch = !DebugLaunch.isUITesting
 
     var body: some View {
         @Bindable var router = app.router
@@ -42,6 +43,13 @@ struct RootView: View {
             mainContent
             #endif
             ToastOverlay()
+            if showsBrandLaunch {
+                BrandLaunchView {
+                    withAnimation(.easeOut(duration: 0.45)) { showsBrandLaunch = false }
+                }
+                .transition(.opacity)
+                .zIndex(100)
+            }
         }
         .id(app.profile.settings.language)
         .fullScreenCover(isPresented: $router.isMatchFlowPresented) {
@@ -66,6 +74,70 @@ struct RootView: View {
         } else {
             OnboardingFlowView()
         }
+    }
+}
+
+/// ネイティブのシルエットロゴからキービジュアルへつなぐ起動シーケンス。
+private struct BrandLaunchView: View {
+    let onFinished: () -> Void
+    @State private var revealsWorld = false
+    @State private var progress = 0.0
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                Color(red: 0.012, green: 0.016, blue: 0.055).ignoresSafeArea()
+
+                if revealsWorld {
+                    Image("LoadingKeyArt")
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
+                        .transition(.opacity.combined(with: .scale(scale: 1.04)))
+                    LinearGradient(colors: [.black.opacity(0.08), .clear, .black.opacity(0.86)],
+                                   startPoint: .top, endPoint: .bottom)
+                        .ignoresSafeArea()
+                    VStack {
+                        Image("BrandLogo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: min(620, geo.size.width * 0.52))
+                            .shadow(color: Theme.cyan.opacity(0.42), radius: 24)
+                        Spacer()
+                        VStack(spacing: 9) {
+                            Text(L("星環を再構築しています…", "REBUILDING THE STAR RING…"))
+                                .font(Theme.heading(12))
+                                .tracking(2)
+                                .foregroundStyle(.white.opacity(0.9))
+                            FlowProgressBar(value: progress, tint: Theme.gold, height: 5)
+                                .frame(maxWidth: min(760, geo.size.width * 0.72))
+                        }
+                        .padding(.bottom, 30)
+                    }
+                    .padding(.top, 20)
+                    .transition(.opacity)
+                } else {
+                    Image("BrandMark")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: min(330, geo.size.height * 0.48), height: min(330, geo.size.height * 0.48))
+                        .foregroundStyle(.white)
+                        .shadow(color: Theme.cyan.opacity(0.7), radius: 28)
+                        .transition(.scale(scale: 0.86).combined(with: .opacity))
+                }
+            }
+        }
+        .persistentSystemOverlays(.hidden)
+        .task {
+            try? await Task.sleep(for: .milliseconds(650))
+            withAnimation(.easeInOut(duration: 0.7)) { revealsWorld = true }
+            withAnimation(.easeInOut(duration: 1.55)) { progress = 1 }
+            try? await Task.sleep(for: .milliseconds(1850))
+            onFinished()
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(L("VELSIA を起動しています", "Launching VELSIA"))
     }
 }
 

@@ -1,9 +1,12 @@
 #!/usr/bin/env swift
-// VELSTRIA アプリアイコン / 起動ロゴ生成スクリプト（CoreGraphics・外部依存なし）。
+// VELSIA 旧アプリアイコン / 起動ロゴ生成スクリプト（CoreGraphics・外部依存なし）。
+//
+// 2026-10 以降の正式アセットは Assets.xcassets 内の生成済み PNG が正本。
+// 誤って正式アセットを旧デザインへ戻さないよう、明示した場合だけこの旧ジェネレーターを実行する。
 //
 // usage（リポジトリの VELSTRIA/ で）:
-//   swift tools/make_icon.swift            # アセットカタログへ書き出し
-//   swift tools/make_icon.swift --preview /tmp/icon-preview   # 追加で確認用の縮小・角丸プレビューを出力
+//   swift tools/make_icon.swift --legacy   # 旧デザインをアセットカタログへ書き出し
+//   swift tools/make_icon.swift --legacy --preview /tmp/icon-preview   # 追加で確認用プレビューも出力
 //
 // 出力:
 //   App/Resources/Assets.xcassets/AppIcon.appiconset/  AppIcon-1024.png（不透明・角丸なし）
@@ -16,6 +19,11 @@ import CoreGraphics
 import Foundation
 import ImageIO
 import UniformTypeIdentifiers
+
+guard CommandLine.arguments.contains("--legacy") else {
+    print("VELSIA の正式ロゴ・アイコンは Assets.xcassets 内の生成済み PNG です。旧デザインを書き出す場合だけ --legacy を指定してください。")
+    exit(EXIT_SUCCESS)
+}
 
 // MARK: - 基本
 

@@ -1,4 +1,4 @@
-# VELSTRIA App Store 提出キット
+# VELSIA App Store 提出キット
 
 App Store Connect（ASC）への v1.0 提出に必要なもの一式と手順。数値・ルールの正本は [DESIGN.md](DESIGN.md)。
 メタデータは fastlane `deliver` 互換の配置（`docs/appstore/metadata/`）で管理し、手入力でも fastlane でも使える。
@@ -56,7 +56,7 @@ App Store Connect（ASC）への v1.0 提出に必要なもの一式と手順。
 
 | 項目 | 日本語 | English (U.S.) |
 |---|---|---|
-| 名前（30 文字以内） | VELSTRIA - 星環の戦場 | VELSTRIA: Star Ring Arena |
+| 名前（30 文字以内） | VELSIA - 星環の戦場 | VELSIA: Star Ring Arena |
 | サブタイトル（30 文字以内） | オフラインで遊べる5対5のMOBA | Offline 5v5 MOBA vs Smart AI |
 | プライマリ言語 | 日本語 | |
 | バンドル ID | `com.bitcoinpay.velstria` | |
@@ -144,7 +144,7 @@ TEAM_ID=<10桁のTeamID> BUILD_NUMBER=<前回+1> STRICT=1 tools/archive.sh
 | `DEVELOPMENT_TEAM` | 空 | `tools/archive.sh` が `TEAM_ID` から注入 |
 
 Info.plist（project.yml の `info.properties` から生成）: `UILaunchScreen`（背景色 `LaunchBackground` + 画像 `LaunchLogo`）、
-`UIUserInterfaceStyle = Dark`、`NSHumanReadableCopyright = © 2026 VELSTRIA`、横画面のみ、`ITSAppUsesNonExemptEncryption = NO`。
+`UIUserInterfaceStyle = Dark`、`NSHumanReadableCopyright = © 2026 VELSIA`、横画面のみ、`ITSAppUsesNonExemptEncryption = NO`。
 scheme の Run には StoreKit 構成ファイル `App/Resources/Velstria.storekit` を設定済み（Xcode 実行時の課金テスト用）。
 
 ## 9. アイコンと起動画面

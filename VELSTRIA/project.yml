@@ -68,12 +68,12 @@ targets:
     info:
       path: App/Info.plist
       properties:
-        CFBundleDisplayName: VELSTRIA
+        CFBundleDisplayName: VELSIA
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleLocalizations: [ja, en]
         CFBundleDevelopmentRegion: ja
-        NSHumanReadableCopyright: "© 2026 VELSTRIA"
+        NSHumanReadableCopyright: "© 2026 VELSIA"
         UILaunchScreen:
           UIColorName: LaunchBackground
           UIImageName: LaunchLogo

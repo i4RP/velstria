@@ -3,7 +3,7 @@
 <!-- Publication template. Replace every {{…}} and have it reviewed by counsel before publishing. Public URL: docs/appstore/metadata/en-US/privacy_url.txt -->
 
 This Privacy Policy explains how {{PUBLISHER_NAME}} ("we", "us") handles information in connection with the iPhone game
-"VELSTRIA: Star Ring Arena" (the "App").
+"VELSIA: Star Ring Arena" (the "App").
 
 ## 1. Summary
 

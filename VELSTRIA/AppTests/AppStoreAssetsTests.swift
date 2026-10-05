@@ -173,8 +173,8 @@ final class AppStoreAssetsTests: XCTestCase {
         XCTAssertEqual(launch["UIColorName"] as? String, "LaunchBackground")
         XCTAssertEqual(info["UIUserInterfaceStyle"] as? String, "Dark")
         XCTAssertEqual(info["ITSAppUsesNonExemptEncryption"] as? Bool, false)
-        XCTAssertEqual(info["NSHumanReadableCopyright"] as? String, "© 2026 VELSTRIA")
-        XCTAssertEqual(info["CFBundleDisplayName"] as? String, "VELSTRIA")
+        XCTAssertEqual(info["NSHumanReadableCopyright"] as? String, "© 2026 VELSIA")
+        XCTAssertEqual(info["CFBundleDisplayName"] as? String, "VELSIA")
         XCTAssertEqual(info["UIDeviceFamily"] as? [Int], [1], "iPhone 専用であること")
 
         let orientations = try XCTUnwrap(info["UISupportedInterfaceOrientations"] as? [String])
@@ -190,6 +190,10 @@ final class AppStoreAssetsTests: XCTestCase {
                         "AppIcon がアセットカタログからコンパイルされていません")
         let logo = try XCTUnwrap(UIImage(named: "LaunchLogo"), "LaunchLogo がありません")
         XCTAssertEqual(logo.size, CGSize(width: 240, height: 240))
+        XCTAssertNotNil(UIImage(named: "BrandLogo"), "VELSIA マスターロゴがありません")
+        XCTAssertNotNil(UIImage(named: "BrandMark"), "VELSIA シルエットロゴがありません")
+        let loadingArt = try XCTUnwrap(UIImage(named: "LoadingKeyArt"), "起動・ロード用キービジュアルがありません")
+        XCTAssertGreaterThan(loadingArt.size.width, loadingArt.size.height, "キービジュアルは横画面用であること")
         XCTAssertNotNil(UIColor(named: "LaunchBackground"))
         XCTAssertNotNil(UIColor(named: "AccentColor"))
     }

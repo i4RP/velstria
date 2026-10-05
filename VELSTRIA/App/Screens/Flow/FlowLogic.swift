@@ -537,7 +537,7 @@ enum ReportMail {
     }
 
     static func subject(category: SupportReportCategory) -> String {
-        "[VELSTRIA] \(L("報告", "Report")): \(category.title)"
+        "[VELSIA] \(L("報告", "Report")): \(category.title)"
     }
 
     /// 端末識別子（例: iPhone17,1）。

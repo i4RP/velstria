@@ -143,39 +143,18 @@ struct StarRingView: View {
     }
 }
 
-/// VELSTRIA ロゴ（タイトル + 副題 + 星環）。
+/// VELSIA のマスターロゴ。タイトル・副題・星環を単一アートとして表示する。
 struct VelstriaLogoView: View {
     var scale: CGFloat = 1
 
     var body: some View {
-        ZStack {
-            StarRingView(showsCore: false)
-                .frame(width: 520 * scale, height: 210 * scale)
-            VStack(spacing: 4 * scale) {
-                Text("VELSTRIA")
-                    .font(.system(size: 64 * scale, weight: .black, design: .serif))
-                    .tracking(10 * scale)
-                    .foregroundStyle(LinearGradient(colors: [.white, Theme.gold, Color(red: 0.85, green: 0.55, blue: 0.25)],
-                                                    startPoint: .top, endPoint: .bottom))
-                    .shadow(color: Theme.gold.opacity(0.6), radius: 14 * scale)
-                    .minimumScaleFactor(0.5)
-                    .lineLimit(1)
-                HStack(spacing: 10 * scale) {
-                    Rectangle().fill(LinearGradient(colors: [.clear, Theme.cyan], startPoint: .leading, endPoint: .trailing))
-                        .frame(width: 60 * scale, height: 1)
-                    Text(L("星環の戦場", "Battlefield of the Star Ring"))
-                        .font(.system(size: 18 * scale, weight: .bold, design: .rounded))
-                        .tracking(4 * scale)
-                        .foregroundStyle(Theme.cyan)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                    Rectangle().fill(LinearGradient(colors: [Theme.cyan, .clear], startPoint: .leading, endPoint: .trailing))
-                        .frame(width: 60 * scale, height: 1)
-                }
-            }
-        }
+        Image("BrandLogo")
+            .resizable()
+            .scaledToFit()
+            .frame(width: 610 * scale, height: 285 * scale)
+            .shadow(color: Theme.cyan.opacity(0.28), radius: 24 * scale)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("VELSTRIA " + L("星環の戦場", "Battlefield of the Star Ring"))
+        .accessibilityLabel("VELSIA " + L("星環の戦場", "Star Ring Arena"))
     }
 }
 

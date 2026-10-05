@@ -241,12 +241,12 @@ enum LiveOpsService {
 
     private static let noticeList: [NoticeDef] = [
         NoticeDef(id: "NT001", date: localDate(2026, 10, 1),
-                  titleJa: "『VELSTRIA - 星環の戦場』配信開始！",
-                  titleEn: "VELSTRIA - Battlefield of the Star Ring is now live!",
-                  bodyJa: "VELSTRIA へようこそ。5 対 5・3 レーンの戦場で、4 体の AI 味方と共に敵の Star Core を破壊しましょう。\n"
+                  titleJa: "『VELSIA - 星環の戦場』配信開始！",
+                  titleEn: "VELSIA: Star Ring Arena is now live!",
+                  bodyJa: "VELSIA へようこそ。5 対 5・3 レーンの戦場で、4 体の AI 味方と共に敵の Star Core を破壊しましょう。\n"
                       + "オフラインでいつでも遊べます。まずはチュートリアルで操作を確認し、通常戦で腕を磨いてください。\n"
                       + "ウェルカムメールに StarlightCoin・AstralGem・アバターフレームをお届けしています。",
-                  bodyEn: "Welcome to VELSTRIA. Team up with four AI allies on a 5v5, three-lane battlefield and destroy the enemy Star Core.\n"
+                  bodyEn: "Welcome to VELSIA. Team up with four AI allies on a 5v5, three-lane battlefield and destroy the enemy Star Core.\n"
                       + "Play offline anytime. Start with the tutorial, then sharpen your skills in standard matches.\n"
                       + "A welcome gift of StarlightCoin, AstralGem and an avatar frame is waiting in your mailbox."),
         NoticeDef(id: "NT002", date: localDate(2026, 10, 1),
@@ -976,7 +976,7 @@ enum LiveOpsService {
             attachments.append(MailAttachment(kind: .cosmetic, amount: 1, refID: frame.cosmeticID))
         }
         sendMail(to: &profile,
-                 title: L("VELSTRIA へようこそ！", "Welcome to VELSTRIA!"),
+                 title: L("VELSIA へようこそ！", "Welcome to VELSIA!"),
                  body: L("星環の戦場へようこそ。はじめての戦いに役立つ贈り物をお届けします。受け取って冒険を始めましょう。",
                          "Welcome to the Battlefield of the Star Ring. Here is a gift to help you in your first battles."),
                  attachments: attachments, now: now)

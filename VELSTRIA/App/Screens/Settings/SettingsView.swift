@@ -59,7 +59,7 @@ struct SettingsView: View {
     private var footer: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("VELSTRIA \(AppVersionInfo.display)")
+                Text("VELSIA \(AppVersionInfo.display)")
                     .font(Theme.mono(12))
                     .foregroundStyle(Theme.textSecondary)
                 Text(L("設定は自動で保存されます", "Settings are saved automatically"))

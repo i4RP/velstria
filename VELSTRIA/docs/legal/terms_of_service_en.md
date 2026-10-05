@@ -2,7 +2,7 @@
 
 <!-- Publication template. Replace every {{…}} and have it reviewed by counsel before publishing. The Japanese version (terms_of_service_ja.md) prevails in case of conflict. -->
 
-These Terms of Service (the "Terms") govern your use of the iPhone game "VELSTRIA: Star Ring Arena" (the "App") provided by
+These Terms of Service (the "Terms") govern your use of the iPhone game "VELSIA: Star Ring Arena" (the "App") provided by
 {{PUBLISHER_NAME}} ("we", "us"). By using the App you agree to these Terms.
 
 ## 1. Scope and relationship with Apple's EULA

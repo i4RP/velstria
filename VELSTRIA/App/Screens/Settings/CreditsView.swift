@@ -11,7 +11,7 @@ enum CreditsCatalog {
         var title: String { L(titleJa, titleEn) }
     }
 
-    static let teamName = "VELSTRIA Team"
+    static let teamName = "VELSIA Team"
 
     static let roles: [Role] = [
         Role(id: "direction", titleJa: "ゲームディレクション", titleEn: "Game Direction"),
@@ -44,11 +44,11 @@ struct CreditsView: View {
             ScrollView(.vertical, showsIndicators: true) {
                 VStack(spacing: 18) {
                     VStack(spacing: 4) {
-                        Text("VELSTRIA")
+                        Text("VELSIA")
                             .font(.system(size: 34, weight: .black, design: .serif))
                             .tracking(6)
                             .foregroundStyle(LinearGradient(colors: [Theme.gold, .white, Theme.cyan], startPoint: .leading, endPoint: .trailing))
-                        Text(L("ヴェルストリア - 星環の戦場", "Velstria - Battlefield of the Star Ring"))
+                        Text(L("ベルシア - 星環の戦場", "VELSIA: Star Ring Arena"))
                             .font(Theme.body(13))
                             .foregroundStyle(Theme.textSecondary)
                     }
@@ -91,8 +91,8 @@ struct CreditsView: View {
                     }
 
                     creditsBlock(L("オリジナル作品について", "Original Work")) {
-                        Text(L("本作に登場するヒーロー・スキル・世界観・名称・アートはすべて VELSTRIA Team によるオリジナルです。実在の人物・団体・他の作品とは関係ありません。",
-                               "All heroes, skills, lore, names and art in this game are original creations of the VELSTRIA Team. Any resemblance to real people, organisations or other works is coincidental."))
+                        Text(L("本作に登場するヒーロー・スキル・世界観・名称・アートはすべて VELSIA Team によるオリジナルです。実在の人物・団体・他の作品とは関係ありません。",
+                               "All heroes, skills, lore, names and art in this game are original creations of the VELSIA Team. Any resemblance to real people, organisations or other works is coincidental."))
                             .font(Theme.body(13))
                             .foregroundStyle(Theme.textPrimary.opacity(0.9))
                             .multilineTextAlignment(.center)
@@ -109,7 +109,7 @@ struct CreditsView: View {
                         .multilineTextAlignment(.center)
                     }
 
-                    Text("© 2026 VELSTRIA Team  ·  v\(AppVersionInfo.display)")
+                    Text("© 2026 VELSIA Team  ·  v\(AppVersionInfo.display)")
                         .font(Theme.mono(11))
                         .foregroundStyle(Theme.textSecondary)
                         .padding(.bottom, 16)

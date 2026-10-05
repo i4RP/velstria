@@ -61,8 +61,8 @@ struct AccountLinkView: View {
             Label(L("データはこの端末に保存されています", "Your data lives on this device"), systemImage: "iphone")
                 .font(Theme.heading(16))
                 .foregroundStyle(Theme.textPrimary)
-            Text(L("VELSTRIA はオフラインで動作し、オンラインアカウントやサーバーを使いません。プレイデータ（プロフィール・所持品・戦績・購入履歴）はこの iPhone の中にだけ保存されます。",
-                   "VELSTRIA runs offline and doesn't use online accounts or servers. Your play data (profile, inventory, history and purchase records) is stored only on this iPhone."))
+            Text(L("VELSIA はオフラインで動作し、オンラインアカウントやサーバーを使いません。プレイデータ（プロフィール・所持品・戦績・購入履歴）はこの iPhone の中にだけ保存されます。",
+                   "VELSIA runs offline and doesn't use online accounts or servers. Your play data (profile, inventory, history and purchase records) is stored only on this iPhone."))
                 .font(Theme.body(12))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -112,7 +112,7 @@ struct AccountLinkView: View {
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             if let exportURL {
-                ShareLink(item: exportURL, preview: SharePreview(L("VELSTRIA バックアップ", "VELSTRIA Backup"))) {
+                ShareLink(item: exportURL, preview: SharePreview(L("VELSIA バックアップ", "VELSIA Backup"))) {
                     Label(L("バックアップを書き出す", "Export Backup"), systemImage: "square.and.arrow.up")
                         .frame(maxWidth: .infinity)
                 }
@@ -172,7 +172,7 @@ struct AccountLinkView: View {
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyyMMdd-HHmm"
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("VelstriaBackup", isDirectory: true)
-        let url = dir.appendingPathComponent("VELSTRIA-backup-\(f.string(from: Date())).json")
+        let url = dir.appendingPathComponent("VELSIA-backup-\(f.string(from: Date())).json")
         do {
             try? FileManager.default.removeItem(at: dir)
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -198,7 +198,7 @@ struct AccountLinkView: View {
                 pendingImport = try app.persistence.importProfile(from: data)
             } catch {
                 FlowFX.error(app)
-                importError = L("VELSTRIA のバックアップファイルではないか、ファイルが壊れています。", "This isn't a VELSTRIA backup, or the file is damaged.")
+                importError = L("VELSIA のバックアップファイルではないか、ファイルが壊れています。", "This isn't a VELSIA backup, or the file is damaged.")
             }
         }
     }

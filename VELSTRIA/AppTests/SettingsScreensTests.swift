@@ -166,10 +166,10 @@ final class SettingsScreensTests: XCTestCase {
         XCTAssertEqual(comps.path, "support@velstria.example")
         let items = try XCTUnwrap(comps.queryItems)
         XCTAssertEqual(items.map(\.name), ["subject", "body"])
-        XCTAssertEqual(items[0].value, "[VELSTRIA] Bug")
+        XCTAssertEqual(items[0].value, "[VELSIA] Bug")
         let body = try XCTUnwrap(items[1].value)
         XCTAssertTrue(body.hasPrefix(message))
-        XCTAssertTrue(body.contains("App: VELSTRIA 1.0.0 (7)"))
+        XCTAssertTrue(body.contains("App: VELSIA 1.0.0 (7)"))
         XCTAssertTrue(body.contains("Device: iPhone17,3"))
         XCTAssertTrue(body.contains("Player ID: PLAYER-1"))
     }

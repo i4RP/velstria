@@ -67,7 +67,7 @@ struct SupportDeviceInfo: Equatable {
     }
 
     var lines: [String] {
-        ["App: VELSTRIA \(appVersion) (\(build))", "Device: \(device)", "OS: \(os)", "Player ID: \(playerID)", "Language: \(language)"]
+        ["App: VELSIA \(appVersion) (\(build))", "Device: \(device)", "OS: \(os)", "Player ID: \(playerID)", "Language: \(language)"]
     }
 }
 
@@ -75,7 +75,7 @@ enum SupportMail {
     static let maxLength = 2000
 
     static func subject(_ category: SupportCategory) -> String {
-        "[VELSTRIA] \(category.subjectTag)"
+        "[VELSIA] \(category.subjectTag)"
     }
 
     static func body(message: String, info: SupportDeviceInfo) -> String {

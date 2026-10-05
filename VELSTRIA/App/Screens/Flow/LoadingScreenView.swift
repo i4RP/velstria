@@ -30,8 +30,19 @@ struct LoadingScreenView: View {
 
     var body: some View {
         ZStack {
-            StarfieldBackground()
-            RadialGradient(colors: [Theme.cyan.opacity(0.12), .clear], center: .center, startRadius: 10, endRadius: 420)
+            GeometryReader { geo in
+                Image("LoadingKeyArt")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .clipped()
+            }
+            .ignoresSafeArea()
+            LinearGradient(colors: [Color.black.opacity(0.16), .clear, Color.black.opacity(0.82)],
+                           startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea()
+            RadialGradient(colors: [.clear, Color(red: 0.015, green: 0.02, blue: 0.07).opacity(0.72)],
+                           center: .center, startRadius: 180, endRadius: 760)
                 .ignoresSafeArea()
             GeometryReader { geo in
                 let rowHeight = max(96, min(170, (geo.size.height - 118) / 2))
@@ -70,6 +81,10 @@ struct LoadingScreenView: View {
 
     private var header: some View {
         HStack(spacing: 10) {
+            Image("BrandMark")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 34, height: 34)
             Text(title)
                 .font(Theme.title(20))
                 .foregroundStyle(Theme.textPrimary)
@@ -89,6 +104,10 @@ struct LoadingScreenView: View {
                 .foregroundStyle(Theme.textSecondary)
                 .phaseAnimator([0.4, 1.0]) { v, a in v.opacity(a) } animation: { _ in .easeInOut(duration: 0.7) }
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(.black.opacity(0.34), in: Capsule())
+        .overlay(Capsule().stroke(.white.opacity(0.16), lineWidth: 1))
         .accessibilityElement(children: .combine)
     }
 
@@ -146,6 +165,10 @@ struct LoadingScreenView: View {
             .accessibilityLabel(L("読み込み \(Int((overall * 100).rounded()))%", "Loading \(Int((overall * 100).rounded()))%"))
             .accessibilityIdentifier("loading_progress")
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(.white.opacity(0.14)))
     }
 
     // MARK: カード

@@ -13,8 +13,8 @@ enum DailyReminder {
     /// 通知文（言語は解決済みの ja / en。system は端末言語で解決する）。
     static func content(language: AppLanguage) -> (title: String, body: String) {
         switch Loc.resolve(language) {
-        case .en: return ("VELSTRIA", "Daily missions have been refreshed")
-        default: return ("VELSTRIA", "デイリーミッションが更新されました")
+        case .en: return ("VELSIA", "Daily missions have been refreshed")
+        default: return ("VELSIA", "デイリーミッションが更新されました")
         }
     }
 
@@ -141,8 +141,8 @@ struct NotificationSettingsView: View {
                 Label(L("通知がオフになっています", "Notifications are turned off"), systemImage: "exclamationmark.triangle.fill")
                     .font(Theme.heading(14))
                     .foregroundStyle(Theme.gold)
-                Text(L("VELSTRIA の通知は iOS の「設定」でオフになっています。リマインダーを受け取るには、設定アプリで通知を許可してください。",
-                       "Notifications for VELSTRIA are disabled in iOS Settings. Allow notifications there to receive reminders."))
+                Text(L("VELSIA の通知は iOS の「設定」でオフになっています。リマインダーを受け取るには、設定アプリで通知を許可してください。",
+                       "Notifications for VELSIA are disabled in iOS Settings. Allow notifications there to receive reminders."))
                     .font(Theme.body(12))
                     .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)

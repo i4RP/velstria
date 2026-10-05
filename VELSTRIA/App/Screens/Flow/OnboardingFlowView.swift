@@ -120,7 +120,7 @@ private struct OnboardingSplashStep: View {
                     VStack {
                         Spacer()
                         HStack {
-                            Text("© 2026 VELSTRIA")
+                            Text("© 2026 VELSIA")
                             Spacer()
                             Text("v\(version)")
                         }
@@ -272,8 +272,8 @@ struct TermsAgreementView: View {
     private var sections: [Section] {
         [
             Section(id: 0, symbol: "gamecontroller.fill", title: L("サービス内容", "The Service"),
-                    body: L("VELSTRIA は端末内で完結するオフラインの 5v5 対戦ゲームです。味方と敵はすべて AI が操作します。インターネット接続は不要です。",
-                            "VELSTRIA is an offline 5v5 game that runs entirely on your device. All allies and enemies are controlled by AI. No internet connection is required.")),
+                    body: L("VELSIA は端末内で完結するオフラインの 5v5 対戦ゲームです。味方と敵はすべて AI が操作します。インターネット接続は不要です。",
+                            "VELSIA is an offline 5v5 game that runs entirely on your device. All allies and enemies are controlled by AI. No internet connection is required.")),
             Section(id: 1, symbol: "diamond.fill", title: L("有償アイテム", "Paid Items"),
                     body: L("AstralGem はスキンなどの見た目アイテム（コスメ）に使えます。ヒーローはプレイで貯まる StarlightCoin で解放します。戦闘能力を高める商品は販売しません。年齢区分に応じた月間購入上限があり、返金は Apple の規約に従います。有償・無償の Gem は区別して管理し、無償分から先に消費します。",
                             "AstralGems are used for cosmetics. Heroes are unlocked with StarlightCoins earned by playing. We never sell combat power. Monthly limits apply by age group, and refunds follow Apple's policies. Paid and free Gems are tracked separately; free Gems are spent first.")),
