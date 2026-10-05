@@ -175,10 +175,11 @@ struct HeroMotionProfile {
             r.weaponR = -0.22
             runSwingR = 0.5
         case .dualSlash:
-            r.armR = ArmPose(pitch: 0.35, out: m.armRestOut + 0.1, yaw: 0, elbow: 0.9)
-            r.armL = ArmPose(pitch: 0.35, out: m.armRestOut + 0.1, yaw: 0, elbow: 0.9)
-            r.weaponR = -1.25
-            r.weaponL = -1.25
+            // 双剣の構え: 刃を低く前へ開き、主手を前・逆手をやや引いた半身の居合腰
+            r.armR = ArmPose(pitch: 0.5, out: m.armRestOut + 0.14, yaw: 0.1, elbow: 1.05)
+            r.armL = ArmPose(pitch: 0.3, out: m.armRestOut + 0.14, yaw: -0.1, elbow: 1.2)
+            r.weaponR = -1.5
+            r.weaponL = -1.05
         case .punch:
             r.armR = ArmPose(pitch: 0.55, out: m.armRestOut, yaw: 0.2, elbow: 1.35)
             r.armL = ArmPose(pitch: 0.55, out: m.armRestOut, yaw: 0.2, elbow: 1.35)
@@ -264,24 +265,48 @@ struct HeroMotionProfile {
             s.torsoPitch = 0.2
             return ActionClip(windup: w, strike: s, windupTime: 0.16, strikeTime: 0.08, total: 0.38)
         case .dualSlash:
+            // モンハン双剣風: 両刃を使う交差斬りを、2 拍で弧が変わる手数のコンボにする。
+            // attackCount が偶数 → 斬り下ろし(else)、奇数 → 薙ぎ払い(left) が交互に出る。
             if left {
-                w.armL = ArmPose(pitch: 2.3, out: 0.55, yaw: -0.3, elbow: 0.8)
-                w.weaponL = 0.6
-                w.torsoYaw = -0.35
-                s.armL = ArmPose(pitch: 0.5, out: 0.15, yaw: 0.6, elbow: 0.15)
-                s.weaponL = -2.0
-                s.torsoYaw = 0.4
+                // 薙ぎ払い: 左主手を横から水平に振り抜き、逆手が低く追従して前を一文字に薙ぐ
+                w.armL = ArmPose(pitch: 1.35, out: 0.5, yaw: -0.4, elbow: 0.85)   // 主手: 横へ引いて溜める
+                w.weaponL = 0.2
+                w.armR = ArmPose(pitch: 1.5, out: 0.35, yaw: 0.1, elbow: 0.9)     // 逆手: 反対側へ構える
+                w.weaponR = -0.2
+                w.torsoYaw = -0.5
+                w.torsoRoll = 0.12
+                w.headYaw = -0.22
+                s.armL = ArmPose(pitch: 1.05, out: 0.18, yaw: 0.65, elbow: 0.15)  // 主手: 水平に振り抜く
+                s.weaponL = -1.55
+                s.armR = ArmPose(pitch: 1.15, out: 0.2, yaw: -0.35, elbow: 0.3)   // 逆手: 逆向きに薙いで交差
+                s.weaponR = -1.5
+                s.torsoYaw = 0.56
+                s.torsoRoll = -0.15
+                s.headYaw = 0.24
+                s.torsoPitch = 0.08
+                s.headPitch = 0.05
+                return ActionClip(windup: w, strike: s, windupTime: 0.1, strikeTime: 0.06, total: 0.28)
             } else {
-                w.armR = ArmPose(pitch: 2.3, out: 0.55, yaw: -0.3, elbow: 0.8)
-                w.weaponR = 0.6
-                w.torsoYaw = 0.35
-                s.armR = ArmPose(pitch: 0.5, out: 0.15, yaw: 0.6, elbow: 0.15)
-                s.weaponR = -2.0
-                s.torsoYaw = -0.4
+                // 斬り下ろし: 右主手が高い弧で斬り下ろし、逆手が低い弧で薙いで交差する
+                w.armR = ArmPose(pitch: 2.5, out: 0.6, yaw: -0.35, elbow: 0.7)    // 主手: 振りかぶる
+                w.weaponR = 0.85
+                w.armL = ArmPose(pitch: 0.12, out: 0.5, yaw: -0.18, elbow: 1.5)   // 逆手: 低く引いて溜める
+                w.weaponL = -0.3
+                w.torsoYaw = 0.44
+                w.torsoRoll = -0.12
+                w.headYaw = 0.2
+                w.torsoPitch = -0.1                                               // 振りかぶりで少し反る(溜め)
+                s.armR = ArmPose(pitch: 0.5, out: 0.1, yaw: 0.62, elbow: 0.08)    // 主手: 高い弧で斬り下ろす
+                s.weaponR = -2.15
+                s.armL = ArmPose(pitch: 1.1, out: 0.26, yaw: 0.52, elbow: 0.38)   // 逆手: 低い弧で薙いで交差
+                s.weaponL = -1.9
+                s.torsoYaw = -0.52
+                s.torsoRoll = 0.15
+                s.headYaw = -0.22
+                s.torsoPitch = 0.26
+                s.headPitch = 0.1
+                return ActionClip(windup: w, strike: s, windupTime: 0.12, strikeTime: 0.06, total: 0.30)
             }
-            w.torsoPitch = -0.05
-            s.torsoPitch = 0.18
-            return ActionClip(windup: w, strike: s, windupTime: 0.13, strikeTime: 0.07, total: 0.34)
         case .punch:
             if left {
                 w.armL = ArmPose(pitch: 0.4, out: 0.3, yaw: -0.1, elbow: 1.9)
