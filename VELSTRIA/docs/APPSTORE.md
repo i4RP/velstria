@@ -18,7 +18,7 @@ App Store Connect（ASC）への v1.0 提出に必要なもの一式と手順。
 | スクリーンショット計画 | [screenshots.md](appstore/screenshots.md) |
 | リリース判定チェックリスト | [release_checklist.md](appstore/release_checklist.md) |
 | 法務文書（Web 公開用） | `docs/legal/`（プライバシーポリシー・利用規約 日英、特定商取引法に基づく表記、資金決済法に基づく表示） |
-| アイコン・起動ロゴ生成 | `tools/make_icon.swift` |
+| アイコン・起動ロゴ | `App/Resources/Assets.xcassets/AppIcon.appiconset/`、`LaunchLogo.imageset/` |
 | 英語オーバーレイ生成・検証 | `tools/gen_master_en.py` → `App/Resources/master_en.json` |
 | 日本語表示名オーバーレイ（マスターの仮名の置き換え） | `tools/gen_master_ja.py` → `App/Resources/master_ja.json` |
 | プライバシーマニフェスト | `App/Resources/PrivacyInfo.xcprivacy`、検査 `tools/privacy_audit.py` |
@@ -109,8 +109,7 @@ App Store Connect（ASC）への v1.0 提出に必要なもの一式と手順。
 
 ```sh
 cd VELSTRIA
-# 1) 生成物を最新化（アイコン・英語オーバーレイ・日本語表示名オーバーレイ）
-swift tools/make_icon.swift
+# 1) 生成物を最新化（英語オーバーレイ・日本語表示名オーバーレイ）
 python3 tools/gen_master_en.py
 python3 tools/gen_master_ja.py
 # 2) 検証（アーカイブ時にも自動実行される）
@@ -149,11 +148,11 @@ scheme の Run には StoreKit 構成ファイル `App/Resources/Velstria.storek
 
 ## 9. アイコンと起動画面
 
-- `swift tools/make_icon.swift` が CoreGraphics で描画（外部依存なし・固定シードで毎回同じ画像）。
-  - `AppIcon-1024.png`: 1024×1024、**不透明（アルファなし）・角丸なし**（角丸は iOS が付ける）。藍→紫の放射グラデーション、金の星環、4 芒星、双刃の「V」、シアンの星屑。
-  - `AppIcon-Dark-1024.png`（ダーク外観・透過）/ `AppIcon-Tinted-1024.png`（色付き外観・グレースケール）。
-  - `LaunchLogo.imageset`: 紋章のみの透過 PNG（240pt、@1x/@2x/@3x）。
-- 確認用プレビュー: `swift tools/make_icon.swift --preview /tmp/icon-preview`（角丸マスク・60px 縮小・ダーク/色付き合成・起動画面合成を出力）。
+- `AppIcon-1024.png`: H002 を主役に、白い星環のシルエット紋章を背景へ配した 1024×1024 のキャラクターアイコン。**不透明（アルファなし）・角丸なし**（角丸は iOS が付ける）。
+- `AppIcon-Dark-1024.png`: ダーク外観でも同じキャラクターと紋章を表示し、ホーム画面上のブランド認識を統一する。
+- `AppIcon-Tinted-1024.png`: 白い星環のシルエット紋章を単色表示する。
+- `LaunchLogo.imageset`: 同じシルエット紋章のみの透過 PNG（240pt、@1x/@2x/@3x）。
+- 旧双剣ロゴとその生成ツールは廃止済み。今後のアイコンでは使用しない。
 - App Store の製品ページのアイコンはビルド内の `AppIcon` から自動で使われる（別途アップロード不要）。
 
 ## 10. 提出手順（チェック順）

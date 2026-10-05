@@ -64,7 +64,7 @@ else
 fi
 ICON="App/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png"
 if [[ "$(sips -g hasAlpha "$ICON" | awk '/hasAlpha/ {print $2}')" != "no" ]]; then
-    echo "error: $ICON にアルファチャンネルがあります（App Store のアイコンは不透明であること）。swift tools/make_icon.swift で再生成" >&2
+    echo "error: $ICON にアルファチャンネルがあります（App Store のアイコンは不透明であること）。不透明な 1024×1024 PNG に差し替えてください" >&2
     exit 1
 fi
 

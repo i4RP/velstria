@@ -5,7 +5,7 @@ import VelstriaCore
 
 // 担当: appstore-assets。
 // App Store 提出物（英語オーバーレイ・プライバシーマニフェスト・アイコン・起動画面・Info.plist）が
-// ビルド済みアプリに正しく入っていることを検査する。生成元は tools/gen_master_en.py と tools/make_icon.swift。
+// ビルド済みアプリに正しく入っていることを検査する。英語オーバーレイの生成元は tools/gen_master_en.py。
 
 final class AppStoreAssetsTests: XCTestCase {
     private var overlay: [String: String] = [:]
