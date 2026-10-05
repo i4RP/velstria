@@ -273,6 +273,11 @@ final class HeroModel: HeroDisplayModel {
     private let weaponFollowsArm: Bool
     private let offhandFollowsArm: Bool
     private var animator: HeroAnimator
+    /// 歩幅の基準にする腰から足首までの長さ（m）。テストで手続きモデルと skinned モデルの走りの位相を揃えるのに使う。
+    var legLength: Float {
+        get { animator.legLength }
+        set { animator.legLength = newValue }
+    }
 
     init(heroID: String, skin: HeroSkinInfo, blueprint bp: HeroBlueprint, meshes ms: HeroMeshSet,
          materials: [RealityKit.Material], palette: HeroPalette, team: Team, options: HeroModelOptions,
