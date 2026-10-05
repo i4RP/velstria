@@ -231,7 +231,7 @@ enum BotMacro {
         if let lane = st.lane { return lane }
         var best: Lane = .mid
         var bestScore = -Double.infinity
-        for lane in Lane.allCases where w.frontTower(team: team.opponent, lane: lane) == nil {
+        for lane in ctx.map.lanes where w.frontTower(team: team.opponent, lane: lane) == nil {
             let len = w.laneLength[lane.rawValue]
             let approach = BotLane.point(ctx.map, lane, team: team, progress: len * 0.6)
             var score = -Double(enemiesSeenNear(s, intel, approach, radius: 3000, within: 8))
@@ -252,7 +252,7 @@ enum BotMacro {
         let enemy = team.opponent
         var best: Lane = .mid
         var bestScore = -Double.infinity
-        for lane in Lane.allCases {
+        for lane in ctx.map.lanes {
             // 目標: レーンの最前の敵塔（無ければ攻撃可能な Core）
             var target = w.frontTower(team: enemy, lane: lane)
             if target == nil, let core = w.core(of: enemy), !core.invulnerable { target = core }

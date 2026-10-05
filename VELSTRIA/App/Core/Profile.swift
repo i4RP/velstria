@@ -244,6 +244,17 @@ struct PassState: Codable, Equatable {
     var claimedPremium: [Int] = []
 }
 
+/// ライジング（対 AI の勝ち上がりラダー）の進行。
+struct RisingProgress: Codable, Equatable {
+    /// 次に挑戦するステージ（0 始まり。ladder.count に達したら踏破）。
+    var stageIndex = 0
+    /// これまでの到達最高ステージ。
+    var bestStageIndex = 0
+    /// 報酬受取済みのステージ（二重付与防止）。
+    var claimedStages: [Int] = []
+    var seasonID = "R1"
+}
+
 struct MailAttachment: Codable, Equatable {
     enum Kind: String, Codable { case coin, gem, cosmetic, hero, passXP }
     var kind: Kind
@@ -333,6 +344,11 @@ struct Profile: Codable, Equatable {
     var career = CareerStats()
     var matchHistory: [MatchRecord] = []
     var replays: [ReplayMeta] = []
+    // ゲームモードの進行・記録
+    var rising = RisingProgress()
+    /// マジックチェスの最高順位（1 が最良。未プレイは nil）。
+    var magicChessBestPlacement: Int?
+    var magicChessMatches = 0
     var achievements: [String: AchievementProgress] = [:]
     var missions = MissionState()
     var pass = PassState()

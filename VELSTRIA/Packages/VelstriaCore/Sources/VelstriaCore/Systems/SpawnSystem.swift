@@ -89,7 +89,7 @@ public enum SpawnSystem {
     static func spawnWave(_ s: inout SimState, _ ctx: SimContext) {
         let types = waveComposition(waveIndex: s.world.waveIndex, time: s.time)
         for team in Team.players {
-            for lane in Lane.allCases {
+            for lane in ctx.map.lanes {
                 let path = ctx.map.lanePath(lane, for: team)
                 let start = path[0]
                 let dir = (path[1] - path[0]).normalized

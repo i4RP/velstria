@@ -105,7 +105,7 @@ enum BotJungle {
     static func assistLane(_ s: SimState, _ ctx: SimContext, _ w: BotWorld, _ a: BotAgent) -> Lane {
         var best = ctx.map.nearestLane(to: a.pos).lane
         var bestScore = Double.infinity
-        for lane in Lane.allCases {
+        for lane in ctx.map.lanes {
             let d = BotLane.blueProgress(ctx.map, lane, a.pos).distance
             var score = d
             if let ef = w.visibleEnemyFront(team: a.team, lane: lane) {

@@ -65,9 +65,17 @@ public enum MatchFlowSystem {
 
     // MARK: - 降参
 
-    /// 降参が使えるモードか（対 AI 戦のみ。練習場・チュートリアル・観戦は不可）。
+    /// 降参が使えるモードか（人間がいる対 AI 戦のみ。練習場・チュートリアル・観戦は不可）。
     public static func surrenderEnabled(_ ctx: SimContext) -> Bool {
-        ctx.config.mode == .standard || ctx.config.mode == .ranked
+        switch ctx.config.mode {
+        case .standard, .ranked, .brawl:
+            return true
+        case .custom:
+            // カスタムは人間がいるときだけ降参可（全 AI 観戦相当では不可）。
+            return ctx.config.humanSlot != nil
+        case .practice, .tutorial, .spectate, .magicChess:
+            return false
+        }
     }
 
     /// team が今、降参を提案できるか（HUD のボタン活性）。

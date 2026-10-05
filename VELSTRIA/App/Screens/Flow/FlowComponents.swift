@@ -809,6 +809,9 @@ enum FlowText {
         case .practice: return L("練習場", "Practice")
         case .tutorial: return L("チュートリアル", "Tutorial")
         case .spectate: return L("観戦", "Spectate")
+        case .brawl: return L("乱闘", "Brawl")
+        case .custom: return L("カスタム", "Custom")
+        case .magicChess: return L("マジックチェス", "Magic Chess")
         }
     }
 

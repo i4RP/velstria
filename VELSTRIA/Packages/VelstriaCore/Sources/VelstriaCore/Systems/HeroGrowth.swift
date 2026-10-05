@@ -53,8 +53,10 @@ public enum HeroGrowth {
 
     /// XP を加算しレベルアップを処理する。
     public static func grantXP(_ s: inout SimState, _ ctx: SimContext, heroIndex i: Int, amount: Double) {
-        guard amount > 0, var h = s.units[i].hero, h.level < Balance.maxLevel else { return }
-        h.xp += amount
+        // 乱闘などモード別の XP 加速。
+        let scaled = amount * Balance.Economy.xpScale(ctx.config.mode)
+        guard scaled > 0, var h = s.units[i].hero, h.level < Balance.maxLevel else { return }
+        h.xp += scaled
         var leveled = false
         while h.level < Balance.maxLevel, h.xp >= xpToNext(level: h.level) {
             h.xp -= xpToNext(level: h.level)

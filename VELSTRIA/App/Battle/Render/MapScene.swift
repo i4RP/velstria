@@ -326,7 +326,7 @@ final class MapScene {
                     }
                 }
             }
-            for lane in Lane.allCases {
+            for lane in map.lanes {
                 let path = map.lanePath(lane, for: team)
                 guard path.count >= 2 else { continue }
                 let dir = (path[1] - core).normalized

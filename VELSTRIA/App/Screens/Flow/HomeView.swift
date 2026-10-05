@@ -315,15 +315,23 @@ private struct HomeBattleColumn: View {
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("home_rank")
 
-            Button {
-                FlowFX.confirm(app)
-                MatchFlowIntent.present(nil, app: app)
-            } label: {
-                BattleButtonLabel()
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 8) {
+                    Button {
+                        FlowFX.confirm(app)
+                        MatchFlowIntent.present(nil, app: app)
+                    } label: {
+                        BattleButtonLabel()
+                    }
+                    .buttonStyle(BattleButtonStyle())
+                    .accessibilityLabel(L("対戦開始", "Battle"))
+                    .accessibilityIdentifier("home_play")
+
+                    HomeModeGrid()
+                }
+                .padding(.bottom, 2)
             }
-            .buttonStyle(BattleButtonStyle())
-            .accessibilityLabel(L("対戦開始", "Battle"))
-            .accessibilityIdentifier("home_play")
+            .frame(maxHeight: .infinity)
 
             HStack(spacing: 6) {
                 Image(systemName: HomeBadges.firstWinAvailable(p, now: now) ? "sun.max.fill" : "checkmark.circle.fill")
@@ -383,6 +391,72 @@ private struct BattleButtonStyle: ButtonStyle {
             .glowPulse(Theme.gold, radius: 20)
             .scaleEffect(configuration.isPressed ? 0.96 : 1)
             .animation(.spring(duration: 0.2), value: configuration.isPressed)
+    }
+}
+
+// MARK: - モード選択グリッド（モバイルレジェンド風）
+
+private struct HomeModeGrid: View {
+    @Environment(AppModel.self) private var app
+
+    private struct Tile: Identifiable {
+        let id: String
+        let symbol: String
+        let title: String
+        let tint: Color
+        let action: (AppModel) -> Void
+    }
+
+    private var tiles: [Tile] {
+        let magic = Color(red: 0.62, green: 0.55, blue: 1.0)
+        return [
+            Tile(id: "ranked", symbol: "crown.fill", title: L("ランキング", "Ranked"), tint: Theme.gold) {
+                MatchFlowIntent.present(.ranked, app: $0)
+            },
+            Tile(id: "brawl", symbol: "burst.fill", title: L("乱闘", "Brawl"), tint: Theme.cyan) {
+                MatchFlowIntent.present(.brawl($0.profile.preferredDifficulty), app: $0)
+            },
+            Tile(id: "arcade", symbol: "gamecontroller.fill", title: L("アーケード", "Arcade"), tint: Theme.cyan) {
+                $0.router.push(.arcade)
+            },
+            Tile(id: "rising", symbol: "chart.line.uptrend.xyaxis", title: L("ライジング", "Rising"), tint: Theme.cyan) {
+                $0.router.push(.rising)
+            },
+            Tile(id: "custom", symbol: "slider.horizontal.3", title: L("AI対戦/カスタム", "AI & Custom"), tint: Theme.cyan) {
+                $0.router.push(.customSetup)
+            },
+            Tile(id: "magicChess", symbol: "square.grid.3x3.fill", title: L("マジックチェス", "Magic Chess"), tint: magic) {
+                $0.router.push(.magicChess)
+            },
+        ]
+    }
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+            ForEach(tiles) { tile in
+                Button {
+                    FlowFX.tap(app)
+                    tile.action(app)
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: tile.symbol)
+                            .font(.system(size: 19, weight: .bold))
+                            .foregroundStyle(tile.tint)
+                            .frame(height: 22)
+                        Text(tile.title)
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundStyle(Theme.textPrimary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 54)
+                    .glass(cornerRadius: 12, tint: tile.tint.opacity(0.7))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("home_mode_\(tile.id)")
+            }
+        }
     }
 }
 

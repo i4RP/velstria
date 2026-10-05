@@ -102,6 +102,80 @@ public enum MatchFactory {
                            maxDuration: 60 * 60)
     }
 
+    /// 乱闘（単レーン・ジャングル無し）の 5v5。ジャングルスペル（BS05）は付けず、`humanHeroID` が nil なら
+    /// シードからランダムに選ぶ。短縮クロック（15 分）。マップは `MapDefinition.map(for: .brawl)` が担う。
+    public static func brawlMatch(humanHeroID: String? = nil, humanName: String,
+                                  humanTeam: Team = .blue, humanSpells: [String]? = nil,
+                                  humanRunes: [String] = [], humanSkin: String? = nil,
+                                  humanPosition: LanePosition? = nil,
+                                  allyDifficulty: Difficulty = .normal, enemyDifficulty: Difficulty = .normal,
+                                  banned: [String] = [], seed: UInt64,
+                                  master: MasterData = .shared) -> MatchConfig {
+        var rng = SplitMix64(seed: seed ^ 0xB7A1_55C2_9E3F_1D04)
+        var used = Set(banned)
+        let humanHero: String = humanHeroID ?? {
+            let pool = master.heroes.map(\.heroID).filter { !used.contains($0) }
+            return rng.pick(pool) ?? master.heroes[0].heroID
+        }()
+        used.insert(humanHero)
+        let humanPos = humanPosition ?? defaultPosition(for: master.hero(humanHero)?.role ?? .duelist)
+        var picks = draftTeams(used: &used, rng: &rng, master: master,
+                               fixed: [(humanTeam, humanPos, humanHero)])
+        var players: [PlayerSlot] = []
+        for team in Team.players {
+            for pos in LanePosition.allCases {
+                if team == humanTeam && pos == humanPos {
+                    players.append(PlayerSlot(team: team, heroID: humanHero, controller: .human, position: pos,
+                                              spells: humanSpells ?? ["BS01", "BS03"], runes: humanRunes,
+                                              skinID: humanSkin, displayName: humanName))
+                    continue
+                }
+                let heroID = picks[team.rawValue][pos.rawValue] ?? pickHero(for: pos, used: &used, rng: &rng, master: master)
+                picks[team.rawValue][pos.rawValue] = heroID
+                let diff = team == humanTeam ? allyDifficulty : enemyDifficulty
+                let name = master.hero(heroID)?.codeName ?? heroID
+                // ジャングルが無いので全員 BS05 無しの汎用スペル。
+                players.append(PlayerSlot(team: team, heroID: heroID, controller: .bot, position: pos,
+                                          spells: ["BS01", "BS03"], runes: [],
+                                          displayName: "\(name)_AI", botDifficulty: diff))
+            }
+        }
+        return MatchConfig(mode: .brawl, seed: seed, players: players, maxDuration: 15 * 60)
+    }
+
+    /// カスタム対戦（対 AI、標準マップ）。`humanSide` が nil なら全員 AI。side 別に難易度を指定できる。
+    /// 乱闘マップを使いたい場合は呼び出し側で `brawlMatch` を使う（マップは mode から導出するため）。
+    public static func customMatch(humanSide: Team? = .blue, humanHeroID: String? = nil, humanName: String = "Player",
+                                   humanSpells: [String]? = nil, humanRunes: [String] = [], humanSkin: String? = nil,
+                                   humanPosition: LanePosition? = nil,
+                                   allyDifficulty: Difficulty = .normal, enemyDifficulty: Difficulty = .normal,
+                                   banned: [String] = [], seed: UInt64,
+                                   master: MasterData = .shared) -> MatchConfig {
+        if let humanSide, let humanHeroID {
+            return standardMatch(mode: .custom, humanHeroID: humanHeroID, humanName: humanName,
+                                 humanTeam: humanSide, humanSpells: humanSpells, humanRunes: humanRunes,
+                                 humanSkin: humanSkin, humanPosition: humanPosition,
+                                 allyDifficulty: allyDifficulty, enemyDifficulty: enemyDifficulty,
+                                 banned: banned, seed: seed, master: master)
+        }
+        var rng = SplitMix64(seed: seed ^ 0x51ED_2701_44AB_9CF3)
+        var used = Set(banned)
+        var picks = draftTeams(used: &used, rng: &rng, master: master, fixed: [])
+        var players: [PlayerSlot] = []
+        for team in Team.players {
+            for pos in LanePosition.allCases {
+                let heroID = picks[team.rawValue][pos.rawValue] ?? pickHero(for: pos, used: &used, rng: &rng, master: master)
+                picks[team.rawValue][pos.rawValue] = heroID
+                let diff = team == .blue ? allyDifficulty : enemyDifficulty
+                let name = master.hero(heroID)?.codeName ?? heroID
+                players.append(PlayerSlot(team: team, heroID: heroID, controller: .bot, position: pos,
+                                          spells: defaultSpells(for: pos), displayName: "\(name)_AI",
+                                          botDifficulty: diff))
+            }
+        }
+        return MatchConfig(mode: .custom, seed: seed, players: players)
+    }
+
     /// ポジション順に Blue / Red 交互で AI がピックする。fixed は事前に決まっている枠（人間）。
     /// 戻り値 [Team.rawValue][LanePosition.rawValue]。
     static func draftTeams(used: inout Set<String>, rng: inout SplitMix64, master: MasterData,

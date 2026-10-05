@@ -99,6 +99,9 @@ enum LiveOpsFormat {
         case .practice: return L("練習場", "Practice")
         case .tutorial: return L("チュートリアル", "Tutorial")
         case .spectate: return L("観戦", "Spectate")
+        case .brawl: return L("乱闘", "Brawl")
+        case .custom: return L("カスタム", "Custom")
+        case .magicChess: return L("マジックチェス", "Magic Chess")
         }
     }
 
@@ -109,6 +112,9 @@ enum LiveOpsFormat {
         case .practice: return "target"
         case .tutorial: return "graduationcap.fill"
         case .spectate: return "eye.fill"
+        case .brawl: return "burst.fill"
+        case .custom: return "slider.horizontal.3"
+        case .magicChess: return "square.grid.3x3.fill"
         }
     }
 

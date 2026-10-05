@@ -79,11 +79,11 @@ enum RewardService {
         return max(minDurationFactor, min(1, seconds / 60 / fullRewardMinutes))
     }
 
-    /// 報酬対象の試合か。
+    /// 報酬対象の試合か（通常戦・ランク戦・乱闘。カスタム/観戦/練習は対象外）。
     static func isRewardEligible(_ outcome: BattleOutcome) -> Bool {
         let mode = outcome.launch.config.mode
         guard outcome.launch.replay == nil, !outcome.launch.isSpectating, !outcome.abandoned else { return false }
-        guard mode == .standard || mode == .ranked else { return false }
+        guard mode == .standard || mode == .ranked || mode == .brawl else { return false }
         return outcome.summary.humanPlayer != nil
     }
 

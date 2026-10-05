@@ -58,6 +58,9 @@ struct RootView: View {
         .fullScreenCover(item: Binding(get: { app.activeBattle }, set: { app.activeBattle = $0 })) { launch in
             BattleSessionView(launch: launch).environment(app)
         }
+        .fullScreenCover(item: Binding(get: { app.activeMagicChess }, set: { app.activeMagicChess = $0 })) { launch in
+            MagicChessGameView(launch: launch).environment(app)
+        }
         .preferredColorScheme(.dark)
         .statusBarHidden(true)
         .persistentSystemOverlays(.hidden)

@@ -20,15 +20,18 @@ public enum EconomyRewards {
     public static func grantGold(_ s: inout SimState, heroIndex i: Int, amount: Double, at pos: Vec2? = nil,
                                  visible: Bool = true) {
         guard amount > 0, s.units[i].hero != nil else { return }
+        let infinite = hasInfiniteGold(s.config)
+        // 乱闘などモード別の加速（練習場の無限 Gold は固定値なので加速しない）。
+        let scaled = infinite ? amount : amount * Balance.Economy.goldScale(s.config.mode)
         // 練習場の無限 Gold では所持金を固定値のまま保つ（HUD に一瞬 99999 超えが出ないように）
-        if hasInfiniteGold(s.config) {
+        if infinite {
             s.units[i].hero!.gold = Balance.Economy.practiceGold
         } else {
-            s.units[i].hero!.gold += amount
+            s.units[i].hero!.gold += scaled
         }
-        s.units[i].hero!.score.goldEarned += amount
+        s.units[i].hero!.score.goldEarned += scaled
         if visible {
-            s.emit(.goldGained(heroID: s.units[i].id, amount: amount, pos: pos ?? s.units[i].pos))
+            s.emit(.goldGained(heroID: s.units[i].id, amount: scaled, pos: pos ?? s.units[i].pos))
         }
     }
 

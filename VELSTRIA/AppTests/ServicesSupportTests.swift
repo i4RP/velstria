@@ -30,6 +30,13 @@ enum ServicesFixtures {
                                               tutorial: mode == .tutorial, seed: seed)
         case .spectate:
             return MatchFactory.botMatch(seed: seed)
+        case .brawl:
+            return MatchFactory.brawlMatch(humanHeroID: heroID, humanName: "Tester", seed: seed)
+        case .custom:
+            return MatchFactory.customMatch(humanSide: .blue, humanHeroID: heroID, humanName: "Tester", seed: seed)
+        case .magicChess:
+            // マジックチェスは MatchConfig を通常の MOBA 用途では使わない（戦闘のみ一時 SimState で流用）。
+            return MatchConfig(mode: .magicChess, seed: seed, players: [])
         }
     }
 

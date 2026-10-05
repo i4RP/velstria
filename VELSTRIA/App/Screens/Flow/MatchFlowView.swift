@@ -8,7 +8,7 @@ import VelstriaCore
 @Observable
 @MainActor
 final class MatchFlowModel {
-    enum Kind: Equatable { case standard, ranked }
+    enum Kind: Equatable { case standard, ranked, brawl }
     enum Step: Int, Equatable { case mode, heroSelect, draft, ready }
 
     var step: Step = .mode
@@ -120,12 +120,25 @@ final class MatchFlowModel {
         step = .heroSelect
     }
 
+    func startBrawl() {
+        kind = .brawl
+        draft = nil
+        config = nil
+        step = .heroSelect
+    }
+
     /// 構成を作る（ランク戦はドラフトの結果を AI 枠に反映）。
     func buildConfig(profile: Profile, master: MasterData) -> MatchConfig? {
         guard let heroID else { return nil }
+        let name = profile.displayName.isEmpty ? "Player" : profile.displayName
+        if kind == .brawl {
+            return MatchFactory.brawlMatch(humanHeroID: heroID, humanName: name, humanSpells: spells,
+                                           humanRunes: runeIDs(profile: profile), humanSkin: skinID,
+                                           humanPosition: position, allyDifficulty: .normal,
+                                           enemyDifficulty: difficulty, seed: seed, master: master)
+        }
         let ranked = kind == .ranked
         let diffs = ranked ? RankService.botDifficulty(for: profile.rank) : (ally: Difficulty.normal, enemy: difficulty)
-        let name = profile.displayName.isEmpty ? "Player" : profile.displayName
         var config = MatchFactory.standardMatch(mode: ranked ? .ranked : .standard, humanHeroID: heroID, humanName: name,
                                                 humanTeam: .blue, humanSpells: spells, humanRunes: runeIDs(profile: profile),
                                                 humanSkin: skinID, humanPosition: position,
@@ -177,6 +190,9 @@ struct MatchFlowView: View {
                 model.startStandard()
             case .ranked?:
                 model.startRanked(profile: app.profile)
+            case .brawl(let d)?:
+                model.difficulty = d
+                model.startBrawl()
             case nil:
                 break
             }
@@ -469,10 +485,14 @@ private struct ReadyStep: View {
     }
 
     private var subtitle: String {
-        if model.kind == .ranked {
+        switch model.kind {
+        case .ranked:
             return L("ランク戦", "Ranked") + " · " + RankService.displayName(app.profile.rank)
+        case .brawl:
+            return L("乱闘", "Brawl") + " · " + L("敵 AI ", "Enemy AI ") + FlowText.difficulty(model.difficulty)
+        case .standard:
+            return L("通常戦", "Standard") + " · " + L("敵 AI ", "Enemy AI ") + FlowText.difficulty(model.difficulty)
         }
-        return L("通常戦", "Standard") + " · " + L("敵 AI ", "Enemy AI ") + FlowText.difficulty(model.difficulty)
     }
 
     private func back() {
@@ -494,10 +514,11 @@ private struct ReadyStep: View {
                     .opacity(appeared ? 1 : 0)
             }
             VStack(spacing: 3) {
-                Text(L("星環の戦場", "Star Ring Battlefield"))
+                Text(model.kind == .brawl ? L("乱闘の回廊", "Brawl Corridor") : L("星環の戦場", "Star Ring Battlefield"))
                     .font(Theme.heading(13))
                     .foregroundStyle(Theme.textPrimary)
-                Text(L("3 レーン · ジャングル", "3 lanes · Jungle"))
+                Text(model.kind == .brawl ? L("単レーン · 加速", "Single lane · Accelerated")
+                                          : L("3 レーン · ジャングル", "3 lanes · Jungle"))
                     .font(Theme.body(11))
                     .foregroundStyle(Theme.textSecondary)
                 if model.kind == .ranked {

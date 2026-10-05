@@ -340,7 +340,7 @@ struct StageGeometry {
 
     init(map: MapDefinition) {
         func m(_ v: Vec2) -> SIMD2<Float> { SIMD2(Float(v.x / Balance.unitsPerMeter), Float(v.y / Balance.unitsPerMeter)) }
-        lanes = Lane.allCases.map { lane in map.lanePath(lane, for: .blue).map(m) }
+        lanes = map.lanes.map { lane in map.lanePath(lane, for: .blue).map(m) }
         var rects: [(SIMD2<Float>, SIMD2<Float>)] = []
         var circles: [(SIMD2<Float>, Float)] = []
         for o in map.obstacles {

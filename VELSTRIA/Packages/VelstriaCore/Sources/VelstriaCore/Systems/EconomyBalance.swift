@@ -6,6 +6,12 @@ import Foundation
 
 extension Balance {
     public enum Economy {
+        // MARK: モード別の加速（DESIGN §8）
+        /// モード別の Gold 倍率（乱闘は加速）。`grantGold` で適用（無限 Gold 時は適用しない）。
+        public static func goldScale(_ mode: MatchMode) -> Double { mode == .brawl ? 2.0 : 1.0 }
+        /// モード別の XP 倍率（乱闘は加速）。`grantXP` で適用。
+        public static func xpScale(_ mode: MatchMode) -> Double { mode == .brawl ? 2.0 : 1.0 }
+
         // MARK: XP
         /// 2 人以上で XP を分け合う時の合計倍率（DESIGN §8）。
         public static let groupXPMultiplier: Double = 1.3

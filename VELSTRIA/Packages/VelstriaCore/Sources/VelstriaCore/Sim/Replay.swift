@@ -85,12 +85,13 @@ public final class ReplayPlayer {
     /// 再生中に保存した状態（tick 昇順・重複なし）。
     private var keyframes: [SimState] = []
 
-    public init(data: ReplayData, master: MasterData = .shared, map: MapDefinition = .standard,
+    public init(data: ReplayData, master: MasterData = .shared, map: MapDefinition? = nil,
                 keyframeInterval: Int = ReplayPlayer.defaultKeyframeInterval) {
         self.data = data
         self.keyframeInterval = max(1, keyframeInterval)
         self.master = master
-        self.map = map
+        // マップは保存しないので記録時の mode から導出する（乱闘リプレイのデシンク防止）。
+        self.map = map ?? MapDefinition.map(for: data.config.mode)
         self.frames = data.frames.enumerated()
             .sorted { $0.element.tick != $1.element.tick ? $0.element.tick < $1.element.tick : $0.offset < $1.offset }
             .map(\.element)

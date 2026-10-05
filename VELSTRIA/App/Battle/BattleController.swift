@@ -92,7 +92,7 @@ final class BattleController {
 
     init(launch: BattleLaunch) {
         self.launch = launch
-        self.sim = Simulation(config: launch.config)
+        self.sim = Simulation(config: launch.config, map: MapDefinition.map(for: launch.config.mode))
         if let replay = launch.replay {
             recorder = nil
             for f in replay.frames { replayFrames[f.tick, default: []].append(contentsOf: f.commands) }

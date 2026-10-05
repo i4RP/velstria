@@ -417,6 +417,7 @@ enum MatchFlowIntent {
     enum Entry: Equatable {
         case standard(Difficulty)
         case ranked
+        case brawl(Difficulty)
     }
 
     static var pending: Entry?

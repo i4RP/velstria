@@ -49,7 +49,8 @@ public struct PracticeOptions: Codable, Hashable, Sendable {
 
 public struct MatchConfig: Codable, Hashable, Sendable {
     /// リプレイ互換性のためのシミュレーション版数。ルール変更時に上げる。
-    public static let currentSimVersion = 3
+    /// 4: 乱闘（単レーン・経済加速）を追加。
+    public static let currentSimVersion = 4
 
     public var simVersion: Int
     public var mode: MatchMode

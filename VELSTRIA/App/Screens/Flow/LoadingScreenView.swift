@@ -237,7 +237,7 @@ struct LoadingScreenView: View {
             _ = app.master.skills(forHero: slot.heroID)
         }
         // 地面テクスチャ・シェーダー（マテリアル・後処理）をメインスレッドの外で作り始める（戦闘画面は出来上がりを受け取るだけ）
-        BattlePreload.begin(settings: app.profile.settings)
+        BattlePreload.begin(settings: app.profile.settings, map: MapDefinition.map(for: launch.config.mode))
         // 前の試合のテンプレートを先に捨て、読み込みは 1 tick に 1 人ずつ（まとめて読むと最初のフレームが止まる）
         let players = launch.config.players.map { (heroID: $0.heroID, skinID: $0.skinID) }
         HeroModelLibrary.purge(keepingPlayers: players, master: app.master)

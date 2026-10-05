@@ -111,6 +111,10 @@ public struct MapDefinition: Codable, Hashable, Sendable {
     public var cores: [Vec2]
     /// Blue 視点のレーン経路（Blue Core → Red Core）。index = Lane.rawValue
     public var lanePaths: [[Vec2]]
+    /// 実在するレーン。通常は 3 本、乱闘は `[.mid]` のみ。
+    /// ミニオン生成・ボットのレーン選択・レーン検証はこの配列を基準にする
+    /// （`lanePaths` は常に 3 要素を保ちインデックス安全性を確保する）。
+    public var lanes: [Lane] = Lane.allCases
     public var towers: [TowerSpot]
     public var camps: [CampSpot]
     public var brushes: [BrushArea]
@@ -181,10 +185,10 @@ extension MapDefinition {
         MapDefinition.project(p, onto: lanePaths[lane.rawValue]).distance
     }
 
-    /// 最も近いレーンとその距離。
+    /// 最も近いレーンとその距離（実在レーンのみ対象）。
     public func nearestLane(to p: Vec2) -> (lane: Lane, distance: Double) {
-        var best: (lane: Lane, distance: Double) = (.mid, .infinity)
-        for lane in Lane.allCases {
+        var best: (lane: Lane, distance: Double) = (lanes.first ?? .mid, .infinity)
+        for lane in lanes {
             let d = distanceToLane(p, lane: lane)
             if d < best.distance { best = (lane, d) }
         }
@@ -291,6 +295,45 @@ extension MapDefinition {
         )
     }()
 
+    /// モードに応じたマップ（`config.mode` から決定論的に導出する。リプレイはマップを保存しないため、
+    /// `Simulation` を組む全箇所でこれを使うこと）。マジックチェスは専用の `magicChessBoard` を直接使う。
+    public static func map(for mode: MatchMode) -> MapDefinition {
+        mode == .brawl ? .brawl : .standard
+    }
+
+    /// 乱闘マップ（単レーン・ジャングル無し）。mid の対角 1 本だけを使う 5v5。
+    /// `lanePaths` は 3 要素（top=bot=mid）を保ちつつ `lanes=[.mid]` で挙動を制限する。
+    /// 障害物・キャンプは置かず、検証（laneObstacleClearance/baseClearRadius）を確実に通す。
+    public static let brawl: MapDefinition = {
+        let blueFountain = Vec2(700, 700)
+        let blueCore = Vec2(1500, 1500)
+        let redCore = blueCore.mirrored
+        let mid: [Vec2] = [blueCore, Vec2(2300, 2300), Vec2(9700, 9700), redCore]
+
+        // mid 3 tier を両チーム分 + コア。
+        let blueMidTowers = [Vec2(4300, 4300), Vec2(3400, 3400), Vec2(2600, 2600)]
+        var towers: [TowerSpot] = []
+        for tier in TowerTier.allCases {
+            towers.append(TowerSpot(team: .blue, lane: .mid, tier: tier, pos: blueMidTowers[tier.rawValue], isCore: false))
+            towers.append(TowerSpot(team: .red, lane: .mid, tier: tier, pos: blueMidTowers[tier.rawValue].mirrored, isCore: false))
+        }
+        towers.append(TowerSpot(team: .blue, lane: nil, tier: .base, pos: blueCore, isCore: true))
+        towers.append(TowerSpot(team: .red, lane: nil, tier: .base, pos: redCore, isCore: true))
+
+        return MapDefinition(
+            size: Balance.mapSize,
+            fountains: [blueFountain, blueFountain.mirrored],
+            cores: [blueCore, redCore],
+            lanePaths: [mid, mid, mid],
+            lanes: [.mid],
+            towers: towers,
+            camps: [],
+            brushes: [],
+            obstacles: [],
+            riverWidth: 900
+        )
+    }()
+
     /// Blue 下側ジャングルの壁（10 個 × 4 = 40 個）。
     /// 通路: bot レーン→小キャンプ(5000,2800)、小→紅焔の番人(6300,3300)、番人→小(5800,4700)→mid/河川、
     ///       番人→星喰竜の巣(8300,3700) の南西口、bot レーン→巣の南口（外塔の先）、泉側からの裏口。
@@ -341,7 +384,7 @@ extension MapDefinition {
     func validationIssues() -> [String] {
         var issues: [String] = []
         for (k, o) in obstacles.enumerated() {
-            for lane in Lane.allCases {
+            for lane in lanes {
                 let d = MapDefinition.distance(from: o, toPolyline: lanePaths[lane.rawValue])
                 if d < MapDefinition.laneObstacleClearance {
                     issues.append("obstacle \(k) is \(Int(d)) from lane \(lane)")

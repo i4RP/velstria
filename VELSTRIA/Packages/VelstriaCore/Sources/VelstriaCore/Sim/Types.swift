@@ -214,6 +214,12 @@ public enum MatchMode: Int, Codable, Hashable, Sendable {
     case tutorial
     /// 観戦（10 体すべて AI）。
     case spectate
+    /// 乱闘（単レーン・ジャングル無し・ゴールド/XP 加速の 5v5 対 AI）。
+    case brawl
+    /// カスタム（人数側・難易度・マップ・ルールを設定して起動する対 AI）。
+    case custom
+    /// マジックチェス（オートバトラー。戦闘数値のみ本モードの一時 SimState で流用）。
+    case magicChess
 }
 
 public enum MatchPhase: Int, Codable, Hashable, Sendable {
