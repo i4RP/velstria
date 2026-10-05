@@ -114,7 +114,7 @@ struct LoadingScreenView: View {
     /// 色だけに頼らずチームを示す見出し（形 + 名前 + 対象の段を指す矢印。ブルーは上段、レッドは下段）。
     private func teamTag(_ team: Team) -> some View {
         let color = Theme.teamColor(team, colorblind: app.profile.settings.colorblindMode)
-        let human = launch.replay == nil ? launch.config.humanSlot?.team : nil
+        let human = launch.localTeam
         let title = human.map { $0 == team ? L("味方", "Allies") : L("敵", "Enemies") } ?? FlowText.team(team)
         return HStack(spacing: 4) {
             Image(systemName: FlowText.teamSymbol(team))
@@ -177,8 +177,9 @@ struct LoadingScreenView: View {
         HStack(spacing: 8) {
             ForEach(Array(list.enumerated()), id: \.offset) { i, slot in
                 let idx = index(of: slot)
+                // 「あなた」はオンラインなら自分の座席、それ以外は唯一の人間（リプレイは誰も強調しない）
                 LoadingPlayerCard(slot: slot, progress: progress.indices.contains(idx) ? progress[idx] : 0,
-                                  highlight: slot.controller == .human && launch.replay == nil,
+                                  highlight: launch.replay == nil && (launch.onlineSeat.map { idx == $0 } ?? (slot.controller == .human)),
                                   width: width, height: height)
                     .offset(y: appeared ? 0 : (team == .blue ? -30 : 30))
                     .opacity(appeared ? 1 : 0)
@@ -291,7 +292,7 @@ private struct LoadingPlayerCard: View {
                 HeroPortraitView(heroID: slot.heroID, size: portrait)
                     .overlay(RoundedRectangle(cornerRadius: portrait * 0.2, style: .continuous)
                         .stroke(skin.map { Theme.rarityColor($0.rarity) } ?? .clear, lineWidth: 2))
-                if human {
+                if highlight {
                     Text(L("あなた", "YOU"))
                         .font(.system(size: 9, weight: .heavy, design: .rounded))
                         .foregroundStyle(.black)
@@ -302,7 +303,7 @@ private struct LoadingPlayerCard: View {
             }
             Text(human ? slot.displayName : (hero.map { MasterText.hero($0) } ?? slot.heroID))
                 .font(Theme.heading(11))
-                .foregroundStyle(human ? Theme.gold : Theme.textPrimary)
+                .foregroundStyle(highlight ? Theme.gold : Theme.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             HStack(spacing: 3) {

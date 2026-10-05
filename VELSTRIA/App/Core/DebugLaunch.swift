@@ -17,6 +17,9 @@ import VelstriaCore
 //   -language <ja|en>     表示言語
 //   -graphics <low|medium|high>  画質
 //   -heroGallery          ヒーロー 3D モデル一覧（hero-models の目視確認用）
+//   -onlineHost [port]    起動後にオンライン対戦の部屋を作る（待ち受けポート省略時は既定）
+//   -onlineJoin <host:port>  起動後に部屋へ接続する
+//   -onlineAuto           部屋で自動的に着席・ヒーロー選択・準備完了にし、ホストは全員揃ったら開始する（2 台のシミュレータでの検証用）
 
 enum DebugLaunch {
     /// 起動引数による検証用フックがこのビルドで有効か（出荷ビルドでは false）。
@@ -73,6 +76,14 @@ enum DebugLaunch {
 
         if let r = value(after: "-route"), let route = parseRoute(r) {
             app.router.path = [route]
+        }
+        if args.contains("-onlineHost") {
+            let port = value(after: "-onlineHost").flatMap { UInt16($0) } ?? OnlineProtocol.defaultPort
+            app.hostOnlineRoom(name: "\(p.displayName.isEmpty ? "Host" : p.displayName) (sim)", port: port)
+            app.router.path = [.onlineLobby]
+        } else if let address = value(after: "-onlineJoin"), let target = OnlineNetwork.parseAddress(address) {
+            app.joinOnlineRoom(connection: NWOnlineConnection(host: target.host, port: target.port))
+            app.router.path = [.onlineLobby]
         }
         if let mode = value(after: "-battle") {
             let hero = value(after: "-hero").flatMap { app.master.hero($0)?.heroID } ?? p.lastPickedHeroID ?? "H003"
@@ -145,6 +156,7 @@ enum DebugLaunch {
         case "credits": return .credits
         case "replays": return .replays
         case "spectateSetup": return .spectateSetup
+        case "onlineLobby": return .onlineLobby
         default: return nil
         }
     }

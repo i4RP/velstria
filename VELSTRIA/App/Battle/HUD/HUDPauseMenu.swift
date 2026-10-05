@@ -10,7 +10,7 @@ struct HUDPauseMenu: View {
 
     var body: some View {
         let settings = model.settings
-        let ranked = model.mode == .standard || model.mode == .ranked
+        let ranked = model.mode == .standard || model.mode == .ranked || model.mode == .online
         HStack(alignment: .top, spacing: 14) {
             // 左: 操作
             VStack(alignment: .leading, spacing: 10) {
@@ -20,6 +20,11 @@ struct HUDPauseMenu: View {
                 Text(modeName)
                     .font(.system(size: 12, weight: .bold, design: .rounded))
                     .foregroundStyle(Theme.gold)
+                if model.controller.isOnline {
+                    Text(L("オンライン対戦中は試合は止まりません", "The match keeps running while this menu is open"))
+                        .font(Theme.body(11))
+                        .foregroundStyle(Theme.textSecondary)
+                }
                 Button { model.resume() } label: {
                     Label(L("再開", "Resume"), systemImage: "play.fill").frame(maxWidth: .infinity)
                 }
@@ -92,6 +97,7 @@ struct HUDPauseMenu: View {
         case .brawl: return L("乱闘", "Brawl")
         case .custom: return L("カスタム", "Custom Match")
         case .magicChess: return L("マジックチェス", "Magic Chess")
+        case .online: return L("オンライン対戦", "Online Match")
         }
     }
 

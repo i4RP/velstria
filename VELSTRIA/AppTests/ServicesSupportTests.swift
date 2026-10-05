@@ -37,6 +37,9 @@ enum ServicesFixtures {
         case .magicChess:
             // マジックチェスは MatchConfig を通常の MOBA 用途では使わない（戦闘のみ一時 SimState で流用）。
             return MatchConfig(mode: .magicChess, seed: seed, players: [])
+        case .online:
+            return MatchFactory.onlineMatch(humans: [OnlineHumanSlot(team: .blue, position: .mid, heroID: heroID, displayName: "Tester")],
+                                            seed: seed)
         }
     }
 

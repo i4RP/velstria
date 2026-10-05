@@ -108,6 +108,13 @@ public final class Simulation {
         return state
     }
 
+    /// 状態をスナップショットで置き換える（オンライン対戦の再同期・デバッグ）。
+    /// 同じ config のスナップショットであること（ctx は作り直さない）。
+    public func restore(from snapshot: SimState) {
+        state = snapshot
+        state.rebuildIndex()
+    }
+
     /// 試合を中断終了（練習場の退出など）。
     public func abort() {
         guard state.phase != .ended else { return }

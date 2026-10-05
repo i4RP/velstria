@@ -220,6 +220,8 @@ public enum MatchMode: Int, Codable, Hashable, Sendable {
     case custom
     /// マジックチェス（オートバトラー。戦闘数値のみ本モードの一時 SimState で流用）。
     case magicChess
+    /// オンライン対戦（リッスンサーバー: 人間が複数、空いた枠は AI。報酬・ランクの対象外）。
+    case online
 }
 
 public enum MatchPhase: Int, Codable, Hashable, Sendable {

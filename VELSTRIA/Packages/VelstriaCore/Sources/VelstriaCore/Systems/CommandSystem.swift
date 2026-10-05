@@ -73,6 +73,17 @@ public enum CommandSystem {
             case .removeTutorialDummies:
                 guard ctx.config.mode == .tutorial, c.heroID == s.humanHeroID else { continue }
                 SpawnSystem.removeTutorialDummies(&s)
+            case .setController(let controller):
+                guard hero.controller != controller else { continue }
+                s.units[i].hero?.controller = controller
+                if controller == .bot {
+                    // AI に引き継ぐ: 人間の操作意図を捨て、スキルは自動習得にする
+                    s.units[i].moveIntent = .none
+                    s.units[i].path = []
+                    s.units[i].attackTargetID = nil
+                    s.units[i].hero?.autoLevelSkills = true
+                    SkillLeveling.autoLevel(&s, ctx, heroIndex: i)
+                }
             }
         }
     }

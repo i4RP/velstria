@@ -59,6 +59,8 @@ enum Route: Hashable {
     case rising                  // ライジング（対 AI の勝ち上がりラダー）
     case customSetup             // AI 対戦とカスタム
     case magicChess              // マジックチェス（オートバトラー）
+    // online
+    case onlineLobby
 }
 
 @Observable
@@ -126,6 +128,7 @@ struct RouteDestination: View {
         case .rising: RisingBracketView()
         case .customSetup: CustomSetupView()
         case .magicChess: MagicChessSetupView()
+        case .onlineLobby: OnlineLobbyView()
         }
     }
 }

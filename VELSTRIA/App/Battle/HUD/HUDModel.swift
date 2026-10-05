@@ -155,7 +155,7 @@ final class HUDModel {
     var isSpectating: Bool { controller.isSpectating }
     var isTutorial: Bool { controller.launch.config.mode == .tutorial }
     var mode: MatchMode { controller.launch.config.mode }
-    var humanTeam: Team? { isSpectating ? nil : .blue }
+    var humanTeam: Team? { controller.localTeam }
     /// 操作を受け付けるか。
     var canControl: Bool { !isSpectating && !isTacticalMapOpen && endPhase == nil && !finished && !(tutorial?.isComplete ?? false) }
 
@@ -597,8 +597,9 @@ final class HUDModel {
                 let u = s.units[i]
                 guard let h = u.hero else { continue }
                 let showCooldowns = ally == nil || ally == team
+                // 強調するのは自分だけ（オンラインでは人間が複数いる）
                 rows.append(HUDScoreRow(id: u.id, heroID: h.heroID, name: h.displayName, team: team,
-                                        isHuman: h.controller == .human, level: h.level, kills: h.score.kills,
+                                        isHuman: u.id == controller.humanHeroID, level: h.level, kills: h.score.kills,
                                         deaths: h.score.deaths, assists: h.score.assists, creepScore: h.score.creepScore,
                                         items: h.items, spells: h.spells,
                                         spellCooldowns: showCooldowns ? h.spellCooldowns.map { $0.rounded(.up) } : nil,
