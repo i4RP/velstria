@@ -7,6 +7,7 @@
 //   ASC_ISSUER_ID   Issuer ID（UUID）
 //   ASC_KEY_PATH    .p8 の場所（省略時 ~/.appstoreconnect/private_keys/AuthKey_<ASC_KEY_ID>.p8）
 //   ASC_BUNDLE_ID   既定 com.bitcoinpay.velstria
+//   ASC_INTERNAL_GROUP_ID  verify-internal で確認する既存の内部テストグループ ID
 //   ASC_RELEASE_TYPE  submit 時の公開方法。AFTER_APPROVAL（既定: 承認されたら自動で公開）/ MANUAL（承認後に手動で公開）
 //   RELEASE_CHECK_ALLOW  release-check の検査 ID をカンマ区切りで指定すると、その検査のエラーを警告に格下げして続行する
 //                     （誤判定で正しい提出が止まるときの逃げ道と、iap-attach の「Web で確認した」申告。CI ではリポジトリの
@@ -16,6 +17,7 @@
 //   node tools/asc.mjs create-app [name] [sku]         アプリレコードの作成を試す（Apple が API での作成を許可している場合のみ成功）
 //   node tools/asc.mjs status                         アプリとビルドの一覧
 //   node tools/asc.mjs wait-build <build>             ビルドの処理完了（VALID）を待つ
+//   node tools/asc.mjs verify-internal <build>        既存の内部グループ（ASC_INTERNAL_GROUP_ID）にビルドが届いたか確認する（読み取りだけ）
 //   node tools/asc.mjs internal <email> [<email>...]  内部テストグループを用意し、テスターを追加（ASC ユーザであること）
 //   node tools/asc.mjs testers                        ベータグループとテスターの一覧
 //   node tools/asc.mjs beta-notes <build> <text>      TestFlight の「テスト内容」を設定（ブランチ・コミットの表示用）
@@ -132,6 +134,37 @@ async function getAll(url) {
     next = r.links?.next;
   }
   return data;
+}
+
+// 既存の内部グループにビルドが届いたことを確認する。グループの作成・招待・設定変更はしない
+async function verifyInternal(appID, version) {
+  readOnly = true;
+  const groupID = process.env.ASC_INTERNAL_GROUP_ID || fail("ASC_INTERNAL_GROUP_ID を設定してください");
+  const groups = await getAll(`/v1/apps/${appID}/betaGroups?limit=200`
+    + "&fields[betaGroups]=name,isInternalGroup,hasAccessToAllBuilds");
+  const group = groups.find((item) => item.id === groupID);
+  if (!group) fail(`指定された内部グループがこのアプリにありません: ${groupID}`);
+  if (group.attributes.isInternalGroup !== true) fail("指定されたグループは内部テストグループではありません");
+  if (group.attributes.hasAccessToAllBuilds !== true) fail("内部グループの全ビルド自動配信が無効です");
+  const groupPath = `/v1/betaGroups/${encodeURIComponent(groupID)}`;
+  const testers = await getAll(`${groupPath}/betaTesters?limit=200&fields[betaTesters]=state`);
+  if (!testers.length) fail("内部グループにテスターがいません");
+
+  // Apple の処理完了直後はグループへの反映に時間差があるため、最大 3 分待つ
+  for (let attempt = 0; attempt <= 12; attempt++) {
+    const available = await getAll(`${groupPath}/builds?limit=200&fields[builds]=version,processingState,expired`);
+    const build = available.find((item) => item.attributes.version === version);
+    const state = build?.attributes.processingState || "NOT_FOUND";
+    if (build && build.attributes.expired !== false) fail(`ビルド ${version} が有効期限内であることを確認できません`);
+    if (state === "FAILED" || state === "INVALID") fail(`ビルド ${version} の処理が失敗しました（${state}）`);
+    if (state === "VALID") {
+      console.log(`内部配信を確認: ${group.attributes.name} / build ${version} / テスター ${testers.length} 人`);
+      return;
+    }
+    console.log(`  内部配信 build ${version}: ${state}（${attempt + 1}/13）`);
+    if (attempt < 12) await new Promise((resolve) => setTimeout(resolve, 15_000));
+  }
+  fail(`3 分待ってもビルド ${version} の内部グループへの配信を確認できません`);
 }
 
 async function findApp() {
@@ -950,6 +983,10 @@ switch (cmd) {
     fail("60 分待っても処理が完了しません");
     break;
   }
+  case "verify-internal": {
+    await verifyInternal(app.id, rest[0] || fail("ビルド番号を指定してください"));
+    break;
+  }
   case "internal": {
     if (!rest.length) fail("メールアドレスを指定してください");
     const group = await internalGroup(app.id);
@@ -1001,6 +1038,6 @@ switch (cmd) {
     break;
   }
   default:
-    fail("usage: node tools/asc.mjs status | wait-build <build> | internal <email>... | testers"
+    fail("usage: node tools/asc.mjs status | wait-build <build> | verify-internal <build> | internal <email>... | testers"
       + " | beta-notes <build> <text> | release-check <version> [--allow=<ID>,...] | submit <build> [--dry-run]");
 }

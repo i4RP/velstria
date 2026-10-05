@@ -35,6 +35,7 @@ jobs:
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       ASC_KEY_PATH: ${{ github.workspace }}/AuthKey.p8
       ASC_RELEASE_TYPE: ${{ vars.ASC_RELEASE_TYPE || 'AFTER_APPROVAL' }}
+      ASC_INTERNAL_GROUP_ID: 5e0acd82-35c1-4220-a98d-5c1d88370b7c # 既存の内部グループ「In」（全ビルド自動配信）
       SIGNING: manual
       PROFILE_NAME: VELSTRIA AppStore CI
     steps:
@@ -45,6 +46,9 @@ jobs:
           sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -n 1)"
           xcodebuild -version
           brew install xcodegen
+
+      - name: 配信ツール（asc.mjs）のテスト
+        run: node --test tools/asc.test.mjs
 
       - name: コアのテスト
         working-directory: VELSTRIA/Packages/VelstriaCore
@@ -117,6 +121,9 @@ jobs:
 
       - name: ビルド処理の完了を待つ
         run: node tools/asc.mjs wait-build "$BUILD_NUMBER"
+
+      - name: 内部テスターへの配信を確認
+        run: node tools/asc.mjs verify-internal "$BUILD_NUMBER"
 
       - name: TestFlight のテスト内容を記入
         # コミットメッセージは ${{ }} で埋め込まず git から読む（スクリプト注入対策）
