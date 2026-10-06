@@ -14,7 +14,8 @@ struct HUDPauseMenu: View {
         HStack(alignment: .top, spacing: 14) {
             // 左: 操作
             VStack(alignment: .leading, spacing: 10) {
-                Text(model.isSpectating ? L("観戦を一時停止中", "Spectating Paused") : L("一時停止中", "Paused"))
+                Text(model.controller.isOnline ? (model.isSpectating ? L("観戦メニュー", "Spectator Menu") : L("メニュー", "Menu"))
+                     : (model.isSpectating ? L("観戦を一時停止中", "Spectating Paused") : L("一時停止中", "Paused")))
                     .font(Theme.title(22))
                     .foregroundStyle(.white)
                 Text(modeName)

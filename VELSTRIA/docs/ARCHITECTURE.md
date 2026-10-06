@@ -123,12 +123,91 @@ Packages/VelstriaCore/Sources/VelstriaCore/Sim/MatchFactoryOnline.swift  複数�
 6. 一時停止・バックグラウンド: オンライン中は `BattleController.isPaused` が常に false（メニューを開くだけで世界は止まらない）。
    ホストがバックグラウンドに入ると iOS がアプリを止めるので全員が止まり、20 秒を超えると参加者側は切断扱いになる（復帰したホストは AI 相手に続行）。
    クライアントがバックグラウンドに入ると復帰後に溜まった配信を早送りで消化する（長ければ切断 → AI 引き継ぎ）。
-   `MatchMode.online` は報酬・ランク・戦績の対象外（`RewardService`）。降参投票は有効。配信は座っていて抜けていない参加者にだけ送る。
+   `MatchMode.online` は報酬・ランク・戦績の対象外（`RewardService`）。降参投票は有効。
+   配信は、座っていて抜けていないプレイヤーには即時、観戦席には遅延付きで送る（下の「観戦」→「オンラインの観戦席」）。
+   プロトコルは v2（観戦の役割・観戦席の配信を追加）。v1 の名乗りは版数違いとして断る。
 
 検証用の起動引数（Debug のみ）: `-onlineHost [port]`、`-onlineJoin <host:port>`、`-onlineAuto`（自動で着席・ピック・準備完了、ホストは揃えば開始）。
 2 台のシミュレータで `-onlineHost -onlineAuto` と `-onlineJoin 127.0.0.1:47814 -onlineAuto` を起動すると対戦が始まる。
 テスト: `OnlineCoreTests`（コア）、`OnlineProtocolTests` / `OnlineSessionTests`（ループバックでロビー → 同期 → 遅延 → 再同期 → 切断 → 再接続 →
 離脱 → 中断 → 生存確認）/ `OnlineTransportTests`（localhost の TCP、接続失敗の時間切れ）。CI（build-upload.yml）でも実行する。
+
+## 観戦（AI 同士の観戦・リプレイ・オンラインの観戦席・死亡中の味方追従）
+観戦者 = 操作を送らず、霧は観戦者が選んだ視点で見る人。`BattleLaunch.isSpectating` は次のどれか:
+AI 同士の観戦（`mode == .spectate`）、リプレイ（`replay != nil`）、オンラインの観戦席（`onlineSpectator`）、人間のいないオフライン構成（`isAllBotsOffline`）。
+観戦は報酬・ランク・戦績の対象外。観戦者の状態（視界・カメラ・シーク・自動カメラ・HUD）は **SimState に入れない**。
+
+```
+App/Battle/BattleController.swift   観戦の契約: spectatorVision / spectatorDirectorEnabled / presentationEpoch / requestSeek / stepTicks /
+                                     keyframes / 年表（timeline・knownTimeline・displayTimeline）/ cameraZoomOverride / presentationFocusID
+App/Battle/ReplayBaker.swift         シークできる観戦のバックグラウンド事前計算（別 Simulation）と、シーク用ワーカー
+App/Battle/Render/CameraDirector.swift  自動カメラ（見どころの採点と画の切り替え。描画専用の購読者）
+App/Battle/Render/CameraRig.swift    観戦の倍率範囲・自由カメラの直接操作・複数対象の画角合わせ・切り替え（グライド / カット）
+App/Battle/Render/FogOfWar.swift     観戦者の視界切り替え（全体 / Blue / Red）。観戦では常に作っておき、全体表示の時は無効
+App/Battle/HUD/HUDSpectate.swift ほか 観戦ドック（HUDSpectate）・再生バー（HUDReplayTransport）・情報パネル（HUDSpectatorPanels / HUDGoldGraph）・
+                                     画面操作（HUDSpectatorGestures）・観戦の UI 状態（HUDSpectatorState）
+App/Services/ReplayArchiveService.swift  報酬の無い試合のリプレイ保存・取り込みの検証・共有
+App/Online/OnlineSpectatorRelay.swift    オンラインの観戦席への遅延配信（ホスト側）
+Packages/VelstriaCore/Sources/VelstriaCore/Sim/ReplayTimeline.swift     年表（キル・構造物・目標・全滅・終了、チームのゴールド/経験値サンプル）
+Packages/VelstriaCore/Sources/VelstriaCore/Sim/MatchFactorySpectate.swift 観戦の構成（側ごとの難易度・枠ごとのヒーロー・標準 / 乱闘マップ）
+```
+
+### シークと事前計算
+- シークできるのはオフラインの観戦とリプレイ（`BattleController.isSeekable`）。`requestSeek(toTick:)` は、目標以前で最も新しいキーフレーム
+  （`keyframeInterval` = 900 tick = 30 秒毎、試合開始時を含む）から **イベントを配らずに** 再シミュレーションする。シーク中（`seekingToTick != nil`）は
+  `frame(dt:)` で進めない。終わったら `presentationEpoch` を増やし、描画（`BattleWorld.resetForPresentationEpoch`）と HUD（`HUDModel` の不連続の節）は
+  残像（死亡演出・投射物・ゾーン・VFX・戦闘テキスト・キルフィード・告知・ミニマップの残像）を捨てて状態から作り直す。瓦礫になった構造物も状態が生きていれば戻す。
+  オンラインの再同期（`restore`）も同じ合図を使う。
+- `ReplayBaker` は別の `Simulation`（同じ config・マップ・入力表）を低優先度のバックグラウンドで回し、キーフレーム（最大 96 個 ≒ 19MB）と
+  再生位置付近の細かい輪（150 tick 毎・24 個 ≒ 5MB）、試合全体の年表を先に作って `adoptKeyframe` / `adoptFullTimeline` で渡す。
+  熱・低電力モードでは控える。シークの再計算はメインスレッド外のワーカーで行い、結果の状態だけを `restore` する。
+  手順は BattleController と同じ（step → 年表 → キーフレーム → リプレイの最終 tick での中断終了）なので、結果は通常の再生と一致する（テストで stateHash を比較）。
+- リプレイは記録の最終 tick で止まる（途中で抜けた記録は中断終了）。途中で抜けても結果画面は記録時の結果を見せる。
+- 年表（`ReplayTimeline`）は step 毎に作り、リプレイに同梱する（`ReplayData.timeline`、古いファイルは nil で再生中に作り直す）。決定論なので、
+  巻き戻しても記録済みの区間は捨てず、まだ記録していない tick だけ追記する。再生バーの印・ゴールド/経験値グラフ・イベント一覧・自動カメラが使う。
+
+### 視点・カメラ
+- 視界: `spectatorVision`（nil = 全体、.blue / .red = そのチームの視界）。`viewerTeam` は観戦者ならこれ、プレイヤーなら自分のチーム。
+  霧・ユニットの見え方・ゾーンの色（観戦者にはチーム色）・帰還の演出（視界外では出さない）がこれに従う。
+- 操作: 観戦者は画面のドラッグで自由カメラ、ピンチで倍率（`CameraRig.spectatorZoomRange` 0.7〜2.5。プレイヤーは 0.7〜1.4）、ダブルタップで追従に戻る。
+  ヒーローのタップ・ミニマップでも追従先・注視点を変えられる。追従対象が消えた時は最後の位置に留まる。
+- 自動カメラ（`CameraDirector`、`spectatorDirectorEnabled`）: キル・連続キル・全滅・構造物・目標・ボス戦・集団戦・逃走・必殺技を採点し、
+  sim 時間で最短 4 秒の画を保ちながら `.followUnit` / `.framing` と倍率を出す。手動でカメラを動かすと 10 秒控え、操作が続けば延長する。
+  観戦者の視界がチームなら、そのチームに見えるものだけを追う。AI 同士の観戦と観戦席は既定でオン、リプレイは既定でオフ（持ち主を追う）。
+- 死亡中の味方追従（プレイヤー）: 自分が死亡中だけ、味方のヒーローを追える（`HUDModel.follow` / `followableAllies`）。敵は追えない（霧の向こうが見えるため）。
+  ミニマップで覗いて離すと味方へ戻り、復活すると自分の追従に戻る。死亡カードに味方の一覧と「自動で戦っている味方を追う」切り替えがある。
+
+### 画面
+- 観戦ドック（下部）: 一時停止・速度（0.5/1/2/4/8 倍）・視界・自動カメラ・HUD を隠す（シネマ表示）・前後のヒーロー・10 人の追従ボタン。狭い画面は引き出しに収める。
+  オンラインの観戦席は一時停止・速度・シークの代わりに LIVE と遅延秒数を出す。
+- 再生バー（シークできる観戦・リプレイ）: ドラッグでシーク、±10/30 秒、最初から、一時停止中のコマ送り、次の見どころ、年表の印、計算済みの範囲。
+- 情報パネル: 追従中のヒーロー（装備・スキルと残り時間・スペル・状態・ゴールド・K/D/A・与/被ダメージ・回復）、ゴールド/経験値の差のグラフ、
+  目標のタイマー、イベント一覧（タップでシーク / カメラ移動）。スコアボードの行をタップすると追従する。リプレイでは持ち主を強調する。
+- 観戦の準備: 側ごとの難易度・枠ごとのヒーロー・標準 / 乱闘マップ・シードの入力とコピー・速度 / 視界 / 自動カメラの既定（`Profile` の観戦設定に保存）。
+- リザルト: 「リプレイを見る」「もう一度見る」、観戦では「次の AI 戦を見る」「同じシードでもう一度」。
+- リプレイ一覧: 報酬の無い試合（AI 同士の観戦・全 AI のカスタム・オンラインのホスト）も保存（`ReplayArchiveService`、30 秒未満は保存しない）。
+  お気に入り（上限の対象外、別枠 30 件）・名前の変更・詳細（成績表）・絞り込み・使用容量。`.vreplay` の共有と取り込み（UTType
+  `com.bitcoinpay.velstria.replay`）。取り込んだファイルは信用せず、形式・大きさ・版数・入力の座標・成績の数値・年表を検証する。
+  読み込みはメインスレッド外。版数の違うリプレイは押す前から灰色で示す。
+- 観戦の記録: 観戦・リプレイを最後まで見た回数と時間を数え（同じ試合は 1 回）、通貨の付かない実績（観戦 1 / 10 回、リプレイ 5 回）にする。
+
+### オンラインの観戦席
+- 部屋に「観戦する」参加者を置ける（座席とは別。上限: プレイヤー 10・観戦 8）。試合中でも観戦として途中から入れる。
+  席に着かないホストは実況（観戦の役割のまま権威シミュレーションを回す）として開始できる。
+- ホストは観戦席へ **遅延付き** で配る（ゴースティング防止。部屋の設定で 0 / 15 / 30 / 60 秒、既定 30 秒、ロビーでだけ変更可）。
+  `OnlineSpectatorRelay` が 300 tick 毎の状態と、空の tick も含む連続した入力列を持ち、0.1 秒毎の自前のタイマーで遅延の過ぎた分だけ配る
+  （試合が終わった後も残りを配り切る。`matchFinished` で最終 tick を知らせる）。
+- 観戦席の途中参加・再同期には **遅延した基準の状態** だけを送る（生の状態は送らない）。スナップショットの頻度は観戦席 5 秒・プレイヤー 2 秒まで。
+  観戦席からの入力は受け付けない。
+- プレイヤーの画面には観戦者数と遅延を出す。ホストが中断・切断した時は、プレイヤー・観戦席とも「試合が中断されました」と退出ボタンを出す。
+- Bonjour の TXT に部屋の段階と観戦の可否を載せる（キー p / w / np / ns）。
+
+検証用の起動引数（Debug のみ）: `-battle spectate|replay`、`-spectateMap standard|brawl`、`-spectateSpeed`、`-spectateVision all|blue|red`、
+`-spectateDirector on|off`、`-seekTo <秒>`、`-sampleReplays`、`-onlineSpectate`（`-onlineJoin` と併せて観戦席で入る）。
+テスト: `SpectatorFoundationTests` / `SpectatorOptionsTests`（土台）、`ReplayBakerTests` / `PresentationResetTests` / `SpectatorAudioTests`、
+`HUDSpectatorTests` / `HUDReplayTransportTests`、`CameraDirectorTests` / `SpectatorCameraTests` / `DeathSpectateTests`、
+`ReplayLibraryTests` / `SpectateSetupTests`、`OnlineSpectatorTests`、UI テスト `SpectatorHUDUITests` / `ReplayLibraryUITests` / `OnlineSpectateLobbyUITests`、
+コア `ReplayTimelineTests` / `MatchFactorySpectateTests`。
 
 ## ヒーローの 3D モデル（Tripo 生成アセット）
 - 表示は `HeroModelLibrary.makeHero`（`HeroDisplayModel`）。同梱の `Hero_<heroID>.usdz` があればスキンメッシュ

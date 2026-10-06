@@ -48,7 +48,7 @@ jobs:
         working-directory: VELSTRIA/Packages/VelstriaCore
         run: swift test -c release
 
-      - name: HUD・チュートリアル・オンライン対戦の単体テストと UI テスト
+      - name: HUD・チュートリアル・オンライン対戦・観戦の単体テストと UI テスト
         # GPU の無いランナーは描画が遅く、UI の問い合わせが時間切れになる不安定な失敗が起きる。
         # 落ちたテストだけを最大 3 回まで自動で再実行する（3 回とも落ちれば失敗。網羅は減らさない）
         run: |
@@ -73,8 +73,24 @@ jobs:
             -only-testing:VELSTRIATests/OnlineProtocolTests \
             -only-testing:VELSTRIATests/OnlineSessionTests \
             -only-testing:VELSTRIATests/OnlineTransportTests \
+            -only-testing:VELSTRIATests/OnlineSpectatorTests \
+            -only-testing:VELSTRIATests/SpectatorFoundationTests \
+            -only-testing:VELSTRIATests/SpectatorOptionsTests \
+            -only-testing:VELSTRIATests/HUDSpectatorTests \
+            -only-testing:VELSTRIATests/HUDReplayTransportTests \
+            -only-testing:VELSTRIATests/PresentationResetTests \
+            -only-testing:VELSTRIATests/SpectatorAudioTests \
+            -only-testing:VELSTRIATests/ReplayBakerTests \
+            -only-testing:VELSTRIATests/CameraDirectorTests \
+            -only-testing:VELSTRIATests/SpectatorCameraTests \
+            -only-testing:VELSTRIATests/DeathSpectateTests \
+            -only-testing:VELSTRIATests/ReplayLibraryTests \
+            -only-testing:VELSTRIATests/SpectateSetupTests \
             -only-testing:VELSTRIAUITests/HUDTacticalMapUITests \
             -only-testing:VELSTRIAUITests/BattleHUDUITests \
+            -only-testing:VELSTRIAUITests/SpectatorHUDUITests \
+            -only-testing:VELSTRIAUITests/ReplayLibraryUITests \
+            -only-testing:VELSTRIAUITests/OnlineSpectateLobbyUITests \
             -parallel-testing-enabled NO \
             -retry-tests-on-failure -test-iterations 3 \
             CODE_SIGNING_ALLOWED=NO
