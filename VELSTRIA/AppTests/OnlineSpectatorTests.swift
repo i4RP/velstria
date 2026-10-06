@@ -172,13 +172,18 @@ final class OnlineSpectatorTests: XCTestCase {
         let w = join(host, id: "late", spectate: true)
         let wc = watcherController(w.session)
         // 符号化の間もホストは進む（その観戦者への配信は基準が届くまで止める）
+        // 基準は「遅延が過ぎた最初のキーフレーム」から作る（遅延 + キーフレーム間隔の tick 先まで進める必要がある）。
+        // 待ちは実時間ではなく進める tick で決める（遅い CI の Debug ビルドで、実時間 20 秒では必要な tick に届かず落ちていた）。
+        // 符号化はバックグラウンドで進むので、tick が足りた後は実時間で（長めに）待つ。
         let clock = ContinuousClock()
-        let deadline = clock.now.advanced(by: .seconds(20))
+        let deadline = clock.now.advanced(by: .seconds(120))
+        var ticksRun = 0
         while w.session.lastSnapshotTick == nil && clock.now < deadline {
-            run(host: hc, session: host, clients: [wc], frames: 1, hashes: &hashes)
+            run(host: hc, session: host, clients: [wc], frames: 10, hashes: &hashes)
+            ticksRun += 10
             try? await Task.sleep(for: .milliseconds(5))
         }
-        XCTAssertNotNil(w.session.lastSnapshotTick, "バックグラウンドの符号化が終わって基準が届く")
+        XCTAssertNotNil(w.session.lastSnapshotTick, "バックグラウンドの符号化が終わって基準が届く（\(ticksRun) tick 進めた）")
         run(host: hc, session: host, clients: [wc], frames: 120, hashes: &hashes) {
             self.assertDelayed(wc, behind: hc)
         }
