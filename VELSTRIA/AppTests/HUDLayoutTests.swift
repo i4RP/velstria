@@ -3,17 +3,26 @@ import SwiftUI
 @testable import VELSTRIA
 import VelstriaCore
 
-// 担当: battle-hud。HUD の配置（iPhone 16e 〜 17 Pro Max の横画面、左右配置）: 画面内・Safe Area 内・重なり無し・44pt 以上。
+// 担当: battle-hud。HUD の配置（iPhone SE 〜 17 Pro Max の横画面、左右配置）: 画面内・Safe Area 内・重なり無し・44pt 以上。
+// 観戦の配置（下部ドック・情報パネル・ゴールドと目標タイマーの帯・告知バナー・戦術マップ）も同じ端末表で確認する。
 // あわせて効果音の対応表と HUDModel の告知・状態アイコンを確認する。
 
 final class HUDLayoutTests: XCTestCase {
     /// 横画面の論理サイズと Safe Area（左右 = Dynamic Island / ノッチ側、下 = ホームインジケータ）。
     private let devices: [(name: String, size: CGSize, side: CGFloat, bottom: CGFloat)] = [
+        ("iPhone SE", CGSize(width: 667, height: 375), 0, 0),
         ("iPhone 13 mini", CGSize(width: 812, height: 375), 44, 21),
         ("iPhone 16e", CGSize(width: 844, height: 390), 47, 21),
         ("iPhone 17 Pro", CGSize(width: 874, height: 402), 62, 20),
         ("iPhone 17 Pro Max", CGSize(width: 956, height: 440), 62, 20),
     ]
+
+    /// プレイヤーの右側の操作群（攻撃・スキル・スペル・帰還・習得ボタン）を確認する端末。
+    /// iPhone SE（667pt 幅）は最小倍率 0.84 でも操作群が収まらず 44pt を保てない（既知の課題: プレイヤーの HUD は SE 未対応）。
+    /// 観戦の配置は SE も含めて確認する。
+    private var playerClusterDevices: [(name: String, size: CGSize, side: CGFloat, bottom: CGFloat)] {
+        devices.filter { $0.size.width >= 800 }
+    }
 
     private struct Circle2 {
         var name: String
@@ -37,7 +46,7 @@ final class HUDLayoutTests: XCTestCase {
     }
 
     func testControlsStayInsideSafeAreaWithoutOverlap() {
-        for d in devices {
+        for d in playerClusterDevices {
             for left in [false, true] {
                 let safe = EdgeInsets(top: 0, leading: d.side, bottom: d.bottom, trailing: d.side)
                 let l = HUDLayout(size: d.size, safe: safe, leftHanded: left)
@@ -82,7 +91,7 @@ final class HUDLayoutTests: XCTestCase {
     }
 
     func testTouchTargetsAreAtLeast44pt() {
-        for d in devices {
+        for d in playerClusterDevices {
             let l = HUDLayout(size: d.size, safe: EdgeInsets(top: 0, leading: d.side, bottom: d.bottom, trailing: d.side),
                               leftHanded: false)
             for slot in AttackButtonSlot.allCases {
@@ -118,7 +127,7 @@ final class HUDLayoutTests: XCTestCase {
     func testLevelBadgeTouchRectanglesDoNotOverlapControls() {
         let half = HUDLevelBadge.touchDiameter / 2
         XCTAssertGreaterThanOrEqual(HUDLevelBadge.touchDiameter, 44)
-        for d in devices {
+        for d in playerClusterDevices {
             for left in [false, true] {
                 let safe = EdgeInsets(top: 0, leading: d.side, bottom: d.bottom, trailing: d.side)
                 let l = HUDLayout(size: d.size, safe: safe, leftHanded: left)
@@ -164,6 +173,153 @@ final class HUDLayoutTests: XCTestCase {
                 XCTAssertGreaterThan(l.attackDiameter, l.attackDiameter(for: .bottom))
                 XCTAssertEqual(center, l.attackCenter, "中央の攻撃ボタンをメイン操作として扱う")
             }
+        }
+    }
+
+    // MARK: 観戦の配置
+
+    private func layouts() -> [(name: String, base: HUDLayout, side: CGFloat, bottom: CGFloat)] {
+        var out: [(String, HUDLayout, CGFloat, CGFloat)] = []
+        for d in devices {
+            for left in [false, true] {
+                let safe = EdgeInsets(top: 0, leading: d.side, bottom: d.bottom, trailing: d.side)
+                out.append(("\(d.name)\(left ? " 左利き" : "")", HUDLayout(size: d.size, safe: safe, leftHanded: left), d.side, d.bottom))
+            }
+        }
+        return out
+    }
+
+    func testSpectatorDockFitsEveryDeviceWithTouchTargets() {
+        XCTAssertGreaterThanOrEqual(HUDSpectatorLayout.button, 44)
+        XCTAssertGreaterThanOrEqual(HUDSpectatorLayout.heroSize.width, 44)
+        XCTAssertGreaterThanOrEqual(HUDSpectatorLayout.heroSize.height, 44)
+        for (name, base, side, bottom) in layouts() {
+            for seekable in [true, false] {
+                for compact in [false, true] {
+                    let l = HUDSpectatorLayout(base: base, seekable: seekable, compact: compact)
+                    let dock = l.dockFrame
+                    let tag = "\(name) seekable=\(seekable) compact=\(compact)"
+                    XCTAssertGreaterThanOrEqual(dock.minX, max(side, 10) - 0.5, "\(tag) ドックが左の Safe Area にかかる")
+                    XCTAssertLessThanOrEqual(dock.maxX, base.width - max(side, 10) + 0.5, "\(tag) ドックが右の Safe Area にかかる")
+                    XCTAssertLessThanOrEqual(dock.maxY, base.height - bottom + 0.5, "\(tag) ドックがホームインジケータにかかる")
+                    XCTAssertGreaterThan(dock.minY, base.minimapDockFrame.maxY + 4, "\(tag) ドックがミニマップと重なる")
+                    // 下段: 10 人 + 中央（最低でも観戦メニューのボタン）
+                    if let row = l.heroRowFrame {
+                        XCTAssertGreaterThanOrEqual(l.heroCenterWidth, HUDSpectatorLayout.button, "\(tag) 下段の中央に観戦メニューが入らない")
+                        XCTAssertLessThanOrEqual(l.teamGroupWidth * 2 + HUDSpectatorLayout.groupGap * 2 + HUDSpectatorLayout.button,
+                                                 row.width + 0.5, tag)
+                        XCTAssertTrue(dock.contains(CGPoint(x: row.midX, y: row.midY)))
+                    }
+                    // 上段: シークバーが十分に長い
+                    if let row = l.transportRowFrame {
+                        XCTAssertGreaterThanOrEqual(l.seekBarWidth, HUDSpectatorLayout.minSeekBar, "\(tag) シークバーが短すぎる")
+                        XCTAssertLessThanOrEqual(row.maxY, (l.heroRowFrame?.minY ?? dock.maxY) + 0.5, tag)
+                    }
+                    XCTAssertEqual(l.showsTransportRow, seekable)
+                }
+            }
+        }
+    }
+
+    func testSpectatorSpeedButtonsInlineWhereTheyFit() {
+        func layout(_ size: CGSize, side: CGFloat, bottom: CGFloat) -> HUDSpectatorLayout {
+            HUDSpectatorLayout(base: HUDLayout(size: size, safe: EdgeInsets(top: 0, leading: side, bottom: bottom, trailing: side),
+                                               leftHanded: false), seekable: true)
+        }
+        let se = layout(CGSize(width: 667, height: 375), side: 0, bottom: 0)
+        XCTAssertFalse(se.inlineSpeeds, "SE は速度を 1 つの切り替えボタンにまとめる")
+        XCTAssertTrue(se.showsPrevNext, "SE でも前後の切り替えは下段に入る")
+        let pro = layout(CGSize(width: 874, height: 402), side: 62, bottom: 20)
+        XCTAssertTrue(pro.inlineSpeeds, "UI テストの端末（17 Pro）は速度ボタンを並べる（spectate_speed_2x）")
+        XCTAssertTrue(pro.inlineStep)
+        for l in [se, pro, layout(CGSize(width: 956, height: 440), side: 62, bottom: 20)] {
+            XCTAssertGreaterThanOrEqual(l.seekBarWidth, HUDSpectatorLayout.minSeekBar, "畳んだ後もシークバーは十分に長い")
+            if l.inlineSkip30 { XCTAssertTrue(l.inlineStep) }
+        }
+    }
+
+    @MainActor
+    func testSpectatorSpeedCountMatchesController() {
+        XCTAssertEqual(HUDSpectatorLayout.speedButtonCount, BattleController.spectatorSpeeds.count)
+    }
+
+    func testSpectatorTopBandsBannerAndPanelDoNotOverlap() {
+        for (name, base, side, _) in layouts() {
+            let l = HUDSpectatorLayout(base: base, seekable: true)
+            let pillTop = l.scorePillCenterY - HUDSpectatorLayout.scorePillHeight / 2
+            let pillBottom = l.scorePillCenterY + HUDSpectatorLayout.scorePillHeight / 2
+            let objTop = l.objectivesCenterY - HUDSpectatorLayout.objectivesHeight / 2
+            XCTAssertGreaterThan(pillTop, base.topEdge + 22 + 20 * min(base.scale, 1.1), "\(name) ゴールドの帯がスコアと重なる")
+            XCTAssertGreaterThanOrEqual(objTop, pillBottom, "\(name) 目標タイマーがゴールドの帯と重なる")
+            // B19: 告知バナーはゴールド・目標タイマーの帯より下、ドックより上
+            XCTAssertGreaterThan(l.bannerCenterY - l.bannerHalfHeight, l.objectivesBottom, "\(name) バナーが目標タイマーと重なる")
+            XCTAssertLessThan(l.bannerCenterY + l.bannerHalfHeight, l.dockTop, "\(name) バナーがドックと重なる")
+
+            // 情報パネル: Safe Area 内・右上ボタンの下・ドックの上・ミニマップと重ならない
+            let panel = l.infoPanelFrame
+            XCTAssertGreaterThanOrEqual(panel.minX, max(side, 10) - 0.5, name)
+            XCTAssertLessThanOrEqual(panel.maxX, base.width - max(side, 10) + 0.5, name)
+            XCTAssertGreaterThanOrEqual(panel.minY, base.topEdge + base.topButtonSize, "\(name) パネルが右上のボタンにかかる")
+            XCTAssertLessThanOrEqual(panel.maxY, l.dockTop, "\(name) パネルがドックにかかる")
+            XCTAssertFalse(panel.intersects(base.minimapDockFrame), "\(name) パネルがミニマップにかかる")
+            XCTAssertGreaterThanOrEqual(panel.height, 150, "\(name) パネルが低すぎる")
+            XCTAssertGreaterThanOrEqual(panel.width, 240)
+            // パネルを開いた時の上部中央（ゴールドの帯）はミニマップとパネルの間に収まる
+            let cx = l.topCenterX(panelOpen: true)
+            let room = l.topCenterWidth(panelOpen: true)
+            XCTAssertGreaterThanOrEqual(room, 220, "\(name) ゴールドの帯の幅が足りない")
+            XCTAssertGreaterThan(cx - room / 2, base.leftHanded ? panel.maxX : base.minimapFrame.maxX)
+            XCTAssertLessThan(cx + room / 2, base.leftHanded ? base.minimapFrame.minX : panel.minX)
+            XCTAssertGreaterThanOrEqual(l.topCenterWidth(panelOpen: false), room)
+
+            // 観戦メニュー: ドックの上・Safe Area 内
+            let drawer = l.drawerFrame
+            XCTAssertGreaterThanOrEqual(drawer.minX, max(side, 10) - 0.5, name)
+            XCTAssertLessThanOrEqual(drawer.maxX, base.width - max(side, 10) + 0.5, name)
+            XCTAssertLessThanOrEqual(drawer.maxY, l.dockTop, name)
+            XCTAssertGreaterThanOrEqual(drawer.minY, base.topEdge, name)
+
+            // シネマ表示の戻すボタン（44pt）は Safe Area 内
+            let c = l.cinematicRestoreCenter
+            XCTAssertGreaterThanOrEqual(c.x - 22, max(side, 10) - 0.5, name)
+            XCTAssertLessThanOrEqual(c.x + 22, base.width - max(side, 10) + 0.5, name)
+            XCTAssertLessThanOrEqual(c.y + 22, base.bottomEdge + 0.5, name)
+        }
+    }
+
+    func testSpectatorTacticalMapLeavesTheCompactDockUsable() {
+        for (name, base, side, _) in layouts() {
+            for seekable in [true, false] {
+                let l = HUDSpectatorLayout(base: base, seekable: seekable)
+                let size = l.tacticalMapSize
+                let card = CGRect(x: l.tacticalMapCenter.x - (size + base.tacticalLegendWidth + 40) / 2,
+                                  y: l.tacticalMapCenter.y - (size + 78) / 2,
+                                  width: size + base.tacticalLegendWidth + 40, height: size + 78)
+                XCTAssertGreaterThanOrEqual(size, 150, name)
+                XCTAssertGreaterThan(size, base.minimapSize, "\(name) 戦術マップが小さい地図より小さい")
+                XCTAssertGreaterThanOrEqual(card.minY, base.topEdge - 0.5, name)
+                XCTAssertLessThanOrEqual(card.maxY, l.compactDockTop + 0.5, "\(name) 戦術マップが 1 段のドックにかかる（B23）")
+                XCTAssertGreaterThanOrEqual(card.minX, max(side, 10) - 0.5, name)
+                XCTAssertLessThanOrEqual(card.maxX, base.width - max(side, 10) + 0.5, name)
+            }
+        }
+    }
+
+    @MainActor
+    func testSpectatorScoreboardRowsFitTheColumn() {
+        for (name, base, _, _) in layouts() {
+            let width = HUDScoreboardPanel.rowWidth(base)
+            let m = HUDScoreRowMetrics.spectator(rowWidth: width)
+            XCTAssertLessThanOrEqual(m.contentWidth, width, "\(name) 観戦者のスコアボードの行が列に収まらない")
+            XCTAssertGreaterThanOrEqual(m.itemSize, 12)
+        }
+    }
+
+    func testSpectatorEndCardSitsAboveTheDock() {
+        for (name, base, _, _) in layouts() {
+            let l = HUDSpectatorLayout(base: base, seekable: true)
+            XCTAssertLessThan(l.endCardCenter.y, l.dockTop, name)
+            XCTAssertGreaterThan(l.dockTop - base.topEdge, 200, "\(name) 再生終了のカードの場所が足りない")
         }
     }
 

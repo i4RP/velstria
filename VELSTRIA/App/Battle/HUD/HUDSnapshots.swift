@@ -113,6 +113,8 @@ struct HUDBanner: Equatable, Identifiable {
     var rightHeroID: String?
     /// 大きいほど優先（キューが詰まった時に低いものから捨てる）。
     var priority: Int
+    /// 起きた時の試合時間（秒）。早送り中に古くなった告知を捨てる。
+    var gameTime: Double = 0
 }
 
 struct HUDKillFeedEntry: Equatable, Identifiable {
@@ -124,6 +126,8 @@ struct HUDKillFeedEntry: Equatable, Identifiable {
     var assists: Int
     var involvesHuman: Bool
     var createdAt: TimeInterval
+    /// 起きた時の試合時間（秒）。表示時間は試合時間で数える（早送りでは速く流れ、一時停止中は残る）。
+    var gameTime: Double = 0
 }
 
 struct HUDToast: Equatable, Identifiable {
@@ -185,14 +189,128 @@ struct HUDSpectateHero: Equatable, Identifiable {
     var hpRatio: Double
     var isDead: Bool
     var respawn: Double
+    /// 必殺技（Ultimate）を使える（習得済み・クールダウン明け）。
+    var ultReady = false
+    /// リプレイの持ち主（記録した本人）。
+    var isOwner = false
 }
 
 struct HUDSpectateSnapshot: Equatable {
     var heroes: [HUDSpectateHero] = []
     var blueGold = 0
     var redGold = 0
+    /// ブルーから見たゴールド差（100 単位。正 = ブルー有利）。
+    var goldDiff = 0
+}
+
+/// ヒーローパネルの表示値（HUDModel.buildHeroPanel の純粋な出力。プレイヤーの HUD と観戦のヒーロー詳細で共用）。
+struct HUDHeroPanelBuild: Equatable {
+    var hero = HUDHeroSnapshot()
+    var vitals = HUDVitals()
+    var skills: [HUDSkillSnapshot] = SkillSlot.actives.map { HUDSkillSnapshot(slot: $0) }
+    var spells: [HUDSpellSnapshot] = [HUDSpellSnapshot(index: 0), HUDSpellSnapshot(index: 1)]
+}
+
+/// 観戦: 追従中のヒーローの詳細（情報パネル）。
+struct HUDHeroCardSnapshot: Equatable {
+    var id: EntityID
+    var team: Team
+    var isOwner = false
+    var panel = HUDHeroPanelBuild()
+    var kills = 0
+    var deaths = 0
+    var assists = 0
+    var creepScore = 0
+    /// 所持 Gold + 装備の価値。
+    var netWorth = 0
+    var damageDealt = 0
+    var damageTaken = 0
+    /// 回復 + シールド。
+    var healing = 0
+    var towerDamage = 0
+}
+
+/// 観戦: 再生バーと再生操作の状態（15Hz）。
+struct HUDTransportSnapshot: Equatable {
+    /// 現在の tick。
     var tick = 0
-    var finalTick: Int?
+    /// バーの右端（リプレイ = 最終 tick、観戦 = 分かっている所まで）。
+    var endTick = 1
+    /// 年表が分かっている所まで（網掛け。バックグラウンドの事前計算・一度見た区間）。
+    var coveredTick = 0
+    /// シークできる最後の tick（観戦は試合の最大時間）。
+    var upperBound = 1
+    /// 右端が試合の終わり（リプレイ）。
+    var isEndKnown = false
+    /// シーク中の目標 tick。
+    var seekingTo: Int?
+    var isPaused = false
+    var speed: Double = 1
+    var isEnded = false
+    var isSeekable = false
+    /// オンラインの観戦席（LIVE 表示。一時停止・速度・シークは効かない）。
+    var isLiveWatcher = false
+    var delaySeconds: Double?
+    var watchers = 0
+    /// 「次の見どころ」へ飛ぶ先（無ければ nil）。
+    var nextFightTick: Int?
+
+    /// 表示上の位置（シーク中は目標）。
+    var displayTick: Int { seekingTo ?? tick }
+    var fraction: Double { min(1, max(0, Double(displayTick) / Double(max(1, endTick)))) }
+}
+
+/// シークバーの印（年表の出来事）。
+struct HUDTimelineMarker: Equatable {
+    enum Kind: Equatable { case kill, structure, objective, ace, end }
+    var tick: Int
+    var kind: Kind
+    /// 有利になった側（nil = 中立・不明）。
+    var team: Team?
+    /// 重要度（0〜1。印の大きさ）。
+    var weight: Double
+}
+
+/// 観戦: 出来事の一覧の 1 行（試合時間・タップでその時刻へ）。
+struct HUDEventLogEntry: Equatable, Identifiable {
+    var id: Int
+    var tick: Int
+    var title: String
+    var subtitle: String?
+    var symbol: String
+    /// 有利になった側。
+    var team: Team?
+    var weight: Double
+    var leftHeroID: String?
+    var rightHeroID: String?
+    /// カメラを向ける対象（倒した側 / 倒された側のヒーロー）。
+    var focusID: EntityID?
+    var pos: Vec2?
+}
+
+/// ゴールド・経験値の推移の 1 点（ブルーから見た差）。
+struct HUDGraphPoint: Equatable {
+    var tick: Int
+    var gold: Double
+    var xp: Double
+}
+
+struct HUDGoldGraphSnapshot: Equatable {
+    var points: [HUDGraphPoint] = []
+    /// 横軸の右端（tick）。
+    var endTick = 1
+}
+
+/// 観戦: 目標（星喰竜・古環の巨像）の出現までの時間と、チームの加護の残り時間。
+struct HUDObjectiveTimer: Equatable, Identifiable {
+    enum Kind: Equatable { case wyrm, colossus, wyrmBlessing, colossusBlessing }
+    var kind: Kind
+    /// 加護を持っているチーム（出現タイマーは nil）。
+    var team: Team?
+    /// 残り秒（nil = 出現中）。
+    var seconds: Int?
+
+    var id: String { "\(kind)-\(team.map { "\($0.rawValue)" } ?? "n")" }
 }
 
 /// スコアボードの 1 行。
@@ -213,6 +331,12 @@ struct HUDScoreRow: Equatable, Identifiable {
     var spellCooldowns: [Double]?
     var isDead: Bool
     var respawn: Double
+    /// 所持 Gold + 装備の価値（観戦者の列。100 単位）。
+    var netWorth = 0
+    /// ヒーローへの与ダメージ（観戦者の列。100 単位）。
+    var damage = 0
+    /// カメラが追従中（観戦者）。
+    var isFocus = false
 }
 
 struct HUDScoreboardSnapshot: Equatable {
@@ -345,6 +469,11 @@ enum HUDSymbols {
         "exclamationmark.circle.fill", "cart.fill", "arrow.up.forward.circle.fill", "circle.hexagongrid.fill",
         "chevron.right.2", "lock.fill", "drop.fill", "checkmark", "ellipsis", "door.left.hand.open", "diamond.fill",
         "circle.fill", "forward.fill", "backward.fill",
+        // 観戦
+        "gobackward.10", "goforward.10", "gobackward.30", "goforward.30", "forward.frame.fill", "forward.end.fill",
+        "arrow.counterclockwise", "eye.slash.fill", "chevron.left", "slider.horizontal.3", "camera.fill",
+        "dot.radiowaves.left.and.right", "chart.xyaxis.line", "list.bullet", "person.crop.square.fill",
+        "scope", "timer", "map.fill", "star.circle.fill", "hurricane", "eye",
     ]
 }
 

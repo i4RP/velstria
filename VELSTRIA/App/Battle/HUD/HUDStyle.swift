@@ -27,6 +27,21 @@ enum HUDStyle {
         return String(format: "%02d:%02d", t / 60, t % 60)
     }
 
+    /// mm:ss.s（0.1 秒単位。観戦・リプレイの再生位置）。
+    static func preciseClock(_ seconds: Double) -> String {
+        let tenths = max(0, Int((seconds * 10).rounded(.down)))
+        let t = tenths / 10
+        if t >= 3600 { return String(format: "%d:%02d:%02d.%d", t / 3600, (t / 60) % 60, t % 60, tenths % 10) }
+        return String(format: "%02d:%02d.%d", t / 60, t % 60, tenths % 10)
+    }
+
+    /// 1000 単位の短い表記（12.3k）。
+    static func thousands(_ v: Double) -> String {
+        let a = abs(v)
+        if a >= 1000 { return String(format: "%.1fk", v / 1000) }
+        return String(Int(v.rounded()))
+    }
+
     /// クールダウン表示（10 秒未満は小数 1 桁）。
     static func cooldown(_ v: Double) -> String {
         v < 10 ? String(format: "%.1f", max(0.1, v)) : String(Int(v.rounded(.up)))
@@ -309,4 +324,214 @@ struct HUDLayout: Equatable {
         return (joyEdge + clusterEdge) / 2
     }
 
+    // MARK: 上部中央（スコア）
+
+    /// 上部中央のスコアカプセル（topEdge + 22 が中心）の下端（余白込み）。
+    var scoreCapsuleBottom: CGFloat { topEdge + 22 + 24 * min(scale, 1.1) }
+}
+
+// MARK: - 観戦の配置
+
+/// 観戦・リプレイの HUD の配置（下部ドック・情報パネル・目標タイマー・バナー・戦術マップ）。座標は HUD 全面のローカル座標。
+///
+/// 下部ドックは Safe Area の内側の幅いっぱいに置き、2 段にする:
+/// - 上段（シークできる時）: 一時停止・速度・±10 秒・シークバー・次の見どころ（幅があれば ±30 秒とコマ送りも）
+/// - 下段: ブルー 5 人 | 前後の切り替え・観戦メニュー（オンラインの観戦席は LIVE 表示）| レッド 5 人
+/// 速度ボタン 5 つを並べる幅が無い画面（iPhone SE）は速度を 1 つの切り替えボタンにまとめ、選択肢は観戦メニューへ。
+/// 情報パネル（ヒーロー詳細・ゴールド推移・出来事）は右上ボタンの下（左利き配置では左）に置く。
+struct HUDSpectatorLayout: Equatable {
+    let base: HUDLayout
+    /// シークできる（オフラインの観戦・リプレイ）。上段に再生バーを出す。
+    let seekable: Bool
+    /// 1 段にまとめる（戦術マップを開いている間）。シークできる時は再生バーだけ、オンラインはヒーローだけ。
+    var compact = false
+
+    static let button: CGFloat = 44
+    static let gap: CGFloat = 4
+    static let padding: CGFloat = 6
+    static let rowSpacing: CGFloat = 4
+    static let heroSize = CGSize(width: 44, height: 48)
+    static let heroSpacing: CGFloat = 3
+    static let groupGap: CGFloat = 8
+    static let timeLabelWidth: CGFloat = 50
+    static let speedSpacing: CGFloat = 2
+    /// シークバーの最小の長さ（これを切るなら速度ボタンを畳む）。
+    static let minSeekBar: CGFloat = 150
+    /// BattleController.spectatorSpeeds の数（単体テストで一致を確認する）。
+    static let speedButtonCount = 5
+    static let teamSize = 5
+
+    init(base: HUDLayout, seekable: Bool, compact: Bool = false) {
+        self.base = base
+        self.seekable = seekable
+        self.compact = compact
+    }
+
+    var usableWidth: CGFloat { base.trailingEdge - base.leadingEdge }
+    var innerWidth: CGFloat { usableWidth - Self.padding * 2 }
+
+    // MARK: 下段（ヒーロー）
+
+    var teamGroupWidth: CGFloat {
+        CGFloat(Self.teamSize) * Self.heroSize.width + CGFloat(Self.teamSize - 1) * Self.heroSpacing
+    }
+
+    /// 下段の中央（両チームの間）の幅。
+    var heroCenterWidth: CGFloat { innerWidth - teamGroupWidth * 2 - Self.groupGap * 2 }
+
+    /// 下段の中央に前後のヒーロー切り替えを置けるか（無ければ観戦メニューへ）。
+    var showsPrevNext: Bool { heroCenterWidth >= Self.button * 3 + Self.gap * 2 }
+
+    var showsHeroRow: Bool { !(compact && seekable) }
+
+    // MARK: 上段（再生）
+
+    var showsTransportRow: Bool { seekable }
+
+    private var speedGroupInlineWidth: CGFloat {
+        CGFloat(Self.speedButtonCount) * Self.button + CGFloat(Self.speedButtonCount - 1) * Self.speedSpacing
+    }
+
+    /// 上段の固定部分の幅（⏯・速度・−10・時刻・（バー）・終わり・+10・次の見どころ の 8 項目と 7 つの間隔）。
+    private func transportFixedWidth(inlineSpeeds: Bool) -> CGFloat {
+        let speeds = inlineSpeeds ? speedGroupInlineWidth : Self.button
+        return Self.button + speeds + Self.button * 3 + Self.timeLabelWidth * 2 + Self.gap * 7
+    }
+
+    /// 速度ボタンを全部並べるか（狭い画面は 1 つの切り替えボタン）。
+    var inlineSpeeds: Bool { innerWidth - transportFixedWidth(inlineSpeeds: true) >= Self.minSeekBar }
+
+    private var baseSeekBar: CGFloat { innerWidth - transportFixedWidth(inlineSpeeds: inlineSpeeds) }
+
+    /// コマ送りを上段に置けるか（無ければ観戦メニュー）。
+    var inlineStep: Bool { baseSeekBar - (Self.button + Self.gap) >= Self.minSeekBar }
+
+    /// ±30 秒を上段に置けるか。
+    var inlineSkip30: Bool {
+        inlineStep && baseSeekBar - (Self.button + Self.gap) * 3 >= Self.minSeekBar
+    }
+
+    /// シークバーの長さ（タッチ領域の幅）。
+    var seekBarWidth: CGFloat {
+        var w = baseSeekBar
+        if inlineStep { w -= Self.button + Self.gap }
+        if inlineSkip30 { w -= (Self.button + Self.gap) * 2 }
+        return max(0, w)
+    }
+
+    // MARK: ドック全体
+
+    var transportRowHeight: CGFloat { Self.button }
+    var heroRowHeight: CGFloat { Self.heroSize.height }
+
+    var dockHeight: CGFloat {
+        let rows = (showsTransportRow ? transportRowHeight : 0) + (showsHeroRow ? heroRowHeight : 0)
+        let spacing = showsTransportRow && showsHeroRow ? Self.rowSpacing : 0
+        return rows + spacing + Self.padding * 2
+    }
+
+    var dockFrame: CGRect {
+        CGRect(x: base.leadingEdge, y: base.bottomEdge - dockHeight, width: usableWidth, height: dockHeight)
+    }
+
+    var dockTop: CGFloat { dockFrame.minY }
+
+    /// 上段（再生）の枠（HUD 座標）。
+    var transportRowFrame: CGRect? {
+        guard showsTransportRow else { return nil }
+        return CGRect(x: dockFrame.minX + Self.padding, y: dockFrame.minY + Self.padding,
+                      width: innerWidth, height: transportRowHeight)
+    }
+
+    /// 下段（ヒーロー）の枠。
+    var heroRowFrame: CGRect? {
+        guard showsHeroRow else { return nil }
+        return CGRect(x: dockFrame.minX + Self.padding, y: dockFrame.maxY - Self.padding - heroRowHeight,
+                      width: innerWidth, height: heroRowHeight)
+    }
+
+    // MARK: 上部中央
+
+    /// 情報パネルを開いている時は、ミニマップとパネルの間の中央へ寄せる。
+    func topCenterX(panelOpen: Bool) -> CGFloat {
+        guard panelOpen else { return base.width / 2 }
+        let map = base.minimapFrame
+        let panel = infoPanelFrame
+        return base.leftHanded ? (panel.maxX + map.minX) / 2 : (map.maxX + panel.minX) / 2
+    }
+
+    /// 上部中央の帯（ゴールド・目標タイマー）に使える幅（ミニマップ・情報パネルに掛からない）。
+    func topCenterWidth(panelOpen: Bool) -> CGFloat {
+        let map = base.minimapFrame
+        if panelOpen {
+            let panel = infoPanelFrame
+            return max(0, (base.leftHanded ? map.minX - panel.maxX : panel.minX - map.maxX) - 12)
+        }
+        let mapInner = base.leftHanded ? base.width - map.minX : map.maxX
+        return max(0, (base.width / 2 - mapInner - 6) * 2)
+    }
+
+    static let scorePillHeight: CGFloat = 26
+    static let objectivesHeight: CGFloat = 22
+
+    /// 両チームのゴールド（とゴールド差）の帯の中心。
+    var scorePillCenterY: CGFloat { base.scoreCapsuleBottom + 4 + Self.scorePillHeight / 2 }
+    /// 目標タイマーの帯の中心。
+    var objectivesCenterY: CGFloat { scorePillCenterY + Self.scorePillHeight / 2 + 4 + Self.objectivesHeight / 2 }
+    var objectivesBottom: CGFloat { objectivesCenterY + Self.objectivesHeight / 2 }
+
+    /// 告知バナーの半分の高さ（見積もり。ポートレート 44pt × 倍率 + 縦の余白）。
+    var bannerHalfHeight: CGFloat { 32 * min(base.scale, 1.1) }
+
+    /// 告知バナーの中心（スコア・目標タイマーの帯と重ならない）。
+    var bannerCenterY: CGFloat { max(base.height * 0.27, objectivesBottom + 6 + bannerHalfHeight) }
+
+    // MARK: 情報パネル
+
+    var infoPanelWidth: CGFloat { min(320, max(240, usableWidth * 0.36)) }
+
+    /// 情報パネル（右上ボタンの下からドックの上まで）。
+    var infoPanelFrame: CGRect {
+        let top = base.topEdge + base.topButtonSize + 8
+        let bottom = dockTop - 6
+        let x = base.leftHanded ? base.leadingEdge : base.trailingEdge - infoPanelWidth
+        return CGRect(x: x, y: top, width: infoPanelWidth, height: max(0, bottom - top))
+    }
+
+    // MARK: 観戦メニュー（引き出し）
+
+    var drawerFrame: CGRect {
+        let width = min(420, usableWidth - 20)
+        let maxHeight = max(120, dockTop - base.topEdge - 10)
+        return CGRect(x: base.width / 2 - width / 2, y: dockTop - 6 - maxHeight, width: width, height: maxHeight)
+    }
+
+    // MARK: シネマ表示
+
+    /// HUD を隠している間に残す「戻す」ボタンの中心（右下。左利き配置では左下）。
+    var cinematicRestoreCenter: CGPoint {
+        CGPoint(x: base.mx(base.trailingEdge - Self.button / 2 - 4), y: base.bottomEdge - Self.button / 2 - 4)
+    }
+
+    // MARK: 戦術マップ（観戦）
+
+    /// 戦術マップを開いている間のドック（1 段）の上端。
+    var compactDockTop: CGFloat {
+        HUDSpectatorLayout(base: base, seekable: seekable, compact: true).dockTop
+    }
+
+    /// 観戦者の戦術マップの大きさ（1 段のドックの上に収める）。
+    var tacticalMapSize: CGFloat { min(340, max(150, compactDockTop - base.topEdge - 78 - 16)) }
+
+    /// 観戦者の戦術マップのカードの中心。
+    var tacticalMapCenter: CGPoint {
+        CGPoint(x: (base.leadingEdge + base.trailingEdge) / 2, y: (base.topEdge + compactDockTop - 4) / 2)
+    }
+
+    // MARK: 再生終了のカード
+
+    /// 再生終了のカード（ドックの上の空き）の中心。
+    var endCardCenter: CGPoint {
+        CGPoint(x: base.width / 2, y: (base.topEdge + dockTop) / 2)
+    }
 }

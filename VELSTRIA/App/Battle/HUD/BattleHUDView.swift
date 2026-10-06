@@ -4,7 +4,9 @@ import VelstriaCore
 // 担当: battle-hud。戦闘 HUD の全体構成（BattleSceneView の上に重ねる）。
 // 左上: ミニマップ / 上中央: キル数と時間 / 右上: K/D/A・CS・スコアボード・ポーズ / 右: キルフィード
 // 左下: スティック / 右下: 攻撃・スキル・スペル・帰還 / 下中央: ヒーローパネル
-// 観戦・リプレイでは操作部品を隠し、速度・追従・進行バーを出す。左利き配置では左右を反転する。
+// 観戦・リプレイでは操作部品を隠し、下部ドック（再生バー・10 人の追従・観戦メニュー）・ゴールドと目標タイマー・
+// 情報パネルを出す（配置は HUDSpectatorLayout）。戦術マップを開いている間もドックは操作できる（マップの上に 1 段で出す）。
+// シネマ表示では HUD を隠して戻すボタンだけを残す。左利き配置では左右を反転する。
 // 15Hz で変わる値は各レイヤーの小さなビューだけが読む（HUD 全体の body を毎回評価しない）。
 // 観戦者は最下層の操作レイヤーで 3D 画面をドラッグ・ピンチ・ダブルタップできる（HUDSpectatorGestures）。
 // 倒れている間は彩度を落とす幕（操作部品の下）と、復活までの秒・味方の一覧（操作部品の上）を出す。
@@ -52,6 +54,10 @@ private struct HUDTicker: View {
         Color.clear
             .onChange(of: controller.hudTick) { model.refresh() }
             .onChange(of: controller.cameraViewportTick) { model.refreshMinimapCamera() }
+            // 一時停止中の追従先・視界の切り替えもミニマップの輪・ヒーロー詳細へすぐ反映する（観戦）
+            .onChange(of: controller.cameraMode) { model.cameraModeChanged() }
+            .onChange(of: controller.spectatorVision) { model.cameraModeChanged() }
+            .onChange(of: controller.seekingToTick) { model.seekStateChanged() }
             .accessibilityHidden(true)
     }
 }
@@ -97,8 +103,8 @@ private struct HUDRoot: View {
                     HUDLevelUpLayer(model: model)
                         .position(x: layout.width / 2, y: layout.height * 0.36)
                 }
-                if spectating && !ended {
-                    HUDSpectateLayer(model: model, layout: layout)
+                if spectating {
+                    HUDSpectatorInfoLayer(model: model, layout: layout)
                 }
                 HUDMinimapDock(model: model, layout: layout)
                 HUDScoreLayer(model: model, layout: layout)
@@ -111,9 +117,11 @@ private struct HUDRoot: View {
                     .padding(.trailing, layout.width - layout.trailingEdge)
                 HUDKillFeedLayer(model: model, layout: layout)
             }
-            .opacity(settings.hudOpacity)
-            .allowsHitTesting(!model.isTacticalMapOpen)
-            .accessibilityHidden(model.isTacticalMapOpen)
+            // シネマ表示（観戦）は HUD を隠して映像だけにする
+            .opacity(spectating && model.spectator.isCinematic ? 0 : settings.hudOpacity)
+            .allowsHitTesting(!model.isTacticalMapOpen && !(spectating && model.spectator.isCinematic))
+            .accessibilityHidden(model.isTacticalMapOpen || (spectating && model.spectator.isCinematic))
+            .animation(.easeInOut(duration: 0.3), value: model.spectator.isCinematic)
 
             // 倒れている間の情報と味方の一覧（操作部品より上: スティックの受付領域より先に触れる）
             if showControls {
@@ -132,6 +140,12 @@ private struct HUDRoot: View {
                 HUDTacticalMap(model: model, layout: layout)
                     .zIndex(1)
             }
+            if spectating {
+                // 観戦の下部ドック: 戦術マップの上でも操作できる。再生終了のカードはドックと重ならない位置に出し、
+                // 観戦メニュー（引き出しとその外側の暗幕）より上に置く（開いたまま終わってもカードのボタンが押せる）
+                HUDSpectateDockLayer(model: model, layout: layout)
+                    .zIndex(model.isTacticalMapOpen ? 1 : 0)
+            }
 
             HUDPanelsLayer(model: model, layout: layout)
             HUDToastLayer(model: model, layout: layout, showControls: showControls)
@@ -140,7 +154,10 @@ private struct HUDRoot: View {
                 HUDTutorialComplete(model: model, director: tutorial)
                     .transition(.opacity)
             }
-            if let phase = model.endPhase {
+            if spectating && model.controller.isSeekable {
+                // 観戦・リプレイの終わり: 巻き戻して見直せるようにドックを残し、その上にカードを出す
+                HUDSpectatorEndLayer(model: model, layout: layout)
+            } else if let phase = model.endPhase {
                 HUDEndOfMatchView(model: model, phase: phase, colorblind: settings.colorblindMode)
                     .transition(.opacity)
             }
@@ -216,19 +233,99 @@ private struct HUDLevelUpLayer: View {
     }
 }
 
-private struct HUDSpectateLayer: View {
+/// 観戦: ゴールドとゴールド差・目標タイマー（上部中央）、情報パネル（右上ボタンの下）。
+private struct HUDSpectatorInfoLayer: View {
     let model: HUDModel
     let layout: HUDLayout
 
     var body: some View {
-        let barHeight: CGFloat = model.spectate.finalTick == nil ? 64 : 88
+        let spec = model.spectator
+        let sl = HUDSpectatorLayout(base: layout, seekable: model.controller.isSeekable)
+        let panelOpen = spec.panel != nil
+        let cx = sl.topCenterX(panelOpen: panelOpen)
         ZStack {
-            HUDSpectateBar(model: model, layout: layout)
-                .fixedSize()
-                .position(x: layout.width / 2, y: layout.bottomEdge - barHeight / 2)
-            HUDSpectateScore(model: model)
-                .position(x: layout.width / 2, y: layout.topEdge + 62)
+            if model.endPhase == nil || model.controller.isSeekable {
+                HUDSpectateScore(model: model)
+                    .position(x: cx, y: sl.scorePillCenterY)
+                if spec.showsObjectives {
+                    HUDObjectiveStrip(model: model, maxWidth: sl.topCenterWidth(panelOpen: panelOpen))
+                        .position(x: cx, y: sl.objectivesCenterY)
+                }
+                if panelOpen {
+                    let frame = sl.infoPanelFrame
+                    HUDSpectatorInfoPanel(model: model, layout: sl)
+                        .position(x: frame.midX, y: frame.midY)
+                        .transition(.move(edge: layout.leftHanded ? .leading : .trailing).combined(with: .opacity))
+                }
+            }
         }
+        .frame(width: layout.width, height: layout.height)
+        .animation(.spring(duration: 0.3), value: spec.panel)
+    }
+}
+
+/// 観戦: 下部ドックと観戦メニュー（引き出し）。シネマ表示中は戻すボタンだけ。
+private struct HUDSpectateDockLayer: View {
+    let model: HUDModel
+    let layout: HUDLayout
+
+    var body: some View {
+        let spec = model.spectator
+        let seekable = model.controller.isSeekable
+        let mapOpen = model.isTacticalMapOpen
+        let sl = HUDSpectatorLayout(base: layout, seekable: seekable, compact: mapOpen)
+        ZStack {
+            if spec.isCinematic {
+                HUDCinematicRestoreButton(model: model)
+                    .position(sl.cinematicRestoreCenter)
+                    .transition(.opacity)
+            } else if model.endPhase == nil || seekable {
+                if spec.isDrawerOpen && !mapOpen {
+                    // 引き出しの外をタップで閉じる
+                    Color.black.opacity(0.18)
+                        .contentShape(Rectangle())
+                        .onTapGesture { model.toggleSpectatorDrawer() }
+                        .accessibilityHidden(true)
+                        .transition(.opacity)
+                    HUDSpectatorDrawer(model: model, layout: sl)
+                        .frame(width: layout.width, height: max(0, sl.dockTop - 6), alignment: .bottom)
+                        .position(x: layout.width / 2, y: max(0, sl.dockTop - 6) / 2)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                HUDSpectateDock(model: model, layout: sl)
+                    .position(x: sl.dockFrame.midX, y: sl.dockFrame.midY)
+                    .opacity(model.settings.hudOpacity)
+            }
+        }
+        .frame(width: layout.width, height: layout.height)
+        .animation(.spring(duration: 0.28), value: spec.isDrawerOpen)
+        .animation(.easeInOut(duration: 0.3), value: spec.isCinematic)
+    }
+}
+
+/// 観戦・リプレイの再生終了のカード（終了演出の代わり。ドックは残る）。記録が途中で終わったリプレイにも出す。
+private struct HUDSpectatorEndLayer: View {
+    let model: HUDModel
+    let layout: HUDLayout
+
+    var body: some View {
+        let t = model.spectator.transport
+        let phase = model.endPhase
+        let show = t.seekingTo == nil && (phase != nil || (t.isEnded && model.controller.state.endReason == .aborted))
+        let sl = HUDSpectatorLayout(base: layout, seekable: true)
+        ZStack {
+            if show {
+                Color.black.opacity(0.3)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+                HUDSpectatorEndCard(model: model, phase: phase, colorblind: model.settings.colorblindMode)
+                    .frame(maxWidth: min(520, sl.usableWidth), maxHeight: max(120, sl.dockTop - layout.topEdge - 8))
+                    .position(sl.endCardCenter)
+                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+            }
+        }
+        .frame(width: layout.width, height: layout.height)
+        .animation(.easeInOut(duration: 0.3), value: show)
     }
 }
 
@@ -247,8 +344,10 @@ private struct HUDKillFeedLayer: View {
     let layout: HUDLayout
 
     var body: some View {
+        // 観戦の情報パネルを開いている間は同じ場所なので隠す（出来事の一覧に全部ある）
+        let covered = model.isSpectating && model.spectator.panel != nil
         HUDKillFeed(entries: model.killFeed, colorblind: model.settings.colorblindMode)
-            .opacity(model.isAiming ? 0 : 1)
+            .opacity(model.isAiming || covered ? 0 : 1)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: layout.topInfoAlignment)
             .padding(.top, layout.topEdge + 52)
             .padding(.leading, layout.leadingEdge)
@@ -262,7 +361,30 @@ private struct HUDBannerLayer: View {
 
     var body: some View {
         HUDBannerView(banner: model.banner, colorblind: model.settings.colorblindMode, scale: min(layout.scale, 1.1))
-            .position(x: layout.width / 2, y: layout.height * (model.tutorial == nil ? 0.27 : 0.46))
+            .frame(maxWidth: maxWidth)
+            .position(x: x, y: y)
+            // シネマ表示（観戦）は告知も隠して映像だけにする
+            .opacity(model.isSpectating && model.spectator.isCinematic ? 0 : 1)
+            .animation(.easeInOut(duration: 0.3), value: model.spectator.isCinematic)
+    }
+
+    /// 観戦の情報パネルを開いている時は、ミニマップとパネルの間に収める（文字は縮む）。
+    private var maxWidth: CGFloat? {
+        guard model.isSpectating, model.spectator.panel != nil else { return nil }
+        return HUDSpectatorLayout(base: layout, seekable: model.controller.isSeekable).topCenterWidth(panelOpen: true)
+    }
+
+    private var x: CGFloat {
+        guard model.isSpectating else { return layout.width / 2 }
+        return HUDSpectatorLayout(base: layout, seekable: model.controller.isSeekable)
+            .topCenterX(panelOpen: model.spectator.panel != nil)
+    }
+
+    private var y: CGFloat {
+        if model.tutorial != nil { return layout.height * 0.46 }
+        // 観戦はゴールド・目標タイマーの帯の下に出す（低い画面で重ならないように）
+        if model.isSpectating { return HUDSpectatorLayout(base: layout, seekable: model.controller.isSeekable).bannerCenterY }
+        return layout.height * 0.27
     }
 }
 

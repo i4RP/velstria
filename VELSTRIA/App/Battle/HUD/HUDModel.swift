@@ -267,9 +267,15 @@ final class HUDModel {
         if top != self.top { self.top = top }
     }
 
-    private func refreshHero(_ s: SimState, _ ctx: SimContext, _ hi: Int, time: TimeInterval) {
+    /// ヒーローパネルの表示値を作る（純粋関数: 任意のユニット添字。副作用なし）。
+    /// プレイヤーの HUD（refreshHero）と観戦のヒーロー詳細（buildHeroCard）が共用する。
+    /// targeting はスキル枠ごとの照準のキャッシュ（SkillSlot.rawValue 添字。無ければマスターから作る）。
+    static func buildHeroPanel(_ s: SimState, _ ctx: SimContext, index hi: Int, targeting: [SkillTargeting?] = [],
+                               canLevel: (SkillSlot) -> Bool = { _ in true }) -> HUDHeroPanelBuild? {
+        guard s.units.indices.contains(hi) else { return nil }
         let u = s.units[hi]
-        guard let h = u.hero else { return }
+        guard let h = u.hero else { return nil }
+        var b = HUDHeroPanelBuild()
         var snap = HUDHeroSnapshot()
         snap.heroID = h.heroID
         snap.role = h.role
@@ -282,8 +288,7 @@ final class HUDModel {
         v.resource = u.resource.rounded()
         v.maxResource = u.stats.maxResource.rounded()
         v.resourceKind = h.resourceKind
-        if debugForceLowHP { v.hp = (v.maxHP * 0.22).rounded() }
-        if v != vitals { vitals = v }
+        b.vitals = v
         snap.gold = Int(h.gold)
         snap.items = h.items
         snap.isDead = h.isDead
@@ -292,27 +297,20 @@ final class HUDModel {
         if let ch = h.channel {
             snap.channel = HUDChannel(kind: ch.kind, remaining: (ch.remaining * 20).rounded() / 20, total: ch.total)
         }
-        snap.statuses = Self.statusIcons(u)
-        if debugForceDeath {
-            snap.isDead = true
-            snap.respawn = 12.4
-            if deathInfo == nil {
-                deathInfo = HUDDeathInfo(killerHeroID: "H005", killerKind: .hero, killerTeam: .red)
-            }
-        }
-        if snap != hero { hero = snap }
+        snap.statuses = statusIcons(u)
+        b.hero = snap
 
         // スキル
         let def = ctx.master.hero(h.heroID)
-        var newSkills = skills
         for (k, slot) in SkillSlot.actives.enumerated() {
             guard let sk = ctx.master.skill(hero: h.heroID, slot: slot) else { continue }
             var sn = HUDSkillSnapshot(slot: slot)
             sn.skillID = sk.skillID
-            let targeting = targetingCache[slot.rawValue] ?? def.map { SkillCatalog.targeting(for: sk, hero: $0) }
+            let cached = targeting.indices.contains(slot.rawValue) ? targeting[slot.rawValue] : nil
+            let t = cached ?? def.map { SkillCatalog.targeting(for: sk, hero: $0) }
                 ?? SkillTargeting(archetype: .groundAoE, aim: .point, range: sk.range, radius: sk.radius)
-            sn.targeting = targeting
-            sn.archetype = targeting.archetype
+            sn.targeting = t
+            sn.archetype = t.archetype
             sn.rank = h.rank(slot)
             let cd = h.cooldown(slot)
             sn.cooldown = cd > 0 ? (cd * 10).rounded(.up) / 10 : 0
@@ -321,13 +319,11 @@ final class HUDModel {
             sn.castable = SkillSystem.canCast(s, ctx, heroIndex: hi, slot: slot)
             sn.affordable = u.resource + 0.5 >= sn.cost
             sn.silenced = u.has(.silence)
-            sn.canLevel = SkillLeveling.canLevel(h, slot: slot) && tutorialAllowsLevel(slot)
-            newSkills[k] = sn
+            sn.canLevel = SkillLeveling.canLevel(h, slot: slot) && canLevel(slot)
+            b.skills[k] = sn
         }
-        if newSkills != skills { skills = newSkills }
 
         // スペル
-        var newSpells = spells
         for k in 0..<min(2, h.spells.count) {
             var sp = HUDSpellSnapshot(index: k)
             sp.spellID = h.spells[k]
@@ -335,9 +331,53 @@ final class HUDModel {
             sp.cooldown = cd > 0 ? (cd * 10).rounded(.up) / 10 : 0
             sp.cooldownTotal = ctx.master.spell(sp.spellID)?.cooldownSec ?? 60
             sp.castable = SpellSystem.canCast(s, ctx, heroIndex: hi, spellIndex: k)
-            newSpells[k] = sp
+            b.spells[k] = sp
         }
-        if newSpells != spells { spells = newSpells }
+        return b
+    }
+
+    /// 観戦: 任意のヒーローの詳細（純粋関数）。ownerID はリプレイの持ち主（強調表示）。
+    static func buildHeroCard(_ s: SimState, _ ctx: SimContext, index hi: Int, ownerID: EntityID?) -> HUDHeroCardSnapshot? {
+        guard let panel = buildHeroPanel(s, ctx, index: hi, canLevel: { _ in false }), let h = s.units[hi].hero else { return nil }
+        let u = s.units[hi]
+        var card = HUDHeroCardSnapshot(id: u.id, team: u.team)
+        card.isOwner = ownerID == u.id
+        card.panel = panel
+        card.kills = h.score.kills
+        card.deaths = h.score.deaths
+        card.assists = h.score.assists
+        card.creepScore = h.score.creepScore
+        card.netWorth = netWorth(h)
+        card.damageDealt = Int(h.score.damageToHeroes.rounded())
+        card.damageTaken = Int(h.score.damageTaken.rounded())
+        card.healing = Int((h.score.healingDone + h.score.shieldingDone).rounded())
+        card.towerDamage = Int(h.score.towerDamage.rounded())
+        return card
+    }
+
+    /// 所持 Gold + 装備に使った Gold（観戦者のスコアボード・ヒーロー詳細）。
+    static func netWorth(_ h: HeroData) -> Int {
+        Int((h.gold + h.itemInvested.reduce(0, +)).rounded())
+    }
+
+    private func refreshHero(_ s: SimState, _ ctx: SimContext, _ hi: Int, time: TimeInterval) {
+        let u = s.units[hi]
+        guard let h = u.hero,
+              var b = Self.buildHeroPanel(s, ctx, index: hi, targeting: targetingCache,
+                                          canLevel: { self.tutorialAllowsLevel($0) }) else { return }
+        if debugForceLowHP { b.vitals.hp = (b.vitals.maxHP * 0.22).rounded() }
+        if b.vitals != vitals { vitals = b.vitals }
+        var snap = b.hero
+        if debugForceDeath {
+            snap.isDead = true
+            snap.respawn = 12.4
+            if deathInfo == nil {
+                deathInfo = HUDDeathInfo(killerHeroID: "H005", killerKind: .hero, killerTeam: .red)
+            }
+        }
+        if snap != hero { hero = snap }
+        if b.skills != skills { skills = b.skills }
+        if b.spells != spells { spells = b.spells }
 
         // おすすめ購入（Gold・所持品が変わった時だけ計算）
         let key = QuickBuyKey(gold: Int(h.gold), items: h.items, enabled: settings.showRecommendedItems)
@@ -420,7 +460,9 @@ final class HUDModel {
 
     func refreshMinimap(_ s: SimState, _ ctx: SimContext) {
         let viewer = controller.viewerTeam
-        let humanID = controller.humanHeroID
+        // リプレイは記録した本人を「自分」として強調する。注目の輪は追従中のユニット（自動カメラ・一時停止中の切り替えも即座に）
+        let humanID = controller.humanHeroID ?? controller.ownerHeroID
+        let focusID = isSpectating ? controller.presentationFocusID : cameraFollowID
         if s.time < lastMinimapTime || minimap.viewerTeam != viewer {
             ghosts.removeAll(keepingCapacity: true)
             campObservations.removeAll(keepingCapacity: true)
@@ -452,7 +494,7 @@ final class HUDModel {
                 }
                 if visible {
                     let dot = HUDMinimapBuffer.Dot(pos: displayedPosition, team: u.team, kind: .hero, hue: hue,
-                                                   isHuman: u.id == humanID, isFocus: u.id == cameraFollowID, alpha: 1,
+                                                   isHuman: u.id == humanID, isFocus: u.id == focusID, alpha: 1,
                                                    heroID: h.heroID, facing: Vec2.fromAngle(u.facing),
                                                    visionRadius: u.stats.sightRange > 0 ? u.stats.sightRange : Balance.heroSight)
                     if dot.isHuman { humanDot = dot } else { minimap.heroes.append(dot) }
@@ -551,22 +593,221 @@ final class HUDModel {
 
     // MARK: 観戦
 
+    /// 観戦者だけが使う状態（情報パネル・観戦メニュー・シネマ表示・再生バーなど）。
+    @ObservationIgnored let spectator = HUDSpectatorState()
+
     private func refreshSpectate(_ s: SimState) {
         var snap = HUDSpectateSnapshot()
+        let owner = controller.ownerHeroID
         for team in Team.players {
             for i in s.heroIndices(team: team) {
                 let u = s.units[i]
                 guard let h = u.hero else { continue }
+                let ult = h.rank(.ultimate) > 0 && h.cooldown(.ultimate) <= 0 && !h.isDead
                 snap.heroes.append(HUDSpectateHero(id: u.id, heroID: h.heroID, team: team, level: h.level,
                                                    hpRatio: (u.hpRatio * 40).rounded() / 40, isDead: h.isDead,
-                                                   respawn: h.respawnTimer.rounded(.up)))
+                                                   respawn: h.respawnTimer.rounded(.up), ultReady: ult,
+                                                   isOwner: u.id == owner))
             }
         }
-        snap.blueGold = Int(EconomyRewards.teamGoldEarned(s, team: .blue) / 100) * 100
-        snap.redGold = Int(EconomyRewards.teamGoldEarned(s, team: .red) / 100) * 100
-        snap.tick = s.tick / 15
-        snap.finalTick = controller.launch.replay.map { $0.finalTick / 15 }
+        let blue = EconomyRewards.teamGoldEarned(s, team: .blue)
+        let red = EconomyRewards.teamGoldEarned(s, team: .red)
+        snap.blueGold = Int(blue / 100) * 100
+        snap.redGold = Int(red / 100) * 100
+        snap.goldDiff = Int(((blue - red) / 100).rounded()) * 100
+        // 再生位置は spectator.transport（15Hz で変わる値をヒーローの並びと分けて観測させる）
         if snap != spectate { spectate = snap }
+        spectator.refresh(controller: controller, state: s, camps: minimap.camps, paused: spectatorPaused)
+    }
+
+    /// カメラの追従先・観戦者の視界が変わった（自動カメラ・ヒーロー切り替え・ミニマップ）。
+    /// 一時停止中は 15Hz の更新が止まるので、注目の輪・ミニマップ・ヒーロー詳細をここで作り直す。
+    /// 自由カメラの移動（ミニマップ・戦術マップのドラッグ、パン）は指の動きのたびに cameraMode が変わるので、
+    /// 注目の対象・自由カメラかどうか・視界が変わった時だけ作り直す（一時停止中に毎回 HUD 全体を作り直さない）。
+    func cameraModeChanged() {
+        guard started, isSpectating else { return }
+        var free = false
+        if case .free = controller.cameraMode { free = true }
+        let key = CameraFocusKey(focus: controller.presentationFocusID, free: free, vision: controller.spectatorVision)
+        guard key != cameraFocusKey else { return }
+        cameraFocusKey = key
+        guard controller.seekingToTick == nil else { return }
+        if controller.isPaused || controller.isEnded { refresh() }
+    }
+
+    /// cameraModeChanged で作り直しが要るかの判定用（最後に見た注目の対象・自由カメラ・視界）。
+    private struct CameraFocusKey: Equatable {
+        var focus: EntityID?
+        var free: Bool
+        var vision: Team?
+    }
+
+    @ObservationIgnored private var cameraFocusKey: CameraFocusKey?
+
+    /// シークが始まった・終わった（シーク中は 15Hz の更新が止まるので、再生バーの「移動中」をここで出す）。
+    func seekStateChanged() {
+        guard started, isSpectating else { return }
+        spectator.refresh(controller: controller, state: controller.state, camps: minimap.camps, paused: spectatorPaused)
+    }
+
+    // MARK: 観戦の操作（再生・視界・パネル）
+
+    /// シークバー・出来事の一覧から（オフラインの観戦・リプレイ）。終わった後に戻ると再生を再開する。
+    func spectatorSeek(toTick tick: Int) {
+        guard isSpectating, controller.isSeekable else { return }
+        reopenAfterEndForSeek()
+        controller.requestSeek(toTick: tick)
+        seekStateChanged()
+        app?.haptics.selection()
+    }
+
+    /// ±秒のシーク（−10 / +10 / −30 / +30）。
+    func spectatorSkip(seconds: Double) {
+        guard isSpectating, controller.isSeekable else { return }
+        if seconds < 0 { reopenAfterEndForSeek() }
+        controller.seek(bySeconds: seconds)
+        seekStateChanged()
+        app?.haptics.selection()
+    }
+
+    /// 最初から見る（終わった後の「もう一度見る」も）。
+    func spectatorRestart() {
+        spectatorSeek(toTick: 0)
+    }
+
+    /// 次の見どころ（大きな出来事の少し前）へ。
+    func spectatorNextFight() {
+        guard let target = spectator.transport.nextFightTick else { return }
+        spectatorSeek(toTick: target)
+    }
+
+    /// 一時停止中のコマ送り（1 tick）。
+    func spectatorStep() {
+        guard isSpectating, controller.isSeekable else { return }
+        if !controller.isPaused {
+            spectatorPaused = true
+            controller.isPaused = true
+        }
+        controller.stepTicks(1)
+        app?.haptics.selection()
+    }
+
+    /// 再生 / 一時停止（終わっていれば最初から）。
+    func spectatorPlayPause() {
+        if spectator.transport.isEnded && controller.isSeekable {
+            spectatorRestart()
+        } else {
+            toggleSpectatorPause()
+        }
+    }
+
+    /// 速度を順に切り替える（狭い画面の 1 ボタン）。
+    func cycleSpectatorSpeed() {
+        let speeds = BattleController.spectatorSpeeds
+        let i = speeds.firstIndex(of: controller.speed) ?? 0
+        setSpeed(speeds[(i + 1) % speeds.count])
+    }
+
+    /// 観戦者の視界（nil = 全体、.blue / .red = そのチームの視界）。
+    func setSpectatorVision(_ team: Team?) {
+        guard isSpectating, controller.spectatorVision != team else { return }
+        controller.spectatorVision = team
+        // ミニマップの霧・最後に見えた位置を作り直す（一時停止中も）
+        refreshMinimap(controller.state, controller.ctx)
+        app?.haptics.selection()
+    }
+
+    /// 自動カメラのオン/オフ。
+    func toggleSpectatorDirector() {
+        guard isSpectating else { return }
+        controller.spectatorDirectorEnabled.toggle()
+        app?.haptics.selection()
+    }
+
+    /// シネマ表示（HUD を隠して映像だけ。戻すボタンだけ残す）。
+    func setCinematic(_ on: Bool) {
+        guard isSpectating, spectator.isCinematic != on else { return }
+        if on {
+            spectator.isDrawerOpen = false
+            setTacticalMap(open: false)
+        }
+        spectator.isCinematic = on
+        app?.haptics.selection()
+    }
+
+    /// 情報パネルを開く/閉じる（同じパネルなら閉じる）。
+    func toggleSpectatorPanel(_ p: HUDSpectatorState.Panel) {
+        guard isSpectating else { return }
+        spectator.panel = spectator.panel == p ? nil : p
+        spectator.invalidatePanels()
+        app?.audio.play(.uiTap)
+        refreshSpectatorPanels()
+    }
+
+    func toggleSpectatorDrawer() {
+        guard isSpectating else { return }
+        spectator.isDrawerOpen.toggle()
+        app?.audio.play(spectator.isDrawerOpen ? .uiTap : .uiBack)
+    }
+
+    func toggleObjectiveTimers() {
+        guard isSpectating else { return }
+        spectator.showsObjectives.toggle()
+        refreshSpectatorPanels()
+    }
+
+    /// 観戦: ヒーローを選ぶ（追従中をもう一度選ぶとヒーロー詳細を開閉する）。
+    func spectatorSelectHero(_ id: EntityID) {
+        guard isSpectating else { return }
+        if spectator.focusID == id && cameraFollowID == id {
+            toggleSpectatorPanel(.hero)
+            return
+        }
+        follow(id)
+        if spectator.panel == .hero { refreshSpectatorPanels() }
+    }
+
+    /// 前 / 次のヒーローへ（ブルー 1〜5 → レッド 1〜5 の順。倒れているヒーローは飛ばす）。
+    func followAdjacentHero(_ step: Int) {
+        guard isSpectating,
+              let id = HUDSpectatorState.adjacentHero(from: spectator.focusID ?? spectator.lastFocusID, step: step,
+                                                      heroes: spectate.heroes) else { return }
+        follow(id)
+    }
+
+    /// 自由カメラから最後に追従していたヒーローへ戻る。
+    func refollowLastHero() {
+        guard isSpectating else { return }
+        if let id = spectator.lastFocusID ?? spectate.heroes.first?.id { follow(id) }
+    }
+
+    /// 出来事の一覧から: シークできればその少し前へ、できなければ（オンラインの観戦席）カメラを向ける。
+    func jumpToEvent(_ e: HUDEventLogEntry) {
+        guard isSpectating else { return }
+        if controller.isSeekable {
+            spectatorSeek(toTick: max(0, e.tick - 90))
+            if let id = e.focusID { follow(id) }
+        } else if let id = e.focusID, controller.state.unit(id)?.hero?.isDead == false {
+            follow(id)
+        } else if let pos = e.pos {
+            minimapDragged(to: pos)
+        }
+    }
+
+    /// 情報パネル・目標タイマーを今すぐ作り直す（開いた直後・一時停止中）。
+    private func refreshSpectatorPanels() {
+        guard started, isSpectating, controller.seekingToTick == nil else { return }
+        spectator.refresh(controller: controller, state: controller.state, camps: minimap.camps, paused: spectatorPaused)
+    }
+
+    /// 試合が終わった後にシークで戻る: 終了演出を閉じ、BGM と一時停止の状態を戻す（以後は試合中と同じ）。
+    private func reopenAfterEndForSeek() {
+        guard endPhase != nil, !finished else { return }
+        endTask?.cancel()
+        endTask = nil
+        endPhase = nil
+        controller.isPaused = spectatorPaused
+        app?.audio.playMusic(.battle)
     }
 
     /// 追従先を変える。観戦者は誰でも、プレイヤーは自分が死亡中に味方のヒーローだけ（敵を追うと霧の向こうが見えてしまう）。
@@ -609,10 +850,11 @@ final class HUDModel {
     }
 
     func toggleSpectatorPause() {
-        guard endPhase == nil else { return }
+        guard endPhase == nil, !controller.isOnline else { return }
         spectatorPaused.toggle()
         controller.isPaused = spectatorPaused
         app?.haptics.selection()
+        refreshSpectatorPanels()
     }
 
     // MARK: スコアボード
@@ -631,23 +873,39 @@ final class HUDModel {
         snap.redObjectives = snap.redWyrms + snap.redColossi
         snap.seconds = Int(s.time)
         let ally = humanTeam
+        // 強調するのは自分だけ（オンラインでは人間が複数いる）。リプレイは記録した本人
+        let me = controller.humanHeroID ?? controller.ownerHeroID
+        let focus = isSpectating ? controller.presentationFocusID : nil
         for team in Team.players {
             var rows: [HUDScoreRow] = []
             for i in s.heroIndices(team: team) {
                 let u = s.units[i]
                 guard let h = u.hero else { continue }
                 let showCooldowns = ally == nil || ally == team
-                // 強調するのは自分だけ（オンラインでは人間が複数いる）
-                rows.append(HUDScoreRow(id: u.id, heroID: h.heroID, name: h.displayName, team: team,
-                                        isHuman: u.id == controller.humanHeroID, level: h.level, kills: h.score.kills,
-                                        deaths: h.score.deaths, assists: h.score.assists, creepScore: h.score.creepScore,
-                                        items: h.items, spells: h.spells,
-                                        spellCooldowns: showCooldowns ? h.spellCooldowns.map { $0.rounded(.up) } : nil,
-                                        isDead: h.isDead, respawn: h.respawnTimer.rounded(.up)))
+                var row = HUDScoreRow(id: u.id, heroID: h.heroID, name: h.displayName, team: team,
+                                      isHuman: u.id == me, level: h.level, kills: h.score.kills,
+                                      deaths: h.score.deaths, assists: h.score.assists, creepScore: h.score.creepScore,
+                                      items: h.items, spells: h.spells,
+                                      spellCooldowns: showCooldowns ? h.spellCooldowns.map { $0.rounded(.up) } : nil,
+                                      isDead: h.isDead, respawn: h.respawnTimer.rounded(.up))
+                if isSpectating {
+                    // 観戦者だけの列（プレイヤーに相手の所持 Gold は見せない）
+                    row.netWorth = Self.netWorth(h) / 100 * 100
+                    row.damage = Int(h.score.damageToHeroes / 100) * 100
+                    row.isFocus = u.id == focus
+                }
+                rows.append(row)
             }
             if team == .blue { snap.blue = rows } else { snap.red = rows }
         }
         if snap != scoreboard { scoreboard = snap }
+    }
+
+    /// 観戦: スコアボードの行をタップ → そのヒーローを追従してスコアボードを閉じる。
+    func scoreboardRowTapped(_ id: EntityID) {
+        guard isSpectating else { return }
+        follow(id)
+        closePanel()
     }
 
     // MARK: 降参（UI031）
@@ -878,6 +1136,8 @@ final class HUDModel {
 
     private func enqueueBanner(_ b: HUDBanner) {
         guard endPhase == nil else { return }
+        var b = b
+        b.gameTime = controller.state.time
         if banner == nil {
             showBanner(b)
             return
@@ -888,13 +1148,34 @@ final class HUDModel {
         }
     }
 
+    /// 告知の表示時間は試合時間で数える（早送りでは速く流れる。ただし読める最短の実時間は保つ）。
+    /// 試合時間が戻った（シーク）・止まったまま（一時停止・配信待ち）でも出しっぱなしにしない。
+    static func bannerExpired(wall: Double, game: Double, duration: Double) -> Bool {
+        if game < 0 { return true }
+        if wall >= duration * 3 { return true }
+        return wall >= min(duration, bannerMinimumWall) && game >= duration
+    }
+
+    /// 早送り中でも告知を読める最短の実時間（秒）。
+    static let bannerMinimumWall: Double = 1.1
+    /// キューで待つ間にこれより古くなった告知（試合時間の秒）は出さない（早送りで溜まった昔の告知）。
+    static let bannerStaleAfter: Double = 8
+
     private func showBanner(_ b: HUDBanner) {
         banner = b
         bannerTask?.cancel()
         let duration = bannerQueue.isEmpty ? Self.bannerDuration : Self.bannerDuration * 0.7
         bannerTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(duration))
+            guard let start = self?.now, let startGame = self?.controller.state.time else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(100))
+                guard !Task.isCancelled, let self else { return }
+                if Self.bannerExpired(wall: self.now - start, game: self.controller.state.time - startGame,
+                                      duration: duration) { break }
+            }
             guard !Task.isCancelled, let self else { return }
+            let gameNow = self.controller.state.time
+            self.bannerQueue.removeAll { gameNow - $0.gameTime > Self.bannerStaleAfter || $0.gameTime > gameNow + 0.01 }
             if self.bannerQueue.isEmpty {
                 self.banner = nil
             } else {
@@ -903,6 +1184,11 @@ final class HUDModel {
         }
     }
 
+    /// キルフィードの最大件数（観戦者は早送りで重なるので少し多め）。
+    var killFeedLimit: Int { isSpectating ? Self.killFeedMax + 1 : Self.killFeedMax }
+    /// 早送り中でもキルフィードを読める最短の実時間（秒）。
+    static let killFeedMinimumWall: TimeInterval = 2.5
+
     private func addKillFeed(_ k: HeroKillEvent, humanID: EntityID?) {
         let s = controller.sim.state
         guard let victim = s.unit(k.victimID), let vh = victim.hero else { return }
@@ -910,16 +1196,24 @@ final class HUDModel {
         let involves = humanID.map { k.victimID == $0 || k.killerID == $0 || k.assistIDs.contains($0) } ?? false
         let entry = HUDKillFeedEntry(id: makeID(), killerHeroID: killer?.hero?.heroID, killerTeam: killer?.team,
                                      victimHeroID: vh.heroID, victimTeam: victim.team, assists: k.assistIDs.count,
-                                     involvesHuman: involves, createdAt: now)
+                                     involvesHuman: involves, createdAt: now, gameTime: s.time)
         var feed = killFeed
         feed.append(entry)
-        if feed.count > Self.killFeedMax { feed.removeFirst(feed.count - Self.killFeedMax) }
+        if feed.count > killFeedLimit { feed.removeFirst(feed.count - killFeedLimit) }
         killFeed = feed
     }
 
+    /// キルフィードの期限: 試合時間で killFeedLifetime 秒（早送りでは速く流れ、一時停止中は残る）。
+    /// ただし実時間で killFeedMinimumWall 秒は読めるように残す。巻き戻した先より後の項目は捨てる。
+    static func feedEntryExpired(_ e: HUDKillFeedEntry, wall: TimeInterval, game: Double) -> Bool {
+        if e.gameTime > game + 0.01 { return true }
+        return game - e.gameTime > killFeedLifetime && wall - e.createdAt > killFeedMinimumWall
+    }
+
     private func expireFeed(time: TimeInterval) {
-        if let first = killFeed.first, time - first.createdAt > Self.killFeedLifetime {
-            killFeed.removeAll { time - $0.createdAt > Self.killFeedLifetime }
+        let game = controller.state.time
+        if killFeed.contains(where: { Self.feedEntryExpired($0, wall: time, game: game) }) {
+            killFeed.removeAll { Self.feedEntryExpired($0, wall: time, game: game) }
         }
     }
 
@@ -1057,6 +1351,8 @@ final class HUDModel {
 
     /// 外部（バックグラウンド移行）で一時停止された。
     func externallyPaused() {
+        // 観戦者が自分で止めた（一時停止・コマ送り・終了後の巻き戻し）時は外部の一時停止ではない。戦術マップも開いたまま（B23）
+        if isSpectating && spectatorPaused { return }
         setTacticalMap(open: false)
         guard endPhase == nil, !finished, panel != .pause, !spectatorPaused else { return }
         cancelAim()
