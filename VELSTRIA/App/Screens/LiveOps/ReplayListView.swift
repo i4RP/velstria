@@ -417,7 +417,7 @@ struct ReplayListView: View {
                         .background(Circle().fill(Color.white.opacity(0.10)))
                         .overlay(Circle().stroke(Theme.panelStroke, lineWidth: 1))
                 }
-                .accessibilityLabel(L("モードで絞り込む", "Filter by mode") + (modeFilter.map { "、" + LiveOpsFormat.modeName($0) } ?? ""))
+                .accessibilityLabel(ReplayLibrary.modeFilterAccessibilityLabel(modeFilter))
                 .accessibilityIdentifier("replays_mode_filter")
             }
         }
@@ -575,6 +575,22 @@ struct ReplayListView: View {
     }
 }
 
+extension ReplayLibrary {
+    /// VoiceOver の区切り（日本語は「、」、英語は「, 」）。
+    static func accessibilityJoined(_ parts: [String]) -> String { parts.joined(separator: L("、", ", ")) }
+
+    /// 一覧の行: 題名・モード・日時（再生できなければその旨）。
+    static func rowAccessibilityLabel(title: String, mode: MatchMode, date: Date, unplayable: Bool) -> String {
+        accessibilityJoined([title, LiveOpsFormat.modeName(mode), LiveOpsFormat.dateTime(date)]
+                            + (unplayable ? [L("再生できません", "can't be played")] : []))
+    }
+
+    /// モードの絞り込みボタン（絞り込み中ならそのモード）。
+    static func modeFilterAccessibilityLabel(_ mode: MatchMode?) -> String {
+        accessibilityJoined([L("モードで絞り込む", "Filter by mode")] + (mode.map { [LiveOpsFormat.modeName($0)] } ?? []))
+    }
+}
+
 private struct ReplayRow: View {
     let meta: ReplayMeta
     let record: MatchRecord?
@@ -601,8 +617,8 @@ private struct ReplayRow: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("\(title)、\(LiveOpsFormat.modeName(meta.mode))、\(LiveOpsFormat.dateTime(meta.date))"
-                                + (unplayable ? L("、再生できません", ", can't be played") : ""))
+            .accessibilityLabel(ReplayLibrary.rowAccessibilityLabel(title: title, mode: meta.mode, date: meta.date,
+                                                                    unplayable: unplayable))
             .accessibilityHint(L("詳細を開く", "Opens details"))
             .accessibilityIdentifier("replay_row_\(index)")
             favoriteButton

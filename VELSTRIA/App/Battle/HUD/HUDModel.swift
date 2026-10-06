@@ -158,6 +158,9 @@ final class HUDModel {
     var isTutorial: Bool { controller.launch.config.mode == .tutorial }
     var mode: MatchMode { controller.launch.config.mode }
     var humanTeam: Team? { controller.localTeam }
+    /// 試合が終わった後もパネル（スコアボード・ポーズ）と戦術マップを開ける: シークできる観戦・リプレイは終わってもドックと
+    /// 右上のボタンが残り、巻き戻して見直せる（再生終了のカードはパネル・マップを開いている間は隠す）。
+    var allowsPanelsAfterEnd: Bool { isSpectating && controller.isSeekable }
     /// 操作を受け付けるか。
     var canControl: Bool { !isSpectating && !isTacticalMapOpen && endPhase == nil && !finished && !(tutorial?.isComplete ?? false) }
 
@@ -587,8 +590,10 @@ final class HUDModel {
     func setTacticalMap(open: Bool) {
         guard open != isTacticalMapOpen else { return }
         if open {
-            guard endPhase == nil, !finished, tutorial?.isComplete != true else { return }
+            guard endPhase == nil || allowsPanelsAfterEnd, !finished, tutorial?.isComplete != true else { return }
             closePanel()
+            // 観戦メニューとは同時に開かない（マップの間は引き出しを描かないので、開いたままだと見えない引き出しが残る）
+            if isSpectating { spectator.isDrawerOpen = false }
             cancelAim()
             attackReleased()
             joystickEnded()
@@ -754,6 +759,8 @@ final class HUDModel {
 
     func toggleSpectatorDrawer() {
         guard isSpectating else { return }
+        // 戦術マップの上（1 段のドック）から開いた時はマップを閉じて引き出しを見せる（マップの間は引き出しを描かない）
+        if !spectator.isDrawerOpen { setTacticalMap(open: false) }
         spectator.isDrawerOpen.toggle()
         app?.audio.play(spectator.isDrawerOpen ? .uiTap : .uiBack)
     }
@@ -1378,8 +1385,9 @@ final class HUDModel {
     // MARK: パネル
 
     func openPanel(_ p: HUDPanel) {
-        guard endPhase == nil, !finished else { return }
+        guard endPhase == nil || allowsPanelsAfterEnd, !finished else { return }
         setTacticalMap(open: false)
+        confirmingLeave = false
         app?.audio.play(.uiTap)
         if p == .shop { tutorial?.noteShopOpened() }
         panel = p
@@ -1416,7 +1424,8 @@ final class HUDModel {
     /// 観戦の「退出」: ポーズメニューを開いて退出の確認を出す。
     func requestLeave() {
         openPanel(.pause)
-        confirmingLeave = true
+        // 開けなかった時に確認だけ残すと、次に開いたポーズメニューがいきなり退出の確認になる
+        if panel == .pause { confirmingLeave = true }
     }
 
     /// 外部（バックグラウンド移行）で一時停止された。

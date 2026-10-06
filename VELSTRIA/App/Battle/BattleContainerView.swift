@@ -34,11 +34,15 @@ struct BattleContainerView: View {
             if let controller {
                 BattleSceneView(controller: controller)
                     .ignoresSafeArea()
+                if controller.isOnline {
+                    // 観戦者数・観戦席の待機の表示は HUD の下（倒れている間の表示・パネル・戦術マップ・観戦メニューを覆わない）
+                    OnlineBattleOverlay(controller: controller, session: app.online, layer: .underHUD)
+                }
                 BattleHUDView(controller: controller) { outcome in
                     finish(outcome)
                 }
                 if controller.isOnline {
-                    OnlineBattleOverlay(controller: controller, session: app.online) {
+                    OnlineBattleOverlay(controller: controller, session: app.online, layer: .overHUD) {
                         app.audio.stopMusic()
                         finish(controller.makeOutcome(abandoned: false))
                     }
@@ -126,16 +130,24 @@ struct BattleContainerView: View {
     }
 }
 
-/// オンライン対戦の重ね表示（HUD の上）。担当: online。
-/// - 待機: 読み込み待ち・配信待ち（観戦席は遅延の説明）。
-/// - 中断: ホストとの切断・ホストの中断で試合が終わった。HUD は中断では終了演出を出さないので、ここで「退出」を出す。
+/// オンライン対戦の重ね表示。担当: online。HUD の下と上の 2 か所に置く（layer）。
+/// - 待機: 読み込み待ち・配信待ち。選手は画面中央（HUD の上）。観戦席は遅延の説明を上部の帯の下に小さく出す（HUD の下:
+///   観戦メニュー・情報パネル・戦術マップを開けばそちらが上。観戦メニューの位置とは重ならない）。
+/// - 中断: ホストとの切断・ホストの中断で試合が終わった。HUD は中断では終了演出を出さないので、ここで「退出」を出す（HUD の上）。
 /// - 観戦者数: 選手には観戦している人数と遅延を小さく見せる（観戦されていること・ゴースティング対策が分かるように）。
+///   HUD の下に置き、倒れている間（同じ位置に復活までのカードが出る）は隠す。
 struct OnlineBattleOverlay: View {
     let controller: BattleController
     /// 部屋（観戦の遅延・実況の有無）。
     var session: OnlineSession?
+    /// HUD の下（観戦者数・観戦席の待機）か上（選手の待機・中断）か。
+    var layer: Layer = .overHUD
     /// 中断で終わった試合の「退出」（BattleContainerView の終了処理へ）。
     var onLeave: () -> Void = {}
+
+    enum Layer {
+        case underHUD, overHUD
+    }
 
     @Environment(AppModel.self) private var app
     @State private var leaving = false
@@ -150,16 +162,24 @@ struct OnlineBattleOverlay: View {
                               height: geo.size.height + safe.top + safe.bottom)
             let layout = HUDLayout(size: full, safe: safe, leftHanded: app.profile.settings.leftHandedLayout)
             ZStack {
-                if !controller.isSpectating && !controller.isEnded {
-                    spectatorBadge(layout)
-                }
-                if interrupted {
-                    interruptedPrompt
-                        .transition(.opacity)
-                } else if status != .none {
-                    waitingBox(status)
-                        .position(x: layout.width / 2, y: layout.height / 2)
-                        .transition(.opacity)
+                switch layer {
+                case .underHUD:
+                    if !controller.isSpectating && !controller.isEnded && controller.onlineSpectatorCount > 0 && !localHeroIsDown {
+                        spectatorBadge(layout)
+                    }
+                    if controller.isSpectating && !interrupted && status != .none {
+                        spectatorWaitingPill(status, layout: layout)
+                            .transition(.opacity)
+                    }
+                case .overHUD:
+                    if interrupted {
+                        interruptedPrompt
+                            .transition(.opacity)
+                    } else if !controller.isSpectating && status != .none {
+                        waitingBox(status)
+                            .position(x: layout.width / 2, y: layout.height / 2)
+                            .transition(.opacity)
+                    }
                 }
             }
             .frame(width: full.width, height: full.height)
@@ -170,6 +190,50 @@ struct OnlineBattleOverlay: View {
     }
 
     // MARK: 待機
+
+    /// 自分のヒーローが倒れている（観戦者数の位置に復活までのカードが出る）。15Hz の hudTick で読み直す。
+    private var localHeroIsDown: Bool {
+        _ = controller.hudTick
+        guard let i = controller.humanIndex else { return false }
+        return controller.state.units[i].hero?.isDead == true
+    }
+
+    /// 観戦席の待機の表示の上端（ゴールド・目標タイマーの帯の下）。
+    static func spectatorWaitingTop(_ layout: HUDLayout) -> CGFloat {
+        HUDSpectatorLayout(base: layout, seekable: false).objectivesBottom + 6
+    }
+
+    /// 観戦席の待機の表示の最大幅（ミニマップに掛からない上部中央の幅）。
+    static func spectatorWaitingMaxWidth(_ layout: HUDLayout) -> CGFloat {
+        min(420, HUDSpectatorLayout(base: layout, seekable: false).topCenterWidth(panelOpen: false))
+    }
+
+    /// 観戦席の待機の表示の高さの上限（2 行まで）。観戦メニュー（引き出し）の上端より上に収まることを単体テストで確認する。
+    static let spectatorWaitingMaxHeight: CGFloat = 56
+
+    /// 観戦席の待機（開始までの遅延・配信待ち）: 上部の帯の下の小さな表示（観戦メニューの位置と重ならない）。
+    private func spectatorWaitingPill(_ status: OnlineBattleStatus, layout: HUDLayout) -> some View {
+        HStack(spacing: 8) {
+            ProgressView().tint(Theme.gold)
+            Text(text(status))
+                .font(Theme.heading(13))
+                .foregroundStyle(.white)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.black.opacity(0.7)))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.panelStroke))
+        .frame(maxWidth: Self.spectatorWaitingMaxWidth(layout))
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("online_battle_status")
+        .allowsHitTesting(false)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.top, Self.spectatorWaitingTop(layout))
+    }
 
     private func waitingBox(_ status: OnlineBattleStatus) -> some View {
         VStack(spacing: 8) {

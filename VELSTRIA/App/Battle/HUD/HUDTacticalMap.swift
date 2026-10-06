@@ -81,6 +81,10 @@ enum HUDTacticalMapText {
 
     /// 「最後に見えた位置」の凡例を出すか（霧のある視点だけ。観戦の全体視界には無い）。
     static func showsLastSeen(viewerTeam: Team?) -> Bool { viewerTeam != nil }
+
+    /// マップのカードを VoiceOver のモーダルにするか。観戦者はマップの上に残すドック（再生・速度・シーク・ヒーロー）も
+    /// 操作できるので、モーダルにしない（モーダルだと VoiceOver がカードの外へ出られない）。
+    static func isModal(isSpectating: Bool) -> Bool { !isSpectating }
 }
 
 /// 戦闘を止めずに戦場を確認。タッチ中のカメラ操作は小さい地図と同じ座標投影を使う。
@@ -130,7 +134,7 @@ struct HUDTacticalMap: View {
             .hudGlass(cornerRadius: 20, tint: HUDStyle.accent.opacity(0.6))
             .fixedSize()
             .accessibilityElement(children: .contain)
-            .accessibilityAddTraits(.isModal)
+            .accessibilityAddTraits(HUDTacticalMapText.isModal(isSpectating: model.isSpectating) ? .isModal : [])
             .accessibilityIdentifier("hud_tactical_panel")
             .onAppear { closeFocused = true }
             .accessibilityAction(.escape) { model.setTacticalMap(open: false) }
