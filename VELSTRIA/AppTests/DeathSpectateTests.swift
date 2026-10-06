@@ -105,6 +105,39 @@ final class DeathSpectateTests: XCTestCase {
         XCTAssertTrue(HUDDeathSpectate.allies(spectator).isEmpty)
     }
 
+    /// オンラインの再同期で復活を飛び越えた（.respawned が配られない）: 死亡中の味方追従をやめて自分の追従へ戻る。
+    func testResyncPastTheRespawnReturnsTheCameraToTheHero() {
+        let app = AppModel(persistence: ServicesFixtures.tempPersistence())
+        let c = BattleController(launch: BattleLaunch(config: MatchFactory.standardMatch(humanHeroID: "H001", humanName: "P", seed: 6)))
+        let model = HUDModel(controller: c)
+        model.start(app: app, onFinish: { _ in })
+        defer { model.stop() }
+        let (s, me, allies, _) = deadState()
+        c.restore(s)
+        model.refresh()
+        let ally = s.units[allies[1]].id
+        model.follow(ally)
+        XCTAssertEqual(c.cameraMode, .followUnit(ally))
+        // 死亡中のままの再同期では味方の追従を続ける
+        var stillDead = s
+        stillDead.time += 1
+        stillDead.units[me].hero?.respawnTimer = 14
+        c.restore(stillDead)
+        model.refresh()
+        XCTAssertEqual(c.cameraMode, .followUnit(ally), "死亡中の再同期では味方を見続ける")
+        XCTAssertEqual(model.cameraFollowID, ally)
+        // 復活した後の状態へ置き換わった（ホストのスナップショットが復活の tick より先）
+        var alive = stillDead
+        alive.time += 20
+        alive.units[me].isAlive = true
+        alive.units[me].hero?.respawnTimer = 0
+        alive.units[me].hp = alive.units[me].stats.maxHP
+        c.restore(alive)
+        model.refresh()
+        XCTAssertNil(model.cameraFollowID)
+        XCTAssertEqual(c.cameraMode, .followHero, "復活を飛び越えた再同期では自分の追従へ戻る")
+    }
+
     // MARK: 配置
 
     private let devices: [(name: String, size: CGSize, side: CGFloat, bottom: CGFloat)] = [

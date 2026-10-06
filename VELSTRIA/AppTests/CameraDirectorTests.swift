@@ -408,6 +408,206 @@ final class CameraDirectorTests: XCTestCase {
         XCTAssertEqual(c.cameraZoomOverride, 2.2)
     }
 
+    /// 一時停止中（HUD では止まった時間）は控えの残りを減らさない: 止めてヒーローを選び、しばらく眺めてから再生・コマ送りしても、
+    /// すぐには自動カメラが奪い返さない（残りは再生している時間で数える）。
+    func testPauseDoesNotRunDownTheBackOff() async {
+        let c = BattleController(launch: BattleLaunch(config: MatchFactory.botMatch(seed: 5)))
+        let link = SpectatorCameraLink.link(for: c)
+        let d = CameraDirector(controller: c, link: link)
+        let now = TestClock(200)
+        d.clock = { now.now }
+        d.start()
+        defer { d.stop() }
+        run(c, director: d, ticks: 30, clock: now)
+        guard case .followUnit(let directed) = c.cameraMode else { return XCTFail("最初の画: \(c.cameraMode)") }
+        let chosen = try! XCTUnwrap(c.state.heroIndices.map { c.state.units[$0].id }.first { $0 != directed })
+        c.isPaused = true
+        c.cameraMode = .followUnit(chosen)
+        d.update()
+        XCTAssertTrue(d.isSuspended)
+        // 一時停止のまま 15 秒（実時間）眺める
+        for _ in 0..<150 {
+            now.now += 0.1
+            d.update()
+        }
+        XCTAssertTrue(d.isSuspended, "一時停止中は控えの残りが減らない")
+        // コマ送り（sim の時間は 0.25 秒以上進む）でも奪い返さない
+        c.stepTicks(9)
+        now.now += 0.1
+        d.update()
+        XCTAssertEqual(c.cameraMode, .followUnit(chosen), "コマ送りで自動カメラが奪い返した")
+        // 再生を再開: 再生している時間で 10 秒たつまでは控える
+        c.isPaused = false
+        run(c, director: d, ticks: 240, clock: now)
+        XCTAssertTrue(d.isSuspended, "再生して 8 秒ではまだ控える")
+        XCTAssertEqual(c.cameraMode, .followUnit(chosen), "再生を再開した直後に自動カメラが奪い返した")
+        run(c, director: d, ticks: 90, clock: now)
+        XCTAssertFalse(d.isSuspended, "再生して 10 秒で明ける")
+        // シーク中も止まった時間として数える
+        c.cameraMode = .free(Vec2(5000, 5000))
+        d.update()
+        XCTAssertTrue(d.isSuspended)
+        c.requestSeek(toTick: c.state.tick - 60)
+        XCTAssertNotNil(c.seekingToTick)
+        now.now += 15
+        d.update()
+        let wall = ContinuousClock()
+        let deadline = wall.now.advanced(by: .seconds(60))
+        while c.seekingToTick != nil && wall.now < deadline { try? await Task.sleep(for: .milliseconds(10)) }
+        d.update()
+        XCTAssertTrue(d.isSuspended, "シーク中は控えの残りが減らない")
+        XCTAssertEqual(c.cameraMode, .free(Vec2(5000, 5000)))
+    }
+
+    /// 終わった後（HUD では止まった時間）も控えの残りを減らさない: 終わった画面でヒーローを選んで眺めてから巻き戻しても、
+    /// すぐには自動カメラが奪い返さない（モードが変わらないので見張りでは気付けない）。
+    func testEndedMatchDoesNotRunDownTheBackOff() async {
+        let live = BattleController(launch: BattleLaunch(config: MatchFactory.standardMatch(humanHeroID: "H001", humanName: "P", seed: 6)))
+        for _ in 0..<300 { live.frame(dt: Balance.dt) }
+        let data = try! XCTUnwrap(live.makeOutcome(abandoned: true).replay)
+        var launch = BattleLaunch(config: data.config, replay: data)
+        launch.spectatorOptions.director = true
+        let c = BattleController(launch: launch)
+        let link = SpectatorCameraLink.link(for: c)
+        let d = CameraDirector(controller: c, link: link)
+        let now = TestClock(500)
+        d.clock = { now.now }
+        d.start()
+        defer { d.stop() }
+        run(c, director: d, ticks: 400, clock: now)
+        XCTAssertTrue(c.isEnded, "記録の最終 tick で終わる")
+        let chosen = try! XCTUnwrap(c.state.heroIndices.map { c.state.units[$0].id }.last)
+        // 終わった画面でヒーローを選ぶ（HUDModel.follow と同じく、モードを変えて手動の操作を知らせる）
+        c.cameraMode = .followUnit(chosen)
+        link.noteManualCameraInput()
+        d.update()
+        XCTAssertTrue(d.isSuspended)
+        // 終わった画面のまま 15 秒（実時間）眺める
+        for _ in 0..<150 {
+            now.now += 0.1
+            d.update()
+        }
+        XCTAssertTrue(d.isSuspended, "終わった後は控えの残りが減らない")
+        // 巻き戻して再生しても、すぐには奪い返さない
+        c.requestSeek(toTick: 120)
+        let wall = ContinuousClock()
+        let deadline = wall.now.advanced(by: .seconds(60))
+        while c.seekingToTick != nil && wall.now < deadline { try? await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertFalse(c.isEnded)
+        run(c, director: d, ticks: 30, clock: now)
+        XCTAssertTrue(d.isSuspended)
+        XCTAssertEqual(c.cameraMode, .followUnit(chosen), "巻き戻した直後に自動カメラが奪い返した")
+    }
+
+    /// 一時停止メニューで倍率を変えたら、自動カメラは画を変えても倍率を書き戻さない。オンにし直す・ダブルタップで戻すと取り戻す。
+    func testZoomSettingWinsUntilTheDirectorIsHandedBack() {
+        let app = AppModel(persistence: ServicesFixtures.tempPersistence())
+        let c = BattleController(launch: BattleLaunch(config: MatchFactory.botMatch(seed: 20261001)))
+        let link = SpectatorCameraLink.link(for: c)
+        let d = CameraDirector(controller: c, link: link)
+        let now = TestClock(0)
+        d.clock = { now.now }
+        d.start()
+        defer { d.stop() }
+        let m = HUDModel(controller: c)
+        m.start(app: app, onFinish: { _ in })
+        defer { m.stop() }
+        run(c, director: d, ticks: 30, clock: now)
+        XCTAssertEqual(c.cameraZoomOverride, CameraDirector.followZoom)
+        let setting = app.profile.settings.cameraZoom == 0.8 ? 0.9 : 0.8
+        m.updateSetting(\.cameraZoom, setting)
+        XCTAssertNil(c.cameraZoomOverride, "設定の倍率を優先する")
+        XCTAssertTrue(d.zoomYielded)
+        // 自動カメラが何度画を変えても、設定の倍率のまま
+        var last = c.cameraMode
+        var shots = 0
+        run(c, director: d, ticks: 2400, clock: now) { _ in
+            guard c.cameraMode != last else { return }
+            last = c.cameraMode
+            shots += 1
+            XCTAssertNil(c.cameraZoomOverride, "画を変えた時に自動カメラの倍率を書き戻した")
+        }
+        XCTAssertGreaterThan(shots, 0, "80 秒の間に画が変わる")
+        XCTAssertEqual(c.effectiveCameraZoom, setting, accuracy: 1e-9)
+        // ダブルタップ（倍率を既定へ戻して自動カメラへ）で取り戻す
+        c.cameraZoomOverride = nil
+        XCTAssertTrue(link.resumeDirector())
+        XCTAssertEqual(c.cameraZoomOverride, CameraDirector.followZoom)
+        XCTAssertFalse(d.zoomYielded)
+        // もう一度変えた後、オフ → オンでも取り戻す
+        m.updateSetting(\.cameraZoom, 1.1)
+        XCTAssertNil(c.cameraZoomOverride)
+        run(c, director: d, ticks: 30, clock: now)
+        XCTAssertNil(c.cameraZoomOverride)
+        c.spectatorDirectorEnabled = false
+        d.update()
+        XCTAssertNil(c.cameraZoomOverride)
+        c.spectatorDirectorEnabled = true
+        run(c, director: d, ticks: 10, clock: now)
+        XCTAssertEqual(c.cameraZoomOverride, CameraDirector.followZoom, "オンにし直したら自動カメラの倍率")
+    }
+
+    /// 自動カメラが映しているヒーローを選ぶ（ポートレートのタップ）のは手動の操作: 自動カメラが控え、1 回目は追従の固定、
+    /// もう一度選ぶと詳細を開く。
+    func testSelectingTheDirectedHeroTakesManualControl() {
+        let app = AppModel(persistence: ServicesFixtures.tempPersistence())
+        let c = BattleController(launch: BattleLaunch(config: MatchFactory.botMatch(seed: 5)))
+        let link = SpectatorCameraLink.link(for: c)
+        let d = CameraDirector(controller: c, link: link)
+        let now = TestClock(300)
+        d.clock = { now.now }
+        d.start()
+        defer { d.stop() }
+        let m = HUDModel(controller: c)
+        m.start(app: app, onFinish: { _ in })
+        defer { m.stop() }
+        run(c, director: d, ticks: 30, clock: now)
+        guard case .followUnit(let directed) = c.cameraMode else { return XCTFail("最初の画: \(c.cameraMode)") }
+        m.refresh()
+        XCTAssertEqual(m.spectator.focusID, directed)
+        XCTAssertTrue(link.isDirectorDriving)
+        m.spectatorSelectHero(directed)
+        XCTAssertTrue(d.isSuspended, "映しているヒーローを選んでも手動の操作として控える")
+        XCTAssertFalse(link.isDirectorDriving)
+        XCTAssertNil(m.spectator.panel, "1 回目は詳細を開かずに追従を固定する")
+        XCTAssertEqual(m.cameraFollowID, directed)
+        // 控えている間は別の画へ移らない
+        run(c, director: d, ticks: 270, clock: now)
+        XCTAssertEqual(c.cameraMode, .followUnit(directed))
+        m.refresh()
+        m.spectatorSelectHero(directed)
+        XCTAssertEqual(m.spectator.panel, .hero, "もう一度選ぶと詳細")
+    }
+
+    /// 自動カメラをオフにしたら、自動カメラだけの画（framing）を主役の追従に替える（オフの後に動き・引き続けない）。
+    func testTurningTheDirectorOffEndsItsFraming() {
+        let c = BattleController(launch: BattleLaunch(config: MatchFactory.botMatch(seed: 3)))
+        let d = CameraDirector(controller: c, link: SpectatorCameraLink.link(for: c))
+        let now = TestClock(0)
+        d.clock = { now.now }
+        d.start()
+        defer { d.stop() }
+        var s = spreadState(seed: 3)
+        _ = duel(&s)
+        c.restore(s)
+        d.update()
+        guard case .framing(let ids) = c.cameraMode, let subject = ids.first else {
+            return XCTFail("戦いは framing: \(c.cameraMode)")
+        }
+        c.spectatorDirectorEnabled = false
+        d.update()
+        XCTAssertEqual(c.cameraMode, .followUnit(subject), "オフにしたら主役の追従")
+        XCTAssertNil(c.cameraZoomOverride)
+        // 観戦者が自分で選んだ画（追従・自由カメラ）はオフにしても変えない
+        c.spectatorDirectorEnabled = true
+        d.update()
+        c.cameraMode = .free(Vec2(4000, 4000))
+        d.update()
+        c.spectatorDirectorEnabled = false
+        d.update()
+        XCTAssertEqual(c.cameraMode, .free(Vec2(4000, 4000)))
+    }
+
     func testDirectorOnlyShowsWhatTheChosenTeamCanSee() {
         var launch = BattleLaunch(config: MatchFactory.botMatch(seed: 77))
         launch.spectatorOptions = SpectatorOptions(speed: 1, vision: .blue, director: true)
