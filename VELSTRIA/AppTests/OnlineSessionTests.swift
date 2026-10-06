@@ -151,13 +151,23 @@ final class OnlineSessionTests: XCTestCase {
         guard case .reject? = received2.last else { return XCTFail("自分自身は拒否: \(received2)") }
     }
 
-    func testLateJoinerDuringMatchIsRejected() {
+    func testLateJoinerDuringMatchWaitsInRoomAndCanWatch() {
+        // v2: 試合中の新規参加は拒否せず、座席なしで部屋に入れる（試合が終わるまで待つか、観戦を求める）
         let s = startedMatch()
         let (a, b) = LoopbackConnection.pair()
         s.pair.host.accept(a)
+        var started = false
         let late = OnlineSession.join(peerID: "late", name: "Late", connection: b)
-        guard case .disconnected(let reason) = late.status else { return XCTFail("試合中の新規参加は拒否: \(late.status)") }
-        XCTAssertFalse(reason.isEmpty)
+        late.onMatchStart = { _, _ in started = true }
+        XCTAssertEqual(late.status, .lobby, "試合中でも部屋には入れる: \(late.status)")
+        XCTAssertTrue(s.pair.host.room.peers.contains { $0.id == "late" })
+        XCTAssertNil(late.localSeat)
+        XCTAssertEqual(late.localRole, .player)
+        XCTAssertTrue(late.isSittingOutMatch, "ロビーには「試合中」の画面を出す")
+        XCTAssertTrue(late.canWatchMatch)
+        XCTAssertFalse(late.canRejoinMatch, "座席が無いので選手としては入れない")
+        XCTAssertFalse(started, "座っていない参加者には開始の合図を送らない")
+        XCTAssertFalse(late.isWatchingMatch, "観戦は求めるまで始まらない")
     }
 
     // MARK: 戦闘の同期
@@ -514,12 +524,8 @@ final class OnlineSessionTests: XCTestCase {
     }
 
     func testUnseatedPeerDoesNotReceiveFrames() {
-        let s = startedMatch()
-        let (host, client) = controllers(s)
-        s.pair.host.attach(controller: host)
-        s.pair.client.attach(controller: client)
-        // 試合中に座席なしで待っている参加者はいない（試合中の新規参加は拒否）ので、ロビーで座らずにいた参加者で確認する
-        _ = (host, client)
+        // 座らず観戦席にも入っていない参加者（選手の役割のまま待っている人）には、開始の合図も配信も送らない。
+        // 観戦の配信は観戦席・観戦を求めた参加者だけ（OnlineSpectatorTests）
         let p2 = makePair(clientID: "watcher")
         p2.host.takeSeat(blueMid)
         p2.host.setLoadout(OnlineLoadout(heroID: "H001"))

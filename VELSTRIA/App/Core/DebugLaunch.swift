@@ -27,6 +27,8 @@ import VelstriaCore
 //   -onlineHost [port]    起動後にオンライン対戦の部屋を作る（待ち受けポート省略時は既定）
 //   -onlineJoin <host:port>  起動後に部屋へ接続する
 //   -onlineAuto           部屋で自動的に着席・ヒーロー選択・準備完了にし、ホストは全員揃ったら開始する（2 台のシミュレータでの検証用）
+//   -onlineSpectate       観戦で検証する: -onlineJoin と併せると観戦席で入る（試合中なら途中から観戦）。
+//                         -onlineHost -onlineAuto と併せるとホストは座らずに実況（キャスター）として開始する
 
 enum DebugLaunch {
     /// 起動引数による検証用フックがこのビルドで有効か（出荷ビルドでは false）。
@@ -90,7 +92,8 @@ enum DebugLaunch {
             app.hostOnlineRoom(name: "\(p.displayName.isEmpty ? "Host" : p.displayName) (sim)", port: port)
             app.router.path = [.onlineLobby]
         } else if let address = value(after: "-onlineJoin"), let target = OnlineNetwork.parseAddress(address) {
-            app.joinOnlineRoom(connection: NWOnlineConnection(host: target.host, port: target.port))
+            let spectate = args.contains("-onlineSpectate")
+            app.joinOnlineRoom(connection: NWOnlineConnection(host: target.host, port: target.port), wantsSpectate: spectate)
             app.router.path = [.onlineLobby]
         }
         if let mode = value(after: "-battle") {

@@ -155,21 +155,31 @@ final class AppModel {
         online = session
     }
 
-    /// 部屋に入る（クライアント）。
-    func joinOnlineRoom(connection: OnlineConnection) {
+    /// 部屋に入る（クライアント）。wantsSpectate: 観戦席で入る（試合中なら途中から観戦する）。
+    func joinOnlineRoom(connection: OnlineConnection, wantsSpectate: Bool = false) {
         leaveOnlineRoom()
         let name = profile.displayName.isEmpty ? L("プレイヤー", "Player") : profile.displayName
-        let session = OnlineSession.join(peerID: profile.playerID, name: name, connection: connection)
+        let session = OnlineSession.join(peerID: profile.playerID, name: name, connection: connection, wantsSpectate: wantsSpectate)
         wire(session)
         online = session
     }
 
     private func wire(_ session: OnlineSession) {
-        session.onMatchStart = { [weak self] config, seat in
-            guard let self, let seat, config.players.indices.contains(seat) else { return }
+        session.onMatchStart = { [weak self, weak session] config, seat in
+            guard let self, let session else { return }
+            guard let seat, config.players.indices.contains(seat) else {
+                // 座席の無い開始（起こらないはず）: ホストが試合を回さないと部屋全体が止まるので、実況として開く（B1 の保険）
+                if session.isHost { session.onSpectateStart?(config) }
+                return
+            }
             if self.activeBattle != nil {
-                // 別の戦闘中（練習場など）に開始の合図が来た: 進行中の戦闘は守り、自分の枠は AI に任せる
-                session.declineMatch()
+                if session.isHost {
+                    // ホストが試合を回せない（起こらないはず）: 全員を待たせないよう部屋をロビーに戻す
+                    session.matchEnded(aborted: true)
+                } else {
+                    // 別の戦闘中（練習場など）に開始の合図が来た: 進行中の戦闘は守り、自分の枠は AI に任せる
+                    session.declineMatch()
+                }
                 self.showToast(L("オンライン対戦が始まりましたが、戦闘中のため参加できませんでした", "The online match started while you were in another battle"))
                 return
             }
@@ -178,8 +188,25 @@ final class AppModel {
             self.profile = p
             self.startBattle(BattleLaunch(config: config, onlineSeat: seat))
         }
+        // 観戦（観戦席の参加者・座らずに実況するホスト）: 操作なし・報酬なしの観戦の戦闘を開く
+        session.onSpectateStart = { [weak self, weak session] config in
+            guard let self, let session else { return }
+            if self.activeBattle != nil {
+                if session.isHost {
+                    session.matchEnded(aborted: true)
+                } else {
+                    session.declineSpectate()
+                }
+                self.showToast(L("観戦が始まりましたが、戦闘中のため開けませんでした", "Spectating started while you were in another battle"))
+                return
+            }
+            self.startBattle(BattleLaunch(config: config, onlineSpectator: true))
+        }
         session.onDisconnected = { [weak self] reason in
             self?.showToast(reason)
+        }
+        session.onNotice = { [weak self] text in
+            self?.showToast(text)
         }
     }
 

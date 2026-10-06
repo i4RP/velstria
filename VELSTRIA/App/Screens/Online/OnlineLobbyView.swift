@@ -2,8 +2,10 @@ import SwiftUI
 import VelstriaCore
 
 // 担当: online。オンライン対戦（リッスンサーバー）の入口と部屋。
-// - 入口: 部屋を作る / 同一 LAN の部屋（Bonjour）に入る / アドレスを打って入る
+// - 入口: 部屋を作る / 同一 LAN の部屋（Bonjour）に入る・観戦で入る / アドレスを打って入る
 // - 部屋: 座席（Blue 5 / Red 5）に着く → ヒーローを選ぶ → 準備完了 → ホストが開始
+// - 観戦: 座らずに観戦席へ移ると、試合開始で観戦画面が開く（遅延付き）。試合中に入った・抜けた人は「観戦する」。
+//   ホストは観戦の許可・遅延を決め、座らずに実況（キャスター）として開始することもできる。
 // 部屋の状態は AppModel.online（OnlineSession）が持ち、戦闘・リザルトの後もここに戻る。
 
 struct OnlineLobbyView: View {
@@ -105,23 +107,7 @@ private struct OnlineEntryView: View {
                     ScrollView {
                         VStack(spacing: 6) {
                             ForEach(rooms) { room in
-                                Button {
-                                    FlowFX.confirm(app)
-                                    app.joinOnlineRoom(connection: NWOnlineConnection(endpoint: room.endpoint))
-                                } label: {
-                                    HStack {
-                                        Image(systemName: "dot.radiowaves.left.and.right").foregroundStyle(Theme.cyan)
-                                        Text(room.name).font(Theme.heading(14)).foregroundStyle(Theme.textPrimary)
-                                        Spacer()
-                                        Text(L("参加", "Join")).font(Theme.body(12)).foregroundStyle(Theme.gold)
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .frame(minHeight: 44)
-                                    .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.08)))
-                                    .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityIdentifier("online_room_\(room.name)")
+                                roomRow(room)
                             }
                         }
                     }
@@ -160,6 +146,64 @@ private struct OnlineEntryView: View {
             }
         }
     }
+
+    /// 見つかった部屋: 名前・進行状況・人数と「参加」「観戦」。
+    private func roomRow(_ room: NWOnlineBrowser.Room) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: room.inMatch ? "play.circle.fill" : "dot.radiowaves.left.and.right")
+                .foregroundStyle(room.inMatch ? Theme.gold : Theme.cyan)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(room.name).font(Theme.heading(14)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                Text(roomSummary(room)).font(Theme.body(10)).foregroundStyle(room.isCompatible ? Theme.textSecondary : Theme.danger)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 4)
+            if room.isCompatible {
+                if room.allowsSpectators {
+                    Button {
+                        FlowFX.confirm(app)
+                        app.joinOnlineRoom(connection: NWOnlineConnection(endpoint: room.endpoint), wantsSpectate: true)
+                    } label: {
+                        Label(L("観戦", "Watch"), systemImage: "eye.fill")
+                            .font(Theme.body(12))
+                            .foregroundStyle(Theme.cyan)
+                            .frame(minWidth: 64, minHeight: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(L("\(room.name) を観戦", "Watch \(room.name)"))
+                    .accessibilityIdentifier("online_watch_\(room.name)")
+                }
+                Button {
+                    FlowFX.confirm(app)
+                    app.joinOnlineRoom(connection: NWOnlineConnection(endpoint: room.endpoint))
+                } label: {
+                    Text(L("参加", "Join"))
+                        .font(Theme.body(12))
+                        .foregroundStyle(Theme.gold)
+                        .frame(minWidth: 52, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L("\(room.name) に参加", "Join \(room.name)"))
+                .accessibilityIdentifier("online_room_\(room.name)")
+            }
+        }
+        .padding(.leading, 12)
+        .padding(.trailing, 4)
+        .frame(minHeight: 44)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.08)))
+    }
+
+    private func roomSummary(_ room: NWOnlineBrowser.Room) -> String {
+        guard room.isCompatible else { return L("アプリの版が違うため入れません", "Different app version") }
+        var parts: [String] = [room.inMatch ? L("試合中", "In match") : L("ロビー", "Lobby")]
+        if let n = room.players { parts.append(L("選手 \(n)", "\(n) players")) }
+        if let n = room.spectators, n > 0 { parts.append(L("観戦 \(n)", "\(n) watching")) }
+        if !room.allowsSpectators { parts.append(L("観戦不可", "No spectators")) }
+        return parts.joined(separator: " · ")
+    }
 }
 
 // MARK: - 部屋
@@ -169,6 +213,9 @@ struct OnlineRoomView: View {
     @Environment(AppModel.self) private var app
     @State private var roleFilter: Role?
     @State private var autoStarted = false
+    @State private var showsMembers = false
+    /// 部屋の画面の幅（iPhone SE の横 667pt では中央の列が細くなりすぎるので座席の列を詰める）。
+    @State private var roomWidth: CGFloat = 0
 
     private var room: OnlineRoom { session.room }
     private var mySeat: OnlineSeat? { session.localSeat }
@@ -179,11 +226,11 @@ struct OnlineRoomView: View {
             statusBar
             if case .disconnected(let reason) = session.status {
                 disconnectedView(reason)
-            } else if room.phase != .lobby && mySeat == nil {
+            } else if session.isSittingOutMatch {
                 inProgressView
             } else {
                 HStack(alignment: .top, spacing: 10) {
-                    seatsPanel.frame(width: 300)
+                    seatsPanel.frame(width: seatsPanelWidth)
                     pickPanel.frame(maxWidth: .infinity)
                     sidePanel.frame(width: 210)
                 }
@@ -191,9 +238,13 @@ struct OnlineRoomView: View {
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 10)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { roomWidth = $0 }
         .onChange(of: room) { _, _ in autoPilot() }
         .onAppear { autoPilot() }
     }
+
+    /// 座席の列の幅。狭い画面（iPhone SE）では「ジャングル」が切れない範囲で詰め、中央（ピック・観戦席の案内）に回す。
+    private var seatsPanelWidth: CGFloat { roomWidth > 0 && roomWidth < 700 ? 276 : 300 }
 
     // MARK: 状態
 
@@ -226,9 +277,32 @@ struct OnlineRoomView: View {
                     .foregroundStyle(Theme.textSecondary)
             }
             Spacer()
-            Text(L("\(session.connectedPeerCount) 人", "\(session.connectedPeerCount) players"))
+            // 選手・観戦席の人数（タップで一覧）
+            Button {
+                FlowFX.tap(app)
+                showsMembers = true
+            } label: {
+                HStack(spacing: 8) {
+                    Label("\(room.players.count)", systemImage: "person.fill")
+                    Label("\(room.spectators.count)", systemImage: "eye.fill")
+                }
                 .font(Theme.body(12))
                 .foregroundStyle(Theme.textSecondary)
+                .padding(.horizontal, 6)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(L("選手 \(room.players.count) 人、観戦席 \(room.spectators.count) 人",
+                                  "\(room.players.count) players, \(room.spectators.count) spectators"))
+            .accessibilityHint(L("参加者の一覧を開きます", "Shows everyone in the room"))
+            .accessibilityAddTraits(.isButton)
+            .accessibilityIdentifier("online_counts")
+            .popover(isPresented: $showsMembers) {
+                OnlineMembersView(session: session)
+                    .presentationCompactAdaptation(.popover)
+            }
             if session.resyncCount > 0 {
                 Text(L("再同期 \(session.resyncCount)", "resync \(session.resyncCount)"))
                     .font(Theme.body(11))
@@ -261,14 +335,75 @@ struct OnlineRoomView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    /// 試合中で、自分は戦っていない（座っていない・試合から抜けた）: 観戦する / 試合に戻る / 待つ。
     private var inProgressView: some View {
-        VStack(spacing: 10) {
-            ProgressView().tint(Theme.gold)
-            Text(L("この部屋は試合中です。終わるまでお待ちください。", "A match is in progress. Please wait for it to finish."))
-                .font(Theme.heading(14))
+        VStack(spacing: 12) {
+            Image(systemName: room.allowsSpectators ? "eye.circle.fill" : "hourglass")
+                .font(.system(size: 34))
+                .foregroundStyle(Theme.gold)
+                .accessibilityHidden(true)
+            Text(L("この部屋は試合中です", "A match is in progress"))
+                .font(Theme.heading(16))
                 .foregroundStyle(Theme.textPrimary)
+            Text(inProgressDetail)
+                .font(Theme.body(12))
+                .foregroundStyle(Theme.textSecondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 460)
+            HStack(spacing: 10) {
+                if session.canWatchMatch {
+                    Button {
+                        FlowFX.confirm(app)
+                        session.requestSpectate()
+                    } label: {
+                        Label(L("観戦する", "Watch"), systemImage: "eye.fill").frame(minWidth: 140)
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .accessibilityIdentifier("online_watch")
+                }
+                if session.canRejoinMatch {
+                    Button {
+                        FlowFX.confirm(app)
+                        session.rejoinMatch()
+                    } label: {
+                        Label(L("試合に戻る", "Rejoin"), systemImage: "arrow.uturn.backward.circle.fill").frame(minWidth: 140)
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .accessibilityIdentifier("online_rejoin")
+                }
+            }
+            if session.isWatchingMatch {
+                HStack(spacing: 8) {
+                    ProgressView().tint(Theme.cyan)
+                    Text(L("観戦の準備をしています…", "Preparing to watch…"))
+                        .font(Theme.body(12))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var inProgressDetail: String {
+        guard room.allowsSpectators else {
+            return L("この部屋は観戦できません。試合が終わるまでお待ちください。",
+                     "Spectating is disabled in this room. Please wait for the match to finish.")
+        }
+        var lines: [String] = []
+        let delay = Int(room.spectatorDelaySeconds.rounded())
+        lines.append(delay > 0 ? L("観戦は \(delay) 秒遅れで配信されます（選手への情報漏れを防ぐため）。",
+                                   "Spectating is delayed by \(delay)s to protect the players.")
+                               : L("観戦は遅延なしで配信されます。", "Spectating has no delay."))
+        let watching = room.watchingCount
+        if watching > 0 { lines.append(L("いま \(watching) 人が観戦中です。", "\(watching) watching now.")) }
+        if room.hostIsCaster { lines.append(L("ホストが実況しています。", "The host is casting this match.")) }
+        if session.canRejoinMatch {
+            lines.append(L("観戦すると、この試合には選手として戻れなくなります。", "If you watch, you cannot rejoin this match as a player."))
+        } else if session.localSeat != nil && session.watchedCurrentMatch {
+            lines.append(L("観戦した試合には選手として戻れません。次の試合をお待ちください。",
+                           "You watched this match, so you cannot rejoin it. Wait for the next match."))
+        }
+        return lines.joined(separator: "\n")
     }
 
     // MARK: 座席
@@ -369,16 +504,113 @@ struct OnlineRoomView: View {
                         .font(Theme.body(11))
                         .foregroundStyle(Theme.textSecondary)
                 } else {
-                    VStack(spacing: 8) {
-                        Image(systemName: "chair.lounge.fill").font(.system(size: 30)).foregroundStyle(Theme.cyan)
-                        Text(L("左の座席をタップして着席してください", "Tap a seat on the left to sit down"))
-                            .font(Theme.heading(14))
-                            .foregroundStyle(Theme.textPrimary)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    unseatedPanel
                 }
             }
         }
+    }
+
+    /// 座っていない時: 着席の案内か観戦席（実況）の説明と、観戦席の一覧・切り替え。
+    private var unseatedPanel: some View {
+        let isSpectator = session.localRole == .spectator
+        let isHost = session.role == .host
+        let spectators = room.spectators
+        return VStack(spacing: 10) {
+            Spacer(minLength: 0)
+            Image(systemName: isSpectator ? (isHost ? "mic.circle.fill" : "eye.circle.fill") : "chair.lounge.fill")
+                .font(.system(size: 30))
+                .foregroundStyle(isSpectator ? Theme.gold : Theme.cyan)
+                .accessibilityHidden(true)
+            Text(unseatedTitle(isSpectator: isSpectator, isHost: isHost))
+                .font(Theme.heading(14))
+                .foregroundStyle(Theme.textPrimary)
+                .multilineTextAlignment(.center)
+            Text(unseatedDetail(isSpectator: isSpectator, isHost: isHost))
+                .font(Theme.body(11))
+                .foregroundStyle(Theme.textSecondary)
+                .multilineTextAlignment(.center)
+                .minimumScaleFactor(0.8)
+            if room.allowsSpectators || isHost {
+                let title = spectatorToggleTitle(isSpectator: isSpectator, isHost: isHost)
+                let symbol = isSpectator ? "chair.lounge" : (isHost ? "mic.fill" : "eye.fill")
+                Button {
+                    FlowFX.tap(app)
+                    session.setSpectator(!isSpectator)
+                } label: {
+                    // 中央の列は iPhone SE で 80pt 前後まで細くなる: 横並びが入らなければ アイコンの下に 2 行まで の形にする
+                    ViewThatFits(in: .horizontal) {
+                        Label(title, systemImage: symbol)
+                            .font(Theme.heading(14))
+                            .lineLimit(1)
+                            .padding(.horizontal, 14)
+                        VStack(spacing: 2) {
+                            Image(systemName: symbol).font(.system(size: 14, weight: .bold))
+                            Text(title)
+                                .font(Theme.heading(12))
+                                .lineLimit(2)
+                                .multilineTextAlignment(.center)
+                                .minimumScaleFactor(0.8)
+                        }
+                        .padding(.horizontal, 6)
+                    }
+                    .foregroundStyle(Theme.textPrimary)
+                    .padding(.vertical, 6)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white.opacity(0.10)))
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.panelStroke, lineWidth: 1))
+                    .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .disabled(room.phase != .lobby)
+                .accessibilityLabel(title)
+                .accessibilityIdentifier(isHost ? "online_caster" : "online_spectate_toggle")
+            }
+            if !spectators.isEmpty {
+                VStack(spacing: 4) {
+                    Text(L("観戦席 \(spectators.count)/\(OnlineProtocol.maxSpectators)", "Spectators \(spectators.count)/\(OnlineProtocol.maxSpectators)"))
+                        .font(.system(size: 10, weight: .heavy, design: .rounded))
+                        .foregroundStyle(Theme.textSecondary)
+                    Text(spectators.map(\.name).joined(separator: ", "))
+                        .font(Theme.body(11))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("online_spectator_list")
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func unseatedTitle(isSpectator: Bool, isHost: Bool) -> String {
+        if isSpectator {
+            return isHost ? L("実況（キャスター）として観戦します", "You will cast this match")
+                          : L("観戦席にいます", "You are a spectator")
+        }
+        return L("左の座席をタップして着席してください", "Tap a seat on the left to sit down")
+    }
+
+    private func unseatedDetail(isSpectator: Bool, isHost: Bool) -> String {
+        let delay = Int(room.spectatorDelaySeconds.rounded())
+        if isSpectator && isHost {
+            return L("座らずに試合を回し、遅延なしで全体を見ます。選手が 1 人以上座って準備完了なら開始できます。",
+                     "You run the match without playing and see everything live. Start once at least one seated player is ready.")
+        }
+        if isSpectator {
+            return delay > 0 ? L("試合が始まると観戦画面が開きます（\(delay) 秒遅れ）。", "The match opens when it starts (\(delay)s delay).")
+                             : L("試合が始まると観戦画面が開きます。", "The match opens when it starts.")
+        }
+        if !room.allowsSpectators { return L("この部屋は観戦できません。", "Spectating is disabled in this room.") }
+        return isHost ? L("ホストは着席するか、実況（座らずに観戦）にすると開始できます。",
+                          "As host, sit down or cast (watch without playing) to start.")
+                      : L("座らずに観戦席で見ることもできます。", "You can also watch from the spectator seats.")
+    }
+
+    private func spectatorToggleTitle(isSpectator: Bool, isHost: Bool) -> String {
+        if isSpectator { return isHost ? L("実況をやめる", "Stop Casting") : L("選手に戻る", "Back to Players") }
+        return isHost ? L("実況する", "Cast the Match") : L("観戦席に移る", "Move to Spectators")
     }
 
     /// プロフィールの保存値（スペル・ルーン・スキン・自動習得）を反映したロードアウト。
@@ -422,11 +654,14 @@ struct OnlineRoomView: View {
                 }
                 if session.role == .host {
                     difficultyPicker
+                    spectateSettingsButton
                     Button {
                         FlowFX.confirm(app)
                         if !session.startMatch(master: app.master) {
                             FlowFX.error(app)
-                            app.showToast(L("全員のヒーロー選択と準備完了が必要です", "Everyone must pick a hero and be ready"))
+                            app.showToast(mySeat == nil && !room.hostIsCaster
+                                          ? L("着席するか、実況にしてください", "Sit down or cast the match")
+                                          : L("全員のヒーロー選択と準備完了が必要です", "Everyone must pick a hero and be ready"))
                         }
                     } label: {
                         VStack(spacing: 0) {
@@ -439,12 +674,17 @@ struct OnlineRoomView: View {
                     .disabled(!room.canStart || room.phase != .lobby)
                     .opacity(room.canStart && room.phase == .lobby ? 1 : 0.5)
                     .accessibilityIdentifier("online_start")
-                    let unseated = room.peers.filter { room.seat(of: $0.id) == nil }
+                    // 座っていない選手（観戦席・実況のホストを除く）: 試合中は観戦するか待つ
+                    let unseated = room.players.filter { room.seat(of: $0.id) == nil && $0.id != room.hostPeerID }
                     if !unseated.isEmpty {
-                        Text(L("未着席: \(unseated.map(\.name).joined(separator: ", "))（開始すると観戦もできず待機になります）",
-                               "Not seated: \(unseated.map(\.name).joined(separator: ", ")) (they will wait out the match)"))
+                        Text(room.allowsSpectators
+                             ? L("未着席: \(unseated.map(\.name).joined(separator: ", "))（試合中は観戦できます）",
+                                 "Not seated: \(unseated.map(\.name).joined(separator: ", ")) (they can watch the match)")
+                             : L("未着席: \(unseated.map(\.name).joined(separator: ", "))（試合が終わるまで待機）",
+                                 "Not seated: \(unseated.map(\.name).joined(separator: ", ")) (they will wait out the match)"))
                             .font(Theme.body(11))
-                            .foregroundStyle(Theme.danger)
+                            .foregroundStyle(Theme.textSecondary)
+                            .lineLimit(2)
                     }
                 } else {
                     Text(room.canStart ? L("ホストの開始を待っています…", "Waiting for the host to start…")
@@ -487,11 +727,55 @@ struct OnlineRoomView: View {
         }
     }
 
+    // MARK: 観戦の設定（ホスト）
+
+    @State private var showsSpectateSettings = false
+
+    private var spectateSettingsButton: some View {
+        Button {
+            FlowFX.tap(app)
+            showsSpectateSettings = true
+        } label: {
+            Label(room.allowsSpectators ? L("観戦: \(Int(room.spectatorDelaySeconds.rounded())) 秒遅れ", "Watch: \(Int(room.spectatorDelaySeconds.rounded()))s delay")
+                                        : L("観戦: 不可", "Watch: Off"),
+                  systemImage: "eye")
+                .font(Theme.body(12))
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(SecondaryButtonStyle())
+        .disabled(room.phase != .lobby)
+        .accessibilityIdentifier("online_spectate_settings")
+        .popover(isPresented: $showsSpectateSettings) {
+            OnlineSpectateSettingsView(session: session)
+                .presentationCompactAdaptation(.popover)
+        }
+    }
+
     // MARK: 自動操作（-onlineAuto: 2 台のシミュレータでの検証用）
 
     private func autoPilot() {
-        guard DebugLaunch.isEnabled, DebugLaunch.args.contains("-onlineAuto"), room.phase == .lobby,
-              session.isConnected, !autoStarted else { return }
+        guard DebugLaunch.isEnabled, DebugLaunch.args.contains("-onlineAuto"), session.isConnected, !autoStarted else { return }
+        // -onlineSpectate: 参加者は観戦席で見る（試合中なら観戦を求める）。ホストは座らずに実況として開始する
+        if DebugLaunch.args.contains("-onlineSpectate") {
+            if session.role == .client {
+                if room.phase == .lobby, session.localRole != .spectator { session.setSpectator(true) }
+                if session.canWatchMatch { session.requestSpectate() }
+                return
+            }
+            guard room.phase == .lobby else { return }
+            if session.localRole != .spectator {
+                session.setSpectator(true)
+                return
+            }
+            let playersReady = room.players.filter { $0.id != room.hostPeerID }
+                .allSatisfy { room.seat(of: $0.id)?.ready == true }
+            if room.canStart, room.peers.count >= 2, playersReady {
+                autoStarted = true
+                session.startMatch(master: app.master)
+            }
+            return
+        }
+        guard room.phase == .lobby else { return }
         if mySeat == nil {
             // ホストは Blue の mid、参加者は Red の mid（埋まっていれば空席の先頭）
             let preferred = MatchFactory.onlineSeatIndex(team: session.role == .host ? .blue : .red, position: .mid)
@@ -512,11 +796,175 @@ struct OnlineRoomView: View {
             session.setReady(true)
             return
         }
-        // 接続している全員が着席・準備完了してから開始する（接続直後の参加者を置き去りにしない）
-        let everyoneReady = room.peers.allSatisfy { room.seat(of: $0.id)?.ready == true }
+        // 接続している選手が全員着席・準備完了してから開始する（接続直後の参加者を置き去りにしない。観戦席は待たない）
+        let everyoneReady = room.players.allSatisfy { room.seat(of: $0.id)?.ready == true }
         if session.role == .host, room.canStart, room.peers.count >= 2, everyoneReady {
             autoStarted = true
             session.startMatch(master: app.master)
         }
+    }
+}
+
+/// ホストの観戦設定: 観戦の許可・遅延。ロビーでだけ変えられる（試合中に遅延を縮めると意味がなくなる）。
+private struct OnlineSpectateSettingsView: View {
+    let session: OnlineSession
+    @Environment(AppModel.self) private var app
+
+    private var room: OnlineRoom { session.room }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(L("観戦の設定", "Spectating"))
+                .font(Theme.heading(15))
+                .foregroundStyle(Theme.textPrimary)
+            Toggle(isOn: Binding(get: { room.allowsSpectators }, set: { on in
+                FlowFX.tap(app)
+                session.setAllowsSpectators(on)
+            })) {
+                Text(L("観戦を許可する", "Allow spectators"))
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.textPrimary)
+            }
+            .tint(Theme.gold)
+            .frame(minHeight: 44)
+            .accessibilityIdentifier("online_allow_spectators")
+            Text(L("観戦の遅延", "Spectator delay"))
+                .font(Theme.body(11))
+                .foregroundStyle(Theme.textSecondary)
+            HStack(spacing: 6) {
+                ForEach(OnlineProtocol.spectatorDelayOptions, id: \.self) { seconds in
+                    let selected = room.spectatorDelayTicks == OnlineProtocol.ticks(seconds: seconds)
+                    Button {
+                        FlowFX.tap(app)
+                        session.setSpectatorDelay(seconds: seconds)
+                    } label: {
+                        Text(seconds == 0 ? L("なし", "Off") : L("\(seconds)秒", "\(seconds)s"))
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                            .foregroundStyle(selected ? .black : Theme.textPrimary)
+                            .frame(minWidth: 52, minHeight: 44)
+                            .background(Capsule().fill(selected ? Theme.gold : Color.white.opacity(0.08)))
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!room.allowsSpectators)
+                    .accessibilityLabel(seconds == 0 ? L("遅延なし", "No delay") : L("\(seconds) 秒遅れ", "\(seconds) second delay"))
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                    .accessibilityIdentifier("online_delay_\(seconds)")
+                }
+            }
+            .opacity(room.allowsSpectators ? 1 : 0.5)
+            Text(L("観戦者は遅れて試合を見ます。選手へ敵の位置を教える不正（ゴースティング）を防ぐため、身内以外の部屋では遅延を付けてください。",
+                   "Spectators see the match late. Keep a delay unless everyone is a friend, so spectators cannot tell players where enemies are (ghosting)."))
+                .font(Theme.body(11))
+                .foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(width: 320)
+        .background(Theme.panel)
+    }
+}
+
+/// 部屋の参加者の一覧（選手・観戦席）。座っている選手からも観戦席が見えるように、状態バーの人数から開く。
+private struct OnlineMembersView: View {
+    let session: OnlineSession
+    @Environment(AppModel.self) private var app
+
+    private var room: OnlineRoom { session.room }
+
+    var body: some View {
+        let colorblind = app.profile.settings.colorblindMode
+        ScrollView {
+            VStack(alignment: .leading, spacing: 6) {
+                header(L("選手 \(room.players.count)/\(OnlineProtocol.maxPlayers)", "Players \(room.players.count)/\(OnlineProtocol.maxPlayers)"),
+                       symbol: "person.fill")
+                ForEach(room.players) { peer in
+                    playerRow(peer, colorblind: colorblind)
+                }
+                if room.hostIsCaster, let host = room.peer(room.hostPeerID) {
+                    header(L("実況", "Caster"), symbol: "mic.fill")
+                    row(name: host.name, mine: host.id == session.localPeerID, host: true,
+                        detail: L("座らずに試合を回す（遅延なし）", "Runs the match without playing (live)"),
+                        symbol: "mic.fill", tint: Theme.gold)
+                }
+                if room.allowsSpectators || !room.spectators.isEmpty {
+                    header(L("観戦席 \(room.spectators.count)/\(OnlineProtocol.maxSpectators)",
+                             "Spectators \(room.spectators.count)/\(OnlineProtocol.maxSpectators)"),
+                           symbol: "eye.fill")
+                    if room.spectators.isEmpty {
+                        Text(L("まだいません", "Nobody yet"))
+                            .font(Theme.body(11))
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                    ForEach(room.spectators) { peer in
+                        row(name: peer.name, mine: peer.id == session.localPeerID, host: false,
+                            detail: peer.isWatching ? L("観戦中", "Watching") : L("待機中", "Waiting"),
+                            symbol: peer.isWatching ? "eye.fill" : "eye", tint: peer.isWatching ? Theme.cyan : Theme.textSecondary)
+                    }
+                } else {
+                    header(L("観戦: 不可", "Spectating: Off"), symbol: "eye.slash")
+                }
+            }
+            .padding(14)
+        }
+        .frame(width: 300)
+        .frame(maxHeight: 280)
+        .background(Theme.panel)
+        .accessibilityIdentifier("online_members")
+    }
+
+    private func header(_ text: String, symbol: String) -> some View {
+        Label(text, systemImage: symbol)
+            .font(.system(size: 11, weight: .heavy, design: .rounded))
+            .foregroundStyle(Theme.textSecondary)
+            .padding(.top, 4)
+    }
+
+    private func playerRow(_ peer: OnlinePeer, colorblind: Bool) -> some View {
+        let seat = room.seat(of: peer.id)
+        let detail: String
+        if let seat {
+            var text = "\(FlowText.team(seat.team)) \(FlowText.position(seat.position))"
+            if peer.leftMatch { text += L("・抜けた（AI が操作）", " · left (AI playing)") }
+            else if peer.isWatching { text += L("・観戦中", " · watching") }
+            detail = text
+        } else {
+            detail = room.phase == .lobby ? L("未着席", "Not seated") : L("試合の終わりを待っています", "Waiting for the match to end")
+        }
+        return row(name: peer.name, mine: peer.id == session.localPeerID, host: peer.id == room.hostPeerID,
+                   detail: detail,
+                   symbol: seat.map { FlowText.teamSymbol($0.team) } ?? "chair.lounge",
+                   tint: seat.map { Theme.teamColor($0.team, colorblind: colorblind) } ?? Theme.textSecondary)
+    }
+
+    private func row(name: String, mine: Bool, host: Bool, detail: String, symbol: String, tint: Color) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: symbol)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(tint)
+                .frame(width: 20)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 4) {
+                    Text(name)
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundStyle(mine ? Theme.gold : Theme.textPrimary)
+                        .lineLimit(1)
+                    if host {
+                        Text(L("ホスト", "Host"))
+                            .font(.system(size: 9, weight: .heavy, design: .rounded))
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, 4)
+                            .background(Capsule().fill(Theme.gold))
+                    }
+                }
+                Text(detail)
+                    .font(Theme.body(10))
+                    .foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
