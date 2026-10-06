@@ -105,7 +105,8 @@ App Store Connect（ASC）への v1.0 提出に必要なもの一式と手順。
 
 ## 7. 輸出コンプライアンス・コンテンツ権利
 
-- `ITSAppUsesNonExemptEncryption = NO`（Info.plist に設定済み）。独自の暗号化は使わず、通信は StoreKit（OS 提供）のみ。
+- `ITSAppUsesNonExemptEncryption = NO`（Info.plist に設定済み）。独自の暗号化は使わず、通信は StoreKit（OS 提供）と、オンライン対戦の
+  中継（URLSession の WebSocket over TLS。OS 提供の暗号化のみ）。
   → アップロード後に輸出コンプライアンスの質問は表示されない。詳細は [compliance.md](appstore/compliance.md)。
 - コンテンツ権利: 第三者の著作物・商標・実在人物を含まない。すべてオリジナル（生成 AI を使った 3D 素材の扱いを含め [compliance.md](appstore/compliance.md) を参照）。
 

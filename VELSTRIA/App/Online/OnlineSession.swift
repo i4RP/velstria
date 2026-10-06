@@ -19,7 +19,11 @@ import VelstriaCore
 // - 観戦者の入力・loaded は受け付けない（loaded は選手だけ。観戦した試合には選手として戻れない）。
 // - ホストが座らずに観戦席に入ると実況（キャスター）: 自分の端末で権威シミュレーションを回して遅延なしで見る。
 //
-// BattleController は OnlineBattleLink だけを見る（テストはループバック接続で同じ経路を通す）。
+// 接続: LAN（Bonjour / IP 直結の NWOnlineConnection）と、インターネットの中継（部屋コード。参加者は RelayGuestConnection、
+// ホストには中継の向こうの参加者ごとに RelayGuestEndpoint が届く。OnlineRelay.swift）のどちらも同じ OnlineConnection として扱う。
+// ホストは両方を同時に開ける（startListening + startRelay）。
+//
+// BattleController は OnlineBattleLink だけを見る（テストはループバック接続・中継の代役 InMemoryRelay で同じ経路を通す）。
 
 /// BattleController が戦闘中に使う窓口。
 @MainActor
@@ -86,6 +90,12 @@ final class OnlineSession: OnlineBattleLink {
     /// ホスト: 待ち受けポート（Bonjour に加えて手入力で繋ぐ用）。
     private(set) var listenPort: UInt16?
     private(set) var listenError: String?
+    /// ホスト: インターネット対戦の部屋コード（中継を開いていなければ nil）。
+    private(set) var relayCode: String?
+    /// ホスト: 中継の状態（中継を開いていなければ nil）。
+    private(set) var relayStatus: OnlineRelayStatus?
+    /// クライアント: 部屋コードで入った（切れた後に同じコードで入り直す用）。
+    private(set) var joinedRelayCode: String?
     /// 再同期の回数（デバッグ表示）。
     private(set) var resyncCount = 0
     /// 試合開始の合図（AppModel が BattleLaunch を作る）。座席番号は自分のもの（座っていなければ nil）。
@@ -108,6 +118,8 @@ final class OnlineSession: OnlineBattleLink {
 
     // ホスト側
     @ObservationIgnored private var listener: NWOnlineListener?
+    /// インターネット対戦の中継（部屋コード）。LAN の待ち受けと併用する。
+    @ObservationIgnored private var relayLink: RelayHostLink?
     @ObservationIgnored private var connections: [UUID: OnlineConnection] = [:]
     @ObservationIgnored private var peerByConnection: [UUID: OnlinePeerID] = [:]
     @ObservationIgnored private var connectionByPeer: [OnlinePeerID: UUID] = [:]
@@ -233,12 +245,15 @@ final class OnlineSession: OnlineBattleLink {
     static func join(peerID: OnlinePeerID, name: String, connection: OnlineConnection, wantsSpectate: Bool = false) -> OnlineSession {
         let s = OnlineSession(role: .client, peerID: peerID, name: name, room: OnlineRoom(name: "", hostPeerID: ""))
         s.wantsSpectateOnJoin = wantsSpectate
+        s.joinedRelayCode = (connection as? RelayGuestConnection)?.code
         s.connect(connection)
         s.startPing()
         return s
     }
 
     var isHost: Bool { role == .host }
+    /// クライアント: 観戦席を希望して入った（入り直す時に同じ希望で入る）。
+    var joinedAsSpectator: Bool { wantsSpectateOnJoin }
 
     var isConnected: Bool {
         guard !closed else { return false }
@@ -311,6 +326,62 @@ final class OnlineSession: OnlineBattleLink {
         }
         listener = l
         l.start()
+    }
+
+    // MARK: - ホスト: 中継（インターネット対戦）
+
+    /// 中継を開き、部屋コードで参加を受け付ける（違う場所・違う Wi-Fi の相手）。LAN の待ち受けと併用でき、
+    /// どちらの参加者も accept に入る。code: 決めたコード（-relayCode。使われていても作り直さない）。nil なら作る。
+    /// makeSocket / schedule / makeCode はテスト用（InMemoryRelay・手動で進めるバックオフ・決まった順のコード）。
+    func startRelay(baseURL: URL = OnlineRelayConfig.baseURL, code: String? = nil,
+                    makeSocket: @escaping RelaySocketFactory = RelayDefaults.socketFactory,
+                    schedule: @escaping RelayScheduler = RelayDefaults.scheduler,
+                    makeCode: (() -> String)? = nil) {
+        guard role == .host, !closed, relayLink == nil else { return }
+        let link = RelayHostLink(baseURL: baseURL, code: code, makeSocket: makeSocket, schedule: schedule)
+        if let makeCode { link.makeCode = makeCode }
+        link.onAccept = { [weak self] endpoint in self?.accept(endpoint) }
+        link.onCodeChange = { [weak self] code in
+            guard let self else { return }
+            let previous = self.relayCode
+            self.relayCode = code
+            if let previous, previous != code {
+                self.note(L("部屋コードが変わりました: \(RelayRoomCode.display(code))", "Room code changed: \(RelayRoomCode.display(code))"))
+            }
+        }
+        link.onStatusChange = { [weak self] st in self?.relayStatusChanged(st) }
+        relayLink = link
+        relayStatus = .connecting
+        link.start()
+    }
+
+    /// 中継を今すぐ繋ぎ直す（画面の「再試行」）。
+    func retryRelay() {
+        relayLink?.retry()
+    }
+
+    /// 中継で繋いでいる参加者の数（テスト・デバッグ表示）。
+    var relayGuestCount: Int { relayLink?.guestCount ?? 0 }
+
+    private func relayStatusChanged(_ st: OnlineRelayStatus) {
+        let previous = relayStatus
+        relayStatus = st
+        let code = relayCode.map(RelayRoomCode.display) ?? ""
+        switch st {
+        case .ready:
+            if case .reconnecting? = previous {
+                note(L("中継に再接続しました（部屋コード \(code)）", "Relay reconnected (room code \(code))"))
+            } else {
+                note(L("中継を開きました（部屋コード \(code)）", "Relay open (room code \(code))"))
+            }
+        case .reconnecting(let reason):
+            if case .reconnecting? = previous { return }
+            note(L("中継が切れました。再接続しています（\(reason)）", "Relay dropped; reconnecting (\(reason))"))
+        case .failed(let reason):
+            note(L("中継を開けませんでした: \(reason)", "Relay unavailable: \(reason)"))
+        case .connecting:
+            break
+        }
     }
 
     /// 接続を受け入れる（名乗りを待つ）。
@@ -925,8 +996,14 @@ final class OnlineSession: OnlineBattleLink {
             connections.removeAll()
             peerByConnection.removeAll()
             connectionByPeer.removeAll()
+            // 中継は最後に閉じる（閉じると中継が参加者全員を host_left で切るので、退出の知らせを送り切ってから）
+            let link = relayLink
+            relayLink = nil
             // 送信を終えてから閉じる
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { for c in all { c.close() } }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                for c in all { c.close() }
+                link?.stop()
+            }
         case .client:
             connection?.send(.leave)
             let c = connection

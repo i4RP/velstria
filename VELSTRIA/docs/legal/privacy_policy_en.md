@@ -7,7 +7,8 @@ This Privacy Policy explains how {{PUBLISHER_NAME}} ("we", "us") handles informa
 
 ## 1. Summary
 
-The App is an offline game. We do not operate any servers, and **we do not collect personal information or any other data through the App**.
+The App is an offline game. We do not operate any servers that store your data, and **we do not collect personal information or any other data through the App**
+(the relay server for online matches only forwards data and stores nothing; see "Online matches" in section 4).
 The App does not track you, does not show advertising and does not include analytics.
 
 ## 2. Information stored on your device
@@ -32,6 +33,12 @@ Please see Apple's Privacy Policy (https://www.apple.com/legal/privacy/) for how
 Because we do not collect data through the App, we do not sell, share or disclose it to third parties.
 The App contains no analytics, advertising or tracking SDKs, and does not use App Tracking Transparency.
 If you have enabled "Share With App Developers" in iOS, Apple may provide us with crash reports (diagnostic data that does not identify you), which we use only to fix bugs.
+
+### Online matches
+
+When you play an online match, the information the match needs (your inputs, display name, chosen hero, room settings, etc.) is sent to the devices of the other players in the room.
+On the same Wi-Fi it goes directly between devices; when you play with a room code it passes through a relay server that we operate on Cloudflare, Inc.'s platform.
+The relay only forwards the data to the other devices in real time and does not store, log or analyse it. Your display name is shown to the other players in the room.
 
 ## 5. When you contact us
 

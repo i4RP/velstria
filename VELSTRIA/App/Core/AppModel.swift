@@ -144,15 +144,65 @@ final class AppModel {
 
     // MARK: オンライン対戦
 
-    /// 部屋を作る（ホスト）。既に参加中なら先に退出する。
-    func hostOnlineRoom(name roomName: String? = nil, port: UInt16? = OnlineProtocol.defaultPort) {
+    /// 部屋を作る（ホスト）。既に参加中なら先に退出する。LAN の待ち受け（Bonjour / IP 直結）と、
+    /// インターネットの中継（部屋コード。違う場所・違う Wi-Fi の相手）の両方を開く。
+    /// relayCode: 決めた部屋コード（-relayCode。自動検証用）。nil なら作る。
+    func hostOnlineRoom(name roomName: String? = nil, port: UInt16? = OnlineProtocol.defaultPort,
+                        relay: Bool = true, relayCode: String? = nil) {
         leaveOnlineRoom()
         let name = profile.displayName.isEmpty ? L("プレイヤー", "Player") : profile.displayName
         let session = OnlineSession.host(peerID: profile.playerID, name: name,
                                          roomName: roomName ?? L("\(name) の部屋", "\(name)'s room"))
         wire(session)
         session.startListening(preferredPort: port)
+        if relay { session.startRelay(baseURL: OnlineRelayConfig.baseURL, code: relayCode) }
         online = session
+    }
+
+    /// 部屋コードで入る（中継経由。違う場所・違う Wi-Fi のホストへ）。code は正規化済み（RelayRoomCode.parse）。
+    func joinOnlineRoom(relayCode code: String, wantsSpectate: Bool = false) {
+        joinOnlineRoom(connection: RelayGuestConnection(code: code, baseURL: OnlineRelayConfig.baseURL), wantsSpectate: wantsSpectate)
+    }
+
+    /// 招待リンク（velstria://join?code=XXXXXX[&spectate=1]）を開いた: 部屋コードで参加し、オンラインの画面へ移る。
+    /// このアプリの招待リンクなら true（扱えなかった時はトーストで理由を出す）。
+    @discardableResult
+    func openOnlineJoinLink(_ url: URL) -> Bool {
+        guard url.scheme?.lowercased() == OnlineJoinLink.scheme else { return false }
+        guard FeatureFlags.lanMatch else { return true }
+        guard let link = OnlineJoinLink(url: url) else {
+            showToast(L("招待リンクの部屋コードが正しくありません", "The invite link has an invalid room code"))
+            return true
+        }
+        guard profile.onboardingCompleted else {
+            showToast(L("はじめの設定を終えてから、もう一度リンクを開いてください", "Finish the first-time setup, then open the link again"))
+            return true
+        }
+        guard activeBattle == nil, activeMagicChess == nil else {
+            showToast(L("試合中は参加できません。試合が終わってからリンクを開いてください", "You are in a match. Open the link again after it ends"))
+            return true
+        }
+        if let online {
+            if online.role == .client, online.joinedRelayCode == link.code, online.isConnected {
+                // 既にその部屋にいる: 画面を出すだけ
+                showOnlineLobby()
+                return true
+            }
+            if online.isHost, online.connectedPeerCount > 1 {
+                // 参加者のいる部屋を黙って閉じない
+                showToast(L("自分の部屋を閉じてから参加してください", "Close your own room before joining another"))
+                showOnlineLobby()
+                return true
+            }
+        }
+        joinOnlineRoom(relayCode: link.code, wantsSpectate: link.spectate)
+        showOnlineLobby()
+        return true
+    }
+
+    private func showOnlineLobby() {
+        router.isMatchFlowPresented = false
+        if router.path.last != .onlineLobby { router.path = [.onlineLobby] }
     }
 
     /// 部屋に入る（クライアント）。wantsSpectate: 観戦席で入る（試合中なら途中から観戦する）。

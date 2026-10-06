@@ -84,19 +84,23 @@ VELSTRIA/
 - 画面遷移: `app.router.push(.heroes)`、対戦フロー `app.router.isMatchFlowPresented = true`、戦闘 `app.startBattle(BattleLaunch(...))`。
 - プロフィール変更は `app.profile.xxx = ...`（自動保存）。ロジックは Services 側の関数を使う。
 - 通常プレイはネットワーク通信なし（オフライン完結）。外部リンクは `Link` / `openURL`。
-  例外はオンライン対戦（下記。同一 LAN の端末間通信のみ、外部サーバーなし）。
+  例外はオンライン対戦（下記。同一 LAN の端末間通信と、部屋コードで遊ぶ時だけ中継サーバー（Cloudflare Workers）経由の通信）。
 
 ## オンライン対戦（リッスンサーバー方式、開発期間用）
 `FeatureFlags.lanMatch` で有効。参加者の 1 台が **ホスト**（権威シミュレーション）になり、他は **クライアント**として入力を送る。
-外部サーバーは無い。同一 LAN の部屋を Bonjour（`_velstria._tcp`）で探すか、ホストの IP:ポート（既定 47814）を入力して TCP で繋ぐ。
-Info.plist に `NSLocalNetworkUsageDescription` / `NSBonjourServices` が必要（project.yml に定義）。
+同一 LAN の部屋を Bonjour（`_velstria._tcp`）で探すか、ホストの IP:ポート（既定 47814）を入力して TCP で繋ぐ。
+違う場所・違う Wi-Fi / モバイル回線の相手とは **部屋コード**（中継サーバー経由。下の「インターネット対戦（中継）」）で繋ぐ。
+どちらの経路でもホストの端末が権威シミュレーションを回すのは同じ（中継は中身を解釈しない土管）。
+Info.plist に `NSLocalNetworkUsageDescription` / `NSBonjourServices` と、招待リンク用の URL スキーム `velstria` が必要（project.yml に定義）。
 
 ```
 App/Online/
   OnlineProtocol.swift   メッセージ（OnlineMessage）・部屋モデル（OnlineRoom / OnlineSeat / OnlineLoadout）・長さ区切り JSON の符号化（OnlineFramer）
   OnlineTransport.swift  接続の抽象（OnlineConnection）。LoopbackConnection（テスト）、NWOnlineConnection / NWOnlineListener / NWOnlineBrowser（Network.framework）
   OnlineSession.swift    部屋への参加状態（ホスト or クライアント）。ロビー操作、戦闘中の入力中継、ハッシュ照合、再同期、切断 → AI 引き継ぎ、再接続
-App/Screens/Online/OnlineLobbyView.swift  入口（部屋を作る / 探す / アドレス入力）と部屋（座席・ピック・準備完了・開始）
+  OnlineRelay.swift      インターネット対戦の中継（部屋コード・招待リンク・中継の形式・WebSocket・RelayHostLink / RelayGuestEndpoint / RelayGuestConnection）
+App/Screens/Online/OnlineLobbyView.swift  入口（部屋を作る / 部屋コードで参加 / 同じ Wi-Fi の部屋を探す / アドレス入力）と部屋（部屋コードの共有・座席・ピック・準備完了・開始）
+relay/                   中継サーバー（Cloudflare Workers + Durable Objects、TypeScript。リポジトリ直下。relay/README.md）
 Packages/VelstriaCore/Sources/VelstriaCore/Sim/MatchFactoryOnline.swift  複数人間の 5v5 構成（`MatchFactory.onlineMatch`、座席番号 = players の添字）
 ```
 
@@ -128,10 +132,36 @@ Packages/VelstriaCore/Sources/VelstriaCore/Sim/MatchFactoryOnline.swift  複数�
    配信は、座っていて抜けていないプレイヤーには即時、観戦席には遅延付きで送る（下の「観戦」→「オンラインの観戦席」）。
    プロトコルは v2（観戦の役割・観戦席の配信を追加）。v1 の名乗りは版数違いとして断る。
 
-検証用の起動引数（Debug のみ）: `-onlineHost [port]`、`-onlineJoin <host:port>`、`-onlineAuto`（自動で着席・ピック・準備完了、ホストは揃えば開始）。
-2 台のシミュレータで `-onlineHost -onlineAuto` と `-onlineJoin 127.0.0.1:47814 -onlineAuto` を起動すると対戦が始まる。
+検証用の起動引数（Debug のみ）: `-onlineHost [port]`、`-onlineJoin <host:port>`、`-onlineAuto`（自動で着席・ピック・準備完了、ホストは揃えば開始）、
+`-relayCode <CODE>`（ホストの部屋コードを固定）、`-onlineJoinCode <CODE>`（部屋コードで参加）、`-relayURL <ws(s)://…>`（中継の差し替え）。
+2 台のシミュレータで `-onlineHost -onlineAuto` と `-onlineJoin 127.0.0.1:47814 -onlineAuto` を起動すると対戦が始まる（LAN）。
+中継経由は `-onlineHost 47931 -relayCode QZ7K4P -onlineAuto` と `-onlineJoinCode QZ7K4P -onlineAuto`（配備済みの中継に繋ぐ）。
 テスト: `OnlineCoreTests`（コア）、`OnlineProtocolTests` / `OnlineSessionTests`（ループバックでロビー → 同期 → 遅延 → 再同期 → 切断 → 再接続 →
-離脱 → 中断 → 生存確認）/ `OnlineTransportTests`（localhost の TCP、接続失敗の時間切れ）。CI（build-upload.yml）でも実行する。
+離脱 → 中断 → 生存確認）/ `OnlineTransportTests`（localhost の TCP、接続失敗の時間切れ）/ `OnlineRelayTests`（中継の代役 `InMemoryRelay` で
+部屋コード・形式・分割・ホストの再接続・コードの作り直し・close コードの文言・招待リンク）。CI（build-upload.yml）でも実行する。
+中継サーバーのテストは `relay/test/relay.test.mjs`（wrangler dev 相手。`.github/workflows/relay.yml` が relay/ の変更時に実行）。
+
+### インターネット対戦（中継）
+違う場所・違う Wi-Fi・モバイル回線（CGNAT）の端末同士は直接 TCP で繋がらないので、ホストも参加者も中継サーバーへ **外向きに** WebSocket で繋ぐ。
+中継（`wss://velstria-relay.shoei0205.workers.dev`、`OnlineRelayConfig.defaultBaseURL`）は Cloudflare Workers + Durable Object（部屋コード 1 つ = 1 オブジェクト、
+WebSocket Hibernation）で、**中身を解釈しない土管**。ゲームの手順（`OnlineMessage` の長さ区切り JSON）はそのまま流すので、ホスト権威・入力ロックステップ・
+ハッシュ照合・再同期・観戦席は LAN と全く同じに動く。何も保存せず、payload をログに出さない。
+
+- 部屋コード: 6 文字（`ABCDEFGHJKMNPQRSTUVWXYZ23456789`。紛らわしい I L O 0 1 を除く）。ホストの端末が作る（`RelayRoomCode.generate`）。
+  入力は全角・小文字・空白・ハイフンを正規化し、貼り付けた招待リンクからもコードを取り出す。紛らわしい文字は弾いて理由を出す。
+- 接続: `GET /v1/rooms/<CODE>?role=host|guest&rv=1`（WebSocket）。ホスト ↔ 中継はバイナリの先頭 5 バイト `[種類][guestId u32 BE]`
+  （0x10 GUEST_OPEN / 0x11 GUEST_DATA / 0x12 GUEST_CLOSE / 0x21 SEND / 0x22 KICK）、参加者 ↔ 中継は payload そのまま。
+  1 メッセージ 256 KiB まで（アプリは 64 KiB 毎に分割。OnlineFramer がストリームとして再結合）。
+- ホスト: `OnlineSession.startRelay` が `RelayHostLink` を開き、参加者ごとの仮想接続 `RelayGuestEndpoint` を `accept` に渡す（LAN の接続と同列）。
+  中継が切れたら全仮想接続を切断扱いにして（試合中なら AI 引き継ぎ）、同じコードで指数バックオフの再接続。コードが使われていたら作り直す。
+  15 秒毎にテキスト `ping`（中継が `pong` を自動応答。携帯回線の NAT 対策）、50 秒何も届かなければ繋ぎ直す。
+- 参加者: `RelayGuestConnection`（`OnlineConnection` 準拠）。切れた後は同じコードで「もう一度参加」（同じ playerID なので試合中なら席に戻る）。
+  中継の close コード（4001 host_left / 4002 closed_by_host / 4004 no_room / 4008 room_full / 4009 room_taken / 4010 relay_version）は利用者向けの文言にする。
+- 招待: 部屋の上の帯に部屋コード（タップで詳細）・コピー・共有（文面 + `velstria://join?code=XXXXXX`）。リンクを開くと `AppModel.openOnlineJoinLink` が参加する
+  （`&spectate=1` で観戦席。試合中・初回設定前・参加者のいる自分の部屋がある時は理由を出して入らない）。
+- プライバシー: 部屋コードで遊ぶ時だけ、対戦データ（操作・表示名・ピック等）が中継経由で相手の端末へ届く（`OnlineRelayConfig.privacyNote`、
+  オンボーディング・設定 > プライバシー・FAQ・docs/legal に記載）。保存しないので App のプライバシーの「収集」には当たらない（docs/appstore/app_privacy.md）。
+- 中継の配備: `cd relay && npx wrangler deploy`（手元の Cloudflare ログインで。CI からは配備しない）。版数を変える時は `rv` と `RelayRoomCode`/形式の両方を上げる。
 
 ## 観戦（AI 同士の観戦・リプレイ・オンラインの観戦席・死亡中の味方追従）
 観戦者 = 操作を送らず、霧は観戦者が選んだ視点で見る人。`BattleLaunch.isSpectating` は次のどれか:

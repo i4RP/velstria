@@ -24,10 +24,13 @@ import VelstriaCore
 //   -language <ja|en>     表示言語
 //   -graphics <low|medium|high>  画質
 //   -heroGallery          ヒーロー 3D モデル一覧（hero-models の目視確認用）
-//   -onlineHost [port]    起動後にオンライン対戦の部屋を作る（待ち受けポート省略時は既定）
-//   -onlineJoin <host:port>  起動後に部屋へ接続する
+//   -onlineHost [port]    起動後にオンライン対戦の部屋を作る（待ち受けポート省略時は既定）。LAN の待ち受けと中継（部屋コード）の両方を開く
+//   -relayCode <CODE>     -onlineHost の部屋コードを決める（自動検証用。使われていても作り直さない）
+//   -relayURL <ws(s)://…> 中継サーバーの URL を差し替える（既定は OnlineRelayConfig.defaultBaseURL。例 ws://127.0.0.1:8787）
+//   -onlineJoin <host:port>  起動後に部屋へ接続する（LAN）
+//   -onlineJoinCode <CODE>   起動後に部屋コードで部屋へ入る（中継経由）
 //   -onlineAuto           部屋で自動的に着席・ヒーロー選択・準備完了にし、ホストは全員揃ったら開始する（2 台のシミュレータでの検証用）
-//   -onlineSpectate       観戦で検証する: -onlineJoin と併せると観戦席で入る（試合中なら途中から観戦）。
+//   -onlineSpectate       観戦で検証する: -onlineJoin / -onlineJoinCode と併せると観戦席で入る（試合中なら途中から観戦）。
 //                         -onlineHost -onlineAuto と併せるとホストは座らずに実況（キャスター）として開始する
 
 enum DebugLaunch {
@@ -89,7 +92,16 @@ enum DebugLaunch {
         }
         if args.contains("-onlineHost") {
             let port = value(after: "-onlineHost").flatMap { UInt16($0) } ?? OnlineProtocol.defaultPort
-            app.hostOnlineRoom(name: "\(p.displayName.isEmpty ? "Host" : p.displayName) (sim)", port: port)
+            let code: String? = value(after: "-relayCode").flatMap { try? RelayRoomCode.parse($0).get() }
+            app.hostOnlineRoom(name: "\(p.displayName.isEmpty ? "Host" : p.displayName) (sim)", port: port, relayCode: code)
+            app.router.path = [.onlineLobby]
+        } else if let raw = value(after: "-onlineJoinCode") {
+            switch RelayRoomCode.parse(raw) {
+            case .success(let code):
+                app.joinOnlineRoom(relayCode: code, wantsSpectate: args.contains("-onlineSpectate"))
+            case .failure(let error):
+                app.showToast(error.message)
+            }
             app.router.path = [.onlineLobby]
         } else if let address = value(after: "-onlineJoin"), let target = OnlineNetwork.parseAddress(address) {
             let spectate = args.contains("-onlineSpectate")

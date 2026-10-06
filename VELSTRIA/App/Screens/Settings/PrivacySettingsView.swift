@@ -71,6 +71,9 @@ struct PrivacySettingsView: View {
             item("wifi.slash", L("オフラインで完結", "Fully offline"),
                  L("アカウント登録やサーバー通信なしで遊べます。課金は Apple が処理します。",
                    "No sign-up or server connection. Purchases are processed by Apple."))
+            if FeatureFlags.lanMatch {
+                item("globe.asia.australia.fill", L("オンライン対戦（部屋コード）", "Online matches (room code)"), OnlineRelayConfig.privacyNote)
+            }
         }
     }
 

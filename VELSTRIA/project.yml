@@ -101,6 +101,12 @@ targets:
         NSLocalNetworkUsageDescription: "近くのプレイヤーとオンライン対戦するために、同じネットワーク上の VELSIA を探して接続します。"
         NSBonjourServices:
           - _velstria._tcp
+        # 招待リンク（velstria://join?code=XXXXXX[&spectate=1]）: 部屋コードでインターネット対戦の部屋に入る
+        # （中継経由。App/Online/OnlineRelay.swift の OnlineJoinLink、AppModel.openOnlineJoinLink）
+        CFBundleURLTypes:
+          - CFBundleURLName: com.bitcoinpay.velstria.join
+            CFBundleTypeRole: Viewer
+            CFBundleURLSchemes: [velstria]
         # リプレイの共有（.vreplay の書き出し・取り込み。App/Services/ReplayArchiveService.swift の UTType.velsiaReplay と一致させる）。
         # 開かれたファイルは複製を受け取り（その場では開かない）、検証してからリプレイ一覧に加える
         UTExportedTypeDeclarations:
