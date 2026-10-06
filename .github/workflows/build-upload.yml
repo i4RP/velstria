@@ -70,6 +70,7 @@ jobs:
             -only-testing:VELSTRIATests/HUDAttackTests \
             -only-testing:VELSTRIATests/SettingsScreensTests \
             -only-testing:VELSTRIATests/RenderLogicTests \
+            -only-testing:VELSTRIATests/SkillFXTests \
             -only-testing:VELSTRIATests/OnlineProtocolTests \
             -only-testing:VELSTRIATests/OnlineSessionTests \
             -only-testing:VELSTRIATests/OnlineTransportTests \
