@@ -159,6 +159,11 @@ final class BattleController {
     static let onlineCatchUpThreshold = 6
     /// オンライン対戦のジッタ吸収: これより多く溜まっていれば時計を待たずに進める（この tick 数だけ遅れて再生する）。
     static let onlineJitterBuffer = 2
+    /// オンラインの観戦席のジッタ吸収: ホストが遅延を掛けて 0.1 秒（3 tick）毎にまとめて配るので厚めにする。
+    /// 観戦は元々遅れて見ているので、数 tick 余分に遅れても困らない（滑らかさを優先する）。
+    static let onlineSpectatorJitterBuffer = 8
+    /// オンラインの観戦席の早送り判定: 参加直後・再同期の後のキーフレームからの追いかけ（最大で約 10 秒分）だけ早送りする。
+    static let onlineSpectatorCatchUpThreshold = 45
 
     init(launch: BattleLaunch, online: OnlineBattleLink? = nil) {
         self.launch = launch
@@ -379,26 +384,35 @@ final class BattleController {
 
     /// クライアント: 届いた tick の入力だけで進める。届かない間は待ち、溜まったら追いつく。
     /// ホストを失った（切断・ホストの中断）時は、届いている分を消化してから中断終了する（自然に終わっていればそのまま終わる）。
+    /// 観戦席（launch.onlineSpectator）: ホストが遅延を掛けて配るので、ジッタ吸収を厚く・早送りを控えめにする。
+    /// 試合の終わりに遅延分の残りが前倒しで届いても、それは早送りせず通常の速さで見せる（ホストが終わった tick を知らせる）。
     private func advanceOnlineClient(dt: Double, online: OnlineBattleLink) {
         if let snapshot = online.takeSnapshot() { restore(snapshot) }
+        let watcher = launch.onlineSpectator
+        if watcher, let final = online.spectatorFinalTick, sim.state.tick >= final, !sim.isEnded {
+            // 観戦席: ホストの試合が step の外で終わった（中断など）。最後の tick まで見たら中断として終える
+            endOnlineMatchAborted()
+            return
+        }
         let live = online.isMatchLive
         let buffered = online.bufferedFrames
         guard live || buffered > 0 else {
-            if !sim.isEnded {
-                // step は ended では何もしないので、終了イベントは直接配る（HUD が終了演出を出す）
-                sim.abort()
-                dispatch([.matchEnded(winner: nil, reason: .aborted)])
-            }
-            isEnded = true
-            setOnlineStatus(.disconnected)
+            endOnlineMatchAborted()
             return
         }
+        // 早送りの判定に使う溜まり（観戦席: 前倒しで届いた遅延分の残りは数えない）
+        var backlog = buffered
+        if watcher, let final = online.spectatorFinalTick {
+            backlog = max(0, min(buffered, final - online.spectatorDelayTicks - sim.state.tick))
+        }
+        let jitterBuffer = watcher ? Self.onlineSpectatorJitterBuffer : Self.onlineJitterBuffer
+        let catchUpThreshold = watcher ? Self.onlineSpectatorCatchUpThreshold : Self.onlineCatchUpThreshold
         accumulator += min(dt, 0.25)
-        let maxSteps = (!live || buffered > Self.onlineCatchUpThreshold) ? Self.maxStepsPerFrame : Self.maxCatchUpSteps
+        let maxSteps = (!live || backlog > catchUpThreshold) ? Self.maxStepsPerFrame : Self.maxCatchUpSteps
         var steps = 0
         var starved = false
         while steps < maxSteps {
-            let wantsStep = !live || accumulator >= Balance.dt || (buffered - steps) > Self.onlineJitterBuffer
+            let wantsStep = !live || accumulator >= Balance.dt || (backlog - steps) > jitterBuffer
             guard wantsStep else { break }
             guard let frame = online.frame(forTick: sim.state.tick + 1) else {
                 starved = true
@@ -433,6 +447,19 @@ final class BattleController {
         if steps == maxSteps { accumulator = min(accumulator, Balance.dt) }
         interpolationAlpha = min(1, accumulator / Balance.dt)
         online.flush()
+    }
+
+    /// クライアント: ホストを失った・ホストが試合を中断した（届いていた分は消化済み）。中断として終える。
+    private func endOnlineMatchAborted() {
+        if !sim.isEnded {
+            // step は ended では何もしないので、終了イベントは直接配る（HUD・年表が終わりを知る）
+            sim.abort()
+            let events: [SimEvent] = [.matchEnded(winner: nil, reason: .aborted)]
+            observeStep(events)
+            dispatch(events)
+        }
+        isEnded = true
+        setOnlineStatus(.disconnected)
     }
 
     private func setOnlineStatus(_ s: OnlineBattleStatus) {

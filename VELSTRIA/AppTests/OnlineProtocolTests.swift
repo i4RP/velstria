@@ -1,4 +1,5 @@
 import XCTest
+import Network
 @testable import VELSTRIA
 import VelstriaCore
 
@@ -30,6 +31,17 @@ final class OnlineProtocolTests: XCTestCase {
             .leave,
             .ping(7),
             .pong(7),
+            // 観戦（v2）
+            .hello(OnlineHello(peerID: "watcher", name: "W", wantsSpectate: true)),
+            .setSpectator(true),
+            .setSpectator(false),
+            .requestSpectate,
+            .spectateMatch(config: config, delayTicks: 900, baseTick: 300),
+            .spectateLoaded,
+            .stopSpectating,
+            .matchFinished(finalTick: 4321),
+            .spectateDenied(reason: "観戦席が満員です"),
+            .matchAborted(reason: "ホストが試合を終了しました"),
         ]
     }
 
@@ -69,6 +81,46 @@ final class OnlineProtocolTests: XCTestCase {
         }
     }
 
+    func testRoomWithSpectatorsRoundTrips() throws {
+        var room = OnlineRoom(name: "部屋", hostPeerID: "host")
+        room.peers = [OnlinePeer(id: "host", name: "Host", role: .spectator, isWatching: true),
+                      OnlinePeer(id: "w", name: "W", role: .spectator),
+                      OnlinePeer(id: "p", name: "P", leftMatch: true)]
+        room.allowsSpectators = false
+        room.spectatorDelayTicks = OnlineProtocol.ticks(seconds: 15)
+        var framer = OnlineFramer()
+        let out = try framer.feed(try OnlineFramer.encode(.room(room)))
+        XCTAssertEqual(out, [.room(room)])
+        guard case .room(let back)? = out.first else { return XCTFail() }
+        XCTAssertTrue(back.hostIsCaster)
+        XCTAssertEqual(back.spectators.map(\.id), ["w"], "ホストの実況は観戦席の数に入れない")
+        XCTAssertEqual(back.players.map(\.id), ["p"])
+        XCTAssertEqual(back.spectatorDelaySeconds, 15, accuracy: 1e-9)
+        XCTAssertEqual(back.peer("p")?.leftMatch, true)
+    }
+
+    func testHelloFromOlderAppStillDecodes() throws {
+        // 名乗りは版数の照合より先に復号する: v1 の名乗り（wantsSpectate なし）も復号でき、版数で断れる
+        let v1 = #"{"hello":{"_0":{"peerID":"old","name":"Old","protocolVersion":1,"simVersion":4}}}"#
+        let m = try OnlineFramer.decode(Data(v1.utf8))
+        guard case .hello(let hello) = m else { return XCTFail("\(m)") }
+        XCTAssertEqual(hello.protocolVersion, 1)
+        XCTAssertNil(hello.wantsSpectate)
+        XCTAssertNotEqual(hello.protocolVersion, OnlineProtocol.version)
+        // 観戦の希望が無い名乗りは wantsSpectate を送らない（古い版のホストでも同じ形）
+        let encoded = String(decoding: try JSONEncoder().encode(OnlineHello(peerID: "a", name: "A")), as: UTF8.self)
+        XCTAssertFalse(encoded.contains("wantsSpectate"))
+    }
+
+    func testDetachedEncodingMatchesSharedEncoder() throws {
+        let config = MatchFactory.onlineMatch(humans: [OnlineHumanSlot(team: .blue, position: .mid, heroID: "H001", displayName: "A")], seed: 3)
+        let state = Simulation(config: config).state
+        var framer = OnlineFramer()
+        let out = try framer.feed(try OnlineFramer.encodeDetached(.snapshot(state)))
+        guard case .snapshot(let back)? = out.first else { return XCTFail() }
+        XCTAssertEqual(back.stateHash(), state.stateHash())
+    }
+
     func testOversizedFrameIsRejected() {
         var framer = OnlineFramer()
         var header = Data()
@@ -105,6 +157,46 @@ final class OnlineProtocolTests: XCTestCase {
         XCTAssertEqual(config.players.filter { $0.controller == .bot }.count, 8)
         XCTAssertTrue(config.players.filter { $0.controller == .bot }.allSatisfy { $0.botDifficulty == .hard })
         XCTAssertEqual(room.pickedHeroIDs, ["H005", "H006"])
+    }
+
+    func testHostMustSitOrCastToStart() {
+        // B1: 座っていないホストは開始できない（権威シミュレーションを回す端末が無い）。実況（観戦席）なら開始できる
+        var room = OnlineRoom(name: "r", hostPeerID: "h")
+        room.peers = [OnlinePeer(id: "h", name: "Host"), OnlinePeer(id: "g", name: "Guest")]
+        let redTop = MatchFactory.onlineSeatIndex(team: .red, position: .top)
+        room.seats[redTop].peerID = "g"
+        room.seats[redTop].loadout.heroID = "H006"
+        room.seats[redTop].ready = true
+        XCTAssertFalse(room.canStart, "ホストが座らず実況でもない")
+        room.peers[0].role = .spectator
+        XCTAssertTrue(room.hostIsCaster)
+        XCTAssertTrue(room.canStart, "ホストの実況で開始できる")
+        room.seats[redTop] = OnlineSeat.empty(redTop)
+        XCTAssertFalse(room.canStart, "選手が誰も座っていない")
+    }
+
+    func testAdvertisementEntries() {
+        var room = OnlineRoom(name: "r", hostPeerID: "h")
+        room.peers = [OnlinePeer(id: "h", name: "Host"), OnlinePeer(id: "w", name: "W", role: .spectator)]
+        var txt = OnlineAdvertisement.entries(for: room)
+        XCTAssertEqual(txt[OnlineAdvertisement.phaseKey], "lobby")
+        XCTAssertEqual(txt[OnlineAdvertisement.watchKey], "1")
+        XCTAssertEqual(txt[OnlineAdvertisement.playersKey], "1")
+        XCTAssertEqual(txt[OnlineAdvertisement.spectatorsKey], "1")
+        room.phase = .playing
+        room.allowsSpectators = false
+        txt = OnlineAdvertisement.entries(for: room)
+        XCTAssertEqual(txt[OnlineAdvertisement.phaseKey], "match")
+        XCTAssertEqual(txt[OnlineAdvertisement.watchKey], "0")
+        txt["v"] = "\(OnlineProtocol.version)"
+        txt["name"] = "r"
+        let found = NWOnlineBrowser.Room(name: "r", endpoint: .hostPort(host: "127.0.0.1", port: 1), txt: txt)
+        XCTAssertTrue(found.inMatch)
+        XCTAssertFalse(found.allowsSpectators)
+        XCTAssertTrue(found.isCompatible)
+        XCTAssertEqual(found.players, 1)
+        let old = NWOnlineBrowser.Room(name: "r", endpoint: .hostPort(host: "127.0.0.1", port: 1), txt: ["v": "1"])
+        XCTAssertFalse(old.isCompatible, "古い版の部屋は入れない")
     }
 
     func testAddressParsing() {

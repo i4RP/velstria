@@ -24,6 +24,8 @@ protocol OnlineConnection: AnyObject {
     var onStateChange: ((OnlineConnectionState) -> Void)? { get set }
     func start()
     func send(_ message: OnlineMessage)
+    /// 符号化済み（OnlineFramer.encode の出力）を送る。同じ内容を複数の相手へ送る時に 1 回だけ符号化するため。
+    func send(encoded data: Data)
     func close()
 }
 
@@ -65,15 +67,23 @@ final class LoopbackConnection: OnlineConnection {
     }
 
     func send(_ message: OnlineMessage) {
-        guard state == .ready, let peer else { return }
+        guard state == .ready, peer != nil else { return }
         do {
-            let data = try OnlineFramer.encode(message)
-            sentCount += 1
-            sentBytes += data.count
+            send(encoded: try OnlineFramer.encode(message))
+        } catch {
+            assertionFailure("loopback encode failed: \(error)")
+        }
+    }
+
+    func send(encoded data: Data) {
+        guard state == .ready, let peer else { return }
+        sentCount += 1
+        sentBytes += data.count
+        do {
             var framer = OnlineFramer()
             for m in try framer.feed(data) { peer.enqueue(m) }
         } catch {
-            assertionFailure("loopback encode failed: \(error)")
+            assertionFailure("loopback decode failed: \(error)")
         }
     }
 
@@ -270,6 +280,11 @@ final class NWOnlineConnection: OnlineConnection {
     func send(_ message: OnlineMessage) {
         guard state == .ready else { return }
         guard let data = try? OnlineFramer.encode(message) else { return }
+        send(encoded: data)
+    }
+
+    func send(encoded data: Data) {
+        guard state == .ready else { return }
         connection.send(content: data, completion: .contentProcessed { [weak self] error in
             guard let error, let self else { return }
             DispatchQueue.main.async { MainActor.assumeIsolated { self.fail(error.localizedDescription) } }
@@ -315,12 +330,31 @@ final class NWOnlineListener {
     private var preferredPort: UInt16?
     /// Bonjour で部屋を広告する（テストでは切る）。
     private let advertises: Bool
+    /// 広告の TXT レコード（部屋の名前・版数・進行状況・観戦の可否・人数）。
+    private var txt: [String: String]
     nonisolated private let queue = DispatchQueue(label: "velstria.online.listener", qos: .userInteractive)
 
     init(roomName: String, preferredPort: UInt16? = OnlineProtocol.defaultPort, advertises: Bool = true) {
         self.roomName = roomName
         self.preferredPort = preferredPort
         self.advertises = advertises
+        let name = Self.serviceName(roomName)
+        self.txt = ["name": name, "v": "\(OnlineProtocol.version)"]
+    }
+
+    /// 広告の TXT を差し替える（待ち受け中なら広告し直す）。部屋の名前と版数は常に入れる。
+    func updateAdvertisement(_ entries: [String: String]) {
+        var merged = entries
+        merged["name"] = Self.serviceName(roomName)
+        merged["v"] = "\(OnlineProtocol.version)"
+        guard merged != txt else { return }
+        txt = merged
+        guard advertises, let l = listener else { return }
+        l.service = makeService()
+    }
+
+    private func makeService() -> NWListener.Service {
+        NWListener.Service(name: Self.serviceName(roomName), type: OnlineProtocol.bonjourType, txtRecord: NWTXTRecord(txt))
     }
 
     func start() {
@@ -344,9 +378,7 @@ final class NWOnlineListener {
             return
         }
         if advertises {
-            let name = Self.serviceName(roomName)
-            l.service = NWListener.Service(name: name, type: OnlineProtocol.bonjourType,
-                                           txtRecord: NWTXTRecord(["name": name, "v": "\(OnlineProtocol.version)"]))
+            l.service = makeService()
         }
         l.stateUpdateHandler = { [weak self] st in
             DispatchQueue.main.async { MainActor.assumeIsolated { self?.handle(nwState: st, requestedPort: port) } }
@@ -401,6 +433,24 @@ final class NWOnlineListener {
     }
 }
 
+/// 部屋の広告（Bonjour の TXT）の読み書き。キーは短く（TXT は 1 項目 255 バイトまで）。
+enum OnlineAdvertisement {
+    /// 進行状況: "lobby" / "match"。
+    static let phaseKey = "p"
+    /// 観戦の可否: "1" / "0"。
+    static let watchKey = "w"
+    /// 選手・観戦者の人数。
+    static let playersKey = "np"
+    static let spectatorsKey = "ns"
+
+    static func entries(for room: OnlineRoom) -> [String: String] {
+        [phaseKey: room.phase == .lobby ? "lobby" : "match",
+         watchKey: room.allowsSpectators ? "1" : "0",
+         playersKey: "\(room.players.count)",
+         spectatorsKey: "\(room.spectators.count)"]
+    }
+}
+
 /// 同一 LAN の部屋を Bonjour で探す。
 @MainActor
 final class NWOnlineBrowser {
@@ -408,6 +458,27 @@ final class NWOnlineBrowser {
         var id: String { "\(endpoint)" }
         let name: String
         let endpoint: NWEndpoint
+        /// 広告の版数（古い版の部屋には入れない）。広告に無ければ nil。
+        var protocolVersion: Int?
+        /// 試合中。
+        var inMatch = false
+        /// 観戦できる。
+        var allowsSpectators = false
+        var players: Int?
+        var spectators: Int?
+
+        init(name: String, endpoint: NWEndpoint, txt: [String: String] = [:]) {
+            self.name = name
+            self.endpoint = endpoint
+            protocolVersion = txt["v"].flatMap { Int($0) }
+            inMatch = txt[OnlineAdvertisement.phaseKey] == "match"
+            allowsSpectators = txt[OnlineAdvertisement.watchKey] == "1"
+            players = txt[OnlineAdvertisement.playersKey].flatMap { Int($0) }
+            spectators = txt[OnlineAdvertisement.spectatorsKey].flatMap { Int($0) }
+        }
+
+        /// この版のアプリで入れる（版数が分からない広告は入れるとみなし、名乗りで判定する）。
+        var isCompatible: Bool { protocolVersion.map { $0 == OnlineProtocol.version } ?? true }
     }
 
     private(set) var rooms: [Room] = []
@@ -424,7 +495,9 @@ final class NWOnlineBrowser {
         b.browseResultsChangedHandler = { [weak self] results, _ in
             let rooms = results.compactMap { r -> Room? in
                 guard case .service(let name, _, _, _) = r.endpoint else { return nil }
-                return Room(name: name, endpoint: r.endpoint)
+                var txt: [String: String] = [:]
+                if case .bonjour(let record) = r.metadata { txt = record.dictionary }
+                return Room(name: name, endpoint: r.endpoint, txt: txt)
             }.sorted { $0.name < $1.name }
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
