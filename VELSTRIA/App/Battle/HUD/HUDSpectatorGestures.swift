@@ -129,6 +129,8 @@ struct HUDSpectatorGestureLayer: View {
             .accessibilityAction(named: L("寄る", "Zoom in")) { stepZoom(by: 1 / 1.25) }
             .accessibilityAction(named: L("引く", "Zoom out")) { stepZoom(by: 1.25) }
             .accessibilityAction(named: L("追従に戻る", "Follow again")) { returnToFollow() }
+            // 画面全体を覆う要素なので、VoiceOver では観戦の操作部品の後に読む（左上から順に読むと最初に来てしまう）
+            .accessibilitySortPriority(-1)
             .accessibilityIdentifier("spectate_camera")
     }
 
