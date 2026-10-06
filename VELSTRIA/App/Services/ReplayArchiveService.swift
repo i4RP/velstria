@@ -69,7 +69,7 @@ enum ReplayArchiveService {
                         persistence: PersistenceService, master: MasterData, now: Date) -> Bool {
         var changed = false
         if !report.replaySaved, let replay = outcome.replay, let source = archiveSource(for: outcome) {
-            if let dup = existingDuplicate(of: replay, in: profile) {
+            if let dup = existingDuplicate(of: replay, in: profile, load: persistence.loadReplay) {
                 // 同じシードで観戦し直した試合など、同じリプレイは重ねて保存しない（既存のものを指す）
                 report.replaySaved = true
                 report.replayID = dup.id
@@ -111,6 +111,16 @@ enum ReplayArchiveService {
         return (.spectate, "s:" + matchKey(launch.config))
     }
 
+    /// 記録の中身を区別するキー（構成の全体 = シード・難易度・最大時間・スペルなど、記録の長さ・入力の数）。
+    /// 入力の無い記録（AI 同士）は構成が同じなら同じ試合（決定論）。入力のある記録は、キーが同じならファイルの中身まで比べる。
+    static func contentKey(of replay: ReplayData) -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let config = (try? encoder.encode(replay.config)).map { String(decoding: $0, as: UTF8.self) } ?? matchKey(replay.config)
+        let inputs = replay.frames.reduce(0) { $0 + $1.commands.count }
+        return String(RankService.stableHash("\(config)|\(replay.finalTick)|\(replay.frames.count)|\(inputs)"), radix: 36)
+    }
+
     /// 試合を区別するキー（構成が同じなら同じ。シード・モード・版数・編成・難易度・最大時間）。
     static func matchKey(_ config: MatchConfig) -> String {
         var parts = ["\(config.mode.rawValue)", "\(config.simVersion)", "\(config.seed)", "\(Int(config.maxDuration))"]
@@ -135,6 +145,7 @@ enum ReplayArchiveService {
             m.winner = replay.summary?.winner
             m.seed = config.seed
             m.heroIDs = config.players.map(\.heroID)
+            m.contentKey = m.contentKey ?? contentKey(of: replay)
             if m.ownerSeat == nil, m.heroID != nil { m.ownerSeat = ownerSeat(of: replay) }
             result[meta.id] = m
         }
@@ -162,6 +173,7 @@ enum ReplayArchiveService {
             m.winner = u.winner
             m.seed = u.seed
             m.heroIDs = u.heroIDs
+            if m.contentKey == nil { m.contentKey = u.contentKey }
             if m.ownerSeat == nil { m.ownerSeat = u.ownerSeat }
             profile.replays[i] = m
         }
@@ -186,7 +198,8 @@ enum ReplayArchiveService {
         case notFound
     }
 
-    /// お気に入りを切り替える（上限 PersistenceService.maxFavoriteReplays）。外すと通常の上限の対象に戻るので突き合わせる。
+    /// お気に入りを切り替える（上限 PersistenceService.maxFavoriteReplays）。外すと通常の上限の対象に戻るが、その場では消さない
+    /// （うっかり外しても付け直せる。上限を超えていれば、次にリプレイを保存した時・次の起動の突き合わせで古い順に消える）。
     static func toggleFavorite(id: UUID, profile: inout Profile, persistence: PersistenceService) -> FavoriteResult {
         guard let i = profile.replays.firstIndex(where: { $0.id == id }) else { return .notFound }
         let newValue = !profile.replays[i].isFavorite
@@ -194,8 +207,14 @@ enum ReplayArchiveService {
             return .limitReached
         }
         profile.replays[i].isFavorite = newValue
-        persistence.reconcileReplays(profile: &profile)
+        // ここでは突き合わせない（付けた時に他のリプレイを消さない・外した時にその場で消さない）。守るファイルだけ合わせる
+        persistence.updateFavoriteProtection(profile)
         return .changed(newValue)
+    }
+
+    /// お気に入りを外した結果、通常の上限を超えている（次の保存で古い順に消える）。一覧のトーストで知らせる。
+    static func isOverRegularCap(_ profile: Profile) -> Bool {
+        profile.replays.filter { !$0.isFavorite }.count > PersistenceService.maxReplays
     }
 
     /// 名前の最大文字数。
@@ -412,20 +431,31 @@ enum ReplayArchiveService {
         return replay
     }
 
-    /// 一覧に同じリプレイがあるか（構成・長さ・持ち主が同じ）。
-    static func existingDuplicate(of replay: ReplayData, in profile: Profile) -> ReplayMeta? {
+    /// 一覧に同じリプレイがあるか（構成の全体・長さ・入力が同じ）。メタのキー（contentKey）で絞り、入力のある記録と
+    /// キーの無い旧版のメタは load でファイルを開いて中身を比べる（シード・編成・長さが同じでも難易度や入力が違えば別の試合）。
+    static func existingDuplicate(of replay: ReplayData, in profile: Profile,
+                                  load: (ReplayMeta) -> ReplayData?) -> ReplayMeta? {
         let config = replay.config
         let heroes = config.players.map(\.heroID)
         let duration = replay.duration
-        return profile.replays.first {
-            $0.seed == config.seed && $0.mode == config.mode && $0.heroIDs == heroes && abs($0.duration - duration) < 0.001
+        let key = contentKey(of: replay)
+        return profile.replays.first { meta in
+            guard meta.seed == config.seed, meta.mode == config.mode, meta.heroIDs == heroes,
+                  abs(meta.duration - duration) < 0.001 else { return false }
+            if let k = meta.contentKey {
+                guard k == key else { return false }
+                // 入力の無い記録は構成が同じなら同じ試合（決定論）
+                if replay.frames.isEmpty { return true }
+            }
+            guard let stored = load(meta) else { return false }
+            return stored.config == config && stored.finalTick == replay.finalTick && stored.frames == replay.frames
         }
     }
 
     /// 検証済みのリプレイを一覧に加える（出どころは「取り込み」。日付は取り込んだ時刻）。
     static func storeImported(_ replay: ReplayData, profile: inout Profile, persistence: PersistenceService,
                               now: Date) throws -> ReplayMeta {
-        if let dup = existingDuplicate(of: replay, in: profile) { throw ImportError.duplicate(dup.id) }
+        if let dup = existingDuplicate(of: replay, in: profile, load: persistence.loadReplay) { throw ImportError.duplicate(dup.id) }
         let seat = ownerSeat(of: replay)
         let heroID = seat.map { replay.config.players[$0].heroID }
         let won: Bool? = replay.summary.flatMap { s in

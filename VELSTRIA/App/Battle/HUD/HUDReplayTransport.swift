@@ -4,7 +4,7 @@ import VelstriaCore
 // 担当: battle-hud（観戦）。再生バー（オフラインの観戦・リプレイ = controller.isSeekable の時だけ）:
 // 一時停止 / 再生（終わっていれば最初から）・速度（0.5×〜8×）・±10 秒（幅があれば ±30 秒とコマ送り）・
 // ドラッグできるシークバー（ドラッグ中は位置と時刻を先に見せ、離した所で controller.requestSeek）・
-// 年表の印（キル・構造物・大型目標・全滅。有利になった側の色と形、重要度で大きさ）・分かっている区間の網掛け・
+// 年表の印（キル・構造物・大型目標・全滅。有利になった側の色と形、重要度で大きさ）・すぐにシークできる区間の網掛け・
 // シーク中の表示・0.1 秒単位の時刻・次の見どころ。
 // 右端はリプレイなら最終 tick、AI 同士の観戦なら分かっている所（一度見た所・先に計算した所）まで。
 // 再生が終わったら HUDSpectatorEndCard（もう一度見る / 結果へ）を出し、バーはそのまま使える。
@@ -238,7 +238,7 @@ struct HUDSeekBarCanvas: View {
             let trackH: CGFloat = 6
             let track = CGRect(x: 0, y: trackY - trackH / 2, width: w, height: trackH)
             ctx.fill(Path(roundedRect: track, cornerRadius: 3), with: .color(Color.black.opacity(0.55)))
-            // 分かっている区間（年表・キーフレームのある所）
+            // すぐにシークできる区間（キーフレーム・一度見た所。controller.seekReadyTick）
             let coveredX = HUDSeekBarGeometry.x(forTick: t.coveredTick, endTick: t.endTick, width: w)
             if coveredX > 0 {
                 ctx.fill(Path(roundedRect: CGRect(x: 0, y: track.minY, width: coveredX, height: trackH), cornerRadius: 3),
@@ -347,9 +347,8 @@ struct HUDSpectatorEndCard: View {
                 }
                 .buttonStyle(SecondaryButtonStyle())
                 .accessibilityIdentifier("spectate_watch_again")
-                Button {
-                    if phase != nil { model.continueAfterEnd() } else { model.leave() }
-                } label: {
+                // 記録の終わり（中断で終わった記録を含む）まで見た後なので、途中退出ではなく「結果へ」として終える
+                Button { model.continueAfterEnd() } label: {
                     Label(L("結果へ", "Results"), systemImage: "chevron.right.2")
                         .frame(minWidth: 130)
                 }

@@ -6,6 +6,7 @@ import VelstriaCore
 // - 15Hz で作る観戦用スナップショット: 再生バー・シークバーの印・追従中ヒーローの詳細・目標タイマー・出来事・ゴールド推移
 // sim には何も書かない（表示専用）。値が変わった時だけ代入し、観測しているビューだけを作り直す。
 // 年表は controller から毎回読む（巻き戻すと timeline は現在の tick で切れ、displayTimeline は分かっている先まで残る）。
+// 再生バーの網掛けは controller.seekReadyTick（すぐにシークできる所）、右端は年表の分かっている所。
 
 @Observable
 @MainActor
@@ -108,6 +109,7 @@ final class HUDSpectatorState {
             next = Self.nextFightTick(after: s.tick, in: display)
         }
         let t = Self.transport(tick: s.tick, finalTick: c.replayFinalTick, coveredTick: display.coveredTick,
+                               readyTick: c.seekReadyTick,
                                upperBound: c.seekUpperBound, seekingTo: c.seekingToTick, paused: paused, speed: c.speed,
                                ended: c.isEnded, seekable: c.isSeekable, liveWatcher: c.isSpectating && c.isOnline,
                                delaySeconds: c.onlineSpectatorDelaySeconds, watchers: c.onlineSpectatorCount,
@@ -137,11 +139,11 @@ final class HUDSpectatorState {
             }
             if card != heroCard { heroCard = card }
         case .events?:
-            let current = c.timeline
-            let key = (current.events.count, c.presentationEpoch)
+            // 鍵は今の tick までの出来事の数（二分探索）。今の tick で切った年表の複製は、鍵が変わった時だけ作る
+            let key = (Self.eventCount(in: c.knownTimeline, atOrBefore: s.tick), c.presentationEpoch)
             if key != eventKey {
                 eventKey = key
-                let log = Self.eventLog(from: current, state: s)
+                let log = Self.eventLog(from: c.timeline, state: s)
                 if log != eventLog { eventLog = log }
             }
         case .gold?:
@@ -164,8 +166,9 @@ final class HUDSpectatorState {
 
     // MARK: 純粋関数（単体テスト対象）
 
-    /// 再生バーの状態。
-    static func transport(tick: Int, finalTick: Int?, coveredTick: Int, upperBound: Int, seekingTo: Int?,
+    /// 再生バーの状態。coveredTick = 年表が分かっている所（観戦の右端）、readyTick = すぐにシークできる所（網掛け。
+    /// 省略時は coveredTick）。年表が保存されたリプレイは最初から最後まで分かっているが、網掛けは状態のある所までにする。
+    static func transport(tick: Int, finalTick: Int?, coveredTick: Int, readyTick: Int? = nil, upperBound: Int, seekingTo: Int?,
                           paused: Bool, speed: Double, ended: Bool, seekable: Bool, liveWatcher: Bool,
                           delaySeconds: Double?, watchers: Int, nextFightTick: Int?) -> HUDTransportSnapshot {
         var t = HUDTransportSnapshot()
@@ -173,7 +176,7 @@ final class HUDSpectatorState {
         // 右端: リプレイは最終 tick。観戦は分かっている所（一度見た所・先に計算した所）か現在位置の先の方
         let end = finalTick ?? max(coveredTick, tick, seekingTo ?? 0)
         t.endTick = max(1, end)
-        t.coveredTick = min(t.endTick, max(0, coveredTick))
+        t.coveredTick = min(t.endTick, max(0, readyTick ?? coveredTick))
         t.upperBound = max(1, upperBound)
         t.isEndKnown = finalTick != nil
         t.seekingTo = seekingTo
@@ -186,6 +189,18 @@ final class HUDSpectatorState {
         t.watchers = watchers
         t.nextFightTick = nextFightTick
         return t
+    }
+
+    /// tick 以前の出来事の数（年表の events は tick 昇順なので二分探索。年表を複製しない）。
+    static func eventCount(in timeline: ReplayTimeline, atOrBefore tick: Int) -> Int {
+        let events = timeline.events
+        var lo = 0
+        var hi = events.count
+        while lo < hi {
+            let mid = (lo + hi) / 2
+            if events[mid].tick <= tick { lo = mid + 1 } else { hi = mid }
+        }
+        return lo
     }
 
     /// バー上の位置（0〜1）→ tick（0〜endTick に丸める）。

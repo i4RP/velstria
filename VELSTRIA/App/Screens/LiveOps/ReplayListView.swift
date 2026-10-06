@@ -4,6 +4,7 @@ import VelstriaCore
 
 // 担当: ui-liveops。UI035 リプレイ一覧（再生・お気に入り・名前・共有・取り込み・詳細・削除）。
 // - 保存数の上限は PersistenceService.maxReplays（唯一の定義）。お気に入りは上限の対象外（別枠 maxFavoriteReplays）。
+//   お気に入りを外してもその場では消さない（上限を超えていれば次の保存で消えることをトーストで知らせる）。
 // - 読み込み・復号はメインスレッドの外（読み込み中は全体に待機表示を重ね、二重に開始しない）。
 // - 再生できるかはメタの版数で先に判定して行を薄くする。版数の無い旧版のメタは、開いた時にファイルから補う。
 // - 書き出しは各行のメニューと詳細の共有ボタン（.vreplay）。取り込みはファイル選択（と他のアプリからの「開く」）。
@@ -79,6 +80,13 @@ enum ReplayLibrary {
 
     /// 上限の対象（お気に入り以外）の数。
     static func regularCount(_ replays: [ReplayMeta]) -> Int { replays.filter { !$0.isFavorite }.count }
+
+    /// お気に入りを外した時のトースト（上限を超えていれば、その場では消さず次の保存で古い順に消えることを知らせる）。
+    static func unfavoritedMessage(_ profile: Profile) -> String {
+        guard ReplayArchiveService.isOverRegularCap(profile) else { return L("お気に入りから外しました", "Removed from favorites") }
+        return L("お気に入りから外しました。保存数が上限を超えているため、次にリプレイを保存した時に古いものから削除されます",
+                 "Removed from favorites. You're over the limit, so the oldest replays will be removed the next time one is saved")
+    }
 
     /// リプレイに対応する戦績（K/D/A 表示用）。
     static func record(for meta: ReplayMeta, in profile: Profile) -> MatchRecord? {
@@ -346,8 +354,8 @@ struct ReplayListView: View {
                             .foregroundStyle(Theme.textSecondary)
                             .accessibilityIdentifier("replays_storage")
                     }
-                    Text(L("最新 \(cap) 件まで保存し、超えると古いものから自動で削除します。お気に入り（★）は削除されません（\(PersistenceService.maxFavoriteReplays) 件まで）。",
-                           "The latest \(cap) are kept; older ones are removed automatically. Favorites (★) are never removed (up to \(PersistenceService.maxFavoriteReplays))."))
+                    Text(L("最新 \(cap) 件まで保存し、超えると古いものから自動で削除します（AI 観戦・カスタム・オンラインの記録を自分の対戦より先に削除）。お気に入り（★）は削除されません（\(PersistenceService.maxFavoriteReplays) 件まで）。",
+                           "The latest \(cap) are kept; older ones are removed automatically (AI, custom and online recordings go before your own matches). Favorites (★) are never removed (up to \(PersistenceService.maxFavoriteReplays))."))
                         .font(Theme.body(11))
                         .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -508,7 +516,7 @@ struct ReplayListView: View {
             app.profile = p
             app.haptics.tap()
             app.showToast(on ? L("お気に入りに追加しました（自動で削除されません）", "Added to favorites (won't be removed automatically)")
-                             : L("お気に入りから外しました", "Removed from favorites"))
+                             : ReplayLibrary.unfavoritedMessage(p))
         case .limitReached:
             FlowFX.error(app)
             app.showToast(L("お気に入りは \(PersistenceService.maxFavoriteReplays) 件までです", "Up to \(PersistenceService.maxFavoriteReplays) favorites"))
@@ -923,9 +931,11 @@ struct ReplayDetailSheet: View {
     private func toggleFavorite(_ meta: ReplayMeta) {
         var p = app.profile
         switch ReplayArchiveService.toggleFavorite(id: meta.id, profile: &p, persistence: app.persistence) {
-        case .changed:
+        case .changed(let on):
             app.profile = p
             app.haptics.tap()
+            // 外して上限を超えた時だけ知らせる（次に保存した時に古い順で消える）
+            if !on && ReplayArchiveService.isOverRegularCap(p) { app.showToast(ReplayLibrary.unfavoritedMessage(p)) }
         case .limitReached:
             FlowFX.error(app)
             app.showToast(L("お気に入りは \(PersistenceService.maxFavoriteReplays) 件までです", "Up to \(PersistenceService.maxFavoriteReplays) favorites"))

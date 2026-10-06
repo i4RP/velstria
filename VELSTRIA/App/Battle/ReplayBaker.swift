@@ -10,8 +10,11 @@ import VelstriaCore
 //   年表を先に渡してからキーフレームを渡す（先のキーフレームへ飛んでも年表に穴が開かない）。
 // - リプレイは記録の最終 tick まで（途中で抜けた記録は BattleController と同じくそこで中断終了にする）。
 //   AI 同士の観戦は試合の終わり（最大でも maxDuration = controller.seekUpperBound）まで先に計算する。
-// - 到達点: シークバーの網掛けは controller.displayTimeline.coveredTick を使う（HUD は controller だけを見ればよい。
-//   事前計算の年表を採用すると伸びる）。この型の bakedUntilTick も同じ到達点（テスト・計測用）。
+// - 到達点: シークバーの網掛けは controller.seekReadyTick（状態のある所 = キーフレーム・一度再生した所）を使う
+//   （HUD は controller だけを見ればよい。事前計算のキーフレームを採用すると伸びる。年表がリプレイに保存されていても、
+//   状態の無い所は網掛けしない）。この型の bakedUntilTick は事前計算の到達点（テスト・計測用）。
+// - 先回り: 再生（早送り）・シークのワーカーが事前計算より先の状態を作っていれば、その状態（と年表）へ飛んで続きから計算する
+//   （同じ区間を二重に計算しない。端末が熱い時ほど効く）。飛ぶ先はキーフレーム・再生位置・細かい輪のうち年表の範囲内の物。
 // - メモリ: キーフレーム 1 つ約 200KB。30 秒（900 tick）間隔で 40 分 = 81 個 ≈ 16MB。上限 maxKeyframes（既定 96 ≈ 19MB）を
 //   超える先は年表だけを計算する（シークはその先の最寄りの状態から進める）。細かい輪は 24 個 ≈ 5MB。
 // - 端末温度・低電力モードで間を空ける（serious / 低電力: 塊の間に休む、critical: 冷えるまで止める）。stop で即座に打ち切る。
@@ -20,7 +23,9 @@ import VelstriaCore
 // シーク: controller.seekStateProvider に登録する。最寄りの状態（キーフレーム・細かい輪・今の状態）から目標 tick までを
 // 専用の Simulation（ReplaySeekWorker）でメインスレッド外で進めて返す（UI は止まらず、HUD はシーク中の表示を出せる）。
 // 目標が年表の先なら、年表の範囲内の状態から進めて年表も伸ばす（穴を開けない）。細かい輪 = 再生位置付近を 5 秒毎に
-// 残した状態（±10 秒のシークを短くする）。
+// 残した状態（±10 秒のシークを短くする）。途中で通った keyframeInterval 毎の状態はキーフレームとして渡す。
+// 取り消されても進めた分（年表・キーフレーム・到達した状態）は捨てず、ワーカーも次の呼び出しで続きから進める
+// （遠いシークの途中で別の位置を選び直しても、計算をやり直さない）。
 //
 // 決定論: どれも同じ config・同じ入力の Simulation なので、状態・年表は通常の再生と一致する（ReplayBakerTests で stateHash を比較）。
 // SimState に観戦の状態は入れない。描画・HUD へイベントは配らない（ここで作るのは状態と年表だけ）。
@@ -45,6 +50,14 @@ struct ReplayBakeBatch: Sendable {
     var keyframes: [SimState]
     var bakedTick: Int
     var finished: Bool
+    /// 事前計算が実際に進めた tick の累計（先回りで飛ばした区間は数えない。テスト・計測用）。
+    var simulatedTicks = 0
+}
+
+/// 事前計算の先回り: 既に作られている先の状態と、その tick まで分かっている年表。
+struct ReplayBakeSkip: Sendable {
+    var state: SimState
+    var timeline: ReplayTimeline
 }
 
 /// 事前計算・シークで sim を進める手順（BattleController の advanceOneTick + finishReplayIfNeeded と同じ）。
@@ -96,16 +109,25 @@ enum ReplayBakeEngine {
     }
 
     /// 事前計算の本体（切り離したタスクで実行）。publish が false を返したら（受け取り側がいない）打ち切る。
-    static func run(_ plan: ReplayBakePlan, publish: @Sendable (ReplayBakeBatch) async -> Bool) async {
+    /// skipAhead（事前計算の今の tick → 先にある状態）が状態を返したら、そこへ飛んで続きから計算する。
+    static func run(_ plan: ReplayBakePlan, skipAhead: @Sendable (Int) async -> ReplayBakeSkip? = { _ in nil },
+                    publish: @Sendable (ReplayBakeBatch) async -> Bool) async {
         let sim = Simulation(config: plan.config, map: MapDefinition.map(for: plan.config.mode))
         var builder: ReplayTimelineBuilder? = ReplayTimelineBuilder()
         builder?.begin(state: sim.state)
         let interval = max(1, plan.keyframeInterval)
         var keyframes: [SimState] = []
         var adopted = 0
+        var simulated = 0
         var lastPublished = sim.state.tick
         while true {
             if Task.isCancelled { return }
+            // 再生・シークが先の状態を作っていれば飛ぶ（年表はその状態の tick まで分かっているので続けて伸ばせる）
+            if let skip = await skipAhead(sim.state.tick), skip.state.tick > sim.state.tick,
+               skip.state.config == plan.config, skip.timeline.coveredTick >= skip.state.tick {
+                sim.restore(from: skip.state)
+                builder = ReplayTimelineBuilder(resuming: skip.timeline)
+            }
             var n = 0
             while n < chunkTicks && !sim.isEnded && sim.state.tick < plan.limitTick {
                 advance(sim, inputs: plan.inputs, finalTick: plan.finalTick, builder: &builder) { s in
@@ -115,11 +137,13 @@ enum ReplayBakeEngine {
                 }
                 n += 1
             }
+            simulated += n
             let tick = sim.state.tick
             let done = sim.isEnded || tick >= plan.limitTick
             if done || !keyframes.isEmpty || tick - lastPublished >= interval {
                 guard let timeline = builder?.timeline else { return }
-                let batch = ReplayBakeBatch(timeline: timeline, keyframes: keyframes, bakedTick: tick, finished: done)
+                let batch = ReplayBakeBatch(timeline: timeline, keyframes: keyframes, bakedTick: tick, finished: done,
+                                            simulatedTicks: simulated)
                 keyframes.removeAll()
                 lastPublished = tick
                 guard await publish(batch) else { return }
@@ -140,15 +164,22 @@ enum ReplayBakeEngine {
 /// シークの目標の状態をメインスレッド外で作る（専用の Simulation を使い回す。呼び出しは直列）。
 actor ReplaySeekWorker {
     struct Result: Sendable {
+        /// 到達した状態（取り消された時は途中の状態）。
         var state: SimState
-        /// 伸ばした年表（年表の先へ進めた時だけ）。
+        /// 伸ばした年表（年表の先へ進めた時だけ。取り消された時は到達した tick まで）。
         var timeline: ReplayTimeline?
+        /// 途中で通った keyframeInterval 毎の状態（tick 昇順、上限 keyframeLimit 個）。
+        var keyframes: [SimState] = []
+        /// 目標（または試合の終わり）まで進めた。false = 取り消されて途中で止めた。
+        var completed: Bool
     }
 
     private let inputs: [Int: [HeroCommand]]
     private let finalTick: Int?
     private let map: MapDefinition
     private var sim: Simulation?
+    /// 前回の呼び出しで到達した状態と年表（取り消されても残す。次の呼び出しで base より先・goal 以前なら続きから進める）。
+    private var reached: (state: SimState, timeline: ReplayTimeline?)?
 
     init(inputs: [Int: [HeroCommand]], finalTick: Int?, map: MapDefinition) {
         self.inputs = inputs
@@ -157,8 +188,9 @@ actor ReplaySeekWorker {
     }
 
     /// base から goal まで（試合が先に終わればそこまで）進めた状態。timeline を渡すとそれを続けて伸ばす
-    /// （base はその年表の範囲内であること）。呼び出し側のタスクが取り消されたら nil。
-    func advance(from base: SimState, to goal: Int, timeline: ReplayTimeline?) -> Result? {
+    /// （base はその年表の範囲内であること）。呼び出し側のタスクが取り消されたら、そこまで進めた途中の結果を返す（completed = false）。
+    func advance(from base: SimState, to goal: Int, timeline: ReplayTimeline?,
+                 keyframeInterval: Int, keyframeLimit: Int = .max) -> Result {
         let sim: Simulation
         if let existing = self.sim {
             sim = existing
@@ -166,16 +198,38 @@ actor ReplaySeekWorker {
             sim = Simulation(snapshot: base, map: map)
             self.sim = sim
         }
-        sim.restore(from: base)
-        var builder = timeline.map { ReplayTimelineBuilder(resuming: $0) }
+        var start = base
+        var resume = timeline
+        if let r = reached, r.state.tick > base.tick, r.state.tick <= goal, r.state.phase != .ended, r.state.config == base.config {
+            // 前回（取り消された遠いシークなど）の続きから進める。年表を伸ばす時は、その tick まで分かっている方を使う
+            // （決定論なので、どちらの年表も先頭は同じ）
+            let longer = [r.timeline, timeline].compactMap { $0 }.max { $0.coveredTick < $1.coveredTick }
+            if timeline == nil {
+                start = r.state
+            } else if let longer, longer.coveredTick >= r.state.tick {
+                start = r.state
+                resume = longer
+            }
+        }
+        sim.restore(from: start)
+        var builder = resume.map { ReplayTimelineBuilder(resuming: $0) }
+        let interval = max(1, keyframeInterval)
+        var keyframes: [SimState] = []
+        var cancelled = false
         var n = 0
         while sim.state.tick < goal && !sim.isEnded {
             n += 1
-            if n % ReplayBakeEngine.chunkTicks == 0, Task.isCancelled { return nil }
-            ReplayBakeEngine.advance(sim, inputs: inputs, finalTick: finalTick, builder: &builder)
+            if n % ReplayBakeEngine.chunkTicks == 0, Task.isCancelled {
+                cancelled = true
+                break
+            }
+            ReplayBakeEngine.advance(sim, inputs: inputs, finalTick: finalTick, builder: &builder) { s in
+                guard s.tick % interval == 0, keyframes.count < keyframeLimit else { return }
+                keyframes.append(s)
+            }
         }
-        if Task.isCancelled { return nil }
-        return Result(state: sim.state, timeline: builder?.timeline)
+        reached = (sim.state, builder?.timeline)
+        return Result(state: sim.state, timeline: builder?.timeline, keyframes: keyframes, completed: !cancelled)
     }
 }
 
@@ -186,12 +240,16 @@ final class ReplayBaker {
     /// 細かい輪: 再生位置付近の状態を残す間隔（tick）と個数（150 tick = 5 秒、24 個 ≈ 5MB）。
     static let fineInterval = 150
     static let fineRingCapacity = 24
+    /// 事前計算の先回り: これ以上先の状態があれば飛ぶ（150 tick = 5 秒。すぐ先なら飛ばずに進める）。
+    static let skipAheadMinTicks = 150
 
     private weak var controller: BattleController?
     let plan: ReplayBakePlan
     private let worker: ReplaySeekWorker
-    /// 事前計算の到達 tick（シークバーの網掛けは controller.displayTimeline.coveredTick を使う。同じ値まで伸びる）。
+    /// 事前計算の到達 tick（シークバーの網掛けは controller.seekReadyTick を使う。事前計算のキーフレームと一緒に伸びる）。
     private(set) var bakedUntilTick = 0
+    /// 事前計算が実際に進めた tick の累計（先回りで飛ばした区間は数えない。テスト・計測用）。
+    private(set) var simulatedTicks = 0
     /// 試合の終わり（または計算する最後の tick）まで計算し終えた。
     private(set) var isFinished = false
     /// 渡したキーフレームの数（tick 0 を除く）。
@@ -238,9 +296,11 @@ final class ReplayBaker {
                     if Task.isCancelled { return }
                 }
             }
-            await ReplayBakeEngine.run(plan) { batch in
+            await ReplayBakeEngine.run(plan, skipAhead: { tick in
+                await target.value?.skipAheadState(after: tick)
+            }, publish: { batch in
                 await target.value?.adopt(batch) ?? false
-            }
+            })
         }
         ringTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -273,6 +333,7 @@ final class ReplayBaker {
         for k in batch.keyframes { controller.adoptKeyframe(k) }
         adoptedKeyframes += batch.keyframes.count
         bakedUntilTick = max(bakedUntilTick, batch.bakedTick)
+        simulatedTicks = max(simulatedTicks, batch.simulatedTicks)
         if batch.finished { isFinished = true }
         return true
     }
@@ -280,17 +341,45 @@ final class ReplayBaker {
     // MARK: シーク
 
     /// 目標 tick の状態（controller.seekStateProvider）。取り消されたら・作れなければ nil（コントローラが自分で進める）。
+    /// 取り消されても、ワーカーが進めた分は keep で残す（次のシーク・事前計算の先回りが続きから使う）。
     func exactState(for goal: Int) async -> SimState? {
         guard let controller, controller.isSeekable else { return nil }
         let known = controller.knownTimeline
         // 目標が年表の先なら、年表を続けて伸ばせるよう年表の範囲内の状態から始める
         let extend = goal > known.coveredTick
         guard let base = bestBase(atOrBefore: extend ? known.coveredTick : goal, controller: controller) else { return nil }
-        guard let result = await worker.advance(from: base, to: goal, timeline: extend ? known : nil),
-              !Task.isCancelled else { return nil }
-        if let t = result.timeline { self.controller?.adoptFullTimeline(t) }
-        remember(result.state)
+        let room = max(0, plan.maxKeyframes + 1 - controller.keyframes.count)
+        let result = await worker.advance(from: base, to: goal, timeline: extend ? known : nil,
+                                          keyframeInterval: plan.keyframeInterval, keyframeLimit: room)
+        keep(result)
+        guard result.completed, !Task.isCancelled else { return nil }
         return result.state
+    }
+
+    /// ワーカーが進めた分を残す: 年表 → キーフレーム（上限まで。年表を先に渡して穴を開けない）→ 到達した状態を細かい輪へ。
+    private func keep(_ result: ReplaySeekWorker.Result) {
+        guard let controller else { return }
+        if let t = result.timeline { controller.adoptFullTimeline(t) }
+        for k in result.keyframes where controller.keyframes.count <= plan.maxKeyframes { controller.adoptKeyframe(k) }
+        remember(result.state)
+    }
+
+    /// 事前計算の先回り先: 事前計算（bakeTick）より skipAheadMinTicks 以上先にある状態のうち最も先の物（キーフレーム・
+    /// 再生位置・細かい輪）。年表がその tick まで分かっていること・終わっていないこと（中断の状態へは飛ばない）。
+    func skipAheadState(after bakeTick: Int) -> ReplayBakeSkip? {
+        guard let controller, bakeTask != nil else { return nil }
+        let known = controller.knownTimeline
+        var best: SimState?
+        func consider(_ s: SimState?) {
+            guard let s, s.phase != .ended, s.tick <= known.coveredTick, s.tick > (best?.tick ?? bakeTick) else { return }
+            best = s
+        }
+        consider(controller.keyframes.last)
+        // シーク中の sim は途中の tick を行き来するので見ない
+        if controller.seekingToTick == nil { consider(controller.state) }
+        consider(fineRing.last)
+        guard let best, best.tick >= bakeTick + Self.skipAheadMinTicks else { return nil }
+        return ReplayBakeSkip(state: best, timeline: known)
     }
 
     /// limit 以前で最も新しい状態（キーフレーム・細かい輪・今の状態）。
