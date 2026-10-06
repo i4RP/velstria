@@ -83,6 +83,14 @@ enum FXTex: String, CaseIterable, Hashable, Sendable {
     /// 音符。
     case note
 
+    /// 横（+X）に長い模様か（FXMesh.ray が板を回して前方へ向ける）。
+    var isLinear: Bool {
+        switch self {
+        case .streak, .bolt, .chain, .arrow, .slashLine, .thread, .soundWave: return true
+        default: return false
+        }
+    }
+
     /// 一辺の画素数（地面に大きく敷くものは高解像度）。
     var size: Int {
         switch self {

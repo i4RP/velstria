@@ -289,10 +289,15 @@ final class ProjectileLayer {
         case .empowered:
             color = RGB(1.0, 0.92, 0.62); coreScale = [0.14, 0.14, 0.6]; haloScale = 0.38
         case .skill(let hue, let streak):
-            let c = UIColor(hue: CGFloat(hue) / 1000, saturation: 0.6, brightness: 1, alpha: 1)
-            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-            c.getRed(&r, green: &g, blue: &b, alpha: &a)
-            color = RGB(Double(r), Double(g), Double(b))
+            if let heroID = SkillFXCatalog.heroID(forEffect: visual) {
+                // スキル演出のパレット（SkillFX の travel と色をそろえる）
+                color = SkillFXCatalog.palette(heroID).primary
+            } else {
+                let c = UIColor(hue: CGFloat(hue) / 1000, saturation: 0.6, brightness: 1, alpha: 1)
+                var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+                c.getRed(&r, green: &g, blue: &b, alpha: &a)
+                color = RGB(Double(r), Double(g), Double(b))
+            }
             (coreScale, haloScale) = Self.skillScales(effectScale(visual), streak: streak)
         }
         let core = ModelEntity(mesh: meshes.unitSphere, materials: [materials.unlit(color.mixed(RGB(1, 1, 1), 0.55))])

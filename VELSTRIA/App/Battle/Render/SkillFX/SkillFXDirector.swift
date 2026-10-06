@@ -85,6 +85,12 @@ final class SkillFXDirector {
 
     func recipe(heroID: String, slot: SkillSlot) -> SkillFXRecipe? { recipes[SkillKey(heroID: heroID, slot: slot)] }
 
+    /// このスキルに固有の被弾演出があるか（既定の被弾の火花を重ねない）。
+    func hasHitFX(sourceID: EntityID?, slot: SkillSlot, state: SimState) -> Bool {
+        guard let id = sourceID, let heroID = state.unit(id)?.hero?.heroID else { return false }
+        return !(recipes[SkillKey(heroID: heroID, slot: slot)]?.hit.isEmpty ?? true)
+    }
+
     private func context(_ key: SkillKey, origin: SIMD3<Float>, caster: SIMD3<Float>, target: SIMD3<Float>,
                          forward: SIMD3<Float>?, follow: SkillFXPlayer.Follow?, variant: Int = 0) -> SkillFXPlayer.Context {
         var f = forward ?? (target - caster)

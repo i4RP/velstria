@@ -154,6 +154,12 @@ extension FXMesh {
                sizeEnd: [radius * 0.35, height, radius * 0.35], ease: .out, life: life, fadeIn: 0.05, fadeOut: 0.4)
     }
 
+    /// 天から落ちる雷（稲妻の模様の細い尖塔が一瞬光る）。
+    static func strike(_ height: Float = 7, _ tint: FXTint = .accent, width: Float = 0.35, life: Float = 0.24) -> FXMesh {
+        FXMesh(shape: .spire, tex: .bolt, tint: tint, alpha: 1, size: [width, height, width],
+               sizeEnd: [width * 0.45, height, width * 0.45], ease: .out, life: life, fadeIn: 0.02, fadeOut: 0.3)
+    }
+
     /// 立ちのぼる光の壁の輪（円柱が外へ広がる）。
     static func burstWall(_ radius: Float, height: Float, _ tint: FXTint = .primary, life: Float = 0.5) -> FXMesh {
         FXMesh(shape: .cylinder, tex: .beam, tint: tint, alpha: 0.8, size: [radius * 0.3, height, radius * 0.3],
@@ -202,8 +208,13 @@ extension FXMesh {
     /// 前方へ伸びる帯（光線・稲妻・鎖の線。高さ height に寝かせる）。length は m、width は幅。
     static func ray(_ tex: FXTex, length: Float, width: Float, _ tint: FXTint = .primary, life: Float = 0.35,
                     height: Float = 1.0, alpha: Float = 1) -> FXMesh {
-        FXMesh(shape: .disc, tex: tex, tint: tint, alpha: alpha, size: [width * 0.4, 1, length],
-               sizeEnd: [width, 1, length], ease: .out, life: life, fadeIn: 0.03, fadeOut: 0.3)
+        // 横長の模様（光条・稲妻・鎖・矢など）は画像の横が長いので、板を 90° 回して横を前方へ向ける
+        if tex.isLinear {
+            return FXMesh(shape: .disc, tex: tex, tint: tint, alpha: alpha, size: [length, 1, width * 0.4],
+                          sizeEnd: [length, 1, width], ease: .out, life: life, fadeIn: 0.03, fadeOut: 0.3, yaw: 90)
+        }
+        return FXMesh(shape: .disc, tex: tex, tint: tint, alpha: alpha, size: [width * 0.4, 1, length],
+                      sizeEnd: [width, 1, length], ease: .out, life: life, fadeIn: 0.03, fadeOut: 0.3)
     }
 
     /// 前方を向いて立つ板（刃の残像・盾面・門）。

@@ -527,7 +527,12 @@ final class BattleWorld {
                 vfx.spawn(.crit, at: p, color: FXColors.crit, important: involvesFocus)
             } else {
                 switch d.source {
-                case .skill, .spell:
+                case .skill(let slot):
+                    // 固有の被弾演出（SkillFX の hit）があるスキルはそちらに任せる
+                    if !skillDirector.hasHitFX(sourceID: d.sourceID, slot: slot, state: f.state) {
+                        vfx.spawn(.magicHit, at: p, color: heroColor(d.sourceID, f), important: involvesFocus)
+                    }
+                case .spell:
                     vfx.spawn(.magicHit, at: p, color: heroColor(d.sourceID, f), important: involvesFocus)
                 case .basicAttack, .minion, .monster, .tower:
                     let src = d.sourceID.flatMap { f.state.unit($0) }

@@ -25,6 +25,13 @@ enum SkillFXCatalog {
         "H021": FX_H021.self, "H022": FX_H022.self, "H023": FX_H023.self, "H024": FX_H024.self,
     ]
 
+    /// 演出 ID（FX_SK_001_2）→ ヒーロー ID（H001）。
+    static func heroID(forEffect effectID: String) -> String? {
+        let parts = effectID.split(separator: "_")
+        guard parts.count >= 4, parts[0] == "FX", parts[1] == "SK", parts[2].count == 3, Int(parts[2]) != nil else { return nil }
+        return "H" + parts[2]
+    }
+
     static func palette(_ heroID: String) -> FXPalette {
         sets[heroID]?.palette ?? FXPalette.from(RGB(0.6, 0.85, 1))
     }
