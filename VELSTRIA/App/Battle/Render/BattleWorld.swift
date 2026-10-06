@@ -185,6 +185,43 @@ final class BattleWorld {
         overlay.update(dt: dt) { p in arView.project(p) }
     }
 
+    // MARK: 不連続（シーク・再同期）
+
+    /// 作り直しの同期に使う dt（秒）。見た目の可視性・ヒーローの死後の消え方（2.8 秒）・向き・HP バーの遅れ・
+    /// 結晶の落下・霧の補間を 1 回で終わらせる長さ。
+    static let presentationSnapDt: Float = 3
+
+    /// presentationEpoch が変わった（シーク・オンラインの再同期）: 前の時刻の演出を演出なしで捨て、今の状態へ即座に合わせる。
+    /// - クリーチャーは死亡演出なしでプールへ戻して作り直す。飛んでいる弾・地面の予告（発動演出なし）・粒子・輪・閃光・
+    ///   詠唱ループ・戦闘数値・回復のまとめ・揺れを捨てる
+    /// - 構造物は状態どおり（破壊前へ戻ったら瓦礫から元の姿へ）、ヒーローの可視性・死後の消え方・向きは補間せずに合わせる
+    /// - 詠唱中（帰還・転移）のヒーローのループは今の状態から付け直す
+    /// - 霧は補間せずに今の視界へ（次の計算結果で一度に合わせる）、カメラは切り替え（滑らせない）
+    /// イベントは配らない・受け取らない（シークで飛ばした区間の演出は出さない）。一時停止中でも呼ばれる。
+    func resetForPresentationEpoch(rig: CameraRig) {
+        units.resetForPresentationEpoch()
+        projectiles.resetForPresentationEpoch()
+        zones.resetForPresentationEpoch()
+        vfx.resetForPresentationEpoch()
+        overlay?.clear()
+        textStacks.removeAll(keepingCapacity: true)
+        lastHealFX.removeAll(keepingCapacity: true)
+        pendingHeal = 0
+        pendingHealTimer = 0
+        shakeRequest = 0
+        // 1 回目で見た目を今の状態から作り直し、2 回目で作ったばかりの見た目のフェード（HP バーの遅れなど）も終わらせる
+        for _ in 0..<2 { sync(events: [], dt: BattleWorld.presentationSnapDt, rig: rig) }
+        let state = controller.state
+        let viewer = controller.viewerTeam
+        for i in state.units.indices where state.units[i].kind == .hero {
+            let u = state.units[i]
+            guard let channel = u.hero?.channel, u.isAlive, viewer.map({ state.isVisible(i, to: $0) }) ?? true,
+                  let p = units.worldPositionOf(u.id) else { continue }
+            vfx.startLoop(id: u.id, at: p, color: channel.kind == .recall ? teamLight(u.team) : FXColors.teleport)
+        }
+        updateCamera(rig: rig, dt: 0, snap: true)
+    }
+
     // MARK: イベント → 演出
 
     private func isShown(_ id: EntityID, _ f: RenderFrame) -> Bool {

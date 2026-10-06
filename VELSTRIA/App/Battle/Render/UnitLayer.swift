@@ -4,6 +4,7 @@ import VelstriaCore
 
 // 担当: battle-renderer。units 配列 → 見た目の同期。ミニオン・モンスター・人形はキー別プールで再利用する。
 // 列から消えたユニット（撃破で除去）は死亡演出の後にプールへ戻す。
+// シーク・再同期（presentationEpoch の変化）では演出なしで全てプールへ戻して作り直す（resetForPresentationEpoch）。
 
 @MainActor
 final class UnitLayer {
@@ -228,6 +229,24 @@ final class UnitLayer {
                 k += 1
             }
         }
+    }
+
+    // MARK: 不連続（シーク・再同期）
+
+    /// 死亡演出中の見た目の数（テスト用）。
+    var dyingCount: Int { dying.count }
+
+    /// presentationEpoch の変化（シーク・オンラインの再同期）: クリーチャーの見た目を死亡演出なしで全てプールへ戻す。
+    /// 見た目は EntityID で引くので、残すと前の時刻の個体が新しい位置へ滑ったり、別の個体（再同期で ID の割り当てが
+    /// 違う時）の姿のまま動いたりする。次の sync で今の状態から作り直す（プールから出すだけで新しくは作らない）。
+    /// 構造物は次の update で今の状態に合わせる（瓦礫 ↔ 元の姿を演出なしで）。ヒーローは ID と姿が試合中変わらないので残す。
+    func resetForPresentationEpoch() {
+        for v in activeCreatures { recycle(v) }
+        for v in dying { recycle(v) }
+        activeCreatures.removeAll(keepingCapacity: true)
+        dying.removeAll(keepingCapacity: true)
+        creatures.removeAll(keepingCapacity: true)
+        for s in structureList { s.resetForPresentationEpoch() }
     }
 
     // MARK: イベント

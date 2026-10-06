@@ -17,6 +17,8 @@ struct BattleContainerView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var controller: BattleController?
     @State private var audioDirector: BattleAudioDirector?
+    /// シークできる観戦・リプレイの事前計算（先のキーフレーム・年表・メインスレッド外のシーク）。
+    @State private var baker: ReplayBaker?
     @State private var loop = BattleLoopFallback()
     /// 戦闘前の自動ロックの設定（観戦は画面に触れないので、戦闘中は自動ロックを止めて終わったら戻す）。
     @State private var previousIdleTimerDisabled: Bool?
@@ -71,6 +73,10 @@ struct BattleContainerView: View {
         controller = c
         DebugLaunch.battleDidStart(c)
         if c.isOnline { app.online?.attach(controller: c) }
+        if let b = ReplayBaker(controller: c) {
+            b.start()
+            baker = b
+        }
         let director = BattleAudioDirector(controller: c, app: app)
         director.start()
         audioDirector = director
@@ -107,6 +113,8 @@ struct BattleContainerView: View {
             previousIdleTimerDisabled = nil
         }
         loop.stop()
+        baker?.stop()
+        baker = nil
         audioDirector?.stop()
         controller?.aim = nil
         if controller?.isOnline == true { app.online?.detach() }
