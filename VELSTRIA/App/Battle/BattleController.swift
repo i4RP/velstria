@@ -99,6 +99,9 @@ final class BattleController {
     /// 試合全体の年表が先に分かっている場合（年表入りのリプレイ、バックグラウンドの事前計算）。
     @ObservationIgnored private(set) var fullTimeline: ReplayTimeline?
     @ObservationIgnored private var seekTask: Task<Void, Never>?
+    /// シークの目標 tick の状態をメインスレッド外で作る（ReplayBaker が登録）。nil を返したら従来どおりここで進める。
+    /// 返す状態は目標 tick のもの（または目標より前に試合が終わった状態）。
+    @ObservationIgnored var seekStateProvider: (@MainActor (Int) async -> SimState?)?
 
     // MARK: HUD が購読する値（低頻度更新）
 
@@ -474,6 +477,17 @@ final class BattleController {
     }
 
     private func performSeek(to goal: Int) async {
+        if let provider = seekStateProvider {
+            // バックグラウンドの事前計算（ReplayBaker）で目標の状態を作る（UI を止めない）
+            let exact = await provider(goal)
+            if Task.isCancelled { return }
+            if let exact, exact.config == sim.state.config,
+               exact.tick == goal || (exact.tick < goal && exact.phase == .ended) {
+                sim.restore(from: exact)
+                // ここで進めた時と同じく、記録の終わりを到達した tick まで伸ばす（観戦の記録は入力が無いので列は変わらない）
+                recorder?.record(tick: exact.tick, commands: [])
+            }
+        }
         // 戻る・保存済みのキーフレームを越えて進む時は、目標以前で最も新しいキーフレームから再開する
         let base = keyframes.last { $0.tick <= goal }
         if let base, goal < sim.state.tick || base.tick > sim.state.tick {
@@ -526,6 +540,8 @@ final class BattleController {
     /// バックグラウンドで先に作った試合全体の年表を採用する。
     func adoptFullTimeline(_ timeline: ReplayTimeline) {
         if (fullTimeline?.coveredTick ?? -1) < timeline.coveredTick { fullTimeline = timeline }
+        // 決定論なので先頭は同じ。記録側も置き換えて、先のキーフレームへ飛んでも年表に穴が開かないようにする
+        if timeline.coveredTick > timelineBuilder.timeline.coveredTick { timelineBuilder.replace(with: timeline) }
     }
 
     /// リプレイが記録の最終 tick に達した。
@@ -642,7 +658,12 @@ final class BattleController {
             summary.humanTeam = localTeam
             for k in summary.players.indices { summary.players[k].isHuman = summary.players[k].entityID == localHeroID }
         }
-        recorder?.timeline = timelineBuilder.timeline
+        if let recorder {
+            // 事前計算で先まで分かっていても、保存するのは記録した区間まで
+            var recorded = timelineBuilder.timeline
+            recorded.truncate(after: recorder.lastTick)
+            recorder.timeline = recorded
+        }
         let replay = recorder.flatMap { $0.isIncomplete ? nil : $0.finish(summary: summary) }
         return BattleOutcome(launch: launch, summary: summary, replay: replay, abandoned: abandoned)
     }
