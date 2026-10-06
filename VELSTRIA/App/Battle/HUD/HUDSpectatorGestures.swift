@@ -72,11 +72,16 @@ struct HUDSpectatorGestureLayer: View {
 
     @State private var pan: PanAnchor?
     @State private var pinch: PinchAnchor?
+    /// 指が触れている間 true（取り消された操作は onEnded が呼ばれないので、これが戻った時に窓口の状態を片付ける）。
+    @GestureState private var panTouching = false
+    @GestureState private var pinchTouching = false
 
     private struct PanAnchor {
         var focus: Vec2
         var start: CGPoint
         var zoom: Double
+        /// この操作の指の置き始め（別の操作の起点を使い回さないための目印）。
+        var touchDown: CGPoint
     }
 
     private struct PinchAnchor {
@@ -84,6 +89,7 @@ struct HUDSpectatorGestureLayer: View {
         var focus: Vec2
         var anchor: CGPoint
         var free: Bool
+        var startAnchor: UnitPoint
     }
 
     private var size: CGSize { CGSize(width: layout.width, height: layout.height) }
@@ -95,15 +101,27 @@ struct HUDSpectatorGestureLayer: View {
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 6)
+                    .updating($panTouching) { _, touching, _ in touching = true }
                     .onChanged { panChanged($0) }
                     .onEnded { panEnded($0) }
             )
             .simultaneousGesture(
                 MagnifyGesture(minimumScaleDelta: 0.02)
+                    .updating($pinchTouching) { _, touching, _ in touching = true }
                     .onChanged { pinchChanged($0) }
                     .onEnded { _ in pinchEnded() }
             )
             .simultaneousGesture(TapGesture(count: 2).onEnded { returnToFollow() })
+            // 操作が取り消された（通知・コントロールセンターの引き出しなど。onEnded が呼ばれない）: 指で動かしている印を外す
+            // （ばねを掛けない状態が残らないように）。残ったパンの起点は次のドラッグが touchDown で見分けて捨てる。
+            // ピンチの起点が残るとパンが効かなくなるので片付ける（pinchEnded は何度呼んでもよい）
+            .onChange(of: panTouching) { _, touching in
+                if !touching { link.isPanning = false }
+            }
+            .onChange(of: pinchTouching) { _, touching in
+                guard !touching, pinch != nil else { return }
+                pinchEnded()
+            }
             .accessibilityElement()
             .accessibilityLabel(L("観戦カメラ", "Spectator camera"))
             .accessibilityHint(L("ドラッグで移動、ピンチで拡大・縮小、ダブルタップで追従に戻ります",
@@ -123,9 +141,12 @@ struct HUDSpectatorGestureLayer: View {
             return
         }
         let link = link
+        // 取り消された前の操作の起点が残っていたら使わない（前の起点からの移動になってカメラが跳ぶ）
+        if let p = pan, p.touchDown != value.startLocation { pan = nil }
         if pan == nil {
             if case .free = controller.cameraMode {} else { link.lastFollowedID = controller.presentationFocusID }
-            pan = PanAnchor(focus: currentFocus(link), start: value.location, zoom: link.renderedZoom)
+            pan = PanAnchor(focus: currentFocus(link), start: value.location, zoom: link.renderedZoom,
+                            touchDown: value.startLocation)
             link.isPanning = true
             link.noteManualCameraInput()
         }
@@ -152,13 +173,15 @@ struct HUDSpectatorGestureLayer: View {
 
     private func pinchChanged(_ value: MagnifyGesture.Value) {
         let link = link
+        if let p = pinch, p.startAnchor != value.startAnchor { pinch = nil }
         if pinch == nil {
             // 複数を収める画のピンチは主役の追従に切り替える（倍率は観戦者が決める）
             if case .framing(let ids) = controller.cameraMode, let first = ids.first { model.follow(first) }
             var free = false
             if case .free = controller.cameraMode { free = true }
             let anchor = CGPoint(x: value.startAnchor.x * size.width, y: value.startAnchor.y * size.height)
-            pinch = PinchAnchor(zoom: link.renderedZoom, focus: currentFocus(link), anchor: anchor, free: free)
+            pinch = PinchAnchor(zoom: link.renderedZoom, focus: currentFocus(link), anchor: anchor, free: free,
+                                startAnchor: value.startAnchor)
             link.isPinching = true
             link.noteManualCameraInput()
         }
@@ -197,8 +220,15 @@ struct HUDSpectatorGestureLayer: View {
             model.selectionFeedback()
             return
         }
+        // 追従中（ピンチで倍率だけ変えた）なら今の主役のまま。自由カメラなら、自由カメラにする前に追っていたヒーロー
         let s = controller.state
-        let target = link.lastFollowedID.flatMap { s.unit($0) != nil ? $0 : nil }
+        let current: EntityID?
+        switch controller.cameraMode {
+        case .followUnit(let id): current = id
+        case .framing(let ids): current = ids.first
+        case .free, .followHero: current = link.lastFollowedID
+        }
+        let target = current.flatMap { s.unit($0) != nil ? $0 : nil }
             ?? s.heroIndices.first.map { s.units[$0].id }
         if let target { model.follow(target) }
         link.noteManualCameraInput()

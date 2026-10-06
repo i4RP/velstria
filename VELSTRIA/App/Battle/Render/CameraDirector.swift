@@ -339,6 +339,8 @@ final class CameraDirector {
     private var epoch: Int
     /// 自動カメラが最後に書いたカメラモード（これと違っていたら手動で動かされた）。
     private var written: CameraMode?
+    /// 前のフレームで見たカメラモード（控えている間に観戦者が続けて動かしたら、控えを延ばす）。
+    private var observedMode: CameraMode?
     /// 自動カメラが書いた倍率（観戦者がピンチで変えていたら書かない）。
     private var writtenZoom: Double?
     private var suspendedUntil: TimeInterval = 0
@@ -403,7 +405,14 @@ final class CameraDirector {
         let active = isActive
         defer { wasActive = active }
         guard active else {
+            if wasActive {
+                // オフになった（観戦者が切り替えた）: 自動カメラが書いた倍率を外して、設定の倍率へ戻す
+                // （残すと一時停止メニューの倍率が効かないまま。観戦者がピンチで決めた倍率はそのまま）
+                if let z = writtenZoom, controller.cameraZoomOverride == z { controller.cameraZoomOverride = nil }
+                writtenZoom = nil
+            }
             written = nil
+            observedMode = nil
             return
         }
         if !wasActive {
@@ -423,8 +432,15 @@ final class CameraDirector {
             lastEvaluation = -.infinity
         }
         guard controller.seekingToTick == nil, !controller.isEnded else { return }
-        // 自動カメラが書いたモードと違う = 観戦者が追従先・ミニマップ・パンで動かした
-        if let w = written, controller.cameraMode != w { noteManualCameraInput() }
+        // 自動カメラが書いたモードと違う = 観戦者が追従先・ミニマップ・パンで動かした。控えている間も、前のフレームから
+        // 変わっていれば（別のヒーローを選び直した・ミニマップを動かし続けている）控えを延ばす
+        let mode = controller.cameraMode
+        if let w = written, mode != w {
+            noteManualCameraInput()
+        } else if written == nil, let seen = observedMode, mode != seen {
+            noteManualCameraInput()
+        }
+        observedMode = mode
         guard !isSuspended else { return }
         let now = controller.state.time
         guard forceEvaluation || now - lastEvaluation >= Self.evaluationInterval || now < lastEvaluation else { return }

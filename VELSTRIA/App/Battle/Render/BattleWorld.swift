@@ -50,6 +50,8 @@ final class BattleWorld {
     /// 直前のフレームで追っていた主役・注視の種類（切替の検出）。
     private var lastCameraSubject: EntityID?
     private var lastCameraKind: CameraAim.Kind = .follow
+    /// 直前のフレームの framing の倍率（シーク中に画を保つ）。
+    private var lastCameraFitZoom: Double?
     /// カメラが最後に見た presentationEpoch（シーク・再同期でカメラを切り替える）。
     private var cameraEpoch: Int?
     /// 画面に映る地面の範囲（world x・z の外接矩形 + 余白。演出の間引き）。
@@ -605,9 +607,11 @@ final class BattleWorld {
     static let deathFollowLead: Float = -0.7
 
     func updateCamera(rig: CameraRig, dt: Float, snap: Bool) {
-        if controller.isPaused { refreshVisionWhilePaused(rig: rig, dt: dt) }
+        let seeking = controller.seekingToTick != nil
+        // シーク中は sim が途中の tick を行き来する（描画は同期しない）ので、視界の切替の反映もシークの後で行う
+        if controller.isPaused && !seeking { refreshVisionWhilePaused(rig: rig, dt: dt) }
         director?.update()
-        let aim = resolveCameraAim()
+        let aim = seeking ? heldCameraAim() : resolveCameraAim()
         let target = aim.target ?? lastCameraTarget ?? rig.focus.value
         if let t = aim.target { lastCameraTarget = t }
         var drive = CameraDrive(target: target, zoom: controller.effectiveCameraZoom, free: aim.kind != .follow)
@@ -621,7 +625,8 @@ final class BattleWorld {
             drive.zoomSmoothTime = 0.7
             drive.snapsOnTeleport = false
         }
-        drive.direct = aim.kind == .free && cameraLink.isPanning
+        // 指で動かしている自由カメラ（パン・ピンチの中心の固定）はばねを掛けずに合わせる
+        drive.direct = aim.kind == .free && (cameraLink.isPanning || cameraLink.isPinching)
         drive.directZoom = cameraLink.isPinching
         #if DEBUG
         if let z = StageDebug.cameraZoom { drive.zoom = z }
@@ -630,6 +635,7 @@ final class BattleWorld {
         rig.update(drive, dt: dt, mapMeters: MapScene.mapMeters)
         lastCameraSubject = aim.subject
         lastCameraKind = aim.kind
+        lastCameraFitZoom = aim.fitZoom
         // 指の操作（パン・ピンチ）の起点と、引いた時の頭上バーの大きさ（実際に描いている距離から。B27 と同じ考え）
         let f = rig.focus.value
         cameraLink.renderedFocus = Vec2(Double(f.x) * Balance.unitsPerMeter, -Double(f.y) * Balance.unitsPerMeter)
@@ -663,6 +669,14 @@ final class BattleWorld {
     func cameraFocus() -> (target: SIMD2<Float>, free: Bool) {
         let aim = resolveCameraAim()
         return (aim.target ?? lastCameraTarget ?? SIMD2(repeating: 0), aim.kind != .follow)
+    }
+
+    /// シーク中の注視: 自由カメラ（指・ミニマップ）はそのまま動かし、追従・framing は直前の注視点と倍率に留まる
+    /// （途中の tick の状態で倒れた・消えた判定や代わりの味方を選ぶと、シークの間に画が揺れる。終われば presentationEpoch で切り替える）。
+    private func heldCameraAim() -> CameraAim {
+        if case .free = controller.cameraMode { return resolveCameraAim() }
+        return CameraAim(target: nil, kind: lastCameraKind == .free ? .follow : lastCameraKind, subject: lastCameraSubject,
+                         fitZoom: lastCameraFitZoom)
     }
 
     /// 今のカメラモードから注視を解決する（状態は変えない）。

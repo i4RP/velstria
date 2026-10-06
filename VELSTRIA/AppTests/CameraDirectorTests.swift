@@ -356,6 +356,58 @@ final class CameraDirectorTests: XCTestCase {
         if case .free = c.cameraMode { XCTFail("オンにしたらすぐ画を選ぶ") }
     }
 
+    func testRepeatedManualChoicesKeepTheDirectorBackedOff() {
+        let c = BattleController(launch: BattleLaunch(config: MatchFactory.botMatch(seed: 5)))
+        let link = SpectatorCameraLink.link(for: c)
+        let d = CameraDirector(controller: c, link: link)
+        let now = TestClock(100)
+        d.clock = { now.now }
+        d.start()
+        defer { d.stop() }
+        run(c, director: d, ticks: 30, clock: now)
+        let heroes = c.state.heroIndices.map { c.state.units[$0].id }
+        // 観戦者がヒーローを選んだ（ポートレートのタップ）→ 控える
+        c.cameraMode = .followUnit(heroes[2])
+        d.update()
+        XCTAssertTrue(d.isSuspended)
+        // 8 秒後に別のヒーローを選び直した: そこから 10 秒は控える（最初の操作から 10 秒で奪い返さない）
+        now.now += 8
+        c.cameraMode = .followUnit(heroes[6])
+        d.update()
+        now.now += 5
+        run(c, director: d, ticks: 10, clock: now)
+        XCTAssertTrue(d.isSuspended, "選び直しで控えが延びる")
+        XCTAssertEqual(c.cameraMode, .followUnit(heroes[6]))
+        now.now += 6
+        run(c, director: d, ticks: 10, clock: now)
+        XCTAssertFalse(d.isSuspended)
+        // 控えが明けた後の自動カメラ自身の切替は手動扱いしない
+        run(c, director: d, ticks: 600, clock: now)
+        XCTAssertFalse(d.isSuspended, "自動カメラが書いた画の変化で控えない")
+    }
+
+    func testTurningTheDirectorOffReleasesItsZoom() {
+        let c = BattleController(launch: BattleLaunch(config: MatchFactory.botMatch(seed: 8)))
+        let d = CameraDirector(controller: c, link: SpectatorCameraLink.link(for: c))
+        let now = TestClock(0)
+        d.clock = { now.now }
+        d.start()
+        defer { d.stop() }
+        run(c, director: d, ticks: 10, clock: now)
+        XCTAssertEqual(c.cameraZoomOverride, CameraDirector.followZoom)
+        // オフにしたら自動カメラの倍率を外す（一時停止メニューの倍率が効く）
+        c.spectatorDirectorEnabled = false
+        d.update()
+        XCTAssertNil(c.cameraZoomOverride)
+        // 観戦者がピンチで決めた倍率は、オフにしても残す
+        c.spectatorDirectorEnabled = true
+        run(c, director: d, ticks: 10, clock: now)
+        c.cameraZoomOverride = 2.2
+        c.spectatorDirectorEnabled = false
+        d.update()
+        XCTAssertEqual(c.cameraZoomOverride, 2.2)
+    }
+
     func testDirectorOnlyShowsWhatTheChosenTeamCanSee() {
         var launch = BattleLaunch(config: MatchFactory.botMatch(seed: 77))
         launch.spectatorOptions = SpectatorOptions(speed: 1, vision: .blue, director: true)

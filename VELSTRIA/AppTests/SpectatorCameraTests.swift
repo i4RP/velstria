@@ -334,6 +334,49 @@ final class SpectatorCameraTests: XCTestCase {
         XCTAssertFalse(w.rig.isGliding, "snap は切替でも即座")
     }
 
+    func testCameraHoldsStillWhileSeeking() async {
+        var launch = BattleLaunch(config: MatchFactory.botMatch(seed: 47))
+        launch.spectatorOptions.director = false
+        let w = makeWorld(launch)
+        defer { w.world.teardown() }
+        let c = w.controller
+        c.markPresentationReady()
+        var s = c.state
+        let h = s.heroIndices[0]
+        let id = s.units[h].id
+        s.units[h].pos = Vec2(4000, 4000)
+        s.units[h].prevPos = s.units[h].pos
+        c.restore(s)
+        c.cameraMode = .followUnit(id)
+        frames(w, 40)
+        let held = w.rig.focus.value
+        // シーク中（途中の tick の状態）: 追っている対象が遠くへ動いた状態でも、画を動かさない
+        c.requestSeek(toTick: 450)
+        XCTAssertNotNil(c.seekingToTick)
+        var mid = c.state
+        mid.units[h].pos = Vec2(10000, 9000)
+        mid.units[h].prevPos = mid.units[h].pos
+        c.restore(mid)
+        frames(w, 20)
+        XCTAssertLessThan(simd_distance(w.rig.focus.value, held), 0.01, "シーク中は直前の注視点に留まる")
+        // 自由カメラ（指・ミニマップ）はシーク中も動かせる
+        c.cameraMode = .free(Vec2(6000, 6000))
+        frames(w, 30)
+        XCTAssertLessThan(simd_distance(w.rig.focus.value, world(Vec2(6000, 6000))), 0.5)
+        // シークが終われば今の状態の対象へ切り替える
+        c.cameraMode = .followUnit(id)
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(60))
+        while c.seekingToTick != nil && clock.now < deadline { try? await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertNil(c.seekingToTick)
+        frames(w, 2)
+        XCTAssertFalse(w.rig.isGliding, "シークの後は切り替え（滑らせない）")
+        let after = try! XCTUnwrap(c.state.unit(id))
+        XCTAssertLessThan(simd_distance(w.rig.focus.value,
+                                        CameraRig.clampFocus(world(after.pos) + SIMD2(0, -CameraRig.focusLead), mapMeters: M, zoom: 1)),
+                          1.0)
+    }
+
     func testFramingFitsTheGroupAndDropsHiddenUnits() {
         var launch = BattleLaunch(config: MatchFactory.botMatch(seed: 43))
         launch.spectatorOptions.director = false
