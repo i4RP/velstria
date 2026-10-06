@@ -572,6 +572,14 @@ struct SpectateWatchRecordPanel: View {
 
 // MARK: - ヒーローの指定
 
+extension SpectateSetup {
+    /// 枠のボタンの VoiceOver: チーム・ポジション、ヒーロー、指定か AI の選択か（区切りは言語に合わせる）。
+    static func slotAccessibilityLabel(team: Team, position: LanePosition, heroName: String, pinned: Bool) -> String {
+        ["\(LiveOpsFormat.teamName(team)) \(LiveOpsFormat.positionName(position))", heroName,
+         pinned ? L("指定", "picked") : L("AI が選択", "AI draft")].joined(separator: L("、", ", "))
+    }
+}
+
 /// 枠ごとのヒーロー指定（指定の無い枠は AI がドラフト）。
 private struct SpectateRosterSheet: View {
     @Binding var picks: [SpectatePick]
@@ -680,8 +688,8 @@ private struct SpectateRosterSheet: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(LiveOpsFormat.teamName(slot.team)) \(LiveOpsFormat.positionName(slot.position))、\(name)、"
-                            + (pinned ? L("指定", "picked") : L("AI が選択", "AI draft")))
+        .accessibilityLabel(SpectateSetup.slotAccessibilityLabel(team: slot.team, position: slot.position, heroName: name,
+                                                                 pinned: pinned))
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityIdentifier("spectate_slot_\(slot.team == .blue ? "blue" : "red")_\(slot.position.rawValue)")
     }

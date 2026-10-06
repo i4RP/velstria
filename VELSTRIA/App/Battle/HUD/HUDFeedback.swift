@@ -226,13 +226,16 @@ struct HUDDeathOverlay: View {
     var body: some View {
         let hero = model.hero
         let allies = HUDDeathSpectate.allies(model)
+        // 降参投票のカード（左下）が出ている間は、味方の一覧をその横へずらす（カードの下に味方が隠れないように）
+        let vote = model.surrender != nil ? HUDSurrenderMetrics.frame(layout) : nil
         ZStack {
             card(hero)
                 .frame(height: HUDDeathMetrics.cardHeight)
                 .position(HUDDeathMetrics.cardCenter(layout))
             if !allies.isEmpty {
                 strip(allies)
-                    .position(HUDDeathMetrics.stripCenter(layout))
+                    .position(HUDDeathMetrics.stripCenter(layout, allies: allies.count, avoiding: vote))
+                    .animation(.easeInOut(duration: 0.3), value: vote == nil)
             }
         }
         .frame(width: layout.width, height: layout.height)
@@ -473,6 +476,45 @@ enum HUDDeathMetrics {
         let c = stripCenter(l)
         return CGRect(x: c.x - size.width / 2, y: c.y - size.height / 2, width: size.width, height: size.height)
     }
+
+    /// 降参投票のカード（avoiding）と重なる時は、味方の一覧をカードの内側（画面中央側）の隣へずらす。
+    /// 狭い画面ではスキル群の側へはみ出すが、倒れている間に使えないサモナースペルにだけ掛かる（単体テストで確認）。
+    static func stripCenter(_ l: HUDLayout, allies n: Int, avoiding vote: CGRect?) -> CGPoint {
+        let f = stripFrame(l, allies: n, avoiding: vote)
+        return CGPoint(x: f.midX, y: f.midY)
+    }
+
+    static func stripFrame(_ l: HUDLayout, allies n: Int, avoiding vote: CGRect?) -> CGRect {
+        var f = stripFrame(l, allies: n)
+        guard let vote, f.intersects(vote.insetBy(dx: -voteGap, dy: 0)) else { return f }
+        if l.leftHanded {
+            f.origin.x = max(l.leadingEdge, min(f.minX, vote.minX - voteGap - f.width))
+        } else {
+            f.origin.x = min(l.trailingEdge - f.width, max(f.minX, vote.maxX + voteGap))
+        }
+        return f
+    }
+
+    /// 降参投票のカードとの間隔。
+    static let voteGap: CGFloat = 6
+}
+
+/// 降参投票のカードの配置（ミニマップの下。左利き配置では右）。
+enum HUDSurrenderMetrics {
+    /// HUDSurrenderPanel の幅。
+    static let width: CGFloat = 210
+    /// 高さの見積もり（見出し・票・必要数・賛成/反対ボタン 44pt と余白。投票済みならボタンの分だけ低い）。
+    static let maxHeight: CGFloat = 136
+
+    static func center(_ l: HUDLayout) -> CGPoint {
+        CGPoint(x: l.leftHanded ? l.minimapFrame.maxX - width / 2 - 5 : l.minimapFrame.minX + width / 2 + 5,
+                y: l.minimapDockFrame.maxY + 70)
+    }
+
+    static func frame(_ l: HUDLayout) -> CGRect {
+        let c = center(l)
+        return CGRect(x: c.x - width / 2, y: c.y - maxHeight / 2, width: width, height: maxHeight)
+    }
 }
 
 /// 死亡中の味方追従の判断（純関数。単体テスト対象）。
@@ -711,7 +753,7 @@ struct HUDSurrenderPanel: View {
             }
         }
         .padding(10)
-        .frame(width: 210)
+        .frame(width: HUDSurrenderMetrics.width)
         .hudGlass(cornerRadius: 12, tint: Theme.gold.opacity(0.6))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("hud_surrender")
