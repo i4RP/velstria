@@ -186,6 +186,49 @@ final class OnlineSpectatorTests: XCTestCase {
         XCTAssertEqual(host.resyncCount, 0)
     }
 
+    func testStaleBackgroundBaseIsDroppedAfterWatchingAgain() async throws {
+        // 観戦をやめて観戦し直した: やめる前に始めた基準の符号化が後から終わっても、新しい配信先へは送らない
+        // （配信先を作り直すと世代が 0 から数え直しになり、古い結果を新しい配信先のものと取り違えていた）
+        let host = makeHost()
+        host.encodesSpectatorSnapshotsInBackground = true
+        seatHost(host)
+        XCTAssertTrue(host.startMatch(master: .shared, seed: 8))
+        let hc = BattleController(launch: BattleLaunch(config: host.room.config!, onlineSeat: blueMid), online: host)
+        host.attach(controller: hc)
+        var hashes: [Int: UInt64] = [:]
+        run(host: hc, session: host, clients: [], frames: 200, hashes: &hashes)
+        let w = join(host, id: "late", spectate: true)
+        _ = watcherController(w.session)   // spectateLoaded → 基準の符号化が始まる（まだ届かない）
+        w.session.detach()
+        w.session.matchEnded(aborted: true, spectating: true)
+        XCTAssertEqual(host.spectatorStreamCount, 0)
+        run(host: hc, session: host, clients: [], frames: 2 * keyframeInterval, hashes: &hashes)
+
+        // 観戦し直す（新しい基準はもっと新しいキーフレーム）
+        w.session.requestSpectate()
+        let wc = watcherController(w.session)
+        let clock = ContinuousClock()
+        var deadline = clock.now.advanced(by: .seconds(20))
+        while w.session.lastSnapshotTick == nil && clock.now < deadline {
+            run(host: hc, session: host, clients: [wc], frames: 1, hashes: &hashes)
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+        let base = try XCTUnwrap(w.session.lastSnapshotTick, "観戦し直した基準が届く")
+        // 古い符号化の結果が届く時間を与える
+        deadline = clock.now.advanced(by: .seconds(1))
+        while clock.now < deadline {
+            run(host: hc, session: host, clients: [wc], frames: 1, hashes: &hashes)
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+        XCTAssertEqual(w.session.resyncCount, 1, "観戦し直した後の基準だけが届く")
+        XCTAssertGreaterThan(base, 2 * keyframeInterval, "やめる前の古い基準（tick \(2 * keyframeInterval)）ではない")
+        run(host: hc, session: host, clients: [wc], frames: 60, hashes: &hashes) {
+            self.assertDelayed(wc, behind: hc)
+        }
+        XCTAssertEqual(wc.state.stateHash(), hashes[wc.state.tick])
+        XCTAssertEqual(host.resyncCount, 0)
+    }
+
     // MARK: ずれの再同期
 
     func testHashMismatchSendsDelayedKeyframeNotLiveStateAndIsRateLimited() {
@@ -301,6 +344,25 @@ final class OnlineSpectatorTests: XCTestCase {
         XCTAssertNotNil(notice, "断った理由が届く")
         keep[0].session.setSpectator(false)
         XCTAssertEqual(host.room.peer("s0")?.role, .spectator)
+        _ = keep
+    }
+
+    func testRehelloAsSpectatorRespectsSpectatorCap() {
+        let host = makeHost()
+        var keep: [Joined] = []
+        for i in 0..<OnlineProtocol.maxSpectators { keep.append(join(host, id: "s\(i)", spectate: true)) }
+        keep.append(join(host, id: "p"))
+        XCTAssertEqual(host.room.peer("p")?.role, .player)
+        // 部屋にいる選手が観戦席の希望で名乗り直す（アプリの再起動で古い接続が残っている等）: 満員なら選手のまま
+        let again = join(host, id: "p", spectate: true)
+        XCTAssertEqual(again.session.status, .lobby)
+        XCTAssertEqual(host.room.peer("p")?.role, .player)
+        XCTAssertEqual(host.room.spectators.count, OnlineProtocol.maxSpectators)
+        // 空きができれば観戦席に入れる
+        keep[0].clientSide.close()
+        let third = join(host, id: "p", spectate: true)
+        XCTAssertEqual(third.session.status, .lobby)
+        XCTAssertEqual(host.room.peer("p")?.role, .spectator)
         _ = keep
     }
 
@@ -485,6 +547,41 @@ final class OnlineSpectatorTests: XCTestCase {
             guardCount += 1
         }
         XCTAssertTrue(wc.isEnded)
+        XCTAssertEqual(wc.state.endReason, .aborted)
+        XCTAssertEqual(wc.onlineStatus, .disconnected)
+    }
+
+    func testWatcherKeepsNormalSpeedForTailWhenHostClosesRoomAfterFinish() {
+        // 試合が終わって残りが全部届いた後に、ホストが部屋を閉じた（接続が切れた）: 残りは早送りせず最後まで見せる
+        let host = makeHost()
+        seatHost(host)
+        let w = join(host, id: "watcher")
+        w.session.setSpectator(true)
+        XCTAssertTrue(host.startMatch(master: .shared, seed: 36))
+        let hc = BattleController(launch: BattleLaunch(config: host.room.config!, onlineSeat: blueMid), online: host)
+        host.attach(controller: hc)
+        let wc = watcherController(w.session)
+        var hashes: [Int: UInt64] = [:]
+        run(host: hc, session: host, clients: [wc], frames: 150, hashes: &hashes)
+        let hostTick = hc.state.tick
+        _ = hc.makeOutcome(abandoned: true)
+        host.detach()
+        host.matchEnded(aborted: true)
+        XCTAssertEqual(w.session.spectatorFinalTick, hostTick)
+        w.hostSide.close()
+        XCTAssertFalse(w.session.isMatchLive)
+        let before = wc.state.tick
+        for _ in 0..<20 { wc.frame(dt: Balance.dt) }
+        XCTAssertLessThanOrEqual(wc.state.tick - before, 20 + BattleController.onlineSpectatorJitterBuffer,
+                                 "接続が切れても残りは通常の速さ")
+        XCTAssertFalse(wc.isEnded)
+        var guardCount = 0
+        while !wc.isEnded && guardCount < delay + 60 {
+            wc.frame(dt: Balance.dt)
+            guardCount += 1
+        }
+        XCTAssertTrue(wc.isEnded)
+        XCTAssertEqual(wc.state.tick, hostTick, "最後の tick まで見る")
         XCTAssertEqual(wc.state.endReason, .aborted)
         XCTAssertEqual(wc.onlineStatus, .disconnected)
     }

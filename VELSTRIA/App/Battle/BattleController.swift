@@ -394,8 +394,10 @@ final class BattleController {
             endOnlineMatchAborted()
             return
         }
-        let live = online.isMatchLive
         let buffered = online.bufferedFrames
+        // 観戦席: 終わった tick を知らされていれば残りは全部届いている。その後にホストが部屋を閉じても（接続が切れても）
+        // 残りは早送りせず遅延のまま見せる（届いた分が尽きたら下で中断として終える）
+        let live = online.isMatchLive || (watcher && online.spectatorFinalTick != nil && buffered > 0)
         guard live || buffered > 0 else {
             endOnlineMatchAborted()
             return

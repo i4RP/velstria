@@ -18,7 +18,8 @@ final class OnlineSpectateLobbyUITests: XCTestCase {
         if region.exists {
             region.tap()
         } else {
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.95)).tap()
+            // 吹き出しの外の、触れても何も起きない所（画面上端の題名の行の中ほど）。左下は座席、左上は戻るボタンなので避ける
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.55, dy: 0.04)).tap()
         }
     }
 

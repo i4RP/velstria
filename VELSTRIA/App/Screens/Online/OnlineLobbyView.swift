@@ -214,6 +214,8 @@ struct OnlineRoomView: View {
     @State private var roleFilter: Role?
     @State private var autoStarted = false
     @State private var showsMembers = false
+    /// 部屋の画面の幅（iPhone SE の横 667pt では中央の列が細くなりすぎるので座席の列を詰める）。
+    @State private var roomWidth: CGFloat = 0
 
     private var room: OnlineRoom { session.room }
     private var mySeat: OnlineSeat? { session.localSeat }
@@ -228,7 +230,7 @@ struct OnlineRoomView: View {
                 inProgressView
             } else {
                 HStack(alignment: .top, spacing: 10) {
-                    seatsPanel.frame(width: 300)
+                    seatsPanel.frame(width: seatsPanelWidth)
                     pickPanel.frame(maxWidth: .infinity)
                     sidePanel.frame(width: 210)
                 }
@@ -236,9 +238,13 @@ struct OnlineRoomView: View {
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 10)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { roomWidth = $0 }
         .onChange(of: room) { _, _ in autoPilot() }
         .onAppear { autoPilot() }
     }
+
+    /// 座席の列の幅。狭い画面（iPhone SE）では「ジャングル」が切れない範囲で詰め、中央（ピック・観戦席の案内）に回す。
+    private var seatsPanelWidth: CGFloat { roomWidth > 0 && roomWidth < 700 ? 276 : 300 }
 
     // MARK: 状態
 
@@ -523,19 +529,40 @@ struct OnlineRoomView: View {
                 .font(Theme.body(11))
                 .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
+                .minimumScaleFactor(0.8)
             if room.allowsSpectators || isHost {
+                let title = spectatorToggleTitle(isSpectator: isSpectator, isHost: isHost)
+                let symbol = isSpectator ? "chair.lounge" : (isHost ? "mic.fill" : "eye.fill")
                 Button {
                     FlowFX.tap(app)
                     session.setSpectator(!isSpectator)
                 } label: {
-                    Label(spectatorToggleTitle(isSpectator: isSpectator, isHost: isHost),
-                          systemImage: isSpectator ? "chair.lounge" : (isHost ? "mic.fill" : "eye.fill"))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                        .frame(maxWidth: .infinity)
+                    // 中央の列は iPhone SE で 80pt 前後まで細くなる: 横並びが入らなければ アイコンの下に 2 行まで の形にする
+                    ViewThatFits(in: .horizontal) {
+                        Label(title, systemImage: symbol)
+                            .font(Theme.heading(14))
+                            .lineLimit(1)
+                            .padding(.horizontal, 14)
+                        VStack(spacing: 2) {
+                            Image(systemName: symbol).font(.system(size: 14, weight: .bold))
+                            Text(title)
+                                .font(Theme.heading(12))
+                                .lineLimit(2)
+                                .multilineTextAlignment(.center)
+                                .minimumScaleFactor(0.8)
+                        }
+                        .padding(.horizontal, 6)
+                    }
+                    .foregroundStyle(Theme.textPrimary)
+                    .padding(.vertical, 6)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white.opacity(0.10)))
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.panelStroke, lineWidth: 1))
+                    .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
-                .buttonStyle(SecondaryButtonStyle())
+                .buttonStyle(.plain)
                 .disabled(room.phase != .lobby)
+                .accessibilityLabel(title)
                 .accessibilityIdentifier(isHost ? "online_caster" : "online_spectate_toggle")
             }
             if !spectators.isEmpty {

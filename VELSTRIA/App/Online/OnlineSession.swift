@@ -141,6 +141,8 @@ final class OnlineSession: OnlineBattleLink {
     /// この試合の観戦者への遅延（開始時に部屋の設定から固定する）。
     @ObservationIgnored private var matchSpectatorDelayTicks = 0
     @ObservationIgnored private var spectatorTimer: Timer?
+    /// 観戦者の基準の符号化の世代（SpectatorStream.generation に配る。単調に増やす）。
+    @ObservationIgnored private var spectatorBaseGeneration = 0
     @ObservationIgnored private var lastSpectatorPump: TimeInterval = -.infinity
     /// 観戦者の基準スナップショットをバックグラウンドで符号化する（テストは false にして同期で送る）。
     @ObservationIgnored var encodesSpectatorSnapshotsInBackground = true
@@ -153,7 +155,8 @@ final class OnlineSession: OnlineBattleLink {
         var cursor = 0
         /// 基準の状態を符号化中（その間は配信を止める）。値は基準の tick（その先の記録を捨てない）。
         var pendingBaseTick: Int?
-        /// 符号化の世代（古い符号化の結果を捨てる）。
+        /// 符号化の世代（古い符号化の結果を捨てる）。セッション全体で増やす（観戦をやめて観戦し直した・次の試合で
+        /// 配信先を作り直しても、前の符号化の結果が新しい配信先の世代と一致しないように）。
         var generation = 0
         /// 試合の終わり（matchFinished / matchAborted）を送った。
         var ended = false
@@ -503,7 +506,12 @@ final class OnlineSession: OnlineBattleLink {
         let returning = droppedPeers.contains(hello.peerID) || room.seat(of: hello.peerID) != nil
         let known = room.peer(hello.peerID) != nil
         // 観戦席で入る: 観戦を許可している部屋だけ（許可していなければ選手として待つ）
-        let asSpectator = !returning && hello.wantsSpectate == true && room.allowsSpectators
+        var asSpectator = !returning && hello.wantsSpectate == true && room.allowsSpectators
+        if asSpectator, known, room.peer(hello.peerID)?.role != .spectator,
+           spectatorSlotsUsed(excluding: hello.peerID) >= OnlineProtocol.maxSpectators {
+            // 部屋にいる選手が観戦席の希望で名乗り直した: 観戦席が満員なら選手のまま（上限を名乗り直しで超えさせない）
+            asSpectator = false
+        }
         if !returning && !known {
             // 新しい参加者: 選手と観戦席で別々の上限（試合中でも入れる。選手は試合が終わるまで待つか観戦する）
             if asSpectator {
@@ -1269,8 +1277,9 @@ final class OnlineSession: OnlineBattleLink {
         guard var stream = spectatorStreams[peerID] else { return }
         // 再同期の前に送った配信・報告は捨てる（公開済みの範囲までは基準からやり直すので照合しない）
         resyncedAt[peerID] = relay.releasedTick
-        stream.generation &+= 1
-        let generation = stream.generation
+        spectatorBaseGeneration &+= 1
+        let generation = spectatorBaseGeneration
+        stream.generation = generation
         guard let base = relay.baseState else {
             stream.pendingBaseTick = nil
             stream.cursor = 0
