@@ -133,7 +133,8 @@ struct HeroMotionProfile {
     var attack: ActionClip
     /// 二刀の左手版（交互に振る）。
     var attackAlt: ActionClip?
-    var casts: [ActionClip]
+    /// スキル詠唱（Skill1 / Skill2 / Skill3 / Ultimate）。スキル固有のモーション（SkillFXCatalog）が無ければ既定の 3 段。
+    var casts: [MotionClip]
     var twoHanded: Bool
     var bowHold: Bool
     /// 盾持ち（詠唱・勝利でも盾を胸の前に保つ）。
@@ -141,7 +142,7 @@ struct HeroMotionProfile {
     /// 長柄（杖・槍・大槌）は帰還中も立てて持つ。
     var longWeapon: Bool
 
-    init(blueprint bp: HeroBlueprint, metrics m: BodyMetrics) {
+    init(blueprint bp: HeroBlueprint, metrics m: BodyMetrics, heroID: String? = nil) {
         var r = HeroPose()
         r.armR = ArmPose(pitch: 0.12, out: m.armRestOut, yaw: 0, elbow: 0.3)
         r.armL = ArmPose(pitch: 0.12, out: m.armRestOut, yaw: 0, elbow: 0.3)
@@ -220,7 +221,12 @@ struct HeroMotionProfile {
         attack = HeroMotionProfile.attackClip(bp.attack, rest: r, left: false)
         attackAlt = bp.attack == .dualSlash || bp.attack == .punch || bp.attack == .thrust ? HeroMotionProfile.attackClip(bp.attack, rest: r, left: true) : nil
         let shield = shieldHold
+        let builder = MotionBuilder(rest: r, style: bp.attack, shield: shield, twoHanded: bp.twoHanded, bow: bowHold)
+        let slots: [SkillSlot] = [.skill1, .skill2, .skill3, .ultimate]
         casts = (0..<4).map { slot in
+            if let heroID, let clip = SkillFXCatalog.motion(heroID: heroID, slot: slots[slot], builder: builder) {
+                return clip
+            }
             var clip = HeroMotionProfile.castClip(slot: slot, rest: r, style: bp.attack)
             if shield && slot >= 2 {
                 // 盾は掲げず胸の前に構える（顔を隠さない）
@@ -230,7 +236,7 @@ struct HeroMotionProfile {
                 clip.windup.weaponL = 0
                 clip.strike.weaponL = 0
             }
-            return clip
+            return MotionClip(action: clip)
         }
     }
 
@@ -532,6 +538,9 @@ struct HeroAnimator {
         }
         begin(s, blend: blend)
     }
+
+    /// スロットの詠唱モーションの長さ（秒）。
+    func castDuration(_ slot: SkillSlot) -> Float { profile.casts[HeroAnimator.castIndex(slot)].total }
 
     static func castIndex(_ slot: SkillSlot) -> Int {
         switch slot {

@@ -42,6 +42,8 @@ protocol HeroModelHandle: AnyObject {
     /// 頭上 UI（HP バー等）を置く高さ（m）。
     var overheadHeight: Float { get }
     func setState(_ state: HeroAnimState)
+    /// スキルの詠唱モーションの長さ（秒。詠唱状態をこの間保つ）。
+    func castDuration(_ slot: SkillSlot) -> Float
     /// 手続きアニメーションを進める（毎フレーム）。
     func update(dt: Double, moveSpeed: Double)
 }

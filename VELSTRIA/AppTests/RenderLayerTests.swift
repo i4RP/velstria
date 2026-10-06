@@ -63,7 +63,7 @@ final class RenderLayerTests: XCTestCase {
     func testOverlayOrderIsStrictlyIncreasing() {
         let orders: [Int32] = [OverlayOrder.groundDetail, OverlayOrder.water, OverlayOrder.groundDecal, OverlayOrder.fog,
                                OverlayOrder.zoneFill, OverlayOrder.zoneEdge, OverlayOrder.ring, OverlayOrder.selfRing,
-                               OverlayOrder.unitMarker, OverlayOrder.castRing, OverlayOrder.rangeRing, OverlayOrder.vfxRing,
+                               OverlayOrder.unitMarker, OverlayOrder.castRing, OverlayOrder.rangeRing, OverlayOrder.vfxRing, OverlayOrder.skillDecal,
                                OverlayOrder.aim, OverlayOrder.barBack]
         for k in 1..<orders.count { XCTAssertLessThan(orders[k - 1], orders[k]) }
         XCTAssertLessThan(OverlayOrder.groundDecal, OverlayOrder.fog, "霧の下に描くべき地面デカールは霧より先")

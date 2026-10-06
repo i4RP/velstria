@@ -47,6 +47,8 @@ enum GroundLayer {
     static let rangeRing: Float = 0.050
     /// 演出の広がる輪。
     static let vfxRing: Float = 0.060
+    /// スキル演出の地面の模様（魔法陣・衝撃波・亀裂。SkillFXPlayer）。
+    static let skillDecal: Float = 0.065
     /// 照準の基準高さ。
     static let aim: Float = 0.070
     /// 戦場の霧の板。
@@ -58,5 +60,5 @@ enum GroundLayer {
     /// 不透明な静的平面（xz で重なりうる順に下から）。テストで間隔を検証する。
     static let opaqueStack: [Float] = [ground, paving, marking, markingLine, markingTop]
     /// 動的な足元表示（静的平面より上にあること）。
-    static let overlays: [Float] = [unitShadow, teamMarker, unitRing, castRing, statusRing, zone, rangeRing, vfxRing, aim]
+    static let overlays: [Float] = [unitShadow, teamMarker, unitRing, castRing, statusRing, zone, rangeRing, vfxRing, skillDecal, aim]
 }

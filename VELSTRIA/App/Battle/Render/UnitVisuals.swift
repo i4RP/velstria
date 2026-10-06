@@ -588,7 +588,8 @@ final class HeroVisual {
 
     func noteCast(_ slot: SkillSlot, time: Float) {
         castSlot = slot
-        castUntil = time + 0.5
+        // スキル固有の詠唱モーションの長さだけ詠唱状態を保つ（最短 0.4 秒）
+        castUntil = time + max(0.4, handle.castDuration(slot))
     }
 
     func noteAttack(time: Float) { attackUntil = time + 0.32 }

@@ -39,7 +39,7 @@ final class ZoneLayer {
     private var colorViewer: Team?
     private var hasColorViewer = false
     /// 発動時の演出（world 位置・色・半径）を呼び出し側へ通知する。
-    var onTrigger: ((SIMD3<Float>, RGB, Float) -> Void)?
+    var onTrigger: ((EntityID, SIMD3<Float>, RGB, Float) -> Void)?
 
     init(materials: RenderMaterials, meshes: UnitMeshLibrary) {
         self.materials = materials
@@ -314,7 +314,7 @@ final class ZoneLayer {
             } else {
                 if !v.triggered {
                     v.triggered = true
-                    onTrigger?(v.node.position, v.color, r)
+                    onTrigger?(v.id, v.node.position, v.color, r)
                 }
                 // 持続ゾーン: 塗りを脈動
                 v.progress.isEnabled = true
@@ -344,7 +344,7 @@ final class ZoneLayer {
                 }
                 if !v.triggered {
                     v.triggered = true
-                    onTrigger?(v.node.position, v.color, Float(v.fill.scale.x))
+                    onTrigger?(v.id, v.node.position, v.color, Float(v.fill.scale.x))
                 }
                 v.fadeOut = 0
                 fading.append(v)

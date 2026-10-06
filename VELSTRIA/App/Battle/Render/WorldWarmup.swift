@@ -72,6 +72,10 @@ extension BattleWorld {
             self.vfx.prewarmEmitters()
         })
         steps.append(WarmupStep("vfx.meshFX") { [weak self] in self?.vfx.prewarmMeshFX() })
+        steps.append(WarmupStep("skillfx", heavy: true) { [weak self] in
+            guard let self else { return }
+            self.skillDirector.prewarm(heroIDs: self.controller.state.units.compactMap { $0.hero?.heroID })
+        })
         // 陳列（作ったものを全て一度描く）
         steps.append(WarmupStep("gallery.shelf", heavy: true) { [weak self] in self?.openGalleryShelf() })
         steps.append(WarmupStep("gallery.units", heavy: true) { [weak self] in
@@ -95,6 +99,7 @@ extension BattleWorld {
         // 陳列のために点けた環境パーティクルを現在の画質（自動調整後）に戻す
         ambient.apply(quality: settings.quality)
         vfx.clear()
+        skillDirector.clear()
         units.endWarmup()
         projectiles.endWarmup()
         zones.endWarmup()
@@ -169,6 +174,14 @@ extension BattleWorld {
         for m in units.structureMeshList { g.addModel(m, material: materials.glow, faded: false) }
         let textMaterial = materials.unlit(RGB(1, 0.94, 0.72), alpha: 1, depthTest: false)
         for m in text.builtMeshes { g.addModel(m, material: textMaterial, size: 0.3, faded: false) }
+        // スキル演出の材質（画像 × 色）全てと形全て
+        let fx = skillDirector.player
+        if let disc = fx.meshes.mesh(.disc) {
+            for m in fx.materials.built { g.addModel(disc, material: m, size: 0.25, faded: true) }
+        }
+        if let m = fx.materials.built.first {
+            for mesh in fx.meshes.built { g.addModel(mesh, material: m, size: 0.25, faded: true) }
+        }
     }
 
     /// 試合の全ヒーローを並べる（スキン・発光の粒子・足元の輪を含む。不透明と半透明はフレーム毎に交互）。
@@ -189,6 +202,7 @@ extension BattleWorld {
         let colors = plannedUnlitMaterials()
         let rings = colors.filter { $0.alpha == VFXSystem.ringAlpha }.map(\.color)
         let flashes = colors.filter { $0.alpha == VFXSystem.flashAlpha }.map(\.color)
+        skillDirector.player.fireWarmup(around: g.center, spread: WarmupGallery.halfWidth)
         vfx.fireWarmup(around: g.center, spread: WarmupGallery.halfWidth, ringColors: Array(rings.prefix(18)),
                        flashColors: Array(flashes.prefix(12)))
     }

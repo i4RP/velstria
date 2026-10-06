@@ -20,6 +20,8 @@ final class BattleWorld {
     let projectiles: ProjectileLayer
     let zones: ZoneLayer
     let vfx: VFXSystem
+    /// スキル固有の演出（SkillFX）。
+    let skillDirector: SkillFXDirector
     let aim: AimLayer
     /// 霧（プレイヤーは自チームの視界。観戦者は常に作り、視点チームを選んだ時だけ出す）。
     let fog: FogOfWar?
@@ -84,6 +86,9 @@ final class BattleWorld {
         root.addChild(zones.root)
         vfx = VFXSystem(quality: settings.quality, materials: materials, meshes: meshes)
         root.addChild(vfx.root)
+        skillDirector = SkillFXDirector(master: controller.ctx.master, quality: settings.quality, units: units,
+                                        projectiles: projectiles)
+        root.addChild(skillDirector.player.root)
         aim = AimLayer(materials: materials, meshes: meshes)
         root.addChild(aim.root)
         ambient = AmbientParticles(map: controller.ctx.map, teams: materials.teams, texture: vfx.starTexture,
@@ -100,9 +105,21 @@ final class BattleWorld {
         director = controller.isSpectating ? CameraDirector(controller: controller, link: cameraLink) : nil
         #if DEBUG
         showcase = RenderShowcase.isRequested ? RenderShowcase(master: controller.ctx.master) : nil
+        if SkillFXDemo.isRequested {
+            let demo = SkillFXDemo()
+            demo.walk = { [weak controller] p in controller?.send(.moveTo(point: p)) }
+            skillDirector.demo = demo
+        }
         #endif
-        zones.onTrigger = { [weak self] pos, color, radius in
+        skillDirector.player.onShake = { [weak self] amount, pos in
+            guard let self, let focus = self.controller.humanHeroID ?? self.makeFrame(dt: 0).focusID,
+                  let fp = self.units.worldPositionOf(focus), simd_distance(fp, pos) < 14 else { return }
+            self.shakeRequest = max(self.shakeRequest, amount)
+        }
+        zones.onTrigger = { [weak self] id, pos, color, radius in
             guard let self else { return }
+            // スキル固有の演出があるゾーンは、その発動演出（SkillFXDirector.onZoneTriggered）に任せる
+            if self.skillDirector.isSkillZone(id) { return }
             self.vfx.ring(at: pos, color: color, from: max(0.3, radius * 0.4), to: radius * 1.1, duration: 0.45)
             self.vfx.spawn(.areaBlast, at: pos, color: color.uiColor, scale: radius, important: true)
         }
@@ -153,6 +170,14 @@ final class BattleWorld {
         zones.sync(frame)
         vfx.update(dt: dt)
         updateChannelLoops(frame)
+        skillDirector.update(dt: dt, state: frame.state)
+        #if DEBUG
+        if let demo = skillDirector.demo {
+            let t = time
+            demo.update(dt: dt, director: skillDirector, units: units, master: master, state: frame.state,
+                        humanID: controller.humanHeroID) { [units] id, slot in units.noteCast(heroID: id, slot: slot, time: t) }
+        }
+        #endif
         // 照準
         var aimOrigin: Vec2?
         if let id = controller.humanHeroID, let p = units.worldPositionOf(id) {
@@ -192,7 +217,7 @@ final class BattleWorld {
     static let presentationSnapDt: Float = 3
 
     /// presentationEpoch が変わった（シーク・オンラインの再同期）: 前の時刻の演出を演出なしで捨て、今の状態へ即座に合わせる。
-    /// - クリーチャーは死亡演出なしでプールへ戻して作り直す。飛んでいる弾・地面の予告（発動演出なし）・粒子・輪・閃光・
+    /// - クリーチャーは死亡演出なしでプールへ戻して作り直す。飛んでいる弾・地面の予告（発動演出なし）・粒子・輪・閃光・スキル演出・
     ///   詠唱ループ・戦闘数値・回復のまとめ・揺れを捨てる
     /// - 構造物は状態どおり（破壊前へ戻ったら瓦礫から元の姿へ）、ヒーローの可視性・死後の消え方・向きは補間せずに合わせる
     /// - 詠唱中（帰還・転移）のヒーローのループは今の状態から付け直す
@@ -203,6 +228,8 @@ final class BattleWorld {
         projectiles.resetForPresentationEpoch()
         zones.resetForPresentationEpoch()
         vfx.resetForPresentationEpoch()
+        // スキル演出（予定の合図・追従・ゾーンと投射物の対応）も捨てる
+        skillDirector.clear()
         overlay?.clear()
         textStacks.removeAll(keepingCapacity: true)
         lastHealFX.removeAll(keepingCapacity: true)
@@ -361,6 +388,7 @@ final class BattleWorld {
     }
 
     private func handle(_ e: SimEvent, frame f: RenderFrame) {
+        observePassive(e, f)
         switch e {
         case .attackStarted(let src, _):
             units.noteAttack(sourceID: src, time: time)
@@ -369,6 +397,7 @@ final class BattleWorld {
         case .damage(let d):
             units.noteHit(targetID: d.targetID)
             onDamage(d, f)
+            if isShown(d.targetID, f) { skillDirector.onDamage(d, state: f.state) }
         case .heal(let target, let source, let amount):
             onHeal(target: target, source: source, amount: amount, f)
         case .shieldGained(let target, _, let amount):
@@ -378,6 +407,7 @@ final class BattleWorld {
                 spawnText(CombatTextFormat.plus(amount), at: tp + SIMD3(-0.4, 0, 0), style: .shield)
             }
         case .projectileHit(let pid, let tid, let pos):
+            if skillDirector.onProjectileHit(projectileID: pid, pos: pos, state: f.state) { break }
             let info = projectiles.info(pid)
             let p = info?.pos ?? worldPosition(pos, height: 1)
             guard nearCamera(p) else { break }
@@ -396,7 +426,19 @@ final class BattleWorld {
             }
         case .skillCast(let c):
             units.noteCast(heroID: c.casterID, slot: c.slot, time: time)
-            if isShown(c.casterID, f) { skillFX(c, f) }
+            if isShown(c.casterID, f), !skillDirector.onCast(c, state: f.state) { skillFX(c, f) }
+        case .zoneCreated(let zoneID, let ownerID, _, let visual, let center, _, _, _, _):
+            if isShown(ownerID, f) {
+                skillDirector.onZoneCreated(zoneID: zoneID, ownerID: ownerID, visual: visual, center: center)
+            }
+        case .zoneTriggered(let zoneID, let center, _):
+            if zones.isShown(zoneID) || f.viewerTeam == nil {
+                skillDirector.onZoneTriggered(zoneID: zoneID, center: center)
+            }
+        case .projectileLaunched(let pid, let owner, let visual):
+            if isShown(owner, f) {
+                skillDirector.onProjectileLaunched(projectileID: pid, ownerID: owner, visual: visual, state: f.state)
+            }
         case .spellCast(let caster, let spell, _, let target):
             if isShown(caster, f) { spellFX(caster: caster, spell: spell, target: target, f) }
         case .displaced(let id, let kind, let from, let to, _):
@@ -462,6 +504,19 @@ final class BattleWorld {
         default:
             break
         }
+    }
+
+    /// パッシブの発動の推定（見えているヒーローのものだけ）。
+    private func observePassive(_ e: SimEvent, _ f: RenderFrame) {
+        let subject: EntityID?
+        switch e {
+        case .shieldGained(let target, _, _), .statusApplied(let target, _, _): subject = target
+        case .damage(let d): subject = d.sourceID
+        case .heal(_, let source, _): subject = source
+        default: return
+        }
+        guard let id = subject, isShown(id, f) else { return }
+        skillDirector.observe(e, state: f.state)
     }
 
     private func onDamage(_ d: DamageEvent, _ f: RenderFrame) {
@@ -846,6 +901,7 @@ final class BattleWorld {
     func apply(settings new: RenderSettings) {
         settings = new
         vfx.apply(quality: new.quality)
+        skillDirector.player.apply(quality: new.quality)
         projectiles.apply(quality: new.quality)
         ambient.apply(quality: new.quality)
         if !new.showDamageNumbers { overlay?.clear() }
@@ -857,6 +913,7 @@ final class BattleWorld {
         cameraLink.renderedFocus = nil
         finishWarmup()
         vfx.clear()
+        skillDirector.clear()
         units.teardown()
         projectiles.teardown()
         zones.teardown()

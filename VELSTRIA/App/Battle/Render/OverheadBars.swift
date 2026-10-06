@@ -28,7 +28,9 @@ enum OverlayOrder {
     static let castRing: Int32 = 6
     static let rangeRing: Int32 = 7
     static let vfxRing: Int32 = 8
-    static let aim: Int32 = 9
+    /// スキル演出の地面の模様（演出の輪より上、照準より下）。
+    static let skillDecal: Int32 = 9
+    static let aim: Int32 = 10
     static let barBack: Int32 = 20
     static let barLag: Int32 = 21
     static let barFill: Int32 = 22

@@ -511,7 +511,7 @@ final class SkinnedHeroModel: HeroDisplayModel {
         effects = HeroEffects(body: body, glowParent: weapon, weaponTip: ms.weaponTip, palette: palette, team: team,
                               options: options)
 
-        animator = HeroAnimator(profile: HeroMotionProfile(blueprint: bp, metrics: ms.metrics),
+        animator = HeroAnimator(profile: HeroMotionProfile(blueprint: bp, metrics: ms.metrics, heroID: heroID),
                                 defaultRunSpeed: defaultRunSpeed)
         animator.legLength = skinLeg * bp.scale
         entityCount = HeroEffects.countEntities(root)
@@ -550,6 +550,8 @@ final class SkinnedHeroModel: HeroDisplayModel {
             effects.setOpacity(1, body: body)
         }
     }
+
+    func castDuration(_ slot: SkillSlot) -> Float { animator.castDuration(slot) }
 
     func update(dt: Double, moveSpeed: Double) {
         let pose = animator.advance(dt: Float(dt), moveSpeed: HeroModelLibrary.metersPerSecond(moveSpeed))

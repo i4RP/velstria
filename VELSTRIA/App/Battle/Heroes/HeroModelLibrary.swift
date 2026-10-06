@@ -372,7 +372,7 @@ final class HeroModel: HeroDisplayModel {
         effects = HeroEffects(body: body, glowParent: weapon, weaponTip: ms.weaponTip, palette: palette, team: team,
                               options: options)
 
-        animator = HeroAnimator(profile: HeroMotionProfile(blueprint: bp, metrics: ms.metrics),
+        animator = HeroAnimator(profile: HeroMotionProfile(blueprint: bp, metrics: ms.metrics, heroID: heroID),
                                 defaultRunSpeed: defaultRunSpeed)
         animator.legLength = (ms.metrics.thigh + ms.metrics.shin) * bp.scale
         entityCount = HeroEffects.countEntities(root)
@@ -391,6 +391,8 @@ final class HeroModel: HeroDisplayModel {
             effects.setOpacity(1, body: body)
         }
     }
+
+    func castDuration(_ slot: SkillSlot) -> Float { animator.castDuration(slot) }
 
     func update(dt: Double, moveSpeed: Double) {
         // moveSpeed は sim ユニット/秒（HeroDef.moveSpeed と同じ単位）。20 以下は m/s とみなす。
