@@ -5,6 +5,7 @@ import VelstriaCore
 
 // 担当: battle-renderer。タワー（台座 + 柱 + 浮遊結晶）と Star Core（巨大な星結晶 + 回転する環）。
 // 破壊後は柱と結晶を消して瓦礫を出す（結晶は落ちながらフェード）。
+// 状態が置き換わって（シーク・オンラインの再同期）生きていれば元の姿へ戻す。
 
 @MainActor
 final class StructureMeshes {
@@ -244,6 +245,42 @@ final class StructureVisual {
         if immediate { floating.isEnabled = false }
     }
 
+    /// 瓦礫から元の姿へ戻す（状態が置き換わって生きている時: シークで破壊前へ戻った・オンラインの再同期）。
+    /// 塔は sim では復活しないので、ここへ来るのは状態の不連続の後だけ。
+    func revive() {
+        guard destroyed else { return }
+        destroyed = false
+        fallT = 0
+        intact.isEnabled = true
+        rubble?.isEnabled = false
+        bar.root.isEnabled = true
+        floating.isEnabled = true
+        floating.position.y = isCore ? 3.6 : 4.95
+        floating.orientation = simd_quatf(angle: 0, axis: [0, 1, 0])
+        opacityFloating = 1
+        occlusionAlpha = 1
+        floating.components.remove(OpacityComponent.self)
+        intact.components.remove(OpacityComponent.self)
+        rangeAlpha = 0
+        rangeRing.isEnabled = false
+    }
+
+    /// 次の update で破壊を見つけたら崩れる演出なしで瓦礫にする（シーク・再同期の直後）。
+    private var snapNextUpdate = false
+
+    /// 結晶が崩れ落ちる演出の途中か（テスト用）。
+    var isCollapsing: Bool { destroyed && fallT < 1 }
+
+    /// presentationEpoch の変化（シーク・再同期）: 次の update は演出なしで今の状態に合わせる。
+    func resetForPresentationEpoch() {
+        snapNextUpdate = true
+        if destroyed && fallT < 1 {
+            // 崩れている途中の結晶は落とし切る
+            fallT = 1
+            floating.isEnabled = false
+        }
+    }
+
     /// 追従ヒーローがこの構造物の奥（画面上で柱に隠れる位置）にいるか。
     func occludes(_ p: SIMD3<Float>) -> Bool {
         let c = root.position
@@ -255,7 +292,10 @@ final class StructureVisual {
     func update(_ f: RenderFrame, index i: Int, showRange: Bool, occluding: Bool = false) {
         let u = f.state.units[i]
         phase += f.dt
-        if !u.isAlive && !destroyed { setDestroyed(immediate: false) }
+        let snap = snapNextUpdate
+        snapNextUpdate = false
+        if u.isAlive && destroyed { revive() }
+        if !u.isAlive && !destroyed { setDestroyed(immediate: snap) }
         if destroyed {
             if fallT < 1 {
                 fallT = min(1, fallT + f.dt / 1.3)

@@ -229,6 +229,7 @@ final class HUDModel {
 
     func refresh() {
         guard started else { return }
+        syncPresentationEpoch()
         let s = controller.state
         let ctx = controller.ctx
         let t = now
@@ -709,6 +710,8 @@ final class HUDModel {
     // MARK: イベント
 
     func handle(_ events: [SimEvent]) {
+        // 不連続の後に届いた最初のイベントより前に前の時刻の通知を捨てる（refresh を待つと置き換え後の通知まで消える）
+        syncPresentationEpoch()
         let humanID = controller.humanHeroID
         var dummyIDs: [EntityID] = []
         if tutorial != nil { dummyIDs = controller.sim.state.world.dummyIDs.compactMap { $0 } }
@@ -945,6 +948,52 @@ final class HUDModel {
     /// 画面確認用: 試合終了の演出だけを出す。
     func debugEnd(winner: Team?) {
         beginEnd(winner: winner, reason: .coreDestroyed)
+    }
+
+    // MARK: 不連続（シーク・再同期）
+
+    /// 最後に反映した controller.presentationEpoch（nil = 最初の更新の前）。
+    @ObservationIgnored private var presentedEpoch: Int?
+
+    /// refresh・handle の先頭: シーク・オンラインの再同期で presentationEpoch が変わっていたら前の時刻の通知を捨てる
+    /// （シークの完了・コマ送りは hudTick を進めるので、一時停止中でも refresh が来る）。
+    private func syncPresentationEpoch() {
+        let epoch = controller.presentationEpoch
+        guard let presented = presentedEpoch else {
+            presentedEpoch = epoch
+            return
+        }
+        if presented != epoch { resetForPresentationEpoch() }
+    }
+
+    /// 前の時刻の通知・演出を捨てる: キルフィード・告知（表示中・待ち行列・タイマー）・トースト・ミニマップの残像・
+    /// キャンプの観測・死亡情報・降参の集計・購入表示の差分キー。試合が終わっていない状態へ戻ったら（観戦で終わりから
+    /// 巻き戻した）終了演出を解除し、終了演出で止めた戦闘 BGM を再開する。シークで飛ばした区間の告知は出さない。
+    func resetForPresentationEpoch() {
+        presentedEpoch = controller.presentationEpoch
+        if !killFeed.isEmpty { killFeed = [] }
+        bannerTask?.cancel()
+        bannerTask = nil
+        bannerQueue.removeAll()
+        if banner != nil { banner = nil }
+        toastTask?.cancel()
+        toastTask = nil
+        if toast != nil { toast = nil }
+        ghosts.removeAll(keepingCapacity: true)
+        campObservations.removeAll(keepingCapacity: true)
+        lastMinimapTime = 0
+        if deathInfo != nil { deathInfo = nil }
+        lastSurrenderTally = nil
+        quickBuyKey = nil
+        shopKey = nil
+        if endPhase != nil, !controller.isEnded, !finished {
+            endTask?.cancel()
+            endTask = nil
+            endPhase = nil
+            app?.audio.playMusic(.battle)
+        }
+        // 終了演出は観戦の一時停止を解いている（巻き戻した後の再生ボタンの表示を合わせる）
+        if spectatorPaused && !controller.isPaused { spectatorPaused = false }
     }
 
     private func beginEnd(winner: Team?, reason: EndReason) {

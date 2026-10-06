@@ -118,6 +118,21 @@ final class ZoneLayer {
     /// プールに待機中の数（テスト用）。
     var pooledCount: Int { pool.count }
 
+    /// presentationEpoch の変化（シーク・再同期）: 表示中・フェード中の予告を発動演出なしで全てプールへ戻す。
+    /// 次の sync で今の状態のゾーンだけを出し直す（発動済みのものは発動済みとして作るので、二重に弾けない）。
+    func resetForPresentationEpoch() {
+        for v in list + fading {
+            v.node.isEnabled = false
+            v.node.components.remove(OpacityComponent.self)
+            v.hidden = false
+            v.fadeOut = nil
+            pool.append(v)
+        }
+        list.removeAll(keepingCapacity: true)
+        fading.removeAll(keepingCapacity: true)
+        active.removeAll(keepingCapacity: true)
+    }
+
     // MARK: ウォームアップ（読み込み幕の裏）
 
     private var warmupShown: [Visual] = []

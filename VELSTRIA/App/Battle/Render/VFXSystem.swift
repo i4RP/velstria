@@ -461,6 +461,17 @@ final class VFXSystem {
         meshFX.removeAll()
     }
 
+    /// presentationEpoch の変化（シーク・再同期）: 再生中の粒子・輪・閃光・詠唱ループを全て止めてプールへ戻す
+    /// （前の時刻の演出を残さない）。計測（stats）は試合を通した値なので残す。詠唱中のループは呼び出し側が今の状態から付け直す。
+    func resetForPresentationEpoch() {
+        let kept = stats
+        clear()
+        stats = kept
+    }
+
+    /// 詠唱ループの数（テスト用）。
+    var loopCount: Int { loops.count }
+
     // MARK: プリセット
 
     /// preset の設定を部品へ書き込む（新規の部品にも、同じ種類で使い回す部品にも同じ値になる: 種類ごとに書く項目が

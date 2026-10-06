@@ -243,6 +243,14 @@ final class ProjectileLayer {
 
     var count: Int { list.count }
 
+    /// presentationEpoch の変化（シーク・再同期）: 飛んでいる弾を全て（軌跡ごと）プールへ戻す。
+    /// 弾は ID で引くので、残すと前の時刻の弾が新しい位置へ飛び移る。次の sync で今の状態の弾だけを出し直す。
+    func resetForPresentationEpoch() {
+        for v in list { recycle(v) }
+        list.removeAll(keepingCapacity: true)
+        active.removeAll(keepingCapacity: true)
+    }
+
     /// 着弾演出用: 表示中の投射物の位置と色。
     func info(_ id: EntityID) -> (pos: SIMD3<Float>, color: RGB, style: Style)? {
         guard let v = active[id] else { return nil }
