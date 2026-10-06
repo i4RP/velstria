@@ -93,7 +93,8 @@ struct AccountLinkView: View {
                 FlowStatCell(title: L("試合", "Matches"), value: "\(p.career.matches)")
                 FlowStatCell(title: L("ヒーロー", "Heroes"), value: "\(p.ownedHeroIDs.count)")
             }
-            Text(L("リプレイの録画ファイルはバックアップに含まれません。", "Replay recordings are not included in the backup."))
+            Text(L("リプレイの録画ファイルはバックアップに含まれません（リプレイ画面の共有で 1 件ずつ書き出せます）。",
+                   "Replay recordings are not included in the backup (export them one by one with Share on the Replays screen)."))
                 .font(Theme.body(11))
                 .foregroundStyle(Theme.textSecondary)
         }

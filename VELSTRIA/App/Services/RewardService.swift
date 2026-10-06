@@ -12,6 +12,7 @@ import VelstriaCore
 // - アカウント XP: 勝利 120 / 敗北 80。次のレベルまで 400 + 100×Lv、最大 Lv 60（最大到達後の XP は 0 に固定）。
 // - ランク戦は RankService.apply。パス XP: 勝利 150 / 敗北 100。
 // - ミッション進捗・通算成績（ヒーロー別・MVP・連勝・ペンタキル）・戦績（最新 50 件）・リプレイ保存（最新 20 件）・実績評価。
+// - 報酬の対象外（観戦・カスタム・オンラインなど）のリプレイ保存と視聴記録は ReplayArchiveService が行う（報酬・戦績は無し）。
 // - 反映後は即時保存する（デバウンス待ちの間にアプリが終了しても報酬・戦績を失わないように）。
 //   リプレイ本体の符号化・書き込みはバックグラウンド（PersistenceService.storeReplay）。書き込み前に強制終了した場合は
 //   次回起動時の突き合わせでリプレイ一覧と戦績のリンクから外れる（報酬・戦績は残る）。
@@ -48,8 +49,10 @@ struct RewardReport: Equatable {
     var passLevelAfter = 0
     /// 追加した戦績（MatchRecord.id）。
     var matchRecordID: UUID?
-    /// 保存したリプレイ（ReplayMeta.id）。
+    /// 保存したリプレイ（ReplayMeta.id）。報酬の対象外の試合も ReplayArchiveService が保存すると立つ。
     var replayID: UUID?
+    /// 観戦・リプレイを最後まで見て視聴記録に数えた（報酬は無い。ReplayArchiveService）。
+    var watchCounted = false
 
     /// 獲得 Coin の合計。
     var totalCoins: Int { coins + firstWinBonus }

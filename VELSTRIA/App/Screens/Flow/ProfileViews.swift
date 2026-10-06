@@ -486,6 +486,10 @@ private struct RecordDetailSheet: View {
     let onWatch: (BattleLaunch) -> Void
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
+    /// リプレイの読み込み中（メインスレッドの外で復号する。二重に開始しない）。
+    @State private var loadingReplay = false
+    /// 読み込み（シートを閉じたら取り消す。閉じた後に読み終わっても再生を始めない）。
+    @State private var loadTask: Task<Void, Never>?
 
     var body: some View {
         ZStack {
@@ -502,11 +506,19 @@ private struct RecordDetailSheet: View {
                         Text(FlowText.date(record.date)).font(Theme.body(11)).foregroundStyle(Theme.textSecondary)
                     }
                     Spacer()
-                    if replay != nil {
+                    if let replay {
+                        let unplayable = ReplayLibrary.compatibility(replay) == .incompatible
                         Button(action: watch) {
-                            Label(L("リプレイを見る", "Watch Replay"), systemImage: "play.fill")
+                            if loadingReplay {
+                                ProgressView().tint(.black).frame(minWidth: 120)
+                            } else {
+                                Label(unplayable ? L("再生できません", "Can't Play") : L("リプレイを見る", "Watch Replay"),
+                                      systemImage: unplayable ? "nosign" : "play.fill")
+                            }
                         }
                         .buttonStyle(PrimaryButtonStyle(color: Theme.cyan))
+                        .disabled(loadingReplay || unplayable)
+                        .opacity(unplayable ? 0.5 : 1)
                         .accessibilityIdentifier("records_watch_replay")
                     }
                     FlowCloseButton(identifier: "records_detail_close") { dismiss() }
@@ -526,6 +538,7 @@ private struct RecordDetailSheet: View {
             ToastOverlay()
         }
         .preferredColorScheme(.dark)
+        .onDisappear { loadTask?.cancel() }
     }
 
     private var playerOnly: some View {
@@ -546,19 +559,27 @@ private struct RecordDetailSheet: View {
         .glass(cornerRadius: 14)
     }
 
+    /// リプレイ一覧と同じ起動（ReplayLibrary.loadLaunch: 版数・形式の確認、持ち主の座席、メインスレッドの外での復号）。
     private func watch() {
-        guard let meta = replay, let data = app.persistence.loadReplay(meta) else {
-            FlowFX.error(app)
-            app.showToast(L("リプレイを読み込めませんでした", "Couldn't load the replay"))
-            return
+        guard let meta = replay, !loadingReplay else { return }
+        loadingReplay = true
+        loadTask = Task { @MainActor in
+            let result = await ReplayLibrary.loadLaunch(for: meta, persistence: app.persistence,
+                                                        options: ReplayLibrary.playbackOptions(profile: app.profile))
+            loadingReplay = false
+            guard !Task.isCancelled else { return }
+            switch result {
+            case .success(let launch):
+                FlowFX.confirm(app)
+                onWatch(launch)
+            case .failure(.missing):
+                FlowFX.error(app)
+                app.showToast(L("リプレイを読み込めませんでした", "Couldn't load the replay"))
+            case .failure(.incompatible):
+                FlowFX.error(app)
+                app.showToast(L("別のバージョンで記録されたリプレイは再生できません", "This replay was recorded with another version and can't be played"))
+            }
         }
-        guard data.config.simVersion == MatchConfig.currentSimVersion else {
-            FlowFX.error(app)
-            app.showToast(L("古いバージョンのリプレイは再生できません", "This replay is from an older version and can't be played"))
-            return
-        }
-        FlowFX.confirm(app)
-        onWatch(BattleLaunch(config: data.config, replay: data))
     }
 }
 
@@ -658,7 +679,8 @@ struct AchievementsView: View {
                     AttachmentChip(attachment: MailAttachment(kind: .gem, amount: def.rewardGems), claimed: p.claimed)
                 }
                 if p.claimed {
-                    Label(L("受取済み", "Claimed"), systemImage: "checkmark")
+                    // 報酬の無い実績（観戦）は受け取る物が無いので「達成」と出す
+                    Label(def.rewardGems > 0 ? L("受取済み", "Claimed") : L("達成", "Achieved"), systemImage: "checkmark")
                         .font(Theme.body(11)).foregroundStyle(Theme.success)
                         .frame(minHeight: 32)
                 } else if unlocked {

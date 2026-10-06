@@ -12,7 +12,14 @@ import VelstriaCore
 //   -skipOnboarding       オンボーディング完了済みにする
 //   -grant                Coin 100000 / Gem 10000 を付与し全ヒーロー解放
 //   -route <name>         起動後に画面へ直行（例: heroes, heroDetail:H003, store, settings）
-//   -battle <mode>        起動後に戦闘開始（standard / ranked / practice / tutorial / spectate）
+//   -battle <mode>        起動後に戦闘開始（standard / ranked / practice / tutorial / spectate / replay）
+//                         replay = 保存済みの最新のリプレイ（無ければ AI 同士 5 分の合成リプレイ）
+//   -spectateMap <standard|brawl>  -battle spectate のマップ（brawl = 全員 AI の乱闘）
+//   -spectateSpeed <0.5|1|2|4|8>   観戦・リプレイの初期速度
+//   -spectateVision <all|blue|red> 観戦・リプレイの初期視界
+//   -spectateDirector <on|off>     観戦・リプレイの自動カメラ
+//   -seekTo <秒>          最初の観戦・リプレイの読み込み後にその時刻へシークする
+//   -sampleReplays        リプレイ一覧の確認用に見本のリプレイを保存する（AI 観戦・自分の試合・乱闘・別バージョン）
 //   -hero <heroID>        -battle で自分が使うヒーロー（省略時は最後に選んだヒーロー、無ければ H003）
 //   -language <ja|en>     表示言語
 //   -graphics <low|medium|high>  画質
@@ -73,6 +80,7 @@ enum DebugLaunch {
             p.settings.graphicsQuality = q
         }
         app.profile = p
+        if args.contains("-sampleReplays") { addSampleReplays(to: app) }
 
         if let r = value(after: "-route"), let route = parseRoute(r) {
             app.router.path = [route]
@@ -94,7 +102,12 @@ enum DebugLaunch {
                 app.startBattle(BattleLaunch(config: MatchFactory.practiceMatch(
                     humanHeroID: hero, humanName: name, options: PracticeOptions(), tutorial: mode == "tutorial", seed: seed)))
             case "spectate":
-                app.startBattle(BattleLaunch(config: MatchFactory.botMatch(seed: seed)))
+                let config = value(after: "-spectateMap") == "brawl"
+                    ? MatchFactory.spectateMatch(options: SpectateMatchOptions(map: .brawl), seed: seed)
+                    : MatchFactory.botMatch(seed: seed)
+                app.startBattle(BattleLaunch(config: config, spectatorOptions: spectatorOptions()))
+            case "replay":
+                app.startBattle(latestReplayLaunch(app: app, seed: seed))
             default:
                 let ranked = mode == "ranked"
                 app.startBattle(BattleLaunch(config: MatchFactory.standardMatch(
@@ -105,7 +118,78 @@ enum DebugLaunch {
         #endif
     }
 
+    /// 戦闘の controller ができた直後に BattleContainerView から呼ばれる（-seekTo を最初の 1 回だけ適用）。
+    @MainActor
+    static func battleDidStart(_ controller: BattleController) {
+        #if DEBUG || SCREENSHOTS
+        guard !didApplySeek, let raw = value(after: "-seekTo"), let seconds = Double(raw), seconds.isFinite, seconds >= 0 else { return }
+        didApplySeek = true
+        controller.requestSeek(toTick: Int((seconds / Balance.dt).rounded()))
+        #endif
+    }
+
     #if DEBUG || SCREENSHOTS
+    @MainActor private static var didApplySeek = false
+
+    /// -spectateSpeed / -spectateVision / -spectateDirector から観戦の初期設定を作る。
+    @MainActor
+    static func spectatorOptions() -> SpectatorOptions {
+        var o = SpectatorOptions()
+        if let raw = value(after: "-spectateSpeed"), let v = Double(raw), BattleController.spectatorSpeeds.contains(v) { o.speed = v }
+        switch value(after: "-spectateVision") {
+        case "blue": o.vision = .blue
+        case "red": o.vision = .red
+        default: break
+        }
+        switch value(after: "-spectateDirector") {
+        case "on": o.director = true
+        case "off": o.director = false
+        default: break
+        }
+        return o
+    }
+
+    /// 合成リプレイ（AI 同士は入力が無いので構成と長さだけで再現できる）。
+    static func syntheticReplay(config: MatchConfig, seconds: Double) -> ReplayData {
+        ReplayData(config: config, frames: [], finalTick: Int((seconds / Balance.dt).rounded()), summary: nil)
+    }
+
+    /// 保存済みの最新のリプレイ（無い・読めなければ AI 同士 5 分の合成リプレイ）。
+    @MainActor
+    static func latestReplayLaunch(app: AppModel, seed: UInt64) -> BattleLaunch {
+        let options = spectatorOptions()
+        if let meta = ReplayLibrary.sorted(app.profile.replays).first,
+           case .success(let launch) = ReplayLibrary.launch(for: meta, persistence: app.persistence, options: options) {
+            return launch
+        }
+        let replay = syntheticReplay(config: MatchFactory.botMatch(seed: seed), seconds: 5 * 60)
+        return BattleLaunch(config: replay.config, replay: replay, spectatorOptions: options)
+    }
+
+    /// 見本のリプレイ（一覧・詳細・取り込みの目視確認用。プロフィールが空の時だけ）。
+    @MainActor
+    static func addSampleReplays(to app: AppModel) {
+        guard app.profile.replays.isEmpty else { return }
+        var p = app.profile
+        let now = Date()
+        let persistence = app.persistence
+        let ai = syntheticReplay(config: MatchFactory.botMatch(seed: 20261001), seconds: 9 * 60)
+        persistence.storeReplay(ai, heroID: nil, won: nil, date: now.addingTimeInterval(-60), in: &p)
+        let brawl = syntheticReplay(config: MatchFactory.spectateMatch(options: SpectateMatchOptions(map: .brawl), seed: 7), seconds: 6 * 60)
+        persistence.storeReplay(brawl, heroID: nil, won: nil, date: now.addingTimeInterval(-3600), in: &p)
+        let mine = syntheticReplay(config: MatchFactory.standardMatch(humanHeroID: "H003", humanName: "Tester", seed: 11), seconds: 14 * 60)
+        if let meta = persistence.storeReplay(mine, heroID: "H003", won: true, date: now.addingTimeInterval(-7200), in: &p),
+           let i = p.replays.firstIndex(where: { $0.id == meta.id }) {
+            p.replays[i].isFavorite = true
+            p.replays[i].name = "Best game"
+        }
+        var old = syntheticReplay(config: MatchFactory.botMatch(seed: 3), seconds: 12 * 60)
+        old.config.simVersion = MatchConfig.currentSimVersion - 1
+        persistence.storeReplay(old, heroID: nil, won: nil, date: now.addingTimeInterval(-86_400), in: &p)
+        persistence.reconcileReplays(profile: &p)
+        app.profile = p
+    }
+
     static func parseRoute(_ s: String) -> Route? {
         let parts = s.split(separator: ":", maxSplits: 1).map(String.init)
         let name = parts[0]
@@ -156,6 +240,10 @@ enum DebugLaunch {
         case "credits": return .credits
         case "replays": return .replays
         case "spectateSetup": return .spectateSetup
+        case "arcade": return .arcade
+        case "rising": return .rising
+        case "customSetup": return .customSetup
+        case "magicChess": return .magicChess
         case "onlineLobby": return .onlineLobby
         default: return nil
         }

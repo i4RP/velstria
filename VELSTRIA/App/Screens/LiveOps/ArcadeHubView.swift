@@ -2,7 +2,7 @@ import SwiftUI
 import VelstriaCore
 
 // 担当: ui-liveops。アーケード: 遊べる変種モードをまとめるハブ。
-// 当面は乱闘のみ。データ駆動なので変種を増やしてもここに 1 行足すだけ。
+// 乱闘と、AI 同士の観戦（観る側の入口。報酬なし）。データ駆動なので変種を増やしてもここに 1 行足すだけ。
 
 struct ArcadeHubView: View {
     @Environment(AppModel.self) private var app
@@ -23,6 +23,12 @@ struct ArcadeHubView: View {
                                   "Single-lane 5v5, no jungle, accelerated gold/XP — fast matches."),
                       tint: Theme.gold) { app in
                 MatchFlowIntent.present(.brawl(app.profile.preferredDifficulty), app: app)
+            },
+            ModeEntry(id: "spectate", symbol: "eye.fill", title: L("AI 観戦", "AI Spectate"),
+                      subtitle: L("AI 同士の 5v5 を観戦。マップ・難易度・ヒーロー・速度・視点を選べます（報酬なし）。",
+                                  "Watch AI vs AI 5v5. Pick the map, AI level, heroes, speed and view (no rewards)."),
+                      tint: Color(red: 0.62, green: 0.55, blue: 1.0)) { app in
+                app.router.push(.spectateSetup)
             },
         ]
     }

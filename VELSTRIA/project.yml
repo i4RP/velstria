@@ -101,6 +101,21 @@ targets:
         NSLocalNetworkUsageDescription: "近くのプレイヤーとオンライン対戦するために、同じネットワーク上の VELSIA を探して接続します。"
         NSBonjourServices:
           - _velstria._tcp
+        # リプレイの共有（.vreplay の書き出し・取り込み。App/Services/ReplayArchiveService.swift の UTType.velsiaReplay と一致させる）。
+        # 開かれたファイルは複製を受け取り（その場では開かない）、検証してからリプレイ一覧に加える
+        UTExportedTypeDeclarations:
+          - UTTypeIdentifier: com.bitcoinpay.velstria.replay
+            UTTypeDescription: VELSIA Replay
+            UTTypeConformsTo: [public.data]
+            UTTypeTagSpecification:
+              public.filename-extension: [vreplay]
+              public.mime-type: [application/x-velsia-replay]
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: VELSIA Replay
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Owner
+            LSItemContentTypes: [com.bitcoinpay.velstria.replay]
+        LSSupportsOpeningDocumentsInPlace: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bitcoinpay.velstria

@@ -192,7 +192,9 @@ final class AppModel {
     @discardableResult
     func completeBattle(_ outcome: BattleOutcome, now: Date = Date()) -> RewardReport {
         var p = profile
-        let report = RewardService.apply(outcome: outcome, to: &p, master: master, persistence: persistence, now: now)
+        var report = RewardService.apply(outcome: outcome, to: &p, master: master, persistence: persistence, now: now)
+        // 報酬の対象外の試合（観戦・カスタム・オンライン）のリプレイ保存と、観戦・リプレイの視聴記録（報酬なし）
+        ReplayArchiveService.process(outcome: outcome, report: &report, profile: &p, persistence: persistence, master: master, now: now)
         profile = p
         lastOutcome = outcome
         lastRewardReport = report

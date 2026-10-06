@@ -1,3 +1,4 @@
+import Compression
 import Foundation
 import UIKit
 import VelstriaCore
@@ -13,6 +14,11 @@ import VelstriaCore
 // - 読み込み時に profile.replays とディスク上のリプレイを突き合わせる
 // - リプレイ（数百 KB〜数 MB の JSON）の符号化・書き込みは専用キューで行い、試合終了時にメインスレッドを止めない。
 //   書き込み中のファイルは存在扱いにし、読み込み・削除・全削除・バックグラウンド移行では書き込み完了を待つ。
+// - リプレイの上限は maxReplays（ここが唯一の定義）。お気に入りは上限の対象外（別枠 maxFavoriteReplays まで）。
+//   突き合わせ（reconcileReplays）とディスク上の上限（enforceReplayFileCap）の両方でお気に入りを消さない。
+// - 読み込み・復号は loadReplayAsync でメインスレッドの外で行う（大きなリプレイでも画面を止めない）。
+// - 取り込み（.vreplay）は信用しないデータとして扱い、大きさ・先頭のマジック・展開後の大きさに上限を設けて復号する
+//   （内容の検証は ReplayArchiveService）。
 
 /// 読み込み・インポートの失敗理由。
 enum PersistenceError: Error, Equatable, LocalizedError {
@@ -48,8 +54,14 @@ final class PersistenceService: @unchecked Sendable {
     static let defaultSaveDebounce: TimeInterval = 0.5
     /// バックアップ世代数（profile.bak1 / profile.bak2）。
     static let backupGenerations = 2
-    /// 保存するリプレイの上限（超えたら古い順に削除）。
+    /// 保存するリプレイの上限（超えたら古い順に削除）。お気に入りは数えない。画面・プライバシー表記もこの値を使う。
     static let maxReplays = 20
+    /// お気に入りにできるリプレイの上限（お気に入りは自動削除されないため、別枠で抑える）。
+    static let maxFavoriteReplays = 30
+    /// 取り込むファイルの大きさの上限（圧縮後）。
+    static let maxImportedReplayBytes = 32 * 1024 * 1024
+    /// 取り込むリプレイの展開後の大きさの上限（圧縮爆弾の防止）。
+    static let maxDecodedReplayBytes = 96 * 1024 * 1024
     /// 現行スキーマ版数（Profile の既定値が正本）。
     static let currentSchemaVersion = Profile().schemaVersion
 
@@ -74,6 +86,8 @@ final class PersistenceService: @unchecked Sendable {
     private let replayQueue = DispatchQueue(label: "com.velstria.persistence.replay", qos: .utility)
     /// 書き込み待ちのリプレイのファイル名（replayLock で保護。検索専用）。
     private var pendingReplayNames: Set<String> = []
+    /// お気に入りのリプレイのファイル名（replayLock で保護。ディスク上の上限で消さない。突き合わせの度に更新）。
+    private var protectedReplayNames: Set<String> = []
     private let replayLock = NSLock()
 
     /// 直近の loadProfile の結果（メインスレッドから参照）。
@@ -355,15 +369,22 @@ final class PersistenceService: @unchecked Sendable {
 
     // MARK: - リプレイ
 
-    private func makeReplayMeta(_ replay: ReplayData, heroID: String?, won: Bool?, date: Date) -> ReplayMeta {
-        ReplayMeta(date: date, fileName: "\(UUID().uuidString).vreplay", mode: replay.config.mode,
-                   heroID: heroID, won: won, duration: Double(replay.finalTick) * Balance.dt)
+    /// リプレイのメタ（一覧表示・絞り込み・再生可否の判定に使う情報はファイルを開かずに済むよう写しておく）。
+    static func makeReplayMeta(_ replay: ReplayData, heroID: String?, won: Bool?, date: Date,
+                               source: ReplaySource? = nil, ownerSeat: Int? = nil) -> ReplayMeta {
+        let config = replay.config
+        let seat = ownerSeat ?? (heroID == nil ? nil : config.players.firstIndex { $0.controller == .human })
+        return ReplayMeta(date: date, fileName: "\(UUID().uuidString).vreplay", mode: config.mode,
+                          heroID: heroID, won: won, duration: Double(replay.finalTick) * Balance.dt,
+                          simVersion: config.simVersion, formatVersion: replay.formatVersion,
+                          source: source ?? ReplaySource.of(config), ownerSeat: seat,
+                          winner: replay.summary?.winner, seed: config.seed, heroIDs: config.players.map(\.heroID))
     }
 
-    /// リプレイをファイルに同期保存する（ディスク上は常に最新 maxReplays 件まで）。
+    /// リプレイをファイルに同期保存する（ディスク上は常に最新 maxReplays 件まで。お気に入りは数えない）。
     /// 試合結果の保存と profile.replays への登録は `storeReplay(_:heroID:won:date:in:)` を使うこと。
     func saveReplay(_ replay: ReplayData, heroID: String?, won: Bool?, date: Date) -> ReplayMeta? {
-        let meta = makeReplayMeta(replay, heroID: heroID, won: won, date: date)
+        let meta = Self.makeReplayMeta(replay, heroID: heroID, won: won, date: date)
         let written: Bool = replayQueue.sync {
             guard writeReplayFile(replay, fileName: meta.fileName) else { return false }
             enforceReplayFileCap(keeping: meta.fileName)
@@ -375,10 +396,12 @@ final class PersistenceService: @unchecked Sendable {
     /// リプレイを profile.replays（新しい順）に登録し、ファイルの符号化・書き込みはバックグラウンドで行う。
     /// 上限超過分・孤立ファイルを整理し、戦績の replayID もリプレイ一覧と矛盾しないように保つ。
     /// 書き込みに失敗した場合（容量不足など）は、次回起動時の突き合わせでメタと戦績のリンクが外れる。
+    /// source / ownerSeat を省くと構成から決める（取り込み・オンラインの座席は呼び出し側が渡す）。
     @discardableResult
     func storeReplay(_ replay: ReplayData, heroID: String?, won: Bool?, date: Date,
+                     source: ReplaySource? = nil, ownerSeat: Int? = nil,
                      in profile: inout Profile) -> ReplayMeta? {
-        let meta = makeReplayMeta(replay, heroID: heroID, won: won, date: date)
+        let meta = Self.makeReplayMeta(replay, heroID: heroID, won: won, date: date, source: source, ownerSeat: ownerSeat)
         let name = meta.fileName
         setReplayPending(name, true)
         replayQueue.async { [self] in
@@ -421,20 +444,25 @@ final class PersistenceService: @unchecked Sendable {
     }
 
     /// profile.replays とディスク上のファイルを突き合わせる:
-    /// ファイルの無いメタを除去、上限超過分（古い順）を削除、どのメタにも属さないファイルを削除、戦績のリンクを整理。
+    /// ファイルの無いメタを除去、上限超過分（お気に入り以外を古い順）を削除、どのメタにも属さないファイルを削除、戦績のリンクを整理。
     func reconcileReplays(profile: inout Profile) {
         let fm = FileManager.default
         var seen = Set<String>()
         var kept: [ReplayMeta] = []
+        var regularCount = 0
         let sorted = profile.replays.sorted { a, b in
             a.date != b.date ? a.date > b.date : a.fileName < b.fileName
         }
         for meta in sorted {
-            guard !seen.contains(meta.fileName) else { continue }
+            guard !seen.contains(meta.fileName), Self.isSafeReplayFileName(meta.fileName) else { continue }
             seen.insert(meta.fileName)
             let url = replaysDirectory.appendingPathComponent(meta.fileName)
             guard fm.fileExists(atPath: url.path) || isReplayWritePending(meta.fileName) else { continue }
-            if kept.count < Self.maxReplays {
+            if meta.isFavorite {
+                // お気に入りは上限の対象外（自動では消さない）
+                kept.append(meta)
+            } else if regularCount < Self.maxReplays {
+                regularCount += 1
                 kept.append(meta)
             } else if isReplayWritePending(meta.fileName) {
                 // 書き込み後に消す（同じキューで順に処理される）
@@ -445,6 +473,7 @@ final class PersistenceService: @unchecked Sendable {
         }
         profile.replays = kept
         let keptNames = Set(kept.map(\.fileName))
+        setProtectedReplayNames(Set(kept.filter(\.isFavorite).map(\.fileName)))
         for file in replayFiles() {
             let name = file.lastPathComponent
             guard !keptNames.contains(name), !isReplayWritePending(name) else { continue }
@@ -454,12 +483,52 @@ final class PersistenceService: @unchecked Sendable {
     }
 
     func loadReplay(_ meta: ReplayMeta) -> ReplayData? {
+        guard Self.isSafeReplayFileName(meta.fileName) else { return nil }
         if isReplayWritePending(meta.fileName) { waitForReplayWrites() }
         guard let data = try? Data(contentsOf: replaysDirectory.appendingPathComponent(meta.fileName)) else { return nil }
         return Self.decodeReplay(data)
     }
 
+    /// メインスレッドの外で読み込み・復号する（書き込み待ちもメインスレッドで待たない）。
+    func loadReplayAsync(_ meta: ReplayMeta) async -> ReplayData? {
+        await withCheckedContinuation { (continuation: CheckedContinuation<ReplayData?, Never>) in
+            DispatchQueue.global(qos: .userInitiated).async { [self] in
+                continuation.resume(returning: loadReplay(meta))
+            }
+        }
+    }
+
+    /// リプレイのファイルの場所（共有の書き出し用）。
+    func replayFileURL(_ meta: ReplayMeta) -> URL? {
+        guard Self.isSafeReplayFileName(meta.fileName) else { return nil }
+        return replaysDirectory.appendingPathComponent(meta.fileName)
+    }
+
+    /// メタのファイル名がリプレイの置き場の直下を指すか（取り込んだプロフィールに変な名前があってもフォルダの外に触れない）。
+    static func isSafeReplayFileName(_ name: String) -> Bool {
+        !name.isEmpty && !name.contains("/") && !name.contains("\\") && name != "." && name != ".."
+            && !name.hasPrefix(".") && name.hasSuffix(".vreplay")
+    }
+
+    /// 保存中のリプレイの合計サイズ（バイト）。書き込み待ちのものは含まない。
+    func replayStorageBytes() -> Int64 {
+        replayFiles().reduce(Int64(0)) { sum, url in
+            sum + Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+        }
+    }
+
+    /// 保存中のリプレイの合計サイズ（メインスレッドの外で、書き込み待ちが終わってから数える）。
+    func replayStorageBytesAsync() async -> Int64 {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Int64, Never>) in
+            DispatchQueue.global(qos: .utility).async { [self] in
+                waitForReplayWrites()
+                continuation.resume(returning: replayStorageBytes())
+            }
+        }
+    }
+
     func deleteReplay(_ meta: ReplayMeta) {
+        guard Self.isSafeReplayFileName(meta.fileName) else { return }
         if isReplayWritePending(meta.fileName) { waitForReplayWrites() }
         try? FileManager.default.removeItem(at: replaysDirectory.appendingPathComponent(meta.fileName))
     }
@@ -487,9 +556,22 @@ final class PersistenceService: @unchecked Sendable {
         return urls.filter { $0.pathExtension == "vreplay" }
     }
 
-    /// ディスク上のリプレイを新しい順に maxReplays 件まで残す。
+    private func setProtectedReplayNames(_ names: Set<String>) {
+        replayLock.lock()
+        protectedReplayNames = names
+        replayLock.unlock()
+    }
+
+    /// お気に入りとして守るファイルか（ディスク上の上限で消さない）。
+    func isReplayProtected(_ fileName: String) -> Bool {
+        replayLock.lock()
+        defer { replayLock.unlock() }
+        return protectedReplayNames.contains(fileName)
+    }
+
+    /// ディスク上のリプレイを新しい順に maxReplays 件まで残す（お気に入りは数えず、消さない）。
     private func enforceReplayFileCap(keeping fileName: String) {
-        let files = replayFiles()
+        let files = replayFiles().filter { !isReplayProtected($0.lastPathComponent) }
         guard files.count > Self.maxReplays else { return }
         let dated = files.map { url -> (URL, Date) in
             let d = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
@@ -526,6 +608,56 @@ final class PersistenceService: @unchecked Sendable {
         return try? makeDecoder().decode(ReplayData.self, from: json)
     }
 
+    /// 外から来たリプレイ（取り込み）の復号の失敗理由。
+    enum UntrustedReplayError: Error, Equatable {
+        /// ファイルが大きすぎる。
+        case tooLarge
+        /// リプレイの形式ではない（先頭のマジック・JSON の始まりが無い）。
+        case notReplay
+        /// 展開・復号できない（壊れている）。
+        case damaged
+    }
+
+    /// 信用しないデータからリプレイを復号する: 大きさ・先頭のマジック（圧縮形式 "VRPZ" か JSON の "{"）・
+    /// 展開後の大きさ（上限まで。超えたら壊れている扱い）を確かめてから JSON を解釈する。
+    static func decodeUntrustedReplay(_ data: Data, maxBytes: Int = maxImportedReplayBytes,
+                                      maxDecodedBytes: Int = maxDecodedReplayBytes) throws -> ReplayData {
+        guard data.count <= maxBytes else { throw UntrustedReplayError.tooLarge }
+        let json: Data
+        if data.starts(with: replayMagic) {
+            guard let raw = boundedDecompressLZFSE(data.dropFirst(replayMagic.count), limit: maxDecodedBytes) else {
+                throw UntrustedReplayError.damaged
+            }
+            json = raw
+        } else {
+            // 非圧縮 JSON（旧形式）は先頭の空白を除いて "{" で始まること
+            guard let first = data.first(where: { ![0x20, 0x09, 0x0A, 0x0D].contains($0) }), first == UInt8(ascii: "{") else {
+                throw UntrustedReplayError.notReplay
+            }
+            json = data
+        }
+        guard let replay = try? makeDecoder().decode(ReplayData.self, from: json) else { throw UntrustedReplayError.damaged }
+        return replay
+    }
+
+    /// 出力の上限つきで LZFSE を展開する（上限に達したら nil。巨大な展開結果でメモリを使い果たさない）。
+    private static func boundedDecompressLZFSE(_ input: Data, limit: Int) -> Data? {
+        guard !input.isEmpty, limit > 0 else { return nil }
+        // 上限 + 1 バイトの領域に展開し、上限を超えた（= 領域を使い切った）ら拒否する
+        let capacity = limit + 1
+        var output = Data(count: capacity)
+        let written: Int = output.withUnsafeMutableBytes { (dst: UnsafeMutableRawBufferPointer) -> Int in
+            input.withUnsafeBytes { (src: UnsafeRawBufferPointer) -> Int in
+                guard let d = dst.bindMemory(to: UInt8.self).baseAddress,
+                      let s = src.bindMemory(to: UInt8.self).baseAddress else { return 0 }
+                return compression_decode_buffer(d, capacity, s, input.count, nil, COMPRESSION_LZFSE)
+            }
+        }
+        guard written > 0, written <= limit else { return nil }
+        output.count = written
+        return output
+    }
+
     // MARK: - エクスポート / インポート
 
     /// バックアップ用にプロフィールを書き出す（アカウント連携画面の「データのバックアップ」）。
@@ -548,7 +680,8 @@ final class PersistenceService: @unchecked Sendable {
         Self.sanitize(&profile)
         let fm = FileManager.default
         profile.replays.removeAll {
-            !fm.fileExists(atPath: replaysDirectory.appendingPathComponent($0.fileName).path) && !isReplayWritePending($0.fileName)
+            !Self.isSafeReplayFileName($0.fileName)
+                || (!fm.fileExists(atPath: replaysDirectory.appendingPathComponent($0.fileName).path) && !isReplayWritePending($0.fileName))
         }
         unlinkMissingReplays(profile: &profile)
         return profile

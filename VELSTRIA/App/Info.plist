@@ -6,6 +6,21 @@
 	<string>ja</string>
 	<key>CFBundleDisplayName</key>
 	<string>VELSIA</string>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>VELSIA Replay</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.bitcoinpay.velstria.replay</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -33,6 +48,8 @@
 	<string>public.app-category.action-games</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<false/>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_velstria._tcp</string>
@@ -77,5 +94,29 @@
 	<string>Dark</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>VELSIA Replay</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.bitcoinpay.velstria.replay</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>vreplay</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/x-velsia-replay</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
 </dict>
 </plist>

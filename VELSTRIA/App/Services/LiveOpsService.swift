@@ -8,7 +8,9 @@ import VelstriaCore
 // - ウィークリーミッション（4 件固定、ISO 週キーで更新）
 // - イベント（開幕祭 2026-10-01〜2026-12-31 とイベントミッション 3 件、毎週末の「週末スターブースト」）
 // - スターパス（30 段階 × 1000 XP、無料 / プレミアム）
-// - 実績（26 件、試合後などに評価）、お知らせ（4 件、静的）
+// - 実績（29 件、試合後などに評価）、お知らせ（4 件、静的）
+// - 観戦の記録（最後まで見た観戦・リプレイを 1 件につき 1 回数える）と観戦の実績・今週の観戦目標。
+//   観戦は報酬の対象外なので、観戦の実績は Gem なし（解除と同時に受取済み）、今週の目標も進捗の表示だけ（Coin・パス XP なし）。
 // 日付はすべて端末ローカルの暦で扱う。未受取のまま期限切れになったミッション報酬はメールで届ける。
 //
 // イベントミッションの進捗は MissionState.weekly にウィークリー 4 件の後ろへ並べて保持する
@@ -170,6 +172,8 @@ enum LiveOpsService {
 
     private enum AchievementMetric {
         case wins, matches, kills, assists, pentaKills, mvps, longestWinStreak, totalDamage
+        /// 最後まで観戦した試合数・最後まで見たリプレイ数（報酬なしの実績用）。
+        case spectatedMatches, replaysWatched
         case rolePlayed(Role)
         case allRolesPlayed
         case rankReached(RankTier)
@@ -231,6 +235,16 @@ enum LiveOpsService {
                         detailJa: "ヒーローを 12 体所持する", detailEn: "Own 12 heroes", target: 12, rewardGems: 50), .heroesOwned),
         (AchievementDef(id: "ACH_LEVEL_20", titleJa: "星を渡る者", titleEn: "Star Wanderer",
                         detailJa: "アカウントレベル 20 に到達する", detailEn: "Reach account level 20", target: 20, rewardGems: 50), .accountLevel),
+        // 観戦（報酬の対象外なので Gem なしの記念の実績）
+        (AchievementDef(id: "ACH_WATCH_1", titleJa: "はじめての観戦", titleEn: "First Watch",
+                        detailJa: "AI 同士の対戦を最後まで観戦する", detailEn: "Watch an AI match to the end", target: 1, rewardGems: 0),
+         .spectatedMatches),
+        (AchievementDef(id: "ACH_WATCH_10", titleJa: "星環の観測者", titleEn: "Star Ring Observer",
+                        detailJa: "対戦を 10 試合、最後まで観戦する", detailEn: "Watch 10 matches to the end", target: 10, rewardGems: 0),
+         .spectatedMatches),
+        (AchievementDef(id: "ACH_REPLAY_5", titleJa: "振り返りの名手", titleEn: "Student of the Game",
+                        detailJa: "リプレイを 5 本、最後まで見る", detailEn: "Watch 5 replays to the end", target: 5, rewardGems: 0),
+         .replaysWatched),
     ]
 
     static var achievements: [AchievementDef] { achievementTable.map(\.def) }
@@ -560,7 +574,8 @@ enum LiveOpsService {
     /// 解除済み・未受取の実績数。
     static func claimableAchievementCount(profile: Profile) -> Int {
         achievementTable.filter {
-            guard let p = profile.achievements[$0.def.id] else { return false }
+            // 報酬の無い実績（観戦）は受け取る物が無いので数えない
+            guard $0.def.rewardGems > 0, let p = profile.achievements[$0.def.id] else { return false }
             return p.unlockedAt != nil && !p.claimed
         }.count
     }
@@ -714,6 +729,8 @@ enum LiveOpsService {
             }
             if entry.unlockedAt == nil && entry.progress >= def.target {
                 entry.unlockedAt = now
+                // 報酬の無い実績（観戦）は受け取る物が無いので、解除と同時に受取済みにする（受取可能の表示を出さない）
+                if def.rewardGems <= 0 { entry.claimed = true }
                 unlocked.append(def.id)
                 changed = true
             }
@@ -739,6 +756,8 @@ enum LiveOpsService {
         case .cosmeticsOwned: return Double(Set(profile.ownedCosmeticIDs).count)
         case .heroesOwned: return Double(Set(profile.ownedHeroIDs).count)
         case .accountLevel: return Double(profile.accountLevel)
+        case .spectatedMatches: return Double(c.spectatedMatches)
+        case .replaysWatched: return Double(c.replaysWatched)
         }
     }
 
@@ -749,6 +768,94 @@ enum LiveOpsService {
             if !played.contains(hero.role) { played.append(hero.role) }
         }
         return Role.allCases.filter { played.contains($0) }
+    }
+
+    // MARK: - 観戦の記録（報酬なし）
+
+    /// 今週の観戦目標（ミッションと同じ週の区切り。報酬は無く、進捗の表示だけ）。
+    struct WatchGoal: Identifiable, Equatable {
+        enum Kind: Equatable { case spectate, replay, any }
+        var id: String
+        var titleJa: String
+        var titleEn: String
+        var kind: Kind
+        var target: Int
+
+        var title: String { L(titleJa, titleEn) }
+    }
+
+    static let watchGoals: [WatchGoal] = [
+        WatchGoal(id: "WG01", titleJa: "AI 同士の対戦を 3 試合観戦する", titleEn: "Watch 3 AI matches", kind: .spectate, target: 3),
+        WatchGoal(id: "WG02", titleJa: "リプレイを 2 本見返す", titleEn: "Rewatch 2 replays", kind: .replay, target: 2),
+    ]
+
+    /// 今週の観戦目標 1 件の進捗。
+    struct WatchGoalStatus: Identifiable, Equatable {
+        var goal: WatchGoal
+        var progress: Int
+        var id: String { goal.id }
+        var isComplete: Bool { progress >= goal.target }
+    }
+
+    /// 今週の観戦目標と進捗（週が変わっていれば 0）。
+    static func watchGoalProgress(profile: Profile, now: Date) -> [WatchGoalStatus] {
+        let log = profile.watchLog
+        let current = log.weekKey == weekKey(now)
+        let spectated = current ? log.weekSpectated : 0
+        let replays = current ? log.weekReplays : 0
+        return watchGoals.map { g in
+            let value: Int
+            switch g.kind {
+            case .spectate: value = spectated
+            case .replay: value = replays
+            case .any: value = spectated + replays
+            }
+            return WatchGoalStatus(goal: g, progress: min(g.target, max(0, value)))
+        }
+    }
+
+    /// 最後まで見た観戦・リプレイを 1 回数える（同じキーは 2 回目以降は数えない）。数えたら true。
+    /// Coin・Gem・パス XP は付けない（通算の観戦数・今週の集計だけ）。
+    @discardableResult
+    static func recordWatch(_ kind: WatchKind, key: String, seconds: Double, profile: inout Profile, now: Date) -> Bool {
+        guard !key.isEmpty, !profile.watchLog.countedKeys.contains(key) else { return false }
+        profile.watchLog.countedKeys.insert(key, at: 0)
+        if profile.watchLog.countedKeys.count > WatchLog.maxKeys {
+            profile.watchLog.countedKeys.removeLast(profile.watchLog.countedKeys.count - WatchLog.maxKeys)
+        }
+        let wk = weekKey(now)
+        if profile.watchLog.weekKey != wk {
+            // 端末時刻を戻した場合も含め、週が変わったら数え直す（報酬が無いので巻き戻しの悪用は無い）
+            profile.watchLog.weekKey = wk
+            profile.watchLog.weekSpectated = 0
+            profile.watchLog.weekReplays = 0
+        }
+        switch kind {
+        case .spectate:
+            profile.career.spectatedMatches += 1
+            profile.watchLog.weekSpectated += 1
+        case .replay:
+            profile.career.replaysWatched += 1
+            profile.watchLog.weekReplays += 1
+        }
+        if seconds.isFinite, seconds > 0 { profile.career.watchedSeconds += min(seconds, 2 * 3600) }
+        return true
+    }
+
+    /// 観戦の実績（報酬なし）。観戦の画面で進捗を見せる。
+    static var watchAchievements: [AchievementDef] {
+        achievementTable.filter {
+            switch $0.metric {
+            case .spectatedMatches, .replaysWatched: return true
+            default: return false
+            }
+        }.map(\.def)
+    }
+
+    /// 実績の現在値（表示用。解除済みでなくても進捗を出す）。
+    static func achievementValue(id: String, profile: Profile, master: MasterData = .shared) -> Double {
+        guard let entry = achievementTable.first(where: { $0.def.id == id }) else { return 0 }
+        return min(entry.def.target, metricValue(entry.metric, profile: profile, master: master))
     }
 
     // MARK: - 受取（冪等。受取済み・条件未達なら nil / 空配列）

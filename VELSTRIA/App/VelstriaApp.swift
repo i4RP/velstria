@@ -21,6 +21,11 @@ struct VelstriaApp: App {
                     // 日付を跨いで復帰した場合のログインボーナス・デイリー更新（同日なら何もしない）
                     if phase == .active { LiveOpsService.onLaunch(profile: &app.profile, master: app.master, now: Date()) }
                 }
+                // 共有されたリプレイ（.vreplay）を「VELSIA で開く」: 検証してから一覧に取り込む
+                .onOpenURL { url in
+                    guard ReplayArchiveService.isReplayFile(url) else { return }
+                    Task { @MainActor in await ReplayArchiveService.handleOpenedFile(url, app: app) }
+                }
         }
     }
 }
