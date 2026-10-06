@@ -8,6 +8,7 @@ import VelstriaCore
 // - 保存（archive）: 報酬の対象の試合は RewardService が保存する。ここでは対象外のうち見返す価値のあるもの
 //   （AI 同士の観戦・人間のいない構成・カスタム・オンライン）を保存する。報酬・戦績・通算成績には一切触れない。
 //   リプレイの再生・オンラインの観戦席・練習場・チュートリアル・途中退出・30 秒未満・中断で終わった試合は保存しない。
+//   オンラインのホストは席に着いても実況（観戦の画面で回す）でも、試合を最初から回しているので保存する。
 // - 視聴記録: 観戦・リプレイを最後まで見たら 1 回（同じ試合・同じリプレイは何度見ても 1 回。8 倍速の周回で稼げない）。
 //   通算の観戦数・実績（Gem なし）・今週の観戦目標だけが進む。Coin・Gem・パス XP は付かない。
 // - 書き出し: 保存済みのファイル（"VRPZ" + LZFSE 圧縮 JSON）を分かりやすい名前で一時フォルダに複製して共有シートへ渡す。
@@ -36,8 +37,9 @@ enum ReplayArchiveService {
     /// この試合のリプレイを報酬なしで保存する場合の出どころ（保存しないなら nil）。
     static func archiveSource(for outcome: BattleOutcome) -> ReplaySource? {
         let launch = outcome.launch
-        // リプレイの再生・オンラインの観戦席（途中から・遅延付きで見ているので記録が無い）
-        guard launch.replay == nil, !launch.onlineSpectator, let replay = outcome.replay else { return nil }
+        // リプレイの再生。オンラインの観戦席は途中から・遅延付きで見ているので記録が無い（BattleController が記録しない）。
+        // 観戦の起動でも記録があるのはホストの実況（権威シミュレーションを tick 0 から回す）だけ
+        guard launch.replay == nil, let replay = outcome.replay else { return nil }
         // 途中退出・中断で終わった試合は最後まで再現できても見返す価値が薄い（報酬の対象の試合と同じ扱い）
         guard !outcome.abandoned, outcome.summary.endReason != .aborted else { return nil }
         guard replay.finalTick >= minimumArchivedTicks, replay.isPlayable else { return nil }
@@ -56,6 +58,8 @@ enum ReplayArchiveService {
     /// リプレイの持ち主の座席（オンラインは自分の座席、オフラインは人間の枠、AI 同士は nil）。
     static func ownerSeat(for outcome: BattleOutcome) -> Int? {
         let config = outcome.launch.config
+        // ホストの実況（オンラインの観戦の起動）は座席が無い: 持ち主なし（勝敗・ヒーローを付けない）
+        if outcome.launch.onlineSpectator { return nil }
         if let seat = outcome.launch.onlineSeat, config.players.indices.contains(seat) { return seat }
         return config.players.firstIndex { $0.controller == .human }
     }

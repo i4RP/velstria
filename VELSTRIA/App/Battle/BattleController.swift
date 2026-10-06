@@ -180,8 +180,9 @@ final class BattleController {
             recorder = nil
             for f in replay.frames { replayFrames[f.tick, default: []].append(contentsOf: f.commands) }
             if let t = replay.timeline, t.coveredTick >= replay.finalTick { fullTimeline = t }
-        } else if launch.onlineSpectator {
+        } else if launch.onlineSpectator && self.online?.isHost != true {
             // 観戦席は途中から・遅延付きで見るので、記録しても再現できない
+            // （ホストの実況は権威シミュレーションを tick 0 から遅延なしで回すので、選手のホストと同じく記録する）
             recorder = nil
         } else {
             // AI 同士の観戦も記録する（入力が無いので設定とシードだけの小さなリプレイになる）
@@ -474,8 +475,9 @@ final class BattleController {
 
     /// ホストのスナップショットで状態を置き換える（オンライン対戦の再同期・途中参加）。
     func restore(_ snapshot: SimState) {
-        // 状態が飛ぶ（途中の tick を自分で進めていない）と、記録した入力列からは再現できない
-        if snapshot.tick != sim.state.tick { recorder?.markIncomplete() }
+        // 状態が飛ぶ（途中の tick を自分で進めていない）と、記録した入力列からは再現できない。
+        // オンラインは同じ tick でも、ずれた状態をホストの状態で置き換えたので記録した入力列からは再現できない
+        if online != nil || snapshot.tick != sim.state.tick { recorder?.markIncomplete() }
         sim.restore(from: snapshot)
         // ずれた状態で記録した先の年表は信用できないので、置き換え後の tick より先は捨てる
         if snapshot.tick < timelineBuilder.timeline.coveredTick { timelineBuilder.rewind(to: snapshot.tick) }

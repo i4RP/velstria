@@ -9,7 +9,8 @@ import VelstriaCore
 // - 公開: 観戦者へ出してよいのは「ホストの現在 tick − 遅延」まで（releasedTick）。試合が終わったら遅延は要らないので
 //   残りをすべて公開する（finish）。
 // - 基準: 途中参加・再同期は「公開済みの範囲で最新のキーフレーム」から（生の状態は渡さない）。キーフレームがまだ
-//   公開範囲に無ければ tick 0（構成から誰でも作れるので状態を送らない）。
+//   公開範囲に無ければ tick 0（途中参加は構成から誰でも作れるので状態を送らない。ずれの再同期は構成から作った状態が
+//   ずれたのだから、覚えておいた試合開始時の状態を送る: resyncState）。
 // - 保持: 基準より古いキーフレームと記録は捨てる（遅延 + キーフレーム間隔ぶんだけ残る）。
 
 struct OnlineSpectatorRelay {
@@ -30,6 +31,8 @@ struct OnlineSpectatorRelay {
     private var logFirstTick = 1
     /// キーフレーム（tick 昇順）。
     private var keyframes: [SimState] = []
+    /// 試合開始時（tick 0）の状態。最初のキーフレームが公開されるまでの、ずれの再同期の基準（公開されたら捨てる）。
+    private var initialState: SimState?
 
     init() {}
 
@@ -39,6 +42,12 @@ struct OnlineSpectatorRelay {
         isActive = active
         self.delayTicks = max(0, delayTicks)
         self.keyframeInterval = max(1, keyframeInterval)
+    }
+
+    /// 試合開始時の状態を覚える（ホストが戦闘を作った時。tick 0 の状態だけ）。
+    mutating func recordInitial(_ state: SimState) {
+        guard isActive, state.tick == 0, liveTick == 0 else { return }
+        initialState = state
     }
 
     /// ホストが 1 tick 進めた。state はキーフレームを取る tick だけ評価する（nil なら取らない）。
@@ -79,6 +88,8 @@ struct OnlineSpectatorRelay {
     /// 途中参加・再同期の基準（公開済みの範囲で最新のキーフレーム）。nil = tick 0（構成から作る）。
     var baseState: SimState? { keyframes.last { $0.tick <= releasedTick } }
     var baseTick: Int { baseState?.tick ?? 0 }
+    /// ずれの再同期の基準。キーフレームがまだ公開範囲に無ければ試合開始時の状態（nil を返すと送り直しても直らない）。
+    var resyncState: SimState? { baseState ?? initialState }
 
     /// (after, through] の記録。記録がもう無い（捨てた・やり直した）なら nil。
     func frames(after: Int, through: Int) -> [ReplayFrame]? {
@@ -93,6 +104,8 @@ struct OnlineSpectatorRelay {
     mutating func trim(pinnedTick: Int?) {
         // 公開範囲で最新のキーフレームより古いキーフレームは基準にならない
         while keyframes.count >= 2, keyframes[1].tick <= releasedTick { keyframes.removeFirst() }
+        // キーフレームが公開されたら、試合開始時の状態は再同期の基準にならない
+        if initialState != nil, baseState != nil { initialState = nil }
         let base = baseTick
         let keepAfter = min(base, pinnedTick ?? base)
         let drop = keepAfter + 1 - logFirstTick

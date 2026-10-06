@@ -208,6 +208,8 @@ final class AppModel {
         session.onNotice = { [weak self] text in
             self?.showToast(text)
         }
+        // 観戦の案内を受ける前に、戦闘（読み込み・リザルトを含む）を開いているかを聞く（開いていれば何も変えずに断る）
+        session.isBattleOpen = { [weak self] in self?.activeBattle != nil }
     }
 
     func leaveOnlineRoom() {
@@ -230,6 +232,8 @@ final class AppModel {
 
     func dismissBattle() {
         activeBattle = nil
+        // 観戦席: 戦闘中に断った次の試合の観戦を、閉じた後に求め直す
+        online?.battleClosed()
     }
 
     // MARK: マジックチェス
