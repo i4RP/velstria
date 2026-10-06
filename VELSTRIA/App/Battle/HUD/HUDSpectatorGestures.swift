@@ -4,7 +4,7 @@ import VelstriaCore
 // 担当: battle-hud（観戦カメラ）。観戦者の 3D 画面の操作（ARView は入力を受けないので、HUD の最下層に重ねる）:
 // - ドラッグ: 自由カメラ（指の下の地面が指に付いてくる。離すと少し滑って止まる）
 // - ピンチ: 倍率（観戦者の広い範囲。自由カメラではピンチの中心の地面を動かさない）
-// - ダブルタップ: 自動カメラが有効なら自動カメラへ戻す、無効なら直前に追っていたヒーローへ戻す（倍率も既定へ）
+// - ダブルタップ: 倍率を既定へ戻し、自動カメラが有効なら自動カメラへ、無効なら直前に追っていたヒーローへ戻す
 // 手動の操作は自動カメラへ知らせ、しばらく控えさせる。カメラは回転しないので 画面の右 = sim +x、画面の上 = sim +y。
 // 毎フレーム変わる値（倍率の上書き・注視点）は非監視の場所へ書き、HUD 全体を描き直させない。
 
@@ -188,14 +188,15 @@ struct HUDSpectatorGestureLayer: View {
 
     // MARK: 追従に戻る
 
-    /// ダブルタップ: 自動カメラが有効ならすぐ戻す。無効なら直前に追っていたヒーロー（無ければ最初のヒーロー）を追い、倍率も既定へ。
+    /// ダブルタップ: 倍率を既定へ戻し、自動カメラが有効ならすぐ自動カメラの画へ、無効なら直前に追っていたヒーロー
+    /// （無ければ最初のヒーロー）の追従へ戻す。
     private func returnToFollow() {
         let link = link
+        controller.cameraZoomOverride = nil
         if controller.spectatorDirectorEnabled, link.resumeDirector() {
             model.selectionFeedback()
             return
         }
-        controller.cameraZoomOverride = nil
         let s = controller.state
         let target = link.lastFollowedID.flatMap { s.unit($0) != nil ? $0 : nil }
             ?? s.heroIndices.first.map { s.units[$0].id }
