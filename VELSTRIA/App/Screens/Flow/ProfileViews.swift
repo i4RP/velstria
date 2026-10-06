@@ -488,6 +488,8 @@ private struct RecordDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
     /// リプレイの読み込み中（メインスレッドの外で復号する。二重に開始しない）。
     @State private var loadingReplay = false
+    /// 読み込み（シートを閉じたら取り消す。閉じた後に読み終わっても再生を始めない）。
+    @State private var loadTask: Task<Void, Never>?
 
     var body: some View {
         ZStack {
@@ -536,6 +538,7 @@ private struct RecordDetailSheet: View {
             ToastOverlay()
         }
         .preferredColorScheme(.dark)
+        .onDisappear { loadTask?.cancel() }
     }
 
     private var playerOnly: some View {
@@ -560,10 +563,11 @@ private struct RecordDetailSheet: View {
     private func watch() {
         guard let meta = replay, !loadingReplay else { return }
         loadingReplay = true
-        Task { @MainActor in
+        loadTask = Task { @MainActor in
             let result = await ReplayLibrary.loadLaunch(for: meta, persistence: app.persistence,
                                                         options: ReplayLibrary.playbackOptions(profile: app.profile))
             loadingReplay = false
+            guard !Task.isCancelled else { return }
             switch result {
             case .success(let launch):
                 FlowFX.confirm(app)

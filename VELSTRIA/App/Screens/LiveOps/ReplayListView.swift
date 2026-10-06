@@ -181,8 +181,8 @@ struct ReplayListView: View {
     @State private var confirmDeleteAll = false
     @State private var failure: (meta: ReplayMeta, error: ReplayLibrary.LoadError)?
     @State private var detail: ReplayMeta?
-    /// 詳細から「再生」を選んだ時の対象（シートが閉じてから読み込む）。
-    @State private var pendingPlay: ReplayMeta?
+    /// 詳細から選んだ操作（シートが閉じ終わってから行う。閉じる途中に確認・入力の表示を重ねると出ないことがある）。
+    @State private var pendingDetailAction: DetailAction?
     @State private var renaming: ReplayMeta?
     @State private var renameText = ""
     @State private var loadingID: UUID?
@@ -228,11 +228,11 @@ struct ReplayListView: View {
         }
         .overlay { if loadingID != nil || importing { loadingOverlay } }
         .allowsHitTesting(loadingID == nil && !importing)
-        .sheet(item: $detail, onDismiss: startPendingPlay) { meta in
+        .sheet(item: $detail, onDismiss: runPendingDetailAction) { meta in
             ReplayDetailSheet(metaID: meta.id,
-                              onPlay: { m in pendingPlay = m; detail = nil },
-                              onRename: { m in detail = nil; beginRename(m) },
-                              onDelete: { m in detail = nil; pendingDelete = m })
+                              onPlay: { m in pendingDetailAction = .play(m); detail = nil },
+                              onRename: { m in pendingDetailAction = .rename(m); detail = nil },
+                              onDelete: { m in pendingDetailAction = .delete(m); detail = nil })
                 .environment(app)
         }
         .fileImporter(isPresented: $showsImporter, allowedContentTypes: [.velsiaReplay], allowsMultipleSelection: false) { result in
@@ -486,10 +486,19 @@ struct ReplayListView: View {
         }
     }
 
-    private func startPendingPlay() {
-        guard let meta = pendingPlay else { return }
-        pendingPlay = nil
-        play(meta)
+    /// 詳細シートから選んだ操作。
+    private enum DetailAction {
+        case play(ReplayMeta), rename(ReplayMeta), delete(ReplayMeta)
+    }
+
+    private func runPendingDetailAction() {
+        guard let action = pendingDetailAction else { return }
+        pendingDetailAction = nil
+        switch action {
+        case .play(let meta): play(meta)
+        case .rename(let meta): beginRename(meta)
+        case .delete(let meta): pendingDelete = meta
+        }
     }
 
     private func toggleFavorite(_ meta: ReplayMeta) {

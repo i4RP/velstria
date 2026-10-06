@@ -52,6 +52,18 @@ final class ReplayLibraryUITests: XCTestCase {
         snap("replays_favorites_en")
         tap(app, "replays_filter_all")
 
+        // 詳細から名前の変更: シートが閉じ終わってから入力を出す（閉じる途中に重ねると出ない）
+        tap(app, "replay_row_0")
+        tap(app, "replay_detail_rename")
+        let alert = app.alerts.firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 10), "詳細から名前の変更を開けない")
+        let field = alert.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("Final")
+        alert.buttons["Save"].tap()
+        XCTAssertTrue(app.staticTexts["Final"].waitForExistence(timeout: 5), "名前が一覧に出ない")
+
         tap(app, "replay_row_0")
         XCTAssertTrue(element(app, "replay_detail_play").waitForExistence(timeout: 10))
         sleep(1)

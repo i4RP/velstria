@@ -290,7 +290,11 @@ enum ReplayArchiveService {
                 throw ImportError.invalidContent
             }
             lastTick = f.tick
-            for c in f.commands { commandHeroes.insert(c.heroID) }
+            for c in f.commands {
+                // 座標・方向が有限で盤面の近くにあること（NaN・巨大な値は sim の格子計算 Int(...) で落ちる）
+                guard isSafePayload(c.command) else { throw ImportError.invalidContent }
+                commandHeroes.insert(c.heroID)
+            }
         }
         if !commandHeroes.isEmpty {
             // ヒーローのエンティティ ID は構成から決まる（初期状態を作って確かめる）
@@ -298,9 +302,86 @@ enum ReplayArchiveService {
             let heroIDs = Set(state.heroIndices.map { state.units[$0].id })
             guard commandHeroes.isSubset(of: heroIDs) else { throw ImportError.invalidContent }
         }
-        if let summary = replay.summary {
-            guard summary.players.count <= 10, summary.teamKills.count <= 3, summary.towersDestroyed.count <= 3,
-                  summary.duration.isFinite else { throw ImportError.invalidContent }
+        // 結果（リザルト・詳細の成績表にそのまま出る）と年表（シークバーの印）も、表示の Int(...) で落ちない範囲に限る
+        if let summary = replay.summary { try validate(summary, master: master) }
+        if let timeline = replay.timeline { try validate(timeline, finalTick: replay.finalTick) }
+    }
+
+    /// 座標・数値の上限（盤面の大きさの数倍。表示・格子計算で Int に変換しても溢れない）。
+    static let maxCoordinate = Balance.mapSize * 4
+    /// 成績の数値の上限（キル数・ゴールド・ダメージなど）。
+    static let maxStatValue: Double = 1e9
+    static let maxStatCount = 100_000
+    /// 年表の項目数の上限。
+    static let maxTimelineItems = 50_000
+
+    private static func isFinite(_ v: Vec2, bound: Double = maxCoordinate) -> Bool {
+        v.x.isFinite && v.y.isFinite && abs(v.x) <= bound && abs(v.y) <= bound
+    }
+
+    private static func isSafe(_ target: SkillTarget) -> Bool {
+        switch target {
+        case .none, .unit: return true
+        case .direction(let v), .point(let v): return isFinite(v)
+        }
+    }
+
+    /// 入力の中身が sim で扱える範囲か（添字は sim 側で確かめているので、浮動小数と文字列の長さだけ見る）。
+    static func isSafePayload(_ command: PlayerCommand) -> Bool {
+        switch command {
+        case .move(let dir): return isFinite(dir)
+        case .moveTo(let p): return isFinite(p)
+        case .castSkill(_, let target): return isSafe(target)
+        case .castSpell(let index, let target): return (0..<8).contains(index) && isSafe(target)
+        case .sellItem(let slotIndex): return (0..<64).contains(slotIndex)
+        case .buyItem(let itemID): return itemID.count <= maxDisplayNameLength
+        case .emote(let emoteID): return emoteID.count <= maxDisplayNameLength
+        case .stop, .attack, .attackNearest, .levelSkill, .setAutoLevel, .recall, .surrenderVote,
+             .removeTutorialDummies, .setController:
+            return true
+        }
+    }
+
+    private static func isStat(_ v: Double) -> Bool { v.isFinite && abs(v) <= maxStatValue }
+    private static func isCount(_ v: Int) -> Bool { (0...maxStatCount).contains(v) }
+
+    /// 記録された結果の検証（人数・数値の範囲・ヒーロー）。
+    static func validate(_ summary: MatchSummary, master: MasterData) throws {
+        guard summary.players.count <= 10, summary.teamKills.count <= 3, summary.towersDestroyed.count <= 3,
+              summary.teamKills.allSatisfy(isCount), summary.towersDestroyed.allSatisfy(isCount),
+              summary.duration.isFinite, (0.0...(4.0 * 3600)).contains(summary.duration) else { throw ImportError.invalidContent }
+        for p in summary.players {
+            let s = p.score
+            guard master.hero(p.heroID) != nil, p.displayName.count <= maxDisplayNameLength,
+                  p.grade.count <= 4, p.items.count <= 16, p.items.allSatisfy({ $0.count <= maxDisplayNameLength }),
+                  (0...100).contains(p.level), isStat(p.mvpScore),
+                  [s.kills, s.deaths, s.assists, s.minionKills, s.monsterKills, s.towersDestroyed, s.objectivesTaken,
+                   s.largestKillStreak, s.largestMultiKill].allSatisfy(isCount),
+                  [s.goldEarned, s.damageToHeroes, s.damageTaken, s.healingDone, s.shieldingDone, s.towerDamage].allSatisfy(isStat)
+            else { throw ImportError.invalidContent }
+        }
+    }
+
+    /// 記録された年表の検証（tick の範囲・数値の範囲・項目数）。tick は記録の終わりの少し先まで許す。
+    static func validate(_ timeline: ReplayTimeline, finalTick: Int) throws {
+        let ticks = 0...(max(0, finalTick) + 30)
+        guard timeline.events.count <= maxTimelineItems, timeline.samples.count <= maxTimelineItems,
+              (1...100_000).contains(timeline.sampleInterval), ticks.contains(timeline.coveredTick)
+        else { throw ImportError.invalidContent }
+        for e in timeline.events {
+            guard ticks.contains(e.tick), e.pos.map({ isFinite($0) }) ?? true else { throw ImportError.invalidContent }
+            switch e.kind {
+            case .kill(_, _, let assists, _, _, let multi, _):
+                guard assists.count <= 10, (0...10).contains(multi) else { throw ImportError.invalidContent }
+            case .structure, .objective, .ace, .matchEnd:
+                break
+            }
+        }
+        for s in timeline.samples {
+            guard ticks.contains(s.tick),
+                  [s.blueGold, s.redGold, s.blueXP, s.redXP].allSatisfy(isStat),
+                  [s.blueKills, s.redKills, s.blueTowers, s.redTowers].allSatisfy(isCount)
+            else { throw ImportError.invalidContent }
         }
     }
 
@@ -407,17 +488,18 @@ enum ReplayArchiveService {
             app.showToast(e.message)
             return
         }
-        guard app.activeBattle == nil, app.activeMagicChess == nil, app.profile.onboardingCompleted else { return }
-        app.router.isMatchFlowPresented = false
+        // 対戦の準備（オンラインの部屋を含む）を開いている間は画面を動かさない（取り込みはトーストで知らせるだけ）
+        guard app.activeBattle == nil, app.activeMagicChess == nil, !app.router.isMatchFlowPresented,
+              app.profile.onboardingCompleted else { return }
         if app.router.path.last != .replays { app.router.path.append(.replays) }
     }
 
     /// 「ほかのアプリから開く」で Documents/Inbox に複製されたファイルは取り込み後に消す（アプリの領域に溜めない）。
-    static func removeInboxCopy(_ url: URL) {
-        guard url.isFileURL,
-              let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
-        let inbox = documents.appendingPathComponent("Inbox", isDirectory: true).standardizedFileURL.path
-        guard url.standardizedFileURL.path.hasPrefix(inbox + "/") else { return }
+    /// 渡される URL は /private/var/…、Documents は /var/… のことがあるので、シンボリックリンクを解いて比べる。
+    static func removeInboxCopy(_ url: URL, documents: URL? = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first) {
+        guard url.isFileURL, let documents else { return }
+        let inbox = documents.appendingPathComponent("Inbox", isDirectory: true).resolvingSymlinksInPath().standardizedFileURL.path
+        guard url.resolvingSymlinksInPath().standardizedFileURL.path.hasPrefix(inbox + "/") else { return }
         try? FileManager.default.removeItem(at: url)
     }
 
@@ -466,12 +548,26 @@ struct ReplayShareItem: Transferable, Sendable {
         .suggestedFileName { $0.exportName }
     }
 
+    /// 書き出しの複製を置く一時フォルダ。
+    static var exportRoot: URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent("ReplayExport", isDirectory: true)
+    }
+
+    /// 前回までの書き出しの複製のうち古いもの（共有シートが使い終わったもの）を消す。
+    static func removeStaleExports(olderThan age: TimeInterval = 3600, now: Date = Date()) {
+        let fm = FileManager.default
+        let dirs = (try? fm.contentsOfDirectory(at: exportRoot, includingPropertiesForKeys: [.creationDateKey])) ?? []
+        for dir in dirs {
+            let created = (try? dir.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
+            if now.timeIntervalSince(created) > age { try? fm.removeItem(at: dir) }
+        }
+    }
+
     /// 一時フォルダに分かりやすい名前で複製する（保存中のファイルは書き終わるのを待つ）。
     func exportCopy() throws -> URL {
         persistence.waitForReplayWrites()
-        let dir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("ReplayExport", isDirectory: true)
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        Self.removeStaleExports()
+        let dir = Self.exportRoot.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let dest = dir.appendingPathComponent(exportName)
         try FileManager.default.copyItem(at: sourceURL, to: dest)

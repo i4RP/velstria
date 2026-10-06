@@ -441,6 +441,135 @@ final class ReplayLibraryTests: XCTestCase {
         XCTAssertNil(error { $0.frames = [ReplayFrame(tick: 3, commands: [HeroCommand(heroID: hero, command: .stop)])] })
     }
 
+    /// 復号は "nan" / "+inf" の文字列を数値として読むので、入力・結果・年表の数値が有限で盤面の近くにあることを確かめる
+    /// （NaN や巨大な座標は sim の格子計算、巨大なキル数・無限のゴールドはリザルトの Int(...) で落ちる）。
+    func testValidateRejectsNonFiniteAndHugeValues() throws {
+        let config = ServicesFixtures.config(mode: .standard)
+        let summary = ServicesFixtures.summary(mode: .standard, won: true, minutes: 12)
+        let base = ServicesFixtures.replay(config: config, summary: summary)
+        let state = Simulation(config: config, map: MapDefinition.map(for: config.mode)).state
+        let hero = state.units[state.heroIndices[0]].id
+
+        func error(_ mutate: (inout ReplayData) -> Void) -> ReplayArchiveService.ImportError? {
+            var r = base
+            mutate(&r)
+            do {
+                try ReplayArchiveService.validate(r, master: master)
+                return nil
+            } catch {
+                return error as? ReplayArchiveService.ImportError
+            }
+        }
+        func command(_ c: PlayerCommand) -> (inout ReplayData) -> Void {
+            { $0.frames = [ReplayFrame(tick: 3, commands: [HeroCommand(heroID: hero, command: c)])] }
+        }
+        XCTAssertEqual(error(command(.moveTo(point: Vec2(.nan, 100)))), .invalidContent)
+        XCTAssertEqual(error(command(.move(direction: Vec2(.infinity, 0)))), .invalidContent)
+        XCTAssertEqual(error(command(.castSkill(slot: .skill1, target: .point(Vec2(1e300, 0))))), .invalidContent)
+        XCTAssertEqual(error(command(.castSpell(index: 0, target: .direction(Vec2(0, -.infinity))))), .invalidContent)
+        XCTAssertEqual(error(command(.emote(emoteID: String(repeating: "e", count: 5000)))), .invalidContent)
+        XCTAssertNil(error(command(.castSkill(slot: .skill1, target: .point(Vec2(6000, 6000))))), "盤面内の地点は通る")
+        XCTAssertNil(error(command(.move(direction: Vec2(0.6, -0.8)))))
+
+        XCTAssertEqual(error { $0.summary?.players[0].score.goldEarned = .infinity }, .invalidContent)
+        XCTAssertEqual(error { $0.summary?.players[0].score.kills = Int.max }, .invalidContent)
+        XCTAssertEqual(error { $0.summary?.players[0].mvpScore = .nan }, .invalidContent)
+        XCTAssertEqual(error { $0.summary?.players[0].heroID = "H999" }, .invalidContent)
+        XCTAssertEqual(error { $0.summary?.teamKills = [-1, 0] }, .invalidContent)
+        XCTAssertEqual(error { $0.summary?.duration = 1e12 }, .invalidContent)
+
+        // 初期化では 1 以上に丸められるが、復号した値はそのまま（0 だと年表の作り直しで tick % 0 になる）
+        XCTAssertEqual(error { r in
+            var t = ReplayTimeline(samples: [TimelineSample(state: state)])
+            t.sampleInterval = 0
+            r.timeline = t
+        }, .invalidContent)
+        XCTAssertEqual(error { r in
+            var sample = TimelineSample(state: state)
+            sample.blueGold = .nan
+            r.timeline = ReplayTimeline(samples: [sample])
+        }, .invalidContent)
+        XCTAssertEqual(error { $0.timeline = ReplayTimeline(events: [TimelineEvent(tick: 5, kind: .ace(team: .blue), pos: Vec2(.nan, 0))]) },
+                       .invalidContent)
+        XCTAssertEqual(error { $0.timeline = ReplayTimeline(coveredTick: 10_000_000) }, .invalidContent)
+    }
+
+    /// 実際に記録した結果・年表（短い AI 同士の試合）は検証を通る。
+    func testValidateAcceptsRecordedSummaryAndTimeline() throws {
+        let config = MatchFactory.spectateMatch(options: SpectateMatchOptions(), seed: 21)
+        let sim = Simulation(config: config, map: MapDefinition.map(for: config.mode))
+        let recorder = ReplayRecorder(config: config)
+        sim.recorder = recorder
+        var builder = ReplayTimelineBuilder()
+        builder.begin(state: sim.state)
+        for _ in 0..<600 {
+            let events = sim.step()
+            builder.observe(events: events, state: sim.state)
+        }
+        recorder.timeline = builder.timeline
+        let replay = recorder.finish(summary: ScoreSystem.summary(sim.state))
+        XCTAssertNoThrow(try ReplayArchiveService.validate(replay, master: master))
+        // 保存形式（"nan" を文字列で書く符号化）を経ても同じ
+        let decoded = try PersistenceService.decodeUntrustedReplay(try XCTUnwrap(PersistenceService.encodeReplay(replay)))
+        XCTAssertNoThrow(try ReplayArchiveService.validate(decoded, master: master))
+    }
+
+    /// 取り込みの経路全体: NaN を含むファイルは保存形式としては読めても、検証で弾かれて一覧に入らない。
+    func testImportRejectsNaNCommandFile() async throws {
+        let config = ServicesFixtures.config(mode: .standard)
+        let state = Simulation(config: config, map: MapDefinition.map(for: config.mode)).state
+        let hero = state.units[state.heroIndices[0]].id
+        var replay = ServicesFixtures.replay(config: config, summary: ServicesFixtures.summary(mode: .standard, won: true, minutes: 12))
+        replay.frames = [ReplayFrame(tick: 3, commands: [HeroCommand(heroID: hero, command: .moveTo(point: Vec2(.nan, .nan)))])]
+        let data = try XCTUnwrap(PersistenceService.encodeReplay(replay))
+        XCTAssertNotNil(try? PersistenceService.decodeUntrustedReplay(data), "形式としては読める")
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        dirs.append(dir)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let file = dir.appendingPathComponent("evil.vreplay")
+        try data.write(to: file)
+
+        let app = AppModel(persistence: make())
+        app.profile = Profile()
+        let result = await ReplayArchiveService.importReplay(from: file, app: app, now: now)
+        XCTAssertEqual(result.failureValue, .invalidContent)
+        XCTAssertTrue(app.profile.replays.isEmpty)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: file.path), "Inbox の外のファイル（利用者のファイル）は消さない")
+    }
+
+    /// 「VELSIA で開く」の複製（Documents/Inbox）だけを取り込み後に消す。/private の付いた URL でも同じ場所と分かる。
+    func testRemoveInboxCopyOnlyTouchesInbox() throws {
+        let documents = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        dirs.append(documents)
+        let inbox = documents.appendingPathComponent("Inbox", isDirectory: true)
+        try FileManager.default.createDirectory(at: inbox, withIntermediateDirectories: true)
+        let copy = inbox.appendingPathComponent("a.vreplay")
+        let other = documents.appendingPathComponent("b.vreplay")
+        try Data("x".utf8).write(to: copy)
+        try Data("y".utf8).write(to: other)
+
+        ReplayArchiveService.removeInboxCopy(other, documents: documents)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: other.path))
+        // シミュレータ・端末の一時フォルダは /var → /private/var のリンク。解いた側の URL でも消せる
+        ReplayArchiveService.removeInboxCopy(copy.resolvingSymlinksInPath(), documents: documents)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: copy.path))
+    }
+
+    /// 書き出しの複製は古いものから片付ける（新しいものは共有シートが使っている途中かもしれないので残す）。
+    func testStaleExportsAreRemoved() throws {
+        let root = ReplayShareItem.exportRoot
+        let stale = root.appendingPathComponent("stale-\(UUID().uuidString)", isDirectory: true)
+        let fresh = root.appendingPathComponent("fresh-\(UUID().uuidString)", isDirectory: true)
+        for d in [stale, fresh] {
+            try FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
+            dirs.append(d)
+        }
+        try FileManager.default.setAttributes([.creationDate: Date().addingTimeInterval(-7200)], ofItemAtPath: stale.path)
+        ReplayShareItem.removeStaleExports()
+        XCTAssertFalse(FileManager.default.fileExists(atPath: stale.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fresh.path))
+    }
+
     func testUnsafeFileNamesAreNeverTouched() throws {
         let persistence = make()
         let outside = persistence.directory.appendingPathComponent("keep.vreplay")
