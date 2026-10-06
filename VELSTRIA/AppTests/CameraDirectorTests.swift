@@ -459,6 +459,46 @@ final class CameraDirectorTests: XCTestCase {
         XCTAssertEqual(c.cameraMode, .free(Vec2(5000, 5000)))
     }
 
+    /// 終わった後（HUD では止まった時間）も控えの残りを減らさない: 終わった画面でヒーローを選んで眺めてから巻き戻しても、
+    /// すぐには自動カメラが奪い返さない（モードが変わらないので見張りでは気付けない）。
+    func testEndedMatchDoesNotRunDownTheBackOff() async {
+        let live = BattleController(launch: BattleLaunch(config: MatchFactory.standardMatch(humanHeroID: "H001", humanName: "P", seed: 6)))
+        for _ in 0..<300 { live.frame(dt: Balance.dt) }
+        let data = try! XCTUnwrap(live.makeOutcome(abandoned: true).replay)
+        var launch = BattleLaunch(config: data.config, replay: data)
+        launch.spectatorOptions.director = true
+        let c = BattleController(launch: launch)
+        let link = SpectatorCameraLink.link(for: c)
+        let d = CameraDirector(controller: c, link: link)
+        let now = TestClock(500)
+        d.clock = { now.now }
+        d.start()
+        defer { d.stop() }
+        run(c, director: d, ticks: 400, clock: now)
+        XCTAssertTrue(c.isEnded, "記録の最終 tick で終わる")
+        let chosen = try! XCTUnwrap(c.state.heroIndices.map { c.state.units[$0].id }.last)
+        // 終わった画面でヒーローを選ぶ（HUDModel.follow と同じく、モードを変えて手動の操作を知らせる）
+        c.cameraMode = .followUnit(chosen)
+        link.noteManualCameraInput()
+        d.update()
+        XCTAssertTrue(d.isSuspended)
+        // 終わった画面のまま 15 秒（実時間）眺める
+        for _ in 0..<150 {
+            now.now += 0.1
+            d.update()
+        }
+        XCTAssertTrue(d.isSuspended, "終わった後は控えの残りが減らない")
+        // 巻き戻して再生しても、すぐには奪い返さない
+        c.requestSeek(toTick: 120)
+        let wall = ContinuousClock()
+        let deadline = wall.now.advanced(by: .seconds(60))
+        while c.seekingToTick != nil && wall.now < deadline { try? await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertFalse(c.isEnded)
+        run(c, director: d, ticks: 30, clock: now)
+        XCTAssertTrue(d.isSuspended)
+        XCTAssertEqual(c.cameraMode, .followUnit(chosen), "巻き戻した直後に自動カメラが奪い返した")
+    }
+
     /// 一時停止メニューで倍率を変えたら、自動カメラは画を変えても倍率を書き戻さない。オンにし直す・ダブルタップで戻すと取り戻す。
     func testZoomSettingWinsUntilTheDirectorIsHandedBack() {
         let app = AppModel(persistence: ServicesFixtures.tempPersistence())

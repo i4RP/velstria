@@ -8,7 +8,7 @@ import VelstriaCore
 //   SimState（集団戦・低 HP の追走・ボス戦・攻城）と合わせて点数を付け、画（単独の追従 / 複数を収める framing）を選ぶ。
 //   画の切替は sim の時間で決める（最短の長さ・ヒステリシス・割り込み）ので、倍速でも慌ただしくならない。
 //   視点チームが選ばれていれば、そのチームに見えているものだけを映す。手動でカメラを動かすとしばらく控える
-//   （控える時間は再生している間だけ減る。一時停止・シーク中は止まった時間として数えない）。
+//   （控える時間は再生している間だけ減る。一時停止・シーク中・終わった後は止まった時間として数えない）。
 // - 倍率: 自動カメラは観戦者が倍率を決めていない間だけ followZoom を書く。観戦者が決めた倍率（ピンチ・一時停止メニューの
 //   「カメラ距離」）が優先で、画を変えても書き戻さない。メニューで変えた倍率から自動カメラが倍率を取り戻すのは、観戦者が
 //   自動カメラをオンにし直した時と、ダブルタップで自動カメラへ戻した時（ダブルタップは倍率も既定へ戻す操作）だけ。
@@ -359,7 +359,7 @@ final class CameraDirector {
     /// 実時間（手動操作の後に控える時間は実時間で数える。倍速でも同じ長さ）。テストで差し替える。
     var clock: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
 
-    /// 手動でカメラを動かした後、自動カメラが控える時間（再生している間の実時間の秒。一時停止・シーク中は数えない）。
+    /// 手動でカメラを動かした後、自動カメラが控える時間（再生している間の実時間の秒。一時停止・シーク中・終わった後は数えない）。
     static let manualSuspendSeconds: TimeInterval = 10
     /// 画を選び直す間隔（sim の秒）。
     static let evaluationInterval: Double = 0.25
@@ -481,11 +481,13 @@ final class CameraDirector {
         }
     }
 
-    /// 一時停止・シーク中（HUD では止まった時間）は、控えの期限をその分だけ先へ送る（明けた直後に奪い返さない）。
+    /// 一時停止・シーク中・終わった後（HUD では止まった時間）は、控えの期限をその分だけ先へ送る（明けた直後に奪い返さない）。
     /// 止まった・動き出した境目のフレームも止まっていた側に数える（一時停止中に描画の間隔が空いても取りこぼさない）。
+    /// 終わった後も数えない: 終わった画面で映しているヒーローを選んで眺めてから巻き戻すと、モードが変わらないので
+    /// 見張り（observedMode）では気付けず、明けた控えのまま奪い返してしまう。
     private func freezeSuspensionWhilePaused() {
         let now = clock()
-        let frozen = controller.isPaused || controller.seekingToTick != nil
+        let frozen = controller.isPaused || controller.seekingToTick != nil || controller.isEnded
         if let last = lastUpdateClock, frozen || wasFrozen, suspendedUntil > last {
             suspendedUntil += max(0, now - last)
         }
