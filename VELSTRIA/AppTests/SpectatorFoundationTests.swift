@@ -110,6 +110,125 @@ final class SpectatorFoundationTests: XCTestCase {
         run(replay2, ticks: 120)
         let early = replay2.makeOutcome(abandoned: true)
         XCTAssertEqual(early.summary, data.summary)
+        XCTAssertTrue(early.abandoned, "最後まで見ずに抜けたリプレイは途中で止めた扱い")
+    }
+
+    // MARK: 最後まで見た後の巻き戻し（結果・保存・視聴記録）
+
+    /// 40 秒（1200 tick）で時間切れになる AI 同士の観戦。
+    private func shortSpectate(seed: UInt64) -> MatchConfig {
+        var config = MatchFactory.botMatch(seed: seed)
+        config.maxDuration = 40
+        return config
+    }
+
+    func testRewindingAFinishedSpectateKeepsTheNaturalEnd() async throws {
+        let config = shortSpectate(seed: 61)
+        let c = BattleController(launch: BattleLaunch(config: config))
+        run(c, ticks: 1300)
+        XCTAssertTrue(c.isEnded)
+        XCTAssertEqual(c.state.tick, 1200)
+        XCTAssertEqual(c.state.endReason, .timeLimit)
+        let natural = ScoreSystem.summary(c.state)
+        XCTAssertTrue(c.hasWatchedToEnd)
+
+        // 「もう一度見る」→ 少し見てから上部の退出で抜ける
+        c.requestSeek(toTick: 0)
+        await waitForSeek(c)
+        XCTAssertFalse(c.isEnded)
+        run(c, ticks: 300)
+        XCTAssertEqual(c.state.tick, 300)
+        XCTAssertTrue(c.hasWatchedToEnd, "巻き戻しても一度最後まで見た試合")
+        let outcome = c.makeOutcome(abandoned: true)
+        XCTAssertFalse(outcome.abandoned, "最後まで見た試合は途中退出にしない")
+        XCTAssertEqual(outcome.summary, natural, "結果は巻き戻した位置ではなく試合の終わり")
+        XCTAssertEqual(outcome.summary.endReason, .timeLimit)
+        let replay = try XCTUnwrap(outcome.replay)
+        XCTAssertEqual(replay.finalTick, 1200)
+        XCTAssertEqual(replay.summary, outcome.summary, "記録の最終 tick と結果が食い違わない")
+        XCTAssertEqual(replay.timeline?.coveredTick, 1200)
+        XCTAssertEqual(ReplayArchiveService.archiveSource(for: outcome), .spectate, "最後まで見た観戦は保存する")
+        XCTAssertEqual(ReplayArchiveService.watchEntry(for: outcome)?.kind, .spectate, "最後まで見た回数に数える")
+    }
+
+    func testLeavingARewoundSpectateUsesTheFurthestState() async throws {
+        let config = MatchFactory.botMatch(seed: 62)
+        let probe = BattleController(launch: BattleLaunch(config: config))
+        run(probe, ticks: 1500)
+        let furthest = ScoreSystem.summary(probe.state)
+
+        let c = BattleController(launch: BattleLaunch(config: config))
+        run(c, ticks: 1500)
+        c.requestSeek(toTick: 300)
+        await waitForSeek(c)
+        XCTAssertEqual(c.state.tick, 300)
+        XCTAssertFalse(c.hasWatchedToEnd)
+        let outcome = c.makeOutcome(abandoned: true)
+        XCTAssertTrue(outcome.abandoned, "最後まで見ていない観戦の退出は途中退出")
+        XCTAssertEqual(outcome.summary, furthest, "結果は到達した最も先の状態（記録の最終 tick と同じ所）")
+        XCTAssertEqual(outcome.summary.endReason, .aborted)
+        XCTAssertEqual(outcome.summary.duration, 1500 * Balance.dt, accuracy: 1e-9)
+        let replay = try XCTUnwrap(outcome.replay)
+        XCTAssertEqual(replay.finalTick, 1500)
+        XCTAssertEqual(replay.summary, outcome.summary)
+    }
+
+    func testReplayWatchedToTheEndThenRewoundIsNotStoppedEarly() async throws {
+        let config = MatchFactory.standardMatch(humanHeroID: "H001", humanName: "P", seed: 13)
+        let live = BattleController(launch: BattleLaunch(config: config))
+        run(live, ticks: 300)
+        let data = try XCTUnwrap(live.makeOutcome(abandoned: true).replay)
+
+        let c = BattleController(launch: BattleLaunch(config: data.config, replay: data))
+        run(c, ticks: 400)
+        XCTAssertTrue(c.isEnded)
+        XCTAssertTrue(c.hasWatchedToEnd)
+        c.requestSeek(toTick: 100)
+        await waitForSeek(c)
+        let outcome = c.makeOutcome(abandoned: true)
+        XCTAssertFalse(outcome.abandoned, "記録の終わりまで見たリプレイは、巻き戻してから抜けても途中で止めた扱いにしない")
+        XCTAssertEqual(outcome.summary, data.summary)
+    }
+
+    func testSeekToTheSameGoalIsNotRestarted() async {
+        let c = BattleController(launch: BattleLaunch(config: MatchFactory.botMatch(seed: 63)))
+        var calls = 0
+        c.seekStateProvider = { _ in
+            calls += 1
+            try? await Task.sleep(for: .milliseconds(100))
+            return nil
+        }
+        c.requestSeek(toTick: 600)
+        c.requestSeek(toTick: 600)
+        await waitForSeek(c)
+        XCTAssertEqual(c.state.tick, 600)
+        XCTAssertEqual(calls, 1, "進行中の同じ目標へのシークは取り消してやり直さない")
+        c.requestSeek(toTick: 300)
+        await waitForSeek(c)
+        XCTAssertEqual(calls, 2)
+        XCTAssertEqual(c.state.tick, 300)
+    }
+
+    func testSeekReadyTickFollowsStatesNotTheStoredTimeline() async throws {
+        let live = BattleController(launch: BattleLaunch(config: MatchFactory.botMatch(seed: 64)))
+        run(live, ticks: 1000)
+        let data = try XCTUnwrap(live.makeOutcome(abandoned: true).replay)
+        XCTAssertEqual(data.timeline?.coveredTick, 1000)
+
+        let c = BattleController(launch: BattleLaunch(config: data.config, replay: data))
+        XCTAssertEqual(c.displayTimeline.coveredTick, 1000, "保存された年表で印は最初から分かる")
+        XCTAssertEqual(c.seekReadyTick, 0, "状態の無い所はすぐにシークできない（網掛けしない）")
+        let spec = HUDSpectatorState()
+        spec.refresh(controller: c, state: c.state, camps: [], paused: false)
+        XCTAssertEqual(spec.transport.endTick, 1000)
+        XCTAssertEqual(spec.transport.coveredTick, 0, "網掛けは事前計算・再生の進み具合")
+        run(c, ticks: 950)
+        XCTAssertEqual(c.seekReadyTick, 950, "一度再生した所まで")
+        c.requestSeek(toTick: 200)
+        await waitForSeek(c)
+        XCTAssertEqual(c.seekReadyTick, 950, "巻き戻しても下がらない")
+        spec.refresh(controller: c, state: c.state, camps: [], paused: false)
+        XCTAssertEqual(spec.transport.coveredTick, 950)
     }
 
     // MARK: シーク

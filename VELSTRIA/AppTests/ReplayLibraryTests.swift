@@ -209,9 +209,14 @@ final class ReplayLibraryTests: XCTestCase {
         XCTAssertEqual(p.replays.filter(\.isFavorite).count, 3, "最も古いお気に入りも残る")
         for f in favorites { XCTAssertTrue(p.replays.contains { $0.id == f.id }) }
 
-        // 外すと通常の上限の対象（最も古いので消える）
+        // 外すと通常の上限の対象に戻るが、その場では消さない（付け直せる）。次に保存した時に最も古いものとして消える
         XCTAssertEqual(ReplayArchiveService.toggleFavorite(id: favorites[0].id, profile: &p, persistence: persistence), .changed(false))
-        XCTAssertFalse(p.replays.contains { $0.id == favorites[0].id })
+        XCTAssertTrue(p.replays.contains { $0.id == favorites[0].id }, "外した直後は残る")
+        XCTAssertEqual(ReplayLibrary.regularCount(p.replays), PersistenceService.maxReplays + 1)
+        XCTAssertTrue(ReplayArchiveService.isOverRegularCap(p))
+        _ = persistence.storeReplay(ServicesFixtures.replay(config: config, summary: summary, ticks: 4000),
+                                    heroID: "H001", won: true, date: now.addingTimeInterval(500), in: &p)
+        XCTAssertFalse(p.replays.contains { $0.id == favorites[0].id }, "次の保存で最も古いので消える")
         XCTAssertEqual(ReplayLibrary.regularCount(p.replays), PersistenceService.maxReplays)
 
         // ディスク上の上限（プロフィールを知らない同期保存の経路）でもお気に入りのファイルは消さない

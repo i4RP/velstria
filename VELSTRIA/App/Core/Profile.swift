@@ -259,10 +259,13 @@ struct ReplayMeta: Codable, Equatable, Identifiable {
     var seed: UInt64?
     /// 10 人のヒーロー（config.players の順: Blue 5 → Red 5）。
     var heroIDs: [String]?
+    /// 記録の中身のキー（構成の全体・長さ・入力の数。ReplayArchiveService.contentKey）。重複の判定に使う。nil = 旧版のメタ。
+    var contentKey: String?
 
     init(id: UUID = UUID(), date: Date, fileName: String, mode: MatchMode, heroID: String?, won: Bool?, duration: Double,
          name: String? = nil, isFavorite: Bool = false, simVersion: Int? = nil, formatVersion: Int? = nil,
-         source: ReplaySource? = nil, ownerSeat: Int? = nil, winner: Team? = nil, seed: UInt64? = nil, heroIDs: [String]? = nil) {
+         source: ReplaySource? = nil, ownerSeat: Int? = nil, winner: Team? = nil, seed: UInt64? = nil, heroIDs: [String]? = nil,
+         contentKey: String? = nil) {
         self.id = id
         self.date = date
         self.fileName = fileName
@@ -279,6 +282,7 @@ struct ReplayMeta: Codable, Equatable, Identifiable {
         self.winner = winner
         self.seed = seed
         self.heroIDs = heroIDs
+        self.contentKey = contentKey
     }
 
     /// 旧版のメタの出どころ（旧版は報酬対象の対戦しか保存しなかった。観戦は AI 同士）。
@@ -299,7 +303,7 @@ struct ReplayMeta: Codable, Equatable, Identifiable {
 
     private enum CodingKeys: String, CodingKey {
         case id, date, fileName, mode, heroID, won, duration
-        case name, isFavorite, simVersion, formatVersion, source, ownerSeat, winner, seed, heroIDs
+        case name, isFavorite, simVersion, formatVersion, source, ownerSeat, winner, seed, heroIDs, contentKey
     }
 }
 
@@ -323,7 +327,8 @@ extension ReplayMeta {
                   ownerSeat: try c.decodeIfPresent(Int.self, forKey: .ownerSeat),
                   winner: try c.decodeIfPresent(Team.self, forKey: .winner),
                   seed: try c.decodeIfPresent(UInt64.self, forKey: .seed),
-                  heroIDs: try c.decodeIfPresent([String].self, forKey: .heroIDs))
+                  heroIDs: try c.decodeIfPresent([String].self, forKey: .heroIDs),
+                  contentKey: try c.decodeIfPresent(String.self, forKey: .contentKey))
     }
 }
 

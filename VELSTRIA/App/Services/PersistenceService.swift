@@ -16,6 +16,8 @@ import VelstriaCore
 //   書き込み中のファイルは存在扱いにし、読み込み・削除・全削除・バックグラウンド移行では書き込み完了を待つ。
 // - リプレイの上限は maxReplays（ここが唯一の定義）。お気に入りは上限の対象外（別枠 maxFavoriteReplays まで）。
 //   突き合わせ（reconcileReplays）とディスク上の上限（enforceReplayFileCap）の両方でお気に入りを消さない。
+//   上限を超えたら、報酬の無い試合から自動で保存した物（AI 同士の観戦・カスタム・オンライン）を先に、古い順に消す
+//   （evictionTier。観戦を続けて見ても、戦績から開ける自分の対戦のリプレイが押し出されない）。
 // - 読み込み・復号は loadReplayAsync でメインスレッドの外で行う（大きなリプレイでも画面を止めない）。
 // - 取り込み（.vreplay）は信用しないデータとして扱い、大きさ・先頭のマジック・展開後の大きさに上限を設けて復号する
 //   （内容の検証は ReplayArchiveService）。
@@ -378,7 +380,8 @@ final class PersistenceService: @unchecked Sendable {
                           heroID: heroID, won: won, duration: Double(replay.finalTick) * Balance.dt,
                           simVersion: config.simVersion, formatVersion: replay.formatVersion,
                           source: source ?? ReplaySource.of(config), ownerSeat: seat,
-                          winner: replay.summary?.winner, seed: config.seed, heroIDs: config.players.map(\.heroID))
+                          winner: replay.summary?.winner, seed: config.seed, heroIDs: config.players.map(\.heroID),
+                          contentKey: ReplayArchiveService.contentKey(of: replay))
     }
 
     /// リプレイをファイルに同期保存する（ディスク上は常に最新 maxReplays 件まで。お気に入りは数えない）。
@@ -443,13 +446,22 @@ final class PersistenceService: @unchecked Sendable {
         replayQueue.sync {}
     }
 
+    /// 上限を超えた時に消す順（小さい方から先に消す）。0 = 報酬の無い試合から自動で保存した物（AI 同士の観戦・カスタム・
+    /// オンライン。観戦は同じシードで見直せる）、1 = 自分の対戦（戦績から開ける）と自分で取り込んだ物。同じ順なら古い物から。
+    static func evictionTier(_ meta: ReplayMeta) -> Int {
+        switch meta.source {
+        case .spectate, .custom, .online: return 0
+        case .standard, .imported: return 1
+        }
+    }
+
     /// profile.replays とディスク上のファイルを突き合わせる:
-    /// ファイルの無いメタを除去、上限超過分（お気に入り以外を古い順）を削除、どのメタにも属さないファイルを削除、戦績のリンクを整理。
+    /// ファイルの無いメタを除去、上限超過分（お気に入り以外。自動で保存した観戦などを先に、その中で古い順）を削除、
+    /// どのメタにも属さないファイルを削除、戦績のリンクを整理。
     func reconcileReplays(profile: inout Profile) {
         let fm = FileManager.default
         var seen = Set<String>()
-        var kept: [ReplayMeta] = []
-        var regularCount = 0
+        var valid: [ReplayMeta] = []
         let sorted = profile.replays.sorted { a, b in
             a.date != b.date ? a.date > b.date : a.fileName < b.fileName
         }
@@ -458,13 +470,23 @@ final class PersistenceService: @unchecked Sendable {
             seen.insert(meta.fileName)
             let url = replaysDirectory.appendingPathComponent(meta.fileName)
             guard fm.fileExists(atPath: url.path) || isReplayWritePending(meta.fileName) else { continue }
-            if meta.isFavorite {
-                // お気に入りは上限の対象外（自動では消さない）
+            valid.append(meta)
+        }
+        // お気に入りは上限の対象外（自動では消さない）。それ以外は上限を超えた分を消す順に選ぶ
+        let regular = valid.indices.filter { !valid[$0].isFavorite }
+        let overflow = max(0, regular.count - Self.maxReplays)
+        let evicted = Set(regular.sorted { a, b in
+            let ta = Self.evictionTier(valid[a]), tb = Self.evictionTier(valid[b])
+            return ta != tb ? ta < tb : a > b   // valid は新しい順なので、添字の大きい方が古い
+        }.prefix(overflow))
+        var kept: [ReplayMeta] = []
+        for (i, meta) in valid.enumerated() {
+            guard evicted.contains(i) else {
                 kept.append(meta)
-            } else if regularCount < Self.maxReplays {
-                regularCount += 1
-                kept.append(meta)
-            } else if isReplayWritePending(meta.fileName) {
+                continue
+            }
+            let url = replaysDirectory.appendingPathComponent(meta.fileName)
+            if isReplayWritePending(meta.fileName) {
                 // 書き込み後に消す（同じキューで順に処理される）
                 replayQueue.async { try? FileManager.default.removeItem(at: url) }
             } else {
@@ -480,6 +502,11 @@ final class PersistenceService: @unchecked Sendable {
             try? fm.removeItem(at: file)
         }
         unlinkMissingReplays(profile: &profile)
+    }
+
+    /// ディスク上の上限（enforceReplayFileCap）から守るファイルを、今のお気に入りに合わせる（突き合わせ・削除はしない）。
+    func updateFavoriteProtection(_ profile: Profile) {
+        setProtectedReplayNames(Set(profile.replays.filter(\.isFavorite).map(\.fileName)))
     }
 
     func loadReplay(_ meta: ReplayMeta) -> ReplayData? {

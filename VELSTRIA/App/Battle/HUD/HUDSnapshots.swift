@@ -236,7 +236,7 @@ struct HUDTransportSnapshot: Equatable {
     var tick = 0
     /// バーの右端（リプレイ = 最終 tick、観戦 = 分かっている所まで）。
     var endTick = 1
-    /// 年表が分かっている所まで（網掛け。バックグラウンドの事前計算・一度見た区間）。
+    /// すぐにシークできる所まで（網掛け。事前計算のキーフレーム・一度見た区間。年表だけ分かっている所は含めない）。
     var coveredTick = 0
     /// シークできる最後の tick（観戦は試合の最大時間）。
     var upperBound = 1

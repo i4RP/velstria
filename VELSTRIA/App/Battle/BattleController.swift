@@ -99,6 +99,11 @@ final class BattleController {
     /// 試合全体の年表が先に分かっている場合（年表入りのリプレイ、バックグラウンドの事前計算）。
     @ObservationIgnored private(set) var fullTimeline: ReplayTimeline?
     @ObservationIgnored private var seekTask: Task<Void, Never>?
+    /// 到達した最も先の tick（シークで戻っても下がらない）。リプレイを最後まで見たか・シークバーの網掛けに使う。
+    @ObservationIgnored private(set) var furthestTick = 0
+    /// 記録の先端（recorder.lastTick）の結果。観戦で先端から巻き戻す直前に取っておく（巻き戻してから抜けても、
+    /// 記録した区間と同じ所の結果を使う。リプレイの最終 tick・年表と食い違わない）。
+    @ObservationIgnored private var frontierSummary: (tick: Int, summary: MatchSummary)?
     /// シークの目標 tick の状態をメインスレッド外で作る（ReplayBaker が登録）。nil を返したら従来どおりここで進める。
     /// 返す状態は目標 tick のもの（または目標より前に試合が終わった状態）。
     @ObservationIgnored var seekStateProvider: (@MainActor (Int) async -> SimState?)?
@@ -263,6 +268,10 @@ final class BattleController {
         if let full = fullTimeline, full.coveredTick >= timelineBuilder.timeline.coveredTick { return full }
         return timelineBuilder.timeline
     }
+
+    /// すぐにシークできる所まで（シークバーの網掛け）: 状態のある所 = キーフレーム（事前計算・再生・シークのワーカー）と、
+    /// 一度再生した所まで。年表（displayTimeline）は保存されていれば最初から分かるが、状態の無い所へのシークは再計算に時間が掛かる。
+    var seekReadyTick: Int { max(keyframes.last?.tick ?? 0, furthestTick, sim.state.tick) }
 
     /// オンラインの観戦席: 配信の遅延（秒）。観戦席以外は nil。
     var onlineSpectatorDelaySeconds: Double? {
@@ -493,6 +502,9 @@ final class BattleController {
     func requestSeek(toTick target: Int) {
         guard isSeekable else { return }
         let goal = max(0, min(target, seekUpperBound))
+        // 同じ目標へのシークが進行中なら続ける（取り消して最初からやり直すと、それまでの再計算が無駄になる）
+        if seekingToTick == goal { return }
+        captureFrontierIfNeeded()
         seekTask?.cancel()
         seekingToTick = goal
         seekTask = Task { @MainActor [weak self] in
@@ -537,12 +549,34 @@ final class BattleController {
         }
         if Task.isCancelled { return }
         finishReplayIfNeeded(dispatchEnd: false)
+        furthestTick = max(furthestTick, sim.state.tick)
         accumulator = 0
         interpolationAlpha = 1
         isEnded = sim.isEnded
         seekingToTick = nil
         presentationEpoch &+= 1
         hudTick &+= 1
+    }
+
+    /// 記録の先端にいる間に、その時点の結果を取っておく（この後のシークで先端から離れる）。観戦の記録だけ。
+    private func captureFrontierIfNeeded() {
+        guard let recorder, sim.state.tick >= recorder.lastTick, frontierSummary?.tick != sim.state.tick else { return }
+        frontierSummary = (sim.state.tick, ScoreSystem.summary(sim.state))
+    }
+
+    /// 観戦で記録の先端から巻き戻している時の、先端の結果（先端にいる・記録しない時は nil = 今の状態から作る）。
+    private var rewoundFrontierSummary: MatchSummary? {
+        guard let recorder, let f = frontierSummary, f.tick == recorder.lastTick, sim.state.tick < f.tick else { return nil }
+        return f.summary
+    }
+
+    /// シークできる観戦・リプレイを一度最後まで見たか（リプレイは記録の最終 tick、観戦は試合の自然な終わり。中断は含めない）。
+    /// 巻き戻してから抜けても、最後まで見た試合として扱う（保存・視聴記録・結果）。
+    var hasWatchedToEnd: Bool {
+        guard isSeekable else { return false }
+        if let final = replayFinalTick { return furthestTick >= final }
+        let reason = rewoundFrontierSummary?.endReason ?? (sim.isEnded ? sim.state.endReason : nil)
+        return reason != nil && reason != .aborted
     }
 
     /// 一時停止中のコマ送り（イベントは配る）。
@@ -614,6 +648,7 @@ final class BattleController {
     /// step の後処理（年表・シーク用キーフレーム）。
     private func observeStep(_ events: [SimEvent]) {
         timelineBuilder.observe(events: events, state: sim.state)
+        furthestTick = max(furthestTick, sim.state.tick)
         if isSeekable, sim.state.tick % Self.keyframeInterval == 0, sim.state.tick > (keyframes.last?.tick ?? -1) {
             keyframes.append(sim.state)
         }
@@ -673,12 +708,15 @@ final class BattleController {
 
     /// 試合結果（リザルト用）。オンライン対戦では「人間」を自分だけにする（勝敗・強調表示は自分の視点）。
     /// リプレイは記録時の結果を使う（途中で抜けても、巻き戻していても、試合本来の結果を見せる）。
+    /// 観戦で巻き戻してから抜けた時は、記録の先端（到達した最も先）の結果を使う。一度最後まで見ていれば途中退出にしない。
     func makeOutcome(abandoned: Bool) -> BattleOutcome {
         seekTask?.cancel()
         seekTask = nil
         seekingToTick = nil
-        if abandoned && !sim.isEnded { sim.abort() }
-        var summary = ScoreSystem.summary(sim.state)
+        let abandoned = abandoned && !hasWatchedToEnd
+        let frontier = rewoundFrontierSummary
+        if (abandoned || frontier != nil) && !sim.isEnded { sim.abort() }
+        var summary = frontier ?? ScoreSystem.summary(sim.state)
         if let recorded = launch.replay?.summary {
             summary = recorded
         } else if launch.onlineSpectator {
