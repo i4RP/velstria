@@ -274,3 +274,92 @@ final class RenderLogicTests: XCTestCase {
 private extension Float {
     var radians: Float { self * .pi / 180 }
 }
+
+// MARK: - 観戦（ゾーンの観戦色・影と頭上バーの倍率）
+
+extension RenderLogicTests {
+    private func spectatorZone(team: Team, heal: Bool, mixed: Bool = false) -> AreaZone {
+        let payload = HitPayload(damage: heal && !mixed ? 0 : 50, damageType: .magic, source: .skill(.skill3),
+                                 affectsEnemies: !heal || mixed, affectsAllies: heal, healAmount: heal ? 80 : 0)
+        return AreaZone(id: 1, ownerID: 2, team: team, center: .zero, radius: 300, delay: 0.5, payload: payload, visual: "")
+    }
+
+    func testZoneColorsAreNeutralForSpectators() {
+        for colorblind in [false, true] {
+            let teams = TeamColors(colorblind: colorblind)
+            // 視点なし（観戦の全体視点）: どちらのチームもチーム色。Blue を味方扱いしない（B29）
+            XCTAssertEqual(ZoneLayer.color(for: spectatorZone(team: .blue, heal: false), viewer: nil, teams: teams), teams.light(.blue))
+            XCTAssertEqual(ZoneLayer.color(for: spectatorZone(team: .red, heal: false), viewer: nil, teams: teams), teams.light(.red))
+            // 回復と攻撃を兼ねるゾーンも両チーム同じ規則（以前は Blue だけ回復の緑）
+            XCTAssertEqual(ZoneLayer.color(for: spectatorZone(team: .blue, heal: true, mixed: true), viewer: nil, teams: teams),
+                           teams.light(.blue))
+            XCTAssertEqual(ZoneLayer.color(for: spectatorZone(team: .red, heal: true, mixed: true), viewer: nil, teams: teams),
+                           teams.light(.red))
+            // 味方だけを癒やすゾーンは誰が見ても回復の緑、中立は橙
+            XCTAssertEqual(ZoneLayer.color(for: spectatorZone(team: .red, heal: true), viewer: nil, teams: teams), ZoneLayer.healColor)
+            XCTAssertEqual(ZoneLayer.color(for: spectatorZone(team: .neutral, heal: false), viewer: nil, teams: teams),
+                           ZoneLayer.neutralColor)
+            XCTAssertEqual(ZoneLayer.spectatorColors(teams: teams), [teams.light(.blue), teams.light(.red)])
+        }
+        // 視点チームがあれば従来どおり（Red の視点では Red のゾーンが味方の水色）
+        let teams = TeamColors(colorblind: false)
+        XCTAssertEqual(ZoneLayer.color(for: spectatorZone(team: .red, heal: false), viewer: .red, teams: teams), ZoneLayer.allyColor)
+        XCTAssertEqual(ZoneLayer.color(for: spectatorZone(team: .blue, heal: false), viewer: .red, teams: teams), ZoneLayer.enemyColor)
+        XCTAssertEqual(ZoneLayer.color(for: spectatorZone(team: .red, heal: true, mixed: true), viewer: .red, teams: teams),
+                       ZoneLayer.healColor)
+    }
+
+    func testZoneLayerRecolorsWhenTheViewerChanges() {
+        let materials = RenderMaterials(colorblind: false)
+        let layer = ZoneLayer(materials: materials, meshes: UnitMeshLibrary())
+        layer.prewarm(count: 2, radii: [3])
+        let c = BattleController(launch: BattleLaunch(config: MatchFactory.botMatch(seed: 1)))
+        var s = c.state
+        var z = spectatorZone(team: .blue, heal: false)
+        z.id = 4242
+        z.center = Vec2(6000, 6000)
+        s.zones = [z]
+        func frame(_ viewer: Team?) -> RenderFrame {
+            RenderFrame(state: s, alpha: 1, dt: 1.0 / 60, time: 0, viewerTeam: viewer, humanID: nil, focusID: nil,
+                        ended: false, winner: nil)
+        }
+        layer.sync(frame(nil))
+        XCTAssertEqual(layer.displayedColor(4242), materials.teams.light(.blue))
+        // 観戦者が Blue の視点を選んだ: 表示中のゾーンも塗り直す
+        layer.sync(frame(.blue))
+        XCTAssertEqual(layer.displayedColor(4242), ZoneLayer.allyColor)
+        layer.sync(frame(nil))
+        XCTAssertEqual(layer.displayedColor(4242), materials.teams.light(.blue))
+        layer.teardown()
+    }
+
+    func testShadowExtentFollowsTheRealZoom() {
+        // 設定の範囲（≤ 1.3）では従来どおり固定
+        XCTAssertEqual(BattleRenderer.shadowExtentScale(forZoom: 0.8), 1)
+        XCTAssertEqual(BattleRenderer.shadowExtentScale(forZoom: 1.3), 1)
+        // 観戦者が引いたら 0.1 刻みで広げる（2.5 倍 → 1.93 → 2.0）
+        XCTAssertEqual(BattleRenderer.shadowExtentScale(forZoom: 1.31), 1.1)
+        XCTAssertEqual(BattleRenderer.shadowExtentScale(forZoom: 2.5), 2.0, accuracy: 1e-5)
+        XCTAssertEqual(BattleRenderer.shadowExtentScale(forZoom: .infinity), 1)
+        // 刻みを広げた範囲に合わせても、画素格子に丸めた位置は格子の整数倍
+        let q = simd_quatf(angle: 0.7, axis: simd_normalize(SIMD3<Float>(-0.3, 1, 0.2)))
+        let step = BattleRenderer.shadowSnapStep * 2
+        let p = BattleRenderer.snappedSunPosition(center: SIMD3(41.3, 0, -57.9), orientation: q, step: step)
+        let a = simd_dot(p, q.act([1, 0, 0])) / step
+        XCTAssertEqual(a, a.rounded(), accuracy: 1e-3)
+    }
+
+    func testOverheadBarScaleWidensOnlyForWideSpectatorZoom() {
+        XCTAssertEqual(OverheadBar.zoomScale(forZoom: 1.0), 1)
+        XCTAssertEqual(OverheadBar.zoomScale(forZoom: 1.4), 1, "プレイヤーの倍率範囲では従来どおり")
+        let k = OverheadBar.zoomScale(forZoom: 2.5)
+        XCTAssertEqual(k, Float((2.5 / 1.4).squareRoot()), accuracy: 1e-5)
+        // 近い距離は同じ。遠い距離（引いた時の画面中央）は上限を広げて読める大きさを保つ
+        XCTAssertEqual(OverheadBar.screenScale(distance: 11, zoomScale: k), 1)
+        XCTAssertEqual(OverheadBar.screenScale(distance: 30, zoomScale: 1), OverheadBar.maxScreenScale)
+        let wide = OverheadBar.screenScale(distance: 30, zoomScale: k)
+        XCTAssertGreaterThan(wide, OverheadBar.maxScreenScale)
+        XCTAssertLessThan(wide, 30 / OverheadBar.referenceDistance, "引いた時はバーも少し小さく見える")
+        XCTAssertEqual(OverheadBar.screenScale(distance: 1, zoomScale: k), 0.5)
+    }
+}

@@ -521,6 +521,9 @@ final class HeroVisual {
     let modelRoot = Entity()
     let handle: HeroModelHandle
     let ring: ModelEntity
+    /// 観戦・死亡中の味方追従で、カメラが追っているヒーロー（RenderFrame.focusID）の足元に出す金色の輪。
+    /// 生成時に作って無効にしておき、切り替えは isEnabled だけ（プレイ中にエンティティを作らない）。
+    let focusRing: ModelEntity
     let bar: OverheadBar
     let status: StatusIndicators
     private(set) var animState: HeroAnimState = .idle
@@ -533,6 +536,7 @@ final class HeroVisual {
     private var attackUntil: Float = -1
     private var deadTime: Float = 0
     private var ringPulse: Float = 0
+    private var focusPulse: Float = 0
     private var isSelf: Bool
     private var lastResource: Double = -1
 
@@ -552,6 +556,13 @@ final class HeroVisual {
         ring.position.y = GroundLayer.unitRing
         OverlayOrder.apply(ring, isSelf ? OverlayOrder.selfRing : OverlayOrder.ring)
         root.addChild(ring)
+        // 追っているヒーローの輪: チームの輪より一回り大きい金色（色だけでなく大きさと脈動でも区別する）
+        focusRing = ModelEntity(mesh: meshes.ring(radius: HeroVisual.focusRingRadius, thickness: 0.1) ?? meshes.unitSphere,
+                                materials: [materials.unlit(HeroVisual.focusRingColor, alpha: 0.95)])
+        focusRing.position.y = GroundLayer.unitRing
+        OverlayOrder.apply(focusRing, OverlayOrder.selfRing)
+        focusRing.isEnabled = false
+        root.addChild(focusRing)
         let fill = isSelf ? TeamColors.selfColor : materials.teams.main(u.team)
         let resColor = h?.resourceKind == .energy ? RGB(1.0, 0.84, 0.3) : RGB(0.35, 0.62, 1.0)
         bar = OverheadBar(style: .hero(isSelf: isSelf, showResource: isSelf), fillColor: fill, materials: materials,
@@ -564,6 +575,15 @@ final class HeroVisual {
         yaw = yawForFacing(u.facing)
         root.position = worldPosition(u.pos)
         modelRoot.orientation = simd_quatf(angle: yaw, axis: [0, 1, 0])
+    }
+
+    /// 追っているヒーローの輪の色・半径。
+    static let focusRingColor = TeamColors.gold
+    static let focusRingRadius: Float = 0.98
+
+    /// 追っている輪を出すか: カメラの注目対象（観戦の追従・死亡中の味方追従）で、自分自身ではなく、生きている。
+    static func showsFocusRing(id: EntityID, frame f: RenderFrame, dead: Bool) -> Bool {
+        !dead && f.focusID == id && f.humanID != id
     }
 
     func noteCast(_ slot: SkillSlot, time: Float) {
@@ -622,6 +642,13 @@ final class HeroVisual {
             ringPulse += dt
             let s = 1 + sin(ringPulse * 3) * 0.03
             ring.scale = [s, 1, s]
+        }
+        let focused = HeroVisual.showsFocusRing(id: id, frame: f, dead: dead)
+        if focused != focusRing.isEnabled { focusRing.isEnabled = focused }
+        if focused {
+            focusPulse += dt
+            let s = 1 + sin(focusPulse * 3.4) * 0.05
+            focusRing.scale = [s, 1, s]
         }
         if !dead {
             let maxHP = max(1, u.stats.maxHP)

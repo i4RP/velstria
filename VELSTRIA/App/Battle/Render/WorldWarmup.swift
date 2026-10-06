@@ -103,6 +103,13 @@ extension BattleWorld {
 
     var isWarmupGalleryOpen: Bool { gallery != nil }
 
+    /// 全体視点で始まる観戦: 霧の板を透明なまま幕の裏で描いておく（試合中に視点チームを選んだ時に、霧のマテリアルの
+    /// 準備で詰まらないように）。幕が上がったら BattleWorld.syncFogVision が隠す。
+    func prepareSpectatorFog() {
+        guard controller.isSpectating, controller.viewerTeam == nil, let fog else { return }
+        fog.beginWarmupDisplay()
+    }
+
     // MARK: 作る
 
     /// ヒーロー・構造物の見た目を作る（最初の同期と同じ処理。何度呼んでも同じ）。

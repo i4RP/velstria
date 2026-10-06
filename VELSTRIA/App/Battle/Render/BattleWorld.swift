@@ -4,6 +4,8 @@ import UIKit
 import VelstriaCore
 
 // 担当: battle-renderer。読み込み完了後の描画世界（各レイヤーの所有者）と SimEvent → 演出の振り分け。
+// 観戦: 霧は常に作り（全体視点では隠す）、観戦者の視点チームの切替に追従する。自動カメラ（CameraDirector）の
+// 持ち主で、カメラの追従先の解決（倒れた対象・消えた対象・霧の向こうの対象・複数対象の framing）と切替の移り方を決める。
 
 @MainActor
 final class BattleWorld {
@@ -19,8 +21,13 @@ final class BattleWorld {
     let zones: ZoneLayer
     let vfx: VFXSystem
     let aim: AimLayer
+    /// 霧（プレイヤーは自チームの視界。観戦者は常に作り、視点チームを選んだ時だけ出す）。
     let fog: FogOfWar?
     let ambient: AmbientParticles
+    /// 観戦カメラの窓口（HUD の指の操作と共有）。
+    let cameraLink: SpectatorCameraLink
+    /// 自動カメラ（観戦中のみ）。
+    let director: CameraDirector?
     /// 読み込み幕の裏の陳列（makeWarmupPlan が開き、finishWarmup で片付ける。WorldWarmup.swift）。
     var gallery: WarmupGallery?
     /// 陳列を開いた時の sim の tick（sim が進んだら幕が上がったとみなして片付ける安全策）。
@@ -38,6 +45,18 @@ final class BattleWorld {
     private var textStacks: [EntityID: TextStack] = [:]
     private let teamLightBlue: UIColor
     private let teamLightRed: UIColor
+    /// 直前の有効な注視点（追従対象が消えた・霧に入った時はここに留まる）。
+    private var lastCameraTarget: SIMD2<Float>?
+    /// 直前のフレームで追っていた主役・注視の種類（切替の検出）。
+    private var lastCameraSubject: EntityID?
+    private var lastCameraKind: CameraAim.Kind = .follow
+    /// カメラが最後に見た presentationEpoch（シーク・再同期でカメラを切り替える）。
+    private var cameraEpoch: Int?
+    /// 画面に映る地面の範囲（world x・z の外接矩形 + 余白。演出の間引き）。
+    private var cullBounds: (min: SIMD2<Float>, max: SIMD2<Float>)?
+    /// 最後に同期した視点チーム（一時停止中の視点の切替を検出する）。
+    private var syncedViewer: Team?
+    private var hasSyncedViewer = false
     #if DEBUG
     private let showcase: RenderShowcase?
     #endif
@@ -68,12 +87,15 @@ final class BattleWorld {
         ambient = AmbientParticles(map: controller.ctx.map, teams: materials.teams, texture: vfx.starTexture,
                                    quality: settings.quality)
         root.addChild(ambient.root)
-        if let viewer = controller.viewerTeam {
-            fog = FogOfWar(team: viewer, size: settings.quality.fogTextureSize)
+        if controller.viewerTeam != nil || controller.isSpectating {
+            // 観戦者は試合中に視点チームを選べるので、全体視点で始まっても作っておく（途中で作るとヒッチになる）
+            fog = FogOfWar(team: controller.viewerTeam, size: settings.quality.fogTextureSize)
             if let fog { root.addChild(fog.entity) }
         } else {
             fog = nil
         }
+        cameraLink = SpectatorCameraLink.link(for: controller)
+        director = controller.isSpectating ? CameraDirector(controller: controller, link: cameraLink) : nil
         #if DEBUG
         showcase = RenderShowcase.isRequested ? RenderShowcase(master: controller.ctx.master) : nil
         #endif
@@ -82,6 +104,8 @@ final class BattleWorld {
             self.vfx.ring(at: pos, color: color, from: max(0.3, radius * 0.4), to: radius * 1.1, duration: 0.45)
             self.vfx.spawn(.areaBlast, at: pos, color: color.uiColor, scale: radius, important: true)
         }
+        prepareSpectatorFog()
+        director?.start()
     }
 
     var liveEntityCount: Int { units.liveCount + projectiles.count + zones.count + vfx.activeCount }
@@ -101,6 +125,7 @@ final class BattleWorld {
         if gallery != nil, controller.state.tick != galleryTick { finishWarmup() }
         gallery?.update(dt: dt)
         time += dt
+        updateCullBounds(rig: rig)
         #if DEBUG
         var frame = makeFrame(dt: dt)
         frame.camera = rig.camera.position
@@ -113,6 +138,8 @@ final class BattleWorld {
         var frame = makeFrame(dt: dt)
         frame.camera = rig.camera.position
         #endif
+        syncedViewer = frame.viewerTeam
+        hasSyncedViewer = true
         for e in events { handle(e, frame: frame) }
         if shakeRequest > 0 {
             rig.addShake(shakeRequest)
@@ -123,11 +150,7 @@ final class BattleWorld {
         projectiles.sync(frame) { [units] id in units.headHeight(id) }
         zones.sync(frame)
         vfx.update(dt: dt)
-        // 詠唱ループを本人に追従
-        for i in frame.state.units.indices where frame.state.units[i].kind == .hero && frame.state.units[i].hero?.channel != nil {
-            let id = frame.state.units[i].id
-            if vfx.hasLoop(id), let p = units.worldPositionOf(id) { vfx.moveLoop(id: id, to: p) }
-        }
+        updateChannelLoops(frame)
         // 照準
         var aimOrigin: Vec2?
         if let id = controller.humanHeroID, let p = units.worldPositionOf(id) {
@@ -150,6 +173,7 @@ final class BattleWorld {
             map.markBrushes(overlapping: bounds.center, radius: bounds.radius, map: mapDef)
         }
         map.applyBrushTranslucency()
+        syncFogVision()
         fog?.update(state: frame.state, dt: dt)
         flushHealText(dt: dt, frame: frame)
     }
@@ -179,11 +203,65 @@ final class BattleWorld {
         return p + SIMD3(0, units.headHeight(id) + bar, 0)
     }
 
+    /// 画面に映る地面の近く（演出の間引き）。カメラの実際の倍率で変わる映る範囲（+ 余白）で判定する（B28）。
     private func nearCamera(_ p: SIMD3<Float>) -> Bool {
+        if let b = cullBounds { return BattleWorld.isInside(p, bounds: b) }
         guard let arView else { return true }
         let c = arView.cameraTransform.translation
         let dx = p.x - c.x, dz = p.z - (c.z - 7)
         return dx * dx + dz * dz < 24 * 24
+    }
+
+    /// 演出を出す範囲の余白（m。画面の外から飛び込む粒子・輪の分）。
+    static let cullMargin: Float = 3
+
+    /// 画面に映る地面（sim 座標の 4 隅）→ world x・z の外接矩形 + 余白。
+    static func cullBounds(footprint: [Vec2], margin: Float) -> (min: SIMD2<Float>, max: SIMD2<Float>)? {
+        guard footprint.count >= 3 else { return nil }
+        var lo = SIMD2<Float>(repeating: .greatestFiniteMagnitude), hi = -lo
+        for v in footprint {
+            let w = SIMD2(Float(v.x / Balance.unitsPerMeter), Float(-v.y / Balance.unitsPerMeter))
+            lo = simd_min(lo, w)
+            hi = simd_max(hi, w)
+        }
+        return (lo - SIMD2(repeating: margin), hi + SIMD2(repeating: margin))
+    }
+
+    static func isInside(_ p: SIMD3<Float>, bounds b: (min: SIMD2<Float>, max: SIMD2<Float>)) -> Bool {
+        p.x >= b.min.x && p.x <= b.max.x && p.z >= b.min.y && p.z <= b.max.y
+    }
+
+    /// 描画中の画面の縦横比（ARView の大きさ。まだ無ければ横長 iPhone の値）。
+    private var viewAspect: Float {
+        guard let size = arView?.bounds.size, size.width > 0, size.height > 0 else { return CameraRig.designAspect }
+        return Float(size.width / size.height)
+    }
+
+    private func updateCullBounds(rig: CameraRig) {
+        cullBounds = BattleWorld.cullBounds(footprint: rig.groundFootprint(aspectRatio: viewAspect), margin: BattleWorld.cullMargin)
+    }
+
+    /// 詠唱ループ（帰還・転移）: 視点チームから見えている間だけ出して本人に追従させ、見えなくなったら止める
+    /// （霧に入った敵の帰還・転移の位置を漏らさない。B6）。途中で見えるようになった詠唱にも付ける。
+    /// 見え方は本体のフェード値で判定し、霧の縁での点滅を避ける（付ける 0.65 以上・外す 0.35 未満）。
+    private func updateChannelLoops(_ f: RenderFrame) {
+        let s = f.state
+        for i in s.units.indices where s.units[i].kind == .hero {
+            let id = s.units[i].id
+            let channel = s.units[i].hero?.isDead == false ? s.units[i].hero?.channel : nil
+            let hasLoop = vfx.hasLoop(id)
+            // 本体の見え方（視点チームから見えている間 1 へ、見えなくなると 0 へ素早くフェードする）
+            let visibility = units.hero(id)?.visibility ?? 0
+            if let channel, visibility >= (hasLoop ? 0.35 : 0.65), let p = units.worldPositionOf(id) {
+                if hasLoop {
+                    vfx.moveLoop(id: id, to: p)
+                } else {
+                    vfx.startLoop(id: id, at: p, color: channel.kind == .recall ? teamColor(id, f) : FXColors.teleport)
+                }
+            } else if hasLoop {
+                vfx.stopLoop(id: id)
+            }
+        }
     }
 
     private func heroColor(_ id: EntityID?, _ f: RenderFrame) -> UIColor {
@@ -499,56 +577,215 @@ final class BattleWorld {
 
     // MARK: カメラ
 
-    func updateCamera(rig: CameraRig, dt: Float, snap: Bool) {
-        let (target, free) = cameraFocus()
-        var zoom = controller.effectiveCameraZoom
-        #if DEBUG
-        if let z = StageDebug.cameraZoom { zoom = z }
-        #endif
-        rig.update(target: target, zoom: zoom, free: free, dt: dt, mapMeters: MapScene.mapMeters)
+    /// 注視の解決結果（カメラの追従先と、切替の検出に使う主役）。
+    struct CameraAim: Equatable {
+        enum Kind: Equatable {
+            /// ユニットの追従（注視点を少し前方へずらす）。
+            case follow
+            /// 自由視点（ミニマップ・パン）。
+            case free
+            /// 複数のユニットを収める（注視点と倍率を逆算）。
+            case framing
+        }
+
+        /// 追従先の world (x, z)。nil = 有効な追従先が無い（直前の注視点に留まる）。
+        var target: SIMD2<Float>?
+        var kind: Kind = .follow
+        /// 追っている主役（切替の検出）。自由視点は nil。
+        var subject: EntityID?
+        /// 複数のユニットを収める倍率（framing のみ）。
+        var fitZoom: Double?
+        /// 注視点を追従先より北へずらす量の上書き（m）。
+        var lead: Float?
     }
 
-    /// カメラの注視点（world x・z）と自由視点か。
+    /// 倒れたヒーローを追っている時、倒れた場所を見せる時間（sim の秒）。過ぎたら同じチームの近くの味方を映す（B30）。
+    static let deathHoldSeconds: Double = 2.4
+    /// 死亡中の味方追従（プレイヤー）: 追っている味方を画面の中央より少し上に置く（下の味方一覧に隠れないように。m）。
+    static let deathFollowLead: Float = -0.7
+
+    func updateCamera(rig: CameraRig, dt: Float, snap: Bool) {
+        if controller.isPaused { refreshVisionWhilePaused(rig: rig, dt: dt) }
+        director?.update()
+        let aim = resolveCameraAim()
+        let target = aim.target ?? lastCameraTarget ?? rig.focus.value
+        if let t = aim.target { lastCameraTarget = t }
+        var drive = CameraDrive(target: target, zoom: controller.effectiveCameraZoom, free: aim.kind != .follow)
+        drive.lead = aim.lead
+        drive.zoomRange = controller.isSpectating ? CameraRig.spectatorZoomRange : CameraRig.playerZoomRange
+        if let fit = aim.fitZoom {
+            // 複数を収める: 今の倍率より寄らない（単独の追従との行き来で寄り引きを繰り返さない）。
+            // 寄り引きと注視点はゆっくり動かす（人の出入りで画面が揺れないように）
+            drive.zoom = max(fit, controller.effectiveCameraZoom)
+            drive.focusSmoothTime = 0.4
+            drive.zoomSmoothTime = 0.7
+            drive.snapsOnTeleport = false
+        }
+        drive.direct = aim.kind == .free && cameraLink.isPanning
+        drive.directZoom = cameraLink.isPinching
+        #if DEBUG
+        if let z = StageDebug.cameraZoom { drive.zoom = z }
+        #endif
+        drive.transition = cameraTransition(rig: rig, aim: aim, target: target, snap: snap)
+        rig.update(drive, dt: dt, mapMeters: MapScene.mapMeters)
+        lastCameraSubject = aim.subject
+        lastCameraKind = aim.kind
+        // 指の操作（パン・ピンチ）の起点と、引いた時の頭上バーの大きさ（実際に描いている距離から。B27 と同じ考え）
+        let f = rig.focus.value
+        cameraLink.renderedFocus = Vec2(Double(f.x) * Balance.unitsPerMeter, -Double(f.y) * Balance.unitsPerMeter)
+        cameraLink.renderedZoom = rig.currentZoom
+        OverheadBar.zoomScale = OverheadBar.zoomScale(forZoom: rig.currentZoom)
+    }
+
+    /// 切替の移り方: 最初・snap・シーク/再同期（presentationEpoch の変化）は即座に。追う主役が変わった時
+    /// （観戦者の選択・自動カメラ・倒れた対象の代わり）は近ければ滑らかに、遠ければ即座に切り替える（B26）。
+    private func cameraTransition(rig: CameraRig, aim: CameraAim, target: SIMD2<Float>, snap: Bool) -> CameraTransition {
+        let epoch = controller.presentationEpoch
+        defer { cameraEpoch = epoch }
+        if let last = cameraEpoch, last != epoch {
+            // シーク・再同期: 霧も次の目標へ補間せずに合わせる（飛んだ先の視界を、前の視界からゆっくり変えない）
+            fog?.refreshImmediately()
+        }
+        if snap || cameraEpoch != epoch { return .cut }
+        guard aim.kind != .free, aim.subject != nil,
+              aim.subject != lastCameraSubject || aim.kind != lastCameraKind else { return .follow }
+        return BattleWorld.transition(forSwitchDistance: simd_distance(rig.focus.value, target))
+    }
+
+    /// 主役を切り替える時の移り方（移る距離 m から）。
+    static func transition(forSwitchDistance d: Float) -> CameraTransition {
+        if d > CameraRig.cutDistance { return .cut }
+        if d > 1.5 { return .glide(CameraRig.glideDuration(distance: d)) }
+        return .follow
+    }
+
+    /// カメラの注視点（world x・z）と自由視点か（読み込み幕の裏の陳列の位置などに使う）。
     func cameraFocus() -> (target: SIMD2<Float>, free: Bool) {
-        var target = SIMD2<Float>(repeating: 0)
-        var free = false
+        let aim = resolveCameraAim()
+        return (aim.target ?? lastCameraTarget ?? SIMD2(repeating: 0), aim.kind != .follow)
+    }
+
+    /// 今のカメラモードから注視を解決する（状態は変えない）。
+    func resolveCameraAim() -> CameraAim {
+        #if DEBUG
+        if let t = StageDebug.cameraTarget { return CameraAim(target: t, kind: .free) }
+        #endif
+        let s = controller.state
+        let viewer = controller.viewerTeam
         switch controller.cameraMode {
         case .followHero:
             if let id = controller.humanHeroID, let p = units.worldPositionOf(id) {
-                target = SIMD2(p.x, p.z)
-            } else if let i = controller.state.humanHeroIndex {
-                let p = worldPosition(controller.state.units[i].pos)
-                target = SIMD2(p.x, p.z)
+                return CameraAim(target: SIMD2(p.x, p.z), subject: id)
             }
+            if let i = s.humanHeroIndex {
+                let p = worldPosition(s.units[i].pos)
+                return CameraAim(target: SIMD2(p.x, p.z), subject: s.units[i].id)
+            }
+            return CameraAim()
         case .followUnit(let id):
-            if let p = units.worldPositionOf(id) {
-                target = SIMD2(p.x, p.z)
-            } else if let u = controller.state.unit(id) {
-                let p = worldPosition(u.pos)
-                target = SIMD2(p.x, p.z)
-            }
+            return followAim(id, state: s, viewer: viewer)
         case .free(let v):
             let p = worldPosition(v)
-            target = SIMD2(p.x, p.z)
-            free = true
+            return CameraAim(target: SIMD2(p.x, p.z), kind: .free)
         case .framing(let ids):
-            // 対象の重心（描画位置があればそれ、無ければ sim の位置）。誰もいなければ注視点を動かさない
-            var sum = SIMD2<Float>(repeating: 0)
-            var n: Float = 0
-            for id in ids {
-                if let p = units.worldPositionOf(id) {
-                    sum += SIMD2(p.x, p.z); n += 1
-                } else if let u = controller.state.unit(id) {
-                    let p = worldPosition(u.pos)
-                    sum += SIMD2(p.x, p.z); n += 1
-                }
-            }
-            if n > 0 { target = sum / n }
+            return framingAim(ids, state: s, viewer: viewer)
         }
-        #if DEBUG
-        if let t = StageDebug.cameraTarget { return (t, true) }
-        #endif
-        return (target, free)
+    }
+
+    /// ユニットの追従。消えた（撃破で列から除かれた）・視点チームから見えない対象は直前の注視点に留まる（B25・霧の向こうを漏らさない）。
+    /// 倒れたヒーローは倒れた場所を少し見せてから、同じチームの近くの味方を映す（復活したら本人へ戻る。B30）。
+    private func followAim(_ id: EntityID, state s: SimState, viewer: Team?) -> CameraAim {
+        var aim = CameraAim(subject: id)
+        if !controller.isSpectating { aim.lead = BattleWorld.deathFollowLead }
+        guard let i = s.index(of: id) else { return aim }
+        let u = s.units[i]
+        let dead = u.kind == .hero && (u.hero?.isDead == true || !u.isAlive)
+        if let viewer, !dead, !s.isVisible(i, to: viewer) { return aim }
+        if dead {
+            // 視点チームから見えない敵の死は、見えていた最後の場所に留まる
+            if let viewer, u.team != viewer, !s.vision.isLit(u.pos, for: viewer) { return aim }
+            let since = s.time - (u.deathTime ?? s.time)
+            if since >= BattleWorld.deathHoldSeconds, let ally = BattleWorld.nearestAlly(of: i, state: s, viewer: viewer) {
+                let allyID = s.units[ally].id
+                let p = units.worldPositionOf(allyID) ?? worldPosition(s.units[ally].pos)
+                aim.subject = allyID
+                aim.target = SIMD2(p.x, p.z)
+                return aim
+            }
+            let p = worldPosition(u.pos)
+            aim.target = SIMD2(p.x, p.z)
+            return aim
+        }
+        let p = units.worldPositionOf(id) ?? worldPosition(u.pos)
+        aim.target = SIMD2(p.x, p.z)
+        return aim
+    }
+
+    /// 倒れたヒーローの代わりに映す味方（同じチームで生きていて、視点チームから見えている。倒れた場所に一番近い）。
+    static func nearestAlly(of i: Int, state s: SimState, viewer: Team?) -> Int? {
+        let origin = s.units[i].pos
+        var best: (index: Int, d: Double)?
+        for j in s.heroIndices(team: s.units[i].team) where j != i {
+            let u = s.units[j]
+            guard u.isAlive, u.hero?.isDead == false else { continue }
+            if let viewer, !s.isVisible(j, to: viewer) { continue }
+            let d = u.pos.distanceSquared(to: origin)
+            if best == nil || d < best!.d { best = (j, d) }
+        }
+        return best?.index
+    }
+
+    /// 複数のユニットを収める（自動カメラの集団戦）。視点チームから見えないユニット・倒れたヒーローは除く。
+    private func framingAim(_ ids: [EntityID], state s: SimState, viewer: Team?) -> CameraAim {
+        var points: [SIMD2<Float>] = []
+        points.reserveCapacity(ids.count)
+        for id in ids {
+            guard let i = s.index(of: id) else { continue }
+            let u = s.units[i]
+            guard u.isAlive, u.hero?.isDead != true else { continue }
+            if let viewer, !s.isVisible(i, to: viewer) { continue }
+            let p = units.worldPositionOf(id) ?? worldPosition(u.pos)
+            points.append(SIMD2(p.x, p.z))
+        }
+        var aim = CameraAim(kind: .framing, subject: ids.first)
+        guard let fit = CameraRig.framing(points, aspectRatio: viewAspect) else {
+            // 誰も映せない（全員倒れた・霧に入った）: 主役の追従として扱う（倒れた主役は代わりの味方へ）
+            if let first = ids.first {
+                var follow = followAim(first, state: s, viewer: viewer)
+                follow.lead = nil
+                return follow
+            }
+            return aim
+        }
+        aim.target = fit.focus
+        aim.lead = 0
+        aim.fitZoom = Double(fit.distance / CameraRig.baseDistance)
+        return aim
+    }
+
+    /// 一時停止中（sync が呼ばれない）に観戦者が視点チームを切り替えた: 描画を一度だけ同期して見え方・ゾーンの色を合わせ、
+    /// 霧は落ち着くまで更新を続ける（停止中は sim が変わらないので、落ち着いた後は何もしない）。
+    private func refreshVisionWhilePaused(rig: CameraRig, dt: Float) {
+        if !hasSyncedViewer || syncedViewer != controller.viewerTeam {
+            // 見え方のフェードを一度で終える長さ（フェードは dt × 9 で進む）
+            sync(events: [], dt: 0.25, rig: rig)
+        }
+        if let fog, !fog.isSettled {
+            syncFogVision()
+            fog.update(state: controller.state, dt: dt)
+        }
+    }
+
+    /// 観戦者の視界（全体 / Blue / Red）の切替を霧へ反映する。全体視点で始まる観戦は、読み込み幕が上がるまで
+    /// 透明な霧の板を描いて準備しておく（WorldWarmup.prepareSpectatorFog）。
+    private func syncFogVision() {
+        guard let fog else { return }
+        if fog.isShowingWarmup {
+            guard controller.isPresentationReady else { return }
+            fog.endWarmupDisplay()
+        }
+        let want = controller.viewerTeam
+        if fog.team != want { fog.setTeam(want) }
     }
 
     // MARK: 設定・破棄
@@ -564,6 +801,9 @@ final class BattleWorld {
     }
 
     func teardown() {
+        director?.stop()
+        OverheadBar.zoomScale = 1
+        cameraLink.renderedFocus = nil
         finishWarmup()
         vfx.clear()
         units.teardown()
