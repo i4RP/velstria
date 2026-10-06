@@ -217,12 +217,29 @@ final class OverheadBar {
 
     /// この距離（m）で設計寸法どおりの大きさに見える。
     static let referenceDistance: Float = 11
+    /// 拡縮の上限（プレイヤーの倍率範囲。画面上端の遠いバーはこれ以上大きくしない）。
+    static let maxScreenScale: Float = 1.8
+    /// 観戦者が大きく引いた時に上限を広げる倍率（BattleWorld がカメラの実際の倍率から毎フレーム設定する。
+    /// プレイヤーの倍率範囲では 1 で従来どおり）。
+    static var zoomScale: Float = 1
     private var screenScale: Float = 1
+
+    /// カメラの倍率 → 上限の広げ方。引くほどバーも少しずつ小さく見えるよう、倍率の平方根で広げる
+    /// （2.5 倍で上限 ×1.34: 画面中央のバーは設計寸法の約 85%、地図全体を見渡しても読める大きさ）。
+    static func zoomScale(forZoom zoom: Double) -> Float {
+        guard zoom.isFinite else { return 1 }
+        return Float(max(1, zoom / CameraRig.playerZoomRange.upperBound).squareRoot())
+    }
+
+    /// 距離 → 拡縮（純関数。テスト用）。
+    static func screenScale(distance: Float, zoomScale k: Float) -> Float {
+        max(0.5, min(maxScreenScale * max(1, k), distance / referenceDistance))
+    }
 
     /// 画面上の大きさを一定に保つ（カメラからの距離に比例して拡縮。手前の構造物のバーが巨大化しない）。
     func keepScreenSize(camera: SIMD3<Float>) {
         let world = (root.parent?.position ?? .zero) + root.position
-        let s = max(0.5, min(1.8, simd_distance(world, camera) / OverheadBar.referenceDistance))
+        let s = OverheadBar.screenScale(distance: simd_distance(world, camera), zoomScale: OverheadBar.zoomScale)
         guard abs(s - screenScale) > 0.01 else { return }
         screenScale = s
         root.scale = SIMD3(repeating: s)

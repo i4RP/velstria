@@ -5,12 +5,14 @@ import RealityKit
 import UIKit
 import VelstriaCore
 
-// 担当: battle-renderer。戦場の霧（非観戦）。
+// 担当: battle-renderer。戦場の霧（プレイヤーは自チームの視界。観戦者は選んだチームの視界、全体視点では霧を出さない）。
 // state.vision.cells（60×60）→ 双線形で N×N へ拡大 → ボックスぼかし 2 回、を 10Hz で行い（視界は 3 tick 毎にしか変わらない）、
 // 時間方向の補間は毎フレーム指数的に行って地面すぐ上の半透明な板の不透明度テクスチャ（LowLevelTexture）へ転送する
 // （10Hz で段階的に動かすと、走っている間に霧の縁がカクついて見える）。
 // 目標の計算（拡大・ぼかし）は背景キュー（FogWorker）で行い、出来上がった配列を表示側と入れ替える（二重バッファ）。
 // メインスレッドに残るのは毎フレームの補間と転送だけで、補間が目標に届いたら転送も止める。
+// 観戦者は試合中に視点チーム（全体 / Blue / Red）を切り替えられる（setTeam）。全体視点では板を隠して計算もしない。
+// Blue ⇄ Red は今の霧から滑らかに移り、隠していた状態から出す時は最初の目標に合わせてから見せる（古い濃度を見せない）。
 
 /// 霧の濃度場（純粋な計算部分。テスト可能）。0 = 見えている、1 = 霧。
 struct FogField {
@@ -109,6 +111,15 @@ struct FogField {
         }
     }
 
+    /// 全体を一様な濃度にする（観戦の全体視点の準備描画: 0 = 霧なし）。次の目標は補間せずにそのまま採用する。
+    mutating func reset(to v: Float) {
+        for i in current.indices {
+            current[i] = v
+            target[i] = v
+        }
+        initialized = false
+    }
+
     /// 現在値を目標へ k だけ近づける（0〜1）。戻り値 = 補間後に残った差の最大値。
     @discardableResult
     mutating func blend(_ k: Float) -> Float {
@@ -196,8 +207,25 @@ final class FogWorker: @unchecked Sendable {
 final class FogOfWar {
     let entity: ModelEntity
     private var field: FogField
-    private let team: Team
+    /// 視点チーム（nil = 霧を出さない。観戦の全体視点）。
+    private(set) var team: Team?
     private let worker: FogWorker
+    /// 視点チームを切り替えた回数（切替前に投げた計算の結果を捨てる）。
+    private var generation = 0
+    /// 隠していた状態から出す: 最初の目標に補間なしで合わせ、転送してから板を見せる。
+    private var revealPending = false
+    /// 読み込み幕の裏で、透明な霧の板を描いている（観戦の全体視点でもパイプラインを準備しておく）。
+    private(set) var isShowingWarmup = false
+    /// 次に計算する目標は補間せずに合わせる（refreshImmediately）。
+    private var snapNext = false
+    /// 今の視点チームで目標を受け取った世代（切替後の最初の目標が届くまで古い）。
+    private var receivedGeneration = -1
+
+    /// 表示が今の視点チームの目標に落ち着いている（一時停止中に更新を続けるかの判定。視点なしは常に落ち着いている）。
+    var isSettled: Bool {
+        guard team != nil else { return true }
+        return receivedGeneration == generation && !blending && !revealPending && !isComputing
+    }
     private var accumulator: Float = 1
     /// 背景で計算中（結果が戻るまで次を投げない）。
     private(set) var isComputing = false
@@ -225,7 +253,7 @@ final class FogOfWar {
     /// 表示中の濃度場（テスト用）。
     var displayedField: FogField { field }
 
-    init?(team: Team, size: Int) {
+    init?(team: Team?, size: Int) {
         self.team = team
         field = FogField(size: size)
         let n = field.size
@@ -279,21 +307,71 @@ final class FogOfWar {
         mat.writesDepth = false
         AssetLedger.record(.material, "fog unlit")
         entity.model?.materials = [mat]
+        entity.isEnabled = team != nil
+    }
+
+    /// 視点チームを切り替える（観戦者の視界: 全体 / Blue / Red）。nil で板を隠して計算も止める。
+    func setTeam(_ t: Team?) {
+        guard t != team else { return }
+        let wasHidden = team == nil || !entity.isEnabled
+        team = t
+        generation &+= 1
+        guard t != nil else {
+            revealPending = false
+            if !isShowingWarmup { entity.isEnabled = false }
+            return
+        }
+        // 次の update ですぐ作り直す（0.1 秒ちょうど = 補間する側。隠していた時は revealPending で合わせる）
+        accumulator = max(accumulator, 0.1)
+        if wasHidden && !isShowingWarmup {
+            revealPending = true
+            entity.isEnabled = false
+        }
+    }
+
+    /// 次の更新ですぐ目標を作り直し、補間せずに合わせる（シーク・再同期で状態が飛んだ時）。
+    func refreshImmediately() {
+        snapNext = true
+        accumulator = max(accumulator, 1)
+    }
+
+    /// 読み込み幕の裏で透明な霧の板を描く（全体視点で始まる観戦でも、霧のマテリアルを幕の裏で一度描いておく）。
+    func beginWarmupDisplay() {
+        isShowingWarmup = true
+        field.reset(to: 0)
+        upload()
+        entity.isEnabled = true
+    }
+
+    /// 幕が上がった: 視点チームが無ければ板を隠す（あれば通常どおり、次の目標に合わせて出す）。
+    func endWarmupDisplay() {
+        guard isShowingWarmup else { return }
+        isShowingWarmup = false
+        if team == nil {
+            entity.isEnabled = false
+        } else {
+            revealPending = true
+            entity.isEnabled = false
+            accumulator = max(accumulator, 0.1)
+        }
     }
 
     /// 目標の霧は 10Hz で作り直し（背景キュー）、表示は毎フレーム目標へ滑らかに近づける（時定数 1/8 秒 ≒ 従来の 10Hz × 55%）。
     func update(state: SimState, dt: Float) {
+        guard let team else { return }
         accumulator += dt
         // 前の計算の結果待ちで遅れているだけの間は「久しぶり」に数えない
         if isComputing { accumulator = min(accumulator, 0.1) }
         if accumulator >= 0.1, !isComputing {
             // 久しぶりの計算（最初・長い中断の後）は補間せずに目標へ合わせる
-            let first = accumulator > 0.5
+            let first = accumulator > 0.5 || snapNext
+            snapNext = false
             accumulator = 0
             isComputing = true
             let vision = state.vision
+            let gen = generation
             worker.compute(cells: vision.cells, cols: vision.cols, rows: vision.rows, bit: team.visionBit) { [weak self] t in
-                MainActor.assumeIsolated { self?.receive(t, first: first) }
+                MainActor.assumeIsolated { self?.receive(t, first: first, generation: gen) }
             }
         }
         guard blending else { return }
@@ -315,11 +393,27 @@ final class FogOfWar {
     }
 
     /// 背景で出来た目標を表示側と入れ替える（メインスレッド）。
-    private func receive(_ target: [Float], first: Bool) {
+    private func receive(_ target: [Float], first: Bool, generation gen: Int) {
         isComputing = false
+        guard gen == generation, team != nil else {
+            // 切替前の視点チームで作った目標は使わない（次の update ですぐ作り直す）
+            worker.recycle(target)
+            accumulator = max(accumulator, 0.1)
+            return
+        }
+        receivedGeneration = gen
         var t = target
         field.swapTarget(&t)
         worker.recycle(t)
+        if revealPending {
+            revealPending = false
+            field.blend(1)
+            upload()
+            blending = false
+            retargetPending = false
+            entity.isEnabled = true
+            return
+        }
         if first { field.blend(1) }
         blending = true
         retargetPending = true

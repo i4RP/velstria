@@ -45,6 +45,8 @@ final class BattleRenderer {
     private var paceAccumulator: Double = 0
     /// 太陽の影を描いているか（ウォームアップでは両方の状態を描く）。
     private var sunShadowOn = false
+    /// 影マップの範囲の倍率（観戦者が大きく引いた時だけ 1 より大きい。shadowExtentScale）。
+    private var shadowScale: Float = 1
     /// 端末本来の描画倍率（ウィンドウへ載った時に読む）と、適用中の倍率。
     private var nativeScale: CGFloat = 0
     private var appliedScale: Float = 1
@@ -161,12 +163,23 @@ final class BattleRenderer {
 
     /// 影マップが覆う範囲（太陽に垂直な面での半径 m）。横長 iPhone（2.16:1）・ズーム 1.3 で画面に映る地面は
     /// 光の座標で半径 18.3 m（中心を shadowCenterOffset に置いた場合）+ 揺れの余白。
-    static let shadowHalfExtent: Float = 20
+    nonisolated static let shadowHalfExtent: Float = 20
     /// 画面に映る地面を光の座標で囲んだ箱の中心（注視点からのずれ、ズーム 1 あたり。world x・z）。
     /// 太陽の向き・カメラの俯角 56°・縦画角 48°・2.16:1 から求めた値（同じ光線上なら地面のどの点でも同じ箱になる）。
-    static let shadowCenterOffset = SIMD2<Float>(-0.79, -6.11)
+    nonisolated static let shadowCenterOffset = SIMD2<Float>(-0.79, -6.11)
     /// 影マップの画素格子へ丸める刻み。2·範囲/256 は 256〜4096 px のどの解像度でも画素幅の整数倍になる。
-    static let shadowSnapStep: Float = 2 * shadowHalfExtent / 256
+    nonisolated static let shadowSnapStep: Float = 2 * shadowHalfExtent / 256
+    /// 影マップの範囲が足りる倍率の上限（プレイヤーの設定の上限）。
+    nonisolated static let shadowFixedZoom: Double = 1.3
+
+    /// カメラの倍率 → 影マップの範囲の倍率。設定の範囲（≤ 1.3）では 1（従来どおり）。観戦者が引いた時は画面に映る地面を
+    /// 覆うよう 0.1 刻みで広げる（刻むのは影の投影を作り直す回数を抑えるため。解像度は範囲に反比例して粗くなる）。
+    nonisolated static func shadowExtentScale(forZoom zoom: Double) -> Float {
+        guard zoom.isFinite else { return 1 }
+        let need = zoom / shadowFixedZoom
+        guard need > 1 + 1e-6 else { return 1 }
+        return Float((need * 10).rounded(.up) / 10)
+    }
 
     private func applyShadows() {
         setSunShadow(governed.settings.quality.shadows)
@@ -178,28 +191,40 @@ final class BattleRenderer {
         if on {
             // .automatic はカメラの視錐台へ毎フレーム合わせ直すため、カメラが動くと影の縁が這うように揺らぐ。
             // 範囲固定の正射影にして太陽を注視点へ追従させ、位置を画素格子に丸める（followSun）
-            sun.shadow = DirectionalLightComponent.Shadow(
-                shadowProjection: .fixed(zNear: 1, zFar: 100, orthographicScale: BattleRenderer.shadowHalfExtent), depthBias: 1.6)
+            sun.shadow = BattleRenderer.sunShadow(scale: shadowScale)
             followSun()
         } else {
             sun.shadow = nil
         }
     }
 
+    /// 範囲固定の正射影の影（scale = 範囲の倍率）。
+    private static func sunShadow(scale: Float) -> DirectionalLightComponent.Shadow {
+        DirectionalLightComponent.Shadow(
+            shadowProjection: .fixed(zNear: 1, zFar: 100, orthographicScale: shadowHalfExtent * scale), depthBias: 1.6)
+    }
+
     /// 太陽（影の投影の中心）を画面に映る地面の中心へ動かす。向きは固定で、光の座標の x・y を画素格子に丸める。
+    /// 倍率は設定値ではなくカメラが実際に描いている距離から（減衰中・観戦者のピンチ・自動カメラの framing を含む。B27）。
     private func followSun() {
         guard sunShadowOn else { return }
         let f = rig.focus.value
-        let zoom = Float(min(max(controller.effectiveCameraZoom, 0.7), 1.4))
-        let o = BattleRenderer.shadowCenterOffset * zoom
+        let zoom = rig.currentZoom
+        let scale = BattleRenderer.shadowExtentScale(forZoom: zoom)
+        if scale != shadowScale {
+            shadowScale = scale
+            sun.shadow = BattleRenderer.sunShadow(scale: scale)
+        }
+        let o = BattleRenderer.shadowCenterOffset * Float(zoom)
         let c = SIMD3<Float>(f.x + o.x, 0, f.y + o.y)
-        sun.position = BattleRenderer.snappedSunPosition(center: c, orientation: sun.orientation)
+        sun.position = BattleRenderer.snappedSunPosition(center: c, orientation: sun.orientation,
+                                                         step: BattleRenderer.shadowSnapStep * scale)
     }
 
-    /// 光の右・上の軸で丸めた太陽の位置（中心から光の逆向きに 50 m 下がった点）。
-    static func snappedSunPosition(center c: SIMD3<Float>, orientation q: simd_quatf) -> SIMD3<Float> {
+    /// 光の右・上の軸で丸めた太陽の位置（中心から光の逆向きに 50 m 下がった点）。step = 画素格子の刻み。
+    nonisolated static func snappedSunPosition(center c: SIMD3<Float>, orientation q: simd_quatf,
+                                   step: Float = shadowSnapStep) -> SIMD3<Float> {
         let right = q.act([1, 0, 0]), up = q.act([0, 1, 0]), forward = q.act([0, 0, -1])
-        let step = shadowSnapStep
         let a = (simd_dot(c, right) / step).rounded() * step
         let b = (simd_dot(c, up) / step).rounded() * step
         return right * a + up * b + forward * (simd_dot(c, forward) - 50)

@@ -5,6 +5,8 @@ import VelstriaCore
 // 担当: battle-renderer。地面ゾーンの予告（円・扇・線の半透明デカール）。
 // 予告中は内側の塗りが中心から広がり（delay の進捗）、発動で輪と粒子が弾ける。持続ゾーンは脈動する。
 // 色: 味方に有益 = 緑、視点チームのゾーン = 水色、敵 = 赤、中立 = 橙。
+// 観戦の全体視点（視点チームなし）はどちらの味方でもないので、チーム色（色覚配慮の配色に従う）で塗る。
+// 観戦者が視点チームを切り替えたら、表示中のゾーンも塗り直す。
 
 @MainActor
 final class ZoneLayer {
@@ -33,6 +35,9 @@ final class ZoneLayer {
     private var fading: [Visual] = []
     private var pool: [Visual] = []
     private var stamp = 0
+    /// 表示中のゾーンを塗った視点チーム（切り替わったら塗り直す）。
+    private var colorViewer: Team?
+    private var hasColorViewer = false
     /// 発動時の演出（world 位置・色・半径）を呼び出し側へ通知する。
     var onTrigger: ((SIMD3<Float>, RGB, Float) -> Void)?
 
@@ -73,14 +78,23 @@ final class ZoneLayer {
         if z.payload.affectsAllies && (z.payload.healAmount > 0 || z.payload.shieldAmount > 0) && !z.payload.affectsEnemies {
             return healColor
         }
-        if z.payload.healAmount > 0 && z.team == (viewer ?? .blue) { return healColor }
+        guard let viewer else {
+            // 観戦の全体視点: 味方・敵の区別をせず、どちらのチームのゾーンも同じ規則（チーム色）で塗る
+            return z.team == .neutral ? neutralColor : spectatorColor(z.team, teams: teams)
+        }
+        if z.payload.healAmount > 0 && z.team == viewer { return healColor }
         switch z.team {
         case .neutral: return neutralColor
         default:
-            let ally = z.team == (viewer ?? .blue)
-            return ally ? allyColor : enemyColor
+            return z.team == viewer ? allyColor : enemyColor
         }
     }
+
+    /// 観戦の全体視点でのチームのゾーン色（チームの明色。色覚配慮の配色では青・橙）。
+    static func spectatorColor(_ team: Team, teams: TeamColors) -> RGB { teams.light(team) }
+
+    /// 観戦の全体視点で使うゾーン色（マテリアルの事前生成に使う）。
+    static func spectatorColors(teams: TeamColors) -> [RGB] { Team.players.map { spectatorColor($0, teams: teams) } }
 
     /// 試合のヒーローのスキルが作るゾーンの半径（m）。SkillArchetypes で ZoneSystem.spawn する型だけ（いずれも円）。
     static func plannedRadii(state: SimState, master: MasterData) -> [Float] {
@@ -108,7 +122,7 @@ final class ZoneLayer {
         _ = meshes.unitDisc
         _ = meshes.groundStrip
         for r in radii { _ = meshes.ring(radius: r, thickness: ZoneLayer.edgeThickness) }
-        for c in ZoneLayer.colors {
+        for c in ZoneLayer.colors + ZoneLayer.spectatorColors(teams: materials.teams) {
             _ = materials.unlit(c, alpha: ZoneLayer.alphas.fill)
             _ = materials.unlit(c, alpha: ZoneLayer.alphas.progress)
             _ = materials.unlit(c, alpha: ZoneLayer.alphas.edge)
@@ -217,6 +231,15 @@ final class ZoneLayer {
     func sync(_ f: RenderFrame) {
         stamp &+= 1
         let state = f.state
+        if !hasColorViewer || colorViewer != f.viewerTeam {
+            // 観戦者が視点チームを切り替えた: 表示中のゾーンを新しい視点の色へ塗り直す
+            hasColorViewer = true
+            colorViewer = f.viewerTeam
+            for k in state.zones.indices {
+                guard let v = active[state.zones[k].id] else { continue }
+                recolor(v, color: ZoneLayer.color(for: state.zones[k], viewer: f.viewerTeam, teams: materials.teams))
+            }
+        }
         for k in state.zones.indices {
             let z = state.zones[k]
             if let viewer = f.viewerTeam, z.team != viewer, !state.vision.isLit(z.center, for: viewer) {
@@ -331,6 +354,18 @@ final class ZoneLayer {
             }
         }
     }
+
+    /// 形はそのままで色だけ差し替える（マテリアルは事前生成済みのものを使う）。
+    private func recolor(_ v: Visual, color: RGB) {
+        guard v.color != color else { return }
+        v.color = color
+        v.fill.model?.materials = [materials.unlit(color, alpha: ZoneLayer.alphas.fill)]
+        v.progress.model?.materials = [materials.unlit(color, alpha: ZoneLayer.alphas.progress)]
+        v.edge.model?.materials = [materials.unlit(color, alpha: ZoneLayer.alphas.edge)]
+    }
+
+    /// 表示中のゾーンの色（テスト用）。
+    func displayedColor(_ id: EntityID) -> RGB? { active[id]?.color }
 
     func teardown() {
         root.removeFromParent()

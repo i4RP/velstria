@@ -6,6 +6,8 @@ import VelstriaCore
 // 左下: スティック / 右下: 攻撃・スキル・スペル・帰還 / 下中央: ヒーローパネル
 // 観戦・リプレイでは操作部品を隠し、速度・追従・進行バーを出す。左利き配置では左右を反転する。
 // 15Hz で変わる値は各レイヤーの小さなビューだけが読む（HUD 全体の body を毎回評価しない）。
+// 観戦者は最下層の操作レイヤーで 3D 画面をドラッグ・ピンチ・ダブルタップできる（HUDSpectatorGestures）。
+// 倒れている間は彩度を落とす幕（操作部品の下）と、復活までの秒・味方の一覧（操作部品の上）を出す。
 
 struct BattleHUDView: View {
     let controller: BattleController
@@ -78,8 +80,10 @@ private struct HUDRoot: View {
         let tutorialDone = model.tutorial?.isComplete ?? false
         let showControls = !spectating && !ended && !tutorialDone
         ZStack {
+            // 観戦者の 3D 画面の操作（最下層: 上の操作部品が先に触れる）
+            if spectating && !ended { HUDSpectatorGestureLayer(model: model, layout: layout) }
             if !spectating { HUDVignetteLayer(model: model) }
-            if showControls { HUDDeathLayer(model: model, scale: layout.scale) }
+            if showControls { HUDDeathLayer(model: model) }
 
             // 操作部品と情報（HUD の不透明度を適用）
             Group {
@@ -110,6 +114,14 @@ private struct HUDRoot: View {
             .opacity(settings.hudOpacity)
             .allowsHitTesting(!model.isTacticalMapOpen)
             .accessibilityHidden(model.isTacticalMapOpen)
+
+            // 倒れている間の情報と味方の一覧（操作部品より上: スティックの受付領域より先に触れる）
+            if showControls {
+                HUDDeathSpectateLayer(model: model, layout: layout)
+                    .opacity(settings.hudOpacity)
+                    .allowsHitTesting(!model.isTacticalMapOpen)
+                    .accessibilityHidden(model.isTacticalMapOpen)
+            }
 
             HUDBannerLayer(model: model, layout: layout)
             if !ended && !tutorialDone { HUDTutorialLayer(model: model, layout: layout) }
@@ -154,14 +166,31 @@ private struct HUDVignetteLayer: View {
     }
 }
 
+/// 倒れている間の彩度を落とす幕（操作部品の下）。
 private struct HUDDeathLayer: View {
     let model: HUDModel
-    let scale: CGFloat
 
     var body: some View {
         ZStack {
             if model.hero.isDead {
-                HUDDeathOverlay(model: model, scale: scale)
+                HUDDeathBackdrop(followingAlly: model.cameraFollowID != nil)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: model.hero.isDead)
+    }
+}
+
+/// 倒れている間の復活までの秒・味方の一覧（死亡中の味方追従）。
+private struct HUDDeathSpectateLayer: View {
+    let model: HUDModel
+    let layout: HUDLayout
+
+    var body: some View {
+        ZStack {
+            if model.hero.isDead {
+                HUDDeathOverlay(model: model, layout: layout)
+                    .transition(.opacity)
             }
         }
         .animation(.easeInOut(duration: 0.3), value: model.hero.isDead)
