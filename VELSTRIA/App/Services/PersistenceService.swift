@@ -517,10 +517,11 @@ final class PersistenceService: @unchecked Sendable {
         }
     }
 
-    /// 保存中のリプレイの合計サイズ（メインスレッドの外で数える）。
+    /// 保存中のリプレイの合計サイズ（メインスレッドの外で、書き込み待ちが終わってから数える）。
     func replayStorageBytesAsync() async -> Int64 {
         await withCheckedContinuation { (continuation: CheckedContinuation<Int64, Never>) in
             DispatchQueue.global(qos: .utility).async { [self] in
+                waitForReplayWrites()
                 continuation.resume(returning: replayStorageBytes())
             }
         }
