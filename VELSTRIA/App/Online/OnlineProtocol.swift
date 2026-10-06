@@ -103,10 +103,11 @@ struct OnlineRoom: Codable, Hashable {
     /// 人間が選んだヒーロー（重複ピックの判定用）。
     var pickedHeroIDs: Set<String> { Set(humanSeats.compactMap(\.loadout.heroID)) }
 
-    /// 開始できるか: 人間が 1 人以上座り、座っている人間は全員ヒーローを選んで準備完了。
+    /// 開始できるか: ホストが座り、座っている人間は全員ヒーローを選んで準備完了。
+    /// （ホストが座らずに始めると、権威シミュレーションを回す端末が無く部屋全体が止まる）
     var canStart: Bool {
         let humans = humanSeats
-        guard !humans.isEmpty else { return false }
+        guard !humans.isEmpty, seat(of: hostPeerID) != nil else { return false }
         return humans.allSatisfy { $0.loadout.heroID != nil && $0.ready }
     }
 

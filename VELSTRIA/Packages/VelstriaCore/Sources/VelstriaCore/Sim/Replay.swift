@@ -21,14 +21,17 @@ public struct ReplayData: Codable, Hashable, Sendable {
     public var frames: [ReplayFrame]
     public var finalTick: Int
     public var summary: MatchSummary?
+    /// 試合の年表（キル・構造物・目標・ゴールド推移）。古いファイルや記録しなかった場合は nil（再生中に作り直す）。
+    public var timeline: ReplayTimeline?
 
     public init(formatVersion: Int = ReplayData.currentFormatVersion, config: MatchConfig, frames: [ReplayFrame],
-                finalTick: Int, summary: MatchSummary?) {
+                finalTick: Int, summary: MatchSummary?, timeline: ReplayTimeline? = nil) {
         self.formatVersion = formatVersion
         self.config = config
         self.frames = frames
         self.finalTick = finalTick
         self.summary = summary
+        self.timeline = timeline
     }
 
     /// 現在のシミュレーションで再生できるか（ルール版数・形式が一致）。
@@ -50,13 +53,22 @@ public final class ReplayRecorder {
     }
 
     public func record(tick: Int, commands: [HeroCommand]) {
-        lastTick = tick
+        // 観戦のシークで戻っても、記録の終わりは到達した最も先の tick（観戦の記録は入力が無いので途中の列は変わらない）
+        lastTick = max(lastTick, tick)
         if !commands.isEmpty { frames.append(ReplayFrame(tick: tick, commands: commands)) }
     }
 
+    /// 年表（記録側が step 毎に作ったもの）。finish でリプレイに同梱する。
+    public var timeline: ReplayTimeline?
+    /// 記録が試合の途中から・途中が抜けている（オンラインの再同期など）。再現できないので保存しない。
+    public private(set) var isIncomplete = false
+
+    /// 記録を不完全にする（状態を外から置き換えた時など）。
+    public func markIncomplete() { isIncomplete = true }
+
     public func finish(summary: MatchSummary?) -> ReplayData {
         ReplayData(formatVersion: ReplayData.currentFormatVersion, config: config, frames: frames,
-                   finalTick: lastTick, summary: summary)
+                   finalTick: lastTick, summary: summary, timeline: timeline)
     }
 }
 

@@ -18,6 +18,8 @@ struct BattleContainerView: View {
     @State private var controller: BattleController?
     @State private var audioDirector: BattleAudioDirector?
     @State private var loop = BattleLoopFallback()
+    /// 戦闘前の自動ロックの設定（観戦は画面に触れないので、戦闘中は自動ロックを止めて終わったら戻す）。
+    @State private var previousIdleTimerDisabled: Bool?
 
     init(launch: BattleLaunch, onFinish: @escaping (BattleOutcome) -> Void) {
         self.launch = launch
@@ -52,6 +54,10 @@ struct BattleContainerView: View {
 
     private func startIfNeeded() {
         guard controller == nil else { return }
+        if previousIdleTimerDisabled == nil {
+            previousIdleTimerDisabled = UIApplication.shared.isIdleTimerDisabled
+            UIApplication.shared.isIdleTimerDisabled = true
+        }
         // 保険: 戦闘描画より前にヒーローのアセットを揃える（ロード画面で 1 人ずつ済んでいればキャッシュ参照だけ）
         HeroModelLibrary.preload(players: launch.config.players.map { ($0.heroID, $0.skinID) }, master: app.master)
         let c = BattleController(launch: launch, online: launch.isOnline ? app.online : nil)
@@ -95,6 +101,10 @@ struct BattleContainerView: View {
     }
 
     private func tearDown() {
+        if let previous = previousIdleTimerDisabled {
+            UIApplication.shared.isIdleTimerDisabled = previous
+            previousIdleTimerDisabled = nil
+        }
         loop.stop()
         audioDirector?.stop()
         controller?.aim = nil

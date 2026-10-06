@@ -190,7 +190,7 @@ final class BattleRenderer {
     private func followSun() {
         guard sunShadowOn else { return }
         let f = rig.focus.value
-        let zoom = Float(min(max(controller.cameraZoom, 0.7), 1.4))
+        let zoom = Float(min(max(controller.effectiveCameraZoom, 0.7), 1.4))
         let o = BattleRenderer.shadowCenterOffset * zoom
         let c = SIMD3<Float>(f.x + o.x, 0, f.y + o.y)
         sun.position = BattleRenderer.snappedSunPosition(center: c, orientation: sun.orientation)

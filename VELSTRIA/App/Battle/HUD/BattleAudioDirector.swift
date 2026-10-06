@@ -74,6 +74,7 @@ final class BattleAudioDirector {
         switch controller.cameraMode {
         case .free(let p): ctx.listener = p
         case .followUnit(let id): if let u = s.unit(id) { ctx.listener = u.pos }
+        case .framing(let ids): if let u = ids.first.flatMap({ s.unit($0) }) { ctx.listener = u.pos }
         case .followHero: break
         }
         let now = ProcessInfo.processInfo.systemUptime

@@ -14,6 +14,12 @@ import VelstriaCore
 // よってドラッグベクトル (dx, dy)（UIKit 座標）は sim 方向 Vec2(dx, -dy) に対応する。
 // オンライン対戦（launch.onlineSeat != nil）では自分のヒーローは座席のもの（Red 側のこともある。カメラは回転しない）。
 //
+// 観戦（launch.isSpectating: AI 同士の観戦・リプレイ・オンラインの観戦席・人間のいない構成）:
+// - 操作は送れない。霧は spectatorVision（nil = 全体が見える、.blue / .red = そのチームの視界）。
+// - オフラインの観戦・リプレイはシークできる（isSeekable）。requestSeek(toTick:) はキーフレームから
+//   イベントを配らずに再シミュレーションし、終わったら presentationEpoch を上げる（描画・HUD は残像を捨てて作り直す）。
+// - 年表（timeline: キル・構造物・目標・ゴールド推移）は step 毎に作る。リプレイに年表が入っていれば fullTimeline で先まで分かる。
+//
 // オンライン対戦（リッスンサーバー、App/Online/）:
 // - ホスト: 自分の入力 + クライアントから届いた入力で sim を進め、tick 毎の入力列を配信する（権威）。
 // - クライアント: 入力はホストへ送るだけで、配信された tick の入力が届いた分だけ sim を進める（遅れて再生）。
@@ -48,10 +54,12 @@ struct AimIndicator: Equatable {
 enum CameraMode: Equatable {
     /// 自ヒーロー追従（死亡中も死亡地点付近）。
     case followHero
-    /// 任意ユニット追従（観戦）。
+    /// 任意ユニット追従（観戦、死亡中の味方追従）。
     case followUnit(EntityID)
     /// ミニマップ操作などで固定位置を表示。
     case free(Vec2)
+    /// 複数のユニットをまとめて画面に収める（自動カメラの集団戦）。先頭が主役（注目対象）。
+    case framing([EntityID])
 }
 
 @Observable
@@ -70,6 +78,26 @@ final class BattleController {
     /// リプレイ再生時: tick → その tick の入力。
     @ObservationIgnored private var replayFrames: [Int: [HeroCommand]] = [:]
 
+    // MARK: 観戦（視点・シーク・年表）
+
+    /// 観戦者の視界（nil = 全体が見える、.blue / .red = そのチームの視界で霧を掛ける）。観戦中だけ効く。
+    var spectatorVision: Team?
+    /// 描画・HUD の作り直しが必要な不連続（シーク・再同期）のたびに増える。購読側は値の変化で残像・演出を捨てる。
+    private(set) var presentationEpoch = 0
+    /// シーク中の目標 tick（nil = シークしていない）。シーク中は frame(dt:) で進めない。
+    private(set) var seekingToTick: Int?
+    /// 観戦者のカメラ倍率（ピンチ・自動カメラ）。nil なら設定の cameraZoom。毎フレーム書き換えるので非監視。
+    @ObservationIgnored var cameraZoomOverride: Double?
+    /// リプレイの持ち主のヒーロー（強調表示・最初の追従先）。
+    @ObservationIgnored private(set) var ownerHeroID: EntityID?
+    /// シーク用のキーフレーム（tick 昇順・重複なし。先頭は試合開始時の状態）。シークできない時は空。
+    @ObservationIgnored private(set) var keyframes: [SimState] = []
+    /// 年表（step 毎に作る）。決定論なので巻き戻しても一度記録した区間は正しいまま捨てず、まだ記録していない tick だけ追記する。
+    @ObservationIgnored private var timelineBuilder = ReplayTimelineBuilder()
+    /// 試合全体の年表が先に分かっている場合（年表入りのリプレイ、バックグラウンドの事前計算）。
+    @ObservationIgnored private(set) var fullTimeline: ReplayTimeline?
+    @ObservationIgnored private var seekTask: Task<Void, Never>?
+
     // MARK: HUD が購読する値（低頻度更新）
 
     /// 15Hz で増える。HUD はこれを参照して SimState を読み直す。
@@ -86,7 +114,7 @@ final class BattleController {
         set { pauseRequested = newValue }
     }
     private var pauseRequested = false
-    /// 観戦・リプレイの再生速度（1, 2, 4）。
+    /// 観戦・リプレイの再生速度（spectatorSpeeds のいずれか）。オンラインでは無視される。
     var speed: Double = 1
     var cameraMode: CameraMode = .followHero
     /// 設定のカメラ倍率（0.8〜1.3）。
@@ -118,6 +146,13 @@ final class BattleController {
     /// 速度に応じた 1 フレームの step 上限。
     static func maxSteps(speed: Double) -> Int { speed > 1 ? maxStepsPerFrame : maxCatchUpSteps }
 
+    /// 観戦・リプレイで選べる再生速度。
+    static let spectatorSpeeds: [Double] = [0.5, 1, 2, 4, 8]
+    /// シーク用キーフレームの間隔（tick）。30 秒（状態 1 つ約 200KB、40 分で約 16MB）。
+    static let keyframeInterval = 900
+    /// シークの再シミュレーションで、メインスレッドを譲るまでに進める tick 数。
+    static let seekChunkTicks = 240
+
     /// オンライン対戦の早送り判定: これより多く配信が溜まっていたら 1 フレームで多めに進める。
     static let onlineCatchUpThreshold = 6
     /// オンライン対戦のジッタ吸収: これより多く溜まっていれば時計を待たずに進める（この tick 数だけ遅れて再生する）。
@@ -125,7 +160,7 @@ final class BattleController {
 
     init(launch: BattleLaunch, online: OnlineBattleLink? = nil) {
         self.launch = launch
-        self.online = launch.onlineSeat != nil ? online : nil
+        self.online = launch.isOnline ? online : nil
         self.sim = Simulation(config: launch.config, map: MapDefinition.map(for: launch.config.mode))
         if let seat = launch.onlineSeat {
             let heroes = sim.state.heroIndices
@@ -134,16 +169,26 @@ final class BattleController {
         if let replay = launch.replay {
             recorder = nil
             for f in replay.frames { replayFrames[f.tick, default: []].append(contentsOf: f.commands) }
-        } else if launch.config.mode == .spectate {
+            if let t = replay.timeline, t.coveredTick >= replay.finalTick { fullTimeline = t }
+        } else if launch.onlineSpectator {
+            // 観戦席は途中から・遅延付きで見るので、記録しても再現できない
             recorder = nil
         } else {
+            // AI 同士の観戦も記録する（入力が無いので設定とシードだけの小さなリプレイになる）
             let r = ReplayRecorder(config: launch.config)
             recorder = r
             sim.recorder = r
         }
+        if let seat = launch.ownerSeat { ownerHeroID = heroID(forSeat: seat) }
         if launch.isSpectating {
-            if let first = sim.state.heroIndices.first { cameraMode = .followUnit(sim.state.units[first].id) }
+            if let owner = ownerHeroID {
+                cameraMode = .followUnit(owner)
+            } else if let first = sim.state.heroIndices.first {
+                cameraMode = .followUnit(sim.state.units[first].id)
+            }
         }
+        timelineBuilder.begin(state: sim.state)
+        if isSeekable { keyframes = [sim.state] }
     }
 
     var state: SimState { sim.state }
@@ -165,8 +210,49 @@ final class BattleController {
         return humanHeroID.flatMap { sim.state.unit($0)?.team } ?? .blue
     }
 
-    /// 視点チーム（観戦は Blue 視点ではなく全体可視にするため nil）。
-    var viewerTeam: Team? { localTeam }
+    /// 視点チーム（霧・見え方の基準）。プレイヤーは自分のチーム。観戦者は spectatorVision（既定 nil = 全体が見える）。
+    var viewerTeam: Team? { isSpectating ? spectatorVision : localTeam }
+
+    /// 実際に使うカメラ倍率（観戦者のピンチ・自動カメラの上書き > 設定）。
+    var effectiveCameraZoom: Double { cameraZoomOverride ?? cameraZoom }
+
+    /// 演出の注目対象（戦闘テキスト・遮蔽フェード・画面揺れ・足元の輪）。
+    /// 追従中のユニット（観戦・死亡中の味方追従）> 自分のヒーロー。
+    var presentationFocusID: EntityID? {
+        switch cameraMode {
+        case .followUnit(let id): return id
+        case .framing(let ids): return ids.first ?? humanHeroID
+        case .followHero, .free: return humanHeroID
+        }
+    }
+
+    /// シーク（巻き戻し・早送り・コマ送り）できるか: オフラインの観戦・リプレイ。
+    var isSeekable: Bool { !isOnline && isSpectating }
+
+    /// リプレイの最終 tick（リプレイ以外は nil）。
+    var replayFinalTick: Int? { launch.replay?.finalTick }
+
+    /// これまでに分かっている年表（巻き戻した後は現在の tick より先も含む）。
+    var knownTimeline: ReplayTimeline { timelineBuilder.timeline }
+
+    /// 現在の tick までの年表（イベント一覧・ゴールド差の現在値）。
+    var timeline: ReplayTimeline {
+        var t = timelineBuilder.timeline
+        if t.coveredTick > sim.state.tick { t.truncate(after: sim.state.tick) }
+        return t
+    }
+
+    /// シークバー・グラフに使う年表（試合全体が分かっていればそれ、無ければこれまでに分かっている分）。
+    var displayTimeline: ReplayTimeline {
+        if let full = fullTimeline, full.coveredTick >= timelineBuilder.timeline.coveredTick { return full }
+        return timelineBuilder.timeline
+    }
+
+    /// シークできる最後の tick（リプレイは最終 tick、観戦は試合の最大時間）。
+    var seekUpperBound: Int {
+        if let final = replayFinalTick { return final }
+        return Int((sim.state.config.maxDuration / Balance.dt).rounded())
+    }
 
     /// 座席番号 → ヒーローのエンティティ ID（オンライン対戦の入力検証用）。
     func heroID(forSeat seat: Int) -> EntityID? {
@@ -214,7 +300,7 @@ final class BattleController {
 
     /// 描画フレーム毎に呼ぶ（dt = 実時間の経過秒）。
     func frame(dt: Double) {
-        guard !isEnded else { return }
+        guard !isEnded, seekingToTick == nil else { return }
         if let online {
             // オンライン対戦は一時停止しても世界が止まらない（isPaused は常に false。メニューを開いているだけ）
             if online.isHost { advanceOnlineHost(dt: dt, online: online) } else { advanceOnlineClient(dt: dt, online: online) }
@@ -301,7 +387,9 @@ final class BattleController {
                 starved = true
                 break
             }
-            dispatch(sim.step(commands: frame.commands))
+            let events = sim.step(commands: frame.commands)
+            observeStep(events)
+            dispatch(events)
             if sim.state.tick % OnlineProtocol.hashInterval == 0 {
                 online.reportHash(tick: sim.state.tick, value: sim.state.stateHash())
             }
@@ -334,16 +422,112 @@ final class BattleController {
         if onlineStatus != s { onlineStatus = s }
     }
 
-    /// ホストのスナップショットで状態を置き換える（オンライン対戦の再同期）。
+    /// ホストのスナップショットで状態を置き換える（オンライン対戦の再同期・途中参加）。
     func restore(_ snapshot: SimState) {
+        // 状態が飛ぶ（途中の tick を自分で進めていない）と、記録した入力列からは再現できない
+        if snapshot.tick != sim.state.tick { recorder?.markIncomplete() }
         sim.restore(from: snapshot)
+        // ずれた状態で記録した先の年表は信用できないので、置き換え後の tick より先は捨てる
+        if snapshot.tick < timelineBuilder.timeline.coveredTick { timelineBuilder.rewind(to: snapshot.tick) }
         accumulator = 0
         interpolationAlpha = 1
-        if sim.isEnded { isEnded = true }
+        isEnded = sim.isEnded
+        presentationEpoch &+= 1
         hudTick &+= 1
     }
 
-    private func stepOnce() {
+    // MARK: 観戦のシーク
+
+    /// 指定 tick へ移動する（オフラインの観戦・リプレイのみ）。最寄りのキーフレームから、イベントを配らずに再シミュレーションする。
+    /// 先の時刻へは今の位置から進める。長い区間は数百 tick ごとにメインスレッドを譲る（seekingToTick が立っている間は frame で進めない）。
+    func requestSeek(toTick target: Int) {
+        guard isSeekable else { return }
+        let goal = max(0, min(target, seekUpperBound))
+        seekTask?.cancel()
+        seekingToTick = goal
+        seekTask = Task { @MainActor [weak self] in
+            await self?.performSeek(to: goal)
+        }
+    }
+
+    /// 現在位置からの相対シーク（秒）。
+    func seek(bySeconds seconds: Double) {
+        let base = seekingToTick ?? sim.state.tick
+        requestSeek(toTick: base + Int((seconds / Balance.dt).rounded()))
+    }
+
+    private func performSeek(to goal: Int) async {
+        // 戻る・保存済みのキーフレームを越えて進む時は、目標以前で最も新しいキーフレームから再開する
+        let base = keyframes.last { $0.tick <= goal }
+        if let base, goal < sim.state.tick || base.tick > sim.state.tick {
+            // 年表は捨てない（決定論なので記録済みの区間は進め直しても同じ。未記録の tick だけ追記される）
+            sim.restore(from: base)
+        }
+        while sim.state.tick < goal && !sim.isEnded {
+            if Task.isCancelled { return }
+            var n = 0
+            while n < Self.seekChunkTicks && sim.state.tick < goal && !sim.isEnded {
+                _ = advanceOneTick()
+                n += 1
+                if reachedReplayEnd { break }
+            }
+            if reachedReplayEnd { break }
+            await Task.yield()
+        }
+        if Task.isCancelled { return }
+        finishReplayIfNeeded(dispatchEnd: false)
+        accumulator = 0
+        interpolationAlpha = 1
+        isEnded = sim.isEnded
+        seekingToTick = nil
+        presentationEpoch &+= 1
+        hudTick &+= 1
+    }
+
+    /// 一時停止中のコマ送り（イベントは配る）。
+    func stepTicks(_ count: Int) {
+        guard isSeekable, isPaused, seekingToTick == nil, !isEnded else { return }
+        for _ in 0..<max(0, count) {
+            stepOnce()
+            if sim.isEnded { isEnded = true; break }
+        }
+        interpolationAlpha = 1
+        hudTick &+= 1
+    }
+
+    /// バックグラウンドで先に計算した状態をキーフレームに加える（tick 昇順を保つ）。
+    func adoptKeyframe(_ state: SimState) {
+        guard isSeekable, state.config == sim.state.config else { return }
+        if let i = keyframes.firstIndex(where: { $0.tick >= state.tick }) {
+            if keyframes[i].tick == state.tick { return }
+            keyframes.insert(state, at: i)
+        } else {
+            keyframes.append(state)
+        }
+    }
+
+    /// バックグラウンドで先に作った試合全体の年表を採用する。
+    func adoptFullTimeline(_ timeline: ReplayTimeline) {
+        if (fullTimeline?.coveredTick ?? -1) < timeline.coveredTick { fullTimeline = timeline }
+    }
+
+    /// リプレイが記録の最終 tick に達した。
+    private var reachedReplayEnd: Bool {
+        guard let final = replayFinalTick else { return false }
+        return sim.state.tick >= final
+    }
+
+    /// リプレイが最終 tick に達しても sim が終わっていない（途中で抜けた記録）なら中断終了にする。
+    private func finishReplayIfNeeded(dispatchEnd: Bool) {
+        guard reachedReplayEnd, !sim.isEnded else { return }
+        sim.abort()
+        let events: [SimEvent] = [.matchEnded(winner: nil, reason: .aborted)]
+        timelineBuilder.observe(events: events, state: sim.state)
+        if dispatchEnd { dispatch(events) }
+    }
+
+    /// 1 tick 進める（入力の供給・配信・年表・キーフレーム）。イベントを返すだけで配らない。
+    private func advanceOneTick() -> [SimEvent] {
         let commands: [HeroCommand]
         if isReplay {
             commands = replayFrames[sim.state.tick + 1] ?? []
@@ -360,7 +544,21 @@ final class BattleController {
             online.publish(frame: ReplayFrame(tick: tick, commands: commands),
                            stateHash: tick % OnlineProtocol.hashInterval == 0 ? sim.state.stateHash() : nil)
         }
-        dispatch(events)
+        observeStep(events)
+        return events
+    }
+
+    /// step の後処理（年表・シーク用キーフレーム）。
+    private func observeStep(_ events: [SimEvent]) {
+        timelineBuilder.observe(events: events, state: sim.state)
+        if isSeekable, sim.state.tick % Self.keyframeInterval == 0, sim.state.tick > (keyframes.last?.tick ?? -1) {
+            keyframes.append(sim.state)
+        }
+    }
+
+    private func stepOnce() {
+        dispatch(advanceOneTick())
+        finishReplayIfNeeded(dispatchEnd: true)
     }
 
     private func dispatch(_ events: [SimEvent]) {
@@ -411,14 +609,24 @@ final class BattleController {
     // MARK: 終了
 
     /// 試合結果（リザルト用）。オンライン対戦では「人間」を自分だけにする（勝敗・強調表示は自分の視点）。
+    /// リプレイは記録時の結果を使う（途中で抜けても、巻き戻していても、試合本来の結果を見せる）。
     func makeOutcome(abandoned: Bool) -> BattleOutcome {
+        seekTask?.cancel()
+        seekTask = nil
+        seekingToTick = nil
         if abandoned && !sim.isEnded { sim.abort() }
         var summary = ScoreSystem.summary(sim.state)
-        if isOnline, let localHeroID {
+        if let recorded = launch.replay?.summary {
+            summary = recorded
+        } else if launch.onlineSpectator {
+            summary.humanTeam = nil
+            for k in summary.players.indices { summary.players[k].isHuman = false }
+        } else if isOnline, let localHeroID {
             summary.humanTeam = localTeam
             for k in summary.players.indices { summary.players[k].isHuman = summary.players[k].entityID == localHeroID }
         }
-        let replay = recorder?.finish(summary: summary)
+        recorder?.timeline = timelineBuilder.timeline
+        let replay = recorder.flatMap { $0.isIncomplete ? nil : $0.finish(summary: summary) }
         return BattleOutcome(launch: launch, summary: summary, replay: replay, abandoned: abandoned)
     }
 }

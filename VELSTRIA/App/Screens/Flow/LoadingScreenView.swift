@@ -179,7 +179,7 @@ struct LoadingScreenView: View {
                 let idx = index(of: slot)
                 // 「あなた」はオンラインなら自分の座席、それ以外は唯一の人間（リプレイは誰も強調しない）
                 LoadingPlayerCard(slot: slot, progress: progress.indices.contains(idx) ? progress[idx] : 0,
-                                  highlight: launch.replay == nil && (launch.onlineSeat.map { idx == $0 } ?? (slot.controller == .human)),
+                                  highlight: !launch.isSpectating && (launch.onlineSeat.map { idx == $0 } ?? (slot.controller == .human)),
                                   width: width, height: height)
                     .offset(y: appeared ? 0 : (team == .blue ? -30 : 30))
                     .opacity(appeared ? 1 : 0)

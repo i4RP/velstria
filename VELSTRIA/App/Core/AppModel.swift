@@ -20,16 +20,35 @@ struct BattleLaunch: Identifiable, Equatable {
     var countsForRank: Bool = false
     /// 起動元の文脈（ライジング等）。
     var context: BattleContext = .normal
-    /// オンライン対戦: 自分の座席（config.players の添字）。nil ならオフライン。
+    /// オンライン対戦: 自分の座席（config.players の添字）。nil ならオフライン（または観戦席）。
     var onlineSeat: Int?
+    /// オンライン対戦を観戦席で見る（座席なし。ホストの配信を遅延付きで再生する）。
+    var onlineSpectator: Bool = false
+    /// リプレイの持ち主の座席（config.players の添字）。nil なら最初の人間の枠。
+    var replayOwnerSeat: Int?
 
-    var isSpectating: Bool { config.mode == .spectate || replay != nil }
-    var isOnline: Bool { onlineSeat != nil }
-    /// 自分のチーム（オンラインは座席、オフラインは唯一の人間。観戦・リプレイは nil）。
+    /// 観戦者として見る（操作なし・霧は観戦者の選んだ視点・報酬なし）。
+    /// AI 同士の観戦、リプレイ、オンラインの観戦席、人間のいないオフライン構成（全 AI のカスタムなど）。
+    var isSpectating: Bool {
+        config.mode == .spectate || replay != nil || onlineSpectator || isAllBotsOffline
+    }
+    /// 人間の枠が 1 つもないオフライン構成。
+    var isAllBotsOffline: Bool {
+        onlineSeat == nil && !onlineSpectator && !config.players.isEmpty
+            && config.players.allSatisfy { $0.controller == .bot }
+    }
+    var isOnline: Bool { onlineSeat != nil || onlineSpectator }
+    /// 自分のチーム（オンラインは座席、オフラインは唯一の人間。観戦者は nil）。
     var localTeam: Team? {
-        if replay != nil { return nil }
+        if isSpectating { return nil }
         if let seat = onlineSeat, config.players.indices.contains(seat) { return config.players[seat].team }
         return config.humanSlot?.team
+    }
+    /// リプレイの持ち主の座席（リプレイ以外は nil）。
+    var ownerSeat: Int? {
+        guard replay != nil else { return nil }
+        if let s = replayOwnerSeat, config.players.indices.contains(s) { return s }
+        return config.players.firstIndex { $0.controller == .human }
     }
 }
 

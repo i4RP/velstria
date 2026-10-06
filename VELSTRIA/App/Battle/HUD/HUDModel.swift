@@ -70,6 +70,8 @@ final class HUDModel {
     // MARK: 表示状態（観測）
 
     private(set) var settings = GameSettings()
+    /// 最後にコントローラへ反映した設定のカメラ倍率（設定が変わった時だけ書き戻し、観戦者のピンチ・自動カメラの倍率を潰さない）。
+    @ObservationIgnored private var appliedZoomSetting: Double?
     private(set) var top = HUDTopSnapshot()
     private(set) var hero = HUDHeroSnapshot()
     private(set) var vitals = HUDVitals()
@@ -211,7 +213,10 @@ final class HUDModel {
             settings = s
             quickBuyKey = nil
         }
-        if controller.cameraZoom != s.cameraZoom { controller.cameraZoom = s.cameraZoom }
+        if appliedZoomSetting != s.cameraZoom {
+            appliedZoomSetting = s.cameraZoom
+            if controller.cameraZoom != s.cameraZoom { controller.cameraZoom = s.cameraZoom }
+        }
     }
 
     func updateSetting<T: Equatable>(_ keyPath: WritableKeyPath<GameSettings, T>, _ value: T) {
@@ -519,7 +524,14 @@ final class HUDModel {
     }
 
     func minimapReleased() {
-        if !isSpectating { controller.cameraMode = .followHero }
+        guard !isSpectating else { return }
+        // 死亡中に味方を見ていたなら、その味方へ戻る
+        if let ally = cameraFollowID, canFollowAsPlayer(ally) {
+            controller.cameraMode = .followUnit(ally)
+        } else {
+            cameraFollowID = nil
+            controller.cameraMode = .followHero
+        }
     }
 
     func setTacticalMap(open: Bool) {
@@ -557,10 +569,38 @@ final class HUDModel {
         if snap != spectate { spectate = snap }
     }
 
+    /// 追従先を変える。観戦者は誰でも、プレイヤーは自分が死亡中に味方のヒーローだけ（敵を追うと霧の向こうが見えてしまう）。
+    /// 自分のヒーロー（または不可な対象）を指定したら自分の追従に戻る。
     func follow(_ id: EntityID) {
-        cameraFollowID = id
-        controller.cameraMode = .followUnit(id)
+        if isSpectating {
+            cameraFollowID = id
+            controller.cameraMode = .followUnit(id)
+        } else if canFollowAsPlayer(id) {
+            cameraFollowID = id
+            controller.cameraMode = .followUnit(id)
+        } else {
+            cameraFollowID = nil
+            controller.cameraMode = .followHero
+        }
         app?.haptics.selection()
+    }
+
+    /// プレイヤーが（死亡中に）追従してよい味方のヒーローか。
+    func canFollowAsPlayer(_ id: EntityID) -> Bool {
+        guard !isSpectating, let hi = controller.humanIndex, let me = controller.state.units[hi].hero, me.isDead,
+              id != controller.humanHeroID, let u = controller.state.unit(id), u.kind == .hero,
+              u.team == controller.localTeam else { return false }
+        return true
+    }
+
+    /// 死亡中に追従できる味方（ポジション順）。生きている味方を先に。
+    var followableAllies: [EntityID] {
+        guard !isSpectating, let team = controller.localTeam else { return [] }
+        let s = controller.state
+        let allies = s.heroIndices(team: team).filter { s.units[$0].id != controller.humanHeroID }
+        let alive = allies.filter { s.units[$0].hero?.isDead == false }
+        let dead = allies.filter { s.units[$0].hero?.isDead != false }
+        return (alive + dead).map { s.units[$0].id }
     }
 
     func setSpeed(_ speed: Double) {
@@ -715,7 +755,14 @@ final class HUDModel {
             case .surrenderVote(let team, let yes, let no, let needed):
                 if team == humanTeam { lastSurrenderTally = (yes, no, needed) }
             case .respawned(let heroID, _):
-                if heroID == humanID { deathInfo = nil }
+                if heroID == humanID {
+                    deathInfo = nil
+                    // 復活したら味方の追従をやめて自分に戻る
+                    if !isSpectating, cameraFollowID != nil {
+                        cameraFollowID = nil
+                        controller.cameraMode = .followHero
+                    }
+                }
             case .matchEnded(let winner, let reason):
                 if reason != .aborted { beginEnd(winner: winner, reason: reason) }
             default:

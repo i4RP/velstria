@@ -108,8 +108,7 @@ extension BattleWorld {
     /// ヒーロー・構造物の見た目を作る（最初の同期と同じ処理。何度呼んでも同じ）。
     private func warmUnits() {
         let state = controller.state
-        var focus = controller.humanHeroID
-        if focus == nil, case .followUnit(let id) = controller.cameraMode { focus = id }
+        let focus = controller.presentationFocusID
         var f = RenderFrame(state: state, alpha: Float(controller.interpolationAlpha), dt: 0, time: 0,
                             viewerTeam: controller.viewerTeam, humanID: controller.humanHeroID, focusID: focus,
                             ended: state.phase == .ended, winner: state.winner)

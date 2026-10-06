@@ -88,8 +88,7 @@ final class BattleWorld {
 
     private func makeFrame(dt: Float) -> RenderFrame {
         let state = controller.state
-        var focus = controller.humanHeroID
-        if focus == nil, case .followUnit(let id) = controller.cameraMode { focus = id }
+        let focus = controller.presentationFocusID
         return RenderFrame(state: state, alpha: Float(controller.interpolationAlpha), dt: dt, time: time,
                            viewerTeam: controller.viewerTeam, humanID: controller.humanHeroID, focusID: focus,
                            ended: state.phase == .ended, winner: state.winner)
@@ -502,7 +501,7 @@ final class BattleWorld {
 
     func updateCamera(rig: CameraRig, dt: Float, snap: Bool) {
         let (target, free) = cameraFocus()
-        var zoom = controller.cameraZoom
+        var zoom = controller.effectiveCameraZoom
         #if DEBUG
         if let z = StageDebug.cameraZoom { zoom = z }
         #endif
@@ -532,6 +531,19 @@ final class BattleWorld {
             let p = worldPosition(v)
             target = SIMD2(p.x, p.z)
             free = true
+        case .framing(let ids):
+            // 対象の重心（描画位置があればそれ、無ければ sim の位置）。誰もいなければ注視点を動かさない
+            var sum = SIMD2<Float>(repeating: 0)
+            var n: Float = 0
+            for id in ids {
+                if let p = units.worldPositionOf(id) {
+                    sum += SIMD2(p.x, p.z); n += 1
+                } else if let u = controller.state.unit(id) {
+                    let p = worldPosition(u.pos)
+                    sum += SIMD2(p.x, p.z); n += 1
+                }
+            }
+            if n > 0 { target = sum / n }
         }
         #if DEBUG
         if let t = StageDebug.cameraTarget { return (t, true) }
