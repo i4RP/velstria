@@ -214,6 +214,63 @@ final class HUDSpectatorTests: XCTestCase {
         XCTAssertEqual(c.cameraMode, .followUnit(other.id))
     }
 
+    /// 自由カメラの移動（ドラッグ・パン）は指の動きのたびに cameraMode が変わる。一時停止中でも、注目の対象・
+    /// 自由カメラかどうか・視界が変わった時だけ HUD を作り直す。
+    func testFreeCameraDragWhilePausedRefreshesOnlyOnFocusChange() {
+        let (c, m) = spectate()
+        run(c, ticks: 30)
+        m.refresh()
+        m.toggleSpectatorPause()
+        m.minimapDragged(to: Vec2(4000, 4000))
+        m.cameraModeChanged()
+        XCTAssertTrue(m.spectator.isFreeCamera)
+        let version = m.minimapVersion
+        for k in 1...20 {
+            m.minimapDragged(to: Vec2(4000 + Double(k) * 10, 4000))
+            m.cameraModeChanged()
+        }
+        XCTAssertEqual(m.minimapVersion, version, "自由カメラの移動だけでは HUD 全体を作り直さない")
+        let id = m.spectate.heroes[3].id
+        m.follow(id)
+        m.cameraModeChanged()
+        XCTAssertFalse(m.spectator.isFreeCamera)
+        XCTAssertEqual(m.spectator.focusID, id)
+        XCTAssertGreaterThan(m.minimapVersion, version, "追従先が変われば作り直す")
+        // 視界の切り替え（HUDTicker が spectatorVision の変化でも呼ぶ）
+        let before = m.minimapVersion
+        c.spectatorVision = .blue
+        m.cameraModeChanged()
+        XCTAssertGreaterThan(m.minimapVersion, before)
+        XCTAssertEqual(m.minimap.viewerTeam, .blue)
+    }
+
+    // MARK: B23 観戦者の一時停止で戦術マップを閉じない
+
+    func testSpectatorPauseKeepsTheTacticalMapOpen() {
+        let (c, m) = spectate()
+        run(c, ticks: 30)
+        m.refresh()
+        m.setTacticalMap(open: true)
+        XCTAssertTrue(m.isTacticalMapOpen)
+        m.toggleSpectatorPause()
+        XCTAssertTrue(c.isPaused)
+        // BattleHUDView が controller.isPaused の変化で呼ぶ
+        m.externallyPaused()
+        XCTAssertTrue(m.isTacticalMapOpen, "ドックの一時停止で戦術マップを閉じない（B23）")
+        XCTAssertNil(m.panel, "ドックの一時停止でポーズメニューを開かない")
+        m.spectatorStep()
+        m.externallyPaused()
+        XCTAssertTrue(m.isTacticalMapOpen, "コマ送りでも閉じない")
+
+        // 外部（バックグラウンド移行）の一時停止は従来どおり: マップを閉じてポーズメニューを開く
+        m.toggleSpectatorPause()
+        XCTAssertFalse(c.isPaused)
+        c.isPaused = true
+        m.externallyPaused()
+        XCTAssertFalse(m.isTacticalMapOpen)
+        XCTAssertEqual(m.panel, .pause)
+    }
+
     func testAdjacentHeroCyclesAndSkipsDead() {
         func hero(_ id: EntityID, dead: Bool = false) -> HUDSpectateHero {
             HUDSpectateHero(id: id, heroID: "H001", team: id < 5 ? .blue : .red, level: 1, hpRatio: 1, isDead: dead, respawn: 0)

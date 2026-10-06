@@ -622,10 +622,27 @@ final class HUDModel {
 
     /// カメラの追従先・観戦者の視界が変わった（自動カメラ・ヒーロー切り替え・ミニマップ）。
     /// 一時停止中は 15Hz の更新が止まるので、注目の輪・ミニマップ・ヒーロー詳細をここで作り直す。
+    /// 自由カメラの移動（ミニマップ・戦術マップのドラッグ、パン）は指の動きのたびに cameraMode が変わるので、
+    /// 注目の対象・自由カメラかどうか・視界が変わった時だけ作り直す（一時停止中に毎回 HUD 全体を作り直さない）。
     func cameraModeChanged() {
-        guard started, isSpectating, controller.seekingToTick == nil else { return }
+        guard started, isSpectating else { return }
+        var free = false
+        if case .free = controller.cameraMode { free = true }
+        let key = CameraFocusKey(focus: controller.presentationFocusID, free: free, vision: controller.spectatorVision)
+        guard key != cameraFocusKey else { return }
+        cameraFocusKey = key
+        guard controller.seekingToTick == nil else { return }
         if controller.isPaused || controller.isEnded { refresh() }
     }
+
+    /// cameraModeChanged で作り直しが要るかの判定用（最後に見た注目の対象・自由カメラ・視界）。
+    private struct CameraFocusKey: Equatable {
+        var focus: EntityID?
+        var free: Bool
+        var vision: Team?
+    }
+
+    @ObservationIgnored private var cameraFocusKey: CameraFocusKey?
 
     /// シークが始まった・終わった（シーク中は 15Hz の更新が止まるので、再生バーの「移動中」をここで出す）。
     func seekStateChanged() {
@@ -1334,6 +1351,8 @@ final class HUDModel {
 
     /// 外部（バックグラウンド移行）で一時停止された。
     func externallyPaused() {
+        // 観戦者が自分で止めた（一時停止・コマ送り・終了後の巻き戻し）時は外部の一時停止ではない。戦術マップも開いたまま（B23）
+        if isSpectating && spectatorPaused { return }
         setTacticalMap(open: false)
         guard endPhase == nil, !finished, panel != .pause, !spectatorPaused else { return }
         cancelAim()

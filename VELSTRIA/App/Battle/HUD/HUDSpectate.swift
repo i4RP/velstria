@@ -456,7 +456,8 @@ struct HUDSpectatorDrawer: View {
                 }
                 tile(L("タイマー", "Timers"), symbol: "timer", selected: model.spectator.showsObjectives,
                      label: L("目標タイマー", "Objective timers"), id: "spectate_objectives_toggle") { model.toggleObjectiveTimers() }
-                if !layout.showsPrevNext {
+                // 下段の中央に置けない時（狭い画面・オンラインの観戦席は LIVE 表示が場所を使う）はここに出す
+                if !layout.showsPrevNext || t.isLiveWatcher {
                     tile(L("前", "Prev"), symbol: "chevron.left", selected: false, label: L("前のヒーロー", "Previous hero"),
                          id: "spectate_prev_hero") { model.followAdjacentHero(-1) }
                     tile(L("次", "Next"), symbol: "chevron.right", selected: false, label: L("次のヒーロー", "Next hero"),

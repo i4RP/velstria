@@ -129,9 +129,10 @@ private struct HUDRoot: View {
                     .zIndex(1)
             }
             if spectating {
-                // 観戦の下部ドック: 戦術マップ・再生終了のカードの上でも操作できる
+                // 観戦の下部ドック: 戦術マップの上でも操作できる。再生終了のカードはドックと重ならない位置に出し、
+                // 観戦メニュー（引き出しとその外側の暗幕）より上に置く（開いたまま終わってもカードのボタンが押せる）
                 HUDSpectateDockLayer(model: model, layout: layout)
-                    .zIndex(model.isTacticalMapOpen || ended ? 1 : 0)
+                    .zIndex(model.isTacticalMapOpen ? 1 : 0)
             }
 
             HUDPanelsLayer(model: model, layout: layout)
@@ -333,6 +334,9 @@ private struct HUDBannerLayer: View {
         HUDBannerView(banner: model.banner, colorblind: model.settings.colorblindMode, scale: min(layout.scale, 1.1))
             .frame(maxWidth: maxWidth)
             .position(x: x, y: y)
+            // シネマ表示（観戦）は告知も隠して映像だけにする
+            .opacity(model.isSpectating && model.spectator.isCinematic ? 0 : 1)
+            .animation(.easeInOut(duration: 0.3), value: model.spectator.isCinematic)
     }
 
     /// 観戦の情報パネルを開いている時は、ミニマップとパネルの間に収める（文字は縮む）。

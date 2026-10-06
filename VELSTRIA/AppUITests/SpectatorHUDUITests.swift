@@ -92,6 +92,14 @@ final class SpectatorHUDUITests: XCTestCase {
         pause.tap()
         XCTAssertFalse(element(app, "spectate_pause").isSelected)
         XCTAssertTrue(element(app, "hud_tactical_panel").exists, "再生操作でマップは閉じない")
+        // 一時停止してもマップは閉じない（ポーズメニューも開かない）
+        element(app, "spectate_pause").tap()
+        XCTAssertTrue(element(app, "spectate_pause").isSelected)
+        sleep(1)
+        XCTAssertTrue(element(app, "hud_tactical_panel").exists, "一時停止でマップは閉じない")
+        XCTAssertTrue(element(app, "spectate_pause").isHittable, "ポーズメニューが重ならない")
+        element(app, "spectate_pause").tap()
+        XCTAssertFalse(element(app, "spectate_pause").isSelected)
         snap("spectate_tactical_map")
         tap(app, "hud_tactical_close")
 
