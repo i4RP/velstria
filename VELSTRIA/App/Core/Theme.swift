@@ -214,6 +214,13 @@ enum PortraitArt {
     /// 装備アイコン（Assets.xcassets の ItemIcons。仕様は tools/portraits/item_icons.json）。
     @MainActor static func item(_ itemID: String) -> UIImage? { image("ItemIcons/\(itemID)") }
 
+    /// バトルスペルの描き下ろしアイコン（Assets.xcassets の SpellIcons。無ければ手続き生成へフォールバック）。
+    @MainActor static func spell(_ spellID: String) -> UIImage? { image("SpellIcons/\(spellID)") }
+
+    /// UI 装飾アート（スコアボードの枠・地色・チーム幕など。Assets.xcassets の UIFrames。
+    /// 仕様は tools/portraits/ui_frames.json。無ければコードの手続き描画へフォールバック）。
+    @MainActor static func frame(_ name: String) -> UIImage? { image("UIFrames/\(name)") }
+
     @MainActor private static func image(_ name: String) -> UIImage? {
         if let hit = cache[name] { return hit }
         let img = UIImage(named: name)

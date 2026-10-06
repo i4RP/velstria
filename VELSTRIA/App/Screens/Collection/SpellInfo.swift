@@ -79,16 +79,25 @@ struct SpellIconView: View {
     var body: some View {
         let info = SpellInfo.of(spellID)
         ZStack {
-            Circle()
-                .fill(RadialGradient(colors: [info.color.opacity(0.85), info.color.opacity(0.25), Color.black.opacity(0.6)],
-                                     center: .init(x: 0.35, y: 0.3), startRadius: 1, endRadius: size * 0.7))
+            if let art = PortraitArt.spell(spellID) {
+                Image(uiImage: art)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(Circle())
+            } else {
+                Circle()
+                    .fill(RadialGradient(colors: [info.color.opacity(0.85), info.color.opacity(0.25), Color.black.opacity(0.6)],
+                                         center: .init(x: 0.35, y: 0.3), startRadius: 1, endRadius: size * 0.7))
+                Image(systemName: info.symbol)
+                    .font(.system(size: size * 0.42, weight: .bold))
+                    .foregroundStyle(.white)
+                    .shadow(color: info.color, radius: size * 0.08)
+            }
             Circle()
                 .strokeBorder(AngularGradient(colors: [info.color, .white.opacity(0.8), info.color.opacity(0.4), info.color],
                                               center: .center), lineWidth: max(1.5, size * 0.05))
-            Image(systemName: info.symbol)
-                .font(.system(size: size * 0.42, weight: .bold))
-                .foregroundStyle(.white)
-                .shadow(color: info.color, radius: size * 0.08)
         }
         .frame(width: size, height: size)
         .accessibilityElement()

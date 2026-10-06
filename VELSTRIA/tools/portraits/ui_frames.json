@@ -1,0 +1,60 @@
+{
+  "notes": "VELSTRIA の UI 装飾アートの仕様（差し込み口）。コードは PortraitArt.frame(name) で Assets.xcassets/UIFrames/<id>、PortraitArt.spell(id) で Assets.xcassets/SpellIcons/<id> を読む。アートが無い間はコードの手続き描画にフォールバックするので、ここに挙げた画像を後から入れるだけで見た目が差し替わる。生成は portraits.py と同じ要領（Codex CLI の画像生成）で行い、採用版を各フォルダへ JPEG/PNG で入れる。半透明が要る枠・幕は PNG（アルファ付き）、地色・アイコンは JPEG で可。導入後は該当 imageset の Contents.json も用意すること（item アイコンと同じ構造）。",
+
+  "ui_frames": {
+    "folder": "UIFrames",
+    "style": "Premium fantasy mobile MOBA (Arena of Valor / Honor of Kings / Mobile Legends 系) の UI 装飾。手描きの金細工・宝石・魔法発光。読みやすさ優先で中央は空ける。文字・数字・ロゴ・透かしは一切入れない。",
+    "assets": [
+      {
+        "id": "scoreboard_bg",
+        "kind": "fill",
+        "use": "スコアボード全面の地色（奥に薄く敷く。中央は暗めで情報が乗る）。横長 16:9 程度。",
+        "prompt": "A dark, atmospheric full-screen background for a fantasy MOBA post-battle scoreboard, horizontal 16:9. A deep cosmic battlefield at night: near-black navy and deep indigo toward the center so overlaid text stays readable, with a faint cool-blue glow bleeding in from the left edge and a faint warm crimson-orange glow from the right edge (team colors), drifting embers and a few faint stars, soft volumetric light, painterly AAA splash-art quality. Very low detail and low contrast in the central 70% so UI reads on top. No characters, no text, no numbers, no logos, no UI elements, no frame."
+      },
+      {
+        "id": "scoreboard_frame",
+        "kind": "nineslice",
+        "use": "スコアボードの外枠（9-slice で伸縮。capInsets 48pt）。中央は完全透明。",
+        "prompt": "An ornate gilded fantasy UI border frame for a MOBA scoreboard, intended as a 9-slice stretchable PNG with a fully transparent center. Hand-painted polished gold and dark-bronze filigree with small blue and crimson gemstone accents at the corners, a subtle inner bevel and soft rim light, slightly thicker ornate corners and thin straight edges. Transparent background and transparent center hole. No text, no numbers, no characters, no scenery."
+      },
+      {
+        "id": "team_banner_blue",
+        "kind": "nineslice",
+        "optional": true,
+        "use": "（任意）青チーム列の見出し幕。未使用でも可。",
+        "prompt": "A sapphire-blue heraldic banner header strip for a fantasy MOBA team panel, 9-slice stretchable PNG, transparent background. Painted deep blue cloth with gold trim, a subtle shield emblem motif on the left, soft cyan glow. No text, no numbers, no logos."
+      },
+      {
+        "id": "team_banner_red",
+        "kind": "nineslice",
+        "optional": true,
+        "use": "（任意）赤チーム列の見出し幕。未使用でも可。",
+        "prompt": "A crimson heraldic banner header strip for a fantasy MOBA team panel, 9-slice stretchable PNG, transparent background. Painted deep red cloth with gold trim, a subtle flame emblem motif on the right, soft ember glow. No text, no numbers, no logos."
+      },
+      {
+        "id": "vs_emblem",
+        "kind": "icon",
+        "optional": true,
+        "use": "（任意）中央の VS 紋章。未使用でも可（コードは文字 VS を描く）。",
+        "prompt": "A small ornate 'versus' crest emblem for a fantasy MOBA, centered on a transparent background: two crossed swords over a gold laurel medallion split blue-left / crimson-right, polished metal, soft glow. No text, no letters, no numbers."
+      }
+    ]
+  },
+
+  "spell_icons": {
+    "folder": "SpellIcons",
+    "style": "Round 1:1 battle-spell icon for VELSTRIA, a premium fantasy mobile MOBA. Hand-painted semi-realistic icon, one clear magical motif centered on a dark radial background tinted by the spell color, dramatic rim light and strong value contrast so the silhouette reads at 36 pixels. Full-bleed square (the app clips it to a circle and draws its own gold ring on top). No text, no numbers, no letters, no logos, no border, no frame.",
+    "assets": [
+      {"id": "BS01", "name": "Flicker", "ja": "点滅", "hue": "amber-gold", "prompt": "a short golden teleport blink: a burst of amber-gold arcane sparks and a faint directional streak, two overlapping ghost silhouettes of light suggesting an instant short-range jump."},
+      {"id": "BS02", "name": "Purify", "ja": "浄化", "hue": "cyan", "prompt": "a cleansing cyan burst that breaks chains: a radiant teal-cyan starburst shattering dark shackles into motes, a clean protective shimmer."},
+      {"id": "BS03", "name": "Heal", "ja": "回復", "hue": "green", "prompt": "a warm restorative heal: a glowing green heart or cross of soft light with gentle radiant petals and rising sparkles."},
+      {"id": "BS04", "name": "Barrier", "ja": "障壁", "hue": "sky blue", "prompt": "a protective shield bubble: a translucent sky-blue hexagonal energy barrier with a bright rim and soft inner glow."},
+      {"id": "BS05", "name": "Smite", "ja": "討伐", "hue": "lime", "prompt": "a jungle smite strike: a fierce lime-green beast claw mark or fang slashing with sparks, wild and primal."},
+      {"id": "BS06", "name": "Sprint", "ja": "疾走", "hue": "teal", "prompt": "a haste surge: swift teal-aqua wind streaks and a running speed glyph, motion-blurred forward dashes."},
+      {"id": "BS07", "name": "Flameburst", "ja": "業火", "hue": "red-orange", "prompt": "a burning ignite: a fierce red-orange flame burst with embers and a scorch mark, aggressive heat glow."},
+      {"id": "BS08", "name": "Vanish", "ja": "隠遁", "hue": "violet", "prompt": "a stealth vanish: a violet smoke wisp dissolving a silhouette into shadow with faint sparkles, a half-faded figure."},
+      {"id": "BS09", "name": "Teleport", "ja": "転移", "hue": "indigo", "prompt": "a long-range teleport gate: an indigo-blue arcane portal ring with swirling energy and a doorway of light."},
+      {"id": "BS10", "name": "Weaken", "ja": "衰弱", "hue": "magenta", "prompt": "a debuff tether: a magenta-purple binding chain or sigil draining energy, dim sapping tendrils of light."}
+    ]
+  }
+}

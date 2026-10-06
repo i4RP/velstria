@@ -485,10 +485,11 @@ private struct HUDPanelsLayer: View {
                         .transition(.move(edge: layout.leftHanded ? .leading : .trailing).combined(with: .opacity))
                 case .scoreboard:
                     HUDScoreboardPanel(model: model, layout: layout)
-                        .fixedSize(horizontal: false, vertical: true)
                         .padding(.leading, layout.leadingEdge + 4)
                         .padding(.trailing, layout.width - layout.trailingEdge + 4)
-                        .transition(.scale(scale: 0.95).combined(with: .opacity))
+                        .padding(.top, layout.topEdge + 4)
+                        .padding(.bottom, layout.height - layout.bottomEdge + 4)
+                        .transition(.scale(scale: 0.96).combined(with: .opacity))
                 case .pause:
                     HUDPauseMenu(model: model)
                         .fixedSize()
