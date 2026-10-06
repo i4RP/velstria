@@ -22,10 +22,8 @@ struct OnlineSpectatorRelay {
     private(set) var liveTick = 0
     /// 観戦者へ出してよい最後の tick。
     private(set) var releasedTick = 0
-    /// 試合が終わった tick（終わるまで nil）。
+    /// 試合が終わった tick（終わるまで nil）。中断でも同じ（観戦者は最後の tick まで遅れて見て、自然に終わっていなければ中断として終える）。
     private(set) var finalTick: Int?
-    /// 中断で終わった（観戦者には matchFinished ではなく matchAborted を送る）。
-    private(set) var endedByAbort = false
 
     /// 記録した入力（tick = logFirstTick + 添字。連続）。
     private var log: [ReplayFrame] = []
@@ -72,10 +70,9 @@ struct OnlineSpectatorRelay {
     }
 
     /// 試合が終わった（自然な終了・中断）。もう動かないので遅延は要らない: 残りをすべて公開する。
-    mutating func finish(aborted: Bool) {
+    mutating func finish() {
         guard isActive, finalTick == nil else { return }
         finalTick = liveTick
-        endedByAbort = aborted
         releasedTick = liveTick
     }
 

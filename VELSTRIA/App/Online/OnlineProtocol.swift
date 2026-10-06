@@ -111,6 +111,8 @@ struct OnlinePeer: Codable, Hashable, Identifiable {
     var isWatching = false
     /// 座席を保ったまま試合から抜けた（AI が操作中。「試合に戻る」「観戦する」を選べる）。
     var leftMatch = false
+    /// この試合を観戦した（霧の向こうを見たので、選手としては戻れない。再接続しても分かるようにホストが持つ）。
+    var watchedMatch = false
 }
 
 enum OnlineRoomPhase: Int, Codable, Hashable {
@@ -238,7 +240,8 @@ enum OnlineMessage: Codable {
     case spectateLoaded
     /// クライアント → ホスト: 観戦をやめた / 観戦の案内を断った（配信を止める。観戦席の役割はそのまま）。
     case stopSpectating
-    /// ホスト → 観戦者: 試合が終わった。finalTick までの配信を送り終えた（遅延分の残りは前倒しで届く）。
+    /// ホスト → 観戦者: 試合が終わった（自然な終了・ホストの中断のどちらも）。finalTick までの配信を送り終えた
+    /// （遅延分の残りは前倒しで届く）。観戦者は遅延のまま最後の tick まで見て、自然に終わっていなければ中断として終える。
     case matchFinished(finalTick: Int)
     /// ホスト → クライアント: 観戦の求めを断った（理由を表示する）。
     case spectateDenied(reason: String)

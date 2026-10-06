@@ -242,23 +242,29 @@ struct OnlineBattleOverlay: View {
 
     // MARK: 観戦者数（選手向け）
 
+    /// 選手に見せる観戦の状況: 観戦者数（ホストの実況を含む）、実況の印、観戦席への遅延（実況は遅延なし）。
     @ViewBuilder
     private func spectatorBadge(_ layout: HUDLayout) -> some View {
         let count = controller.onlineSpectatorCount
         if count > 0, let room = session?.room {
             let s = min(layout.scale, 1.1)
-            let delay = Int(room.spectatorDelaySeconds.rounded())
+            let caster = room.hostIsCaster
+            // 観戦席の観戦者（実況を除く）がいる時だけ遅延を出す
+            let delay: Int? = count - (caster ? 1 : 0) > 0 ? Int(room.spectatorDelaySeconds.rounded()) : nil
             HStack(spacing: 4 * s) {
                 Image(systemName: "eye.fill")
                 Text("\(count)").monospacedDigit()
-                if room.hostIsCaster {
+                if caster {
                     // ホストの実況は権威シミュレーションそのもの（遅延なし）
                     Image(systemName: "mic.fill")
+                    Text(L("実況", "Cast"))
                 }
-                Text(delay > 0 ? L("\(delay)秒遅れ", "\(delay)s delay") : L("遅延なし", "No delay"))
+                if let delay {
+                    Text(delay > 0 ? L("\(delay)秒遅れ", "\(delay)s delay") : L("遅延なし", "No delay"))
+                }
             }
             .font(.system(size: 10 * s, weight: .heavy, design: .rounded))
-            .foregroundStyle(delay > 0 ? Color.white.opacity(0.85) : Theme.gold)
+            .foregroundStyle((delay ?? 1) > 0 ? Color.white.opacity(0.85) : Theme.gold)
             .padding(.horizontal, 8 * s)
             .padding(.vertical, 3 * s)
             .background(Capsule().fill(Color.black.opacity(0.55)))
@@ -267,15 +273,19 @@ struct OnlineBattleOverlay: View {
             // スコア表示（上中央、topEdge + 22 が中心で高さ約 45×s）の真下
             .position(x: layout.width / 2, y: layout.topEdge + 22 + 23 * s + 4 + 9 * s)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(badgeAccessibilityLabel(count: count, delay: delay, caster: room.hostIsCaster))
+            .accessibilityLabel(badgeAccessibilityLabel(count: count, delay: delay, caster: caster))
             .accessibilityIdentifier("online_spectator_count")
             .allowsHitTesting(false)
         }
     }
 
-    private func badgeAccessibilityLabel(count: Int, delay: Int, caster: Bool) -> String {
-        let base = delay > 0 ? L("観戦者 \(count) 人、\(delay) 秒遅れで配信", "\(count) watching, \(delay) second delay")
-                             : L("観戦者 \(count) 人、遅延なし", "\(count) watching, no delay")
-        return caster ? base + L("。ホストが実況中（遅延なし）", ". The host is casting live") : base
+    private func badgeAccessibilityLabel(count: Int, delay: Int?, caster: Bool) -> String {
+        var parts = [L("観戦者 \(count) 人", "\(count) watching")]
+        if caster { parts.append(L("ホストが実況中（遅延なし）", "the host is casting live")) }
+        if let delay {
+            parts.append(delay > 0 ? L("観戦席は \(delay) 秒遅れで配信", "spectators see a \(delay) second delay")
+                                   : L("観戦席も遅延なし", "spectators have no delay"))
+        }
+        return parts.joined(separator: L("、", ", "))
     }
 }

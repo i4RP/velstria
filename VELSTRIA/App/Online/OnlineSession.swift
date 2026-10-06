@@ -269,7 +269,8 @@ final class OnlineSession: OnlineBattleLink {
     }
     /// 抜けた試合に選手として戻れる（座席を保っていて、その試合を観戦していない）。
     var canRejoinMatch: Bool {
-        isSittingOutMatch && isConnected && localSeat != nil && !watchedCurrentMatch && !watching && controller == nil
+        isSittingOutMatch && isConnected && localSeat != nil && !watching && controller == nil
+            && !watchedCurrentMatch && room.peer(localPeerID)?.watchedMatch != true
     }
 
     private func note(_ text: String) {
@@ -531,8 +532,9 @@ final class OnlineSession: OnlineBattleLink {
         if let seat = room.seatIndex(of: hello.peerID) { room.seats[seat].name = name }
         c.send(.welcome(room: room))
         if room.phase != .lobby, let config = room.config {
-            if returning && !spectatedThisMatch.contains(hello.peerID) {
-                // 試合中の再接続: 読み込みへ進ませる（loaded が来たらスナップショットを送る）
+            if returning && !spectatedThisMatch.contains(hello.peerID) && !abandonedPeers.contains(hello.peerID) {
+                // 試合中の再接続: 読み込みへ進ませる（loaded が来たらスナップショットを送る）。
+                // 自分で抜けた選手は引き戻さない（部屋の「試合に戻る」「観戦する」から選ぶ）
                 c.send(.startMatch(config: config))
             } else if room.peer(hello.peerID)?.role == .spectator, room.allowsSpectators {
                 // 観戦席の途中参加: 遅延済みの範囲から観戦を始める
@@ -782,6 +784,8 @@ final class OnlineSession: OnlineBattleLink {
         for i in room.peers.indices {
             room.peers[i].loaded = false
             room.peers[i].isWatching = false
+            room.peers[i].leftMatch = false
+            room.peers[i].watchedMatch = false
         }
         matchStartedAt = now()
         resetBattleBuffers()
@@ -812,7 +816,7 @@ final class OnlineSession: OnlineBattleLink {
             let live = room.phase != .lobby
             if live {
                 // 観戦者へ残りを送り切る（試合はもう動かないので遅延は要らない）
-                finishSpectatorStreams(aborted: aborted)
+                finishSpectatorStreams()
             }
             if aborted && live {
                 broadcastToPlayers(.matchAborted(reason: L("ホストが試合を終了しました", "The host ended the match")))
@@ -838,6 +842,7 @@ final class OnlineSession: OnlineBattleLink {
                 room.peers[i].loaded = false
                 room.peers[i].isWatching = false
                 room.peers[i].leftMatch = false
+                room.peers[i].watchedMatch = false
             }
             status = .lobby
             broadcastRoom()
@@ -971,7 +976,6 @@ final class OnlineSession: OnlineBattleLink {
             hostAborted = false
             watching = true
             watchingDelayTicks = max(0, delayTicks)
-            watchedCurrentMatch = true
             onSpectateStart?(config)
         case .frames(let frames):
             guard acceptsFrames else { return }
@@ -1110,6 +1114,8 @@ final class OnlineSession: OnlineBattleLink {
             if relay.isActive { startSpectatorTimer() }
             broadcastRoom()
         case .client:
+            // 観戦の戦闘を開いた: この試合には選手として戻れない（案内を断った時は数えない）
+            if controller.launch.onlineSpectator { watchedCurrentMatch = true }
             connection?.send(controller.launch.onlineSpectator ? .spectateLoaded : .loaded)
         }
     }
@@ -1247,7 +1253,10 @@ final class OnlineSession: OnlineBattleLink {
         invitedSpectators.remove(peerID)
         spectatedThisMatch.insert(peerID)
         spectatorStreams[peerID] = SpectatorStream()
-        if let i = room.peers.firstIndex(where: { $0.id == peerID }) { room.peers[i].isWatching = true }
+        if let i = room.peers.firstIndex(where: { $0.id == peerID }) {
+            room.peers[i].isWatching = true
+            room.peers[i].watchedMatch = true
+        }
         note(L("\(room.peer(peerID)?.name ?? "?") が観戦を始めました", "\(room.peer(peerID)?.name ?? "?") started watching"))
         lastSnapshotAt[peerID] = uptime()
         sendSpectatorBase(to: peerID)
@@ -1314,7 +1323,7 @@ final class OnlineSession: OnlineBattleLink {
         guard role == .host, relay.isActive else { return }
         lastSpectatorPump = uptime()
         if relay.finalTick == nil, let controller, controller.state.phase == .ended {
-            relay.finish(aborted: controller.state.endReason == .aborted)
+            relay.finish()
         }
         relay.release()
         flushAllSpectatorStreams()
@@ -1352,10 +1361,9 @@ final class OnlineSession: OnlineBattleLink {
             for p in peers { spectatorStreams[p]?.cursor = released }
         }
         if let final = relay.finalTick, released >= final {
-            let end: OnlineMessage = relay.endedByAbort
-                ? .matchAborted(reason: L("ホストが試合を終了しました", "The host ended the match"))
-                : .matchFinished(finalTick: final)
-            guard let data = try? OnlineFramer.encode(end) else { return }
+            // 中断でも matchFinished: 観戦者は遅延のまま最後の tick まで見て、自然に終わっていなければ中断として終える
+            // （中断を知らせると残りを早送りで消化してしまう）
+            guard let data = try? OnlineFramer.encode(.matchFinished(finalTick: final)) else { return }
             for p in peers {
                 connection(of: p)?.send(encoded: data)
                 spectatorStreams[p]?.ended = true
@@ -1364,10 +1372,10 @@ final class OnlineSession: OnlineBattleLink {
     }
 
     /// 試合が終わった（ホストが抜けた・リザルトへ進んだ）: 観戦者へ残りを送り切る。基準を符号化中・案内中の観戦者は中断で終える。
-    private func finishSpectatorStreams(aborted: Bool) {
+    private func finishSpectatorStreams() {
         guard relay.isActive else { return }
         // 自然に終わった試合はタイマー（pumpSpectators）が先に終わりを記録している（終了の演出の間に必ず回る）
-        relay.finish(aborted: aborted)
+        relay.finish()
         relay.release()
         flushAllSpectatorStreams()
         let waiting = Set(spectatorStreams.filter { $0.value.pendingBaseTick != nil }.map(\.key)).union(invitedSpectators)

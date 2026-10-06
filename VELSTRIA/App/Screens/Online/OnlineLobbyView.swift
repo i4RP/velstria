@@ -213,6 +213,7 @@ struct OnlineRoomView: View {
     @Environment(AppModel.self) private var app
     @State private var roleFilter: Role?
     @State private var autoStarted = false
+    @State private var showsMembers = false
 
     private var room: OnlineRoom { session.room }
     private var mySeat: OnlineSeat? { session.localSeat }
@@ -270,16 +271,32 @@ struct OnlineRoomView: View {
                     .foregroundStyle(Theme.textSecondary)
             }
             Spacer()
-            HStack(spacing: 6) {
-                Label("\(room.players.count)", systemImage: "person.fill")
-                Label("\(room.spectators.count)", systemImage: "eye.fill")
+            // 選手・観戦席の人数（タップで一覧）
+            Button {
+                FlowFX.tap(app)
+                showsMembers = true
+            } label: {
+                HStack(spacing: 8) {
+                    Label("\(room.players.count)", systemImage: "person.fill")
+                    Label("\(room.spectators.count)", systemImage: "eye.fill")
+                }
+                .font(Theme.body(12))
+                .foregroundStyle(Theme.textSecondary)
+                .padding(.horizontal, 6)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
             }
-            .font(Theme.body(12))
-            .foregroundStyle(Theme.textSecondary)
+            .buttonStyle(.plain)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(L("選手 \(room.players.count) 人、観戦席 \(room.spectators.count) 人",
                                   "\(room.players.count) players, \(room.spectators.count) spectators"))
+            .accessibilityHint(L("参加者の一覧を開きます", "Shows everyone in the room"))
+            .accessibilityAddTraits(.isButton)
             .accessibilityIdentifier("online_counts")
+            .popover(isPresented: $showsMembers) {
+                OnlineMembersView(session: session)
+                    .presentationCompactAdaptation(.popover)
+            }
             if session.resyncCount > 0 {
                 Text(L("再同期 \(session.resyncCount)", "resync \(session.resyncCount)"))
                     .font(Theme.body(11))
@@ -816,5 +833,109 @@ private struct OnlineSpectateSettingsView: View {
         .padding(16)
         .frame(width: 320)
         .background(Theme.panel)
+    }
+}
+
+/// 部屋の参加者の一覧（選手・観戦席）。座っている選手からも観戦席が見えるように、状態バーの人数から開く。
+private struct OnlineMembersView: View {
+    let session: OnlineSession
+    @Environment(AppModel.self) private var app
+
+    private var room: OnlineRoom { session.room }
+
+    var body: some View {
+        let colorblind = app.profile.settings.colorblindMode
+        ScrollView {
+            VStack(alignment: .leading, spacing: 6) {
+                header(L("選手 \(room.players.count)/\(OnlineProtocol.maxPlayers)", "Players \(room.players.count)/\(OnlineProtocol.maxPlayers)"),
+                       symbol: "person.fill")
+                ForEach(room.players) { peer in
+                    playerRow(peer, colorblind: colorblind)
+                }
+                if room.hostIsCaster, let host = room.peer(room.hostPeerID) {
+                    header(L("実況", "Caster"), symbol: "mic.fill")
+                    row(name: host.name, mine: host.id == session.localPeerID, host: true,
+                        detail: L("座らずに試合を回す（遅延なし）", "Runs the match without playing (live)"),
+                        symbol: "mic.fill", tint: Theme.gold)
+                }
+                if room.allowsSpectators || !room.spectators.isEmpty {
+                    header(L("観戦席 \(room.spectators.count)/\(OnlineProtocol.maxSpectators)",
+                             "Spectators \(room.spectators.count)/\(OnlineProtocol.maxSpectators)"),
+                           symbol: "eye.fill")
+                    if room.spectators.isEmpty {
+                        Text(L("まだいません", "Nobody yet"))
+                            .font(Theme.body(11))
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                    ForEach(room.spectators) { peer in
+                        row(name: peer.name, mine: peer.id == session.localPeerID, host: false,
+                            detail: peer.isWatching ? L("観戦中", "Watching") : L("待機中", "Waiting"),
+                            symbol: peer.isWatching ? "eye.fill" : "eye", tint: peer.isWatching ? Theme.cyan : Theme.textSecondary)
+                    }
+                } else {
+                    header(L("観戦: 不可", "Spectating: Off"), symbol: "eye.slash")
+                }
+            }
+            .padding(14)
+        }
+        .frame(width: 300)
+        .frame(maxHeight: 280)
+        .background(Theme.panel)
+        .accessibilityIdentifier("online_members")
+    }
+
+    private func header(_ text: String, symbol: String) -> some View {
+        Label(text, systemImage: symbol)
+            .font(.system(size: 11, weight: .heavy, design: .rounded))
+            .foregroundStyle(Theme.textSecondary)
+            .padding(.top, 4)
+    }
+
+    private func playerRow(_ peer: OnlinePeer, colorblind: Bool) -> some View {
+        let seat = room.seat(of: peer.id)
+        let detail: String
+        if let seat {
+            var text = "\(FlowText.team(seat.team)) \(FlowText.position(seat.position))"
+            if peer.leftMatch { text += L("・抜けた（AI が操作）", " · left (AI playing)") }
+            else if peer.isWatching { text += L("・観戦中", " · watching") }
+            detail = text
+        } else {
+            detail = room.phase == .lobby ? L("未着席", "Not seated") : L("試合の終わりを待っています", "Waiting for the match to end")
+        }
+        return row(name: peer.name, mine: peer.id == session.localPeerID, host: peer.id == room.hostPeerID,
+                   detail: detail,
+                   symbol: seat.map { FlowText.teamSymbol($0.team) } ?? "chair.lounge",
+                   tint: seat.map { Theme.teamColor($0.team, colorblind: colorblind) } ?? Theme.textSecondary)
+    }
+
+    private func row(name: String, mine: Bool, host: Bool, detail: String, symbol: String, tint: Color) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: symbol)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(tint)
+                .frame(width: 20)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 4) {
+                    Text(name)
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundStyle(mine ? Theme.gold : Theme.textPrimary)
+                        .lineLimit(1)
+                    if host {
+                        Text(L("ホスト", "Host"))
+                            .font(.system(size: 9, weight: .heavy, design: .rounded))
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, 4)
+                            .background(Capsule().fill(Theme.gold))
+                    }
+                }
+                Text(detail)
+                    .font(Theme.body(10))
+                    .foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
     }
 }

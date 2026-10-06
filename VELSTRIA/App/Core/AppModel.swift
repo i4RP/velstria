@@ -166,7 +166,12 @@ final class AppModel {
 
     private func wire(_ session: OnlineSession) {
         session.onMatchStart = { [weak self, weak session] config, seat in
-            guard let self, let session, let seat, config.players.indices.contains(seat) else { return }
+            guard let self, let session else { return }
+            guard let seat, config.players.indices.contains(seat) else {
+                // 座席の無い開始（起こらないはず）: ホストが試合を回さないと部屋全体が止まるので、実況として開く（B1 の保険）
+                if session.isHost { session.onSpectateStart?(config) }
+                return
+            }
             if self.activeBattle != nil {
                 if session.isHost {
                     // ホストが試合を回せない（起こらないはず）: 全員を待たせないよう部屋をロビーに戻す

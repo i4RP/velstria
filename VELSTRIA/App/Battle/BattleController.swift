@@ -439,7 +439,8 @@ final class BattleController {
         if steps == 0 {
             // このフレームで一歩も進めなかった時間が続いたら待機表示
             onlineStall += dt
-            setOnlineStatus(onlineStall > 0.5 ? .waitingForHost(onlineStall) : .none)
+            // 秒単位に丸める（表示は秒。毎フレーム値が変わると重ね表示が毎フレーム描き直される）
+            setOnlineStatus(onlineStall > 0.5 ? .waitingForHost(onlineStall.rounded(.down)) : .none)
         } else {
             onlineStall = 0
             setOnlineStatus(.none)

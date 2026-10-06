@@ -444,12 +444,49 @@ final class OnlineSpectatorTests: XCTestCase {
         _ = hc.makeOutcome(abandoned: true)
         host.detach()
         host.matchEnded(aborted: true)
-        XCTAssertFalse(w.session.isMatchLive)
-        for _ in 0..<40 { wc.frame(dt: Balance.dt) }
+        XCTAssertEqual(w.session.spectatorFinalTick, hostTick, "中断でも終わった tick を知らせる")
+        XCTAssertTrue(w.session.isMatchLive, "観戦者は遅延のまま残りを見る（中断を知らせると早送りになる）")
+        // 残りは通常の速さで再生する
+        let before = wc.state.tick
+        for _ in 0..<20 { wc.frame(dt: Balance.dt) }
+        XCTAssertLessThanOrEqual(wc.state.tick - before, 20 + BattleController.onlineSpectatorJitterBuffer)
+        XCTAssertFalse(wc.isEnded)
+        var guardCount = 0
+        var finalHash: UInt64?
+        while !wc.isEnded && guardCount < delay + 60 {
+            wc.frame(dt: Balance.dt)
+            if wc.state.tick == hostTick && !wc.isEnded { finalHash = wc.state.stateHash() }
+            guardCount += 1
+        }
         XCTAssertTrue(wc.isEnded)
         XCTAssertEqual(wc.state.tick, hostTick, "中断前の分は最後まで再生する")
+        XCTAssertEqual(finalHash, hashes[hostTick], "中断前の最後の状態はホストと同じ")
         XCTAssertEqual(wc.state.endReason, .aborted)
         XCTAssertEqual(wc.onlineStatus, .disconnected, "中断の終わり（重ね表示が「観戦を終える」を出す）")
+    }
+
+    func testHostLeavingRoomEndsWatchersAfterBufferedFrames() {
+        // ホストが部屋ごと閉じた（接続が切れた）: 届いている分を消化して中断で終える（待ち続けない）
+        let host = makeHost()
+        seatHost(host)
+        let w = join(host, id: "watcher")
+        w.session.setSpectator(true)
+        XCTAssertTrue(host.startMatch(master: .shared, seed: 35))
+        let hc = BattleController(launch: BattleLaunch(config: host.room.config!, onlineSeat: blueMid), online: host)
+        host.attach(controller: hc)
+        let wc = watcherController(w.session)
+        var hashes: [Int: UInt64] = [:]
+        run(host: hc, session: host, clients: [wc], frames: 150, hashes: &hashes)
+        w.hostSide.close()
+        XCTAssertFalse(w.session.isMatchLive)
+        var guardCount = 0
+        while !wc.isEnded && guardCount < 30 {
+            wc.frame(dt: Balance.dt)
+            guardCount += 1
+        }
+        XCTAssertTrue(wc.isEnded)
+        XCTAssertEqual(wc.state.endReason, .aborted)
+        XCTAssertEqual(wc.onlineStatus, .disconnected)
     }
 
     func testNewMatchDoesNotClobberWatcherStillPlayingTail() {
@@ -644,6 +681,111 @@ final class OnlineSpectatorTests: XCTestCase {
         XCTAssertEqual(again.session.room.phase, .lobby)
     }
 
+    // MARK: 再接続
+
+    func testAbandonedPlayerWhoReconnectsChoosesToRejoinOrWatch() {
+        let host = makeHost()
+        seatHost(host)
+        let p = join(host, id: "guest")
+        seat(p.session, redMid, hero: "H002")
+        XCTAssertTrue(host.startMatch(master: .shared, seed: 52))
+        let config = host.room.config!
+        let hc = BattleController(launch: BattleLaunch(config: config, onlineSeat: blueMid), online: host)
+        host.attach(controller: hc)
+        let pc = BattleController(launch: BattleLaunch(config: config, onlineSeat: redMid), online: p.session)
+        p.session.attach(controller: pc)
+        var hashes: [Int: UInt64] = [:]
+        run(host: hc, session: host, clients: [pc], frames: 30, hashes: &hashes)
+        let guestHero = pc.humanHeroID!
+        p.session.detach()
+        p.session.matchEnded(aborted: true)
+        p.clientSide.close()
+        run(host: hc, session: host, clients: [], frames: 5, hashes: &hashes)
+
+        // 自分で抜けた選手は再接続しても試合へ引き戻さない（部屋で「試合に戻る」「観戦する」を選ぶ）
+        let again = join(host, id: "guest")
+        var pulled = false
+        again.session.onMatchStart = { _, _ in pulled = true }
+        XCTAssertEqual(again.session.status, .lobby)
+        XCTAssertFalse(pulled)
+        XCTAssertTrue(again.session.isSittingOutMatch)
+        XCTAssertTrue(again.session.canRejoinMatch)
+        XCTAssertTrue(again.session.canWatchMatch)
+        again.session.rejoinMatch()
+        XCTAssertTrue(pulled)
+        let pc2 = BattleController(launch: BattleLaunch(config: config, onlineSeat: redMid), online: again.session)
+        again.session.attach(controller: pc2)
+        run(host: hc, session: host, clients: [pc2], frames: 30, hashes: &hashes)
+        XCTAssertEqual(hc.state.unit(guestHero)?.hero?.controller, .human)
+        for _ in 0..<100 where pc2.state.tick < hc.state.tick { pc2.frame(dt: Balance.dt) }
+        XCTAssertEqual(pc2.state.stateHash(), hc.state.stateHash())
+    }
+
+    func testWatcherWhoReconnectsStillCannotRejoinAsPlayer() {
+        let host = makeHost()
+        seatHost(host)
+        let p = join(host, id: "guest")
+        seat(p.session, redMid, hero: "H002")
+        XCTAssertTrue(host.startMatch(master: .shared, seed: 53))
+        let config = host.room.config!
+        let hc = BattleController(launch: BattleLaunch(config: config, onlineSeat: blueMid), online: host)
+        host.attach(controller: hc)
+        let pc = BattleController(launch: BattleLaunch(config: config, onlineSeat: redMid), online: p.session)
+        p.session.attach(controller: pc)
+        var hashes: [Int: UInt64] = [:]
+        run(host: hc, session: host, clients: [pc], frames: 30, hashes: &hashes)
+        p.session.detach()
+        p.session.matchEnded(aborted: true)
+        p.session.requestSpectate()
+        let wc = watcherController(p.session)
+        run(host: hc, session: host, clients: [wc], frames: 30, hashes: &hashes)
+        XCTAssertEqual(host.room.peer("guest")?.watchedMatch, true)
+        p.clientSide.close()
+
+        // 新しい接続（端末の再起動など）でも、観戦した試合には戻れないことが部屋から分かる
+        let again = join(host, id: "guest")
+        XCTAssertEqual(again.session.status, .lobby, "観戦した試合へは引き戻さない")
+        XCTAssertTrue(again.session.isSittingOutMatch)
+        XCTAssertFalse(again.session.canRejoinMatch)
+        XCTAssertTrue(again.session.canWatchMatch)
+        host.detach()
+        host.matchEnded()
+        XCTAssertEqual(host.room.peer("guest")?.watchedMatch, false, "次の試合では選手に戻れる")
+        XCTAssertEqual(host.room.seatIndex(of: "guest"), redMid)
+    }
+
+    // MARK: 版の違い
+
+    func testVersion1HelloIsRejectedCleanly() throws {
+        let host = makeHost()
+        let (a, b) = LoopbackConnection.pair()
+        host.accept(a)
+        var received: [OnlineMessage] = []
+        b.onMessage = { received.append($0) }
+        b.start()
+        // v1 のアプリが送る名乗りそのもの（wantsSpectate なし）
+        let body = Data(#"{"hello":{"_0":{"peerID":"old","name":"Old","protocolVersion":1,"simVersion":\#(MatchConfig.currentSimVersion)}}}"#.utf8)
+        var frame = Data()
+        var length = UInt32(body.count).bigEndian
+        withUnsafeBytes(of: &length) { frame.append(contentsOf: $0) }
+        frame.append(body)
+        b.send(encoded: frame)
+        guard case .reject(let reason)? = received.last else { return XCTFail("v1 は版数で断る: \(received)") }
+        XCTAssertTrue(reason.contains("1"), reason)
+        XCTAssertNil(host.room.peer("old"))
+        XCTAssertEqual(host.room.peers.count, 1)
+        // v1 の観戦希望（あり得ないが）でも同じ
+        let (c, d) = LoopbackConnection.pair()
+        host.accept(c)
+        var received2: [OnlineMessage] = []
+        d.onMessage = { received2.append($0) }
+        d.start()
+        d.send(.hello(OnlineHello(peerID: "old2", name: "Old", protocolVersion: 1, wantsSpectate: true)))
+        guard case .reject? = received2.last else { return XCTFail("\(received2)") }
+        XCTAssertNil(host.room.peer("old2"))
+        XCTAssertEqual(host.room.spectators.count, 0)
+    }
+
     // MARK: 部品
 
     func testFrameQueueHandlesLargeBacklogInOrder() {
@@ -687,7 +829,7 @@ final class OnlineSpectatorTests: XCTestCase {
         XCTAssertTrue(relay.retainedKeyframeTicks.allSatisfy { $0 >= 90 })
         XCTAssertLessThanOrEqual(relay.retainedFrameCount, 200 - 90 + 2 * 30)
         // 終わったら残りをすべて公開
-        relay.finish(aborted: false)
+        relay.finish()
         XCTAssertEqual(relay.releasedTick, 200)
         XCTAssertEqual(relay.finalTick, 200)
         XCTAssertEqual(relay.frames(after: 110, through: 200)?.count, 90)
