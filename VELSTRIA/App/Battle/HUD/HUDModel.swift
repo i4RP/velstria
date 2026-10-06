@@ -218,7 +218,11 @@ final class HUDModel {
             appliedZoomSetting = s.cameraZoom
             if controller.cameraZoom != s.cameraZoom { controller.cameraZoom = s.cameraZoom }
             // 観戦者が一時停止メニューで倍率を変えたら、ピンチ・自動カメラの上書きより設定を優先する
-            if changedByUser, isSpectating { controller.cameraZoomOverride = nil }
+            // （自動カメラは、オンにし直す・ダブルタップで戻すまで倍率を書き戻さない）
+            if changedByUser, isSpectating {
+                controller.cameraZoomOverride = nil
+                SpectatorCameraLink.link(for: controller).noteZoomSettingChanged()
+            }
         }
     }
 
@@ -760,10 +764,11 @@ final class HUDModel {
         refreshSpectatorPanels()
     }
 
-    /// 観戦: ヒーローを選ぶ（追従中をもう一度選ぶとヒーロー詳細を開閉する）。
+    /// 観戦: ヒーローを選ぶ（追従中をもう一度選ぶとヒーロー詳細を開閉する）。自動カメラが映しているヒーローを選んだ時は、
+    /// まず手動の追従にする（自動カメラが控える）。もう一度選ぶと詳細。
     func spectatorSelectHero(_ id: EntityID) {
         guard isSpectating else { return }
-        if spectator.focusID == id && cameraFollowID == id {
+        if spectator.focusID == id && cameraFollowID == id && !SpectatorCameraLink.link(for: controller).isDirectorDriving {
             toggleSpectatorPanel(.hero)
             return
         }
@@ -820,6 +825,8 @@ final class HUDModel {
         if isSpectating {
             cameraFollowID = id
             controller.cameraMode = .followUnit(id)
+            // 観戦者の選択は手動の操作（自動カメラが映しているヒーローを選んでもモードは変わらないので、ここで知らせて控えさせる）
+            SpectatorCameraLink.link(for: controller).noteManualCameraInput()
         } else if canFollowAsPlayer(id) {
             cameraFollowID = id
             controller.cameraMode = .followUnit(id)
@@ -1284,8 +1291,12 @@ final class HUDModel {
             lastMinimapTime = 0
         }
         // 死亡情報（倒した相手）は、置き換え後も自分が死亡中なら残す（オンラインの再同期で死亡画面の表示が消えない）
-        if deathInfo != nil, controller.humanIndex.map({ controller.state.units[$0].hero?.isDead != true }) ?? true {
-            deathInfo = nil
+        let humanAlive = controller.humanIndex.map { controller.state.units[$0].hero?.isDead != true } ?? true
+        if deathInfo != nil, humanAlive { deathInfo = nil }
+        // 死亡中の味方追従: 置き換えで復活を飛び越えた（.respawned が配られない）なら、味方の追従をやめて自分に戻る
+        if !isSpectating, humanAlive, cameraFollowID != nil {
+            cameraFollowID = nil
+            controller.cameraMode = .followHero
         }
         lastSurrenderTally = nil
         quickBuyKey = nil

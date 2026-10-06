@@ -7,7 +7,11 @@ import VelstriaCore
 // - CameraDirector: 描画専用の購読者。SimEvent（キル・全滅・構造物・目標・奥義）を「見どころ」として覚え、
 //   SimState（集団戦・低 HP の追走・ボス戦・攻城）と合わせて点数を付け、画（単独の追従 / 複数を収める framing）を選ぶ。
 //   画の切替は sim の時間で決める（最短の長さ・ヒステリシス・割り込み）ので、倍速でも慌ただしくならない。
-//   視点チームが選ばれていれば、そのチームに見えているものだけを映す。手動でカメラを動かすとしばらく控える。
+//   視点チームが選ばれていれば、そのチームに見えているものだけを映す。手動でカメラを動かすとしばらく控える
+//   （控える時間は再生している間だけ減る。一時停止・シーク中は止まった時間として数えない）。
+// - 倍率: 自動カメラは観戦者が倍率を決めていない間だけ followZoom を書く。観戦者が決めた倍率（ピンチ・一時停止メニューの
+//   「カメラ距離」）が優先で、画を変えても書き戻さない。メニューで変えた倍率から自動カメラが倍率を取り戻すのは、観戦者が
+//   自動カメラをオンにし直した時と、ダブルタップで自動カメラへ戻した時（ダブルタップは倍率も既定へ戻す操作）だけ。
 // - 点数付け（DirectorMoments / DirectorScoring）と画の選択（DirectorPolicy）は純粋な値型で、単体テストできる。
 // 決定論: sim の状態は読むだけ。自動カメラの状態は SimState にもリプレイにも入らない。
 
@@ -343,14 +347,19 @@ final class CameraDirector {
     private var observedMode: CameraMode?
     /// 自動カメラが書いた倍率（観戦者がピンチで変えていたら書かない）。
     private var writtenZoom: Double?
+    /// 観戦者が一時停止メニューで倍率を決めた（オンにし直す・ダブルタップで戻すまで倍率を書かない）。
+    private(set) var zoomYielded = false
     private var suspendedUntil: TimeInterval = 0
+    /// 前の update の実時間と、その時に止まっていた（一時停止・シーク中）か。止まっていた間は控えの残りを減らさない。
+    private var lastUpdateClock: TimeInterval?
+    private var wasFrozen = false
     private var lastEvaluation: Double = -.infinity
     private var wasActive = false
     private var forceEvaluation = true
     /// 実時間（手動操作の後に控える時間は実時間で数える。倍速でも同じ長さ）。テストで差し替える。
     var clock: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
 
-    /// 手動でカメラを動かした後、自動カメラが控える時間（実時間の秒）。
+    /// 手動でカメラを動かした後、自動カメラが控える時間（再生している間の実時間の秒。一時停止・シーク中は数えない）。
     static let manualSuspendSeconds: TimeInterval = 10
     /// 画を選び直す間隔（sim の秒）。
     static let evaluationInterval: Double = 0.25
@@ -392,20 +401,34 @@ final class CameraDirector {
         written = nil
     }
 
-    /// 控えをやめてすぐ自動カメラに戻す（ダブルタップ）。今の画をもう一度映す。
+    /// 観戦者が一時停止メニューで倍率を変えた（HUD が倍率の上書きを外した後に呼ぶ）。設定の倍率を優先し、
+    /// オンにし直す・ダブルタップで戻すまで自動カメラの倍率を書かない（画を変えるたびに 1.2 へ戻さない）。
+    func yieldZoom() {
+        zoomYielded = true
+        writtenZoom = nil
+    }
+
+    /// 控えをやめてすぐ自動カメラに戻す（ダブルタップ）。今の画をもう一度映す。倍率も自動カメラへ返す。
     func resume() {
         suspendedUntil = 0
         written = nil
+        zoomYielded = false
         forceEvaluation = true
         if let shot = policy.current { apply(shot.cameraMode) }
     }
 
     /// 毎フレーム（BattleWorld.updateCamera から。一時停止中も呼ばれるが、sim の時間が進まないので画は変えない）。
     func update() {
+        freezeSuspensionWhilePaused()
         let active = isActive
         defer { wasActive = active }
         guard active else {
             if wasActive {
+                // オフになった: framing は自動カメラだけが作る画（手動では作れない）。残すと、オフにした後も集団戦の全員を
+                // 収めようと動き・引き続けるので、主役の追従に替える
+                if case .framing(let ids) = controller.cameraMode, let first = ids.first {
+                    controller.cameraMode = .followUnit(first)
+                }
                 // オフになった（観戦者が切り替えた）: 自動カメラが書いた倍率を外して、設定の倍率へ戻す
                 // （残すと一時停止メニューの倍率が効かないまま。観戦者がピンチで決めた倍率はそのまま）
                 if let z = writtenZoom, controller.cameraZoomOverride == z { controller.cameraZoomOverride = nil }
@@ -416,9 +439,10 @@ final class CameraDirector {
             return
         }
         if !wasActive {
-            // オンになった（観戦の開始・観戦者が切り替えた）: 控えなしですぐ選ぶ
+            // オンになった（観戦の開始・観戦者が切り替えた）: 控えなしですぐ選ぶ。倍率も自動カメラへ返す
             suspendedUntil = 0
             written = nil
+            zoomYielded = false
             forceEvaluation = true
             policy.reset()
         }
@@ -457,6 +481,18 @@ final class CameraDirector {
         }
     }
 
+    /// 一時停止・シーク中（HUD では止まった時間）は、控えの期限をその分だけ先へ送る（明けた直後に奪い返さない）。
+    /// 止まった・動き出した境目のフレームも止まっていた側に数える（一時停止中に描画の間隔が空いても取りこぼさない）。
+    private func freezeSuspensionWhilePaused() {
+        let now = clock()
+        let frozen = controller.isPaused || controller.seekingToTick != nil
+        if let last = lastUpdateClock, frozen || wasFrozen, suspendedUntil > last {
+            suspendedUntil += max(0, now - last)
+        }
+        lastUpdateClock = now
+        wasFrozen = frozen
+    }
+
     /// 再生速度に合わせた切替の規則。sim の時間で決めるが、倍速で画が目まぐるしく変わらないよう、
     /// 実時間でも最短 1.2 秒・倒れた主役は 0.8 秒・割り込みの間隔は 0.6 秒を下回らないようにする。
     static func config(speed: Double) -> DirectorPolicy.Config {
@@ -472,6 +508,7 @@ final class CameraDirector {
     private func apply(_ mode: CameraMode) {
         if controller.cameraMode != mode { controller.cameraMode = mode }
         written = mode
+        guard !zoomYielded else { return }
         let zoom = controller.cameraZoomOverride
         if zoom == nil || zoom == writtenZoom {
             controller.cameraZoomOverride = Self.followZoom
@@ -506,6 +543,17 @@ final class SpectatorCameraLink {
     /// 手動のカメラ操作を自動カメラへ知らせる（しばらく控える）。
     func noteManualCameraInput() {
         director?.noteManualCameraInput()
+    }
+
+    /// 観戦者が一時停止メニューで倍率を変えた（HUDModel.syncSettings）。自動カメラは倍率を書き戻さない。
+    func noteZoomSettingChanged() {
+        director?.yieldZoom()
+    }
+
+    /// 自動カメラが手綱を握っている（有効で、手動操作の後で控えていない）。
+    var isDirectorDriving: Bool {
+        guard let director else { return false }
+        return director.isActive && !director.isSuspended
     }
 
     /// 自動カメラが有効なら控えをやめてすぐ戻す。戻したら true。
