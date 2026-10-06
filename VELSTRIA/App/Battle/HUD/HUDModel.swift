@@ -214,8 +214,11 @@ final class HUDModel {
             quickBuyKey = nil
         }
         if appliedZoomSetting != s.cameraZoom {
+            let changedByUser = appliedZoomSetting != nil
             appliedZoomSetting = s.cameraZoom
             if controller.cameraZoom != s.cameraZoom { controller.cameraZoom = s.cameraZoom }
+            // 観戦者が一時停止メニューで倍率を変えたら、ピンチ・自動カメラの上書きより設定を優先する
+            if changedByUser, isSpectating { controller.cameraZoomOverride = nil }
         }
     }
 

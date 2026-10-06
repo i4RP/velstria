@@ -101,6 +101,26 @@ final class ReplayTimelineTests: XCTestCase {
         XCTAssertEqual(old.finalTick, 900)
     }
 
+    func testLateMatchEndAtTheSameTickIsRecordedOnce() {
+        let sim = Simulation(config: MatchFactory.botMatch(seed: 2))
+        var builder = ReplayTimelineBuilder()
+        builder.begin(state: sim.state)
+        for _ in 0..<45 { builder.observe(events: sim.step(), state: sim.state) }
+        // 記録の最終 tick での中断終了（step の後、同じ tick に終了だけが届く）
+        sim.abort()
+        let end: [SimEvent] = [.matchEnded(winner: nil, reason: .aborted)]
+        builder.observe(events: end, state: sim.state)
+        builder.observe(events: end, state: sim.state)
+        let ends = builder.timeline.events.filter { if case .matchEnd = $0.kind { return true } else { return false } }
+        XCTAssertEqual(ends.count, 1)
+        XCTAssertEqual(ends.first?.tick, 45)
+        XCTAssertEqual(builder.timeline.samples.last?.tick, 45, "終了時のサンプル")
+        // 同じ tick の通常のイベントは二重に取り込まない
+        let before = builder.timeline
+        builder.observe(events: [.announcement(.ace(team: .red))], state: sim.state)
+        XCTAssertEqual(builder.timeline, before)
+    }
+
     func testRecorderKeepsFurthestTickAndIncompleteFlag() {
         let recorder = ReplayRecorder(config: MatchFactory.botMatch(seed: 1))
         recorder.record(tick: 10, commands: [])

@@ -191,7 +191,12 @@ public struct ReplayTimelineBuilder: Sendable {
 
     /// 1 step の結果を取り込む（state は step 後）。既に記録済みの tick は無視する（同じ tick を二重に数えない）。
     public mutating func observe(events: [SimEvent], state s: SimState) {
-        guard s.tick > timeline.coveredTick || (s.tick == 0 && timeline.samples.isEmpty) else { return }
+        guard s.tick > timeline.coveredTick || (s.tick == 0 && timeline.samples.isEmpty) else {
+            // 記録済みの tick は二重に数えない。例外は、同じ tick の step の後に来る試合終了
+            // （リプレイが記録の最終 tick で中断終了する時など）。終了の印がまだ無ければ 1 回だけ取り込む。
+            if s.tick == timeline.coveredTick { observeLateEnd(events: events, state: s) }
+            return
+        }
         for e in events {
             switch e {
             case .heroKilled(let k):
@@ -222,6 +227,18 @@ public struct ReplayTimelineBuilder: Sendable {
             if timeline.samples.last?.tick != s.tick { timeline.samples.append(TimelineSample(state: s)) }
         }
         timeline.coveredTick = s.tick
+    }
+
+    /// 同じ tick に後から来た試合終了を取り込む（終了の印が無い時だけ）。
+    private mutating func observeLateEnd(events: [SimEvent], state s: SimState) {
+        guard s.phase == .ended else { return }
+        let hasEnd = timeline.events.contains { if case .matchEnd = $0.kind { return true } else { return false } }
+        guard !hasEnd else { return }
+        for case .matchEnded(let winner, let reason) in events {
+            timeline.events.append(TimelineEvent(tick: s.tick, kind: .matchEnd(winner: winner, reason: reason), pos: nil))
+            if timeline.samples.last?.tick != s.tick { timeline.samples.append(TimelineSample(state: s)) }
+            return
+        }
     }
 
     /// tick より後を捨てて、そこから記録し直す（後退シーク）。
