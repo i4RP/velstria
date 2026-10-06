@@ -118,7 +118,11 @@ struct HUDTopRight: View {
                 model.openPanel(.pause)
             }
             if model.isSpectating {
-                HUDRoundButton(symbol: "rectangle.portrait.and.arrow.right", label: L("観戦をやめる", "Leave"),
+                // ホストの実況は観戦の画面でも試合を回している: やめると全員の試合が終わる（確認もその旨を出す）
+                let hostCaster = model.controller.isOnlineHost
+                HUDRoundButton(symbol: hostCaster ? "stop.circle.fill" : "rectangle.portrait.and.arrow.right",
+                               label: hostCaster ? L("全員の試合を終了", "End the match for everyone")
+                                                 : L("観戦をやめる", "Leave"),
                                identifier: "spectate_leave", tint: Theme.danger) {
                     model.requestLeave()
                 }

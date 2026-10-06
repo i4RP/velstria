@@ -96,6 +96,11 @@ final class OnlineSession: OnlineBattleLink {
     @ObservationIgnored var onDisconnected: ((String) -> Void)?
     /// お知らせ（観戦を断られた等。トースト用）。
     @ObservationIgnored var onNotice: ((String) -> Void)?
+    /// AppModel が戦闘（読み込み・リザルトを含む）を開いている。観戦の案内は、受ける前にこれで断るかを決める
+    /// （断るなら何も変えない。先に配信の状態を作り直すと、開いている戦闘の配信を壊す）。
+    @ObservationIgnored var isBattleOpen: (() -> Bool)?
+    /// 戦闘を閉じた後に観戦を求め直すまでの間（秒。閉じる画面の遷移と重ならないように。テストは 0）。
+    @ObservationIgnored var spectateResumeDelay: TimeInterval = 0.8
     /// テスト用: 現在時刻の供給。
     @ObservationIgnored var now: () -> Date = { Date() }
     /// テスト用: 単調時刻の供給（往復遅延・生存確認）。
@@ -183,6 +188,10 @@ final class OnlineSession: OnlineBattleLink {
     private(set) var watchedCurrentMatch = false
     /// この試合から抜けた（座席は保っている。UI の「試合に戻る」）。
     private(set) var abandonedCurrentMatch = false
+    /// 観戦を求めて返事（観戦の案内・断り）を待っている。その間は「観戦する」「試合に戻る」を出さない（両方を押せない）。
+    private(set) var isAwaitingSpectate = false
+    /// 観戦席: 戦闘中（前の試合の遅延分の残り・リザルト）に次の試合の案内が来て断った。戦闘を閉じたら観戦を求め直す。
+    @ObservationIgnored private(set) var resumesSpectateAfterBattle = false
     /// 直近のスナップショットの tick（テスト・デバッグ表示）。
     @ObservationIgnored private(set) var lastSnapshotTick: Int?
 
@@ -268,11 +277,11 @@ final class OnlineSession: OnlineBattleLink {
     }
     /// 進行中の試合を観戦できる（座っていない・試合から抜けた参加者。観戦の戦闘を開いていない）。
     var canWatchMatch: Bool {
-        isSittingOutMatch && isConnected && room.allowsSpectators && !watching && controller == nil
+        isSittingOutMatch && isConnected && room.allowsSpectators && !watching && controller == nil && !isAwaitingSpectate
     }
     /// 抜けた試合に選手として戻れる（座席を保っていて、その試合を観戦していない）。
     var canRejoinMatch: Bool {
-        isSittingOutMatch && isConnected && localSeat != nil && !watching && controller == nil
+        isSittingOutMatch && isConnected && localSeat != nil && !watching && controller == nil && !isAwaitingSpectate
             && !watchedCurrentMatch && room.peer(localPeerID)?.watchedMatch != true
     }
 
@@ -428,7 +437,7 @@ final class OnlineSession: OnlineBattleLink {
                 resyncCount += 1
                 note(L("観戦者 \(name) の状態がずれました（tick \(tick)）。再同期します",
                        "Spectator \(name) desynced at tick \(tick); resyncing"))
-                sendSpectatorBase(to: peerID)
+                sendSpectatorBase(to: peerID, resync: true)
                 return
             }
             // 選手だけ（座っていて抜けていない）。それ以外には状態を渡さない
@@ -756,8 +765,28 @@ final class OnlineSession: OnlineBattleLink {
 
     /// クライアント: 進行中の試合を観戦する（座っていない・試合から抜けた参加者）。
     func requestSpectate() {
-        guard canWatchMatch else { return }
-        connection?.send(.requestSpectate)
+        guard canWatchMatch, let connection else { return }
+        // 返事（spectateMatch / spectateDenied）までは「観戦する」「試合に戻る」を出さない（先に立てる: ループバックは同期で返る）
+        isAwaitingSpectate = true
+        connection.send(.requestSpectate)
+    }
+
+    /// クライアント: 戦闘（リザルトを含む）を閉じた（AppModel.dismissBattle）。観戦席が戦闘中に次の試合の案内を断っていたら、
+    /// いま観戦を求め直す（試合開始で観戦画面が開く、の代わり。ホストは遅延済みの範囲の基準から配る）。
+    func battleClosed() {
+        guard role == .client, resumesSpectateAfterBattle else { return }
+        resumesSpectateAfterBattle = false
+        guard spectateResumeDelay > 0 else {
+            if canWatchMatch { requestSpectate() }
+            return
+        }
+        // 閉じる画面の遷移が終わってから（すぐに次の戦闘を出すと表示が重なる）
+        let delay = spectateResumeDelay
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard let self, self.canWatchMatch, self.isBattleOpen?() != true else { return }
+            self.requestSpectate()
+        }
     }
 
     /// クライアント: 抜けた試合に選手として戻る（loaded を送ると、ホストは状態を渡して操作を人間に戻す）。
@@ -883,6 +912,7 @@ final class OnlineSession: OnlineBattleLink {
     func leave() {
         guard !closed else { return }
         closed = true
+        resumesSpectateAfterBattle = false
         pingTimer?.invalidate()
         pingTimer = nil
         stopSpectatorTimer()
@@ -959,6 +989,9 @@ final class OnlineSession: OnlineBattleLink {
                 if status != .lobby, status != .connecting { status = .lobby }
                 watchedCurrentMatch = false
                 abandonedCurrentMatch = false
+                // 試合が終わった: 観戦の求め・求め直しは要らない
+                isAwaitingSpectate = false
+                resumesSpectateAfterBattle = false
             }
         case .startMatch(let config):
             room.config = config
@@ -969,14 +1002,23 @@ final class OnlineSession: OnlineBattleLink {
             hostAborted = false
             watchedCurrentMatch = false
             abandonedCurrentMatch = false
+            isAwaitingSpectate = false
+            resumesSpectateAfterBattle = false
             onMatchStart?(config, room.seatIndex(of: localPeerID))
         case .spectateMatch(let config, let delayTicks, _):
-            guard controller == nil else {
-                // 前の試合（の遅延分の残り）をまだ見ている: いまの配信は捨てず、新しい観戦は断る
+            isAwaitingSpectate = false
+            if controller != nil || isBattleOpen?() == true {
+                // 戦闘を開いている（前の試合の遅延分の残り・リザルト・読み込み中の「試合に戻る」）: 何も変えずに断る。
+                // 配信の状態を先に作り直すと、開いている戦闘の配信（残り・読み込み中の選手の配信）を壊す
                 connection?.send(.stopSpectating)
-                note(L("次の試合が始まりました（観戦中のため開けませんでした）", "The next match started while you were still watching"))
+                // 観戦席は毎試合を見る役割: 戦闘を閉じたら観戦を求め直す（battleClosed）
+                resumesSpectateAfterBattle = localRole == .spectator
+                note(resumesSpectateAfterBattle
+                     ? L("次の試合が始まりました（この画面を閉じると観戦を始めます）", "The next match started; it opens when you close this screen")
+                     : L("観戦の案内が届きましたが、戦闘中のため開けませんでした", "Spectating was offered while you were in a battle"))
                 return
             }
+            resumesSpectateAfterBattle = false
             room.config = config
             status = .loading
             resetBattleBuffers()
@@ -997,6 +1039,7 @@ final class OnlineSession: OnlineBattleLink {
             guard acceptsFrames, watching else { return }
             watchingFinalTick = finalTick
         case .spectateDenied(let reason):
+            isAwaitingSpectate = false
             note(reason)
             onNotice?(reason)
         case .snapshot(let state):
@@ -1119,7 +1162,11 @@ final class OnlineSession: OnlineBattleLink {
                 room.peers[i].isWatching = controller.launch.onlineSpectator
             }
             status = .playing
-            if relay.isActive { startSpectatorTimer() }
+            if relay.isActive {
+                // ずれの再同期の基準（最初のキーフレームが公開されるまで）
+                relay.recordInitial(controller.state)
+                startSpectatorTimer()
+            }
             broadcastRoom()
         case .client:
             // 観戦の戦闘を開いた: この試合には選手として戻れない（案内を断った時は数えない）
@@ -1272,15 +1319,20 @@ final class OnlineSession: OnlineBattleLink {
     }
 
     /// 観戦者へ基準を送り、その先の記録を続けて送る。基準は公開済みの範囲で最新のキーフレーム（無ければ tick 0 = 状態を送らない）。
+    /// resync: ずれの再同期。キーフレームがまだ公開されていなければ試合開始時の状態を送る（送らないと構成から作った
+    /// ずれた状態のまま、届く記録は重複として捨てられる）。
+    /// 試合が終わって残りを送り切った観戦者でも、基準の先の残りと終わり（matchFinished）を送り直す（基準で配信を捨てるので）。
     /// 状態は数百 KB あるので、既定ではバックグラウンドで符号化する（その間この観戦者への配信は止める）。
-    private func sendSpectatorBase(to peerID: OnlinePeerID) {
+    private func sendSpectatorBase(to peerID: OnlinePeerID, resync: Bool = false) {
         guard var stream = spectatorStreams[peerID] else { return }
         // 再同期の前に送った配信・報告は捨てる（公開済みの範囲までは基準からやり直すので照合しない）
         resyncedAt[peerID] = relay.releasedTick
         spectatorBaseGeneration &+= 1
         let generation = spectatorBaseGeneration
         stream.generation = generation
-        guard let base = relay.baseState else {
+        // 基準から配り直すので、試合の終わりまで送り切った観戦者にも基準の先の残りと終わりを送り直す
+        stream.ended = false
+        guard let base = resync ? relay.resyncState : relay.baseState else {
             stream.pendingBaseTick = nil
             stream.cursor = 0
             spectatorStreams[peerID] = stream

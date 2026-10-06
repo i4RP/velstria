@@ -4,6 +4,54 @@ import VelstriaCore
 // 担当: battle-hud。UI030 ポーズメニュー: 再開・クイック設定（BGM/SFX 音量・ダメージ数値・カメラ距離）・
 // 降参（UI031、通常戦/ランク戦で 8:00 以降）・退出（確認つき。通常戦/ランク戦は敗北扱いの警告）。
 // 開いている間は controller.isPaused = true（オフラインなので全体が止まる）。
+// オンラインのホスト（席に着いた選手・実況とも）の退出は部屋の試合そのものを終わらせるので、専用の確認を出す。
+
+/// 退出の確認の種類（見出し・説明・ボタンの文言と色）。
+enum HUDLeaveKind: Equatable {
+    /// 通常戦・ランク戦のプレイヤー: 敗北として記録される。
+    case countsAsLoss
+    /// オンラインのホスト（実況を含む）: 権威シミュレーションが止まるので、全員の試合が中断で終わる（引き継ぎは無い）。
+    case endsMatchForEveryone
+    /// それ以外（観戦・練習・オンラインの参加者など）: 進行が残らないだけ。
+    case plain
+
+    static func of(mode: MatchMode, isSpectating: Bool, isOnlineHost: Bool) -> HUDLeaveKind {
+        // ホストが抜けると試合を回す人がいない（OnlineSession.matchEnded が全員へ中断を配る）
+        if isOnlineHost { return .endsMatchForEveryone }
+        if (mode == .standard || mode == .ranked) && !isSpectating { return .countsAsLoss }
+        return .plain
+    }
+
+    /// ポーズメニューの退出ボタンの文言。
+    var menuButtonTitle: String {
+        self == .endsMatchForEveryone ? L("試合を終了", "End Match") : L("退出", "Leave Match")
+    }
+
+    var title: String {
+        self == .endsMatchForEveryone ? L("全員の試合を終了しますか？", "End the match for everyone?")
+                                      : L("試合から退出しますか？", "Leave the match?")
+    }
+
+    var message: String {
+        switch self {
+        case .countsAsLoss:
+            return L("途中で退出すると敗北として記録され、報酬は獲得できません。", "Leaving now counts as a loss and grants no rewards.")
+        case .endsMatchForEveryone:
+            return L("あなたはホストです。ホストが抜けると試合は続けられず、選手・観戦者の全員の試合が中断で終わります。",
+                     "You are the host. The match can't continue without you: it ends as interrupted for every player and spectator.")
+        case .plain:
+            return L("進行状況は保存されません。", "Your progress in this session won't be kept.")
+        }
+    }
+
+    var confirmTitle: String {
+        switch self {
+        case .countsAsLoss: return L("退出（敗北）", "Leave (Loss)")
+        case .endsMatchForEveryone: return L("全員の試合を終了", "End for Everyone")
+        case .plain: return L("退出", "Leave")
+        }
+    }
+}
 
 struct HUDPauseMenu: View {
     let model: HUDModel
@@ -36,7 +84,9 @@ struct HUDPauseMenu: View {
                 }
                 Spacer(minLength: 0)
                 Button { model.confirmingLeave = true } label: {
-                    Label(L("退出", "Leave Match"), systemImage: "rectangle.portrait.and.arrow.right").frame(maxWidth: .infinity)
+                    Label(leaveKind.menuButtonTitle,
+                          systemImage: leaveKind == .endsMatchForEveryone ? "stop.circle.fill" : "rectangle.portrait.and.arrow.right")
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(SecondaryButtonStyle())
                 .accessibilityIdentifier("pause_leave")
@@ -84,6 +134,10 @@ struct HUDPauseMenu: View {
         .animation(.spring(duration: 0.25), value: model.confirmingLeave)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("pause_menu")
+    }
+
+    private var leaveKind: HUDLeaveKind {
+        HUDLeaveKind.of(mode: model.mode, isSpectating: model.isSpectating, isOnlineHost: model.controller.isOnlineHost)
     }
 
     private var modeName: String {
@@ -147,16 +201,16 @@ struct HUDPauseMenu: View {
     }
 
     private var leaveConfirm: some View {
-        let countsAsLoss = (model.mode == .standard || model.mode == .ranked) && !model.isSpectating
+        let kind = leaveKind
+        let warns = kind != .plain
         return VStack(spacing: 12) {
-            Image(systemName: countsAsLoss ? "exclamationmark.triangle.fill" : "rectangle.portrait.and.arrow.right")
+            Image(systemName: warns ? "exclamationmark.triangle.fill" : "rectangle.portrait.and.arrow.right")
                 .font(.system(size: 28, weight: .bold))
-                .foregroundStyle(countsAsLoss ? Theme.danger : Theme.gold)
-            Text(L("試合から退出しますか？", "Leave the match?"))
+                .foregroundStyle(warns ? Theme.danger : Theme.gold)
+            Text(kind.title)
                 .font(Theme.heading(18))
                 .foregroundStyle(.white)
-            Text(countsAsLoss ? L("途中で退出すると敗北として記録され、報酬は獲得できません。", "Leaving now counts as a loss and grants no rewards.")
-                              : L("進行状況は保存されません。", "Your progress in this session won't be kept."))
+            Text(kind.message)
                 .font(.system(size: 13, weight: .medium, design: .rounded))
                 .foregroundStyle(.white.opacity(0.8))
                 .multilineTextAlignment(.center)
@@ -167,7 +221,7 @@ struct HUDPauseMenu: View {
                 .buttonStyle(SecondaryButtonStyle())
                 .accessibilityIdentifier("leave_cancel")
                 Button { model.leave() } label: {
-                    Text(countsAsLoss ? L("退出（敗北）", "Leave (Loss)") : L("退出", "Leave")).frame(minWidth: 110)
+                    Text(kind.confirmTitle).frame(minWidth: 110)
                 }
                 .buttonStyle(PrimaryButtonStyle(color: Theme.danger))
                 .accessibilityIdentifier("leave_confirm")

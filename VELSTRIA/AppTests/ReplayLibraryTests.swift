@@ -61,7 +61,13 @@ final class ReplayLibraryTests: XCTestCase {
         // オンラインの観戦席（記録が無い）
         var watcher = ServicesFixtures.outcome(mode: .online, withReplay: true)
         watcher.launch = BattleLaunch(config: watcher.launch.config, onlineSpectator: true)
+        watcher.replay = nil
         XCTAssertNil(ReplayArchiveService.archiveSource(for: watcher))
+        // ホストの実況（観戦の起動だが試合を最初から回して記録している）は保存する。座席が無いので持ち主なし
+        var caster = ServicesFixtures.outcome(mode: .online, withReplay: true)
+        caster.launch = BattleLaunch(config: caster.launch.config, onlineSpectator: true)
+        XCTAssertEqual(ReplayArchiveService.archiveSource(for: caster), .online)
+        XCTAssertNil(ReplayArchiveService.ownerSeat(for: caster))
     }
 
     func testSpectateIsArchivedWithoutRewardsOrRecords() throws {

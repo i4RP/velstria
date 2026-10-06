@@ -279,6 +279,84 @@ final class OnlineSpectatorTests: XCTestCase {
         XCTAssertEqual(wc.state.stateHash(), hashes[wc.state.tick])
     }
 
+    func testResyncBeforeFirstReleasedKeyframeRestartsFromMatchStart() {
+        // 最初のキーフレームが公開される前のずれ: 試合開始時の状態から送り直す
+        // （以前は状態を送らずに記録だけ送り直し、観戦者は重複として捨ててずれたまま見続けた）
+        let clock = Clock()
+        let host = makeHost(clock: clock)
+        host.spectatorKeyframeInterval = 600   // 最初のキーフレームの公開（600 + 遅延）を試験の間より後にする
+        seatHost(host)
+        let w = join(host, id: "watcher")
+        w.session.setSpectator(true)
+        XCTAssertTrue(host.startMatch(master: .shared, seed: 13))
+        let hc = BattleController(launch: BattleLaunch(config: host.room.config!, onlineSeat: blueMid), online: host)
+        host.attach(controller: hc)
+        let wc = watcherController(w.session)
+        var hashes: [Int: UInt64] = [:]
+        run(host: hc, session: host, clients: [wc], frames: 75, clock: clock, hashes: &hashes)
+        XCTAssertLessThan(wc.state.tick, OnlineProtocol.hashInterval, "最初のハッシュ報告の前")
+        // スナップショットの間隔を過ぎた状態で観戦者の状態を壊す → tick 30 の報告で検出
+        clock.now += 10
+        var corrupted = wc.state
+        let hero = corrupted.heroIndices[0]
+        corrupted.units[hero].pos = corrupted.units[hero].pos + Vec2(300, 300)
+        wc.restore(corrupted)
+        run(host: hc, session: host, clients: [wc], frames: 60, clock: clock, hashes: &hashes)
+        XCTAssertEqual(host.resyncCount, 1)
+        XCTAssertEqual(w.session.lastSnapshotTick, 0, "キーフレームがまだ無いので試合開始時の状態を送る")
+        XCTAssertLessThan(host.spectatorReleasedTick, 600, "キーフレームはまだ公開されていない")
+        run(host: hc, session: host, clients: [wc], frames: 90, clock: clock, hashes: &hashes) {
+            self.assertDelayed(wc, behind: hc)
+        }
+        XCTAssertGreaterThan(wc.state.tick, 2 * OnlineProtocol.hashInterval)
+        XCTAssertEqual(wc.state.stateHash(), hashes[wc.state.tick], "試合開始時から進め直してホストに一致")
+        XCTAssertEqual(host.resyncCount, 1, "送り直しは 1 回で直る")
+        XCTAssertEqual(host.spectatorRelayRetained.keyframes, [], "キーフレームは 600 tick まで無い")
+    }
+
+    func testWatcherDesyncAfterMatchFinishedStillGetsTheTail() {
+        // ホストの試合が終わり（ホストは終わりの画面のまま）、観戦者へ残りと終わりを送り切った後のずれ:
+        // 基準に戻した先の残りと終わりも送り直す（以前は基準だけ届いて配信が止まり、残りを失って待ち続けた）
+        let clock = Clock()
+        let host = makeHost(clock: clock)
+        seatHost(host)
+        let w = join(host, id: "watcher")
+        w.session.setSpectator(true)
+        XCTAssertTrue(host.startMatch(master: .shared, seed: 14))
+        let hc = BattleController(launch: BattleLaunch(config: host.room.config!, onlineSeat: blueMid), online: host)
+        host.attach(controller: hc)
+        let wc = watcherController(w.session)
+        var hashes: [Int: UInt64] = [:]
+        run(host: hc, session: host, clients: [wc], frames: 200, clock: clock, hashes: &hashes)
+        let finalTick = hc.state.tick
+        // ホストの試合が終わる（ここでは中断で止める。matchEnded はまだ呼ばない = 終わりの画面で止まっている）
+        _ = hc.makeOutcome(abandoned: true)
+        host.pumpSpectators()
+        XCTAssertEqual(w.session.spectatorFinalTick, finalTick, "残りと終わりを送り切った")
+        XCTAssertEqual(host.spectatorStreamCount, 1)
+
+        clock.now += 10
+        var corrupted = wc.state
+        let hero = corrupted.heroIndices[0]
+        corrupted.units[hero].pos = corrupted.units[hero].pos + Vec2(300, 300)
+        wc.restore(corrupted)
+        var finalHash: UInt64?
+        var guardCount = 0
+        while !wc.isEnded && guardCount < delay + 120 {
+            wc.frame(dt: Balance.dt)
+            host.pumpSpectators()
+            if wc.state.tick == finalTick && !wc.isEnded { finalHash = wc.state.stateHash() }
+            guardCount += 1
+        }
+        XCTAssertEqual(host.resyncCount, 1, "試合が終わった後のずれも再同期する")
+        let base = try! XCTUnwrap(w.session.lastSnapshotTick)
+        XCTAssertLessThan(base, finalTick)
+        XCTAssertTrue(wc.isEnded, "基準の先の残りが届いて最後まで見られる（止まったまま待たない）")
+        XCTAssertEqual(wc.state.tick, finalTick)
+        XCTAssertEqual(finalHash, hashes[finalTick], "最後の状態はホストと同じ")
+        XCTAssertEqual(w.session.spectatorFinalTick, finalTick)
+    }
+
     // MARK: 観戦者は操作できない・生の状態をもらえない
 
     func testWatcherInputsAndLoadedAreIgnored() {
@@ -614,6 +692,153 @@ final class OnlineSpectatorTests: XCTestCase {
         XCTAssertTrue(wc.isEnded)
     }
 
+    func testWatcherStillOnPreviousMatchOpensNextMatchAfterClosingIt() {
+        // 観戦席が前の試合の残り・リザルトを見ている間に次の試合が始まった: 何も変えずに断り、閉じたら観戦を求め直して開く
+        // （以前は断ったまま。ロビーの「観戦する」を押すまで開かず、トーストも戦闘の画面の裏で見えなかった）
+        let host = makeHost()
+        seatHost(host)
+        let w = join(host, id: "watcher")
+        w.session.setSpectator(true)
+        w.session.spectateResumeDelay = 0
+        var battleOpen = true
+        w.session.isBattleOpen = { battleOpen }
+        var opened: MatchConfig?
+        w.session.onSpectateStart = { opened = $0 }
+
+        // 閉じる前にその試合が終わった: 求め直さない（見る試合が無い）
+        XCTAssertTrue(host.startMatch(master: .shared, seed: 39))
+        XCTAssertNil(opened, "戦闘を開いている間は観戦の案内を断る")
+        XCTAssertTrue(w.session.resumesSpectateAfterBattle, "観戦席は閉じたら求め直す")
+        host.matchEnded(aborted: true)
+        XCTAssertFalse(w.session.resumesSpectateAfterBattle)
+        battleOpen = false
+        w.session.battleClosed()
+        XCTAssertNil(opened)
+
+        // 次の試合: 断った後、閉じたら（AppModel.dismissBattle → battleClosed）観戦の案内が届いて開く
+        battleOpen = true
+        seatHost(host)
+        XCTAssertTrue(host.startMatch(master: .shared, seed: 40))
+        XCTAssertNil(opened)
+        XCTAssertEqual(host.spectatorStreamCount, 0)
+        XCTAssertFalse(w.session.isWatchingMatch)
+        battleOpen = false
+        w.session.battleClosed()
+        XCTAssertEqual(opened, host.room.config, "閉じたら次の試合の観戦画面が開く")
+        XCTAssertFalse(w.session.resumesSpectateAfterBattle)
+        let hc = BattleController(launch: BattleLaunch(config: host.room.config!, onlineSeat: blueMid), online: host)
+        host.attach(controller: hc)
+        let wc = watcherController(w.session)
+        XCTAssertEqual(host.spectatorStreamCount, 1)
+        var hashes: [Int: UInt64] = [:]
+        run(host: hc, session: host, clients: [wc], frames: 120, hashes: &hashes) {
+            self.assertDelayed(wc, behind: hc)
+        }
+        XCTAssertEqual(wc.state.stateHash(), hashes[wc.state.tick])
+    }
+
+    func testSpectateOfferDuringLoadingBattleChangesNothing() {
+        // 観戦の案内が、まだ読み込み中の戦闘（「試合に戻る」・前の試合の観戦）を開いている時に届いた:
+        // 断るだけで配信の状態は作り直さない（以前は先に作り直し、読み込み中の戦闘の配信を受け付けなくしていた）
+        let host = makeHost()
+        seatHost(host)
+        let p = join(host, id: "guest")
+        seat(p.session, redMid, hero: "H002")
+        XCTAssertTrue(host.startMatch(master: .shared, seed: 54))
+        let config = host.room.config!
+        let hc = BattleController(launch: BattleLaunch(config: config, onlineSeat: blueMid), online: host)
+        host.attach(controller: hc)
+        let pc = BattleController(launch: BattleLaunch(config: config, onlineSeat: redMid), online: p.session)
+        p.session.attach(controller: pc)
+        var hashes: [Int: UInt64] = [:]
+        run(host: hc, session: host, clients: [pc], frames: 60, hashes: &hashes)
+        let guestHero = pc.humanHeroID!
+        p.session.detach()
+        p.session.matchEnded(aborted: true)
+        run(host: hc, session: host, clients: [], frames: 5, hashes: &hashes)
+
+        // AppModel と同じ判断（戦闘を開いていれば観戦は断る）
+        var battleOpen = false
+        var spectateOpened = false
+        p.session.isBattleOpen = { battleOpen }
+        p.session.onSpectateStart = { _ in
+            if battleOpen { p.session.declineSpectate() } else { spectateOpened = true }
+        }
+        var rejoinSeat: Int?
+        p.session.onMatchStart = { _, seat in
+            rejoinSeat = seat
+            battleOpen = true
+        }
+
+        // 「観戦する」の返事を待つ間は「観戦する」「試合に戻る」を出さない（両方を押せない）
+        p.clientSide.holdsDelivery = true
+        p.session.requestSpectate()
+        XCTAssertTrue(p.session.isAwaitingSpectate)
+        XCTAssertFalse(p.session.canWatchMatch)
+        XCTAssertFalse(p.session.canRejoinMatch)
+        p.session.rejoinMatch()
+        XCTAssertNil(rejoinSeat, "返事を待つ間は試合に戻れない")
+        // 断られたら（ここでは案内を受けて観戦をやめた）また選べる
+        p.clientSide.holdsDelivery = false
+        XCTAssertFalse(p.session.isAwaitingSpectate)
+        XCTAssertTrue(spectateOpened)
+        p.session.matchEnded(aborted: true, spectating: true)
+        XCTAssertTrue(p.session.canWatchMatch)
+        XCTAssertTrue(p.session.canRejoinMatch, "観戦の戦闘を開く前に断ったので、まだ試合に戻れる")
+
+        // 古い求め（返事が遅れて届く）と「試合に戻る」が重なった: 読み込み中の戦闘があるので観戦は何も変えずに断る
+        spectateOpened = false
+        p.clientSide.holdsDelivery = true
+        p.clientSide.send(.requestSpectate)
+        p.session.rejoinMatch()
+        XCTAssertEqual(rejoinSeat, redMid)
+        p.clientSide.holdsDelivery = false
+        XCTAssertFalse(spectateOpened)
+        XCTAssertFalse(p.session.resumesSpectateAfterBattle, "選手は求め直さない")
+        // 読み込みが済んだ: ホストは状態を渡して操作を人間に戻し、配信も届く
+        let pc2 = BattleController(launch: BattleLaunch(config: config, onlineSeat: redMid), online: p.session)
+        p.session.attach(controller: pc2)
+        XCTAssertNotNil(p.session.lastSnapshotTick, "戻った戦闘に状態が届く")
+        run(host: hc, session: host, clients: [pc2], frames: 60, hashes: &hashes)
+        XCTAssertEqual(hc.state.unit(guestHero)?.hero?.controller, .human)
+        for _ in 0..<100 where pc2.state.tick < hc.state.tick { pc2.frame(dt: Balance.dt) }
+        XCTAssertEqual(pc2.state.tick, hc.state.tick, "配信が届いて進む（観戦の案内で止まらない）")
+        XCTAssertEqual(pc2.state.stateHash(), hc.state.stateHash())
+    }
+
+    func testAbortedSpectateStillLoadingIsNotRevivedByNextMatch() {
+        // 前の試合の観戦画面がまだ読み込み中に、その試合の中断と次の試合の案内が届いた: 中断の印を消さない
+        // （以前は次の試合の案内で配信の状態を作り直し、読み込み後の観戦画面が待ち続けた）
+        let host = makeHost()
+        seatHost(host)
+        let w = join(host, id: "watcher")
+        w.session.setSpectator(true)
+        var battleOpen = false
+        w.session.isBattleOpen = { battleOpen }
+        w.session.onSpectateStart = { _ in
+            if battleOpen { w.session.declineSpectate() } else { battleOpen = true }
+        }
+        XCTAssertTrue(host.startMatch(master: .shared, seed: 55))
+        let firstConfig = host.room.config!
+        XCTAssertTrue(battleOpen, "観戦画面を開いた（まだ読み込み中）")
+        let hc = BattleController(launch: BattleLaunch(config: firstConfig, onlineSeat: blueMid), online: host)
+        host.attach(controller: hc)
+        var hashes: [Int: UInt64] = [:]
+        run(host: hc, session: host, clients: [], frames: 30, hashes: &hashes)
+        _ = hc.makeOutcome(abandoned: true)
+        host.detach()
+        host.matchEnded(aborted: true)
+        seatHost(host)
+        XCTAssertTrue(host.startMatch(master: .shared, seed: 56))
+
+        // 前の試合の観戦画面の読み込みが済んだ: 中断として終わる（待ち続けない）
+        let wc = BattleController(launch: BattleLaunch(config: firstConfig, onlineSpectator: true), online: w.session)
+        w.session.attach(controller: wc)
+        for _ in 0..<30 where !wc.isEnded { wc.frame(dt: Balance.dt) }
+        XCTAssertTrue(wc.isEnded)
+        XCTAssertEqual(wc.onlineStatus, .disconnected)
+    }
+
     // MARK: ホストの実況（B1）
 
     func testUnseatedHostCanCastTheMatch() {
@@ -641,6 +866,7 @@ final class OnlineSpectatorTests: XCTestCase {
         XCTAssertTrue(hc.isSpectating)
         XCTAssertNil(hc.humanHeroID)
         XCTAssertEqual(hc.onlineSpectatorDelaySeconds, 0, "ホストの実況は遅延なし")
+        XCTAssertNotNil(hc.recorder, "ホストの実況は試合を最初から回すので記録する（観戦席とは違う）")
         host.attach(controller: hc)
         XCTAssertFalse(host.canBegin, "座っている選手の読み込みを待つ")
         let pc = BattleController(launch: BattleLaunch(config: castConfig!, onlineSeat: redMid), online: p.session)
@@ -660,6 +886,55 @@ final class OnlineSpectatorTests: XCTestCase {
         XCTAssertEqual(host.resyncCount, 0)
         let outcome = hc.makeOutcome(abandoned: false)
         XCTAssertNil(outcome.summary.humanTeam, "実況のリザルトは観戦扱い")
+
+        // 実況の記録は選手の入力を含み、再生するとホストの状態に戻る（リザルトの「リプレイを見る」・保存の対象）
+        let replay = try! XCTUnwrap(outcome.replay, "実況したホストのリプレイ")
+        XCTAssertEqual(replay.finalTick, hc.state.tick)
+        XCTAssertTrue(replay.frames.contains { $0.commands.contains { $0.heroID == guestHero } }, "選手の入力を記録する")
+        let player = ReplayPlayer(data: replay)
+        while !player.isFinished { _ = player.stepOnce() }
+        XCTAssertEqual(player.simulation.state.stateHash(), hc.state.stateHash(), "記録から同じ試合を再現できる")
+        XCTAssertNil(ReplayArchiveService.ownerSeat(for: outcome), "実況のリプレイは持ち主なし（保存の可否は ReplayLibraryTests の表）")
+    }
+
+    func testHostCasterLeaveWarnsItEndsTheMatchForEveryone() {
+        // ホストの実況の「観戦をやめる」は部屋の試合そのものを終わらせる（ホストの matchEnded(aborted:) が全員へ中断を配る）。
+        // 確認は観戦者の「進行状況は保存されません」ではなく、全員の試合が終わると伝える
+        let host = makeHost()
+        let p = join(host, id: "guest")
+        seat(p.session, redMid, hero: "H002")
+        host.setSpectator(true)
+        XCTAssertTrue(host.startMatch(master: .shared, seed: 41))
+        let config = host.room.config!
+        let hc = BattleController(launch: BattleLaunch(config: config, onlineSpectator: true), online: host)
+        host.attach(controller: hc)
+        let pc = BattleController(launch: BattleLaunch(config: config, onlineSeat: redMid), online: p.session)
+        p.session.attach(controller: pc)
+        let casterKind = HUDLeaveKind.of(mode: hc.launch.config.mode, isSpectating: hc.isSpectating, isOnlineHost: hc.isOnlineHost)
+        XCTAssertEqual(casterKind, .endsMatchForEveryone)
+        XCTAssertEqual(casterKind.menuButtonTitle, L("試合を終了", "End Match"))
+        XCTAssertNotEqual(casterKind.message, HUDLeaveKind.plain.message)
+        XCTAssertNotEqual(casterKind.confirmTitle, HUDLeaveKind.plain.confirmTitle)
+        // 観戦席の参加者・選手の参加者は、自分だけが抜ける
+        let w = join(host, id: "late", spectate: true)
+        let wc = watcherController(w.session)
+        XCTAssertEqual(HUDLeaveKind.of(mode: wc.launch.config.mode, isSpectating: wc.isSpectating, isOnlineHost: wc.isOnlineHost), .plain)
+        XCTAssertEqual(HUDLeaveKind.of(mode: pc.launch.config.mode, isSpectating: pc.isSpectating, isOnlineHost: pc.isOnlineHost), .plain)
+        // 席に着いたホストも同じ（抜けると全員の試合が終わる）
+        XCTAssertEqual(HUDLeaveKind.of(mode: .online, isSpectating: false, isOnlineHost: true), .endsMatchForEveryone)
+        // オフラインは従来どおり
+        XCTAssertEqual(HUDLeaveKind.of(mode: .ranked, isSpectating: false, isOnlineHost: false), .countsAsLoss)
+        XCTAssertEqual(HUDLeaveKind.of(mode: .standard, isSpectating: true, isOnlineHost: false), .plain)
+
+        // 確認どおり: 実況をやめると選手の試合は中断で終わる
+        var hashes: [Int: UInt64] = [:]
+        run(host: hc, session: host, clients: [pc], frames: 30, hashes: &hashes)
+        _ = hc.makeOutcome(abandoned: true)
+        host.detach()
+        host.matchEnded(aborted: true, spectating: true)
+        for _ in 0..<40 where !pc.isEnded { pc.frame(dt: Balance.dt) }
+        XCTAssertTrue(pc.isEnded)
+        XCTAssertEqual(pc.state.endReason, .aborted)
     }
 
     // MARK: 抜けた選手の復帰（B3）・観戦した後は戻れない
@@ -711,6 +986,29 @@ final class OnlineSpectatorTests: XCTestCase {
         XCTAssertEqual(pc2.state.stateHash(), hc.state.stateHash())
         XCTAssertEqual(host.room.peer("guest")?.leftMatch, false)
         XCTAssertFalse(p.session.isSittingOutMatch)
+    }
+
+    func testOnlineClientResyncAtSameTickDropsTheRecording() {
+        // オンラインの選手がずれて、同じ tick のホストの状態で置き換えた: 記録した入力列からは再現できないので保存しない
+        let host = makeHost()
+        seatHost(host)
+        let p = join(host, id: "guest")
+        seat(p.session, redMid, hero: "H002")
+        XCTAssertTrue(host.startMatch(master: .shared, seed: 57))
+        let config = host.room.config!
+        let hc = BattleController(launch: BattleLaunch(config: config, onlineSeat: blueMid), online: host)
+        host.attach(controller: hc)
+        let pc = BattleController(launch: BattleLaunch(config: config, onlineSeat: redMid), online: p.session)
+        p.session.attach(controller: pc)
+        var hashes: [Int: UInt64] = [:]
+        run(host: hc, session: host, clients: [pc], frames: 40, hashes: &hashes)
+        for _ in 0..<20 where pc.state.tick < hc.state.tick { pc.frame(dt: Balance.dt) }
+        XCTAssertEqual(pc.state.tick, hc.state.tick)
+        XCTAssertFalse(pc.recorder!.isIncomplete)
+        pc.restore(hc.state)
+        XCTAssertTrue(pc.recorder!.isIncomplete, "同じ tick でも置き換えた記録は保存しない")
+        XCTAssertNil(pc.makeOutcome(abandoned: false).replay)
+        XCTAssertNotNil(hc.makeOutcome(abandoned: false).replay, "ホストの記録はそのまま")
     }
 
     func testPlayerWhoWatchedCannotRejoinTheSameMatch() {
