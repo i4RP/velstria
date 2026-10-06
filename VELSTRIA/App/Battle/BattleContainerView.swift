@@ -187,9 +187,13 @@ struct OnlineBattleOverlay: View {
         case .waitingForHost(let seconds):
             if controller.launch.onlineSpectator, let delay = controller.onlineSpectatorDelaySeconds, delay > 0,
                controller.state.tick == 0 {
-                // 観戦の開始直後: ホストは遅延の分だけ配信を溜めてから出す
-                return L("観戦は \(Int(delay.rounded())) 秒遅れで配信されます。まもなく始まります…（\(Int(seconds)) 秒）",
-                         "Spectating is delayed by \(Int(delay.rounded()))s. Starting soon… (\(Int(seconds))s)")
+                // 観戦の開始直後: ホストは遅延の分だけ配信を溜めてから出す（残りは目安。ホストが読み込みを待つと延びる）
+                let total = Int(delay.rounded())
+                let remaining = total - Int(seconds)
+                return remaining > 0
+                    ? L("観戦は \(total) 秒遅れで配信されます。あと約 \(remaining) 秒で始まります…",
+                        "Spectating is delayed by \(total)s. Starting in about \(remaining)s…")
+                    : L("観戦は \(total) 秒遅れで配信されます。まもなく始まります…", "Spectating is delayed by \(total)s. Starting soon…")
             }
             return L("ホストからの配信を待っています… (\(Int(seconds)) 秒)", "Waiting for the host… (\(Int(seconds))s)")
         case .disconnected: return L("接続が切れました。試合を終了します", "Connection lost. Ending the match")

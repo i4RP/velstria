@@ -530,7 +530,9 @@ struct OnlineRoomView: View {
                 } label: {
                     Label(spectatorToggleTitle(isSpectator: isSpectator, isHost: isHost),
                           systemImage: isSpectator ? "chair.lounge" : (isHost ? "mic.fill" : "eye.fill"))
-                        .frame(minWidth: 180)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(SecondaryButtonStyle())
                 .disabled(room.phase != .lobby)
@@ -581,7 +583,7 @@ struct OnlineRoomView: View {
 
     private func spectatorToggleTitle(isSpectator: Bool, isHost: Bool) -> String {
         if isSpectator { return isHost ? L("実況をやめる", "Stop Casting") : L("選手に戻る", "Back to Players") }
-        return isHost ? L("実況する（座らずに観戦）", "Cast (watch without playing)") : L("観戦席に移る", "Move to Spectators")
+        return isHost ? L("実況する", "Cast the Match") : L("観戦席に移る", "Move to Spectators")
     }
 
     /// プロフィールの保存値（スペル・ルーン・スキン・自動習得）を反映したロードアウト。
