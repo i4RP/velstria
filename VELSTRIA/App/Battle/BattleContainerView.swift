@@ -69,6 +69,7 @@ struct BattleContainerView: View {
             c.send(.setAutoLevel(enabled: auto))
         }
         controller = c
+        DebugLaunch.battleDidStart(c)
         if c.isOnline { app.online?.attach(controller: c) }
         let director = BattleAudioDirector(controller: c, app: app)
         director.start()

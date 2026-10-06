@@ -351,6 +351,45 @@ final class ServicesPersistenceTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: s.replaysDirectory.appendingPathComponent(kept.fileName).path))
     }
 
+    /// 旧版のプロフィール（リプレイのメタに名前・お気に入り・版数などが無い）を読み込んでもリプレイが一覧に残り、
+    /// お気に入りは上限の対象外、読み込みはメインスレッドの外でもできる。
+    func testLegacyReplayMetasMigrateAndFavoritesSurviveCap() async throws {
+        let s = make()
+        var p = Profile()
+        let config = ServicesFixtures.config(mode: .standard)
+        let summary = ServicesFixtures.summary(mode: .standard, won: true, minutes: 12)
+        for i in 0..<(PersistenceService.maxReplays) {
+            _ = s.storeReplay(ServicesFixtures.replay(config: config, summary: summary, ticks: 900 + i), heroID: "H001", won: true,
+                              date: ServicesFixtures.weekday.addingTimeInterval(Double(i)), in: &p)
+        }
+        s.waitForReplayWrites()
+        // 旧版の形に戻す（追加したキーを消す）
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(p)) as? [String: Any])
+        object["replays"] = (object["replays"] as? [[String: Any]])?.map { meta -> [String: Any] in
+            var m = meta
+            for key in ["name", "isFavorite", "simVersion", "formatVersion", "source", "ownerSeat", "winner", "seed", "heroIDs"] {
+                m.removeValue(forKey: key)
+            }
+            return m
+        }
+        try JSONSerialization.data(withJSONObject: object).write(to: s.profileURL)
+        var loaded = try XCTUnwrap(PersistenceService(directory: s.directory).loadProfile())
+        XCTAssertEqual(loaded.replays.map(\.id), p.replays.map(\.id))
+        XCTAssertTrue(loaded.replays.allSatisfy { !$0.isFavorite && $0.source == .standard && $0.simVersion == nil })
+
+        // 最も古いものをお気に入りにしてから上限を超えて保存しても残る
+        let oldest = try XCTUnwrap(loaded.replays.min { $0.date < $1.date })
+        XCTAssertEqual(ReplayArchiveService.toggleFavorite(id: oldest.id, profile: &loaded, persistence: s), .changed(true))
+        for i in 0..<5 {
+            _ = s.storeReplay(ServicesFixtures.replay(config: config, summary: summary, ticks: 3000 + i), heroID: "H001", won: true,
+                              date: ServicesFixtures.weekday.addingTimeInterval(Double(1000 + i)), in: &loaded)
+        }
+        XCTAssertTrue(loaded.replays.contains { $0.id == oldest.id })
+        XCTAssertEqual(loaded.replays.filter { !$0.isFavorite }.count, PersistenceService.maxReplays)
+        let data = await s.loadReplayAsync(oldest)
+        XCTAssertEqual(data?.finalTick, 900)
+    }
+
     /// リプレイの符号化・書き込みはバックグラウンドで行い、書き込み中も一覧・突き合わせ・読み込みで矛盾しない。
     func testReplayWriteIsAsynchronousButConsistent() throws {
         let s = make()

@@ -104,11 +104,31 @@ final class ServicesRewardTests: XCTestCase {
         for o in cases {
             let original = Profile()
             var p = original
-            let r = apply(o, &p)
+            let persistence = ServicesFixtures.tempPersistence()
+            var r = apply(o, &p, persistence: persistence)
             XCTAssertTrue(r.noRewards, "\(o.launch.config.mode)")
             XCTAssertEqual(p, original, "\(o.launch.config.mode) で記録が残った")
             XCTAssertEqual(r.coins, 0)
             XCTAssertFalse(r.replaySaved)
+
+            // 試合の終わり（AppModel.completeBattle）では続けて報酬なしの保存・視聴記録を行う:
+            // AI 同士の観戦はリプレイが保存されるが、報酬・戦績・通算の試合成績は変わらない
+            ReplayArchiveService.process(outcome: o, report: &r, profile: &p, persistence: persistence,
+                                         master: master, now: ServicesFixtures.weekday)
+            let mode = o.launch.config.mode
+            XCTAssertEqual(r.replaySaved, mode == .spectate, "\(mode)")
+            XCTAssertEqual(p.replays.count, mode == .spectate ? 1 : 0, "\(mode)")
+            XCTAssertEqual(p.starlightCoin, original.starlightCoin)
+            XCTAssertEqual(p.freeGem, original.freeGem)
+            XCTAssertEqual(p.accountXP, original.accountXP)
+            XCTAssertEqual(p.pass.xp, original.pass.xp)
+            XCTAssertEqual(p.rank, original.rank)
+            XCTAssertEqual(p.matchHistory, original.matchHistory)
+            XCTAssertEqual(p.missions, original.missions)
+            XCTAssertEqual(p.career.matches, 0)
+            XCTAssertEqual(p.career.perHero, [:])
+            XCTAssertEqual(r.coins + r.passXP + r.accountXP, 0)
+            try? FileManager.default.removeItem(at: persistence.directory)
         }
     }
 

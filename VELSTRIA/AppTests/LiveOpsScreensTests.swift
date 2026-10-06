@@ -254,6 +254,22 @@ final class LiveOpsScreensTests: XCTestCase {
         XCTAssertEqual(ReplayLibrary.launch(for: meta, persistence: persistence).liveOpsFailure, .incompatible)
     }
 
+    /// 再生できるかは ReplayData.isPlayable（ルール版数と形式版数の両方）で判定し、持ち主の座席を起動に渡す。
+    func testReplayLaunchChecksFormatVersionAndOwner() throws {
+        let persistence = tempPersistence()
+        let config = MatchFactory.standardMatch(humanHeroID: "H001", humanName: "T", humanTeam: .red, seed: 4)
+        var data = ReplayRecorder(config: config).finish(summary: nil)
+        let meta = try XCTUnwrap(persistence.saveReplay(data, heroID: "H001", won: nil, date: Date()))
+        guard case .success(let launch) = ReplayLibrary.launch(for: meta, persistence: persistence) else {
+            return XCTFail("再生できるはず")
+        }
+        XCTAssertEqual(launch.ownerSeat, config.players.firstIndex { $0.controller == .human })
+        data.formatVersion += 1
+        let newer = try XCTUnwrap(persistence.saveReplay(data, heroID: "H001", won: nil, date: Date()))
+        XCTAssertEqual(ReplayLibrary.launch(for: newer, persistence: persistence).liveOpsFailure, .incompatible)
+        XCTAssertEqual(ReplayLibrary.compatibility(newer), .incompatible, "一覧では開く前に薄く表示する")
+    }
+
     func testReplayRemoveClearsMatchReferencesAndSortsNewestFirst() {
         let old = ReplayMeta(date: Date(timeIntervalSince1970: 100), fileName: "a", mode: .standard, heroID: "H001", won: true, duration: 600)
         let new = ReplayMeta(date: Date(timeIntervalSince1970: 200), fileName: "b", mode: .ranked, heroID: "H002", won: false, duration: 700)

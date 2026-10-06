@@ -53,7 +53,8 @@ struct PrivacySettingsView: View {
             item("person.crop.circle.fill", L("プロフィール", "Profile"),
                  L("プレイヤー名・アカウントレベル・所持ヒーロー / コスメ・通貨", "Player name, account level, owned heroes / cosmetics, currencies"))
             item("list.bullet.rectangle.fill", L("戦績とリプレイ", "Match history & replays"),
-                 L("最新 50 件の戦績と最新 \(ReplayLibrary.maxStored) 件のリプレイ", "Latest 50 matches and latest \(ReplayLibrary.maxStored) replays"))
+                 L("最新 50 件の戦績と最新 \(PersistenceService.maxReplays) 件のリプレイ（観戦の記録を含む。お気に入りは別に最大 \(PersistenceService.maxFavoriteReplays) 件）。リプレイの共有は、あなたが共有シートで送った時だけ行われます",
+                   "Latest 50 matches and latest \(PersistenceService.maxReplays) replays (including spectated matches; up to \(PersistenceService.maxFavoriteReplays) more favorites). Replays leave the device only when you share them"))
             item("slider.horizontal.3", L("設定", "Settings"), L("操作・グラフィック・サウンド・言語など", "Controls, graphics, audio, language and more"))
             item("creditcard.fill", L("購入記録", "Purchase records"),
                  L("二重付与を防ぐための取引 ID・日時・付与数（支払い情報は保存しません）",

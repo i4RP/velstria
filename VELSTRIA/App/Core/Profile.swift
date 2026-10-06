@@ -181,6 +181,13 @@ struct CareerStats: Codable, Equatable {
     var currentWinStreak = 0
     var pentaKills = 0
     var perHero: [String: HeroCareer] = [:]
+    // 観戦（報酬・戦績の対象外。最後まで見た試合・リプレイを 1 件につき 1 回だけ数える）
+    /// 最後まで観戦した試合（AI 同士・オンラインの観戦席）。
+    var spectatedMatches = 0
+    /// 最後まで見たリプレイ。
+    var replaysWatched = 0
+    /// 数えた観戦・リプレイの試合時間の合計（秒）。
+    var watchedSeconds: Double = 0
 }
 
 /// 戦績 1 件（最新 50 件保持）。
@@ -206,6 +213,28 @@ struct MatchRecord: Codable, Equatable, Identifiable {
     var summary: MatchSummary?
 }
 
+/// リプレイの出どころ（一覧の絞り込み・表示用）。
+enum ReplaySource: String, Codable, CaseIterable {
+    /// 自分の対戦（通常戦・ランク戦・乱闘。報酬の対象と同じ）。
+    case standard
+    /// AI 同士の観戦（人間のいない構成）。
+    case spectate
+    /// カスタム（人間がいる AI 対戦）。
+    case custom
+    /// オンライン対戦。
+    case online
+    /// ファイルから取り込んだリプレイ。
+    case imported
+
+    /// 構成から出どころを決める（取り込みは呼び出し側で指定）。
+    static func of(_ config: MatchConfig) -> ReplaySource {
+        if config.mode == .online { return .online }
+        if !config.players.isEmpty && config.players.allSatisfy({ $0.controller == .bot }) { return .spectate }
+        if config.mode == .custom { return .custom }
+        return .standard
+    }
+}
+
 struct ReplayMeta: Codable, Equatable, Identifiable {
     var id: UUID = UUID()
     var date: Date
@@ -214,6 +243,149 @@ struct ReplayMeta: Codable, Equatable, Identifiable {
     var heroID: String?
     var won: Bool?
     var duration: Double
+    // 以下は後から追加（旧版のメタには無い。init(from:) で既定値を補う）
+    /// 利用者が付けた名前（nil = 自動の表示名）。
+    var name: String?
+    /// お気に入り（保存数の上限の対象外）。
+    var isFavorite = false
+    /// 記録時のシミュレーション版数・形式版数（nil = 旧版のメタで未確認。一覧を開いた時にファイルから補う）。
+    var simVersion: Int?
+    var formatVersion: Int?
+    var source: ReplaySource = .standard
+    /// 持ち主の座席（config.players の添字。再生開始時の追従対象）。AI 同士は nil。
+    var ownerSeat: Int?
+    /// 勝利チーム（引き分け・不明は nil）。
+    var winner: Team?
+    var seed: UInt64?
+    /// 10 人のヒーロー（config.players の順: Blue 5 → Red 5）。
+    var heroIDs: [String]?
+
+    init(id: UUID = UUID(), date: Date, fileName: String, mode: MatchMode, heroID: String?, won: Bool?, duration: Double,
+         name: String? = nil, isFavorite: Bool = false, simVersion: Int? = nil, formatVersion: Int? = nil,
+         source: ReplaySource? = nil, ownerSeat: Int? = nil, winner: Team? = nil, seed: UInt64? = nil, heroIDs: [String]? = nil) {
+        self.id = id
+        self.date = date
+        self.fileName = fileName
+        self.mode = mode
+        self.heroID = heroID
+        self.won = won
+        self.duration = duration
+        self.name = name
+        self.isFavorite = isFavorite
+        self.simVersion = simVersion
+        self.formatVersion = formatVersion
+        self.source = source ?? ReplayMeta.defaultSource(mode: mode)
+        self.ownerSeat = ownerSeat
+        self.winner = winner
+        self.seed = seed
+        self.heroIDs = heroIDs
+    }
+
+    /// 旧版のメタの出どころ（旧版は報酬対象の対戦しか保存しなかった。観戦は AI 同士）。
+    static func defaultSource(mode: MatchMode) -> ReplaySource {
+        switch mode {
+        case .spectate: return .spectate
+        case .custom: return .custom
+        case .online: return .online
+        default: return .standard
+        }
+    }
+
+    /// 再生できるか（nil = 版数が未確認）。
+    var isPlayable: Bool? {
+        guard let simVersion else { return nil }
+        return simVersion == MatchConfig.currentSimVersion && (formatVersion ?? ReplayData.currentFormatVersion) == ReplayData.currentFormatVersion
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, date, fileName, mode, heroID, won, duration
+        case name, isFavorite, simVersion, formatVersion, source, ownerSeat, winner, seed, heroIDs
+    }
+}
+
+extension ReplayMeta {
+    /// 旧版のメタ（追加フィールドなし）も読めるよう、欠けたキーは既定値で補う。
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let mode = try c.decode(MatchMode.self, forKey: .mode)
+        self.init(id: try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID(),
+                  date: try c.decode(Date.self, forKey: .date),
+                  fileName: try c.decode(String.self, forKey: .fileName),
+                  mode: mode,
+                  heroID: try c.decodeIfPresent(String.self, forKey: .heroID),
+                  won: try c.decodeIfPresent(Bool.self, forKey: .won),
+                  duration: try c.decodeIfPresent(Double.self, forKey: .duration) ?? 0,
+                  name: try c.decodeIfPresent(String.self, forKey: .name),
+                  isFavorite: try c.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false,
+                  simVersion: try c.decodeIfPresent(Int.self, forKey: .simVersion),
+                  formatVersion: try c.decodeIfPresent(Int.self, forKey: .formatVersion),
+                  source: try? c.decodeIfPresent(ReplaySource.self, forKey: .source),
+                  ownerSeat: try c.decodeIfPresent(Int.self, forKey: .ownerSeat),
+                  winner: try c.decodeIfPresent(Team.self, forKey: .winner),
+                  seed: try c.decodeIfPresent(UInt64.self, forKey: .seed),
+                  heroIDs: try c.decodeIfPresent([String].self, forKey: .heroIDs))
+    }
+}
+
+/// 観戦の準備画面の選択（次に開いた時に復元する）。
+struct SpectatePreferences: Codable, Equatable {
+    var map: SpectateMap = .standard
+    /// チーム別の AI 難易度（nil = プロフィールの既定難易度）。
+    var blueDifficulty: Difficulty?
+    var redDifficulty: Difficulty?
+    /// 再生速度（BattleController.spectatorSpeeds のいずれか）。
+    var speed: Double = 1
+    /// 視界（nil = 全体が見える）。
+    var vision: Team?
+    /// 自動カメラ。
+    var director = true
+    /// 最大試合時間（分）。0 = マップの既定。
+    var maxMinutes = 0
+
+    private enum CodingKeys: String, CodingKey {
+        case map, blueDifficulty, redDifficulty, speed, vision, director, maxMinutes
+    }
+}
+
+extension SpectatePreferences {
+    init(from decoder: Decoder) throws {
+        self.init()
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        map = (try? c.decodeIfPresent(SpectateMap.self, forKey: .map)) ?? map
+        blueDifficulty = try? c.decodeIfPresent(Difficulty.self, forKey: .blueDifficulty)
+        redDifficulty = try? c.decodeIfPresent(Difficulty.self, forKey: .redDifficulty)
+        speed = (try? c.decodeIfPresent(Double.self, forKey: .speed)) ?? speed
+        vision = try? c.decodeIfPresent(Team.self, forKey: .vision)
+        director = (try? c.decodeIfPresent(Bool.self, forKey: .director)) ?? director
+        maxMinutes = (try? c.decodeIfPresent(Int.self, forKey: .maxMinutes)) ?? maxMinutes
+    }
+}
+
+/// 観戦・リプレイの視聴記録（同じ試合・リプレイを何度見ても 1 回。報酬は無い）。
+struct WatchLog: Codable, Equatable {
+    /// 数えた試合のキー（新しい順、最大 WatchLog.maxKeys 件）。
+    var countedKeys: [String] = []
+    /// 今週（ISO 週キー）の集計。週が変われば 0 から数え直す。
+    var weekKey = ""
+    var weekSpectated = 0
+    var weekReplays = 0
+
+    static let maxKeys = 300
+
+    private enum CodingKeys: String, CodingKey {
+        case countedKeys, weekKey, weekSpectated, weekReplays
+    }
+}
+
+extension WatchLog {
+    init(from decoder: Decoder) throws {
+        self.init()
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        countedKeys = (try? c.decodeIfPresent([String].self, forKey: .countedKeys)) ?? []
+        weekKey = (try? c.decodeIfPresent(String.self, forKey: .weekKey)) ?? ""
+        weekSpectated = (try? c.decodeIfPresent(Int.self, forKey: .weekSpectated)) ?? 0
+        weekReplays = (try? c.decodeIfPresent(Int.self, forKey: .weekReplays)) ?? 0
+    }
 }
 
 struct AchievementProgress: Codable, Equatable {
@@ -344,6 +516,10 @@ struct Profile: Codable, Equatable {
     var career = CareerStats()
     var matchHistory: [MatchRecord] = []
     var replays: [ReplayMeta] = []
+    /// 観戦・リプレイの視聴記録（重複して数えないためのキーと今週の集計）。
+    var watchLog = WatchLog()
+    /// 観戦の準備画面の選択（マップ・難易度・速度・視界・自動カメラ・最大時間）。
+    var spectatePreferences = SpectatePreferences()
     // ゲームモードの進行・記録
     var rising = RisingProgress()
     /// マジックチェスの最高順位（1 が最良。未プレイは nil）。

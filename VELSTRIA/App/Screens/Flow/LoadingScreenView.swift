@@ -76,7 +76,16 @@ struct LoadingScreenView: View {
 
     private var title: String {
         if launch.replay != nil { return L("リプレイ再生", "Replay") }
+        // 人間のいない乱闘・カスタムも観戦（見出しで「観戦」と分かるように）
+        if launch.isAllBotsOffline && launch.config.mode != .spectate {
+            return "\(FlowText.mode(.spectate)) · \(FlowText.mode(launch.config.mode))"
+        }
         return FlowText.mode(launch.config.mode)
+    }
+
+    /// マップ名（マップは mode から導出: 乱闘は単レーンの回廊、それ以外は星環の戦場）。
+    static func mapName(_ mode: MatchMode) -> String {
+        mode == .brawl ? L("乱闘の回廊", "Brawl Corridor") : L("星環の戦場", "Star Ring Battlefield")
     }
 
     private var header: some View {
@@ -89,9 +98,10 @@ struct LoadingScreenView: View {
                 .font(Theme.title(20))
                 .foregroundStyle(Theme.textPrimary)
             Text("·").foregroundStyle(Theme.textSecondary)
-            Text(L("星環の戦場", "Star Ring Battlefield"))
+            Text(Self.mapName(launch.config.mode))
                 .font(Theme.heading(14))
                 .foregroundStyle(Theme.cyan)
+                .accessibilityIdentifier("loading_map")
             Spacer()
             if launch.countsForRank {
                 Label(RankService.displayName(app.profile.rank), systemImage: "crown.fill")

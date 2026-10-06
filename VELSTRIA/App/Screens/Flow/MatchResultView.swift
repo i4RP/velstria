@@ -2,6 +2,10 @@ import SwiftUI
 import VelstriaCore
 
 // 担当: ui-flow。UI032 リザルト（+ UI033 評価 / UI034 通報シート）。閉じるで onClose。
+// 観戦・リプレイの後の操作（playAgain と同じく、閉じてから少し待って次の戦闘を開く）:
+// - 「リプレイを見る」: この試合の記録（outcome.replay）をメモリからそのまま再生（保存の有無に関係なく見られる）。
+// - リプレイの再生後は「もう一度再生」。AI 同士の観戦の後は「同じシードで観戦」「次の観戦」（同じマップ・難易度・新しいシード）。
+// - 報酬タブ: 観戦・リプレイは報酬なし。リプレイの保存・観戦の記録・観戦の実績（Gem なし）だけを出す。
 
 /// UI032 リザルト（+ UI033 評価 / UI034 通報シート）。閉じるで onClose。
 struct MatchResultView: View {
@@ -25,8 +29,11 @@ struct MatchResultView: View {
     }
 
     private var bannerKind: ResultBanner.Kind {
-        if outcome.launch.replay != nil { return .replay }
-        if outcome.launch.config.mode == .spectate { return .spectate }
+        // リプレイを途中で止めても、成績は記録時の結果（BattleController.makeOutcome）。見出しで途中終了を示す
+        if let replay = outcome.launch.replay { return outcome.abandoned ? .replayStopped(recorded: replay.summary != nil) : .replay }
+        if outcome.launch.onlineSpectator { return .spectateOnline }
+        // AI 同士（観戦・人間のいない乱闘 / カスタム）
+        if outcome.launch.isSpectating { return .spectate }
         // 通常戦・ランク戦の途中退出は敗北として記録している
         if report.abandonedLoss { return .defeat }
         switch summary.humanWon {
@@ -39,6 +46,73 @@ struct MatchResultView: View {
     private var canPlayAgain: Bool {
         let mode = outcome.launch.config.mode
         return outcome.launch.replay == nil && (mode == .standard || mode == .ranked)
+    }
+
+    /// リザルトから続けて開ける戦闘（リプレイ・再観戦）。
+    private enum FollowUp: Hashable {
+        case watchReplay, replayAgain, sameSeed, nextSpectate
+    }
+
+    private var followUps: [FollowUp] {
+        let launch = outcome.launch
+        if launch.replay != nil { return [.replayAgain] }
+        var list: [FollowUp] = []
+        if replayLaunch != nil { list.append(.watchReplay) }
+        if launch.isAllBotsOffline {
+            list.append(.sameSeed)
+            list.append(.nextSpectate)
+        }
+        return list
+    }
+
+    /// この試合のリプレイを見る起動（記録がメモリにあり、再生できる種類の試合のみ）。
+    private var replayLaunch: BattleLaunch? {
+        guard outcome.launch.replay == nil, let replay = outcome.replay, replay.finalTick > 0 else { return nil }
+        switch outcome.launch.config.mode {
+        case .practice, .tutorial, .magicChess: return nil
+        default: break
+        }
+        // AI 同士の観戦は観戦時の速度・視界を引き継ぐ（自動カメラは既定のリプレイの扱い）
+        var options = outcome.launch.isSpectating ? outcome.launch.spectatorOptions : SpectatorOptions()
+        options.director = nil
+        guard case .success(let launch) = ReplayLibrary.launch(replay: replay, ownerSeat: ReplayArchiveService.ownerSeat(for: outcome),
+                                                               options: options) else { return nil }
+        return launch
+    }
+
+    private func launch(for action: FollowUp) -> BattleLaunch? {
+        let launch = outcome.launch
+        switch action {
+        case .watchReplay:
+            return replayLaunch
+        case .replayAgain:
+            guard let replay = launch.replay else { return nil }
+            return BattleLaunch(config: replay.config, replay: replay, replayOwnerSeat: launch.replayOwnerSeat,
+                                spectatorOptions: launch.spectatorOptions)
+        case .sameSeed:
+            return BattleLaunch(config: launch.config, spectatorOptions: launch.spectatorOptions)
+        case .nextSpectate:
+            return BattleLaunch(config: SpectateSetup.nextConfig(after: launch.config, master: app.master),
+                                spectatorOptions: launch.spectatorOptions)
+        }
+    }
+
+    private func followUpAccessibilityLabel(_ action: FollowUp) -> String {
+        switch action {
+        case .watchReplay: return L("この試合のリプレイを見る", "Watch this match's replay")
+        case .replayAgain: return L("リプレイをもう一度再生", "Play the replay again")
+        case .sameSeed: return L("同じシードでもう一度観戦", "Watch the same seed again")
+        case .nextSpectate: return L("次の AI 対戦を観戦", "Watch the next AI match")
+        }
+    }
+
+    private func followUpLabel(_ action: FollowUp) -> (title: String, symbol: String, identifier: String) {
+        switch action {
+        case .watchReplay: return (L("リプレイ", "Replay"), "play.rectangle.fill", "result_watch_replay")
+        case .replayAgain: return (L("もう一度再生", "Replay Again"), "arrow.counterclockwise", "result_replay_again")
+        case .sameSeed: return (L("同じシード", "Same Seed"), "repeat", "result_same_seed")
+        case .nextSpectate: return (L("次の観戦", "Next Match"), "forward.end.fill", "result_watch_next")
+        }
     }
 
     var body: some View {
@@ -103,7 +177,7 @@ struct MatchResultView: View {
             case .defeat:
                 app.audio.play(.defeat)
                 app.audio.playMusic(.defeat)
-            case .ended, .spectate, .replay:
+            case .ended, .spectate, .spectateOnline, .replay, .replayStopped:
                 app.audio.playMusic(.menu)
             }
         }
@@ -139,18 +213,49 @@ struct MatchResultView: View {
 
     private var dot: some View { Text("·").foregroundStyle(Theme.textSecondary.opacity(0.6)) }
 
+    /// 下段のボタン。幅が足りなければ通報 → 続きの操作の順にアイコンだけにする（SE でも 1 行に収める）。
     private var buttons: some View {
-        HStack(spacing: 10) {
+        ViewThatFits(in: .horizontal) {
+            buttonRow(compactReport: false, compact: false)
+            buttonRow(compactReport: true, compact: false)
+            buttonRow(compactReport: true, compact: true)
+        }
+    }
+
+    private func buttonRow(compactReport: Bool, compact: Bool) -> some View {
+        HStack(spacing: compact ? 8 : 10) {
             Button {
                 FlowFX.tap(app)
                 showReport = true
             } label: {
-                Label(L("通報・不具合報告", "Report"), systemImage: "exclamationmark.bubble.fill")
+                if compactReport {
+                    Image(systemName: "exclamationmark.bubble.fill").frame(minWidth: 20)
+                } else {
+                    Label(L("通報・不具合報告", "Report"), systemImage: "exclamationmark.bubble.fill")
+                }
             }
             .buttonStyle(SecondaryButtonStyle())
             .frame(minHeight: 44)
+            .accessibilityLabel(L("通報・不具合報告", "Report"))
             .accessibilityIdentifier("result_report")
-            Spacer()
+            Spacer(minLength: 4)
+            ForEach(followUps, id: \.self) { action in
+                let label = followUpLabel(action)
+                Button {
+                    if let next = launch(for: action) { relaunch(next) }
+                } label: {
+                    if compact {
+                        Image(systemName: label.symbol).frame(minWidth: 20)
+                    } else {
+                        Label(label.title, systemImage: label.symbol).lineLimit(1)
+                    }
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .frame(minHeight: 44)
+                .disabled(closing)
+                .accessibilityLabel(followUpAccessibilityLabel(action))
+                .accessibilityIdentifier(label.identifier)
+            }
             if canPlayAgain {
                 Button(action: playAgain) {
                     Label(L("もう一度", "Play Again"), systemImage: "arrow.counterclockwise")
@@ -177,6 +282,20 @@ struct MatchResultView: View {
         onClose()
     }
 
+    /// 閉じた後、少し待ってから次の戦闘（リプレイ・観戦）を開く（全画面表示が閉じ終わってから。playAgain と同じ流れ）。
+    private func relaunch(_ next: BattleLaunch) {
+        guard !closing else { return }
+        closing = true
+        FlowFX.confirm(app)
+        app.audio.playMusic(.menu)
+        onClose()
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(700))
+            guard app.activeBattle == nil else { return }
+            app.startBattle(next)
+        }
+    }
+
     /// 閉じた後、同じモードで対戦フローを開き直す。
     private func playAgain() {
         guard !closing else { return }
@@ -201,15 +320,17 @@ struct MatchResultView: View {
 
 struct ResultBanner: View {
     enum Kind {
-        case victory, defeat, ended, spectate, replay
+        case victory, defeat, ended, spectate, spectateOnline, replay
+        /// リプレイを途中で止めた（recorded = 成績は記録時の結果。古い記録で結果が無ければ止めた時点の成績）。
+        case replayStopped(recorded: Bool)
 
         var title: String {
             switch self {
             case .victory: return "VICTORY"
             case .defeat: return "DEFEAT"
             case .ended: return Loc.isEnglish ? "MATCH OVER" : "試合終了"
-            case .spectate: return L("観戦終了", "SPECTATING OVER")
-            case .replay: return L("リプレイ", "REPLAY")
+            case .spectate, .spectateOnline: return L("観戦終了", "SPECTATING OVER")
+            case .replay, .replayStopped: return L("リプレイ", "REPLAY")
             }
         }
 
@@ -219,7 +340,10 @@ struct ResultBanner: View {
             case .defeat: return L("敗北", "You lost")
             case .ended: return L("勝敗なし", "No result")
             case .spectate: return L("AI 同士の対戦", "AI vs AI")
+            case .spectateOnline: return L("オンライン対戦の観戦", "Online match")
             case .replay: return L("再生終了", "Playback finished")
+            case .replayStopped(let recorded):
+                return recorded ? L("再生を中断（記録時の結果）", "Stopped early · recorded result") : L("再生を中断", "Stopped early")
             }
         }
 
@@ -227,8 +351,8 @@ struct ResultBanner: View {
             switch self {
             case .victory: return Theme.gold
             case .defeat: return Color(red: 0.85, green: 0.32, blue: 0.45)
-            case .ended, .replay: return Theme.cyan
-            case .spectate: return Color(red: 0.62, green: 0.55, blue: 1.0)
+            case .ended, .replay, .replayStopped: return Theme.cyan
+            case .spectate, .spectateOnline: return Color(red: 0.62, green: 0.55, blue: 1.0)
             }
         }
     }
@@ -510,9 +634,14 @@ private struct RewardsTab: View {
             }
             .onAppear { shownRank = report.rankAfter }
         } else if report.noRewards {
-            FlowEmptyState(symbol: "gift", title: L("この試合は報酬の対象外です", "No rewards for this match"),
-                           message: L("練習場・チュートリアル・観戦・リプレイでは報酬を獲得できません。", "Practice, tutorial, spectating and replays don't grant rewards."))
-                .frame(minHeight: 180)
+            VStack(alignment: .leading, spacing: 10) {
+                FlowEmptyState(symbol: "gift", title: L("この試合は報酬の対象外です", "No rewards for this match"),
+                               message: L("練習場・チュートリアル・観戦・リプレイでは報酬を獲得できません。", "Practice, tutorial, spectating and replays don't grant rewards."))
+                    .frame(minHeight: report.replaySaved || report.watchCounted ? 120 : 180)
+                if report.watchCounted { watchSection }
+                if !report.achievementsUnlocked.isEmpty { achievementsSection }
+                if report.replaySaved { replaySavedNote }
+            }
         } else {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
@@ -531,15 +660,44 @@ private struct RewardsTab: View {
                 }
                 if !report.missionsProgressed.isEmpty { missionsSection }
                 if !report.achievementsUnlocked.isEmpty { achievementsSection }
-                if report.replaySaved {
-                    Label(L("この試合のリプレイを保存しました（戦績・リプレイから再生）", "Replay saved — watch it from Match History or Replays"),
-                          systemImage: "play.rectangle.fill")
-                        .font(Theme.body(11))
-                        .foregroundStyle(Theme.cyan)
-                }
+                if report.replaySaved { replaySavedNote }
             }
             .onAppear(perform: start)
         }
+    }
+
+    private var replaySavedNote: some View {
+        Label(L("この試合のリプレイを保存しました（リプレイ一覧から再生・共有）", "Replay saved — watch or share it from Replays"),
+              systemImage: "play.rectangle.fill")
+            .font(Theme.body(11))
+            .foregroundStyle(Theme.cyan)
+            .accessibilityIdentifier("result_replay_saved")
+    }
+
+    /// 観戦の記録（最後まで見た観戦・リプレイ。報酬は無い）。
+    private var watchSection: some View {
+        let c = app.profile.career
+        let isReplay = outcome.launch.replay != nil
+        return HStack(spacing: 10) {
+            Image(systemName: isReplay ? "play.rectangle.on.rectangle.fill" : "eye.fill")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(Theme.cyan)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(isReplay ? L("リプレイを最後まで見ました", "Replay watched to the end")
+                              : L("最後まで観戦しました", "Match watched to the end"))
+                    .font(Theme.heading(13))
+                    .foregroundStyle(Theme.textPrimary)
+                Text(L("通算: 観戦 \(c.spectatedMatches) 試合 · リプレイ \(c.replaysWatched) 本",
+                       "Total: \(c.spectatedMatches) matches · \(c.replaysWatched) replays"))
+                    .font(Theme.mono(11))
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .glass(cornerRadius: 12, tint: Theme.cyan.opacity(0.6))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("result_watch_record")
     }
 
     private func rewardCell(symbol: String, tint: Color, title: String, value: String) -> some View {
