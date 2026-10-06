@@ -1,0 +1,46 @@
+name: Relay
+
+# インターネット対戦の中継（relay/）のテスト。relay/ かこのファイルが変わった時だけ動く。
+# 手元の Worker（wrangler dev）を相手に結合テストを流すだけで、配備はしない（Secrets も使わない。配備は手元から wrangler deploy）。
+on:
+  push:
+    paths: ["relay/**", ".github/workflows/relay.yml"]
+  pull_request:
+    paths: ["relay/**", ".github/workflows/relay.yml"]
+  workflow_dispatch:
+
+# 同じブランチの古い実行は新しい push で取り消す
+concurrency:
+  group: relay-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: 中継のテスト
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: relay
+    env:
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: relay/package-lock.json
+
+      - name: 依存の取得
+        run: npm ci
+
+      - name: 型検査
+        run: npm run typecheck
+
+      - name: 結合テスト（wrangler dev を相手に）
+        run: npm test

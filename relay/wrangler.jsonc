@@ -1,0 +1,31 @@
+// VELSTRIA のインターネット対戦用の中継（中身を解釈しない土管）。仕様は README.md。
+// 配備: このディレクトリで `npx wrangler deploy`（ログイン済みのアカウントの workers.dev に出る）。
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "velstria-relay",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  // 公開 URL は wss://velstria-relay.<アカウントのサブドメイン>.workers.dev。版ごとのプレビュー URL は使わない
+  "workers_dev": true,
+  "preview_urls": false,
+  // 対戦データは保存しない方針なので、Workers Logs（リクエストの記録の保存）も使わない
+  "observability": {
+    "enabled": false
+  },
+  // 部屋コード 1 つ = Durable Object 1 つ（idFromName(code)）
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "RELAY_ROOM",
+        "class_name": "RelayRoom"
+      }
+    ]
+  },
+  // SQLite バックエンド（無料プランでも使える。保存するのは参加者番号の採番だけ）
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["RelayRoom"]
+    }
+  ]
+}

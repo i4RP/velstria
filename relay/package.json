@@ -1,0 +1,22 @@
+{
+  "name": "velstria-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VELSTRIA のインターネット対戦用の中継（Cloudflare Workers + Durable Objects）",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --test-reporter=spec test/relay.test.mjs",
+    "test:deployed": "RELAY_URL=${RELAY_URL:-wss://velstria-relay.shoei0205.workers.dev} node --test --test-reporter=spec test/relay.test.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261006.1",
+    "typescript": "7.0.2",
+    "wrangler": "4.147.0"
+  }
+}
