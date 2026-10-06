@@ -82,6 +82,8 @@ final class BattleController {
 
     /// 観戦者の視界（nil = 全体が見える、.blue / .red = そのチームの視界で霧を掛ける）。観戦中だけ効く。
     var spectatorVision: Team?
+    /// 自動カメラ（見どころを自動で追う）。観戦中だけ効く。手動でカメラを動かすと自動カメラ側がしばらく控える。
+    var spectatorDirectorEnabled = false
     /// 描画・HUD の作り直しが必要な不連続（シーク・再同期）のたびに増える。購読側は値の変化で残像・演出を捨てる。
     private(set) var presentationEpoch = 0
     /// シーク中の目標 tick（nil = シークしていない）。シーク中は frame(dt:) で進めない。
@@ -189,6 +191,12 @@ final class BattleController {
         }
         timelineBuilder.begin(state: sim.state)
         if isSeekable { keyframes = [sim.state] }
+        if launch.isSpectating {
+            let o = launch.spectatorOptions
+            spectatorVision = o.vision
+            if !launch.isOnline, Self.spectatorSpeeds.contains(o.speed) { speed = o.speed }
+            spectatorDirectorEnabled = o.director ?? (launch.replay == nil)
+        }
     }
 
     var state: SimState { sim.state }
@@ -247,6 +255,15 @@ final class BattleController {
         if let full = fullTimeline, full.coveredTick >= timelineBuilder.timeline.coveredTick { return full }
         return timelineBuilder.timeline
     }
+
+    /// オンラインの観戦席: 配信の遅延（秒）。観戦席以外は nil。
+    var onlineSpectatorDelaySeconds: Double? {
+        guard launch.onlineSpectator, let online else { return nil }
+        return Double(online.spectatorDelayTicks) * Balance.dt
+    }
+
+    /// オンライン対戦の観戦者数（オフラインは 0）。
+    var onlineSpectatorCount: Int { online?.spectatorCount ?? 0 }
 
     /// シークできる最後の tick（リプレイは最終 tick、観戦は試合の最大時間）。
     var seekUpperBound: Int {

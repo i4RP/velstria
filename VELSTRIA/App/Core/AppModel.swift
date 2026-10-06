@@ -10,6 +10,16 @@ enum BattleContext: Equatable {
     case rising(stageIndex: Int)
 }
 
+/// 観戦の初期設定（観戦の準備画面・設定から。観戦者にだけ効く）。
+struct SpectatorOptions: Codable, Equatable {
+    /// 再生速度（BattleController.spectatorSpeeds のいずれか。オンラインでは無視）。
+    var speed: Double = 1
+    /// 視界（nil = 全体が見える、.blue / .red = そのチームの視界）。
+    var vision: Team?
+    /// 自動カメラ（nil = 既定: AI 同士の観戦・観戦席はオン、リプレイはオフ）。
+    var director: Bool?
+}
+
 /// 戦闘の起動パラメータ。
 struct BattleLaunch: Identifiable, Equatable {
     let id = UUID()
@@ -26,6 +36,8 @@ struct BattleLaunch: Identifiable, Equatable {
     var onlineSpectator: Bool = false
     /// リプレイの持ち主の座席（config.players の添字）。nil なら最初の人間の枠。
     var replayOwnerSeat: Int?
+    /// 観戦の初期設定（速度・視界・自動カメラ）。
+    var spectatorOptions = SpectatorOptions()
 
     /// 観戦者として見る（操作なし・霧は観戦者の選んだ視点・報酬なし）。
     /// AI 同士の観戦、リプレイ、オンラインの観戦席、人間のいないオフライン構成（全 AI のカスタムなど）。

@@ -41,6 +41,11 @@ protocol OnlineBattleLink: AnyObject {
     // 共通
     /// 1 描画フレームの終わりにまとめて送る。
     func flush()
+    // 観戦
+    /// 観戦席への配信の遅延（tick。観戦席の端末で意味を持つ。0 = 遅延なし）。
+    var spectatorDelayTicks: Int { get }
+    /// この試合を観戦している人数（プレイヤーにも見せる）。
+    var spectatorCount: Int { get }
 }
 
 @Observable
@@ -166,6 +171,11 @@ final class OnlineSession: OnlineBattleLink {
         case .client: return connection?.state == .ready
         }
     }
+
+    /// 観戦席の遅延（観戦の実装が入るまでは 0）。
+    var spectatorDelayTicks: Int { 0 }
+    /// 観戦者数（観戦の実装が入るまでは 0）。
+    var spectatorCount: Int { 0 }
 
     var isMatchLive: Bool {
         switch role {

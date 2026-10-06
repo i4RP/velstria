@@ -266,3 +266,35 @@ final class SpectatorFoundationTests: XCTestCase {
         XCTAssertEqual(c.cameraZoom, 0.9, "設定を変えた時は反映する")
     }
 }
+
+@MainActor
+final class SpectatorOptionsTests: XCTestCase {
+    func testOptionsApplyToSpectatorsOnly() {
+        var launch = BattleLaunch(config: MatchFactory.botMatch(seed: 8))
+        XCTAssertTrue(BattleController(launch: launch).spectatorDirectorEnabled, "AI 同士の観戦は自動カメラが既定でオン")
+        launch.spectatorOptions = SpectatorOptions(speed: 4, vision: .red, director: false)
+        let c = BattleController(launch: launch)
+        XCTAssertEqual(c.speed, 4)
+        XCTAssertEqual(c.viewerTeam, .red)
+        XCTAssertFalse(c.spectatorDirectorEnabled)
+        XCTAssertNil(c.onlineSpectatorDelaySeconds)
+        XCTAssertEqual(c.onlineSpectatorCount, 0)
+
+        var odd = launch
+        odd.spectatorOptions.speed = 3   // 選択肢に無い速度は無視
+        XCTAssertEqual(BattleController(launch: odd).speed, 1)
+
+        var player = BattleLaunch(config: MatchFactory.standardMatch(humanHeroID: "H001", humanName: "P", seed: 8))
+        player.spectatorOptions = SpectatorOptions(speed: 4, vision: .red, director: true)
+        let p = BattleController(launch: player)
+        XCTAssertEqual(p.speed, 1)
+        XCTAssertEqual(p.viewerTeam, .blue)
+        XCTAssertFalse(p.spectatorDirectorEnabled)
+
+        let live = BattleController(launch: BattleLaunch(config: MatchFactory.standardMatch(humanHeroID: "H001", humanName: "P", seed: 8)))
+        for _ in 0..<90 { live.frame(dt: Balance.dt) }
+        let data = live.makeOutcome(abandoned: true).replay!
+        XCTAssertFalse(BattleController(launch: BattleLaunch(config: data.config, replay: data)).spectatorDirectorEnabled,
+                       "リプレイの自動カメラは既定でオフ（持ち主を追う）")
+    }
+}
