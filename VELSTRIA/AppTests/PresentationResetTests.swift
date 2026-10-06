@@ -249,6 +249,39 @@ final class PresentationResetTests: XCTestCase {
         XCTAssertFalse(h.world.vfx.hasLoop(ruined.units[hi].id), "詠唱していない時刻へ戻ったらループを消す")
     }
 
+    // MARK: 描画ループ（BattleRenderer の判断）
+
+    func testRendererDropsOnlyEventsFromBeforeTheDiscontinuity() {
+        typealias Epochs = BattleRenderer.PresentationEpochs
+        var e = Epochs(epoch: 3)
+        // 変化なし
+        XCTAssertFalse(e.noteEvents(epoch: 3))
+        XCTAssertFalse(e.beginFrame(epoch: 3).reset)
+
+        // シーク: フレームの間で置き換わり、次の描画の前にイベントは届いていない → 作り直して溜まっている分を捨てる
+        let seek = e.beginFrame(epoch: 4)
+        XCTAssertTrue(seek.reset)
+        XCTAssertTrue(seek.dropPending, "置き換え前に溜まったイベントは前の時刻のもの")
+        XCTAssertFalse(e.beginFrame(epoch: 4).reset, "同じ不連続で二度は作り直さない")
+        XCTAssertFalse(e.noteEvents(epoch: 4), "作り直した後のイベントは捨てない")
+
+        // オンラインの再同期: frame の中で「置き換え → 届いた分を進める」。最初のイベントで前の分を捨て、作り直しても残す
+        XCTAssertTrue(e.noteEvents(epoch: 5), "置き換え後に届いた最初のイベントより前の分を捨てる")
+        XCTAssertFalse(e.noteEvents(epoch: 5), "同じ不連続の後のイベントは溜め続ける")
+        let resync = e.beginFrame(epoch: 5)
+        XCTAssertTrue(resync.reset)
+        XCTAssertFalse(resync.dropPending, "置き換え後のイベントは作り直しの後に描く")
+
+        // 読み込み中に変わっていた（幕が上がった最初のフレームで作り直す）
+        var loading = Epochs(epoch: 0)
+        XCTAssertTrue(loading.beginFrame(epoch: 2).reset)
+
+        // 一時停止中のコマ送りは演出も描き、大きな飛び（UI テストの早送り）は状態だけ合わせる
+        XCTAssertTrue(Epochs.showsFrameStepEvents(from: 100, to: 101))
+        XCTAssertTrue(Epochs.showsFrameStepEvents(from: 100, to: 100 + Epochs.frameStepEventLimit))
+        XCTAssertFalse(Epochs.showsFrameStepEvents(from: 100, to: 700))
+    }
+
     // MARK: HUD
 
     private func kill(_ s: SimState) -> SimEvent {
@@ -305,6 +338,33 @@ final class PresentationResetTests: XCTestCase {
         XCTAssertEqual(model.killFeed.count, 1, "前の時刻の通知は捨て、置き換え後に届いた通知は残す")
         model.refresh()
         XCTAssertEqual(model.killFeed.count, 1, "同じ不連続で二度は捨てない")
+    }
+
+    /// プレイヤー（オンラインの再同期）: 置き換え後も自分が死亡中なら死亡情報（倒した相手）を残し、生きていれば捨てる。
+    func testPlayerResyncKeepsDeathInfoWhileStillDead() throws {
+        let app = AppModel(persistence: ServicesFixtures.tempPersistence())
+        let c = BattleController(launch: BattleLaunch(config: MatchFactory.standardMatch(humanHeroID: "H001", humanName: "P",
+                                                                                          seed: 21)))
+        let model = HUDModel(controller: c)
+        model.start(app: app, onFinish: { _ in })
+        defer { model.stop() }
+        let me = try XCTUnwrap(c.humanHeroID)
+        let hi = try XCTUnwrap(c.humanIndex)
+        let alive = c.state
+        let killer = alive.units[try XCTUnwrap(alive.heroIndices(team: .red).first)]
+        var dead = alive
+        dead.units[hi].hero?.respawnTimer = 10
+        c.restore(dead)
+        model.refresh()
+        model.handle([.unitDied(unitID: me, kind: .hero, team: .blue, killerID: killer.id, pos: alive.units[hi].pos)])
+        XCTAssertEqual(model.deathInfo?.killerHeroID, killer.hero?.heroID)
+
+        c.restore(dead)
+        model.refresh()
+        XCTAssertNotNil(model.deathInfo, "まだ死亡中なら倒した相手の表示を残す")
+        c.restore(alive)
+        model.handle([])
+        XCTAssertNil(model.deathInfo, "生きている状態へ置き換わったら捨てる")
     }
 
     func testHUDKeepsTheEndWhenTheNewStateHasEnded() {

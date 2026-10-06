@@ -10,8 +10,6 @@ import VelstriaCore
 // 地面テクスチャはメインスレッド外で生成し（ロード画面から先行して始め、試合をまたいで使い回す）、準備完了まで sim を進めない。
 // 世界の構築後は WarmupScheduler が準備の段を複数フレームに分けて実行し、描画が落ち着いた合図で読み込み幕を上げる。
 // プレイ中は AdaptiveQuality（画質の自動調整）がフレーム時間・端末温度・低電力モードを見て、ユーザー設定を上限に画質を上下させる。
-// 観戦のシーク・オンラインの再同期（controller.presentationEpoch の変化）では、前の時刻の演出とイベントを捨てて今の状態で描き直す
-// （一時停止中でも 1 回同期する）。シーク中は同期せず直前の画を保つ。
 
 @MainActor
 final class BattleRenderer {
@@ -27,10 +25,8 @@ final class BattleRenderer {
     private var eventToken: UUID?
     private var loadTask: Task<Void, Never>?
     private var pendingEvents: [SimEvent] = []
-    /// 描画に反映した presentationEpoch（読み込み中に変わっていたら、幕が上がった最初のフレームで作り直す）。
-    private var presentedEpoch = 0
-    /// pendingEvents を溜め始めた時の presentationEpoch（不連続より前のイベントを捨てる）。
-    private var eventEpoch = 0
+    /// presentationEpoch の追跡（不連続の後の作り直しと、前の時刻のイベントの破棄）。
+    private var epochs = PresentationEpochs(epoch: 0)
     /// 最後に描画へ同期した sim の tick（一時停止中のコマ送りを描く）。
     private var syncedTick = -1
 
@@ -89,8 +85,7 @@ final class BattleRenderer {
         post.apply(BattleRenderer.availablePost(governed.post))
         frameStats = FrameStats(frameRate: governed.settings.frameRate)
         pendingEvents.reserveCapacity(256)
-        presentedEpoch = controller.presentationEpoch
-        eventEpoch = presentedEpoch
+        epochs = PresentationEpochs(epoch: controller.presentationEpoch)
     }
 
     /// 計測の起動引数（-perfQuality）を反映したユーザー設定。ロード画面の先行準備も同じ値を使う。
@@ -334,7 +329,7 @@ final class BattleRenderer {
             if controller.state.tick != syncedTick {
                 // 一時停止中のコマ送り（stepTicks）: 進めた分を描く（戦闘数値はその位置で止まって見える）。
                 // 大きく進んだ時（UI テストの早送りなど）は演出を出さずに状態だけ合わせる
-                let small = abs(controller.state.tick - syncedTick) <= BattleRenderer.frameStepEventLimit
+                let small = PresentationEpochs.showsFrameStepEvents(from: syncedTick, to: controller.state.tick)
                 syncedTick = controller.state.tick
                 world.sync(events: small ? pendingEvents : [], dt: Float(dt), rig: rig)
                 if small { world.updateOverlay(dt: 0) }
@@ -375,31 +370,59 @@ final class BattleRenderer {
     }
 
     // MARK: 不連続（シーク・再同期）
+    //
+    // 観戦のシーク・オンラインの再同期（controller.presentationEpoch の変化）では、前の時刻の演出とイベントを捨てて今の状態で
+    // 描き直す（一時停止中でも 1 回同期する）。シーク中は同期せず直前の画を保つ。一時停止中のコマ送りは進めた分を描く。
 
-    /// 一時停止中に進んだ tick がこれ以下なら（コマ送り）演出も描く。
-    static let frameStepEventLimit = 30
+    /// presentationEpoch の追跡（判断だけの値型。単体テスト対象）。
+    /// - 描画に反映した値（読み込み中に変わっていたら、幕が上がった最初のフレームで作り直す）
+    /// - 溜めているイベントの値（不連続より前に溜まったイベントを捨てる。オンラインの再同期は frame の中で
+    ///   「置き換え → 届いた分を進める」の順に起きるので、置き換え後のイベントは残す）
+    struct PresentationEpochs: Equatable {
+        /// 一時停止中に進んだ tick がこれ以下なら（コマ送り）演出も描く。大きく進んだ時（UI テストの早送りなど）は状態だけ合わせる。
+        static let frameStepEventLimit = 30
 
-    /// sim のイベントを次の同期まで溜める。不連続（presentationEpoch の変化）の後に届いた最初のイベントより前に溜まった分は
-    /// 前の時刻のものなので捨てる（オンラインの再同期は frame の中で「置き換え → 届いた分を進める」の順に起きる）。
-    private func receive(_ events: [SimEvent]) {
-        let epoch = controller.presentationEpoch
-        if epoch != eventEpoch {
-            eventEpoch = epoch
-            pendingEvents.removeAll(keepingCapacity: true)
+        private(set) var presented: Int
+        private(set) var events: Int
+
+        init(epoch: Int) {
+            presented = epoch
+            events = epoch
         }
+
+        /// sim のイベントが届いた。true = 溜めている分は前の時刻のものなので捨てる（不連続の後に届いた最初のイベント）。
+        mutating func noteEvents(epoch: Int) -> Bool {
+            guard epoch != events else { return false }
+            events = epoch
+            return true
+        }
+
+        /// 描画の前。reset = 作り直す、dropPending = 溜めている分を捨てる（置き換えの後のイベントがまだ届いていない）。
+        mutating func beginFrame(epoch: Int) -> (reset: Bool, dropPending: Bool) {
+            guard epoch != presented else { return (false, false) }
+            presented = epoch
+            guard epoch != events else { return (true, false) }
+            events = epoch
+            return (true, true)
+        }
+
+        /// 一時停止中に from → to まで進んだ（コマ送り）分の演出を描くか。
+        static func showsFrameStepEvents(from: Int, to: Int) -> Bool {
+            abs(to - from) <= frameStepEventLimit
+        }
+    }
+
+    /// sim のイベントを次の同期まで溜める（不連続より前に溜まった分は捨てる）。
+    private func receive(_ events: [SimEvent]) {
+        if epochs.noteEvents(epoch: controller.presentationEpoch) { pendingEvents.removeAll(keepingCapacity: true) }
         pendingEvents.append(contentsOf: events)
     }
 
     /// presentationEpoch が変わっていたら描画を今の状態で作り直す（シークの完了・オンラインの再同期。一時停止中も）。
     private func syncPresentationEpoch(world: BattleWorld) {
-        let epoch = controller.presentationEpoch
-        guard epoch != presentedEpoch else { return }
-        presentedEpoch = epoch
-        if eventEpoch != epoch {
-            // 置き換えの後のイベントはまだ届いていない: 溜まっている分は全て前の時刻のもの
-            eventEpoch = epoch
-            pendingEvents.removeAll(keepingCapacity: true)
-        }
+        let change = epochs.beginFrame(epoch: controller.presentationEpoch)
+        guard change.reset else { return }
+        if change.dropPending { pendingEvents.removeAll(keepingCapacity: true) }
         world.resetForPresentationEpoch(rig: rig)
         syncedTick = controller.state.tick
         followSun()

@@ -967,7 +967,7 @@ final class HUDModel {
     }
 
     /// 前の時刻の通知・演出を捨てる: キルフィード・告知（表示中・待ち行列・タイマー）・トースト・ミニマップの残像・
-    /// キャンプの観測・死亡情報・降参の集計・購入表示の差分キー。試合が終わっていない状態へ戻ったら（観戦で終わりから
+    /// キャンプの観測（観戦者）・死亡情報（今は死亡中でなければ）・降参の集計・購入表示の差分キー。試合が終わっていない状態へ戻ったら（観戦で終わりから
     /// 巻き戻した）終了演出を解除し、終了演出で止めた戦闘 BGM を再開する。シークで飛ばした区間の告知は出さない。
     func resetForPresentationEpoch() {
         presentedEpoch = controller.presentationEpoch
@@ -980,9 +980,16 @@ final class HUDModel {
         toastTask = nil
         if toast != nil { toast = nil }
         ghosts.removeAll(keepingCapacity: true)
-        campObservations.removeAll(keepingCapacity: true)
-        lastMinimapTime = 0
-        if deathInfo != nil { deathInfo = nil }
+        if isSpectating {
+            // 観戦者は別の時刻へ飛ぶので、前の時刻のキャンプの観測は使えない。プレイヤー（オンラインの再同期）は
+            // 自分のチームが見た情報を残す（時間が戻った時は refreshMinimap が捨てる）
+            campObservations.removeAll(keepingCapacity: true)
+            lastMinimapTime = 0
+        }
+        // 死亡情報（倒した相手）は、置き換え後も自分が死亡中なら残す（オンラインの再同期で死亡画面の表示が消えない）
+        if deathInfo != nil, controller.humanIndex.map({ controller.state.units[$0].hero?.isDead != true }) ?? true {
+            deathInfo = nil
+        }
         lastSurrenderTally = nil
         quickBuyKey = nil
         shopKey = nil
