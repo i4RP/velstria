@@ -39,7 +39,8 @@ final class LaneRoleTests: XCTestCase {
         let gold0 = f.hero(a).gold
         let m = f.addMinion(.melee, team: .red, at: spot, lane: goldLane)
         f.kill(m, by: f.id(a))
-        XCTAssertEqual(f.hero(a).gold - gold0, 22 * (1 + Balance.Economy.goldLaneGoldBonus), accuracy: 1e-9)
+        XCTAssertEqual(f.hero(a).gold - gold0, Balance.Economy.minionGold(.melee, at: 100) * (1 + Balance.Economy.goldLaneGoldBonus),
+                       accuracy: 1e-9)
         // XP は補正なし
         XCTAssertEqual(f.hero(a).xp, 60, accuracy: 1e-9)
     }
@@ -54,7 +55,7 @@ final class LaneRoleTests: XCTestCase {
         let m = f.addMinion(.melee, team: .red, at: spot, lane: f.ctx.map.expLane!)
         f.kill(m, by: f.id(a))
         XCTAssertEqual(f.hero(a).xp, 60 * (1 + Balance.Economy.expLaneXPBonus), accuracy: 1e-9)
-        XCTAssertEqual(f.hero(a).gold - gold0, 22, accuracy: 1e-9)
+        XCTAssertEqual(f.hero(a).gold - gold0, Balance.Economy.minionGold(.melee, at: 100), accuracy: 1e-9)
     }
 
     func testLaneBonusEndsAndMidIsUnaffected() {
@@ -66,11 +67,11 @@ final class LaneRoleTests: XCTestCase {
         f.s.time = Balance.Economy.laneBonusEnd
         var gold0 = f.hero(a).gold
         f.kill(f.addMinion(.melee, team: .red, at: spot, lane: f.ctx.map.goldLane!), by: f.id(a))
-        XCTAssertEqual(f.hero(a).gold - gold0, 22, accuracy: 1e-9)
+        XCTAssertEqual(f.hero(a).gold - gold0, Balance.Economy.minionGold(.melee, at: Balance.Economy.laneBonusEnd), accuracy: 1e-9)
         // 序盤でも中央レーンは補正なし
         f.s.time = 100
         gold0 = f.hero(a).gold
         f.kill(f.addMinion(.melee, team: .red, at: spot, lane: .mid), by: f.id(a))
-        XCTAssertEqual(f.hero(a).gold - gold0, 22, accuracy: 1e-9)
+        XCTAssertEqual(f.hero(a).gold - gold0, Balance.Economy.minionGold(.melee, at: 100), accuracy: 1e-9)
     }
 }

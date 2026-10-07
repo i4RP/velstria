@@ -352,7 +352,7 @@ enum BotLaning {
             let hp = s.units[t].hp + s.units[t].totalShield
             let at = hp - soon1[k]
             if at > 0 && at <= mine[k] * margin {
-                let gold = Balance.Economy.minionGold(s.units[t].minion?.type ?? .ranged)
+                let gold = Balance.Economy.minionGold(s.units[t].minion?.type ?? .ranged, at: s.time)
                 if gold > bestGold || (gold == bestGold && at < bestHP) {
                     best = t
                     bestGold = gold

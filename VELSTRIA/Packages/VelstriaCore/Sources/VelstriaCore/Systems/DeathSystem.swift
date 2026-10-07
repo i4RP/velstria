@@ -275,7 +275,7 @@ public enum DeathSystem {
             // ジャングル靴（5:00 まで）・ローム靴（8:00 まで）は自分の収入が半減
             let mult = s.units[k].hero.map { GearEffects.minionRewardMultiplier($0, time: s.time, master: ctx.master) } ?? 1
             EconomyRewards.grantGold(&s, heroIndex: k,
-                                     amount: Balance.Economy.minionGold(m.type) * mult * laneBonus(s, ctx, lane: m.lane).gold,
+                                     amount: Balance.Economy.minionGold(m.type, at: s.time) * mult * laneBonus(s, ctx, lane: m.lane).gold,
                                      at: pos)
         }
         // XP は周囲の敵ヒーローで分配（止めを刺したのがミニオンでも入る）

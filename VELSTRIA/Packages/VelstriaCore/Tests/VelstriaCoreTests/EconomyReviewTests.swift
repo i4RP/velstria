@@ -95,15 +95,16 @@ final class EconomyReviewTests: XCTestCase {
         let ev = f.kill(m, by: f.id(i))
         // 報酬を得ても所持金は固定値のまま（獲得記録と演出イベントは残る）
         XCTAssertEqual(f.hero(i).gold, Balance.Economy.practiceGold)
-        XCTAssertEqual(f.hero(i).score.goldEarned, 50)
-        XCTAssertEqual(ev.goldGained(by: f.id(i)), 50)
+        let siege = Balance.Economy.minionGold(.siege, at: f.s.time)
+        XCTAssertEqual(f.hero(i).score.goldEarned, siege)
+        XCTAssertEqual(ev.goldGained(by: f.id(i)), siege)
 
         // 通常戦では加算される
         var g = EconomyFixture.standard()
         let j = g.human
         let gold = g.hero(j).gold
         g.kill(g.addMinion(.siege, team: .red, at: g.s.units[j].pos), by: g.id(j))
-        XCTAssertEqual(g.hero(j).gold - gold, 50)
+        XCTAssertEqual(g.hero(j).gold - gold, Balance.Economy.minionGold(.siege, at: g.s.time))
     }
 
     // MARK: - マルチキル上限
