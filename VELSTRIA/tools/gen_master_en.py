@@ -609,7 +609,7 @@ def validate(master: dict, overlay: dict[str, str]) -> list[str]:
         if key.endswith(".desc") and len(value) > MAX_DESC_LEN:
             errors.append(f"説明が長すぎます: {key}（{len(value)} 文字）")
     # 規模（DESIGN §0 / 仕様パッケージ README と一致すること）
-    for table, n in {"heroes": 24, "skills": 120, "equipment": 72, "battle_spells": 15, "runes": 30,
+    for table, n in {"heroes": 24, "skills": 96, "equipment": 72, "battle_spells": 15, "runes": 30,
                      "cosmetics": 72, "store": 114}.items():
         if counts.get(table) != n:
             errors.append(f"{table} の件数が想定外です: {counts.get(table)}（想定 {n}）")

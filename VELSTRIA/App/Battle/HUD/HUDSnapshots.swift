@@ -83,6 +83,13 @@ struct HUDSkillSnapshot: Equatable, Identifiable {
     var cooldownFraction: Double { cooldown > 0 && cooldownTotal > 0 ? min(1, cooldown / cooldownTotal) : 0 }
 }
 
+/// スキルボタンの長押しで出す説明。
+struct HUDSkillTip: Equatable {
+    var slot: SkillSlot
+    var name: String
+    var text: String
+}
+
 struct HUDSpellSnapshot: Equatable, Identifiable {
     var id: Int { index }
     var index: Int

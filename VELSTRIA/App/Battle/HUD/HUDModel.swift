@@ -36,6 +36,8 @@ final class HUDModel {
         var ready: Bool
         var aiming: Bool
         var cancelling = false
+        /// 長押しでスキルの説明を出している間 true（指を離しても発動しない）。
+        var tipShown = false
     }
 
     private struct Ghost {
@@ -111,6 +113,8 @@ final class HUDModel {
     private(set) var zoomBoost = false
     private(set) var endPhase: HUDEndPhase?
     private(set) var isAiming = false
+    /// スキルボタンの長押しで出す説明（押している間だけ）。
+    private(set) var skillTip: HUDSkillTip?
     private(set) var spectatorPaused = false
     private(set) var cameraFollowID: EntityID?
     /// 最初の更新が終わり、描画側の読み込み幕が上がった（それまで HUD は表示せず、操作も受け付けない）。
@@ -137,6 +141,7 @@ final class HUDModel {
     @ObservationIgnored private var joystickVector: CGVector = .zero
     @ObservationIgnored private var lastSentMove: Vec2 = .zero
     @ObservationIgnored private var aimSession: AimSession?
+    @ObservationIgnored private var skillTipTask: Task<Void, Never>?
     @ObservationIgnored private var bannerQueue: [HUDBanner] = []
     @ObservationIgnored private var bannerTask: Task<Void, Never>?
     @ObservationIgnored private var toastTask: Task<Void, Never>?
@@ -167,6 +172,8 @@ final class HUDModel {
     @ObservationIgnored private var killFeedLastGame: Double?
 
     static let attackRepeatInterval: Duration = .milliseconds(250)
+    /// スキルボタンを動かさずに押し続けて説明が出るまでの長さ。
+    static let skillTipDelay: Duration = .milliseconds(380)
     static let killFeedLifetime: TimeInterval = 7
     static let killFeedMax = 4
     /// レベルアップ表示の長さ（HUDLevelUpText: 1.3 秒 + 消える 0.4 秒）。
@@ -1769,11 +1776,21 @@ final class HUDModel {
             guard let session = beginSession(source, start: start) else { return }
             aimSession = session
             if session.aiming { showAim(center: buttonCenter, source: source) }
+            scheduleSkillTip(source)
         }
         guard var session = aimSession, session.source == source else { return }
         let drag = CGVector(dx: location.x - session.start.x, dy: location.y - session.start.y)
         session.drag = drag
         let len = (drag.dx * drag.dx + drag.dy * drag.dy).squareRoot()
+        // 説明を出した後でも、指を大きく動かしたら通常の照準へ戻る
+        if session.tipShown && len > HUDAim.tapThreshold {
+            session.tipShown = false
+            skillTip = nil
+        }
+        if session.tipShown {
+            aimSession = session
+            return
+        }
         if !session.aiming && session.ready && len > HUDAim.tapThreshold {
             session.aiming = true
             showAim(center: buttonCenter, source: source)
@@ -1797,7 +1814,9 @@ final class HUDModel {
         guard let session = aimSession, session.source == source else { return }
         aimSession = nil
         hideAim()
+        clearSkillTip()
         guard canControl else { return }
+        if session.tipShown { return }
         guard session.ready else {
             abilityUnavailableFeedback(source)
             return
@@ -1831,7 +1850,42 @@ final class HUDModel {
             guard let self, let session = self.aimSession, session.source == source else { return }
             self.aimSession = nil
             self.hideAim()
+            self.clearSkillTip()
         }
+    }
+
+    /// スキルボタンを動かさずに押し続けたら説明を出す（押している間だけ。離しても発動しない）。
+    private func scheduleSkillTip(_ source: AimSource) {
+        skillTipTask?.cancel()
+        guard case .skill = source else { return }
+        skillTipTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.skillTipDelay)
+            guard !Task.isCancelled, let self, var session = self.aimSession, session.source == source,
+                  !session.tipShown,
+                  (session.drag.dx * session.drag.dx + session.drag.dy * session.drag.dy).squareRoot() <= HUDAim.tapThreshold,
+                  let tip = self.makeSkillTip(source) else { return }
+            session.tipShown = true
+            session.aiming = false
+            session.cancelling = false
+            self.aimSession = session
+            self.hideAim()
+            self.skillTip = tip
+            self.app?.haptics.impact(.light)
+        }
+    }
+
+    private func clearSkillTip() {
+        skillTipTask?.cancel()
+        skillTipTask = nil
+        if skillTip != nil { skillTip = nil }
+    }
+
+    private func makeSkillTip(_ source: AimSource) -> HUDSkillTip? {
+        guard case .skill(let slot) = source,
+              let sn = skills.first(where: { $0.slot == slot }),
+              let def = MasterData.shared.skill(sn.skillID),
+              let heroDef = MasterData.shared.hero(hero.heroID) else { return nil }
+        return HUDSkillTip(slot: slot, name: MasterText.skill(def), text: SkillMath.description(def, hero: heroDef))
     }
 
     private func beginSession(_ source: AimSource, start: CGPoint) -> AimSession? {
@@ -1926,6 +1980,7 @@ final class HUDModel {
     func cancelAim() {
         aimSession = nil
         hideAim()
+        clearSkillTip()
     }
 
     private func abilityUnavailableFeedback(_ source: AimSource) {
