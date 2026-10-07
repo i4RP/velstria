@@ -262,8 +262,11 @@ final class OnlineRelayTests: XCTestCase {
         let bad = relay.factory(URL(string: "wss://relay.test/v1/rooms/ABCDE0?role=host&rv=1")!)
         var failure: String?
         bad.onFailure = { failure = $0 }
-        bad.connect()
-        withJapanese { XCTAssertEqual(failure, "部屋コードが正しくありません") }
+        // 文言は作られた時の表示言語で決まる（CI は英語）ので、接続も日本語の間に行う
+        withJapanese {
+            bad.connect()
+            XCTAssertEqual(failure, "部屋コードが正しくありません")
+        }
 
         // ホスト: 2 台目は room_taken
         let host = rawSocket(relay, code: "ABCDEF", role: .host)
