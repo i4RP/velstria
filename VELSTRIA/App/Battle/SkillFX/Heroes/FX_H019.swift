@@ -104,32 +104,6 @@ enum FX_H019: HeroFXSet {
                 .emit(.sparks(8, speed: 2, .secondary, end: .primary, gravity: 0).with { $0.vortex = 6; $0.shape = .ring(0.4) },
                       .follow, offset: [0, 2.05, 0]),
             ]
-        case .skill3:
-            // 槌を足元へ叩きつける（0.12 秒）→ 三重の衝撃波と放射の亀裂、鉄の守り
-            r.cast = [
-                .emit(.gather(12, radius: 1.0, .secondary, life: 0.1), offset: [0, 1.6, 0.3]),
-            ]
-            r.impact = [
-                .emit(.flare(2.0, .core, life: 0.2), at: 0.11, offset: [0, 0.6, 0.6]),
-                .mesh(.decal(.crack, R * 2.3, .dark, life: 1.4, spin: 0, grow: 1.0, alpha: 0.9), at: 0.11),
-                .mesh(.shockRing(R * 0.9, .core, life: 0.3), at: 0.11),
-                .mesh(.shockRing(R * 1.25, .primary, life: 0.45), at: 0.16),
-                .mesh(.shockRing(R * 1.5, .secondary, life: 0.6), at: 0.22),
-                .mesh(.burstWall(R * 1.1, height: 1.8, .primary, life: 0.4), at: 0.12),
-                // 放射の衝撃（吹き飛ばし）
-                .mesh(.ray(.streak, length: 1.6, width: 0.5, .secondary, life: 0.35).with { $0.advance = R * 2.5 }, at: 0.12)
-                    .ringed(6, radius: R * 0.4),
-                // 鉄の守り
-                .mesh(.dome(1.25, .accent, life: 0.9, tex: .hexShield, alpha: 0.45), at: 0.14),
-                .emit(.debris(18, speed: 6.5), at: 0.12),
-                .emit(.smoke(12, radius: R * 0.6, dust, life: 1.3, size: 1.0).with { $0.speed = R * 1.5 }, at: 0.12),
-                .emit(.sparks(20, speed: 8, .core, end: .primary), at: 0.11, offset: [0, 0.4, 0.4]),
-                .shake(0.25, at: 0.11),
-            ]
-            r.hit = [
-                .emit(.flare(1.0, .core, life: 0.14), offset: [0, 0.9, 0]),
-                .emit(.fan(10, .primary, speed: 7, spread: 20, life: 0.3), offset: [0, 0.8, 0]),
-            ]
         case .ultimate:
             // 城壁崩し: 跳躍中に着地点の亀裂が赤く灼け、着地で大地が割れて鉄の杭の柵が円陣に突き出す
             r.cast = [
@@ -201,13 +175,6 @@ enum FX_H019: HeroFXSet {
             m.thrust(0.06, reach: 1.4)
             m.hold(0.1) { $0.glow = 1.6 }
             m.settle(0.1)
-        case .skill3:
-            // 槌を頭上から足元へ叩きつけ、胸を張って雄叫び
-            m.overhead(0.05)
-            m.smash(0.06)
-            m.hold(0.1) { $0.hipsDrop = 0.2 }
-            m.roar(0.12)
-            m.hold(0.1)
         case .ultimate:
             // 深く沈んで高く跳び、空中で振りかぶって全体重で叩き潰す
             m.brace(0.05, depth: 0.18)

@@ -76,18 +76,6 @@ enum FX_H007: HeroFXSet {
                 .emit(.embers(14, radius: R * 0.7), quality: 1),
                 .shake(0.3),
             ]
-        case .skill3:
-            r.impact = [
-                .emit(.flare(1.8, .accent, life: 0.2), at: 0.1, offset: [0, 0.4, 0]),
-                .mesh(.decal(.crack, R * 2.4, .primary, life: 1.4, spin: 0, alpha: 0.95), at: 0.1),
-                .mesh(.shockRing(R * 1.2, .accent, life: 0.4), at: 0.1),
-                .mesh(.burstWall(R, height: 1.4, .primary, life: 0.5), at: 0.1),
-                .mesh(.pillar(0.3, height: 2.2, .secondary, life: 0.6)).ringed(6, radius: R * 0.75, every: 0.02),
-                .emit(.debris(22, speed: 6.5), at: 0.1, offset: [0, 0, 0]),
-                .emit(.smoke(12, radius: R * 0.8, life: 1.2), at: 0.12, quality: 1),
-                .emit(.embers(16, radius: R * 0.8), at: 0.15, quality: 1),
-                .shake(0.3, at: 0.1),
-            ]
         case .ultimate:
             r.cast = [
                 .emit(.flare(1.6, .accent, life: 0.2), offset: [0, 1.0, 0]),
@@ -137,11 +125,6 @@ enum FX_H007: HeroFXSet {
             m.push(0.06)
             m.hold(0.12)
             m.settle(0.1)
-        case .skill3:
-            // 片足を高く上げて踏みつけ、胸を張って吼える
-            m.stomp(0.16)
-            m.roar(0.1)
-            m.hold(0.14)
         case .ultimate:
             // 溜め → 跳躍 → 両拳を振り上げ → 叩きつけ
             m.brace(0.07, depth: 0.2)

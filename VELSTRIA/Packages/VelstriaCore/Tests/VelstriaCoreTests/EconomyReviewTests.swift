@@ -276,7 +276,7 @@ final class EconomyReviewTests: XCTestCase {
                     && h.skillPoints >= 0
                     && HeroGrowth.spentSkillPoints(h) + h.skillPoints == h.level
                     && h.rank(.ultimate) <= Balance.ultimateUnlockLevels.filter { h.level >= $0 }.count
-                    && [SkillSlot.skill1, .skill2, .skill3].allSatisfy { h.rank($0) <= basicCap }
+                    && [SkillSlot.skill1, .skill2].allSatisfy { h.rank($0) <= basicCap }
                     && h.isDead == !sim.state.units[i].isAlive
                 if !ok { failures.append("tick \(sim.state.tick) hero \(sim.state.units[i].id)") }
             }

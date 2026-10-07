@@ -9,7 +9,7 @@ extension Balance {
         // MARK: 全体係数（1v1 TTK スモーク `SkillBalanceTests` で調整）
         /// スキルダメージ倍率（DESIGN §6 の式の結果に掛ける）。index = SkillSlot.rawValue。
         /// マスターの base_damage は HP 基準値に対して小さいため、Lv1 の 1v1 でも 15 秒以内に決着する水準へ引き上げる。
-        public static let damageScaleBySlot: [Double] = [0, 4.0, 3.0, 3.0, 2.6]
+        public static let damageScaleBySlot: [Double] = [0, 4.0, 3.0, 2.6]
         /// 回復・シールド系スキル（healZone / teamHeal）の倍率。
         public static let healScale: Double = 2.4
         /// クールダウン倍率（DESIGN §6 の式に掛ける）。Lv1 はスキルが 1 つしか無いため CD を短くして持続火力を確保し、
@@ -32,7 +32,7 @@ extension Balance {
         public static let empowerRatio: Double = 0.5
         public static let empowerDuration: Double = 4
 
-        // MARK: Skill3
+        // MARK: 地点 AoE・回復ゾーンの定数（Ult のアーキタイプが使う）
         /// 地点指定 AoE の予告時間。
         public static let groundTelegraph: Double = 0.5
         /// ヴァンガードの自身中心 AoE: 自身へ最大 HP 8% のシールド。

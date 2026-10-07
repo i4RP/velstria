@@ -73,31 +73,6 @@ enum FX_H003: HeroFXSet {
                 .emit(.trail(.glowHard, .primary, rate: 24, life: 0.3, size: 0.25).with { $0.duration = 1.2 }, .follow,
                       offset: [-0.1, 1.35, 0.4]),
             ]
-        case .skill3:
-            // 天へ放った矢が月になって落ちる
-            r.cast = [
-                .emit(.flare(1.0, .core, life: 0.16), at: 0.13, offset: [0, 2.0, 0.3]),
-                .emit(.trail(.streak, .primary, rate: 60, life: 0.25, size: 0.4).with {
-                    $0.duration = 0.3; $0.dir = .up; $0.speed = 14; $0.stretch = 3
-                }, at: 0.13, offset: [0, 1.6, 0.3]),
-            ]
-            r.telegraph = [
-                .mesh(.decal(.runeCircle, R * 2.1, .primary, life: 0.6, spin: 90, alpha: 0.6)),
-                .mesh(.decal(.moon, R * 1.4, .accent, life: 0.6, spin: -120, alpha: 0.7)),
-                .mesh(.sprite(.moon, 1.4, .accent, life: 0.5, grow: 0.6, alpha: 0.9).with { $0.rise = -6 }, offset: [0, 4, 0]),
-            ]
-            r.impact = [
-                .emit(.flare(2.0, .core, life: 0.22, tex: .flare6), offset: [0, 0.8, 0]),
-                .mesh(.pillar(R * 0.45, height: 6, .core, life: 0.45)),
-                .mesh(.pillar(R * 0.8, height: 4.5, .primary, life: 0.65, alpha: 0.55)),
-                .mesh(.shockRing(R * 1.1, .secondary)),
-                .mesh(.decal(.moon, R * 2.4, .primary, life: 0.9, spin: 40, alpha: 0.85)),
-                .emit(.sparks(20, speed: 6, .core, end: .primary, gravity: 3), offset: [0, 0.5, 0]),
-                // 気絶の星の冠
-                .mesh(.halo(0.5, .accent, life: 0.9, spin: 300, tex: .ringDouble), at: 0.1, offset: [0, 2.0, 0]),
-                .emit(.motes(14, radius: R * 0.7, .accent, life: 1.0), at: 0.1, offset: [0, 0.5, 0], quality: 1),
-                .shake(0.15),
-            ]
         case .ultimate:
             r.cast = [
                 .emit(.gather(30, radius: 1.6, .primary, life: 0.3), offset: bow),
@@ -155,12 +130,6 @@ enum FX_H003: HeroFXSet {
             m.backstep(0.12, distance: 0.45)
             m.draw(0.1, up: 0.1)
             m.settle(0.1)
-        case .skill3:
-            // 天へ向けて引き絞り、真上へ放つ
-            m.brace(0.04, depth: 0.06)
-            m.draw(0.09, up: 0.9)
-            m.release(0.05)
-            m.hold(0.16) { $0.headPitch = -0.6 }
         case .ultimate:
             // 腰を落として全身で大弓を引き、溜めて放つ → 反動で半歩下がる
             m.brace(0.08, depth: 0.16)

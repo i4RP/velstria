@@ -93,35 +93,6 @@ enum FX_H020: HeroFXSet {
                 .emit(.fan(10, .accent, speed: 7, spread: 22, life: 0.3), offset: [0, 1.0, 0]),
                 .mesh(lance(.arrow, length: 1.3, width: 0.5, .primary, life: 0.35), offset: [0, 0, 0.5]),
             ]
-        case .skill3:
-            // 天へ一矢（release 0.14 秒）→ 予告の間に光矢の雨 → 光の杭と縛りの光輪
-            r.cast = [
-                .emit(.flare(1.0, .core, life: 0.18), at: 0.14, offset: [0, 1.7, 0.35]),
-                .emit(FXEmit(tex: .streak, tint: .core, tintEnd: .primary, count: 5, life: 0.3, size: 0.35, sizeVar: 0.2,
-                             shape: .point, dir: .up, speed: 18, spread: 6, stretch: 3, fade: .linearFadeOut),
-                      at: 0.14, offset: [0, 1.8, 0.3]),
-            ]
-            r.telegraph = [
-                .mesh(.decal(.ringDouble, R * 2.1, .primary, life: 0.7, spin: 90, alpha: 0.75)),
-                .emit(arrowRain(10, radius: R * 0.9, over: 0.25), at: 0.3, offset: [0, 6, 0]),
-            ]
-            r.impact = [
-                .emit(.flare(1.5, .core, life: 0.2), offset: [0, 0.6, 0]),
-                .mesh(.decal(.runeCircle, R * 2.3, .primary, life: 1.3, spin: -30, alpha: 0.85)),
-                .mesh(.shockRing(R * 1.3, .core, life: 0.35)),
-                .mesh(.pillar(0.12, height: 2.0, .core, life: 0.9)).ringed(6, radius: R * 0.85, every: 0.02),
-                .mesh(.halo(R * 0.95, .primary, life: 1.1, spin: 200), at: 0.05, offset: [0, 0.35, 0]),
-                .mesh(.halo(R * 0.75, .accent, life: 1.0, spin: -260), at: 0.08, offset: [0, 0.95, 0]),
-                .emit(.rising(20, radius: R, .secondary, speed: 2.5, life: 0.8)),
-                .emit(.sparks(16, speed: 6, .core, end: .primary), offset: [0, 0.5, 0]),
-                .shake(0.15),
-            ]
-            r.hit = [
-                .emit(.flare(0.8, .core, life: 0.15), offset: [0, 1.0, 0]),
-                // 根止め: 足元と腰に締まる光輪
-                .mesh(.halo(0.55, .accent, life: 1.0, spin: 300), .follow, offset: [0, 0.3, 0]),
-                .mesh(.halo(0.45, .primary, life: 0.9, spin: -300), .follow, offset: [0, 0.85, 0]),
-            ]
         case .ultimate:
             // 光矢流星: 斬撃 0 / 0.3 / 0.6 秒（impact ×3、回ごとに左右反転）+ 全体に降る流星群（cast）
             r.cast = [
@@ -178,12 +149,6 @@ enum FX_H020: HeroFXSet {
             m.windup(0.04, side: -1, power: 1.0)
             m.slash(0.05, side: -1, power: 1.3)
             m.settle(0.1)
-        case .skill3:
-            // 弓を天へ引き絞り、一矢を放つ（release 0.14 秒）
-            m.draw(0.07, up: 0.9)
-            m.hold(0.03) { $0.glow = 1.6 }
-            m.release(0.04)
-            m.hold(0.14) { $0.torsoPitch = -0.12; $0.glow = 1.3 }
         case .ultimate:
             // 右の大斬り（0.07）→ 左の大斬り（0.29）→ 跳んで射ち下ろし → 着地（0.61）
             m.windup(0.03, side: 1, power: 1.1)

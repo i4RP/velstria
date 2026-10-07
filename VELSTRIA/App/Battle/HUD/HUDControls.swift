@@ -460,7 +460,6 @@ struct HUDSkillButton: View {
         switch slot {
         case .skill1: return "hud_skill1"
         case .skill2: return "hud_skill2"
-        case .skill3: return "hud_skill3"
         case .ultimate, .passive: return "hud_ult"
         }
     }
@@ -672,7 +671,6 @@ struct HUDLevelBadge: View {
         switch slot {
         case .skill1: return "hud_level_skill1"
         case .skill2: return "hud_level_skill2"
-        case .skill3: return "hud_level_skill3"
         case .ultimate, .passive: return "hud_level_ult"
         }
     }
@@ -822,19 +820,15 @@ extension HUDLayout {
     var levelBadgeReach: CGFloat { levelBadgeDiameter / 2 + 2 }
 
     /// スキルの種別タグの中心。下に隙間のあるスキル1・2 はボタンの真下（ランクの目盛りの外）。
-    /// 攻撃列の内側の列（スキル3・必殺技）は真下が詰まっている（スキル3 → スキル2 約 12pt、必殺技 → スキル3 約 6pt）ため、
+    /// 攻撃列の内側の列（必殺技）は真下が詰まっている（必殺技 → スキル2 約 12pt）ため、
     /// 画面中央側（右手配置は左、左利きは右）の、周りの習得バッジ・スペルの間の高さへ置く。
     func skillLabelCenter(_ slot: SkillSlot, size: CGSize) -> CGPoint {
         let c = skillCenter(slot)
         let r = (slot == .ultimate ? ultDiameter : skillDiameter) / 2
         switch slot {
-        case .skill3:
-            // スキル3 の習得バッジの下端とスキル2 の習得バッジの上端の中間
-            let y = (levelBadgeCenter(.skill3).y + levelBadgeReach + levelBadgeCenter(.skill2).y - levelBadgeReach) / 2
-            return innerSideLabelCenter(c, radius: r, y: y, size: size)
         case .ultimate:
-            // スペル2 の下端とスキル3 の習得バッジの上端の中間
-            let y = (spellCenter(1).y + spellDiameter / 2 + levelBadgeCenter(.skill3).y - levelBadgeReach) / 2
+            // 必殺技の習得バッジの下端とスキル2 の習得バッジの上端の中間
+            let y = (levelBadgeCenter(.ultimate).y + levelBadgeReach + levelBadgeCenter(.skill2).y - levelBadgeReach) / 2
             return innerSideLabelCenter(c, radius: r, y: y, size: size)
         case .skill1, .skill2, .passive:
             return CGPoint(x: c.x, y: c.y + r + 1 + size.height / 2)

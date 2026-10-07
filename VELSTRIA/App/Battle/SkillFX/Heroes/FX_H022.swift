@@ -78,27 +78,6 @@ enum FX_H022: HeroFXSet {
                     .ringed(3, radius: 0.6),
                 .mesh(.shockRing(2.0, .secondary, life: 0.4), at: 0.04),
             ]
-        case .skill3:
-            r.cast = [
-                .mesh(.slash(1.0, .secondary, from: -60, to: 60, height: 1.6, tilt: 60, life: 0.2, tex: .slashThin), at: 0.1,
-                      offset: [0, 1.4, 0]),
-                .emit(.flare(1.0, .core, life: 0.14), at: 0.12, offset: [0, 1.7, 0.4]),
-            ]
-            r.telegraph = [
-                .mesh(.decal(.runeCircle, R * 2.1, .primary, life: 0.6, spin: 90, alpha: 0.7)),
-                .mesh(.decal(.hexShield, R * 1.8, .secondary, life: 0.6, spin: -60, alpha: 0.5)),
-                .emit(.motes(14, radius: R * 0.8, .accent, life: 0.6, rise: 0.4), offset: [0, 0.2, 0]),
-            ]
-            r.impact = [
-                .emit(.flare(1.8, .core, life: 0.2, tex: .flare6), offset: [0, 0.6, 0]),
-                .mesh(iceFang(1.8, life: 1.1)),
-                .mesh(iceFang(1.2, life: 1.0)).ringed(6, radius: R * 0.65, every: 0.025),
-                .mesh(.decal(.crack, R * 2.2, .secondary, life: 1.2, spin: 0, alpha: 0.75)),
-                .mesh(.shockRing(R * 1.2, .accent, life: 0.4)),
-                .emit(.flutter(.shard, 20, radius: R * 0.4, .secondary, speed: 5, life: 0.8, size: 0.18).with { $0.gravity = 8 }),
-                .emit(.motes(16, radius: R * 0.8, .accent, life: 1.2, rise: 0.3), at: 0.1, offset: [0, 0.4, 0], quality: 1),
-                .shake(0.15),
-            ]
         case .ultimate:
             r.cast = [
                 .emit(foxfire(24, radius: 0.8, life: 1.0)),
@@ -150,10 +129,6 @@ enum FX_H022: HeroFXSet {
             m.leap(0.12, height: 0.5, forward: 0.3)
             m.land(0.08, depth: 0.14)
             m.settle(0.1)
-        case .skill3:
-            // 両爪を下から天へ切り上げる
-            m.uppercut(0.12)
-            m.hold(0.16) { $0.glow = 1.8 }
         case .ultimate:
             // 両爪を胸に溜めて祈り → 十字に振り下ろす
             m.gather(0.16)

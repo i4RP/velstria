@@ -81,7 +81,6 @@ enum CollectionStyle {
         case .passive: return "P"
         case .skill1: return "1"
         case .skill2: return "2"
-        case .skill3: return "3"
         case .ultimate: return "U"
         }
     }
@@ -91,7 +90,6 @@ enum CollectionStyle {
         case .passive: return L("パッシブ", "Passive")
         case .skill1: return L("スキル1", "Skill 1")
         case .skill2: return L("スキル2", "Skill 2")
-        case .skill3: return L("スキル3", "Skill 3")
         case .ultimate: return L("アルティメット", "Ultimate")
         }
     }
@@ -99,7 +97,7 @@ enum CollectionStyle {
     static func slotColor(_ s: SkillSlot) -> Color {
         switch s {
         case .passive: return Color(red: 0.62, green: 0.66, blue: 0.80)
-        case .skill1, .skill2, .skill3: return Theme.cyan
+        case .skill1, .skill2: return Theme.cyan
         case .ultimate: return Theme.gold
         }
     }

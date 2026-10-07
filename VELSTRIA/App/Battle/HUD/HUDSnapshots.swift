@@ -114,7 +114,7 @@ struct HUDDeathInfo: Equatable {
 struct HUDDeathRecap: Equatable {
     /// ダメージの内訳 1 行（通常攻撃・スキル1 など）。
     struct Part: Equatable, Identifiable {
-        /// "basic" / "skill1" / "skill2" / "skill3" / "ultimate" / "passive" / "spell" / "item" / "dot" / "tower" / "minion" / "monster" / "fountain"
+        /// "basic" / "skill1" / "skill2" / "ultimate" / "passive" / "spell" / "item" / "dot" / "tower" / "minion" / "monster" / "fountain"
         var id: String
         var label: String
         var symbol: String

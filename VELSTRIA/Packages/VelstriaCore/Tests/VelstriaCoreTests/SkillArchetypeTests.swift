@@ -31,9 +31,9 @@ struct SkillWorld {
         s.time = 1
     }
 
-    /// ヒーローを配置する。ranks = [Skill1, Skill2, Skill3, Ult]（nil なら自動習得）。
+    /// ヒーローを配置する。ranks = [Skill1, Skill2, Ult]（nil なら自動習得）。
     @discardableResult
-    mutating func addHero(_ heroID: String, team: Team, at pos: Vec2, level: Int = 1, ranks: [Int]? = [1, 1, 1, 1],
+    mutating func addHero(_ heroID: String, team: Team, at pos: Vec2, level: Int = 1, ranks: [Int]? = [1, 1, 1],
                           spells: [String] = ["BS01", "BS03"], facing: Double? = nil) -> Int {
         let def = ctx.master.hero(heroID)!
         let slot = PlayerSlot(team: team, heroID: heroID, controller: .bot,
@@ -182,7 +182,7 @@ final class SkillArchetypeTests: XCTestCase {
 
     func testEverySkillHasTargetingPerDesign() {
         let m = MasterData.shared
-        XCTAssertEqual(m.skills.filter { $0.slot != .passive }.count, 96)
+        XCTAssertEqual(m.skills.filter { $0.slot != .passive }.count, 72)
         for hero in m.heroes {
             for skill in m.skills(forHero: hero.heroID) {
                 let t = SkillCatalog.targeting(for: skill, hero: hero)
@@ -197,11 +197,6 @@ final class SkillArchetypeTests: XCTestCase {
                 case .skill2:
                     XCTAssertEqual(t.archetype, hero.isRanged ? .blinkEmpower : .dashStrike, skill.skillID)
                     XCTAssertEqual(t.range, hero.isRanged ? 350 : skill.range + 100)
-                case .skill3:
-                    let expected: SkillArchetype = hero.role == .vanguard ? .selfAoE
-                        : (hero.role == .support ? .healZone : .groundAoE)
-                    XCTAssertEqual(t.archetype, expected, skill.skillID)
-                    XCTAssertEqual(t.targetsAllies, hero.role == .support)
                 case .ultimate:
                     let expected: SkillArchetype
                     switch hero.role {
@@ -294,15 +289,10 @@ final class SkillArchetypeTests: XCTestCase {
 
         let support = m.hero("H005")!
         let sst = HeroGrowth.baseStats(def: support, level: 6)
-        let zone = SkillCatalog.numbers(for: m.skill(hero: "H005", slot: .skill3)!, hero: support, rank: 2, stats: sst)
-        XCTAssertGreaterThan(zone.heal, 0)
-        XCTAssertEqual(zone.delay, 0.5)
         let team = SkillCatalog.numbers(for: m.skill(hero: "H005", slot: .ultimate)!, hero: support, rank: 1, stats: sst)
         XCTAssertEqual(team.damage, 0)
         XCTAssertEqual(team.shield, team.heal * 0.5, accuracy: 1e-9)
-        XCTAssertEqual(team.heal / zone.heal,
-                       (1.2 * m.skill(hero: "H005", slot: .ultimate)!.baseDamage)
-                        / (0.8 * m.skill(hero: "H005", slot: .skill3)!.baseDamage * 1.3), accuracy: 1e-9)
+        XCTAssertGreaterThan(team.heal, 0)
 
         let assassin = m.hero("H006")!
         let exec = SkillCatalog.numbers(for: m.skill(hero: "H006", slot: .ultimate)!, hero: assassin, rank: 1,
@@ -311,16 +301,13 @@ final class SkillArchetypeTests: XCTestCase {
         let arc = SkillCatalog.numbers(for: m.skill(hero: "H004", slot: .ultimate)!, hero: m.hero("H004")!, rank: 1,
                                        stats: HeroGrowth.baseStats(def: m.hero("H004")!, level: 6))
         XCTAssertEqual(arc.delay, 1.0)
-        let van = SkillCatalog.numbers(for: m.skill(hero: "H001", slot: .skill3)!, hero: m.hero("H001")!, rank: 1,
-                                       stats: HeroGrowth.baseStats(def: m.hero("H001")!, level: 3))
-        XCTAssertEqual(van.shield, HeroGrowth.baseStats(def: m.hero("H001")!, level: 3).maxHP * 0.08, accuracy: 1e-9)
     }
 
     // MARK: - 検証（CD・コスト・CC・ランク）
 
     func testCastValidationRankCooldownCostAndCrowdControl() {
         var w = SkillWorld()
-        let a = w.addHero("H001", team: .blue, at: skillArena, ranks: [0, 1, 1, 1])
+        let a = w.addHero("H001", team: .blue, at: skillArena, ranks: [0, 1, 1])
         w.addHero("H003", team: .red, at: skillArena + Vec2(200, 0))
         // ランク 0
         XCTAssertFalse(SkillSystem.canCast(w.s, w.ctx, heroIndex: a, slot: .skill1))
@@ -328,26 +315,25 @@ final class SkillArchetypeTests: XCTestCase {
         XCTAssertFalse(w.cast(a, .passive))
         // 発動 → CD とコスト
         let before = w.s.units[a].resource
-        let n = w.numbers(a, .skill3)
-        XCTAssertTrue(w.cast(a, .skill3))
+        let n = w.numbers(a, .skill2)
+        XCTAssertTrue(w.cast(a, .skill2))
         XCTAssertEqual(w.s.units[a].resource, before - n.cost, accuracy: 1e-9)
-        XCTAssertEqual(w.s.units[a].hero!.cooldown(.skill3), n.cooldown, accuracy: 1e-9)
-        XCTAssertFalse(w.cast(a, .skill3), "CD 中")
+        XCTAssertEqual(w.s.units[a].hero!.cooldown(.skill2), n.cooldown, accuracy: 1e-9)
+        XCTAssertFalse(w.cast(a, .skill2), "CD 中")
         w.run(seconds: n.cooldown + 0.05)
-        XCTAssertTrue(SkillSystem.canCast(w.s, w.ctx, heroIndex: a, slot: .skill3))
+        XCTAssertTrue(SkillSystem.canCast(w.s, w.ctx, heroIndex: a, slot: .skill2))
         // リソース不足
         w.s.units[a].resource = n.cost - 1
-        XCTAssertFalse(w.cast(a, .skill3))
+        XCTAssertFalse(w.cast(a, .skill2))
         w.s.units[a].resource = n.cost
         // 沈黙・スタンでは不可、スロー・ルートでは可
         CombatSystem.addStatus(&w.s, targetIndex: a, StatusEffect(kind: .silence, duration: 1))
-        XCTAssertFalse(w.cast(a, .skill3))
+        XCTAssertFalse(w.cast(a, .skill2))
         w.s.units[a].statuses.removeAll()
         CombatSystem.addStatus(&w.s, targetIndex: a, StatusEffect(kind: .stun, duration: 1))
-        XCTAssertFalse(SkillSystem.canCast(w.s, w.ctx, heroIndex: a, slot: .skill3))
+        XCTAssertFalse(SkillSystem.canCast(w.s, w.ctx, heroIndex: a, slot: .skill2))
         w.s.units[a].statuses.removeAll()
         CombatSystem.addStatus(&w.s, targetIndex: a, StatusEffect(kind: .root, duration: 1))
-        XCTAssertTrue(w.cast(a, .skill3))
         XCTAssertFalse(SkillSystem.canCast(w.s, w.ctx, heroIndex: a, slot: .skill2), "ルート中は突進できない")
         XCTAssertFalse(w.cast(a, .skill2, .direction(Vec2(1, 0))))
         var r = SkillWorld()
@@ -358,16 +344,16 @@ final class SkillArchetypeTests: XCTestCase {
         var d = SkillWorld()
         let dead = d.addHero("H001", team: .blue, at: skillArena)
         d.s.units[dead].isAlive = false
-        XCTAssertFalse(d.cast(dead, .skill3))
+        XCTAssertFalse(d.cast(dead, .skill2))
     }
 
     func testEnergyHeroesPaySixtyPercent() {
         var w = SkillWorld()
         let a = w.addHero("H002", team: .blue, at: skillArena)
         XCTAssertEqual(w.s.units[a].hero!.resourceKind, .energy)
-        let skill = w.ctx.master.skill(hero: "H002", slot: .skill3)!
+        let skill = w.ctx.master.skill(hero: "H002", slot: .skill1)!
         let before = w.s.units[a].resource
-        XCTAssertTrue(w.cast(a, .skill3, .point(skillArena + Vec2(200, 0))))
+        XCTAssertTrue(w.cast(a, .skill1, .direction(Vec2(1, 0))))
         XCTAssertEqual(before - w.s.units[a].resource, skill.cost * 0.6, accuracy: 1e-9)
     }
 
@@ -433,9 +419,9 @@ final class SkillArchetypeTests: XCTestCase {
 
     func testPointTargetIsClampedToRange() {
         var w = SkillWorld()
-        let a = w.addHero("H004", team: .blue, at: skillArena)
-        let range = w.targeting(a, .skill3).range
-        XCTAssertTrue(w.cast(a, .skill3, .point(skillArena + Vec2(5000, 0))))
+        let a = w.addHero("H004", team: .blue, at: skillArena, level: 6)
+        let range = w.targeting(a, .ultimate).range
+        XCTAssertTrue(w.cast(a, .ultimate, .point(skillArena + Vec2(5000, 0))))
         XCTAssertEqual(w.castEvents.last!.target.x, skillArena.x + range, accuracy: 1e-6)
         XCTAssertEqual(w.s.zones.last!.center.x, skillArena.x + range, accuracy: 1e-6)
     }
@@ -558,25 +544,25 @@ final class SkillArchetypeTests: XCTestCase {
 
     func testGroundAoETelegraphThenHits() {
         var w = SkillWorld()
-        let a = w.addHero("H004", team: .blue, at: skillArena)   // Skill3: radius 120, Knockback
+        let a = w.addHero("H004", team: .blue, at: skillArena, level: 6)   // Ult: radius 155 × 1.8、予告 1.0 秒
         let center = skillArena + Vec2(500, 0)
         let inside = w.addHero("H001", team: .red, at: center + Vec2(100, 0))
-        let outside = w.addMinion(team: .red, at: center + Vec2(0, 260))
-        XCTAssertTrue(w.cast(a, .skill3, .point(center)))
-        XCTAssertEqual(w.s.zones.last?.delay, 0.5)
-        w.run(seconds: 0.4)
+        let outside = w.addMinion(team: .red, at: center + Vec2(0, 420))
+        XCTAssertTrue(w.cast(a, .ultimate, .point(center)))
+        XCTAssertEqual(w.s.zones.last?.delay, 1.0)
+        w.run(seconds: 0.9)
         XCTAssertEqual(w.damage(to: inside), 0, "予告中")
         w.run(seconds: 0.2)
         XCTAssertGreaterThan(w.damage(to: inside), 0)
         XCTAssertEqual(w.damage(to: outside), 0)
         // 予告中に避ければ当たらない
         var w2 = SkillWorld()
-        let a2 = w2.addHero("H004", team: .blue, at: skillArena)
+        let a2 = w2.addHero("H004", team: .blue, at: skillArena, level: 6)
         let dodger = w2.addHero("H001", team: .red, at: center)
-        XCTAssertTrue(w2.cast(a2, .skill3, .point(center)))
+        XCTAssertTrue(w2.cast(a2, .ultimate, .point(center)))
         w2.tick(5)
-        w2.s.units[dodger].pos = center + Vec2(0, 400)
-        w2.run(seconds: 0.6)
+        w2.s.units[dodger].pos = center + Vec2(0, 700)
+        w2.run(seconds: 1.2)
         XCTAssertEqual(w2.damage(to: dodger), 0)
     }
 
@@ -592,35 +578,6 @@ final class SkillArchetypeTests: XCTestCase {
         w.run(seconds: 0.2)
         XCTAssertGreaterThan(w.damage(to: t), 0)
         XCTAssertEqual(w.s.units[t].status(.root)?.duration ?? 0, Balance.ultRootDuration, accuracy: 1e-9)
-    }
-
-    func testVanguardSelfAoEHitsAroundAndShieldsSelf() {
-        var w = SkillWorld()
-        let a = w.addHero("H001", team: .blue, at: skillArena)   // Skill3: radius 155
-        let near = w.addHero("H003", team: .red, at: skillArena + Vec2(-150, 100))
-        let far = w.addMinion(team: .red, at: skillArena + Vec2(400, 0))
-        XCTAssertTrue(w.cast(a, .skill3))
-        XCTAssertGreaterThan(w.damage(to: near), 0, "即時")
-        XCTAssertEqual(w.damage(to: far), 0)
-        XCTAssertEqual(w.s.units[a].totalShield, w.s.units[a].stats.maxHP * 0.08, accuracy: 1e-6)
-    }
-
-    func testSupportHealZoneHealsAlliesAndDamagesEnemies() {
-        var w = SkillWorld()
-        let a = w.addHero("H005", team: .blue, at: skillArena)   // Skill3: radius 155, Root
-        let center = skillArena + Vec2(400, 0)
-        let ally = w.addHero("H001", team: .blue, at: center + Vec2(50, 0))
-        let enemy = w.addHero("H003", team: .red, at: center + Vec2(-50, 50))
-        w.s.units[ally].hp = 1000
-        let n = w.numbers(a, .skill3)
-        XCTAssertTrue(w.cast(a, .skill3, .point(center)))
-        // 発動時にパッシブ（HP 割合最低の味方を 40 + 10×Lv×k 回復、H005 は k = 1.0）
-        XCTAssertEqual(w.s.units[ally].hp, 1000 + 50, accuracy: 1e-6)
-        w.run(seconds: 0.6)
-        XCTAssertEqual(w.s.units[ally].hp, 1050 + n.heal, accuracy: 5, "回復ゾーン（+ 自然回復）")
-        XCTAssertGreaterThan(w.damage(to: enemy), 0)
-        XCTAssertTrue(w.s.units[enemy].has(.root))
-        XCTAssertEqual(w.damage(to: ally), 0)
     }
 
     func testLeapSlamLeapsAndSlamsWithUltimateCC() {
@@ -724,12 +681,12 @@ final class SkillArchetypeTests: XCTestCase {
 
     func testSkillsHitMonstersAndDummiesButNotStructures() {
         var w = SkillWorld()
-        let a = w.addHero("H004", team: .blue, at: skillArena)
+        let a = w.addHero("H004", team: .blue, at: skillArena, level: 6)
         let center = skillArena + Vec2(400, 0)
         let monster = w.addMonster(.campSmall, at: center)
         let tower = w.addTower(team: .red, at: center + Vec2(0, 100))
-        XCTAssertTrue(w.cast(a, .skill3, .point(center)))
-        w.run(seconds: 0.6)
+        XCTAssertTrue(w.cast(a, .ultimate, .point(center)))
+        w.run(seconds: 1.2)
         XCTAssertGreaterThan(w.damage(to: monster), 0)
         XCTAssertEqual(w.damage(to: tower), 0)
         XCTAssertEqual(w.s.units[tower].hp, w.s.units[tower].stats.maxHP)
@@ -738,7 +695,7 @@ final class SkillArchetypeTests: XCTestCase {
     func testEveryHeroCanCastEverySkill() {
         for hero in MasterData.shared.heroes {
             var w = SkillWorld()
-            let a = w.addHero(hero.heroID, team: .blue, at: skillArena, level: 12, ranks: [4, 4, 4, 3])
+            let a = w.addHero(hero.heroID, team: .blue, at: skillArena, level: 12, ranks: [4, 4, 3])
             let foe = w.addHero("H013", team: .red, at: skillArena + Vec2(250, 0), level: 12)
             for slot in SkillSlot.actives {
                 XCTAssertTrue(w.cast(a, slot, .unit(w.id(foe))), "\(hero.heroID) \(slot)")
@@ -750,7 +707,7 @@ final class SkillArchetypeTests: XCTestCase {
                 w.s.units[foe].displacement = nil
                 w.s.units[foe].pos = w.s.units[a].pos + Vec2(250, 0)
             }
-            XCTAssertEqual(w.castEvents.count, 4, hero.heroID)
+            XCTAssertEqual(w.castEvents.count, 3, hero.heroID)
             XCTAssertGreaterThan(w.damage(to: foe) + w.s.units[a].totalShield, 0, hero.heroID)
         }
     }

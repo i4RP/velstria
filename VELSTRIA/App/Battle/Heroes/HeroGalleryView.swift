@@ -6,7 +6,7 @@ import VelstriaCore
 // 担当: hero-models。全ヒーローの 3D モデル一覧（起動引数 -heroGallery）。
 // 追加の起動引数（スクリーンショット用）:
 //   -galleryPage <0...>        0-3 = 6 体ずつ、4 以降 = スキン比較
-//   -galleryState <idle|run|attack|skill1|skill2|skill3|ult|channel|stunned|dead|victory>
+//   -galleryState <idle|run|attack|skill1|skill2|ult|channel|stunned|dead|victory>
 //   -galleryCamera <showcase|battle>
 //   -galleryTeam <blue|red|none>
 //   -galleryFreeze <秒>        指定秒だけ進めて静止
@@ -39,7 +39,7 @@ struct HeroGalleryView: View {
     private var pageCount: Int { rosterPages + skinnedHeroes.count }
 
     private static let states: [(String, String)] = [
-        ("idle", "Idle"), ("run", "Run"), ("attack", "Attack"), ("skill1", "S1"), ("skill2", "S2"), ("skill3", "S3"),
+        ("idle", "Idle"), ("run", "Run"), ("attack", "Attack"), ("skill1", "S1"), ("skill2", "S2"),
         ("ult", "Ult"), ("channel", "Recall"), ("stunned", "Stun"), ("dead", "Dead"), ("victory", "Win"),
     ]
 
@@ -49,7 +49,6 @@ struct HeroGalleryView: View {
         case "attack": return .attack
         case "skill1": return .cast(.skill1)
         case "skill2": return .cast(.skill2)
-        case "skill3": return .cast(.skill3)
         case "ult": return .cast(.ultimate)
         case "channel": return .channel
         case "stunned": return .stunned

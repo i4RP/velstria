@@ -14,7 +14,6 @@ final class SkillDeterminismTests: XCTestCase {
             switch phase {
             case 0: out.append(HeroCommand(heroID: id, command: .castSkill(slot: .skill1, target: .none)))
             case 5: out.append(HeroCommand(heroID: id, command: .castSkill(slot: .skill2, target: .none)))
-            case 10: out.append(HeroCommand(heroID: id, command: .castSkill(slot: .skill3, target: .none)))
             case 15: out.append(HeroCommand(heroID: id, command: .castSkill(slot: .ultimate, target: .none)))
             default: break
             }

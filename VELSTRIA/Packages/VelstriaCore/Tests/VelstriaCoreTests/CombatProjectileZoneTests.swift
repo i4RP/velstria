@@ -263,7 +263,7 @@ final class CombatProjectileZoneTests: XCTestCase {
         let allyTower = w.addUnit(.tower, team: .blue, at: Vec2(4900, 4900), radius: 110)
         w.s.units[ally].hp = 500
         w.s.units[allyTower].hp = 100
-        let payload = HitPayload(damage: 50, damageType: .magic, source: .skill(.skill3), cc: .slow,
+        let payload = HitPayload(damage: 50, damageType: .magic, source: .skill(.skill2), cc: .slow,
                                  statuses: [StatusEffect(kind: .speedBoost, duration: 2, magnitude: 0.2)],
                                  affectsEnemies: true, affectsAllies: true, healAmount: 100)
         ZoneSystem.spawn(&w.s, ownerIndex: o, center: Vec2(5000, 5000), radius: 300, delay: 0, payload: payload,

@@ -234,8 +234,7 @@ struct HUDLayout: Equatable {
         switch slot {
         case .skill1: return actionPoint(x: -163, y: 76)
         case .skill2: return actionPoint(x: -93, y: 69)
-        case .skill3: return actionPoint(x: -77, y: -3)
-        case .ultimate, .passive: return actionPoint(x: -76, y: -72)
+        case .ultimate, .passive: return actionPoint(x: -82, y: -6)
         }
     }
 
@@ -243,8 +242,7 @@ struct HUDLayout: Equatable {
         switch slot {
         case .skill1: return actionPoint(x: -210, y: 30)
         case .skill2: return actionPoint(x: -142, y: 19)
-        case .skill3: return actionPoint(x: -138, y: -32)
-        case .ultimate, .passive: return actionPoint(x: -123, y: -129)
+        case .ultimate, .passive: return actionPoint(x: -128, y: -72)
         }
     }
 

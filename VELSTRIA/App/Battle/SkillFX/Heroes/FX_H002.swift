@@ -99,43 +99,6 @@ enum FX_H002: HeroFXSet {
                 .emit(.sparks(10, speed: 5, .accent, end: .primary), offset: [0, 1.0, 0]),
                 .mesh(line(.streak, 1.4, 0.3, .primary, life: 0.18), offset: [0, 1.0, 0]),
             ]
-        case .skill3:
-            // 竪琴弓を爪弾く（0.12 秒）→ 0.5 秒後に星が降る
-            r.cast = [
-                .emit(.flare(0.9, .secondary, life: 0.15), at: 0.11, offset: [-0.3, 1.3, 0.4]),
-                .emit(.flutter(.note, 6, radius: 0.3, .primary, speed: 2.0, life: 0.9, size: 0.2), at: 0.11,
-                      offset: [-0.3, 1.3, 0.3]),
-                .mesh(.decal(.soundWave, 2.0, .primary, life: 0.45, spin: 0, grow: 1.6, alpha: 0.8).with { $0.yaw = 90 },
-                      at: 0.11, offset: [0, 0, 0.8]),
-            ]
-            r.telegraph = [
-                .mesh(.decal(.runeCircle, R * 2.1, .primary, life: 0.65, spin: 70, alpha: 0.7)),
-                .mesh(.halo(R * 0.95, .accent, life: 0.6, spin: -120, tex: .thread, alpha: 0.7), offset: [0, 0.1, 0]),
-                .emit(.rising(12, radius: R * 0.8, .secondary, speed: 1.4, life: 0.6)),
-                // 星の雨（着弾の瞬間に地へ届くよう予告の途中から降らせる）
-                .emit(FXEmit(tex: .star, tint: .accent, tintEnd: .core, count: 18, emit: 0.18, life: 0.35, size: 0.24,
-                             sizeVar: 0.3, grow: 0.6, shape: .disc(R * 0.8), dir: .down, speed: 14, speedVar: 0.2,
-                             spin: 300, spinVar: 200, fade: .linearFadeOut), at: 0.2, offset: [0, 5, 0]),
-            ]
-            r.impact = [
-                .emit(FXEmit(tex: .streak, tint: .core, tintEnd: .primary, count: 20, emit: 0.1, life: 0.28, size: 0.14,
-                             shape: .disc(R * 0.85), dir: .down, speed: 18, stretch: 3, fade: .linearFadeOut),
-                      offset: [0, 5, 0]),
-                .emit(.flare(1.6, .core, life: 0.2), offset: [0, 0.7, 0]),
-                .mesh(.pillar(R * 0.3, height: 4, .core, life: 0.35, alpha: 0.8)),
-                .mesh(.decal(.runeCircle, R * 2.2, .primary, life: 1.1, spin: -30, alpha: 0.8)),
-                .mesh(.decal(.star, R * 1.0, .accent, life: 1.0, spin: 40, alpha: 0.6), at: 0.03),
-                .mesh(.shockRing(R * 1.2, .core, life: 0.35), at: 0.03),
-                // 鈍足: 放射状に張られた銀の弦
-                .mesh(line(.thread, R * 0.9, 0.4, .secondary, life: 1.0, alpha: 0.85), at: 0.05).ringed(6, radius: R * 0.5),
-                .emit(.wave(R * 1.3, .primary, life: 0.5), at: 0.03, offset: [0, 0.1, 0]),
-                .emit(.motes(14, radius: R * 0.8, .secondary, life: 1.4), at: 0.15, offset: [0, 0.4, 0], quality: 1),
-                .shake(0.15, at: 0.03),
-            ]
-            r.hit = [
-                .emit(.flare(0.8, .core, life: 0.14), offset: [0, 1.0, 0]),
-                .mesh(.halo(0.6, .secondary, life: 1.0, spin: 200, tex: .thread), offset: [0, 0.25, 0]),
-            ]
         case .ultimate:
             // 天穹の星図（術者に追従）+ 0 / 0.3 / 0.6 秒の三連撃（回ごとに左右反転）
             r.cast = [
@@ -215,11 +178,6 @@ enum FX_H002: HeroFXSet {
             m.thrust(0.04)
             m.twirl(0.18, turns: 1)
             m.settle(0.08)
-        case .skill3:
-            // 竪琴弓を構えて弦を爪弾く（0.12 秒）
-            m.draw(0.07, up: 0.2)
-            m.release(0.05)
-            m.hold(0.18) { $0.ring = 1; $0.glow = 1.6 }
         case .ultimate:
             // 三連撃: 突き（0.1 秒）→ 逆からの薙ぎ（0.36 秒）→ 旋回して踏み込み突き（0.67 秒）
             m.brace(0.04, depth: 0.1)

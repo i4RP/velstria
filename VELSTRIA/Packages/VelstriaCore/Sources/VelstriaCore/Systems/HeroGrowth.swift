@@ -144,10 +144,10 @@ public enum SkillLeveling {
         s.emit(.skillLeveled(heroID: s.units[i].id, slot: slot, rank: h.skillRanks[slot.rawValue]))
     }
 
-    /// 自動習得: Ult > Skill1 > Skill2 > Skill3（未習得スキルを優先）。
+    /// 自動習得: Ult > Skill1 > Skill2（未習得スキルを優先）。
     public static func autoLevel(_ s: inout SimState, _ ctx: SimContext, heroIndex i: Int) {
         while let h = s.units[i].hero, h.skillPoints > 0 {
-            let order: [SkillSlot] = [.ultimate, .skill1, .skill2, .skill3]
+            let order: [SkillSlot] = [.ultimate, .skill1, .skill2]
             let unlearned = order.filter { h.rank($0) == 0 && canLevel(h, slot: $0) }
             guard let slot = unlearned.first ?? order.first(where: { canLevel(h, slot: $0) }) else { return }
             levelUp(&s, ctx, heroIndex: i, slot: slot)

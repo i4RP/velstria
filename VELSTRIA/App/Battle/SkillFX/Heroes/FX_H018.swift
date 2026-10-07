@@ -109,35 +109,6 @@ enum FX_H018: HeroFXSet {
                 .emit(.flare(0.9, .core, life: 0.14), offset: [0, 1.0, 0]),
                 .mesh(.decal(.petal, 1.0, .primary, life: 1.0, spin: 90, alpha: 0.7), .follow),
             ]
-        case .skill3:
-            // 花の蕾を放る（0.14 秒）→ 五弁の花が開き、咲き誇って弾ける
-            r.cast = [
-                .emit(.flare(0.9, .accent, life: 0.16), at: 0.13, offset: [0.3, 1.4, 0.5]),
-                .emit(.flutter(.petal, 8, radius: 0.2, .primary, speed: 3, life: 0.6).with { $0.dir = .forward; $0.spread = 25 },
-                      at: 0.13, offset: [0.3, 1.3, 0.5]),
-            ]
-            r.telegraph = [
-                // 地に開く五弁の花
-                .mesh(.decal(.petal, R * 1.0, .primary, life: 0.65, spin: 0, grow: 1.0, alpha: 0.75))
-                    .ringed(5, radius: R * 0.42, every: 0.04),
-                .mesh(.decal(.star, R * 0.9, .secondary, life: 0.65, spin: 120, alpha: 0.8)),
-                .mesh(.decal(.ring, R * 2.1, .accent, life: 0.65, spin: 0, grow: 1.0, alpha: 0.6)),
-            ]
-            r.impact = [
-                .emit(.flare(1.8, .core, life: 0.2, tex: .flare4), offset: [0, 1.0, 0]),
-                .mesh(.decal(.petal, R * 1.3, .primary, life: 0.8, spin: 30, grow: 1.1, alpha: 0.9))
-                    .ringed(5, radius: R * 0.55),
-                .mesh(.decal(.star, R * 1.6, .secondary, life: 1.0, spin: -80, grow: 1.1, alpha: 0.95)),
-                .mesh(.shockRing(R * 1.4, .primary, life: 0.4)),
-                .emit(.vortex(26, radius: R * 0.8, .primary, life: 1.0, tex: .petal, speed: 3.5).with { $0.size = 0.2 }),
-                .emit(.flutter(.star, 10, radius: R * 0.6, .secondary, speed: 3.5, life: 0.9, size: 0.2), offset: [0, 0.8, 0]),
-                .emit(.sparks(16, speed: 7, .core, end: .primary), offset: [0, 0.6, 0]),
-                .shake(0.18),
-            ]
-            r.hit = [
-                .emit(.flare(0.9, .core, life: 0.14), offset: [0, 1.0, 0]),
-                .emit(starCrown, .follow, offset: [0, 2.05, 0]),
-            ]
         case .ultimate:
             // 花星満開: 花弁となって消え（転移元）→ 標的の背後で交差斬り（0.15 秒）と大輪の満開（0.45 秒）
             r.cast = [
@@ -199,12 +170,6 @@ enum FX_H018: HeroFXSet {
             m.crossSlash(0.12)
             m.spin(0.14, turns: 1, arms: false)
             m.key(0.01, .linear) { $0.yaw -= 2 * .pi }
-            m.settle(0.08)
-        case .skill3:
-            // 跳び退きながら花の蕾を放る
-            m.backstep(0.06, distance: 0.25)
-            m.throwCast(0.08)
-            m.hold(0.12) { $0.glow = 1.3 }
             m.settle(0.08)
         case .ultimate:
             // 花弁に溶け（半透明）、背後に現れて交差斬り → 舞うように一回転して大輪を咲かせる斬り下ろし

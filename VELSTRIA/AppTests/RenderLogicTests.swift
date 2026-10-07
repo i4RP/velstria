@@ -199,7 +199,7 @@ final class RenderLogicTests: XCTestCase {
     func testZoneColors() {
         let teams = TeamColors(colorblind: false)
         func zone(team: Team, heal: Bool) -> AreaZone {
-            let payload = HitPayload(damage: heal ? 0 : 50, damageType: .magic, source: .skill(.skill3),
+            let payload = HitPayload(damage: heal ? 0 : 50, damageType: .magic, source: .skill(.skill2),
                                      affectsEnemies: !heal, affectsAllies: heal, healAmount: heal ? 80 : 0)
             return AreaZone(id: 1, ownerID: 2, team: team, center: .zero, radius: 300, delay: 0.5, payload: payload, visual: "")
         }
@@ -279,7 +279,7 @@ private extension Float {
 
 extension RenderLogicTests {
     private func spectatorZone(team: Team, heal: Bool, mixed: Bool = false) -> AreaZone {
-        let payload = HitPayload(damage: heal && !mixed ? 0 : 50, damageType: .magic, source: .skill(.skill3),
+        let payload = HitPayload(damage: heal && !mixed ? 0 : 50, damageType: .magic, source: .skill(.skill2),
                                  affectsEnemies: !heal || mixed, affectsAllies: heal, healAmount: heal ? 80 : 0)
         return AreaZone(id: 1, ownerID: 2, team: team, center: .zero, radius: 300, delay: 0.5, payload: payload, visual: "")
     }

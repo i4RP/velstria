@@ -94,7 +94,7 @@ final class HeroModelTests: XCTestCase {
 
     func testAnimationStaysFinite() {
         let model = HeroModelLibrary.makeHero(heroID: "H011", skinID: nil, team: .blue, master: master, options: Self.battle)
-        let states: [HeroAnimState] = [.idle, .run, .attack, .attack, .cast(.skill1), .cast(.skill2), .cast(.skill3),
+        let states: [HeroAnimState] = [.idle, .run, .attack, .attack, .cast(.skill1), .cast(.skill2),
                                        .cast(.ultimate), .channel, .stunned, .dead, .idle, .victory]
         for (i, s) in states.enumerated() {
             model.setState(s)

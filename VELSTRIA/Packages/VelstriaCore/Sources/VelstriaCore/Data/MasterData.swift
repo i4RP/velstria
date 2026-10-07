@@ -285,7 +285,7 @@ public final class MasterData: @unchecked Sendable {
 
     public func hero(_ id: String) -> HeroDef? { heroByID[id] }
     public func skill(_ id: String) -> SkillDef? { skillByID[id] }
-    /// Passive, Skill1, Skill2, Skill3, Ultimate の順（SkillSlot.rawValue 順）。
+    /// Passive, Skill1, Skill2, Ultimate の順（SkillSlot.rawValue 順）。
     public func skills(forHero id: String) -> [SkillDef] { skillsByHero[id] ?? [] }
     public func skill(hero id: String, slot: SkillSlot) -> SkillDef? {
         skillsByHero[id]?.first { $0.slot == slot }

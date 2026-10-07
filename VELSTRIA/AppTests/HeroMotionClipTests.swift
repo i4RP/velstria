@@ -436,7 +436,7 @@ final class HeroMotionClipTests: XCTestCase {
             let id = String(format: "H%03d", n)
             let set = try XCTUnwrap(HeroMotionSets.set(heroID: id), id)
             XCTAssertFalse(set.attacks.isEmpty, id)
-            XCTAssertEqual(set.casts.count, 4, id)
+            XCTAssertEqual(set.casts.count, 3, id)
         }
         guard Bundle.main.url(forResource: HeroMotionClips.resourceName, withExtension: "json") != nil else {
             print("HeroMotionClipTests: HeroMotionClips.json は未同梱（手続きのみ）")
@@ -668,7 +668,7 @@ final class HeroMotionClipTests: XCTestCase {
         let lib = try Self.library([chant])
         var set = HeroMotionSet()
         set.attacks = ["chant"]
-        set.casts = ["chant", nil, nil, nil]
+        set.casts = ["chant", nil, nil]
         let binding = try XCTUnwrap(HeroMotionBinding(set: set, library: lib))
         let dt: Float = 1.0 / 30
         var a = HeroAnimator(profile: profile("H004"), defaultRunSpeed: 3.3, motion: binding)
@@ -694,7 +694,7 @@ final class HeroMotionClipTests: XCTestCase {
         let cast = Synth(name: "cast", frames: 40, events: ["impact": 20])
         let lib = try Self.library([cast])
         var set = HeroMotionSet()
-        set.casts = [nil, "cast", nil, nil]
+        set.casts = [nil, "cast", nil]
         let m = try makeSkinned("H004")
         m.useMotion(set, library: lib)
         m.setState(.cast(.skill1))
@@ -744,7 +744,7 @@ final class HeroMotionClipTests: XCTestCase {
         let lib = try Self.library([Self.wild])
         var set = HeroMotionSet()
         set.attacks = ["wild"]
-        set.casts = ["wild", "wild", "wild", "wild"]
+        set.casts = ["wild", "wild", "wild"]
         set.death = "wild"
         set.victory = "wild"
         for id in ["H001", "H003", "H007", "H021"] {
@@ -752,7 +752,7 @@ final class HeroMotionClipTests: XCTestCase {
             m.useMotion(set, library: lib)
             var worst: Float = 0
             var maxWeight: Float = 0
-            for (i, s) in [HeroAnimState.attack, .cast(.skill3), .run, .victory, .dead].enumerated() {
+            for (i, s) in [HeroAnimState.attack, .cast(.ultimate), .run, .victory, .dead].enumerated() {
                 m.setState(s)
                 for k in 0..<30 {
                     if s == .attack && k % 10 == 0 { m.playAttack(windup: 0.2, interval: 0.5) }
@@ -779,7 +779,7 @@ final class HeroMotionClipTests: XCTestCase {
         let lib = try Self.library([Self.swing])
         var set = HeroMotionSet()
         set.attacks = ["nope_1", "nope_2"]
-        set.casts = ["nope_3", nil, "nope_4", nil]
+        set.casts = ["nope_3", nil, "nope_4"]
         set.death = "nope_5"
         set.idle = "nope_6"
         XCTAssertNil(HeroMotionBinding(set: set, library: lib))

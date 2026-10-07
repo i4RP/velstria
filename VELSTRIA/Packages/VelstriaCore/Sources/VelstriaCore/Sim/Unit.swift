@@ -87,10 +87,10 @@ public struct HeroData: Codable, Hashable, Sendable {
     /// 各スロットへの投資 Gold（売却額計算用、items と同じ長さ）。
     public var itemInvested: [Double] = []
 
-    /// SkillSlot.rawValue で添字（5 要素）。passive は常に 1。
-    public var skillRanks: [Int] = [1, 0, 0, 0, 0]
-    /// 残りクールダウン秒（5 要素）。
-    public var skillCooldowns: [Double] = [0, 0, 0, 0, 0]
+    /// SkillSlot.rawValue で添字（4 要素）。passive は常に 1。
+    public var skillRanks: [Int] = [1, 0, 0, 0]
+    /// 残りクールダウン秒（4 要素）。
+    public var skillCooldowns: [Double] = [0, 0, 0, 0]
     public var skillPoints: Int = 1
     public var autoLevelSkills: Bool = true
 

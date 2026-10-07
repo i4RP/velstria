@@ -355,7 +355,7 @@ final class HUDDeathScreenTests: XCTestCase {
             let heroID = f.enemies[0].hero!.heroID
             let cases: [(DamageSource, String, String?)] = [
                 (.basicAttack, "basic", "通常攻撃"),
-                (.skill(.skill1), "skill1", nil), (.skill(.skill2), "skill2", nil), (.skill(.skill3), "skill3", nil),
+                (.skill(.skill1), "skill1", nil), (.skill(.skill2), "skill2", nil),
                 (.skill(.ultimate), "ultimate", nil), (.skill(.passive), "passive", nil), (.passive, "passive", nil),
                 (.spell, "spell", "スペル"), (.item, "item", "装備効果"), (.dot, "dot", "継続ダメージ"),
                 (.tower, "tower", "タワー攻撃"), (.minion, "minion", "ミニオン攻撃"),
@@ -394,7 +394,7 @@ final class HUDDeathScreenTests: XCTestCase {
         XCTAssertEqual(HUDDamageLog.inferredKind(.minion), .minion)
         XCTAssertEqual(HUDDamageLog.inferredKind(.monster), .monster)
         XCTAssertNil(HUDDamageLog.inferredKind(.fountain))
-        XCTAssertEqual(HUDDamageLog.inferredKind(.skill(.skill3)), .hero)
+        XCTAssertEqual(HUDDamageLog.inferredKind(.skill(.skill2)), .hero)
         XCTAssertEqual(HUDDamageLog.inferredKind(.dot), .hero)
     }
 

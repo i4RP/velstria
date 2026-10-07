@@ -318,8 +318,8 @@ final class HUDControlLabelTests: XCTestCase {
                 XCTAssertEqual(r.skillLabelCenter(slot, size: s).x, c.x, accuracy: 1e-6)
                 XCTAssertGreaterThan(r.skillLabelCenter(slot, size: s).y - s.height / 2, c.y + r.skillDiameter / 2)
             }
-            // スキル3・必殺技は画面中央側（右手配置は左、左利きは右）
-            for slot in [SkillSlot.skill3, .ultimate] {
+            // 必殺技は画面中央側（右手配置は左、左利きは右）
+            for slot in [SkillSlot.ultimate] {
                 XCTAssertLessThan(r.skillLabelCenter(slot, size: s).x, r.skillCenter(slot).x, "\(d.name) \(slot)")
                 XCTAssertGreaterThan(l.skillLabelCenter(slot, size: s).x, l.skillCenter(slot).x, "\(d.name) \(slot)")
             }

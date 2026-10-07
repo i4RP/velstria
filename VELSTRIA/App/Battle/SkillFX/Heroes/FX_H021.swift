@@ -73,24 +73,6 @@ enum FX_H021: HeroFXSet {
                 .emit(sand(18, radius: 1.0, speed: 1.5, life: 1.0), at: 0.05, offset: [0, 0.8, 0]),
                 .mesh(.shockRing(2.0, .primary, life: 0.4), at: 0.04),
             ]
-        case .skill3:
-            r.cast = [
-                .emit(.flare(1.2, .core, life: 0.14), at: 0.12, offset: [0.1, 1.8, 0.7]),
-            ]
-            r.telegraph = [
-                .mesh(.decal(.clockFace, R * 2.2, .primary, life: 0.6, spin: 720, alpha: 0.75)),
-                .mesh(.decal(.ringDouble, R * 2.4, .accent, life: 0.6, spin: -200, alpha: 0.5)),
-                .emit(.vortex(16, radius: R * 0.8, .secondary, life: 0.5, tex: .sand, speed: 1.5)),
-            ]
-            r.impact = [
-                .emit(.flare(1.8, .core, life: 0.2, tex: .flare6), offset: [0, 0.6, 0]),
-                .mesh(.tornado(R * 0.8, height: 4, .primary, life: 0.7, spin: 480)),
-                .mesh(.pillar(R * 0.4, height: 4.5, .secondary, life: 0.5)),
-                .mesh(.shockRing(R * 1.2, .accent)),
-                .emit(sand(30, radius: R * 0.5, speed: 5, life: 1.1)),
-                .emit(.wave(R * 1.3, .primary, life: 0.5), offset: [0, 0.1, 0]),
-                .shake(0.15),
-            ]
         case .ultimate:
             r.cast = [
                 .mesh(.wall(.clockFace, width: 3.4, height: 3.4, .primary, life: 0.9, alpha: 0.8).with { $0.spin = 0 },
@@ -144,11 +126,6 @@ enum FX_H021: HeroFXSet {
             m.backstep(0.12, distance: 0.4)
             m.aim(0.08, up: 0.05)
             m.settle(0.1)
-        case .skill3:
-            // 斜め上へ向けて撃ち上げる
-            m.aim(0.08, up: 0.5)
-            m.recoil(0.06, power: 0.8)
-            m.hold(0.16)
         case .ultimate:
             // 腰を落とし、長く狙いを定めて撃つ → 大きな反動
             m.brace(0.08, depth: 0.14)

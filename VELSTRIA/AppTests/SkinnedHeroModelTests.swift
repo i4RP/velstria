@@ -221,7 +221,7 @@ final class SkinnedHeroModelTests: XCTestCase {
         // 剣と盾（H001）・弓（H003）・杖（H004）
         for id in ["H001", "H003", "H004"] {
             let m = try makeSkinned(id, team: .blue)
-            let states: [HeroAnimState] = [.idle, .run, .attack, .attack, .cast(.skill1), .cast(.skill2), .cast(.skill3),
+            let states: [HeroAnimState] = [.idle, .run, .attack, .attack, .cast(.skill1), .cast(.skill2),
                                            .cast(.ultimate), .channel, .stunned, .victory, .dead, .idle]
             var worst: Float = 0
             for (i, s) in states.enumerated() {
@@ -438,7 +438,7 @@ final class SkinnedHeroModelTests: XCTestCase {
             // アニメーターの全状態（両モデルは同じプロファイルなので同じ姿勢になる）
             // 走りの位相は各モデルの脚の長さで進む（歩幅を地面に合わせる）ので、比較のため手続きモデルの値に揃える
             s.legLength = proc.legLength
-            let states: [HeroAnimState] = [.idle, .run, .attack, .cast(.skill1), .cast(.skill2), .cast(.skill3),
+            let states: [HeroAnimState] = [.idle, .run, .attack, .cast(.skill1), .cast(.skill2),
                                            .cast(.ultimate), .channel, .stunned, .victory, .dead, .idle]
             for st in states {
                 s.setState(st)

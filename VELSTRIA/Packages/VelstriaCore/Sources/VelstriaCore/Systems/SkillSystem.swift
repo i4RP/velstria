@@ -98,17 +98,6 @@ public enum SkillCatalog {
             }
             return SkillTargeting(archetype: .dashStrike, aim: .direction, range: skill.range + k.dashExtraRange,
                                   radius: skill.radius)
-        case .skill3:
-            switch hero.role {
-            case .vanguard:
-                return SkillTargeting(archetype: .selfAoE, aim: .none, range: 0,
-                                      radius: skill.radius + Balance.heroRadius)
-            case .support:
-                return SkillTargeting(archetype: .healZone, aim: .point, range: skill.range, radius: skill.radius,
-                                      targetsAllies: true)
-            default:
-                return SkillTargeting(archetype: .groundAoE, aim: .point, range: skill.range, radius: skill.radius)
-            }
         case .ultimate:
             switch hero.role {
             case .vanguard:
@@ -289,7 +278,7 @@ public enum SkillSystem {
         let dt = Balance.dt
         for i in s.units.indices where s.units[i].kind == .hero {
             guard s.units[i].hero != nil else { continue }
-            for k in 0..<5 {
+            for k in 0..<SkillSlot.allCases.count {
                 let v = s.units[i].hero?.skillCooldowns[k] ?? 0
                 if v > 0 { s.units[i].hero?.skillCooldowns[k] = noCD ? 0 : max(0, v - dt) }
             }

@@ -76,29 +76,6 @@ enum FX_H023: HeroFXSet {
                 .emit(.sparks(18, speed: 6, .accent, end: .primary), at: 0.04, offset: [0, 0.6, 0]),
                 .shake(0.15, at: 0.03),
             ]
-        case .skill3:
-            r.cast = [
-                .emit(.flare(1.2, .accent, life: 0.16), at: 0.12, offset: tip),
-                .mesh(.ray(.bolt, length: 2.0, width: 0.5, .secondary, life: 0.18), at: 0.12, offset: [0, 1.6, 1.2]),
-            ]
-            r.telegraph = [
-                .mesh(.decal(.runeCircle, R * 2.1, .primary, life: 0.6, spin: 140, alpha: 0.75)),
-                .mesh(.orb(0.4, .secondary, life: 0.55, grow: 1.6, alpha: 0.7), offset: [0, 2.6, 0]),
-                .emit(.sparks(12, speed: 1.5, .accent, end: .primary, life: 0.4, gravity: 0).with {
-                    $0.shape = .sphere(0.6); $0.emit = 0.4
-                }, offset: [0, 2.6, 0]),
-            ]
-            r.impact = [
-                .mesh(.strike(6, .accent, width: 0.45, life: 0.25)),
-                .mesh(.strike(5, .secondary, width: 0.3, life: 0.22)).ringed(4, radius: R * 0.6, every: 0.05),
-                .emit(.flare(2.0, .core, life: 0.2, tex: .flare6), offset: [0, 0.7, 0]),
-                .mesh(.shockRing(R * 1.2, .primary)),
-                .mesh(.decal(.ringDouble, R * 2.3, .secondary, life: 1.1, spin: 160, alpha: 0.8)),
-                .emit(.rising(24, radius: R * 0.85, .rgb(0.55, 1.0, 0.8), speed: 2.4, life: 0.9), at: 0.08),
-                .emit(.sparks(18, speed: 6, .accent, end: .primary), offset: [0, 0.6, 0]),
-                .mesh(.halo(R * 0.5, .accent, life: 0.9, spin: 420, tex: .ringDouble), at: 0.1, offset: [0, 0.4, 0]),
-                .shake(0.18),
-            ]
         case .ultimate:
             r.cast = [
                 .emit(.gather(24, radius: 1.4, .secondary, life: 0.3), offset: [0, 2.4, 0.2]),
@@ -138,11 +115,6 @@ enum FX_H023: HeroFXSet {
             m.thrust(0.06)
             m.land(0.06, depth: 0.12)
             m.settle(0.1)
-        case .skill3:
-            // 槍を振り上げ、石突きで地を打つ
-            m.overhead(0.07)
-            m.plant(0.06)
-            m.hold(0.18) { $0.ring = 1 }
         case .ultimate:
             // 槍を天へ掲げ、翼兜の騎士が雷を呼ぶ → 槍を振り下ろす号令
             m.brace(0.06, depth: 0.1)

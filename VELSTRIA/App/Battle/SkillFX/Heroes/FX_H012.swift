@@ -74,27 +74,6 @@ enum FX_H012: HeroFXSet {
                 .emit(.wave(R * 1.3, .accent, life: 0.4), offset: [0, 0.1, 0]),
                 .shake(0.15),
             ]
-        case .skill3:
-            r.cast = [
-                .emit(.flutter(.note, 6, radius: 0.4, .accent, speed: 1.5, life: 0.8, size: 0.22).with { $0.gravity = -1 },
-                      at: 0.05, offset: [0, 1.6, 0.2]),
-                .emit(.flare(1.0, .secondary, life: 0.18), at: 0.12, offset: [0, 1.4, 0.4]),
-            ]
-            r.telegraph = [
-                .mesh(.decal(.ripple, R * 2.2, .secondary, life: 0.6, spin: 0, grow: 1.1, alpha: 0.7)),
-                .mesh(.decal(.hexShield, R * 1.8, .primary, life: 0.6, spin: 60, alpha: 0.5)),
-            ]
-            r.impact = [
-                .emit(.flare(1.8, .core, life: 0.2, tex: .flare6), offset: [0, 0.8, 0]),
-                .mesh(crystal(2.4, .primary, life: 1.1)),
-                .mesh(crystal(1.4, .secondary, life: 1.0)).ringed(6, radius: R * 0.6, every: 0.03),
-                .mesh(.shockRing(R * 1.2, .secondary, tex: .ripple)),
-                .mesh(.shockRing(R * 1.6, .accent, life: 0.6, tex: .ripple), at: 0.1),
-                .emit(shatter(20, speed: 6), at: 0.05, offset: [0, 1.0, 0]),
-                .emit(.flutter(.note, 8, radius: R * 0.6, .accent, speed: 1.6, life: 1.0, size: 0.22).with { $0.gravity = -1 },
-                      at: 0.1, offset: [0, 1.2, 0], quality: 1),
-                .shake(0.15),
-            ]
         case .ultimate:
             r.cast = [
                 .emit(shatter(16, speed: 4), offset: [0, 1.0, 0]),
@@ -145,14 +124,6 @@ enum FX_H012: HeroFXSet {
                 p.weaponR = -1.6; p.weaponL = -1.6; p.glow = 1.5
             }
             m.settle(0.1)
-        case .skill3:
-            // 片手を胸に、もう片手を差し伸べて歌う
-            m.key(0.12, .out) { p in
-                p.armR = ArmPose(pitch: 1.7, out: 0.4, yaw: 0.1, elbow: 0.15)
-                p.armL = ArmPose(pitch: 0.9, out: 0.0, yaw: 0.9, elbow: 1.6)
-                p.headPitch = -0.35; p.torsoPitch = -0.15; p.glow = 1.6; p.ring = 0.8
-            }
-            m.hold(0.22) { $0.glow = 2.0 }
         case .ultimate:
             // 背後で一回転 → 交差斬り → 両腕を広げて大合唱
             m.spin(0.22, turns: 1.25)

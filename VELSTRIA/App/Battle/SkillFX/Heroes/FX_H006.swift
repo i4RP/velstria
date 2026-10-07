@@ -71,25 +71,6 @@ enum FX_H006: HeroFXSet {
                 .emit(shadow(6, radius: R * 0.5), quality: 1),
                 .shake(0.15),
             ]
-        case .skill3:
-            r.cast = [
-                .emit(.flare(1.2, .accent, life: 0.2), at: 0.12, offset: [-0.3, 2.0, 0.2]),
-                .emit(.motes(10, radius: 0.4, .primary, life: 0.6), at: 0.12, offset: [-0.3, 2.0, 0.2]),
-            ]
-            r.telegraph = [
-                .mesh(.decal(.runeCircle, R * 2.1, .primary, life: 0.6, spin: 80, alpha: 0.6)),
-                .mesh(.sprite(.glowHard, 0.7, .accent, life: 0.55, grow: 1.0).with { $0.rise = -5 }, offset: [0, 3.0, R * 0.7])
-                    .ringed(5, radius: 0, every: 0.04),
-            ]
-            r.impact = [
-                .emit(.flare(1.8, .core, life: 0.2, tex: .flare6), offset: [0, 0.6, 0]),
-                .mesh(.pillar(0.25, height: 3.2, .accent, life: 0.55)).ringed(5, radius: R * 0.7),
-                .mesh(.decal(.moon, R * 2.3, .primary, life: 1.0, spin: 45, alpha: 0.85)),
-                .mesh(.shockRing(R * 1.2, .secondary)),
-                .emit(.wave(R * 1.3, .primary, life: 0.5), offset: [0, 0.1, 0]),
-                .emit(.motes(16, radius: R * 0.8, .accent, life: 1.0), at: 0.1, offset: [0, 0.6, 0], quality: 1),
-                .shake(0.12),
-            ]
         case .ultimate:
             r.cast = [
                 .emit(shadow(10, radius: 0.6, life: 0.9)),
@@ -136,17 +117,6 @@ enum FX_H006: HeroFXSet {
             m.hold(0.1)
             m.crossSlash(0.1)
             m.settle(0.1)
-        case .skill3:
-            // 灯籠（左手）を高く掲げる
-            m.key(0.12, .out) { p in
-                p.armL = ArmPose(pitch: 2.8, out: 0.35, yaw: 0, elbow: 0.2)
-                p.armR = ArmPose(pitch: 0.4, out: 0.5, yaw: 0, elbow: 0.9)
-                p.headPitch = -0.35
-                p.torsoPitch = -0.15
-                p.glow = 1.6
-                p.ring = 0.8
-            }
-            m.hold(0.24) { $0.glow = 2.0 }
         case .ultimate:
             // 影に沈み → 背後で回転斬り → 締めの交差斬り
             m.brace(0.05, depth: 0.2)

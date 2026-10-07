@@ -81,27 +81,27 @@ final class SkillPassiveTests: XCTestCase {
 
     func testArcanistSkillHitRefundsOtherCooldownsOncePerCast() {
         var w = SkillWorld()
-        let a = w.addHero("H004", team: .blue, at: skillArena)   // k = 1.08, Skill3 groundAoE
+        let a = w.addHero("H004", team: .blue, at: skillArena, level: 6)   // k = 1.08, Ult groundAoE
         let center = skillArena + Vec2(400, 0)
         w.addHero("H013", team: .red, at: center)
         w.addMinion(team: .red, at: center + Vec2(0, 60))
         w.s.units[a].hero!.skillCooldowns[SkillSlot.skill1.rawValue] = 5
-        w.s.units[a].hero!.skillCooldowns[SkillSlot.ultimate.rawValue] = 20
-        XCTAssertTrue(w.cast(a, .skill3, .point(center)))
-        let s3 = w.s.units[a].hero!.cooldown(.skill3)
-        w.run(seconds: 0.6)
-        let elapsed = 0.6 + Balance.dt / 2
+        w.s.units[a].hero!.skillCooldowns[SkillSlot.skill2.rawValue] = 20
+        XCTAssertTrue(w.cast(a, .ultimate, .point(center)))
+        let ult = w.s.units[a].hero!.cooldown(.ultimate)
+        w.run(seconds: 1.2)
+        let elapsed = 1.2 + Balance.dt / 2
         // 2 体に命中しても 1 回だけ
         XCTAssertEqual(w.s.units[a].hero!.cooldown(.skill1), 5 - elapsed - 0.6 * 1.08, accuracy: 0.04)
-        XCTAssertEqual(w.s.units[a].hero!.cooldown(.ultimate), 20 - elapsed - 0.6 * 1.08, accuracy: 0.04)
-        XCTAssertEqual(w.s.units[a].hero!.cooldown(.skill3), s3 - elapsed, accuracy: 0.04, "自身の CD は短縮しない")
+        XCTAssertEqual(w.s.units[a].hero!.cooldown(.skill2), 20 - elapsed - 0.6 * 1.08, accuracy: 0.04)
+        XCTAssertEqual(w.s.units[a].hero!.cooldown(.ultimate), ult - elapsed, accuracy: 0.04, "自身の CD は短縮しない")
         // 外れた場合は短縮しない
         var m = SkillWorld()
         let a2 = m.addHero("H004", team: .blue, at: skillArena)
-        m.s.units[a2].hero!.skillCooldowns[SkillSlot.skill3.rawValue] = 5
+        m.s.units[a2].hero!.skillCooldowns[SkillSlot.skill2.rawValue] = 5
         XCTAssertTrue(m.cast(a2, .skill1, .direction(Vec2(1, 0))))
         m.run(seconds: 1)
-        XCTAssertEqual(m.s.units[a2].hero!.cooldown(.skill3), 4, accuracy: 0.04)
+        XCTAssertEqual(m.s.units[a2].hero!.cooldown(.skill2), 4, accuracy: 0.04)
     }
 
     // MARK: - Support

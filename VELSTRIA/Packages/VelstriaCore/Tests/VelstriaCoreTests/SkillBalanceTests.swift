@@ -24,7 +24,7 @@ final class SkillBalanceTests: XCTestCase {
         let ia = w.addHero(a, team: .blue, at: skillArena - axis * 225, level: level, ranks: nil)
         let ib = w.addHero(b, team: .red, at: skillArena + axis * 225, level: level, ranks: nil)
         let start = w.s.time
-        let order: [SkillSlot] = [.ultimate, .skill1, .skill2, .skill3]
+        let order: [SkillSlot] = [.ultimate, .skill1, .skill2]
         let ticks = Int(maxSeconds * Balance.tickRate)
         for _ in 0..<ticks {
             for (me, foe) in [(ia, ib), (ib, ia)] {

@@ -96,33 +96,6 @@ enum FX_H016: HeroFXSet {
                 }, .follow, offset: [0, 0.25, 0]),
                 .emit(.flare(0.9, .core, life: 0.14), offset: [0, 1.0, 0]),
             ]
-        case .skill3:
-            // 杖で天を指し（0.1 秒）、頭上の魔法陣から聖光の柱
-            r.cast = [
-                .emit(.flare(1.2, .core, life: 0.2, tex: .flare6), at: 0.09, offset: [0.25, 2.3, 0.1]),
-                .mesh(.halo(0.6, .primary, life: 0.5, spin: 300, tex: .ringDouble), at: 0.09, offset: [0, 2.4, 0]),
-            ]
-            r.telegraph = [
-                .mesh(.decal(.runeCircle, R * 2.4, .primary, life: 0.6, spin: 90, grow: 1.0, alpha: 0.75)),
-                // 頭上に浮かぶ光の輪（ここから柱が落ちる）
-                .mesh(.halo(R * 0.9, .accent, life: 0.65, spin: -180, tex: .ringDouble).with { $0.rise = -1 },
-                      offset: [0, 3.2, 0]),
-                .emit(.gather(16, radius: R * 1.1, .primary, life: 0.45), offset: [0, 0.4, 0]),
-            ]
-            r.impact = [
-                .emit(.flare(1.8, .core, life: 0.2, tex: .flare6), offset: [0, 1.0, 0]),
-                .mesh(.pillar(R * 0.5, height: 7, .core, life: 0.5)),
-                .mesh(.pillar(R * 0.9, height: 5.5, .primary, life: 0.7, alpha: 0.6)),
-                .mesh(.shockRing(R * 1.6, .primary, life: 0.4, tex: .ringDouble)),
-                .mesh(.decal(.runeCircle, R * 2.6, .accent, life: 0.9, spin: -50, alpha: 0.8)),
-                .emit(.rising(22, radius: R * 0.8, .accent, speed: 4, life: 0.8), at: 0.04),
-                .emit(.sparks(16, speed: 6, .core, end: .primary, gravity: 3), offset: [0, 0.5, 0]),
-                .shake(0.15),
-            ]
-            r.hit = [
-                .emit(.flare(1.0, .core, life: 0.15), offset: [0, 1.0, 0]),
-                .mesh(.pillar(0.3, height: 2.5, .primary, life: 0.35, alpha: 0.7)),
-            ]
         case .ultimate:
             // 白環再生: 1.0 秒の祈り。幾重もの光輪が天から降り、着いた瞬間に大紋章と八本の光柱
             r.cast = [
@@ -184,12 +157,6 @@ enum FX_H016: HeroFXSet {
             m.raise(0.08, glow: 2.0)
             m.plant(0.06)
             m.hold(0.16) { $0.ring = 1.3 }
-        case .skill3:
-            // 杖で天を指し、標的へ振り下ろして指し示す
-            m.command(0.09)
-            m.hold(0.1) { $0.glow = 1.8 }
-            m.push(0.07, high: -0.35)
-            m.hold(0.12)
         case .ultimate:
             // 両腕を天へ、宙へ浮き上がって祈り、光を地へ注ぐ
             m.raise(0.1, glow: 2.2)

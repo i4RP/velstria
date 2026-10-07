@@ -109,38 +109,6 @@ enum FX_H014: HeroFXSet {
                     $0.gravity = 0; $0.vortex = 6
                 }, .follow, offset: [0, 2.05, 0]),
             ]
-        case .skill3:
-            // 唐竹割り（0.12 秒）で霧を放つ → 霧の陣 → 五筋の斬線が同時に走り、霧ごと外へ弾く
-            r.cast = [
-                .emit(.flare(1.1, .core, life: 0.16), at: 0.11, offset: [0, 0.8, 0.6]),
-                .emit(mist(6, radius: 0.4, life: 0.8, size: 0.6).with { $0.dir = .forward; $0.speed = 3 }, at: 0.11,
-                      offset: [0, 0.6, 0.5]),
-                .mesh(.slash(1.4, .primary, from: 10, to: -10, height: 1.2, tilt: 85, life: 0.22), at: 0.11,
-                      offset: [0, 1.1, 0]),
-            ]
-            r.telegraph = [
-                .mesh(.decal(.swirl, R * 2.3, .primary, life: 0.6, spin: 240, grow: 1.0, alpha: 0.6)),
-                .mesh(.decal(.ring, R * 2.1, .secondary, life: 0.6, spin: 0, grow: 1.0, alpha: 0.7)),
-                .emit(mist(10, radius: R * 0.8, life: 0.9, size: 0.8).with { $0.speed = 0.3 }),
-            ]
-            r.impact = [
-                .emit(.flare(1.6, .core, life: 0.18), offset: [0, 0.9, 0]),
-                // 五筋の斬線（陣を貫く白刃）
-                .mesh(.ray(.slashLine, length: R * 2.4, width: 0.4, .core, life: 0.24)).repeated(5, every: 0.025, yaw: 36),
-                .mesh(.ray(.slashLine, length: R * 2.6, width: 0.9, .primary, life: 0.36, alpha: 0.75))
-                    .repeated(5, every: 0.025, yaw: 36),
-                .mesh(.decal(.slash, R * 2.4, .accent, life: 0.7, spin: 60, alpha: 0.7), at: 0.06),
-                .mesh(.shockRing(R * 1.35, .secondary, life: 0.4), at: 0.1),
-                // 霧が外へ吹き飛ぶ（吹き飛ばし）
-                .emit(mist(14, radius: R * 0.5, life: 1.0, size: 0.9).with { $0.speed = R * 3; $0.drag = 3 }, at: 0.1),
-                .emit(.sparks(20, speed: 8, .core, end: .primary, gravity: 2), at: 0.1, offset: [0, 0.6, 0]),
-                .shake(0.2, at: 0.1),
-            ]
-            r.hit = [
-                .emit(.flare(0.9, .core, life: 0.12), offset: [0, 1.0, 0]),
-                .mesh(.sprite(.slashLine, 1.3, .core, life: 0.16, grow: 1.3), offset: [0, 1.0, 0]),
-                .emit(.fan(10, .secondary, speed: 6, spread: 20, life: 0.3), offset: [0, 0.8, 0]),
-            ]
         case .ultimate:
             // 霧界歩法: 霧の結界が開き、0 / 0.3 / 0.6 秒の三連の居合（偶数回は左右反転）
             r.cast = [
@@ -205,13 +173,6 @@ enum FX_H014: HeroFXSet {
             m.key(0.03, .snap) { $0.opacity = 1 }
             m.crossSlash(0.12)
             m.settle(0.1)
-        case .skill3:
-            // 太刀を頭上へ、唐竹割りで霧を叩きつける
-            m.backstep(0.04, distance: 0.15)
-            m.overhead(0.04)
-            m.smash(0.04)
-            m.hold(0.18) { $0.glow = 1.6; $0.hipsDrop = 0.16 }
-            m.settle(0.08)
         case .ultimate:
             // 霧に溶けては現れる三連の居合（0.09 / 0.36 / 0.69 秒）。半回転して反対の手で、最後は十字斬り
             m.windup(0.04, side: 1, power: 1.2)

@@ -238,7 +238,6 @@ struct HUDDamageLog {
             switch slot {
             case .skill1: return "skill1"
             case .skill2: return "skill2"
-            case .skill3: return "skill3"
             case .ultimate: return "ultimate"
             case .passive: return "passive"
             }
@@ -254,7 +253,7 @@ struct HUDDamageLog {
     }
 
     /// 同量の時の並び（大技を先に）。
-    private static let partOrder = ["ultimate", "skill1", "skill2", "skill3", "passive", "basic", "spell", "item", "dot",
+    private static let partOrder = ["ultimate", "skill1", "skill2", "passive", "basic", "spell", "item", "dot",
                                     "tower", "minion", "monster", "fountain"]
 
     private static func partRank(_ id: String) -> Int { partOrder.firstIndex(of: id) ?? partOrder.count }
@@ -285,7 +284,6 @@ struct HUDDamageLog {
         switch slot {
         case .skill1: fallback = (L("スキル1", "Skill 1"), "1.circle.fill")
         case .skill2: fallback = (L("スキル2", "Skill 2"), "2.circle.fill")
-        case .skill3: fallback = (L("スキル3", "Skill 3"), "3.circle.fill")
         case .ultimate: fallback = (L("必殺技", "Ultimate"), "star.fill")
         case .passive: fallback = (L("パッシブ", "Passive"), "seal.fill")
         }

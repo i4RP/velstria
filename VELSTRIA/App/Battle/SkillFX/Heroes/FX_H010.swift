@@ -90,35 +90,6 @@ enum FX_H010: HeroFXSet {
                 .emit(.flare(1.0, .core, life: 0.15), offset: [0, 1.0, 0]),
                 .mesh(.ray(.flame, length: 1.0, width: 0.6, .accent, life: 0.3).with { $0.advance = 4 }),
             ]
-        case .skill3:
-            // 掌を地へ向けて押し出す（0.11 秒）→ 焔の魔法陣 → 炎の鎖が噴き出す
-            r.cast = [
-                .emit(.gather(12, radius: 0.7, .secondary, life: 0.12), offset: [0, 1.3, 0.4]),
-                .emit(.flare(1.2, .core, life: 0.18), at: 0.1, offset: [0, 1.3, 0.6]),
-            ]
-            r.telegraph = [
-                .mesh(.decal(.runeCircle, R * 2.2, .primary, life: 0.55, spin: 160, alpha: 0.75)),
-                .mesh(.decal(.ringDouble, R * 2.0, .secondary, life: 0.55, spin: -120, alpha: 0.55)),
-                .emit(flames(16, .ring(R), speed: 1.5, life: 0.5, size: 0.35, emit: 0.4)),
-            ]
-            r.impact = [
-                .emit(.flare(1.8, .core, life: 0.2), offset: [0, 0.8, 0]),
-                .mesh(.decal(.runeCircle, R * 2.4, .accent, life: 1.3, spin: 60, alpha: 0.9)),
-                .mesh(.shockRing(R * 1.2, .secondary, life: 0.35)),
-                .mesh(.pillar(R * 0.5, height: 3.2, .primary, life: 0.5)),
-                // 根止め: 地を走る炎の鎖と、締め上げる鎖の輪
-                .mesh(.ray(.chain, length: R * 1.0, width: 0.4, .secondary, life: 1.0), at: 0.04).ringed(4, radius: R * 0.5),
-                .mesh(.halo(R * 0.6, .accent, life: 1.1, spin: 120, tex: .chain), at: 0.06, offset: [0, 0.4, 0]),
-                .emit(flames(22, .disc(R * 0.8), speed: 3, life: 0.6, size: 0.5)),
-                .emit(.embers(18, radius: R * 0.8), quality: 1),
-                .emit(.smoke(8, radius: R * 0.6, .dark, life: 1.2), quality: 1),
-                .shake(0.15),
-            ]
-            r.hit = [
-                .mesh(.halo(0.55, .secondary, life: 1.0, spin: -200, tex: .chain), .follow, offset: [0, 0.3, 0]),
-                .mesh(.decal(.runeCircle, 1.2, .accent, life: 1.0, spin: 90, alpha: 0.8), .follow),
-                .emit(.sparks(10, speed: 5, .secondary, end: .primary), offset: [0, 1.0, 0]),
-            ]
         case .ultimate:
             // 焔冠戴天: 天に冠を掲げる（0.13 秒）→ 1 秒の予告で冠が降り、隕石が落ちる → 大爆炎
             r.cast = [
@@ -181,11 +152,6 @@ enum FX_H010: HeroFXSet {
             m.gather(0.05)
             m.roar(0.08)
             m.hold(0.16) { $0.glow = 1.6; $0.ring = 1 }
-        case .skill3:
-            // 片手を天へ、もう片手を地へ向けて押し下げる
-            m.command(0.06)
-            m.push(0.05, high: -0.5)
-            m.hold(0.18) { $0.ring = 1; $0.glow = 1.5 }
         case .ultimate:
             // 両手で天に冠を掲げ、長く溜めてから大地へ振り下ろす
             m.gather(0.05)

@@ -71,26 +71,6 @@ enum FX_H024: HeroFXSet {
                       offset: [0, 2.0, 0], quality: 1),
                 .shake(0.12),
             ]
-        case .skill3:
-            r.cast = [
-                .emit(.gather(12, radius: 0.5, .secondary, life: 0.14), offset: [0, 1.3, 0.4]),
-                .emit(.flare(1.0, .core, life: 0.14), at: 0.12, offset: [0, 1.3, 0.6]),
-            ]
-            r.telegraph = [
-                .mesh(.decal(.swirl, R * 2.2, .primary, life: 0.6, spin: -300, alpha: 0.75)),
-                .mesh(.decal(.thread, R * 2.0, .secondary, life: 0.6, spin: 200, alpha: 0.5)),
-                .emit(.vortex(18, radius: R * 0.8, .secondary, life: 0.5, tex: .twinkle, speed: 1.2)),
-            ]
-            r.impact = [
-                .emit(.flare(1.8, .core, life: 0.2, tex: .flare4), offset: [0, 0.8, 0]),
-                .emit(.bloom(R * 1.2, .primary, life: 0.45)),
-                .mesh(.shockRing(R * 1.3, .secondary)),
-                .mesh(.decal(.star, R * 2.0, .primary, life: 1.0, spin: 60, alpha: 0.85)),
-                .emit(stardust(26, radius: R * 0.4, speed: 6)),
-                .emit(.wave(R * 1.4, .accent, life: 0.5), offset: [0, 0.1, 0]),
-                .emit(.fan(16, .secondary, speed: 7, spread: 60, life: 0.4, tex: .twinkle, size: 0.15), offset: [0, 0.8, 0]),
-                .shake(0.15),
-            ]
         case .ultimate:
             r.cast = [
                 .emit(stardust(14, radius: 0.5)),
@@ -139,11 +119,6 @@ enum FX_H024: HeroFXSet {
             m.hold(0.08)
             m.thrust(0.06, reach: 1.2)
             m.settle(0.1)
-        case .skill3:
-            // 針で円を描き（糸を紡ぐ）、前へ押し出す
-            m.twirl(0.12, turns: 1)
-            m.push(0.06)
-            m.hold(0.14)
         case .ultimate:
             // 背後で二回転しながら糸を巻き、交差の縫い留め → 両腕を広げて繭を閉じる
             m.brace(0.04, depth: 0.12)

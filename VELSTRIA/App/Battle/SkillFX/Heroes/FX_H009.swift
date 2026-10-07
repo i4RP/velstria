@@ -104,38 +104,6 @@ enum FX_H009: HeroFXSet {
                 .emit(crackle(4, radius: 0.3, life: 0.3, size: 0.35), .follow, offset: [0, 2.0, 0]),
                 .emit(.flare(1.0, .core, life: 0.15), offset: [0, 1.0, 0]),
             ]
-        case .skill3:
-            // 仰角の発射（0.12 秒）→ 照準の歯車陣へ榴弾が落ちる → 爆発と外向きの衝撃（吹き飛ばし）
-            r.cast = [
-                .emit(.flare(1.4, .core, life: 0.16), at: 0.12, offset: [0.1, 1.6, 0.6]),
-                .emit(.smoke(6, radius: 0.3, steam, life: 0.8, size: 0.5), at: 0.12, offset: [0.1, 1.5, 0.5], quality: 1),
-                .emit(.fan(10, .accent, speed: 7, spread: 15, life: 0.3), at: 0.12, offset: [0, 1.5, 0.6]),
-            ]
-            r.telegraph = [
-                .mesh(.decal(.techCircle, R * 2.2, .primary, life: 0.55, spin: 200, alpha: 0.7)),
-                .mesh(.decal(.ringDouble, R * 1.6, .accent, life: 0.55, spin: -150, alpha: 0.55)),
-                // 落ちてくる榴弾
-                .mesh(.sprite(.glowHard, 0.6, .accent, life: 0.5, grow: 1.0).with { $0.rise = -7; $0.fadeOut = 0.9 },
-                      offset: [0, 3.6, 0]),
-            ]
-            r.impact = [
-                .emit(.flare(2.0, .core, life: 0.22), offset: [0, 0.8, 0]),
-                .emit(.bloom(R * 1.0, .primary, life: 0.4), offset: [0, 0.6, 0]),
-                .mesh(.shockRing(R * 1.5, .core, life: 0.35)),
-                .mesh(.shockRing(R * 2.0, .primary, life: 0.55), at: 0.05),
-                .mesh(.decal(.crack, R * 2.2, .dark, life: 1.3, spin: 0, alpha: 0.8)),
-                .mesh(.decal(.techCircle, R * 2.4, .secondary, life: 0.8, spin: -200, alpha: 0.6)),
-                .mesh(.ray(.streak, length: 1.4, width: 0.5, .accent, life: 0.3).with { $0.advance = 6 }, at: 0.02)
-                    .ringed(6, radius: R * 0.6),
-                .emit(.debris(12, speed: 6, .secondary, size: 0.14, tex: .techCircle)),
-                .emit(.sparks(22, speed: 9, .accent, end: .primary), offset: [0, 0.5, 0]),
-                .emit(.smoke(10, radius: R * 0.6, .dark, life: 1.2), quality: 1),
-                .shake(0.2),
-            ]
-            r.hit = [
-                .emit(.flare(1.0, .core, life: 0.15), offset: [0, 1.0, 0]),
-                .mesh(.ray(.streak, length: 1.2, width: 0.45, .primary, life: 0.3).with { $0.advance = 5 }, offset: [0, 0, 0]),
-            ]
         case .ultimate:
             // 零式過給: 構え → 0.12 秒で発射。大きな反動と蒸気、足元に過給の歯車陣
             r.cast = [
@@ -199,11 +167,6 @@ enum FX_H009: HeroFXSet {
             m.aim(0.06)
             m.recoil(0.04, power: 0.7)
             m.settle(0.1)
-        case .skill3:
-            // 弩を斜め上へ向け、榴弾を撃ち上げる（大きな反動）
-            m.aim(0.07, up: 0.55)
-            m.recoil(0.05, power: 1.4)
-            m.hold(0.16) { $0.glow = 1.3 }
         case .ultimate:
             // 腰を据えて過給 → 発射の反動で後ろへ滑り、機関が赤熱したまま構え直す
             m.brace(0.03, depth: 0.12)

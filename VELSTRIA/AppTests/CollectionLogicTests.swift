@@ -81,11 +81,6 @@ final class CollectionLogicTests: XCTestCase {
         XCTAssertEqual(n.damage, 0)
         XCTAssertEqual(n.heal, ult.baseDamage * Balance.Skills.healScale * Balance.Skills.teamHealRatio, accuracy: 1e-9)
         XCTAssertEqual(SkillMath.figureValue(.heal, n), "590")
-        // SK005_4（回復ゾーン）: 敵へのダメージと味方の回復を両方出す
-        let zone = try XCTUnwrap(master.skill("SK005_4"))
-        XCTAssertEqual(SkillMath.figures(SkillCatalog.targeting(for: zone, hero: voss).archetype), [.damage, .heal])
-        let z = SkillMath.numbers(zone, hero: voss, rank: 1)
-        XCTAssertEqual(z.heal, zone.baseDamage * Balance.Skills.healScale * Balance.Skills.healZoneRatio, accuracy: 1e-9)
     }
 
     func testMultiStrikeAndEmpowerUseArchetypeRatios() throws {
@@ -121,10 +116,9 @@ final class CollectionLogicTests: XCTestCase {
             }
         }
         Loc.current = .ja
-        let voss = try XCTUnwrap(master.hero("H005"))
-        let zone = try XCTUnwrap(master.skill("SK005_4"))
-        XCTAssertTrue(SkillMath.description(zone, hero: voss).contains("指定地点"))
-        XCTAssertTrue(SkillMath.description(zone, hero: voss).contains("回復"))
+        let mirea = try XCTUnwrap(master.hero("H004"))
+        let zone = try XCTUnwrap(master.skill("SK004_5"))
+        XCTAssertTrue(SkillMath.description(zone, hero: mirea).contains("指定地点"))
     }
 
     func testPassiveCoefficientAndText() throws {

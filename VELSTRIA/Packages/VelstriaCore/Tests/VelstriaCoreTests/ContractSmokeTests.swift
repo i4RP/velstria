@@ -6,7 +6,7 @@ final class ContractSmokeTests: XCTestCase {
     func testMasterDataLoads() {
         let m = MasterData.shared
         XCTAssertEqual(m.heroes.count, 24)
-        XCTAssertEqual(m.skills.count, 120)
+        XCTAssertEqual(m.skills.count, 96)
         XCTAssertEqual(m.items.count, 72)
         XCTAssertEqual(m.spells.count, 10)
         XCTAssertEqual(m.runes.count, 30)

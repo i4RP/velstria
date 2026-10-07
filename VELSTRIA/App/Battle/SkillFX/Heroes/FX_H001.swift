@@ -75,23 +75,6 @@ enum FX_H001: HeroFXSet {
                 .emit(.debris(10, speed: 5)),
                 .shake(0.25),
             ]
-        case .skill3:
-            // 剣を突き立て、黄金の結界
-            r.cast = [
-                .emit(.flare(2.0, .core, life: 0.25), at: 0.08, offset: [0, 0.5, 0.5]),
-                .emit(.gather(16, radius: R, .primary, life: 0.14)),
-            ]
-            r.impact = [
-                .mesh(.decal(.runeCircle, R * 2.2, .primary, life: 1.2, spin: -40, alpha: 0.85), at: 0.1),
-                .mesh(.dome(R * 0.95, .primary, life: 1.0, tex: .hexShield, alpha: 0.5), at: 0.1),
-                .mesh(.shockRing(R * 1.15, .core, life: 0.35), at: 0.1),
-                .mesh(.burstWall(R, height: 2.2, .accent, life: 0.45), at: 0.1),
-                .mesh(.pillar(0.22, height: 3.5, .core, life: 0.6)).ringed(6, radius: R * 0.85, every: 0.03),
-                .emit(.wave(R * 1.3, .secondary, life: 0.55), at: 0.12, offset: [0, 0.1, 0]),
-                .emit(.rising(26, radius: R * 0.9, .accent, speed: 3, life: 0.8), at: 0.12),
-                .emit(.motes(14, radius: R * 0.8, .secondary, life: 1.2), at: 0.2, offset: [0, 1.0, 0], quality: 1),
-                .shake(0.2, at: 0.1),
-            ]
         case .ultimate:
             // 第七門: 跳躍中は着地点に紋章が収束、着地で七本の光柱と大紋章
             r.cast = [
@@ -147,12 +130,6 @@ enum FX_H001: HeroFXSet {
             m.overhead(0.08)
             m.smash(0.06)
             m.settle(0.1)
-        case .skill3:
-            // 剣を逆手に掲げ、地へ突き立てる
-            m.overhead(0.06)
-            m.kneel(0.05)
-            m.smash(0.06)
-            m.hold(0.22) { $0.glow = 1.8; $0.ring = 1 }
         case .ultimate:
             // 天へ剣を掲げ跳躍 → 空中で振りかぶり → 全体重で叩きつけ
             m.brace(0.06, depth: 0.14)

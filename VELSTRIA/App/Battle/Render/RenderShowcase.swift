@@ -49,7 +49,7 @@ final class RenderShowcase {
             aim = AimIndicator(kind: .skill(.skill1), targeting: targeting(.lineSkillshot, .direction, range: 900, radius: 160),
                                origin: p, target: p + dir * 900, isCancelling: false)
         } else if local < 6 {
-            aim = AimIndicator(kind: .skill(.skill3), targeting: targeting(.healZone, .point, range: 800, radius: 300, allies: true),
+            aim = AimIndicator(kind: .skill(.skill2), targeting: targeting(.healZone, .point, range: 800, radius: 300, allies: true),
                                origin: p, target: p + dir * 600, isCancelling: false)
         } else if local < 9 {
             aim = AimIndicator(kind: .skill(.ultimate), targeting: targeting(.targetedBlink, .unit, range: 700, radius: 100),
@@ -74,10 +74,10 @@ final class RenderShowcase {
                   shape: ZoneShape, heal: Bool) {
             let t = Double(local - start)
             guard t >= 0, t < delay + max(duration, 0.05) else { return }
-            let payload = HitPayload(damage: heal ? 0 : 100, damageType: .magic, source: .skill(.skill3),
+            let payload = HitPayload(damage: heal ? 0 : 100, damageType: .magic, source: .skill(.skill2),
                                      affectsEnemies: !heal, affectsAllies: heal, healAmount: heal ? 80 : 0)
             var z = AreaZone(id: id, ownerID: hero.id, team: team, center: center, radius: radius, shape: shape,
-                             delay: delay, duration: duration, payload: payload, visual: effect(.skill3))
+                             delay: delay, duration: duration, payload: payload, visual: effect(.skill2))
             z.delay = max(0, delay - t)
             z.triggered = t >= delay
             f.state.zones.append(z)

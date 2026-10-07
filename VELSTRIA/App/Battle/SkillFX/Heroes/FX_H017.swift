@@ -105,31 +105,6 @@ enum FX_H017: HeroFXSet {
                 .emit(.smoke(8, radius: 0.5, .dark, life: 1.0, size: 0.8), quality: 1),
                 .shake(0.1),
             ]
-        case .skill3:
-            // 香炉を振って香煙の聖域（0.12 秒）
-            r.cast = [
-                .emit(.flare(1.1, .accent, life: 0.18), at: 0.11, offset: censer),
-                .emit(.smoke(6, radius: 0.3, incense, life: 1.0, size: 0.6), at: 0.11, offset: censer),
-            ]
-            r.telegraph = [
-                .mesh(chainRing(R, .primary, life: 0.65, spin: 90), offset: [0, 0.05, 0]),
-                .mesh(.decal(.swirl, R * 2.2, .primary, life: 0.65, spin: 120, grow: 1.0, alpha: 0.55)),
-                .emit(.smoke(8, radius: R * 0.8, incense, life: 0.9, size: 0.7).with { $0.speed = 0.2 }),
-            ]
-            r.impact = [
-                .emit(.groundGlow(R * 1.1, .primary, life: 0.7)),
-                .mesh(.decal(.runeCircle, R * 2.3, .accent, life: 1.3, spin: -30, alpha: 0.8)),
-                .mesh(chainRing(R * 0.95, .primary, life: 1.3, spin: 70), offset: [0, 0.1, 0]),
-                .mesh(.halo(R * 0.7, .accent, life: 1.0, spin: -140, tex: .ring, alpha: 0.7), at: 0.05, offset: [0, 0.8, 0]),
-                .mesh(.pillar(R * 0.5, height: 2.6, .accent, life: 0.8, alpha: 0.45)),
-                .emit(.vortex(18, radius: R * 0.85, .accent, life: 1.1, tex: .twinkle, speed: 2)),
-                .emit(.smoke(12, radius: R * 0.8, incense, life: 1.5, size: 0.9).with { $0.speed = 0.4; $0.vortex = 2 },
-                      quality: 1),
-                .emit(.rising(20, radius: R * 0.8, .core, speed: 2.2, life: 1.0), at: 0.1),
-            ]
-            r.hit = [
-                .mesh(chainRing(0.5, .secondary, life: 0.9), .follow, offset: [0, 0.2, 0]),
-            ]
         case .ultimate:
             // 深淵の門: 片手を天へ（0.1 秒）、足元に門が開き鎖が四方へ奔る
             r.cast = [
@@ -189,11 +164,6 @@ enum FX_H017: HeroFXSet {
             }
             m.roar(0.08)
             m.hold(0.1)
-        case .skill3:
-            // 香炉を手元で一回しして前へ掲げ、香煙を流す
-            m.twirl(0.06, turns: 1)
-            m.push(0.06, high: 0.25)
-            m.hold(0.2) { $0.glow = 1.6; $0.ring = 0.8 }
         case .ultimate:
             // 片手を天へ、片手を地へ。門を開き、膝をついて深淵を抑える
             m.command(0.1)

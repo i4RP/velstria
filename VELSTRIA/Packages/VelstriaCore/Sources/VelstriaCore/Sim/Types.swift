@@ -88,18 +88,17 @@ public enum CrowdControl: String, Codable, Hashable, Sendable, CaseIterable {
 }
 
 /// スキル枠。rawValue は配列インデックス（skillRanks / skillCooldowns）。
-/// JSON では "Passive" / "Skill1" / "Skill2" / "Skill3" / "Ultimate" の文字列。
+/// JSON では "Passive" / "Skill1" / "Skill2" / "Ultimate" の文字列。
 public enum SkillSlot: Int, Hashable, Sendable, CaseIterable, Codable {
-    case passive = 0, skill1 = 1, skill2 = 2, skill3 = 3, ultimate = 4
+    case passive = 0, skill1 = 1, skill2 = 2, ultimate = 3
 
-    public static let actives: [SkillSlot] = [.skill1, .skill2, .skill3, .ultimate]
+    public static let actives: [SkillSlot] = [.skill1, .skill2, .ultimate]
 
     public var masterName: String {
         switch self {
         case .passive: return "Passive"
         case .skill1: return "Skill1"
         case .skill2: return "Skill2"
-        case .skill3: return "Skill3"
         case .ultimate: return "Ultimate"
         }
     }

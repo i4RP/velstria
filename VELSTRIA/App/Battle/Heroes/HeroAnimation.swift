@@ -134,7 +134,7 @@ struct HeroMotionProfile {
     var attack: ActionClip
     /// 二刀の左手版（交互に振る）。
     var attackAlt: ActionClip?
-    /// スキル詠唱（Skill1 / Skill2 / Skill3 / Ultimate）。スキル固有のモーション（SkillFXCatalog）が無ければ既定の 3 段。
+    /// スキル詠唱（Skill1 / Skill2 / Ultimate）。スキル固有のモーション（SkillFXCatalog）が無ければ既定の 3 段。
     var casts: [MotionClip]
     var twoHanded: Bool
     var bowHold: Bool
@@ -229,8 +229,8 @@ struct HeroMotionProfile {
         attackAlt = bp.attack == .dualSlash || bp.attack == .punch || bp.attack == .thrust || bp.attack == .slash ? HeroMotionProfile.attackClip(bp.attack, rest: r, left: true) : nil
         let shield = shieldHold
         let builder = MotionBuilder(rest: r, style: bp.attack, shield: shield, twoHanded: bp.twoHanded, bow: bowHold)
-        let slots: [SkillSlot] = [.skill1, .skill2, .skill3, .ultimate]
-        casts = (0..<4).map { slot in
+        let slots: [SkillSlot] = [.skill1, .skill2, .ultimate]
+        casts = (0..<3).map { slot in
             if let heroID, let clip = SkillFXCatalog.motion(heroID: heroID, slot: slots[slot], builder: builder) {
                 return clip
             }
@@ -459,7 +459,7 @@ struct HeroMotionProfile {
 
     // MARK: スキル詠唱
 
-    /// slot: 0 = Skill1 / 1 = Skill2 / 2 = Skill3 / 3 = Ultimate
+    /// slot: 0 = Skill1 / 1 = Skill2 / 2 = Ultimate
     private static func castClip(slot: Int, rest r: HeroPose, style: AttackStyle) -> ActionClip {
         var w = r, s = r
         let ranged = style == .bow || style == .gun || style == .staff || style == .spellThrow
@@ -489,25 +489,6 @@ struct HeroMotionProfile {
             s.glow = 0.9
             s.wings = 0.0
             return ActionClip(windup: w, strike: s, windupTime: 0.12, strikeTime: 0.12, total: 0.5)
-        case 2:
-            w.armR = ArmPose(pitch: 2.9, out: 0.3, yaw: 0, elbow: 0.3)
-            w.armL = ArmPose(pitch: 2.9, out: 0.3, yaw: 0, elbow: 0.3)
-            w.weaponR = 0.1
-            w.weaponL = 0.1
-            w.torsoPitch = -0.16
-            w.headPitch = -0.25
-            w.glow = 1.1
-            w.wings = 1
-            s.armR = ArmPose(pitch: 0.95, out: 0.25, yaw: 0.1, elbow: 0.1)
-            s.armL = ArmPose(pitch: 0.95, out: 0.25, yaw: 0.1, elbow: 0.1)
-            s.weaponR = -2.2
-            s.weaponL = -2.2
-            s.torsoPitch = 0.3
-            s.headPitch = 0.1
-            s.glow = 1.3
-            s.ring = 0.7
-            s.wings = 0.6
-            return ActionClip(windup: w, strike: s, windupTime: 0.3, strikeTime: 0.1, total: 0.7)
         default:
             w.armR = ArmPose(pitch: 2.6, out: 0.95, yaw: 0, elbow: 0.2)
             w.armL = ArmPose(pitch: 2.6, out: 0.95, yaw: 0, elbow: 0.2)
@@ -643,8 +624,7 @@ struct HeroAnimator {
         switch slot {
         case .passive, .skill1: return 0
         case .skill2: return 1
-        case .skill3: return 2
-        case .ultimate: return 3
+        case .ultimate: return 2
         }
     }
 

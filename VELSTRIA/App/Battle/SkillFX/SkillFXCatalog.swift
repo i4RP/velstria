@@ -2,7 +2,7 @@ import Foundation
 import VelstriaCore
 
 // 担当: スキル演出（VFX + 詠唱モーション）の目録。ヒーローごとの定義（FX_H001 … FX_H024）を束ねる。
-// 1 ヒーロー = 1 ファイル（App/Battle/SkillFX/Heroes/FX_H0xx.swift）に、パレット・5 スキルの演出・4 スキルの詠唱モーション。
+// 1 ヒーロー = 1 ファイル（App/Battle/SkillFX/Heroes/FX_H0xx.swift）に、パレット・4 スロットの演出（パッシブ+Skill1/2+Ult）・3 スキルの詠唱モーション。
 // レシピが空の段は FXGeneric（アーキタイプ別の既定演出）で補う。
 
 /// 1 ヒーローのスキル演出の定義。

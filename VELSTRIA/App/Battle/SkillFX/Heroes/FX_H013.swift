@@ -66,20 +66,6 @@ enum FX_H013: HeroFXSet {
                 .emit(.sparks(16, speed: 6, .accent, end: .primary), offset: [0, 0.8, 0]),
                 .shake(0.25),
             ]
-        case .skill3:
-            r.impact = [
-                .emit(.flare(1.8, .secondary, life: 0.22), at: 0.12, offset: [0, 1.7, 0]),
-                .mesh(.shockRing(R * 1.2, .primary, life: 0.45, tex: .ringDouble), at: 0.12).repeated(3, every: 0.12),
-                .mesh(.decal(.soundWave, R * 2.0, .secondary, life: 0.5, spin: 0, grow: 1.4, alpha: 0.7), at: 0.12)
-                    .ringed(4, radius: R * 0.4),
-                .mesh(clawMark(R * 2.2, .primary, life: 1.2, yaw: 45), at: 0.12),
-                .mesh(.burstWall(R, height: 2.0, .primary, life: 0.45), at: 0.12),
-                .emit(.wave(R * 1.4, .accent, life: 0.45), at: 0.12, offset: [0, 0.1, 0]),
-                .emit(.debris(14, speed: 5), at: 0.12),
-                // すくみの星
-                .mesh(.halo(R * 0.6, .accent, life: 0.9, spin: 300, tex: .ringDouble), at: 0.2, offset: [0, 0.4, 0]),
-                .shake(0.3, at: 0.12),
-            ]
         case .ultimate:
             r.cast = [
                 .emit(.flare(1.6, .secondary, life: 0.2), offset: [0, 1.2, 0]),
@@ -127,11 +113,6 @@ enum FX_H013: HeroFXSet {
             m.hold(0.08)
             m.shieldBash(0.07)
             m.settle(0.1)
-        case .skill3:
-            // 身を沈め、天を仰いで吼える
-            m.brace(0.06, depth: 0.16)
-            m.roar(0.08)
-            m.hold(0.26) { $0.headPitch = -0.6; $0.glow = 2.0 }
         case .ultimate:
             // 吼えて跳び、棍棒を両手で叩きつける
             m.roar(0.08)

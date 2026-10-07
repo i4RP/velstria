@@ -129,18 +129,18 @@
 - アシスト: 死亡前 10 秒以内に被害者へダメージ/CCを与えた敵ヒーロー、または被害者に攻撃されていた味方を回復/シールドしたヒーロー。
 
 ## 6. スキル
-- 各ヒーロー: Passive + Skill1/2/3 + Ultimate。スキル挙動は `SkillCatalog` がマスター値(range/radius/cc/damage)とロール・スロットからアーキタイプを割当てる。
+- 各ヒーロー: Passive + Skill1/2 + Ultimate（スキル枠は 4 つ。Skill3 は廃止）。スキル挙動は `SkillCatalog` がマスター値(range/radius/cc/damage)とロール・スロットからアーキタイプを割当てる。
 - ランク: 基本スキル最大 4、Ult 最大 3（Lv 4/8/12 で習得可能）。Lv1 で 1 ポイント、以後レベル毎 +1。
-- 自動習得（既定 ON）: Ult > Skill1 > Skill2 > Skill3 の順で可能なもの。
+- 自動習得（既定 ON）: Ult > Skill1 > Skill2 の順で可能なもの。
 - ダメージ = base_damage × (1 + 0.30×(rank−1)) + scaling_attack × 総攻撃力 × 0.6 + scaling_power × 魔力
 - CD = cooldown_sec × (1 − 0.06×(rank−1)) × (1 − CD短縮) × 0.5（調整倍率 `Balance.Skills.cooldownScale`）。CD短縮上限 40%。
-- 調整倍率（1v1 の TTK 3〜13 秒を目標に `SkillBalanceTests` で決定）: ダメージ ×[Skill1 4.0 / Skill2 3.0 / Skill3 3.0 / Ult 2.6]、回復・シールド系 ×2.4。
+- 調整倍率（1v1 の TTK 3〜13 秒を目標に `SkillBalanceTests` で決定）: ダメージ ×[Skill1 4.0 / Skill2 3.0 / Ult 2.6]、回復・シールド系 ×2.4。
 - コスト = cost（Mana/Energy）。Energy ヒーローは cost × 0.6。
 - ダメージ種別はヒーロー毎（マスター damage_type）。
 - アーキタイプ（`SkillArchetype`）:
   - Skill1「〜式・一閃」: 近接 = 前方扇形(半径 range, 角 90°)、遠隔 = 直線スキルショット(最初の敵に命中、幅 radius×0.5、弾速 1600)
   - Skill2「星環シフト」: 近接 = 指定方向へ突進(距離 range+100)し着地点 radius に効果、遠隔 = 短距離ブリンク(350)+次の通常攻撃強化(+50% スキル基礎値)
-  - Skill3「境界制圧」: 地点指定の円形 AoE（0.5 秒予告後に発動）。Support は味方回復ゾーン（base_damage×0.8 回復 + 敵にダメージ/CC）。Vanguard は自身中心 AoE + 自身に最大HP 8% シールド
+  - （旧 Skill3「境界制圧」の地点 AoE / 回復ゾーン / 自身中心 AoE は、スロットとしては廃止。アーキタイプ実装 `groundAoE` / `healZone` / `selfAoE` は Ult とヒーロー固有スキルの土台として残す）
   - Ultimate（ロール別）:
     - Vanguard: 跳躍突撃（最大 range+200、着地 AoE radius×1.4 + CC）
     - Duelist: 連続斬り（範囲内の敵ヒーローを 3 回攻撃、各 45%）+ 自身 25% 被ダメ軽減 2s

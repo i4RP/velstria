@@ -77,24 +77,6 @@ enum FX_H011: HeroFXSet {
                 .mesh(.halo(1.1, .accent, life: 0.9, spin: 160, tex: .ringDouble), at: 0.08, offset: [0, 0.3, 0]),
                 .emit(feathers(10, radius: 1.0, speed: 2), at: 0.05, offset: [0, 1.0, 0], quality: 1),
             ]
-        case .skill3:
-            r.cast = [
-                .emit(.flare(1.2, .accent, life: 0.2), at: 0.12, offset: staff),
-                .mesh(.decal(.hexShield, 1.4, .primary, life: 0.4, spin: 120, alpha: 0.7), at: 0.12),
-            ]
-            r.telegraph = [
-                .mesh(.decal(.hexShield, R * 2.1, .primary, life: 0.6, spin: 60, alpha: 0.7)),
-                .mesh(.decal(.ringDouble, R * 2.2, .accent, life: 0.6, spin: -90, alpha: 0.6)),
-                .emit(.rising(12, radius: R * 0.8, .primary, speed: 1.4)),
-            ]
-            r.impact = [
-                .emit(.flare(1.6, .core, life: 0.22), offset: [0, 0.8, 0]),
-                .mesh(.dome(R * 0.95, .primary, life: 1.1, tex: .hexShield, alpha: 0.5)),
-                .mesh(.burstWall(R, height: 1.8, .secondary, life: 0.5)),
-                .mesh(.shockRing(R * 1.1, .accent, life: 0.4)),
-                .emit(.rising(26, radius: R * 0.85, .rgb(0.5, 1.0, 0.75), speed: 2.6, life: 1.0)),
-                .emit(feathers(10, radius: R * 0.6, speed: 2), at: 0.1, offset: [0, 1.5, 0], quality: 1),
-            ]
         case .ultimate:
             r.cast = [
                 .emit(.flare(2.0, .accent, life: 0.3, tex: .flare6), at: 0.18, offset: [0, 2.2, 0]),
@@ -132,11 +114,6 @@ enum FX_H011: HeroFXSet {
             m.dash(0.08, lean: 0.4)
             m.hold(0.1) { $0.wings = 1.5 }
             m.settle(0.12)
-        case .skill3:
-            // 杖を地へ突き、灯を灯す
-            m.raise(0.07, glow: 1.3)
-            m.plant(0.07)
-            m.hold(0.2) { $0.wings = 1.0; $0.ring = 1 }
         case .ultimate:
             // 翼を大きく開いて天を仰ぎ、味方を抱くように腕を広げる
             m.raise(0.16, glow: 2.0)

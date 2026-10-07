@@ -539,7 +539,7 @@ final class RenderSceneTests: XCTestCase {
         let layer = ZoneLayer(materials: RenderMaterials(colorblind: false), meshes: UnitMeshLibrary())
         var triggers = 0
         layer.onTrigger = { _, _, _, _ in triggers += 1 }
-        let payload = HitPayload(damage: 50, damageType: .magic, source: .skill(.skill3), affectsEnemies: true)
+        let payload = HitPayload(damage: 50, damageType: .magic, source: .skill(.skill2), affectsEnemies: true)
         var zone = AreaZone(id: 77, ownerID: redCore.id, team: .red, center: lit, radius: 300, delay: 1.5, payload: payload, visual: "")
         func sync() {
             layer.sync(RenderFrame(state: state, alpha: 1, dt: 1.0 / 60, time: 0, viewerTeam: .blue, humanID: nil, focusID: nil,

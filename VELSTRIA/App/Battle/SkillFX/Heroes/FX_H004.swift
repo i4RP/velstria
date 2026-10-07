@@ -79,27 +79,6 @@ enum FX_H004: HeroFXSet {
                 .emit(.flutter(.bubble, 12, radius: 0.8, .secondary, speed: 1.5, life: 1.0, size: 0.18), at: 0.08,
                       offset: [0, 0.6, 0], quality: 1),
             ]
-        case .skill3:
-            r.cast = [
-                .emit(.gather(12, radius: 0.6, .secondary, life: 0.14), offset: staff),
-                .emit(.flare(1.0, .core, life: 0.15), at: 0.13, offset: staff),
-            ]
-            r.telegraph = [
-                .mesh(.decal(.swirl, R * 2.2, .primary, life: 0.6, spin: -360, alpha: 0.7)),
-                .mesh(.decal(.ripple, R * 2.0, .secondary, life: 0.6, spin: 0, grow: 1.2, alpha: 0.5)),
-                .emit(.vortex(18, radius: R * 0.8, .secondary, life: 0.5, tex: .glowHard, speed: 1.5)),
-            ]
-            r.impact = [
-                .emit(.flare(1.8, .core, life: 0.2), offset: [0, 0.6, 0]),
-                .mesh(.pillar(R * 0.5, height: 5, .core, life: 0.45, alpha: 0.85)),
-                .mesh(.tornado(R * 0.9, height: 3.4, .primary, life: 0.6, spin: 600)),
-                .emit(droplets(34, speed: 9)),
-                .mesh(.shockRing(R * 1.3, .secondary, tex: .ripple)),
-                .emit(.wave(R * 1.4, .primary, life: 0.5), offset: [0, 0.1, 0]),
-                .emit(.flutter(.bubble, 12, radius: R * 0.6, .secondary, speed: 2, life: 1.1, size: 0.2), at: 0.1,
-                      offset: [0, 0.5, 0], quality: 1),
-                .shake(0.18),
-            ]
         case .ultimate:
             r.cast = [
                 .mesh(.decal(.ripple, 3.0, .primary, life: 1.1, spin: 40, grow: 1.4, alpha: 0.8)),
@@ -147,11 +126,6 @@ enum FX_H004: HeroFXSet {
             m.kneel(0.06)
             m.hold(0.1)
             m.settle(0.12)
-        case .skill3:
-            // 杖を掲げ、地点へ振り下ろす
-            m.raise(0.08, glow: 1.4)
-            m.plant(0.06)
-            m.hold(0.18) { $0.ring = 1 }
         case .ultimate:
             // 両手を天へ掲げて長く祈り、杖を地へ突いて潮を呼ぶ
             m.raise(0.18, glow: 1.8)

@@ -385,7 +385,7 @@ enum BotCombat {
         guard s.units[a.i].canCast, s.time - mem.lastSkillTime >= 0.3, let h = s.units[a.i].hero,
               let hdef = ctx.master.hero(h.heroID) else { return }
         let killable = isKillable(s, ctx, a, t.index)
-        for slot in [SkillSlot.ultimate, .skill1, .skill2, .skill3] {
+        for slot in [SkillSlot.ultimate, .skill1, .skill2] {
             guard SkillSystem.canCast(s, ctx, heroIndex: a.i, slot: slot),
                   let def = ctx.master.skill(hero: h.heroID, slot: slot) else { continue }
             guard s.units[a.i].resource + 1e-6 >= SkillSystem.cost(for: def, resource: h.resourceKind) else { continue }
@@ -411,7 +411,7 @@ enum BotCombat {
                                 _ mem: inout BotHeroMemory) {
         guard a.nearestEnemyDistance < 500, s.units[a.i].canCast, let h = s.units[a.i].hero,
               let hdef = ctx.master.hero(h.heroID) else { return }
-        for slot in [SkillSlot.skill2, .skill1, .skill3] {
+        for slot in [SkillSlot.skill2, .skill1] {
             guard SkillSystem.canCast(s, ctx, heroIndex: a.i, slot: slot),
                   let def = ctx.master.skill(hero: h.heroID, slot: slot),
                   s.units[a.i].resource + 1e-6 >= SkillSystem.cost(for: def, resource: h.resourceKind) else { continue }
@@ -433,7 +433,7 @@ enum BotCombat {
               let h = s.units[a.i].hero, let hdef = ctx.master.hero(h.heroID) else { return }
         let maxRes = s.units[a.i].stats.maxResource
         guard maxRes <= 0 || s.units[a.i].resource >= maxRes * a.profile.farmSkillResource else { return }
-        for slot in [SkillSlot.skill1, .skill3, .skill2] {
+        for slot in [SkillSlot.skill1, .skill2] {
             guard SkillSystem.canCast(s, ctx, heroIndex: a.i, slot: slot),
                   let def = ctx.master.skill(hero: h.heroID, slot: slot),
                   s.units[a.i].resource + 1e-6 >= SkillSystem.cost(for: def, resource: h.resourceKind) else { continue }

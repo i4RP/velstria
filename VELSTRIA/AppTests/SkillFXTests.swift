@@ -3,7 +3,7 @@ import XCTest
 @testable import VELSTRIA
 import VelstriaCore
 
-// スキル演出（SkillFX）: 24 ヒーロー × 5 スキルの固有演出・詠唱モーションがそろっていること、予算の範囲、
+// スキル演出（SkillFX）: 24 ヒーロー × 4 スロット（パッシブ+Skill1/2+Ult）の固有演出・詠唱モーションがそろっていること、予算の範囲、
 // プレイ中に何も作らないこと（全レシピを読み込み幕の裏で準備してから全段を再生しても AssetLedger の live = 0）。
 
 @MainActor

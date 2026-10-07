@@ -109,7 +109,7 @@ final class PresentationResetTests: XCTestCase {
         let zones = ZoneLayer(materials: RenderMaterials(colorblind: false), meshes: UnitMeshLibrary())
         var triggers = 0
         zones.onTrigger = { _, _, _, _ in triggers += 1 }
-        let payload = HitPayload(damage: 50, damageType: .magic, source: .skill(.skill3), affectsEnemies: true)
+        let payload = HitPayload(damage: 50, damageType: .magic, source: .skill(.skill2), affectsEnemies: true)
         state.projectiles = [Projectile(id: 900, ownerID: hero.id, team: hero.team, pos: hero.pos,
                                         motion: .linear(direction: Vec2(1, 0), maxDistance: 900), speed: 1000,
                                         payload: HitPayload(damage: 1, damageType: .physical, source: .basicAttack),

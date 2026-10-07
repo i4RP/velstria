@@ -97,34 +97,6 @@ enum FX_H008: HeroFXSet {
                 .mesh(.decal(.swirl, 1.4, .accent, life: 0.8, spin: 360, alpha: 0.8), .follow),
                 .emit(.sparks(10, speed: 5, .core, end: .secondary), offset: [0, 1.0, 0]),
             ]
-        case .skill3:
-            // 槍の切り上げで風を送る → 予告の渦 → 竜巻が立ち上がる（気絶）
-            r.cast = [
-                .emit(.flare(1.2, .core, life: 0.2), at: 0.1, offset: [0, 1.6, 0.4]),
-                .emit(.fan(10, .secondary, speed: 7, spread: 15, life: 0.35), at: 0.1, offset: [0, 1.3, 0.5]),
-            ]
-            r.telegraph = [
-                .mesh(.decal(.swirl, R * 2.2, .primary, life: 0.55, spin: 300, alpha: 0.7)),
-                .mesh(.decal(.ring, R * 2.0, .accent, life: 0.55, spin: 0, alpha: 0.6)),
-                .emit(.vortex(16, radius: R, .secondary, life: 0.5, speed: 1.2)),
-            ]
-            r.impact = [
-                .emit(.flare(1.6, .core, life: 0.22), offset: [0, 1.0, 0]),
-                .mesh(.tornado(R * 0.9, height: 3.2, .primary, life: 0.85, spin: 900)),
-                .mesh(.tornado(R * 0.6, height: 3.8, .secondary, life: 0.7, spin: -1200).with { $0.alpha = 0.55 }, at: 0.04),
-                .mesh(.shockRing(R * 1.4, .core, life: 0.35)),
-                .mesh(.decal(.swirl, R * 2.4, .accent, life: 0.9, spin: -260, alpha: 0.8)),
-                .emit(.vortex(26, radius: R * 0.7, .primary, life: 0.8, speed: 4)),
-                .emit(.flutter(.feather, 10, radius: R * 0.6, .secondary, speed: 4).with { $0.gravity = -1.5 },
-                      offset: [0, 0.5, 0], quality: 1),
-                .shake(0.15),
-            ]
-            r.hit = [
-                // 気絶: 頭上で回る風の輪ときらめき
-                .mesh(.halo(0.45, .accent, life: 0.9, spin: 480), .follow, offset: [0, 2.1, 0]),
-                .emit(.motes(6, radius: 0.35, .core, life: 0.8), .follow, offset: [0, 2.1, 0]),
-                .emit(.sparks(10, speed: 5, .core, end: .primary), offset: [0, 1.0, 0]),
-            ]
         case .ultimate:
             // 風界標定: 発動で風界の紋章を標し、三連の旋風斬り（0 / 0.3 / 0.6 秒、回ごとに左右反転）
             r.cast = [
@@ -179,11 +151,6 @@ enum FX_H008: HeroFXSet {
             m.thrust(0.05, reach: 1.2)
             m.hold(0.12) { $0.cape = 1 }
             m.settle(0.1)
-        case .skill3:
-            // 槍を手元で一回し → 下から切り上げて風を送る
-            m.twirl(0.05, turns: 0.5)
-            m.uppercut(0.07)
-            m.hold(0.2) { $0.glow = 1.5; $0.cape = 1 }
         case .ultimate:
             // 右薙ぎ → 一回転して左薙ぎ → 小さく跳んで叩きつけ（三連の旋風）
             m.windup(0.04, side: 1, power: 1.2)

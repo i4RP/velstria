@@ -12,8 +12,8 @@ struct HeroMotionSet {
     var attacks: [String] = []
     /// 通常攻撃のマスク。.full = 立ち止まっている時は全身・移動中は上半身、.upper = 常に上半身。
     var attackMask: HeroClipMask = .full
-    /// スキル詠唱（Skill1, Skill2, Skill3, Ultimate の順。nil = 手続き）。
-    var casts: [String?] = [nil, nil, nil, nil]
+    /// スキル詠唱（Skill1, Skill2, Ultimate の順。nil = 手続き）。
+    var casts: [String?] = [nil, nil, nil]
     var idle: String?
     var run: String?
     var death: String?
@@ -37,7 +37,7 @@ struct HeroMotionBinding {
     let library: HeroMotionLibrary
     let attacks: [Int]
     let attackMask: HeroClipMask
-    /// Skill1, Skill2, Skill3, Ultimate。
+    /// Skill1, Skill2, Ultimate。
     let casts: [Int?]
     let idle: Int?
     let run: Int?
@@ -52,7 +52,7 @@ struct HeroMotionBinding {
     init?(set: HeroMotionSet, library: HeroMotionLibrary) {
         func find(_ name: String?) -> Int? { name.flatMap { library.index(of: $0) } }
         attacks = set.attacks.compactMap { library.index(of: $0) }
-        casts = (0..<4).map { $0 < set.casts.count ? find(set.casts[$0]) : nil }
+        casts = (0..<3).map { $0 < set.casts.count ? find(set.casts[$0]) : nil }
         idle = find(set.idle)
         run = find(set.run)
         death = find(set.death)

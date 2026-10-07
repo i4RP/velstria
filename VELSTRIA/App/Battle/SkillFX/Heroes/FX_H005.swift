@@ -79,27 +79,6 @@ enum FX_H005: HeroFXSet {
                 .emit(.smoke(8, radius: 0.8, .dark, life: 0.9, size: 0.8), quality: 1),
                 .shake(0.2),
             ]
-        case .skill3:
-            r.cast = [
-                .emit(.flare(1.0, .secondary, life: 0.15), at: 0.12, offset: tip),
-                .mesh(.decal(.runeCircle, 1.6, .primary, life: 0.5, spin: 200, alpha: 0.7), at: 0.1),
-            ]
-            r.telegraph = [
-                .mesh(.decal(.runeCircle, R * 2.1, .primary, life: 0.6, spin: 160, alpha: 0.75)),
-                .emit(.smoke(8, radius: R * 0.7, .dark, life: 0.7, size: 0.8), quality: 1),
-                .emit(.sparks(16, speed: 1.5, .accent, end: .primary, life: 0.5, gravity: 0).with {
-                    $0.shape = .disc(R * 0.8); $0.emit = 0.4
-                }),
-            ]
-            r.impact = [
-                .mesh(.strike(7, .accent, width: 0.4, life: 0.25)),
-                .emit(.flare(2.0, .core, life: 0.22, tex: .flare6), offset: [0, 0.6, 0]),
-                boltStar(6, length: R * 1.1, .secondary),
-                .mesh(.decal(.ringDouble, R * 2.2, .primary, life: 1.2, spin: -120, alpha: 0.85)),
-                .mesh(.halo(R * 0.85, .secondary, life: 1.1, spin: 260, tex: .chain), at: 0.05, offset: [0, 0.35, 0]),
-                .emit(.rising(20, radius: R * 0.8, .secondary, speed: 2, life: 0.9), at: 0.1),
-                .shake(0.15),
-            ]
         case .ultimate:
             r.cast = [
                 .emit(.flare(2.2, .core, life: 0.3, tex: .flare6), at: 0.2, offset: [0, 2.6, 0]),
@@ -139,11 +118,6 @@ enum FX_H005: HeroFXSet {
             m.dash(0.07, lean: 0.55)
             m.hold(0.08)
             m.settle(0.12)
-        case .skill3:
-            // 槍を振り上げ、穂先を地へ突き立てる
-            m.overhead(0.07)
-            m.plant(0.06)
-            m.hold(0.16) { $0.ring = 1 }
         case .ultimate:
             // 槍を天へ突き上げ、雷雲を呼ぶ号令
             m.brace(0.06, depth: 0.1)

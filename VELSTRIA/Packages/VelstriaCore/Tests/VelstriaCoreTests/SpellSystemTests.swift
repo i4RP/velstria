@@ -203,7 +203,7 @@ final class SpellSystemTests: XCTestCase {
         XCTAssertTrue(w.castSpell(h, 0))
         XCTAssertTrue(w.castSpell(h, 1, .direction(Vec2(1, 0))))
         XCTAssertTrue(w.s.units[h].has(.stealth), "瞬歩では解除しない")
-        XCTAssertTrue(w.cast(h, .skill3, .point(skillArena + Vec2(600, 0))))
+        XCTAssertTrue(w.cast(h, .skill1, .direction(Vec2(1, 0))))
         XCTAssertFalse(w.s.units[h].has(.stealth))
 
         var e = SkillWorld()

@@ -96,48 +96,6 @@ enum FX_H015: HeroFXSet {
                 .emit(.flare(0.9, .core, life: 0.14), offset: [0, 1.0, 0]),
                 .emit(.fan(12, .secondary, speed: 7, spread: 20, life: 0.3), offset: [0, 0.8, 0]),
             ]
-        case .skill3:
-            // 鐘弾を撃ち上げる（0.14 秒）→ 落下点に鐘の檻
-            r.cast = [
-                .emit(.flare(1.3, .core, life: 0.16, tex: .flare6), at: 0.13, offset: [0.2, 1.8, 0.6]),
-                .emit(.fan(12, .primary, speed: 9, spread: 15, life: 0.3).with { $0.dir = .local([0, 1, 0.6]) }, at: 0.13,
-                      offset: [0.2, 1.8, 0.6]),
-                .emit(.smoke(6, radius: 0.3, life: 0.9, size: 0.6), at: 0.14, offset: [0.2, 1.4, 0.5], quality: 1),
-            ]
-            r.telegraph = [
-                .mesh(.decal(.ringDouble, R * 2.2, .primary, life: 0.6, spin: 120, grow: 1.0, alpha: 0.7)),
-                .mesh(.decal(.ripple, R * 1.8, .secondary, life: 0.6, spin: 0, grow: 0.8, alpha: 0.5)),
-                // 落ちてくる鐘弾
-                .emit(.flare(0.8, .secondary, life: 0.55).with {
-                    $0.dir = .down; $0.speed = 7; $0.speedVar = 0; $0.grow = 1.2; $0.fade = .quickFadeInOut
-                }, offset: [0, 4, 0]),
-            ]
-            r.impact = [
-                .emit(.flare(2.0, .core, life: 0.2, tex: .flare6), offset: [0, 1.0, 0]),
-                // 青銅の鐘が降りる（縦長の半球）
-                .mesh(.dome(R, .primary, life: 0.75, tex: .beam, alpha: 0.6).with {
-                    $0.size = [R * 1.2, R * 2.2, R * 1.2]; $0.sizeEnd = [R * 0.95, R * 1.5, R * 0.95]; $0.spin = 0
-                }),
-                .mesh(.shockRing(R * 1.4, .secondary, life: 0.4, tex: .ringDouble)),
-                .mesh(.decal(.ringDouble, R * 2.4, .primary, life: 1.2, spin: -40, alpha: 0.85)),
-                // 根止め: 青銅の輪が締まる
-                .mesh(.halo(R, .secondary, life: 1.0, spin: 160, tex: .ringDouble).with {
-                    $0.size = [R * 1.1, 1, R * 1.1]; $0.sizeEnd = [R * 0.55, 1, R * 0.55]; $0.ease = .inOut
-                }, at: 0.1, offset: [0, 0.3, 0]),
-                .mesh(.halo(R * 0.8, .accent, life: 0.9, spin: -200, tex: .ring).with {
-                    $0.size = [R * 0.9, 1, R * 0.9]; $0.sizeEnd = [R * 0.45, 1, R * 0.45]; $0.ease = .inOut
-                }, at: 0.14, offset: [0, 0.8, 0]),
-                .emit(.wave(R * 1.8, .primary, life: 0.55, tex: .ring), offset: [0, 0.05, 0]),
-                .emit(.sparks(20, speed: 7, .core, end: .primary), offset: [0, 0.6, 0]),
-                .emit(.debris(8, speed: 5), quality: 1),
-                .shake(0.2),
-            ]
-            r.hit = [
-                .mesh(.halo(0.6, .secondary, life: 1.0, spin: 300, tex: .ringDouble).with {
-                    $0.size = [1.0, 1, 1.0]; $0.sizeEnd = [0.5, 1, 0.5]
-                }, .follow, offset: [0, 0.25, 0]),
-                .emit(.sparks(8, speed: 4, .core, end: .secondary), offset: [0, 0.8, 0]),
-            ]
         case .ultimate:
             // 終戦の鐘: 0.14 秒の発射。巨大な音の輪の列が貫く
             r.cast = [
@@ -198,12 +156,6 @@ enum FX_H015: HeroFXSet {
             m.leap(0.12, height: 0.55, forward: 0.2)
             m.land(0.08, depth: 0.2)
             m.settle(0.08)
-        case .skill3:
-            // 腰を落として大筒を高く向け、撃ち上げる
-            m.brace(0.04, depth: 0.12)
-            m.aim(0.05, up: 0.9)
-            m.recoil(0.05, power: 1.4)
-            m.hold(0.16) { $0.glow = 1.3 }
         case .ultimate:
             // 深く踏ん張って構え → 巨大な反動で後ろへ押し戻され、鐘の余韻を背負って立つ
             m.brace(0.04, depth: 0.18)
