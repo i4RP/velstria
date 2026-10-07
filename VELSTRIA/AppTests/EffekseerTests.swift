@@ -60,4 +60,14 @@ final class EffekseerTests: XCTestCase {
         overlay.runtime.stopAll()
         overlay.render(camera: camera, host: host, dt: 1.0 / 30)
     }
+
+    /// 10 人分（全ヒーロー）の効果を読む時間（幕の裏で 1 回）。シミュレータ（Debug）で数秒に収まること。
+    func testLoadingEveryHeroEffectIsFast() throws {
+        let overlay = try XCTUnwrap(EffekseerOverlay(), "Metal が使えない環境では確認できない")
+        let start = CFAbsoluteTimeGetCurrent()
+        overlay.loadBundledEffects()
+        let elapsed = CFAbsoluteTimeGetCurrent() - start
+        print("effekseer load all: \(overlay.effectNames.count) effects in \(Int(elapsed * 1000)) ms")
+        XCTAssertLessThan(elapsed, 4.0)
+    }
 }

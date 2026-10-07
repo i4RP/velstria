@@ -271,7 +271,9 @@ final class BattleRenderer {
         if let fx = view.effekseer {
             // Effekseer の効果: この試合に出るヒーローの分だけ読む（幕の裏。ヒーローごとの効果が無ければ旧来の演出のまま）
             let heroIDs = Set(controller.state.units.compactMap { $0.hero?.heroID })
+            let t0 = CACurrentMediaTime()
             fx.loadBundledEffects(heroes: heroIDs)
+            note(String(format: "effekseer load %d effects, %.0f ms", fx.effectNames.count, (CACurrentMediaTime() - t0) * 1000))
             w.attach(effekseer: EffekseerDirector(overlay: fx, units: w.units, projectiles: w.projectiles))
         }
         world = w

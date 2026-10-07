@@ -75,6 +75,12 @@ Effekseer::Matrix44 ToEfk(simd_float4x4 m) {
 }
 
 - (void)dealloc {
+    // 描画中のコマンドバッファが終わってから資源（テクスチャ・バッファ）を解放する（同じキューは直列に実行される）
+    if (_queue != nil) {
+        id<MTLCommandBuffer> fence = [_queue commandBuffer];
+        [fence commit];
+        [fence waitUntilCompleted];
+    }
     if (_manager != nullptr) _manager->StopAllEffects();
     _effects.clear();
     _commandList.Reset();
