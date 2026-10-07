@@ -75,13 +75,22 @@ public enum HeroGrowth {
 
     /// ミニオン・モンスターの XP を team の周囲ヒーローで分配する（DESIGN §8）。
     /// 1 人なら ×1.0、2 人以上なら合計 ×1.3 を等分。対象は pos から xpShareRadius 以内の生存ヒーロー。
-    public static func shareXP(_ s: inout SimState, _ ctx: SimContext, team: Team, around pos: Vec2, amount: Double) {
+    /// isMonster = 中立モンスター由来（ローム靴の収入制限の対象。ミニオン由来はジャングル靴の制限も受ける）。
+    public static func shareXP(_ s: inout SimState, _ ctx: SimContext, team: Team, around pos: Vec2, amount: Double,
+                               isMonster: Bool = false) {
         guard amount > 0, team != .neutral else { return }
         let receivers = nearbyHeroes(s, team: team, around: pos, radius: Balance.xpShareRadius)
         guard !receivers.isEmpty else { return }
         let total = receivers.count == 1 ? amount : amount * Balance.Economy.groupXPMultiplier
         let each = total / Double(receivers.count)
-        for i in receivers { grantXP(&s, ctx, heroIndex: i, amount: each) }
+        for i in receivers {
+            var share = each
+            if let h = s.units[i].hero {
+                share *= isMonster ? GearEffects.monsterRewardMultiplier(h, time: s.time, master: ctx.master)
+                                   : GearEffects.minionRewardMultiplier(h, time: s.time, master: ctx.master)
+            }
+            grantXP(&s, ctx, heroIndex: i, amount: share)
+        }
     }
 
     /// pos から radius 以内にいる team の生存ヒーロー（添字昇順）。

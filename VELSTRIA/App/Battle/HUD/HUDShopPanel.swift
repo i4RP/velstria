@@ -309,6 +309,9 @@ struct HUDShopDetail: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         .padding(.top, 2)
+                        if item.category == .jungle || item.category == .roam {
+                            HUDShopGearSection(model: model, shop: shop, item: item)
+                        }
                         let parts = ItemMath.components(item, master: master)
                         if !parts.isEmpty {
                             HStack(spacing: 4) {
@@ -400,6 +403,73 @@ struct HUDShopDetail: View {
                 .accessibilityIdentifier("shop_buy")
             }
         }
+    }
+}
+
+/// ジャングル靴・ローム靴: 時間で変わる効果のルールと、オプションスキル（祝福）の選択。
+struct HUDShopGearSection: View {
+    let model: HUDModel
+    let shop: HUDShopState
+    let item: ItemDef
+
+    var body: some View {
+        let owned = shop.items.contains(item.itemID)
+        let options = GearOption.options(for: item.category)
+        VStack(alignment: .leading, spacing: 3) {
+            ForEach(GearInfo.rules(item.category), id: \.self) { rule in
+                Text("・" + rule)
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if owned {
+                Text(progressText)
+                    .font(.system(size: 10.5, weight: .heavy, design: .rounded))
+                    .foregroundStyle(Theme.success)
+                HStack(spacing: 4) {
+                    ForEach(options, id: \.self) { option in
+                        optionChip(option)
+                    }
+                }
+                if let current = shop.gearOption, current.category == item.category {
+                    Text(GearInfo.summary(current))
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.8))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .padding(.top, 2)
+    }
+
+    private var progressText: String {
+        if item.category == .roam {
+            return L("共有収入 \(shop.roamGold) / \(Int(Balance.Gear.roamGoldCap)) Gold ・ 祝福 \(shop.roamStage) / \(Balance.Gear.blessingThresholds.count) 段階",
+                     "Shared income \(shop.roamGold) / \(Int(Balance.Gear.roamGoldCap)) Gold · blessing stage \(shop.roamStage) / \(Balance.Gear.blessingThresholds.count)")
+        }
+        let need = Balance.Gear.jungleBlessingUnlockCount
+        if shop.jungleBlessed { return L("祝福は解放済み", "Blessing unlocked") }
+        return L("祝福まで \(min(shop.jungleProgress, need)) / \(need)", "Blessing: \(min(shop.jungleProgress, need)) / \(need)")
+    }
+
+    private func optionChip(_ option: GearOption) -> some View {
+        let selected = shop.gearOption == option
+        return Button { model.setGearOption(option) } label: {
+            HStack(spacing: 3) {
+                Image(systemName: GearInfo.symbol(option)).font(.system(size: 9, weight: .bold))
+                Text(GearInfo.name(option)).lineLimit(1).minimumScaleFactor(0.7)
+            }
+            .font(.system(size: 10, weight: .heavy, design: .rounded))
+            .foregroundStyle(selected ? Color.black : Color.white.opacity(0.85))
+            .padding(.horizontal, 6)
+            .frame(minHeight: 28)
+            .background(Capsule().fill(selected ? Theme.gold : Color.white.opacity(0.12)))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(GearInfo.name(option))
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier("shop_gear_\(option.rawValue)")
     }
 }
 

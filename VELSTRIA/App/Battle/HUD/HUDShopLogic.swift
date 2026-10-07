@@ -33,6 +33,14 @@ struct HUDShopState: Equatable {
     var entries: [HUDShopEntry] = []
     var path: [HUDShopPathStep] = []
     var next: String?
+    /// 選んでいる靴のオプション（靴を持っていなければ nil）。
+    var gearOption: GearOption?
+    /// ローム靴の共有収入の累計とその祝福の段階（0〜3）。
+    var roamGold = 0
+    var roamStage = 0
+    /// ジャングル靴の祝福の進み具合（狩り・キル・アシストの合計）と解放済みか。
+    var jungleProgress = 0
+    var jungleBlessed = false
 
     func entry(_ itemID: String) -> HUDShopEntry? {
         guard let k = HUDShopLogic.catalogIndex(itemID) else { return nil }
@@ -100,6 +108,12 @@ enum HUDShopLogic {
         }
         st.path = recommendedPath(hero: hero, ctx: ctx, customBuild: customBuild)
         st.next = ItemSystem.nextRecommendedPurchase(hero, ctx: ctx, customBuild: customBuild)
+        st.gearOption = GearEffects.option(of: hero, category: .roam, master: ctx.master)
+            ?? GearEffects.option(of: hero, category: .jungle, master: ctx.master)
+        st.roamGold = Int(hero.gear?.roamGold ?? 0)
+        st.roamStage = GearEffects.roamStage(roamGold: hero.gear?.roamGold ?? 0)
+        st.jungleProgress = hero.score.creepScore + hero.score.kills + hero.score.assists
+        st.jungleBlessed = GearEffects.jungleBlessingActive(hero, master: ctx.master)
         return st
     }
 

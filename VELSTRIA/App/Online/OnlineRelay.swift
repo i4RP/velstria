@@ -170,7 +170,8 @@ enum RelayRoomCode {
         String(normalized(input).prefix(length))
     }
 
-    private static func normalized(_ input: String) -> String {
+    /// 規則 1〜3 を当てた文字列（フレンドコードの入力もこれを使う）。
+    static func normalized(_ input: String) -> String {
         var text = input
         if let fromLink = codeInLink(text) { text = fromLink }
         let half = text.applyingTransform(.fullwidthToHalfwidth, reverse: false) ?? text

@@ -213,7 +213,7 @@ final class CollectionLogicTests: XCTestCase {
     }
 
     func testItemFilter() {
-        XCTAssertEqual(ItemMath.filtered(master.items, category: nil, tier: nil).count, 72)
+        XCTAssertEqual(ItemMath.filtered(master.items, category: nil, tier: nil).count, 72 + GearCatalog.items.count)
         let attackT3 = ItemMath.filtered(master.items, category: .attack, tier: 3)
         XCTAssertFalse(attackT3.isEmpty)
         XCTAssertTrue(attackT3.allSatisfy { $0.category == .attack && $0.tier == 3 })
@@ -331,14 +331,19 @@ final class CollectionLogicTests: XCTestCase {
         XCTAssertNotNil(SpellInfo.of("BS05").tip)
     }
 
-    func testSpellAssignmentSwapsDuplicates() {
-        XCTAssertEqual(SpellLoadoutRules.assigning("BS03", slot: 0, in: ["BS01", "BS03"]), ["BS03", "BS01"])
-        XCTAssertEqual(SpellLoadoutRules.assigning("BS07", slot: 1, in: ["BS01", "BS03"]), ["BS01", "BS07"])
-        XCTAssertEqual(SpellLoadoutRules.normalized(["BS03", "BS03"]), ["BS03", "BS01"])
+    func testSpellAssignmentKeepsHealFixed() {
+        // 1 枠目だけ変えられる。2 枠目は常に治癒波（BS03）
+        XCTAssertEqual(SpellLoadoutRules.assigning("BS07", slot: 0, in: ["BS01", "BS03"]), ["BS07", "BS03"])
+        XCTAssertEqual(SpellLoadoutRules.assigning("BS07", slot: 1, in: ["BS01", "BS03"]), ["BS01", "BS03"])
+        XCTAssertEqual(SpellLoadoutRules.assigning("BS03", slot: 0, in: ["BS01", "BS03"]), ["BS01", "BS03"])
         XCTAssertEqual(SpellLoadoutRules.normalized([]), ["BS01", "BS03"])
-        // 不明な ID（古いデータ等）は除外して既定で補う
-        XCTAssertEqual(SpellLoadoutRules.normalized(["BS99", "BS07"]), ["BS07", "BS01"])
-        XCTAssertEqual(SpellLoadoutRules.normalized(["", "BS01"]), ["BS01", "BS03"])
+        // 旧データ（治癒波が 1 枠目・重複・他スペルが 2 枠目）は治癒波を 2 枠目に寄せる
+        XCTAssertEqual(SpellLoadoutRules.normalized(["BS03", "BS01"]), ["BS01", "BS03"])
+        XCTAssertEqual(SpellLoadoutRules.normalized(["BS03", "BS03"]), ["BS01", "BS03"])
+        XCTAssertEqual(SpellLoadoutRules.normalized(["BS07", "BS01"]), ["BS07", "BS03"])
+        // 不明な ID は除外して既定で補う
+        XCTAssertEqual(SpellLoadoutRules.normalized(["BS99", "BS07"]), ["BS07", "BS03"])
+        XCTAssertEqual(SpellLoadoutRules.normalized(["", "BS02"]), ["BS02", "BS03"])
     }
 
     func testSmiteNameFollowsMasterSpellName() {
@@ -350,9 +355,9 @@ final class CollectionLogicTests: XCTestCase {
         var p = Profile()
         p.defaultSpells = ["BS02", "BS04"]
         p.heroSpells["H006"] = ["BS05", "BS01"]
-        XCTAssertEqual(SpellLoadoutRules.effective(heroID: nil, profile: p), ["BS02", "BS04"])
-        XCTAssertEqual(SpellLoadoutRules.effective(heroID: "H001", profile: p), ["BS02", "BS04"])
-        XCTAssertEqual(SpellLoadoutRules.effective(heroID: "H006", profile: p), ["BS05", "BS01"])
+        XCTAssertEqual(SpellLoadoutRules.effective(heroID: nil, profile: p), ["BS02", "BS03"])
+        XCTAssertEqual(SpellLoadoutRules.effective(heroID: "H001", profile: p), ["BS02", "BS03"])
+        XCTAssertEqual(SpellLoadoutRules.effective(heroID: "H006", profile: p), ["BS05", "BS03"])
     }
 
     // MARK: エモート

@@ -17,13 +17,20 @@ struct VelstriaApp: App {
                     DebugLaunch.apply(to: app)
                 }
                 .onChange(of: scenePhase) { _, phase in
-                    if phase == .background { app.persistence.saveNow(app.profile) }
+                    if phase == .background {
+                        app.persistence.saveNow(app.profile)
+                        app.friends.stop()
+                    }
                     // 日付を跨いで復帰した場合のログインボーナス・デイリー更新（同日なら何もしない）
-                    if phase == .active { LiveOpsService.onLaunch(profile: &app.profile, master: app.master, now: Date()) }
+                    if phase == .active {
+                        LiveOpsService.onLaunch(profile: &app.profile, master: app.master, now: Date())
+                        app.friends.start()
+                    }
                 }
                 // 招待リンク（velstria://join?code=XXXXXX）: 部屋コードでオンライン対戦の部屋に入る。
                 // 共有されたリプレイ（.vreplay）を「VELSIA で開く」: 検証してから一覧に取り込む
                 .onOpenURL { url in
+                    if app.openFriendLink(url) { return }
                     if app.openOnlineJoinLink(url) { return }
                     guard ReplayArchiveService.isReplayFile(url) else { return }
                     Task { @MainActor in await ReplayArchiveService.handleOpenedFile(url, app: app) }
@@ -49,6 +56,7 @@ struct RootView: View {
             #else
             mainContent
             #endif
+            PartyInviteOverlay()
             ToastOverlay()
             if showsBrandLaunch {
                 BrandLaunchView {

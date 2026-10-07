@@ -889,6 +889,11 @@ enum FlowText {
         case "BS08": return L("1.5 秒間ステルス状態になり、移動速度 +25%。", "Become stealthed for 1.5s and gain 25% move speed.")
         case "BS09": return L("3 秒の詠唱後、味方タワーか泉へ転移する。", "After a 3s channel, teleport to an allied tower or the fountain.")
         case "BS10": return L("敵ヒーローを 40% スローし、与ダメージ −30%（2.5 秒）。", "Slow an enemy hero by 40% and reduce their damage by 30% for 2.5s.")
+        case "BS11": return L("敵ヒーローに確定ダメージ。失った HP が多いほど大きい。", "Deal true damage to an enemy hero, more the lower their HP.")
+        case "BS12": return L("5 秒間、攻撃速度 +50%。", "Gain 50% attack speed for 5s.")
+        case "BS13": return L("近くの敵ヒーローを 0.8 秒スタンさせ、続けてスロー。", "Stun nearby enemy heroes for 0.8s, then slow them.")
+        case "BS14": return L("指定方向へ火炎弾を撃ち、当たった敵ヒーローをノックバック。", "Fire a flame bolt that knocks back the first enemy hero hit.")
+        case "BS15": return L("5 秒間、被ダメージ −30% とダメージ反射 35%。", "For 5s take 30% less damage and reflect 35% of damage taken.")
         default: return MasterData.shared.spell(id).map { MasterText.description(id: id, ja: $0.description) } ?? ""
         }
     }
@@ -905,6 +910,11 @@ enum FlowText {
         case "BS08": return "eye.slash.fill"
         case "BS09": return "arrow.uturn.backward.circle.fill"
         case "BS10": return "link"
+        case "BS11": return "scope"
+        case "BS12": return "speedometer"
+        case "BS13": return "hexagon.fill"
+        case "BS14": return "flame.circle.fill"
+        case "BS15": return "arrow.triangle.2.circlepath"
         default: return "questionmark"
         }
     }
@@ -921,6 +931,11 @@ enum FlowText {
         case "BS08": return Color(red: 0.62, green: 0.50, blue: 0.95)
         case "BS09": return Color(red: 0.40, green: 0.60, blue: 1.0)
         case "BS10": return Color(red: 0.85, green: 0.40, blue: 0.75)
+        case "BS11": return Color(red: 0.95, green: 0.30, blue: 0.35)
+        case "BS12": return Color(red: 1.0, green: 0.72, blue: 0.30)
+        case "BS13": return Color(red: 0.78, green: 0.65, blue: 0.45)
+        case "BS14": return Color(red: 1.0, green: 0.38, blue: 0.20)
+        case "BS15": return Color(red: 0.92, green: 0.35, blue: 0.62)
         default: return Color.gray
         }
     }

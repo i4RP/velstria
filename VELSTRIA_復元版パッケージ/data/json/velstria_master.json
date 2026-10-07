@@ -4231,6 +4231,36 @@
       "name_ja": "星鎖",
       "cooldown_sec": 105,
       "description": "星鎖を発動し、戦況を変える短時間の戦術効果を得る。"
+    },
+    {
+      "spell_id": "BS11",
+      "name_ja": "処断",
+      "cooldown_sec": 90,
+      "description": "処断を発動し、戦況を変える短時間の戦術効果を得る。"
+    },
+    {
+      "spell_id": "BS12",
+      "name_ja": "鼓舞",
+      "cooldown_sec": 75,
+      "description": "鼓舞を発動し、戦況を変える短時間の戦術効果を得る。"
+    },
+    {
+      "spell_id": "BS13",
+      "name_ja": "石化",
+      "cooldown_sec": 80,
+      "description": "石化を発動し、戦況を変える短時間の戦術効果を得る。"
+    },
+    {
+      "spell_id": "BS14",
+      "name_ja": "火炎弾",
+      "cooldown_sec": 55,
+      "description": "火炎弾を発動し、戦況を変える短時間の戦術効果を得る。"
+    },
+    {
+      "spell_id": "BS15",
+      "name_ja": "報復",
+      "cooldown_sec": 80,
+      "description": "報復を発動し、戦況を変える短時間の戦術効果を得る。"
     }
   ],
   "runes": [

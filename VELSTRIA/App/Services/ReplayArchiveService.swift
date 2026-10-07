@@ -360,7 +360,7 @@ enum ReplayArchiveService {
         case .buyItem(let itemID): return itemID.count <= maxDisplayNameLength
         case .emote(let emoteID): return emoteID.count <= maxDisplayNameLength
         case .stop, .attack, .attackNearest, .levelSkill, .setAutoLevel, .recall, .surrenderVote,
-             .removeTutorialDummies, .setController:
+             .removeTutorialDummies, .setController, .setGearOption:
             return true
         }
     }

@@ -550,3 +550,107 @@ describe("部屋", { concurrency: false }, () => {
     assert.deepEqual([up.type, up.guestId], [GUEST_DATA, 3]);
   });
 });
+
+// ---- フレンドの受信箱 ----
+
+const FRIEND_ALPHABET = ALPHABET;
+
+function randomFriendCode() {
+  let code = "";
+  for (let i = 0; i < 8; i++) code += FRIEND_ALPHABET[randomInt(FRIEND_ALPHABET.length)];
+  return code;
+}
+
+function randomKey() {
+  return randomBytes(18).toString("base64url");
+}
+
+function inboxURL(code, key, rv = "1") {
+  const query = new URLSearchParams({ key });
+  if (rv !== null) query.set("rv", rv);
+  return `${wsBase}/v1/inbox/${code}?${query}`;
+}
+
+/** 受信箱を開き、最初の hello を受け取る */
+async function openInbox(code, key, label = `inbox ${code}`) {
+  const peer = track(new Peer(inboxURL(code, key), label));
+  await withTimeout(peer.opened, TIMEOUT_MS, `${label} の接続`);
+  const hello = JSON.parse(await peer.next());
+  assert.deepEqual(hello, { t: "hello", code });
+  // 生存確認の ping（理由は Peer.open のコメント）
+  peer.send("ping");
+  assert.equal(await peer.next(), "pong", `${label}: 最初の ping に pong が返らない`);
+  return peer;
+}
+
+async function nextJson(peer, ms) {
+  return JSON.parse(await peer.next(ms));
+}
+
+describe("フレンドの受信箱", () => {
+  after(closeAll);
+
+  test("招待が相手に届き、差出人は中継が付ける", async () => {
+    const aCode = randomFriendCode(), bCode = randomFriendCode();
+    const a = await openInbox(aCode, randomKey(), "A");
+    const b = await openInbox(bCode, randomKey(), "B");
+    a.send(JSON.stringify({ t: "send", to: bCode, id: 7, m: { k: "partyInvite", room: "ABCDEF", from: "偽物" } }));
+    assert.deepEqual(await nextJson(a), { t: "ack", id: 7, result: "delivered" });
+    const msg = await nextJson(b);
+    assert.equal(msg.t, "msg");
+    assert.equal(msg.from, aCode);
+    assert.equal(msg.m.room, "ABCDEF");
+  });
+
+  test("不在の相手へ queue 無しは offline、queue 付きは預かって繋いだ時に渡す", async () => {
+    const aCode = randomFriendCode(), bCode = randomFriendCode();
+    const bKey = randomKey();
+    const a = await openInbox(aCode, randomKey(), "A");
+    a.send(JSON.stringify({ t: "send", to: bCode, id: 1, m: { k: "partyInvite" } }));
+    assert.deepEqual(await nextJson(a), { t: "ack", id: 1, result: "offline" });
+    a.send(JSON.stringify({ t: "send", to: bCode, id: 2, queue: true, m: { k: "friendRequest", name: "A" } }));
+    assert.deepEqual(await nextJson(a), { t: "ack", id: 2, result: "queued" });
+
+    const b = track(new Peer(inboxURL(bCode, bKey), "B"));
+    assert.deepEqual(await nextJson(b), { t: "hello", code: bCode });
+    assert.deepEqual(await nextJson(b), { t: "msg", from: aCode, m: { k: "friendRequest", name: "A" } });
+    await b.expectQuiet();
+  });
+
+  test("在席の問い合わせ", async () => {
+    const aCode = randomFriendCode(), bCode = randomFriendCode(), cCode = randomFriendCode();
+    const a = await openInbox(aCode, randomKey(), "A");
+    await openInbox(bCode, randomKey(), "B");
+    a.send(JSON.stringify({ t: "presence", codes: [bCode, cCode, "bad"] }));
+    assert.deepEqual(await nextJson(a), { t: "presence", online: [bCode] });
+  });
+
+  test("コードの持ち主は最初の鍵で決まり、別の鍵は 4012 で断られる", async () => {
+    const code = randomFriendCode();
+    const first = await openInbox(code, randomKey(), "first");
+    await expectRejected(inboxURL(code, randomKey()), 4012, "inbox_taken");
+    first.close();
+  });
+
+  test("同じ鍵の再接続は古い接続を入れ替える", async () => {
+    const code = randomFriendCode(), key = randomKey();
+    const old = await openInbox(code, key, "old");
+    const fresh = await openInbox(code, key, "fresh");
+    assert.deepEqual(await old.closeEvent(), { code: 4011, reason: "host_replaced" });
+    fresh.close();
+  });
+
+  test("自分宛てと不正な宛先は無視される", async () => {
+    const code = randomFriendCode();
+    const a = await openInbox(code, randomKey(), "A");
+    a.send(JSON.stringify({ t: "send", to: code, id: 1, m: {} }));
+    a.send(JSON.stringify({ t: "send", to: "bad", id: 2, m: {} }));
+    await a.expectQuiet();
+  });
+
+  test("不正なコード・鍵・版数は断られる", async () => {
+    assert.equal(await upgradeStatus(`${wsBase}/v1/inbox/ABC?key=${randomKey()}&rv=1`), 400);
+    await expectRejected(`${wsBase}/v1/inbox/${randomFriendCode()}?key=short&rv=1`, 1003, "malformed");
+    await expectRejected(inboxURL(randomFriendCode(), randomKey(), "99"), 4010, "relay_version");
+  });
+});

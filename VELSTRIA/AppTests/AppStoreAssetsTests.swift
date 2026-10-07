@@ -29,7 +29,9 @@ final class AppStoreAssetsTests: XCTestCase {
             for suffix in [".epithet", ".lore", ".strengths", ".weaknesses", ".counterplay"] { need(h.heroID + suffix) }
         }
         for s in m.skills { need(s.skillID); need(s.skillID + ".desc") }
-        for i in m.items { need(i.itemID); need(i.itemID + ".desc"); need(i.itemID + ".passive") }
+        for i in m.items where GearCatalog.english[i.itemID] == nil {  // 靴は GearCatalog が英語を持つ
+            need(i.itemID); need(i.itemID + ".desc"); need(i.itemID + ".passive")
+        }
         for s in m.spells { need(s.spellID); need(s.spellID + ".desc") }
         for r in m.runes { need(r.runeID); need(r.runeID + ".desc") }
         for c in m.cosmetics { need(c.cosmeticID) }
@@ -39,8 +41,8 @@ final class AppStoreAssetsTests: XCTestCase {
 
         XCTAssertEqual(m.heroes.count, 24)
         XCTAssertEqual(m.skills.count, 120)
-        XCTAssertEqual(m.items.count, 72)
-        XCTAssertEqual(m.spells.count, 10)
+        XCTAssertEqual(m.items.count, 72 + GearCatalog.items.count)  // 正本 72 + 靴
+        XCTAssertEqual(m.spells.count, 15)
         XCTAssertEqual(m.runes.count, 30)
         XCTAssertEqual(m.cosmetics.count, 72)
         XCTAssertEqual(m.store.count, 114)

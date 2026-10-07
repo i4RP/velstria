@@ -223,6 +223,11 @@ public enum DeathSystem {
         for a in assistIdx {
             s.units[a].hero!.score.assists += 1
             EconomyRewards.grantGold(&s, heroIndex: a, amount: perAssist, at: victimPos)
+            // ローム靴: アシストの追加報酬
+            if let ah = s.units[a].hero, GearEffects.has(ah, .roam, master: ctx.master) {
+                EconomyRewards.grantGold(&s, heroIndex: a, amount: Balance.Gear.assistBonusGold, at: victimPos)
+                HeroGrowth.grantXP(&s, ctx, heroIndex: a, amount: Balance.Gear.assistBonusXP)
+            }
         }
 
         // XP: キラー 100%、1400 以内のアシストで 60% を等分
@@ -267,7 +272,9 @@ public enum DeathSystem {
         // Gold はヒーローのラストヒットのみ
         if let k = s.index(of: killerID), isHero(s, k), s.units[k].team != s.units[v].team {
             s.units[k].hero?.score.minionKills += 1
-            EconomyRewards.grantGold(&s, heroIndex: k, amount: Balance.Economy.minionGold(m.type), at: pos)
+            // ジャングル靴（5:00 まで）・ローム靴（8:00 まで）は自分の収入が半減
+            let mult = s.units[k].hero.map { GearEffects.minionRewardMultiplier($0, time: s.time, master: ctx.master) } ?? 1
+            EconomyRewards.grantGold(&s, heroIndex: k, amount: Balance.Economy.minionGold(m.type) * mult, at: pos)
         }
         // XP は周囲の敵ヒーローで分配（止めを刺したのがミニオンでも入る）
         HeroGrowth.shareXP(&s, ctx, team: s.units[v].team.opponent, around: pos,
@@ -291,15 +298,18 @@ public enum DeathSystem {
             let gold = Balance.Economy.monsterGold(md.kind)
             if gold > 0 {
                 let bonus = max(0, s.units[kh].stats.monsterGoldBonus)
-                EconomyRewards.grantGold(&s, heroIndex: kh, amount: (gold * (1 + bonus)).rounded(), at: pos)
+                let mult = s.units[kh].hero.map { GearEffects.monsterRewardMultiplier($0, time: s.time, master: ctx.master) } ?? 1
+                EconomyRewards.grantGold(&s, heroIndex: kh, amount: (gold * (1 + bonus) * mult).rounded(), at: pos)
             }
         }
 
         switch md.kind {
         case .campLarge, .campSmall:
-            HeroGrowth.shareXP(&s, ctx, team: team, around: pos, amount: Balance.Economy.monsterXP(md.kind))
+            HeroGrowth.shareXP(&s, ctx, team: team, around: pos, amount: Balance.Economy.monsterXP(md.kind),
+                               isMonster: true)
         case .blueSentinel, .redSentinel:
-            HeroGrowth.shareXP(&s, ctx, team: team, around: pos, amount: Balance.Economy.monsterXP(md.kind))
+            HeroGrowth.shareXP(&s, ctx, team: team, around: pos, amount: Balance.Economy.monsterXP(md.kind),
+                               isMonster: true)
             if let kh = killerHero {
                 s.units[kh].hero?.score.objectivesTaken += 1
                 let kind: StatusKind = md.kind == .blueSentinel ? .blueBuff : .redBuff

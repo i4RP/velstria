@@ -12,14 +12,19 @@ import VelstriaCore
 
 struct OnlineLobbyView: View {
     @Environment(AppModel.self) private var app
+    /// フレンドの画面（入口と部屋の両方から開く。部屋を作ると入口が部屋に替わるので、シートはここで持つ）。
+    @State private var showsFriends = false
 
     var body: some View {
         ScreenScaffold(title: L("オンライン対戦", "Online Match"), showsCurrencies: false) {
             if let session = app.online {
-                OnlineRoomView(session: session)
+                OnlineRoomView(session: session, onShowFriends: { showsFriends = true })
             } else {
-                OnlineEntryView()
+                OnlineEntryView(onShowFriends: { showsFriends = true })
             }
+        }
+        .sheet(isPresented: $showsFriends) {
+            FriendsView().environment(app)
         }
     }
 }
@@ -27,6 +32,7 @@ struct OnlineLobbyView: View {
 // MARK: - 入口
 
 private struct OnlineEntryView: View {
+    let onShowFriends: () -> Void
     @Environment(AppModel.self) private var app
     @State private var browser = NWOnlineBrowser()
     @State private var address = ""
@@ -57,9 +63,34 @@ private struct OnlineEntryView: View {
         .onDisappear { browser.stop() }
     }
 
+    /// フレンドの画面を開くボタン（届いている申請の数をバッジで出す）。
+    private var friendsButton: some View {
+        let requests = app.friends.incomingRequests.count
+        return Button {
+            FlowFX.confirm(app)
+            onShowFriends()
+        } label: {
+            HStack(spacing: 6) {
+                Label(L("フレンド", "Friends"), systemImage: "person.2.fill").frame(maxWidth: .infinity)
+                if requests > 0 {
+                    Text("\(requests)")
+                        .font(.system(size: 11, weight: .heavy, design: .rounded))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(Theme.danger))
+                        .accessibilityLabel(L("申請 \(requests) 件", "\(requests) requests"))
+                }
+            }
+        }
+        .buttonStyle(SecondaryButtonStyle())
+        .accessibilityIdentifier("online_friends")
+    }
+
     private var hostPanel: some View {
         Panel(padding: 14) {
             VStack(alignment: .leading, spacing: 10) {
+                friendsButton
                 Label(L("部屋を作る", "Host a Room"), systemImage: "antenna.radiowaves.left.and.right")
                     .font(Theme.heading(16))
                     .foregroundStyle(Theme.textPrimary)
@@ -332,6 +363,8 @@ private struct OnlineEntryView: View {
 
 struct OnlineRoomView: View {
     let session: OnlineSession
+    /// フレンドの画面を開く（部屋の上の帯の「招待」）。
+    var onShowFriends: (() -> Void)?
     @Environment(AppModel.self) private var app
     @State private var roleFilter: Role?
     @State private var autoStarted = false
@@ -398,6 +431,21 @@ struct OnlineRoomView: View {
                     .foregroundStyle(Theme.textSecondary)
             }
             Spacer()
+            if let onShowFriends, room.phase == .lobby {
+                Button {
+                    FlowFX.tap(app)
+                    onShowFriends()
+                } label: {
+                    Image(systemName: "person.badge.plus")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(Theme.cyan)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L("フレンドを招待", "Invite friends"))
+                .accessibilityIdentifier("online_invite_friends")
+            }
             // 選手・観戦席の人数（タップで一覧）
             Button {
                 FlowFX.tap(app)

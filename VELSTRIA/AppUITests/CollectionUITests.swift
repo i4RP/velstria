@@ -195,7 +195,7 @@ final class CollectionUITests: XCTestCase {
         let app = launch(route: "spells")
         let ignite = element(app, "spell_BS07")
         XCTAssertTrue(ignite.waitForExistence(timeout: 10))
-        element(app, "spell_slot_1").tap()
+        element(app, "spell_slot_0").tap()
         ignite.tap()
         element(app, "spells_scope_H006").tap()
         element(app, "spell_BS05").tap()

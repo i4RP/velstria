@@ -82,13 +82,15 @@ struct BattleOutcome: Equatable {
 /// アプリ全体の状態。`@Environment(AppModel.self)` で参照する。
 @Observable
 @MainActor
-final class AppModel {
+final class AppModel: FriendProfileAccess {
     let master = MasterData.shared
     let router = Router()
     let persistence: PersistenceService
     let storeKit: StoreKitService
     let audio: AudioService
     let haptics: HapticsService
+    /// フレンド（申請・在席・パーティの招待）。FeatureFlags.lanMatch が有効な時だけ受信箱へ繋ぐ。
+    let friends = FriendHub()
 
     var profile: Profile {
         didSet {
@@ -101,6 +103,8 @@ final class AppModel {
                 haptics.enabled = profile.settings.hapticsEnabled
             }
             persistence.scheduleSave(profile)
+            // オンボーディングを終えたら受信箱へ繋ぐ
+            if profile.onboardingCompleted, !oldValue.onboardingCompleted { friends.start() }
         }
     }
 
@@ -127,18 +131,28 @@ final class AppModel {
         audio.apply(settings: loaded.settings)
         haptics.enabled = loaded.settings.hapticsEnabled
         storeKit.attach(to: self)
+        wireFriends()
+    }
+
+    private func wireFriends() {
+        friends.host = self
+        friends.isBusy = { [weak self] in self?.activeBattle != nil || self?.activeMagicChess != nil }
+        friends.onNotice = { [weak self] text in self?.showToast(text) }
+        friends.onJoinParty = { [weak self] invite in self?.joinPartyRoom(code: invite.room) }
     }
 
     /// 起動時処理（ログインボーナス・デイリー更新・未処理トランザクション）。
     func onLaunch(now: Date = Date()) {
         LiveOpsService.onLaunch(profile: &profile, master: master, now: now)
         Task { await storeKit.start() }
+        friends.start()
     }
 
     // MARK: 戦闘
 
     func startBattle(_ launch: BattleLaunch) {
         router.isMatchFlowPresented = false
+        friends.declineAllAsBusy()
         activeBattle = launch
     }
 
@@ -198,6 +212,68 @@ final class AppModel {
         joinOnlineRoom(relayCode: link.code, wantsSpectate: link.spectate)
         showOnlineLobby()
         return true
+    }
+
+    /// フレンドのリンク（velstria://friend?code=XXXXXXXX&name=…）を開いた: その相手へフレンド申請を送る。
+    /// このアプリのフレンドのリンクなら true（扱えなかった時はトーストで理由を出す）。招待リンクより先に判定する。
+    @discardableResult
+    func openFriendLink(_ url: URL) -> Bool {
+        guard url.scheme?.lowercased() == OnlineJoinLink.scheme else { return false }
+        let action = (url.host ?? url.pathComponents.first { $0 != "/" } ?? "").lowercased()
+        guard action == "friend" else { return false }
+        guard FeatureFlags.lanMatch else { return true }
+        guard let link = FriendLink(url: url) else {
+            showToast(L("フレンドコードが正しくありません", "The friend link has an invalid code"))
+            return true
+        }
+        guard profile.onboardingCompleted else {
+            showToast(L("はじめの設定を終えてから、もう一度リンクを開いてください", "Finish the first-time setup, then open the link again"))
+            return true
+        }
+        friends.start()
+        switch friends.requestFriend(code: link.code) {
+        case .sent, .accepted: break
+        case .alreadyFriend: showToast(L("すでにフレンドです", "You are already friends"))
+        case .isSelf: showToast(L("自分のフレンドコードです", "That is your own friend code"))
+        case .invalid(let message): showToast(message)
+        }
+        return true
+    }
+
+    /// パーティを作る: 部屋を作って自分が先に座る（フレンドは同じチームに入る）。すでに自分の部屋があればそのまま使う。
+    func hostPartyRoom() {
+        guard FeatureFlags.lanMatch, activeBattle == nil, activeMagicChess == nil else { return }
+        if let online, online.isHost {
+            showOnlineLobby()
+            return
+        }
+        let name = profile.displayName.isEmpty ? L("プレイヤー", "Player") : profile.displayName
+        hostOnlineRoom(name: L("\(name) のパーティ", "\(name)'s party"))
+        online?.takeSeat(0)
+        showOnlineLobby()
+    }
+
+    /// フレンドの招待に同意した: 部屋コードで入り、ホストと同じチームの空席に自動で座る。
+    func joinPartyRoom(code: String) {
+        guard FeatureFlags.lanMatch, RelayRoomCode.isValid(code) else { return }
+        guard activeBattle == nil, activeMagicChess == nil else {
+            showToast(L("試合中は参加できません", "You are in a match"))
+            return
+        }
+        if let online {
+            if online.role == .client, online.joinedRelayCode == code, online.isConnected {
+                showOnlineLobby()
+                return
+            }
+            if online.isHost, online.connectedPeerCount > 1 {
+                showToast(L("自分の部屋を閉じてから参加してください", "Close your own room before joining another"))
+                showOnlineLobby()
+                return
+            }
+        }
+        joinOnlineRoom(relayCode: code)
+        online?.seatsWithHostTeam = true
+        showOnlineLobby()
     }
 
     private func showOnlineLobby() {
@@ -290,6 +366,7 @@ final class AppModel {
 
     func startMagicChess(_ launch: MagicChessLaunch) {
         router.isMatchFlowPresented = false
+        friends.declineAllAsBusy()
         activeMagicChess = launch
     }
 

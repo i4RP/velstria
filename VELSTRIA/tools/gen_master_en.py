@@ -303,6 +303,11 @@ SPELL_NAMES = {
     "虚像": "Phantom",
     "帰還門": "Return Gate",
     "星鎖": "Starbind",
+    "処断": "Verdict",
+    "鼓舞": "Inspire",
+    "石化": "Petrify",
+    "火炎弾": "Flare Shot",
+    "報復": "Reprisal",
 }
 SPELL_DESCS = {
     "BS01": "Instantly teleports 400 units in the target direction, stopping short of walls.",
@@ -319,6 +324,14 @@ SPELL_DESCS = {
     "BS09": ("After a 3-second channel, teleports to a chosen allied tower or your fountain. "
              "Taking damage interrupts the channel."),
     "BS10": "Slows an enemy hero within 650 units by 40% and reduces their damage dealt by 30% for 2.5 seconds.",
+    "BS11": ("Deals 150 + 30 × level true damage plus 25% of the target's missing HP "
+             "to an enemy hero within 600 units."),
+    "BS12": "Grants +50% attack speed for 5 seconds.",
+    "BS13": "Stuns enemy heroes within 450 units for 0.8 seconds, then slows them by 30% for 1.5 seconds.",
+    "BS14": ("Fires a flame bolt up to 700 units in a direction. The first enemy hero hit takes "
+             "100 + 20 × level magic damage and is knocked back."),
+    "BS15": ("For 5 seconds, takes 30% less damage and reflects 35% of damage taken "
+             "to the attacker as true damage."),
 }
 
 # ---------------------------------------------------------------------------
@@ -596,7 +609,7 @@ def validate(master: dict, overlay: dict[str, str]) -> list[str]:
         if key.endswith(".desc") and len(value) > MAX_DESC_LEN:
             errors.append(f"説明が長すぎます: {key}（{len(value)} 文字）")
     # 規模（DESIGN §0 / 仕様パッケージ README と一致すること）
-    for table, n in {"heroes": 24, "skills": 120, "equipment": 72, "battle_spells": 10, "runes": 30,
+    for table, n in {"heroes": 24, "skills": 120, "equipment": 72, "battle_spells": 15, "runes": 30,
                      "cosmetics": 72, "store": 114}.items():
         if counts.get(table) != n:
             errors.append(f"{table} の件数が想定外です: {counts.get(table)}（想定 {n}）")

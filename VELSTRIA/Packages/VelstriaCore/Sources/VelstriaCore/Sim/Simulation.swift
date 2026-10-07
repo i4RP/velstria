@@ -76,6 +76,7 @@ public final class Simulation {
 
         // 8. 経済・回復
         EconomySystem.update(&state, ctx)
+        GearSystem.update(&state, ctx)
 
         // 9. 死亡処理 → 報酬 → 復活
         DeathSystem.process(&state, ctx)

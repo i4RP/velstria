@@ -7,8 +7,8 @@ final class ContractSmokeTests: XCTestCase {
         let m = MasterData.shared
         XCTAssertEqual(m.heroes.count, 24)
         XCTAssertEqual(m.skills.count, 96)
-        XCTAssertEqual(m.items.count, 72)
-        XCTAssertEqual(m.spells.count, 10)
+        XCTAssertEqual(m.items.count, 72 + GearCatalog.items.count)  // 正本 72 + 靴
+        XCTAssertEqual(m.spells.count, 15)
         XCTAssertEqual(m.runes.count, 30)
         XCTAssertEqual(m.cosmetics.count, 72)
         XCTAssertEqual(m.store.count, 114)

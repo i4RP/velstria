@@ -117,6 +117,13 @@ public enum CombatSystem {
             RecallSystem.cancelChannel(&s, t)
         }
 
+        // 報復（BS15）: 受けたダメージの一部を攻撃者へ確定ダメージで反射する（反射ダメージは .passive で、再反射しない）
+        if dealt > 0, hostile, let a, a != t, !s.units[a].isStructure, reflectsDamage(source),
+           s.units[t].statuses.contains(where: { $0.kind == .damageReduction && $0.tag == Balance.Spells.vengeanceTag }) {
+            dealDamage(&s, ctx, sourceID: s.units[t].id, targetIndex: a, amount: dealt * Balance.Spells.vengeanceReflect,
+                       type: .trueDamage, source: .passive, isCrit: false, appliesOnHit: false)
+        }
+
         // 7. ライフスティール（通常攻撃）/ スペルヴァンプ（スキル）
         if let a, dealt > 0, !environmental {
             let ratio: Double
@@ -143,6 +150,14 @@ public enum CombatSystem {
             PassiveHooks.onSkillHit(&s, ctx, attacker: a, target: t, slot: slot, damage: dealt)
         }
         return dealt
+    }
+
+    /// 報復で反射できるダメージ源か（継続・泉・パッシブ由来は反射しない）。
+    static func reflectsDamage(_ source: DamageSource) -> Bool {
+        switch source {
+        case .dot, .fountain, .passive: return false
+        default: return true
+        }
     }
 
     /// 死亡を確定し pendingDeaths に 1 回だけ積む。

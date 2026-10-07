@@ -30,6 +30,8 @@ public enum PlayerCommand: Codable, Hashable, Sendable {
     case buyItem(itemID: String)
     /// items 配列の添字。
     case sellItem(slotIndex: Int)
+    /// ジャングル靴・ローム靴のオプションスキル（祝福）を切り替える。
+    case setGearOption(GearOption)
     case recall
     case emote(emoteID: String)
     case surrenderVote(yes: Bool)

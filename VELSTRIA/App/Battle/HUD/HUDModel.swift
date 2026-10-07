@@ -55,6 +55,7 @@ final class HUDModel {
         var gold: Int
         var items: [String]
         var enabled: Bool
+        var option: GearOption?
     }
 
     // MARK: 参照
@@ -588,7 +589,7 @@ final class HUDModel {
 
     private func refreshShop(_ s: SimState, _ ctx: SimContext, force: Bool) {
         guard let hi = controller.humanIndex, let h = s.units[hi].hero else { return }
-        let key = QuickBuyKey(gold: Int(h.gold), items: h.items, enabled: true)
+        let key = QuickBuyKey(gold: Int(h.gold), items: h.items, enabled: true, option: h.gear?.option)
         guard force || key != shopKey else { return }
         shopKey = key
         let st = HUDShopLogic.state(hero: h, ctx: ctx, customBuild: customBuild(for: h.heroID))
@@ -1676,6 +1677,13 @@ final class HUDModel {
         guard !isSpectating, !finished else { return }
         controller.send(.sellItem(slotIndex: slot))
         app?.haptics.tap()
+    }
+
+    /// ジャングル靴・ローム靴のオプションスキル（祝福）を切り替える。
+    func setGearOption(_ option: GearOption) {
+        guard !isSpectating, !finished else { return }
+        controller.send(.setGearOption(option))
+        app?.haptics.selection()
     }
 
     // MARK: 操作
