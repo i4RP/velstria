@@ -893,9 +893,56 @@ struct HUDActionCluster: View {
                               highlighted: highlight == .levelSkill1 && sn.slot == .skill1)
                     .position(layout.levelBadgeCenter(sn.slot))
             }
+            if let tip = model.skillTip {
+                HUDSkillTipCard(tip: tip, role: hero.role, layout: layout)
+                    .position(layout.skillTipCenter)
+                    .transition(.opacity)
+            }
         }
         .animation(.easeInOut(duration: 0.3), value: dead)
         .animation(.spring(duration: 0.3), value: skills.map(\.canLevel))
+        .animation(.easeOut(duration: 0.15), value: model.skillTip)
+    }
+}
+
+// MARK: - スキルの説明（長押し）
+
+extension HUDLayout {
+    var skillTipWidth: CGFloat { 250 * scale }
+
+    /// 説明カードの中心。操作する指に隠れないよう、スキル列の上（画面の端寄り）へ置く。
+    var skillTipCenter: CGPoint {
+        let x = leftHanded ? leadingEdge + skillTipWidth / 2 : trailingEdge - skillTipWidth / 2
+        return CGPoint(x: x, y: attackCenter.y - 150 * scale)
+    }
+}
+
+/// 押している間だけ出る、少し透けたスキルの説明（試合の邪魔にならないよう、タップは奪わない）。
+struct HUDSkillTipCard: View {
+    let tip: HUDSkillTip
+    let role: Role
+    let layout: HUDLayout
+
+    var body: some View {
+        let tint = tip.slot == .ultimate ? Theme.gold : Theme.roleColor(role)
+        let corner = 10 * layout.scale
+        VStack(alignment: .leading, spacing: 3 * layout.scale) {
+            Text(tip.name)
+                .font(.system(size: 12 * layout.scale, weight: .heavy, design: .rounded))
+                .foregroundStyle(tint)
+            Text(tip.text)
+                .font(.system(size: 10.5 * layout.scale, weight: .medium, design: .rounded))
+                .foregroundStyle(.white)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .shadow(color: .black.opacity(0.8), radius: 1, y: 0.5)
+        .padding(.horizontal, 9 * layout.scale)
+        .padding(.vertical, 7 * layout.scale)
+        .frame(width: layout.skillTipWidth, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: corner).fill(HUDStyle.surface.opacity(0.55)))
+        .overlay(RoundedRectangle(cornerRadius: corner).strokeBorder(tint.opacity(0.45), lineWidth: 0.8))
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
