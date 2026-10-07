@@ -688,10 +688,3 @@ final class FriendTests: XCTestCase {
         return body()
     }
 }
-
-private extension Result {
-    var failureValue: Failure? {
-        if case .failure(let e) = self { return e }
-        return nil
-    }
-}
