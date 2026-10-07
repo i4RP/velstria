@@ -181,6 +181,8 @@
 ## 8. 経済・成長
 - 開始 Gold 300。パッシブ Gold 毎秒 3（0:20 以降）。
 - モード別の加速（`Balance.Economy.goldScale`/`xpScale`）: 乱闘は Gold・XP とも ×2.0、他モードは ×1.0。`grantGold`/`grantXP` の 1 箇所で適用（練習場の無限 Gold には適用しない）。
+- Gold/EXP レーン補正（序盤 0〜5:00）: Gold レーンのミニオンは Gold ×1.25、EXP レーンのミニオンは XP ×1.40（`Balance.Economy.goldLaneGoldBonus` / `expLaneXPBonus` / `laneBonusEnd`）。
+  参照仕様は側レーンの攻城ミニオンだけ +45% / +35% だが、VELSIA の攻城は 3 ウェーブに 1 体なのでウェーブ全体へ換算した暫定値（Phase 1 の計測で調整）。
 - ミニオン/モンスター Gold はラストヒットのみ。XP は 1400 以内の味方ヒーローで等分（1 人なら ×1.0、2 人以上は合計 ×1.3 を等分）。
 - ヒーローキル: 基本 300。被害者の連続キル数 s ≥ 2 で +60×(s−1)（上限 +480, シャットダウン）。被害者が連続死亡中 d ≥ 2 で −15%×(d−1)（下限 100）。初キル +100。
   アシスト: バウンティの 50% をアシスト人数で等分（1 人最低 40）。
@@ -222,7 +224,8 @@
 - 視界外の敵はクライアントに描画しない（HUD・ミニマップも同様）。最後に見えた位置はミニマップに 3 秒残像。
 
 ## 10. AI（ボット）
-- レーン配置: Top = Vanguard/Duelist、Jungle = Assassin/Duelist（狩猟印必須）、Mid = Arcanist、Bot = Ranger + Support。
+- レーン配置: EXP レーン = Vanguard/Duelist、Jungle = Assassin/Duelist（狩猟印必須）、Mid = Arcanist、Gold レーン = Ranger + Support。
+  EXP レーン = 最初の中立ボス（星喰竜）に近い側レーン（標準マップでは bot）、Gold レーン = 遠い側（top）。割当は `MapDefinition.lane(for:)`（乱闘など単レーンのマップは従来の top / bot）。
 - 状態機械: Laning / Jungling / Roaming / Retreat / Recall / Shopping / Objective / Teamfight / Defend / Push。
 - 意思決定 5Hz（ボット毎に tick をずらす）。スキル照準は予測射撃（難易度で精度変化）。
 - 難易度: Easy（反応 0.6s・精度 55%・スキル頻度低）/ Normal（0.35s・75%）/ Hard（0.15s・92%・集団行動）。

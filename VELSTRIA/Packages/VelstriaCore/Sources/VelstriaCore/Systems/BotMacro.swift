@@ -110,7 +110,7 @@ enum BotMacro {
                                 groupSize: min(profile.groupSize, aliveBots.count))
             plan.kind = .push
             plan.lane = lane
-            plan.members = pushMembers(s, aliveBots, count: profile.groupSize, lane: lane)
+            plan.members = pushMembers(s, ctx.map, aliveBots, count: profile.groupSize, lane: lane)
             plan.point = BotLane.point(ctx.map, lane, team: team,
                                        progress: w.front[team.rawValue][lane.rawValue] ?? 1500)
         }
@@ -279,14 +279,14 @@ enum BotMacro {
     }
 
     /// 押し込みのメンバー: 担当レーンが近い順（mid → jungle → support → carry → top）。
-    static func pushMembers(_ s: SimState, _ bots: [Int], count: Int, lane: Lane) -> [EntityID] {
+    static func pushMembers(_ s: SimState, _ map: MapDefinition, _ bots: [Int], count: Int, lane: Lane) -> [EntityID] {
         func rank(_ p: LanePosition?) -> Int {
             switch p {
             case .mid?: return lane == .mid ? 0 : 3
             case .jungle?: return 1
             case .support?: return 2
-            case .carry?: return lane == .bot ? 0 : 3
-            case .top?: return lane == .top ? 0 : 4
+            case .carry?: return lane == map.lane(for: .carry) ? 0 : 3
+            case .top?: return lane == map.lane(for: .top) ? 0 : 4
             case nil: return 5
             }
         }

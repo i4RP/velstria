@@ -310,13 +310,7 @@ public enum SpellSystem {
     static func autoTeleport(_ s: SimState, _ ctx: SimContext, caster i: Int) -> Vec2 {
         let team = s.units[i].team
         let pos = s.units[i].pos
-        let lane: Lane?
-        switch s.units[i].hero?.position {
-        case .top: lane = .top
-        case .mid: lane = .mid
-        case .carry, .support: lane = .bot
-        case .jungle, .none: lane = nil
-        }
+        let lane: Lane? = s.units[i].hero.flatMap { ctx.map.lane(for: $0.position) }
         var best: Int?
         var bestKey = Double.infinity
         for j in s.units.indices where s.units[j].kind == .tower && s.units[j].team == team && s.units[j].isAlive {

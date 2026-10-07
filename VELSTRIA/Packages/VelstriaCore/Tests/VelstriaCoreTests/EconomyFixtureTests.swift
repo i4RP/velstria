@@ -68,9 +68,9 @@ struct EconomyFixture {
     }
 
     @discardableResult
-    mutating func addMinion(_ type: MinionType, team: Team, at p: Vec2) -> Int {
+    mutating func addMinion(_ type: MinionType, team: Team, at p: Vec2, lane: Lane = .mid) -> Int {
         var u = Unit(id: 0, kind: .minion, team: team, pos: p, radius: 36, stats: Stats())
-        u.minion = MinionData(type: type, lane: .mid, spawnTime: 0)
+        u.minion = MinionData(type: type, lane: lane, spawnTime: 0)
         let mid = s.addUnit(u)
         return s.index(of: mid)!
     }

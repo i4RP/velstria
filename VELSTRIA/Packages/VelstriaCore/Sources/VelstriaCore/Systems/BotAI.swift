@@ -101,12 +101,13 @@ public struct BotHeroMemory: Codable, Hashable, Sendable {
     public var pendingCastSlot: Int = -1
     public var pendingCastTick: Int = 0
 
-    public init(heroID: EntityID, team: Team, isBot: Bool, position: LanePosition) {
+    /// map を渡すと担当レーンは `MapDefinition.lane(for:)`（EXP/Gold レーンに沿った割当）で決まる。
+    public init(heroID: EntityID, team: Team, isBot: Bool, position: LanePosition, map: MapDefinition? = nil) {
         self.heroID = heroID
         self.team = team
         self.isBot = isBot
         self.position = position
-        self.lane = BotAI.lane(for: position)
+        self.lane = map?.lane(for: position) ?? BotAI.lane(for: position)
         self.goal = position == .jungle ? .jungling : .laning
     }
 }
@@ -223,7 +224,8 @@ public enum BotAI {
         return out
     }
 
-    /// ポジション → 担当レーン（ジャングルは nil）。
+    /// ポジション → 担当レーン（ジャングルは nil）。マップを知らない場合の既定（top → top、carry・support → bot）。
+    /// 試合中の割当は `MapDefinition.lane(for:)` を使う。
     public static func lane(for position: LanePosition) -> Lane? {
         switch position {
         case .top: return .top
@@ -240,7 +242,7 @@ public enum BotAI {
         for i in s.units.indices where s.units[i].kind == .hero {
             guard let h = s.units[i].hero else { continue }
             var m = BotHeroMemory(heroID: s.units[i].id, team: s.units[i].team, isBot: h.controller == .bot,
-                                  position: h.position)
+                                  position: h.position, map: ctx.map)
             m.stuckAnchor = s.units[i].pos
             heroes.append(m)
         }

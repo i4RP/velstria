@@ -99,7 +99,7 @@ final class BotBehaviorTests: XCTestCase {
         let human = f.s.humanHeroID!
         for m in f.s.bots.heroes {
             XCTAssertEqual(m.isBot, m.heroID != human)
-            XCTAssertEqual(m.lane, BotAI.lane(for: m.position))
+            XCTAssertEqual(m.lane, f.ctx.map.lane(for: m.position))
         }
     }
 

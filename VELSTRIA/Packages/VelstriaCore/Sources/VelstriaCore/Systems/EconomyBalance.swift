@@ -59,6 +59,15 @@ extension Balance {
             }
         }
 
+        // MARK: Gold/EXP レーン補正（参照仕様 §3.1・§5.2）
+        /// 補正が続く試合時間（秒）。参照では側レーンの最初の 10 ウェーブ（〜5:00）。
+        public static let laneBonusEnd: Double = 300
+        /// Gold レーン（最初のボスから遠い側レーン）のミニオン Gold 倍率の上乗せ。
+        /// 参照は攻城ミニオンだけ +45% だが、VELSIA の攻城は 3 ウェーブに 1 体のため、ウェーブ全体へ換算した値。
+        public static let goldLaneGoldBonus: Double = 0.25
+        /// EXP レーン（最初のボスに近い側レーン）のミニオン XP 倍率の上乗せ（参照は攻城のみ +35%、同じく換算）。
+        public static let expLaneXPBonus: Double = 0.40
+
         // MARK: オブジェクト
         public static let wyrmTeamGold: Double = 150
         public static let wyrmTeamXP: Double = 200

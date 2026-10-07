@@ -274,11 +274,21 @@ public enum DeathSystem {
             s.units[k].hero?.score.minionKills += 1
             // ジャングル靴（5:00 まで）・ローム靴（8:00 まで）は自分の収入が半減
             let mult = s.units[k].hero.map { GearEffects.minionRewardMultiplier($0, time: s.time, master: ctx.master) } ?? 1
-            EconomyRewards.grantGold(&s, heroIndex: k, amount: Balance.Economy.minionGold(m.type) * mult, at: pos)
+            EconomyRewards.grantGold(&s, heroIndex: k,
+                                     amount: Balance.Economy.minionGold(m.type) * mult * laneBonus(s, ctx, lane: m.lane).gold,
+                                     at: pos)
         }
         // XP は周囲の敵ヒーローで分配（止めを刺したのがミニオンでも入る）
         HeroGrowth.shareXP(&s, ctx, team: s.units[v].team.opponent, around: pos,
-                           amount: Balance.Economy.minionXP(m.type))
+                           amount: Balance.Economy.minionXP(m.type) * laneBonus(s, ctx, lane: m.lane).xp)
+    }
+
+    /// 序盤の Gold/EXP レーン補正（Gold レーンのミニオンは Gold、EXP レーンのミニオンは XP が増える）。
+    static func laneBonus(_ s: SimState, _ ctx: SimContext, lane: Lane) -> (gold: Double, xp: Double) {
+        guard s.time < Balance.Economy.laneBonusEnd else { return (1, 1) }
+        if lane == ctx.map.goldLane { return (1 + Balance.Economy.goldLaneGoldBonus, 1) }
+        if lane == ctx.map.expLane { return (1, 1 + Balance.Economy.expLaneXPBonus) }
+        return (1, 1)
     }
 
     // MARK: - 中立モンスター
