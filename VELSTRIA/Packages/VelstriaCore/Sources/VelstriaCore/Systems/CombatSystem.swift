@@ -71,14 +71,22 @@ public enum CombatSystem {
         // 6. シールド（古いものから）→ HP
         var remaining = amount
         var absorbed = 0.0
+        var turretShieldAbsorbed = 0.0
         if !s.units[t].shields.isEmpty {
             for k in s.units[t].shields.indices where remaining > 0 {
                 let take = min(remaining, max(0, s.units[t].shields[k].amount))
                 s.units[t].shields[k].amount -= take
                 remaining -= take
                 absorbed += take
+                if s.units[t].shields[k].tag == TowerSystem.shieldTag { turretShieldAbsorbed += take }
             }
             s.units[t].shields.removeAll { $0.amount <= deathEpsilon }
+        }
+        // 外塔のシールドを削ったヒーローは、削ったダメージ 10 につき 0.8 Gold を得る（参照仕様 §3.1）
+        if turretShieldAbsorbed > 0, let a, s.units[a].kind == .hero, s.units[a].team != s.units[t].team {
+            EconomyRewards.grantGold(&s, heroIndex: a,
+                                     amount: turretShieldAbsorbed / 10 * Balance.outerTowerShieldGoldPer10,
+                                     at: s.units[t].pos, visible: false)
         }
         let hpBefore = max(0, s.units[t].hp)
         let hpLoss = min(hpBefore, remaining)

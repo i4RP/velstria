@@ -106,8 +106,12 @@ public enum Balance {
     public static let towerTrueSightRadius: Double = 750
 
     // MARK: 構造物
-    public static let outerTowerProtectionUntil: Double = 4 * 60
-    public static let outerTowerProtectionReduction: Double = 0.40
+    /// 外塔のエネルギーシールド（参照仕様 §5.4）: 開始時に付き、5:00 で消える。シールドがある間は被ダメ −30%（遠近とも）。
+    /// シールドに与えたダメージ 10 につき 0.8 Gold を攻撃したヒーローが得る（参照 §3.1）。
+    public static let outerTowerShield: Double = 5000
+    public static let outerTowerShieldDuration: Double = 5 * 60
+    public static let outerTowerShieldReduction: Double = 0.30
+    public static let outerTowerShieldGoldPer10: Double = 0.8
     public static let backdoorReduction: Double = 0.50
     public static let towerRampPerHit: Double = 0.30
     public static let towerRampMax: Double = 1.20

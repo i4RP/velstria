@@ -274,6 +274,11 @@ public enum UnitFactory {
                      radius: spot.isCore ? Balance.coreRadius : Balance.towerRadius, stats: st)
         u.facing = (Balance.mapCenter - spot.pos).angle
         u.tower = TowerData(lane: spot.lane, tier: spot.tier)
+        // 外塔にはエネルギーシールド（開始〜5:00）。参照仕様 §5.4
+        if !spot.isCore, spot.tier == .outer {
+            u.shields.append(Shield(amount: Balance.outerTowerShield, duration: Balance.outerTowerShieldDuration,
+                                    tag: TowerSystem.shieldTag))
+        }
         return u
     }
 

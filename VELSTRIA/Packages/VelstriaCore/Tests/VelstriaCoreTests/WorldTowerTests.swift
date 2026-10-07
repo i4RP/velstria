@@ -10,7 +10,10 @@ final class WorldTowerTests: XCTestCase {
         var (s, ctx) = Kit.makeState(Kit.emptyConfig())
         Kit.setTime(&s, 300)
         Kit.suppressWaves(&s)
-        return (s, ctx, Kit.structureIndex(s, team: .blue, lane: .mid, tier: .outer))
+        let outer = Kit.structureIndex(s, team: .blue, lane: .mid, tier: .outer)
+        // 外塔のエネルギーシールド（開始〜5:00）は専用のテストで確かめる。ここでは外した状態から始める
+        s.units[outer].shields.removeAll()
+        return (s, ctx, outer)
     }
 
     func testPrefersNearestMinionOverCloserHero() {
@@ -182,16 +185,48 @@ final class WorldTowerTests: XCTestCase {
         XCTAssertNil(s.units[tower].windupRemaining)
     }
 
-    func testOuterTowerEarlyProtection() {
+    /// 外塔のエネルギーシールドがある間は被ダメ −30%。シールドが無い（期限切れ・削り切り）と通常に戻る。
+    func testOuterTowerShieldReducesDamageWhileItLasts() {
         var (s, ctx, outer) = makeLaneFight()
         let inner = Kit.structureIndex(s, team: .blue, lane: .mid, tier: .inner)
         let siege = Kit.addMinion(&s, ctx, type: .siege, team: .red, pos: Vec2(4700, 4700))
-        Kit.setTime(&s, 100)
-        XCTAssertEqual(TowerSystem.damageTakenMultiplier(s, ctx, structureIndex: outer, sourceIndex: nil), 0.6, accuracy: 1e-9)
-        XCTAssertEqual(TowerSystem.damageTakenMultiplier(s, ctx, structureIndex: outer, sourceIndex: siege), 0.9, accuracy: 1e-9)
+        XCTAssertFalse(TowerSystem.hasTurretShield(s.units[outer]))
+        XCTAssertEqual(TowerSystem.damageTakenMultiplier(s, ctx, structureIndex: outer, sourceIndex: nil), 1.0, accuracy: 1e-9)
+        s.units[outer].shields.append(Shield(amount: Balance.outerTowerShield, duration: Balance.outerTowerShieldDuration,
+                                             tag: TowerSystem.shieldTag))
+        XCTAssertTrue(TowerSystem.hasTurretShield(s.units[outer]))
+        XCTAssertEqual(TowerSystem.damageTakenMultiplier(s, ctx, structureIndex: outer, sourceIndex: nil), 0.7, accuracy: 1e-9)
+        XCTAssertEqual(TowerSystem.damageTakenMultiplier(s, ctx, structureIndex: outer, sourceIndex: siege), 0.7 * 1.5, accuracy: 1e-9)
         XCTAssertEqual(TowerSystem.damageTakenMultiplier(s, ctx, structureIndex: inner, sourceIndex: siege), 1.5, accuracy: 1e-9)
-        Kit.setTime(&s, 240)
+        // 期限切れ（5:00）
+        s.units[outer].shields[0].remaining = 0
+        XCTAssertFalse(TowerSystem.hasTurretShield(s.units[outer]))
         XCTAssertEqual(TowerSystem.damageTakenMultiplier(s, ctx, structureIndex: outer, sourceIndex: siege), 1.5, accuracy: 1e-9)
+    }
+
+    /// シールドを削ったヒーローは、削ったダメージ 10 につき 0.8 Gold を得る。HP は減らない。
+    func testHeroDamagingTheOuterShieldEarnsGold() {
+        var (s, ctx, outer) = makeLaneFight()
+        let hero = Kit.addHero(&s, ctx, team: .red, pos: Vec2(4800, 4800))
+        Kit.addMinion(&s, ctx, team: .red, pos: Vec2(4800, 4850))   // 護衛ミニオン（裏取り保護を外す）
+        s.units[outer].shields.append(Shield(amount: Balance.outerTowerShield, duration: Balance.outerTowerShieldDuration,
+                                             tag: TowerSystem.shieldTag))
+        let hpBefore = s.units[outer].hp
+        let shieldBefore = s.units[outer].totalShield
+        let goldBefore = s.units[hero].hero!.gold
+        CombatSystem.applyDamage(&s, ctx, sourceID: s.units[hero].id, targetIndex: outer, amount: 1000,
+                                 type: .trueDamage, source: .basicAttack)
+        // 確定ダメージ 1000 × シールドの軽減 0.7 = 700 がシールドに吸われ、HP は減らない
+        XCTAssertEqual(s.units[outer].hp, hpBefore, accuracy: 1e-9)
+        XCTAssertEqual(shieldBefore - s.units[outer].totalShield, 700, accuracy: 1e-6)
+        XCTAssertEqual(s.units[hero].hero!.gold - goldBefore, 700 / 10 * Balance.outerTowerShieldGoldPer10, accuracy: 1e-6)
+    }
+
+    func testOnlyOuterTowersStartWithTheEnergyShield() {
+        let (s, _) = Kit.makeState(Kit.emptyConfig())
+        for u in s.units where u.isStructure {
+            XCTAssertEqual(TowerSystem.hasTurretShield(u), u.kind == .tower && u.tower?.tier == .outer, "only outer towers carry the energy shield")
+        }
     }
 
     func testBackdoorProtectionAgainstHeroes() {
@@ -205,9 +240,10 @@ final class WorldTowerTests: XCTestCase {
         s.units[m].pos = Vec2(5300, 5300)
         Kit.addMinion(&s, ctx, team: .blue, pos: Vec2(4500, 4500))
         XCTAssertEqual(TowerSystem.damageTakenMultiplier(s, ctx, structureIndex: outer, sourceIndex: hero), 0.5, accuracy: 1e-9)
-        // 序盤保護と重なる
-        Kit.setTime(&s, 60)
-        XCTAssertEqual(TowerSystem.damageTakenMultiplier(s, ctx, structureIndex: outer, sourceIndex: hero), 0.3, accuracy: 1e-9)
+        // 外塔のシールドと重なる
+        s.units[outer].shields.append(Shield(amount: 100, duration: 100, tag: TowerSystem.shieldTag))
+        XCTAssertEqual(TowerSystem.damageTakenMultiplier(s, ctx, structureIndex: outer, sourceIndex: hero), 0.5 * 0.7, accuracy: 1e-9)
+        s.units[outer].shields.removeAll()
         // 実ダメージにも反映される（防御 80: 100 / 180）
         Kit.setTime(&s, 300)
         let before = s.units[outer].hp

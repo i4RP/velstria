@@ -1,7 +1,7 @@
 import XCTest
 @testable import VelstriaCore
 
-/// ヒーロー抜き（ミニオン・構造物・中立のみ）の標準戦を 12 分回す統合テスト（外塔の序盤保護と裏取り保護があるため、ミニオンだけでは 10 分台前半に最初の塔が落ちる）。
+/// ヒーロー抜き（ミニオン・構造物・中立のみ）の標準戦を 15 分回す統合テスト（外塔のエネルギーシールドと裏取り保護があるため、ミニオンだけでは最初の塔が落ちるのが遅い）。
 /// 長時間のため Release で実行する: swift test -c release --filter WorldMatchTests
 final class WorldMatchTests: XCTestCase {
     struct Digest: Equatable {
@@ -18,7 +18,7 @@ final class WorldMatchTests: XCTestCase {
                rng: s.rng, world: s.world)
     }
 
-    func testMinionsOnlyMatchRunsTwelveMinutesDeterministicallyAndTowersFall() throws {
+    func testMinionsOnlyMatchRunsFifteenMinutesDeterministicallyAndTowersFall() throws {
         #if DEBUG
         throw XCTSkip("Release で実行する: swift test -c release --filter WorldMatchTests")
         #else
@@ -29,7 +29,7 @@ final class WorldMatchTests: XCTestCase {
         var waves = 0
         var campsKilled = 0
         let t0 = DispatchTime.now().uptimeNanoseconds
-        a.runHeadless(maxTime: 720) { ev in
+        a.runHeadless(maxTime: 900) { ev in
             for e in ev {
                 switch e {
                 case .structureDestroyed(_, _, let team, let lane, let tier, _):
@@ -41,13 +41,13 @@ final class WorldMatchTests: XCTestCase {
             }
         }
         let msPerTick = Double(DispatchTime.now().uptimeNanoseconds - t0) / 1e6 / Double(a.state.tick)
-        b.runHeadless(maxTime: 720)
+        b.runHeadless(maxTime: 900)
 
-        XCTAssertEqual(a.state.tick, 21600)
+        XCTAssertEqual(a.state.tick, 27000)
         XCTAssertEqual(digest(a.state), digest(b.state), "same config must give identical state")
-        XCTAssertEqual(waves, 24)
+        XCTAssertEqual(waves, 30)
         XCTAssertEqual(campsKilled, 0, "nobody attacks neutral camps in a minions-only match")
-        XCTAssertFalse(destroyed.isEmpty, "at least one tower should fall within 12 minutes")
+        XCTAssertFalse(destroyed.isEmpty, "at least one tower should fall within 15 minutes")
         // 外塔から順に落ちる（無敵の順序）
         for d in destroyed where d.tier != .outer {
             let outerDown = destroyed.contains { $0.team == d.team && $0.lane == d.lane && $0.tier == .outer && $0.time <= d.time }
@@ -59,7 +59,7 @@ final class WorldMatchTests: XCTestCase {
             XCTAssertLessThan(a.ctx.map.distanceToLane(u.pos, lane: u.minion!.lane), Balance.minionLaneChaseLimit + 200)
         }
         XCTAssertLessThan(msPerTick, 1.0, "tick budget")
-        print(String(format: "minions-only 10 min: %d structures down, %.3f ms/tick", destroyed.count, msPerTick))
+        print(String(format: "minions-only 15 min: %d structures down, %.3f ms/tick", destroyed.count, msPerTick))
         for d in destroyed {
             print("  \(d.team) \(String(describing: d.lane)) \(String(describing: d.tier)) at \(Int(d.time))s")
         }
