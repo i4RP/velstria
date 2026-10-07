@@ -1,39 +1,47 @@
-The Star Ring has shattered. Across the broken world of Velstria, 24 heroes clash over three lanes for the lost shards of the Star Core.
+In a world where the Star Ring has shattered, choose from 24 heroes in a 5v5 MOBA for iPhone. Team up with four AI allies, push three lanes and destroy the enemy Star Core.
+Builds, vision, boss fights and teamfights: a full MOBA in matches of roughly 10 to 18 minutes.
+A Tutorial and Practice mode help newcomers, and every match is against AI with no connection needed.
 
-VELSIA: Star Ring Arena is a full 5v5 MOBA built for iPhone. Team up with four AI allies against a five-hero AI squad, push your lanes alongside waves of minions, break through the enemy towers, and destroy their Star Core to claim victory.
+◆ HOW TO PLAY
+- Pick a position (Top, Jungle, Mid, Bot or Support) and push the lane with your minions
+- Destroy the outer, inner and base towers of each lane in order; once one base tower falls, the Star Core can be attacked
+- Defeat the jungle's Azure and Crimson Sentinels and the river's Astral Wyrm and Ancient Colossus to swing the match
+- Level up to 15 and power up your Skills and Ultimate
+- AI allies and enemies hold lanes, clear the jungle, rotate, retreat, fight for bosses and team up. Choose Easy, Normal or Hard
 
-No connection required. Play on the train, on a plane, anywhere — every match takes about 10 to 18 minutes and is packed with the mind games and teamwork of a true MOBA.
+◆ NEW TO MOBAS? START HERE
+- Tutorial: five chapters, about five minutes; offered at first launch, skippable, and replayable any time
+- Practice: try every hero, owned or not, with Infinite Gold and No Cooldowns
+- Easy controls: the Attack button auto-targets nearby enemies, and skills cast with a tap (auto-aim) or a drag (manual aim). Auto-level Skills and Recommended Items are on from the start
 
 ◆ 24 HEROES, 6 ROLES
-Vanguard, Duelist, Ranger, Arcanist, Support and Assassin. Every hero has a passive, three skills and an ultimate. Start teamfights, strike from the shadows, rain damage from the backline or keep your team alive — each role changes the flow of battle.
-
-◆ A REAL 3-LANE MAP WITH A JUNGLE
-Endless minion waves, three layers of towers, the Azure and Crimson Guardians, and two river bosses: the Astral Wyrm and the Ancient Colossus. Use vision and brush to set up ambushes, and fight over the bosses to swing the game.
+Vanguard, Duelist, Ranger, Arcanist, Support and Assassin, four heroes each. Every hero has a Passive, three Skills and an Ultimate. Start with six heroes, one per role, and unlock the other 18 with Starlight Coins (Coins) earned by playing.
 
 ◆ 72 ITEMS, 10 BATTLE SPELLS, 30 RUNES
-Shop at any time during a match and upgrade components into powerful items. Combine battle spells like Blink, Cleanse and Ignite with rune pages to create your own build for every hero.
+- Items: six categories, 12 each; buy anywhere, any time, and combine at a discount using the components you own
+- Battle Spells: Blink, Cleanse, Ignite and more
+- Runes: five paths
 
-◆ AI THAT THINKS
-Allies and enemies read the game: laning, jungling, retreating, recalling, contesting bosses and grouping for teamfights. Choose Easy, Normal or Hard.
+◆ MODES
+- Classic (Standard): you and four AI allies vs five AI enemies; earn Coins whether you win or lose
+- Ranked: an AI ladder with bans, snake picks and seven tiers, Meteorite to Star Sovereign; the AI toughens as you climb
+- Brawl: single lane, no jungle, faster pace; earns rewards but no rank points
+- Rising: a win-to-advance run against AI
+- AI & Custom: pick your side, AI strength and map
+- Auto Battler: you vs seven AI rivals
+- Spectate and Replays: watch AI vs AI (no rewards or records), or rewatch your auto-saved matches at 0.5x to 8x with rewind and file sharing
 
-◆ MODES FOR EVERY MOOD
-- Standard: pick a difficulty and battle the AI
-- Ranked: draft with bans and climb seven tiers from Meteorite to Star Sovereign
-- Practice Range and Tutorial: try any skill or item freely
-- Spectate: watch AI teams battle it out
-- Replays: relive and study your own matches
+◆ COSMETIC-FOCUSED PURCHASES
+- Free to play. Optional in-app purchases: AstralGem (shown as "Astral Gems" on the purchase sheet) and Star Pass Premium. Spend AstralGem on cosmetics such as skins
+- Cosmetics don't affect combat, nothing paid is randomized, and heroes unlock only with Coins, never with AstralGem
+- Star Pass: 30 levels, free and premium tracks. Premium is purchased each season and adds Coins and AstralGem on top of cosmetics; Coins speed up hero unlocks
 
-◆ FAIR BY DESIGN
-Paid items are cosmetic only — skins, emotes, recall effects and more — plus the Star Pass premium rewards. Heroes are unlocked with Starlight Coins earned by playing. You can never buy combat power, and there are no randomized paid items.
-
-◆ ALWAYS SOMETHING TO DO
-Daily missions, the Star Pass with free and premium tracks, match history, achievements and saved replays.
-
-◆ BUILT FOR EVERYONE
-Touch controls designed for landscape play, indicators that never rely on color alone, and a full Japanese and English interface.
+◆ BUILT FOR PHONES
+- Landscape touch controls, left-handed layout, Colorblind Mode
+- No ads, no account or login; pause any time during a MOBA match
 
 ◆ NOTES
-- Free to play with optional in-app purchases (Astral Gems and Star Pass Premium).
-- Minors should obtain a parent's or guardian's permission before purchasing. Monthly spending limits apply based on the age group you select.
-- Your game data is stored on your device and is deleted when you delete the app.
-- Requires an iPhone running iOS 18 or later.
+- Minors need a parent's or guardian's consent to buy. Monthly spending limits apply by age (15 and under: ¥5,000; 16 to 19: ¥10,000; 20 and over: no limit).
+- Every match is against AI and works without a connection (only purchases need one).
+- Game data stays on your device and is deleted with the app. AstralGem balances lost through device loss, reset or app deletion can't be restored.
+- Requires an iPhone with iOS 18 or later; landscape only.

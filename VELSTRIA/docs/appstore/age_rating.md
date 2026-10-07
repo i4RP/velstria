@@ -12,8 +12,8 @@ ASC > App 情報 > 年齢制限 の質問票への回答。結果は **9+**（�
 | ペアレンタルコントロール (Parental Controls) | いいえ | 年齢区分による月間購入上限はあるが、保護者向け管理機能ではない |
 | 年齢確認 (Age Assurance) | いいえ | 自己申告の年齢区分のみ（購入上限の判定に使用） |
 | 無制限の Web アクセス (Unrestricted Web Access) | いいえ | アプリ内ブラウザなし。外部リンクは固定のプライバシーポリシー/利用規約/サポートのみ |
-| ユーザー生成コンテンツ (User-Generated Content) | いいえ | 投稿・共有機能なし（プレイヤー名は端末内でのみ表示） |
-| メッセージとチャット (Messaging and Chat) | いいえ | オンライン機能は v1.0 に無い（`FeatureFlags.online == false`） |
+| ユーザー生成コンテンツ (User-Generated Content) | いいえ | アプリ内の投稿・公開・検索・他の利用者への配信機能なし。リプレイだけは、利用者が共有シート／ファイル選択で `.vreplay` を書き出し・取り込める（送り先は利用者が選ぶ。ファイルにプレイヤー表示名を含む。アプリが自動で送信・公開することはない） |
+| メッセージとチャット (Messaging and Chat) | いいえ | オンライン機能は公開版に無い（`FeatureFlags.online == false` かつ `FeatureFlags.lanMatch == false`） |
 | 広告 (Advertising) | いいえ | 広告なし |
 
 ### 成熟したテーマ（Mature Themes）

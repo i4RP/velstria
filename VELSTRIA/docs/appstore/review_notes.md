@@ -22,6 +22,7 @@ VELSIA - 星環の戦場 は完全オフラインの 5 対 5 MOBA です。味�
 - 短時間で確認する場合: ホーム > 練習場。試合中メニューからいつでも退出できます。
 - チュートリアル: ホーム > 対戦開始 > その他 > チュートリアル（設定 > サポート > チュートリアルからも可）。
 - 観戦（AI 同士）: ホーム > 観戦。自分の試合のリプレイ: ホーム > リプレイ。
+- リプレイのファイル: ホーム > リプレイで、各行のメニューから共有（.vreplay ファイル）、「ファイルから取り込む」で取り込み。ファイルに入るのは試合の構成・入力・表示名だけで、渡す相手・アプリは利用者が iOS の共有シートで選ぶ。アプリが送信することはない。
 - ヒーロー・装備・ルーン: ホーム > ヒーロー / 装備 / ルーン。バトルスペルとルーンページは各試合前のヒーロー選択画面で選びます。
 - 言語: 設定 > 言語 > English（既定では端末の言語に従います）。
 - 端末内データの全削除: 設定 > プライバシー。
@@ -48,7 +49,7 @@ iPhone のみ、横画面、iOS 18 以降。
 
 | 記載 | 根拠 |
 |---|---|
-| 完全オフライン・サーバーなし | DESIGN.md §0、`FeatureFlags.online == false`、ARCHITECTURE.md「ネットワーク通信なし」 |
+| 完全オフライン・サーバーなし | DESIGN.md §0、`FeatureFlags.online == false` かつ `FeatureFlags.lanMatch == false`（公開版。ホームのタイル・招待リンク・オンライン関連の文言を出さない）、ARCHITECTURE.md「ネットワーク通信なし」。Info.plist の NSLocalNetworkUsageDescription / Bonjour / `velstria://` は無効化した開発用 LAN 対戦のもので、審査メモ「NOTE ON NETWORK ENTRIES」に記載 |
 | 年齢区分と月間上限 | DESIGN.md §12、`AgeBracket.monthlySpendLimitJPY`（13 歳未満・13〜15 歳 5,000 円、16〜19 歳 10,000 円） |
 | 初回起動の順序・導線 | ui-flow（`OnboardingFlowView`: 年齢 → 規約 → 名前 → 初回準備 → チュートリアル、`HomeView`、`MatchFlowView`）、ui-collection（`StoreHomeView`）、ui-liveops（`SettingsView` / `SupportView` / `StarPassView`） |
 | 課金 7 商品 | DESIGN.md §13、`StoreKitService.gemProducts` / `premiumPassProductID`、[in_app_purchases.md](in_app_purchases.md) |

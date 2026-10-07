@@ -1,6 +1,6 @@
 # 戦闘UI・ミニマップ更新
 
-Pokémon UNITEの[公式バトル紹介](https://unite.pokemon.com/en-us/overview/)を参考に、戦場を見ながら素早く状況を読める情報配置へ更新した。VELSTRIAの3レーン地形、チーム色、戦闘ルールを利用する。
+Pokémon UNITEの[公式バトル紹介](https://unite.pokemon.com/en-us/overview/)を参考に、戦場を見ながら素早く状況を読める情報配置へ更新した。VELSIAの3レーン地形、チーム色、戦闘ルールを利用する。
 
 ## 表示と操作
 

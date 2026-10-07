@@ -1070,7 +1070,7 @@ if (cmd === "create-app") {
   const exact = bid.data.find((b) => b.attributes.identifier === BUNDLE_ID);
   if (!exact) fail(`Bundle ID ${BUNDLE_ID} が Developer に登録されていません`);
   console.log(`Bundle ID: ${exact.attributes.identifier}（${exact.attributes.name}, id ${exact.id}）`);
-  const [name = "VELSTRIA - 星環の戦場", sku = "VELSTRIA-IOS-001"] = rest;
+  const [name = "VELSIA - 星環の戦場", sku = "VELSTRIA-IOS-001"] = rest;
   try {
     const r = await call("POST", "/v1/apps", {
       data: {

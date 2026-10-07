@@ -57,7 +57,7 @@ App Store Connect（ASC）への v1.0 提出に必要なもの一式と手順。
 | 項目 | 日本語 | English (U.S.) |
 |---|---|---|
 | 名前（30 文字以内） | VELSIA - 星環の戦場 | VELSIA: Star Ring Arena |
-| サブタイトル（30 文字以内） | オフラインで遊べる5対5のMOBA | Offline 5v5 MOBA vs Smart AI |
+| サブタイトル（30 文字以内） | AIの味方とオフラインで遊べる5対5のMOBA | Play a 5v5 MOBA offline vs AI |
 | プライマリ言語 | 日本語 | |
 | バンドル ID | `com.bitcoinpay.velstria` | |
 | SKU（ASC 内部用） | `VELSTRIA-IOS-001` | |
@@ -177,6 +177,21 @@ App Store への審査提出・公開は行わない方針（2026-10-05 ユー�
 （以前あった提出前チェック・`asc.mjs submit` の自動実行は削除済み）。
 `tools/asc.mjs` の `submit` / `release-check` は手元から使う道具として残してあるが、CI からは呼ばない。
 App Store に出すことになった場合は、このファイルの §2〜§10 の手順と `release_checklist.md` に従う。
+
+### 10.2 掲載情報の下書きへの反映（審査には出さない）
+
+名前・サブタイトル・説明・プロモーションテキスト・キーワードと、スクリーンショットは、審査提出と切り離して ASC の下書きに書ける。
+どちらも `--dry-run` は GET だけで、行う変更を表示する。URL（プライバシー・サポート・マーケティング）は仮値のうちは送らない。
+
+```sh
+cd VELSTRIA
+node tools/asc.mjs sync-listing --dry-run     # docs/appstore/metadata → ASC の編集中バージョン・App 情報
+node tools/asc.mjs sync-listing
+node tools/asc.mjs upload-screenshots build/screenshots/iPhone-17-Pro-Max --dry-run   # <dir>/<ja|en>/NN_name.png
+node tools/asc.mjs upload-screenshots build/screenshots/iPhone-17-Pro-Max [--replace]
+```
+
+環境変数 `ASC_KEY_ID` / `ASC_ISSUER_ID`（と `ASC_KEY_PATH`）が必要。名前が他のアプリと重複すると ASC が拒否するので、その場合はサブタイトルなどで調整する。
 
 ## 11. よくある却下理由と対策
 

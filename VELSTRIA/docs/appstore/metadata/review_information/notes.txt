@@ -10,6 +10,7 @@ WHERE TO FIND EACH FEATURE
 - For a short session: Home > Practice. A practice match can be left at any time from the in-match menu.
 - Tutorial: Home > BATTLE > More > Tutorial (also Settings > Support > Tutorial).
 - Spectate an AI vs AI match: Home > Spectate. Replays of your own matches: Home > Replays.
+- Replay files: on Home > Replays, a replay can be shared from its row menu (a .vreplay file) and a file can be imported with "Import File". The file holds only the match setup, inputs and player display names. It is handed to whichever person or app the user picks in the iOS share sheet; the app never uploads it.
 - Heroes, items and runes: Home > Heroes / Items / Runes. Battle spells and rune pages are chosen on the Choose Hero screen before each match.
 - Language: Settings > Language > English (by default the app follows the device language).
 - Delete all local data: Settings > Privacy.
@@ -21,6 +22,9 @@ IN-APP PURCHASES
 Steps: Home > Store > Get Gems (or tap the currency counter at the top of Home) > tap a gem pack > confirm. The paid gem balance (including the pack bonus) increases as soon as the verified transaction is finished. Gems are spent on cosmetic items in the Store. Star Pass Premium: Home > Star Pass > Premium. Restore Purchases: Home > Store > Restore (also on the Star Pass premium panel).
 
 Paid items are cosmetic only and never change combat stats. There are no randomized paid items (no loot boxes): every product shows exactly what you receive. Heroes are unlocked with Starlight Coins that are earned by playing, not with real money.
+
+NOTE ON NETWORK ENTRIES
+Info.plist still declares a Local Network usage description, a Bonjour service and the velstria:// URL scheme. They belong to a development-only LAN match feature that is switched off in this build (FeatureFlags.lanMatch = false). No screen, link or setting reaches it, so the app never asks for Local Network access.
 
 PRIVACY
 The app does not collect any data. The profile, replays and purchase records are stored only on the device. There are no analytics, advertising or tracking SDKs, and no App Tracking Transparency prompt. The app uses no encryption other than what iOS provides.

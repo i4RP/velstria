@@ -52,16 +52,16 @@ done
 # 撮影する画面: 名前|起動引数|待ち時間
 # App Store の並び順（最初の 3 枚が検索結果に出る）: 戦闘 → ホーム → ヒーロー → …
 SHOTS=(
-    "01_battle_teamfight|-grant -battle standard|$WAIT_BATTLE_LATE"
+    "01_battle_teamfight|-grant -battle standard -botControl -battleSpeed 4|$WAIT_BATTLE_LATE"
     "02_home||$WAIT_SCREEN"
     "03_heroes|-grant -route heroes|$WAIT_SCREEN"
-    "04_battle_lanes|-grant -battle standard|$WAIT_BATTLE_EARLY"
-    "05_hero_detail|-grant -route heroDetail:H003|$WAIT_SCREEN"
+    "04_battle_lanes|-grant -battle standard -botControl -battleSpeed 2|$WAIT_BATTLE_EARLY"
+    "05_hero_detail|-grant -route heroDetail:H003 -heroTab skills|$WAIT_SCREEN"
     "06_build_editor|-grant -route buildEditor:H003|$WAIT_SCREEN"
     "07_ranked|-route rankOverview|$WAIT_SCREEN"
     "08_skin_store|-route skinStore|$WAIT_SCREEN"
     "09_star_pass|-route starPass|$WAIT_SCREEN"
-    "10_spectate|-battle spectate|$WAIT_BATTLE_LATE"
+    "10_spectate|-battle spectate -spectateDirector on -spectateSpeed 4|$WAIT_BATTLE_LATE"
 )
 # App 内課金の審査用（製品ページには載せない。review/ に保存）
 REVIEW_SHOTS=(

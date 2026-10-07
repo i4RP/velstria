@@ -70,6 +70,8 @@ FORBIDDEN = [
     (re.compile(r"android|google play|アンドロイド|グーグルプレイ", re.I), "他プラットフォームへの言及"),
     (re.compile(r"\b(free gems|無料ジェム配布)\b", re.I), "誤認を招く無料訴求"),
     (re.compile(r"(No\.?\s?1|ナンバーワン|世界一|最高傑作)", re.I), "根拠のない最上級表現"),
+    (re.compile(r"magic\s?chess|マジックチェス|auto\s?chess|mobile\s?legends|モバイルレジェンド|honor of kings|league of legends|wild rift|arena of valor|pok[eé]mon|ポケモン", re.I),
+     "他社のゲーム名・商標（ガイドライン 5.2）"),
 ]
 VALID_CATEGORIES = {"GAMES"}
 VALID_GAME_SUBCATEGORIES = {

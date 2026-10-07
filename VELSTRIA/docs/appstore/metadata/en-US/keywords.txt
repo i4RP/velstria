@@ -1,1 +1,1 @@
-strategy,action,hero,lane,battle,ranked,fantasy,tower,jungle,rpg,team,solo,tactics,bots,magic
+hero,lane,tower,jungle,ranked,draft,teamfight,rune,strategy,replay,spectate,tutorial,beginner,build

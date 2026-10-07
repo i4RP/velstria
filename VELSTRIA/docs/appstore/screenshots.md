@@ -22,6 +22,10 @@ WAIT_BATTLE_LATE=180 tools/screenshots.sh --skip-build --only 01_battle_teamfigh
 ```
 
 出力: `build/screenshots/<デバイス>/<言語>/NN_name.png`（`build/` は git 管理外）。
+公開版は `FeatureFlags.lanMatch = false`（ホームに「オンライン」が出ない）で撮る。true のビルドで撮った画像は、掲載文にない機能が写るので使わない。
+
+ASC の下書きへの登録は、審査に提出せずに行える（`node tools/asc.mjs upload-screenshots build/screenshots/iPhone-17-Pro-Max --dry-run` で
+計画を確認し、問題なければ `--dry-run` を外す。枠に既に画像があるときは `--replace`。`--display-type` の既定は `APP_IPHONE_67`、6.9 インチの画像もこの枠に入る）。
 App 内課金の審査用スクリーンショット（Gem 購入画面・スターパスのプレミアム欄）は同じ実行で
 `build/screenshots/<デバイス>/<言語>/review/iap_*.png` に保存される（製品ページには載せない。[in_app_purchases.md](in_app_purchases.md)）。
 
@@ -37,16 +41,16 @@ App 内課金の審査用スクリーンショット（Gem 購入画面・スタ
 
 | # | ファイル | 起動引数 | 見せたいこと | キャプション案（日本語 / English） |
 |---|---|---|---|---|
-| 1 | `01_battle_teamfight` | `-grant -battle standard`（120 秒後） | 5v5 の集団戦・スキル演出 | 5対5の本格MOBAを、いつでもどこでも / A true 5v5 MOBA, anywhere |
-| 2 | `02_home` | なし | ホーム画面の世界観 | 星環が砕けた世界ヴェルストリアへ / Enter the shattered world of Velstria |
+| 1 | `01_battle_teamfight` | `-grant -battle standard -botControl -battleSpeed 4`（120 秒後） | 5v5 の集団戦・スキル演出（操作キャラを AI に任せ、4 倍速で中盤まで進める） | 5対5の本格MOBAを、いつでもどこでも / A true 5v5 MOBA, anywhere |
+| 2 | `02_home` | なし | ホーム画面の世界観 | 星環が砕けた世界ベルシアへ / Enter the shattered world of Velsia |
 | 3 | `03_heroes` | `-grant -route heroes` | 24 ヒーロー・6 ロール | 24人のヒーロー、6つのロール / 24 heroes, 6 roles |
-| 4 | `04_battle_lanes` | `-grant -battle standard`（35 秒後） | 3 レーンとミニオン、HUD | 3つのレーンとジャングルを制せ / Command three lanes and the jungle |
-| 5 | `05_hero_detail` | `-grant -route heroDetail:H003` | スキル詳細 | パッシブ＋3スキル＋アルティメット / Passive, 3 skills and an ultimate |
+| 4 | `04_battle_lanes` | `-grant -battle standard -botControl -battleSpeed 2`（60 秒後） | 3 レーンとミニオン、HUD | 3つのレーンとジャングルを制せ / Command three lanes and the jungle |
+| 5 | `05_hero_detail` | `-grant -route heroDetail:H003 -heroTab skills` | スキル詳細 | パッシブ＋3スキル＋アルティメット / Passive, 3 skills and an ultimate |
 | 6 | `06_build_editor` | `-grant -route buildEditor:H003` | 装備ビルド | 72種の装備で自分だけのビルドを / Craft your build from 72 items |
 | 7 | `07_ranked` | `-route rankOverview` | 対 AI ランク | 隕鉄から星環王へ、ランク戦 / Climb the ranked ladder |
-| 8 | `08_skin_store` | `-route skinStore` | 見た目のみの課金 | 課金は見た目だけ。勝敗は腕前で / Cosmetics only. Skill wins. |
+| 8 | `08_skin_store` | `-route skinStore` | 見た目のみの課金 | 課金は見た目が中心。ヒーローはコインで解放 / Mostly cosmetics. Heroes unlock with Coins. |
 | 9 | `09_star_pass` | `-route starPass` | スターパス | ミッションとスターパスで報酬を / Earn rewards with missions and the Star Pass |
-| 10 | `10_spectate` | `-battle spectate`（120 秒後） | 観戦・オフライン | 通信不要。AI同士の対戦も観戦できる / No connection needed. Watch AI battles too. |
+| 10 | `10_spectate` | `-battle spectate -spectateDirector on -spectateSpeed 4`（120 秒後） | 観戦・オフライン | 通信不要。AI同士の対戦も観戦できる / No connection needed. Watch AI battles too. |
 
 キャプションを画像に重ねる場合は、撮影画像を背景にした 2868×1320 のテンプレート（左 1/3 にキャプション）を作り、
 実際のゲーム画面が画像面積の過半を占めるようにする（ガイドライン 2.3.3: スクリーンショットは実際の使用画面を示すこと）。
