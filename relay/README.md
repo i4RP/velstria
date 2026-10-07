@@ -29,6 +29,7 @@
 |---|---|
 | `GET /v1/health` | 200 `{"ok":true,"relay":1}` |
 | `GET /v1/rooms/<CODE>?role=host\|guest&rv=1`（WebSocket Upgrade） | 101（下の close コードで断る時も、いったん受け入れてから閉じる） |
+| `GET /v1/inbox/<FRIENDCODE>?key=<KEY>&rv=1`（WebSocket Upgrade） | 101（下の「フレンドの受信箱」）。コードが規則に合わなければ 400 `bad_friend_code` |
 | 部屋コードが規則に合わない | 400 `bad_room_code` |
 | `role` が `host` / `guest` 以外 | 400 `bad_role` |
 | WebSocket Upgrade でない | 426 |
@@ -94,9 +95,37 @@
 | 4008 | `room_full` | 参加者が既に 32 人 |
 | 4009 | `room_taken` | ホストのいる部屋へのホスト |
 | 4010 | `relay_version` | `rv` が 1 でない |
-| 4011 | `host_replaced` | 同じ鍵（`hk`）で戻ってきた新しいホストに、前のホストの接続が入れ替えられた |
+| 4011 | `host_replaced` | 同じ鍵（`hk`）で戻ってきた新しいホストに、前のホストの接続が入れ替えられた（受信箱も同じ鍵の新しい接続に入れ替わる） |
+| 4012 | `inbox_taken` | 受信箱のコードが別の鍵の持ち主のもの |
 | 1003 | `malformed` | ホストからの不正な形式 |
 | 1009 | `message_too_big` | 256 KiB を超えるメッセージ |
+
+## フレンドの受信箱
+
+フレンドからの申請・パーティの招待を届けるための、部屋とは別の経路。フレンドコード 1 つ = Durable Object（`FriendInbox`）1 つ。
+アプリを開いている間だけ WebSocket で繋ぐ（`src/inbox.ts`）。アカウントは作らない。
+
+- 接続: `GET /v1/inbox/<FRIENDCODE>?key=<KEY>&rv=1`（WebSocket）。フレンドコードは 8 文字（部屋コードと同じ 31 文字）、
+  `key` は端末が最初に乱数で作る秘密（`^[A-Za-z0-9_-]{16,64}$`）。形式が合わなければ 400 `bad_friend_code`（コード）/ 1003 `malformed`（鍵）、
+  `rv` 違いは 4010。
+- **持ち主**: 最初に繋いだ鍵の SHA-256 を保存し、以後は同じ鍵でしか繋げない（別の鍵は 4012 `inbox_taken`）。コードを知っていても受信箱は読めない。
+  同じ鍵の新しい接続は古い接続を 4011 `host_replaced` で入れ替える。
+- 繋がると `{"t":"hello","code":"…"}` が届く（この後に預かっていた申請が続く）。メッセージはテキストの JSON（1 通 4 KiB まで、超えたら 1009）:
+
+| 向き | 形 | 意味 |
+|---|---|---|
+| アプリ → 中継 | `{"t":"send","to":"CODE","id":n,"queue":true?,"m":{…}}` | `to` の受信箱へ `m` を渡す。`m` は中継が解釈しない JSON オブジェクト |
+| 中継 → アプリ | `{"t":"ack","id":n,"result":"delivered\|queued\|offline"}` | `delivered` = 相手が繋いでいて渡した / `queued` = 不在で預かった（`queue:true` のみ）/ `offline` = 不在で預けない・送りすぎ |
+| 中継 → アプリ | `{"t":"msg","from":"CODE","m":{…}}` | 届いたメッセージ。`from` は中継が接続のコードから付ける（なりすませない） |
+| アプリ → 中継 | `{"t":"presence","codes":["CODE",…]}`（最大 100） | 在席の問い合わせ |
+| 中継 → アプリ | `{"t":"presence","online":["CODE",…]}` | いま繋がっているもの |
+
+- 預かり: `queue:true`（フレンド申請・承認だけ）で相手が不在なら、受信箱の SQLite に最大 20 通・14 日預かり、次に繋いだ時に渡して消す。
+  同じ差出人の同じ内容は 1 通にまとめる。招待は預けない（古い部屋コードを渡さないため）。
+- 歯止め: 1 接続あたり 1 分に 40 通まで（超えた分は `offline`）。自分宛て・不正なコード・オブジェクトでない `m` は捨てる。
+- 保存するもの: 鍵のハッシュ、預かった申請だけ。在席の問い合わせはコードを知っている人なら誰でもできる（コードは本人が配るもの）。
+- アプリ側の使い方（`m` の種類 `friendRequest` / `friendAccept` / `partyInvite` / `inviteReply`）は `FriendHub.swift`、
+  ARCHITECTURE.md「フレンドとパーティ」。
 
 ## 実装の要点
 
@@ -140,6 +169,8 @@ RELAY_URL=wss://... npm test         # 任意の中継に流す
 いない参加者宛ての `SEND` / `KICK`、`KICK`、`GUEST_CLOSE`、`host_left`、`room_taken`、`no_room`、`room_full`（33 人目）、
 `relay_version`、部屋コードの 400（WebSocket の握手でも）、role の 400、426、404、上限超えの 1009（参加者・ホスト）、
 不正な形式の 1003、`ping` → `pong` の自動応答とそれ以外のテキストの無視、抜けた参加者・ホストの入れ替わりをまたぐ `guestId` の単調増加。
+受信箱: 招待の配送と差出人の付与、不在の相手への `offline` / `queued`（繋いだ時に渡る）、在席の問い合わせ、持ち主の鍵（別の鍵は 4012）、
+同じ鍵の再接続での入れ替え（4011）、自分宛て・不正な宛先の無視、不正なコード・鍵・`rv` の拒否。
 部屋コードはテストごとに乱数で作るので、配備済みの中継に何度流しても互いに混ざらない。
 
 Node 22 以上（組み込みの `WebSocket` と `node:test` を使う）。CI（`.github/workflows/relay.yml`）は `relay/**` が変わった時に

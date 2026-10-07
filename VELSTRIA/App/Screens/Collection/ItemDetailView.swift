@@ -95,14 +95,40 @@ private struct ItemSummaryPanel: View {
                     Text(L("同名の固有パッシブは重複しません。", "Unique passives with the same name do not stack."))
                         .font(Theme.body(10))
                         .foregroundStyle(Theme.textSecondary)
-                    if item.category == .movement || item.category == .jungle {
+                    if item.category == .movement || item.category == .jungle || item.category == .roam {
                         let smite = BuildRules.smiteName(master: app.master)
-                        Label(item.category == .movement ? L("移動系装備は 1 つまで", "Limit one Movement item")
-                                                         : L("ジャングル系装備は 1 つまで・購入には「\(smite)」が必要",
-                                                             "Limit one Jungle item; requires \(smite) to buy"),
-                              systemImage: "exclamationmark.circle")
+                        let limit: String = {
+                            switch item.category {
+                            case .movement: return L("移動系装備は 1 つまで", "Limit one Movement item")
+                            case .roam: return L("ローム系装備は 1 つまで・「\(smite)」を装備していると買えません",
+                                                 "Limit one Roam item; can't be bought with \(smite)")
+                            default: return L("ジャングル系装備は 1 つまで・購入には「\(smite)」が必要",
+                                              "Limit one Jungle item; requires \(smite) to buy")
+                            }
+                        }()
+                        Label(limit, systemImage: "exclamationmark.circle")
                             .font(Theme.body(11))
                             .foregroundStyle(Theme.textSecondary)
+                    }
+                    if ItemSystem.isBoots(item) {
+                        Label(L("靴枠を使います（靴は 1 つまで）", "Uses the boots slot (one pair only)"),
+                              systemImage: "shoeprints.fill")
+                            .font(Theme.body(11))
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                    ForEach(GearInfo.rules(item.category), id: \.self) { rule in
+                        Label(rule, systemImage: "clock.arrow.circlepath")
+                            .font(Theme.body(11))
+                            .foregroundStyle(Theme.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if item.category == .jungle || item.category == .roam {
+                        ForEach(GearOption.options(for: item.category), id: \.self) { option in
+                            Label("\(GearInfo.name(option)): \(GearInfo.summary(option))", systemImage: GearInfo.symbol(option))
+                                .font(Theme.body(11))
+                                .foregroundStyle(Theme.textPrimary.opacity(0.85))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                 }
                 .accessibilityElement(children: .combine)

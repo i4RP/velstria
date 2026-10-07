@@ -76,22 +76,14 @@ final class MatchFlowModel {
         skinID = profile.equippedSkins[id].flatMap { profile.ownedCosmeticIDs.contains($0) ? $0 : nil }
     }
 
-    /// 2 つの異なる有効なスペルに正規化する。
+    /// [選べる枠, 治癒波] に正規化する（2 枠目は治癒波で固定）。
     static func sanitizedSpells(_ s: [String], master: MasterData) -> [String] {
-        var out: [String] = []
-        for id in s where master.spell(id) != nil && !out.contains(id) && out.count < 2 { out.append(id) }
-        for id in ["BS01", "BS03", "BS04"] where out.count < 2 && !out.contains(id) { out.append(id) }
-        return out
+        SpellLoadoutRules.normalized(s, master: master)
     }
 
-    /// 枠にスペルを入れる。もう一方の枠と同じなら入れ替える。
+    /// 選べる枠（1 枠目）にスペルを入れる。治癒波の固定枠は変更しない。
     func setSpell(_ id: String, slot: Int) {
-        guard spells.count == 2, slot == 0 || slot == 1 else { return }
-        if spells[1 - slot] == id {
-            spells.swapAt(0, 1)
-        } else {
-            spells[slot] = id
-        }
+        spells = SpellLoadoutRules.assigning(id, slot: slot, in: spells)
     }
 
     func setPosition(_ p: LanePosition) {

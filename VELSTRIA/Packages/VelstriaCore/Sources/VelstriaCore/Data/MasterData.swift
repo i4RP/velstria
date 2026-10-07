@@ -254,7 +254,9 @@ public final class MasterData: @unchecked Sendable {
         gameRules = raw.gameRules
         heroes = raw.heroes.sorted { $0.heroID < $1.heroID }
         skills = raw.skills.sorted { $0.skillID < $1.skillID }
-        items = raw.equipment.sorted { $0.itemID < $1.itemID }
+        // 靴（ジャングル靴・ローム靴）は正本マスターに無いので、同じ ID があればマスターを優先して加える
+        let gearItems = GearCatalog.items.filter { g in !raw.equipment.contains { $0.itemID == g.itemID } }
+        items = (raw.equipment + gearItems).sorted { $0.itemID < $1.itemID }
         spells = raw.battleSpells.sorted { $0.spellID < $1.spellID }
         runes = raw.runes.sorted { $0.runeID < $1.runeID }
         effects = raw.effects.sorted { $0.effectID < $1.effectID }

@@ -9,6 +9,8 @@ public enum PurchaseFailure: String, Codable, Hashable, Sendable {
     case notEnoughGold = "not_enough_gold"
     case uniqueCategory = "unique_category"
     case requiresSmite = "requires_smite"
+    /// ローム靴は狩猟印を持つヒーローには買えない。
+    case blockedBySmite = "blocked_by_smite"
     case unknownItem = "unknown_item"
 }
 
@@ -56,6 +58,7 @@ public enum ItemSystem {
         if infinite { h.gold = Balance.Economy.practiceGold }
         h.items.append(itemID)
         h.itemInvested.append(invested)
+        if let bought = ctx.master.item(itemID) { GearSystem.assignDefaultOption(&h, itemCategory: bought.category) }
         s.units[i].hero = h
         StatCalculator.recompute(&s, i, ctx)
         s.emit(.itemPurchased(heroID: s.units[i].id, itemID: itemID))
@@ -102,12 +105,17 @@ public enum ItemSystem {
         var q = PurchaseQuote(itemID: itemID, cost: cost, consumedSlots: consumed, failure: nil)
         let gold = EconomyRewards.hasInfiniteGold(ctx) ? Balance.Economy.practiceGold : hero.gold
 
-        if item.category == .jungle && !hero.spells.contains(Balance.Economy.smiteSpellID) {
+        let hasSmite = hero.spells.contains(Balance.Economy.smiteSpellID)
+        if item.category == .jungle && !hasSmite {
             q.failure = .requiresSmite
-        } else if isUniqueCategory(item.category) {
-            // 合成で消費される素材を除いた所持品に同カテゴリがあれば不可
+        } else if item.category == .roam && hasSmite {
+            q.failure = .blockedBySmite
+        } else if isUniqueCategory(item.category) || isBoots(item) {
+            // 合成で消費される素材を除いた所持品に同カテゴリ（靴は靴枠）があれば不可
             let conflict = hero.items.indices.contains { k in
-                !consumed.contains(k) && ctx.master.item(hero.items[k])?.category == item.category
+                guard !consumed.contains(k), let owned = ctx.master.item(hero.items[k]) else { return false }
+                return (isUniqueCategory(item.category) && owned.category == item.category)
+                    || (isBoots(item) && isBoots(owned))
             }
             if conflict { q.failure = .uniqueCategory }
         }
@@ -122,7 +130,12 @@ public enum ItemSystem {
 
     /// 1 個までに制限されるカテゴリ（Movement / Jungle）。
     public static func isUniqueCategory(_ c: ItemCategory) -> Bool {
-        c == .movement || c == .jungle
+        c == .movement || c == .jungle || c == .roam
+    }
+
+    /// 靴枠を使う装備（移動系・ローム靴・移動速度を持つジャングル靴）。靴枠は 1 つだけ。
+    public static func isBoots(_ it: ItemDef) -> Bool {
+        it.category == .movement || it.category == .roam || (it.category == .jungle && it.moveSpeed > 0)
     }
 
     /// 合成コストと消費する素材の添字。
@@ -183,7 +196,22 @@ public enum ItemSystem {
             // 6 枠に収めるため末尾から 1 つ削る
             plan.removeLast()
         }
-        return build(plan: plan, master: master)
+        // 靴: 狩猟印のジャングラーはジャングル靴、狩猟印なしのサポートはローム靴（靴枠は 1 つなので移動系は主力カテゴリへ）
+        let useJungleBoots = hasSmite && plan.contains(.jungle) && master.item(GearCatalog.jungleBootsID) != nil
+        let useRoamBoots = !hasSmite && hero.position == .support && master.item(GearCatalog.roamBootsID) != nil
+        if useJungleBoots || useRoamBoots, plan.contains(.movement) {
+            let primary = plan.first { $0 != .jungle && $0 != .movement } ?? .attack
+            plan = plan.map { $0 == .movement ? primary : $0 }
+        }
+        if useRoamBoots {
+            plan.insert(.roam, at: 0)
+            plan.removeLast()
+        }
+        var out = build(plan: plan, master: master)
+        if useJungleBoots, let k = out.firstIndex(where: { master.item($0)?.category == .jungle }) {
+            out[k] = GearCatalog.jungleBootsID
+        }
+        return out
     }
 
     /// カテゴリ列から、各カテゴリの評価順に重複なく装備を割り当てる。
@@ -291,6 +319,9 @@ public enum ItemStats {
             case .jungle:
                 stats.monsterDamageBonus += 3 * x
                 hasJungle = true
+            case .roam:
+                // 効果は共有収入・祝福（GearSystem）で、能力値の補正は無い
+                break
             }
         }
         if hasJungle { stats.monsterGoldBonus += Balance.Economy.jungleMonsterGoldBonus }

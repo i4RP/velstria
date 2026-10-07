@@ -153,6 +153,8 @@ public enum ItemCategory: String, Codable, Hashable, Sendable, CaseIterable {
     case movement = "Movement"
     case utility = "Utility"
     case jungle = "Jungle"
+    /// ローム装備（靴）。共有収入を得る代わりに早い時間帯は自分の狩りの収入が減る。
+    case roam = "Roam"
 }
 
 public enum RunePath: String, Codable, Hashable, Sendable, CaseIterable {

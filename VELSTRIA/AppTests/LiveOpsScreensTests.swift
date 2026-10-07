@@ -319,7 +319,7 @@ final class LiveOpsScreensTests: XCTestCase {
         let human = config.humanSlot
         XCTAssertEqual(human?.heroID, "H013")
         XCTAssertEqual(human?.displayName, "Nova")
-        XCTAssertEqual(human?.spells, ["BS02", "BS07"])
+        XCTAssertEqual(human?.spells, ["BS02", "BS03"])
         XCTAssertEqual(human?.runes, [MasterData.shared.runes[0].runeID])
         XCTAssertNil(human?.skinID)
         XCTAssertEqual(human?.autoLevelSkills, false)

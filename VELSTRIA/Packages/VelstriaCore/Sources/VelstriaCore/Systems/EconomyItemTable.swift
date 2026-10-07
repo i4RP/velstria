@@ -71,6 +71,7 @@ final class EconomyItemTable: @unchecked Sendable {
         case .movement: main = it.moveSpeed
         case .utility: main = it.hp / 10 + it.cooldownReductionPct * 3
         case .jungle: main = 0
+        case .roam: main = it.moveSpeed
         }
         return main + percent * 2
     }

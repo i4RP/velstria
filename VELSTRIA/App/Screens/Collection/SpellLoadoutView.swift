@@ -98,7 +98,7 @@ struct SpellLoadoutView: View {
                     slotButton(i, spellID: i < current.count ? current[i] : "")
                 }
             }
-            Text(L("枠を選んでから右のスペルをタップ", "Pick a slot, then tap a spell"))
+            Text(L("右のスペルをタップして1枠目を変更（2枠目は治癒波で固定）", "Tap a spell to change slot 1 (slot 2 is always Heal)"))
                 .font(Theme.body(10))
                 .foregroundStyle(Theme.textSecondary)
             if let heroID, hasOverride {
@@ -132,7 +132,8 @@ struct SpellLoadoutView: View {
     }
 
     private func slotButton(_ i: Int, spellID: String) -> some View {
-        let selected = slot == i
+        let locked = i == SpellLoadoutRules.fixedSlot
+        let selected = slot == i && !locked
         let spell = app.master.spell(spellID)
         return Button {
             app.haptics.tap()
@@ -148,9 +149,12 @@ struct SpellLoadoutView: View {
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
-                Text(L("スペル\(i + 1)", "Spell \(i + 1)"))
-                    .font(Theme.mono(9))
-                    .foregroundStyle(selected ? Theme.gold : Theme.textSecondary)
+                HStack(spacing: 2) {
+                    if locked { Image(systemName: "lock.fill").font(.system(size: 8)) }
+                    Text(locked ? L("固定", "Fixed") : L("スペル\(i + 1)", "Spell \(i + 1)"))
+                        .font(Theme.mono(9))
+                }
+                .foregroundStyle(selected ? Theme.gold : Theme.textSecondary)
             }
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.vertical, 6)
@@ -158,8 +162,10 @@ struct SpellLoadoutView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .disabled(locked)
         .animation(.spring(duration: 0.25), value: selected)
-        .accessibilityLabel(L("枠\(i + 1): ", "Slot \(i + 1): ") + (spell.map { MasterText.spell($0) } ?? ""))
+        .accessibilityLabel(L("枠\(i + 1): ", "Slot \(i + 1): ") + (spell.map { MasterText.spell($0) } ?? "")
+                            + (locked ? L("（固定）", " (fixed)") : ""))
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityIdentifier("spell_slot_\(i)")
     }
@@ -169,6 +175,7 @@ struct SpellLoadoutView: View {
     private func spellCard(_ spell: SpellDef, current: [String]) -> some View {
         let info = SpellInfo.of(spell.spellID)
         let equippedSlot = current.firstIndex(of: spell.spellID)
+        let fixed = !SpellLoadoutRules.isSelectable(spell.spellID)
         return Button {
             assign(spell.spellID)
         } label: {
@@ -187,7 +194,11 @@ struct SpellLoadoutView: View {
                         .foregroundStyle(Theme.textSecondary)
                     }
                     Spacer(minLength: 0)
-                    if let equippedSlot {
+                    if fixed {
+                        Label(L("固定", "Fixed"), systemImage: "lock.fill")
+                            .font(Theme.mono(9))
+                            .foregroundStyle(Theme.textSecondary)
+                    } else if let equippedSlot {
                         Text("\(equippedSlot + 1)")
                             .font(.system(size: 11, weight: .black, design: .rounded))
                             .foregroundStyle(.black)
@@ -216,14 +227,15 @@ struct SpellLoadoutView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(CollectionPressStyle())
-        .accessibilityLabel("\(MasterText.spell(spell))、\(info.effect)")
+        .disabled(fixed)
+        .accessibilityLabel("\(MasterText.spell(spell))、\(info.effect)" + (fixed ? L("（固定）", " (fixed)") : ""))
         .accessibilityAddTraits(equippedSlot != nil ? .isSelected : [])
         .accessibilityIdentifier("spell_\(spell.spellID)")
     }
 
     private func assign(_ spellID: String) {
         let base = SpellLoadoutRules.effective(heroID: heroID, profile: app.profile)
-        let next = SpellLoadoutRules.assigning(spellID, slot: slot, in: base)
+        let next = SpellLoadoutRules.assigning(spellID, slot: SpellLoadoutRules.selectableSlot, in: base)
         guard next != base else { return }
         withAnimation(.spring(duration: 0.3)) {
             if let heroID {
@@ -231,7 +243,6 @@ struct SpellLoadoutView: View {
             } else {
                 app.profile.defaultSpells = next
             }
-            slot = (slot + 1) % SpellLoadoutRules.slotCount
         }
         app.haptics.tap()
     }

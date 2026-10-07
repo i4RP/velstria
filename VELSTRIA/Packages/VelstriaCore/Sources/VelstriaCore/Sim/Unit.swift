@@ -86,6 +86,8 @@ public struct HeroData: Codable, Hashable, Sendable {
     public var items: [String] = []
     /// 各スロットへの投資 Gold（売却額計算用、items と同じ長さ）。
     public var itemInvested: [Double] = []
+    /// ジャングル靴・ローム靴のオプションと共有収入（靴を買うまで nil）。
+    public var gear: GearState?
 
     /// SkillSlot.rawValue で添字（4 要素）。passive は常に 1。
     public var skillRanks: [Int] = [1, 0, 0, 0]

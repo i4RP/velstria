@@ -42,14 +42,14 @@ enum MasterText {
     /// ID（hero_id / skill_id / item_id / spell_id / rune_id / cosmetic_id / sku）→ 表示名。
     static func name(id: String, ja: String) -> String {
         guard Loc.isEnglish else { return jaOverlay[id] ?? ja }
-        return overlay[id] ?? ja
+        return overlay[id] ?? GearCatalog.english[id] ?? ja
     }
 
     /// 説明文は "<id>.desc" キー。
     /// スキルの説明はここを使わず `SkillMath.description`（シミュレーションの実戦値から日英で生成）を使う。
     static func description(id: String, ja: String) -> String {
         guard Loc.isEnglish else { return ja }
-        return overlay["\(id).desc"] ?? ja
+        return overlay["\(id).desc"] ?? GearCatalog.english["\(id).desc"] ?? ja
     }
 
     static func hero(_ h: HeroDef) -> String {

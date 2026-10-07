@@ -204,6 +204,7 @@ enum CollectionStyle {
         case .movement: return L("移動", "Movement")
         case .utility: return L("補助", "Utility")
         case .jungle: return L("ジャングル", "Jungle")
+        case .roam: return L("ローム", "Roam")
         }
     }
 
@@ -215,6 +216,7 @@ enum CollectionStyle {
         case .movement: return "wind"
         case .utility: return "cross.vial.fill"
         case .jungle: return "leaf.fill"
+        case .roam: return "figure.walk.motion"
         }
     }
 
@@ -226,6 +228,7 @@ enum CollectionStyle {
         case .movement: return Color(red: 0.45, green: 0.95, blue: 0.80)
         case .utility: return Color(red: 0.98, green: 0.78, blue: 0.40)
         case .jungle: return Color(red: 0.52, green: 0.86, blue: 0.40)
+        case .roam: return Color(red: 0.40, green: 0.80, blue: 0.95)
         }
     }
 

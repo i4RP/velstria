@@ -193,6 +193,8 @@ final class OnlineSession: OnlineBattleLink {
     @ObservationIgnored private var inputSequence: UInt32 = 0
     /// 名乗りで観戦席を希望する。
     @ObservationIgnored private var wantsSpectateOnJoin = false
+    /// パーティの招待で入った: 部屋に入れたら、ホストと同じチームの空席に自動で座る（1 回だけ）。
+    @ObservationIgnored var seatsWithHostTeam = false
     /// いまの戦闘は観戦（spectateMatch を受けた）。
     @ObservationIgnored private var watching = false
     /// 観戦の遅延（spectateMatch で届く）。
@@ -251,6 +253,15 @@ final class OnlineSession: OnlineBattleLink {
         s.connect(connection)
         s.startPing()
         return s
+    }
+
+    /// パーティで座る席: ホストが座っているチームの最初の空席（そのチームが満席なら他チームの空席）。
+    /// ロビー以外・すでに座っている・空席が無ければ nil。ホストがまだ座っていなければ Blue。
+    static func partySeat(in room: OnlineRoom, for peerID: OnlinePeerID) -> Int? {
+        guard room.phase == .lobby, room.seat(of: peerID) == nil else { return nil }
+        let team = room.seat(of: room.hostPeerID)?.team ?? .blue
+        let free = room.seats.filter { $0.peerID == nil }
+        return (free.first { $0.team == team } ?? free.first)?.index
     }
 
     var isHost: Bool { role == .host }
@@ -1060,6 +1071,10 @@ final class OnlineSession: OnlineBattleLink {
             // 試合中に入った時も、ホストが開始（再接続の選手）か観戦の案内を送ってくるまでは部屋で待つ
             status = .lobby
             note(L("\(room.name) に参加しました", "Joined \(room.name)"))
+            if seatsWithHostTeam {
+                seatsWithHostTeam = false
+                if !wantsSpectateOnJoin, let index = Self.partySeat(in: room, for: localPeerID) { connection?.send(.takeSeat(index)) }
+            }
         case .reject(let reason):
             disconnected(reason)
         case .room(let room):

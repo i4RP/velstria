@@ -13,6 +13,7 @@ public enum StatCalculator {
             stats = HeroGrowth.baseStats(def: def, level: hero.level)
             s.units[i].baseStats = stats
             ItemStats.apply(items: hero.items, runes: hero.runes, to: &stats, ctx: ctx)
+            stats.monsterDamageBonus += GearEffects.monsterDamageBonus(hero, master: ctx.master)
         } else {
             stats = u.baseStats
         }

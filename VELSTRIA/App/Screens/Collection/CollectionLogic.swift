@@ -369,8 +369,11 @@ enum ItemMath {
         case .utility:
             return L("回復・シールド量 +\(p(x))、Mana 回復 +\(p(x))", "Healing & shielding +\(p(x)), mana regen +\(p(x))")
         case .jungle:
-            return L("モンスターへのダメージ +\(p(3 * x))、モンスター Gold +20%",
-                     "Damage to monsters +\(p(3 * x)), monster gold +20%")
+            return L("モンスターへのダメージ +\(p(3 * x))、モンスター Gold +20%（ミニオンの Gold/XP は 5:00 まで半減）",
+                     "Damage to monsters +\(p(3 * x)), monster gold +20% (minion Gold/XP halved until 5:00)")
+        case .roam:
+            return L("5 秒ごとにチーム共有の Gold・XP（8:00 から増加）。自分のミニオン・モンスター収入は 8:00 まで半減",
+                     "Shared team Gold/XP every 5s (more from 8:00). Your minion and monster income is halved until 8:00")
         }
     }
 
@@ -404,6 +407,11 @@ enum BuildCheck: Equatable {
     case duplicate
     case movementLimit
     case jungleLimit
+    case roamLimit
+    /// 靴枠（移動系・ジャングル靴・ローム靴）は 1 つまで。
+    case bootsLimit
+    /// ローム靴とジャングル装備は同時に持てない（狩猟印の有無が前提のため）。
+    case roamJungleConflict
     case unknown
 
     var message: String {
@@ -413,6 +421,9 @@ enum BuildCheck: Equatable {
         case .duplicate: return L("同じ装備は 1 つまでです（固有パッシブは重複しません）", "Only one of each item (unique passives don't stack)")
         case .movementLimit: return L("移動系装備は 1 つまでです", "Only one Movement item allowed")
         case .jungleLimit: return L("ジャングル系装備は 1 つまでです", "Only one Jungle item allowed")
+        case .roamLimit: return L("ローム系装備は 1 つまでです", "Only one Roam item allowed")
+        case .bootsLimit: return L("靴は 1 つまでです（移動系・ジャングル靴・ローム靴）", "Only one pair of boots (Movement, Jungle or Roam)")
+        case .roamJungleConflict: return L("ローム装備とジャングル装備は同時に持てません", "Roam and Jungle items can't be combined")
         case .unknown: return L("不明な装備です", "Unknown item")
         }
     }
@@ -443,6 +454,13 @@ enum BuildRules {
         let categories = others.compactMap { master.item($0)?.category }
         if item.category == .movement && categories.contains(.movement) { return .movementLimit }
         if item.category == .jungle && categories.contains(.jungle) { return .jungleLimit }
+        if item.category == .roam && categories.contains(.roam) { return .roamLimit }
+        if (item.category == .roam && categories.contains(.jungle)) || (item.category == .jungle && categories.contains(.roam)) {
+            return .roamJungleConflict
+        }
+        if ItemSystem.isBoots(item), others.contains(where: { master.item($0).map(ItemSystem.isBoots) == true }) {
+            return .bootsLimit
+        }
         return .ok
     }
 
@@ -607,30 +625,31 @@ enum RuneMath {
 }
 
 // MARK: - スペル（2 枠・既定 + ヒーロー別）
+// モバイル系 MOBA 風に、1 枠目は好きなスペルを選べる枠、2 枠目は治癒波（BS03）で固定する。
 
 enum SpellLoadoutRules {
     static let slotCount = 2
+    /// 選べる枠（瞬歩が既定）。
+    static let selectableSlot = 0
+    /// 固定枠（治癒波）。
+    static let fixedSlot = 1
+    static let fixedSpellID = "BS03"
 
-    /// slot に spellID を入れる。もう一方の枠に同じスペルがあれば入れ替える。
+    /// 選べる枠に入れられるスペルか（固定スペル以外）。
+    static func isSelectable(_ spellID: String) -> Bool { spellID != fixedSpellID }
+
+    /// 選べる枠に spellID を入れる。固定枠・固定スペルは変更しない。
     static func assigning(_ spellID: String, slot: Int, in current: [String]) -> [String] {
         var s = normalized(current)
-        guard (0..<slotCount).contains(slot) else { return s }
-        if let other = s.firstIndex(of: spellID), other != slot {
-            s[other] = s[slot]
-        }
-        s[slot] = spellID
+        guard slot == selectableSlot, isSelectable(spellID) else { return s }
+        s[selectableSlot] = spellID
         return s
     }
 
-    /// 2 枠に揃える（不明 ID は除外、不足は既定 BS01/BS03 で補完、重複は解消）。
+    /// 2 枠に揃える（[選べる枠, 治癒波]）。選べる枠は不明 ID・治癒波を除いた先頭、無ければ BS01/BS04 で補う。
     static func normalized(_ spells: [String], master: MasterData = .shared) -> [String] {
-        let fallback = ["BS01", "BS03", "BS04"]
-        var out: [String] = []
-        for id in spells + fallback where !out.contains(id) && master.spell(id) != nil {
-            out.append(id)
-            if out.count == slotCount { break }
-        }
-        return out
+        let free = (spells + ["BS01", "BS04"]).first { isSelectable($0) && master.spell($0) != nil } ?? "BS01"
+        return [free, fixedSpellID]
     }
 
     /// ヒーローの実効スペル（上書きが無ければ既定）。

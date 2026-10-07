@@ -549,5 +549,14 @@ struct Profile: Codable, Equatable {
 
     var settings = GameSettings()
 
+    // フレンド（オンライン。FeatureFlags.lanMatch が有効な時だけ使う。設計は FriendHub）
+    /// 自分のフレンドコード（8 文字。相手に渡す公開の ID）。
+    var friendCode: String = FriendCode.generate()
+    /// フレンド受信箱の鍵（本人だけの秘密。中継は最初に繋いだ鍵でコードの持ち主を決める）。
+    var inboxKey: String = FriendInboxKey.generate()
+    var friends: [Friend] = []
+    /// 自分から申請して、承認を待っている相手のコード。
+    var outgoingFriendRequests: [String] = []
+
     var totalGem: Int { freeGem + paidGem }
 }

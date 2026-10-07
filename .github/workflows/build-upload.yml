@@ -77,6 +77,7 @@ jobs:
             -only-testing:VELSTRIATests/OnlineTransportTests \
             -only-testing:VELSTRIATests/OnlineSpectatorTests \
             -only-testing:VELSTRIATests/OnlineRelayTests \
+            -only-testing:VELSTRIATests/FriendTests \
             -only-testing:VELSTRIATests/SpectatorFoundationTests \
             -only-testing:VELSTRIATests/SpectatorOptionsTests \
             -only-testing:VELSTRIATests/HUDSpectatorTests \

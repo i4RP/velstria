@@ -169,6 +169,27 @@ WebSocket Hibernation）で、**中身を解釈しない土管**。ゲームの�
   オンボーディング・設定 > プライバシー・FAQ・docs/legal に記載）。保存しないので App のプライバシーの「収集」には当たらない（docs/appstore/app_privacy.md）。
 - 中継の配備: `cd relay && npx wrangler deploy`（手元の Cloudflare ログインで。CI からは配備しない）。版数を変える時は `rv` と `RelayRoomCode`/形式の両方を上げる。
 
+### フレンドとパーティ
+友達と一緒にチームを組んで遊ぶ（モバレジェ型: フレンドをパーティへ招待 → 招待された側が 拒否 / 待って / 同意）。`FeatureFlags.lanMatch` が有効な時だけ動く
+（公開版では受信箱へ繋がず、画面・リンクも出ない）。アカウントは作らない。
+
+- 識別: 端末ごとに **フレンドコード**（8 文字。公開の ID）と **受信箱の鍵**（本人だけの秘密）を `Profile.friendCode` / `inboxKey` に持つ。
+  中継（`relay/src/inbox.ts` の `FriendInbox`。仕様は relay/README.md「フレンドの受信箱」）は、コードごとに最初に繋いだ鍵で持ち主を決める。
+- 受信箱: `FriendInboxClient`（`RelaySocket` 上のテキスト JSON。繋ぎ直しは指数バックオフ。4012 コードが他で使用中 / 4010 版違いは諦める）。
+  アプリが前面にいる間だけ繋ぐ（`VelstriaApp` の scenePhase。オンボーディング完了でも繋ぐ）。
+- 状態と手順: `FriendHub`（`AppModel.friends`）。メッセージ `InboxPayload` は `friendRequest` / `friendAccept` / `partyInvite` / `inviteReply`。
+  - 申請: コードかリンク（`velstria://friend?code=…&name=…`。`AppModel.openFriendLink` が招待リンクより先に判定）で申請 → 相手が承認すると相互にフレンド。
+    お互いに申請していればすぐ成立。不在の相手には中継が預かる（繋いだ時に届く。返事待ちは繋がるたびに送り直す）。承認していない相手の `friendAccept` は無視する。
+  - 招待: フレンドの一覧から招待（自分の部屋が無ければ `AppModel.hostPartyRoom` が作って先に座る）。部屋コードを相手の受信箱へ送る（預けない）。
+    フレンドでない相手の招待は無視。受けた側は `PartyInviteOverlay`: 拒否（「5 分間このプレイヤーの招待を拒否」）/ 待って（30 秒後に参加）/ 同意。
+    試合中は「試合中」と返して出さない。返事は招待した側のトーストに出る。
+  - 参加: 同意で `AppModel.joinPartyRoom` が部屋コードで入り、`OnlineSession.seatsWithHostTeam` により **ホストと同じチームの空席に自動で座る**
+    （`OnlineSession.partySeat`。ホストが未着席なら Blue、チームが満席なら他チーム）。残りの席は従来どおり AI。ヒーロー選択と準備完了は各自、開始はホスト。
+- 在席: 繋がっている間 20 秒ごとにフレンドの在席を問い合わせる。
+- 保存: `Profile.friends` / `outgoingFriendRequests`（`PersistenceService` の elementTemplates と sanitize に対応）。
+- テスト: `FriendTests`（コード・リンク・符号化・受信箱への接続・申請/承認/招待の手順・パーティの席・保存の互換）、中継は `relay/test/relay.test.mjs`。
+- 公開前の課題: ブロック・通報、表示名の不適切語対策、プライバシーの文言（フレンドコードと表示名が中継を通ること）、年齢区分。
+
 ## 観戦（AI 同士の観戦・リプレイ・オンラインの観戦席・死亡中の味方追従）
 観戦者 = 操作を送らず、霧は観戦者が選んだ視点で見る人。`BattleLaunch.isSpectating` は次のどれか:
 AI 同士の観戦（`mode == .spectate`）、リプレイ（`replay != nil`）、オンラインの観戦席（`onlineSpectator`）、人間のいないオフライン構成（`isAllBotsOffline`）。

@@ -234,6 +234,7 @@ final class PersistenceService: @unchecked Sendable {
             ("runePages[]", jsonObject(RunePage(name: "", primaryPath: .valor, runeIDs: ["", "", ""]))),
             ("purchaseLedger[]", jsonObject(PurchaseRecord(transactionID: 0, productID: "", gemsGranted: 0, priceJPY: 0, date: epoch))),
             ("storePurchases[]", jsonObject(StorePurchaseCount(sku: "", count: 0))),
+            ("friends[]", jsonObject(Friend(code: "", name: "", addedAt: epoch))),
             ("missions.daily[]", jsonObject(MissionProgress(id: ""))),
             ("missions.weekly[]", jsonObject(MissionProgress(id: ""))),
             ("achievements{}", jsonObject(AchievementProgress())),
@@ -294,6 +295,12 @@ final class PersistenceService: @unchecked Sendable {
         }
         if p.ownedHeroIDs.isEmpty { p.ownedHeroIDs = Profile().ownedHeroIDs }
         if p.playerID.isEmpty { p.playerID = UUID().uuidString }
+        // フレンド: 識別子が壊れていたら作り直す。改変されたフレンド・申請は取り除く（重複・自分自身・不正なコード）
+        if !FriendCode.isValid(p.friendCode) { p.friendCode = FriendCode.generate() }
+        if !FriendInboxKey.isValid(p.inboxKey) { p.inboxKey = FriendInboxKey.generate() }
+        var seen: Set<String> = [p.friendCode]
+        p.friends = p.friends.filter { FriendCode.isValid($0.code) && seen.insert($0.code).inserted }
+        p.outgoingFriendRequests = p.outgoingFriendRequests.filter { FriendCode.isValid($0) && $0 != p.friendCode }
     }
 
     // MARK: - 保存

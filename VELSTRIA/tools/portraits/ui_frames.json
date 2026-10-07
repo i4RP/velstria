@@ -54,7 +54,12 @@
       {"id": "BS07", "name": "Flameburst", "ja": "業火", "hue": "red-orange", "prompt": "a burning ignite: a fierce red-orange flame burst with embers and a scorch mark, aggressive heat glow."},
       {"id": "BS08", "name": "Vanish", "ja": "隠遁", "hue": "violet", "prompt": "a stealth vanish: a violet smoke wisp dissolving a silhouette into shadow with faint sparkles, a half-faded figure."},
       {"id": "BS09", "name": "Teleport", "ja": "転移", "hue": "indigo", "prompt": "a long-range teleport gate: an indigo-blue arcane portal ring with swirling energy and a doorway of light."},
-      {"id": "BS10", "name": "Weaken", "ja": "衰弱", "hue": "magenta", "prompt": "a debuff tether: a magenta-purple binding chain or sigil draining energy, dim sapping tendrils of light."}
+      {"id": "BS10", "name": "Weaken", "ja": "衰弱", "hue": "magenta", "prompt": "a debuff tether: a magenta-purple binding chain or sigil draining energy, dim sapping tendrils of light."},
+      {"id": "BS11", "name": "Verdict", "ja": "処断", "hue": "crimson", "prompt": "an execution strike: a crimson targeting reticle with a single decisive blade slash cutting through it, sharp red sparks and a faint skull-like glint."},
+      {"id": "BS12", "name": "Inspire", "ja": "鼓舞", "hue": "amber-orange", "prompt": "a battle-cry inspiration: a blazing amber-orange war banner flare with radiating speed lines and rising sparks, an energizing surge."},
+      {"id": "BS13", "name": "Petrify", "ja": "石化", "hue": "stone-tan", "prompt": "a petrifying shockwave: a tan-grey stone-textured ring burst cracking outward from a center, fragments of rock frozen mid-air."},
+      {"id": "BS14", "name": "Flare Shot", "ja": "火炎弾", "hue": "orange-red", "prompt": "a flame bolt: a comet-like orange-red fireball streaking forward with a long fiery tail and a shockwave of knockback."},
+      {"id": "BS15", "name": "Reprisal", "ja": "報復", "hue": "rose-pink", "prompt": "a damage-reflecting aura: a rose-pink mirror-like shield sending glowing arrows of light back toward the viewer, circular reflected energy."}
     ]
   }
 }

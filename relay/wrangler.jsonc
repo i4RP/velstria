@@ -18,14 +18,23 @@
       {
         "name": "RELAY_ROOM",
         "class_name": "RelayRoom"
+      },
+      // フレンドコード 1 つ = 受信箱 1 つ（idFromName(code)）。招待・フレンド申請の配送用
+      {
+        "name": "FRIEND_INBOX",
+        "class_name": "FriendInbox"
       }
     ]
   },
-  // SQLite バックエンド（無料プランでも使える。保存するのは参加者番号の採番だけ）
+  // SQLite バックエンド（無料プランでも使える。保存するのは参加者番号の採番と、受信箱の鍵のハッシュ・預かった申請だけ）
   "migrations": [
     {
       "tag": "v1",
       "new_sqlite_classes": ["RelayRoom"]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["FriendInbox"]
     }
   ]
 }

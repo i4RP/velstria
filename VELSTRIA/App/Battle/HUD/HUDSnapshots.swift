@@ -574,6 +574,9 @@ enum HUDText {
         case .requiresSmite?:
             let smite = MasterData.shared.spell(Balance.Economy.smiteSpellID).map { MasterText.spell($0) } ?? "BS05"
             return L("\(smite) を装備していないと購入できません", "Requires the \(smite) spell")
+        case .blockedBySmite?:
+            let smite = MasterData.shared.spell(Balance.Economy.smiteSpellID).map { MasterText.spell($0) } ?? "BS05"
+            return L("\(smite) を装備していると購入できません", "Can't buy while using the \(smite) spell")
         case .unknownItem?, nil: return L("購入できません", "Can't buy this item")
         }
     }

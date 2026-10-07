@@ -259,6 +259,7 @@ struct LoadoutPanel<Footer: View>: View {
             HStack(spacing: 6) {
                 ForEach(0..<2, id: \.self) { slot in
                     let id = model.spells.indices.contains(slot) ? model.spells[slot] : "BS01"
+                    let locked = slot == SpellLoadoutRules.fixedSlot
                     Button {
                         FlowFX.tap(app)
                         model.spellPickerSlot = slot
@@ -267,9 +268,14 @@ struct LoadoutPanel<Footer: View>: View {
                             SpellIconView(spellID: id, size: 32)
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(FlowText.spellName(id)).font(Theme.heading(12)).foregroundStyle(Theme.textPrimary).lineLimit(1)
-                                Text(L("変更", "Change")).font(Theme.body(9)).foregroundStyle(Theme.cyan)
+                                Text(locked ? L("固定", "Fixed") : L("変更", "Change"))
+                                    .font(Theme.body(9))
+                                    .foregroundStyle(locked ? Theme.textSecondary : Theme.cyan)
                             }
                             Spacer(minLength: 0)
+                            if locked {
+                                Image(systemName: "lock.fill").font(.system(size: 10)).foregroundStyle(Theme.textSecondary)
+                            }
                         }
                         .padding(.horizontal, 6)
                         .frame(maxWidth: .infinity, minHeight: 46)
@@ -277,14 +283,17 @@ struct LoadoutPanel<Footer: View>: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(L("スペル \(slot + 1): \(FlowText.spellName(id))、変更", "Spell \(slot + 1): \(FlowText.spellName(id)), change"))
+                    .disabled(locked)
+                    .accessibilityLabel(locked
+                        ? L("スペル \(slot + 1): \(FlowText.spellName(id))、固定", "Spell \(slot + 1): \(FlowText.spellName(id)), fixed")
+                        : L("スペル \(slot + 1): \(FlowText.spellName(id))、変更", "Spell \(slot + 1): \(FlowText.spellName(id)), change"))
                     .accessibilityIdentifier("flow_spell_\(slot)")
                 }
             }
             if model.position == .jungle && !model.spells.contains("BS05") {
                 Button {
                     FlowFX.tap(app)
-                    model.setSpell("BS05", slot: 1)
+                    model.setSpell("BS05", slot: SpellLoadoutRules.selectableSlot)
                 } label: {
                     Label(L("ジャングルには「狩猟印」が必要です（タップでセット）", "Jungle needs Hunter's Mark (tap to equip)"), systemImage: "exclamationmark.triangle.fill")
                         .font(Theme.body(11))
@@ -416,7 +425,7 @@ struct SpellPickerOverlay: View {
                 .accessibilityHidden(true)
             VStack(spacing: 8) {
                 HStack {
-                    Text(L("バトルスペル \(slot + 1) を選択", "Choose Battle Spell \(slot + 1)"))
+                    Text(L("バトルスペルを選択", "Choose Battle Spell"))
                         .font(Theme.heading(17))
                         .foregroundStyle(Theme.textPrimary)
                     Spacer()
@@ -424,7 +433,7 @@ struct SpellPickerOverlay: View {
                 }
                 ScrollView {
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-                        ForEach(app.master.spells) { s in
+                        ForEach(app.master.spells.filter { SpellLoadoutRules.isSelectable($0.spellID) }) { s in
                             spellCard(s)
                         }
                     }
@@ -442,7 +451,6 @@ struct SpellPickerOverlay: View {
 
     private func spellCard(_ s: SpellDef) -> some View {
         let current = model.spells.indices.contains(slot) && model.spells[slot] == s.spellID
-        let other = model.spells.indices.contains(1 - slot) && model.spells[1 - slot] == s.spellID
         return Button {
             FlowFX.tap(app)
             model.setSpell(s.spellID, slot: slot)
@@ -457,8 +465,6 @@ struct SpellPickerOverlay: View {
                         Spacer(minLength: 0)
                         if current {
                             Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.gold)
-                        } else if other {
-                            Text(L("入れ替え", "Swap")).font(Theme.body(10)).foregroundStyle(Theme.cyan)
                         }
                     }
                     Text(FlowText.spellDescription(s.spellID))

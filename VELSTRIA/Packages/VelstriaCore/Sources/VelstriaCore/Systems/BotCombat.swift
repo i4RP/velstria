@@ -643,6 +643,38 @@ enum BotCombat {
                     a.emit(.castSpell(index: idx, target: .none))
                     return
                 }
+            case "BS11":
+                // 処断: 確定ダメージで倒し切れる時
+                let k = Balance.Spells.self
+                let missing = max(0, tu.stats.maxHP - tu.hp)
+                let dmg = k.executeBase + k.executePerLevel * Double(h.level) + k.executeMissingHPPct * missing
+                if t.distance <= k.executeRange && tu.hp + tu.totalShield <= dmg {
+                    a.emit(.castSpell(index: idx, target: .unit(t.id)))
+                    return
+                }
+            case "BS12":
+                // 鼓舞: 通常攻撃が届く距離で交戦中
+                if t.distance <= reach + 50 {
+                    a.emit(.castSpell(index: idx, target: .none))
+                    return
+                }
+            case "BS13":
+                // 石化: 2 人以上を巻き込む、または倒せる相手に張り付かれた時
+                let n = enemiesNear(a, a.pos, radius: Balance.Spells.petrifyRadius)
+                if n >= 2 || (n >= 1 && killable) {
+                    a.emit(.castSpell(index: idx, target: .none))
+                    return
+                }
+            case "BS14":
+                // 火炎弾: 射程内の弱った相手へ撃つ（逃げの追撃・押し返し）
+                let range = Balance.Spells.flameshotRange
+                if t.distance <= range - 100, killable || tu.hpRatio < 0.35 {
+                    let d = (t.pos - a.pos).normalized
+                    if d != .zero {
+                        a.emit(.castSpell(index: idx, target: .direction(d)))
+                        return
+                    }
+                }
             default:
                 break
             }
@@ -694,6 +726,11 @@ enum BotCombat {
                 }
             case "BS08":
                 if !fighting && hpRatio < 0.25 && nearest < 500 {
+                    a.emit(.castSpell(index: idx, target: .none))
+                    return
+                }
+            case "BS15":
+                if fighting && hpRatio < 0.5 && hurtRecently && nearest < 500 {
                     a.emit(.castSpell(index: idx, target: .none))
                     return
                 }

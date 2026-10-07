@@ -37,7 +37,7 @@ enum PracticeSetup {
     static func spells(heroID: String, profile: Profile, master: MasterData = .shared) -> [String]? {
         let chosen = profile.heroSpells[heroID] ?? profile.defaultSpells
         guard chosen.count == 2, Set(chosen).count == 2, chosen.allSatisfy({ master.spell($0) != nil }) else { return nil }
-        return chosen
+        return SpellLoadoutRules.normalized(chosen, master: master)
     }
 
     /// 選択中ルーンページの有効なルーン。

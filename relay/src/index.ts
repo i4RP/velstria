@@ -5,9 +5,13 @@
 // 部屋コード 1 つ = Durable Object（RelayRoom）1 つ。WebSocket Hibernation API で、通信の無い間は DO を眠らせる。
 
 import { DurableObject } from "cloudflare:workers";
+import { FRIEND_CODE, FriendInbox } from "./inbox";
+
+export { FriendInbox };
 
 export interface Env {
   RELAY_ROOM: DurableObjectNamespace<RelayRoom>;
+  FRIEND_INBOX: DurableObjectNamespace<FriendInbox>;
 }
 
 /** 中継の版数（URL の rv と /v1/health の relay）。形式を変えたら上げる */
@@ -15,6 +19,7 @@ const RELAY_VERSION = 1;
 /** 部屋コード: 英大文字と数字から紛らわしい I L O 0 1 を除いた 31 文字で 6 桁 */
 const ROOM_CODE = /^[ABCDEFGHJKMNPQRSTUVWXYZ2-9]{6}$/;
 const ROOM_PATH = /^\/v1\/rooms\/([^/]*)$/;
+const INBOX_PATH = /^\/v1\/inbox\/([^/]*)$/;
 /** 1 メッセージの上限（超えたら 1009 で閉じる）。アプリは 64 KiB 以下に分けて送る */
 const MAX_MESSAGE_BYTES = 256 * 1024;
 /** 1 部屋の参加者（ホストを除く）の上限 */
@@ -67,6 +72,19 @@ export default {
     if (url.pathname === "/v1/health") {
       if (request.method !== "GET" && request.method !== "HEAD") return plain(405, "method_not_allowed");
       return Response.json({ ok: true, relay: RELAY_VERSION }, { headers: { "cache-control": "no-store" } });
+    }
+    const inbox = INBOX_PATH.exec(url.pathname);
+    if (inbox) {
+      if (request.method !== "GET") return plain(405, "method_not_allowed");
+      const code = inbox[1];
+      if (!FRIEND_CODE.test(code)) return plain(400, "bad_friend_code");
+      if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
+        return plain(426, "websocket_required", { Upgrade: "websocket" });
+      }
+      if (url.searchParams.get("rv") !== String(RELAY_VERSION)) return rejectSocket(CLOSE.relayVersion);
+      // DO には code を query で渡す（DO の fetch は URL のパスを見ない）
+      url.searchParams.set("code", code);
+      return env.FRIEND_INBOX.getByName(code).fetch(new Request(url, request));
     }
     const match = ROOM_PATH.exec(url.pathname);
     if (!match) return plain(404, "not_found");

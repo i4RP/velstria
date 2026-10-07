@@ -1,7 +1,7 @@
 import Foundation
 
 // 担当: core-skills
-// バトルスペル BS01–BS10（DESIGN §7）。検証 → 対象解決（.none は自動）→ CD → .spellCast → 効果。
+// バトルスペル BS01–BS15（DESIGN §7）。検証 → 対象解決（.none は自動）→ CD → .spellCast → 効果。
 // 浄化は CC 中でも使える。それ以外は行動可能（スタン・打ち上げ・強制移動中でない）な時のみ。沈黙では封じられない。
 // 攻撃的なスペル（狩猟印・点火・星鎖）はステルスを解除する。
 
@@ -17,18 +17,23 @@ public enum BattleSpell: String, Codable, Hashable, Sendable, CaseIterable {
     case stealth = "BS08"
     case teleport = "BS09"
     case exhaust = "BS10"
+    case execute = "BS11"
+    case inspire = "BS12"
+    case petrify = "BS13"
+    case flameshot = "BS14"
+    case vengeance = "BS15"
 
     /// 照準方式（HUD のドラッグ照準・AI）。
     public var aim: AimType {
         switch self {
-        case .blink: return .direction
-        case .smite, .ignite, .exhaust: return .unit
+        case .blink, .flameshot: return .direction
+        case .smite, .ignite, .exhaust, .execute: return .unit
         case .teleport: return .point
-        case .cleanse, .heal, .barrier, .ghost, .stealth: return .none
+        case .cleanse, .heal, .barrier, .ghost, .stealth, .inspire, .petrify, .vengeance: return .none
         }
     }
 
-    /// 射程（対象指定・瞬歩の距離。帰還門は 0 = 距離無制限）。
+    /// 射程（対象指定・瞬歩の距離・石化の半径。帰還門は 0 = 距離無制限）。
     public var range: Double {
         switch self {
         case .blink: return Balance.Spells.blinkDistance
@@ -36,12 +41,20 @@ public enum BattleSpell: String, Codable, Hashable, Sendable, CaseIterable {
         case .ignite: return Balance.Spells.igniteRange
         case .exhaust: return Balance.Spells.exhaustRange
         case .heal: return Balance.Spells.healAllyRadius
-        case .cleanse, .barrier, .ghost, .stealth, .teleport: return 0
+        case .execute: return Balance.Spells.executeRange
+        case .petrify: return Balance.Spells.petrifyRadius
+        case .flameshot: return Balance.Spells.flameshotRange
+        case .cleanse, .barrier, .ghost, .stealth, .teleport, .inspire, .vengeance: return 0
         }
     }
 
     /// 攻撃的なスペル（ステルスを解除する）。
-    public var isOffensive: Bool { self == .smite || self == .ignite || self == .exhaust }
+    public var isOffensive: Bool {
+        switch self {
+        case .smite, .ignite, .exhaust, .execute, .petrify, .flameshot: return true
+        default: return false
+        }
+    }
 
     /// CC 中でも使えるか。
     public var usableWhileDisabled: Bool { self == .cleanse }
@@ -90,14 +103,19 @@ public enum SpellSystem {
         switch spell {
         case .blink:
             return SkillTargeting(archetype: .blinkEmpower, aim: .direction, range: spell.range, radius: 0)
-        case .smite, .ignite, .exhaust:
+        case .smite, .ignite, .exhaust, .execute:
             return SkillTargeting(archetype: .targetedBlink, aim: .unit, range: spell.range, radius: 0)
+        case .flameshot:
+            return SkillTargeting(archetype: .lineSkillshot, aim: .direction, range: spell.range,
+                                  radius: Balance.Spells.flameshotWidth)
+        case .petrify:
+            return SkillTargeting(archetype: .selfAoE, aim: .none, range: 0, radius: spell.range)
         case .teleport:
             return SkillTargeting(archetype: .groundAoE, aim: .point, range: 0,
                                   radius: Balance.Economy.teleportTowerRadius, targetsAllies: true)
         case .heal:
             return SkillTargeting(archetype: .selfAoE, aim: .none, range: 0, radius: spell.range, targetsAllies: true)
-        case .cleanse, .barrier, .ghost, .stealth:
+        case .cleanse, .barrier, .ghost, .stealth, .inspire, .vengeance:
             return SkillTargeting(archetype: .selfAoE, aim: .none, range: 0, radius: 0)
         }
     }
@@ -142,17 +160,34 @@ public enum SpellSystem {
             if delta.lengthSquared < 1e-12 { delta = facing * spell.range }
             return SpellPlan(point: pos + delta, unit: nil)
         case .smite:
+            // 祝福済みのジャングル靴ならヒーローを直接指定して使える
+            if case .unit(let id) = target, let j = s.index(of: id),
+               let h = s.units[i].hero, GearEffects.jungleBlessingActive(h, master: ctx.master),
+               isEnemyHero(s, caster: i, j, range: Balance.Spells.smiteRange) {
+                return SpellPlan(point: s.units[j].pos, unit: j)
+            }
             guard let u = smiteTarget(s, caster: i, target: target) else { return nil }
             return SpellPlan(point: s.units[u].pos, unit: u)
-        case .ignite, .exhaust:
+        case .ignite, .exhaust, .execute:
             guard let u = heroTarget(s, caster: i, range: spell.range, target: target,
-                                     preferLowHealth: spell == .ignite) else { return nil }
+                                     preferLowHealth: spell == .ignite || spell == .execute) else { return nil }
             return SpellPlan(point: s.units[u].pos, unit: u)
+        case .flameshot:
+            // 方向（指定が無ければ向いている方向）へ射程いっぱいの線を撃つ。当たらなくても発動する
+            var dir: Vec2
+            switch target {
+            case .direction(let d): dir = d.normalized
+            case .point(let p): dir = (p - pos).normalized
+            case .unit(let id): dir = s.unit(id).map { ($0.pos - pos).normalized } ?? .zero
+            case .none: dir = .zero
+            }
+            if dir == .zero { dir = Vec2.fromAngle(s.units[i].facing) }
+            return SpellPlan(point: pos + dir * spell.range, unit: nil)
         case .teleport:
             guard let dest = teleportRequest(s, ctx, caster: i, target: target),
                   RecallSystem.teleportDestination(s, ctx, heroIndex: i, requested: dest) != nil else { return nil }
             return SpellPlan(point: dest, unit: nil)
-        case .cleanse, .heal, .barrier, .ghost, .stealth:
+        case .cleanse, .heal, .barrier, .ghost, .stealth, .inspire, .petrify, .vengeance:
             return SpellPlan(point: pos, unit: nil)
         }
     }
@@ -325,6 +360,10 @@ public enum SpellSystem {
                                    amount: s.units[i].stats.maxHP * k.barrierPct, duration: k.barrierDuration, tag: tag)
         case .smite:
             guard let u = plan.unit else { return }
+            if s.units[u].kind == .hero {
+                GearSystem.applySmiteOnHero(&s, ctx, caster: i, target: u)
+                return
+            }
             CombatSystem.applyDamage(&s, ctx, sourceID: casterID, targetIndex: u,
                                      amount: k.smiteBase + k.smitePerLevel * level, type: .trueDamage, source: .spell)
         case .ghost:
@@ -357,6 +396,41 @@ public enum SpellSystem {
                                                                     duration: k.exhaustDuration,
                                                                     magnitude: k.exhaustDamageDealtReduction,
                                                                     sourceID: casterID, tag: tag))
+        case .execute:
+            guard let u = plan.unit else { return }
+            let missing = max(0, s.units[u].stats.maxHP - s.units[u].hp)
+            CombatSystem.applyDamage(&s, ctx, sourceID: casterID, targetIndex: u,
+                                     amount: k.executeBase + k.executePerLevel * level + k.executeMissingHPPct * missing,
+                                     type: .trueDamage, source: .spell)
+        case .inspire:
+            CombatSystem.addStatus(&s, targetIndex: i, StatusEffect(kind: .attackSpeedBoost, duration: k.inspireDuration,
+                                                                    magnitude: k.inspireAttackSpeed, sourceID: casterID,
+                                                                    tag: tag))
+        case .petrify:
+            let team = s.units[i].team
+            let origin = s.units[i].pos
+            for j in s.units.indices where s.units[j].kind == .hero && s.isTargetableEnemy(j, of: team) {
+                let r = k.petrifyRadius + s.units[j].radius
+                guard s.units[j].pos.distanceSquared(to: origin) <= r * r else { continue }
+                CombatSystem.addStatus(&s, targetIndex: j, StatusEffect(kind: .stun, duration: k.petrifyStun,
+                                                                        sourceID: casterID, tag: tag))
+                CombatSystem.addStatus(&s, targetIndex: j, StatusEffect(kind: .slow,
+                                                                        duration: k.petrifyStun + k.petrifySlowAfterStun,
+                                                                        magnitude: k.petrifySlow, sourceID: casterID,
+                                                                        tag: tag))
+            }
+        case .flameshot:
+            let dir = (plan.point - s.units[i].pos).normalized
+            let damage = k.flameshotBase + k.flameshotPerLevel * level
+            ProjectileSystem.spawn(&s, ownerIndex: i, motion: .linear(direction: dir, maxDistance: k.flameshotRange),
+                                   speed: k.flameshotSpeed, width: k.flameshotWidth, pierce: false,
+                                   payload: HitPayload(damage: damage, damageType: .magic, source: .spell, cc: .knockback,
+                                                       heroesOnly: true),
+                                   visual: tag)
+        case .vengeance:
+            CombatSystem.addStatus(&s, targetIndex: i, StatusEffect(kind: .damageReduction, duration: k.vengeanceDuration,
+                                                                    magnitude: k.vengeanceReduction, sourceID: casterID,
+                                                                    tag: tag))
         }
     }
 

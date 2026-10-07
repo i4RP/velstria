@@ -179,10 +179,13 @@ final class FlowMatchModelTests: XCTestCase {
         let m = MatchFlowModel(seed: 1)
         m.spells = ["BS01", "BS03"]
         m.setSpell("BS03", slot: 0)
-        XCTAssertEqual(m.spells, ["BS03", "BS01"])
+        XCTAssertEqual(m.spells, ["BS01", "BS03"])
         m.setSpell("BS07", slot: 1)
-        XCTAssertEqual(m.spells, ["BS03", "BS07"])
+        XCTAssertEqual(m.spells, ["BS01", "BS03"])
+        m.setSpell("BS07", slot: 0)
+        XCTAssertEqual(m.spells, ["BS07", "BS03"])
         XCTAssertEqual(MatchFlowModel.sanitizedSpells(["BS01", "BS01", "XX"], master: .shared), ["BS01", "BS03"])
+        XCTAssertEqual(MatchFlowModel.sanitizedSpells(["BS03", "BS07"], master: .shared), ["BS07", "BS03"])
         XCTAssertEqual(MatchFlowModel.sanitizedSpells([], master: .shared), ["BS01", "BS03"])
     }
 
@@ -194,7 +197,7 @@ final class FlowMatchModelTests: XCTestCase {
         m.startStandard()
         m.selectHero("H003", profile: p, master: .shared)
         XCTAssertEqual(m.position, .carry)
-        XCTAssertEqual(m.spells, ["BS07", "BS01"])
+        XCTAssertEqual(m.spells, ["BS07", "BS03"])
         m.setPosition(.mid)
         let config = try XCTUnwrap(m.buildConfig(profile: p, master: .shared))
         XCTAssertEqual(config.mode, .standard)
@@ -202,7 +205,7 @@ final class FlowMatchModelTests: XCTestCase {
         let human = try XCTUnwrap(config.humanSlot)
         XCTAssertEqual(human.heroID, "H003")
         XCTAssertEqual(human.position, .mid)
-        XCTAssertEqual(human.spells, ["BS07", "BS01"])
+        XCTAssertEqual(human.spells, ["BS07", "BS03"])
         XCTAssertEqual(human.displayName, "Tester")
         XCTAssertTrue(config.players.filter { $0.team == .red }.allSatisfy { $0.botDifficulty == .hard })
         XCTAssertTrue(config.players.filter { $0.team == .blue && $0.controller == .bot }.allSatisfy { $0.botDifficulty == .normal })

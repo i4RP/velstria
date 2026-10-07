@@ -728,6 +728,19 @@ final class BattleWorld {
             vfx.spawn(.blink, at: p + SIMD3(0, 0.9, 0), color: FXColors.ghost, important: true)
         case "BS10":
             vfx.spawn(.magicHit, at: tp, color: FXColors.chain, scale: 1.2, important: true)
+        case "BS11":
+            vfx.flash(at: tp, color: FXRings.white, radius: 1.4, duration: 0.3)
+            vfx.spawn(.crit, at: tp, color: FXColors.crit, scale: 1.5, important: true)
+        case "BS12":
+            vfx.ring(at: p, color: FXRings.smite, from: 0.5, to: 2, duration: 0.5)
+            vfx.spawn(.blink, at: p + SIMD3(0, 0.9, 0), color: FXColors.smite, important: true)
+        case "BS13":
+            vfx.ring(at: p, color: FXRings.smite, from: 0.5, to: Float(Balance.Spells.petrifyRadius / 100), duration: 0.5, alpha: 0.7)
+            vfx.spawn(.skillBurst, at: p + SIMD3(0, 0.8, 0), color: FXColors.physical, scale: 1.4, important: true)
+        case "BS14":
+            vfx.spawn(.magicHit, at: p + SIMD3(0, 0.9, 0), color: FXColors.ignite, scale: 1.1, important: true)
+        case "BS15":
+            vfx.spawn(.shield, at: p + SIMD3(0, 0.9, 0), color: FXColors.ghost, important: true)
         default:
             vfx.spawn(.skillBurst, at: p + SIMD3(0, 1, 0), color: heroColor(caster, f), scale: 0.8)
         }

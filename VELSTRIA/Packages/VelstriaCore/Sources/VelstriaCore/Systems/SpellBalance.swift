@@ -41,8 +41,33 @@ extension Balance {
         public static let exhaustSlow: Double = 0.40
         public static let exhaustDamageDealtReduction: Double = 0.30
         public static let exhaustDuration: Double = 2.5
+        /// BS11 処断: 600 以内の敵ヒーローに 150 + 30×Lv + 失った HP の 25% の確定ダメージ。
+        public static let executeRange: Double = 600
+        public static let executeBase: Double = 150
+        public static let executePerLevel: Double = 30
+        public static let executeMissingHPPct: Double = 0.25
+        /// BS12 鼓舞: 5 秒間 攻撃速度 +50%。
+        public static let inspireAttackSpeed: Double = 0.50
+        public static let inspireDuration: Double = 5
+        /// BS13 石化: 450 以内の敵ヒーローを 0.8 秒スタンさせ、その後 1.5 秒 30% スロー。
+        public static let petrifyRadius: Double = 450
+        public static let petrifyStun: Double = 0.8
+        public static let petrifySlow: Double = 0.30
+        public static let petrifySlowAfterStun: Double = 1.5
+        /// BS14 火炎弾: 指定方向へ 700 の直線弾（幅 70）。最初に当たった敵ヒーローに 100 + 20×Lv の魔法ダメージ + ノックバック。
+        public static let flameshotRange: Double = 700
+        public static let flameshotWidth: Double = 70
+        public static let flameshotSpeed: Double = 2000
+        public static let flameshotBase: Double = 100
+        public static let flameshotPerLevel: Double = 20
+        /// BS15 報復: 5 秒間 被ダメージ −30%、受けたダメージの 35% を攻撃者へ確定ダメージで反射。
+        public static let vengeanceDuration: Double = 5
+        public static let vengeanceReduction: Double = 0.30
+        public static let vengeanceReflect: Double = 0.35
 
         /// ステータスのタグ（"spell." + スペル ID）。
         public static func tag(_ spell: BattleSpell) -> String { "spell." + spell.rawValue }
+        /// 報復の被ダメ軽減ステータスのタグ（反射の判定に使う）。
+        public static let vengeanceTag = "spell.BS15"
     }
 }

@@ -113,6 +113,9 @@ enum HUDSpellAim {
         case "BS09": return SkillTargeting(archetype: .targetedBlink, aim: .point, range: Balance.mapSize, radius: 250,
                                            targetsAllies: true)
         case "BS10": return SkillTargeting(archetype: .selfAoE, aim: .unit, range: 650, radius: 90)
+        case "BS11": return SkillTargeting(archetype: .selfAoE, aim: .unit, range: Balance.Spells.executeRange, radius: 90)
+        case "BS14": return SkillTargeting(archetype: .lineSkillshot, aim: .direction, range: Balance.Spells.flameshotRange,
+                                           radius: Balance.Spells.flameshotWidth)
         default: return nil
         }
     }
