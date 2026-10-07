@@ -64,10 +64,8 @@ struct HomeMetrics: Equatable {
     let firstWinChipRect: CGRect
 
     // 中央
-    /// ショーケースの操作部品を置ける領域（右レール展開時）。クロームと重ならない。
+    /// ショーケースの操作部品を置ける領域。クロームと重ならない（右レールを畳んでも変えない。畳むと戦場が見えるだけ）。
     let centerRect: CGRect
-    /// 右レールを畳んでいる間の領域（右へ広がるが、START と初勝利チップを避けて下が短い）。
-    let centerRectWide: CGRect
 
     // ドロワー
     /// メニュードロワーの幅（右のセーフエリアを含む）。
@@ -141,15 +139,9 @@ struct HomeMetrics: Equatable {
         let centerMinX = leftRailRect.maxX + centerGap
         centerRect = CGRect(x: centerMinX, y: bodyTop,
                             width: handleRect.minX - handleClearance - centerMinX, height: bodyBottom - bodyTop)
-        centerRectWide = CGRect(x: centerMinX, y: bodyTop,
-                                width: contentMaxX - handleWidth - handleClearance - centerMinX,
-                                height: firstWinChipRect.minY - spacing - bodyTop)
 
         drawerWidth = min(380, max(316, (contentWidth * 0.5).rounded())) + (w - contentMaxX)
     }
-
-    /// 右レールの状態に応じた中央領域。
-    func centerRect(railCollapsed: Bool) -> CGRect { railCollapsed ? centerRectWide : centerRect }
 
     /// 右レールを畳んだときに、レール本体（カードとソーシャル行）を右へ退かす量（画面の外まで）。
     var railCollapseOffset: CGFloat { size.width - rightRailRect.minX }

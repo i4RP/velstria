@@ -62,7 +62,6 @@ final class HomeScreenTests: XCTestCase {
             // 畳んだ右レールは画面外へ、取っ手は中身の右端に残る
             XCTAssertGreaterThanOrEqual(m.rightRailRect.minX + m.railCollapseOffset, d.size.width, d.name)
             XCTAssertEqual(m.handleRect.maxX + m.handleCollapseOffset, m.contentMaxX, accuracy: 0.5, d.name)
-            XCTAssertGreaterThan(m.centerRectWide.width, m.centerRect.width, d.name)
         }
     }
 

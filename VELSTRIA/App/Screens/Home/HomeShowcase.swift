@@ -10,7 +10,6 @@ import VelstriaCore
 struct HomeShowcase: View {
     let metrics: HomeMetrics
     let heroID: String
-    let railCollapsed: Bool
     let isActive: Bool
     let animated: Bool
     let entered: Bool
@@ -29,7 +28,7 @@ struct HomeShowcase: View {
 
     var body: some View {
         let m = metrics
-        let region = m.centerRect(railCollapsed: railCollapsed)
+        let region = m.centerRect
         let artRect = Self.artRect(metrics: m, region: region)
         ZStack(alignment: .topLeading) {
             if shows3D && isActive {
@@ -240,7 +239,7 @@ private struct HomeHeroNameplate: View {
                     .shadow(color: glow.opacity(0.9), radius: 6)
                     .shadow(color: .black.opacity(0.8), radius: 2, y: 1)
                 HStack(spacing: 8) {
-                    if let role = hero?.role { RoleLabel(role: role, size: 11) }
+                    if let role = hero?.role { RoleLabel(role: role, size: 11).fixedSize() }
                     if let skinID, let skin = app.master.cosmetic(skinID) {
                         Label(MasterText.cosmetic(skin), systemImage: "sparkles")
                             .font(HomeFont.label(10.5))

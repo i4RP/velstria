@@ -62,7 +62,7 @@ struct HomeView: View {
     private func content(_ m: HomeMetrics) -> some View {
         ZStack(alignment: .topLeading) {
             HomeBackdrop(metrics: m, heroID: showcaseHeroID, animated: animates)
-            HomeShowcase(metrics: m, heroID: showcaseHeroID, railCollapsed: railCollapsed, isActive: isFrontmost,
+            HomeShowcase(metrics: m, heroID: showcaseHeroID, isActive: isFrontmost,
                          animated: animates, entered: entered) { pickedHeroID = $0 }
             chrome(m)
             if menuOpen {
