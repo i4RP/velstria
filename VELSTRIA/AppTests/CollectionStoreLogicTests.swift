@@ -190,10 +190,8 @@ final class CollectionStoreLogicTests: XCTestCase {
                 XCTAssertTrue(tokens(row.label).isEmpty, row.label)
                 XCTAssertTrue(tokens(row.value).isSubset(of: allowed), "\(lang) \(row.label): \(row.value)")
             }
-            // 電話番号欄は docs/legal/tokushoho_ja.md と同じく受付時間を併記する
-            XCTAssertTrue(StoreLegalText.commercialTransactions.contains {
-                $0.value.contains(StoreLegalText.phoneNumber) && $0.value.contains(StoreLegalText.phoneHours)
-            })
+            // 電話番号欄は請求ベースの開示（docs/legal/tokushoho_ja.md と同じ方式）
+            XCTAssertTrue(StoreLegalText.commercialTransactions.contains { $0.value.contains(StoreLegalText.phoneNumber) })
         }
     }
 

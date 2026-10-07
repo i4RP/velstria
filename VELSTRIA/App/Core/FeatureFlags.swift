@@ -22,11 +22,11 @@ enum FeatureFlags {
     // 公開 URL・窓口（App Store 提出前に確定値へ置き換える。docs/APPSTORE.md §2）。
     // tools/validate_appstore_metadata.py --release は、このファイルを含む App/ のソースに仮ドメイン（.example）や
     // {{…}} が残っているとエラーにする。privacy の URL は metadata/<locale>/privacy_url.txt と一致させること（検証あり）。
-    static let supportEmail = "support@velstria.example"
-    static let privacyPolicyURLJa = URL(string: "https://velstria.example/privacy")!
-    static let privacyPolicyURLEn = URL(string: "https://velstria.example/en/privacy")!
-    static let termsURLJa = URL(string: "https://velstria.example/terms")!
-    static let termsURLEn = URL(string: "https://velstria.example/en/terms")!
+    static let supportEmail = "info@btcpay.jp"
+    static let privacyPolicyURLJa = URL(string: "https://velsia.bitcessing.com/privacy")!
+    static let privacyPolicyURLEn = URL(string: "https://velsia.bitcessing.com/en/privacy")!
+    static let termsURLJa = URL(string: "https://velsia.bitcessing.com/terms")!
+    static let termsURLEn = URL(string: "https://velsia.bitcessing.com/en/terms")!
     /// 表示言語のプライバシーポリシー（英語表示では英語版を開く）。
     static var privacyPolicyURL: URL { Loc.isEnglish ? privacyPolicyURLEn : privacyPolicyURLJa }
     /// 表示言語の利用規約（英語表示では英語版を開く）。
