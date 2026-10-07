@@ -2,7 +2,9 @@ import SwiftUI
 import VelstriaCore
 
 // 担当: battle-hud。画面確認・UI テスト用の HUD 状態の再現（DEBUG ビルドかつ -uiTesting 起動時のみ有効）。
-//   -hudState <shop|scoreboard|pause|aim|death|victory|defeat|spree|surrender|lowhp|recall|levelup|tutoriallearn|tutorialdone>
+//   -hudState <shop|scoreboard|pause|aim|death|deathinfo|signals|chatmenu|victory|defeat|spree|surrender|lowhp|recall|levelup|tutoriallearn|tutorialdone>
+//   （signals: 2.5 秒ごとにシグナルを送り、キルフィードへキルを足し続ける。メッセージ・味方の返信・ピン・キルフィードの重なりの確認用。
+//    chatmenu: キルフィードを足し続けながらクイックチャットのメニューを開いておく）
 //   -hudLeftHanded / -hudColorblind / -hudManualCast / -hudFixedStick
 
 #if DEBUG
@@ -49,7 +51,18 @@ extension HUDModel {
                 abilityDragChanged(.skill(.skill1), start: c,
                                    location: CGPoint(x: c.x - 50, y: c.y - 55), buttonCenter: c)
             }
-        case "death": debugForceDeath = true
+        case "death":
+            debugForceDeath = true
+            debugForceAllyDeaths = true
+        case "deathinfo":
+            debugForceDeath = true
+            debugForceAllyDeaths = true
+            refresh()
+            openDeathRecap()
+        case "signals":
+            debugSignalLoop(chatMenu: false)
+        case "chatmenu":
+            debugSignalLoop(chatMenu: true)
         case "victory", "defeat":
             debugEnd(winner: state == "victory" ? .blue : .red)
         case "spree":
@@ -70,6 +83,36 @@ extension HUDModel {
         default: break
         }
         refresh()
+    }
+
+    /// 2.5 秒ごとにシグナル（攻撃・集合・撤退・定型文の順）を送り、味方が敵ヒーローを倒したキルをキルフィードへ足す。
+    /// メッセージ（6 秒）とキルフィード（7 秒）が常に数件ずつ出ている状態を撮影するためのもの。
+    private func debugSignalLoop(chatMenu: Bool) {
+        Task { @MainActor [weak self] in
+            for k in 0..<240 {
+                guard let model = self, model.endPhase == nil else { return }
+                model.debugSignalTick(k, chatMenu: chatMenu)
+                try? await Task.sleep(for: .seconds(2.5))
+            }
+        }
+    }
+
+    private func debugSignalTick(_ k: Int, chatMenu: Bool) {
+        if chatMenu {
+            if !signals.chatMenuOpen { signals.toggleChatMenu(model: self) }
+        } else {
+            let kinds: [HUDSignal] = [.signal(.attack), .signal(.gather), .signal(.retreat), .chat(HUDQuickChat.allCases[0])]
+            signals.send(kinds[k % kinds.count], model: self)
+        }
+        let s = controller.sim.state
+        guard let team = humanTeam else { return }
+        let mine = s.heroIndices(team: team).map { s.units[$0].id }
+        let theirs = s.heroIndices(team: team == .blue ? .red : .blue).map { s.units[$0].id }
+        guard !mine.isEmpty, !theirs.isEmpty else { return }
+        let killer = mine[k % mine.count]
+        let assists = Array(mine.filter { $0 != killer }.prefix(k % 3))
+        handle([.heroKilled(HeroKillEvent(victimID: theirs[k % theirs.count], killerID: killer, assistIDs: assists,
+                                          bounty: 0, isFirstBlood: false, multiKill: 1, killerStreak: 1, isShutdown: false))])
     }
 
     /// チュートリアルの手順を last まで合成イベントで満たす。

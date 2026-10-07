@@ -55,6 +55,8 @@ final class AudioService {
     private(set) var currentTrack: MusicTrack?
     /// 全 SFX の合成が完了しているか。
     private(set) var sfxReady = false
+    /// 戦闘 HUD の消音ボタン（設定は変えずに全体を一時的に無音にする）。
+    private(set) var isTemporarilyMuted = false
 
     private var engine = AVAudioEngine()
     private var sfxMixer = AVAudioMixerNode()
@@ -101,9 +103,16 @@ final class AudioService {
         if currentTrack?.isMenuTrack == true, currentTrack != selectedMenuTrack { playMusic(selectedMenuTrack) }
     }
 
+    func setTemporaryMute(_ muted: Bool) {
+        guard muted != isTemporarilyMuted else { return }
+        isTemporarilyMuted = muted
+        applyVolumes()
+    }
+
     private func applyVolumes() {
-        sfxMixer.outputVolume = Float(sfxVolume)
-        musicMixer.outputVolume = Float(bgmVolume) * Self.musicGain
+        let gate: Float = isTemporarilyMuted ? 0 : 1
+        sfxMixer.outputVolume = Float(sfxVolume) * gate
+        musicMixer.outputVolume = Float(bgmVolume) * Self.musicGain * gate
     }
 
     // MARK: - 効果音

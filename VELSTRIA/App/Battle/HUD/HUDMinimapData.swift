@@ -86,10 +86,21 @@ final class HUDMinimapBuffer {
         var respawnRemaining: Double? = nil
     }
 
+    /// クイックシグナルのピン（HUDSignalCenter が書き込む。ミニマップと全体マップの両方に描く）。
+    struct Ping: Equatable {
+        var pos: Vec2
+        var kind: HUDSignalKind
+        /// 作成時刻（HUD の時計 = systemUptime）。
+        var createdAt: TimeInterval
+    }
+
     var units: [Dot] = []
     var heroes: [Dot] = []
     var structures: [Structure] = []
     var camps: [Camp] = []
+    var pings: [Ping] = []
+    /// ピンの経過時間の基準（ピンがある間だけ HUDSignalCenter が 15Hz で進める）。
+    var pingClock: TimeInterval = 0
     var mapSize: Double = Balance.mapSize
     var viewportPolygon: [Vec2] = []
     var vision = VisionState()

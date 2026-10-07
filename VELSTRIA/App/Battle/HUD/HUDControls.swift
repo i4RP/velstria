@@ -2,6 +2,8 @@ import SwiftUI
 import VelstriaCore
 
 // 担当: battle-hud。操作部品: 仮想スティック・攻撃ボタン・スキル/Ult・スペル・帰還・スキル習得「＋」・照準リング。
+// スキルの種別タグ（ボタンの下、下が詰まる内側の列は画面中央側）、スペル名（帰還・攻撃と同じくボタン内の絵柄の下）、
+// クールダウンは暗くした絵柄 + 金色の進捗弧 + 秒数。死亡中は絵柄が見えたまま暗くし、秒数は読めるまま進める。
 // ジェスチャーは HUD 全面の座標空間（HUDSpace.name）で受け、HUDLayout の座標と一致させる。
 
 // MARK: - 仮想スティック
@@ -22,6 +24,8 @@ struct HUDJoystick: View {
         let r = layout.joystickRadius
         let zone = mode == .floating ? layout.joystickZone : layout.fixedJoystickZone
         let center = active ? base : layout.joystickRest
+        // 死亡中は操作できないので薄く
+        let dead = model.hero.isDead
         ZStack {
             Color.clear
                 .contentShape(Rectangle())
@@ -59,7 +63,8 @@ struct HUDJoystick: View {
                     .offset(x: knob.dx, y: knob.dy)
             }
             .frame(width: r * 2, height: r * 2)
-            .opacity(active ? 1 : (mode == .floating ? 0.58 : 0.82))
+            .opacity((active ? 1 : (mode == .floating ? 0.58 : 0.82)) * (dead ? HUDDeadStyle.stickOpacity : 1))
+            .animation(.easeInOut(duration: 0.3), value: dead)
             .position(center)
             .allowsHitTesting(false)
             if highlighted {
@@ -116,6 +121,8 @@ struct HUDAttackButton: View {
     let model: HUDModel
     let slot: AttackButtonSlot
     let diameter: CGFloat
+    /// 死亡中は絵柄を暗くする（押しても何も起きない）。
+    var dead = false
     let highlighted: Bool
     @State private var pressed = false
     @GestureState private var touching = false
@@ -142,8 +149,9 @@ struct HUDAttackButton: View {
             .foregroundStyle(HUDStyle.surface)
         }
         .frame(width: diameter, height: diameter)
+        .hudDeadDim(dead)
         .scaleEffect(pressed ? 0.92 : 1)
-        .shadow(color: Theme.gold.opacity(pressed ? 0.6 : 0.18), radius: pressed ? 12 : 5)
+        .shadow(color: Theme.gold.opacity(dead ? 0 : (pressed ? 0.6 : 0.18)), radius: pressed ? 12 : 5)
         .animation(.spring(duration: 0.15), value: pressed)
         .overlay { if highlighted { HUDHighlightRing(diameter: diameter + 16) } }
         .contentShape(Circle())
@@ -212,25 +220,22 @@ struct HUDCrossedSwords: Shape {
 
 // MARK: - スキル・スペル
 
-/// クールダウンの扇形（上から時計回りに残り時間の割合）。
-struct HUDCooldownPie: Shape {
-    var fraction: Double
+/// 死亡中の操作部品の見た目（参考画面: 絵柄は見えたまま暗く、クールダウンの秒数は読める）。
+enum HUDDeadStyle {
+    static let saturation: Double = 0.3
+    static let brightness: Double = -0.17
+    static let opacity: Double = 0.88
+    /// 操作できないスティックは薄く。
+    static let stickOpacity: Double = 0.45
+}
 
-    var animatableData: Double {
-        get { fraction }
-        set { fraction = newValue }
-    }
-
-    func path(in rect: CGRect) -> Path {
-        var p = Path()
-        guard fraction > 0.001 else { return p }
-        let c = CGPoint(x: rect.midX, y: rect.midY)
-        let r = min(rect.width, rect.height) / 2
-        p.move(to: c)
-        p.addArc(center: c, radius: r, startAngle: .degrees(-90), endAngle: .degrees(-90 + 360 * min(1, fraction)),
-                 clockwise: false)
-        p.closeSubpath()
-        return p
+extension View {
+    /// 死亡中の操作部品: 絵柄は見えたまま、彩度と明度を落として少し透かす（重ねる秒数・ラベルには掛けない）。
+    func hudDeadDim(_ dead: Bool) -> some View {
+        self
+            .saturation(dead ? HUDDeadStyle.saturation : 1)
+            .brightness(dead ? HUDDeadStyle.brightness : 0)
+            .opacity(dead ? HUDDeadStyle.opacity : 1)
     }
 }
 
@@ -259,20 +264,87 @@ struct HUDAbilityFace: View {
     }
 }
 
-/// 残り秒の扇形に加えて、外周でもクールダウンの残量を読める。
-struct HUDCooldownRing: View {
+/// クールダウンの進捗弧（ボタンの縁に沿って、上から時計回りに経過した分を金色で描く）。
+struct HUDCooldownArc: View {
+    /// 残り時間の割合（1 = 使った直後、0 = 使用可能）。
     let fraction: Double
-    let color: Color
+    let diameter: CGFloat
+
+    static func lineWidth(_ diameter: CGFloat) -> CGFloat { max(2.5, diameter * 0.065) }
 
     var body: some View {
-        Circle()
-            .trim(from: 0, to: min(1, max(0, fraction)))
-            .stroke(color, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-            .rotationEffect(.degrees(-90))
-            .padding(2)
-            .animation(.linear(duration: 1.0 / 15.0), value: fraction)
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
+        let w = Self.lineWidth(diameter)
+        ZStack {
+            Circle()
+                .stroke(Color.black.opacity(0.5), lineWidth: w)
+            Circle()
+                .trim(from: 0, to: min(1, max(0, 1 - fraction)))
+                .stroke(LinearGradient(colors: [Color(red: 1.0, green: 0.93, blue: 0.66), Theme.gold,
+                                                Color(red: 0.86, green: 0.58, blue: 0.16)],
+                                       startPoint: .top, endPoint: .bottom),
+                        style: StrokeStyle(lineWidth: w, lineCap: .butt))
+                .rotationEffect(.degrees(-90))
+                .shadow(color: Theme.gold.opacity(0.55), radius: 2.5)
+                .animation(.linear(duration: 1.0 / 15.0), value: fraction)
+        }
+        .padding(w / 2)
+        .frame(width: diameter, height: diameter)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+/// クールダウン中の表示: 暗くした絵柄 + 金色の進捗弧 + 残り秒数。
+struct HUDCooldownOverlay: View {
+    let cooldown: Double
+    let fraction: Double
+    let diameter: CGFloat
+    /// 秒数の文字サイズ（ボタン直径に対する割合）。
+    var fontRatio: CGFloat = 0.32
+    /// 秒数の縦位置（ボタン内に名前がある時は絵柄の位置に合わせて上へ）。
+    var numberOffset: CGFloat = 0
+
+    /// 絵柄を暗くする幕の濃さ。
+    static let shade: Double = 0.42
+
+    var body: some View {
+        ZStack {
+            Circle().fill(Color.black.opacity(Self.shade))
+            HUDCooldownArc(fraction: fraction, diameter: diameter)
+            Text(HUDStyle.cooldown(cooldown))
+                .font(.system(size: diameter * fontRatio, weight: .black, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(.white)
+                .shadow(color: .black, radius: 2)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .offset(y: numberOffset)
+        }
+        .frame(width: diameter, height: diameter)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+/// クールダウンの扇形（上から時計回りに残り時間の割合。観戦のヒーロー詳細で使う）。
+struct HUDCooldownPie: Shape {
+    var fraction: Double
+
+    var animatableData: Double {
+        get { fraction }
+        set { fraction = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        guard fraction > 0.001 else { return p }
+        let c = CGPoint(x: rect.midX, y: rect.midY)
+        let r = min(rect.width, rect.height) / 2
+        p.move(to: c)
+        p.addArc(center: c, radius: r, startAngle: .degrees(-90), endAngle: .degrees(-90 + 360 * min(1, fraction)),
+                 clockwise: false)
+        p.closeSubpath()
+        return p
     }
 }
 
@@ -283,6 +355,10 @@ struct HUDSkillButton: View {
     let diameter: CGFloat
     let center: CGPoint
     let name: String
+    /// ボタン下の種別タグ（VoiceOver ではヒントとして読む）。
+    var tag = ""
+    /// 死亡中は絵柄だけを暗くし、クールダウンの秒数は読めるまま進める。
+    var dead = false
     let highlighted: Bool
     @GestureState private var touching = false
 
@@ -290,25 +366,25 @@ struct HUDSkillButton: View {
         let isUlt = snapshot.slot == .ultimate
         let color = isUlt ? HUDStyle.violet : Theme.roleColor(role)
         let dim = !snapshot.isReady
+        let cooling = snapshot.cooldown > 0
         ZStack {
-            HUDAbilityFace(color: color, diameter: diameter, ultimate: isUlt)
-            Image(systemName: HUDSymbols.skill(snapshot.archetype))
-                .font(.system(size: diameter * 0.37, weight: .bold))
-                .foregroundStyle(.white)
-                .offset(y: snapshot.isReady && isUlt ? -diameter * 0.05 : 0)
-            if dim {
-                Circle().fill(HUDStyle.surface.opacity(snapshot.learned ? 0.46 : 0.72))
-            }
-            if snapshot.cooldown > 0 {
-                HUDCooldownPie(fraction: snapshot.cooldownFraction)
-                    .fill(HUDStyle.surface.opacity(0.74))
-                    .animation(.linear(duration: 1.0 / 15.0), value: snapshot.cooldownFraction)
-                HUDCooldownRing(fraction: snapshot.cooldownFraction, color: isUlt ? Theme.gold : HUDStyle.accent)
-                Text(HUDStyle.cooldown(snapshot.cooldown))
-                    .font(.system(size: diameter * 0.34, weight: .black, design: .rounded))
-                    .monospacedDigit()
+            // 絵柄（使えない時・死亡中はこの層だけを暗くし、上に重ねる秒数とバッジは読めるままにする）
+            ZStack {
+                HUDAbilityFace(color: color, diameter: diameter, ultimate: isUlt)
+                Image(systemName: HUDSymbols.skill(snapshot.archetype))
+                    .font(.system(size: diameter * 0.37, weight: .bold))
                     .foregroundStyle(.white)
-                    .shadow(color: .black, radius: 2)
+                    .offset(y: snapshot.isReady && isUlt ? -diameter * 0.05 : 0)
+                // クールダウン中は HUDCooldownOverlay が暗くする（二重に暗くしない）
+                if dim && !cooling && !dead {
+                    Circle().fill(HUDStyle.surface.opacity(snapshot.learned ? 0.46 : 0.72))
+                }
+            }
+            .saturation(dim && !cooling && !dead ? 0.35 : 1)
+            .hudDeadDim(dead)
+            if cooling {
+                HUDCooldownOverlay(cooldown: snapshot.cooldown, fraction: snapshot.cooldownFraction, diameter: diameter,
+                                   fontRatio: 0.34)
             } else if snapshot.learned && !snapshot.affordable {
                 Image(systemName: "drop.fill")
                     .font(.system(size: diameter * 0.2, weight: .bold))
@@ -331,6 +407,7 @@ struct HUDSkillButton: View {
                 .padding(.vertical, 2)
                 .background(Capsule().fill(isUlt ? Theme.gold : HUDStyle.surface))
                 .overlay(Capsule().strokeBorder(isUlt ? Color.white.opacity(0.6) : color.opacity(0.7), lineWidth: 0.8))
+                .opacity(dead ? 0.85 : 1)
                 .offset(y: -diameter * 0.36)
             if snapshot.isReady && isUlt {
                 Text(L("使用可能", "READY"))
@@ -340,9 +417,9 @@ struct HUDSkillButton: View {
                 Circle().strokeBorder(Theme.gold.opacity(0.45), lineWidth: 1).padding(-3)
             }
             HUDRankPips(rank: snapshot.rank, maxRank: snapshot.slot.maxRank, diameter: diameter, color: isUlt ? Theme.gold : HUDStyle.accent)
+                .opacity(dead ? 0.8 : 1)
         }
         .frame(width: diameter, height: diameter)
-        .saturation(dim && snapshot.cooldown <= 0 ? 0.35 : 1)
         .shadow(color: snapshot.isReady ? (isUlt ? Theme.gold : color).opacity(0.3) : .clear, radius: isUlt ? 7 : 4)
         .scaleEffect(touching ? 0.95 : 1)
         .animation(.easeOut(duration: 0.12), value: touching)
@@ -365,6 +442,7 @@ struct HUDSkillButton: View {
             model.abilityDragChanged(.skill(snapshot.slot), start: center, location: center, buttonCenter: center)
             model.abilityDragEnded(.skill(snapshot.slot), location: center)
         }
+        .accessibilityHint(tag)
     }
 
     private var accessibilityValue: String {
@@ -418,29 +496,34 @@ struct HUDSpellButton: View {
     let snapshot: HUDSpellSnapshot
     let diameter: CGFloat
     let center: CGPoint
+    var dead = false
     @GestureState private var touching = false
 
     var body: some View {
         let info = SpellInfo.of(snapshot.spellID)
         let ready = snapshot.castable && snapshot.cooldown <= 0
+        let name = HUDSkillTag.spellLabel(snapshot.spellID)
         ZStack {
-            HUDAbilityFace(color: info.color, diameter: diameter)
-            Image(systemName: info.symbol)
-                .font(.system(size: diameter * 0.40, weight: .bold))
-                .foregroundStyle(.white)
-                .shadow(color: info.color, radius: 3)
+            // 絵柄 + 名前（帰還・攻撃ボタンと同じく、ボタン内の絵柄の下に短い名前）
+            ZStack {
+                HUDAbilityFace(color: info.color, diameter: diameter)
+                VStack(spacing: HUDSpellLabel.spacing(diameter)) {
+                    Image(systemName: info.symbol)
+                        .font(.system(size: diameter * HUDSpellLabel.iconRatio, weight: .bold))
+                        .foregroundStyle(.white)
+                        .shadow(color: info.color, radius: 3)
+                        .frame(height: diameter * HUDSpellLabel.iconRatio * 1.1)
+                    HUDSpellLabel(text: name, diameter: diameter)
+                }
+                .offset(y: HUDSpellLabel.stackOffset(diameter))
+                if !ready && snapshot.cooldown <= 0 && !dead {
+                    Circle().fill(Color.black.opacity(0.45))
+                }
+            }
+            .hudDeadDim(dead)
             if snapshot.cooldown > 0 {
-                HUDCooldownPie(fraction: snapshot.cooldownFraction)
-                    .fill(HUDStyle.surface.opacity(0.82))
-                    .animation(.linear(duration: 1.0 / 15.0), value: snapshot.cooldownFraction)
-                HUDCooldownRing(fraction: snapshot.cooldownFraction, color: info.color)
-                Text(HUDStyle.cooldown(snapshot.cooldown))
-                    .font(.system(size: diameter * 0.3, weight: .heavy, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(.white)
-                    .shadow(color: .black, radius: 2)
-            } else if !ready {
-                Circle().fill(Color.black.opacity(0.45))
+                HUDCooldownOverlay(cooldown: snapshot.cooldown, fraction: snapshot.cooldownFraction, diameter: diameter,
+                                   fontRatio: 0.3, numberOffset: HUDSpellLabel.iconCenterOffset(diameter))
             }
         }
         .frame(width: diameter, height: diameter)
@@ -471,25 +554,65 @@ struct HUDSpellButton: View {
     }
 }
 
+/// スペルボタン内の名前（帰還の「帰還」と同じ流儀: 絵柄の下に太い丸文字）。
+struct HUDSpellLabel: View {
+    let text: String
+    let diameter: CGFloat
+
+    static let iconRatio: CGFloat = 0.34
+    /// 帰還ボタンの「帰還」と同じ大きさ。
+    static let fontRatio: CGFloat = 0.15
+    /// 名前の最大幅（ボタン直径に対する割合）。名前の段の高さでの円の幅に収まる。
+    static let maxWidthRatio: CGFloat = 0.76
+
+    static func spacing(_ d: CGFloat) -> CGFloat { max(0.5, d * 0.01) }
+    static func fontSize(_ d: CGFloat) -> CGFloat { d * fontRatio }
+    static func font(_ d: CGFloat) -> Font { .system(size: fontSize(d), weight: .black, design: .rounded) }
+    /// 絵柄 + 名前の段の高さ（文字の行の高さは文字サイズの 1.2 倍で見積もる）。
+    static func stackHeight(_ d: CGFloat) -> CGFloat { d * iconRatio * 1.1 + spacing(d) + fontSize(d) * 1.2 }
+    /// 段全体を少し上へ（名前がランクの目盛りの無いボタンの下側に収まるように中央に置く）。
+    static func stackOffset(_ d: CGFloat) -> CGFloat { -d * 0.02 }
+    /// 絵柄の中心（ボタン中心からの縦位置）。クールダウンの秒数をここに重ねる。
+    static func iconCenterOffset(_ d: CGFloat) -> CGFloat {
+        stackOffset(d) - stackHeight(d) / 2 + d * iconRatio * 1.1 / 2
+    }
+
+    var body: some View {
+        Text(text)
+            .font(Self.font(diameter))
+            .foregroundStyle(.white)
+            .shadow(color: .black.opacity(0.9), radius: 1, y: 0.5)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .frame(maxWidth: diameter * Self.maxWidthRatio)
+            .accessibilityHidden(true)
+    }
+}
+
 struct HUDRecallButton: View {
     let model: HUDModel
     let diameter: CGFloat
     let channel: HUDChannel?
+    var dead = false
     let highlighted: Bool
 
     var body: some View {
         Button { model.recall() } label: {
             ZStack {
-                Circle()
-                    .fill(LinearGradient(colors: [HUDStyle.glassTop, HUDStyle.glassBottom],
-                                         startPoint: .top, endPoint: .bottom))
-                VStack(spacing: 1) {
-                    Image(systemName: "arrow.uturn.backward.circle.fill")
-                        .font(.system(size: diameter * 0.37, weight: .bold))
-                    Text(L("帰還", "BASE"))
-                        .font(.system(size: diameter * 0.15, weight: .black, design: .rounded))
+                ZStack {
+                    Circle()
+                        .fill(LinearGradient(colors: [HUDStyle.glassTop, HUDStyle.glassBottom],
+                                             startPoint: .top, endPoint: .bottom))
+                    VStack(spacing: 1) {
+                        Image(systemName: "arrow.uturn.backward.circle.fill")
+                            .font(.system(size: diameter * 0.37, weight: .bold))
+                        Text(L("帰還", "BASE"))
+                            .font(.system(size: diameter * 0.15, weight: .black, design: .rounded))
+                    }
+                    .foregroundStyle(HUDStyle.accent)
+                    Circle().strokeBorder(HUDStyle.rim, lineWidth: 1.5)
                 }
-                .foregroundStyle(HUDStyle.accent)
+                .hudDeadDim(dead)
                 if let ch = channel, ch.kind == .recall, ch.total > 0 {
                     Circle()
                         .trim(from: 0, to: 1 - ch.remaining / ch.total)
@@ -498,7 +621,6 @@ struct HUDRecallButton: View {
                         .padding(2)
                         .animation(.linear(duration: 1.0 / 15.0), value: ch.remaining)
                 }
-                Circle().strokeBorder(HUDStyle.rim, lineWidth: 1.5)
             }
             .frame(width: diameter, height: diameter)
             .contentShape(Circle())
@@ -556,6 +678,179 @@ struct HUDLevelBadge: View {
     }
 }
 
+// MARK: - ボタン下のラベル（スキルの種別タグ）とスペル名
+
+/// スキルボタンの短い種別タグ（参考画面の「範囲技」「妨害」「加速」）。
+/// 挙動はアーキタイプ（スロット × 近接/遠隔 × ロールで決まる。SkillCatalog.targeting）で、CC はマスターの値で判断する
+/// （effectID・エフェクト種別はスロット毎の演出の区別でしかないため使わない）。
+/// 優先順位: 回復 > 移動（突進・跳躍・移動技・処刑）> 防御・連撃 > 妨害（スタン・拘束・ノックバック）> 減速 > 形（範囲技・直線技・貫通）。
+/// 使い道が変わる効果（味方を回復する・自分が動く・身を守る）を CC より先に示し、CC の無い攻撃技だけを形で示す。
+/// 今のアーキタイプに移動速度を上げるスキルは無いため「加速」は使わない（加速陣などのスペルは名前で示す）。
+/// 必殺技もボタン上の「必殺」バッジ（枠）とは別に、同じ流儀で種別を示す。
+enum HUDSkillTag: String, CaseIterable {
+    case heal
+    case dash
+    case leap
+    case blink
+    case execute
+    case guardSelf
+    case flurry
+    case control
+    case slow
+    case area
+    case line
+    case pierce
+    case passive
+
+    static func tag(for skill: SkillDef?, archetype: SkillArchetype) -> HUDSkillTag {
+        switch archetype {
+        case .passive: return .passive
+        case .healZone, .teamHeal: return .heal
+        case .dashStrike: return .dash
+        case .leapSlam: return .leap
+        case .blinkEmpower: return .blink
+        // 失った HP に応じた追加ダメージ（とどめ用）
+        case .targetedBlink: return .execute
+        // 自身にシールド
+        case .selfAoE: return .guardSelf
+        // 連続攻撃 + 被ダメージ軽減
+        case .multiStrike: return .flurry
+        case .cone, .lineSkillshot, .piercingLine, .groundAoE:
+            switch skill?.cc ?? .none {
+            case .stun, .root, .knockback: return .control
+            case .slow: return .slow
+            case .none:
+                switch archetype {
+                case .lineSkillshot: return .line
+                case .piercingLine: return .pierce
+                default: return .area
+                }
+            }
+        }
+    }
+
+    static func label(for skill: SkillDef?, archetype: SkillArchetype) -> String {
+        tag(for: skill, archetype: archetype).label
+    }
+
+    var label: String {
+        switch self {
+        case .heal: return L("回復", "Heal")
+        case .dash: return L("突進", "Dash")
+        case .leap: return L("跳躍", "Leap")
+        // 英語はスペル「Blink」（瞬歩）と紛らわしいので Mobility
+        case .blink: return L("移動技", "Mobility")
+        case .execute: return L("処刑", "Execute")
+        case .guardSelf: return L("防御", "Guard")
+        case .flurry: return L("連撃", "Flurry")
+        case .control: return L("妨害", "Control")
+        case .slow: return L("減速", "Slow")
+        case .area: return L("範囲技", "AoE")
+        case .line: return L("直線技", "Line")
+        case .pierce: return L("貫通", "Pierce")
+        case .passive: return L("パッシブ", "Passive")
+        }
+    }
+
+    /// ラベルの最大文字数（日本語 / 英語）。スペル名もこれに収める。
+    static let maxLengthJa = 4
+    static let maxLengthEn = 8
+
+    /// スペルボタン内の名前（長ければ短縮: 英語は先頭の語 "Healing Wave" → "Healing"、それでも長ければ切り詰め）。
+    static func spellLabel(_ spellID: String) -> String {
+        let name = MasterData.shared.spell(spellID).map { MasterText.spell($0) } ?? spellID
+        return shortened(name, maxLength: Loc.isEnglish ? maxLengthEn : maxLengthJa)
+    }
+
+    static func shortened(_ name: String, maxLength: Int) -> String {
+        guard name.count > maxLength else { return name }
+        if let first = name.split(separator: " ").first, first.count >= 3, first.count <= maxLength {
+            return String(first)
+        }
+        return String(name.prefix(max(1, maxLength - 1))) + "…"
+    }
+}
+
+/// スキルボタンの種別タグ（「必殺」・枠番号のバッジと同じ流儀の小さなカプセル。タップを奪わない）。
+struct HUDControlLabel: View, Equatable {
+    let text: String
+    let fontSize: CGFloat
+    /// 縁取りの色（役割の色。必殺技は金）。
+    let tint: Color
+
+    var body: some View {
+        let size = Self.estimatedSize(text, fontSize: fontSize)
+        Text(text)
+            .font(Self.font(fontSize))
+            .foregroundStyle(.white)
+            .lineLimit(1)
+            .fixedSize()
+            .shadow(color: .black.opacity(0.85), radius: 0.8, y: 0.5)
+            .frame(width: size.width, height: size.height)
+            .background(Capsule().fill(HUDStyle.surface.opacity(0.8)))
+            .overlay(Capsule().strokeBorder(tint.opacity(0.65), lineWidth: 0.8))
+            .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+
+    static func font(_ size: CGFloat) -> Font { .system(size: size, weight: .heavy, design: .rounded) }
+
+    /// 左右の余白（カプセルの内側）。
+    static let horizontalPadding: CGFloat = 3
+
+    /// 文字の幅の見積もり（全角 1em・英大文字 0.8em・その他の半角 0.66em + 影の分）。実際の描画幅以上になる（テストで確認）。
+    static func estimatedTextWidth(_ text: String, fontSize: CGFloat) -> CGFloat {
+        var em: CGFloat = 0
+        for ch in text {
+            if !ch.isASCII { em += 1 } else if ch.isUppercase { em += 0.8 } else { em += 0.66 }
+        }
+        return ceil(em * fontSize) + 2
+    }
+
+    /// カプセルの大きさ（描画もこの大きさで行うので、配置と重なりテストの矩形と一致する）。
+    static func estimatedSize(_ text: String, fontSize: CGFloat) -> CGSize {
+        CGSize(width: estimatedTextWidth(text, fontSize: fontSize) + horizontalPadding * 2, height: ceil(fontSize * 1.3))
+    }
+}
+
+extension HUDLayout {
+    /// 種別タグの文字サイズ。
+    var controlLabelFontSize: CGFloat { 9 * scale }
+
+    /// 習得バッジ（「＋」）が描かれる範囲の半径（上下 2pt の揺れを含む）。
+    var levelBadgeReach: CGFloat { levelBadgeDiameter / 2 + 2 }
+
+    /// スキルの種別タグの中心。下に隙間のあるスキル1・2 はボタンの真下（ランクの目盛りの外）。
+    /// 攻撃列の内側の列（スキル3・必殺技）は真下が詰まっている（スキル3 → スキル2 約 12pt、必殺技 → スキル3 約 6pt）ため、
+    /// 画面中央側（右手配置は左、左利きは右）の、周りの習得バッジ・スペルの間の高さへ置く。
+    func skillLabelCenter(_ slot: SkillSlot, size: CGSize) -> CGPoint {
+        let c = skillCenter(slot)
+        let r = (slot == .ultimate ? ultDiameter : skillDiameter) / 2
+        switch slot {
+        case .skill3:
+            // スキル3 の習得バッジの下端とスキル2 の習得バッジの上端の中間
+            let y = (levelBadgeCenter(.skill3).y + levelBadgeReach + levelBadgeCenter(.skill2).y - levelBadgeReach) / 2
+            return innerSideLabelCenter(c, radius: r, y: y, size: size)
+        case .ultimate:
+            // スペル2 の下端とスキル3 の習得バッジの上端の中間
+            let y = (spellCenter(1).y + spellDiameter / 2 + levelBadgeCenter(.skill3).y - levelBadgeReach) / 2
+            return innerSideLabelCenter(c, radius: r, y: y, size: size)
+        case .skill1, .skill2, .passive:
+            return CGPoint(x: c.x, y: c.y + r + 1 + size.height / 2)
+        }
+    }
+
+    /// ボタンの画面中央側で、ラベルの縦の範囲でのボタンの縁から 2.5pt 離れた位置。
+    private func innerSideLabelCenter(_ c: CGPoint, radius r: CGFloat, y: CGFloat, size: CGSize) -> CGPoint {
+        let top = y - size.height / 2, bottom = y + size.height / 2
+        let dy = (top...bottom).contains(c.y) ? 0 : min(abs(top - c.y), abs(bottom - c.y))
+        let halfChord = (max(0, r * r - dy * dy)).squareRoot()
+        let dx = halfChord + 2.5 + size.width / 2
+        return CGPoint(x: c.x + (leftHanded ? dx : -dx), y: y)
+    }
+}
+
 // MARK: - 右側クラスタ
 
 struct HUDActionCluster: View {
@@ -564,32 +859,39 @@ struct HUDActionCluster: View {
 
     var body: some View {
         let hero = model.hero
+        // 死亡中も部品は暗くするだけ（全体の不透明度は下げない）。クールダウンは進み、秒数は読める
+        let dead = hero.isDead
         let skills = model.skills
         let highlight = model.tutorial?.highlight
         let attackHighlight: AttackButtonSlot = model.tutorial?.step == .destroyTower
             ? AttackButtonSlot.allCases.first(where: { model.settings.attackPriority(for: $0) == .structuresFirst }) ?? .center
             : .center
         let master = MasterData.shared
+        let fs = layout.controlLabelFontSize
         ZStack {
             ForEach(AttackButtonSlot.allCases) { slot in
-                HUDAttackButton(model: model, slot: slot, diameter: layout.attackDiameter(for: slot),
+                HUDAttackButton(model: model, slot: slot, diameter: layout.attackDiameter(for: slot), dead: dead,
                                 highlighted: highlight == .attack && slot == attackHighlight)
                     .position(layout.attackCenter(for: slot))
             }
             ForEach(skills) { sn in
                 let d = sn.slot == .ultimate ? layout.ultDiameter : layout.skillDiameter
                 let c = layout.skillCenter(sn.slot)
+                let def = master.skill(sn.skillID)
+                let tag = HUDSkillTag.label(for: def, archetype: sn.archetype)
                 HUDSkillButton(model: model, snapshot: sn, role: hero.role, diameter: d, center: c,
-                               name: master.skill(sn.skillID).map { MasterText.skill($0) } ?? "",
+                               name: def.map { MasterText.skill($0) } ?? "", tag: tag, dead: dead,
                                highlighted: highlight == .skill1 && sn.slot == .skill1)
                     .position(c)
+                HUDControlLabel(text: tag, fontSize: fs, tint: sn.slot == .ultimate ? Theme.gold : Theme.roleColor(hero.role))
+                    .position(layout.skillLabelCenter(sn.slot, size: HUDControlLabel.estimatedSize(tag, fontSize: fs)))
             }
             ForEach(model.spells) { sp in
                 let c = layout.spellCenter(sp.index)
-                HUDSpellButton(model: model, snapshot: sp, diameter: layout.spellDiameter, center: c)
+                HUDSpellButton(model: model, snapshot: sp, diameter: layout.spellDiameter, center: c, dead: dead)
                     .position(c)
             }
-            HUDRecallButton(model: model, diameter: layout.recallDiameter, channel: hero.channel,
+            HUDRecallButton(model: model, diameter: layout.recallDiameter, channel: hero.channel, dead: dead,
                             highlighted: highlight == .recall)
                 .position(layout.recallCenter)
             ForEach(skills.filter(\.canLevel)) { sn in
@@ -598,7 +900,7 @@ struct HUDActionCluster: View {
                     .position(layout.levelBadgeCenter(sn.slot))
             }
         }
-        .opacity(hero.isDead ? 0.45 : 1)
+        .animation(.easeInOut(duration: 0.3), value: dead)
         .animation(.spring(duration: 0.3), value: skills.map(\.canLevel))
     }
 }

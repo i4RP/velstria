@@ -64,6 +64,10 @@ final class HUDModel {
     @ObservationIgnored private var onFinish: ((BattleOutcome) -> Void)?
     @ObservationIgnored let minimap = HUDMinimapBuffer()
     @ObservationIgnored let aimVisual = HUDAimVisual()
+    /// クイックシグナル（攻撃・撤退・集合・クイックチャット）とミニマップのピン。
+    @ObservationIgnored let signals = HUDSignalCenter()
+    /// 自分が受けたダメージの直近の記録（倒された時にデス情報へまとめる）。
+    @ObservationIgnored private var damageLog = HUDDamageLog()
     /// ビューが更新する配置（キャンセル領域・照準リングの大きさ）。
     @ObservationIgnored var layout: HUDLayout?
 
@@ -93,7 +97,17 @@ final class HUDModel {
     private(set) var toast: HUDToast?
     private(set) var levelUpPulse = 0
     private(set) var lastLevelUp = 1
+    /// 画面中央のレベルアップ表示（HUDLevelUpText）が出ている間 true（キルフィードを譲らせる）。
+    private(set) var levelUpShowing = false
     private(set) var deathInfo: HUDDeathInfo?
+    /// デス情報パネルを開いているか（死亡中のみ）。
+    private(set) var deathRecapOpen = false
+    /// 上部の味方ヒーロー列（自分以外。観戦では空）。
+    private(set) var allies: [HUDAllyStatus] = []
+    /// HUD の消音ボタン（保存しない。試合を出ると戻る）。
+    private(set) var soundMuted = false
+    /// HUD のズームボタン（設定の倍率より広く見る。保存しない）。
+    private(set) var zoomBoost = false
     private(set) var endPhase: HUDEndPhase?
     private(set) var isAiming = false
     private(set) var spectatorPaused = false
@@ -140,10 +154,22 @@ final class HUDModel {
     @ObservationIgnored var debugForceDeath = false
     @ObservationIgnored var debugForceSurrender = false
     @ObservationIgnored var debugForceLowHP = false
+    @ObservationIgnored var debugForceAllyDeaths = false
+    /// 同じ tick で heroKilled が unitDied より先に届いた場合のキル取得ヒーローとアシスト（heroID）。
+    @ObservationIgnored private var pendingDeathAssists: (credited: String?, assists: [String])?
+    /// 最後にレベルアップした時刻（HUD の時計）。
+    @ObservationIgnored private var levelUpShownAt: TimeInterval = -.infinity
+    /// キルフィードが画面中央の表示（告知バナー・レベルアップ）に譲って隠れていた累計秒数と、前回の更新時刻。
+    @ObservationIgnored private var killFeedHeldTotal: TimeInterval = 0
+    @ObservationIgnored private var killFeedLastRefresh: TimeInterval?
+    @ObservationIgnored private var killFeedHeldGameTotal: Double = 0
+    @ObservationIgnored private var killFeedLastGame: Double?
 
     static let attackRepeatInterval: Duration = .milliseconds(250)
     static let killFeedLifetime: TimeInterval = 7
     static let killFeedMax = 4
+    /// レベルアップ表示の長さ（HUDLevelUpText: 1.3 秒 + 消える 0.4 秒）。
+    static let levelUpDisplaySeconds: TimeInterval = 1.7
     static let bannerDuration: Double = 2.4
     static let endBannerDuration: Double = 2.6
     static let ghostLifetime: Double = 3
@@ -155,6 +181,8 @@ final class HUDModel {
     }
 
     var isSpectating: Bool { controller.isSpectating }
+    /// シグナル等の HUD 部品から効果音・触覚を鳴らすため。
+    var appModel: AppModel? { app }
     var isTutorial: Bool { controller.launch.config.mode == .tutorial }
     var mode: MatchMode { controller.launch.config.mode }
     var humanTeam: Team? { controller.localTeam }
@@ -206,6 +234,11 @@ final class HUDModel {
         toastTask?.cancel()
         endTask?.cancel()
         controller.aim = nil
+        signals.stop()
+        if soundMuted {
+            soundMuted = false
+            app?.audio.setTemporaryMute(false)
+        }
     }
 
     /// 設定変更（ポーズメニューのクイック設定など）を反映する。
@@ -227,6 +260,66 @@ final class HUDModel {
                 SpectatorCameraLink.link(for: controller).noteZoomSettingChanged()
             }
         }
+        if !isSpectating {
+            // ズームボタン（ミニマップ横）を押している間は設定の倍率より広く見る
+            let zoom = Self.effectiveZoom(s.cameraZoom, boost: zoomBoost)
+            if controller.cameraZoom != zoom { controller.cameraZoom = zoom }
+        }
+    }
+
+    /// ズームボタンを押している時のカメラ倍率（CameraRig の上限 1.4 まで）。
+    static func effectiveZoom(_ base: Double, boost: Bool) -> Double {
+        boost ? min(1.4, max(base, 1.0) * 1.22) : base
+    }
+
+    // MARK: 消音・ズーム（ミニマップ横のボタン）
+
+    /// 消音ボタンの表示上の消音（一時消音中、または設定の BGM・効果音がどちらも 0 で実際に無音）。
+    var soundSilenced: Bool { soundMuted || Self.volumesSilent(settings) }
+
+    /// 設定の BGM・効果音がどちらも 0（既定値）か。この間は一時消音を切り替えても出音は変わらない。
+    static func volumesSilent(_ s: GameSettings) -> Bool {
+        s.sfxVolume <= 0.001 && s.bgmVolume <= 0.001
+    }
+
+    func toggleSound() {
+        if Self.volumesSilent(settings) {
+            // 設定で音量が 0 のままなら切り替えても無音のまま。一時消音は解いて、設定（ポーズメニュー）の音量へ案内する
+            if soundMuted {
+                soundMuted = false
+                app?.audio.setTemporaryMute(false)
+            }
+            showToast(L("設定で音量を上げてください", "Turn up the volume in Settings"),
+                      symbol: "speaker.slash.fill", isError: false)
+            app?.haptics.selection()
+            return
+        }
+        soundMuted.toggle()
+        app?.audio.setTemporaryMute(soundMuted)
+        if !soundMuted { app?.audio.play(.uiTap) }
+        app?.haptics.selection()
+    }
+
+    func toggleZoom() {
+        zoomBoost.toggle()
+        syncSettings()
+        app?.audio.play(.uiTap)
+        app?.haptics.selection()
+    }
+
+    // MARK: デス情報
+
+    func openDeathRecap() {
+        guard hero.isDead, endPhase == nil, !finished else { return }
+        app?.audio.play(.uiTap)
+        cancelAim()
+        deathRecapOpen = true
+    }
+
+    func closeDeathRecap() {
+        guard deathRecapOpen else { return }
+        app?.audio.play(.uiBack)
+        deathRecapOpen = false
     }
 
     func updateSetting<T: Equatable>(_ keyPath: WritableKeyPath<GameSettings, T>, _ value: T) {
@@ -246,6 +339,7 @@ final class HUDModel {
         syncSettings()
 
         refreshTop(s)
+        refreshAllies(s)
         if let hi = controller.humanIndex {
             refreshHero(s, ctx, hi, time: t)
         }
@@ -255,7 +349,10 @@ final class HUDModel {
         if panel == .scoreboard { refreshScoreboard(s) }
         if panel == .shop { refreshShop(s, ctx, force: false) }
         refreshSurrender(s, ctx, time: t)
-        expireFeed(time: t)
+        let levelUp = t - levelUpShownAt < Self.levelUpDisplaySeconds
+        if levelUp != levelUpShowing { levelUpShowing = levelUp }
+        expireFeed(time: t, held: killFeedReservesSignals && killFeedYieldsToCenter)
+        signals.refresh(model: self, now: t)
         if aimSession?.aiming == true { updateAimIndicator() }
         if controller.isEnded && endPhase == nil && !finished, let reason = s.endReason, reason != .aborted {
             beginEnd(winner: s.winner, reason: reason)
@@ -276,6 +373,32 @@ final class HUDModel {
             top.creepScore = h.score.creepScore
         }
         if top != self.top { self.top = top }
+    }
+
+    private func refreshAllies(_ s: SimState) {
+        guard !isSpectating, let team = humanTeam else {
+            if !allies.isEmpty { allies = [] }
+            return
+        }
+        let humanID = controller.humanHeroID
+        var list: [HUDAllyStatus] = []
+        for i in s.heroIndices(team: team) {
+            let u = s.units[i]
+            guard u.id != humanID, let h = u.hero else { continue }
+            list.append(HUDAllyStatus(id: u.id, heroID: h.heroID, level: h.level,
+                                      hpRatio: h.isDead ? 0 : (u.hpRatio * 40).rounded() / 40,
+                                      isDead: h.isDead, respawn: Int(h.respawnTimer.rounded(.up)),
+                                      ultReady: h.rank(.ultimate) > 0 && h.cooldown(.ultimate) <= 0))
+        }
+        if debugForceAllyDeaths {
+            // 画面確認用: 参考画面と同じく味方 2 人が復活待ち
+            for (k, respawn) in [(2, 26), (3, 10)] where k < list.count {
+                list[k].isDead = true
+                list[k].hpRatio = 0
+                list[k].respawn = respawn
+            }
+        }
+        if list != allies { allies = list }
     }
 
     /// ヒーローパネルの表示値を作る（純粋関数: 任意のユニット添字。副作用なし）。
@@ -383,7 +506,11 @@ final class HUDModel {
             snap.isDead = true
             snap.respawn = 12.4
             if deathInfo == nil {
-                deathInfo = HUDDeathInfo(killerHeroID: "H005", killerKind: .hero, killerTeam: .red)
+                var info = HUDDeathInfo(killerHeroID: "H005", killerKind: .hero, killerTeam: .red)
+                info.killerName = ctx.master.hero("H005").map { MasterText.hero($0) }
+                info.assistHeroIDs = ["H002"]
+                info.recap = HUDDamageLog.debugSample(killerHeroID: "H005", assistHeroID: "H002", ctx: ctx)
+                deathInfo = info
             }
         }
         if snap != hero { hero = snap }
@@ -399,7 +526,10 @@ final class HUDModel {
             if pick != quickBuyItemID { quickBuyItemID = pick }
         }
 
-        if !h.isDead && !debugForceDeath && deathInfo != nil { deathInfo = nil }
+        if !h.isDead && !debugForceDeath {
+            if deathInfo != nil { deathInfo = nil }
+            if deathRecapOpen { deathRecapOpen = false }
+        }
 
         // チュートリアル
         if var tut = tutorial {
@@ -558,6 +688,21 @@ final class HUDModel {
         }
         refreshMinimapCamera()
         minimapVersion &+= 1
+    }
+
+    /// カメラの注視点（sim 座標）。
+    func cameraCenter(_ s: SimState) -> Vec2? {
+        switch controller.cameraMode {
+        case .followHero:
+            guard let id = controller.humanHeroID, let u = s.unit(id) else { return nil }
+            return u.pos
+        case .followUnit(let id):
+            return s.unit(id)?.pos
+        case .free(let p):
+            return p
+        case .framing(let ids):
+            return ids.first.flatMap { s.unit($0)?.pos }
+        }
     }
 
     /// Called by the camera clock as well as simulation refreshes, including paused spectators.
@@ -994,19 +1139,50 @@ final class HUDModel {
             switch e {
             case .announcement(let a):
                 if let b = makeBanner(a) { enqueueBanner(b) }
+            case .damage(let d):
+                if d.targetID == humanID { damageLog.record(d, time: controller.sim.state.time) }
             case .heroKilled(let k):
                 addKillFeed(k, humanID: humanID)
-            case .unitDied(let unitID, .hero, _, let killerID, _):
+                if k.victimID == humanID {
+                    // キルを取ったヒーロー（DeathSystem.creditedKiller）。とどめがタワー等でも付き、アシストからは外れている
+                    let credited = heroID(k.killerID)
+                    let assists = k.assistIDs.compactMap { heroID($0) }
+                    if let info = deathInfo {
+                        deathInfo?.assistHeroIDs = Self.deathAssists(credited: credited, killerHeroID: info.killerHeroID,
+                                                                     assists: assists)
+                    } else {
+                        pendingDeathAssists = (credited, assists)
+                    }
+                }
+            case .unitDied(let unitID, .hero, let team, let killerID, _):
                 if unitID == humanID {
-                    let killer = controller.sim.state.unit(killerID)
-                    deathInfo = HUDDeathInfo(killerHeroID: killer?.hero?.heroID, killerKind: killer?.kind,
-                                             killerTeam: killer?.team)
+                    let s = controller.sim.state
+                    let killer = s.unit(killerID)
+                    var info = HUDDeathInfo(killerHeroID: killer?.hero?.heroID, killerKind: killer?.kind,
+                                            killerTeam: killer?.team)
+                    info.killerName = killer.map { Self.unitName($0, controller.ctx) }
+                    if killerID == nil && damageLog.lastHitIsFountain {
+                        // 敵の泉の確定ダメージ（発生源なし）でとどめ
+                        info.killerIsFountain = true
+                        info.killerName = L("泉", "Fountain")
+                        info.killerTeam = team.opponent
+                    }
+                    if let p = pendingDeathAssists {
+                        info.assistHeroIDs = Self.deathAssists(credited: p.credited, killerHeroID: info.killerHeroID,
+                                                               assists: p.assists)
+                    }
+                    info.recap = damageLog.recap(state: s, ctx: controller.ctx, killerID: killerID, time: s.time)
+                    pendingDeathAssists = nil
+                    damageLog.reset()
+                    deathInfo = info
                     cancelAim()
                 }
             case .levelUp(let heroID, let level):
                 if heroID == humanID {
                     lastLevelUp = level
                     levelUpPulse &+= 1
+                    levelUpShownAt = now
+                    if !levelUpShowing { levelUpShowing = true }
                 }
             case .purchaseFailed(let heroID, _, let reason):
                 if heroID == humanID {
@@ -1040,6 +1216,8 @@ final class HUDModel {
                         cameraFollowID = nil
                         controller.cameraMode = .followHero
                     }
+                    deathRecapOpen = false
+                    damageLog.reset()
                 }
             case .matchEnded(let winner, let reason):
                 if reason != .aborted { beginEnd(winner: winner, reason: reason) }
@@ -1064,6 +1242,20 @@ final class HUDModel {
     }
 
     private func heroID(_ id: EntityID?) -> String? { controller.sim.state.unit(id)?.hero?.heroID }
+
+    /// デス情報のアシスト欄。ヒーロー以外（タワー・ミニオン・泉）がとどめの時は、キルを取ったヒーロー
+    /// （heroKilled.killerID。DeathSystem.assisters はキラーを外すのでアシストに入っていない）を先頭に入れる
+    /// （キルフィード・スコアボードと食い違わないように）。
+    static func deathAssists(credited: String?, killerHeroID: String?, assists: [String]) -> [String] {
+        guard let credited, credited != killerHeroID, !assists.contains(credited) else { return assists }
+        return [credited] + assists
+    }
+
+    /// ユニットの表示名（ヒーロー名、それ以外は種類名）。
+    static func unitName(_ u: VelstriaCore.Unit, _ ctx: SimContext) -> String {
+        if let h = u.hero { return ctx.master.hero(h.heroID).map { MasterText.hero($0) } ?? h.displayName }
+        return HUDText.unitKind(u.kind)
+    }
 
     private func isAlly(_ team: Team) -> Bool { humanTeam.map { $0 == team } ?? (team == .blue) }
 
@@ -1216,24 +1408,50 @@ final class HUDModel {
         let involves = humanID.map { k.victimID == $0 || k.killerID == $0 || k.assistIDs.contains($0) } ?? false
         let entry = HUDKillFeedEntry(id: makeID(), killerHeroID: killer?.hero?.heroID, killerTeam: killer?.team,
                                      victimHeroID: vh.heroID, victimTeam: victim.team, assists: k.assistIDs.count,
-                                     involvesHuman: involves, createdAt: now, gameTime: s.time)
+                                     involvesHuman: involves, createdAt: now, gameTime: s.time,
+                                     heldBase: killFeedHeldTotal, heldGameBase: killFeedHeldGameTotal)
         var feed = killFeed
         feed.append(entry)
         if feed.count > killFeedLimit { feed.removeFirst(feed.count - killFeedLimit) }
         killFeed = feed
     }
 
-    /// キルフィードの期限: 試合時間で killFeedLifetime 秒（早送りでは速く流れ、一時停止中は残る）。
-    /// ただし実時間で killFeedMinimumWall 秒は読めるように残す。巻き戻した先より後の項目は捨てる。
-    static func feedEntryExpired(_ e: HUDKillFeedEntry, wall: TimeInterval, game: Double) -> Bool {
-        if e.gameTime > game + 0.01 { return true }
-        return game - e.gameTime > killFeedLifetime && wall - e.createdAt > killFeedMinimumWall
+    /// キルフィードをシグナル列の分だけ内側（スコアの下）へ寄せているか（操作中。チュートリアルはシグナル列が無いので端のまま）。
+    var killFeedReservesSignals: Bool { !isSpectating && endPhase == nil && !isTutorial }
+
+    /// 内側へ寄せたキルフィードが画面中央の表示に譲って隠れるか。告知バナーは帯が重なるので出ている間ずっと、
+    /// レベルアップ表示（画面高さの 36%）は 2 行目以降と重なるので 2 件以上ある時。
+    var killFeedYieldsToCenter: Bool {
+        banner != nil || (levelUpShowing && killFeed.count >= 2)
     }
 
-    private func expireFeed(time: TimeInterval) {
+    /// キルフィードの期限: 試合時間で killFeedLifetime 秒（早送りでは速く流れ、一時停止中は残る）。
+    /// ただし実時間で killFeedMinimumWall 秒は読めるように残す。巻き戻した先より後の項目は捨てる。
+    /// 内側へ寄せたフィードが隠れていた間（heldWall 実時間・heldGame 試合時間）は数えない
+    /// （バナーが続いても一度も見えずに消えないように）。
+    static func feedEntryExpired(_ e: HUDKillFeedEntry, wall: TimeInterval, game: Double,
+                                 heldWall: TimeInterval = 0, heldGame: Double = 0) -> Bool {
+        if e.gameTime > game + 0.01 { return true }
+        let g = game - e.gameTime - max(0, heldGame - e.heldGameBase)
+        let w = wall - e.createdAt - max(0, heldWall - e.heldBase)
+        return g > killFeedLifetime && w > killFeedMinimumWall
+    }
+
+    /// held: 今、キルフィードが隠れているか（前回の更新からの経過を寿命に数えない）。
+    private func expireFeed(time: TimeInterval, held: Bool) {
         let game = controller.state.time
-        if killFeed.contains(where: { Self.feedEntryExpired($0, wall: time, game: game) }) {
-            killFeed.removeAll { Self.feedEntryExpired($0, wall: time, game: game) }
+        if held, !killFeed.isEmpty {
+            if let last = killFeedLastRefresh { killFeedHeldTotal += max(0, time - last) }
+            if let lastGame = killFeedLastGame { killFeedHeldGameTotal += max(0, game - lastGame) }
+        }
+        killFeedLastRefresh = time
+        killFeedLastGame = game
+        let wallHeld = killFeedHeldTotal, gameHeld = killFeedHeldGameTotal
+        let expired = { (e: HUDKillFeedEntry) in
+            Self.feedEntryExpired(e, wall: time, game: game, heldWall: wallHeld, heldGame: gameHeld)
+        }
+        if killFeed.contains(where: expired) {
+            killFeed.removeAll(where: expired)
         }
     }
 
@@ -1399,6 +1617,7 @@ final class HUDModel {
             refreshShop(controller.state, controller.ctx, force: true)
         }
         if p != .shop { cancelAim() }
+        deathRecapOpen = false
     }
 
     func openShop(slot: Int? = nil) {
@@ -1437,6 +1656,8 @@ final class HUDModel {
         cancelAim()
         attackReleased()
         panel = .pause
+        // openPanel と同じく、パネルを開いたらデス情報は閉じる（暗幕の二重がけを防ぐ）
+        deathRecapOpen = false
     }
 
     func selectionFeedback() {

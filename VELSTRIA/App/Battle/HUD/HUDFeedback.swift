@@ -193,25 +193,7 @@ struct HUDToastView: View {
 
 // MARK: - 死亡オーバーレイ
 
-/// 倒れている間の画面の彩度を落とす幕（操作部品の下。味方を追っている間は薄くして戦いを見やすく）。
-struct HUDDeathBackdrop: View {
-    let followingAlly: Bool
-
-    var body: some View {
-        ZStack {
-            Rectangle().fill(Color(white: 0.45)).blendMode(.saturation).opacity(followingAlly ? 0.35 : 0.8)
-            Rectangle().fill(Color.black.opacity(followingAlly ? 0.06 : 0.22))
-            RadialGradient(colors: [.clear, Color.black.opacity(0.45)], center: .center, startRadius: 160, endRadius: 560)
-        }
-        .ignoresSafeArea()
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-        .animation(.easeInOut(duration: 0.3), value: followingAlly)
-    }
-}
-
-/// 倒れている間の表示（コンパクト。操作部品より上に重ねる）:
-/// - 上部中央: 「倒されました」・倒した相手・復活までの秒・ショップ
+/// 倒れている間の味方追従（コンパクト。操作部品より上に重ねる。復活までの秒とデス情報は HUDDeathInfoLayer のエンブレム）:
 /// - ヒーローパネルの上: 味方の一覧（タップでその味方を追う。もう一度タップで自分へ）と「自動」（戦っている味方を自動で追う）
 /// 敵は追えない（霧の向こうが見えてしまう。HUDModel.follow の方針）。復活すると自分の追従へ戻る。
 struct HUDDeathOverlay: View {
@@ -229,9 +211,6 @@ struct HUDDeathOverlay: View {
         // 降参投票のカード（左下）が出ている間は、味方の一覧をその横へずらす（カードの下に味方が隠れないように）
         let vote = model.surrender != nil ? HUDSurrenderMetrics.frame(layout) : nil
         ZStack {
-            card(hero)
-                .frame(height: HUDDeathMetrics.cardHeight)
-                .position(HUDDeathMetrics.cardCenter(layout))
             if !allies.isEmpty {
                 strip(allies)
                     .position(HUDDeathMetrics.stripCenter(layout, allies: allies.count, avoiding: vote))
@@ -245,71 +224,7 @@ struct HUDDeathOverlay: View {
         }
         .onChange(of: Int(hero.respawn.rounded(.up))) { tickAuto(force: false) }
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("hud_death")
-    }
-
-    // MARK: 上部の表示
-
-    private func card(_ hero: HUDHeroSnapshot) -> some View {
-        let seconds = Int(hero.respawn.rounded(.up))
-        return HStack(spacing: 8) {
-            if let info = model.deathInfo { killerBadge(info) }
-            VStack(alignment: .leading, spacing: 0) {
-                Text(L("倒されました", "You Were Slain"))
-                    .font(.system(size: 13, weight: .black, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.92))
-                Text(L("復活まで", "Respawn in"))
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.65))
-            }
-            Text("\(seconds)")
-                .font(.system(size: 28, weight: .black, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(LinearGradient(colors: [.white, Theme.cyan], startPoint: .top, endPoint: .bottom))
-                .shadow(color: Theme.cyan.opacity(0.6), radius: 8)
-                .contentTransition(.numericText(countsDown: true))
-                .animation(.spring(duration: 0.3), value: seconds)
-                .frame(minWidth: 34)
-                .accessibilityHidden(true)
-            Button { model.openShop() } label: {
-                Image(systemName: "bag.fill")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(.black)
-                    .frame(width: 44, height: 44)
-                    .background(Circle().fill(Theme.gold))
-                    .contentShape(Circle())
-            }
-            .buttonStyle(HUDPressStyle())
-            .accessibilityLabel(L("ショップで準備", "Shop While Waiting"))
-            .accessibilityIdentifier("death_shop")
-        }
-        .padding(.leading, 12)
-        .padding(.trailing, 3)
-        .padding(.vertical, 3)
-        .hudGlass(cornerRadius: 25, tint: Theme.cyan.opacity(0.5))
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(L("倒されました。復活まで \(seconds) 秒", "You were slain. Respawn in \(seconds) seconds"))
-    }
-
-    private func killerBadge(_ info: HUDDeathInfo) -> some View {
-        Group {
-            if let k = info.killerHeroID {
-                HeroPortraitView(heroID: k, size: 30, showsRole: false)
-                    .clipShape(RoundedRectangle(cornerRadius: 7))
-                    .overlay(RoundedRectangle(cornerRadius: 7)
-                        .strokeBorder(info.killerTeam.map { Theme.teamColor($0, colorblind: model.settings.colorblindMode) } ?? .gray,
-                                      lineWidth: 1.5))
-                    .accessibilityLabel(L("倒した相手: \(MasterData.shared.hero(k).map { MasterText.hero($0) } ?? k)",
-                                          "Slain by \(MasterData.shared.hero(k).map { MasterText.hero($0) } ?? k)"))
-            } else if let kind = info.killerKind {
-                Image(systemName: kind == .tower || kind == .core ? "building.columns.fill" : "person.3.fill")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .frame(width: 30, height: 30)
-                    .background(RoundedRectangle(cornerRadius: 7).fill(Color.black.opacity(0.45)))
-                    .accessibilityLabel(L("倒した相手: \(HUDText.unitKind(kind))", "Slain by \(HUDText.unitKind(kind))"))
-            }
-        }
+        .accessibilityIdentifier("hud_death_allies")
     }
 
     // MARK: 味方の一覧
@@ -452,12 +367,6 @@ enum HUDDeathMetrics {
     static let cell: CGFloat = 44
     static let spacing: CGFloat = 4
     static let padding: CGFloat = 5
-    static let cardHeight: CGFloat = 50
-
-    /// 上部中央の表示: 上部のスコアの下。
-    static func cardCenter(_ l: HUDLayout) -> CGPoint {
-        CGPoint(x: l.width / 2, y: l.topEdge + 50 + cardHeight / 2)
-    }
 
     /// 味方の一覧の大きさ（味方 n 人 + 自動）。
     static func stripSize(allies n: Int) -> CGSize {

@@ -180,12 +180,6 @@ final class DeathSpectateTests: XCTestCase {
                     XCTAssertGreaterThan(hypot(c.center.x - nearest.x, c.center.y - nearest.y), c.radius,
                                          "\(tag): 味方の一覧が \(c.name) と重なる")
                 }
-                // 上部の表示はスコアの下・ミニマップの右
-                let card = HUDDeathMetrics.cardCenter(l)
-                XCTAssertGreaterThan(card.y - HUDDeathMetrics.cardHeight / 2, l.topEdge + 45, "\(tag): 上部のスコアと重なる")
-                let cardHalfWidth: CGFloat = 125
-                XCTAssertGreaterThan(card.x - cardHalfWidth, left ? l.leadingEdge : l.minimapFrame.maxX, "\(tag): ミニマップと重なる")
-                XCTAssertLessThan(card.x + cardHalfWidth, left ? l.minimapFrame.minX : l.trailingEdge, "\(tag): 右端")
             }
         }
         XCTAssertGreaterThanOrEqual(HUDDeathMetrics.cell, 44, "タッチ領域は 44pt 以上")

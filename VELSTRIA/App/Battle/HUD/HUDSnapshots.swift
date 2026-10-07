@@ -99,6 +99,66 @@ struct HUDDeathInfo: Equatable {
     var killerHeroID: String?
     var killerKind: UnitKind?
     var killerTeam: Team?
+    /// とどめを刺したユニットの表示名（ヒーロー名・「タワー」・「泉」等）。
+    var killerName: String?
+    /// とどめが敵の泉（発生源の無いダメージ。killerID が nil）だった。
+    var killerIsFountain = false
+    /// アシストしたヒーロー（heroID）。heroKilled イベントで後から埋まる。
+    /// ヒーロー以外（タワー・ミニオン・泉）がとどめの時は、キルを取ったヒーローを先頭に入れる。
+    var assistHeroIDs: [String] = []
+    /// 倒される直前の被ダメージ内訳（デス情報パネル）。
+    var recap: HUDDeathRecap?
+}
+
+/// デス情報: 倒される直前 `window` 秒間に受けたダメージの内訳。
+struct HUDDeathRecap: Equatable {
+    /// ダメージの内訳 1 行（通常攻撃・スキル1 など）。
+    struct Part: Equatable, Identifiable {
+        /// "basic" / "skill1" / "skill2" / "skill3" / "ultimate" / "passive" / "spell" / "item" / "dot" / "tower" / "minion" / "monster" / "fountain"
+        var id: String
+        var label: String
+        var symbol: String
+        var amount: Double
+    }
+
+    /// ダメージを与えたユニット 1 体分。
+    struct Source: Equatable, Identifiable {
+        var id: EntityID
+        var heroID: String?
+        var kind: UnitKind?
+        var team: Team?
+        var name: String
+        var total: Double
+        var physical: Double
+        var magic: Double
+        var trueDamage: Double
+        /// 量の多い順。
+        var parts: [Part]
+        var isKiller: Bool
+    }
+
+    /// 集計した秒数。
+    var window: Double = 10
+    var total: Double = 0
+    var physical: Double = 0
+    var magic: Double = 0
+    var trueDamage: Double = 0
+    /// 量の多い順（とどめのユニットは量に関係なく含める）。
+    var sources: [Source] = []
+}
+
+/// 上部の味方ヒーロー列（自分以外）。
+struct HUDAllyStatus: Equatable, Identifiable {
+    var id: EntityID
+    var heroID: String
+    var level: Int
+    /// 0〜1（1/40 刻み）。
+    var hpRatio: Double
+    var isDead: Bool
+    /// 復活までの秒数（切り上げ）。
+    var respawn: Int
+    /// 必殺技を習得済みで使用可能か。
+    var ultReady: Bool
 }
 
 /// 告知バナー。
@@ -128,6 +188,9 @@ struct HUDKillFeedEntry: Equatable, Identifiable {
     var createdAt: TimeInterval
     /// 起きた時の試合時間（秒）。表示時間は試合時間で数える（早送りでは速く流れ、一時停止中は残る）。
     var gameTime: Double = 0
+    /// 作った時点の「キルフィードが隠れていた累計」（隠れている間は寿命を進めない。実時間・試合時間）。
+    var heldBase: TimeInterval = 0
+    var heldGameBase: Double = 0
 }
 
 struct HUDToast: Equatable, Identifiable {

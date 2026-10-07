@@ -113,13 +113,13 @@ final class SpectatorUIFixTests: XCTestCase {
         }
     }
 
-    func testPlayerBannerMovesBelowTheDeathCard() {
+    func testPlayerBannerStaysAboveTheRespawnEmblem() {
         for (tag, l) in layouts() {
             XCTAssertEqual(HUDRootMetrics.playerBannerCenterY(l, heroDead: false), l.height * 0.27, "\(tag): 生きている間は従来の位置")
-            let cardBottom = HUDDeathMetrics.cardCenter(l).y + HUDDeathMetrics.cardHeight / 2
-            let bannerTop = HUDRootMetrics.playerBannerCenterY(l, heroDead: true) - HUDRootMetrics.bannerHalfHeight(l)
-            XCTAssertGreaterThanOrEqual(bannerTop, cardBottom, "\(tag): 告知が復活までのカードを隠す")
-            XCTAssertLessThan(bannerTop, l.height / 2, "\(tag): 告知は画面の上半分に収まる")
+            let emblemTop = l.deathEmblemCenter.y - l.deathEmblemSize.height / 2
+            let bannerBottom = HUDRootMetrics.playerBannerCenterY(l, heroDead: true) + HUDRootMetrics.bannerHeight(l) / 2
+            XCTAssertLessThanOrEqual(bannerBottom, emblemTop, "\(tag): 告知が復活カウントを隠す")
+            XCTAssertLessThan(HUDRootMetrics.playerBannerCenterY(l, heroDead: true), l.height / 2, "\(tag): 告知は画面の上半分に収まる")
         }
     }
 
