@@ -269,12 +269,21 @@ final class WeaponTrail {
     @inline(__always)
     static func catmullRom(_ p0: SIMD3<Float>, _ p1: SIMD3<Float>, _ p2: SIMD3<Float>, _ p3: SIMD3<Float>,
                            _ s: Float) -> SIMD3<Float> {
-        let s2 = s * s, s3 = s2 * s
-        let a = 2 * p1
-        let b = (p2 - p0) * s
-        let c = (2 * p0 - 5 * p1 + 4 * p2 - p3) * s2
-        let d = (3 * p1 - p0 - 3 * p2 + p3) * s3
-        return (a + b + c + d) * 0.5
+        // 型を決めて 1 項ずつ書く（SIMD3 と整数リテラルの長い式は、CI の Xcode で「型検査が時間内に終わらない」エラーになった）。
+        // 計算の順序は元の式（2*p0 - 5*p1 + 4*p2 - p3 など）と同じ。
+        let k2: Float = 2, k3: Float = 3, k4: Float = 4, k5: Float = 5
+        let s2: Float = s * s
+        let s3: Float = s2 * s
+        let a: SIMD3<Float> = k2 * p1
+        let b: SIMD3<Float> = (p2 - p0) * s
+        let c0: SIMD3<Float> = k2 * p0 - k5 * p1
+        let c1: SIMD3<Float> = c0 + k4 * p2
+        let c: SIMD3<Float> = (c1 - p3) * s2
+        let d0: SIMD3<Float> = k3 * p1 - p0
+        let d1: SIMD3<Float> = d0 - k3 * p2
+        let d: SIMD3<Float> = (d1 + p3) * s3
+        let sum: SIMD3<Float> = a + b + c + d
+        return sum * 0.5
     }
 }
 
