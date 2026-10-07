@@ -116,10 +116,11 @@ final class EffekseerDirector {
         if castHandle >= 0, c.slot == .ultimate || c.archetype == .selfAoE {
             follows.append(Follow(handle: castHandle, target: .unit(c.casterID), offset: .zero, until: time + 12))
         }
+        // 即時に解決するアーキタイプは着弾もこの場で。突進・跳躍・地点・連撃は ZoneSystem のゾーン発動（onZoneTriggered）で出す
         switch c.archetype {
-        case .cone, .selfAoE, .teamHeal, .multiStrike, .leapSlam:
+        case .cone, .selfAoE, .teamHeal:
             play(name(c.heroID, "\(s)_impact"), at: caster, forward: fwd)
-        case .targetedBlink, .blinkEmpower, .dashStrike:
+        case .targetedBlink, .blinkEmpower:
             play(name(c.heroID, "\(s)_impact"), at: target, forward: fwd)
         default:
             break

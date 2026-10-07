@@ -1,7 +1,8 @@
 # Effekseer（ヒーロー固有のスキル・通常攻撃の演出）
 
 2026-10-07 導入。VELSIA の「ヒーロー固有の通常攻撃・スキル演出」を、RealityKit の自前の粒子（SkillFX）ではなく Effekseer で作る。
-参照ヒーロー 12 体に割り当てたキャラ（docs/SKILL_REWORK.md）から順に、通常攻撃 + S1 + S2 + ULT を作っていく（現在 H003 が試作済み）。
+参照ヒーロー 12 体に割り当てたキャラ（docs/SKILL_REWORK.md）の通常攻撃 + S1 + S2 + ULT を作る。
+作成済み: H001 H003 H007 H008 H009 H011 H012 H013 H016 H019 H020 H024（12 体 × 約 14 効果）。sim の新しいスキル挙動（固有挙動）が入った段階で、段の追加・調整が要る。
 
 ## 仕組み
 
@@ -33,10 +34,11 @@ tools/effekseer/textures.py ──→ Effects/Effekseer/Texture/Fx_*.png（ア�
 ## 作り方
 
 ```sh
-python3 tools/effekseer/textures.py          # 共通テクスチャ（変えた時だけ）
-python3 tools/effekseer/heroes/h003.py       # H003 の効果を Effects/Effekseer/ へ書き出す（.efk）
+python3 tools/effekseer/build_all.py         # 共通テクスチャ + 全ヒーローの効果を Effects/Effekseer/ へ書き出す（.efk）
+python3 tools/effekseer/build_all.py h019    # 1 体だけ（テクスチャは作り直さない）
 # 確認（シミュレータへ Debug ビルドをインストール済みで）
 tools/effekseer/preview.sh H003_s1_cast,H003_atk_hit 8 4   # コマ送り → /tmp/efk-preview/sheet_<名前>.png
+tools/effekseer/hero_sheet.sh H019 s1_impact,ult_impact 10 4  # 1 体の何本かを 1 枚にまとめる
 tools/effekseer/live.sh H003 atk 10 8                       # 練習戦で人形へ撃ち続けて録画 → /tmp/efk-live/H003_atk/
 ```
 
