@@ -256,10 +256,10 @@ final class RenderSceneTests: XCTestCase {
         XCTAssertEqual(layer.style(for: projectile(owner: tower, visual: "tower_shot"), state: state), .tower(.red))
         XCTAssertEqual(layer.style(for: projectile(owner: hero, visual: "empowered_attack"), state: state), .empowered)
         let fx = MasterData.shared.effects.first { $0.effectType == .projectile }?.effectID ?? ""
-        if case .skill(let key, let streak) = layer.style(for: projectile(owner: hero, visual: fx), state: state) {
+        if case .skill(let hue, let streak) = layer.style(for: projectile(owner: hero, visual: fx), state: state) {
             XCTAssertTrue(streak, "Projectile 型の演出は細長い光条")
-            XCTAssertEqual(key, ProjectileLayer.colorKey(HeroFXProfiles.primaryColor(heroID: heroID)),
-                           "スキル弾はヒーローの演出の主色（blueprint.glow）")
+            // 色はスキル演出（SkillFX）のパレットで付ける。スタイルの色相はプールの区別用
+            XCTAssertEqual(hue, Int(Theme.heroHue(heroID) * 1000))
         } else {
             XCTFail("スキル弾のスタイル")
         }
@@ -320,7 +320,6 @@ final class RenderSceneTests: XCTestCase {
         XCTAssertEqual(cyan.r, 0.5, accuracy: 1e-9)
         XCTAssertEqual(cyan.g, 1, accuracy: 1e-9)
         XCTAssertEqual(cyan.b, 1, accuracy: 1e-9)
-        XCTAssertEqual(ProjectileLayer.color(key: ProjectileLayer.colorKey(RGB(1, 0.5, 0))).g, 128.0 / 255, accuracy: 1e-9)
     }
 
     /// 遠隔の全員がヒーロー別のスタイルで事前生成の計画に入り、プールから出した弾は発射位置（武器の先端）から出て、

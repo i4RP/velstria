@@ -142,7 +142,10 @@ final class SkinnedHeroModelTests: XCTestCase {
             let j = pose(m, p)
             for (arm, hand) in [(HeroJointRole.armR, HeroJointRole.handR), (.armL, .handL)] {
                 let a = try XCTUnwrap(j[arm]), h = try XCTUnwrap(j[hand])
-                XCTAssertLessThan(h.y, a.y - 0.3, "\(label) \(hand) が肩から下がらない")
+                // 構え（profile.rest）は武器を持つ手を上げることがある（弓の引き手を胸の前に添える等）ので肩より下まで。
+                // 何も構えない HeroPose() は腕を下ろし切る
+                let drop: Float = label == "HeroPose()" ? 0.3 : 0.05
+                XCTAssertLessThan(h.y, a.y - drop, "\(label) \(hand) が肩から下がらない")
                 XCTAssertLessThan(abs(h.x), 0.4, "\(label) \(hand) が体から離れている")
             }
             XCTAssertGreaterThan(try XCTUnwrap(j[.handR]).x, 0, label)

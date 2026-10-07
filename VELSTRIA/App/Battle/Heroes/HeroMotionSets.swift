@@ -76,14 +76,15 @@ enum HeroMotionSets {
     /// heroID の割り当て（未知の ID は nil = 手続きのみ）。
     static func set(heroID: String) -> HeroMotionSet? { table[heroID] }
 
-    private static func make(_ attacks: [String], casts: [String?], idle: String? = nil, death: String = "death_back",
+    private static func make(_ attacks: [String], idle: String? = nil, death: String = "death_back",
                              victory: String = "victory_pump", mask: HeroClipMask = .full,
                              weaponGrip: simd_quatf? = HeroMotionSet.fistGrip,
                              offhandGrip: simd_quatf? = nil) -> HeroMotionSet {
         var s = HeroMotionSet()
         s.attacks = attacks
         s.attackMask = mask
-        s.casts = casts
+        // スキルの詠唱はスキル演出（SkillMotion の MotionClip。docs/SKILL_FX.md）の手続きモーションに任せる:
+        // 演出の打撃の時刻はそのモーションのキーに合わせてあり、クリップを重ねるとずれる
         s.idle = idle
         s.death = death
         s.victory = victory
@@ -96,82 +97,60 @@ enum HeroMotionSets {
     /// 杖・槍・銃など、向きを胴に対して保つ武器。
     private static let held: simd_quatf? = nil
 
-    /// H001〜H024。casts は Skill1, Skill2, Skill3, Ultimate（SkillCatalog.targeting のアーキタイプに合わせる:
-    /// 近接 = 扇 / 突進、遠隔 = 直線 / ブリンク、Skill3 = 自己範囲（Vanguard）・回復地帯（Support）・地面範囲、
-    /// 奥義 = 跳び叩き / 連撃 / 貫通 / 大範囲 / 全体回復 / 対象へのブリンク）。
+    /// H001〜H024: 通常攻撃（順に繰り返す）・待機・死亡・勝利。
     static let table: [String: HeroMotionSet] = [
         // 広刃剣 + 城門盾（Vanguard・近接）
         "H001": make(["sword_combo_1", "sword_combo_2", "sword_combo_3"],
-                     casts: ["sword_charged", "thrust", "axe_spin", "jump_attack"], idle: "combat_idle"),
+                     idle: "combat_idle"),
         // 星の細剣 + 竪琴弓（Duelist・近接）
         "H002": make(["thrust", "sword_slash_r", "sword_combo2_b"],
-                     casts: ["sword_slash_l", "thrust", "sword_upward", "sword_judgment"], idle: "ready_idle",
+                     idle: "ready_idle",
                      death: "death_forward", victory: "victory_cheer"),
         // 灰刃の弓（Ranger・遠隔。弓は左手の副手）
-        "H003": make(["bow_shot", "bow_shot_b"], casts: ["bow_shot_b", "dodge_spin", "bow_shot", "bow_draw_back"],
-                     idle: "idle_b", death: "death_forward"),
+        "H003": make(["bow_shot", "bow_shot_b"], idle: "idle_b", death: "death_forward"),
         // 潮の杖（Arcanist・遠隔）
-        "H004": make(["cast_point", "cast_a"], casts: ["cast_throw", "dodge_spin", "cast_c", "cast_charged"],
-                     idle: "idle_b", victory: "victory_cheer", weaponGrip: held),
+        "H004": make(["cast_point", "cast_a"], idle: "idle_b", victory: "victory_cheer", weaponGrip: held),
         // 黒雷の槍（Support・遠隔: 投げ・指し示し）
-        "H005": make(["javelin_throw", "cast_point"], casts: ["cast_throw", "dodge_spin", "cast_b", "cast_charged"],
-                     idle: "idle_b", weaponGrip: held),
+        "H005": make(["javelin_throw", "cast_point"], idle: "idle_b", weaponGrip: held),
         // 三日月の短刀 + 月の灯籠（Assassin・近接）
-        "H006": make(["dual_combo_c", "sword_slash_r"], casts: ["sword_slash_l2", "thrust", "cast_d", "dual_spin"],
-                     idle: "ready_idle", death: "death_forward"),
+        "H006": make(["dual_combo_c", "sword_slash_r"], idle: "ready_idle", death: "death_forward"),
         // 岩の籠手（Vanguard・拳）
-        "H007": make(["punch_a", "punch_a2", "punch_b", "hook_l"], casts: ["double_punch", "elbow", "ground_slam", "jump_attack"],
-                     idle: "ready_idle"),
+        "H007": make(["punch_a", "punch_a2", "punch_b", "hook_l"], idle: "ready_idle"),
         // 風の旗槍（Duelist・近接の突き）
-        "H008": make(["thrust", "sword_upward"], casts: ["reaping", "thrust", "axe_spin", "sword_judgment"],
-                     idle: "idle_b", death: "death_forward", victory: "victory_cheer", weaponGrip: held),
+        "H008": make(["thrust", "sword_upward"], idle: "idle_b", death: "death_forward", victory: "victory_cheer", weaponGrip: held),
         // 連弩（Ranger・両手）
-        "H009": make(["gun_fire"], casts: ["gun_fire", "dodge_spin", "cast_throw", "gun_kneel_shot"],
-                     idle: "idle_b", death: "death_forward", weaponGrip: held),
+        "H009": make(["gun_fire"], idle: "idle_b", death: "death_forward", weaponGrip: held),
         // 掌の炎 + 魔導書（Arcanist）
-        "H010": make(["cast_throw", "cast_a"], casts: ["cast_throw", "dodge_spin", "cast_c", "cast_charged"],
-                     idle: "idle_b", victory: "victory_cheer", weaponGrip: held),
+        "H010": make(["cast_throw", "cast_a"], idle: "idle_b", victory: "victory_cheer", weaponGrip: held),
         // 灯火の杖（Support）
-        "H011": make(["cast_point", "cast_a"], casts: ["cast_push", "dodge_spin", "cast_b", "cast_charged"],
-                     idle: "idle_b", weaponGrip: held),
+        "H011": make(["cast_point", "cast_a"], idle: "idle_b", weaponGrip: held),
         // 硝子の短剣 二刀（Assassin）
-        "H012": make(["dual_combo_a", "dual_combo_b", "dual_combo_c"], casts: ["sword_slash_l", "thrust", "cast_d", "dual_spin"],
-                     idle: "ready_idle", death: "death_forward", offhandGrip: HeroMotionSet.fistGrip),
+        "H012": make(["dual_combo_a", "dual_combo_b", "dual_combo_c"], idle: "ready_idle", death: "death_forward", offhandGrip: HeroMotionSet.fistGrip),
         // 骨の棍棒 + 獣皮の盾（Vanguard）
-        "H013": make(["sword_combo2_a", "sword_combo2_b", "sword_slash_l"], casts: ["reaping", "thrust", "ground_slam", "jump_attack"],
-                     idle: "combat_idle"),
+        "H013": make(["sword_combo2_a", "sword_combo2_b", "sword_slash_l"], idle: "combat_idle"),
         // 霧の刀 + 小太刀（Duelist）
         "H014": make(["dual_combo_a", "dual_combo_b", "dual_combo_c", "dual_combo_d"],
-                     casts: ["sword_charged", "thrust", "axe_spin", "dual_spin"], idle: "ready_idle", death: "death_forward",
+                     idle: "ready_idle", death: "death_forward",
                      offhandGrip: HeroMotionSet.fistGrip),
         // 鐘口の大筒（Ranger・両手）
-        "H015": make(["gun_fire"], casts: ["gun_fire", "dodge_spin", "cast_throw", "gun_kneel_shot"],
-                     idle: "idle_b", weaponGrip: held),
+        "H015": make(["gun_fire"], idle: "idle_b", weaponGrip: held),
         // 環の杖（Arcanist）
-        "H016": make(["cast_a", "cast_point"], casts: ["cast_push", "dodge_spin", "cast_c", "cast_charged"],
-                     idle: "idle_b", death: "death_forward", victory: "victory_cheer", weaponGrip: held),
+        "H016": make(["cast_a", "cast_point"], idle: "idle_b", death: "death_forward", victory: "victory_cheer", weaponGrip: held),
         // 深淵の香炉（Support・吊るす）
-        "H017": make(["cast_throw", "cast_point"], casts: ["cast_throw", "dodge_spin", "cast_b", "cast_charged"],
-                     idle: "idle_b", weaponGrip: held),
+        "H017": make(["cast_throw", "cast_point"], idle: "idle_b", weaponGrip: held),
         // 花弁の双刃（Assassin）
-        "H018": make(["dual_combo_c", "dual_combo_d", "dual_combo_a"], casts: ["sword_slash_l2", "thrust", "cast_d", "dual_spin"],
-                     idle: "ready_idle", death: "death_forward", victory: "victory_cheer", offhandGrip: HeroMotionSet.fistGrip),
+        "H018": make(["dual_combo_c", "dual_combo_d", "dual_combo_a"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer", offhandGrip: HeroMotionSet.fistGrip),
         // 攻城槌（Vanguard・両手の重い振り）
-        "H019": make(["overhead_2h", "axe_chop"], casts: ["reaping", "thrust", "axe_spin", "jump_attack"], idle: "idle_b"),
+        "H019": make(["overhead_2h", "axe_chop"], idle: "idle_b"),
         // 光矢の刃 + 光の弓（Duelist）
-        "H020": make(["sword_slash_r", "sword_combo2_a", "sword_slash_l"], casts: ["sword_upward", "thrust", "bow_shot", "sword_judgment"],
-                     idle: "ready_idle", death: "death_forward", victory: "victory_cheer"),
+        "H020": make(["sword_slash_r", "sword_combo2_a", "sword_slash_l"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer"),
         // 長銃（Ranger・両手）
-        "H021": make(["gun_fire"], casts: ["gun_fire", "dodge_spin", "cast_throw", "gun_kneel_shot"],
-                     idle: "idle_b", weaponGrip: held),
+        "H021": make(["gun_fire"], idle: "idle_b", weaponGrip: held),
         // 蒼い爪（Arcanist・遠隔: 爪を振って放つ）
-        "H022": make(["hook_l", "cast_throw"], casts: ["cast_throw", "dodge_spin", "cast_c", "cast_charged"],
-                     idle: "ready_idle", death: "death_forward", victory: "victory_cheer"),
+        "H022": make(["hook_l", "cast_throw"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer"),
         // 雷の騎槍（Support・遠隔: 投げ・指し示し）
-        "H023": make(["javelin_throw", "cast_point"], casts: ["cast_point", "dodge_spin", "cast_b", "cast_charged"],
-                     idle: "idle_b", weaponGrip: held),
+        "H023": make(["javelin_throw", "cast_point"], idle: "idle_b", weaponGrip: held),
         // 夢の針 二刀（Assassin）
-        "H024": make(["dual_combo_b", "dual_combo_d", "thrust"], casts: ["sword_slash_l2", "thrust", "cast_d", "dual_spin"],
-                     idle: "ready_idle", death: "death_forward", victory: "victory_cheer", offhandGrip: HeroMotionSet.fistGrip),
+        "H024": make(["dual_combo_b", "dual_combo_d", "thrust"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer", offhandGrip: HeroMotionSet.fistGrip),
     ]
 }

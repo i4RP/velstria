@@ -414,5 +414,6 @@ private final class StubHandle: HeroModelHandle {
     let root = Entity()
     var overheadHeight: Float { 2 }
     func setState(_ state: HeroAnimState) {}
+    func castDuration(_ slot: SkillSlot) -> Float { 0.5 }
     func update(dt: Double, moveSpeed: Double) {}
 }

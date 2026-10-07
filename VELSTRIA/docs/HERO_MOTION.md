@@ -84,15 +84,17 @@
 ## 実行時
 - `HeroMotionClips`（App/Battle/Heroes/HeroMotionClips.swift）が JSON を 1 度だけ読む（戦闘はロード中にテンプレートと並行して
   非同期で読む。プレビュー・テストは同期）。無い・壊れていれば空のライブラリ = 手続きアニメーションだけで動く。
-- `HeroMotionSets`（HeroMotionSets.swift）がヒーローごとの割り当て: 通常攻撃（順に繰り返す）、Skill1〜Ultimate の詠唱、
-  待機・死亡・勝利。ライブラリに無い名前は黙って落とす。移動は手続き（速度に合わせた歩幅）、帰還の膝立ちも手続き。
+- `HeroMotionSets`（HeroMotionSets.swift）がヒーローごとの割り当て: 通常攻撃（順に繰り返す）・待機・死亡・勝利。
+  ライブラリに無い名前は黙って落とす。移動は手続き（速度に合わせた歩幅）、帰還の膝立ちも手続き。
+  スキルの詠唱はスキル演出の手続きモーション（SkillMotion の MotionClip、docs/SKILL_FX.md）に任せる。演出の打撃の時刻は
+  そのモーションのキーに合わせてあり、クリップを重ねるとずれるため（HeroMotionSet.casts の仕組みは残してあるが使わない）。
 - `HeroClipLayer`（HeroAnimation.swift）が手続きの `HeroPose` に重ねるクリップ・時刻・重み・マスクを持ち、
   `SkinnedHeroModel.apply` が区間ごとに手続きとクリップを slerp してから `HeroSkeletonPoser.solve` する。
 - 通常攻撃: シムの `attackStarted` で描画側が `setState(.attack)` → `HeroModelHandle.playAttack(windup:interval:)` の順に呼ぶ
   （windup = シムの予備動作の残り = 命中・発射までの秒）。クリップの `impact` が windup 秒後に来るよう、打撃までを 0.5〜4 倍速で
   再生し（範囲外なら開始位置をずらす）、打撃の後は次の攻撃までに戻りが収まる速さ（1 倍以上）。`setState(.attack)` だけなら
   既定の拍（windup 0.3 秒・間隔 0.9 秒）で回す（プレビュー・ギャラリー）。
-- 詠唱: 呼び出しの 0.12 秒後に `impact` が来る位置から等速で再生（シムの効果は詠唱の tick に出るため予備動作は短い）。
+- 詠唱（割り当てた場合のみ。今は使っていない）: 呼び出しの 0.12 秒後に `impact` が来る位置から等速で再生。
 - マスク: 立ち止まっていれば全身、移動中は上半身だけ（攻撃・詠唱とも。足の滑りを避ける）。全身の間は手続きの全身の傾き・
   浮き沈み・腰の沈みをクリップの重みの分だけ止める。
 - ループのクリップは状態（待機など）の時だけループする。攻撃・詠唱・死亡に割り当てたループのクリップは 1 周で終える。
