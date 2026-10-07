@@ -4,6 +4,7 @@ import VelstriaCore
 // 担当: battle-hud。下部中央のヒーローパネル:
 // ポートレート + レベル（XP リング）、HP（シールド）/ リソースのバーと数値、状態アイコン（残り時間）、
 // Gold とショップボタン（UI028）、おすすめ装備のクイック購入（脈動）、装備枠（タップでショップの売却へ）。
+// 死亡中は顔を暗転し HP の数値の代わりに「復活待ち」、ショップボタンを金色の脈動で目立たせて買い物を促す。
 
 struct HUDHeroPanel: View {
     let model: HUDModel
@@ -11,11 +12,12 @@ struct HUDHeroPanel: View {
 
     var body: some View {
         let hero = model.hero
+        let dead = hero.isDead
         let s = min(layout.scale, 1.08)
         VStack(alignment: .leading, spacing: 2 * s) {
             HStack(spacing: 9 * s) {
                 HUDPortraitLevel(heroID: hero.heroID, level: hero.level, xp: hero.xpProgress, size: 50 * s,
-                                 pulse: model.levelUpPulse)
+                                 pulse: model.levelUpPulse, dead: dead)
                 VStack(alignment: .leading, spacing: 3 * s) {
                     HStack(spacing: 4 * s) {
                         Image(systemName: Theme.roleSymbol(hero.role))
@@ -27,12 +29,12 @@ struct HUDHeroPanel: View {
                         Spacer(minLength: 0)
                     }
                     .font(.system(size: 9 * s, weight: .heavy, design: .rounded))
-                    HUDVitalsBars(model: model, scale: s)
+                    HUDVitalsBars(model: model, scale: s, dead: dead)
                 }
             }
             HStack(spacing: 4 * s) {
                 HUDItemSlots(model: model, items: hero.items, slot: 30 * s)
-                HUDShopButton(model: model, gold: hero.gold, width: 62 * s,
+                HUDShopButton(model: model, gold: hero.gold, width: 62 * s, beckon: dead,
                               highlighted: model.tutorial?.highlight == .shop)
             }
             .padding(.top, 1 * s)
@@ -61,37 +63,46 @@ struct HUDHeroPanel: View {
 }
 
 /// HP・リソースのバー（毎 tick 変わる値だけを観測する）。
+/// 死亡中は HP を空にして数値の代わりに「復活待ち」、リソースは数値を隠して薄く。
 struct HUDVitalsBars: View {
     let model: HUDModel
     let scale: CGFloat
+    var dead = false
+
+    /// 死亡中の HP バーの表示。
+    static var respawningCaption: String { L("復活待ち", "Respawning") }
 
     var body: some View {
         let v = model.vitals
         VStack(alignment: .leading, spacing: 3 * scale) {
-            HUDBar(value: v.hp, max: v.maxHP, shield: v.shield,
-                   color: v.hpRatio < 0.3 ? HUDStyle.hpLow : HUDStyle.hp, height: 17 * scale, showsText: true)
+            HUDBar(value: dead ? 0 : v.hp, max: v.maxHP, shield: dead ? 0 : v.shield,
+                   color: v.hpRatio < 0.3 ? HUDStyle.hpLow : HUDStyle.hp, height: 17 * scale, showsText: true,
+                   caption: dead ? Self.respawningCaption : nil)
                 .accessibilityElement()
                 .accessibilityLabel(L("HP", "HP"))
-                .accessibilityValue("\(HUDStyle.number(v.hp)) / \(HUDStyle.number(v.maxHP))")
+                .accessibilityValue(dead ? Self.respawningCaption : "\(HUDStyle.number(v.hp)) / \(HUDStyle.number(v.maxHP))")
                 .accessibilityIdentifier("hud_hp")
             if v.maxResource > 0 {
                 HUDBar(value: v.resource, max: v.maxResource, shield: 0,
-                       color: HUDStyle.resourceColor(v.resourceKind), height: 10 * scale, showsText: true)
+                       color: HUDStyle.resourceColor(v.resourceKind), height: 10 * scale, showsText: !dead)
+                    .opacity(dead ? 0.45 : 1)
                     .accessibilityElement()
                     .accessibilityLabel(v.resourceKind == .energy ? L("エナジー", "Energy") : L("マナ", "Mana"))
                     .accessibilityValue("\(HUDStyle.number(v.resource)) / \(HUDStyle.number(v.maxResource))")
             }
         }
+        .animation(.easeInOut(duration: 0.3), value: dead)
     }
 }
 
-/// ポートレートとレベル（XP の円環）。
+/// ポートレートとレベル（XP の円環）。死亡中は顔を白黒にして暗くする。
 struct HUDPortraitLevel: View, Equatable {
     let heroID: String
     let level: Int
     let xp: Double
     let size: CGFloat
     let pulse: Int
+    var dead = false
 
     var body: some View {
         ZStack {
@@ -107,7 +118,11 @@ struct HUDPortraitLevel: View, Equatable {
             if !heroID.isEmpty {
                 HeroPortraitView(heroID: heroID, size: size - 10, showsRole: false)
                     .clipShape(Circle())
+                    .saturation(dead ? 0 : 1)
+                    .brightness(dead ? -0.12 : 0)
+                    .overlay(Circle().fill(Color.black.opacity(dead ? 0.28 : 0)))
                     .overlay(Circle().strokeBorder(Color.white.opacity(0.3), lineWidth: 1))
+                    .animation(.easeInOut(duration: 0.3), value: dead)
             }
             Text("\(level)")
                 .font(.system(size: size * 0.24, weight: .black, design: .rounded))
@@ -121,6 +136,7 @@ struct HUDPortraitLevel: View, Equatable {
         .frame(width: size, height: size)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(L("レベル \(level)", "Level \(level)"))
+        .accessibilityValue(dead ? HUDVitalsBars.respawningCaption : "")
     }
 }
 
@@ -146,7 +162,7 @@ struct HUDLevelUpFlash: View {
     }
 }
 
-/// 数値付きのバー（シールドは白く延長して表示）。
+/// 数値付きのバー（シールドは白く延長して表示）。caption があれば数値の代わりに表示する。
 struct HUDBar: View, Equatable {
     let value: Double
     let max: Double
@@ -154,6 +170,7 @@ struct HUDBar: View, Equatable {
     let color: Color
     let height: CGFloat
     let showsText: Bool
+    var caption: String? = nil
 
     var body: some View {
         GeometryReader { g in
@@ -179,7 +196,15 @@ struct HUDBar: View, Equatable {
                         if k < 3 { Rectangle().fill(Color.black.opacity(0.35)).frame(width: 1) }
                     }
                 }
-                if showsText {
+                if let caption {
+                    Text(caption)
+                        .font(.system(size: Swift.max(8, height * 0.66), weight: .heavy, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.92))
+                        .shadow(color: .black, radius: 1, y: 1)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(maxWidth: .infinity)
+                } else if showsText {
                     Text(shield > 0.5 ? "\(HUDStyle.number(value)) +\(HUDStyle.number(shield)) / \(HUDStyle.number(max))"
                                       : "\(HUDStyle.number(value)) / \(HUDStyle.number(max))")
                         .font(.system(size: Swift.max(8, height * 0.62), weight: .heavy, design: .rounded))
@@ -275,6 +300,8 @@ struct HUDShopButton: View {
     let model: HUDModel
     let gold: Int
     let width: CGFloat
+    /// 死亡中: 金色の発光を脈動させて買い物を促す（参考画面の目立つ Gold 表示の代わり）。
+    var beckon = false
     let highlighted: Bool
 
     var body: some View {
@@ -302,14 +329,48 @@ struct HUDShopButton: View {
                 .fill(LinearGradient(colors: [Color(red: 1, green: 0.88, blue: 0.43), Theme.gold],
                                      startPoint: .top, endPoint: .bottom)))
             .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.white.opacity(0.65), lineWidth: 1))
+            .background { if beckon { HUDShopBeckon(width: width, height: 38).transition(.opacity) } }
             .frame(height: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(HUDPressStyle())
         .overlay { if highlighted { HUDHighlightRing(diameter: width + 12) } }
+        .animation(.easeInOut(duration: 0.3), value: beckon)
         .accessibilityLabel(L("ショップ", "Shop"))
         .accessibilityValue("\(gold) Gold")
+        .accessibilityHint(beckon ? HUDShopBeckon.hint : "")
         .accessibilityIdentifier("hud_shop")
+    }
+}
+
+/// 死亡中のショップボタンの金色の発光（脈動）。視差効果を減らす設定では脈動させず、明るい縁取りだけにする。
+struct HUDShopBeckon: View {
+    let width: CGFloat
+    let height: CGFloat
+    @State private var on = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    static var hint: String { L("復活までに装備を購入できます", "Buy items while you wait to respawn") }
+
+    var body: some View {
+        let lit = on || reduceMotion
+        ZStack {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Theme.gold.opacity(lit ? 0.55 : 0.18))
+                .blur(radius: lit ? 9 : 5)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Theme.gold, lineWidth: 2)
+                .shadow(color: Theme.gold.opacity(0.9), radius: lit ? 8 : 2)
+                .opacity(lit ? 1 : 0.5)
+        }
+        .frame(width: width + 6, height: height + 6)
+        .scaleEffect(on && !reduceMotion ? 1.07 : 1)
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 0.75).repeatForever(autoreverses: true)) { on = true }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 

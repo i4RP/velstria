@@ -2,11 +2,13 @@ import SwiftUI
 import VelstriaCore
 
 // 担当: battle-hud。戦闘 HUD の全体構成（BattleSceneView の上に重ねる）。
-// 左上: ミニマップ / 上中央: キル数と時間 / 右上: K/D/A・CS・スコアボード・ポーズ / 右: キルフィード
+// 左上: ミニマップ（+ 全体マップボタン）と内側の縦列（端末状態・設定・消音・ズーム）/ 上中央: 味方 4 人の状態列と小型のスコア /
+// 右上: K/D/A・CS・スコアボード、その下にクイックシグナルの列 / スコアの下: キルフィード / ミニマップの下: シグナルのメッセージ
 // 左下: スティック / 右下: 攻撃・スキル・スペル・帰還 / 下中央: ヒーローパネル
 // 観戦・リプレイでは操作部品を隠し、下部ドック（再生バー・10 人の追従・観戦メニュー）・ゴールドと目標タイマー・
 // 情報パネルを出す（配置は HUDSpectatorLayout）。戦術マップを開いている間もドックは操作できる（マップの上に 1 段で出す）。
 // シネマ表示では HUD を隠して戻すボタンだけを残す。左利き配置では左右を反転する。
+// 死亡中: 色調（3D の上）、下部パネルの上に復活カウントのエンブレム（タップでデス情報パネル）と味方の追従一覧。
 // 15Hz で変わる値は各レイヤーの小さなビューだけが読む（HUD 全体の body を毎回評価しない）。
 // 観戦者は最下層の操作レイヤーで 3D 画面をドラッグ・ピンチ・ダブルタップできる（HUDSpectatorGestures）。
 // 倒れている間は彩度を落とす幕（操作部品の下）と、復活までの秒・味方の一覧（操作部品の上）を出す。
@@ -93,7 +95,7 @@ private struct HUDRoot: View {
                     .accessibilityHidden(model.isTacticalMapOpen)
             }
             if !spectating { HUDVignetteLayer(model: model) }
-            if showControls { HUDDeathLayer(model: model) }
+            if showControls { HUDDeathTintLayer(model: model) }
 
             // 操作部品と情報（HUD の不透明度を適用）
             Group {
@@ -111,15 +113,11 @@ private struct HUDRoot: View {
                     HUDSpectatorInfoLayer(model: model, layout: layout)
                 }
                 HUDMinimapDock(model: model, layout: layout)
-                HUDScoreLayer(model: model, layout: layout)
-                HUDTopRight(model: model, scale: min(layout.scale, 1.1))
-                    .fixedSize()
-                    .opacity(model.isAiming ? 0.25 : 1)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: layout.topInfoAlignment)
-                    .padding(.top, layout.topEdge)
-                    .padding(.leading, layout.leadingEdge)
-                    .padding(.trailing, layout.width - layout.trailingEdge)
-                HUDKillFeedLayer(model: model, layout: layout)
+                HUDTopLayer(model: model, layout: layout)
+                // シグナル列はチュートリアルでは出さないので、その間はキルフィードを端へ寄せたままにする
+                HUDKillFeedLayer(model: model, layout: layout, reserveSignals: model.killFeedReservesSignals)
+                // クイックチャットのメニュー（シグナル列の下へ開く）はキルフィードの上に重ねる
+                if showControls { HUDSignalLayer(model: model, layout: layout) }
             }
             // シネマ表示（観戦）は HUD を隠して映像だけにする
             .opacity(spectating && model.spectator.isCinematic ? 0 : settings.hudOpacity)
@@ -135,7 +133,11 @@ private struct HUDRoot: View {
                     .accessibilityHidden(model.isTacticalMapOpen)
             }
 
+            // 告知バナーはデス情報パネル（暗幕付き）の下に置き、開いている間にパネルの数値へ重ならないようにする。
+            // 死亡中のバナーはエンブレム（下部パネルの上）の上端より上に出す（HUDRootMetrics.bannerCenterY）ので、閉じている時は両方見える。
+            // チュートリアルのカードと降参の投票はデス情報パネルを開いている間は隠す（パネルの上に重ならないように）
             HUDBannerLayer(model: model, layout: layout)
+            if showControls { HUDDeathInfoLayer(model: model, layout: layout) }
             if !ended && !tutorialDone { HUDTutorialLayer(model: model, layout: layout) }
             if !ended { HUDSurrenderLayer(model: model, layout: layout) }
             HUDAimOverlay(visual: model.aimVisual, layout: layout)
@@ -178,16 +180,21 @@ private struct HUDRoot: View {
 enum HUDRootMetrics {
     static func heroPanelHeight(_ layout: HUDLayout) -> CGFloat { 110 * min(layout.scale, 1.08) }
 
-    /// 告知バナーの半分の高さ（見積もり。ポートレート 44pt × 倍率 + 縦の余白。HUDSpectatorLayout.bannerHalfHeight と同じ）。
-    static func bannerHalfHeight(_ layout: HUDLayout) -> CGFloat { 32 * min(layout.scale, 1.1) }
+    /// 告知バナーの高さの目安（肖像 44pt、または見出し + 副題 ≈ 46pt に上下 8pt。倍率は min(scale, 1.1)）。
+    static func bannerHeight(_ layout: HUDLayout) -> CGFloat { 62 * min(layout.scale, 1.1) }
 
-    /// プレイヤーの告知バナーの中心。倒れている間は上部の「倒されました」のカードの下へずらす
-    /// （倒れた瞬間に出やすい First Blood・全滅などの告知が復活までの秒を隠さないように）。
+    /// 告知バナーの中心の高さ。通常は画面高さの 27%、チュートリアルは上の指示カードを避けて 46%。
+    /// 死亡中は復活カウントのエンブレム（下部パネルの上）にかからないよう、帯の下端をエンブレムの上端より上に収める。
+    static func bannerCenterY(_ layout: HUDLayout, tutorial: Bool, dead: Bool) -> CGFloat {
+        let y = layout.height * (tutorial ? 0.46 : 0.27)
+        guard dead else { return y }
+        let emblemTop = layout.deathEmblemCenter.y - layout.deathEmblemSize.height / 2
+        return min(y, emblemTop - 4 - bannerHeight(layout) / 2)
+    }
+
+    /// プレイヤーの告知バナーの中心（観戦は HUDSpectatorLayout）。死亡中はエンブレムの上に収める。
     static func playerBannerCenterY(_ layout: HUDLayout, heroDead: Bool) -> CGFloat {
-        let normal = layout.height * 0.27
-        guard heroDead else { return normal }
-        let cardBottom = HUDDeathMetrics.cardCenter(layout).y + HUDDeathMetrics.cardHeight / 2
-        return max(normal, cardBottom + 6 + bannerHalfHeight(layout))
+        bannerCenterY(layout, tutorial: false, dead: heroDead)
     }
 }
 
@@ -199,21 +206,6 @@ private struct HUDVignetteLayer: View {
     var body: some View {
         let v = model.vitals
         HUDLowHealthVignette(active: !model.hero.isDead && v.maxHP > 1 && v.hpRatio < 0.3)
-    }
-}
-
-/// 倒れている間の彩度を落とす幕（操作部品の下）。
-private struct HUDDeathLayer: View {
-    let model: HUDModel
-
-    var body: some View {
-        ZStack {
-            if model.hero.isDead {
-                HUDDeathBackdrop(followingAlly: model.cameraFollowID != nil)
-                    .transition(.opacity)
-            }
-        }
-        .animation(.easeInOut(duration: 0.3), value: model.hero.isDead)
     }
 }
 
@@ -358,29 +350,28 @@ private struct HUDSpectatorEndLayer: View {
     }
 }
 
-private struct HUDScoreLayer: View {
-    let model: HUDModel
-    let layout: HUDLayout
-
-    var body: some View {
-        HUDScoreCapsule(top: model.top, colorblind: model.settings.colorblindMode, scale: min(layout.scale, 1.1))
-            .position(x: layout.width / 2, y: layout.topEdge + 22)
-    }
-}
-
 private struct HUDKillFeedLayer: View {
     let model: HUDModel
     let layout: HUDLayout
+    /// 情報側（右手配置は右、左利きは左）の端のシグナル列の分を空ける（操作中のみ）。
+    let reserveSignals: Bool
 
     var body: some View {
+        let reserve = reserveSignals ? layout.killFeedSideReserve : 0
         // 観戦の情報パネルを開いている間は同じ場所なので隠す（出来事の一覧に全部ある）
         let covered = model.isSpectating && model.spectator.panel != nil
+        // シグナル列の分だけ内側（スコアの下）へ寄せている間は、画面中央の告知バナーと高さが重なるため、
+        // バナーが出ている数秒だけ隠す（同じキルはバナーが大きく伝える。項目はバナーの後にまた見える）
+        // レベルアップ表示（画面高さの 36%）とも 2 行目以降が重なるので、表示中（約 1.7 秒）は同じく隠す。
+        // 隠れている間は項目の寿命を進めない（HUDModel.feedEntryExpired）ので、バナーが続いても一度も見えずに消えることはない
+        let hidden = model.isAiming || covered || (reserve > 0 && model.killFeedYieldsToCenter)
         HUDKillFeed(entries: model.killFeed, colorblind: model.settings.colorblindMode)
-            .opacity(model.isAiming || covered ? 0 : 1)
+            .opacity(hidden ? 0 : 1)
+            .animation(.easeOut(duration: 0.2), value: hidden)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: layout.topInfoAlignment)
-            .padding(.top, layout.topEdge + 52)
-            .padding(.leading, layout.leadingEdge)
-            .padding(.trailing, layout.width - layout.trailingEdge)
+            .padding(.top, layout.killFeedTop)
+            .padding(.leading, layout.leadingEdge + (layout.leftHanded ? reserve : 0))
+            .padding(.trailing, layout.width - layout.trailingEdge + (layout.leftHanded ? 0 : reserve))
     }
 }
 
@@ -411,7 +402,7 @@ private struct HUDBannerLayer: View {
     }
 
     private var y: CGFloat {
-        if model.tutorial != nil { return layout.height * 0.46 }
+        if model.tutorial != nil { return HUDRootMetrics.bannerCenterY(layout, tutorial: true, dead: model.hero.isDead) }
         // 観戦はゴールド・目標タイマーの帯の下に出す（低い画面で重ならないように）
         if model.isSpectating { return HUDSpectatorLayout(base: layout, seekable: model.controller.isSeekable).bannerCenterY }
         return HUDRootMetrics.playerBannerCenterY(layout, heroDead: model.hero.isDead)
@@ -426,6 +417,9 @@ private struct HUDTutorialLayer: View {
         if let tutorial = model.tutorial {
             HUDTutorialCard(director: tutorial, scale: min(layout.scale, 1.1))
                 .position(x: layout.width / 2, y: layout.topEdge + 96 * min(layout.scale, 1.1))
+                // デス情報パネル（この下の層）を開いている間は隠す
+                .opacity(model.deathRecapOpen ? 0 : 1)
+                .animation(.easeOut(duration: 0.2), value: model.deathRecapOpen)
         }
     }
 }
@@ -435,6 +429,8 @@ private struct HUDSurrenderLayer: View {
     let layout: HUDLayout
 
     var body: some View {
+        // デス情報パネル（この下の層）を開いている間は隠す（閉じれば投票できる）
+        let recapOpen = model.deathRecapOpen
         ZStack {
             if let surrender = model.surrender {
                 HUDSurrenderPanel(model: model, snapshot: surrender)
@@ -443,7 +439,11 @@ private struct HUDSurrenderLayer: View {
                     .transition(.move(edge: .leading).combined(with: .opacity))
             }
         }
+        .opacity(recapOpen ? 0 : 1)
+        .allowsHitTesting(!recapOpen)
+        .accessibilityHidden(recapOpen)
         .animation(.easeInOut(duration: 0.3), value: model.surrender == nil)
+        .animation(.easeOut(duration: 0.2), value: recapOpen)
     }
 }
 
@@ -456,7 +456,10 @@ private struct HUDToastLayer: View {
         // ショップを開いている間は所持品の上、それ以外はヒーローパネル（と詠唱バー）の上
         let inShop = model.panel == .shop
         let x = inShop || !showControls ? layout.width / 2 : layout.heroPanelCenterX
+        // 倒れている間は復活カウントのエンブレム（追従の一覧の上）の上に出す
+        let dead = showControls && model.hero.isDead && !model.isSpectating
         let y = inShop ? layout.bottomEdge - 84
+            : dead ? layout.deathEmblemCenter.y - layout.deathEmblemSize.height / 2 - 4 - 14
             : layout.bottomEdge - (showControls ? HUDRootMetrics.heroPanelHeight(layout) + 104 * min(layout.scale, 1.08) : 100)
         HUDToastView(toast: model.toast)
             .position(x: x, y: y)
