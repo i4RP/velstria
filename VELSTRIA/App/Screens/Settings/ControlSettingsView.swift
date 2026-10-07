@@ -51,11 +51,6 @@ struct ControlSettingsView: View {
                             SettingsSliderRow(title: L("HUD の不透明度", "HUD Opacity"), symbol: "circle.lefthalf.filled",
                                               value: settingsBinding(app, \.hudOpacity), range: 0.5...1.0, step: 0.05,
                                               format: SettingsText.percent, identifier: "controls_hud_opacity")
-                            SettingsDivider()
-                            SettingsSliderRow(title: L("カメラ距離（大きいほど広く表示）", "Camera Distance (higher shows more)"),
-                                              symbol: "camera.metering.center.weighted",
-                                              value: settingsBinding(app, \.cameraZoom), range: 0.8...1.3, step: 0.05,
-                                              format: { String(format: "×%.2f", $0) }, identifier: "controls_camera_zoom")
                         }
                         SettingsSection(title: L("アシスト", "Assists"), symbol: "wand.and.stars") {
                             SettingsToggleRow(title: L("スキル自動習得", "Auto-level Skills"),

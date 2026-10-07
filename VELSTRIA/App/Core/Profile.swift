@@ -120,7 +120,7 @@ extension GameSettings {
         attackPriority = try values.decodeIfPresent(TargetPriority.self, forKey: .attackPriority) ?? attackPriority
         topAttackPriority = try values.decodeIfPresent(TargetPriority.self, forKey: .topAttackPriority) ?? topAttackPriority
         bottomAttackPriority = try values.decodeIfPresent(TargetPriority.self, forKey: .bottomAttackPriority) ?? bottomAttackPriority
-        cameraZoom = try values.decodeIfPresent(Double.self, forKey: .cameraZoom) ?? cameraZoom
+        // カメラ距離は利用者が変えられない（UI を隠した）。以前に保存された値は読み込まない。
         leftHandedLayout = try values.decodeIfPresent(Bool.self, forKey: .leftHandedLayout) ?? leftHandedLayout
         colorblindMode = try values.decodeIfPresent(Bool.self, forKey: .colorblindMode) ?? colorblindMode
         hudOpacity = try values.decodeIfPresent(Double.self, forKey: .hudOpacity) ?? hudOpacity

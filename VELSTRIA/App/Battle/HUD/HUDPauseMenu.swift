@@ -101,9 +101,6 @@ struct HUDPauseMenu: View {
                           format: { "\(Int(($0 * 100).rounded()))%" }, id: "pause_bgm") { model.updateSetting(\.bgmVolume, $0) }
                 sliderRow(L("効果音量", "Sound Effects"), symbol: "speaker.wave.2.fill", value: settings.sfxVolume, range: 0...1,
                           format: { "\(Int(($0 * 100).rounded()))%" }, id: "pause_sfx") { model.updateSetting(\.sfxVolume, $0) }
-                sliderRow(L("カメラ距離", "Camera Distance"), symbol: "camera.metering.center.weighted",
-                          value: settings.cameraZoom, range: 0.8...1.3, format: { String(format: "×%.2f", $0) },
-                          id: "pause_camera") { model.updateSetting(\.cameraZoom, ($0 * 20).rounded() / 20) }
                 Toggle(isOn: Binding(get: { settings.showDamageNumbers },
                                      set: { model.updateSetting(\.showDamageNumbers, $0) })) {
                     Label(L("ダメージ数値", "Damage Numbers"), systemImage: "textformat.123")
