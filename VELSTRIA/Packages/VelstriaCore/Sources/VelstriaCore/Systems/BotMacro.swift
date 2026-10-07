@@ -379,6 +379,8 @@ enum BotMacro {
             BotJungle.act(&s, ctx, w, &a, &mem)
             return
         }
+        // サポートは生きているジャングラーに付いて回る（無ければレーン戦）
+        if mem.position == .support, BotRoam.follow(&s, ctx, w, &a, &mem) { return }
         let lane = mem.lane ?? .mid
         BotAI.setGoal(&mem, .laning, s.time)
         teleportToLane(&s, ctx, w, &a, lane: lane)
