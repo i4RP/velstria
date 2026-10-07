@@ -113,9 +113,10 @@ function randomCode() {
   return code;
 }
 
-function roomURL(code, role, rv = "1") {
+function roomURL(code, role, rv = "1", resumeKey = null) {
   const query = new URLSearchParams({ role });
   if (rv !== null) query.set("rv", rv);
+  if (resumeKey !== null) query.set("hk", resumeKey);
   return `${wsBase}/v1/rooms/${code}?${query}`;
 }
 
@@ -219,8 +220,8 @@ function track(peer) {
   return peer;
 }
 
-async function openHost(code) {
-  return track(await Peer.open(roomURL(code, "host"), `host ${code}`));
+async function openHost(code, resumeKey = null) {
+  return track(await Peer.open(roomURL(code, "host", "1", resumeKey), `host ${code}`));
 }
 
 /** 参加者を開き、ホストに届く GUEST_OPEN から guestId を取る */
@@ -408,6 +409,44 @@ describe("部屋", { concurrency: false }, () => {
     const host = await openHost(code);
     await expectRejected(roomURL(code, "host"), 4009, "room_taken");
     const guest = await openGuest(code, host);
+    guest.send(new Uint8Array([1]));
+    assert.equal((await host.nextFrame()).type, GUEST_DATA);
+  });
+
+  test("同じ鍵（hk）のホストは、切れたのに気づかれていない前のホストと入れ替わり、参加者は 4001 で閉じる", async () => {
+    const code = randomCode();
+    const key = randomBytes(16).toString("hex");
+    const stale = await openHost(code, key);
+    const guest = await openGuest(code, stale, "guest");
+    // 前のホストの接続が生きたまま（中継から見れば切れていない）、同じ鍵で別の接続が来る
+    const fresh = await openHost(code, key);
+    assert.deepEqual(await stale.closeEvent(), { code: 4011, reason: "host_replaced" });
+    assert.deepEqual(await guest.closeEvent(), { code: 4001, reason: "host_left" });
+    // 新しいホストは新しい参加者を受け入れ、前の参加者の番号は再利用しない
+    const next = await openGuest(code, fresh, "next");
+    assert.equal(next.id, guest.id + 1);
+    next.send(new Uint8Array([7]));
+    const up = await fresh.nextFrame();
+    assert.deepEqual([up.type, up.guestId, [...up.payload]], [GUEST_DATA, next.id, [7]]);
+    // 前のホストの接続からの送信は、もう誰にも届かない
+    stale.send(frame(SEND, next.id, new Uint8Array([9])));
+    await next.expectQuiet();
+  });
+
+  test("鍵（hk）が違う・無い・形式が不正なホストは入れ替われず 4009、元のホストと参加者はそのまま", async () => {
+    const code = randomCode();
+    const key = randomBytes(16).toString("hex");
+    const host = await openHost(code, key);
+    const guest = await openGuest(code, host, "guest");
+    await expectRejected(roomURL(code, "host", "1", randomBytes(16).toString("hex")), 4009, "room_taken");
+    await expectRejected(roomURL(code, "host"), 4009, "room_taken");
+    await expectRejected(roomURL(code, "host", "1", "short"), 4009, "room_taken");
+    // 鍵を付けずに開いたホストは、鍵付きでも入れ替えられない
+    const code2 = randomCode();
+    const keyless = await openHost(code2);
+    await expectRejected(roomURL(code2, "host", "1", key), 4009, "room_taken");
+    keyless.send(frame(KICK, 999));
+    // 元のホストと参加者は繋がったまま
     guest.send(new Uint8Array([1]));
     assert.equal((await host.nextFrame()).type, GUEST_DATA);
   });

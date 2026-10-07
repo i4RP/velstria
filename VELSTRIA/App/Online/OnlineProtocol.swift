@@ -34,6 +34,8 @@ enum OnlineProtocol {
     static let loadTimeout: TimeInterval = 90
     /// 相手から何も届かない時間がこれを超えたら切断とみなす（秒）。ping は 2 秒毎なので通常は途切れない。
     static let livenessTimeout: TimeInterval = 20
+    /// ホスト: 受け入れてから名乗り（hello）が届くまでの猶予（秒）。超えたら切る（名乗らない接続が枠を占めないように）。
+    static let handshakeTimeout: TimeInterval = 10
     /// 接続の確立を待つ上限（秒）。相手が見つからない・ローカルネットワークが拒否された時に「接続中」のままにしない。
     static let connectTimeout: TimeInterval = 15
     /// Bonjour のサービス名の上限（UTF-8 バイト。超えると広告に失敗する）。
@@ -286,8 +288,12 @@ struct OnlineFramer {
     private static let decoder = JSONDecoder()
 
     private var buffer = Data()
+    /// 1 メッセージの上限（既定は観戦者へのスナップショットが入る OnlineProtocol.maxMessageBytes）。
+    private let maxMessageBytes: Int
 
-    init() {}
+    init(maxMessageBytes: Int = OnlineProtocol.maxMessageBytes) {
+        self.maxMessageBytes = maxMessageBytes
+    }
 
     static func encode(_ message: OnlineMessage) throws -> Data {
         framed(try encoder.encode(message))
@@ -323,7 +329,7 @@ struct OnlineFramer {
                 let b = raw.bindMemory(to: UInt8.self)
                 return Int(b[0]) << 24 | Int(b[1]) << 16 | Int(b[2]) << 8 | Int(b[3])
             }
-            guard length <= OnlineProtocol.maxMessageBytes else {
+            guard length <= maxMessageBytes else {
                 buffer.removeAll()
                 throw FramingError.oversized(length)
             }

@@ -24,14 +24,17 @@ enum OnlineRelayConfig {
     static let chunkBytes = 64 * 1024
     /// 中継が受け付ける 1 メッセージの上限（超えると 1009 で閉じられる）。
     static let serverMaxMessageBytes = 256 * 1024
+    /// ホスト側で参加者から受け取る 1 メッセージの上限。参加者 → ホストは名乗り・入力・ハッシュ報告など小さなものだけ
+    /// （大きなスナップショットはホスト → 参加者）。名乗る前の参加者に 32 MiB を持たせないための歯止め。
+    static let guestToHostMaxMessageBytes = 1024 * 1024
     /// 1 部屋の参加者の上限（中継側。ゲームの上限は OnlineProtocol.maxPlayers / maxSpectators）。
     static let maxGuests = 32
     /// テキストの ping の間隔（秒）。
     static let keepaliveInterval: TimeInterval = 15
     /// プライバシーの説明（オンボーディング・設定 > プライバシー）。docs/legal/privacy_policy_* の「オンライン対戦」と合わせる。
     static var privacyNote: String {
-        L("オンライン対戦を部屋コードで遊ぶ時だけ、対戦に必要なデータ（操作・表示名・選んだヒーローなど）を中継サーバー（Cloudflare）経由で相手の端末へ送ります。中継サーバーは内容を解釈・保存しません。",
-          "Only when you play an online match with a room code, the data the match needs (inputs, display name, chosen hero, etc.) is passed to the other players' devices through a relay server (Cloudflare). The relay neither reads nor stores it.")
+        L("オンライン対戦を部屋コードで遊ぶ時だけ、対戦に必要なデータ（操作・表示名・選んだヒーローなど）を中継サーバー（Cloudflare）経由で相手の端末へ送ります。中継サーバーは内容を解釈・保存せず、通信の処理のために接続元の IP アドレスを受け取ります。",
+          "Only when you play an online match with a room code, the data the match needs (inputs, display name, chosen hero, etc.) is passed to the other players' devices through a relay server (Cloudflare). The relay neither reads nor stores it; it receives your IP address only to carry the connection.")
     }
     /// 中継へ繋ぐ時間切れ（秒）。DNS + TCP + TLS + WebSocket の昇格を、混んだモバイル回線でも待てるよう LAN（OnlineProtocol.connectTimeout）より長く。
     static let connectTimeout: TimeInterval = 25
@@ -65,13 +68,16 @@ enum OnlineRelayConfig {
     }
 
     /// 部屋の URL（`<base>/v1/rooms/<CODE>?role=host|guest&rv=1`）。base にパスがあれば後ろに足す。
-    static func roomURL(base: URL, code: String, role: RelayRole) -> URL {
+    /// resumeKey: ホストの再接続の鍵（hk。ホストだけ。同じ鍵で戻ると、中継が気づいていない前のホストの接続と入れ替わる）。
+    static func roomURL(base: URL, code: String, role: RelayRole, resumeKey: String? = nil) -> URL {
         var c = URLComponents(url: base, resolvingAgainstBaseURL: false) ?? URLComponents()
         var path = c.path
         while path.hasSuffix("/") { path.removeLast() }
         c.path = path + "/v1/rooms/" + code
-        c.queryItems = [URLQueryItem(name: "role", value: role.rawValue),
-                        URLQueryItem(name: "rv", value: "\(relayVersion)")]
+        var items = [URLQueryItem(name: "role", value: role.rawValue),
+                     URLQueryItem(name: "rv", value: "\(relayVersion)")]
+        if role == .host, let resumeKey { items.append(URLQueryItem(name: "hk", value: resumeKey)) }
+        c.queryItems = items
         return c.url ?? base
     }
 }
@@ -350,6 +356,8 @@ enum RelayCloseCode: Int, CaseIterable {
     case roomTaken = 4009
     /// 中継の版数（rv）が合わない。
     case relayVersion = 4010
+    /// 同じ鍵で戻ってきた新しいホストの接続に入れ替えられた（古いホストの接続がこれで閉じられる）。
+    case hostReplaced = 4011
 
     /// 中継が close の reason に入れる名前。
     var reasonName: String {
@@ -364,6 +372,7 @@ enum RelayCloseCode: Int, CaseIterable {
         case .roomFull: return "room_full"
         case .roomTaken: return "room_taken"
         case .relayVersion: return "relay_version"
+        case .hostReplaced: return "host_replaced"
         }
     }
 
@@ -390,6 +399,8 @@ enum RelayCloseCode: Int, CaseIterable {
         case .relayVersion:
             return L("中継サーバーとアプリの版が合いません（アプリを更新してください）",
                      "The relay server does not support this app version (please update)")
+        case .hostReplaced:
+            return L("部屋の接続が新しい接続に入れ替わりました", "The room's connection was replaced by a newer one")
         }
     }
 
@@ -676,6 +687,8 @@ final class RelayHostLink {
     private var generation = 0
     private var keepaliveTimer: Timer?
     private var lastInbound: TimeInterval = 0
+    /// 再接続の鍵（この部屋の間は同じ。中継に渡る hk）。端末の外へは中継にしか出ない。参加者には渡らない。
+    private let resumeKey = RelayHostLink.makeResumeKey()
 
     init(baseURL: URL, code: String? = nil,
          makeSocket: @escaping RelaySocketFactory = RelayDefaults.socketFactory,
@@ -695,6 +708,12 @@ final class RelayHostLink {
     /// 繋いでいる参加者の数（仮想接続）。
     var guestCount: Int { endpoints.count }
 
+    /// 128 ビットの乱数（16 進 32 文字。中継の hk の形式: 英数・_・- の 16〜64 文字）。
+    private static func makeResumeKey() -> String {
+        var rng = SystemRandomNumberGenerator()
+        return (0..<2).map { _ in String(UInt64.random(in: .min ... .max, using: &rng), radix: 16).leftPadded(to: 16) }.joined()
+    }
+
     func start() {
         guard !started, !stopped else { return }
         started = true
@@ -710,7 +729,10 @@ final class RelayHostLink {
         closeSocket()
         attempt = 0
         roomTakenRetries = 0
-        if case .failed = status { regenerations = 0 }
+        if case .failed = status {
+            regenerations = 0
+            setStatus(.connecting)
+        }
         connect()
     }
 
@@ -742,7 +764,7 @@ final class RelayHostLink {
         generation += 1
         let gen = generation
         confirmed = false
-        let s = makeSocket(OnlineRelayConfig.roomURL(base: baseURL, code: code, role: .host))
+        let s = makeSocket(OnlineRelayConfig.roomURL(base: baseURL, code: code, role: .host, resumeKey: resumeKey))
         socket = s
         if attempt == 0 && !codeEstablished { setStatus(.connecting) }
         s.onOpen = { [weak self, weak s] in
@@ -928,7 +950,7 @@ final class RelayGuestEndpoint: OnlineConnection {
     var onStateChange: ((OnlineConnectionState) -> Void)?
 
     private weak var link: RelayHostLink?
-    private var framer = OnlineFramer()
+    private var framer = OnlineFramer(maxMessageBytes: OnlineRelayConfig.guestToHostMaxMessageBytes)
     /// 開始前に届いた中身（開始で流す）。
     private var pending: [Data] = []
 
@@ -1121,5 +1143,11 @@ final class RelayGuestConnection: OnlineConnection {
         let s = socket
         socket = nil
         s?.close(code: RelayCloseCode.normal.rawValue, reason: "bye")
+    }
+}
+
+private extension String {
+    func leftPadded(to length: Int) -> String {
+        count >= length ? self : String(repeating: "0", count: length - count) + self
     }
 }

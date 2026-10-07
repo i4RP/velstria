@@ -38,7 +38,8 @@ If you have enabled "Share With App Developers" in iOS, Apple may provide us wit
 
 When you play an online match, the information the match needs (your inputs, display name, chosen hero, room settings, etc.) is sent to the devices of the other players in the room.
 On the same Wi-Fi it goes directly between devices; when you play with a room code it passes through a relay server that we operate on Cloudflare, Inc.'s platform.
-The relay only forwards the data to the other devices in real time and does not store, log or analyse it. Your display name is shown to the other players in the room.
+The relay only forwards the data to the other devices in real time and does not store, log or analyse it. To carry the connection, Cloudflare, Inc., which provides the relay, necessarily
+receives your IP address (subject to Cloudflare's privacy policy). Your display name is shown to the other players in the room. If you share an invitation message, the room name and room code are sent to whoever you share it with.
 
 ## 5. When you contact us
 

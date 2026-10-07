@@ -67,10 +67,13 @@ struct PrivacySettingsView: View {
             item("location.slash.fill", L("トラッキングなし", "No tracking"),
                  L("他社のアプリやウェブサイトをまたいだ追跡は行いません。", "We never track you across other companies' apps or websites."))
             item("chart.bar.xaxis", L("分析データの送信なし", "No analytics sent"),
-                 L("プレイ内容や端末情報を外部へ送信しません。", "Gameplay and device data are never sent anywhere."))
+                 L("プレイ内容や端末情報を外部へ送信しません", "Gameplay and device data are never sent anywhere")
+                    + (FeatureFlags.lanMatch ? L("（部屋コードで遊ぶオンライン対戦の対戦データを除く。下記）。", " (except the match data of online matches played with a room code; see below).")
+                                             : L("。", ".")))
             item("wifi.slash", L("オフラインで完結", "Fully offline"),
-                 L("アカウント登録やサーバー通信なしで遊べます。課金は Apple が処理します。",
-                   "No sign-up or server connection. Purchases are processed by Apple."))
+                 L("アカウント登録やサーバー通信なしで遊べます", "No sign-up or server connection needed to play")
+                    + (FeatureFlags.lanMatch ? L("（部屋コードで遊ぶオンライン対戦を除く）。課金は Apple が処理します。", " (except online matches played with a room code). Purchases are processed by Apple.")
+                                             : L("。課金は Apple が処理します。", ". Purchases are processed by Apple.")))
             if FeatureFlags.lanMatch {
                 item("globe.asia.australia.fill", L("オンライン対戦（部屋コード）", "Online matches (room code)"), OnlineRelayConfig.privacyNote)
             }

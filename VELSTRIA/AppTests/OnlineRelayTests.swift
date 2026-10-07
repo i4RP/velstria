@@ -612,7 +612,10 @@ final class OnlineRelayTests: XCTestCase {
     }
 
     func testStrandedHostReconnectWaitsForSameCodeThenRegenerates() {
-        let rig = makeHost(codes: ["K7MP2X", "Q2W3E4"])
+        // 入れ替え（hk）のない古い中継: 古い接続が片付くまで room_taken
+        let relay = InMemoryRelay()
+        relay.supportsTakeover = false
+        let rig = makeHost(relay: relay, codes: ["K7MP2X", "Q2W3E4"])
         XCTAssertEqual(rig.code, "K7MP2X")
         // 中継が古いホストの接続にまだ気づいていない（半開き）: 再接続は room_taken
         rig.relay.strandHost("K7MP2X")
@@ -631,6 +634,118 @@ final class OnlineRelayTests: XCTestCase {
         XCTAssertEqual(rig.host.relayCode, "Q2W3E4")
         XCTAssertEqual(rig.host.relayStatus, .ready)
         XCTAssertTrue(rig.host.events.contains { $0.contains("Q2W") }, "コードが変わったことを知らせる")
+    }
+
+    func testStrandedHostReconnectTakesOverWithResumeKeyAndKeepsTheCode() {
+        let rig = makeHost(codes: ["K7MP2X"])
+        let guest = join(rig, id: "guest")
+        XCTAssertTrue(guest.isConnected)
+        // ホストの回線が黙って死に、中継はまだ前の接続を生かしている（半開き）。繋ぎ直すと、同じ鍵で入れ替わる
+        rig.relay.strandHost("K7MP2X")
+        rig.clock.runAll()
+        XCTAssertEqual(rig.host.relayStatus, .ready)
+        XCTAssertEqual(rig.host.relayCode, "K7MP2X", "コードは作り直さない")
+        XCTAssertTrue(rig.relay.closeLog.contains(RelayCloseCode.hostReplaced.rawValue), "前の接続は 4011 で閉じる")
+        XCTAssertFalse(rig.relay.closeLog.contains(RelayCloseCode.roomTaken.rawValue), "room_taken を待たない")
+        XCTAssertEqual(guest.status, .disconnected(RelayCloseCode.hostLeft.message), "前の接続の参加者は host_left")
+        XCTAssertFalse(rig.host.events.contains { $0.contains("Q2W") })
+        // 参加者は同じコードで入り直せる
+        let again = join(rig, id: "guest", code: "K7MP2X")
+        XCTAssertTrue(again.isConnected)
+        XCTAssertEqual(rig.relay.guestCount("K7MP2X"), 1)
+    }
+
+    func testResumeKeyIsStableAcrossReconnectsAndOnlyOnTheHostURL() {
+        let rig = makeHost(codes: ["K7MP2X"])
+        func hostURLs() -> [URL] { rig.relay.sockets.map(\.url).filter { $0.absoluteString.contains("role=host") } }
+        XCTAssertEqual(hostURLs().count, 1)
+        rig.relay.dropHost("K7MP2X")
+        rig.clock.runAll()
+        let urls = hostURLs()
+        XCTAssertEqual(urls.count, 2)
+        let keys = urls.compactMap { URLComponents(url: $0, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "hk" }?.value }
+        XCTAssertEqual(keys.count, 2)
+        XCTAssertEqual(keys[0], keys[1], "同じ部屋の間は同じ鍵")
+        XCTAssertTrue(InMemoryRelay.isValidResumeKey(keys[0]), "中継の形式（16〜64 文字の英数・_・-）: \(keys[0])")
+        XCTAssertEqual(keys[0].count, 32)
+        // 参加者の URL に鍵は付かない
+        let guest = join(rig, id: "guest")
+        _ = guest
+        let guestURLs = rig.relay.sockets.map(\.url).filter { $0.absoluteString.contains("role=guest") }
+        XCTAssertFalse(guestURLs.isEmpty)
+        XCTAssertTrue(guestURLs.allSatisfy { !$0.absoluteString.contains("hk=") })
+        // 別の部屋・別のリンクは別の鍵
+        let other = makeHost(codes: ["Q2W3E4"])
+        let otherKey = other.relay.sockets.first.flatMap { URLComponents(url: $0.url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "hk" }?.value }
+        XCTAssertNotEqual(otherKey, keys[0])
+    }
+
+    func testHostRoomURLCarriesResumeKeyOnlyForHost() {
+        let base = InMemoryRelay.baseURL
+        XCTAssertEqual(OnlineRelayConfig.roomURL(base: base, code: "ABCDEF", role: .host, resumeKey: "k1k1k1k1k1k1k1k1").absoluteString,
+                       "wss://relay.test/v1/rooms/ABCDEF?role=host&rv=1&hk=k1k1k1k1k1k1k1k1")
+        XCTAssertEqual(OnlineRelayConfig.roomURL(base: base, code: "ABCDEF", role: .guest, resumeKey: "k1k1k1k1k1k1k1k1").absoluteString,
+                       "wss://relay.test/v1/rooms/ABCDEF?role=guest&rv=1")
+    }
+
+    func testHostReplacedCloseCodeHasNameAndMessage() {
+        XCTAssertEqual(RelayCloseCode(rawValue: 4011), .hostReplaced)
+        XCTAssertEqual(RelayCloseCode.hostReplaced.reasonName, "host_replaced")
+        XCTAssertFalse(RelayCloseCode.hostReplaced.message.isEmpty)
+    }
+
+    func testRelayGuestMessageLimitStopsAnOversizedLengthBeforeHello() throws {
+        // 名乗る前の参加者が 32 MiB の長さだけ宣言して滴らせても、ホストは 1 MiB 超を持たない
+        var framer = OnlineFramer(maxMessageBytes: OnlineRelayConfig.guestToHostMaxMessageBytes)
+        var length = UInt32(OnlineRelayConfig.guestToHostMaxMessageBytes + 1).bigEndian
+        let header = withUnsafeBytes(of: &length) { Data($0) }
+        XCTAssertThrowsError(try framer.feed(header)) { error in
+            XCTAssertEqual(error as? OnlineFramer.FramingError, .oversized(OnlineRelayConfig.guestToHostMaxMessageBytes + 1))
+        }
+        // 通常のメッセージ（名乗り・入力）は通る
+        var ok = OnlineFramer(maxMessageBytes: OnlineRelayConfig.guestToHostMaxMessageBytes)
+        XCTAssertEqual(try ok.feed(OnlineFramer.encode(.ping(5))), [.ping(5)])
+    }
+
+    func testRelayGuestThatNeverSaysHelloIsDroppedAfterHandshakeTimeout() {
+        let relay = InMemoryRelay()
+        let clock = ManualRelayScheduler()
+        var now: TimeInterval = 1000
+        let host = OnlineSession.host(peerID: "host", name: "Host", roomName: "Relay Room")
+        host.uptime = { now }
+        host.startRelay(baseURL: InMemoryRelay.baseURL, code: "K7MP2X", makeSocket: relay.factory, schedule: clock.scheduler)
+        // 名乗らない生の参加者
+        let silent = rawSocket(relay, code: "K7MP2X", role: .guest)
+        XCTAssertTrue(silent.events.opened)
+        XCTAssertEqual(host.relayGuestCount, 1)
+        host.ping()
+        XCTAssertEqual(host.relayGuestCount, 1, "猶予の間は保つ")
+        now += OnlineProtocol.handshakeTimeout + 1
+        host.ping()
+        XCTAssertEqual(host.relayGuestCount, 0, "名乗らないまま猶予を過ぎたら切る")
+        XCTAssertEqual(relay.guestCount("K7MP2X"), 0, "中継からも外れる（KICK）")
+        // 名乗った参加者は猶予の影響を受けない
+        let real = OnlineSession.join(peerID: "guest", name: "Guest",
+                                      connection: RelayGuestConnection(code: "K7MP2X", baseURL: InMemoryRelay.baseURL, makeSocket: relay.factory))
+        XCTAssertTrue(real.isConnected)
+        now += OnlineProtocol.handshakeTimeout + 1
+        host.ping()
+        XCTAssertEqual(host.relayGuestCount, 1)
+    }
+
+    func testRetryFromFailedShowsConnectingAgain() {
+        let relay = InMemoryRelay()
+        relay.isReachable = false
+        let rig = makeHost(relay: relay, codes: ["K7MP2X"])
+        for _ in 0..<(OnlineRelayConfig.maxReconnectAttempts + 2) { rig.clock.runAll() }
+        guard case .failed? = rig.host.relayStatus else { return XCTFail("失敗: \(String(describing: rig.host.relayStatus))") }
+        relay.isReachable = true
+        relay.holdsDelivery = true
+        rig.host.retryRelay()
+        XCTAssertEqual(rig.host.relayStatus, .connecting, "再試行を押したら、結果を待つ間は接続中と見せる")
+        relay.holdsDelivery = false
+        rig.clock.runAll()
+        XCTAssertEqual(rig.host.relayStatus, .ready)
     }
 
     func testNoRoomShowsMessage() {

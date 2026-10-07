@@ -153,8 +153,14 @@ WebSocket Hibernation）で、**中身を解釈しない土管**。ゲームの�
   （0x10 GUEST_OPEN / 0x11 GUEST_DATA / 0x12 GUEST_CLOSE / 0x21 SEND / 0x22 KICK）、参加者 ↔ 中継は payload そのまま。
   1 メッセージ 256 KiB まで（アプリは 64 KiB 毎に分割。OnlineFramer がストリームとして再結合）。
 - ホスト: `OnlineSession.startRelay` が `RelayHostLink` を開き、参加者ごとの仮想接続 `RelayGuestEndpoint` を `accept` に渡す（LAN の接続と同列）。
-  中継が切れたら全仮想接続を切断扱いにして（試合中なら AI 引き継ぎ）、同じコードで指数バックオフの再接続。コードが使われていたら作り直す。
+  中継が切れたら全仮想接続を切断扱いにして（試合中なら AI 引き継ぎ）、同じコードで指数バックオフの再接続。再接続には部屋ごとの鍵（`hk`、128 ビットの乱数。
+  参加者には渡らない）を付け、中継がまだ前の（もう死んでいる）ホストの接続を握っていても、同じ鍵なら即座に入れ替わる（前の接続の参加者は host_left で閉じ、
+  同じコードで入り直す）。鍵の無い古い中継では 4009 になり、コードが使われていたら作り直す。
   15 秒毎にテキスト `ping`（中継が `pong` を自動応答。携帯回線の NAT 対策）、50 秒何も届かなければ繋ぎ直す。
+- 名乗らない接続: 部屋コードだけで誰でも繋げるので、受け入れてから 10 秒（`OnlineProtocol.handshakeTimeout`）名乗り（hello）が無い接続は切る。
+  ホスト側で参加者から受け取る 1 メッセージは 1 MiB まで（`guestToHostMaxMessageBytes`。名乗る前に 32 MiB を持たされないため）。
+- 信頼の範囲（開発期間）: 部屋コードを知っている人は信頼する。名乗りの peerID は認証されず（部屋の状態で全員に見える UUID）、悪意のある参加者が他人の peerID で
+  名乗ると席を奪える。ホストが参加者を追い出す操作も無い。公開の対戦に広げる時は、再入室の秘密（hello に載せる乱数）とホストの追放を足すこと。
 - 参加者: `RelayGuestConnection`（`OnlineConnection` 準拠）。切れた後は同じコードで「もう一度参加」（同じ playerID なので試合中なら席に戻る）。
   中継の close コード（4001 host_left / 4002 closed_by_host / 4004 no_room / 4008 room_full / 4009 room_taken / 4010 relay_version）は利用者向けの文言にする。
 - 招待: 部屋の上の帯に部屋コード（タップで詳細）・コピー・共有（文面 + `velstria://join?code=XXXXXX`）。リンクを開くと `AppModel.openOnlineJoinLink` が参加する

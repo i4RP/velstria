@@ -23,6 +23,8 @@ const MAX_GUESTS = 32;
 const ROOM_GRACE_MS = 10 * 60 * 1000;
 /** 枠の見出し: [u8 種類][u32 guestId]（ビッグエンディアン） */
 const HEADER_BYTES = 5;
+/** ホストの再接続の鍵（URL の hk）。ホストの端末が部屋ごとに乱数で作る。16〜64 文字の英数・_・- */
+const RESUME_KEY = /^[A-Za-z0-9_-]{16,64}$/;
 /** WebSocket.readyState の OPEN */
 const WS_OPEN = 1;
 
@@ -42,6 +44,7 @@ const CLOSE = {
   roomFull: [4008, "room_full"],
   roomTaken: [4009, "room_taken"],
   relayVersion: [4010, "relay_version"],
+  hostReplaced: [4011, "host_replaced"],
   malformed: [1003, "malformed"],
   tooBig: [1009, "message_too_big"],
 } as const satisfies Record<string, readonly [number, string]>;
@@ -52,9 +55,10 @@ type CloseSpec = (typeof CLOSE)[keyof typeof CLOSE];
  * 接続ごとの状態（serializeAttachment でハイバネーションをまたぐ）。
  * hostKey はホストの接続 1 本ごとの識別子。ホストが入れ替わった（去って同じコードで戻った）時に、
  * 前のホストの参加者を新しいホストへ混ぜないために使う。closed は中継側で後始末を済ませた印（二重の通知を防ぐ）。
+ * resumeKey はホストの端末が持つ再接続の鍵（URL の hk。参加者には渡らない）。
  */
 type Attachment =
-  | { role: "host"; hostKey: string; closed?: true }
+  | { role: "host"; hostKey: string; resumeKey?: string; closed?: true }
   | { role: "guest"; id: number; hostKey: string; closed?: true };
 
 export default {
@@ -92,10 +96,16 @@ export class RelayRoom extends DurableObject<Env> {
     const role = new URL(request.url).searchParams.get("role");
     const host = this.currentHost();
     if (role === "host") {
-      // ホストは 1 部屋に 1 人。ホストはコードを作り直して再試行する
-      if (host) return rejectSocket(CLOSE.roomTaken);
+      // ホストは 1 部屋に 1 人。同じ鍵（hk）で戻ってきたホストは、切れたのに中継がまだ気づいていない前の接続と入れ替える
+      // （前の接続の参加者は host_left で閉じる。参加者は同じコードで入り直す）。鍵が無い・違うなら 4009 で、ホストはコードを作り直して再試行する
+      const given = new URL(request.url).searchParams.get("hk");
+      const resumeKey = given !== null && RESUME_KEY.test(given) ? given : undefined;
+      if (host) {
+        if (!resumeKey || host.attachment.resumeKey !== resumeKey) return rejectSocket(CLOSE.roomTaken);
+        await this.finish(host.ws, host.attachment, CLOSE.hostReplaced);
+      }
       const [client, server] = Object.values(new WebSocketPair());
-      const attachment: Attachment = { role: "host", hostKey: crypto.randomUUID() };
+      const attachment: Attachment = { role: "host", hostKey: crypto.randomUUID(), ...(resumeKey && { resumeKey }) };
       this.ctx.acceptWebSocket(server, ["host"]);
       server.serializeAttachment(attachment);
       return new Response(null, { status: 101, webSocket: client });

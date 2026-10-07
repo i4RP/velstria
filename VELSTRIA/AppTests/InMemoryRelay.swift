@@ -5,7 +5,8 @@ import Foundation
 /// 同じ URL（/v1/rooms/<CODE>?role=host|guest&rv=1）・同じバイナリの形式・同じ close コードで応える。
 ///
 /// - 部屋コード 1 つ = 部屋 1 つ。部屋は消さない（参加者 ID は部屋の寿命の間は再利用しない。中継は DO の storage に保つ）。
-/// - ホスト: 既にホストがいれば受け入れてから 4009 room_taken。参加者: ホストがいなければ 4004 no_room、32 人なら 4008 room_full。
+/// - ホスト: 既にホストがいれば受け入れてから 4009 room_taken（同じ鍵 hk で戻ったホストは、前の接続を 4011 host_replaced で閉じて入れ替わる。
+///   前の接続の参加者は 4001 host_left。supportsTakeover = false は入れ替えのない古い中継の再現）。参加者: ホストがいなければ 4004 no_room、32 人なら 4008 room_full。
 /// - rv が 1 でなければ受け入れてから 4010 relay_version。不正な部屋コード・role は 400（繋がらない）。
 /// - 不正な形式は 1003、256 KiB を超えるメッセージは 1009（その接続だけ閉じる）。ホストが閉じた・切れたら全参加者を 4001 host_left。
 /// - テキストの ping には pong（それ以外のテキストは無視）。
@@ -23,6 +24,8 @@ final class InMemoryRelay {
     private(set) var rooms: [String: Room] = [:]
     /// false の間は新しい接続を受け付けない（インターネットに繋がらない状態の再現）。
     var isReachable = true
+    /// false なら hk を無視する（ホストの入れ替えがない古い中継。room_taken のままになる）。
+    var supportsTakeover = true
     /// true の間は配達をキューに留める（false に戻すとまとめて流す）。
     var holdsDelivery = false { didSet { if !holdsDelivery { drain() } } }
     /// 記録（テスト用）: ホスト → 中継・参加者 → 中継の最大メッセージ長、ホストが送ったバイナリの数。
@@ -64,6 +67,8 @@ final class InMemoryRelay {
         fileprivate(set) var role: RelayRole?
         fileprivate(set) var code: String?
         fileprivate(set) var guestID: UInt32?
+        /// ホストの再接続の鍵（URL の hk。形式が正しい時だけ）。
+        fileprivate(set) var resumeKey: String?
         /// 中継が受け入れて、まだどちらも閉じていない。
         fileprivate(set) var isOpen = false
         /// クライアントが close() した（以後コールバックしない）。
@@ -139,12 +144,18 @@ final class InMemoryRelay {
             self.rooms[code] = room
             switch role {
             case .host:
-                guard room.host == nil else {
-                    self.serverClose(s, .roomTaken)
-                    return
+                let key = query["hk"].flatMap { Self.isValidResumeKey($0) ? $0 : nil }
+                if let old = room.host {
+                    guard self.supportsTakeover, let key, old.resumeKey == key else {
+                        self.serverClose(s, .roomTaken)
+                        return
+                    }
+                    // 切れたのに気づいていない前のホストの接続と入れ替える（参加者は host_left。unregister が閉じる）
+                    self.serverClose(old, .hostReplaced)
                 }
                 s.role = .host
                 s.code = code
+                s.resumeKey = key
                 room.host = s
             case .guest:
                 guard let host = room.host else {
@@ -164,6 +175,11 @@ final class InMemoryRelay {
                 self.deliver(to: host) { $0.onBinary?(RelayWire.encode(.guestOpen(id))) }
             }
         }
+    }
+
+    /// 中継の hk の形式 `^[A-Za-z0-9_-]{16,64}$`。
+    static func isValidResumeKey(_ key: String) -> Bool {
+        key.range(of: "^[A-Za-z0-9_-]{16,64}$", options: .regularExpression) != nil
     }
 
     /// 中継の正規表現 `^[ABCDEFGHJKMNPQRSTUVWXYZ2-9]{6}$`（アプリの RelayRoomCode とは独立に書く）。

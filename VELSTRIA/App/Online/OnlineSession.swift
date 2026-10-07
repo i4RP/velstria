@@ -143,6 +143,8 @@ final class OnlineSession: OnlineBattleLink {
     @ObservationIgnored private var hasBegun = false
     /// 接続毎の最後の受信時刻（生存確認）。
     @ObservationIgnored private var lastInbound: [UUID: TimeInterval] = [:]
+    /// ホスト: 接続を受け入れた時刻（名乗り hello を待つ猶予の起点。名乗ったら peerByConnection に入る）。
+    @ObservationIgnored private var acceptedAt: [UUID: TimeInterval] = [:]
     /// 参加者毎の最後のスナップショット（ずれの再同期の間隔を空ける）。
     @ObservationIgnored private var lastSnapshotAt: [OnlinePeerID: TimeInterval] = [:]
 
@@ -388,6 +390,7 @@ final class OnlineSession: OnlineBattleLink {
     func accept(_ c: OnlineConnection) {
         guard role == .host, !closed else { c.close(); return }
         connections[c.id] = c
+        acceptedAt[c.id] = uptime()
         c.onMessage = { [weak self, weak c] m in
             guard let self, let c else { return }
             self.hostReceived(m, from: c)
@@ -404,6 +407,7 @@ final class OnlineSession: OnlineBattleLink {
 
     private func hostLost(_ c: OnlineConnection) {
         connections[c.id] = nil
+        acceptedAt[c.id] = nil
         lastInbound[c.id] = nil
         guard let peerID = peerByConnection.removeValue(forKey: c.id) else { return }
         connectionByPeer[peerID] = nil
@@ -1163,6 +1167,16 @@ final class OnlineSession: OnlineBattleLink {
         switch role {
         case .host: targets = connections.compactMap { peerByConnection[$0.key] != nil ? $0.value : nil }
         case .client: targets = connection.map { [$0] } ?? []
+        }
+        if role == .host {
+            // 受け入れてから名乗らない接続（中継は部屋コードだけで誰でも繋げる）は切る
+            let silent = connections.values.filter {
+                peerByConnection[$0.id] == nil && t - (acceptedAt[$0.id] ?? t) > OnlineProtocol.handshakeTimeout
+            }
+            for c in silent {
+                c.close()
+                hostLost(c)
+            }
         }
         for c in targets where c.state == .ready {
             if let last = lastInbound[c.id], t - last > OnlineProtocol.livenessTimeout {
