@@ -127,3 +127,68 @@ test("verify-internal fails for expired/invalid builds and after missing-build p
   assert.equal(missing.calls.length, 16);
   assert.match(missing.stderr, /3 分待っても/);
 });
+
+const draftVersion = { path: "/v1/apps/app/appStoreVersions", body: { data: [{ id: "v1", attributes: { versionString: "1.0", appVersionState: "PREPARE_FOR_SUBMISSION" } }] } };
+
+test("sync-listing --dry-run reads the draft, lists the listing fields to write, and sends no writes", () => {
+  const result = run(["sync-listing", "--dry-run"], [
+    draftVersion,
+    { path: "/v1/appStoreVersions/v1/appStoreVersionLocalizations", body: { data: [{ id: "vl-ja", attributes: { locale: "ja", description: "old" } }] } },
+    { path: "/v1/apps/app/appInfos", body: { data: [{ id: "i1", attributes: { state: "PREPARE_FOR_SUBMISSION" } }] } },
+    { path: "/v1/appInfos/i1/appInfoLocalizations", body: { data: [{ id: "il-ja", attributes: { locale: "ja", name: "VELSTRIA - 星環の戦場" } }] } },
+  ]);
+  succeeds(result, 5);
+  assert.match(result.stdout, /appStoreVersionLocalizations ja: 更新 description/);
+  assert.match(result.stdout, /appStoreVersionLocalizations en-US: 作成 description, keywords, promotionalText/);
+  assert.match(result.stdout, /appInfoLocalizations ja: 更新 name/);
+  assert.doesNotMatch(result.stdout, /Url/i, "公開 URL（仮値）は送らない");
+  assert.match(result.stdout, /審査には提出していません/);
+});
+
+test("sync-listing refuses when no App Store version is editable", () => {
+  const result = run(["sync-listing", "--dry-run"], [
+    { path: "/v1/apps/app/appStoreVersions", body: { data: [{ id: "v1", attributes: { versionString: "1.0", appVersionState: "READY_FOR_SALE" } }] } },
+  ]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /編集できる App Store バージョンがありません/);
+});
+
+function screenshotDir(files) {
+  const dir = fs.mkdtempSync(path.join(fixtureDir, "shots-"));
+  for (const f of files) {
+    fs.mkdirSync(path.join(dir, path.dirname(f)), { recursive: true });
+    fs.writeFileSync(path.join(dir, f), "png");
+  }
+  return dir;
+}
+
+const shotSteps = (existing) => [
+  draftVersion,
+  { path: "/v1/appStoreVersions/v1/appStoreVersionLocalizations", body: { data: [{ id: "vl-ja", attributes: { locale: "ja" } }] } },
+  {
+    path: "/v1/appStoreVersionLocalizations/vl-ja/appScreenshotSets",
+    body: {
+      data: existing.length
+        ? [{ id: "set1", attributes: { screenshotDisplayType: "APP_IPHONE_67" }, relationships: { appScreenshots: { data: existing.map((id) => ({ id })) } } }]
+        : [],
+    },
+  },
+];
+
+test("upload-screenshots --dry-run plans ja files in name order and ignores review/ and non-numbered files", () => {
+  const dir = screenshotDir(["ja/02_home.png", "ja/01_battle.png", "ja/review/iap_store.png", "ja/notes.png", "en/01_battle.png"]);
+  const result = run(["upload-screenshots", dir, "--dry-run"], shotSteps([]));
+  succeeds(result, 4);
+  assert.match(result.stdout, /ja APP_IPHONE_67: 2 枚を登録（01_battle\.png, 02_home\.png）/);
+  assert.match(result.stdout, /en-US: バージョンのローカライズがありません/);
+});
+
+test("upload-screenshots refuses to touch an occupied screenshot set without --replace", () => {
+  const dir = screenshotDir(["ja/01_battle.png"]);
+  const refused = run(["upload-screenshots", dir, "--dry-run"], shotSteps(["a", "b"]));
+  assert.notEqual(refused.status, 0);
+  assert.match(refused.stderr, /既に 2 枚あります。入れ直すなら --replace/);
+  const replaced = run(["upload-screenshots", dir, "--dry-run", "--replace"], shotSteps(["a", "b"]));
+  succeeds(replaced, 4);
+  assert.match(replaced.stdout, /既存 2 枚を削除して 1 枚を登録/);
+});

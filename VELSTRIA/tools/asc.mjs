@@ -42,6 +42,11 @@
 //                                                     Mac / Vision Pro での配信。GitHub Actions では警告・エラーを注釈と手順のまとめにも出す
 //   node tools/asc.mjs submit <build> [--dry-run]     ビルドを App Store バージョンに紐付け、メタデータ（docs/appstore/metadata）を
 //                                                     同期して審査に提出する。--dry-run は読み取りだけで、行う変更を表示する
+//   node tools/asc.mjs sync-listing [--dry-run]       編集中の下書きに名前・サブタイトル・説明・プロモーションテキスト・キーワードだけを
+//                                                     書く（docs/appstore/metadata。URL は送らない。審査には出さない）
+//   node tools/asc.mjs upload-screenshots <dir> [--display-type=APP_IPHONE_67] [--replace] [--dry-run]
+//                                                     <dir>/<ja|en>/NN_name.png を編集中のバージョンの該当言語・枠へ登録する
+//                                                     （審査には出さない。既存の画像を入れ直すときは --replace）
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -929,8 +934,133 @@ async function setBetaNotes(build, text) {
   console.log(`ビルド ${build.attributes.version} のテスト内容を設定:\n${whatsNew}`);
 }
 
+// ---- 掲載情報の下書き同期（審査には出さない） ----
+
+// 編集中の App Store バージョンと App 情報に、名前・サブタイトル・説明・プロモーションテキスト・キーワードだけを書く。
+// 公開 URL（プライバシー・サポート・マーケティング）は確定値になるまで仮値なので送らない。審査への提出・ビルドの紐付けはしない。
+async function syncListing(appID, dry) {
+  const tag = dry ? "[dry-run] " : "";
+  const { meta } = loadMetadata();
+  const versionLocs = {};
+  const infoLocs = {};
+  for (const [loc, m] of Object.entries(meta.locales)) {
+    versionLocs[loc] = { description: m.version.description, keywords: m.version.keywords, promotionalText: m.version.promotionalText };
+    infoLocs[loc] = { name: m.info.name, subtitle: m.info.subtitle };
+  }
+  const leftovers = Object.entries({ ...versionLocs, ...infoLocs })
+    .filter(([, v]) => Object.values(v).some((s) => typeof s === "string" && (/\{\{[A-Z_]+\}\}/.test(s) || s.includes("velstria.example"))))
+    .map(([loc]) => loc);
+  if (leftovers.length) fail(`掲載文に仮値が残っています: ${leftovers.join(", ")}`);
+
+  const versions = await iosVersions(appID);
+  const target = versions.find((v) => EDITABLE.has(versionState(v)));
+  if (!target) fail(`編集できる App Store バージョンがありません（${versions.map(versionState).join(", ") || "なし"}）`);
+  console.log(`${tag}対象: App Store ${target.attributes.versionString}（${versionState(target)}）`);
+  const curVLocs = (await call("GET", `/v1/appStoreVersions/${target.id}/appStoreVersionLocalizations?limit=50`)).data;
+  await upsertLocalizations("appStoreVersionLocalizations", target, curVLocs, versionLocs, dry);
+
+  const info = editableAppInfo(await appInfos(appID));
+  if (!info) fail("編集できる App 情報がありません（名前・サブタイトルを書けないため中止）");
+  const curILocs = (await call("GET", `/v1/appInfos/${info.id}/appInfoLocalizations?limit=50`)).data;
+  await upsertLocalizations("appInfoLocalizations", info, curILocs, infoLocs, dry);
+  console.log(`${tag}掲載情報の同期が完了（審査には提出していません）`);
+}
+
+// ---- スクリーンショットの登録 ----
+
+// 言語ディレクトリ名 → ASC のロケール
+const SHOT_LOCALES = { ja: "ja", en: "en-US" };
+const SHOT_SETTLED = new Set(["COMPLETE", "FAILED"]);
+
+// <dir>/<ja|en>/NN_name.png（名前順 = 掲載順）。review/ などのサブディレクトリは対象外
+function listScreenshots(dir) {
+  const out = {};
+  for (const [sub, locale] of Object.entries(SHOT_LOCALES)) {
+    const d = path.join(dir, sub);
+    if (!fs.existsSync(d)) continue;
+    const files = fs.readdirSync(d, { withFileTypes: true })
+      .filter((e) => e.isFile() && /^\d\d_.+\.png$/.test(e.name)).map((e) => path.join(d, e.name)).sort();
+    if (files.length) out[locale] = files;
+  }
+  return out;
+}
+
+async function uploadScreenshot(setID, file) {
+  const bytes = fs.readFileSync(file);
+  const created = (await call("POST", "/v1/appScreenshots", {
+    data: {
+      type: "appScreenshots",
+      attributes: { fileName: path.basename(file), fileSize: bytes.length },
+      relationships: { appScreenshotSet: { data: { type: "appScreenshotSets", id: setID } } },
+    },
+  })).data;
+  for (const op of created.attributes.uploadOperations || []) {
+    const headers = Object.fromEntries((op.requestHeaders || []).map((h) => [h.name, h.value]));
+    const res = await fetch(op.url, { method: op.method, headers, body: bytes.subarray(op.offset, op.offset + op.length) });
+    if (!res.ok) fail(`${path.basename(file)} の転送に失敗しました（HTTP ${res.status}）`);
+  }
+  await call("PATCH", `/v1/appScreenshots/${created.id}`, {
+    data: {
+      type: "appScreenshots", id: created.id,
+      attributes: { uploaded: true, sourceFileChecksum: crypto.createHash("md5").update(bytes).digest("hex") },
+    },
+  });
+  for (let i = 0; i < 60; i++) {
+    const s = (await call("GET", `/v1/appScreenshots/${created.id}?fields[appScreenshots]=assetDeliveryState`)).data.attributes.assetDeliveryState;
+    if (SHOT_SETTLED.has(s?.state)) {
+      if (s.state === "FAILED") fail(`${path.basename(file)} を Apple が受理しませんでした: ${JSON.stringify(s.errors || [])}`);
+      return created.id;
+    }
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+  fail(`${path.basename(file)} の処理が 3 分たっても完了しません`);
+}
+
+// 言語ごとの画像一式を、編集中のバージョンの該当ローカライズ・枠（displayType）へ登録する。
+// 枠に既に画像があるときは --replace を付けた時だけ消して入れ直す（付けなければ中止）。
+async function uploadScreenshots(appID, dir, displayType, replace, dry) {
+  const tag = dry ? "[dry-run] " : "";
+  const plan = listScreenshots(dir);
+  if (!Object.keys(plan).length) fail(`${dir} に <ja|en>/NN_name.png がありません`);
+  const target = (await iosVersions(appID)).find((v) => EDITABLE.has(versionState(v)));
+  if (!target) fail("編集できる App Store バージョンがありません");
+  const locs = (await call("GET", `/v1/appStoreVersions/${target.id}/appStoreVersionLocalizations?limit=50&fields[appStoreVersionLocalizations]=locale`)).data;
+  for (const [locale, files] of Object.entries(plan)) {
+    const loc = locs.find((x) => x.attributes.locale === locale);
+    if (!loc) {
+      console.log(`${tag}${locale}: バージョンのローカライズがありません（先に sync-listing で作ります）。${files.length} 枚は未登録`);
+      if (!dry) fail(`${locale} のローカライズが無いため中止`);
+      continue;
+    }
+    const sets = await call("GET", `/v1/appStoreVersionLocalizations/${loc.id}/appScreenshotSets?limit=50`
+      + "&include=appScreenshots&limit[appScreenshots]=50&fields[appScreenshotSets]=screenshotDisplayType,appScreenshots");
+    const set = sets.data.find((s) => s.attributes.screenshotDisplayType === displayType);
+    const existing = (set?.relationships?.appScreenshots?.data || []).map((x) => x.id);
+    if (existing.length && !replace) fail(`${locale} の ${displayType} には既に ${existing.length} 枚あります。入れ直すなら --replace`);
+    console.log(`${tag}${locale} ${displayType}: ${existing.length ? `既存 ${existing.length} 枚を削除して ` : ""}${files.length} 枚を登録（${files.map((f) => path.basename(f)).join(", ")}）`);
+    if (dry) continue;
+    for (const id of existing) await call("DELETE", `/v1/appScreenshots/${id}`);
+    const setID = set?.id || (await call("POST", "/v1/appScreenshotSets", {
+      data: {
+        type: "appScreenshotSets",
+        attributes: { screenshotDisplayType: displayType },
+        relationships: { appStoreVersionLocalization: { data: { type: "appStoreVersionLocalizations", id: loc.id } } },
+      },
+    })).data.id;
+    const ids = [];
+    for (const f of files) {
+      ids.push(await uploadScreenshot(setID, f));
+      console.log(`  ${locale}: ${path.basename(f)} を登録`);
+    }
+    await call("PATCH", `/v1/appScreenshotSets/${setID}/relationships/appScreenshots`,
+      { data: ids.map((id) => ({ type: "appScreenshots", id })) });
+  }
+  console.log(`${tag}スクリーンショットの登録が完了（審査には提出していません）`);
+}
+
 const [cmd, ...rest] = process.argv.slice(2);
-readOnly = cmd === "release-check";
+// release-check と、--dry-run を付けた下書き同期は GET 以外を送らせない
+readOnly = cmd === "release-check" || (["sync-listing", "upload-screenshots"].includes(cmd) && rest.includes("--dry-run"));
 
 if (cmd === "create-app") {
   // API でのアプリレコード作成（Apple が許可していない場合はエラー内容を表示して終了）
@@ -1037,7 +1167,18 @@ switch (cmd) {
     await submitBuild(app.id, buildVersion, rest.includes("--dry-run"));
     break;
   }
+  case "sync-listing": {
+    await syncListing(app.id, rest.includes("--dry-run"));
+    break;
+  }
+  case "upload-screenshots": {
+    const dir = rest.find((x) => !x.startsWith("--")) || fail("画像のディレクトリ（<dir>/<ja|en>/NN_name.png）を指定してください");
+    const displayType = (rest.find((x) => x.startsWith("--display-type=")) || "--display-type=APP_IPHONE_67").slice("--display-type=".length);
+    await uploadScreenshots(app.id, path.resolve(dir), displayType, rest.includes("--replace"), rest.includes("--dry-run"));
+    break;
+  }
   default:
     fail("usage: node tools/asc.mjs status | wait-build <build> | verify-internal <build> | internal <email>... | testers"
-      + " | beta-notes <build> <text> | release-check <version> [--allow=<ID>,...] | submit <build> [--dry-run]");
+      + " | beta-notes <build> <text> | release-check <version> [--allow=<ID>,...] | submit <build> [--dry-run]"
+      + " | sync-listing [--dry-run] | upload-screenshots <dir> [--display-type=<type>] [--replace] [--dry-run]");
 }
