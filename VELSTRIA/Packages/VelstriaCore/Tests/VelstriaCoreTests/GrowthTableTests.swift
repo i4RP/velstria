@@ -21,8 +21,7 @@ final class GrowthTableTests: XCTestCase {
 
     /// 標準出力はバッファされ、プロセス終了時に一部が欠けることがあるため、標準エラー（バッファなし）へ出す。
     private func emit(_ line: String) {
-        FileHandle.standardError.write(Data((line + "
-").utf8))
+        FileHandle.standardError.write(Data((line + "\n").utf8))
     }
 
     func testPrintGrowthTable() throws {
