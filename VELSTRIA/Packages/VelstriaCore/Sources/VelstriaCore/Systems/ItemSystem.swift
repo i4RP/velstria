@@ -252,7 +252,7 @@ public enum ItemSystem {
             let q = quote(hero, itemID: target, ctx: ctx)
             if q.canBuy { return target }
             switch q.failure {
-            case .unknownItem?, .requiresSmite?, .uniqueCategory?:
+            case .unknownItem?, .requiresSmite?, .blockedBySmite?, .uniqueCategory?:
                 // 構造的に買えない（編成・ビルド指定の問題）ので次の候補へ
                 continue
             default:

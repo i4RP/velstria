@@ -160,6 +160,32 @@ struct BuildEditorView: View {
         .accessibilityIdentifier("build_smite_notice")
     }
 
+    /// ローム靴は狩猟印と併用できないため、スペル設定へ誘導する。
+    private var roamSmiteNotice: some View {
+        Button {
+            app.haptics.tap()
+            app.router.push(.spells)
+        } label: {
+            HStack(spacing: 6) {
+                SpellIconView(spellID: BuildRules.smiteSpellID, size: 24)
+                let smite = BuildRules.smiteName(master: app.master)
+                Text(L("ローム靴は「\(smite)」と一緒には使えません。試合ではローム靴を買えないので、スペルから「\(smite)」を外してください ›",
+                       "Roam boots can't be used with \(smite), so they can't be bought in a match. Remove \(smite) from your spells ›"))
+                    .font(Theme.body(10))
+                    .foregroundStyle(Theme.danger)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 8)
+            .frame(minHeight: 44)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Theme.danger.opacity(0.12)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("build_roam_smite_notice")
+    }
+
     private func slotView(_ i: Int) -> some View {
         let item = i < build.count ? app.master.item(build[i]) : nil
         let selected = selectedSlot == i
@@ -254,6 +280,8 @@ struct BuildEditorView: View {
             .sorted { $0.tier != $1.tier ? $0.tier > $1.tier : $0.itemID < $1.itemID }
         let lacksSmite = BuildRules.lacksSmite(build, spells: SpellLoadoutRules.effective(heroID: heroID, profile: app.profile),
                                                master: app.master)
+        let roamConflict = BuildRules.roamConflictsSmite(build, spells: SpellLoadoutRules.effective(heroID: heroID, profile: app.profile),
+                                                         master: app.master)
         return VStack(spacing: 4) {
             if let warning {
                 warningBanner(warning)
@@ -261,6 +289,10 @@ struct BuildEditorView: View {
             }
             if lacksSmite {
                 smiteNotice
+                    .transition(.opacity)
+            }
+            if roamConflict {
+                roamSmiteNotice
                     .transition(.opacity)
             }
             ScrollView(.horizontal) {
@@ -290,6 +322,7 @@ struct BuildEditorView: View {
         }
         .animation(.easeInOut(duration: 0.2), value: warning)
         .animation(.easeInOut(duration: 0.2), value: lacksSmite)
+        .animation(.easeInOut(duration: 0.2), value: roamConflict)
     }
 
     private func catalogCell(_ item: ItemDef) -> some View {
@@ -330,7 +363,8 @@ struct BuildEditorView: View {
 
     private func add(_ itemID: String) {
         let replacing = selectedSlot.flatMap { $0 < build.count ? $0 : nil }
-        let result = BuildRules.check(itemID, adding: build, replacing: replacing, master: app.master)
+        let result = BuildRules.check(itemID, adding: build, replacing: replacing, master: app.master,
+                                      spells: SpellLoadoutRules.effective(heroID: heroID, profile: app.profile))
         guard result == .ok else {
             app.haptics.warning()
             warning = result.message

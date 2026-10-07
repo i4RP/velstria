@@ -242,6 +242,17 @@ final class CollectionLogicTests: XCTestCase {
         XCTAssertNotNil(master.spell(BuildRules.smiteSpellID))
     }
 
+    func testRoamBootsAreRejectedWithSmite() {
+        let roam = GearCatalog.roamBootsID
+        XCTAssertEqual(BuildRules.check(roam, adding: [], replacing: nil, master: master, spells: ["BS05", "BS01"]),
+                       .roamBlockedBySmite)
+        XCTAssertEqual(BuildRules.check(roam, adding: [], replacing: nil, master: master, spells: ["BS01", "BS03"]), .ok)
+        XCTAssertFalse(BuildRules.roamConflictsSmite(["EQ001", roam], spells: ["BS01", "BS03"], master: master))
+        XCTAssertTrue(BuildRules.roamConflictsSmite(["EQ001", roam], spells: ["BS05", "BS01"], master: master))
+        XCTAssertFalse(BuildRules.roamConflictsSmite(["EQ001"], spells: ["BS05", "BS01"], master: master))
+        XCTAssertFalse(BuildCheck.roamBlockedBySmite.message.isEmpty)
+    }
+
     func testRecommendedBuildIsSanitizedAndWithinSlots() {
         for hero in master.heroes {
             let build = BuildRules.recommended(for: hero.heroID, master: master)

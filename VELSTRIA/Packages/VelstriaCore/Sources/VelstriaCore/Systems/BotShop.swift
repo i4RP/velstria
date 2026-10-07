@@ -57,7 +57,7 @@ enum BotShop {
             }
             let q = ItemSystem.quote(hero, itemID: target, ctx: ctx)
             switch q.failure {
-            case .unknownItem?, .requiresSmite?, .uniqueCategory?:
+            case .unknownItem?, .requiresSmite?, .blockedBySmite?, .uniqueCategory?:
                 continue
             default:
                 return q.cost

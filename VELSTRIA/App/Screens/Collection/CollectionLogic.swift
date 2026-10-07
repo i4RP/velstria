@@ -412,6 +412,8 @@ enum BuildCheck: Equatable {
     case bootsLimit
     /// ローム靴とジャングル装備は同時に持てない（狩猟印の有無が前提のため）。
     case roamJungleConflict
+    /// ローム靴は狩猟印を装備していると使えない。
+    case roamBlockedBySmite
     case unknown
 
     var message: String {
@@ -424,6 +426,9 @@ enum BuildCheck: Equatable {
         case .roamLimit: return L("ローム系装備は 1 つまでです", "Only one Roam item allowed")
         case .bootsLimit: return L("靴は 1 つまでです（移動系・ジャングル靴・ローム靴）", "Only one pair of boots (Movement, Jungle or Roam)")
         case .roamJungleConflict: return L("ローム装備とジャングル装備は同時に持てません", "Roam and Jungle items can't be combined")
+        case .roamBlockedBySmite:
+            return L("ローム靴は狩猟印と一緒には使えません。ローム靴を入れるには、先にバトルスペルから狩猟印を外してください（狩猟印はジャングル用のスペルです）",
+                     "Roam boots can't be used with the hunting spell (Jungle's spell). Remove it from your battle spells first to add roam boots")
         case .unknown: return L("不明な装備です", "Unknown item")
         }
     }
@@ -442,8 +447,11 @@ enum BuildRules {
     }
 
     /// build に itemID を追加（replacing 指定時はその位置を置換）できるか。
-    static func check(_ itemID: String, adding build: [String], replacing index: Int?, master: MasterData) -> BuildCheck {
+    /// spells = 装備中のバトルスペル（渡すと、狩猟印ありでのローム靴を断る）。
+    static func check(_ itemID: String, adding build: [String], replacing index: Int?, master: MasterData,
+                      spells: [String]? = nil) -> BuildCheck {
         guard let item = master.item(itemID) else { return .unknown }
+        if item.category == .roam, spells?.contains(smiteSpellID) == true { return .roamBlockedBySmite }
         var others = build
         if let index, others.indices.contains(index) {
             others.remove(at: index)
@@ -475,6 +483,11 @@ enum BuildRules {
     /// ジャングル装備を含み、かつ狩猟印を装備していないか（戦闘中に購入できない組み合わせ）。
     static func lacksSmite(_ build: [String], spells: [String], master: MasterData) -> Bool {
         build.contains { master.item($0)?.category == .jungle } && !spells.contains(smiteSpellID)
+    }
+
+    /// ローム靴を含み、かつ狩猟印を装備していないか（ローム靴は狩猟印と併用できず、戦闘中に購入できない）。
+    static func roamConflictsSmite(_ build: [String], spells: [String], master: MasterData) -> Bool {
+        build.contains { master.item($0)?.category == .roam } && spells.contains(smiteSpellID)
     }
 
     static func totalCost(_ build: [String], master: MasterData) -> Double {
