@@ -280,8 +280,9 @@ extension MapDefinition {
             switch k {
             // 参照仕様（REFERENCE_SPEC §3.3）: 小キャンプもバフも再出現 90 秒（以前は小 60 秒）。
             case .small, .blueSentinel, .redSentinel: return 90
-            case .astralWyrm: return 240
-            case .ancientColossus: return 300
+            // 序盤ボス 120 秒・後半ボス 180 秒（参照仕様 §5.1・§5.3。旧: 240 / 300 秒）
+            case .astralWyrm: return 120
+            case .ancientColossus: return 180
             }
         }
         for (k, p) in blueCamps {

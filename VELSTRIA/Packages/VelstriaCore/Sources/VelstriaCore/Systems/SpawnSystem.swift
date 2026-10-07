@@ -139,6 +139,8 @@ public enum SpawnSystem {
                     s.world.campRespawnAt[k] = nil
                 }
             } else if alive[k] == 0 {
+                // 序盤ボスは 6:00 以降に倒されると再出現しない
+                if camp.kind == .astralWyrm, s.time >= Balance.wyrmNoRespawnAfter { continue }
                 s.world.campRespawnAt[k] = s.time + camp.respawn
             }
         }

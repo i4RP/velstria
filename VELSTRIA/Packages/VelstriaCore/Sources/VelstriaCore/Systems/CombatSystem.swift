@@ -62,6 +62,10 @@ public enum CombatSystem {
         if s.units[t].isStructure {
             amount *= max(0, TowerSystem.damageTakenMultiplier(s, ctx, structureIndex: t, sourceIndex: a))
         }
+        // バフ番人: 近くのヒーローが多いほど被ダメが減る（狩猟印などのバトルスペルは対象外）
+        if s.units[t].kind == .monster, source != .spell {
+            amount *= MonsterSystem.gangReductionMultiplier(s, monsterIndex: t)
+        }
         // 4. 防御軽減（確定ダメージは無視）
         amount *= mitigationMultiplier(type, armor: s.units[t].stats.armor, magicResist: s.units[t].stats.magicResist)
         // 5. 被ダメ軽減（上限 60%）

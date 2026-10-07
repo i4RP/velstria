@@ -229,6 +229,23 @@ final class WorldSpawnTests: XCTestCase {
         XCTAssertNil(s.world.campRespawnAt[camp.id])
     }
 
+    /// 序盤ボスは 6:00 以降に倒されると再出現しない（それ以前なら再出現する）。
+    func testWyrmDoesNotRespawnWhenKilledAfterSixMinutes() {
+        var (s, ctx) = WorldTestKit.makeState(WorldTestKit.emptyConfig())
+        let wyrm = ctx.map.camps.first { $0.kind == .astralWyrm }!
+        s.world.campRespawnAt = ctx.map.camps.map { _ in nil }
+        WorldTestKit.setTime(&s, Balance.wyrmNoRespawnAfter - 1)
+        SpawnSystem.update(&s, ctx)
+        XCTAssertNotNil(s.world.campRespawnAt[wyrm.id], "6:00 前に倒れていれば再出現する")
+        s.world.campRespawnAt = ctx.map.camps.map { _ in nil }
+        WorldTestKit.setTime(&s, Balance.wyrmNoRespawnAfter)
+        SpawnSystem.update(&s, ctx)
+        XCTAssertNil(s.world.campRespawnAt[wyrm.id], "6:00 以降に倒れたら再出現しない")
+        // 後半ボスは時刻に関わらず再出現する
+        let colossus = ctx.map.camps.first { $0.kind == .ancientColossus }!
+        XCTAssertNotNil(s.world.campRespawnAt[colossus.id])
+    }
+
     func testBossRespawnTimingInFullSimulation() {
         var (s, _) = WorldTestKit.makeState(WorldTestKit.emptyConfig())
         WorldTestKit.setTime(&s, 119)

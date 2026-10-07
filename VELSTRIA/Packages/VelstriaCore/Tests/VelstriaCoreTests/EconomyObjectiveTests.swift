@@ -81,7 +81,7 @@ final class EconomyObjectiveTests: XCTestCase {
         XCTAssertEqual(f.hero(a).score.objectivesTaken, 1)
         let buff = f.s.units[a].status(.blueBuff)
         XCTAssertNotNil(buff)
-        XCTAssertEqual(buff?.remaining ?? 0, 90, accuracy: 1e-9)
+        XCTAssertEqual(buff?.remaining ?? 0, Balance.Economy.sentinelBuffDuration, accuracy: 1e-9)
         XCTAssertTrue(ev.contains(.objectiveTaken(kind: .blueSentinel, team: .blue, killerID: f.id(a))))
 
         let r = f.addMonster(.redSentinel, at: spot)

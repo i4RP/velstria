@@ -85,7 +85,7 @@ extension Balance {
         public static let colossusBlessingDuration: Double = 180
         public static let colossusBlessingDamageBonus: Double = 0.15
         /// 蒼晶/紅焔バフの持続。
-        public static let sentinelBuffDuration: Double = 90
+        public static let sentinelBuffDuration: Double = 75
         /// Jungle 装備のモンスター Gold 補正。
         public static let jungleMonsterGoldBonus: Double = 0.20
 

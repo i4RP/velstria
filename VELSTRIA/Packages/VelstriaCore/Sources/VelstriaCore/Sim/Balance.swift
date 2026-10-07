@@ -116,6 +116,12 @@ public enum Balance {
     public static let towerRampPerHit: Double = 0.30
     public static let towerRampMax: Double = 1.20
     public static let leashRadius: Double = 900
+    /// バフ番人の多人数軽減: 近くのヒーロー（敵味方を問わない）1 人につき被ダメ −15%、最大 −60%（参照仕様 §3.3）。
+    public static let sentinelGangRadius: Double = 900
+    public static let sentinelGangReductionPerHero: Double = 0.15
+    public static let sentinelGangMaxReduction: Double = 0.60
+    /// 序盤ボスはこの試合時間（秒）以降に倒されると再出現しない（参照仕様 §5.1）。
+    public static let wyrmNoRespawnAfter: Double = 6 * 60
     /// タワー・Core の最大 HP 倍率（AI 対戦の試合時間を 10〜18 分へ寄せる調整値。DESIGN §4 の表に掛ける）。
     public static let structureHPScale: Double = 0.65
 }

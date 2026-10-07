@@ -14,7 +14,8 @@ final class WorldMapTests: XCTestCase {
         XCTAssertEqual(map.camps.first { $0.kind == .astralWyrm }?.pos, Vec2(8300, 3700))
         XCTAssertEqual(map.camps.first { $0.kind == .ancientColossus }?.pos, Vec2(3700, 8300))
         XCTAssertEqual(map.camps.first { $0.kind == .astralWyrm }?.firstSpawn, 120)
-        XCTAssertEqual(map.camps.first { $0.kind == .ancientColossus }?.respawn, 300)
+        XCTAssertEqual(map.camps.first { $0.kind == .ancientColossus }?.respawn, 180)
+        XCTAssertEqual(map.camps.first { $0.kind == .astralWyrm }?.respawn, 120)
     }
 
     func testBrushAndObstacleCounts() {
