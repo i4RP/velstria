@@ -250,24 +250,17 @@ def active_desc(skill: dict, hero: dict, name: str) -> str:
 # ---------------------------------------------------------------------------
 # 装備
 # ---------------------------------------------------------------------------
-ITEM_STEMS = {
-    "黎明の短剣": "Dawn Dagger",
-    "残響の長剣": "Echo Longsword",
-    "星鉄の弓": "Stariron Bow",
-    "深海の杖": "Deepsea Staff",
-    "烈火の護符": "Blazing Talisman",
-    "静謐の鎧": "Tranquil Armor",
-    "雷鳴の短剣": "Thunderclap Dagger",
-    "月影の長剣": "Moonshadow Longsword",
-    "守護の弓": "Guardian Bow",
-    "疾風の杖": "Gale Staff",
-    "霊樹の護符": "Spiritwood Talisman",
-    "虚空の鎧": "Void Armor",
-}
-ITEM_FULL_NAMES = {
-    "帰還核の護符": "Homecore Talisman",
-}
-ITEM_PATTERN = re.compile(r"^(?P<stem>.+)・(?P<no>\d{2})$")
+# 装備名は tools/portraits/item_icons.json（装備アイコンの仕様）を正本とする。
+# 日本語名（ja）と英語名（name）が装備 ID ごとに入っており、カテゴリに合った装備の姿（杖・鎧・靴など）と一致させてある。
+ITEM_SPEC = ROOT / "tools" / "portraits" / "item_icons.json"
+
+
+def load_item_names() -> dict[str, tuple[str, str]]:
+    """装備 ID → (日本語名, 英語名)。"""
+    spec = json.loads(ITEM_SPEC.read_text(encoding="utf-8"))
+    return {it["id"]: (it["ja"], it["name"]) for it in spec["items"]}
+
+
 ITEM_PASSIVE_NAME = re.compile(r"^固有効果(?P<no>\d{2})$")
 ITEM_PASSIVE_TEXT = re.compile(r"^戦闘状況に応じて(?P<x>\d+)%相当の補助効果を付与。同名固有パッシブは重複しない。$")
 NO_STACK = " Unique passives with the same name do not stack."
@@ -456,17 +449,12 @@ def build(master: dict) -> dict[str, str]:
         put(f"{sid}.desc", desc)
 
     # 装備
+    item_names = load_item_names()
     for it in master["equipment"]:
         iid = it["item_id"]
-        name_ja = it["name_ja"]
-        if name_ja in ITEM_FULL_NAMES:
-            name = ITEM_FULL_NAMES[name_ja]
-        elif (m := ITEM_PATTERN.match(name_ja)):
-            if m["no"] != iid[-2:]:
-                raise TranslationError(f"{iid}: 名前の番号 {m['no']} が ID と一致しません")
-            name = f"{need(ITEM_STEMS, m['stem'], iid)} {m['no']}"
-        else:
-            raise TranslationError(f"{iid}: 装備名の文型が想定外です: {name_ja}")
+        name_ja, name = need(item_names, iid, iid)
+        if name_ja != it["name_ja"]:
+            raise TranslationError(f"{iid}: 装備名がマスター（{it['name_ja']}）と item_icons.json（{name_ja}）で食い違います")
         put(iid, name)
         pm = ITEM_PASSIVE_TEXT.match(it["passive_text"])
         if not pm:
