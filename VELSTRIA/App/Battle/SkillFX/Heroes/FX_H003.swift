@@ -101,7 +101,8 @@ enum FX_H003: HeroFXSet {
         case .ultimate:
             r.cast = [
                 .emit(.gather(30, radius: 1.6, .primary, life: 0.3), offset: bow),
-                .mesh(.sprite(.moon, 2.4, .accent, life: 0.55, grow: 1.2, alpha: 0.85), offset: [0, 1.8, -0.6]),
+                // 背後の高い位置に満月を掲げる（上方カメラで体を覆わないよう、小さめ・後ろ・半透明）
+                .mesh(.sprite(.moon, 1.5, .accent, life: 0.55, grow: 1.15, alpha: 0.7), offset: [0, 2.7, -1.5]),
                 .mesh(.decal(.runeCircle, 3.2, .primary, life: 0.8, spin: 140, alpha: 0.75)),
                 .emit(.flare(2.4, .core, life: 0.25, tex: .flare6), at: 0.3, offset: bow),
                 .emit(.fan(24, .secondary, speed: 12, spread: 14, life: 0.35), at: 0.3, offset: bow),

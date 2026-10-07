@@ -2194,8 +2194,82 @@
         "verifyLog": "build/tripo/props/lightningSpear/import_verify.log",
         "provider": "meshy"
       }
+    },
+    "props/ashBow": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": "2874d973-9853-4847-b48f-9664820d81a8",
+          "input": null,
+          "request": {
+            "prompt": "Single stylized fantasy MOBA game item, one object only, upright and perfectly vertical: a moon-elf longbow, side view, tall slender curved bow with pearl-white and silver limbs, gold crescent-moon tips at both ends, thin glowing teal-blue inner edge, white wrapped grip with a small teal gem in the middle, thin glowing pale-blue string, the bow curving to the right with the string on the left side of the image. Orthographic view, centered with margin, whole object visible, plain light-gray background, even soft lighting, stylized hand-painted texture, chunky readable shapes for a top-down game camera, no hands, no text, no logo. --no hand, person, character, multiple objects, duplicates, tilted, diagonal, cropped, perspective, cast shadow, floor, particles, smoke, sparks, background scenery, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-07T00:41:04.971Z",
+          "completed_at": "2026-10-07T00:41:37.400848Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/props/ashBow/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-07T00:41:42.886Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "1353d0d0-7a70-4920-a3ae-eff10659ba6b",
+          "input": "2874d973-9853-4847-b48f-9664820d81a8",
+          "request": {
+            "input": "2874d973-9853-4847-b48f-9664820d81a8",
+            "model": "P1-20260311",
+            "face_limit": 2500,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image",
+            "orientation": "align_image"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-07T00:44:21.480Z",
+          "completed_at": "2026-10-07T00:45:17.549879Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/props/ashBow/model.glb",
+            "preview": "build/tripo/props/ashBow/preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-07T00:45:23.365Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-07T00:45:30.576Z",
+        "out": "App/Resources/Heroes/Prop_ashBow.usdz",
+        "status": "success",
+        "report": "build/tripo/props/ashBow/import_report.json",
+        "log": "build/tripo/props/ashBow/import_normalize.log",
+        "verifyLog": "build/tripo/props/ashBow/import_verify.log",
+        "provider": "tripo"
+      }
     }
   },
   "note": "tools/tripo.mjs が自動生成。task_id・状態・消費クレジット・ローカルパスのみ（秘密情報なし）",
-  "updated_at": "2026-10-05T04:30:25.420Z"
+  "updated_at": "2026-10-07T00:45:30.577Z"
 }
