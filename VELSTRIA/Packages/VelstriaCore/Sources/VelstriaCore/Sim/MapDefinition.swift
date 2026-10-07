@@ -254,8 +254,8 @@ extension MapDefinition {
         var camps: [CampSpot] = []
         func respawn(_ k: CampKind) -> Double {
             switch k {
-            case .small: return 60
-            case .blueSentinel, .redSentinel: return 90
+            // 参照仕様（REFERENCE_SPEC §3.3）: 小キャンプもバフも再出現 90 秒（以前は小 60 秒）。
+            case .small, .blueSentinel, .redSentinel: return 90
             case .astralWyrm: return 240
             case .ancientColossus: return 300
             }
