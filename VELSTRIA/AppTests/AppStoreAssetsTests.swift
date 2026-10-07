@@ -99,7 +99,7 @@ final class AppStoreAssetsTests: XCTestCase {
         Loc.current = .en
         XCTAssertEqual(MasterText.hero(alden), "Alden, Gate Warden")
         XCTAssertEqual(MasterText.cosmetic(lyraRecall), "Starstring Recall I")
-        XCTAssertEqual(MasterText.item(dagger), "Dawn Dagger 01")
+        XCTAssertEqual(MasterText.item(dagger), "Dawn Dagger")
         XCTAssertTrue(MasterText.description(id: dagger.itemID, ja: dagger.passiveText).hasPrefix("Unique Passive"))
 
         Loc.current = .ja

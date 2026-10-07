@@ -237,11 +237,12 @@ final class SpellSystemTests: XCTestCase {
 
     func testTeleportAutoTargetsOwnLaneFrontTowerAndIsInterruptedByDamage() {
         var w = SkillWorld()
-        let h = w.addHero("H001", team: .blue, at: skillArena, spells: ["BS09", "BS01"])   // Vanguard → top
+        let h = w.addHero("H001", team: .blue, at: skillArena, spells: ["BS09", "BS01"])   // Vanguard → top ポジション（EXP レーン）
         let e = w.addHero("H003", team: .red, at: skillArena + Vec2(300, 0))
         let spots = w.ctx.map.towers.filter { $0.team == .blue && !$0.isCore }
         for spot in spots { w.s.addUnit(UnitFactory.makeStructure(spot)) }
-        let topOuter = spots.first { $0.lane == .top && $0.tier == .outer }!.pos
+        let ownLane = w.ctx.map.lane(for: .top)!
+        let topOuter = spots.first { $0.lane == ownLane && $0.tier == .outer }!.pos
         XCTAssertTrue(w.castSpell(h, 0))
         XCTAssertEqual(spellEvents(w).last!.3, topOuter)
         w.run(seconds: 1)

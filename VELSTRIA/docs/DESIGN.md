@@ -50,7 +50,7 @@
 - ジャングルキャンプ（Blue 側。Red 側は写像）:
   - 蒼晶の番人（青バフ）: (3300,6300) / 紅焔の番人（赤バフ）: (6300,3300)
   - 小キャンプ: (2800,5000) (4700,5800) (5000,2800) (5800,4700)
-  - 初回 0:30 出現、撃破後 小 60 秒 / バフ 90 秒で再出現。
+  - 初回 0:30 出現、撃破後 小・バフとも 90 秒で再出現（参照仕様に合わせた。旧: 小 60 秒）。
 - 草むら（Brush）と障害物（ジャングル壁）: `MapDefinition.standard` に矩形/円で定義。レーン中心線から 350 以内に障害物を置かない。
 - ナビゲーション: 100 ユニット格子 (120×120) の A* + 経路平滑化。障害物は格子に焼き込み、ユニット半径分膨張。
 - 乱闘マップ（`MapDefinition.brawl`）: mid の対角 1 本のみ（`lanes = [.mid]`）。タワーは mid の 3 段 + 両コアのみ、キャンプ・ボス無し、障害物無し。`lanePaths` はインデックス安全のため 3 要素（top=bot=mid）を保つが、ミニオン生成・ボットのレーン選択・検証は `map.lanes` を基準にする。
@@ -181,6 +181,8 @@
 ## 8. 経済・成長
 - 開始 Gold 300。パッシブ Gold 毎秒 3（0:20 以降）。
 - モード別の加速（`Balance.Economy.goldScale`/`xpScale`）: 乱闘は Gold・XP とも ×2.0、他モードは ×1.0。`grantGold`/`grantXP` の 1 箇所で適用（練習場の無限 Gold には適用しない）。
+- Gold/EXP レーン補正（序盤 0〜5:00）: Gold レーンのミニオンは Gold ×1.25、EXP レーンのミニオンは XP ×1.40（`Balance.Economy.goldLaneGoldBonus` / `expLaneXPBonus` / `laneBonusEnd`）。
+  参照仕様は側レーンの攻城ミニオンだけ +45% / +35% だが、VELSIA の攻城は 3 ウェーブに 1 体なのでウェーブ全体へ換算した暫定値（Phase 1 の計測で調整）。
 - ミニオン/モンスター Gold はラストヒットのみ。XP は 1400 以内の味方ヒーローで等分（1 人なら ×1.0、2 人以上は合計 ×1.3 を等分）。
 - ヒーローキル: 基本 300。被害者の連続キル数 s ≥ 2 で +60×(s−1)（上限 +480, シャットダウン）。被害者が連続死亡中 d ≥ 2 で −15%×(d−1)（下限 100）。初キル +100。
   アシスト: バウンティの 50% をアシスト人数で等分（1 人最低 40）。
@@ -222,7 +224,8 @@
 - 視界外の敵はクライアントに描画しない（HUD・ミニマップも同様）。最後に見えた位置はミニマップに 3 秒残像。
 
 ## 10. AI（ボット）
-- レーン配置: Top = Vanguard/Duelist、Jungle = Assassin/Duelist（狩猟印必須）、Mid = Arcanist、Bot = Ranger + Support。
+- レーン配置: EXP レーン = Vanguard/Duelist、Jungle = Assassin/Duelist（狩猟印必須）、Mid = Arcanist、Gold レーン = Ranger + Support。
+  EXP レーン = 最初の中立ボス（星喰竜）に近い側レーン（標準マップでは bot）、Gold レーン = 遠い側（top）。割当は `MapDefinition.lane(for:)`（乱闘など単レーンのマップは従来の top / bot）。
 - 状態機械: Laning / Jungling / Roaming / Retreat / Recall / Shopping / Objective / Teamfight / Defend / Push。
 - 意思決定 5Hz（ボット毎に tick をずらす）。スキル照準は予測射撃（難易度で精度変化）。
 - 難易度: Easy（反応 0.6s・精度 55%・スキル頻度低）/ Normal（0.35s・75%）/ Hard（0.15s・92%・集団行動）。

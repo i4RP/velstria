@@ -13,6 +13,9 @@ final class GrowthTableTests: XCTestCase {
         var gold: Double = 0
         var cs: Double = 0
         var kills: Double = 0
+        var assists: Double = 0
+        var minions: Double = 0
+        var monsters: Double = 0
         var n: Double = 0
     }
 
@@ -44,6 +47,9 @@ final class GrowthTableTests: XCTestCase {
                         table[p][next].gold += Balance.startingGold + h.score.goldEarned
                         table[p][next].cs += Double(h.score.creepScore)
                         table[p][next].kills += Double(h.score.kills)
+                        table[p][next].assists += Double(h.score.assists)
+                        table[p][next].minions += Double(h.score.minionKills)
+                        table[p][next].monsters += Double(h.score.monsterKills)
                         table[p][next].n += 1
                     }
                     next += 1
@@ -69,6 +75,15 @@ final class GrowthTableTests: XCTestCase {
                 let cells = table[p.rawValue].map { String(format: fmt, pick($0)) }
                 print("| \(p) | " + cells.joined(separator: " | ") + " |")
             }
+        }
+        let last = Self.checkpoints.count - 1
+        print("\n### GROWTH 10:00 の内訳（平均）")
+        print("| role | ミニオン | モンスター | キル | アシスト | 累計 Gold |")
+        print("|---|---|---|---|---|---|")
+        for p in positions {
+            let s = table[p.rawValue][last], n = max(1, s.n)
+            print(String(format: "| %@ | %.1f | %.1f | %.2f | %.2f | %.0f |", "\(p)", s.minions / n, s.monsters / n,
+                         s.kills / n, s.assists / n, s.gold / n))
         }
         print("\n### GROWTH Lv4 到達時刻（秒）")
         print("| role | 平均 | 最短 | 最長 | 10 分までに未到達 |")

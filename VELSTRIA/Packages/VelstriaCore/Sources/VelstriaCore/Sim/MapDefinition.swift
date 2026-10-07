@@ -195,6 +195,30 @@ extension MapDefinition {
         return best
     }
 
+    /// EXP レーン = 最初に出現する中立ボスに近い側レーン、Gold レーン = 遠い側レーン（参照仕様 §3.1）。
+    /// 側レーン（top・bot）が両方ある標準マップだけが持つ。乱闘など単レーンのマップは nil。
+    public var expLane: Lane? {
+        guard lanes.contains(.top), lanes.contains(.bot),
+              let boss = camps.filter({ $0.side == .neutral }).min(by: { $0.firstSpawn < $1.firstSpawn }) else { return nil }
+        return distanceToLane(boss.pos, lane: .top) < distanceToLane(boss.pos, lane: .bot) ? .top : .bot
+    }
+
+    public var goldLane: Lane? {
+        guard let exp = expLane else { return nil }
+        return exp == .top ? .bot : .top
+    }
+
+    /// ポジション → 担当レーン（ジャングルは nil）。EXP 向き（top）は EXP レーン、Gold 向き（carry）と支援は Gold レーン。
+    /// 側レーンが無いマップでは従来どおり top → top、carry・support → bot。
+    public func lane(for position: LanePosition) -> Lane? {
+        switch position {
+        case .jungle: return nil
+        case .mid: return .mid
+        case .top: return expLane ?? .top
+        case .carry, .support: return goldLane ?? .bot
+        }
+    }
+
     /// 点を含む障害物の添字（膨張半径込み）。
     public func obstacleIndex(at p: Vec2, inflatedBy r: Double = 0) -> Int? {
         obstacles.firstIndex { $0.contains(p, inflatedBy: r) }
@@ -254,8 +278,8 @@ extension MapDefinition {
         var camps: [CampSpot] = []
         func respawn(_ k: CampKind) -> Double {
             switch k {
-            case .small: return 60
-            case .blueSentinel, .redSentinel: return 90
+            // 参照仕様（REFERENCE_SPEC §3.3）: 小キャンプもバフも再出現 90 秒（以前は小 60 秒）。
+            case .small, .blueSentinel, .redSentinel: return 90
             case .astralWyrm: return 240
             case .ancientColossus: return 300
             }

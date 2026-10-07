@@ -99,8 +99,31 @@ final class BotBehaviorTests: XCTestCase {
         let human = f.s.humanHeroID!
         for m in f.s.bots.heroes {
             XCTAssertEqual(m.isBot, m.heroID != human)
-            XCTAssertEqual(m.lane, BotAI.lane(for: m.position))
+            XCTAssertEqual(m.lane, f.ctx.map.lane(for: m.position))
         }
+    }
+
+    /// サポートはレーンに張り付かず、生きているジャングラーの近くへ向かう。ジャングラーが泉に居る間はレーンへ戻る。
+    func testSupportShadowsTheJunglerInsteadOfStayingInLane() {
+        var f = BotFixture.bots(.normal)
+        f.parkAllHeroes()
+        let support = f.hero(.blue, .support)
+        let jungler = f.hero(.blue, .jungle)
+        f.place(jungler, at: Vec2(3300, 6300))
+        f.place(support, at: Vec2(1400, 7200))
+        f.refreshVision()
+        f.advance(1)
+        let cmds = f.decide(support)
+        XCTAssertEqual(f.memory(support).goal, .roaming)
+        let goal = try? XCTUnwrap(cmds.moveGoal())
+        XCTAssertLessThan(goal?.distance(to: f.s.units[jungler].pos) ?? .infinity, 800)
+
+        // ジャングラーが泉に居れば付いて回れない（レーン戦に戻る）
+        f.place(jungler, at: f.ctx.map.fountain(.blue))
+        f.refreshVision()
+        f.advance(1)
+        _ = f.decide(support)
+        XCTAssertNotEqual(f.memory(support).goal, .roaming)
     }
 
     func testDecisionsRunAtFiveHertzStaggeredPerBot() {
