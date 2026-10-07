@@ -70,8 +70,8 @@ HEROES: dict[str, tuple[str, str, str]] = {
     "夢織のノア": ("Noa", "Dreamweaver", "Dreamweaver"),
 }
 
-LORE_PATTERN = re.compile(r"^星環崩壊後のヴェルストリアで、(?P<name>.+)は失われた星核の断片を巡る戦いに身を投じる。$")
-LORE_EN = "In a Velstria left shattered by the fall of the Star Ring, {full}, joins the battle for the lost shards of the Star Core."
+LORE_PATTERN = re.compile(r"^星環崩壊後のベルシアで、(?P<name>.+)は失われた星核の断片を巡る戦いに身を投じる。$")
+LORE_EN = "In a Velsia left shattered by the fall of the Star Ring, {full}, joins the battle for the lost shards of the Star Core."
 
 STRENGTHS = {
     "集団戦の起点と役割遂行に優れる": "Excels at starting teamfights and fulfilling a team role",

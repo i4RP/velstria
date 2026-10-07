@@ -400,7 +400,7 @@ final class NWOnlineListener {
     /// Bonjour のサービス名（63 バイト以内に切り詰める。空なら既定名）。
     static func serviceName(_ roomName: String) -> String {
         var name = roomName.trimmingCharacters(in: .whitespacesAndNewlines)
-        if name.isEmpty { name = "VELSTRIA" }
+        if name.isEmpty { name = "VELSIA" }
         while name.utf8.count > OnlineProtocol.maxServiceNameBytes { name.removeLast() }
         return name
     }

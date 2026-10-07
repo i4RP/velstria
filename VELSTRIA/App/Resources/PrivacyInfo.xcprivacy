@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  VELSTRIA プライバシーマニフェスト。
+  VELSIA プライバシーマニフェスト。
   - トラッキングなし・トラッキングドメインなし。
   - 収集データなし（プロフィール・リプレイ・購入台帳はすべて端末内の Application Support に保存し、外部送信しない）。
   - Required Reason API は tools/privacy_audit.py でコードを走査して宣言漏れがないことを確認する。

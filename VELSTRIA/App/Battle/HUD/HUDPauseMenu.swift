@@ -151,7 +151,7 @@ struct HUDPauseMenu: View {
         case .spectate: return L("観戦", "Spectate")
         case .brawl: return L("乱闘", "Brawl")
         case .custom: return L("カスタム", "Custom Match")
-        case .magicChess: return L("マジックチェス", "Magic Chess")
+        case .magicChess: return L("オートバトラー", "Auto Battler")
         case .online: return L("オンライン対戦", "Online Match")
         }
     }

@@ -179,7 +179,7 @@ enum HomeMode: String, CaseIterable, Identifiable {
         case .arcade: return L("アーケード", "Arcade")
         case .rising: return L("ライジング", "Rising")
         case .custom: return L("AI対戦 / カスタム", "AI & Custom")
-        case .magicChess: return L("マジックチェス", "Magic Chess")
+        case .magicChess: return L("オートバトラー", "Auto Battler")
         }
     }
 

@@ -6,8 +6,10 @@ enum FeatureFlags {
     /// オンライン機能（フレンド・チャット・パーティ・招待・オンラインランキング）。Phase 2 でサーバー導入後に有効化。
     static let online = false
     /// オンライン対戦（リッスンサーバー: 参加者の 1 台がホスト。同一 LAN / Bonjour、IP 直接入力、または部屋コード（中継サーバー経由））。
-    /// 開発期間の対戦テスト用。App Store 提出時は審査メモ・年齢区分の記述（「マルチプレイなし」）と整合させること。
-    static let lanMatch = true
+    /// 開発期間の対戦テスト用。公開版（App Store）では false: 審査メモ・年齢区分・プライバシーの「完全オフライン・マルチプレイなし」と
+    /// 掲載文に合わせ、ホームのタイル・招待リンク・関連の文言を出さない。有効にして公開する時は、審査メモ・プライバシーポリシー・年齢区分・
+    /// 不適切語の対策（ガイドライン 1.2）・ローカルネットワーク許可文の英語化を先に整えること（docs/appstore/review_notes.md）。
+    static let lanMatch = false
     /// StoreKit による有償通貨販売。App Store Connect に商品登録済みであること。
     static let inAppPurchases = true
     /// デバッグメニュー（DEBUG ビルドのみ）。

@@ -398,7 +398,7 @@ struct ReplayListView: View {
         return HStack(spacing: 6) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
-                    ForEach(ReplayLibrary.Filter.allCases, id: \.self) { f in
+                    ForEach(ReplayLibrary.Filter.allCases.filter { $0 != .online || FeatureFlags.lanMatch }, id: \.self) { f in
                         filterChip(f, count: all.filter { f.matches($0) }.count)
                     }
                 }

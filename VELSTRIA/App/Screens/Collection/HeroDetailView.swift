@@ -31,7 +31,8 @@ enum HeroDetailTab: String, CaseIterable, Identifiable {
 struct HeroDetailView: View {
     let heroID: String
     @Environment(AppModel.self) private var app
-    @State private var tab: HeroDetailTab = .overview
+    // 出荷ビルドでは DebugLaunch.args が空なので常に .overview。-heroTab <skills 等> はストア用スクリーンショットの撮影用。
+    @State private var tab: HeroDetailTab = DebugLaunch.value(after: "-heroTab").flatMap(HeroDetailTab.init(rawValue:)) ?? .overview
     @State private var pendingSKU: String?
 
     var body: some View {

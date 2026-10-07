@@ -141,6 +141,13 @@ enum DebugLaunch {
     @MainActor
     static func battleDidStart(_ controller: BattleController) {
         #if DEBUG || SCREENSHOTS
+        // ストア用スクリーンショット向け: -botControl は操作キャラを AI に任せ（HUD は操作キャラのまま）、
+        // -battleSpeed <1〜8> は試合を早送りして、短い待ち時間で中盤の戦闘を撮れるようにする。
+        if !didApplyLaunchTweaks, !controller.isSpectating {
+            didApplyLaunchTweaks = true
+            if args.contains("-botControl") { controller.send(.setController(.bot)) }
+            if let raw = value(after: "-battleSpeed"), let v = Double(raw), (1.0...8.0).contains(v) { controller.speed = v }
+        }
         guard !didApplySeek, let raw = value(after: "-seekTo"), let seconds = Double(raw), seconds.isFinite, seconds >= 0 else { return }
         didApplySeek = true
         controller.requestSeek(toTick: Int((seconds / Balance.dt).rounded()))
@@ -149,6 +156,7 @@ enum DebugLaunch {
 
     #if DEBUG || SCREENSHOTS
     @MainActor private static var didApplySeek = false
+    @MainActor private static var didApplyLaunchTweaks = false
 
     /// -spectateSpeed / -spectateVision / -spectateDirector から観戦の初期設定を作る。
     @MainActor

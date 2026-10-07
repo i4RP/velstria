@@ -9,7 +9,7 @@ struct MagicChessSetupView: View {
     @State private var seed: UInt64 = UInt64.random(in: 1...UInt64(UInt32.max))
 
     var body: some View {
-        ScreenScaffold(title: L("マジックチェス", "Magic Chess")) {
+        ScreenScaffold(title: L("オートバトラー", "Auto Battler")) {
             VStack(spacing: 14) {
                 Panel(padding: 14) {
                     VStack(alignment: .leading, spacing: 8) {
