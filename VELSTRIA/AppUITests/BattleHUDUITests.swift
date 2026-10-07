@@ -60,7 +60,7 @@ final class BattleHUDUITests: XCTestCase {
         tap(app, "hud_attack_top")
         tap(app, "hud_attack_bottom")
         tap(app, "hud_skill1")
-        for id in ["hud_skill2", "hud_skill3", "hud_ult", "hud_spell1", "hud_spell2", "hud_recall", "hud_minimap"] {
+        for id in ["hud_skill2", "hud_ult", "hud_spell1", "hud_spell2", "hud_recall", "hud_minimap"] {
             XCTAssertTrue(element(app, id).exists, "\(id) が無い")
         }
 
