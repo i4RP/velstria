@@ -27,6 +27,12 @@ enum CreditsCatalog {
 
     static let technologies = ["SwiftUI", "RealityKit", "StoreKit"]
 
+    /// 同梱フォント（App/Resources/Fonts。ライセンス本文 OFL-*.txt も同梱）。
+    static let fonts: [(name: String, copyright: String)] = [
+        ("Chakra Petch", "Copyright 2018 The Chakra Petch Project Authors (https://github.com/m4rc1e/Chakra-Petch)"),
+        ("Cinzel", "Copyright 2020 The Cinzel Project Authors (https://github.com/NDISCOVER/Cinzel)"),
+    ]
+
     /// 技術タグの記号（Apple 製品を表す制限付き SF Symbols は使わず、汎用記号にする）。
     static func technologySymbol(_ tech: String) -> String {
         switch tech {
@@ -85,6 +91,27 @@ struct CreditsView: View {
                             }
                             Text(L("SwiftUI、RealityKit、StoreKit は Apple Inc. の商標です。",
                                    "SwiftUI, RealityKit and StoreKit are trademarks of Apple Inc."))
+                                .font(Theme.body(11))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+
+                    creditsBlock(L("フォント", "Fonts")) {
+                        VStack(spacing: 6) {
+                            ForEach(CreditsCatalog.fonts, id: \.name) { font in
+                                VStack(spacing: 1) {
+                                    Text(font.name)
+                                        .font(Theme.heading(14))
+                                        .foregroundStyle(Theme.textPrimary)
+                                    Text(font.copyright)
+                                        .font(Theme.body(11))
+                                        .foregroundStyle(Theme.textSecondary)
+                                        .multilineTextAlignment(.center)
+                                }
+                                .accessibilityElement(children: .combine)
+                            }
+                            Text(L("SIL Open Font License, Version 1.1 のもとで使用しています。",
+                                   "Licensed under the SIL Open Font License, Version 1.1."))
                                 .font(Theme.body(11))
                                 .foregroundStyle(Theme.textSecondary)
                         }

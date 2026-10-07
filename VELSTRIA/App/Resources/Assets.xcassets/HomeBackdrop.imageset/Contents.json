@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "HomeBackdrop.jpg",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

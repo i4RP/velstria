@@ -87,6 +87,13 @@ targets:
         UIViewControllerBasedStatusBarAppearance: true
         UIApplicationSupportsIndirectInputEvents: true
         UIRequiredDeviceCapabilities: [arm64, metal]
+        # 同梱フォント（App/Resources/Fonts/。SIL OFL 1.1。使い方は App/Screens/Home/HomeStyle.swift の HomeFont）
+        UIAppFonts:
+          - ChakraPetch-SemiBold.ttf
+          - ChakraPetch-Bold.ttf
+          - ChakraPetch-BoldItalic.ttf
+          - Cinzel-Bold.ttf
+          - Cinzel-Black.ttf
         ITSAppUsesNonExemptEncryption: false
         # 完了済みの消耗型（Gem）も Transaction.all に含める（iOS 18+）。年齢区分別の月間購入上限を
         # 端末内の記録だけでなく App Store の購入履歴から集計するため（StoreKitService.syncMonthlySpendFromHistory）

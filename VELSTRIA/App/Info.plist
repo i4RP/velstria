@@ -73,6 +73,14 @@
 	<string>近くのプレイヤーとオンライン対戦するために、同じネットワーク上の VELSIA を探して接続します。</string>
 	<key>SKIncludeConsumableInAppPurchaseHistory</key>
 	<true/>
+	<key>UIAppFonts</key>
+	<array>
+		<string>ChakraPetch-SemiBold.ttf</string>
+		<string>ChakraPetch-Bold.ttf</string>
+		<string>ChakraPetch-BoldItalic.ttf</string>
+		<string>Cinzel-Bold.ttf</string>
+		<string>Cinzel-Black.ttf</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
