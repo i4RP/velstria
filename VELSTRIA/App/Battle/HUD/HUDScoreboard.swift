@@ -553,7 +553,8 @@ private struct HUDScoreIdentity: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
         }
-        .frame(maxWidth: .infinity, alignment: side == .leading ? .leading : .trailing)
+        .frame(minWidth: 44 * scale, maxWidth: .infinity, alignment: side == .leading ? .leading : .trailing)
+        .layoutPriority(1)
     }
 }
 
@@ -653,16 +654,18 @@ private struct HUDScorePlayerRow: View {
     }
 
     private var equipment: some View {
-        HStack(spacing: 2 * scale) {
-            ForEach(0..<Balance.itemSlots, id: \.self) { k in
+        // 名前の列に幅を残すため 16pt 枠。赤側は並びも反転して青と対称にする。
+        let slots = Array(0..<Balance.itemSlots)
+        return HStack(spacing: 2 * scale) {
+            ForEach(side == .leading ? slots : Array(slots.reversed()), id: \.self) { k in
                 ZStack {
                     RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Color.black.opacity(0.45))
                     RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 0.8)
                     if k < row.items.count, let item = MasterData.shared.item(row.items[k]) {
-                        ItemIconView(item: item, size: 18 * scale)
+                        ItemIconView(item: item, size: 15 * scale)
                     }
                 }
-                .frame(width: 19 * scale, height: 19 * scale)
+                .frame(width: 16 * scale, height: 16 * scale)
             }
         }
     }
