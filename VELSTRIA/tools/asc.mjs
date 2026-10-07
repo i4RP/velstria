@@ -44,7 +44,7 @@
 //                                                     同期して審査に提出する。--dry-run は読み取りだけで、行う変更を表示する
 //   node tools/asc.mjs sync-listing [--dry-run]       編集中の下書きに名前・サブタイトル・説明・プロモーションテキスト・キーワードだけを
 //                                                     書く（docs/appstore/metadata。URL は送らない。審査には出さない）
-//   node tools/asc.mjs upload-screenshots <dir> [--display-type=APP_IPHONE_67] [--replace] [--dry-run]
+//   node tools/asc.mjs upload-screenshots <dir> [--display-type=APP_IPHONE_67] [--locale=<ja|en-US>] [--replace] [--dry-run]
 //                                                     <dir>/<ja|en>/NN_name.png を編集中のバージョンの該当言語・枠へ登録する
 //                                                     （審査には出さない。既存の画像を入れ直すときは --replace）
 import crypto from "node:crypto";
@@ -996,7 +996,19 @@ async function uploadScreenshot(setID, file) {
   })).data;
   for (const op of created.attributes.uploadOperations || []) {
     const headers = Object.fromEntries((op.requestHeaders || []).map((h) => [h.name, h.value]));
-    const res = await fetch(op.url, { method: op.method, headers, body: bytes.subarray(op.offset, op.offset + op.length) });
+    // 転送先は Apple の資産サーバー。一時的な通信エラー（EPIPE など）は最大 5 回まで待って再試行する
+    let res;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        res = await fetch(op.url, { method: op.method, headers, body: bytes.subarray(op.offset, op.offset + op.length) });
+        if (res.status >= 500 && attempt < 5) throw new Error(`HTTP ${res.status}`);
+        break;
+      } catch (e) {
+        if (attempt >= 5) throw e;
+        console.error(`  ${path.basename(file)} の転送を再試行（${attempt}/5）: ${e.cause?.code || e.message}`);
+        await new Promise((r) => setTimeout(r, 3000 * attempt));
+      }
+    }
     if (!res.ok) fail(`${path.basename(file)} の転送に失敗しました（HTTP ${res.status}）`);
   }
   await call("PATCH", `/v1/appScreenshots/${created.id}`, {
@@ -1018,9 +1030,10 @@ async function uploadScreenshot(setID, file) {
 
 // 言語ごとの画像一式を、編集中のバージョンの該当ローカライズ・枠（displayType）へ登録する。
 // 枠に既に画像があるときは --replace を付けた時だけ消して入れ直す（付けなければ中止）。
-async function uploadScreenshots(appID, dir, displayType, replace, dry) {
+async function uploadScreenshots(appID, dir, displayType, replace, dry, onlyLocale) {
   const tag = dry ? "[dry-run] " : "";
   const plan = listScreenshots(dir);
+  if (onlyLocale) for (const k of Object.keys(plan)) if (k !== onlyLocale) delete plan[k];
   if (!Object.keys(plan).length) fail(`${dir} に <ja|en>/NN_name.png がありません`);
   const target = (await iosVersions(appID)).find((v) => EDITABLE.has(versionState(v)));
   if (!target) fail("編集できる App Store バージョンがありません");
@@ -1174,11 +1187,12 @@ switch (cmd) {
   case "upload-screenshots": {
     const dir = rest.find((x) => !x.startsWith("--")) || fail("画像のディレクトリ（<dir>/<ja|en>/NN_name.png）を指定してください");
     const displayType = (rest.find((x) => x.startsWith("--display-type=")) || "--display-type=APP_IPHONE_67").slice("--display-type=".length);
-    await uploadScreenshots(app.id, path.resolve(dir), displayType, rest.includes("--replace"), rest.includes("--dry-run"));
+    const onlyLocale = (rest.find((x) => x.startsWith("--locale=")) || "").slice("--locale=".length) || undefined;
+    await uploadScreenshots(app.id, path.resolve(dir), displayType, rest.includes("--replace"), rest.includes("--dry-run"), onlyLocale);
     break;
   }
   default:
     fail("usage: node tools/asc.mjs status | wait-build <build> | verify-internal <build> | internal <email>... | testers"
       + " | beta-notes <build> <text> | release-check <version> [--allow=<ID>,...] | submit <build> [--dry-run]"
-      + " | sync-listing [--dry-run] | upload-screenshots <dir> [--display-type=<type>] [--replace] [--dry-run]");
+      + " | sync-listing [--dry-run] | upload-screenshots <dir> [--display-type=<type>] [--locale=<ja|en-US>] [--replace] [--dry-run]");
 }

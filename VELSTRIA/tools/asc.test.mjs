@@ -192,3 +192,11 @@ test("upload-screenshots refuses to touch an occupied screenshot set without --r
   succeeds(replaced, 4);
   assert.match(replaced.stdout, /既存 2 枚を削除して 1 枚を登録/);
 });
+
+test("upload-screenshots --locale limits the plan to one language", () => {
+  const dir = screenshotDir(["ja/01_battle.png", "en/01_battle.png"]);
+  const result = run(["upload-screenshots", dir, "--dry-run", "--locale=ja"], shotSteps([]));
+  succeeds(result, 4);
+  assert.match(result.stdout, /ja APP_IPHONE_67: 1 枚を登録/);
+  assert.doesNotMatch(result.stdout, /en-US/);
+});

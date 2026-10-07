@@ -188,7 +188,7 @@ cd VELSTRIA
 node tools/asc.mjs sync-listing --dry-run     # docs/appstore/metadata → ASC の編集中バージョン・App 情報
 node tools/asc.mjs sync-listing
 node tools/asc.mjs upload-screenshots build/screenshots/iPhone-17-Pro-Max --dry-run   # <dir>/<ja|en>/NN_name.png
-node tools/asc.mjs upload-screenshots build/screenshots/iPhone-17-Pro-Max [--replace]
+node tools/asc.mjs upload-screenshots build/screenshots/iPhone-17-Pro-Max [--locale=ja|en-US] [--replace]
 ```
 
 環境変数 `ASC_KEY_ID` / `ASC_ISSUER_ID`（と `ASC_KEY_PATH`）が必要。名前が他のアプリと重複すると ASC が拒否するので、その場合はサブタイトルなどで調整する。
