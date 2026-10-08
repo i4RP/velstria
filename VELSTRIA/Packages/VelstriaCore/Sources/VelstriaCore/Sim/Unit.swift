@@ -106,6 +106,11 @@ public struct HeroData: Codable, Hashable, Sendable {
     public var empoweredAttack: EmpoweredAttack?
     /// 通常攻撃の累計命中数（Ranger パッシブ等）。
     public var basicAttackCount: Int = 0
+    /// 装備の固有効果の状態（クールダウン・窓・連続命中。Systems/ItemEffects.swift）。
+    public var itemRuntime = ItemRuntime()
+    /// 攻撃ボタンの「同じ対象を追い続ける」判定用: 最後に狙った敵ヒーローと、その時刻（選択・通常攻撃の発射のたびに更新）。
+    public var attackStickyTargetID: EntityID?
+    public var attackStickyAt: Double?
 
     /// > 0 の間は死亡中。
     public var respawnTimer: Double = 0
@@ -122,6 +127,9 @@ public struct HeroData: Codable, Hashable, Sendable {
     public var lastKillTime: Double = -999
     public var score = HeroScore()
     public var surrenderVote: Bool?
+
+    /// ヒーロー固有スキル（キット層）の状態。キットが有効なヒーローだけ非 nil（UnitFactory.makeHero が設定）。
+    public var kit: KitState?
 
     public init(heroID: String, role: Role, isRanged: Bool, resourceKind: ResourceKind,
                 controller: Controller, position: LanePosition, displayName: String,

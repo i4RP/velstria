@@ -182,10 +182,11 @@ final class SkillArchetypeTests: XCTestCase {
 
     func testEverySkillHasTargetingPerDesign() {
         let m = MasterData.shared
-        XCTAssertEqual(m.skills.filter { $0.slot != .passive }.count, 72)
+        XCTAssertEqual(m.skills.filter { $0.slot != .passive }.count, 102)
         for hero in m.heroes {
             for skill in m.skills(forHero: hero.heroID) {
-                let t = SkillCatalog.targeting(for: skill, hero: hero)
+                // 汎用の設計（キットの上書きを含まない）を検証する
+                let t = SkillCatalog.genericTargeting(for: skill, hero: hero)
                 switch skill.slot {
                 case .passive:
                     XCTAssertEqual(t.archetype, .passive)

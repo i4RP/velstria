@@ -230,9 +230,15 @@ public enum MatchPhase: Int, Codable, Hashable, Sendable {
 }
 
 /// 通常攻撃ボタンのターゲット優先度。
+/// 生の値は保存データ・リプレイに入るので、既存の並びは変えず末尾に足す。
 public enum TargetPriority: Int, Codable, Hashable, Sendable {
     case heroesFirst
     case minionsFirst
     case structuresFirst
+    /// 実質 HP が最も低い目標（防御・シールド・被ダメ軽減込み）。
     case lowestHealth
+    /// HP 割合（現在 HP / 最大 HP）が最も低い敵。
+    case lowestHealthPercent
+    /// 最も近い目標。
+    case nearest
 }

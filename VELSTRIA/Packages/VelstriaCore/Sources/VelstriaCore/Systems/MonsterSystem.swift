@@ -6,6 +6,18 @@ import Foundation
 // 到着で全回復する。攻撃者が倒れた・居なくなった場合も同じ手順でリセットする。
 
 public enum MonsterSystem {
+    /// バフ番人が受けるダメージの倍率（近くのヒーロー 1 人につき −15%、最大 −60%）。番人以外は 1。
+    static func gangReductionMultiplier(_ s: SimState, monsterIndex t: Int) -> Double {
+        guard let kind = s.units[t].monster?.kind, kind == .blueSentinel || kind == .redSentinel else { return 1 }
+        let r2 = Balance.sentinelGangRadius * Balance.sentinelGangRadius
+        let pos = s.units[t].pos
+        var n = 0
+        for i in s.units.indices where s.units[i].kind == .hero && s.units[i].isAlive && s.units[i].hero?.isDead != true {
+            if s.units[i].pos.distanceSquared(to: pos) <= r2 { n += 1 }
+        }
+        return 1 - min(Balance.sentinelGangMaxReduction, Balance.sentinelGangReductionPerHero * Double(n))
+    }
+
     /// 帰還中の被ダメ無効・CC 無効ステータスのタグ。
     static let leashTag = "monster_leash"
 

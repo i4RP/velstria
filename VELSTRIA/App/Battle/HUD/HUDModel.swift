@@ -1744,7 +1744,13 @@ final class HUDModel {
 
     private func sendAttack() {
         guard canControl, !controller.isPaused, !hero.isDead, let button = heldAttackButton else { return }
-        controller.send(.attackNearest(priority: settings.attackPriority(for: button)))
+        if button == .center {
+            // 中央ボタンだけがヒーローロック・アクティブモンスターの判別の設定を使う
+            controller.send(.attackNearestWith(priority: settings.attackPriority(for: button), heroLock: settings.heroLock,
+                                               activeMonsterOnly: settings.activeMonsterDetection))
+        } else {
+            controller.send(.attackNearest(priority: settings.attackPriority(for: button)))
+        }
         lastActionAt = now
     }
 

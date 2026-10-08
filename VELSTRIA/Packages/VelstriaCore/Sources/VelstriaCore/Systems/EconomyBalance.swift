@@ -22,12 +22,19 @@ extension Balance {
         public static let assistXPShare: Double = 0.6
 
         // MARK: ミニオン・モンスター報酬（ラストヒット Gold / 共有 XP）
-        public static func minionGold(_ type: MinionType) -> Double {
+        /// ミニオン Gold が最大値に達する試合時間（秒）。
+        public static let minionGoldGrowthSeconds: Double = 1800
+
+        /// ラストヒット Gold。参照仕様（MLBB Wiki）の値をそのまま使い、開始時の値から 30 分で最大値へ線形に増える
+        /// （近接 65 → 120 / 遠隔 33 → 90 / 攻城 100 → 150、REFERENCE_SPEC §5.2）。
+        public static func minionGold(_ type: MinionType, at time: Double = 0) -> Double {
+            let range: (start: Double, end: Double)
             switch type {
-            case .melee: return 22
-            case .ranged: return 16
-            case .siege: return 50
+            case .melee: range = (65, 120)
+            case .ranged: range = (33, 90)
+            case .siege: range = (100, 150)
             }
+            return (range.start + (range.end - range.start) * min(1, max(0, time / minionGoldGrowthSeconds))).rounded()
         }
 
         public static func minionXP(_ type: MinionType) -> Double {
@@ -78,7 +85,7 @@ extension Balance {
         public static let colossusBlessingDuration: Double = 180
         public static let colossusBlessingDamageBonus: Double = 0.15
         /// 蒼晶/紅焔バフの持続。
-        public static let sentinelBuffDuration: Double = 90
+        public static let sentinelBuffDuration: Double = 75
         /// Jungle 装備のモンスター Gold 補正。
         public static let jungleMonsterGoldBonus: Double = 0.20
 

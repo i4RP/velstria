@@ -123,7 +123,7 @@ final class GearTests: XCTestCase {
             let m = f.addMinion(.melee, team: .red, at: spot)
             let gold = f.hero(a).gold
             f.kill(m, by: f.id(a))
-            XCTAssertEqual(f.hero(a).gold - gold, Balance.Economy.minionGold(.melee) * factor, accuracy: 1e-9, "t=\(time)")
+            XCTAssertEqual(f.hero(a).gold - gold, Balance.Economy.minionGold(.melee, at: time) * factor, accuracy: 1e-9, "t=\(time)")
             XCTAssertEqual(f.hero(a).xp, Balance.Economy.minionXP(.melee) * factor, accuracy: 1e-9, "t=\(time)")
         }
     }
@@ -210,7 +210,7 @@ final class GearTests: XCTestCase {
             let m = f.addMinion(.melee, team: .red, at: spot)
             var gold = f.hero(a).gold
             f.kill(m, by: f.id(a))
-            XCTAssertEqual(f.hero(a).gold - gold, Balance.Economy.minionGold(.melee) * factor, accuracy: 1e-9, "t=\(time)")
+            XCTAssertEqual(f.hero(a).gold - gold, Balance.Economy.minionGold(.melee, at: time) * factor, accuracy: 1e-9, "t=\(time)")
             XCTAssertEqual(f.hero(a).xp, Balance.Economy.minionXP(.melee) * factor, accuracy: 1e-9, "t=\(time)")
 
             f.s.units[a].hero!.xp = 0

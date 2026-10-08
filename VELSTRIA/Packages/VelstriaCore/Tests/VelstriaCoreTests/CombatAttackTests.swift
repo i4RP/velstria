@@ -317,4 +317,116 @@ final class CombatAttackTests: XCTestCase {
         CombatSystem.addShield(&w.s, w.ctx, sourceID: nil, targetIndex: weak, amount: 500, duration: 5)
         XCTAssertNotEqual(CombatSystem.selectTarget(&w.s, w.ctx, attacker: a, priority: .lowestHealth), weak)
     }
+
+    // MARK: パッチノート: ターゲット優先度「実質 HP が最も低い目標」
+
+    /// 残り HP だけでなく防御を含めて、倒すのに要るダメージが最も少ない敵を選ぶ。
+    func testLowestHealthPicksTheEasiestKillNotJustTheLowestRemainingHP() {
+        var w = CombatWorld()
+        let a = w.addHero(team: .blue, at: Vec2(5000, 5000))
+        let easy = w.addHero(team: .red, at: Vec2(5100, 5000), stats: CombatWorld.stats(hp: 1000))
+        let tanky = w.addHero(team: .red, at: Vec2(5000, 5100), stats: CombatWorld.stats(hp: 900, armor: 100, magicResist: 100))
+        // 残り HP は tanky の方が少ないが、防御 100（被ダメ 1/2）込みでは easy の方が倒しやすい
+        XCTAssertLessThan(w.s.units[tanky].hp, w.s.units[easy].hp)
+        XCTAssertEqual(CombatSystem.selectTarget(&w.s, w.ctx, attacker: a, priority: .lowestHealth), easy)
+        // 被ダメ軽減も実質 HP に効く
+        w.s.units[easy].stats.damageReduction = 0.6
+        XCTAssertEqual(CombatSystem.selectTarget(&w.s, w.ctx, attacker: a, priority: .lowestHealth), tanky)
+    }
+
+    /// 攻撃者の装備の貫通力で防御が削れるなら、その分も「倒しやすさ」に入る。
+    func testLowestHealthCountsThePenetrationOfTheAttacker() {
+        var w = CombatWorld()
+        let a = w.addHero(team: .blue, at: Vec2(5000, 5000))
+        let easy = w.addHero(team: .red, at: Vec2(5100, 5000), stats: CombatWorld.stats(hp: 1000))
+        let tanky = w.addHero(team: .red, at: Vec2(5000, 5100), stats: CombatWorld.stats(hp: 900, armor: 100, magicResist: 100))
+        XCTAssertEqual(CombatSystem.selectTarget(&w.s, w.ctx, attacker: a, priority: .lowestHealth), easy)
+        // 防御・魔防を割合で全て無視できるなら、残り HP の少ない tanky の方が倒しやすい
+        w.s.units[a].stats.armorPenPct = 1
+        w.s.units[a].stats.magicPenPct = 1
+        XCTAssertEqual(CombatSystem.selectTarget(&w.s, w.ctx, attacker: a, priority: .lowestHealth), tanky)
+    }
+
+    func testDamageMixOfEveryHeroSumsToOne() {
+        for hero in MasterData.shared.heroes {
+            var w = CombatWorld()
+            let def = hero
+            let slot = PlayerSlot(team: .blue, heroID: def.heroID, controller: .bot, position: .mid, displayName: "T")
+            let u = UnitFactory.makeHero(def: def, slot: slot, pos: Vec2(5000, 5000))
+            let mix = CombatSystem.damageMix(u, w.ctx.master)
+            XCTAssertEqual(mix.physical + mix.magic + mix.trueShare, 1, accuracy: 1e-9, def.heroID)
+            XCTAssertGreaterThanOrEqual(mix.trueShare, 0, def.heroID)
+        }
+    }
+
+    // MARK: パッチノート: 通常攻撃のターゲティング最適化（同じ敵ヒーローを追い続ける）
+
+    private func chaseWorld() -> (w: CombatWorld, a: Int, chased: Int, minion: Int) {
+        var w = CombatWorld()
+        let a = w.addHero(team: .blue, at: Vec2(5000, 5000), ranged: true, stats: CombatWorld.stats(range: 550))
+        // 射程（550 + 半径）の外へ逃げる敵ヒーローと、射程内のミニオン
+        let chased = w.addHero(team: .red, at: Vec2(5800, 5000), stats: CombatWorld.stats(hp: 1000))
+        let minion = w.addUnit(.minion, team: .red, at: Vec2(5300, 5000), stats: CombatWorld.stats(hp: 100))
+        return (w, a, chased, minion)
+    }
+
+    func testRecentlyAttackedHeroIsChasedInsteadOfSwitchingToMinion() {
+        var (w, a, chased, minion) = chaseWorld()
+        // 何も狙っていなければ、ミニオン優先の設定ではミニオンを選ぶ
+        XCTAssertEqual(CombatSystem.selectAttackTarget(&w.s, w.ctx, attacker: a, priority: .minionsFirst), minion)
+        // 直前にその敵ヒーローを狙っていれば、射程外でも追う（ミニオンと切り替わり続けない）
+        CombatSystem.markStickyTarget(&w.s, attacker: a, target: chased)
+        XCTAssertEqual(CombatSystem.selectAttackTarget(&w.s, w.ctx, attacker: a, priority: .minionsFirst), chased)
+        XCTAssertEqual(CombatSystem.selectAttackTarget(&w.s, w.ctx, attacker: a, priority: .structuresFirst), chased)
+    }
+
+    func testStickyTargetYieldsToAHigherPriorityHeroInAttackRange() {
+        var (w, a, chased, _) = chaseWorld()
+        CombatSystem.markStickyTarget(&w.s, attacker: a, target: chased)
+        // 射程内に別の敵ヒーローが入ったら、そちらを優先する
+        let near = w.addHero(team: .red, at: Vec2(5200, 5000), stats: CombatWorld.stats(hp: 1000))
+        XCTAssertEqual(CombatSystem.selectAttackTarget(&w.s, w.ctx, attacker: a, priority: .minionsFirst), near)
+        // 追っていた敵ヒーロー自身が射程内に戻れば、優先度の判定は通常どおり（より倒しやすい方）
+        w.s.units[chased].pos = Vec2(5400, 5000)
+        w.s.units[chased].hp = 100
+        XCTAssertEqual(CombatSystem.selectAttackTarget(&w.s, w.ctx, attacker: a, priority: .heroesFirst), chased)
+        // 射程内の別の敵ヒーローの方が倒しやすければ切り替わる
+        w.s.units[near].hp = 50
+        XCTAssertEqual(CombatSystem.selectAttackTarget(&w.s, w.ctx, attacker: a, priority: .minionsFirst), near)
+    }
+
+    func testStickyTargetExpiresAndIsDroppedWhenOutOfChaseRangeOrGone() {
+        var (w, a, chased, minion) = chaseWorld()
+        CombatSystem.markStickyTarget(&w.s, attacker: a, target: chased)
+        // 時間切れ
+        w.s.time += Balance.attackStickyWindow + 0.5
+        XCTAssertEqual(CombatSystem.selectAttackTarget(&w.s, w.ctx, attacker: a, priority: .minionsFirst), minion)
+        // 追える距離の外へ逃げた
+        w.s.time = 0
+        CombatSystem.markStickyTarget(&w.s, attacker: a, target: chased)
+        w.s.units[chased].pos = Vec2(5000 + 550 + 40 + 40 + Balance.attackStickyChaseExtra + 100, 5000)
+        XCTAssertEqual(CombatSystem.selectAttackTarget(&w.s, w.ctx, attacker: a, priority: .minionsFirst), minion)
+        // 倒れた・見えなくなった
+        w.s.units[chased].pos = Vec2(5800, 5000)
+        w.s.units[chased].visibleMask = Team.red.visionBit
+        XCTAssertEqual(CombatSystem.selectAttackTarget(&w.s, w.ctx, attacker: a, priority: .minionsFirst), minion)
+    }
+
+    func testAttackButtonRemembersTheHeroAndBasicAttackRefreshesIt() {
+        var (w, a, chased, minion) = chaseWorld()
+        let h = w.id(a)
+        // 攻撃ボタンで敵ヒーローを狙う（ヒーロー優先 → 追撃対象に記録される）
+        CommandSystem.apply([HeroCommand(heroID: h, command: .attackNearest(priority: .heroesFirst))], &w.s, w.ctx)
+        XCTAssertEqual(w.s.units[a].attackTargetID, w.id(chased))
+        XCTAssertEqual(w.s.units[a].hero?.attackStickyTargetID, w.id(chased))
+        // 続けてミニオン優先で押しても、同じ敵ヒーローを追い続ける
+        CommandSystem.apply([HeroCommand(heroID: h, command: .attackNearest(priority: .minionsFirst))], &w.s, w.ctx)
+        XCTAssertEqual(w.s.units[a].attackTargetID, w.id(chased))
+        // ヒーローを通常攻撃した時刻も更新される
+        w.s.units[a].hero?.attackStickyAt = -10
+        w.s.units[chased].pos = Vec2(5400, 5000)
+        CombatSystem.releaseAttack(&w.s, w.ctx, attacker: a, target: chased)
+        XCTAssertEqual(w.s.units[a].hero?.attackStickyAt, w.s.time)
+        _ = minion
+    }
 }

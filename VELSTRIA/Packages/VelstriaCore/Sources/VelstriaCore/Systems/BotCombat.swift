@@ -388,15 +388,26 @@ enum BotCombat {
         for slot in [SkillSlot.ultimate, .skill1, .skill2] {
             guard SkillSystem.canCast(s, ctx, heroIndex: a.i, slot: slot),
                   let def = ctx.master.skill(hero: h.heroID, slot: slot) else { continue }
-            guard s.units[a.i].resource + 1e-6 >= SkillSystem.cost(for: def, resource: h.resourceKind) else { continue }
-            let tg = SkillCatalog.targeting(for: def, hero: hdef)
+            guard s.units[a.i].resource + 1e-6 >= SkillSystem.cost(for: def, resource: h.resourceKind)
+                || HeroKits.isRecasting(s, a.i, slot) else { continue }
+            let tg = SkillCatalog.activeTargeting(s, caster: a.i, slot: slot, skill: def, hero: hdef)
             guard tg.archetype != .passive else { continue }
             if slot == .ultimate {
                 let center = tg.aim == .none ? a.pos : t.pos
                 let crowd = enemiesNear(a, center, radius: max(tg.radius * 1.4, 300))
                 guard killable || crowd >= 2 else { continue }
             }
-            guard let target = aim(&s, ctx, a, &mem, tg, slot: slot, target: t, fighting: fighting) else { continue }
+            // キットのボット判断（既定 = 汎用の照準）
+            let target: SkillTarget
+            switch HeroKits.botCast(s, ctx, bot: a.i, slot: slot, targeting: tg, target: t.index, fighting: fighting) {
+            case .useDefault:
+                guard let aimed = aim(&s, ctx, a, &mem, tg, slot: slot, target: t, fighting: fighting) else { continue }
+                target = aimed
+            case .cast(let custom):
+                target = custom
+            case .skip:
+                continue
+            }
             // 難易度によるスキル頻度
             guard s.rng.nextDouble() < a.profile.skillChance else { return }
             a.emit(.castSkill(slot: slot, target: target))
@@ -414,8 +425,9 @@ enum BotCombat {
         for slot in [SkillSlot.skill2, .skill1] {
             guard SkillSystem.canCast(s, ctx, heroIndex: a.i, slot: slot),
                   let def = ctx.master.skill(hero: h.heroID, slot: slot),
-                  s.units[a.i].resource + 1e-6 >= SkillSystem.cost(for: def, resource: h.resourceKind) else { continue }
-            let tg = SkillCatalog.targeting(for: def, hero: hdef)
+                  s.units[a.i].resource + 1e-6 >= SkillSystem.cost(for: def, resource: h.resourceKind)
+                    || HeroKits.isRecasting(s, a.i, slot) else { continue }
+            let tg = SkillCatalog.activeTargeting(s, caster: a.i, slot: slot, skill: def, hero: hdef)
             guard tg.archetype == .dashStrike || tg.archetype == .blinkEmpower else { continue }
             let dir = (safePoint(s, ctx, w, a) - a.pos).normalized
             guard dir != .zero else { return }
@@ -436,8 +448,9 @@ enum BotCombat {
         for slot in [SkillSlot.skill1, .skill2] {
             guard SkillSystem.canCast(s, ctx, heroIndex: a.i, slot: slot),
                   let def = ctx.master.skill(hero: h.heroID, slot: slot),
-                  s.units[a.i].resource + 1e-6 >= SkillSystem.cost(for: def, resource: h.resourceKind) else { continue }
-            let tg = SkillCatalog.targeting(for: def, hero: hdef)
+                  s.units[a.i].resource + 1e-6 >= SkillSystem.cost(for: def, resource: h.resourceKind)
+                    || HeroKits.isRecasting(s, a.i, slot) else { continue }
+            let tg = SkillCatalog.activeTargeting(s, caster: a.i, slot: slot, skill: def, hero: hdef)
             switch tg.archetype {
             case .passive, .dashStrike, .leapSlam, .targetedBlink, .blinkEmpower, .teamHeal, .multiStrike:
                 continue

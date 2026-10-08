@@ -1,0 +1,437 @@
+{
+ "note": "tools/equipment_spec.mjs から生成。英語文は gen_master_en.py が読む。",
+ "items": [
+  {
+   "id": "EQ001",
+   "passive_name_en": "Sharp Edge",
+   "passive_text_en": "Plain attack power.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ007",
+   "passive_name_en": "Quick Edge",
+   "passive_text_en": "Plain attack speed.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ013",
+   "passive_name_en": "Crit Shard",
+   "passive_text_en": "A little attack power and crit chance.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ019",
+   "passive_name_en": "Gale Chain",
+   "passive_text_en": "Every 3.5s, a basic attack also hits up to 3 nearby enemies for 100 magic damage.",
+   "has_effect": true
+  },
+  {
+   "id": "EQ025",
+   "passive_name_en": "Armor Breaker",
+   "passive_text_en": "Skill hits lower the target's armor by 25 for 3s.",
+   "has_effect": true
+  },
+  {
+   "id": "EQ031",
+   "passive_name_en": "Relentless Hunt",
+   "passive_text_en": "+15 physical penetration. 5 consecutive basic attacks on one enemy grant +30% move speed for 2s (15s cooldown).",
+   "has_effect": true
+  },
+  {
+   "id": "EQ037",
+   "passive_name_en": "Frenzied Flurry",
+   "passive_text_en": "Critical hits grant +25% attack speed for 2s.",
+   "has_effect": true
+  },
+  {
+   "id": "EQ043",
+   "passive_name_en": "Verdict Strike",
+   "passive_text_en": "After using a skill, the next basic attack within 3s deals extra true damage equal to 60% attack and heals 80 (+40% attack) HP (1.5s cooldown).",
+   "has_effect": true
+  },
+  {
+   "id": "EQ049",
+   "passive_name_en": "Executioner's Edge",
+   "passive_text_en": "Deal +25% damage to enemies at or below 50% HP.",
+   "has_effect": true
+  },
+  {
+   "id": "EQ055",
+   "passive_name_en": "Crimson Crit",
+   "passive_text_en": "Critical hits deal +40% more damage.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ061",
+   "passive_name_en": "Armor Piercer",
+   "passive_text_en": "+40% physical penetration (ignores 40% of the target's armor).",
+   "has_effect": false
+  },
+  {
+   "id": "EQ067",
+   "passive_name_en": "Life Reaver",
+   "passive_text_en": "Basic attacks deal extra physical damage equal to 9% of the target's current HP (max 60 against monsters).",
+   "has_effect": true
+  },
+  {
+   "id": "EQ002",
+   "passive_name_en": "Spark of Power",
+   "passive_text_en": "Plain ability power.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ008",
+   "passive_name_en": "Flowing Mana",
+   "passive_text_en": "A little power, cooldown reduction and resource regen.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ014",
+   "passive_name_en": "Vital Crystal",
+   "passive_text_en": "A little power and max HP.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ020",
+   "passive_name_en": "Warding Rift",
+   "passive_text_en": "+12 magic penetration. Damaging an enemy lowers its magic resist for 2s (3-10 per hit by level, up to 3 stacks).",
+   "has_effect": true
+  },
+  {
+   "id": "EQ026",
+   "passive_name_en": "Scorch",
+   "passive_text_en": "Skill hits burn the target for 3s, dealing true damage equal to 3% of its current HP (min 10).",
+   "has_effect": true
+  },
+  {
+   "id": "EQ032",
+   "passive_name_en": "Frost Bond",
+   "passive_text_en": "Skill hits slow the target by 15% for 3s (stacks twice).",
+   "has_effect": true
+  },
+  {
+   "id": "EQ038",
+   "passive_name_en": "Mending Severance",
+   "passive_text_en": "Skill hits cut the target's received healing by 50% for 3s.",
+   "has_effect": true
+  },
+  {
+   "id": "EQ044",
+   "passive_name_en": "Veil Piercer",
+   "passive_text_en": "+40% magic penetration (ignores 40% of the target's magic resist).",
+   "has_effect": false
+  },
+  {
+   "id": "EQ050",
+   "passive_name_en": "Pearl Amplifier",
+   "passive_text_en": "+25% ability power.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ056",
+   "passive_name_en": "Echo",
+   "passive_text_en": "Every 6s, the next skill hit deals 120 (+50% power) bonus magic damage.",
+   "has_effect": true
+  },
+  {
+   "id": "EQ062",
+   "passive_name_en": "Bloodwing Resonance",
+   "passive_text_en": "+1.5 max HP per point of ability power.",
+   "has_effect": true
+  },
+  {
+   "id": "EQ068",
+   "passive_name_en": "Reload",
+   "passive_text_en": "Killing an enemy hero restores 10% of max HP.",
+   "has_effect": true
+  },
+  {
+   "id": "EQ003",
+   "passive_name_en": "Sturdy",
+   "passive_text_en": "Plain max HP.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ009",
+   "passive_name_en": "Bulwark",
+   "passive_text_en": "Plain armor.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ015",
+   "passive_name_en": "Spellward",
+   "passive_text_en": "Plain magic resist.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ021",
+   "passive_name_en": "Thorn Retort",
+   "passive_text_en": "When hit by a basic attack, reflect 25% of the attacker's attack as physical damage.",
+   "has_effect": true
+  },
+  {
+   "id": "EQ027",
+   "passive_name_en": "Oracle",
+   "passive_text_en": "+25% shield and healing power, and extra HP regen.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ033",
+   "passive_name_en": "Intimidate",
+   "passive_text_en": "Hits from enemy heroes' basic attacks cut their damage dealt by 6% for 2s (stacks 3 times).",
+   "has_effect": true
+  },
+  {
+   "id": "EQ039",
+   "passive_name_en": "Thunderband Strike",
+   "passive_text_en": "The next basic attack deals bonus damage equal to 2% of your max HP and slows the target by 30% for 1.5s (1.5s cooldown).",
+   "has_effect": true
+  },
+  {
+   "id": "EQ045",
+   "passive_name_en": "Curse of Wrath",
+   "passive_text_en": "Enemies within 420 take 8 (+1.2% of their max HP) magic damage per second. +50% against minions.",
+   "has_effect": true
+  },
+  {
+   "id": "EQ051",
+   "passive_name_en": "Guardian Shield",
+   "passive_text_en": "Gain a shield every 30s (starts at 300, grows as the match goes on, up to 1150).",
+   "has_effect": true
+  },
+  {
+   "id": "EQ057",
+   "passive_name_en": "Demonic Surge",
+   "passive_text_en": "Below 40% HP, take 50% less damage and gain +30% lifesteal for 5s (50s cooldown).",
+   "has_effect": true
+  },
+  {
+   "id": "EQ063",
+   "passive_name_en": "Twilight Challenge",
+   "passive_text_en": "Physical damage taken from a single hit is capped at 900.",
+   "has_effect": true
+  },
+  {
+   "id": "EQ069",
+   "passive_name_en": "Freezing Dominion",
+   "passive_text_en": "Enemy heroes within 600 lose 30% attack speed and 5% move speed.",
+   "has_effect": true
+  },
+  {
+   "id": "EQ004",
+   "passive_name_en": "Light Step",
+   "passive_text_en": "Plain move speed. Limit one boots item.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ010",
+   "passive_name_en": "Racing Stride",
+   "passive_text_en": "Move speed and a little attack speed.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ016",
+   "passive_name_en": "Tidal Stride",
+   "passive_text_en": "Move speed and a little cooldown reduction.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ022",
+   "passive_name_en": "Falcon Dash",
+   "passive_text_en": "Move speed and attack speed.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ028",
+   "passive_name_en": "Waterwalker's Ward",
+   "passive_text_en": "Move speed and magic resist.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ034",
+   "passive_name_en": "Cloud Haste",
+   "passive_text_en": "Move speed and cooldown reduction.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ040",
+   "passive_name_en": "Fleetfoot Plating",
+   "passive_text_en": "Move speed and armor.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ046",
+   "passive_name_en": "Skyward Wings",
+   "passive_text_en": "+17% move speed while out of combat.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ052",
+   "passive_name_en": "Stormcrosser's Pierce",
+   "passive_text_en": "+15 magic penetration.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ058",
+   "passive_name_en": "Fiend's Boon",
+   "passive_text_en": "Killing or assisting on an enemy hero restores 10% of max HP.",
+   "has_effect": true
+  },
+  {
+   "id": "EQ064",
+   "passive_name_en": "Windlord's Pierce",
+   "passive_text_en": "+15 physical penetration.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ070",
+   "passive_name_en": "Pegasus Guard",
+   "passive_text_en": "High move speed with armor and magic resist.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ005",
+   "passive_name_en": "Hearth Blessing",
+   "passive_text_en": "Max HP and a little HP regen.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ011",
+   "passive_name_en": "Spiritwood Dew",
+   "passive_text_en": "Cooldown reduction and resource regen.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ017",
+   "passive_name_en": "Amber Thirst",
+   "passive_text_en": "A little attack power and lifesteal.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ023",
+   "passive_name_en": "Spiritwood Spring",
+   "passive_text_en": "Cooldown reduction, resource regen and max HP.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ029",
+   "passive_name_en": "Bloodthirst",
+   "passive_text_en": "Attack power, cooldown reduction and spell vamp.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ035",
+   "passive_name_en": "Lifeline",
+   "passive_text_en": "Below 30% HP, gain a shield of 360 (+8% max HP) for 3s (40s cooldown).",
+   "has_effect": true
+  },
+  {
+   "id": "EQ041",
+   "passive_name_en": "Zeal",
+   "passive_text_en": "+10% extra lifesteal while at or below 40% HP.",
+   "has_effect": true
+  },
+  {
+   "id": "EQ047",
+   "passive_name_en": "Tide of Time",
+   "passive_text_en": "Killing or assisting on an enemy hero cuts the ultimate's remaining cooldown by 35%.",
+   "has_effect": true
+  },
+  {
+   "id": "EQ053",
+   "passive_name_en": "Undying Blessing",
+   "passive_text_en": "Once, a lethal hit leaves you at 15% max HP with a 300 shield for 3s (180s cooldown).",
+   "has_effect": true
+  },
+  {
+   "id": "EQ059",
+   "passive_name_en": "Forest Regeneration",
+   "passive_text_en": "Big max HP and strong HP regen.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ065",
+   "passive_name_en": "Solar Pulse",
+   "passive_text_en": "Attack speed and strong lifesteal.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ071",
+   "passive_name_en": "Blossom Mending",
+   "passive_text_en": "+25% shield and healing power with cooldown reduction.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ006",
+   "passive_name_en": "Hunter's Arrow",
+   "passive_text_en": "Attack power and bonus damage to monsters. Requires Hunter's Mark.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ012",
+   "passive_name_en": "Sentinel's Shield",
+   "passive_text_en": "Durability and bonus damage to monsters. Requires Hunter's Mark.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ018",
+   "passive_name_en": "Starsteel Arrow",
+   "passive_text_en": "Power and bonus damage to monsters. Requires Hunter's Mark.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ024",
+   "passive_name_en": "Keen Hunt",
+   "passive_text_en": "Attack, +8% physical penetration, bonus damage to monsters. Requires Hunter's Mark.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ030",
+   "passive_name_en": "Stout Hunt",
+   "passive_text_en": "Durability and bonus damage to monsters. Requires Hunter's Mark.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ036",
+   "passive_name_en": "Armored Hunt",
+   "passive_text_en": "Armor-heavy durability and bonus damage to monsters. Requires Hunter's Mark.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ042",
+   "passive_name_en": "Star Hunt",
+   "passive_text_en": "Power, spell vamp and bonus damage to monsters. Requires Hunter's Mark.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ048",
+   "passive_name_en": "Impulse",
+   "passive_text_en": "Taking a hit of 10% max HP or more deals 100 magic damage to enemies within 350 and slows them by 30%. Requires Hunter's Mark.",
+   "has_effect": true
+  },
+  {
+   "id": "EQ054",
+   "passive_name_en": "Ambush Fang",
+   "passive_text_en": "+15% physical penetration. Every 10s, the next basic attack deals at least 50 true damage (grows with level) and slows by 30% for 1s. Requires Hunter's Mark.",
+   "has_effect": true
+  },
+  {
+   "id": "EQ060",
+   "passive_name_en": "Reload",
+   "passive_text_en": "Killing an enemy hero restores 10% of max HP. Requires Hunter's Mark.",
+   "has_effect": true
+  },
+  {
+   "id": "EQ066",
+   "passive_name_en": "Comet Hunt",
+   "passive_text_en": "A hybrid of attack and power with bonus damage to monsters. Requires Hunter's Mark.",
+   "has_effect": false
+  },
+  {
+   "id": "EQ072",
+   "passive_name_en": "Towershield Guard",
+   "passive_text_en": "Heavy durability with bonus damage to monsters. Requires Hunter's Mark.",
+   "has_effect": false
+  }
+ ]
+}

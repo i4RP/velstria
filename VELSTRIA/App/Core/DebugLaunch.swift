@@ -20,6 +20,8 @@ import VelstriaCore
 //   -spectateDirector <on|off>     観戦・リプレイの自動カメラ
 //   -seekTo <秒>          最初の観戦・リプレイの読み込み後にその時刻へシークする
 //   -sampleReplays        リプレイ一覧の確認用に見本のリプレイを保存する（AI 観戦・自分の試合・乱闘・別バージョン）
+//   -practiceNoCD / -practiceLevel <n>  -battle practice の設定（クールダウン無し / 開始レベル）
+//   -efkAuto <atk|s1|s2|ult>  -battle practice で、人形へ近づいて 2 秒ごとに通常攻撃 / スキルを撃ち続ける（Effekseer の確認用）
 //   -hero <heroID>        -battle で自分が使うヒーロー（省略時は最後に選んだヒーロー、無ければ H003）
 //   -language <ja|en>     表示言語
 //   -graphics <low|medium|high>  画質
@@ -119,7 +121,9 @@ enum DebugLaunch {
             switch mode {
             case "practice", "tutorial":
                 app.startBattle(BattleLaunch(config: MatchFactory.practiceMatch(
-                    humanHeroID: hero, humanName: name, options: PracticeOptions(), tutorial: mode == "tutorial", seed: seed)))
+                    humanHeroID: hero, humanName: name,
+                    options: PracticeOptions(noCooldowns: args.contains("-practiceNoCD"), startLevel: value(after: "-practiceLevel").flatMap { Int($0) } ?? 1),
+                    tutorial: mode == "tutorial", seed: seed)))
             case "spectate":
                 let config = value(after: "-spectateMap") == "brawl"
                     ? MatchFactory.spectateMatch(options: SpectateMatchOptions(map: .brawl), seed: seed)

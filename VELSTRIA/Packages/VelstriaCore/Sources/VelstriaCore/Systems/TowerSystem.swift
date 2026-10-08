@@ -4,6 +4,14 @@ import Foundation
 // 構造物は移動しない。攻撃の前隙・発射は CombatSystem、1 発のダメージ量は attackDamage が決める。
 
 public enum TowerSystem {
+    /// 外塔のエネルギーシールドの識別子（`Shield.tag`）。
+    public static let shieldTag = "outerTowerShield"
+
+    /// 外塔のシールドが残っているか。
+    public static func hasTurretShield(_ u: Unit) -> Bool {
+        u.shields.contains { $0.tag == shieldTag && $0.amount > 0 && $0.remaining > 0 }
+    }
+
     public static func update(_ s: inout SimState, _ ctx: SimContext) {
         let candidates = WorldTargeting.candidates(s)
         let grid = WorldSpatialIndex(candidates)
@@ -125,9 +133,9 @@ public enum TowerSystem {
                                              sourceIndex: Int?) -> Double {
         guard i >= 0, i < s.units.count, s.units[i].isStructure else { return 1 }
         var m = 1.0
-        // 序盤保護: 外塔は 0:00–4:00 の間 −40%（攻撃者を問わない）
-        if s.units[i].kind == .tower, s.units[i].tower?.tier == .outer, s.time < Balance.outerTowerProtectionUntil {
-            m *= 1 - Balance.outerTowerProtectionReduction
+        // 序盤保護: 外塔はエネルギーシールドがある間（開始〜5:00）被ダメ −30%（攻撃者を問わない）
+        if s.units[i].kind == .tower, s.units[i].tower?.tier == .outer, hasTurretShield(s.units[i]) {
+            m *= 1 - Balance.outerTowerShieldReduction
         }
         guard let a = sourceIndex, a >= 0, a < s.units.count else { return m }
         switch s.units[a].kind {

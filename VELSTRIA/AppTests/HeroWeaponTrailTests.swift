@@ -370,9 +370,9 @@ final class HeroWeaponTrailTests: XCTestCase {
         XCTAssertEqual(sa.right.swing, sb.right.swing)
     }
 
-    /// 手続きモデル: 武器を持つ全員に軌跡（二刀は左も）、先端は握りから離れ、手続きの振りの打撃区間で swing。H003 は弓の握りから放つ。
+    /// 手続きモデル: 武器を持つ全員に軌跡（二刀は左も）、先端は握りから離れ、手続きの振りの打撃区間で swing。H003・H025 は弓の握りから放つ。
     func testProceduralModels() throws {
-        for n in 1...24 {
+        for n in 1...34 {
             let id = String(format: "H%03d", n)
             let m = procedural(id)
             XCTAssertFalse(m.isSkinned)
@@ -396,9 +396,11 @@ final class HeroWeaponTrailTests: XCTestCase {
             if try XCTUnwrap(sword.weaponTrailSample()).right.swing { swung += 1 }
         }
         XCTAssertGreaterThan(swung, 0, "手続きの剣の振りで swing にならない")
-        let archer = procedural("H003")
-        let bow = try XCTUnwrap(archer.root.findEntity(named: "offhand"))
-        XCTAssertLessThan(simd_distance(try XCTUnwrap(archer.attackLaunchPoint()), bow.position(relativeTo: nil)), 1e-4)
+        for id in ["H003", "H025"] {
+            let archer = procedural(id)
+            let bow = try XCTUnwrap(archer.root.findEntity(named: "offhand"), id)
+            XCTAssertLessThan(simd_distance(try XCTUnwrap(archer.attackLaunchPoint(), id), bow.position(relativeTo: nil)), 1e-4, id)
+        }
     }
 
     /// 対応していないハンドルは既定の nil。

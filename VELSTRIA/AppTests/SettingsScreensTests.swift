@@ -36,7 +36,7 @@ final class SettingsScreensTests: XCTestCase {
         XCTAssertEqual(reset.joystickMode, GameSettings().joystickMode)
         XCTAssertEqual(reset.bgmVolume, GameSettings().bgmVolume)
         XCTAssertEqual(reset.topAttackPriority, .structuresFirst)
-        XCTAssertEqual(reset.attackPriority, .heroesFirst)
+        XCTAssertEqual(reset.attackPriority, .lowestHealth)
         XCTAssertEqual(reset.bottomAttackPriority, .minionsFirst)
     }
 
@@ -66,21 +66,45 @@ final class SettingsScreensTests: XCTestCase {
         let settings = GameSettings()
         XCTAssertEqual(AttackButtonSlot.allCases, [.top, .center, .bottom])
         XCTAssertEqual(settings.attackPriority(for: .top), .structuresFirst)
-        XCTAssertEqual(settings.attackPriority(for: .center), .heroesFirst)
+        XCTAssertEqual(settings.attackPriority(for: .center), .lowestHealth)
         XCTAssertEqual(settings.attackPriority(for: .bottom), .minionsFirst)
+        // ヒーローロックは既定でオン、アクティブモンスターの判別は既定でオフ
+        XCTAssertTrue(settings.heroLock)
+        XCTAssertFalse(settings.activeMonsterDetection)
+        XCTAssertEqual(GameSettings.centerAttackPriorities, [.lowestHealthPercent, .lowestHealth, .nearest])
+    }
+
+    /// 旧版で選んでいた中央ボタンの優先対象（ヒーロー / ミニオン / タワー優先）は、新しい 3 択の中の実質 HP が最も低い目標へ移る。
+    func testOldCenterPrioritiesMigrateToTheNewChoices() throws {
+        for old in [TargetPriority.heroesFirst, .minionsFirst, .structuresFirst] {
+            var settings = GameSettings()
+            settings.attackPriority = old
+            let decoded = try JSONDecoder().decode(GameSettings.self, from: JSONEncoder().encode(settings))
+            XCTAssertEqual(decoded.attackPriority, .lowestHealth, "\(old)")
+        }
+        for kept in GameSettings.centerAttackPriorities {
+            var settings = GameSettings()
+            settings.attackPriority = kept
+            let decoded = try JSONDecoder().decode(GameSettings.self, from: JSONEncoder().encode(settings))
+            XCTAssertEqual(decoded.attackPriority, kept)
+        }
     }
 
     func testAttackButtonSettingsRoundTripIndependently() throws {
         var settings = GameSettings()
         settings.topAttackPriority = .lowestHealth
-        settings.attackPriority = .minionsFirst
+        settings.attackPriority = .nearest
         settings.bottomAttackPriority = .heroesFirst
+        settings.heroLock = false
+        settings.activeMonsterDetection = true
         let data = try JSONEncoder().encode(settings)
         let decoded = try JSONDecoder().decode(GameSettings.self, from: data)
         XCTAssertEqual(decoded, settings)
         XCTAssertEqual(decoded.attackPriority(for: .top), .lowestHealth)
-        XCTAssertEqual(decoded.attackPriority(for: .center), .minionsFirst)
+        XCTAssertEqual(decoded.attackPriority(for: .center), .nearest)
         XCTAssertEqual(decoded.attackPriority(for: .bottom), .heroesFirst)
+        XCTAssertFalse(decoded.heroLock)
+        XCTAssertTrue(decoded.activeMonsterDetection)
     }
 
     func testLegacyProfileDecodingPreservesSettingsAndAddsAttackButtons() throws {
@@ -147,7 +171,8 @@ final class SettingsScreensTests: XCTestCase {
             for f in FrameRateOption.allCases { XCTAssertFalse(SettingsText.frameRateDetail(f).isEmpty) }
             for l in AppLanguage.allCases { XCTAssertFalse(SettingsText.language(l).isEmpty) }
         }
-        XCTAssertEqual(Set(SettingsText.allPriorities.map(\.rawValue)).count, 4)
+        XCTAssertEqual(Set(SettingsText.allPriorities.map(\.rawValue)).count, 6)
+        XCTAssertTrue(SettingsText.centerPriorities.allSatisfy { SettingsText.allPriorities.contains($0) })
         XCTAssertEqual(SettingsText.percent(0.7), "70%")
         XCTAssertEqual(SettingsText.language(.ja), "日本語")
         XCTAssertEqual(SettingsText.language(.en), "English")

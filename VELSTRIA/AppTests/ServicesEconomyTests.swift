@@ -6,11 +6,11 @@ final class ServicesEconomyTests: XCTestCase {
     private let master = ServicesFixtures.master
 
     func testCatalogHelpers() {
-        XCTAssertEqual(EconomyService.storeItems(ofType: .cosmetic).count, 72)
-        XCTAssertEqual(EconomyService.storeItems(ofType: .heroUnlock).count, 24)
+        XCTAssertEqual(EconomyService.storeItems(ofType: .cosmetic).count, 102)
+        XCTAssertEqual(EconomyService.storeItems(ofType: .heroUnlock).count, 34)
         XCTAssertEqual(EconomyService.storeItems(ofType: .bundle).count, 18)
         XCTAssertEqual(EconomyService.cosmetics(ofType: .heroSkin).count, 12)
-        XCTAssertEqual(EconomyService.cosmetics(ofType: .avatarFrame).count, 12)
+        XCTAssertEqual(EconomyService.cosmetics(ofType: .avatarFrame).count, 18)
         XCTAssertEqual(EconomyService.storeItem(forCosmetic: "CO004")?.sku, "SKU004")
         XCTAssertEqual(EconomyService.storeItem(forHero: "H007")?.sku, "SKU079")
         XCTAssertEqual(EconomyService.gemPrice(ofCosmetic: "CO004"), 880)
@@ -72,8 +72,10 @@ final class ServicesEconomyTests: XCTestCase {
         XCTAssertEqual(EconomyService.bundleContents("BUNDLE_01", master: master), ["CO001", "CO002", "CO003", "CO004"])
         XCTAssertEqual(EconomyService.bundleContents("BUNDLE_18", master: master), ["CO069", "CO070", "CO071", "CO072"])
         XCTAssertEqual(EconomyService.bundleContents("BUNDLE_00", master: master), [])
+        // バンドルは 18 個だが、番号の対応表はコスメ全体（102 個）に及ぶ。19 番はヒーロー追加分の先頭 4 個
+        XCTAssertEqual(EconomyService.bundleContents("BUNDLE_19", master: master), ["CO073", "CO074", "CO075", "CO076"])
         // コスメ数を超える番号は先頭へ回り込む（巨大な番号でも桁あふれしない）
-        XCTAssertEqual(EconomyService.bundleContents("BUNDLE_19", master: master), ["CO001", "CO002", "CO003", "CO004"])
+        XCTAssertEqual(EconomyService.bundleContents("BUNDLE_103", master: master), ["CO001", "CO002", "CO003", "CO004"])
         XCTAssertEqual(EconomyService.bundleContents("BUNDLE_\(Int.max)", master: master).count, 4)
         XCTAssertEqual(EconomyService.bundleContents("CO001", master: master), [])
         var all: [String] = []

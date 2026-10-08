@@ -139,6 +139,8 @@ public enum SpawnSystem {
                     s.world.campRespawnAt[k] = nil
                 }
             } else if alive[k] == 0 {
+                // 序盤ボスは 6:00 以降に倒されると再出現しない
+                if camp.kind == .astralWyrm, s.time >= Balance.wyrmNoRespawnAfter { continue }
                 s.world.campRespawnAt[k] = s.time + camp.respawn
             }
         }
@@ -178,7 +180,7 @@ public enum SpawnSystem {
     /// Blue mid 外塔の前方（タワー射程外）に横一列。
     static func dummySpots(_ map: MapDefinition) -> [Vec2] {
         let tower = map.towers.first { $0.team == .blue && $0.lane == .mid && $0.tier == .outer && !$0.isCore }?.pos
-            ?? Vec2(4300, 4300)
+            ?? Vec2(4650, 4650)
         let dir = (map.core(.red) - map.core(.blue)).normalized
         let front = tower + dir * Balance.dummyForwardDistance
         return [-1.0, 0, 1].map { front + dir.perpendicular * ($0 * Balance.dummySpacing) }
@@ -252,6 +254,8 @@ public enum UnitFactory {
                           controller: slot.controller, position: slot.position, displayName: slot.displayName,
                           botDifficulty: slot.botDifficulty, spells: slot.spells, runes: slot.runes, skinID: slot.skinID)
         u.hero?.autoLevelSkills = slot.autoLevelSkills
+        // キットが有効なヒーローだけ状態を持つ（無効なら nil のまま = これまでと同じ）
+        if HeroKits.hasKit(def.heroID) { u.hero?.kit = KitState() }
         return u
     }
 
@@ -274,6 +278,11 @@ public enum UnitFactory {
                      radius: spot.isCore ? Balance.coreRadius : Balance.towerRadius, stats: st)
         u.facing = (Balance.mapCenter - spot.pos).angle
         u.tower = TowerData(lane: spot.lane, tier: spot.tier)
+        // 外塔にはエネルギーシールド（開始〜5:00）。参照仕様 §5.4
+        if !spot.isCore, spot.tier == .outer {
+            u.shields.append(Shield(amount: Balance.outerTowerShield, duration: Balance.outerTowerShieldDuration,
+                                    tag: TowerSystem.shieldTag))
+        }
         return u
     }
 
@@ -290,6 +299,7 @@ public enum UnitFactory {
             st.maxHP = 950; st.attack = 55; st.attackRange = 550; st.attackSpeed = 1 / 2.0; st.moveSpeed = 230; radius = 48
             st.armor = 40; st.magicResist = 40
         }
+        if lane != .mid { st.moveSpeed *= Balance.sideLaneMinionSpeedMultiplier }
         st.maxHP *= scale
         st.attack *= scale
         st.sightRange = Balance.minionSight

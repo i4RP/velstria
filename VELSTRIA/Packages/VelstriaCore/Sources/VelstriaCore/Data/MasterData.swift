@@ -86,6 +86,26 @@ public struct ItemDef: Codable, Hashable, Sendable, Identifiable {
     public let passiveName: String
     public let passiveText: String
     public let buildFrom: [String]
+    // 以下は装備の作り直し（2026-10）で足した能力値と固有効果。マスターに無ければ 0・空。
+    public var attackSpeedPct: Double = 0
+    public var critChancePct: Double = 0
+    public var critDamagePct: Double = 0
+    public var lifestealPct: Double = 0
+    public var spellVampPct: Double = 0
+    public var armorPenPct: Double = 0
+    public var armorPenFlat: Double = 0
+    public var magicPenPct: Double = 0
+    public var magicPenFlat: Double = 0
+    public var hpRegen: Double = 0
+    public var resourceRegen: Double = 0
+    public var abilityPowerPct: Double = 0
+    public var moveSpeedPct: Double = 0
+    public var outOfCombatMovePct: Double = 0
+    public var healShieldPowerPct: Double = 0
+    public var monsterDamagePct: Double = 0
+    /// 固有効果の種類（`ItemEffectKind` の rawValue。無ければ空）と係数。
+    public var effectID: String = ""
+    public var effectValues: [Double] = []
 
     /// passive_text 中の「N%」の N（見つからなければ 0）。
     public var passivePercent: Double { MasterData.firstPercent(in: passiveText) }
@@ -95,6 +115,55 @@ public struct ItemDef: Codable, Hashable, Sendable, Identifiable {
         case abilityPower = "ability_power", hp, armor, magicResist = "magic_resist"
         case moveSpeed = "move_speed", cooldownReductionPct = "cooldown_reduction_pct"
         case passiveName = "passive_name", passiveText = "passive_text", buildFrom = "build_from"
+        case attackSpeedPct = "attack_speed_pct", critChancePct = "crit_chance_pct", critDamagePct = "crit_damage_pct"
+        case lifestealPct = "lifesteal_pct", spellVampPct = "spell_vamp_pct"
+        case armorPenPct = "armor_pen_pct", armorPenFlat = "armor_pen_flat"
+        case magicPenPct = "magic_pen_pct", magicPenFlat = "magic_pen_flat"
+        case hpRegen = "hp_regen", resourceRegen = "resource_regen", abilityPowerPct = "ability_power_pct"
+        case moveSpeedPct = "move_speed_pct", outOfCombatMovePct = "out_of_combat_move_pct"
+        case healShieldPowerPct = "heal_shield_power_pct", monsterDamagePct = "monster_damage_pct"
+        case effectID = "effect_id", effectValues = "effect_values"
+    }
+}
+
+/// マスターに無い新しい能力値は 0・空にする独自のデコード（本体に書くと memberwise init が使えなくなるので extension に置く）。
+extension ItemDef {
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        itemID = try c.decode(String.self, forKey: .itemID)
+        nameJa = try c.decode(String.self, forKey: .nameJa)
+        category = try c.decode(ItemCategory.self, forKey: .category)
+        tier = try c.decode(Int.self, forKey: .tier)
+        priceGold = try c.decode(Double.self, forKey: .priceGold)
+        attack = try c.decode(Double.self, forKey: .attack)
+        abilityPower = try c.decode(Double.self, forKey: .abilityPower)
+        hp = try c.decode(Double.self, forKey: .hp)
+        armor = try c.decode(Double.self, forKey: .armor)
+        magicResist = try c.decode(Double.self, forKey: .magicResist)
+        moveSpeed = try c.decode(Double.self, forKey: .moveSpeed)
+        cooldownReductionPct = try c.decode(Double.self, forKey: .cooldownReductionPct)
+        passiveName = try c.decode(String.self, forKey: .passiveName)
+        passiveText = try c.decode(String.self, forKey: .passiveText)
+        buildFrom = try c.decode([String].self, forKey: .buildFrom)
+        func opt(_ k: CodingKeys) throws -> Double { try c.decodeIfPresent(Double.self, forKey: k) ?? 0 }
+        attackSpeedPct = try opt(.attackSpeedPct)
+        critChancePct = try opt(.critChancePct)
+        critDamagePct = try opt(.critDamagePct)
+        lifestealPct = try opt(.lifestealPct)
+        spellVampPct = try opt(.spellVampPct)
+        armorPenPct = try opt(.armorPenPct)
+        armorPenFlat = try opt(.armorPenFlat)
+        magicPenPct = try opt(.magicPenPct)
+        magicPenFlat = try opt(.magicPenFlat)
+        hpRegen = try opt(.hpRegen)
+        resourceRegen = try opt(.resourceRegen)
+        abilityPowerPct = try opt(.abilityPowerPct)
+        moveSpeedPct = try opt(.moveSpeedPct)
+        outOfCombatMovePct = try opt(.outOfCombatMovePct)
+        healShieldPowerPct = try opt(.healShieldPowerPct)
+        monsterDamagePct = try opt(.monsterDamagePct)
+        effectID = try c.decodeIfPresent(String.self, forKey: .effectID) ?? ""
+        effectValues = try c.decodeIfPresent([Double].self, forKey: .effectValues) ?? []
     }
 }
 

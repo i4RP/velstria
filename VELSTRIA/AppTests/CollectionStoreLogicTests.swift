@@ -15,10 +15,10 @@ final class CollectionStoreLogicTests: XCTestCase {
 
     func testCategoryContents() {
         XCTAssertEqual(StoreCatalog.items(in: .skins, master: master).count, 12)
-        XCTAssertEqual(StoreCatalog.items(in: .effects, master: master).count, 36)
-        XCTAssertEqual(StoreCatalog.items(in: .emotes, master: master).count, 12)
-        XCTAssertEqual(StoreCatalog.items(in: .frames, master: master).count, 12)
-        XCTAssertEqual(StoreCatalog.items(in: .heroes, master: master).count, 24)
+        XCTAssertEqual(StoreCatalog.items(in: .effects, master: master).count, 54)
+        XCTAssertEqual(StoreCatalog.items(in: .emotes, master: master).count, 18)
+        XCTAssertEqual(StoreCatalog.items(in: .frames, master: master).count, 18)
+        XCTAssertEqual(StoreCatalog.items(in: .heroes, master: master).count, 34)
         XCTAssertTrue(StoreCatalog.items(in: .gems, master: master).isEmpty)
         XCTAssertEqual(StoreCatalog.bundles(master: master).count, 18)
         for c in StoreCategory.allCases {
@@ -190,10 +190,8 @@ final class CollectionStoreLogicTests: XCTestCase {
                 XCTAssertTrue(tokens(row.label).isEmpty, row.label)
                 XCTAssertTrue(tokens(row.value).isSubset(of: allowed), "\(lang) \(row.label): \(row.value)")
             }
-            // 電話番号欄は docs/legal/tokushoho_ja.md と同じく受付時間を併記する
-            XCTAssertTrue(StoreLegalText.commercialTransactions.contains {
-                $0.value.contains(StoreLegalText.phoneNumber) && $0.value.contains(StoreLegalText.phoneHours)
-            })
+            // 電話番号欄は請求ベースの開示（docs/legal/tokushoho_ja.md と同じ方式）
+            XCTAssertTrue(StoreLegalText.commercialTransactions.contains { $0.value.contains(StoreLegalText.phoneNumber) })
         }
     }
 

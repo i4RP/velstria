@@ -68,10 +68,14 @@ struct GameSettings: Codable, Equatable {
     var showDamageNumbers = true
     var joystickMode: JoystickMode = .floating
     var skillCastMode: SkillCastMode = .smart
-    /// 中央ボタンの優先対象。既存の保存データのキーを維持する。
-    var attackPriority: TargetPriority = .heroesFirst
+    /// 中央ボタンの優先対象（HP 割合が低い敵 / 実質 HP が最も低い目標 / 最も近い目標）。既存の保存データのキーを維持する。
+    var attackPriority: TargetPriority = .lowestHealth
     var topAttackPriority: TargetPriority = .structuresFirst
     var bottomAttackPriority: TargetPriority = .minionsFirst
+    /// ヒーローロック: 中央ボタンで、射程内の敵ヒーローを先に狙い、直近に狙ったヒーローを追い続ける。
+    var heroLock = true
+    /// アクティブモンスターの判別: 中央ボタンで、まだ戦っていない中立モンスターを（ほかに対象があれば）狙わない。
+    var activeMonsterDetection = false
     /// 1.0 = 既定。0.8〜1.3。
     var cameraZoom: Double = 1.0
     var leftHandedLayout = false
@@ -84,6 +88,9 @@ struct GameSettings: Codable, Equatable {
     var autoLevelSkills = true
     var showRecommendedItems = true
 
+    /// 中央ボタンで選べる優先対象（MLBB の「優先して狙う対象」）。
+    static let centerAttackPriorities: [TargetPriority] = [.lowestHealthPercent, .lowestHealth, .nearest]
+
     func attackPriority(for slot: AttackButtonSlot) -> TargetPriority {
         switch slot {
         case .top: return topAttackPriority
@@ -95,7 +102,7 @@ struct GameSettings: Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case language, bgmVolume, bgmTrack, sfxVolume, voiceVolume, hapticsEnabled
         case graphicsQuality, frameRate, showDamageNumbers, joystickMode, skillCastMode
-        case attackPriority, topAttackPriority, bottomAttackPriority
+        case attackPriority, topAttackPriority, bottomAttackPriority, heroLock, activeMonsterDetection
         case cameraZoom, leftHandedLayout, colorblindMode, hudOpacity, subtitlesEnabled
         case notificationsEnabled, autoLevelSkills, showRecommendedItems
     }
@@ -120,6 +127,10 @@ extension GameSettings {
         attackPriority = try values.decodeIfPresent(TargetPriority.self, forKey: .attackPriority) ?? attackPriority
         topAttackPriority = try values.decodeIfPresent(TargetPriority.self, forKey: .topAttackPriority) ?? topAttackPriority
         bottomAttackPriority = try values.decodeIfPresent(TargetPriority.self, forKey: .bottomAttackPriority) ?? bottomAttackPriority
+        // 中央ボタンの選択肢は 3 つになった。旧版で選んでいた「ヒーロー / ミニオン / タワー優先」は実質 HP が最も低い目標へ移す
+        if !Self.centerAttackPriorities.contains(attackPriority) { attackPriority = .lowestHealth }
+        heroLock = try values.decodeIfPresent(Bool.self, forKey: .heroLock) ?? heroLock
+        activeMonsterDetection = try values.decodeIfPresent(Bool.self, forKey: .activeMonsterDetection) ?? activeMonsterDetection
         // カメラ距離は利用者が変えられない（UI を隠した）。以前に保存された値は読み込まない。
         leftHandedLayout = try values.decodeIfPresent(Bool.self, forKey: .leftHandedLayout) ?? leftHandedLayout
         colorblindMode = try values.decodeIfPresent(Bool.self, forKey: .colorblindMode) ?? colorblindMode

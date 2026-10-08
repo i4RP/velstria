@@ -68,6 +68,16 @@ HEROES: dict[str, tuple[str, str, str]] = {
     "蒼爪のレア": ("Rhea", "Azureclaw", "Azureclaw"),
     "雷槍のトレン": ("Toren", "Thunderspear", "Thunderspear"),
     "夢織のノア": ("Noa", "Dreamweaver", "Dreamweaver"),
+    "月弦のルミナ": ("Lumina", "Moonstring", "Moonstring"),
+    "紫電のエウリア": ("Euria", "Violetbolt", "Violetbolt"),
+    "竜槍のジャルド": ("Jarld", "Dragonspear", "Dragonspear"),
+    "断空のザイル": ("Zail", "Skycleaver", "Skycleaver"),
+    "聖槌のボルグ": ("Borg", "Holyhammer", "Holyhammer"),
+    "星砲のライナ": ("Raina", "Starcannon", "Starcannon"),
+    "氷嵐のオーリア": ("Oria", "Icestorm", "Icestorm"),
+    "赤拳のディアス": ("Dias", "Redfist", "Redfist"),
+    "紅牙のヴァルド": ("Vald", "Crimsonfang", "Crimsonfang"),
+    "鎖鉤のゴルム": ("Gorm", "Chainhook", "Chainhook"),
 }
 
 LORE_PATTERN = re.compile(r"^星環崩壊後のベルシアで、(?P<name>.+)は失われた星核の断片を巡る戦いに身を投じる。$")
@@ -139,6 +149,26 @@ SKILL_NAMES = {
     "雷槍天穿": "Thunderspear: Skypiercer",
     "夢糸": "Dreamthread",
     "夢界縫合": "Dreamrealm Suture",
+    "月環の導き": "Moonring Guidance",
+    "月華の天弦": "Moonbloom Skystring",
+    "紫電の囁き": "Whisper of Violet Lightning",
+    "九天雷鳴": "Nine Heavens Thunder",
+    "竜鱗の構え": "Dragonscale Stance",
+    "昇竜天翔": "Ascending Dragon Flight",
+    "空断の理": "Principle of the Severed Sky",
+    "三連断空": "Triple Skycleave",
+    "聖鎚の誓い": "Oath of the Holy Hammer",
+    "崩落聖域": "Collapsing Sanctuary",
+    "遠星の照準": "Distant Star Aim",
+    "星砕の大砲": "Starshatter Cannon",
+    "霜華の祝福": "Frostbloom Blessing",
+    "絶界凍獄": "Realmfreeze Prison",
+    "紅血の拳": "Crimson Fist",
+    "煉獄連拳": "Purgatory Barrage",
+    "吸血の渇き": "Crimson Thirst",
+    "血月断裂": "Bloodmoon Rupture",
+    "鉄鎖の執念": "Ironchain Tenacity",
+    "狩猟鎖獄": "Hunting Chain Gaol",
 }
 # 共通アーキタイプ名（末尾の番号はヒーロー番号なので英語では付けない）
 SKILL1_PATTERN = re.compile(r"^(?P<code>[A-Za-z]+)式・一閃$")
@@ -259,6 +289,16 @@ def load_item_names() -> dict[str, tuple[str, str]]:
     """装備 ID → (日本語名, 英語名)。"""
     spec = json.loads(ITEM_SPEC.read_text(encoding="utf-8"))
     return {it["id"]: (it["ja"], it["name"]) for it in spec["items"]}
+
+
+# 装備の固有効果の英語文は tools/equipment_spec.mjs（node tools/equipment_apply.mjs が tools/equipment_spec.json を書き出す）を正本とする。
+ITEM_PASSIVES = ROOT / "tools" / "equipment_spec.json"
+
+
+def load_item_passives() -> dict[str, dict]:
+    """装備 ID → {passive_name_en, passive_text_en, has_effect}。"""
+    spec = json.loads(ITEM_PASSIVES.read_text(encoding="utf-8"))
+    return {it["id"]: it for it in spec["items"]}
 
 
 ITEM_PASSIVE_NAME = re.compile(r"^固有効果(?P<no>\d{2})$")
@@ -450,20 +490,17 @@ def build(master: dict) -> dict[str, str]:
 
     # 装備
     item_names = load_item_names()
+    item_passives = load_item_passives()
     for it in master["equipment"]:
         iid = it["item_id"]
         name_ja, name = need(item_names, iid, iid)
         if name_ja != it["name_ja"]:
             raise TranslationError(f"{iid}: 装備名がマスター（{it['name_ja']}）と item_icons.json（{name_ja}）で食い違います")
         put(iid, name)
-        pm = ITEM_PASSIVE_TEXT.match(it["passive_text"])
-        if not pm:
-            raise TranslationError(f"{iid}: passive_text の文型が想定外です: {it['passive_text']}")
-        put(f"{iid}.desc", item_desc(it["category"], int(pm["x"])))
-        nm = ITEM_PASSIVE_NAME.match(it["passive_name"])
-        if not nm:
-            raise TranslationError(f"{iid}: passive_name の文型が想定外です: {it['passive_name']}")
-        put(f"{iid}.passive", f"Unique Effect {nm['no']}")
+        sp = need(item_passives, iid, iid)
+        text = sp["passive_text_en"]
+        put(f"{iid}.desc", f"Unique Passive - {sp['passive_name_en']}: {text}" if sp["has_effect"] else text)
+        put(f"{iid}.passive", sp["passive_name_en"])
 
     # バトルスペル
     for sp in master["battle_spells"]:
@@ -597,8 +634,8 @@ def validate(master: dict, overlay: dict[str, str]) -> list[str]:
         if key.endswith(".desc") and len(value) > MAX_DESC_LEN:
             errors.append(f"説明が長すぎます: {key}（{len(value)} 文字）")
     # 規模（DESIGN §0 / 仕様パッケージ README と一致すること）
-    for table, n in {"heroes": 24, "skills": 96, "equipment": 72, "battle_spells": 15, "runes": 30,
-                     "cosmetics": 72, "store": 114}.items():
+    for table, n in {"heroes": 34, "skills": 136, "equipment": 72, "battle_spells": 15, "runes": 30,
+                     "cosmetics": 102, "store": 154}.items():
         if counts.get(table) != n:
             errors.append(f"{table} の件数が想定外です: {counts.get(table)}（想定 {n}）")
     return errors

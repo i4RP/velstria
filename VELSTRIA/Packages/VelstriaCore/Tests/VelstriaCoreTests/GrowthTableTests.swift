@@ -19,6 +19,11 @@ final class GrowthTableTests: XCTestCase {
         var n: Double = 0
     }
 
+    /// 標準出力はバッファされ、プロセス終了時に一部が欠けることがあるため、標準エラー（バッファなし）へ出す。
+    private func emit(_ line: String) {
+        FileHandle.standardError.write(Data((line + "\n").utf8))
+    }
+
     func testPrintGrowthTable() throws {
         #if DEBUG
         throw XCTSkip("Release で実行する: swift test -c release --filter GrowthTableTests")
@@ -68,30 +73,30 @@ final class GrowthTableTests: XCTestCase {
             ("平均 CS（ミニオン+モンスター）", { (s: Sample) in s.cs / max(1, s.n) }, "%.1f"),
             ("平均 キル数", { (s: Sample) in s.kills / max(1, s.n) }, "%.2f"),
         ] as [(String, (Sample) -> Double, String)] {
-            print("\n### GROWTH \(title)（seeds \(Self.seeds.count) × 両陣営、normal）")
-            print("| role | " + head.joined(separator: " | ") + " |")
-            print("|---|" + head.map { _ in "---|" }.joined())
+            emit("\n### GROWTH \(title)（seeds \(Self.seeds.count) × 両陣営、normal）")
+            emit("| role | " + head.joined(separator: " | ") + " |")
+            emit("|---|" + head.map { _ in "---|" }.joined())
             for p in positions {
                 let cells = table[p.rawValue].map { String(format: fmt, pick($0)) }
-                print("| \(p) | " + cells.joined(separator: " | ") + " |")
+                emit("| \(p) | " + cells.joined(separator: " | ") + " |")
             }
         }
         let last = Self.checkpoints.count - 1
-        print("\n### GROWTH 10:00 の内訳（平均）")
-        print("| role | ミニオン | モンスター | キル | アシスト | 累計 Gold |")
-        print("|---|---|---|---|---|---|")
+        emit("\n### GROWTH 10:00 の内訳（平均）")
+        emit("| role | ミニオン | モンスター | キル | アシスト | 累計 Gold |")
+        emit("|---|---|---|---|---|---|")
         for p in positions {
             let s = table[p.rawValue][last], n = max(1, s.n)
-            print(String(format: "| %@ | %.1f | %.1f | %.2f | %.2f | %.0f |", "\(p)", s.minions / n, s.monsters / n,
+            emit(String(format: "| %@ | %.1f | %.1f | %.2f | %.2f | %.0f |", "\(p)", s.minions / n, s.monsters / n,
                          s.kills / n, s.assists / n, s.gold / n))
         }
-        print("\n### GROWTH Lv4 到達時刻（秒）")
-        print("| role | 平均 | 最短 | 最長 | 10 分までに未到達 |")
-        print("|---|---|---|---|---|")
+        emit("\n### GROWTH Lv4 到達時刻（秒）")
+        emit("| role | 平均 | 最短 | 最長 | 10 分までに未到達 |")
+        emit("|---|---|---|---|---|")
         for p in positions {
             let xs = lv4[p.rawValue]
             let avg = xs.isEmpty ? 0 : xs.reduce(0, +) / Double(xs.count)
-            print(String(format: "| %@ | %.0f | %.0f | %.0f | %d |", "\(p)", avg, xs.min() ?? 0, xs.max() ?? 0, lv4Missing[p.rawValue]))
+            emit(String(format: "| %@ | %.0f | %.0f | %.0f | %d |", "\(p)", avg, xs.min() ?? 0, xs.max() ?? 0, lv4Missing[p.rawValue]))
         }
         XCTAssertFalse(table.flatMap { $0 }.allSatisfy { $0.n == 0 }, "no samples were taken")
         #endif

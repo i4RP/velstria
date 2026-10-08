@@ -242,6 +242,134 @@ struct HeroGearBuilder {
         case .dreamNeedle:
             needle(&b)
             weaponTip = V3(0, 0.52, 0)
+        case .dragonSpear:
+            // 竜牙の長槍: 暗い柄・銀の双刃の穂先・左右に張り出す青い竜の鰭・赤い房
+            b.rod(V3(0, -0.5, 0), V3(0, 1.0, 0), 0.025, .dark, segments: 10)
+            b.cone(V3(0, -0.5, 0), V3(0, -0.6, 0), 0.032, .metal)
+            for y: Float in [-0.3, 0.2] { b.torus(V3(0, y, 0), 0.032, 0.011, .metal) }
+            let head: [V2] = [V2(-0.05, 0), V2(0.05, 0), V2(0.07, 0.12), V2(0.045, 0.3), V2(0, 0.52), V2(-0.045, 0.3), V2(-0.07, 0.12)]
+            b.blade(head, depth: 0.03, V3(0, 1.0, 0), .metal)
+            b.rbox(V3(0, 1.2, 0), V3(0.044, 0.34, 0.02), 0.006, .glow)
+            for s: Float in [-1, 1] {
+                let fin: [V2] = [V2(s * 0.05, 0.02), V2(s * 0.21, -0.04), V2(s * 0.15, 0.1), V2(s * 0.19, 0.2), V2(s * 0.05, 0.16)]
+                b.blade(fin, depth: 0.02, V3(0, 0.98, 0), .glow)
+            }
+            b.sphere(V3(0, 0.95, 0), 0.045, .accent, .low)
+            for i in 0..<5 {
+                let a = Float(i) / 5 * 2 * .pi
+                b.cone(V3(cos(a) * 0.03, 0.96, sin(a) * 0.03), V3(cos(a) * 0.07, 0.76, sin(a) * 0.07), 0.025, .accent, segments: 5)
+            }
+            weaponTip = V3(0, 1.5, 0)
+        case .stormWand:
+            // 雷杖: 細い杖の先に稲妻の矢じりと輪
+            b.rod(V3(0, -0.4, 0), V3(0, 0.78, 0), 0.02, .dark, segments: 8)
+            b.cone(V3(0, -0.4, 0), V3(0, -0.5, 0), 0.026, .metal)
+            for y: Float in [-0.1, 0.3] { b.torus(V3(0, y, 0), 0.028, 0.01, .accent) }
+            let bolt: [V2] = [V2(-0.07, 0), V2(0.08, 0), V2(0.025, 0.15), V2(0.12, 0.15), V2(-0.025, 0.55), V2(0.0, 0.25), V2(-0.1, 0.25)]
+            b.blade(bolt.map { $0 * 0.55 }, depth: 0.03, V3(0, 0.78, 0), .glow)
+            b.torus(V3(0, 0.8, 0), 0.075, 0.01, .metal, rot: rx(.pi / 2), segments: 18)
+            b.sphere(V3(0, 0.86, 0), 0.035, .glow, .low)
+            weaponTip = V3(0, 1.06, 0)
+        case .photonBlade:
+            // 光刃の長剣: 発振器の柄から伸びる光の刃（白熱の芯）
+            grip(&b, 0.1)
+            b.rbox(V3(0, 0.12, 0), V3(0.06, 0.07, 0.26), 0.02, .metal)
+            b.rod(V3(0, 0.15, 0), V3(0, 0.27, 0), 0.032, .dark, segments: 10)
+            b.torus(V3(0, 0.27, 0), 0.036, 0.01, .glow)
+            let beam: [V2] = [V2(-0.045, 0), V2(0.045, 0), V2(0.05, 0.52), V2(0, 0.72), V2(-0.05, 0.52)]
+            b.blade(beam, depth: 0.03, V3(0, 0.28, 0), .glow)
+            b.rbox(V3(0, 0.62, 0), V3(0.044, 0.56, 0.02), 0.006, .metal)
+            weaponTip = V3(0, 0.98, 0)
+        case .holyMaul:
+            // 聖槌: 片手で振る大槌。金の槌頭・青の打撃面・聖印
+            b.rod(V3(0, -0.28, 0), V3(0, 0.78, 0), 0.034, .dark, segments: 10)
+            b.sphere(V3(0, -0.31, 0), 0.05, .metal, .low)
+            for y: Float in [-0.15, 0.1] { b.torus(V3(0, y, 0), 0.04, 0.012, .accent) }
+            b.rbox(V3(0, 0.88, 0), V3(0.26, 0.28, 0.46), 0.045, .metal)
+            b.rod(V3(0, 0.88, -0.23), V3(0, 0.88, -0.31), 0.14, .accent, segments: 14)
+            b.rod(V3(0, 0.88, 0.23), V3(0, 0.88, 0.29), 0.12, .accent, segments: 14)
+            b.rbox(V3(0, 0.88, 0), V3(0.28, 0.1, 0.16), 0.02, .accent)
+            for s: Float in [-1, 1] {
+                b.extrude([V2(0, 0.07), V2(0.05, 0), V2(0, -0.07), V2(-0.05, 0)], depth: 0.02,
+                          V3(s * 0.14, 0.88, 0), .glow, rot: ry(s * .pi / 2))
+            }
+            b.cone(V3(0, 1.02, 0), V3(0, 1.16, 0), 0.05, .metal, segments: 8)
+            weaponTip = V3(0, 0.9, 0)
+        case .starCannon:
+            // 星砲: 背丈ほどの大砲。金の砲身・広がる砲口と光の輪・側面の星・桃の動力球・白い台尻
+            b.rbox(V3(0, -0.2, 0), V3(0.09, 0.3, 0.13), 0.03, .secondary, rot: rx(0.15))
+            b.rbox(V3(0, 0.04, 0), V3(0.13, 0.3, 0.15), 0.035, .metal)
+            b.frustum(V3(0, 0.14, 0), V3(0, 0.7, 0), 0.062, 0.078, .metal, segments: 14)
+            let muzzle: [V2] = [V2(0.078, 0), V2(0.1, 0.04), V2(0.14, 0.1), V2(0.15, 0.13), V2(0.12, 0.13)]
+            b.lathe(muzzle, V3(0, 0.7, 0), .metal, segments: 18)
+            b.torus(V3(0, 0.83, 0), 0.135, 0.016, .glow, segments: 20)
+            b.rod(V3(0, 0.77, 0), V3(0, 0.8, 0), 0.1, .glow, segments: 14)
+            for (y, r) in [(Float(0.26), Float(0.07)), (0.58, 0.08)] { b.torus(V3(0, y, 0), r, 0.014, .accent) }
+            for s: Float in [-1, 1] {
+                b.extrude(starPolygon(points: 5, outer: 0.11, inner: 0.048), depth: 0.025, V3(s * 0.085, 0.42, 0), .glow,
+                          rot: ry(.pi / 2))
+            }
+            b.rod(V3(0.075, 0.04, 0), V3(0.095, 0.04, 0), 0.07, .accent, segments: 14)
+            b.rod(V3(0.093, 0.04, 0), V3(0.103, 0.04, 0), 0.035, .glow, segments: 10)
+            b.rod(V3(0, 0.16, 0.09), V3(0, 0.5, 0.09), 0.016, .dark, segments: 6)
+            b.sphere(V3(0, 0.5, 0.09), 0.025, .glow, .low)
+            b.sphere(V3(0, -0.35, 0.03), 0.045, .metal, .low)
+            weaponTip = V3(0, 0.88, 0)
+        case .iceStaff:
+            // 氷の杖: 白銀の細い杖の先に大きな氷の結晶（芯は光、外は半透明）と、根元を囲む氷の棘
+            b.rod(V3(0, -0.46, 0), V3(0, 0.88, 0), 0.024, .metal)
+            b.cone(V3(0, -0.46, 0), V3(0, -0.56, 0), 0.03, .metal)
+            for y: Float in [-0.1, 0.34, 0.82] { b.torus(V3(0, y, 0), 0.032, 0.011, .accent) }
+            b.crystal(V3(0, 1.1, 0), radius: 0.08, height: 0.22, .glow, sides: 6, bottom: 0.9)
+            b.crystal(V3(0, 1.1, 0), radius: 0.11, height: 0.26, .veil, sides: 6, bottom: 1.0)
+            b.torus(V3(0, 0.92, 0), 0.07, 0.012, .metal)
+            for i in 0..<4 {
+                let a = Float(i) / 4 * 2 * .pi + .pi / 4
+                let p = V3(cos(a) * 0.09, 0.93, sin(a) * 0.09)
+                b.cone(p, p + V3(cos(a) * 0.1, 0.12, sin(a) * 0.1), 0.028, .accent, segments: 5)
+            }
+            weaponTip = V3(0, 1.12, 0)
+        case .fistBlade:
+            // 拳剣: 手を覆う鉄の籠手（手首の防具と包帯）と、拳の先から長く伸びる幅広の刃（赤い芯）
+            b.rbox(V3(0, 0.02, 0), V3(0.15, 0.15, 0.19), 0.04, .metal)
+            b.frustum(V3(0, -0.24, 0), V3(0, -0.04, 0), 0.07, 0.085, .metal)
+            b.torus(V3(0, -0.2, 0), 0.078, 0.014, .accent)
+            b.torus(V3(0, -0.12, 0), 0.08, 0.012, .cloth)
+            b.rbox(V3(0, 0.12, 0), V3(0.05, 0.05, 0.22), 0.02, .metal)
+            let blade: [V2] = [V2(-0.085, 0), V2(0.085, 0), V2(0.1, 0.5), V2(0, 0.78), V2(-0.085, 0.5)]
+            b.blade(blade, depth: 0.04, V3(0, 0.14, 0), .metal)
+            b.rbox(V3(0, 0.5, 0), V3(0.046, 0.6, 0.026), 0.008, .glow)
+            weaponTip = V3(0, 0.9, 0)
+        case .bloodGreatsword:
+            // 血の大剣: 両手持ちの巨大な剣。黒鋼の幅広の刃・深紅の血溝と縁・蝙蝠の翼の鍔
+            grip(&b, 0.16)
+            b.rbox(V3(0, 0.19, 0), V3(0.07, 0.06, 0.16), 0.02, .metal)
+            for s: Float in [-1, 1] {
+                let wing: [V2] = [V2(s * 0.04, 0), V2(s * 0.27, 0.02), V2(s * 0.2, 0.08), V2(s * 0.29, 0.15), V2(s * 0.12, 0.13),
+                                  V2(s * 0.04, 0.1)]
+                b.blade(wing, depth: 0.034, V3(0, 0.17, 0), .accent)
+            }
+            let blade: [V2] = [V2(-0.1, 0), V2(0.1, 0), V2(0.118, 0.86), V2(0, 1.1), V2(-0.118, 0.86)]
+            b.blade(blade, depth: 0.05, V3(0, 0.25, 0), .metal)
+            b.rbox(V3(0, 0.7, 0), V3(0.058, 0.8, 0.03), 0.01, .dark)
+            for s: Float in [-1, 1] { b.rbox(V3(0, 0.66, s * 0.1), V3(0.056, 0.7, 0.018), 0.006, .glow) }
+            weaponTip = V3(0, 1.34, 0)
+        case .hookChain:
+            // 鎖鉤: 革巻きの握りから伸びる太い鎖（環は一つおきに向きを変える）と、先端の大きな鉤
+            b.rod(V3(0, -0.2, 0), V3(0, 0.1, 0), 0.036, .dark, segments: 10)
+            b.sphere(V3(0, -0.22, 0), 0.05, .metal, .low)
+            for y: Float in [-0.12, -0.04, 0.04] { b.torus(V3(0, y, 0), 0.04, 0.011, .accent) }
+            b.rbox(V3(0, 0.12, 0), V3(0.1, 0.05, 0.1), 0.02, .metal)
+            for i in 0..<11 {
+                let t = Float(i) / 10
+                let link: simd_quatf = (i % 2 == 0 ? qIdentity : ry(.pi / 2)) * rx(.pi / 2)
+                b.torus(V3(0, 0.2 + Float(i) * 0.055, -0.1 * sin(t * Float.pi)), 0.034, 0.01, .metal, rot: link,
+                        segments: 8, sides: 4)
+            }
+            b.rod(V3(0, 0.74, 0), V3(0, 1.0, 0), 0.03, .metal, segments: 8)
+            b.torus(V3(0.11, 1.0, 0), 0.11, 0.03, .metal, rot: rz(.pi) * rx(.pi / 2), segments: 14, sides: 6, arc: .pi * 1.5)
+            b.cone(V3(0.11, 0.89, 0), V3(0.04, 0.92, 0), 0.03, .metal, segments: 6)
+            weaponTip = V3(0, 1.1, 0)
         }
         return b
     }
@@ -343,6 +471,26 @@ struct HeroGearBuilder {
             claw(&b, side: -1)
         case .dreamNeedle:
             needle(&b)
+        case .crescentBow:
+            // 三日月の長弓（H025 ルミナ）: 大きな月光の弓身・弓先の光玉・握りの月珠
+            var bw = HeroMeshBuilder()
+            let R: Float = 0.78
+            bow(&bw, radius: R, limbMat: .metal, glowEdge: true, spikes: false)
+            let tipY = sin(Float(0.94)) * R
+            let tipZ = R - 0.02 - cos(Float(0.94)) * R
+            for s: Float in [-1, 1] { bw.sphere(V3(0, s * tipY, tipZ), 0.04, .glow, .low) }
+            bw.sphere(V3(0, 0, -0.06), 0.045, .glow, .low)
+            b.merge(bw, trs(.zero, ry(0.6)))
+        case .roundShield:
+            // 聖槌の円盾（H029 ボルグ）: 青い盾面・金の縁と輪・聖印の十字
+            let o = V3(-0.1, 0.08, -0.1)
+            b.lathe([V2(0.31, 0.0), V2(0.3, 0.03), V2(0.2, 0.065), V2(0.0, 0.08)], o, .accent, rot: rx(-.pi / 2),
+                    segments: 20, capBottom: true)
+            b.torus(o, 0.31, 0.026, .metal, rot: rx(.pi / 2), segments: 24)
+            b.torus(o + V3(0, 0, -0.065), 0.17, 0.014, .metal, rot: rx(.pi / 2), segments: 20)
+            b.sphere(o + V3(0, 0, -0.08), 0.07, .metal)
+            b.rbox(o + V3(0, 0, -0.095), V3(0.05, 0.3, 0.02), 0.006, .glow)
+            b.rbox(o + V3(0, 0, -0.095), V3(0.3, 0.05, 0.02), 0.006, .glow)
         }
         return b
     }
@@ -357,10 +505,10 @@ struct HeroGearBuilder {
         // katana(scale: 0.62): 霧の刀の先端 0.96 × 0.62
         case .shortBlade: return V3(0, 0.6, 0)
         case .moonLantern: return V3(0, -0.26, 0)
-        case .harpBow, .ashBow, .lightBow: return .zero
+        case .harpBow, .ashBow, .lightBow, .crescentBow: return .zero
         case .stoneFist: return V3(0, -0.15, 0)
         case .azureClaw: return V3(0, -0.3, -0.08)
-        case .none, .gateShield, .grimoire, .hideShield: return nil
+        case .none, .gateShield, .grimoire, .hideShield, .roundShield: return nil
         }
     }
 
@@ -555,6 +703,17 @@ struct HeroGearBuilder {
                       trs(o + V3(s * 0.04, -0.02, 0), rz(s * 0.3)), .accent)
             }
             b.sphere(o, 0.045, .glow, .low)
+        case .chainSash:
+            // 背に斜めに掛けた太い鎖（腰から肩へ）。下端の鉤と肩の留め具
+            let a = V3(-w * 0.42, -0.34, 0.06), c = V3(w * 0.42, 0.02, 0.06)
+            let dir = rotationFromY(to: c - a)
+            for i in 0..<7 {
+                let p = a + (c - a) * (Float(i) / 6)
+                let link: simd_quatf = dir * (i % 2 == 0 ? qIdentity : ry(.pi / 2)) * rx(.pi / 2)
+                b.torus(p, 0.05, 0.015, .metal, rot: link, segments: 8, sides: 4)
+            }
+            b.sphere(c, 0.05, .accent, .low)
+            b.cone(a, a + V3(0, -0.16, 0), 0.03, .metal, segments: 5)
         }
         return b
     }
@@ -723,6 +882,35 @@ struct HeroGearBuilder {
                 let a = Float(i) / 4 * 2 * .pi
                 let p = V3(cos(a) * 0.5, sin(a * 2) * 0.12, sin(a) * 0.5)
                 b.extrude(starPolygon(points: 5, outer: 0.055, inner: 0.024), depth: 0.02, p, .glow, rot: ry(-a))
+            }
+        case .sparkOrbs:
+            floatMotion = .orbit(speed: 1.5)
+            floatAnchor = V3(0, 1.2, 0)
+            for i in 0..<3 {
+                let a = Float(i) / 3 * 2 * .pi
+                let p = V3(cos(a) * 0.5, Float(i) * 0.1 - 0.05, sin(a) * 0.5)
+                b.sphere(p, 0.055, .glow, .low)
+                b.torus(p, 0.085, 0.008, .accent, rot: rz(0.5 + Float(i)), segments: 14, sides: 4)
+                for k in 0..<3 {
+                    let ka = Float(k) / 3 * 2 * .pi + a
+                    b.cone(p + V3(cos(ka) * 0.05, 0, sin(ka) * 0.05), p + V3(cos(ka) * 0.12, 0.03, sin(ka) * 0.12), 0.014, .glow,
+                           segments: 4)
+                }
+            }
+        case .iceCrystals:
+            floatMotion = .orbit(speed: 0.9)
+            floatAnchor = V3(0, 1.1, 0)
+            for i in 0..<5 {
+                let a = Float(i) / 5 * 2 * .pi
+                let p = V3(cos(a) * 0.55, sin(a * 2) * 0.14 + 0.05, sin(a) * 0.55)
+                let rot = ry(-a) * rz(0.35)
+                b.crystal(p, radius: 0.055, height: 0.2, .veil, rot: rot, sides: 6, bottom: 0.8)
+                b.crystal(p, radius: 0.026, height: 0.15, .glow, rot: rot, sides: 6, bottom: 0.8)
+            }
+            for k in 0..<2 {
+                let a = Float(k) * .pi + 0.4
+                b.extrude(starPolygon(points: 6, outer: 0.07, inner: 0.03), depth: 0.014,
+                          V3(cos(a) * 0.5, 0.2 + Float(k) * 0.1, sin(a) * 0.5), .glow, rot: ry(-a))
             }
         }
         return b

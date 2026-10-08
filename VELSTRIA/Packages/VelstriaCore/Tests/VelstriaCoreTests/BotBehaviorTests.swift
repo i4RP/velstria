@@ -109,8 +109,8 @@ final class BotBehaviorTests: XCTestCase {
         f.parkAllHeroes()
         let support = f.hero(.blue, .support)
         let jungler = f.hero(.blue, .jungle)
-        f.place(jungler, at: Vec2(3300, 6300))
-        f.place(support, at: Vec2(1400, 7200))
+        f.place(jungler, at: Vec2(3100, 5850))
+        f.place(support, at: Vec2(700, 7200))
         f.refreshVision()
         f.advance(1)
         let cmds = f.decide(support)
@@ -164,8 +164,8 @@ final class BotBehaviorTests: XCTestCase {
             f.parkAllHeroes()
             let me = f.hero(.blue, .mid)
             let foe = f.hero(.red, .mid)
-            f.place(me, at: Vec2(5200, 5200))
-            f.place(foe, at: Vec2(5450, 5450))
+            f.place(me, at: Vec2(5556, 5891))   // 自軍外塔 (4656,4991) の射程外（旧外塔からの相対位置を保つ）
+            f.place(foe, at: Vec2(5806, 6141))
             f.s.units[me].hp = f.s.units[me].stats.maxHP * 0.2
             f.refreshVision()
             XCTAssertTrue(f.s.isVisible(foe, to: .blue))
@@ -188,8 +188,8 @@ final class BotBehaviorTests: XCTestCase {
         f.parkAllHeroes()
         let me = f.hero(.blue, .top)
         let foe = f.hero(.red, .top)
-        f.place(me, at: Vec2(1400, 7600))
-        f.place(foe, at: Vec2(1400, 7900))
+        f.place(me, at: Vec2(700, 7600))
+        f.place(foe, at: Vec2(700, 7900))
         f.s.units[foe].hp = 50
         f.refreshVision()
         // 霧の中（視界ビットなし）にする
@@ -227,7 +227,7 @@ final class BotBehaviorTests: XCTestCase {
         var f = BotFixture.bots(.normal)
         f.parkAllHeroes()
         let me = f.hero(.blue, .top)
-        f.place(me, at: Vec2(1400, 6200))
+        f.place(me, at: Vec2(700, 7200))
         f.s.units[me].hp = f.s.units[me].stats.maxHP * 0.2
         f.refreshVision()
         let cmds = f.decide(me)
@@ -290,17 +290,17 @@ final class BotBehaviorTests: XCTestCase {
         var f = BotFixture.bots(.hard)
         f.parkAllHeroes()
         let me = f.hero(.blue, .carry)
-        f.place(me, at: Vec2(8000, 1400))
+        f.place(me, at: Vec2(8000, 600))
         // A: 1 発で倒せる HP、B: 味方の弾がすでに向かっていて先に倒れる
-        let a = f.addMinion(.melee, team: .red, lane: .bot, at: Vec2(8300, 1450))
-        let b = f.addMinion(.ranged, team: .red, lane: .bot, at: Vec2(8250, 1350))
+        let a = f.addMinion(.melee, team: .red, lane: .bot, at: Vec2(8300, 650))
+        let b = f.addMinion(.ranged, team: .red, lane: .bot, at: Vec2(8250, 550))
         let hit = CombatSystem.estimateBasicAttackDamage(f.s, f.ctx, attacker: me, target: a)
         f.s.units[a].hp = hit * 0.8
         f.s.units[b].hp = hit * 0.5
-        let shooter = f.addMinion(.ranged, team: .blue, lane: .bot, at: Vec2(8000, 1300))
+        let shooter = f.addMinion(.ranged, team: .blue, lane: .bot, at: Vec2(8000, 500))
         let payload = HitPayload(damage: 500, damageType: .physical, source: .minion)
         f.s.projectiles.append(Projectile(id: f.s.allocateID(), ownerID: f.s.units[shooter].id, team: .blue,
-                                          pos: Vec2(8200, 1350), motion: .homing(targetID: f.s.units[b].id),
+                                          pos: Vec2(8200, 550), motion: .homing(targetID: f.s.units[b].id),
                                           speed: Balance.combatMinionProjectileSpeed, payload: payload,
                                           visual: "basic_attack"))
         f.refreshVision()

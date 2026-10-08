@@ -136,7 +136,7 @@ final class RenderSceneTests: XCTestCase {
         let image = try XCTUnwrap(GroundTextureGenerator.makeImage(map: .standard, size: 256, colorblind: false))
         XCTAssertEqual(image.width, 256)
         XCTAssertEqual(image.height, 256)
-        let lane = groundPixel(image, Vec2(1400, 8000))       // top レーン（土）
+        let lane = groundPixel(image, Vec2(700, 8000))        // top レーン（土）
         let jungle = groundPixel(image, Vec2(3600, 7300))     // ジャングル（草）
         let river = groundPixel(image, Vec2(4500, 7500))      // 河川
         XCTAssertGreaterThan(lane.r, jungle.r + 0.1, "レーンは土色")
@@ -276,10 +276,10 @@ final class RenderSceneTests: XCTestCase {
 
     // MARK: ヒーロー別の通常攻撃の演出
 
-    /// H001〜H024 の全員に演出表があり、遠隔（射程 550）は投射物・発射炎、近接（射程 150）は武器の軌跡を持つ。
+    /// H001〜H034 の全員に演出表があり、遠隔（射程 550）は投射物・発射炎、近接（射程 150）は武器の軌跡を持つ。
     /// 色は設計図の glow（主色）と accent（副色）。
     func testEveryHeroHasFXProfile() throws {
-        for n in 1...24 {
+        for n in 1...34 {
             let id = String(format: "H%03d", n)
             let p = try XCTUnwrap(HeroFXProfiles.profile(id), id)
             let def = try XCTUnwrap(MasterData.shared.hero(id), id)
@@ -304,8 +304,19 @@ final class RenderSceneTests: XCTestCase {
             // 芯はブルームの閾値（0.6）を超える明るさ
             XCTAssertGreaterThan(max(p.core.r, max(p.core.g, p.core.b)), 0.6, id)
         }
-        XCTAssertEqual(HeroFXProfiles.heroIDs.count, 24)
+        XCTAssertEqual(HeroFXProfiles.heroIDs.count, 34)
         XCTAssertEqual(HeroFXProfiles.profile("H003")?.launch, .bow, "副手の弓から放つ")
+        XCTAssertEqual(HeroFXProfiles.profile("H025")?.launch, .bow, "副手の三日月の長弓から放つ")
+        XCTAssertEqual(HeroFXProfiles.profile("H025")?.shot, .arrow)
+        XCTAssertEqual(HeroFXProfiles.profile("H026")?.shot, .lightOrb)
+        XCTAssertEqual(HeroFXProfiles.profile("H026")?.launch, .weaponTip, "雷杖の先端")
+        XCTAssertEqual(HeroFXProfiles.profile("H029")?.impact, .heavyBlunt)
+        XCTAssertEqual(HeroFXProfiles.profile("H030")?.shot, .lightOrb)
+        XCTAssertEqual(HeroFXProfiles.profile("H030")?.muzzle, .blast, "星砲の大きな発射炎")
+        XCTAssertEqual(HeroFXProfiles.profile("H030")?.launch, .weaponTip, "砲口")
+        XCTAssertEqual(HeroFXProfiles.profile("H031")?.shot, .waterOrb)
+        XCTAssertEqual(HeroFXProfiles.profile("H031")?.launch, .weaponTip, "氷の杖の先端")
+        XCTAssertEqual(HeroFXProfiles.profile("H034")?.impact, .blunt)
         XCTAssertEqual(HeroFXProfiles.profile("H007")?.launch, .hands)
         XCTAssertEqual(HeroFXProfiles.profile("H022")?.launch, .hands)
         XCTAssertEqual(HeroFXProfiles.profile("H010")?.launch, .weaponTip, "掌の炎 = 武器の先端")
@@ -329,8 +340,8 @@ final class RenderSceneTests: XCTestCase {
         let heroIdx = sim.state.units.indices.filter { sim.state.units[$0].kind == .hero }
         XCTAssertEqual(heroIdx.count, 10)
         let ranged = HeroFXProfiles.heroIDs.filter { HeroFXProfiles.profile($0)?.isRanged == true }
-        XCTAssertEqual(ranged.count, 12)
-        // 遠隔の 12 人を 10 枠へ 2 回に分けて割り当てる
+        XCTAssertEqual(ranged.count, 16)
+        // 遠隔の 16 人を 10 枠へ 2 回に分けて割り当てる
         for chunk in [Array(ranged.prefix(10)), Array(ranged.suffix(10))] {
             var state = sim.state
             for (k, i) in heroIdx.enumerated() {

@@ -19,8 +19,28 @@ struct SkillAim {
 
 enum SkillAiming {
     /// 照準を解決する。対象が必須のスキル（連続斬り・対象指定ブリンク）で対象が居なければ nil。
+    /// slot を渡すと、キットのヒーローはキットの resolveAim（nil = 既定、.some(nil) = 拒否）を先に試す。
     static func resolve(_ s: SimState, _ ctx: SimContext, caster i: Int, targeting t: SkillTargeting,
-                        target: SkillTarget) -> SkillAim? {
+                        target: SkillTarget, slot: SkillSlot? = nil, stage: Int = 0) -> SkillAim? {
+        if let slot, let kit = HeroKits.kit(in: s, i),
+           let custom = kit.resolveAim(s, ctx, caster: i, slot: slot, stage: stage, targeting: t, target: target) {
+            return custom
+        }
+        guard var aim = resolveGeneric(s, ctx, caster: i, targeting: t, target: target) else { return nil }
+        // 対象が必要なスキル（キット層）: 照準に対象が無ければ射程内の最適な敵を対象にし、居なければ失敗
+        if t.requiresTarget, aim.unit == nil {
+            let reach = t.reach
+            guard let u = bestEnemyHero(s, caster: i, reach: reach) ?? nearestEnemy(s, caster: i, reach: reach) else {
+                return nil
+            }
+            aim = Self.aim(at: u, s, caster: i, range: t.range, facing: Vec2.fromAngle(s.units[i].facing))
+        }
+        return aim
+    }
+
+    /// アーキタイプと照準方式（SkillTarget）から照準を決める（キットの上書きを含まない）。
+    private static func resolveGeneric(_ s: SimState, _ ctx: SimContext, caster i: Int, targeting t: SkillTargeting,
+                                       target: SkillTarget) -> SkillAim? {
         let pos = s.units[i].pos
         let facing = Vec2.fromAngle(s.units[i].facing)
 
@@ -101,7 +121,9 @@ enum SkillAiming {
     /// ユニット指定の照準として使えるか（生存・構造物以外・敵なら視認中）。
     static func isAimable(_ s: SimState, caster i: Int, _ u: Int) -> Bool {
         guard u != i, CombatSystem.isLiving(s, u), !s.units[u].isStructure else { return false }
-        return s.units[u].team == s.units[i].team || s.isVisible(u, to: s.units[i].team)
+        if s.units[u].team == s.units[i].team { return true }
+        if !s.units[u].statuses.isEmpty, s.units[u].has(.untargetable) { return false }
+        return s.isVisible(u, to: s.units[i].team)
     }
 
     // MARK: - 候補探索（添字昇順・同値は添字の小さい方 = 決定論的）

@@ -40,8 +40,8 @@ final class WorldMonsterTests: XCTestCase {
 
     func testIdleUntilAttackedThenAggroOnAttacker() {
         var (s, ctx) = makeJungle()
-        let m = monsterIndex(s, kind: .redSentinel, near: Vec2(6300, 3300))
-        let hero = Kit.addHero(&s, ctx, team: .blue, pos: Vec2(6300, 2900) + Vec2(0, 50))
+        let m = monsterIndex(s, kind: .redSentinel, near: Vec2(5600, 2700))
+        let hero = Kit.addHero(&s, ctx, team: .blue, pos: Vec2(5600, 2300) + Vec2(0, 50))
         MonsterSystem.update(&s, ctx)
         XCTAssertNil(s.units[m].attackTargetID)
         XCTAssertEqual(s.units[m].moveIntent, .none)
@@ -53,7 +53,7 @@ final class WorldMonsterTests: XCTestCase {
         XCTAssertEqual(s.units[m].moveIntent, .follow(targetID: s.units[hero].id, range: s.units[m].stats.attackRange))
 
         // 別のユニットが殴ったら最後の攻撃者へ切り替え
-        let other = Kit.addHero(&s, ctx, team: .red, pos: Vec2(6600, 3300))
+        let other = Kit.addHero(&s, ctx, team: .red, pos: Vec2(5900, 2700))
         CombatSystem.applyDamage(&s, ctx, sourceID: s.units[other].id, targetIndex: m, amount: 100,
                                  type: .physical, source: .basicAttack)
         MonsterSystem.update(&s, ctx)
@@ -252,10 +252,10 @@ final class WorldMonsterTests: XCTestCase {
 
     func testLeashingMonsterSteersAroundWalls() {
         var (s, ctx) = makeJungle()
-        let m = monsterIndex(s, kind: .redSentinel, near: Vec2(6300, 3300))
+        let m = monsterIndex(s, kind: .redSentinel, near: Vec2(5600, 2700))
         let home = s.units[m].monster!.home
-        // 巣 (6300,3300) と壁 (5300..6900, 1950..2450) を挟んだ反対側（リーシュ範囲外）
-        s.units[m].pos = Vec2(6100, 1800)
+        // 巣 (5600,2700) と壁 (4750..5800, 1350..1750) を挟んだ反対側（リーシュ範囲外）
+        s.units[m].pos = Vec2(5300, 1000)
         MonsterSystem.update(&s, ctx)
         XCTAssertEqual(s.units[m].monster?.leashing, true)
         guard case .point(let p) = s.units[m].moveIntent else { return XCTFail("should walk home") }
@@ -270,14 +270,41 @@ final class WorldMonsterTests: XCTestCase {
         XCTAssertLessThan(u.pos.distance(to: home), Balance.monsterHomeTolerance + 1)
     }
 
+    /// バフ番人は近くのヒーロー 1 人につき被ダメ −15%（最大 −60%）。バトルスペルは対象外。
+    func testSentinelTakesLessDamageWithMoreHeroesNearby() {
+        var (s, ctx) = makeJungle()
+        let m = monsterIndex(s, kind: .redSentinel, near: Vec2(5600, 2700))
+        let pos = s.units[m].pos
+        let h1 = Kit.addHero(&s, ctx, team: .blue, pos: pos + Vec2(0, 300))
+        func hit(_ source: DamageSource = .basicAttack) -> Double {
+            let before = s.units[m].hp
+            CombatSystem.applyDamage(&s, ctx, sourceID: s.units[h1].id, targetIndex: m, amount: 100,
+                                     type: .trueDamage, source: source)
+            return before - s.units[m].hp
+        }
+        XCTAssertEqual(hit(), 85, accuracy: 1e-6)
+        Kit.addHero(&s, ctx, team: .red, pos: pos + Vec2(300, 0))
+        Kit.addHero(&s, ctx, team: .blue, pos: pos + Vec2(-300, 0))
+        XCTAssertEqual(hit(), 55, accuracy: 1e-6)
+        XCTAssertEqual(hit(.spell), 100, accuracy: 1e-6, "狩猟印などのバトルスペルは軽減されない")
+        for k in 0..<3 { Kit.addHero(&s, ctx, team: .blue, pos: pos + Vec2(0, -300 - Double(k) * 50)) }
+        XCTAssertEqual(hit(), 40, accuracy: 1e-6, "最大 −60%")
+        // 通常のキャンプは対象外
+        let camp = s.units.indices.first { s.units[$0].monster?.kind == .campLarge }!
+        let before = s.units[camp].hp
+        CombatSystem.applyDamage(&s, ctx, sourceID: s.units[h1].id, targetIndex: camp, amount: 100,
+                                 type: .trueDamage, source: .basicAttack)
+        XCTAssertEqual(before - s.units[camp].hp, 100, accuracy: 1e-6)
+    }
+
     func testMonstersAreNeutralAndVisibleOnlyWhenLit() {
         var (s, ctx) = makeJungle()
-        let m = monsterIndex(s, kind: .blueSentinel, near: Vec2(3300, 6300))
+        let m = monsterIndex(s, kind: .blueSentinel, near: Vec2(3100, 5850))
         VisionSystem.update(&s, ctx)
         XCTAssertEqual(s.units[m].team, .neutral)
         XCTAssertFalse(s.isVisible(m, to: .blue))
         XCTAssertFalse(s.isVisible(m, to: .red))
-        Kit.addHero(&s, ctx, team: .blue, pos: Vec2(3300, 5700))
+        Kit.addHero(&s, ctx, team: .blue, pos: Vec2(3100, 5250))
         VisionSystem.update(&s, ctx)
         XCTAssertTrue(s.isVisible(m, to: .blue))
         XCTAssertFalse(s.isVisible(m, to: .red))

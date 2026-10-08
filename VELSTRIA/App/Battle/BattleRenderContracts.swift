@@ -5,7 +5,7 @@ import VelstriaCore
 
 // 担当: 統合（契約）。Wave 2 の描画担当間の境界。
 //   battle-renderer : App/Battle/Render/*   （マップ・構造物・ミニオン・モンスター・投射物・ゾーン・VFX・霧・カメラ・HP バー）
-//   hero-models     : App/Battle/Heroes/*   （24 ヒーローの手続き生成モデル・スキン・アニメーション・3D プレビュー）
+//   hero-models     : App/Battle/Heroes/*   （34 ヒーローの手続き生成モデル・スキン・アニメーション・3D プレビュー）
 //   battle-hud      : App/Battle/HUD/*, App/Battle/BattleContainerView.swift（操作・HUD・ショップ・スコアボード・チュートリアル・音）
 
 /// sim 座標（ユニット）→ RealityKit ワールド座標（メートル）。地面は y = 0。

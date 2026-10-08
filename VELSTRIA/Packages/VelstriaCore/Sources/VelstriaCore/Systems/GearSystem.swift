@@ -139,17 +139,24 @@ public enum GearCatalog {
     public static let roamBootsID = "EQR01"
 
     public static let items: [ItemDef] = [
-        ItemDef(itemID: jungleBootsID, nameJa: "狩人の長靴", category: .jungle, tier: 2, priceGold: 600,
+        // 装備の作り直し以降、モンスターへの与ダメージは装備の monsterDamagePct で持つ（補助効果 8% 相当 × 3 = 24%）
+        with(ItemDef(itemID: jungleBootsID, nameJa: "狩人の長靴", category: .jungle, tier: 2, priceGold: 600,
                 attack: 0, abilityPower: 0, hp: 0, armor: 0, magicResist: 0, moveSpeed: 40,
                 cooldownReductionPct: 0, passiveName: "狩猟の心得",
                 passiveText: "ジャングルの補助効果 8%相当。5:00 までミニオンの Gold/XP が半減。5 回の狩りで祝福（炎・氷・血）が解放される。",
-                buildFrom: []),
+                buildFrom: [])) { $0.monsterDamagePct = 24 },
         ItemDef(itemID: roamBootsID, nameJa: "巡回者の長靴", category: .roam, tier: 2, priceGold: 600,
                 attack: 0, abilityPower: 0, hp: 0, armor: 0, magicResist: 18, moveSpeed: 40,
                 cooldownReductionPct: 0, passiveName: "共有収入",
                 passiveText: "5 秒ごとにチーム共有の Gold と XP が入る（8:00 から増加）。8:00 まで自分のミニオン・モンスター収入は半減。",
                 buildFrom: []),
     ]
+
+    private static func with(_ item: ItemDef, _ edit: (inout ItemDef) -> Void) -> ItemDef {
+        var d = item
+        edit(&d)
+        return d
+    }
 
     /// 英語の表示名・説明（master_en.json は正本マスターから生成されるため、靴はここで持つ）。
     public static let english: [String: String] = [

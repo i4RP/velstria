@@ -18,15 +18,67 @@ final class WorldMinionTests: XCTestCase {
         MinionSystem.update(&s, ctx)
     }
 
-    func testPrefersMinionsOverCloserHero() {
+    /// 敵ヒーローは常に最優先: 近くに敵ミニオンがいても、索敵範囲内の敵ヒーローを狙う。
+    func testAlwaysPrefersHeroesOverCloserMinions() {
         var (s, ctx) = makeField()
         let me = Kit.addMinion(&s, ctx, team: .blue, pos: Vec2(5800, 5800))
-        let hero = Kit.addHero(&s, ctx, team: .red, pos: Vec2(6000, 6000))
-        let enemy = Kit.addMinion(&s, ctx, team: .red, pos: Vec2(6250, 6250))
+        let hero = Kit.addHero(&s, ctx, team: .red, pos: Vec2(6250, 6250))
+        let enemy = Kit.addMinion(&s, ctx, team: .red, pos: Vec2(6000, 6000))
+        refresh(&s, ctx)
+        XCTAssertEqual(s.units[me].attackTargetID, s.units[hero].id)
+        XCTAssertEqual(s.units[me].moveIntent, .follow(targetID: s.units[hero].id, range: s.units[me].stats.attackRange))
+        // ヒーローがいなければ最も近い敵ミニオン
+        Kit.kill(&s, hero)
+        s.units[me].attackTargetID = nil
         refresh(&s, ctx)
         XCTAssertEqual(s.units[me].attackTargetID, s.units[enemy].id)
-        XCTAssertEqual(s.units[me].moveIntent, .follow(targetID: s.units[enemy].id, range: s.units[me].stats.attackRange))
-        _ = hero
+    }
+
+    /// 攻撃していた対象は、敵ヒーローが索敵範囲に入っても切り替えず、倒れてから敵ヒーローを狙う。
+    func testKeepsTheCurrentTargetWhenAHeroEntersRangeMidFight() {
+        var (s, ctx) = makeField()
+        let me = Kit.addMinion(&s, ctx, team: .blue, pos: Vec2(5800, 5800))
+        let enemy = Kit.addMinion(&s, ctx, team: .red, pos: Vec2(6000, 6000))
+        refresh(&s, ctx)
+        XCTAssertEqual(s.units[me].attackTargetID, s.units[enemy].id)
+        let hero = Kit.addHero(&s, ctx, team: .red, pos: Vec2(6300, 6300))
+        refresh(&s, ctx)
+        XCTAssertEqual(s.units[me].attackTargetID, s.units[enemy].id)
+        refresh(&s, ctx)
+        XCTAssertEqual(s.units[me].attackTargetID, s.units[enemy].id)
+        // 殴っていた敵ミニオンが倒れたら、近くのミニオンではなくヒーローを選ぶ
+        Kit.addMinion(&s, ctx, team: .red, pos: Vec2(6050, 6050))
+        Kit.kill(&s, enemy)
+        refresh(&s, ctx)
+        XCTAssertEqual(s.units[me].attackTargetID, s.units[hero].id)
+    }
+
+    /// 構造物を殴っている最中も同じ（ヒーローが来ても切り替えない）。
+    func testKeepsHittingAStructureWhenAHeroAppears() {
+        var (s, ctx) = makeField()
+        let outer = Kit.structureIndex(s, team: .red, lane: .mid, tier: .outer)
+        let me = Kit.addMinion(&s, ctx, team: .blue, pos: Vec2(6850, 6850))
+        s.units[me].minion?.waypointIndex = 2
+        refresh(&s, ctx)
+        XCTAssertEqual(s.units[me].attackTargetID, s.units[outer].id)
+        Kit.addHero(&s, ctx, team: .red, pos: Vec2(6950, 6950))
+        refresh(&s, ctx)
+        XCTAssertEqual(s.units[me].attackTargetID, s.units[outer].id)
+    }
+
+    /// 救援要請も、攻撃していた対象を手放させない（新しく対象を選ぶときだけ効く）。
+    func testCallForHelpDoesNotPullAMinionOffItsCurrentTarget() {
+        var (s, ctx) = makeField()
+        let me = Kit.addMinion(&s, ctx, team: .blue, pos: Vec2(5800, 5800))
+        let enemyMinion = Kit.addMinion(&s, ctx, team: .red, pos: Vec2(6000, 6000))
+        refresh(&s, ctx)
+        XCTAssertEqual(s.units[me].attackTargetID, s.units[enemyMinion].id)
+        let enemyHero = Kit.addHero(&s, ctx, team: .red, pos: Vec2(6200, 5900))
+        let ally = Kit.addHero(&s, ctx, team: .blue, pos: Vec2(5900, 5600))
+        CombatSystem.applyDamage(&s, ctx, sourceID: s.units[enemyHero].id, targetIndex: ally, amount: 40,
+                                 type: .physical, source: .basicAttack)
+        refresh(&s, ctx)
+        XCTAssertEqual(s.units[me].attackTargetID, s.units[enemyMinion].id)
     }
 
     func testTargetsHeroWhenAlone() {
@@ -52,19 +104,24 @@ final class WorldMinionTests: XCTestCase {
         }
     }
 
-    func testStructureBeforeHeroAndSkipsInvulnerableStructures() {
+    func testHeroBeforeStructureAndSkipsInvulnerableStructures() {
         var (s, ctx) = makeField()
-        let outer = Kit.structureIndex(s, team: .red, lane: .mid, tier: .outer) // (7700,7700)
-        let me = Kit.addMinion(&s, ctx, team: .blue, pos: Vec2(7200, 7200))
+        let outer = Kit.structureIndex(s, team: .red, lane: .mid, tier: .outer) // (7344,7009)
+        let me = Kit.addMinion(&s, ctx, team: .blue, pos: Vec2(6850, 6850))
         s.units[me].minion?.waypointIndex = 2
-        Kit.addHero(&s, ctx, team: .red, pos: Vec2(7300, 7300))
+        let hero = Kit.addHero(&s, ctx, team: .red, pos: Vec2(6950, 6950))
+        refresh(&s, ctx)
+        XCTAssertEqual(s.units[me].attackTargetID, s.units[hero].id, "敵ヒーローは構造物より優先")
+        // ヒーローがいなければ構造物を殴る
+        Kit.kill(&s, hero)
+        s.units[me].attackTargetID = nil
         refresh(&s, ctx)
         XCTAssertEqual(s.units[me].attackTargetID, s.units[outer].id)
 
         // 内塔は外塔が健在の間は無敵なので狙わない
         var (s2, ctx2) = makeField()
-        let inner = Kit.structureIndex(s2, team: .red, lane: .mid, tier: .inner) // (8600,8600)
-        let m2 = Kit.addMinion(&s2, ctx2, team: .blue, pos: Vec2(8150, 8150))
+        let inner = Kit.structureIndex(s2, team: .red, lane: .mid, tier: .inner) // (8609,8295)
+        let m2 = Kit.addMinion(&s2, ctx2, team: .blue, pos: Vec2(8050, 8050))
         s2.units[m2].minion?.waypointIndex = 2
         refresh(&s2, ctx2)
         XCTAssertNotEqual(s2.units[m2].attackTargetID, s2.units[inner].id)
@@ -81,7 +138,9 @@ final class WorldMinionTests: XCTestCase {
         let enemyHero = Kit.addHero(&s, ctx, team: .red, pos: Vec2(6200, 5900))
         let ally = Kit.addHero(&s, ctx, team: .blue, pos: Vec2(5900, 5600))
         refresh(&s, ctx)
-        XCTAssertEqual(s.units[me].attackTargetID, s.units[enemyMinion].id)
+        // 敵ヒーローは索敵範囲に入っていれば常に最優先（救援要請を待たない）
+        XCTAssertEqual(s.units[me].attackTargetID, s.units[enemyHero].id)
+        _ = enemyMinion
 
         CombatSystem.applyDamage(&s, ctx, sourceID: s.units[enemyHero].id, targetIndex: ally, amount: 40,
                                  type: .physical, source: .basicAttack)
@@ -99,7 +158,7 @@ final class WorldMinionTests: XCTestCase {
         let me = Kit.addMinion(&s, ctx, team: .blue, pos: Vec2(5800, 5800))
         let enemyMinion = Kit.addMinion(&s, ctx, team: .red, pos: Vec2(6100, 6100))
         // 攻撃された味方はミニオンから遠い（救援要請の範囲外）
-        let enemyHero = Kit.addHero(&s, ctx, team: .red, pos: Vec2(6300, 5700))
+        let enemyHero = Kit.addHero(&s, ctx, team: .red, pos: Vec2(6650, 5700)) // 索敵半径（700）の外
         let ally = Kit.addHero(&s, ctx, team: .blue, pos: Vec2(7200, 5000))
         refresh(&s, ctx)
         CombatSystem.applyDamage(&s, ctx, sourceID: s.units[enemyHero].id, targetIndex: ally, amount: 40,
@@ -151,13 +210,13 @@ final class WorldMinionTests: XCTestCase {
 
     func testReturnToLaneSteersAroundWalls() {
         var (s, ctx) = makeField()
-        // bot レーン (y = 1400) との間に壁 (5300..6900, 1950..2450) がある位置へ押し出された
-        let m = Kit.addMinion(&s, ctx, team: .blue, lane: .bot, pos: Vec2(6100, 2650))
+        // bot レーン (y = 600) との間に壁 (4750..5800, 1350..1750) がある位置へ押し出された
+        let m = Kit.addMinion(&s, ctx, team: .blue, lane: .bot, pos: Vec2(5500, 2150))
         s.units[m].minion?.waypointIndex = 2
         refresh(&s, ctx)
         guard case .point(let goal) = s.units[m].moveIntent else { return XCTFail("should return") }
         XCTAssertTrue(ctx.nav.hasLineOfSight(from: s.units[m].pos, to: goal, radius: s.units[m].radius))
-        XCTAssertTrue(goal.x < 5300 || goal.x > 6900, "should go around the wall: \(goal)")
+        XCTAssertTrue(goal.x < 4750 || goal.x > 5800, "should go around the wall: \(goal)")
 
         // 実際に歩かせるとレーンへ戻る
         let id = s.units[m].id
@@ -169,28 +228,28 @@ final class WorldMinionTests: XCTestCase {
 
     func testWaypointProgression() {
         var (s, ctx) = makeField()
-        // Blue top: (1500,1500) → (1400,2400) → (1400,10600) → (9600,10600) → (10500,10500)
-        let m = Kit.addMinion(&s, ctx, team: .blue, lane: .top, pos: Vec2(1420, 2320))
+        // Blue top: (1250,1250) → (700,2600) → (700,9400) → (2600,11300) → (9400,11300) → (10750,10750)
+        let m = Kit.addMinion(&s, ctx, team: .blue, lane: .top, pos: Vec2(720, 2520))
         refresh(&s, ctx)
         XCTAssertEqual(s.units[m].minion?.waypointIndex, 2)
         // 押し出されて先の区間に居ても射影で進む
-        s.units[m].pos = Vec2(1600, 10580)
+        s.units[m].pos = Vec2(4100, 11300)
         refresh(&s, ctx)
-        XCTAssertEqual(s.units[m].minion?.waypointIndex, 3)
+        XCTAssertEqual(s.units[m].minion?.waypointIndex, 4)
         guard case .point(let p) = s.units[m].moveIntent else { return XCTFail() }
-        XCTAssertLessThan(p.distance(to: Vec2(9600, 10600)), 60)
+        XCTAssertLessThan(p.distance(to: Vec2(9400, 11300)), 60)
         // 最後の経由点（敵 Core）で止まる
         s.units[m].pos = Vec2(10300, 10520)
         refresh(&s, ctx)
-        XCTAssertEqual(s.units[m].minion?.waypointIndex, 4)
+        XCTAssertEqual(s.units[m].minion?.waypointIndex, 5)
 
         // Red は逆順の経路（Red top = 右上から左へ）
         var (s2, ctx2) = makeField()
-        let r = Kit.addMinion(&s2, ctx2, team: .red, lane: .top, pos: Vec2(9650, 10580))
+        let r = Kit.addMinion(&s2, ctx2, team: .red, lane: .top, pos: Vec2(9450, 11380))
         refresh(&s2, ctx2)
         XCTAssertEqual(s2.units[r].minion?.waypointIndex, 2)
         guard case .point(let q) = s2.units[r].moveIntent else { return XCTFail() }
-        XCTAssertLessThan(q.distance(to: Vec2(1400, 10600)), 60)
+        XCTAssertLessThan(q.distance(to: Vec2(2600, 11300)), 60)
     }
 
     func testColossusBlessingEmpowersNearbyMinions() {

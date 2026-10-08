@@ -130,6 +130,8 @@ final class BattleRenderView: UIView {
     let vignette = VignetteView(frame: .zero)
     let combatText: CombatTextOverlay
     let curtain = LoadingCurtainView(frame: .zero)
+    /// Effekseer の効果（3D 画面の上・暗い縁取りとダメージ数値の下）。Metal が使えない環境では nil。
+    let effekseer: EffekseerOverlay? = EffekseerOverlay()
     #if DEBUG
     let debugOverlay = DebugStatsOverlay()
     #endif
@@ -140,6 +142,7 @@ final class BattleRenderView: UIView {
         super.init(frame: .zero)
         backgroundColor = .black
         addSubview(arView)
+        effekseer?.attach(to: self)
         addSubview(vignette)
         addSubview(combatText)
         #if DEBUG
@@ -154,6 +157,7 @@ final class BattleRenderView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         arView.frame = bounds
+        effekseer?.layout(in: self, scale: arView.contentScaleFactor)
         vignette.frame = bounds
         combatText.frame = bounds
         curtain.frame = bounds

@@ -80,6 +80,8 @@ public enum StatusModifiers {
         var attackSpeedBoost = 0.0
         var healCut = 0.0
         var dealtCut = 0.0
+        var armorShred = 0.0
+        var magicShred = 0.0
         for st in statuses {
             switch st.kind {
             case .slow: maxSlow = max(maxSlow, st.magnitude)
@@ -94,12 +96,19 @@ public enum StatusModifiers {
                 stats.resourceRegen += Balance.combatBlueBuffResourceRegen
             case .wyrmBlessing: stats.damageBonus += Balance.combatWyrmBlessingDamageBonus
             case .colossusBlessing: stats.damageBonus += Balance.combatColossusBlessingDamageBonus
+            case .lifestealBoost: stats.lifesteal += st.magnitude
+            case .spellVampBoost: stats.spellVamp += st.magnitude
+            case .attackRangeBoost: stats.attackRange += st.magnitude
+            case .armorShred: armorShred = max(armorShred, st.magnitude)
+            case .magicShred: magicShred = max(magicShred, st.magnitude)
             default:
-                // 行動阻害・無敵・ステルス・燃焼などは能力値に影響しない（各システムが直接参照）
+                // 行動阻害・無敵・ステルス・燃焼・マーク・対象不可・suppress などは能力値に影響しない（各システムが直接参照）
                 break
             }
         }
         stats.damageBonus -= dealtCut
+        if armorShred > 0 { stats.armor *= 1 - min(1, armorShred) }
+        if magicShred > 0 { stats.magicResist = max(0, stats.magicResist - magicShred) }
         stats.attackSpeed *= max(0, 1 + attackSpeedBoost)
         stats.moveSpeed *= max(0, 1 + speedBoost) * (1 - min(1, max(0, maxSlow)))
         stats.healingReceivedMultiplier *= 1 - min(1, max(0, healCut))

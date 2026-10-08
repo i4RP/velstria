@@ -469,12 +469,22 @@ enum HUDSymbols {
         case .redBuff: return "flame.circle.fill"
         case .wyrmBlessing: return "hurricane"
         case .colossusBlessing: return "crown.fill"
+        // ヒーロー固有スキル（キット層）
+        case .mark: return "scope"
+        case .lifestealBoost: return "heart.fill"
+        case .spellVampBoost: return "wand.and.stars"
+        case .attackRangeBoost: return "arrow.left.and.right"
+        case .armorShred: return "shield.lefthalf.filled"
+        case .untargetable: return "eye.slash.fill"
+        case .suppress: return "lock.fill"
+        case .channeling: return "dot.radiowaves.left.and.right"
         }
     }
 
     static func isBuff(_ k: StatusKind) -> Bool {
         switch k {
-        case .stun, .root, .slow, .airborne, .silence, .burn, .healReduction, .damageDealtReduction, .revealed:
+        case .stun, .root, .slow, .airborne, .silence, .burn, .healReduction, .damageDealtReduction, .revealed,
+             .mark, .armorShred, .suppress:
             return false
         default:
             return true
@@ -503,6 +513,14 @@ enum HUDSymbols {
         case .redBuff: return L("紅焔の加護", "Crimson blessing")
         case .wyrmBlessing: return L("竜の加護", "Wyrm blessing")
         case .colossusBlessing: return L("巨像の加護", "Colossus blessing")
+        case .mark: return L("刻印", "Mark")
+        case .lifestealBoost: return L("吸血強化", "Lifesteal up")
+        case .spellVampBoost: return L("スキル吸血強化", "Spell vamp up")
+        case .attackRangeBoost: return L("射程延長", "Range up")
+        case .armorShred: return L("防御低下", "Armor down")
+        case .untargetable: return L("選択不可", "Untargetable")
+        case .suppress: return L("制圧", "Suppressed")
+        case .channeling: return L("詠唱中", "Channeling")
         }
     }
 
@@ -524,7 +542,8 @@ enum HUDSymbols {
         let statuses: [StatusKind] = [.stun, .root, .slow, .airborne, .silence, .speedBoost, .attackSpeedBoost,
                                       .damageBoost, .damageReduction, .ccImmune, .invulnerable, .stealth, .burn,
                                       .healReduction, .damageDealtReduction, .revealed, .blueBuff, .redBuff,
-                                      .wyrmBlessing, .colossusBlessing]
+                                      .wyrmBlessing, .colossusBlessing, .mark, .lifestealBoost, .spellVampBoost,
+                                      .attackRangeBoost, .armorShred, .untargetable, .suppress, .channeling]
         return archetypes.map(skill) + statuses.map(status) + ui
     }
 

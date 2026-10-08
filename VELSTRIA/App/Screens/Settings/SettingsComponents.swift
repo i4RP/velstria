@@ -46,7 +46,9 @@ enum SettingsText {
         case .heroesFirst: return L("敵ヒーロー", "Heroes")
         case .minionsFirst: return L("ミニオン", "Minions")
         case .structuresFirst: return L("タワー", "Towers")
-        case .lowestHealth: return L("低HP", "Low HP")
+        case .lowestHealth: return L("実質低HP", "Lowest eHP")
+        case .lowestHealthPercent: return L("HP割合が低い敵", "Lowest HP %")
+        case .nearest: return L("最も近い目標", "Nearest")
         }
     }
 
@@ -56,6 +58,8 @@ enum SettingsText {
         case .minionsFirst: return "pawprint.fill"
         case .structuresFirst: return "building.2.fill"
         case .lowestHealth: return "heart.fill"
+        case .lowestHealthPercent: return "percent"
+        case .nearest: return "location.fill"
         }
     }
 
@@ -72,11 +76,17 @@ enum SettingsText {
         case .heroesFirst: return L("射程内の敵ヒーローを優先して攻撃します。", "Attacks enemy heroes in range first.")
         case .minionsFirst: return L("ミニオン・モンスターを優先し、ラストヒットを取りやすくします。", "Prioritises minions and monsters for easier last hits.")
         case .structuresFirst: return L("タワー・Star Core を優先して攻撃します。", "Attacks towers and the Star Core first.")
-        case .lowestHealth: return L("射程内で HP が最も低い敵を優先します。", "Targets the enemy with the lowest HP in range.")
+        case .lowestHealth: return L("射程内で、防御・シールド・被ダメ軽減も含めて最も倒しやすい（実質 HP が最も低い）敵を優先します。トゥルーダメージが主体のヒーローは、従来どおり残り HP が最も少ない敵を狙います。",
+                                     "Targets the enemy in range that is easiest to kill, counting defence, shields and damage reduction (lowest effective HP). Heroes that deal mostly true damage still target the lowest remaining HP.")
+        case .lowestHealthPercent: return L("射程内で、HP の割合（現在 HP ÷ 最大 HP）が最も低い敵を優先します。", "Targets the enemy in range with the lowest HP percentage (current HP ÷ max HP).")
+        case .nearest: return L("射程内で、最も近い敵を狙います。", "Targets the closest enemy in range.")
         }
     }
 
-    static let allPriorities: [TargetPriority] = [.heroesFirst, .minionsFirst, .structuresFirst, .lowestHealth]
+    static let allPriorities: [TargetPriority] = [.heroesFirst, .minionsFirst, .structuresFirst, .lowestHealth,
+                                                  .lowestHealthPercent, .nearest]
+    /// 中央ボタンの選択肢（`GameSettings.centerAttackPriorities`）。
+    static let centerPriorities: [TargetPriority] = GameSettings.centerAttackPriorities
 
     static func quality(_ q: GraphicsQuality) -> String {
         switch q {

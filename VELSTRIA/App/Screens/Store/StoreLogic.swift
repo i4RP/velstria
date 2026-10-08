@@ -223,6 +223,8 @@ enum CosmeticInfo {
         "hand.wave.fill", "hand.thumbsup.fill", "face.smiling.fill", "star.fill",
         "heart.fill", "flame.fill", "bolt.fill", "crown.fill",
         "sparkles", "trophy.fill", "hands.clap.fill", "party.popper.fill",
+        "moon.stars.fill", "shield.fill", "leaf.fill", "snowflake",
+        "bell.fill", "pawprint.fill",
     ]
 
     static func emoteSymbol(_ c: CosmeticDef, master: MasterData) -> String {
@@ -351,16 +353,17 @@ enum StoreLegalText {
         let value: String
     }
 
-    // 事業者情報は docs/legal（payment_services_act_ja.md・tokushoho_ja.md）と同じプレースホルダで持ち、
-    // App Store 公開前にリポジトリ全体の {{…}} を確定値へ置き換える（docs/APPSTORE.md §2 の表）。表示内容も docs/legal と一致させる。
-    // 未記入のまま出荷しないよう、tools/validate_appstore_metadata.py --release（STRICT=1 tools/archive.sh）が
-    // App/ のソースに残った {{…}} をエラーにする。
-    static let issuerName = "{{PUBLISHER_NAME}}"
-    static let issuerAddress = "{{POSTAL_ADDRESS}}"
-    static let responsiblePerson = "{{REPRESENTATIVE_NAME}}"
-    static let phoneNumber = "{{PHONE_NUMBER}}"
-    /// 電話の受付時間（docs/legal/tokushoho_ja.md の電話番号欄と一致させる）。
-    static var phoneHours: String { L("平日 10:00〜17:00", "weekdays 10:00–17:00 JST") }
+    // 事業者情報。公開サイト（site/config.json）と docs/legal の差し込み値と一致させること。
+    // 電話番号は法人でも「請求があれば遅滞なく電子メールで開示」の方式（特商法施行規則）で、番号は掲載しない。
+    static var issuerName: String { L("BitcoinPay株式会社", "BITCOINPAY K.K.") }
+    static var issuerAddress: String {
+        L("〒103-0022 東京都中央区日本橋室町1-11-12 日本橋水野ビル7階",
+          "Nihonbashi Mizuno Bldg. 7F, 1-11-12 Nihonbashi-Muromachi, Chuo-ku, Tokyo 103-0022, Japan")
+    }
+    static var responsiblePerson: String { L("代表取締役 杉田 翔栄", "Shoei Sugita, Representative Director") }
+    static var phoneNumber: String {
+        L("請求があった場合は遅滞なく電子メールにて開示します", "Disclosed by email without delay upon request")
+    }
 
     /// 年齢区分別の月間購入上限の説明（AgeBracket の値から生成し、DESIGN §12 と一致させる）。
     static var monthlyLimitSummary: String {
@@ -403,8 +406,8 @@ enum StoreLegalText {
             Row(label: L("運営統括責任者", "Responsible person"), value: responsiblePerson),
             Row(label: L("所在地", "Address"), value: issuerAddress),
             Row(label: L("電話番号", "Phone"),
-                value: L("\(phoneNumber)（受付時間: \(phoneHours)。お問い合わせはできるだけメールでお願いします）",
-                         "\(phoneNumber) (hours: \(phoneHours); please contact us by email where possible)")),
+                value: L("\(phoneNumber)（お問い合わせはメールでお願いします）",
+                         "\(phoneNumber) (please contact us by email)")),
             Row(label: L("メールアドレス", "Email"), value: FeatureFlags.supportEmail),
             Row(label: L("販売価格", "Price"), value: L("各商品の購入画面に表示された価格（税込）。", "The price shown on each product (tax included).")),
             Row(label: L("商品代金以外の必要料金", "Additional fees"),

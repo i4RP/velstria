@@ -278,12 +278,23 @@ def check_iap(r: Report) -> None:
                     r.error(f"Velstria.storekit の {p['product_id']} の種別 {got} が {type_map[p['type']]} ではありません")
 
 
+def site_filled_keys() -> set[str]:
+    """公開サイト（site/config.json）が ja・en の両方で値を持つキー。docs/legal の {{KEY}} はサイトのビルドで差し込まれる。"""
+    cfg = ROOT.parent / "site" / "config.json"
+    if not cfg.exists():
+        return set()
+    import json
+    d = json.loads(cfg.read_text(encoding="utf-8"))
+    return {k for k, v in d.get("ja", {}).items() if v and d.get("en", {}).get(k)}
+
+
 def check_placeholders(r: Report) -> None:
+    filled = {"{{" + k + "}}" for k in site_filled_keys()}
     for base in [APPSTORE, LEGAL]:
         for p in sorted(base.rglob("*")):
             if p.is_dir() or p.suffix not in {".md", ".txt", ".json"}:
                 continue
-            found = sorted(set(PLACEHOLDER.findall(p.read_text(encoding="utf-8"))))
+            found = sorted(set(PLACEHOLDER.findall(p.read_text(encoding="utf-8"))) - (filled if base == LEGAL else set()))
             if found:
                 r.placeholder(f"{p.relative_to(ROOT)}: 未記入のプレースホルダ {', '.join(found)}")
 

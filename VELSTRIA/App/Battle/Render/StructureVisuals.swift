@@ -334,8 +334,11 @@ final class StructureVisual {
             floating.orientation = simd_quatf(angle: t * 0.7, axis: [0, 1, 0])
             shards?.orientation = simd_quatf(angle: -t * 1.3, axis: [0, 1, 0])
         }
+        // 外塔のエネルギーシールドは HP の右に重ねて見せる（HP + シールドが最大 HP を超える間は、全体を 1 本のバーに収める）
         let maxHP = max(1, u.stats.maxHP)
-        bar.update(hp: Float(u.hp / maxHP), shield: 0, resource: nil, level: nil, dt: f.dt)
+        let shield = max(0, u.totalShield)
+        let span = max(maxHP, u.hp + shield)
+        bar.update(hp: Float(u.hp / span), shield: Float(shield / span), resource: nil, level: nil, dt: f.dt)
         bar.keepScreenSize(camera: f.camera)
         // 射程円（フェード）
         let target: Float = showRange ? 1 : 0

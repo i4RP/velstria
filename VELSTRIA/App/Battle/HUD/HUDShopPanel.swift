@@ -299,8 +299,7 @@ struct HUDShopDetail: View {
                             .foregroundStyle(.white.opacity(0.85))
                         }
                         VStack(alignment: .leading, spacing: 2) {
-                            // マスターのパッシブ名は日本語のみなので英語表示では汎用名にする
-                            Text(item.passiveName.isEmpty || Loc.isEnglish ? L("パッシブ", "Passive") : item.passiveName)
+                            Text(item.passiveName.isEmpty || (Loc.isEnglish && !item.itemID.hasPrefix("EQ0")) ? L("パッシブ", "Passive") : MasterText.name(id: "\(item.itemID).passive", ja: item.passiveName))
                                 .font(.system(size: 11, weight: .heavy, design: .rounded))
                                 .foregroundStyle(Theme.gold)
                             Text(ItemMath.passiveEffectText(item))

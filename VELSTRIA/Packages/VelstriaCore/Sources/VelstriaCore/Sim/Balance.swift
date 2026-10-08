@@ -106,12 +106,22 @@ public enum Balance {
     public static let towerTrueSightRadius: Double = 750
 
     // MARK: 構造物
-    public static let outerTowerProtectionUntil: Double = 4 * 60
-    public static let outerTowerProtectionReduction: Double = 0.40
+    /// 外塔のエネルギーシールド（参照仕様 §5.4）: 開始時に付き、5:00 で消える。シールドがある間は被ダメ −30%（遠近とも）。
+    /// シールドに与えたダメージ 10 につき 0.8 Gold を攻撃したヒーローが得る（参照 §3.1）。
+    public static let outerTowerShield: Double = 5000
+    public static let outerTowerShieldDuration: Double = 5 * 60
+    public static let outerTowerShieldReduction: Double = 0.30
+    public static let outerTowerShieldGoldPer10: Double = 0.8
     public static let backdoorReduction: Double = 0.50
     public static let towerRampPerHit: Double = 0.30
     public static let towerRampMax: Double = 1.20
     public static let leashRadius: Double = 900
+    /// バフ番人の多人数軽減: 近くのヒーロー（敵味方を問わない）1 人につき被ダメ −15%、最大 −60%（参照仕様 §3.3）。
+    public static let sentinelGangRadius: Double = 900
+    public static let sentinelGangReductionPerHero: Double = 0.15
+    public static let sentinelGangMaxReduction: Double = 0.60
+    /// 序盤ボスはこの試合時間（秒）以降に倒されると再出現しない（参照仕様 §5.1）。
+    public static let wyrmNoRespawnAfter: Double = 6 * 60
     /// タワー・Core の最大 HP 倍率（AI 対戦の試合時間を 10〜18 分へ寄せる調整値。DESIGN §4 の表に掛ける）。
     public static let structureHPScale: Double = 0.65
 }

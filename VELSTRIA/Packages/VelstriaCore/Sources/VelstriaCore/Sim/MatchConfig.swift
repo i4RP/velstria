@@ -51,7 +51,8 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     /// リプレイ互換性のためのシミュレーション版数。ルール変更時に上げる。
     /// 4: 乱闘（単レーン・経済加速）を追加。
     /// 5: ジャングル靴・ローム靴（収入制限・共有収入・祝福）と推奨ビルドの靴を追加。
-    public static let currentSimVersion = 5
+    /// 6: ヒーロー固有スキル（キット層）を有効化（最初は H030 星砲のライナ。以後キットのヒーローは固有のスキル・パッシブ）。
+    public static let currentSimVersion = 6
 
     public var simVersion: Int
     public var mode: MatchMode

@@ -22,6 +22,16 @@ final class BattleWorld {
     let vfx: VFXSystem
     /// スキル固有の演出（SkillFX）。
     let skillDirector: SkillFXDirector
+    /// Effekseer の効果（ヒーロー別の通常攻撃・スキル）。Metal が使えない環境では nil。BattleRenderer が設定する。
+    var effekseer: EffekseerDirector?
+    func attach(effekseer director: EffekseerDirector) {
+        effekseer = director
+        projectiles.suppressedHeroes = director.heroes
+    }
+    private func fxHandled(_ id: EntityID?, _ f: RenderFrame) -> Bool {
+        guard let id, let effekseer else { return false }
+        return effekseer.handles(f.state.unit(id)?.hero?.heroID)
+    }
     let aim: AimLayer
     /// 霧（プレイヤーは自チームの視界。観戦者は常に作り、視点チームを選んだ時だけ出す）。
     let fog: FogOfWar?
@@ -123,7 +133,7 @@ final class BattleWorld {
         zones.onTrigger = { [weak self] id, pos, color, radius in
             guard let self else { return }
             // スキル固有の演出があるゾーンは、その発動演出（SkillFXDirector.onZoneTriggered）に任せる
-            if self.skillDirector.isSkillZone(id) { return }
+            if self.skillDirector.isSkillZone(id) || self.effekseer?.isEffekseerZone(id) == true { return }
             self.vfx.ring(at: pos, color: color, from: max(0.3, radius * 0.4), to: radius * 1.1, duration: 0.45)
             self.vfx.spawn(.areaBlast, at: pos, color: color.uiColor, scale: radius, important: true)
         }
@@ -177,6 +187,7 @@ final class BattleWorld {
         vfx.update(dt: dt)
         updateChannelLoops(frame)
         skillDirector.update(dt: dt, state: frame.state)
+        effekseer?.update(dt: dt, state: frame.state)
         #if DEBUG
         if let demo = skillDirector.demo {
             let t = time
@@ -407,11 +418,15 @@ final class BattleWorld {
             }
         case .attackReleased(let src, let target, let isRanged):
             units.noteAttack(sourceID: src, time: time)
-            if isRanged, units.hero(src) != nil { pendingMuzzles.append((src, target)) }
+            let fxDone = effekseer?.onAttackReleased(src: src, target: target, isRanged: isRanged, state: f.state) ?? false
+            if isRanged, !fxDone, units.hero(src) != nil { pendingMuzzles.append((src, target)) }
         case .damage(let d):
             units.noteHit(targetID: d.targetID)
             onDamage(d, f)
-            if isShown(d.targetID, f) { skillDirector.onDamage(d, state: f.state) }
+            if isShown(d.targetID, f) {
+                effekseer?.onDamage(d, state: f.state)
+                if !fxHandled(d.sourceID, f) { skillDirector.onDamage(d, state: f.state) }
+            }
         case .heal(let target, let source, let amount):
             onHeal(target: target, source: source, amount: amount, f)
         case .shieldGained(let target, _, let amount):
@@ -421,6 +436,7 @@ final class BattleWorld {
                 spawnText(CombatTextFormat.plus(amount), at: tp + SIMD3(-0.4, 0, 0), style: .shield)
             }
         case .projectileHit(let pid, let tid, let pos):
+            if effekseer?.onProjectileHit(projectileID: pid, pos: pos, state: f.state) == true { break }
             if skillDirector.onProjectileHit(projectileID: pid, pos: pos, state: f.state) { break }
             let info = projectiles.info(pid)
             let p = info?.pos ?? worldPosition(pos, height: 1)
@@ -444,18 +460,24 @@ final class BattleWorld {
             }
         case .skillCast(let c):
             units.noteCast(heroID: c.casterID, slot: c.slot, time: time)
-            if isShown(c.casterID, f), !skillDirector.onCast(c, state: f.state) { skillFX(c, f) }
+            if isShown(c.casterID, f) {
+                let fxDone = effekseer?.onCast(c, state: f.state) ?? false
+                if !fxDone, !skillDirector.onCast(c, state: f.state) { skillFX(c, f) }
+            }
         case .zoneCreated(let zoneID, let ownerID, _, let visual, let center, _, _, _, _):
             if isShown(ownerID, f) {
-                skillDirector.onZoneCreated(zoneID: zoneID, ownerID: ownerID, visual: visual, center: center)
+                effekseer?.onZoneCreated(zoneID: zoneID, ownerID: ownerID, visual: visual, center: center, state: f.state)
+                if !fxHandled(ownerID, f) { skillDirector.onZoneCreated(zoneID: zoneID, ownerID: ownerID, visual: visual, center: center) }
             }
         case .zoneTriggered(let zoneID, let center, _):
             if zones.isShown(zoneID) || f.viewerTeam == nil {
-                skillDirector.onZoneTriggered(zoneID: zoneID, center: center)
+                effekseer?.onZoneTriggered(zoneID: zoneID, center: center, state: f.state)
+                if effekseer?.isEffekseerZone(zoneID) != true { skillDirector.onZoneTriggered(zoneID: zoneID, center: center) }
             }
         case .projectileLaunched(let pid, let owner, let visual):
             if isShown(owner, f) {
-                skillDirector.onProjectileLaunched(projectileID: pid, ownerID: owner, visual: visual, state: f.state)
+                effekseer?.onProjectileLaunched(projectileID: pid, ownerID: owner, visual: visual, state: f.state)
+                if !fxHandled(owner, f) { skillDirector.onProjectileLaunched(projectileID: pid, ownerID: owner, visual: visual, state: f.state) }
             }
         case .spellCast(let caster, let spell, _, let target):
             if isShown(caster, f) { spellFX(caster: caster, spell: spell, target: target, f) }
@@ -539,6 +561,12 @@ final class BattleWorld {
 
     private func onDamage(_ d: DamageEvent, _ f: RenderFrame) {
         guard d.amount > 0, isShown(d.targetID, f), let p = anchor(d.targetID) else { return }
+        switch d.source {
+        case .skill, .basicAttack:
+            if fxHandled(d.sourceID, f) { return }   // Effekseer の効果を持つヒーローは、効果側が命中・被弾を出す
+        default:
+            break
+        }
         let involvesFocus = d.sourceID == f.focusID || d.targetID == f.focusID
         if involvesFocus || nearCamera(p) {
             if d.isCrit {
@@ -992,6 +1020,7 @@ final class BattleWorld {
         finishWarmup()
         vfx.clear()
         skillDirector.clear()
+        effekseer?.clear()
         units.teardown()
         projectiles.teardown()
         zones.teardown()

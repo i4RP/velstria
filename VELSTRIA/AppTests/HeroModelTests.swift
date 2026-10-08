@@ -24,7 +24,7 @@ final class HeroModelTests: XCTestCase {
             XCTAssertTrue((1.9...2.7).contains(model.overheadHeight), "\(def.heroID) \(model.overheadHeight)")
         }
         let elapsed = CFAbsoluteTimeGetCurrent() - start
-        print("HeroModelTests: 24 体の初回生成 \(String(format: "%.2f", elapsed)) 秒")
+        print("HeroModelTests: 34 体の初回生成 \(String(format: "%.2f", elapsed)) 秒")
     }
 
     /// ModelComponent のメッシュパーツ数（≒ 描画呼び出し数）。
@@ -141,7 +141,7 @@ final class HeroModelTests: XCTestCase {
     }
 
     func testBlueprintsAreDistinct() {
-        XCTAssertEqual(HeroBlueprints.roster.count, 24)
+        XCTAssertEqual(HeroBlueprints.roster.count, 34)
         var signatures = Set<String>()
         for (i, bp) in HeroBlueprints.roster.enumerated() {
             let sig = "\(bp.weapon)|\(bp.offhand)|\(bp.back)|\(bp.float)|\(bp.gear.map { "\($0)" }.joined(separator: ","))"
@@ -158,5 +158,81 @@ final class HeroModelTests: XCTestCase {
             default: break
             }
         }
+    }
+
+    /// 追加ヒーロー H025〜H034（docs/NEW_HEROES.md。第 1 段階 H025〜H029・第 2 段階 H030〜H034）の見た目の要件: 武器・体格・攻撃の型・配色の方向。
+    func testNewHeroBlueprintsFollowSpec() {
+        let r = HeroBlueprints.roster
+        XCTAssertEqual(r.count, 34)
+        // H025 ルミナ: 素手 + 副手の三日月の長弓だけで戦う射手。翠と白の外套・銀白の髪・月の飾り
+        XCTAssertEqual(r[24].weapon, .none)
+        XCTAssertEqual(r[24].offhand, .crescentBow)
+        XCTAssertEqual(r[24].attack, .bow)
+        XCTAssertEqual(r[24].back, .cape)
+        XCTAssertTrue(r[24].gear.contains(.crescentPin))
+        XCTAssertTrue((0.3...0.5).contains(r[24].accent.h), "翠緑 \(r[24].accent.h)")
+        XCTAssertLessThan(r[24].hairColor.s, 0.2, "銀白の髪")
+        // H026 エウリア: 細身の雷杖・紫の髪・周囲に浮く雷球・水色の電光
+        XCTAssertEqual(r[25].weapon, .stormWand)
+        XCTAssertEqual(r[25].float, .sparkOrbs)
+        XCTAssertEqual(r[25].build, .robed)
+        XCTAssertTrue((0.7...0.85).contains(r[25].hairColor.h), "紫の髪 \(r[25].hairColor.h)")
+        XCTAssertTrue((0.45...0.58).contains(r[25].glow.h), "電光の水色 \(r[25].glow.h)")
+        // H027 ジャルド: 竜牙の長槍の近接。銀青の鎧・赤い差し色
+        XCTAssertEqual(r[26].weapon, .dragonSpear)
+        XCTAssertEqual(r[26].attack, .thrust)
+        XCTAssertEqual(r[26].armor, .plate)
+        XCTAssertTrue(r[26].accent.h > 0.95 || r[26].accent.h < 0.03, "赤い房飾り \(r[26].accent.h)")
+        // H028 ザイル: 光刃の長剣・濃紺の軽装甲・光る visor・シアンの光
+        XCTAssertEqual(r[27].weapon, .photonBlade)
+        XCTAssertEqual(r[27].attack, .slash)
+        XCTAssertTrue(r[27].gear.contains(.glassVisor))
+        XCTAssertTrue((0.45...0.58).contains(r[27].glow.h), "シアンの光刃 \(r[27].glow.h)")
+        // H029 ボルグ: 大柄な重装。聖槌 + 円盾（片手の槌なので両手持ちではない）・青と金
+        XCTAssertEqual(r[28].build, .heavy)
+        XCTAssertGreaterThan(r[28].scale, 1.05)
+        XCTAssertEqual(r[28].weapon, .holyMaul)
+        XCTAssertEqual(r[28].offhand, .roundShield)
+        XCTAssertFalse(r[28].twoHanded)
+        XCTAssertEqual(r[28].metal, .gold)
+        XCTAssertTrue((0.55...0.65).contains(r[28].accent.h), "青い房 \(r[28].accent.h)")
+        // H030 ライナ: 背丈ほどの星の砲（両手持ちの銃）・ツインテール・桃の光・赤い差し色・白と金
+        XCTAssertEqual(r[29].weapon, .starCannon)
+        XCTAssertEqual(r[29].attack, .gun)
+        XCTAssertTrue(r[29].twoHanded)
+        XCTAssertEqual(r[29].hair, .twinTails)
+        XCTAssertEqual(r[29].metal, .gold)
+        XCTAssertTrue((0.88...0.98).contains(r[29].glow.h), "桃の光 \(r[29].glow.h)")
+        XCTAssertTrue(r[29].accent.h > 0.95 || r[29].accent.h < 0.03, "赤い差し色 \(r[29].accent.h)")
+        // H031 オーリア: 氷の杖・氷の冠・青白の長髪・周囲に浮く氷の結晶・氷青の光
+        XCTAssertEqual(r[30].weapon, .iceStaff)
+        XCTAssertEqual(r[30].float, .iceCrystals)
+        XCTAssertEqual(r[30].build, .robed)
+        XCTAssertTrue(r[30].gear.contains(.iceCrown))
+        XCTAssertTrue((0.5...0.62).contains(r[30].hairColor.h), "青白い髪 \(r[30].hairColor.h)")
+        XCTAssertLessThan(r[30].hairColor.s, 0.2, "青白い髪")
+        XCTAssertTrue((0.5...0.6).contains(r[30].glow.h), "氷青の光 \(r[30].glow.h)")
+        // H032 ディアス: 刃付きの籠手（拳剣）の近接・黒髪・赤黒の軽装甲・鉄の灰
+        XCTAssertEqual(r[31].weapon, .fistBlade)
+        XCTAssertEqual(r[31].attack, .slash)
+        XCTAssertFalse(r[31].twoHanded)
+        XCTAssertLessThan(r[31].hairColor.b, 0.2, "黒髪")
+        XCTAssertTrue(r[31].accent.h > 0.95 || r[31].accent.h < 0.03, "赤い差し色 \(r[31].accent.h)")
+        XCTAssertEqual(r[31].metal, .iron)
+        // H033 ヴァルド: 両手持ちの巨大な大剣・青白い肌・蝙蝠の翼風のマント・深紅
+        XCTAssertEqual(r[32].weapon, .bloodGreatsword)
+        XCTAssertEqual(r[32].attack, .heavySwing)
+        XCTAssertTrue(r[32].twoHanded)
+        XCTAssertEqual(r[32].skin, .pale)
+        XCTAssertEqual(r[32].back, .tatteredCape)
+        XCTAssertTrue(r[32].glow.h > 0.95 || r[32].glow.h < 0.03, "深紅 \(r[32].glow.h)")
+        // H034 ゴルム: 大柄な重装。鉤付きの鎖（片手）・背に掛けた鎖・鉄の灰と錆びた赤
+        XCTAssertEqual(r[33].build, .heavy)
+        XCTAssertGreaterThan(r[33].scale, 1.1)
+        XCTAssertEqual(r[33].weapon, .hookChain)
+        XCTAssertEqual(r[33].back, .chainSash)
+        XCTAssertFalse(r[33].twoHanded)
+        XCTAssertEqual(r[33].metal, .iron)
+        XCTAssertTrue(r[33].accent.h < 0.08, "錆びた赤 \(r[33].accent.h)")
     }
 }

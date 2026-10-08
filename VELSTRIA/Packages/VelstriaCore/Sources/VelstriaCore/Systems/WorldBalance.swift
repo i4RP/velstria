@@ -27,6 +27,8 @@ extension Balance {
     /// 出現位置: Core 中心から最前列までの距離と列の間隔。
     public static let minionSpawnDistance: Double = 700
     public static let minionSpawnSpacing: Double = 55
+    /// 側レーン（top・bot）のミニオン移動速度倍率（参照仕様 §3.1: −10%）。中央レーンは 1。
+    public static let sideLaneMinionSpeedMultiplier: Double = 0.9
 
     // MARK: タワー・Core
     public static let towerRange: Double = 750

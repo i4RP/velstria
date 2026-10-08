@@ -268,6 +268,14 @@ final class BattleRenderer {
                             arView: view.arView, overlay: view.combatText)
         if governed.settings != settings { w.apply(settings: governed.settings) }
         anchor.addChild(w.root)
+        if let fx = view.effekseer {
+            // Effekseer の効果: この試合に出るヒーローの分だけ読む（幕の裏。ヒーローごとの効果が無ければ旧来の演出のまま）
+            let heroIDs = Set(controller.state.units.compactMap { $0.hero?.heroID })
+            let t0 = CACurrentMediaTime()
+            fx.loadBundledEffects(heroes: heroIDs)
+            note(String(format: "effekseer load %d effects, %.0f ms", fx.effectNames.count, (CACurrentMediaTime() - t0) * 1000))
+            w.attach(effekseer: EffekseerDirector(overlay: fx, units: w.units, projectiles: w.projectiles))
+        }
         world = w
         // 最初のフレームで追従対象へカメラを合わせる
         w.updateCamera(rig: rig, dt: 0, snap: true)
@@ -330,7 +338,10 @@ final class BattleRenderer {
             paceAccumulator = 0
         }
         let dt = min(max(deltaTime, 0), 0.1)
-        defer { publishCameraViewport(dt: dt) }
+        defer {
+            publishCameraViewport(dt: dt)
+            drawEffekseer(dt: controller.isPaused || scheduler != nil ? 0 : dt)
+        }
         if let scheduler {
             warmupFrame(world: world, view: view, scheduler: scheduler, frameDt: deltaTime, dt: dt)
             return
@@ -370,6 +381,9 @@ final class BattleRenderer {
             // 一時停止の前後のフレームは自動調整の判定に使わない
             governor.resetWindow()
         }
+        #if DEBUG
+        debugAutoDrive(dt: dt)
+        #endif
         let t0 = CACurrentMediaTime()
         controller.frame(dt: deltaTime)
         let t1 = CACurrentMediaTime()
@@ -557,6 +571,58 @@ final class BattleRenderer {
     }
 
     // MARK: 設定
+
+    /// Effekseer の効果を進めて描く（一時停止・準備中は進めない）。
+    private func drawEffekseer(dt: Double) {
+        guard let view, let fx = view.effekseer else { return }
+        var dt = dt
+        #if DEBUG
+        if let world, dt > 0 { dt = debugEffekseerDemo(fx, world: world, dt: dt) }
+        #endif
+        fx.render(camera: rig.camera, host: view, dt: dt)
+    }
+
+    #if DEBUG
+    private var autoClock: Double = 0
+    private var autoStep = 0
+    /// -efkAuto <atk|s1|s2|ult>: 一番近い敵（人形）へ近づき、2 秒ごとに通常攻撃 / スキルを撃つ。
+    private func debugAutoDrive(dt: Double) {
+        guard let what = DebugLaunch.value(after: "-efkAuto"), let me = controller.humanIndex else { return }
+        let s = controller.state
+        autoClock += dt
+        guard autoClock >= 0.5 else { return }
+        autoClock = 0
+        autoStep += 1
+        guard autoStep > 8 else { return }
+        let u = s.units[me]
+        let foes = s.units.filter { $0.isAlive && $0.team != u.team && ($0.kind == .dummy || $0.kind == .hero) }
+        guard let foe = foes.min(by: { $0.pos.distance(to: u.pos) < $1.pos.distance(to: u.pos) }) else { return }
+        let dist = foe.pos.distance(to: u.pos)
+        let reach: Double = what == "atk" ? 420 : 380
+        if dist > reach + 120 { controller.send(.moveTo(point: foe.pos)); return }
+        if dist < reach - 40, what != "atk" { controller.send(.move(direction: Vec2(0, 0))) }
+        guard autoStep % 4 == 0 else { return }
+        switch what {
+        case "s1": controller.send(.castSkill(slot: .skill1, target: .unit(foe.id)))
+        case "s2": controller.send(.castSkill(slot: .skill2, target: .unit(foe.id)))
+        case "ult": controller.send(.castSkill(slot: .ultimate, target: .unit(foe.id)))
+        default: controller.send(.attack(targetID: foe.id))
+        }
+    }
+
+    private var efkDemo = EffekseerDemo()
+    /// 起動引数 -efkDemo <効果名> [-efkFrames 60] [-efkStep 4] [-efkYaw 度] [-efkAhead m]
+    /// 自分のヒーローの位置（ahead だけ前）で再生して止め、/tmp/efk-advance が置かれるたびに step フレーム進める
+    /// （コマ撮りで各フェーズを確認する用。frames を過ぎたら最初から）。戻り値は効果へ進める秒数。
+    private func debugEffekseerDemo(_ fx: EffekseerOverlay, world: BattleWorld, dt: Double) -> Double {
+        guard let name = DebugLaunch.value(after: "-efkDemo") else { return dt }
+        func number(_ flag: String, _ d: Double) -> Double { DebugLaunch.value(after: flag).flatMap(Double.init) ?? d }
+        guard let id = controller.humanHeroID, let p = world.units.worldPositionOf(id) else { return 0 }
+        return efkDemo.advance(dt: dt, fx: fx, names: name, at: p,
+                               yaw: Float(number("-efkYaw", 0) * .pi / 180), ahead: Float(number("-efkAhead", 0)),
+                               frames: number("-efkFrames", 60), step: number("-efkStep", 4))
+    }
+    #endif
 
     private func publishCameraViewport(dt: Double) {
         guard let size = view?.arView.bounds.size, size.width > 0, size.height > 0 else { return }

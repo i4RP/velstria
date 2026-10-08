@@ -8,6 +8,10 @@ extension Balance {
     // MARK: 通常攻撃
     /// 攻撃ボタンの索敵距離 = 射程 + 自身の半径 + この値（+ 対象半径）。
     public static let combatTargetSearchBonus: Double = 300
+    /// 攻撃ボタンの追撃: 敵ヒーローを狙ってから、射程内により優先度の高い敵ヒーローがいない限り同じ対象を追う時間（秒）。
+    public static let attackStickyWindow: Double = 2.0
+    /// 追撃を続ける距離 = 射程 + 自身の半径 + 対象の半径 + この値。これより離れたら追撃をやめる。
+    public static let attackStickyChaseExtra: Double = 1200
     /// 遠隔ミニオンの通常攻撃弾速。
     public static let combatMinionProjectileSpeed: Double = 1100
     /// タワー / Core の通常攻撃弾速。
@@ -68,13 +72,15 @@ extension StatusKind {
     }
 
     /// 弱体（敵ヒーローからの付与はアシスト対象、構造物・無敵には付与しない）。
-    var combatIsHarmful: Bool { isCleansable || self == .airborne }
+    /// suppress は CC 無効を無視する（combatIsCrowdControl に含めない）。mark は弱体にも強化にも数えない。
+    var combatIsHarmful: Bool { isCleansable || self == .airborne || self == .armorShred || self == .magicShred || self == .suppress }
 
     /// 強化（HitPayload.statuses のうち味方へ付与するもの）。
     var combatIsBeneficial: Bool {
         switch self {
         case .speedBoost, .attackSpeedBoost, .damageBoost, .damageReduction, .ccImmune, .invulnerable, .stealth,
-             .blueBuff, .redBuff, .wyrmBlessing, .colossusBlessing:
+             .blueBuff, .redBuff, .wyrmBlessing, .colossusBlessing,
+             .lifestealBoost, .spellVampBoost, .attackRangeBoost, .untargetable, .channeling:
             return true
         default:
             return false

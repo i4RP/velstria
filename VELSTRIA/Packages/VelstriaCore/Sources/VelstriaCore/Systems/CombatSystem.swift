@@ -56,29 +56,58 @@ public enum CombatSystem {
             }
             if s.units[t].kind == .monster { bonus += st.monsterDamageBonus }
             bonus += PassiveHooks.outgoingDamageBonus(&s, ctx, attacker: a, target: t, source: source)
+            bonus += ItemEffects.outgoingDamageBonus(s, ctx, attacker: a, target: t)
             amount *= max(0, 1 + bonus)
         }
         // 構造物: 序盤保護・裏取り保護・攻城補正（core-world）
         if s.units[t].isStructure {
             amount *= max(0, TowerSystem.damageTakenMultiplier(s, ctx, structureIndex: t, sourceIndex: a))
         }
-        // 4. 防御軽減（確定ダメージは無視）
-        amount *= mitigationMultiplier(type, armor: s.units[t].stats.armor, magicResist: s.units[t].stats.magicResist)
+        // バフ番人: 近くのヒーローが多いほど被ダメが減る（狩猟印などのバトルスペルは対象外）
+        if s.units[t].kind == .monster, source != .spell {
+            amount *= MonsterSystem.gangReductionMultiplier(s, monsterIndex: t)
+        }
+        // 4. 防御軽減（確定ダメージは無視）。ヒーローの貫通（装備）は、構造物以外の防御・魔防を割合で無視してから固定値を引く
+        var armor = s.units[t].stats.armor, resist = s.units[t].stats.magicResist
+        if let a, !environmental, !s.units[t].isStructure, s.units[a].kind == .hero {
+            let st = s.units[a].stats
+            armor = penetrated(armor, pct: st.armorPenPct, flat: st.armorPenFlat)
+            resist = penetrated(resist, pct: st.magicPenPct, flat: st.magicPenFlat)
+        }
+        amount *= mitigationMultiplier(type, armor: armor, magicResist: resist)
         // 5. 被ダメ軽減（上限 60%）
         if !environmental { amount *= damageReductionMultiplier(s.units[t].stats.damageReduction) }
         guard amount > 0, amount.isFinite else { return 0 }
+        // 装備の固有効果による被ダメ補正（黄昏の挑戦の上限・魔人化の軽減。防御・軽減の後、シールドの前）
+        if s.units[t].kind == .hero, !environmental {
+            amount = ItemEffects.modifyIncoming(s, ctx, victim: t, type: type, amount: amount)
+            guard amount > 0, amount.isFinite else { return 0 }
+        }
+        // キットのヒーローの被ダメ補正（防御・軽減の後、シールドの前）
+        if s.units[t].hero?.kit != nil {
+            amount = PassiveHooks.modifyIncomingDamage(&s, ctx, victim: t, attacker: a, source: source, amount: amount)
+            guard amount > 0, amount.isFinite else { return 0 }
+        }
 
         // 6. シールド（古いものから）→ HP
         var remaining = amount
         var absorbed = 0.0
+        var turretShieldAbsorbed = 0.0
         if !s.units[t].shields.isEmpty {
             for k in s.units[t].shields.indices where remaining > 0 {
                 let take = min(remaining, max(0, s.units[t].shields[k].amount))
                 s.units[t].shields[k].amount -= take
                 remaining -= take
                 absorbed += take
+                if s.units[t].shields[k].tag == TowerSystem.shieldTag { turretShieldAbsorbed += take }
             }
             s.units[t].shields.removeAll { $0.amount <= deathEpsilon }
+        }
+        // 外塔のシールドを削ったヒーローは、削ったダメージ 10 につき 0.8 Gold を得る（参照仕様 §3.1）
+        if turretShieldAbsorbed > 0, let a, s.units[a].kind == .hero, s.units[a].team != s.units[t].team {
+            EconomyRewards.grantGold(&s, heroIndex: a,
+                                     amount: turretShieldAbsorbed / 10 * Balance.outerTowerShieldGoldPer10,
+                                     at: s.units[t].pos, visible: false)
         }
         let hpBefore = max(0, s.units[t].hp)
         let hpLoss = min(hpBefore, remaining)
@@ -128,7 +157,7 @@ public enum CombatSystem {
         if let a, dealt > 0, !environmental {
             let ratio: Double
             if source == .basicAttack && appliesOnHit {
-                ratio = s.units[a].stats.lifesteal
+                ratio = s.units[a].stats.lifesteal + ItemEffects.lifestealBonus(s, ctx, attacker: a)
             } else if source.isSkill {
                 ratio = s.units[a].stats.spellVamp
             } else {
@@ -140,14 +169,16 @@ public enum CombatSystem {
         }
 
         // 8. 死亡（キル・アシスト判定は DeathSystem で一括）
-        if s.units[t].hp <= deathEpsilon { commitDeath(&s, t, killerID: sourceID) }
+        if s.units[t].hp <= deathEpsilon, !ItemEffects.preventDeath(&s, ctx, victim: t) { commitDeath(&s, t, killerID: sourceID) }
 
         // パッシブのフック（被害者が死亡している場合もある）
         if victimKind == .hero {
             PassiveHooks.onDamageTaken(&s, ctx, victim: t, attacker: a, amount: dealt)
+            ItemEffects.onDamageTaken(&s, ctx, victim: t, attacker: a, dealt: dealt, source: source)
         }
         if case .skill(let slot) = source, let a {
             PassiveHooks.onSkillHit(&s, ctx, attacker: a, target: t, slot: slot, damage: dealt)
+            ItemEffects.onSkillHit(&s, ctx, attacker: a, target: t)
         }
         return dealt
     }
@@ -173,6 +204,11 @@ public enum CombatSystem {
         if !s.pendingDeaths.contains(where: { $0.victimID == id }) {
             s.pendingDeaths.append(PendingDeath(victimID: id, killerID: killerID, time: s.time))
         }
+    }
+
+    /// 貫通後の防御（魔防）。割合で無視してから固定値を引き、下限は 0。
+    static func penetrated(_ defense: Double, pct: Double, flat: Double) -> Double {
+        max(0, max(0, defense) * (1 - min(1, max(0, pct))) - max(0, flat))
     }
 
     /// 防御軽減の倍率（物理 = 100/(100+防御)、魔法 = 100/(100+魔防)、確定 = 1）。
@@ -401,7 +437,10 @@ public enum CombatSystem {
         guard payload.affectsEnemies, !isInvulnerable(s, ctx, t) else { return }
         var dealt = 0.0
         if payload.damage > 0 {
-            dealt = dealDamage(&s, ctx, sourceID: sourceID, targetIndex: t, amount: payload.damage,
+            // キット層: ダメージ補正（失った HP・距離・マーク）を dealDamage の前に反映
+            let amount = payload.scaling == nil ? payload.damage
+                : KitDamage.scaledDamage(s, sourceID: sourceID, target: t, payload: payload)
+            dealt = dealDamage(&s, ctx, sourceID: sourceID, targetIndex: t, amount: amount,
                                type: payload.damageType, source: payload.source, isCrit: payload.isCrit,
                                appliesOnHit: payload.appliesOnHit)
         }
@@ -413,6 +452,10 @@ public enum CombatSystem {
             for st in payload.statuses where !st.kind.combatIsBeneficial {
                 addStatus(&s, targetIndex: t, withSource(st, sourceID))
             }
+        }
+        // キット層: マークの消費・追加効果（打ち上げ・引き寄せ・マーク・回復など）・onHit
+        if payload.hasKitPart {
+            KitDamage.afterHit(&s, ctx, sourceID: sourceID, target: t, payload: payload, dealt: dealt, from: from)
         }
         guard let a = s.index(of: sourceID) else { return }
         if payload.source == .basicAttack && payload.appliesOnHit {
@@ -445,6 +488,7 @@ public enum CombatSystem {
                                                         sourceID: attackerID, tag: tagRedBuff))
         }
         if s.units[a].hero != nil { s.units[a].hero!.basicAttackCount += 1 }
+        ItemEffects.onBasicAttackLanded(&s, ctx, attacker: a, target: t, dealt: dealt)
         PassiveHooks.onBasicAttackHit(&s, ctx, attacker: a, target: t, damage: dealt)
     }
 
@@ -578,9 +622,11 @@ public enum CombatSystem {
         let attackerID = s.units[i].id
         let targetID = s.units[t].id
         let team = s.units[i].team
-        let ranged = isRangedAttacker(s.units[i])
+        var ranged = isRangedAttacker(s.units[i])
         var payload: HitPayload
         var bonus: (payload: HitPayload, visual: String)?
+        // キット層: 通常攻撃の整形（追加弾・追加ヒットなど）
+        var plan: BasicAttackPlan?
 
         switch s.units[i].kind {
         case .hero:
@@ -596,6 +642,7 @@ public enum CombatSystem {
                 }
             }
             let multiplier = isCrit ? max(1, s.units[i].stats.critMultiplier) : 1
+            if isCrit { ItemEffects.onCrit(&s, ctx, attacker: i) }
             payload = HitPayload(damage: s.units[i].stats.attack * multiplier, damageType: .physical,
                                  source: .basicAttack, isCrit: isCrit, appliesOnHit: true)
             // 強化攻撃: 追加ダメージ（自身の種別）と CC を別インスタンスで与えて消費
@@ -619,20 +666,35 @@ public enum CombatSystem {
             return
         }
 
+        if s.units[i].kind == .hero, s.units[t].kind == .hero { markStickyTarget(&s, attacker: i, target: t) }
+        if s.units[i].kind == .hero, s.units[i].hero?.kit != nil {
+            var p = BasicAttackPlan(payload: payload, ranged: ranged)
+            KitBasicAttack.shape(&s, ctx, attacker: i, target: t, plan: &p)
+            payload = p.payload
+            ranged = p.ranged
+            plan = p
+        }
+
         s.emit(.attackReleased(sourceID: attackerID, targetID: targetID, isRanged: ranged))
         if ranged {
-            let speed: Double
-            let visual: String
+            var speed: Double
+            var visual: String
             switch s.units[i].kind {
             case .hero: speed = Balance.heroProjectileSpeed; visual = "basic_attack"
             case .tower, .core: speed = Balance.combatStructureProjectileSpeed; visual = "tower_shot"
             default: speed = Balance.combatMinionProjectileSpeed; visual = "basic_attack"
             }
+            if let ps = plan?.projectileSpeed { speed = ps }
+            if let pv = plan?.visual { visual = pv }
             ProjectileSystem.spawn(&s, ownerIndex: i, motion: .homing(targetID: targetID), speed: speed,
                                    payload: payload, visual: visual)
             if let bonus {
                 ProjectileSystem.spawn(&s, ownerIndex: i, motion: .homing(targetID: targetID), speed: speed,
                                        payload: bonus.payload, visual: bonus.visual)
+            }
+            for extra in plan?.extras ?? [] {
+                ProjectileSystem.spawn(&s, ownerIndex: i, motion: .homing(targetID: targetID), speed: speed,
+                                       payload: extra, visual: visual)
             }
         } else {
             let from = s.units[i].pos
@@ -640,20 +702,34 @@ public enum CombatSystem {
             if let bonus {
                 applyHit(&s, ctx, sourceID: attackerID, team: team, targetIndex: t, payload: bonus.payload, from: from)
             }
+            for extra in plan?.extras ?? [] {
+                applyHit(&s, ctx, sourceID: attackerID, team: team, targetIndex: t, payload: extra, from: from)
+            }
         }
     }
 
     // MARK: - 対象選択
 
     /// 攻撃ボタン用の対象選択（射程 + 300 以内・視認中・無敵でない敵）。同条件は添字の小さい方。
+    /// heroLock = 候補に敵ヒーローがいれば、ヒーローだけの中から優先度で選ぶ。
+    /// activeMonsterOnly = 誰も狙っていない中立モンスターは、ほかに候補があれば外す（寝ている野営地を起こさない）。
     public static func selectTarget(_ s: inout SimState, _ ctx: SimContext, attacker i: Int,
-                                    priority: TargetPriority) -> Int? {
+                                    priority: TargetPriority, heroLock: Bool = false,
+                                    activeMonsterOnly: Bool = false) -> Int? {
         guard s.units.indices.contains(i), isLiving(s, i) else { return nil }
         let pos = s.units[i].pos
         let searchRadius = s.units[i].stats.attackRange + s.units[i].radius + Balance.combatTargetSearchBonus
-        let candidates = s.enemies(of: s.units[i].team, near: pos, radius: searchRadius)
+        var candidates = s.enemies(of: s.units[i].team, near: pos, radius: searchRadius)
             .filter { !isInvulnerable(s, ctx, $0) }
         guard !candidates.isEmpty else { return nil }
+        if activeMonsterOnly {
+            let engaged = candidates.filter { !(s.units[$0].kind == .monster && s.units[$0].attackTargetID == nil) }
+            if !engaged.isEmpty { candidates = engaged }
+        }
+        if heroLock {
+            let heroes = candidates.filter { s.units[$0].kind == .hero }
+            if !heroes.isEmpty { candidates = heroes }
+        }
 
         switch priority {
         case .heroesFirst:
@@ -670,8 +746,87 @@ public enum CombatSystem {
             let structures = candidates.filter { s.units[$0].isStructure }
             return s.nearest(structures, to: pos) ?? s.nearest(candidates, to: pos)
         case .lowestHealth:
-            return lowest(candidates) { s.units[$0].hp + s.units[$0].totalShield }
+            return lowest(candidates) { lowestHealthKey(s, ctx, attacker: i, target: $0) }
+        case .lowestHealthPercent:
+            return lowest(candidates) { s.units[$0].hpRatio }
+        case .nearest:
+            return s.nearest(candidates, to: pos)
         }
+    }
+
+    /// 「実質 HP が最も低い目標」の順位付けの値（小さいほど倒しやすい）。単に残り HP を比べるのではなく、
+    /// 攻撃者のダメージ構成（物理・魔法）に対する防御と被ダメ軽減、シールドを含めて、倒すのに要る生のダメージ量で測る。
+    /// トゥルーダメージが主体のヒーローは防御を無視できるので、従来どおり残り HP（hp + シールド）そのもの。
+    /// 攻撃者の装備の貫通力（割合 → 固定）は、実際のダメージ計算と同じ順で防御・魔防から引いて数える。
+    static func lowestHealthKey(_ s: SimState, _ ctx: SimContext, attacker i: Int, target t: Int) -> Double {
+        let raw = max(0, s.units[t].hp) + s.units[t].totalShield
+        let mix = damageMix(s.units[i], ctx.master)
+        if mix.trueShare > 0.5 { return raw }
+        var armor = s.units[t].stats.armor, resist = s.units[t].stats.magicResist
+        if s.units[i].kind == .hero, !s.units[t].isStructure {
+            let st = s.units[i].stats
+            armor = penetrated(armor, pct: st.armorPenPct, flat: st.armorPenFlat)
+            resist = penetrated(resist, pct: st.magicPenPct, flat: st.magicPenFlat)
+        }
+        let taken = mix.physical * mitigationMultiplier(.physical, armor: armor, magicResist: resist)
+            + mix.magic * mitigationMultiplier(.magic, armor: armor, magicResist: resist) + mix.trueShare
+        return raw / max(0.01, taken) / max(0.01, damageReductionMultiplier(s.units[t].stats.damageReduction))
+    }
+
+    /// ヒーローのダメージ構成（スキルの種別の数の割合。物理・魔法・トゥルー。合計 1）。スキルが無ければ物理。
+    static func damageMix(_ u: Unit, _ master: MasterData) -> (physical: Double, magic: Double, trueShare: Double) {
+        guard let id = u.hero?.heroID else { return (1, 0, 0) }
+        let skills = master.skills(forHero: id).filter { $0.slot != .passive }
+        guard !skills.isEmpty else { return (1, 0, 0) }
+        let n = Double(skills.count)
+        let phys = Double(skills.filter { $0.damageType == .physical }.count) / n
+        let magic = Double(skills.filter { $0.damageType == .magic }.count) / n
+        return (phys, magic, max(0, 1 - phys - magic))
+    }
+
+    // MARK: 攻撃ボタンの追撃（パッチノート: 通常攻撃のターゲティング最適化）
+
+    /// 攻撃ボタン用の対象選択。通常は `selectTarget` と同じだが、直前に狙った敵ヒーローがまだ追える距離にいれば、
+    /// 射程内により優先度の高い敵ヒーローがいない限りその対象を優先する（ミニオンと敵ヒーローの間で対象が切り替わり続けるのを減らす）。
+    /// chase = false なら追撃しない（ヒーローロックをオフにした攻撃ボタン）。
+    public static func selectAttackTarget(_ s: inout SimState, _ ctx: SimContext, attacker i: Int,
+                                          priority: TargetPriority, heroLock: Bool = false, chase: Bool = true,
+                                          activeMonsterOnly: Bool = false) -> Int? {
+        let picked = selectTarget(&s, ctx, attacker: i, priority: priority, heroLock: heroLock,
+                                  activeMonsterOnly: activeMonsterOnly)
+        guard chase, let sticky = stickyHeroTarget(s, ctx, attacker: i) else { return picked }
+        // 射程内に、追っている対象より優先度の高い（実質 HP の低い）敵ヒーローがいれば、そちらへ切り替える
+        let inRange = s.enemies(of: s.units[i].team, near: s.units[i].pos,
+                                radius: s.units[i].stats.attackRange + s.units[i].radius + 200)
+            .filter { s.units[$0].kind == .hero && inAttackRange(s, attacker: i, target: $0) && !isInvulnerable(s, ctx, $0) }
+        if let best = lowest(inRange, by: { effectiveHealth(s.units[$0]) }), best != sticky,
+           !inAttackRange(s, attacker: i, target: sticky) || effectiveHealth(s.units[best]) < effectiveHealth(s.units[sticky]) {
+            return best
+        }
+        return sticky
+    }
+
+    /// 追撃の対象: 直近（`attackStickyWindow` 秒以内）に狙った敵ヒーローで、まだ狙えて追える距離にいるもの。
+    static func stickyHeroTarget(_ s: SimState, _ ctx: SimContext, attacker i: Int) -> Int? {
+        guard let hero = s.units[i].hero, let id = hero.attackStickyTargetID, let at = hero.attackStickyAt,
+              s.time - at <= Balance.attackStickyWindow + 1e-9,
+              let t = s.index(of: id), s.units[t].kind == .hero,
+              s.isTargetableEnemy(t, of: s.units[i].team), !isInvulnerable(s, ctx, t) else { return nil }
+        let chase = s.units[i].stats.attackRange + s.units[i].radius + s.units[t].radius + Balance.attackStickyChaseExtra
+        guard s.units[i].pos.distanceSquared(to: s.units[t].pos) <= chase * chase else { return nil }
+        return t
+    }
+
+    /// 通常攻撃が実際に届く距離（射程 + 双方の半径）か。
+    static func inAttackRange(_ s: SimState, attacker i: Int, target t: Int) -> Bool {
+        let reach = s.units[i].stats.attackRange + s.units[i].radius + s.units[t].radius
+        return s.units[i].pos.distanceSquared(to: s.units[t].pos) <= reach * reach
+    }
+
+    static func markStickyTarget(_ s: inout SimState, attacker i: Int, target t: Int) {
+        let id = s.units[t].id, now = s.time
+        s.units[i].hero?.attackStickyTargetID = id
+        s.units[i].hero?.attackStickyAt = now
     }
 
     /// key が最小の候補（候補は昇順なので同値は添字の小さい方）。

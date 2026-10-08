@@ -63,8 +63,14 @@ targets:
       # プロジェクトには表示するが、出荷バンドルには入れない（テスト用の商品定義を同梱しない）
       - path: App/Resources/Velstria.storekit
         buildPhase: none
+      # Effekseer の効果（.efk とテクスチャ）。相対パスで読むため、フォルダ構造のままバンドルへ入れる（docs/EFFEKSEER.md）
+      - path: Effects/Effekseer
+        type: folder
+        buildPhase: resources
     dependencies:
       - package: VelstriaCore
+      - sdk: Metal.framework
+      - sdk: QuartzCore.framework
     info:
       path: App/Info.plist
       properties:
@@ -143,6 +149,21 @@ targets:
         SUPPORTS_MACCATALYST: NO
         SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
         SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
+        # Effekseer（C++ / Metal ランタイム。ThirdParty/Effekseer。tools/build_effekseer.sh で作る静的ライブラリ）
+        SWIFT_OBJC_BRIDGING_HEADER: App/Battle/Effekseer/VELSTRIA-Bridging-Header.h
+        CLANG_CXX_LANGUAGE_STANDARD: c++17
+        CLANG_CXX_LIBRARY: libc++
+        HEADER_SEARCH_PATHS:
+          - $(SRCROOT)/ThirdParty/Effekseer/include
+          - $(SRCROOT)/ThirdParty/Effekseer/include/Effekseer
+          - $(SRCROOT)/ThirdParty/Effekseer/include/EffekseerRendererCommon
+          - $(SRCROOT)/ThirdParty/Effekseer/include/EffekseerRendererMetal
+          - $(SRCROOT)/ThirdParty/Effekseer/include/EffekseerMaterialCompiler
+          - $(SRCROOT)/ThirdParty/Effekseer/include/EffekseerRendererLLGI
+          - $(SRCROOT)/ThirdParty/Effekseer/include/3rdParty/LLGI/src
+        "LIBRARY_SEARCH_PATHS[sdk=iphoneos*]": $(SRCROOT)/ThirdParty/Effekseer/ios-arm64
+        "LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]": $(SRCROOT)/ThirdParty/Effekseer/ios-arm64-simulator
+        OTHER_LDFLAGS: [-lEffekseerAll, -lc++]
 
   VELSTRIATests:
     type: bundle.unit-test

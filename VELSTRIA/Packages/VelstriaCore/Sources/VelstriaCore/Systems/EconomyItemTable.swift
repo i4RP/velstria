@@ -61,18 +61,16 @@ final class EconomyItemTable: @unchecked Sendable {
         return ranked[k]
     }
 
-    /// 推奨ビルド用の評価値（カテゴリの主要能力 + パッシブ% × 2）。
-    static func value(_ it: ItemDef, percent: Double) -> Double {
-        let main: Double
-        switch it.category {
-        case .attack: main = it.attack
-        case .magic: main = it.abilityPower + it.cooldownReductionPct * 2
-        case .defense: main = it.hp / 10 + it.armor + it.magicResist
-        case .movement: main = it.moveSpeed
-        case .utility: main = it.hp / 10 + it.cooldownReductionPct * 3
-        case .jungle: main = 0
-        case .roam: main = it.moveSpeed
-        }
-        return main + percent * 2
+    /// 推奨ビルド用の評価値（装備の能力値の重み付き合計 + 固有効果の分）。同じカテゴリの中で「より強い装備」を上に並べるための目安。
+    /// percent は旧仕様（passive_text の %）の名残で使わない。
+    static func value(_ it: ItemDef, percent: Double = 0) -> Double {
+        var v = it.attack + it.abilityPower * 0.9 + it.hp / 12 + it.armor * 0.8 + it.magicResist * 0.8
+        v += it.moveSpeed * 0.5 + it.cooldownReductionPct * 1.5 + it.attackSpeedPct * 0.7 + it.critChancePct * 0.9
+        v += it.critDamagePct * 0.3 + it.lifestealPct + it.spellVampPct * 0.8
+        v += it.armorPenPct * 1.6 + it.armorPenFlat + it.magicPenPct * 1.6 + it.magicPenFlat
+        v += it.hpRegen * 0.5 + it.resourceRegen * 0.3 + it.abilityPowerPct * 1.6 + it.healShieldPowerPct * 0.5
+        v += it.moveSpeedPct + it.outOfCombatMovePct * 0.5 + it.monsterDamagePct * 0.2
+        if !it.effectID.isEmpty { v += 20 }
+        return v
     }
 }

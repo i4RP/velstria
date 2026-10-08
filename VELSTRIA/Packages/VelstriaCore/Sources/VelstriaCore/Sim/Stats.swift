@@ -41,6 +41,12 @@ public struct Stats: Codable, Hashable, Sendable {
     public var healingReceivedMultiplier: Double = 1
     /// 非戦闘時の移動速度補正（Movement 装備）。MovementSystem が非戦闘時のみ加算。
     public var outOfCombatMoveSpeedBonus: Double = 0
+    /// 貫通（装備）。敵の防御・魔防を割合（0.4 = 40%）で無視してから、固定値を引く（下限 0）。
+    /// ヒーローの与ダメージにだけ効き、構造物には効かない。割合は同名の固有効果なので最大値を採る（ItemStats）。
+    public var armorPenPct: Double = 0
+    public var armorPenFlat: Double = 0
+    public var magicPenPct: Double = 0
+    public var magicPenFlat: Double = 0
 
     public init() {}
 }

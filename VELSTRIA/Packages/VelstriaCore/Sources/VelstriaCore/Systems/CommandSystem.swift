@@ -38,11 +38,11 @@ public enum CommandSystem {
                 RecallSystem.cancelChannel(&s, i)
             case .attackNearest(let priority):
                 guard !dead else { continue }
-                if let t = CombatSystem.selectTarget(&s, ctx, attacker: i, priority: priority) {
-                    s.units[i].attackTargetID = s.units[t].id
-                    s.units[i].moveIntent = .none
-                    RecallSystem.cancelChannel(&s, i)
-                }
+                attackNearest(&s, ctx, i, priority: priority, heroLock: false, chase: true, activeMonsterOnly: false)
+            case .attackNearestWith(let priority, let heroLock, let activeMonsterOnly):
+                guard !dead else { continue }
+                attackNearest(&s, ctx, i, priority: priority, heroLock: heroLock, chase: heroLock,
+                              activeMonsterOnly: activeMonsterOnly)
             case .castSkill(let slot, let target):
                 guard !dead else { continue }
                 if SkillSystem.cast(&s, ctx, heroIndex: i, slot: slot, target: target) {
@@ -88,5 +88,16 @@ public enum CommandSystem {
                 }
             }
         }
+    }
+
+    /// 攻撃ボタン: 優先度に従って対象を選び、通常攻撃の対象にする（ヒーローを狙ったときは追撃の記録を残す）。
+    private static func attackNearest(_ s: inout SimState, _ ctx: SimContext, _ i: Int, priority: TargetPriority,
+                                      heroLock: Bool, chase: Bool, activeMonsterOnly: Bool) {
+        guard let t = CombatSystem.selectAttackTarget(&s, ctx, attacker: i, priority: priority, heroLock: heroLock,
+                                                      chase: chase, activeMonsterOnly: activeMonsterOnly) else { return }
+        s.units[i].attackTargetID = s.units[t].id
+        if s.units[t].kind == .hero { CombatSystem.markStickyTarget(&s, attacker: i, target: t) }
+        s.units[i].moveIntent = .none
+        RecallSystem.cancelChannel(&s, i)
     }
 }
