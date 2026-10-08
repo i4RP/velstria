@@ -4,7 +4,7 @@ iPhone 向けの 5v5・3 レーン MOBA（v1.0 はオフライン対 AI）。ネ
 
 - **VelstriaCore** — 30Hz 固定 tick の決定論シミュレーション（Swift Package、macOS で `swift test` 可能）
 - **アプリ** — SwiftUI（メタ画面）+ RealityKit（3D 戦闘）+ StoreKit 2、iOS 18+、iPhone のみ・横画面
-- ヒーロー 24 / スキル 120 / 装備 72 / バトルスペル 15 / ルーン 30（仕様: `VELSTRIA_復元版パッケージ/`）
+- ヒーロー 34 / スキル 136 / 装備 72 / バトルスペル 15 / ルーン 30（仕様: `VELSTRIA_復元版パッケージ/`）
 
 ## 構成
 

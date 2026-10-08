@@ -56,8 +56,23 @@ enum Theme {
         }
     }
 
+    /// 造形設計の配色（NEW_HEROES.md）に合わせて、番号から決まる色相を上書きするヒーロー。
+    private static let heroHueOverrides: [String: Double] = [
+        "H025": 0.40,  // ルミナ: 翠緑
+        "H026": 0.76,  // エウリア: 紫
+        "H027": 0.58,  // ジャルド: 銀青
+        "H028": 0.50,  // ザイル: シアン
+        "H029": 0.12,  // ボルグ: 金
+        "H030": 0.92,  // ライナ: 桃
+        "H031": 0.56,  // オーリア: 氷青
+        "H032": 0.02,  // ディアス: 赤
+        "H033": 0.98,  // ヴァルド: 深紅
+        "H034": 0.08,  // ゴルム: 鉄茶
+    ]
+
     /// ヒーロー固有の色相（ポートレート・3D モデルの基調色）。
     static func heroHue(_ heroID: String) -> Double {
+        if let h = heroHueOverrides[heroID] { return h }
         let n = Double(Int(heroID.dropFirst()) ?? 0)
         return (n * 0.137).truncatingRemainder(dividingBy: 1.0)
     }

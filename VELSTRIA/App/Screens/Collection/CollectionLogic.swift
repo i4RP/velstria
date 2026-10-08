@@ -345,6 +345,24 @@ enum ItemMath {
         if item.cooldownReductionPct != 0 {
             lines.append(.init(label: L("CD短縮", "Cooldown Red."), value: "+\(CollectionStyle.percent(item.cooldownReductionPct))", symbol: "timer"))
         }
+        // 装備の作り直し（2026-10）で足した能力値。貫通・吸血・クリティカルなど
+        let pct = { (v: Double) in "+\(CollectionStyle.percent(v))" }
+        if item.attackSpeedPct != 0 { lines.append(.init(label: L("攻撃速度", "Attack Speed"), value: pct(item.attackSpeedPct), symbol: "speedometer")) }
+        if item.critChancePct != 0 { lines.append(.init(label: L("クリティカル率", "Crit Chance"), value: pct(item.critChancePct), symbol: "scope")) }
+        if item.critDamagePct != 0 { lines.append(.init(label: L("クリティカルダメージ", "Crit Damage"), value: pct(item.critDamagePct), symbol: "scope")) }
+        if item.armorPenPct != 0 { lines.append(.init(label: L("物理貫通", "Physical Pen."), value: pct(item.armorPenPct), symbol: "xmark.shield.fill")) }
+        if item.armorPenFlat != 0 { lines.append(.init(label: L("物理貫通（固定）", "Physical Pen. (flat)"), value: "+\(n(item.armorPenFlat))", symbol: "xmark.shield.fill")) }
+        if item.magicPenPct != 0 { lines.append(.init(label: L("魔法貫通", "Magic Pen."), value: pct(item.magicPenPct), symbol: "xmark.shield.fill")) }
+        if item.magicPenFlat != 0 { lines.append(.init(label: L("魔法貫通（固定）", "Magic Pen. (flat)"), value: "+\(n(item.magicPenFlat))", symbol: "xmark.shield.fill")) }
+        if item.lifestealPct != 0 { lines.append(.init(label: L("ライフスティール", "Lifesteal"), value: pct(item.lifestealPct), symbol: "drop.fill")) }
+        if item.spellVampPct != 0 { lines.append(.init(label: L("スペルヴァンプ", "Spell Vamp"), value: pct(item.spellVampPct), symbol: "drop.fill")) }
+        if item.abilityPowerPct != 0 { lines.append(.init(label: L("魔力", "Power"), value: pct(item.abilityPowerPct), symbol: "sparkles")) }
+        if item.hpRegen != 0 { lines.append(.init(label: L("HP回復", "HP Regen"), value: "+\(n(item.hpRegen))", symbol: "cross.fill")) }
+        if item.resourceRegen != 0 { lines.append(.init(label: L("リソース回復", "Resource Regen"), value: "+\(n(item.resourceRegen))", symbol: "drop.circle.fill")) }
+        if item.moveSpeedPct != 0 { lines.append(.init(label: L("移動速度", "Move Speed"), value: pct(item.moveSpeedPct), symbol: "hare.fill")) }
+        if item.outOfCombatMovePct != 0 { lines.append(.init(label: L("非戦闘時の移動速度", "Out-of-combat Move Speed"), value: pct(item.outOfCombatMovePct), symbol: "hare.fill")) }
+        if item.healShieldPowerPct != 0 { lines.append(.init(label: L("回復・シールド量", "Heal & Shield Power"), value: pct(item.healShieldPowerPct), symbol: "heart.circle.fill")) }
+        if item.monsterDamagePct != 0 { lines.append(.init(label: L("モンスターへのダメージ", "Monster Damage"), value: pct(item.monsterDamagePct), symbol: "pawprint.fill")) }
         return lines
     }
 
@@ -355,6 +373,11 @@ enum ItemMath {
 
     /// カテゴリ別の固有パッシブ効果（X = passive_text の %）。
     static func passiveEffectText(_ item: ItemDef) -> String {
+        // 装備の作り直し（2026-10）以降、固有効果は装備ごとの文（日本語はマスター、英語は master_en.json の "<id>.desc"）。
+        // ギア（EQJ/EQR のジャングル靴・ローム靴）は従来どおりカテゴリ別の説明。
+        if item.itemID.hasPrefix("EQ0"), !item.passiveText.isEmpty {
+            return MasterText.description(id: item.itemID, ja: item.passiveText)
+        }
         let x = item.passivePercent
         let p = { (v: Double) in CollectionStyle.percent(v) }
         switch item.category {
@@ -494,10 +517,10 @@ enum BuildRules {
         build.compactMap { master.item($0)?.priceGold }.reduce(0, +)
     }
 
-    /// 推奨ビルド（ロール別。未提供なら空）。
+    /// 推奨ビルド（ヒーロー別、無ければロール別。未提供なら空）。
     static func recommended(for heroID: String, master: MasterData) -> [String] {
         guard let role = master.hero(heroID)?.role else { return [] }
-        return sanitized(ItemSystem.recommendedBuild(role: role, master: master), master: master)
+        return sanitized(ItemSystem.recommendedBuild(heroID: heroID, role: role, master: master), master: master)
     }
 
     /// 表示・編集の初期値: カスタムビルド優先、無ければ推奨。

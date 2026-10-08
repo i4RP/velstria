@@ -15,10 +15,10 @@ final class CollectionStoreLogicTests: XCTestCase {
 
     func testCategoryContents() {
         XCTAssertEqual(StoreCatalog.items(in: .skins, master: master).count, 12)
-        XCTAssertEqual(StoreCatalog.items(in: .effects, master: master).count, 36)
-        XCTAssertEqual(StoreCatalog.items(in: .emotes, master: master).count, 12)
-        XCTAssertEqual(StoreCatalog.items(in: .frames, master: master).count, 12)
-        XCTAssertEqual(StoreCatalog.items(in: .heroes, master: master).count, 24)
+        XCTAssertEqual(StoreCatalog.items(in: .effects, master: master).count, 54)
+        XCTAssertEqual(StoreCatalog.items(in: .emotes, master: master).count, 18)
+        XCTAssertEqual(StoreCatalog.items(in: .frames, master: master).count, 18)
+        XCTAssertEqual(StoreCatalog.items(in: .heroes, master: master).count, 34)
         XCTAssertTrue(StoreCatalog.items(in: .gems, master: master).isEmpty)
         XCTAssertEqual(StoreCatalog.bundles(master: master).count, 18)
         for c in StoreCategory.allCases {

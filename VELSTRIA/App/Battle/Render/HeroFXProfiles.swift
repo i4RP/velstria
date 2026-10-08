@@ -6,7 +6,7 @@ import VelstriaCore
 // 色はヒーローの造形設計（HeroBlueprints）の glow を主色、accent を副色にする。Theme.heroHue（UI の基調色）は使わない:
 // 基調色は衣装の色で、武器・魔法の光（炎・水・雷）と合わないヒーローが多い（例: 水の杖のミレアの基調色は橙）。
 // 投射物は形・芯・軌跡をヒーロー別にし、敵味方の読み分けはチーム色の薄い光暈で残す（ProjectileLayer）。
-// 表に無いヒーロー（H001〜H024 以外）は nil = 従来の汎用演出（チーム色の光弾・火花）。
+// 表に無いヒーロー（H001〜H034 以外）は nil = 従来の汎用演出（チーム色の光弾・火花）。
 
 struct HeroFXProfile: Equatable {
     /// 近接の武器の軌跡（WeaponTrail）。
@@ -192,6 +192,18 @@ enum HeroFXProfiles {
         static let lightBlade = T(inner: 0.3, outer: 1.06, life: 0.14, look: .blade, opacity: 0.85)
         /// 夢の針（二刀）: 細い糸。
         static let needle = T(inner: 0.35, outer: 1.1, life: 0.15, look: .thin, opacity: 0.8)
+        /// 竜牙の長槍: 穂先寄りの鋭い突きの帯。
+        static let dragonSpear = T(inner: 0.55, outer: 1.06, life: 0.16, look: .blade, opacity: 0.85)
+        /// 光刃の長剣: 刃全体に長く尾を引く光の帯。
+        static let photonBlade = T(inner: 0.2, outer: 1.08, life: 0.2, look: .blade, opacity: 0.85)
+        /// 聖槌: 槌頭の重い光の帯。
+        static let holyMaul = T(inner: 0.4, outer: 1.12, life: 0.18, look: .heavy, opacity: 0.8)
+        /// 拳剣: 拳の先から伸びる刃の短く鋭い帯。
+        static let fistBlade = T(inner: 0.25, outer: 1.1, life: 0.14, look: .blade, opacity: 0.85)
+        /// 血の大剣: 長い刃に重く尾を引く帯。
+        static let greatsword = T(inner: 0.25, outer: 1.08, life: 0.22, look: .heavy, opacity: 0.85)
+        /// 鎖鉤: 鎖の長さいっぱいに流れる柔らかい帯。
+        static let hookChain = T(inner: 0.15, outer: 1.1, life: 0.22, look: .soft, opacity: 0.75)
     }
 
     private struct Spec {
@@ -253,6 +265,26 @@ enum HeroFXProfiles {
         "H023": Spec(impact: .electric, shot: .lightning, muzzle: .spark, launch: .weaponTip),
         // M ノア: 紫の夢の糸の細い帯、小さな紫のきらめき
         "H024": Spec(trail: Trails.needle, impact: .sparkle, muzzle: .none, launch: .weaponTip),
+        // R ルミナ: 副手の三日月の長弓から月光の矢（光の筋の尾）、柔らかい月光の弾け
+        "H025": Spec(impact: .softBurst, shot: .arrow, shotTrail: .streak, muzzle: .bow, launch: .bow),
+        // R エウリア: 雷杖の先から電光の光球（光の筋の尾）、電撃
+        "H026": Spec(impact: .electric, shot: .lightOrb, shotTrail: .streak, muzzle: .spark, launch: .weaponTip),
+        // M ジャルド: 銀青の竜槍の突きの帯、突きの火花
+        "H027": Spec(trail: Trails.dragonSpear, impact: .pierce, muzzle: .none, launch: .weaponTip),
+        // M ザイル: シアンの光刃の長い帯、刃の火花
+        "H028": Spec(trail: Trails.photonBlade, impact: .slash, muzzle: .none, launch: .weaponTip),
+        // M ボルグ: 金白の聖槌の重い帯、地面の輪と破片を伴う大きな打撃
+        "H029": Spec(trail: Trails.holyMaul, impact: .heavyBlunt, muzzle: .none, launch: .weaponTip),
+        // R ライナ: 星砲の砲口から桃の光弾（光の筋の尾）、大きな発射炎、炎の弾け
+        "H030": Spec(impact: .fireBurst, shot: .lightOrb, shotTrail: .streak, muzzle: .blast, launch: .weaponTip),
+        // R オーリア: 氷の杖の先から氷青の水球（光の筋の尾）、氷のきらめき
+        "H031": Spec(impact: .sparkle, shot: .waterOrb, shotTrail: .streak, muzzle: .cast, launch: .weaponTip),
+        // M ディアス: 赤い拳剣の短く鋭い帯、赤い燃えさしの弾け
+        "H032": Spec(trail: Trails.fistBlade, impact: .embers, muzzle: .none, launch: .weaponTip),
+        // M ヴァルド: 深紅の大剣の重い帯、刃の火花
+        "H033": Spec(trail: Trails.greatsword, impact: .slash, muzzle: .none, launch: .weaponTip),
+        // M ゴルム: 錆びた赤の鎖鉤の柔らかい長い帯、鈍い打撃（燃えさし + 地面の小さな輪）
+        "H034": Spec(trail: Trails.hookChain, impact: .blunt, muzzle: .none, launch: .weaponTip),
     ]
 
     private static let table: [String: HeroFXProfile] = {

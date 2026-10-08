@@ -314,7 +314,13 @@ class Effect:
         dst = os.path.join(out_dir, self.name + ".efk")
         if os.path.exists(dst):
             os.remove(dst)
-        subprocess.run(["effekseer", "export", proj, dst], check=True, capture_output=True)
+        if shutil.which("effekseer"):
+            subprocess.run(["effekseer", "export", proj, dst], check=True, capture_output=True)
+        else:
+            # CLI が無い環境（Windows など）は、純 Python の書き出し器で同じ .efk を作る（efkexport.py）
+            import efkexport
+            with open(dst, "wb") as f:
+                f.write(efkexport.export_efk(self.xml()))
         if not keep_project:
             os.remove(proj)
         if not os.path.exists(dst) or os.path.getsize(dst) == 0:

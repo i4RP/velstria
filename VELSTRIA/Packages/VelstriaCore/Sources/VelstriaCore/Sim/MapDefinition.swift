@@ -198,8 +198,10 @@ extension MapDefinition {
     /// EXP レーン = 最初に出現する中立ボスに近い側レーン、Gold レーン = 遠い側レーン（参照仕様 §3.1）。
     /// 側レーン（top・bot）が両方ある標準マップだけが持つ。乱闘など単レーンのマップは nil。
     public var expLane: Lane? {
+        // 川の中立（片側のみの小キャンプ）は数えない。ボス（星喰竜・古環の巨像）だけが対象。
         guard lanes.contains(.top), lanes.contains(.bot),
-              let boss = camps.filter({ $0.side == .neutral }).min(by: { $0.firstSpawn < $1.firstSpawn }) else { return nil }
+              let boss = camps.filter({ $0.side == .neutral && ($0.kind == .astralWyrm || $0.kind == .ancientColossus) })
+                  .min(by: { $0.firstSpawn < $1.firstSpawn }) else { return nil }
         return distanceToLane(boss.pos, lane: .top) < distanceToLane(boss.pos, lane: .bot) ? .top : .bot
     }
 
@@ -233,20 +235,29 @@ extension MapDefinition {
     /// 泉・Core 周辺で障害物を置かない半径。
     static let baseClearRadius: Double = 1800
 
+    /// 泉・Core・mid の経路とタワー（標準マップと乱闘マップで共通）。
+    static let standardBlueFountain = Vec2(600, 600)
+    static let standardBlueCore = Vec2(1250, 1250)
+    /// ミニマップのアイコンから測った位置（外塔・内塔・基部塔）。mid レーンの帯（y = x）の中で、Blue は左上寄りに置かれている。
+    static let standardMidTowers = [Vec2(4656, 4991), Vec2(3391, 3705), Vec2(2399, 2399)]
+
     public static let standard: MapDefinition = {
-        let blueFountain = Vec2(700, 700)
-        let blueCore = Vec2(1500, 1500)
+        let blueFountain = standardBlueFountain
+        let blueCore = standardBlueCore
         let redCore = blueCore.mirrored
 
-        let top: [Vec2] = [blueCore, Vec2(1400, 2400), Vec2(1400, 10600), Vec2(9600, 10600), redCore]
+        // レーンの帯は地図の縁に沿い（中心線は縁から 700）、左上と右下の角は 45° に切る。
+        // top = 左縁を上り、左上の角を斜めに抜けて上縁を右へ。bot = 下縁を右へ、右下の角を斜めに抜けて右縁を上へ（top の点対称の逆順）。
+        let top: [Vec2] = [blueCore, Vec2(700, 2600), Vec2(700, 9400), Vec2(2600, 11300), Vec2(9400, 11300), redCore]
         let mid: [Vec2] = [blueCore, Vec2(2300, 2300), Vec2(9700, 9700), redCore]
-        let bot: [Vec2] = [blueCore, Vec2(2400, 1400), Vec2(10600, 1400), Vec2(10600, 9600), redCore]
+        let bot: [Vec2] = [blueCore, Vec2(2600, 700), Vec2(9400, 700), Vec2(11300, 2600), Vec2(11300, 9400), redCore]
 
-        // Blue タワー（レーン, 外/内/基部）
+        // Blue タワー（レーン, 外/内/基部）。ミニマップのアイコンの重心から測った位置（点対称のペアで較正、誤差 数十）。
+        // 縁のレーンではタワーが帯の外側寄り（縁側）に立つ。
         let blueTowerPos: [Lane: [Vec2]] = [
-            .top: [Vec2(1400, 7000), Vec2(1400, 4800), Vec2(1400, 3000)],
-            .mid: [Vec2(4300, 4300), Vec2(3400, 3400), Vec2(2600, 2600)],
-            .bot: [Vec2(7000, 1400), Vec2(4800, 1400), Vec2(3000, 1400)],
+            .top: [Vec2(484, 8793), Vec2(556, 6342), Vec2(639, 3166)],
+            .mid: standardMidTowers,
+            .bot: [Vec2(8848, 567), Vec2(5423, 470), Vec2(3179, 630)],
         ]
         var towers: [TowerSpot] = []
         for lane in Lane.allCases {
@@ -266,14 +277,27 @@ extension MapDefinition {
         towers.append(TowerSpot(team: .blue, lane: nil, tier: .base, pos: blueCore, isCore: true))
         towers.append(TowerSpot(team: .red, lane: nil, tier: .base, pos: redCore, isCore: true))
 
-        // キャンプ（Blue 側 → Red 側は写像、ボスは中立）
+        // キャンプ: ミニマップのアイコンから測った位置（誤差 数十）。ゲーム側の配置は厳密な点対称ではないので、
+        // Red 側も測った値をそのまま使う（Blue 側の写像とのずれは最大 約 100）。ボスと川の中立は中立。
+        // Blue: 西のジャングル（左レーンと mid の間）に蒼晶の番人と小 2、南のジャングル（下レーンと mid の間）に紅焔の番人と小 3。
         let blueCamps: [(CampKind, Vec2)] = [
-            (.blueSentinel, Vec2(3300, 6300)),
-            (.redSentinel, Vec2(6300, 3300)),
-            (.small, Vec2(2800, 5000)),
-            (.small, Vec2(4700, 5800)),
-            (.small, Vec2(5000, 2800)),
-            (.small, Vec2(5800, 4700)),
+            (.blueSentinel, Vec2(3075, 5755)),
+            (.redSentinel, Vec2(5609, 2627)),
+            (.small, Vec2(1994, 6821)),
+            (.small, Vec2(2578, 6632)),
+            (.small, Vec2(6095, 3184)),
+            (.small, Vec2(6645, 2401)),
+            (.small, Vec2(7480, 2235)),
+        ]
+        // Red: 東のジャングル（Blue の西の対）に蒼晶の番人と小 2、北のジャングル（Blue の南の対）に紅焔の番人と小 3。
+        let redCamps: [(CampKind, Vec2)] = [
+            (.blueSentinel, Vec2(9089, 6224)),
+            (.redSentinel, Vec2(6370, 9366)),
+            (.small, Vec2(10096, 5158)),
+            (.small, Vec2(9424, 5368)),
+            (.small, Vec2(5905, 8820)),
+            (.small, Vec2(5358, 9597)),
+            (.small, Vec2(4613, 9859)),
         ]
         var camps: [CampSpot] = []
         func respawn(_ k: CampKind) -> Double {
@@ -288,23 +312,23 @@ extension MapDefinition {
         for (k, p) in blueCamps {
             camps.append(CampSpot(id: camps.count, side: .blue, kind: k, pos: p, firstSpawn: 30, respawn: respawn(k)))
         }
-        for (k, p) in blueCamps {
-            camps.append(CampSpot(id: camps.count, side: .red, kind: k, pos: p.mirrored, firstSpawn: 30, respawn: respawn(k)))
+        for (k, p) in redCamps {
+            camps.append(CampSpot(id: camps.count, side: .red, kind: k, pos: p, firstSpawn: 30, respawn: respawn(k)))
         }
-        camps.append(CampSpot(id: camps.count, side: .neutral, kind: .astralWyrm, pos: Vec2(8300, 3700),
+        camps.append(CampSpot(id: camps.count, side: .neutral, kind: .astralWyrm, pos: Vec2(8260, 3590),
                               firstSpawn: 120, respawn: respawn(.astralWyrm)))
-        camps.append(CampSpot(id: camps.count, side: .neutral, kind: .ancientColossus, pos: Vec2(3700, 8300),
+        camps.append(CampSpot(id: camps.count, side: .neutral, kind: .ancientColossus, pos: Vec2(3740, 8410),
                               firstSpawn: 480, respawn: respawn(.ancientColossus)))
+        // 川の中立（片側のみ: 古環の巨像の巣の側）。参照仕様 §3.3 / §5.1: 約 0:45 に出現、再出現 2 分。
+        camps.append(CampSpot(id: camps.count, side: .neutral, kind: .small, pos: Vec2(4710, 7285),
+                              firstSpawn: 45, respawn: 120))
 
-        // 障害物・草むら: Blue 陣地の下側ジャングル（y < x、bot レーンと mid レーンの間）を定義し、
-        // y = x の鏡映で上側ジャングルを作り（Blue 半面）、点対称で Red 半面を作る。
-        let blueHalfObstacles = standardBotJungleObstacles + standardBotJungleObstacles.map(\.reflectedAcrossDiagonal)
+        // 障害物・草むら: Blue 陣地（西と南のジャングル + 左上の角）を定義し、点対称で Red 半面を作る。
+        // 角（左上）の写像が右下の角になる。
+        let blueHalfObstacles = standardBlueJungleObstacles + standardCornerObstacles
         let obstacles = blueHalfObstacles + blueHalfObstacles.map(\.mirrored)
 
-        let blueHalfBrushes = standardBotJungleBrushes + standardBotJungleBrushes.map {
-            Rect2(minX: $0.minY, minY: $0.minX, maxX: $0.maxY, maxY: $0.maxX)
-        }
-        let brushRects = blueHalfBrushes + blueHalfBrushes.map(\.mirrored)
+        let brushRects = standardBlueBrushes + standardBlueBrushes.map(\.mirrored)
         let brushes = brushRects.enumerated().map { BrushArea(id: $0.offset, rect: $0.element) }
 
         return MapDefinition(
@@ -330,13 +354,13 @@ extension MapDefinition {
     /// `lanePaths` は 3 要素（top=bot=mid）を保ちつつ `lanes=[.mid]` で挙動を制限する。
     /// 障害物・キャンプは置かず、検証（laneObstacleClearance/baseClearRadius）を確実に通す。
     public static let brawl: MapDefinition = {
-        let blueFountain = Vec2(700, 700)
-        let blueCore = Vec2(1500, 1500)
+        let blueFountain = standardBlueFountain
+        let blueCore = standardBlueCore
         let redCore = blueCore.mirrored
         let mid: [Vec2] = [blueCore, Vec2(2300, 2300), Vec2(9700, 9700), redCore]
 
         // mid 3 tier を両チーム分 + コア。
-        let blueMidTowers = [Vec2(4300, 4300), Vec2(3400, 3400), Vec2(2600, 2600)]
+        let blueMidTowers = standardMidTowers
         var towers: [TowerSpot] = []
         for tier in TowerTier.allCases {
             towers.append(TowerSpot(team: .blue, lane: .mid, tier: tier, pos: blueMidTowers[tier.rawValue], isCore: false))
@@ -359,46 +383,84 @@ extension MapDefinition {
         )
     }()
 
-    /// Blue 下側ジャングルの壁（10 個 × 4 = 40 個）。
-    /// 通路: bot レーン→小キャンプ(5000,2800)、小→紅焔の番人(6300,3300)、番人→小(5800,4700)→mid/河川、
-    ///       番人→星喰竜の巣(8300,3700) の南西口、bot レーン→巣の南口（外塔の先）、泉側からの裏口。
-    static let standardBotJungleObstacles: [Obstacle] = [
-        // 本拠点寄りの岩（裏口と mid からの入口を分ける）
-        .circle(center: Vec2(3600, 2500), radius: 320),
-        // bot レーンと番人・小キャンプを隔てる長い壁
-        .rect(Rect2(minX: 5300, minY: 1950, maxX: 6900, maxY: 2450)),
-        // mid 側の中央壁（小キャンプ2つと番人の間）
-        .rect(Rect2(minX: 4700, minY: 3350, maxX: 5750, maxY: 3900)),
-        // 番人の北東壁（兼 竜の巣の西壁）
-        .rect(Rect2(minX: 6700, minY: 3700, maxX: 7400, maxY: 4200)),
-        // 竜の巣の南壁
-        .circle(center: Vec2(8300, 2800), radius: 300),
-        // bot 河口の岩
-        .circle(center: Vec2(9000, 2150), radius: 200),
-        // 河川寄りの岩（小キャンプ(5800,4700) の河川側）
-        .circle(center: Vec2(6400, 4900), radius: 200),
-        // 外塔の先のジャングル入口を二分する岩
-        .circle(center: Vec2(7700, 2300), radius: 230),
-        // mid 入口の柱（小キャンプ(5000,2800) の北西）
-        .rect(Rect2(minX: 4050, minY: 2800, maxX: 4450, maxY: 3100)),
-        // 番人と河川小キャンプの間の柱
-        .rect(Rect2(minX: 6100, minY: 4050, maxX: 6400, maxY: 4300)),
+    /// Blue 陣地（西と南のジャングル）の壁（48 個 × 2）。ミニマップの暗い塊を抽出して円と矩形で当てはめた
+    /// （`tools/map_proto/fitwalls.mjs`。制約: レーンから 400・キャンプから 330・タワーから 250・Core から 1900・ボスの巣から 1100）。
+    /// Red 側は点対称。`validationIssues` の制約（レーン 350・キャンプ 300・タワー 210）を満たす。
+    static let standardBlueJungleObstacles: [Obstacle] = [
+        .rect(Rect2(minX: 1400, minY: 3450, maxX: 1750, maxY: 3750)),
+        .rect(Rect2(minX: 1400, minY: 7950, maxX: 1900, maxY: 9100)),
+        .rect(Rect2(minX: 1400, minY: 6000, maxX: 1900, maxY: 6500)),
+        .rect(Rect2(minX: 1400, minY: 3400, maxX: 1950, maxY: 3650)),
+        .rect(Rect2(minX: 1400, minY: 4250, maxX: 2050, maxY: 5250)),
+        .rect(Rect2(minX: 1600, minY: 7150, maxX: 2200, maxY: 7400)),
+        .rect(Rect2(minX: 1400, minY: 8000, maxX: 2450, maxY: 8500)),
+        .circle(center: Vec2(2030, 4230), radius: 150),
+        .rect(Rect2(minX: 1850, minY: 3200, maxX: 2250, maxY: 3450)),
+        .circle(center: Vec2(2630, 5330), radius: 100),
+        .rect(Rect2(minX: 2600, minY: 7200, maxX: 2900, maxY: 7750)),
+        .rect(Rect2(minX: 2650, minY: 5100, maxX: 3000, maxY: 5400)),
+        .rect(Rect2(minX: 2700, minY: 3900, maxX: 3100, maxY: 4350)),
+        .circle(center: Vec2(2930, 7230), radius: 250),
+        .rect(Rect2(minX: 2900, minY: 6100, maxX: 3350, maxY: 6350)),
+        .rect(Rect2(minX: 2950, minY: 4200, maxX: 3600, maxY: 4550)),
+        .rect(Rect2(minX: 3150, minY: 1150, maxX: 3550, maxY: 2200)),
+        .circle(center: Vec2(3530, 5930), radius: 100),
+        .rect(Rect2(minX: 3450, minY: 6800, maxX: 3700, maxY: 7100)),
+        .circle(center: Vec2(3630, 1330), radius: 200),
+        .circle(center: Vec2(3930, 2730), radius: 150),
+        .rect(Rect2(minX: 3900, minY: 4800, maxX: 4200, maxY: 5400)),
+        .circle(center: Vec2(4130, 3030), radius: 350),
+        .rect(Rect2(minX: 4000, minY: 4950, maxX: 4350, maxY: 5600)),
+        .rect(Rect2(minX: 4100, minY: 5450, maxX: 4550, maxY: 5700)),
+        .circle(center: Vec2(4330, 2130), radius: 300),
+        .circle(center: Vec2(4330, 3330), radius: 100),
+        .circle(center: Vec2(4430, 1830), radius: 100),
+        .circle(center: Vec2(4530, 6530), radius: 150),
+        .rect(Rect2(minX: 4550, minY: 6200, maxX: 4800, maxY: 6550)),
+        .circle(center: Vec2(4930, 3830), radius: 250),
+        .circle(center: Vec2(4930, 6130), radius: 200),
+        .rect(Rect2(minX: 5000, minY: 3850, maxX: 5650, maxY: 4450)),
+        .rect(Rect2(minX: 4750, minY: 1300, maxX: 6000, maxY: 1700)),
+        .rect(Rect2(minX: 4900, minY: 3900, maxX: 5950, maxY: 4300)),
+        .circle(center: Vec2(6030, 1530), radius: 100),
+        .rect(Rect2(minX: 5900, minY: 4950, maxX: 6250, maxY: 5250)),
+        .rect(Rect2(minX: 5950, minY: 2350, maxX: 6250, maxY: 2850)),
+        .circle(center: Vec2(6230, 4930), radius: 200),
+        .rect(Rect2(minX: 6200, minY: 4650, maxX: 6550, maxY: 4950)),
+        .rect(Rect2(minX: 6400, minY: 3050, maxX: 6650, maxY: 3650)),
+        .rect(Rect2(minX: 6400, minY: 4500, maxX: 6700, maxY: 4800)),
+        .circle(center: Vec2(6730, 4430), radius: 100),
+        .rect(Rect2(minX: 6600, minY: 1350, maxX: 7550, maxY: 1750)),
+        .rect(Rect2(minX: 6950, minY: 2550, maxX: 7500, maxY: 2800)),
+        .rect(Rect2(minX: 8150, minY: 1400, maxX: 9350, maxY: 1650)),
+        .circle(center: Vec2(8930, 2130), radius: 100),
+        .rect(Rect2(minX: 8650, minY: 1400, maxX: 9450, maxY: 2100)),
     ]
 
-    /// Blue 下側ジャングルの草むら（6 個 × 4 = 24 個）。
-    static let standardBotJungleBrushes: [Rect2] = [
-        // bot レーン脇（河川との交差付近）
-        Rect2(minX: 9300, minY: 1800, maxX: 9800, maxY: 2100),
-        // 河川（竜の巣の北西口）
-        Rect2(minX: 7250, minY: 4250, maxX: 7550, maxY: 4450),
-        // mid レーン脇（河川との交差付近）
-        Rect2(minX: 5900, minY: 5150, maxX: 6250, maxY: 5450),
-        // bot レーンからのジャングル入口
-        Rect2(minX: 4250, minY: 1900, maxX: 4600, maxY: 2250),
-        // 番人の東（竜の巣へ抜ける通路）
-        Rect2(minX: 6750, minY: 2800, maxX: 7100, maxY: 3150),
-        // mid 側入口（河川小キャンプの手前）
-        Rect2(minX: 5150, minY: 4150, maxX: 5500, maxY: 4400),
+    /// 左上の角を 45° に切る壁（円の連なり）。点対称の写像が右下の角になる。
+    /// レーンの斜めの区間（(700,9400)→(2600,11300)）から 550 以上離す。
+    static let standardCornerObstacles: [Obstacle] = [
+        .circle(center: Vec2(150, 10450), radius: 500),
+        .circle(center: Vec2(750, 11050), radius: 500),
+        .circle(center: Vec2(250, 11650), radius: 500),
+        .circle(center: Vec2(1350, 11650), radius: 500),
+        .circle(center: Vec2(1900, 12100), radius: 500),
+    ]
+
+    /// Blue 陣地の草むら（12 個 × 2）。レーン脇・河川・番人の近く（ミニマップに草むらは出ないので位置は設計）。
+    static let standardBlueBrushes: [Rect2] = [
+        Rect2(minX: 1000, minY: 7600, maxX: 1400, maxY: 8200),
+        Rect2(minX: 1000, minY: 4800, maxX: 1400, maxY: 5400),
+        Rect2(minX: 4900, minY: 7000, maxX: 5300, maxY: 7300),
+        Rect2(minX: 2600, minY: 3100, maxX: 3000, maxY: 3450),
+        Rect2(minX: 1950, minY: 5400, maxX: 2250, maxY: 5750),
+        Rect2(minX: 3700, minY: 6300, maxX: 4100, maxY: 6600),
+        Rect2(minX: 5500, minY: 1000, maxX: 6000, maxY: 1250),
+        Rect2(minX: 8000, minY: 1000, maxX: 8500, maxY: 1250),
+        Rect2(minX: 4550, minY: 2800, maxX: 4850, maxY: 3150),
+        Rect2(minX: 7150, minY: 4350, maxX: 7450, maxY: 4650),
+        Rect2(minX: 5500, minY: 3500, maxX: 5900, maxY: 3800),
+        Rect2(minX: 7800, minY: 2100, maxX: 8200, maxY: 2400),
     ]
 }
 

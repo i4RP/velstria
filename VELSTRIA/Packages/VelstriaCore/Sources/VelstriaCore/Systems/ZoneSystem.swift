@@ -11,11 +11,12 @@ public enum ZoneSystem {
     public static func spawn(_ s: inout SimState, ownerIndex i: Int, center: Vec2, radius: Double,
                              shape: ZoneShape = .circle, delay: Double, duration: Double = 0,
                              tickInterval: Double = 0.5, followsOwner: Bool = false,
-                             payload: HitPayload, visual: String) -> EntityID {
+                             followsTargetID: EntityID? = nil, payload: HitPayload, visual: String) -> EntityID {
         let id = s.allocateID()
         let z = AreaZone(id: id, ownerID: s.units[i].id, team: s.units[i].team, center: center, radius: radius,
                          shape: shape, delay: delay, duration: duration, tickInterval: tickInterval,
-                         followsOwner: followsOwner, payload: payload, visual: visual)
+                         followsOwner: followsOwner, followsTargetID: followsTargetID, payload: payload,
+                         visual: visual)
         s.zones.append(z)
         s.emit(.zoneCreated(zoneID: id, ownerID: s.units[i].id, team: s.units[i].team, visual: visual, center: center,
                             radius: radius, delay: delay, duration: duration,
@@ -31,6 +32,14 @@ public enum ZoneSystem {
         for k in 0..<count where !s.zones[k].done {
             if s.zones[k].followsOwner, let o = s.index(of: s.zones[k].ownerID), CombatSystem.isLiving(s, o) {
                 s.zones[k].center = s.units[o].pos
+            }
+            // 対象に追従するゾーン（キット層）: 対象が消えた/死亡したらゾーンは終わる
+            if let targetID = s.zones[k].followsTargetID {
+                guard let t = s.index(of: targetID), CombatSystem.isLiving(s, t) else {
+                    s.zones[k].done = true
+                    continue
+                }
+                s.zones[k].center = s.units[t].pos
             }
             if !s.zones[k].triggered {
                 s.zones[k].delay -= dt

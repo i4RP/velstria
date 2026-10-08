@@ -157,6 +157,8 @@ public struct SimState: Codable, Sendable {
         let u = units[i]
         guard u.isAlive, u.team != team else { return false }
         if u.kind == .hero, u.hero?.isDead == true { return false }
+        // 対象不可（キット層）。範囲・直線の命中は別経路なので当たる
+        if !u.statuses.isEmpty, u.has(.untargetable) { return false }
         return isVisible(i, to: team)
     }
 
@@ -169,6 +171,7 @@ public struct SimState: Codable, Sendable {
             if u.kind == .hero, u.hero?.isDead == true { return false }
             if let kinds, !kinds.contains(u.kind) { return false }
             if requireVisible && !isVisible(i, to: team) { return false }
+            if !u.statuses.isEmpty, u.has(.untargetable) { return false }
             let r = radius + u.radius
             return u.pos.distanceSquared(to: center) <= r * r
         }

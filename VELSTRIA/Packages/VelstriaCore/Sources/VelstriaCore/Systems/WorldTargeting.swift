@@ -12,6 +12,8 @@ struct WorldCandidate {
     var pos: Vec2
     var radius: Double
     var visibleMask: UInt8
+    /// 対象不可（キット層。単体の索敵から外す）。
+    var untargetable = false
 
     var isStructure: Bool { kind == .tower || kind == .core }
 
@@ -22,7 +24,7 @@ struct WorldCandidate {
 
     /// team の敵として攻撃対象にできるか（SimState.isTargetableEnemy と同じ規則。生存は抽出時に保証）。
     @inline(__always) func isTargetableEnemy(of team: Team) -> Bool {
-        self.team != team && isVisible(to: team)
+        self.team != team && !untargetable && isVisible(to: team)
     }
 }
 
@@ -97,9 +99,11 @@ enum WorldTargeting {
             guard s.units[i].isAlive else { continue }
             let kind = s.units[i].kind
             if kind == .hero, s.units[i].hero?.isDead == true { continue }
-            out.append(WorldCandidate(index: i, id: s.units[i].id, kind: kind, team: s.units[i].team,
-                                      pos: s.units[i].pos, radius: s.units[i].radius,
-                                      visibleMask: s.units[i].visibleMask))
+            var c = WorldCandidate(index: i, id: s.units[i].id, kind: kind, team: s.units[i].team,
+                                   pos: s.units[i].pos, radius: s.units[i].radius,
+                                   visibleMask: s.units[i].visibleMask)
+            if kind == .hero, !s.units[i].statuses.isEmpty, s.units[i].has(.untargetable) { c.untargetable = true }
+            out.append(c)
         }
         return out
     }

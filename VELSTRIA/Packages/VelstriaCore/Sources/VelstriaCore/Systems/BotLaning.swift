@@ -44,6 +44,13 @@ enum BotLaning {
         let carry = a.position == .support ? carryPresent(s, ctx, w, a, lane: lane) : nil
         let isSupport = carry != nil
 
+        // 0. 射程内に敵ヒーローがいれば、ラストヒット・ファームより先に常に攻撃する（敵タワーの射程内・敵の泉の近くは除く）
+        if let target = heroInReach(s, ctx, w, a) {
+            BotCombat.castSkills(&s, ctx, &a, &mem, target: target, fighting: true)
+            BotAI.attack(s, &a, &mem, target.index)
+            return
+        }
+
         // 1. ラストヒット（キャリーが居る間のサポートは譲る）
         let lh = lastHit(&s, ctx, w, a, lane: lane, tower: enemyTower, tanked: tanked)
         if let t = lh.now, !isSupport || mode != .farm {
@@ -253,6 +260,26 @@ enum BotLaning {
             if intel.lastSeenPos[k].distanceSquared(to: a.pos) < 2200 * 2200 { return false }
         }
         return true
+    }
+
+    // MARK: - ヒーロー最優先
+
+    /// 通常攻撃の射程内にいる敵ヒーローのうち、最も倒しやすい（実質 HP が低い）もの。
+    /// 自分も相手も敵の構造物の射程の外で、相手が敵の泉から離れている場合だけ。ミニオンより常に優先する。
+    static func heroInReach(_ s: SimState, _ ctx: SimContext, _ w: BotWorld, _ a: BotAgent) -> BotSighting? {
+        guard !a.enemies.isEmpty, w.enemyStructure(covering: a.pos, team: a.team, margin: 40) == nil else { return nil }
+        let i = a.i
+        var best: BotSighting?
+        var bestKey = Double.infinity
+        for e in a.enemies where e.visible {
+            let reach = s.units[i].stats.attackRange + s.units[i].radius + s.units[e.index].radius
+            guard e.distance <= reach + 40,
+                  e.pos.distance(to: ctx.map.fountain(a.team.opponent)) > Balance.fountainRadius + 250,
+                  w.enemyStructure(covering: e.pos, team: a.team, margin: 40) == nil else { continue }
+            let key = CombatSystem.effectiveHealth(s.units[e.index])
+            if key < bestKey { bestKey = key; best = e }
+        }
+        return best
     }
 
     // MARK: - ハラス

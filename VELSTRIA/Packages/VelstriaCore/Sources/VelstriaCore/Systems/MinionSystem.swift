@@ -68,23 +68,23 @@ public enum MinionSystem {
         let currentID = s.units[i].attackTargetID
         let current = frame.candidate(forUnit: s.index(of: currentID))
 
-        // 1) 救援要請（味方ヒーローを攻撃した敵ヒーロー）: 現在の対象がヒーローでなければ切り替える
-        if onLeash, let a = callForHelpTarget(s, i, frame: frame, path: path) {
-            let keepHero = current.map { $0.kind == .hero && canKeep(s, i, $0, path: path, frame: frame) } ?? false
-            if !keepHero {
-                if current?.index != a { setTarget(&s, i, a) }
-                return
-            }
-        }
-
-        // 2) 現在の対象を維持（死亡・範囲外・レーンから離れすぎで解除）
+        // 1) 攻撃していた対象を維持する（ヒーローが近づいても、救援要請があっても切り替えない）。
+        //    死亡・範囲外・レーンから離れすぎ・無敵になったときだけ解除して選び直す
         if let c = current, onLeash, canKeep(s, i, c, path: path, frame: frame) { return }
         if currentID != nil { clearTarget(&s, i) }
 
-        // 3) 新しい対象（レーンから外れて戻る途中は射程内の敵にだけ反撃する）
+        let returning = myLaneDist > Balance.minionReturnThreshold
+        let acquireRadius = returning ? s.units[i].stats.attackRange + s.units[i].radius : Balance.minionAcquireRadius
+
+        // 2) 救援要請（味方ヒーローを攻撃した敵ヒーロー）: 新しい対象を選ぶときは、その敵ヒーローを狙う
+        if onLeash, let a = callForHelpTarget(s, i, frame: frame, path: path) {
+            setTarget(&s, i, a)
+            return
+        }
+
+        // 3) 新しい対象（敵ヒーロー > 敵ミニオン > 構造物）（レーンから外れて戻る途中は射程内の敵にだけ反撃する）
         if onLeash {
-            let returning = myLaneDist > Balance.minionReturnThreshold
-            let radius = returning ? s.units[i].stats.attackRange + s.units[i].radius : Balance.minionAcquireRadius
+            let radius = acquireRadius
             if let t = acquire(s, i, radius: radius, path: path, frame: frame) {
                 setTarget(&s, i, t)
                 return
@@ -131,7 +131,7 @@ public enum MinionSystem {
         return MapDefinition.project(c.pos, onto: path).distance <= Balance.minionLaneChaseLimit
     }
 
-    /// 優先: 最も近い敵ミニオン > 最も近い敵構造物/人形 > 最も近い敵ヒーロー（すべて radius 以内）。
+    /// 新しい対象を選ぶ。優先: 最も近い敵ヒーロー > 最も近い敵ミニオン > 最も近い敵構造物/人形（すべて radius 以内）。
     static func acquire(_ s: SimState, _ i: Int, radius: Double, path: [Vec2], frame: Frame) -> Int? {
         let team = s.units[i].team
         let pos = s.units[i].pos
@@ -145,8 +145,8 @@ public enum MinionSystem {
             guard d <= r * r, c.isVisible(to: team) else { return }
             let tier: Int
             switch c.kind {
-            case .minion: tier = 0
-            case .tower, .core, .dummy: tier = 1
+            case .hero: tier = 0
+            case .minion: tier = 1
             default: tier = 2
             }
             // 同距離は添字の小さい方（格子の訪問順に依存しない）

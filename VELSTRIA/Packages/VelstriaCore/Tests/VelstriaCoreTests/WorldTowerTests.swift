@@ -5,7 +5,7 @@ import XCTest
 final class WorldTowerTests: XCTestCase {
     typealias Kit = WorldTestKit
 
-    /// Blue mid 外塔 (4300,4300) の前（射程内）に敵を置いた状態。
+    /// Blue mid 外塔 (4656,4991) の前（射程内）に敵を置いた状態。
     func makeLaneFight() -> (SimState, SimContext, tower: Int) {
         var (s, ctx) = Kit.makeState(Kit.emptyConfig())
         Kit.setTime(&s, 300)
@@ -18,9 +18,9 @@ final class WorldTowerTests: XCTestCase {
 
     func testPrefersNearestMinionOverCloserHero() {
         var (s, ctx, tower) = makeLaneFight()
-        let hero = Kit.addHero(&s, ctx, team: .red, pos: Vec2(4550, 4550))
-        let far = Kit.addMinion(&s, ctx, team: .red, pos: Vec2(4900, 4900))
-        let near = Kit.addMinion(&s, ctx, team: .red, pos: Vec2(4800, 4750))
+        let hero = Kit.addHero(&s, ctx, team: .red, pos: Vec2(4906, 5241))
+        let far = Kit.addMinion(&s, ctx, team: .red, pos: Vec2(5256, 5591))
+        let near = Kit.addMinion(&s, ctx, team: .red, pos: Vec2(5156, 5441))
         VisionSystem.update(&s, ctx)
         TowerSystem.update(&s, ctx)
         XCTAssertEqual(s.units[tower].attackTargetID, s.units[near].id)
@@ -29,13 +29,13 @@ final class WorldTowerTests: XCTestCase {
 
     func testTargetsHeroWhenNoMinionAndDummyCountsAsHero() {
         var (s, ctx, tower) = makeLaneFight()
-        let hero = Kit.addHero(&s, ctx, team: .red, pos: Vec2(4800, 4800))
+        let hero = Kit.addHero(&s, ctx, team: .red, pos: Vec2(5156, 5491))
         VisionSystem.update(&s, ctx)
         TowerSystem.update(&s, ctx)
         XCTAssertEqual(s.units[tower].attackTargetID, s.units[hero].id)
 
         var (s2, ctx2, tower2) = makeLaneFight()
-        let dummy = s2.addUnit(UnitFactory.makeDummy(team: .red, pos: Vec2(4700, 4700)))
+        let dummy = s2.addUnit(UnitFactory.makeDummy(team: .red, pos: Vec2(5056, 5391)))
         VisionSystem.update(&s2, ctx2)
         TowerSystem.update(&s2, ctx2)
         XCTAssertEqual(s2.units[tower2].attackTargetID, dummy)
@@ -43,23 +43,23 @@ final class WorldTowerTests: XCTestCase {
 
     func testOutOfRangeIsIgnoredAndTargetDropsWhenLeaving() {
         var (s, ctx, tower) = makeLaneFight()
-        let m = Kit.addMinion(&s, ctx, team: .red, pos: Vec2(4900, 4900))
+        let m = Kit.addMinion(&s, ctx, team: .red, pos: Vec2(5256, 5591))
         VisionSystem.update(&s, ctx)
         TowerSystem.update(&s, ctx)
         XCTAssertEqual(s.units[tower].attackTargetID, s.units[m].id)
-        s.units[m].pos = Vec2(5200, 5200) // 1273 > 750 + 110 + 36
+        s.units[m].pos = Vec2(5556, 5891) // 1273 > 750 + 110 + 36
         TowerSystem.update(&s, ctx)
         XCTAssertNil(s.units[tower].attackTargetID)
     }
 
     func testKeepsCurrentTargetUntilItLeaves() {
         var (s, ctx, tower) = makeLaneFight()
-        let hero = Kit.addHero(&s, ctx, team: .red, pos: Vec2(4800, 4800))
+        let hero = Kit.addHero(&s, ctx, team: .red, pos: Vec2(5156, 5491))
         VisionSystem.update(&s, ctx)
         TowerSystem.update(&s, ctx)
         XCTAssertEqual(s.units[tower].attackTargetID, s.units[hero].id)
         // ミニオンが入ってきてもヒーローを撃ち続ける
-        Kit.addMinion(&s, ctx, team: .red, pos: Vec2(4700, 4700))
+        Kit.addMinion(&s, ctx, team: .red, pos: Vec2(5056, 5391))
         VisionSystem.update(&s, ctx)
         TowerSystem.update(&s, ctx)
         XCTAssertEqual(s.units[tower].attackTargetID, s.units[hero].id)
@@ -67,9 +67,9 @@ final class WorldTowerTests: XCTestCase {
 
     func testHeroAttackingAlliedHeroTakesPriority() {
         var (s, ctx, tower) = makeLaneFight()
-        let minion = Kit.addMinion(&s, ctx, team: .red, pos: Vec2(4700, 4700))
-        let enemy = Kit.addHero(&s, ctx, team: .red, pos: Vec2(4850, 4850))
-        let ally = Kit.addHero(&s, ctx, team: .blue, pos: Vec2(4600, 4500))
+        let minion = Kit.addMinion(&s, ctx, team: .red, pos: Vec2(5056, 5391))
+        let enemy = Kit.addHero(&s, ctx, team: .red, pos: Vec2(5206, 5541))
+        let ally = Kit.addHero(&s, ctx, team: .blue, pos: Vec2(4956, 5191))
         VisionSystem.update(&s, ctx)
         TowerSystem.update(&s, ctx)
         XCTAssertEqual(s.units[tower].attackTargetID, s.units[minion].id)
@@ -88,9 +88,9 @@ final class WorldTowerTests: XCTestCase {
 
         // 味方がタワー射程外で攻撃された場合は対象外
         var (s2, ctx2, tower2) = makeLaneFight()
-        let m2 = Kit.addMinion(&s2, ctx2, team: .red, pos: Vec2(4700, 4700))
-        let e2 = Kit.addHero(&s2, ctx2, team: .red, pos: Vec2(4850, 4850))
-        let far = Kit.addHero(&s2, ctx2, team: .blue, pos: Vec2(5600, 5600))
+        let m2 = Kit.addMinion(&s2, ctx2, team: .red, pos: Vec2(5056, 5391))
+        let e2 = Kit.addHero(&s2, ctx2, team: .red, pos: Vec2(5206, 5541))
+        let far = Kit.addHero(&s2, ctx2, team: .blue, pos: Vec2(5956, 6291))
         VisionSystem.update(&s2, ctx2)
         CombatSystem.applyDamage(&s2, ctx2, sourceID: s2.units[e2].id, targetIndex: far, amount: 50,
                                  type: .physical, source: .basicAttack)
@@ -100,8 +100,8 @@ final class WorldTowerTests: XCTestCase {
 
     func testRampOnConsecutiveHeroHitsAndResetOnTargetChange() {
         var (s, ctx, tower) = makeLaneFight()
-        let a = Kit.addHero(&s, ctx, team: .red, pos: Vec2(4800, 4800))
-        let b = Kit.addHero(&s, ctx, team: .red, pos: Vec2(4850, 4750))
+        let a = Kit.addHero(&s, ctx, team: .red, pos: Vec2(5156, 5491))
+        let b = Kit.addHero(&s, ctx, team: .red, pos: Vec2(5206, 5441))
         let base = s.units[tower].stats.attack
         XCTAssertEqual(base, 260)
         let expected = [1.0, 1.3, 1.6, 1.9, 2.2, 2.2, 2.2].map { base * $0 }
@@ -113,7 +113,7 @@ final class WorldTowerTests: XCTestCase {
         XCTAssertEqual(TowerSystem.attackDamage(&s, ctx, towerIndex: tower, targetIndex: b), base * 1.3, accuracy: 1e-9)
         XCTAssertEqual(TowerSystem.attackDamage(&s, ctx, towerIndex: tower, targetIndex: a), base, accuracy: 1e-9)
         // ミニオンを撃つとヒーローの連続命中は途切れる
-        let m = Kit.addMinion(&s, ctx, team: .red, pos: Vec2(4700, 4700))
+        let m = Kit.addMinion(&s, ctx, team: .red, pos: Vec2(5056, 5391))
         _ = TowerSystem.attackDamage(&s, ctx, towerIndex: tower, targetIndex: m)
         XCTAssertEqual(TowerSystem.attackDamage(&s, ctx, towerIndex: tower, targetIndex: a), base, accuracy: 1e-9)
     }
@@ -128,19 +128,19 @@ final class WorldTowerTests: XCTestCase {
     func testMinionDamageIsPercentOfMaxHP() {
         var (s, ctx, tower) = makeLaneFight()
         for (type, pct) in [(MinionType.melee, 0.45), (.ranged, 0.70), (.siege, 0.14)] {
-            let m = Kit.addMinion(&s, ctx, type: type, team: .red, pos: Vec2(4700, 4700))
+            let m = Kit.addMinion(&s, ctx, type: type, team: .red, pos: Vec2(5056, 5391))
             let maxHP = s.units[m].stats.maxHP
             shootMinion(&s, ctx, tower: tower, minion: m)
             XCTAssertEqual(maxHP - s.units[m].hp, pct * maxHP, accuracy: 1e-6, "\(type)")
         }
         // 攻城ミニオンは防御 40 だが、割合ダメージは防御の影響を受けない
-        let siege = Kit.addMinion(&s, ctx, type: .siege, team: .red, pos: Vec2(4700, 4700))
+        let siege = Kit.addMinion(&s, ctx, type: .siege, team: .red, pos: Vec2(5056, 5391))
         XCTAssertEqual(s.units[siege].stats.armor, 40)
         XCTAssertEqual(TowerSystem.attackDamage(&s, ctx, towerIndex: tower, targetIndex: siege),
                        0.14 * s.units[siege].stats.maxHP, accuracy: 1e-9)
         // 近接 3 発・遠隔 2 発・攻城 8 発で倒れる
         for (type, shots) in [(MinionType.melee, 3), (.ranged, 2), (.siege, 8)] {
-            let m = Kit.addMinion(&s, ctx, type: type, team: .red, pos: Vec2(4700, 4700))
+            let m = Kit.addMinion(&s, ctx, type: type, team: .red, pos: Vec2(5056, 5391))
             var n = 0
             while s.units[m].isAlive {
                 shootMinion(&s, ctx, tower: tower, minion: m)
@@ -153,7 +153,7 @@ final class WorldTowerTests: XCTestCase {
     func testMinionPercentDamageCancelsBonusesAndReductions() {
         var (s, ctx, tower) = makeLaneFight()
         // 強化ミニオン（HP ×1.5）+ 被ダメ軽減 20%、タワーに与ダメ +10% が付いていても 1 発 45%
-        let m = Kit.addMinion(&s, ctx, type: .melee, team: .red, pos: Vec2(4700, 4700))
+        let m = Kit.addMinion(&s, ctx, type: .melee, team: .red, pos: Vec2(5056, 5391))
         s.units[m].baseStats.maxHP *= 1.5
         s.units[m].statuses.append(StatusEffect(kind: .damageReduction, duration: 5, magnitude: 0.2))
         s.units[tower].statuses.append(StatusEffect(kind: .damageBoost, duration: 5, magnitude: 0.1))
@@ -167,9 +167,9 @@ final class WorldTowerTests: XCTestCase {
 
     func testRetargetCancelsWindup() {
         var (s, ctx, tower) = makeLaneFight()
-        let minion = Kit.addMinion(&s, ctx, team: .red, pos: Vec2(4700, 4700))
-        let enemy = Kit.addHero(&s, ctx, team: .red, pos: Vec2(4850, 4850))
-        let ally = Kit.addHero(&s, ctx, team: .blue, pos: Vec2(4600, 4500))
+        let minion = Kit.addMinion(&s, ctx, team: .red, pos: Vec2(5056, 5391))
+        let enemy = Kit.addHero(&s, ctx, team: .red, pos: Vec2(5206, 5541))
+        let ally = Kit.addHero(&s, ctx, team: .blue, pos: Vec2(4956, 5191))
         VisionSystem.update(&s, ctx)
         TowerSystem.update(&s, ctx)
         XCTAssertEqual(s.units[tower].attackTargetID, s.units[minion].id)
@@ -189,7 +189,7 @@ final class WorldTowerTests: XCTestCase {
     func testOuterTowerShieldReducesDamageWhileItLasts() {
         var (s, ctx, outer) = makeLaneFight()
         let inner = Kit.structureIndex(s, team: .blue, lane: .mid, tier: .inner)
-        let siege = Kit.addMinion(&s, ctx, type: .siege, team: .red, pos: Vec2(4700, 4700))
+        let siege = Kit.addMinion(&s, ctx, type: .siege, team: .red, pos: Vec2(5056, 5391))
         XCTAssertFalse(TowerSystem.hasTurretShield(s.units[outer]))
         XCTAssertEqual(TowerSystem.damageTakenMultiplier(s, ctx, structureIndex: outer, sourceIndex: nil), 1.0, accuracy: 1e-9)
         s.units[outer].shields.append(Shield(amount: Balance.outerTowerShield, duration: Balance.outerTowerShieldDuration,
@@ -207,8 +207,8 @@ final class WorldTowerTests: XCTestCase {
     /// シールドを削ったヒーローは、削ったダメージ 10 につき 0.8 Gold を得る。HP は減らない。
     func testHeroDamagingTheOuterShieldEarnsGold() {
         var (s, ctx, outer) = makeLaneFight()
-        let hero = Kit.addHero(&s, ctx, team: .red, pos: Vec2(4800, 4800))
-        Kit.addMinion(&s, ctx, team: .red, pos: Vec2(4800, 4850))   // 護衛ミニオン（裏取り保護を外す）
+        let hero = Kit.addHero(&s, ctx, team: .red, pos: Vec2(5156, 5491))
+        Kit.addMinion(&s, ctx, team: .red, pos: Vec2(5156, 5541))   // 護衛ミニオン（裏取り保護を外す）
         s.units[outer].shields.append(Shield(amount: Balance.outerTowerShield, duration: Balance.outerTowerShieldDuration,
                                              tag: TowerSystem.shieldTag))
         let hpBefore = s.units[outer].hp
@@ -231,14 +231,14 @@ final class WorldTowerTests: XCTestCase {
 
     func testBackdoorProtectionAgainstHeroes() {
         var (s, ctx, outer) = makeLaneFight()
-        let hero = Kit.addHero(&s, ctx, team: .red, pos: Vec2(4800, 4800))
+        let hero = Kit.addHero(&s, ctx, team: .red, pos: Vec2(5156, 5491))
         XCTAssertEqual(TowerSystem.damageTakenMultiplier(s, ctx, structureIndex: outer, sourceIndex: hero), 0.5, accuracy: 1e-9)
         // 塔から 800 以内に攻撃側のミニオンが居れば解除
-        let m = Kit.addMinion(&s, ctx, team: .red, pos: Vec2(4800, 4850))
+        let m = Kit.addMinion(&s, ctx, team: .red, pos: Vec2(5156, 5541))
         XCTAssertEqual(TowerSystem.damageTakenMultiplier(s, ctx, structureIndex: outer, sourceIndex: hero), 1.0, accuracy: 1e-9)
         // 遠くのミニオンや防衛側のミニオンでは解除されない
-        s.units[m].pos = Vec2(5300, 5300)
-        Kit.addMinion(&s, ctx, team: .blue, pos: Vec2(4500, 4500))
+        s.units[m].pos = Vec2(5656, 5991)
+        Kit.addMinion(&s, ctx, team: .blue, pos: Vec2(4856, 5191))
         XCTAssertEqual(TowerSystem.damageTakenMultiplier(s, ctx, structureIndex: outer, sourceIndex: hero), 0.5, accuracy: 1e-9)
         // 外塔のシールドと重なる
         s.units[outer].shields.append(Shield(amount: 100, duration: 100, tag: TowerSystem.shieldTag))
@@ -300,7 +300,7 @@ final class WorldTowerTests: XCTestCase {
 
     func testTowerKillsMinionsInSimulation() {
         var (s, ctx, tower) = makeLaneFight()
-        let m = Kit.addMinion(&s, ctx, type: .ranged, team: .red, pos: Vec2(4800, 4800))
+        let m = Kit.addMinion(&s, ctx, type: .ranged, team: .red, pos: Vec2(5156, 5491))
         s.units[m].minion?.waypointIndex = 2
         VisionSystem.update(&s, ctx)
         let sim = Simulation(snapshot: s)

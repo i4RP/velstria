@@ -21,29 +21,31 @@ final class EconomyItemTests: XCTestCase {
     func testCombineCostConsumesComponents() {
         var f = setup(gold: 2000)
         let i = f.human
-        XCTAssertEqual(ItemSystem.effectiveCost(f.hero(i), itemID: "EQ019", ctx: f.ctx), 993)
-        _ = buy(&f, i, "EQ003")
-        _ = buy(&f, i, "EQ009")
-        XCTAssertEqual(f.hero(i).items, ["EQ003", "EQ009"])
-        XCTAssertEqual(f.hero(i).gold, 2000 - 411 - 453)
-        // 993 − (411 + 453) = 129 < 993 × 0.3 → 298
-        XCTAssertEqual(ItemSystem.effectiveCost(f.hero(i), itemID: "EQ019", ctx: f.ctx), 298)
+        XCTAssertEqual(ItemSystem.effectiveCost(f.hero(i), itemID: "EQ019", ctx: f.ctx), 960)
+        _ = buy(&f, i, "EQ007")
+        _ = buy(&f, i, "EQ007")
+        XCTAssertEqual(f.hero(i).items, ["EQ007", "EQ007"])
+        XCTAssertEqual(f.hero(i).gold, 2000 - 330 - 330)
+        // 960 − (330 + 330) = 300（下限 960 × 0.3 = 288 より上）
+        XCTAssertEqual(ItemSystem.effectiveCost(f.hero(i), itemID: "EQ019", ctx: f.ctx), 300)
         let ev = buy(&f, i, "EQ019")
         XCTAssertTrue(ev.contains(.itemPurchased(heroID: f.id(i), itemID: "EQ019")))
         XCTAssertEqual(f.hero(i).items, ["EQ019"])
-        XCTAssertEqual(f.hero(i).itemInvested, [Double(411 + 453 + 298)])
-        XCTAssertEqual(f.hero(i).gold, 2000 - 411 - 453 - 298)
-        // 能力値は即時反映
+        XCTAssertEqual(f.hero(i).itemInvested, [Double(330 + 330 + 300)])
+        XCTAssertEqual(f.hero(i).gold, 2000 - 330 - 330 - 300)
+        // 能力値は即時反映（攻撃速度 +45%・移動速度 +15・クリティカル率 +8%）
         let def = f.master.hero(f.hero(i).heroID)!
-        XCTAssertEqual(f.s.units[i].stats.attack,
-                       HeroGrowth.baseStats(def: def, level: 1).attack + 31, accuracy: 1e-6)
+        let base = HeroGrowth.baseStats(def: def, level: 1)
+        XCTAssertEqual(f.s.units[i].stats.attackSpeed, base.attackSpeed * 1.45, accuracy: 1e-6)
+        XCTAssertEqual(f.s.units[i].stats.moveSpeed, base.moveSpeed + 15, accuracy: 1e-6)
+        XCTAssertEqual(f.s.units[i].stats.critChance, base.critChance + 0.08, accuracy: 1e-6)
     }
 
     func testPartialComponentDiscount() {
-        var f = setup(gold: 2000)
+        var f = setup(gold: 5000)
         let i = f.human
-        _ = buy(&f, i, "EQ015")    // EQ043 = EQ015 + EQ009
-        XCTAssertEqual(ItemSystem.effectiveCost(f.hero(i), itemID: "EQ043", ctx: f.ctx), 1331 - 315)
+        _ = buy(&f, i, "EQ025")    // EQ043 = EQ025 + EQ031
+        XCTAssertEqual(ItemSystem.effectiveCost(f.hero(i), itemID: "EQ043", ctx: f.ctx), 2800 - 1070)
         let q = ItemSystem.quote(f.hero(i), itemID: "EQ043", ctx: f.ctx)
         XCTAssertEqual(q.consumedSlots, [0])
         XCTAssertTrue(q.canBuy)
@@ -53,15 +55,15 @@ final class EconomyItemTests: XCTestCase {
         var f = setup(gold: 5000)
         let i = f.human
         _ = buy(&f, i, "EQ009")
-        // EQ031 = EQ009 + EQ009（1 個所持）→ 717 − 453 = 264
-        XCTAssertEqual(ItemSystem.effectiveCost(f.hero(i), itemID: "EQ031", ctx: f.ctx), 264)
+        // EQ021 = EQ009 + EQ009（1 個所持）→ 1040 − 380 = 660
+        XCTAssertEqual(ItemSystem.effectiveCost(f.hero(i), itemID: "EQ021", ctx: f.ctx), 660)
         _ = buy(&f, i, "EQ009")
-        // 2 個所持 → 717 − 906 < 下限 → round(717 × 0.3) = 215
-        XCTAssertEqual(ItemSystem.effectiveCost(f.hero(i), itemID: "EQ031", ctx: f.ctx), 215)
+        // 2 個所持 → 1040 − 760 = 280 < 下限 → round(1040 × 0.3) = 312
+        XCTAssertEqual(ItemSystem.effectiveCost(f.hero(i), itemID: "EQ021", ctx: f.ctx), 312)
         _ = buy(&f, i, "EQ001")
-        _ = buy(&f, i, "EQ031")
-        XCTAssertEqual(f.hero(i).items, ["EQ001", "EQ031"])
-        XCTAssertEqual(f.hero(i).itemInvested, [337, Double(453 * 2 + 215)])
+        _ = buy(&f, i, "EQ021")
+        XCTAssertEqual(f.hero(i).items, ["EQ001", "EQ021"])
+        XCTAssertEqual(f.hero(i).itemInvested, [350, Double(380 * 2 + 312)])
     }
 
     func testSlotLimitAppliesAfterConsumption() {
@@ -72,8 +74,8 @@ final class EconomyItemTests: XCTestCase {
         let full = buy(&f, i, "EQ008")
         XCTAssertEqual(full.purchaseFailures, ["slots_full"])
         XCTAssertEqual(f.hero(i).items.count, 6)
-        // 素材 2 個を消費する合成は 6 枠でも買える
-        let ok = buy(&f, i, "EQ019")
+        // 素材 2 個を消費する合成は 6 枠でも買える（EQ033 = EQ003 + EQ009）
+        let ok = buy(&f, i, "EQ033")
         XCTAssertTrue(ok.purchaseFailures.isEmpty)
         XCTAssertEqual(f.hero(i).items.count, 5)
         XCTAssertFalse(f.hero(i).items.contains("EQ003"))
@@ -94,7 +96,7 @@ final class EconomyItemTests: XCTestCase {
         let i = f.human
         _ = buy(&f, i, "EQ004")
         XCTAssertEqual(buy(&f, i, "EQ010").purchaseFailures, ["unique_category"])
-        XCTAssertEqual(buy(&f, i, "EQ046").purchaseFailures, ["unique_category"])
+        XCTAssertEqual(buy(&f, i, "EQ052").purchaseFailures, ["unique_category"])
         XCTAssertEqual(f.hero(i).items, ["EQ004"])
     }
 
@@ -105,41 +107,41 @@ final class EconomyItemTests: XCTestCase {
         f.s.units[i].hero!.spells = ["BS05", "BS01"]
         XCTAssertTrue(buy(&f, i, "EQ006").purchaseFailures.isEmpty)
         XCTAssertEqual(buy(&f, i, "EQ012").purchaseFailures, ["unique_category"])
-        // 所持中の Jungle 素材を消費する Jungle 合成は可（EQ024 = EQ013 + EQ006）
+        // 所持中の Jungle 素材を消費する Jungle 合成は可（EQ024 = EQ006 + EQ001）
         XCTAssertTrue(buy(&f, i, "EQ024").purchaseFailures.isEmpty)
         XCTAssertEqual(f.hero(i).items, ["EQ024"])
     }
 
-    func testMovementItemCanConsumeJungleComponent() {
+    func testMovementItemDoesNotNeedSmiteAndCoexistsWithJungle() {
         var f = setup(spells: ["BS05", "BS01"], gold: 5000)
         let i = f.human
         _ = buy(&f, i, "EQ018")                  // Jungle 素材
-        XCTAssertTrue(buy(&f, i, "EQ022").purchaseFailures.isEmpty)   // Movement = EQ009 + EQ018
-        XCTAssertEqual(f.hero(i).items, ["EQ022"])
+        XCTAssertTrue(buy(&f, i, "EQ022").purchaseFailures.isEmpty)   // Movement = EQ004 + EQ010（定価）
+        XCTAssertEqual(f.hero(i).items, ["EQ018", "EQ022"])
         // 狩猟印が無くても Movement 装備自体は買える（定価）
         var g = setup(spells: ["BS01", "BS03"], gold: 5000)
         let j = g.human
         XCTAssertTrue(buy(&g, j, "EQ022").purchaseFailures.isEmpty)
-        XCTAssertEqual(g.hero(j).gold, 5000 - 744)
+        XCTAssertEqual(g.hero(j).gold, 5000 - 930)
     }
 
     func testSellRefundsSixtyPercentOfInvested() {
         var f = setup(gold: 2000)
         let i = f.human
-        _ = buy(&f, i, "EQ003")
-        _ = buy(&f, i, "EQ009")
+        _ = buy(&f, i, "EQ007")
+        _ = buy(&f, i, "EQ007")
         _ = buy(&f, i, "EQ019")
         let gold = f.hero(i).gold
-        XCTAssertEqual(ItemSystem.sellValue(f.hero(i), slotIndex: 0, master: f.master), (1162 * 0.6).rounded())
+        XCTAssertEqual(ItemSystem.sellValue(f.hero(i), slotIndex: 0, master: f.master), (960 * 0.6).rounded())
         f.s.events.removeAll()
         ItemSystem.sell(&f.s, f.ctx, heroIndex: i, slotIndex: 0)
-        XCTAssertEqual(f.hero(i).gold - gold, 697)
+        XCTAssertEqual(f.hero(i).gold - gold, 576)
         XCTAssertTrue(f.hero(i).items.isEmpty)
         XCTAssertTrue(f.hero(i).itemInvested.isEmpty)
-        XCTAssertTrue(f.s.events.contains(.itemSold(heroID: f.id(i), itemID: "EQ019", refund: 697)))
+        XCTAssertTrue(f.s.events.contains(.itemSold(heroID: f.id(i), itemID: "EQ019", refund: 576)))
         // 範囲外は無視
         ItemSystem.sell(&f.s, f.ctx, heroIndex: i, slotIndex: 3)
-        XCTAssertEqual(f.hero(i).gold - gold, 697)
+        XCTAssertEqual(f.hero(i).gold - gold, 576)
     }
 
     func testPracticeInfiniteGold() {
@@ -159,27 +161,63 @@ final class EconomyItemTests: XCTestCase {
 
     // MARK: - パッシブ・ルーン
 
-    func testItemFlatStatsAndCategoryPassives() {
+    func testItemFlatStats() {
         let m = MasterData.shared
         var st = Stats()
         st.resourceRegen = 10
         ItemStats.apply(items: ["EQ001", "EQ001", "EQ002", "EQ003", "EQ004", "EQ005", "EQ006"], runes: [],
                         to: &st, master: m)
-        XCTAssertEqual(st.attack, 30, accuracy: 1e-9)                    // 固定値は個数分
-        XCTAssertEqual(st.basicAttackDamageBonus, 0.06, accuracy: 1e-9)  // 同じ装備のパッシブは 1 回
-        XCTAssertEqual(st.abilityPower, 28, accuracy: 1e-9)
-        XCTAssertEqual(st.skillDamageBonus, 0.07, accuracy: 1e-9)
-        XCTAssertEqual(st.maxHP, 1 + 273 + 335, accuracy: 1e-9)
-        XCTAssertEqual(st.armor, 18, accuracy: 1e-9)
-        XCTAssertEqual(st.magicResist, 22, accuracy: 1e-9)
-        XCTAssertEqual(st.damageReduction, 0.04, accuracy: 1e-9)
-        XCTAssertEqual(st.moveSpeed, 32, accuracy: 1e-9)
-        XCTAssertEqual(st.outOfCombatMoveSpeedBonus, 0.09, accuracy: 1e-9)
-        XCTAssertEqual(st.healShieldPower, 0.10, accuracy: 1e-9)
-        XCTAssertEqual(st.resourceRegen, 11, accuracy: 1e-9)
-        XCTAssertEqual(st.monsterDamageBonus, 0.33, accuracy: 1e-9)
-        XCTAssertEqual(st.monsterGoldBonus, 0.20, accuracy: 1e-9)
-        XCTAssertEqual(st.cooldownReduction, 0.15, accuracy: 1e-9)
+        XCTAssertEqual(st.attack, 25 * 2 + 18, accuracy: 1e-9)           // 固定値は個数分
+        XCTAssertEqual(st.abilityPower, 30, accuracy: 1e-9)
+        XCTAssertEqual(st.maxHP, 1 + 400 + 300, accuracy: 1e-9)
+        XCTAssertEqual(st.hpRegen, 6, accuracy: 1e-9)
+        XCTAssertEqual(st.moveSpeed, 40, accuracy: 1e-9)
+        XCTAssertEqual(st.resourceRegen, 10, accuracy: 1e-9)
+        XCTAssertEqual(st.monsterDamageBonus, 0.25, accuracy: 1e-9)      // Jungle 装備
+        XCTAssertEqual(st.monsterGoldBonus, Balance.Economy.jungleMonsterGoldBonus, accuracy: 1e-9)
+        XCTAssertEqual(st.cooldownReduction, 0, accuracy: 1e-9)
+    }
+
+    func testJungleMonsterDamageDoesNotStackAcrossCopies() {
+        let m = MasterData.shared
+        var st = Stats()
+        ItemStats.apply(items: ["EQ006", "EQ006"], runes: [], to: &st, master: m)
+        XCTAssertEqual(st.monsterDamageBonus, 0.25, accuracy: 1e-9)
+        XCTAssertEqual(st.attack, 36, accuracy: 1e-9)
+    }
+
+    func testPhysicalPenetrationPercentTakesTheMaxAndFlatStacks() {
+        let m = MasterData.shared
+        var st = Stats()
+        // EQ061 割合 40%、EQ054 割合 15%（重ならず最大）、EQ031・EQ064 固定 15 ずつ（合算）
+        ItemStats.apply(items: ["EQ061", "EQ061", "EQ054", "EQ031", "EQ064"], runes: [], to: &st, master: m)
+        XCTAssertEqual(st.armorPenPct, 0.40, accuracy: 1e-9)
+        XCTAssertEqual(st.armorPenFlat, 30, accuracy: 1e-9)
+        XCTAssertEqual(st.attack, 70 * 2 + 70 + 60 + 15, accuracy: 1e-9)
+        XCTAssertEqual(st.cooldownReduction, 0.10, accuracy: 1e-9)
+    }
+
+    func testMagicPenetrationAndPowerPercent() {
+        let m = MasterData.shared
+        var st = Stats()
+        ItemStats.apply(items: ["EQ044", "EQ044", "EQ020", "EQ052"], runes: [], to: &st, master: m)
+        XCTAssertEqual(st.magicPenPct, 0.40, accuracy: 1e-9)
+        XCTAssertEqual(st.magicPenFlat, 12 + 15, accuracy: 1e-9)
+        XCTAssertEqual(st.abilityPower, 85 * 2 + 62, accuracy: 1e-9)
+        XCTAssertEqual(st.moveSpeed, 12 + 45, accuracy: 1e-9)
+        // 魔力 +25%（Genius Wand 系）は重ならず、装備の魔力が確定した後に掛かる
+        var p = Stats()
+        ItemStats.apply(items: ["EQ050", "EQ050"], runes: [], to: &p, master: m)
+        XCTAssertEqual(p.abilityPower, 210 * 1.25, accuracy: 1e-9)
+    }
+
+    func testCritChanceIsCappedAndCritDamageAdds() {
+        let m = MasterData.shared
+        var st = Stats()
+        let baseCrit = st.critMultiplier
+        ItemStats.apply(items: ["EQ055", "EQ055", "EQ055"], runes: [], to: &st, master: m)
+        XCTAssertEqual(st.critChance, 1, accuracy: 1e-9)
+        XCTAssertEqual(st.critMultiplier, baseCrit + 1.2, accuracy: 1e-9)
     }
 
     func testRunesValorArcanaResolve() {
@@ -202,9 +240,9 @@ final class EconomyItemTests: XCTestCase {
         let m = MasterData.shared
         var st = Stats()
         st.moveSpeed = 300; st.hpRegen = 10; st.resourceRegen = 5
-        // RN04 Cunning 6% (T1) / RN20 Harmony 8% (T2) + Movement 装備 EQ004（+32 移動速度）
+        // RN04 Cunning 6% (T1) / RN20 Harmony 8% (T2) + Movement 装備 EQ004（+40 移動速度）
         ItemStats.apply(items: ["EQ004"], runes: ["RN04", "RN20"], to: &st, master: m)
-        XCTAssertEqual(st.moveSpeed, 332 * 1.03, accuracy: 1e-9)
+        XCTAssertEqual(st.moveSpeed, 340 * 1.03, accuracy: 1e-9)
         XCTAssertEqual(st.cooldownReduction, 0.03, accuracy: 1e-9)
         XCTAssertEqual(st.hpRegen, 10 * 1.24, accuracy: 1e-9)
         XCTAssertEqual(st.resourceRegen, 5 * 1.24, accuracy: 1e-9)

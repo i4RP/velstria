@@ -20,13 +20,30 @@ public struct SkillTargeting: Codable, Hashable, Sendable {
     public var radius: Double
     /// 味方を対象にするか（回復系）。
     public var targetsAllies: Bool
+    /// 照準の見せ方（HUD・演出のヒント。キット層。.auto は archetype / aim から決める既存の挙動）。
+    public var shape: AimShape
+    /// shape が扇のときの半角（ラジアン）。
+    public var halfAngle: Double
+    /// 非 nil なら reach をこの値にする（キットが archetype の既定と違う届き方をするとき）。
+    public var reachOverride: Double?
+    /// 対象が必要なスキルか（居なければ消費せず失敗。キット層）。
+    public var requiresTarget: Bool
+    /// 再使用できるスキルか（HUD の再使用表示のヒント。キット層）。
+    public var recastable: Bool
 
-    public init(archetype: SkillArchetype, aim: AimType, range: Double, radius: Double, targetsAllies: Bool = false) {
+    public init(archetype: SkillArchetype, aim: AimType, range: Double, radius: Double, targetsAllies: Bool = false,
+                shape: AimShape = .auto, halfAngle: Double = 0, reachOverride: Double? = nil,
+                requiresTarget: Bool = false, recastable: Bool = false) {
         self.archetype = archetype
         self.aim = aim
         self.range = range
         self.radius = radius
         self.targetsAllies = targetsAllies
+        self.shape = shape
+        self.halfAngle = halfAngle
+        self.reachOverride = reachOverride
+        self.requiresTarget = requiresTarget
+        self.recastable = recastable
     }
 }
 
@@ -34,6 +51,7 @@ extension SkillTargeting {
     /// 術者の中心から対象の縁までで、このスキルが敵に届く最大距離（AI の「撃てる距離か」の判定・自動照準）。
     /// blinkEmpower はブリンク距離のみ（強化攻撃の射程は含まない）。teamHeal は敵への CC の半径。
     public var reach: Double {
+        if let reachOverride { return reachOverride }
         switch archetype {
         case .passive: return 0
         case .cone, .lineSkillshot, .piercingLine, .blinkEmpower, .targetedBlink: return range
@@ -71,6 +89,11 @@ public struct SkillNumbers: Codable, Hashable, Sendable {
     public var damageReductionDuration: Double = 0
     /// 発動までの予告時間（地点 AoE）。
     public var delay: Double = 0
+    /// キット固有の数値（説明文の {x0}..{x3} に順に入る。キット層）。
+    public var extras: [KitStat] = []
+    /// 再使用の段数（1 = 再使用なし）と、窓の長さ（秒）。
+    public var stages = 1
+    public var recastWindow: Double = 0
 
     public init() {}
 
@@ -79,8 +102,20 @@ public struct SkillNumbers: Codable, Hashable, Sendable {
 }
 
 public enum SkillCatalog {
-    /// スキル → アーキタイプ・照準方式（DESIGN §6: スロット × 近接/遠隔 × ロール）。
+    /// スキル → アーキタイプ・照準方式。キットのヒーローはキットの上書きを反映する（再使用の段は activeTargeting）。
     public static func targeting(for skill: SkillDef, hero: HeroDef) -> SkillTargeting {
+        HeroKits.targeting(for: skill, hero: hero, stage: 0)
+    }
+
+    /// 発動中のユニットの再使用の段を反映した照準情報（SkillSystem.cast・ボット・HUD が使う）。
+    public static func activeTargeting(_ s: SimState, caster i: Int, slot: SkillSlot, skill: SkillDef,
+                                       hero: HeroDef) -> SkillTargeting {
+        guard s.units[i].hero?.kit != nil, let h = s.units[i].hero else { return targeting(for: skill, hero: hero) }
+        return HeroKits.targeting(for: skill, hero: hero, stage: HeroKits.activeStage(h, slot: slot))
+    }
+
+    /// 汎用のスキル → アーキタイプ・照準方式（DESIGN §6: スロット × 近接/遠隔 × ロール）。キットの上書きを含まない。
+    public static func genericTargeting(for skill: SkillDef, hero: HeroDef) -> SkillTargeting {
         let k = Balance.Skills.self
         switch skill.slot {
         case .passive:
@@ -121,9 +156,14 @@ public enum SkillCatalog {
         }
     }
 
-    /// ランク・能力値込みの数値。rank は 1...最大ランクに丸める（未習得の表示は rank 1 相当）。
-    /// ダメージ = (base × (1 + 0.30×(rank−1)) + scaling_attack × 総攻撃力 × 0.6 + scaling_power × 魔力) × スロット倍率。
+    /// ランク・能力値込みの数値（キットのヒーローはキットの上書きを反映する）。
     public static func numbers(for skill: SkillDef, hero: HeroDef, rank: Int, stats: Stats) -> SkillNumbers {
+        HeroKits.numbers(for: skill, hero: hero, rank: rank, stats: stats)
+    }
+
+    /// 汎用の数値。rank は 1...最大ランクに丸める（未習得の表示は rank 1 相当）。キットの上書きを含まない。
+    /// ダメージ = (base × (1 + 0.30×(rank−1)) + scaling_attack × 総攻撃力 × 0.6 + scaling_power × 魔力) × スロット倍率。
+    public static func genericNumbers(for skill: SkillDef, hero: HeroDef, rank: Int, stats: Stats) -> SkillNumbers {
         let k = Balance.Skills.self
         var n = SkillNumbers()
         guard skill.slot != .passive else { return n }
@@ -145,7 +185,7 @@ public enum SkillCatalog {
         n.ccIsUltimate = isUlt
         n.ccDuration = ccDuration(skill.cc, isUltimate: isUlt)
 
-        switch targeting(for: skill, hero: hero).archetype {
+        switch genericTargeting(for: skill, hero: hero).archetype {
         case .passive:
             n.damage = 0
         case .blinkEmpower:
@@ -213,11 +253,17 @@ public enum SkillSystem {
     public static func cast(_ s: inout SimState, _ ctx: SimContext, heroIndex i: Int, slot: SkillSlot,
                             target: SkillTarget) -> Bool {
         guard let check = validate(s, ctx, heroIndex: i, slot: slot) else { return false }
+        // キット層: 再使用の窓が開いていれば再使用として処理する（CD・コストは消費しない）
+        let kit = HeroKits.kit(in: s, i)
+        if let kit, let window = Kit.window(s, caster: i, slot: slot) {
+            return KitRuntime.recast(&s, ctx, kit: kit, caster: i, check: check, window: window, target: target)
+        }
         let targeting = SkillCatalog.targeting(for: check.skill, hero: check.def)
         let numbers = SkillCatalog.numbers(for: check.skill, hero: check.def, rank: check.rank,
                                            stats: s.units[i].stats)
         // 対象が必要なスキル（連続斬り・対象指定ブリンク）は対象が居なければ消費せず失敗
-        guard let aim = SkillAiming.resolve(s, ctx, caster: i, targeting: targeting, target: target) else {
+        guard let aim = SkillAiming.resolve(s, ctx, caster: i, targeting: targeting, target: target, slot: slot)
+        else {
             return false
         }
 
@@ -229,7 +275,18 @@ public enum SkillSystem {
         SkillPassives.breakStealth(&s, i)
         SkillPassives.beginCast(&s, i, slot: slot)
 
-        SkillArchetypes.execute(&s, ctx, caster: i, check: check, targeting: targeting, numbers: numbers, aim: aim)
+        if let kit {
+            let c = KitCast(caster: i, slot: slot, stage: 0, check: check, targeting: targeting, numbers: numbers, aim: aim)
+            switch kit.cast(&s, ctx, c) {
+            case .done:
+                break
+            case .generic(let t, let n):
+                SkillArchetypes.execute(&s, ctx, caster: i, check: check, targeting: t ?? targeting,
+                                        numbers: n ?? numbers, aim: aim)
+            }
+        } else {
+            SkillArchetypes.execute(&s, ctx, caster: i, check: check, targeting: targeting, numbers: numbers, aim: aim)
+        }
         PassiveHooks.onSkillCast(&s, ctx, caster: i, slot: slot)
         return true
     }
@@ -259,12 +316,16 @@ public enum SkillSystem {
         guard rank > 0, let def = ctx.master.hero(h.heroID),
               let skill = ctx.master.skill(hero: h.heroID, slot: slot) else { return nil }
         let free = ctx.config.practice?.noCooldowns == true
-        guard free || h.cooldown(slot) <= CombatSystem.timeEpsilon else { return nil }
-        let cost = free ? 0 : cost(for: skill, resource: h.resourceKind)
+        // キット層: 再使用の窓が開いている間は CD・コストを無視する。初回の追加条件は canStart
+        let recasting = h.kit != nil && HeroKits.isRecasting(s, i, slot)
+        if h.kit != nil, !recasting, let kit = HeroKits.kit(in: s, i),
+           !kit.canStart(s, ctx, caster: i, slot: slot) { return nil }
+        guard free || recasting || h.cooldown(slot) <= CombatSystem.timeEpsilon else { return nil }
+        let cost = free || recasting ? 0 : cost(for: skill, resource: h.resourceKind)
         guard s.units[i].resource + 1e-9 >= cost else { return nil }
         // ルート中は突進・跳躍できない（ブリンクは可）
         if s.units[i].has(.root) {
-            switch SkillCatalog.targeting(for: skill, hero: def).archetype {
+            switch SkillCatalog.activeTargeting(s, caster: i, slot: slot, skill: skill, hero: def).archetype {
             case .dashStrike, .leapSlam: return nil
             default: break
             }
@@ -283,6 +344,9 @@ public enum SkillSystem {
                 if v > 0 { s.units[i].hero?.skillCooldowns[k] = noCD ? 0 : max(0, v - dt) }
             }
             SkillPassives.update(&s, ctx, i, dt: dt)
+            ItemEffects.update(&s, ctx, hero: i)
+            // キット層: 窓・タイマー・突進の判定（キットのヒーローのみ）
+            if s.units[i].hero?.kit != nil { KitRuntime.update(&s, ctx, hero: i) }
         }
     }
 }
@@ -293,6 +357,9 @@ public enum PassiveHooks {
     /// 与ダメ補正（加算割合）。CombatSystem.applyDamage が呼ぶ。アサシンの奇襲。
     public static func outgoingDamageBonus(_ s: inout SimState, _ ctx: SimContext, attacker: Int, target: Int,
                                            source: DamageSource) -> Double {
+        if let kit = HeroKits.kit(in: s, attacker) {
+            return kit.outgoingDamageBonus(&s, ctx, attacker: attacker, target: target, source: source)
+        }
         guard s.units[attacker].hero?.role == .assassin else { return 0 }
         return SkillPassives.consumeAmbush(&s, ctx, attacker: attacker, target: target, source: source)
     }
@@ -301,6 +368,7 @@ public enum PassiveHooks {
     /// レンジャーの 4 発毎の確定クリティカル。攻撃の発射でステルス（虚像）も解除する。
     public static func forceCrit(_ s: inout SimState, _ ctx: SimContext, attacker: Int) -> Bool? {
         SkillPassives.breakStealth(&s, attacker)
+        if let kit = HeroKits.kit(in: s, attacker) { return kit.forceCrit(&s, ctx, attacker: attacker) }
         guard s.units[attacker].hero?.role == .ranger else { return nil }
         return SkillPassives.rangerForceCrit(&s, ctx, attacker: attacker)
     }
@@ -308,6 +376,10 @@ public enum PassiveHooks {
     /// 通常攻撃の命中。デュエリストの攻撃速度スタック。
     public static func onBasicAttackHit(_ s: inout SimState, _ ctx: SimContext, attacker: Int, target: Int,
                                         damage: Double) {
+        if let kit = HeroKits.kit(in: s, attacker) {
+            kit.onBasicAttackHit(&s, ctx, attacker: attacker, target: target, damage: damage)
+            return
+        }
         guard s.units[attacker].hero?.role == .duelist else { return }
         SkillPassives.duelistStack(&s, ctx, attacker: attacker)
     }
@@ -315,6 +387,10 @@ public enum PassiveHooks {
     /// スキルの命中（ダメージ 0 の CC のみの命中を含む）。アルカニストの CD 短縮。
     public static func onSkillHit(_ s: inout SimState, _ ctx: SimContext, attacker: Int, target: Int,
                                   slot: SkillSlot, damage: Double) {
+        if let kit = HeroKits.kit(in: s, attacker) {
+            kit.onSkillHit(&s, ctx, attacker: attacker, target: target, slot: slot, damage: damage)
+            return
+        }
         guard s.units[attacker].hero?.role == .arcanist else { return }
         SkillPassives.arcanistRefund(&s, ctx, caster: attacker, slot: slot)
     }
@@ -322,19 +398,39 @@ public enum PassiveHooks {
     /// ヒーローの被ダメ（死亡した場合も呼ばれる）。ヴァンガードの低 HP シールド。
     public static func onDamageTaken(_ s: inout SimState, _ ctx: SimContext, victim: Int, attacker: Int?,
                                      amount: Double) {
+        if let kit = HeroKits.kit(in: s, victim) {
+            kit.onDamageTaken(&s, ctx, victim: victim, attacker: attacker, amount: amount)
+            return
+        }
         guard s.units[victim].hero?.role == .vanguard else { return }
         SkillPassives.vanguardShield(&s, ctx, hero: victim)
     }
 
     /// スキル発動の完了。サポートの回復。
     public static func onSkillCast(_ s: inout SimState, _ ctx: SimContext, caster: Int, slot: SkillSlot) {
+        ItemEffects.onSkillCast(&s, ctx, caster: caster)
+        if let kit = HeroKits.kit(in: s, caster) {
+            kit.onSkillCast(&s, ctx, caster: caster, slot: slot)
+            return
+        }
         guard s.units[caster].hero?.role == .support else { return }
         SkillPassives.supportHeal(&s, ctx, caster: caster)
     }
 
     /// ヒーローのキル/アシスト（DeathSystem が呼ぶ）。アサシンの全 CD −30%。
     public static func onKillOrAssist(_ s: inout SimState, _ ctx: SimContext, hero: Int, victim: Int) {
+        if let kit = HeroKits.kit(in: s, hero) {
+            kit.onKillOrAssist(&s, ctx, hero: hero, victim: victim)
+            return
+        }
         guard s.units[hero].hero?.role == .assassin else { return }
         SkillPassives.assassinTakedown(&s, hero: hero)
+    }
+
+    /// 被ダメの補正（キットのヒーローのみ。防御・軽減の後、シールドの前の量を返す）。CombatSystem.dealDamage が呼ぶ。
+    public static func modifyIncomingDamage(_ s: inout SimState, _ ctx: SimContext, victim: Int, attacker: Int?,
+                                            source: DamageSource, amount: Double) -> Double {
+        guard let kit = HeroKits.kit(in: s, victim) else { return amount }
+        return kit.modifyIncomingDamage(&s, ctx, victim: victim, attacker: attacker, source: source, amount: amount)
     }
 }

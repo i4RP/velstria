@@ -67,6 +67,16 @@ enum WorldTestKit {
 
 /// ミニオンのウェーブ・中立キャンプ・練習用人形の出現（DESIGN §3・§4）。
 final class WorldSpawnTests: XCTestCase {
+    func testSideLaneMinionsAreTenPercentSlower() {
+        for type in [MinionType.melee, .ranged, .siege] {
+            let mid = UnitFactory.makeMinion(type: type, team: .blue, lane: .mid, pos: .zero, time: 0).stats.moveSpeed
+            for lane in [Lane.top, .bot] {
+                let side = UnitFactory.makeMinion(type: type, team: .blue, lane: lane, pos: .zero, time: 0).stats.moveSpeed
+                XCTAssertEqual(side, mid * 0.9, accuracy: 1e-9, "\(type) \(lane)")
+            }
+        }
+    }
+
     func testWaveComposition() {
         XCTAssertEqual(SpawnSystem.waveComposition(waveIndex: 0, time: 20), [.melee, .melee, .melee, .ranged, .ranged, .ranged])
         XCTAssertEqual(SpawnSystem.waveComposition(waveIndex: 1, time: 50).filter { $0 == .siege }.count, 0)
@@ -155,10 +165,10 @@ final class WorldSpawnTests: XCTestCase {
         XCTAssertEqual(sim.state.units.filter { $0.kind == .monster }.count, 0)
         sim.runHeadless(maxTime: 30.1)
         let monsters = sim.state.units.filter { $0.kind == .monster }
-        // 小キャンプ 8 × (大 1 + 小 2) + 番人 4
-        XCTAssertEqual(monsters.count, 28)
-        XCTAssertEqual(monsters.filter { $0.monster!.kind == .campLarge }.count, 8)
-        XCTAssertEqual(monsters.filter { $0.monster!.kind == .campSmall }.count, 16)
+        // 小キャンプ 10 × (大 1 + 小 2) + 番人 4（川の中立は 0:45 から）
+        XCTAssertEqual(monsters.count, 34)
+        XCTAssertEqual(monsters.filter { $0.monster!.kind == .campLarge }.count, 10)
+        XCTAssertEqual(monsters.filter { $0.monster!.kind == .campSmall }.count, 20)
         XCTAssertEqual(monsters.filter { $0.monster!.kind == .blueSentinel }.count, 2)
         XCTAssertTrue(monsters.allSatisfy { $0.team == .neutral })
         let sentinel = monsters.first { $0.monster!.kind == .redSentinel }!
@@ -194,7 +204,23 @@ final class WorldSpawnTests: XCTestCase {
         let colossus = later.state.units.first { $0.monster?.kind == .ancientColossus }!
         XCTAssertEqual(colossus.stats.maxHP, 9000)
         XCTAssertEqual(colossus.radius, 220)
-        XCTAssertEqual(colossus.pos, Vec2(3700, 8300))
+        XCTAssertEqual(colossus.pos, Vec2(3740, 8410))
+    }
+
+    /// 川の中立（片側のみ）は古環の巨像の巣の側に、約 0:45 に出現する（参照仕様 §5.1）。
+    func testRiverCampSpawnsAtFortyFiveSecondsOnOneSideOnly() {
+        let sim = Simulation(config: WorldTestKit.emptyConfig())
+        let rivers = sim.ctx.map.camps.filter { $0.side == .neutral && $0.kind == .small }
+        XCTAssertEqual(rivers.count, 1)
+        let camp = rivers[0]
+        XCTAssertEqual(camp.pos, Vec2(4710, 7285))
+        XCTAssertEqual(camp.firstSpawn, 45)
+        XCTAssertEqual(camp.respawn, 120)
+        XCTAssertTrue(sim.ctx.map.isInRiver(camp.pos))
+        sim.runHeadless(maxTime: 44.9)
+        XCTAssertEqual(sim.state.units.filter { $0.monster?.campID == camp.id }.count, 0)
+        sim.runHeadless(maxTime: 45.1)
+        XCTAssertEqual(sim.state.units.filter { $0.monster?.campID == camp.id }.count, 3)
     }
 
     func testCampRespawnsOnlyAfterAllMembersDie() {

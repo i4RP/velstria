@@ -128,13 +128,16 @@ enum SkillArchetypes {
                    ccIsUltimate: c.slot == .ultimate, heroesOnly: heroesOnly, skillID: c.skill.skillID)
     }
 
+    /// stage / shape / halfAngle / duration / count はキット層の演出ヒント（shape / halfAngle の nil は照準情報 t の値）。
     static func emitCast(_ s: inout SimState, caster i: Int, check c: SkillCastCheck, targeting t: SkillTargeting,
-                         origin: Vec2, target: Vec2, unit: Int?) {
+                         origin: Vec2, target: Vec2, unit: Int?, stage: Int = 0, shape: AimShape? = nil,
+                         halfAngle: Double? = nil, duration: Double = 0, count: Int = 0) {
         s.emit(.skillCast(SkillCastEvent(casterID: s.units[i].id, heroID: c.def.heroID, slot: c.slot,
                                          skillID: c.skill.skillID, effectID: c.skill.effectID,
                                          archetype: t.archetype, origin: origin, target: target,
                                          targetUnitID: unit.map { s.units[$0].id }, range: t.range,
-                                         radius: t.radius)))
+                                         radius: t.radius, stage: stage, shape: shape ?? t.shape,
+                                         halfAngle: halfAngle ?? t.halfAngle, duration: duration, count: count)))
     }
 
     /// 即時の範囲命中（扇形・円）。対象を先に確定してから添字昇順に適用する

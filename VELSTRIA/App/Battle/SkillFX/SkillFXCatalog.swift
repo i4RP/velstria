@@ -1,7 +1,7 @@
 import Foundation
 import VelstriaCore
 
-// 担当: スキル演出（VFX + 詠唱モーション）の目録。ヒーローごとの定義（FX_H001 … FX_H024）を束ねる。
+// 担当: スキル演出（VFX + 詠唱モーション）の目録。ヒーローごとの定義（FX_H001 … FX_H034）を束ねる。
 // 1 ヒーロー = 1 ファイル（App/Battle/SkillFX/Heroes/FX_H0xx.swift）に、パレット・4 スロットの演出（パッシブ+Skill1/2+Ult）・3 スキルの詠唱モーション。
 // レシピが空の段は FXGeneric（アーキタイプ別の既定演出）で補う。
 
@@ -23,6 +23,9 @@ enum SkillFXCatalog {
         "H013": FX_H013.self, "H014": FX_H014.self, "H015": FX_H015.self, "H016": FX_H016.self,
         "H017": FX_H017.self, "H018": FX_H018.self, "H019": FX_H019.self, "H020": FX_H020.self,
         "H021": FX_H021.self, "H022": FX_H022.self, "H023": FX_H023.self, "H024": FX_H024.self,
+        "H025": FX_H025.self, "H026": FX_H026.self, "H027": FX_H027.self, "H028": FX_H028.self,
+        "H029": FX_H029.self, "H030": FX_H030.self, "H031": FX_H031.self, "H032": FX_H032.self,
+        "H033": FX_H033.self, "H034": FX_H034.self,
     ]
 
     /// 演出 ID（FX_SK_001_2）→ ヒーロー ID（H001）。

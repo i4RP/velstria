@@ -97,7 +97,7 @@ enum HeroMotionSets {
     /// 杖・槍・銃など、向きを胴に対して保つ武器。
     private static let held: simd_quatf? = nil
 
-    /// H001〜H024: 通常攻撃（順に繰り返す）・待機・死亡・勝利。
+    /// H001〜H034: 通常攻撃（順に繰り返す）・待機・死亡・勝利。
     static let table: [String: HeroMotionSet] = [
         // 広刃剣 + 城門盾（Vanguard・近接）
         "H001": make(["sword_combo_1", "sword_combo_2", "sword_combo_3"],
@@ -152,5 +152,25 @@ enum HeroMotionSets {
         "H023": make(["javelin_throw", "cast_point"], idle: "idle_b", weaponGrip: held),
         // 夢の針 二刀（Assassin）
         "H024": make(["dual_combo_b", "dual_combo_d", "thrust"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer", offhandGrip: HeroMotionSet.fistGrip),
+        // 三日月の長弓（Ranger・遠隔。弓は左手の副手）
+        "H025": make(["bow_shot_b", "bow_shot"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer"),
+        // 雷杖（Arcanist・遠隔: 指し示し・払い）
+        "H026": make(["cast_a", "cast_point", "cast_throw"], idle: "ready_idle", victory: "victory_cheer", weaponGrip: held),
+        // 竜牙の長槍（Duelist・近接の突き）
+        "H027": make(["thrust", "sword_slash_r", "sword_upward"], idle: "ready_idle", death: "death_forward", weaponGrip: held),
+        // 光刃の長剣（Assassin・近接の連斬り）
+        "H028": make(["sword_slash_r", "sword_combo_2", "sword_combo2_b"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer"),
+        // 聖槌 + 円盾（Support・近接の片手振り。盾は左手に構えたまま）
+        "H029": make(["sword_combo_1", "axe_chop"], idle: "combat_idle"),
+        // 星砲（Ranger・遠隔の両手持ち）
+        "H030": make(["gun_fire"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer", weaponGrip: held),
+        // 氷の杖（Arcanist・遠隔: 払い・指し示し）
+        "H031": make(["cast_a", "cast_point"], idle: "idle_b", death: "death_forward", victory: "victory_cheer", weaponGrip: held),
+        // 拳剣（Duelist・近接。右手の籠手で薙ぐ・打ち上げる）
+        "H032": make(["sword_slash_r", "uppercut_r", "sword_combo_1"], idle: "ready_idle", death: "death_forward"),
+        // 血の大剣（Assassin・近接の両手の重い振り）
+        "H033": make(["overhead_2h", "sword_charged", "sword_upward"], idle: "combat_idle", death: "death_forward"),
+        // 鎖鉤（Support・近接の振り回し）
+        "H034": make(["axe_chop", "sword_slash_r", "sword_combo_1"], idle: "combat_idle"),
     ]
 }

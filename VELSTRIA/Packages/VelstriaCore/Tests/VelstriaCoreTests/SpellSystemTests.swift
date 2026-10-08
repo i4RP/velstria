@@ -35,14 +35,14 @@ final class SpellSystemTests: XCTestCase {
         XCTAssertFalse(w.castSpell(h, 0, .direction(Vec2(1, 0))), "CD 中")
         XCTAssertFalse(SpellSystem.canCast(w.s, w.ctx, heroIndex: h, spellIndex: 0))
 
-        // 岩（中心 (3600,2500) 半径 320）の手前で止まる
+        // 壁（x 4750..6000, y 1300..1700）の手前で止まる
         var o = SkillWorld()
-        let start = Vec2(3100, 2500)
+        let start = Vec2(4500, 1500)
         XCTAssertTrue(o.ctx.nav.isWalkable(start, radius: Balance.heroRadius))
         let b = o.addHero("H001", team: .blue, at: start, spells: ["BS01", "BS03"])
         XCTAssertTrue(o.castSpell(b, 0, .point(start + Vec2(1000, 0))))
         XCTAssertGreaterThan(o.s.units[b].pos.x, start.x + 50)
-        XCTAssertLessThan(o.s.units[b].pos.x, 3600 - 320 - Balance.heroRadius + 1)
+        XCTAssertLessThan(o.s.units[b].pos.x, 4750 - Balance.heroRadius + 1)
         XCTAssertTrue(o.ctx.nav.isWalkable(o.s.units[b].pos, radius: Balance.heroRadius))
         // .none は向いている方向
         var f = SkillWorld()

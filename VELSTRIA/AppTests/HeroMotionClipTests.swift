@@ -242,7 +242,7 @@ final class HeroMotionClipTests: XCTestCase {
             poses.append(p)
         }
         var checked = 0
-        for n in 1...24 {
+        for n in 1...34 {
             let id = String(format: "H%03d", n)
             guard let url = HeroAssetLibrary.bundledURL("Hero_\(id)"), let rig = HeroAssetLibrary.heroTemplate(url)?.rig else { continue }
             checked += 1
@@ -431,8 +431,8 @@ final class HeroMotionClipTests: XCTestCase {
     func testBundledLibraryAndProvisionalTable() throws {
         HeroMotionClips.setResolverForTesting(nil)
         let lib = HeroMotionClips.shared
-        XCTAssertEqual(HeroMotionSets.table.count, 24)
-        for n in 1...24 {
+        XCTAssertEqual(HeroMotionSets.table.count, 34)
+        for n in 1...34 {
             let id = String(format: "H%03d", n)
             let set = try XCTUnwrap(HeroMotionSets.set(heroID: id), id)
             XCTAssertFalse(set.attacks.isEmpty, id)
@@ -443,6 +443,14 @@ final class HeroMotionClipTests: XCTestCase {
             return
         }
         XCTAssertFalse(lib.isEmpty, "同梱の HeroMotionClips.json が読めない")
+        // 追加ヒーロー H025〜H034 は同梱ライブラリの既存クリップだけで組む（名前が無いと手続きに落ちる）
+        for n in 25...34 {
+            let id = String(format: "H%03d", n)
+            let set = try XCTUnwrap(HeroMotionSets.set(heroID: id), id)
+            for name in set.attacks + [set.idle, set.death, set.victory].compactMap({ $0 }) {
+                XCTAssertNotNil(lib.index(of: name), "\(id) のクリップ \(name) が同梱ライブラリに無い")
+            }
+        }
         var missing = Set<String>()
         for set in HeroMotionSets.table.values {
             let names = set.attacks + set.casts.compactMap { $0 } + [set.idle, set.run, set.death, set.victory, set.stunned, set.channel].compactMap { $0 }
@@ -461,7 +469,7 @@ final class HeroMotionClipTests: XCTestCase {
         let lib = HeroMotionClips.shared
         guard !lib.isEmpty else { return print("HeroMotionClipTests: 同梱のクリップ無し") }
         var report: [String] = []
-        for n in 1...24 {
+        for n in 1...34 {
             let id = String(format: "H%03d", n)
             guard let url = HeroAssetLibrary.bundledURL("Hero_\(id)"), let rig = HeroAssetLibrary.heroTemplate(url)?.rig else { continue }
             let rp = rig.restPosition

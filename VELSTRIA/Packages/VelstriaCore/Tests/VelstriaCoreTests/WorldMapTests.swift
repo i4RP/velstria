@@ -6,21 +6,65 @@ final class WorldMapTests: XCTestCase {
     let map = MapDefinition.standard
 
     func testDesignCoordinatesKept() {
-        XCTAssertEqual(map.fountains, [Vec2(700, 700), Vec2(11300, 11300)])
-        XCTAssertEqual(map.cores, [Vec2(1500, 1500), Vec2(10500, 10500)])
-        XCTAssertEqual(map.lanePaths[Lane.mid.rawValue], [Vec2(1500, 1500), Vec2(2300, 2300), Vec2(9700, 9700), Vec2(10500, 10500)])
+        XCTAssertEqual(map.fountains, [Vec2(600, 600), Vec2(11400, 11400)])
+        XCTAssertEqual(map.cores, [Vec2(1250, 1250), Vec2(10750, 10750)])
+        XCTAssertEqual(map.lanePaths[Lane.mid.rawValue], [Vec2(1250, 1250), Vec2(2300, 2300), Vec2(9700, 9700), Vec2(10750, 10750)])
         XCTAssertEqual(map.riverWidth, 900)
-        XCTAssertTrue(map.towers.contains { $0.team == .blue && $0.lane == .top && $0.tier == .outer && $0.pos == Vec2(1400, 7000) })
-        XCTAssertEqual(map.camps.first { $0.kind == .astralWyrm }?.pos, Vec2(8300, 3700))
-        XCTAssertEqual(map.camps.first { $0.kind == .ancientColossus }?.pos, Vec2(3700, 8300))
+        XCTAssertTrue(map.towers.contains { $0.team == .blue && $0.lane == .top && $0.tier == .outer && $0.pos == Vec2(484, 8793) })
+        XCTAssertEqual(map.camps.first { $0.kind == .astralWyrm }?.pos, Vec2(8260, 3590))
+        XCTAssertEqual(map.camps.first { $0.kind == .ancientColossus }?.pos, Vec2(3740, 8410))
         XCTAssertEqual(map.camps.first { $0.kind == .astralWyrm }?.firstSpawn, 120)
         XCTAssertEqual(map.camps.first { $0.kind == .ancientColossus }?.respawn, 180)
         XCTAssertEqual(map.camps.first { $0.kind == .astralWyrm }?.respawn, 120)
     }
 
+    /// 側レーンは地図の縁に沿い（縁から 700 以内。以前は 1400）、左上と右下の角は 45° に切る。
+    func testSideLanesHugTheMapEdgesAndCutTheCornersDiagonally() {
+        let top = map.lanePaths[Lane.top.rawValue], bot = map.lanePaths[Lane.bot.rawValue]
+        XCTAssertEqual(top[1].x, 700)
+        XCTAssertEqual(top[2].x, 700)
+        XCTAssertEqual(top[3].y, 11300)
+        XCTAssertEqual(top[4].y, 11300)
+        for p in top.dropFirst().dropLast() {
+            XCTAssertLessThanOrEqual(min(p.x, map.size - p.y), 700, "\(p)")
+        }
+        for p in bot.dropFirst().dropLast() {
+            XCTAssertLessThanOrEqual(min(p.y, map.size - p.x), 700, "\(p)")
+        }
+        // 角（左上）は 45°
+        let corner = top[3] - top[2]
+        XCTAssertEqual(abs(corner.x), abs(corner.y), accuracy: 1e-9)
+        // bot は top の点対称（逆順）
+        XCTAssertEqual(Array(bot.map(\.mirrored).reversed()), top)
+        // 角の外側（レーンを切る壁）は歩けない
+        let nav = NavGrid(map: map)
+        XCTAssertFalse(nav.isWalkable(Vec2(200, 11800), radius: Balance.heroRadius))
+        XCTAssertFalse(nav.isWalkable(Vec2(11800, 200), radius: Balance.heroRadius))
+        XCTAssertTrue(nav.isWalkable(Vec2(700, 9000), radius: Balance.heroRadius))
+    }
+
+    /// タワーの配置（ミニマップのアイコンから測った外塔・内塔・基部塔）。レーンの帯の中（中心線から 300 以内）にあり、間隔は 1500 以上。
+    func testTowerLayoutAndSpacing() {
+        let expected: [Lane: [Vec2]] = [
+            .top: [Vec2(484, 8793), Vec2(556, 6342), Vec2(639, 3166)],
+            .mid: [Vec2(4656, 4991), Vec2(3391, 3705), Vec2(2399, 2399)],
+            .bot: [Vec2(8848, 567), Vec2(5423, 470), Vec2(3179, 630)],
+        ]
+        for lane in Lane.allCases {
+            let blue = TowerTier.allCases.map { tier in
+                map.towers.first { $0.team == .blue && $0.lane == lane && $0.tier == tier }!.pos
+            }
+            XCTAssertEqual(blue, expected[lane]!, "\(lane)")
+            for p in blue { XCTAssertLessThan(map.distanceToLane(p, lane: lane), 300, "\(lane) \(p)") }
+            for k in 1..<blue.count { XCTAssertGreaterThanOrEqual(blue[k - 1].distance(to: blue[k]), 1500, "\(lane) \(k)") }
+            // 基部塔は Core から 1400〜2200
+            XCTAssertTrue((1400...2200).contains(blue[2].distance(to: map.core(.blue))), "\(lane)")
+        }
+    }
+
     func testBrushAndObstacleCounts() {
         XCTAssertEqual(map.brushes.count, 24)
-        XCTAssertTrue((30...50).contains(map.obstacles.count), "obstacles = \(map.obstacles.count)")
+        XCTAssertTrue((90...130).contains(map.obstacles.count), "obstacles = \(map.obstacles.count)")
         XCTAssertEqual(map.brushes.map(\.id), Array(0..<map.brushes.count))
     }
 
@@ -31,8 +75,10 @@ final class WorldMapTests: XCTestCase {
         for b in map.brushes {
             XCTAssertTrue(map.brushes.contains { $0.rect == b.rect.mirrored }, "no mirror for brush \(b.id)")
         }
+        // キャンプはミニマップから測った位置（ゲーム側の配置が厳密な点対称ではない）。相手側の対応するキャンプは写像から 200 以内。
         for c in map.camps where c.side != .neutral {
-            XCTAssertTrue(map.camps.contains { $0.side == c.side.opponent && $0.kind == c.kind && $0.pos == c.pos.mirrored })
+            XCTAssertTrue(map.camps.contains { $0.side == c.side.opponent && $0.kind == c.kind && $0.pos.distance(to: c.pos.mirrored) < 200 },
+                          "no counterpart for camp \(c.id)")
         }
     }
 
@@ -89,8 +135,9 @@ final class WorldMapTests: XCTestCase {
         for ch in ["#", "\"", "=", "~", "T", "C", "F", "c", "B"] {
             XCTAssertTrue(ascii.contains(ch), "missing \(ch)")
         }
-        // 上端 = +y。左上は Red の top 外塔側（x 小・y 大）で河川が通る
-        XCTAssertEqual(lines[0].first, "~")
+        // 上端 = +y。左上の角はレーンを斜めに切る壁（右下も点対称）
+        XCTAssertEqual(lines[0].first, "#")
+        XCTAssertEqual(lines[59].last, "#")
         // 点対称: 180° 回転した描画と記号の配置が一致する（ラベルの陣営差は無視）
         let grid = lines.map { Array($0) }
         var mismatches = 0
@@ -102,11 +149,11 @@ final class WorldMapTests: XCTestCase {
     }
 
     func testLaneGeometryHelpers() {
-        XCTAssertEqual(map.distanceToLane(Vec2(1400, 5000), lane: .top), 0, accuracy: 1e-9)
-        XCTAssertEqual(map.distanceToLane(Vec2(1800, 5000), lane: .top), 400, accuracy: 1e-9)
+        XCTAssertEqual(map.distanceToLane(Vec2(700, 5000), lane: .top), 0, accuracy: 1e-9)
+        XCTAssertEqual(map.distanceToLane(Vec2(1100, 5000), lane: .top), 400, accuracy: 1e-9)
         XCTAssertEqual(map.nearestLane(to: Vec2(5000, 5100)).lane, .mid)
         let proj = MapDefinition.project(Vec2(5000, 1000), onto: map.lanePath(.bot, for: .blue))
-        XCTAssertEqual(proj.point, Vec2(5000, 1400))
+        XCTAssertEqual(proj.point, Vec2(5000, 700))
         XCTAssertEqual(proj.segmentEnd, 2)
     }
 

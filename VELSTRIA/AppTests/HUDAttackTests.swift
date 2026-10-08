@@ -30,8 +30,11 @@ final class HUDAttackTests: XCTestCase {
     private func recordedPriorities(_ model: HUDModel) -> [TargetPriority] {
         model.controller.frame(dt: Balance.dt)
         return (model.controller.recorder?.frames ?? []).flatMap(\.commands).compactMap {
-            guard case .attackNearest(let priority) = $0.command else { return nil }
-            return priority
+            switch $0.command {
+            case .attackNearest(let priority): return priority
+            case .attackNearestWith(let priority, _, _): return priority
+            default: return nil
+            }
         }
     }
 
@@ -57,8 +60,34 @@ final class HUDAttackTests: XCTestCase {
             f.model.attackReleased(button: button)
         }
 
-        XCTAssertEqual(recordedPriorities(f.model), [.structuresFirst, .heroesFirst, .minionsFirst])
+        XCTAssertEqual(recordedPriorities(f.model), [.structuresFirst, .lowestHealth, .minionsFirst])
         XCTAssertFalse(f.model.attackHeld)
+    }
+
+    /// 中央ボタンだけがヒーローロック・アクティブモンスターの判別の設定を持って発動する。
+    @MainActor
+    func testOnlyTheCenterButtonCarriesHeroLockAndActiveMonsterSettings() {
+        let f = fixture()
+        defer { f.model.stop() }
+        f.app.profile.settings.heroLock = false
+        f.app.profile.settings.activeMonsterDetection = true
+
+        for button in [AttackButtonSlot.top, .center, .bottom] {
+            f.model.attackPressed(button: button)
+            f.model.attackReleased(button: button)
+        }
+        f.model.controller.frame(dt: Balance.dt)
+        let commands = (f.model.controller.recorder?.frames ?? []).flatMap(\.commands).map(\.command).filter {
+            switch $0 {
+            case .attackNearest, .attackNearestWith: return true
+            default: return false
+            }
+        }
+        XCTAssertEqual(commands, [
+            .attackNearest(priority: .structuresFirst),
+            .attackNearestWith(priority: .lowestHealth, heroLock: false, activeMonsterOnly: true),
+            .attackNearest(priority: .minionsFirst),
+        ])
     }
 
     @MainActor

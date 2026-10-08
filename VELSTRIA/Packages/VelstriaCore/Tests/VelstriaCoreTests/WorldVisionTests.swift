@@ -12,9 +12,9 @@ final class WorldVisionTests: XCTestCase {
         return (s, ctx)
     }
 
-    /// 構造物から遠い草むら（Blue 下側ジャングルの「番人の東」）。
+    /// 構造物から遠い草むら（Blue 南ジャングルの「亀の巣の南」）。
     var jungleBrush: BrushArea {
-        MapDefinition.standard.brushes.first { $0.rect == Rect2(minX: 6750, minY: 2800, maxX: 7100, maxY: 3150) }!
+        MapDefinition.standard.brushes.first { $0.rect == Rect2(minX: 7800, minY: 2100, maxX: 8200, maxY: 2400) }!
     }
 
     func testGridShapeAndFountainVision() {
@@ -22,12 +22,12 @@ final class WorldVisionTests: XCTestCase {
         XCTAssertEqual(s.vision.cols, 60)
         XCTAssertEqual(s.vision.rows, 60)
         XCTAssertEqual(s.vision.cells.count, 3600)
-        XCTAssertTrue(s.vision.isLit(Vec2(700, 700), for: .blue))
-        XCTAssertTrue(s.vision.isLit(Vec2(700 + 1450, 700), for: .blue))
-        XCTAssertFalse(s.vision.isLit(Vec2(700, 700), for: .red))
-        XCTAssertTrue(s.vision.isLit(Vec2(11300, 11300), for: .red))
+        XCTAssertTrue(s.vision.isLit(Vec2(600, 600), for: .blue))
+        XCTAssertTrue(s.vision.isLit(Vec2(600 + 1200, 600), for: .blue))
+        XCTAssertFalse(s.vision.isLit(Vec2(600, 600), for: .red))
+        XCTAssertTrue(s.vision.isLit(Vec2(11400, 11400), for: .red))
         // タワー視界 1100
-        XCTAssertTrue(s.vision.isLit(Vec2(4300 + 1000, 4300), for: .blue))
+        XCTAssertTrue(s.vision.isLit(Vec2(4656 + 1000, 4991), for: .blue))
         XCTAssertFalse(s.vision.isLit(Vec2(6000, 6000), for: .blue))
         XCTAssertFalse(s.vision.isLit(Vec2(6000, 6000), for: .red))
     }
@@ -109,10 +109,10 @@ final class WorldVisionTests: XCTestCase {
 
         // タワーの真視界 750
         s.units[scout].pos = Vec2(3000, 5000)
-        s.units[sneak].pos = Vec2(4300 + 600, 4300)
+        s.units[sneak].pos = Vec2(4656 + 600, 4991)
         VisionSystem.update(&s, ctx)
         XCTAssertTrue(s.isVisible(sneak, to: .blue))
-        s.units[sneak].pos = Vec2(4300 + 900, 4300)
+        s.units[sneak].pos = Vec2(4656 + 900, 4991)
         VisionSystem.update(&s, ctx)
         XCTAssertTrue(s.vision.isLit(s.units[sneak].pos, for: .blue))
         XCTAssertFalse(s.isVisible(sneak, to: .blue))
@@ -129,7 +129,7 @@ final class WorldVisionTests: XCTestCase {
         for i in s.units.indices where s.units[i].isStructure {
             XCTAssertEqual(s.units[i].visibleMask, Team.blue.visionBit | Team.red.visionBit)
         }
-        let monster = s.addUnit(UnitFactory.makeMonster(kind: .campSmall, campID: 0, pos: Vec2(4300 + 500, 4300)))
+        let monster = s.addUnit(UnitFactory.makeMonster(kind: .campSmall, campID: 0, pos: Vec2(4656 + 500, 4991)))
         VisionSystem.update(&s, ctx)
         XCTAssertEqual(s.unit(monster)?.visibleMask, Team.blue.visionBit)
         // 破壊された構造物（残骸）も両チームから見えるが、攻撃対象にはならない

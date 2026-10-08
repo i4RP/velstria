@@ -178,15 +178,51 @@ public enum ItemSystem {
         }
     }
 
+    /// ヒーロー固有の購入順カテゴリ（Mobile Legends の定番ビルドに寄せた上書き）。無いヒーローはロール別。
+    /// 靴枠は 1 つなので .movement は 1 回まで。ジャングルの .jungle / サポートのローム靴は recommendedBuild(for:) が靴に読み替える。
+    static let heroBuildPlans: [String: [ItemCategory]] = [
+        // ルミナ（ミヤ）: 靴 → 攻撃を積み、最後に復活系の防御
+        "H025": [.movement, .attack, .attack, .attack, .attack, .defense],
+        // エウリア（エウドラ）: 靴 → 魔法を積み、最後に耐久
+        "H026": [.movement, .magic, .magic, .magic, .magic, .defense],
+        // ジャルド（趙子龍）: 靴 → 攻撃 3 + 防御 2
+        "H027": [.movement, .attack, .attack, .attack, .defense, .defense],
+        // ザイル（セイバー）: 狩猟印のジャングラー。先頭がジャングル装備、残りは攻撃 + 終盤の防御
+        "H028": [.jungle, .attack, .attack, .attack, .attack, .defense],
+        // ボルグ（ティグリアル）: ローム靴 → 防御主体 + 補助
+        "H029": [.defense, .utility, .defense, .defense, .defense, .utility],
+        // ライナ（ライラ）: 靴 → 攻撃を積む射手。最後に防御
+        "H030": [.movement, .attack, .attack, .attack, .attack, .defense],
+        // オーリア（オーロラ）: 靴 → 魔法を積み、補助と耐久を 1 つずつ
+        "H031": [.movement, .magic, .magic, .utility, .magic, .defense],
+        // ディアス（ディロス）: 靴 → 攻撃と防御を交互
+        "H032": [.movement, .attack, .defense, .attack, .attack, .defense],
+        // ヴァルド（アルカード）: 狩猟印のジャングラー。攻撃主体 + 終盤の防御
+        "H033": [.jungle, .attack, .attack, .attack, .defense, .attack],
+        // ゴルム（フランコ）: ローム靴 → 防御主体 + 補助
+        "H034": [.defense, .utility, .defense, .defense, .utility, .defense],
+    ]
+
+    /// ヒーロー別（無ければロール別）の購入順カテゴリ。heroID のロールと role が食い違う時（テストの差し替えなど）はロール別。
+    public static func buildPlan(heroID: String, role: Role, master: MasterData) -> [ItemCategory] {
+        if let plan = heroBuildPlans[heroID], master.hero(heroID)?.role == role { return plan }
+        return buildPlan(role: role)
+    }
+
     /// ロール別の推奨ビルド（購入順の item ID）。AI と HUD の「おすすめ購入」が使う。
     public static func recommendedBuild(role: Role, master: MasterData) -> [String] {
         build(plan: buildPlan(role: role), master: master)
     }
 
+    /// ヒーロー別（無ければロール別）の推奨ビルド。ビルド編集画面の「おすすめ」が使う（スペル・ポジションの読み替えなし）。
+    public static func recommendedBuild(heroID: String, role: Role, master: MasterData) -> [String] {
+        build(plan: buildPlan(heroID: heroID, role: role, master: master), master: master)
+    }
+
     /// ヒーローの装備スペルに合わせた推奨ビルド。
     /// 狩猟印なし → Jungle 枠を Movement（既にあれば主力カテゴリ）へ。狩猟印ありのジャングラー → 先頭に Jungle。
     public static func recommendedBuild(for hero: HeroData, master: MasterData) -> [String] {
-        var plan = buildPlan(role: hero.role)
+        var plan = buildPlan(heroID: hero.heroID, role: hero.role, master: master)
         let hasSmite = hero.spells.contains(Balance.Economy.smiteSpellID)
         if !hasSmite, let k = plan.firstIndex(of: .jungle) {
             let primary = plan.first { $0 != .jungle && $0 != .movement } ?? .attack
@@ -231,9 +267,9 @@ public enum ItemSystem {
         EconomyItemTable.table(for: master).rankedItems(category)
     }
 
-    /// 推奨ビルド用の評価値（カテゴリの主要能力 + パッシブ% × 2）。
+    /// 推奨ビルド用の評価値（能力値の重み付き合計 + 固有効果の分）。
     static func itemValue(_ it: ItemDef) -> Double {
-        EconomyItemTable.value(it, percent: it.passivePercent)
+        EconomyItemTable.value(it)
     }
 
     /// 推奨ビルドに沿って「次に買うべき装備」（所持 Gold で買えるもの。無ければ nil）。HUD のおすすめ購入・AI が使う。
@@ -289,7 +325,10 @@ public enum ItemStats {
         var resourceRegenPct: Double = 0
         var hpRegenPct: Double = 0
 
-        // 固定値（同じ装備を複数持てばその分加算）
+        // 能力値（装備ごとに定義。同じ装備を複数持てばその分加算）。
+        // 同名の固有効果にあたる割合（貫通 %・魔力 %）は重ならず、最大値だけを採る。
+        var attackSpeedPct: Double = 0, armorPenPct: Double = 0, magicPenPct: Double = 0
+        var abilityPowerPct: Double = 0, moveSpeedItemPct: Double = 0
         for id in items {
             guard let it = master.item(id) else { continue }
             stats.attack += it.attack
@@ -299,30 +338,36 @@ public enum ItemStats {
             stats.magicResist += it.magicResist
             stats.moveSpeed += it.moveSpeed
             stats.cooldownReduction += it.cooldownReductionPct / 100
+            attackSpeedPct += it.attackSpeedPct / 100
+            stats.critChance += it.critChancePct / 100
+            stats.critMultiplier += it.critDamagePct / 100
+            stats.lifesteal += it.lifestealPct / 100
+            stats.spellVamp += it.spellVampPct / 100
+            stats.armorPenFlat += it.armorPenFlat
+            stats.magicPenFlat += it.magicPenFlat
+            armorPenPct = max(armorPenPct, it.armorPenPct / 100)
+            magicPenPct = max(magicPenPct, it.magicPenPct / 100)
+            stats.hpRegen += it.hpRegen
+            stats.resourceRegen += it.resourceRegen
+            abilityPowerPct = max(abilityPowerPct, it.abilityPowerPct / 100)
+            moveSpeedItemPct += it.moveSpeedPct / 100
+            stats.outOfCombatMoveSpeedBonus += it.outOfCombatMovePct / 100
+            stats.healShieldPower += it.healShieldPowerPct / 100
         }
+        stats.armorPenPct = armorPenPct
+        stats.magicPenPct = magicPenPct
+        stats.attackSpeed *= 1 + attackSpeedPct
+        stats.abilityPower *= 1 + abilityPowerPct
+        stats.critChance = min(1, stats.critChance)
 
-        // カテゴリ別パッシブ（X = passive_text の %、同じ装備のパッシブは重複しない）
+        // ジャングル装備（同じ装備のモンスターへのダメージは重ならない）: モンスターへの与ダメと Gold 補正
         var seen: [String] = []
         var hasJungle = false
         for id in items where !seen.contains(id) {
             seen.append(id)
-            guard let it = master.item(id) else { continue }
-            let x = table.percent(item: it) / 100
-            switch it.category {
-            case .attack: stats.basicAttackDamageBonus += x
-            case .magic: stats.skillDamageBonus += x
-            case .defense: stats.damageReduction += x / 2
-            case .movement: stats.outOfCombatMoveSpeedBonus += x
-            case .utility:
-                stats.healShieldPower += x
-                resourceRegenPct += x
-            case .jungle:
-                stats.monsterDamageBonus += 3 * x
-                hasJungle = true
-            case .roam:
-                // 効果は共有収入・祝福（GearSystem）で、能力値の補正は無い
-                break
-            }
+            guard let it = master.item(id), it.category == .jungle else { continue }
+            stats.monsterDamageBonus += it.monsterDamagePct / 100
+            hasJungle = true
         }
         if hasJungle { stats.monsterGoldBonus += Balance.Economy.jungleMonsterGoldBonus }
 
@@ -357,9 +402,11 @@ public enum ItemStats {
         stats.maxHP *= 1 + hpPct
         stats.armor *= 1 + defensePct
         stats.magicResist *= 1 + defensePct
-        stats.moveSpeed *= 1 + moveSpeedPct
+        stats.moveSpeed *= 1 + moveSpeedPct + moveSpeedItemPct
         stats.hpRegen *= 1 + hpRegenPct
         stats.resourceRegen *= 1 + resourceRegenPct
+        // 魔力から最大 HP への換算（装備「血翼の共鳴」）は、魔力が確定した後に足す
+        stats.maxHP += ItemEffects.bloodWingsHP(items: items, abilityPower: stats.abilityPower, master: master)
     }
 
     /// 有効なルーン（マスターに存在する ID のみ、各 Tier 先頭の 1 個、最大 3 個）。

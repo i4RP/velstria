@@ -39,13 +39,13 @@ final class AppStoreAssetsTests: XCTestCase {
         for e in m.effects { need(e.effectID) }
         XCTAssertEqual(missing, [], "未翻訳のキーがあります（python3 tools/gen_master_en.py で再生成）")
 
-        XCTAssertEqual(m.heroes.count, 24)
-        XCTAssertEqual(m.skills.count, 96)
+        XCTAssertEqual(m.heroes.count, 34)
+        XCTAssertEqual(m.skills.count, 136)
         XCTAssertEqual(m.items.count, 72 + GearCatalog.items.count)  // 正本 72 + 靴
         XCTAssertEqual(m.spells.count, 15)
         XCTAssertEqual(m.runes.count, 30)
-        XCTAssertEqual(m.cosmetics.count, 72)
-        XCTAssertEqual(m.store.count, 114)
+        XCTAssertEqual(m.cosmetics.count, 102)
+        XCTAssertEqual(m.store.count, 154)
     }
 
     func testEnglishOverlayContainsNoJapaneseText() throws {
@@ -63,6 +63,8 @@ final class AppStoreAssetsTests: XCTestCase {
         for s in m.skills {
             let desc = try XCTUnwrap(overlay[s.skillID + ".desc"])
             let hero = try XCTUnwrap(m.heroes.first { $0.heroID == s.heroID })
+            // キットのヒーローの説明は HeroKits.text（SkillMath.description）が持つ。汎用文（.desc）は存在チェックのみ
+            if HeroKits.hasKit(hero.heroID) { continue }
             switch s.slot {
             case .skill2 where hero.isRanged:
                 // 遠隔: 350 のブリンク + 次の通常攻撃にスキル基礎値の 50%
@@ -100,7 +102,8 @@ final class AppStoreAssetsTests: XCTestCase {
         XCTAssertEqual(MasterText.hero(alden), "Alden, Gate Warden")
         XCTAssertEqual(MasterText.cosmetic(lyraRecall), "Starstring Recall I")
         XCTAssertEqual(MasterText.item(dagger), "Dawn Dagger")
-        XCTAssertTrue(MasterText.description(id: dagger.itemID, ja: dagger.passiveText).hasPrefix("Unique Passive"))
+        let gale = try XCTUnwrap(m.items.first { $0.itemID == "EQ019" })
+        XCTAssertTrue(MasterText.description(id: gale.itemID, ja: gale.passiveText).hasPrefix("Unique Passive"))
 
         Loc.current = .ja
         XCTAssertEqual(MasterText.hero(alden), alden.displayNameJa)
@@ -205,8 +208,15 @@ final class AppStoreAssetsTests: XCTestCase {
     func testEveryHeroAndSkinHasPortraitArt() {
         let m = MasterData.shared
         var missing: [String] = []
+        // 追加ヒーロー第 1・第 2 段階（docs/NEW_HEROES.md）。立ち絵は未生成で、頭文字の暫定表示になる。
+        // tools/portraits/portraits.py で生成・取り込みしたらこの一覧から外す（外し忘れても下の確認で気づける）。
+        let artPending: Set<String> = ["H025", "H026", "H027", "H028", "H029", "H030", "H031", "H032", "H033", "H034"]
         for h in m.heroes {
-            guard let img = PortraitArt.hero(h.heroID) else { missing.append(h.heroID); continue }
+            guard let img = PortraitArt.hero(h.heroID) else {
+                if !artPending.contains(h.heroID) { missing.append(h.heroID) }
+                continue
+            }
+            XCTAssertFalse(artPending.contains(h.heroID), "\(h.heroID) の立ち絵を取り込んだので artPending から外してください")
             XCTAssertEqual(img.size.width, img.size.height, "\(h.heroID) のポートレートが正方形ではありません")
             XCTAssertGreaterThanOrEqual(img.size.width * img.scale, 512, "\(h.heroID) のポートレートの解像度が不足")
         }

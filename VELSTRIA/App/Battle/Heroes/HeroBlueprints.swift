@@ -1,7 +1,7 @@
 import Foundation
 import VelstriaCore
 
-// 担当: hero-models。24 ヒーローの造形設計（体型・頭部・武器・背中・浮遊物・攻撃モーション）。
+// 担当: hero-models。34 ヒーローの造形設計（体型・頭部・武器・背中・浮遊物・攻撃モーション）。
 // 基調色は Theme.heroHue、アクセント・発光は名前のモチーフから決める。
 
 enum BodyBuild { case heavy, standard, slim, robed }
@@ -18,6 +18,7 @@ enum HeadGear {
     case knightHelm, hood, deepHood, mask, starPin, shellCrown, flameCrown, goggles, beastMask
     case hornHelm, vikingHelm, wideHat, foxEars, wingedHelm, nightcap, flowerCrown, circlet
     case featherPin, glassVisor, ironVisor, headband, beard, crescentPin, ribbon
+    case iceCrown
 }
 
 enum WeaponKind {
@@ -25,21 +26,24 @@ enum WeaponKind {
     case mechCrossbow, handFlame, aegisStaff, glassDagger, boneClub, mistKatana, bellBlunderbuss
     case haloStaff, abyssCenser, petalBlade, siegeHammer, lightArrowBlade, sandRifle, azureClaw
     case thunderLance, dreamNeedle
+    case dragonSpear, stormWand, photonBlade, holyMaul
+    case starCannon, iceStaff, fistBlade, bloodGreatsword, hookChain
 }
 
 enum OffhandKind {
     case none, gateShield, harpBow, ashBow, moonLantern, stoneFist, grimoire, glassDagger, hideShield
     case shortBlade, petalBlade, lightBow, azureClaw, dreamNeedle
+    case crescentBow, roundShield
 }
 
 enum BackKind {
     case none, cape, quiver, ironWings, warBell, gearPack, mistCloak, tatteredCape, scarfTails
-    case windRibbons, sash, furCape
+    case windRibbons, sash, furCape, chainSash
 }
 
 enum FloatKind {
     case none, waterOrb, lightningHalo, fireOrbs, glassShards, whiteHalo, abyssChains, petals
-    case hourglass, clawCrystals, thunderOrb, dreamThreads, starMotes
+    case hourglass, clawCrystals, thunderOrb, dreamThreads, starMotes, sparkOrbs, iceCrystals
 }
 
 /// 通常攻撃のモーション系統。
@@ -74,10 +78,11 @@ struct HeroBlueprint {
     /// 右手武器の表示倍率（上方カメラで読めるよう大きめ）。
     var weaponScale: Float {
         switch weapon {
-        case .siegeHammer, .tideStaff, .haloStaff, .aegisStaff, .thunderLance, .windBanner: return 1.08
+        case .siegeHammer, .tideStaff, .haloStaff, .aegisStaff, .thunderLance, .windBanner, .dragonSpear, .stormWand, .iceStaff, .starCannon: return 1.08
         case .lightningSpear: return 1.12
-        case .stoneFist: return 1.1
-        case .broadsword, .boneClub, .mistKatana: return 1.18
+        case .stoneFist, .holyMaul, .fistBlade, .hookChain: return 1.1
+        case .broadsword, .boneClub, .mistKatana, .photonBlade: return 1.18
+        case .bloodGreatsword: return 1.0
         default: return 1.28
         }
     }
@@ -86,9 +91,9 @@ struct HeroBlueprint {
     var offhandScale: Float {
         switch offhand {
         case .gateShield: return 0.88
-        case .hideShield: return 0.95
+        case .hideShield, .roundShield: return 0.95
         case .stoneFist: return 1.1
-        case .ashBow, .lightBow: return 1.12
+        case .ashBow, .lightBow, .crescentBow: return 1.12
         default: return 1.28
         }
     }
@@ -98,14 +103,14 @@ struct HeroBlueprint {
     /// 両手持ち（左手を柄・銃身に添える）。
     var twoHanded: Bool {
         switch weapon {
-        case .siegeHammer, .mechCrossbow, .bellBlunderbuss, .sandRifle: return true
+        case .siegeHammer, .mechCrossbow, .bellBlunderbuss, .sandRifle, .starCannon, .bloodGreatsword: return true
         default: return false
         }
     }
 }
 
 enum HeroBlueprints {
-    /// H001...H024 の順。
+    /// H001...H034 の順。
     static let roster: [HeroBlueprint] = [
         // H001 城門の誓衛アルデン（Vanguard）: 城門塔の大盾・広刃剣・騎士兜
         HeroBlueprint(build: .heavy, armor: .plate, pauldron: .big, skirt: .tassets, hair: .none,
@@ -231,6 +236,56 @@ enum HeroBlueprints {
                       float: .dreamThreads, attack: .dualSlash, metal: .silver, skin: .fair,
                       hairColor: HSB(0.75, 0.3, 0.95), accent: HSB(0.78, 0.35, 1.0), glow: HSB(0.8, 0.45, 1.0),
                       scale: 0.96),
+        // H025 月弦のルミナ（Ranger）: 三日月の長弓・銀白の長髪・翠と白の外套
+        HeroBlueprint(build: .slim, armor: .light, pauldron: .small, skirt: .shortSkirt, hair: .long,
+                      gear: [.featherPin, .crescentPin], weapon: .none, offhand: .crescentBow, back: .cape, float: .none,
+                      attack: .bow, metal: .silver, skin: .fair, hairColor: HSB(0.13, 0.07, 0.98),
+                      accent: HSB(0.42, 0.7, 0.72), glow: HSB(0.14, 0.4, 1.0)),
+        // H026 紫電のエウリア（Arcanist）: 細身の雷杖・紫の髪と短い外套・周囲に浮く雷球
+        HeroBlueprint(build: .robed, armor: .cloth, pauldron: .small, skirt: .robe, hair: .ponytail,
+                      gear: [.ribbon], weapon: .stormWand, offhand: .none, back: .cape, float: .sparkOrbs,
+                      attack: .staff, metal: .silver, skin: .fair, hairColor: HSB(0.77, 0.6, 0.62),
+                      accent: HSB(0.76, 0.7, 0.95), glow: HSB(0.52, 0.5, 1.0)),
+        // H027 竜槍のジャルド（Duelist）: 竜牙の長槍・銀青の鎧・赤い房飾りと鉢巻・茶髪の結い髪
+        HeroBlueprint(build: .standard, armor: .plate, pauldron: .round, skirt: .tassets, hair: .topknot,
+                      gear: [.headband], weapon: .dragonSpear, offhand: .none, back: .scarfTails, float: .none,
+                      attack: .thrust, metal: .silver, skin: .fair, hairColor: HSB(0.07, 0.6, 0.4),
+                      accent: HSB(0.99, 0.78, 0.92), glow: HSB(0.57, 0.5, 1.0), scale: 1.02),
+        // H028 断空のザイル（Assassin）: 光刃の長剣・濃紺の軽装甲・光る visor
+        HeroBlueprint(build: .slim, armor: .light, pauldron: .small, skirt: .coat, hair: .spiky,
+                      gear: [.glassVisor], weapon: .photonBlade, offhand: .none, back: .none, float: .none,
+                      attack: .slash, metal: .obsidian, skin: .pale, hairColor: HSB(0.6, 0.5, 0.2),
+                      accent: HSB(0.52, 0.85, 0.95), glow: HSB(0.52, 0.55, 1.0), scale: 0.98),
+        // H029 聖槌のボルグ（Support）: 聖槌と円盾・青い房の大兜・青と金の重装
+        HeroBlueprint(build: .heavy, armor: .plate, pauldron: .big, skirt: .kilt, hair: .none,
+                      gear: [.knightHelm], weapon: .holyMaul, offhand: .roundShield, back: .cape, float: .none,
+                      attack: .slash, metal: .gold, skin: .tan, hairColor: HSB(0.08, 0.5, 0.35),
+                      accent: HSB(0.6, 0.75, 0.95), glow: HSB(0.13, 0.5, 1.0), scale: 1.1),
+        // H030 星砲のライナ（Ranger）: 背丈ほどの星の砲（両手持ち）・桃みがかった金髪のツインテール・白と金の戦闘服
+        HeroBlueprint(build: .slim, armor: .light, pauldron: .round, skirt: .shortSkirt, hair: .twinTails,
+                      gear: [.starPin, .ribbon], weapon: .starCannon, offhand: .none, back: .gearPack, float: .none,
+                      attack: .gun, metal: .gold, skin: .fair, hairColor: HSB(0.05, 0.38, 1.0),
+                      accent: HSB(0.99, 0.72, 0.92), glow: HSB(0.93, 0.5, 1.0), scale: 0.98),
+        // H031 氷嵐のオーリア（Arcanist）: 氷の杖・氷の冠・淡い青白の長髪・周囲に浮く氷の結晶
+        HeroBlueprint(build: .robed, armor: .cloth, pauldron: .crystal, skirt: .robe, hair: .long,
+                      gear: [.iceCrown], weapon: .iceStaff, offhand: .none, back: .none, float: .iceCrystals,
+                      attack: .staff, metal: .platinum, skin: .pale, hairColor: HSB(0.56, 0.12, 1.0),
+                      accent: HSB(0.74, 0.35, 0.95), glow: HSB(0.54, 0.45, 1.0), scale: 1.04),
+        // H032 赤拳のディアス（Duelist）: 刃付きの籠手（拳剣）・黒髪と赤い鉢巻・赤黒の軽装甲
+        HeroBlueprint(build: .standard, armor: .leather, pauldron: .small, skirt: .kilt, hair: .spiky,
+                      gear: [.headband], weapon: .fistBlade, offhand: .none, back: .sash, float: .none,
+                      attack: .slash, metal: .iron, skin: .tan, hairColor: HSB(0.0, 0.2, 0.1),
+                      accent: HSB(0.99, 0.85, 0.85), glow: HSB(0.01, 0.8, 1.0), scale: 1.02),
+        // H033 紅牙のヴァルド（Assassin）: 巨大な血の大剣（両手持ち）・長い黒髪・蝙蝠の翼風のマント・深紅と黒の鎧
+        HeroBlueprint(build: .standard, armor: .plate, pauldron: .round, skirt: .coat, hair: .long,
+                      gear: [], weapon: .bloodGreatsword, offhand: .none, back: .tatteredCape, float: .none,
+                      attack: .heavySwing, metal: .obsidian, skin: .pale, hairColor: HSB(0.75, 0.2, 0.1),
+                      accent: HSB(0.99, 0.9, 0.7), glow: HSB(0.98, 0.8, 1.0), scale: 1.04),
+        // H034 鎖鉤のゴルム（Support）: 鉤付きの太い鎖・鉄の肩当てと胸当て・背に掛けた鎖・短髪の大男
+        HeroBlueprint(build: .heavy, armor: .plate, pauldron: .big, skirt: .loincloth, hair: .short,
+                      gear: [], weapon: .hookChain, offhand: .none, back: .chainSash, float: .none,
+                      attack: .slash, metal: .iron, skin: .tan, hairColor: HSB(0.07, 0.45, 0.22),
+                      accent: HSB(0.03, 0.7, 0.62), glow: HSB(0.05, 0.75, 1.0), scale: 1.12),
     ]
 
     /// heroID の設計図。未知の ID はロールから近いものを選ぶ。

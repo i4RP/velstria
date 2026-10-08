@@ -33,8 +33,20 @@ struct ControlSettingsView: View {
                             SettingsChoiceRow(title: SettingsText.attackButtonSlot(.center),
                                               detail: SettingsText.attackPriorityDetail(s.attackPriority),
                                               symbol: SettingsText.attackPrioritySymbol(s.attackPriority),
-                                              options: SettingsText.allPriorities.map { ($0, SettingsText.attackPriority($0)) },
+                                              options: SettingsText.centerPriorities.map { ($0, SettingsText.attackPriority($0)) },
                                               selection: settingsBinding(app, \.attackPriority), identifier: "controls_priority")
+                            SettingsDivider()
+                            SettingsToggleRow(title: L("ヒーローロック", "Hero Lock"),
+                                              detail: L("中央の攻撃ボタンで、射程内に敵ヒーローがいれば先にヒーローを狙い、狙ったヒーローが少し離れても追い続けます。",
+                                                        "The center attack button targets enemy heroes in range first and keeps chasing the hero you last attacked."),
+                                              symbol: "lock.fill", isOn: settingsBinding(app, \.heroLock),
+                                              identifier: "controls_hero_lock")
+                            SettingsDivider()
+                            SettingsToggleRow(title: L("アクティブモンスターの判別", "Active Monster Detection"),
+                                              detail: L("中央の攻撃ボタンで、まだ戦っていない中立モンスターを、ほかに対象があるときは狙いません。",
+                                                        "The center attack button skips neutral monsters that are not fighting when other targets are in range."),
+                                              symbol: "pawprint.fill", isOn: settingsBinding(app, \.activeMonsterDetection),
+                                              identifier: "controls_active_monster")
                             SettingsDivider()
                             SettingsChoiceRow(title: SettingsText.attackButtonSlot(.bottom),
                                               detail: SettingsText.attackPriorityDetail(s.bottomAttackPriority),

@@ -64,10 +64,12 @@ public enum ProjectileSystem {
         s.projectiles[k] = p
     }
 
-    /// 追尾対象が有効か（生存中。敵なら視認中 = 不可視化で消滅）。
+    /// 追尾対象が有効か（生存中。敵なら視認中 = 不可視化・対象不可で消滅）。
     static func isValidHomingTarget(_ s: SimState, _ t: Int, team: Team) -> Bool {
         guard CombatSystem.isLiving(s, t) else { return false }
-        return s.units[t].team == team || s.isVisible(t, to: team)
+        if s.units[t].team == team { return true }
+        if !s.units[t].statuses.isEmpty, s.units[t].has(.untargetable) { return false }
+        return s.isVisible(t, to: team)
     }
 
     static func fizzle(_ s: inout SimState, _ k: Int, _ projectile: Projectile) {

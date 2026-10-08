@@ -70,8 +70,8 @@ final class StageTests: XCTestCase {
 
     func testSplatMarksLanesRiverBasesAndJungle() throws {
         let maps = try XCTUnwrap(StageSplat.make(map: .standard, shades: []))
-        // 上レーン（x = 14 m）は土
-        XCTAssertGreaterThan(try pixel(maps.control, [14, 80]).x, 0.9)
+        // 上レーン（x = 7 m）は土
+        XCTAssertGreaterThan(try pixel(maps.control, [7, 80]).x, 0.9)
         // 川の中央は水、補助マップの深さも深い
         XCTAssertGreaterThan(try pixel(maps.control, [45, 75]).z, 0.9)
         XCTAssertGreaterThan(try pixel(maps.aux, [45, 75]).z, 0.8)

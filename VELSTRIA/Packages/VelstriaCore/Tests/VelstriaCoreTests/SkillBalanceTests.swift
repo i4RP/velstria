@@ -89,7 +89,7 @@ final class SkillBalanceTests: XCTestCase {
         XCTAssertTrue(failures.isEmpty, "TTK が範囲外: \(failures)")
     }
 
-    /// 全 24 ヒーローの総当たり（Release のみ）。ロール代表以外も大きく外れないこと。
+    /// 全 34 ヒーローの総当たり（Release のみ）。ロール代表以外も大きく外れないこと。
     func testFullRosterStaysNearBand() throws {
         #if DEBUG
         throw XCTSkip("Release で実行する: swift test -c release --filter SkillBalanceTests")

@@ -223,6 +223,8 @@ enum CosmeticInfo {
         "hand.wave.fill", "hand.thumbsup.fill", "face.smiling.fill", "star.fill",
         "heart.fill", "flame.fill", "bolt.fill", "crown.fill",
         "sparkles", "trophy.fill", "hands.clap.fill", "party.popper.fill",
+        "moon.stars.fill", "shield.fill", "leaf.fill", "snowflake",
+        "bell.fill", "pawprint.fill",
     ]
 
     static func emoteSymbol(_ c: CosmeticDef, master: MasterData) -> String {

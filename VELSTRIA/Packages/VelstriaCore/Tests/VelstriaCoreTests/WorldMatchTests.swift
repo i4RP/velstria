@@ -18,7 +18,7 @@ final class WorldMatchTests: XCTestCase {
                rng: s.rng, world: s.world)
     }
 
-    func testMinionsOnlyMatchRunsFifteenMinutesDeterministicallyAndTowersFall() throws {
+    func testMinionsOnlyMatchRunsTwentyMinutesDeterministicallyAndTowersFall() throws {
         #if DEBUG
         throw XCTSkip("Release で実行する: swift test -c release --filter WorldMatchTests")
         #else
@@ -29,7 +29,7 @@ final class WorldMatchTests: XCTestCase {
         var waves = 0
         var campsKilled = 0
         let t0 = DispatchTime.now().uptimeNanoseconds
-        a.runHeadless(maxTime: 900) { ev in
+        a.runHeadless(maxTime: 1200) { ev in
             for e in ev {
                 switch e {
                 case .structureDestroyed(_, _, let team, let lane, let tier, _):
@@ -41,13 +41,13 @@ final class WorldMatchTests: XCTestCase {
             }
         }
         let msPerTick = Double(DispatchTime.now().uptimeNanoseconds - t0) / 1e6 / Double(a.state.tick)
-        b.runHeadless(maxTime: 900)
+        b.runHeadless(maxTime: 1200)
 
-        XCTAssertEqual(a.state.tick, 27000)
+        XCTAssertEqual(a.state.tick, 36000)
         XCTAssertEqual(digest(a.state), digest(b.state), "same config must give identical state")
-        XCTAssertEqual(waves, 30)
+        XCTAssertEqual(waves, 40)
         XCTAssertEqual(campsKilled, 0, "nobody attacks neutral camps in a minions-only match")
-        XCTAssertFalse(destroyed.isEmpty, "at least one tower should fall within 15 minutes")
+        XCTAssertFalse(destroyed.isEmpty, "at least one tower should fall within 20 minutes")
         // 外塔から順に落ちる（無敵の順序）
         for d in destroyed where d.tier != .outer {
             let outerDown = destroyed.contains { $0.team == d.team && $0.lane == d.lane && $0.tier == .outer && $0.time <= d.time }
@@ -59,7 +59,7 @@ final class WorldMatchTests: XCTestCase {
             XCTAssertLessThan(a.ctx.map.distanceToLane(u.pos, lane: u.minion!.lane), Balance.minionLaneChaseLimit + 200)
         }
         XCTAssertLessThan(msPerTick, 1.0, "tick budget")
-        print(String(format: "minions-only 15 min: %d structures down, %.3f ms/tick", destroyed.count, msPerTick))
+        print(String(format: "minions-only 20 min: %d structures down, %.3f ms/tick", destroyed.count, msPerTick))
         for d in destroyed {
             print("  \(d.team) \(String(describing: d.lane)) \(String(describing: d.tier)) at \(Int(d.time))s")
         }

@@ -25,7 +25,7 @@ VELSTRIA/
     portraits/                     ヒーロー / スキンのポートレートと装備アイコンの画像の生成仕様と取り込み（下記）
 ```
 - 最低 iOS 18.0、iPhone のみ、横画面固定、Swift 5 言語モード（Swift 6.2 コンパイラ）。
-- ヒーロー（24）とヒーロースキン（12）のポートレートは描き下ろしの生成画像。仕様（画風・造形）は
+- ヒーロー（34。H025〜H034 は生成待ち）とヒーロースキン（12）のポートレートは描き下ろしの生成画像。仕様（画風・造形）は
   `tools/portraits/portraits.json`（造形は `HeroBlueprints.swift` の 3D モデルに合わせる）、生成と取り込みは
   `tools/portraits/portraits.py`（Codex CLI の画像生成 → `build/portraits/` に原寸 → `install` で 640px JPEG を
   `Assets.xcassets/HeroPortraits`・`SkinPortraits` へ）。表示は `HeroPortraitView` / `SkinPortraitView`（`PortraitArt`）。

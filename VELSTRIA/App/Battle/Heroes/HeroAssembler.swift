@@ -789,6 +789,16 @@ struct HeroAssembler {
                 b.ellipsoid(p + V3(s * 0.06, 0, 0), V3(0.065, 0.045, 0.025), .accent, rot: rz(s * 0.4) * ry(0.4), detail: .low)
             }
             b.sphere(p, 0.025, .glow, .low)
+        case .iceCrown:
+            b.add(MeshTemplate.torus(minor: 0.08, segments: 22, sides: 6),
+                  trs(c + V3(0, R * 0.64, R * 0.1), rx(-0.2), V3(R * 0.74, R * 0.74, R * 0.74)), .metal)
+            for i in 0..<5 {
+                let a = Float(i - 2) * 0.5
+                let p = c + V3(sin(a) * R * 0.74, R * 0.7, -cos(a) * R * 0.68 + R * 0.1)
+                let h: Float = i == 2 ? 0.26 : (i % 2 == 0 ? 0.2 : 0.14)
+                b.crystal(p + V3(0, h * 0.5, 0), radius: 0.034, height: h * 0.5, i == 2 ? .glow : .veil, sides: 5, bottom: 1)
+            }
+            b.crystal(c + V3(0, R * 0.78, -R * 0.62), radius: 0.035, height: 0.07, .accent, rot: rx(-.pi / 2), sides: 4, bottom: 1)
         }
     }
 }

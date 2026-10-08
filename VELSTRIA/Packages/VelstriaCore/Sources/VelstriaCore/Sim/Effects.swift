@@ -27,13 +27,23 @@ public enum StatusKind: Int, Codable, Hashable, Sendable {
     case redBuff
     case wyrmBlessing
     case colossusBlessing
+    // ヒーロー固有スキル（キット層。docs/SKILL_KITS.md）。raw 値を変えないため末尾に追加
+    case mark            // magnitude = スタック数（tag に所有者 ID を含める）
+    case lifestealBoost  // magnitude = 通常攻撃の吸血 +率
+    case spellVampBoost  // magnitude = スキルの吸血 +率
+    case attackRangeBoost // magnitude = 通常攻撃の射程 +距離
+    case armorShred      // magnitude = 防御の減少率（0.3 = −30%）
+    case untargetable    // 単体指定・追尾・通常攻撃の対象から外れる（範囲・直線には当たる）
+    case suppress        // 行動不能・移動不能。解除不可で CC 無効も無視する
+    case channeling      // キットのスキルの詠唱中（表示用。行動の制限は別に持つ）
+    case magicShred      // magnitude = 魔防の減少量（固定値。装備「魔防の綻び」）。raw 値を変えないため末尾に追加
 }
 
 extension StatusKind {
     /// 移動不可にする CC。
-    public var preventsMovement: Bool { self == .stun || self == .root || self == .airborne }
+    public var preventsMovement: Bool { self == .stun || self == .root || self == .airborne || self == .suppress }
     /// 攻撃・スキル不可にする CC。
-    public var preventsActions: Bool { self == .stun || self == .airborne }
+    public var preventsActions: Bool { self == .stun || self == .airborne || self == .suppress }
     /// 浄化で解除される弱体。
     public var isCleansable: Bool {
         switch self {
@@ -120,12 +130,21 @@ public struct HitPayload: Codable, Hashable, Sendable {
     /// ヒーローのみに当たる。
     public var heroesOnly: Bool
     public var skillID: String?
+    /// 命中時の追加効果（打ち上げ・引き寄せ・マーク・回復など。キット層）。
+    public var effects: [HitEffect]
+    /// ダメージの補正（失った HP・距離・マークなど。キット層）。
+    public var scaling: DamageScaling?
+    /// 距離スケーリングの起点（弾の発射位置など。nil = 所有者の位置）。
+    public var originPos: Vec2?
+    /// 0 以外ならダメージ適用後にキットの onHit(event:) を呼ぶ。
+    public var kitEvent: Int
 
     public init(damage: Double, damageType: DamageType, source: DamageSource,
                 isCrit: Bool = false, cc: CrowdControl = .none, ccIsUltimate: Bool = false,
                 statuses: [StatusEffect] = [], affectsEnemies: Bool = true, affectsAllies: Bool = false,
                 healAmount: Double = 0, shieldAmount: Double = 0, shieldDuration: Double = 0,
-                appliesOnHit: Bool = false, heroesOnly: Bool = false, skillID: String? = nil) {
+                appliesOnHit: Bool = false, heroesOnly: Bool = false, skillID: String? = nil,
+                effects: [HitEffect] = [], scaling: DamageScaling? = nil, originPos: Vec2? = nil, kitEvent: Int = 0) {
         self.damage = damage
         self.damageType = damageType
         self.source = source
@@ -141,6 +160,10 @@ public struct HitPayload: Codable, Hashable, Sendable {
         self.appliesOnHit = appliesOnHit
         self.heroesOnly = heroesOnly
         self.skillID = skillID
+        self.effects = effects
+        self.scaling = scaling
+        self.originPos = originPos
+        self.kitEvent = kitEvent
     }
 }
 
@@ -219,6 +242,8 @@ public struct AreaZone: Codable, Hashable, Sendable, Identifiable {
     public var done: Bool
     /// true の場合、中心が所有者に追従する。
     public var followsOwner: Bool
+    /// 非 nil の場合、中心がそのユニットに追従する（対象が消えた/死亡したらゾーンは終わる。キット層）。
+    public var followsTargetID: EntityID?
     public var payload: HitPayload
     public var visual: String
     /// 単発ヒット済みユニット（持続ゾーンでは毎 tick 再判定のため未使用）。
@@ -226,7 +251,7 @@ public struct AreaZone: Codable, Hashable, Sendable, Identifiable {
 
     public init(id: EntityID, ownerID: EntityID, team: Team, center: Vec2, radius: Double,
                 shape: ZoneShape = .circle, delay: Double, duration: Double = 0, tickInterval: Double = 0.5,
-                followsOwner: Bool = false, payload: HitPayload, visual: String) {
+                followsOwner: Bool = false, followsTargetID: EntityID? = nil, payload: HitPayload, visual: String) {
         self.id = id
         self.ownerID = ownerID
         self.team = team
@@ -241,6 +266,7 @@ public struct AreaZone: Codable, Hashable, Sendable, Identifiable {
         self.triggered = false
         self.done = false
         self.followsOwner = followsOwner
+        self.followsTargetID = followsTargetID
         self.payload = payload
         self.visual = visual
         self.hitIDs = []

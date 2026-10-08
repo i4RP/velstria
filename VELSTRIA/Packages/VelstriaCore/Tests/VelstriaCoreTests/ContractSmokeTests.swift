@@ -5,21 +5,22 @@ import XCTest
 final class ContractSmokeTests: XCTestCase {
     func testMasterDataLoads() {
         let m = MasterData.shared
-        XCTAssertEqual(m.heroes.count, 24)
-        XCTAssertEqual(m.skills.count, 96)
+        XCTAssertEqual(m.heroes.count, 34)
+        XCTAssertEqual(m.skills.count, 136)
         XCTAssertEqual(m.items.count, 72 + GearCatalog.items.count)  // 正本 72 + 靴
         XCTAssertEqual(m.spells.count, 15)
         XCTAssertEqual(m.runes.count, 30)
-        XCTAssertEqual(m.cosmetics.count, 72)
-        XCTAssertEqual(m.store.count, 114)
+        XCTAssertEqual(m.cosmetics.count, 102)
+        XCTAssertEqual(m.store.count, 154)
         XCTAssertEqual(m.skills(forHero: "H001").map(\.slot), SkillSlot.allCases)
-        XCTAssertEqual(m.items[0].passivePercent, 6)
+        XCTAssertEqual(m.item("EQ001")?.attack, 25)
+        XCTAssertEqual(m.item("EQ019")?.effectID, "typhoon")
     }
 
     func testMapSymmetry() {
         let map = MapDefinition.standard
         XCTAssertEqual(map.towers.count, 20)
-        XCTAssertEqual(map.camps.count, 14)
+        XCTAssertEqual(map.camps.count, 17) // 片側 7（番人 2 + 小 5）× 2 + ボス 2 + 川の中立 1
         for t in map.towers where t.team == .blue && !t.isCore {
             let mirroredLane: Lane? = t.lane == .top ? .bot : (t.lane == .bot ? .top : .mid)
             XCTAssertTrue(map.towers.contains { $0.team == .red && $0.lane == mirroredLane && $0.tier == t.tier

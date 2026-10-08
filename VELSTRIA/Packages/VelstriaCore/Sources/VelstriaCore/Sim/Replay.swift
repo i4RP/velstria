@@ -208,6 +208,26 @@ extension SimState {
                 mix(hero.gold)
                 mix(Int64(hero.items.count))
                 for id in hero.items { for b in id.utf8 { mix(Int64(b)) } }
+                // キット層: レジスタ・形態・窓の段・予約数・突進の有無
+                if let kit = hero.kit {
+                    for v in kit.ints { mix(Int64(v)) }
+                    for v in kit.reals { mix(v) }
+                    for v in kit.timers { mix(v) }
+                    for v in kit.ids { mix(Int64(v)) }
+                    mix(Int64(kit.form))
+                    for w in kit.windows { mix(Int64(w.stage)); mix(w.remaining); mix(Int64(w.charges)) }
+                    mix(Int64(kit.scheduled.count))
+                    mix(Int64(kit.sweep == nil ? 0 : 1))
+                }
+            }
+            // キット層の status（mark 以降）の (kind, tag, magnitude)。キットのヒーローは全 status を混ぜる
+            if !u.statuses.isEmpty {
+                let all = u.hero?.kit != nil
+                for st in u.statuses where all || st.kind.rawValue >= StatusKind.mark.rawValue {
+                    mix(Int64(st.kind.rawValue))
+                    for b in st.tag.utf8 { mix(Int64(b)) }
+                    mix(st.magnitude)
+                }
             }
         }
         for t in teams {

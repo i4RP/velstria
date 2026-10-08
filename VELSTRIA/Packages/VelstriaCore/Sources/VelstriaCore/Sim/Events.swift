@@ -37,6 +37,23 @@ public enum AimType: Int, Codable, Hashable, Sendable {
     case unit
 }
 
+/// 照準の見せ方（HUD の照準表示と演出のヒント。キット層）。.auto は archetype / aim から決める既存の挙動。
+public enum AimShape: Int, Codable, Hashable, Sendable {
+    case auto
+    /// 扇（halfAngle）。
+    case fan
+    /// 幅の広い直線。
+    case wideLine
+    /// 指定地点の円。
+    case circleAtPoint
+    /// 自身中心のリング。
+    case selfRing
+    /// 対象指定。
+    case lockOn
+    /// 地点への突進。
+    case dashToPoint
+}
+
 public struct SkillCastEvent: Codable, Hashable, Sendable {
     public var casterID: EntityID
     public var heroID: String
@@ -49,10 +66,20 @@ public struct SkillCastEvent: Codable, Hashable, Sendable {
     public var targetUnitID: EntityID?
     public var range: Double
     public var radius: Double
+    /// 再使用の段（0 = 通常の発動。キット層）。
+    public var stage: Int
+    public var shape: AimShape
+    /// shape が扇のときの半角（ラジアン）。
+    public var halfAngle: Double
+    /// 演出の長さの目安（秒）。
+    public var duration: Double
+    /// 弾数・ヒット数などの目安。
+    public var count: Int
 
     public init(casterID: EntityID, heroID: String, slot: SkillSlot, skillID: String, effectID: String,
                 archetype: SkillArchetype, origin: Vec2, target: Vec2, targetUnitID: EntityID? = nil,
-                range: Double, radius: Double) {
+                range: Double, radius: Double, stage: Int = 0, shape: AimShape = .auto, halfAngle: Double = 0,
+                duration: Double = 0, count: Int = 0) {
         self.casterID = casterID
         self.heroID = heroID
         self.slot = slot
@@ -64,6 +91,11 @@ public struct SkillCastEvent: Codable, Hashable, Sendable {
         self.targetUnitID = targetUnitID
         self.range = range
         self.radius = radius
+        self.stage = stage
+        self.shape = shape
+        self.halfAngle = halfAngle
+        self.duration = duration
+        self.count = count
     }
 }
 

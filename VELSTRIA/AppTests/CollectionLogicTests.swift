@@ -167,12 +167,12 @@ final class CollectionLogicTests: XCTestCase {
     // MARK: 装備
 
     func testCombineCostUsesThirtyPercentFloor() throws {
-        // EQ019: 993 − (411 + 453) = 129 < 993 × 0.3 → 298
+        // EQ019 = EQ007 + EQ007: 960 − (330 + 330) = 300
         let eq019 = try XCTUnwrap(master.item("EQ019"))
-        XCTAssertEqual(ItemMath.combineCost(eq019, master: master), 298)
-        // EQ061: 1277 − (315 + 453) = 509
-        let eq061 = try XCTUnwrap(master.item("EQ061"))
-        XCTAssertEqual(ItemMath.combineCost(eq061, master: master), 509)
+        XCTAssertEqual(ItemMath.combineCost(eq019, master: master), 300)
+        // EQ021 = EQ009 + EQ009: 1040 − (380 + 380) = 280 < 1040 × 0.3 → 312
+        let eq021 = try XCTUnwrap(master.item("EQ021"))
+        XCTAssertEqual(ItemMath.combineCost(eq021, master: master), 312)
         // 素材なしは価格そのまま
         let eq001 = try XCTUnwrap(master.item("EQ001"))
         XCTAssertEqual(ItemMath.combineCost(eq001, master: master), eq001.priceGold)
@@ -187,19 +187,19 @@ final class CollectionLogicTests: XCTestCase {
     }
 
     func testDuplicateComponentsAreKept() throws {
-        let eq031 = try XCTUnwrap(master.item("EQ031"))
-        XCTAssertEqual(ItemMath.components(eq031, master: master).map(\.itemID), ["EQ009", "EQ009"])
+        let eq021 = try XCTUnwrap(master.item("EQ021"))
+        XCTAssertEqual(ItemMath.components(eq021, master: master).map(\.itemID), ["EQ009", "EQ009"])
     }
 
-    func testPassiveEffectTextPerCategory() throws {
-        // Defense は X/2、Jungle は 3X
-        let defense = try XCTUnwrap(master.item("EQ003"))
-        XCTAssertEqual(defense.passivePercent, 8)
-        XCTAssertTrue(ItemMath.passiveEffectText(defense).contains("4%"))
-        let jungle = try XCTUnwrap(master.item("EQ006"))
-        XCTAssertEqual(jungle.passivePercent, 11)
-        XCTAssertTrue(ItemMath.passiveEffectText(jungle).contains("33%"))
-        XCTAssertTrue(ItemMath.passiveEffectText(jungle).contains("20%"))
+    func testPassiveEffectText() throws {
+        // 装備ごとの固有効果文（マスターの passive_text）をそのまま出す
+        let eq043 = try XCTUnwrap(master.item("EQ043"))
+        XCTAssertEqual(ItemMath.passiveEffectText(eq043), eq043.passiveText)
+        XCTAssertTrue(ItemMath.passiveEffectText(eq043).contains("確定ダメージ"))
+        // ギア（ジャングル靴）は従来どおりカテゴリ別の説明（補助効果 8% の 3 倍 = 24%）
+        let boots = try XCTUnwrap(master.item(GearCatalog.jungleBootsID))
+        XCTAssertTrue(ItemMath.passiveEffectText(boots).contains("24%"))
+        XCTAssertTrue(ItemMath.passiveEffectText(boots).contains("20%"))
         for item in master.items {
             XCTAssertFalse(ItemMath.passiveEffectText(item).isEmpty)
         }
@@ -207,9 +207,13 @@ final class CollectionLogicTests: XCTestCase {
 
     func testStatLinesSkipZeroValues() throws {
         let eq003 = try XCTUnwrap(master.item("EQ003"))
-        XCTAssertEqual(ItemMath.statLines(eq003).count, 3)
-        let eq006 = try XCTUnwrap(master.item("EQ006"))
-        XCTAssertTrue(ItemMath.statLines(eq006).isEmpty)
+        XCTAssertEqual(ItemMath.statLines(eq003).count, 1)
+        // 貫通など新しい能力値も並ぶ（攻撃力 + 物理貫通）
+        let eq061 = try XCTUnwrap(master.item("EQ061"))
+        XCTAssertEqual(ItemMath.statLines(eq061).count, 2)
+        for item in master.items {
+            XCTAssertFalse(ItemMath.statLines(item).isEmpty, item.itemID)
+        }
     }
 
     func testItemFilter() {
@@ -278,7 +282,7 @@ final class CollectionLogicTests: XCTestCase {
         XCTAssertEqual(BuildRules.current(for: "H003", profile: p, master: master), ["EQ061", "EQ043"])
         XCTAssertEqual(BuildRules.current(for: "H001", profile: p, master: master),
                        BuildRules.recommended(for: "H001", master: master))
-        XCTAssertEqual(BuildRules.totalCost(["EQ061", "EQ043"], master: master), 1277 + 1331)
+        XCTAssertEqual(BuildRules.totalCost(["EQ061", "EQ043"], master: master), 2060 + 2800)
     }
 
     // MARK: ルーン
@@ -401,7 +405,7 @@ final class CollectionLogicTests: XCTestCase {
 
     func testHeroListFilter() {
         let owned = ["H001", "H002", "H007"]
-        XCTAssertEqual(HeroListFilter.heroes(master.heroes, role: nil, ownership: .all, owned: owned).count, 24)
+        XCTAssertEqual(HeroListFilter.heroes(master.heroes, role: nil, ownership: .all, owned: owned).count, 34)
         XCTAssertEqual(HeroListFilter.heroes(master.heroes, role: nil, ownership: .owned, owned: owned).map(\.heroID), owned)
         XCTAssertEqual(HeroListFilter.heroes(master.heroes, role: .vanguard, ownership: .owned, owned: owned).map(\.heroID),
                        ["H001", "H007"])
@@ -413,7 +417,7 @@ final class CollectionLogicTests: XCTestCase {
         Loc.current = .en
         defer { Loc.current = .ja }
         XCTAssertEqual(CollectionStyle.categoryName(.jungle), "Jungle")
-        XCTAssertTrue(ItemMath.passiveEffectText(master.item("EQ001")!).hasPrefix("Basic attack"))
+        XCTAssertTrue(ItemMath.passiveEffectText(master.item("EQ019")!).hasPrefix("Unique Passive"))
         XCTAssertTrue(SpellInfo.of("BS01").effect.hasPrefix("Teleport"))
     }
 }

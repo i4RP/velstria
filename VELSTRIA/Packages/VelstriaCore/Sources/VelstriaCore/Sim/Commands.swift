@@ -22,6 +22,9 @@ public enum PlayerCommand: Codable, Hashable, Sendable {
     case attack(targetID: EntityID)
     /// 攻撃ボタン: 優先度に従い射程+α内の最適対象を自動選択。
     case attackNearest(priority: TargetPriority)
+    /// 攻撃ボタン（設定付き）。heroLock = 射程内に敵ヒーローがいれば先にヒーローから選び、直近に狙ったヒーローを追い続ける。
+    /// activeMonsterOnly = まだ戦っていない（誰も狙っていない）中立モンスターは、ほかに対象があれば狙わない。
+    case attackNearestWith(priority: TargetPriority, heroLock: Bool, activeMonsterOnly: Bool)
     case castSkill(slot: SkillSlot, target: SkillTarget)
     /// index = 0/1（spells 配列の添字）。
     case castSpell(index: Int, target: SkillTarget)

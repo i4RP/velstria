@@ -22,7 +22,8 @@ enum SkillPassives {
     /// ステルス（虚像など）を解除する。攻撃の発射・スキル発動・攻撃的なスペルで呼ばれる。
     static func breakStealth(_ s: inout SimState, _ i: Int) {
         guard s.units[i].has(.stealth) else { return }
-        s.units[i].statuses.removeAll { $0.kind == .stealth }
+        // キットの維持されるステルス（KitTags.persistentStealth）は攻撃・発動で解除されない
+        s.units[i].statuses.removeAll { $0.kind == .stealth && $0.tag != KitTags.persistentStealth }
     }
 
     /// スキル発動の開始（命中処理より前）。アルカニストの「1 キャストにつき 1 回」をこのスロットで再び有効にする。
@@ -34,6 +35,8 @@ enum SkillPassives {
     /// 毎 tick のタイマー（SkillSystem.update から）。
     static func update(_ s: inout SimState, _ ctx: SimContext, _ i: Int, dt: Double) {
         guard let role = s.units[i].hero?.role else { return }
+        // キットのヒーローはロールのパッシブを置き換える（キット側の update が状態を進める）
+        if s.units[i].hero?.kit != nil { return }
         if let cd = s.units[i].hero?.passive.cooldown, cd > 0 {
             s.units[i].hero?.passive.cooldown = max(0, cd - dt)
         }

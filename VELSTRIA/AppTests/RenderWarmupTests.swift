@@ -242,13 +242,15 @@ final class RenderWarmupTests: XCTestCase {
         assertNothingCreatedWhileLive()
     }
 
-    /// ヒーロー別の通常攻撃（24 人を 3 試合に分けて、高画質）: 武器の軌跡・ヒーロー別の弾と粒子の尾・発射炎・着弾を
+    /// ヒーロー別の通常攻撃（34 人を 5 試合に分けて、高画質）: 武器の軌跡・ヒーロー別の弾と粒子の尾・発射炎・着弾を
     /// 出しても、幕が上がった後に何も作らない。軌跡のプールも足りる。
     func testHeroAttackFXCreateNothingWhileLive() {
         let rosters: [[String]] = [
             ["H003", "H004", "H005", "H009", "H010", "H011", "H015", "H016", "H017", "H021"],
             ["H022", "H023", "H001", "H002", "H006", "H007", "H008", "H012", "H013", "H014"],
             ["H018", "H019", "H020", "H024", "H001", "H012", "H003", "H010", "H017", "H022"],
+            ["H025", "H026", "H027", "H028", "H029", "H025", "H026", "H027", "H028", "H029"],
+            ["H030", "H031", "H032", "H033", "H034", "H030", "H031", "H032", "H033", "H034"],
         ]
         var trailFrames = 0, heroShots = 0, launched = 0
         for (k, roster) in rosters.enumerated() {
@@ -364,8 +366,8 @@ final class RenderWarmupTests: XCTestCase {
     func testCreaturePoolSizesCoverMapAndWaves() {
         let sizes = UnitLayer.creaturePoolSizes(map: .standard, dummySpots: 0)
         func size(_ k: CreatureKey) -> Int { sizes.first { $0.key == k }?.count ?? 0 }
-        XCTAssertEqual(size(.monster(.campLarge)), 8)
-        XCTAssertEqual(size(.monster(.campSmall)), 16)
+        XCTAssertEqual(size(.monster(.campLarge)), 11)   // 小キャンプ（片側 5 × 2 + 川の中立 1）
+        XCTAssertEqual(size(.monster(.campSmall)), 22)
         XCTAssertEqual(size(.monster(.astralWyrm)), 1)
         XCTAssertEqual(size(.monster(.ancientColossus)), 1)
         // 1 波 = 近接 3（10:00 以降 4）+ 遠隔 3 × 3 レーン。2 波以上が重なっても足りる

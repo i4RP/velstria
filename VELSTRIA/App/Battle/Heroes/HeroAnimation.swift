@@ -157,8 +157,8 @@ struct HeroMotionProfile {
         r.cape = 0.05
         r.wings = 0.2
         twoHanded = bp.twoHanded
-        bowHold = bp.offhand == .ashBow || bp.offhand == .lightBow || bp.offhand == .harpBow
-        shieldHold = bp.offhand == .gateShield || bp.offhand == .hideShield
+        bowHold = [OffhandKind.ashBow, .lightBow, .harpBow, .crescentBow].contains(bp.offhand)
+        shieldHold = [OffhandKind.gateShield, .hideShield, .roundShield].contains(bp.offhand)
         switch bp.attack {
         case .staff, .thrust, .heavySwing: longWeapon = true
         default: longWeapon = false
@@ -218,7 +218,7 @@ struct HeroMotionProfile {
             r.weaponR = 0
             runSwingR = 0.6
         }
-        if bp.offhand == .gateShield || bp.offhand == .hideShield {
+        if shieldHold {
             r.armL = ArmPose(pitch: 0.45, out: m.armRestOut + 0.05, yaw: 0.2, elbow: 0.9)
             runSwingL = 0.3
         }

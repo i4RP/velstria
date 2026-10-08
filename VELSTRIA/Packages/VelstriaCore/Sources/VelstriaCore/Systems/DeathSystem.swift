@@ -182,6 +182,8 @@ public enum DeathSystem {
         s.units[v].displacement = nil
         s.units[v].statuses.removeAll()
         s.units[v].shields.removeAll()
+        // キットの状態は全リセット（残すものは HeroKit.onDeath が選ぶ）
+        if s.units[v].hero?.kit != nil { KitRuntime.heroDied(&s, ctx, hero: v) }
 
         guard let k = killer else {
             // 処刑（敵ヒーローの関与なし）: 報酬なし。killerID = nil の heroKilled で HUD が「処刑」を表示する。
@@ -260,6 +262,10 @@ public enum DeathSystem {
         // パッシブ（アサシンの CD 短縮など）
         PassiveHooks.onKillOrAssist(&s, ctx, hero: k, victim: v)
         for a in assistIdx { PassiveHooks.onKillOrAssist(&s, ctx, hero: a, victim: v) }
+        // 装備: キル（再装填）、キル・アシスト（魔性の恩恵・時の潮流）
+        ItemEffects.onKill(&s, ctx, hero: k)
+        ItemEffects.onKillOrAssist(&s, ctx, hero: k)
+        for a in assistIdx { ItemEffects.onKillOrAssist(&s, ctx, hero: a) }
     }
 
     static func assistIDsOf(_ s: SimState, _ idx: [Int]) -> [EntityID] { idx.map { s.units[$0].id } }
