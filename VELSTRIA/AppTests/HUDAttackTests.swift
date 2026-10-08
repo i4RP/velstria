@@ -178,7 +178,7 @@ final class HUDAttackTests: XCTestCase {
             f.model.attackPressed(button: button)
             f.model.attackReleased(button: button)
         }
-        XCTAssertEqual(recordedPriorities(f.model), [.structuresFirst, .heroesFirst, .minionsFirst])
+        XCTAssertEqual(recordedPriorities(f.model), [.structuresFirst, .lowestHealth, .minionsFirst])
     }
 
     @MainActor
@@ -198,6 +198,6 @@ final class HUDAttackTests: XCTestCase {
 
         f.model.attackPressed(button: .center)
         f.model.attackReleased(button: .center)
-        XCTAssertEqual(recordedPriorities(f.model), [.minionsFirst, .heroesFirst])
+        XCTAssertEqual(recordedPriorities(f.model), [.minionsFirst, .lowestHealth])
     }
 }
