@@ -61,6 +61,8 @@ struct HUDHeroSnapshot: Equatable {
     var respawn: Double = 0
     var channel: HUDChannel?
     var skillPoints = 0
+    /// パッシブのバッジ（スタック・タイマー。キットのヒーローのみ）。
+    var passiveBadge: KitBadge?
 }
 
 struct HUDSkillSnapshot: Equatable, Identifiable {
@@ -77,10 +79,62 @@ struct HUDSkillSnapshot: Equatable, Identifiable {
     var affordable = true
     var silenced = false
     var canLevel = false
+    /// 再使用の窓（キット層。開いている間は CD・コストを無視して撃てる）。
+    var recast: RecastInfo?
+    /// スタック・形態・タイマーのバッジ（キット層）。
+    var badge: KitBadge?
 
     var learned: Bool { rank > 0 }
-    var isReady: Bool { learned && castable && affordable && cooldown <= 0 }
+    /// 再使用の窓が開いている。
+    var recasting: Bool { recast != nil }
+    /// 撃てる状態。再使用の窓が開いている間は CD とコストを見ない（castable は sim の validate と同じ判定）。
+    var isReady: Bool { learned && castable && (recasting || (affordable && cooldown <= 0)) }
     var cooldownFraction: Double { cooldown > 0 && cooldownTotal > 0 ? min(1, cooldown / cooldownTotal) : 0 }
+}
+
+/// キット層の表示値（丸めと文字。純粋関数。単体テスト対象）。
+enum HUDKitDisplay {
+    /// 15Hz のスナップショットが毎回変わらないよう、残り時間は 0.1 秒単位（切り上げ）にそろえる。
+    static func rounded(_ r: RecastInfo?) -> RecastInfo? {
+        guard var r else { return nil }
+        r.remaining = (max(0, r.remaining) * 10).rounded(.up) / 10
+        return r
+    }
+
+    static func rounded(_ b: KitBadge?) -> KitBadge? {
+        guard var b else { return nil }
+        b.remaining = (max(0, b.remaining) * 10).rounded(.up) / 10
+        return b
+    }
+
+    /// バッジの輪の埋まり具合（スタック = 値 / 最大、タイマー = 残り / 全体、形態 = 満タン）。
+    static func fraction(_ b: KitBadge) -> Double {
+        switch b.kind {
+        case .stacks: return b.maxValue > 0 ? min(1, max(0, Double(b.value) / Double(b.maxValue))) : 0
+        case .timer: return b.total > 0 ? min(1, max(0, b.remaining / b.total)) : 0
+        case .form: return 1
+        }
+    }
+
+    /// バッジの中の文字（スタック = 個数、タイマー = 残り秒、形態 = 2 以上の番号。1 個が上限・形態 1 は輪だけ）。
+    static func text(_ b: KitBadge) -> String {
+        switch b.kind {
+        case .stacks: return b.maxValue > 1 ? String(b.value) : ""
+        case .form: return b.value > 1 ? String(b.value) : ""
+        case .timer:
+            guard b.remaining > 0 else { return "" }
+            return String(format: b.remaining < 3 ? "%.1f" : "%.0f", b.remaining)
+        }
+    }
+
+    /// バッジを出す価値があるか（0 個のスタックは出さない。タイマーは残りがある間）。
+    static func isVisible(_ b: KitBadge) -> Bool {
+        switch b.kind {
+        case .stacks: return b.value > 0
+        case .form: return b.value > 0
+        case .timer: return b.remaining > 0
+        }
+    }
 }
 
 /// スキルボタンの長押しで出す説明。
@@ -475,6 +529,7 @@ enum HUDSymbols {
         case .spellVampBoost: return "wand.and.stars"
         case .attackRangeBoost: return "arrow.left.and.right"
         case .armorShred: return "shield.lefthalf.filled"
+        case .magicShred: return "shield.lefthalf.filled"
         case .untargetable: return "eye.slash.fill"
         case .suppress: return "lock.fill"
         case .channeling: return "dot.radiowaves.left.and.right"
@@ -484,7 +539,7 @@ enum HUDSymbols {
     static func isBuff(_ k: StatusKind) -> Bool {
         switch k {
         case .stun, .root, .slow, .airborne, .silence, .burn, .healReduction, .damageDealtReduction, .revealed,
-             .mark, .armorShred, .suppress:
+             .mark, .armorShred, .magicShred, .suppress:
             return false
         default:
             return true
@@ -518,6 +573,7 @@ enum HUDSymbols {
         case .spellVampBoost: return L("スキル吸血強化", "Spell vamp up")
         case .attackRangeBoost: return L("射程延長", "Range up")
         case .armorShred: return L("防御低下", "Armor down")
+        case .magicShred: return L("魔防低下", "Magic resist down")
         case .untargetable: return L("選択不可", "Untargetable")
         case .suppress: return L("制圧", "Suppressed")
         case .channeling: return L("詠唱中", "Channeling")
@@ -543,7 +599,7 @@ enum HUDSymbols {
                                       .damageBoost, .damageReduction, .ccImmune, .invulnerable, .stealth, .burn,
                                       .healReduction, .damageDealtReduction, .revealed, .blueBuff, .redBuff,
                                       .wyrmBlessing, .colossusBlessing, .mark, .lifestealBoost, .spellVampBoost,
-                                      .attackRangeBoost, .armorShred, .untargetable, .suppress, .channeling]
+                                      .attackRangeBoost, .armorShred, .magicShred, .untargetable, .suppress, .channeling]
         return archetypes.map(skill) + statuses.map(status) + ui
     }
 
