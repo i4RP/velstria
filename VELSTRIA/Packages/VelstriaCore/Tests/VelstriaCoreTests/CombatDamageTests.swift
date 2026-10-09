@@ -267,6 +267,58 @@ final class CombatDamageTests: XCTestCase {
         XCTAssertEqual(w.s.units[a].lastCombatTime, 50)
     }
 
+    func testSkillDamageToMinionsIsScaledByTheMinionMultiplier() {
+        let mult = Balance.Skills.minionDamageMultiplier
+        XCTAssertLessThan(mult, 1)
+        for type in [MinionType.melee, .ranged, .siege] {
+            var w = CombatWorld()
+            let a = w.addHero(team: .blue, at: Vec2(1000, 1000))
+            let m = w.addMinion(type, team: .red, at: Vec2(1100, 1000))
+            let hp = w.s.units[m].hp
+            // 確定ダメージ（防御を通らない）で倍率だけを見る
+            let dealt = CombatSystem.applyDamage(&w.s, w.ctx, sourceID: w.id(a), targetIndex: m, amount: 1000,
+                                                 type: .trueDamage, source: .skill(.skill1))
+            XCTAssertEqual(dealt, 1000 * mult, accuracy: 1e-9, "(type)")
+            XCTAssertEqual(w.s.units[m].hp, hp - 1000 * mult, accuracy: 1e-9, "(type)")
+        }
+        // 物理・魔法も防御軽減の後に同じ倍率（近接ミニオンの防御・魔防は 0）
+        var w = CombatWorld()
+        let a = w.addHero(team: .blue, at: Vec2(1000, 1000))
+        let m = w.addMinion(.melee, team: .red, at: Vec2(1100, 1000))
+        XCTAssertEqual(CombatSystem.applyDamage(&w.s, w.ctx, sourceID: w.id(a), targetIndex: m, amount: 100,
+                                                type: .magic, source: .skill(.skill2)), 100 * mult, accuracy: 1e-9)
+        XCTAssertEqual(CombatSystem.applyDamage(&w.s, w.ctx, sourceID: w.id(a), targetIndex: m, amount: 100,
+                                                type: .physical, source: .skill(.ultimate)), 100 * mult, accuracy: 1e-9)
+    }
+
+    /// Lv1・ランク1 のスキル 1 発（マスターの全スキルで 435〜1029）が、どのミニオンも一撃では倒さない。
+    func testNoSkillHitOneShotsAMinion() {
+        for type in [MinionType.melee, .ranged, .siege] {
+            for raw in [435.0, 646, 1029] {
+                var w = CombatWorld()
+                let a = w.addHero(team: .blue, at: Vec2(1000, 1000))
+                let m = w.addMinion(type, team: .red, at: Vec2(1100, 1000))
+                CombatSystem.applyDamage(&w.s, w.ctx, sourceID: w.id(a), targetIndex: m, amount: raw,
+                                         type: .physical, source: .skill(.skill1))
+                XCTAssertTrue(w.s.units[m].isAlive, "(type) raw=(raw)")
+            }
+        }
+    }
+
+    func testMinionSkillMultiplierOnlyAppliesToSkillsOnMinions() {
+        var w = CombatWorld()
+        let a = w.addHero(team: .blue, at: Vec2(1000, 1000))
+        let hero = w.addHero(team: .red, at: Vec2(1100, 1000), stats: CombatWorld.stats(hp: 100_000))
+        let m = w.addMinion(.melee, team: .red, at: Vec2(1100, 1200))
+        // ヒーローへのスキルは倍率なし
+        XCTAssertEqual(CombatSystem.applyDamage(&w.s, w.ctx, sourceID: w.id(a), targetIndex: hero, amount: 5000,
+                                                type: .trueDamage, source: .skill(.skill1)), 5000, accuracy: 1e-9)
+        // スキル以外（通常攻撃）は倍率なしで一撃で倒せる
+        CombatSystem.applyDamage(&w.s, w.ctx, sourceID: w.id(a), targetIndex: m, amount: 100_000,
+                                 type: .trueDamage, source: .basicAttack)
+        XCTAssertFalse(w.s.units[m].isAlive)
+    }
+
     func testAssistRecordsAreRefreshedPerSourceAndPruned() {
         var w = CombatWorld()
         let a1 = w.addHero(team: .blue, at: Vec2(1000, 1000))

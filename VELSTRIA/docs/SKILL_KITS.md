@@ -27,7 +27,10 @@ public enum HeroKits {
     public static func activeStage(_ hero: HeroData, slot: SkillSlot) -> Int    // 0 = 通常の発動
     public static func recast(_ hero: HeroData, slot: SkillSlot) -> RecastInfo? // stage, remaining, total
     public static func badge(_ hero: HeroData, slot: SkillSlot) -> KitBadge?    // スタック/形態/タイマー
-    public static func text(heroID: String, slot: SkillSlot) -> KitText?        // ja/en テンプレート
+    public static func text(heroID: String, slot: SkillSlot) -> KitText?        // ja/en テンプレート + tags
+    public static func tags(heroID: String, slot: SkillSlot) -> [String]        // UI のタグ（KitTag のキー。無ければ空）
+    public static func cost(for:hero:rank:base:) -> Double                      // ランク込みの実効コスト（キットの cost）
+    public static func resourceCost(_ raw: Double, hero: HeroDef) -> Double     // Mana 基準の値を Energy のヒーローなら × 0.6
 }
 ```
 
@@ -37,12 +40,27 @@ sim の数値で埋める（説明文の数値と sim をずらさない）。�
 例: extras が `[KitStat(key: "bleed", value: 2.5)]` なら `{bleed}` も `{x0}` も `2.5`。組み込みの名前（`damage` など）が先に勝ち、
 同じ key が複数あれば先頭が勝つ。空の key と未知の `{名前}` はそのまま残る。5 つ以上の数値は `{key}` で引く。
 
+### UI が読めるもの（スキル詳細の表・タグ）
+
+- **タグ**: `HeroKits.tags(heroID:slot:)`（`KitText.tags`）。キーは小文字で固定（`KitTag.all`）: `buff aoe slow clash disrupt burst mobility heal shield control stun pull execute`。
+  表示順 = 配列の順。キットが無い・text が無いスロットは `[]`（その場合 UI は従来の汎用の見せ方）。表示名（範囲技・減速 / AoE・Slow ...）は UI 側の対応表。
+- **ランクごとの表**: `SkillCatalog.numbers(for:hero:rank:stats:)`（キットのヒーローはキットの上書き込み）を rank 1...`slot.maxRank` で引く。
+  - `cooldown`: 実効秒（CD 短縮と `cooldownScale` 込み）。`cost`: ランクごとのコスト（`HeroKit.cost` の結果。Energy のヒーローは × 0.6 込み）。
+    `damage` / `hits` / `ccDuration` / `cc`、再使用のあるスキルは `stage:`（`HeroKits.numbers(for:hero:rank:stats:stage:)`）で段ごとの値。
+  - `extras`（`KitStat.key` で引く）: キットが表示用に足す値。H029 は `base`（換算後の基礎ダメージ）/ `atkPct`（攻撃力に対する割合 %）など。
+  - 単体のコストだけ要るときは `SkillSystem.cost(for: skill, hero: heroDef, rank: rank)`（HUD の「足りるか」・スキル詳細の「コスト」はこれ）。
+    旧 `SkillSystem.cost(for:resource:)` は汎用の値（キットを含まない）。
+
 ## `HeroKit` プロトコル（`Systems/Kits/HeroKit.swift`、internal・Sendable）
 
 すべてのメソッドにプロトコル拡張で既定実装がある。キットは上書きしたいものだけ実装する。
 
 - **A. 記述（HUD・AI・ツールチップ）**: `targeting(slot, stage, skill, hero, base)` / `numbers(slot, stage, skill, hero, rank, stats, base)` /
-  `text(slot)` / `badge(slot, hero)`。`base` は汎用の結果。ダメージは `base.damage` の比で表し TTK を保つ。
+  `text(slot)`（`KitText(ja:en:tags:)`）/ `badge(slot, hero)` / `cost(slot, rank, skill, hero, base) -> Double`（既定 = base）。
+  `base` は汎用の結果。ダメージは `base.damage` の比で表し TTK を保つ（公式の表をそのまま写すキットは、sim の通常の式 × 換算で絶対値を出してよい: H029）。
+  **コストの上書き**: `cost` は発動の検証・消費（`SkillSystem.validate`）・`numbers.cost`・ボットの「足りるか」・HUD が共通で読む唯一の値。
+  `base` は汎用の実効コスト（Energy は × 0.6 込み）。固定値を返すときは `HeroKits.resourceCost(raw, hero:)` を通すと Energy の倍率が付く。
+  再使用（窓が開いている間）と練習場の `noCooldowns` はこれまでどおりコスト 0。
 - **B. 実行**: `resolveAim`（nil = 既定、`.some(nil)` = 拒否）/ `canStart` / `cast(KitCast) -> KitCastOutcome`
   （`.done` か `.generic(targeting?, numbers?)` で `SkillArchetypes.execute` に委ねる）/ `recast(KitCast, window:)` /
   `onTimer` / `onWindowClosed` / `onHit` / `update` / `onInterrupted` / `onDeath`。

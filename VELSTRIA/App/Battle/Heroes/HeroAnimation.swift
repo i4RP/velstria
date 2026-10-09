@@ -152,13 +152,13 @@ struct HeroMotionProfile {
         r.weaponR = -0.9
         r.weaponL = 0
         // 足を肩幅より少し開いた、どっしり構えた立ち姿
-        r.legR = LegPose(pitch: 0, out: bp.build == .heavy ? 0.12 : 0.09, knee: 0.08)
+        r.legR = LegPose(pitch: 0, out: bp.build.isHeavy ? 0.12 : 0.09, knee: 0.08)
         r.legL = r.legR
         r.cape = 0.05
         r.wings = 0.2
         twoHanded = bp.twoHanded
         bowHold = [OffhandKind.ashBow, .lightBow, .harpBow, .crescentBow].contains(bp.offhand)
-        shieldHold = [OffhandKind.gateShield, .hideShield, .roundShield].contains(bp.offhand)
+        shieldHold = [OffhandKind.gateShield, .hideShield, .heaterShield].contains(bp.offhand)
         switch bp.attack {
         case .staff, .thrust, .heavySwing: longWeapon = true
         default: longWeapon = false
@@ -223,6 +223,8 @@ struct HeroMotionProfile {
             runSwingL = 0.3
         }
         if bp.weapon == .abyssCenser { r.weaponR = 0 }
+        // 聖槌は槌頭が大きく重いので、構えでは柄をほぼ立てて持つ（前へ寝かせると上方カメラで槌頭が手前に潰れて読めない）
+        if bp.weapon == .holyMaul { r.weaponR = -0.45 }
         rest = r
 
         attack = HeroMotionProfile.attackClip(bp.attack, rest: r, left: false)

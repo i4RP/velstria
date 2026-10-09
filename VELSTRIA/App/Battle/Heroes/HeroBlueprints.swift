@@ -4,9 +4,17 @@ import VelstriaCore
 // 担当: hero-models。34 ヒーローの造形設計（体型・頭部・武器・背中・浮遊物・攻撃モーション）。
 // 基調色は Theme.heroHue、アクセント・発光は名前のモチーフから決める。
 
-enum BodyBuild { case heavy, standard, slim, robed }
+/// titan = heavy よりさらに肩幅・胸板・腕脚が太く、頭を肩の間に沈めた巨漢（H029 ボルグ）。
+enum BodyBuild { case heavy, standard, slim, robed, titan }
 
-enum ArmorStyle { case plate, leather, cloth, rock, fur, mech, light }
+extension BodyBuild {
+    /// 重装の体格（heavy / titan）。腰の金具・マントの長さ・脚の開きなどを共通にする。
+    var isHeavy: Bool { self == .heavy || self == .titan }
+}
+
+/// knight = 基調色（青）の板金に、金属色（金）の縁取り・胸の聖印・籠手の輪を添えた重装（H029 ボルグ）。
+/// plate は金属色そのものが鎧の地色になる（銀・鉄・金の鎧）。
+enum ArmorStyle { case plate, leather, cloth, rock, fur, mech, light, knight }
 
 enum PauldronStyle { case none, small, round, big, rock, fur, crystal, feather }
 
@@ -33,7 +41,7 @@ enum WeaponKind {
 enum OffhandKind {
     case none, gateShield, harpBow, ashBow, moonLantern, stoneFist, grimoire, glassDagger, hideShield
     case shortBlade, petalBlade, lightBow, azureClaw, dreamNeedle
-    case crescentBow, roundShield
+    case crescentBow, heaterShield
 }
 
 enum BackKind {
@@ -91,7 +99,8 @@ struct HeroBlueprint {
     var offhandScale: Float {
         switch offhand {
         case .gateShield: return 0.88
-        case .hideShield, .roundShield: return 0.95
+        case .hideShield: return 0.95
+        case .heaterShield: return 1.0
         case .stoneFist: return 1.1
         case .ashBow, .lightBow, .crescentBow: return 1.12
         default: return 1.28
@@ -256,11 +265,13 @@ enum HeroBlueprints {
                       gear: [.glassVisor], weapon: .photonBlade, offhand: .none, back: .none, float: .none,
                       attack: .slash, metal: .obsidian, skin: .pale, hairColor: HSB(0.6, 0.5, 0.2),
                       accent: HSB(0.52, 0.85, 0.95), glow: HSB(0.52, 0.55, 1.0), scale: 0.98),
-        // H029 聖槌のボルグ（Support）: 聖槌と円盾・青い房の大兜・青と金の重装
-        HeroBlueprint(build: .heavy, armor: .plate, pauldron: .big, skirt: .kilt, hair: .none,
-                      gear: [.knightHelm], weapon: .holyMaul, offhand: .roundShield, back: .cape, float: .none,
-                      attack: .slash, metal: .gold, skin: .tan, hairColor: HSB(0.08, 0.5, 0.35),
-                      accent: HSB(0.6, 0.75, 0.95), glow: HSB(0.13, 0.5, 1.0), scale: 1.1),
+        // H029 聖槌のボルグ（Support）: 巨大な聖槌と金の大盾・青い板金に金の縁取り・赤いマント・金髪に金の額冠（兜は被らない）。
+        // 基調色 = Theme.heroHue（青 0.60）、metal = 金（縁・聖印・槌の打撃面）、accent = 赤（マント）。
+        // scale 1.32: overheadHeight = (headTop 1.55 + 0.38) * 1.32 = 2.55（上限 2.7）、頭頂 1.593 * 1.32 = 2.10（上限 2.2）。
+        HeroBlueprint(build: .titan, armor: .knight, pauldron: .big, skirt: .tassets, hair: .short,
+                      gear: [.circlet], weapon: .holyMaul, offhand: .heaterShield, back: .cape, float: .none,
+                      attack: .slash, metal: .gold, skin: .fair, hairColor: HSB(0.13, 0.45, 1.0),
+                      accent: HSB(0.99, 0.78, 0.85), glow: HSB(0.13, 0.5, 1.0), scale: 1.32),
         // H030 星砲のライナ（Ranger）: 背丈ほどの星の砲（両手持ち）・桃みがかった金髪のツインテール・白と金の戦闘服
         HeroBlueprint(build: .slim, armor: .light, pauldron: .round, skirt: .shortSkirt, hair: .twinTails,
                       gear: [.starPin, .ribbon], weapon: .starCannon, offhand: .none, back: .gearPack, float: .none,

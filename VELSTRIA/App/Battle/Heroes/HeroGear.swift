@@ -281,20 +281,23 @@ struct HeroGearBuilder {
             b.rbox(V3(0, 0.62, 0), V3(0.044, 0.56, 0.02), 0.006, .metal)
             weaponTip = V3(0, 0.98, 0)
         case .holyMaul:
-            // 聖槌: 片手で振る大槌。金の槌頭・青の打撃面・聖印
-            b.rod(V3(0, -0.28, 0), V3(0, 0.78, 0), 0.034, .dark, segments: 10)
-            b.sphere(V3(0, -0.31, 0), 0.05, .metal, .low)
-            for y: Float in [-0.15, 0.1] { b.torus(V3(0, y, 0), 0.04, 0.012, .accent) }
-            b.rbox(V3(0, 0.88, 0), V3(0.26, 0.28, 0.46), 0.045, .metal)
-            b.rod(V3(0, 0.88, -0.23), V3(0, 0.88, -0.31), 0.14, .accent, segments: 14)
-            b.rod(V3(0, 0.88, 0.23), V3(0, 0.88, 0.29), 0.12, .accent, segments: 14)
-            b.rbox(V3(0, 0.88, 0), V3(0.28, 0.1, 0.16), 0.02, .accent)
+            // 聖槌: 片手で振る巨大な大槌。長い柄・青い槌頭（前後の打撃面は金の当て金と金の帯）・上面と側面に聖印。
+            // 槌頭は幅 0.36 × 高さ 0.38 × 長さ 0.71（打撃面は ±Z）。上方カメラでも槌頭の上面の聖印が読める
+            b.rod(V3(0, -0.34, 0), V3(0, 0.92, 0), 0.04, .dark, segments: 10)
+            b.sphere(V3(0, -0.37, 0), 0.062, .metal, .low)
+            for y: Float in [-0.22, 0.04, 0.3] { b.torus(V3(0, y, 0), 0.05, 0.013, .metal, segments: 12, sides: 5) }
+            b.rbox(V3(0, 1.08, 0), V3(0.36, 0.38, 0.56), 0.05, .primary)
             for s: Float in [-1, 1] {
-                b.extrude([V2(0, 0.07), V2(0.05, 0), V2(0, -0.07), V2(-0.05, 0)], depth: 0.02,
-                          V3(s * 0.14, 0.88, 0), .glow, rot: ry(s * .pi / 2))
+                b.rbox(V3(0, 1.08, s * 0.31), V3(0.44, 0.46, 0.09), 0.04, .metal)
+                b.rbox(V3(0, 1.08, s * 0.19), V3(0.4, 0.42, 0.06), 0.02, .metal)
             }
-            b.cone(V3(0, 1.02, 0), V3(0, 1.16, 0), 0.05, .metal, segments: 8)
-            weaponTip = V3(0, 0.9, 0)
+            // 上面の聖印（XY 面の星を水平に寝かせる）と、側面の聖印
+            b.extrude(starPolygon(points: 4, outer: 0.15, inner: 0.05), depth: 0.02, V3(0, 1.275, 0), .glow, rot: rx(-.pi / 2))
+            for s: Float in [-1, 1] {
+                b.extrude([V2(0, 0.1), V2(0.07, 0), V2(0, -0.1), V2(-0.07, 0)], depth: 0.02,
+                          V3(s * 0.188, 1.08, 0), .glow, rot: ry(s * .pi / 2))
+            }
+            weaponTip = V3(0, 1.08, 0)
         case .starCannon:
             // 星砲: 背丈ほどの大砲。金の砲身・広がる砲口と光の輪・側面の星・桃の動力球・白い台尻
             b.rbox(V3(0, -0.2, 0), V3(0.09, 0.3, 0.13), 0.03, .secondary, rot: rx(0.15))
@@ -481,16 +484,19 @@ struct HeroGearBuilder {
             for s: Float in [-1, 1] { bw.sphere(V3(0, s * tipY, tipZ), 0.04, .glow, .low) }
             bw.sphere(V3(0, 0, -0.06), 0.045, .glow, .low)
             b.merge(bw, trs(.zero, ry(0.6)))
-        case .roundShield:
-            // 聖槌の円盾（H029 ボルグ）: 青い盾面・金の縁と輪・聖印の十字
-            let o = V3(-0.1, 0.08, -0.1)
-            b.lathe([V2(0.31, 0.0), V2(0.3, 0.03), V2(0.2, 0.065), V2(0.0, 0.08)], o, .accent, rot: rx(-.pi / 2),
-                    segments: 20, capBottom: true)
-            b.torus(o, 0.31, 0.026, .metal, rot: rx(.pi / 2), segments: 24)
-            b.torus(o + V3(0, 0, -0.065), 0.17, 0.014, .metal, rot: rx(.pi / 2), segments: 20)
-            b.sphere(o + V3(0, 0, -0.08), 0.07, .metal)
-            b.rbox(o + V3(0, 0, -0.095), V3(0.05, 0.3, 0.02), 0.006, .glow)
-            b.rbox(o + V3(0, 0, -0.095), V3(0.3, 0.05, 0.02), 0.006, .glow)
+        case .heaterShield:
+            // 聖槌の大盾（H029 ボルグ）: 縦長の凧形（盾面 幅 0.54 × 高さ 0.84、縁取り込みで 0.62 × 0.96）。金の盾面・青い縁取り・青い十字と聖印の光。
+            // 原点で組んでから、左の手の外側へ少し向けて置く（面は -Z）
+            var sh = HeroMeshBuilder()
+            let face: [V2] = [V2(-0.27, 0.34), V2(0.27, 0.34), V2(0.27, 0.1), V2(0.2, -0.18), V2(0, -0.5),
+                              V2(-0.2, -0.18), V2(-0.27, 0.1)]
+            sh.extrude(face, depth: 0.05, .zero, .metal)
+            sh.extrude(face.map { $0 * 1.14 }, depth: 0.04, V3(0, 0, 0.02), .primary)
+            sh.box(V3(0, 0.02, -0.036), V3(0.07, 0.6, 0.02), .primary)
+            sh.box(V3(0, 0.13, -0.036), V3(0.38, 0.07, 0.02), .primary)
+            sh.extrude([V2(0, 0.075), V2(0.055, 0), V2(0, -0.075), V2(-0.055, 0)], depth: 0.02, V3(0, 0.13, -0.05), .glow)
+            b.merge(sh, trs(V3(-0.1, 0.02, -0.12), ry(0.3)))
+            b.rod(V3(0, -0.06, 0), V3(0, 0.08, 0), 0.024, .dark)
         }
         return b
     }
@@ -508,7 +514,7 @@ struct HeroGearBuilder {
         case .harpBow, .ashBow, .lightBow, .crescentBow: return .zero
         case .stoneFist: return V3(0, -0.15, 0)
         case .azureClaw: return V3(0, -0.3, -0.08)
-        case .none, .gateShield, .grimoire, .hideShield, .roundShield: return nil
+        case .none, .gateShield, .grimoire, .hideShield, .heaterShield: return nil
         }
     }
 
@@ -636,7 +642,7 @@ struct HeroGearBuilder {
                 b.rod(V3(0, -0.05, 0.07), V3(0, -0.05, 0.085), 0.05, .glow, segments: 12)
             }
         case .cape:
-            let len: Float = bp.build == .heavy ? 0.8 : 0.7
+            let len: Float = bp.build.isHeavy ? 0.8 : 0.7
             b.add(MeshTemplate.cloth(w0: w * 0.8, w1: w * 1.2, length: len, curve: 0.14, bulge: 0.07, cols: 6, rows: 6),
                   trs(.zero), .accent)
             for s: Float in [-1, 1] { b.sphere(V3(s * w * 0.38, 0, -0.01), 0.04, .metal, .low) }

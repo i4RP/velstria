@@ -324,8 +324,8 @@ final class Kit_H026Tests: XCTestCase {
         w.s.units[m].hp = 1e6
         let n = numbers(w, k, .skill1)
         XCTAssertTrue(w.cast(k, .skill1, .direction(Self.east)))
-        XCTAssertEqual(events(w, to: m, .skill(.skill1)).first?.amount ?? 0, w.mitigated(n.damage * 2, .magic, on: m),
-                       accuracy: 1e-6, "ミニオンには 200%")
+        XCTAssertEqual(events(w, to: m, .skill(.skill1)).first?.amount ?? 0, w.mitigated(n.damage * 2, .magic, on: m) * Balance.Skills.minionDamageMultiplier,
+                       accuracy: 1e-6, "ミニオンには 200%（さらにミニオンへのスキル倍率）")
         XCTAssertEqual(events(w, to: e, .skill(.skill1)).first?.amount ?? 0, w.mitigated(n.damage, .magic, on: e),
                        accuracy: 1e-6)
         // S2 はミニオンにも倍にならない
@@ -335,7 +335,7 @@ final class Kit_H026Tests: XCTestCase {
         let n2 = numbers(w2, k2, .skill2)
         XCTAssertTrue(w2.cast(k2, .skill2, .unit(w2.id(m2))))
         w2.run(seconds: 0.5)
-        XCTAssertEqual(events(w2, to: m2, .skill(.skill2)).first?.amount ?? 0, w2.mitigated(n2.damage, .magic, on: m2),
+        XCTAssertEqual(events(w2, to: m2, .skill(.skill2)).first?.amount ?? 0, w2.mitigated(n2.damage, .magic, on: m2) * Balance.Skills.minionDamageMultiplier,
                        accuracy: 1e-6)
     }
 
@@ -582,7 +582,7 @@ final class Kit_H026Tests: XCTestCase {
         w.s.units[m].hp = 1e6
         mark(&w, owner: k, on: a)
         let n = numbers(w, k, .skill2)
-        let expected = [a, b, c, m].map { w.mitigated(n.damage, .magic, on: $0) }
+        let expected = [a, b, c, m].map { w.mitigated(n.damage, .magic, on: $0) * ($0 == m ? Balance.Skills.minionDamageMultiplier : 1) }
         XCTAssertTrue(w.cast(k, .skill2, .unit(w.id(a))))
         w.run(seconds: 0.5)
         XCTAssertEqual(kit(w, k).euriaSplashes, 1)
