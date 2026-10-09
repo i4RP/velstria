@@ -172,6 +172,8 @@ final class StageTests: XCTestCase {
         for q in GraphicsQuality.allCases {
             let l = try layout(q)
             let brush = l.brushes.reduce(0) { $0 + $1.triangleCount }
+            let props = l.chunks.props.values.reduce(0) { $0 + $1.triangleCount }
+            XCTAssertLessThanOrEqual(props, BattleWorkBudget.stagePropTriangles(q), "\(q)")
             XCTAssertLessThan(l.chunks.triangleCount, q == .high ? 1_000_000 : 900_000, "\(q)")
             XCTAssertLessThan(brush, 90_000, "\(q)")
         }

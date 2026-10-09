@@ -8,4 +8,13 @@ enum BattleWorkBudget {
     static let cuesPerPlay = 64
     /// Total delayed cosmetic cues, shared by all heroes in this battle.
     static let pendingCues = 512
+
+    /// Decorative prop meshes only. Collision silhouettes and brush fields are never dropped.
+    static func stagePropTriangles(_ quality: GraphicsQuality) -> Int {
+        switch quality {
+        case .low: return 600_000
+        case .medium: return 700_000
+        case .high: return 800_000
+        }
+    }
 }
