@@ -513,7 +513,8 @@ final class Kit_H032Tests: XCTestCase {
         XCTAssertEqual(minionHits.count, 3)
         let heroRaw = skillHits(w, on: front, .skill1).map { $0.amount / (100 / (100 + w.s.units[front].stats.armor)) }
         for (i, h) in minionHits.enumerated() {
-            XCTAssertEqual(h.amount, w.mitigated(heroRaw[i] * Tune.burstMinionFactor, .physical, on: m), accuracy: 1e-6)
+            XCTAssertEqual(h.amount, w.mitigated(heroRaw[i] * Tune.burstMinionFactor, .physical, on: m) * Balance.Skills.minionDamageMultiplier,
+                           accuracy: 1e-6)
         }
     }
 
@@ -613,7 +614,7 @@ final class Kit_H032Tests: XCTestCase {
         w.run(seconds: 0.6)
         let hits = skillHits(w, on: m, .skill2)
         XCTAssertEqual(hits.count, 1)
-        XCTAssertEqual(hits[0].amount, w.mitigated(n.damage, .physical, on: m), accuracy: 1e-6)
+        XCTAssertEqual(hits[0].amount, w.mitigated(n.damage, .physical, on: m) * Balance.Skills.minionDamageMultiplier, accuracy: 1e-6)
         XCTAssertEqual(skillHits(w, on: behind, .skill2).count, 0)
         // ミニオンの縁で止まる（中心間 = 半径の和 + 少し）
         let gap = w.s.units[k].radius + w.s.units[m].radius
@@ -917,7 +918,8 @@ final class Kit_H032Tests: XCTestCase {
         XCTAssertEqual(skillHits(w, on: behind, .ultimate).count, 0)
         let mh = skillHits(w, on: m, .ultimate)
         XCTAssertEqual(mh.count, 1)
-        XCTAssertEqual(mh[0].amount, w.mitigated(flat, .physical, on: m), accuracy: regenSlack, "ミニオンには失った HP の加算は無い")
+        XCTAssertEqual(mh[0].amount, w.mitigated(flat, .physical, on: m) * Balance.Skills.minionDamageMultiplier, accuracy: regenSlack,
+                       "ミニオンには失った HP の加算は無い（ミニオンへのスキル倍率だけ掛かる）")
     }
 
     func testStunDuringTheChargeDoesNotStopTheStrikeButSuppressionDoes() {

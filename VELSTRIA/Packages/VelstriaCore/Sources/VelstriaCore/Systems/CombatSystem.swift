@@ -78,6 +78,10 @@ public enum CombatSystem {
         // 5. 被ダメ軽減（上限 60%）
         if !environmental { amount *= damageReductionMultiplier(s.units[t].stats.damageReduction) }
         guard amount > 0, amount.isFinite else { return 0 }
+        // ミニオンへのスキルダメージは倍率を下げる（スキル倍率が大きく、そのままだと 1 発でウェーブが消えるため）
+        if source.isSkill, s.units[t].kind == .minion {
+            amount *= Balance.Skills.minionDamageMultiplier
+        }
         // 装備の固有効果による被ダメ補正（黄昏の挑戦の上限・魔人化の軽減。防御・軽減の後、シールドの前）
         if s.units[t].kind == .hero, !environmental {
             amount = ItemEffects.modifyIncoming(s, ctx, victim: t, type: type, amount: amount)

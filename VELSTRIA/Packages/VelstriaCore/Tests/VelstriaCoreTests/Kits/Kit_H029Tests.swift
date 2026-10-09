@@ -751,8 +751,8 @@ final class Kit_H029Tests: XCTestCase {
         for e in foes + [m] {
             let hits = w.damageEvents.filter { $0.targetID == w.id(e) }
             XCTAssertEqual(hits.count, 1, "\(e)")
-            // ミニオンは HP が低く、受けた量が HP で頭打ちになる
-            XCTAssertEqual(hits[0].amount, e == m ? min(w.mitigated(n.damage, .physical, on: e), w.s.units[m].stats.maxHP) : w.mitigated(n.damage, .physical, on: e), accuracy: 1e-6)
+            // ミニオンはスキル倍率が掛かり、HP が低いので受けた量が HP で頭打ちになる
+            XCTAssertEqual(hits[0].amount, e == m ? min(w.mitigated(n.damage, .physical, on: e) * Balance.Skills.minionDamageMultiplier, w.s.units[m].stats.maxHP) : w.mitigated(n.damage, .physical, on: e), accuracy: 1e-6)
             XCTAssertEqual(hits[0].source, .skill(.ultimate))
         }
         for e in foes {
