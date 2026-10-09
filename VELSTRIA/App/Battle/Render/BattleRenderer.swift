@@ -368,7 +368,7 @@ final class BattleRenderer {
                 let small = PresentationEpochs.showsFrameStepEvents(from: syncedTick, to: controller.state.tick)
                 syncedTick = controller.state.tick
                 world.sync(events: small ? pendingEvents : [], dt: Float(dt), rig: rig)
-                if small { world.updateOverlay(dt: 0) }
+                if small { world.updateOverlay(dt: 0, rig: rig) }
             }
             pendingEvents.removeAll(keepingCapacity: true)
             world.updateCamera(rig: rig, dt: Float(dt), snap: false)
@@ -387,18 +387,29 @@ final class BattleRenderer {
         let t0 = CACurrentMediaTime()
         controller.frame(dt: deltaTime)
         let t1 = CACurrentMediaTime()
+        let probe = PerfProbe.shared
+        if probe.enabled { probe.stop(.sim, t0) }
         // オンラインの再同期は frame の中で起きる（置き換え後に進めた分のイベントは receive が残している）
         syncPresentationEpoch(world: world)
         syncedTick = controller.state.tick
         world.sync(events: pendingEvents, dt: Float(dt), rig: rig)
         pendingEvents.removeAll(keepingCapacity: true)
+        let tc = probe.start()
         world.updateCamera(rig: rig, dt: Float(dt), snap: false)
         followSun()
+        probe.stop(.camera, tc)
         let t2 = CACurrentMediaTime()
-        world.updateOverlay(dt: Float(dt))
+        world.updateOverlay(dt: Float(dt), rig: rig)
         let t3 = CACurrentMediaTime()
+        if probe.enabled { probe.stop(.overlay, t2) }
         frameStats.record(frameDt: deltaTime, sim: t1 - t0, sync: t2 - t1, overlay: t3 - t2)
         if let change = governor.record(frameDt: deltaTime, work: t3 - t0) { applyGovernor(change) }
+        if probe.enabled {
+            probe.stop(.governor, t3)
+            probe.endFrame(frameDt: deltaTime, target: frameStats.targetInterval, entities: world.liveEntityCount,
+                           quality: "Q\(governor.step)")
+            view.perfLabel?.update(probe.liveText)
+        }
         #if DEBUG
         view.debugOverlay.record(frameDt: deltaTime, sim: t1 - t0, sync: t3 - t1, entities: world.liveEntityCount)
         view.debugOverlay.detail = "Q \(governor.step)"
@@ -529,6 +540,9 @@ final class BattleRenderer {
         frameStats.reset()
         frameStats.setFrameRate(governed.settings.frameRate)
         frameStats.beginLive()
+        PerfProbe.shared.begin(context: "\(settings.quality)")
+        view?.perfLabel?.isHidden = !PerfProbe.shared.enabled
+        view?.setNeedsLayout()
         governor.resetWindow()
         note("quality at live: \(governor.step) (thermal \(AdaptiveQuality.thermalName(governor.thermal)), low power \(governor.lowPower))")
         if let loadInterval { FrameStats.signposter.endInterval("battle.load", loadInterval) }
@@ -559,7 +573,7 @@ final class BattleRenderer {
                        quality: "\(settings.quality.level)", frameRate: settings.frameRate, speed: speed,
                        requestedSeconds: run.seconds, loadMs: loadMs, warmupMs: warmupMs, warmupFrames: frames,
                        frame: frameStats.summary(), ledger: AssetLedger.snapshot(), thermalStates: thermal,
-                       peakFootprintMB: footprint, peakEntities: entities, notes: notes)
+                       peakFootprintMB: footprint, peakEntities: entities, notes: notes, syncWork: world?.workStats.summary)
         }
     }
     #endif
@@ -579,7 +593,13 @@ final class BattleRenderer {
         #if DEBUG
         if let world, dt > 0 { dt = debugEffekseerDemo(fx, world: world, dt: dt) }
         #endif
-        fx.render(camera: rig.camera, host: view, dt: dt)
+        if let world {
+            world.workStats.measure(.effekseer, live: controller.isPresentationReady && !controller.isPaused) {
+                fx.render(camera: rig.camera, host: view, dt: dt)
+            }
+        } else {
+            fx.render(camera: rig.camera, host: view, dt: dt)
+        }
     }
 
     #if DEBUG
@@ -695,6 +715,7 @@ final class BattleRenderer {
     func teardown() {
         controller.updateCameraViewport([], dt: 1)
         frameStats.endLive()
+        PerfProbe.shared.end()
         AssetLedger.end()
         if let loadInterval { FrameStats.signposter.endInterval("battle.load", loadInterval) }
         loadInterval = nil

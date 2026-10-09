@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import VelstriaCore
 
 // 担当: 統合。設定画面の「テスター用コード」欄（内部テスト用ビルドだけ。TesterAccess 参照）。
@@ -7,6 +8,7 @@ struct TesterCodeSection: View {
     @Environment(AppModel.self) private var app
     @State private var code = ""
     @State private var unlocked = TesterAccess.isUnlocked()
+    @AppStorage(PerfProbe.enabledKey) private var perfProbe = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -33,6 +35,27 @@ struct TesterCodeSection: View {
                     .buttonStyle(SecondaryButtonStyle())
                     .accessibilityIdentifier("tester_code_apply")
                 }
+            }
+            Toggle(isOn: $perfProbe) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L("性能モニター", "Performance monitor")).font(Theme.body(13))
+                    Text(L("戦闘中に処理の内訳を表示し、終了時に記録します", "Shows a per-section breakdown in battle and records it"))
+                        .font(Theme.body(11))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+            }
+            .tint(Theme.cyan)
+            .accessibilityIdentifier("tester_perf_probe")
+            if PerfProbe.lastReport != nil {
+                Button {
+                    UIPasteboard.general.string = PerfProbe.lastReport
+                    app.audio.play(.uiConfirm)
+                    app.showToast(L("前回の計測をコピーしました", "Last report copied"))
+                } label: {
+                    Text(L("前回の計測をコピー", "Copy last report")).lineLimit(1)
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .accessibilityIdentifier("tester_perf_copy")
             }
         }
         .padding(12)

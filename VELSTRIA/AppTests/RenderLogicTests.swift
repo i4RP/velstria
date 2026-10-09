@@ -7,6 +7,48 @@ import VelstriaCore
 
 @MainActor
 final class RenderLogicTests: XCTestCase {
+    func testCombatTextProjectionMatchesCameraFootprint() throws {
+        for size in [CGSize(width: 844, height: 390), CGSize(width: 390, height: 844)] {
+            let position = SIMD3<Float>(60, 15, -40)
+            let orientation = CameraRig.orientation
+            let projection = CombatTextProjection(position: position, orientation: orientation,
+                                                  viewport: size, verticalFOV: CameraRig.fovDegrees)
+            let corners = CameraRig.groundFootprint(position: position, orientation: orientation,
+                verticalFieldOfView: CameraRig.fovDegrees, aspectRatio: Float(size.width / size.height))
+            let expected = [CGPoint.zero, CGPoint(x: size.width, y: 0),
+                            CGPoint(x: size.width, y: size.height), CGPoint(x: 0, y: size.height)]
+            XCTAssertEqual(corners.count, 4)
+            for (point, screen) in zip(corners, expected) {
+                let actual = try XCTUnwrap(projection.project(worldPosition(point)))
+                XCTAssertEqual(actual.x, screen.x, accuracy: 0.01)
+                XCTAssertEqual(actual.y, screen.y, accuracy: 0.01)
+            }
+            XCTAssertNil(projection.project(position + orientation.act([0, 0, 2])))
+            XCTAssertNil(projection.project(position + orientation.act([0, 0, -200])))
+            XCTAssertNil(projection.project(position + orientation.act([1000, 0, -10])))
+        }
+    }
+
+    func testDetailCullingKeepsTrackingPositionsAndDoesNotChangeVision() {
+        let sim = Simulation(config: MatchFactory.botMatch(seed: 99))
+        var f = RenderFrame(state: sim.state, alpha: 1, dt: 1.0 / 60, time: 0,
+                            viewerTeam: nil, humanID: nil, focusID: nil, ended: false, winner: nil)
+        let i = f.state.units.startIndex
+        XCTAssertTrue(f.needsDetail(i))
+        let p = worldPosition(f.interpolated(i))
+        f.detailBounds = (SIMD2(p.x - 1, p.z - 1), SIMD2(p.x + 1, p.z + 1))
+        XCTAssertTrue(f.needsDetail(i))
+        f.detailBounds = (SIMD2(p.x + 10, p.z + 10), SIMD2(p.x + 20, p.z + 20))
+        XCTAssertFalse(f.needsDetail(i))
+        XCTAssertTrue(f.isVisible(i), "画面外と霧の可視判定を混同しない")
+        XCTAssertEqual(worldPosition(f.interpolated(i)), p)
+        f.focusID = f.state.units[i].id
+        XCTAssertTrue(f.needsDetail(i), "追従先はカメラ切替直後も更新する")
+        f.focusID = nil
+        f.detailBounds = nil
+        XCTAssertTrue(f.needsDetail(i), "一時停止・ロード中は範囲を解除できる")
+    }
+
     // MARK: カメラ
 
     func testCriticallyDampedSpringConvergesWithoutOvershoot() {

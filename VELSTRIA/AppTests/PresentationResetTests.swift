@@ -25,6 +25,31 @@ final class PresentationResetTests: XCTestCase {
 
     // MARK: ユニット
 
+    func testOffscreenUnitsKeepPositionsAndReturnWithoutChangingVision() throws {
+        let sim = Simulation(config: MatchFactory.botMatch(seed: 11))
+        sim.runHeadless(maxTime: 25)
+        let l = layer()
+        var f = frame(sim.state, dt: 1)
+        f.detailBounds = (SIMD2(-1000, -1000), SIMD2(-900, -900))
+        l.sync(f)
+        let hero = try XCTUnwrap(sim.state.units.first { $0.kind == .hero && $0.isAlive })
+        let creature = try XCTUnwrap(sim.state.units.first { $0.kind == .minion && $0.isAlive })
+        XCTAssertFalse(try XCTUnwrap(l.hero(hero.id)).root.isEnabled)
+        XCTAssertFalse(try XCTUnwrap(l.creature(creature.id)).root.isEnabled)
+        XCTAssertEqual(l.creature(creature.id)?.visibility, 1)
+        sim.step()
+        f.state = sim.state
+        l.sync(f)
+        let i = try XCTUnwrap(sim.state.index(of: creature.id))
+        XCTAssertEqual(l.worldPositionOf(creature.id), worldPosition(sim.state.units[i].pos))
+        f.detailBounds = nil
+        l.sync(f)
+        XCTAssertTrue(try XCTUnwrap(l.hero(hero.id)).root.isEnabled)
+        XCTAssertTrue(try XCTUnwrap(l.creature(creature.id)).root.isEnabled)
+        XCTAssertEqual(l.dyingCount, 0)
+        l.teardown()
+    }
+
     func testCreaturesAreRecycledWithoutDeathFadeAfterAJumpBack() {
         let sim = Simulation(config: MatchFactory.botMatch(seed: 11))
         for _ in 0..<30 { sim.step() }

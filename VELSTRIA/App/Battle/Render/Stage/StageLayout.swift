@@ -64,6 +64,7 @@ struct StageLayout {
     let level: GraphicsQuality
     var rng: RenderRNG
     var out = StageLayoutResult()
+    private var propTriangles = 0
 
     init(map: MapDefinition, props: [StagePropKind: StagePropMesh], density: Float, level: GraphicsQuality) {
         self.map = map
@@ -112,10 +113,20 @@ struct StageLayout {
 
     // MARK: 小物の配置
 
+    private mutating func admitProp(_ mesh: StagePropMesh) -> Bool {
+        let triangles = mesh.indices.count / 3
+        guard triangles <= BattleWorkBudget.stagePropTriangles(level) - propTriangles else { return false }
+        propTriangles += triangles
+        return true
+    }
+
     /// 小物を置く。footprint の中心が p、底が y。
     mutating func place(_ kind: StagePropKind, at p: SIMD2<Float>, y: Float, yaw: Float, scale s: SIMD3<Float>,
                         color: SIMD4<UInt8>? = nil) {
         guard let mesh = props[kind] else { return }
+        // Wall cores and brush silhouettes have independent construction paths.
+        // Stop decoration before new meshes/density silently exceed the GPU budget.
+        guard admitProp(mesh) else { return }
         out.counts[kind, default: 0] += 1
         let m = transform(p, y: y, yaw: yaw, scale: s)
         out.placements.append(.init(kind: kind, center: p, radius: max(mesh.size.x * s.x, mesh.size.z * s.z) / 2, transform: m))
@@ -497,7 +508,7 @@ struct StageLayout {
 
     /// 低い葉の茂み（bush を膝下の高さに潰したもの）。歩ける所に置くので、置いた記録（placements）には入れない。
     mutating func groundCover(at p: SIMD2<Float>) {
-        guard let mesh = props[.bush], isFloraSpot(p) else { return }
+        guard let mesh = props[.bush], isFloraSpot(p), admitProp(mesh) else { return }
         let foot = rng.range(0.7, 1.2)
         let k = foot / max(mesh.size.x, mesh.size.z)
         let ky = rng.range(0.28, 0.4) / mesh.size.y

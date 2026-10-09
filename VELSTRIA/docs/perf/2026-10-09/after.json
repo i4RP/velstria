@@ -1,0 +1,156 @@
+{
+  "build" : "Release",
+  "device" : "Simulator iPhone18,1",
+  "frame" : {
+    "frames" : 2497,
+    "hitchMs" : 21942.63361381982,
+    "hitchRatio" : 337.40600170061725,
+    "hitches" : 932,
+    "maxMs" : 266.66346192359924,
+    "overlayAvgMs" : 0.027255573398586544,
+    "p50Ms" : 20,
+    "p95Ms" : 50.25,
+    "p99Ms" : 66.75,
+    "seconds" : 65.03332336479798,
+    "simAvgMs" : 0.11805313044491726,
+    "syncAvgMs" : 0.4658795054566058,
+    "targetMs" : 16.666666666666668,
+    "workMaxMs" : 41.42691666493192,
+    "workP50Ms" : 0.75,
+    "workP95Ms" : 1,
+    "workP99Ms" : 1.25
+  },
+  "frameRate" : 60,
+  "ledger" : {
+    "live" : {
+
+    },
+    "liveSamples" : [
+
+    ],
+    "loading" : {
+      "emitter" : 91,
+      "entity" : 2088,
+      "material" : 238,
+      "mesh" : 115,
+      "textMesh" : 25,
+      "texture" : 83
+    },
+    "phase" : "live"
+  },
+  "loadMs" : 7673.059500011732,
+  "notes" : [
+    "ground stage (1024²), waited 49 ms",
+    "effekseer load 90 effects, 47 ms",
+    "world build 1079 ms",
+    "first warm-up frame: initial sync 183 ms (+1323 ms after world build start)",
+    "warm-up scheduler starts +1975 ms after world build start",
+    "warm-up frame 2 start +1975 ms (dt 867.0 ms)",
+    "warm-up frame 3 start +2055 ms (dt 83.0 ms)",
+    "warm-up frame 4 start +2104 ms (dt 50.0 ms)",
+    "warm-up frame 5 start +2174 ms (dt 66.7 ms)",
+    "warm-up frame 6 start +2223 ms (dt 50.0 ms)",
+    "warm-up frame 7 start +2287 ms (dt 66.7 ms)",
+    "warm-up frame 8 start +2555 ms (dt 250.0 ms)",
+    "warm-up frame 9 start +2618 ms (dt 83.3 ms)",
+    "warm-up frame 10 start +2785 ms (dt 166.7 ms)",
+    "warm-up frame 11 start +2852 ms (dt 66.7 ms)",
+    "warm-up frame 12 start +2968 ms (dt 116.7 ms)",
+    "warm-up frame 13 start +3468 ms (dt 500.0 ms)",
+    "warm-up frame 14 start +3669 ms (dt 200.0 ms)",
+    "warm-up frame 15 start +3985 ms (dt 316.7 ms)",
+    "warm-up frame 16 start +4202 ms (dt 216.7 ms)",
+    "warm-up frame 17 start +4402 ms (dt 200.0 ms)",
+    "warm-up frame 18 start +4652 ms (dt 250.0 ms)",
+    "warm-up frame 19 start +4835 ms (dt 183.3 ms)",
+    "warm-up frame 20 start +4935 ms (dt 100.0 ms)",
+    "warm-up frame 21 start +5002 ms (dt 66.7 ms)",
+    "warmup step units [heavy] 0.1 ms (frame 1)",
+    "warmup step meshes.common 5.1 ms (frame 1)",
+    "warmup step creatures minion(VelstriaCore.MinionType.melee, VelstriaCore.Team.blue) 12\/36 [heavy] 8.9 ms (frame 1)",
+    "warmup step creatures minion(VelstriaCore.MinionType.melee, VelstriaCore.Team.blue) 24\/36 [heavy] 2.2 ms (frame 1)",
+    "warmup step creatures minion(VelstriaCore.MinionType.melee, VelstriaCore.Team.blue) 36\/36 [heavy] 2.0 ms (frame 1)",
+    "warmup step creatures minion(VelstriaCore.MinionType.ranged, VelstriaCore.Team.blue) 12\/36 [heavy] 3.4 ms (frame 1)",
+    "warmup step creatures minion(VelstriaCore.MinionType.ranged, VelstriaCore.Team.blue) 24\/36 [heavy] 2.3 ms (frame 1)",
+    "warmup step creatures minion(VelstriaCore.MinionType.ranged, VelstriaCore.Team.blue) 36\/36 [heavy] 2.1 ms (frame 1)",
+    "warmup step creatures minion(VelstriaCore.MinionType.siege, VelstriaCore.Team.blue) 8\/8 [heavy] 2.8 ms (frame 1)",
+    "warmup step creatures minion(VelstriaCore.MinionType.melee, VelstriaCore.Team.red) 12\/36 [heavy] 3.0 ms (frame 1)",
+    "warmup step creatures minion(VelstriaCore.MinionType.melee, VelstriaCore.Team.red) 24\/36 [heavy] 2.3 ms (frame 2)",
+    "warmup step creatures minion(VelstriaCore.MinionType.melee, VelstriaCore.Team.red) 36\/36 [heavy] 2.0 ms (frame 2)",
+    "warmup step creatures minion(VelstriaCore.MinionType.ranged, VelstriaCore.Team.red) 12\/36 [heavy] 3.5 ms (frame 2)",
+    "warmup step creatures minion(VelstriaCore.MinionType.ranged, VelstriaCore.Team.red) 24\/36 [heavy] 2.3 ms (frame 2)",
+    "warmup step creatures minion(VelstriaCore.MinionType.ranged, VelstriaCore.Team.red) 36\/36 [heavy] 2.3 ms (frame 2)",
+    "warmup step creatures minion(VelstriaCore.MinionType.siege, VelstriaCore.Team.red) 8\/8 [heavy] 2.5 ms (frame 2)",
+    "warmup step creatures monster(VelstriaCore.MonsterKind.campLarge) 11\/11 [heavy] 4.2 ms (frame 2)",
+    "warmup step creatures monster(VelstriaCore.MonsterKind.campSmall) 12\/22 [heavy] 2.8 ms (frame 2)",
+    "warmup step creatures monster(VelstriaCore.MonsterKind.campSmall) 22\/22 [heavy] 1.8 ms (frame 3)",
+    "warmup step creatures monster(VelstriaCore.MonsterKind.blueSentinel) 2\/2 [heavy] 1.8 ms (frame 3)",
+    "warmup step creatures monster(VelstriaCore.MonsterKind.redSentinel) 2\/2 [heavy] 1.5 ms (frame 3)",
+    "warmup step creatures monster(VelstriaCore.MonsterKind.astralWyrm) 1\/1 [heavy] 1.2 ms (frame 3)",
+    "warmup step creatures monster(VelstriaCore.MonsterKind.ancientColossus) 1\/1 [heavy] 1.2 ms (frame 3)",
+    "warmup step projectiles [heavy] 35.2 ms (frame 3)",
+    "warmup step zones+aim 24.4 ms (frame 4)",
+    "warmup step text [heavy] 17.0 ms (frame 5)",
+    "warmup step materials 24.8 ms (frame 5)",
+    "warmup step vfx.emitters [heavy] 4.0 ms (frame 6)",
+    "warmup step vfx.meshFX 1.4 ms (frame 6)",
+    "warmup step skillfx [heavy] 211.7 ms (frame 6)",
+    "warmup step gallery.shelf [heavy] 39.4 ms (frame 7)",
+    "warmup step gallery.units [heavy] 28.0 ms (frame 8)",
+    "warmup step gallery.heroes blue [heavy] 7.0 ms (frame 9)",
+    "warmup step gallery.heroes red [heavy] 2.1 ms (frame 9)",
+    "warmup step gallery.effects [heavy] 27.4 ms (frame 9)",
+    "warmup steps: 35 in 9 frames, 847 ms",
+    "warmup done: hard cap (stable 0\/8) after 20 frames, 3027 ms (settle 11 frames; materialPrograms 877 ms; shadow variants not needed)",
+    "quality at live: full (thermal nominal, low power false)",
+    "quality 3.0s full -> fewerParticles (over budget (frame p95 63.2 ms, work p95 0.5 ms))",
+    "quality 7.1s fewerParticles -> noTrails (over budget (frame p95 65.9 ms, work p95 0.5 ms))",
+    "quality 11.2s noTrails -> reducedPost (over budget (frame p95 66.2 ms, work p95 0.6 ms))",
+    "quality 15.3s reducedPost -> scale88 (over budget (frame p95 50.0 ms, work p95 0.5 ms))",
+    "quality 19.3s scale88 -> scale75 (over budget (frame p95 60.1 ms, work p95 0.5 ms))",
+    "quality at end: scale75 (frame p95 43.8 ms, work p95 1.13 ms over the last window)"
+  ],
+  "os" : "26.3.1",
+  "peakEntities" : 132,
+  "peakFootprintMB" : 635.2070846557617,
+  "quality" : "medium",
+  "requestedSeconds" : 65,
+  "speed" : 1,
+  "syncWork" : {
+    "effects" : {
+      "calls" : 2497,
+      "maxMs" : 0.36608333175536245,
+      "totalMs" : 39.554583781864494
+    },
+    "effekseer" : {
+      "calls" : 2497,
+      "maxMs" : 47.80420832685195,
+      "totalMs" : 3631.7122499167453
+    },
+    "fog" : {
+      "calls" : 2497,
+      "maxMs" : 0.00945833744481206,
+      "totalMs" : 1.6383333131670952
+    },
+    "map" : {
+      "calls" : 2497,
+      "maxMs" : 0.05204166518524289,
+      "totalMs" : 43.23629179270938
+    },
+    "projectiles" : {
+      "calls" : 2497,
+      "maxMs" : 0.21754165936727077,
+      "totalMs" : 21.411374807939865
+    },
+    "units" : {
+      "calls" : 2497,
+      "maxMs" : 6.69529166771099,
+      "totalMs" : 985.160250304034
+    }
+  },
+  "thermalStates" : [
+    "nominal"
+  ],
+  "warmupFrames" : 21,
+  "warmupMs" : 5018.335833345191
+}

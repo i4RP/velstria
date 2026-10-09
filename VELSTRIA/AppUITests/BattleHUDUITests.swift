@@ -136,15 +136,29 @@ final class BattleHUDUITests: XCTestCase {
 
     func testSpectateSpeedAndLeave() {
         let app = launch(["-battle", "spectate", "-language", "en"])
-        XCTAssertTrue(element(app, "spectate_speed_2x").waitForExistence(timeout: BattleHUDUITests.battleStartTimeout))
+        let speed2x = element(app, "spectate_speed_2x")
+        let speedCycle = element(app, "spectate_speed_cycle")
+        let deadline = Date().addingTimeInterval(BattleHUDUITests.battleStartTimeout)
+        var speedControlAppeared = false
+        repeat {
+            speedControlAppeared = speed2x.exists || speedCycle.exists
+            if !speedControlAppeared { RunLoop.current.run(until: Date().addingTimeInterval(0.5)) }
+        } while !speedControlAppeared && Date() < deadline
+        XCTAssertTrue(speedControlAppeared, "観戦の速度操作が表示されない")
         XCTAssertFalse(element(app, "hud_attack").exists, "観戦では操作ボタンを出さない")
         XCTAssertFalse(element(app, "hud_attack_top").exists)
         XCTAssertFalse(element(app, "hud_attack_bottom").exists)
-        tap(app, "spectate_speed_2x")
-        XCTAssertTrue(element(app, "spectate_speed_2x").isSelected)
+        if speed2x.exists {
+            speed2x.tap()
+            XCTAssertTrue(speed2x.isSelected)
+        } else {
+            speedCycle.tap()
+            XCTAssertEqual(speedCycle.value as? String, "2x")
+        }
         snap("hud_spectate")
         tap(app, "spectate_leave")
         tap(app, "leave_confirm")
-        XCTAssertTrue(element(app, "spectate_speed_2x").waitForNonExistence(timeout: 10), "退出後も観戦画面のまま")
+        XCTAssertTrue(speed2x.waitForNonExistence(timeout: 10), "退出後も観戦画面のまま")
+        XCTAssertTrue(speedCycle.waitForNonExistence(timeout: 10), "退出後も観戦画面のまま")
     }
 }
