@@ -6,19 +6,21 @@ import VelstriaCore
 
 enum BodyBuild { case heavy, standard, slim, robed }
 
-enum ArmorStyle { case plate, leather, cloth, rock, fur, mech, light }
+/// huntress = 素肌の胴に短い胸当て（H025）、stormCoat = 白い外套の前から青い全身衣（H026）、gunnerJacket = 白い上着に茶革の胴着（H030）。
+enum ArmorStyle { case plate, leather, cloth, rock, fur, mech, light, huntress, stormCoat, gunnerJacket }
 
-enum PauldronStyle { case none, small, round, big, rock, fur, crystal, feather }
+enum PauldronStyle { case none, small, round, big, rock, fur, crystal, feather, crescentGuard, stormSpike }
 
-enum SkirtStyle { case none, tassets, robe, shortSkirt, coat, loincloth, petals, kilt }
+enum SkirtStyle { case none, tassets, robe, shortSkirt, coat, loincloth, petals, kilt, openCoat }
 
-enum HairStyle { case none, short, spiky, long, ponytail, twinTails, bob, topknot, braids, mohawk, wild }
+enum HairStyle { case none, short, spiky, long, ponytail, twinTails, bob, topknot, braids, mohawk, wild, highPonytail, longTwinTails }
 
 enum HeadGear {
     case knightHelm, hood, deepHood, mask, starPin, shellCrown, flameCrown, goggles, beastMask
     case hornHelm, vikingHelm, wideHat, foxEars, wingedHelm, nightcap, flowerCrown, circlet
     case featherPin, glassVisor, ironVisor, headband, beard, crescentPin, ribbon
     case iceCrown
+    case elfEars, stormCrest, gemBand
 }
 
 enum WeaponKind {
@@ -28,6 +30,7 @@ enum WeaponKind {
     case thunderLance, dreamNeedle
     case dragonSpear, stormWand, photonBlade, holyMaul
     case starCannon, iceStaff, fistBlade, bloodGreatsword, hookChain
+    case ballLightning
 }
 
 enum OffhandKind {
@@ -236,16 +239,20 @@ enum HeroBlueprints {
                       float: .dreamThreads, attack: .dualSlash, metal: .silver, skin: .fair,
                       hairColor: HSB(0.75, 0.3, 0.95), accent: HSB(0.78, 0.35, 1.0), glow: HSB(0.8, 0.45, 1.0),
                       scale: 0.96),
-        // H025 月弦のルミナ（Ranger）: 三日月の長弓・銀白の長髪・翠と白の外套
-        HeroBlueprint(build: .slim, armor: .light, pauldron: .small, skirt: .shortSkirt, hair: .long,
-                      gear: [.featherPin, .crescentPin], weapon: .none, offhand: .crescentBow, back: .cape, float: .none,
-                      attack: .bow, metal: .silver, skin: .fair, hairColor: HSB(0.13, 0.07, 0.98),
-                      accent: HSB(0.42, 0.7, 0.72), glow: HSB(0.14, 0.4, 1.0)),
-        // H026 紫電のエウリア（Arcanist）: 細身の雷杖・紫の髪と短い外套・周囲に浮く雷球
-        HeroBlueprint(build: .robed, armor: .cloth, pauldron: .small, skirt: .robe, hair: .ponytail,
-                      gear: [.ribbon], weapon: .stormWand, offhand: .none, back: .cape, float: .sparkOrbs,
-                      attack: .staff, metal: .silver, skin: .fair, hairColor: HSB(0.77, 0.6, 0.62),
-                      accent: HSB(0.76, 0.7, 0.95), glow: HSB(0.52, 0.5, 1.0)),
+        // H025 月弦のルミナ（Ranger = MLBB の Miya）: 月の狩人のエルフ。背丈ほどの銀の三日月の長弓（外側の棘・月光の内縁と弦）・
+        // 銀白の高い馬の尾と尖った耳・銀の額冠と青い羽根・青紫の短い胸当てと銀の三日月の肩当て・青い外套。
+        // 基調色 = Theme.heroHue（青紫 0.66）、metal = 銀（弓・肩当て・籠手）、accent = 青（外套・羽根・立ち襟）、glow = 月光の水色。
+        HeroBlueprint(build: .slim, armor: .huntress, pauldron: .crescentGuard, skirt: .tassets, hair: .highPonytail,
+                      gear: [.circlet, .elfEars, .featherPin], weapon: .none, offhand: .crescentBow, back: .cape, float: .none,
+                      attack: .bow, metal: .silver, skin: .fair, hairColor: HSB(0.62, 0.08, 0.96),
+                      accent: HSB(0.64, 0.7, 0.85), glow: HSB(0.53, 0.55, 1.0)),
+        // H026 紫電のエウリア（Arcanist = MLBB の Eudora）: 雷の魔女のエルフ。杖は持たず右手の上に球電を浮かべ、まわりを雷球が巡る。
+        // 足元まで届く白い外套（尖った肩・広い袖口）の前から青い全身衣、銀白の短髪・尖った耳・こめかみから伸びる銀の刃の角。
+        // 基調色 = Theme.heroHue（青 0.62 = 全身衣）、cloth = 白い外套、metal = 銀（角・縁）、accent = 水色の稲妻の筋、glow = 青紫の電光。
+        HeroBlueprint(build: .robed, armor: .stormCoat, pauldron: .stormSpike, skirt: .openCoat, hair: .short,
+                      gear: [.elfEars, .stormCrest], weapon: .ballLightning, offhand: .none, back: .none, float: .sparkOrbs,
+                      attack: .spellThrow, metal: .silver, skin: .fair, hairColor: HSB(0.6, 0.06, 0.95),
+                      accent: HSB(0.56, 0.55, 1.0), glow: HSB(0.66, 0.5, 1.0), scale: 1.04),
         // H027 竜槍のジャルド（Duelist）: 竜牙の長槍・銀青の鎧・赤い房飾りと鉢巻・茶髪の結い髪
         HeroBlueprint(build: .standard, armor: .plate, pauldron: .round, skirt: .tassets, hair: .topknot,
                       gear: [.headband], weapon: .dragonSpear, offhand: .none, back: .scarfTails, float: .none,
@@ -261,11 +268,13 @@ enum HeroBlueprints {
                       gear: [.knightHelm], weapon: .holyMaul, offhand: .roundShield, back: .cape, float: .none,
                       attack: .slash, metal: .gold, skin: .tan, hairColor: HSB(0.08, 0.5, 0.35),
                       accent: HSB(0.6, 0.75, 0.95), glow: HSB(0.13, 0.5, 1.0), scale: 1.1),
-        // H030 星砲のライナ（Ranger）: 背丈ほどの星の砲（両手持ち）・桃みがかった金髪のツインテール・白と金の戦闘服
-        HeroBlueprint(build: .slim, armor: .light, pauldron: .round, skirt: .shortSkirt, hair: .twinTails,
-                      gear: [.starPin, .ribbon], weapon: .starCannon, offhand: .none, back: .gearPack, float: .none,
-                      attack: .gun, metal: .gold, skin: .fair, hairColor: HSB(0.05, 0.38, 1.0),
-                      accent: HSB(0.99, 0.72, 0.92), glow: HSB(0.93, 0.5, 1.0), scale: 0.98),
+        // H030 星砲のライナ（Ranger = MLBB の Layla）: 背丈を超える魔砲（白い砲身・金の枠と 2 本の砲角・水色の動力球）を腰だめに構える。
+        // 腰まで届く金髪の長いツインテール・茶革の髪留めと水色の宝石、白い上着・茶革の胴着・紺のネクタイ・青いスカート・黒い長靴下。
+        // 基調色 = Theme.heroHue（青 0.63 = スカート）、cloth = 白い上着、accent = 茶革、metal = 金（砲の枠・肩章）、glow = 水色。
+        HeroBlueprint(build: .slim, armor: .gunnerJacket, pauldron: .none, skirt: .shortSkirt, hair: .longTwinTails,
+                      gear: [.gemBand], weapon: .starCannon, offhand: .none, back: .none, float: .none,
+                      attack: .gun, metal: .gold, skin: .fair, hairColor: HSB(0.12, 0.5, 1.0),
+                      accent: HSB(0.07, 0.55, 0.5), glow: HSB(0.5, 0.6, 1.0)),
         // H031 氷嵐のオーリア（Arcanist）: 氷の杖・氷の冠・淡い青白の長髪・周囲に浮く氷の結晶
         HeroBlueprint(build: .robed, armor: .cloth, pauldron: .crystal, skirt: .robe, hair: .long,
                       gear: [.iceCrown], weapon: .iceStaff, offhand: .none, back: .none, float: .iceCrystals,

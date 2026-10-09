@@ -152,6 +152,7 @@ struct HeroAssembler {
         switch bp.armor {
         case .cloth, .light: return .dark
         case .fur, .rock: return .secondary
+        case .stormCoat: return .primary
         default: return .dark
         }
     }
@@ -164,6 +165,8 @@ struct HeroAssembler {
         case .leather, .mech: return .secondary
         case .cloth, .light: return .primary
         case .rock, .fur: return .skin
+        case .huntress: return .primary
+        case .stormCoat, .gunnerJacket: return .cloth
         }
     }
 
@@ -171,6 +174,7 @@ struct HeroAssembler {
         switch bp.armor {
         case .plate: return .metal
         case .cloth: return .primary
+        case .stormCoat: return .cloth
         default: return .skin
         }
     }
@@ -179,6 +183,7 @@ struct HeroAssembler {
         switch bp.armor {
         case .plate: return .metal
         case .leather: return .dark
+        case .stormCoat: return .dark
         default: return .skin
         }
     }
@@ -235,6 +240,18 @@ struct HeroAssembler {
         case .kilt:
             b.lathe([V2(hw * 1.08, -0.13), V2(hw * 0.93, 0.06)], V3(0, 0, 0), .secondary, scale: V3(1, 1, zs), segments: 18)
             b.rbox(V3(0, -0.05, -m.torsoD * 0.47), V3(0.15, 0.22, 0.03), 0.012, .primary, rot: rx(0.1))
+        case .openCoat:
+            // 前の開いた長い外套の裾（H026）: 背中の大きな裾と左右の前裾（白い布・両面）が足首の近くまで広がり、
+            // 前は開いて青い脚を見せる。腰に紺の帯
+            let yb = -(m.hipY - 0.1)
+            b.add(MeshTemplate.cloth(w0: m.torsoW * 0.98, w1: m.torsoW * 1.3, length: 0.1 - yb, curve: 0.16, bulge: 0.07, cols: 6, rows: 5),
+                  trs(V3(0, 0.1, m.torsoD * 0.3)), .cloth)
+            for s: Float in [-1, 1] {
+                b.add(MeshTemplate.cloth(w0: m.torsoW * 0.5, w1: m.torsoW * 0.7, length: 0.08 - yb, curve: 0.12, bulge: 0.03, cols: 3, rows: 5),
+                      trs(V3(s * hw * 0.78, 0.1, -m.torsoD * 0.12), ry(s * 2.15)), .cloth)
+            }
+            b.add(MeshTemplate.torus(minor: 0.08, segments: 20, sides: 5),
+                  trs(V3(0, 0.07, 0), qIdentity, V3(hw * 1.02, hw * 1.02, hw * 1.02 * zs)), .secondary)
         }
         return b
     }
@@ -247,6 +264,8 @@ struct HeroAssembler {
         case .leather, .fur, .mech: return .secondary
         case .cloth, .light: return .primary
         case .rock: return .dark
+        case .huntress: return .skin
+        case .stormCoat, .gunnerJacket: return .cloth
         }
     }
 
@@ -311,6 +330,41 @@ struct HeroAssembler {
             b.rod(V3(0, 0.26, front - 0.02), V3(0, 0.26, front - 0.04), 0.038, .glow, segments: 14)
             b.rod(V3(-hw * 0.6, 0.12, front + 0.02), V3(-hw * 0.6, 0.38, front + 0.02), 0.014, .metal)
             b.rbox(V3(0, 0.03, 0), V3(m.torsoW * 0.92, 0.07, m.torsoD * 0.95), 0.03, .dark)
+        case .huntress:
+            // 月の狩人（H025）: 素肌の胴（lathe は skin）に青紫の短い胸当て・その下縁の銀の輪・肩から首を囲む外套の青い立ち襟・
+            // 胸元の月光の三日月・腰帯
+            b.ellipsoid(V3(0, 0.3, -m.torsoD * 0.02), V3(hw * 1.04, 0.16, m.torsoD * 0.55), .primary)
+            b.add(MeshTemplate.torus(minor: 0.07, segments: 20, sides: 5),
+                  trs(V3(0, 0.17, -m.torsoD * 0.02), rx(0.12), V3(hw * 0.97, hw * 0.97, hw * 0.97 * zs * 1.1)), .metal)
+            b.lathe([V2(hw * 1.02, L - 0.14), V2(hw * 0.86, L - 0.04), V2(hw * 0.7, L + 0.05)], .zero, .accent,
+                    scale: V3(1, 1, zs * 1.1), segments: 16)
+            b.extrude(crescentPolygon(radius: 0.055, thickness: 0.022, span: 3.6, offset: 0.018), depth: 0.02,
+                      V3(0, 0.31, front - 0.035), .glow, rot: rz(.pi / 2))
+            b.rbox(V3(0, 0.03, 0), V3(m.torsoW * 0.9, 0.07, m.torsoD * 0.94), 0.03, .dark)
+        case .stormCoat:
+            // 雷の外套（H026）: 胴の lathe は白い外套（cloth）。前は開いて青い全身衣（胸の膨らみと腹）が V 字にのぞき、
+            // 左右の白い襟・水色の稲妻の筋・腹の光の宝玉 2 対・紺の腰帯
+            b.ellipsoid(V3(0, 0.25, -m.torsoD * 0.16), V3(hw * 0.52, 0.22, m.torsoD * 0.38), .primary)
+            b.rbox(V3(0, 0.07, front + 0.035), V3(hw * 0.86, 0.16, 0.05), 0.02, .primary)
+            let bolt: [V2] = [V2(-0.02, 0), V2(0.03, 0), V2(0.0, 0.06), V2(0.04, 0.06), V2(-0.02, 0.16), V2(-0.005, 0.08), V2(-0.04, 0.08)]
+            for s: Float in [-1, 1] {
+                b.rbox(V3(s * hw * 0.5, 0.26, front + 0.005), V3(0.07, 0.42, 0.04), 0.015, .cloth, rot: rz(s * 0.32))
+                b.extrude(bolt.map { V2($0.x * s, $0.y) }, depth: 0.012, V3(s * hw * 0.24, 0.07, front + 0.005), .accent, rot: rz(s * 0.25))
+                for y: Float in [0.1, 0.17] { b.sphere(V3(s * 0.035, y, front + 0.01), 0.018, .glow, .tiny) }
+            }
+            b.rbox(V3(0, 0.0, 0), V3(m.torsoW * 0.9, 0.06, m.torsoD * 0.93), 0.025, .secondary)
+        case .gunnerJacket:
+            // 砲手の上着（H030）: 胴の lathe は白い上着（cloth）。腹を覆う茶革の胴着（accent）・紺のネクタイ・白い襟・
+            // 右胸の金の肩章・腰の水色の留め具
+            b.lathe([V2(hw * 0.86, -0.04), V2(hw * 0.9, 0.06), V2(hw * 0.95, 0.16), V2(hw * 1.02, 0.26)], .zero, .accent,
+                    scale: V3(1.02, 1, zs * 1.04), segments: 18)
+            b.rbox(V3(0, 0.29, front - 0.005), V3(0.05, 0.16, 0.025), 0.01, .secondary)
+            b.extrude([V2(-0.03, 0), V2(0.03, 0), V2(0.0, -0.05)], depth: 0.025, V3(0, 0.205, front - 0.005), .secondary)
+            for s: Float in [-1, 1] {
+                b.rbox(V3(s * hw * 0.32, L - 0.07, front + 0.025), V3(0.1, 0.07, 0.05), 0.015, .cloth, rot: rz(s * 0.5))
+            }
+            b.extrude(starPolygon(points: 6, outer: 0.05, inner: 0.03), depth: 0.02, V3(hw * 0.55, 0.32, front + 0.005), .metal)
+            b.sphere(V3(0, 0.08, front - 0.005), 0.025, .glow, .low)
         }
         if bp.scarf {
             b.add(MeshTemplate.torus(minor: 0.3, segments: 20, sides: 8),
