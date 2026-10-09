@@ -72,6 +72,53 @@ final class EffekseerTests: XCTestCase {
         XCTAssertLessThan(elapsed, max(4.0, Double(overlay.effectNames.count) * 0.03))
     }
 
+    // MARK: 演出の役割分担（キットのヒーローのスキルは SkillFX）
+
+    /// 効果名 → ヒーロー ID。試作（Zt_*）やヒーロー以外の名前は対象外。
+    func testRoutingParsesHeroIDsFromEffectNames() {
+        XCTAssertEqual(EffekseerRouting.heroID(ofEffect: "H027_s1_cast"), "H027")
+        XCTAssertEqual(EffekseerRouting.heroID(ofEffect: "H003_atk_hit"), "H003")
+        XCTAssertNil(EffekseerRouting.heroID(ofEffect: "Zt_flash"))
+        XCTAssertNil(EffekseerRouting.heroID(ofEffect: "H027"))
+        XCTAssertNil(EffekseerRouting.heroID(ofEffect: ""))
+    }
+
+    /// 効果を持つヒーローは通常攻撃を Effekseer が出す。スキルは、オプトアウト（キット）のヒーローでは SkillFX に任せる。
+    func testRoutingLeavesSkillsOfOptedOutHeroesToSkillFX() {
+        let names = ["H027_atk_cast", "H027_s1_cast", "H027_ult_impact", "H003_atk_cast", "H003_s1_cast", "Zt_flash"]
+        let r = EffekseerRouting.make(effectNames: names, skillOptOut: { $0 == "H027" })
+        XCTAssertEqual(r.heroes, ["H027", "H003"])
+        XCTAssertEqual(r.skillOptOut, ["H027"])
+        XCTAssertTrue(r.handlesAttack("H027"), "通常攻撃は Effekseer のまま")
+        XCTAssertFalse(r.handlesSkill("H027"), "キットのスキルは SkillFX")
+        XCTAssertTrue(r.handlesAttack("H003"))
+        XCTAssertTrue(r.handlesSkill("H003"), "キットの無いヒーローは従来どおり全部 Effekseer")
+        XCTAssertFalse(r.handlesAttack("H001"))
+        XCTAssertFalse(r.handlesSkill("H001"))
+        XCTAssertFalse(r.handlesAttack(nil))
+        XCTAssertFalse(r.handlesSkill(nil))
+        // オプトアウトが無ければ従来と同じ（効果を持つヒーローは全部 Effekseer）
+        let plain = EffekseerRouting.make(effectNames: names, skillOptOut: { _ in false })
+        XCTAssertTrue(plain.handlesSkill("H027"))
+        XCTAssertEqual(plain.skillOptOut, [])
+    }
+
+    /// 同梱の効果 × 実際のキット: キットのヒーローは通常攻撃だけ Effekseer、それ以外のヒーローは全部 Effekseer。
+    func testRoutingWithBundledEffectsAndRealKits() throws {
+        let names = try bundledFiles().map { $0.deletingPathExtension().lastPathComponent }
+        let r = EffekseerRouting.make(effectNames: names, skillOptOut: { HeroKits.hasKit($0) })
+        for hero in r.heroes {
+            if HeroKits.hasKit(hero) {
+                XCTAssertTrue(r.handlesAttack(hero), hero)
+                XCTAssertFalse(r.handlesSkill(hero), "\(hero): キットのスキルは SkillFX")
+                XCTAssertTrue(names.contains("\(hero)_atk_cast"), "\(hero): 通常攻撃の効果は残っている")
+            } else {
+                XCTAssertTrue(r.handlesSkill(hero), "\(hero): キットの無いヒーローは従来どおり")
+            }
+        }
+        XCTAssertEqual(r.skillOptOut, r.heroes.filter { HeroKits.hasKit($0) })
+    }
+
     /// 追加ヒーロー（第 1 段階 H025〜H029・第 2 段階 H030〜H034）の効果が、役割ごとの段の組をそろえていること。
     /// 遠隔レンジャー（H003 と同じ 14 本）・遠隔アルカニスト（H016 と同じ 14 本）・近接（12 本）。
     /// 第 1 段階は 14 + 14 + 12 × 3 = 64 本、第 2 段階も同じ構成で 64 本（計 128 本）。

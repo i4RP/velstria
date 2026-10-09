@@ -366,7 +366,8 @@ struct HUDSkillButton: View {
         let isUlt = snapshot.slot == .ultimate
         let color = isUlt ? HUDStyle.violet : Theme.roleColor(role)
         let dim = !snapshot.isReady
-        let cooling = snapshot.cooldown > 0
+        // 再使用の窓が開いている間は CD・コストを見ない（秒数の幕を出さず、窓の輪を出す）
+        let cooling = snapshot.cooldown > 0 && !snapshot.recasting
         ZStack {
             // 絵柄（使えない時・死亡中はこの層だけを暗くし、上に重ねる秒数とバッジは読めるままにする）
             ZStack {
@@ -385,7 +386,7 @@ struct HUDSkillButton: View {
             if cooling {
                 HUDCooldownOverlay(cooldown: snapshot.cooldown, fraction: snapshot.cooldownFraction, diameter: diameter,
                                    fontRatio: 0.34)
-            } else if snapshot.learned && !snapshot.affordable {
+            } else if snapshot.learned && !snapshot.affordable && !snapshot.recasting {
                 Image(systemName: "drop.fill")
                     .font(.system(size: diameter * 0.2, weight: .bold))
                     .foregroundStyle(HUDStyle.resourceColor(model.vitals.resourceKind))
@@ -409,7 +410,10 @@ struct HUDSkillButton: View {
                 .overlay(Capsule().strokeBorder(isUlt ? Color.white.opacity(0.6) : color.opacity(0.7), lineWidth: 0.8))
                 .opacity(dead ? 0.85 : 1)
                 .offset(y: -diameter * 0.36)
-            if snapshot.isReady && isUlt {
+            if let info = snapshot.recast {
+                HUDRecastRing(info: info, diameter: diameter, color: isUlt ? Theme.gold : Theme.cyan)
+            }
+            if snapshot.isReady && isUlt && !snapshot.recasting {
                 Text(L("使用可能", "READY"))
                     .font(.system(size: diameter * 0.105, weight: .black, design: .rounded))
                     .foregroundStyle(Theme.gold)
@@ -418,9 +422,16 @@ struct HUDSkillButton: View {
             }
             HUDRankPips(rank: snapshot.rank, maxRank: snapshot.slot.maxRank, diameter: diameter, color: isUlt ? Theme.gold : HUDStyle.accent)
                 .opacity(dead ? 0.8 : 1)
+            // キット層のバッジ（スタック・形態・タイマー）。右上の角（枠番号・種別タグ・習得バッジと重ならない位置）
+            if let badge = snapshot.badge {
+                HUDKitBadgeChip(badge: badge, size: diameter * 0.3, tint: isUlt ? Theme.gold : Theme.cyan)
+                    .offset(x: diameter * 0.34, y: -diameter * 0.34)
+                    .opacity(dead ? 0.8 : 1)
+            }
         }
         .frame(width: diameter, height: diameter)
-        .shadow(color: snapshot.isReady ? (isUlt ? Theme.gold : color).opacity(0.3) : .clear, radius: isUlt ? 7 : 4)
+        .shadow(color: snapshot.isReady ? (isUlt ? Theme.gold : color).opacity(snapshot.recasting ? 0.6 : 0.3) : .clear,
+                radius: isUlt ? 7 : 4)
         .scaleEffect(touching ? 0.95 : 1)
         .animation(.easeOut(duration: 0.12), value: touching)
         .overlay { if highlighted { HUDHighlightRing(diameter: diameter + 16) } }
@@ -448,7 +459,8 @@ struct HUDSkillButton: View {
     private var accessibilityValue: String {
         if !snapshot.learned { return L("未習得", "Not learned") }
         var parts = [L("ランク \(snapshot.rank)", "Rank \(snapshot.rank)")]
-        if snapshot.cooldown > 0 { parts.append(L("残り \(HUDStyle.cooldown(snapshot.cooldown)) 秒", "\(HUDStyle.cooldown(snapshot.cooldown)) seconds left")) }
+        if snapshot.recasting && snapshot.isReady { parts.append(L("再使用できます", "Recast available")) }
+        else if snapshot.cooldown > 0 { parts.append(L("残り \(HUDStyle.cooldown(snapshot.cooldown)) 秒", "\(HUDStyle.cooldown(snapshot.cooldown)) seconds left")) }
         else if snapshot.silenced { parts.append(L("沈黙中", "Silenced")) }
         else if !snapshot.affordable { parts.append(L("リソース不足", "Not enough resource")) }
         else if snapshot.isReady { parts.append(L("使用可能", "Ready")) }
@@ -462,6 +474,63 @@ struct HUDSkillButton: View {
         case .skill2: return "hud_skill2"
         case .ultimate, .passive: return "hud_ult"
         }
+    }
+}
+
+/// 再使用の窓（キット層）: ボタンの縁を回る残り時間の輪と光。窓が閉じるまで輪が減っていく。
+struct HUDRecastRing: View {
+    let info: RecastInfo
+    let diameter: CGFloat
+    let color: Color
+
+    var body: some View {
+        ZStack {
+            Circle().strokeBorder(color.opacity(0.3), lineWidth: 2)
+            Circle()
+                .trim(from: 0, to: info.fraction)
+                .stroke(color, style: StrokeStyle(lineWidth: 3.5, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .padding(1.75)
+        }
+        .shadow(color: color.opacity(0.85), radius: 6)
+        .frame(width: diameter, height: diameter)
+        .animation(.linear(duration: 1.0 / 15.0), value: info.remaining)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+/// スキルボタンの小さなバッジ（キット層。スタックの数・形態・タイマーの残り秒を輪と数字で示す）。
+struct HUDKitBadgeChip: View, Equatable {
+    let badge: KitBadge
+    let size: CGFloat
+    let tint: Color
+
+    var body: some View {
+        let text = HUDKitDisplay.text(badge)
+        ZStack {
+            Circle().fill(HUDStyle.surface.opacity(0.9))
+            Circle().stroke(tint.opacity(0.35), lineWidth: 1.5)
+            Circle()
+                .trim(from: 0, to: HUDKitDisplay.fraction(badge))
+                .stroke(tint, style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            if text.isEmpty {
+                // 個数を持たない状態（準備できた・形態）は点だけ
+                Circle().fill(tint).frame(width: size * 0.34, height: size * 0.34)
+            } else {
+                Text(text)
+                    .font(.system(size: size * 0.5, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .padding(.horizontal, size * 0.08)
+            }
+        }
+        .frame(width: size, height: size)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 

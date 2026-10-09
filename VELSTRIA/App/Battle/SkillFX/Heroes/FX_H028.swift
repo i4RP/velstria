@@ -5,13 +5,13 @@ import VelstriaCore
 // 主題: 空間を断つ光刃。白い芯 × シアン（主）× 淡い青（副）× 群青（差し色）× 濃紺（暗）。細く鋭い斬線と、断たれた空間の残像。
 // sim の実際の挙動（Systems/Kits/Kit_H028.swift）に合わせた演出:
 //   パッシブ 空断の理        — ダメージを与えるたびに相手の防御を削る（最大 5 層・5 秒）。visor の光が瞬いて十字の斬線が走る
-//                              （層そのものは相手の状態表示 = .mark の層で見せる）
+//                              （層が増えるたび = パッシブのバッジの数が増えるたびに再生される。層そのものは相手の状態表示 = .mark の層で見せる）
 //   S1 周回する剣（自己中心）— 5 本の光剣が 5 秒間、周囲を回る。0.5 秒ごとに触れた敵へ接触ダメージ。
-//                              周回中にダメージを与えると剣が対象へ飛んで追撃する（追撃は hit / 当たり側の演出で見せる）
+//                              周回中にダメージを与えると剣が対象へ飛んで剣撃する（剣撃は hit / 当たり側の演出で見せる）
 //   S2 突進（指定方向）      — 光の尾を引いて約 0.2 秒で踏み込み、通り道の敵を斬る。着いたあと 4 秒、刃に光が宿る
 //                              （次の通常攻撃の強化 = 追加ダメージ + 鈍足 60%）
 //   奥義 三連断空（対象指定）— 敵ヒーローへ空間を断って突進（約 0.2 秒）→ 打ち上げ 1.2 秒 → 0.4 / 0.8 / 1.2 秒に 3 連撃
-//                              （弱・弱・最後の十字斬りが強い。最後の 1 撃には剣の追撃が乗らない）
+//                              （弱・弱・最後の十字斬りが強い。最後の 1 撃には剣撃が乗らない）
 // SkillCastEvent の shape / duration / count: S1 = selfRing・5（周回の秒）・5（剣の本数）、S2 = dashToPoint・突進の秒数、
 //   奥義 = lockOn・約 1.4（突進 + 三連撃の秒）・3（撃数）。再使用の段（stage）は Saber に無いので使わない。
 
@@ -62,11 +62,12 @@ enum FX_H028: HeroFXSet {
                 .mesh(.decal(.techCircle, R * 1.9, .primary, life: 1.2, spin: 120, alpha: 0.7), at: 0.05),
                 .emit(.wave(R, .primary, life: 0.5), at: 0.05, offset: [0, 0.1, 0]),
             ]
-            // 剣が当たった敵（接触・追撃）
+            // 剣が当たった敵（接触・剣撃）。接触は 0.5 秒おき・剣撃は別に飛ぶので、1 発ごとに出す
             r.hit = [
                 .mesh(.sprite(.slashThin, 1.2, .core, life: 0.18, grow: 1.1), offset: [0, 1.1, 0]),
                 .emit(.sparks(8, speed: 5, .core, end: .primary), offset: [0, 1.0, 0]),
             ]
+            r.hitPerHit = true
         case .skill2:
             // 突進: 光の尾を引いて駆け（約 0.2 秒）、着地点で鋭い一閃。着いたあと 4 秒、刃に光が宿る（次の通常攻撃が強化）
             let W: Float = max(s.radius, 1.6)
@@ -123,7 +124,7 @@ enum FX_H028: HeroFXSet {
                 .mesh(.slash(R * 1.6, .primary, from: -85, to: 85, height: 1.85, tilt: -28, life: 0.3), at: 0.8,
                       offset: [0, 1.85, 0]),
                 .emit(.sparks(14, speed: 8, .core, end: .accent), at: 0.4, offset: [0, 1.7, 0]).repeated(2, every: 0.4),
-                // 締めの十字斬り（縦と横。剣の追撃は乗らない大きな 1 撃）
+                // 締めの十字斬り（縦と横。剣撃は乗らない大きな 1 撃）
                 .mesh(.slash(R * 1.8, .core, from: 80, to: -80, height: 1.9, tilt: 90, life: 0.26, tex: .slashThin), at: 1.2,
                       offset: [0, 1.9, 0]),
                 .mesh(.slash(R * 1.8, .secondary, from: 80, to: -80, height: 1.9, tilt: 0, life: 0.3), at: 1.2,

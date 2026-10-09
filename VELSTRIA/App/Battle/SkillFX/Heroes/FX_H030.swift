@@ -5,9 +5,10 @@ import VelstriaCore
 // 主題: 星の砲弾と星砕の大ビーム。白い芯 × 桃（主）× 白桃（副）× 金（差し色）。弾は星をまとって飛び、命中で星屑が弾ける。
 // 月の矢（H025）の細い筋とは逆に、太く重い砲弾と、画面を貫く一本の極太のビームで見せる。
 //   パッシブ 遠星の照準      — 遠くの敵ほど痛い。頭上に照準の星が灯り、足元に星の陣が巡る
-//   S1 Raina式・一閃         — 砲を連射。星をまとった砲弾が一直線に飛び、命中で星屑が弾ける（命中で射程が伸び、加速する）
-//   S2 星環シフト            — 星環弾（桃の光球）が飛び、最初の敵の位置で大きく爆ぜて刻印を残す。刻印へ当てると同じ爆発が再び弾けて短くスタン
-//   奥義 星砕の大砲          — 星を背に 0.3 秒溜めて砲を構え、星砕の大ビームが一直線に貫く。命中で大きな星の紋が咲く
+//   スキル1 遠星弾           — 砲口に大きな閃光が一つ咲き、前へ走る光の筋とともに砲弾が一直線に飛ぶ。命中で星屑が弾ける（命中で射程が伸び、加速する）
+//   スキル2 星爆弾           — 星環弾（桃の光球）が飛び、最初の敵の位置（何にも当たらなければ射程の端）で大きく爆ぜて刻印を残す。
+//                              着弾の演出は弾が消えた位置で再生される（sim の射程の端の爆発と同じ場所）。刻印へ当てると同じ爆発が再び弾けて短くスタン
+//   アルティメット 星砕の大砲 — 星を背に 0.2 秒溜めて砲を構え、星砕の大ビームが一直線に貫く（弾は一瞬で届く）。命中で大きな星の紋が咲く
 
 enum FX_H030: HeroFXSet {
     static let palette = FXPalette(core: RGB(1.0, 0.97, 0.96), primary: RGB(1.0, 0.45, 0.72),
@@ -38,11 +39,12 @@ enum FX_H030: HeroFXSet {
             ]
             r.hit = []
         case .skill1:
-            // 砲を三連射（0.1 / 0.17 / 0.24 秒に砲口が光る）
+            // 砲口に大きな閃光を一つ（0.1 秒）と、前へ走る光の筋。弾の速さ（前方への勢い）を筋で見せる
             r.cast = [
                 .emit(.gather(10, radius: 0.5, .primary, life: 0.12), offset: muzzle),
-                .emit(.flare(1.1, .core, life: 0.14, tex: .flare6), at: 0.1, offset: muzzle).repeated(3, every: 0.07),
-                .mesh(.sprite(.star, 0.5, .accent, life: 0.25, grow: 1.6, alpha: 0.9), at: 0.1, offset: muzzle),
+                .emit(.flare(2.2, .core, life: 0.2, tex: .flare6), at: 0.1, offset: muzzle),
+                .mesh(.sprite(.star, 0.7, .accent, life: 0.26, grow: 1.9, alpha: 0.9), at: 0.1, offset: muzzle),
+                .mesh(.ray(.streak, length: 3.4, width: 0.55, .accent, life: 0.2, alpha: 0.9), at: 0.1, offset: [0, 1.2, 1.9]),
                 .emit(.fan(8, .secondary, speed: 10, spread: 14, life: 0.3), at: 0.1, offset: muzzle),
             ]
             r.travel = [
@@ -105,17 +107,17 @@ enum FX_H030: HeroFXSet {
             ]
         case .ultimate:
             r.cast = [
-                .emit(.gather(30, radius: 1.6, .primary, life: 0.3), offset: muzzle),
+                .emit(.gather(30, radius: 1.6, .primary, life: 0.2), offset: muzzle),
                 // 背後の高い位置に大きな星を掲げる（上方カメラで体を覆わないよう、後ろ・半透明）
                 .mesh(.sprite(.star, 1.8, .accent, life: 0.6, grow: 1.15, alpha: 0.7), offset: [0, 2.7, -1.5]),
                 .mesh(.decal(.star, 3.4, .primary, life: 0.8, spin: 140, alpha: 0.75)),
                 .mesh(.halo(0.9, .secondary, life: 0.6, spin: 200, tex: .ringDouble), offset: [0, 1.0, 0.2]),
-                .emit(.flare(2.6, .core, life: 0.25, tex: .flare6), at: 0.3, offset: muzzle),
-                .emit(.fan(24, .secondary, speed: 12, spread: 12, life: 0.35), at: 0.3, offset: muzzle),
-                // 0.3 秒の溜めの後、砲口から前へ一直線に走る極太のビーム
-                .mesh(.ray(.streak, length: 14, width: 1.6, .core, life: 0.5, alpha: 0.95), at: 0.3, offset: [0, 1.2, 7.4]),
-                .mesh(.ray(.streak, length: 14, width: 3.2, .primary, life: 0.7, alpha: 0.6), at: 0.3, offset: [0, 1.15, 7.4]),
-                .shake(0.35, at: 0.3),
+                .emit(.flare(2.6, .core, life: 0.25, tex: .flare6), at: 0.2, offset: muzzle),
+                .emit(.fan(24, .secondary, speed: 12, spread: 12, life: 0.35), at: 0.2, offset: muzzle),
+                // 0.2 秒の溜めの後、砲口から前へ一直線に走る極太のビーム
+                .mesh(.ray(.streak, length: 14, width: 1.6, .core, life: 0.5, alpha: 0.95), at: 0.2, offset: [0, 1.2, 7.4]),
+                .mesh(.ray(.streak, length: 14, width: 3.2, .primary, life: 0.7, alpha: 0.6), at: 0.2, offset: [0, 1.15, 7.4]),
+                .shake(0.35, at: 0.2),
             ]
             r.travel = [
                 .mesh(.ray(.streak, length: 5, width: 2.0, .core, life: 1.1, alpha: 0.95).with { $0.fadeOut = 0.85 }, .follow,
@@ -167,12 +169,12 @@ enum FX_H030: HeroFXSet {
             m.recoil(0.06, power: 0.7)
             m.settle(0.12)
         case .ultimate:
-            // 腰を落とし大砲を構えて溜め → 撃って大きな反動で半歩下がる
-            m.brace(0.08, depth: 0.18)
-            m.aim(0.14, up: 0.05)
-            m.hold(0.1) { $0.glow = 2.4; $0.ring = 1.2 }
+            // 腰を落とし大砲を構えて溜め（約 0.2 秒）→ 撃って大きな反動で半歩下がる
+            m.brace(0.06, depth: 0.18)
+            m.aim(0.1, up: 0.05)
+            m.hold(0.06) { $0.glow = 2.4; $0.ring = 1.2 }
             m.recoil(0.06, power: 1.0)
-            m.settle(0.14)
+            m.settle(0.22)
         }
     }
 }

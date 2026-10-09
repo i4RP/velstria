@@ -38,7 +38,10 @@ enum KitCastOutcome {
 /// `HeroKit.botCast` の結果。
 enum BotKitDecision {
     case useDefault
+    /// この対象で撃つ。ただし奥義の汎用の関門（倒せる / 2 体以上を巻き込む）は通る。
     case cast(SkillTarget)
+    /// 汎用の関門を飛び越えて、この対象で今撃つ（関門の外で奥義を使いたいキット用。再使用の段は常に関門なし）。
+    case castNow(SkillTarget)
     case skip
 }
 
@@ -100,6 +103,16 @@ protocol HeroKit: Sendable {
 
     func botCast(_ s: SimState, _ ctx: SimContext, bot: Int, slot: SkillSlot, targeting: SkillTargeting,
                  target: Int, fighting: Bool) -> BotKitDecision
+    /// ミニオン・モンスターの集団に対し、突入・瞬間移動系（dashStrike / leapSlam / targetedBlink / blinkEmpower /
+    /// multiStrike）のスキルを撃ってよいか。center = 集団の中心、count = 巻き込む数。既定 false（撃たない）。
+    /// 敵タワーの射程や自身の HP など、安全の判断はキット側で行う。
+    func botFarm(_ s: SimState, _ ctx: SimContext, bot: Int, slot: SkillSlot, targeting: SkillTargeting,
+                 center: Vec2, count: Int) -> Bool
+    /// 撤退中（敵が 500 以内）にこのスキルで逃げるか。flee = 逃げる向き（正規化済み）、enemyDistance = 最寄りの敵との距離。
+    /// `.cast` / `.castNow` で発動、`.skip` で見送り、`.useDefault` は従来どおり（突進・ブリンク系のスキル1/2 だけ
+    /// 逃げる向きへ撃つ。奥義は撃たない）。奥義を逃走に使うのは、キットが明示した時だけ。
+    func botEscape(_ s: SimState, _ ctx: SimContext, bot: Int, slot: SkillSlot, targeting: SkillTargeting,
+                   flee: Vec2, enemyDistance: Double) -> BotKitDecision
 }
 
 extension HeroKit {
@@ -164,6 +177,16 @@ extension HeroKit {
 
     func botCast(_ s: SimState, _ ctx: SimContext, bot: Int, slot: SkillSlot, targeting: SkillTargeting,
                  target: Int, fighting: Bool) -> BotKitDecision {
+        .useDefault
+    }
+
+    func botFarm(_ s: SimState, _ ctx: SimContext, bot: Int, slot: SkillSlot, targeting: SkillTargeting,
+                 center: Vec2, count: Int) -> Bool {
+        false
+    }
+
+    func botEscape(_ s: SimState, _ ctx: SimContext, bot: Int, slot: SkillSlot, targeting: SkillTargeting,
+                   flee: Vec2, enemyDistance: Double) -> BotKitDecision {
         .useDefault
     }
 }

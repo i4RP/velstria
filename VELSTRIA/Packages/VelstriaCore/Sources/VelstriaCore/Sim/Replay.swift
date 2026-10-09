@@ -208,7 +208,7 @@ extension SimState {
                 mix(hero.gold)
                 mix(Int64(hero.items.count))
                 for id in hero.items { for b in id.utf8 { mix(Int64(b)) } }
-                // キット層: レジスタ・形態・窓の段・予約数・突進の有無
+                // キット層: レジスタ・形態・窓の段・予約タイマー・突進の有無
                 if let kit = hero.kit {
                     for v in kit.ints { mix(Int64(v)) }
                     for v in kit.reals { mix(v) }
@@ -216,8 +216,18 @@ extension SimState {
                     for v in kit.ids { mix(Int64(v)) }
                     mix(Int64(kit.form))
                     for w in kit.windows { mix(Int64(w.stage)); mix(w.remaining); mix(Int64(w.charges)) }
+                    // 予約中のタイマー（挿入順）: 種別・残り・スロット・対象・連撃の番号
                     mix(Int64(kit.scheduled.count))
+                    for t in kit.scheduled {
+                        mix(Int64(t.code))
+                        mix(t.remaining)
+                        mix(Int64(t.slot.rawValue))
+                        mix(Int64(t.targetID))
+                        mix(Int64(t.index))
+                    }
+                    // 突進の有無と、着地で呼ぶ code
                     mix(Int64(kit.sweep == nil ? 0 : 1))
+                    if let sw = kit.sweep { mix(Int64(sw.arriveCode)) }
                 }
             }
             // キット層の status（mark 以降）の (kind, tag, magnitude)。キットのヒーローは全 status を混ぜる

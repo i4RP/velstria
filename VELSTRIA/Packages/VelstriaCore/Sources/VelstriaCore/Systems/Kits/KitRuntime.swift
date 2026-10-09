@@ -89,11 +89,18 @@ enum KitRuntime {
 
     static func fireTimers(_ s: inout SimState, _ ctx: SimContext, _ i: Int, _ kit: any HeroKit, dt: Double,
                            eps: Double) {
-        guard var k = s.units[i].hero?.kit, !k.scheduled.isEmpty else { return }
+        // 予約が無い tick は何もコピーしない（ほとんどの tick）
+        guard let count = s.units[i].hero?.kit?.scheduled.count, count > 0 else { return }
+        // 時間を進めるだけで、発火するものが無ければ配列を組み直さない（in-place）
+        var anyDue = false
+        for n in 0..<count {
+            s.units[i].hero!.kit!.scheduled[n].remaining -= dt
+            if s.units[i].hero!.kit!.scheduled[n].remaining <= eps { anyDue = true }
+        }
+        guard anyDue, var k = s.units[i].hero?.kit else { return }
         var due: [KitTimer] = []
         var keep: [KitTimer] = []
-        for var t in k.scheduled {
-            t.remaining -= dt
+        for t in k.scheduled {
             if t.remaining <= eps { due.append(t) } else { keep.append(t) }
         }
         k.scheduled = keep

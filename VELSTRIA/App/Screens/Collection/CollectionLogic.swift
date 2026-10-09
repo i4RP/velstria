@@ -92,14 +92,58 @@ enum SkillMath {
         SkillSystem.cooldown(for: skill, rank: rank, cdr: 0)
     }
 
+    /// 実戦の CD（CD 短縮なし）。キットのヒーローはキット固有の CD（numbers の cooldown）、それ以外は上と同じ値。
+    static func cooldown(_ skill: SkillDef, hero: HeroDef, rank: Int) -> Double {
+        HeroKits.hasKit(hero.heroID) ? numbers(skill, hero: hero, rank: rank).cooldown : cooldown(skill, rank: rank)
+    }
+
+    /// ランク表に出す数値の種類。キットのヒーローはアーキタイプの既定のうち、実際に値があるものだけ（0 の列を出さない）。
+    static func figures(_ skill: SkillDef, hero: HeroDef, archetype: SkillArchetype) -> [Figure] {
+        let base = figures(archetype)
+        guard HeroKits.hasKit(hero.heroID) else { return base }
+        let n = numbers(skill, hero: hero, rank: 1)
+        return base.filter { f in
+            switch f {
+            case .damage, .bonusDamage: return n.damage > 1e-9
+            case .heal: return n.heal > 1e-9
+            case .shield: return n.shield > 1e-9
+            }
+        }
+    }
+
+    /// キットの照準の形の名前（.auto は nil = アーキタイプの名前を使う）。
+    static func shapeName(_ shape: AimShape) -> String? {
+        switch shape {
+        case .auto: return nil
+        case .fan: return L("前方扇形", "Fan")
+        case .wideLine: return L("幅広の直線", "Wide Line")
+        case .circleAtPoint: return L("地点範囲", "Ground Circle")
+        case .selfRing: return L("自身中心範囲", "Self Ring")
+        case .lockOn: return L("対象指定", "Lock-on")
+        case .dashToPoint: return L("突進", "Dash")
+        }
+    }
+
     /// 実効コスト（Energy は ×0.6）。
     static func cost(_ skill: SkillDef, resource: ResourceKind) -> Double {
         SkillSystem.cost(for: skill, resource: resource)
     }
 
+    /// キット（ヒーロー固有スキル）の説明文。ランク 1・能力値ボーナスなしの実戦値で `{damage}` などを埋める。
+    /// キットが無い、またはそのスロットの説明が無い（空）ときは nil（汎用の文へ戻す）。
+    static func kitDescription(_ skill: SkillDef, hero: HeroDef, english: Bool) -> String? {
+        guard let text = HeroKits.text(heroID: hero.heroID, slot: skill.slot) else { return nil }
+        let template = text.template(english: english)
+        guard !template.isEmpty else { return nil }
+        let t = SkillCatalog.targeting(for: skill, hero: hero)
+        let n = numbers(skill, hero: hero, rank: 1)
+        return KitText.fill(template, numbers: n, targeting: t)
+    }
+
     /// スキルの説明文（ランク 1・能力値ボーナスなしの実戦値から生成。マスターの説明文は汎用の仮文のため使わない）。
-    /// パッシブは `passiveText`。
+    /// キットのヒーローはキットの説明（`kitDescription`）を優先する。パッシブは `passiveText`。
     static func description(_ skill: SkillDef, hero: HeroDef) -> String {
+        if let kit = kitDescription(skill, hero: hero, english: Loc.isEnglish) { return kit }
         guard skill.slot != .passive else { return passiveText(role: hero.role, heroNumber: hero.number) }
         let k = Balance.Skills.self
         let t = SkillCatalog.targeting(for: skill, hero: hero)

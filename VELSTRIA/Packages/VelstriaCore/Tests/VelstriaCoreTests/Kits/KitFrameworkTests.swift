@@ -904,6 +904,7 @@ final class KitFrameworkTests: KitTestCase {
             switch d {
             case .useDefault: return "default"
             case .cast: return "cast"
+            case .castNow: return "castNow"
             case .skip: return "skip"
             }
         }

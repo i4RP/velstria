@@ -27,10 +27,17 @@ final class BattleWorld {
     func attach(effekseer director: EffekseerDirector) {
         effekseer = director
         projectiles.suppressedHeroes = director.heroes
+        projectiles.skillShotsKept = director.skillOptOutHeroes
     }
-    private func fxHandled(_ id: EntityID?, _ f: RenderFrame) -> Bool {
+    /// Effekseer が通常攻撃の演出を出すヒーローか（旧来の通常攻撃の演出・被弾を止める）。
+    private func fxHandlesAttack(_ id: EntityID?, _ f: RenderFrame) -> Bool {
         guard let id, let effekseer else { return false }
         return effekseer.handles(f.state.unit(id)?.hero?.heroID)
+    }
+    /// Effekseer がスキルの演出を出すヒーローか（キットのヒーローは SkillFX に任せるので false）。
+    private func fxHandlesSkill(_ id: EntityID?, _ f: RenderFrame) -> Bool {
+        guard let id, let effekseer else { return false }
+        return effekseer.handlesSkill(f.state.unit(id)?.hero?.heroID)
     }
     let aim: AimLayer
     /// 霧（プレイヤーは自チームの視界。観戦者は常に作り、視点チームを選んだ時だけ出す）。
@@ -425,7 +432,7 @@ final class BattleWorld {
             onDamage(d, f)
             if isShown(d.targetID, f) {
                 effekseer?.onDamage(d, state: f.state)
-                if !fxHandled(d.sourceID, f) { skillDirector.onDamage(d, state: f.state) }
+                if !fxHandlesSkill(d.sourceID, f) { skillDirector.onDamage(d, state: f.state) }
             }
         case .heal(let target, let source, let amount):
             onHeal(target: target, source: source, amount: amount, f)
@@ -467,7 +474,7 @@ final class BattleWorld {
         case .zoneCreated(let zoneID, let ownerID, _, let visual, let center, _, _, _, _):
             if isShown(ownerID, f) {
                 effekseer?.onZoneCreated(zoneID: zoneID, ownerID: ownerID, visual: visual, center: center, state: f.state)
-                if !fxHandled(ownerID, f) { skillDirector.onZoneCreated(zoneID: zoneID, ownerID: ownerID, visual: visual, center: center) }
+                if !fxHandlesSkill(ownerID, f) { skillDirector.onZoneCreated(zoneID: zoneID, ownerID: ownerID, visual: visual, center: center) }
             }
         case .zoneTriggered(let zoneID, let center, _):
             if zones.isShown(zoneID) || f.viewerTeam == nil {
@@ -477,7 +484,7 @@ final class BattleWorld {
         case .projectileLaunched(let pid, let owner, let visual):
             if isShown(owner, f) {
                 effekseer?.onProjectileLaunched(projectileID: pid, ownerID: owner, visual: visual, state: f.state)
-                if !fxHandled(owner, f) { skillDirector.onProjectileLaunched(projectileID: pid, ownerID: owner, visual: visual, state: f.state) }
+                if !fxHandlesSkill(owner, f) { skillDirector.onProjectileLaunched(projectileID: pid, ownerID: owner, visual: visual, state: f.state) }
             }
         case .spellCast(let caster, let spell, _, let target):
             if isShown(caster, f) { spellFX(caster: caster, spell: spell, target: target, f) }
@@ -562,8 +569,10 @@ final class BattleWorld {
     private func onDamage(_ d: DamageEvent, _ f: RenderFrame) {
         guard d.amount > 0, isShown(d.targetID, f), let p = anchor(d.targetID) else { return }
         switch d.source {
-        case .skill, .basicAttack:
-            if fxHandled(d.sourceID, f) { return }   // Effekseer の効果を持つヒーローは、効果側が命中・被弾を出す
+        case .skill:
+            if fxHandlesSkill(d.sourceID, f) { return }   // Effekseer のスキルの効果を持つヒーローは、効果側が命中・被弾を出す
+        case .basicAttack:
+            if fxHandlesAttack(d.sourceID, f) { return }   // 通常攻撃は効果を持つヒーロー全員（キットのヒーローも）
         default:
             break
         }

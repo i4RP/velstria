@@ -11,13 +11,22 @@ import Foundation
 enum OriaTuning {
     // MARK: パッシブ（氷の誇り）
     static let prideFreeze: Double = 1.5
+    /// 回復量（最大 HP の割合）は英雄のレベルで伸びる: Lv1 の prideHealLv1（0%）→ Lv12（prideHealFullLevel）以降は prideHealRatio（MLBB と同じ 30%）。
+    /// 氷の誇りは序盤ほど実質の耐久を大きく伸ばす（致命傷を 1 回無効にして 1.5 秒の無敵 + 回復）ため、総当たりの勝率が
+    /// アルカニスト中央値より Lv1 で +59 pt（Lv6 +27 / Lv12 +19）と突出していた。回復を 5% にしても Lv1 は +45 pt 台に残る（無敵の 1.5 秒が効く）ので、
+    /// Lv1 は回復なし（無敵の猶予のみ）とした。
+    static let prideHealLv1: Double = 0.0
     static let prideHealRatio: Double = 0.30
+    /// 回復量が最大になるレベル（総当たりの計測は Lv1 / 6 / 12。ゲームの最大レベルは 15）。
+    static let prideHealFullLevel = 12
     static let prideCooldown: Double = 150
 
     // MARK: S1（氷塊と雹）
     /// 汎用の S1（遠隔直線弾）のダメージに対する倍率。氷塊 + 雹 5 発がすべて 1 体に当たって 0.92 倍。
-    static let s1MeteorRatio: Double = 0.64
-    static let s1HailRatio: Double = 0.056
+    /// 氷塊 0.85 + 雹 5 × 0.06 = 1.15 倍（全部当たったとき）。雹を氷塊の周りへ広げた（中心に立つ相手には当たらない）ぶん、氷塊を 0.64 から上げた
+    /// （S1 だけの Lv1 と全スキルの Lv12 を同時に合わせるため。0.64 のままだと Lv12 が中央値より下がった）。
+    static let s1MeteorRatio: Double = 0.85
+    static let s1HailRatio: Double = 0.06
     static let s1Hails = 5
     static let s1Range: Double = 650
     /// 氷塊の半径（スキル定義の radius 155 より少し広く）。
@@ -30,9 +39,9 @@ enum OriaTuning {
     static let hailRadius: Double = 85
     static let hailGap: Double = 0.2
     static let hailInterval: Double = 0.1
-    /// 雹の落ちる位置: 氷塊の中心から半径の何割か（奇数番は外側）。
-    static let hailRingInner: Double = 0.45
-    static let hailRingOuter: Double = 0.65
+    /// 雹の落ちる位置: 氷塊の中心から氷塊の半径の何割か（奇数番は外側）。0.45 / 0.65 → 0.9 / 1.2 に広げた（中心を外れた位置に降る）。
+    static let hailRingInner: Double = 0.9
+    static let hailRingOuter: Double = 1.2
 
     // MARK: S2（霜風）
     /// 汎用の遠隔 S2 は「ブリンク + 強化攻撃」で数値が半分になっているため、基準は元のスキル値（base ÷ empowerRatio）。
@@ -40,7 +49,7 @@ enum OriaTuning {
     static let s2PatchRatio: Double = 0.36
     static let s2Range: Double = 650
     /// 扇の半角（約 29°。全体で約 57°）。
-    static let s2HalfAngle: Double = 0.5
+    static let s2HalfAngle: Double = 0.65
     /// 霜風が広がるまでの遅れ（この間に避けられる）。
     static let s2Delay: Double = 0.3
     static let s2Freeze: Double = 1.0
@@ -155,8 +164,8 @@ struct Kit_H031: HeroKit {
             return SkillTargeting(archetype: .cone, aim: .direction, range: T.s2Range, radius: T.s2Range,
                                   shape: .fan, halfAngle: T.s2HalfAngle)
         case .ultimate:
-            // 氷の道（radius = 半幅）。氷河の大きさは定数（演出も同じ値）
-            return SkillTargeting(archetype: .piercingLine, aim: .direction, range: T.ultRange, radius: T.ultPathWidth,
+            // 照準の帯の半幅 = 氷河の半径（氷河が砕けて凍らせる範囲。氷の道そのものの当たり幅は T.ultPathWidth で別）
+            return SkillTargeting(archetype: .piercingLine, aim: .direction, range: T.ultRange, radius: T.ultGlacierRadius,
                                   shape: .wideLine)
         case .passive:
             return base
@@ -170,7 +179,8 @@ struct Kit_H031: HeroKit {
         case .passive:
             n.extras = [KitStat(key: "freeze", value: T.prideFreeze),
                         KitStat(key: "heal", value: T.prideHealRatio * 100),
-                        KitStat(key: "cooldown", value: T.prideCooldown)]
+                        KitStat(key: "cooldown", value: T.prideCooldown),
+                        KitStat(key: "healMin", value: T.prideHealLv1 * 100)]
         case .skill1:
             n.damage = base.damage * T.s1MeteorRatio
             n.cooldown = Self.cooldown(T.s1Cooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
@@ -214,12 +224,15 @@ struct Kit_H031: HeroKit {
         switch slot {
         case .passive:
             return KitText(
-                ja: "致命的なダメージを受けると、そのダメージを無効にして{x0}秒間凍りつく。凍っている間は行動できないが無敵で、最大HPの{x1}%を少しずつ回復する。次に働くまで{x2}秒。復活系の装備より先に働く。",
-                en: "When you would take fatal damage, negate it and freeze yourself for {x0}s. While frozen you cannot act but are invulnerable and gradually recover {x1}% of your max HP. Cooldown {x2}s. Triggers before revival items.")
+                ja: "氷の誇り。致命的なダメージを受けると、そのダメージを無効にして{x0}秒間凍りつく。凍っている間は行動できないが無敵で、最大HPを少しずつ回復する"
+                    + "（回復量はレベルで伸び、レベル1で{healMin}%、レベル\(T.prideHealFullLevel)以降で{x1}%）。次に働くまで{x2}秒。復活系の装備より先に働く。",
+                en: "Pride of Ice. When you would take fatal damage, negate it and freeze yourself for {x0}s. While frozen you cannot act but are invulnerable "
+                    + "and gradually recover max HP (the amount grows with level: {healMin}% at level 1, {x1}% from level \(T.prideHealFullLevel)). "
+                    + "Cooldown {x2}s. Triggers before revival items.")
         case .skill1:
             return KitText(
-                ja: "指定した地点に氷塊を落とし、{damage}ダメージと{x0}%の減速（{x1}秒）を与える。そのあと{x2}個の雹が降り注ぎ、1つにつき{x3}ダメージを与える。クールダウン{cd}秒。",
-                en: "Drop a block of ice on the target area, dealing {damage} damage and slowing by {x0}% for {x1}s. Then {x2} hailstones fall, each dealing {x3} damage. Cooldown {cd}s.")
+                ja: "指定した地点に氷塊を落とし、{damage}ダメージと{x0}%の減速（{x1}秒）を与える。そのあと氷塊のまわり（中心を外れた位置）に{x2}個の雹が降り注ぎ、1つにつき{x3}ダメージを与える。クールダウン{cd}秒。",
+                en: "Drop a block of ice on the target area, dealing {damage} damage and slowing by {x0}% for {x1}s. Then {x2} hailstones fall around it (just off its center), each dealing {x3} damage. Cooldown {cd}s.")
         case .skill2:
             return KitText(
                 ja: "前方の扇形に霜風を放ち、少し遅れて{damage}ダメージを与える。術者から{x3}以上離れた敵は{x0}秒凍結する（近すぎると凍らない）。扇の先には凍った地面が残り、{x1}秒間に合計{x2}ダメージを与える。クールダウン{cd}秒。",
@@ -325,7 +338,7 @@ struct Kit_H031: HeroKit {
         let path = HitPayload(damage: c.numbers.damage, damageType: c.numbers.damageType, source: .skill(.ultimate),
                               statuses: [slow], skillID: skillID)
         ProjectileSystem.spawn(&s, ownerIndex: i, motion: .linear(direction: dir, maxDistance: T.ultRange),
-                               speed: T.ultPathSpeed, width: c.targeting.radius, pierce: true, payload: path,
+                               speed: T.ultPathSpeed, width: T.ultPathWidth, pierce: true, payload: path,
                                visual: visual)
 
         // 凍結の長さは発動時の魔力で決める（砕けるまでに魔力が変わっても、撃った時点の値）
@@ -395,7 +408,7 @@ struct Kit_H031: HeroKit {
         s.units[i].hero!.kit!.oriaSaves += 1
         s.units[i].hero!.kit!.oriaFreezeLeft = T.prideFreeze
         s.units[i].hero!.kit!.oriaHealTicks = ticks
-        s.units[i].hero!.kit!.oriaHealPerTick = s.units[i].stats.maxHP * T.prideHealRatio / Double(ticks)
+        s.units[i].hero!.kit!.oriaHealPerTick = s.units[i].stats.maxHP * Self.prideHealRatio(level: s.units[i].hero?.level) / Double(ticks)
         s.units[i].hero!.kit!.oriaPrideCooldown = noCooldowns ? 0 : T.prideCooldown
     }
 
@@ -423,6 +436,13 @@ struct Kit_H031: HeroKit {
     static func glacierFreeze(abilityPower: Double) -> Double {
         let bonus = min(T.ultFreezeMaxBonus, max(0, abilityPower) / 100 * T.ultFreezePerHundredAP)
         return T.ultFreeze + bonus
+    }
+
+    /// 氷の誇りの回復量（最大 HP の割合）: レベル 1 で prideHealLv1、最大レベルで prideHealRatio、間は線形。
+    static func prideHealRatio(level: Int?) -> Double {
+        let full = T.prideHealFullLevel
+        let t = Double(min(max(1, level ?? full), full) - 1) / Double(max(1, full - 1))
+        return T.prideHealLv1 + (T.prideHealRatio - T.prideHealLv1) * t
     }
 
     // 説明文の extras は整数に丸めて見せるので、実際のダメージは n.damage（丸めない）から比で求める。

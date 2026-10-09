@@ -342,6 +342,18 @@ final class ProjectileLayer {
 
     /// Effekseer の効果を持つヒーローの弾は、旧来の見た目（核・光・軌跡）を出さない（位置・命中の追跡は続ける）。
     var suppressedHeroes: Set<String> = []
+    /// suppressedHeroes のうち、スキルの弾（.skill・.empowered）の見た目を残すヒーロー（スキルを SkillFX に任せるキットのヒーロー。
+    /// 通常攻撃の弾は Effekseer の効果があるので隠す）。
+    var skillShotsKept: Set<String> = []
+
+    /// 弾の旧来の見た目を隠すか。
+    private func isSuppressed(_ style: Style, hero: String) -> Bool {
+        guard suppressedHeroes.contains(hero) else { return false }
+        switch style {
+        case .skill, .empowered: return !skillShotsKept.contains(hero)
+        default: return true
+        }
+    }
 
     /// presentationEpoch の変化（シーク・再同期）: 飛んでいる弾を全て（軌跡ごと）プールへ戻す。
     /// 弾は ID で引くので、残すと前の時刻の弾が新しい位置へ飛び移る。次の sync で今の状態の弾だけを出し直す。
@@ -670,7 +682,7 @@ final class ProjectileLayer {
             }
             v.entity.orientation = simd_quatf(angle: v.yaw, axis: [0, 1, 0])
             // 軌跡は弾の位置に合わせる（試合中に軌跡が切られた間 = 画質の自動調整では付けない）
-            let suppressed = !suppressedHeroes.isEmpty && state.unit(p.ownerID)?.hero.map { suppressedHeroes.contains($0.heroID) } == true
+            let suppressed = !suppressedHeroes.isEmpty && state.unit(p.ownerID)?.hero.map { isSuppressed(v.style, hero: $0.heroID) } == true
             if suppressed { v.entity.isEnabled = false }
             if isNew, !suppressed { attachTrail(v) }
             v.trail?.position = v.entity.position

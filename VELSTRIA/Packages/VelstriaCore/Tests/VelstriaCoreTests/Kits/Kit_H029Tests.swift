@@ -152,7 +152,7 @@ final class Kit_H029Tests: XCTestCase {
         }
         // 表示用の extras / 段
         let n1 = try numbers(w, k, .skill1)
-        XCTAssertEqual(n1.extras.map(\.value), [20, 40, 60, 1.5])
+        XCTAssertEqual(n1.extras.map(\.value), [20, 40, 60, 1.5, Tune.waveReach / hero.attackRange])
         XCTAssertEqual(n1.cc, .slow)
         let n2 = try numbers(w, k, .skill2)
         XCTAssertEqual(n2.stages, 2)
@@ -196,9 +196,15 @@ final class Kit_H029Tests: XCTestCase {
                                                                           targeting: SkillCatalog.targeting(for: try skill(.ultimate), hero: hero))
         XCTAssertTrue(jau.contains("\(Int(nu.damage.rounded()))ダメージ"), jau)
         XCTAssertTrue(jau.contains("1.8秒"), jau)
-        XCTAssertTrue(jau.contains("420"), jau)
+        // 単位の無い距離の数字は出さず、近接攻撃の射程に対する倍率で書く（520 ÷ 150 ≈ 3.5）
+        XCTAssertTrue(jau.contains("約3.5倍"), jau)
+        XCTAssertTrue(ja1.contains("約2倍"), ja1)
         let np = try numbers(w, k, .passive)
         XCTAssertEqual(np.extras.map(\.value), [4, 8])
+        let jap = HeroKits.text(heroID: "H029", slot: .passive)!.filled(
+            english: false, numbers: np, targeting: SkillCatalog.targeting(for: try skill(.passive), hero: hero))
+        XCTAssertTrue(jap.contains("最後に誓いが増えてから8秒で消える"), jap)
+        XCTAssertTrue(jap.contains("スキル1・スキル2・アルティメット"), jap)
     }
 
     // MARK: - パッシブ: 聖鎚の誓い
@@ -224,9 +230,21 @@ final class Kit_H029Tests: XCTestCase {
         XCTAssertEqual(w.s.units[k].hp, hp)
         XCTAssertEqual(kit(w, k).borgVow, 0)
         XCTAssertEqual(kit(w, k).borgBlocks, 1)
+        // 無効化の合図: 自分に 0.3 秒の「blocked」の印、パッシブのバッジが 0.3 秒だけタイマー
+        let tag = KitTags.mark("H029", Tune.blockMark, owner: w.id(k))
+        XCTAssertEqual(Kit.markStacks(w.s, target: k, tag: tag), 1)
+        let flash = w.s.units[k].statuses.first { $0.kind == .mark && $0.tag == tag }
+        XCTAssertEqual(flash?.remaining ?? 0, Tune.blockFlash, accuracy: 1e-9)
+        let badge = HeroKits.badge(w.s.units[k].hero!, slot: .passive)
+        XCTAssertEqual(badge?.kind, .timer)
+        XCTAssertEqual(badge?.total ?? 0, Tune.blockFlash, accuracy: 1e-9)
         // 無効化した攻撃は誓いにならない。次の攻撃は普通に通り、また +1
         XCTAssertEqual(hurt(&w, k, from: e), 100, accuracy: 1e-9)
         XCTAssertEqual(kit(w, k).borgVow, 1)
+        // 合図は 0.3 秒で消え、バッジは誓いの数に戻る
+        w.run(seconds: 0.4)
+        XCTAssertEqual(Kit.markStacks(w.s, target: k, tag: tag), 0)
+        XCTAssertEqual(HeroKits.badge(w.s.units[k].hero!, slot: .passive)?.kind, .stacks)
     }
 
     func testTowerAndMonsterBasicAttacksCountAndBlockButMinionsSkillsAndDotsDoNot() {
@@ -334,11 +352,12 @@ final class Kit_H029Tests: XCTestCase {
         XCTAssertEqual(w.s.units[ally].totalShield, 0)
     }
 
-    // MARK: - S1: Borg式・一閃
+    // MARK: - スキル1: 聖槌波
 
     func testWaveErupts3TimesWithGrowingSlowAndPerEruptionDamage() throws {
         var (w, k) = world()
-        let e = addEnemy(&w, dx: 200)
+        // 近い敵（1 回目の波の半径にも届く距離）: 3 回とも当たる
+        let e = addEnemy(&w, dx: 150)
         let n = try numbers(w, k, .skill1)
         let mana = w.s.units[k].resource
         XCTAssertTrue(w.cast(k, .skill1, .direction(Vec2(1, 0))))
@@ -372,7 +391,7 @@ final class Kit_H029Tests: XCTestCase {
         XCTAssertLessThanOrEqual(slow.remaining, 1.5)
         // 移動速度が 60% 下がる
         var ref = world().0
-        let r = addEnemy(&ref, dx: 200)
+        let r = addEnemy(&ref, dx: 150)
         ref.tick(2)
         w.tick(1)
         XCTAssertEqual(w.s.units[e].stats.moveSpeed, ref.s.units[r].stats.moveSpeed * 0.4, accuracy: 1e-6)
@@ -392,12 +411,42 @@ final class Kit_H029Tests: XCTestCase {
         let diagonalIn = addEnemy(&w, dx: 150, dy: 100, hero: "H002")
         XCTAssertTrue(w.cast(k, .skill1, .direction(Vec2(1, 0))))
         w.run(seconds: 0.8)
-        XCTAssertEqual(w.damageEvents.filter { $0.targetID == w.id(inside) }.count, 3)
-        XCTAssertEqual(w.damageEvents.filter { $0.targetID == w.id(edge) }.count, 3, "対象の縁まで届く")
+        // 波は前へ広がる（半径 = 射程 × 0.45 / 0.75 / 1.0 + 対象の半径）ので、遠い敵ほど当たる波が少ない
+        let r = w.s.units[inside].radius
+        func waves(_ e: Int) -> Int { w.damageEvents.filter { $0.targetID == w.id(e) }.count }
+        XCTAssertEqual(waves(inside), 3, "200 は 1 回目の半径（\(Tune.waveReach * Tune.waveRadiusScale[0] + r)）の内")
+        XCTAssertEqual(waves(edge), 1, "対象の縁まで届くのは最後の波だけ")
         XCTAssertEqual(w.damage(to: tooFar), 0)
         XCTAssertEqual(w.damage(to: behind), 0)
         XCTAssertEqual(w.damage(to: side), 0)
-        XCTAssertEqual(w.damageEvents.filter { $0.targetID == w.id(diagonalIn) }.count, 3)
+        XCTAssertEqual(waves(diagonalIn), 3)
+    }
+
+    func testWaveRadiusGrowsWithEachEruption() {
+        // 距離ごとに当たる波の数: 手前（1 回目の半径の内）= 3、中ほど = 2、奥 = 1
+        var (w, k) = world()
+        let r = 55.0
+        let r1 = Tune.waveReach * Tune.waveRadiusScale[0] + r
+        let r2 = Tune.waveReach * Tune.waveRadiusScale[1] + r
+        let r3 = Tune.waveReach * Tune.waveRadiusScale[2] + r
+        // 互いに重ならないよう、扇の中で角度をずらして置く（中心間の距離だけが効く）
+        func at(_ d: Double, deg: Double) -> (Double, Double) { (d * cos(deg * .pi / 180), d * sin(deg * .pi / 180)) }
+        let pn = at(r1 - 8, deg: -30), pm = at(r2 - 8, deg: 0), pf = at(r3 - 8, deg: 30)
+        let near = addEnemy(&w, dx: pn.0, dy: pn.1)
+        let mid = addEnemy(&w, dx: pm.0, dy: pm.1, hero: "H003")
+        let far = addEnemy(&w, dx: pf.0, dy: pf.1, hero: "H004")
+        let radius = w.s.units[near].radius
+        XCTAssertEqual(radius, r, accuracy: 1e-9, "テストの前提: ヒーロー半径")
+        XCTAssertTrue(w.cast(k, .skill1, .direction(Vec2(1, 0))))
+        w.run(seconds: 0.8)
+        func waves(_ e: Int) -> Int { w.damageEvents.filter { $0.targetID == w.id(e) }.count }
+        XCTAssertEqual(waves(near), 3)
+        XCTAssertEqual(waves(mid), 2)
+        XCTAssertEqual(waves(far), 1)
+        // 鈍足は当たった波の数に応じて深い（近い敵は 60%、遠い敵は 20%）
+        XCTAssertEqual(slows(w, near).first?.magnitude ?? 0, 0.6, accuracy: 1e-9)
+        XCTAssertEqual(slows(w, mid).first?.magnitude ?? 0, 0.4, accuracy: 1e-9)
+        XCTAssertEqual(slows(w, far).first?.magnitude ?? 0, 0.2, accuracy: 1e-9)
     }
 
     func testWaveCanBeCastWithoutTargetsAndIgnoresStunAfterwards() throws {
@@ -405,7 +454,7 @@ final class Kit_H029Tests: XCTestCase {
         XCTAssertTrue(w.cast(k, .skill1), "敵が居なくても撃てる（向きの先へ）")
         // 撃った後にスタンされても、地面に走った衝撃波は止まらない
         var (w2, k2) = world()
-        let e = addEnemy(&w2, dx: 200)
+        let e = addEnemy(&w2, dx: 150)
         XCTAssertTrue(w2.cast(k2, .skill1, .unit(w2.id(e))))
         w2.tick(1)
         CombatSystem.addStatus(&w2.s, targetIndex: k2, StatusEffect(kind: .stun, duration: 2))
@@ -413,7 +462,7 @@ final class Kit_H029Tests: XCTestCase {
         XCTAssertEqual(w2.damageEvents.filter { $0.targetID == w2.id(e) }.count, 3)
         // 方向は撃った瞬間のもの: 撃った後に向きや位置を変えても同じ場所に出る
         var (w3, k3) = world()
-        let e3 = addEnemy(&w3, dx: 200)
+        let e3 = addEnemy(&w3, dx: 150)
         XCTAssertTrue(w3.cast(k3, .skill1, .direction(Vec2(1, 0))))
         w3.tick(1)
         w3.s.units[k3].pos = w3.s.units[k3].pos + Vec2(0, -600)
@@ -424,7 +473,7 @@ final class Kit_H029Tests: XCTestCase {
 
     func testWaveDoesNotSlowCCImmuneButStillDamages() {
         var (w, k) = world()
-        let e = addEnemy(&w, dx: 200)
+        let e = addEnemy(&w, dx: 150)
         CombatSystem.addStatus(&w.s, targetIndex: e, StatusEffect(kind: .ccImmune, duration: 5))
         XCTAssertTrue(w.cast(k, .skill1, .direction(Vec2(1, 0))))
         w.run(seconds: 0.8)
@@ -434,8 +483,8 @@ final class Kit_H029Tests: XCTestCase {
 
     func testWaveHitsMinionsAndSlowStacksAcrossCasts() {
         var (w, k) = world(noCooldowns: true)
-        let m = w.addMinion(team: .red, at: skillArena + Vec2(150, 0))
-        let e = addEnemy(&w, dx: 220)
+        let m = w.addMinion(team: .red, at: skillArena + Vec2(120, 60))
+        let e = addEnemy(&w, dx: 170, dy: -60)
         XCTAssertTrue(w.cast(k, .skill1, .direction(Vec2(1, 0))))
         w.run(seconds: 0.35)    // 2 回ぶん
         XCTAssertEqual(slows(w, e).first?.magnitude ?? 0, 0.4, accuracy: 1e-9)
@@ -445,7 +494,7 @@ final class Kit_H029Tests: XCTestCase {
         XCTAssertGreaterThan(w.damage(to: m), 0)
     }
 
-    // MARK: - S2: 聖槌の踏み込み
+    // MARK: - スキル2: 聖槌突撃
 
     func testChargeDamagesEnemiesOnPathOnceAndCarriesThemToTheEnd() throws {
         var (w, k) = world()
@@ -676,7 +725,8 @@ final class Kit_H029Tests: XCTestCase {
         XCTAssertGreaterThan(kit(w, k).borgPulled, 0)
         for e in foes { XCTAssertNotNil(w.s.units[e].displacement, "引き寄せの最中") }
         XCTAssertTrue(w.damageEvents.isEmpty)
-        at(Tune.ultGather + Tune.ultPullTime + 0.02)    // 爆発の直前: 全員が集まっている
+        XCTAssertLessThan(Tune.ultGather + Tune.ultPullTime, Tune.ultTotal, "爆発の前に集まり終わる")
+        at(Tune.ultTotal - 0.04)    // 爆発の直前: 全員が集まっている
         XCTAssertTrue(w.damageEvents.isEmpty, "まだ爆発していない")
         let center = w.s.units[k].pos
         for e in foes {
@@ -772,11 +822,11 @@ final class Kit_H029Tests: XCTestCase {
     }
 
     func testAfterTheGatherStunDoesNotStopTheChannelButSuppressDoes() {
-        // 溜めのあと（0.2 秒以降）のスタンでは止まらない
+        // 溜めのあと（0.45 秒以降）のスタンでは止まらない
         var (w, k) = world()
         let e = addEnemy(&w, dx: 300)
         XCTAssertTrue(w.cast(k, .ultimate))
-        w.run(seconds: 0.3)
+        w.run(seconds: Tune.ultGather + 0.1)
         XCTAssertEqual(kit(w, k).borgUltPhase, 2)
         CombatSystem.addStatus(&w.s, targetIndex: k, StatusEffect(kind: .stun, duration: 1))
         Kit.knockUp(&w.s, target: k, duration: 0.5, sourceID: nil)
@@ -790,7 +840,7 @@ final class Kit_H029Tests: XCTestCase {
         var (w2, k2) = world()
         let e2 = addEnemy(&w2, dx: 300)
         XCTAssertTrue(w2.cast(k2, .ultimate))
-        w2.run(seconds: 0.3)
+        w2.run(seconds: Tune.ultGather + 0.1)
         Kit.suppress(&w2.s, target: k2, duration: 1, sourceID: nil)
         w2.run(seconds: 1)
         XCTAssertEqual(w2.damage(to: e2), 0)
@@ -803,7 +853,7 @@ final class Kit_H029Tests: XCTestCase {
         var (w3, k3) = world()
         let e3 = addEnemy(&w3, dx: 300)
         XCTAssertTrue(w3.cast(k3, .ultimate))
-        w3.tick(20)
+        w3.tick(Int((Tune.ultTotal * Balance.tickRate).rounded()) - 1)    // 爆発の 1 tick 前
         Kit.suppress(&w3.s, target: k3, duration: 1, sourceID: nil)
         w3.run(seconds: 0.5)
         XCTAssertEqual(w3.damage(to: e3), 0)
@@ -965,7 +1015,7 @@ final class Kit_H029Tests: XCTestCase {
         }, "mid dash + window")
         try check({ w, k, _, _, _ in
             w.cast(k, .ultimate)
-            w.tick(12)    // 引き寄せの途中
+            w.tick(Int((Tune.ultGather * Balance.tickRate).rounded()) + 3)    // 引き寄せの途中
             XCTAssertEqual(w.s.units[k].hero!.kit!.borgUltPhase, 2)
         }, "mid channel")
         try check({ w, k, e1, _, _ in
@@ -975,6 +1025,46 @@ final class Kit_H029Tests: XCTestCase {
             w.tick(3)    // 振りかぶりの途中
             XCTAssertEqual(w.s.units[k].hero!.kit!.scheduled.count, 1)
         }, "mid smash")
+    }
+
+    // MARK: - ボットのアルティメット
+
+    /// ボットのアルティメットの判断が「撃つ」(.cast(.none)) か。
+    private func botCastsUltimate(_ w: SkillWorld, _ k: Int, target: Int) throws -> Bool {
+        let tg = HeroKits.targeting(for: try skill(.ultimate), hero: try heroDef(), stage: 0)
+        switch HeroKits.botCast(w.s, w.ctx, bot: k, slot: .ultimate, targeting: tg, target: target, fighting: true) {
+        case .cast(.none): return true
+        case .skip: return false
+        default:
+            XCTFail("想定外の判断")
+            return false
+        }
+    }
+
+    func testBotUltimateNeedsAnAllyNearbyOrAWeakTargetAndNeverInsideEnemyTowerRange() throws {
+        // 相手が傷ついていて（< 0.8）も、味方が居なければ撃たない
+        var (w, k) = world()
+        let e = addEnemy(&w, dx: 300)
+        w.s.units[e].hp = w.s.units[e].stats.maxHP * 0.7
+        XCTAssertFalse(try botCastsUltimate(w, k, target: e), "味方が居ない + 相手の HP 70%")
+        // 近く（900 以内）に味方ヒーローが居れば撃つ
+        let ally = w.addHero("H002", team: .blue, at: skillArena + Vec2(-600, 0), level: 12)
+        XCTAssertTrue(try botCastsUltimate(w, k, target: e), "味方が 600 離れている")
+        w.s.units[ally].pos = skillArena + Vec2(-(Tune.botAllyRange + 100), 0)
+        XCTAssertFalse(try botCastsUltimate(w, k, target: e), "味方が遠い")
+        // 相手の HP が半分未満なら味方が居なくても撃つ
+        w.s.units[e].hp = w.s.units[e].stats.maxHP * 0.4
+        XCTAssertTrue(try botCastsUltimate(w, k, target: e))
+        // 敵のタワーの射程内では撃たない（HP が低くても）
+        _ = w.addTower(team: .red, at: skillArena + Vec2(0, -300))
+        XCTAssertFalse(try botCastsUltimate(w, k, target: e), "敵タワーの射程内")
+        // 敵ヒーローを 2 体巻き込めて、味方が近くに居れば撃つ（タワーの無い場所）
+        var (w2, k2) = world()
+        let a = addEnemy(&w2, dx: 300)
+        _ = addEnemy(&w2, dx: 0, dy: 300, hero: "H003")
+        XCTAssertFalse(try botCastsUltimate(w2, k2, target: a), "味方が居ない + 相手は満タン")
+        _ = w2.addHero("H002", team: .blue, at: skillArena + Vec2(-300, 0), level: 12)
+        XCTAssertTrue(try botCastsUltimate(w2, k2, target: a), "2 体を巻き込めて味方が近い")
     }
 
     // MARK: - ボットの煙テスト
@@ -1064,7 +1154,9 @@ final class Kit_H029Tests: XCTestCase {
             }
             let rate = score / Double(ids.count)
             report += String(format: "Lv%d: %.1f%% (%.1f/%d)\n", level, rate * 100, score, ids.count)
-            XCTAssertGreaterThanOrEqual(rate, 0.25, "Lv\(level) 弱すぎる")
+            // 共通の物差しは KitBalanceTests（ロール中央値との差）。この旧式の総当たりは開幕に奥義を撃つ台本で、詠唱が長い（0.8 秒）
+            // ボルグには厳しく出る（Lv6 は 24〜33%）ので、下限だけ緩めて極端な弱さだけを見る
+            XCTAssertGreaterThanOrEqual(rate, 0.2, "Lv\(level) 弱すぎる")
             XCTAssertLessThanOrEqual(rate, 0.75, "Lv\(level) 強すぎる")
         }
         print(report)

@@ -134,7 +134,11 @@ final class Kit_H028Tests: XCTestCase {
         let stats = w.s.units[k].stats
         let generic = SkillCatalog.genericNumbers(for: skill, hero: hero, rank: rank, stats: stats)
         let kitN = SkillCatalog.numbers(for: skill, hero: hero, rank: rank, stats: stats)
-        return kitN.totalDamage / generic.totalDamage
+        var total = kitN.totalDamage
+        // S1 は接触（9 回）+ 剣撃（5 秒で budgetStrikes 本の想定）、S2 は突進 + 強化通常攻撃の追加ダメージで数える
+        if slot == .skill1 { total += generic.damage * Tune.strikeRatio * Double(Tune.budgetStrikes) }
+        if slot == .skill2 { total += generic.damage * Tune.chargeBonusRatio }
+        return total / generic.totalDamage
     }
 
     func testNumbersStayWithinDamageBudgetAndFollowCooldownFormula() throws {
@@ -176,8 +180,10 @@ final class Kit_H028Tests: XCTestCase {
         let hero = try XCTUnwrap(MasterData.shared.hero("H028"))
         for rank in 1...4 {
             let s1 = try XCTUnwrap(MasterData.shared.skill(hero: "H028", slot: .skill1))
+            // S1 は全体倍率ではなく秒数そのまま（Tune.swordsCooldownScale）: 剣の稼働率を 100% から約 50% へ
             XCTAssertEqual(SkillCatalog.numbers(for: s1, hero: hero, rank: rank, stats: w.s.units[k].stats).cooldown,
-                           expected(10, 10, rank: rank, maxRank: 4), accuracy: 1e-9)
+                           expected(10, 10, rank: rank, maxRank: 4) / Balance.Skills.cooldownScale * Tune.swordsCooldownScale,
+                           accuracy: 1e-9)
             let s2 = try XCTUnwrap(MasterData.shared.skill(hero: "H028", slot: .skill2))
             XCTAssertEqual(SkillCatalog.numbers(for: s2, hero: hero, rank: rank, stats: w.s.units[k].stats).cooldown,
                            expected(7, 7, rank: rank, maxRank: 4), accuracy: 1e-9)
@@ -229,6 +235,43 @@ final class Kit_H028Tests: XCTestCase {
         XCTAssertEqual(un.extras[2].value, 1.2, accuracy: 1e-9)
     }
 
+    /// 剣撃が主なダメージ源（接触より大きく）、強化通常攻撃の追加ダメージは突進の 3 割前後。
+    /// S1 のクールダウンは全体倍率のまま（= 持続と同じ 5 秒）。秒数そのまま（約 50% の稼働率）にすると Lv1 の勝率が崩れる。
+    func testSwordStrikesAreTheMainDamage() throws {
+        XCTAssertGreaterThan(Tune.strikeRatio * Double(Tune.budgetStrikes), Tune.contactRatio)
+        XCTAssertGreaterThanOrEqual(Tune.strikeRatio, 0.18)
+        XCTAssertLessThanOrEqual(Tune.contactRatio, 0.6)
+        XCTAssertGreaterThanOrEqual(Tune.chargeBonusRatio, 0.2)
+        XCTAssertGreaterThanOrEqual(Tune.strikeGap, 0.3)
+        XCTAssertEqual(Tune.swordsCooldownScale, Balance.Skills.cooldownScale)
+        let (w, k) = world()
+        XCTAssertEqual(w.numbers(k, .skill1).cooldown, 10 * Balance.Skills.cooldownScale * (1 - w.s.units[k].stats.cooldownReduction),
+                       accuracy: 1e-9)
+    }
+
+    /// 説明文: UI の用語（スキル1 / スキル2 / アルティメットの言い方）と最終名、剣撃の言い方。
+    func testTextsUseUITermsFinalNamesAndTheSwordStrikeTerm() throws {
+        for slot in SkillSlot.allCases {
+            let t = try XCTUnwrap(HeroKits.text(heroID: "H028", slot: slot))
+            for banned in ["S1", "S2", "奥義", "追撃", "Skill1", "Skill2"] {
+                XCTAssertFalse(t.ja.contains(banned) || t.en.contains(banned), "\(slot): \(banned)")
+            }
+        }
+        let (w, k) = world()
+        let hero = try XCTUnwrap(MasterData.shared.hero("H028"))
+        func ja(_ slot: SkillSlot) throws -> String {
+            let skill = try XCTUnwrap(MasterData.shared.skill(hero: "H028", slot: slot))
+            let n = SkillCatalog.numbers(for: skill, hero: hero, rank: 1, stats: w.s.units[k].stats)
+            return try XCTUnwrap(HeroKits.text(heroID: "H028", slot: slot)).filled(
+                english: false, numbers: n, targeting: SkillCatalog.targeting(for: skill, hero: hero))
+        }
+        let s1 = try ja(.skill1)
+        XCTAssertTrue(s1.contains("剣撃"), s1)
+        XCTAssertTrue(s1.contains("断空突進"), s1)
+        XCTAssertTrue(try ja(.skill2).contains("環剣"))
+        XCTAssertTrue(try ja(.passive).contains("ミニオンには積まれない"))
+    }
+
     // MARK: - パッシブ: 空断の理
 
     func testBaneStacksUpToFiveAndShredsArmorPerLevel() {
@@ -252,6 +295,33 @@ final class Kit_H028Tests: XCTestCase {
         let armor0 = w.s.units[e].stats.armor
         for _ in 0..<5 { poke(&w, k, e) }
         XCTAssertEqual(armor0 - w.s.units[e].stats.armor, 40, accuracy: 1e-6)
+    }
+
+    /// パッシブのバッジ: 直近に積んだ敵の層の数。時間が切れる・その敵が倒れると消える（演出のパッシブの合図が出る土台）。
+    func testPassiveBadgeShowsTheLatestTargetsStacksAndClearsWhenTheyExpireOrDie() {
+        var (w, k) = world()
+        let e = addEnemy(&w, dx: 200)
+        XCTAssertNil(HeroKits.badge(w.s.units[k].hero!, slot: .passive))
+        poke(&w, k, e)
+        XCTAssertEqual(HeroKits.badge(w.s.units[k].hero!, slot: .passive), KitBadge(kind: .stacks, value: 1, maxValue: 5))
+        poke(&w, k, e)
+        poke(&w, k, e)
+        XCTAssertEqual(HeroKits.badge(w.s.units[k].hero!, slot: .passive)?.value, 3)
+        for _ in 0..<8 { poke(&w, k, e) }
+        XCTAssertEqual(HeroKits.badge(w.s.units[k].hero!, slot: .passive)?.value, 5, "最大 5 層")
+        // 別の敵に積めば、その敵の層の数に変わる
+        let other = addEnemy(&w, dx: 200, dy: 100, hero: "H003")
+        poke(&w, k, other)
+        XCTAssertEqual(HeroKits.badge(w.s.units[k].hero!, slot: .passive)?.value, 1)
+        // 5 秒で消える
+        w.run(seconds: Tune.baneDuration + 0.3)
+        XCTAssertNil(HeroKits.badge(w.s.units[k].hero!, slot: .passive))
+        // 倒れたら消える
+        poke(&w, k, e)
+        XCTAssertNotNil(HeroKits.badge(w.s.units[k].hero!, slot: .passive))
+        w.s.units[e].isAlive = false
+        w.tick()
+        XCTAssertNil(HeroKits.badge(w.s.units[k].hero!, slot: .passive))
     }
 
     func testBaneDurationRefreshesOnEveryHitAndExpiresTogether() {
@@ -432,7 +502,7 @@ final class Kit_H028Tests: XCTestCase {
         XCTAssertLessThan(badge.remaining, Tune.swordsDuration)
     }
 
-    // MARK: - S1: 剣の追撃
+    // MARK: - S1: 剣撃
 
     func testSwordStrikeFliesAfterADamagingHitDealsDamageAndRefundsCharge() throws {
         var (w, k) = world()
@@ -448,9 +518,9 @@ final class Kit_H028Tests: XCTestCase {
         XCTAssertEqual(hits.count, 1)
         XCTAssertEqual(hits[0].amount, expected, accuracy: 1e-6)
         XCTAssertEqual(w.s.units[k].hero!.cooldown(.skill2), 3 - Tune.chargeRefund - 8 * Balance.dt, accuracy: 1e-6,
-                       "追撃 1 本で S2 のクールダウンが短縮")
-        XCTAssertEqual(stacks(w, k, e), 2, "追撃もダメージなので防御ダウンの層になる")
-        // 追撃のダメージは S1 のダメージ × strikeRatio
+                       "剣撃 1 本で S2 のクールダウンが短縮")
+        XCTAssertEqual(stacks(w, k, e), 2, "剣撃もダメージなので防御ダウンの層になる")
+        // 剣撃のダメージは S1 のダメージ × strikeRatio
         let generic = try XCTUnwrap(MasterData.shared.skill(hero: "H028", slot: .skill1))
         let hero = try XCTUnwrap(MasterData.shared.hero("H028"))
         let g = SkillCatalog.genericNumbers(for: generic, hero: hero, rank: 1, stats: w.s.units[k].stats).damage
@@ -490,7 +560,7 @@ final class Kit_H028Tests: XCTestCase {
         w.run(seconds: Tune.strikeGap + 0.1)
         poke(&w, k, e)
         XCTAssertEqual(kit(w, k).zailSwordStrikes, 2)
-        // 剣の追撃・接触（S1 のダメージ）自体は剣を呼ばない: 5 秒そのまま放置しても累計は増えない
+        // 剣撃・接触（S1 のダメージ）自体は剣を呼ばない: 5 秒そのまま放置しても累計は増えない
         let before = kit(w, k).zailSwordStrikes
         w.run(seconds: 5.5)
         XCTAssertEqual(kit(w, k).zailSwordStrikes, before)
@@ -778,7 +848,7 @@ final class Kit_H028Tests: XCTestCase {
         var (w, k, e) = ultWorld()
         XCTAssertTrue(w.cast(k, .skill1))
         w.s.units[k].hero!.skillCooldowns[SkillSlot.skill2.rawValue] = 5
-        // 接触ダメージの 0.5 秒刻みと区別するため、追撃の数は累計で見る
+        // 接触ダメージの 0.5 秒刻みと区別するため、剣撃の数は累計で見る
         XCTAssertTrue(w.cast(k, .ultimate, .unit(w.id(e))))
         // S1 を撃った直後の S1 は canStart で撃てない（奥義の突進中）
         XCTAssertFalse(w.cast(k, .skill1))
@@ -917,7 +987,7 @@ final class Kit_H028Tests: XCTestCase {
         w.run(seconds: 0.4)
         XCTAssertTrue(w.cast(k, .skill1))
         XCTAssertEqual(w.s.units[k].hero!.cooldown(.skill1), 0)
-        // 追撃の短縮も練習場では 0 のまま
+        // 剣撃の短縮も練習場では 0 のまま
         poke(&w, k, e)
         w.run(seconds: 0.3)
         XCTAssertEqual(w.s.units[k].hero!.cooldown(.skill2), 0)
@@ -1034,6 +1104,49 @@ final class Kit_H028Tests: XCTestCase {
         XCTAssertEqual(resumed.s.stateHash(), b.s.stateHash())
         XCTAssertEqual(resumed.s.units, b.s.units)
         XCTAssertEqual(resumed.damageEvents.count, b.damageEvents.count)
+    }
+
+    // MARK: - ボットの判断
+
+    private func decisionName(_ d: BotKitDecision) -> String {
+        switch d {
+        case .useDefault: return "default"
+        case .cast: return "cast"
+        case .castNow: return "castNow"
+        case .skip: return "skip"
+        }
+    }
+
+    /// 奥義: 射程内の敵ヒーローが傷ついていれば関門を待たず今撃つ。満タンなら汎用の関門（cast）。剣の有無では決めない。
+    func testBotUltimateCastsNowOnAWoundedHeroInReachAndNeverDependsOnSwords() throws {
+        var (w, k) = world()
+        let hero = addEnemy(&w, dx: 300)
+        let t = HeroKits.targeting(for: try XCTUnwrap(MasterData.shared.skill(hero: "H028", slot: .ultimate)),
+                                   hero: try XCTUnwrap(MasterData.shared.hero("H028")), stage: 0)
+        func ask(_ target: Int, fighting: Bool = true) -> String {
+            decisionName(HeroKits.botCast(w.s, w.ctx, bot: k, slot: .ultimate, targeting: t, target: target, fighting: fighting))
+        }
+        // 剣が回っていない満タンの敵ヒーロー: 汎用の関門に任せる（以前は HP < 80% か剣が必要で、撃てないことがあった）
+        XCTAssertEqual(ask(hero), "cast")
+        XCTAssertTrue(w.cast(k, .skill1), "剣が回っていても決定は変わらない")
+        XCTAssertEqual(ask(hero), "cast")
+        w.s.units[hero].hp = w.s.units[hero].stats.maxHP * (Tune.botExecuteRatio - 0.05)
+        XCTAssertEqual(ask(hero), "castNow")
+        w.s.units[hero].hp = w.s.units[hero].stats.maxHP * (Tune.botExecuteRatio + 0.1)
+        XCTAssertEqual(ask(hero), "cast")
+        // 射程の外・交戦中でない・ミニオン
+        w.s.units[hero].hp = w.s.units[hero].stats.maxHP * 0.3
+        XCTAssertEqual(ask(hero, fighting: false), "skip")
+        let m = w.addMinion(team: .red, at: skillArena + Vec2(200, 0))
+        XCTAssertEqual(ask(m), "skip")
+        w.s.units[hero].pos = skillArena + Vec2(Tune.ultReach + 120, 0)
+        XCTAssertEqual(ask(hero), "skip")
+        // 突進 S2 は従来どおり（交戦中・届くとき）
+        let t2 = HeroKits.targeting(for: try XCTUnwrap(MasterData.shared.skill(hero: "H028", slot: .skill2)),
+                                    hero: try XCTUnwrap(MasterData.shared.hero("H028")), stage: 0)
+        w.s.units[hero].pos = skillArena + Vec2(300, 0)
+        XCTAssertEqual(decisionName(HeroKits.botCast(w.s, w.ctx, bot: k, slot: .skill2, targeting: t2, target: hero,
+                                                     fighting: true)), "cast")
     }
 
     // MARK: - ボットの煙テスト

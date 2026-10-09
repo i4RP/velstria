@@ -392,18 +392,25 @@ enum BotCombat {
                 || HeroKits.isRecasting(s, a.i, slot) else { continue }
             let tg = SkillCatalog.activeTargeting(s, caster: a.i, slot: slot, skill: def, hero: hdef)
             guard tg.archetype != .passive else { continue }
-            if slot == .ultimate {
+            // Ult は倒せる時か 2 体以上を巻き込める時だけ（汎用の関門）。再使用の段は関門を通さない
+            // （撃った後の追撃・解除は、倒せるか否かと無関係に判断する）。
+            var gated = false
+            if slot == .ultimate, !HeroKits.isRecasting(s, a.i, slot) {
                 let center = tg.aim == .none ? a.pos : t.pos
                 let crowd = enemiesNear(a, center, radius: max(tg.radius * 1.4, 300))
-                guard killable || crowd >= 2 else { continue }
+                gated = !(killable || crowd >= 2)
             }
-            // キットのボット判断（既定 = 汎用の照準）
+            // キットのボット判断（既定 = 汎用の照準）。.castNow だけが関門を飛び越える
             let target: SkillTarget
             switch HeroKits.botCast(s, ctx, bot: a.i, slot: slot, targeting: tg, target: t.index, fighting: fighting) {
             case .useDefault:
-                guard let aimed = aim(&s, ctx, a, &mem, tg, slot: slot, target: t, fighting: fighting) else { continue }
+                guard !gated,
+                      let aimed = aim(&s, ctx, a, &mem, tg, slot: slot, target: t, fighting: fighting) else { continue }
                 target = aimed
             case .cast(let custom):
+                guard !gated else { continue }
+                target = custom
+            case .castNow(let custom):
                 target = custom
             case .skip:
                 continue
@@ -422,16 +429,38 @@ enum BotCombat {
                                 _ mem: inout BotHeroMemory) {
         guard a.nearestEnemyDistance < 500, s.units[a.i].canCast, let h = s.units[a.i].hero,
               let hdef = ctx.master.hero(h.heroID) else { return }
-        for slot in [SkillSlot.skill2, .skill1] {
+        // 逃げる向き（安全地点の計算は重いので、撃てるスキルが見つかってから 1 回だけ）
+        var fleeDir: Vec2?
+        func flee() -> Vec2 {
+            if let d = fleeDir { return d }
+            let d = (safePoint(s, ctx, w, a) - a.pos).normalized
+            fleeDir = d
+            return d
+        }
+        // 奥義はキットが botEscape で言い切った時だけ（汎用ヒーローの奥義は逃走に使わない）
+        for slot in [SkillSlot.ultimate, .skill2, .skill1] {
             guard SkillSystem.canCast(s, ctx, heroIndex: a.i, slot: slot),
                   let def = ctx.master.skill(hero: h.heroID, slot: slot),
                   s.units[a.i].resource + 1e-6 >= SkillSystem.cost(for: def, resource: h.resourceKind)
                     || HeroKits.isRecasting(s, a.i, slot) else { continue }
             let tg = SkillCatalog.activeTargeting(s, caster: a.i, slot: slot, skill: def, hero: hdef)
-            guard tg.archetype == .dashStrike || tg.archetype == .blinkEmpower else { continue }
-            let dir = (safePoint(s, ctx, w, a) - a.pos).normalized
+            // 汎用ヒーローは従来どおり突進・ブリンク系だけ（無関係なスキルで安全地点を計算しない）
+            let genericDash = slot != .ultimate && (tg.archetype == .dashStrike || tg.archetype == .blinkEmpower)
+            guard genericDash || h.kit != nil else { continue }
+            let dir = flee()
             guard dir != .zero else { return }
-            a.emit(.castSkill(slot: slot, target: .direction(dir)))
+            let target: SkillTarget
+            switch HeroKits.botEscape(s, ctx, bot: a.i, slot: slot, targeting: tg, flee: dir,
+                                      enemyDistance: a.nearestEnemyDistance) {
+            case .cast(let custom), .castNow(let custom):
+                target = custom
+            case .skip:
+                continue
+            case .useDefault:
+                guard genericDash else { continue }
+                target = .direction(dir)
+            }
+            a.emit(.castSkill(slot: slot, target: target))
             BotAI.noteSkillCast(&mem, slot: slot, tick: s.tick)
             mem.lastSkillTime = s.time
             return
@@ -451,9 +480,13 @@ enum BotCombat {
                   s.units[a.i].resource + 1e-6 >= SkillSystem.cost(for: def, resource: h.resourceKind)
                     || HeroKits.isRecasting(s, a.i, slot) else { continue }
             let tg = SkillCatalog.activeTargeting(s, caster: a.i, slot: slot, skill: def, hero: hdef)
+            // 突入・瞬間移動系は既定では撃たない。キットが botFarm で許したものだけ通す（teamHeal は常に撃たない）
+            var gapCloser = false
             switch tg.archetype {
-            case .passive, .dashStrike, .leapSlam, .targetedBlink, .blinkEmpower, .teamHeal, .multiStrike:
+            case .passive, .teamHeal:
                 continue
+            case .dashStrike, .leapSlam, .targetedBlink, .blinkEmpower, .multiStrike:
+                gapCloser = true
             default:
                 break
             }
@@ -473,6 +506,11 @@ enum BotCombat {
             }
             guard let c = bestCenter, bestCount >= minCluster else { continue }
             let p = s.units[c].pos
+            if gapCloser {
+                guard HeroKits.botFarm(s, ctx, bot: a.i, slot: slot, targeting: tg, center: p, count: bestCount) else {
+                    continue
+                }
+            }
             let target: SkillTarget
             switch tg.aim {
             case .none:

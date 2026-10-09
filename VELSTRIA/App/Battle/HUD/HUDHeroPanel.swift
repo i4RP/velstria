@@ -46,7 +46,7 @@ struct HUDHeroPanel: View {
         .frame(width: layout.heroPanelWidth)
         .hudGlass(cornerRadius: 18, tint: HUDStyle.accent.opacity(0.45))
         .overlay(alignment: .topLeading) {
-            HUDStatusRow(statuses: hero.statuses, size: 22 * s)
+            HUDStatusRow(statuses: hero.statuses, size: 22 * s, passive: hero.passiveBadge)
                 .offset(x: 4 * s, y: -26 * s)
                 .allowsHitTesting(false)
         }
@@ -229,14 +229,39 @@ struct HUDBar: View, Equatable {
 struct HUDStatusRow: View, Equatable {
     let statuses: [HUDStatusIcon]
     let size: CGFloat
+    /// パッシブのバッジ（キット層。スタック・タイマー）。状態アイコンの先頭に金色で出す。
+    var passive: KitBadge?
 
     var body: some View {
         HStack(spacing: 3) {
-            ForEach(statuses) { st in
-                let color = HUDSymbols.statusColor(st.kind)
+            if let p = passive {
+                let text = HUDKitDisplay.text(p)
                 ZStack {
                     RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.black.opacity(0.6))
-                    Image(systemName: HUDSymbols.status(st.kind))
+                    Image(systemName: "seal.fill")
+                        .font(.system(size: size * 0.52, weight: .bold))
+                        .foregroundStyle(Theme.gold)
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .trim(from: 0, to: HUDKitDisplay.fraction(p))
+                        .stroke(Theme.gold, lineWidth: 1.5)
+                    if !text.isEmpty {
+                        Text(text)
+                            .font(.system(size: size * 0.4, weight: .heavy, design: .rounded))
+                            .foregroundStyle(.white)
+                            .shadow(color: .black, radius: 1)
+                            .offset(x: size * 0.3, y: size * 0.36)
+                    }
+                }
+                .frame(width: size, height: size)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(L("パッシブ", "Passive"))
+                .accessibilityValue(text)
+            }
+            ForEach(statuses) { st in
+                let color = HUDSymbols.statusColor(st.kind, tag: st.tag)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.black.opacity(0.6))
+                    Image(systemName: HUDSymbols.status(st.kind, tag: st.tag))
                         .font(.system(size: size * 0.52, weight: .bold))
                         .foregroundStyle(color)
                     RoundedRectangle(cornerRadius: 5, style: .continuous)
@@ -252,7 +277,7 @@ struct HUDStatusRow: View, Equatable {
                 }
                 .frame(width: size, height: size)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(HUDSymbols.statusName(st.kind))
+                .accessibilityLabel(HUDSymbols.statusName(st.kind, tag: st.tag))
                 .accessibilityValue(L("残り \(Int(st.remaining.rounded(.up))) 秒", "\(Int(st.remaining.rounded(.up))) seconds left"))
             }
         }

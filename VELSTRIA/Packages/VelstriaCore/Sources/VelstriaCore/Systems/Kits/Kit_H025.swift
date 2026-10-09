@@ -2,14 +2,14 @@ import Foundation
 
 // 担当: kit-H025（docs/SKILL_KITS.md / docs/NEW_HEROES.md / docs/kits/Miya.md）
 // H025 月弦のルミナ = MLBB ミヤの Velstria 版（レンジャー・遠隔 550・マナ）。調査: docs/kits/Miya.md、対応表: 同ファイル末尾。
-//   パッシブ 月環の導き  — 通常攻撃が命中するたびに攻撃速度 +6%（4 秒・最大 5 段）。最大のあいだは通常攻撃のたびに「月影」が
-//                          54 + 攻撃力 30% の物理ダメージを追って与える。ロールの「4 発毎の確定会心」は置き換え。
-//   S1   月矢の連弾      — 自己強化 4 秒。通常攻撃が主矢 + 副矢 2 本になる（主矢に追加ダメージ、周囲の敵 2 体へ主矢の 30%）。
+//   パッシブ 月環の導き  — 通常攻撃が命中するたびに攻撃速度 +9%（4 秒・最大 5 段）。最大のあいだは通常攻撃のたびに「月影」が
+//                          70 + 攻撃力 40% の物理ダメージを追って与える。ロールの「4 発毎の確定会心」は置き換え。
+//   スキル1 月弦分矢     — 自己強化 4 秒。通常攻撃が主矢 + 副矢 2 本になる（主矢に追加ダメージ、周囲の敵 2 体へ主矢の 30%）。
 //                          効果中は再使用できない（CD 11 秒 × Velstria の倍率）。
-//   S2   月蝕の矢        — 指定地点（遅延あり）。半径内の敵に物理ダメージと 1.2 秒の移動不能。着弾点から 6 本の小さな矢が
+//   スキル2 月蝕の矢     — 指定地点（遅延あり）。半径内の敵に物理ダメージと 1.2 秒の移動不能。着弾点から 6 本の小さな矢が
 //                          等間隔に散り、それぞれ最初に当たった敵に物理ダメージと 2 秒の 30% スロウ。
-//   奥義 隠れ月光        — 弱体をすべて解除して姿を隠し、2 秒間 移動速度 +65%。通常攻撃かスキルの発動（奥義を除く）で解ける。
-//                          解けた（時間切れ含む）瞬間に月環の導きが最大の段になる。
+//   アルティメット 隠れ月光 — 弱体をすべて解除して姿を隠し、2 秒間 移動速度 +65%。通常攻撃かスキルの発動（奥義を除く）で解ける。
+//                          解けた（時間切れ含む）瞬間に月環の導きが最大の段になる。ボットは低 HP で敵が近いとき、逃走・解除に使う。
 // 再使用の窓は Miya に無いので使わない。
 //
 // 状態（KitState）:
@@ -22,13 +22,14 @@ import Foundation
 enum LuminaTuning {
     // MARK: パッシブ（月環の導き）
     static let maxStacks = 5
-    /// 1 段あたりの攻撃速度（ミヤは 5%）。
-    static let attackSpeedPerStack: Double = 0.06
+    /// 1 段あたりの攻撃速度（ミヤは 5%）。Velstria は TTK が短く立ち上がりが遅いので 9%（最大 +45%）に調整。
+    /// 総当たりの勝率がレンジャー中央値より Lv6 で 25 pt 低かったため（0.06 → 0.09 と月影の増強で -14 pt 台へ）。
+    static let attackSpeedPerStack: Double = 0.09
     static let stackDuration: Double = 4
     /// 月影: ミヤは 30 + 攻撃力 25%（攻撃力 115 に対し約 0.5 倍の追撃）。Velstria は TTK が短く構えの立ち上がりが遅い分、
-    /// 固定値 54・攻撃力 30%（攻撃力 138〜200 に対し約 0.7 倍）に調整した。docs/kits/Miya.md の対応表を参照。
-    static let shadowFlat: Double = 54
-    static let shadowRatio: Double = 0.30
+    /// 固定値 70・攻撃力 40%（攻撃力 138〜200 に対し約 0.9 倍）に調整した。docs/kits/Miya.md の対応表を参照。
+    static let shadowFlat: Double = 70
+    static let shadowRatio: Double = 0.40
 
     // MARK: S1（月矢の連弾）
     static let s1Duration: Double = 4
@@ -41,8 +42,9 @@ enum LuminaTuning {
     static let splashRadius: Double = 300
     /// 副矢が飛ぶ範囲の余裕（術者の射程 + 対象の半径 + この値）。
     static let splashLeeway: Double = 150
-    /// 自己強化の照準リング・発動演出の大きさ（半径）。
-    static let selfRing: Double = 350
+    /// 自己強化の照準リングの半径 = 通常攻撃の射程（550）。「この範囲に敵が居れば撃つ」を HUD の輪で示す。
+    /// ボットの奥義の関門（周囲の敵を数える半径 = 輪 × 1.4 = 770）もこれに従う。
+    static let selfRing: Double = 550
     /// 「撃てる距離」の目安（`reachOverride`。敵がこの内側に居るときだけ撃つ）。
     static let s1Reach: Double = 600
     /// MLBB の CD 11 秒（全ランク固定）。
@@ -71,6 +73,9 @@ enum LuminaTuning {
     /// 「撃てる距離」の目安（奥義の距離 770。`reachOverride`）。
     static let ultReach: Double = 770
     static let ultCooldown = (30.0, 20.0)
+    /// ボットが隠れ月光で離脱する HP の割合（通常 / 減速・移動不能を受けているとき）。
+    static let escapeHP: Double = 0.45
+    static let escapeHPHobbled: Double = 0.70
 
     // MARK: タグ・コード
     static let stackTag = KitTags.buff("H025", "moonBlessing")
@@ -221,31 +226,31 @@ struct Kit_H025: HeroKit {
         case .passive:
             return KitText(
                 ja: "通常攻撃が命中するたびに攻撃速度が{x0}%上がる（{x1}秒間・最大\(T.maxStacks)段）。最大まで重なると、"
-                    + "通常攻撃のたびに「月影」が追って、{damage}の物理ダメージ（{x2}＋攻撃力の{x3}%）を与える。",
+                    + "通常攻撃のたびに「月影」が追撃し、{damage}の物理ダメージ（{x2}＋攻撃力の{x3}%）を与える。",
                 en: "Each basic attack hit grants +{x0}% attack speed for {x1}s (up to \(T.maxStacks) stacks). At full stacks, "
-                    + "every basic attack also summons a Moonlight Shadow that deals {damage} physical damage ({x2} + {x3}% of attack).")
+                    + "every basic attack is followed by a Moonlight Shadow that deals {damage} physical damage ({x2} + {x3}% of attack).")
         case .skill1:
             return KitText(
-                ja: "{x0}秒間、通常攻撃が月矢の連弾になる。主矢に{damage}の物理ダメージを加えて撃ち（標準で{hits}本、合計{total}）、"
+                ja: "{x0}秒間、通常攻撃が主矢と副矢の連弾になる。主矢に{damage}の物理ダメージを加えて撃ち（標準で{hits}本、合計{total}）、"
                     + "主矢の周囲{x3}にいる敵{x2}体へ、主矢の{x1}%の副矢が飛ぶ。効果中は再使用できない。クールダウン{cd}秒。",
-                en: "For {x0}s, basic attacks become Moon Arrow volleys. The main arrow deals an extra {damage} physical damage "
+                en: "For {x0}s, basic attacks become volleys. The main arrow deals an extra {damage} physical damage "
                     + "(about {hits} arrows, {total} total), and {x2} enemies within {x3} of it are hit by side arrows for {x1}% "
                     + "of the main arrow. Cannot be recast while active. Cooldown {cd}s.")
         case .skill2:
             return KitText(
-                ja: "指定地点へ月蝕の矢を放つ（着弾まで\(Self.seconds(T.s2Delay))秒）。半径{radius}の敵に{damage}の物理ダメージを与え、"
+                ja: "指定地点へ矢を放つ（着弾まで\(Self.seconds(T.s2Delay))秒）。半径{radius}の敵に{damage}の物理ダメージを与え、"
                     + "{x1}秒間 移動できなくする（攻撃とスキルは可能）。着弾後、矢は\(T.s2Arrows)本に分かれて四方へ散り、"
                     + "それぞれ最初に当たった敵に{x0}の物理ダメージと、{x3}秒間{x2}%のスロウを与える。",
-                en: "Fires an eclipse arrow at a target area (lands after \(Self.seconds(T.s2Delay))s). Enemies within {radius} take "
+                en: "Fires an arrow at a target area (lands after \(Self.seconds(T.s2Delay))s). Enemies within {radius} take "
                     + "{damage} physical damage and cannot move for {x1}s (they can still attack and cast). On landing, the arrow "
                     + "splits into \(T.s2Arrows) arrows that scatter evenly; each deals {x0} physical damage to the first enemy it hits "
                     + "and slows them by {x2}% for {x3}s.")
         case .ultimate:
             return KitText(
-                ja: "受けている弱体をすべて解除し、{x0}秒間 姿を隠して移動速度が{x1}%上がる。通常攻撃かスキルの発動（奥義を除く）で解ける。"
+                ja: "受けている弱体をすべて解除し、{x0}秒間 姿を隠して移動速度が{x1}%上がる。通常攻撃かスキルの発動（アルティメットを除く）で解ける。"
                     + "解けた瞬間、月環の導きが最大の段（{x2}段）になる。クールダウン{cd}秒。",
                 en: "Removes all debuffs and conceals you for {x0}s with +{x1}% movement speed. Ends when you attack or cast a "
-                    + "skill (other than the Ultimate). When it ends, Moon Blessing jumps to full stacks ({x2}). Cooldown {cd}s.")
+                    + "skill (other than the Ultimate). When it ends, Moonring Guidance jumps to full stacks ({x2}). Cooldown {cd}s.")
         }
     }
 
@@ -412,11 +417,29 @@ struct Kit_H025: HeroKit {
             // 射程に敵が入ったら連弾を始める（効果中は canStart が弾く）
             return fighting && dist <= s.units[bot].stats.attackRange + 100 ? .cast(.none) : .skip
         case .ultimate:
-            // 交戦中に使う（隠密を抜けると最大の段で攻撃し始める）
+            // 低 HP で交戦中: 汎用の関門（倒せる / 2 体以上）を飛ばして使う（弱体の解除 + 隠密 + 加速で離脱）。
+            // それ以外は交戦中に使う（隠密を抜けると最大の段で攻撃し始める）
+            if fighting, dist <= 700, Self.needsEscape(s, bot) { return .castNow(.none) }
             return fighting && dist <= 700 ? .cast(.none) : .skip
         default:
             return .useDefault
         }
+    }
+
+    /// 撤退中（敵が 500 以内）: 隠れ月光は唯一の離脱手段（解除 + 隠密 + 加速）。低 HP、または足を止められて HP が減っているとき使う。
+    /// スキル1・2 は逃走に使わない（既定のまま）。
+    func botEscape(_ s: SimState, _ ctx: SimContext, bot: Int, slot: SkillSlot, targeting: SkillTargeting,
+                   flee: Vec2, enemyDistance: Double) -> BotKitDecision {
+        guard slot == .ultimate else { return .useDefault }
+        return Self.needsEscape(s, bot) ? .castNow(.none) : .skip
+    }
+
+    /// 離脱が要る状態か: HP が 45% 以下、または減速・移動不能を受けていて HP が 70% 以下。すでに隠れている間は不要。
+    static func needsEscape(_ s: SimState, _ bot: Int) -> Bool {
+        guard s.units.indices.contains(bot), s.units[bot].hero?.kit?.luminaHidden != true else { return false }
+        let hp = s.units[bot].hpRatio
+        let hobbled = s.units[bot].has(.slow) || s.units[bot].has(.root)
+        return hp <= T.escapeHP || (hobbled && hp <= T.escapeHPHobbled)
     }
 
     // MARK: ヘルパー
@@ -506,8 +529,11 @@ struct Kit_H025: HeroKit {
         return sec * (1 - reduction) * Balance.Skills.cooldownScale
     }
 
-    /// 説明文に埋める秒数（整数なら整数、そうでなければ小数 1 桁）。
+    /// 説明文に埋める秒数（整数なら整数、そうでなければ小数 2 桁まで。0.35 が 0.3 / 0.4 に丸まらないように）。
     static func seconds(_ v: Double) -> String {
-        abs(v - v.rounded()) < 0.05 ? String(Int(v.rounded())) : String(format: "%.1f", v)
+        if abs(v - v.rounded()) < 0.005 { return String(Int(v.rounded())) }
+        var t = String(format: "%.2f", v)
+        while t.hasSuffix("0") { t.removeLast() }
+        return t
     }
 }
