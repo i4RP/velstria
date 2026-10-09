@@ -403,7 +403,9 @@ struct Kit_H030: HeroKit {
         guard dist <= targeting.range + foe.radius else { return .skip }
         let accuracy = BotProfile.of(s.units[bot].hero?.botDifficulty ?? .normal).accuracy
         let travel = T.ultWindup + dist / T.ultBeamSpeed
-        let lead = Self.observedVelocity(s, bot: bot, target: target) * (travel * accuracy)
+        let velocity = Self.observedVelocity(s, bot: bot, target: target)
+        let leadSeconds = travel * accuracy
+        let lead = Vec2(velocity.x * leadSeconds, velocity.y * leadSeconds)
         let direction = (foe.pos + lead - me).normalized
         return direction == .zero ? .skip : .cast(.direction(direction))
     }
