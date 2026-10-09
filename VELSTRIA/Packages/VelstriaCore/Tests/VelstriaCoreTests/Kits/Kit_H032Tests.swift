@@ -1198,6 +1198,9 @@ final class Kit_H032Tests: XCTestCase {
         // 突進の途中
         var (b, kb, b1, b2, bm) = makeScriptWorld()
         run(&b, kb, b1, b2, bm, from: 0, to: 1)
+        // 台本の最初のスキル（扇）はミニオンを倒せなくなった（ミニオンへのスキル倍率）。生き残ったミニオンが進路を塞ぐと
+        // 突進がすぐ止まるので、進路の外へ出す（検証したいのは突進の途中の保存と再開）
+        b.s.units[bm].pos = skillArena + Vec2(0, 900)
         b.cast(kb, .skill2, .unit(b.id(b1)))
         b.tick(2)
         XCTAssertNotNil(kit(b, kb).sweep)
