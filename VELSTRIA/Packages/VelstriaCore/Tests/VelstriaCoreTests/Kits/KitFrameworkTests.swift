@@ -128,7 +128,100 @@ final class KitFrameworkTests: KitTestCase {
         XCTAssertNil(HeroKits.text(heroID: "H001", slot: .skill1))
     }
 
-    // MARK: - 再使用の窓
+    // MARK: - コストの上書き・タグ
+
+    /// コストとタグだけを上書きするキット（スキル1: ランク × 10 + 20 の Mana 基準（Energy のヒーローは × 0.6）/ スキル2: 実効値 33）。
+    private struct CostKit: HeroKit {
+        let heroID: String
+        var isReady: Bool { true }
+
+        func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double {
+            switch slot {
+            case .skill1: return HeroKits.resourceCost(20 + Double(rank) * 10, hero: hero)
+            case .skill2: return 33
+            default: return base
+            }
+        }
+
+        func text(slot: SkillSlot) -> KitText? {
+            slot == .skill1 ? KitText(ja: "a", en: "b", tags: [KitTag.aoe, KitTag.slow]) : nil
+        }
+    }
+
+    func testKitCostOverrideIsPerRankAndUsedByNumbersValidationAndPractice() throws {
+        // H002 は Energy のヒーロー（汎用のコストは × 0.6）
+        HeroKits.testOverride = [CostKit(heroID: "H002")]
+        let hero = try XCTUnwrap(MasterData.shared.hero("H002"))
+        XCTAssertEqual(hero.resource, .energy)
+        func skill(_ slot: SkillSlot) throws -> SkillDef { try XCTUnwrap(MasterData.shared.skill(hero: "H002", slot: slot)) }
+        let mult = Balance.energyCostMultiplier
+        // 汎用の関数はキットを含まない
+        XCTAssertEqual(SkillSystem.cost(for: try skill(.skill1), resource: .energy), try skill(.skill1).cost * mult)
+        // ランク込み: スキル1 は Mana 基準の素の値に Energy の倍率（resourceCost）、スキル2 は実効値のまま、ほかは汎用
+        XCTAssertEqual(SkillSystem.cost(for: try skill(.skill1), hero: hero, rank: 1), 30 * mult, accuracy: 1e-9)
+        XCTAssertEqual(SkillSystem.cost(for: try skill(.skill1), hero: hero, rank: 3), 50 * mult, accuracy: 1e-9)
+        XCTAssertEqual(SkillSystem.cost(for: try skill(.skill1), hero: hero, rank: 99), 60 * mult, accuracy: 1e-9, "最大ランクに丸める")
+        XCTAssertEqual(SkillSystem.cost(for: try skill(.skill1), hero: hero, rank: 0), 30 * mult, accuracy: 1e-9, "1 に丸める")
+        XCTAssertEqual(SkillSystem.cost(for: try skill(.skill2), hero: hero, rank: 2), 33)
+        XCTAssertEqual(SkillSystem.cost(for: try skill(.ultimate), hero: hero, rank: 1),
+                       try skill(.ultimate).cost * mult, accuracy: 1e-9)
+        // numbers の cost も同じ値（HUD・ツールチップ）
+        var w = SkillWorld()
+        let k = w.addHero("H002", team: .blue, at: skillArena, level: 12, ranks: [2, 1, 1], facing: 0)
+        let stats = w.s.units[k].stats
+        XCTAssertEqual(SkillCatalog.numbers(for: try skill(.skill1), hero: hero, rank: 2, stats: stats).cost, 40 * mult,
+                       accuracy: 1e-9)
+        XCTAssertEqual(SkillCatalog.numbers(for: try skill(.skill2), hero: hero, rank: 1, stats: stats).cost, 33)
+        XCTAssertEqual(SkillCatalog.genericNumbers(for: try skill(.skill2), hero: hero, rank: 1, stats: stats).cost,
+                       try skill(.skill2).cost * mult, accuracy: 1e-9)
+        // 検証: 足りなければ撃てず、ちょうどなら撃てて、その値だけ消費する（ランク 2 のスキル1 = 40 × 0.6）
+        let need = 40 * mult
+        w.s.units[k].resource = need - 0.5
+        XCTAssertFalse(SkillSystem.canCast(w.s, w.ctx, heroIndex: k, slot: .skill1))
+        XCTAssertFalse(w.cast(k, .skill1, .direction(Vec2(1, 0))))
+        w.s.units[k].resource = need
+        XCTAssertTrue(SkillSystem.canCast(w.s, w.ctx, heroIndex: k, slot: .skill1))
+        XCTAssertTrue(w.cast(k, .skill1, .direction(Vec2(1, 0))))
+        XCTAssertEqual(w.s.units[k].resource, 0, accuracy: 1e-9)
+        w.s.units[k].resource = 100
+        XCTAssertTrue(w.cast(k, .skill2, .direction(Vec2(1, 0))))
+        XCTAssertEqual(w.s.units[k].resource, 67, accuracy: 1e-9)
+        // 練習場の CD なしはコストも 0
+        var free = SkillWorld(noCooldowns: true)
+        let f = free.addHero("H002", team: .blue, at: skillArena, level: 12, ranks: [2, 1, 1], facing: 0)
+        free.s.units[f].resource = 100
+        XCTAssertTrue(free.cast(f, .skill1, .direction(Vec2(1, 0))))
+        XCTAssertEqual(free.s.units[f].resource, 100, accuracy: 1e-9)
+    }
+
+    func testKitlessCostEqualsGenericForEverySkillAndRank() throws {
+        HeroKits.testOverride = []
+        for hero in MasterData.shared.heroes where !HeroKits.hasKit(hero.heroID) {
+            for skill in MasterData.shared.skills(forHero: hero.heroID) {
+                for rank in 0...5 {
+                    XCTAssertEqual(SkillSystem.cost(for: skill, hero: hero, rank: rank),
+                                   SkillSystem.cost(for: skill, resource: hero.resource), "\(hero.heroID) \(skill.slot)")
+                }
+            }
+        }
+    }
+
+    func testTagsComeFromTheKitTextAndDefaultToEmpty() {
+        HeroKits.testOverride = [CostKit(heroID: "H002")]
+        XCTAssertEqual(KitText(ja: "a", en: "b").tags, [])
+        XCTAssertEqual(HeroKits.tags(heroID: "H002", slot: .skill1), ["aoe", "slow"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H002", slot: .skill2), [], "text が無いスロットは空")
+        XCTAssertEqual(HeroKits.tags(heroID: "H001", slot: .skill1), [], "キットが無いヒーローは空")
+        XCTAssertEqual(KitTag.all, ["buff", "aoe", "slow", "clash", "disrupt", "burst", "mobility", "heal", "shield",
+                                    "control", "stun", "pull", "execute"])
+        // 既存のテキストの検証に影響しない（テンプレートの埋め込みは tags と無関係）
+        let text = KitText(ja: "x{damage}", en: "y", tags: [KitTag.buff])
+        var n = SkillNumbers()
+        n.damage = 5
+        XCTAssertEqual(text.filled(english: false, numbers: n, targeting: SkillTargeting(archetype: .passive, aim: .none,
+                                                                                          range: 0, radius: 0)), "x5")
+    }
+
 
     func testRecastWindowRoutesWithoutCooldownOrCostAndCloses() throws {
         var w = SkillWorld()

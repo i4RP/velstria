@@ -44,15 +44,37 @@ public struct KitBadge: Hashable, Sendable {
     }
 }
 
+/// スキルのタグ（UI の「範囲技・減速」などのチップ。安定した小文字のキー）。
+public enum KitTag {
+    public static let buff = "buff"
+    public static let aoe = "aoe"
+    public static let slow = "slow"
+    public static let clash = "clash"
+    public static let disrupt = "disrupt"
+    public static let burst = "burst"
+    public static let mobility = "mobility"
+    public static let heal = "heal"
+    public static let shield = "shield"
+    public static let control = "control"
+    public static let stun = "stun"
+    public static let pull = "pull"
+    public static let execute = "execute"
+    /// 使ってよいキー（テストが検証する）。
+    public static let all: [String] = [buff, aoe, slow, clash, disrupt, burst, mobility, heal, shield, control, stun, pull, execute]
+}
+
 /// スキル説明（ja / en のテンプレート）。`{damage} {total} {hits} {shield} {heal} {range} {radius} {cd} {x0}..{x3}` と、
 /// extras の `KitStat.key` で引く `{key}` を sim の数値で埋める（説明文の数値と sim をずらさない）。
 public struct KitText: Hashable, Sendable {
     public var ja: String
     public var en: String
+    /// UI のタグのキー（`KitTag`。表示順）。既定は空。
+    public var tags: [String]
 
-    public init(ja: String, en: String) {
+    public init(ja: String, en: String, tags: [String] = []) {
         self.ja = ja
         self.en = en
+        self.tags = tags
     }
 
     public func template(english: Bool) -> String { english ? en : ja }
@@ -146,8 +168,28 @@ public enum HeroKits {
     public static func numbers(for skill: SkillDef, hero: HeroDef, rank: Int, stats: Stats, stage: Int = 0) -> SkillNumbers {
         let base = SkillCatalog.genericNumbers(for: skill, hero: hero, rank: rank, stats: stats)
         guard let kit = kit(for: hero.heroID) else { return base }
-        return kit.numbers(slot: skill.slot, stage: stage, skill: skill, hero: hero,
-                           rank: min(max(1, rank), max(1, skill.slot.maxRank)), stats: stats, base: base)
+        let r = min(max(1, rank), max(1, skill.slot.maxRank))
+        var n = kit.numbers(slot: skill.slot, stage: stage, skill: skill, hero: hero, rank: r, stats: stats, base: base)
+        // コストはキットの cost（既定 = 汎用の値のまま）が決める。発動の検証・HUD・ボットと同じ値
+        n.cost = kit.cost(slot: skill.slot, rank: r, skill: skill, hero: hero, base: n.cost)
+        return n
+    }
+
+    /// ランク込みの実効コスト。base = 汎用の実効コスト（Energy 倍率込み）。キットが無ければ base のまま。
+    public static func cost(for skill: SkillDef, hero: HeroDef, rank: Int, base: Double) -> Double {
+        guard let kit = kit(for: hero.heroID) else { return base }
+        return kit.cost(slot: skill.slot, rank: min(max(1, rank), max(1, skill.slot.maxRank)), skill: skill, hero: hero,
+                        base: base)
+    }
+
+    /// キットが「Mana 基準の素の値」を返すときのためのヘルパ。Energy のヒーローには energyCostMultiplier を掛ける。
+    public static func resourceCost(_ raw: Double, hero: HeroDef) -> Double {
+        hero.resource == .energy ? raw * Balance.energyCostMultiplier : raw
+    }
+
+    /// UI のタグ（`KitTag` のキー）。キットが無い・タグが無ければ空。
+    public static func tags(heroID: String, slot: SkillSlot) -> [String] {
+        kit(for: heroID)?.text(slot: slot)?.tags ?? []
     }
 
     /// 再使用の窓が開いていればその段、なければ 0（通常の発動）。
