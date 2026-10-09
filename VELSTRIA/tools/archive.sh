@@ -103,6 +103,11 @@ fi
 if [[ -n "${BUILD_NUMBER:-}" ]]; then
     ARCHIVE_ARGS+=(CURRENT_PROJECT_VERSION="$BUILD_NUMBER")
 fi
+# TESTER_TOOLS=1（内部テスト用の配信ビルド）: 引き換えコードで全ヒーローを解放する設定欄を有効にする（App/Core/TesterAccess.swift）。
+# App Store 用のアーカイブでは付けない（隠し機能を含めない）。
+if [[ "${TESTER_TOOLS:-}" == "1" ]]; then
+    ARCHIVE_ARGS+=('SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) TESTER_TOOLS')
+fi
 xcodebuild archive "${ARCHIVE_ARGS[@]}"
 
 # 4) 書き出し（Team ID を入れた一時コピーを使う。元の plist は編集しない）

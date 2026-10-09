@@ -122,7 +122,8 @@ final class AppModel: FriendProfileAccess {
 
     init(persistence: PersistenceService = PersistenceService()) {
         self.persistence = persistence
-        let loaded = persistence.loadProfile() ?? Profile()
+        var loaded = persistence.loadProfile() ?? Profile()
+        TesterAccess.applyIfUnlocked(to: &loaded, master: MasterData.shared)
         self.profile = loaded
         self.storeKit = StoreKitService()
         self.audio = AudioService()
