@@ -104,6 +104,8 @@ final class SkillFXPlayer {
         var stolenMeshes = 0
         var peakEmitters = 0
         var peakMeshes = 0
+        var droppedCues = 0
+        var peakPending = 0
     }
     private(set) var stats = Stats()
 
@@ -114,10 +116,12 @@ final class SkillFXPlayer {
         root.name = "skillfx"
         emits.reserveCapacity(64)
         meshInsts.reserveCapacity(128)
-        pending.reserveCapacity(128)
+        pending.reserveCapacity(BattleWorkBudget.pendingCues)
     }
 
     func apply(quality q: RenderQuality) { quality = q }
+
+    var pendingCount: Int { pending.count }
 
     var activeCount: Int { emits.count + meshInsts.count }
 
@@ -205,13 +209,23 @@ final class SkillFXPlayer {
         guard !cues.isEmpty else { return }
         stats.plays += 1
         let rank = SkillFXPlayer.qualityRank(quality)
-        for cue in cues where cue.minQuality <= rank {
-            for k in 0..<max(1, cue.count) {
+        stats.droppedCues += max(0, cues.count - BattleWorkBudget.cuesPerPlay)
+        var remaining = BattleWorkBudget.cuesPerPlay
+        for cue in cues.prefix(BattleWorkBudget.cuesPerPlay) where cue.minQuality <= rank {
+            guard remaining > 0 else { stats.droppedCues += 1; break }
+            let requested = max(1, cue.count)
+            let admitted = min(requested, remaining)
+            stats.droppedCues += requested - admitted
+            remaining -= admitted
+            for k in 0..<admitted {
                 let t = cue.at + cue.every * Float(k)
                 if t <= 0.0001 {
                     fire(cue, ctx, index: k)
-                } else {
+                } else if pending.count < BattleWorkBudget.pendingCues {
                     pending.append(Pending(time: time + t, cue: cue, ctx: ctx, index: k))
+                    stats.peakPending = max(stats.peakPending, pending.count)
+                } else {
+                    stats.droppedCues += 1
                 }
             }
         }
@@ -456,7 +470,7 @@ final class SkillFXPlayer {
 
     /// 全て止めてプールへ戻す。
     func clear() {
-        pending.removeAll()
+        pending.removeAll(keepingCapacity: true)
         while !emits.isEmpty {
             if var c = emits[emits.count - 1].emitter.entity.components[ParticleEmitterComponent.self] {
                 c.isEmitting = false

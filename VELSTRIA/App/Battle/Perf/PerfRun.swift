@@ -30,6 +30,7 @@ struct PerfReport: Codable {
     var peakFootprintMB: Double
     var peakEntities: Int
     var notes: [String]
+    var syncWork: [String: SyncWorkStats.Sample]? = nil
 }
 
 @MainActor

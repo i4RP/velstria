@@ -1,9 +1,44 @@
 import QuartzCore
+import simd
 import UIKit
 import VelstriaCore
 
 // 担当: battle-renderer。戦闘数値（ダメージ・回復・Gold）の UIKit オーバーレイ。
-// CATextLayer をプールし、毎フレーム arView.project() で 3D 位置 → 画面座標へ投影する。
+// CATextLayer をプールし、描画フレームのカメラを一度だけ読み、数値をまとめて投影する。
+
+/// Battle camera uses vertical FOV and a unit-scale world anchor. Avoid querying RealityKit
+/// for every label: those queries can synchronize with the render engine.
+struct CombatTextProjection {
+    let position: SIMD3<Float>
+    let inverseOrientation: simd_quatf
+    let viewport: CGSize
+    let focalLength: Float
+    let near: Float
+    let far: Float
+
+    init(position: SIMD3<Float>, orientation: simd_quatf, viewport: CGSize,
+         verticalFOV: Float, near: Float = 1, far: Float = 160) {
+        self.position = position
+        inverseOrientation = orientation.inverse
+        self.viewport = viewport
+        focalLength = Float(viewport.height) / (2 * tan(verticalFOV * .pi / 360))
+        self.near = near
+        self.far = far
+    }
+
+    func project(_ world: SIMD3<Float>) -> CGPoint? {
+        guard viewport.width > 0, viewport.height > 0, focalLength.isFinite else { return nil }
+        let p = inverseOrientation.act(world - position)
+        let depth = -p.z
+        guard depth >= near, depth <= far else { return nil }
+        let x = viewport.width / 2 + CGFloat(p.x * focalLength / depth)
+        let y = viewport.height / 2 - CGFloat(p.y * focalLength / depth)
+        // Keep partially visible labels at the border, but avoid offscreen layer updates.
+        guard x.isFinite, y.isFinite, x >= -80, x <= viewport.width + 80,
+              y >= -80, y <= viewport.height + 80 else { return nil }
+        return CGPoint(x: x, y: y)
+    }
+}
 
 enum CombatTextStyle: Equatable {
     /// 自分（追従ヒーロー）が与えたダメージ。

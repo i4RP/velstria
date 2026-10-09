@@ -21,6 +21,17 @@ struct RenderFrame {
     /// カメラの world 位置（HP バーの画面サイズ一定化に使う）。
     var camera: SIMD3<Float> = SIMD3(60, 10, -50)
 
+    /// nil during loading/pause; independent of team visibility and simulation.
+    var detailBounds: (min: SIMD2<Float>, max: SIMD2<Float>)?
+
+    @MainActor
+    func needsDetail(_ i: Int) -> Bool {
+        let id = state.units[i].id
+        if id == focusID || id == humanID { return true }
+        guard let detailBounds else { return true }
+        return BattleWorld.isInside(worldPosition(interpolated(i)), bounds: detailBounds)
+    }
+
     @inline(__always)
     func interpolated(_ i: Int) -> Vec2 {
         let u = state.units[i]
@@ -519,9 +530,10 @@ final class CreatureVisual {
         visibility += (target - visibility) * min(1, dt * 9)
         if abs(target - visibility) < 0.02 { visibility = target }
         applyOpacity(visibility)
-        root.isEnabled = visibility > 0.01
-        guard root.isEnabled else { return }
+        // Keep event anchors/camera tracking current even when presentation is culled.
         root.position = worldPosition(p)
+        root.isEnabled = visibility > 0.01 && f.needsDetail(i)
+        guard root.isEnabled else { return }
         let speed = Float(u.pos.distance(to: u.prevPos) / Balance.dt)
         let moving = speed > 20
         yaw = approachAngle(yaw, yawForFacing(u.facing), rate: 9, dt: dt)
@@ -762,7 +774,7 @@ final class HeroVisual {
                 modelRoot.components.set(OpacityComponent(opacity: modelOpacity))
             }
         }
-        root.isEnabled = alpha > 0.01
+        root.isEnabled = alpha > 0.01 && f.needsDetail(i)
         let p = f.interpolated(i)
         root.position = worldPosition(p)
         let speed = u.pos.distance(to: u.prevPos) / Balance.dt
@@ -777,9 +789,11 @@ final class HeroVisual {
             animState = state
             handle.setState(state)
         }
-        if root.isEnabled {
-            handle.update(dt: Double(dt), moveSpeed: dead ? 0 : speed)
+        guard root.isEnabled else {
+            updateWeaponTrails(time: f.time, dead: dead)
+            return
         }
+        handle.update(dt: Double(dt), moveSpeed: dead ? 0 : speed)
         updateWeaponTrails(time: f.time, dead: dead)
         // 足元リング・バー
         ring.isEnabled = !dead

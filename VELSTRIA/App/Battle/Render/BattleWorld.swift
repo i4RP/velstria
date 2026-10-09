@@ -10,6 +10,8 @@ import VelstriaCore
 @MainActor
 final class BattleWorld {
     let root = Entity()
+    let workStats = SyncWorkStats()
+    private var culledUnitDetails = false
     let controller: BattleController
     private(set) var settings: RenderSettings
     let materials: RenderMaterials
@@ -178,6 +180,12 @@ final class BattleWorld {
         var frame = makeFrame(dt: dt)
         frame.camera = rig.camera.position
         #endif
+        if controller.isPresentationReady && !controller.isPaused, let bounds = cullBounds {
+            let padding = SIMD2<Float>(repeating: BattleWorkBudget.unitMargin - BattleWorld.cullMargin)
+            frame.detailBounds = (bounds.min - padding, bounds.max + padding)
+        }
+        culledUnitDetails = frame.detailBounds != nil
+        let live = controller.isPresentationReady && !controller.isPaused
         syncedViewer = frame.viewerTeam
         hasSyncedViewer = true
         let probe = PerfProbe.shared
@@ -189,29 +197,33 @@ final class BattleWorld {
             shakeRequest = 0
         }
         t = probe.start()
-        map.update(dt: dt)
+        workStats.measure(.map, live: live) { map.update(dt: dt) }
         probe.stop(.map, t)
         t = probe.start()
-        units.sync(frame)
+        workStats.measure(.units, live: live) { units.sync(frame) }
         flushMuzzles(frame)
         probe.stop(.units, t)
-        t = probe.start()
-        projectiles.sync(frame, heightOf: { [units] id in units.headHeight(id) },
-                         launchPoint: { [units] id in units.hero(id)?.handle.attackLaunchPoint() })
-        probe.stop(.projectiles, t)
-        t = probe.start()
-        zones.sync(frame)
-        probe.stop(.zones, t)
-        t = probe.start()
-        vfx.update(dt: dt)
-        updateChannelLoops(frame)
-        probe.stop(.vfx, t)
-        t = probe.start()
-        skillDirector.update(dt: dt, state: frame.state)
-        probe.stop(.skillFX, t)
-        t = probe.start()
-        effekseer?.update(dt: dt, state: frame.state)
-        probe.stop(.effekseer, t)
+        workStats.measure(.projectiles, live: live) {
+            t = probe.start()
+            projectiles.sync(frame, heightOf: { [units] id in units.headHeight(id) },
+                             launchPoint: { [units] id in units.hero(id)?.handle.attackLaunchPoint() })
+            probe.stop(.projectiles, t)
+            t = probe.start()
+            zones.sync(frame)
+            probe.stop(.zones, t)
+        }
+        workStats.measure(.effects, live: live) {
+            t = probe.start()
+            vfx.update(dt: dt)
+            updateChannelLoops(frame)
+            probe.stop(.vfx, t)
+            t = probe.start()
+            skillDirector.update(dt: dt, state: frame.state)
+            probe.stop(.skillFX, t)
+            t = probe.start()
+            effekseer?.update(dt: dt, state: frame.state)
+            probe.stop(.effekseer, t)
+        }
         #if DEBUG
         if let demo = skillDirector.demo {
             let t = time
@@ -245,16 +257,21 @@ final class BattleWorld {
         probe.stop(.aim, t)
         t = probe.start()
         syncFogVision()
-        fog?.update(state: frame.state, dt: dt)
+        workStats.measure(.fog, live: live) { fog?.update(state: frame.state, dt: dt) }
         probe.stop(.fog, t)
         t = probe.start()
         flushHealText(dt: dt, frame: frame)
         probe.stop(.text, t)
     }
 
-    func updateOverlay(dt: Float) {
+    func updateOverlay(dt: Float, rig: CameraRig) {
         guard let overlay, let arView else { return }
-        overlay.update(dt: dt) { p in arView.project(p) }
+        guard overlay.activeCount > 0 else { return }
+        let camera = rig.camera
+        let projection = CombatTextProjection(position: camera.position, orientation: camera.orientation,
+                                             viewport: arView.bounds.size, verticalFOV: CameraRig.fovDegrees,
+                                             near: camera.camera.near, far: camera.camera.far)
+        overlay.update(dt: dt, project: projection.project)
     }
 
     // MARK: 不連続（シーク・再同期）
@@ -1009,6 +1026,14 @@ final class BattleWorld {
     /// 一時停止中（sync が呼ばれない）に観戦者が視点チームを切り替えた: 描画を一度だけ同期して見え方・ゾーンの色を合わせ、
     /// 霧は落ち着くまで更新を続ける（停止中は sim が変わらないので、落ち着いた後は何もしない）。
     private func refreshVisionWhilePaused(rig: CameraRig, dt: Float) {
+        // A paused free camera can visit anywhere without advancing the simulation.
+        // Release viewport culling once; do not leave distant entities disabled.
+        if culledUnitDetails {
+            var frame = makeFrame(dt: 0)
+            frame.camera = rig.camera.position
+            units.sync(frame)
+            culledUnitDetails = false
+        }
         if !hasSyncedViewer || syncedViewer != controller.viewerTeam {
             // 見え方のフェードを一度で終える長さ（フェードは dt × 9 で進む）
             sync(events: [], dt: 0.25, rig: rig)

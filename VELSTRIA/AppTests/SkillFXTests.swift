@@ -147,6 +147,26 @@ final class SkillFXTests: XCTestCase {
 
     // MARK: 再使用の段（キット層）
 
+    func testCosmeticCueQueueIsBoundedAndRecoversAfterOverload() {
+        let player = SkillFXPlayer(quality: .preset(.low))
+        let ctx = SkillFXPlayer.Context(palette: .from(RGB(1, 1, 1)), origin: .zero,
+                                       caster: .zero, target: .zero, forward: [0, 0, -1])
+        var cue = FXCue.shake(0.1, at: 1)
+        cue.count = 100_000
+        for _ in 0..<20 { player.play([cue], ctx) }
+        XCTAssertEqual(player.pendingCount, BattleWorkBudget.pendingCues)
+        XCTAssertGreaterThan(player.stats.droppedCues, 0)
+        var fired = 0
+        player.onShake = { _, _ in fired += 1 }
+        player.update(dt: 2)
+        XCTAssertEqual(fired, BattleWorkBudget.pendingCues)
+        XCTAssertEqual(player.pendingCount, 0)
+        player.play([.shake(0.1)], ctx)
+        XCTAssertEqual(fired, BattleWorkBudget.pendingCues + 1)
+        player.clear()
+        XCTAssertEqual(player.pendingCount, 0)
+    }
+
     /// 段の演出を持つ（持たない）テスト用のヒーロー定義。
     private enum StagedSet: HeroFXSet {
         static let palette = FXPalette.from(RGB(1, 0.2, 0.2))

@@ -44,8 +44,8 @@ if [[ "$SKIP_BUILD" == "0" ]]; then
     echo "==> $CONFIG シミュレータビルド（SCREENSHOTS で起動引数を有効化）"
     xcodegen generate --quiet
     xcodebuild -project VELSTRIA.xcodeproj -scheme VELSTRIA -configuration "$CONFIG" \
-        -destination 'generic/platform=iOS Simulator' -derivedDataPath "$DERIVED" \
-        build CODE_SIGNING_ALLOWED=NO 'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) SCREENSHOTS' -quiet
+        -destination "platform=iOS Simulator,name=$DEVICE" -derivedDataPath "$DERIVED" \
+        build ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO 'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) SCREENSHOTS' -quiet
 fi
 [[ -d "$APP" ]] || { echo "error: $APP がありません（--skip-build を外す）" >&2; exit 1; }
 
@@ -96,6 +96,8 @@ print(f"device {r['device']} iOS {r['os']} {r['build']} quality={r['quality']} {
 print(f"load {r['loadMs']:.0f} ms (warmup {r['warmupMs']:.0f} ms, {r['warmupFrames']} frames)  peak {r['peakFootprintMB']:.0f} MB, entities {r['peakEntities']}")
 print(f"frame p50 {f['p50Ms']:.1f} p95 {f['p95Ms']:.1f} p99 {f['p99Ms']:.1f} max {f['maxMs']:.1f} ms  hitches {f['hitches']} ({f['hitchRatio']:.1f} ms/s)")
 print(f"work  p50 {f['workP50Ms']:.2f} p95 {f['workP95Ms']:.2f} p99 {f['workP99Ms']:.2f} max {f['workMaxMs']:.1f} ms  (sim {f['simAvgMs']:.2f} sync {f['syncAvgMs']:.2f} overlay {f['overlayAvgMs']:.2f})")
+for name, sample in sorted((r.get('syncWork') or {}).items()):
+    print(f"  {name}: avg {sample['totalMs'] / max(1, sample['calls']):.3f} ms, max {sample['maxMs']:.2f} ms")
 print(f"assets created while live: {sum(l['live'].values())} {l['live']}  (loading: {l['loading']})")
 for s in l["liveSamples"][:20]:
     print("   ", s)

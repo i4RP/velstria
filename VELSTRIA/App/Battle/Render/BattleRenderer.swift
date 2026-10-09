@@ -368,7 +368,7 @@ final class BattleRenderer {
                 let small = PresentationEpochs.showsFrameStepEvents(from: syncedTick, to: controller.state.tick)
                 syncedTick = controller.state.tick
                 world.sync(events: small ? pendingEvents : [], dt: Float(dt), rig: rig)
-                if small { world.updateOverlay(dt: 0) }
+                if small { world.updateOverlay(dt: 0, rig: rig) }
             }
             pendingEvents.removeAll(keepingCapacity: true)
             world.updateCamera(rig: rig, dt: Float(dt), snap: false)
@@ -399,7 +399,7 @@ final class BattleRenderer {
         followSun()
         probe.stop(.camera, tc)
         let t2 = CACurrentMediaTime()
-        world.updateOverlay(dt: Float(dt))
+        world.updateOverlay(dt: Float(dt), rig: rig)
         let t3 = CACurrentMediaTime()
         if probe.enabled { probe.stop(.overlay, t2) }
         frameStats.record(frameDt: deltaTime, sim: t1 - t0, sync: t2 - t1, overlay: t3 - t2)
@@ -573,7 +573,7 @@ final class BattleRenderer {
                        quality: "\(settings.quality.level)", frameRate: settings.frameRate, speed: speed,
                        requestedSeconds: run.seconds, loadMs: loadMs, warmupMs: warmupMs, warmupFrames: frames,
                        frame: frameStats.summary(), ledger: AssetLedger.snapshot(), thermalStates: thermal,
-                       peakFootprintMB: footprint, peakEntities: entities, notes: notes)
+                       peakFootprintMB: footprint, peakEntities: entities, notes: notes, syncWork: world?.workStats.summary)
         }
     }
     #endif
@@ -593,7 +593,13 @@ final class BattleRenderer {
         #if DEBUG
         if let world, dt > 0 { dt = debugEffekseerDemo(fx, world: world, dt: dt) }
         #endif
-        fx.render(camera: rig.camera, host: view, dt: dt)
+        if let world {
+            world.workStats.measure(.effekseer, live: controller.isPresentationReady && !controller.isPaused) {
+                fx.render(camera: rig.camera, host: view, dt: dt)
+            }
+        } else {
+            fx.render(camera: rig.camera, host: view, dt: dt)
+        }
     }
 
     #if DEBUG
