@@ -1,0 +1,35 @@
+name: Diagnose core tests
+
+# コアのテスト（swift test）だけを回し、失敗した行をチェックの注釈（annotations）に出す診断用。
+# ログのダウンロードには認証が要るが、注釈は認証なしで読めるので、落ちたテスト名を確認できる。
+# 配信はしない。diag-core-tests ブランチへの push と手動実行でだけ動く。
+on:
+  push:
+    branches: [diag-core-tests]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    name: コアのテスト（診断）
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ツール準備
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -n 1)"
+
+      - name: コアのテスト
+        working-directory: VELSTRIA/Packages/VelstriaCore
+        run: |
+          set +e
+          swift test -c release 2>&1 | tee "$RUNNER_TEMP/core-test.log"
+          status=${PIPESTATUS[0]}
+          # 失敗行（コンパイルエラー・XCTest の失敗）を注釈にする
+          grep -E "error:|: failed|Fatal error|Executed [0-9]+ tests" "$RUNNER_TEMP/core-test.log" \
+            | sed 's/%/%25/g' | cut -c1-900 | sort -u | head -60 \
+            | while IFS= read -r line; do echo "::error title=core-test::${line}"; done
+          exit "$status"
