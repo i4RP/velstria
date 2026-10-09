@@ -330,6 +330,9 @@ struct SkillFXRecipe: Sendable {
     var travel: [FXCue] = []
     var impact: [FXCue] = []
     var hit: [FXCue] = []
+    /// hit を被弾 1 回ごとに再生するか。既定（false）では、キットのヒーローの多段ヒットのスキル（連続ダメージ・複数の波）は
+    /// 同じ相手へ hit を 0.9 秒に 1 回だけ再生する（SkillFXDirector.hitInterval）。1 発ごとに出したい短い演出だけ true。
+    var hitPerHit = false
 
     var all: [FXCue] { cast + telegraph + travel + impact + hit }
     var isEmpty: Bool { cast.isEmpty && telegraph.isEmpty && travel.isEmpty && impact.isEmpty && hit.isEmpty }

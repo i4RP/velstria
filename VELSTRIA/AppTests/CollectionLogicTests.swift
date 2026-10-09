@@ -105,6 +105,11 @@ final class CollectionLogicTests: XCTestCase {
                 let hero = try XCTUnwrap(master.hero(skill.heroID))
                 let n = SkillMath.numbers(skill, hero: hero, rank: 1)
                 let text = SkillMath.description(skill, hero: hero)
+                // キットのスキルの説明はキットの文（HeroKits.text）。数値の置き換えは testKitDescriptions で確認する
+                if let kit = SkillMath.kitDescription(skill, hero: hero, english: lang == .en) {
+                    XCTAssertEqual(text, kit, "\(lang) \(skill.skillID)")
+                    continue
+                }
                 let main = n.damage > 0 ? n.damage : n.heal
                 XCTAssertTrue(text.contains(CollectionStyle.number(main, digits: 0)), "\(lang) \(skill.skillID): \(text)")
                 if n.heal > 0 {
@@ -119,6 +124,77 @@ final class CollectionLogicTests: XCTestCase {
         let mirea = try XCTUnwrap(master.hero("H004"))
         let zone = try XCTUnwrap(master.skill("SK004_5"))
         XCTAssertTrue(SkillMath.description(zone, hero: mirea).contains("指定地点"))
+    }
+
+    /// キット（ヒーロー固有スキル）のヒーローの説明文は HeroKits.text から。プレースホルダが残らず、日英で違い、
+    /// キットの無いヒーローは従来の文のまま。
+    func testKitDescriptionsComeFromTheKit() throws {
+        let kitHeroes = master.heroes.map(\.heroID).filter { HeroKits.hasKit($0) }
+        try XCTSkipIf(kitHeroes.isEmpty, "有効なキットが無い")
+        defer { Loc.current = .ja }
+        for id in kitHeroes {
+            let hero = try XCTUnwrap(master.hero(id))
+            for slot in SkillSlot.allCases {
+                guard let skill = master.skill(hero: id, slot: slot), HeroKits.text(heroID: id, slot: slot) != nil else { continue }
+                let ja = try XCTUnwrap(SkillMath.kitDescription(skill, hero: hero, english: false), "\(id) \(slot)")
+                let en = try XCTUnwrap(SkillMath.kitDescription(skill, hero: hero, english: true), "\(id) \(slot)")
+                for text in [ja, en] {
+                    XCTAssertFalse(text.contains("{"), "\(id) \(slot): 置き換わっていない: \(text)")
+                    XCTAssertFalse(text.isEmpty, "\(id) \(slot)")
+                }
+                XCTAssertNotEqual(ja, en, "\(id) \(slot)")
+                Loc.current = .ja
+                XCTAssertEqual(SkillMath.description(skill, hero: hero), ja, "\(id) \(slot): 説明はキットの日本語")
+                Loc.current = .en
+                XCTAssertEqual(SkillMath.description(skill, hero: hero), en, "\(id) \(slot): 説明はキットの英語")
+            }
+        }
+        // キットの無いヒーローはキットの説明を持たない（従来の生成文）
+        let plain = try XCTUnwrap(master.heroes.first { !HeroKits.hasKit($0.heroID) })
+        let skill = try XCTUnwrap(master.skill(hero: plain.heroID, slot: .skill1))
+        XCTAssertNil(SkillMath.kitDescription(skill, hero: plain, english: false))
+    }
+
+    /// H027（ジャルド。常に有効なキット）の説明は、sim の数値で埋めた文。
+    func testKitDescriptionFillsSimulationNumbers() throws {
+        let hero = try XCTUnwrap(master.hero("H027"))
+        try XCTSkipUnless(HeroKits.hasKit("H027"))
+        let s1 = try XCTUnwrap(master.skill(hero: "H027", slot: .skill1))
+        let n = SkillMath.numbers(s1, hero: hero, rank: 1)
+        let ja = try XCTUnwrap(SkillMath.kitDescription(s1, hero: hero, english: false))
+        XCTAssertTrue(ja.contains(String(Int(n.damage.rounded()))), ja)
+        XCTAssertTrue(ja.contains("跳ね上げ"), ja)
+        let en = try XCTUnwrap(SkillMath.kitDescription(s1, hero: hero, english: true))
+        XCTAssertTrue(en.contains("Spear"), en)
+        // パッシブもキットの文（ロール別の汎用文ではない）
+        let passive = try XCTUnwrap(master.skill(hero: "H027", slot: .passive))
+        Loc.current = .ja
+        XCTAssertNotEqual(SkillMath.description(passive, hero: hero), SkillMath.passiveText(role: hero.role, heroNumber: hero.number))
+    }
+
+    /// キットのヒーローの CD・ランク表の列は、キットの数値から。
+    func testKitCooldownAndFiguresFollowKitNumbers() throws {
+        try XCTSkipUnless(HeroKits.hasKit("H027"))
+        let hero = try XCTUnwrap(master.hero("H027"))
+        let ult = try XCTUnwrap(master.skill(hero: "H027", slot: .ultimate))
+        XCTAssertEqual(SkillMath.cooldown(ult, hero: hero, rank: 1), SkillMath.numbers(ult, hero: hero, rank: 1).cooldown,
+                       accuracy: 1e-9)
+        // 奥義は自己強化（ダメージなし）: 0 の列を出さない
+        let t = SkillCatalog.targeting(for: ult, hero: hero)
+        XCTAssertEqual(SkillMath.figures(ult, hero: hero, archetype: t.archetype), [])
+        // キットの無いヒーローは従来どおり
+        let plain = try XCTUnwrap(master.heroes.first { !HeroKits.hasKit($0.heroID) })
+        let sk = try XCTUnwrap(master.skill(hero: plain.heroID, slot: .skill1))
+        XCTAssertEqual(SkillMath.cooldown(sk, hero: plain, rank: 2), SkillMath.cooldown(sk, rank: 2), accuracy: 1e-9)
+        let pt = SkillCatalog.targeting(for: sk, hero: plain)
+        XCTAssertEqual(SkillMath.figures(sk, hero: plain, archetype: pt.archetype), SkillMath.figures(pt.archetype))
+    }
+
+    func testShapeNames() {
+        XCTAssertNil(SkillMath.shapeName(.auto))
+        for shape in [AimShape.fan, .wideLine, .circleAtPoint, .selfRing, .lockOn, .dashToPoint] {
+            XCTAssertFalse((SkillMath.shapeName(shape) ?? "").isEmpty, "\(shape)")
+        }
     }
 
     func testPassiveCoefficientAndText() throws {

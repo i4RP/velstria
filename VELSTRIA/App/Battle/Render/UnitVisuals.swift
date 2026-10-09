@@ -60,6 +60,14 @@ final class StatusIndicators {
     private var slow: ModelEntity?
     private var bubble: ModelEntity?
     private var recall: ModelEntity?
+    /// キット層の表示（docs/SKILL_KITS.md「App 統合」）: 頭上のマークの記号 / 氷の殻（凍結）/ 氷の誇りの準備完了の輪。
+    /// ヒーローは生成時に作る。ミニオン・モンスターは最初に付いた時に作る（付くことが少ないので全員分は持たない）。
+    private var mark: ModelEntity?
+    /// 記号に今付けている色の所有者のヒーロー ID（変わったらマテリアルだけ差し替える）。
+    private var markHero: String?
+    private var iceShell: ModelEntity?
+    private var iceGlass: ModelEntity?
+    private var iceRing: ModelEntity?
     /// 帰還リングの今の色（帰還 = チーム色、転移 = 紫）。色が変わったらマテリアルだけ差し替える。
     private var recallColorTeam: Team?
     private let meshes: UnitMeshLibrary
@@ -73,9 +81,19 @@ final class StatusIndicators {
     static let bubbleColor = RGB(0.72, 0.9, 1.0)
     static let bubbleAlpha = 0.2
     static let recallAlpha = 0.9
+    /// 氷の殻・氷の誇りの輪の色。
+    static let iceColor = RGB(0.72, 0.92, 1.0)
+    static let iceGlassAlpha = 0.3
+    static let iceReadyAlpha = 0.8
+    /// 氷の誇りの「準備できた」輪の半径（チームの輪 0.72・追従の輪 0.98・帰還の輪より外）。
+    static let iceReadyRadius: Float = 1.12
+    /// マークの記号の頭上の高さ（頭の高さからの上乗せ。HP バーより上）。
+    static let markLift: Float = 0.8
 
     /// recallTeam: 詠唱できるユニット（ヒーロー）のチーム。指定すると帰還リングも事前に作る。
-    init(meshes: UnitMeshLibrary, materials: RenderMaterials, headHeight: Float, size: Float, recallTeam: Team? = nil) {
+    /// iceReady: 氷の誇り（H031）のヒーロー。「準備できた」輪を事前に作る。
+    init(meshes: UnitMeshLibrary, materials: RenderMaterials, headHeight: Float, size: Float, recallTeam: Team? = nil,
+         iceReady: Bool = false) {
         self.meshes = meshes
         self.materials = materials
         self.headHeight = headHeight
@@ -87,7 +105,12 @@ final class StatusIndicators {
         // なったり霧の板より上に出たりした）。等倍拡大のまま原点を下げるので氷の結晶の比率は変わらない
         slow = make(meshes.slowRing, glow: true, y: GroundLayer.statusRing - UnitMeshLibrary.slowRingY * size, scale: size)
         bubble = makeBubble()
-        if let recallTeam { recall = makeRecall(recallTeam) }
+        if let recallTeam {
+            recall = makeRecall(recallTeam)
+            mark = makeMark("")
+            makeIce()
+        }
+        if iceReady { iceRing = makeIceRing() }
         reset()
     }
 
@@ -98,9 +121,15 @@ final class StatusIndicators {
 
     struct Flags: Equatable {
         var stunned = false
+        /// 行動不能のうち H031 の凍結（氷の殻で表す。回る星は出さない）。
+        var frozen = false
         var rooted = false
         var slowed = false
         var shielded = false
+        /// 頭上に出すマークの記号（所有者のヒーローの色）。
+        var mark: KitStatusVisuals.MarkGlyph?
+        /// 氷の誇りが使える（H031 のパッシブのバッジが「準備できた」）。誰からも見える足元の細い氷の輪。
+        var iceReady = false
         var recallTeam: Team?
     }
 
@@ -108,20 +137,26 @@ final class StatusIndicators {
         var f = Flags()
         for s in u.statuses {
             switch s.kind {
-            case .stun, .airborne: f.stunned = true
+            case .stun, .airborne, .suppress:
+                f.stunned = true
+                if KitStatusVisuals.isFreeze(s) { f.frozen = true }
             case .root: f.rooted = true
             case .slow: f.slowed = true
             default: break
             }
         }
         f.shielded = u.isAlive && !u.shields.isEmpty && u.totalShield > 1
+        if u.hero != nil {
+            f.iceReady = KitStatusVisuals.showsIceReady(of: u)
+        }
+        if !u.statuses.isEmpty { f.mark = KitStatusVisuals.markGlyph(in: u.statuses) }
         if let ch = u.hero?.channel { f.recallTeam = ch.kind == .recall ? u.team : .neutral }
         return f
     }
 
     func update(_ f: Flags, dt: Float) {
         t += dt
-        if f.stunned, let e = stun {
+        if f.stunned && !f.frozen, let e = stun {
             e.isEnabled = true
             e.orientation = simd_quatf(angle: t * 4.5, axis: [0, 1, 0])
         } else { stun?.isEnabled = false }
@@ -133,6 +168,35 @@ final class StatusIndicators {
             e.isEnabled = true
             e.orientation = simd_quatf(angle: -t * 1.2, axis: [0, 1, 0])
         } else { slow?.isEnabled = false }
+        if f.frozen {
+            if iceShell == nil { makeIce() }
+            if let shell = iceShell, let glass = iceGlass {
+                shell.isEnabled = true
+                glass.isEnabled = true
+                let pulse = 1 + sin(t * 2.4) * 0.015
+                shell.scale = SIMD3(size, headHeight * 0.9, size) * pulse
+            }
+        } else {
+            iceShell?.isEnabled = false
+            iceGlass?.isEnabled = false
+        }
+        if let m = f.mark {
+            let e = mark ?? makeMark(m.heroID)
+            mark = e
+            if markHero != m.heroID {
+                markHero = m.heroID
+                e.model?.materials = [markMaterial(m.heroID)]
+            }
+            e.isEnabled = true
+            e.position.y = headHeight + StatusIndicators.markLift + sin(t * 3) * 0.04
+            e.orientation = simd_quatf(angle: t * 2.4, axis: [0, 1, 0])
+            e.scale = SIMD3(repeating: KitStatusVisuals.markScale(stacks: m.stacks))
+        } else { mark?.isEnabled = false }
+        if f.iceReady, let e = iceRing {
+            e.isEnabled = true
+            let s = 1 + sin(t * 2.6) * 0.025
+            e.scale = [s, 1, s]
+        } else { iceRing?.isEnabled = false }
         if f.shielded, let e = bubble {
             e.isEnabled = true
             let pulse = 1 + sin(t * 3.2) * 0.025
@@ -183,9 +247,52 @@ final class StatusIndicators {
         return e
     }
 
+    /// マークの記号の材質（所有者のヒーローの色の単色。不透明なので描画順の問題がない）。
+    private func markMaterial(_ heroID: String) -> UnlitMaterial {
+        materials.unlit(KitStatusVisuals.markColor(heroID: heroID), alpha: 1)
+    }
+
+    private func makeMark(_ heroID: String) -> ModelEntity {
+        AssetLedger.record(.entity, "status mark")
+        let e = ModelEntity(mesh: meshes.markGlyph ?? meshes.unitSphere, materials: [markMaterial(heroID)])
+        e.position.y = headHeight + StatusIndicators.markLift
+        e.isEnabled = false
+        root.addChild(e)
+        markHero = heroID
+        return e
+    }
+
+    /// 氷の殻（結晶の輪 + 半透明の氷の膜）。
+    private func makeIce() {
+        AssetLedger.record(.entity, "status ice")
+        let shell = ModelEntity(mesh: meshes.iceShell ?? meshes.unitSphere, materials: [materials.glow])
+        shell.scale = SIMD3(size, headHeight * 0.9, size)
+        shell.isEnabled = false
+        root.addChild(shell)
+        let glass = ModelEntity(mesh: meshes.unitSphere,
+                                materials: [materials.unlit(StatusIndicators.iceColor, alpha: StatusIndicators.iceGlassAlpha)])
+        glass.position.y = headHeight * 0.5
+        glass.scale = SIMD3(size * 0.9, headHeight * 0.58, size * 0.9)
+        glass.isEnabled = false
+        root.addChild(glass)
+        iceShell = shell
+        iceGlass = glass
+    }
+
+    private func makeIceRing() -> ModelEntity {
+        AssetLedger.record(.entity, "status iceReady")
+        let e = ModelEntity(mesh: meshes.ring(radius: StatusIndicators.iceReadyRadius, thickness: 0.05) ?? meshes.unitSphere,
+                            materials: [materials.unlit(StatusIndicators.iceColor, alpha: StatusIndicators.iceReadyAlpha)])
+        e.position.y = GroundLayer.castRing
+        OverlayOrder.apply(e, OverlayOrder.castRing)
+        e.isEnabled = false
+        root.addChild(e)
+        return e
+    }
+
     /// ウォームアップの陳列用: 全ての表示を出す（reset で戻す）。
     func showAllForWarmup() {
-        for e in [stun, rootFX, slow, bubble, recall] { e?.isEnabled = true }
+        for e in [stun, rootFX, slow, bubble, recall, mark, iceShell, iceGlass, iceRing] { e?.isEnabled = true }
         bubble?.scale = SIMD3(size * 0.95, headHeight * 0.62, size * 0.95)
         recall?.scale = [size * 1.25, 1, size * 1.25]
     }
@@ -196,6 +303,10 @@ final class StatusIndicators {
         slow?.isEnabled = false
         bubble?.isEnabled = false
         recall?.isEnabled = false
+        mark?.isEnabled = false
+        iceShell?.isEnabled = false
+        iceGlass?.isEnabled = false
+        iceRing?.isEnabled = false
     }
 }
 
@@ -530,7 +641,8 @@ final class HeroVisual {
     private var yaw: Float = 0
     var visibility: Float = 1
     private var opacityApplied: Float = 1
-    private var brushOpacity: Float = 1
+    /// モデル本体（modelRoot）の不透明度。草むらの中の自分とステルス中の自分・味方で下げる（HP バー・足元リングは薄くしない）。
+    private var modelOpacity: Float = 1
     private var castUntil: Float = -1
     private var castSlot: SkillSlot = .skill1
     private var attackUntil: Float = -1
@@ -587,7 +699,7 @@ final class HeroVisual {
         bar.root.position.y = handle.overheadHeight + 0.45
         root.addChild(bar.root)
         status = StatusIndicators(meshes: meshes, materials: materials, headHeight: handle.overheadHeight, size: 0.85,
-                                  recallTeam: u.team)
+                                  recallTeam: u.team, iceReady: h?.heroID == KitStatusVisuals.freezeHeroID)
         root.addChild(status.root)
         yaw = yawForFacing(u.facing)
         root.position = worldPosition(u.pos)
@@ -636,14 +748,18 @@ final class HeroVisual {
         let alpha = visibility * deathFade
         applyOpacity(alpha)
         // 草むらの中では操作中のヒーロー本体だけを薄くし、HP バー・足元リングは読みやすく保つ。
+        // ステルス中は自分・味方（と観戦）にだけ薄く見せる。敵の視点では何も変えない（敵のステルスは視界の判定で消える）。
         let brushTarget: Float = id == f.humanID && f.viewerTeam != nil && !dead && u.brushIndex != nil ? 0.65 : 1
-        if brushOpacity != brushTarget {
-            brushOpacity += (brushTarget - brushOpacity) * min(1, dt * 9)
-            if abs(brushTarget - brushOpacity) < 0.005 { brushOpacity = brushTarget }
-            if brushOpacity == 1 {
+        let stealthTarget = KitStatusVisuals.stealthOpacity(stealthed: u.has(.stealth), dead: dead, unitTeam: u.team,
+                                                            viewerTeam: f.viewerTeam)
+        let modelTarget = min(brushTarget, stealthTarget)
+        if modelOpacity != modelTarget {
+            modelOpacity += (modelTarget - modelOpacity) * min(1, dt * 9)
+            if abs(modelTarget - modelOpacity) < 0.005 { modelOpacity = modelTarget }
+            if modelOpacity == 1 {
                 modelRoot.components.remove(OpacityComponent.self)
             } else {
-                modelRoot.components.set(OpacityComponent(opacity: brushOpacity))
+                modelRoot.components.set(OpacityComponent(opacity: modelOpacity))
             }
         }
         root.isEnabled = alpha > 0.01
@@ -721,7 +837,7 @@ final class HeroVisual {
                           ended: Bool, winner: Team?) -> HeroAnimState {
         if u.hero?.isDead == true || !u.isAlive { return .dead }
         if ended, let winner, winner == u.team { return .victory }
-        if u.statuses.contains(where: { $0.kind == .stun || $0.kind == .airborne }) { return .stunned }
+        if u.statuses.contains(where: { $0.kind == .stun || $0.kind == .airborne || $0.kind == .suppress }) { return .stunned }
         if u.hero?.channel != nil { return .channel }
         if time < castUntil { return .cast(castSlot) }
         if u.windupRemaining != nil || time < attackUntil { return .attack }

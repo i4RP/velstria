@@ -137,10 +137,11 @@ final class Kit_H030Tests: XCTestCase {
             let hi = SkillCatalog.numbers(for: skill(slot), hero: def, rank: slot.maxRank, stats: stats)
             XCTAssertGreaterThan(hi.damage, lo.damage, "\(slot)")
         }
-        // S2 に減速は無い（ライラ: 説明に減速の記載なし）
+        // S2 の爆発には軽い減速（30%・1 秒）が付く
         let n2 = SkillCatalog.numbers(for: skill(.skill2), hero: def, rank: 1, stats: stats)
-        XCTAssertEqual(n2.cc, .none)
-        XCTAssertEqual(n2.ccDuration, 0)
+        XCTAssertEqual(n2.cc, .slow)
+        XCTAssertEqual(n2.ccDuration, T.orbSlowDuration)
+        XCTAssertEqual(n2.extras.first { $0.key == "slow" }?.value ?? 0, 30, accuracy: 1e-9)
     }
 
     // MARK: - パッシブ（遠星の照準）
@@ -413,7 +414,12 @@ final class Kit_H030Tests: XCTestCase {
         }
         XCTAssertEqual(w.damage(to: c), 0, "爆発の外")
         XCTAssertEqual(markStacks(w, owner: k, on: c), 0)
-        XCTAssertFalse(w.s.units[a].has(.slow), "減速なし")
+        for e in [a, b, behind] {
+            let slow = try XCTUnwrap(w.s.units[e].statuses.first { $0.tag == T.orbSlowTag }, "爆発の中は 30% の減速")
+            XCTAssertEqual(slow.kind, .slow)
+            XCTAssertEqual(slow.magnitude, T.orbSlow, accuracy: 1e-9)
+        }
+        XCTAssertFalse(w.s.units[c].has(.slow))
         // 刻印は 3 秒で消える
         w.run(seconds: 3.1)
         XCTAssertEqual(markStacks(w, owner: k, on: a), 0)
@@ -421,10 +427,10 @@ final class Kit_H030Tests: XCTestCase {
     }
 
     func testOrbRangeGrowsWithUltimateRankAndBombBuffAndBurstsOnMinionsFirst() {
-        // 900 先: 常時延長だけ（650 + 60）では届かず、S1 の一時延長（+140）が乗ると届く
+        // 1000 先: 常時延長だけ（650 + 60）では届かず（射程の端 710 の爆発も半径 190 の外）、S1 の一時延長（+140）が乗ると届く
         var w = SkillWorld()
         let k = addRaina(&w)
-        let e = w.addDummyEnemy(at: skillArena + Vec2(900, 0))
+        let e = w.addDummyEnemy(at: skillArena + Vec2(1000, 0))
         w.tick()
         XCTAssertTrue(w.cast(k, .skill2, .direction(Self.east)))
         XCTAssertEqual(w.castEvents.last?.range ?? 0, 710, accuracy: 1e-9)
@@ -433,7 +439,7 @@ final class Kit_H030Tests: XCTestCase {
 
         var w2 = SkillWorld()
         let k2 = addRaina(&w2)
-        let e2 = w2.addDummyEnemy(at: skillArena + Vec2(900, 0))
+        let e2 = w2.addDummyEnemy(at: skillArena + Vec2(800, 0))
         w2.tick()
         Kit.grantAttackRange(&w2.s, target: k2, amount: 140, duration: 3, tag: T.s1RangeTag)
         XCTAssertTrue(w2.cast(k2, .skill2, .direction(Self.east)))
@@ -451,6 +457,141 @@ final class Kit_H030Tests: XCTestCase {
         XCTAssertGreaterThan(w3.damage(to: minion, from: .skill(.skill2)), 0)
         XCTAssertGreaterThan(w3.damage(to: hero, from: .skill(.skill2)), 0, "爆発の半径内")
         XCTAssertEqual(markStacks(w3, owner: k3, on: hero), 1)
+    }
+
+    func testOrbExplodesAtMaxRangeWhenNothingIsHit() throws {
+        // 射程の端（650 + 60）の少し脇に敵: 弾は当たらず飛び去るが、端で爆発して巻き込む
+        var w = SkillWorld()
+        let k = addRaina(&w)
+        let edge = skillArena + Vec2(710, 0)
+        let near = w.addDummyEnemy(at: edge + Vec2(0, 150))
+        let far = w.addDummyEnemy(at: edge + Vec2(0, 400), hero: "H004")
+        let n = w.numbers(k, .skill2)
+        w.tick()
+        XCTAssertTrue(w.cast(k, .skill2, .direction(Self.east)))
+        XCTAssertEqual(Kit.scheduledCount(w.s, caster: k, code: T.Code.orbEnd), 1)
+        w.run(seconds: 1.2)
+        let evs = damageEvents(w, to: near, .skill(.skill2))
+        XCTAssertEqual(evs.count, 1, "射程の端の爆発に 1 度だけ")
+        XCTAssertEqual(evs[0].amount, w.mitigated(n.damage * distanceMultiplier(w.s.units[near].pos.distance(to: skillArena)), .physical, on: near), accuracy: 0.01)
+        XCTAssertEqual(markStacks(w, owner: k, on: near), 1, "刻印も付く")
+        XCTAssertEqual(w.s.units[near].statuses.first { $0.tag == T.orbSlowTag }?.magnitude ?? 0, T.orbSlow, accuracy: 1e-9)
+        XCTAssertEqual(w.damage(to: far), 0, "爆発の外")
+        XCTAssertEqual(Kit.scheduledCount(w.s, caster: k, code: T.Code.orbEnd), 0, "予約は使い切る")
+        // 誰も居なくても何も壊れない
+        var w2 = SkillWorld()
+        let k2 = addRaina(&w2)
+        XCTAssertTrue(w2.cast(k2, .skill2, .direction(Self.east)))
+        w2.run(seconds: 1.5)
+        XCTAssertTrue(w2.damageEvents.isEmpty)
+        XCTAssertEqual(Kit.scheduledCount(w2.s, caster: k2), 0)
+    }
+
+    func testOrbThatHitsSomethingDoesNotExplodeAgainAtTheEnd() {
+        var w = SkillWorld()
+        let k = addRaina(&w)
+        let e = w.addDummyEnemy(at: skillArena + Vec2(300, 0))
+        // 端の爆発の位置（710）にも別の敵: 先に当たった爆発（300 の位置）の外
+        let atEdge = w.addDummyEnemy(at: skillArena + Vec2(710, 100), hero: "H004")
+        w.tick()
+        XCTAssertTrue(w.cast(k, .skill2, .direction(Self.east)))
+        w.run(seconds: 1.5)
+        XCTAssertEqual(damageEvents(w, to: e, .skill(.skill2)).count, 1)
+        XCTAssertEqual(w.damage(to: atEdge), 0, "命中で消えた弾は端で再び爆発しない")
+        XCTAssertEqual(Kit.scheduledCount(w.s, caster: k, code: T.Code.orbEnd), 0)
+    }
+
+    func testOrbEndExplosionSurvivesTheCastersStun() {
+        // 発動後にスタンされても、放たれた弾は飛んで端で爆発する
+        var w = SkillWorld()
+        let k = addRaina(&w)
+        let near = w.addDummyEnemy(at: skillArena + Vec2(710, 150))
+        w.tick()
+        XCTAssertTrue(w.cast(k, .skill2, .direction(Self.east)))
+        w.tick(2)
+        CombatSystem.addStatus(&w.s, targetIndex: k, StatusEffect(kind: .stun, duration: 0.5))
+        w.run(seconds: 1.2)
+        XCTAssertGreaterThan(w.damage(to: near, from: .skill(.skill2)), 0)
+    }
+
+    func testBeamReachesEverywhereAlongTheLineAtHighSpeedWithoutTunneling() {
+        // 速さ 7000（1 tick ≒ 233）でも、線上のどの距離の敵にも 1 度ずつ当たる（掃引判定）
+        XCTAssertEqual(T.ultBeamSpeed, 7000)
+        XCTAssertEqual(T.ultWindup, 0.2)
+        var w = SkillWorld()
+        let k = addRaina(&w)
+        var es: [Int] = []
+        for (n, d) in [130.0, 233, 466, 777, 1111, 1500, 1990].enumerated() {
+            es.append(w.addDummyEnemy(at: skillArena + Vec2(d, 0), hero: ["H003", "H004", "H005", "H006", "H007", "H008", "H009"][n]))
+        }
+        XCTAssertTrue(w.cast(k, .ultimate, .direction(Self.east)))
+        w.run(seconds: T.ultWindup + 2000 / T.ultBeamSpeed + 0.15)
+        for e in es { XCTAssertEqual(damageEvents(w, to: e, .skill(.ultimate)).count, 1) }
+        // 溜めが短く、ビームが速いので、遠くの敵にも 0.5 秒以内に届く
+        XCTAssertLessThan(T.ultWindup + 2000 / T.ultBeamSpeed, 0.5)
+    }
+
+    // MARK: - ボット
+
+    func testBotUltimateAimLeadsAMovingTargetByWindupPlusFlightTime() throws {
+        var w = SkillWorld()
+        let k = addRaina(&w)
+        let e = w.addDummyEnemy(at: skillArena + Vec2(700, 0))
+        var blue = BotTeamIntel(team: .blue)
+        blue.enemyIDs = [w.id(e)]
+        blue.velocity = [Vec2(0, 300)]
+        blue.visibleSince = [0]
+        blue.lastSeenPos = [w.s.units[e].pos]
+        blue.lastSeenTime = [0]
+        blue.lastSeenTick = [0]
+        blue.awayUntil = [-999]
+        w.s.bots.teams = [blue, BotTeamIntel(team: .red)]
+        let kit = try XCTUnwrap(HeroKits.kit(of: w.s.units[k]))
+        let tg = HeroKits.targeting(for: skill(.ultimate), hero: def, stage: 0)
+        guard case .cast(.direction(let d)) = kit.botCast(w.s, w.ctx, bot: k, slot: .ultimate, targeting: tg, target: e,
+                                                          fighting: true) else {
+            return XCTFail("ビームは先読みして撃つ")
+        }
+        XCTAssertGreaterThan(d.y, 0.02, "動く先（+y）へ先読み")
+        XCTAssertEqual(d.length, 1, accuracy: 1e-9)
+        // 先読みは 溜め + 距離 ÷ 速さ（約 0.3 秒）× 精度。汎用の見積もり（約 0.54 秒）よりずっと小さい
+        let travel = T.ultWindup + 700 / T.ultBeamSpeed
+        let lead = 300 * travel * BotProfile.of(.normal).accuracy
+        XCTAssertEqual(d.y / d.x, lead / 700, accuracy: 0.003)
+        // 観測が無ければ（速度 0）まっすぐ
+        w.s.bots.teams[0].velocity = [.zero]
+        guard case .cast(.direction(let d0)) = kit.botCast(w.s, w.ctx, bot: k, slot: .ultimate, targeting: tg, target: e,
+                                                           fighting: true) else { return XCTFail() }
+        XCTAssertEqual(d0.y, 0, accuracy: 1e-9)
+        // 射程の外は撃たない。他のスロットは汎用のまま
+        w.s.units[e].pos = skillArena + Vec2(2600, 0)
+        guard case .skip = kit.botCast(w.s, w.ctx, bot: k, slot: .ultimate, targeting: tg, target: e, fighting: true) else {
+            return XCTFail("射程外は見送り")
+        }
+        guard case .useDefault = kit.botCast(w.s, w.ctx, bot: k, slot: .skill2, targeting: tg, target: e, fighting: true)
+        else { return XCTFail() }
+    }
+
+    func testTextUsesUITermsMasterNamesAndExplainsDistance() throws {
+        let stats = HeroGrowth.baseStats(def: def, level: 6)
+        for slot in SkillSlot.allCases {
+            let text = try XCTUnwrap(HeroKits.text(heroID: "H030", slot: slot))
+            let n = SkillCatalog.numbers(for: skill(slot), hero: def, rank: 1, stats: stats)
+            let t = SkillCatalog.targeting(for: skill(slot), hero: def)
+            let ja = text.filled(english: false, numbers: n, targeting: t)
+            XCTAssertFalse(ja.contains("S1") || ja.contains("S2") || ja.contains("奥義"), "\(slot): \(ja)")
+            XCTAssertFalse(ja.contains("星環シフト") || ja.contains("星環弾"), "\(slot): \(ja)")
+            if slot == .passive {
+                XCTAssertTrue(ja.contains("基本射程"), ja)
+                XCTAssertTrue(ja.contains("550"), ja)
+                XCTAssertTrue(ja.contains("1.4倍"), ja)
+            }
+            if slot == .skill1 { XCTAssertTrue(ja.contains("アルティメット"), ja) }
+            if slot == .skill2 {
+                XCTAssertTrue(ja.contains("射程の端で爆発"), ja)
+                XCTAssertTrue(ja.contains("30%の減速"), ja)
+            }
+        }
     }
 
     // MARK: - 刻印の炸裂（スタン 0.25 秒）
@@ -597,7 +738,7 @@ final class Kit_H030Tests: XCTestCase {
         XCTAssertEqual(cast.duration, T.ultWindup)
         XCTAssertEqual(cast.range, 2000)
         XCTAssertEqual(Kit.scheduledCount(w.s, caster: k, code: T.Code.beam), 1)
-        w.run(seconds: 0.2)
+        w.run(seconds: 0.1)
         XCTAssertTrue(w.damageEvents.isEmpty, "溜めの間は当たらない")
         w.run(seconds: 1.2)
         for (e, d) in [(e1, 400.0), (e2, 900), (e3, 1600)] {

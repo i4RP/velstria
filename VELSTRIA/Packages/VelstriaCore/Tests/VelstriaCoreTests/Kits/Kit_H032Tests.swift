@@ -124,13 +124,15 @@ final class Kit_H032Tests: XCTestCase {
     }
 
     /// 1 スロットの単体総ダメージは汎用の 0.8〜1.3 倍（アビス強化の版も含めて）。
+    /// 例外: S1 の通常版だけは 0.65 以上。アビス強化（合計の 1.4 倍 = 0.98）・クールダウン短縮・円撃が上乗せされ、
+    /// 0.82 倍だと 1v1 の総当たりで汎用の Duelist より約 20pt 強く出たので 0.70 倍にした（docs/kits/Dyrroth.md の「バランス」）。
     func testNumbersStayWithinDamageBudgetAndFollowCooldownFormula() throws {
         for level in [1, 6, 12] {
             for rank in 1...Balance.basicSkillMaxRank {
                 // S1: 通常版と、アビス強化（合計の 140%）
                 let (s1, g1) = try numbers(.skill1, level: level, rank: rank)
                 let r1 = s1.totalDamage / g1.totalDamage
-                XCTAssertTrue((0.8...1.3).contains(r1), "S1 Lv\(level) r\(rank): \(r1)")
+                XCTAssertTrue((0.65...1.3).contains(r1), "S1 Lv\(level) r\(rank): \(r1)")
                 let abyss1 = try XCTUnwrap(s1.extras.first { $0.key == "abyssTotal" }).value / g1.totalDamage
                 XCTAssertTrue((0.8...1.3).contains(abyss1), "S1 abyss Lv\(level) r\(rank): \(abyss1)")
                 XCTAssertEqual(abyss1 / r1, Tune.abyssBurstMultiplier, accuracy: 1e-9)
@@ -236,13 +238,38 @@ final class Kit_H032Tests: XCTestCase {
         var (w, k) = world()
         setRage(&w, k, 49)
         let hero = w.s.units[k].hero!
-        XCTAssertEqual(HeroKits.badge(hero, slot: .passive), KitBadge(kind: .stacks, value: 49, maxValue: 100))
+        // パッシブのバッジは 50 ごとに 1 段（0〜2）: 演出はバッジが増えた瞬間にだけ出るので、毎秒のレイジでは増えない
+        XCTAssertEqual(HeroKits.badge(hero, slot: .passive), KitBadge(kind: .stacks, value: 0, maxValue: 2))
         XCTAssertNil(HeroKits.badge(hero, slot: .skill1))
         setRage(&w, k, 50)
         let ready = w.s.units[k].hero!
+        XCTAssertEqual(HeroKits.badge(ready, slot: .passive), KitBadge(kind: .stacks, value: 1, maxValue: 2))
         XCTAssertEqual(HeroKits.badge(ready, slot: .skill1)?.kind, .form)
         XCTAssertEqual(HeroKits.badge(ready, slot: .skill2)?.kind, .form)
         XCTAssertNil(HeroKits.badge(ready, slot: .ultimate))
+        setRage(&w, k, 99.9)
+        XCTAssertEqual(HeroKits.badge(w.s.units[k].hero!, slot: .passive)?.value, 1)
+        setRage(&w, k, 100)
+        XCTAssertEqual(HeroKits.badge(w.s.units[k].hero!, slot: .passive), KitBadge(kind: .stacks, value: 2, maxValue: 2))
+    }
+
+    /// レイジが 0 → 100 まで毎 tick 増える間に、パッシブのバッジが変わるのは 50 と 100 の 2 回だけ（演出のスパム防止）。
+    func testPassiveBadgeChangesOnlyAtThresholdsWhileRageBuilds() {
+        var (w, k) = world(level: 12)
+        var values: [Int] = [HeroKits.badge(w.s.units[k].hero!, slot: .passive)!.value]
+        for _ in 0..<(30 * 40) {
+            w.tick()
+            let v = HeroKits.badge(w.s.units[k].hero!, slot: .passive)!.value
+            if v != values.last { values.append(v) }
+            if kit(w, k).diasRage >= Tune.rageMax { break }
+        }
+        XCTAssertEqual(values, [0, 1, 2])
+        // 使って 50 を消費すると 1 つ減る
+        XCTAssertGreaterThanOrEqual(kit(w, k).diasRage, Tune.rageMax)
+        let e = addEnemy(&w, dx: 200)
+        XCTAssertTrue(w.cast(k, .skill1, east))
+        XCTAssertEqual(HeroKits.badge(w.s.units[k].hero!, slot: .passive)?.value, 1)
+        _ = e
     }
 
     // MARK: - パッシブ: 円撃（Circle Strike）
@@ -301,9 +328,9 @@ final class Kit_H032Tests: XCTestCase {
     }
 
     func testCircleStrikeHealsMaxHealthFractionAndHalvesAgainstMinionsAndTowers() {
-        // 敵ヒーロー: 最大 HP の割合（Lv1 は 4.2%、最大レベルは 6%。MLBB の 7〜10% の 0.6 倍）
-        XCTAssertEqual(Kit_H032.circleHealRatio(level: 1), 0.042, accuracy: 1e-9)
-        XCTAssertEqual(Kit_H032.circleHealRatio(level: Balance.maxLevel), 0.06, accuracy: 1e-9)
+        // 敵ヒーロー: 最大 HP の割合（Lv1 は 3%、最大レベルは 4%。MLBB の 7〜10% の 0.4 倍前後）
+        XCTAssertEqual(Kit_H032.circleHealRatio(level: 1), 0.03, accuracy: 1e-9)
+        XCTAssertEqual(Kit_H032.circleHealRatio(level: Balance.maxLevel), 0.04, accuracy: 1e-9)
         var (w, k) = world()
         let e = addEnemy(&w, dx: 140)
         w.s.units[k].hp = w.s.units[k].stats.maxHP * 0.3
@@ -873,9 +900,9 @@ final class Kit_H032Tests: XCTestCase {
     func testAbysmHitsEveryEnemyOnTheLineButNotOutsideItAndMinionsGetNoLostHealthBonus() {
         var (w, k) = world()
         let near = addEnemy(&w, dx: 200)
-        let far = addEnemy(&w, dx: 440, dy: 40, hero: "H003")         // 射程 420 + 半径の縁
-        let off = addEnemy(&w, dx: 300, dy: 200, hero: "H004")         // 線の外
-        let beyond = addEnemy(&w, dx: 800, hero: "H005")
+        let far = addEnemy(&w, dx: 640, dy: 40, hero: "H003")         // 線の終わりの丸い端の内側
+        let off = addEnemy(&w, dx: 300, dy: 260, hero: "H004")         // 線の外（半幅 140 + 半径）
+        let beyond = addEnemy(&w, dx: 950, hero: "H005")
         let behind = addEnemy(&w, dx: -260, hero: "H006")              // 線の始点の丸い端（半幅 + 半径）より後ろ
         let m = w.addMinion(team: .red, at: skillArena + Vec2(250, -60))
         w.s.units[m].hp = w.s.units[m].stats.maxHP * 0.2
@@ -915,6 +942,123 @@ final class Kit_H032Tests: XCTestCase {
         w2.run(seconds: 1.0)
         XCTAssertEqual(skillHits(w2, on: e2, .ultimate).count, 0, "制圧された奥義は不発")
         XCTAssertGreaterThan(cooldown(w2, k2, .ultimate), 0, "クールダウンは戻らない")
+    }
+
+    /// 射程 650・半幅 140: 420 を超えて届くが、650 + 半径の外・半幅の外には当たらない。
+    func testAbysmStrikeReachesSixHundredFiftyWithHalfWidthOneForty() throws {
+        XCTAssertEqual(Tune.ultReach, 650)
+        XCTAssertEqual(Tune.ultHalfWidth, 140)
+        let r = Balance.heroRadius
+        var (w, k) = world()
+        let inside = addEnemy(&w, dx: 600, dy: 0)
+        let wide = addEnemy(&w, dx: 300, dy: 140 + r - 6, hero: "H003")       // 半幅の縁
+        let outsideWide = addEnemy(&w, dx: 300, dy: 140 + r + 40, hero: "H004")
+        let tip = addEnemy(&w, dx: 650 + r - 6, dy: 0, hero: "H005")          // 先端の縁
+        let past = addEnemy(&w, dx: 650 + r + 60, dy: 0, hero: "H006")
+        for e in [inside, wide, outsideWide, tip, past] { shieldUp(&w, e) }
+        XCTAssertTrue(w.cast(k, .ultimate, east))
+        w.run(seconds: 0.8)
+        XCTAssertEqual(skillHits(w, on: inside, .ultimate).count, 1)
+        XCTAssertEqual(skillHits(w, on: wide, .ultimate).count, 1)
+        XCTAssertEqual(skillHits(w, on: outsideWide, .ultimate).count, 0)
+        XCTAssertEqual(skillHits(w, on: tip, .ultimate).count, 1)
+        XCTAssertEqual(skillHits(w, on: past, .ultimate).count, 0)
+        // 照準の寸法（AimLayer の帯・FX の線の長さ）は同じ値
+        let t = HeroKits.targeting(for: try XCTUnwrap(MasterData.shared.skill(hero: "H032", slot: .ultimate)),
+                                   hero: try XCTUnwrap(MasterData.shared.hero("H032")), stage: 0)
+        XCTAssertEqual(t.range, 650)
+        XCTAssertEqual(t.radius, 140)
+    }
+
+    // MARK: - ボット
+
+    private func botTargeting(_ slot: SkillSlot) throws -> SkillTargeting {
+        HeroKits.targeting(for: try XCTUnwrap(MasterData.shared.skill(hero: "H032", slot: slot)),
+                           hero: try XCTUnwrap(MasterData.shared.hero("H032")), stage: 0)
+    }
+
+    /// 奥義: 交戦中の敵ヒーローが射程の手前に居れば関門を待たずに撃ち、溜めの間の動きを読んだ向きにする。
+    func testBotUltimateCastsNowAtAnEnemyHeroAndLeadsItsMovement() throws {
+        var (w, k) = world()
+        let e = addEnemy(&w, dx: 400)
+        let t = try botTargeting(.ultimate)
+        func ask(_ target: Int, fighting: Bool = true) -> BotKitDecision {
+            HeroKits.botCast(w.s, w.ctx, bot: k, slot: .ultimate, targeting: t, target: target, fighting: fighting)
+        }
+        // 止まっている相手: 真正面（東）
+        guard case .castNow(.direction(let d0)) = ask(e) else { return XCTFail("castNow を期待") }
+        XCTAssertEqual(d0.x, 1, accuracy: 1e-6)
+        XCTAssertEqual(d0.y, 0, accuracy: 1e-6)
+        // 北へ動いている相手: 溜めの間の分だけ北寄りへ（真正面よりも y が大きい）
+        w.s.units[e].prevPos = w.s.units[e].pos - Vec2(0, 8)
+        guard case .castNow(.direction(let d1)) = ask(e) else { return XCTFail("castNow を期待") }
+        XCTAssertGreaterThan(d1.y, 0.15)
+        // 読みの長さは敵の移動速度の 0.5 秒分まで（異常に大きい移動でも射線は暴れない）
+        w.s.units[e].prevPos = w.s.units[e].pos - Vec2(0, 500)
+        guard case .castNow(.direction(let d2)) = ask(e) else { return XCTFail("castNow を期待") }
+        let maxLead = w.s.units[e].stats.moveSpeed * Tune.ultCharge
+        XCTAssertEqual(d2.y, maxLead / Vec2(400, maxLead).length, accuracy: 0.05)
+        // 交戦中でない・遠い・ミニオンは従来どおり
+        func isDefault(_ d: BotKitDecision) -> Bool { if case .useDefault = d { return true } else { return false } }
+        XCTAssertTrue(isDefault(ask(e, fighting: false)))
+        w.s.units[e].pos = skillArena + Vec2(Tune.ultBotReach + 40, 0)
+        w.s.units[e].prevPos = w.s.units[e].pos
+        XCTAssertTrue(isDefault(ask(e)))
+        let m = w.addMinion(team: .red, at: skillArena + Vec2(300, 0))
+        XCTAssertTrue(isDefault(ask(m)))
+        // 溜めている最中は新たに撃たない
+        w.s.units[e].pos = skillArena + Vec2(400, 0)
+        XCTAssertTrue(w.cast(k, .ultimate, east))
+        XCTAssertTrue(isDefault(ask(e)))
+        // 奥義以外は既定
+        for slot in [SkillSlot.skill1, .skill2] {
+            XCTAssertTrue(isDefault(HeroKits.botCast(w.s, w.ctx, bot: k, slot: slot, targeting: try botTargeting(slot),
+                                                     target: e, fighting: true)))
+        }
+    }
+
+    /// ミニオン・ジャングルへは紅蓮の踏込（S2 の 1 回目）だけ。HP が低い・敵タワーの射程なら使わない。
+    func testBotFarmAllowsOnlySkill2AndKeepsItSafe() throws {
+        var (w, k) = world()
+        let t2 = try botTargeting(.skill2)
+        let center = skillArena + Vec2(250, 0)
+        func farm(_ slot: SkillSlot) throws -> Bool {
+            HeroKits.botFarm(w.s, w.ctx, bot: k, slot: slot, targeting: try botTargeting(slot), center: center, count: 3)
+        }
+        XCTAssertTrue(try farm(.skill2))
+        XCTAssertFalse(try farm(.skill1))
+        XCTAssertFalse(try farm(.ultimate))
+        w.s.units[k].hp = w.s.units[k].stats.maxHP * 0.4
+        XCTAssertFalse(try farm(.skill2))
+        w.s.units[k].hp = w.s.units[k].stats.maxHP
+        _ = w.addTower(team: .red, at: center + Vec2(300, 0))
+        XCTAssertFalse(try farm(.skill2))
+        _ = t2
+    }
+
+    /// 説明文: パッシブはクールダウン短縮の秒数（通常攻撃・円撃 0.3 秒 / スキル 0.1 秒）を、UI の用語で書く。
+    func testPassiveTextStatesBothRefundsAndUsesUITerms() throws {
+        let (w, k) = world()
+        let hero = try XCTUnwrap(MasterData.shared.hero("H032"))
+        let sp = try XCTUnwrap(MasterData.shared.skill(hero: "H032", slot: .passive))
+        let pn = SkillCatalog.numbers(for: sp, hero: hero, rank: 1, stats: w.s.units[k].stats)
+        let ja = try XCTUnwrap(HeroKits.text(heroID: "H032", slot: .passive)).filled(
+            english: false, numbers: pn, targeting: SkillCatalog.targeting(for: sp, hero: hero))
+        XCTAssertTrue(ja.contains("\(String(format: "%g", Tune.cooldownRefund))秒"), ja)
+        XCTAssertTrue(ja.contains("\(String(format: "%g", Tune.skillCooldownRefund))秒"), ja)
+        XCTAssertTrue(ja.contains("円撃を含む"), ja)
+        for slot in SkillSlot.allCases {
+            let t = try XCTUnwrap(HeroKits.text(heroID: "H032", slot: slot))
+            for banned in ["S1", "S2", "奥義", "Skill1", "Skill2"] {
+                XCTAssertFalse(t.ja.contains(banned) || t.en.contains(banned), "\(slot): \(banned)")
+            }
+        }
+        // 奥義の説明の射程は sim の 650
+        let ult = try XCTUnwrap(MasterData.shared.skill(hero: "H032", slot: .ultimate))
+        let un = SkillCatalog.numbers(for: ult, hero: hero, rank: 1, stats: w.s.units[k].stats)
+        let uja = try XCTUnwrap(HeroKits.text(heroID: "H032", slot: .ultimate)).filled(
+            english: false, numbers: un, targeting: SkillCatalog.targeting(for: ult, hero: hero))
+        XCTAssertTrue(uja.contains("650"), uja)
     }
 
     func testAbysmUsesTheDirectionLockedAtCastTime() {

@@ -156,6 +156,13 @@ extension BattleWorld {
         out.append((StatusIndicators.bubbleColor, StatusIndicators.bubbleAlpha, true))
         out.append((StatusIndicators.teleportColor, StatusIndicators.recallAlpha, true))
         for team in Team.players { out.append((materials.teams.light(team), StatusIndicators.recallAlpha, true)) }
+        // キット層の状態表示（氷の殻・氷の誇りの輪・頭上のマークの記号。記号は所有者のヒーローごとの色）
+        out.append((StatusIndicators.iceColor, StatusIndicators.iceGlassAlpha, true))
+        out.append((StatusIndicators.iceColor, StatusIndicators.iceReadyAlpha, true))
+        out.append((KitStatusVisuals.markColor(heroID: ""), 1, true))
+        for heroID in Set(controller.state.units.compactMap { $0.hero?.heroID }).sorted() {
+            out.append((KitStatusVisuals.markColor(heroID: heroID), 1, true))
+        }
         return out
     }
 

@@ -5,17 +5,20 @@ import Foundation
 // アルカニスト（遠隔 550・マナ）。ロールの汎用パッシブ（スキル命中で他スキルの CD 短縮）を置き換える。
 //   パッシブ 超伝導        — スキルが命中した敵（ミニオンを除く）に「超伝導」の印を 5 秒付ける。
 //                            印の付いた敵に当たると各スキルに追加効果（印そのものはダメージを増やさない）。
-//   S1   Euria式・一閃     — 前方の扇に雷（ミニオンには 2 倍）。超伝導の敵に当たると 1 秒の「雷の鎖」: 移動速度 +40%・継続ダメージ・
-//                            終わりに追加ダメージ。追加ダメージが当たると S1 のクールダウンが縮む。
-//   S2   星環シフト        — 対象指定の雷球（スタン 1 秒・魔防ダウン 1.8 秒）。超伝導の敵に当たると周囲の敵にも同じ効果が広がる。
-//   奥義 九天雷鳴          — 指定地点に遅れて落ちる大雷（中心に重く、外側に半分）。超伝導の敵に当たると、その敵を中心に少し遅れて
+//   スキル1 分岐雷         — 前方の扇に雷（ミニオンには 2 倍）。超伝導の敵に当たると 1 秒の「雷の鎖」: 移動速度 +40%・継続ダメージ・
+//                            終わりに追加ダメージ。追加ダメージが当たると S1 のクールダウンが縮む。同じ相手への鎖は 3 秒に 1 回まで
+//                            （印は消費しないので、鎖が無限に繋がらないための制限）。
+//   スキル2 雷球           — 対象指定の雷球（スタン 1 秒・魔防ダウン 1.8 秒）。超伝導の敵に当たると周囲の敵にも同じダメージが広がる
+//                            （スタン・魔防ダウンはミニオンには広がらない）。
+//   アルティメット 九天雷鳴 — 指定地点に遅れて落ちる大雷（中心に重く、外側に半分）。超伝導の敵に当たると、その敵を中心に少し遅れて
 //                            雷が炸裂する（複数なら重なる）。
 // 再使用の窓は Eudora に無いので使わない。
 //
 // 状態（KitState）:
-//   timers[0] = 雷の鎖の残り秒（HUD 用）
+//   timers[0] = 雷の鎖の残り秒（HUD 用）   timers[1...4] = ids[0...3] の相手へ次の鎖を結べるまでの残り秒（相手ごとのロックアウト）
 //   ints[0] = 雷の鎖を結んだ回数   ints[1] = 鎖の終わりの一撃が当たった回数   ints[2] = 雷の炸裂を起こした回数
 //   ints[3] = 雷球が周囲へ広がった回数   ints[4] = 超伝導を付けた回数（いずれも検証用）
+//   ids[0...3] = 最近鎖を結んだ相手（4 体まで。空きが無ければ残りが最も短いものを入れ替える）
 
 extension KitState {
     var euriaChainRemaining: Double {
@@ -47,6 +50,22 @@ extension KitState {
         get { ints[4] }
         set { ints[4] = newValue }
     }
+
+    /// その相手へ次の鎖を結べるまでの残り秒（0 = 結べる）。
+    func euriaChainLockout(for id: EntityID) -> Double {
+        for k in 0..<4 where ids[k] == id && id != 0 { return timers[1 + k] }
+        return 0
+    }
+
+    /// その相手へのロックアウトを始める（既にあれば更新、空きが無ければ残りが最も短いものと入れ替える）。
+    mutating func setEuriaChainLockout(for id: EntityID, seconds: Double) {
+        var slot = (0..<4).first { ids[$0] == id }
+        if slot == nil { slot = (0..<4).first { timers[1 + $0] <= 0 } }
+        if slot == nil { slot = (0..<4).min { timers[1 + $0] < timers[1 + $1] } }
+        let k = slot ?? 0
+        ids[k] = id
+        timers[1 + k] = seconds
+    }
 }
 
 /// エウリアの調整値（docs/kits/Eudora.md の数値を Velstria の単位・TTK に合わせたもの）。
@@ -66,6 +85,10 @@ enum EuriaTuning {
     static let dotCount = 4
     static let dotInterval: Double = 0.2
     static let chainDuration: Double = 1.0
+    /// 同じ相手へは、前の鎖を結んでからこの秒数が過ぎるまで次の鎖を結ばない。印は消費しない（印のあいだ S1 が当たるたびに鎖が繋がり、
+    /// 終わりの一撃のクールダウン短縮で回り続けるのを抑える）。総当たりの勝率（アルカニスト中央値との差）は
+    /// 制限なし Lv1 +40 / Lv6 +15 / Lv12 +41 pt → 3 秒で Lv1 +4 / Lv6 +12 / Lv12 +28 pt。それ以上の秒数ではほとんど変わらない（6 秒でも同程度）。
+    static let chainLockout: Double = 3.0
     static let chainSpeed: Double = 0.40
     /// 鎖が切れる距離（調査に無い。S1 の射程 650 に余裕を足した値）。術者と対象の中心間。
     static let chainLeash: Double = 800
@@ -75,7 +98,7 @@ enum EuriaTuning {
 
     // MARK: S2（Ball Lightning）
     /// 汎用の遠隔 S2 は「ブリンク + 強化攻撃」で数値が半分になっているため、基準は元のスキル値（base ÷ empowerRatio）。
-    static let s2Ratio: Double = 0.85
+    static let s2Ratio: Double = 0.81
     static let s2Speed: Double = 1800
     static let s2Stun: Double = 1.0
     /// 魔防ダウン（固定値。調査: 10/13/16/19/22/25 の 6 段 → 4 段へ線形）と持続。
@@ -86,12 +109,13 @@ enum EuriaTuning {
     static let shredTag = KitTags.buff("H026", "shred")
 
     // MARK: 奥義（Thunder's Wrath）
-    /// 中心の敵へのダメージ ÷ 汎用の奥義（アルカニストの地点 AoE）。
-    static let ultCenterRatio: Double = 0.85
+    /// 中心の敵へのダメージ ÷ 汎用の奥義（アルカニストの地点 AoE）。0.85 → 0.82（総当たりの勝率がアルカニスト中央値より高かったため、
+    /// 鎖の再結びの制限・スキル2 0.85 → 0.81・炸裂 0.47 → 0.40 と合わせて調整）。
+    static let ultCenterRatio: Double = 0.82
     /// 外側の敵へのダメージ ÷ 中心（調査: 300〜500 に対し 600〜1000）。
     static let ultOuterRatio: Double = 0.5
     /// 超伝導の敵を中心に炸裂する雷のダメージ ÷ 中心（調査: 300〜550 に対し 600〜1000 = 約 0.5）。
-    static let burstRatio: Double = 0.47
+    static let burstRatio: Double = 0.40
     static let ultCenterRadius: Double = 150
     static let ultOuterRadius: Double = 300
     static let ultDelay: Double = 0.8
@@ -169,7 +193,8 @@ struct Kit_H026: HeroKit {
             n.extras = [KitStat(key: "chainDuration", value: T.chainDuration),
                         KitStat(key: "chainSpeed", value: T.chainSpeed * 100),
                         KitStat(key: "refund", value: T.chainRefund),
-                        KitStat(key: "dot", value: (n.damage * T.dotRatio).rounded())]
+                        KitStat(key: "dot", value: (n.damage * T.dotRatio).rounded()),
+                        KitStat(key: "lockout", value: T.chainLockout)]
         case .skill2:
             let raw = base.damage / Balance.Skills.empowerRatio
             n.damage = raw * T.s2Ratio
@@ -203,26 +228,30 @@ struct Kit_H026: HeroKit {
         case .passive:
             return KitText(
                 ja: "スキルが命中した敵（ミニオンを除く）に「超伝導」を{x0}秒付ける。超伝導の敵に当たると追加効果が起きる"
-                    + "（S1 = 雷の鎖、S2 = 周囲へ広がってスタン、奥義 = 遅れて雷が炸裂）。印そのものは威力を増やさない。",
+                    + "（分岐雷＝スキル1 は雷の鎖、雷球＝スキル2 は周囲へ広がってスタン、九天雷鳴＝アルティメットは遅れて雷が炸裂）。"
+                    + "印そのものは威力を増やさず、追加効果で消えることもない。",
                 en: "Skills that hit an enemy (minions excluded) inflict Superconductor for {x0}s. Hitting a Superconductor "
-                    + "enemy triggers an extra effect (Skill 1: a lightning chain, Skill 2: spreads and stuns nearby enemies, "
-                    + "Ultimate: a delayed Thunderburst). The mark itself adds no damage.")
+                    + "enemy triggers an extra effect (Forked Bolt / Skill 1: a lightning chain, Thunder Orb / Skill 2: spreads "
+                    + "and stuns nearby enemies, Nine Heavens Thunder / Ultimate: a delayed Thunderburst). The mark itself adds "
+                    + "no damage and is not consumed by those effects.")
         case .skill1:
             return KitText(
-                ja: "前方の扇へ雷を放ち、範囲の敵に{damage}の魔法ダメージ（ミニオンには2倍）。超伝導の敵に当たると{x0}秒の雷の鎖を結ぶ。"
-                    + "鎖の間は移動速度が{x1}%上がり、継続ダメージ（1回{x3}）を与え、終わりに{damage}の追加ダメージ。"
-                    + "追加ダメージが当たるとクールダウンが{x2}秒縮む。クールダウン{cd}秒。",
+                ja: "前方の扇へ雷を放ち、範囲の敵に{damage}の魔法ダメージ（ミニオンには2倍）。超伝導の敵に当たると{x0}秒の雷の鎖を結ぶ"
+                    + "（同じ相手には{lockout}秒に1回まで）。鎖の間は移動速度が{x1}%上がり、継続ダメージ（1回{x3}）を与え、"
+                    + "終わりに{damage}の追加ダメージ。追加ダメージが当たるとクールダウンが{x2}秒縮む。クールダウン{cd}秒。",
                 en: "Fires lightning in a fan ahead, dealing {damage} magic damage to enemies in it (double against minions). "
-                    + "Hitting a Superconductor enemy forms a {x0}s lightning chain: you gain {x1}% movement speed, it deals "
-                    + "damage over time ({x3} per tick) and {damage} more when it ends. If that final hit lands, the cooldown "
-                    + "is reduced by {x2}s. Cooldown {cd}s.")
+                    + "Hitting a Superconductor enemy forms a {x0}s lightning chain (once per {lockout}s on the same target): you "
+                    + "gain {x1}% movement speed, it deals damage over time ({x3} per tick) and {damage} more when it ends. If that "
+                    + "final hit lands, the cooldown is reduced by {x2}s. Cooldown {cd}s.")
         case .skill2:
             return KitText(
                 ja: "対象の敵へ雷球を放ち、{damage}の魔法ダメージと{x3}秒のスタン。{x1}秒間、魔法防御を{x0}下げる。"
-                    + "超伝導の敵に当たると、周囲{x2}の敵にも同じダメージ・スタン・魔防ダウンが広がる。クールダウン{cd}秒。",
+                    + "超伝導の敵に当たると、周囲{x2}の敵にも同じダメージが広がり、ヒーローとモンスターにはスタンと魔防ダウンも広がる"
+                    + "（ミニオンにはダメージのみ）。クールダウン{cd}秒。",
                 en: "Hurls an orb at a target enemy, dealing {damage} magic damage and stunning for {x3}s, and reducing "
-                    + "magic defense by {x0} for {x1}s. Hitting a Superconductor enemy spreads the same damage, stun and "
-                    + "defense reduction to enemies within {x2}. Cooldown {cd}s.")
+                    + "magic defense by {x0} for {x1}s. Hitting a Superconductor enemy spreads the same damage to enemies within "
+                    + "{x2}, and the stun and defense reduction to heroes and monsters among them (minions take damage only). "
+                    + "Cooldown {cd}s.")
         case .ultimate:
             return KitText(
                 ja: "指定地点に{x2}秒後に大雷を落とす（射程{range}）。中心（半径{x3}）の敵に{damage}、外側（半径{radius}）の敵に{x0}の魔法ダメージ。"
@@ -310,7 +339,8 @@ struct Kit_H026: HeroKit {
         case T.Event.fork:
             // 印済みの敵に当たったら鎖を結ぶ（印の付与が先ではなく、付与前の状態で判定する）
             let had = markAndReport(&s, owner: owner, target: target)
-            if had, CombatSystem.isLiving(s, owner), CombatSystem.isLiving(s, target) {
+            if had, CombatSystem.isLiving(s, owner), CombatSystem.isLiving(s, target),
+               !Self.chainLocked(s, owner: owner, target: target) {
                 startChain(&s, ctx, owner: owner, target: target)
             }
         case T.Event.orb:
@@ -358,6 +388,7 @@ struct Kit_H026: HeroKit {
                                                                 tag: T.chainSpeedTag))
         s.units[i].hero?.kit?.euriaChainRemaining = T.chainDuration
         s.units[i].hero?.kit?.euriaChains += 1
+        s.units[i].hero?.kit?.setEuriaChainLockout(for: tid, seconds: T.chainLockout)
     }
 
     func onTimer(_ s: inout SimState, _ ctx: SimContext, owner: Int, timer: KitTimer) {
@@ -417,9 +448,13 @@ struct Kit_H026: HeroKit {
             if s.units[j].pos.distanceSquared(to: c) <= reach * reach { targets.append(j) }
         }
         s.units[i].hero?.kit?.euriaSplashes += 1
+        // ミニオンにはダメージだけ（スタン・魔防ダウンは広がらない。主対象と周囲のヒーロー・モンスターには広がる）
         let p = Self.orbPayload(skill: skill, numbers: n, rank: n.rank, event: T.Event.orbSplash)
+        var damageOnly = p
+        damageOnly.statuses = []
         for j in targets {
-            CombatSystem.applyHit(&s, ctx, sourceID: s.units[i].id, team: team, targetIndex: j, payload: p, from: c)
+            CombatSystem.applyHit(&s, ctx, sourceID: s.units[i].id, team: team, targetIndex: j,
+                                  payload: s.units[j].kind == .minion ? damageOnly : p, from: c)
         }
     }
 
@@ -446,17 +481,20 @@ struct Kit_H026: HeroKit {
 
     // MARK: - D. ボット
 
+    /// 印を付けてから重い技を使う: 印の無い敵には、スキル1（雷の鎖）が実際に撃てるあいだは S1 → (S2 / アルティメット) の順にする。
+    /// 「撃てる」= クールダウンが明け、マナがあり、沈黙などでなく、敵が S1 の射程（扇）に入っていること
+    /// （撃てないのに待ち続けて、アルティメットや S2 が永久に出なくならないように）。
+    /// S2 は印が広がるので、近くに別のヒーローが居るときは印を付けてから。居なければ先に撃ってよい（S2 自身が印を付ける）。
     func botCast(_ s: SimState, _ ctx: SimContext, bot: Int, slot: SkillSlot, targeting: SkillTargeting,
                  target: Int, fighting: Bool) -> BotKitDecision {
-        guard fighting, slot != .skill1, Self.canMark(s, target) else { return .useDefault }
-        // 印を付けてから重い技を使う（S1 が撃てるなら先に S1）
+        guard fighting, slot != .skill1, s.units.indices.contains(target), Self.canMark(s, target) else { return .useDefault }
         let marked = Kit.markStacks(s, target: target, tag: Self.markTag(s, bot)) > 0
-        guard !marked, (s.units[bot].hero?.cooldown(.skill1) ?? 1) <= 0.05 else { return .useDefault }
+        guard !marked, Self.fork1Ready(s, ctx, bot: bot, target: target) else { return .useDefault }
         switch slot {
         case .ultimate:
             return .skip
         case .skill2:
-            // 周囲に敵が居るときだけ（印済みなら広がるので）
+            // 周囲に別のヒーローが居るときだけ待つ（印済みなら広がるので）
             var near = 0
             for j in s.units.indices where j != target && s.units[j].team != s.units[bot].team && !s.units[j].isStructure {
                 guard CombatSystem.isLiving(s, j), s.units[j].kind == .hero else { continue }
@@ -469,7 +507,22 @@ struct Kit_H026: HeroKit {
         }
     }
 
+    /// スキル1 が今この敵に撃てるか（クールダウン・マナ・行動可能・射程）。
+    static func fork1Ready(_ s: SimState, _ ctx: SimContext, bot: Int, target: Int) -> Bool {
+        guard SkillSystem.canCast(s, ctx, heroIndex: bot, slot: .skill1),
+              let skill = ctx.master.skill(hero: "H026", slot: .skill1), let h = s.units[bot].hero,
+              s.units[bot].resource + 1e-6 >= SkillSystem.cost(for: skill, resource: h.resourceKind) else { return false }
+        let reach = skill.range + s.units[target].radius
+        return s.units[bot].pos.distanceSquared(to: s.units[target].pos) <= reach * reach
+    }
+
     // MARK: - 部品
+
+    /// 同じ相手への鎖がまだ結び直せないか（前の鎖から chainLockout 秒以内）。
+    static func chainLocked(_ s: SimState, owner: Int, target: Int) -> Bool {
+        guard let k = s.units[owner].hero?.kit else { return false }
+        return k.euriaChainLockout(for: s.units[target].id) > 0
+    }
 
     /// 超伝導を付けられる相手（ミニオン・構造物には付かない）。
     static func canMark(_ s: SimState, _ t: Int) -> Bool {

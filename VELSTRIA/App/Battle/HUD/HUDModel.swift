@@ -440,6 +440,10 @@ final class HUDModel {
             snap.channel = HUDChannel(kind: ch.kind, remaining: (ch.remaining * 20).rounded() / 20, total: ch.total)
         }
         snap.statuses = statusIcons(u)
+        // キット層: パッシブのバッジ（スタック・タイマー。キットの無いヒーローは nil）
+        snap.passiveBadge = HUDKitDisplay.rounded(HeroKits.badge(h, slot: .passive)).flatMap {
+            HUDKitDisplay.isVisible($0) ? $0 : nil
+        }
         b.hero = snap
 
         // スキル
@@ -449,8 +453,15 @@ final class HUDModel {
             var sn = HUDSkillSnapshot(slot: slot)
             sn.skillID = sk.skillID
             let cached = targeting.indices.contains(slot.rawValue) ? targeting[slot.rawValue] : nil
-            let t = cached ?? def.map { SkillCatalog.targeting(for: sk, hero: $0) }
-                ?? SkillTargeting(archetype: .groundAoE, aim: .point, range: sk.range, radius: sk.radius)
+            // キット層: 再使用の窓が開いている間は、その段の照準（形・射程・対象指定）を使う（段 0 はキャッシュ）
+            let stage = HeroKits.activeStage(h, slot: slot)
+            let t: SkillTargeting
+            if stage > 0, let d = def {
+                t = HeroKits.targeting(for: sk, hero: d, stage: stage)
+            } else {
+                t = cached ?? def.map { SkillCatalog.targeting(for: sk, hero: $0) }
+                    ?? SkillTargeting(archetype: .groundAoE, aim: .point, range: sk.range, radius: sk.radius)
+            }
             sn.targeting = t
             sn.archetype = t.archetype
             sn.rank = h.rank(slot)
@@ -462,6 +473,10 @@ final class HUDModel {
             sn.affordable = u.resource + 0.5 >= sn.cost
             sn.silenced = u.has(.silence)
             sn.canLevel = SkillLeveling.canLevel(h, slot: slot) && canLevel(slot)
+            sn.recast = HUDKitDisplay.rounded(HeroKits.recast(h, slot: slot))
+            sn.badge = HUDKitDisplay.rounded(HeroKits.badge(h, slot: slot)).flatMap {
+                HUDKitDisplay.isVisible($0) ? $0 : nil
+            }
             b.skills[k] = sn
         }
 
@@ -563,19 +578,22 @@ final class HUDModel {
             // 練習用人形の常時可視化などの長時間の内部状態は出さない
             if st.kind == .revealed && st.duration >= 30 { continue }
             let rem = (st.remaining * 10).rounded(.up) / 10
-            if let k = icons.firstIndex(where: { $0.kind == st.kind }) {
+            // 同じ種類でもキットの凍結・固有のマークは別のアイコン（名前と記号が違う）。汎用は従来どおり種類でまとめる
+            let id = st.kind.rawValue + KitStatusVisuals.variant(kind: st.kind, tag: st.tag) * 1000
+            if let k = icons.firstIndex(where: { $0.id == id }) {
                 if rem > icons[k].remaining {
                     icons[k].remaining = rem
                     icons[k].duration = st.duration
                 }
             } else {
-                icons.append(HUDStatusIcon(id: st.kind.rawValue, kind: st.kind, remaining: rem, duration: st.duration,
-                                           isBuff: HUDSymbols.isBuff(st.kind)))
+                icons.append(HUDStatusIcon(id: id, kind: st.kind, remaining: rem, duration: st.duration,
+                                           isBuff: HUDSymbols.isBuff(st.kind), tag: st.tag))
             }
         }
         icons.sort { a, b in
             if a.isBuff != b.isBuff { return !a.isBuff }
-            return a.kind.rawValue < b.kind.rawValue
+            if a.kind != b.kind { return a.kind.rawValue < b.kind.rawValue }
+            return a.id < b.id
         }
         return Array(icons.prefix(6))
     }
@@ -1891,6 +1909,7 @@ final class HUDModel {
               let sn = skills.first(where: { $0.slot == slot }),
               let def = MasterData.shared.skill(sn.skillID),
               let heroDef = MasterData.shared.hero(hero.heroID) else { return nil }
+        // 説明文はキットのテキスト優先（SkillMath.description が HeroKits.text を引く）
         return HUDSkillTip(slot: slot, name: MasterText.skill(def), text: SkillMath.description(def, hero: heroDef))
     }
 
@@ -2002,7 +2021,7 @@ final class HUDModel {
                 message = L("倒れている間は使えません", "Unavailable while dead")
             } else if !sn.learned {
                 message = L("未習得のスキルです", "Skill not learned yet")
-            } else if sn.cooldown > 0 {
+            } else if sn.cooldown > 0 && !sn.recasting {
                 message = L("クールダウン中", "On cooldown")
             } else if sn.silenced {
                 message = L("沈黙中はスキルを使えません", "Silenced")

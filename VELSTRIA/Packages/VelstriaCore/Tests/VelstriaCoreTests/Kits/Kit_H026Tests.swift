@@ -435,11 +435,49 @@ final class Kit_H026Tests: XCTestCase {
         XCTAssertEqual(events(w, to: a, .skill(.skill1)).count, 6)
         XCTAssertEqual(events(w, to: b, .skill(.skill1)).count, 6)
         XCTAssertNil(status(w, k, .speedBoost))
-        // 鎖の途中でもう一度当てると同じ対象の鎖は張り直し（予約は増えない）
+        // 前の鎖から 3 秒以内（印が残っていても）は、同じ相手に鎖を結び直さない（鎖が無限に繋がらない）
         XCTAssertTrue(w.cast(k, .skill1, .direction(Self.east)))
-        w.run(seconds: 0.3)
+        XCTAssertEqual(kit(w, k).scheduled.count, 0, "ロックアウト中は新しい鎖なし")
+        XCTAssertEqual(kit(w, k).euriaChains, 2)
+        // 3 秒たてば再び結べる（予約は対象ごとに 1 組 = 張り直しでも増えない）
+        w.run(seconds: T.chainLockout)
+        mark(&w, owner: k, on: a)
+        mark(&w, owner: k, on: b)
         XCTAssertTrue(w.cast(k, .skill1, .direction(Self.east)))
+        XCTAssertEqual(kit(w, k).euriaChains, 4)
         XCTAssertEqual(kit(w, k).scheduled.count, 2 * (T.dotCount + 1))
+        w.run(seconds: 0.3)
+        // 再び鎖の途中で当てても、ロックアウト中なので張り直しにならない（予約は増えない。0.3 秒で継続ダメージが 1 回ずつ進んだ分だけ減っている）
+        XCTAssertTrue(w.cast(k, .skill1, .direction(Self.east)))
+        XCTAssertEqual(kit(w, k).scheduled.count, 2 * T.dotCount)
+        XCTAssertEqual(kit(w, k).euriaChains, 4)
+    }
+
+    /// 印は消費しない。鎖のロックアウトは「同じ相手」だけで、別の相手には結べる。
+    func testChainLockoutIsPerTargetAndTheMarkIsNeverConsumed() {
+        var (w, k) = world(noCooldowns: true)
+        let a = addEnemy(&w, dx: 400)
+        let b = addEnemy(&w, dx: 400, dy: 100, hero: "H003")
+        mark(&w, owner: k, on: a)
+        XCTAssertTrue(w.cast(k, .skill1, .direction(Self.east)))
+        XCTAssertEqual(kit(w, k).euriaChains, 1)
+        XCTAssertEqual(kit(w, k).euriaChainLockout(for: w.id(a)), T.chainLockout, accuracy: 0.05)
+        XCTAssertEqual(kit(w, k).euriaChainLockout(for: w.id(b)), 0, "b にはまだ鎖が無い")
+        XCTAssertTrue(marked(w, owner: k, on: a), "印は消費されない")
+        w.run(seconds: 1.2)
+        XCTAssertTrue(marked(w, owner: k, on: a))
+        // 別の相手（b は最初の S1 で印が付いている）にはすぐ結べる
+        XCTAssertTrue(marked(w, owner: k, on: b))
+        XCTAssertTrue(w.cast(k, .skill1, .direction(Self.east)))
+        XCTAssertEqual(kit(w, k).euriaChains, 2, "a はロックアウト中、b は新しい鎖")
+        XCTAssertGreaterThan(kit(w, k).euriaChainLockout(for: w.id(b)), 0)
+        // ロックアウトは自動で明ける
+        w.run(seconds: T.chainLockout + 0.1)
+        XCTAssertEqual(kit(w, k).euriaChainLockout(for: w.id(a)), 0)
+        XCTAssertEqual(kit(w, k).euriaChainLockout(for: w.id(b)), 0)
+        mark(&w, owner: k, on: a)
+        XCTAssertTrue(w.cast(k, .skill1, .direction(Self.east)))
+        XCTAssertEqual(kit(w, k).euriaChains, 4, "a と b の両方に結び直す")
     }
 
     func testChainEndRefundRespectsPracticeNoCooldowns() {
@@ -552,8 +590,14 @@ final class Kit_H026Tests: XCTestCase {
             let hits = events(w, to: e, .skill(.skill2))
             XCTAssertEqual(hits.count, 1, "\(e)")
             XCTAssertEqual(hits[0].amount, expected[idx], accuracy: 1e-6, "\(e)")
-            XCTAssertNotNil(status(w, e, .stun), "\(e)")
-            XCTAssertEqual(status(w, e, .magicShred)?.magnitude ?? 0, 10, accuracy: 1e-9, "\(e)")
+            if e == m {
+                // ミニオンにはダメージだけ（スタン・魔防ダウンは広がらない）
+                XCTAssertNil(status(w, e, .stun), "ミニオンはスタンしない")
+                XCTAssertNil(status(w, e, .magicShred), "ミニオンは魔防ダウンしない")
+            } else {
+                XCTAssertNotNil(status(w, e, .stun), "\(e)")
+                XCTAssertEqual(status(w, e, .magicShred)?.magnitude ?? 0, 10, accuracy: 1e-9, "\(e)")
+            }
         }
         XCTAssertEqual(w.damage(to: far), 0, "範囲外")
         // 広がった先にも印が付く（ミニオンを除く）
@@ -881,6 +925,81 @@ final class Kit_H026Tests: XCTestCase {
     }
 
     // MARK: - ボットの煙テスト
+
+    func testTextUsesUITermsAndMasterNames() throws {
+        let (w, k) = world(level: 6, ranks: [2, 2, 2])
+        for slot in SkillSlot.allCases {
+            let text = try XCTUnwrap(HeroKits.text(heroID: "H026", slot: slot))
+            let ja = text.filled(english: false, numbers: numbers(w, k, slot),
+                                 targeting: SkillCatalog.targeting(for: skill(slot), hero: def))
+            XCTAssertFalse(ja.contains("S1") || ja.contains("S2") || ja.contains("奥義"), "\(slot): \(ja)")
+            XCTAssertFalse(ja.contains("星環シフト") || ja.contains("Euria式"), "\(slot): \(ja)")
+            if slot == .passive {
+                XCTAssertTrue(ja.contains("分岐雷") && ja.contains("雷球") && ja.contains("九天雷鳴"), ja)
+                XCTAssertTrue(ja.contains("スキル1") && ja.contains("スキル2") && ja.contains("アルティメット"), ja)
+            }
+            if slot == .skill1 { XCTAssertTrue(ja.contains("3秒に1回"), ja) }
+            if slot == .skill2 { XCTAssertTrue(ja.contains("ミニオンにはダメージのみ"), ja) }
+        }
+    }
+
+    // MARK: - ボットの順序（印を付けてから重い技）
+
+    private func decide(_ w: SkillWorld, _ k: Int, _ slot: SkillSlot, target: Int) throws -> String {
+        let kit = try XCTUnwrap(HeroKits.kit(of: w.s.units[k]))
+        let tg = SkillCatalog.activeTargeting(w.s, caster: k, slot: slot, skill: skill(slot), hero: def)
+        switch kit.botCast(w.s, w.ctx, bot: k, slot: slot, targeting: tg, target: target, fighting: true) {
+        case .useDefault: return "default"
+        case .skip: return "skip"
+        case .cast(let t): return "cast \(t)"
+        case .castNow(let t): return "castNow \(t)"
+        }
+    }
+
+    func testBotWaitsForTheMarkOnlyWhileForkedBoltIsReallyCastable() throws {
+        var (w, k) = world(level: 12, ranks: [2, 2, 2])
+        let a = addEnemy(&w, dx: 500)
+        w.tick()
+        // S1 が撃てる（CD 明け・マナあり・扇の射程内）: 印が無ければ アルティメット を見送る
+        XCTAssertEqual(try decide(w, k, .ultimate, target: a), "skip")
+        XCTAssertEqual(try decide(w, k, .skill2, target: a), "default", "近くに別のヒーローが居なければ S2 を先に撃ってよい（S2 が印を付ける）")
+        // 近くに別のヒーローが居ると、S2 は印を付けてから（広がる）
+        let b = addEnemy(&w, dx: 500, dy: 150, hero: "H003")
+        w.tick()
+        XCTAssertEqual(try decide(w, k, .skill2, target: a), "skip")
+        // 印済みなら両方撃つ
+        mark(&w, owner: k, on: a)
+        XCTAssertEqual(try decide(w, k, .ultimate, target: a), "default")
+        XCTAssertEqual(try decide(w, k, .skill2, target: a), "default")
+        w.s.units[a].statuses.removeAll { $0.kind == .mark }
+        // S1 が CD 中: 待たずに撃つ
+        XCTAssertTrue(w.cast(k, .skill1, .direction(Self.east)))
+        XCTAssertEqual(try decide(w, k, .ultimate, target: a), "default", "S1 が CD 中は待たない")
+        XCTAssertEqual(try decide(w, k, .skill2, target: a), "default")
+        _ = b
+    }
+
+    func testBotDoesNotWaitForForkedBoltWhenItCannotFireAtThisTarget() throws {
+        // 扇（射程 650）の外: S1 は撃てないので、アルティメット（770）を待たせない
+        var (w, k) = world(level: 12, ranks: [2, 2, 2])
+        let far = addEnemy(&w, dx: 730)
+        w.tick()
+        XCTAssertEqual(try decide(w, k, .ultimate, target: far), "default", "S1 の射程外")
+        // マナ不足: S1 のコストに足りない
+        var (w2, k2) = world(level: 12, ranks: [2, 2, 2])
+        let near = addEnemy(&w2, dx: 400)
+        w2.tick()
+        XCTAssertEqual(try decide(w2, k2, .ultimate, target: near), "skip")
+        w2.s.units[k2].resource = 1
+        XCTAssertEqual(try decide(w2, k2, .ultimate, target: near), "default", "マナが無いなら待たない")
+        // 沈黙: S1 が撃てない
+        var (w3, k3) = world(level: 12, ranks: [2, 2, 2])
+        let near3 = addEnemy(&w3, dx: 400)
+        w3.tick()
+        CombatSystem.addStatus(&w3.s, targetIndex: k3, StatusEffect(kind: .silence, duration: 5))
+        XCTAssertEqual(try decide(w3, k3, .ultimate, target: near3), "default")
+        _ = (w2, w3)
+    }
 
     /// エウリアをボット（ミッド）にして通常の 10 人戦を回す。S1 / S2 / 奥義をすべて撃ち、鎖・広がり・炸裂が起き、状態が壊れない。
     func testBotSmokeCastsEverySlotAndStateStaysBounded() throws {

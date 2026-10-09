@@ -7,11 +7,12 @@ import VelstriaCore
 // sim の実際の挙動（Systems/Kits/Kit_H026.swift）に合わせた演出:
 //   パッシブ 超伝導          — 小さな雷球が身の周りを巡り、紫の電弧が走る（cast）。印の付いた敵に奥義が当たったあとの「雷の炸裂」も
 //                              この枠の telegraph（0.5 秒の収束）と impact（炸裂）で出す（炸裂のゾーンの演出 ID がパッシブ）
-//   S1 Euria式・一閃        — 前方の扇（射程 6.5m・半角 30°）へ即時に雷。中心と左右に枝分かれして走る（cast の瞬間に impact を再生）
-//                              （超伝導の敵に当たると 1 秒の雷の鎖 + 移動速度 +40% が付くが、sim は専用のイベントを出さない）
-//   S2 星環シフト           — 対象を追う雷球（travel）が当たって弾け（impact）、当たった敵ごとに痺れの輪（スタン 1 秒）と
+//   スキル1 分岐雷          — 前方の扇（射程 6.5m・半角 30°）へ即時に雷。中心と左右に枝分かれして走る（cast の瞬間に impact を再生）
+//                              超伝導の敵に当たると 1 秒の雷の鎖（移動速度 +40%）が付き、継続ダメージの 1 回ごと（0.2 秒おき 4 回 + 終わりの一撃）に
+//                              術者から相手へ走る稲妻の筋が出る（hit を hitPerHit で 1 発ごとに再生。.along で術者 → 被弾者の線上に置く）
+//   スキル2 雷球            — 対象を追う雷球（travel）が当たって弾け（impact）、当たった敵ごとに痺れの輪（スタン 1 秒）と
 //                              魔防ダウンの足元の輪（1.8 秒）が出る（hit。印済みなら周囲の敵にも広がるので、被弾者ごとに再生される）
-//   奥義 九天雷鳴           — 地点に紫の魔法陣（外側の円 = 半径 3m、内側の小さな円 = 中心の半径 1.5m）が 0.8 秒開き（telegraph）、
+//   アルティメット 九天雷鳴 — 地点に紫の魔法陣（外側の円 = 半径 3m、内側の小さな円 = 中心の半径 1.5m）が 0.8 秒開き（telegraph）、
 //                              中心に大雷、周囲に雷の柱（impact）。外側は中心の半分の威力。気絶は無い
 // SkillFXDirector はまだ stage / count / duration を読まない。
 
@@ -85,10 +86,19 @@ enum FX_H026: HeroFXSet {
                 .emit(.lineBurst(5.8, count: 14, .secondary, life: 0.45), at: 0.06, offset: [0, 0.2, 0.6]),
                 .mesh(.decal(.techCircle, 2.0, .primary, life: 0.5, spin: 120, alpha: 0.5), at: 0.1, offset: [0, 0, 5.2]),
             ]
+            // 被弾 1 回ごと（扇の最初の一撃・鎖の継続ダメージ 4 回・終わりの一撃）に、術者 → 被弾者の線上へ短い稲妻を 3 本ちらす
+            // （hit の原点は被弾者、forward = 術者 → 被弾者。.along(0) = 術者、.along(1) = 被弾者）。多くの敵に当たる扇の初撃では画質 1 以上だけ
             r.hit = [
                 .mesh(.sprite(.bolt, 1.0, .secondary, life: 0.16, grow: 1.1), offset: [0, 1.2, 0]),
+                .mesh(FXMesh.ray(.bolt, length: 2.4, width: 0.6, .core, life: 0.14).with { $0.yaw = 6 }, .along(0.3),
+                      offset: [0, 1.25, 0], quality: 1),
+                .mesh(FXMesh.ray(.bolt, length: 2.4, width: 0.6, .secondary, life: 0.14).with { $0.yaw = -6 }, at: 0.02,
+                      .along(0.62), offset: [0, 1.2, 0], quality: 1),
+                .mesh(FXMesh.ray(.bolt, length: 1.8, width: 0.5, .core, life: 0.12), at: 0.04, .along(0.9),
+                      offset: [0, 1.15, 0], quality: 1),
                 .emit(.sparks(8, speed: 5, .core, end: .primary), offset: [0, 1.0, 0]),
             ]
+            r.hitPerHit = true
         case .skill2:
             // 手元に雷球を溜めて投げ放つ
             r.cast = [

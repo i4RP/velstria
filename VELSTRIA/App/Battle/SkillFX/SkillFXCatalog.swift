@@ -13,6 +13,18 @@ protocol HeroFXSet {
     static func recipe(_ slot: SkillSlot, _ s: FXSkillInfo) -> SkillFXRecipe
     /// スロットの詠唱モーション（passive は呼ばれない）。何も積まなければ既定の動き。
     static func motion(_ slot: SkillSlot, _ m: inout MotionBuilder)
+    /// 再使用の段（SkillCastEvent.stage >= 1。キット層）ごとの演出。nil = 段で変えない（共通の recipe を使う）。
+    /// 段の演出で空の段（cast など）は、共通の演出（stage 0）で補う。
+    static func recipe(_ slot: SkillSlot, stage: Int, _ s: FXSkillInfo) -> SkillFXRecipe?
+    /// キットのパッシブのスタックを使い切った（>= 1 → 0、スキルの発動の直後）ときの「消費・解放」の演出。術者に追従して再生する。
+    /// released = 消費したスタック数。nil（既定）= 何も出さない（スタックが増えたときの演出は recipe(.passive, _).cast のまま）。
+    /// s は passive スロットの寸法。ボルグの防御・ゴルムのスタック消費など、積む演出と区別したいヒーローだけが実装する。
+    static func passiveRelease(_ s: FXSkillInfo, released: Int) -> [FXCue]?
+}
+
+extension HeroFXSet {
+    static func recipe(_ slot: SkillSlot, stage: Int, _ s: FXSkillInfo) -> SkillFXRecipe? { nil }
+    static func passiveRelease(_ s: FXSkillInfo, released: Int) -> [FXCue]? { nil }
 }
 
 enum SkillFXCatalog {
@@ -63,6 +75,37 @@ enum SkillFXCatalog {
         if r.telegraph.isEmpty { r.telegraph = generic.telegraph }
         return r
     }
+
+    /// 再使用の段（1...）の演出。ヒーローが段で変える演出を持つときだけ（無ければ nil = 共通の演出を使う）。
+    /// 空の段は共通の演出（stage 0）で補う。
+    static func stageRecipe(heroID: String, slot: SkillSlot, stage: Int, master: MasterData) -> SkillFXRecipe? {
+        guard stage > 0, let set = sets[heroID] else { return nil }
+        let s = info(heroID: heroID, slot: slot, master: master)
+        guard let r = set.recipe(slot, stage: stage, s) else { return nil }
+        return merged(r, over: recipe(heroID: heroID, slot: slot, master: master))
+    }
+
+    /// キットのパッシブのスタックの消費・解放の演出（ヒーローが持つときだけ。無ければ nil）。released = 消費したスタック数。
+    static func passiveRelease(heroID: String, released: Int, master: MasterData) -> [FXCue]? {
+        guard let set = sets[heroID] else { return nil }
+        return set.passiveRelease(info(heroID: heroID, slot: .passive, master: master), released: released)
+    }
+
+    /// 段の演出の空の段を共通の演出で補う。
+    static func merged(_ stage: SkillFXRecipe, over base: SkillFXRecipe) -> SkillFXRecipe {
+        var r = stage
+        // hit を共通の演出から借りるときは、再生の単位（1 発ごとか）も共通のものに合わせる
+        if r.hit.isEmpty { r.hitPerHit = base.hitPerHit }
+        if r.cast.isEmpty { r.cast = base.cast }
+        if r.impact.isEmpty { r.impact = base.impact }
+        if r.travel.isEmpty { r.travel = base.travel }
+        if r.hit.isEmpty { r.hit = base.hit }
+        if r.telegraph.isEmpty { r.telegraph = base.telegraph }
+        return r
+    }
+
+    /// 段の演出を探す最大の段（キットの再使用は 3 段まで）。
+    static let maxStage = 3
 
     /// スロットの詠唱モーション（無ければ nil = 既定の動き）。
     static func motion(heroID: String, slot: SkillSlot, builder: MotionBuilder) -> MotionClip? {

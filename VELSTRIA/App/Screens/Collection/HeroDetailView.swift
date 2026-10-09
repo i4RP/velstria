@@ -342,13 +342,15 @@ struct CollectionSkillCard: View {
                 }
                 Spacer(minLength: 4)
                 if skill.slot != .passive {
-                    metric(symbol: "timer", text: CollectionStyle.seconds(SkillMath.cooldown(skill, rank: 1)))
+                    metric(symbol: "timer", text: CollectionStyle.seconds(SkillMath.cooldown(skill, hero: hero, rank: 1)))
                     metric(symbol: CollectionStyle.resourceSymbol(hero.resource),
                            text: CollectionStyle.number(SkillMath.cost(skill, resource: hero.resource), digits: 0),
                            color: CollectionStyle.resourceColor(hero.resource))
-                    if skill.cc != .none {
-                        CollectionInfoTag(text: CollectionStyle.ccName(skill.cc), symbol: CollectionStyle.ccSymbol(skill.cc),
-                                          color: CollectionStyle.ccColor(skill.cc))
+                    // キットのスキルはキットの CC（マスターの汎用値ではなく numbers の cc）
+                    let cc = HeroKits.hasKit(hero.heroID) ? SkillMath.numbers(skill, hero: hero, rank: 1).cc : skill.cc
+                    if cc != .none {
+                        CollectionInfoTag(text: CollectionStyle.ccName(cc), symbol: CollectionStyle.ccSymbol(cc),
+                                          color: CollectionStyle.ccColor(cc))
                     }
                 } else {
                     CollectionInfoTag(text: L("常時", "Always on"), symbol: "infinity", color: Theme.textSecondary)

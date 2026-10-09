@@ -79,6 +79,8 @@ private struct SkillDiagramPanel: View {
 
     var body: some View {
         let color = CollectionStyle.damageTypeColor(skill.damageType)
+        // キットのスキルは汎用アーキタイプの説明が合わないので、照準の形の名前だけにする（説明は右の本文）
+        let isKit = HeroKits.hasKit(skill.heroID)
         VStack(alignment: .leading, spacing: 8) {
             SkillShapeDiagram(archetype: targeting.archetype, range: targeting.range, radius: targeting.radius,
                               color: skill.slot == .ultimate ? Theme.gold : color, cc: skill.cc)
@@ -89,14 +91,17 @@ private struct SkillDiagramPanel: View {
                                       "\(CollectionStyle.archetypeName(targeting.archetype)) shape diagram"))
             HStack(spacing: 6) {
                 Image(systemName: "hexagon.fill").font(.system(size: 11)).foregroundStyle(Theme.gold)
-                Text(CollectionStyle.archetypeName(targeting.archetype))
+                Text(isKit ? (SkillMath.shapeName(targeting.shape) ?? CollectionStyle.archetypeName(targeting.archetype))
+                        : CollectionStyle.archetypeName(targeting.archetype))
                     .font(Theme.heading(14))
                     .foregroundStyle(Theme.textPrimary)
             }
-            Text(CollectionStyle.archetypeDescription(targeting.archetype))
-                .font(Theme.body(12))
-                .foregroundStyle(Theme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+            if !isKit || targeting.archetype == .passive {
+                Text(CollectionStyle.archetypeDescription(targeting.archetype))
+                    .font(Theme.body(12))
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if targeting.archetype != .passive {
                 HStack(spacing: 6) {
                     CollectionInfoTag(text: aimName(targeting.aim), symbol: "scope", color: Theme.cyan)
@@ -138,10 +143,22 @@ private struct SkillInfoColumn: View {
             } else {
                 keyStats
                 rankTable
-                scaling
-                if skill.cc != .none { ccBlock }
+                if !figures.isEmpty || !isKit { scaling }
+                if effectiveCC != .none && !isKit { ccBlock }
             }
         }
+    }
+
+    private var isKit: Bool { HeroKits.hasKit(hero.heroID) }
+
+    /// ランク表・スケーリングに出す数値（キットのヒーローは値があるものだけ）。
+    private var figures: [SkillMath.Figure] {
+        SkillMath.figures(skill, hero: hero, archetype: targeting.archetype)
+    }
+
+    /// 実際に付く CC（キットはキットの数値、それ以外はマスター）。
+    private var effectiveCC: CrowdControl {
+        isKit ? SkillMath.numbers(skill, hero: hero, rank: 1).cc : skill.cc
     }
 
     private var header: some View {
@@ -163,9 +180,9 @@ private struct SkillInfoColumn: View {
                 CollectionInfoTag(text: CollectionStyle.damageTypeName(skill.damageType) + L("ダメージ", " damage"),
                                   symbol: CollectionStyle.damageTypeSymbol(skill.damageType),
                                   color: CollectionStyle.damageTypeColor(skill.damageType))
-                if skill.cc != .none {
-                    CollectionInfoTag(text: CollectionStyle.ccName(skill.cc), symbol: CollectionStyle.ccSymbol(skill.cc),
-                                      color: CollectionStyle.ccColor(skill.cc))
+                if effectiveCC != .none {
+                    CollectionInfoTag(text: CollectionStyle.ccName(effectiveCC), symbol: CollectionStyle.ccSymbol(effectiveCC),
+                                      color: CollectionStyle.ccColor(effectiveCC))
                 }
             }
             // パッシブは下の「パッシブ効果」に同じ内容を出すので省く
@@ -183,15 +200,19 @@ private struct SkillInfoColumn: View {
         Panel(padding: 12) {
             VStack(alignment: .leading, spacing: 8) {
                 CollectionSectionTitle(title: L("パッシブ効果", "Passive Effect"), symbol: "sparkle")
-                Text(SkillMath.passiveText(role: hero.role, heroNumber: hero.number))
+                // キットのヒーローはキットのパッシブ文（無ければロール別の汎用文）
+                Text(SkillMath.description(skill, hero: hero))
                     .font(Theme.body(13))
                     .foregroundStyle(Theme.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 6) {
                     CollectionRoleTag(role: hero.role)
-                    CollectionInfoTag(text: L("固有係数 ×\(CollectionStyle.number(SkillMath.passiveCoefficient(heroNumber: hero.number), digits: 2))",
-                                              "Hero factor ×\(CollectionStyle.number(SkillMath.passiveCoefficient(heroNumber: hero.number), digits: 2))"),
-                                      symbol: "function", color: Theme.gold)
+                    // 固有係数はロール別の汎用パッシブの式（キットのパッシブには使わない）
+                    if !isKit {
+                        CollectionInfoTag(text: L("固有係数 ×\(CollectionStyle.number(SkillMath.passiveCoefficient(heroNumber: hero.number), digits: 2))",
+                                                  "Hero factor ×\(CollectionStyle.number(SkillMath.passiveCoefficient(heroNumber: hero.number), digits: 2))"),
+                                          symbol: "function", color: Theme.gold)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -200,7 +221,7 @@ private struct SkillInfoColumn: View {
 
     private var keyStats: some View {
         let cells: [(String, String, String)] = [
-            (L("クールダウン", "Cooldown"), CollectionStyle.seconds(SkillMath.cooldown(skill, rank: 1)), "timer"),
+            (L("クールダウン", "Cooldown"), CollectionStyle.seconds(SkillMath.cooldown(skill, hero: hero, rank: 1)), "timer"),
             (L("コスト", "Cost"), "\(CollectionStyle.number(SkillMath.cost(skill, resource: hero.resource), digits: 1)) \(CollectionStyle.resourceName(hero.resource))",
              CollectionStyle.resourceSymbol(hero.resource)),
             (L("射程", "Range"), CollectionStyle.number(targeting.range, digits: 0), "scope"),
@@ -223,7 +244,7 @@ private struct SkillInfoColumn: View {
 
     private var rankTable: some View {
         let cost = SkillMath.cost(skill, resource: hero.resource)
-        let figures = SkillMath.figures(targeting.archetype)
+        let figures = self.figures
         return Panel(padding: 12) {
             VStack(alignment: .leading, spacing: 6) {
                 CollectionSectionTitle(title: L("ランク別", "Per Rank"), symbol: "chart.line.uptrend.xyaxis",
@@ -252,7 +273,7 @@ private struct SkillInfoColumn: View {
                                 Text(SkillMath.figureValue(f, n))
                                     .foregroundStyle(f == .heal || f == .shield ? Theme.success : Theme.textPrimary)
                             }
-                            Text(CollectionStyle.seconds(SkillMath.cooldown(skill, rank: r)))
+                            Text(CollectionStyle.seconds(SkillMath.cooldown(skill, hero: hero, rank: r)))
                                 .foregroundStyle(Theme.cyan)
                             Text(CollectionStyle.number(cost, digits: 1))
                                 .foregroundStyle(CollectionStyle.resourceColor(hero.resource))
@@ -280,6 +301,8 @@ private struct SkillInfoColumn: View {
 
     /// 表に出ない効果（割合ダメージ・自身のシールドなど）の補足。
     private var rankNote: String? {
+        // 汎用アーキタイプの補足（割合ダメージ・自身のシールドなど）はキットには当てはまらない
+        guard !isKit else { return nil }
         let n = SkillMath.numbers(skill, hero: hero, rank: 1)
         let pct = { (v: Double) in CollectionStyle.number(v * 100, digits: 1) }
         switch targeting.archetype {
@@ -303,7 +326,7 @@ private struct SkillInfoColumn: View {
 
     private var scaling: some View {
         let s = SkillMath.scaling(skill, hero: hero)
-        let figures = SkillMath.figures(targeting.archetype)
+        let figures = self.figures
         let showsDamage = figures.contains(.damage) || figures.contains(.bonusDamage)
         let showsHeal = figures.contains(.heal)
         return Panel(padding: 12) {

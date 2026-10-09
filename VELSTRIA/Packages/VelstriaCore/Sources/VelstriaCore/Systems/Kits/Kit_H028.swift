@@ -5,20 +5,22 @@ import Foundation
 // アサシン（近接 150・Energy）。キットはロールの汎用パッシブ（奇襲ボーナス・キル/アシストの全 CD 短縮）を置き換える。
 //   パッシブ 空断の理（Enemy's Bane）— ダメージを与えるたび（通常攻撃・スキル）に相手の物理防御を下げる。5 層・5 秒、
 //                                      1 層あたり 3（Lv1）→ 8（Lv15）。
-//   S1   周回する剣（Orbiting Swords）— 5 本の剣が 5 秒間 周囲を回り、触れた敵に接触ダメージ（0.5 秒ごと）。
-//                                      周回中に通常攻撃/スキルでダメージを与えるたび、剣が対象へ飛んで追撃
-//                                      （貫通した他の敵には 50%）+ S2 のクールダウンを縮める。
-//   S2   突進（Charge）              — 指定方向へ突進して通り道の敵にダメージ。次の通常攻撃が強化（追加ダメージ + 鈍足 60%・1 秒）。
+//   S1   環剣（Orbiting Swords）     — 5 本の剣が 5 秒間 周囲を回り、触れた敵に接触ダメージ（0.5 秒ごと）。
+//                                      周回中に通常攻撃/スキルでダメージを与えるたび、剣が対象へ飛んで「剣撃」
+//                                      （貫通した他の敵には 50%）+ スキル2 のクールダウンを縮める。剣撃が主なダメージ源
+//                                      （接触は控えめ）。
+//   S2   断空突進（Charge）          — 指定方向へ突進して通り道の敵にダメージ。次の通常攻撃が強化（追加ダメージ + 鈍足 60%・1 秒）。
 //   奥義 三連断空（Triple Sweep）     — 対象指定（敵ヒーロー）。突進して 1.2 秒打ち上げ、その間に 3 連撃（弱・弱・強）。
-//                                      最初の 2 撃には S1 の剣の追撃が乗る（3 撃目は乗らない）。ハード CC で中断される。
+//                                      最初の 2 撃には S1 の剣撃が乗る（3 撃目は乗らない）。ハード CC で中断される。
 // 再使用の窓は Saber に無いので使わない。
 //
 // 状態（KitState）:
-//   ints[0]  = 奥義の段（0 = なし / 1 = 突進中 / 2 = 三連撃中）  ints[1] = 剣の追撃を出さない間 1（3 撃目の最中のみ）
-//   ints[2]  = 追撃を出した回数（累計。検証用）                  ints[3] = 奥義の三連撃が当たった回数（累計。検証用）
-//   timers[0] = 剣が周回している残り秒   timers[1] = 追撃の最短間隔（同時に何本も飛ばさない）
-//   timers[2] = S2 の強化通常攻撃の残り秒
-//   reals[0] = 接触ダメージ（1 回）  reals[1] = 追撃ダメージ  reals[2] = 強化通常攻撃の追加ダメージ  reals[3] = 奥義の平均 1 撃
+//   ints[0]  = 奥義の段（0 = なし / 1 = 突進中 / 2 = 三連撃中）  ints[1] = 剣撃を出さない間 1（3 撃目の最中のみ）
+//   ints[2]  = 剣撃を出した回数（累計。検証用）                  ints[3] = 奥義の三連撃が当たった回数（累計。検証用）
+//   ints[4]  = 直近に防御ダウンを積んだ敵の層の数（パッシブのバッジ用）  ids[1] = その敵
+//   timers[0] = 剣が周回している残り秒   timers[1] = 剣撃の最短間隔（同時に何本も飛ばさない）
+//   timers[2] = S2 の強化通常攻撃の残り秒   timers[3] = 防御ダウンの層が残っている秒（バッジ。命中のたびに 5 秒へ戻る）
+//   reals[0] = 接触ダメージ（1 回）  reals[1] = 剣撃ダメージ  reals[2] = 強化通常攻撃の追加ダメージ  reals[3] = 奥義の平均 1 撃
 //   ids[0]   = 奥義の対象
 
 extension KitState {
@@ -81,6 +83,21 @@ extension KitState {
         get { ids[0] }
         set { ids[0] = newValue }
     }
+
+    var zailBaneStacks: Int {
+        get { ints[4] }
+        set { ints[4] = newValue }
+    }
+
+    var zailBaneWindow: Double {
+        get { timers[3] }
+        set { timers[3] = newValue }
+    }
+
+    var zailBaneTargetID: EntityID {
+        get { ids[1] }
+        set { ids[1] = newValue }
+    }
 }
 
 struct Kit_H028: HeroKit {
@@ -114,19 +131,22 @@ struct Kit_H028: HeroKit {
         /// 接触ダメージの間隔と回数（0.5 秒ごとに 9 回 = 4.5 秒。5 秒で剣が戻る）。
         static let pulseInterval = 0.5
         static let pulseCount = 9
-        /// 接触ダメージの合計 ÷ 汎用 S1 のダメージ（0.8〜1.3 の範囲内）。
-        static let contactRatio = 0.85
-        /// 追撃 1 本のダメージ ÷ 汎用 S1 のダメージ（主対象。貫通した他の敵は passRatio 倍）。
-        static let strikeRatio = 0.11
+        /// 接触ダメージの合計 ÷ 汎用 S1 のダメージ。剣撃が主なダメージ源（調査: 接触 80〜105 + 30% に対し剣撃は 210〜260 + 60%）
+        /// なので、接触は控えめにした。
+        static let contactRatio = 0.55
+        /// 剣撃 1 本のダメージ ÷ 汎用 S1 のダメージ（主対象。貫通した他の敵は passRatio 倍）。
+        static let strikeRatio = 0.19
+        /// S1 の単体総ダメージの予算（汎用の 0.8〜1.3 倍）に数える剣撃の本数の目安: 5 秒の間に通常攻撃・スキルが 3 回当たる想定。
+        static let budgetStrikes = 3
         static let strikeDelay = 0.12
-        /// 追撃どうしの最短間隔（多段ヒットのスキルで一度に何本も飛ばさない）。
-        static let strikeGap = 0.25
-        /// 追撃が届く最大距離（術者の中心から対象の縁まで）。
+        /// 剣撃どうしの最短間隔（多段ヒットのスキルで一度に何本も飛ばさない）。
+        static let strikeGap = 0.35
+        /// 剣撃が届く最大距離（術者の中心から対象の縁まで）。
         static let strikeReach = 450.0
         static let strikePassRadius = 80.0
         static let strikePassOvershoot = 100.0
         static let strikePassRatio = 0.5
-        /// 追撃 1 本あたりの S2 のクールダウン短縮（MLBB は 1 秒。Velstria はクールダウンが半分なので同じ割合の 0.5 秒）。
+        /// 剣撃 1 本あたりの S2 のクールダウン短縮（MLBB は 1 秒。Velstria はクールダウンが半分なので同じ割合の 0.5 秒）。
         static let chargeRefund = 1.0 * Balance.Skills.cooldownScale
 
         // S2 突進
@@ -135,9 +155,10 @@ struct Kit_H028: HeroKit {
         /// 経路の当たり半径（対象の半径は別に足す）。
         static let dashWidth = 70.0
         /// 突進のダメージ ÷ 汎用 S2 のダメージ。
-        static let dashRatio = 0.82
-        /// 強化通常攻撃の追加ダメージ ÷ 汎用 S2 のダメージ（MLBB は通常攻撃を 75 + 総攻撃力 120% に置き換える）。
-        static let chargeBonusRatio = 0.08
+        static let dashRatio = 0.81
+        /// 強化通常攻撃の追加ダメージ ÷ 汎用 S2 のダメージ（MLBB は通常攻撃を 75 + 総攻撃力 120% に置き換える。突進より
+        /// 強化した通常攻撃のほうが大きいので、突進 0.81 + 追加 0.25 = 1.06 倍で S2 の予算に収める）。
+        static let chargeBonusRatio = 0.23
         /// 強化通常攻撃を撃てる時間（調査に「不明」とある値なので、汎用の強化通常攻撃（blinkEmpower）に合わせた）。
         static let enhanceWindow = Balance.Skills.empowerDuration
         static let slowAmount = 0.6
@@ -157,14 +178,21 @@ struct Kit_H028: HeroKit {
         static let ultInterval = 0.4
         /// 1〜3 撃目の重み（120 : 120 : 240 = 0.75 : 0.75 : 1.5。合計 3 = 平均 1 撃 × 3）。
         static let ultWeights: [Double] = [0.75, 0.75, 1.5]
-        /// 三連撃の合計 ÷ 汎用奥義のダメージ。打ち上げ 1.2 秒の確定コンボ・防御ダウン 3 層・剣の追撃 2 本が乗るので、予算の下限寄り
+        /// 三連撃の合計 ÷ 汎用奥義のダメージ。打ち上げ 1.2 秒の確定コンボ・防御ダウン 3 層・剣撃 2 本が乗るので、予算の下限寄り
         /// （クールダウンは汎用より長い 22 → 18 秒。1v1 の勝率で決めた: docs/kits/Saber.md の対応表）。
-        static let ultRatio = 0.90
+        static let ultRatio = 0.85
         static let channelTag = KitTags.buff("H028", "channel")
+        /// ボットが関門を待たずに奥義を撃つ、敵ヒーローの HP の割合の上限（打ち上げ中の 3 連撃 + 防御ダウンで削り切れる目安）。
+        static let botExecuteRatio = 0.6
 
         // クールダウン（MLBB 秒 → ランク間を線形補間 → Balance.Skills.cooldownScale を掛ける）
         /// S1 は全ランク 10 秒（調査: 2 つの資料が 10 秒で一定、Fandom の抜粋は 9 秒。10 秒を採る）。
         static let swordsCooldown = (10.0, 10.0)
+        /// S1 の倍率 = 全体倍率（0.5）。クールダウン 5 秒 = 持続 5 秒なので、剣はほぼ常に回る（MLBB は 10 秒で約 50%）。
+        /// 秒数そのまま（1.0）に近づけると Lv1（スキル1 だけ）の勝率が崩れるので採らなかった: 1v1 の総当たりで
+        /// 倍率 0.5 = Lv1 34% / 0.6 = 22% / 0.65 = 13% / 0.75 以上 = 3%（Lv1 の決闘は 10 秒前後で、2 回目の剣が間に合うかで決まる）。
+        /// 倍率 1.0 にダメージを上乗せして補っても（接触 0.75・剣撃 0.28）Lv1 は 3% のままだった。
+        static let swordsCooldownScale = Balance.Skills.cooldownScale
         static let chargeCooldown = (7.0, 7.0)
         static let ultCooldown = (44.0, 36.0)
     }
@@ -215,7 +243,8 @@ struct Kit_H028: HeroKit {
             n.damage = base.damage * Tune.contactRatio / Double(Tune.pulseCount)
             n.cc = .none
             n.ccDuration = 0
-            n.cooldown = Self.cooldown(Tune.swordsCooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
+            n.cooldown = Self.cooldown(Tune.swordsCooldown, rank: rank, maxRank: slot.maxRank, stats: stats,
+                                       scale: Tune.swordsCooldownScale)
             n.extras = [KitStat(key: "strikeDamage", value: (base.damage * Tune.strikeRatio).rounded()),
                         KitStat(key: "duration", value: Tune.swordsDuration),
                         KitStat(key: "refund", value: Tune.chargeRefund),
@@ -248,22 +277,29 @@ struct Kit_H028: HeroKit {
     }
 
     func text(slot: SkillSlot) -> KitText? {
+        let gap = String(format: "%g", Tune.strikeGap)
         switch slot {
         case .passive:
             return KitText(
-                ja: "通常攻撃やスキルでダメージを与えるたびに、相手の物理防御を下げる。最大{x2}層、{x3}秒（ダメージを与えるたびに持続が戻る）。1層あたり防御−{x0}で、レベルが上がるほど大きくなり、最大レベルでは−{x1}。",
-                en: "Every time you deal damage with a basic attack or a skill, reduce the target's physical defense. Up to {x2} stacks for {x3}s, refreshed on every hit. Each stack removes {x0} defense, growing with level to {x1} at max level.")
+                ja: "通常攻撃やスキルでダメージを与えるたびに、相手の物理防御を下げる層が1つ積まれる（最大{x2}層、{x3}秒。ダメージを与えるたびに持続が戻る）。"
+                    + "1層あたり防御−{x0}で、レベルが上がるほど大きくなり、最大レベルでは−{x1}。ヒーローと中立モンスターが対象で、ミニオンには積まれない。",
+                en: "Every time you deal damage with a basic attack or a skill, you add a stack that lowers the target's physical defense (up to {x2} stacks for {x3}s, refreshed on every hit). "
+                    + "Each stack removes {x0} defense, growing with level to {x1} at max level. It affects heroes and neutral monsters, not minions.")
         case .skill1:
             return KitText(
-                ja: "{x1}秒間、5本の剣が周囲{radius}を回り、触れた敵に0.5秒ごとに{damage}ダメージ（最大{hits}回）を与える。周回中に通常攻撃かスキルでダメージを与えると、剣が対象へ飛んで{x0}ダメージを与え（貫通した他の敵には{x3}%）、突進のクールダウンを{x2}秒縮める。クールダウン{cd}秒。",
-                en: "For {x1}s, 5 swords orbit within {radius} of you, hitting enemies they touch for {damage} every 0.5s (up to {hits} times). While they orbit, each time you damage a target with a basic attack or skill, a sword flies at it for {x0} damage ({x3}% to other enemies it passes through) and shortens Charge's cooldown by {x2}s. Cooldown {cd}s.")
+                ja: "{x1}秒間、5本の剣が周囲{radius}を回り、触れた敵に0.5秒ごとに{damage}ダメージ（最大{hits}回）を与える。"
+                    + "周回中に通常攻撃かスキルでダメージを与えると「剣撃」が起き、剣が対象へ飛んで{x0}ダメージを与え（貫通した他の敵には{x3}%）、断空突進のクールダウンが{x2}秒縮む（剣撃は\(gap)秒に1回まで）。"
+                    + "クールダウン{cd}秒。",
+                en: "For {x1}s, 5 swords orbit within {radius} of you, hitting enemies they touch for {damage} every 0.5s (up to {hits} times). "
+                    + "While they orbit, each time you damage a target with a basic attack or skill, a sword strike follows: a sword flies at it for {x0} damage ({x3}% to other enemies it passes through) and shortens Charge's cooldown by {x2}s (at most once every \(gap)s). "
+                    + "Cooldown {cd}s.")
         case .skill2:
             return KitText(
-                ja: "指定方向へ最大{range}突進し、通り道の敵に{damage}ダメージを与える。突進後{x3}秒以内の次の通常攻撃が強化され、{x0}ダメージが加わって{x1}%の鈍足を{x2}秒与える。クールダウン{cd}秒（剣の追撃で短縮）。",
+                ja: "指定方向へ最大{range}突進し、通り道の敵に{damage}ダメージを与える。突進後{x3}秒以内の次の通常攻撃が強化され、{x0}ダメージが加わって{x1}%の鈍足を{x2}秒与える。クールダウン{cd}秒（環剣の剣撃で短縮）。",
                 en: "Dash up to {range} in a direction, dealing {damage} damage to enemies along the way. Within {x3}s of the dash, your next basic attack is enhanced: it deals {x0} extra damage and slows by {x1}% for {x2}s. Cooldown {cd}s (reduced by sword strikes).")
         case .ultimate:
             return KitText(
-                ja: "{range}以内の敵ヒーローへ突進して{x2}秒間打ち上げ、その間に3連撃する（{x0}・{x0}・{x1}ダメージ、合計{total}）。連撃の間は動けず、スタンなどで中断される。最初の2撃には剣の追撃が乗る。クールダウン{cd}秒。",
+                ja: "{range}以内の敵ヒーローへ突進して{x2}秒間打ち上げ、その間に3連撃する（{x0}・{x0}・{x1}ダメージ、合計{total}）。連撃の間は動けず、スタンなどで中断される。最初の2撃には環剣の剣撃が乗る。クールダウン{cd}秒。",
                 en: "Dash at an enemy hero within {range}, knock them airborne for {x2}s and strike three times ({x0}, {x0}, {x1} damage, {total} total). You cannot act during the strikes and stuns interrupt them. The first two strikes also trigger sword strikes. Cooldown {cd}s.")
         }
     }
@@ -271,6 +307,10 @@ struct Kit_H028: HeroKit {
     func badge(slot: SkillSlot, hero: HeroData) -> KitBadge? {
         guard let k = hero.kit else { return nil }
         switch slot {
+        case .passive:
+            // 直近に防御ダウンを積んだ敵の層の数（残りの時間があるあいだ）。層が増えるたびに演出のパッシブの合図が出る
+            guard k.zailBaneWindow > 0, k.zailBaneStacks > 0 else { return nil }
+            return KitBadge(kind: .stacks, value: min(Tune.baneMaxStacks, k.zailBaneStacks), maxValue: Tune.baneMaxStacks)
         case .skill1:
             guard k.zailSwordsRemaining > 0 else { return nil }
             return KitBadge(kind: .timer, remaining: k.zailSwordsRemaining, total: Tune.swordsDuration)
@@ -307,7 +347,7 @@ struct Kit_H028: HeroKit {
         let n = c.numbers
         s.units[i].hero!.kit!.zailSwordsRemaining = Tune.swordsDuration
         s.units[i].hero!.kit!.zailPulseDamage = n.damage
-        // 追撃のダメージ = 汎用 S1 のダメージ × strikeRatio（接触の合計 = 汎用 S1 × contactRatio から逆算）
+        // 剣撃のダメージ = 汎用 S1 のダメージ × strikeRatio（接触の合計 = 汎用 S1 × contactRatio から逆算）
         s.units[i].hero!.kit!.zailStrikeDamage = n.damage * Double(n.hits) / Tune.contactRatio * Tune.strikeRatio
         Kit.emitCast(&s, c, origin: s.units[i].pos, target: s.units[i].pos, shape: .selfRing,
                      duration: Tune.swordsDuration, count: Tune.swordCount)
@@ -381,7 +421,7 @@ struct Kit_H028: HeroKit {
                                 shape: .circle, payload: p)
     }
 
-    /// 剣の追撃: 主対象にダメージ + S2 のクールダウン短縮、軌道上の他の敵に 50%。
+    /// 剣撃: 主対象にダメージ + S2 のクールダウン短縮、軌道上の他の敵に 50%。
     private func sendSword(_ s: inout SimState, _ ctx: SimContext, owner: Int, timer: KitTimer) {
         guard let t = s.index(of: timer.targetID), CombatSystem.isLiving(s, t), !s.units[t].isStructure,
               s.units[t].team != s.units[owner].team else { return }
@@ -447,7 +487,7 @@ struct Kit_H028: HeroKit {
                            param: k.zailUltDamage, interruptible: true)
     }
 
-    /// 奥義の 1 撃。対象が倒れた・離れすぎたら残りを取り消して終える。3 撃目は剣の追撃を乗せない。
+    /// 奥義の 1 撃。対象が倒れた・離れすぎたら残りを取り消して終える。3 撃目は剣撃を乗せない。
     private func ultStrike(_ s: inout SimState, _ ctx: SimContext, owner: Int, timer: KitTimer) {
         guard s.units[owner].hero?.kit?.zailUltPhase == 2 else { return }
         guard let t = s.index(of: timer.targetID), CombatSystem.isLiving(s, t), s.units[t].team != s.units[owner].team
@@ -476,6 +516,15 @@ struct Kit_H028: HeroKit {
     }
 
     func update(_ s: inout SimState, _ ctx: SimContext, owner: Int) {
+        // バッジの敵が倒れた・居なくなったら層の表示を消す
+        if let b = s.units[owner].hero?.kit, b.zailBaneWindow > 0 {
+            let alive = s.index(of: b.zailBaneTargetID).map { CombatSystem.isLiving(s, $0) } ?? false
+            if !alive {
+                s.units[owner].hero!.kit!.zailBaneWindow = 0
+                s.units[owner].hero!.kit!.zailBaneStacks = 0
+                s.units[owner].hero!.kit!.zailBaneTargetID = 0
+            }
+        }
         guard let k = s.units[owner].hero?.kit, k.zailUltPhase != 0 else { return }
         // 奥義の突進・三連撃の間は、通常攻撃を始めない・動かない
         s.units[owner].attackTargetID = nil
@@ -505,7 +554,7 @@ struct Kit_H028: HeroKit {
 
     func onSkillHit(_ s: inout SimState, _ ctx: SimContext, attacker: Int, target: Int, slot: SkillSlot,
                     damage: Double) {
-        // 「ダメージを与えた」ときだけ（CC のみの命中は数えない）。S1（接触・追撃）は防御ダウンは入れるが追撃は呼ばない
+        // 「ダメージを与えた」ときだけ（CC のみの命中は数えない）。S1（接触・剣撃）は防御ダウンは入れるが剣撃は呼ばない
         guard damage > 0, s.units[attacker].hero?.kit != nil else { return }
         afterDamage(&s, ctx, owner: attacker, target: target, trigger: slot != .skill1)
     }
@@ -536,6 +585,10 @@ struct Kit_H028: HeroKit {
         let stacks = Kit.addMark(&s, target: t, ownerID: ownerID, tag: tag, maxStacks: Tune.baneMaxStacks,
                                  duration: Tune.baneDuration)
         guard stacks > 0 else { return }
+        // バッジ用: 直近に積んだ敵の層の数と、残り時間（命中のたびに 5 秒へ戻る）
+        s.units[owner].hero!.kit!.zailBaneStacks = stacks
+        s.units[owner].hero!.kit!.zailBaneWindow = Tune.baneDuration
+        s.units[owner].hero!.kit!.zailBaneTargetID = s.units[t].id
         // 防御ダウンは割合（armorShred）。今の防御（ほかの防御ダウンを含む）から、ダウン前の防御を求めて換算する
         var shredNow = 0.0
         for st in s.units[t].statuses where st.kind == .armorShred { shredNow = max(shredNow, st.magnitude) }
@@ -547,7 +600,7 @@ struct Kit_H028: HeroKit {
         CombatSystem.addStatus(&s, targetIndex: t, StatusEffect(kind: .armorShred, duration: Tune.baneDuration,
                                                                  magnitude: ratio, sourceID: ownerID,
                                                                  tag: Tune.baneTag))
-        // 同じ tick の続きのダメージ（追撃・奥義の次の一撃）から効くように能力値を更新する
+        // 同じ tick の続きのダメージ（剣撃・奥義の次の一撃）から効くように能力値を更新する
         StatCalculator.recompute(&s, t, ctx)
     }
 
@@ -575,12 +628,12 @@ struct Kit_H028: HeroKit {
             guard me.distanceSquared(to: foe.pos) <= reach * reach else { return .skip }
             return .cast(.unit(foe.id))
         case .ultimate:
-            // 敵ヒーローが射程内で、傷ついている（または剣が回っている）とき
+            // 交戦中の敵ヒーローが射程内のとき。倒しやすい（HP が少ない）なら関門を待たずに今撃つ。
+            // それ以外は汎用の関門（倒せる・2 体以上）を通ったときだけ（剣が回っているかどうかでは決めない）
             guard fighting, foe.kind == .hero else { return .skip }
             let reach = Tune.ultReach + foe.radius
             guard me.distanceSquared(to: foe.pos) <= reach * reach else { return .skip }
-            let swords = (s.units[bot].hero?.kit?.zailSwordsRemaining ?? 0) > 0
-            guard foe.hpRatio < 0.8 || swords else { return .skip }
+            if foe.hpRatio <= Tune.botExecuteRatio { return .castNow(.unit(foe.id)) }
             return .cast(.unit(foe.id))
         default:
             return .useDefault
@@ -602,10 +655,11 @@ struct Kit_H028: HeroKit {
     }
 
     /// MLBB のクールダウン（秒）をランクで線形補間し、Velstria の全体倍率と CD 短縮を掛ける。
-    static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats) -> Double {
+    static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats,
+                         scale: Double = Balance.Skills.cooldownScale) -> Double {
         let sec = lerp(range.0, range.1, rank: rank, maxRank: maxRank)
         let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))
-        return sec * (1 - reduction) * Balance.Skills.cooldownScale
+        return sec * (1 - reduction) * scale
     }
 
     private static func lerp(_ a: Double, _ b: Double, rank: Int, maxRank: Int) -> Double {

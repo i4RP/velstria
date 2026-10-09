@@ -4,16 +4,18 @@ import Foundation
 // H032 赤拳のディアス = Velstria 版の Dyrroth（MLBB。調査: docs/kits/Dyrroth.md、対応表: 同ファイル末尾）。
 // デュエリスト（EXP）の近接。キットはロールの汎用パッシブ（通常攻撃の攻撃速度スタック）を置き換える。
 //   パッシブ 紅血の拳（Wrath of the Abyss）— レイジ（0〜100）が時間でたまる（毎秒 2〜5%、レベルで増える。Velstria は CD が半分なので ×2）。
-//                           50 以上で S1・S2 が「アビス強化」になり、使うと 50 を消費する。
+//                           50 以上でスキル1・スキル2 が「アビス強化」になり、使うと 50 を消費する。
+//                           HUD のバッジ = Int(レイジ / 50)（0〜2）。演出（SkillFXDirector）はバッジが増えた瞬間（50・100）だけ出す
 //                           通常攻撃 2 回に 1 回は円撃（Circle Strike）: 周囲の敵へ攻撃力の 150〜180%、最大 HP の 4.2〜6% 回復（MLBB 7〜10% の 0.6 倍）
 //                           （ミニオン・タワーだけが相手なら半分）。敵ヒーローにダメージを与えるたび S1・S2 の CD が縮む。
-//   S1   爆裂連撃（Burst Strike）— 前方の扇へ 3 連（アビス強化は 5 連）の衝撃。同じ敵への 2 発目以降は減衰、ミニオンへは 60%。
+//   S1   赤拳連斬（Burst Strike）— 前方の扇へ 3 連（アビス強化は 5 連）の衝撃。同じ敵への 2 発目以降は減衰、ミニオンへは 60%。
 //                           鈍足 25%（アビス強化 50%）1.5 秒。アビス強化は射程が伸び、合計ダメージ 140%。
-//   S2   亡霊の歩み（Spectre Step）— 1 回目: 指定方向へ突進し、最初に当たった敵（ヒーロー・ミニオン・モンスター）で止まって
+//   S2   紅蓮の踏込（Spectre Step）— 1 回目: 指定方向へ突進し、最初に当たった敵（ヒーロー・ミニオン・モンスター）で止まって
 //                           ダメージ + 軽く押し出す。3 秒以内の再使用（同じ castSkill）で 2 回目の致命の一撃:
 //                           敵ヒーローへ飛びかかり、ダメージ + 物理防御 −40%（アビス強化 −60% + 鈍足、射程と威力 150%）4 秒。
 //   奥義 奈落の一撃（Abysm Strike）— 0.5 秒の溜め（その場から動けない。CC では止まらず、suppress だけで中断）のあと、
-//                           前方の直線上の敵へダメージ + 対象の失った HP の 22.5% + 鈍足 55% 0.8 秒。
+//                           前方 650 の直線上（半幅 140）の敵へダメージ + 対象の失った HP の 22.5% + 鈍足 55% 0.8 秒。
+//                           ボットは溜めの間の敵の動きを読んで撃つ（botCast。敵ヒーローに届けば汎用の関門を待たない）。
 //
 // 状態（KitState）:
 //   reals[0] = レイジ（0..100）       reals[1] = 突進（S2 の 1・2 回目）の命中ダメージ   reals[2..3] = 奥義の向き
@@ -117,8 +119,8 @@ struct Kit_H032: HeroKit {
         // パッシブ: 円撃（Circle Strike）
         static let circleEvery = 2
         static let circleRatio = (1.5, 1.8)
-        /// MLBB は最大 HP の 7〜10%。Velstria の TTK は MLBB よりずっと短い（2.5〜15 秒）ので 0.6 倍にした（4.2〜6%）。
-        static let circleHeal = (0.042, 0.06)
+        /// MLBB は最大 HP の 7〜10%。Velstria の TTK は MLBB よりずっと短い（2.5〜15 秒）ので 0.4 倍前後にした（3〜4%）。
+        static let circleHeal = (0.03, 0.04)
         /// 円撃の半径（術者の中心から。対象の半径は別に足す）。通常攻撃の射程 150 より少し広い（MLBB 1.7 → 2.0 の比）。
         static let circleRadius = 190.0
         /// ミニオン・モンスター・タワーだけが相手のときの回復の倍率。
@@ -127,9 +129,10 @@ struct Kit_H032: HeroKit {
         // パッシブ: 敵ヒーローにダメージを与えるたびに S1・S2 のクールダウンを縮める秒数。
         // 通常攻撃・円撃の命中 = cooldownRefund、スキルの命中（1 回の発動につき 1 度）= skillCooldownRefund。
         // MLBB は 1 秒。Velstria は CD が半分（cooldownScale 0.5）なので 0.5 秒が素直な換算だが、1v1 の勝率が全員総当たりで
-        // 汎用の Duelist より上へ偏った（スキルの稼働率が上がる）ので 0.4 に抑えた。スキルの命中は 0.1（docs/kits/Dyrroth.md の対応表）。
-        static let cooldownRefund = 0.4
-        static let skillCooldownRefund = 0.1
+        // 汎用の Duelist より上へ偏った（スキルの稼働率が上がる）ので、通常攻撃・円撃は 0.3、スキルの命中は 0.05 に抑えた
+        // （docs/kits/Dyrroth.md の対応表）。
+        static let cooldownRefund = 0.3
+        static let skillCooldownRefund = 0.05
 
         // S1 爆裂連撃
         static let burstReach = 300.0
@@ -149,8 +152,10 @@ struct Kit_H032: HeroKit {
         static let burstSlowAbyss = 0.50
         static let burstSlowDuration = 1.5
         static let burstSlowTag = KitTags.buff("H032", "burstSlow")
-        /// 通常版の合計ダメージ ÷ 汎用 S1 のダメージ。アビス強化は 140%（調査: 「元のダメージの 140%」を合計に掛ける）。
-        static let burstRatio = 0.82
+        /// 通常版の合計ダメージ ÷ 汎用 S1 のダメージ。アビス強化は 140%（調査: 「元のダメージの 140%」を合計に掛ける = 0.98）。
+        /// 予算の下限 0.8 より低い 0.70: クールダウン短縮・アビス強化・円撃の上乗せがあり、0.82 だと全員総当たりの勝率が汎用の
+        /// Duelist より Lv1 で +22pt・Lv12 で +20pt 高く、開幕 3 秒の火力も汎用の 2.1〜4.9 倍だった（0.70 で +11 / +11、1.8〜1.9 倍）。
+        static let burstRatio = 0.70
         static let abyssBurstMultiplier = 1.4
 
         // S2 亡霊の歩み
@@ -182,9 +187,15 @@ struct Kit_H032: HeroKit {
         static let fatalSlowTag = KitTags.buff("H032", "fatalSlow")
 
         // 奥義 奈落の一撃
-        static let ultReach = 420.0
+        /// 奥義の射程。0.5 秒の溜めで向きが固定されるので、MLBB の「画面の半分ほど届く長い直線」（約 7 m）に寄せて
+        /// 420 → 650 に伸ばした（溜めの間に避けられても、見てから撃てる距離。ボットは敵の動きを読んで撃つ）。
+        static let ultReach = 650.0
         /// 直線の幅（半幅）。
-        static let ultHalfWidth = 120.0
+        static let ultHalfWidth = 140.0
+        /// ボットが奥義を「今撃つ」現在の距離の上限（射程いっぱいは外れやすいので少し手前まで）と、動きを読む秒数の上限。
+        static let ultBotReach = 540.0
+        /// 直線の長さ（線分の部分）。命中は線分から半幅 + 対象の半径までなので、丸い端を含めて射程 650 ちょうどに収まる。
+        static let ultLineLength = ultReach - ultHalfWidth
         static let ultCharge = 0.5
         static let ultLostHealth = 0.225
         static let ultSlow = 0.55
@@ -234,7 +245,7 @@ struct Kit_H032: HeroKit {
             return SkillTargeting(archetype: .dashStrike, aim: .direction, range: Tune.dashRange,
                                   radius: Tune.dashWidth, shape: .dashToPoint, recastable: true)
         case .ultimate:
-            // 溜めのあとの直線（射程 420）。radius は線の半幅
+            // 溜めのあとの直線（射程 650）。radius は線の半幅
             return SkillTargeting(archetype: .piercingLine, aim: .direction, range: Tune.ultReach,
                                   radius: Tune.ultHalfWidth, shape: .wideLine)
         case .passive:
@@ -303,13 +314,15 @@ struct Kit_H032: HeroKit {
         let abyss = Int(Tune.abyssCost)
         switch slot {
         case .passive:
+            let hit = String(format: "%g", Tune.cooldownRefund)
+            let skillHit = String(format: "%g", Tune.skillCooldownRefund)
             return KitText(
-                ja: "レイジが時間とともにたまる（毎秒{x0}〜{x1}%、レベルが高いほど速い。最大\(Int(Tune.rageMax))）。\(abyss)以上あると、S1とS2が「アビス強化」になり、使うとレイジを\(abyss)消費する。"
+                ja: "レイジが時間とともにたまる（毎秒{x0}〜{x1}%、レベルが高いほど速い。最大\(Int(Tune.rageMax))）。\(abyss)以上あると、スキル1とスキル2が「アビス強化」になり、使うとレイジを\(abyss)消費する。"
                     + "通常攻撃\(Tune.circleEvery)回に1回は円撃になり、周囲の敵に攻撃力の{x2}〜{x3}%の物理ダメージを与えて最大HPの\(heal)%を回復する（ミニオンとタワーだけが相手なら回復は半分）。"
-                    + "敵ヒーローにダメージを与えるたび、S1とS2のクールダウンが\(String(format: "%g", Tune.cooldownRefund))秒縮む。",
+                    + "敵ヒーローに通常攻撃（円撃を含む）を当てるたびにスキル1とスキル2のクールダウンが\(hit)秒、スキルを当てるたび（1回の発動につき1度）に\(skillHit)秒縮む。",
                 en: "Rage builds over time ({x0}-{x1}% per second, faster at higher levels; max \(Int(Tune.rageMax))). With \(abyss) or more, Skill 1 and Skill 2 become Abyss Enhanced and spend \(abyss) Rage when used. "
                     + "Every \(Tune.circleEvery)nd basic attack is a Circle Strike that hits nearby enemies for {x2}-{x3}% of attack as physical damage and heals \(heal)% of max HP (half against only minions and turrets). "
-                    + "Each time you damage an enemy hero, Skill 1 and Skill 2 cooldowns are reduced by \(String(format: "%g", Tune.cooldownRefund))s.")
+                    + "Each time a basic attack (including a Circle Strike) hits an enemy hero, Skill 1 and Skill 2 cooldowns are reduced by \(hit)s; each time a skill hits an enemy hero (once per cast), by \(skillHit)s.")
         case .skill1:
             return KitText(
                 ja: "前方の扇へ衝撃を{hits}回放ち、合計{total}ダメージ（同じ敵への2発目以降は減衰、ミニオンには\(Int(Tune.burstMinionFactor * 100))%）。{x2}%の鈍足を\(String(format: "%g", Tune.burstSlowDuration))秒与える。"
@@ -337,7 +350,10 @@ struct Kit_H032: HeroKit {
         guard let k = hero.kit else { return nil }
         switch slot {
         case .passive:
-            return KitBadge(kind: .stacks, value: Int(k.diasRage), maxValue: Int(Tune.rageMax))
+            // 50 ごとに 1 段（0〜2）。演出（SkillFXDirector）はバッジの数が増えた瞬間にだけパッシブの合図を出すので、
+            // 毎秒増えるレイジそのものではなく閾値（50・100）を数える。レイジの細かい量は持たない
+            let steps = Int(Tune.rageMax / Tune.abyssCost)
+            return KitBadge(kind: .stacks, value: min(steps, Int(k.diasRage / Tune.abyssCost + 1e-9)), maxValue: steps)
         case .skill1, .skill2:
             // アビス強化の準備ができている
             guard k.diasRage >= Tune.abyssCost else { return nil }
@@ -551,7 +567,7 @@ struct Kit_H032: HeroKit {
         let flat = kit.diasUltDamage
         let center = s.units[owner].pos
         Kit.hitAreaEach(&s, ctx, caster: owner, center: center, radius: Tune.ultHalfWidth,
-                        shape: .line(direction: kit.diasUltDirection, length: Tune.ultReach)) { st, j in
+                        shape: .line(direction: kit.diasUltDirection, length: Tune.ultLineLength)) { st, j in
             let lost = st.units[j].kind == .hero ? Self.lostHealth(st.units[j]) * Tune.ultLostHealth : 0
             var p = HitPayload(damage: flat + lost, damageType: .physical, source: .skill(.ultimate),
                                statuses: [slow], skillID: skillID)
@@ -639,6 +655,39 @@ struct Kit_H032: HeroKit {
               let k = s.units[attacker].hero?.kit, k.diasRefundedSerial != k.diasCastSerial else { return }
         s.units[attacker].hero!.kit!.diasRefundedSerial = k.diasCastSerial
         Self.refundCooldowns(&s, ctx, attacker, seconds: Tune.skillCooldownRefund)
+    }
+
+    // MARK: - D. ボット
+
+    /// 奥義（0.5 秒の溜めの間は動けず、向きは発動時に固定）: 交戦中の敵ヒーローが射程の手前に居れば、汎用の関門
+    /// （倒せる・2 体以上）を待たずに、溜めのあいだの敵の動きを読んだ向きへ今撃つ。それ以外は従来どおり。
+    func botCast(_ s: SimState, _ ctx: SimContext, bot: Int, slot: SkillSlot, targeting: SkillTargeting,
+                 target: Int, fighting: Bool) -> BotKitDecision {
+        guard slot == .ultimate, fighting else { return .useDefault }
+        let foe = s.units[target]
+        guard foe.kind == .hero, (s.units[bot].hero?.kit?.diasUltCharging ?? 0) == 0 else { return .useDefault }
+        let me = s.units[bot].pos
+        guard me.distance(to: foe.pos) <= Tune.ultBotReach else { return .useDefault }
+        // 直前の tick の動き（prevPos → pos）が続くものとして、溜めの間に進む分を足す（敵の移動速度の 0.5 秒分まで）
+        let step = foe.pos - foe.prevPos
+        let ahead = (step * (Tune.ultCharge / Balance.dt)).clamped(maxLength: max(0, foe.stats.moveSpeed) * Tune.ultCharge)
+        let aim = foe.pos + ahead
+        // 動きを読んだ先も線に収まらないなら、今の位置へ撃つ
+        let dir = (me.distance(to: aim) <= Tune.ultReach ? aim - me : foe.pos - me).normalized
+        guard dir != .zero else { return .useDefault }
+        return .castNow(.direction(dir))
+    }
+
+    /// ミニオン・ジャングルの集団にも紅蓮の踏込（S2 の 1 回目）を使ってよいか。HP が半分以上で、突進の先が
+    /// 敵のタワー・コアの射程に入らないときだけ。
+    func botFarm(_ s: SimState, _ ctx: SimContext, bot: Int, slot: SkillSlot, targeting: SkillTargeting,
+                 center: Vec2, count: Int) -> Bool {
+        guard slot == .skill2, s.units[bot].hpRatio >= 0.5 else { return false }
+        for u in s.units where u.isStructure && u.isAlive && u.team != s.units[bot].team {
+            let r = Balance.towerRange + Balance.heroRadius + 120
+            if u.pos.distanceSquared(to: center) <= r * r { return false }
+        }
+        return true
     }
 
     // MARK: - 部品

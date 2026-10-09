@@ -5,10 +5,10 @@ import Foundation
 //   パッシブ 鉄鎖の執念    — 5 秒ダメージを受けないと 移動速度 +10%・毎秒 最大 HP の 1% 回復、闘気が 1 秒に 1 つたまる（最大 10）。
 //                           次に使うスキルが闘気をすべて消費し、1 つにつきそのスキルのダメージ +15%（最大 +150%）。ダメージで解除。
 //                           ロール「サポート」の味方回復パッシブ・奥義の味方回復はキットが置き換える。
-//   S1   鎖鉤              — 射程 680 の非貫通の鉤。最初に当たった敵（ミニオン・モンスター含む、タワーは除く）に物理ダメージ、
+//   スキル1 鎖鉤           — 射程 680 の非貫通の鉤。最初に当たった敵（ミニオン・モンスター含む、タワーは除く）に物理ダメージ、
 //                           自分の足元まで引き寄せてスタン。壁は越えて飛び、引き寄せは壁の手前で止まる。
-//   S2   怒りの鎖          — 自身中心の範囲に 固定部分 + 自分の最大 HP の 4% の物理ダメージ、70% 減速 1.5 秒。
-//   奥義 狩猟鎖獄          — 敵ヒーロー 1 体を指定。踏み込んで 1.8 秒 suppress（解除不可・CC 無効も無視）し、その間に 6 回殴る。
+//   スキル2 鉄鎖旋         — 自身中心の範囲に 固定部分 + 自分の最大 HP の 4% の物理ダメージ、70% 減速 1.5 秒。
+//   アルティメット 狩猟鎖獄 — 敵ヒーロー 1 体を指定。踏み込んで 1.8 秒 suppress（解除不可・CC 無効も無視）し、その間に 6 回殴る。
 //                           ゴルムも動けず、スタン等で中断されると相手は解放される。
 // 再使用の窓は Franco に無いので使わない。
 //
@@ -126,7 +126,7 @@ struct Kit_H034: HeroKit {
         /// 汎用 S1（扇形）のダメージに対する倍率（単体 + 引き寄せ + スタンのぶん、汎用より少し上）。
         static let hookDamageRatio = 1.30
 
-        // S2 怒りの鎖
+        // スキル2 鉄鎖旋
         static let shockRadius = 260.0
         static let shockSlow = 0.70
         static let shockSlowDuration = 1.5
@@ -149,6 +149,8 @@ struct Kit_H034: HeroKit {
         static let ultTotalRatio = 2.1
         /// ランクごとの倍率（MLBB は 1 撃 50 / 60 / 70 = 1 : 1.2 : 1.4。汎用の +30%/ランクより緩やか）。
         static let ultRankScale: [Double] = [1.0, 1.2, 1.4]
+        /// 6 回の合計（軽減前）の上限 = 相手の最大 HP × この割合。闘気 10 個の +150% が通常の相手を一撃で倒さないための安全弁。
+        static let ultMaxHPFraction = 0.8
         static let ultRushSpeed = 2600.0
         /// 踏み込んだ後に止まる、端同士の隙間。
         static let ultContactGap = 10.0
@@ -156,9 +158,15 @@ struct Kit_H034: HeroKit {
         static let ultSlack = 140.0
         static let lockRootTag = KitTags.buff("H034", "lockRoot")
         static let lockTag = KitTags.buff("H034", "lock")
+        /// ボットのアルティメット: 相手の HP がこの割合未満 / 鉤でスタン中 / 近く（この距離以内）に味方ヒーローが居るとき、関門なしで撃つ。
+        static let botWeakHP = 0.7
+        static let botAllyRange = 800.0
 
         // クールダウン（MLBB 秒 → ランク間を線形補間 → Balance.Skills.cooldownScale を掛ける）
         static let hookCooldown = (15.0, 11.0)
+        /// ランク 1 の鉤の MLBB 秒。Lv1 の 1v1 は鉤しか持たない（スキルは 1 つだけ習得）ため、15 秒のままだと勝率が 2% まで落ちる。
+        /// ランク 2 以降の手前の値（15 → 11 の線形補間）は変えない: Lv6 / Lv12 は動かさずに Lv1 だけ引き上げる。
+        static let hookRank1Cooldown = 10.0
         /// MLBB の 7.0 → 4.5 秒そのまま（汎用の S2 は 9.8 秒 × 0.5）。
         static let shockCooldown = (7.0, 4.5)
         static let ultCooldown = (62.0, 48.0)
@@ -204,14 +212,18 @@ struct Kit_H034: HeroKit {
             n.extras = [KitStat(key: "calmDelay", value: Tune.calmDelay),
                         KitStat(key: "speedPercent", value: Tune.calmSpeed * 100),
                         KitStat(key: "regenPercent", value: Tune.calmRegen * 100),
-                        KitStat(key: "stackPercent", value: Tune.stackBonus * 100)]
+                        KitStat(key: "stackPercent", value: Tune.stackBonus * 100),
+                        KitStat(key: "maxAmp", value: Tune.stackBonus * Double(Tune.maxStacks) * 100),
+                        KitStat(key: "stackInterval", value: Tune.stackInterval)]
         case .skill1:
             n.damage = base.damage * Tune.hookDamageRatio
-            n.cooldown = Self.cooldown(Tune.hookCooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
+            n.cooldown = Self.cooldown(rank <= 1 ? (Tune.hookRank1Cooldown, Tune.hookRank1Cooldown) : Tune.hookCooldown,
+                                       rank: rank, maxRank: slot.maxRank, stats: stats)
             n.cc = .stun
             n.ccDuration = Tune.hookStun
             n.extras = [KitStat(key: "stun", value: Tune.hookStun),
-                        KitStat(key: "pull", value: Tune.hookPull)]
+                        KitStat(key: "pull", value: Tune.hookPull),
+                        KitStat(key: "reachMult", value: Tune.hookRange / hero.attackRange)]
         case .skill2:
             n.damage = base.damage * Tune.shockFlatRatio + stats.maxHP * Tune.shockMaxHPRatio
             n.cooldown = Self.cooldown(Tune.shockCooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
@@ -219,7 +231,8 @@ struct Kit_H034: HeroKit {
             n.ccDuration = Tune.shockSlowDuration
             n.extras = [KitStat(key: "slowPercent", value: Tune.shockSlow * 100),
                         KitStat(key: "slowDuration", value: Tune.shockSlowDuration),
-                        KitStat(key: "maxHPPercent", value: Tune.shockMaxHPRatio * 100)]
+                        KitStat(key: "maxHPPercent", value: Tune.shockMaxHPRatio * 100),
+                        KitStat(key: "reachMult", value: Tune.shockRadius / hero.attackRange)]
         case .ultimate:
             // 汎用のサポートの奥義は味方回復（ダメージなし）。単体ダメージの目安は、同じ式で ult のダメージを出した値（ランク 1）。
             // ランクの伸びは MLBB の 50 / 60 / 70 に合わせる
@@ -235,7 +248,8 @@ struct Kit_H034: HeroKit {
             n.ccDuration = Tune.ultSuppress
             n.cooldown = Self.cooldown(Tune.ultCooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
             n.extras = [KitStat(key: "suppress", value: Tune.ultSuppress),
-                        KitStat(key: "interval", value: Tune.ultInterval)]
+                        KitStat(key: "interval", value: Tune.ultInterval),
+                        KitStat(key: "reachMult", value: Tune.ultReach / hero.attackRange)]
         }
         return n
     }
@@ -244,31 +258,32 @@ struct Kit_H034: HeroKit {
         switch slot {
         case .passive:
             return KitText(
-                ja: "{x0}秒間ダメージを受けないと、移動速度が{x1}%上がり、毎秒最大HPの{x2}%を回復して、闘気が1秒に1個たまり始める（最大{hits}個）。"
-                    + "次に使うスキルが闘気をすべて消費し、1つにつきそのスキルのダメージが+{x3}%される。ダメージを受けると回復と加速は止まる。",
+                ja: "{x0}秒間ダメージを受けないと、移動速度が{x1}%上がり、毎秒最大HPの{x2}%を回復して、闘気が{stackInterval}秒に1個たまり始める（最大{hits}個）。"
+                    + "スキル1・スキル2・アルティメットのうち次に使うものが闘気をすべて消費し、1つにつきそのスキルのダメージが+{x3}%される（最大+{maxAmp}%）。"
+                    + "ダメージを受けると回復と加速は止まる。",
                 en: "After {x0}s without taking damage, gain {x1}% movement speed, recover {x2}% of max HP per second and "
-                    + "start gaining 1 Resolve per second (up to {hits}). Your next skill consumes all Resolve, "
-                    + "dealing +{x3}% damage per stack. Taking damage ends the recovery and speed bonus.")
+                    + "start gaining 1 Resolve every {stackInterval}s (up to {hits}). Your next Skill 1, Skill 2 or Ultimate consumes all Resolve, "
+                    + "dealing +{x3}% damage per stack (up to +{maxAmp}%). Taking damage ends the recovery and speed bonus.")
         case .skill1:
             return KitText(
-                ja: "指定方向へ射程{range}の鎖鉤を打ち出し、最初に当たった敵に{damage}の物理ダメージ。"
+                ja: "指定方向へ近接攻撃の射程の約{reachMult}倍まで届く鎖鉤を打ち出し、最初に当たった敵に{damage}の物理ダメージ。"
                     + "当たった敵を自分の足元まで引き寄せ、{x0}秒スタンさせる（壁は越えて飛び、引き寄せは壁の手前で止まる。タワーには当たらない）。"
                     + "クールダウン{cd}秒。",
-                en: "Fires a chain hook of {range} range that deals {damage} physical damage to the first enemy hit, "
+                en: "Fires a chain hook reaching about {reachMult}x your melee attack range that deals {damage} physical damage to the first enemy hit, "
                     + "drags them to your feet and stuns them for {x0}s (flies over walls, but the pull stops at walls; "
                     + "does not hit turrets). Cooldown {cd}s.")
         case .skill2:
             return KitText(
-                ja: "周囲{radius}の敵を鎖で打ち据え、{damage}の物理ダメージ（自分の最大HPの{x2}%を含む）を与え、{x1}秒間 移動速度を{x0}%下げる。"
+                ja: "近接攻撃の射程の約{reachMult}倍の範囲の敵を鎖で打ち据え、{damage}の物理ダメージ（自分の最大HPの{x2}%を含む）を与え、{x1}秒間 移動速度を{x0}%下げる。"
                     + "クールダウン{cd}秒。",
-                en: "Lashes enemies within {radius} for {damage} physical damage (including {x2}% of your max HP) and slows "
+                en: "Lashes enemies within about {reachMult}x your melee attack range for {damage} physical damage (including {x2}% of your max HP) and slows "
                     + "them by {x0}% for {x1}s. Cooldown {cd}s.")
         case .ultimate:
             return KitText(
-                ja: "射程{range}の敵ヒーロー1体を指定して踏み込み、{x0}秒間 鎖で抑え込む（解除不可・CC無効も無視。相手のスキルは中断される）。"
+                ja: "近接攻撃の射程の約{reachMult}倍以内の敵ヒーロー1体を指定して踏み込み、{x0}秒間 鎖で抑え込む（解除不可・CC無効も無視。相手のスキルは中断される）。"
                     + "その間に{hits}回、1回ごとに{damage}の物理ダメージ。ゴルムも動けず、スタンなどで中断されると相手は解放される。"
                     + "クールダウン{cd}秒。",
-                en: "Pick an enemy hero within {range}, rush in and chain them down for {x0}s (cannot be cleansed, ignores "
+                en: "Pick an enemy hero within about {reachMult}x your melee attack range, rush in and chain them down for {x0}s (cannot be cleansed, ignores "
                     + "crowd-control immunity, and cancels their skills). Strikes {hits} times for {damage} physical damage "
                     + "each. Gorm cannot move meanwhile, and being stunned or interrupted frees the target. Cooldown {cd}s.")
         }
@@ -449,7 +464,9 @@ struct Kit_H034: HeroKit {
             endLock(&s, owner: i, release: true)
             return
         }
-        let damage = s.units[i].hero?.kit?.gormUltDamage ?? 0
+        // 闘気 10 個の +150% でも、6 回の合計（軽減前）は相手の最大 HP の ultMaxHPFraction までに抑える（一撃にならないように）
+        let cap = s.units[t].stats.maxHP * Tune.ultMaxHPFraction / Double(Tune.ultHits)
+        let damage = min(s.units[i].hero?.kit?.gormUltDamage ?? 0, cap)
         let p = HitPayload(damage: damage, damageType: .physical, source: .skill(.ultimate), ccIsUltimate: true,
                            skillID: Self.skillID(ctx, .ultimate), originPos: s.units[i].pos)
         CombatSystem.applyHit(&s, ctx, sourceID: s.units[i].id, team: s.units[i].team, targetIndex: t, payload: p,
@@ -518,6 +535,56 @@ struct Kit_H034: HeroKit {
         s.units[victim].hero!.kit!.gormStackTimer = 0
         s.units[victim].hero!.kit!.gormRegenTimer = 0
         s.units[victim].statuses.removeAll { $0.kind == .speedBoost && $0.tag == Tune.speedTag }
+    }
+
+    // MARK: - D. ボット
+
+    func botCast(_ s: SimState, _ ctx: SimContext, bot: Int, slot: SkillSlot, targeting: SkillTargeting,
+                 target: Int, fighting: Bool) -> BotKitDecision {
+        let me = s.units[bot].pos
+        switch slot {
+        case .skill1:
+            // 鉤は最初に当たった敵を引く: 狙う相手より手前の線上にミニオン・モンスターが居るなら撃たない（鉤を無駄にしない）。
+            // 手前に別の敵ヒーローが居る場合は、その相手を引けるので撃ってよい
+            let delta = s.units[target].pos - me
+            let dist = delta.length
+            guard dist > 1e-6 else { return .useDefault }
+            let dir = delta.normalized
+            let team = s.units[bot].team
+            for j in s.units.indices where j != target && s.units[j].team != team && !s.units[j].isStructure
+                && s.units[j].kind != .hero {
+                guard CombatSystem.isLiving(s, j) else { continue }
+                let rel = s.units[j].pos - me
+                let along = rel.dot(dir)
+                guard along > 0, along < dist, along <= Tune.hookRange else { continue }
+                let lateral = abs(rel.x * dir.y - rel.y * dir.x)
+                if lateral <= Tune.hookWidth + s.units[j].radius { return .skip }
+            }
+            return .useDefault
+        case .ultimate:
+            // 鉤 → 奥義が持ち味: 射程内の敵ヒーローが、傷ついている / 鉤でスタン中 / 近くに味方が居る、のいずれかなら
+            // 汎用の関門（倒せる・2 体）を飛び越えて撃つ。それ以外は汎用の判断
+            guard fighting, s.units[target].kind == .hero, s.units[target].team != s.units[bot].team else {
+                return .useDefault
+            }
+            let reach = Tune.ultReach + s.units[target].radius
+            guard s.units[target].pos.distanceSquared(to: me) <= reach * reach else { return .skip }
+            let hooked = s.units[target].statuses.contains { $0.kind == .stun && $0.tag == Tune.hookStunTag }
+            var ready = hooked || s.units[target].hpRatio < Tune.botWeakHP
+            if !ready {
+                for j in s.units.indices where j != bot && s.units[j].kind == .hero
+                    && s.units[j].team == s.units[bot].team {
+                    guard CombatSystem.isLiving(s, j) else { continue }
+                    if s.units[j].pos.distanceSquared(to: me) <= Tune.botAllyRange * Tune.botAllyRange {
+                        ready = true
+                        break
+                    }
+                }
+            }
+            return ready ? .castNow(.unit(s.units[target].id)) : .useDefault
+        default:
+            return .useDefault
+        }
     }
 
     // MARK: - 部品

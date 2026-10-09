@@ -5,7 +5,9 @@ import Foundation
 // アサシン（ジャングル）の近接。キットはロールの汎用パッシブ（奇襲 +30% とキル/アシストの全 CD −30%）を置き換える。
 //   パッシブ 追撃（Pursuit）            — スキルを発動するたび、5 秒以内の次の通常攻撃が「追撃」になる: 射程が +300 伸び、
 //                                          敵の目の前まで踏み込みながら攻撃力の 140% の物理ダメージ。
-//   S1   地割り（Groundsplitter）       — 指定した地点へ転がり込み、大剣を叩きつける。範囲にダメージ + 鈍足 40%（2 秒）。
+//   S1   裂地撃（Groundsplitter）       — 指定した地点へ転がり込み、大剣を叩きつける。範囲にダメージ + 鈍足 40%（2 秒）。
+//                                          クールダウンはランクが低いほど短い（序盤はスキル1 しか無いので）。
+//                                          ボットはミニオン・ジャングルにも使う（botFarm）。
 //   S2   旋回斬（Whirling Smash）       — その場で大剣を回転させ、周囲の敵にダメージ（照準なし）。
 //   奥義 核分裂波（Fission Wave）       — 1 回目: 指定地点の範囲の敵のエネルギーを吸収（鈍足 30%・防御 −10、4 秒）。
 //                                          敵ヒーロー 1 体につき自分に防御 +10 相当（被ダメ軽減）、6 秒間 S1・S2 のクールダウンが半分。
@@ -87,8 +89,9 @@ struct Kit_H033: HeroKit {
         // 吸血（奥義のパッシブ。調査: 10% 一定 / 10・20・30% で割れている → 奥義ランクで伸びる 10 / 20 / 30% を採る）
         static let hybridLifesteal: [Double] = [0.10, 0.20, 0.30]
         /// スキルのダメージの吸血は通常攻撃の何倍か。MLBB の複合吸血は範囲スキルが 1/3、単体は等倍。
-        /// Velstria のスペルヴァンプは命中した対象ごとに全量なので、中間の 1/2 にした。
-        static let spellVampFactor = 0.5
+        /// Velstria のスペルヴァンプは命中した対象ごとに全量（範囲スキルで大勢に当てると回復が人数倍になる）ので、
+        /// 範囲スキルの 1/3 に合わせた。S1・S2 はどちらも範囲で、ジャングルの周回での回復が過大にならない。
+        static let spellVampFactor = 0.33
         static let lifestealTag = KitTags.buff("H033", "lifesteal")
         static let spellVampTag = KitTags.buff("H033", "spellVamp")
         /// 常時効果のステータスに持たせる持続（実質無期限）。
@@ -105,12 +108,15 @@ struct Kit_H033: HeroKit {
         static let s1Slow = 0.40
         static let s1SlowDuration = 2.0
         static let s1SlowTag = KitTags.buff("H033", "slow")
-        /// 汎用 S1 のダメージに対する倍率。
-        static let s1Ratio = 0.85
+        /// 汎用 S1 のダメージに対する倍率（ランク別）。Lv1〜3 はスキル1 しか無いので序盤を強く（0.88）、ランクが上がってスキル2・
+        /// アルティメットが揃うほど下げる（0.64）。ランク 2 以降は予算の下限 0.8 を割るが、汎用の +30%/ランクが勝つので
+        /// ダメージの絶対値はランクで増える。1.0 近くまで上げると Lv1 が +20pt 以上強く、0.70 で一律にすると Lv1 は 3% だった。
+        static let s1Ratios: [Double] = [0.88, 0.78, 0.70, 0.64]
 
         // S2 旋回斬
         static let s2Radius = 250.0
-        static let s2Ratio = 0.82
+        /// 汎用 S2 のダメージに対する倍率（予算の下限 0.8 のすぐ上）。
+        static let s2Ratio = 0.81
 
         // 奥義 核分裂波
         /// 吸収の中心を置ける距離と、吸収の半径。
@@ -122,8 +128,9 @@ struct Kit_H033: HeroKit {
         static let absorbDuration = 4.0
         /// 敵ヒーロー 1 体につき得る被ダメ軽減（防御 +10 の換算: Lv12 の防御 60 前後で約 6%）。
         static let defensePerHero = 0.05
-        /// S1・S2 のクールダウンが半分になる秒数（調査: 6 秒）と、再使用の窓（調査に「不明」: 同じ 6 秒を選んだ）。
-        static let hasteDuration = 6.0
+        /// S1・S2 のクールダウンが半分になる秒数（調査: 6 秒。1v1 の総当たりで Lv6/12 が +20pt 以上強かったので 1 秒短くした）と、
+        /// 再使用の窓（調査に「不明」: 6 秒を選んだ）。
+        static let hasteDuration = 5.0
         static let ultWindow = 6.0
         static let hasteTag = KitTags.buff("H033", "defense")
         static let shredTag = KitTags.buff("H033", "shred")
@@ -134,17 +141,18 @@ struct Kit_H033: HeroKit {
         static let waveHalfWidth = 130.0
         static let waveSpeed = 2200.0
         /// 汎用の奥義（アサシン = 対象指定の一撃 + 失った HP の 12%）に対する衝撃波のダメージ倍率。
-        static let waveRatio = 0.82
+        static let waveRatio = 0.81
 
         // クールダウン（MLBB 秒 → ランク間を線形補間 → 倍率）。奥義は Balance.Skills.cooldownScale（0.5）を掛ける。
         // S1・S2 の倍率は 0.5 より大きい: 奥義の「クールダウン半減」が掛かる 6 秒間だけ他のヒーローの通常のリズム（0.5 倍付近）に
         // なる、という MLBB の緩急を保つため。0.5 を掛けると半減中に S2 が 1.2 秒おきに飛び、1v1 の総当たりで 100% 勝つほど強かった
-        // （docs/kits/Alucard.md の「バランス」）。S2 は MLBB の秒数そのまま、S1 は 0.8 倍（Lv1 は S1 しか無いので、1.0 だと
-        // 同キャラ戦の TTK が上限を超える）。
+        // （docs/kits/Alucard.md の「バランス」）。S2 は MLBB の秒数の 1.2 倍（4〜6 秒 → 4.8〜7.2 秒。1.0 だと半減中に連打になり、
+        // Lv6/12 で +15pt 以上強かった）。S1 はランク別（Lv1〜3 はスキル1 しか無く、奥義の半減も無いので、序盤だけ短くする。
+        // ランクが上がってもクールダウンが延びないよう、倍率は秒数の減り方（8.5 → 6.5）に合わせて上げる: ランク 1〜4 で約 4.7 / 4.6 / 4.6 / 4.6 秒）。
         static let s1Cooldown = (8.5, 6.5)
-        static let s1CooldownScale = 0.8
+        static let s1CooldownScales: [Double] = [0.55, 0.59, 0.64, 0.7]
         static let s2Cooldown = (6.0, 4.0)
-        static let s2CooldownScale = 1.0
+        static let s2CooldownScale = 1.2
         static let ultCooldown = (40.0, 30.0)
     }
 
@@ -191,12 +199,13 @@ struct Kit_H033: HeroKit {
                         KitStat(key: "range", value: Tune.pursuitRangeBonus),
                         KitStat(key: "lifesteal", value: (Tune.hybridLifesteal.last ?? 0) * 100)]
         case .skill1:
-            n.damage = base.damage * Tune.s1Ratio
+            n.damage = base.damage * Self.s1Ratio(rank: rank)
             n.hits = 1
             n.cc = .slow
             n.ccIsUltimate = false
             n.ccDuration = Tune.s1SlowDuration
-            n.cooldown = Self.cooldown(Tune.s1Cooldown, rank: rank, maxRank: slot.maxRank, stats: stats, scale: Tune.s1CooldownScale)
+            n.cooldown = Self.cooldown(Tune.s1Cooldown, rank: rank, maxRank: slot.maxRank, stats: stats,
+                                       scale: Self.s1CooldownScale(rank: rank))
             n.extras = [KitStat(key: "slow", value: Tune.s1Slow * 100),
                         KitStat(key: "slowDuration", value: Tune.s1SlowDuration)]
         case .skill2:
@@ -233,10 +242,10 @@ struct Kit_H033: HeroKit {
         switch slot {
         case .passive:
             return KitText(
-                ja: "スキルを発動するたび、{x1}秒以内の次の通常攻撃が「追撃」になる。射程が{x2}伸び、敵の目の前まで踏み込みながら攻撃力の{x0}%の物理ダメージを与える。"
-                    + "奥義を習得すると、常に複合吸血を得る（通常攻撃の吸血は奥義ランクに応じて10 / 20 / {x3}%、スキルのダメージの吸血はその\(vamp)%）。",
+                ja: "スキルを発動するたび、{x1}秒以内の次の通常攻撃が「追撃」になる。追撃は射程が{x2}伸び、敵の目の前まで踏み込みながら攻撃力の{x0}%の物理ダメージを与える。"
+                    + "アルティメットを習得すると、常に複合吸血を得る。通常攻撃の吸血はアルティメットのランクに応じて10 / 20 / {x3}%、スキルのダメージの吸血はその\(vamp)%。",
                 en: "Each time you cast a skill, your next basic attack within {x1}s becomes a Pursuit: its range grows by {x2}, you dash right up to the target, and it deals {x0}% of attack as physical damage. "
-                    + "Once you learn the ultimate you always have Hybrid Lifesteal (basic attacks heal 10 / 20 / {x3}% by ultimate rank; skill damage heals \(vamp)% of that).")
+                    + "Once you learn the ultimate you always have Hybrid Lifesteal. Basic attacks heal 10 / 20 / {x3}% by ultimate rank; skill damage heals \(vamp)% of that.")
         case .skill1:
             return KitText(
                 ja: "指定した地点へ転がり込み、大剣を叩きつけて周囲{radius}の敵に{damage}ダメージ。{x0}%の鈍足を{x1}秒与える。クールダウン{cd}秒。",
@@ -247,14 +256,18 @@ struct Kit_H033: HeroKit {
                 en: "Spin your blade where you stand, dealing {damage} damage to enemies within {radius} (no aiming). Cooldown {cd}s.")
         case .ultimate:
             return KitText(
-                ja: "指定した地点（{range}以内）の周囲{radius}の敵のエネルギーを吸収し、{x0}%の鈍足と防御・魔防{x1}ダウンを\(debuff)秒間与える。"
-                    + "敵ヒーロー1体につき被ダメージ軽減（約\(perHero)%）を得て、{x2}秒間ほかのスキルのクールダウンが半分になる。"
-                    + "\(window)秒以内にもう一度使うと、向きへ長さ\(wave)の衝撃波を放ち、貫いた敵に{damage}ダメージ。"
-                    + "習得中は常に複合吸血（通常攻撃{x3}%）。クールダウン{cd}秒。",
-                en: "Absorb the energy of enemies within {radius} of a target spot (up to {range} away), slowing them by {x0}% and reducing their defense and magic defense by {x1} for \(debuff)s. "
-                    + "Gain damage reduction (about \(perHero)%) for each enemy hero caught, and your other skills' cooldowns are halved for {x2}s. "
-                    + "Use again within \(window)s to release a shockwave \(wave) long that pierces enemies for {damage} damage. "
-                    + "While learned you always have Hybrid Lifesteal ({x3}% on basic attacks). Cooldown {cd}s.")
+                ja: "吸収: 指定した地点（{range}以内）の周囲{radius}の敵のエネルギーを吸収し、\(debuff)秒間、{x0}%の鈍足と防御・魔防{x1}ダウンを与える。"
+                    + "吸収した敵ヒーロー1体につき、被ダメージ軽減（約\(perHero)%）を得る。"
+                    + "半減: {x2}秒間、スキル1とスキル2のクールダウンが半分になる。"
+                    + "衝撃波: \(window)秒以内にもう一度使うと、向きへ長さ\(wave)の衝撃波を放ち、貫いた敵に{damage}ダメージ。"
+                    + "吸血: 習得している間は常に複合吸血を得る（通常攻撃{x3}%、スキルのダメージはその\(vamp)%）。"
+                    + "クールダウン{cd}秒。",
+                en: "Absorb: absorb the energy of enemies within {radius} of a target spot (up to {range} away), slowing them by {x0}% and reducing their defense and magic defense by {x1} for \(debuff)s. "
+                    + "You gain damage reduction (about \(perHero)%) for each enemy hero caught. "
+                    + "Haste: for {x2}s, Skill 1 and Skill 2 cooldowns are halved. "
+                    + "Shockwave: use again within \(window)s to release a shockwave \(wave) long that pierces enemies for {damage} damage. "
+                    + "Lifesteal: while learned you always have Hybrid Lifesteal ({x3}% on basic attacks, \(vamp)% of that on skill damage). "
+                    + "Cooldown {cd}s.")
         }
     }
 
@@ -342,7 +355,8 @@ struct Kit_H033: HeroKit {
             p.originPos = center
             return p
         }
-        let heroes = hit.filter { s.units[$0].kind == .hero }.count
+        // 無敵の相手は吸収できない（効果が入らないので数えない）
+        let heroes = hit.filter { s.units[$0].kind == .hero && !CombatSystem.isInvulnerable(s, ctx, $0) }.count
         s.units[i].hero!.kit!.valdAbsorbs += 1
         s.units[i].hero!.kit!.valdAbsorbHeroes = heroes
         s.units[i].hero!.kit!.valdHaste = Tune.hasteDuration
@@ -448,6 +462,18 @@ struct Kit_H033: HeroKit {
         return .cast(.point(foe.pos))
     }
 
+    /// ミニオン・ジャングルの集団にも裂地撃（S1）を使ってよいか。Lv1〜3 はスキル1 しか無く、通常攻撃だけではキャンプが遅いので、
+    /// 転がり込んで叩きつける。HP が半分以上で、着地点が敵のタワー・コアの射程に入らないときだけ。
+    func botFarm(_ s: SimState, _ ctx: SimContext, bot: Int, slot: SkillSlot, targeting: SkillTargeting,
+                 center: Vec2, count: Int) -> Bool {
+        guard slot == .skill1, s.units[bot].hpRatio >= 0.5 else { return false }
+        for u in s.units where u.isStructure && u.isAlive && u.team != s.units[bot].team {
+            let r = Balance.towerRange + Balance.heroRadius + 120
+            if u.pos.distanceSquared(to: center) <= r * r { return false }
+        }
+        return true
+    }
+
     // MARK: - 部品
 
     /// 追撃の準備（スキルを発動するたび）。射程が伸び、猶予の間だけ有効。
@@ -479,6 +505,16 @@ struct Kit_H033: HeroKit {
             default: Kit.grantSpellVamp(&s, target: i, ratio: want, duration: Tune.permanent, tag: tag)
             }
         }
+    }
+
+    /// S1 のダメージ倍率（ランク別）。
+    static func s1Ratio(rank: Int) -> Double {
+        Tune.s1Ratios[min(max(1, rank), Tune.s1Ratios.count) - 1]
+    }
+
+    /// S1 のクールダウン倍率（ランク別: 序盤ほど短い）。
+    static func s1CooldownScale(rank: Int) -> Double {
+        Tune.s1CooldownScales[min(max(1, rank), Tune.s1CooldownScales.count) - 1]
     }
 
     /// 奥義ランク（0 = 未習得）に応じた通常攻撃の吸血率。

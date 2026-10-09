@@ -4,16 +4,19 @@ import Foundation
 // H027 竜槍のジャルド = Velstria 版の Zilong（MLBB。調査: docs/kits/Zilong.md、対応表: 同ファイル末尾）。
 //   パッシブ 竜の三連突き  — ダメージを与える（通常攻撃・スキル）たびに竜気 +1。3 つ（奥義中は 2 つ）で次の通常攻撃が
 //                           射程の伸びた三連撃（1 撃 80 + 攻撃力 30%・命中ごとに 50 + 20% 回復）になる。
+//                           1 発目は通常攻撃と同じ tick、2・3 発目は 4 / 8 tick（約 0.13 / 0.27 秒）後（onTimer。対象が倒れた・射程外なら出ない。
+//                           HP 50% 未満の +30 と回復の倍率は 1 発ごとに、当たる瞬間の対象で決める）。回復はヒーロー以外には半分。
 //                           HP 50% 未満の相手へは通常攻撃・スキルのダメージが常に +30（固定値）。
-//   S1   槍の跳ね上げ      — 対象指定。敵を槍で跳ね上げて背後へ放り投げる（打ち上げ 0.8 秒）。
-//   S2   竜牙の踏み込み    — 対象指定の突進。踏み込みざまにダメージ + 防御ダウン 2 秒、その後は通常攻撃へ。
+//   S1   跳槍撃（槍の跳ね上げ）— 対象指定。敵を槍で跳ね上げて背後へ放り投げる（打ち上げ 0.8 秒）。
+//   S2   竜牙突き（竜牙の踏み込み）— 対象指定の突進。踏み込みざまにダメージ + 防御ダウン 2 秒、その後は通常攻撃へ。
 //                           敵を倒す（0.5 秒以内に倒れた敵を含む）たびにクールダウンがリセットされる。
+//                           ボットはミニオン・ジャングルにも使う（botFarm。リセットの連鎖で周回が速くなる）。
 //   奥義 至高の武人        — 自己強化 7.5 秒: 移動速度 +40%・攻撃速度 +35/45/55%・スロウ解除と無効。
 //                           三連突きは 2 回のダメージごとに発動する。ダメージ・CC は無い。
 // 再使用の窓は Zilong に無いので使わない（SkillSystem.cast の経路は 3 スキルとも初回発動のみ）。
 //
 // 状態（KitState）:
-//   ints[0]  = 竜気（0..3）            ints[1] = 今の通常攻撃で残っている三連突きの命中数（同 tick 内のみ）
+//   ints[0]  = 竜気（0..3）            ints[1] = 三連突きの命中で竜気にしない残り数（その命中の瞬間だけ立つ。update で 0 に戻す）
 //   timers[0] = 奥義の残り秒          timers[1] = 「直前に傷つけた敵が倒れたら S2 リセット」の窓（0.5 秒）
 //   ids[0]   = 直前に傷つけた敵      ids[1]   = S2 の突進先の敵
 //   reals[0] = S2 の突進ダメージ      reals[1] = S2 の防御ダウン量（固定値）
@@ -76,6 +79,14 @@ struct Kit_H027: HeroKit {
         /// 竜気がたまる数。奥義中は 2。
         static let chargeNormal = 3
         static let chargeUlt = 2
+        /// 三連突きの 2・3 発目を予約する間隔（秒）。予約は「撃った tick を 1 回目に数えて」減るので、0.14 秒の予約は 4 tick 後
+        /// （約 0.133 秒）、0.28 秒は 8 tick 後（約 0.267 秒）に当たる。被弾演出（Effekseer の近接ヒットは同じ相手へ 0.12 秒に
+        /// 1 回）に潰されないよう、当たる間隔が 0.12 秒より長くなる値にした（0.13 だと 3 tick = 0.1 秒おきになる）。
+        static let flurryGap = 0.14
+        /// 遅れて当たる発が届く余裕（射程 + 三連突きの伸び + 半径の和に足す。相手が少し動いても外れない程度）。
+        static let flurrySlack = 30.0
+        /// ヒーロー（と人形）以外（ミニオン・モンスター・タワー）への三連突きの回復の倍率。
+        static let flurryHealNonHero = 0.5
         /// 三連突き中の射程の伸び（通常攻撃 150 → 約 208。MLBB の 1.8 → 2.5 の比）。
         static let flurryRangeBonus = 58.0
         static let rangeTag = "kit.H027.flurryRange"
@@ -90,7 +101,7 @@ struct Kit_H027: HeroKit {
         /// 放り投げた敵が着地する、術者の中心からの距離（背後）。
         static let flipLandingGap = 170.0
         /// 汎用 S1 のダメージに対する倍率（CD が汎用より長いぶんを補う。0.8〜1.3 の範囲内）。
-        static let flipDamageRatio = 1.05
+        static let flipDamageRatio = 1.08
 
         // S2 竜牙の踏み込み
         static let strikeReach = 450.0
@@ -120,6 +131,7 @@ struct Kit_H027: HeroKit {
 
     private enum Code {
         static let strikeArrive = 1
+        static let flurryHit = 2
     }
 
     // MARK: - A. 記述
@@ -160,7 +172,8 @@ struct Kit_H027: HeroKit {
             n.extras = [KitStat(key: "flurryDamage", value: n.damage.rounded()),
                         KitStat(key: "flurryHeal", value: n.heal.rounded()),
                         KitStat(key: "executeFlat", value: Tune.executeFlat),
-                        KitStat(key: "charge", value: Double(Tune.chargeNormal))]
+                        KitStat(key: "charge", value: Double(Tune.chargeNormal)),
+                        KitStat(key: "nonHeroHeal", value: Tune.flurryHealNonHero * 100)]
         case .skill1:
             n.damage = base.damage * Tune.flipDamageRatio
             n.cooldown = Self.cooldown(Tune.flipCooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
@@ -196,23 +209,32 @@ struct Kit_H027: HeroKit {
     }
 
     func text(slot: SkillSlot) -> KitText? {
+        let gap = String(format: "%g", Tune.flurryGap)
         switch slot {
         case .passive:
             return KitText(
-                ja: "ダメージを与える（通常攻撃・スキル）たびに竜気が1たまる。{x3}たまると、次の通常攻撃が射程の伸びた「竜の三連突き」になり、{hits}回命中する。1回ごとに{x0}ダメージを与え、{x1}回復する。さらに、HPが半分未満の相手には、通常攻撃とスキルのダメージが常に+{x2}される。",
-                en: "Each time you deal damage (basic attacks or skills) you gain a Dragon charge. At {x3} charges your next basic attack becomes a longer-ranged Dragon Flurry that hits {hits} times, dealing {x0} damage and healing {x1} per hit. Against enemies below 50% HP, your basic attacks and skills always deal +{x2} damage.")
+                ja: "ダメージを与える（通常攻撃・スキル）たびに竜気が1たまる。{x3}たまると、次の通常攻撃が射程の伸びた「竜の三連突き」になる。"
+                    + "三連突きは\(gap)秒おきに{hits}回続けて突き、1回ごとに{x0}ダメージを与えて{x1}回復する（ヒーロー以外が相手なら回復は{nonHeroHeal}%）。"
+                    + "さらに、HPが半分未満の相手には、通常攻撃とスキルのダメージが常に+{x2}される。",
+                en: "Each time you deal damage (basic attacks or skills) you gain a Dragon charge. At {x3} charges your next basic attack becomes a longer-ranged Dragon Flurry. "
+                    + "The Flurry strikes {hits} times, \(gap)s apart, dealing {x0} damage and healing {x1} per hit (healing is {nonHeroHeal}% against targets that are not heroes). "
+                    + "Against enemies below 50% HP, your basic attacks and skills always deal +{x2} damage.")
         case .skill1:
             return KitText(
                 ja: "対象の敵を槍で跳ね上げ、{damage}ダメージを与えて自分の背後へ放り投げる。対象は{x0}秒間打ち上げられて行動できない。クールダウン{cd}秒。",
                 en: "Spear a target enemy into the air, dealing {damage} damage and flinging them behind you. The target is airborne for {x0}s and cannot act. Cooldown {cd}s.")
         case .skill2:
             return KitText(
-                ja: "対象の敵へ一気に踏み込み、{damage}ダメージを与えて{x1}秒間防御を{x0}下げる。踏み込んだあとはそのまま通常攻撃に移る。敵を倒すと（直前に傷つけた敵が{x2}秒以内に倒れた場合も）クールダウンがリセットされる。",
-                en: "Lunge at a target enemy, dealing {damage} damage and reducing their defense by {x0} for {x1}s, then follow up with a basic attack. Resets its cooldown whenever you kill an enemy (including one you damaged that dies within {x2}s).")
+                ja: "対象の敵へ一気に踏み込み、{damage}ダメージを与えて{x1}秒間防御を{x0}下げる。踏み込んだあとはそのまま通常攻撃に移る。"
+                    + "敵を倒したとき、または直前に傷つけた敵が{x2}秒以内に倒れたとき、クールダウンがリセットされる。クールダウン{cd}秒。",
+                en: "Lunge at a target enemy, dealing {damage} damage and reducing their defense by {x0} for {x1}s, then follow up with a basic attack. "
+                    + "Resets its cooldown when you kill an enemy, or when an enemy you just damaged dies within {x2}s. Cooldown {cd}s.")
         case .ultimate:
             return KitText(
-                ja: "スロウをすべて解除し、{x2}秒間 移動速度+{x0}%・攻撃速度+{x1}%、スロウ無効。この間は、竜気が{x3}たまるだけで三連突きが発動する。クールダウン{cd}秒。",
-                en: "Remove all slows. For {x2}s gain +{x0}% movement speed and +{x1}% attack speed, and become immune to slows. During this time Dragon Flurry triggers after only {x3} charges. Cooldown {cd}s.")
+                ja: "スロウをすべて解除し、{x2}秒間 移動速度+{x0}%・攻撃速度+{x1}%、スロウ無効。スタンなど、スロウ以外の行動を止める効果は防げない。"
+                    + "この間は、竜気が{x3}たまるだけで三連突きが発動する。クールダウン{cd}秒。",
+                en: "Remove all slows. For {x2}s gain +{x0}% movement speed and +{x1}% attack speed, and become immune to slows (stuns and other disables still work on you). "
+                    + "During this time Dragon Flurry triggers after only {x3} charges. Cooldown {cd}s.")
         }
     }
 
@@ -323,6 +345,10 @@ struct Kit_H027: HeroKit {
     }
 
     func onTimer(_ s: inout SimState, _ ctx: SimContext, owner: Int, timer: KitTimer) {
+        if timer.code == Code.flurryHit {
+            flurryHit(&s, ctx, owner: owner, timer: timer)
+            return
+        }
         guard timer.code == Code.strikeArrive, let kit = s.units[owner].hero?.kit else { return }
         let targetID = kit.jarldDashTargetID
         s.units[owner].hero!.kit!.jarldDashTargetID = 0
@@ -396,17 +422,45 @@ struct Kit_H027: HeroKit {
             plan.payload.damage += flat
             return
         }
-        // 三連突き: 同じ対象へ 3 回（同 tick）。1 撃 80 + 攻撃力 30%、命中ごとに 50 + 20% 回復
+        // 三連突き: 同じ対象へ 3 回。1 発目は通常攻撃と同じ tick（ここで整形）、2・3 発目は 4 / 8 tick（約 0.13 / 0.27 秒）後（onTimer）。
+        // 1 撃 80 + 攻撃力 30%、命中ごとに 50 + 20% 回復（ヒーロー以外が相手なら半分）。会心は 3 発で 1 回の判定を共有する
         let attack = s.units[attacker].stats.attack
         let crit = plan.payload.isCrit ? max(1, s.units[attacker].stats.critMultiplier) : 1
         var hit = plan.payload
         hit.damage = Self.flurryHitDamage(attack: attack) * crit + flat
-        hit.effects = [.healOwner(flat: Self.flurryHeal(attack: attack), ratioOfDealt: 0)]
+        hit.effects = [.healOwner(flat: Self.flurryHealAmount(attack: attack, target: s.units[target]), ratioOfDealt: 0)]
         plan.payload = hit
-        plan.extras.append(contentsOf: Array(repeating: hit, count: Tune.flurryHits - 1))
+        let targetID = s.units[target].id
+        for n in 1..<Tune.flurryHits {
+            // param = 会心倍率（会心でなければ 1）、point.x = 会心か（0 / 1）。当たる瞬間に対象の状態を見直すので、ダメージは持たない
+            Kit.schedule(&s, caster: attacker, slot: .passive, code: Code.flurryHit, after: Tune.flurryGap * Double(n),
+                         targetID: targetID, index: n, param: crit, point: Vec2(plan.payload.isCrit ? 1 : 0, 0),
+                         interruptible: true)
+        }
         s.units[attacker].hero!.kit!.jarldCharge = 0
-        s.units[attacker].hero!.kit!.jarldFlurryHitsLeft = Tune.flurryHits
+        s.units[attacker].hero!.kit!.jarldFlurryHitsLeft = 1
         s.units[attacker].statuses.removeAll { $0.kind == .attackRangeBoost && $0.tag == Tune.rangeTag }
+    }
+
+    /// 三連突きの 2・3 発目。対象が倒れた・射程（伸びを含む）の外へ出た・対象不可なら出ない。
+    /// HP 50% 未満の +30 と回復の倍率は、当たる瞬間の対象で決める。竜気にはならない。
+    private func flurryHit(_ s: inout SimState, _ ctx: SimContext, owner: Int, timer: KitTimer) {
+        guard let t = s.index(of: timer.targetID), CombatSystem.isLiving(s, t), !s.units[t].has(.untargetable),
+              s.units[t].team != s.units[owner].team else { return }
+        let reach = s.units[owner].stats.attackRange + Tune.flurryRangeBonus + s.units[owner].radius
+            + s.units[t].radius + Tune.flurrySlack
+        guard s.units[owner].pos.distanceSquared(to: s.units[t].pos) <= reach * reach else { return }
+        let attack = s.units[owner].stats.attack
+        let isCrit = timer.point.x > 0.5
+        var p = HitPayload(damage: Self.flurryHitDamage(attack: attack) * max(1, timer.param) + Self.executeBonus(s, t),
+                           damageType: .physical, source: .basicAttack, isCrit: isCrit, appliesOnHit: true,
+                           effects: [.healOwner(flat: Self.flurryHealAmount(attack: attack, target: s.units[t]),
+                                                ratioOfDealt: 0)])
+        p.originPos = s.units[owner].pos
+        // この命中は竜気にしない（onBasicAttackHit が 1 つ消費する）
+        s.units[owner].hero!.kit!.jarldFlurryHitsLeft = 1
+        CombatSystem.applyHit(&s, ctx, sourceID: s.units[owner].id, team: s.units[owner].team, targetIndex: t,
+                              payload: p, from: s.units[owner].pos)
     }
 
     func onBasicAttackHit(_ s: inout SimState, _ ctx: SimContext, attacker: Int, target: Int, damage: Double) {
@@ -440,12 +494,30 @@ struct Kit_H027: HeroKit {
                  target: Int, fighting: Bool) -> BotKitDecision {
         switch slot {
         case .ultimate:
-            // 追撃・交戦の強化: 交戦中で、敵が近い間に使う
-            guard fighting, s.units[bot].pos.distance(to: s.units[target].pos) <= 700 else { return .skip }
+            // 追撃・交戦の強化: 強化中は撃たない。交戦中の敵ヒーローに踏み込みの射程で届くなら、汎用の関門
+            // （倒せる・2 体以上）を待たずに今撃つ（自己強化なので、殴り合いの頭に使うのが一番強い）
+            guard (s.units[bot].hero?.kit?.jarldUltRemaining ?? 0) <= 0 else { return .skip }
+            let foe = s.units[target]
+            let dist = s.units[bot].pos.distance(to: foe.pos)
+            if fighting, foe.kind == .hero, dist <= Tune.strikeReach + foe.radius { return .castNow(.none) }
+            // それ以外（ミニオン・遠い敵）は従来どおり: 交戦中で敵が近く、汎用の関門を通ったときだけ
+            guard fighting, dist <= 700 else { return .skip }
             return .cast(.none)
         default:
             return .useDefault
         }
+    }
+
+    /// ミニオン・ジャングルの集団にも竜牙突き（S2）を使ってよいか。倒すたびにリセットされるので、周回の連鎖に使える。
+    /// HP が半分以上で、突進の先が敵のタワー・コアの射程に入らないときだけ。
+    func botFarm(_ s: SimState, _ ctx: SimContext, bot: Int, slot: SkillSlot, targeting: SkillTargeting,
+                 center: Vec2, count: Int) -> Bool {
+        guard slot == .skill2, s.units[bot].hpRatio >= 0.5 else { return false }
+        for u in s.units where u.isStructure && u.isAlive && u.team != s.units[bot].team {
+            let r = Balance.towerRange + Balance.heroRadius + 120
+            if u.pos.distanceSquared(to: center) <= r * r { return false }
+        }
+        return true
     }
 
     // MARK: - 部品
@@ -477,6 +549,12 @@ struct Kit_H027: HeroKit {
 
     static func flurryHitDamage(attack: Double) -> Double { Tune.flurryFlat + Tune.flurryAttackRatio * attack }
     static func flurryHeal(attack: Double) -> Double { Tune.flurryHealFlat + Tune.flurryHealRatio * attack }
+
+    /// 命中ごとの回復量。ヒーロー（と人形）以外（ミニオン・モンスター・タワー）が相手なら半分。
+    static func flurryHealAmount(attack: Double, target: Unit) -> Double {
+        let full = target.kind == .hero || target.kind == .dummy
+        return flurryHeal(attack: attack) * (full ? 1 : Tune.flurryHealNonHero)
+    }
 
     /// 防御ダウン量（固定値 15 → 30 をランクで線形に）。
     static func shredFlat(rank: Int, maxRank: Int) -> Double {

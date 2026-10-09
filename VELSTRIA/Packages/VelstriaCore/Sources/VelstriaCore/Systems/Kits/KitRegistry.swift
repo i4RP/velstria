@@ -44,8 +44,8 @@ public struct KitBadge: Hashable, Sendable {
     }
 }
 
-/// スキル説明（ja / en のテンプレート）。`{damage} {total} {hits} {shield} {heal} {range} {radius} {cd} {x0}..{x3}` を
-/// sim の数値で埋める（説明文の数値と sim をずらさない）。
+/// スキル説明（ja / en のテンプレート）。`{damage} {total} {hits} {shield} {heal} {range} {radius} {cd} {x0}..{x3}` と、
+/// extras の `KitStat.key` で引く `{key}` を sim の数値で埋める（説明文の数値と sim をずらさない）。
 public struct KitText: Hashable, Sendable {
     public var ja: String
     public var en: String
@@ -76,6 +76,11 @@ public struct KitText: Hashable, Sendable {
         put("{cd}", short(numbers.cooldown))
         for k in 0..<4 {
             put("{x\(k)}", k < numbers.extras.count ? short(numbers.extras[k].value) : "0")
+        }
+        // 名前で引く {key}（extras の全要素。{x#} と同じ値・同じ書式）。組み込みの名前（damage など）が先に勝ち、
+        // 同名の key は先頭のものが勝つ。空の key は無視する。
+        for e in numbers.extras where !e.key.isEmpty {
+            put("{\(e.key)}", short(e.value))
         }
         return out
     }
@@ -179,5 +184,19 @@ public enum HeroKits {
                         target: Int, fighting: Bool) -> BotKitDecision {
         guard let kit = kit(in: s, i) else { return .useDefault }
         return kit.botCast(s, ctx, bot: i, slot: slot, targeting: targeting, target: target, fighting: fighting)
+    }
+
+    /// ボットのファーム時の突入系スキルの許可（キットが無ければ false）。
+    static func botFarm(_ s: SimState, _ ctx: SimContext, bot i: Int, slot: SkillSlot, targeting: SkillTargeting,
+                        center: Vec2, count: Int) -> Bool {
+        guard let kit = kit(in: s, i) else { return false }
+        return kit.botFarm(s, ctx, bot: i, slot: slot, targeting: targeting, center: center, count: count)
+    }
+
+    /// ボットの撤退時のスキル判断（キットが無ければ既定）。
+    static func botEscape(_ s: SimState, _ ctx: SimContext, bot i: Int, slot: SkillSlot, targeting: SkillTargeting,
+                          flee: Vec2, enemyDistance: Double) -> BotKitDecision {
+        guard let kit = kit(in: s, i) else { return .useDefault }
+        return kit.botEscape(s, ctx, bot: i, slot: slot, targeting: targeting, flee: flee, enemyDistance: enemyDistance)
     }
 }

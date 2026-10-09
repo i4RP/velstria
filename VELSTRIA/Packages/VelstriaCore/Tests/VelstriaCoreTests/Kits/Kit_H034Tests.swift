@@ -163,8 +163,10 @@ final class Kit_H034Tests: XCTestCase {
             (a + (b - a) * Double(rank - 1) / Double(maxRank - 1)) * (1 - cdr) * Balance.Skills.cooldownScale
         }
         for rank in 1...4 {
+            // ランク 1 だけ短い（Lv1 は鉤しか持たない）。ランク 2 以降は 15 → 11 の線形補間のまま
             XCTAssertEqual(SkillCatalog.numbers(for: skill(.skill1), hero: hero, rank: rank, stats: stats).cooldown,
-                           expected(15, 11, rank: rank, maxRank: 4), accuracy: 1e-9)
+                           rank == 1 ? expected(Tune.hookRank1Cooldown, Tune.hookRank1Cooldown, rank: 1, maxRank: 4)
+                                     : expected(15, 11, rank: rank, maxRank: 4), accuracy: 1e-9)
             XCTAssertEqual(SkillCatalog.numbers(for: skill(.skill2), hero: hero, rank: rank, stats: stats).cooldown,
                            expected(7, 4.5, rank: rank, maxRank: 4), accuracy: 1e-9)
         }
@@ -178,7 +180,12 @@ final class Kit_H034Tests: XCTestCase {
         XCTAssertEqual(h1.cc, .stun)
         XCTAssertEqual(h1.ccDuration, Tune.hookStun)
         XCTAssertGreaterThan(h4.damage, h1.damage)
-        XCTAssertLessThan(h4.cooldown, h1.cooldown)
+        // ランク 2 以降はランクが上がるほど CD が短い。ランク 1 だけは Lv1 の勝率のために短く、最大ランク（11 秒）より少し短い
+        let h2 = SkillCatalog.numbers(for: skill(.skill1), hero: hero, rank: 2, stats: stats)
+        let h3 = SkillCatalog.numbers(for: skill(.skill1), hero: hero, rank: 3, stats: stats)
+        XCTAssertLessThan(h4.cooldown, h3.cooldown)
+        XCTAssertLessThan(h3.cooldown, h2.cooldown)
+        XCTAssertLessThan(h1.cooldown, h4.cooldown, "ランク 1 の鉤は最も短い（Tune.hookRank1Cooldown）")
         let s2 = SkillCatalog.numbers(for: skill(.skill2), hero: hero, rank: 1, stats: stats)
         XCTAssertEqual(s2.cc, .slow)
         XCTAssertEqual(s2.ccDuration, Tune.shockSlowDuration)
@@ -223,18 +230,22 @@ final class Kit_H034Tests: XCTestCase {
             return try XCTUnwrap(HeroKits.text(heroID: "H034", slot: slot)).filled(english: false, numbers: n, targeting: t)
         }
         let passive = try ja(.passive)
-        for token in ["5秒", "10%", "1%", "15%", "最大10個"] { XCTAssertTrue(passive.contains(token), "\(token): \(passive)") }
+        // 闘気の増える間隔は Tune.stackInterval から、最大の上乗せは 15% × 10 = 150%。UI の用語（スキル1・スキル2・アルティメット）で書く
+        for token in ["5秒", "10%", "1%", "15%", "最大10個", "1秒に1個", "最大+150%", "スキル1・スキル2・アルティメット"] {
+            XCTAssertTrue(passive.contains(token), "\(token): \(passive)")
+        }
+        // 単位の無い距離（680 / 260 / 350）は出さず、近接攻撃の射程（150）に対する倍率で書く
         let s1 = try ja(.skill1, rank: 2)
         let n1 = SkillCatalog.numbers(for: skill(.skill1), hero: hero, rank: 2, stats: w.s.units[k].stats)
-        for token in ["680", "\(Int(n1.damage.rounded()))", "1秒"] { XCTAssertTrue(s1.contains(token), "\(token): \(s1)") }
+        for token in ["約4.5倍", "\(Int(n1.damage.rounded()))", "1秒"] { XCTAssertTrue(s1.contains(token), "\(token): \(s1)") }
         let s2 = try ja(.skill2, rank: 2)
         let n2 = SkillCatalog.numbers(for: skill(.skill2), hero: hero, rank: 2, stats: w.s.units[k].stats)
-        for token in ["260", "\(Int(n2.damage.rounded()))", "70%", "1.5秒", "4%"] {
+        for token in ["約1.7倍", "\(Int(n2.damage.rounded()))", "70%", "1.5秒", "4%"] {
             XCTAssertTrue(s2.contains(token), "\(token): \(s2)")
         }
         let ult = try ja(.ultimate, rank: 2)
         let n3 = SkillCatalog.numbers(for: skill(.ultimate), hero: hero, rank: 2, stats: w.s.units[k].stats)
-        for token in ["350", "\(Int(n3.damage.rounded()))", "1.8秒", "6回"] { XCTAssertTrue(ult.contains(token), "\(token): \(ult)") }
+        for token in ["約2.3倍", "\(Int(n3.damage.rounded()))", "1.8秒", "6回"] { XCTAssertTrue(ult.contains(token), "\(token): \(ult)") }
     }
 
     // MARK: - パッシブ: 鉄鎖の執念
@@ -576,7 +587,7 @@ final class Kit_H034Tests: XCTestCase {
         XCTAssertTrue(w.ctx.nav.isWalkable(p, radius: w.s.units[e].radius - 1))
     }
 
-    // MARK: - S2: 怒りの鎖
+    // MARK: - スキル2: 鉄鎖旋
 
     func testShockHitsEveryEnemyAroundWithMaxHealthDamageAndSlow() throws {
         var (w, k) = world(level: 12)
@@ -1023,6 +1034,114 @@ final class Kit_H034Tests: XCTestCase {
         XCTAssertEqual(resumedC.s.units, c.s.units)
         XCTAssertEqual(c.damageEvents.filter { $0.source == .skill(.ultimate) }.count % 6, 0)
         XCTAssertEqual(resumedC.damageEvents.count, c.damageEvents.count)
+    }
+
+    func testUltimateTotalIsCappedAtAFractionOfTheTargetsMaxHealth() {
+        // 最大 HP の小さい相手（Lv1）: 闘気 10 個の奥義でも 6 回の合計（軽減前）は最大 HP × ultMaxHPFraction まで
+        var (w, k) = world(level: 12, ranks: [2, 2, 3])
+        let e = addEnemy(&w, dx: 120, hero: "H004", level: 1)
+        let maxHP = w.s.units[e].stats.maxHP
+        let n = w.numbers(k, .ultimate)
+        XCTAssertGreaterThan(w.mitigated(n.damage * 2.5 * Double(Tune.ultHits), .physical, on: e), maxHP * Tune.ultMaxHPFraction,
+                             "テストの前提: 上限が無ければ上限を超える")
+        w.s.units[k].hero!.kit!.gormStacks = Tune.maxStacks
+        XCTAssertTrue(w.cast(k, .ultimate))
+        w.run(seconds: 2.0)
+        XCTAssertTrue(w.s.units[e].isAlive, "上限が無いと一撃で倒れる")
+        XCTAssertGreaterThan(w.damage(to: e), 0)
+        XCTAssertLessThanOrEqual(w.damage(to: e), maxHP * Tune.ultMaxHPFraction + 1e-6)
+        // 上限に届かない通常の相手では上限は効かない（闘気 0 のダメージ = numbers のとおり）
+        var (w2, k2) = world(level: 12)
+        let e2 = addEnemy(&w2, dx: 120)
+        let n2 = w2.numbers(k2, .ultimate)
+        XCTAssertTrue(w2.cast(k2, .ultimate))
+        w2.run(seconds: 2.0)
+        XCTAssertEqual(events(w2, to: e2, .skill(.ultimate)).first?.amount ?? 0, w2.mitigated(n2.damage, .physical, on: e2),
+                       accuracy: 1e-6)
+    }
+
+    // MARK: - ボットの判断
+
+    private func decide(_ w: SkillWorld, _ k: Int, _ slot: SkillSlot, target: Int) -> String {
+        let tg = HeroKits.targeting(for: skill(slot), hero: hero, stage: 0)
+        switch HeroKits.botCast(w.s, w.ctx, bot: k, slot: slot, targeting: tg, target: target, fighting: true) {
+        case .useDefault: return "default"
+        case .cast: return "cast"
+        case .castNow(let t):
+            if case .unit(let id) = t, id == w.id(target) { return "castNow(target)" }
+            return "castNow(other)"
+        case .skip: return "skip"
+        }
+    }
+
+    func testBotHookSkipsWhenAMinionOrMonsterIsInTheWayButNotForAHeroOrOffTheLine() {
+        var (w, k) = world(level: 12)
+        let e = addEnemy(&w, dx: 500)
+        XCTAssertEqual(decide(w, k, .skill1, target: e), "default", "線上に何も無い")
+        // 手前の線上のミニオン: 撃たない
+        let m = w.addMinion(team: .red, at: skillArena + Vec2(250, Tune.hookWidth))
+        XCTAssertEqual(decide(w, k, .skill1, target: e), "skip", "ミニオンが線上（幅 + 半径以内）")
+        // 線から外れたミニオン: 撃つ
+        w.s.units[m].pos = skillArena + Vec2(250, Tune.hookWidth + w.s.units[m].radius + 40)
+        XCTAssertEqual(decide(w, k, .skill1, target: e), "default", "線から外れている")
+        // 標的より奥のミニオンは関係ない
+        w.s.units[m].pos = skillArena + Vec2(600, 0)
+        XCTAssertEqual(decide(w, k, .skill1, target: e), "default", "標的より奥")
+        // 味方のミニオンは当たらない
+        _ = w.addMinion(team: .blue, at: skillArena + Vec2(250, 0))
+        XCTAssertEqual(decide(w, k, .skill1, target: e), "default", "味方は鉤を遮らない")
+        // 手前に別の敵ヒーロー: その相手を引けるので撃つ
+        _ = addEnemy(&w, dx: 250, hero: "H003")
+        XCTAssertEqual(decide(w, k, .skill1, target: e), "default", "別の敵ヒーローは引ける")
+    }
+
+    func testBotUltimateIsCastNowOnAHookedWeakOrSupportedTargetWithinReach() {
+        var (w, k) = world(level: 12)
+        let e = addEnemy(&w, dx: 300)
+        // 満タンの相手・味方なし: 汎用の判断
+        XCTAssertEqual(decide(w, k, .ultimate, target: e), "default")
+        // 傷ついた相手（< 70%）
+        w.s.units[e].hp = w.s.units[e].stats.maxHP * 0.65
+        XCTAssertEqual(decide(w, k, .ultimate, target: e), "castNow(target)")
+        w.s.units[e].hp = w.s.units[e].stats.maxHP
+        // 鉤でスタン中の相手
+        CombatSystem.addStatus(&w.s, targetIndex: e, StatusEffect(kind: .stun, duration: 1, sourceID: w.id(k),
+                                                                   tag: Tune.hookStunTag))
+        XCTAssertEqual(decide(w, k, .ultimate, target: e), "castNow(target)", "鉤 → 奥義")
+        // ほかのスタンでは特別扱いしない
+        w.s.units[e].statuses.removeAll()
+        CombatSystem.addStatus(&w.s, targetIndex: e, StatusEffect(kind: .stun, duration: 1))
+        XCTAssertEqual(decide(w, k, .ultimate, target: e), "default")
+        w.s.units[e].statuses.removeAll()
+        // 近くの味方（800 以内）
+        let ally = w.addHero("H002", team: .blue, at: skillArena + Vec2(-700, 0), level: 12)
+        XCTAssertEqual(decide(w, k, .ultimate, target: e), "castNow(target)")
+        w.s.units[ally].pos = skillArena + Vec2(-(Tune.botAllyRange + 100), 0)
+        XCTAssertEqual(decide(w, k, .ultimate, target: e), "default", "味方が遠い")
+        // 射程（350 + 半径）の外では撃たない
+        w.s.units[e].hp = w.s.units[e].stats.maxHP * 0.5
+        w.s.units[e].pos = skillArena + Vec2(Tune.ultReach + 200, 0)
+        XCTAssertEqual(decide(w, k, .ultimate, target: e), "skip", "射程外")
+        // ミニオンは対象にしない（汎用の判断）
+        let m = w.addMinion(team: .red, at: skillArena + Vec2(200, 0))
+        XCTAssertEqual(decide(w, k, .ultimate, target: m), "default")
+    }
+
+    /// 闘気 10 個の奥義 +150% が、通常の相手を一撃で倒すほどにならないこと（報告用の数値も出す）。
+    func testFullStackUltimateDoesNotOneShotAHealthyTarget() {
+        for level in [6, 12] {
+            for foe in ["H001", "H003", "H004", "H005"] {
+                var (w, k) = world(level: level, ranks: [2, 2, 3])
+                let e = addEnemy(&w, dx: 120, hero: foe, level: level)
+                w.s.units[k].hero!.kit!.gormStacks = Tune.maxStacks
+                XCTAssertTrue(w.cast(k, .ultimate))
+                w.run(seconds: 2.0)
+                let dealt = w.damage(to: e)
+                let ratio = dealt / w.s.units[e].stats.maxHP
+                print(String(format: "H034 10-stack ult Lv%d vs %@: %.0f dmg = %.0f%% of max HP", level, foe, dealt, ratio * 100))
+                XCTAssertLessThan(ratio, Tune.ultMaxHPFraction + 0.02, "Lv\(level) \(foe): 闘気 10 個の奥義で一撃になる")
+            }
+        }
     }
 
     // MARK: - ボットの煙テスト

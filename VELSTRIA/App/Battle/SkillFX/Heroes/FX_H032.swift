@@ -6,14 +6,16 @@ import VelstriaCore
 // 重く短い斬線と、叩きつけた拳の衝撃、散る火の粉で見せる（竜槍のジャルド H027 の長い突きの線とは逆に、近い間合いの連打）。
 // sim の実際の挙動（Systems/Kits/Kit_H032.swift）に合わせた演出:
 //   パッシブ 紅血の拳          — 赤い気（レイジ）が腕に巻きつき、残り火が舞う（レイジ 50 以上でアビス強化）。
-//                                通常攻撃 2 回に 1 回の円撃は専用のイベントが無いので、通常の攻撃の演出に任せる
+//                                パッシブのバッジは 50 ごとの段（0〜2）なので、演出が出るのはレイジが 50・100 に届いた瞬間だけ。
+//                                アビス強化を放ってレイジの段が 1 → 0 に戻ったとき（スキルの発動の直後）は passiveRelease の演出（赤い気が拳へ抜ける）。
+//                                通常攻撃 2 回に 1 回の円撃は専用のイベントが無いので、通常の攻撃の演出（各対象のヒット）に任せる
 //   S1 爆裂連撃（扇）          — 前方の扇へ 0.1 / 0.24 / 0.38 秒の 3 連の斬線（右→左→右）。鈍足の火の粉が残る
 //                                アビス強化（SkillCastEvent.count = 5、射程 400）は 0.1 秒間隔の 5 連。Director が count を使うようになれば
 //                                追加の斬線を足す（今はレシピが共通なので通常版の 3 連のまま）
 //   S2 亡霊の歩み（突進 + 再使用） — 1 回目: 赤い尾を引いて突進し（約 0.17 秒）、最初に当たった敵を殴って軽く押し出す。
 //                                2 回目（stage 1）: 敵ヒーローへ飛びかかって叩きつけ、防御ダウン（4 秒）の割れた紋を残す。
 //                                どちらも「突進 → 着弾の拳」なので 1 つのレシピを共有する（Director は stage を見ない）
-//   奥義 奈落の一撃（溜め + 直線）— 0.5 秒の溜め（足元に紋、赤い気が拳に集まる）→ 前方 4.2 m の直線に重い一撃。
+//   奥義 奈落の一撃（溜め + 直線）— 0.5 秒の溜め（足元に紋、赤い気が拳に集まる）→ 前方 6.5 m（射程 650）の直線に重い一撃。
 //                                終端に裂け目、当たった敵は炎の枷で鈍る（減速 0.8 秒）。スタンでは止まらない（演出も途切れさせない）
 
 enum FX_H032: HeroFXSet {
@@ -65,6 +67,8 @@ enum FX_H032: HeroFXSet {
                 // 鈍足（1.5 秒）: 足元の赤い輪
                 .mesh(.halo(0.5, .primary, life: 1.2, spin: 100, tex: .ring), .follow, offset: [0, 0.15, 0]),
             ]
+            // 3 連（アビス強化は 5 連）の衝撃を 1 発ずつ当てるので、被弾の火花も 1 発ごとに出す
+            r.hitPerHit = true
         case .skill2:
             // 赤い尾を引いて駆け（約 0.17 秒）、到着の瞬間に拳を叩きつける。impact は対象の足元で再生される
             r.cast = [
@@ -94,7 +98,7 @@ enum FX_H032: HeroFXSet {
                 .emit(.rising(8, radius: 0.4, .secondary, speed: 3, life: 0.5), quality: 1),
             ]
         case .ultimate:
-            // 溜め（0〜0.5 秒）: 足元に紋、赤い気が拳に集まる → 0.5 秒で前方 4.2 m の直線に重い一撃。終端（impact）に裂け目
+            // 溜め（0〜0.5 秒）: 足元に紋、赤い気が拳に集まる → 0.5 秒で前方（射程 6.5 m）の直線に重い一撃。終端（impact）に裂け目
             let L = max(s.range, 4.2)
             r.cast = [
                 .emit(.gather(22, radius: 1.3, .primary, life: 0.4), offset: [0.3, 1.0, 0.5]),
@@ -130,6 +134,16 @@ enum FX_H032: HeroFXSet {
             ]
         }
         return r
+    }
+
+    /// アビス強化を放った（レイジを 50 消費してバッジの段が 1 → 0 に戻った）瞬間: 腕に溜まった赤い気が拳へ一気に抜ける。
+    /// （積む演出は recipe(.passive) のまま。released は消費した段の数）
+    static func passiveRelease(_ s: FXSkillInfo, released: Int) -> [FXCue]? {
+        [
+            .emit(.flare(1.4, .core, life: 0.18, tex: .flare6), .follow, offset: [0.3, 1.1, 0.5]),
+            .mesh(.halo(0.7, .secondary, life: 0.4, spin: -320, tex: .ring), .follow, offset: [0, 0.9, 0]),
+            .emit(.sparks(10, speed: 6, .accent, end: .primary), .follow, offset: [0, 1.0, 0.4]),
+        ]
     }
 
     static func motion(_ slot: SkillSlot, _ m: inout MotionBuilder) {

@@ -115,6 +115,26 @@ final class UnitMeshLibrary {
         return b.makeMesh(name: "slowRing")
     }()
 
+    /// 頭上のマークの記号（ひし形 + 傾けた輪。中心が原点。Y 軸で回すと輪が回って見える。色は単色の Unlit で付ける）。
+    lazy var markGlyph: MeshResource? = {
+        var b = MeshBuilder()
+        b.crystal(radius: 0.13, height: 0.4, sides: 4, waist: 0.5, color: .solid(.white), transform: MX.t(0, -0.2, 0))
+        b.torus(majorRadius: 0.26, minorRadius: 0.028, segments: 18, sides: 4, color: .solid(.white), transform: MX.rx(0.6))
+        return b.makeMesh(name: "markGlyph")
+    }()
+
+    /// 氷の殻の結晶（体の周りに外へ傾いて立つ 7 本。足元が原点・高さ 1 のメッシュで、体格に合わせて拡大する）。
+    lazy var iceShell: MeshResource? = {
+        var b = MeshBuilder()
+        for k in 0..<7 {
+            let a = Float(k) / 7 * 2 * .pi
+            let tall = k % 2 == 0
+            b.crystal(radius: 0.13, height: tall ? 0.95 : 0.7, sides: 5, waist: 0.4, color: .solid(.glowBlueSoft),
+                      transform: MX.t(cos(a) * 0.5, 0, -sin(a) * 0.5) * MX.ry(a) * MX.rz(tall ? -0.22 : -0.1))
+        }
+        return b.makeMesh(name: "iceShell")
+    }()
+
     // MARK: 地面の輪・円盤・扇形（半径 m を 0.05 m 単位で量子化してキャッシュ）
 
     func ring(radius: Float, thickness: Float) -> MeshResource? {
@@ -417,6 +437,8 @@ final class UnitMeshLibrary {
         _ = stunStars
         _ = rootVines
         _ = slowRing
+        _ = markGlyph
+        _ = iceShell
         _ = unitDisc
         _ = rubble
     }
@@ -432,7 +454,7 @@ final class UnitMeshLibrary {
         for k in ringCache.keys.sorted() { add(ringCache[k]) }
         for k in discCache.keys.sorted() { add(discCache[k]) }
         for m in sectorCache.values { add(m) }
-        for m in [barQuad, groundStrip, arrowHead, stunStars, rootVines, slowRing, unitDisc, rubble] { add(m) }
+        for m in [barQuad, groundStrip, arrowHead, stunStars, rootVines, slowRing, markGlyph, iceShell, unitDisc, rubble] { add(m) }
         add(unitSphere)
         return out
     }

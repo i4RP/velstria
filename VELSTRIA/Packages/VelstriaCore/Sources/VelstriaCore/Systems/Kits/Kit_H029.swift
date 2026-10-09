@@ -4,17 +4,20 @@ import Foundation
 // H029 聖槌のボルグ = Velstria 版の Tigreal（MLBB。調査: docs/kits/Tigreal.md、対応表: 同ファイル末尾）。
 // サポート（ローム）の近接タンク。キットはロールの汎用パッシブ（味方回復）と汎用奥義（味方全体回復）を置き換える。
 //   パッシブ 聖鎚の誓い        — スキルを使う / 通常攻撃（タワー・ジャングルの敵を含む。ミニオンは除く）を受けるたびに「誓い」+1。
-//                               4 つで次に受ける通常攻撃のダメージを無効化して誓いが消える（Fearless）。
-//   S1   Borg式・一閃          — 前方の扇に衝撃波を 3 回。1 回ごとにダメージ + 鈍足（20 → 40 → 60%、1.5 秒。命中ごとに深まる）。
-//   S2   聖槌の踏み込み        — 突進して通り道の敵にダメージ、突進の終点まで押し運ぶ。4 秒以内の再使用（同じ castSkill）で
+//                               4 つで次に受ける通常攻撃のダメージを無効化して誓いが消える（Fearless）。無効化の瞬間は
+//                               自分に 0.3 秒の「blocked」の印（.mark）が付き、パッシブのバッジが 0.3 秒だけタイマーになる（App の演出の合図）。
+//   スキル1 聖槌波             — 前方の扇に衝撃波を 3 回。扇の半径が射程の 0.7 → 0.85 → 1.0 倍と前へ広がる（近くの敵ほど多く当たる）。
+//                               1 回ごとにダメージ + 鈍足（20 → 40 → 60%、1.5 秒。命中ごとに深まる）。
+//   スキル2 聖槌突撃           — 突進して通り道の敵にダメージ、突進の終点まで押し運ぶ。4 秒以内の再使用（同じ castSkill）で
 //                               前方の敵にダメージ + 打ち上げ。再使用の窓が閉じてからクールダウンを数える。
-//   奥義 崩落聖域（Implosion） — 詠唱 0.7 秒。最初の 0.2 秒は CC（スタン・打ち上げ・suppress）で、その後は suppress だけで中断される。
-//                               0.2 秒で周囲の敵を引き寄せ（0.4 秒かけて集める）、0.7 秒でダメージ + スタン 1.8 秒。
+//   アルティメット 崩落聖域（Implosion） — 詠唱 0.8 秒。最初の 0.3 秒は CC（スタン・打ち上げ・suppress）で、その後は suppress だけで中断される。
+//                               0.3 秒で周囲の敵を引き寄せ（0.38 秒かけて集める）、0.8 秒でダメージ + スタン 1.8 秒。
 //
 // 状態（KitState）:
 //   ints[0]  = 誓い（0..4。4 = 無効化の準備完了）      ints[1] = 奥義の段（0 = なし / 1 = 溜め / 2 = 引き寄せ後）
 //   ints[2]  = 無効化した回数（累計。検証用）          ints[3] = 直近の引き寄せで動かせた敵の数（検証用）
 //   timers[0] = 誓いが消えるまでの秒                   timers[1] = 奥義の詠唱の残り秒（HUD 用）
+//   timers[2] = 無効化の演出の残り秒（0.3 秒。バッジをタイマーにする）
 //   reals[0..1] = S1 / S2 の方向    reals[2..3] = S2 の突進の終点    reals[4..5] = S2 再使用の方向
 
 extension KitState {
@@ -46,6 +49,11 @@ extension KitState {
     var borgChannel: Double {
         get { timers[1] }
         set { timers[1] = newValue }
+    }
+
+    var borgBlockFlash: Double {
+        get { timers[2] }
+        set { timers[2] = newValue }
     }
 
     var borgAim: Vec2 {
@@ -90,11 +98,16 @@ struct Kit_H029: HeroKit {
         static let vowStacks = 4
         /// 誓いが（新しく増えないまま）消えるまでの秒。調査に「不明」とある値なので選んだ値。
         static let vowExpire = 8.0
+        /// 無効化の合図（自分への「blocked」の印 + パッシブのバッジのタイマー）の長さ。App の演出がこれを見て盾の弾けを出す。
+        static let blockFlash = 0.3
+        static let blockMark = "blocked"
 
-        // S1 Borg式・一閃
+        // スキル1 聖槌波
         static let waveReach = 300.0
         static let waveHalfAngle = Balance.Skills.coneHalfAngle
         static let waveCount = 3
+        /// 衝撃波が前へ進んで見えるよう、波ごとの扇の半径（射程に対する比。1 回目 → 3 回目）。近くの敵ほど多くの波に当たり、鈍足が深まる。
+        static let waveRadiusScale: [Double] = [0.7, 0.85, 1.0]
         static let waveFirstDelay = 0.12
         static let waveInterval = 0.2
         /// 命中 1 回ごとの鈍足（20 → 40 → 60%）。
@@ -106,7 +119,7 @@ struct Kit_H029: HeroKit {
         /// キットで置き換えるため。1v1 の勝率で決めた: docs/kits/Tigreal.md の対応表）。
         static let waveRatio = 1.28
 
-        // S2 聖槌の踏み込み
+        // スキル2 聖槌突撃
         static let dashRange = 420.0
         static let dashSpeed = 1700.0
         /// 経路の当たり半径（対象の半径は別に足す）。
@@ -125,19 +138,25 @@ struct Kit_H029: HeroKit {
         static let hammerRatio = 1.28
         static let dashShare = 0.30
 
-        // 奥義 崩落聖域（Implosion）
-        static let ultReach = 420.0
+        // アルティメット 崩落聖域（Implosion）
+        static let ultReach = 520.0
         /// 詠唱の最初の部分（ultGather 秒。CC で中断できる）と全体。ultGather の終わりに引き寄せ、ultTotal の終わりに爆発。
-        static let ultGather = 0.2
-        static let ultTotal = 0.7
+        static let ultGather = 0.3
+        static let ultTotal = 0.8
         /// 引き寄せの所要時間（爆発の前に集まり終わる）と、引き寄せた敵を置く隙間。
-        static let ultPullTime = 0.4
+        static let ultPullTime = 0.38
         static let ultPullGap = 20.0
         static let ultStun = 1.8
         /// 汎用の奥義（Support は味方回復でダメージ 0）には比べる相手が居ないので、他ロールの奥義と同じ式の結果に掛ける倍率。
         /// クールダウンが汎用の奥義より長い（22〜27 秒 vs 約 17 秒）ぶんと、回復を失うぶんを補う。
-        static let ultRatio = 1.8
+        /// 詠唱を調査寄りに長くした（溜め 0.2 → 0.3 秒、全体 0.7 → 0.8 秒。敵の CC で溜めが潰れやすくなる）ぶんと、
+        /// スキル1 の波が前へ広がる（遠い敵に当たる波が減る）ぶんの勝率の落ち込みを埋めるため 1.8 → 3.0 にした
+        /// （KitBalanceTests のロール中央値との差で決めた値: docs/kits/Tigreal.md）。
+        static let ultRatio = 3.0
         static let channelTag = KitTags.buff("H029", "channel")
+        /// ボットのアルティメット: 近くに味方ヒーロー（この距離以内）が居るか、相手の HP がこの割合未満のときだけ。敵タワーの射程内では撃たない。
+        static let botAllyRange = 900.0
+        static let botWeakHP = 0.5
 
         // クールダウン（MLBB 秒 → ランク間を線形補間 → Balance.Skills.cooldownScale を掛ける）
         static let waveCooldown = (7.0, 4.0)
@@ -209,7 +228,8 @@ struct Kit_H029: HeroKit {
             n.extras = [KitStat(key: "slow1", value: Tune.waveSlowPerStack * 100),
                         KitStat(key: "slow2", value: Tune.waveSlowPerStack * 200),
                         KitStat(key: "slow3", value: Tune.waveSlowPerStack * 300),
-                        KitStat(key: "slowDuration", value: Tune.waveSlowDuration)]
+                        KitStat(key: "slowDuration", value: Tune.waveSlowDuration),
+                        KitStat(key: "reachMult", value: Tune.waveReach / hero.attackRange)]
         case .skill2:
             let total = base.damage * Tune.hammerRatio
             let dash = total * Tune.dashShare
@@ -240,7 +260,8 @@ struct Kit_H029: HeroKit {
             n.cooldown = Self.cooldown(Tune.ultCooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
             n.extras = [KitStat(key: "stun", value: Tune.ultStun),
                         KitStat(key: "channel", value: Tune.ultTotal),
-                        KitStat(key: "gather", value: Tune.ultGather)]
+                        KitStat(key: "gather", value: Tune.ultGather),
+                        KitStat(key: "reachMult", value: Tune.ultReach / hero.attackRange)]
         }
         return n
     }
@@ -249,20 +270,20 @@ struct Kit_H029: HeroKit {
         switch slot {
         case .passive:
             return KitText(
-                ja: "スキルを使うか、通常攻撃を受けるたびに「誓い」が1たまる（タワーやジャングルの敵の攻撃も数えるが、ミニオンの攻撃は数えない）。{x0}たまると、次に受ける通常攻撃のダメージを無効化して誓いが消える。{x1}秒たまらないと誓いは消える。",
-                en: "Gain a Vow each time you cast a skill or are hit by a basic attack (towers and jungle monsters count, minions do not). At {x0} Vows, the next basic attack against you is fully blocked and the Vows are consumed. Vows fade after {x1}s without gaining one.")
+                ja: "スキル1・スキル2・アルティメットを使うか、通常攻撃を受けるたびに「誓い」が1たまる（タワーやジャングルの敵の攻撃も数えるが、ミニオンの攻撃は数えない）。{x0}たまると、次に受ける通常攻撃のダメージを無効化して誓いが消える。最後に誓いが増えてから{x1}秒で消える。",
+                en: "Gain a Vow each time you cast Skill 1, Skill 2 or the Ultimate, or are hit by a basic attack (towers and jungle monsters count, minions do not). At {x0} Vows, the next basic attack against you is fully blocked and the Vows are consumed. Vows fade {x1}s after the last one was gained.")
         case .skill1:
             return KitText(
-                ja: "前方の扇へ聖槌の衝撃波を{hits}回起こし、1回ごとに{damage}ダメージを与える。命中するたびに鈍足が深まる（{x0}% → {x1}% → {x2}%、{x3}秒）。クールダウン{cd}秒。",
-                en: "Send {hits} hammer shockwaves through the cone ahead, each dealing {damage} damage. Every hit deepens the slow ({x0}% → {x1}% → {x2}%, {x3}s). Cooldown {cd}s.")
+                ja: "前方の扇へ聖槌の衝撃波を、前へ広げながら{hits}回起こし、1回ごとに{damage}ダメージを与える（扇の奥は近接攻撃の射程の約{reachMult}倍。手前の敵ほど多くの波に当たる）。命中するたびに鈍足が深まる（{x0}% → {x1}% → {x2}%、{x3}秒）。クールダウン{cd}秒。",
+                en: "Send {hits} hammer shockwaves through the cone ahead, each reaching farther than the last, dealing {damage} damage each (the cone reaches about {reachMult}x your melee attack range; closer enemies are caught by more waves). Every hit deepens the slow ({x0}% → {x1}% → {x2}%, {x3}s). Cooldown {cd}s.")
         case .skill2:
             return KitText(
-                ja: "指定方向へ突進し、通り道の敵に{x0}ダメージを与えて突進の終点まで押し運ぶ。{x3}秒以内にもう一度使うと、前方の敵に{x1}ダメージを与えて{x2}秒間打ち上げる。再使用の窓が閉じてからクールダウン{cd}秒。",
+                ja: "指定方向へ突進し、通り道の敵に{x0}ダメージを与えて突進の終点まで押し運ぶ。{x3}秒以内にスキル2をもう一度使うと、前方の敵に{x1}ダメージを与えて{x2}秒間打ち上げる。再使用の窓が閉じてからクールダウン{cd}秒。",
                 en: "Charge in a direction, dealing {x0} damage to enemies along the way and carrying them to the end of the charge. Use again within {x3}s to smash the cone ahead for {x1} damage and knock enemies airborne for {x2}s. The {cd}s cooldown starts when the window closes.")
         case .ultimate:
             return KitText(
-                ja: "{x1}秒の詠唱で、周囲{radius}の敵を引き寄せ、{damage}ダメージを与えて{x0}秒間スタンさせる。詠唱の最初の{x2}秒はスタンなどのCCで、それ以降は制圧（サプレス）でのみ中断される。クールダウン{cd}秒。",
-                en: "Channel for {x1}s, pulling in enemies within {radius}, then dealing {damage} damage and stunning them for {x0}s. The first {x2}s of the channel can be interrupted by crowd control; after that only by suppression. Cooldown {cd}s.")
+                ja: "{x1}秒の詠唱で、近接攻撃の射程の約{reachMult}倍の範囲の敵を引き寄せ、{damage}ダメージを与えて{x0}秒間スタンさせる。詠唱の最初の{x2}秒はスタンなどのCCで、それ以降は制圧（サプレス）でのみ中断される。クールダウン{cd}秒。",
+                en: "Channel for {x1}s, pulling in enemies within about {reachMult}x your melee attack range, then dealing {damage} damage and stunning them for {x0}s. The first {x2}s of the channel can be interrupted by crowd control; after that only by suppression. Cooldown {cd}s.")
         }
     }
 
@@ -270,6 +291,8 @@ struct Kit_H029: HeroKit {
         guard let k = hero.kit else { return nil }
         switch slot {
         case .passive:
+            // 無効化した直後の 0.3 秒だけタイマー（誓いが 4 → 0 になった合図。App の演出がタイマーの開始を見て盾の弾けを出す）
+            if k.borgBlockFlash > 0 { return KitBadge(kind: .timer, remaining: k.borgBlockFlash, total: Tune.blockFlash) }
             return KitBadge(kind: .stacks, value: min(k.borgVow, Tune.vowStacks), maxValue: Tune.vowStacks)
         case .ultimate:
             guard k.borgUltPhase != 0 else { return nil }
@@ -386,7 +409,8 @@ struct Kit_H029: HeroKit {
         }
     }
 
-    /// S1 の 1 回ぶん: 原点から方向の扇にダメージ + 鈍足の層（命中ごとに 1 層、最大 3 層）。
+    /// スキル1 の 1 回ぶん: 原点から方向の扇にダメージ + 鈍足の層（命中ごとに 1 層、最大 3 層）。
+    /// 扇の半径は波ごとに広がる（timer.index 0 → 2 で射程の 0.45 → 0.75 → 1.0 倍）: 手前の敵ほど多くの波に当たり、鈍足が深まる。
     private func erupt(_ s: inout SimState, _ ctx: SimContext, owner: Int, timer: KitTimer) {
         guard let dir = s.units[owner].hero?.kit?.borgAim, dir != .zero else { return }
         let p = HitPayload(damage: timer.param, damageType: .physical, source: .skill(.skill1),
@@ -394,7 +418,8 @@ struct Kit_H029: HeroKit {
                            effects: [.addMark(name: Tune.waveMark, stacks: 1, maxStacks: Tune.waveCount,
                                               duration: Tune.waveSlowDuration)],
                            kitEvent: Event.wave)
-        SkillArchetypes.hitArea(&s, ctx, caster: owner, center: timer.point, radius: Tune.waveReach,
+        let scale = Tune.waveRadiusScale[min(max(0, timer.index), Tune.waveRadiusScale.count - 1)]
+        SkillArchetypes.hitArea(&s, ctx, caster: owner, center: timer.point, radius: Tune.waveReach * scale,
                                 shape: .cone(direction: dir, halfAngle: Tune.waveHalfAngle), payload: p)
     }
 
@@ -486,6 +511,11 @@ struct Kit_H029: HeroKit {
             s.units[victim].hero!.kit!.borgVow = 0
             s.units[victim].hero!.kit!.borgVowTimer = 0
             s.units[victim].hero!.kit!.borgBlocks = k.borgBlocks + 1
+            // 無効化の合図: 自分に 0.3 秒の「blocked」の印 + パッシブのバッジを 0.3 秒だけタイマーにする（誓いの 4 → 0 を App が見分けられる）
+            s.units[victim].hero!.kit!.borgBlockFlash = Tune.blockFlash
+            let id = s.units[victim].id
+            Kit.addMark(&s, target: victim, ownerID: id, tag: KitTags.mark("H029", Tune.blockMark, owner: id),
+                        maxStacks: 1, duration: Tune.blockFlash)
             return 0
         }
         gainVow(&s, victim)
@@ -507,7 +537,8 @@ struct Kit_H029: HeroKit {
             guard dir != .zero, delta.length <= reach || w.remaining < 0.8 else { return .skip }
             return .cast(.direction(dir))
         case .ultimate:
-            // 敵ヒーローを 2 体以上巻き込めるか、狙う相手が傷ついているときだけ
+            // 敵ヒーローを 2 体以上巻き込めるか、狙う相手が傷ついているときだけ。さらに、近くに味方ヒーローが居るか
+            // 相手の HP が半分未満のときだけ（引き寄せた相手を一人で受けない）。敵タワーの射程内では撃たない
             guard fighting else { return .skip }
             let team = s.units[bot].team
             var heroes = 0
@@ -516,14 +547,36 @@ struct Kit_H029: HeroKit {
                 let reach = Tune.ultReach + s.units[j].radius
                 if s.units[j].pos.distanceSquared(to: me) <= reach * reach { heroes += 1 }
             }
-            if heroes >= 2 || (heroes == 1 && s.units[target].hpRatio < 0.8) { return .cast(.none) }
-            return .skip
+            guard heroes >= 2 || (heroes == 1 && s.units[target].hpRatio < 0.8) else { return .skip }
+            var supported = s.units[target].hpRatio < Tune.botWeakHP
+            if !supported {
+                for j in s.units.indices where j != bot && s.units[j].kind == .hero && s.units[j].team == team {
+                    guard CombatSystem.isLiving(s, j) else { continue }
+                    if s.units[j].pos.distanceSquared(to: me) <= Tune.botAllyRange * Tune.botAllyRange {
+                        supported = true
+                        break
+                    }
+                }
+            }
+            guard supported, !Self.insideEnemyTowerRange(s, bot: bot) else { return .skip }
+            return .cast(.none)
         default:
             return .useDefault
         }
     }
 
     // MARK: - 部品
+
+    /// 敵の構造物（タワー・コア）の攻撃が届く距離か（TowerSystem.inReach と同じ基準: 射程 + 双方の半径）。
+    static func insideEnemyTowerRange(_ s: SimState, bot: Int) -> Bool {
+        let me = s.units[bot]
+        for j in s.units.indices where s.units[j].isStructure && s.units[j].team != me.team {
+            guard CombatSystem.isLiving(s, j), s.units[j].stats.attackRange > 0 else { continue }
+            let reach = s.units[j].stats.attackRange + s.units[j].radius + me.radius
+            if s.units[j].pos.distanceSquared(to: me.pos) <= reach * reach { return true }
+        }
+        return false
+    }
 
     private func gainVow(_ s: inout SimState, _ i: Int) {
         guard let k = s.units[i].hero?.kit else { return }

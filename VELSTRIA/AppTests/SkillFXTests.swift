@@ -145,6 +145,150 @@ final class SkillFXTests: XCTestCase {
         XCTAssertEqual(player.activeCount, 0, "再生が終わったら全てプールへ戻る")
     }
 
+    // MARK: 再使用の段（キット層）
+
+    /// 段の演出を持つ（持たない）テスト用のヒーロー定義。
+    private enum StagedSet: HeroFXSet {
+        static let palette = FXPalette.from(RGB(1, 0.2, 0.2))
+        static func recipe(_ slot: SkillSlot, _ s: FXSkillInfo) -> SkillFXRecipe {
+            var r = SkillFXRecipe()
+            r.cast = [.shake(0.1)]
+            r.hit = [.shake(0.3)]
+            return r
+        }
+        static func motion(_ slot: SkillSlot, _ m: inout MotionBuilder) {}
+        static func recipe(_ slot: SkillSlot, stage: Int, _ s: FXSkillInfo) -> SkillFXRecipe? {
+            guard slot == .skill2, stage == 1 else { return nil }
+            var r = SkillFXRecipe()
+            r.impact = [.shake(0.2)]
+            return r
+        }
+    }
+
+    private enum PlainSet: HeroFXSet {
+        static let palette = FXPalette.from(RGB(0.2, 0.2, 1))
+        static func recipe(_ slot: SkillSlot, _ s: FXSkillInfo) -> SkillFXRecipe { SkillFXRecipe() }
+        static func motion(_ slot: SkillSlot, _ m: inout MotionBuilder) {}
+    }
+
+    /// 段の演出を書かないヒーローの既定は nil = 共通の演出（プロトコルの既定実装）。stage 0 は段の演出ではない。
+    func testStageRecipeHookDefaultsToNoOverride() {
+        let info = FXSkillInfo(heroID: "H029", slot: .skill2, archetype: .dashStrike, radius: 1, range: 4)
+        XCTAssertNil(PlainSet.recipe(.skill2, stage: 1, info))
+        XCTAssertNil(SkillFXCatalog.stageRecipe(heroID: "H029", slot: .skill2, stage: 0, master: master))
+        XCTAssertNil(SkillFXCatalog.stageRecipe(heroID: "H999", slot: .skill2, stage: 1, master: master), "未知のヒーロー")
+    }
+
+    func testStageRecipeKeepsItsOwnPhasesAndFillsTheRestFromTheBase() throws {
+        let info = FXSkillInfo(heroID: "HT", slot: .skill2, archetype: .dashStrike, radius: 1, range: 4)
+        let base = StagedSet.recipe(.skill2, info)
+        let staged = try XCTUnwrap(StagedSet.recipe(.skill2, stage: 1, info))
+        XCTAssertNil(StagedSet.recipe(.skill1, stage: 1, info), "他のスロットは段で変えない")
+        XCTAssertNil(StagedSet.recipe(.skill2, stage: 2, info), "他の段は共通の演出")
+        let merged = SkillFXCatalog.merged(staged, over: base)
+        XCTAssertEqual(merged.impact, staged.impact, "段の演出が優先")
+        XCTAssertEqual(merged.cast, base.cast, "空の段は共通の演出で補う")
+        XCTAssertEqual(merged.hit, base.hit)
+        XCTAssertTrue(merged.travel.isEmpty)
+        XCTAssertNotEqual(merged.impact, base.impact)
+    }
+
+    /// キットのパッシブの演出の合図: スタックが増えた・タイマーが始まった瞬間だけ。
+    func testKitPassiveFiresOnStackGainOrTimerStart() {
+        let none = SkillFXDirector.kitPassiveSample(nil)
+        XCTAssertEqual(none.stacks, 0)
+        XCTAssertFalse(none.timer)
+        let two = SkillFXDirector.kitPassiveSample(KitBadge(kind: .stacks, value: 2, maxValue: 4))
+        XCTAssertEqual(two.stacks, 2)
+        XCTAssertFalse(two.timer)
+        let running = SkillFXDirector.kitPassiveSample(KitBadge(kind: .timer, remaining: 1.5, total: 3))
+        XCTAssertEqual(running.stacks, 0)
+        XCTAssertTrue(running.timer)
+        XCTAssertFalse(SkillFXDirector.kitPassiveSample(KitBadge(kind: .timer, remaining: 0, total: 3)).timer)
+        XCTAssertFalse(SkillFXDirector.kitPassiveSample(KitBadge(kind: .form, value: 1, maxValue: 1)).timer)
+
+        XCTAssertTrue(SkillFXDirector.kitPassiveFires(last: (1, false), now: (2, false)), "スタックが増えた")
+        XCTAssertFalse(SkillFXDirector.kitPassiveFires(last: (2, false), now: (2, false)), "変わらない")
+        XCTAssertFalse(SkillFXDirector.kitPassiveFires(last: (3, false), now: (0, false)), "消費・リセットでは出さない")
+        XCTAssertTrue(SkillFXDirector.kitPassiveFires(last: (0, false), now: (0, true)), "タイマーの開始")
+        XCTAssertFalse(SkillFXDirector.kitPassiveFires(last: (0, true), now: (0, true)), "タイマーの継続")
+        XCTAssertFalse(SkillFXDirector.kitPassiveFires(last: (0, true), now: (0, false)), "タイマーの終了")
+    }
+
+    /// 解放の演出（パッシブのスタックの消費）を持つ（持たない）テスト用のヒーロー定義。
+    private enum ReleaseSet: HeroFXSet {
+        static let palette = FXPalette.from(RGB(0.9, 0.9, 0.2))
+        static func recipe(_ slot: SkillSlot, _ s: FXSkillInfo) -> SkillFXRecipe { SkillFXRecipe() }
+        static func motion(_ slot: SkillSlot, _ m: inout MotionBuilder) {}
+        static func passiveRelease(_ s: FXSkillInfo, released: Int) -> [FXCue]? {
+            released >= 2 ? [.shake(0.3)] : [.shake(0.1)]
+        }
+    }
+
+    /// 解放の演出の既定は nil（何も出さない）。未知のヒーローも nil。実装したヒーローは消費したスタック数を受け取れる。
+    func testPassiveReleaseHookDefaultsToNil() throws {
+        let info = FXSkillInfo(heroID: "HT", slot: .passive, archetype: .passive, radius: 1, range: 4)
+        XCTAssertNil(PlainSet.passiveRelease(info, released: 3))
+        XCTAssertNil(StagedSet.passiveRelease(info, released: 1))
+        XCTAssertNil(SkillFXCatalog.passiveRelease(heroID: "H999", released: 1, master: master))
+        XCTAssertEqual(ReleaseSet.passiveRelease(info, released: 1) ?? [], [FXCue.shake(0.1)])
+        XCTAssertEqual(ReleaseSet.passiveRelease(info, released: 4) ?? [], [FXCue.shake(0.3)])
+    }
+
+    /// 解放の合図: スキルの発動の直後（窓の中）に、スタックが 1 以上から 0 になったときだけ。
+    func testKitPassiveReleasesOnlyRightAfterACast() {
+        let w = SkillFXDirector.kitReleaseWindow
+        XCTAssertTrue(SkillFXDirector.kitPassiveReleases(last: (2, false), now: (0, false), sinceCast: 0))
+        XCTAssertTrue(SkillFXDirector.kitPassiveReleases(last: (1, false), now: (0, false), sinceCast: w))
+        XCTAssertFalse(SkillFXDirector.kitPassiveReleases(last: (1, false), now: (0, false), sinceCast: w + 0.01), "窓を過ぎた")
+        XCTAssertFalse(SkillFXDirector.kitPassiveReleases(last: (1, false), now: (0, false), sinceCast: nil), "発動していない（死亡・期限切れなど）")
+        XCTAssertFalse(SkillFXDirector.kitPassiveReleases(last: (1, false), now: (0, false), sinceCast: -0.1), "未来の発動は数えない")
+        XCTAssertFalse(SkillFXDirector.kitPassiveReleases(last: (0, false), now: (0, false), sinceCast: 0), "元から 0")
+        XCTAssertFalse(SkillFXDirector.kitPassiveReleases(last: (3, false), now: (1, false), sinceCast: 0), "一部だけ減った")
+        XCTAssertFalse(SkillFXDirector.kitPassiveReleases(last: (1, false), now: (2, false), sinceCast: 0), "増えた")
+        // 増える側の合図は従来どおり（解放の合図とは同時に立たない）
+        XCTAssertFalse(SkillFXDirector.kitPassiveFires(last: (2, false), now: (0, false)))
+    }
+
+    /// 被弾演出の間隔: キットのヒーローは 0.9 秒、他は 0.15 秒。1 発ごとの演出（hitPerHit）は 0.15 秒のまま。
+    func testHitReplayIntervalForKitHeroes() {
+        XCTAssertEqual(SkillFXDirector.hitInterval(kitHero: false, perHit: false), SkillFXDirector.plainHitInterval)
+        XCTAssertEqual(SkillFXDirector.hitInterval(kitHero: true, perHit: false), SkillFXDirector.kitHitInterval)
+        XCTAssertEqual(SkillFXDirector.hitInterval(kitHero: true, perHit: true), SkillFXDirector.plainHitInterval)
+        XCTAssertEqual(SkillFXDirector.hitInterval(kitHero: false, perHit: true), SkillFXDirector.plainHitInterval)
+        XCTAssertLessThan(SkillFXDirector.kitHitInterval, 1, "lastHit のお掃除（1 秒）より短い")
+        XCTAssertFalse(SkillFXRecipe().hitPerHit, "既定は間引く")
+
+        // ゴルムの奥義: 0.3 秒おきの 6 ヒット
+        let times: [Float] = [0, 0.3, 0.6, 0.9, 1.2, 1.5]
+        func replays(_ interval: Float) -> Int {
+            var last: Float?
+            var n = 0
+            for t in times where SkillFXDirector.hitReplayAllowed(last: last, now: t, interval: interval) {
+                last = t
+                n += 1
+            }
+            return n
+        }
+        XCTAssertEqual(replays(SkillFXDirector.plainHitInterval), 6, "従来の間隔なら全ヒットで再生")
+        XCTAssertEqual(replays(SkillFXDirector.kitHitInterval), 2, "最初と 0.9 秒後だけ")
+        XCTAssertTrue(SkillFXDirector.hitReplayAllowed(last: nil, now: 0, interval: 0.9), "初回は再生")
+        XCTAssertFalse(SkillFXDirector.hitReplayAllowed(last: 1, now: 1.5, interval: 0.9))
+        XCTAssertTrue(SkillFXDirector.hitReplayAllowed(last: 1, now: 2, interval: 0.9))
+    }
+
+    /// 段の演出が hit を持たず共通の演出から借りるときは、1 発ごとの指定も共通のものに合わせる。
+    func testMergedStageRecipeFollowsBaseHitPerHit() {
+        var base = SkillFXRecipe()
+        base.hit = [.shake(0.2)]
+        base.hitPerHit = true
+        var stage = SkillFXRecipe()
+        stage.impact = [.shake(0.1)]
+        XCTAssertTrue(SkillFXCatalog.merged(stage, over: base).hitPerHit)
+        stage.hit = [.shake(0.4)]
+        XCTAssertFalse(SkillFXCatalog.merged(stage, over: base).hitPerHit, "段が自分の hit を持てば段の指定")
+    }
+
     func testTexturesAreDrawn() {
         for t in FXTex.allCases {
             let img = FXTextureLibrary.image(t)

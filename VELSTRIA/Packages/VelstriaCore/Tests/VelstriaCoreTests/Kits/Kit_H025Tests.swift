@@ -65,12 +65,13 @@ final class Kit_H025Tests: XCTestCase {
         HeroKits.testOverride = [Kit_H025(isReady: true)]
 
         let m = MasterData.shared
-        // S1 月矢の連弾: 自己強化（照準なし）。リングは 350、撃てる距離の目安 (reach) は 600
+        // スキル1 月弦分矢: 自己強化（照準なし）。リングは通常攻撃の射程と同じ 550、撃てる距離の目安 (reach) は 600
         let t1 = SkillCatalog.targeting(for: skill(.skill1), hero: def)
         XCTAssertEqual(t1.archetype, .selfAoE)
         XCTAssertEqual(t1.aim, .none)
         XCTAssertEqual(t1.shape, .selfRing)
         XCTAssertEqual(t1.radius, T.selfRing)
+        XCTAssertEqual(T.selfRing, def.attackRange, "照準リング = 通常攻撃の射程")
         XCTAssertEqual(t1.reach, T.s1Reach)
         XCTAssertFalse(t1.requiresTarget)
         XCTAssertFalse(t1.recastable)
@@ -84,7 +85,7 @@ final class Kit_H025Tests: XCTestCase {
         XCTAssertEqual(t2.shape, .circleAtPoint)
         XCTAssertEqual(t2.reach, 650 + T.s2Radius)
 
-        // 奥義 隠れ月光: 自己強化。リングは 350、撃てる距離の目安 (reach) は奥義の距離 770
+        // アルティメット 隠れ月光: 自己強化。リングは 550、撃てる距離の目安 (reach) は奥義の距離 770
         let t3 = SkillCatalog.targeting(for: skill(.ultimate), hero: def)
         XCTAssertEqual(t3.archetype, .selfAoE)
         XCTAssertEqual(t3.aim, .none)
@@ -125,6 +126,34 @@ final class Kit_H025Tests: XCTestCase {
         XCTAssertTrue(ja3.contains("65%"))
         let pa = SkillCatalog.numbers(for: skill(.passive), hero: def, rank: 1, stats: stats)
         XCTAssertEqual(pa.damage, T.shadowFlat + T.shadowRatio * stats.attack, accuracy: 1e-9)
+    }
+
+    /// 説明文: UI の用語（スキル1 / スキル2 / アルティメット）と、マスターの名前（月弦分矢 / 月蝕の矢 / 隠れ月光）に沿う。
+    /// 秒数は 0.35 を 0.3 / 0.4 に丸めない。
+    func testTextWordingAndFractionalSeconds() throws {
+        let stats = HeroGrowth.baseStats(def: def, level: 6)
+        for slot in SkillSlot.allCases {
+            let text = try XCTUnwrap(HeroKits.text(heroID: "H025", slot: slot))
+            let n = SkillCatalog.numbers(for: skill(slot), hero: def, rank: 1, stats: stats)
+            let t = SkillCatalog.targeting(for: skill(slot), hero: def)
+            let ja = text.filled(english: false, numbers: n, targeting: t)
+            XCTAssertFalse(ja.contains("S1") || ja.contains("S2") || ja.contains("奥義"), "\(slot): \(ja)")
+            XCTAssertFalse(ja.contains("月矢の連弾") || ja.contains("追って"), "\(slot): \(ja)")
+            if slot == .passive {
+                XCTAssertTrue(ja.contains("「月影」が追撃し"), ja)
+                XCTAssertTrue(ja.contains("\(Int(T.shadowFlat))＋攻撃力の\(Int((T.shadowRatio * 100).rounded()))%"), ja)
+            }
+            if slot == .skill2 {
+                XCTAssertTrue(ja.contains("0.35秒"), ja)
+                let en = text.filled(english: true, numbers: n, targeting: t)
+                XCTAssertTrue(en.contains("0.35s"), en)
+            }
+            if slot == .ultimate { XCTAssertTrue(ja.contains("アルティメットを除く"), ja) }
+        }
+        XCTAssertEqual(Kit_H025.seconds(0.35), "0.35")
+        XCTAssertEqual(Kit_H025.seconds(4), "4")
+        XCTAssertEqual(Kit_H025.seconds(1.2), "1.2")
+        XCTAssertEqual(Kit_H025.seconds(0.5), "0.5")
     }
 
     // MARK: - 数値・ダメージ予算
@@ -993,6 +1022,7 @@ final class Kit_H025Tests: XCTestCase {
             case .useDefault: return "default"
             case .skip: return "skip"
             case .cast(let t): return "cast \(t)"
+            case .castNow(let t): return "castNow \(t)"
             }
         }
         XCTAssertEqual(decide(.skill1, near, fighting: true), "cast none")
@@ -1001,6 +1031,46 @@ final class Kit_H025Tests: XCTestCase {
         XCTAssertEqual(decide(.ultimate, near, fighting: true), "cast none")
         XCTAssertEqual(decide(.ultimate, far, fighting: true), "skip")
         XCTAssertEqual(decide(.skill2, near, fighting: true), "default", "月蝕の矢は汎用の予測射撃")
+        // 低 HP の交戦中は、汎用の関門（倒せる / 2 体以上）を飛ばして隠れ月光を使う
+        w.s.units[k].hp = w.s.units[k].stats.maxHP * 0.3
+        XCTAssertEqual(decide(.ultimate, near, fighting: true), "castNow none")
+        XCTAssertEqual(decide(.ultimate, near, fighting: false), "skip")
+        XCTAssertEqual(decide(.ultimate, far, fighting: true), "skip")
+    }
+
+    func testBotEscapeUsesHiddenMoonlightWhenHurtOrHobbledAndOnlyThen() throws {
+        var w = SkillWorld()
+        let k = addLumina(&w)
+        _ = addFoe(&w, dx: 300)
+        w.tick()
+        let kit = try XCTUnwrap(HeroKits.kit(of: w.s.units[k]))
+        func escape(_ slot: SkillSlot) -> String {
+            let tg = w.targeting(k, slot)
+            switch kit.botEscape(w.s, w.ctx, bot: k, slot: slot, targeting: tg, flee: Vec2(-1, 0), enemyDistance: 300) {
+            case .useDefault: return "default"
+            case .skip: return "skip"
+            case .cast(let t): return "cast \(t)"
+            case .castNow(let t): return "castNow \(t)"
+            }
+        }
+        let maxHP = w.s.units[k].stats.maxHP
+        w.s.units[k].hp = maxHP
+        XCTAssertEqual(escape(.ultimate), "skip", "元気なら逃げない")
+        w.s.units[k].hp = maxHP * 0.4
+        XCTAssertEqual(escape(.ultimate), "castNow none", "低 HP なら隠れ月光で離脱")
+        w.s.units[k].hp = maxHP * 0.6
+        XCTAssertEqual(escape(.ultimate), "skip")
+        CombatSystem.addStatus(&w.s, targetIndex: k, StatusEffect(kind: .slow, duration: 2, magnitude: 0.3))
+        XCTAssertEqual(escape(.ultimate), "castNow none", "足を止められて HP が減っているなら解除のために使う")
+        w.s.units[k].hp = maxHP * 0.8
+        XCTAssertEqual(escape(.ultimate), "skip")
+        // スキル1・2 は逃走に使わない（既定のまま = 突進系ではないので撃たない）
+        XCTAssertEqual(escape(.skill1), "default")
+        XCTAssertEqual(escape(.skill2), "default")
+        // 隠れている間は重ねて使わない
+        w.s.units[k].hp = maxHP * 0.2
+        w.s.units[k].hero!.kit!.luminaHidden = true
+        XCTAssertEqual(escape(.ultimate), "skip")
     }
 
     // MARK: - 1v1 の勝率（ロール代表以外を含む全員との総当たり）
@@ -1051,6 +1121,13 @@ final class Kit_H025Tests: XCTestCase {
             peakStacks = 0
             sawHidden = false
             while !sim.isEnded && sim.state.time < 180 {
+                // 奥義は AI の判断が厳しく、ボットのレベルが試合の流れで遅れると 3 分間は習得すらしないので、
+                // 110 秒にルミナの奥義を習得済みにしておく（レベル・ランクだけ。以降は AI のまま）
+                if sim.state.tick == 3300, let i = sim.state.index(of: id), sim.state.units[i].hero?.rank(.ultimate) == 0 {
+                    var st = sim.state
+                    st.units[i].hero!.skillRanks[SkillSlot.ultimate.rawValue] = 1
+                    sim.restore(from: st)
+                }
                 // 奥義は AI の判断が厳しいので、120 秒以降は 15 秒おきに自動照準で奥義・S2 を撃たせ、状態遷移も通す
                 var commands: [HeroCommand] = []
                 if sim.state.time >= 120, sim.state.tick % 450 == 0 {

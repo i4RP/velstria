@@ -27,6 +27,8 @@ struct HUDStatusIcon: Equatable, Identifiable {
     var remaining: Double
     var duration: Double
     var isBuff: Bool
+    /// 状態の tag（キット層の凍結・マークで名前とアイコンを変える。無ければ汎用）。
+    var tag: String = ""
 
     var fraction: Double { duration > 0 ? min(1, max(0, remaining / duration)) : 0 }
 }
@@ -536,6 +538,15 @@ enum HUDSymbols {
         }
     }
 
+    /// tag を見たアイコン（H031 の凍結 = 雪の結晶、固有のマーク = そのヒーローのアイコン）。tag に当てはまるものが無ければ汎用。
+    static func status(_ k: StatusKind, tag: String) -> String {
+        switch KitStatusVisuals.look(kind: k, tag: tag) {
+        case .freeze, .prideFreeze: return KitStatusVisuals.freezeSymbol
+        case .mark(let heroID, let name): return KitStatusVisuals.markSymbol(heroID: heroID, name: name) ?? status(k)
+        case .generic: return status(k)
+        }
+    }
+
     static func isBuff(_ k: StatusKind) -> Bool {
         switch k {
         case .stun, .root, .slow, .airborne, .silence, .burn, .healReduction, .damageDealtReduction, .revealed,
@@ -580,6 +591,25 @@ enum HUDSymbols {
         }
     }
 
+    /// tag を見た名前（H031 の凍結 = 凍結、固有のマーク = 超伝導・虚空の印など）。tag に当てはまるものが無ければ汎用。
+    static func statusName(_ k: StatusKind, tag: String) -> String {
+        switch KitStatusVisuals.look(kind: k, tag: tag) {
+        case .freeze, .prideFreeze: return L("凍結", "Frozen")
+        case .mark(let heroID, let name):
+            guard let n = KitStatusVisuals.markName(heroID: heroID, name: name) else { return statusName(k) }
+            return L(n.ja, n.en)
+        case .generic: return statusName(k)
+        }
+    }
+
+    /// tag を見た色（凍結は氷の青。それ以外は種類の色）。
+    static func statusColor(_ k: StatusKind, tag: String) -> Color {
+        switch KitStatusVisuals.look(kind: k, tag: tag) {
+        case .freeze, .prideFreeze: return Color(red: 0.55, green: 0.85, blue: 1.0)
+        default: return statusColor(k)
+        }
+    }
+
     static func statusColor(_ k: StatusKind) -> Color {
         switch k {
         case .blueBuff: return Color(red: 0.35, green: 0.70, blue: 1.0)
@@ -600,7 +630,7 @@ enum HUDSymbols {
                                       .healReduction, .damageDealtReduction, .revealed, .blueBuff, .redBuff,
                                       .wyrmBlessing, .colossusBlessing, .mark, .lifestealBoost, .spellVampBoost,
                                       .attackRangeBoost, .armorShred, .magicShred, .untargetable, .suppress, .channeling]
-        return archetypes.map(skill) + statuses.map(status) + ui
+        return archetypes.map(skill) + statuses.map(status) + KitStatusVisuals.hudSymbols + ui
     }
 
     /// その他の HUD アイコン。

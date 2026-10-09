@@ -22,8 +22,23 @@ struct SkillWorld {
         return SimContext(master: .shared, config: cfg)
     }()
 
-    init(noCooldowns: Bool = false) {
-        ctx = noCooldowns ? SkillWorld.practiceContext : SkillWorld.standardContext
+    private static let seededLock = NSLock()
+    nonisolated(unsafe) private static var seededContexts: [UInt64: SimContext] = [:]
+
+    /// 乱数の種だけを変えた standard の文脈（種ごとにキャッシュ。NavGrid の構築が重いので使い回す）。
+    static func standardContext(seed: UInt64) -> SimContext {
+        if seed == 1 { return standardContext }
+        seededLock.lock()
+        defer { seededLock.unlock() }
+        if let c = seededContexts[seed] { return c }
+        let c = SimContext(master: .shared, config: MatchConfig(mode: .standard, seed: seed, players: []))
+        seededContexts[seed] = c
+        return c
+    }
+
+    /// seed は SimState.rng（会心などの抽選）の種。既定 1 は従来と同じ。noCooldowns と同時には指定できない（種は 1 固定）。
+    init(noCooldowns: Bool = false, seed: UInt64 = 1) {
+        ctx = noCooldowns ? SkillWorld.practiceContext : SkillWorld.standardContext(seed: seed)
         s = SimState(config: ctx.config)
         s.phase = .playing
         // EconomySystem の初回処理（tick == 1 の開始レベル反映）を避ける

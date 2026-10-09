@@ -9,8 +9,11 @@ import VelstriaCore
 //   zoneTriggered    → impact（ゾーンの中心。連撃は回ごとに左右反転）
 //   projectileLaunched → travel（投射物に追従）
 //   projectileHit    → impact（最初の命中だけ）・travel の停止
-//   damage(.skill)   → hit（被弾者。同じ相手・同じスキルは 0.15 秒に 1 回）
-//   パッシブの発動    → passive の cast（ロールごとの合図から推定。sim はパッシブ専用のイベントを出さない）
+//   damage(.skill)   → hit（被弾者。同じ相手・同じスキルは 0.15 秒に 1 回。キットのヒーローの多段ヒットは 0.9 秒に 1 回: hitInterval）
+//   パッシブの発動    → passive の cast（ロールごとの合図から推定。sim はパッシブ専用のイベントを出さない。
+//                      キットのヒーローはロールの合図を使わず、キットのパッシブのバッジの変化から出す。スタックが増えた / タイマーが始まった
+//                      → recipe(.passive).cast、スキルの発動の直後にスタックが尽きた → HeroFXSet.passiveRelease（持つヒーローだけ））
+//   再使用の段        → skillCast.stage >= 1 は、ヒーローが段の演出（HeroFXSet.recipe(_:stage:_:)）を持てばそれを使う
 
 @MainActor
 final class SkillFXDirector {
@@ -22,6 +25,8 @@ final class SkillFXDirector {
     private struct SkillKey: Hashable {
         var heroID: String
         var slot: SkillSlot
+        /// 再使用の段（0 = 共通。段の演出を持つヒーローだけ 1 以上がある）。
+        var stage = 0
     }
 
     private var recipes: [SkillKey: SkillFXRecipe] = [:]
@@ -38,10 +43,19 @@ final class SkillFXDirector {
 
     private var zones: [EntityID: Live] = [:]
     private var shots: [EntityID: Live] = [:]
-    private var lastHit: [Int: Float] = [:]
+    /// 被弾演出の再生間隔の管理（同じ相手・同じスキル）。
+    private struct HitKey: Hashable {
+        var target: EntityID
+        var heroID: String
+        var slot: SkillSlot
+    }
+
+    private var lastHit: [HitKey: Float] = [:]
     private var lastPassive: [EntityID: Float] = [:]
     private var lastCast: [EntityID: (slot: SkillSlot, time: Float)] = [:]
     private var ambushReady: [EntityID: Bool] = [:]
+    /// キットのパッシブのバッジの前回の値（スタックの増加・タイマーの開始でパッシブの演出、発動の直後のスタックの消費で解放の演出を出す）。
+    private var kitPassive: [EntityID: (stacks: Int, timer: Bool)] = [:]
     private var time: Float = 0
 
     init(master: MasterData, quality: RenderQuality, units: UnitLayer, projectiles: ProjectileLayer) {
@@ -78,6 +92,18 @@ final class SkillFXDirector {
                 recipes[key] = r
                 list.append((palette, r))
                 if let sk = master.skill(hero: id, slot: slot), !sk.effectID.isEmpty { byEffect[sk.effectID] = key }
+                // 再使用の段ごとの演出（持つヒーローだけ）
+                for stage in 1...SkillFXCatalog.maxStage {
+                    guard let sr = SkillFXCatalog.stageRecipe(heroID: id, slot: slot, stage: stage, master: master) else { continue }
+                    recipes[SkillKey(heroID: id, slot: slot, stage: stage)] = sr
+                    list.append((palette, sr))
+                }
+            }
+            // パッシブのスタックの解放の演出（持つヒーローだけ。材質を先に作る）
+            if let cues = SkillFXCatalog.passiveRelease(heroID: id, released: 1, master: master) {
+                var r = SkillFXRecipe()
+                r.cast = cues
+                list.append((palette, r))
             }
         }
         player.prewarm(recipes: list)
@@ -114,7 +140,15 @@ final class SkillFXDirector {
     @discardableResult
     func onCast(_ c: SkillCastEvent, state: SimState) -> Bool {
         let key = SkillKey(heroID: c.heroID, slot: c.slot)
-        guard let r = recipes[key] else { return false }
+        // 再使用の段の演出があればそれ（無ければ共通の演出）
+        let r: SkillFXRecipe
+        if c.stage > 0, let sr = recipes[SkillKey(heroID: c.heroID, slot: c.slot, stage: c.stage)] {
+            r = sr
+        } else if let base = recipes[key] {
+            r = base
+        } else {
+            return false
+        }
         lastCast[c.casterID] = (c.slot, time)
         let caster = units.worldPositionOf(c.casterID) ?? SkillFXDirector.ground(c.origin)
         let origin = SkillFXDirector.ground(c.origin)
@@ -208,8 +242,9 @@ final class SkillFXDirector {
         guard case .skill(let slot) = d.source, let src = d.sourceID, let hero = state.unit(src)?.hero else { return }
         let key = SkillKey(heroID: hero.heroID, slot: slot)
         guard let r = recipes[key], !r.hit.isEmpty, let victim = units.worldPositionOf(d.targetID) else { return }
-        let k = Int(d.targetID) &* 8 &+ slot.rawValue
-        if let t = lastHit[k], time - t < 0.15 { return }
+        let k = HitKey(target: d.targetID, heroID: hero.heroID, slot: slot)
+        let interval = Self.hitInterval(kitHero: hero.kit != nil, perHit: r.hitPerHit)
+        guard Self.hitReplayAllowed(last: lastHit[k], now: time, interval: interval) else { return }
         if lastHit.count > 256 { lastHit = lastHit.filter { time - $0.value < 1 } }
         lastHit[k] = time
         let caster = units.worldPositionOf(src) ?? victim
@@ -217,10 +252,27 @@ final class SkillFXDirector {
                                    follow: .unit(d.targetID)))
     }
 
+    /// 被弾演出を同じ相手・同じスキルへ再生し直せる最短の間隔（秒）。
+    static let plainHitInterval: Float = 0.15
+    /// キットのヒーローの多段ヒットのスキル（ゴルムの奥義の 6 連・ボルグの 3 波など）の間隔。1 ヒットごとに hit のレシピ全体を
+    /// 重ねない（SkillFXRecipe.hitPerHit を立てた演出を除く）。lastHit のお掃除（1 秒）より短いこと。
+    static let kitHitInterval: Float = 0.9
+
+    static func hitInterval(kitHero: Bool, perHit: Bool) -> Float { kitHero && !perHit ? kitHitInterval : plainHitInterval }
+
+    /// 前回の再生（nil = まだ）から interval 以上たっていれば再生してよい。
+    static func hitReplayAllowed(last: Float?, now: Float, interval: Float) -> Bool {
+        guard let last else { return true }
+        return now - last >= interval
+    }
+
     // MARK: パッシブ
 
-    private func passive(_ heroUnit: EntityID, at target: EntityID? = nil, state: SimState, cooldown: Float) {
+    private func passive(_ heroUnit: EntityID, at target: EntityID? = nil, state: SimState, cooldown: Float,
+                         fromKit: Bool = false) {
         guard let hero = state.unit(heroUnit)?.hero else { return }
+        // キットのヒーローはロールの合図（クリティカル・攻撃速度のスタックなど）が当てはまらない
+        if !fromKit, hero.kit != nil { return }
         if let t = lastPassive[heroUnit], time - t < cooldown { return }
         let key = SkillKey(heroID: hero.heroID, slot: .passive)
         guard let r = recipes[key] else { return }
@@ -271,7 +323,7 @@ final class SkillFXDirector {
     var demo: SkillFXDemo?
 
     func lastPassiveReset(_ id: EntityID) { lastPassive[id] = nil }
-    func passiveForDemo(_ id: EntityID, state: SimState) { passive(id, state: state, cooldown: 0) }
+    func passiveForDemo(_ id: EntityID, state: SimState) { passive(id, state: state, cooldown: 0, fromKit: true) }
 
     func launchForDemo(projectileID: EntityID, ownerID: EntityID, visual: String, start: SIMD3<Float>, forward: SIMD3<Float>) {
         guard let key = byEffect[visual], let r = recipes[key] else { return }
@@ -303,14 +355,72 @@ final class SkillFXDirector {
             guard let h = u.hero, h.role == .assassin else { continue }
             ambushReady[u.id] = h.passive.value >= 1
         }
+        observeKitPassives(state: state)
         player.update(dt: dt)
+    }
+
+    /// スタックの解放（消費）の演出を再生する。ヒーローが passiveRelease を持たなければ何もせず false。
+    @discardableResult
+    private func passiveRelease(_ heroUnit: EntityID, released: Int, state: SimState) -> Bool {
+        guard let hero = state.unit(heroUnit)?.hero, hero.kit != nil,
+              let cues = SkillFXCatalog.passiveRelease(heroID: hero.heroID, released: released, master: master),
+              !cues.isEmpty, let p = units.worldPositionOf(heroUnit) else { return false }
+        let key = SkillKey(heroID: hero.heroID, slot: .passive)
+        player.play(cues, context(key, origin: p, caster: p, target: p, forward: facing(heroUnit, state),
+                                  follow: .unit(heroUnit)))
+        return true
+    }
+
+    /// キットのパッシブの発動の推定: パッシブのバッジのスタックが増えた、またはタイマーが始まった瞬間に出す
+    /// （1 つ目のスタック・追撃の準備・凍結の開始など）。最初に見た値は基準にするだけで出さない。
+    /// スキルの発動の直後にスタックが尽きた（ボルグの防御・ゴルムのスタック消費）ときは、passiveRelease の演出を出す
+    /// （ヒーローが持たなければ従来どおり何も出さない。同時にタイマーが始まった場合は通常の合図に進む）。
+    func observeKitPassives(state: SimState) {
+        for u in state.units where u.kind == .hero {
+            guard let h = u.hero, h.kit != nil else { continue }
+            let now = Self.kitPassiveSample(HeroKits.badge(h, slot: .passive))
+            defer { kitPassive[u.id] = now }
+            guard let last = kitPassive[u.id], !h.isDead else { continue }
+            let sinceCast = lastCast[u.id].map { time - $0.time }
+            if Self.kitPassiveReleases(last: last, now: now, sinceCast: sinceCast),
+               passiveRelease(u.id, released: last.stacks, state: state) { continue }
+            if Self.kitPassiveFires(last: last, now: now) {
+                passive(u.id, state: state, cooldown: 0.4, fromKit: true)
+            }
+        }
+    }
+
+    /// パッシブのバッジ → 前回と比べる値（スタックの数・タイマーが動いているか）。
+    static func kitPassiveSample(_ badge: KitBadge?) -> (stacks: Int, timer: Bool) {
+        guard let badge else { return (0, false) }
+        switch badge.kind {
+        case .stacks: return (badge.value, false)
+        case .timer: return (0, badge.remaining > 0)
+        case .form: return (0, false)
+        }
+    }
+
+    /// スタックが増えた、またはタイマーが始まった瞬間か。
+    static func kitPassiveFires(last: (stacks: Int, timer: Bool), now: (stacks: Int, timer: Bool)) -> Bool {
+        now.stacks > last.stacks || (now.timer && !last.timer)
+    }
+
+    /// 解放の演出の対象にする「スキルの発動の直後」の幅（秒）。
+    static let kitReleaseWindow: Float = 0.6
+
+    /// スキルの発動の直後（sinceCast = 発動からの秒。発動が無ければ nil）に、スタックが 1 つ以上から 0 になったか。
+    static func kitPassiveReleases(last: (stacks: Int, timer: Bool), now: (stacks: Int, timer: Bool), sinceCast: Float?) -> Bool {
+        guard let sinceCast, sinceCast >= 0, sinceCast <= kitReleaseWindow else { return false }
+        return last.stacks >= 1 && now.stacks == 0
     }
 
     func clear() {
         player.clear()
+        lastCast.removeAll()
         zones.removeAll()
         shots.removeAll()
         lastHit.removeAll()
+        kitPassive.removeAll()
     }
 }
 

@@ -125,13 +125,17 @@ final class Kit_H033Tests: XCTestCase {
     }
 
     /// 1 スロットの単体総ダメージは汎用の 0.8〜1.3 倍（奥義は衝撃波のダメージ）。
+    /// 例外: S1 はランクが上がるほど倍率を下げる（0.88 → 0.64）ので、ランク 2 以降は 0.8 を割る。序盤（Lv1〜3 はスキル1 だけ）を
+    /// 強くして、ランクが上がってスキル2・アルティメット（クールダウン半減・追撃）が揃ったあとの火力と 3 秒の瞬間火力を抑えるため
+    /// （docs/kits/Alucard.md の「バランス」）。
     func testNumbersStayWithinDamageBudgetAndFollowCooldownFormula() throws {
         for level in [1, 6, 12] {
             for rank in 1...Balance.basicSkillMaxRank {
                 for slot in [SkillSlot.skill1, .skill2] {
                     let (n, g) = try numbers(slot, level: level, rank: rank)
                     let r = n.totalDamage / g.totalDamage
-                    XCTAssertTrue((0.8...1.3).contains(r), "\(slot) Lv\(level) r\(rank): \(r)")
+                    let floor = slot == .skill1 ? 0.6 : 0.8
+                    XCTAssertTrue((floor...1.3).contains(r), "\(slot) Lv\(level) r\(rank): \(r)")
                 }
             }
             for rank in 1...Balance.ultimateMaxRank {
@@ -150,7 +154,8 @@ final class Kit_H033Tests: XCTestCase {
         }
         for rank in 1...4 {
             XCTAssertEqual(try numbers(.skill1, level: 12, rank: rank).kit.cooldown,
-                           expected(8.5, 6.5, rank: rank, maxRank: 4, scale: Tune.s1CooldownScale), accuracy: 1e-9)
+                           expected(8.5, 6.5, rank: rank, maxRank: 4, scale: Kit_H033.s1CooldownScale(rank: rank)),
+                           accuracy: 1e-9)
             XCTAssertEqual(try numbers(.skill2, level: 12, rank: rank).kit.cooldown,
                            expected(6, 4, rank: rank, maxRank: 4, scale: Tune.s2CooldownScale), accuracy: 1e-9)
         }
@@ -215,13 +220,42 @@ final class Kit_H033Tests: XCTestCase {
         XCTAssertEqual(pn.extras.map(\.value), [140, 5, 300, 30])
         let ult = try XCTUnwrap(MasterData.shared.skill(hero: "H033", slot: .ultimate))
         let un = SkillCatalog.numbers(for: ult, hero: hero, rank: 2, stats: stats)
-        XCTAssertEqual(un.extras.map(\.value), [30, 10, 6, 20])
+        XCTAssertEqual(un.extras.map(\.value), [30, 10, Tune.hasteDuration, 20])
         let s1 = try XCTUnwrap(MasterData.shared.skill(hero: "H033", slot: .skill1))
         XCTAssertEqual(SkillCatalog.numbers(for: s1, hero: hero, rank: 2, stats: stats).extras.map(\.value), [40, 2])
         // 説明文の半径・射程は照準情報から
         let ja = try XCTUnwrap(HeroKits.text(heroID: "H033", slot: .ultimate)).filled(
             english: false, numbers: un, targeting: SkillCatalog.targeting(for: ult, hero: hero))
         XCTAssertTrue(ja.contains("\(Int(Tune.ultCastRange))") && ja.contains("\(Int(Tune.absorbRadius))"), ja)
+    }
+
+    /// S1 のダメージ倍率はランクが上がるほど下がるが、ダメージの絶対値はランクで増える（汎用の +30%/ランクが勝つ）。
+    func testGroundsplitterDamageRatioFallsWithRankButDamageStillGrows() throws {
+        XCTAssertEqual(Tune.s1Ratios.count, 4)
+        XCTAssertGreaterThan(Tune.s1Ratios[0], Tune.s1Ratios[3])
+        XCTAssertEqual(Kit_H033.s1Ratio(rank: 0), Tune.s1Ratios[0])
+        XCTAssertEqual(Kit_H033.s1Ratio(rank: 9), Tune.s1Ratios[3])
+        var last = 0.0
+        for rank in 1...4 {
+            let (n, g) = try numbers(.skill1, level: 12, rank: rank)
+            XCTAssertEqual(n.damage / g.damage, Tune.s1Ratios[rank - 1], accuracy: 1e-9)
+            XCTAssertGreaterThan(n.damage, last, "ランク \(rank) で S1 のダメージが減る")
+            last = n.damage
+        }
+    }
+
+    /// S1 のクールダウンの倍率はランク別（序盤はスキル1 しか無いので短い）。ランクが上がってもクールダウンは延びない。
+    func testGroundsplitterCooldownScaleDependsOnRankAndNeverGrowsWithRank() throws {
+        XCTAssertEqual(Tune.s1CooldownScales.count, 4)
+        XCTAssertLessThan(Kit_H033.s1CooldownScale(rank: 1), Kit_H033.s1CooldownScale(rank: 4))
+        XCTAssertEqual(Kit_H033.s1CooldownScale(rank: 0), Kit_H033.s1CooldownScale(rank: 1), "未習得は 1 と同じ（下限）")
+        XCTAssertEqual(Kit_H033.s1CooldownScale(rank: 9), Kit_H033.s1CooldownScale(rank: 4), "上限")
+        var last = Double.infinity
+        for rank in 1...4 {
+            let cd = try numbers(.skill1, level: 12, rank: rank).kit.cooldown
+            XCTAssertLessThanOrEqual(cd, last + 1e-9, "ランク \(rank) でクールダウンが延びる")
+            last = cd
+        }
     }
 
     // MARK: - パッシブ: 追撃
@@ -602,6 +636,31 @@ final class Kit_H033Tests: XCTestCase {
         XCTAssertEqual(kit(w, k).valdPursuit, Tune.pursuitWindow)
     }
 
+    /// 説明文: UI の用語（スキル1 / スキル2 / アルティメット）で、奥義の文は 吸収 / 半減 / 衝撃波 / 吸血 に分けてある。
+    func testTextsUseUITermsAndTheUltimateTextIsSplitIntoParts() throws {
+        for slot in SkillSlot.allCases {
+            let t = try XCTUnwrap(HeroKits.text(heroID: "H033", slot: slot))
+            for banned in ["S1", "S2", "奥義", "Skill1", "Skill2"] {
+                XCTAssertFalse(t.ja.contains(banned) || t.en.contains(banned), "\(slot): \(banned)")
+            }
+        }
+        let (w, k) = world()
+        let hero = try XCTUnwrap(MasterData.shared.hero("H033"))
+        let ult = try XCTUnwrap(MasterData.shared.skill(hero: "H033", slot: .ultimate))
+        let n = SkillCatalog.numbers(for: ult, hero: hero, rank: 1, stats: w.s.units[k].stats)
+        let ja = try XCTUnwrap(HeroKits.text(heroID: "H033", slot: .ultimate)).filled(
+            english: false, numbers: n, targeting: SkillCatalog.targeting(for: ult, hero: hero))
+        for part in ["吸収:", "半減:", "衝撃波:", "吸血:", "スキル1とスキル2"] { XCTAssertTrue(ja.contains(part), "\(part): \(ja)") }
+        let sp = try XCTUnwrap(MasterData.shared.skill(hero: "H033", slot: .passive))
+        let pja = try XCTUnwrap(HeroKits.text(heroID: "H033", slot: .passive)).filled(
+            english: false, numbers: SkillCatalog.numbers(for: sp, hero: hero, rank: 1, stats: w.s.units[k].stats),
+            targeting: SkillCatalog.targeting(for: sp, hero: hero))
+        XCTAssertTrue(pja.contains("アルティメット"), pja)
+        // スキルの吸血は通常攻撃の 1/3（範囲スキルが大勢に当たったときの回復が過大にならない）
+        XCTAssertEqual(Tune.spellVampFactor, 0.33, accuracy: 1e-9)
+        XCTAssertTrue(pja.contains("33%"), pja)
+    }
+
     // MARK: - 奥義 1 回目: 吸収
 
     func testAbsorbDealsNoDamageButSlowsAndShredsEverythingInTheCircle() throws {
@@ -654,22 +713,35 @@ final class Kit_H033Tests: XCTestCase {
         XCTAssertEqual(kit(w2, k2).valdHaste, Tune.hasteDuration)
     }
 
-    func testOtherSkillCooldownsTickTwiceAsFastForSixSecondsAndTheUltimateDoesNot() {
+    func testAbsorbDoesNotCountOrAffectInvulnerableHeroes() {
+        var (w, k) = world()
+        let shielded = addEnemy(&w, dx: 250)
+        let normal = addEnemy(&w, dx: 350, dy: 100, hero: "H004")
+        CombatSystem.addStatus(&w.s, targetIndex: shielded, StatusEffect(kind: .invulnerable, duration: 5, sourceID: w.id(shielded), tag: "t"))
+        XCTAssertTrue(w.cast(k, .ultimate, at(300)))
+        XCTAssertEqual(kit(w, k).valdAbsorbHeroes, 1)
+        XCTAssertNil(status(w, shielded, .slow))
+        XCTAssertNotNil(status(w, normal, .slow, tag: Tune.absorbSlowTag))
+        XCTAssertEqual(status(w, k, .damageReduction, tag: Tune.hasteTag)?.magnitude ?? 0, Tune.defensePerHero, accuracy: 1e-9)
+    }
+
+    func testOtherSkillCooldownsTickTwiceAsFastForTheHasteDurationAndTheUltimateDoesNot() {
         var (w, k) = world()
         let n = w.numbers(k, .ultimate)
         XCTAssertTrue(w.cast(k, .ultimate, at(300)))
         w.s.units[k].hero!.skillCooldowns[SkillSlot.skill1.rawValue] = 20
         w.s.units[k].hero!.skillCooldowns[SkillSlot.skill2.rawValue] = 20
+        let haste = Tune.hasteDuration
         w.run(seconds: 3)
         XCTAssertEqual(cooldown(w, k, .skill1), 20 - 6, accuracy: 0.15)
         XCTAssertEqual(cooldown(w, k, .skill2), 20 - 6, accuracy: 0.15)
         XCTAssertEqual(cooldown(w, k, .ultimate), n.cooldown - 3, accuracy: 0.15, "奥義自身は半減しない")
-        // 6 秒を過ぎたら通常の速さ（合計 7 秒: 6 秒が 2 倍 + 1 秒が等倍）
-        w.run(seconds: 4)
-        XCTAssertEqual(cooldown(w, k, .skill1), 20 - 7 - 6, accuracy: 0.2)
+        // 半減の秒数を過ぎたら通常の速さ（合計 haste + 1 秒: haste 秒が 2 倍 + 1 秒が等倍）
+        w.run(seconds: haste + 1 - 3)
+        XCTAssertEqual(cooldown(w, k, .skill1), 20 - (2 * haste + 1), accuracy: 0.2)
         XCTAssertEqual(kit(w, k).valdHaste, 0)
         w.run(seconds: 1)
-        XCTAssertEqual(cooldown(w, k, .skill1), 20 - 8 - 6, accuracy: 0.2, "半減が終われば等倍")
+        XCTAssertEqual(cooldown(w, k, .skill1), 20 - (2 * haste + 2), accuracy: 0.2, "半減が終われば等倍")
     }
 
     func testAbsorbOpensTheSixSecondWindowAndSpendsTheCooldownUpFront() {
@@ -999,25 +1071,159 @@ final class Kit_H033Tests: XCTestCase {
                        c.damageEvents.filter { $0.source == .skill(.ultimate) }.count)
     }
 
+    // MARK: - ボットの判断（共有のボット処理を実際に通す）
+
+    /// ボット視点の場面（KitSharedTests の Scene と同じ作り）: ヴァルドが青の mid で、赤の mid の倒せない敵と向き合う。
+    private struct BotScene {
+        var f: BotFixture
+        let me: Int
+        let foe: Int
+        var agent: BotAgent
+        var mem: BotHeroMemory
+        let sighting: BotSighting
+
+        init(ranks: [Int] = [1, 1, 1, 1]) {
+            var cfg = MatchFactory.botMatch(difficulty: .hard, seed: 5)
+            let idx = cfg.players.firstIndex { $0.team == .blue && $0.position == .mid }!
+            if let other = cfg.players.firstIndex(where: { $0.heroID == "H033" }), other != idx {
+                cfg.players[other].heroID = cfg.players[idx].heroID
+            }
+            cfg.players[idx].heroID = "H033"
+            var fx = BotFixture(config: cfg, time: 600)
+            fx.parkAllHeroes()
+            let m = fx.hero(.blue, .mid)
+            let e = fx.hero(.red, .mid)
+            fx.place(m, at: Vec2(6000, 6000))
+            fx.place(e, at: Vec2(6300, 6000))
+            fx.s.units[m].hero!.level = 12
+            fx.s.units[m].hero!.skillRanks = ranks
+            fx.s.units[m].hero!.skillCooldowns = Array(repeating: 0, count: fx.s.units[m].hero!.skillCooldowns.count)
+            fx.s.units[m].resource = fx.s.units[m].stats.maxResource
+            // 倒せない敵
+            fx.s.units[e].stats.maxHP = 1_000_000
+            fx.s.units[e].hp = 1_000_000
+            let def = fx.ctx.master.hero("H033")!
+            let sight = BotSighting(index: e, id: fx.s.units[e].id, pos: Vec2(6300, 6000), velocity: .zero,
+                                    distance: 300, visible: true)
+            var ag = BotAgent(i: m, slot: fx.slot(of: m), id: fx.s.units[m].id, team: .blue, profile: .of(.hard),
+                              difficulty: .hard, pos: Vec2(6000, 6000), level: 12, role: def.role, position: .mid,
+                              isRanged: def.isRanged, skillsWork: true)
+            ag.enemies = [sight]
+            me = m
+            foe = e
+            sighting = sight
+            agent = ag
+            mem = fx.memory(m)
+            f = fx
+        }
+
+        mutating func castSkills() -> [PlayerCommand] {
+            agent.commands = []
+            mem.lastSkillTime = -100
+            BotCombat.castSkills(&f.s, f.ctx, &agent, &mem, target: sighting, fighting: true)
+            return agent.commands
+        }
+
+        mutating func farm(minions: Int = 3) -> [PlayerCommand] {
+            var targets: [Int] = []
+            for k in 0..<minions {
+                targets.append(f.addMinion(.melee, team: .red, lane: .mid, at: Vec2(6250 + Double(k) * 20, 6000)))
+            }
+            agent.commands = []
+            mem.lastSkillTime = -100
+            BotCombat.castFarmSkills(&f.s, f.ctx, &agent, &mem, targets: targets, minCluster: 1)
+            return agent.commands
+        }
+    }
+
+    private static func slots(_ cmds: [PlayerCommand]) -> [SkillSlot] {
+        cmds.compactMap { if case .castSkill(let slot, _) = $0 { return slot } else { return nil } }
+    }
+
+    /// 衝撃波（アルティメットの 2 回目）は、汎用の関門（倒せる・2 体以上）に関係なく撃つ。吸収（1 回目）は関門を通ったときだけ。
+    func testBotRecastsTheShockwaveEvenWhenTheGateWouldBlockTheAbsorb() {
+        var sc = BotScene()
+        XCTAssertFalse(Self.slots(sc.castSkills()).contains(.ultimate), "倒せない 1 体への吸収は関門で止まる")
+        // 吸収のあと（クールダウン中）で再使用の窓が開いている
+        sc.f.s.units[sc.me].hero!.skillCooldowns[SkillSlot.ultimate.rawValue] = 30
+        Kit.openRecast(&sc.f.s, caster: sc.me, slot: .ultimate, duration: Tune.ultWindow, stage: 1, charges: 1)
+        XCTAssertTrue(HeroKits.isRecasting(sc.f.s, sc.me, .ultimate))
+        let cmds = sc.castSkills()
+        XCTAssertEqual(Self.slots(cmds).first, .ultimate, "\(cmds)")
+        if case .castSkill(_, let target) = cmds.first {
+            XCTAssertEqual(target, .unit(sc.f.s.units[sc.foe].id), "衝撃波は敵へ向ける")
+        }
+        // 窓が無ければ、クールダウン中の奥義は撃てない
+        var closed = BotScene()
+        closed.f.s.units[closed.me].hero!.skillCooldowns[SkillSlot.ultimate.rawValue] = 30
+        XCTAssertFalse(Self.slots(closed.castSkills()).contains(.ultimate))
+    }
+
+    /// ファーム: Lv1〜3 の序盤（スキル1 だけ）でもミニオンの集団へ裂地撃（S1）を撃つ。HP が低いと撃たない。
+    func testBotFarmsMinionsWithGroundsplitterAndStaysSafe() {
+        var sc = BotScene(ranks: [1, 1, 0, 0])
+        XCTAssertEqual(Self.slots(sc.farm()), [.skill1])
+        var weak = BotScene(ranks: [1, 1, 0, 0])
+        weak.f.s.units[weak.me].hp = weak.f.s.units[weak.me].stats.maxHP * 0.3
+        XCTAssertTrue(Self.slots(weak.farm()).isEmpty, "HP が低いときは転がり込まない")
+    }
+
+    func testBotFarmDecisionAllowsOnlySkill1AndAvoidsEnemyTowers() throws {
+        var (w, k) = world()
+        let hero = try XCTUnwrap(MasterData.shared.hero("H033"))
+        func tg(_ slot: SkillSlot) throws -> SkillTargeting {
+            HeroKits.targeting(for: try XCTUnwrap(MasterData.shared.skill(hero: "H033", slot: slot)), hero: hero, stage: 0)
+        }
+        let center = skillArena + Vec2(250, 0)
+        func farm(_ slot: SkillSlot) throws -> Bool {
+            HeroKits.botFarm(w.s, w.ctx, bot: k, slot: slot, targeting: try tg(slot), center: center, count: 3)
+        }
+        XCTAssertTrue(try farm(.skill1))
+        XCTAssertFalse(try farm(.skill2))
+        XCTAssertFalse(try farm(.ultimate))
+        _ = w.addTower(team: .red, at: center + Vec2(400, 0))
+        XCTAssertFalse(try farm(.skill1), "敵のタワーの射程には転がり込まない")
+    }
+
     // MARK: - ボットの煙テスト
 
     /// ヴァルドをボットにして通常の 10 人戦を回す。S1 / S2 / 奥義（吸収・衝撃波）のすべてを撃ち、追撃が起き、状態が壊れない。
+    /// 奥義は汎用の関門（倒せる・2 体以上）を通ったときだけ撃つので、撃つまで種を変えて回す（最大 6 試合）。
     func testBotSmokeCastsEverySlotAndStateStaysBounded() throws {
-        var cfg = MatchFactory.botMatch(seed: 33)
-        let idx = try XCTUnwrap(cfg.players.firstIndex { $0.team == .blue && $0.position == .jungle })
-        if let other = cfg.players.firstIndex(where: { $0.heroID == "H033" }), other != idx {
-            cfg.players[other].heroID = cfg.players[idx].heroID
-        }
-        cfg.players[idx].heroID = "H033"
-        let sim = Simulation(config: cfg)
-        let hero = try XCTUnwrap(sim.state.heroIndices.first { sim.state.units[$0].hero?.heroID == "H033" })
-        let heroID = sim.state.units[hero].id
-        XCTAssertNotNil(sim.state.units[hero].hero?.kit)
         var casts: [SkillSlot: Int] = [:]
         var waves = 0
         var absorbs = 0
         var pursuits = 0
         var heroesCaught = 0
+        var played = 0
+        var lastTime = 0.0
+        for seed in UInt64(33)..<UInt64(39) where absorbs == 0 || waves == 0 || pursuits == 0 || casts[.skill1, default: 0] == 0
+            || casts[.skill2, default: 0] == 0 {
+            played += 1
+            var cfg = MatchFactory.botMatch(seed: seed)
+            let idx = try XCTUnwrap(cfg.players.firstIndex { $0.team == .blue && $0.position == .jungle })
+            if let other = cfg.players.firstIndex(where: { $0.heroID == "H033" }), other != idx {
+                cfg.players[other].heroID = cfg.players[idx].heroID
+            }
+            cfg.players[idx].heroID = "H033"
+            let sim = Simulation(config: cfg)
+            let hero = try XCTUnwrap(sim.state.heroIndices.first { sim.state.units[$0].hero?.heroID == "H033" })
+            let heroID = sim.state.units[hero].id
+            XCTAssertNotNil(sim.state.units[hero].hero?.kit)
+            lastTime = try runSmokeMatch(sim, heroID: heroID, casts: &casts, waves: &waves, absorbs: &absorbs,
+                                         pursuits: &pursuits, heroesCaught: &heroesCaught)
+        }
+        XCTAssertGreaterThan(casts[.skill1, default: 0], 0, "S1: \(casts)")
+        XCTAssertGreaterThan(casts[.skill2, default: 0], 0, "S2: \(casts)")
+        XCTAssertGreaterThan(absorbs, 0, "奥義の吸収: \(casts) (試合 \(played))")
+        XCTAssertGreaterThan(waves, 0, "奥義の衝撃波: \(casts) (試合 \(played))")
+        XCTAssertGreaterThan(pursuits, 0, "追撃")
+        print("H033 bot smoke: \(casts), absorbs \(absorbs), waves \(waves), pursuits \(pursuits), max heroes caught \(heroesCaught), matches \(played), last until \(lastTime) s")
+    }
+
+    /// 1 試合を回して、ヴァルドの発動を数え、状態が壊れていないことを見る（条件がそろったら 130 秒以降に打ち切る）。
+    private func runSmokeMatch(_ sim: Simulation, heroID: EntityID, casts: inout [SkillSlot: Int], waves: inout Int,
+                               absorbs: inout Int, pursuits: inout Int, heroesCaught: inout Int) throws -> Double {
         while !sim.isEnded && sim.state.time < 1800 {
             let events = sim.step()
             for e in events {
@@ -1040,12 +1246,7 @@ final class Kit_H033Tests: XCTestCase {
             if casts[.skill1, default: 0] > 0, casts[.skill2, default: 0] > 0, absorbs > 0, waves > 0, pursuits > 0,
                sim.state.time > 130 { break }
         }
-        XCTAssertGreaterThan(casts[.skill1, default: 0], 0, "S1: \(casts)")
-        XCTAssertGreaterThan(casts[.skill2, default: 0], 0, "S2: \(casts)")
-        XCTAssertGreaterThan(absorbs, 0, "奥義の吸収: \(casts)")
-        XCTAssertGreaterThan(waves, 0, "奥義の衝撃波: \(casts)")
-        XCTAssertGreaterThan(pursuits, 0, "追撃")
-        print("H033 bot smoke: \(casts), absorbs \(absorbs), waves \(waves), pursuits \(pursuits), max heroes caught \(heroesCaught) until \(sim.state.time) s")
+        return sim.state.time
     }
 
     // MARK: - 1v1 の TTK（H001–H006 相手、Lv 1 / 6 / 12）

@@ -32,7 +32,10 @@ public enum HeroKits {
 ```
 
 `KitText.fill(_:numbers:targeting:)` は `{damage} {total} {hits} {shield} {heal} {range} {radius} {cd} {x0}..{x3}` を
-sim の数値で埋める（説明文の数値と sim をずらさない）。
+sim の数値で埋める（説明文の数値と sim をずらさない）。さらに `numbers.extras` の **全要素**を `KitStat.key` で引く
+`{key}` も埋める（`{x#}` は先頭 4 つの別名で、値・書式は同じ: 整数に近ければ整数、そうでなければ小数 1 桁）。
+例: extras が `[KitStat(key: "bleed", value: 2.5)]` なら `{bleed}` も `{x0}` も `2.5`。組み込みの名前（`damage` など）が先に勝ち、
+同じ key が複数あれば先頭が勝つ。空の key と未知の `{名前}` はそのまま残る。5 つ以上の数値は `{key}` で引く。
 
 ## `HeroKit` プロトコル（`Systems/Kits/HeroKit.swift`、internal・Sendable）
 
@@ -46,7 +49,16 @@ sim の数値で埋める（説明文の数値と sim をずらさない）。
 - **C. パッシブ（キットのヒーローはロールのパッシブを置き換える）**: `outgoingDamageBonus` / `modifyIncomingDamage` /
   `forceCrit` / `shapeBasicAttack(plan: inout BasicAttackPlan)` / `onBasicAttackHit` / `onSkillHit` / `onSkillCast` /
   `onDamageTaken` / `onKillOrAssist`。
-- **D. ボット**: `botCast(...) -> BotKitDecision`（`.useDefault` / `.cast(SkillTarget)` / `.skip`）。
+- **D. ボット**: `botCast(...) -> BotKitDecision`（`.useDefault` / `.cast(SkillTarget)` / `.castNow(SkillTarget)` / `.skip`）。
+  - 奥義には汎用の関門（倒せる or 2 体以上を巻き込む）がある。`.useDefault` と `.cast` は関門を通った時だけ有効（従来どおり）。
+    **`.castNow` は関門を飛び越えて今撃つ**（関門の外で奥義を使いたいキット用。その分、条件はキット側で厳しく書く）。
+    再使用の窓が開いている奥義は、決定の種類にかかわらず関門を通さない（`HeroKits.isRecasting`）。
+  - `botFarm(_:_:bot:slot:targeting:center:count:) -> Bool`（既定 `false`）: ミニオン・モンスターの集団（`castFarmSkills`）に対して
+    突入・瞬間移動系（dashStrike / leapSlam / targetedBlink / blinkEmpower / multiStrike）を撃ってよいか。center = 集団の中心、
+    count = 巻き込む数。タワー下や HP の安全判断はキットで行う（teamHeal は常に撃たない）。
+  - `botEscape(_:_:bot:slot:targeting:flee:enemyDistance:) -> BotKitDecision`（既定 `.useDefault`）: 撤退中（敵が 500 以内）に
+    スロットごとに呼ばれる（奥義 → スキル2 → スキル1）。`.cast` / `.castNow` で発動、`.skip` で見送り、`.useDefault` は従来どおり
+    （突進・ブリンク系のスキル1/2 だけ `flee` 方向へ。奥義は撃たない）。奥義を逃走に使うのはキットが明示した時だけ。
 
 ## 既存の型への追加（すべて加算・既定値付き）
 
@@ -86,7 +98,8 @@ public struct KitState: Codable, Hashable, Sendable {
 - 各キットは自分のファイルの `extension KitState` に名前付きアクセサを置く（レジスタは重ねてよい: 1 ヒーロー = 1 キット）。
 - 敵側のスタック/マークは `.mark` status（tag に所有者 ID を含める: `KitTags.mark("H032","brand", owner:)`）。
 - 死亡で全リセット（`onDeath` で残すものを選べる）。ハード CC（スタン・打ち上げ・suppress）で `interruptible` なタイマーを取り消し `onInterrupted`。
-- `stateHash()` に kit のレジスタ・形態・窓の段・`scheduled.count`・status の (kind, tag, magnitude) を混ぜる。
+- `stateHash()` に kit のレジスタ・形態・窓の段・予約中の各 `KitTimer`（code・remaining・slot・targetID・index。挿入順）・
+  突進の有無と `arriveCode`・status の (kind, tag, magnitude) を混ぜる。
 
 ### 決定性のルール（キットを書く人向け）
 - ユニットは添字昇順で列挙する。乱数は `s.rng` だけ。`Date` / `Dictionary` の列挙順は使わない。
@@ -114,12 +127,48 @@ public struct KitState: Codable, Hashable, Sendable {
 ## 統合
 
 - **コマンド**: 再使用も `PlayerCommand.castSkill(slot:target:)`。サーバ側が状態から初回/再使用を決める。新コマンドなし。
-- **ボット**（`BotCombat.swift`）: `SkillCatalog.activeTargeting` を使う / 再使用中はマナ判定を飛ばす / `botCast` で上書き。
+- **ボット**（`BotCombat.swift`）: `SkillCatalog.activeTargeting` を使う / 再使用中はマナ判定と奥義の関門を飛ばす / `botCast`
+  （`.castNow` は関門を飛び越える）・`botFarm`・`botEscape` で上書き。
 - **HUD**: `HUDSkillSnapshot` に `recast` / `badge`。`isReady` は再使用中は CD とコストを無視。`AimLayer` は `shape` を先に見る（`.auto` は既存へ）。
 - **説明文**: アプリ内のスキル説明は `SkillMath.description`（`CollectionLogic.swift`）。ここで `HeroKits.text` を優先する。
   `master_en.json` の `.desc`（汎用文）は存在チェックのため残す。`AppStoreAssetsTests.testSkillDescriptionsFollowDesignArchetypes` はキットのヒーローを除外。
 - **リプレイ**: 最初にキットを有効にする PR で `MatchConfig.currentSimVersion` を 5 → 6。
 - **演出**: `SkillCastEvent.stage / count / duration` を `FX_H0xx.swift` が使い、再使用の段ごとに演出を分ける。
+
+## App 統合（実装済み）
+
+パスは `VELSTRIA/` 起点。コンパイル・実機確認は Mac 側（この節の実装は Windows で書いたため CI 未実行）。
+
+- **説明文**: `SkillMath.kitDescription`（`App/Screens/Collection/CollectionLogic.swift`）が `HeroKits.text` を現在の言語で `KitText.fill`（ランク 1・能力値ボーナスなしの
+  `SkillMath.numbers` / `SkillCatalog.targeting`）で埋める。`SkillMath.description` はこれを先に引き、キットが無い・そのスロットの文が空なら従来の生成文に戻る
+  （HUD の長押しの説明 `HUDModel.makeSkillTip`・スキル詳細・パッシブの文が共用）。スキル詳細はキットのヒーローで「固有係数」タグ・アーキタイプ説明・汎用の補足・
+  マスターの CC を隠し、CD は `SkillMath.cooldown(_:hero:rank:)`（キットの numbers）、ランク表の列は値があるものだけ（`SkillMath.figures(_:hero:archetype:)`）、
+  図の名前は `SkillMath.shapeName(targeting.shape)`。
+- **HUD**: `HUDSkillSnapshot` に `recast: RecastInfo?` / `badge: KitBadge?`（`HUDKitDisplay.rounded` で 0.1 秒単位）。`isReady` は再使用中は CD・コストを見ない
+  （`castable` は sim の `validate` と同じ判定）。`buildHeroPanel` は再使用の窓が開いている間、`HeroKits.targeting(stage: activeStage)` の照準（形・射程・対象指定）を
+  スナップショットに入れる（= 照準セッションがその段で動く）。スキルボタンは再使用中に残り時間の輪と光（`HUDRecastRing`）、右上にバッジ（`HUDKitBadgeChip`:
+  スタック数 / 形態 / タイマー秒）、CD の幕は出さない。パッシブのバッジは `HUDHeroSnapshot.passiveBadge` → 状態アイコン列の先頭（金の印、`HUDStatusRow.passive`）。
+- **照準**: `AimShapePlan.make`（`App/Battle/Render/AimLayer.swift`）が `SkillTargeting.shape` を先に見る。`.fan`（`halfAngle` > 0 の扇、半径 = 射程）/ `.wideLine`
+  （半幅 = `radius` の帯 + 矢印）/ `.dashToPoint`（半幅 = `radius` の帯 + 終点の輪）/ `.circleAtPoint` / `.selfRing` / `.lockOn`（対象の輪）。`.auto`、および aim と合わない
+  組み合わせ（扇で角度なし など）は `.legacy` = 従来の archetype / aim の分岐。`HUDAim.castTarget` は変えない（`lockOn` は aim `.unit` なので敵ヒーローを送り、居なければ `.none`
+  = sim が自動選択・`requiresTarget` は拒否）。
+- **演出**: キットのヒーローは **通常攻撃 = Effekseer、スキル = SkillFX**（`EffekseerRouting`。理由は `docs/EFFEKSEER.md`）。SkillFX は `SkillCastEvent.stage` が 1 以上のとき
+  `HeroFXSet.recipe(_:stage:_:)` の段の演出を使える（既定 nil。FX_H0xx はまだ使っていない）。キットのヒーローのパッシブの演出は、ロールの合図ではなくパッシブのバッジの変化で出す
+  （`SkillFXDirector.observeKitPassives`）。`count` / `duration` / `shape` は Director ではまだ読まない（FX_H0xx は固定のタイミングで書いてある）。
+- **演出（追加の hook）**: (1) 多段ヒットのスキルは同じ相手へ `hit` を **0.9 秒に 1 回**しか再生しない（キットのヒーローのみ。`SkillFXDirector.hitInterval`。
+  1 発ごとに出したい短い演出だけ `r.hitPerHit = true`、それ以外のヒーローは従来の 0.15 秒）。(2) パッシブのスタックを**使い切った**（>= 1 → 0）のが
+  スキルの発動の直後（0.6 秒以内）なら、積む演出ではなく `HeroFXSet.passiveRelease(_ s: FXSkillInfo, released: Int) -> [FXCue]?` を術者に追従して再生する
+  （既定 nil = 何も出さない。`released` = 消費したスタック数、`s` は passive スロットの寸法。ボルグの防御・ゴルムのスタック消費用。同時にタイマーが始まるなら
+  `passiveRelease` が nil のとき通常の合図に進む）。段の演出（`recipe(_:stage:_:)`）と同じく FX_H0xx が足すだけでよく、Director・Catalog の変更は要らない。
+- **世界の状態表示**（`App/Battle/Render/KitStatusVisuals.swift` が純粋な対応表、`StatusIndicators` / `HeroVisual` が描く）: `.mark` は頭上の回るひし形 + 輪
+  （色は tag の所有者ヒーロー ID から。スタック数で少し大きく。複数ならスタック最大の 1 つ）、H031 の凍結（`stun` + `kit.H031.freeze`）と氷の誇り
+  （`suppress` + `kit.H031.prideFreeze`）は回る星の代わりに氷の殻、`stealth` は**自分・味方・観戦**にだけモデルを 40% の不透明度で見せる（敵の視点は不変 =
+  敵のステルスは視界の判定のまま）、H031 の足元の細い氷の輪 = パッシブのバッジが「準備できた」（`HeroKits.badge` は `HeroData` だけから計算する純粋な関数なので、
+  描画のスナップショットの誰のユニットからでも読める = 全員に見える）。`suppress` は行動不能なので星・`.stunned` の姿勢も出す。HUD の状態アイコンは
+  `HUDSymbols.status/statusName/statusColor(_:tag:)` が tag を見る（超伝導 H026 `sc`・虚空の印 H030 `void`・空断の理 H028 `bane`・衝撃波の印 H029 `wave`・
+  凍結。未登録は汎用）。新しいマーク・凍結の tag は `KitStatusVisuals`（`markName` / `markSymbol` / `markColor`）に足す。
+- **テスト**: `AppTests/HUDKitTests.swift`（スナップショットの再使用・バッジの表示値・ビルダー・照準の形・lockOn の対象・tag → 名前/アイコン/氷の殻/マーク/ステルス/氷の輪）、
+  `CollectionLogicTests`（キットの説明・CD・列）、`EffekseerTests`（役割分担）、`SkillFXTests`（段の演出・パッシブの合図・解放の合図・被弾の間隔）。
 
 ## ファイル構成
 
@@ -139,6 +188,12 @@ Tests/VelstriaCoreTests/Kits/KitTestSupport.swift  KitFrameworkTests.swift  Kit_
 - 枠組み: `SkillWorld`（`Tests/.../SkillArchetypeTests.swift`）で各プリミティブを直接試す。**キット無効のとき既存の Core テスト全体が不変**であること。
 - キットごと: レジストリ・ターゲティング・数値・各スキルのダメージ/CC/変位・再使用の窓・パッシブ・端の場合（スタン中・死亡・練習場）・
   決定性（同じ入力 2 回 / 途中でシリアライズして再開）・ボットの煙テスト。
+- 共有部品: `Tests/.../Kits/KitSharedTests.swift`（`{key}`・`stateHash` の予約タイマー・`fireTimers`・ボットのフック）。
+- バランス計測: `Tests/.../Kits/KitBalanceHarness.swift`（`BalanceHarness`）と `KitBalanceTests.swift`。1 組を「両陣営の割り当て ×
+  開始距離 300/450/600 × 乱数の種 2 つ」の 12 戦で平均し（引き分け = 0.5）、Lv 1/6/12 の全員総当たりの勝率を出して、キットのヒーローを
+  **同ロールの汎用ヒーローの中央値**と比べる。表は Release のテスト出力に出る（`swift test -c release --filter KitBalanceTests`）。
+  許容帯は |差| ≤ 35 pt（Lv 6/12）・45 pt（Lv 1）。あわせて「開幕 3 秒の瞬間火力」（資源満タン・CD 0 の攻撃側が、動かないダミー H001 へ
+  3 秒間に与える実ダメージ。距離 300/450 の平均）を同ロール汎用の中央値との比で報告する（報告のみ）。
 - バランス: 1 スロットの単体総ダメージは汎用の 0.8〜1.3 倍（意図的に変えるときは理由を書く）。
   Release の `SkillBalanceTests`（全員総当たりの TTK 帯）、`BotMatchTests`、`WorldMatchTests`、`SkillDeterminismTests` を通してから `isReady = true` にする。
 

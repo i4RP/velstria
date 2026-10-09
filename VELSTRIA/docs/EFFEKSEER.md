@@ -17,6 +17,7 @@ tools/effekseer/textures.py ──→ Effects/Effekseer/Texture/Fx_*.png（ア�
 - 描画: `EfkRuntime`（Objective-C++。App/Battle/Effekseer/）が Metal のレイヤーを持ち、戦闘画面（ARView）の上に重ねて描く。カメラは RealityKit のカメラの行列をそのまま渡す。
   効果が何も出ていない間は描かない（GPU を使わない）。HUD・ダメージ数値・暗い縁取りより下。
 - 再生: `EffekseerDirector` が sim のイベントを効果へ対応づける。効果を持つヒーローは旧来の演出（SkillFX・通常攻撃の演出・弾の見た目）を止める。
+  ただしキット（ヒーロー固有スキル。`docs/SKILL_KITS.md`）のヒーローは、スキルを SkillFX に任せる（下の「キットのヒーローの役割分担」）。
 - 効果は右手系・Y 上・1 単位 = 1 m。**前 = -Z** で作る（再生時に yaw で前を合わせる）。時間はフレーム（60fps）。速度は DSL では「毎秒」で書く（Effekseer の内部は毎フレーム）。
 
 ## 効果の名前（`<heroID>_<段>`）
@@ -31,7 +32,27 @@ tools/effekseer/textures.py ──→ Effects/Effekseer/Texture/Fx_*.png（ア�
 | 〃 `telegraph` / `impact` | 地点スキルの予告 / 着弾・ゾーン発動・即時の着弾 | 地点 |
 | 〃 `hit` | そのスキルの被弾者ごと（同じ相手へは 0.12 秒に 1 回） | 被弾者 |
 
-効果は 1 つでも足りない段があってよい（その段は何も出ない）。ヒーローの効果が 1 つでもあれば、そのヒーローの旧演出は全部止まる。
+効果は 1 つでも足りない段があってよい（その段は何も出ない）。ヒーローの効果が 1 つでもあれば、そのヒーローの旧演出は全部止まる（キットのヒーローのスキルを除く）。
+
+## キットのヒーローの役割分担（通常攻撃 = Effekseer、スキル = SkillFX）
+
+H025〜H034 は sim が固有スキル（キット）で動く。`.efk` は **旧来の汎用ロール挙動**（遠隔レンジャー = 直線弾、近接デュエリスト = 扇・突進・連撃…）に合わせて作ったため、
+再使用（2 段目）・対象指定・扇や幅広の線・ヒーロー固有のタイミングといったキットの実際の挙動と合わない。一方 `App/Battle/SkillFX/Heroes/FX_H025〜H034.swift` は
+キットの実際の挙動に合わせて書き直してある。そこで **キットのヒーローはスキルの演出だけ SkillFX に任せる**:
+
+| 演出 | 担当 | 理由 |
+|---|---|---|
+| 通常攻撃（`atk_cast` / `atk_cast2` / `atk_travel` / `atk_hit`） | Effekseer（従来どおり） | 武器の型ごとの発射・命中で、キットが整形（三連突きなど）しても発射と命中のイベントは同じ |
+| スキルの発動・飛翔・着弾・ゾーン・被弾（`s1_*` `s2_*` `ult_*`）・パッシブ | SkillFX | キットの実際の挙動（段・形・タイミング）に合わせた FX_H0xx。旧 `.efk` の段は再生しない |
+
+- 判定は `EffekseerRouting`（純粋。`heroes` = 効果を持つヒーロー、`skillOptOut` = スキルを SkillFX に任せるヒーロー。既定は `HeroKits.hasKit`）。
+  `handlesAttack` / `handlesSkill` で、`EffekseerDirector` の各イベントと `BattleWorld`（被弾・ゾーン・投射物の旧演出を止めるか）と `ProjectileLayer`
+  （`skillShotsKept`: スキルの弾の見た目を隠さない。通常攻撃の弾は従来どおり隠す）が分岐する。
+- `.efk` は消さず作り直さない（名前・段の組のテストはそのまま）。キットのスキルの `.efk` は使われないだけ。キットが新しくなったら、その段の `.efk` を
+  キットに合わせて作り直したうえで、そのヒーローを `skillOptOut` から外す（`EffekseerDirector.init(skillOptOut:)` の判定を変える）と Effekseer に戻せる。
+- キットが無効（`isReady == false`）のヒーローは `hasKit` が false なので、従来どおり全部 Effekseer。
+- SkillFX 側: 再使用の段は `SkillCastEvent.stage` で選べる（`HeroFXSet.recipe(_:stage:_:)` を実装した段だけ。既定は nil = 共通の演出。空の段は共通の演出で補う）。
+  キットのパッシブの演出は、ロールの合図（クリティカル・攻撃速度のスタックなど）ではなく、パッシブのバッジ（スタックが増えた・タイマーが始まった）の変化で出す。
 
 ## 作り方
 
@@ -64,5 +85,6 @@ DSL（tools/effekseer/efkgen.py）: `Node`（粒子の発生源。`tex` `blend` 
 
 ## 検証
 
-`AppTests/EffekseerTests`: 同梱の全 .efk が読めること、名前が規則どおりであること（ヒーロー ID と段）、再生・描画が落ちないこと、全効果の読み込み時間（1 効果あたり 0.03 秒・最低 4 秒）、追加ヒーロー（H025〜H034）が役割ごとの段の組をそろえていること。
+`AppTests/EffekseerTests`: 同梱の全 .efk が読めること、名前が規則どおりであること（ヒーロー ID と段）、再生・描画が落ちないこと、全効果の読み込み時間（1 効果あたり 0.03 秒・最低 4 秒）、追加ヒーロー（H025〜H034）が役割ごとの段の組をそろえていること、
+キットのヒーローの役割分担（`EffekseerRouting`: 通常攻撃は Effekseer・スキルは SkillFX）。
 Mac が無い環境では `check_export.py` と `check_efk.py`（上記）が代わりになる。

@@ -6,10 +6,10 @@ import VelstriaCore
 // フィリエル（H003・青緑の月光）とは逆に、森エルフらしい翠と、分裂・散開する「矢の筋」で見せる。
 // ミヤ型のキット（docs/kits/Miya.md）に合わせた構成:
 //   パッシブ 月環の導き      — 頭上に月が灯り、足元に月の輪が巡って翠の光が昇る（命中ごとに攻撃速度の段が積もる）
-//   S1 月矢の連弾           — 自己強化。弓に月光が集まり、前へ三条の矢の筋が走る。効果中は弓の先に月の粒が流れ続ける
-//                             （矢そのものは通常攻撃の弾なので、着弾の演出は無い）
-//   S2 月蝕の矢             — 指定地点へ月蝕の矢。着弾前に月の輪が地に灯り、着弾で六条の小さな矢が等間隔に散る（鈍足）
-//   奥義 隠れ月光           — 月影に紛れて姿を消す。月の輪が足元に咲き、翠の霞となって薄れ、疾風の筋が続く（2 秒）
+//   スキル1 月弦分矢        — 自己強化。弓に月光が集まり、主矢と左右の副矢の三条の矢の筋が少しずつずれて前へ走り、矢先に光が灯る。
+//                             効果中は弓の先に月の粒が流れ続ける（矢そのものは通常攻撃の弾なので、着弾の演出は無い）
+//   スキル2 月蝕の矢        — 指定地点へ月蝕の矢。着弾前に月の輪が地に灯り、着弾で六条の小さな矢が等間隔に散る（鈍足）
+//   アルティメット 隠れ月光 — 月影に紛れて姿を消す。月の輪が足元に咲き、翠の霞となって薄れ、疾風の筋が続く（2 秒）
 // 寸法は固定値で持つ（S1・奥義の照準リングは「撃てる距離」の目安で、演出の大きさには使えない）。
 
 enum FX_H025: HeroFXSet {
@@ -22,11 +22,17 @@ enum FX_H025: HeroFXSet {
 
     /// 扇状に走る月光の矢の筋（pivot から angle 度（+ = 左）の向きへ length m）。
     private static func volley(_ angle: Float, length: Float, _ tint: FXTint, at t: Float = 0,
-                               from pivot: SIMD3<Float> = [0, 1.1, 0.3], life: Float = 0.4) -> FXCue {
+                               from pivot: SIMD3<Float> = [0, 1.1, 0.3], life: Float = 0.4, width: Float = 0.7) -> FXCue {
         let a = angle * .pi / 180
         let d = length / 2
-        return FXCue.mesh(FXMesh.ray(.arrow, length: length, width: 0.7, tint, life: life).with { $0.yaw = 90 + angle },
+        return FXCue.mesh(FXMesh.ray(.arrow, length: length, width: width, tint, life: life).with { $0.yaw = 90 + angle },
                           at: t, offset: pivot + SIMD3<Float>(-sin(a) * d, 0, cos(a) * d))
+    }
+
+    /// 矢の筋の先（pivot から angle 度の向きへ length m の位置）。
+    private static func tipOffset(_ angle: Float, length: Float, from pivot: SIMD3<Float>) -> SIMD3<Float> {
+        let a = angle * .pi / 180
+        return pivot + SIMD3<Float>(-sin(a) * length, 0, cos(a) * length)
     }
 
     static func recipe(_ slot: SkillSlot, _ s: FXSkillInfo) -> SkillFXRecipe {
@@ -51,9 +57,15 @@ enum FX_H025: HeroFXSet {
                 .mesh(.decal(.moon, 1.6, .secondary, life: 0.7, spin: 90, alpha: 0.7)),
                 .emit(.trail(.glow, .primary, rate: 30, life: 0.3, size: 0.3).with { $0.duration = 4 }, .follow, offset: bow),
             ]
-            for (k, angle) in [-20, 0, 20].enumerated() {
-                cast.append(volley(Float(angle), length: 2.2, k == 1 ? .core : .primary, at: 0.14, from: [0, 1.15, 0.5],
-                                   life: 0.35))
+            // 主矢（中央・長く太い）に続いて、左右の副矢が 0.03 秒ずつ遅れて走り、それぞれの矢先に光が灯る
+            let pivot: SIMD3<Float> = [0, 1.15, 0.5]
+            for (angle, length, width, t) in [(Float(0), Float(3.6), Float(1.0), Float(0.12)),
+                                              (Float(-22), Float(2.8), Float(0.75), Float(0.15)),
+                                              (Float(22), Float(2.8), Float(0.75), Float(0.18))] {
+                cast.append(volley(angle, length: length, angle == 0 ? .core : .primary, at: t, from: pivot, life: 0.4,
+                                   width: width))
+                cast.append(.emit(.flare(angle == 0 ? 0.9 : 0.6, angle == 0 ? .core : .accent, life: 0.14, tex: .flare4),
+                                  at: t + 0.04, offset: tipOffset(angle, length: length, from: pivot)))
             }
             r.cast = cast
         case .skill2:
