@@ -16,7 +16,7 @@ cd "$(dirname "$0")/.."
 
 LANE="${LANE:-beta}"
 case "$LANE" in
-    beta)       export ALLOW_APP_PLACEHOLDERS=1; unset STRICT ;;
+    beta)       export ALLOW_APP_PLACEHOLDERS=1 TESTER_TOOLS=1; unset STRICT ;;
     *) echo "error: LANE は beta だけ指定できます（App Store への審査提出は行わない）: $LANE" >&2; exit 1 ;;
 esac
 

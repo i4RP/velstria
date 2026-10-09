@@ -34,6 +34,9 @@ struct SettingsView: View {
                              "star.fill", tint: Theme.gold, id: "settings_credits", route: .credits)
                     }
                     footer
+                    #if DEBUG || SCREENSHOTS || TESTER_TOOLS
+                    TesterCodeSection()
+                    #endif
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 12)
