@@ -135,6 +135,8 @@ final class BattleRenderView: UIView {
     #if DEBUG
     let debugOverlay = DebugStatsOverlay()
     #endif
+    /// テスター用の性能モニター（PerfProbe）。使えないビルドでは nil。
+    let perfLabel: PerfProbeLabel? = PerfProbe.isAvailable ? PerfProbeLabel() : nil
 
     init(arView: ARView) {
         self.arView = arView
@@ -148,6 +150,7 @@ final class BattleRenderView: UIView {
         #if DEBUG
         addSubview(debugOverlay)
         #endif
+        if let perfLabel { addSubview(perfLabel) }
         addSubview(curtain)
     }
 
@@ -166,6 +169,13 @@ final class BattleRenderView: UIView {
         let inset = safeAreaInsets
         debugOverlay.frame = CGRect(x: max(8, inset.left + 6), y: max(8, inset.top) + 176, width: 196, height: 30)
         #endif
+        // ミニマップと「全体マップ」ボタンの下・ヒーローパネルの上の隙間
+        if let perfLabel {
+            perfLabel.frame = CGRect(x: max(8, safeAreaInsets.left + 6), y: max(8, safeAreaInsets.top) + 200, width: 250, height: 56)
+            #if DEBUG
+            debugOverlay.isHidden = !perfLabel.isHidden
+            #endif
+        }
     }
 
     /// 読み込み幕の進捗（0〜1）と、いま行っている準備の表示。

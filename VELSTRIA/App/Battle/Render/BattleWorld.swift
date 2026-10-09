@@ -180,21 +180,38 @@ final class BattleWorld {
         #endif
         syncedViewer = frame.viewerTeam
         hasSyncedViewer = true
+        let probe = PerfProbe.shared
+        var t = probe.start()
         for e in events { handle(e, frame: frame) }
+        probe.stop(.events, t)
         if shakeRequest > 0 {
             rig.addShake(shakeRequest)
             shakeRequest = 0
         }
+        t = probe.start()
         map.update(dt: dt)
+        probe.stop(.map, t)
+        t = probe.start()
         units.sync(frame)
         flushMuzzles(frame)
+        probe.stop(.units, t)
+        t = probe.start()
         projectiles.sync(frame, heightOf: { [units] id in units.headHeight(id) },
                          launchPoint: { [units] id in units.hero(id)?.handle.attackLaunchPoint() })
+        probe.stop(.projectiles, t)
+        t = probe.start()
         zones.sync(frame)
+        probe.stop(.zones, t)
+        t = probe.start()
         vfx.update(dt: dt)
         updateChannelLoops(frame)
+        probe.stop(.vfx, t)
+        t = probe.start()
         skillDirector.update(dt: dt, state: frame.state)
+        probe.stop(.skillFX, t)
+        t = probe.start()
         effekseer?.update(dt: dt, state: frame.state)
+        probe.stop(.effekseer, t)
         #if DEBUG
         if let demo = skillDirector.demo {
             let t = time
@@ -203,6 +220,7 @@ final class BattleWorld {
         }
         #endif
         // 照準
+        t = probe.start()
         var aimOrigin: Vec2?
         if let id = controller.humanHeroID, let p = units.worldPositionOf(id) {
             aimOrigin = Vec2(Double(p.x) * Balance.unitsPerMeter, Double(-p.z) * Balance.unitsPerMeter)
@@ -224,9 +242,14 @@ final class BattleWorld {
             map.markBrushes(overlapping: bounds.center, radius: bounds.radius, map: mapDef)
         }
         map.applyBrushTranslucency()
+        probe.stop(.aim, t)
+        t = probe.start()
         syncFogVision()
         fog?.update(state: frame.state, dt: dt)
+        probe.stop(.fog, t)
+        t = probe.start()
         flushHealText(dt: dt, frame: frame)
+        probe.stop(.text, t)
     }
 
     func updateOverlay(dt: Float) {
