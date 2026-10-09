@@ -1,23 +1,28 @@
 import Foundation
 
 // 担当: kit-H029（docs/SKILL_KITS.md / docs/NEW_HEROES.md）
-// H029 聖槌のボルグ = Velstria 版の Tigreal（MLBB。調査: docs/kits/Tigreal.md、対応表: 同ファイル末尾）。
+// H029 聖槌のボルグ = Velstria 版の Tigreal（MLBB）。数値・文言の正は日本語クライアントのスキル詳細（docs/kits/Tigreal.md の
+// 「公式（日本語クライアント）の数値」）。ウェブ調査の値と食い違うところは公式が優先。対応表: 同ファイル末尾。
 // サポート（ローム）の近接タンク。キットはロールの汎用パッシブ（味方回復）と汎用奥義（味方全体回復）を置き換える。
-//   パッシブ 聖鎚の誓い        — スキルを使う / 通常攻撃（タワー・ジャングルの敵を含む。ミニオンは除く）を受けるたびに「誓い」+1。
-//                               4 つで次に受ける通常攻撃のダメージを無効化して誓いが消える（Fearless）。無効化の瞬間は
-//                               自分に 0.3 秒の「blocked」の印（.mark）が付き、パッシブのバッジが 0.3 秒だけタイマーになる（App の演出の合図）。
-//   スキル1 聖槌波             — 前方の扇に衝撃波を 3 回。扇の半径が射程の 0.7 → 0.85 → 1.0 倍と前へ広がる（近くの敵ほど多く当たる）。
-//                               1 回ごとにダメージ + 鈍足（20 → 40 → 60%、1.5 秒。命中ごとに深まる）。
-//   スキル2 聖槌突撃           — 突進して通り道の敵にダメージ、突進の終点まで押し運ぶ。4 秒以内の再使用（同じ castSkill）で
-//                               前方の敵にダメージ + 打ち上げ。再使用の窓が閉じてからクールダウンを数える。
+//   パッシブ 聖鎚の誓い        — 通常攻撃（タワー・ジャングルの敵を含む。ミニオンは数えない）を受ける / スキルを使うたびに「誓い」+1。
+//                               4 つで次に受ける通常攻撃（タワーからの攻撃を含む）をブロック（ダメージ無効）して誓いが消える（Fearless）。
+//                               時間では消えない（公式の文に期限が無い）。ミニオンのダメージは誓いを増やしも消費もしない。
+//                               ブロックの瞬間は自分に 0.3 秒の「blocked」の印（.mark）が付き、パッシブのバッジが 0.3 秒だけタイマーになる（App の演出の合図）。
+//   スキル1 聖槌波（Attack Wave）— 前方の扇に衝撃波を 3 回。扇の半径が射程の 0.7 → 0.85 → 1.0 倍と前へ広がる（近くの敵ほど多く当たる）。
+//                               1 回ごとに 270 → 520（+70% 物理攻撃）のダメージ + 移動速度低下（20 → 40 → 60%、1.5 秒。命中した回数で深まる）。
+//   スキル2 聖槌突撃（Sacred Hammer）— 突進して進路の敵に 100% 物理攻撃のダメージ（基礎ダメージなし）、突進の終点まで押し出す。
+//                               4 秒以内の再使用（同じ castSkill）で前方の敵に 280 → 380（+60% 物理攻撃）+ 0.6 秒の打ち上げ。再使用の窓が閉じてからクールダウンを数える。
 //   アルティメット 崩落聖域（Implosion） — 詠唱 0.8 秒。最初の 0.3 秒は CC（スタン・打ち上げ・suppress）で、その後は suppress だけで中断される。
-//                               0.3 秒で周囲の敵を引き寄せ（0.38 秒かけて集める）、0.8 秒でダメージ + スタン 1.8 秒。
+//                               0.3 秒で周囲の敵を引き寄せ（0.38 秒かけて集める）、0.8 秒で 600 / 800 / 1000（+130% 物理攻撃）のダメージ + スタン 1.8 秒。
+// 数値の換算: MLBB のダメージ表を Velstria のランク（スキル1・2 は 4 段、アルティメットは 3 段）へ線形補間し（ランク 1 = Lv1、最大ランク = 公式の最終 Lv）、
+//   sim の通常の式 (基礎 + 係数 × 攻撃力 × skillAttackScalingFactor) × スロット倍率 に、スキルごとの換算（Tune.*Scale）を掛ける。
+//   コスト（マナ）・クールダウンの表もランクで補間（コストは HeroKit.cost、クールダウンは × cooldownScale）。
 //
 // 状態（KitState）:
-//   ints[0]  = 誓い（0..4。4 = 無効化の準備完了）      ints[1] = 奥義の段（0 = なし / 1 = 溜め / 2 = 引き寄せ後）
-//   ints[2]  = 無効化した回数（累計。検証用）          ints[3] = 直近の引き寄せで動かせた敵の数（検証用）
-//   timers[0] = 誓いが消えるまでの秒                   timers[1] = 奥義の詠唱の残り秒（HUD 用）
-//   timers[2] = 無効化の演出の残り秒（0.3 秒。バッジをタイマーにする）
+//   ints[0]  = 誓い（0..4。4 = ブロックの準備完了）    ints[1] = 奥義の段（0 = なし / 1 = 溜め / 2 = 引き寄せ後）
+//   ints[2]  = ブロックした回数（累計。検証用）         ints[3] = 直近の引き寄せで動かせた敵の数（検証用）
+//   timers[0] = 未使用（誓いに期限は無い）              timers[1] = 奥義の詠唱の残り秒（HUD 用）
+//   timers[2] = ブロックの演出の残り秒（0.3 秒。バッジをタイマーにする）
 //   reals[0..1] = S1 / S2 の方向    reals[2..3] = S2 の突進の終点    reals[4..5] = S2 再使用の方向
 
 extension KitState {
@@ -39,11 +44,6 @@ extension KitState {
     var borgPulled: Int {
         get { ints[3] }
         set { ints[3] = newValue }
-    }
-
-    var borgVowTimer: Double {
-        get { timers[0] }
-        set { timers[0] = newValue }
     }
 
     var borgChannel: Double {
@@ -96,8 +96,6 @@ struct Kit_H029: HeroKit {
         // パッシブ 聖鎚の誓い
         /// 無効化が準備できる誓いの数。
         static let vowStacks = 4
-        /// 誓いが（新しく増えないまま）消えるまでの秒。調査に「不明」とある値なので選んだ値。
-        static let vowExpire = 8.0
         /// 無効化の合図（自分への「blocked」の印 + パッシブのバッジのタイマー）の長さ。App の演出がこれを見て盾の弾けを出す。
         static let blockFlash = 0.3
         static let blockMark = "blocked"
@@ -115,9 +113,12 @@ struct Kit_H029: HeroKit {
         static let waveSlowDuration = 1.5
         static let waveSlowTag = KitTags.buff("H029", "waveSlow")
         static let waveMark = "wave"
-        /// 3 回ぶんの合計ダメージ ÷ 汎用 S1 のダメージ。0.8〜1.3 の上限寄り（サポートの基礎ダメージは全ロールで最低で、汎用の味方回復の奥義も
-        /// キットで置き換えるため。1v1 の勝率で決めた: docs/kits/Tigreal.md の対応表）。
-        static let waveRatio = 1.28
+        /// 公式の基礎ダメージ（1 回ごと。Lv1 → Lv6 を Velstria の最大ランクへ線形補間）と攻撃力係数（+70% 物理攻撃）。
+        static let waveBase = (270.0, 520.0)
+        static let waveAttackRatio = 0.7
+        /// 公式の値 → Velstria の換算（sim の通常の式 × スロット倍率の後ろに掛ける）。3 回ぶんの合計が汎用 S1 の 0.8〜1.3 倍に収まる値
+        /// （ランク 1〜4・Lv 1〜12 で約 1.2〜1.26 倍。サポートの基礎ダメージは全ロールで最低で、汎用の味方回復の奥義もキットで置き換えるため上限寄り）。
+        static let waveScale = 0.17
 
         // スキル2 聖槌突撃
         static let dashRange = 420.0
@@ -132,11 +133,14 @@ struct Kit_H029: HeroKit {
         static let smashDelay = 0.2
         static let smashReach = 320.0
         static let smashHalfAngle = 0.8
-        /// 打ち上げの秒数。調査では 0.6 秒と 1 秒で資料が割れている（中間を採用）。
-        static let smashAirborne = 0.8
-        /// 突進 + 再使用の合計ダメージ ÷ 汎用 S2 のダメージ（上限寄りの理由は waveRatio と同じ）。突進の取り分は dashShare。
-        static let hammerRatio = 1.28
-        static let dashShare = 0.30
+        /// 打ち上げの秒数（公式 0.6 秒）。
+        static let smashAirborne = 0.6
+        /// 突進のダメージは 100% 物理攻撃で基礎ダメージなし。再使用は 280 → 380（+60% 物理攻撃）（Lv1 → Lv6 を最大ランクへ線形補間）。
+        static let dashAttackRatio = 1.0
+        static let smashBase = (280.0, 380.0)
+        static let smashAttackRatio = 0.6
+        /// 公式の値 → Velstria の換算（突進と再使用で共通）。突進 + 再使用の合計が汎用 S2 の 0.8〜1.3 倍に収まる値（ランク 1〜4・Lv 1〜12 で約 0.9〜1.27 倍）。
+        static let hammerScale = 0.58
 
         // アルティメット 崩落聖域（Implosion）
         static let ultReach = 520.0
@@ -147,21 +151,26 @@ struct Kit_H029: HeroKit {
         static let ultPullTime = 0.38
         static let ultPullGap = 20.0
         static let ultStun = 1.8
-        /// 汎用の奥義（Support は味方回復でダメージ 0）には比べる相手が居ないので、他ロールの奥義と同じ式の結果に掛ける倍率。
-        /// クールダウンが汎用の奥義より長い（22〜27 秒 vs 約 17 秒）ぶんと、回復を失うぶんを補う。
-        /// 詠唱を調査寄りに長くした（溜め 0.2 → 0.3 秒、全体 0.7 → 0.8 秒。敵の CC で溜めが潰れやすくなる）ぶんと、
-        /// スキル1 の波が前へ広がる（遠い敵に当たる波が減る）ぶんの勝率の落ち込みを埋めるため 1.8 → 3.0 にした
-        /// （KitBalanceTests のロール中央値との差で決めた値: docs/kits/Tigreal.md）。
-        static let ultRatio = 3.0
+        /// 公式の基礎ダメージ（Lv1〜3 = ランク 1〜3 そのまま）と攻撃力係数（+130% 物理攻撃）。
+        static let ultBase = (600.0, 1000.0)
+        static let ultAttackRatio = 1.3
+        /// 公式の値 → Velstria の換算。汎用の奥義（Support は味方回復でダメージ 0）には比べる相手が居ないので、勝率で決めた値
+        /// （同ロール汎用の中央値との差が ±15 pt に収まるように。公式の表へ置き換えた直後は 1.2 で Lv12 が −17 pt だった: docs/kits/Tigreal.md）。
+        /// クールダウンが汎用より長い（22〜27 秒 vs 約 17 秒）ぶんと回復を失うぶん、詠唱が CC に弱いぶんを含む。
+        static let ultScale = 1.5
         static let channelTag = KitTags.buff("H029", "channel")
         /// ボットのアルティメット: 近くに味方ヒーロー（この距離以内）が居るか、相手の HP がこの割合未満のときだけ。敵タワーの射程内では撃たない。
         static let botAllyRange = 900.0
         static let botWeakHP = 0.5
 
-        // クールダウン（MLBB 秒 → ランク間を線形補間 → Balance.Skills.cooldownScale を掛ける）
+        // クールダウン（公式の秒 → ランク間を線形補間 → CD 短縮 → Balance.Skills.cooldownScale を掛ける）
         static let waveCooldown = (7.0, 4.0)
         static let hammerCooldown = (16.0, 13.0)
         static let ultCooldown = (55.0, 45.0)
+        // マナ消費（公式。スキル1・2 はランクによらず一定、アルティメットは 120 / 140 / 160）
+        static let waveCost = (45.0, 45.0)
+        static let hammerCost = (70.0, 70.0)
+        static let ultCost = (120.0, 160.0)
     }
 
     /// HitPayload.kitEvent
@@ -217,11 +226,10 @@ struct Kit_H029: HeroKit {
         case .passive:
             n.damage = 0
             n.hits = 1
-            n.extras = [KitStat(key: "vows", value: Double(Tune.vowStacks)),
-                        KitStat(key: "expire", value: Tune.vowExpire)]
+            n.extras = [KitStat(key: "vows", value: Double(Tune.vowStacks))]
         case .skill1:
             n.hits = Tune.waveCount
-            n.damage = base.damage * Tune.waveRatio / Double(Tune.waveCount)
+            n.damage = Self.waveDamage(rank: rank, stats: stats)
             n.cooldown = Self.cooldown(Tune.waveCooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
             n.cc = .slow
             n.ccDuration = Tune.waveSlowDuration
@@ -229,11 +237,14 @@ struct Kit_H029: HeroKit {
                         KitStat(key: "slow2", value: Tune.waveSlowPerStack * 200),
                         KitStat(key: "slow3", value: Tune.waveSlowPerStack * 300),
                         KitStat(key: "slowDuration", value: Tune.waveSlowDuration),
-                        KitStat(key: "reachMult", value: Tune.waveReach / hero.attackRange)]
+                        KitStat(key: "reachMult", value: Tune.waveReach / hero.attackRange),
+                        KitStat(key: "base", value: Self.scaledBase(Tune.waveBase, slot: .skill1, scale: Tune.waveScale,
+                                                                    rank: rank, maxRank: slot.maxRank).rounded()),
+                        KitStat(key: "atkPct", value: Self.attackPercent(Tune.waveAttackRatio, slot: .skill1,
+                                                                         scale: Tune.waveScale).rounded())]
         case .skill2:
-            let total = base.damage * Tune.hammerRatio
-            let dash = total * Tune.dashShare
-            let smash = total - dash
+            let dash = Self.dashDamage(stats: stats)
+            let smash = Self.smashDamage(rank: rank, stats: stats)
             n.hits = 1
             n.damage = stage >= 1 ? smash : dash
             n.cc = stage >= 1 ? .knockback : .none
@@ -244,10 +255,16 @@ struct Kit_H029: HeroKit {
             n.extras = [KitStat(key: "dashDamage", value: dash.rounded()),
                         KitStat(key: "smashDamage", value: smash.rounded()),
                         KitStat(key: "airborne", value: Tune.smashAirborne),
-                        KitStat(key: "window", value: Tune.recastWindow)]
+                        KitStat(key: "window", value: Tune.recastWindow),
+                        KitStat(key: "dashPct", value: Self.attackPercent(Tune.dashAttackRatio, slot: .skill2,
+                                                                          scale: Tune.hammerScale).rounded()),
+                        KitStat(key: "smashBase", value: Self.scaledBase(Tune.smashBase, slot: .skill2, scale: Tune.hammerScale,
+                                                                         rank: rank, maxRank: slot.maxRank).rounded()),
+                        KitStat(key: "smashPct", value: Self.attackPercent(Tune.smashAttackRatio, slot: .skill2,
+                                                                           scale: Tune.hammerScale).rounded())]
         case .ultimate:
             n.hits = 1
-            n.damage = Self.ultDamage(skill: skill, rank: rank, stats: stats)
+            n.damage = Self.ultDamage(rank: rank, stats: stats)
             n.cc = .stun
             n.ccIsUltimate = true
             n.ccDuration = Tune.ultStun
@@ -261,29 +278,50 @@ struct Kit_H029: HeroKit {
             n.extras = [KitStat(key: "stun", value: Tune.ultStun),
                         KitStat(key: "channel", value: Tune.ultTotal),
                         KitStat(key: "gather", value: Tune.ultGather),
-                        KitStat(key: "reachMult", value: Tune.ultReach / hero.attackRange)]
+                        KitStat(key: "reachMult", value: Tune.ultReach / hero.attackRange),
+                        KitStat(key: "base", value: Self.scaledBase(Tune.ultBase, slot: .ultimate, scale: Tune.ultScale,
+                                                                    rank: rank, maxRank: slot.maxRank).rounded()),
+                        KitStat(key: "atkPct", value: Self.attackPercent(Tune.ultAttackRatio, slot: .ultimate,
+                                                                         scale: Tune.ultScale).rounded())]
         }
         return n
     }
 
+    /// ランクごとのマナ消費（公式: スキル1 = 45、スキル2 = 70、アルティメット = 120 / 140 / 160）。
+    func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double {
+        let table: (Double, Double)
+        switch slot {
+        case .skill1: table = Tune.waveCost
+        case .skill2: table = Tune.hammerCost
+        case .ultimate: table = Tune.ultCost
+        case .passive: return base
+        }
+        return HeroKits.resourceCost(Self.lerp(table.0, table.1, rank: rank, maxRank: slot.maxRank), hero: hero)
+    }
+
+    /// 説明文は公式の文の構造に合わせる（数値は {トークン} で sim から。{base}(+{atkPct}%物理攻撃) は sim の式に換算した値）。
     func text(slot: SkillSlot) -> KitText? {
         switch slot {
         case .passive:
             return KitText(
-                ja: "スキル1・スキル2・アルティメットを使うか、通常攻撃を受けるたびに「誓い」が1たまる（タワーやジャングルの敵の攻撃も数えるが、ミニオンの攻撃は数えない）。{x0}たまると、次に受ける通常攻撃のダメージを無効化して誓いが消える。最後に誓いが増えてから{x1}秒で消える。",
-                en: "Gain a Vow each time you cast Skill 1, Skill 2 or the Ultimate, or are hit by a basic attack (towers and jungle monsters count, minions do not). At {x0} Vows, the next basic attack against you is fully blocked and the Vows are consumed. Vows fade {x1}s after the last one was gained.")
+                ja: "通常攻撃を受けるたびに、聖鎚の誓いを1スタック獲得する。{vows}スタックに達すると、それらを消費して次に受ける通常攻撃（タワーからの攻撃を含む）をブロックする。また、スキルを発動するたびに、聖鎚の誓いを1スタック獲得する。\n\nミニオンからのダメージは、聖鎚の誓いのスタックを付与または消費しない。",
+                en: "Each time you take a basic attack, gain 1 stack of Sacred Oath. At {vows} stacks, consume them to block the next basic attack you take (including attacks from towers). Also gain 1 stack of Sacred Oath each time you cast a skill.\n\nDamage from minions neither grants nor consumes Sacred Oath stacks.",
+                tags: [KitTag.buff])
         case .skill1:
             return KitText(
-                ja: "前方の扇へ聖槌の衝撃波を、前へ広げながら{hits}回起こし、1回ごとに{damage}ダメージを与える（扇の奥は近接攻撃の射程の約{reachMult}倍。手前の敵ほど多くの波に当たる）。命中するたびに鈍足が深まる（{x0}% → {x1}% → {x2}%、{x3}秒）。クールダウン{cd}秒。",
-                en: "Send {hits} hammer shockwaves through the cone ahead, each reaching farther than the last, dealing {damage} damage each (the cone reaches about {reachMult}x your melee attack range; closer enemies are caught by more waves). Every hit deepens the slow ({x0}% → {x1}% → {x2}%, {x3}s). Cooldown {cd}s.")
+                ja: "ハンマーで地面を叩き、扇形範囲で{hits}回爆発する衝撃波を放つ（扇の奥は近接攻撃の射程の約{reachMult}倍。手前の敵ほど多くの爆発に当たる）。各爆発は命中した敵に{base}(+{atkPct}%物理攻撃)の物理ダメージを与え、移動速度を{slowDuration}秒間{slow1}%/{slow2}%/{slow3}%低下させる（同じ敵に命中した爆発の数で深くなる）。",
+                en: "Slam the ground with the hammer, sending out a shockwave that erupts {hits} times in a fan (the fan reaches about {reachMult}x your melee attack range; closer enemies are caught by more eruptions). Each eruption deals {base} (+{atkPct}% Physical Attack) physical damage to enemies hit and slows their movement speed by {slow1}%/{slow2}%/{slow3}% for {slowDuration}s (deeper with each eruption that hits the same enemy).",
+                tags: [KitTag.aoe, KitTag.slow])
         case .skill2:
             return KitText(
-                ja: "指定方向へ突進し、通り道の敵に{x0}ダメージを与えて突進の終点まで押し運ぶ。{x3}秒以内にスキル2をもう一度使うと、前方の敵に{x1}ダメージを与えて{x2}秒間打ち上げる。再使用の窓が閉じてからクールダウン{cd}秒。",
-                en: "Charge in a direction, dealing {x0} damage to enemies along the way and carrying them to the end of the charge. Use again within {x3}s to smash the cone ahead for {x1} damage and knock enemies airborne for {x2}s. The {cd}s cooldown starts when the window closes.")
+                ja: "指定方向へ突進し、進路上の敵に(+{dashPct}%物理攻撃)の物理ダメージを与えて突進の終点まで押し出す。\n\n再発動：{window}秒以内にもう一度使うと、前方の敵に{smashBase}(+{smashPct}%物理攻撃)の物理ダメージを与えて{airborne}秒間ノックアップさせる。クールダウンは再発動の窓が閉じてから数える。",
+                en: "Charge in the specified direction, dealing physical damage equal to {dashPct}% of your Physical Attack to enemies along the way and pushing them to the end of the charge.\n\nRecast: use it again within {window}s to deal {smashBase} (+{smashPct}% Physical Attack) physical damage to enemies in front of you and knock them up for {airborne}s. The cooldown starts when the window closes.",
+                tags: [KitTag.clash, KitTag.disrupt])
         case .ultimate:
             return KitText(
-                ja: "{x1}秒の詠唱で、近接攻撃の射程の約{reachMult}倍の範囲の敵を引き寄せ、{damage}ダメージを与えて{x0}秒間スタンさせる。詠唱の最初の{x2}秒はスタンなどのCCで、それ以降は制圧（サプレス）でのみ中断される。クールダウン{cd}秒。",
-                en: "Channel for {x1}s, pulling in enemies within about {reachMult}x your melee attack range, then dealing {damage} damage and stunning them for {x0}s. The first {x2}s of the channel can be interrupted by crowd control; after that only by suppression. Cooldown {cd}s.")
+                ja: "ハンマーの力を解放し、{channel}秒の詠唱ののち周囲（近接攻撃の射程の約{reachMult}倍）の敵を引き寄せて{base}(+{atkPct}%物理攻撃)の物理ダメージを与え、{stun}秒間スタンさせる。\n\nスキルの前半（詠唱の最初の{gather}秒）はコントロール効果によって中断されるが、後半は制圧によってのみ中断される。",
+                en: "Unleash the power of the hammer: after a {channel}s channel, pull in nearby enemies (within about {reachMult}x your melee attack range), deal {base} (+{atkPct}% Physical Attack) physical damage and stun them for {stun}s.\n\nThe first half of the skill (the first {gather}s of the channel) can be interrupted by control effects, but the second half can only be interrupted by suppression.",
+                tags: [KitTag.disrupt, KitTag.aoe])
         }
     }
 
@@ -465,9 +503,6 @@ struct Kit_H029: HeroKit {
 
     func update(_ s: inout SimState, _ ctx: SimContext, owner: Int) {
         guard let k = s.units[owner].hero?.kit else { return }
-        // 誓いは増えないまま一定時間で消える
-        if k.borgVow > 0, k.borgVowTimer <= 0 { s.units[owner].hero!.kit!.borgVow = 0 }
-
         guard k.borgUltPhase != 0 else { return }
         // 引き寄せたあとは suppress だけが詠唱を止める（溜めの間は KitRuntime がハード CC で取り消す）
         if k.borgUltPhase == 2, s.units[owner].has(.suppress) {
@@ -501,7 +536,7 @@ struct Kit_H029: HeroKit {
 
     func modifyIncomingDamage(_ s: inout SimState, _ ctx: SimContext, victim: Int, attacker: Int?,
                               source: DamageSource, amount: Double) -> Double {
-        // 通常攻撃（ヒーロー・タワー・ジャングルの敵）だけが対象。ミニオンの攻撃・スキル・継続ダメージは数えない
+        // 通常攻撃（ヒーロー・タワー・ジャングルの敵）だけが対象。ミニオンの攻撃・スキル・継続ダメージは誓いを増やしも消費もしない
         switch source {
         case .basicAttack, .tower, .monster: break
         default: return amount
@@ -509,7 +544,6 @@ struct Kit_H029: HeroKit {
         guard let k = s.units[victim].hero?.kit else { return amount }
         if k.borgVow >= Tune.vowStacks {
             s.units[victim].hero!.kit!.borgVow = 0
-            s.units[victim].hero!.kit!.borgVowTimer = 0
             s.units[victim].hero!.kit!.borgBlocks = k.borgBlocks + 1
             // 無効化の合図: 自分に 0.3 秒の「blocked」の印 + パッシブのバッジを 0.3 秒だけタイマーにする（誓いの 4 → 0 を App が見分けられる）
             s.units[victim].hero!.kit!.borgBlockFlash = Tune.blockFlash
@@ -581,7 +615,6 @@ struct Kit_H029: HeroKit {
     private func gainVow(_ s: inout SimState, _ i: Int) {
         guard let k = s.units[i].hero?.kit else { return }
         s.units[i].hero!.kit!.borgVow = min(Tune.vowStacks, k.borgVow + 1)
-        s.units[i].hero!.kit!.borgVowTimer = Tune.vowExpire
     }
 
     /// 詠唱の開始: 溜めに入り、その場から動けない。攻撃も始めない。
@@ -639,16 +672,45 @@ struct Kit_H029: HeroKit {
         }
     }
 
-    /// 奥義のダメージ。汎用の Support の奥義は回復でダメージ 0 なので、他ロールの奥義と同じ式（ランク・攻撃力・魔力・スロット倍率）。
-    static func ultDamage(skill: SkillDef, rank: Int, stats: Stats) -> Double {
-        let r = min(max(1, rank), SkillSlot.ultimate.maxRank)
-        let rankedBase = skill.baseDamage * (1 + Balance.skillDamagePerRank * Double(r - 1))
-        let raw = (rankedBase + skill.scalingAttack * stats.attack * Balance.skillAttackScalingFactor
-            + skill.scalingPower * stats.abilityPower) * Balance.Skills.damageScale(.ultimate)
-        return raw * Tune.ultRatio
+    /// 公式の基礎ダメージ（ランクで補間）を sim の通常の式に通した「換算後の基礎」。
+    static func scaledBase(_ table: (Double, Double), slot: SkillSlot, scale: Double, rank: Int, maxRank: Int) -> Double {
+        lerp(table.0, table.1, rank: rank, maxRank: maxRank) * Balance.Skills.damageScale(slot) * scale
     }
 
-    /// MLBB のクールダウン（秒）をランクで線形補間し、Velstria の全体倍率と CD 短縮を掛ける。
+    /// 公式の「+N% 物理攻撃」を sim の通常の式（× skillAttackScalingFactor × スロット倍率 × 換算）に通した、攻撃力に対する割合（%）。
+    static func attackPercent(_ ratio: Double, slot: SkillSlot, scale: Double) -> Double {
+        ratio * Balance.skillAttackScalingFactor * Balance.Skills.damageScale(slot) * scale * 100
+    }
+
+    /// (公式の基礎 + 係数 × 攻撃力 × skillAttackScalingFactor) × スロット倍率 × 換算。
+    private static func damage(base: (Double, Double), ratio: Double, slot: SkillSlot, scale: Double, rank: Int,
+                               stats: Stats) -> Double {
+        let b = lerp(base.0, base.1, rank: rank, maxRank: slot.maxRank)
+        return (b + ratio * stats.attack * Balance.skillAttackScalingFactor) * Balance.Skills.damageScale(slot) * scale
+    }
+
+    /// スキル1: 1 回の爆発のダメージ（270 → 520 + 70% 物理攻撃）。
+    static func waveDamage(rank: Int, stats: Stats) -> Double {
+        damage(base: Tune.waveBase, ratio: Tune.waveAttackRatio, slot: .skill1, scale: Tune.waveScale, rank: rank, stats: stats)
+    }
+
+    /// スキル2 の突進のダメージ（100% 物理攻撃。基礎ダメージなし）。
+    static func dashDamage(stats: Stats) -> Double {
+        damage(base: (0, 0), ratio: Tune.dashAttackRatio, slot: .skill2, scale: Tune.hammerScale, rank: 1, stats: stats)
+    }
+
+    /// スキル2 の再使用のダメージ（280 → 380 + 60% 物理攻撃）。
+    static func smashDamage(rank: Int, stats: Stats) -> Double {
+        damage(base: Tune.smashBase, ratio: Tune.smashAttackRatio, slot: .skill2, scale: Tune.hammerScale, rank: rank,
+               stats: stats)
+    }
+
+    /// 奥義のダメージ（600 / 800 / 1000 + 130% 物理攻撃）。汎用の Support の奥義は回復でダメージ 0 なので比べる式は無い。
+    static func ultDamage(rank: Int, stats: Stats) -> Double {
+        damage(base: Tune.ultBase, ratio: Tune.ultAttackRatio, slot: .ultimate, scale: Tune.ultScale, rank: rank, stats: stats)
+    }
+
+    /// 公式のクールダウン（秒）をランクで線形補間し、Velstria の全体倍率と CD 短縮を掛ける。
     static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats) -> Double {
         let sec = lerp(range.0, range.1, rank: rank, maxRank: maxRank)
         let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))

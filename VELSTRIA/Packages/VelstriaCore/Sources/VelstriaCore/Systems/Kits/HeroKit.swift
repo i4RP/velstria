@@ -59,6 +59,9 @@ protocol HeroKit: Sendable {
                  base: SkillNumbers) -> SkillNumbers
     func text(slot: SkillSlot) -> KitText?
     func badge(slot: SkillSlot, hero: HeroData) -> KitBadge?
+    /// ランクごとのコスト（発動の検証・消費・numbers の cost・ボット・HUD が同じ値を使う）。base は汎用の実効コスト
+    /// （リソースが Energy なら energyCostMultiplier 込み）。キットが固定の値を返すときは `HeroKits.resourceCost` を通す。
+    func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double
 
     // MARK: B. 実行
 
@@ -129,6 +132,7 @@ extension HeroKit {
 
     func text(slot: SkillSlot) -> KitText? { nil }
     func badge(slot: SkillSlot, hero: HeroData) -> KitBadge? { nil }
+    func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double { base }
 
     func resolveAim(_ s: SimState, _ ctx: SimContext, caster: Int, slot: SkillSlot, stage: Int,
                     targeting: SkillTargeting, target: SkillTarget) -> SkillAim?? {
