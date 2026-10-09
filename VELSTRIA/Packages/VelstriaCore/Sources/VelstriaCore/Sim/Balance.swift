@@ -45,7 +45,7 @@ public enum Balance {
     public static let assistWindow: Double = 10
     public static let xpShareRadius: Double = 1400
     /// Lv→Lv+1 に必要な XP（index 0 = Lv1→2）。
-    public static let xpToNext: [Double] = [260, 300, 340, 380, 420, 460, 500, 540, 580, 620, 660, 700, 740, 780]
+    public static let xpToNext: [Double] = [240, 270, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850]
 
     // MARK: スキル
     public static let basicSkillMaxRank = 4
