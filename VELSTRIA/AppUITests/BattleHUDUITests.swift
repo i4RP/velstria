@@ -136,15 +136,15 @@ final class BattleHUDUITests: XCTestCase {
 
     func testSpectateSpeedAndLeave() {
         let app = launch(["-battle", "spectate", "-language", "en"])
+        // Match SpectatorHUDUITests: avoid repeated accessibility snapshots while
+        // the GPU-less CI runner is loading models and warming the battle scene.
+        sleep(15)
+        XCTAssertTrue(element(app, "spectate_pause").waitForExistence(timeout: Self.battleStartTimeout),
+                      "観戦 HUD の読み込みが完了しない")
         let speed2x = element(app, "spectate_speed_2x")
         let speedCycle = element(app, "spectate_speed_cycle")
-        let deadline = Date().addingTimeInterval(BattleHUDUITests.battleStartTimeout)
-        var speedControlAppeared = false
-        repeat {
-            speedControlAppeared = speed2x.exists || speedCycle.exists
-            if !speedControlAppeared { RunLoop.current.run(until: Date().addingTimeInterval(0.5)) }
-        } while !speedControlAppeared && Date() < deadline
-        XCTAssertTrue(speedControlAppeared, "観戦の速度操作が表示されない")
+        XCTAssertTrue(speed2x.exists || speedCycle.waitForExistence(timeout: 5),
+                      "観戦の速度操作が表示されない: \(app.debugDescription)")
         XCTAssertFalse(element(app, "hud_attack").exists, "観戦では操作ボタンを出さない")
         XCTAssertFalse(element(app, "hud_attack_top").exists)
         XCTAssertFalse(element(app, "hud_attack_bottom").exists)
