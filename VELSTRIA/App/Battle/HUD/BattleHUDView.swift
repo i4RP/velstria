@@ -125,6 +125,12 @@ private struct HUDRoot: View {
             .accessibilityHidden(model.isTacticalMapOpen || (spectating && model.spectator.isCinematic))
             .animation(.easeInOut(duration: 0.3), value: model.spectator.isCinematic)
 
+            // スキル長押しの説明カード: 操作部品・シグナル・キルフィードより上（モーダルのパネルよりは下）。
+            // 配置は HUDLayout.skillTipFrame（クラスタ・シグナル列・縦列・ミニマップ・下部パネルを避ける）
+            if showControls && !model.isTacticalMapOpen {
+                HUDSkillTipLayer(model: model, layout: layout)
+            }
+
             // 倒れている間の情報と味方の一覧（操作部品より上: スティックの受付領域より先に触れる）
             if showControls {
                 HUDDeathSpectateLayer(model: model, layout: layout)
@@ -350,6 +356,29 @@ private struct HUDSpectatorEndLayer: View {
     }
 }
 
+/// スキル長押しの説明カード（押している間だけ。タップは奪わない）。
+private struct HUDSkillTipLayer: View {
+    let model: HUDModel
+    let layout: HUDLayout
+
+    var body: some View {
+        let f = layout.skillTipFrame
+        ZStack {
+            if let tip = model.skillTip {
+                // 枠の上端にカードを寄せる（枠の中でカードだけが背景を持つ）
+                HUDSkillTipCard(tip: tip, role: model.hero.role, layout: layout)
+                    .frame(width: f.width, height: f.height, alignment: .top)
+                    .position(x: f.midX, y: f.midY)
+                    .transition(.opacity)
+            }
+        }
+        .frame(width: layout.width, height: layout.height)
+        .animation(.easeOut(duration: 0.15), value: model.skillTip)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
 private struct HUDKillFeedLayer: View {
     let model: HUDModel
     let layout: HUDLayout
@@ -364,7 +393,9 @@ private struct HUDKillFeedLayer: View {
         // バナーが出ている数秒だけ隠す（同じキルはバナーが大きく伝える。項目はバナーの後にまた見える）
         // レベルアップ表示（画面高さの 36%）とも 2 行目以降が重なるので、表示中（約 1.7 秒）は同じく隠す。
         // 隠れている間は項目の寿命を進めない（HUDModel.feedEntryExpired）ので、バナーが続いても一度も見えずに消えることはない
-        let hidden = model.isAiming || covered || (reserve > 0 && model.killFeedYieldsToCenter)
+        // スキル長押しの説明カード（同じ空きに出る）を出している間も隠す
+        let hidden = HUDKillFeedRule.isHidden(aiming: model.isAiming, tipShown: model.skillTip != nil, covered: covered,
+                                              yieldsToCenter: reserve > 0 && model.killFeedYieldsToCenter)
         HUDKillFeed(entries: model.killFeed, colorblind: model.settings.colorblindMode)
             .opacity(hidden ? 0 : 1)
             .animation(.easeOut(duration: 0.2), value: hidden)
