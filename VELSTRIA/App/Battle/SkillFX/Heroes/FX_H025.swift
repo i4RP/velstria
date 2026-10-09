@@ -68,6 +68,8 @@ enum FX_H025: HeroFXSet {
                                   at: t + 0.04, offset: tipOffset(angle, length: length, from: pivot)))
             }
             r.cast = cast
+            // 自己強化は着弾が無い。空のままだと共通の演出（効果半径に比例して巨大化する）が補われるので、小さな光を明示する
+            r.impact = [.emit(.flare(0.6, .accent, life: 0.12, tex: .flare4), offset: bow)]
         case .skill2:
             // 月蝕の矢: 弓を高く引いて空へ放ち、着弾点に月の輪が灯る（telegraph）→ 着弾で六条の小さな矢が散る（impact）→ 矢が走る（travel）
             let E: Float = max(1.0, s.radius)
@@ -123,6 +125,8 @@ enum FX_H025: HeroFXSet {
                     $0.dir = .backward; $0.speed = 3; $0.duration = 2
                 }, .follow, offset: [0, 0.9, 0], quality: 1),
             ]
+            // 自己の隠蔽に着弾は無い。共通の演出が補われて巨大化しないよう、小さな光を明示する
+            r.impact = [.emit(.bloom(0.9, .secondary, life: 0.3), offset: [0, 1.0, 0])]
         }
         return r
     }
