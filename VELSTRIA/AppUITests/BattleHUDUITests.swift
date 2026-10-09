@@ -69,6 +69,14 @@ final class BattleHUDUITests: XCTestCase {
         XCTAssertTrue(element(app, "shop_panel").waitForExistence(timeout: 5))
         snap("hud_shop")
         tap(app, "shop_tab_attack")
+        XCTAssertTrue(element(app, "shop_item_EQ101").waitForExistence(timeout: 5))
+        // ジャングル・ロームのタブは靴に付ける祝福のカード（タブの列は横にスクロールする）
+        element(app, "shop_tab_movement").swipeLeft()
+        tap(app, "shop_tab_roam")
+        XCTAssertTrue(element(app, "shop_gear_encourage").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(app, "shop_blessing_progress").exists)
+        XCTAssertTrue(element(app, "shop_gear_apply").exists)
+        snap("hud_shop_roam")
         tap(app, "shop_close")
         XCTAssertTrue(element(app, "shop_panel").waitForNonExistence(timeout: 5))
 

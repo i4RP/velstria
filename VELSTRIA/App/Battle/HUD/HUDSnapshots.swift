@@ -532,6 +532,10 @@ enum HUDSymbols {
         case .attackRangeBoost: return "arrow.left.and.right"
         case .armorShred: return "shield.lefthalf.filled"
         case .magicShred: return "shield.lefthalf.filled"
+        // 装備と靴の祝福（固定値の増減。magnitude の符号で強化・弱体）
+        case .flatPowerMod: return "burst.fill"
+        case .flatMoveSpeedMod: return "figure.run"
+        case .flatDefenseMod: return "shield.checkered"
         case .untargetable: return "eye.slash.fill"
         case .suppress: return "lock.fill"
         case .channeling: return "dot.radiowaves.left.and.right"
@@ -555,6 +559,32 @@ enum HUDSymbols {
         default:
             return true
         }
+    }
+
+    /// 固定値の増減（装備と靴の祝福）。種類では強化・弱体が決まらず、magnitude の符号で決まる（負 = 弱体）。
+    static func isSignedMod(_ k: StatusKind) -> Bool {
+        k == .flatPowerMod || k == .flatMoveSpeedMod || k == .flatDefenseMod
+    }
+
+    /// 強化か（固定値の増減は magnitude の符号で決める）。
+    static func isBuff(_ k: StatusKind, magnitude: Double) -> Bool {
+        isSignedMod(k) ? magnitude >= 0 : isBuff(k)
+    }
+
+    /// 固定値の増減は向き（上昇・低下）で名前を分ける。isBuff = HUDStatusIcon.isBuff。
+    static func statusName(_ k: StatusKind, tag: String, isBuff: Bool) -> String {
+        switch k {
+        case .flatPowerMod: return isBuff ? L("攻撃・魔力上昇", "Attack & power up") : L("攻撃・魔力低下", "Attack & power down")
+        case .flatMoveSpeedMod: return isBuff ? L("移動速度上昇", "Move speed up") : L("移動速度低下", "Move speed down")
+        case .flatDefenseMod: return isBuff ? L("防御・魔防上昇", "Defenses up") : L("防御・魔防低下", "Defenses down")
+        default: return statusName(k, tag: tag)
+        }
+    }
+
+    /// 固定値の増減は向きで色を分ける（強化 = 緑、弱体 = 赤）。
+    static func statusColor(_ k: StatusKind, tag: String, isBuff: Bool) -> Color {
+        guard isSignedMod(k) else { return statusColor(k, tag: tag) }
+        return isBuff ? Theme.success : Theme.danger
     }
 
     static func statusName(_ k: StatusKind) -> String {
@@ -585,6 +615,9 @@ enum HUDSymbols {
         case .attackRangeBoost: return L("射程延長", "Range up")
         case .armorShred: return L("防御低下", "Armor down")
         case .magicShred: return L("魔防低下", "Magic resist down")
+        case .flatPowerMod: return L("攻撃・魔力の増減", "Attack & power change")
+        case .flatMoveSpeedMod: return L("移動速度の増減", "Move speed change")
+        case .flatDefenseMod: return L("防御・魔防の増減", "Defenses change")
         case .untargetable: return L("選択不可", "Untargetable")
         case .suppress: return L("制圧", "Suppressed")
         case .channeling: return L("詠唱中", "Channeling")
@@ -628,6 +661,7 @@ enum HUDSymbols {
         let statuses: [StatusKind] = [.stun, .root, .slow, .airborne, .silence, .speedBoost, .attackSpeedBoost,
                                       .damageBoost, .damageReduction, .ccImmune, .invulnerable, .stealth, .burn,
                                       .healReduction, .damageDealtReduction, .revealed, .blueBuff, .redBuff,
+                                      .flatPowerMod, .flatMoveSpeedMod, .flatDefenseMod,
                                       .wyrmBlessing, .colossusBlessing, .mark, .lifestealBoost, .spellVampBoost,
                                       .attackRangeBoost, .armorShred, .magicShred, .untargetable, .suppress, .channeling]
         return archetypes.map(skill) + statuses.map(status) + KitStatusVisuals.hudSymbols + ui
@@ -682,13 +716,17 @@ enum HUDText {
         switch PurchaseFailure(rawValue: reason) {
         case .slotsFull?: return L("装備枠がいっぱいです", "Your item slots are full")
         case .notEnoughGold?: return L("Gold が足りません", "Not enough gold")
-        case .uniqueCategory?: return L("このカテゴリの装備は 1 つまでです", "Only one item of this category")
+        case .uniqueCategory?: return L("靴は 1 足までです", "Only one pair of boots")
         case .requiresSmite?:
             let smite = MasterData.shared.spell(Balance.Economy.smiteSpellID).map { MasterText.spell($0) } ?? "BS05"
-            return L("\(smite) を装備していないと購入できません", "Requires the \(smite) spell")
+            return L("ジャングルの祝福は \(smite) を装備していないと付けられません", "Jungle blessings require the \(smite) spell")
         case .blockedBySmite?:
             let smite = MasterData.shared.spell(Balance.Economy.smiteSpellID).map { MasterText.spell($0) } ?? "BS05"
-            return L("\(smite) を装備していると購入できません", "Can't buy while using the \(smite) spell")
+            return L("\(smite) を装備しているとロームの祝福は付けられません", "Roam blessings can't be used with the \(smite) spell")
+        case .roamClosed?:
+            let t = Int(Balance.Gear.roamPurchaseDeadline)
+            let deadline = "\(t / 60):" + String(format: "%02d", t % 60)
+            return L("ロームの祝福は \(deadline) を過ぎると付けられません", "Roam blessings can't be taken after \(deadline)")
         case .unknownItem?, nil: return L("購入できません", "Can't buy this item")
         }
     }

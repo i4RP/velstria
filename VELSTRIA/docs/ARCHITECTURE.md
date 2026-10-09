@@ -30,7 +30,7 @@ VELSTRIA/
   `tools/portraits/portraits.py`（Codex CLI の画像生成 → `build/portraits/` に原寸 → `install` で 640px JPEG を
   `Assets.xcassets/HeroPortraits`・`SkinPortraits` へ）。表示は `HeroPortraitView` / `SkinPortraitView`（`PortraitArt`）。
   ヒーローやスキンを追加したら仕様に追記して生成・取り込みする（`AppStoreAssetsTests` が欠けを検出）。
-- 装備（72）のアイコンも装備毎の描き下ろしの生成画像。仕様は `tools/portraits/item_icons.json`（画風、Tier 別の格、
+- 装備（92）のアイコンも装備毎の描き下ろしの生成画像（MLBB の装備の姿に寄せた描き下ろし）。仕様は `tools/portraits/item_icons.json`（画風、Tier 別の格、
   カテゴリ別の色、装備毎の造形。同名の装備も番号毎に別の造形）、`portraits.py install items` で 384px JPEG を
   `Assets.xcassets/ItemIcons` へ。表示は `ItemIconView`（絵柄の上に Tier の枠と印を重ねる。アートの無い ID は
   カテゴリの色と記号の手続き生成にフォールバック）。装備を追加したら仕様に追記して生成・取り込みする。

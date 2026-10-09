@@ -126,10 +126,10 @@ final class CollectionUITests: XCTestCase {
 
     func testBuildEditorAddReorderSave() {
         let app = launch(route: "buildEditor:H003")
-        let item = element(app, "build_item_EQ061")
+        let item = element(app, "build_item_EQ102")
         XCTAssertTrue(item.waitForExistence(timeout: 10))
         item.tap()
-        element(app, "build_item_EQ043").tap()
+        element(app, "build_item_EQ103").tap()
         element(app, "build_slot_1").tap()
         element(app, "build_move_left").tap()
         snapshot(app, "build_editor_edited")
@@ -139,18 +139,42 @@ final class CollectionUITests: XCTestCase {
         XCTAssertTrue(element(app, "toast").waitForExistence(timeout: 5))
     }
 
-    func testBuildEditorSmiteNoticeLinksToSpells() {
-        // 既定スペル（瞬歩・治癒波）のままジャングル装備を入れると、狩猟印の案内からスペル設定へ進める
+    func testBuildEditorKeepsOnePairOfBoots() {
+        // 祝福（ジャングル・ローム）は試合中に靴へ付けるので、ビルド編集のカテゴリには無い。靴は 1 足まで
         let app = launch(route: "buildEditor:H006")
-        let jungle = element(app, "build_category_Jungle")
-        XCTAssertTrue(jungle.waitForExistence(timeout: 10))
-        jungle.tap()
-        element(app, "build_item_EQ006").tap()
-        let notice = element(app, "build_smite_notice")
-        XCTAssertTrue(notice.waitForExistence(timeout: 5))
-        snapshot(app, "build_editor_smite_notice")
-        notice.tap()
-        XCTAssertTrue(element(app, "spell_BS05").waitForExistence(timeout: 5))
+        let movement = element(app, "build_category_Movement")
+        XCTAssertTrue(movement.waitForExistence(timeout: 10))
+        XCTAssertFalse(element(app, "build_category_Jungle").exists)
+        XCTAssertFalse(element(app, "build_category_Roam").exists)
+        // 1 枠空けてから、別の靴を足そうとすると断られる
+        element(app, "build_slot_5").tap()
+        element(app, "build_remove").tap()
+        movement.tap()
+        element(app, "build_item_EQ401").tap()
+        XCTAssertTrue(element(app, "build_warning").waitForExistence(timeout: 5))
+        snapshot(app, "build_editor_boots_limit")
+    }
+
+    func testItemListShowsBlessingTabs() {
+        let app = launch(route: "items")
+        let magic = element(app, "items_category_Magic")
+        XCTAssertTrue(magic.waitForExistence(timeout: 10))
+        magic.tap()
+        XCTAssertTrue(element(app, "item_EQ113").waitForExistence(timeout: 5), "攻撃のウィンタークラウンは魔法のタブにも並ぶ")
+        element(app, "items_category_Jungle").tap()
+        XCTAssertTrue(element(app, "blessing_flame").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(app, "blessing_rules").exists)
+        snapshot(app, "items_jungle_blessings")
+        element(app, "items_category_Roam").tap()
+        XCTAssertTrue(element(app, "blessing_conceal").waitForExistence(timeout: 5))
+    }
+
+    func testItemDetailShowsTwoLevelRecipe() {
+        // マジックガン = レイシハンマー（= ダガー）+ ナイフ + ナイフ
+        let app = launch(route: "itemDetail:EQ101")
+        XCTAssertTrue(element(app, "itemtree_EQ122").waitForExistence(timeout: 10))
+        XCTAssertTrue(element(app, "itemtree_EQ133").exists, "素材の素材も並ぶ")
+        snapshot(app, "item_detail_recipe")
     }
 
     func testEnglishPurchaseConfirmSheet() {

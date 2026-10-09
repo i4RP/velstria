@@ -3,7 +3,7 @@
 
 仕様（画風・各ヒーローの造形）は tools/portraits/portraits.json。造形は
 App/Battle/Heroes/HeroBlueprints.swift（3D モデル）に合わせてある。
-装備アイコン（EQ001〜）の仕様は tools/portraits/item_icons.json（画風・Tier 別の格・カテゴリ別の色・各装備の造形）。
+装備アイコン（EQ101〜EQ408）の仕様は tools/portraits/item_icons.json（画風・Tier 別の格・カテゴリ別の色・各装備の造形）。
 
   python3 tools/portraits/portraits.py prompt H001          # 生成プロンプトを表示
   python3 tools/portraits/portraits.py generate H001 [--extra "..."] [--tag a2]
@@ -15,8 +15,10 @@ App/Battle/Heroes/HeroBlueprints.swift（3D モデル）に合わせてある。
 元画像（約 1254px PNG）は build/portraits/（git 管理外）に置き、アプリには縮小版だけを入れる。
 同時実行数は環境変数 PORTRAIT_SLOTS（既定 4）で制限する。Codex のモデルは PORTRAIT_CODEX_MODEL
 （既定 gpt-6-astra。~/.codex/config.toml の既定モデルに左右されないよう明示する）。
+
+macOS と Windows の両方で動く。JPEG 化は macOS では従来どおり ffmpeg（黒地へ合成）+ sips、sips の無い OS では
+Pillow（python -m pip install Pillow）。一覧画像は ffmpeg があれば ffmpeg、無ければ Pillow。
 """
-import fcntl
 import json
 import os
 import shutil
@@ -24,6 +26,12 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+
+try:
+    import fcntl  # macOS / Linux
+except ImportError:  # Windows
+    fcntl = None
+    import msvcrt
 
 ROOT = Path(__file__).resolve().parents[2]  # VELSTRIA/
 SPEC = Path(__file__).with_name("portraits.json")
@@ -39,11 +47,11 @@ JPEG_QUALITY = 82
 
 
 def spec():
-    return json.loads(SPEC.read_text())
+    return json.loads(SPEC.read_text(encoding="utf-8"))
 
 
 def item_spec():
-    return json.loads(ITEM_SPEC.read_text())
+    return json.loads(ITEM_SPEC.read_text(encoding="utf-8"))
 
 
 def entry(sid):
@@ -94,28 +102,48 @@ def build_prompt(sid, extra=""):
 
 
 class Slot:
-    """PORTRAIT_SLOTS 個のロックファイルで同時生成数を制限する。"""
+    """PORTRAIT_SLOTS 個のロックファイルで同時生成数を制限する。
+
+    macOS / Linux は flock、Windows は msvcrt.locking（先頭 1 バイトのロック）。どちらもプロセスが
+    落ちれば OS がロックを外すので、ロックファイルが残っても詰まらない。
+    """
 
     def __init__(self):
         self.n = max(1, int(os.environ.get("PORTRAIT_SLOTS", "4")))
         self.fd = None
+
+    @staticmethod
+    def _lock(fd):
+        if fcntl:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        else:
+            fd.seek(0)
+            msvcrt.locking(fd.fileno(), msvcrt.LK_NBLCK, 1)
+
+    @staticmethod
+    def _unlock(fd):
+        if fcntl:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        else:
+            fd.seek(0)
+            msvcrt.locking(fd.fileno(), msvcrt.LK_UNLCK, 1)
 
     def __enter__(self):
         lock_dir = RAW / ".slots"
         lock_dir.mkdir(parents=True, exist_ok=True)
         while True:
             for i in range(self.n):
-                fd = open(lock_dir / f"slot{i}", "w")
+                fd = open(lock_dir / f"slot{i}", "a+")  # "w" だと他プロセスがロック中のファイルを切り詰めにいく
                 try:
-                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    self._lock(fd)
                     self.fd = fd
                     return self
-                except BlockingIOError:
+                except OSError:  # flock は BlockingIOError、msvcrt は PermissionError
                     fd.close()
             time.sleep(2)
 
     def __exit__(self, *exc):
-        fcntl.flock(self.fd, fcntl.LOCK_UN)
+        self._unlock(self.fd)
         self.fd.close()
 
 
@@ -144,7 +172,8 @@ def generate(sid, extra="", tag=None, attempts=3):
         if out.exists():
             out.unlink()
         with Slot():
-            cmd = ["codex", "exec", "--skip-git-repo-check", "--ephemeral",
+            # Windows の npm 版は codex.cmd なので、PATHEXT を見る shutil.which で実体を引く
+            cmd = [shutil.which("codex") or "codex", "exec", "--skip-git-repo-check", "--ephemeral",
                    "--dangerously-bypass-approvals-and-sandbox",
                    "-m", os.environ.get("PORTRAIT_CODEX_MODEL", "gpt-6-astra"),
                    "-c", 'model_reasoning_effort="low"', "-C", str(work)]
@@ -152,7 +181,8 @@ def generate(sid, extra="", tag=None, attempts=3):
                 cmd += ["-i", str(ref)]
             # -i は複数値を取るのでプロンプトは stdin で渡す
             try:
-                proc = subprocess.run(cmd, input=instruction, capture_output=True, text=True, timeout=900)
+                proc = subprocess.run(cmd, input=instruction, capture_output=True, text=True,
+                                      encoding="utf-8", errors="replace", timeout=900)
                 tail = f"exit {proc.returncode}: " + (proc.stdout + proc.stderr)[-800:]
             except subprocess.TimeoutExpired:
                 tail = "timed out"
@@ -174,7 +204,34 @@ def select(sid, tag):
 
 
 def write_json(path, obj):
-    path.write_text(json.dumps(obj, indent=2) + "\n")
+    path.write_text(json.dumps(obj, indent=2) + "\n", encoding="utf-8")
+
+
+def to_jpeg(src, dst, pixels):
+    """src を pixels 四方に縮小し、品質 JPEG_QUALITY の JPEG にする。
+
+    生成画像は縁が半透明のことがある。JPEG 化で透明部が白く埋まらないよう、先に黒地へ合成する。
+    macOS は従来どおり ffmpeg（合成）+ sips、sips の無い OS（Windows など）は Pillow。
+    """
+    if shutil.which("sips") and shutil.which("ffmpeg"):
+        flat = RAW / ".flat.png"
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(src), "-filter_complex",
+                        "[0:v]split[a][b];[a]format=rgb24,drawbox=c=black:t=fill[bg];[bg][b]overlay=format=auto,format=rgb24",
+                        "-frames:v", "1", str(flat)], check=True, capture_output=True)
+        subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", str(JPEG_QUALITY),
+                        "-z", str(pixels), str(pixels), str(flat), "--out", str(dst)],
+                       check=True, capture_output=True)
+        flat.unlink()
+        return
+    try:
+        from PIL import Image
+    except ImportError:
+        sys.exit("JPEG conversion needs sips + ffmpeg (macOS) or Pillow (python -m pip install Pillow)")
+    with Image.open(src) as im:
+        im = im.convert("RGBA")
+        flat = Image.new("RGB", im.size, (0, 0, 0))
+        flat.paste(im, mask=im.getchannel("A"))
+        flat.resize((pixels, pixels), Image.LANCZOS).save(dst, "JPEG", quality=JPEG_QUALITY, optimize=True)
 
 
 def install(names=("heroes", "skins", "items")):
@@ -201,15 +258,7 @@ def install(names=("heroes", "skins", "items")):
         for i in ids:
             d = base / f"{i}.imageset"
             d.mkdir()
-            # 生成画像は縁が半透明のことがある。sips の JPEG 化は透明部を白で埋めるので、先に黒地へ合成する
-            flat = RAW / ".flat.png"
-            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(RAW / f"{i}.png"), "-filter_complex",
-                            "[0:v]split[a][b];[a]format=rgb24,drawbox=c=black:t=fill[bg];[bg][b]overlay=format=auto,format=rgb24",
-                            "-frames:v", "1", str(flat)], check=True, capture_output=True)
-            subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", str(JPEG_QUALITY),
-                            "-z", str(pixels), str(pixels), str(flat), "--out", str(d / f"{i}.jpg")],
-                           check=True, capture_output=True)
-            flat.unlink()
+            to_jpeg(RAW / f"{i}.png", d / f"{i}.jpg", pixels)
             write_json(d / "Contents.json", {
                 "images": [{"filename": f"{i}.jpg", "idiom": "universal"}],
                 "info": {"author": "xcode", "version": 1},
@@ -231,6 +280,16 @@ def sheet(out, ids=None, cols=6, cell=256):
         sys.exit("no portraits")
     cols = min(cols, len(files))
     rows = (len(files) + cols - 1) // cols
+    if not shutil.which("ffmpeg"):
+        from PIL import Image
+        board = Image.new("RGB", (cols * cell, rows * cell), (0, 0, 0))
+        for n, f in enumerate(files):
+            with Image.open(f) as im:
+                board.paste(im.convert("RGB").resize((cell, cell), Image.LANCZOS),
+                            ((n % cols) * cell, (n // cols) * cell))
+        board.save(out)
+        print(f"{out} ({len(files)} portraits, {cols}x{rows})")
+        return
     args = ["ffmpeg", "-y", "-loglevel", "error"]
     for f in files:
         args += ["-i", str(f)]
@@ -245,6 +304,8 @@ def sheet(out, ids=None, cols=6, cell=256):
 
 
 def main(argv):
+    if hasattr(sys.stdout, "reconfigure"):  # Windows の既定（cp932）で表示できない記号があっても落ちないように
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     if len(argv) < 2:
         sys.exit(__doc__)
     cmd = argv[1]

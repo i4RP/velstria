@@ -70,9 +70,9 @@ final class HUDTutorialTests: XCTestCase {
 
         t.noteShopOpened()
         XCTAssertEqual(t.step, .buyItem)
-        t.handle(.itemPurchased(heroID: enemy, itemID: "EQ001"), humanID: me, dummyIDs: dummies)
+        t.handle(.itemPurchased(heroID: enemy, itemID: "EQ133"), humanID: me, dummyIDs: dummies)
         XCTAssertEqual(t.step, .buyItem)
-        t.handle(.itemPurchased(heroID: me, itemID: "EQ001"), humanID: me, dummyIDs: dummies)
+        t.handle(.itemPurchased(heroID: me, itemID: "EQ133"), humanID: me, dummyIDs: dummies)
         XCTAssertEqual(t.step, .destroyTower)
         XCTAssertNotNil(t.objective(map: .standard, dummySpots: []))
 
@@ -136,7 +136,7 @@ final class HUDTutorialTests: XCTestCase {
         t.handle(.skillLeveled(heroID: me, slot: .skill1, rank: 1), humanID: me, dummyIDs: dummies)
         t.handle(cast(.skill1, by: me), humanID: me, dummyIDs: dummies)
         XCTAssertEqual(t.step, .openShop)
-        t.handle(.itemPurchased(heroID: me, itemID: "EQ005"), humanID: me, dummyIDs: dummies)
+        t.handle(.itemPurchased(heroID: me, itemID: "EQ132"), humanID: me, dummyIDs: dummies)
         XCTAssertEqual(t.step, .destroyTower)
     }
 
@@ -149,7 +149,7 @@ final class HUDTutorialTests: XCTestCase {
         t.handle(.skillLeveled(heroID: me, slot: .skill1, rank: 1), humanID: me, dummyIDs: dummies)
         t.handle(cast(.skill1, by: me), humanID: me, dummyIDs: dummies)
         t.noteShopOpened()
-        t.handle(.itemPurchased(heroID: me, itemID: "EQ001"), humanID: me, dummyIDs: dummies)
+        t.handle(.itemPurchased(heroID: me, itemID: "EQ133"), humanID: me, dummyIDs: dummies)
         XCTAssertEqual(t.step, .recall, "先に塔を壊していれば塔の手順は飛ばす")
     }
 
@@ -179,11 +179,11 @@ final class HUDTutorialTests: XCTestCase {
             if towerDestroyed { t.handle(midOuterDestroyed(), humanID: humanID, dummyIDs: dummyIDs) }
             model.debugSetTutorial(t)
 
-            model.handle([.purchaseFailed(heroID: humanID, itemID: "EQ001", reason: PurchaseFailure.notEnoughGold.rawValue)])
+            model.handle([.purchaseFailed(heroID: humanID, itemID: "EQ133", reason: PurchaseFailure.notEnoughGold.rawValue)])
             controller.frame(dt: Balance.dt)
             XCTAssertEqual(controller.state.units.filter { $0.kind == .dummy }.count, 3)
 
-            model.handle([.itemPurchased(heroID: humanID, itemID: "EQ001")])
+            model.handle([.itemPurchased(heroID: humanID, itemID: "EQ133")])
             XCTAssertEqual(model.tutorial?.step, towerDestroyed ? .recall : .destroyTower)
             controller.frame(dt: Balance.dt)
             XCTAssertFalse(controller.state.units.contains { $0.kind == .dummy })
@@ -209,7 +209,7 @@ final class HUDTutorialTests: XCTestCase {
                 case .learnSkill: t.handle(.skillLeveled(heroID: me, slot: .skill1, rank: 1), humanID: me, dummyIDs: dummies)
                 case .castSkill: t.handle(cast(.skill1, by: me), humanID: me, dummyIDs: dummies)
                 case .openShop: t.noteShopOpened()
-                case .buyItem: t.handle(.itemPurchased(heroID: me, itemID: "EQ001"), humanID: me, dummyIDs: dummies)
+                case .buyItem: t.handle(.itemPurchased(heroID: me, itemID: "EQ133"), humanID: me, dummyIDs: dummies)
                 case .destroyTower: t.handle(midOuterDestroyed(), humanID: me, dummyIDs: dummies)
                 case .recall: t.handle(.channelCompleted(heroID: me, kind: .recall, destination: .zero), humanID: me, dummyIDs: dummies)
                 case .complete: break

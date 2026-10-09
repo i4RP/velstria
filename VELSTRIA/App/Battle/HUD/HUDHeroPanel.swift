@@ -258,7 +258,7 @@ struct HUDStatusRow: View, Equatable {
                 .accessibilityValue(text)
             }
             ForEach(statuses) { st in
-                let color = HUDSymbols.statusColor(st.kind, tag: st.tag)
+                let color = HUDSymbols.statusColor(st.kind, tag: st.tag, isBuff: st.isBuff)
                 ZStack {
                     RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.black.opacity(0.6))
                     Image(systemName: HUDSymbols.status(st.kind, tag: st.tag))
@@ -277,7 +277,7 @@ struct HUDStatusRow: View, Equatable {
                 }
                 .frame(width: size, height: size)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(HUDSymbols.statusName(st.kind, tag: st.tag))
+                .accessibilityLabel(HUDSymbols.statusName(st.kind, tag: st.tag, isBuff: st.isBuff))
                 .accessibilityValue(L("残り \(Int(st.remaining.rounded(.up))) 秒", "\(Int(st.remaining.rounded(.up))) seconds left"))
             }
         }

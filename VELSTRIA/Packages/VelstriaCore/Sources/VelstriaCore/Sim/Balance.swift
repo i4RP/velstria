@@ -84,7 +84,8 @@ public enum Balance {
     public static let towerTeamGold: Double = 120
     public static let itemSlots = 6
     public static let sellRatio: Double = 0.6
-    public static let minCombineCostRatio: Double = 0.3
+    /// 合成の最低支払い（価格に対する割合）。MLBB は素材の合計を引いた差額だけを払うので 0。
+    public static let minCombineCostRatio: Double = 0
 
     // MARK: リスポーン・帰還・泉
     public static let respawnBase: Double = 4

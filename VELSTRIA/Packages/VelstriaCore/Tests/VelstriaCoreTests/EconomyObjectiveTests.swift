@@ -89,13 +89,16 @@ final class EconomyObjectiveTests: XCTestCase {
         XCTAssertNotNil(f.s.units[a].status(.redBuff))
     }
 
-    func testJungleItemIncreasesMonsterGold() {
+    func testJungleBlessingIncreasesMonsterGold() {
         var f = EconomyFixture.standard()
         f.parkHeroesAtFountains()
         let a = f.heroes(.blue)[0]
         f.place(a, at: spot)
-        f.s.units[a].hero!.items = ["EQ006"]
-        f.s.units[a].hero!.itemInvested = [342]
+        // ジャングルの祝福（靴に付ける）: スピードブーツ + 炎撃の狩猟
+        f.s.units[a].hero!.spells = [Balance.Economy.smiteSpellID, "BS01"]
+        f.s.units[a].hero!.items = [Balance.Gear.baseBootsID]
+        f.s.units[a].hero!.itemInvested = [250]
+        f.s.units[a].hero!.gear = GearState(option: .flame)
         StatCalculator.recompute(&f.s, a, f.ctx)
         XCTAssertEqual(f.s.units[a].stats.monsterGoldBonus, 0.2, accuracy: 1e-9)
         let gold = f.hero(a).gold

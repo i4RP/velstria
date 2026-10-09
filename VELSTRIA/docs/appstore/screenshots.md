@@ -46,7 +46,7 @@ App 内課金の審査用スクリーンショット（Gem 購入画面・スタ
 | 3 | `03_heroes` | `-grant -route heroes` | 24 ヒーロー・6 ロール | 24人のヒーロー、6つのロール / 24 heroes, 6 roles |
 | 4 | `04_battle_lanes` | `-grant -battle standard -botControl -battleSpeed 2`（60 秒後） | 3 レーンとミニオン、HUD | 3つのレーンとジャングルを制せ / Command three lanes and the jungle |
 | 5 | `05_hero_detail` | `-grant -route heroDetail:H003 -heroTab skills` | スキル詳細 | パッシブ＋3スキル＋アルティメット / Passive, 3 skills and an ultimate |
-| 6 | `06_build_editor` | `-grant -route buildEditor:H003` | 装備ビルド | 72種の装備で自分だけのビルドを / Craft your build from 72 items |
+| 6 | `06_build_editor` | `-grant -route buildEditor:H003` | 装備ビルド | 92種の装備で自分だけのビルドを / Craft your build from 92 items |
 | 7 | `07_ranked` | `-route rankOverview` | 対 AI ランク | 隕鉄から星環王へ、ランク戦 / Climb the ranked ladder |
 | 8 | `08_skin_store` | `-route skinStore` | 見た目のみの課金 | 課金は見た目が中心。ヒーローはコインで解放 / Mostly cosmetics. Heroes unlock with Coins. |
 | 9 | `09_star_pass` | `-route starPass` | スターパス | ミッションとスターパスで報酬を / Earn rewards with missions and the Star Pass |

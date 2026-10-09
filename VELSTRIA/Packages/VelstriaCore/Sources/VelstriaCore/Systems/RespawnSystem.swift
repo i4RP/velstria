@@ -29,7 +29,8 @@ public enum RespawnSystem {
                 s.units[i].hero!.respawnTimer = t
                 continue
             }
-            let pos = respawnPosition(s, ctx, heroIndex: i)
+            // イモータルの復活は倒れた場所
+            let pos = ItemEffects.revivePosition(s, heroIndex: i) ?? respawnPosition(s, ctx, heroIndex: i)
             s.units[i].hero!.respawnTimer = 0
             s.units[i].hero!.channel = nil
             s.units[i].hero!.empoweredAttack = nil
@@ -50,6 +51,7 @@ public enum RespawnSystem {
             StatCalculator.recompute(&s, i, ctx)
             s.units[i].hp = s.units[i].stats.maxHP
             s.units[i].resource = s.units[i].stats.maxResource
+            ItemEffects.afterRespawn(&s, ctx, heroIndex: i)
             s.emit(.respawned(heroID: s.units[i].id, pos: pos))
         }
     }

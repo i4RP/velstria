@@ -121,10 +121,14 @@ enum HUDSpellAim {
     }
 
     /// スペルの発動対象（照準点から決める）。
+    /// smiteHeroes = ジャングルの祝福を強化済み（GearEffects.jungleBlessingActive）。狩猟印が届く敵ヒーローを優先して狙う。
     static func castTarget(spellID: String, targeting: SkillTargeting, origin: Vec2, aimPoint: Vec2, drag: CGVector,
-                           facing: Double, state: SimState, team: Team) -> SkillTarget {
+                           facing: Double, state: SimState, team: Team, smiteHeroes: Bool = false) -> SkillTarget {
         switch spellID {
         case smiteID:
+            if smiteHeroes, let hero = smiteHeroTarget(state: state, team: team, to: aimPoint, origin: origin) {
+                return .unit(hero)
+            }
             let pick = HUDAim.nearestUnit(state: state, team: team, to: aimPoint, origin: origin,
                                           maxRange: targeting.range + HUDAim.unitAimSlack, allies: false,
                                           heroesOnly: false, kinds: [.minion, .monster])
@@ -141,6 +145,25 @@ enum HUDSpellAim {
             return HUDAim.castTarget(targeting: targeting, origin: origin, aimPoint: aimPoint, drag: drag,
                                      facing: facing, state: state, team: team, casterID: nil)
         }
+    }
+
+    /// 強化した狩猟印で狙える敵ヒーロー（sim と同じく、縁までの距離が Balance.Spells.smiteRange 以内・視認中）のうち
+    /// 照準点に最も近いもの。同距離は添字の小さい方。
+    static func smiteHeroTarget(state s: SimState, team: Team, to point: Vec2, origin: Vec2) -> EntityID? {
+        var best: EntityID?
+        var bestD = Double.infinity
+        for i in s.units.indices {
+            let u = s.units[i]
+            guard u.kind == .hero, u.isAlive, u.hero?.isDead != true, s.isTargetableEnemy(i, of: team) else { continue }
+            let r = Balance.Spells.smiteRange + u.radius
+            guard u.pos.distanceSquared(to: origin) <= r * r else { continue }
+            let d = u.pos.distanceSquared(to: point)
+            if d < bestD {
+                bestD = d
+                best = u.id
+            }
+        }
+        return best
     }
 
     /// 帰還門の転移先: ドラッグ方向に最もよく合う味方の生存タワー（ドラッグ無しは最も前線のタワー）。

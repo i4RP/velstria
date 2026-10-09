@@ -12,15 +12,16 @@ public enum StatCalculator {
         if let hero = u.hero, let def = ctx.master.hero(hero.heroID) {
             stats = HeroGrowth.baseStats(def: def, level: hero.level)
             s.units[i].baseStats = stats
-            ItemStats.apply(items: hero.items, runes: hero.runes, to: &stats, ctx: ctx)
-            stats.monsterDamageBonus += GearEffects.monsterDamageBonus(hero, master: ctx.master)
+            ItemStats.apply(items: hero.items, runes: hero.runes, to: &stats, ctx: ctx, hero: hero, time: s.time)
+            GearEffects.applyStats(hero, to: &stats, master: ctx.master)
+            ItemEffects.applyRuntimeStats(s.units[i], to: &stats, time: s.time, master: ctx.master)
         } else {
             stats = u.baseStats
         }
         StatusModifiers.apply(u.statuses, to: &stats)
 
         // 制約
-        stats.cooldownReduction = min(max(0, stats.cooldownReduction), Balance.maxCooldownReduction)
+        stats.cooldownReduction = min(max(0, stats.cooldownReduction), stats.cooldownReductionCap)
         stats.attackSpeed = min(max(0.1, stats.attackSpeed), Balance.maxAttackSpeed)
         stats.moveSpeed = max(stats.moveSpeed, u.kind == .hero ? Balance.minMoveSpeed : 0)
         stats.maxHP = max(1, stats.maxHP)

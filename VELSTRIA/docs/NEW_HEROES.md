@@ -102,11 +102,10 @@
 
 ## おすすめ装備
 
-ヒーロー別ではなくロール別の自動構築（`ItemSystem.buildPlan(role:)` と `recommendedBuild`）。
-Mobile Legends の定番ビルドに近づけるための調整は、全ロールに効くので別フェーズで行う（`docs/NEW_HEROES.md` 末尾の TODO を参照）。
+ヒーロー別（H025〜H034 は元の MLBB ヒーローの定番ビルド）とロール別の、装備 ID の並び（`ItemSystem.heroBuilds` / `roleBuilds`、`recommendedBuild`）。
+装備は MLBB の図鑑そのものなので、ビルドも MLBB の定番をそのまま並べている。
 
 ## TODO（後の段階）
 
 - ヒーロー別の固有スキル挙動（今は全ヒーロー、ロールの型で動く）
-- ロール別だった推奨装備をヒーロー別に上書きできるようにする
 - 立ち絵・3D モデル（Tripo）の生成

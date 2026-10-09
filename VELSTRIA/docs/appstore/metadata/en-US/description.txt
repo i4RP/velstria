@@ -17,8 +17,8 @@ A Tutorial and Practice mode help newcomers, and every match is against AI with 
 ◆ 24 HEROES, 6 ROLES
 Vanguard, Duelist, Ranger, Arcanist, Support and Assassin, four heroes each. Every hero has a Passive, three Skills and an Ultimate. Start with six heroes, one per role, and unlock the other 18 with Starlight Coins (Coins) earned by playing.
 
-◆ 72 ITEMS, 10 BATTLE SPELLS, 30 RUNES
-- Items: six categories, 12 each; buy anywhere, any time, and combine at a discount using the components you own
+◆ 92 ITEMS, 10 BATTLE SPELLS, 30 RUNES
+- Items: attack, magic, defense and movement; buy anywhere, any time, and combine at a discount using the components you own. Boots can carry a jungle or roam blessing
 - Battle Spells: Blink, Cleanse, Ignite and more
 - Runes: five paths
 

@@ -8,11 +8,11 @@ final class EconomyReplayTests: XCTestCase {
         var out: [HeroCommand] = []
         func add(_ c: PlayerCommand) { out.append(HeroCommand(heroID: hero, command: c, sequence: UInt32(tick))) }
         switch tick {
-        case 1: add(.buyItem(itemID: "EQ001"))                 // Gold 不足で失敗（失敗も再現されること）
+        case 1: add(.buyItem(itemID: "EQ125"))                 // レギオンソード 910: Gold 不足で失敗（失敗も再現されること）
         case 5: add(.move(direction: Vec2(1, 0.5)))
         case 120: add(.moveTo(point: Vec2(3200, 3200)))
         case 710: add(.levelSkill(slot: .skill2))
-        case 1300: add(.buyItem(itemID: "EQ005"))            // 序盤の収入で買える価格（340）になってから
+        case 1300: add(.buyItem(itemID: "EQ131"))            // ジャベリン 320: 序盤の収入で買える価格になってから
         case 1500: add(.move(direction: Vec2(0.3, 1)))
         case 1560: add(.stop)
         case 1900: add(.recall)

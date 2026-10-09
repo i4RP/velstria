@@ -27,6 +27,31 @@ struct PatchNote: Identifiable, Equatable {
 
 enum PatchNotesCatalog {
     static let notes: [PatchNote] = [
+        PatchNote(version: "1.1.0", headlineJa: "装備を一新。靴には祝福を。", headlineEn: "All-new items, and blessings for your boots.", sections: [
+            PatchNoteSection(id: "items", symbol: "bag.fill", titleJa: "装備の総入れ替え", titleEn: "Item Overhaul",
+                             itemsJa: ["装備を 92 種に一新（攻撃 34・魔法 25・防御 25・移動 8）。旧装備 72 種とジャングル靴・ローム靴は廃止",
+                                       "合成は最大 3 段・素材 4 個まで。持っている素材（素材の素材も）を使うと、その分安く合成できる",
+                                       "新しい能力値: 適応攻撃・最大MP・コントロール時間短縮・減速軽減・受ける回復・クリティカルダメージ軽減など。「固有」の能力値は重ねて持っても 1 つ分だけ効く",
+                                       "ポーション 3 種: 買うとすぐに使い、120 秒間 能力値が上がる（所持枠を使わない）"],
+                             itemsEn: ["92 all-new items (34 Attack, 25 Magic, 25 Defense, 8 Movement). The old 72 items and the Jungle / Roam boots are gone",
+                                       "Recipes go up to 3 levels with up to 4 components. Components you own (and their components) lower the combine cost",
+                                       "New stats: adaptive attack, max mana, CC reduction, slow reduction, healing received, crit damage reduction and more. Unique stats don't stack",
+                                       "3 potions: used on purchase for 120s of bonus stats (they take no slot)"]),
+            PatchNoteSection(id: "blessings", symbol: "leaf.fill", titleJa: "靴の祝福", titleEn: "Boot Blessings",
+                             itemsJa: ["ショップのジャングル・ロームのタブから、靴に祝福を付けられる（0 Gold・装備枠を使わない）。靴が無ければスピードブーツ（250 Gold）を一緒に買う",
+                                       "ジャングル（炎撃・氷刺・血刃の狩猟）: 狩猟印が必要。モンスター・キル・アシスト 5 回で狩猟印を敵ヒーローにも使え、相手の能力を奪う",
+                                       "ローム（激励・恩恵・致命傷・隠蔽）: 狩猟印とは併用できず、2:00 を過ぎると新たには付けられない。共栄ゴールド 1000 で効果が解放される",
+                                       "靴を売ると祝福は外れる"],
+                             itemsEn: ["Attach a blessing to your boots from the shop's Jungle and Roam tabs (0 Gold, no slot). Without boots, Boots (250 Gold) are bought with it",
+                                       "Jungle (Flame, Ice and Blood Hunt): requires Hunter's Mark. After 5 monsters, kills or assists, Hunter's Mark can hit enemy heroes and steal from them",
+                                       "Roam (Encourage, Favor, Dire Hit, Conceal): not available with Hunter's Mark or after 2:00. The effect unlocks at 1000 shared gold",
+                                       "Selling your boots removes the blessing"]),
+            PatchNoteSection(id: "controls", symbol: "hand.tap.fill", titleJa: "操作とビルド", titleEn: "Controls & Builds",
+                             itemsJa: ["ウィンタークラウン・ナチュラルウィンドのアクティブとロームの隠蔽は、攻撃ボタンの上の小さなボタンで使う",
+                                       "おすすめビルドはヒーローごとの定番構成に。ビルド編集は靴 1 足・同じ装備 1 つ・最大 6 個（ポーションは入れられない）"],
+                             itemsEn: ["Use the Winter Crown and Wind of Nature actives and the Conceal blessing from the small buttons above the attack button",
+                                       "Recommended builds now follow each hero's standard build. Custom builds allow one pair of boots, one of each item and up to 6 items (no potions)"]),
+        ]),
         PatchNote(version: "1.0.0", headlineJa: "星環の戦場、開幕。", headlineEn: "The Star Ring battlefield opens.", sections: [
             PatchNoteSection(id: "highlights", symbol: "sparkles", titleJa: "主な内容", titleEn: "Highlights",
                              itemsJa: ["3 レーンの 5 対 5 バトル（プレイヤー + AI 味方 4 体 vs AI 敵 5 体）",

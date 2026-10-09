@@ -136,7 +136,7 @@ extension HUDModel {
         t.handle(.skillLeveled(heroID: id, slot: .skill1, rank: 1), humanID: id, dummyIDs: [])
         t.noteSkillCommand(slot: .skill1, castable: true)
         t.noteShopOpened()
-        t.handle(.itemPurchased(heroID: id, itemID: "EQ001"), humanID: id, dummyIDs: [])
+        t.handle(.itemPurchased(heroID: id, itemID: "EQ133"), humanID: id, dummyIDs: [])
         t.handle(.structureDestroyed(unitID: 0, kind: .tower, team: .red, lane: .mid, tier: .outer, killerID: id),
                  humanID: id, dummyIDs: [])
         t.handle(.channelCompleted(heroID: id, kind: .recall, destination: .zero), humanID: id, dummyIDs: [])

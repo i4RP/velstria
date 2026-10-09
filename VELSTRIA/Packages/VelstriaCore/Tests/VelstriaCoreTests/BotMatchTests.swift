@@ -67,7 +67,7 @@ final class BotMatchTests: XCTestCase {
             // 人間は開始直後に少し歩いて泉へ戻り、買い物だけする
             if tick == 30 { cmds.append(HeroCommand(heroID: human, command: .moveTo(point: Vec2(1500, 1100)))) }
             if tick == 400 { cmds.append(HeroCommand(heroID: human, command: .moveTo(point: Vec2(700, 700)))) }
-            if tick == 2700 { cmds.append(HeroCommand(heroID: human, command: .buyItem(itemID: "EQ001"))) }
+            if tick == 2700 { cmds.append(HeroCommand(heroID: human, command: .buyItem(itemID: "EQ133"))) }
             sim.step(commands: cmds)
         }
         let player = ReplayPlayer(data: recorder.finish(summary: nil))

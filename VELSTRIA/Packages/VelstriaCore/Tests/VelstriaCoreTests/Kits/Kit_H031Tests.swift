@@ -618,22 +618,33 @@ final class Kit_H031Tests: XCTestCase {
         var w = SkillWorld()
         let k = addOria(&w)
         let e = w.addDummyEnemy(at: skillArena + Vec2(400, 0))
-        w.s.units[k].hero!.items = ["EQ053"]
-        w.s.units[k].hero!.itemInvested = [1000]
+        w.s.units[k].hero!.items = ["EQ304"]     // イモータル（倒れた後、その場で 2.5 秒後に復活）
+        w.s.units[k].hero!.itemInvested = [2120]
         StatCalculator.recompute(&w.s, k, w.ctx)
         w.s.units[k].hp = w.s.units[k].stats.maxHP
         XCTAssertTrue(w.s.units[k].hero!.itemRuntime.ready(.immortal, at: w.s.time))
         fatal(&w, k, from: e)
         XCTAssertEqual(w.kit(k).oriaSaves, 1)
+        XCTAssertTrue(w.s.units[k].isAlive)
         XCTAssertTrue(w.s.units[k].hero!.itemRuntime.ready(.immortal, at: w.s.time), "氷の誇りが先に働き、装備は残る")
         XCTAssertEqual(w.s.units[k].hp, 1, accuracy: 1e-9)
-        // 氷の誇りが再使用待ちなら、装備が働く
+        // 氷の誇りが再使用待ちなら倒れ、装備がその場で復活させる
         w.run(seconds: 2)
+        let deathPos = w.s.units[k].pos
         w.s.units[k].hp = 5
         fatal(&w, k, from: e)
-        XCTAssertTrue(w.s.units[k].isAlive)
+        XCTAssertFalse(w.s.units[k].isAlive)
+        DeathSystem.process(&w.s, w.ctx)
         XCTAssertFalse(w.s.units[k].hero!.itemRuntime.ready(.immortal, at: w.s.time))
-        XCTAssertEqual(w.kit(k).oriaSaves, 1)
+        XCTAssertEqual(w.s.units[k].hero!.respawnTimer, 2.5, accuracy: 1e-9)
+        for _ in 0..<90 where !w.s.units[k].isAlive {
+            w.s.tick += 1
+            w.s.time = Double(w.s.tick) * Balance.dt
+            RespawnSystem.update(&w.s, w.ctx)
+        }
+        XCTAssertTrue(w.s.units[k].isAlive)
+        XCTAssertEqual(w.s.units[k].pos, deathPos)
+        XCTAssertEqual(w.s.units[k].hp, w.s.units[k].stats.maxHP * 0.16, accuracy: 1e-6)
     }
 
     func testPrideNeverFiresForEnemiesWithoutTheKitAndReplacesTheGenericArcanistPassive() {

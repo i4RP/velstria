@@ -408,7 +408,7 @@ public enum PassiveHooks {
 
     /// スキル発動の完了。サポートの回復。
     public static func onSkillCast(_ s: inout SimState, _ ctx: SimContext, caster: Int, slot: SkillSlot) {
-        ItemEffects.onSkillCast(&s, ctx, caster: caster)
+        ItemEffects.onSkillCast(&s, ctx, caster: caster, slot: slot)
         if let kit = HeroKits.kit(in: s, caster) {
             kit.onSkillCast(&s, ctx, caster: caster, slot: slot)
             return

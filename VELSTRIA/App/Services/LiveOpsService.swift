@@ -266,12 +266,12 @@ enum LiveOpsService {
         NoticeDef(id: "NT002", date: localDate(2026, 10, 1),
                   titleJa: "v1.0.0 パッチノート（概要）",
                   titleEn: "v1.0.0 Patch Notes (Summary)",
-                  bodyJa: "・ヒーロー 24 体（6 ロール）、アクティブスキル 96 種、装備 72 種、バトルスペル 10 種、ルーン 30 種を実装\n"
+                  bodyJa: "・ヒーロー 24 体（6 ロール）、アクティブスキル 96 種、装備 92 種（攻撃・魔法・防御・移動）と靴の祝福 7 種、バトルスペル 10 種、ルーン 30 種を実装\n"
                       + "・モード: 通常戦（難易度 3 段階）、ランク戦（BAN あり）、練習場、チュートリアル、観戦、リプレイ\n"
                       + "・ランク: 隕鉄〜星冠（各 3 段位・星 3）、星環王（ポイント制）。ティア初到達時に降格保護 1 回\n"
                       + "・デイリー / ウィークリーミッション、スターパス シーズン 1（30 段階）、実績、ログインボーナス\n"
                       + "・年齢区分に応じた月間購入上限を設定しています",
-                  bodyEn: "- 24 heroes across 6 roles, 96 active skills, 72 items, 10 battle spells and 30 runes\n"
+                  bodyEn: "- 24 heroes across 6 roles, 96 active skills, 92 items (Attack, Magic, Defense, Movement) plus 7 boot blessings, 10 battle spells and 30 runes\n"
                       + "- Modes: Standard (3 difficulties), Ranked (with bans), Practice, Tutorial, Spectate and Replays\n"
                       + "- Ranks: Meteorite to Star Crown (3 divisions, 3 stars each) and Star Sovereign (points). "
                       + "One demotion shield when you first reach a tier\n"

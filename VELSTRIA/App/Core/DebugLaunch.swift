@@ -239,7 +239,7 @@ enum DebugLaunch {
         case "heroDetail": return .heroDetail(arg.isEmpty ? "H001" : arg)
         case "skillDetail": return .skillDetail(arg.isEmpty ? "SK001_2" : arg)
         case "items": return .items
-        case "itemDetail": return .itemDetail(arg.isEmpty ? "EQ031" : arg)
+        case "itemDetail": return .itemDetail(arg.isEmpty ? "EQ101" : arg)
         case "buildEditor": return .buildEditor(arg.isEmpty ? "H001" : arg)
         case "runes": return .runes
         case "spells": return .spells

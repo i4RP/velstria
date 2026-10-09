@@ -954,6 +954,7 @@ struct HUDActionCluster: View {
                 HUDSpellButton(model: model, snapshot: sp, diameter: layout.spellDiameter, center: c, dead: dead)
                     .position(c)
             }
+            HUDItemActiveButtons(model: model, layout: layout, dead: dead)
             HUDRecallButton(model: model, diameter: layout.recallDiameter, channel: hero.channel, dead: dead,
                             highlighted: highlight == .recall)
                 .position(layout.recallCenter)

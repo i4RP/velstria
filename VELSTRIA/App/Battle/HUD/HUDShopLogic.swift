@@ -3,6 +3,7 @@ import VelstriaCore
 
 // 担当: battle-hud。戦闘中ショップ（UI028）の計算（純粋関数。単体テスト対象）。
 // 価格・可否は ItemSystem（quote / effectiveCost / sellValue / nextRecommendedPurchase）をそのまま使う。
+// ジャングル・ロームのタブは装備ではなく、靴に付ける祝福（GearOption。可否は GearEffects.quote）を並べる。
 
 struct HUDShopEntry: Equatable, Identifiable {
     var id: String { itemID }
@@ -25,6 +26,19 @@ struct HUDShopPathStep: Equatable, Identifiable {
     var isGoal: Bool
 }
 
+/// 祝福（ジャングル・ローム）のカード。
+struct HUDBlessingCard: Equatable, Identifiable {
+    var id: GearOption { option }
+    var option: GearOption
+    /// 一緒に買う靴の Gold（靴があれば 0、無ければスピードブーツの分）。
+    var cost: Int
+    var failure: PurchaseFailure?
+    /// いま靴に付いている祝福。
+    var isCurrent: Bool
+
+    var canApply: Bool { failure == nil && !isCurrent }
+}
+
 struct HUDShopState: Equatable {
     var gold = 0
     var items: [String] = []
@@ -33,18 +47,24 @@ struct HUDShopState: Equatable {
     var entries: [HUDShopEntry] = []
     var path: [HUDShopPathStep] = []
     var next: String?
-    /// 選んでいる靴のオプション（靴を持っていなければ nil）。
+    /// 靴に付いている祝福（靴を持っていなければ nil）。
     var gearOption: GearOption?
-    /// ローム靴の共有収入の累計とその祝福の段階（0〜3）。
+    /// 祝福のカード（GearOption.allCases の順）。
+    var blessings: [HUDBlessingCard] = []
+    /// ローム: 共栄ゴールド（共栄・無私で得た Gold の累計）と、祝福の効果を解放済み（1000）か。
     var roamGold = 0
-    var roamStage = 0
-    /// ジャングル靴の祝福の進み具合（狩り・キル・アシストの合計）と解放済みか。
+    var roamUnlocked = false
+    /// ジャングル: モンスター・キル・アシストの合計と、狩猟印を強化済み（ヒーローに使える）か。
     var jungleProgress = 0
     var jungleBlessed = false
 
     func entry(_ itemID: String) -> HUDShopEntry? {
         guard let k = HUDShopLogic.catalogIndex(itemID) else { return nil }
         return k < entries.count ? entries[k] : nil
+    }
+
+    func blessing(_ option: GearOption) -> HUDBlessingCard? {
+        blessings.first { $0.option == option }
     }
 }
 
@@ -95,8 +115,8 @@ enum HUDShopLogic {
         return steps
     }
 
-    /// ショップ全体の状態（Gold・所持品が変わった時だけ作り直す）。
-    static func state(hero: HeroData, ctx: SimContext, customBuild: [String]?) -> HUDShopState {
+    /// ショップ全体の状態（Gold・所持品・祝福の進みが変わった時だけ作り直す）。time = 試合時間（ロームの祝福の締め切り）。
+    static func state(hero: HeroData, ctx: SimContext, customBuild: [String]?, time: Double = 0) -> HUDShopState {
         var st = HUDShopState()
         st.gold = Int(EconomyRewards.hasInfiniteGold(ctx) ? Balance.Economy.practiceGold : hero.gold)
         st.items = hero.items
@@ -108,22 +128,61 @@ enum HUDShopLogic {
         }
         st.path = recommendedPath(hero: hero, ctx: ctx, customBuild: customBuild)
         st.next = ItemSystem.nextRecommendedPurchase(hero, ctx: ctx, customBuild: customBuild)
-        st.gearOption = GearEffects.option(of: hero, category: .roam, master: ctx.master)
-            ?? GearEffects.option(of: hero, category: .jungle, master: ctx.master)
+        st.gearOption = GearEffects.option(of: hero, master: ctx.master)
+        st.blessings = blessingCards(hero: hero, time: time, ctx: ctx)
         st.roamGold = Int(hero.gear?.roamGold ?? 0)
-        st.roamStage = GearEffects.roamStage(roamGold: hero.gear?.roamGold ?? 0)
-        st.jungleProgress = hero.score.creepScore + hero.score.kills + hero.score.assists
+        st.roamUnlocked = GearEffects.roamBlessingUnlocked(hero)
+        st.jungleProgress = GearEffects.jungleProgress(hero)
         st.jungleBlessed = GearEffects.jungleBlessingActive(hero, master: ctx.master)
         return st
     }
 
-    /// カテゴリの装備（Tier → 価格 → ID の順）。
-    static func items(in category: ItemCategory, master: MasterData) -> [ItemDef] {
-        master.items.filter { $0.category == category }.sorted {
-            if $0.tier != $1.tier { return $0.tier < $1.tier }
-            if $0.priceGold != $1.priceGold { return $0.priceGold < $1.priceGold }
-            return $0.itemID < $1.itemID
+    /// 祝福のカード（付けられるか・一緒に買う靴の Gold・付いているか）。並びは GearOption.allCases。
+    static func blessingCards(hero: HeroData, time: Double, ctx: SimContext) -> [HUDBlessingCard] {
+        let current = GearEffects.option(of: hero, master: ctx.master)
+        return GearOption.allCases.map { o in
+            let q = GearEffects.quote(hero, option: o, time: time, ctx: ctx)
+            return HUDBlessingCard(option: o, cost: q.cost.isFinite ? Int(q.cost) : 0, failure: q.failure, isCurrent: current == o)
         }
+    }
+
+    /// タブ（.jungle / .roam）の祝福のカード。
+    static func blessings(in category: ItemCategory, shop: HUDShopState) -> [HUDBlessingCard] {
+        shop.blessings.filter { $0.option.category == category }
+    }
+
+    /// 詳細に出す祝福: 選んだもの → 付いているもの → タブの先頭（そのタブのものだけ）。
+    static func focusedBlessing(category: ItemCategory, selected: GearOption?, shop: HUDShopState) -> GearOption? {
+        if let selected, selected.category == category { return selected }
+        if let current = shop.gearOption, current.category == category { return current }
+        return GearOption.options(for: category).first
+    }
+
+    /// 祝福の進み具合（ジャングル: 狩りとキル、ローム: 共栄ゴールド）。祝福のタブ以外は nil。
+    static func blessingProgressText(_ category: ItemCategory, shop: HUDShopState) -> String? {
+        switch category {
+        case .jungle: return GearInfo.jungleProgressText(shop.jungleProgress)
+        case .roam: return GearInfo.roamProgressText(shop.roamGold)
+        default: return nil
+        }
+    }
+
+    /// カードの費用（靴があれば 0、無ければ「スピードブーツ込み 250」）。
+    static func blessingCostText(_ card: HUDBlessingCard, master: MasterData) -> String {
+        guard card.cost > 0 else { return "0" }
+        let boots = master.item(Balance.Gear.baseBootsID).map { MasterText.item($0) } ?? ""
+        return L("\(boots)込み \(card.cost)", "With \(boots) \(card.cost)")
+    }
+
+    /// 詳細のボタンの文字（付いていなければ「付与」、別の祝福が付いていれば「付け替え」）。
+    static func blessingActionTitle(_ card: HUDBlessingCard, current: GearOption?) -> String {
+        if card.isCurrent { return L("付与済み", "Attached") }
+        return current == nil ? L("付与", "Attach") : L("付け替え", "Swap")
+    }
+
+    /// カテゴリのタブの装備（別のタブにも並ぶ装備を含む。ID 順）。ジャングル・ロームは祝福のタブなので空。
+    static func items(in category: ItemCategory, master: MasterData) -> [ItemDef] {
+        master.items.filter { $0.isListed(in: category) }
     }
 
     /// おすすめタブの一覧: 未所持のおすすめ装備と、その素材（素材が先・重複なし・購入順）。

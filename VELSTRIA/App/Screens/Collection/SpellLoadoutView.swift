@@ -118,8 +118,8 @@ struct SpellLoadoutView: View {
             // ジャングル担当になり得るロール（DESIGN §10: Assassin / Duelist）には狩猟印を案内する
             if let hero, hero.role == .assassin || hero.role == .duelist, !current.contains(BuildRules.smiteSpellID) {
                 let smite = BuildRules.smiteName(master: app.master)
-                Label(L("ジャングル担当なら「\(smite)」が必要です（ジャングル装備の購入条件）",
-                        "Junglers need \(smite) (required to buy Jungle items)"), systemImage: "lightbulb.fill")
+                Label(L("ジャングル担当なら「\(smite)」が必要です（靴にジャングルの祝福を付ける条件）",
+                        "Junglers need \(smite) (required for jungle blessings on your boots)"), systemImage: "lightbulb.fill")
                     .font(Theme.body(10))
                     .foregroundStyle(Theme.gold)
                     .fixedSize(horizontal: false, vertical: true)

@@ -300,46 +300,15 @@ def active_desc(skill: dict, hero: dict, name: str) -> str:
 # ---------------------------------------------------------------------------
 # 装備
 # ---------------------------------------------------------------------------
-# 装備名は tools/portraits/item_icons.json（装備アイコンの仕様）を正本とする。
-# 日本語名（ja）と英語名（name）が装備 ID ごとに入っており、カテゴリに合った装備の姿（杖・鎧・靴など）と一致させてある。
-ITEM_SPEC = ROOT / "tools" / "portraits" / "item_icons.json"
-
-
-def load_item_names() -> dict[str, tuple[str, str]]:
-    """装備 ID → (日本語名, 英語名)。"""
-    spec = json.loads(ITEM_SPEC.read_text(encoding="utf-8"))
-    return {it["id"]: (it["ja"], it["name"]) for it in spec["items"]}
-
-
-# 装備の固有効果の英語文は tools/equipment_spec.mjs（node tools/equipment_apply.mjs が tools/equipment_spec.json を書き出す）を正本とする。
+# 装備の英語名・一覧の短い説明・固有効果の英語文は tools/equipment_spec.mjs（Mobile Legends の装備の英語名）を正本とする
+# （node tools/equipment_apply.mjs が tools/equipment_spec.json を書き出す）。
 ITEM_PASSIVES = ROOT / "tools" / "equipment_spec.json"
 
 
 def load_item_passives() -> dict[str, dict]:
-    """装備 ID → {passive_name_en, passive_text_en, has_effect}。"""
+    """装備 ID → {name_en, tag_en, passive_name_en, passive_text_en}。"""
     spec = json.loads(ITEM_PASSIVES.read_text(encoding="utf-8"))
     return {it["id"]: it for it in spec["items"]}
-
-
-ITEM_PASSIVE_NAME = re.compile(r"^固有効果(?P<no>\d{2})$")
-ITEM_PASSIVE_TEXT = re.compile(r"^戦闘状況に応じて(?P<x>\d+)%相当の補助効果を付与。同名固有パッシブは重複しない。$")
-NO_STACK = " Unique passives with the same name do not stack."
-
-
-def item_desc(category: str, x: int) -> str:
-    """DESIGN §8 のカテゴリ別装備パッシブ（X = passive_text の %）。"""
-    body = {
-        "Attack": f"Unique Passive: Basic attacks deal +{x}% damage.",
-        "Magic": f"Unique Passive: Skills deal +{x}% damage.",
-        "Defense": f"Unique Passive: Reduces damage taken by {num(x / 2)}%.",
-        "Movement": f"Unique Passive: +{x}% move speed while out of combat. Limit one Movement item.",
-        "Utility": f"Unique Passive: +{x}% healing and shielding, and +{x}% mana regeneration.",
-        "Jungle": (f"Unique Passive: +{3 * x}% damage to monsters and +20% gold from monsters. "
-                   f"Limit one Jungle item; requires Hunter's Mark."),
-    }.get(category)
-    if body is None:
-        raise ValueError(f"unknown item category {category}")
-    return body + NO_STACK
 
 
 # ---------------------------------------------------------------------------
@@ -508,19 +477,17 @@ def build(master: dict) -> dict[str, str]:
             desc = active_desc(s, hero, hero["code_name"])
         put(f"{sid}.desc", desc)
 
-    # 装備
-    item_names = load_item_names()
+    # 装備（固有効果・一覧の説明が無い装備はキーを作らない）
     item_passives = load_item_passives()
     for it in master["equipment"]:
         iid = it["item_id"]
-        name_ja, name = need(item_names, iid, iid)
-        if name_ja != it["name_ja"]:
-            raise TranslationError(f"{iid}: 装備名がマスター（{it['name_ja']}）と item_icons.json（{name_ja}）で食い違います")
-        put(iid, name)
         sp = need(item_passives, iid, iid)
-        text = sp["passive_text_en"]
-        put(f"{iid}.desc", f"Unique Passive - {sp['passive_name_en']}: {text}" if sp["has_effect"] else text)
-        put(f"{iid}.passive", sp["passive_name_en"])
+        put(iid, sp["name_en"])
+        if it["passive_name"]:
+            put(f"{iid}.desc", sp["passive_text_en"])
+            put(f"{iid}.passive", sp["passive_name_en"])
+        if it.get("tag_ja"):
+            put(f"{iid}.tag", sp["tag_en"])
 
     # バトルスペル
     for sp in master["battle_spells"]:
@@ -610,7 +577,7 @@ TABLES = [
     # (テーブル, ID 列, 必須サフィックス, 名前の重複を禁止するか)
     ("heroes", "hero_id", ["", ".epithet", ".lore", ".strengths", ".weaknesses", ".counterplay"], True),
     ("skills", "skill_id", ["", ".desc"], False),
-    ("equipment", "item_id", ["", ".desc", ".passive"], True),
+    ("equipment", "item_id", ["", ".desc", ".passive", ".tag"], True),
     ("battle_spells", "spell_id", ["", ".desc"], True),
     ("runes", "rune_id", ["", ".desc"], True),
     ("cosmetics", "cosmetic_id", [""], True),
@@ -630,6 +597,10 @@ def validate(master: dict, overlay: dict[str, str]) -> list[str]:
         for row in rows:
             rid = row[col]
             for suf in suffixes:
+                # 装備: 固有効果・一覧の説明が無い装備（素材など）は .desc / .passive / .tag を持たない
+                if table == "equipment" and ((suf in (".desc", ".passive") and not row["passive_name"])
+                                             or (suf == ".tag" and not row.get("tag_ja"))):
+                    continue
                 key = rid + suf
                 expected.add(key)
                 if key not in overlay:
@@ -654,7 +625,7 @@ def validate(master: dict, overlay: dict[str, str]) -> list[str]:
         if key.endswith(".desc") and len(value) > MAX_DESC_LEN:
             errors.append(f"説明が長すぎます: {key}（{len(value)} 文字）")
     # 規模（DESIGN §0 / 仕様パッケージ README と一致すること）
-    for table, n in {"heroes": 34, "skills": 136, "equipment": 72, "battle_spells": 15, "runes": 30,
+    for table, n in {"heroes": 34, "skills": 136, "equipment": 92, "battle_spells": 15, "runes": 30,
                      "cosmetics": 102, "store": 154}.items():
         if counts.get(table) != n:
             errors.append(f"{table} の件数が想定外です: {counts.get(table)}（想定 {n}）")

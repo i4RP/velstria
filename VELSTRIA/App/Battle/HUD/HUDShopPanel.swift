@@ -2,8 +2,10 @@ import SwiftUI
 import VelstriaCore
 
 // 担当: battle-hud。UI028 戦闘中ショップ（スライドイン）。
-// おすすめの購入順（次の購入を強調）・カテゴリタブ・装備一覧（実コスト/購入不可理由）・詳細（能力値・パッシブ・素材）・
-// 購入（.buyItem、失敗は .purchaseFailed をトーストで通知）・所持品の売却（.sellItem、売却額）。死亡中も使える。
+// おすすめの購入順（次の購入を強調）・カテゴリタブ（攻撃/魔法/防御/移動 + ジャングル/ロームの祝福）・
+// 装備一覧（実コスト/購入不可理由）・詳細（能力値・固有効果・2 段の合成ツリー）・
+// 購入（.buyItem、失敗は .purchaseFailed をトーストで通知）・所持品の売却（.sellItem、売却額）・
+// 靴への祝福の付与（.setGearOption）・効果中のポーション。死亡中も使える。
 
 struct HUDShopPanel: View {
     let model: HUDModel
@@ -12,21 +14,35 @@ struct HUDShopPanel: View {
     var body: some View {
         let shop = model.shop
         let master = MasterData.shared
+        // ジャングル・ロームのタブは装備ではなく靴に付ける祝福を並べる
+        let blessingTab = model.shopCategory.flatMap { GearInfo.isBlessingCategory($0) ? $0 : nil }
         VStack(spacing: 0) {
             header(shop)
             Divider().overlay(HUDStyle.rim)
             HStack(alignment: .top, spacing: 10) {
                 VStack(spacing: 8) {
-                    if model.shopCategory == nil {
-                        HUDShopRecommended(model: model, shop: shop)
+                    if let c = blessingTab {
+                        HUDShopBlessings(model: model, shop: shop, category: c)
+                    } else {
+                        if model.shopCategory == nil {
+                            HUDShopRecommended(model: model, shop: shop)
+                        }
+                        HUDShopGrid(model: model, shop: shop,
+                                    items: model.shopCategory.map { HUDShopLogic.items(in: $0, master: master) }
+                                        ?? HUDShopLogic.recommendedGridItems(shop.path, master: master))
                     }
-                    HUDShopGrid(model: model, shop: shop,
-                                items: model.shopCategory.map { HUDShopLogic.items(in: $0, master: master) }
-                                    ?? HUDShopLogic.recommendedGridItems(shop.path, master: master))
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                HUDShopDetail(model: model, shop: shop)
-                    .frame(width: min(250, layout.width * 0.3))
+                Group {
+                    // 所持品を選んでいる間は売却の詳細
+                    if let c = blessingTab, model.shopSelectedSlot == nil,
+                       let option = HUDShopLogic.focusedBlessing(category: c, selected: model.shopSelectedOption, shop: shop) {
+                        HUDShopBlessingDetail(model: model, shop: shop, option: option)
+                    } else {
+                        HUDShopDetail(model: model, shop: shop)
+                    }
+                }
+                .frame(width: min(250, layout.width * 0.3))
             }
             .padding(10)
             Divider().overlay(HUDStyle.rim)
@@ -97,6 +113,8 @@ struct HUDShopPanel: View {
         let color = c.map { CollectionStyle.categoryColor($0) } ?? Theme.gold
         return Button {
             model.shopCategory = c
+            // 祝福のタブでは祝福の詳細を出す（所持品の売却の選択は解く）
+            if let c, GearInfo.isBlessingCategory(c) { model.shopSelectedSlot = nil }
             model.selectionFeedback()
         } label: {
             HStack(spacing: 4) {
@@ -291,54 +309,41 @@ struct HUDShopDetail: View {
                         ForEach(ItemMath.statLines(item)) { line in
                             HStack(spacing: 4) {
                                 Image(systemName: line.symbol).font(.system(size: 9, weight: .bold)).frame(width: 12)
-                                Text(line.label)
+                                Text(line.label).lineLimit(1).minimumScaleFactor(0.7)
                                 Spacer()
                                 Text(line.value).monospacedDigit().foregroundStyle(Theme.success)
                             }
                             .font(.system(size: 11, weight: .semibold, design: .rounded))
                             .foregroundStyle(.white.opacity(0.85))
                         }
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(item.passiveName.isEmpty || (Loc.isEnglish && !item.itemID.hasPrefix("EQ0")) ? L("パッシブ", "Passive") : MasterText.name(id: "\(item.itemID).passive", ja: item.passiveName))
-                                .font(.system(size: 11, weight: .heavy, design: .rounded))
-                                .foregroundStyle(Theme.gold)
-                            Text(ItemMath.passiveEffectText(item))
-                                .font(.system(size: 10.5, weight: .medium, design: .rounded))
-                                .foregroundStyle(.white.opacity(0.8))
+                        let passive = ItemMath.passiveEffectText(item)
+                        if !passive.isEmpty {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(ItemMath.passiveName(item) ?? L("パッシブ", "Passive"))
+                                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                                    .foregroundStyle(Theme.gold)
+                                Text(passive)
+                                    .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                                    .foregroundStyle(.white.opacity(0.8))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .padding(.top, 2)
+                        }
+                        if let note = ItemMath.consumableText(item) {
+                            Text(note)
+                                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                .foregroundStyle(Theme.cyan)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
-                        .padding(.top, 2)
-                        if item.category == .jungle || item.category == .roam {
-                            HUDShopGearSection(model: model, shop: shop, item: item)
+                        if item.isBoots {
+                            // 靴にはジャングル・ロームの祝福を付けられる（ショップの祝福のタブ）
+                            Text(shop.gearOption.map { L("祝福: \(GearInfo.name($0))", "Blessing: \(GearInfo.name($0))") }
+                                 ?? L("ジャングル・ロームのタブから祝福を付けられます", "Add a blessing from the Jungle or Roam tab"))
+                                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                .foregroundStyle(Theme.success)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
-                        let parts = ItemMath.components(item, master: master)
-                        if !parts.isEmpty {
-                            HStack(spacing: 4) {
-                                Text(L("素材", "Components"))
-                                    .font(.system(size: 10, weight: .heavy, design: .rounded))
-                                    .foregroundStyle(.white.opacity(0.6))
-                                ForEach(Array(parts.enumerated()), id: \.offset) { _, part in
-                                    Button {
-                                        model.shopSelectedItemID = part.itemID
-                                        model.shopSelectedSlot = nil
-                                    } label: {
-                                        ItemIconView(item: part, size: 26)
-                                            .overlay(alignment: .topTrailing) {
-                                                if shop.items.contains(part.itemID) {
-                                                    Image(systemName: "checkmark.circle.fill")
-                                                        .font(.system(size: 10, weight: .bold))
-                                                        .foregroundStyle(Theme.success)
-                                                        .background(Circle().fill(Color.black))
-                                                }
-                                            }
-                                            .frame(width: 32, height: 32)
-                                            .contentShape(Rectangle())
-                                    }
-                                    .buttonStyle(.plain)
-                                    .accessibilityLabel(MasterText.item(part))
-                                }
-                            }
-                        }
+                        HUDShopRecipeTree(model: model, shop: shop, item: item)
                     }
                 }
                 Spacer(minLength: 0)
@@ -386,7 +391,7 @@ struct HUDShopDetail: View {
                 }
                 Button { model.buy(item.itemID) } label: {
                     HStack(spacing: 5) {
-                        Text(L("購入", "Buy"))
+                        Text(item.isConsumable ? L("購入して使う", "Buy & Use") : L("購入", "Buy"))
                         HUDCoin(size: 14)
                         Text("\(cost)").monospacedDigit()
                         if discounted {
@@ -405,70 +410,274 @@ struct HUDShopDetail: View {
     }
 }
 
-/// ジャングル靴・ローム靴: 時間で変わる効果のルールと、オプションスキル（祝福）の選択。
-struct HUDShopGearSection: View {
+/// 合成ツリー（素材 → 素材の素材の 2 段。価格と所持の印付き。タップでその装備を選ぶ）。
+struct HUDShopRecipeTree: View {
     let model: HUDModel
     let shop: HUDShopState
     let item: ItemDef
 
     var body: some View {
-        let owned = shop.items.contains(item.itemID)
-        let options = GearOption.options(for: item.category)
-        VStack(alignment: .leading, spacing: 3) {
-            ForEach(GearInfo.rules(item.category), id: \.self) { rule in
-                Text("・" + rule)
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.7))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            if owned {
-                Text(progressText)
-                    .font(.system(size: 10.5, weight: .heavy, design: .rounded))
-                    .foregroundStyle(Theme.success)
-                HStack(spacing: 4) {
-                    ForEach(options, id: \.self) { option in
-                        optionChip(option)
+        let tree = ItemMath.recipeTree(item, master: MasterData.shared)
+        if !tree.isEmpty {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(L("素材", "Components"))
+                    .font(.system(size: 10, weight: .heavy, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.6))
+                ForEach(tree) { node in
+                    row(node.item, iconSize: 24, nested: false)
+                    ForEach(node.children) { child in
+                        row(child.item, iconSize: 18, nested: true)
                     }
                 }
-                if let current = shop.gearOption, current.category == item.category {
-                    Text(GearInfo.summary(current))
-                        .font(.system(size: 10, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.8))
-                        .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.top, 2)
+        }
+    }
+
+    private func row(_ part: ItemDef, iconSize: CGFloat, nested: Bool) -> some View {
+        let owned = shop.items.contains(part.itemID)
+        return Button {
+            model.shopSelectedItemID = part.itemID
+            model.shopSelectedSlot = nil
+            model.selectionFeedback()
+        } label: {
+            HStack(spacing: 4) {
+                if nested {
+                    Image(systemName: "arrow.turn.down.right")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.35))
+                        .padding(.leading, 6)
                 }
+                ItemIconView(item: part, size: iconSize)
+                Text(MasterText.item(part))
+                    .font(.system(size: nested ? 9.5 : 10.5, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(nested ? 0.7 : 0.88))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Spacer(minLength: 2)
+                if owned {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Theme.success)
+                }
+                HUDCoin(size: 9)
+                Text("\(Int(part.priceGold))")
+                    .font(.system(size: 10, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(Theme.gold.opacity(nested ? 0.75 : 1))
             }
-        }
-        .padding(.top, 2)
-    }
-
-    private var progressText: String {
-        if item.category == .roam {
-            return L("共有収入 \(shop.roamGold) / \(Int(Balance.Gear.roamGoldCap)) Gold ・ 祝福 \(shop.roamStage) / \(Balance.Gear.blessingThresholds.count) 段階",
-                     "Shared income \(shop.roamGold) / \(Int(Balance.Gear.roamGoldCap)) Gold · blessing stage \(shop.roamStage) / \(Balance.Gear.blessingThresholds.count)")
-        }
-        let need = Balance.Gear.jungleBlessingUnlockCount
-        if shop.jungleBlessed { return L("祝福は解放済み", "Blessing unlocked") }
-        return L("祝福まで \(min(shop.jungleProgress, need)) / \(need)", "Blessing: \(min(shop.jungleProgress, need)) / \(need)")
-    }
-
-    private func optionChip(_ option: GearOption) -> some View {
-        let selected = shop.gearOption == option
-        return Button { model.setGearOption(option) } label: {
-            HStack(spacing: 3) {
-                Image(systemName: GearInfo.symbol(option)).font(.system(size: 9, weight: .bold))
-                Text(GearInfo.name(option)).lineLimit(1).minimumScaleFactor(0.7)
-            }
-            .font(.system(size: 10, weight: .heavy, design: .rounded))
-            .foregroundStyle(selected ? Color.black : Color.white.opacity(0.85))
-            .padding(.horizontal, 6)
-            .frame(minHeight: 28)
-            .background(Capsule().fill(selected ? Theme.gold : Color.white.opacity(0.12)))
-            .contentShape(Capsule())
+            .frame(minHeight: nested ? 24 : 30)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(GearInfo.name(option))
+        .accessibilityLabel(MasterText.item(part))
+        .accessibilityValue("\(Int(part.priceGold)) Gold" + (owned ? L("、所持済み", ", owned") : ""))
+    }
+}
+
+/// ジャングル・ロームのタブ: 靴に付ける祝福のカード（付けられるか・費用・付いている祝福の印）と進み具合。
+struct HUDShopBlessings: View {
+    let model: HUDModel
+    let shop: HUDShopState
+    let category: ItemCategory
+
+    var body: some View {
+        let cards = HUDShopLogic.blessings(in: category, shop: shop)
+        let focused = HUDShopLogic.focusedBlessing(category: category, selected: model.shopSelectedOption, shop: shop)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: CollectionStyle.categorySymbol(category))
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(CollectionStyle.categoryColor(category))
+                Text(HUDShopLogic.blessingProgressText(category, shop: shop) ?? "")
+                    .font(.system(size: 12, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Spacer(minLength: 4)
+                Text(L("靴に付ける（0 Gold・装備枠を使わない）", "Goes on your boots (0 Gold, no slot)"))
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.6))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .padding(.horizontal, 8)
+            .frame(minHeight: 30)
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white.opacity(0.05)))
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("shop_blessing_progress")
+            ScrollView(.vertical, showsIndicators: true) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 260), spacing: 6)], spacing: 6) {
+                    ForEach(cards) { card in
+                        cardView(card, selected: card.option == focused)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+        }
+    }
+
+    private func cardView(_ card: HUDBlessingCard, selected: Bool) -> some View {
+        let color = CollectionStyle.categoryColor(card.option.category)
+        let reason = HUDShopLogic.failureText(card.failure)
+        let cost = HUDShopLogic.blessingCostText(card, master: .shared)
+        return Button {
+            model.shopSelectedOption = card.option
+            model.shopSelectedSlot = nil
+            model.selectionFeedback()
+        } label: {
+            HStack(alignment: .top, spacing: 8) {
+                ZStack {
+                    Circle().fill(color.opacity(0.22))
+                    Image(systemName: GearInfo.symbol(card.option))
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(color)
+                }
+                .frame(width: 34, height: 34)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 4) {
+                        Text(GearInfo.name(card.option))
+                            .font(.system(size: 12, weight: .heavy, design: .rounded))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                        if card.isCurrent {
+                            Text(L("付与中", "ON"))
+                                .font(.system(size: 8, weight: .black, design: .rounded))
+                                .foregroundStyle(.black)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(Capsule().fill(Theme.success))
+                        }
+                    }
+                    Text(GearInfo.short(card.option))
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.75))
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let reason, !card.isCurrent {
+                        Text(reason)
+                            .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                            .foregroundStyle(Theme.danger)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else if !card.isCurrent {
+                        HStack(spacing: 2) {
+                            HUDCoin(size: 10)
+                            Text(cost)
+                                .font(.system(size: 10, weight: .heavy, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundStyle(Theme.gold)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                        }
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(7)
+            .frame(maxWidth: .infinity, minHeight: 66, alignment: .topLeading)
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(selected ? Color.white.opacity(0.14) : Color.white.opacity(0.05)))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(selected ? Color.white : (card.isCurrent ? Theme.success : Color.white.opacity(0.08)),
+                              lineWidth: selected || card.isCurrent ? 1.5 : 1))
+            .opacity(reason == nil || card.isCurrent ? 1 : 0.7)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(HUDPressStyle())
+        .accessibilityLabel(GearInfo.name(card.option))
+        .accessibilityValue(card.isCurrent ? L("付与中", "Attached") : (reason ?? "\(cost) Gold"))
         .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityIdentifier("shop_gear_\(option.rawValue)")
+        .accessibilityIdentifier("shop_gear_\(card.option.rawValue)")
+    }
+}
+
+/// 選んだ祝福の詳細（効果・ルール・進み具合）と「付与」「付け替え」ボタン（.setGearOption。靴が無ければ一緒に買う）。
+struct HUDShopBlessingDetail: View {
+    let model: HUDModel
+    let shop: HUDShopState
+    let option: GearOption
+
+    var body: some View {
+        let card = shop.blessing(option) ?? HUDBlessingCard(option: option, cost: 0, failure: nil, isCurrent: false)
+        let color = CollectionStyle.categoryColor(option.category)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                ZStack {
+                    Circle().fill(color.opacity(0.22))
+                    Image(systemName: GearInfo.symbol(option))
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(color)
+                }
+                .frame(width: 46, height: 46)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(GearInfo.name(option))
+                        .font(.system(size: 14, weight: .heavy, design: .rounded))
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                    Text(L("\(CollectionStyle.categoryName(option.category))の祝福", "\(CollectionStyle.categoryName(option.category)) blessing"))
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .foregroundStyle(color)
+                }
+            }
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 4) {
+                    if let progress = HUDShopLogic.blessingProgressText(option.category, shop: shop) {
+                        Text(progress)
+                            .font(.system(size: 10.5, weight: .heavy, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(Theme.success)
+                    }
+                    // 1 行目は祝福の効果、2 行目からはルール
+                    ForEach(Array(GearInfo.details(option).enumerated()), id: \.offset) { k, line in
+                        let lead = k == 0
+                        Text(lead ? line : "・" + line)
+                            .font(.system(size: lead ? 11 : 10, weight: lead ? Font.Weight.semibold : Font.Weight.medium,
+                                          design: .rounded))
+                            .foregroundStyle(.white.opacity(lead ? 0.9 : 0.7))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+            VStack(spacing: 4) {
+                if let reason = HUDShopLogic.failureText(card.failure), !card.isCurrent {
+                    Text(reason)
+                        .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                        .foregroundStyle(Theme.danger)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                } else if card.cost > 0 && !card.isCurrent {
+                    Text(L("靴が無いので一緒に買います", "Boots will be bought with it"))
+                        .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.7))
+                        .frame(maxWidth: .infinity)
+                }
+                Button { model.setGearOption(option) } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: card.isCurrent ? "checkmark" : GearInfo.symbol(option))
+                        Text(HUDShopLogic.blessingActionTitle(card, current: shop.gearOption))
+                        if card.cost > 0 && !card.isCurrent {
+                            HUDCoin(size: 14)
+                            Text("\(card.cost)").monospacedDigit()
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(PrimaryButtonStyle(color: card.canApply ? Theme.gold : Color.gray))
+                .disabled(card.isCurrent)
+                .accessibilityIdentifier("shop_gear_apply")
+            }
+        }
+        .padding(10)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.06)))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.white.opacity(0.1), lineWidth: 1))
     }
 }
 
@@ -495,6 +704,17 @@ struct HUDShopInventory: View {
                             RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.black.opacity(0.45))
                             if k < shop.items.count, let item = MasterData.shared.item(shop.items[k]) {
                                 ItemIconView(item: item, size: 38)
+                                    .overlay(alignment: .topTrailing) {
+                                        // 靴に付いている祝福の印
+                                        if item.isBoots, let option = shop.gearOption {
+                                            Image(systemName: GearInfo.symbol(option))
+                                                .font(.system(size: 8, weight: .bold))
+                                                .foregroundStyle(.black)
+                                                .frame(width: 15, height: 15)
+                                                .background(Circle().fill(CollectionStyle.categoryColor(option.category)))
+                                                .offset(x: 4, y: -4)
+                                        }
+                                    }
                             } else {
                                 Image(systemName: "plus").font(.system(size: 12)).foregroundStyle(.white.opacity(0.2))
                             }
@@ -509,6 +729,24 @@ struct HUDShopInventory: View {
                                                              : L("空きスロット", "Empty slot"))
                     .accessibilityIdentifier("shop_slot_\(k + 1)")
                 }
+            }
+            // 効果中のポーション（所持枠を使わない）と残り秒数
+            if let potion = model.itemActives.potion, let item = MasterData.shared.item(potion.itemID) {
+                HStack(spacing: 4) {
+                    ItemIconView(item: item, size: 30)
+                    Text(L("残り \(potion.remaining) 秒", "\(potion.remaining)s"))
+                        .font(.system(size: 11, weight: .heavy, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.cyan)
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 6)
+                .frame(height: 38)
+                .background(Capsule().fill(Color.white.opacity(0.07)))
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(MasterText.item(item))
+                .accessibilityValue(L("残り \(potion.remaining) 秒", "\(potion.remaining) seconds left"))
+                .accessibilityIdentifier("shop_potion")
             }
             Spacer()
             if let slot = model.shopSelectedSlot, slot < shop.sellValues.count {

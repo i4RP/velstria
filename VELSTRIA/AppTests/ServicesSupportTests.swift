@@ -56,7 +56,7 @@ enum ServicesFixtures {
         score.goldEarned = gold
         score.largestMultiKill = multiKill
         let human = PlayerSummary(entityID: 1, team: .blue, heroID: heroID, displayName: "Tester", isHuman: humanPresent,
-                                  position: .top, level: 12, items: ["EQ001", "EQ002"], score: score, mvpScore: 20,
+                                  position: .top, level: 12, items: ["EQ133", "EQ132"], score: score, mvpScore: 20,
                                   grade: "A", isMVP: isMVP)
         let enemy = PlayerSummary(entityID: 2, team: .red, heroID: "H010", displayName: "Bot", isHuman: false,
                                   position: .top, level: 11, items: [], score: HeroScore(), mvpScore: 5,

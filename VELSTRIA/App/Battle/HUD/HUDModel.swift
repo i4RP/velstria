@@ -58,6 +58,8 @@ final class HUDModel {
         var items: [String]
         var enabled: Bool
         var option: GearOption?
+        /// ショップ: 祝福の進み（狩りとキル・共栄ゴールド）とロームの祝福の締め切りを過ぎたか。
+        var blessing: [Int] = []
     }
 
     // MARK: 参照
@@ -84,6 +86,8 @@ final class HUDModel {
     private(set) var vitals = HUDVitals()
     private(set) var skills: [HUDSkillSnapshot] = SkillSlot.actives.map { HUDSkillSnapshot(slot: $0) }
     private(set) var spells: [HUDSpellSnapshot] = [HUDSpellSnapshot(index: 0), HUDSpellSnapshot(index: 1)]
+    /// アクティブ装備・祝福のアクティブ（隠蔽）・効果中のポーション。
+    private(set) var itemActives = HUDItemActiveSnapshot()
     private(set) var quickBuyItemID: String?
     private(set) var shop = HUDShopState()
     private(set) var minimapVersion = 0
@@ -126,6 +130,8 @@ final class HUDModel {
     var shopCategory: ItemCategory?
     var shopSelectedItemID: String?
     var shopSelectedSlot: Int?
+    /// ショップのジャングル・ロームのタブで選んでいる祝福。
+    var shopSelectedOption: GearOption?
     var confirmingLeave = false
 
     // MARK: 入力状態（非観測）
@@ -539,6 +545,8 @@ final class HUDModel {
         if snap != hero { hero = snap }
         if b.skills != skills { skills = b.skills }
         if b.spells != spells { spells = b.spells }
+        let actives = HUDItemActiveLogic.snapshot(h, time: s.time, master: ctx.master)
+        if actives != itemActives { itemActives = actives }
 
         // おすすめ購入（Gold・所持品が変わった時だけ計算）
         let key = QuickBuyKey(gold: Int(h.gold), items: h.items, enabled: settings.showRecommendedItems)
@@ -579,7 +587,10 @@ final class HUDModel {
             if st.kind == .revealed && st.duration >= 30 { continue }
             let rem = (st.remaining * 10).rounded(.up) / 10
             // 同じ種類でもキットの凍結・固有のマークは別のアイコン（名前と記号が違う）。汎用は従来どおり種類でまとめる
+            // 固定値の増減（祝福の奪取・激励など）は強化と弱体を別のアイコンにする
+            let isBuff = HUDSymbols.isBuff(st.kind, magnitude: st.magnitude)
             let id = st.kind.rawValue + KitStatusVisuals.variant(kind: st.kind, tag: st.tag) * 1000
+                + (HUDSymbols.isSignedMod(st.kind) && !isBuff ? 500 : 0)
             if let k = icons.firstIndex(where: { $0.id == id }) {
                 if rem > icons[k].remaining {
                     icons[k].remaining = rem
@@ -587,7 +598,7 @@ final class HUDModel {
                 }
             } else {
                 icons.append(HUDStatusIcon(id: id, kind: st.kind, remaining: rem, duration: st.duration,
-                                           isBuff: HUDSymbols.isBuff(st.kind), tag: st.tag))
+                                           isBuff: isBuff, tag: st.tag))
             }
         }
         icons.sort { a, b in
@@ -599,7 +610,9 @@ final class HUDModel {
     }
 
     private func customBuild(for heroID: String) -> [String]? {
-        guard let build = app?.profile.customBuilds[heroID], !build.isEmpty else { return nil }
+        // 装備の入れ替え前の ID は除く（1 つも残らなければおすすめに戻す）
+        guard let build = app?.profile.customBuilds[heroID]?.filter({ controller.ctx.master.item($0) != nil }),
+              !build.isEmpty else { return nil }
         return build
     }
 
@@ -614,10 +627,12 @@ final class HUDModel {
 
     private func refreshShop(_ s: SimState, _ ctx: SimContext, force: Bool) {
         guard let hi = controller.humanIndex, let h = s.units[hi].hero else { return }
-        let key = QuickBuyKey(gold: Int(h.gold), items: h.items, enabled: true, option: h.gear?.option)
+        let key = QuickBuyKey(gold: Int(h.gold), items: h.items, enabled: true, option: h.gear?.option,
+                              blessing: [GearEffects.jungleProgress(h), Int(h.gear?.roamGold ?? 0),
+                                         s.time > Balance.Gear.roamPurchaseDeadline ? 1 : 0])
         guard force || key != shopKey else { return }
         shopKey = key
-        let st = HUDShopLogic.state(hero: h, ctx: ctx, customBuild: customBuild(for: h.heroID))
+        let st = HUDShopLogic.state(hero: h, ctx: ctx, customBuild: customBuild(for: h.heroID), time: s.time)
         if st != shop { shop = st }
         if shopSelectedItemID == nil { shopSelectedItemID = st.next ?? st.path.first(where: { !$0.owned })?.itemID }
         if let slot = shopSelectedSlot, slot >= h.items.count { shopSelectedSlot = nil }
@@ -1704,7 +1719,7 @@ final class HUDModel {
         app?.haptics.tap()
     }
 
-    /// ジャングル靴・ローム靴のオプションスキル（祝福）を切り替える。
+    /// 靴に祝福（ジャングル・ローム）を付ける・付け替える。靴が無ければスピードブーツも一緒に買う（sim 側）。
     func setGearOption(_ option: GearOption) {
         guard !isSpectating, !finished else { return }
         controller.send(.setGearOption(option))
@@ -1952,8 +1967,11 @@ final class HUDModel {
         let aimPoint = HUDAim.aimPoint(origin: u.pos, drag: session.drag, maxDrag: maxDrag, targeting: session.targeting,
                                        facing: u.facing)
         if let spellID = session.spellID {
+            // 狩猟印は、ジャングルの祝福を強化済み（モンスター・キル・アシスト 5）なら敵ヒーローにも使える
+            let smiteHeroes = u.hero.map { GearEffects.jungleBlessingActive($0, master: controller.ctx.master) } ?? false
             return HUDSpellAim.castTarget(spellID: spellID, targeting: session.targeting, origin: u.pos, aimPoint: aimPoint,
-                                          drag: session.drag, facing: u.facing, state: s, team: u.team)
+                                          drag: session.drag, facing: u.facing, state: s, team: u.team,
+                                          smiteHeroes: smiteHeroes)
         }
         return HUDAim.castTarget(targeting: session.targeting, origin: u.pos, aimPoint: aimPoint, drag: session.drag,
                                  facing: u.facing, state: s, team: u.team, casterID: u.id)

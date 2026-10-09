@@ -151,9 +151,9 @@ public enum ItemCategory: String, Codable, Hashable, Sendable, CaseIterable {
     case magic = "Magic"
     case defense = "Defense"
     case movement = "Movement"
-    case utility = "Utility"
+    /// ジャングルの祝福（靴に付ける。装備としては売っていない。GearOption）。
     case jungle = "Jungle"
-    /// ローム装備（靴）。共有収入を得る代わりに早い時間帯は自分の狩りの収入が減る。
+    /// ロームの祝福（靴に付ける。共有収入を得る代わりに自分の狩りの収入が減る。GearOption）。
     case roam = "Roam"
 }
 

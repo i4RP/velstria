@@ -53,6 +53,13 @@ private struct ItemSummaryPanel: View {
                             CollectionInfoTag(text: CollectionStyle.tierName(item.tier), symbol: "diamond.fill",
                                               color: CollectionStyle.tierColor(item.tier))
                         }
+                        if let tag = ItemMath.tag(item) {
+                            Text(tag)
+                                .font(Theme.body(11))
+                                .foregroundStyle(color)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        }
                     }
                 }
                 HStack(spacing: 14) {
@@ -79,56 +86,47 @@ private struct ItemSummaryPanel: View {
                     .background(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.25)))
                 }
                 VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "sparkle").foregroundStyle(Theme.gold)
-                        Text(L("固有パッシブ", "Unique Passive"))
-                            .font(Theme.body(11))
-                            .foregroundStyle(Theme.gold)
-                        Text(MasterText.name(id: "\(item.itemID).passive", ja: item.passiveName))
-                            .font(Theme.heading(13))
-                            .foregroundStyle(Theme.textPrimary)
+                    let passive = ItemMath.passiveEffectText(item)
+                    if !passive.isEmpty {
+                        HStack(spacing: 6) {
+                            Image(systemName: "sparkle").foregroundStyle(Theme.gold)
+                            Text(L("固有パッシブ", "Unique Passive"))
+                                .font(Theme.body(11))
+                                .foregroundStyle(Theme.gold)
+                        }
+                        if let name = ItemMath.passiveName(item) {
+                            Text(name)
+                                .font(Theme.heading(13))
+                                .foregroundStyle(Theme.textPrimary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Text(passive)
+                            .font(Theme.body(13))
+                            .foregroundStyle(color)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(L("同名の固有パッシブは重複しません。", "Unique passives with the same name do not stack."))
+                            .font(Theme.body(10))
+                            .foregroundStyle(Theme.textSecondary)
                     }
-                    Text(ItemMath.passiveEffectText(item))
-                        .font(Theme.body(13))
-                        .foregroundStyle(color)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(L("同名の固有パッシブは重複しません。", "Unique passives with the same name do not stack."))
-                        .font(Theme.body(10))
-                        .foregroundStyle(Theme.textSecondary)
-                    if item.category == .movement || item.category == .jungle || item.category == .roam {
-                        let smite = BuildRules.smiteName(master: app.master)
-                        let limit: String = {
-                            switch item.category {
-                            case .movement: return L("移動系装備は 1 つまで", "Limit one Movement item")
-                            case .roam: return L("ローム系装備は 1 つまで・「\(smite)」を装備していると買えません",
-                                                 "Limit one Roam item; can't be bought with \(smite)")
-                            default: return L("ジャングル系装備は 1 つまで・購入には「\(smite)」が必要",
-                                              "Limit one Jungle item; requires \(smite) to buy")
-                            }
-                        }()
-                        Label(limit, systemImage: "exclamationmark.circle")
+                    if !item.alsoIn.isEmpty {
+                        let tabs = item.alsoIn.map(CollectionStyle.categoryName).joined(separator: L("・", ", "))
+                        Label(L("\(tabs)のタブにも並びます", "Also listed under \(tabs)"), systemImage: "square.grid.2x2")
                             .font(Theme.body(11))
                             .foregroundStyle(Theme.textSecondary)
                     }
-                    if ItemSystem.isBoots(item) {
-                        Label(L("靴枠を使います（靴は 1 つまで）", "Uses the boots slot (one pair only)"),
+                    if let note = ItemMath.consumableText(item) {
+                        Label(note, systemImage: "flask.fill")
+                            .font(Theme.body(11))
+                            .foregroundStyle(Theme.cyan)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if item.isBoots {
+                        Label(L("靴は 1 足まで。試合中にショップのジャングル・ロームのタブから、靴に祝福を付けられます",
+                                "One pair of boots only. During a match, add a blessing to your boots from the shop's Jungle or Roam tab"),
                               systemImage: "shoeprints.fill")
                             .font(Theme.body(11))
                             .foregroundStyle(Theme.textSecondary)
-                    }
-                    ForEach(GearInfo.rules(item.category), id: \.self) { rule in
-                        Label(rule, systemImage: "clock.arrow.circlepath")
-                            .font(Theme.body(11))
-                            .foregroundStyle(Theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
-                    }
-                    if item.category == .jungle || item.category == .roam {
-                        ForEach(GearOption.options(for: item.category), id: \.self) { option in
-                            Label("\(GearInfo.name(option)): \(GearInfo.summary(option))", systemImage: GearInfo.symbol(option))
-                                .font(Theme.body(11))
-                                .foregroundStyle(Theme.textPrimary.opacity(0.85))
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
                     }
                 }
                 .accessibilityElement(children: .combine)
@@ -145,16 +143,19 @@ private struct ItemSummaryPanel: View {
     }
 }
 
-/// 合成ツリー（上位装備 → この装備 → 素材）。
+/// 合成ツリー（上位装備 → この装備 → 素材 → 素材の素材）。
 private struct ItemBuildTreePanel: View {
     let item: ItemDef
     @Environment(AppModel.self) private var app
 
-    private let childWidth: CGFloat = 104
-    private let childSpacing: CGFloat = 14
+    /// 素材の列の幅と間隔。素材 3 個までは 3×104 + 2×14 = 340pt、4 個は 4×88 + 3×8 = 376pt に収める
+    /// （右の列は画面幅 − 一覧 300 − 余白。収まらない画面では横にスクロールする）。
+    private func columns(_ count: Int) -> (width: CGFloat, spacing: CGFloat) {
+        count >= 4 ? (88, 8) : (104, 14)
+    }
 
     var body: some View {
-        let parts = ItemMath.components(item, master: app.master)
+        let tree = ItemMath.recipeTree(item, master: app.master)
         let parents = ItemMath.buildsInto(item.itemID, master: app.master)
         Panel(padding: 12) {
             VStack(spacing: 8) {
@@ -195,23 +196,21 @@ private struct ItemBuildTreePanel: View {
                         .lineLimit(1)
                     GoldPriceLabel(amount: item.priceGold, size: 11)
                 }
-                // 素材
-                if parts.isEmpty {
+                // 素材（2 段: 素材の下にその素材）
+                if tree.isEmpty {
                     Text(L("基本装備（素材なし）", "Basic item (no components)"))
                         .font(Theme.body(12))
                         .foregroundStyle(Theme.textSecondary)
                         .padding(.top, 4)
                 } else {
-                    ItemTreeConnector(count: parts.count, childWidth: childWidth, spacing: childSpacing)
-                        .stroke(Theme.gold.opacity(0.7), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
-                        .frame(width: CGFloat(parts.count) * childWidth + CGFloat(parts.count - 1) * childSpacing, height: 22)
-                    HStack(alignment: .top, spacing: childSpacing) {
-                        ForEach(Array(parts.enumerated()), id: \.offset) { _, part in
-                            ItemTreeNode(item: part, compact: false)
-                                .frame(width: childWidth)
+                    ViewThatFits(in: .horizontal) {
+                        componentRows(tree)
+                        ScrollView(.horizontal) {
+                            componentRows(tree)
                         }
+                        .scrollIndicators(.hidden)
                     }
-                    let partsTotal = parts.reduce(0) { $0 + $1.priceGold }
+                    let partsTotal = tree.reduce(0) { $0 + $1.item.priceGold }
                     HStack(spacing: 6) {
                         Text(L("素材合計", "Components")).font(Theme.body(11)).foregroundStyle(Theme.textSecondary)
                         GoldPriceLabel(amount: partsTotal, size: 11)
@@ -220,13 +219,80 @@ private struct ItemBuildTreePanel: View {
                         GoldPriceLabel(amount: ItemMath.combineCost(item, master: app.master), size: 11)
                     }
                     .padding(.top, 2)
-                    Text(L("合成コスト = max(価格×30%, 価格 − 所持素材の価格)", "Combine cost = max(30% of price, price − owned components)"))
+                    Text(combineRuleText)
                         .font(Theme.body(10))
                         .foregroundStyle(Theme.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .frame(maxWidth: .infinity)
         }
+    }
+
+    /// 合成コストの決まり（下限の割合は Balance.minCombineCostRatio。0 なら価格 − 持っている素材の価格）。
+    private var combineRuleText: String {
+        let floor = Int((Balance.minCombineCostRatio * 100).rounded())
+        if floor > 0 {
+            return L("合成コスト = max(価格×\(floor)%, 価格 − 持っている素材の価格)。素材の素材を持っていればその分も引かれる",
+                     "Combine cost = max(\(floor)% of price, price − owned components), including components of components")
+        }
+        return L("合成コスト = 価格 − 持っている素材の価格（素材の素材を持っていればその分も引かれる）",
+                 "Combine cost = price − owned components (components of components count too)")
+    }
+
+    /// 素材の列（接続線 → 素材 → その素材）。
+    private func componentRows(_ tree: [ItemRecipeNode]) -> some View {
+        let (width, spacing) = columns(tree.count)
+        return VStack(spacing: 0) {
+            ItemTreeConnector(count: tree.count, childWidth: width, spacing: spacing)
+                .stroke(Theme.gold.opacity(0.7), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+                .frame(width: CGFloat(tree.count) * width + CGFloat(tree.count - 1) * spacing, height: 22)
+            HStack(alignment: .top, spacing: spacing) {
+                ForEach(tree) { node in
+                    VStack(spacing: 4) {
+                        ItemTreeNode(item: node.item, compact: false, textWidth: width - 10)
+                        if !node.children.isEmpty {
+                            Rectangle()
+                                .fill(Theme.gold.opacity(0.45))
+                                .frame(width: 1.5, height: 8)
+                            VStack(spacing: 3) {
+                                ForEach(node.children) { child in
+                                    ItemTreeLeaf(item: child.item)
+                                }
+                            }
+                        }
+                    }
+                    .frame(width: width)
+                }
+            }
+        }
+    }
+}
+
+/// 合成ツリーの 2 段目（素材の素材）。小さなアイコンと価格（タップでその装備の詳細へ）。
+private struct ItemTreeLeaf: View {
+    let item: ItemDef
+    @Environment(AppModel.self) private var app
+
+    var body: some View {
+        Button {
+            app.haptics.tap()
+            app.router.push(.itemDetail(item.itemID))
+        } label: {
+            HStack(spacing: 4) {
+                ItemIconView(item: item, size: 28)
+                GoldPriceLabel(amount: item.priceGold, size: 9)
+            }
+            .padding(.horizontal, 4)
+            .frame(minWidth: 44, minHeight: 36)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.04)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(CollectionPressStyle())
+        .accessibilityLabel(MasterText.item(item))
+        .accessibilityValue("\(Int(item.priceGold)) G")
+        .accessibilityIdentifier("itemtree_\(item.itemID)")
     }
 }
 
@@ -234,6 +300,8 @@ private struct ItemBuildTreePanel: View {
 private struct ItemTreeNode: View {
     let item: ItemDef
     let compact: Bool
+    /// 名前の幅（素材 4 個の列は狭い）。nil なら compact で決まる。
+    var textWidth: CGFloat?
     @Environment(AppModel.self) private var app
 
     var body: some View {
@@ -248,7 +316,7 @@ private struct ItemTreeNode: View {
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(compact ? 1 : 2)
                     .multilineTextAlignment(.center)
-                    .frame(width: compact ? 78 : 96)
+                    .frame(width: textWidth ?? (compact ? 78 : 96))
                 GoldPriceLabel(amount: item.priceGold, size: 10)
             }
             .padding(5)

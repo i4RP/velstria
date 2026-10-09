@@ -65,6 +65,12 @@ public enum CommandSystem {
                 ItemSystem.sell(&s, ctx, heroIndex: i, slotIndex: slotIndex)
             case .setGearOption(let option):
                 GearSystem.setOption(&s, ctx, heroIndex: i, option: option)
+            case .useItemActive:
+                guard !dead else { continue }
+                ItemEffects.useActive(&s, ctx, heroIndex: i)
+            case .useGearActive:
+                guard !dead else { continue }
+                GearSystem.useActive(&s, ctx, heroIndex: i)
             case .recall:
                 guard !dead else { continue }
                 RecallSystem.startRecall(&s, ctx, heroIndex: i)

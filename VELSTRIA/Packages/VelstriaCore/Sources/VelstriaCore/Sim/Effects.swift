@@ -36,7 +36,11 @@ public enum StatusKind: Int, Codable, Hashable, Sendable {
     case untargetable    // 単体指定・追尾・通常攻撃の対象から外れる（範囲・直線には当たる）
     case suppress        // 行動不能・移動不能。解除不可で CC 無効も無視する
     case channeling      // キットのスキルの詠唱中（表示用。行動の制限は別に持つ）
-    case magicShred      // magnitude = 魔防の減少量（固定値。装備「魔防の綻び」）。raw 値を変えないため末尾に追加
+    case magicShred      // magnitude = 魔防の減少量（固定値。装備のジーニアスワンド）。raw 値を変えないため末尾に追加
+    // 装備と靴の祝福（MLBB の装備への総入れ替え、2026-10）。raw 値を変えないため末尾に追加
+    case flatPowerMod    // magnitude = 物理攻撃と魔法攻撃の増減（固定値。負 = 減少。炎撃の狩猟の奪取）
+    case flatMoveSpeedMod // magnitude = 移動速度の増減（固定値。負 = 減少。氷刺の狩猟の奪取）
+    case flatDefenseMod  // magnitude = 物理防御と魔法防御の増減（固定値。負 = 減少。激励・カースヘルムの呪い）
 }
 
 extension StatusKind {
@@ -44,6 +48,8 @@ extension StatusKind {
     public var preventsMovement: Bool { self == .stun || self == .root || self == .airborne || self == .suppress }
     /// 攻撃・スキル不可にする CC。
     public var preventsActions: Bool { self == .stun || self == .airborne || self == .suppress }
+    /// コントロール時間短縮で効果時間が縮む行動阻害・減速。
+    public var reducedByCCReduction: Bool { self == .stun || self == .root || self == .silence || self == .slow }
     /// 浄化で解除される弱体。
     public var isCleansable: Bool {
         switch self {

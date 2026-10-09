@@ -103,9 +103,39 @@ public struct ItemDef: Codable, Hashable, Sendable, Identifiable {
     public var outOfCombatMovePct: Double = 0
     public var healShieldPowerPct: Double = 0
     public var monsterDamagePct: Double = 0
-    /// 固有効果の種類（`ItemEffectKind` の rawValue。無ければ空）と係数。
-    public var effectID: String = ""
-    public var effectValues: [Double] = []
+    // 以下は MLBB の装備への総入れ替え（2026-10）で足した能力値。
+    /// 最大 MP（リソースが Mana のヒーローだけに効く）。
+    public var mana: Double = 0
+    /// 適応攻撃（ヒーローの主なダメージの種類に応じて、攻撃力か魔力のどちらかになる）。
+    public var adaptiveAttack: Double = 0
+    /// コントロール時間短縮（行動阻害の効果時間を割合で縮める）。
+    public var ccReductionPct: Double = 0
+    /// 減速軽減（受ける減速を割合で弱める）。
+    public var slowReductionPct: Double = 0
+    /// 受けるシールド・HP 回復の効果量の増加。
+    public var healReceivedPct: Double = 0
+    /// 受けるクリティカルダメージの軽減。
+    public var critDamageReductionPct: Double = 0
+    /// 被ダメージ軽減（ポーションなど）。
+    public var damageReductionPct: Double = 0
+    /// 固有の能力値（同じ装備を 2 個以上持っても 1 個分だけ効く。キーは master の能力値の列名）。
+    public var uniqueStats: [String: Double] = [:]
+    /// 固有効果（`ItemEffectKind` の rawValue と係数）。1 つの装備が複数を持つことがある。
+    public var effects: [ItemEffectRef] = []
+    /// > 0 なら消耗品（買うと所持枠を使わずにこの秒数だけ能力値が付く。ポーション）。
+    public var consumableSec: Double = 0
+    /// 別のタブにも並ぶ（MLBB の図鑑で複数のタブに出る装備）。
+    public var alsoIn: [ItemCategory] = []
+    /// 一覧に出す短い説明（「攻撃範囲増加」など）。
+    public var tagJa: String = ""
+
+    /// itemCategory のタブに並ぶか（本来のカテゴリか alsoIn）。
+    public func isListed(in c: ItemCategory) -> Bool { category == c || alsoIn.contains(c) }
+    /// 最初の固有効果の種類（無ければ空）。
+    public var effectID: String { effects.first?.id ?? "" }
+    public var isConsumable: Bool { consumableSec > 0 }
+    /// 靴（移動カテゴリの装備。祝福を付けられるのは Tier 2 以上の靴）。
+    public var isBoots: Bool { category == .movement }
 
     /// passive_text 中の「N%」の N（見つからなければ 0）。
     public var passivePercent: Double { MasterData.firstPercent(in: passiveText) }
@@ -122,7 +152,21 @@ public struct ItemDef: Codable, Hashable, Sendable, Identifiable {
         case hpRegen = "hp_regen", resourceRegen = "resource_regen", abilityPowerPct = "ability_power_pct"
         case moveSpeedPct = "move_speed_pct", outOfCombatMovePct = "out_of_combat_move_pct"
         case healShieldPowerPct = "heal_shield_power_pct", monsterDamagePct = "monster_damage_pct"
-        case effectID = "effect_id", effectValues = "effect_values"
+        case mana, adaptiveAttack = "adaptive_attack", ccReductionPct = "cc_reduction_pct"
+        case slowReductionPct = "slow_reduction_pct", healReceivedPct = "heal_received_pct"
+        case critDamageReductionPct = "crit_damage_reduction_pct", damageReductionPct = "damage_reduction_pct"
+        case uniqueStats = "unique_stats", effects, consumableSec = "consumable_sec", alsoIn = "also_in", tagJa = "tag_ja"
+    }
+}
+
+/// 装備の固有効果の参照（種類と係数）。
+public struct ItemEffectRef: Codable, Hashable, Sendable {
+    public var id: String
+    public var v: [Double]
+
+    public init(id: String, v: [Double]) {
+        self.id = id
+        self.v = v
     }
 }
 
@@ -162,8 +206,18 @@ extension ItemDef {
         outOfCombatMovePct = try opt(.outOfCombatMovePct)
         healShieldPowerPct = try opt(.healShieldPowerPct)
         monsterDamagePct = try opt(.monsterDamagePct)
-        effectID = try c.decodeIfPresent(String.self, forKey: .effectID) ?? ""
-        effectValues = try c.decodeIfPresent([Double].self, forKey: .effectValues) ?? []
+        mana = try opt(.mana)
+        adaptiveAttack = try opt(.adaptiveAttack)
+        ccReductionPct = try opt(.ccReductionPct)
+        slowReductionPct = try opt(.slowReductionPct)
+        healReceivedPct = try opt(.healReceivedPct)
+        critDamageReductionPct = try opt(.critDamageReductionPct)
+        damageReductionPct = try opt(.damageReductionPct)
+        uniqueStats = try c.decodeIfPresent([String: Double].self, forKey: .uniqueStats) ?? [:]
+        effects = try c.decodeIfPresent([ItemEffectRef].self, forKey: .effects) ?? []
+        consumableSec = try opt(.consumableSec)
+        alsoIn = try c.decodeIfPresent([ItemCategory].self, forKey: .alsoIn) ?? []
+        tagJa = try c.decodeIfPresent(String.self, forKey: .tagJa) ?? ""
     }
 }
 
@@ -323,9 +377,7 @@ public final class MasterData: @unchecked Sendable {
         gameRules = raw.gameRules
         heroes = raw.heroes.sorted { $0.heroID < $1.heroID }
         skills = raw.skills.sorted { $0.skillID < $1.skillID }
-        // 靴（ジャングル靴・ローム靴）は正本マスターに無いので、同じ ID があればマスターを優先して加える
-        let gearItems = GearCatalog.items.filter { g in !raw.equipment.contains { $0.itemID == g.itemID } }
-        items = (raw.equipment + gearItems).sorted { $0.itemID < $1.itemID }
+        items = raw.equipment.sorted { $0.itemID < $1.itemID }
         spells = raw.battleSpells.sorted { $0.spellID < $1.spellID }
         runes = raw.runes.sorted { $0.runeID < $1.runeID }
         effects = raw.effects.sorted { $0.effectID < $1.effectID }

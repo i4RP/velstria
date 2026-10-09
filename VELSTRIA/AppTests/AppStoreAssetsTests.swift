@@ -29,8 +29,12 @@ final class AppStoreAssetsTests: XCTestCase {
             for suffix in [".epithet", ".lore", ".strengths", ".weaknesses", ".counterplay"] { need(h.heroID + suffix) }
         }
         for s in m.skills { need(s.skillID); need(s.skillID + ".desc") }
-        for i in m.items where GearCatalog.english[i.itemID] == nil {  // 靴は GearCatalog が英語を持つ
-            need(i.itemID); need(i.itemID + ".desc"); need(i.itemID + ".passive")
+        for i in m.items {
+            need(i.itemID)
+            // 固有効果・短い説明の無い装備（素材）は名前だけ
+            if !i.passiveText.isEmpty { need(i.itemID + ".desc") }
+            if !i.passiveName.isEmpty { need(i.itemID + ".passive") }
+            if !i.tagJa.isEmpty { need(i.itemID + ".tag") }
         }
         for s in m.spells { need(s.spellID); need(s.spellID + ".desc") }
         for r in m.runes { need(r.runeID); need(r.runeID + ".desc") }
@@ -41,7 +45,7 @@ final class AppStoreAssetsTests: XCTestCase {
 
         XCTAssertEqual(m.heroes.count, 34)
         XCTAssertEqual(m.skills.count, 136)
-        XCTAssertEqual(m.items.count, 72 + GearCatalog.items.count)  // 正本 72 + 靴
+        XCTAssertEqual(m.items.count, 92)  // 攻撃 34・魔法 25・防御 25・移動 8
         XCTAssertEqual(m.spells.count, 15)
         XCTAssertEqual(m.runes.count, 30)
         XCTAssertEqual(m.cosmetics.count, 102)
@@ -96,14 +100,16 @@ final class AppStoreAssetsTests: XCTestCase {
         let m = MasterData.shared
         let alden = try XCTUnwrap(m.heroes.first { $0.heroID == "H001" })
         let lyraRecall = try XCTUnwrap(m.cosmetics.first { $0.cosmeticID == "CO002" })
-        let dagger = try XCTUnwrap(m.items.first { $0.itemID == "EQ001" })
+        let dagger = try XCTUnwrap(m.items.first { $0.itemID == "EQ133" })
 
         Loc.current = .en
         XCTAssertEqual(MasterText.hero(alden), "Alden, Gate Warden")
         XCTAssertEqual(MasterText.cosmetic(lyraRecall), "Starstring Recall I")
-        XCTAssertEqual(MasterText.item(dagger), "Dawn Dagger")
-        let gale = try XCTUnwrap(m.items.first { $0.itemID == "EQ019" })
-        XCTAssertTrue(MasterText.description(id: gale.itemID, ja: gale.passiveText).hasPrefix("Unique Passive"))
+        XCTAssertEqual(MasterText.item(dagger), overlay["EQ133"])
+        XCTAssertNotEqual(MasterText.item(dagger), dagger.nameJa)
+        let gun = try XCTUnwrap(m.items.first { $0.itemID == "EQ101" })
+        XCTAssertEqual(MasterText.description(id: gun.itemID, ja: gun.passiveText), overlay["EQ101.desc"])
+        XCTAssertEqual(MasterText.name(id: "\(gun.itemID).tag", ja: gun.tagJa), overlay["EQ101.tag"])
 
         Loc.current = .ja
         XCTAssertEqual(MasterText.hero(alden), alden.displayNameJa)
@@ -232,7 +238,7 @@ final class AppStoreAssetsTests: XCTestCase {
     @MainActor
     func testEveryItemHasIconArt() {
         var missing: [String] = []
-        for it in MasterData.shared.items where GearCatalog.english[it.itemID] == nil {  // 靴のアイコンは未作成（手続き生成で表示）
+        for it in MasterData.shared.items {
             guard let img = PortraitArt.item(it.itemID) else { missing.append(it.itemID); continue }
             XCTAssertEqual(img.size.width, img.size.height, "\(it.itemID) のアイコンが正方形ではありません")
             // 最大表示 70pt × 3x = 210px

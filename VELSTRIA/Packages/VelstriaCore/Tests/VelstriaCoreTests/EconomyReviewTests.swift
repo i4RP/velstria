@@ -14,7 +14,7 @@ final class EconomyReviewTests: XCTestCase {
         for r in m.runes { XCTAssertEqual(table.percent(rune: r), r.percent, r.runeID) }
         for cat in ItemCategory.allCases {
             // 素朴な並べ替え（毎回 % を解析）と同じ順
-            let naive = m.items.filter { $0.category == cat }.sorted { a, b in
+            let naive = m.items.filter { $0.category == cat && !$0.isConsumable }.sorted { a, b in
                 if a.tier != b.tier { return a.tier > b.tier }
                 let va = ItemSystem.itemValue(a), vb = ItemSystem.itemValue(b)
                 if va != vb { return va > vb }
@@ -34,8 +34,10 @@ final class EconomyReviewTests: XCTestCase {
         }
         var a = Stats(), b = Stats()
         a.attack = 100; b.attack = 100
-        ItemStats.apply(items: ["EQ043", "EQ054", "EQ058"], runes: ["RN06", "RN15", "RN24"], to: &a, master: m)
-        ItemStats.apply(items: ["EQ043", "EQ054", "EQ058"], runes: ["RN06", "RN15", "RN24"], to: &b, master: other)
+        // 能力値・固有の能力値・適応攻撃・能力値で決まる固有効果（神秘・撃砕）を含む組み合わせ
+        let items = ["EQ109", "EQ112", "EQ210", "EQ113", "EQ105", "EQ122"]
+        ItemStats.apply(items: items, runes: ["RN06", "RN15", "RN24"], to: &a, master: m)
+        ItemStats.apply(items: items, runes: ["RN06", "RN15", "RN24"], to: &b, master: other)
         XCTAssertEqual(a, b)
     }
 
@@ -73,7 +75,7 @@ final class EconomyReviewTests: XCTestCase {
                         XCTAssertGreaterThanOrEqual(h.gold, 0, label)
                         let cats = h.items.compactMap { f.master.item($0)?.category }
                         XCTAssertLessThanOrEqual(cats.filter { $0 == .movement }.count, 1, label)
-                        XCTAssertLessThanOrEqual(cats.filter { $0 == .jungle }.count, 1, label)
+                        XCTAssertFalse(h.items.contains { f.master.item($0)?.isConsumable == true }, label)
                     }
                     XCTAssertEqual(f.hero(i).items.sorted(), build.sorted(), label)
                     XCTAssertNil(ItemSystem.nextRecommendedPurchase(f.hero(i), ctx: f.ctx), label)
@@ -144,7 +146,7 @@ final class EconomyReviewTests: XCTestCase {
         var out: [HeroCommand] = []
         func add(_ c: PlayerCommand) { out.append(HeroCommand(heroID: hero, command: c, sequence: UInt32(tick))) }
         if tick == 10 { add(.moveTo(point: Vec2(3000, 3000))) }
-        if tick == 400 { add(.buyItem(itemID: "EQ001")) }
+        if tick == 400 { add(.buyItem(itemID: "EQ133")) }
         if tick >= 200 && tick % 60 == 0 { add(.attackNearest(priority: .minionsFirst)) }
         if tick == 700 { add(.recall) }
         return out

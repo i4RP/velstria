@@ -21,664 +21,836 @@
     "Movement": {
       "background": "deep teal and aquamarine",
       "accent": "Category accent (movement): bright aquamarine and mint-teal glow, flowing wind or water streaks that suggest speed, feather or fin motifs."
-    },
-    "Utility": {
-      "background": "warm amber gold",
-      "accent": "Category accent (support): warm amber-gold holy glow, soft healing light, gentle radiant motes."
-    },
-    "Jungle": {
-      "background": "deep forest green",
-      "accent": "Category accent (jungle): vivid emerald and leaf-green glow, living vines, leaves, moss or beast-claw and fang motifs from the wild jungle."
     }
   },
   "items": [
     {
-      "id": "EQ001",
-      "name": "Dawn Dagger",
-      "ja": "黎明の短剣",
-      "category": "Attack",
-      "tier": 1,
-      "concept_ja": "朝焼けの光を刃に宿す、真鍮鍔と日長石柄頭の素朴な狩猟短剣",
-      "description": "A short single-edged hunting dagger with a straight steel blade whose edge catches a warm pink-gold sunrise gleam, a simple brass crossguard and a grip wrapped in worn red leather, a small round sunstone in the pommel glowing a faint ember orange like the first sliver of the rising sun."
-    },
-    {
-      "id": "EQ002",
-      "name": "Nautilus Staff",
-      "ja": "オウムガイの杖",
-      "category": "Magic",
-      "tier": 1,
-      "concept_ja": "白い流木の先にオウムガイの渦巻き殻、小さな真珠が淡く光る素朴な杖",
-      "description": "A slender driftwood staff bleached pale by the sea, its head a curled spiral nautilus shell holding a small glowing aquamarine pearl, a few strands of kelp-green cord and tiny barnacles near the top, a faint ribbon of sea water swirling gently around the shaft."
-    },
-    {
-      "id": "EQ003",
-      "name": "Jade Leaf Cuirass",
-      "ja": "翡翠の葉鎧",
-      "category": "Defense",
-      "tier": 1,
-      "concept_ja": "葉形の革板を重ねた狩人の胴鎧、波紋を刻んだ翡翠の小石",
-      "description": "A simple jungle hunter's cuirass of smooth boiled leather molded into broad overlapping leaf-shaped plates, with rounded shoulder caps, pale green stitching and dull bronze rivets along the edges. At the sternum sits a small flat polished river stone of pale jade carved with three calm concentric ripple rings, giving off only a faint emerald glimmer, and a soft tuft of moss is tucked along the collar."
-    },
-    {
-      "id": "EQ004",
-      "name": "Wayfarer Boots",
-      "ja": "旅人の革靴",
-      "category": "Movement",
-      "tier": 1,
-      "concept_ja": "旅人が履き込んだ素朴な茶革の短靴、ストラップに青緑の羽根一枚",
-      "description": "A pair of plain, well-worn brown leather travel boots with simple stitched soles and a single buckled strap, one small teal-green feather tucked under the strap, a faint wisp of mint-teal breeze curling around the heels."
-    },
-    {
-      "id": "EQ005",
-      "name": "Blazing Talisman",
-      "ja": "烈火の護符",
-      "category": "Utility",
-      "tier": 1,
-      "concept_ja": "厚い青銅の円盤に炎紋を浮き彫りにした素朴な護符",
-      "description": "A sturdy round talisman of thick hammered bronze hanging from a short braided leather cord, its face embossed with a simple raised three-tongued flame emblem, a small polished carnelian ember stone set at the base of the flame giving off a faint warm amber glow; plain beveled rim and an honest worn patina on the metal."
-    },
-    {
-      "id": "EQ006",
-      "name": "Stariron Hunting Bow",
-      "ja": "星鉄の狩弓",
-      "category": "Jungle",
-      "tier": 1,
-      "concept_ja": "星斑の隕鉄で打った細身のリカーブ弓、握りに小さな青い星鋲",
-      "description": "A slim short recurve bow with limbs of dark blue-black meteoric stariron, the metal flecked with tiny silvery star specks like a night sky, gently curled tips capped in plain steel, a simple brown leather-wrapped grip with a single small pale-blue star-shaped stud, and a plain taut waxed string."
-    },
-    {
-      "id": "EQ007",
-      "name": "Thunderclap Dagger",
-      "ja": "雷鳴の短剣",
-      "category": "Attack",
-      "tier": 1,
-      "concept_ja": "稲妻の溝と、二股の稲妻のように折れた鍔を持つ質素な鋼の短剣",
-      "description": "A plain straight double-edged dagger of dark storm-gray steel with a narrow, sharply tapering blade and a single zigzag lightning-bolt groove etched down its center that glimmers faintly crimson. Its iron crossguard bends at both ends into sharp angular zigzag hooks like a forked bolt; the grip is wrapped in charcoal leather cord with a small round copper pommel. A few tiny ember-red sparks crackle off the tip."
-    },
-    {
-      "id": "EQ008",
-      "name": "Whirlwind Staff",
-      "ja": "旋風の杖",
-      "category": "Magic",
-      "tier": 1,
-      "concept_ja": "素朴なトネリコの杖、先端が旋風の渦を描く鉤に羽根を一枚結ぶ",
-      "description": "A plain pale ash-wood walking staff with a shallow spiral groove down the shaft, its top curling over into a single open spiral hook like a gust of wind, a lone grey-white hawk feather tied beneath the curl with a simple leather cord, a small smooth aquamarine bead set in the center of the spiral, and one faint mint-teal wisp of breeze drifting around the hook."
-    },
-    {
-      "id": "EQ009",
-      "name": "Voidsteel Breastplate",
-      "ja": "虚空鋼の胸当て",
-      "category": "Defense",
-      "tier": 1,
-      "concept_ja": "星屑混じりの黒鋼一枚胸当て、胸元に小さな虚空の輪",
-      "description": "A plain rounded cuirass hammered from matte black voidsteel, its single smooth chest plate faintly speckled with tiny silver star-flecks as if cut from the night sky, edged in simple moss-green quilted padding and fastened with two worn brown leather straps. At the sternum sits a small hollow ring of dark void, its rim lit by a thin, faint emerald glow."
-    },
-    {
-      "id": "EQ010",
-      "name": "Sprinter Sandals",
-      "ja": "疾走のサンダル",
-      "category": "Movement",
-      "tier": 1,
-      "concept_ja": "細い革紐を編み上げた軽量のサンダル、紐の結び目に小さな水宝玉",
-      "description": "A pair of light leather lace-up sprinter sandals with thin criss-crossed cords wrapped up the ankle, a thin flexible sole, one small smooth aquamarine bead set in the knot of the cords, a faint streak of wind trailing behind the heels."
-    },
-    {
-      "id": "EQ011",
-      "name": "Spiritwood Acorn Charm",
-      "ja": "霊樹のどんぐり護符",
-      "category": "Utility",
-      "tier": 1,
-      "concept_ja": "霊樹を削ったどんぐり形の種の護符、ひびから琥珀の光が漏れる",
-      "description": "A small charm carved from pale ivory spiritwood in the shape of an upright acorn-like seed pod with a textured little cap, a single tiny sage-green leaf sprouting from the cap, warm amber light glowing softly through a thin natural crack in the grain, hung on a simple braided hemp cord threaded with one small honey-amber bead; otherwise plain and smooth."
-    },
-    {
-      "id": "EQ012",
-      "name": "Sentinel Longbow",
-      "ja": "番兵の長弓",
-      "category": "Jungle",
-      "tier": 1,
-      "concept_ja": "握りに鋼の小盾を鋲留めした、素朴なトネリコの番兵の長弓",
-      "description": "A sturdy plain longbow of dark seasoned ash wood in a simple deep D-shaped arc, its limb tips capped with plain iron, the grip wrapped in brown leather and guarded by a small round steel buckler disc riveted over its face, a single tiny sapphire stud at the buckler's center giving off a faint blue gleam, and a taut pale linen string."
-    },
-    {
-      "id": "EQ013",
-      "name": "Sunrise Bronze Dagger",
-      "ja": "日輪の青銅短剣",
-      "category": "Attack",
-      "tier": 1,
-      "concept_ja": "地平に昇る半日輪を柄頭にした、古代青銅の木の葉形両刃短剣",
-      "description": "An ancient short dagger with a wide leaf-shaped double-edged bronze blade, swelling at the middle and tapering to a sharp point, its raised central ridge glinting with a rose-gold sunrise sheen. It has no crossguard: the plain grip is wrapped in tan cord and capped by a flat half-disc pommel shaped like the sun just rising over the horizon, its short carved rays tipped with a faint ember glow."
-    },
-    {
-      "id": "EQ014",
-      "name": "Whalebone Staff",
-      "ja": "鯨骨の杖",
-      "category": "Magic",
-      "tier": 1,
-      "concept_ja": "鯨骨を削り出し、潜る鯨のように上向き V 字の尾びれを頂いた素朴な杖",
-      "description": "A plain staff carved from a single length of polished grey-white whalebone, its top end shaped as a whale's tail fluke rising straight up out of the shaft like a diving whale, the two smooth flukes spreading upward and outward in a wide V, a small round sea-glass bead of pale aquamarine set where the flukes meet, a simple band of tarred navy rope binding the grip, a thin streak of sea water trailing from the fluke tips."
-    },
-    {
-      "id": "EQ015",
-      "name": "Bamboo Lamellar Vest",
-      "ja": "竹札の胴鎧",
-      "category": "Defense",
-      "tier": 1,
-      "concept_ja": "竹札を緑紐で綴じた直線的な袖なし胴、石の静水円盤",
-      "description": "A sleeveless lamellar vest of vertical lacquered bamboo slats laced together with leaf-green cord, a straight, tall rectangular silhouette with a squared high collar and no shoulder plates, cinched by a plain grey-green cloth sash. A small round still-pond disc of grey slate sits on the chest, its concentric ripple rings faintly lit emerald, with a single dewdrop-shaped green bead hanging beneath it."
-    },
-    {
-      "id": "EQ016",
-      "name": "Sea Breeze Boots",
-      "ja": "潮風の長靴",
-      "category": "Movement",
-      "tier": 1,
-      "concept_ja": "波模様の縫い目を巡らせた、淡い青の革張りの船乗りの長靴",
-      "description": "A pair of pale sea-blue leather sailor boots with a turned-down cuff, a neat wave-pattern stitched around the shaft in pale thread, plain brass eyelets, and a faint salty mist swirling softly around the toes."
-    },
-    {
-      "id": "EQ017",
-      "name": "Amber Flame Pendant",
-      "ja": "琥珀の炎ペンダント",
-      "category": "Utility",
-      "tier": 1,
-      "concept_ja": "一筋の炎の形に削り出した琥珀の小さなペンダント",
-      "description": "A small flat pendant cut in the silhouette of a single upright candle flame, three curling tongues rising to one pointed tip, carved from warm translucent orange amber and capped with a plain copper bail on a thin copper chain; a tiny spark of golden light glows faintly deep inside the amber, otherwise clean and unadorned."
-    },
-    {
-      "id": "EQ018",
-      "name": "Meteoric Heavy Bow",
-      "ja": "隕鉄の重弓",
-      "category": "Jungle",
-      "tier": 1,
-      "concept_ja": "鋲留めの星鉄板を重ねた頑丈な長弓、握りに荒削りの隕石塊",
-      "description": "A tall, sturdy longbow with broad, flat, almost straight limbs built from overlapping riveted stariron plates, dark gunmetal flecked with faint silver star specks, squared-off blunt tips, the grip formed around a rough unpolished chunk of black meteorite with a faint blue glint in its cracks, bound with thick grey leather bands, and a heavy braided string with a faint blue sheen."
-    },
-    {
-      "id": "EQ019",
-      "name": "Lightning Silver Dagger",
-      "ja": "稲妻の銀短剣",
-      "category": "Attack",
-      "tier": 2,
-      "concept_ja": "刀身そのものが稲妻形に折れ曲がる銀の短剣、雷雲の鍔とルビー",
-      "description": "A refined dagger whose polished storm-silver blade is forged in the shape of a lightning bolt, bending in three sharp angular zigzags to a needle point, its edges glowing hot crimson with flickering arcs of electricity. Engraved swirling storm-cloud patterns cover the blade's base, the silver crossguard curls into two small thunderclouds, and a faceted ruby is set at its center. Dark slate-blue leather grip, silver-capped pommel."
-    },
-    {
-      "id": "EQ020",
-      "name": "Windvane Staff",
-      "ja": "風見車の杖",
-      "category": "Magic",
-      "tier": 2,
-      "concept_ja": "銀の風見車を戴く杖、羽根形の四枚刃が宝玉の軸を中心に疾風で回る",
-      "description": "A slender staff of pale silver steel with engraved silver ferrules and a spiral wind groove, crowned by a weathervane pinwheel of four curved, feather-shaped silver blades etched with swirling cloud patterns, turning around a faceted aquamarine hub gem that glows brightly, while a ring of mint-teal wind streaks whirls around the blades as if they are spinning in a gale."
-    },
-    {
-      "id": "EQ021",
-      "name": "Serpent Scale Armor",
-      "ja": "大蛇鱗の札鎧",
-      "category": "Defense",
-      "tier": 2,
-      "concept_ja": "密林の大蛇の鱗を重ねた高襟の札鎧、中央に虚空の雫石",
-      "description": "A tapered lamellar breastplate built from overlapping obsidian-black scales like the hide of a jungle serpent, each scale edged in engraved silver and flecked with tiny stars, rising into a tall standing collar. In the center of the chest a polished void-black teardrop gem in a silver vine-engraved mount pulls a swirling emerald glow inward, and soft green light seeps between the scales."
-    },
-    {
-      "id": "EQ022",
-      "name": "Falconfeather Boots",
-      "ja": "隼羽の軽靴",
-      "category": "Movement",
-      "tier": 2,
-      "concept_ja": "足首に銀の隼の翼を備えた、鋼の縁取りの軽快な革靴",
-      "description": "A pair of slim boots of fine dark teal leather with polished steel toe caps and trim, a small swept-back silver wing shaped like a falcon feather on each ankle, a tiny aquamarine gem on the instep, and a clear glow of mint-teal wind around them."
-    },
-    {
-      "id": "EQ023",
-      "name": "Spiritwood Leaf Pendant",
-      "ja": "霊樹の葉ペンダント",
-      "category": "Utility",
-      "tier": 2,
-      "concept_ja": "金線の葉脈を象嵌した、一枚葉をかたどる霊樹のペンダント",
-      "description": "A vertical pendant carved from pale ivory spiritwood in the shape of a single broad pointed leaf, its veins inlaid with fine gold wire glowing soft amber, a polished oval amber cabochon set at the stem, a tiny sage-jade bud carved at the tip, hanging from a delicate silver chain, warm golden light seeping through the thin translucent wood edges."
-    },
-    {
-      "id": "EQ024",
-      "name": "Ivory Shield Bow",
-      "ja": "象牙の盾弓",
-      "category": "Jungle",
-      "tier": 2,
-      "concept_ja": "象牙色のリカーブ弓に、銀の凧形盾と蒼玉の結界",
-      "description": "An elegant recurve bow of pale ivory-white wood with silver fittings, both limbs sweeping back into sharp hooked tips, the grip fronted by a polished silver kite-shaped shield plate engraved with flowing ward lines and inlaid with an oval sapphire, thin silver bands wrapping the limbs, and a sky-blue glowing string that sheds a soft veil of protective light."
-    },
-    {
-      "id": "EQ025",
-      "name": "Daybreak Hook Dagger",
-      "ja": "曙光の鉤短剣",
-      "category": "Attack",
-      "tier": 2,
-      "concept_ja": "昇る陽光の彫刻が灯る、日長石とガーネット象嵌の鉤形湾曲短剣",
-      "description": "A curved dagger with a deeply hooked, sharply curving double-edged blade of rose-tinted steel, an engraved fan of rising-sun rays along its central ridge glowing ember orange. The short flared hilt is chased rose-gold inlaid with a row of small garnets, and its rounded pommel cap holds a faceted orange sunstone radiating a clear crimson-gold enchantment glow, with fine sparks trailing off the curved edge."
-    },
-    {
-      "id": "EQ026",
-      "name": "Ghost Coral Staff",
-      "ja": "幽霊珊瑚の杖",
-      "category": "Magic",
-      "tier": 2,
-      "concept_ja": "白い幽霊珊瑚が枝角のように広がり、銀細工で海宝石を抱く上級の杖",
-      "description": "A refined staff of pale ivory ghost-coral whose head splits into an upswept spray of branching, antler-like coral fronds with softly glowing teal tips, cradling a faceted aquamarine gem in silver filigree at their center; the shaft is engraved with flowing wave lines and banded with small inlaid pearls, and a luminous mint-teal current spirals up through the branches."
-    },
-    {
-      "id": "EQ027",
-      "name": "Lotus Jade Breastplate",
-      "ja": "蓮花の翡翠胸当て",
-      "category": "Defense",
-      "tier": 2,
-      "concept_ja": "蓮の花弁が開く翡翠鋼の胸当て、銀の波紋彫りと月長石",
-      "description": "A refined breastplate of polished pale jade-green steel built from layered lotus-petal plates that open upward and outward, forming wide petal-shaped shoulder flares and a scalloped collar. Fine silver engravings of calm ripple rings flow across every petal. In the heart of the lotus, a round moonstone ringed by small emeralds sits in a ripple-ring silver setting, glowing clear emerald light, with slender silver vine tendrils curling along the waist."
-    },
-    {
-      "id": "EQ028",
-      "name": "Waterwalker Boots",
-      "ja": "水面渡りのブーツ",
-      "category": "Movement",
-      "tier": 2,
-      "concept_ja": "水面に波紋を描く彫りを施した、水宝石の留め具を持つブーツ",
-      "description": "A pair of tall sleek boots of deep blue-green leather engraved with concentric ripple rings and silver fittings, a faceted aquamarine clasp at each ankle, the soles hovering just above a thin disc of gently rippling water, soft mist rising around them."
-    },
-    {
-      "id": "EQ029",
-      "name": "Hearthfire Lantern Pendant",
-      "ja": "炉火のランタンペンダント",
-      "category": "Utility",
-      "tier": 2,
-      "concept_ja": "炉の火を閉じ込めた金細工の籠型ランタンペンダント",
-      "description": "A hearth-lantern pendant: a small octagonal cage of gilded bronze filigree with a pointed flame-shaped finial on top and a sturdy ring for the chain, its frame engraved with flame scrollwork, holding a faceted ember-orange fire opal that floats inside with a living flame flickering within it; clearly visible amber-gold light spills out through the openwork."
-    },
-    {
-      "id": "EQ030",
-      "name": "Hexscale Scythian Bow",
-      "ja": "六角鱗のスキタイ弓",
-      "category": "Jungle",
-      "tier": 2,
-      "concept_ja": "六角の星鉄鱗で覆った二重湾曲のスキタイ弓、握りにサファイア",
-      "description": "A deeply curved double-arched Scythian-style bow whose limbs are armored with overlapping hexagonal scales of polished blue-black stariron, each scale edged in engraved silver with star-specked metal glinting between them, a faceted sapphire set in a silver-capped grip, sharply swept-back recurved tips ending in small silver star finials, and a softly glowing sky-blue string."
-    },
-    {
-      "id": "EQ031",
-      "name": "Rumbling Wedge Dagger",
-      "ja": "轟雷の楔短剣",
-      "category": "Attack",
-      "tier": 2,
-      "concept_ja": "雷鳴の衝撃波紋が広がる幅広の楔形短剣、根元に柘榴石の核",
-      "description": "A broad, wedge-shaped dagger in the style of a cinquedea, its blade very wide at the hilt and tapering in straight lines to a sharp point, forged from dark gunmetal steel. Engraved concentric shockwave rings ripple outward across the wide base from an inset round garnet, the rings glowing ember-crimson like the boom of a thunderclap, with thin jagged lightning threads running along both edges. Downswept bronze crossguard, black-wrapped grip, flat disc pommel."
-    },
-    {
-      "id": "EQ032",
-      "name": "Swift Dive Staff",
-      "ja": "雨燕の杖",
-      "category": "Magic",
-      "tier": 2,
-      "concept_ja": "急降下する雨燕を象った銀の穂先、後ろへ流れる翼から疾風の尾が伸びる",
-      "description": "A sleek white-birch staff topped by a polished silver head shaped like a diving swift, its long pointed wings swept back tight along the shaft into sharp trailing vanes engraved with fine feather lines, a glowing teardrop aquamarine set as the bird's eye, and a bright mint-teal slipstream pouring off the wingtips in long streaks, as if the staff were cutting through a gale."
-    },
-    {
-      "id": "EQ033",
-      "name": "Beetle Shell Armor",
-      "ja": "甲虫殻の胴鎧",
-      "category": "Defense",
-      "tier": 2,
-      "concept_ja": "角付き肩の甲虫殻胴鎧、正中の虚空の裂け目が翠に光る",
-      "description": "A broad, heavy cuirass shaped like a giant jungle beetle's carapace: two glossy black-indigo shell halves meet down the center and flare into wide curved shoulder guards, each ending in a short upswept horn. A jagged void crack runs down the central seam, glowing vivid emerald from within, flanked by three small inlaid emerald cabochons, with fine engraved leaf-vein lines across the shell."
-    },
-    {
-      "id": "EQ034",
-      "name": "Cloudstride Boots",
-      "ja": "雲駆けの靴",
-      "category": "Movement",
-      "tier": 2,
-      "concept_ja": "雲の渦巻きを銀で象嵌した、白い革の軽やかな長靴",
-      "description": "A pair of elegant white-and-silver boots of supple pale leather with silver scrollwork inlaid in the shape of rolling clouds up the shafts, rolled soft cuffs, a small turquoise gem on each ankle, and swirls of clean wind curling beneath the soles."
-    },
-    {
-      "id": "EQ035",
-      "name": "Crescent Rootcradle Amulet",
-      "ja": "三日月の根籠護符",
-      "category": "Utility",
-      "tier": 2,
-      "concept_ja": "編み根の三日月の揺り籠に、琥珀の種石が浮かぶ護符",
-      "description": "A crescent-shaped charm of three living spiritwood roots braided into a smooth U-shaped cradle, pale ivory with amber light seeping through the grain, bound by engraved gold bands, its two upturned tips each sprouting a tiny sage-jade leaf; floating in the hollow of the crescent, touching nothing, hovers a round faceted amber seed gem radiating a clearly visible honey-gold glow."
-    },
-    {
-      "id": "EQ036",
-      "name": "Lamellar Fortress Bow",
-      "ja": "小札の城塞弓",
-      "category": "Jungle",
-      "tier": 2,
-      "concept_ja": "騎士の肩当てのような鋼の小札を重ねた、重装の城塞弓",
-      "description": "A heavy compact reflex bow forged from overlapping steel lamellar plates like a knight's pauldron, its thick angular limbs stepped in layered segments fastened with bronze rivets, a broad heater-shield plate bolted across the grip and set with a hexagonal sapphire, glowing sky-blue seams running between the plates, the short limbs ending in squared steel caps, and a braided steel-grey string."
-    },
-    {
-      "id": "EQ037",
-      "name": "Lark Kris",
-      "ja": "雲雀のクリス",
-      "category": "Attack",
-      "tier": 2,
-      "concept_ja": "陽炎のように波打つクリス刃と、翼を広げた黎明の雲雀の鍔",
-      "description": "A wavy kris dagger whose rippling flame-shaped blade of pale pink damascus steel glows ember red along both edges like heat shimmering at sunrise. The guard is a gilded songbird, a dawn lark with its wings spread wide to either side of the blade, a small garnet eye and engraved feathers; a polished oval sunstone set in the bird's breast pulses with warm crimson-orange light above a slim rose-gold grip."
-    },
-    {
-      "id": "EQ038",
-      "name": "Lure Lantern Staff",
-      "ja": "誘灯の杖",
-      "category": "Magic",
-      "tier": 2,
-      "concept_ja": "黒鉄の鉤形の杖先から、深海の発光ルアー玉を吊るした上級の杖",
-      "description": "A refined staff of blackened abyssal iron etched with fine fish-scale engravings and bright silver fittings, its top curving over into a tall slender hooked crook like a deep-sea lure stalk, from whose tip hangs a glowing bioluminescent aquamarine orb on a short silver tendril, small pearls studding the curve, faint mint-teal light trails and rising bubbles drifting from the hanging orb."
-    },
-    {
-      "id": "EQ039",
-      "name": "Tortoise Shell Cuirass",
-      "ja": "森亀の甲羅鎧",
-      "category": "Defense",
-      "tier": 2,
-      "concept_ja": "苔むす森亀の甲羅を象った丸い胸甲、中央の翠玉が静かに光る",
-      "description": "A domed oval breastplate shaped like the shell of an ancient forest tortoise, its smooth rounded pebble-like segments of dark bronze-green metal outlined with engraved gold ripple lines, soft emerald moss and tiny ferns growing along the seams and rim, short rounded scale-plate shoulder guards. A gold-framed round emerald set in the central segment glows steadily, sending calm concentric rings of green light across the shell."
-    },
-    {
-      "id": "EQ040",
-      "name": "Fleetfoot Greaves",
-      "ja": "韋駄天の脚甲",
-      "category": "Movement",
-      "tier": 2,
-      "concept_ja": "流線形の漆塗り青緑の札を重ねた、金の一筋の走る脚甲",
-      "description": "A pair of sleek, streamlined greaves and boots of lacquered teal lamellar plates overlapping like fish scales, a single thin golden stripe running along each shin, engraved speed-lines, a faint aquamarine glow in the seams, and a streak of wind trailing behind."
-    },
-    {
-      "id": "EQ041",
-      "name": "Salamander Copper Talisman",
-      "ja": "火蜥蜴の銅護符",
-      "category": "Utility",
-      "tier": 2,
-      "concept_ja": "尾を咥えて輪になった火蜥蜴の銅護符、中心に火蛋白石の雫",
-      "description": "A round amulet of polished rose-copper shaped as a fire salamander curled into a closed ring, biting its own flame-tipped tail, its back ridged with engraved flame scrollwork and inlaid gold, and in the open center of the ring a teardrop fire opal hanging free, burning with a clearly visible amber-gold glow, thin orange flame wisps rising from the salamander's spine."
-    },
-    {
-      "id": "EQ042",
-      "name": "Constellation Bow",
-      "ja": "星座の蒼玉弓",
-      "category": "Jungle",
-      "tier": 2,
-      "concept_ja": "星座のように蒼玉を連ねた星鉄の弓、握りを巡る光の輪",
-      "description": "An elegant bow forming one smooth deep arc with long tapered pointed tips, its polished silver-blue stariron limbs studded with a row of small inlaid sapphires linked by fine engraved silver lines like a constellation, a pale starlight-white grip of wrapped silk cord, a thin ring of blue light orbiting the grip, and a glowing sky-blue string."
-    },
-    {
-      "id": "EQ043",
-      "name": "Homecore Talisman",
-      "ja": "帰還核の護符",
+      "id": "EQ101",
+      "name": "Malefic Gun",
+      "ja": "マジックガン",
       "category": "Attack",
       "tier": 3,
-      "concept_ja": "帰る場所の炉心を抱く要石型メダリオン、矢じりの環が全て核へ向かう伝説の護符",
-      "description": "A legendary talisman medallion shaped like a pointed-arch fortress keystone in gilded bronze and blackened iron, its center a huge blazing crimson core crystal glowing like a miniature hearth-fire. Around the core, a gold ring of curved arrowheads all point inward toward it, like paths leading home. Short blade-like spikes jut from the rim, a sturdy chain loop sits at the top, and ember sparks spiral back into the core inside a red-orange aura."
+      "concept_ja": "金と青緑の装飾を施した長銃身の魔銃",
+      "description": "An ornate long-barreled arcane musket: a slender barrel of polished gold banded with teal-blue enamel and fine filigree, a flared muzzle trailing a wisp of golden energy, a curved dark-wood stock inlaid with brass, and a glowing amber crystal set into the firing chamber, pulsing with heat."
     },
     {
-      "id": "EQ044",
-      "name": "Tempest Chalice Staff",
-      "ja": "竜巻の聖杯杖",
-      "category": "Magic",
-      "tier": 3,
-      "concept_ja": "黄金の杯から竜巻が立ち昇り、嵐の目に巨大な宝晶が輝く伝説の杖",
-      "description": "A legendary staff of pearl-white wood bound by gilded spiral bands, its head an ornate gilded cup of curling golden wind-vanes from which a living miniature tornado rises, a tall glowing aquamarine funnel twisting upward, with a huge faceted aquamarine core crystal blazing in the eye of the storm, mint-teal wind ribbons spiraling down the shaft and sparkling light motes caught in the whirl."
-    },
-    {
-      "id": "EQ045",
-      "name": "Vinecrest Knight Cuirass",
-      "ja": "蔦紋の騎士胸甲",
-      "category": "Defense",
-      "tier": 3,
-      "concept_ja": "金の蔦が根を張る騎士胸甲、胸に翠光を呑む虚空の渦核",
-      "description": "A legendary knightly breastplate of starless black voidsteel with a high gilded gorget and gilded rims, ornate gold vine filigree spreading across the plate like roots. Its heart holds a large swirling void vortex, a black-hole core ringed by a blazing emerald halo of light, pulling drifting green light particles in a spiral toward it, while a deep emerald and indigo aura billows around the armor."
-    },
-    {
-      "id": "EQ046",
-      "name": "Skyward Winged Boots",
-      "ja": "天翔ける翼靴",
-      "category": "Movement",
-      "tier": 3,
-      "concept_ja": "金の翼を踵から広げ、中心に大きな水宝玉の核を抱く伝説の靴",
-      "description": "A pair of legendary golden-and-white boots with ornate filigree on the shafts, a large pair of feathered golden wings spread from the heels of each boot, a big glowing aquamarine core gem set at the ankle, bright light particles and gentle sky-blue wind trailing from them."
-    },
-    {
-      "id": "EQ047",
-      "name": "Hollow Tree Pendant",
-      "ja": "聖樹の洞ペンダント",
-      "category": "Utility",
-      "tier": 3,
-      "concept_ja": "幹の洞に巨大な琥珀の心核を抱く、聖樹そのものを象ったペンダント",
-      "description": "A legendary pendant carved as a miniature sacred spiritwood tree: a broad dome-shaped canopy of gilded leaves on top, a thick twisting ivory trunk with glowing amber grain, and strong roots splaying out at the base, set in an ornate gold ring that the branches break through; a huge amber heart-crystal embedded in the hollow of the trunk pours out warm golden light, drifting motes and a soft halo around the canopy."
-    },
-    {
-      "id": "EQ048",
-      "name": "Guardian Angel Bow",
-      "ja": "守護天使の聖弓",
-      "category": "Jungle",
-      "tier": 3,
-      "concept_ja": "金銀の翼を広げ、円盾の中心に巨大な蒼玉核を抱く守護天使の弓",
-      "description": "A legendary bow whose two limbs are great sweeping wings of gilded silver feathers curving outward, each layered feather edged in glowing sapphire light, the wings meeting at the grip in a round gilded aegis shield boss that holds a huge radiant sapphire core, a string of pure sky-blue light, drifting blue light motes and a faint hexagonal barrier shimmer haloing the whole bow."
-    },
-    {
-      "id": "EQ049",
-      "name": "Sunwheel Relic Dagger",
-      "ja": "日輪の聖短剣",
+      "id": "EQ102",
+      "name": "Great Dragon Spear",
+      "ja": "龍神の槍",
       "category": "Attack",
       "tier": 3,
-      "concept_ja": "巨大な日輪の光輪鍔と灼熱の日長石を抱く、幅広三角刃の聖遺物",
-      "description": "A legendary broad short dagger with a wide triangular blade of polished rose-gold steel, a molten channel of liquid sunlight running down its center to the tip. The guard is a large gilded sun-disc ring with sharp radiating rays encircling the base of the blade, a huge blazing sunstone set at its hub burning white-gold at the core and crimson at the rim, wrapped in an aura of ember sparks and drifting golden motes."
+      "concept_ja": "龍の頭から炎の穂先が伸びる長槍",
+      "description": "A long war spear whose head is sculpted as a roaring teal-jade dragon, a leaf-shaped steel blade bursting from its open jaws, a mane of flowing orange flame streaming back along the gilded shaft, red silk tassels below the dragon head and a golden butt-cap."
     },
     {
-      "id": "EQ050",
-      "name": "Pearl Shell Staff",
-      "ja": "真珠の貝杖",
-      "category": "Magic",
-      "tier": 3,
-      "concept_ja": "扇のように開く黄金の帆立貝が巨大な海の真珠核を抱く伝説の杖",
-      "description": "A legendary staff of deep navy abyssal steel with gilded fittings and iridescent mother-of-pearl inlay, crowned by a large gilded scallop shell opening upward like a fan, its ribs lined with glowing mother-of-pearl, cradling a huge radiant aquamarine pearl core; a spinning vortex of luminous mint-teal water and pearl bubbles spirals around the shell, small golden fins flare from the collar, drifting light particles."
-    },
-    {
-      "id": "EQ051",
-      "name": "Stillwater Cuirass",
-      "ja": "静水の聖胴鎧",
-      "category": "Defense",
-      "tier": 3,
-      "concept_ja": "蓮葉の肩当てと鏡のような翠の静水核を抱く伝説の胴鎧",
-      "description": "A legendary cuirass of black-lacquered ironwood with broad, round, ornately gilded lily-pad pauldrons beaded with glowing dew. The whole chest is a large circular still-pond core: a glowing emerald crystal disc like mirror-calm water with a gilded lotus blossom floating at its center, concentric rings of green light rippling outward across the armor. Living moss and trailing vines drape the edges inside an intense emerald aura of drifting firefly motes."
-    },
-    {
-      "id": "EQ052",
-      "name": "Stormcrosser Boots",
-      "ja": "嵐渡りの長靴",
-      "category": "Movement",
-      "tier": 3,
-      "concept_ja": "靴を巡る嵐の輪と稲妻の波模様を持つ、深い青緑の長靴",
-      "description": "A pair of tall legendary storm-sailor boots of deep teal leather with gilded cuffs and a swirling ring of tempest clouds orbiting each ankle, a forked pale-blue lightning wave-pattern embossed up the shafts, a big glowing aquamarine crystal at the cuff, driving rain streaks and wind in the aura."
-    },
-    {
-      "id": "EQ053",
-      "name": "Phoenix Necklace",
-      "ja": "不死鳥の首飾り",
-      "category": "Utility",
-      "tier": 3,
-      "concept_ja": "翼を広げた金の不死鳥が巨大な陽光琥珀を胸に抱く至宝",
-      "description": "A legendary sculpted phoenix medallion of ornate gilded gold, the firebird's wings spread wide and upswept to form the outline, each feather a tongue of molten-orange enamel edged in gold, its tail flaring below in three flame plumes; a huge glowing sun-amber core crystal set in the breast radiates intense golden healing light, wreathed in a soft amber aura with drifting ember and gold motes."
-    },
-    {
-      "id": "EQ054",
-      "name": "Meteor Fortress Bow",
-      "ja": "隕石の要塞弓",
-      "category": "Jungle",
-      "tier": 3,
-      "concept_ja": "落ちた星のような隕石塊を握りに抱き、星鉄の装甲肢を張り出す要塞弓",
-      "description": "A legendary fortress bow whose massive riser is a huge raw chunk of glowing meteorite set in gilded stariron bracing, a blazing faceted sapphire star core shining from inside it like a fallen star; its broad angular limbs are built from stepped, layered dark star-specked stariron plates jutting outward like rampart wings, small meteor fragments orbiting the bow, drifting silver-blue sparks and a radiant string of pure light."
-    },
-    {
-      "id": "EQ055",
-      "name": "Crimson Bolt Dagger",
-      "ja": "紅雷の短剣",
+      "id": "EQ103",
+      "name": "Sea Halberd",
+      "ja": "トライデント",
       "category": "Attack",
       "tier": 3,
-      "concept_ja": "金の雷雲の鍔から二股の紅い雷そのものの刃が伸びる伝説の短剣",
-      "description": "A legendary dagger with no steel blade: from an ornate gilded crossguard sculpted as a billowing thundercloud rises a blade of solid crackling crimson lightning, white-hot at its core, that splits near the tip into two forked prongs like a branching bolt. A huge glowing ruby core pulses in the heart of the golden cloud, above a dark slate grip. Ember sparks and tiny branching arcs drift around it in an intense storm aura."
+      "concept_ja": "金の三叉と紫の三日月刃を合わせた海の大槍",
+      "description": "A grand sea halberd: a three-pronged golden trident head fused with a broad sweeping crescent axe-blade of polished white-gold, deep violet sea glass inlaid along the blade, wave-shaped flanges and a spray of glowing droplets, on a dark sea-green shaft wrapped with gold bands."
     },
     {
-      "id": "EQ056",
-      "name": "Armillary Staff",
-      "ja": "天球環の杖",
-      "category": "Magic",
-      "tier": 3,
-      "concept_ja": "三重の黄金天球環が、嵐を封じた紡錘形の巨晶を巡る至宝の杖",
-      "description": "A legendary white-gold staff whose head is an ornate gilded armillary sphere of three interlocking rings engraved with swirling cloud patterns, tilted at different angles around a huge elongated aquamarine crystal spindle that blazes like a captured storm, bright mint-teal wind bands orbiting the rings in sweeping arcs, a pair of small gilded feather fins flaring beneath the sphere, and drifting light particles circling the head."
-    },
-    {
-      "id": "EQ057",
-      "name": "Void Panther Cuirass",
-      "ja": "黒豹の胸甲",
-      "category": "Defense",
-      "tier": 3,
-      "concept_ja": "虚空の黒豹の頭を象る胸甲、牙の顎に星渦の翠晶を抱く",
-      "description": "A legendary predator cuirass whose chest is sculpted into the snarling head of a great black void-panther, gilded fangs framing open jaws that cradle a large blazing emerald crystal swirling with tiny stars. Gilded claw-shaped ribs curl around both flanks like a beast's grip, the black plate shimmering with starry void like a night-sky pelt, wrapped in an intense emerald aura of drifting leaf-shaped light motes."
-    },
-    {
-      "id": "EQ058",
-      "name": "Starsea Strider Boots",
-      "ja": "星海の踏破靴",
-      "category": "Movement",
-      "tier": 3,
-      "concept_ja": "星屑を散らした深い青緑の靴に、金の波ヒレが走る至宝",
-      "description": "A pair of masterwork boots of deep ocean-teal leather speckled with silver star-flecks as if cut from a night sea, golden wave-shaped fins sweeping up the shafts, a large star-shaped aquamarine crystal on each ankle, drifting luminous droplets and a shimmering tide of light under the soles."
-    },
-    {
-      "id": "EQ059",
-      "name": "Spirit Stag Talisman",
-      "ja": "霊鹿の聖護符",
-      "category": "Utility",
-      "tier": 3,
-      "concept_ja": "霊鹿の枝角を冠に、巨大な琥珀の雫結晶を抱く聖獣の護符",
-      "description": "A legendary medallion crowned by a pair of tall branching spiritwood antlers sweeping upward and outward like a forest spirit stag's crown, ivory tines veined with glowing amber grain, tipped with gold and sprouting tiny sage-jade leaves; between the antler bases, bound in ornate gilded filigree, hangs a huge faceted amber teardrop crystal blazing with golden light, an intense aura of amber motes rising between the tines."
-    },
-    {
-      "id": "EQ060",
-      "name": "Heavenly Ring Bow",
-      "ja": "天穹の環弓",
-      "category": "Jungle",
-      "tier": 3,
-      "concept_ja": "ほぼ円環を描く白銀の弓、内側に六角結界が満ちる天穹の守護弓",
-      "description": "A legendary celestial bow of starlit white-silver curved into a deep arc that nearly closes into a full circle, its limb tips almost touching, the grip mounted with a gilded heater-shield plate holding a huge faceted sapphire crystal, a string of pure white-blue light, and filling the inside of the ring a translucent shimmering dome of hexagonal barrier cells glowing sapphire, with tiny light motes drifting around it."
-    },
-    {
-      "id": "EQ061",
-      "name": "Morningstar Comet Dagger",
-      "ja": "明星の彗星短剣",
+      "id": "EQ104",
+      "name": "Rose Gold Meteor",
+      "ja": "デモンフォール",
       "category": "Attack",
       "tier": 3,
-      "concept_ja": "明けの明星の四芒星鍔と、朝焼け色の結晶刃が彗星の尾を引く秘宝",
-      "description": "A legendary dagger whose slender, gently curved blade is a single shard of translucent rose-crimson crystal, faceted like frozen sunrise light, with a blazing ember edge. The gilded crossguard is a large four-pointed morning star that heralds the dawn, its points flaring into sharp rays around a huge radiant white-gold star gem; a comet-like trail of sparks and glowing particles streams from the blade tip as rose and gold light swirls around it."
+      "concept_ja": "桃色の隕石を嵌めた薔薇金の剣",
+      "description": "An ornate sword of rose-gold metal with a broad blade engraved with scale-like patterns, a large faceted magenta-pink meteorite gem clasped in golden claws where the blade meets the crossguard, a teal-wrapped grip, and faint pink starlight trailing from the gem."
     },
     {
-      "id": "EQ062",
-      "name": "Jellyfish Staff",
-      "ja": "海月の杖",
-      "category": "Magic",
-      "tier": 3,
-      "concept_ja": "発光するクラゲの傘と光の触手が航跡を引く、伝説の深海の杖",
-      "description": "A legendary staff of gilded gold and translucent sea-crystal, crowned by a large glowing jellyfish bell: a domed canopy of luminous aquamarine glass with gold-filigree ribs and a huge radiant pearl core pulsing inside, from whose rim long ribbon-like tendrils of mint-teal light stream back along the shaft like a wake of speed, the shaft set with spiral bands of pearls, an aura of glowing plankton motes."
-    },
-    {
-      "id": "EQ063",
-      "name": "Sacred Stag Armor",
-      "ja": "聖樹の胴鎧",
-      "category": "Defense",
-      "tier": 3,
-      "concept_ja": "牡鹿の角のような金枝の襟と根に抱かれた巨大翠晶の聖樹胴鎧",
-      "description": "A towering masterwork cuirass carved from ancient silver-white heartwood bound in gilded root filigree, crowned by a high collar of branching golden boughs that rise like a sacred stag's antlers. At its heart a huge faceted emerald crystal is cradled in a cocoon of living roots, pulsing calm waves of light before a golden ripple-ring halo. Glowing falling leaves and drifting fireflies swirl around it in an intense green aura."
-    },
-    {
-      "id": "EQ064",
-      "name": "Windlord Greaves",
-      "ja": "風神の脚甲",
-      "category": "Movement",
-      "tier": 3,
-      "concept_ja": "風の紋様を金と翡翠で描く、浮遊する羽根を伴う華麗な脚甲",
-      "description": "A pair of ornate legendary greaves and boots of gold and pale jade plates engraved with spiralling wind sigils, curled gilded toe tips, a big glowing aquamarine gem set at each knee guard, several ghostly feathers floating around them and a bright cyclone of mint-teal wind."
-    },
-    {
-      "id": "EQ065",
-      "name": "Sun Medallion",
-      "ja": "太陽のメダリオン",
-      "category": "Utility",
-      "tier": 3,
-      "concept_ja": "炎の光条を巡らせた重厚な金の太陽円盤と灼熱の核",
-      "description": "A massive legendary sunburst talisman: a thick gilded disc ringed by twelve wavy flame-shaped rays alternating polished gold and glowing molten-orange enamel, an inner band of ornate engraved flame filigree, and at the center a huge faceted amber-gold sun crystal with living fire swirling inside, blazing with radiant holy light; an intense golden aura with drifting embers and light motes surrounds it."
-    },
-    {
-      "id": "EQ066",
-      "name": "Comet Sky Bow",
-      "ja": "彗星の天弓",
-      "category": "Jungle",
-      "tier": 3,
-      "concept_ja": "背に金の光輪、八芒星の蒼晶核、彗星の尾のように流れる伝説の天弓",
-      "description": "A legendary celestial bow framed by a large gilded halo ring behind the grip, at its center a huge radiant eight-pointed star crystal of sapphire light, its two long sweeping limbs of star-specked dark stariron shaped like streaking comets with gold-edged tips trailing ribbons of sky-blue light, a string of glowing white starlight, and drifting white and blue particles all around."
-    },
-    {
-      "id": "EQ067",
-      "name": "Stormdrake Claw Dagger",
-      "ja": "嵐竜の鉤爪短剣",
+      "id": "EQ105",
+      "name": "Hunter Strike",
+      "ja": "ハンターストライク",
       "category": "Attack",
       "tier": 3,
-      "concept_ja": "嵐竜が巻き付く鉤爪形の三日月刃、紅雷の光輪をまとう伝説の短剣",
-      "description": "A legendary curved dagger with a deep crescent blade hooked like a raptor's talon, of black storm-steel veined with glowing crimson lightning cracks, a jagged white-hot bolt racing along its inner cutting edge. A gilded storm dragon coils around the grip, its swept-back wings forming the crossguard and its claws clutching a large blazing crimson core orb at the blade's base. A crackling halo of red lightning and drifting embers surrounds it."
+      "concept_ja": "獲物を追う三日月形の湾曲刃",
+      "description": "A hunter's war-sickle: a long sweeping crescent blade of pale silver-violet steel curving like a new moon, a razor edge and dark gunmetal spine, a short black-leather grip with a bronze ring guard, violet motion streaks following the curve of the blade as if mid-swing."
     },
     {
-      "id": "EQ068",
-      "name": "Skyserpent Staff",
-      "ja": "天蛇の杖",
+      "id": "EQ106",
+      "name": "Blade of Despair",
+      "ja": "ディスペアブレイド",
+      "category": "Attack",
+      "tier": 3,
+      "concept_ja": "絶望の瘴気を纏う黒鋼の巨大な大剣",
+      "description": "A huge two-handed greatsword of the darkest black steel, its broad blade jagged near the tip, with bone-white razor edges and a deep crimson rune-etched fuller, a heavy spiked black-iron crossguard shaped like down-swept wings, a long grip wrapped in dark red leather, and a sickly green mist of despair curling off the blade."
+    },
+    {
+      "id": "EQ107",
+      "name": "Blade of the Heptaseas",
+      "ja": "オーシャンエッジ",
+      "category": "Attack",
+      "tier": 3,
+      "concept_ja": "七つの海を渡る海賊の深紅の曲刀",
+      "description": "A pirate's curved cutlass with a wide sweeping blade of crimson-to-magenta tempered steel, a wave pattern rippling along the edge, an ornate golden basket hilt shaped like a curling sea wave set with a small sapphire, and glittering sea foam spraying off the back of the blade."
+    },
+    {
+      "id": "EQ108",
+      "name": "Windtalker",
+      "ja": "ウィンドテラー",
+      "category": "Attack",
+      "tier": 3,
+      "concept_ja": "風を纏って唸る青鋼の細身の剣",
+      "description": "A slender long sword of blue-silver steel with a gently curved edge, a winged golden crossguard and a dark navy grip, the blade wrapped in a spiraling ribbon of pale wind and white air currents that coil around it like a small cyclone."
+    },
+    {
+      "id": "EQ109",
+      "name": "Endless Battle",
+      "ja": "エンドレスバトル",
+      "category": "Attack",
+      "tier": 3,
+      "concept_ja": "深紅の翼飾りの鍔を持つ白銀の聖戦の剣",
+      "description": "A crusader's holy war sword with a straight silver-white blade, its hilt set in a large ornate crimson-and-gold winged guard like a battle crest with a glowing red ruby at its center, a red-wrapped grip, and a trail of holy white-gold light running up the edge."
+    },
+    {
+      "id": "EQ110",
+      "name": "Berserker's Fury",
+      "ja": "バーサーク",
+      "category": "Attack",
+      "tier": 3,
+      "concept_ja": "三日月の大刃を持つ狂戦士の戦斧",
+      "description": "A berserker's war axe with a huge crescent-moon blade of pale moonlit silver, its inner curve dark navy steel engraved with fierce runes, a short thick haft wrapped in dark blue leather, a sharp spike on top, and an icy glint along the crescent edge."
+    },
+    {
+      "id": "EQ111",
+      "name": "Haas's Claws",
+      "ja": "ブラッドクロウ",
+      "category": "Attack",
+      "tier": 3,
+      "concept_ja": "血を啜る三本の湾曲した鉤爪",
+      "description": "A beast-hunter's claw weapon with no wearer: three long curved scythe-like silver claw blades fanning out from a dark crimson-and-black armored knuckle guard, blood-red light running along the edges, a red gem on the back plate and a few drops of crimson glow."
+    },
+    {
+      "id": "EQ112",
+      "name": "Malefic Roar",
+      "ja": "スピリットシャウト",
+      "category": "Attack",
+      "tier": 3,
+      "concept_ja": "獣の顎を銃口にした金色の手砲",
+      "description": "A heavy brass-and-gold hand cannon with a short wide barrel whose muzzle is cast as a roaring beast's open jaws, dark iron bands and rivets, a curved walnut grip, a spinning ember-orange core visible through a slot in the chamber, and faint smoke curling from the muzzle."
+    },
+    {
+      "id": "EQ113",
+      "name": "Winter Crown",
+      "ja": "ウィンタークラウン",
+      "category": "Attack",
+      "tier": 3,
+      "concept_ja": "氷の結晶でできた冬の王冠",
+      "description": "A crown carved entirely from glowing pale-blue ice crystal: tall jagged icicle spires rising from a frosted silver band, a large sky-blue diamond in the front, frost wings sweeping out on both sides, delicate snowflakes and cold mist drifting around it."
+    },
+    {
+      "id": "EQ114",
+      "name": "Fleeting Time",
+      "ja": "フリーティングタイム",
+      "category": "Attack",
+      "tier": 3,
+      "concept_ja": "時を封じた青い水晶の砂時計",
+      "description": "An hourglass of two glowing sapphire-blue crystal bulbs held in a slender golden frame with swirling clock-hand filigree, shimmering blue sand of light falling through the narrow waist, and small crystal shards floating around it as if time itself is splintering."
+    },
+    {
+      "id": "EQ115",
+      "name": "Sky Piercer",
+      "ja": "天空の刃",
+      "category": "Attack",
+      "tier": 3,
+      "concept_ja": "天を貫く翠の稲妻の細剣",
+      "description": "A long thin piercing blade like a stiletto-rapier: a narrow needle-straight blade glowing teal-green with crackling lightning, a small golden basket hilt with a swept knuckle bow, and jagged streaks of teal lightning splitting the air around the tip."
+    },
+    {
+      "id": "EQ116",
+      "name": "War Axe",
+      "ja": "常勝の神斧",
+      "category": "Attack",
+      "tier": 3,
+      "concept_ja": "赤熱した亀裂が走る黒鉄の大戦斧",
+      "description": "A massive double-bitted battle axe of blackened iron, both broad blades split by glowing molten-orange cracks as if forged in a volcano, a short thick haft wrapped in red leather with golden bands, a spike on top, and sparks and embers bursting from the cracks."
+    },
+    {
+      "id": "EQ117",
+      "name": "Wind of Nature",
+      "ja": "ナチュラルウィンド",
+      "category": "Attack",
+      "tier": 3,
+      "concept_ja": "自然の風を宿す翼形の金と翠の弓",
+      "description": "An ornate recurve bow whose golden limbs are shaped like spread leafy wings with teal-green feather plumage at the tips, a glowing emerald set in the grip, an arrow of pale wind nocked on the string, and a soft circular gust of green-white wind swirling around it."
+    },
+    {
+      "id": "EQ118",
+      "name": "Golden Staff",
+      "ja": "如意棒",
+      "category": "Attack",
+      "tier": 3,
+      "concept_ja": "伸縮自在の伝説の金の棒",
+      "description": "A legendary extendable fighting staff: a long straight cudgel of gleaming solid gold, its middle wrapped in dark red cloth, both ends capped with thick engraved golden bands bearing cloud-swirl patterns, with faint golden afterimages along its length as if it is spinning."
+    },
+    {
+      "id": "EQ119",
+      "name": "Corrosion Scythe",
+      "ja": "ラスティサイズ",
+      "category": "Attack",
+      "tier": 3,
+      "concept_ja": "毒の錆に蝕まれた緑の大鎌",
+      "description": "A war scythe with a large curved blade of corroded bronze-green metal, its edge eaten by bubbling acid-green rust, an ornate gold-and-black spiked collar where the blade meets the dark shaft, drips of toxic green ooze and a faint green fume rising from the blade."
+    },
+    {
+      "id": "EQ120",
+      "name": "Demon Hunter Sword",
+      "ja": "デモンハント",
+      "category": "Attack",
+      "tier": 3,
+      "concept_ja": "魔を狩る紫雷の黒い長剣",
+      "description": "A demon-slayer's long sword with a heavy dark gunmetal blade crackling with violet lightning, a black-iron crossguard with a small golden demon-skull emblem at its center, a grip wrapped in purple leather, and purple sparks arcing between the blade and the guard."
+    },
+    {
+      "id": "EQ121",
+      "name": "Magic Blade",
+      "ja": "マジックブレイド",
+      "category": "Attack",
+      "tier": 2,
+      "concept_ja": "青く光る細身の魔力の刃",
+      "description": "A slender, gently curved saber with a translucent glowing sapphire-blue blade, a simple silver guard and a dark blue grip, with thin blue light swirling along the edge."
+    },
+    {
+      "id": "EQ122",
+      "name": "Fury Hammer",
+      "ja": "レイシハンマー",
+      "category": "Attack",
+      "tier": 2,
+      "concept_ja": "金の棘を生やした黒鉄の戦槌",
+      "description": "A heavy war mace with a dark iron flanged head studded with sharp golden spikes, a short ash-wood haft bound with leather and bronze rings, and a faint red glow between the flanges."
+    },
+    {
+      "id": "EQ123",
+      "name": "Rogue Meteor",
+      "ja": "ワイルドメテオ",
+      "category": "Attack",
+      "tier": 2,
+      "concept_ja": "隕石のように飛ぶ棘付き鉄球",
+      "description": "A spiked meteor ball of polished silver-grey iron studded with sharp conical spikes all around, a short iron chain hanging from it, with a fiery red streak behind it as if it is hurtling through the air."
+    },
+    {
+      "id": "EQ124",
+      "name": "Ogre Tomahawk",
+      "ja": "オーガアックス",
+      "category": "Attack",
+      "tier": 2,
+      "concept_ja": "鬼が振るう無骨な大斧",
+      "description": "A crude, heavy ogre tomahawk with a wide curved bronze blade, notched and battle-worn, lashed to a thick knotted wooden haft with rough leather straps, a band of red paint across the blade."
+    },
+    {
+      "id": "EQ125",
+      "name": "Legion Sword",
+      "ja": "レギオンソード",
+      "category": "Attack",
+      "tier": 2,
+      "concept_ja": "軍団兵の青鋼の長剣",
+      "description": "A soldier's long sword with a straight broad blade of blue-tinted steel and a central fuller, a golden crossguard with small green gems at its ends, a dark leather grip and a round golden pommel."
+    },
+    {
+      "id": "EQ126",
+      "name": "Swift Crossbow",
+      "ja": "スイフトクロスボウ",
+      "category": "Attack",
+      "tier": 2,
+      "concept_ja": "素早く連射できる軽量の弩",
+      "description": "A light repeating crossbow of dark wood and teal-enameled steel with gold-tipped limbs, a bolt magazine mounted on top, a bolt loaded and ready, and a small brass winding crank on the side."
+    },
+    {
+      "id": "EQ127",
+      "name": "Regular Spear",
+      "ja": "ロングスピア",
+      "category": "Attack",
+      "tier": 2,
+      "concept_ja": "兵士の長槍の鋼の穂先",
+      "description": "A plain infantry spear with a long leaf-shaped steel spearhead, a bronze socket wrapped in red cloth, and a straight wooden shaft."
+    },
+    {
+      "id": "EQ128",
+      "name": "Expert Gloves",
+      "ja": "エキスパートグローブ",
+      "category": "Attack",
+      "tier": 1,
+      "concept_ja": "熟練者の青い革の籠手",
+      "description": "A single empty fighter's glove of sturdy navy-blue leather with padded knuckle plates, a red-and-gold striped cuff band at the wrist, standing upright on its own with no hand inside."
+    },
+    {
+      "id": "EQ129",
+      "name": "Iron Hunting Bow",
+      "ja": "ハンティングボウ",
+      "category": "Attack",
+      "tier": 1,
+      "concept_ja": "鉄で補強した狩猟弓",
+      "description": "A simple hunting bow of dark wood reinforced with iron plates at the grip and tips, green leather wrapped around the handle, and a teal-fletched arrow nocked on the string."
+    },
+    {
+      "id": "EQ130",
+      "name": "Vampire Mallet",
+      "ja": "ヴァンパイアハンマー",
+      "category": "Attack",
+      "tier": 1,
+      "concept_ja": "獣の牙を生やした吸血の槌",
+      "description": "A short vampire-hunter mallet with a dark iron hammer head from which three curved ivory fangs protrude like a beast's teeth, a dark red-wrapped wooden handle, and a faint crimson glint on the fang tips."
+    },
+    {
+      "id": "EQ131",
+      "name": "Javelin",
+      "ja": "ジャベリン",
+      "category": "Attack",
+      "tier": 1,
+      "concept_ja": "投げ槍の鋭い鋼の穂先",
+      "description": "A throwing javelin with a sharp narrow steel point and a pair of small swept-back barbs behind it, a short brass collar, and a slim pale wooden shaft."
+    },
+    {
+      "id": "EQ132",
+      "name": "Knife",
+      "ja": "ナイフ",
+      "category": "Attack",
+      "tier": 1,
+      "concept_ja": "赤い石を嵌めた湾曲ナイフ",
+      "description": "A small curved knife with a single-edged hooked steel blade, a simple black guard set with one small red stone, and a short dark wooden handle."
+    },
+    {
+      "id": "EQ133",
+      "name": "Dagger",
+      "ja": "ダガー",
+      "category": "Attack",
+      "tier": 1,
+      "concept_ja": "素朴な鋼の短剣",
+      "description": "A plain straight dagger with a narrow triangular double-edged steel blade, a short iron crossguard and a dark leather-wrapped grip."
+    },
+    {
+      "id": "EQ134",
+      "name": "Power Potion",
+      "ja": "パワーポーション",
+      "category": "Attack",
+      "tier": 1,
+      "concept_ja": "力が湧き上がる真紅の薬瓶",
+      "description": "A single ornate potion flask of faceted crimson-red glass with a round belly and a short neck, sealed with a dark iron stopper held by a wire cage, filled with a glowing, bubbling red elixir that casts a warm red light."
+    },
+    {
+      "id": "EQ201",
+      "name": "Wishing Lantern",
+      "ja": "ウィッシュランタン",
       "category": "Magic",
       "tier": 3,
-      "concept_ja": "風でできた羽毛の天蛇が螺旋に巻き付き、黄金の三日月座の巨珠を掲げる",
-      "description": "A legendary staff of polished silver-white wood around whose upper half coils a translucent feathered sky-serpent formed of pearl-white wind, its long fin-like crest and feathered mane streaming backward in gusts, spiraling up to the tip where it wraps around a huge glowing aquamarine orb set in a gilded crescent mount, intense mint-teal gale ribbons spiraling outward and drifting light motes trailing in its wake."
+      "concept_ja": "蝶の舞う桃色の願いの灯籠",
+      "description": "An ornate hanging lantern with a round body of glowing magenta-pink silk panels in a curved golden frame, a soft pink flame inside, delicate butterfly-wing glass fins on its sides, a short golden hook on top, and a few luminous pink-and-blue butterflies fluttering close around it."
     },
     {
-      "id": "EQ069",
-      "name": "Voidshard Armor",
-      "ja": "虚空の浮遊鎧",
+      "id": "EQ202",
+      "name": "Flask of the Oasis",
+      "ja": "オアシスのフラスコ",
+      "category": "Magic",
+      "tier": 3,
+      "concept_ja": "命の泉を湛えた蔓草の黄金のフラスコ",
+      "description": "An elegant golden flask with a teardrop body of clear glass holding swirling emerald-green water of life, wrapped in living green vines with fresh leaves sprouting from its neck, a golden star-shaped ornament on the front, and a few glowing water droplets."
+    },
+    {
+      "id": "EQ203",
+      "name": "Genius Wand",
+      "ja": "ジーニアスワンド",
+      "category": "Magic",
+      "tier": 3,
+      "concept_ja": "黄金の炎の爪が抱く青い叡智の宝珠",
+      "description": "A short scepter-wand crowned by a large glowing deep-blue orb of swirling arcane energy, cradled by sweeping golden flame-shaped prongs that curl around it, a slender dark-and-gold handle, and small motes of blue light orbiting the orb."
+    },
+    {
+      "id": "EQ204",
+      "name": "Lightning Truncheon",
+      "ja": "ボルトロッド",
+      "category": "Magic",
+      "tier": 3,
+      "concept_ja": "雷を放つ黄金の三叉の短杖",
+      "description": "A short golden truncheon whose head splits into three jagged lightning-bolt prongs holding a crackling blue electric orb between them, the gilded shaft wound with thin silver coils, branching blue lightning arcing off the tips."
+    },
+    {
+      "id": "EQ205",
+      "name": "Blood Wings",
+      "ja": "ブラッドウィング",
+      "category": "Magic",
+      "tier": 3,
+      "concept_ja": "血と炎でできた片翼",
+      "description": "A single great wing made of blood-red and flame-orange feathers, its long curved pinions glowing like embers at the tips, rooted in an ornate golden clasp set with a dark ruby, wrapped in a soft shield-like aura of crimson light."
+    },
+    {
+      "id": "EQ206",
+      "name": "Starlium Scythe",
+      "ja": "星の大鎌",
+      "category": "Magic",
+      "tier": 3,
+      "concept_ja": "星屑の光を刃にした蒼い大鎌",
+      "description": "A celestial scythe with a long sweeping blade of luminous starlit blue crystal, a golden ring holding a small star where the blade meets the shaft, a dark navy shaft speckled with tiny stars, and a trail of glittering stardust along the edge."
+    },
+    {
+      "id": "EQ207",
+      "name": "Glowing Wand",
+      "ja": "ヒートロッド",
+      "category": "Magic",
+      "tier": 3,
+      "concept_ja": "呪いの炎が燃える黒い魔杖",
+      "description": "A dark obsidian wand with a jagged crown-like head cradling a burning magenta-red flame, dark violet fire licking up from it, silver bands around the black shaft, a cursed ember glow and drifting sparks."
+    },
+    {
+      "id": "EQ208",
+      "name": "Ice Queen Wand",
+      "ja": "フロスト",
+      "category": "Magic",
+      "tier": 3,
+      "concept_ja": "氷の女王の雪結晶の杖",
+      "description": "An elegant wand of clear blue ice crystal, its tip a long sharp icicle shard with a sparkling snowflake ornament, a silver-white frosted handle with small crystal facets, cold mist and tiny snowflakes drifting from it."
+    },
+    {
+      "id": "EQ209",
+      "name": "Concentrated Energy",
+      "ja": "濃縮エネルギー",
+      "category": "Magic",
+      "tier": 3,
+      "concept_ja": "黒い鉤爪に囚われた濃縮された魔力の渦",
+      "description": "A glowing sphere of tightly compressed violet-blue arcane energy swirling like a tiny vortex, held in a dark iron cage of curved claw-like prongs with gold tips, bright lightning-like tendrils leaking out between the prongs."
+    },
+    {
+      "id": "EQ210",
+      "name": "Holy Crystal",
+      "ja": "ガーディアンレリック",
+      "category": "Magic",
+      "tier": 3,
+      "concept_ja": "聖なる光を放つ緑の聖遺物の水晶",
+      "description": "A large holy relic crystal of radiant emerald green: a tall faceted double-pointed shard floating upright, bound at its middle by an ornate golden reliquary band set with small gems, intense green-white holy light pouring from within."
+    },
+    {
+      "id": "EQ211",
+      "name": "Divine Glaive",
+      "ja": "魔法の聖剣",
+      "category": "Magic",
+      "tier": 3,
+      "concept_ja": "魔法を断つ紫水晶の聖なる刃",
+      "description": "A divine glaive: a long, elegant blade of translucent violet-blue crystal mounted on a short golden pole, a winged golden guard with a glowing pale-blue gem at its center, and crackling arcane light running along the crystal edge."
+    },
+    {
+      "id": "EQ212",
+      "name": "Clock of Destiny",
+      "ja": "デスティニー",
+      "category": "Magic",
+      "tier": 3,
+      "concept_ja": "運命を刻む黄金の懐中時計",
+      "description": "An ornate golden pocket watch with its lid open, the dial of deep blue enamel bearing glowing silver hands and small star markings instead of numerals, intricate clockwork gears visible around the rim, a short golden chain, and a faint swirl of blue time energy."
+    },
+    {
+      "id": "EQ213",
+      "name": "Feather of Heaven",
+      "ja": "ヘヴンウィング",
+      "category": "Magic",
+      "tier": 3,
+      "concept_ja": "天上から舞い落ちた光る白金の羽根",
+      "description": "A single large heavenly feather of luminous white and gold, its vanes edged in glowing pale gold, a jeweled golden quill tip set with a small sapphire, and soft golden light motes drifting off it."
+    },
+    {
+      "id": "EQ214",
+      "name": "Enchanted Talisman",
+      "ja": "タリスマン",
+      "category": "Magic",
+      "tier": 3,
+      "concept_ja": "魔力の目を宿す青と金の護符",
+      "description": "An enchanted talisman: a round gold amulet with a large glowing sapphire-blue gem in the center like an eye, an engraved ring of arcane glyphs and four small pointed golden rays around it, a short braided chain, and blue magic energy spiraling around it."
+    },
+    {
+      "id": "EQ215",
+      "name": "Elegant Gem",
+      "ja": "エレガントジェム",
+      "category": "Magic",
+      "tier": 2,
+      "concept_ja": "金の台に嵌めた紫の宝石",
+      "description": "A large oval faceted amethyst-violet gem set in an elegant gold filigree mount with a small loop on top, its inner light glowing softly."
+    },
+    {
+      "id": "EQ216",
+      "name": "Exotic Veil",
+      "ja": "エキゾチックベール",
+      "category": "Magic",
+      "tier": 2,
+      "concept_ja": "魔力を帯びた異国の薄絹のベール",
+      "description": "An exotic veil of sheer violet and teal silk embroidered with golden arcane patterns, floating gently in the air in soft folds from a small gold clasp at the top, with faint glowing threads."
+    },
+    {
+      "id": "EQ217",
+      "name": "Azure Blade",
+      "ja": "アズールブレイド",
+      "category": "Magic",
+      "tier": 2,
+      "concept_ja": "蒼く光る魔剣",
+      "description": "A straight short sword with a glowing azure-blue crystal blade, a golden crossguard shaped like small wings, a dark blue grip, and soft blue light rippling along the blade."
+    },
+    {
+      "id": "EQ218",
+      "name": "Tome of Evil",
+      "ja": "邪悪な法典",
+      "category": "Magic",
+      "tier": 2,
+      "concept_ja": "不気味な目の紋を持つ黒い魔導書",
+      "description": "A closed grimoire bound in dark purple leather with blackened iron corner guards and a clasp, a single glowing violet eye-shaped gem on the cover, and purple shadowy smoke seeping from between its pages."
+    },
+    {
+      "id": "EQ219",
+      "name": "Magic Wand",
+      "ja": "マジックワンド",
+      "category": "Magic",
+      "tier": 2,
+      "concept_ja": "青い結晶を戴く魔法の杖",
+      "description": "A slender magic wand of dark blue wood with golden bands, topped by a pointed glowing blue crystal held in small golden prongs, with a gentle sparkle of blue light at the tip."
+    },
+    {
+      "id": "EQ220",
+      "name": "Mystic Container",
+      "ja": "ミスティックコンテナー",
+      "category": "Magic",
+      "tier": 2,
+      "concept_ja": "神秘の魔力を封じた小瓶",
+      "description": "A small mystic container: a rounded glass vessel in an ornate silver cage holding a swirling, glowing violet mist, sealed with a pointed silver cap."
+    },
+    {
+      "id": "EQ221",
+      "name": "Book of Sages",
+      "ja": "賢者の書",
+      "category": "Magic",
+      "tier": 1,
+      "concept_ja": "橙の紋章を記した賢者の古書",
+      "description": "An old closed book with worn tan leather covers, a simple orange-red circular sigil embossed on the front, brass corners and a cloth bookmark ribbon."
+    },
+    {
+      "id": "EQ222",
+      "name": "Magic Necklace",
+      "ja": "マジックネックレス",
+      "category": "Magic",
+      "tier": 1,
+      "concept_ja": "青い雫形の石のペンダント",
+      "description": "A simple necklace with a teardrop-shaped glowing blue stone in a plain silver setting, hanging from a short thin silver chain."
+    },
+    {
+      "id": "EQ223",
+      "name": "Power Crystal",
+      "ja": "パワークリスタル",
+      "category": "Magic",
+      "tier": 1,
+      "concept_ja": "魔力を蓄えた青い結晶",
+      "description": "A single raw faceted crystal of clear sapphire blue, pointed at the top, with a faint inner glow of stored mana."
+    },
+    {
+      "id": "EQ224",
+      "name": "Mystery Codex",
+      "ja": "ミスティックブック",
+      "category": "Magic",
+      "tier": 1,
+      "concept_ja": "金の紋が入った赤い魔導書",
+      "description": "A small closed spellbook bound in crimson-red leather, a simple gold emblem in the center of the cover, gilt page edges and a short leather strap."
+    },
+    {
+      "id": "EQ225",
+      "name": "Magic Potion",
+      "ja": "マジックポーション",
+      "category": "Magic",
+      "tier": 1,
+      "concept_ja": "魔力を満たす紫紺の薬瓶",
+      "description": "A single ornate potion flask of faceted deep-blue glass with a long slender neck, filled with a glowing, swirling violet-blue elixir, a silver stopper shaped like a small star, tiny bubbles rising inside and a soft blue-violet light."
+    },
+    {
+      "id": "EQ301",
+      "name": "Radiant Armor",
+      "ja": "聖光の鎧",
       "category": "Defense",
       "tier": 3,
-      "concept_ja": "砕けて浮遊する黒鋼片を生きた蔦が繋ぐ、虚空満ちる胴鎧",
-      "description": "A legendary shattered cuirass whose black voidsteel plates float slightly apart in a broken, fragmented outline, the gaps between them filled with deep starry void. Living emerald vines with glowing leaves thread through the gaps, binding the drifting fragments around a huge central emerald crystal in a gilded radiant setting. Small shards orbit the edges, shedding intense green sparks and a misty emerald aura."
+      "concept_ja": "陽光を放つ黄金の胸甲",
+      "description": "A radiant golden breastplate with broad rounded pauldrons, a sun emblem in the center of the chest holding a glowing amber gem, layered gilded plates engraved with sunrays, and warm golden-orange holy light radiating from its seams."
     },
     {
-      "id": "EQ070",
-      "name": "Pegasus Swiftboots",
-      "ja": "神速の天馬靴",
+      "id": "EQ302",
+      "name": "Chastise Pauldron",
+      "ja": "懲罰の肩甲",
+      "category": "Defense",
+      "tier": 3,
+      "concept_ja": "稲妻を纏う金と黒の重肩甲",
+      "description": "A single massive shoulder pauldron of layered black steel plates trimmed with heavy gold, tall upward-curving golden spikes along its ridge, and blue lightning crackling across its surface, shown alone with no wearer."
+    },
+    {
+      "id": "EQ303",
+      "name": "Brute Force Breastplate",
+      "ja": "ブレストプレート",
+      "category": "Defense",
+      "tier": 3,
+      "concept_ja": "棘を備えた黒鉄の荒々しい胸当て",
+      "description": "A brutal heavy breastplate of dark battered iron with jagged spikes on the shoulders, thick riveted plates, a fierce horned beast face embossed on the chest with glowing red eyes, and red war-paint streaks."
+    },
+    {
+      "id": "EQ304",
+      "name": "Immortality",
+      "ja": "イモータル",
+      "category": "Defense",
+      "tier": 3,
+      "concept_ja": "不死鳥の紋を刻んだ黄金の胸甲",
+      "description": "A golden armored chest piece of the immortal: a gleaming gilded cuirass with a phoenix spreading its wings across the chest in raised relief, a glowing violet soul gem at the phoenix's heart, feather-shaped golden pauldrons, and a rising aura of rebirth light with drifting golden feathers."
+    },
+    {
+      "id": "EQ305",
+      "name": "Dominance Ice",
+      "ja": "ドミナントシールド",
+      "category": "Defense",
+      "tier": 3,
+      "concept_ja": "冷気を放つ黒金の大盾",
+      "description": "A heavy kite shield with a dark bronze face and thick gold trim, a sharp angular crest at the top, frost and pale-blue ice crystals creeping over its edges, and a large cold teal-green gem in the center radiating a freezing aura."
+    },
+    {
+      "id": "EQ306",
+      "name": "Valkyrie's Shield",
+      "ja": "ヴァルキュリアブレス",
+      "category": "Defense",
+      "tier": 3,
+      "concept_ja": "戦乙女の桃色の結晶を抱く黄金の盾",
+      "description": "A valkyrie's ornate golden shield of pointed teardrop shape with winged golden flanges, a large vertical diamond-shaped magenta-pink crystal set in its center, engraved feathers along the rim, and a soft protective pink-and-blue glow."
+    },
+    {
+      "id": "EQ307",
+      "name": "Oracle",
+      "ja": "オラクル",
+      "category": "Defense",
+      "tier": 3,
+      "concept_ja": "神託の目を持つ翡翠と金の守護紋章",
+      "description": "An oracle's ceremonial guard: a rounded jade-green shield-crest with a gold rim, flanked by large curling golden ram-horn ornaments at the top, a small glowing green seer's-eye gem in the center, and soft emerald healing light swirling around it."
+    },
+    {
+      "id": "EQ308",
+      "name": "Antique Cuirass",
+      "ja": "上古の鎧",
+      "category": "Defense",
+      "tier": 3,
+      "concept_ja": "古代の戦士の青銅の胸鎧",
+      "description": "An ancient bronze cuirass of a forgotten empire, its broad chest plate weathered with green patina and engraved with old geometric patterns, a round bronze medallion with a red gem on the chest, and strips of deep crimson cloth hanging below."
+    },
+    {
+      "id": "EQ309",
+      "name": "Guardian Helmet",
+      "ja": "守り人の兜",
+      "category": "Defense",
+      "tier": 3,
+      "concept_ja": "守護者の金と白銀の兜",
+      "description": "A guardian knight's full helmet of gleaming silver and gold with a tall white plume, a T-shaped visor slit with soft green light inside, gilded cheek guards and a crest of golden wings, shown empty."
+    },
+    {
+      "id": "EQ310",
+      "name": "Cursed Helmet",
+      "ja": "カースヘルム",
+      "category": "Defense",
+      "tier": 3,
+      "concept_ja": "呪いの炎を纏う角付きの黒い兜",
+      "description": "A cursed dark iron helmet with two curved horns, a jagged visor glowing with burning orange-red fire from within, cracked plates leaking flames, and a dark aura of smoldering embers swirling around it, shown empty."
+    },
+    {
+      "id": "EQ311",
+      "name": "Thunder Belt",
+      "ja": "サンダーベルト",
+      "category": "Defense",
+      "tier": 3,
+      "concept_ja": "雷を宿す金の留め金の分厚い帯",
+      "description": "A thick warrior's belt of dark leather plated with steel, curled into a loop and shown front-on, its large golden buckle shaped like a lightning-bolt emblem with a glowing blue core, crackling blue-white electricity arcing around the buckle."
+    },
+    {
+      "id": "EQ312",
+      "name": "Queen's Wings",
+      "ja": "クイーンズウイング",
+      "category": "Defense",
+      "tier": 3,
+      "concept_ja": "魔女王の紅黒い悪魔の翼",
+      "description": "A pair of folded demonic wings joined at an ornate golden clasp with a blood-red jewel, the wings of dark crimson-black leathery membrane with sharp bony spines and glowing red veins, wrapped in a faint dark crimson aura."
+    },
+    {
+      "id": "EQ313",
+      "name": "Blade Armor",
+      "ja": "ブレイドアーマー",
+      "category": "Defense",
+      "tier": 3,
+      "concept_ja": "刃を並べた鋼の鎧",
+      "description": "A steel breastplate bristling with rows of short sharp blades along the shoulders and chest like a porcupine of swords, polished silver plates with crimson trim, and a red gem at the center."
+    },
+    {
+      "id": "EQ314",
+      "name": "Steel Legplates",
+      "ja": "スチールレッグプレート",
+      "category": "Defense",
+      "tier": 2,
+      "concept_ja": "鋼の脚甲",
+      "description": "A single steel leg greave covering shin and knee, made of polished overlapping steel plates with a rounded knee cop, leather straps and brass buckles, standing upright on its own."
+    },
+    {
+      "id": "EQ315",
+      "name": "Dreadnaught Armor",
+      "ja": "ドレッドノートメイル",
+      "category": "Defense",
+      "tier": 2,
+      "concept_ja": "重厚な黒鋼の鎧",
+      "description": "A heavy dark-steel plate chest armor with thick layered pauldrons and riveted bands, a simple raised ridge down the chest, and a gunmetal finish with a dull blue sheen."
+    },
+    {
+      "id": "EQ316",
+      "name": "Black Ice Shield",
+      "ja": "アイスシールド",
+      "category": "Defense",
+      "tier": 2,
+      "concept_ja": "黒い氷の丸盾",
+      "description": "A round shield of dark black-blue ice set in a steel rim, its face cracked with glowing pale-blue frost veins, frost rime along the edge and cold mist rising from it."
+    },
+    {
+      "id": "EQ317",
+      "name": "Silence Robe",
+      "ja": "サイレンスローブ",
+      "category": "Defense",
+      "tier": 2,
+      "concept_ja": "魔法を鎮める紫紺の法衣",
+      "description": "A hooded mage's robe of deep indigo-violet cloth with silver runes embroidered along the hem and cuffs, displayed empty and upright as if on an invisible frame, the hood open and empty, with a soft blue protective shimmer."
+    },
+    {
+      "id": "EQ318",
+      "name": "Molten Essence",
+      "ja": "メルトエッセンス",
+      "category": "Defense",
+      "tier": 2,
+      "concept_ja": "溶岩の核を宿した灼熱の塊",
+      "description": "A chunk of molten essence: a rough dark volcanic rock cracked open to reveal a seething orange-yellow lava core, small flames and heat shimmer rising from its cracks."
+    },
+    {
+      "id": "EQ319",
+      "name": "Ares Belt",
+      "ja": "アレスベルト",
+      "category": "Defense",
+      "tier": 2,
+      "concept_ja": "戦神の赤い革帯と金の留め金",
+      "description": "A sturdy red leather war belt coiled into a loop, with a large square golden buckle embossed with a simple shield emblem and steel studs along the strap."
+    },
+    {
+      "id": "EQ320",
+      "name": "Hero's Ring",
+      "ja": "ブレイバーリング",
+      "category": "Defense",
+      "tier": 1,
+      "concept_ja": "勇者の金と黒の指輪",
+      "description": "A single heavy ring of gold with a black enameled band around its middle engraved with a simple pattern, shown at a slight angle with a faint warm glint."
+    },
+    {
+      "id": "EQ321",
+      "name": "Healing Necklace",
+      "ja": "ヒーリングネックレス",
+      "category": "Defense",
+      "tier": 1,
+      "concept_ja": "赤い癒しの石の首飾り",
+      "description": "A simple necklace with a rounded heart-shaped red gemstone pendant in a plain gold setting on a short thin chain, the stone glowing with a soft warm red healing light."
+    },
+    {
+      "id": "EQ322",
+      "name": "Magic Resist Cloak",
+      "ja": "マジカルクローク",
+      "category": "Defense",
+      "tier": 1,
+      "concept_ja": "魔法を弾く青い外套",
+      "description": "A plain folded traveler's cloak of deep blue wool with a simple silver clasp at the collar, its edges faintly shimmering with pale blue light."
+    },
+    {
+      "id": "EQ323",
+      "name": "Leather Jerkin",
+      "ja": "レザーメイル",
+      "category": "Defense",
+      "tier": 1,
+      "concept_ja": "素朴な茶色の革鎧",
+      "description": "A simple sleeveless jerkin of brown boiled leather with stitched seams, laces down the front and a few brass rivets."
+    },
+    {
+      "id": "EQ324",
+      "name": "Vitality Crystal",
+      "ja": "バイタリティクリスタル",
+      "category": "Defense",
+      "tier": 1,
+      "concept_ja": "生命力を宿す緑の結晶",
+      "description": "A single chunky hexagonal gemstone of vivid emerald green with clean facets and a gentle inner green glow of life."
+    },
+    {
+      "id": "EQ325",
+      "name": "Rock Potion",
+      "ja": "ロックポーション",
+      "category": "Defense",
+      "tier": 1,
+      "concept_ja": "身を岩のように固める琥珀色の薬瓶",
+      "description": "A single sturdy potion flask with a squat round body of thick amber glass encased in a cage of carved grey stone, filled with a glowing amber-gold elixir, sealed with a heavy stone stopper bound with leather cord."
+    },
+    {
+      "id": "EQ401",
+      "name": "Demon Shoes",
+      "ja": "デモンブーツ",
       "category": "Movement",
-      "tier": 3,
-      "concept_ja": "踵から白金の天馬の翼を広げ、軌跡を光の尾で描く神速の靴",
-      "description": "A pair of mythic platinum-and-white boots with large, elegantly feathered pegasus wings sprouting from the heels, a huge glowing aquamarine heart gem at each ankle, golden filigree up the shafts, and long luminous comet-like trails of aquamarine light and light particles streaming behind them."
+      "tier": 2,
+      "concept_ja": "白銀と青の魔力の長靴",
+      "description": "A single tall armored boot of polished silver plates over deep blue cloth, a small swept-back silver wing at the top of the shaft, a glowing blue mana crystal at the ankle, and a pointed steel toe."
     },
     {
-      "id": "EQ071",
-      "name": "Spirit Blossom Talisman",
-      "ja": "霊花の護符",
-      "category": "Utility",
-      "tier": 3,
-      "concept_ja": "五枚の霊樹の花弁が開き、太陽のような琥珀核が癒しの光を放つ花の護符",
-      "description": "A legendary star-shaped medallion of five broad spiritwood petals carved thin as porcelain, ivory pale with gilded rims and amber light glowing through their fine grain, opening around a huge round amber core gem that blazes like a small sun of healing light; fine golden rays radiate between the petals, a ring of sage-jade sepals frames the back, and loose glowing petals and amber motes drift outward in an intense warm aura."
+      "id": "EQ402",
+      "name": "Rapid Boots",
+      "ja": "ラピッドブーツ",
+      "category": "Movement",
+      "tier": 2,
+      "concept_ja": "稲妻の翼を持つ金と青の俊足の靴",
+      "description": "A single sleek boot of dark blue leather with golden greaves, a pair of jagged golden lightning-bolt wings rising from the heel, and blue speed streaks trailing behind it."
     },
     {
-      "id": "EQ072",
-      "name": "Towershield Bow",
-      "ja": "塔盾の聖弓",
-      "category": "Jungle",
-      "tier": 3,
-      "concept_ja": "巨大な塔盾そのものを握りとし、蒼水晶の爪を伸ばす城塞の聖弓",
-      "description": "A legendary fortress bow whose center is a tall gilded tower shield of deep sapphire-blue enamel with a huge glowing sapphire crystal core at its heart, short massive limbs of dark blued steel jutting from the shield's top and bottom, each ending in a cluster of jagged faceted sapphire crystal shards, a thick glowing blue string, a dense hexagonal barrier aura and drifting light particles around it."
+      "id": "EQ403",
+      "name": "Swift Boots",
+      "ja": "スイフトブーツ",
+      "category": "Movement",
+      "tier": 2,
+      "concept_ja": "炎を纏う黄金の装甲靴",
+      "description": "A single armored boot of overlapping polished golden plates with a pointed toe and red cloth lining at the top, flickering orange flames licking around the sole as if dashing."
+    },
+    {
+      "id": "EQ404",
+      "name": "Arcane Boots",
+      "ja": "アーケインブーツ",
+      "category": "Movement",
+      "tier": 2,
+      "concept_ja": "魔力を帯びた紫の魔導師の靴",
+      "description": "A single mage's boot of rich violet leather with a curled-back cuff of dark blue glowing with arcane light, silver buckles, and small swirling blue-violet magic motes rising from it."
+    },
+    {
+      "id": "EQ405",
+      "name": "Magic Shoes",
+      "ja": "マジックブーツ",
+      "category": "Movement",
+      "tier": 2,
+      "concept_ja": "先の反った赤と金の魔法の靴",
+      "description": "A single whimsical magic shoe of crimson velvet with a golden cuff, its long pointed toe curling up into a spiral tipped with a small golden ball, golden embroidery and a faint purple sparkle."
+    },
+    {
+      "id": "EQ406",
+      "name": "Tough Boots",
+      "ja": "タフブーツ",
+      "category": "Movement",
+      "tier": 2,
+      "concept_ja": "金の刃飾りを持つ紫の頑丈な靴",
+      "description": "A single sturdy high boot of thick purple leather with a steel-capped toe, a sharp golden fin-shaped guard rising from the shin, reinforced straps and a heavy sole, with a faint green glow of resilience."
+    },
+    {
+      "id": "EQ407",
+      "name": "Warrior Boots",
+      "ja": "ウォリアーブーツ",
+      "category": "Movement",
+      "tier": 2,
+      "concept_ja": "戦士の分厚い茶革と青銅の長靴",
+      "description": "A single heavy warrior's boot of thick brown leather with bronze shin plates and buckled straps, a fur-lined top, scuffed from battle, on a sturdy iron-shod sole."
+    },
+    {
+      "id": "EQ408",
+      "name": "Boots",
+      "ja": "スピードブーツ",
+      "category": "Movement",
+      "tier": 1,
+      "concept_ja": "素朴な茶革の長靴",
+      "description": "A single plain brown leather boot with a simple fold-over top, worn stitching and a flat sole, with a small wisp of breeze at the heel."
     }
   ]
 }

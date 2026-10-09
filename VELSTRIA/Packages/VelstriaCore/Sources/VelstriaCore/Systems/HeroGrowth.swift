@@ -79,8 +79,15 @@ public enum HeroGrowth {
     public static func shareXP(_ s: inout SimState, _ ctx: SimContext, team: Team, around pos: Vec2, amount: Double,
                                isMonster: Bool = false) {
         guard amount > 0, team != .neutral else { return }
-        let receivers = nearbyHeroes(s, team: team, around: pos, radius: Balance.xpShareRadius)
+        var receivers = nearbyHeroes(s, team: team, around: pos, radius: Balance.xpShareRadius)
         guard !receivers.isEmpty else { return }
+        // ロームの祝福（無私）: 味方がいればローム持ちは分け前を取らず、味方の取り分とは別に 30% を得る
+        if receivers.count > 1, let r = GearEffects.activeRoamer(s, team: team, master: ctx.master),
+           let k = receivers.firstIndex(of: r) {
+            receivers.remove(at: k)
+            let total = receivers.count == 1 ? amount : amount * Balance.Economy.groupXPMultiplier
+            grantXP(&s, ctx, heroIndex: r, amount: total / Double(receivers.count) * Balance.Gear.devotionShare)
+        }
         let total = receivers.count == 1 ? amount : amount * Balance.Economy.groupXPMultiplier
         let each = total / Double(receivers.count)
         for i in receivers {

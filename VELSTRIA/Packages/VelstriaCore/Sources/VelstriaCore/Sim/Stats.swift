@@ -47,6 +47,14 @@ public struct Stats: Codable, Hashable, Sendable {
     public var armorPenFlat: Double = 0
     public var magicPenPct: Double = 0
     public var magicPenFlat: Double = 0
+    /// コントロール時間短縮（0.3 = 行動阻害の効果時間 −30%。装備・ルーン。上限 Balance.maxCCReduction）。
+    public var ccReduction: Double = 0
+    /// 減速軽減（0.35 = 受ける減速 −35%。装備）。
+    public var slowReduction: Double = 0
+    /// 受けるクリティカルダメージの軽減（0.2 = クリティカルの上乗せ分 −20%。装備）。
+    public var critDamageReduction: Double = 0
+    /// クールダウン短縮の上限（装備で上がる）。
+    public var cooldownReductionCap: Double = Balance.maxCooldownReduction
 
     public init() {}
 }

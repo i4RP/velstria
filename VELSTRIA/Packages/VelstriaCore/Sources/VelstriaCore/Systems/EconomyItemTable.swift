@@ -43,7 +43,7 @@ final class EconomyItemTable: @unchecked Sendable {
         itemPercent = ip
         runePercent = rp
         ranked = ItemCategory.allCases.map { cat in
-            master.items.filter { $0.category == cat }.sorted { a, b in
+            master.items.filter { $0.category == cat && !$0.isConsumable }.sorted { a, b in
                 if a.tier != b.tier { return a.tier > b.tier }
                 let va = EconomyItemTable.value(a, percent: ip[a.itemID] ?? 0)
                 let vb = EconomyItemTable.value(b, percent: ip[b.itemID] ?? 0)
@@ -70,7 +70,10 @@ final class EconomyItemTable: @unchecked Sendable {
         v += it.armorPenPct * 1.6 + it.armorPenFlat + it.magicPenPct * 1.6 + it.magicPenFlat
         v += it.hpRegen * 0.5 + it.resourceRegen * 0.3 + it.abilityPowerPct * 1.6 + it.healShieldPowerPct * 0.5
         v += it.moveSpeedPct + it.outOfCombatMovePct * 0.5 + it.monsterDamagePct * 0.2
-        if !it.effectID.isEmpty { v += 20 }
+        v += it.adaptiveAttack * 0.95 + it.mana / 20 + it.ccReductionPct + it.slowReductionPct * 0.5 + it.healReceivedPct * 0.5
+        v += it.critDamageReductionPct * 0.5 + it.damageReductionPct * 2
+        for x in it.uniqueStats.values.sorted() { v += x }
+        v += Double(it.effects.count) * 20
         return v
     }
 }

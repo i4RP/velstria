@@ -1,16 +1,21 @@
 import Foundation
 
 // 担当: core-economy
-// 装備の購入（合成）・売却・推奨ビルド、装備パッシブ・ルーンの能力値反映（DESIGN §8）。
+// 装備の購入（多段の合成）・売却・推奨ビルド、装備・ルーンの能力値反映（DESIGN §8）。
+// 装備は Mobile Legends の図鑑をそのまま写したもの（tools/equipment_spec.mjs）。
 
 /// 購入できない理由（.purchaseFailed の reason 文字列 = rawValue）。
 public enum PurchaseFailure: String, Codable, Hashable, Sendable {
     case slotsFull = "slots_full"
     case notEnoughGold = "not_enough_gold"
+    /// 靴は 1 足まで。
     case uniqueCategory = "unique_category"
+    /// ジャングルの祝福は狩猟印が必要。
     case requiresSmite = "requires_smite"
-    /// ローム靴は狩猟印を持つヒーローには買えない。
+    /// ロームの祝福は狩猟印を持つヒーローには付けられない。
     case blockedBySmite = "blocked_by_smite"
+    /// ロームの祝福は 2:00 を過ぎると新たには付けられない。
+    case roamClosed = "roam_closed"
     case unknownItem = "unknown_item"
 }
 
@@ -35,7 +40,7 @@ public struct PurchaseQuote: Hashable, Sendable {
 }
 
 public enum ItemSystem {
-    /// 購入（DESIGN §8）。失敗時は .purchaseFailed を発行。
+    /// 購入（DESIGN §8）。失敗時は .purchaseFailed を発行。消耗品（ポーション）は所持枠を使わず、その場で効果が付く。
     public static func buy(_ s: inout SimState, _ ctx: SimContext, heroIndex i: Int, itemID: String) {
         guard var h = s.units[i].hero else { return }
         normalizeInvested(&h, master: ctx.master)
@@ -47,18 +52,24 @@ public enum ItemSystem {
             s.emit(.purchaseFailed(heroID: s.units[i].id, itemID: itemID, reason: f.rawValue))
             return
         }
-        // 素材を消費（添字が大きい方から除去）し、投資額を引き継ぐ
-        var invested = q.cost
-        for k in q.consumedSlots.reversed() {
-            invested += h.itemInvested[k]
-            h.items.remove(at: k)
-            h.itemInvested.remove(at: k)
-        }
         h.gold -= q.cost
         if infinite { h.gold = Balance.Economy.practiceGold }
-        h.items.append(itemID)
-        h.itemInvested.append(invested)
-        if let bought = ctx.master.item(itemID) { GearSystem.assignDefaultOption(&h, itemCategory: bought.category) }
+        if let item = ctx.master.item(itemID), item.isConsumable {
+            // ポーションの効果は 1 つだけ（買い直すと置き換わる）
+            h.itemRuntime.potionID = itemID
+            h.itemRuntime.potionUntil = s.time + item.consumableSec
+        } else {
+            // 素材を消費（添字が大きい方から除去）し、投資額を引き継ぐ
+            var invested = q.cost
+            for k in q.consumedSlots.reversed() {
+                invested += h.itemInvested[k]
+                h.items.remove(at: k)
+                h.itemInvested.remove(at: k)
+            }
+            h.items.append(itemID)
+            h.itemInvested.append(invested)
+            GearSystem.didChangeItems(&h, master: ctx.master, time: s.time)
+        }
         s.units[i].hero = h
         StatCalculator.recompute(&s, i, ctx)
         s.emit(.itemPurchased(heroID: s.units[i].id, itemID: itemID))
@@ -73,6 +84,7 @@ public enum ItemSystem {
         let refund = sellValue(invested: invested)
         h.gold += refund
         if EconomyRewards.hasInfiniteGold(ctx) { h.gold = Balance.Economy.practiceGold }
+        GearSystem.didChangeItems(&h, master: ctx.master, time: s.time)
         s.units[i].hero = h
         StatCalculator.recompute(&s, i, ctx)
         s.emit(.itemSold(heroID: s.units[i].id, itemID: itemID, refund: refund))
@@ -96,26 +108,23 @@ public enum ItemSystem {
         return combine(hero, item: item, master: ctx.master).cost
     }
 
-    /// 購入の可否と実コストを見積もる。判定順: 不明 → 狩猟印 → 固有カテゴリ → 枠 → Gold。
+    /// 購入の可否と実コストを見積もる。判定順: 不明 → 靴は 1 足 → 枠 → Gold。
     public static func quote(_ hero: HeroData, itemID: String, ctx: SimContext) -> PurchaseQuote {
         guard let item = ctx.master.item(itemID) else {
             return PurchaseQuote(itemID: itemID, cost: .infinity, consumedSlots: [], failure: .unknownItem)
         }
+        let gold = EconomyRewards.hasInfiniteGold(ctx) ? Balance.Economy.practiceGold : hero.gold
+        if item.isConsumable {
+            let cost = item.priceGold
+            return PurchaseQuote(itemID: itemID, cost: cost, consumedSlots: [], failure: gold < cost ? .notEnoughGold : nil)
+        }
         let (cost, consumed) = combine(hero, item: item, master: ctx.master)
         var q = PurchaseQuote(itemID: itemID, cost: cost, consumedSlots: consumed, failure: nil)
-        let gold = EconomyRewards.hasInfiniteGold(ctx) ? Balance.Economy.practiceGold : hero.gold
-
-        let hasSmite = hero.spells.contains(Balance.Economy.smiteSpellID)
-        if item.category == .jungle && !hasSmite {
-            q.failure = .requiresSmite
-        } else if item.category == .roam && hasSmite {
-            q.failure = .blockedBySmite
-        } else if isUniqueCategory(item.category) || isBoots(item) {
-            // 合成で消費される素材を除いた所持品に同カテゴリ（靴は靴枠）があれば不可
+        if isBoots(item) {
+            // 合成で消費される素材を除いた所持品に靴があれば不可
             let conflict = hero.items.indices.contains { k in
                 guard !consumed.contains(k), let owned = ctx.master.item(hero.items[k]) else { return false }
-                return (isUniqueCategory(item.category) && owned.category == item.category)
-                    || (isBoots(item) && isBoots(owned))
+                return isBoots(owned)
             }
             if conflict { q.failure = .uniqueCategory }
         }
@@ -128,27 +137,31 @@ public enum ItemSystem {
         return q
     }
 
-    /// 1 個までに制限されるカテゴリ（Movement / Jungle）。
+    /// 1 個までに制限されるカテゴリ（靴 = Movement）。
     public static func isUniqueCategory(_ c: ItemCategory) -> Bool {
-        c == .movement || c == .jungle || c == .roam
+        c == .movement
     }
 
-    /// 靴枠を使う装備（移動系・ローム靴・移動速度を持つジャングル靴）。靴枠は 1 つだけ。
+    /// 靴（移動カテゴリ）。靴は 1 足まで。
     public static func isBoots(_ it: ItemDef) -> Bool {
-        it.category == .movement || it.category == .roam || (it.category == .jungle && it.moveSpeed > 0)
+        it.isBoots
     }
 
-    /// 合成コストと消費する素材の添字。
-    /// cost = max(price × minCombineCostRatio, price − Σ 所持素材の price)。build_from の重複は所持数分だけ照合する。
+    /// 合成コストと消費する素材の添字。素材を持っていなければ、その素材の素材を持っているかを下へたどる（多段の合成）。
+    /// cost = max(price × minCombineCostRatio, price − Σ 消費する所持品の price)。build_from の重複は所持数分だけ照合する。
     static func combine(_ hero: HeroData, item: ItemDef, master: MasterData) -> (cost: Double, consumed: [Int]) {
         var consumed: [Int] = []
         var componentValue: Double = 0
-        for comp in item.buildFrom {
+        func take(_ comp: String, depth: Int) {
             if let k = hero.items.indices.first(where: { hero.items[$0] == comp && !consumed.contains($0) }) {
                 consumed.append(k)
                 componentValue += master.item(comp)?.priceGold ?? 0
+                return
             }
+            guard depth < 4, let c = master.item(comp) else { return }
+            for sub in c.buildFrom { take(sub, depth: depth + 1) }
         }
+        for comp in item.buildFrom { take(comp, depth: 1) }
         consumed.sort()
         let floor = (item.priceGold * Balance.minCombineCostRatio).rounded()
         return (max(floor, item.priceGold - componentValue), consumed)
@@ -166,103 +179,65 @@ public enum ItemSystem {
 
     // MARK: - 推奨ビルド
 
-    /// ロール別の購入順カテゴリ（6 枠）。
-    public static func buildPlan(role: Role) -> [ItemCategory] {
-        switch role {
-        case .ranger: return [.attack, .movement, .attack, .attack, .attack, .attack]
-        case .arcanist: return [.magic, .movement, .magic, .utility, .magic, .magic]
-        case .vanguard: return [.defense, .utility, .defense, .defense, .utility, .defense]
-        case .duelist: return [.attack, .defense, .attack, .defense, .attack, .defense]
-        case .assassin: return [.jungle, .attack, .attack, .attack, .attack, .attack]
-        case .support: return [.utility, .defense, .utility, .defense, .utility, .defense]
-        }
-    }
-
-    /// ヒーロー固有の購入順カテゴリ（Mobile Legends の定番ビルドに寄せた上書き）。無いヒーローはロール別。
-    /// 靴枠は 1 つなので .movement は 1 回まで。ジャングルの .jungle / サポートのローム靴は recommendedBuild(for:) が靴に読み替える。
-    static let heroBuildPlans: [String: [ItemCategory]] = [
-        // ルミナ（ミヤ）: 靴 → 攻撃を積み、最後に復活系の防御
-        "H025": [.movement, .attack, .attack, .attack, .attack, .defense],
-        // エウリア（エウドラ）: 靴 → 魔法を積み、最後に耐久
-        "H026": [.movement, .magic, .magic, .magic, .magic, .defense],
-        // ジャルド（趙子龍）: 靴 → 攻撃 3 + 防御 2
-        "H027": [.movement, .attack, .attack, .attack, .defense, .defense],
-        // ザイル（セイバー）: 狩猟印のジャングラー。先頭がジャングル装備、残りは攻撃 + 終盤の防御
-        "H028": [.jungle, .attack, .attack, .attack, .attack, .defense],
-        // ボルグ（ティグリアル）: ローム靴 → 防御主体 + 補助
-        "H029": [.defense, .utility, .defense, .defense, .defense, .utility],
-        // ライナ（ライラ）: 靴 → 攻撃を積む射手。最後に防御
-        "H030": [.movement, .attack, .attack, .attack, .attack, .defense],
-        // オーリア（オーロラ）: 靴 → 魔法を積み、補助と耐久を 1 つずつ
-        "H031": [.movement, .magic, .magic, .utility, .magic, .defense],
-        // ディアス（ディロス）: 靴 → 攻撃と防御を交互
-        "H032": [.movement, .attack, .defense, .attack, .attack, .defense],
-        // ヴァルド（アルカード）: 狩猟印のジャングラー。攻撃主体 + 終盤の防御
-        "H033": [.jungle, .attack, .attack, .attack, .defense, .attack],
-        // ゴルム（フランコ）: ローム靴 → 防御主体 + 補助
-        "H034": [.defense, .utility, .defense, .defense, .utility, .defense],
+    /// ロール別の推奨ビルド（購入順、靴を含む 6 個。Mobile Legends の定番構成）。
+    static let roleBuilds: [Role: [String]] = [
+        // 射手: スイフトブーツ → マジックガン → ウィンドテラー → バーサーク → ディスペアブレイド → ナチュラルウィンド
+        .ranger: ["EQ403", "EQ101", "EQ108", "EQ110", "EQ106", "EQ117"],
+        // メイジ: アーケインブーツ → ボルトロッド → ジーニアスワンド → ヒートロッド → ガーディアンレリック → 魔法の聖剣
+        .arcanist: ["EQ404", "EQ204", "EQ203", "EQ207", "EQ210", "EQ211"],
+        // タンク: タフブーツ → ドミナントシールド → カースヘルム → ヴァルキュリアブレス → 上古の鎧 → イモータル
+        .vanguard: ["EQ406", "EQ305", "EQ310", "EQ306", "EQ308", "EQ304"],
+        // ファイター: ウォリアーブーツ → 常勝の神斧 → ハンターストライク → ブレストプレート → ヴァルキュリアブレス → イモータル
+        .duelist: ["EQ407", "EQ116", "EQ105", "EQ303", "EQ306", "EQ304"],
+        // アサシン: タフブーツ → ハンターストライク → オーシャンエッジ → スピリットシャウト → ディスペアブレイド → イモータル
+        .assassin: ["EQ406", "EQ105", "EQ107", "EQ112", "EQ106", "EQ304"],
+        // サポート: マジックブーツ → オアシスのフラスコ → ドミナントシールド → オラクル → ヴァルキュリアブレス → イモータル
+        .support: ["EQ405", "EQ202", "EQ305", "EQ307", "EQ306", "EQ304"],
     ]
 
-    /// ヒーロー別（無ければロール別）の購入順カテゴリ。heroID のロールと role が食い違う時（テストの差し替えなど）はロール別。
-    public static func buildPlan(heroID: String, role: Role, master: MasterData) -> [ItemCategory] {
-        if let plan = heroBuildPlans[heroID], master.hero(heroID)?.role == role { return plan }
-        return buildPlan(role: role)
-    }
+    /// ヒーロー固有の推奨ビルド（MLBB の元ヒーローの定番構成）。無いヒーローはロール別。
+    static let heroBuilds: [String: [String]] = [
+        // ルミナ（ミヤ）: スイフトブーツ → ラスティサイズ → デモンハント → 如意棒 → ナチュラルウィンド → スピリットシャウト
+        "H025": ["EQ403", "EQ119", "EQ120", "EQ118", "EQ117", "EQ112"],
+        // エウリア（エウドラ）: アーケインブーツ → ボルトロッド → ジーニアスワンド → ガーディアンレリック → 魔法の聖剣 → ウィンタークラウン
+        "H026": ["EQ404", "EQ204", "EQ203", "EQ210", "EQ211", "EQ113"],
+        // ジャルド（趙子龍）: スイフトブーツ → ラスティサイズ → ブラッドクロウ → バーサーク → ディスペアブレイド → ナチュラルウィンド
+        "H027": ["EQ403", "EQ119", "EQ111", "EQ110", "EQ106", "EQ117"],
+        // ザイル（セイバー）: 狩猟印のジャングラー。タフブーツ（ジャングルの祝福）→ ハンターストライク → オーシャンエッジ → スピリットシャウト → ディスペアブレイド → イモータル
+        "H028": ["EQ406", "EQ105", "EQ107", "EQ112", "EQ106", "EQ304"],
+        // ボルグ（ティグリアル）: タフブーツ（ロームの祝福）→ ドミナントシールド → ヴァルキュリアブレス → 上古の鎧 → イモータル → 聖光の鎧
+        "H029": ["EQ406", "EQ305", "EQ306", "EQ308", "EQ304", "EQ301"],
+        // ライナ（ライラ）: スイフトブーツ → マジックガン → ウィンドテラー → バーサーク → ディスペアブレイド → ナチュラルウィンド
+        "H030": ["EQ403", "EQ101", "EQ108", "EQ110", "EQ106", "EQ117"],
+        // オーリア（オーロラ）: アーケインブーツ → タリスマン → ボルトロッド → ガーディアンレリック → 魔法の聖剣 → ブラッドウィング
+        "H031": ["EQ404", "EQ214", "EQ204", "EQ210", "EQ211", "EQ205"],
+        // ディアス（ディロス）: ウォリアーブーツ → 常勝の神斧 → ハンターストライク → スピリットシャウト → ディスペアブレイド → イモータル
+        "H032": ["EQ407", "EQ116", "EQ105", "EQ112", "EQ106", "EQ304"],
+        // ヴァルド（アルカード）: 狩猟印のジャングラー。ウォリアーブーツ（ジャングルの祝福）→ 常勝の神斧 → ブラッドクロウ → ラスティサイズ → ディスペアブレイド → イモータル
+        "H033": ["EQ407", "EQ116", "EQ111", "EQ119", "EQ106", "EQ304"],
+        // ゴルム（フランコ）: タフブーツ（ロームの祝福）→ ドミナントシールド → ヴァルキュリアブレス → 上古の鎧 → イモータル → カースヘルム
+        "H034": ["EQ406", "EQ305", "EQ306", "EQ308", "EQ304", "EQ310"],
+    ]
 
-    /// ロール別の推奨ビルド（購入順の item ID）。AI と HUD の「おすすめ購入」が使う。
+    /// ロール別の推奨ビルド（購入順の item ID。マスターに無い ID は除く）。
     public static func recommendedBuild(role: Role, master: MasterData) -> [String] {
-        build(plan: buildPlan(role: role), master: master)
+        (roleBuilds[role] ?? []).filter { master.item($0) != nil }
     }
 
-    /// ヒーロー別（無ければロール別）の推奨ビルド。ビルド編集画面の「おすすめ」が使う（スペル・ポジションの読み替えなし）。
+    /// ヒーロー別（無ければロール別）の推奨ビルド。heroID のロールと role が食い違う時（テストの差し替えなど）はロール別。
     public static func recommendedBuild(heroID: String, role: Role, master: MasterData) -> [String] {
-        build(plan: buildPlan(heroID: heroID, role: role, master: master), master: master)
+        if let build = heroBuilds[heroID], master.hero(heroID)?.role == role {
+            return build.filter { master.item($0) != nil }
+        }
+        return recommendedBuild(role: role, master: master)
     }
 
-    /// ヒーローの装備スペルに合わせた推奨ビルド。
-    /// 狩猟印なし → Jungle 枠を Movement（既にあれば主力カテゴリ）へ。狩猟印ありのジャングラー → 先頭に Jungle。
+    /// ヒーローの推奨ビルド（AI と HUD の「おすすめ購入」）。祝福は靴に付くので、ジャングル・ロームでも装備の並びは変わらない。
     public static func recommendedBuild(for hero: HeroData, master: MasterData) -> [String] {
-        var plan = buildPlan(heroID: hero.heroID, role: hero.role, master: master)
-        let hasSmite = hero.spells.contains(Balance.Economy.smiteSpellID)
-        if !hasSmite, let k = plan.firstIndex(of: .jungle) {
-            let primary = plan.first { $0 != .jungle && $0 != .movement } ?? .attack
-            plan[k] = plan.contains(.movement) ? primary : .movement
-        } else if hasSmite, hero.position == .jungle, !plan.contains(.jungle) {
-            plan.insert(.jungle, at: 0)
-            // 6 枠に収めるため末尾から 1 つ削る
-            plan.removeLast()
-        }
-        // 靴: 狩猟印のジャングラーはジャングル靴、狩猟印なしのサポートはローム靴（靴枠は 1 つなので移動系は主力カテゴリへ）
-        let useJungleBoots = hasSmite && plan.contains(.jungle) && master.item(GearCatalog.jungleBootsID) != nil
-        let useRoamBoots = !hasSmite && hero.position == .support && master.item(GearCatalog.roamBootsID) != nil
-        if useJungleBoots || useRoamBoots, plan.contains(.movement) {
-            let primary = plan.first { $0 != .jungle && $0 != .movement } ?? .attack
-            plan = plan.map { $0 == .movement ? primary : $0 }
-        }
-        if useRoamBoots {
-            plan.insert(.roam, at: 0)
-            plan.removeLast()
-        }
-        var out = build(plan: plan, master: master)
-        if useJungleBoots, let k = out.firstIndex(where: { master.item($0)?.category == .jungle }) {
-            out[k] = GearCatalog.jungleBootsID
-        }
-        return out
+        recommendedBuild(heroID: hero.heroID, role: hero.role, master: master)
     }
 
-    /// カテゴリ列から、各カテゴリの評価順に重複なく装備を割り当てる。
-    static func build(plan: [ItemCategory], master: MasterData) -> [String] {
-        let table = EconomyItemTable.table(for: master)
-        var out: [String] = []
-        for cat in plan {
-            if let pick = table.rankedItems(cat).first(where: { !out.contains($0.itemID) }) {
-                out.append(pick.itemID)
-            }
-        }
-        return out
-    }
-
-    /// カテゴリ内の完成品候補を評価順に並べる（上位 Tier → 評価値 → ID 昇順）。
+    /// カテゴリ内の完成品候補を評価順に並べる（上位 Tier → 評価値 → ID 昇順。消耗品は除く）。
     public static func rankedItems(category: ItemCategory, master: MasterData) -> [ItemDef] {
         EconomyItemTable.table(for: master).rankedItems(category)
     }
@@ -274,9 +249,9 @@ public enum ItemSystem {
 
     /// 推奨ビルドに沿って「次に買うべき装備」（所持 Gold で買えるもの。無ければ nil）。HUD のおすすめ購入・AI が使う。
     /// customBuild が与えられればそれを優先する。
-    /// 完成品が買えない時は、その素材のうち買えるものを返す（素材優先）。
+    /// 完成品が買えない時は、その素材（さらにその素材）のうち買えるものを返す（素材優先、build_from の順）。
     public static func nextRecommendedPurchase(_ hero: HeroData, ctx: SimContext, customBuild: [String]? = nil) -> String? {
-        let build = customBuild.map { $0.filter { ctx.master.item($0) != nil } }
+        let build = customBuild.map { $0.filter { ctx.master.item($0).map { !$0.isConsumable } == true } }
             ?? recommendedBuild(for: hero, master: ctx.master)
         // 完成品として確保済みの所持品を多重集合で取り除きながら進む
         var pool = hero.items
@@ -289,21 +264,26 @@ public enum ItemSystem {
             if q.canBuy { return target }
             switch q.failure {
             case .unknownItem?, .requiresSmite?, .blockedBySmite?, .uniqueCategory?:
-                // 構造的に買えない（編成・ビルド指定の問題）ので次の候補へ
+                // 構造的に買えない（ビルド指定の問題）ので次の候補へ
                 continue
             default:
                 break
             }
-            guard let item = ctx.master.item(target) else { continue }
-            // 未所持の素材のうち買えるもの（build_from の順）
+            // 未所持の素材のうち買えるもの（build_from の順に、持っていない素材の中へ下りる）
             var owned = pool
-            for comp in item.buildFrom {
-                if let k = owned.firstIndex(of: comp) {
-                    owned.remove(at: k)
-                    continue
+            func firstBuyable(_ id: String, depth: Int) -> String? {
+                guard depth < 4, let item = ctx.master.item(id) else { return nil }
+                for comp in item.buildFrom {
+                    if let k = owned.firstIndex(of: comp) {
+                        owned.remove(at: k)
+                        continue
+                    }
+                    if quote(hero, itemID: comp, ctx: ctx).canBuy { return comp }
+                    if let deeper = firstBuyable(comp, depth: depth + 1) { return deeper }
                 }
-                if quote(hero, itemID: comp, ctx: ctx).canBuy { return comp }
+                return nil
             }
+            if let comp = firstBuyable(target, depth: 0) { return comp }
             // 枠不足なら後続の完成品（素材を消費して枠が空くもの）を試す。Gold 不足なら貯める。
             if q.failure == .slotsFull { continue }
             return nil
@@ -314,32 +294,46 @@ public enum ItemSystem {
 
 /// 装備・ルーンの能力値反映。
 public enum ItemStats {
-    /// 装備の固定値 → カテゴリ別パッシブ（同一装備は 1 回）→ ルーン（割合）の順で加算する。
-    public static func apply(items: [String], runes: [String], to stats: inout Stats, ctx: SimContext) {
-        apply(items: items, runes: runes, to: &stats, master: ctx.master)
+    /// 装備の固定値 → 固有の能力値（重ならない）→ 適応攻撃 → ルーン（割合）の順で加算する。
+    /// hero を渡すと、MP（Mana のヒーローだけ）・適応攻撃の振り分け・ポーション・レベルで変わる固有効果も反映する。
+    public static func apply(items: [String], runes: [String], to stats: inout Stats, ctx: SimContext,
+                             hero: HeroData? = nil, time: Double = 0) {
+        apply(items: items, runes: runes, to: &stats, master: ctx.master, hero: hero, time: time)
     }
 
-    public static func apply(items: [String], runes: [String], to stats: inout Stats, master: MasterData) {
+    public static func apply(items: [String], runes: [String], to stats: inout Stats, master: MasterData,
+                             hero: HeroData? = nil, time: Double = 0) {
         // 毎 tick 全ヒーローで呼ばれるため、% 値は事前計算表から引く
         let table = EconomyItemTable.table(for: master)
+        let base = stats
         var resourceRegenPct: Double = 0
         var hpRegenPct: Double = 0
 
+        // 効果中のポーションは所持品と同じように能力値を足す
+        var all = items
+        if let rt = hero?.itemRuntime, let potion = rt.potionID, time < rt.potionUntil { all.append(potion) }
+
         // 能力値（装備ごとに定義。同じ装備を複数持てばその分加算）。
-        // 同名の固有効果にあたる割合（貫通 %・魔力 %）は重ならず、最大値だけを採る。
+        // 割合の貫通・減速軽減は同名の固有効果なので重ならず、最大値だけを採る。
         var attackSpeedPct: Double = 0, armorPenPct: Double = 0, magicPenPct: Double = 0
         var abilityPowerPct: Double = 0, moveSpeedItemPct: Double = 0
-        for id in items {
+        var itemAttack: Double = 0, itemPower: Double = 0, adaptive: Double = 0
+        var mana: Double = 0, slowReduction: Double = 0, critChancePct: Double = 0
+        var unique: [String: Double] = [:]
+        var seen: [String] = []
+        for id in all {
             guard let it = master.item(id) else { continue }
-            stats.attack += it.attack
-            stats.abilityPower += it.abilityPower
+            itemAttack += it.attack
+            itemPower += it.abilityPower
+            adaptive += it.adaptiveAttack
             stats.maxHP += it.hp
+            mana += it.mana
             stats.armor += it.armor
             stats.magicResist += it.magicResist
             stats.moveSpeed += it.moveSpeed
             stats.cooldownReduction += it.cooldownReductionPct / 100
             attackSpeedPct += it.attackSpeedPct / 100
-            stats.critChance += it.critChancePct / 100
+            critChancePct += it.critChancePct
             stats.critMultiplier += it.critDamagePct / 100
             stats.lifesteal += it.lifestealPct / 100
             stats.spellVamp += it.spellVampPct / 100
@@ -353,23 +347,57 @@ public enum ItemStats {
             moveSpeedItemPct += it.moveSpeedPct / 100
             stats.outOfCombatMoveSpeedBonus += it.outOfCombatMovePct / 100
             stats.healShieldPower += it.healShieldPowerPct / 100
+            stats.monsterDamageBonus += it.monsterDamagePct / 100
+            stats.ccReduction += it.ccReductionPct / 100
+            slowReduction = max(slowReduction, it.slowReductionPct / 100)
+            stats.healingReceivedMultiplier += it.healReceivedPct / 100
+            stats.critDamageReduction += it.critDamageReductionPct / 100
+            stats.damageReduction += it.damageReductionPct / 100
+            // 固有の能力値: 同じ装備は 1 回、同じ能力値は最大値
+            if !it.uniqueStats.isEmpty, !seen.contains(id) {
+                seen.append(id)
+                for (k, v) in it.uniqueStats { unique[k] = max(unique[k] ?? 0, v) }
+            }
         }
+        for (k, v) in unique.sorted(by: { $0.key < $1.key }) {
+            switch k {
+            case "armor_pen_flat": stats.armorPenFlat += v
+            case "magic_pen_flat": stats.magicPenFlat += v
+            case "armor_pen_pct": armorPenPct = max(armorPenPct, v / 100)
+            case "magic_pen_pct": magicPenPct = max(magicPenPct, v / 100)
+            case "crit_damage_pct": stats.critMultiplier += v / 100
+            case "lifesteal_pct": stats.lifesteal += v / 100
+            case "spell_vamp_pct": stats.spellVamp += v / 100
+            case "heal_shield_power_pct": stats.healShieldPower += v / 100
+            case "crit_damage_reduction_pct": stats.critDamageReduction += v / 100
+            case "move_speed": stats.moveSpeed += v
+            case "attack_speed_pct": attackSpeedPct += v / 100
+            case "crit_chance_pct": critChancePct += v
+            case "hp": stats.maxHP += v
+            case "cooldown_reduction_pct": stats.cooldownReduction += v / 100
+            default: break
+            }
+        }
+        // 適応攻撃: 装備で増えた攻撃力と魔力の多い方。同じなら（どちらも 0 を含む）ヒーローのスキルのダメージの種類
+        if adaptive > 0 {
+            let magic: Bool
+            if itemPower != itemAttack {
+                magic = itemPower > itemAttack
+            } else {
+                magic = hero.map { master.skills(forHero: $0.heroID).first?.damageType == .magic } ?? false
+            }
+            if magic { itemPower += adaptive } else { itemAttack += adaptive }
+        }
+        stats.attack += itemAttack
+        stats.abilityPower += itemPower
+        if hero?.resourceKind == .mana { stats.maxResource += mana }
         stats.armorPenPct = armorPenPct
         stats.magicPenPct = magicPenPct
+        stats.slowReduction = slowReduction
+        stats.critChance += critChancePct / 100
         stats.attackSpeed *= 1 + attackSpeedPct
         stats.abilityPower *= 1 + abilityPowerPct
         stats.critChance = min(1, stats.critChance)
-
-        // ジャングル装備（同じ装備のモンスターへのダメージは重ならない）: モンスターへの与ダメと Gold 補正
-        var seen: [String] = []
-        var hasJungle = false
-        for id in items where !seen.contains(id) {
-            seen.append(id)
-            guard let it = master.item(id), it.category == .jungle else { continue }
-            stats.monsterDamageBonus += it.monsterDamagePct / 100
-            hasJungle = true
-        }
-        if hasJungle { stats.monsterGoldBonus += Balance.Economy.jungleMonsterGoldBonus }
 
         // ルーン（X = effect の %）
         var attackPct: Double = 0
@@ -405,8 +433,8 @@ public enum ItemStats {
         stats.moveSpeed *= 1 + moveSpeedPct + moveSpeedItemPct
         stats.hpRegen *= 1 + hpRegenPct
         stats.resourceRegen *= 1 + resourceRegenPct
-        // 魔力から最大 HP への換算（装備「血翼の共鳴」）は、魔力が確定した後に足す
-        stats.maxHP += ItemEffects.bloodWingsHP(items: items, abilityPower: stats.abilityPower, master: master)
+        // 能力値で決まる固有効果（射程・魔力の割合・クリティカルの換算・混合防御など）。ルーンの後の値で計算する
+        ItemEffects.applyStatEffects(items: all, hero: hero, to: &stats, base: base, master: master)
     }
 
     /// 有効なルーン（マスターに存在する ID のみ、各 Tier 先頭の 1 個、最大 3 個）。

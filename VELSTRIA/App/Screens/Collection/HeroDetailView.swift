@@ -496,7 +496,7 @@ private struct HeroBuildSection: View {
     @Environment(AppModel.self) private var app
 
     var body: some View {
-        let isCustom = app.profile.customBuilds[hero.heroID] != nil
+        let isCustom = BuildRules.custom(for: hero.heroID, profile: app.profile, master: app.master) != nil
         let build = BuildRules.current(for: hero.heroID, profile: app.profile, master: app.master)
         let recommended = BuildRules.recommended(for: hero.heroID, master: app.master)
         Panel(padding: 12) {

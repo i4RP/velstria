@@ -369,23 +369,35 @@ enum HeroStatMath {
 // MARK: - 装備（DESIGN §8）
 
 struct ItemStatLine: Identifiable, Equatable {
-    var id: String { label }
+    var id: String { "\(label) \(value)" }
     var label: String
     var value: String
     var symbol: String
 }
 
+/// 合成ツリーの 1 つの素材（その素材の素材を children に持つ）。
+struct ItemRecipeNode: Identifiable, Equatable {
+    /// 兄弟の中での位置（同じ素材が 2 つ並ぶことがある）。
+    var id: Int
+    var item: ItemDef
+    var children: [ItemRecipeNode]
+}
+
 enum ItemMath {
-    /// 非ゼロの能力値。
+    /// 非ゼロの能力値（固定値 → 割合 → 2026-10 に足した能力値 → 固有の能力値「（固有）」の順）。
     static func statLines(_ item: ItemDef) -> [ItemStatLine] {
         var lines: [ItemStatLine] = []
         let n = { (v: Double) in CollectionStyle.number(v, digits: 1) }
         if item.attack != 0 { lines.append(.init(label: L("攻撃力", "Attack"), value: "+\(n(item.attack))", symbol: "bolt.fill")) }
         if item.abilityPower != 0 { lines.append(.init(label: L("魔力", "Power"), value: "+\(n(item.abilityPower))", symbol: "sparkles")) }
         if item.hp != 0 { lines.append(.init(label: L("最大HP", "Max HP"), value: "+\(n(item.hp))", symbol: "heart.fill")) }
+        if item.mana != 0 { lines.append(.init(label: L("最大MP", "Max Mana"), value: "+\(n(item.mana))", symbol: "drop.circle.fill")) }
         if item.armor != 0 { lines.append(.init(label: L("防御", "Armor"), value: "+\(n(item.armor))", symbol: "shield.fill")) }
         if item.magicResist != 0 { lines.append(.init(label: L("魔防", "Magic Res."), value: "+\(n(item.magicResist))", symbol: "shield.lefthalf.filled")) }
         if item.moveSpeed != 0 { lines.append(.init(label: L("移動速度", "Move Speed"), value: "+\(n(item.moveSpeed))", symbol: "hare.fill")) }
+        if item.adaptiveAttack != 0 {
+            lines.append(.init(label: L("適応攻撃", "Adaptive Attack"), value: "+\(n(item.adaptiveAttack))", symbol: "wand.and.stars"))
+        }
         if item.cooldownReductionPct != 0 {
             lines.append(.init(label: L("CD短縮", "Cooldown Red."), value: "+\(CollectionStyle.percent(item.cooldownReductionPct))", symbol: "timer"))
         }
@@ -407,7 +419,50 @@ enum ItemMath {
         if item.outOfCombatMovePct != 0 { lines.append(.init(label: L("非戦闘時の移動速度", "Out-of-combat Move Speed"), value: pct(item.outOfCombatMovePct), symbol: "hare.fill")) }
         if item.healShieldPowerPct != 0 { lines.append(.init(label: L("回復・シールド量", "Heal & Shield Power"), value: pct(item.healShieldPowerPct), symbol: "heart.circle.fill")) }
         if item.monsterDamagePct != 0 { lines.append(.init(label: L("モンスターへのダメージ", "Monster Damage"), value: pct(item.monsterDamagePct), symbol: "pawprint.fill")) }
+        // MLBB の装備への総入れ替え（2026-10）で足した能力値
+        if item.ccReductionPct != 0 { lines.append(.init(label: L("コントロール時間短縮", "CC Reduction"), value: pct(item.ccReductionPct), symbol: "figure.walk")) }
+        if item.slowReductionPct != 0 { lines.append(.init(label: L("減速軽減", "Slow Reduction"), value: pct(item.slowReductionPct), symbol: "tortoise.fill")) }
+        if item.healReceivedPct != 0 { lines.append(.init(label: L("受ける回復", "Healing Received"), value: pct(item.healReceivedPct), symbol: "bandage.fill")) }
+        if item.critDamageReductionPct != 0 {
+            lines.append(.init(label: L("クリティカルダメージ軽減", "Crit Damage Reduction"), value: pct(item.critDamageReductionPct), symbol: "shield.lefthalf.filled"))
+        }
+        if item.damageReductionPct != 0 { lines.append(.init(label: L("ダメージ軽減", "Damage Reduction"), value: pct(item.damageReductionPct), symbol: "shield.fill")) }
+        // 固有の能力値（同じ装備を 2 個持っても 1 個分。同じ能力値は最大値だけが効く）
+        lines += uniqueStatLines(item.uniqueStats)
         return lines
+    }
+
+    /// 固有の能力値の表示（キー = master の能力値の列名。並びはこの表の順）。
+    private static let uniqueStatTable: [(key: String, ja: String, en: String, symbol: String, percent: Bool)] = [
+        ("hp", "最大HP", "Max HP", "heart.fill", false),
+        ("move_speed", "移動速度", "Move Speed", "hare.fill", false),
+        ("cooldown_reduction_pct", "CD短縮", "Cooldown Red.", "timer", true),
+        ("attack_speed_pct", "攻撃速度", "Attack Speed", "speedometer", true),
+        ("crit_chance_pct", "クリティカル率", "Crit Chance", "scope", true),
+        ("crit_damage_pct", "クリティカルダメージ", "Crit Damage", "scope", true),
+        ("armor_pen_pct", "物理貫通", "Physical Pen.", "xmark.shield.fill", true),
+        ("armor_pen_flat", "物理貫通", "Physical Pen.", "xmark.shield.fill", false),
+        ("magic_pen_pct", "魔法貫通", "Magic Pen.", "xmark.shield.fill", true),
+        ("magic_pen_flat", "魔法貫通", "Magic Pen.", "xmark.shield.fill", false),
+        ("lifesteal_pct", "ライフスティール", "Lifesteal", "drop.fill", true),
+        ("spell_vamp_pct", "スペルヴァンプ", "Spell Vamp", "drop.fill", true),
+        ("heal_shield_power_pct", "回復・シールド量", "Heal & Shield Power", "heart.circle.fill", true),
+        ("crit_damage_reduction_pct", "クリティカルダメージ軽減", "Crit Damage Reduction", "shield.lefthalf.filled", true),
+    ]
+
+    /// 固有の能力値の行（「（固有）」付き。表に無いキーは名前順で後ろに並べる）。
+    static func uniqueStatLines(_ stats: [String: Double]) -> [ItemStatLine] {
+        var out: [ItemStatLine] = []
+        for e in uniqueStatTable {
+            guard let v = stats[e.key], v != 0 else { continue }
+            let value = e.percent ? "+\(CollectionStyle.percent(v))" : "+\(CollectionStyle.number(v, digits: 1))"
+            out.append(.init(label: L("\(e.ja)（固有）", "\(e.en) (Unique)"), value: value, symbol: e.symbol))
+        }
+        let known = Set(uniqueStatTable.map(\.key))
+        for (k, v) in stats.sorted(by: { $0.key < $1.key }) where !known.contains(k) && v != 0 {
+            out.append(.init(label: L("\(k)（固有）", "\(k) (Unique)"), value: "+\(CollectionStyle.number(v, digits: 1))", symbol: "sparkle"))
+        }
+        return out
     }
 
     /// 一覧用の主要能力（最初の能力値）。
@@ -415,33 +470,37 @@ enum ItemMath {
         statLines(item).first
     }
 
-    /// カテゴリ別の固有パッシブ効果（X = passive_text の %）。
+    /// 固有効果の文（日本語はマスターの passive_text、英語は master_en.json の "<id>.desc"。1 行に 1 つ）。無ければ空。
     static func passiveEffectText(_ item: ItemDef) -> String {
-        // 装備の作り直し（2026-10）以降、固有効果は装備ごとの文（日本語はマスター、英語は master_en.json の "<id>.desc"）。
-        // ギア（EQJ/EQR のジャングル靴・ローム靴）は従来どおりカテゴリ別の説明。
-        if item.itemID.hasPrefix("EQ0"), !item.passiveText.isEmpty {
-            return MasterText.description(id: item.itemID, ja: item.passiveText)
-        }
-        let x = item.passivePercent
-        let p = { (v: Double) in CollectionStyle.percent(v) }
-        switch item.category {
-        case .attack:
-            return L("通常攻撃のダメージ +\(p(x))", "Basic attack damage +\(p(x))")
-        case .magic:
-            return L("スキルダメージ +\(p(x))", "Skill damage +\(p(x))")
-        case .defense:
-            return L("受けるダメージ −\(p(x / 2))", "Damage taken −\(p(x / 2))")
-        case .movement:
-            return L("非戦闘時の移動速度 +\(p(x))", "Out-of-combat move speed +\(p(x))")
-        case .utility:
-            return L("回復・シールド量 +\(p(x))、Mana 回復 +\(p(x))", "Healing & shielding +\(p(x)), mana regen +\(p(x))")
-        case .jungle:
-            return L("モンスターへのダメージ +\(p(3 * x))、モンスター Gold +20%（ミニオンの Gold/XP は 5:00 まで半減）",
-                     "Damage to monsters +\(p(3 * x)), monster gold +20% (minion Gold/XP halved until 5:00)")
-        case .roam:
-            return L("5 秒ごとにチーム共有の Gold・XP（8:00 から増加）。自分のミニオン・モンスター収入は 8:00 まで半減",
-                     "Shared team Gold/XP every 5s (more from 8:00). Your minion and monster income is halved until 8:00")
-        }
+        guard !item.passiveText.isEmpty else { return "" }
+        return MasterText.description(id: item.itemID, ja: item.passiveText)
+    }
+
+    /// 固有効果の名前（複数あれば「・」でつなぐ。英語は "<id>.passive"）。無ければ nil。
+    static func passiveName(_ item: ItemDef) -> String? {
+        guard !item.passiveName.isEmpty else { return nil }
+        return MasterText.name(id: "\(item.itemID).passive", ja: item.passiveName)
+    }
+
+    /// 一覧に出す短い説明（「攻撃範囲増加」など。英語は "<id>.tag"）。無ければ nil。
+    static func tag(_ item: ItemDef) -> String? {
+        guard !item.tagJa.isEmpty else { return nil }
+        return MasterText.name(id: "\(item.itemID).tag", ja: item.tagJa)
+    }
+
+    /// 一覧の名前の下の 1 行: 短い説明 → 主要能力 → 固有効果。
+    static func caption(_ item: ItemDef) -> String {
+        if let t = tag(item) { return t }
+        if let s = primaryStat(item) { return "\(s.label) \(s.value)" }
+        return passiveEffectText(item)
+    }
+
+    /// 消耗品（ポーション）の説明。消耗品でなければ nil。
+    static func consumableText(_ item: ItemDef) -> String? {
+        guard item.isConsumable else { return nil }
+        let sec = Int(item.consumableSec.rounded())
+        return L("消耗品: 買うとすぐに使い、\(sec) 秒間 能力値が上がる（所持枠を使わず売却できない。効果は 1 つだけで、買い直すと置き換わる）",
+                 "Consumable: used on purchase for \(sec)s of bonus stats (takes no slot and can't be sold; only one is active, buying another replaces it)")
     }
 
     /// 素材（build_from）。存在しない ID は除外、重複は保持。
@@ -449,38 +508,44 @@ enum ItemMath {
         item.buildFrom.compactMap { master.item($0) }
     }
 
+    /// 合成ツリー（depth 段まで: 素材 → 素材の素材）。
+    static func recipeTree(_ item: ItemDef, master: MasterData, depth: Int = 2) -> [ItemRecipeNode] {
+        guard depth > 0 else { return [] }
+        return components(item, master: master).enumerated().map { k, part in
+            ItemRecipeNode(id: k, item: part, children: recipeTree(part, master: master, depth: depth - 1))
+        }
+    }
+
     /// この装備を素材に含む上位装備（ID 昇順）。
     static func buildsInto(_ itemID: String, master: MasterData) -> [ItemDef] {
         master.items.filter { $0.buildFrom.contains(itemID) }
     }
 
-    /// 素材をすべて所持している場合の合成コスト = max(price × 0.3, price − 素材価格合計)。
+    /// 素材をすべて所持している場合の合成コスト = max(price × Balance.minCombineCostRatio, price − 素材価格合計)。
     static func combineCost(_ item: ItemDef, master: MasterData) -> Double {
         let parts = components(item, master: master).reduce(0) { $0 + $1.priceGold }
         guard parts > 0 else { return item.priceGold }
         return max(item.priceGold * Balance.minCombineCostRatio, item.priceGold - parts).rounded()
     }
 
+    /// カテゴリ（別のタブにも並ぶ装備を含む）と Tier で絞る。並びはマスターの ID 順。
     static func filtered(_ items: [ItemDef], category: ItemCategory?, tier: Int?) -> [ItemDef] {
-        items.filter { (category == nil || $0.category == category) && (tier == nil || $0.tier == tier) }
+        items.filter { item in
+            (category.map { item.isListed(in: $0) } ?? true) && (tier == nil || item.tier == tier)
+        }
     }
 }
 
-// MARK: - ビルド（DESIGN §8: 6 枠・移動系 1・ジャングル系 1）
+// MARK: - ビルド（DESIGN §8: 6 枠・靴は 1 足・同じ装備は 1 つ）
 
 enum BuildCheck: Equatable {
     case ok
     case full
     case duplicate
-    case movementLimit
-    case jungleLimit
-    case roamLimit
-    /// 靴枠（移動系・ジャングル靴・ローム靴）は 1 つまで。
+    /// 靴（移動カテゴリ）は 1 足まで。
     case bootsLimit
-    /// ローム靴とジャングル装備は同時に持てない（狩猟印の有無が前提のため）。
-    case roamJungleConflict
-    /// ローム靴は狩猟印を装備していると使えない。
-    case roamBlockedBySmite
+    /// 消耗品（ポーション）はビルドに入れない。
+    case consumable
     case unknown
 
     var message: String {
@@ -488,14 +553,12 @@ enum BuildCheck: Equatable {
         case .ok: return ""
         case .full: return L("装備枠がいっぱいです（最大 6 個）", "All 6 slots are filled")
         case .duplicate: return L("同じ装備は 1 つまでです（固有パッシブは重複しません）", "Only one of each item (unique passives don't stack)")
-        case .movementLimit: return L("移動系装備は 1 つまでです", "Only one Movement item allowed")
-        case .jungleLimit: return L("ジャングル系装備は 1 つまでです", "Only one Jungle item allowed")
-        case .roamLimit: return L("ローム系装備は 1 つまでです", "Only one Roam item allowed")
-        case .bootsLimit: return L("靴は 1 つまでです（移動系・ジャングル靴・ローム靴）", "Only one pair of boots (Movement, Jungle or Roam)")
-        case .roamJungleConflict: return L("ローム装備とジャングル装備は同時に持てません", "Roam and Jungle items can't be combined")
-        case .roamBlockedBySmite:
-            return L("ローム靴は狩猟印と一緒には使えません。ローム靴を入れるには、先にバトルスペルから狩猟印を外してください（狩猟印はジャングル用のスペルです）",
-                     "Roam boots can't be used with the hunting spell (Jungle's spell). Remove it from your battle spells first to add roam boots")
+        case .bootsLimit:
+            return L("靴は 1 足までです（ジャングル・ロームの祝福は試合中に靴へ付けます）",
+                     "Only one pair of boots (jungle and roam blessings go on your boots during a match)")
+        case .consumable:
+            return L("ポーションはビルドに入れられません（試合中にショップで使います）",
+                     "Potions can't be added to a build (use them from the shop during a match)")
         case .unknown: return L("不明な装備です", "Unknown item")
         }
     }
@@ -514,11 +577,10 @@ enum BuildRules {
     }
 
     /// build に itemID を追加（replacing 指定時はその位置を置換）できるか。
-    /// spells = 装備中のバトルスペル（渡すと、狩猟印ありでのローム靴を断る）。
-    static func check(_ itemID: String, adding build: [String], replacing index: Int?, master: MasterData,
-                      spells: [String]? = nil) -> BuildCheck {
+    /// 祝福（ジャングル・ローム）は装備ではないのでビルドには入らない（試合中に靴へ付ける）。
+    static func check(_ itemID: String, adding build: [String], replacing index: Int?, master: MasterData) -> BuildCheck {
         guard let item = master.item(itemID) else { return .unknown }
-        if item.category == .roam, spells?.contains(smiteSpellID) == true { return .roamBlockedBySmite }
+        if item.isConsumable { return .consumable }
         var others = build
         if let index, others.indices.contains(index) {
             others.remove(at: index)
@@ -526,35 +588,16 @@ enum BuildRules {
             return .full
         }
         if others.contains(itemID) { return .duplicate }
-        let categories = others.compactMap { master.item($0)?.category }
-        if item.category == .movement && categories.contains(.movement) { return .movementLimit }
-        if item.category == .jungle && categories.contains(.jungle) { return .jungleLimit }
-        if item.category == .roam && categories.contains(.roam) { return .roamLimit }
-        if (item.category == .roam && categories.contains(.jungle)) || (item.category == .jungle && categories.contains(.roam)) {
-            return .roamJungleConflict
-        }
-        if ItemSystem.isBoots(item), others.contains(where: { master.item($0).map(ItemSystem.isBoots) == true }) {
-            return .bootsLimit
-        }
+        if item.isBoots, others.contains(where: { master.item($0)?.isBoots == true }) { return .bootsLimit }
         return .ok
     }
 
-    /// 狩猟印（ジャングル装備の購入に必要なバトルスペル、DESIGN §7）。
-    static let smiteSpellID = "BS05"
+    /// 狩猟印（ジャングルの祝福に必要なバトルスペル、DESIGN §7）。
+    static let smiteSpellID = Balance.Economy.smiteSpellID
 
     /// 狩猟印の表示名（英語はマスターの英語名に追従）。
     static func smiteName(master: MasterData) -> String {
         master.spell(smiteSpellID).map { MasterText.spell($0) } ?? smiteSpellID
-    }
-
-    /// ジャングル装備を含み、かつ狩猟印を装備していないか（戦闘中に購入できない組み合わせ）。
-    static func lacksSmite(_ build: [String], spells: [String], master: MasterData) -> Bool {
-        build.contains { master.item($0)?.category == .jungle } && !spells.contains(smiteSpellID)
-    }
-
-    /// ローム靴を含み、かつ狩猟印を装備していないか（ローム靴は狩猟印と併用できず、戦闘中に購入できない）。
-    static func roamConflictsSmite(_ build: [String], spells: [String], master: MasterData) -> Bool {
-        build.contains { master.item($0)?.category == .roam } && spells.contains(smiteSpellID)
     }
 
     static func totalCost(_ build: [String], master: MasterData) -> Double {
@@ -567,12 +610,16 @@ enum BuildRules {
         return sanitized(ItemSystem.recommendedBuild(heroID: heroID, role: role, master: master), master: master)
     }
 
+    /// 保存済みのカスタムビルド（今のマスターで有効な装備だけ）。装備の入れ替えで 1 つも残らなければ nil。
+    static func custom(for heroID: String, profile: Profile, master: MasterData) -> [String]? {
+        guard let custom = profile.customBuilds[heroID] else { return nil }
+        let clean = sanitized(custom, master: master)
+        return clean.isEmpty ? nil : clean
+    }
+
     /// 表示・編集の初期値: カスタムビルド優先、無ければ推奨。
     static func current(for heroID: String, profile: Profile, master: MasterData) -> [String] {
-        if let custom = profile.customBuilds[heroID] {
-            return sanitized(custom, master: master)
-        }
-        return recommended(for: heroID, master: master)
+        custom(for: heroID, profile: profile, master: master) ?? recommended(for: heroID, master: master)
     }
 
     static func move(_ build: [String], from: Int, by offset: Int) -> [String] {

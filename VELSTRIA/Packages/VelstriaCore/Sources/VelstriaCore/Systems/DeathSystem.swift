@@ -167,6 +167,8 @@ public enum DeathSystem {
             s.emit(.channelCanceled(heroID: victimID, kind: ch.kind))
         }
         s.units[v].hero!.respawnTimer = RespawnSystem.respawnTime(level: vh.level, time: now)
+        // 装備: イモータル（その場で早く復活）・天空の刃（スタックを失う）
+        ItemEffects.onHeroDeath(&s, ctx, hero: v)
         s.units[v].hero!.channel = nil
         s.units[v].hero!.empoweredAttack = nil
         s.units[v].hero!.score.deaths += 1
@@ -278,11 +280,13 @@ public enum DeathSystem {
         // Gold はヒーローのラストヒットのみ
         if let k = s.index(of: killerID), isHero(s, k), s.units[k].team != s.units[v].team {
             s.units[k].hero?.score.minionKills += 1
-            // ジャングル靴（5:00 まで）・ローム靴（8:00 まで）は自分の収入が半減
+            // ジャングルの祝福は 2:00 まで自分の収入が半減
             let mult = s.units[k].hero.map { GearEffects.minionRewardMultiplier($0, time: s.time, master: ctx.master) } ?? 1
-            EconomyRewards.grantGold(&s, heroIndex: k,
-                                     amount: Balance.Economy.minionGold(m.type, at: s.time) * mult * laneBonus(s, ctx, lane: m.lane).gold,
-                                     at: pos)
+            let gold = Balance.Economy.minionGold(m.type, at: s.time) * mult * laneBonus(s, ctx, lane: m.lane).gold
+            EconomyRewards.grantGold(&s, heroIndex: k, amount: gold, at: pos)
+            // ロームの祝福（無私）: 近くのローム持ちが 30% を別に得る。デモンブーツ: MP 回復
+            GearSystem.devotion(&s, ctx, earner: k, gold: gold, xp: 0)
+            ItemEffects.onMinionKill(&s, ctx, hero: k)
         }
         // XP は周囲の敵ヒーローで分配（止めを刺したのがミニオンでも入る）
         HeroGrowth.shareXP(&s, ctx, team: s.units[v].team.opponent, around: pos,
@@ -315,7 +319,9 @@ public enum DeathSystem {
             if gold > 0 {
                 let bonus = max(0, s.units[kh].stats.monsterGoldBonus)
                 let mult = s.units[kh].hero.map { GearEffects.monsterRewardMultiplier($0, time: s.time, master: ctx.master) } ?? 1
-                EconomyRewards.grantGold(&s, heroIndex: kh, amount: (gold * (1 + bonus) * mult).rounded(), at: pos)
+                let amount = (gold * (1 + bonus) * mult).rounded()
+                EconomyRewards.grantGold(&s, heroIndex: kh, amount: amount, at: pos)
+                GearSystem.devotion(&s, ctx, earner: kh, gold: amount, xp: 0)
             }
         }
 

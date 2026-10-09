@@ -80,7 +80,7 @@ v1.0 はオフライン対 AI のため、サーバー・オンライン前提�
 | MOD07 フレンド / MOD08 チャット / MOD09 パーティ | FR-007,051 / FR-008,052 / FR-009,053 | 対象外（Phase 2、`FeatureFlags.online`） | 導線非表示を UI テストで確認 |
 | MOD10 マッチメイク / MOD12 ドラフト | FR-010,054 / FR-012,056 | 対 AI マッチ生成（MatchFactory）・BAN ありドラフト | core-bots・ui-flow |
 | MOD11 ランク | FR-011,055 | ローカルラダー（隕鉄〜星環王） | app-services（RankService） |
-| MOD13〜MOD16 ヒーロー/装備/ルーン/スペル | FR-013〜016, 057〜060 | 24 / 72 / 30 / 15 すべて | ui-collection・core-* / `AppStoreAssetsTests`（英語網羅） |
+| MOD13〜MOD16 ヒーロー/装備/ルーン/スペル | FR-013〜016, 057〜060 | 24 / 92 / 30 / 15 すべて | ui-collection・core-* / `AppStoreAssetsTests`（英語網羅） |
 | MOD17〜MOD30 戦闘系 | FR-017〜030, 061〜074 | 決定論シミュレーション | core-combat・core-world・core-economy・core-skills・battle / VelstriaCore テスト |
 | MOD31 スコア / MOD34 リザルト | FR-031,075 / FR-034,078 | MVP スコア・評価・報酬精算 | core-economy・app-services |
 | MOD32 降参 | FR-032,076 | AI 投票（DESIGN §3） | core-economy |

@@ -56,7 +56,7 @@ public enum CombatSystem {
             }
             if s.units[t].kind == .monster { bonus += st.monsterDamageBonus }
             bonus += PassiveHooks.outgoingDamageBonus(&s, ctx, attacker: a, target: t, source: source)
-            bonus += ItemEffects.outgoingDamageBonus(s, ctx, attacker: a, target: t)
+            bonus += ItemEffects.outgoingDamageBonus(&s, ctx, attacker: a, target: t, type: type)
             amount *= max(0, 1 + bonus)
         }
         // 構造物: 序盤保護・裏取り保護・攻城補正（core-world）
@@ -71,8 +71,11 @@ public enum CombatSystem {
         var armor = s.units[t].stats.armor, resist = s.units[t].stats.magicResist
         if let a, !environmental, !s.units[t].isStructure, s.units[a].kind == .hero {
             let st = s.units[a].stats
-            armor = penetrated(armor, pct: st.armorPenPct, flat: st.armorPenFlat)
-            resist = penetrated(resist, pct: st.magicPenPct, flat: st.magicPenFlat)
+            // 割合貫通に、対象の防御・魔防に応じた装備の追加分（スピリットシャウト・魔法の聖剣）を足す
+            armor = penetrated(armor, pct: st.armorPenPct + ItemEffects.extraPenetration(s, ctx, attacker: a, target: t, magic: false),
+                               flat: st.armorPenFlat)
+            resist = penetrated(resist, pct: st.magicPenPct + ItemEffects.extraPenetration(s, ctx, attacker: a, target: t, magic: true),
+                                flat: st.magicPenFlat)
         }
         amount *= mitigationMultiplier(type, armor: armor, magicResist: resist)
         // 5. 被ダメ軽減（上限 60%）
@@ -84,7 +87,7 @@ public enum CombatSystem {
         }
         // 装備の固有効果による被ダメ補正（黄昏の挑戦の上限・魔人化の軽減。防御・軽減の後、シールドの前）
         if s.units[t].kind == .hero, !environmental {
-            amount = ItemEffects.modifyIncoming(s, ctx, victim: t, type: type, amount: amount)
+            amount = ItemEffects.modifyIncoming(&s, ctx, victim: t, attacker: a, type: type, source: source, amount: amount)
             guard amount > 0, amount.isFinite else { return 0 }
         }
         // キットのヒーローの被ダメ補正（防御・軽減の後、シールドの前）
@@ -173,12 +176,15 @@ public enum CombatSystem {
         }
 
         // 8. 死亡（キル・アシスト判定は DeathSystem で一括）
-        if s.units[t].hp <= deathEpsilon, !ItemEffects.preventDeath(&s, ctx, victim: t) { commitDeath(&s, t, killerID: sourceID) }
+        if s.units[t].hp <= deathEpsilon { commitDeath(&s, t, killerID: sourceID) }
 
         // パッシブのフック（被害者が死亡している場合もある）
         if victimKind == .hero {
             PassiveHooks.onDamageTaken(&s, ctx, victim: t, attacker: a, amount: dealt)
-            ItemEffects.onDamageTaken(&s, ctx, victim: t, attacker: a, dealt: dealt, source: source)
+            ItemEffects.onDamageTaken(&s, ctx, victim: t, attacker: a, dealt: dealt, raw: raw, type: type, source: source)
+        }
+        if let a, hostile, a != t, s.units[a].kind == .hero {
+            ItemEffects.onDamageDealt(&s, ctx, attacker: a, target: t, raw: raw, dealt: dealt, type: type, source: source)
         }
         if case .skill(let slot) = source, let a {
             PassiveHooks.onSkillHit(&s, ctx, attacker: a, target: t, slot: slot, damage: dealt)
@@ -269,6 +275,7 @@ public enum CombatSystem {
         let healed = after - before
         guard healed > 0 else { return 0 }
         s.units[t].hp = after
+        if !isVamp, let src { ItemEffects.onSupport(&s, ctx, source: src, target: t) }
         s.emit(.heal(targetID: s.units[t].id, sourceID: sourceID, amount: healed))
         if !isVamp, let src, s.units[src].kind == .hero {
             s.units[src].hero?.score.healingDone += healed
@@ -289,6 +296,7 @@ public enum CombatSystem {
         if !tag.isEmpty { s.units[t].shields.removeAll { $0.tag == tag } }
         s.units[t].shields.append(Shield(amount: value, duration: d, sourceID: sourceID, tag: tag))
         s.emit(.shieldGained(targetID: s.units[t].id, sourceID: sourceID, amount: value))
+        if let src { ItemEffects.onSupport(&s, ctx, source: src, target: t) }
         if let src, s.units[src].kind == .hero {
             s.units[src].hero?.score.shieldingDone += value
             recordSupporter(&s, supporter: src, target: t)
@@ -342,6 +350,15 @@ public enum CombatSystem {
     /// CC 無効中・構造物には行動阻害を、無敵・構造物には弱体を付与しない。
     public static func addStatus(_ s: inout SimState, targetIndex t: Int, _ effect: StatusEffect) {
         guard s.units.indices.contains(t), isLiving(s, t), effect.remaining > 0 else { return }
+        var effect = effect
+        // コントロール時間短縮（タフブーツ・ブレストプレート）: 行動阻害と減速の効果時間を縮める
+        if effect.kind.reducedByCCReduction, s.units[t].kind == .hero, s.units[t].team != .neutral {
+            let r = min(Balance.Items.maxCCReduction, max(0, s.units[t].stats.ccReduction))
+            if r > 0, effect.sourceID != s.units[t].id {
+                effect.remaining *= 1 - r
+                effect.duration *= 1 - r
+            }
+        }
         let kind = effect.kind
         if kind.combatIsHarmful && (s.units[t].isStructure || s.units[t].has(.invulnerable)) { return }
         if kind.combatIsCrowdControl && s.units[t].has(.ccImmune) { return }
@@ -463,7 +480,7 @@ public enum CombatSystem {
         }
         guard let a = s.index(of: sourceID) else { return }
         if payload.source == .basicAttack && payload.appliesOnHit {
-            basicAttackLanded(&s, ctx, attacker: a, target: t, dealt: dealt)
+            basicAttackLanded(&s, ctx, attacker: a, target: t, dealt: dealt, isCrit: payload.isCrit)
         } else if payload.damage <= 0, case .skill(let slot) = payload.source {
             // ダメージの無いスキル（CC のみ）も命中として通知する
             PassiveHooks.onSkillHit(&s, ctx, attacker: a, target: t, slot: slot, damage: 0)
@@ -479,7 +496,7 @@ public enum CombatSystem {
 
     /// ヒーローの通常攻撃が命中した時の効果（紅焔バフ・命中数・パッシブ）。
     static func basicAttackLanded(_ s: inout SimState, _ ctx: SimContext, attacker a: Int, target t: Int,
-                                  dealt: Double) {
+                                  dealt: Double, isCrit: Bool = false) {
         if s.units[a].has(.redBuff), isLiving(s, t), !s.units[t].isStructure {
             let level = Double(s.units[a].hero?.level ?? 1)
             let total = Balance.combatRedBuffBurnBase + Balance.combatRedBuffBurnPerLevel * level
@@ -492,7 +509,7 @@ public enum CombatSystem {
                                                         sourceID: attackerID, tag: tagRedBuff))
         }
         if s.units[a].hero != nil { s.units[a].hero!.basicAttackCount += 1 }
-        ItemEffects.onBasicAttackLanded(&s, ctx, attacker: a, target: t, dealt: dealt)
+        ItemEffects.onBasicAttackLanded(&s, ctx, attacker: a, target: t, dealt: dealt, isCrit: isCrit)
         PassiveHooks.onBasicAttackHit(&s, ctx, attacker: a, target: t, damage: dealt)
     }
 
@@ -645,7 +662,9 @@ public enum CombatSystem {
                     isCrit = s.rng.nextDouble() < chance
                 }
             }
-            let multiplier = isCrit ? max(1, s.units[i].stats.critMultiplier) : 1
+            // 対象のクリティカルダメージ軽減（ブレイドアーマー）はクリティカルの上乗せ分を減らす
+            let critCut = min(1, max(0, s.units[t].stats.critDamageReduction))
+            let multiplier = isCrit ? max(1, 1 + (s.units[i].stats.critMultiplier - 1) * (1 - critCut)) : 1
             if isCrit { ItemEffects.onCrit(&s, ctx, attacker: i) }
             payload = HitPayload(damage: s.units[i].stats.attack * multiplier, damageType: .physical,
                                  source: .basicAttack, isCrit: isCrit, appliesOnHit: true)
@@ -769,8 +788,11 @@ public enum CombatSystem {
         var armor = s.units[t].stats.armor, resist = s.units[t].stats.magicResist
         if s.units[i].kind == .hero, !s.units[t].isStructure {
             let st = s.units[i].stats
-            armor = penetrated(armor, pct: st.armorPenPct, flat: st.armorPenFlat)
-            resist = penetrated(resist, pct: st.magicPenPct, flat: st.magicPenFlat)
+            // 割合貫通に、対象の防御・魔防に応じた装備の追加分（スピリットシャウト・魔法の聖剣）を足す
+            armor = penetrated(armor, pct: st.armorPenPct + ItemEffects.extraPenetration(s, ctx, attacker: i, target: t, magic: false),
+                               flat: st.armorPenFlat)
+            resist = penetrated(resist, pct: st.magicPenPct + ItemEffects.extraPenetration(s, ctx, attacker: i, target: t, magic: true),
+                                flat: st.magicPenFlat)
         }
         let taken = mix.physical * mitigationMultiplier(.physical, armor: armor, magicResist: resist)
             + mix.magic * mitigationMultiplier(.magic, armor: armor, magicResist: resist) + mix.trueShare

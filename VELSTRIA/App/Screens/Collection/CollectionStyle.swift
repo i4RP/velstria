@@ -196,13 +196,13 @@ enum CollectionStyle {
 
     // MARK: 装備
 
+    /// ジャングル・ロームのタブは装備ではなく靴に付ける祝福（GearOption）を並べる。
     static func categoryName(_ c: ItemCategory) -> String {
         switch c {
         case .attack: return L("攻撃", "Attack")
-        case .magic: return L("魔力", "Magic")
+        case .magic: return L("魔法", "Magic")
         case .defense: return L("防御", "Defense")
         case .movement: return L("移動", "Movement")
-        case .utility: return L("補助", "Utility")
         case .jungle: return L("ジャングル", "Jungle")
         case .roam: return L("ローム", "Roam")
         }
@@ -214,7 +214,6 @@ enum CollectionStyle {
         case .magic: return "sparkles"
         case .defense: return "shield.fill"
         case .movement: return "wind"
-        case .utility: return "cross.vial.fill"
         case .jungle: return "leaf.fill"
         case .roam: return "figure.walk.motion"
         }
@@ -226,7 +225,6 @@ enum CollectionStyle {
         case .magic: return Color(red: 0.70, green: 0.50, blue: 1.0)
         case .defense: return Color(red: 0.42, green: 0.70, blue: 1.0)
         case .movement: return Color(red: 0.45, green: 0.95, blue: 0.80)
-        case .utility: return Color(red: 0.98, green: 0.78, blue: 0.40)
         case .jungle: return Color(red: 0.52, green: 0.86, blue: 0.40)
         case .roam: return Color(red: 0.40, green: 0.80, blue: 0.95)
         }

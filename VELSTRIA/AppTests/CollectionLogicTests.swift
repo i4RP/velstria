@@ -242,109 +242,201 @@ final class CollectionLogicTests: XCTestCase {
 
     // MARK: 装備
 
-    func testCombineCostUsesThirtyPercentFloor() throws {
-        // EQ019 = EQ007 + EQ007: 960 − (330 + 330) = 300
-        let eq019 = try XCTUnwrap(master.item("EQ019"))
-        XCTAssertEqual(ItemMath.combineCost(eq019, master: master), 300)
-        // EQ021 = EQ009 + EQ009: 1040 − (380 + 380) = 280 < 1040 × 0.3 → 312
-        let eq021 = try XCTUnwrap(master.item("EQ021"))
-        XCTAssertEqual(ItemMath.combineCost(eq021, master: master), 312)
+    func testCombineCostSubtractsComponents() throws {
+        // EQ125 レギオンソード = EQ133 + EQ133: 910 − (250 + 250) = 410
+        let eq125 = try XCTUnwrap(master.item("EQ125"))
+        XCTAssertEqual(ItemMath.combineCost(eq125, master: master), 410)
+        // EQ403 スイフトブーツ = EQ408 + EQ132: 720 − (250 + 280) = 190（下限は価格 × Balance.minCombineCostRatio）
+        let eq403 = try XCTUnwrap(master.item("EQ403"))
+        XCTAssertEqual(ItemMath.combineCost(eq403, master: master), max(190, (720 * Balance.minCombineCostRatio).rounded()))
         // 素材なしは価格そのまま
-        let eq001 = try XCTUnwrap(master.item("EQ001"))
-        XCTAssertEqual(ItemMath.combineCost(eq001, master: master), eq001.priceGold)
+        let eq133 = try XCTUnwrap(master.item("EQ133"))
+        XCTAssertEqual(ItemMath.combineCost(eq133, master: master), eq133.priceGold)
     }
 
     func testBuildsIntoListsParentsInIDOrder() {
-        let parents = ItemMath.buildsInto("EQ009", master: master)
+        let parents = ItemMath.buildsInto("EQ133", master: master)
         XCTAssertFalse(parents.isEmpty)
-        XCTAssertTrue(parents.allSatisfy { $0.buildFrom.contains("EQ009") })
+        XCTAssertTrue(parents.allSatisfy { $0.buildFrom.contains("EQ133") })
         XCTAssertEqual(parents.map(\.itemID), parents.map(\.itemID).sorted())
-        XCTAssertTrue(ItemMath.buildsInto("EQ061", master: master).isEmpty)
+        XCTAssertTrue(ItemMath.buildsInto("EQ106", master: master).isEmpty)
     }
 
     func testDuplicateComponentsAreKept() throws {
-        let eq021 = try XCTUnwrap(master.item("EQ021"))
-        XCTAssertEqual(ItemMath.components(eq021, master: master).map(\.itemID), ["EQ009", "EQ009"])
+        let eq125 = try XCTUnwrap(master.item("EQ125"))
+        XCTAssertEqual(ItemMath.components(eq125, master: master).map(\.itemID), ["EQ133", "EQ133"])
+    }
+
+    func testRecipeTreeHasTwoLevels() throws {
+        // EQ101 マジックガン = EQ122（= EQ133）+ EQ132 + EQ132
+        let eq101 = try XCTUnwrap(master.item("EQ101"))
+        let tree = ItemMath.recipeTree(eq101, master: master)
+        XCTAssertEqual(tree.map(\.item.itemID), ["EQ122", "EQ132", "EQ132"])
+        XCTAssertEqual(tree.map(\.id), [0, 1, 2], "同じ素材が並んでも識別できる")
+        XCTAssertEqual(tree[0].children.map(\.item.itemID), ["EQ133"])
+        XCTAssertTrue(tree[1].children.isEmpty)
+        XCTAssertTrue(tree.allSatisfy { $0.children.allSatisfy { $0.children.isEmpty } }, "2 段まで")
+        for item in master.items {
+            let nodes = ItemMath.recipeTree(item, master: master)
+            XCTAssertEqual(nodes.map(\.item.itemID), item.buildFrom, item.itemID)
+            XCTAssertLessThanOrEqual(nodes.count, 4, item.itemID)
+        }
     }
 
     func testPassiveEffectText() throws {
-        // 装備ごとの固有効果文（マスターの passive_text）をそのまま出す
-        let eq043 = try XCTUnwrap(master.item("EQ043"))
-        XCTAssertEqual(ItemMath.passiveEffectText(eq043), eq043.passiveText)
-        XCTAssertTrue(ItemMath.passiveEffectText(eq043).contains("確定ダメージ"))
-        // ギア（ジャングル靴）は従来どおりカテゴリ別の説明（補助効果 8% の 3 倍 = 24%）
-        let boots = try XCTUnwrap(master.item(GearCatalog.jungleBootsID))
-        XCTAssertTrue(ItemMath.passiveEffectText(boots).contains("24%"))
-        XCTAssertTrue(ItemMath.passiveEffectText(boots).contains("20%"))
+        // 装備ごとの固有効果文（マスターの passive_text。複数の固有効果は 1 行に 1 つ）をそのまま出す
+        let eq101 = try XCTUnwrap(master.item("EQ101"))
+        XCTAssertEqual(ItemMath.passiveEffectText(eq101), eq101.passiveText)
+        XCTAssertEqual(ItemMath.passiveName(eq101), eq101.passiveName)
+        // 固有効果の無い素材は空
+        let eq133 = try XCTUnwrap(master.item("EQ133"))
+        XCTAssertEqual(ItemMath.passiveEffectText(eq133), "")
+        XCTAssertNil(ItemMath.passiveName(eq133))
+        for item in master.items where !item.passiveText.isEmpty {
+            XCTAssertFalse(ItemMath.passiveEffectText(item).isEmpty, item.itemID)
+        }
+    }
+
+    func testCaptionPrefersTagThenStat() throws {
+        let eq101 = try XCTUnwrap(master.item("EQ101"))
+        XCTAssertEqual(ItemMath.tag(eq101), eq101.tagJa)
+        XCTAssertEqual(ItemMath.caption(eq101), eq101.tagJa)
+        // 短い説明の無い素材は主要能力
+        let eq133 = try XCTUnwrap(master.item("EQ133"))
+        XCTAssertNil(ItemMath.tag(eq133))
+        XCTAssertEqual(ItemMath.caption(eq133), "攻撃力 +15")
         for item in master.items {
-            XCTAssertFalse(ItemMath.passiveEffectText(item).isEmpty)
+            XCTAssertFalse(ItemMath.caption(item).isEmpty, item.itemID)
         }
     }
 
     func testStatLinesSkipZeroValues() throws {
-        let eq003 = try XCTUnwrap(master.item("EQ003"))
-        XCTAssertEqual(ItemMath.statLines(eq003).count, 1)
-        // 貫通など新しい能力値も並ぶ（攻撃力 + 物理貫通）
-        let eq061 = try XCTUnwrap(master.item("EQ061"))
-        XCTAssertEqual(ItemMath.statLines(eq061).count, 2)
+        let eq133 = try XCTUnwrap(master.item("EQ133"))
+        XCTAssertEqual(ItemMath.statLines(eq133).count, 1)
         for item in master.items {
-            XCTAssertFalse(ItemMath.statLines(item).isEmpty, item.itemID)
+            let lines = ItemMath.statLines(item)
+            XCTAssertFalse(lines.isEmpty, item.itemID)
+            XCTAssertEqual(Set(lines.map(\.id)).count, lines.count, "\(item.itemID) の行が重複している")
         }
     }
 
+    func testStatLinesIncludeNewAndUniqueStats() throws {
+        func labels(_ id: String) throws -> [String] { try ItemMath.statLines(XCTUnwrap(master.item(id))).map(\.label) }
+        // 固有の能力値は「（固有）」付きで最後に並ぶ（EQ105 ハンターストライク: 物理貫通 15）
+        let eq105 = try XCTUnwrap(master.item("EQ105"))
+        let hunter = ItemMath.statLines(eq105)
+        XCTAssertEqual(hunter.last?.label, "物理貫通（固有）")
+        XCTAssertEqual(hunter.last?.value, "+15")
+        XCTAssertEqual(hunter.filter { $0.label.contains("（固有）") }.count, eq105.uniqueStats.count)
+        XCTAssertTrue(try labels("EQ313").contains("クリティカルダメージ軽減（固有）"))
+        // 総入れ替えで足した能力値
+        XCTAssertTrue(try labels("EQ113").contains("適応攻撃"))
+        XCTAssertTrue(try labels("EQ201").contains("最大MP"))
+        XCTAssertTrue(try labels("EQ406").contains("コントロール時間短縮"))
+        XCTAssertTrue(try labels("EQ402").contains("減速軽減"))
+        XCTAssertTrue(try labels("EQ307").contains("受ける回復"))
+        XCTAssertTrue(try labels("EQ325").contains("ダメージ軽減"))
+        // 固有の能力値はすべて表示する（表に無いキーも落とさない）
+        for item in master.items {
+            let unique = ItemMath.statLines(item).filter { $0.label.hasSuffix("（固有）") }
+            XCTAssertEqual(unique.count, item.uniqueStats.filter { $0.value != 0 }.count, item.itemID)
+        }
+    }
+
+    func testConsumableText() throws {
+        let potion = try XCTUnwrap(master.item("EQ134"))
+        XCTAssertTrue(potion.isConsumable)
+        XCTAssertTrue(ItemMath.consumableText(potion)?.contains("\(Int(potion.consumableSec)) 秒") == true)
+        XCTAssertNil(ItemMath.consumableText(try XCTUnwrap(master.item("EQ101"))))
+    }
+
     func testItemFilter() {
-        XCTAssertEqual(ItemMath.filtered(master.items, category: nil, tier: nil).count, 72 + GearCatalog.items.count)
+        XCTAssertEqual(master.items.count, 92)
+        XCTAssertEqual(ItemMath.filtered(master.items, category: nil, tier: nil).count, 92)
         let attackT3 = ItemMath.filtered(master.items, category: .attack, tier: 3)
         XCTAssertFalse(attackT3.isEmpty)
-        XCTAssertTrue(attackT3.allSatisfy { $0.category == .attack && $0.tier == 3 })
+        XCTAssertTrue(attackT3.allSatisfy { $0.isListed(in: .attack) && $0.tier == 3 })
+        XCTAssertEqual(attackT3.map(\.itemID), attackT3.map(\.itemID).sorted(), "ID 順")
+        // 別のタブにも並ぶ装備（ウィンタークラウンは攻撃と魔法）
+        let magic = ItemMath.filtered(master.items, category: .magic, tier: nil).map(\.itemID)
+        XCTAssertTrue(magic.contains("EQ113"))
+        XCTAssertTrue(ItemMath.filtered(master.items, category: .attack, tier: nil).map(\.itemID).contains("EQ113"))
+        // ジャングル・ロームは祝福のタブ（装備は無い）
+        XCTAssertTrue(ItemMath.filtered(master.items, category: .jungle, tier: nil).isEmpty)
+        XCTAssertTrue(ItemMath.filtered(master.items, category: .roam, tier: nil).isEmpty)
+    }
+
+    // MARK: 祝福
+
+    func testGearInfoDescribesEveryBlessing() {
+        XCTAssertTrue(GearInfo.isBlessingCategory(.jungle))
+        XCTAssertTrue(GearInfo.isBlessingCategory(.roam))
+        XCTAssertFalse(GearInfo.isBlessingCategory(.movement))
+        for lang in [AppLanguage.ja, .en] {
+            Loc.current = lang
+            let names = GearOption.allCases.map(GearInfo.name)
+            XCTAssertEqual(Set(names).count, names.count, "\(lang)")
+            for o in GearOption.allCases {
+                XCTAssertFalse(GearInfo.short(o).isEmpty)
+                XCTAssertFalse(GearInfo.summary(o).isEmpty)
+                XCTAssertEqual(GearInfo.details(o).first, GearInfo.summary(o))
+                XCTAssertFalse(GearInfo.symbol(o).isEmpty)
+            }
+            XCTAssertFalse(GearInfo.rules(.jungle).isEmpty)
+            XCTAssertFalse(GearInfo.rules(.roam).isEmpty)
+            XCTAssertTrue(GearInfo.rules(.attack).isEmpty)
+            XCTAssertEqual(GearInfo.commonRules.count, 2)
+        }
+        Loc.current = .ja
+        // 数値は Balance.Gear から作る
+        XCTAssertTrue(GearInfo.summary(.encourage).contains("+\(Int(Balance.Gear.encourageDefense))"))
+        XCTAssertTrue(GearInfo.rules(.roam).joined().contains("2:00"))
+    }
+
+    func testBlessingProgressTexts() {
+        let k = Balance.Gear.self
+        XCTAssertEqual(GearInfo.jungleProgressText(3), "狩りとキル 3 / \(k.jungleBlessingUnlockCount)")
+        XCTAssertTrue(GearInfo.jungleProgressText(k.jungleBlessingUnlockCount).contains("/ \(k.jungleSecondUnlockCount)"))
+        XCTAssertFalse(GearInfo.jungleProgressText(k.jungleSecondUnlockCount).contains("/"))
+        XCTAssertEqual(GearInfo.roamProgressText(640), "共栄ゴールド 640 / \(Int(k.blessingUnlockGold))")
+        XCTAssertFalse(GearInfo.roamProgressText(Int(k.blessingUnlockGold)).contains("/"))
     }
 
     // MARK: ビルド
 
     func testBuildRulesEnforceLimits() {
-        // EQ004 / EQ010 = Movement, EQ006 / EQ012 = Jungle
-        XCTAssertEqual(BuildRules.check("EQ010", adding: ["EQ004"], replacing: nil, master: master), .movementLimit)
-        XCTAssertEqual(BuildRules.check("EQ012", adding: ["EQ006"], replacing: nil, master: master), .jungleLimit)
-        XCTAssertEqual(BuildRules.check("EQ001", adding: ["EQ001"], replacing: nil, master: master), .duplicate)
+        // EQ403 / EQ404 = 靴（移動）
+        XCTAssertEqual(BuildRules.check("EQ404", adding: ["EQ403"], replacing: nil, master: master), .bootsLimit)
+        XCTAssertEqual(BuildRules.check("EQ101", adding: ["EQ101"], replacing: nil, master: master), .duplicate)
         XCTAssertEqual(BuildRules.check("EQ999", adding: [], replacing: nil, master: master), .unknown)
-        let full = ["EQ001", "EQ002", "EQ003", "EQ005", "EQ007", "EQ008"]
-        XCTAssertEqual(BuildRules.check("EQ009", adding: full, replacing: nil, master: master), .full)
-        // 置換なら満杯でも可、同じ移動系の差し替えも可
-        XCTAssertEqual(BuildRules.check("EQ009", adding: full, replacing: 0, master: master), .ok)
-        XCTAssertEqual(BuildRules.check("EQ010", adding: ["EQ004"], replacing: 0, master: master), .ok)
-    }
-
-    func testJungleItemsRequireSmite() {
-        // EQ006 = Jungle
-        XCTAssertTrue(BuildRules.lacksSmite(["EQ001", "EQ006"], spells: ["BS01", "BS03"], master: master))
-        XCTAssertFalse(BuildRules.lacksSmite(["EQ001", "EQ006"], spells: ["BS05", "BS01"], master: master))
-        XCTAssertFalse(BuildRules.lacksSmite(["EQ001", "EQ002"], spells: ["BS01", "BS03"], master: master))
+        XCTAssertEqual(BuildRules.check("EQ001", adding: [], replacing: nil, master: master), .unknown, "旧装備は無い")
+        // ポーションはビルドに入らない
+        XCTAssertEqual(BuildRules.check("EQ134", adding: [], replacing: nil, master: master), .consumable)
+        XCTAssertEqual(BuildRules.check("EQ325", adding: ["EQ101"], replacing: 0, master: master), .consumable)
+        let full = ["EQ101", "EQ102", "EQ103", "EQ104", "EQ105", "EQ106"]
+        XCTAssertEqual(BuildRules.check("EQ107", adding: full, replacing: nil, master: master), .full)
+        // 置換なら満杯でも可、靴どうしの差し替えも可
+        XCTAssertEqual(BuildRules.check("EQ107", adding: full, replacing: 0, master: master), .ok)
+        XCTAssertEqual(BuildRules.check("EQ404", adding: ["EQ403"], replacing: 0, master: master), .ok)
+        for c in [BuildCheck.full, .duplicate, .bootsLimit, .consumable, .unknown] {
+            XCTAssertFalse(c.message.isEmpty)
+        }
         XCTAssertNotNil(master.spell(BuildRules.smiteSpellID))
-    }
-
-    func testRoamBootsAreRejectedWithSmite() {
-        let roam = GearCatalog.roamBootsID
-        XCTAssertEqual(BuildRules.check(roam, adding: [], replacing: nil, master: master, spells: ["BS05", "BS01"]),
-                       .roamBlockedBySmite)
-        XCTAssertEqual(BuildRules.check(roam, adding: [], replacing: nil, master: master, spells: ["BS01", "BS03"]), .ok)
-        XCTAssertFalse(BuildRules.roamConflictsSmite(["EQ001", roam], spells: ["BS01", "BS03"], master: master))
-        XCTAssertTrue(BuildRules.roamConflictsSmite(["EQ001", roam], spells: ["BS05", "BS01"], master: master))
-        XCTAssertFalse(BuildRules.roamConflictsSmite(["EQ001"], spells: ["BS05", "BS01"], master: master))
-        XCTAssertFalse(BuildCheck.roamBlockedBySmite.message.isEmpty)
     }
 
     func testRecommendedBuildIsSanitizedAndWithinSlots() {
         for hero in master.heroes {
             let build = BuildRules.recommended(for: hero.heroID, master: master)
-            XCTAssertLessThanOrEqual(build.count, BuildRules.slotCount)
+            XCTAssertEqual(build.count, BuildRules.slotCount, hero.heroID)
             XCTAssertEqual(BuildRules.sanitized(build, master: master), build)
+            XCTAssertEqual(build.filter { master.item($0)?.isBoots == true }.count, 1, "\(hero.heroID) の靴は 1 足")
         }
         XCTAssertEqual(BuildRules.recommended(for: "H999", master: master), [])
     }
 
     func testSanitizedBuildDropsInvalidEntries() {
-        let raw = ["EQ004", "EQ010", "BAD", "EQ001", "EQ001", "EQ006", "EQ012", "EQ002", "EQ003", "EQ005", "EQ007"]
-        XCTAssertEqual(BuildRules.sanitized(raw, master: master), ["EQ004", "EQ001", "EQ006", "EQ002", "EQ003", "EQ005"])
+        let raw = ["EQ403", "EQ404", "BAD", "EQ101", "EQ101", "EQ134", "EQ001", "EQ102", "EQ103", "EQ104", "EQ105", "EQ106"]
+        XCTAssertEqual(BuildRules.sanitized(raw, master: master), ["EQ403", "EQ101", "EQ102", "EQ103", "EQ104", "EQ105"])
     }
 
     func testBuildMoveSwapsNeighbours() {
@@ -354,11 +446,18 @@ final class CollectionLogicTests: XCTestCase {
 
     func testCurrentBuildPrefersCustom() {
         var p = Profile()
-        p.customBuilds["H003"] = ["EQ061", "EQ043"]
-        XCTAssertEqual(BuildRules.current(for: "H003", profile: p, master: master), ["EQ061", "EQ043"])
+        p.customBuilds["H003"] = ["EQ101", "EQ106"]
+        XCTAssertEqual(BuildRules.current(for: "H003", profile: p, master: master), ["EQ101", "EQ106"])
         XCTAssertEqual(BuildRules.current(for: "H001", profile: p, master: master),
                        BuildRules.recommended(for: "H001", master: master))
-        XCTAssertEqual(BuildRules.totalCost(["EQ061", "EQ043"], master: master), 2060 + 2800)
+        XCTAssertEqual(BuildRules.totalCost(["EQ101", "EQ106"], master: master), 2120 + 3010)
+        // 旧装備の ID が残ったカスタムビルドは読み込み時に落とす
+        p.customBuilds["H003"] = ["EQ061", "EQ101"]
+        XCTAssertEqual(BuildRules.current(for: "H003", profile: p, master: master), ["EQ101"])
+        p.customBuilds["H003"] = ["EQ061", "EQ043"]
+        XCTAssertNil(BuildRules.custom(for: "H003", profile: p, master: master))
+        XCTAssertEqual(BuildRules.current(for: "H003", profile: p, master: master),
+                       BuildRules.recommended(for: "H003", master: master), "旧装備だけのビルドはおすすめに戻す")
     }
 
     // MARK: ルーン
@@ -493,7 +592,14 @@ final class CollectionLogicTests: XCTestCase {
         Loc.current = .en
         defer { Loc.current = .ja }
         XCTAssertEqual(CollectionStyle.categoryName(.jungle), "Jungle")
-        XCTAssertTrue(ItemMath.passiveEffectText(master.item("EQ019")!).hasPrefix("Unique Passive"))
+        XCTAssertEqual(CollectionStyle.categoryName(.magic), "Magic")
+        XCTAssertEqual(GearInfo.name(.flame), "Flame Hunt")
+        // 装備の固有効果・短い説明は master_en.json の "<id>.desc" / "<id>.tag"（日本語が混ざらない）
+        let eq101 = master.item("EQ101")!
+        for text in [ItemMath.passiveEffectText(eq101), ItemMath.passiveName(eq101) ?? "", ItemMath.caption(eq101)] {
+            XCTAssertFalse(text.isEmpty)
+            XCTAssertNil(text.range(of: "[\\u3040-\\u30ff\\u3400-\\u9fff]", options: .regularExpression), text)
+        }
         XCTAssertTrue(SpellInfo.of("BS01").effect.hasPrefix("Teleport"))
     }
 }

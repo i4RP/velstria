@@ -7,14 +7,14 @@ final class ContractSmokeTests: XCTestCase {
         let m = MasterData.shared
         XCTAssertEqual(m.heroes.count, 34)
         XCTAssertEqual(m.skills.count, 136)
-        XCTAssertEqual(m.items.count, 72 + GearCatalog.items.count)  // 正本 72 + 靴
+        XCTAssertEqual(m.items.count, 92)  // MLBB の図鑑: 攻撃 34・魔法 25・防御 25・移動 8
         XCTAssertEqual(m.spells.count, 15)
         XCTAssertEqual(m.runes.count, 30)
         XCTAssertEqual(m.cosmetics.count, 102)
         XCTAssertEqual(m.store.count, 154)
         XCTAssertEqual(m.skills(forHero: "H001").map(\.slot), SkillSlot.allCases)
-        XCTAssertEqual(m.item("EQ001")?.attack, 25)
-        XCTAssertEqual(m.item("EQ019")?.effectID, "typhoon")
+        XCTAssertEqual(m.item("EQ133")?.attack, 15)          // ダガー
+        XCTAssertEqual(m.item("EQ108")?.effectID, "typhoon")   // ウィンドテラー
     }
 
     func testMapSymmetry() {
