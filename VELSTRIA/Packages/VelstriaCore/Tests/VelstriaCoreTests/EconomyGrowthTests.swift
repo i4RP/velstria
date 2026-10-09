@@ -74,7 +74,7 @@ final class EconomyGrowthTests: XCTestCase {
         f.s.units[a].hero!.autoLevelSkills = false
         let hp1 = f.s.units[a].stats.maxHP
         f.s.events.removeAll()
-        HeroGrowth.grantXP(&f.s, f.ctx, heroIndex: a, amount: 260 + 300 + 10)
+        HeroGrowth.grantXP(&f.s, f.ctx, heroIndex: a, amount: 240 + 270 + 10)
         XCTAssertEqual(f.hero(a).level, 3)
         XCTAssertEqual(f.hero(a).xp, 10, accuracy: 1e-9)
         XCTAssertEqual(f.hero(a).skillPoints, 3)
