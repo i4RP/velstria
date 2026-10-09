@@ -468,7 +468,9 @@ final class HUDModel {
             let cd = h.cooldown(slot)
             sn.cooldown = cd > 0 ? (cd * 10).rounded(.up) / 10 : 0
             sn.cooldownTotal = SkillSystem.cooldown(for: sk, rank: max(1, sn.rank), cdr: u.stats.cooldownReduction)
-            sn.cost = SkillSystem.cost(for: sk, resource: h.resourceKind)
+            // キットのヒーローはランク別のコスト（例: ボルグのアルティメット 120 / 140 / 160）
+            sn.cost = def.map { SkillSystem.cost(for: sk, hero: $0, rank: max(1, sn.rank), resource: h.resourceKind) }
+                ?? SkillSystem.cost(for: sk, resource: h.resourceKind)
             sn.castable = SkillSystem.canCast(s, ctx, heroIndex: hi, slot: slot)
             sn.affordable = u.resource + 0.5 >= sn.cost
             sn.silenced = u.has(.silence)

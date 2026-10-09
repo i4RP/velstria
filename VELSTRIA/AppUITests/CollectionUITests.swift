@@ -48,11 +48,28 @@ final class CollectionUITests: XCTestCase {
         snapshot(app, "hero_detail_build")
         skillsTab.tap()
         snapshot(app, "hero_detail_skills")
+        // 左のスキルアイコン列（ヒーロー詳細の左パネル）を押すと、右にそのスキルの詳細（説明・レベル表）が出る
         let ult = element(app, "skill_SK007_5")
         XCTAssertTrue(ult.waitForExistence(timeout: 5))
         ult.tap()
-        XCTAssertTrue(element(app, "skilldetail_switch_SK007_1").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(app, "skilldetail_description").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(app, "skilldetail_rank_3").waitForExistence(timeout: 5))
         snapshot(app, "skill_detail_ult")
+        // ライトモードではレベル表を畳み、フルモードで戻る
+        element(app, "skilldetail_mode_light").tap()
+        XCTAssertFalse(element(app, "skilldetail_rank_3").waitForExistence(timeout: 1))
+        element(app, "skilldetail_mode_full").tap()
+        XCTAssertTrue(element(app, "skilldetail_rank_3").waitForExistence(timeout: 5))
+    }
+
+    /// 全画面のスキル詳細（route 直行）でも、左のアイコン列で同じヒーローの別スキルへ切り替えられる。
+    func testSkillDetailRouteSwitchesSkillFromIconRow() {
+        let app = launch(route: "skillDetail:SK001_2")
+        XCTAssertTrue(element(app, "skilldetail_switch_SK001_5").waitForExistence(timeout: 10))
+        element(app, "skilldetail_switch_SK001_5").tap()
+        XCTAssertTrue(element(app, "skilldetail_rank_3").waitForExistence(timeout: 5))
+        XCTAssertFalse(element(app, "skilldetail_rank_4").exists)
+        snapshot(app, "skill_detail_route_ult")
     }
 
     /// 3D プレビューの見た目が一定時間で変わる（自動回転・待機モーションが動いている）か。
@@ -63,7 +80,7 @@ final class CollectionUITests: XCTestCase {
         return first != second
     }
 
-    func testHeroPreviewKeepsAnimatingAfterPushAndPop() {
+    func testHeroPreviewKeepsAnimatingAfterSkillSelection() {
         let app = launch(route: "heroDetail:H001")
         let preview = element(app, "hero_preview_3d")
         XCTAssertTrue(preview.waitForExistence(timeout: 10))
@@ -73,12 +90,12 @@ final class CollectionUITests: XCTestCase {
         let skill = element(app, "skill_SK001_2")
         XCTAssertTrue(skill.waitForExistence(timeout: 5))
         skill.tap()
-        XCTAssertTrue(element(app, "skilldetail_switch_SK001_1").waitForExistence(timeout: 5))
-        element(app, "nav_back").tap()
+        // スキルを選ぶと右パネルが切り替わるが、左の 3D プレビューは動き続ける
+        XCTAssertTrue(element(app, "skilldetail_description").waitForExistence(timeout: 5))
         XCTAssertTrue(preview.waitForExistence(timeout: 5))
         Thread.sleep(forTimeInterval: 1.0)
-        snapshot(app, "hero_detail_preview_after_pop")
-        XCTAssertTrue(previewIsAnimating(preview), "スキル詳細から戻った後に 3D プレビューが止まっている")
+        snapshot(app, "hero_detail_preview_after_skill")
+        XCTAssertTrue(previewIsAnimating(preview), "スキルを選んだ後に 3D プレビューが止まっている")
     }
 
     func testSkillDetailShowsSimulationHealForTeamHeal() {
