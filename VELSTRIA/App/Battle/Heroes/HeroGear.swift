@@ -271,15 +271,20 @@ struct HeroGearBuilder {
             b.sphere(V3(0, 0.86, 0), 0.035, .glow, .low)
             weaponTip = V3(0, 1.06, 0)
         case .photonBlade:
-            // 光刃の長剣: 発振器の柄から伸びる光の刃（白熱の芯）
+            // 光刃の長剣（H028 ザイル）: 細身の長い黒い刃に赤く光る刃縁と銀の峰・角張った銀の鍔と赤い宝珠。
+            // 刃は XY 面（平らな面が ±Z）に置く。刃筋を ±Z にすると上方カメラが北向き・南向きの刃を真横から見て線になる
             grip(&b, 0.1)
-            b.rbox(V3(0, 0.12, 0), V3(0.06, 0.07, 0.26), 0.02, .metal)
-            b.rod(V3(0, 0.15, 0), V3(0, 0.27, 0), 0.032, .dark, segments: 10)
-            b.torus(V3(0, 0.27, 0), 0.036, 0.01, .glow)
-            let beam: [V2] = [V2(-0.045, 0), V2(0.045, 0), V2(0.05, 0.52), V2(0, 0.72), V2(-0.05, 0.52)]
-            b.blade(beam, depth: 0.03, V3(0, 0.28, 0), .glow)
-            b.rbox(V3(0, 0.62, 0), V3(0.044, 0.56, 0.02), 0.006, .metal)
-            weaponTip = V3(0, 0.98, 0)
+            b.rbox(V3(0, 0.12, 0), V3(0.22, 0.05, 0.07), 0.015, .metal)
+            for s: Float in [-1, 1] {
+                b.extrude([V2(s * 0.1, 0.1), V2(s * 0.16, 0.2), V2(s * 0.07, 0.14)], depth: 0.04, .zero, .metal)
+            }
+            b.sphere(V3(0, 0.12, -0.035), 0.026, .glow, .low)
+            let blade: [V2] = [V2(-0.045, 0), V2(0.05, 0), V2(0.05, 0.86), V2(-0.045, 1.0)]
+            b.extrude(blade, depth: 0.026, V3(0, 0.145, 0), .dark)
+            b.extrude([V2(0.05, 0.02), V2(0.07, 0.02), V2(0.07, 0.86), V2(-0.04, 1.03), V2(-0.045, 1.0), V2(0.05, 0.86)],
+                      depth: 0.032, V3(0, 0.145, 0), .glow)
+            b.box(V3(-0.05, 0.6, 0), V3(0.016, 0.9, 0.034), .metal)
+            weaponTip = V3(0, 1.1, 0)
         case .holyMaul:
             // 聖槌: 片手で振る巨大な大槌。長い柄・青い槌頭（前後の打撃面は金の当て金と金の帯）・上面と側面に聖印。
             // 槌頭は幅 0.36 × 高さ 0.38 × 長さ 0.71（打撃面は ±Z）。上方カメラでも槌頭の上面の聖印が読める
@@ -344,35 +349,53 @@ struct HeroGearBuilder {
             b.rbox(V3(0, 0.5, 0), V3(0.046, 0.6, 0.026), 0.008, .glow)
             weaponTip = V3(0, 0.9, 0)
         case .bloodGreatsword:
-            // 血の大剣: 両手持ちの巨大な剣。黒鋼の幅広の刃・深紅の血溝と縁・蝙蝠の翼の鍔
-            grip(&b, 0.16)
-            b.rbox(V3(0, 0.19, 0), V3(0.07, 0.06, 0.16), 0.02, .metal)
+            // 魔狩りの大剣（H033 ヴァルド）: 片手で振る巨大な銀の大剣。髑髏の鍔（青く光る目と角）・ギザギザの峰・青く光る樋・
+            // 黒い革巻きの柄と棘の柄頭。刃は XY 面（平らな面が ±Z）に置き、上方カメラ・正面のどちらからも刃の幅が見える向きにする
+            b.rod(V3(0, -0.2, 0), V3(0, 0.16, 0), 0.03, .dark, segments: 10)
+            for y: Float in [-0.12, -0.02, 0.08] { b.torus(V3(0, y, 0), 0.032, 0.008, .metal, segments: 10, sides: 4) }
+            b.sphere(V3(0, -0.23, 0), 0.045, .metal, .low)
+            for i in 0..<3 {
+                let a = Float(i - 1) * 0.6
+                b.cone(V3(0, -0.24, 0), V3(sin(a) * 0.08, -0.34, 0), 0.025, .metal, segments: 6)
+            }
+            b.ellipsoid(V3(0, 0.25, 0), V3(0.11, 0.1, 0.07), .metal)
+            b.ellipsoid(V3(0, 0.19, 0), V3(0.07, 0.05, 0.06), .metal, detail: .low)
             for s: Float in [-1, 1] {
-                let wing: [V2] = [V2(s * 0.04, 0), V2(s * 0.27, 0.02), V2(s * 0.2, 0.08), V2(s * 0.29, 0.15), V2(s * 0.12, 0.13),
-                                  V2(s * 0.04, 0.1)]
-                b.blade(wing, depth: 0.034, V3(0, 0.17, 0), .accent)
+                for z: Float in [-0.06, 0.06] { b.sphere(V3(s * 0.04, 0.26, z), 0.022, .glow, .tiny) }
+                b.cone(V3(s * 0.08, 0.28, 0), V3(s * 0.21, 0.4, 0), 0.035, .metal, segments: 6)
+                b.cone(V3(s * 0.09, 0.22, 0), V3(s * 0.2, 0.17, 0), 0.025, .metal, segments: 6)
             }
-            let blade: [V2] = [V2(-0.1, 0), V2(0.1, 0), V2(0.118, 0.86), V2(0, 1.1), V2(-0.118, 0.86)]
-            b.blade(blade, depth: 0.05, V3(0, 0.25, 0), .metal)
-            b.rbox(V3(0, 0.7, 0), V3(0.058, 0.8, 0.03), 0.01, .dark)
-            for s: Float in [-1, 1] { b.rbox(V3(0, 0.66, s * 0.1), V3(0.056, 0.7, 0.018), 0.006, .glow) }
-            weaponTip = V3(0, 1.34, 0)
+            let blade: [V2] = [V2(-0.12, 0), V2(0.13, 0), V2(0.15, 0.52), V2(0.12, 0.84), V2(0.02, 1.05), V2(-0.08, 0.9),
+                               V2(-0.12, 0.8), V2(-0.17, 0.74), V2(-0.13, 0.63), V2(-0.18, 0.55), V2(-0.13, 0.44), V2(-0.18, 0.36),
+                               V2(-0.13, 0.25), V2(-0.17, 0.17), V2(-0.12, 0.09)]
+            b.extrude(blade, depth: 0.05, V3(0, 0.3, 0), .metal)
+            b.extrude([V2(-0.03, 0.05), V2(0.035, 0.05), V2(0.04, 0.76), V2(0, 0.9), V2(-0.035, 0.76)], depth: 0.062,
+                      V3(0, 0.3, 0), .glow)
+            weaponTip = V3(0, 1.28, 0)
         case .hookChain:
-            // 鎖鉤: 革巻きの握りから伸びる太い鎖（環は一つおきに向きを変える）と、先端の大きな鉤
-            b.rod(V3(0, -0.2, 0), V3(0, 0.1, 0), 0.036, .dark, segments: 10)
+            // 鎖鉤（H034 ゴルム）: 鉄の輪を巻いた木の柄・太い鉄の軸・先端の巨大な鉤（返しの付いた鉤の字。反対側に短い爪）と、
+            // 柄の脇に輪にした鎖。鉤は XY 面（平らな面が ±Z）に置き、上方カメラで鉤の形が見える向きにする
+            b.rod(V3(0, -0.2, 0), V3(0, 0.16, 0), 0.042, .secondary, segments: 10)
+            for y: Float in [-0.17, 0.0, 0.14] { b.torus(V3(0, y, 0), 0.046, 0.012, .metal, segments: 10, sides: 4) }
             b.sphere(V3(0, -0.22, 0), 0.05, .metal, .low)
-            for y: Float in [-0.12, -0.04, 0.04] { b.torus(V3(0, y, 0), 0.04, 0.011, .accent) }
-            b.rbox(V3(0, 0.12, 0), V3(0.1, 0.05, 0.1), 0.02, .metal)
-            for i in 0..<11 {
-                let t = Float(i) / 10
-                let link: simd_quatf = (i % 2 == 0 ? qIdentity : ry(.pi / 2)) * rx(.pi / 2)
-                b.torus(V3(0, 0.2 + Float(i) * 0.055, -0.1 * sin(t * Float.pi)), 0.034, 0.01, .metal, rot: link,
-                        segments: 8, sides: 4)
+            b.rod(V3(0, 0.16, 0), V3(0, 0.62, 0), 0.036, .metal, segments: 8)
+            b.sphere(V3(0, 0.62, 0), 0.06, .metal, .low)
+            let hr: Float = 0.19
+            let hc = V2(hr, 0.62)
+            let rot2: (V2) -> V2 = { p in
+                let a: Float = 1.25
+                return V2(p.x * cos(a) - p.y * sin(a), p.x * sin(a) + p.y * cos(a)) + hc
             }
-            b.rod(V3(0, 0.74, 0), V3(0, 1.0, 0), 0.03, .metal, segments: 8)
-            b.torus(V3(0.11, 1.0, 0), 0.11, 0.03, .metal, rot: rz(.pi) * rx(.pi / 2), segments: 14, sides: 6, arc: .pi * 1.5)
-            b.cone(V3(0.11, 0.89, 0), V3(0.04, 0.92, 0), 0.03, .metal, segments: 6)
-            weaponTip = V3(0, 1.1, 0)
+            b.extrude(crescentPolygon(radius: hr, thickness: 0.085, span: 3.75, offset: 0.035).map(rot2), depth: 0.06, .zero, .metal)
+            let tip = rot2(V2(cos(-1.86) * hr, sin(-1.86) * hr))
+            b.extrude([tip + V2(-0.01, 0.0), tip + V2(-0.1, 0.07), tip + V2(-0.03, 0.12)], depth: 0.05, .zero, .metal)
+            b.extrude([V2(0, 0.6), V2(-0.17, 0.66), V2(-0.05, 0.7)], depth: 0.05, .zero, .metal)
+            for i in 0..<8 {
+                let a = Float(i) / 7 * 4.4 + 0.95
+                let link: simd_quatf = rz(a) * (i % 2 == 0 ? qIdentity : ry(.pi / 2)) * rx(.pi / 2)
+                b.torus(V3(-0.1 + cos(a) * 0.13, -0.02 + sin(a) * 0.17, 0), 0.034, 0.011, .metal, rot: link, segments: 8, sides: 4)
+            }
+            weaponTip = V3(hr, 0.85, 0)
         }
         return b
     }
@@ -720,6 +743,12 @@ struct HeroGearBuilder {
             }
             b.sphere(c, 0.05, .accent, .low)
             b.cone(a, a + V3(0, -0.16, 0), 0.03, .metal, segments: 5)
+        case .capelet:
+            // 肩から背を覆う短いケープ（H033 ヴァルド）: 青い布の裏に少し長い銅の布を重ね、裾だけ縁取りとして覗かせる
+            b.add(MeshTemplate.cloth(w0: w * 1.05, w1: w * 1.5, length: 0.27, curve: 0.08, bulge: 0.09, cols: 6, rows: 3),
+                  trs(.zero), .primary)
+            b.add(MeshTemplate.cloth(w0: w * 1.07, w1: w * 1.56, length: 0.305, curve: 0.08, bulge: 0.09, cols: 6, rows: 3),
+                  trs(V3(0, 0, -0.008)), .accent)
         }
         return b
     }
@@ -917,6 +946,22 @@ struct HeroGearBuilder {
                 let a = Float(k) * .pi + 0.4
                 b.extrude(starPolygon(points: 6, outer: 0.07, inner: 0.03), depth: 0.014,
                           V3(cos(a) * 0.5, 0.2 + Float(k) * 0.1, sin(a) * 0.5), .glow, rot: ry(-a))
+            }
+        case .orbitBlades:
+            // 体のまわりを回る 3 本の小剣（H028 ザイル）: 黒い刃に赤く光る刃縁と銀の鍔。刃先を回る向きへ向け、
+            // 平らな面を上へ寝かせて（少し外へ傾けて）上方カメラから刃の形が見えるようにする
+            floatMotion = .orbit(speed: 1.3)
+            floatAnchor = V3(0, 0.95, 0)
+            var sw = HeroMeshBuilder()
+            sw.extrude([V2(-0.032, 0), V2(0.036, 0), V2(0.036, 0.23), V2(-0.032, 0.31)], depth: 0.018, V3(0, 0.05, 0), .dark)
+            sw.extrude([V2(0.036, 0.0), V2(0.052, 0.0), V2(0.052, 0.235), V2(-0.03, 0.325), V2(-0.032, 0.31), V2(0.036, 0.23)],
+                       depth: 0.024, V3(0, 0.05, 0), .glow)
+            sw.rbox(V3(0, 0.045, 0), V3(0.12, 0.026, 0.04), 0.008, .metal)
+            sw.rod(V3(0, -0.07, 0), V3(0, 0.035, 0), 0.016, .metal, segments: 6)
+            for i in 0..<3 {
+                let a = Float(i) / 3 * 2 * .pi
+                let p = V3(cos(a) * 0.62, 0.06 * sin(a * 2), sin(a) * 0.62)
+                b.merge(sw, trs(p, ry(.pi - a) * rx(-.pi / 2) * ry(0.45), V3(repeating: 1.3)))
             }
         }
         return b

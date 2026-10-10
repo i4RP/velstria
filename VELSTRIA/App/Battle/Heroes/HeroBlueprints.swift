@@ -5,28 +5,39 @@ import VelstriaCore
 // 基調色は Theme.heroHue、アクセント・発光は名前のモチーフから決める。
 
 /// titan = heavy よりさらに肩幅・胸板・腕脚が太く、頭を肩の間に沈めた巨漢（H029 ボルグ）。
-enum BodyBuild { case heavy, standard, slim, robed, titan }
+/// brute = 脚が短く、樽のような胴と丸太のような腕の大男（H034 ゴルム）。背を伸ばさずに幅で大きく見せる。
+enum BodyBuild { case heavy, standard, slim, robed, titan, brute }
 
 extension BodyBuild {
-    /// 重装の体格（heavy / titan）。腰の金具・マントの長さ・脚の開きなどを共通にする。
-    var isHeavy: Bool { self == .heavy || self == .titan }
+    /// 重装の体格（heavy / titan / brute）。腰の金具・マントの長さ・脚の開きなどを共通にする。
+    var isHeavy: Bool { self == .heavy || self == .titan || self == .brute }
 }
 
 /// knight = 基調色（青）の板金に、金属色（金）の縁取り・胸の聖印・籠手の輪を添えた重装（H029 ボルグ）。
 /// plate は金属色そのものが鎧の地色になる（銀・鉄・金の鎧）。
-enum ArmorStyle { case plate, leather, cloth, rock, fur, mech, light, knight }
+/// cyber = 黒い下地（dark）に基調色の装甲板・銀の縁・赤く光る線（H028 ザイル）。
+/// hunter = 濃紺の長いコート（secondary）に銅の縁（accent）・銀の籠手（H033 ヴァルド）。
+/// viking = 緑の上衣（accent）に鉄の鱗の胸当て・毛皮の襟・素肌の前腕と革の籠手（H034 ゴルム）。
+enum ArmorStyle { case plate, leather, cloth, rock, fur, mech, light, knight, cyber, hunter, viking }
 
-enum PauldronStyle { case none, small, round, big, rock, fur, crystal, feather }
+/// angular = 角張った機甲の肩当て（H028）、mantle = 肩を覆う短いケープ（H033）、disc = 鉄の円盾のような大きな肩当て（H034）。
+enum PauldronStyle { case none, small, round, big, rock, fur, crystal, feather, angular, mantle, disc }
 
-enum SkirtStyle { case none, tassets, robe, shortSkirt, coat, loincloth, petals, kilt }
+/// longCoat = 膝下まで届く前開きのコートの裾（H033）。
+enum SkirtStyle { case none, tassets, robe, shortSkirt, coat, loincloth, petals, kilt, longCoat }
 
-enum HairStyle { case none, short, spiky, long, ponytail, twinTails, bob, topknot, braids, mohawk, wild }
+/// highPonytail = 頭頂で結んで後ろへ跳ねる長い髪（H028）、swept = 前髪を立ち上げて流した短髪（H033）、
+/// mane = 兜の下から背へ流れる長い髪（H034）。
+enum HairStyle { case none, short, spiky, long, ponytail, twinTails, bob, topknot, braids, mohawk, wild, highPonytail, swept, mane }
 
 enum HeadGear {
     case knightHelm, hood, deepHood, mask, starPin, shellCrown, flameCrown, goggles, beastMask
     case hornHelm, vikingHelm, wideHat, foxEars, wingedHelm, nightcap, flowerCrown, circlet
     case featherPin, glassVisor, ironVisor, headband, beard, crescentPin, ribbon
     case iceCrown
+    /// cyberVisor = 目を覆う赤い visor と銀の耳当て・アンテナ（H028）、raiderHelm = 大きな角の鉄兜（H034）、
+    /// fullBeard = 胸まで届く大きな髭と跳ね上がった口髭（H034）。
+    case cyberVisor, raiderHelm, fullBeard
 }
 
 enum WeaponKind {
@@ -47,11 +58,15 @@ enum OffhandKind {
 enum BackKind {
     case none, cape, quiver, ironWings, warBell, gearPack, mistCloak, tatteredCape, scarfTails
     case windRibbons, sash, furCape, chainSash
+    /// capelet = 肩から背を覆う短いケープ（H033）。
+    case capelet
 }
 
 enum FloatKind {
     case none, waterOrb, lightningHalo, fireOrbs, glassShards, whiteHalo, abyssChains, petals
     case hourglass, clawCrystals, thunderOrb, dreamThreads, starMotes, sparkOrbs, iceCrystals
+    /// orbitBlades = 体のまわりを回る 3 本の小剣（H028）。
+    case orbitBlades
 }
 
 /// 通常攻撃のモーション系統。
@@ -112,7 +127,7 @@ struct HeroBlueprint {
     /// 両手持ち（左手を柄・銃身に添える）。
     var twoHanded: Bool {
         switch weapon {
-        case .siegeHammer, .mechCrossbow, .bellBlunderbuss, .sandRifle, .starCannon, .bloodGreatsword: return true
+        case .siegeHammer, .mechCrossbow, .bellBlunderbuss, .sandRifle, .starCannon: return true
         default: return false
         }
     }
@@ -260,11 +275,13 @@ enum HeroBlueprints {
                       gear: [.headband], weapon: .dragonSpear, offhand: .none, back: .scarfTails, float: .none,
                       attack: .thrust, metal: .silver, skin: .fair, hairColor: HSB(0.07, 0.6, 0.4),
                       accent: HSB(0.99, 0.78, 0.92), glow: HSB(0.57, 0.5, 1.0), scale: 1.02),
-        // H028 断空のザイル（Assassin）: 光刃の長剣・濃紺の軽装甲・光る visor
-        HeroBlueprint(build: .slim, armor: .light, pauldron: .small, skirt: .coat, hair: .spiky,
-                      gear: [.glassVisor], weapon: .photonBlade, offhand: .none, back: .none, float: .none,
-                      attack: .slash, metal: .obsidian, skin: .pale, hairColor: HSB(0.6, 0.5, 0.2),
-                      accent: HSB(0.52, 0.85, 0.95), glow: HSB(0.52, 0.55, 1.0), scale: 0.98),
+        // H028 断空のザイル（Assassin）: モバレジェのセイバー。黒い下地に鋼青の機甲と銀の縁・目を覆う赤い visor と銀のアンテナ・
+        // 銀白の高い結い髪と赤い襟巻き・赤く光る刃縁の黒い長剣・体のまわりを回る 3 本の小剣。
+        // 基調色 = Theme.heroHue（鋼青 0.59）、metal = 銀（縁・鍔・耳当て）、accent = 赤（襟巻き・髪紐）、glow = 赤（visor・刃縁）。
+        HeroBlueprint(build: .slim, armor: .cyber, pauldron: .angular, skirt: .tassets, hair: .highPonytail,
+                      gear: [.cyberVisor], weapon: .photonBlade, offhand: .none, back: .scarfTails, float: .orbitBlades,
+                      attack: .slash, metal: .silver, skin: .fair, hairColor: HSB(0.6, 0.06, 0.94),
+                      accent: HSB(0.99, 0.85, 0.88), glow: HSB(0.0, 0.82, 1.0), scale: 1.02),
         // H029 聖槌のボルグ（Support）: 巨大な聖槌と金の大盾・青い板金に金の縁取り・赤いマント・金髪に金の額冠（兜は被らない）。
         // 基調色 = Theme.heroHue（青 0.60）、metal = 金（縁・聖印・槌の打撃面）、accent = 赤（マント）。
         // scale 1.32: overheadHeight = (headTop 1.55 + 0.38) * 1.32 = 2.55（上限 2.7）、頭頂 1.593 * 1.32 = 2.10（上限 2.2）。
@@ -287,16 +304,20 @@ enum HeroBlueprints {
                       gear: [.headband], weapon: .fistBlade, offhand: .none, back: .sash, float: .none,
                       attack: .slash, metal: .iron, skin: .tan, hairColor: HSB(0.0, 0.2, 0.1),
                       accent: HSB(0.99, 0.85, 0.85), glow: HSB(0.01, 0.8, 1.0), scale: 1.02),
-        // H033 紅牙のヴァルド（Assassin）: 巨大な血の大剣（両手持ち）・長い黒髪・蝙蝠の翼風のマント・深紅と黒の鎧
-        HeroBlueprint(build: .standard, armor: .plate, pauldron: .round, skirt: .coat, hair: .long,
-                      gear: [], weapon: .bloodGreatsword, offhand: .none, back: .tatteredCape, float: .none,
-                      attack: .heavySwing, metal: .obsidian, skin: .pale, hairColor: HSB(0.75, 0.2, 0.1),
-                      accent: HSB(0.99, 0.9, 0.7), glow: HSB(0.98, 0.8, 1.0), scale: 1.04),
-        // H034 鎖鉤のゴルム（Support）: 鉤付きの太い鎖・鉄の肩当てと胸当て・背に掛けた鎖・短髪の大男
-        HeroBlueprint(build: .heavy, armor: .plate, pauldron: .big, skirt: .loincloth, hair: .short,
-                      gear: [], weapon: .hookChain, offhand: .none, back: .chainSash, float: .none,
-                      attack: .slash, metal: .iron, skin: .tan, hairColor: HSB(0.07, 0.45, 0.22),
-                      accent: HSB(0.03, 0.7, 0.62), glow: HSB(0.05, 0.75, 1.0), scale: 1.12),
+        // H033 紅牙のヴァルド（Assassin）: モバレジェのアルーカード。立ち上げて流した金髪・濃紺の長いコートに銅の縁・青い短いケープ・
+        // 右腕の銀の籠手・片手で振る巨大な銀の大剣（髑髏の鍔・ギザギザの峰・青く光る樋）。
+        // 基調色 = Theme.heroHue（青 0.61）、secondary = 濃紺（コート）、metal = 銀（大剣・籠手・ボタン）、accent = 銅（縁）、glow = 青。
+        HeroBlueprint(build: .standard, armor: .hunter, pauldron: .mantle, skirt: .longCoat, hair: .swept,
+                      gear: [], weapon: .bloodGreatsword, offhand: .none, back: .capelet, float: .none,
+                      attack: .slash, metal: .silver, skin: .fair, hairColor: HSB(0.12, 0.55, 0.98),
+                      accent: HSB(0.07, 0.62, 0.8), glow: HSB(0.56, 0.7, 1.0), scale: 1.06),
+        // H034 鎖鉤のゴルム（Support）: モバレジェのフランコ。脚の短い樽のような巨漢・大きな角の鉄兜・胸まで届く赤い髭と背に流れる長髪・
+        // 鉄の円盾のような肩当て・鉄の鱗の胸当てと緑の上衣・素肌の太い腕・鎖の付いた巨大な鉄の鉤。
+        // 基調色 = Theme.heroHue（茶 0.08: secondary = 革、primary = 毛皮の襟）、metal = 鉄、accent = 緑の上衣、hair = 赤毛（髭も同じ色）。
+        HeroBlueprint(build: .brute, armor: .viking, pauldron: .disc, skirt: .loincloth, hair: .mane,
+                      gear: [.raiderHelm, .fullBeard], weapon: .hookChain, offhand: .none, back: .chainSash, float: .none,
+                      attack: .slash, metal: .iron, skin: .tan, hairColor: HSB(0.03, 0.72, 0.8),
+                      accent: HSB(0.25, 0.45, 0.45), glow: HSB(0.05, 0.75, 1.0), scale: 1.36),
     ]
 
     /// heroID の設計図。未知の ID はロールから近いものを選ぶ。

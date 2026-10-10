@@ -171,7 +171,7 @@ final class HeroModelTests: XCTestCase {
         XCTAssertEqual(p.metalKind, .gold)
         XCTAssertTrue((0.08...0.16).contains(p.metal.h), "金 \(p.metal.h)")
         XCTAssertTrue(p.accent.h > 0.95 || p.accent.h < 0.03, "赤いマント \(p.accent.h)")
-        // 大きさ: 他の重装（H001・H019・H034 は 1.06〜1.12）より明らかに大きく、肩幅・胸板も heavy より広い
+        // 大きさ: 他の重装（H001・H019 は 1.06〜1.12）より明らかに大きく、肩幅・胸板も heavy より広い
         XCTAssertGreaterThanOrEqual(bp.scale, 1.25)
         let titan = BodyMetrics.make(.titan), heavy = BodyMetrics.make(.heavy)
         XCTAssertGreaterThan(titan.torsoW, heavy.torsoW)
@@ -216,11 +216,16 @@ final class HeroModelTests: XCTestCase {
         XCTAssertEqual(r[26].attack, .thrust)
         XCTAssertEqual(r[26].armor, .plate)
         XCTAssertTrue(r[26].accent.h > 0.95 || r[26].accent.h < 0.03, "赤い房飾り \(r[26].accent.h)")
-        // H028 ザイル: 光刃の長剣・濃紺の軽装甲・光る visor・シアンの光
+        // H028 ザイル（セイバー）: 赤い刃縁の黒い長剣・鋼青の機甲に黒い下地・赤い visor・銀白の高い結い髪・回る小剣
         XCTAssertEqual(r[27].weapon, .photonBlade)
         XCTAssertEqual(r[27].attack, .slash)
-        XCTAssertTrue(r[27].gear.contains(.glassVisor))
-        XCTAssertTrue((0.45...0.58).contains(r[27].glow.h), "シアンの光刃 \(r[27].glow.h)")
+        XCTAssertEqual(r[27].armor, .cyber)
+        XCTAssertTrue(r[27].gear.contains(.cyberVisor))
+        XCTAssertEqual(r[27].hair, .highPonytail)
+        XCTAssertEqual(r[27].float, .orbitBlades)
+        XCTAssertEqual(r[27].metal, .silver)
+        XCTAssertTrue(r[27].glow.h > 0.95 || r[27].glow.h < 0.03, "赤い visor・刃縁 \(r[27].glow.h)")
+        XCTAssertLessThan(r[27].hairColor.s, 0.15, "銀白の髪")
         // H029 ボルグ: 巨漢の重装。聖槌 + 大盾（片手の槌なので両手持ちではない）・青い板金に金の縁・赤いマント・金髪（兜は被らない）
         XCTAssertEqual(r[28].build, .titan)
         XCTAssertEqual(r[28].armor, .knight)
@@ -258,20 +263,61 @@ final class HeroModelTests: XCTestCase {
         XCTAssertLessThan(r[31].hairColor.b, 0.2, "黒髪")
         XCTAssertTrue(r[31].accent.h > 0.95 || r[31].accent.h < 0.03, "赤い差し色 \(r[31].accent.h)")
         XCTAssertEqual(r[31].metal, .iron)
-        // H033 ヴァルド: 両手持ちの巨大な大剣・青白い肌・蝙蝠の翼風のマント・深紅
+        // H033 ヴァルド（アルーカード）: 片手で振る巨大な銀の大剣・金髪・濃紺の長いコートに銅の縁・青い短いケープ・青い光
         XCTAssertEqual(r[32].weapon, .bloodGreatsword)
-        XCTAssertEqual(r[32].attack, .heavySwing)
-        XCTAssertTrue(r[32].twoHanded)
-        XCTAssertEqual(r[32].skin, .pale)
-        XCTAssertEqual(r[32].back, .tatteredCape)
-        XCTAssertTrue(r[32].glow.h > 0.95 || r[32].glow.h < 0.03, "深紅 \(r[32].glow.h)")
-        // H034 ゴルム: 大柄な重装。鉤付きの鎖（片手）・背に掛けた鎖・鉄の灰と錆びた赤
-        XCTAssertEqual(r[33].build, .heavy)
-        XCTAssertGreaterThan(r[33].scale, 1.1)
+        XCTAssertEqual(r[32].attack, .slash)
+        XCTAssertFalse(r[32].twoHanded)
+        XCTAssertEqual(r[32].armor, .hunter)
+        XCTAssertEqual(r[32].skirt, .longCoat)
+        XCTAssertEqual(r[32].back, .capelet)
+        XCTAssertEqual(r[32].metal, .silver)
+        XCTAssertTrue((0.1...0.15).contains(r[32].hairColor.h), "金髪 \(r[32].hairColor.h)")
+        XCTAssertGreaterThan(r[32].hairColor.b, 0.9, "金髪")
+        XCTAssertTrue((0.05...0.1).contains(r[32].accent.h), "銅の縁 \(r[32].accent.h)")
+        XCTAssertTrue((0.5...0.62).contains(r[32].glow.h), "青い光 \(r[32].glow.h)")
+        // H034 ゴルム（フランコ）: 脚の短い巨漢。角の鉄兜・赤い大髭・円盤の肩当て・鉄の鉤（片手）・背に掛けた鎖・緑の上衣
+        XCTAssertEqual(r[33].build, .brute)
+        XCTAssertGreaterThanOrEqual(r[33].scale, 1.3)
         XCTAssertEqual(r[33].weapon, .hookChain)
         XCTAssertEqual(r[33].back, .chainSash)
         XCTAssertFalse(r[33].twoHanded)
         XCTAssertEqual(r[33].metal, .iron)
-        XCTAssertTrue(r[33].accent.h < 0.08, "錆びた赤 \(r[33].accent.h)")
+        XCTAssertEqual(r[33].armor, .viking)
+        XCTAssertEqual(r[33].pauldron, .disc)
+        XCTAssertTrue(r[33].gear.contains(.raiderHelm))
+        XCTAssertTrue(r[33].gear.contains(.fullBeard))
+        XCTAssertTrue(r[33].hairColor.h < 0.06 && r[33].hairColor.s > 0.6, "赤毛の髭 \(r[33].hairColor.h)")
+        XCTAssertTrue((0.2...0.33).contains(r[33].accent.h), "緑の上衣 \(r[33].accent.h)")
+    }
+
+    /// H028・H033・H034 はモバレジェの原作（セイバー・アルーカード・フランコ）の配色と大きさで見えること。
+    /// 基調色の取り違え（シアン・深紅に戻る）や、フランコが他の重装と同じ大きさに戻る退行を防ぐ。
+    func testMLBBInspiredH028H033H034() {
+        // セイバー: 鋼青の装甲（基調色）・黒い下地・銀の縁
+        let saber = HeroPalettes.base(heroID: "H028", blueprint: HeroBlueprints.roster[27])
+        XCTAssertTrue((0.56...0.62).contains(saber.primary.h), "鋼青 \(saber.primary.h)")
+        XCTAssertLessThan(saber.dark.b, 0.3, "黒い下地")
+        // アルーカード: 青いケープ（基調色）と濃紺のコート（secondary）、金ではなく銀の大剣
+        let vald = HeroPalettes.base(heroID: "H033", blueprint: HeroBlueprints.roster[32])
+        XCTAssertTrue((0.58...0.64).contains(vald.primary.h), "青 \(vald.primary.h)")
+        XCTAssertLessThan(vald.secondary.b, 0.5, "濃紺のコート")
+        XCTAssertEqual(vald.metalKind, .silver)
+        // フランコ: 樽のような巨漢。脚は短く、胴と腕は titan より太い。背を伸ばさずに幅で大きく見せ、高さの上限に収める
+        let brute = BodyMetrics.make(.brute), titan = BodyMetrics.make(.titan)
+        XCTAssertGreaterThan(brute.torsoW, titan.torsoW)
+        XCTAssertGreaterThan(brute.armR, titan.armR)
+        XCTAssertLessThan(brute.hipY, titan.hipY, "脚が短い")
+        XCTAssertLessThanOrEqual((brute.headTop + 0.38) * HeroBlueprints.roster[33].scale, 2.7)
+        let franco = HeroModelLibrary.makeHero(heroID: "H034", skinID: nil, team: .blue, master: master, options: Self.showcase)
+        franco.update(dt: 1.0 / 60.0, moveSpeed: 0)
+        let borg = HeroModelLibrary.makeHero(heroID: "H029", skinID: nil, team: .blue, master: master, options: Self.showcase)
+        borg.update(dt: 1.0 / 60.0, moveSpeed: 0)
+        let ft = franco.root.findEntity(named: "torso")?.visualBounds(recursive: false, relativeTo: nil)
+        let bt = borg.root.findEntity(named: "torso")?.visualBounds(recursive: false, relativeTo: nil)
+        XCTAssertNotNil(ft)
+        XCTAssertNotNil(bt)
+        if let ft, let bt {
+            XCTAssertGreaterThan(ft.extents.x, bt.extents.x * 1.1, "H034 の胴は H029 より 10% 以上広い")
+        }
     }
 }
