@@ -235,10 +235,10 @@ enum FX_H026: HeroFXSet {
             .emit(.sparks(18, speed: 7, .core, end: .primary), offset: [0, 1.0, 0]),
             .shake(0.12),
         ]
-        // 被弾者ごと: スタン 1 秒（体に電光が 4 回ちらつき、頭上を輪が回る）と、魔防ダウン 1.8 秒（足元の割れた六角の盾）
+        // 被弾者ごと: スタン 1 秒（体に電光が 3 回ちらつき、頭上を輪が回る）と、魔防ダウン 1.8 秒（足元の割れた六角の盾）
         r.hit = [
             .mesh(.sprite(.bolt, 1.1, .secondary, life: 0.14, grow: 1.1), .follow, offset: [0, 1.2, 0])
-                .repeated(4, every: stunTime / 4),
+                .repeated(3, every: stunTime / 3),
             .mesh(.halo(0.45, .accent, life: stunTime, spin: 420, tex: .ringDouble), .follow, offset: [0, 2.05, 0]),
             .mesh(.decal(.hexShield, 1.3, .primary, life: shredTime, spin: 30, alpha: 0.55), .follow),
             .emit(boltFlash(1.6, .core), offset: [0, 1.0, 0]),
@@ -293,7 +293,6 @@ enum FX_H026: HeroFXSet {
                    at: 0.02),
             .mesh(.decal(.crack, R * 1.7, .dark, life: 1.6, spin: 0, grow: 1.0, alpha: 0.85)),
             .mesh(.decal(.crack, R * 1.3, .secondary, life: 0.8, spin: 0, grow: 1.05, alpha: 0.9), at: 0.02),
-            .mesh(.shockRing(C, .core, life: 0.28, tex: .ring)),
             .mesh(.shockRing(R, .primary, life: 0.45)),
             .emit(.sparks(34, speed: 10, .core, end: .primary, life: 0.45), offset: [0, 0.8, 0]),
             .emit(.rising(20, radius: R * 0.8, .secondary, speed: 3, life: 0.8), at: 0.12, quality: 1),

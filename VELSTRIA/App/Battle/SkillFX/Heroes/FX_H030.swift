@@ -194,7 +194,6 @@ enum FX_H030: HeroFXSet {
             .emit(.flare(1.0, .core, life: 0.14), offset: [0, 1.1, 0]),
             .mesh(.decal(.runeCircle, 1.3, voidTint, life: 1.0, spin: 140, alpha: 0.75), .follow),
             .mesh(.halo(0.5, .secondary, life: 1.0, spin: -200, tex: .ring), .follow, offset: [0, 0.15, 0]),
-            .emit(.sparks(6, speed: 4, .secondary, end: .primary), offset: [0, 1.0, 0]),
         ]
         return r
     }
