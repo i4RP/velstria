@@ -2,20 +2,25 @@ import Foundation
 
 // 担当: kit-H034（docs/SKILL_KITS.md / docs/NEW_HEROES.md / docs/kits/Franco.md）
 // H034 鎖鉤のゴルム = Velstria 版の Franco（MLBB。調査: docs/kits/Franco.md、対応表: 同ファイル末尾）。
+// 数値の正は MLBB Fandom の現行のスキル表（docs/kits/Franco.md の「公式（MLBB Fandom 現行）の数値」）。
 //   パッシブ 鉄鎖の執念    — 5 秒ダメージを受けないと 移動速度 +10%・毎秒 最大 HP の 1% 回復、闘気が 1 秒に 1 つたまる（最大 10）。
 //                           次に使うスキルが闘気をすべて消費し、1 つにつきそのスキルのダメージ +15%（最大 +150%）。ダメージで解除。
 //                           ロール「サポート」の味方回復パッシブ・奥義の味方回復はキットが置き換える。
-//   スキル1 鎖鉤           — 射程 680 の非貫通の鉤。最初に当たった敵（ミニオン・モンスター含む、タワーは除く）に物理ダメージ、
-//                           自分の足元まで引き寄せてスタン。壁は越えて飛び、引き寄せは壁の手前で止まる。
-//   スキル2 鉄鎖旋         — 自身中心の範囲に 固定部分 + 自分の最大 HP の 4% の物理ダメージ、70% 減速 1.5 秒。
-//   アルティメット 狩猟鎖獄 — 敵ヒーロー 1 体を指定。踏み込んで 1.8 秒 suppress（解除不可・CC 無効も無視）し、その間に 6 回殴る。
-//                           ゴルムも動けず、スタン等で中断されると相手は解放される。
+//   スキル1 鎖鉤           — 射程 680 の非貫通の鉤。最初に当たった敵（ミニオン・モンスター含む、タワーは除く）に
+//                           400 → 650（+100% 物理攻撃）、スタンしてから自分の足元まで引き寄せる（スタンは引き寄せの間だけ）。
+//                           壁は越えて飛び、引き寄せは壁の手前で止まる。
+//   スキル2 鉄鎖旋         — 自身中心の範囲に 300 → 450 + 自分の最大 HP の 4% の物理ダメージ、70% 減速 1.5 秒。
+//   アルティメット 狩猟鎖獄 — 敵ヒーロー 1 体を指定。踏み込んで 1.8 秒 suppress（解除不可・CC 無効も無視）し、その間に 6 回
+//                           50 / 60 / 70（+70% 物理攻撃）で殴る。ゴルムも動けず、スタン等で中断されると相手は解放される。
+// 数値の換算: 公式の表を Velstria のランクへ線形補間し、sim の通常の式 (基礎 + 係数 × 攻撃力 × 0.6) × スロット倍率 に
+//   スキルごとの換算（Tune.*Scale）を掛ける（H029 と同じ）。最大 HP の 4% は換算しない。マナ消費も公式の表（HeroKit.cost）。
 // 再使用の窓は Franco に無いので使わない。
 //
 // 状態（KitState）:
 //   ints[0]   = 闘気（0..10）            ints[1] = 「5 秒の無被弾」状態に入っているか（0/1）
 //   ints[2]   = 奥義の段（0 = なし / 1 = 踏み込み中 / 2 = 拘束中）   ints[3] = 拘束中に殴った回数
 //   ints[4]   = 命中した鉤の数（検証用）  ints[5] = 直前のスキルが消費した闘気の数（検証用）
+//   ints[6]   = 無被弾の間に闘気を消費した（1 = 次にダメージを受けるまで闘気はたまらない）
 //   timers[0] = 最後のダメージからの待ち（5 秒）  timers[1] = 次の闘気まで   timers[2] = 次の回復まで
 //   timers[3] = 奥義の拘束の残り秒
 //   ids[0]    = 奥義の対象                reals[0] = 奥義の 1 撃のダメージ（闘気の補正込み）
@@ -44,6 +49,12 @@ extension KitState {
     var gormHooksLanded: Int {
         get { ints[4] }
         set { ints[4] = newValue }
+    }
+
+    /// 無被弾の間にスキルで闘気を消費したら、次にダメージを受けるまで闘気はたまらない（公式の注記）。
+    var gormStackLock: Bool {
+        get { ints[6] != 0 }
+        set { ints[6] = newValue ? 1 : 0 }
     }
 
     var gormLastConsumed: Int {
@@ -119,22 +130,29 @@ struct Kit_H034: HeroKit {
         static let hookPull = 0.30
         /// 引き寄せた後に止まる、端同士の隙間。
         static let hookGap = 10.0
-        /// 命中から数えるスタンの長さ（引き寄せ 0.30 秒 + 着いてから 0.7 秒）。調査は「引き寄せの間」だけなので、
-        /// 味方が続けて攻撃するための猶予を足した調整（汎用のスタン 0.75 秒より少し長い。鉤は 6〜7 秒に 1 度）。
-        static let hookStun = 1.0
+        /// 命中から数えるスタンの長さ。公式は「先にスタンを付け、それから引き寄せる」で、スタンは引き寄せの間だけ（= hookPull）。
+        /// 着いたあとの追加のスタンは無い（以前は 0.7 秒を足して 1.0 秒にしていた）。
+        static let hookStun = hookPull
         static let hookStunTag = KitTags.buff("H034", "hookStun")
-        /// 汎用 S1（扇形）のダメージに対する倍率（単体 + 引き寄せ + スタンのぶん、汎用より少し上）。
-        static let hookDamageRatio = 1.30
+        /// 公式: 400 → 650（+100% 総物理攻撃）。Lv1 → Lv6 を最大ランクへ線形補間。
+        static let hookBase = (400.0, 650.0)
+        static let hookAttackRatio = 1.0
+        /// 公式の値 → Velstria の換算（sim の通常の式 × スロット倍率の後ろに掛ける）。鉤 1 回は汎用 S1 の約 1.3〜1.47 倍（予算の上限 1.3 を
+        /// 少し超える）: スタンが公式の「引き寄せの間だけ」（1.0 → 0.3 秒）になり、Lv1（スキル1 だけの決闘）が同ロール中央値 −25 pt まで
+        /// 落ちたので、勝率で上げた（予算内の 0.39 では帯の外）。
+        static let hookScale = 0.45
 
         // スキル2 鉄鎖旋
         static let shockRadius = 260.0
         static let shockSlow = 0.70
         static let shockSlowDuration = 1.5
         static let shockSlowTag = KitTags.buff("H034", "shockSlow")
-        /// 自分の最大 HP の 4%。
+        /// 自分の最大 HP の 4%（公式。Velstria の HP は MLBB と同じ桁なので換算しない）。
         static let shockMaxHPRatio = 0.04
-        /// 汎用 S2 のダメージに対する固定部分の倍率（これに自分の最大 HP の 4% が乗って、汎用の 1.1〜1.3 倍になる）。
-        static let shockFlatRatio = 0.98
+        /// 公式: 300 → 450（+ 自分の最大 HP の 4%）。攻撃力の係数は無い。
+        static let shockBase = (300.0, 450.0)
+        /// 公式の基礎 → Velstria の換算（最大 HP の 4% には掛けない）。最大 HP の 4% と合わせて汎用 S2 の 1.05〜1.25 倍。
+        static let shockScale = 0.65
 
         // 奥義 狩猟鎖獄
         /// 術者の中心から対象の縁までの射程（短い）。
@@ -144,11 +162,12 @@ struct Kit_H034: HeroKit {
         /// 拘束してから最初の 1 撃まで・撃つ間隔（6 回が拘束の 1.8 秒に収まる: 0.15, 0.45, ... 1.65）。
         static let ultFirst = 0.15
         static let ultInterval = 0.30
-        /// 汎用の式で出した奥義（ランク 1）のダメージ（サポートの汎用の奥義は回復でダメージ 0 なので自前で計算）に対する、6 回の合計の倍率。
-        /// クールダウンが汎用（34 秒）より長い（62 → 48 秒）ぶんの補正で、1 秒あたりでは汎用の 1.1〜1.25 倍。
-        static let ultTotalRatio = 2.1
-        /// ランクごとの倍率（MLBB は 1 撃 50 / 60 / 70 = 1 : 1.2 : 1.4。汎用の +30%/ランクより緩やか）。
-        static let ultRankScale: [Double] = [1.0, 1.2, 1.4]
+        /// 公式: 1 撃 50 / 60 / 70（+70% 総物理攻撃）。アルティメットの 3 ランク = 公式の Lv1〜3 そのまま。
+        static let ultHitBase = (50.0, 70.0)
+        static let ultHitAttackRatio = 0.7
+        /// 公式の値 → Velstria の換算。サポートの汎用の奥義は回復でダメージ 0 なので比べる式は無く、勝率で決めた
+        /// （クールダウンが汎用（34 秒）より長い 62 → 45 秒）。
+        static let ultScale = 1.0
         /// 6 回の合計（軽減前）の上限 = 相手の最大 HP × この割合。闘気 10 個の +150% が通常の相手を一撃で倒さないための安全弁。
         static let ultMaxHPFraction = 0.8
         static let ultRushSpeed = 2600.0
@@ -162,12 +181,17 @@ struct Kit_H034: HeroKit {
         static let botWeakHP = 0.7
         static let botAllyRange = 800.0
 
-        // クールダウン（MLBB の秒数そのまま。ランク間を線形補間し、CD 短縮を掛ける。全体倍率 Balance.Skills.cooldownScale は 1.0）
-        /// MLBB の 15 → 11 秒そのまま（ランク 1 も 15 秒。全体の CD が半分だったころは、Lv1 の勝率のためにランク 1 だけ 10 秒にしていた）。
+        // クールダウン（公式の秒数そのまま。ランク間を線形補間し、CD 短縮を掛ける。全体倍率 Balance.Skills.cooldownScale は 1.0）
+        /// 公式の 15 → 11 秒そのまま（ランク 1 も 15 秒）。
         static let hookCooldown = (15.0, 11.0)
-        /// MLBB の 7.0 → 4.5 秒そのまま（汎用の S2 は 9.8 秒からランクで短縮）。
+        /// 公式の 7.0 → 4.5 秒そのまま（汎用の S2 は 9.8 秒からランクで短縮）。
         static let shockCooldown = (7.0, 4.5)
-        static let ultCooldown = (62.0, 48.0)
+        /// 公式（Fandom の現行）62 / 55 / 45 秒。Liquipedia・以前の調査は 62 / 55 / 48。3 段なので補間せず表で引く。
+        static let ultCooldowns: [Double] = [62, 55, 45]
+        // マナ消費（公式: スキル1 135 → 160、スキル2 40 → 65、アルティメット 110 / 125 / 140）
+        static let hookCost = (135.0, 160.0)
+        static let shockCost = (40.0, 65.0)
+        static let ultCost = (110.0, 140.0)
     }
 
     private enum Code {
@@ -214,28 +238,31 @@ struct Kit_H034: HeroKit {
                         KitStat(key: "maxAmp", value: Tune.stackBonus * Double(Tune.maxStacks) * 100),
                         KitStat(key: "stackInterval", value: Tune.stackInterval)]
         case .skill1:
-            n.damage = base.damage * Tune.hookDamageRatio
+            n.damage = Self.hookDamage(rank: rank, stats: stats)
             n.cooldown = Self.cooldown(Tune.hookCooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
             n.cc = .stun
             n.ccDuration = Tune.hookStun
             n.extras = [KitStat(key: "stun", value: Tune.hookStun),
                         KitStat(key: "pull", value: Tune.hookPull),
-                        KitStat(key: "reachMult", value: Tune.hookRange / hero.attackRange)]
+                        KitStat(key: "reachMult", value: Tune.hookRange / hero.attackRange),
+                        KitStat(key: "base", value: Self.scaledBase(Tune.hookBase, slot: .skill1, scale: Tune.hookScale,
+                                                                    rank: rank, maxRank: slot.maxRank).rounded()),
+                        KitStat(key: "atkPct", value: Self.attackPercent(Tune.hookAttackRatio, slot: .skill1,
+                                                                         scale: Tune.hookScale).rounded())]
         case .skill2:
-            n.damage = base.damage * Tune.shockFlatRatio + stats.maxHP * Tune.shockMaxHPRatio
+            n.damage = Self.shockDamage(rank: rank, stats: stats)
             n.cooldown = Self.cooldown(Tune.shockCooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
             n.cc = .slow
             n.ccDuration = Tune.shockSlowDuration
             n.extras = [KitStat(key: "slowPercent", value: Tune.shockSlow * 100),
                         KitStat(key: "slowDuration", value: Tune.shockSlowDuration),
                         KitStat(key: "maxHPPercent", value: Tune.shockMaxHPRatio * 100),
-                        KitStat(key: "reachMult", value: Tune.shockRadius / hero.attackRange)]
+                        KitStat(key: "reachMult", value: Tune.shockRadius / hero.attackRange),
+                        KitStat(key: "base", value: Self.scaledBase(Tune.shockBase, slot: .skill2, scale: Tune.shockScale,
+                                                                    rank: rank, maxRank: slot.maxRank).rounded())]
         case .ultimate:
-            // 汎用のサポートの奥義は味方回復（ダメージなし）。単体ダメージの目安は、同じ式で ult のダメージを出した値（ランク 1）。
-            // ランクの伸びは MLBB の 50 / 60 / 70 に合わせる
-            let r = min(max(1, rank), Tune.ultRankScale.count)
-            n.damage = Self.genericUltimateDamage(skill, rank: 1, stats: stats) * Tune.ultRankScale[r - 1]
-                * Tune.ultTotalRatio / Double(Tune.ultHits)
+            // 汎用のサポートの奥義は味方回復（ダメージなし）。1 撃 = 公式の 50 / 60 / 70（+70% 物理攻撃）を換算した値
+            n.damage = Self.ultHitDamage(rank: rank, stats: stats)
             n.hits = Tune.ultHits
             n.heal = 0
             n.shield = 0
@@ -243,46 +270,63 @@ struct Kit_H034: HeroKit {
             n.cc = .stun
             n.ccIsUltimate = true
             n.ccDuration = Tune.ultSuppress
-            n.cooldown = Self.cooldown(Tune.ultCooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
+            n.cooldown = Self.ultCooldown(rank: rank, stats: stats)
             n.extras = [KitStat(key: "suppress", value: Tune.ultSuppress),
                         KitStat(key: "interval", value: Tune.ultInterval),
-                        KitStat(key: "reachMult", value: Tune.ultReach / hero.attackRange)]
+                        KitStat(key: "reachMult", value: Tune.ultReach / hero.attackRange),
+                        KitStat(key: "base", value: Self.scaledBase(Tune.ultHitBase, slot: .ultimate, scale: Tune.ultScale,
+                                                                    rank: rank, maxRank: slot.maxRank).rounded()),
+                        KitStat(key: "atkPct", value: Self.attackPercent(Tune.ultHitAttackRatio, slot: .ultimate,
+                                                                         scale: Tune.ultScale).rounded())]
         }
         return n
     }
 
+    /// ランクごとのマナ消費（公式: スキル1 135 → 160、スキル2 40 → 65、アルティメット 110 / 125 / 140）。
+    func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double {
+        let table: (Double, Double)
+        switch slot {
+        case .skill1: table = Tune.hookCost
+        case .skill2: table = Tune.shockCost
+        case .ultimate: table = Tune.ultCost
+        case .passive: return base
+        }
+        return HeroKits.resourceCost(Self.lerp(table.0, table.1, rank: rank, maxRank: slot.maxRank), hero: hero)
+    }
+
+    /// 説明文は公式の文の構造に合わせる（数値は {トークン} で sim から。{base}(+{atkPct}%物理攻撃) は sim の式に換算した値）。
     func text(slot: SkillSlot) -> KitText? {
         switch slot {
         case .passive:
             return KitText(
-                ja: "{x0}秒間ダメージを受けないと、移動速度が{x1}%上がり、毎秒最大HPの{x2}%を回復して、闘気が{stackInterval}秒に1個たまり始める（最大{hits}個）。"
-                    + "スキル1・スキル2・アルティメットのうち次に使うものが闘気をすべて消費し、1つにつきそのスキルのダメージが+{x3}%される（最大+{maxAmp}%）。"
-                    + "ダメージを受けると回復と加速は止まる。",
-                en: "After {x0}s without taking damage, gain {x1}% movement speed, recover {x2}% of max HP per second and "
-                    + "start gaining 1 Resolve every {stackInterval}s (up to {hits}). Your next Skill 1, Skill 2 or Ultimate consumes all Resolve, "
-                    + "dealing +{x3}% damage per stack (up to +{maxAmp}%). Taking damage ends the recovery and speed bonus.")
+                ja: "{x0}秒間ダメージを受けないと、移動速度が{x1}%上がり、毎秒最大HPの{x2}%を回復し、闘気を蓄積し始める（{stackInterval}秒に1個、最大{hits}個）。\n\n"
+                    + "次にスキルを発動すると闘気をすべて消費し、そのスキルのダメージを最大{maxAmp}%増加させる（1個につき+{x3}%）。",
+                en: "If no damage is taken within {x0}s, Gorm gains {x1}% Movement Speed, recovers {x2}% Max HP per second, and begins accumulating Resolve "
+                    + "(1 every {stackInterval}s, up to {hits} stacks).\n\n"
+                    + "Gorm consumes all Resolve stacks on his next skill cast to increase the skill's damage by up to {maxAmp}% (+{x3}% per stack).",
+                tags: [KitTag.buff])
         case .skill1:
             return KitText(
-                ja: "指定方向へ近接攻撃の射程の約{reachMult}倍まで届く鎖鉤を打ち出し、最初に当たった敵に{damage}の物理ダメージ。"
-                    + "当たった敵を自分の足元まで引き寄せ、{x0}秒スタンさせる（壁は越えて飛び、引き寄せは壁の手前で止まる。タワーには当たらない）。"
-                    + "クールダウン{cd}秒。",
-                en: "Fires a chain hook reaching about {reachMult}x your melee attack range that deals {damage} physical damage to the first enemy hit, "
-                    + "drags them to your feet and stuns them for {x0}s (flies over walls, but the pull stops at walls; "
-                    + "does not hit turrets). Cooldown {cd}s.")
+                ja: "指定方向へ鉄の鉤を放つ（届くのは近接攻撃の射程の約{reachMult}倍）。鉤は最初に命中した敵ユニットを捕らえ、{base}(+{atkPct}%物理攻撃)の物理ダメージを与えて自分の元へ引き寄せる。\n\n"
+                    + "鉤は先にスタンを付けてから引き寄せる（スタンは引き寄せの{x0}秒の間）。鉤は壁を越えて飛ぶが、引き寄せは壁の手前で止まる。タワーには当たらない。",
+                en: "Launch an iron hook in the target direction (reaching about {reachMult}x the melee attack range). The hook snags the first enemy unit hit, "
+                    + "dealing {base} (+{atkPct}% Physical Attack) physical damage and dragging them to Gorm.\n\n"
+                    + "The hook stuns first, then pulls (the stun lasts for the {x0}s pull). It flies over walls, but the pull stops at walls; it does not hit turrets.",
+                tags: [KitTag.disrupt, KitTag.burst])
         case .skill2:
             return KitText(
-                ja: "近接攻撃の射程の約{reachMult}倍の範囲の敵を鎖で打ち据え、{damage}の物理ダメージ（自分の最大HPの{x2}%を含む）を与え、{x1}秒間 移動速度を{x0}%下げる。"
-                    + "クールダウン{cd}秒。",
-                en: "Lashes enemies within about {reachMult}x your melee attack range for {damage} physical damage (including {x2}% of your max HP) and slows "
-                    + "them by {x0}% for {x1}s. Cooldown {cd}s.")
+                ja: "鎖を振るい、周囲（近接攻撃の射程の約{reachMult}倍）の敵に{base}+自身の最大HPの{maxHPPercent}%の物理ダメージを与え、移動速度を{slowDuration}秒間{slowPercent}%低下させる。",
+                en: "Lash out, dealing physical damage equal to {base} plus {maxHPPercent}% of Gorm's Max HP to nearby enemies (within about {reachMult}x the melee attack range) "
+                    + "and slowing them by {slowPercent}% for {slowDuration}s.",
+                tags: [KitTag.slow])
         case .ultimate:
             return KitText(
-                ja: "近接攻撃の射程の約{reachMult}倍以内の敵ヒーロー1体を指定して踏み込み、{x0}秒間 鎖で抑え込む（解除不可・CC無効も無視。相手のスキルは中断される）。"
-                    + "その間に{hits}回、1回ごとに{damage}の物理ダメージ。ゴルムも動けず、スタンなどで中断されると相手は解放される。"
-                    + "クールダウン{cd}秒。",
-                en: "Pick an enemy hero within about {reachMult}x your melee attack range, rush in and chain them down for {x0}s (cannot be cleansed, ignores "
-                    + "crowd-control immunity, and cancels their skills). Strikes {hits} times for {damage} physical damage "
-                    + "each. Gorm cannot move meanwhile, and being stunned or interrupted frees the target. Cooldown {cd}s.")
+                ja: "対象の敵ヒーロー（近接攻撃の射程の約{reachMult}倍以内。離れていれば踏み込む）を{suppress}秒間制圧し、その間に{hits}回攻撃する。1回ごとに{base}(+{atkPct}%物理攻撃)の物理ダメージを与える。\n\n"
+                    + "制圧は浄化で解除できず、CC無効も無視する。ゴルムがコントロール効果を受けると、スキルは途中で終わる。",
+                en: "Suppress the target enemy hero (within about {reachMult}x the melee attack range; Gorm rushes in if needed) for {suppress}s and strike them {hits} times "
+                    + "over the duration, each time dealing {base} (+{atkPct}% Physical Attack) physical damage.\n\n"
+                    + "Suppression cannot be cleansed and ignores crowd-control immunity. The skill ends early if Gorm is crowd controlled.",
+                tags: [KitTag.burst, KitTag.disrupt])
         }
     }
 
@@ -333,6 +377,8 @@ struct Kit_H034: HeroKit {
         let n = k.gormStacks
         s.units[i].hero!.kit!.gormStacks = 0
         s.units[i].hero!.kit!.gormLastConsumed = n
+        // 無被弾の間に消費したら、次にダメージを受けるまで闘気はたまらない（加速・回復は続く）
+        if k.gormCalmActive { s.units[i].hero!.kit!.gormStackLock = true }
         return 1 + Tune.stackBonus * Double(n)
     }
 
@@ -500,7 +546,9 @@ struct Kit_H034: HeroKit {
             s.units[i].hero!.kit!.gormStackTimer = Tune.stackInterval
             s.units[i].hero!.kit!.gormRegenTimer = Tune.regenPulse
         } else if k.gormStackTimer <= eps {
-            s.units[i].hero!.kit!.gormStacks = min(Tune.maxStacks, k.gormStacks + 1)
+            if !k.gormStackLock {
+                s.units[i].hero!.kit!.gormStacks = min(Tune.maxStacks, k.gormStacks + 1)
+            }
             s.units[i].hero!.kit!.gormStackTimer = Tune.stackInterval
         }
         if !s.units[i].statuses.contains(where: { $0.kind == .speedBoost && $0.tag == Tune.speedTag }) {
@@ -529,6 +577,7 @@ struct Kit_H034: HeroKit {
         // 無被弾の待ちをやり直し。加速と回復は止まり、闘気はそのまま残る（調査: 減衰の規則は不明）
         s.units[victim].hero!.kit!.gormCalm = Tune.calmDelay
         s.units[victim].hero!.kit!.gormCalmActive = false
+        s.units[victim].hero!.kit!.gormStackLock = false
         s.units[victim].hero!.kit!.gormStackTimer = 0
         s.units[victim].hero!.kit!.gormRegenTimer = 0
         s.units[victim].statuses.removeAll { $0.kind == .speedBoost && $0.tag == Tune.speedTag }
@@ -593,18 +642,54 @@ struct Kit_H034: HeroKit {
         return sec * (1 - reduction) * Balance.Skills.cooldownScale
     }
 
-    private static func lerp(_ a: Double, _ b: Double, rank: Int, maxRank: Int) -> Double {
+    /// アルティメットのクールダウン（公式 62 / 55 / 45 秒を表で引き、CD 短縮を掛ける）。
+    static func ultCooldown(rank: Int, stats: Stats) -> Double {
+        let sec = Tune.ultCooldowns[min(max(1, rank), Tune.ultCooldowns.count) - 1]
+        let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))
+        return sec * (1 - reduction) * Balance.Skills.cooldownScale
+    }
+
+    static func lerp(_ a: Double, _ b: Double, rank: Int, maxRank: Int) -> Double {
         guard maxRank > 1 else { return a }
         let t = Double(min(max(1, rank), maxRank) - 1) / Double(maxRank - 1)
         return a + (b - a) * t
     }
 
-    /// 汎用の式でこの奥義のダメージを出した値（軽減前。サポートの汎用の奥義は回復で、ダメージ 0 のため自前で計算する）。
-    static func genericUltimateDamage(_ skill: SkillDef, rank: Int, stats: Stats) -> Double {
-        let r = min(max(1, rank), skill.slot.maxRank)
-        let rankedBase = skill.baseDamage * (1 + Balance.skillDamagePerRank * Double(r - 1))
-        return (rankedBase + skill.scalingAttack * stats.attack * Balance.skillAttackScalingFactor
-            + skill.scalingPower * stats.abilityPower) * Balance.Skills.damageScale(skill.slot)
+    // MARK: - ダメージ（公式の表 → sim の式）
+
+    /// 公式の基礎ダメージ（ランクで補間）を sim の通常の式に通した「換算後の基礎」。
+    static func scaledBase(_ table: (Double, Double), slot: SkillSlot, scale: Double, rank: Int, maxRank: Int) -> Double {
+        lerp(table.0, table.1, rank: rank, maxRank: maxRank) * Balance.Skills.damageScale(slot) * scale
+    }
+
+    /// 公式の「+N% 物理攻撃」を sim の通常の式（× skillAttackScalingFactor × スロット倍率 × 換算）に通した、攻撃力に対する割合（%）。
+    static func attackPercent(_ ratio: Double, slot: SkillSlot, scale: Double) -> Double {
+        ratio * Balance.skillAttackScalingFactor * Balance.Skills.damageScale(slot) * scale * 100
+    }
+
+    /// (公式の基礎 + 係数 × 攻撃力 × skillAttackScalingFactor) × スロット倍率 × 換算。
+    private static func damage(base: (Double, Double), ratio: Double, slot: SkillSlot, scale: Double, rank: Int,
+                               stats: Stats) -> Double {
+        let b = lerp(base.0, base.1, rank: rank, maxRank: slot.maxRank)
+        return (b + ratio * stats.attack * Balance.skillAttackScalingFactor) * Balance.Skills.damageScale(slot) * scale
+    }
+
+    /// スキル1 の鉤（400 → 650 + 100% 物理攻撃）。
+    static func hookDamage(rank: Int, stats: Stats) -> Double {
+        damage(base: Tune.hookBase, ratio: Tune.hookAttackRatio, slot: .skill1, scale: Tune.hookScale, rank: rank,
+               stats: stats)
+    }
+
+    /// スキル2（300 → 450 を換算 + 自分の最大 HP の 4%。最大 HP の部分は換算しない）。
+    static func shockDamage(rank: Int, stats: Stats) -> Double {
+        damage(base: Tune.shockBase, ratio: 0, slot: .skill2, scale: Tune.shockScale, rank: rank, stats: stats)
+            + stats.maxHP * Tune.shockMaxHPRatio
+    }
+
+    /// アルティメットの 1 撃（50 / 60 / 70 + 70% 物理攻撃）。
+    static func ultHitDamage(rank: Int, stats: Stats) -> Double {
+        damage(base: Tune.ultHitBase, ratio: Tune.ultHitAttackRatio, slot: .ultimate, scale: Tune.ultScale, rank: rank,
+               stats: stats)
     }
 
     static func skillID(_ ctx: SimContext, _ slot: SkillSlot) -> String? {
