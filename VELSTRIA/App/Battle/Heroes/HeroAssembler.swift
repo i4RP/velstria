@@ -32,6 +32,12 @@ struct BodyMetrics {
             m.torsoW = 0.62; m.torsoD = 0.44; m.torsoLen = 0.48; m.shoulderX = 0.35; m.shoulderY = 0.39
             m.armR = 0.085; m.legR = 0.1; m.hipHalf = 0.13; m.headR = 0.31; m.headY = 0.28
             m.upperArm = 0.22; m.foreArm = 0.2; m.armRestOut = 0.2
+        case .titan:
+            // heavy よりさらに肩幅・胸板・腕脚が太い巨漢。頭は肩の間に沈めて背は伸ばさない
+            // （headTop = 0.56 + 0.03 + 0.46 + 0.23 + 0.27 = 1.55。heavy は 1.66 なので scale を上げても高さの上限に収まる）
+            m.torsoW = 0.70; m.torsoD = 0.48; m.torsoLen = 0.46; m.shoulderX = 0.38; m.shoulderY = 0.38
+            m.armR = 0.095; m.legR = 0.105; m.hipHalf = 0.15; m.headR = 0.27; m.headY = 0.23
+            m.upperArm = 0.22; m.foreArm = 0.2; m.armRestOut = 0.22
         case .standard:
             break
         case .slim:
@@ -156,11 +162,27 @@ struct HeroAssembler {
         }
     }
 
-    private var bootMat: HeroMat { bp.armor == .plate ? .metal : .dark }
+    private var bootMat: HeroMat {
+        switch bp.armor {
+        case .plate: return .metal
+        case .knight: return .secondary
+        default: return .dark
+        }
+    }
+
+    /// すね当ての上端の輪（plate は基調色、knight は金、他は濃色）。
+    private var shinCuffMat: HeroMat {
+        switch bp.armor {
+        case .plate: return .primary
+        case .knight: return .metal
+        default: return .secondary
+        }
+    }
 
     private var sleeveMat: HeroMat {
         switch bp.armor {
         case .plate: return .metal
+        case .knight: return .primary
         case .leather, .mech: return .secondary
         case .cloth, .light: return .primary
         case .rock, .fur: return .skin
@@ -170,6 +192,7 @@ struct HeroAssembler {
     private var foreArmMat: HeroMat {
         switch bp.armor {
         case .plate: return .metal
+        case .knight: return .primary
         case .cloth: return .primary
         default: return .skin
         }
@@ -177,7 +200,7 @@ struct HeroAssembler {
 
     private var handMat: HeroMat {
         switch bp.armor {
-        case .plate: return .metal
+        case .plate, .knight: return .metal
         case .leather: return .dark
         default: return .skin
         }
@@ -190,18 +213,20 @@ struct HeroAssembler {
         let hw = m.torsoW / 2
         let zs = m.torsoD / m.torsoW
         b.rbox(V3(0, 0, 0), V3(m.torsoW * 0.8, 0.2, m.torsoD * 0.84), 0.08, pantsMat)
-        let beltMat: HeroMat = bp.build == .heavy ? .metal : .dark
+        let beltMat: HeroMat = bp.build.isHeavy ? .metal : .dark
         b.rbox(V3(0, 0.085, 0), V3(m.torsoW * 0.88, 0.07, m.torsoD * 0.92), 0.03, beltMat)
-        b.rbox(V3(0, 0.085, -m.torsoD * 0.46), V3(0.09, 0.075, 0.035), 0.012, bp.build == .heavy ? .glow : .metal)
+        b.rbox(V3(0, 0.085, -m.torsoD * 0.46), V3(0.09, 0.075, 0.035), 0.012, bp.build.isHeavy ? .glow : .metal)
         switch bp.skirt {
         case .none:
             break
         case .tassets:
+            // titan は胴が広いので、前垂れ・後ろ垂れも横へ広げる
+            let k: Float = bp.build == .titan ? 1.2 : 1
             for s: Float in [-1, 1] {
-                b.rbox(V3(s * 0.12, -0.07, -m.torsoD * 0.43), V3(0.17, 0.2, 0.04), 0.015, .primary, rot: rx(0.18))
+                b.rbox(V3(s * 0.12 * k, -0.07, -m.torsoD * 0.43), V3(0.17 * k, 0.2, 0.04), 0.015, .primary, rot: rx(0.18))
                 b.rbox(V3(s * hw * 0.86, -0.06, 0), V3(0.045, 0.2, 0.2), 0.015, .metal, rot: rz(s * 0.22))
             }
-            b.rbox(V3(0, -0.07, m.torsoD * 0.43), V3(0.28, 0.18, 0.04), 0.015, .secondary, rot: rx(-0.15))
+            b.rbox(V3(0, -0.07, m.torsoD * 0.43), V3(0.28 * k, 0.18, 0.04), 0.015, .secondary, rot: rx(-0.15))
         case .robe:
             let yb = -(m.hipY - 0.1)
             let prof: [V2] = [V2(hw * 1.22, yb), V2(hw * 1.36, yb + 0.02), V2(hw * 1.3, yb * 0.72),
@@ -244,6 +269,7 @@ struct HeroAssembler {
     private var torsoMat: HeroMat {
         switch bp.armor {
         case .plate: return .metal
+        case .knight: return .primary
         case .leather, .fur, .mech: return .secondary
         case .cloth, .light: return .primary
         case .rock: return .dark
@@ -266,6 +292,17 @@ struct HeroAssembler {
             b.rbox(V3(0, 0.06, front + 0.01), V3(hw * 0.85, 0.26, 0.03), 0.012, .primary)
             b.extrude([V2(0, 0.07), V2(0.05, 0), V2(0, -0.07), V2(-0.05, 0)], depth: 0.03,
                       V3(0, 0.28, front - 0.07), .glow)
+            b.add(MeshTemplate.torus(minor: 0.1, segments: 20, sides: 6),
+                  trs(V3(0, L - 0.03, 0), qIdentity, V3(hw * 0.6, hw * 0.6, hw * 0.6 * zs)), .metal)
+        case .knight:
+            // 青い胸甲（厚い膨らみ）・濃い青の腹当て・胸の金の十字と光の菱形（聖印）・金の喉当て
+            let chestFront = -m.torsoD * 0.1 - m.torsoD * 0.46
+            b.ellipsoid(V3(0, 0.27, -m.torsoD * 0.1), V3(hw * 0.98, 0.21, m.torsoD * 0.46), .primary)
+            b.rbox(V3(0, 0.06, front + 0.01), V3(hw * 0.86, 0.26, 0.035), 0.014, .secondary)
+            b.box(V3(0, 0.27, chestFront + 0.025), V3(0.06, 0.22, 0.06), .metal)
+            b.box(V3(0, 0.3, chestFront + 0.025), V3(0.2, 0.06, 0.06), .metal)
+            b.extrude([V2(0, 0.065), V2(0.05, 0), V2(0, -0.065), V2(-0.05, 0)], depth: 0.02,
+                      V3(0, 0.3, chestFront - 0.01), .glow)
             b.add(MeshTemplate.torus(minor: 0.1, segments: 20, sides: 6),
                   trs(V3(0, L - 0.03, 0), qIdentity, V3(hw * 0.6, hw * 0.6, hw * 0.6 * zs)), .metal)
         case .leather:
@@ -393,6 +430,10 @@ struct HeroAssembler {
         case .plate:
             b.frustum(V3(0, -L * 0.25, 0), V3(0, -L * 0.95, 0), r * 1.12, r * 1.05, .metal)
             b.torus(V3(0, -L * 0.25, 0), r * 1.12, 0.014, .primary)
+        case .knight:
+            // 青い籠手: 肘側に金の輪、手は金の小手
+            b.frustum(V3(0, -L * 0.2, 0), V3(0, -L * 0.95, 0), r * 1.2, r * 1.1, .primary)
+            b.torus(V3(0, -L * 0.2, 0), r * 1.22, 0.016, .metal, segments: 12, sides: 5)
         case .leather, .light, .mech:
             b.frustum(V3(0, -L * 0.4, 0), V3(0, -L * 0.95, 0), r * 1.05, r * 1.0, .dark)
         case .cloth:
@@ -416,8 +457,9 @@ struct HeroAssembler {
     private func buildThigh(side s: Float) -> HeroMeshBuilder {
         var b = HeroMeshBuilder()
         b.limb(.zero, V3(0, -m.thigh, 0), m.legR, m.legR * 0.9, pantsMat)
-        if bp.armor == .plate {
-            b.rbox(V3(0, -m.thigh * 0.45, -m.legR * 0.55), V3(m.legR * 1.9, m.thigh * 0.6, m.legR * 0.9), 0.025, .metal)
+        if bp.armor == .plate || bp.armor == .knight {
+            b.rbox(V3(0, -m.thigh * 0.45, -m.legR * 0.55), V3(m.legR * 1.9, m.thigh * 0.6, m.legR * 0.9), 0.025,
+                   bp.armor == .knight ? .primary : .metal)
         }
         return b
     }
@@ -429,10 +471,10 @@ struct HeroAssembler {
         b.limb(.zero, V3(0, -(L - 0.1), 0), r * 0.9, r * 0.8, pantsMat)
         b.rbox(V3(0, -L + 0.07, -0.035), V3(r * 2.3, 0.14, r * 2.6 + 0.09), 0.05, bootMat)
         b.frustum(V3(0, -L + 0.12, 0), V3(0, -L + 0.25, 0), r * 1.02, r * 1.1, bootMat)
-        b.torus(V3(0, -L + 0.25, 0), r * 1.1, 0.018, bp.armor == .plate ? .primary : .secondary)
-        if bp.armor == .plate {
+        b.torus(V3(0, -L + 0.25, 0), r * 1.1, 0.018, shinCuffMat)
+        if bp.armor == .plate || bp.armor == .knight {
             b.sphere(V3(0, 0, -0.02), r * 1.05, .metal, .low)
-            b.rbox(V3(0, -L + 0.09, -r * 1.35 - 0.04), V3(r * 1.9, 0.08, 0.06), 0.025, .primary)
+            b.rbox(V3(0, -L + 0.09, -r * 1.35 - 0.04), V3(r * 1.9, 0.08, 0.06), 0.025, bp.armor == .knight ? .metal : .primary)
         }
         return b
     }

@@ -303,9 +303,16 @@ public enum SkillSystem {
             * Balance.Skills.cooldownScale
     }
 
-    /// 実効コスト。
+    /// 実効コスト（汎用。キットの上書きを含まない）。
     public static func cost(for skill: SkillDef, resource: ResourceKind) -> Double {
         resource == .energy ? skill.cost * Balance.energyCostMultiplier : skill.cost
+    }
+
+    /// ランク込みの実効コスト（キットのヒーローはキットの `cost` を反映する。キットが無ければ上の汎用と同じ）。
+    /// 発動の検証・消費・ボット・HUD・`SkillCatalog.numbers` の cost が同じ値を使う。
+    public static func cost(for skill: SkillDef, hero: HeroDef, rank: Int, resource: ResourceKind? = nil) -> Double {
+        let base = cost(for: skill, resource: resource ?? hero.resource)
+        return HeroKits.cost(for: skill, hero: hero, rank: rank, base: base)
     }
 
     /// 発動条件の検証（成功時は消費量などを返す）。
@@ -321,7 +328,7 @@ public enum SkillSystem {
         if h.kit != nil, !recasting, let kit = HeroKits.kit(in: s, i),
            !kit.canStart(s, ctx, caster: i, slot: slot) { return nil }
         guard free || recasting || h.cooldown(slot) <= CombatSystem.timeEpsilon else { return nil }
-        let cost = free || recasting ? 0 : cost(for: skill, resource: h.resourceKind)
+        let cost = free || recasting ? 0 : cost(for: skill, hero: def, rank: rank, resource: h.resourceKind)
         guard s.units[i].resource + 1e-9 >= cost else { return nil }
         // ルート中は突進・跳躍できない（ブリンクは可）
         if s.units[i].has(.root) {
