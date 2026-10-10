@@ -128,12 +128,14 @@ final class Kit_H027Tests: XCTestCase {
         return kitN.totalDamage / generic.totalDamage
     }
 
+    /// 例外: スキル1 だけは下限 0.65。公式の表（250 → 350 = 1.4 倍）は汎用（+30%/ランク = 1.9 倍）より伸びが緩く、
+    /// 三連突きと打ち上げで Lv1 の 1v1 が強く出るため換算を低くした（docs/kits/Zilong.md の「バランス」）。
     func testNumbersStayWithinDamageBudgetAndFollowCooldownFormula() throws {
         for level in [1, 6, 12] {
             for rank in 1...Balance.basicSkillMaxRank {
                 for slot in [SkillSlot.skill1, .skill2] {
                     let r = try damageRatio(slot, level: level, rank: rank)
-                    XCTAssertGreaterThanOrEqual(r, 0.8, "\(slot) Lv\(level) r\(rank)")
+                    XCTAssertGreaterThanOrEqual(r, slot == .skill1 ? 0.65 : 0.8, "\(slot) Lv\(level) r\(rank)")
                     XCTAssertLessThanOrEqual(r, 1.3, "\(slot) Lv\(level) r\(rank)")
                 }
             }
@@ -172,6 +174,71 @@ final class Kit_H027Tests: XCTestCase {
         XCTAssertEqual(r4.extras.first?.value, 30)
     }
 
+    func testOfficialTablesCostsAndTags() throws {
+        let hero = try XCTUnwrap(MasterData.shared.hero("H027"))
+        func skill(_ slot: SkillSlot) throws -> SkillDef { try XCTUnwrap(MasterData.shared.skill(hero: "H027", slot: slot)) }
+        let (w, k) = world(level: 6)
+        let st = w.s.units[k].stats
+        // ダメージ: (公式の基礎（Lv1 → Lv6 をランクで線形補間）+ 係数 × 攻撃力 × 0.6) × スロット倍率 × 換算
+        let atk = st.attack * Balance.skillAttackScalingFactor
+        let s1 = Balance.Skills.damageScale(.skill1), s2 = Balance.Skills.damageScale(.skill2)
+        for rank in 1...4 {
+            let lv = 1 + Double(rank - 1) * 5 / 3
+            XCTAssertEqual(SkillCatalog.numbers(for: try skill(.skill1), hero: hero, rank: rank, stats: st).damage,
+                           (250 + (lv - 1) * 20 + 0.8 * atk) * s1 * Tune.flipScale, accuracy: 1e-6, "S1 r\(rank)")
+            XCTAssertEqual(SkillCatalog.numbers(for: try skill(.skill2), hero: hero, rank: rank, stats: st).damage,
+                           (250 + (lv - 1) * 40 + 0.6 * atk) * s2 * Tune.strikeScale, accuracy: 1e-6, "S2 r\(rank)")
+        }
+        // 最終ランク = 公式の最終レベル（350 / 450）
+        XCTAssertEqual(Kit_H027.scaledBase(Tune.flipBase, slot: .skill1, scale: Tune.flipScale, rank: 4),
+                       350 * s1 * Tune.flipScale, accuracy: 1e-9)
+        XCTAssertEqual(Kit_H027.scaledBase(Tune.strikeBase, slot: .skill2, scale: Tune.strikeScale, rank: 4),
+                       450 * s2 * Tune.strikeScale, accuracy: 1e-9)
+        // パッシブ: ダメージは公式の 80 + 30% × 換算 0.6、回復 50 + 20% と HP 50% 未満の +30 は公式の値そのまま
+        XCTAssertEqual(Tune.flurryScale, 0.6)
+        XCTAssertEqual(Kit_H027.flurryHitDamage(attack: 200), (80 + 60) * 0.6, accuracy: 1e-9)
+        XCTAssertEqual(Kit_H027.flurryHeal(attack: 200), 50 + 40, accuracy: 1e-9)
+        XCTAssertEqual(Tune.executeFlat, 30)
+        // マナ（公式: S1 80 → 105、S2 40、ULT 120 / 140 / 160）。Energy のヒーローなので × energyCostMultiplier
+        XCTAssertEqual(hero.resource, .energy)
+        let e = Balance.energyCostMultiplier
+        for (rank, mp) in [(1, 80.0), (2, 88), (3, 97), (4, 105)] {
+            XCTAssertEqual(SkillSystem.cost(for: try skill(.skill1), hero: hero, rank: rank), mp * e, accuracy: 1e-9)
+            XCTAssertEqual(SkillSystem.cost(for: try skill(.skill2), hero: hero, rank: rank), 40 * e, accuracy: 1e-9)
+            XCTAssertEqual(SkillCatalog.numbers(for: try skill(.skill1), hero: hero, rank: rank, stats: st).cost, mp * e,
+                           accuracy: 1e-9)
+        }
+        for (rank, mp) in [(1, 120.0), (2, 140), (3, 160)] {
+            XCTAssertEqual(SkillSystem.cost(for: try skill(.ultimate), hero: hero, rank: rank), mp * e, accuracy: 1e-9)
+        }
+        // 実際の消費もこの値
+        var (v, j) = world()
+        let target = addEnemy(&v, dx: 200)
+        let before = v.s.units[j].resource
+        XCTAssertTrue(v.cast(j, .skill1, .unit(v.id(target))))
+        XCTAssertEqual(before - v.s.units[j].resource, 80 * e, accuracy: 1e-9)
+        // タグ（公式: パッシブ = バフ・回復、S1 = CC・ダメージ、S2 = 移動（ブリンク）・デバフ、ULT = 加速・バフ）
+        XCTAssertEqual(HeroKits.tags(heroID: "H027", slot: .passive), ["buff", "heal"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H027", slot: .skill1), ["control", "burst"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H027", slot: .skill2), ["mobility", "disrupt"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H027", slot: .ultimate), ["mobility", "buff"])
+        for slot in SkillSlot.allCases {
+            for tag in HeroKits.tags(heroID: "H027", slot: slot) { XCTAssertTrue(KitTag.all.contains(tag), tag) }
+        }
+        // 説明文は公式の構造（{基礎}(+{係数}%物理攻撃)）
+        let n1 = SkillCatalog.numbers(for: try skill(.skill1), hero: hero, rank: 1, stats: st)
+        let ja1 = try XCTUnwrap(HeroKits.text(heroID: "H027", slot: .skill1)).filled(
+            english: false, numbers: n1, targeting: SkillCatalog.targeting(for: try skill(.skill1), hero: hero))
+        let b1 = Int(try XCTUnwrap(n1.extras.first { $0.key == "base" }).value)
+        let p1 = Int(try XCTUnwrap(n1.extras.first { $0.key == "atkPct" }).value)
+        XCTAssertTrue(ja1.contains("\(b1)(+\(p1)%物理攻撃)の物理ダメージ"), ja1)
+        let pn = SkillCatalog.numbers(for: try skill(.passive), hero: hero, rank: 1, stats: st)
+        let jap = try XCTUnwrap(HeroKits.text(heroID: "H027", slot: .passive)).filled(
+            english: false, numbers: pn, targeting: SkillCatalog.targeting(for: try skill(.passive), hero: hero))
+        XCTAssertTrue(jap.contains("48(+18%物理攻撃)の通常攻撃ダメージ") && jap.contains("50(+20%物理攻撃)のHP"), jap)
+        XCTAssertTrue(jap.contains("ダメージが30増加する"), jap)
+    }
+
     func testTextFillsEverySlotWithSimNumbers() throws {
         let (w, k) = world(level: 6, ranks: [2, 2, 2])
         let hero = try XCTUnwrap(MasterData.shared.hero("H027"))
@@ -193,7 +260,7 @@ final class Kit_H027Tests: XCTestCase {
         let pn = SkillCatalog.numbers(for: passiveSkill, hero: hero, rank: 1, stats: stats)
         let ja = try XCTUnwrap(HeroKits.text(heroID: "H027", slot: .passive)).filled(
             english: false, numbers: pn, targeting: SkillCatalog.targeting(for: passiveSkill, hero: hero))
-        XCTAssertTrue(ja.contains("\(Int((80 + 0.3 * stats.attack).rounded()))"), ja)
+        XCTAssertTrue(ja.contains("\(Int(Kit_H027.flurryHitDamage(attack: stats.attack).rounded()))"), ja)
         XCTAssertTrue(ja.contains("\(Int((50 + 0.2 * stats.attack).rounded()))"), ja)
         XCTAssertEqual(pn.hits, 3)
         let ultSkill = try XCTUnwrap(MasterData.shared.skill(hero: "H027", slot: .ultimate))
@@ -227,7 +294,7 @@ final class Kit_H027Tests: XCTestCase {
         // 3 回は単発、4 回目が三連、その後また 3 回単発 → 三連
         XCTAssertEqual(volleys.prefix(8).map(\.count), [1, 1, 1, 3, 1, 1, 1, 3])
         let atk = w.s.units[k].stats.attack
-        let flurryHit = 80 + 0.3 * atk
+        let flurryHit = Kit_H027.flurryHitDamage(attack: atk)
         for hit in volleys[0] { XCTAssertEqual(hit.amount, w.mitigated(atk, .physical, on: e), accuracy: 1e-6) }
         for hit in volleys[3] { XCTAssertEqual(hit.amount, w.mitigated(flurryHit, .physical, on: e), accuracy: 1e-6) }
         XCTAssertLessThanOrEqual(kit(w, k).jarldCharge, 3)
@@ -399,7 +466,7 @@ final class Kit_H027Tests: XCTestCase {
         var (w, k) = world(level: 12)
         let e = addEnemy(&w, dx: 140)
         let atk = w.s.units[k].stats.attack
-        let base = 80 + 0.3 * atk
+        let base = Kit_H027.flurryHitDamage(attack: atk)
         let first = w.mitigated(base, .physical, on: e)
         // 1 発目の前は 50% より少し上、1 発目のあとで 50% を割る
         w.s.units[e].hp = w.s.units[e].stats.maxHP * 0.5 + first * 0.5
@@ -456,7 +523,7 @@ final class Kit_H027Tests: XCTestCase {
         w2.s.units[e2].hp = w2.s.units[e2].stats.maxHP * 0.4
         w2.s.units[k2].attackTargetID = w2.id(e2)
         let flurry = attackVolleys(&w2, target: e2, ticks: 45)
-        let hit = 80 + 0.3 * w2.s.units[k2].stats.attack + 30
+        let hit = Kit_H027.flurryHitDamage(attack: w2.s.units[k2].stats.attack) + 30
         XCTAssertEqual(flurry.first?.map(\.amount) ?? [], Array(repeating: w2.mitigated(hit, .physical, on: e2), count: 3))
     }
 

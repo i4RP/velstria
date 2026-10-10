@@ -3,7 +3,7 @@ import Foundation
 // 担当: kit-H027（docs/SKILL_KITS.md / docs/NEW_HEROES.md）
 // H027 竜槍のジャルド = Velstria 版の Zilong（MLBB。調査: docs/kits/Zilong.md、対応表: 同ファイル末尾）。
 //   パッシブ 竜の三連突き  — ダメージを与える（通常攻撃・スキル）たびに竜気 +1。3 つ（奥義中は 2 つ）で次の通常攻撃が
-//                           射程の伸びた三連撃（1 撃 80 + 攻撃力 30%・命中ごとに 50 + 20% 回復）になる。
+//                           射程の伸びた三連撃（1 撃 公式の 80 + 攻撃力 30% × 換算 0.6・命中ごとに 50 + 20% 回復）になる。
 //                           1 発目は通常攻撃と同じ tick、2・3 発目は 4 / 8 tick（約 0.13 / 0.27 秒）後（onTimer。対象が倒れた・射程外なら出ない。
 //                           HP 50% 未満の +30 と回復の倍率は 1 発ごとに、当たる瞬間の対象で決める）。回復はヒーロー以外には半分。
 //                           HP 50% 未満の相手へは通常攻撃・スキルのダメージが常に +30（固定値）。
@@ -14,6 +14,9 @@ import Foundation
 //   奥義 至高の武人        — 自己強化 7.5 秒: 移動速度 +40%・攻撃速度 +35/45/55%・スロウ解除と無効。
 //                           三連突きは 2 回のダメージごとに発動する。ダメージ・CC は無い。
 // 再使用の窓は Zilong に無いので使わない（SkillSystem.cast の経路は 3 スキルとも初回発動のみ）。
+// 数値の正は公式（現行シーズン。docs/kits/Zilong.md の「公式（現行シーズン）の数値」）。スキル1・2 のダメージは公式の表をランクへ線形補間し、
+//   (基礎 + 係数 × 攻撃力 × skillAttackScalingFactor) × スロット倍率 × 換算（Tune.flipScale / strikeScale）。H029 ボルグと同じ方法。
+//   パッシブの三連突きのダメージは公式の 80 + 30% に換算 0.6 を掛ける（回復 50 + 20% と +30 は公式の値そのまま）。マナ消費は公式の表（HeroKit.cost、Energy は × 0.6）。
 //
 // 状態（KitState）:
 //   ints[0]  = 竜気（0..3）            ints[1] = 三連突きの命中で竜気にしない残り数（その命中の瞬間だけ立つ。update で 0 に戻す）
@@ -76,6 +79,9 @@ struct Kit_H027: HeroKit {
         static let flurryAttackRatio = 0.30
         static let flurryHealFlat = 50.0
         static let flurryHealRatio = 0.20
+        /// 公式の三連突きのダメージ（80 + 30% 物理攻撃）→ Velstria の換算（回復は公式のまま）。公式のままだと Lv1 の総当たりが
+        /// デュエリスト中央値 +26 pt（勝率 100%）で、スキルの換算だけでは帯に入らなかった（docs/kits/Zilong.md の「バランス」）。
+        static let flurryScale = 0.6
         /// 竜気がたまる数。奥義中は 2。
         static let chargeNormal = 3
         static let chargeUlt = 2
@@ -100,8 +106,12 @@ struct Kit_H027: HeroKit {
         static let flipFlight = 0.7
         /// 放り投げた敵が着地する、術者の中心からの距離（背後）。
         static let flipLandingGap = 170.0
-        /// 汎用 S1 のダメージに対する倍率（CD が汎用より長いぶんを補う。0.8〜1.3 の範囲内）。
-        static let flipDamageRatio = 1.08
+        /// 公式の基礎ダメージ 250 / 270 / 290 / 310 / 330 / 350（Lv1 → Lv6 を Velstria の 4 ランクへ線形補間）と攻撃力係数（+80% 物理攻撃）。
+        static let flipBase = (250.0, 350.0)
+        static let flipAttackRatio = 0.8
+        /// 公式の値 → Velstria の換算（sim の通常の式 × スロット倍率の後ろに掛ける）。汎用 S1 の 0.69〜0.85 倍（予算の下限 0.8 を一部割る）:
+        /// 三連突きとスキル1 の打ち上げで Lv1 の 1v1 が強く出るため（docs/kits/Zilong.md の「バランス」）。
+        static let flipScale = 0.50
 
         // S2 竜牙の踏み込み
         static let strikeReach = 450.0
@@ -114,7 +124,10 @@ struct Kit_H027: HeroKit {
         static let shredTag = "kit.H027.shred"
         /// 直前に傷つけた敵が、この秒数以内に倒れたら S2 リセット。
         static let resetWindow = 0.5
-        static let strikeDamageRatio = 1.10
+        /// 公式の基礎ダメージ 250 / 290 / 330 / 370 / 410 / 450 と攻撃力係数（+60% 物理攻撃）、換算（汎用 S2 の 1.22〜1.29 倍。予算の内）。
+        static let strikeBase = (250.0, 450.0)
+        static let strikeAttackRatio = 0.6
+        static let strikeScale = 0.85
 
         // 奥義 至高の武人
         static let ultDuration = 7.5
@@ -127,6 +140,11 @@ struct Kit_H027: HeroKit {
         static let flipCooldown = (12.0, 9.5)
         static let strikeCooldown = (12.0, 9.0)
         static let ultCooldown = (35.0, 27.0)
+        // マナ消費（公式: スキル1 80 → 105、スキル2 40 一定、アルティメット 120 / 140 / 160。補間した値を整数に丸め、
+        // Energy のヒーローなので HeroKits.resourceCost で × energyCostMultiplier）
+        static let flipCost = (80.0, 105.0)
+        static let strikeCost = (40.0, 40.0)
+        static let ultCost = (120.0, 160.0)
     }
 
     private enum Code {
@@ -173,22 +191,34 @@ struct Kit_H027: HeroKit {
                         KitStat(key: "flurryHeal", value: n.heal.rounded()),
                         KitStat(key: "executeFlat", value: Tune.executeFlat),
                         KitStat(key: "charge", value: Double(Tune.chargeNormal)),
-                        KitStat(key: "nonHeroHeal", value: Tune.flurryHealNonHero * 100)]
+                        KitStat(key: "nonHeroHeal", value: Tune.flurryHealNonHero * 100),
+                        KitStat(key: "flurryFlat", value: (Tune.flurryFlat * Tune.flurryScale).rounded()),
+                        KitStat(key: "flurryPct", value: (Tune.flurryAttackRatio * Tune.flurryScale * 100).rounded()),
+                        KitStat(key: "healFlat", value: Tune.flurryHealFlat),
+                        KitStat(key: "healPct", value: Tune.flurryHealRatio * 100)]
         case .skill1:
-            n.damage = base.damage * Tune.flipDamageRatio
+            n.damage = Self.flipDamage(rank: rank, stats: stats)
             n.cooldown = Self.cooldown(Tune.flipCooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
             n.cc = .knockback
             n.ccDuration = Tune.flipAirborne
             n.extras = [KitStat(key: "airborne", value: Tune.flipAirborne),
-                        KitStat(key: "executeFlat", value: Tune.executeFlat)]
+                        KitStat(key: "executeFlat", value: Tune.executeFlat),
+                        KitStat(key: "base", value: Self.scaledBase(Tune.flipBase, slot: .skill1, scale: Tune.flipScale,
+                                                                    rank: rank).rounded()),
+                        KitStat(key: "atkPct", value: Self.attackPercent(Tune.flipAttackRatio, slot: .skill1,
+                                                                         scale: Tune.flipScale).rounded())]
         case .skill2:
-            n.damage = base.damage * Tune.strikeDamageRatio
+            n.damage = Self.strikeDamage(rank: rank, stats: stats)
             n.cooldown = Self.cooldown(Tune.strikeCooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
             n.cc = .none
             n.ccDuration = 0
             n.extras = [KitStat(key: "shred", value: Self.shredFlat(rank: rank, maxRank: slot.maxRank)),
                         KitStat(key: "shredDuration", value: Tune.shredDuration),
-                        KitStat(key: "resetWindow", value: Tune.resetWindow)]
+                        KitStat(key: "resetWindow", value: Tune.resetWindow),
+                        KitStat(key: "base", value: Self.scaledBase(Tune.strikeBase, slot: .skill2, scale: Tune.strikeScale,
+                                                                    rank: rank).rounded()),
+                        KitStat(key: "atkPct", value: Self.attackPercent(Tune.strikeAttackRatio, slot: .skill2,
+                                                                         scale: Tune.strikeScale).rounded())]
         case .ultimate:
             let r = min(max(1, rank), Tune.ultAttackSpeed.count)
             n.damage = 0
@@ -208,33 +238,50 @@ struct Kit_H027: HeroKit {
         return n
     }
 
+    /// ランクごとのマナ消費（公式: スキル1 80 → 105、スキル2 40、アルティメット 120 / 140 / 160）。Energy なので × energyCostMultiplier。
+    func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double {
+        let table: (Double, Double)
+        switch slot {
+        case .skill1: table = Tune.flipCost
+        case .skill2: table = Tune.strikeCost
+        case .ultimate: table = Tune.ultCost
+        case .passive: return base
+        }
+        return HeroKits.resourceCost(Self.lerp(table.0, table.1, rank: rank, maxRank: slot.maxRank).rounded(), hero: hero)
+    }
+
+    /// 説明文は公式の文の構造に合わせる（数値は {トークン} で sim から。{base}(+{atkPct}%物理攻撃) は sim の式に換算した値）。
     func text(slot: SkillSlot) -> KitText? {
         let gap = String(format: "%g", Tune.flurryGap)
         switch slot {
         case .passive:
             return KitText(
-                ja: "ダメージを与える（通常攻撃・スキル）たびに竜気が1たまる。{x3}たまると、次の通常攻撃が射程の伸びた「竜の三連突き」になる。"
-                    + "三連突きは\(gap)秒おきに{hits}回続けて突き、1回ごとに{x0}ダメージを与えて{x1}回復する（ヒーロー以外が相手なら回復は{nonHeroHeal}%）。"
-                    + "さらに、HPが半分未満の相手には、通常攻撃とスキルのダメージが常に+{x2}される。",
-                en: "Each time you deal damage (basic attacks or skills) you gain a Dragon charge. At {x3} charges your next basic attack becomes a longer-ranged Dragon Flurry. "
-                    + "The Flurry strikes {hits} times, \(gap)s apart, dealing {x0} damage and healing {x1} per hit (healing is {nonHeroHeal}% against targets that are not heroes). "
-                    + "Against enemies below 50% HP, your basic attacks and skills always deal +{x2} damage.")
+                ja: "通常攻撃かスキルでダメージを{charge}回与えると、次の通常攻撃で竜の三連突きが発動し、対象を{hits}回攻撃する（射程が伸び、\(gap)秒おきに突く）。"
+                    + "1回ごとに{flurryFlat}(+{flurryPct}%物理攻撃)の通常攻撃ダメージ（現在{flurryDamage}）を与え、{healFlat}(+{healPct}%物理攻撃)のHP（現在{flurryHeal}）を回復する"
+                    + "（ヒーロー以外が相手なら回復は{nonHeroHeal}%）。\n\n対象のHPが50%未満の場合、スキルと通常攻撃のダメージが{executeFlat}増加する。",
+                en: "After dealing damage {charge} times with basic attacks or skills, your next basic attack triggers Dragon Flurry, hitting the target {hits} times (with extra range, \(gap)s apart). "
+                    + "Each hit deals {flurryFlat} (+{flurryPct}% Physical Attack) basic attack damage (now {flurryDamage}) and heals you for {flurryHeal} HP ({healFlat} +{healPct}% Physical Attack; {nonHeroHeal}% against targets that are not heroes). "
+                    + "\n\nIf the target's HP is below 50%, all damage dealt by your skills and basic attacks is increased by {executeFlat}.",
+                tags: [KitTag.buff, KitTag.heal])
         case .skill1:
             return KitText(
-                ja: "対象の敵を槍で跳ね上げ、{damage}ダメージを与えて自分の背後へ放り投げる。対象は{x0}秒間打ち上げられて行動できない。クールダウン{cd}秒。",
-                en: "Spear a target enemy into the air, dealing {damage} damage and flinging them behind you. The target is airborne for {x0}s and cannot act. Cooldown {cd}s.")
+                ja: "対象の敵を槍で頭上へ跳ね上げて背後へ放り投げ、{base}(+{atkPct}%物理攻撃)の物理ダメージ（現在{damage}）を与える。対象は{airborne}秒間打ち上げられて行動できない。",
+                en: "With your Spear, fling the target enemy over your head to land behind you, dealing {base} (+{atkPct}% Physical Attack) physical damage (now {damage}). The target is airborne for {airborne}s and cannot act.",
+                tags: [KitTag.control, KitTag.burst])
         case .skill2:
             return KitText(
-                ja: "対象の敵へ一気に踏み込み、{damage}ダメージを与えて{x1}秒間防御を{x0}下げる。踏み込んだあとはそのまま通常攻撃に移る。"
-                    + "敵を倒したとき、または直前に傷つけた敵が{x2}秒以内に倒れたとき、クールダウンがリセットされる。クールダウン{cd}秒。",
-                en: "Lunge at a target enemy, dealing {damage} damage and reducing their defense by {x0} for {x1}s, then follow up with a basic attack. "
-                    + "Resets its cooldown when you kill an enemy, or when an enemy you just damaged dies within {x2}s. Cooldown {cd}s.")
+                ja: "対象の敵に突きかかり、{base}(+{atkPct}%物理攻撃)の物理ダメージ（現在{damage}）を与えて、物理防御を{shredDuration}秒間{shred}低下させる。踏み込んだあとはそのまま通常攻撃に移る。"
+                    + "\n\n敵を倒したとき、または直前に傷つけた敵が{resetWindow}秒以内に倒れたとき、このスキルのクールダウンがリセットされる。",
+                en: "Lunge at the target enemy, dealing {base} (+{atkPct}% Physical Attack) physical damage (now {damage}) and reducing their Physical Defense by {shred} for {shredDuration}s, then follow up with a basic attack. "
+                    + "\n\nThe cooldown resets each time you kill an enemy, or when an enemy you just damaged dies within {resetWindow}s.",
+                tags: [KitTag.mobility, KitTag.disrupt])
         case .ultimate:
             return KitText(
-                ja: "スロウをすべて解除し、{x2}秒間 移動速度+{x0}%・攻撃速度+{x1}%、スロウ無効。スタンなど、スロウ以外の行動を止める効果は防げない。"
-                    + "この間は、竜気が{x3}たまるだけで三連突きが発動する。クールダウン{cd}秒。",
-                en: "Remove all slows. For {x2}s gain +{x0}% movement speed and +{x1}% attack speed, and become immune to slows (stuns and other disables still work on you). "
-                    + "During this time Dragon Flurry triggers after only {x3} charges. Cooldown {cd}s.")
+                ja: "自身のスロウ効果をすべて解除し、{duration}秒間 移動速度+{moveSpeed}%・攻撃速度+{attackSpeed}%とスロウ無効を得る（スタンなどスロウ以外の行動阻害は防げない）。"
+                    + "\n\nこの間は、{charge}回ごとに竜の三連突きが発動する（通常は\(Tune.chargeNormal)回）。",
+                en: "Remove all slow effects on yourself and gain {moveSpeed}% Movement Speed, {attackSpeed}% Attack Speed and Slow Immunity for {duration}s (stuns and other disables still work on you). "
+                    + "\n\nFor the duration, Dragon Flurry triggers after every {charge} hits (instead of \(Tune.chargeNormal)).",
+                tags: [KitTag.mobility, KitTag.buff])
         }
     }
 
@@ -547,13 +594,44 @@ struct Kit_H027: HeroKit {
         return Tune.executeFlat
     }
 
-    static func flurryHitDamage(attack: Double) -> Double { Tune.flurryFlat + Tune.flurryAttackRatio * attack }
+    /// 三連突き 1 回のダメージ: (公式の 80 + 30% 物理攻撃) × 換算 flurryScale。
+    static func flurryHitDamage(attack: Double) -> Double {
+        (Tune.flurryFlat + Tune.flurryAttackRatio * attack) * Tune.flurryScale
+    }
     static func flurryHeal(attack: Double) -> Double { Tune.flurryHealFlat + Tune.flurryHealRatio * attack }
 
     /// 命中ごとの回復量。ヒーロー（と人形）以外（ミニオン・モンスター・タワー）が相手なら半分。
     static func flurryHealAmount(attack: Double, target: Unit) -> Double {
         let full = target.kind == .hero || target.kind == .dummy
         return flurryHeal(attack: attack) * (full ? 1 : Tune.flurryHealNonHero)
+    }
+
+    /// 公式の基礎ダメージ（ランクで補間）を sim の通常の式に通した「換算後の基礎」。
+    static func scaledBase(_ table: (Double, Double), slot: SkillSlot, scale: Double, rank: Int) -> Double {
+        lerp(table.0, table.1, rank: rank, maxRank: slot.maxRank) * Balance.Skills.damageScale(slot) * scale
+    }
+
+    /// 公式の「+N% 物理攻撃」を sim の通常の式（× skillAttackScalingFactor × スロット倍率 × 換算）に通した、攻撃力に対する割合（%）。
+    static func attackPercent(_ ratio: Double, slot: SkillSlot, scale: Double) -> Double {
+        ratio * Balance.skillAttackScalingFactor * Balance.Skills.damageScale(slot) * scale * 100
+    }
+
+    /// (公式の基礎 + 係数 × 攻撃力 × skillAttackScalingFactor) × スロット倍率 × 換算。
+    private static func damage(_ base: (Double, Double), ratio: Double, slot: SkillSlot, scale: Double, rank: Int,
+                               stats: Stats) -> Double {
+        (lerp(base.0, base.1, rank: rank, maxRank: slot.maxRank) + ratio * stats.attack * Balance.skillAttackScalingFactor)
+            * Balance.Skills.damageScale(slot) * scale
+    }
+
+    /// スキル1 のダメージ（250 → 350 + 80% 物理攻撃）。
+    static func flipDamage(rank: Int, stats: Stats) -> Double {
+        damage(Tune.flipBase, ratio: Tune.flipAttackRatio, slot: .skill1, scale: Tune.flipScale, rank: rank, stats: stats)
+    }
+
+    /// スキル2 のダメージ（250 → 450 + 60% 物理攻撃）。
+    static func strikeDamage(rank: Int, stats: Stats) -> Double {
+        damage(Tune.strikeBase, ratio: Tune.strikeAttackRatio, slot: .skill2, scale: Tune.strikeScale, rank: rank,
+               stats: stats)
     }
 
     /// 防御ダウン量（固定値 15 → 30 をランクで線形に）。
