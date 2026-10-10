@@ -59,8 +59,14 @@ public enum KitTag {
     public static let stun = "stun"
     public static let pull = "pull"
     public static let execute = "execute"
+    /// 公式（MLBB）のタグの Debuff / Damage / Conceal / Remove CC（デバフ / ダメージ / 隠密 / CC 解除）。
+    public static let debuff = "debuff"
+    public static let damage = "damage"
+    public static let conceal = "conceal"
+    public static let cleanse = "cleanse"
     /// 使ってよいキー（テストが検証する）。
-    public static let all: [String] = [buff, aoe, slow, clash, disrupt, burst, mobility, heal, shield, control, stun, pull, execute]
+    public static let all: [String] = [buff, aoe, slow, clash, disrupt, burst, mobility, heal, shield, control, stun, pull, execute,
+                                       debuff, damage, conceal, cleanse]
 }
 
 /// スキル説明（ja / en のテンプレート）。`{damage} {total} {hits} {shield} {heal} {range} {radius} {cd} {x0}..{x3}` と、

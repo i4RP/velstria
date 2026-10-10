@@ -2,7 +2,7 @@ import Foundation
 
 // 担当: kit-H034（docs/SKILL_KITS.md / docs/NEW_HEROES.md / docs/kits/Franco.md）
 // H034 鎖鉤のゴルム = Velstria 版の Franco（MLBB。調査: docs/kits/Franco.md、対応表: 同ファイル末尾）。
-// 数値の正は MLBB Fandom の現行のスキル表（docs/kits/Franco.md の「公式（MLBB Fandom 現行）の数値」）。
+// 数値の正は MLBB の日本語クライアントのスキル詳細（docs/kits/Franco.md の「公式（日本語クライアント）の数値」。Fandom・Liquipedia と違うところはこちらが優先）。
 //   パッシブ 鉄鎖の執念    — 5 秒ダメージを受けないと 移動速度 +10%・毎秒 最大 HP の 1% 回復、闘気が 1 秒に 1 つたまる（最大 10）。
 //                           次に使うスキルが闘気をすべて消費し、1 つにつきそのスキルのダメージ +15%（最大 +150%）。ダメージで解除。
 //                           ロール「サポート」の味方回復パッシブ・奥義の味方回復はキットが置き換える。
@@ -166,7 +166,7 @@ struct Kit_H034: HeroKit {
         static let ultHitBase = (50.0, 70.0)
         static let ultHitAttackRatio = 0.7
         /// 公式の値 → Velstria の換算。サポートの汎用の奥義は回復でダメージ 0 なので比べる式は無く、勝率で決めた
-        /// （クールダウンが汎用（34 秒）より長い 62 → 45 秒）。
+        /// （クールダウンが汎用（34 秒）より長い 62 → 48 秒）。
         static let ultScale = 1.0
         /// 6 回の合計（軽減前）の上限 = 相手の最大 HP × この割合。闘気 10 個の +150% が通常の相手を一撃で倒さないための安全弁。
         static let ultMaxHPFraction = 0.8
@@ -186,8 +186,8 @@ struct Kit_H034: HeroKit {
         static let hookCooldown = (15.0, 11.0)
         /// 公式の 7.0 → 4.5 秒そのまま（汎用の S2 は 9.8 秒からランクで短縮）。
         static let shockCooldown = (7.0, 4.5)
-        /// 公式（Fandom の現行）62 / 55 / 45 秒。Liquipedia・以前の調査は 62 / 55 / 48。3 段なので補間せず表で引く。
-        static let ultCooldowns: [Double] = [62, 55, 45]
+        /// 公式（日本語クライアント）62 / 55 / 48 秒（Liquipedia・以前の調査と同じ。Fandom の 45 は誤り）。3 段なので補間せず表で引く。
+        static let ultCooldowns: [Double] = [62, 55, 48]
         // マナ消費（公式: スキル1 135 → 160、スキル2 40 → 65、アルティメット 110 / 125 / 140）
         static let hookCost = (135.0, 160.0)
         static let shockCost = (40.0, 65.0)
@@ -294,37 +294,38 @@ struct Kit_H034: HeroKit {
         return HeroKits.resourceCost(Self.lerp(table.0, table.1, rank: rank, maxRank: slot.maxRank), hero: hero)
     }
 
-    /// 説明文は公式の文の構造に合わせる（数値は {トークン} で sim から。{base}(+{atkPct}%物理攻撃) は sim の式に換算した値）。
+    /// 説明文は公式（日本語クライアント）の文の構造に合わせる（数値は {トークン} で sim から。{base}(+{atkPct}%物理攻撃) は sim の式に換算した値）。
+    /// 名前は master のもの（ワイルドフォース = 闘気、アイアンフック = 鎖鉤）。距離は近接攻撃の射程に対する倍率で括弧に足す。
     func text(slot: SkillSlot) -> KitText? {
         switch slot {
         case .passive:
             return KitText(
-                ja: "{x0}秒間ダメージを受けないと、移動速度が{x1}%上がり、毎秒最大HPの{x2}%を回復し、闘気を蓄積し始める（{stackInterval}秒に1個、最大{hits}個）。\n\n"
-                    + "次にスキルを発動すると闘気をすべて消費し、そのスキルのダメージを最大{maxAmp}%増加させる（1個につき+{x3}%）。",
-                en: "If no damage is taken within {x0}s, Gorm gains {x1}% Movement Speed, recovers {x2}% Max HP per second, and begins accumulating Resolve "
-                    + "(1 every {stackInterval}s, up to {hits} stacks).\n\n"
-                    + "Gorm consumes all Resolve stacks on his next skill cast to increase the skill's damage by up to {maxAmp}% (+{x3}% per stack).",
+                ja: "{calmDelay}秒間ダメージを受けなかった場合、移動速度が{speedPercent}%上昇し、1秒ごとに最大HPの{regenPercent}%を回復し、闘気が蓄積され始める（{stackInterval}秒に1スタック、最大{hits}スタック）。\n\n"
+                    + "次のスキル発動時にすべての闘気を消費し、そのスキルダメージを最大{maxAmp}%増加させる（1スタックにつき+{stackPercent}%）。",
+                en: "If no damage is taken for {calmDelay}s, Gorm's Movement Speed increases by {speedPercent}%, he recovers {regenPercent}% of his Max HP every second, "
+                    + "and Resolve begins to accumulate (1 stack every {stackInterval}s, up to {hits} stacks).\n\n"
+                    + "His next skill cast consumes all Resolve to increase that skill's damage by up to {maxAmp}% (+{stackPercent}% per stack).",
                 tags: [KitTag.buff])
         case .skill1:
             return KitText(
-                ja: "指定方向へ鉄の鉤を放つ（届くのは近接攻撃の射程の約{reachMult}倍）。鉤は最初に命中した敵ユニットを捕らえ、{base}(+{atkPct}%物理攻撃)の物理ダメージを与えて自分の元へ引き寄せる。\n\n"
-                    + "鉤は先にスタンを付けてから引き寄せる（スタンは引き寄せの{x0}秒の間）。鉤は壁を越えて飛び、引き寄せも壁を越える（自分の前が壁の中なら壁の手前まで）。タワーには当たらない。",
-                en: "Launch an iron hook in the target direction (reaching about {reachMult}x the melee attack range). The hook snags the first enemy unit hit, "
-                    + "dealing {base} (+{atkPct}% Physical Attack) physical damage and dragging them to Gorm.\n\n"
+                ja: "指定方向へ鎖鉤を放ち（届くのは近接攻撃の射程の約{reachMult}倍）、最初に命中した敵に{base}(+{atkPct}%物理攻撃)の物理ダメージを与え、自身の元へ引き寄せる。\n\n"
+                    + "鉤は先にスタンを付けてから引き寄せる（スタンは引き寄せの{x0}秒の間）。鉤は壁を越えて飛び、引き寄せも壁を越える（自身の前が壁の中なら壁の手前まで）。タワーには当たらない。",
+                en: "Launch the chain hook in the target direction (reaching about {reachMult}x the melee attack range), dealing {base} (+{atkPct}% Physical Attack) "
+                    + "physical damage to the first enemy hit and pulling them to Gorm.\n\n"
                     + "The hook stuns first, then pulls (the stun lasts for the {x0}s pull). It flies over walls and pulls through them too (if the spot in front of Gorm is inside a wall, the pull stops at the wall); it does not hit turrets.",
-                tags: [KitTag.disrupt, KitTag.burst])
+                tags: [KitTag.disrupt, KitTag.damage])
         case .skill2:
             return KitText(
-                ja: "鎖を振るい、周囲（近接攻撃の射程の約{reachMult}倍）の敵に{base}+自身の最大HPの{maxHPPercent}%の物理ダメージを与え、移動速度を{slowDuration}秒間{slowPercent}%低下させる。",
-                en: "Lash out, dealing physical damage equal to {base} plus {maxHPPercent}% of Gorm's Max HP to nearby enemies (within about {reachMult}x the melee attack range) "
-                    + "and slowing them by {slowPercent}% for {slowDuration}s.",
+                ja: "怒りの一撃で周囲（近接攻撃の射程の約{reachMult}倍）の敵に{base}(+自身の最大HPの{maxHPPercent}%)の物理ダメージを与え、{slowDuration}秒間移動速度を{slowPercent}%低下させる。",
+                en: "Strike in fury, dealing {base} (+{maxHPPercent}% of Gorm's Max HP) physical damage to nearby enemies (within about {reachMult}x the melee attack range) "
+                    + "and reducing their Movement Speed by {slowPercent}% for {slowDuration}s.",
                 tags: [KitTag.slow])
         case .ultimate:
             return KitText(
-                ja: "対象の敵ヒーロー（近接攻撃の射程の約{reachMult}倍以内。離れていれば踏み込む）を{suppress}秒間制圧し、その間に{hits}回攻撃する。1回ごとに{base}(+{atkPct}%物理攻撃)の物理ダメージを与える。\n\n"
+                ja: "対象の敵ヒーロー（近接攻撃の射程の約{reachMult}倍以内。離れていれば踏み込む）を{suppress}秒間、制圧状態にし、その間に{hits}回攻撃する。攻撃ごとに{base}(+{atkPct}%物理攻撃)の物理ダメージを与える。\n\n"
                     + "制圧は浄化で解除できず、CC無効も無視する。ゴルムがコントロール効果を受けると、スキルは途中で終わる。",
-                en: "Suppress the target enemy hero (within about {reachMult}x the melee attack range; Gorm rushes in if needed) for {suppress}s and strike them {hits} times "
-                    + "over the duration, each time dealing {base} (+{atkPct}% Physical Attack) physical damage.\n\n"
+                en: "Suppress the target enemy hero (within about {reachMult}x the melee attack range; Gorm rushes in if needed) for {suppress}s and attack them {hits} times "
+                    + "during that time. Each attack deals {base} (+{atkPct}% Physical Attack) physical damage.\n\n"
                     + "Suppression cannot be cleansed and ignores crowd-control immunity. The skill ends early if Gorm is crowd controlled.",
                 tags: [KitTag.burst, KitTag.disrupt])
         }
@@ -653,7 +654,7 @@ struct Kit_H034: HeroKit {
         return sec * (1 - reduction) * Balance.Skills.cooldownScale
     }
 
-    /// アルティメットのクールダウン（公式 62 / 55 / 45 秒を表で引き、CD 短縮を掛ける）。
+    /// アルティメットのクールダウン（公式 62 / 55 / 48 秒を表で引き、CD 短縮を掛ける）。
     static func ultCooldown(rank: Int, stats: Stats) -> Double {
         let sec = Tune.ultCooldowns[min(max(1, rank), Tune.ultCooldowns.count) - 1]
         let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))

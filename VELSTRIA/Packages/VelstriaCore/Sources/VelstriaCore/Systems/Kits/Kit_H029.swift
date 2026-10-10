@@ -117,8 +117,8 @@ struct Kit_H029: HeroKit {
         static let waveBase = (270.0, 520.0)
         static let waveAttackRatio = 0.7
         /// 公式の値 → Velstria の換算（sim の通常の式 × スロット倍率の後ろに掛ける）。3 回ぶんの合計が汎用 S1 の 0.8〜1.3 倍に収まる値
-        /// （ランク 1〜4・Lv 1〜12 で約 1.2〜1.26 倍。サポートの基礎ダメージは全ロールで最低で、汎用の味方回復の奥義もキットで置き換えるため上限寄り）。
-        static let waveScale = 0.17
+        /// （ランク 1〜4・Lv 1〜12 で約 1.08〜1.19 倍）。CD が MLBB の秒数（7 → 4 秒）になって Lv1 / Lv6 がサポート中央値 +21 / +15 pt になったので 0.17 → 0.16（スキル2 の 0.52 と組で決めた。docs/kits/Tigreal.md）。
+        static let waveScale = 0.16
 
         // スキル2 聖槌突撃
         static let dashRange = 420.0
@@ -139,8 +139,8 @@ struct Kit_H029: HeroKit {
         static let dashAttackRatio = 1.0
         static let smashBase = (280.0, 380.0)
         static let smashAttackRatio = 0.6
-        /// 公式の値 → Velstria の換算（突進と再使用で共通）。突進 + 再使用の合計が汎用 S2 の 0.8〜1.3 倍に収まる値（ランク 1〜4・Lv 1〜12 で約 0.9〜1.27 倍）。
-        static let hammerScale = 0.58
+        /// 公式の値 → Velstria の換算（突進と再使用で共通）。突進 + 再使用の合計が汎用 S2 の 0.8〜1.3 倍に収まる値（ランク 1〜4・Lv 1〜12 で約 0.82〜1.14 倍）。2026-10 に Lv6 を帯へ寄せて 0.58 → 0.52。
+        static let hammerScale = 0.52
 
         // アルティメット 崩落聖域（Implosion）
         static let ultReach = 520.0

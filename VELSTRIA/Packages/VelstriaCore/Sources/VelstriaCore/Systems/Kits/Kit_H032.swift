@@ -402,7 +402,7 @@ struct Kit_H032: HeroKit {
                 en: "Dash in the designated direction, stopping at max distance or when hitting an enemy (hero, minion or monster), dealing {dashBase} (+{dashPct}% Extra Physical Attack) physical damage to it and slightly knocking it back. "
                     + "\n\nRecast: use it again within {window}s to lock onto an enemy hero and release a Fatal Strike, dealing {fatalBase} (+{fatalPct}% Extra Physical Attack) physical damage and reducing its Physical Defense by {shred}% for {shredDuration}s. "
                     + "\n\nAbyss Enhanced: the Fatal Strike reaches further (\(Int(Tune.fatalReachAbyss))), deals {abyssPct}% of the original damage, slows the target by an extra {abyssSlow}% for {abyssSlowDuration}s and reduces its Physical Defense by {abyssShred}% for {shredDuration}s.",
-                tags: [KitTag.mobility, KitTag.burst])
+                tags: [KitTag.mobility, KitTag.damage])
         case .ultimate:
             return KitText(
                 ja: "{charge}秒の溜めのあと、指定方向（{range}）へ破壊の一撃を放つ（溜めの間はその場から動けず、制圧によってのみ中断される）。"

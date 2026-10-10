@@ -2,21 +2,22 @@ import Foundation
 
 // 担当: kit-H028（docs/SKILL_KITS.md / docs/NEW_HEROES.md）
 // H028 断空のザイル = Velstria 版の Saber（MLBB。調査: docs/kits/Saber.md、対応表: 同ファイル末尾）。
-// 数値の正は MLBB Fandom の現行のスキル表（docs/kits/Saber.md の「公式（MLBB Fandom 現行）の数値」）。
+// 数値の正は MLBB の日本語クライアントのスキル詳細（docs/kits/Saber.md の「公式（日本語クライアント）の数値」。Fandom と違うところはこちらが優先）。
 // アサシン（近接 150・Energy）。キットはロールの汎用パッシブ（奇襲ボーナス・キル/アシストの全 CD 短縮）を置き換える。
 //   パッシブ 空断の理（Enemy's Bane）— ダメージを与えるたび（通常攻撃・スキル）に相手の物理防御を下げる。5 層・5 秒、
 //                                      1 層あたり 3 → 8（公式のレベル別の表: Lv1〜3 = 3、…、Lv15 = 8）。
-//   S1   環剣（Orbiting Swords）     — 5 本の剣が 5 秒間 周囲を回り、触れた敵に 80 → 105（+30% 物理攻撃）の接触ダメージ（0.5 秒ごと）。
-//                                      周回中に通常攻撃/スキルでダメージを与えるたび、剣が対象へ飛んで「剣撃」210 → 260（+60%）
-//                                      （貫通した他の敵には 50%、ヒーロー以外には 50%）+ スキル2 のクールダウンを 1 秒縮める。
-//   S2   断空突進（Charge）          — 指定方向へ突進して通り道の敵に 75 → 150（+50%）。次の通常攻撃が強化
+//   S1   環剣（Flying Sword）        — 5 本の剣が 5 秒間 周囲を回り、触れた敵に 75 → 125（+25% 追加物理攻撃）の接触ダメージ（0.5 秒ごと）。
+//                                      周回中に通常攻撃/スキルでダメージを与えるたび、剣が対象へ飛んで「剣撃」200 → 300（+50% 追加）
+//                                      （貫通した他の敵には 50%、ヒーロー以外には 50%）+ スキル1 のクールダウン −0.5 秒・スキル2 −1 秒。
+//   S2   断空突進（Assault）         — 指定方向へ突進して通り道の敵に 75 → 150（+50% 追加）。次の通常攻撃が強化
 //                                      （物理攻撃 120% + 75 → 150、鈍足 60%・1 秒、射程 250）。
-//   奥義 三連断空（Triple Sweep）     — 対象指定（敵ヒーロー）。突進して 1.2 秒打ち上げ、その間に 3 連撃
-//                                      （120 / 150 / 180（+100%）× 2 + 240 / 300 / 360（+200%））。最初の 2 撃には S1 の剣撃が乗る
+//   奥義 三連断空（Triple Slash）     — 対象指定（敵ヒーロー）。突進して 1.2 秒打ち上げ（強靭 = CC 短縮の影響を受けない）、その間に 3 連撃
+//                                      （120 / 170 / 220（+80% 追加）× 2 + 240 / 340 / 440（+160% 追加））。最初の 2 撃には S1 の剣撃が乗る
 //                                      （3 撃目は乗らない）。突進はハード CC で、打ち上げたあとの連撃は制圧（suppress）でのみ中断される。
 // 数値の換算: 公式の表を Velstria のランク（S1・S2 は 4 段、奥義は 3 段）へ線形補間し、sim の通常の式
-//   (基礎 + 係数 × 攻撃力 × skillAttackScalingFactor) × スロット倍率 にスキルごとの換算（Tune.*Scale）を掛ける（H029 と同じ）。
-//   「追加物理攻撃」の係数は総攻撃力に掛ける（numbers は装備前の攻撃力を知らないため）。コスト・クールダウンもランクで補間。
+//   (基礎 + 係数 × 追加物理攻撃 × skillAttackScalingFactor) × スロット倍率 にスキルごとの換算（Tune.*Scale）を掛ける（H029 と同じ）。
+//   「追加物理攻撃」= 物理攻撃 − レベルの基礎値（Unit.baseStats。H032 と同じ）で、発動の時点で足す。numbers（HUD・説明文）は装備なしの値。
+//   強化通常攻撃の 120% だけは総物理攻撃（公式の「物理攻撃」）。コスト・クールダウンもランクで補間。
 // 再使用の窓は Saber に無いので使わない。
 //
 // 状態（KitState）:
@@ -137,15 +138,14 @@ struct Kit_H028: HeroKit {
         /// 接触ダメージの間隔と回数（0.5 秒ごとに 9 回 = 4.5 秒。5 秒で剣が戻る）。
         static let pulseInterval = 0.5
         static let pulseCount = 9
-        /// 公式: 接触 80 → 105（+30% 追加物理攻撃）、剣撃 210 → 260（+60% 追加物理攻撃）。Lv1 → Lv6 を最大ランクへ線形補間。
-        static let contactBase = (80.0, 105.0)
-        static let contactAttackRatio = 0.3
-        static let strikeBase = (210.0, 260.0)
-        static let strikeAttackRatio = 0.6
-        /// 公式の値 → Velstria の換算（接触と剣撃で共通。sim の通常の式 × スロット倍率の後ろに掛ける）。
-        /// 接触 9 回 + 剣撃 budgetStrikes 本の合計は汎用 S1 の約 0.75〜1.0 倍。公式の表はランクで緩やかにしか伸びない（接触 80 → 105）ので
-        /// ランク 4 で汎用の 0.8 倍を割る。0.128（予算の下限）では Lv1（スキル1 だけの決闘）が同ロール中央値 +18 pt で帯を外れたため、勝率で 0.12 にした。
-        static let swordsScale = 0.12
+        /// 公式（日本語クライアント）: 接触 75 → 125（+25% 追加物理攻撃）、剣撃 200 → 300（+50% 追加物理攻撃）。Lv1 → Lv6 を最大ランクへ線形補間。
+        /// 「追加物理攻撃」= 装備・バフで増えた分（物理攻撃 − レベルの基礎値。Unit.baseStats）。発動の時点の値で足す（bonusAttack）。
+        static let contactBase = (75.0, 125.0)
+        static let contactAttackRatio = 0.25
+        static let strikeBase = (200.0, 300.0)
+        static let strikeAttackRatio = 0.5
+        /// 公式の値 → Velstria の換算（接触と剣撃で共通。sim の通常の式 × スロット倍率の後ろに掛ける）。勝率で決めた（docs/kits/Saber.md の「日本語クライアントの数値へ」）。
+        static let swordsScale = 0.14
         /// S1 の単体総ダメージの予算（汎用の 0.8〜1.3 倍）に数える剣撃の本数の目安: 5 秒の間に通常攻撃・スキルが 3 回当たる想定。
         static let budgetStrikes = 3
         static let strikeDelay = 0.12
@@ -160,21 +160,22 @@ struct Kit_H028: HeroKit {
         static let strikeNonHeroRatio = 0.5
         /// 剣撃 1 本あたりの S2 のクールダウン短縮（MLBB と同じ 1 秒。CD が MLBB の秒数なので換算しない）。
         static let chargeRefund = 1.0
+        /// 剣撃 1 本あたりの S1 自身のクールダウン短縮（日本語クライアント: 0.5 秒）。
+        static let swordsRefund = 0.5
 
         // S2 突進
         static let dashRange = 350.0
         static let dashSpeed = 1800.0
         /// 経路の当たり半径（対象の半径は別に足す）。
         static let dashWidth = 70.0
-        /// 公式: 突進 75 → 150（+50% 追加物理攻撃）。強化通常攻撃は 75 → 150（+120% 総物理攻撃）で通常攻撃を置き換える
+        /// 公式: 突進 75 → 150（+50% 追加物理攻撃）。強化通常攻撃は 75 → 150（+120% 物理攻撃 = 総物理攻撃）で通常攻撃を置き換える
         /// （= 通常攻撃のダメージ × 1.2 + 基礎。基礎は突進と同じ換算）。
         static let dashBase = (75.0, 150.0)
         static let dashAttackRatio = 0.5
         static let enhanceBase = (75.0, 150.0)
         static let enhanceAttackRatio = 1.2
-        /// 公式の値 → Velstria の換算（突進と強化通常攻撃の基礎で共通）。突進 + 強化通常攻撃の上乗せ（通常攻撃に対する増分）が
-        /// 汎用 S2 の 0.95〜1.04 倍。勝率で決めた（docs/kits/Saber.md の「公式の数値へ」）。
-        static let chargeScale = 1.05
+        /// 公式の値 → Velstria の換算（突進と強化通常攻撃の基礎で共通）。勝率で決めた（docs/kits/Saber.md の「日本語クライアントの数値へ」）。
+        static let chargeScale = 1.2
         /// 強化通常攻撃を撃てる時間（公式に記載なし。汎用の強化通常攻撃（blinkEmpower）に合わせた）。
         static let enhanceWindow = Balance.Skills.empowerDuration
         /// 強化通常攻撃の射程（公式 2.5 = 250。通常攻撃の射程 150 との差を、強化が残っている間だけ足す）。
@@ -195,27 +196,27 @@ struct Kit_H028: HeroKit {
         static let strikeCount = 3
         static let ultFirstDelay = 0.2
         static let ultInterval = 0.4
-        /// 1〜3 撃目の重み（公式 120 : 120 : 240、係数も 100% : 100% : 200% = 0.75 : 0.75 : 1.5。合計 3 = 平均 1 撃 × 3）。
+        /// 1〜3 撃目の重み（公式 120 : 120 : 240、係数も 80% : 80% : 160% = 0.75 : 0.75 : 1.5。合計 3 = 平均 1 撃 × 3）。
         static let ultWeights: [Double] = [0.75, 0.75, 1.5]
-        /// 公式: 1・2 撃目 120 / 150 / 180（+100% 追加物理攻撃）、3 撃目 240 / 300 / 360（+200%）= 1・2 撃目のちょうど 2 倍。
-        static let ultStrikeBase = (120.0, 180.0)
-        static let ultStrikeAttackRatio = 1.0
-        /// 公式の値 → Velstria の換算。三連撃の合計は汎用奥義の 0.85〜1.02 倍（打ち上げ 1.2 秒の確定コンボ・防御ダウン 3 層・剣撃 2 本が
-        /// 乗るので下限寄り）。勝率で決めた。
-        static let ultScale = 0.44
+        /// 公式（日本語クライアント）: 1・2 撃目 120 / 170 / 220（+80% 追加物理攻撃）、3 撃目 240 / 340 / 440（+160% 追加物理攻撃）
+        /// = 1・2 撃目のちょうど 2 倍（Fandom の 120 / 150 / 180（+100%）は誤り）。
+        static let ultStrikeBase = (120.0, 220.0)
+        static let ultStrikeAttackRatio = 0.8
+        /// 公式の値 → Velstria の換算。勝率で決めた（docs/kits/Saber.md の「日本語クライアントの数値へ」）。
+        static let ultScale = 0.55
         static let channelTag = KitTags.buff("H028", "channel")
         /// ボットが関門を待たずに奥義を撃つ、敵ヒーローの HP の割合の上限（打ち上げ中の 3 連撃 + 防御ダウンで削り切れる目安）。
         static let botExecuteRatio = 0.6
 
         // クールダウン（公式の秒数そのまま。ランク間を線形補間し、CD 短縮を掛ける。全体倍率 Balance.Skills.cooldownScale は 1.0）
-        /// S1 は全ランク 9 秒（Fandom の現行。Liquipedia・mlbb.tools の 10 秒は古い版の値）。持続 5 秒なので剣が回るのは約 55%。
-        static let swordsCooldown = (9.0, 9.0)
+        /// S1 は全ランク 10 秒（日本語クライアント。Fandom の 9 秒は誤り）。持続 5 秒、剣撃 1 本ごとに 0.5 秒縮む。
+        static let swordsCooldown = (10.0, 10.0)
         static let chargeCooldown = (7.0, 7.0)
         static let ultCooldown = (44.0, 36.0)
         // コスト（公式のマナ。Energy のヒーローなので HeroKits.resourceCost で × energyCostMultiplier）
-        /// S1 75 → 125、S2 70 → 45（ランクが上がるほど安い）、奥義 100 / 120 / 140。
-        static let swordsCost = (75.0, 125.0)
-        static let chargeCost = (70.0, 45.0)
+        /// 日本語クライアント: S1 60 → 85、S2 40 → 60、奥義 100 / 120 / 140（Fandom の S1 75 → 125・S2 70 → 45 は誤り）。
+        static let swordsCost = (60.0, 85.0)
+        static let chargeCost = (40.0, 60.0)
         static let ultCost = (100.0, 140.0)
     }
 
@@ -262,11 +263,11 @@ struct Kit_H028: HeroKit {
                         KitStat(key: "duration", value: Tune.baneDuration)]
         case .skill1:
             n.hits = Tune.pulseCount
-            n.damage = Self.contactDamage(rank: rank, stats: stats)
+            n.damage = Self.contactDamage(rank: rank)
             n.cc = .none
             n.ccDuration = 0
             n.cooldown = Self.cooldown(Tune.swordsCooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
-            n.extras = [KitStat(key: "strikeDamage", value: Self.strikeDamage(rank: rank, stats: stats).rounded()),
+            n.extras = [KitStat(key: "strikeDamage", value: Self.strikeDamage(rank: rank).rounded()),
                         KitStat(key: "duration", value: Tune.swordsDuration),
                         KitStat(key: "refund", value: Tune.chargeRefund),
                         KitStat(key: "passPercent", value: Tune.strikePassRatio * 100),
@@ -278,10 +279,11 @@ struct Kit_H028: HeroKit {
                         KitStat(key: "strikeBase", value: Self.scaledBase(Tune.strikeBase, slot: .skill1, scale: Tune.swordsScale,
                                                                           rank: rank, maxRank: slot.maxRank).rounded()),
                         KitStat(key: "strikePct", value: Self.attackPercent(Tune.strikeAttackRatio, slot: .skill1,
-                                                                            scale: Tune.swordsScale).rounded())]
+                                                                            scale: Tune.swordsScale).rounded()),
+                        KitStat(key: "selfRefund", value: Tune.swordsRefund)]
         case .skill2:
             n.hits = 1
-            n.damage = Self.dashDamage(rank: rank, stats: stats)
+            n.damage = Self.dashDamage(rank: rank)
             // 鈍足は強化通常攻撃につく
             n.cc = .slow
             n.ccDuration = Tune.slowDuration
@@ -301,7 +303,7 @@ struct Kit_H028: HeroKit {
         case .ultimate:
             n.hits = Tune.strikeCount
             // 平均 1 撃（1・2 撃目 = × 0.75、3 撃目 = × 1.5）
-            n.damage = Self.ultStrikeDamage(rank: rank, stats: stats) / Tune.ultWeights[0]
+            n.damage = Self.ultStrikeDamage(rank: rank) / Tune.ultWeights[0]
             n.missingHealthRatio = 0
             n.cc = .knockback
             n.ccIsUltimate = true
@@ -323,7 +325,7 @@ struct Kit_H028: HeroKit {
         return n
     }
 
-    /// ランクごとのコスト（公式のマナ: S1 75 → 125、S2 70 → 45、奥義 100 / 120 / 140。Energy なので × energyCostMultiplier）。
+    /// ランクごとのコスト（公式のマナ: S1 60 → 85、S2 40 → 60、奥義 100 / 120 / 140。Energy なので × energyCostMultiplier）。
     func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double {
         let table: (Double, Double)
         switch slot {
@@ -335,36 +337,39 @@ struct Kit_H028: HeroKit {
         return HeroKits.resourceCost(Self.lerp(table.0, table.1, rank: rank, maxRank: slot.maxRank), hero: hero)
     }
 
-    /// 説明文は公式の文の構造に合わせる（数値は {トークン} で sim から。{base}(+{atkPct}%物理攻撃) は sim の式に換算した値）。
+    /// 説明文は公式（日本語クライアント）の文の構造に合わせる（数値は {トークン} で sim から。{base}(+{atkPct}%追加物理攻撃) は sim の式に換算した値）。
+    /// 名前は master のもの（フライングソード = 環剣、アサルト = 断空突進、剣の攻撃 = 剣撃）。
     func text(slot: SkillSlot) -> KitText? {
         let gap = String(format: "%g", Tune.strikeGap)
         switch slot {
         case .passive:
             return KitText(
-                ja: "ザイルの攻撃は、命中した敵の物理防御を{duration}秒間{baneMin}〜{baneMax}（レベルに応じて増加）低下させる。この効果は最大{stacks}回まで重複する。\n\n"
+                ja: "ダメージを与えるたびに、対象の物理防御を{duration}秒間{baneMin}-{baneMax}低下させる（レベルに応じて増加。最大{stacks}スタック）。\n\n"
                     + "防御を下げるのは通常攻撃とスキルのダメージで、ミニオンには積まれない。",
-                en: "Zail's attacks reduce the Physical Defense of enemies hit by {baneMin}-{baneMax} (grows with level) for {duration}s. This effect stacks up to {stacks} times.\n\n"
+                en: "Each time Zail deals damage, the target's Physical Defense is reduced by {baneMin}-{baneMax} for {duration}s (grows with level; up to {stacks} stacks).\n\n"
                     + "Only basic attack and skill damage reduce defense, and it does not apply to minions.",
-                tags: [KitTag.disrupt])
+                tags: [KitTag.debuff])
         case .skill1:
             return KitText(
-                ja: "5本の剣を放って周囲を周回させ、触れた敵に{base}(+{atkPct}%物理攻撃)の物理ダメージを与える（0.5秒ごと、最大{hits}回）。約{duration}秒間周回すると、剣はザイルの元へ戻る。\n\n"
-                    + "スキルの効果中、通常攻撃またはスキルでダメージを与えるたびに、周回している剣を対象へ放つ（剣撃。\(gap)秒に1回まで）。剣撃は主目標に{strikeBase}(+{strikePct}%物理攻撃)の物理ダメージ、通り抜けた他の敵にその{passPercent}%のダメージを与え、断空突進のクールダウンを{refund}秒短縮する。ヒーロー以外の敵（ミニオン・中立モンスター）には{nonHeroPercent}%のダメージしか与えない。",
-                en: "Release 5 swords that orbit around Zail, dealing {base} (+{atkPct}% Physical Attack) physical damage to enemies on contact (every 0.5s, up to {hits} times). After orbiting for about {duration}s, the swords fly back to Zail.\n\n"
-                    + "While the skill lasts, each time Zail deals damage with a basic attack or a skill, he sends an orbiting sword at the target (a sword strike, at most once every \(gap)s), dealing {strikeBase} (+{strikePct}% Physical Attack) physical damage to the main target and {passPercent}% of that to other enemies it passes through, and reducing the cooldown of Charge by {refund}s. It deals only {nonHeroPercent}% damage to non-hero enemies such as minions and creeps.",
+                ja: "自身の周囲を旋回する剣を5本放ち、命中した周囲の敵に{base}(+{atkPct}%追加物理攻撃)の物理ダメージを与える（0.5秒ごと、最大{hits}回）。効果時間（{duration}秒）終了後、剣は自身のもとへ戻る。\n\n"
+                    + "発動中、通常攻撃またはスキルでダメージを与えるたびに剣撃を放つ（\(gap)秒に1回まで）。剣撃は対象に{strikeBase}(+{strikePct}%追加物理攻撃)の物理ダメージを与え、進路上の敵に{passPercent}%のダメージを与える（ヒーロー以外の敵へのダメージは{nonHeroPercent}%に低下）。剣撃ごとに、環剣のクールダウンが{selfRefund}秒、断空突進のクールダウンが{refund}秒短縮される。",
+                en: "Release 5 swords that orbit around Zail, dealing {base} (+{atkPct}% Extra Physical Attack) physical damage to nearby enemies hit (every 0.5s, up to {hits} times). When the effect ends ({duration}s), the swords return to Zail.\n\n"
+                    + "While active, each time Zail deals damage with a basic attack or a skill, a sword strike flies at the target (at most once every \(gap)s), dealing {strikeBase} (+{strikePct}% Extra Physical Attack) physical damage to the target and {passPercent}% damage to enemies in its path (damage to non-hero enemies is reduced to {nonHeroPercent}%). Each sword strike reduces the cooldown of this skill by {selfRefund}s and of Charge by {refund}s.",
                 tags: [KitTag.aoe, KitTag.buff])
         case .skill2:
             return KitText(
-                ja: "指定方向へ突進し、進路上の敵に{base}(+{atkPct}%物理攻撃)の物理ダメージを与え、次の通常攻撃を強化する。\n\n"
-                    + "強化された通常攻撃（{window}秒以内。射程は近接攻撃の約{enhanceReach}倍）は{enhanceBase}(+{enhancePct}%物理攻撃)の物理ダメージを与え、対象の移動速度を{slowDuration}秒間{slowPercent}%低下させる。",
-                en: "Dash in the target direction, dealing {base} (+{atkPct}% Physical Attack) physical damage to enemies along the way and enhancing Zail's next basic attack.\n\n"
-                    + "The enhanced basic attack (within {window}s, reaching about {enhanceReach}x the melee attack range) deals {enhanceBase} (+{enhancePct}% Physical Attack) physical damage and slows the target by {slowPercent}% for {slowDuration}s.",
-                tags: [KitTag.mobility, KitTag.aoe])
+                ja: "指定方向へ突撃し、進路上の敵に{base}(+{atkPct}%追加物理攻撃)の物理ダメージを与える。\n\n"
+                    + "突撃後、強化された通常攻撃を獲得する（{window}秒以内。射程は近接攻撃の約{enhanceReach}倍）。強化された通常攻撃は対象に{enhanceBase}(+{enhancePct}%物理攻撃)の物理ダメージを与え、移動速度を{slowDuration}秒間{slowPercent}%低下させる。",
+                en: "Charge in the target direction, dealing {base} (+{atkPct}% Extra Physical Attack) physical damage to enemies along the way.\n\n"
+                    + "After the charge, Zail gains an enhanced basic attack (within {window}s, reaching about {enhanceReach}x the melee attack range) that deals {enhanceBase} (+{enhancePct}% Physical Attack) physical damage to the target and reduces its Movement Speed by {slowPercent}% for {slowDuration}s.",
+                tags: [KitTag.mobility])
         case .ultimate:
             return KitText(
-                ja: "対象の敵ヒーローへ突撃して{airborne}秒間ノックアップさせ、その間に3回斬りつける。1撃目と2撃目はそれぞれ{base}(+{atkPct}%物理攻撃)、3撃目は{base3}(+{atkPct3}%物理攻撃)の物理ダメージを与える。\n\n"
+                ja: "対象の敵ヒーローへ突撃し、{airborne}秒間ノックアップさせる（強靭＝コントロール時間短縮の影響を受けない）。\n\n"
+                    + "ノックアップの間に対象を3回攻撃し、最初の2回はそれぞれ{base}(+{atkPct}%追加物理攻撃)の物理ダメージ、3回目は{base3}(+{atkPct3}%追加物理攻撃)の物理ダメージを与える。"
                     + "突撃の途中はコントロール効果で止められるが、ノックアップさせた後は制圧によってのみ中断される。",
-                en: "Charge at the target enemy hero, knocking them airborne for {airborne}s and striking them 3 times over the duration. The first two strikes deal {base} (+{atkPct}% Physical Attack) physical damage each, while the third strike deals {base3} (+{atkPct3}% Physical Attack).\n\n"
+                en: "Charge at the target enemy hero and knock them airborne for {airborne}s (not affected by Resilience, i.e. crowd-control reduction).\n\n"
+                    + "Strike the target 3 times while airborne: the first two strikes deal {base} (+{atkPct}% Extra Physical Attack) physical damage each, and the third deals {base3} (+{atkPct3}% Extra Physical Attack). "
                     + "The charge can be stopped by crowd control, but once the target is airborne the skill can only be interrupted by suppression.",
                 tags: [KitTag.burst, KitTag.disrupt])
         }
@@ -411,14 +416,16 @@ struct Kit_H028: HeroKit {
         // 重ね掛け（クールダウンのリセットなど）は予約を作り直す
         Kit.cancelScheduled(&s, caster: i, slot: .skill1, code: Code.pulse)
         let n = c.numbers
+        // 接触・剣撃のダメージ（公式 75 → 125 + 25% / 200 → 300 + 50% 追加物理攻撃を換算。発動した時点のランク・追加物理攻撃）
+        let bonus = Self.bonusAttack(s.units[i])
+        let pulse = Self.contactDamage(rank: n.rank, bonusAttack: bonus)
         s.units[i].hero!.kit!.zailSwordsRemaining = Tune.swordsDuration
-        s.units[i].hero!.kit!.zailPulseDamage = n.damage
-        // 剣撃のダメージ（公式 210 → 260 + 60% 物理攻撃を換算。発動した時点のランク・攻撃力）
-        s.units[i].hero!.kit!.zailStrikeDamage = Self.strikeDamage(rank: n.rank, stats: s.units[i].stats)
+        s.units[i].hero!.kit!.zailPulseDamage = pulse
+        s.units[i].hero!.kit!.zailStrikeDamage = Self.strikeDamage(rank: n.rank, bonusAttack: bonus)
         Kit.emitCast(&s, c, origin: s.units[i].pos, target: s.units[i].pos, shape: .selfRing,
                      duration: Tune.swordsDuration, count: Tune.swordCount)
         Kit.strikeSequence(&s, caster: i, slot: .skill1, code: Code.pulse, count: Tune.pulseCount,
-                           interval: Tune.pulseInterval, firstDelay: Tune.pulseInterval, param: n.damage,
+                           interval: Tune.pulseInterval, firstDelay: Tune.pulseInterval, param: pulse,
                            interruptible: false)
     }
 
@@ -435,8 +442,9 @@ struct Kit_H028: HeroKit {
         distance = min(distance, Tune.dashRange)
         // 強化通常攻撃の基礎（換算後）。通常攻撃のダメージ × 1.2 に足す（shapeBasicAttack）
         s.units[i].hero!.kit!.zailChargeBonus = Self.enhanceBaseDamage(rank: c.numbers.rank)
-        var p = HitPayload(damage: c.numbers.damage, damageType: .physical, source: .skill(.skill2),
-                           skillID: c.check.skill.skillID)
+        // 突進のダメージ = 基礎 + 50% 追加物理攻撃（発動した時点の値）
+        var p = HitPayload(damage: Self.dashDamage(rank: c.numbers.rank, bonusAttack: Self.bonusAttack(s.units[i])),
+                           damageType: .physical, source: .skill(.skill2), skillID: c.check.skill.skillID)
         p.originPos = from
         let landing = Kit.dashSweeping(&s, ctx, caster: i, slot: .skill2, to: from + dir * distance,
                                        speed: Tune.dashSpeed, payload: p, radius: Tune.dashWidth,
@@ -456,7 +464,9 @@ struct Kit_H028: HeroKit {
         let gap = s.units[i].radius + s.units[t].radius + Tune.ultGap
         let travel = min(Tune.ultReach, max(0, toTarget.length - gap))
         s.units[i].hero!.kit!.zailUltTargetID = s.units[t].id
-        s.units[i].hero!.kit!.zailUltDamage = c.numbers.damage
+        // 平均 1 撃（重み 1 = 1・2 撃目 ÷ 0.75）。基礎 + 80% 追加物理攻撃（発動した時点の値）
+        let average = Self.ultStrikeDamage(rank: c.numbers.rank, bonusAttack: Self.bonusAttack(s.units[i])) / Tune.ultWeights[0]
+        s.units[i].hero!.kit!.zailUltDamage = average
         s.units[i].hero!.kit!.zailUltPhase = 1
         // 経路上の敵には当たらない（affectsEnemies = false）。ハード CC の中断と着地の通知だけを使う
         let carrier = HitPayload(damage: 0, damageType: .physical, source: .skill(.ultimate), affectsEnemies: false)
@@ -517,8 +527,10 @@ struct Kit_H028: HeroKit {
         let team = s.units[owner].team
         // 主対象・軌道上の敵が確定してからヒーロー以外の割合を決める（命中中に種類は変わらない）
         let mainScale = Self.nonHeroScale(s.units[t].kind)
+        // 剣撃 1 本ごとに S2 のクールダウン −1 秒・S1 自身のクールダウン −0.5 秒（日本語クライアント）
         let main = HitPayload(damage: timer.param * mainScale, damageType: .physical, source: .skill(.skill1),
-                              skillID: skillID, effects: [.refundCooldown(slot: .skill2, seconds: Tune.chargeRefund)])
+                              skillID: skillID, effects: [.refundCooldown(slot: .skill2, seconds: Tune.chargeRefund),
+                                                          .refundCooldown(slot: .skill1, seconds: Tune.swordsRefund)])
         CombatSystem.applyHit(&s, ctx, sourceID: ownerID, team: team, targetIndex: t, payload: main, from: me)
         guard CombatSystem.isLiving(s, owner) else { return }
         for j in others {
@@ -758,29 +770,33 @@ struct Kit_H028: HeroKit {
         ratio * Balance.skillAttackScalingFactor * Balance.Skills.damageScale(slot) * scale * 100
     }
 
-    /// (公式の基礎 + 係数 × 攻撃力 × skillAttackScalingFactor) × スロット倍率 × 換算。
+    /// (公式の基礎 + 係数 × 追加物理攻撃 × skillAttackScalingFactor) × スロット倍率 × 換算。
+    /// bonusAttack = 追加物理攻撃（装備・バフで増えた分。`bonusAttack(_:)`）。numbers（HUD・説明文）は 0 = 装備なしの値。
     private static func damage(base: (Double, Double), ratio: Double, slot: SkillSlot, scale: Double, rank: Int,
-                               stats: Stats) -> Double {
+                               bonusAttack: Double) -> Double {
         let b = lerp(base.0, base.1, rank: rank, maxRank: slot.maxRank)
-        return (b + ratio * stats.attack * Balance.skillAttackScalingFactor) * Balance.Skills.damageScale(slot) * scale
+        return (b + ratio * max(0, bonusAttack) * Balance.skillAttackScalingFactor) * Balance.Skills.damageScale(slot) * scale
     }
 
-    /// S1 の接触 1 回（80 → 105 + 30% 物理攻撃）。
-    static func contactDamage(rank: Int, stats: Stats) -> Double {
+    /// 追加物理攻撃（物理攻撃 − レベルの基礎値。装備・バフで増えた分。H032 と同じ）。
+    static func bonusAttack(_ u: Unit) -> Double { max(0, u.stats.attack - u.baseStats.attack) }
+
+    /// S1 の接触 1 回（75 → 125 + 25% 追加物理攻撃）。
+    static func contactDamage(rank: Int, bonusAttack: Double = 0) -> Double {
         damage(base: Tune.contactBase, ratio: Tune.contactAttackRatio, slot: .skill1, scale: Tune.swordsScale, rank: rank,
-               stats: stats)
+               bonusAttack: bonusAttack)
     }
 
-    /// S1 の剣撃 1 本（主対象。210 → 260 + 60% 物理攻撃）。
-    static func strikeDamage(rank: Int, stats: Stats) -> Double {
+    /// S1 の剣撃 1 本（主対象。200 → 300 + 50% 追加物理攻撃）。
+    static func strikeDamage(rank: Int, bonusAttack: Double = 0) -> Double {
         damage(base: Tune.strikeBase, ratio: Tune.strikeAttackRatio, slot: .skill1, scale: Tune.swordsScale, rank: rank,
-               stats: stats)
+               bonusAttack: bonusAttack)
     }
 
-    /// S2 の突進（75 → 150 + 50% 物理攻撃）。
-    static func dashDamage(rank: Int, stats: Stats) -> Double {
+    /// S2 の突進（75 → 150 + 50% 追加物理攻撃）。
+    static func dashDamage(rank: Int, bonusAttack: Double = 0) -> Double {
         damage(base: Tune.dashBase, ratio: Tune.dashAttackRatio, slot: .skill2, scale: Tune.chargeScale, rank: rank,
-               stats: stats)
+               bonusAttack: bonusAttack)
     }
 
     /// S2 の強化通常攻撃の基礎（75 → 150 を突進と同じ換算に通した値）。通常攻撃のダメージ × 1.2 に足す。
@@ -788,10 +804,10 @@ struct Kit_H028: HeroKit {
         scaledBase(Tune.enhanceBase, slot: .skill2, scale: Tune.chargeScale, rank: rank, maxRank: SkillSlot.skill2.maxRank)
     }
 
-    /// 奥義の 1・2 撃目（120 / 150 / 180 + 100% 物理攻撃）。3 撃目はちょうど 2 倍（240 / 300 / 360 + 200%）。
-    static func ultStrikeDamage(rank: Int, stats: Stats) -> Double {
+    /// 奥義の 1・2 撃目（120 / 170 / 220 + 80% 追加物理攻撃）。3 撃目はちょうど 2 倍（240 / 340 / 440 + 160%）。
+    static func ultStrikeDamage(rank: Int, bonusAttack: Double = 0) -> Double {
         damage(base: Tune.ultStrikeBase, ratio: Tune.ultStrikeAttackRatio, slot: .ultimate, scale: Tune.ultScale,
-               rank: rank, stats: stats)
+               rank: rank, bonusAttack: bonusAttack)
     }
 
     /// 公式のクールダウン（秒）をランクで線形補間し、CD 短縮を掛ける（全体倍率 cooldownScale は 1.0 = 公式の秒数のまま）。

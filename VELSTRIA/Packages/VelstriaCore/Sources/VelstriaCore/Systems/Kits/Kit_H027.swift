@@ -267,14 +267,14 @@ struct Kit_H027: HeroKit {
             return KitText(
                 ja: "対象の敵を槍で頭上へ跳ね上げて背後へ放り投げ、{base}(+{atkPct}%物理攻撃)の物理ダメージ（現在{damage}）を与える。対象は{airborne}秒間打ち上げられて行動できない。",
                 en: "With your Spear, fling the target enemy over your head to land behind you, dealing {base} (+{atkPct}% Physical Attack) physical damage (now {damage}). The target is airborne for {airborne}s and cannot act.",
-                tags: [KitTag.control, KitTag.burst])
+                tags: [KitTag.control, KitTag.damage])
         case .skill2:
             return KitText(
                 ja: "対象の敵に突きかかり、{base}(+{atkPct}%物理攻撃)の物理ダメージ（現在{damage}）を与えて、物理防御を{shredDuration}秒間{shred}低下させる。踏み込んだあとはそのまま通常攻撃に移る。"
                     + "\n\n敵を倒したとき、または直前に傷つけた敵が{resetWindow}秒以内に倒れたとき、このスキルのクールダウンがリセットされる。",
                 en: "Lunge at the target enemy, dealing {base} (+{atkPct}% Physical Attack) physical damage (now {damage}) and reducing their Physical Defense by {shred} for {shredDuration}s, then follow up with a basic attack. "
                     + "\n\nThe cooldown resets each time you kill an enemy, or when an enemy you just damaged dies within {resetWindow}s.",
-                tags: [KitTag.mobility, KitTag.disrupt])
+                tags: [KitTag.mobility, KitTag.debuff])
         case .ultimate:
             return KitText(
                 ja: "自身のスロウ効果をすべて解除し、{duration}秒間 移動速度+{moveSpeed}%・攻撃速度+{attackSpeed}%とスロウ無効を得る（スタンなどスロウ以外の行動阻害は防げない）。"

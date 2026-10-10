@@ -124,7 +124,7 @@ H027 竜槍のジャルド（デュエリスト・近接 150・Energy）= Velstr
 | 突進速度 | 2400（約 0.2 秒） | 汎用の突進（1500）より鋭い。「対象指定の踏み込み」に見える速さ |
 | 防御ダウンの換算 | 固定値 / 対象の防御 | Velstria の `armorShred` は割合。到着時の防御で換算すれば元の「−15〜30」と同じ効果になる |
 | ダメージの換算 | `flipScale` / `strikeScale`（値は下の「バランス」） | 公式の表（ランクで補間 + 攻撃力係数）を sim の通常の式 × スロット倍率に通したあとに掛ける。汎用の 0.8〜1.3 倍に収まる値の中から勝率で選んだ |
-| 説明文の数値 | パッシブ `{charge}` `{hits}` `{flurryFlat}` `{flurryPct}` `{healFlat}` `{healPct}`（公式の値）と `{flurryDamage}` `{flurryHeal}`（今の攻撃力での値）、`{executeFlat}` / スキル1・2 `{base}` `{atkPct}`（換算後）と `{damage}` / アルティメット `{moveSpeed}` `{attackSpeed}` `{duration}` `{charge}` | `KitText` のトークンに sim の数値を入れる。文は公式の構造（段落・語順）に合わせた。タグは公式（パッシブ = バフ・回復、S1 = CC・ダメージ → `control` `burst`、S2 = 移動・デバフ → `mobility` `disrupt`、ULT = 加速・バフ → `mobility` `buff`） |
+| 説明文の数値 | パッシブ `{charge}` `{hits}` `{flurryFlat}` `{flurryPct}` `{healFlat}` `{healPct}`（公式の値）と `{flurryDamage}` `{flurryHeal}`（今の攻撃力での値）、`{executeFlat}` / スキル1・2 `{base}` `{atkPct}`（換算後）と `{damage}` / アルティメット `{moveSpeed}` `{attackSpeed}` `{duration}` `{charge}` | `KitText` のトークンに sim の数値を入れる。文は公式の構造（段落・語順）に合わせた。タグは公式（パッシブ = バフ・回復、S1 = CC・ダメージ → `control` `damage`、S2 = 移動・デバフ → `mobility` `debuff`、ULT = 加速・バフ → `mobility` `buff`） |
 
 ### バランス（`KitBalanceTests`、Release、全員総当たり。同ロール（Duelist）の汎用ヒーローの中央値との差）
 
@@ -161,7 +161,7 @@ Lv1 は竜気がたまらず三連突きがまだ出ないので、開幕 3 秒�
 | スキル2 ダメージ・防御ダウン | 250 → 450 (+60%)、−15 → −30（2 秒） | 汎用 S2 の 1.10 倍、−15 → −30 | (表 + 0.6 × 攻撃力 × 0.6) × 3.0 × `strikeScale` 0.85（ランク 1 の基礎 638、+92%）、防御ダウンは同じ |
 | アルティメット | CD 35 / 31 / 27、MP 120 / 140 / 160、移動 +40%・攻撃速度 +35 / 45 / 55%・7.5 秒 | MP はマスター 84（× 0.6） | MP 120 / 140 / 160（× 0.6 = 72 / 84 / 96）、ほかは同じ |
 | パッシブ | 3 回で三連突き、1 撃 80 (+30%)・回復 50 (+20%)、HP 50% 未満で +30 | 公式の値そのまま | ダメージだけ換算 `flurryScale` 0.6（1 撃 48 (+18%)）。回復・+30・回数は公式のまま |
-| タグ | バフ・回復 / CC・ダメージ / ブリンク（移動）・デバフ / 加速・バフ | なし | `buff` `heal` / `control` `burst` / `mobility` `disrupt` / `mobility` `buff` |
+| タグ | バフ・回復 / CC・ダメージ / ブリンク（移動）・デバフ / 加速・バフ | なし | `buff` `heal` / `control` `damage` / `mobility` `debuff` / `mobility` `buff` |
 
 説明文は公式の文の構造（「通常攻撃かスキルでダメージを3回与えると、次の通常攻撃で…」「対象の敵を…放り投げ、…(+N%物理攻撃)の物理ダメージ」）に合わせ、換算後の `{base}(+{atkPct}%物理攻撃)` と今の値（`{damage}`）の両方を書く。
 

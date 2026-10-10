@@ -111,10 +111,10 @@ final class Kit_H030Tests: XCTestCase {
     }
 
     func testTagsFollowTheOfficialSkillTags() {
-        // Fandom: Buff / Burst・Buff / AoE・Slowed / Burst・Buff
+        // 日本語クライアント: バフ / 爆発力・バフ / 範囲技・妨害 / 爆発力・バフ（Fandom の S2「AoE・Slowed」とは違う）
         XCTAssertEqual(HeroKits.tags(heroID: "H030", slot: .passive), ["buff"])
         XCTAssertEqual(HeroKits.tags(heroID: "H030", slot: .skill1), ["burst", "buff"])
-        XCTAssertEqual(HeroKits.tags(heroID: "H030", slot: .skill2), ["aoe", "slow"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H030", slot: .skill2), ["aoe", "disrupt"])
         XCTAssertEqual(HeroKits.tags(heroID: "H030", slot: .ultimate), ["burst", "buff"])
         for slot in SkillSlot.allCases {
             for tag in HeroKits.tags(heroID: "H030", slot: slot) { XCTAssertTrue(KitTag.all.contains(tag), tag) }
@@ -135,13 +135,13 @@ final class Kit_H030Tests: XCTestCase {
                 let n1 = SkillCatalog.numbers(for: skill(.skill1), hero: def, rank: rank, stats: stats)
                 XCTAssertEqual(n1.damage, (200 + (lv - 1) * 40 + 0.8 * atk) * 4.0 * T.s1Scale, accuracy: 1e-6, "S1 r\(rank)")
                 XCTAssertEqual(n1.cooldown, (6.0 - (lv - 1) * 0.4) * cdr, accuracy: 1e-9, "S1 CD r\(rank)")
-                XCTAssertEqual(n1.cost, 40 + (lv - 1) * 5, accuracy: 1e-9, "S1 MP r\(rank)")
+                XCTAssertEqual(n1.cost, 35 + (lv - 1) * 5, accuracy: 1e-9, "S1 MP r\(rank)（日本語クライアント 35 → 60）")
                 let n2 = SkillCatalog.numbers(for: skill(.skill2), hero: def, rank: rank, stats: stats)
                 XCTAssertEqual(n2.damage, (170 + (lv - 1) * 30 + 0.65 * atk) * 3.0 * T.s2Scale, accuracy: 1e-6, "S2 r\(rank)")
                 let det = try XCTUnwrap(n2.extras.first { $0.key == "detonation" }).value
                 XCTAssertEqual(det, (100 + (lv - 1) * 20 + 0.35 * atk) * 3.0 * T.s2Scale, accuracy: 1e-6, "刻印 r\(rank)")
                 XCTAssertEqual(n2.cooldown, (7.5 - (lv - 1) * 0.2) * cdr, accuracy: 1e-9, "S2 CD r\(rank)")
-                XCTAssertEqual(n2.cost, 65 + (lv - 1) * 5, accuracy: 1e-9, "S2 MP r\(rank)")
+                XCTAssertEqual(n2.cost, 70, accuracy: 1e-9, "S2 MP r\(rank)（日本語クライアント 70 一定）")
                 XCTAssertEqual(SkillSystem.cost(for: skill(.skill2), hero: def, rank: rank), n2.cost, accuracy: 1e-9)
                 XCTAssertEqual(n1.resource, .mana)
             }
@@ -178,11 +178,11 @@ final class Kit_H030Tests: XCTestCase {
             let hi = SkillCatalog.numbers(for: skill(slot), hero: def, rank: slot.maxRank, stats: stats)
             XCTAssertGreaterThan(hi.damage, lo.damage, "\(slot)")
         }
-        // S2 の爆発には軽い減速（30%・1 秒）が付く
+        // S2 の CC は刻印の弾けのスタン（爆発の減速は無い = 日本語クライアント）
         let n2 = SkillCatalog.numbers(for: skill(.skill2), hero: def, rank: 1, stats: stats)
-        XCTAssertEqual(n2.cc, .slow)
-        XCTAssertEqual(n2.ccDuration, T.orbSlowDuration)
-        XCTAssertEqual(n2.extras.first { $0.key == "slow" }?.value ?? 0, 30, accuracy: 1e-9)
+        XCTAssertEqual(n2.cc, .stun)
+        XCTAssertEqual(n2.ccDuration, T.markStun)
+        XCTAssertNil(n2.extras.first { $0.key == "slow" })
     }
 
     // MARK: - パッシブ（遠星の照準）
@@ -205,7 +205,7 @@ final class Kit_H030Tests: XCTestCase {
     }
 
     func testPassiveScalingIsPlainDistanceCapAndIgnoresTowers() throws {
-        XCTAssertEqual(T.distanceScaling, .distance(near: 0, far: T.farDistance, minMult: 1, maxMult: 1.3))
+        XCTAssertEqual(T.distanceScaling, .distance(near: 0, far: 600, minMult: 1, maxMult: 1.15), "公式: 6 マスで最大 115%")
         var w = SkillWorld()
         let k = addRaina(&w)
         let e = w.addDummyEnemy(at: skillArena + Vec2(500, 0))
@@ -273,8 +273,8 @@ final class Kit_H030Tests: XCTestCase {
             XCTAssertEqual(evs.first?.amount ?? 0, w.mitigated(n.damage * distanceMultiplier(d), .physical, on: e),
                            accuracy: 0.01, "d=\(d)")
         }
-        // 奥義: 頭打ち（770 以上は +30%）
-        for d in [770.0, 1200, 1900] {
+        // 奥義: 頭打ち（600 以上は +15%）
+        for d in [600.0, 1200, 1900] {
             var w = SkillWorld()
             let k = addRaina(&w)
             let e = w.addDummyEnemy(at: skillArena + Vec2(d, 0))
@@ -283,11 +283,128 @@ final class Kit_H030Tests: XCTestCase {
             w.run(seconds: 1.5)
             let evs = damageEvents(w, to: e, .skill(.ultimate))
             XCTAssertEqual(evs.count, 1, "d=\(d)")
-            XCTAssertEqual(evs.first?.amount ?? 0, w.mitigated(n.damage * 1.3, .physical, on: e), accuracy: 0.01,
+            XCTAssertEqual(evs.first?.amount ?? 0, w.mitigated(n.damage * 1.15, .physical, on: e), accuracy: 0.01,
                            "d=\(d)")
         }
         XCTAssertEqual(distanceMultiplier(0), 1)
-        XCTAssertEqual(distanceMultiplier(385), 1.15, accuracy: 1e-9)
+        XCTAssertEqual(distanceMultiplier(300), 1.075, accuracy: 1e-9, "公式: 6 マス（600）で最大 115%")
+        XCTAssertEqual(distanceMultiplier(600), 1.15, accuracy: 1e-9)
+    }
+
+    func testCriticalHitsAlsoGetTheDistanceBonus() throws {
+        // 公式: スキル1 は「クリティカル可能」、パッシブの除外は「タワー」だけ = 会心の通常攻撃・スキル1 にも距離の補正が乗る
+        var w = SkillWorld()
+        let k = addRaina(&w)
+        let e = w.addDummyEnemy(at: skillArena + Vec2(500, 0))
+        let kit = try XCTUnwrap(HeroKits.kit(of: w.s.units[k]))
+        var plan = BasicAttackPlan(payload: HitPayload(damage: 100, damageType: .physical, source: .basicAttack, isCrit: true),
+                                   ranged: true)
+        kit.shapeBasicAttack(&w.s, w.ctx, attacker: k, target: e, plan: &plan)
+        XCTAssertEqual(plan.payload.scaling, T.distanceScaling, "会心の通常攻撃にも距離の補正")
+        // 会心率 100% のスキル1（480 = +12%）: 会心の倍率 × 距離の補正。合図も出る
+        var w2 = SkillWorld()
+        let k2 = addRaina(&w2)
+        let e2 = w2.addDummyEnemy(at: skillArena + Vec2(480, 0))
+        w2.s.units[k2].stats.critChance = 1
+        let n = w2.numbers(k2, .skill1)
+        XCTAssertTrue(w2.cast(k2, .skill1, .direction(Self.east)))
+        w2.run(seconds: 1)
+        let ev = try XCTUnwrap(damageEvents(w2, to: e2, .skill(.skill1)).first)
+        XCTAssertTrue(ev.isCrit)
+        let crit = max(1, w2.s.units[k2].stats.critMultiplier)
+        XCTAssertEqual(ev.amount, w2.mitigated(n.damage * crit * distanceMultiplier(480), .physical, on: e2), accuracy: 0.01)
+        XCTAssertEqual(HeroKits.badge(w2.s.units[k2].hero!, slot: .passive)?.value, 12)
+    }
+
+    // MARK: - パッシブのバッジ（遠距離命中の合図）
+
+    func testPassiveBadgeFlashesWhenABasicAttackLandsFarOnAnEnemyHero() throws {
+        XCTAssertEqual(Kit_H030.distanceBonus(0), 0)
+        XCTAssertEqual(Kit_H030.distanceBonus(T.farDistance * 2), T.maxDistanceBonus, accuracy: 1e-12)
+        XCTAssertEqual(1 + Kit_H030.distanceBonus(385), distanceMultiplier(385), accuracy: 1e-12, "ダメージの補正と同じ式")
+        // 近い（300 = +7.5%）: 当たっても合図は出ない
+        do {
+            var w = SkillWorld()
+            let k = addRaina(&w)
+            let e = w.addDummyEnemy(at: skillArena + Vec2(300, 0))
+            w.s.units[k].attackTargetID = w.id(e)
+            w.run(seconds: 2.5)
+            XCTAssertGreaterThanOrEqual(damageEvents(w, to: e, .basicAttack).count, 2)
+            XCTAssertNil(HeroKits.badge(w.s.units[k].hero!, slot: .passive))
+        }
+        // 基本射程の端の近く（520 = +13%）: 最初の命中からタイマー。value = その命中の補正（%）
+        var w = SkillWorld()
+        let k = addRaina(&w)
+        let e = w.addDummyEnemy(at: skillArena + Vec2(520, 0))
+        w.s.units[k].attackTargetID = w.id(e)
+        XCTAssertNil(HeroKits.badge(w.s.units[k].hero!, slot: .passive))
+        var ticks = 0
+        while damageEvents(w, to: e, .basicAttack).isEmpty && ticks < Int(3 * Balance.tickRate) {
+            XCTAssertNil(HeroKits.badge(w.s.units[k].hero!, slot: .passive), "当たる前は出ない")
+            w.tick()
+            ticks += 1
+        }
+        XCTAssertFalse(damageEvents(w, to: e, .basicAttack).isEmpty)
+        let badge = try XCTUnwrap(HeroKits.badge(w.s.units[k].hero!, slot: .passive))
+        XCTAssertEqual(badge.kind, .timer)
+        XCTAssertEqual(badge.total, T.farHitFlash)
+        XCTAssertGreaterThan(badge.remaining, T.farHitFlash - 0.1)
+        XCTAssertEqual(badge.value, Int((Kit_H030.distanceBonus(520) * 100).rounded()))
+        XCTAssertEqual(badge.value, 13)
+        XCTAssertEqual(badge.maxValue, 15)
+        // 撃ち続けている間は点いたまま（命中のたびに付け直す）
+        w.run(seconds: 3)
+        XCTAssertGreaterThanOrEqual(damageEvents(w, to: e, .basicAttack).count, 3)
+        XCTAssertNotNil(HeroKits.badge(w.s.units[k].hero!, slot: .passive))
+        // 撃つのをやめると 1.5 秒で消える
+        w.s.units[k].attackTargetID = nil
+        w.run(seconds: T.farHitFlash + 0.6)
+        XCTAssertNil(HeroKits.badge(w.s.units[k].hero!, slot: .passive))
+    }
+
+    func testPassiveBadgeIgnoresMinionsAndCountsFarSkillHits() throws {
+        // ミニオンは遠くても数えない
+        do {
+            var w = SkillWorld()
+            let k = addRaina(&w)
+            let m = w.addMinion(team: .red, at: skillArena + Vec2(540, 0))
+            w.s.units[m].stats.maxHP = 1e6
+            w.s.units[m].hp = 1e6
+            w.s.units[k].attackTargetID = w.id(m)
+            w.run(seconds: 2.5)
+            XCTAssertFalse(damageEvents(w, to: m, .basicAttack).isEmpty)
+            XCTAssertNil(HeroKits.badge(w.s.units[k].hero!, slot: .passive))
+        }
+        // S1（480 = +12%）・奥義（1200 = 頭打ちの 15%）の遠い命中も合図になる。起点は撃った位置
+        for (slot, d, pct) in [(SkillSlot.skill1, 480.0, 12), (.ultimate, 1200, 15)] {
+            var w = SkillWorld()
+            let k = addRaina(&w)
+            let e = w.addDummyEnemy(at: skillArena + Vec2(d, 0))
+            XCTAssertTrue(w.cast(k, slot, .direction(Self.east)))
+            w.run(seconds: 1.0)
+            XCTAssertEqual(damageEvents(w, to: e, .skill(slot)).count, 1, "\(slot)")
+            let badge = try XCTUnwrap(HeroKits.badge(w.s.units[k].hero!, slot: .passive), "\(slot)")
+            XCTAssertEqual(badge.value, pct, "\(slot)")
+        }
+        // S2 の爆発（星環弾は撃った位置が起点。近い 200 = +5% では出ない）
+        do {
+            var w = SkillWorld()
+            let k = addRaina(&w)
+            let e = w.addDummyEnemy(at: skillArena + Vec2(200, 0))
+            XCTAssertTrue(w.cast(k, .skill2, .direction(Self.east)))
+            w.run(seconds: 1.0)
+            XCTAssertEqual(damageEvents(w, to: e, .skill(.skill2)).count, 1)
+            XCTAssertNil(HeroKits.badge(w.s.units[k].hero!, slot: .passive))
+        }
+        do {
+            var w = SkillWorld()
+            let k = addRaina(&w)
+            let e = w.addDummyEnemy(at: skillArena + Vec2(600, 0))
+            XCTAssertTrue(w.cast(k, .skill2, .direction(Self.east)))
+            w.run(seconds: 1.0)
+            XCTAssertEqual(damageEvents(w, to: e, .skill(.skill2)).count, 1)
+            XCTAssertEqual(HeroKits.badge(w.s.units[k].hero!, slot: .passive)?.value, 15)
+        }
     }
 
     func testUltimateRankPermanentlyExtendsAttackRange() {
@@ -455,12 +572,9 @@ final class Kit_H030Tests: XCTestCase {
         }
         XCTAssertEqual(w.damage(to: c), 0, "爆発の外")
         XCTAssertEqual(markStacks(w, owner: k, on: c), 0)
-        for e in [a, b, behind] {
-            let slow = try XCTUnwrap(w.s.units[e].statuses.first { $0.tag == T.orbSlowTag }, "爆発の中は 30% の減速")
-            XCTAssertEqual(slow.kind, .slow)
-            XCTAssertEqual(slow.magnitude, T.orbSlow, accuracy: 1e-9)
+        for e in [a, b, behind, c] {
+            XCTAssertFalse(w.s.units[e].has(.slow), "爆発に減速は無い（日本語クライアント）")
         }
-        XCTAssertFalse(w.s.units[c].has(.slow))
         // 刻印は 3 秒で消える
         w.run(seconds: 3.1)
         XCTAssertEqual(markStacks(w, owner: k, on: a), 0)
@@ -516,7 +630,7 @@ final class Kit_H030Tests: XCTestCase {
         XCTAssertEqual(evs.count, 1, "射程の端の爆発に 1 度だけ")
         XCTAssertEqual(evs[0].amount, w.mitigated(n.damage * distanceMultiplier(w.s.units[near].pos.distance(to: skillArena)), .physical, on: near), accuracy: 0.01)
         XCTAssertEqual(markStacks(w, owner: k, on: near), 1, "刻印も付く")
-        XCTAssertEqual(w.s.units[near].statuses.first { $0.tag == T.orbSlowTag }?.magnitude ?? 0, T.orbSlow, accuracy: 1e-9)
+        XCTAssertFalse(w.s.units[near].has(.slow))
         XCTAssertEqual(w.damage(to: far), 0, "爆発の外")
         XCTAssertEqual(Kit.scheduledCount(w.s, caster: k, code: T.Code.orbEnd), 0, "予約は使い切る")
         // 誰も居なくても何も壊れない
@@ -625,13 +739,22 @@ final class Kit_H030Tests: XCTestCase {
             if slot == .passive {
                 XCTAssertTrue(ja.contains("基本射程"), ja)
                 XCTAssertTrue(ja.contains("550"), ja)
-                XCTAssertTrue(ja.contains("1.4倍"), ja)
+                XCTAssertTrue(ja.contains("1.1倍"), ja)
+                // 日本語クライアントの文: 「最小100%、6離れると最大115%」「タワーには適用されない」
+                XCTAssertTrue(ja.contains("最小100%"), ja)
+                XCTAssertTrue(ja.contains("最大115%まで増加"), ja)
+                XCTAssertTrue(ja.contains("タワーには適用されない"), ja)
             }
-            if slot == .skill1 { XCTAssertTrue(ja.contains("アルティメット"), ja) }
+            if slot == .skill1 {
+                XCTAssertTrue(ja.contains("アルティメット"), ja)
+                XCTAssertTrue(ja.contains("（クリティカル可能）"), ja)
+            }
             if slot == .skill2 {
                 XCTAssertTrue(ja.contains("射程の端で爆発"), ja)
-                XCTAssertTrue(ja.contains("移動速度を30%低下"), ja)
+                XCTAssertTrue(ja.contains("刻印の付いた敵を攻撃すると"), ja)
+                XCTAssertFalse(ja.contains("低下"), "減速は無い: \(ja)")
             }
+            if slot == .ultimate { XCTAssertTrue(ja.hasPrefix("パッシブ："), ja) }
         }
     }
 
@@ -894,7 +1017,7 @@ final class Kit_H030Tests: XCTestCase {
     func testManaCostFollowsTheOfficialTableAndCooldownStartsOnCast() {
         var w = SkillWorld()
         let k = addRaina(&w)
-        for (slot, mp) in [(SkillSlot.skill1, 40.0), (.skill2, 65), (.ultimate, 130)] {
+        for (slot, mp) in [(SkillSlot.skill1, 35.0), (.skill2, 70), (.ultimate, 130)] {
             let n = w.numbers(k, slot)
             XCTAssertEqual(n.cost, mp, "公式のマナ（ランク 1）")
             XCTAssertNotEqual(skill(slot).cost, mp, "マスターのコストではない")
