@@ -30,17 +30,8 @@ extension Balance {
     public static let combatBurnTickInterval: Double = 0.5
     /// 持続時間 0 以下で渡されたシールドの既定持続。
     public static let combatDefaultShieldDuration: Double = 3
-    /// 紅焔バフ: 通常攻撃で 3 秒間に 30 + 8×Lv の確定ダメージ + 10% スロー 1 秒。
-    public static let combatRedBuffBurnBase: Double = 30
-    public static let combatRedBuffBurnPerLevel: Double = 8
-    public static let combatRedBuffBurnDuration: Double = 3
-    public static let combatRedBuffSlowPct: Double = 0.10
-    public static let combatRedBuffSlowDuration: Double = 1.0
-    /// 蒼晶バフ: CD 短縮 +15%、リソース回復 +5/s。
-    public static let combatBlueBuffCooldownReduction: Double = 0.15
-    public static let combatBlueBuffResourceRegen: Double = 5
-    /// 竜の加護 / 巨像の加護の与ダメ補正。
-    public static let combatWyrmBlessingDamageBonus: Double = 0.10
+    // 紅焔・蒼晶バフと竜の加護は Balance.Jungle（MLBB の現行の効果）。
+    /// 巨像の加護の与ダメ補正。
     public static let combatColossusBlessingDamageBonus: Double = 0.15
 
     // MARK: 移動
@@ -79,7 +70,7 @@ extension StatusKind {
     var combatIsBeneficial: Bool {
         switch self {
         case .speedBoost, .attackSpeedBoost, .damageBoost, .damageReduction, .ccImmune, .invulnerable, .stealth,
-             .blueBuff, .redBuff, .wyrmBlessing, .colossusBlessing,
+             .blueBuff, .redBuff, .wyrmBlessing, .colossusBlessing, .goldBuff, .mossGrass,
              .lifestealBoost, .spellVampBoost, .attackRangeBoost, .untargetable, .channeling:
             return true
         default:

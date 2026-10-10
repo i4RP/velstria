@@ -46,22 +46,42 @@ extension Balance {
         }
 
         /// ラストヒット Gold（撃破者の monsterGoldBonus で増加）。ボスはチーム報酬のみ。
-        /// 小キャンプ = 大 40 + 小 15×2 = 70。
+        /// MLBB の値（棘角トカゲ 92・熾甲虫 85・熔岩の岩人 81・紅焔 120・蒼晶 100 + 仔 22）に近づけ、
+        /// 1 陣地を一巡したときの合計が旧マップ（番人 2 + 小キャンプ 5）と同じ程度になるよう丸めた。
+        /// 宝殻蟹は撃破時の Gold に加えて Gold バフ（Balance.Jungle）。
         public static func monsterGold(_ kind: MonsterKind) -> Double {
             switch kind {
             case .campLarge: return 40
             case .campSmall: return 15
-            case .blueSentinel, .redSentinel: return 110
+            case .blueSentinel: return 90
+            case .azureWhelp: return 20
+            case .redSentinel: return 110
+            case .hornLizard: return 95
+            case .emberBeetle: return 75
+            case .emberGrub: return 15
+            case .magmaGolem: return 85
+            case .treasureCrab: return 40
+            case .crablet: return 15
+            case .mossWanderer: return 90
             case .astralWyrm, .ancientColossus: return 0
             }
         }
 
-        /// 周囲で共有する XP。小キャンプ = 大 50 + 小 30×2 = 110。ボスはチーム全員に固定値。
+        /// 周囲で共有する XP。ボスはチーム全員に固定値。
+        /// MLBB Patch 2.1.88: 小キャンプの主は 1 体で Lv2（240）に届き、番人の XP を下げて「5 キャンプで Lv4（累計 810）」を保つ
+        /// （主 240 × 3 + 紅焔 45 + 蒼晶 35 + 仔 10 = 810）。
         public static func monsterXP(_ kind: MonsterKind) -> Double {
             switch kind {
             case .campLarge: return 50
             case .campSmall: return 30
-            case .blueSentinel, .redSentinel: return 180
+            case .blueSentinel: return 35
+            case .azureWhelp: return 10
+            case .redSentinel: return 45
+            case .hornLizard, .emberBeetle, .magmaGolem: return 240
+            case .emberGrub: return 20
+            case .treasureCrab: return 60
+            case .crablet: return 30
+            case .mossWanderer: return 100
             case .astralWyrm, .ancientColossus: return 0
             }
         }
@@ -76,10 +96,8 @@ extension Balance {
         public static let expLaneXPBonus: Double = 0.40
 
         // MARK: オブジェクト
-        public static let wyrmTeamGold: Double = 150
+        /// 星喰竜のチーム XP（Gold・加護・シールドは Balance.Jungle）。
         public static let wyrmTeamXP: Double = 200
-        public static let wyrmBlessingDuration: Double = 150
-        public static let wyrmBlessingDamageBonus: Double = 0.10
         public static let colossusTeamGold: Double = 300
         public static let colossusTeamXP: Double = 300
         public static let colossusBlessingDuration: Double = 180

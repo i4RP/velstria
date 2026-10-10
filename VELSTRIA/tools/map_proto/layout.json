@@ -14,21 +14,18 @@
   "blueCamps": [
     ["blueSentinel", [3075, 5755]],
     ["redSentinel", [5609, 2627]],
-    ["small", [1994, 6821]],
-    ["small", [2578, 6632]],
-    ["small", [6095, 3184]],
-    ["small", [6645, 2401]],
-    ["small", [7480, 2235]]
+    ["hornLizard", [1994, 6821]],
+    ["magmaGolem", [6095, 3184]],
+    ["emberBeetle", [7480, 2235]]
   ],
   "redCamps": [
     ["blueSentinel", [9089, 6224]],
     ["redSentinel", [6370, 9366]],
-    ["small", [10096, 5158]],
-    ["small", [9424, 5368]],
-    ["small", [5905, 8820]],
-    ["small", [5358, 9597]],
-    ["small", [4613, 9859]]
+    ["hornLizard", [10096, 5158]],
+    ["magmaGolem", [5905, 8820]],
+    ["emberBeetle", [4613, 9859]]
   ],
   "bosses": { "wyrm": [8260, 3590], "colossus": [3740, 8410] },
-  "riverCamp": [4710, 7285]
+  "riverCamp": [4710, 7285],
+  "crabs": [[2220, 8850], [9780, 3150]]
 }

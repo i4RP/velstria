@@ -19,6 +19,7 @@ public enum StatCalculator {
             stats = u.baseStats
         }
         StatusModifiers.apply(u.statuses, to: &stats)
+        JungleBuffs.applyStatModifiers(u, base: s.units[i].baseStats, to: &stats, map: ctx.map)
 
         // 制約
         stats.cooldownReduction = min(max(0, stats.cooldownReduction), stats.cooldownReductionCap)

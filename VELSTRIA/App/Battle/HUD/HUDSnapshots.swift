@@ -539,6 +539,9 @@ enum HUDSymbols {
         case .untargetable: return "eye.slash.fill"
         case .suppress: return "lock.fill"
         case .channeling: return "dot.radiowaves.left.and.right"
+        // ジャングル
+        case .goldBuff: return "dollarsign.circle.fill"
+        case .mossGrass: return "leaf.fill"
         }
     }
 
@@ -621,6 +624,8 @@ enum HUDSymbols {
         case .untargetable: return L("選択不可", "Untargetable")
         case .suppress: return L("制圧", "Suppressed")
         case .channeling: return L("詠唱中", "Channeling")
+        case .goldBuff: return L("宝殻の恵み", "Treasure bounty")
+        case .mossGrass: return L("苔草", "Moss sprout")
         }
     }
 
@@ -649,6 +654,8 @@ enum HUDSymbols {
         case .redBuff: return Color(red: 1.0, green: 0.45, blue: 0.30)
         case .wyrmBlessing: return Color(red: 0.70, green: 0.55, blue: 1.0)
         case .colossusBlessing: return Theme.gold
+        case .goldBuff: return Theme.gold
+        case .mossGrass: return Color(red: 0.45, green: 0.85, blue: 0.55)
         default: return isBuff(k) ? Theme.success : Theme.danger
         }
     }
@@ -663,7 +670,8 @@ enum HUDSymbols {
                                       .healReduction, .damageDealtReduction, .revealed, .blueBuff, .redBuff,
                                       .flatPowerMod, .flatMoveSpeedMod, .flatDefenseMod,
                                       .wyrmBlessing, .colossusBlessing, .mark, .lifestealBoost, .spellVampBoost,
-                                      .attackRangeBoost, .armorShred, .magicShred, .untargetable, .suppress, .channeling]
+                                      .attackRangeBoost, .armorShred, .magicShred, .untargetable, .suppress, .channeling,
+                                      .goldBuff, .mossGrass]
         return archetypes.map(skill) + statuses.map(status) + KitStatusVisuals.hudSymbols + ui
     }
 
@@ -701,6 +709,25 @@ enum HUDText {
         case .outer: return L("外塔", "Outer tower")
         case .inner: return L("内塔", "Inner tower")
         case .base: return L("基部塔", "Base tower")
+        }
+    }
+
+    /// 中立モンスターの名前（観戦の記録・ミニマップ）。
+    static func monsterName(_ kind: MonsterKind) -> String {
+        switch kind {
+        case .astralWyrm: return L("星喰竜", "Astral Wyrm")
+        case .ancientColossus: return L("古環の巨像", "Ancient Colossus")
+        case .blueSentinel: return L("蒼晶の番人", "Azure Sentinel")
+        case .azureWhelp: return L("蒼晶の仔", "Azure Whelp")
+        case .redSentinel: return L("紅焔の番人", "Crimson Sentinel")
+        case .hornLizard: return L("棘角トカゲ", "Horned Lizard")
+        case .emberBeetle: return L("熾甲虫", "Ember Beetle")
+        case .emberGrub: return L("熾甲虫の幼体", "Ember Grub")
+        case .magmaGolem: return L("熔岩の岩人", "Magma Golem")
+        case .treasureCrab: return L("宝殻蟹", "Treasure Crab")
+        case .crablet: return L("宝殻蟹の子", "Crablet")
+        case .mossWanderer: return L("苔甲の徘徊者", "Moss Wanderer")
+        case .campLarge, .campSmall: return L("中立モンスター", "Jungle camp")
         }
     }
 

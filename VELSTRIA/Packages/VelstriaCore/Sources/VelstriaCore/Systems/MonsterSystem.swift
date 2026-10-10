@@ -8,7 +8,7 @@ import Foundation
 public enum MonsterSystem {
     /// バフ番人が受けるダメージの倍率（近くのヒーロー 1 人につき −15%、最大 −60%）。番人以外は 1。
     static func gangReductionMultiplier(_ s: SimState, monsterIndex t: Int) -> Double {
-        guard let kind = s.units[t].monster?.kind, kind == .blueSentinel || kind == .redSentinel else { return 1 }
+        guard let kind = s.units[t].monster?.kind, kind.isSentinel else { return 1 }
         let r2 = Balance.sentinelGangRadius * Balance.sentinelGangRadius
         let pos = s.units[t].pos
         var n = 0
@@ -20,6 +20,39 @@ public enum MonsterSystem {
 
     /// 帰還中の被ダメ無効・CC 無効ステータスのタグ。
     static let leashTag = "monster_leash"
+    /// 反撃しないモンスター（苔甲の徘徊者）は、この時間 被弾しなければ全回復する。
+    static let passiveResetDelay: Double = 6
+
+    /// 反撃しないモンスター: 巣に留まり（押し出されたら歩いて戻る）、しばらく攻撃されなければ全回復する。
+    static func idlePassive(_ s: inout SimState, _ ctx: SimContext, _ i: Int, home: Vec2) {
+        s.units[i].attackTargetID = nil
+        s.units[i].windupRemaining = nil
+        let pos = s.units[i].pos
+        if pos.distance(to: home) > Balance.monsterHomeTolerance {
+            s.units[i].moveIntent = .point(WorldSteering.nextWaypoint(ctx, from: pos, to: home, radius: s.units[i].radius))
+        } else {
+            s.units[i].moveIntent = .none
+        }
+        let missing = s.units[i].stats.maxHP - s.units[i].hp
+        if missing > 0, s.time - s.units[i].lastDamagedTime >= passiveResetDelay {
+            s.units[i].hp = s.units[i].stats.maxHP
+            s.units[i].lastAttackerID = nil
+            s.emit(.heal(targetID: s.units[i].id, sourceID: nil, amount: missing))
+        }
+    }
+
+    /// 棘角トカゲ: HP が半分を切ると硬くなる（被ダメ軽減）。全回復で解ける。
+    static func updateLizardHarden(_ s: inout SimState, _ i: Int) {
+        let low = s.units[i].hp < s.units[i].stats.maxHP * Balance.Jungle.lizardHardenThreshold
+        let tag = JungleBuffs.lizardHardenTag
+        let has = s.units[i].statuses.contains { $0.tag == tag }
+        if low && !has {
+            s.units[i].statuses.append(StatusEffect(kind: .damageReduction, duration: 600,
+                                                    magnitude: Balance.Jungle.lizardHardenReduction, tag: tag))
+        } else if !low && has {
+            s.units[i].statuses.removeAll { $0.tag == tag }
+        }
+    }
 
     public static func update(_ s: inout SimState, _ ctx: SimContext) {
         // キャンプ毎の生存メンバー（添字昇順）
@@ -29,6 +62,17 @@ public enum MonsterSystem {
         }
         for i in s.units.indices where s.units[i].kind == .monster && s.units[i].isAlive {
             guard let m = s.units[i].monster else { continue }
+            // 熾甲虫の幼体: 寿命が来たら報酬なしで消える（添字は tick 末尾まで維持）
+            if let e = m.expiresAt, s.time + SpawnSystem.timeEpsilon >= e {
+                s.units[i].isAlive = false
+                s.units[i].hp = 0
+                continue
+            }
+            if m.kind.isPassive {
+                idlePassive(&s, ctx, i, home: m.home)
+                continue
+            }
+            if m.kind == .hornLizard { updateLizardHarden(&s, i) }
             let profile = UnitFactory.monsterProfile(m.kind)
             if m.leashing {
                 returnHome(&s, ctx, i, home: m.home)

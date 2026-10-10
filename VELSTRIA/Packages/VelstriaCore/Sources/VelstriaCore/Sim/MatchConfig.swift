@@ -53,8 +53,9 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     /// 5: ジャングル靴・ローム靴（収入制限・共有収入・祝福）と推奨ビルドの靴を追加。
     /// 6: ヒーロー固有スキル（キット層）を有効化（最初は H030 星砲のライナ。以後キットのヒーローは固有のスキル・パッシブ）。
     /// 8: 装備を MLBB の図鑑に総入れ替え（92 個・多段の合成・靴に付ける祝福・装備のアクティブ・ポーション）。
-    /// 9: スキルのクールダウンを MLBB と同じ秒数に（全体倍率 0.5 を廃止。キットの CD 短縮・レイジなどの補正も MLBB の値へ）。
-    public static let currentSimVersion = 9
+    /// 9: ジャングルを MLBB の現行マップに合わせた（モンスターの種類・草むら・角の壁・バフの効果）。
+    /// 10: スキルのクールダウンを MLBB と同じ秒数に（全体倍率 0.5 を廃止。キットの CD 短縮・レイジなどの補正も MLBB の値へ）。
+    public static let currentSimVersion = 10
 
     public var simVersion: Int
     public var mode: MatchMode

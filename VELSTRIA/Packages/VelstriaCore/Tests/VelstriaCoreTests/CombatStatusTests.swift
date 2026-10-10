@@ -145,30 +145,39 @@ final class CombatStatusTests: XCTestCase {
         XCTAssertEqual(w.s.units[t].statuses.count, 2)
     }
 
-    func testRedBuffBurnDealsExactTotalCreditedToSource() {
+    /// 紅焔バフ（MLBB の溶岩の魂）: 敵ヒーローに当たると 3 秒に 1 回、確定ダメージ（50 + 物攻 × 割合 + 対象の最大 HP × 割合）と
+    /// スロー 1 秒。ヴァンガード（前衛）は物攻 20%・最大 HP 0.3%・スロー 60%・貫通 5%。ヒーロー以外には出ない。
+    func testRedBuffStrikeHitsHeroesEveryThreeSeconds() {
         var w = CombatWorld()
-        let a = w.addHero(team: .blue, at: Vec2(1000, 1000), stats: CombatWorld.stats(attack: 0))
+        let a = w.addHero(team: .blue, at: Vec2(1000, 1000), stats: CombatWorld.stats(attack: 100))
         let v = w.addHero(team: .red, at: Vec2(1100, 1000), stats: CombatWorld.stats(hp: 5000))
-        w.s.units[a].hero?.level = 5
-        CombatSystem.addStatus(&w.s, targetIndex: a, StatusEffect(kind: .redBuff, duration: 90))
+        let m = w.addUnit(.monster, team: .neutral, at: Vec2(900, 1000), stats: CombatWorld.stats(hp: 5000))
+        CombatSystem.addStatus(&w.s, targetIndex: a, JungleBuffs.redBuff(for: w.s.units[a], sourceID: w.id(m)))
+        XCTAssertEqual(w.s.units[a].status(.redBuff)?.magnitude ?? 0, Balance.Jungle.redFrontPenetration)
+        XCTAssertEqual(w.s.units[a].status(.redBuff)?.remaining ?? 0, 75)
 
-        let hit = HitPayload(damage: 0, damageType: .physical, source: .basicAttack, appliesOnHit: true)
-        CombatSystem.applyHit(&w.s, w.ctx, sourceID: w.id(a), team: .blue, targetIndex: v, payload: hit,
-                              from: w.s.units[a].pos)
-        let burn = w.s.units[v].status(.burn)
-        XCTAssertNotNil(burn)
-        XCTAssertEqual(burn?.sourceID, w.id(a))
-        XCTAssertEqual(w.s.units[v].status(.slow)?.magnitude, Balance.combatRedBuffSlowPct)
-        XCTAssertEqual(w.s.units[v].status(.slow)?.remaining, Balance.combatRedBuffSlowDuration)
-
-        w.tick(Int((Balance.combatRedBuffBurnDuration / Balance.dt).rounded()) + 2)
-        let expected = Balance.combatRedBuffBurnBase + Balance.combatRedBuffBurnPerLevel * 5
-        XCTAssertEqual(5000 - w.s.units[v].hp, expected, accuracy: 1e-6)
-        XCTAssertFalse(w.s.units[v].has(.burn))
-        let dots = w.damageEvents.filter { $0.source == .dot }
-        XCTAssertEqual(dots.count, 6, "0.5 秒刻みで 6 回")
-        XCTAssertTrue(dots.allSatisfy { $0.sourceID == w.id(a) && $0.damageType == .trueDamage })
-        XCTAssertEqual(w.s.units[a].hero?.score.damageToHeroes ?? 0, expected, accuracy: 1e-6)
+        let hit = HitPayload(damage: 10, damageType: .trueDamage, source: .basicAttack, appliesOnHit: true)
+        func strike(_ t: Int) {
+            CombatSystem.applyHit(&w.s, w.ctx, sourceID: w.id(a), team: .blue, targetIndex: t, payload: hit,
+                                  from: w.s.units[a].pos)
+        }
+        let bonus = 50 + 100 * 0.20 + 5000 * 0.003
+        strike(v)
+        XCTAssertEqual(5000 - w.s.units[v].hp, 10 + bonus, accuracy: 1e-6)
+        XCTAssertEqual(w.s.units[v].status(.slow)?.magnitude ?? 0, 0.60, accuracy: 1e-9)
+        XCTAssertEqual(w.s.units[v].status(.slow)?.remaining ?? 0, 1, accuracy: 1e-9)
+        XCTAssertTrue(w.damageEvents.contains { $0.sourceID == w.id(a) && $0.damageType == .trueDamage && $0.source == .passive })
+        // 3 秒以内は出ない
+        strike(v)
+        XCTAssertEqual(5000 - w.s.units[v].hp, 20 + bonus, accuracy: 1e-6)
+        w.tick(Int((Balance.Jungle.redStrikeCooldown / Balance.dt).rounded()) + 1)
+        // モンスターには出ない
+        strike(m)
+        XCTAssertEqual(5000 - w.s.units[m].hp, 10, accuracy: 1e-6)
+        // 3 秒経てば再び出る
+        let before = w.s.units[v].hp
+        strike(v)
+        XCTAssertEqual(before - w.s.units[v].hp, 10 + bonus, accuracy: 1e-6)
     }
 
     func testCleanseRemovesOnlyCleansableDebuffs() {
@@ -212,9 +221,10 @@ final class CombatStatusTests: XCTestCase {
             StatusEffect(kind: .damageReduction, duration: 1, magnitude: 0.25),
             StatusEffect(kind: .attackSpeedBoost, duration: 1, magnitude: 0.5),
         ], to: &st)
-        XCTAssertEqual(st.cooldownReduction, 0.15, accuracy: 1e-9)
-        XCTAssertEqual(st.resourceRegen, 8, accuracy: 1e-9)
-        XCTAssertEqual(st.damageBonus, 0.10 + 0.15 + 0.05 - 0.3, accuracy: 1e-9)
+        // 蒼晶バフは CD −10% のみ（消費の軽減は JungleBuffs）、竜の加護は能力値を直接変えない（シールドと攻撃力は JungleBuffs）
+        XCTAssertEqual(st.cooldownReduction, 0.10, accuracy: 1e-9)
+        XCTAssertEqual(st.resourceRegen, 3, accuracy: 1e-9)
+        XCTAssertEqual(st.damageBonus, 0.15 + 0.05 - 0.3, accuracy: 1e-9)
         XCTAssertEqual(st.healingReceivedMultiplier, 0.5, accuracy: 1e-9)
         XCTAssertEqual(st.damageReduction, 0.25, accuracy: 1e-9)
         XCTAssertEqual(st.attackSpeed, 1.5, accuracy: 1e-9)

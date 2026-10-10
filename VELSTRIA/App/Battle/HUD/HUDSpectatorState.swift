@@ -305,7 +305,9 @@ final class HUDSpectatorState {
                 case .ancientColossus: name = L("古環の巨像", "Ancient Colossus"); entry.symbol = "crown.fill"
                 case .blueSentinel: name = L("蒼晶の番人", "Azure Sentinel"); entry.symbol = "drop.fill"
                 case .redSentinel: name = L("紅焔の番人", "Crimson Sentinel"); entry.symbol = "flame.circle.fill"
-                case .campLarge, .campSmall: name = L("中立モンスター", "Jungle camp"); entry.symbol = "diamond.fill"
+                case .campLarge, .campSmall, .azureWhelp, .hornLizard, .emberBeetle, .emberGrub, .magmaGolem,
+                     .treasureCrab, .crablet, .mossWanderer:
+                    name = HUDText.monsterName(kind); entry.symbol = "diamond.fill"
                 }
                 entry.title = L("\(HUDText.teamName(team)) が\(name)を討伐", "\(HUDText.teamName(team)) took the \(name)")
                 entry.leftHeroID = heroID(killer)

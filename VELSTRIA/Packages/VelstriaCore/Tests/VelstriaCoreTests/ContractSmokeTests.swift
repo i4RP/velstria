@@ -20,7 +20,7 @@ final class ContractSmokeTests: XCTestCase {
     func testMapSymmetry() {
         let map = MapDefinition.standard
         XCTAssertEqual(map.towers.count, 20)
-        XCTAssertEqual(map.camps.count, 17) // 片側 7（番人 2 + 小 5）× 2 + ボス 2 + 川の中立 1
+        XCTAssertEqual(map.camps.count, 15) // 片側 5（番人 2 + トカゲ・岩人・甲虫）× 2 + ボス 2 + 川の中立 1 + 宝殻蟹 2
         for t in map.towers where t.team == .blue && !t.isCore {
             let mirroredLane: Lane? = t.lane == .top ? .bot : (t.lane == .bot ? .top : .mid)
             XCTAssertTrue(map.towers.contains { $0.team == .red && $0.lane == mirroredLane && $0.tier == t.tier

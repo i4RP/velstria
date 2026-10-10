@@ -75,8 +75,9 @@ final class EconomyObjectiveTests: XCTestCase {
         let gold = f.hero(a).gold
         let m = f.addMonster(.blueSentinel, at: spot)
         let ev = f.kill(m, by: f.id(a))
-        XCTAssertEqual(f.hero(a).gold - gold, 110)
-        XCTAssertEqual(f.hero(a).xp, 180, accuracy: 1e-9)
+        // 蒼晶の番人 90（仔 20 と合わせて 110）、XP は Patch 2.1.88 に合わせて小さい（小キャンプの主が多い）
+        XCTAssertEqual(f.hero(a).gold - gold, 90)
+        XCTAssertEqual(f.hero(a).xp, 35, accuracy: 1e-9)
         XCTAssertEqual(f.hero(a).score.monsterKills, 1)
         XCTAssertEqual(f.hero(a).score.objectivesTaken, 1)
         let buff = f.s.units[a].status(.blueBuff)
@@ -86,7 +87,10 @@ final class EconomyObjectiveTests: XCTestCase {
 
         let r = f.addMonster(.redSentinel, at: spot)
         f.kill(r, by: f.id(a))
-        XCTAssertNotNil(f.s.units[a].status(.redBuff))
+        XCTAssertEqual(f.hero(a).gold - gold, 90 + 110)
+        // 赤バフの貫通はロールで決まる（後衛 10% / 前衛 5%）
+        let pen = JungleBuffs.isFrontline(f.hero(a).role) ? Balance.Jungle.redFrontPenetration : Balance.Jungle.redBackPenetration
+        XCTAssertEqual(f.s.units[a].status(.redBuff)?.magnitude ?? 0, pen, accuracy: 1e-9)
     }
 
     func testJungleBlessingIncreasesMonsterGold() {
@@ -119,20 +123,38 @@ final class EconomyObjectiveTests: XCTestCase {
         let golds = blue.map { f.hero($0).gold }
         let w = f.addMonster(.astralWyrm, at: Vec2(8300, 3700))
         let ev = f.kill(w, by: f.id(a))
+        // 1 体目はチーム全員に 60 Gold と 200 XP（MLBB: 60 / 70 / 80）
         for (n, i) in blue.enumerated() {
-            XCTAssertEqual(f.hero(i).gold - golds[n], 150)
+            XCTAssertEqual(f.hero(i).gold - golds[n], 60)
             XCTAssertEqual(f.hero(i).xp, 200, accuracy: 1e-9)
         }
-        for i in blue.prefix(4) {
-            XCTAssertEqual(f.s.units[i].status(.wyrmBlessing)?.remaining ?? 0, 150, accuracy: 1e-9)
+        // 撃破者: 加護 120 秒と 400 + 40×Lv のシールド。生存している味方: 200 + 20×Lv の一度きりのシールド
+        let level = Double(f.hero(a).level)
+        XCTAssertEqual(f.s.units[a].status(.wyrmBlessing)?.remaining ?? 0, 120, accuracy: 1e-9)
+        XCTAssertEqual(f.s.units[a].shields.first { $0.tag == JungleBuffs.wyrmShieldTag }?.amount ?? 0,
+                       400 + 40 * level, accuracy: 1e-9)
+        for i in blue.dropFirst().prefix(3) {
+            XCTAssertNil(f.s.units[i].status(.wyrmBlessing))
+            let lv = Double(f.hero(i).level)
+            XCTAssertEqual(f.s.units[i].shields.first { $0.tag == JungleBuffs.wyrmAllyShieldTag }?.amount ?? 0,
+                           200 + 20 * lv, accuracy: 1e-9)
         }
         XCTAssertNil(f.s.units[dead].status(.wyrmBlessing))
+        XCTAssertTrue(f.s.units[dead].shields.isEmpty)
         XCTAssertEqual(f.s.teams[Team.blue.rawValue].wyrmKills, 1)
         XCTAssertEqual(f.hero(a).score.objectivesTaken, 1)
         XCTAssertTrue(ev.announcements.contains(.wyrmSlain(team: .blue)))
         XCTAssertTrue(ev.contains(.objectiveTaken(kind: .astralWyrm, team: .blue, killerID: f.id(a))))
         // 赤チームには何もない
         XCTAssertTrue(f.heroes(.red).allSatisfy { f.hero($0).xp == 0 })
+        // 2 体目は 70、3 体目以降は 80
+        let g2 = f.hero(a).gold
+        f.kill(f.addMonster(.astralWyrm, at: Vec2(8300, 3700)), by: f.id(a))
+        XCTAssertEqual(f.hero(a).gold - g2, 70)
+        let g3 = f.hero(a).gold
+        f.kill(f.addMonster(.astralWyrm, at: Vec2(8300, 3700)), by: f.id(a))
+        f.kill(f.addMonster(.astralWyrm, at: Vec2(8300, 3700)), by: f.id(a))
+        XCTAssertEqual(f.hero(a).gold - g3, 160)
     }
 
     func testColossusRewardsAndEmpoweredRecall() {

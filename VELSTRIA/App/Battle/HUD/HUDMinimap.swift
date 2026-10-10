@@ -184,6 +184,9 @@ private struct HUDMinimapUnits: View {
         switch camp.kind {
         case .blueSentinel: color = Theme.cyan
         case .redSentinel: color = Color(red: 1, green: 0.60, blue: 0.32)
+        // 回復バフの小キャンプは緑、川の中立は青緑（MLBB のミニマップの色分け）。宝殻蟹・ボスは金
+        case .hornLizard, .emberBeetle, .magmaGolem: color = Color(red: 0.45, green: 0.85, blue: 0.45)
+        case .mossWanderer: color = Color(red: 0.35, green: 0.90, blue: 0.85)
         default: color = Theme.gold
         }
         ctx.fill(shape, with: .color(Color(red: 0.08, green: 0.09, blue: 0.15)))

@@ -161,15 +161,15 @@ final class WorldSpawnTests: XCTestCase {
         let sim = Simulation(config: WorldTestKit.emptyConfig())
         var wyrmAnnounce: Double?
         var colossusAnnounce: Double?
-        sim.runHeadless(maxTime: 29.9)
+        sim.runHeadless(maxTime: 24.9)
         XCTAssertEqual(sim.state.units.filter { $0.kind == .monster }.count, 0)
-        sim.runHeadless(maxTime: 30.1)
+        sim.runHeadless(maxTime: 25.1)
         let monsters = sim.state.units.filter { $0.kind == .monster }
-        // 小キャンプ 10 × (大 1 + 小 2) + 番人 4（川の中立は 0:45 から）
-        XCTAssertEqual(monsters.count, 34)
-        XCTAssertEqual(monsters.filter { $0.monster!.kind == .campLarge }.count, 10)
-        XCTAssertEqual(monsters.filter { $0.monster!.kind == .campSmall }.count, 20)
-        XCTAssertEqual(monsters.filter { $0.monster!.kind == .blueSentinel }.count, 2)
+        // 各陣地: 蒼晶の番人 + 仔、紅焔の番人、棘角トカゲ、熔岩の岩人、熾甲虫（宝殻蟹の子は 0:42、川の中立は 0:45 から）
+        XCTAssertEqual(monsters.count, 12)
+        for kind in [MonsterKind.blueSentinel, .azureWhelp, .redSentinel, .hornLizard, .magmaGolem, .emberBeetle] {
+            XCTAssertEqual(monsters.filter { $0.monster!.kind == kind }.count, 2, "\(kind)")
+        }
         XCTAssertTrue(monsters.allSatisfy { $0.team == .neutral })
         let sentinel = monsters.first { $0.monster!.kind == .redSentinel }!
         XCTAssertEqual(sentinel.stats.maxHP, 2200)
@@ -207,10 +207,10 @@ final class WorldSpawnTests: XCTestCase {
         XCTAssertEqual(colossus.pos, Vec2(3740, 8410))
     }
 
-    /// 川の中立（片側のみ）は古環の巨像の巣の側に、約 0:45 に出現する（参照仕様 §5.1）。
+    /// 川の中立（苔甲の徘徊者、片側のみ）は古環の巨像の巣の側に、約 0:45 に出現する（参照仕様 §5.1）。
     func testRiverCampSpawnsAtFortyFiveSecondsOnOneSideOnly() {
         let sim = Simulation(config: WorldTestKit.emptyConfig())
-        let rivers = sim.ctx.map.camps.filter { $0.side == .neutral && $0.kind == .small }
+        let rivers = sim.ctx.map.camps.filter { $0.side == .neutral && $0.kind == .mossWanderer }
         XCTAssertEqual(rivers.count, 1)
         let camp = rivers[0]
         XCTAssertEqual(camp.pos, Vec2(4710, 7285))
@@ -220,28 +220,29 @@ final class WorldSpawnTests: XCTestCase {
         sim.runHeadless(maxTime: 44.9)
         XCTAssertEqual(sim.state.units.filter { $0.monster?.campID == camp.id }.count, 0)
         sim.runHeadless(maxTime: 45.1)
-        XCTAssertEqual(sim.state.units.filter { $0.monster?.campID == camp.id }.count, 3)
+        XCTAssertEqual(sim.state.units.filter { $0.monster?.campID == camp.id }.count, 1)
+        XCTAssertEqual(sim.state.units.first { $0.monster?.campID == camp.id }?.monster?.kind, .mossWanderer)
     }
 
     func testCampRespawnsOnlyAfterAllMembersDie() {
         var (s, ctx) = WorldTestKit.makeState(WorldTestKit.emptyConfig())
         WorldTestKit.setTime(&s, 30)
         SpawnSystem.update(&s, ctx)
-        let camp = ctx.map.camps.first { $0.kind == .small && $0.side == .blue }!
+        // 紫バフのキャンプは番人と仔の 2 体
+        let camp = ctx.map.camps.first { $0.kind == .blueSentinel && $0.side == .blue }!
         let members = s.units.indices.filter { s.units[$0].monster?.campID == camp.id }
-        XCTAssertEqual(members.count, 3)
+        XCTAssertEqual(members.count, 2)
         XCTAssertNil(s.world.campRespawnAt[camp.id])
 
-        // 2 体倒しても再出現タイマーは動かない
+        // 1 体倒しても再出現タイマーは動かない
         WorldTestKit.setTime(&s, 100)
         WorldTestKit.kill(&s, members[0])
-        WorldTestKit.kill(&s, members[1])
         SpawnSystem.update(&s, ctx)
         XCTAssertNil(s.world.campRespawnAt[camp.id])
 
         // 全滅した時点から respawn 秒
         WorldTestKit.setTime(&s, 110)
-        WorldTestKit.kill(&s, members[2])
+        WorldTestKit.kill(&s, members[1])
         s.removeFinishedEntities()
         SpawnSystem.update(&s, ctx)
         XCTAssertEqual(s.world.campRespawnAt[camp.id] ?? 0, 110 + camp.respawn, accuracy: 1e-6)
@@ -251,7 +252,7 @@ final class WorldSpawnTests: XCTestCase {
         XCTAssertEqual(s.units.filter { $0.monster?.campID == camp.id && $0.isAlive }.count, 0)
         WorldTestKit.setTime(&s, 110 + camp.respawn)
         SpawnSystem.update(&s, ctx)
-        XCTAssertEqual(s.units.filter { $0.monster?.campID == camp.id && $0.isAlive }.count, 3)
+        XCTAssertEqual(s.units.filter { $0.monster?.campID == camp.id && $0.isAlive }.count, 2)
         XCTAssertNil(s.world.campRespawnAt[camp.id])
     }
 

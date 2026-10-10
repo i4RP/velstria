@@ -41,6 +41,9 @@ public enum StatusKind: Int, Codable, Hashable, Sendable {
     case flatPowerMod    // magnitude = 物理攻撃と魔法攻撃の増減（固定値。負 = 減少。炎撃の狩猟の奪取）
     case flatMoveSpeedMod // magnitude = 移動速度の増減（固定値。負 = 減少。氷刺の狩猟の奪取）
     case flatDefenseMod  // magnitude = 物理防御と魔法防御の増減（固定値。負 = 減少。激励・カースヘルムの呪い）
+    // ジャングルのバフ（docs/DESIGN.md §2）。raw 値を変えないため末尾に追加
+    case goldBuff        // magnitude = 毎秒の Gold（宝殻蟹）
+    case mossGrass       // 苔草: 川で移動速度 +15%、近くの味方の Mana を毎秒 1% 回復（苔甲の徘徊者）
 }
 
 extension StatusKind {

@@ -1,7 +1,7 @@
 import Foundation
 
 // 担当: core-bots
-// ジャングル（DESIGN §10: ポジション jungle・狩猟印 BS05）: 0:30 から自陣キャンプを効率よく回り、
+// ジャングル（DESIGN §10: ポジション jungle・狩猟印 BS05）: 0:25 から自陣キャンプ（と自陣側の宝殻蟹）を効率よく回り、
 // バフ・ボスに狩猟印、敵レーナーが弱っている/出過ぎていて経路が短ければガンク。オブジェクトは BotMacro のチーム方針。
 
 enum BotJungle {
@@ -26,7 +26,7 @@ enum BotJungle {
         let speed = max(150, MovementSystem.currentMoveSpeed(s, a.i))
         var best: CampSpot?
         var bestScore = Double.infinity
-        for camp in ctx.map.camps where camp.side == a.team {
+        for camp in ctx.map.camps where camp.side == a.team || ownHalfCrab(ctx.map, camp, a.team) {
             let respawnAt = camp.id < s.world.campRespawnAt.count ? s.world.campRespawnAt[camp.id] : nil
             let dist = a.pos.distance(to: camp.pos)
             let travel = dist / speed
@@ -38,7 +38,7 @@ enum BotJungle {
             // 敵ヒーローが居座っているキャンプは避ける
             if a.enemies.contains(where: { $0.pos.distanceSquared(to: camp.pos) < 1000 * 1000 }) { continue }
             var score = dist + wait * speed
-            if camp.kind == .blueSentinel || camp.kind == .redSentinel { score -= 900 }
+            if camp.kind.isSentinel { score -= 900 }
             // 向かっている途中のキャンプを優先（行ったり来たりを防ぐ）
             if mem.campID == camp.id { score -= 1200 }
             if score < bestScore {
@@ -47,6 +47,13 @@ enum BotJungle {
             }
         }
         return best
+    }
+
+    /// 自陣側の半面（河川より自分の泉寄り）にある宝殻蟹。中立だがジャングラーの巡回に含める。
+    static func ownHalfCrab(_ map: MapDefinition, _ camp: CampSpot, _ team: Team) -> Bool {
+        guard camp.kind == .treasureCrab else { return false }
+        let blueSide = camp.pos.x + camp.pos.y < map.size
+        return team == .blue ? blueSide : !blueSide
     }
 
     static func clearCamp(_ s: inout SimState, _ ctx: SimContext, _ w: BotWorld, _ a: inout BotAgent,
@@ -71,8 +78,8 @@ enum BotJungle {
             BotAI.move(s, ctx, &a, &mem, to: approach)
             return
         }
-        let buff = camp.kind == .blueSentinel || camp.kind == .redSentinel
-        let largeLow = s.units[a.i].hpRatio < 0.45 && s.units[target].monster?.kind == .campLarge
+        let buff = camp.kind.isSentinel
+        let largeLow = s.units[a.i].hpRatio < 0.45 && s.units[target].monster?.kind.isJungleCreep == true
         if buff || largeLow { _ = smite(&s, ctx, &a, target) }
         BotCombat.castFarmSkills(&s, ctx, &a, &mem, targets: monsters, minCluster: 1)
         BotAI.attack(s, &a, &mem, target)

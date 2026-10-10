@@ -394,13 +394,15 @@ final class CreatureVisual {
         case .monster(let kind):
             pm = meshes.monster(kind)
             switch kind {
-            case .campSmall: scale = 0.62; headHeight = 0.95
-            case .campLarge: scale = 1.05; headHeight = 1.5
+            case .campSmall, .emberGrub, .crablet: scale = 0.62; headHeight = 0.95
+            case .azureWhelp: scale = 0.75; headHeight = 1.1
+            case .campLarge, .hornLizard, .emberBeetle, .treasureCrab, .mossWanderer: scale = 1.05; headHeight = 1.5
+            case .magmaGolem: scale = 0.95; headHeight = 2.4
             case .blueSentinel, .redSentinel: scale = 1.2; headHeight = 2.95
             case .astralWyrm: scale = 1.2; headHeight = 2.9
             case .ancientColossus: scale = 2.05; headHeight = 5.0
             }
-            barStyle = .monster(boss: kind == .astralWyrm || kind == .ancientColossus)
+            barStyle = .monster(boss: kind.isBoss)
         case .dummy:
             pm = meshes.dummy
             scale = 1
@@ -451,7 +453,13 @@ final class CreatureVisual {
         let footprint: Float
         switch key {
         case .minion(let t, _): footprint = t == .siege ? 0.9 : 0.6
-        case .monster(let k): footprint = k == .campSmall ? 0.6 : (k == .ancientColossus ? 2.6 : (k == .astralWyrm ? 2.2 : 1.2))
+        case .monster(let k):
+            switch k {
+            case .campSmall, .emberGrub, .crablet, .azureWhelp: footprint = 0.6
+            case .ancientColossus: footprint = 2.6
+            case .astralWyrm: footprint = 2.2
+            default: footprint = 1.2
+            }
         case .dummy: footprint = 0.7
         }
         status = StatusIndicators(meshes: meshes, materials: materials, headHeight: headHeight, size: footprint)

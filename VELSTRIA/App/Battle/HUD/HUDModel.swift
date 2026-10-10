@@ -474,9 +474,10 @@ final class HUDModel {
             let cd = h.cooldown(slot)
             sn.cooldown = cd > 0 ? (cd * 10).rounded(.up) / 10 : 0
             sn.cooldownTotal = SkillSystem.cooldown(for: sk, rank: max(1, sn.rank), cdr: u.stats.cooldownReduction)
+            // 紫バフの消費軽減を含めた実際の消費
             // キットのヒーローはランク別のコスト（例: ボルグのアルティメット 120 / 140 / 160）
-            sn.cost = def.map { SkillSystem.cost(for: sk, hero: $0, rank: max(1, sn.rank), resource: h.resourceKind) }
-                ?? SkillSystem.cost(for: sk, resource: h.resourceKind)
+            sn.cost = (def.map { SkillSystem.cost(for: sk, hero: $0, rank: max(1, sn.rank), resource: h.resourceKind) }
+                ?? SkillSystem.cost(for: sk, resource: h.resourceKind)) * JungleBuffs.skillCostMultiplier(u)
             sn.castable = SkillSystem.canCast(s, ctx, heroIndex: hi, slot: slot)
             sn.affordable = u.resource + 0.5 >= sn.cost
             sn.silenced = u.has(.silence)
@@ -713,7 +714,7 @@ final class HUDModel {
         if let humanDot { minimap.heroes.append(humanDot) }
         let camps = ctx.map.camps
         for (k, camp) in camps.enumerated() {
-            let isBoss = camp.kind == .astralWyrm || camp.kind == .ancientColossus
+            let isBoss = camp.kind.isBoss
             let observed = viewer.map { s.vision.isLit(camp.pos, for: $0) } ?? true
             var known = campObservations[k] ?? CampObservation(respawnAt: camp.firstSpawn)
             if isBoss || observed {
@@ -1372,7 +1373,8 @@ final class HUDModel {
             let title = viewer == nil ? L("\(HUDText.teamName(team)) が星喰竜を討伐", "\(HUDText.teamName(team)) Slew the Wyrm")
                 : (isAlly(team) ? L("星喰竜を討伐", "Astral Wyrm Slain") : L("敵が星喰竜を討伐", "Enemy Slew the Astral Wyrm"))
             return HUDBanner(id: makeID(), tone: tone(for: team), title: title,
-                             subtitle: L("竜の加護: 与ダメージ +10%", "Wyrm Blessing: +10% damage"), symbol: "hurricane", priority: 4)
+                             subtitle: L("竜の加護: チームにシールド・撃破者に張り直すシールド", "Wyrm Blessing: team shields, regenerating shield for the slayer"),
+                             symbol: "hurricane", priority: 4)
         case .colossusSlain(let team):
             let title = viewer == nil ? L("\(HUDText.teamName(team)) が古環の巨像を討伐", "\(HUDText.teamName(team)) Slew the Colossus")
                 : (isAlly(team) ? L("古環の巨像を討伐", "Ancient Colossus Slain") : L("敵が古環の巨像を討伐", "Enemy Slew the Colossus"))

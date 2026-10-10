@@ -63,7 +63,9 @@ final class WorldMapTests: XCTestCase {
     }
 
     func testBrushAndObstacleCounts() {
-        XCTAssertEqual(map.brushes.count, 24)
+        // MLBB の草むら 16 か所 × 2（斜め・細長いものは複数の矩形で 22 個 × 2）
+        XCTAssertEqual(map.brushes.count, 44)
+        XCTAssertEqual(Set(map.brushes.map(\.bush)).count, 32)
         XCTAssertTrue((90...130).contains(map.obstacles.count), "obstacles = \(map.obstacles.count)")
         XCTAssertEqual(map.brushes.map(\.id), Array(0..<map.brushes.count))
     }

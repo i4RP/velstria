@@ -738,7 +738,7 @@ enum FlowTips {
     static let all: [FlowTip] = [
         FlowTip(symbol: "hand.tap.fill", ja: "スキルボタンはタップで自動照準、ドラッグで手動照準。", en: "Tap a skill to auto-aim, or drag to aim it yourself."),
         FlowTip(symbol: "building.columns.fill", ja: "タワーは味方ミニオンと一緒に攻めましょう。ミニオンがいないとダメージが半減します。", en: "Attack towers with your minions — without them your tower damage is halved."),
-        FlowTip(symbol: "flame.fill", ja: "星喰竜は 2:00 に出現。倒すとチーム全員にゴールドと与ダメージ強化。", en: "The Astral Wyrm spawns at 2:00 and grants your whole team gold and bonus damage."),
+        FlowTip(symbol: "flame.fill", ja: "星喰竜は 2:00 に出現。倒すとチーム全員にゴールドとシールド。", en: "The Astral Wyrm spawns at 2:00 and grants your whole team gold and shields."),
         FlowTip(symbol: "house.fill", ja: "HP が減ったら帰還（6 秒）で泉に戻って回復しましょう。", en: "Low on HP? Recall (6s) to heal at your fountain."),
         FlowTip(symbol: "leaf.fill", ja: "草むらの中にいると、近くにいない敵からは見えません。", en: "Hide in brush — enemies can't see you unless they're close."),
         FlowTip(symbol: "dollarsign.circle.fill", ja: "ミニオンやモンスターはラストヒットした人だけがゴールドを得ます。", en: "Only the last hit on minions and monsters earns gold."),

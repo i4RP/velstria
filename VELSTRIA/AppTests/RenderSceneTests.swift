@@ -100,7 +100,8 @@ final class RenderSceneTests: XCTestCase {
                 XCTAssertNotNil(m.part)
             }
         }
-        for kind in [MonsterKind.campLarge, .campSmall, .blueSentinel, .redSentinel, .astralWyrm, .ancientColossus] {
+        for kind in [MonsterKind.campLarge, .campSmall, .blueSentinel, .redSentinel, .astralWyrm, .ancientColossus,
+                     .azureWhelp, .hornLizard, .emberBeetle, .emberGrub, .magmaGolem, .treasureCrab, .crablet, .mossWanderer] {
             XCTAssertNotNil(lib.monster(kind).body, "\(kind)")
         }
         XCTAssertNotNil(lib.dummy.body)

@@ -81,7 +81,8 @@ final class UnitLayer {
     /// 試合で必要になりうるクリーチャーの見た目の数（読み込み幕の裏で作り切る）。
     /// - ミニオン: 進軍が止まったレーンに波が溜まる・死亡演出（0.9 秒）の重なり・10:00 以降の近接 +1 を含む実測の最大
     ///   （観戦 8 試合・各 12〜21 分の headless 計測で近接 33・遠隔 34・攻城 6 / チーム）に余裕を足した数。
-    /// - モンスター: 地図のキャンプ構成どおり（再出現は 60 秒以上後なので死亡演出と重ならない）。
+    /// - モンスター: 地図のキャンプ構成どおり（再出現は 20 秒以上後なので死亡演出と重ならない）。
+    ///   熾甲虫の幼体（撃破で出る）と宝殻蟹の子（3:00 まで）はキャンプ毎に 1 体ずつ足す。
     /// - 人形: 練習モードの配置数 + 1（撃破 → 4 秒後の再出現と死亡演出の重なり）。
     static func creaturePoolSizes(map: MapDefinition, dummySpots: Int) -> [(key: CreatureKey, count: Int)] {
         var out: [(key: CreatureKey, count: Int)] = []
@@ -93,6 +94,8 @@ final class UnitLayer {
         var monsters: [MonsterKind: Int] = [:]
         for camp in map.camps {
             for m in SpawnSystem.campMembers(camp.kind) { monsters[m.kind, default: 0] += 1 }
+            if camp.kind == .emberBeetle { monsters[.emberGrub, default: 0] += 1 }
+            if camp.kind == .treasureCrab { monsters[.crablet, default: 0] += 1 }
         }
         for kind in monsters.keys.sorted(by: { $0.rawValue < $1.rawValue }) {
             out.append((.monster(kind), monsters[kind] ?? 0))

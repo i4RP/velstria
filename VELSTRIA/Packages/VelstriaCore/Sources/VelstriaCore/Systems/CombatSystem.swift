@@ -479,6 +479,8 @@ public enum CombatSystem {
             KitDamage.afterHit(&s, ctx, sourceID: sourceID, target: t, payload: payload, dealt: dealt, from: from)
         }
         guard let a = s.index(of: sourceID) else { return }
+        // 紅焔バフ: 敵ヒーローに通常攻撃・スキルが当たると溶岩の魂が追撃（3 秒毎）
+        if dealt > 0 { JungleBuffs.redBuffStrike(&s, ctx, attacker: a, target: t, source: payload.source) }
         if payload.source == .basicAttack && payload.appliesOnHit {
             basicAttackLanded(&s, ctx, attacker: a, target: t, dealt: dealt, isCrit: payload.isCrit)
         } else if payload.damage <= 0, case .skill(let slot) = payload.source {
@@ -494,20 +496,9 @@ public enum CombatSystem {
         return e
     }
 
-    /// ヒーローの通常攻撃が命中した時の効果（紅焔バフ・命中数・パッシブ）。
+    /// ヒーローの通常攻撃が命中した時の効果（命中数・パッシブ）。紅焔バフの追撃は applyHit（スキルの命中でも出る）。
     static func basicAttackLanded(_ s: inout SimState, _ ctx: SimContext, attacker a: Int, target t: Int,
                                   dealt: Double, isCrit: Bool = false) {
-        if s.units[a].has(.redBuff), isLiving(s, t), !s.units[t].isStructure {
-            let level = Double(s.units[a].hero?.level ?? 1)
-            let total = Balance.combatRedBuffBurnBase + Balance.combatRedBuffBurnPerLevel * level
-            let attackerID = s.units[a].id
-            addStatus(&s, targetIndex: t, StatusEffect(kind: .burn, duration: Balance.combatRedBuffBurnDuration,
-                                                        magnitude: total / Balance.combatRedBuffBurnDuration,
-                                                        sourceID: attackerID, tag: tagRedBuff))
-            addStatus(&s, targetIndex: t, StatusEffect(kind: .slow, duration: Balance.combatRedBuffSlowDuration,
-                                                        magnitude: Balance.combatRedBuffSlowPct,
-                                                        sourceID: attackerID, tag: tagRedBuff))
-        }
         if s.units[a].hero != nil { s.units[a].hero!.basicAttackCount += 1 }
         ItemEffects.onBasicAttackLanded(&s, ctx, attacker: a, target: t, dealt: dealt, isCrit: isCrit)
         PassiveHooks.onBasicAttackHit(&s, ctx, attacker: a, target: t, damage: dealt)
