@@ -202,12 +202,19 @@ struct HeroMotionProfile {
             r.armR = ArmPose(pitch: 0.42, out: m.armRestOut, yaw: 0.5, elbow: 1.3)
             runSwingL = 0.6
             runSwingR = 0.6
+            if bp.offhand == .crescentBow {
+                // 背丈ほどの三日月の長弓（H025）は弓手を胸の高さまで上げ、上を少し前へ傾けて構える（下の弓先を地面へ埋めない）
+                r.armL = ArmPose(pitch: 0.6, out: m.armRestOut, yaw: 0.08, elbow: 1.15)
+                r.weaponL = -0.2
+            }
         case .gun:
             r.armR = ArmPose(pitch: 0.5, out: m.armRestOut, yaw: 0.35, elbow: 1.15)
             r.armL = ArmPose(pitch: 0.75, out: 0.05, yaw: 0.65, elbow: 1.05)
             r.weaponR = -0.75
             runSwingR = 0.25
             runSwingL = 0.25
+            // 背丈を超える星砲（H030）は腰だめに砲口を前の下へ向けて持つ（立てると顔と頭上の表示に重なる）
+            if bp.weapon == .starCannon { r.weaponR = -1.75 }
         case .staff:
             r.armR = ArmPose(pitch: 0.2, out: m.armRestOut + 0.05, yaw: 0, elbow: 0.55)
             r.weaponR = -0.08

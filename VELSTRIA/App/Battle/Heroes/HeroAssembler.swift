@@ -458,6 +458,18 @@ struct HeroAssembler {
                 b.ellipsoid(V3(s * 0.1, -0.03 - Float(i) * 0.01, z), V3(0.03, 0.1, 0.022), .accent,
                             rot: rz(-s * 0.5) * rx(Float(i - 1) * 0.3), detail: .low)
             }
+        case .crescentGuard:
+            // 銀の三日月の肩当て（H025）: 銀の肩当てと、肩の外へ反る三日月の刃・月光の珠
+            b.dome(V3(s * 0.015, 0.012, 0), V3(r * 2.3, r * 1.55, r * 2.2), .metal, rot: rz(-s * 0.42))
+            b.extrude(crescentPolygon(radius: 0.1, thickness: 0.035, span: 2.4, offset: 0.03), depth: 0.02,
+                      V3(s * 0.035, 0.03, 0), .metal, rot: s > 0 ? rz(0.35) : rz(.pi - 0.35))
+            b.sphere(V3(s * r * 1.2, r * 1.55, 0), 0.022, .glow, .tiny)
+        case .stormSpike:
+            // 外套の尖った肩（H026）: 白い肩布・上へ伸びる白と銀の角・光の宝玉
+            b.dome(V3(s * 0.015, 0.015, 0), V3(r * 2.45, r * 1.6, r * 2.35), .cloth, rot: rz(-s * 0.4))
+            b.crystal(V3(s * 0.05, 0.1, 0.01), radius: 0.045, height: 0.16, .cloth, rot: rz(-s * 0.55), sides: 4, bottom: 0.4)
+            b.crystal(V3(s * 0.085, 0.08, 0.035), radius: 0.022, height: 0.1, .metal, rot: rz(-s * 0.85), sides: 4, bottom: 0.4)
+            b.sphere(V3(s * r * 1.4, r * 1.2, -r * 0.6), 0.024, .glow, .low)
         }
         return b
     }
@@ -499,6 +511,18 @@ struct HeroAssembler {
         case .fur:
             b.frustum(V3(0, -L * 0.4, 0), V3(0, -L * 0.95, 0), r * 1.1, r * 1.0, .dark)
             b.torus(V3(0, -L * 0.4, 0), r * 1.15, 0.03, .cloth)
+        case .huntress:
+            // 銀の籠手と青い縁（H025）
+            b.frustum(V3(0, -L * 0.3, 0), V3(0, -L * 0.92, 0), r * 1.18, r * 1.08, .metal, segments: 10)
+            b.torus(V3(0, -L * 0.3, 0), r * 1.2, 0.012, .accent, segments: 12, sides: 5)
+        case .stormCoat:
+            // 白い外套の広い袖口と銀の縁（H026）
+            b.frustum(V3(0, 0.02, 0), V3(0, -L * 0.88, 0), r * 1.15, r * 2.1, .cloth, segments: 14, caps: false)
+            b.torus(V3(0, -L * 0.88, 0), r * 2.1, 0.014, .metal, segments: 16, sides: 5)
+        case .gunnerJacket:
+            // 紺の折り返した袖口（肘）と紺の指なし手袋（手首）（H030）
+            b.torus(V3(0, -0.005, 0), r * 1.3, 0.022, .secondary, segments: 14, sides: 6)
+            b.frustum(V3(0, -L * 0.62, 0), V3(0, -L * 0.98, 0), r * 1.08, r * 1.04, .secondary, segments: 10)
         }
         // 拳・爪は武器側で覆うので手は小さめ
         let covered = (s > 0 && bp.weaponFollowsArm) || (s < 0 && (bp.offhand == .stoneFist || bp.offhand == .azureClaw))
@@ -677,6 +701,34 @@ struct HeroAssembler {
                 let a = Float(i) / 9 * 2 * .pi
                 let d = simd_normalize(V3(sin(a), 0.25 + 0.3 * cos(a * 2), cos(a) * 0.8 + 0.35))
                 b.cone(c + d * R * 0.9, c + d * R * 1.45 + V3(0, -0.08, 0.05), 0.09, .hair, segments: 7)
+            }
+        case .highPonytail:
+            // 高く結った長い馬の尾（H025）: 横へ流す前髪・顔の脇の房・後頭部の上で結い（accent の髪留め）、背中へ流れ落ちる尾
+            hairCap(&b, c, R)
+            bangs(&b, c, R, count: 4, spread: 0.6, size: 1.05)
+            for s: Float in [-1, 1] {
+                b.ellipsoid(c + V3(s * R * 0.84, -R * 0.38, -R * 0.3), V3(R * 0.17, R * 0.42, R * 0.17), .hair,
+                            rot: rz(s * 0.12), detail: .low)
+            }
+            b.torus(c + V3(0, R * 0.62, R * 0.98), 0.07, 0.024, .accent, rot: rx(1.1), segments: 14)
+            b.ellipsoid(c + V3(0, R * 0.72, R * 1.22), V3(0.12, 0.13, 0.15), .hair, rot: rx(-0.5), detail: .low)
+            b.ellipsoid(c + V3(0, R * 0.36, R * 1.5), V3(0.115, 0.22, 0.11), .hair, rot: rx(-0.55), detail: .low)
+            b.ellipsoid(c + V3(0, -R * 0.3, R * 1.66), V3(0.1, 0.24, 0.095), .hair, rot: rx(-0.12), detail: .low)
+            b.ellipsoid(c + V3(0, -R * 1.0, R * 1.64), V3(0.08, 0.22, 0.075), .hair, rot: rx(0.12), detail: .low)
+            b.cone(c + V3(0, -R * 1.5, R * 1.58), c + V3(0, -R * 1.95, R * 1.46), 0.055, .hair, segments: 7)
+        case .longTwinTails:
+            // 長く豊かなツインテール（H030）: 頭の上の左右で結い（accent の髪留め）、外へ張り出してから腰まで流れる太い房。
+            // 上方カメラでも頭の左右に大きく張り出す金髪で読める
+            hairCap(&b, c, R)
+            bangs(&b, c, R, count: 5, spread: 0.55, size: 1.05)
+            for s: Float in [-1, 1] {
+                b.torus(c + V3(s * R * 0.8, R * 0.6, R * 0.2), 0.065, 0.026, .accent, rot: rz(s * 0.9), segments: 14)
+                b.ellipsoid(c + V3(s * R * 1.1, R * 0.6, R * 0.28), V3(0.13, 0.13, 0.13), .hair, rot: rz(-s * 0.9), detail: .low)
+                b.ellipsoid(c + V3(s * R * 1.45, R * 0.28, R * 0.36), V3(0.135, 0.21, 0.135), .hair, rot: rz(-s * 0.7), detail: .low)
+                b.ellipsoid(c + V3(s * R * 1.66, -R * 0.3, R * 0.42), V3(0.13, 0.25, 0.13), .hair, rot: rz(-s * 0.22), detail: .low)
+                b.ellipsoid(c + V3(s * R * 1.7, -R * 0.98, R * 0.46), V3(0.115, 0.26, 0.115), .hair, rot: rz(s * 0.04), detail: .low)
+                b.ellipsoid(c + V3(s * R * 1.6, -R * 1.66, R * 0.48), V3(0.09, 0.23, 0.09), .hair, rot: rz(s * 0.18), detail: .low)
+                b.cone(c + V3(s * R * 1.52, -R * 2.1, R * 0.49), c + V3(s * R * 1.38, -R * 2.55, R * 0.48), 0.065, .hair, segments: 7)
             }
         }
     }
@@ -895,6 +947,32 @@ struct HeroAssembler {
                 b.crystal(p + V3(0, h * 0.5, 0), radius: 0.034, height: h * 0.5, i == 2 ? .glow : .veil, sides: 5, bottom: 1)
             }
             b.crystal(c + V3(0, R * 0.78, -R * 0.62), radius: 0.035, height: 0.07, .accent, rot: rx(-.pi / 2), sides: 4, bottom: 1)
+        case .elfEars:
+            // 尖った長い耳（H025・H026）: 人の耳の位置から外・上・後ろへ伸び、上方カメラでも髪の左右に先が出る
+            for s: Float in [-1, 1] {
+                b.cone(c + V3(s * R * 0.9, -R * 0.06, R * 0.02), c + V3(s * R * 1.55, R * 0.36, R * 0.24), 0.06, .skin, segments: 7)
+            }
+        case .stormCrest:
+            // 銀の額飾りと、こめかみから上へ伸びる 2 本の刃の角（H026）・額の光の石
+            b.add(MeshTemplate.torus(minor: 0.05, segments: 20, sides: 5),
+                  trs(c + V3(0, R * 0.42, R * 0.05), rx(-0.3), V3(R * 1.02, R * 1.02, R * 1.02)), .metal)
+            let horn: [V2] = [V2(0, 0), V2(0.06, 0.02), V2(0.07, 0.2), V2(0.04, 0.4), V2(-0.03, 0.56), V2(-0.002, 0.36),
+                              V2(-0.012, 0.16)]
+            for s: Float in [-1, 1] {
+                b.extrude(horn.map { V2($0.x * s, $0.y) }, depth: 0.03, c + V3(s * R * 0.72, R * 0.42, R * 0.2), .metal,
+                          rot: rz(-s * 0.2) * ry(-s * 0.55))
+            }
+            b.crystal(c + V3(0, R * 0.56, -R * 0.92), radius: 0.035, height: 0.07, .glow, rot: rx(-0.3), sides: 4, bottom: 0.6)
+        case .gemBand:
+            // 頭の上の茶革の髪留め（accent）と、金の縁の水色の宝石 2 つ（H030）
+            b.add(MeshTemplate.torus(minor: 0.07, segments: 22, sides: 5),
+                  trs(c + V3(0, R * 0.62, R * 0.06), rx(-0.5), V3(R * 0.9, R * 0.9, R * 0.9)), .accent)
+            for s: Float in [-1, 1] {
+                let p = c + V3(s * R * 0.34, R * 0.98, -R * 0.12)
+                let rot = rz(-s * 0.35) * rx(-0.5)
+                b.crystal(p, radius: 0.048, height: 0.04, .glow, rot: rot, sides: 4, bottom: 1)
+                b.torus(p, 0.05, 0.012, .metal, rot: rot, segments: 12, sides: 4)
+            }
         }
     }
 }

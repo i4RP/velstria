@@ -193,24 +193,82 @@ final class HeroModelTests: XCTestCase {
         }
     }
 
+    /// 待機姿勢の手続きモデルの骨エンティティの範囲（ワールド）。
+    private func idleBounds(_ heroID: String, _ part: String) -> BoundingBox? {
+        let model = HeroModelLibrary.makeHero(heroID: heroID, skinID: nil, team: .neutral, master: master, options: Self.showcase)
+        model.update(dt: 1.0 / 60.0, moveSpeed: 0)
+        return model.root.findEntity(named: part)?.visualBounds(recursive: false, relativeTo: nil)
+    }
+
+    /// H025 ルミナ（MLBB の Miya）は青紫と銀の月の射手に見えること。翠緑の外套・小さな弓・丸い耳への退行を防ぐ。
+    func testH025IsMoonElfArcherWithTallSilverBow() throws {
+        let p = HeroPalettes.base(heroID: "H025", blueprint: HeroBlueprints.roster[24])
+        XCTAssertTrue((0.6...0.7).contains(p.primary.h), "青紫の胸当て \(p.primary.h)")
+        XCTAssertEqual(p.metalKind, .silver)
+        // 背丈ほどの長弓（高さ 1.4 m 以上）を待機でも地面へ埋めずに構える
+        let bow = try XCTUnwrap(idleBounds("H025", "offhand"))
+        XCTAssertGreaterThan(bow.extents.y, 1.4, "長弓の高さ")
+        XCTAssertGreaterThan(bow.min.y, -0.08, "下の弓先が地面へ埋まる")
+        // 尖った耳が髪の左右へ出る（耳の無い頭は幅 0.75 m 前後）
+        let head = try XCTUnwrap(idleBounds("H025", "head"))
+        XCTAssertGreaterThan(head.extents.x, 0.9, "尖った耳")
+    }
+
+    /// H026 エウリア（MLBB の Eudora）は白い外套と青い全身衣の雷の魔女に見えること。紫一色の杖持ちへの退行を防ぐ。
+    func testH026IsWhiteCoatLightningSorceress() throws {
+        let bp = HeroBlueprints.roster[25]
+        let p = HeroPalettes.base(heroID: "H026", blueprint: bp)
+        XCTAssertTrue((0.58...0.66).contains(p.primary.h), "青い全身衣 \(p.primary.h)")
+        XCTAssertLessThan(p.cloth.s, 0.15, "白い外套")
+        XCTAssertGreaterThan(p.cloth.b, 0.9, "白い外套")
+        // 杖ではなく手の上の球電（先端が握りの近く）
+        let meshes = HeroModelLibrary.meshSet(heroID: "H026", blueprint: bp)
+        XCTAssertLessThan(simd_length(meshes.weaponTip), 0.3, "球電は手の上に浮く")
+        // こめかみの銀の角が頭頂より上へ伸び、それでも頭頂の上限（2.2 m）に収まる
+        let head = try XCTUnwrap(idleBounds("H026", "head"))
+        XCTAssertGreaterThan(head.max.y, meshes.metrics.headTop * bp.scale + 0.25, "銀の角")
+        XCTAssertLessThanOrEqual(head.max.y, 2.2)
+    }
+
+    /// H030 ライナ（MLBB の Layla）は背丈を超える魔砲と長い金髪のツインテールで読めること。小さな桃色の砲への退行を防ぐ。
+    func testH030CarriesCannonLargerThanHerBody() throws {
+        let p = HeroPalettes.base(heroID: "H030", blueprint: HeroBlueprints.roster[29])
+        XCTAssertTrue((0.58...0.68).contains(p.primary.h), "青いスカート \(p.primary.h)")
+        XCTAssertEqual(p.metalKind, .gold)
+        // 砲は全長 1.5 m 以上（体の高さ 1.7 m とほぼ同じ）
+        let gun = try XCTUnwrap(idleBounds("H030", "weapon"))
+        XCTAssertGreaterThan(simd_length(gun.extents), 1.5, "魔砲の大きさ")
+        // ツインテールは胴の幅の 2.5 倍以上に左右へ張り出す
+        let head = try XCTUnwrap(idleBounds("H030", "head"))
+        let torso = try XCTUnwrap(idleBounds("H030", "torso"))
+        XCTAssertGreaterThan(head.extents.x, torso.extents.x * 2.5, "長いツインテール")
+    }
+
     /// 追加ヒーロー H025〜H034（docs/NEW_HEROES.md。第 1 段階 H025〜H029・第 2 段階 H030〜H034）の見た目の要件: 武器・体格・攻撃の型・配色の方向。
     func testNewHeroBlueprintsFollowSpec() {
         let r = HeroBlueprints.roster
         XCTAssertEqual(r.count, 34)
-        // H025 ルミナ: 素手 + 副手の三日月の長弓だけで戦う射手。翠と白の外套・銀白の髪・月の飾り
+        // H025 ルミナ（Miya）: 素手 + 副手の三日月の長弓だけで戦う射手。青紫の胸当て・青い外套・銀白の高い馬の尾・尖った耳・月光の水色
         XCTAssertEqual(r[24].weapon, .none)
         XCTAssertEqual(r[24].offhand, .crescentBow)
         XCTAssertEqual(r[24].attack, .bow)
         XCTAssertEqual(r[24].back, .cape)
-        XCTAssertTrue(r[24].gear.contains(.crescentPin))
-        XCTAssertTrue((0.3...0.5).contains(r[24].accent.h), "翠緑 \(r[24].accent.h)")
+        XCTAssertEqual(r[24].armor, .huntress)
+        XCTAssertEqual(r[24].hair, .highPonytail)
+        XCTAssertTrue(r[24].gear.contains(.elfEars))
+        XCTAssertTrue((0.58...0.7).contains(r[24].accent.h), "青い外套 \(r[24].accent.h)")
+        XCTAssertTrue((0.48...0.58).contains(r[24].glow.h), "月光の水色 \(r[24].glow.h)")
         XCTAssertLessThan(r[24].hairColor.s, 0.2, "銀白の髪")
-        // H026 エウリア: 細身の雷杖・紫の髪・周囲に浮く雷球・水色の電光
-        XCTAssertEqual(r[25].weapon, .stormWand)
+        // H026 エウリア（Eudora）: 杖を持たず手の上の球電・周囲に浮く雷球・白い外套と青い全身衣・銀白の短髪と銀の角・青紫の電光
+        XCTAssertEqual(r[25].weapon, .ballLightning)
         XCTAssertEqual(r[25].float, .sparkOrbs)
         XCTAssertEqual(r[25].build, .robed)
-        XCTAssertTrue((0.7...0.85).contains(r[25].hairColor.h), "紫の髪 \(r[25].hairColor.h)")
-        XCTAssertTrue((0.45...0.58).contains(r[25].glow.h), "電光の水色 \(r[25].glow.h)")
+        XCTAssertEqual(r[25].attack, .spellThrow)
+        XCTAssertEqual(r[25].armor, .stormCoat)
+        XCTAssertEqual(r[25].skirt, .openCoat)
+        XCTAssertTrue(r[25].gear.contains(.stormCrest))
+        XCTAssertLessThan(r[25].hairColor.s, 0.2, "銀白の髪")
+        XCTAssertTrue((0.6...0.75).contains(r[25].glow.h), "青紫の電光 \(r[25].glow.h)")
         // H027 ジャルド: 竜牙の長槍の近接。銀青の鎧・赤い差し色
         XCTAssertEqual(r[26].weapon, .dragonSpear)
         XCTAssertEqual(r[26].attack, .thrust)
@@ -235,14 +293,16 @@ final class HeroModelTests: XCTestCase {
         XCTAssertGreaterThan(r[28].hairColor.b, 0.9, "金髪")
         XCTAssertEqual(r[28].hair, .short)
         XCTAssertFalse(r[28].gear.contains(.knightHelm), "兜のドームで顔と髪を隠さない")
-        // H030 ライナ: 背丈ほどの星の砲（両手持ちの銃）・ツインテール・桃の光・赤い差し色・白と金
+        // H030 ライナ（Layla）: 背丈を超える星砲（両手持ちの銃）・金髪の長いツインテール・白い上着と茶革・金の枠・水色の光
         XCTAssertEqual(r[29].weapon, .starCannon)
         XCTAssertEqual(r[29].attack, .gun)
         XCTAssertTrue(r[29].twoHanded)
-        XCTAssertEqual(r[29].hair, .twinTails)
+        XCTAssertEqual(r[29].hair, .longTwinTails)
+        XCTAssertEqual(r[29].armor, .gunnerJacket)
         XCTAssertEqual(r[29].metal, .gold)
-        XCTAssertTrue((0.88...0.98).contains(r[29].glow.h), "桃の光 \(r[29].glow.h)")
-        XCTAssertTrue(r[29].accent.h > 0.95 || r[29].accent.h < 0.03, "赤い差し色 \(r[29].accent.h)")
+        XCTAssertTrue((0.45...0.56).contains(r[29].glow.h), "水色の光 \(r[29].glow.h)")
+        XCTAssertTrue((0.04...0.12).contains(r[29].accent.h), "茶革 \(r[29].accent.h)")
+        XCTAssertTrue((0.1...0.15).contains(r[29].hairColor.h) && r[29].hairColor.b > 0.9, "金髪 \(r[29].hairColor.h)")
         // H031 オーリア: 氷の杖・氷の冠・青白の長髪・周囲に浮く氷の結晶・氷青の光
         XCTAssertEqual(r[30].weapon, .iceStaff)
         XCTAssertEqual(r[30].float, .iceCrystals)
