@@ -6,13 +6,16 @@ import Foundation
 //   パッシブ 超伝導        — スキルが命中した敵（ミニオンを除く）に「超伝導」の印を 5 秒付ける。
 //                            印の付いた敵に当たると各スキルに追加効果（印そのものはダメージを増やさない）。
 //   スキル1 分岐雷         — 前方の扇に雷（ミニオンには 2 倍）。超伝導の敵に当たると 1 秒の「雷の鎖」: 移動速度 +40%・継続ダメージ・
-//                            終わりに追加ダメージ。追加ダメージが当たると S1 のクールダウンが縮む。同じ相手への鎖は 3 秒に 1 回まで
+//                            終わりに追加ダメージ。追加ダメージが当たると S1 のクールダウンが 50% 縮む。同じ相手への鎖は 6 秒に 1 回まで
 //                            （印は消費しないので、鎖が無限に繋がらないための制限）。
 //   スキル2 雷球           — 対象指定の雷球（スタン 1 秒・魔防ダウン 1.8 秒）。超伝導の敵に当たると周囲の敵にも同じダメージが広がる
 //                            （スタン・魔防ダウンはミニオンには広がらない）。
 //   アルティメット 九天雷鳴 — 指定地点に遅れて落ちる大雷（中心に重く、外側に半分）。超伝導の敵に当たると、その敵を中心に少し遅れて
 //                            雷が炸裂する（複数なら重なる）。
 // 再使用の窓は Eudora に無いので使わない。
+// 数値の正は Fandom の現行の表（docs/kits/Eudora.md の「公式（Fandom 現行）の数値」）。クールダウン・マナ・ダメージの表を Velstria のランク
+// （スキル1・2 は 4 段、アルティメットは 3 段）へ線形補間し（ランク 1 = Lv1、最大ランク = 公式の最終 Lv）、ダメージは
+// (基礎 + 係数 × 魔力) × スロット倍率 にスキルごとの換算（s1Scale ほか）を掛ける（公式どおり魔法攻撃だけで伸び、物理攻撃の係数は持たない）。
 //
 // 状態（KitState）:
 //   timers[0] = 雷の鎖の残り秒（HUD 用）   timers[1...4] = ids[0...3] の相手へ次の鎖を結べるまでの残り秒（相手ごとのロックアウト）
@@ -78,10 +81,16 @@ enum EuriaTuning {
     // MARK: S1（Forked Lightning）
     /// 扇の半角（調査に角度は無い）。射程はスキル定義（650）。
     static let s1HalfAngle: Double = Double.pi / 6
-    /// 1 撃（最初の一撃 = 鎖の終わりの一撃）のダメージ ÷ 汎用 S1。鎖が結ばれると 2 撃 + 継続ダメージで 1.2 倍前後になる。
-    static let s1Ratio: Double = 0.55
-    /// 継続ダメージ 1 回 ÷ 1 撃（調査: 10〜20 + 4% に対し 275〜500 + 100%）。
-    static let dotRatio: Double = 0.04
+    /// 1 撃（最初の一撃 = 鎖の終わりの一撃）。公式: 275 / 320 / 365 / 410 / 455 / 500（+100% 魔法攻撃）。
+    /// sim の式は (基礎 + 係数 × 魔力) × スロット倍率 × s1Scale（公式どおり物理攻撃の係数は持たない）。
+    static let s1Base = (275.0, 500.0)
+    static let s1PowerRatio: Double = 1.0
+    /// 1 撃 377 → 686（以前の「汎用 S1 × 0.55」と同じ大きさ）。Lv1 をアルカニスト中央値の −15 pt 以内にするには 0.49 以上が要るが、
+    /// そうすると鎖（2 撃 + 50% 短縮）で Lv6 / 12 が +17〜+50 pt になるので上げない（docs/kits/Eudora.md の「公式の数値に合わせる」）。
+    static let s1Scale: Double = 0.343
+    /// 継続ダメージ 1 回。公式: 10 / 12 / 14 / 16 / 18 / 20（+4% 魔法攻撃）。換算は s1Scale。
+    static let dotBase = (10.0, 20.0)
+    static let dotPowerRatio: Double = 0.04
     static let dotCount = 4
     static let dotInterval: Double = 0.2
     static let chainDuration: Double = 1.0
@@ -93,13 +102,17 @@ enum EuriaTuning {
     static let chainSpeed: Double = 0.40
     /// 鎖が切れる距離（調査に無い。S1 の射程 650 に余裕を足した値）。術者と対象の中心間。
     static let chainLeash: Double = 800
-    /// 鎖の終わりの一撃が当たったときの S1 のクールダウン短縮（MLBB と同じ 1.5 秒。CD が MLBB の秒数なので換算しない）。
-    static let chainRefund: Double = 1.5
+    /// 鎖の終わりの一撃が当たったときの S1 のクールダウン短縮 = S1 のクールダウン（CD 短縮込み）の 50%（公式の説明文。
+    /// 以前は mlbbhub の「1.5 秒」）。
+    static let chainRefundRatio: Double = 0.5
     static let chainSpeedTag = KitTags.buff("H026", "chain")
 
     // MARK: S2（Ball Lightning）
-    /// 汎用の遠隔 S2 は「ブリンク + 強化攻撃」で数値が半分になっているため、基準は元のスキル値（base ÷ empowerRatio）。
-    static let s2Ratio: Double = 0.81
+    /// 公式: 300 / 320 / 340 / 360 / 380 / 400（+50% 魔法攻撃）。換算は s2Scale。
+    static let s2Base = (300.0, 400.0)
+    static let s2PowerRatio: Double = 0.5
+    /// 580 → 773（公式の伸びは 1.33 倍で汎用の +30%/ランクより小さい）。0.644 でランク 2（Lv6）が以前の値（元のスキル値 × 0.81）と同じ。
+    static let s2Scale: Double = 0.644
     static let s2Speed: Double = 1800
     static let s2Stun: Double = 1.0
     /// 魔防ダウン（固定値。調査: 10/13/16/19/22/25 の 6 段 → 4 段へ線形）と持続。
@@ -110,13 +123,17 @@ enum EuriaTuning {
     static let shredTag = KitTags.buff("H026", "shred")
 
     // MARK: 奥義（Thunder's Wrath）
-    /// 中心の敵へのダメージ ÷ 汎用の奥義（アルカニストの地点 AoE）。0.85 → 0.82（総当たりの勝率がアルカニスト中央値より高かったため、
-    /// 鎖の再結びの制限・スキル2 0.85 → 0.81・炸裂 0.47 → 0.40 と合わせて調整）。
-    static let ultCenterRatio: Double = 0.82
-    /// 外側の敵へのダメージ ÷ 中心（調査: 300〜500 に対し 600〜1000）。
-    static let ultOuterRatio: Double = 0.5
-    /// 超伝導の敵を中心に炸裂する雷のダメージ ÷ 中心（調査: 300〜550 に対し 600〜1000 = 約 0.5）。
-    static let burstRatio: Double = 0.40
+    /// 公式: 中心 600 / 800 / 1000（+160% 魔法攻撃）、外側 300 / 400 / 500（+100%）、Thunderburst 300 / 425 / 550（+110%）。
+    /// 3 つとも換算は ultScale（アルティメットの 3 ランクは公式の Lv そのまま）。
+    static let ultCenterBase = (600.0, 1000.0)
+    static let ultCenterPowerRatio: Double = 1.6
+    static let ultOuterBase = (300.0, 500.0)
+    static let ultOuterPowerRatio: Double = 1.0
+    static let burstBase = (300.0, 550.0)
+    static let burstPowerRatio: Double = 1.1
+    /// 中心 437 / 582 / 728、炸裂 218 / 309 / 400。0.49 で中心が以前の「汎用の奥義 × 0.82」と同じだが、公式の炸裂（中心の 0.5〜0.55 倍。以前は 0.40 倍）
+    /// と終わりの一撃の 50% 短縮で Lv6 / 12 がアルカニスト中央値の +25 / +38 pt になったので、奥義を下げて合わせた（0.49 / 0.38 / 0.32 / 0.30 / 0.28 を比較）。
+    static let ultScale: Double = 0.28
     static let ultCenterRadius: Double = 150
     static let ultOuterRadius: Double = 300
     static let ultDelay: Double = 0.8
@@ -127,6 +144,11 @@ enum EuriaTuning {
     static let s1Cooldown = (7.0, 5.0)
     static let s2Cooldown = (11.0, 8.5)
     static let ultCooldown = (32.0, 26.0)
+
+    // MARK: マナ（公式の表をランクで線形補間。HeroKit.cost。以前はマスターの 62 / 74 / 118 のままだった）
+    static let s1Cost = (50.0, 70.0)
+    static let s2Cost = (70.0, 95.0)
+    static let ultCost = (130.0, 190.0)
 
     /// HitPayload.kitEvent
     enum Event {
@@ -186,19 +208,28 @@ struct Kit_H026: HeroKit {
             n.extras = [KitStat(key: "markDuration", value: T.markDuration)]
         case .skill1:
             // damage = 1 撃（最初の一撃と鎖の終わりの一撃）、hits = 2。継続ダメージは extras
-            n.damage = base.damage * T.s1Ratio
+            n.damage = Self.magicDamage(T.s1Base, ratio: T.s1PowerRatio, slot: .skill1, scale: T.s1Scale, rank: rank,
+                                        stats: stats)
             n.hits = 2
             n.cooldown = Self.cooldown(T.s1Cooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
             n.cc = .none
             n.ccDuration = 0
             n.extras = [KitStat(key: "chainDuration", value: T.chainDuration),
                         KitStat(key: "chainSpeed", value: T.chainSpeed * 100),
-                        KitStat(key: "refund", value: T.chainRefund),
-                        KitStat(key: "dot", value: (n.damage * T.dotRatio).rounded()),
-                        KitStat(key: "lockout", value: T.chainLockout)]
+                        KitStat(key: "refund", value: T.chainRefundRatio * 100),
+                        KitStat(key: "dot", value: Self.dotDamage(rank: rank, stats: stats).rounded()),
+                        KitStat(key: "lockout", value: T.chainLockout),
+                        KitStat(key: "base", value: Self.scaledBase(T.s1Base, slot: .skill1, scale: T.s1Scale, rank: rank)
+                            .rounded()),
+                        KitStat(key: "mpPct", value: Self.powerPercent(T.s1PowerRatio, slot: .skill1, scale: T.s1Scale)
+                            .rounded()),
+                        KitStat(key: "dotBase", value: Self.scaledBase(T.dotBase, slot: .skill1, scale: T.s1Scale, rank: rank)
+                            .rounded()),
+                        KitStat(key: "dotPct", value: Self.powerPercent(T.dotPowerRatio, slot: .skill1, scale: T.s1Scale)
+                            .rounded())]
         case .skill2:
-            let raw = base.damage / Balance.Skills.empowerRatio
-            n.damage = raw * T.s2Ratio
+            n.damage = Self.magicDamage(T.s2Base, ratio: T.s2PowerRatio, slot: .skill2, scale: T.s2Scale, rank: rank,
+                                        stats: stats)
             n.hits = 1
             n.cooldown = Self.cooldown(T.s2Cooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
             n.cc = .stun
@@ -207,60 +238,100 @@ struct Kit_H026: HeroKit {
             n.extras = [KitStat(key: "shred", value: Self.shredAmount(rank: rank, maxRank: slot.maxRank)),
                         KitStat(key: "shredDuration", value: T.shredDuration),
                         KitStat(key: "splashRadius", value: T.splashRadius),
-                        KitStat(key: "stun", value: T.s2Stun)]
+                        KitStat(key: "stun", value: T.s2Stun),
+                        KitStat(key: "base", value: Self.scaledBase(T.s2Base, slot: .skill2, scale: T.s2Scale, rank: rank)
+                            .rounded()),
+                        KitStat(key: "mpPct", value: Self.powerPercent(T.s2PowerRatio, slot: .skill2, scale: T.s2Scale)
+                            .rounded())]
         case .ultimate:
-            n.damage = base.damage * T.ultCenterRatio
+            n.damage = Self.magicDamage(T.ultCenterBase, ratio: T.ultCenterPowerRatio, slot: .ultimate, scale: T.ultScale,
+                                        rank: rank, stats: stats)
             n.hits = 1
             n.cooldown = Self.cooldown(T.ultCooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
             n.cc = .none
             n.ccIsUltimate = false
             n.ccDuration = 0
             n.delay = T.ultDelay
-            n.extras = [KitStat(key: "outer", value: (n.damage * T.ultOuterRatio).rounded()),
-                        KitStat(key: "burst", value: (n.damage * T.burstRatio).rounded()),
+            func base(_ t: (Double, Double)) -> Double {
+                Self.scaledBase(t, slot: .ultimate, scale: T.ultScale, rank: rank).rounded()
+            }
+            func pct(_ r: Double) -> Double { Self.powerPercent(r, slot: .ultimate, scale: T.ultScale).rounded() }
+            n.extras = [KitStat(key: "outer", value: Self.outerDamage(rank: rank, stats: stats).rounded()),
+                        KitStat(key: "burst", value: Self.burstDamage(rank: rank, stats: stats).rounded()),
                         KitStat(key: "delay", value: T.ultDelay),
-                        KitStat(key: "centerRadius", value: T.ultCenterRadius)]
+                        KitStat(key: "centerRadius", value: T.ultCenterRadius),
+                        KitStat(key: "base", value: base(T.ultCenterBase)),
+                        KitStat(key: "mpPct", value: pct(T.ultCenterPowerRatio)),
+                        KitStat(key: "outerBase", value: base(T.ultOuterBase)),
+                        KitStat(key: "outerPct", value: pct(T.ultOuterPowerRatio)),
+                        KitStat(key: "burstBase", value: base(T.burstBase)),
+                        KitStat(key: "burstPct", value: pct(T.burstPowerRatio))]
         }
         return n
     }
 
+    /// ランクごとのマナ消費（公式: スキル1 = 50 → 70、スキル2 = 70 → 95、アルティメット = 130 / 160 / 190）。
+    func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double {
+        let table: (Double, Double)
+        switch slot {
+        case .skill1: table = T.s1Cost
+        case .skill2: table = T.s2Cost
+        case .ultimate: table = T.ultCost
+        case .passive: return base
+        }
+        return HeroKits.resourceCost(Self.lerp(table.0, table.1, rank: rank, maxRank: slot.maxRank), hero: hero)
+    }
+
+    /// 説明文は公式（Fandom の説明文）の文の構造に合わせる。数値は {トークン} で sim から入れる
+    /// （{base}(+{mpPct}%魔法攻撃) は sim の式に換算した値）。
     func text(slot: SkillSlot) -> KitText? {
         switch slot {
         case .passive:
             return KitText(
-                ja: "スキルが命中した敵（ミニオンを除く）に「超伝導」を{x0}秒付ける。超伝導の敵に当たると追加効果が起きる"
-                    + "（分岐雷＝スキル1 は雷の鎖、雷球＝スキル2 は周囲へ広がってスタン、九天雷鳴＝アルティメットは遅れて雷が炸裂）。"
-                    + "印そのものは威力を増やさず、追加効果で消えることもない。",
-                en: "Skills that hit an enemy (minions excluded) inflict Superconductor for {x0}s. Hitting a Superconductor "
-                    + "enemy triggers an extra effect (Forked Bolt / Skill 1: a lightning chain, Thunder Orb / Skill 2: spreads "
-                    + "and stuns nearby enemies, Nine Heavens Thunder / Ultimate: a delayed Thunderburst). The mark itself adds "
-                    + "no damage and is not consumed by those effects.")
+                ja: "スキルが命中したミニオン以外のユニットに、{markDuration}秒間「超伝導」を付与する。超伝導の敵にスキルを命中させると、"
+                    + "それぞれのスキルの追加効果が発生する（スキル1 分岐雷は雷の鎖、スキル2 雷球は周囲への広がりとスタン、"
+                    + "アルティメット 九天雷鳴は雷の炸裂）。\n\n超伝導そのものはダメージを増やさず、追加効果で消費されない。",
+                en: "Skills inflict Superconductor for {markDuration}s on non-minion units hit, and trigger additional "
+                    + "effects against enemies affected by Superconductor (Skill 1 Forked Bolt: a lightning chain, Skill 2 "
+                    + "Thunder Orb: spreads and stuns nearby enemies, Ultimate Nine Heavens Thunder: a Thunderburst)."
+                    + "\n\nSuperconductor itself adds no damage and is not consumed by those effects.",
+                tags: [KitTag.buff])
         case .skill1:
             return KitText(
-                ja: "前方の扇へ雷を放ち、範囲の敵に{damage}の魔法ダメージ（ミニオンには2倍）。超伝導の敵に当たると{x0}秒の雷の鎖を結ぶ"
-                    + "（同じ相手には{lockout}秒に1回まで）。鎖の間は移動速度が{x1}%上がり、継続ダメージ（1回{x3}）を与え、"
-                    + "終わりに{damage}の追加ダメージ。追加ダメージが当たるとクールダウンが{x2}秒縮む。クールダウン{cd}秒。",
-                en: "Fires lightning in a fan ahead, dealing {damage} magic damage to enemies in it (double against minions). "
-                    + "Hitting a Superconductor enemy forms a {x0}s lightning chain (once per {lockout}s on the same target): you "
-                    + "gain {x1}% movement speed, it deals damage over time ({x3} per tick) and {damage} more when it ends. If that "
-                    + "final hit lands, the cooldown is reduced by {x2}s. Cooldown {cd}s.")
+                ja: "扇形の範囲に分岐雷を放ち、範囲内の敵に{base}(+{mpPct}%魔法攻撃)の魔法ダメージを与える（ミニオンには200%）。\n\n"
+                    + "超伝導の敵に命中すると、その敵と雷の鎖を結び（同じ敵には{lockout}秒に1回まで）、鎖の間（最大{chainDuration}秒）"
+                    + "移動速度が{chainSpeed}%上昇する。\n\n雷の鎖は継続して{dotBase}(+{dotPct}%魔法攻撃)の魔法ダメージを与え、"
+                    + "終わる時に{base}(+{mpPct}%魔法攻撃)の追加の魔法ダメージを与える。この一撃が命中すると、このスキルのクールダウンが{refund}%短縮される。",
+                en: "Casts Forked Bolt in a fan-shaped area, dealing {base} (+{mpPct}% Magic Power) magic damage to enemies "
+                    + "within (200% against minions).\n\nWhen it hits a target affected by Superconductor, Euria forms a "
+                    + "lightning chain with the target (once per {lockout}s on the same target), gaining {chainSpeed}% movement "
+                    + "speed during the chain for up to {chainDuration}s.\n\nThe chain deals {dotBase} (+{dotPct}% Magic Power) "
+                    + "magic damage over time and an additional {base} (+{mpPct}% Magic Power) when it ends. If this hit lands, "
+                    + "it reduces the skill's cooldown by {refund}%.",
+                tags: [KitTag.aoe])
         case .skill2:
             return KitText(
-                ja: "対象の敵へ雷球を放ち、{damage}の魔法ダメージと{x3}秒のスタン。{x1}秒間、魔法防御を{x0}下げる。"
-                    + "超伝導の敵に当たると、周囲{x2}の敵にも同じダメージが広がり、ヒーローとモンスターにはスタンと魔防ダウンも広がる"
-                    + "（ミニオンにはダメージのみ）。クールダウン{cd}秒。",
-                en: "Hurls an orb at a target enemy, dealing {damage} magic damage and stunning for {x3}s, and reducing "
-                    + "magic defense by {x0} for {x1}s. Hitting a Superconductor enemy spreads the same damage to enemies within "
-                    + "{x2}, and the stun and defense reduction to heroes and monsters among them (minions take damage only). "
-                    + "Cooldown {cd}s.")
+                ja: "対象の敵に雷球を投げつけ、{shredDuration}秒間 魔法防御を{shred}低下させ、{base}(+{mpPct}%魔法攻撃)の魔法ダメージを与え、"
+                    + "{stun}秒間スタンさせる。\n\n対象が超伝導の場合、雷球は周囲（{splashRadius}以内）の敵の魔法防御も低下させ、"
+                    + "対象を中心に範囲ダメージを与え、周囲の敵すべてをスタンさせる（ミニオンにはダメージのみ）。",
+                en: "Hurls a Thunder Orb at the target enemy, reducing their magic defense by {shred} for {shredDuration}s, "
+                    + "dealing {base} (+{mpPct}% Magic Power) magic damage and stunning them for {stun}s.\n\nIf the target is "
+                    + "affected by Superconductor, the orb also reduces the magic defense of nearby enemies (within "
+                    + "{splashRadius}), deals area damage centered on the target and stuns all nearby enemies (minions take "
+                    + "damage only).",
+                tags: [KitTag.disrupt, KitTag.burst])
         case .ultimate:
             return KitText(
-                ja: "指定地点に{x2}秒後に大雷を落とす（射程{range}）。中心（半径{x3}）の敵に{damage}、外側（半径{radius}）の敵に{x0}の魔法ダメージ。"
-                    + "超伝導の敵に当たると、その敵を中心に少し遅れて雷が炸裂し、周囲に{x1}の魔法ダメージ（複数なら重なる）。クールダウン{cd}秒。",
-                en: "Calls down a great bolt on the target area after {x2}s (range {range}). Deals {damage} magic damage "
-                    + "at the center (radius {x3}) and {x0} outside it (radius {radius}). Each Superconductor enemy hit "
-                    + "triggers a Thunderburst centered on it shortly after, dealing {x1} magic damage nearby (bursts "
-                    + "overlap). Cooldown {cd}s.")
+                ja: "指定範囲に雷を落とし（{delay}秒後・射程{range}）、中心（半径{centerRadius}）の敵に{base}(+{mpPct}%魔法攻撃)の魔法ダメージを与える。"
+                    + "続いて中心の外（半径{radius}）の敵に{outerBase}(+{outerPct}%魔法攻撃)の魔法ダメージを与える。\n\n"
+                    + "超伝導の敵に命中するたびに、少し遅れてその敵を中心に雷が炸裂し、{burstBase}(+{burstPct}%魔法攻撃)の魔法ダメージを与える"
+                    + "（複数なら重なる）。",
+                en: "Calls down a blast of lightning on the target area (after {delay}s, range {range}), dealing {base} "
+                    + "(+{mpPct}% Magic Power) magic damage to targets at the center (radius {centerRadius}), then {outerBase} "
+                    + "(+{outerPct}% Magic Power) magic damage to targets outside the center (radius {radius}).\n\nEach time it "
+                    + "hits a target affected by Superconductor, a Thunderburst triggers on that target after a short delay, "
+                    + "dealing {burstBase} (+{burstPct}% Magic Power) magic damage (bursts overlap).",
+                tags: [KitTag.burst])
         }
     }
 
@@ -321,10 +392,13 @@ struct Kit_H026: HeroKit {
     private func castThunder(_ s: inout SimState, _ c: KitCast) {
         let i = c.caster
         let center = c.aim.point
+        // 外側のダメージ ÷ 中心（魔力 0 なら公式どおり 0.5。魔力の係数が違うので魔力が増えると少し下がる）
+        let outer = Self.outerDamage(rank: c.numbers.rank, stats: s.units[i].stats)
+        let outerMult = c.numbers.damage > 0 ? outer / c.numbers.damage : 0.5
         let p = HitPayload(damage: c.numbers.damage, damageType: c.check.skill.damageType, source: .skill(.ultimate),
                            skillID: c.check.skill.skillID,
                            scaling: .distance(near: T.ultCenterRadius, far: T.ultCenterRadius + 1, minMult: 1,
-                                              maxMult: T.ultOuterRatio),
+                                              maxMult: outerMult),
                            originPos: center, kitEvent: T.Event.thunder)
         Kit.emitCast(&s, c, origin: s.units[i].pos, target: center, unit: c.aim.unit, shape: .circleAtPoint,
                      duration: T.ultDelay, count: 1)
@@ -377,7 +451,7 @@ struct Kit_H026: HeroKit {
         let tid = s.units[t].id
         // 同じ対象の鎖は張り直し
         s.units[i].hero?.kit?.scheduled.removeAll { $0.targetID == tid && ($0.code == T.Code.dot || $0.code == T.Code.end) }
-        let dot = n.damage * T.dotRatio
+        let dot = Self.dotDamage(rank: n.rank, stats: s.units[i].stats)
         for k in 1...T.dotCount {
             Kit.schedule(&s, caster: i, slot: .skill1, code: T.Code.dot, after: T.dotInterval * Double(k), targetID: tid,
                          index: k, param: dot, interruptible: true)
@@ -402,12 +476,13 @@ struct Kit_H026: HeroKit {
             breakChain(&s, owner: owner, targetID: timer.targetID)
             return
         }
-        guard let (skill, _) = Self.numbersNow(s, ctx, owner, .skill1) else { return }
+        guard let (skill, n) = Self.numbersNow(s, ctx, owner, .skill1) else { return }
         var p = HitPayload(damage: timer.param, damageType: skill.damageType, source: .skill(.skill1),
                            skillID: skill.skillID, originPos: s.units[owner].pos)
         if isEnd {
+            // 当たると S1 のクールダウン（CD 短縮込み）の 50% ぶん縮む
             p.kitEvent = T.Event.chainEnd
-            p.effects = [.refundCooldown(slot: .skill1, seconds: T.chainRefund)]
+            p.effects = [.refundCooldown(slot: .skill1, seconds: Self.chainRefund(cooldown: n.cooldown))]
         }
         CombatSystem.applyHit(&s, ctx, sourceID: s.units[owner].id, team: s.units[owner].team, targetIndex: t,
                               payload: p, from: s.units[owner].pos)
@@ -464,7 +539,8 @@ struct Kit_H026: HeroKit {
     /// 印済みの敵に大雷が当たった: その敵を中心に少し遅れて雷が炸裂する（敵に追従するゾーン。対象が倒れれば不発）。
     private func thunderburst(_ s: inout SimState, _ ctx: SimContext, owner i: Int, target t: Int) {
         guard CombatSystem.isLiving(s, t), let (skill, n) = Self.numbersNow(s, ctx, i, .ultimate) else { return }
-        let p = HitPayload(damage: n.damage * T.burstRatio, damageType: skill.damageType, source: .skill(.ultimate),
+        let p = HitPayload(damage: Self.burstDamage(rank: n.rank, stats: s.units[i].stats), damageType: skill.damageType,
+                           source: .skill(.ultimate),
                            skillID: skill.skillID, originPos: s.units[t].pos, kitEvent: T.Event.burst)
         s.units[i].hero?.kit?.euriaBursts += 1
         ZoneSystem.spawn(&s, ownerIndex: i, center: s.units[t].pos, radius: T.burstRadius, delay: T.burstDelay,
@@ -536,7 +612,9 @@ struct Kit_H026: HeroKit {
     static func fork1Ready(_ s: SimState, _ ctx: SimContext, bot: Int, target: Int) -> Bool {
         guard SkillSystem.canCast(s, ctx, heroIndex: bot, slot: .skill1),
               let skill = ctx.master.skill(hero: "H026", slot: .skill1), let h = s.units[bot].hero,
-              s.units[bot].resource + 1e-6 >= SkillSystem.cost(for: skill, resource: h.resourceKind) else { return false }
+              let def = ctx.master.hero("H026"),
+              s.units[bot].resource + 1e-6 >= SkillSystem.cost(for: skill, hero: def, rank: max(1, h.rank(.skill1)),
+                                                               resource: h.resourceKind) else { return false }
         let reach = skill.range + s.units[target].radius
         return s.units[bot].pos.distanceSquared(to: s.units[target].pos) <= reach * reach
     }
@@ -595,7 +673,42 @@ struct Kit_H026: HeroKit {
         return sec * (1 - reduction) * Balance.Skills.cooldownScale
     }
 
-    private static func lerp(_ a: Double, _ b: Double, rank: Int, maxRank: Int) -> Double {
+    /// (公式の基礎 + 係数 × 魔力) × スロット倍率 × 換算。基礎は Lv1 → 最終 Lv をランクで線形補間（物理攻撃の係数は持たない）。
+    static func magicDamage(_ base: (Double, Double), ratio: Double, slot: SkillSlot, scale: Double, rank: Int,
+                            stats: Stats) -> Double {
+        let b = lerp(base.0, base.1, rank: rank, maxRank: slot.maxRank)
+        return (b + ratio * stats.abilityPower) * Balance.Skills.damageScale(slot) * scale
+    }
+
+    /// 公式の基礎ダメージ（ランクで補間）を sim の式に通した「換算後の基礎」。
+    static func scaledBase(_ table: (Double, Double), slot: SkillSlot, scale: Double, rank: Int) -> Double {
+        lerp(table.0, table.1, rank: rank, maxRank: slot.maxRank) * Balance.Skills.damageScale(slot) * scale
+    }
+
+    /// 公式の「+N% 魔法攻撃」を sim の式（× スロット倍率 × 換算）に通した、魔力に対する割合（%）。
+    static func powerPercent(_ ratio: Double, slot: SkillSlot, scale: Double) -> Double {
+        ratio * Balance.Skills.damageScale(slot) * scale * 100
+    }
+
+    /// 雷の鎖の継続ダメージ 1 回（公式 10 → 20 + 4% 魔法攻撃）。
+    static func dotDamage(rank: Int, stats: Stats) -> Double {
+        magicDamage(T.dotBase, ratio: T.dotPowerRatio, slot: .skill1, scale: T.s1Scale, rank: rank, stats: stats)
+    }
+
+    /// 終わりの一撃が当たったときに縮める秒数（S1 のクールダウンの 50%）。
+    static func chainRefund(cooldown: Double) -> Double { max(0, cooldown) * T.chainRefundRatio }
+
+    /// 奥義の外側（中心の外）のダメージ（公式 300 / 400 / 500 + 100% 魔法攻撃）。
+    static func outerDamage(rank: Int, stats: Stats) -> Double {
+        magicDamage(T.ultOuterBase, ratio: T.ultOuterPowerRatio, slot: .ultimate, scale: T.ultScale, rank: rank, stats: stats)
+    }
+
+    /// 雷の炸裂（Thunderburst）のダメージ（公式 300 / 425 / 550 + 110% 魔法攻撃）。
+    static func burstDamage(rank: Int, stats: Stats) -> Double {
+        magicDamage(T.burstBase, ratio: T.burstPowerRatio, slot: .ultimate, scale: T.ultScale, rank: rank, stats: stats)
+    }
+
+    static func lerp(_ a: Double, _ b: Double, rank: Int, maxRank: Int) -> Double {
         guard maxRank > 1 else { return a }
         let t = Double(min(max(1, rank), maxRank) - 1) / Double(maxRank - 1)
         return a + (b - a) * t
