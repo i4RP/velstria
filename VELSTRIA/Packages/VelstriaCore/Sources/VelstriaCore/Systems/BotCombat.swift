@@ -388,7 +388,8 @@ enum BotCombat {
         for slot in [SkillSlot.ultimate, .skill1, .skill2] {
             guard SkillSystem.canCast(s, ctx, heroIndex: a.i, slot: slot),
                   let def = ctx.master.skill(hero: h.heroID, slot: slot) else { continue }
-            guard s.units[a.i].resource + 1e-6 >= SkillSystem.cost(for: def, resource: h.resourceKind)
+            guard s.units[a.i].resource + 1e-6 >= SkillSystem.cost(for: def, hero: hdef, rank: h.rank(slot),
+                                                                   resource: h.resourceKind)
                 || HeroKits.isRecasting(s, a.i, slot) else { continue }
             let tg = SkillCatalog.activeTargeting(s, caster: a.i, slot: slot, skill: def, hero: hdef)
             guard tg.archetype != .passive else { continue }
@@ -441,7 +442,8 @@ enum BotCombat {
         for slot in [SkillSlot.ultimate, .skill2, .skill1] {
             guard SkillSystem.canCast(s, ctx, heroIndex: a.i, slot: slot),
                   let def = ctx.master.skill(hero: h.heroID, slot: slot),
-                  s.units[a.i].resource + 1e-6 >= SkillSystem.cost(for: def, resource: h.resourceKind)
+                  s.units[a.i].resource + 1e-6 >= SkillSystem.cost(for: def, hero: hdef, rank: h.rank(slot),
+                                                                   resource: h.resourceKind)
                     || HeroKits.isRecasting(s, a.i, slot) else { continue }
             let tg = SkillCatalog.activeTargeting(s, caster: a.i, slot: slot, skill: def, hero: hdef)
             // 汎用ヒーローは従来どおり突進・ブリンク系だけ（無関係なスキルで安全地点を計算しない）
@@ -477,7 +479,8 @@ enum BotCombat {
         for slot in [SkillSlot.skill1, .skill2] {
             guard SkillSystem.canCast(s, ctx, heroIndex: a.i, slot: slot),
                   let def = ctx.master.skill(hero: h.heroID, slot: slot),
-                  s.units[a.i].resource + 1e-6 >= SkillSystem.cost(for: def, resource: h.resourceKind)
+                  s.units[a.i].resource + 1e-6 >= SkillSystem.cost(for: def, hero: hdef, rank: h.rank(slot),
+                                                                   resource: h.resourceKind)
                     || HeroKits.isRecasting(s, a.i, slot) else { continue }
             let tg = SkillCatalog.activeTargeting(s, caster: a.i, slot: slot, skill: def, hero: hdef)
             // 突入・瞬間移動系は既定では撃たない。キットが botFarm で許したものだけ通す（teamHeal は常に撃たない）

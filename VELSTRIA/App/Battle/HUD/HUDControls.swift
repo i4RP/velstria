@@ -128,6 +128,7 @@ struct HUDAttackButton: View {
     @GestureState private var touching = false
 
     var body: some View {
+        let priority = model.settings.attackPriority(for: slot)
         ZStack {
             Circle()
                 .fill(RadialGradient(colors: [Color(red: 1, green: 0.89, blue: 0.51), Color(red: 0.94, green: 0.61, blue: 0.18)],
@@ -137,16 +138,27 @@ struct HUDAttackButton: View {
             Circle()
                 .strokeBorder(Color.white.opacity(0.86), lineWidth: 2)
                 .padding(diameter * 0.065)
+            // 中央は剣（MLBB の通常攻撃と同じ）。上下は優先対象の絵柄（タワー・ミニオン/モンスター）
             VStack(spacing: 1) {
-                Image(systemName: SettingsText.attackPrioritySymbol(model.settings.attackPriority(for: slot)))
-                    .font(.system(size: diameter * 0.38, weight: .bold))
-                    .frame(width: diameter * 0.43, height: diameter * 0.43)
+                HUDAttackGlyph(icon: HUDAttackIcon.main(slot: slot, priority: priority),
+                               size: diameter * (slot == .center ? 0.46 : 0.43))
                 if slot == .center {
                     Text(L("攻撃", "ATTACK"))
                         .font(.system(size: diameter * 0.1, weight: .black, design: .rounded))
                 }
             }
             .foregroundStyle(HUDStyle.surface)
+            // 中央の優先対象が既定（実質低 HP）以外の時だけ、右下に小さな記号で示す
+            if let badge = HUDAttackIcon.badge(slot: slot, priority: priority) {
+                Image(systemName: badge)
+                    .font(.system(size: diameter * 0.11, weight: .heavy))
+                    .foregroundStyle(.white)
+                    .frame(width: diameter * 0.2, height: diameter * 0.2)
+                    .background(Circle().fill(HUDStyle.surface))
+                    .overlay(Circle().strokeBorder(Color.white.opacity(0.7), lineWidth: 0.8))
+                    .offset(x: diameter * 0.27, y: diameter * 0.27)
+                    .accessibilityHidden(true)
+            }
         }
         .frame(width: diameter, height: diameter)
         .hudDeadDim(dead)
@@ -185,6 +197,79 @@ struct HUDAttackButton: View {
             model.attackPressed(button: slot)
             model.attackReleased(button: slot)
         }
+    }
+}
+
+/// 攻撃ボタンの絵柄の種類。中央は剣、上下は優先対象（タワーは専用の形、それ以外は SF Symbols）。
+enum HUDAttackIcon: Equatable {
+    case swords
+    case tower
+    case symbol(String)
+
+    /// ボタンの主な絵柄。中央は優先対象に関わらず剣（優先対象は badge で示す）。
+    static func main(slot: AttackButtonSlot, priority: TargetPriority) -> HUDAttackIcon {
+        if slot == .center { return .swords }
+        return priority == .structuresFirst ? .tower : .symbol(SettingsText.attackPrioritySymbol(priority))
+    }
+
+    /// 中央ボタンの優先対象が既定以外の時だけ出す、小さな記号（SF Symbols の名前）。
+    static func badge(slot: AttackButtonSlot, priority: TargetPriority) -> String? {
+        guard slot == .center, priority != GameSettings().attackPriority else { return nil }
+        return SettingsText.attackPrioritySymbol(priority)
+    }
+}
+
+/// 攻撃ボタンの絵柄を size 四方に描く。シンボルの色は呼び出し側の foregroundStyle、形（剣・タワー）は color。
+struct HUDAttackGlyph: View {
+    let icon: HUDAttackIcon
+    let size: CGFloat
+    var color: Color = HUDStyle.surface
+
+    var body: some View {
+        ZStack {
+            switch icon {
+            case .swords:
+                HUDCrossedSwords()
+                    .fill(color)
+                    .frame(width: size, height: size)
+            case .tower:
+                HUDTowerShape()
+                    .fill(color, style: FillStyle(eoFill: true))
+                    .frame(width: size * 0.92, height: size * 0.92)
+            case .symbol(let name):
+                Image(systemName: name)
+                    .font(.system(size: size * 0.88, weight: .bold))
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+}
+
+/// 防御タワー（胸壁・塔身・土台。扉と窓は偶奇塗りで抜く: 各部分は重ならずに隣り合う）。
+struct HUDTowerShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let w = rect.width, h = rect.height
+        func r(_ x: CGFloat, _ y: CGFloat, _ cw: CGFloat, _ ch: CGFloat) -> CGRect {
+            CGRect(x: rect.minX + w * x, y: rect.minY + h * y, width: w * cw, height: h * ch)
+        }
+        var p = Path()
+        // 胸壁（3 つ）
+        for x in [CGFloat(0.16), 0.41, 0.66] { p.addRect(r(x, 0.06, 0.18, 0.18)) }
+        // 張り出し
+        p.addRect(r(0.16, 0.24, 0.68, 0.12))
+        // 塔身（下へ少し広がる）
+        p.move(to: CGPoint(x: rect.minX + w * 0.24, y: rect.minY + h * 0.36))
+        p.addLine(to: CGPoint(x: rect.minX + w * 0.76, y: rect.minY + h * 0.36))
+        p.addLine(to: CGPoint(x: rect.minX + w * 0.82, y: rect.minY + h * 0.90))
+        p.addLine(to: CGPoint(x: rect.minX + w * 0.18, y: rect.minY + h * 0.90))
+        p.closeSubpath()
+        // 土台
+        p.addRect(r(0.10, 0.90, 0.80, 0.08))
+        // 窓と扉（塔身の内側 = 偶奇塗りで抜ける）
+        p.addRect(r(0.46, 0.46, 0.08, 0.14))
+        p.addRect(r(0.42, 0.66, 0.16, 0.24))
+        return p
     }
 }
 
@@ -401,15 +486,18 @@ struct HUDSkillButton: View {
                     .font(.system(size: diameter * 0.42, weight: .bold))
                     .foregroundStyle(.white)
             }
+            // 必殺・枠番号のバッジ（ボタンの円の内側に収める）
             Text(isUlt ? L("必殺", "ULT") : CollectionStyle.slotBadge(snapshot.slot))
-                .font(.system(size: diameter * 0.13, weight: .black, design: .rounded))
+                .font(.system(size: diameter * Self.badgeFontRatio, weight: .heavy, design: .rounded))
                 .foregroundStyle(isUlt ? HUDStyle.surface : .white)
+                .lineLimit(1)
+                .fixedSize()
                 .padding(.horizontal, diameter * 0.09)
-                .padding(.vertical, 2)
+                .padding(.vertical, 2.5)
                 .background(Capsule().fill(isUlt ? Theme.gold : HUDStyle.surface))
-                .overlay(Capsule().strokeBorder(isUlt ? Color.white.opacity(0.6) : color.opacity(0.7), lineWidth: 0.8))
+                .overlay(Capsule().strokeBorder(isUlt ? Color.white.opacity(0.75) : color.opacity(0.7), lineWidth: 0.8))
                 .opacity(dead ? 0.85 : 1)
-                .offset(y: -diameter * 0.36)
+                .offset(y: -diameter * Self.badgeOffsetRatio)
             if let info = snapshot.recast {
                 HUDRecastRing(info: info, diameter: diameter, color: isUlt ? Theme.gold : Theme.cyan)
             }
@@ -455,6 +543,10 @@ struct HUDSkillButton: View {
         }
         .accessibilityHint(tag)
     }
+
+    /// 必殺・枠番号のバッジの文字サイズ・縦位置（ボタン直径に対する割合）。
+    static let badgeFontRatio: CGFloat = 0.15
+    static let badgeOffsetRatio: CGFloat = 0.33
 
     private var accessibilityValue: String {
         if !snapshot.learned { return L("未習得", "Not learned") }
@@ -963,31 +1055,71 @@ struct HUDActionCluster: View {
                               highlighted: highlight == .levelSkill1 && sn.slot == .skill1)
                     .position(layout.levelBadgeCenter(sn.slot))
             }
-            if let tip = model.skillTip {
-                HUDSkillTipCard(tip: tip, role: hero.role, layout: layout)
-                    .position(layout.skillTipCenter)
-                    .transition(.opacity)
-            }
         }
         .animation(.easeInOut(duration: 0.3), value: dead)
         .animation(.spring(duration: 0.3), value: skills.map(\.canLevel))
-        .animation(.easeOut(duration: 0.15), value: model.skillTip)
     }
 }
 
 // MARK: - スキルの説明（長押し）
 
 extension HUDLayout {
-    var skillTipWidth: CGFloat { 250 * scale }
+    /// 説明カードと他の部品の間に空ける余白。
+    static let skillTipGap: CGFloat = 6
 
-    /// 説明カードの中心。操作する指に隠れないよう、スキル列の上（画面の端寄り）へ置く。
-    var skillTipCenter: CGPoint {
-        let x = leftHanded ? leadingEdge + skillTipWidth / 2 : trailingEdge - skillTipWidth / 2
-        return CGPoint(x: x, y: attackCenter.y - 150 * scale)
+    var skillTipMaxWidth: CGFloat { 280 * scale }
+    /// 文字は 11pt 未満にしない（背景はほぼ不透明な紺）。
+    var skillTipBodyFontSize: CGFloat { max(11, 11 * scale) }
+    var skillTipTitleFontSize: CGFloat { max(13, 13 * scale) }
+    var skillTipPadding: CGSize { CGSize(width: 9 * scale, height: 7 * scale) }
+    var skillTipSpacing: CGFloat { 3 * scale }
+
+    /// 説明カードの枠（カードはこの枠の上端に寄せて描く。内容が短ければ下は空く）。
+    /// 右下のクラスタ（攻撃・スキル・スペル・習得バッジ）とその上のシグナル列・クイックチャットのメニューの内側、
+    /// ミニマップ横の縦列の外側の、上部の帯（スコア・味方列）の下からヒーローパネル・降参投票の欄の上までの空きに収める:
+    ///   x: 右手配置  [縦列の右端 + 6, 帯にかかる操作部品の左端 − 6]（左利きは左右反転）。幅は skillTipMaxWidth まで、クラスタ側に寄せる
+    ///   y: [max(スコア, 味方列の下端) + 6, min(ヒーローパネルの上端, 降参投票の上端) − 6]
+    /// 帯にかかる操作部品 = 攻撃ボタン・スキル・スペル・帰還の円と習得バッジのタップ領域、クイックチャットのメニュー。
+    /// キルフィード（同じ空きに出る）だけは、カードを出している間は隠す（HUDKillFeedRule）。
+    var skillTipFrame: CGRect {
+        let gap = Self.skillTipGap
+        let top = max(scoreFrame.maxY, allyStripFrame.maxY) + gap
+        let bottom = min(bottomEdge - HUDRootMetrics.heroPanelHeight(self) - gap,
+                         HUDSurrenderMetrics.frame(self).minY - gap)
+        var obstacles = signalControlDiscs.map {
+            CGRect(x: $0.center.x - $0.radius, y: $0.center.y - $0.radius, width: $0.radius * 2, height: $0.radius * 2)
+        }
+        obstacles += signalLevelBadgeRects
+        obstacles.append(signalChatMenuFrame)
+        let band = obstacles.filter { $0.maxY > top && $0.minY < bottom }
+        let minX: CGFloat, maxX: CGFloat
+        if leftHanded {
+            minX = (band.map(\.maxX).max() ?? leadingEdge) + gap
+            maxX = utilityColumnFrame.minX - gap
+        } else {
+            minX = utilityColumnFrame.maxX + gap
+            maxX = (band.map(\.minX).min() ?? trailingEdge) - gap
+        }
+        let width = min(skillTipMaxWidth, max(0, maxX - minX))
+        return CGRect(x: leftHanded ? minX : maxX - width, y: top, width: width, height: max(0, bottom - top))
+    }
+
+    /// 説明文の行数の上限（枠の高さに収まる行数。行の高さは文字サイズの 1.3 倍で見積もる）。
+    var skillTipBodyLineLimit: Int {
+        let usable = skillTipFrame.height - skillTipPadding.height * 2 - skillTipTitleFontSize * 1.3 - skillTipSpacing
+        return max(3, Int((usable / (skillTipBodyFontSize * 1.3)).rounded(.down)))
     }
 }
 
-/// 押している間だけ出る、少し透けたスキルの説明（試合の邪魔にならないよう、タップは奪わない）。
+/// キルフィードを隠す条件（照準中・長押しの説明を出している間・観戦の情報パネルを開いている間・中央の告知に譲る間）。
+enum HUDKillFeedRule {
+    static func isHidden(aiming: Bool, tipShown: Bool, covered: Bool, yieldsToCenter: Bool) -> Bool {
+        aiming || tipShown || covered || yieldsToCenter
+    }
+}
+
+/// 押している間だけ出る、スキルの説明（ほぼ不透明な紺の地。タップは奪わない）。
+/// 配置は HUDLayout.skillTipFrame、重ねる順は BattleHUDView の HUDSkillTipLayer（操作部品・シグナルより上）。
 struct HUDSkillTipCard: View {
     let tip: HUDSkillTip
     let role: Role
@@ -996,21 +1128,26 @@ struct HUDSkillTipCard: View {
     var body: some View {
         let tint = tip.slot == .ultimate ? Theme.gold : Theme.roleColor(role)
         let corner = 10 * layout.scale
-        VStack(alignment: .leading, spacing: 3 * layout.scale) {
+        let pad = layout.skillTipPadding
+        VStack(alignment: .leading, spacing: layout.skillTipSpacing) {
             Text(tip.name)
-                .font(.system(size: 12 * layout.scale, weight: .heavy, design: .rounded))
+                .font(.system(size: layout.skillTipTitleFontSize, weight: .heavy, design: .rounded))
                 .foregroundStyle(tint)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
             Text(tip.text)
-                .font(.system(size: 10.5 * layout.scale, weight: .medium, design: .rounded))
+                .font(.system(size: layout.skillTipBodyFontSize, weight: .medium, design: .rounded))
                 .foregroundStyle(.white)
+                .lineLimit(layout.skillTipBodyLineLimit)
+                .minimumScaleFactor(0.9)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .shadow(color: .black.opacity(0.8), radius: 1, y: 0.5)
-        .padding(.horizontal, 9 * layout.scale)
-        .padding(.vertical, 7 * layout.scale)
-        .frame(width: layout.skillTipWidth, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: corner).fill(HUDStyle.surface.opacity(0.55)))
-        .overlay(RoundedRectangle(cornerRadius: corner).strokeBorder(tint.opacity(0.45), lineWidth: 0.8))
+        .padding(.horizontal, pad.width)
+        .padding(.vertical, pad.height)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: corner, style: .continuous).fill(HUDStyle.surface.opacity(0.88)))
+        .overlay(RoundedRectangle(cornerRadius: corner, style: .continuous).strokeBorder(tint.opacity(0.75), lineWidth: 1))
+        .shadow(color: .black.opacity(0.35), radius: 6, y: 2)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
