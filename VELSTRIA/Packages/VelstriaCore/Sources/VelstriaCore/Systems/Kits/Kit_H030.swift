@@ -6,6 +6,9 @@ import Foundation
 // スキル1（遠星弾）は会心のある直線弾（命中で射程延長と加速）、スキル2（星爆弾）は爆発する星環弾（誰にも当たらなくても射程の端で
 // 爆発し、軽い減速と刻印を付ける。刻印へ当てると弾けて周囲をスタン）、アルティメット（星砕の大砲）は短い溜めの後に画面を貫く貫通ビーム。
 // アルティメットのランクごとに通常攻撃と星環弾の射程が常に伸びる。
+// 数値の正は Fandom の現行の表（docs/kits/Layla.md の「公式（Fandom 現行）の数値」）。クールダウン・マナ・ダメージの表を
+// Velstria のランク（スキル1・2 は 4 段、アルティメットは 3 段）へ線形補間し（ランク 1 = Lv1、最大ランク = 公式の最終 Lv）、
+// ダメージは sim の通常の式 (基礎 + 係数 × 攻撃力 × skillAttackScalingFactor) × スロット倍率 にスキルごとの換算（s1Scale ほか）を掛ける。
 // 対応表は docs/kits/Layla.md の「Velstria 実装対応表」。
 
 /// ライナの調整値（docs/kits/Layla.md の数値を Velstria の単位・TTK に合わせたもの）。
@@ -30,16 +33,25 @@ enum RainaTuning {
     static let permanent: Double = 1_000_000
 
     // MARK: S1（マレフィック・ボム）
-    static let s1Ratio: Double = 0.92
+    /// 公式: 200 / 240 / 280 / 320 / 360 / 400（+80% 物理攻撃）。Lv1 → Lv6 をランク 1 → 4 へ線形補間し、
+    /// sim の通常の式 (基礎 + 係数 × 攻撃力 × 0.6) × スロット倍率 に換算 s1Scale を掛ける。
+    static let s1Base = (200.0, 400.0)
+    static let s1AttackRatio: Double = 0.8
+    /// 0.53 でランク 1 が以前の「汎用 S1 × 0.92」と同じ大きさ（Lv1 で約 565）。
+    static let s1Scale: Double = 0.53
     /// 命中時の加速（+60%、1.2 秒かけて 0 へ。敵ヒーローに当たると持続が倍）。
     static let rushSpeed: Double = 0.6
     static let rushDuration: Double = 1.2
     static let rushHeroDuration: Double = 2.4
 
     // MARK: S2（ヴォイド・プロジェクタイル）
-    /// 汎用の遠隔 S2 は「ブリンク + 強化攻撃」で数値が半分になっているため、基準は元のスキル値（base ÷ empowerRatio）。
-    static let s2PrimaryRatio: Double = 0.70
-    static let s2DetonationRatio: Double = 0.40
+    /// 公式: 爆発 170 → 320（+65% 物理攻撃）、刻印の炸裂（追加ダメージ）100 → 200（+35% 物理攻撃）。換算は s2Scale（両方に共通）。
+    static let s2Base = (170.0, 320.0)
+    static let s2AttackRatio: Double = 0.65
+    static let detonationBase = (100.0, 200.0)
+    static let detonationAttackRatio: Double = 0.35
+    /// 0.55 でランク 1 の爆発が以前の「元のスキル値 × 0.70」と同じ。KitBalanceTests で Lv12 を中央値へ寄せて 0.54。
+    static let s2Scale: Double = 0.54
     static let s2Speed: Double = 1500
     static let s2Width: Double = 60
     /// 爆発に付く軽い減速（元のスキルに減速の記載はあるが数値は無い。タグ付きの 30% を 1 秒）。
@@ -52,7 +64,11 @@ enum RainaTuning {
     static let markStun: Double = 0.25
 
     // MARK: 奥義（デストラクション・ラッシュ）
-    static let ultRatio: Double = 1.0
+    /// 公式: 500 / 650 / 800（+150% 物理攻撃）。アルティメットの 3 ランクは公式の Lv そのまま。換算は ultScale。
+    static let ultBase = (500.0, 800.0)
+    static let ultAttackRatio: Double = 1.5
+    /// 0.59 でランク 1 が以前の「汎用の奥義 × 1.0」と同じ。KitBalanceTests で Lv12 を中央値へ寄せて 0.56。
+    static let ultScale: Double = 0.56
     /// 溜め（0.3 → 0.2 秒）とビームの速さ（3600 → 7000）。弾は 1 tick の区間を線分で掃引して当てる（ProjectileSystem.stepLinear）ので
     /// 7000（1 tick = 約 233）でもすり抜けない。射程 2000 を約 0.29 秒で貫くので、動く相手にも「撃った瞬間」に近く当たる。
     static let ultWindup: Double = 0.2
@@ -63,6 +79,12 @@ enum RainaTuning {
     static let s1Cooldown = (6.0, 4.0)
     static let s2Cooldown = (7.5, 6.5)
     static let ultCooldown = (37.0, 27.0)
+
+    // MARK: マナ（公式の表をランクで線形補間。HeroKit.cost）
+    /// ライラ: S1 40 → 65 / S2 65 → 90 / 奥義 130 / 150 / 170（以前はマスターの 45 / 50 / 100 のままだった）。
+    static let s1Cost = (40.0, 65.0)
+    static let s2Cost = (65.0, 90.0)
+    static let ultCost = (130.0, 170.0)
 
     // MARK: タグ・コード
     static let ultRangeTag = KitTags.buff("H030", "ultRange")
@@ -149,72 +171,114 @@ struct Kit_H030: HeroKit {
                         KitStat(key: "rangePerRank", value: T.ultRangePerRank),
                         KitStat(key: "farDistance", value: T.farDistance)]
         case .skill1:
-            n.damage = base.damage * T.s1Ratio
+            n.damage = Self.damage(base: T.s1Base, ratio: T.s1AttackRatio, slot: .skill1, scale: T.s1Scale, rank: rank,
+                                   stats: stats)
             n.cooldown = Self.cooldown(T.s1Cooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
             n.extras = [KitStat(key: "rangeBuff", value: T.s1RangeBuff[0]),
                         KitStat(key: "rangeBuffDuration", value: T.s1RangeBuffDuration),
                         KitStat(key: "rushPercent", value: T.rushSpeed * 100),
                         KitStat(key: "rushDuration", value: T.rushDuration),
-                        KitStat(key: "rangeBuffMin", value: T.s1RangeBuff[T.s1RangeBuff.count - 1])]
+                        KitStat(key: "rangeBuffMin", value: T.s1RangeBuff[T.s1RangeBuff.count - 1]),
+                        KitStat(key: "base", value: Self.scaledBase(T.s1Base, slot: .skill1, scale: T.s1Scale, rank: rank,
+                                                                    maxRank: slot.maxRank).rounded()),
+                        KitStat(key: "atkPct", value: Self.attackPercent(T.s1AttackRatio, slot: .skill1,
+                                                                         scale: T.s1Scale).rounded())]
         case .skill2:
-            let raw = base.damage / Balance.Skills.empowerRatio
-            n.damage = raw * T.s2PrimaryRatio
+            n.damage = Self.damage(base: T.s2Base, ratio: T.s2AttackRatio, slot: .skill2, scale: T.s2Scale, rank: rank,
+                                   stats: stats)
             n.cooldown = Self.cooldown(T.s2Cooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
             n.cc = .slow
             n.ccDuration = T.orbSlowDuration
-            n.extras = [KitStat(key: "detonation", value: raw * T.s2DetonationRatio),
+            let detonation = Self.damage(base: T.detonationBase, ratio: T.detonationAttackRatio, slot: .skill2,
+                                         scale: T.s2Scale, rank: rank, stats: stats)
+            n.extras = [KitStat(key: "detonation", value: detonation),
                         KitStat(key: "markDuration", value: T.markDuration),
                         KitStat(key: "markStun", value: T.markStun),
                         KitStat(key: "blastRadius", value: skill.radius),
                         KitStat(key: "slow", value: T.orbSlow * 100),
-                        KitStat(key: "slowDuration", value: T.orbSlowDuration)]
+                        KitStat(key: "slowDuration", value: T.orbSlowDuration),
+                        KitStat(key: "base", value: Self.scaledBase(T.s2Base, slot: .skill2, scale: T.s2Scale, rank: rank,
+                                                                    maxRank: slot.maxRank).rounded()),
+                        KitStat(key: "atkPct", value: Self.attackPercent(T.s2AttackRatio, slot: .skill2,
+                                                                         scale: T.s2Scale).rounded()),
+                        KitStat(key: "detBase", value: Self.scaledBase(T.detonationBase, slot: .skill2, scale: T.s2Scale,
+                                                                       rank: rank, maxRank: slot.maxRank).rounded()),
+                        KitStat(key: "detPct", value: Self.attackPercent(T.detonationAttackRatio, slot: .skill2,
+                                                                         scale: T.s2Scale).rounded())]
         case .ultimate:
-            n.damage = base.damage * T.ultRatio
+            n.damage = Self.damage(base: T.ultBase, ratio: T.ultAttackRatio, slot: .ultimate, scale: T.ultScale, rank: rank,
+                                   stats: stats)
             n.cooldown = Self.cooldown(T.ultCooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
             n.extras = [KitStat(key: "rangePerRank", value: T.ultRangePerRank),
-                        KitStat(key: "windup", value: T.ultWindup)]
+                        KitStat(key: "windup", value: T.ultWindup),
+                        KitStat(key: "base", value: Self.scaledBase(T.ultBase, slot: .ultimate, scale: T.ultScale, rank: rank,
+                                                                    maxRank: slot.maxRank).rounded()),
+                        KitStat(key: "atkPct", value: Self.attackPercent(T.ultAttackRatio, slot: .ultimate,
+                                                                         scale: T.ultScale).rounded()),
+                        KitStat(key: "rangeMax", value: T.ultRangePerRank * Double(slot.maxRank))]
         }
         return n
     }
 
+    /// ランクごとのマナ消費（公式: スキル1 = 40 → 65、スキル2 = 65 → 90、アルティメット = 130 / 150 / 170）。
+    func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double {
+        let table: (Double, Double)
+        switch slot {
+        case .skill1: table = T.s1Cost
+        case .skill2: table = T.s2Cost
+        case .ultimate: table = T.ultCost
+        case .passive: return base
+        }
+        return HeroKits.resourceCost(Self.lerp(table.0, table.1, rank: rank, maxRank: slot.maxRank), hero: hero)
+    }
+
+    /// 説明文は公式（Fandom の説明文）の文の構造に合わせる。数値は {トークン} で sim から入れる
+    /// （{base}(+{atkPct}%物理攻撃) は sim の式に換算した値。距離は通常攻撃の基本射程に対する倍率でも示す）。
     func text(slot: SkillSlot) -> KitText? {
-        // 距離の単位: 通常攻撃の基本射程（\(Int(T.baseRange))）に対する倍率で示す
         let farMult = String(format: "%.1f", T.farDistance / T.baseRange)
         let edgeBonus = Int((T.maxDistanceBonus * T.baseRange / T.farDistance * 100).rounded())
         switch slot {
         case .passive:
             return KitText(
-                ja: "遠くの敵ほど与ダメージが増える（通常攻撃とスキル。タワーには効かない）。基本射程の端（\(Int(T.baseRange))）で約+\(edgeBonus)%、"
-                    + "基本射程の\(farMult)倍（距離{farDistance}）で最大+{maxBonus}%。アルティメットのランクが上がるごとに、"
-                    + "通常攻撃と星爆弾の射程が常に{rangePerRank}伸びる。",
-                en: "Deals more damage the farther the target is (basic attacks and skills; not against turrets): about +\(edgeBonus)% at "
-                    + "the edge of the basic range (\(Int(T.baseRange))), up to +{maxBonus}% at \(farMult)x the basic range (distance "
-                    + "{farDistance}). Each Ultimate rank permanently adds {rangePerRank} range to basic attacks and Starburst Shell.")
+                ja: "遠くの敵ほど与えるダメージが増加する（100%から始まり、距離{farDistance}＝基本射程の約\(farMult)倍で+{maxBonus}%。"
+                    + "基本射程（\(Int(T.baseRange))）の端では約+\(edgeBonus)%）。タワーは対象外。\n\nダメージの増加は通常攻撃とスキルにのみ適用される。",
+                en: "Deals increased damage to enemies farther away (starting at 100% and reaching +{maxBonus}% at distance "
+                    + "{farDistance}, about \(farMult)x the basic range; about +\(edgeBonus)% at the edge of the basic range, "
+                    + "\(Int(T.baseRange))). "
+                    + "This does not include turrets.\n\nThe increase only applies to basic attacks and skills.",
+                tags: [KitTag.buff])
         case .skill1:
             return KitText(
-                ja: "指定方向へ砲弾を撃ち、最初に当たった敵に{damage}の物理ダメージ（会心あり）。"
-                    + "命中すると{rangeBuffDuration}秒間、通常攻撃と星爆弾の射程が最大{rangeBuff}伸び（アルティメットのランクが上がるほど小さくなり、"
-                    + "最大ランクで{rangeBuffMin}）、移動速度が{rushPercent}%上がって{rushDuration}秒かけて元に戻る（敵ヒーローに当たると加速の持続が倍）。",
-                en: "Fires a shell that deals {damage} physical damage to the first enemy hit (can crit). On hit, basic attacks and "
-                    + "Starburst Shell gain up to {rangeBuff} range for {rangeBuffDuration}s (smaller as the Ultimate ranks up, down to "
-                    + "{rangeBuffMin} at max rank), and Raina gains {rushPercent}% movement speed that fades over {rushDuration}s "
-                    + "(doubled when an enemy hero is hit).")
+                ja: "指定方向へ遠星弾を放ち、最初に命中した敵に{base}(+{atkPct}%物理攻撃)の物理ダメージを与える（クリティカルが発生する）。\n\n"
+                    + "敵に命中すると、{rangeBuffDuration}秒間 通常攻撃と星爆弾の射程が{rangeBuff}伸び（アルティメットのランクが上がるほど小さくなり、"
+                    + "最大ランクで{rangeBuffMin}）、移動速度が{rushPercent}%上昇して{rushDuration}秒かけて元に戻る。"
+                    + "敵ヒーローに命中した場合、移動速度上昇の持続時間が2倍になる。",
+                en: "Fires a Farstar Shot in the target direction, dealing {base} (+{atkPct}% Physical Attack) physical damage "
+                    + "to the first enemy hit (can critically strike).\n\nUpon hitting an enemy, basic attacks and Starburst Shell "
+                    + "gain {rangeBuff} extra range for {rangeBuffDuration}s (smaller as the Ultimate ranks up, {rangeBuffMin} at "
+                    + "max rank), and Raina gains {rushPercent}% movement speed that decays over {rushDuration}s. The duration of "
+                    + "the movement speed boost is doubled if an enemy hero is hit.",
+                tags: [KitTag.burst, KitTag.buff])
         case .skill2:
             return KitText(
-                ja: "光球を撃ち、最初に当たった敵の位置で爆発する（何にも当たらなければ射程の端で爆発）。半径{blastRadius}の敵に"
-                    + "{damage}の物理ダメージと{slow}%の減速（{slowDuration}秒）を与え、{markDuration}秒間の刻印を付ける。"
-                    + "刻印した敵に通常攻撃・スキル1・アルティメットが当たると刻印が弾け、周囲の敵に{detonation}の物理ダメージと{markStun}秒のスタン。",
-                en: "Fires an orb that bursts on the first enemy hit (or at the end of its range if nothing is hit): {damage} "
-                    + "physical damage and a {slow}% slow for {slowDuration}s to enemies within {blastRadius}, and marks them for "
-                    + "{markDuration}s. When a basic attack, Skill 1 or the Ultimate hits a marked enemy, the mark pops for "
-                    + "{detonation} physical damage and a {markStun}s stun to nearby enemies.")
+                ja: "星のエネルギーの光球を放ち、命中すると爆発して範囲（半径{blastRadius}）の敵に{base}(+{atkPct}%物理攻撃)の物理ダメージを与え、"
+                    + "{slowDuration}秒間 移動速度を{slow}%低下させ、{markDuration}秒間「刻印」を付与する（何にも当たらなければ射程の端で爆発する）。\n\n"
+                    + "刻印が付いた敵に通常攻撃・遠星弾・アルティメットを命中させると、周囲の敵に{detBase}(+{detPct}%物理攻撃)の"
+                    + "物理ダメージを与え、{markStun}秒間スタンさせる。",
+                en: "Fires an orb of star energy that explodes on hit, dealing {base} (+{atkPct}% Physical Attack) physical "
+                    + "damage to enemies in the area (radius {blastRadius}), slowing them by {slow}% for {slowDuration}s and "
+                    + "applying a Mark for {markDuration}s (it explodes at the end of its range if nothing is hit).\n\nWhen a "
+                    + "basic attack, Farstar Shot or the Ultimate hits a marked enemy, it deals {detBase} (+{detPct}% Physical "
+                    + "Attack) physical damage to nearby enemies and stuns them for {markStun}s.",
+                tags: [KitTag.aoe, KitTag.slow])
         case .ultimate:
             return KitText(
-                ja: "{windup}秒溜めて、指定方向へ射程{range}の貫通ビームを放つ（ビームは一瞬で届く）。ビーム上の全ての敵に{damage}の物理ダメージ。"
-                    + "ランクが上がるごとに、通常攻撃と星爆弾の射程が常に{rangePerRank}伸びる。",
-                en: "After a {windup}s charge, fires a piercing beam of {range} range that travels almost instantly and deals "
-                    + "{damage} physical damage to every enemy in its path. Each rank permanently adds {rangePerRank} range to "
-                    + "basic attacks and Starburst Shell.")
+                ja: "{windup}秒溜めてから指定方向へ星の砲撃を放ち、直線上（射程{range}）の敵に{base}(+{atkPct}%物理攻撃)の物理ダメージを与える。\n\n"
+                    + "パッシブ：このスキルのランクが上がるごとに、星爆弾と通常攻撃の射程が{rangePerRank}伸びる（最大{rangeMax}）。",
+                en: "After a {windup}s charge, fires a blast of star energy in the target direction, dealing {base} (+{atkPct}% "
+                    + "Physical Attack) physical damage to enemies in a line (range {range}).\n\nPassive: each rank of this skill "
+                    + "increases the range of Starburst Shell and basic attacks by {rangePerRank} (up to {rangeMax}).",
+                tags: [KitTag.burst, KitTag.buff])
         }
     }
 
@@ -449,15 +513,35 @@ struct Kit_H030: HeroKit {
         return (skill, SkillCatalog.numbers(for: skill, hero: def, rank: max(1, h.rank(slot)), stats: s.units[i].stats))
     }
 
+    /// 公式の基礎ダメージ（ランクで補間）を sim の通常の式に通した「換算後の基礎」。
+    static func scaledBase(_ table: (Double, Double), slot: SkillSlot, scale: Double, rank: Int, maxRank: Int) -> Double {
+        lerp(table.0, table.1, rank: rank, maxRank: maxRank) * Balance.Skills.damageScale(slot) * scale
+    }
+
+    /// 公式の「+N% 物理攻撃」を sim の通常の式（× skillAttackScalingFactor × スロット倍率 × 換算）に通した、攻撃力に対する割合（%）。
+    static func attackPercent(_ ratio: Double, slot: SkillSlot, scale: Double) -> Double {
+        ratio * Balance.skillAttackScalingFactor * Balance.Skills.damageScale(slot) * scale * 100
+    }
+
+    /// (公式の基礎 + 係数 × 攻撃力 × skillAttackScalingFactor) × スロット倍率 × 換算。
+    static func damage(base: (Double, Double), ratio: Double, slot: SkillSlot, scale: Double, rank: Int,
+                       stats: Stats) -> Double {
+        let b = lerp(base.0, base.1, rank: rank, maxRank: slot.maxRank)
+        return (b + ratio * stats.attack * Balance.skillAttackScalingFactor) * Balance.Skills.damageScale(slot) * scale
+    }
+
     /// MLBB のクールダウン（秒）をランクで線形補間し、CD 短縮を掛ける（全体倍率 cooldownScale は 1.0 = MLBB の秒数のまま）。
     static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats) -> Double {
-        var sec = range.0
-        if maxRank > 1 {
-            let t = Double(min(max(1, rank), maxRank) - 1) / Double(maxRank - 1)
-            sec = range.0 + (range.1 - range.0) * t
-        }
+        let sec = lerp(range.0, range.1, rank: rank, maxRank: maxRank)
         let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))
         return sec * (1 - reduction) * Balance.Skills.cooldownScale
+    }
+
+    /// 公式の Lv1 → 最終 Lv の値を、ランク 1 → 最大ランクへ線形補間する。
+    static func lerp(_ a: Double, _ b: Double, rank: Int, maxRank: Int) -> Double {
+        guard maxRank > 1 else { return a }
+        let t = Double(min(max(1, rank), maxRank) - 1) / Double(maxRank - 1)
+        return a + (b - a) * t
     }
 
     /// 会心の判定（通常攻撃と同じ。確率が 0 のときは乱数を引かない）。

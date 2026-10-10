@@ -131,50 +131,72 @@ final class Kit_H026Tests: XCTestCase {
             HeroKits.text(heroID: "H026", slot: slot)!.filled(english: false, numbers: numbers(w, k, slot),
                                                                targeting: SkillCatalog.targeting(for: skill(slot), hero: def))
         }
+        // 公式の文の構造: {base}(+{mpPct}%魔法攻撃)。魔力 0 なら base = 実際のダメージ
         let n1 = numbers(w, k, .skill1)
-        XCTAssertTrue(ja(.skill1).contains("\(Int(n1.damage.rounded()))の魔法ダメージ"), ja(.skill1))
+        let b1 = Int(try XCTUnwrap(n1.extras.first { $0.key == "base" }).value)
+        let p1 = Int(try XCTUnwrap(n1.extras.first { $0.key == "mpPct" }).value)
+        XCTAssertTrue(ja(.skill1).contains("\(b1)(+\(p1)%魔法攻撃)の魔法ダメージ"), ja(.skill1))
+        XCTAssertEqual(Double(b1), n1.damage.rounded(), "魔力 0")
         XCTAssertTrue(ja(.skill1).contains("40%"), ja(.skill1))
-        XCTAssertTrue(ja(.skill1).contains("0.8秒") || ja(.skill1).contains("縮む"), ja(.skill1))
+        XCTAssertTrue(ja(.skill1).contains("クールダウンが50%短縮"), ja(.skill1))
         let n2 = numbers(w, k, .skill2)
-        XCTAssertTrue(ja(.skill2).contains("\(Int(n2.damage.rounded()))の魔法ダメージ"), ja(.skill2))
-        XCTAssertTrue(ja(.skill2).contains("1秒のスタン") || ja(.skill2).contains("1秒"), ja(.skill2))
+        let b2 = Int(try XCTUnwrap(n2.extras.first { $0.key == "base" }).value)
+        XCTAssertTrue(ja(.skill2).contains("\(b2)(+"), ja(.skill2))
+        XCTAssertTrue(ja(.skill2).contains("1秒間スタン"), ja(.skill2))
         let nu = numbers(w, k, .ultimate)
-        XCTAssertTrue(ja(.ultimate).contains("\(Int(nu.damage.rounded()))"), ja(.ultimate))
+        XCTAssertTrue(ja(.ultimate).contains("\(Int(nu.damage.rounded()))(+"), ja(.ultimate))
         XCTAssertTrue(ja(.ultimate).contains("0.8秒後"), ja(.ultimate))
         XCTAssertTrue(ja(.ultimate).contains("770"), ja(.ultimate))
-        XCTAssertTrue(ja(.passive).contains("5秒"), ja(.passive))
+        XCTAssertTrue(ja(.passive).contains("5秒間"), ja(.passive))
+    }
+
+    func testTagsFollowTheOfficialSkillTags() {
+        // Fandom: Buff / AOE / CC・Damage / Burst
+        XCTAssertEqual(HeroKits.tags(heroID: "H026", slot: .passive), ["buff"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H026", slot: .skill1), ["aoe"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H026", slot: .skill2), ["disrupt", "burst"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H026", slot: .ultimate), ["burst"])
+        for slot in SkillSlot.allCases {
+            for tag in HeroKits.tags(heroID: "H026", slot: slot) { XCTAssertTrue(KitTag.all.contains(tag), tag) }
+        }
     }
 
     // MARK: - 数値・ダメージ予算
 
-    func testNumbersStayWithinDamageBudgetAndFollowCooldownFormula() {
+    func testNumbersFollowTheOfficialTablesAndCooldownFormula() {
+        // 公式の表を 4 ランク（rank r → Lv 1 + (r − 1) × 5 / 3）・アルティメットの 3 ランク（Lv そのまま）へ線形補間する。
+        // 式 = (基礎 + 係数 × 魔力) × スロット倍率 × 換算（物理攻撃の係数は持たない）
         for level in [1, 6, 12] {
-            let stats = HeroGrowth.baseStats(def: def, level: level)
-            for rank in 1...Balance.basicSkillMaxRank {
-                // S1: 鎖が結ばれたときの合計（2 撃 + 継続ダメージ 4 回）が汎用 S1 の 0.8〜1.3 倍
-                let g1 = SkillCatalog.genericNumbers(for: skill(.skill1), hero: def, rank: rank, stats: stats)
-                let n1 = SkillCatalog.numbers(for: skill(.skill1), hero: def, rank: rank, stats: stats)
-                let total1 = n1.damage * Double(n1.hits) + n1.damage * T.dotRatio * Double(T.dotCount)
-                XCTAssertEqual(n1.hits, 2)
-                XCTAssertGreaterThanOrEqual(total1 / g1.damage, 0.8, "S1 Lv\(level) r\(rank)")
-                XCTAssertLessThanOrEqual(total1 / g1.damage, 1.3, "S1 Lv\(level) r\(rank)")
-                // S2: 汎用の遠隔 S2 は「ブリンク + 強化攻撃」で半分になっているので、元のスキル値を基準にする
-                let g2 = SkillCatalog.genericNumbers(for: skill(.skill2), hero: def, rank: rank, stats: stats)
-                let n2 = SkillCatalog.numbers(for: skill(.skill2), hero: def, rank: rank, stats: stats)
-                let ratio2 = n2.damage / (g2.damage / Balance.Skills.empowerRatio)
-                XCTAssertGreaterThanOrEqual(ratio2, 0.8, "S2 Lv\(level) r\(rank)")
-                XCTAssertLessThanOrEqual(ratio2, 1.3, "S2 Lv\(level) r\(rank)")
-            }
-            for rank in 1...SkillSlot.ultimate.maxRank {
-                // 奥義: 中心 + 雷の炸裂（印済みの単体）が汎用の 0.8〜1.3 倍。中心だけでも 0.8 倍以上
-                let g = SkillCatalog.genericNumbers(for: skill(.ultimate), hero: def, rank: rank, stats: stats)
-                let n = SkillCatalog.numbers(for: skill(.ultimate), hero: def, rank: rank, stats: stats)
-                XCTAssertGreaterThanOrEqual(n.damage / g.damage, 0.8, "ULT center Lv\(level) r\(rank)")
-                let marked = (n.damage + n.damage * T.burstRatio) / g.damage
-                XCTAssertLessThanOrEqual(marked, 1.3, "ULT marked Lv\(level) r\(rank)")
-                XCTAssertGreaterThanOrEqual(marked, 0.8)
-                XCTAssertEqual(n.delay, T.ultDelay)
-                XCTAssertEqual(n.cc, .none, "調査どおり奥義に CC は無い")
+            var stats = HeroGrowth.baseStats(def: def, level: level)
+            for ap in [0.0, 120] {
+                stats.abilityPower = ap
+                for rank in 1...Balance.basicSkillMaxRank {
+                    let lv = 1 + Double(rank - 1) * 5 / 3
+                    let n1 = SkillCatalog.numbers(for: skill(.skill1), hero: def, rank: rank, stats: stats)
+                    XCTAssertEqual(n1.hits, 2)
+                    XCTAssertEqual(n1.damage, (275 + (lv - 1) * 45 + 1.0 * ap) * 4.0 * T.s1Scale, accuracy: 1e-6,
+                                   "S1 Lv\(level) r\(rank)")
+                    XCTAssertEqual(Kit_H026.dotDamage(rank: rank, stats: stats), (10 + (lv - 1) * 2 + 0.04 * ap) * 4.0 * T.s1Scale,
+                                   accuracy: 1e-6, "継続ダメージ")
+                    XCTAssertEqual(n1.cost, 50 + (lv - 1) * 4, accuracy: 1e-9, "S1 MP 50 → 70")
+                    let n2 = SkillCatalog.numbers(for: skill(.skill2), hero: def, rank: rank, stats: stats)
+                    XCTAssertEqual(n2.damage, (300 + (lv - 1) * 20 + 0.5 * ap) * 3.0 * T.s2Scale, accuracy: 1e-6,
+                                   "S2 Lv\(level) r\(rank)")
+                    XCTAssertEqual(n2.extras[0].value, 10 + (lv - 1) * 3, accuracy: 1e-9, "魔防ダウン 10 → 25")
+                    XCTAssertEqual(n2.cost, 70 + (lv - 1) * 5, accuracy: 1e-9, "S2 MP 70 → 95")
+                    XCTAssertEqual(SkillSystem.cost(for: skill(.skill2), hero: def, rank: rank), n2.cost, accuracy: 1e-9)
+                }
+                for (rank, c, o, b, mp) in [(1, 600.0, 300.0, 300.0, 130.0), (2, 800, 400, 425, 160), (3, 1000, 500, 550, 190)] {
+                    let n = SkillCatalog.numbers(for: skill(.ultimate), hero: def, rank: rank, stats: stats)
+                    XCTAssertEqual(n.damage, (c + 1.6 * ap) * 2.6 * T.ultScale, accuracy: 1e-6, "ULT 中心 r\(rank)")
+                    XCTAssertEqual(Kit_H026.outerDamage(rank: rank, stats: stats), (o + 1.0 * ap) * 2.6 * T.ultScale,
+                                   accuracy: 1e-6, "ULT 外側 r\(rank)")
+                    XCTAssertEqual(Kit_H026.burstDamage(rank: rank, stats: stats), (b + 1.1 * ap) * 2.6 * T.ultScale,
+                                   accuracy: 1e-6, "炸裂 r\(rank)")
+                    XCTAssertEqual(n.cost, mp, accuracy: 1e-9, "ULT MP")
+                    XCTAssertEqual(n.delay, T.ultDelay)
+                    XCTAssertEqual(n.cc, .none, "調査どおり奥義に CC は無い")
+                }
             }
         }
         // ランクで強くなる
@@ -184,8 +206,7 @@ final class Kit_H026Tests: XCTestCase {
             let hi = SkillCatalog.numbers(for: skill(slot), hero: def, rank: slot.maxRank, stats: stats)
             XCTAssertGreaterThan(hi.damage, lo.damage, "\(slot)")
             XCTAssertLessThan(hi.cooldown, lo.cooldown, "\(slot)")
-            // コストはマスターのまま（SkillSystem が定義から引く）
-            XCTAssertEqual(hi.cost, lo.cost)
+            XCTAssertGreaterThan(hi.cost, lo.cost, "公式のマナはランクで増える")
             XCTAssertEqual(hi.resource, .mana)
         }
         // クールダウン = MLBB の秒数（ランクで線形）× 全体倍率 × (1 − CD 短縮)
@@ -207,13 +228,14 @@ final class Kit_H026Tests: XCTestCase {
         let n2 = SkillCatalog.numbers(for: skill(.skill2), hero: def, rank: 1, stats: stats)
         XCTAssertEqual(n2.cc, .stun)
         XCTAssertEqual(n2.ccDuration, 1.0)
-        XCTAssertEqual(n2.extras.map(\.value), [10, 1.8, T.splashRadius, 1.0])
+        XCTAssertEqual(Array(n2.extras.map(\.value).prefix(4)), [10, 1.8, T.splashRadius, 1.0])
         XCTAssertEqual(SkillCatalog.numbers(for: skill(.skill2), hero: def, rank: 4, stats: stats).extras[0].value, 25)
-        // S1 の鎖: 1 秒・+40%・1.5 秒 × クールダウン倍率の短縮
+        // S1 の鎖: 1 秒・+40%・終わりの一撃でクールダウンの 50% を短縮
         let n1 = SkillCatalog.numbers(for: skill(.skill1), hero: def, rank: 1, stats: stats)
         XCTAssertEqual(n1.extras[0].value, 1.0)
         XCTAssertEqual(n1.extras[1].value, 40)
-        XCTAssertEqual(n1.extras[2].value, 1.5 * Balance.Skills.cooldownScale, accuracy: 1e-9)
+        XCTAssertEqual(n1.extras[2].value, 50)
+        XCTAssertEqual(Kit_H026.chainRefund(cooldown: n1.cooldown), n1.cooldown * 0.5, accuracy: 1e-9)
         XCTAssertEqual(SkillCatalog.numbers(for: skill(.passive), hero: def, rank: 1, stats: stats).extras.map(\.value), [5])
     }
 
@@ -356,7 +378,7 @@ final class Kit_H026Tests: XCTestCase {
         w.tick(1)
         XCTAssertEqual(w.s.units[k].stats.moveSpeed, speed * 1.4, accuracy: 1e-6, "鎖の間 +40%")
         // 継続ダメージは 0.2 秒ごとに 4 回、1 秒で終わりの一撃
-        let dot = w.mitigated(n.damage * T.dotRatio, .magic, on: e)
+        let dot = w.mitigated(Kit_H026.dotDamage(rank: n.rank, stats: w.s.units[k].stats), .magic, on: e)
         w.run(seconds: 0.25)
         XCTAssertEqual(events(w, to: e, .skill(.skill1)).count, 2)
         w.run(seconds: 0.6)
@@ -372,8 +394,8 @@ final class Kit_H026Tests: XCTestCase {
         XCTAssertEqual(kit(w, k).euriaChainEnds, 1)
         // 終わりの一撃が当たると S1 のクールダウンが縮む
         let cdAfter = w.s.units[k].hero!.cooldown(.skill1)
-        XCTAssertLessThan(cdAfter, cdBefore - T.chainRefund + 0.01)
-        XCTAssertEqual(cdAfter, max(0, n.cooldown - 1.1 - T.chainRefund), accuracy: 0.04)
+        XCTAssertLessThan(cdAfter, cdBefore - Kit_H026.chainRefund(cooldown: n.cooldown) + 0.01)
+        XCTAssertEqual(cdAfter, max(0, n.cooldown - 1.1 - n.cooldown * 0.5), accuracy: 0.04, "50% 短縮")
         // 鎖が終わると加速も終わる
         XCTAssertNil(status(w, k, .speedBoost))
         XCTAssertEqual(kit(w, k).euriaChainRemaining, 0)
@@ -661,7 +683,7 @@ final class Kit_H026Tests: XCTestCase {
         XCTAssertEqual(c.count, 1)
         XCTAssertEqual(r.count, 1)
         XCTAssertEqual(c[0].amount, w.mitigated(n.damage, .magic, on: center), accuracy: 1e-6)
-        XCTAssertEqual(r[0].amount, w.mitigated(n.damage * T.ultOuterRatio, .magic, on: ring), accuracy: 1e-6,
+        XCTAssertEqual(r[0].amount, w.mitigated(Kit_H026.outerDamage(rank: n.rank, stats: w.s.units[k].stats), .magic, on: ring), accuracy: 1e-6,
                        "外側は中心の半分")
         XCTAssertEqual(w.damage(to: outside), 0)
         // 奥義に CC は無い
@@ -680,7 +702,7 @@ final class Kit_H026Tests: XCTestCase {
         XCTAssertEqual(events(w, to: inner, .skill(.ultimate)).first?.amount ?? 0,
                        w.mitigated(n.damage, .magic, on: inner), accuracy: 1e-6)
         XCTAssertEqual(events(w, to: justOut, .skill(.ultimate)).first?.amount ?? 0,
-                       w.mitigated(n.damage * T.ultOuterRatio, .magic, on: justOut), accuracy: 1e-6)
+                       w.mitigated(Kit_H026.outerDamage(rank: n.rank, stats: w.s.units[k].stats), .magic, on: justOut), accuracy: 1e-6)
         // 射程 770 を超える地点は射程の端に丸められる
         var (w2, k2) = world()
         XCTAssertTrue(w2.cast(k2, .ultimate, .point(skillArena + Vec2(1500, 0))))
@@ -696,7 +718,7 @@ final class Kit_H026Tests: XCTestCase {
         let unmarkedFar = addEnemy(&w, dx: 600 + 60, dy: -300, hero: "H004")
         mark(&w, owner: k, on: markedHero)
         let n = numbers(w, k, .ultimate)
-        let burst = n.damage * T.burstRatio
+        let burst = Kit_H026.burstDamage(rank: n.rank, stats: w.s.units[k].stats)
         XCTAssertTrue(w.cast(k, .ultimate, .point(impact)))
         w.run(seconds: 0.9)
         XCTAssertEqual(kit(w, k).euriaBursts, 1, "印済みの敵 1 体につき 1 回")
@@ -743,8 +765,8 @@ final class Kit_H026Tests: XCTestCase {
         for e in [a, b] {
             let hits = events(w, to: e, .skill(.ultimate))
             XCTAssertEqual(hits.count, 3, "\(e)")
-            XCTAssertEqual(hits[1].amount, w.mitigated(n.damage * T.burstRatio, .magic, on: e), accuracy: 1e-6)
-            XCTAssertEqual(hits[2].amount, w.mitigated(n.damage * T.burstRatio, .magic, on: e), accuracy: 1e-6)
+            XCTAssertEqual(hits[1].amount, w.mitigated(Kit_H026.burstDamage(rank: n.rank, stats: w.s.units[k].stats), .magic, on: e), accuracy: 1e-6)
+            XCTAssertEqual(hits[2].amount, w.mitigated(Kit_H026.burstDamage(rank: n.rank, stats: w.s.units[k].stats), .magic, on: e), accuracy: 1e-6)
         }
     }
 
@@ -826,7 +848,7 @@ final class Kit_H026Tests: XCTestCase {
             w.s.units[k].resource = w.s.units[k].stats.maxResource
             let before = w.s.units[k].resource
             XCTAssertTrue(w.cast(k, slot, .unit(w.id(e))), "\(slot)")
-            XCTAssertEqual(before - w.s.units[k].resource, SkillSystem.cost(for: skill(slot), resource: .mana),
+            XCTAssertEqual(before - w.s.units[k].resource, SkillSystem.cost(for: skill(slot), hero: def, rank: 1),
                            accuracy: 1e-9)
             XCTAssertEqual(w.s.units[k].hero!.cooldown(slot), numbers(w, k, slot).cooldown, accuracy: 1e-9)
             XCTAssertFalse(w.cast(k, slot, .unit(w.id(e))), "再使用の窓は無い（CD 中は撃てない）")

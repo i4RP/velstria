@@ -95,44 +95,82 @@ final class Kit_H030Tests: XCTestCase {
                 XCTAssertFalse(filled.isEmpty)
             }
         }
-        // 数値は sim の値と一致する
+        // 数値は sim の値と一致する（公式の文の構造: {base}(+{atkPct}%物理攻撃)）
         let n1 = SkillCatalog.numbers(for: skill(.skill1), hero: def, rank: 1, stats: stats)
+        let base1 = try XCTUnwrap(n1.extras.first { $0.key == "base" }).value
+        let pct1 = try XCTUnwrap(n1.extras.first { $0.key == "atkPct" }).value
         XCTAssertTrue(HeroKits.text(heroID: "H030", slot: .skill1)!
-            .filled(english: false, numbers: n1, targeting: t1).contains("\(Int(n1.damage.rounded()))"))
+            .filled(english: false, numbers: n1, targeting: t1).contains("\(Int(base1))(+\(Int(pct1))%物理攻撃)の物理ダメージ"))
         let n2 = SkillCatalog.numbers(for: skill(.skill2), hero: def, rank: 1, stats: stats)
-        let det = try XCTUnwrap(n2.extras.first { $0.key == "detonation" })
+        let detBase = try XCTUnwrap(n2.extras.first { $0.key == "detBase" })
         XCTAssertTrue(HeroKits.text(heroID: "H030", slot: .skill2)!
-            .filled(english: true, numbers: n2, targeting: t2).contains("\(Int(det.value))"))
+            .filled(english: true, numbers: n2, targeting: t2).contains("\(Int(detBase.value)) (+"))
+        let nu = SkillCatalog.numbers(for: skill(.ultimate), hero: def, rank: 1, stats: stats)
+        let ju = HeroKits.text(heroID: "H030", slot: .ultimate)!.filled(english: false, numbers: nu, targeting: t3)
+        XCTAssertTrue(ju.contains("パッシブ：") && ju.contains("最大180"), ju)
     }
 
-    // MARK: - 数値・ダメージ予算
+    func testTagsFollowTheOfficialSkillTags() {
+        // Fandom: Buff / Burst・Buff / AoE・Slowed / Burst・Buff
+        XCTAssertEqual(HeroKits.tags(heroID: "H030", slot: .passive), ["buff"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H030", slot: .skill1), ["burst", "buff"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H030", slot: .skill2), ["aoe", "slow"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H030", slot: .ultimate), ["burst", "buff"])
+        for slot in SkillSlot.allCases {
+            for tag in HeroKits.tags(heroID: "H030", slot: slot) { XCTAssertTrue(KitTag.all.contains(tag), tag) }
+        }
+    }
 
-    func testSingleTargetDamageStaysNearGenericBudget() throws {
+    // MARK: - 数値（公式の表）
+
+    func testDamageCooldownAndManaFollowTheOfficialTables() throws {
+        // 公式のダメージ: (基礎 + 係数 × 攻撃力 × 0.6) × スロット倍率 × 換算。基礎は Lv1 → Lv6 をランクで線形補間
+        // （スキル1・2 は 4 ランク = rank r → Lv 1 + (r − 1) × 5 / 3。アルティメットの 3 ランクは公式の Lv そのまま）
         for level in [1, 6, 12] {
             let stats = HeroGrowth.baseStats(def: def, level: level)
+            let atk = stats.attack * Balance.skillAttackScalingFactor
+            let cdr = 1 - min(0.4, stats.cooldownReduction)
+            for rank in 1...4 {
+                let lv = 1 + Double(rank - 1) * 5 / 3
+                let n1 = SkillCatalog.numbers(for: skill(.skill1), hero: def, rank: rank, stats: stats)
+                XCTAssertEqual(n1.damage, (200 + (lv - 1) * 40 + 0.8 * atk) * 4.0 * T.s1Scale, accuracy: 1e-6, "S1 r\(rank)")
+                XCTAssertEqual(n1.cooldown, (6.0 - (lv - 1) * 0.4) * cdr, accuracy: 1e-9, "S1 CD r\(rank)")
+                XCTAssertEqual(n1.cost, 40 + (lv - 1) * 5, accuracy: 1e-9, "S1 MP r\(rank)")
+                let n2 = SkillCatalog.numbers(for: skill(.skill2), hero: def, rank: rank, stats: stats)
+                XCTAssertEqual(n2.damage, (170 + (lv - 1) * 30 + 0.65 * atk) * 3.0 * T.s2Scale, accuracy: 1e-6, "S2 r\(rank)")
+                let det = try XCTUnwrap(n2.extras.first { $0.key == "detonation" }).value
+                XCTAssertEqual(det, (100 + (lv - 1) * 20 + 0.35 * atk) * 3.0 * T.s2Scale, accuracy: 1e-6, "刻印 r\(rank)")
+                XCTAssertEqual(n2.cooldown, (7.5 - (lv - 1) * 0.2) * cdr, accuracy: 1e-9, "S2 CD r\(rank)")
+                XCTAssertEqual(n2.cost, 65 + (lv - 1) * 5, accuracy: 1e-9, "S2 MP r\(rank)")
+                XCTAssertEqual(SkillSystem.cost(for: skill(.skill2), hero: def, rank: rank), n2.cost, accuracy: 1e-9)
+                XCTAssertEqual(n1.resource, .mana)
+            }
+            for (rank, b, cd, mp) in [(1, 500.0, 37.0, 130.0), (2, 650, 32, 150), (3, 800, 27, 170)] {
+                let n = SkillCatalog.numbers(for: skill(.ultimate), hero: def, rank: rank, stats: stats)
+                XCTAssertEqual(n.damage, (b + 1.5 * atk) * 2.6 * T.ultScale, accuracy: 1e-6, "ULT r\(rank)")
+                XCTAssertEqual(n.cooldown, cd * cdr, accuracy: 1e-9, "ULT CD r\(rank)")
+                XCTAssertEqual(n.cost, mp, accuracy: 1e-9, "ULT MP r\(rank)")
+            }
+            // 1 スロットの火力は汎用の値から大きく外れない（ダメージの絶対値は Velstria の尺度）
             for slot in SkillSlot.actives {
-                let sk = skill(slot)
                 for rank in 1...slot.maxRank {
-                    let base = SkillCatalog.genericNumbers(for: sk, hero: def, rank: rank, stats: stats)
-                    let n = SkillCatalog.numbers(for: sk, hero: def, rank: rank, stats: stats)
+                    let base = SkillCatalog.genericNumbers(for: skill(slot), hero: def, rank: rank, stats: stats)
+                    let n = SkillCatalog.numbers(for: skill(slot), hero: def, rank: rank, stats: stats)
                     // 汎用の遠隔 S2 は「ブリンク + 強化攻撃」で半分になっているので、元のスキル値を基準にする
-                    let reference = slot == .skill2 ? base.damage / Balance.Skills.empowerRatio
-                        : base.damage * Double(base.hits)
-                    var total = n.damage * Double(n.hits)
+                    let reference = slot == .skill2 ? base.damage / Balance.Skills.empowerRatio : base.damage
+                    var total = n.damage
                     if slot == .skill2 { total += try XCTUnwrap(n.extras.first { $0.key == "detonation" }).value }
-                    let ratio = total / reference
-                    XCTAssertGreaterThanOrEqual(ratio, 0.8, "\(slot) rank \(rank) Lv\(level)")
-                    XCTAssertLessThanOrEqual(ratio, 1.3, "\(slot) rank \(rank) Lv\(level)")
-                    // CD はライラの秒数（ランクで線形補間）、コストは汎用のまま（SkillSystem が定義から引く）
-                    let (a, b): (Double, Double) = slot == .skill1 ? (6, 4) : slot == .skill2 ? (7.5, 6.5) : (37, 27)
-                    let mlbb = a + (b - a) * Double(rank - 1) / Double(slot.maxRank - 1)
-                    XCTAssertEqual(n.cooldown, mlbb * (1 - min(0.4, stats.cooldownReduction)), accuracy: 1e-9,
-                                   "\(slot) rank \(rank)")
-                    XCTAssertEqual(n.cost, base.cost)
-                    XCTAssertEqual(n.resource, .mana)
+                    XCTAssertGreaterThanOrEqual(total / reference, 0.7, "\(slot) rank \(rank) Lv\(level)")
+                    XCTAssertLessThanOrEqual(total / reference, 1.4, "\(slot) rank \(rank) Lv\(level)")
                 }
             }
         }
+        // 説明文の {base}・{atkPct} は sim の式に換算した値
+        let st = HeroGrowth.baseStats(def: def, level: 1)
+        let n1 = SkillCatalog.numbers(for: skill(.skill1), hero: def, rank: 4, stats: st)
+        XCTAssertEqual(n1.extras.first { $0.key == "base" }?.value, (400 * 4.0 * T.s1Scale).rounded())
+        XCTAssertEqual(n1.extras.first { $0.key == "atkPct" }?.value, (0.8 * 0.6 * 4.0 * T.s1Scale * 100).rounded())
+        XCTAssertEqual(SkillCatalog.numbers(for: skill(.passive), hero: def, rank: 1, stats: st).cost, 0)
         // ランクが上がると強くなる
         let stats = HeroGrowth.baseStats(def: def, level: 6)
         for slot in SkillSlot.actives {
@@ -592,7 +630,7 @@ final class Kit_H030Tests: XCTestCase {
             if slot == .skill1 { XCTAssertTrue(ja.contains("アルティメット"), ja) }
             if slot == .skill2 {
                 XCTAssertTrue(ja.contains("射程の端で爆発"), ja)
-                XCTAssertTrue(ja.contains("30%の減速"), ja)
+                XCTAssertTrue(ja.contains("移動速度を30%低下"), ja)
             }
         }
     }
@@ -853,15 +891,16 @@ final class Kit_H030Tests: XCTestCase {
         XCTAssertGreaterThan(p.damage(to: e), 0)
     }
 
-    func testManaCostFollowsTheGenericSkillDefinitionsAndCooldownStartsOnCast() {
+    func testManaCostFollowsTheOfficialTableAndCooldownStartsOnCast() {
         var w = SkillWorld()
         let k = addRaina(&w)
-        for slot in SkillSlot.actives {
-            let sk = skill(slot)
+        for (slot, mp) in [(SkillSlot.skill1, 40.0), (.skill2, 65), (.ultimate, 130)] {
             let n = w.numbers(k, slot)
+            XCTAssertEqual(n.cost, mp, "公式のマナ（ランク 1）")
+            XCTAssertNotEqual(skill(slot).cost, mp, "マスターのコストではない")
             let before = w.s.units[k].resource
             XCTAssertTrue(w.cast(k, slot, .direction(Self.east)))
-            XCTAssertEqual(before - w.s.units[k].resource, sk.cost, accuracy: 1e-9)
+            XCTAssertEqual(before - w.s.units[k].resource, mp, accuracy: 1e-9)
             XCTAssertEqual(w.s.units[k].hero!.cooldown(slot), n.cooldown, accuracy: 1e-9)
             XCTAssertFalse(w.cast(k, slot, .direction(Self.east)), "CD 中")
         }
