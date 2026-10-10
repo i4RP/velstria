@@ -2,9 +2,9 @@ import Foundation
 
 // 担当: kit-H025（docs/SKILL_KITS.md / docs/NEW_HEROES.md / docs/kits/Miya.md）
 // H025 月弦のルミナ = MLBB ミヤの Velstria 版（レンジャー・遠隔 550・マナ）。調査: docs/kits/Miya.md、対応表: 同ファイル末尾。
-// 数値の正は Fandom の現行の表（docs/kits/Miya.md の「公式（Fandom 現行）の数値」）。
+// 数値の正は MLBB の日本語クライアントのスキル詳細（docs/kits/Miya.md の「公式（日本語クライアント）の数値」。Fandom と違うところはこちらが優先）。
 //   パッシブ 月環の導き  — 通常攻撃が命中するたびに攻撃速度 +5%（4 秒・最大 5 段）。最大のあいだは通常攻撃のたびに「月影」が
-//                          30(+25% 物理攻撃) の形の物理ダメージを追って与える（換算 × shadowScale）。ロールの「4 発毎の確定会心」は置き換え。
+//                          25(+20% 物理攻撃) の形の物理ダメージを追って与える（換算 × shadowScale）。ロールの「4 発毎の確定会心」は置き換え。
 //   スキル1 月弦分矢     — 自己強化 4 → 9 秒（ランクで伸びる）。通常攻撃が主矢 + 副矢 2 本になる（主矢 = 通常攻撃 + 基礎 10 → 35 の換算、
 //                          周囲の敵 2 体へ主矢の 30%）。効果中は再使用できない（CD 11 秒）。
 //   スキル2 月蝕の矢     — 指定地点（遅延あり）。半径内の敵に 270 → 420(+45%) の形の物理ダメージと 1.2 秒の移動不能。着弾点から 6 本の小さな矢が
@@ -31,12 +31,11 @@ enum LuminaTuning {
     /// 全員との総当たり 83%）に偏ったので MLBB の値へ戻した。
     static let attackSpeedPerStack: Double = 0.05
     static let stackDuration: Double = 4
-    /// 月影: 公式は 30(+25% 物理攻撃)。形（固定値と攻撃力の比）はそのまま、Velstria の火力の尺度へ shadowScale 倍する
-    /// （ミヤは攻撃力 115 に対し約 0.5 倍の追撃。ルミナは × 2.2 で 66 + 攻撃力 55% = 攻撃力 138〜200 に対し約 1 倍。
-    /// 以前の調整値 70 + 40% とほぼ同じ大きさ。2.0 / 2.2 / 2.5 を KitBalanceTests で比べて Lv1 がレンジャー中央値に近い 2.2）。
-    static let shadowBase: Double = 30
-    static let shadowAttackRatio: Double = 0.25
-    static let shadowScale: Double = 2.2
+    /// 月影: 公式（日本語クライアント）は 25(+20% 物理攻撃)（Fandom の 30(+25%) は誤り）。形（固定値と攻撃力の比）はそのまま、
+    /// Velstria の火力の尺度へ shadowScale 倍する（2.6 で 65 + 攻撃力 52%。以前は Fandom の 30(+25%) × 2.2 = 66 + 55%。25(+20%) × 2.2 では Lv1 がレンジャー中央値 −22 pt になったので、2.6 / 2.8 / 3.2 / 3.6 を KitBalanceTests で比べて 2.6）。
+    static let shadowBase: Double = 25
+    static let shadowAttackRatio: Double = 0.20
+    static let shadowScale: Double = 2.6
     static let shadowFlat: Double = shadowBase * shadowScale
     static let shadowRatio: Double = shadowAttackRatio * shadowScale
 
@@ -60,8 +59,8 @@ enum LuminaTuning {
     static let s1Reach: Double = 600
     /// MLBB の CD 11 秒（全ランク固定）。
     static let s1Cooldown = (11.0, 11.0)
-    /// 公式のマナ 50 / 55 / 60 / 65 / 70 / 75。
-    static let s1Cost = (50.0, 75.0)
+    /// 公式（日本語クライアント）のマナ 60 / 65 / 70 / 75 / 80 / 85（Fandom の 50 → 75 は誤り）。
+    static let s1Cost = (60.0, 85.0)
 
     // MARK: S2（月蝕の矢）
     static let s2Radius: Double = 170
@@ -82,8 +81,8 @@ enum LuminaTuning {
     static let s2MinorBase = (40.0, 105.0)
     static let s2MinorAttackRatio: Double = 0.20
     /// 着弾・小さな矢に共通の換算（スロット倍率 3.0 に掛ける）。0.39 で着弾がランク 1 の汎用 S2 の元の値の 0.66 倍（以前の比）、
-    /// 0.30 / 0.34 / 0.39 を KitBalanceTests で比べ、Lv12 がレンジャー中央値に近い 0.34。
-    static let s2Scale: Double = 0.34
+    /// 0.30 / 0.34 / 0.39 を KitBalanceTests で比べ、0.34。月影を 2.6 に上げた（日本語クライアントの 25(+20%)）ときに Lv12 が +13 pt になったので 0.30 に下げた。
+    static let s2Scale: Double = 0.30
     /// MLBB の CD 8 秒（全ランク固定）。以前はマスターの CD（8.7 秒からランクで 6% ずつ短縮）のままだった。
     static let s2Cooldown = (8.0, 8.0)
     /// 公式のマナ 80 / 90 / 100 / 110 / 120 / 130。
@@ -252,7 +251,7 @@ struct Kit_H025: HeroKit {
         return n
     }
 
-    /// ランクごとのマナ消費（公式: スキル1 = 50 → 75、スキル2 = 80 → 130、アルティメット = 120 / 145 / 170）。
+    /// ランクごとのマナ消費（公式: スキル1 = 60 → 85、スキル2 = 80 → 130（日本語クライアントの画面に無いので Fandom の値）、アルティメット = 120 / 145 / 170）。
     func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double {
         let table: (Double, Double)
         switch slot {
@@ -264,47 +263,49 @@ struct Kit_H025: HeroKit {
         return HeroKits.resourceCost(Self.lerp(table.0, table.1, rank: rank, maxRank: slot.maxRank), hero: hero)
     }
 
-    /// 説明文は公式（Fandom の説明文）の文の構造に合わせる。数値は {トークン} で sim から入れる
-    /// （{base}(+{atkPct}%物理攻撃) は sim の式に換算した値）。
+    /// 説明文は公式（日本語クライアント）の文の構造に合わせる。数値は {トークン} で sim から入れる
+    /// （{base}(+{atkPct}%物理攻撃) は sim の式に換算した値）。名前は master のもの（スイフト = 月環の導き、ムーンライトシャドウ = 月影）。
+    /// 「攻撃効果の 20% / 30% を引き継ぐ」は sim に無い（月影・副矢は命中時効果を持たない）ので書かない。
     func text(slot: SkillSlot) -> KitText? {
         switch slot {
         case .passive:
             return KitText(
-                ja: "通常攻撃が敵に命中するたびに、{stackDuration}秒間 攻撃速度が{attackSpeedPerStack}%上昇する。最大\(T.maxStacks)スタック（{maxSpeed}%）。\n\n"
-                    + "最大スタックに達すると、通常攻撃のたびに「月影」を呼び出し、{shadowFlat}(+{shadowRatio}%物理攻撃)の物理ダメージを与える。",
-                en: "Each time a basic attack hits a target, gain {attackSpeedPerStack}% attack speed for {stackDuration}s. "
-                    + "Stacks up to \(T.maxStacks) times ({maxSpeed}%).\n\nAt full stacks, each basic attack summons a Moonlight "
-                    + "Shadow that deals {shadowFlat} (+{shadowRatio}% Physical Attack) physical damage.",
+                ja: "通常攻撃が対象に命中するたび、{stackDuration}秒間、攻撃速度が{attackSpeedPerStack}%上昇する（最大\(T.maxStacks)スタック・合計{maxSpeed}%）。\n\n"
+                    + "最大スタック時、通常攻撃のたびに「月影」を召喚して対象を攻撃し、{shadowFlat}(+{shadowRatio}%物理攻撃)の物理ダメージを与える。",
+                en: "Each time a basic attack hits a target, attack speed increases by {attackSpeedPerStack}% for {stackDuration}s "
+                    + "(up to \(T.maxStacks) stacks, {maxSpeed}% in total).\n\nAt max stacks, each basic attack summons a Moonlight "
+                    + "Shadow to attack the target, dealing {shadowFlat} (+{shadowRatio}% Physical Attack) physical damage.",
                 tags: [KitTag.buff])
         case .skill1:
             return KitText(
-                ja: "通常攻撃のたびに追加の矢を2本放ち、対象の敵に{base}(+100%物理攻撃)の物理ダメージを与え、"
-                    + "周囲（{splashRadius}以内）の敵{splashCount}体に{splashPercent}%のダメージを与える。この効果は{duration}秒間続く。\n\n"
-                    + "クールダウンは発動した時点から数える。効果中は再使用できない。",
-                en: "Each basic attack fires two extra arrows, dealing {base} (+100% Physical Attack) physical damage to the "
-                    + "target and {splashPercent}% damage to {splashCount} nearby enemies (within {splashRadius}). Lasts "
-                    + "{duration}s.\n\nThe cooldown starts on cast. Cannot be cast again until the effect ends.",
+                ja: "通常攻撃時、追加で分裂の矢を{splashCount}本放つ。メインターゲットに{base}(+100%物理攻撃)の物理ダメージ、"
+                    + "その他の対象（メインターゲットの周囲{splashRadius}以内で近い{splashCount}体）に{splashPercent}%のダメージを与える。\n\n"
+                    + "この効果は{duration}秒間持続する。クールダウンは発動した時点から数える。効果中は再使用できない。",
+                en: "Basic attacks fire {splashCount} extra split arrows, dealing {base} (+100% Physical Attack) physical damage "
+                    + "to the main target and {splashPercent}% damage to other targets (the {splashCount} nearest enemies within "
+                    + "{splashRadius} of the main target).\n\nThis effect lasts {duration}s. The cooldown starts on cast. Cannot be "
+                    + "cast again until the effect ends.",
                 tags: [KitTag.buff, KitTag.aoe])
         case .skill2:
             return KitText(
-                ja: "指定範囲に強化された矢を放ち（着弾まで\(Self.seconds(T.s2Delay))秒）、範囲（半径{radius}）の敵に{base}(+{atkPct}%物理攻撃)の"
-                    + "物理ダメージを与え、{root}秒間 移動不能にする（攻撃とスキルは使える）。\n\n"
-                    + "その後、矢は\(T.s2Arrows)本の小さな矢に分かれて散り、それぞれ最初に命中した敵に{minorBase}(+{minorPct}%物理攻撃)の"
-                    + "物理ダメージを与え、{slowDuration}秒間 移動速度を{slowPercent}%低下させる。",
-                en: "Launches an empowered arrow at the target area (lands after \(Self.seconds(T.s2Delay))s), dealing {base} "
-                    + "(+{atkPct}% Physical Attack) physical damage to enemies within (radius {radius}) and immobilizing them "
-                    + "for {root}s (they can still attack and cast).\n\nThe arrow then splits into \(T.s2Arrows) scattering "
-                    + "minor arrows, each dealing {minorBase} (+{minorPct}% Physical Attack) physical damage to the first enemy "
-                    + "hit and slowing them by {slowPercent}% for {slowDuration}s.",
+                ja: "指定エリアに月蝕の力を呼び起こし（着弾まで\(Self.seconds(T.s2Delay))秒）、範囲内（半径{radius}）の敵に{base}(+{atkPct}%物理攻撃)の"
+                    + "物理ダメージを与え、{root}秒間バインド状態にする（移動できないが、攻撃とスキルは使える）。\n\n"
+                    + "その後、攻撃は\(T.s2Arrows)本の矢に分裂して様々な方向へ飛んでいく（等間隔に散る）。各矢は最初に命中した敵に{minorBase}(+{minorPct}%物理攻撃)の"
+                    + "物理ダメージを与え、命中した敵の移動速度を{slowDuration}秒間{slowPercent}%低下させる。",
+                en: "Calls down the power of the eclipse on the target area (lands after \(Self.seconds(T.s2Delay))s), dealing {base} "
+                    + "(+{atkPct}% Physical Attack) physical damage to enemies within (radius {radius}) and binding them "
+                    + "for {root}s (they cannot move but can still attack and cast).\n\nThe attack then splits into \(T.s2Arrows) scattering "
+                    + "arrows flying in different directions. Each arrow deals {minorBase} (+{minorPct}% Physical Attack) physical damage "
+                    + "to the first enemy hit and reduces its movement speed by {slowPercent}% for {slowDuration}s.",
                 tags: [KitTag.disrupt, KitTag.aoe])
         case .ultimate:
             return KitText(
-                ja: "自身の弱体をすべて解除して姿を隠し、移動速度が{speedPercent}%上昇する。この状態は{duration}秒間、"
-                    + "または攻撃（通常攻撃とアルティメット以外のスキル）を行うまで続く。\n\n状態を抜けると、月環の導きが最大スタック（{stacks}）になる。",
-                en: "Removes all debuffs on you and conceals you, gaining {speedPercent}% extra movement speed. Lasts {duration}s "
-                    + "or until you attack (basic attacks and non-Ultimate skills).\n\nOn leaving the state, gain full stacks "
-                    + "({stacks}) of Moonring Guidance.",
-                tags: [KitTag.buff, KitTag.mobility])
+                ja: "すべてのデバフを解除し、隠密状態になる。最大{duration}秒間、移動速度が{speedPercent}%上昇する"
+                    + "（攻撃すると状態が早期終了する。攻撃 = 通常攻撃とアルティメット以外のスキル）。\n\n隠密状態が終了すると、最大スタック（{stacks}）の月環の導きを獲得する。",
+                en: "Removes all debuffs and enters concealment. Movement speed increases by {speedPercent}% for up to {duration}s "
+                    + "(attacking ends the state early: basic attacks and non-Ultimate skills).\n\nWhen concealment ends, gain max "
+                    + "stacks ({stacks}) of Moonring Guidance.",
+                tags: [KitTag.conceal, KitTag.cleanse])
         }
     }
 

@@ -219,8 +219,8 @@ final class Kit_H027Tests: XCTestCase {
         XCTAssertEqual(before - v.s.units[j].resource, 80 * e, accuracy: 1e-9)
         // タグ（公式: パッシブ = バフ・回復、S1 = CC・ダメージ、S2 = 移動（ブリンク）・デバフ、ULT = 加速・バフ）
         XCTAssertEqual(HeroKits.tags(heroID: "H027", slot: .passive), ["buff", "heal"])
-        XCTAssertEqual(HeroKits.tags(heroID: "H027", slot: .skill1), ["control", "burst"])
-        XCTAssertEqual(HeroKits.tags(heroID: "H027", slot: .skill2), ["mobility", "disrupt"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H027", slot: .skill1), ["control", "damage"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H027", slot: .skill2), ["mobility", "debuff"])
         XCTAssertEqual(HeroKits.tags(heroID: "H027", slot: .ultimate), ["mobility", "buff"])
         for slot in SkillSlot.allCases {
             for tag in HeroKits.tags(heroID: "H027", slot: slot) { XCTAssertTrue(KitTag.all.contains(tag), tag) }

@@ -138,7 +138,7 @@ final class Kit_H026Tests: XCTestCase {
         XCTAssertTrue(ja(.skill1).contains("\(b1)(+\(p1)%魔法攻撃)の魔法ダメージ"), ja(.skill1))
         XCTAssertEqual(Double(b1), n1.damage.rounded(), "魔力 0")
         XCTAssertTrue(ja(.skill1).contains("40%"), ja(.skill1))
-        XCTAssertTrue(ja(.skill1).contains("クールダウンが50%短縮"), ja(.skill1))
+        XCTAssertTrue(ja(.skill1).contains("クールダウンを50%短縮"), ja(.skill1))
         let n2 = numbers(w, k, .skill2)
         let b2 = Int(try XCTUnwrap(n2.extras.first { $0.key == "base" }).value)
         XCTAssertTrue(ja(.skill2).contains("\(b2)(+"), ja(.skill2))
@@ -151,10 +151,10 @@ final class Kit_H026Tests: XCTestCase {
     }
 
     func testTagsFollowTheOfficialSkillTags() {
-        // Fandom: Buff / AOE / CC・Damage / Burst
+        // 日本語クライアント: バフ / 範囲技 / 妨害・攻撃 / 爆発力
         XCTAssertEqual(HeroKits.tags(heroID: "H026", slot: .passive), ["buff"])
         XCTAssertEqual(HeroKits.tags(heroID: "H026", slot: .skill1), ["aoe"])
-        XCTAssertEqual(HeroKits.tags(heroID: "H026", slot: .skill2), ["disrupt", "burst"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H026", slot: .skill2), ["disrupt", "damage"])
         XCTAssertEqual(HeroKits.tags(heroID: "H026", slot: .ultimate), ["burst"])
         for slot in SkillSlot.allCases {
             for tag in HeroKits.tags(heroID: "H026", slot: slot) { XCTAssertTrue(KitTag.all.contains(tag), tag) }
@@ -178,15 +178,15 @@ final class Kit_H026Tests: XCTestCase {
                                    "S1 Lv\(level) r\(rank)")
                     XCTAssertEqual(Kit_H026.dotDamage(rank: rank, stats: stats), (10 + (lv - 1) * 2 + 0.04 * ap) * 4.0 * T.s1Scale,
                                    accuracy: 1e-6, "継続ダメージ")
-                    XCTAssertEqual(n1.cost, 50 + (lv - 1) * 4, accuracy: 1e-9, "S1 MP 50 → 70")
+                    XCTAssertEqual(n1.cost, 40 + (lv - 1) * 5, accuracy: 1e-9, "S1 MP 40 → 65（日本語クライアント）")
                     let n2 = SkillCatalog.numbers(for: skill(.skill2), hero: def, rank: rank, stats: stats)
                     XCTAssertEqual(n2.damage, (300 + (lv - 1) * 20 + 0.5 * ap) * 3.0 * T.s2Scale, accuracy: 1e-6,
                                    "S2 Lv\(level) r\(rank)")
                     XCTAssertEqual(n2.extras[0].value, 10 + (lv - 1) * 3, accuracy: 1e-9, "魔防ダウン 10 → 25")
-                    XCTAssertEqual(n2.cost, 70 + (lv - 1) * 5, accuracy: 1e-9, "S2 MP 70 → 95")
+                    XCTAssertEqual(n2.cost, 80 + (lv - 1) * 5, accuracy: 1e-9, "S2 MP 80 → 105（日本語クライアント）")
                     XCTAssertEqual(SkillSystem.cost(for: skill(.skill2), hero: def, rank: rank), n2.cost, accuracy: 1e-9)
                 }
-                for (rank, c, o, b, mp) in [(1, 600.0, 300.0, 300.0, 130.0), (2, 800, 400, 425, 160), (3, 1000, 500, 550, 190)] {
+                for (rank, c, o, b, mp) in [(1, 600.0, 300.0, 330.0, 130.0), (2, 800, 400, 440, 160), (3, 1000, 500, 550, 190)] {
                     let n = SkillCatalog.numbers(for: skill(.ultimate), hero: def, rank: rank, stats: stats)
                     XCTAssertEqual(n.damage, (c + 1.6 * ap) * 2.6 * T.ultScale, accuracy: 1e-6, "ULT 中心 r\(rank)")
                     XCTAssertEqual(Kit_H026.outerDamage(rank: rank, stats: stats), (o + 1.0 * ap) * 2.6 * T.ultScale,
@@ -205,7 +205,11 @@ final class Kit_H026Tests: XCTestCase {
             let lo = SkillCatalog.numbers(for: skill(slot), hero: def, rank: 1, stats: stats)
             let hi = SkillCatalog.numbers(for: skill(slot), hero: def, rank: slot.maxRank, stats: stats)
             XCTAssertGreaterThan(hi.damage, lo.damage, "\(slot)")
-            XCTAssertLessThan(hi.cooldown, lo.cooldown, "\(slot)")
+            if slot == .skill1 {
+                XCTAssertEqual(hi.cooldown, lo.cooldown, accuracy: 1e-9, "S1 は全 Lv 5.0 秒（日本語クライアント）")
+            } else {
+                XCTAssertLessThan(hi.cooldown, lo.cooldown, "\(slot)")
+            }
             XCTAssertGreaterThan(hi.cost, lo.cost, "公式のマナはランクで増える")
             XCTAssertEqual(hi.resource, .mana)
         }
@@ -216,7 +220,7 @@ final class Kit_H026Tests: XCTestCase {
         }
         for rank in 1...4 {
             XCTAssertEqual(SkillCatalog.numbers(for: skill(.skill1), hero: def, rank: rank, stats: stats).cooldown,
-                           cd(7, 5, rank: rank, maxRank: 4), accuracy: 1e-9)
+                           cd(5, 5, rank: rank, maxRank: 4), accuracy: 1e-9)
             XCTAssertEqual(SkillCatalog.numbers(for: skill(.skill2), hero: def, rank: rank, stats: stats).cooldown,
                            cd(11, 8.5, rank: rank, maxRank: 4), accuracy: 1e-9)
         }
@@ -716,6 +720,10 @@ final class Kit_H026Tests: XCTestCase {
         let markedHero = addEnemy(&w, dx: 600 + 60)
         let neighbor = addEnemy(&w, dx: 600 + 60, dy: 150, hero: "H003")
         let unmarkedFar = addEnemy(&w, dx: 600 + 60, dy: -300, hero: "H004")
+        // 炸裂の範囲内のミニオン（超伝導が付かない）: 大雷には当たるが炸裂には当たらない
+        let minion = w.addMinion(team: .red, at: skillArena + Vec2(600 + 60, -100))
+        w.s.units[minion].stats.maxHP = 1e6
+        w.s.units[minion].hp = 1e6
         mark(&w, owner: k, on: markedHero)
         let n = numbers(w, k, .ultimate)
         let burst = Kit_H026.burstDamage(rank: n.rank, stats: w.s.units[k].stats)
@@ -733,10 +741,13 @@ final class Kit_H026Tests: XCTestCase {
         let hits = events(w, to: markedHero, .skill(.ultimate))
         XCTAssertEqual(hits.count, 2)
         XCTAssertEqual(hits[1].amount, w.mitigated(burst, .magic, on: markedHero), accuracy: 1e-6)
-        // 近くの敵も巻き込む（炸裂は対象を中心にした範囲）
+        // 近くの超伝導の敵も巻き込む（炸裂は対象を中心にした範囲の超伝導の対象に当たる。隣の敵は大雷で印が付いた）
         let nh = events(w, to: neighbor, .skill(.ultimate))
         XCTAssertEqual(nh.count, 2)
         XCTAssertEqual(nh[1].amount, w.mitigated(burst, .magic, on: neighbor), accuracy: 1e-6)
+        // 超伝導の無い敵（ミニオン）は炸裂の範囲内でも当たらない（公式「超電導の対象に〜の魔法ダメージ」）
+        XCTAssertEqual(events(w, to: minion, .skill(.ultimate)).count, 1, "大雷のみ")
+        XCTAssertLessThan(w.s.units[minion].pos.distance(to: w.s.units[markedHero].pos), T.burstRadius)
         // 遠い（印の無い）敵は大雷のみ（外側 or 圏外）
         XCTAssertLessThanOrEqual(events(w, to: unmarkedFar, .skill(.ultimate)).count, 1)
         // 大雷で印が付いた近くの敵は、次の奥義で炸裂の対象になる

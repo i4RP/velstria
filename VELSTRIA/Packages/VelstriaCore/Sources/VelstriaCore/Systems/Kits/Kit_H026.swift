@@ -74,7 +74,7 @@ extension KitState {
 /// エウリアの調整値（docs/kits/Eudora.md の数値を Velstria の単位・TTK に合わせたもの）。
 enum EuriaTuning {
     // MARK: パッシブ（超伝導）
-    /// 印の持続。調査では資料が割れている（Fandom 5 秒 / mlbbhub 3 秒）ので Fandom に従う。
+    /// 印の持続。日本語クライアント（2026-10-10 受領の画面）の 5 秒（Liquipedia・mlbbhub の 3 秒は古い）。
     static let markDuration: Double = 5
     static let markName = "sc"
 
@@ -123,13 +123,14 @@ enum EuriaTuning {
     static let shredTag = KitTags.buff("H026", "shred")
 
     // MARK: 奥義（Thunder's Wrath）
-    /// 公式: 中心 600 / 800 / 1000（+160% 魔法攻撃）、外側 300 / 400 / 500（+100%）、Thunderburst 300 / 425 / 550（+110%）。
+    /// 公式（日本語クライアント）: 中心 600 / 800 / 1000（+160% 魔法攻撃）、外側 300 / 400 / 500（+100%）、
+    /// サンダーバースト 330 / 440 / 550（+110%。Fandom の 300 / 425 / 550 は誤り）。
     /// 3 つとも換算は ultScale（アルティメットの 3 ランクは公式の Lv そのまま）。
     static let ultCenterBase = (600.0, 1000.0)
     static let ultCenterPowerRatio: Double = 1.6
     static let ultOuterBase = (300.0, 500.0)
     static let ultOuterPowerRatio: Double = 1.0
-    static let burstBase = (300.0, 550.0)
+    static let burstBase = (330.0, 550.0)
     static let burstPowerRatio: Double = 1.1
     /// 中心 437 / 582 / 728、炸裂 218 / 309 / 400。0.49 で中心が以前の「汎用の奥義 × 0.82」と同じだが、公式の炸裂（中心の 0.5〜0.55 倍。以前は 0.40 倍）
     /// と終わりの一撃の 50% 短縮で Lv6 / 12 がアルカニスト中央値の +25 / +38 pt になったので、奥義を下げて合わせた（0.49 / 0.38 / 0.32 / 0.30 / 0.28 を比較）。
@@ -141,13 +142,15 @@ enum EuriaTuning {
     static let burstDelay: Double = 0.5
 
     // MARK: クールダウン（MLBB の秒数そのまま。ランク間を線形補間し、CD 短縮を掛ける。全体倍率 Balance.Skills.cooldownScale は 1.0）
-    static let s1Cooldown = (7.0, 5.0)
+    /// 日本語クライアント: S1 は全 Lv 5.0 秒（Fandom の 7.0 → 5.0 は誤り）、S2 11.0 → 8.5、奥義 32 / 29 / 26。
+    static let s1Cooldown = (5.0, 5.0)
     static let s2Cooldown = (11.0, 8.5)
     static let ultCooldown = (32.0, 26.0)
 
-    // MARK: マナ（公式の表をランクで線形補間。HeroKit.cost。以前はマスターの 62 / 74 / 118 のままだった）
-    static let s1Cost = (50.0, 70.0)
-    static let s2Cost = (70.0, 95.0)
+    // MARK: マナ（日本語クライアントの表をランクで線形補間。HeroKit.cost）
+    /// S1 40 → 65、S2 80 → 105、奥義 130 / 160 / 190（Fandom の S1 50 → 70・S2 70 → 95 は誤り。その前はマスターの 62 / 74 / 118）。
+    static let s1Cost = (40.0, 65.0)
+    static let s2Cost = (80.0, 105.0)
     static let ultCost = (130.0, 190.0)
 
     /// HitPayload.kitEvent
@@ -164,6 +167,8 @@ enum EuriaTuning {
     enum Code {
         static let dot = 1
         static let end = 2
+        /// サンダーバースト（遅れて、対象を中心の範囲の「超伝導の敵」にだけダメージ）
+        static let burst = 3
     }
 }
 
@@ -270,7 +275,7 @@ struct Kit_H026: HeroKit {
         return n
     }
 
-    /// ランクごとのマナ消費（公式: スキル1 = 50 → 70、スキル2 = 70 → 95、アルティメット = 130 / 160 / 190）。
+    /// ランクごとのマナ消費（公式 = 日本語クライアント: スキル1 = 40 → 65、スキル2 = 80 → 105、アルティメット = 130 / 160 / 190）。
     func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double {
         let table: (Double, Double)
         switch slot {
@@ -282,15 +287,16 @@ struct Kit_H026: HeroKit {
         return HeroKits.resourceCost(Self.lerp(table.0, table.1, rank: rank, maxRank: slot.maxRank), hero: hero)
     }
 
-    /// 説明文は公式（Fandom の説明文）の文の構造に合わせる。数値は {トークン} で sim から入れる
-    /// （{base}(+{mpPct}%魔法攻撃) は sim の式に換算した値）。
+    /// 説明文は公式（日本語クライアント。2026-10-10 受領の画面）の文の構造に合わせる。数値は {トークン} で sim から入れる
+    /// （{base}(+{mpPct}%魔法攻撃) は sim の式に換算した値）。名前は master のもの（超電導状態 = 超伝導、フォークライトニング = 分岐雷、
+    /// エレキアロー = 雷球、サンダーストローク = 九天雷鳴、サンダーバースト = 雷の炸裂）。
     func text(slot: SkillSlot) -> KitText? {
         switch slot {
         case .passive:
             return KitText(
-                ja: "スキルが命中したミニオン以外のユニットに、{markDuration}秒間「超伝導」を付与する。超伝導の敵にスキルを命中させると、"
-                    + "それぞれのスキルの追加効果が発生する（スキル1 分岐雷は雷の鎖、スキル2 雷球は周囲への広がりとスタン、"
-                    + "アルティメット 九天雷鳴は雷の炸裂）。\n\n超伝導そのものはダメージを増やさず、追加効果で消費されない。",
+                ja: "スキルがミニオン以外のユニットに命中すると、{markDuration}秒間「超伝導」を付与する。超伝導の影響を受けている敵に対しては追加効果が発動する"
+                    + "（スキル1 分岐雷は雷の鎖、スキル2 雷球は周囲への広がりとスタン、アルティメット 九天雷鳴は雷の炸裂）。\n\n"
+                    + "超伝導そのものはダメージを増やさず、追加効果で消費されない。",
                 en: "Skills inflict Superconductor for {markDuration}s on non-minion units hit, and trigger additional "
                     + "effects against enemies affected by Superconductor (Skill 1 Forked Bolt: a lightning chain, Skill 2 "
                     + "Thunder Orb: spreads and stuns nearby enemies, Ultimate Nine Heavens Thunder: a Thunderburst)."
@@ -298,10 +304,10 @@ struct Kit_H026: HeroKit {
                 tags: [KitTag.buff])
         case .skill1:
             return KitText(
-                ja: "扇形の範囲に分岐雷を放ち、範囲内の敵に{base}(+{mpPct}%魔法攻撃)の魔法ダメージを与える（ミニオンには200%）。\n\n"
-                    + "超伝導の敵に命中すると、その敵と雷の鎖を結び（同じ敵には{lockout}秒に1回まで）、鎖の間（最大{chainDuration}秒）"
-                    + "移動速度が{chainSpeed}%上昇する。\n\n雷の鎖は継続して{dotBase}(+{dotPct}%魔法攻撃)の魔法ダメージを与え、"
-                    + "終わる時に{base}(+{mpPct}%魔法攻撃)の追加の魔法ダメージを与える。この一撃が命中すると、このスキルのクールダウンが{refund}%短縮される。",
+                ja: "扇状の範囲に分岐雷を放ち、{base}(+{mpPct}%魔法攻撃)の魔法ダメージを与える（ミニオンには200%）。\n\n"
+                    + "超伝導の対象に命中すると、対象との間に雷の鎖を形成し（同じ対象には{lockout}秒に1回まで）、鎖が存在する間、"
+                    + "移動速度が{chainSpeed}%上昇する（最大{chainDuration}秒）。\n\n雷の鎖は継続的に{dotBase}(+{dotPct}%魔法攻撃)の魔法ダメージを与え、"
+                    + "終了時に追加で{base}(+{mpPct}%魔法攻撃)の魔法ダメージを与える。この追加ダメージが命中した場合、このスキルのクールダウンを{refund}%短縮する。",
                 en: "Casts Forked Bolt in a fan-shaped area, dealing {base} (+{mpPct}% Magic Power) magic damage to enemies "
                     + "within (200% against minions).\n\nWhen it hits a target affected by Superconductor, Euria forms a "
                     + "lightning chain with the target (once per {lockout}s on the same target), gaining {chainSpeed}% movement "
@@ -311,26 +317,27 @@ struct Kit_H026: HeroKit {
                 tags: [KitTag.aoe])
         case .skill2:
             return KitText(
-                ja: "対象の敵に雷球を投げつけ、{shredDuration}秒間 魔法防御を{shred}低下させ、{base}(+{mpPct}%魔法攻撃)の魔法ダメージを与え、"
-                    + "{stun}秒間スタンさせる。\n\n対象が超伝導の場合、雷球は周囲（{splashRadius}以内）の敵の魔法防御も低下させ、"
-                    + "対象を中心に範囲ダメージを与え、周囲の敵すべてをスタンさせる（ミニオンにはダメージのみ）。",
+                ja: "対象の敵に雷球を放ち、{shredDuration}秒間魔法防御を{shred}低下させ、{base}(+{mpPct}%魔法攻撃)の魔法ダメージを与え、"
+                    + "{stun}秒間スタンさせる。\n\n対象が超伝導の場合、雷球は周囲（{splashRadius}以内）の敵の魔法防御を低下させ、"
+                    + "対象を中心に範囲ダメージを与え、周囲の敵をすべてスタンさせる（ミニオンにはダメージのみ）。",
                 en: "Hurls a Thunder Orb at the target enemy, reducing their magic defense by {shred} for {shredDuration}s, "
                     + "dealing {base} (+{mpPct}% Magic Power) magic damage and stunning them for {stun}s.\n\nIf the target is "
                     + "affected by Superconductor, the orb also reduces the magic defense of nearby enemies (within "
                     + "{splashRadius}), deals area damage centered on the target and stuns all nearby enemies (minions take "
                     + "damage only).",
-                tags: [KitTag.disrupt, KitTag.burst])
+                tags: [KitTag.disrupt, KitTag.damage])
         case .ultimate:
             return KitText(
-                ja: "指定範囲に雷を落とし（{delay}秒後・射程{range}）、中心（半径{centerRadius}）の敵に{base}(+{mpPct}%魔法攻撃)の魔法ダメージを与える。"
-                    + "続いて中心の外（半径{radius}）の敵に{outerBase}(+{outerPct}%魔法攻撃)の魔法ダメージを与える。\n\n"
-                    + "超伝導の敵に命中するたびに、少し遅れてその敵を中心に雷が炸裂し、{burstBase}(+{burstPct}%魔法攻撃)の魔法ダメージを与える"
-                    + "（複数なら重なる）。",
-                en: "Calls down a blast of lightning on the target area (after {delay}s, range {range}), dealing {base} "
-                    + "(+{mpPct}% Magic Power) magic damage to targets at the center (radius {centerRadius}), then {outerBase} "
-                    + "(+{outerPct}% Magic Power) magic damage to targets outside the center (radius {radius}).\n\nEach time it "
-                    + "hits a target affected by Superconductor, a Thunderburst triggers on that target after a short delay, "
-                    + "dealing {burstBase} (+{burstPct}% Magic Power) magic damage (bursts overlap).",
+                ja: "指定範囲に稲妻を落とし（{delay}秒後・射程{range}）、中心（半径{centerRadius}）の対象に{base}(+{mpPct}%魔法攻撃)の魔法ダメージを与える。"
+                    + "その後、中心の外側（半径{radius}まで）にいる対象に雷が落ち、{outerBase}(+{outerPct}%魔法攻撃)の魔法ダメージを与える。\n\n"
+                    + "九天雷鳴が超伝導の対象に命中するたび、短い遅延の後、その対象を中心とした雷の炸裂が発動し、範囲内の超伝導の対象に"
+                    + "{burstBase}(+{burstPct}%魔法攻撃)の魔法ダメージを与える（複数なら重なる）。",
+                en: "Calls down a lightning strike on the target area (after {delay}s, range {range}), dealing {base} "
+                    + "(+{mpPct}% Magic Power) magic damage to targets at the center (radius {centerRadius}). Lightning then strikes "
+                    + "targets outside the center (up to radius {radius}), dealing {outerBase} (+{outerPct}% Magic Power) magic damage."
+                    + "\n\nEach time it hits a target affected by Superconductor, a Thunderburst centered on that target triggers after "
+                    + "a short delay, dealing {burstBase} (+{burstPct}% Magic Power) magic damage to Superconductor targets in the area "
+                    + "(bursts overlap).",
                 tags: [KitTag.burst])
         }
     }
@@ -467,6 +474,10 @@ struct Kit_H026: HeroKit {
     }
 
     func onTimer(_ s: inout SimState, _ ctx: SimContext, owner: Int, timer: KitTimer) {
+        if timer.code == T.Code.burst {
+            fireThunderburst(&s, ctx, owner: owner, timer: timer)
+            return
+        }
         guard timer.code == T.Code.dot || timer.code == T.Code.end else { return }
         let isEnd = timer.code == T.Code.end
         // 対象が倒れた・見えなくなった・離れすぎた: 鎖は切れる（終わりの一撃は当たらず、クールダウンも縮まない）
@@ -536,15 +547,37 @@ struct Kit_H026: HeroKit {
 
     // MARK: 奥義: 雷の炸裂
 
-    /// 印済みの敵に大雷が当たった: その敵を中心に少し遅れて雷が炸裂する（敵に追従するゾーン。対象が倒れれば不発）。
+    /// 印済みの敵に大雷が当たった: その敵を中心に少し遅れて雷が炸裂する（対象が倒れれば不発）。
+    /// 公式（日本語クライアント）「サンダーバーストが発動し、超電導の対象に〜の魔法ダメージ」= 炸裂の範囲にいる**超伝導の敵にだけ**当たる
+    /// （以前は範囲の全ての敵）。ダメージは予約（非中断。術者が倒れると消える）で出し、ゾーンは見た目だけ（敵に当たらない）。
     private func thunderburst(_ s: inout SimState, _ ctx: SimContext, owner i: Int, target t: Int) {
-        guard CombatSystem.isLiving(s, t), let (skill, n) = Self.numbersNow(s, ctx, i, .ultimate) else { return }
-        let p = HitPayload(damage: Self.burstDamage(rank: n.rank, stats: s.units[i].stats), damageType: skill.damageType,
-                           source: .skill(.ultimate),
-                           skillID: skill.skillID, originPos: s.units[t].pos, kitEvent: T.Event.burst)
+        guard CombatSystem.isLiving(s, t), let (_, n) = Self.numbersNow(s, ctx, i, .ultimate) else { return }
+        let visual = HitPayload(damage: 0, damageType: .magic, source: .skill(.ultimate), affectsEnemies: false)
         s.units[i].hero?.kit?.euriaBursts += 1
         ZoneSystem.spawn(&s, ownerIndex: i, center: s.units[t].pos, radius: T.burstRadius, delay: T.burstDelay,
-                         followsTargetID: s.units[t].id, payload: p, visual: Self.burstVisual(ctx))
+                         followsTargetID: s.units[t].id, payload: visual, visual: Self.burstVisual(ctx))
+        Kit.schedule(&s, caster: i, slot: .ultimate, code: T.Code.burst, after: T.burstDelay, targetID: s.units[t].id,
+                     param: Self.burstDamage(rank: n.rank, stats: s.units[i].stats), interruptible: false)
+    }
+
+    /// サンダーバーストの発動: 対象（倒れていれば不発）を中心に、半径内の超伝導（この術者の印）の敵へダメージ。添字の昇順。
+    private func fireThunderburst(_ s: inout SimState, _ ctx: SimContext, owner i: Int, timer: KitTimer) {
+        guard let t = s.index(of: timer.targetID), CombatSystem.isLiving(s, t),
+              let skill = ctx.master.skill(hero: heroID, slot: .ultimate) else { return }
+        let center = s.units[t].pos
+        let team = s.units[i].team
+        let tag = Self.markTag(s, i)
+        var hits: [Int] = []
+        for j in s.units.indices where s.units[j].team != team && !s.units[j].isStructure {
+            guard CombatSystem.isLiving(s, j), Kit.markStacks(s, target: j, tag: tag) > 0 else { continue }
+            let reach = T.burstRadius + s.units[j].radius
+            if s.units[j].pos.distanceSquared(to: center) <= reach * reach { hits.append(j) }
+        }
+        let p = HitPayload(damage: timer.param, damageType: skill.damageType, source: .skill(.ultimate),
+                           skillID: skill.skillID, originPos: center, kitEvent: T.Event.burst)
+        for j in hits {
+            CombatSystem.applyHit(&s, ctx, sourceID: s.units[i].id, team: team, targetIndex: j, payload: p, from: center)
+        }
     }
 
     // MARK: - C. パッシブ
@@ -563,7 +596,7 @@ struct Kit_H026: HeroKit {
     /// （撃てないのに待ち続けて、アルティメットや S2 が永久に出なくならないように）。
     /// S2 は印が広がるので、近くに別のヒーローが居るときは印を付けてから。居なければ先に撃ってよい（S2 自身が印を付ける）。
     /// S1 は、近くに別のヒーローが居ない印の無い敵に S2 が撃てるなら待つ（S2 = 印 + スタン → S1 = 鎖 の順）。S1 のクールダウン
-    /// （MLBB の 7 → 5 秒）が印（5 秒）より長いので、S1 → 印 → S1 の順では鎖が繋がらないため。
+    /// （日本語クライアントの 5 秒）が印（5 秒）と同じで、S1 → 印 → S1 の順ではほとんど鎖が繋がらない（印が切れる tick と重なる）ため。
     func botCast(_ s: SimState, _ ctx: SimContext, bot: Int, slot: SkillSlot, targeting: SkillTargeting,
                  target: Int, fighting: Bool) -> BotKitDecision {
         guard fighting, s.units.indices.contains(target), Self.canMark(s, target) else { return .useDefault }
@@ -703,7 +736,7 @@ struct Kit_H026: HeroKit {
         magicDamage(T.ultOuterBase, ratio: T.ultOuterPowerRatio, slot: .ultimate, scale: T.ultScale, rank: rank, stats: stats)
     }
 
-    /// 雷の炸裂（Thunderburst）のダメージ（公式 300 / 425 / 550 + 110% 魔法攻撃）。
+    /// 雷の炸裂（サンダーバースト）のダメージ（公式 330 / 440 / 550 + 110% 魔法攻撃）。
     static func burstDamage(rank: Int, stats: Stats) -> Double {
         magicDamage(T.burstBase, ratio: T.burstPowerRatio, slot: .ultimate, scale: T.ultScale, rank: rank, stats: stats)
     }

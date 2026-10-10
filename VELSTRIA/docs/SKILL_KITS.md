@@ -42,7 +42,7 @@ sim の数値で埋める（説明文の数値と sim をずらさない）。�
 
 ### UI が読めるもの（スキル詳細の表・タグ）
 
-- **タグ**: `HeroKits.tags(heroID:slot:)`（`KitText.tags`）。キーは小文字で固定（`KitTag.all`）: `buff aoe slow clash disrupt burst mobility heal shield control stun pull execute`。
+- **タグ**: `HeroKits.tags(heroID:slot:)`（`KitText.tags`）。キーは小文字で固定（`KitTag.all`）: `buff aoe slow clash disrupt burst mobility heal shield control stun pull execute debuff damage conceal cleanse`（末尾の 4 つは公式のタグ Debuff / Damage / Conceal / Remove CC = デバフ・ダメージ・隠密・CC 解除）。
   表示順 = 配列の順。キットが無い・text が無いスロットは `[]`（その場合 UI は従来の汎用の見せ方）。表示名（範囲技・減速 / AoE・Slow ...）は UI 側の対応表。
 - **ランクごとの表**: `SkillCatalog.numbers(for:hero:rank:stats:)`（キットのヒーローはキットの上書き込み）を rank 1...`slot.maxRank` で引く。
   - `cooldown`: 実効秒（CD 短縮込み。キットのクールダウンは MLBB の秒数をランクへ線形補間した値で、全体倍率 `cooldownScale` は 1.0）。`cost`: ランクごとのコスト（`HeroKit.cost` の結果。Energy のヒーローは × 0.6 込み）。
@@ -232,6 +232,20 @@ Tests/VelstriaCoreTests/Kits/KitTestSupport.swift  KitFrameworkTests.swift  Kit_
 
   変更前の H033 の S2 0.81 のままだと Lv6 / Lv12 が +39 / +42（帯の外。S2 の CD が汎用の約半分になるため）、H031 の S1 を変えないと Lv12 +40 だった。
   Release の `SkillBalanceTests`（全員総当たりの TTK 帯）、`BotMatchTests`、`WorldMatchTests`、`SkillDeterminismTests` を通してから `isReady = true` にする。
+- 日本語クライアントの数値（2026-10-10 受領の実機のスクリーンショット。各 `docs/kits/*.md` の「公式（日本語クライアント）の数値」）に H025 / H026 / H028 / H030 / H034 を合わせ、
+  H029 の Lv1 / Lv6 を帯へ寄せたあとの Release の `KitBalanceTests`（同ロール中央値との差、pt。`MatchConfig.currentSimVersion` 11）:
+
+  | キット | 変更前（上の表の後の計測） | 変更後 | 変えた値 |
+  |---|---|---|---|
+  | H025 ルミナ | −21.9 / −2.9 / +7.7（月影を 25(+20%) にした直後） | −9.8 / +0.1 / +10.2 | 月影 30(+25%) × 2.2 → 25(+20%) × 2.6、S1 MP 60 → 85、S2 の換算 0.34 → 0.30 |
+  | H026 エウリア | −20.2 / −1.7 / +10.6 | −12.4 / +11.5 / +12.6 | S1 CD 7 → 5 秒を全 Lv 5 秒、MP、炸裂 330 / 440 / 550 で超伝導の敵だけ（換算は同じ） |
+  | H028 ザイル | −7.0 / −28.4 / −11.0（追加物理攻撃にした直後） | +11.7 / −7.8 / +13.3 | S1 CD 9 → 10 秒・剣撃で S1 −0.5 秒、接触・剣撃・奥義の表と追加物理攻撃、MP、換算 0.12 / 1.05 / 0.44 → 0.14 / 1.2 / 0.55 |
+  | H029 ボルグ | +22.6 / +17.6 / −0.1 | +12.9 / +10.7 / −2.7 | スキル1 の換算 0.17 → 0.16、スキル2 0.58 → 0.52 |
+  | H030 ライナ | −20.4 / −2.9 / +3.7（距離補正を 115% にした直後） | −8.3 / +2.7 / +8.0 | 距離補正 770 で 130% → 600 で 115%、S1 / S2 の MP、S2 の減速を外す、換算 S1 0.53 → 0.58・奥義 0.56 → 0.52 |
+  | H034 ゴルム | −5.7 / +9.7 / −8.0 | −7.3 / +12.5 / −9.0 | 奥義の CD 62 / 55 / 45 → 62 / 55 / 48（換算は同じ） |
+
+  ほかのキット（変えていない）: H027 +12.6 / −10.9 / −1.5、H031 −1.5 / −11.5 / +10.9、H032 −6.6 / −4.3 / +15.7、H033 +2.1 / −5.3 / +6.2。
+  H029 の換算は帯の中ほど（スキル1 0.155）だと Release の `BotMatchTests` の seed 6 normal で blue のキルが 0 になって落ちたので、通る組（0.16 + スキル2 0.52）を選んだ（`docs/kits/Tigreal.md`）。
 
 ## 進め方
 

@@ -55,7 +55,9 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     /// 8: 装備を MLBB の図鑑に総入れ替え（92 個・多段の合成・靴に付ける祝福・装備のアクティブ・ポーション）。
     /// 9: ジャングルを MLBB の現行マップに合わせた（モンスターの種類・草むら・角の壁・バフの効果）。
     /// 10: スキルのクールダウンを MLBB と同じ秒数に（全体倍率 0.5 を廃止。キットの CD 短縮・レイジなどの補正も MLBB の値へ）。
-    public static let currentSimVersion = 10
+    /// 11: キット（H025 / H026 / H028 / H029 / H030 / H034）の数値・挙動を MLBB の日本語クライアントの画面に合わせた
+    ///     （ライラの距離補正 115%・セイバーの追加物理攻撃・エウドラの炸裂は超伝導の敵だけ など）。
+    public static let currentSimVersion = 11
 
     public var simVersion: Int
     public var mode: MatchMode

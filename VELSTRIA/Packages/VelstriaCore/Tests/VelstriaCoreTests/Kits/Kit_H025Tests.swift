@@ -116,7 +116,7 @@ final class Kit_H025Tests: XCTestCase {
         let n1 = SkillCatalog.numbers(for: skill(.skill1), hero: def, rank: 1, stats: stats)
         let ja1 = HeroKits.text(heroID: "H025", slot: .skill1)!.filled(english: false, numbers: n1, targeting: t1)
         XCTAssertTrue(ja1.contains("\(Int(n1.damage.rounded()))(+100%物理攻撃)の物理ダメージ"), ja1)
-        XCTAssertTrue(ja1.contains("4秒間続く"), ja1)
+        XCTAssertTrue(ja1.contains("この効果は4秒間持続する"), ja1)
         let n2 = SkillCatalog.numbers(for: skill(.skill2), hero: def, rank: 1, stats: stats)
         let minorBase = try XCTUnwrap(n2.extras.first { $0.key == "minorBase" })
         let en2 = HeroKits.text(heroID: "H025", slot: .skill2)!.filled(english: true, numbers: n2, targeting: t2)
@@ -140,7 +140,7 @@ final class Kit_H025Tests: XCTestCase {
             XCTAssertFalse(ja.contains("S1") || ja.contains("S2") || ja.contains("奥義"), "\(slot): \(ja)")
             XCTAssertFalse(ja.contains("月矢の連弾") || ja.contains("追って"), "\(slot): \(ja)")
             if slot == .passive {
-                XCTAssertTrue(ja.contains("「月影」を呼び出し"), ja)
+                XCTAssertTrue(ja.contains("「月影」を召喚して対象を攻撃し"), ja)
                 XCTAssertTrue(ja.contains("\(Int(T.shadowFlat))(+\(Int((T.shadowRatio * 100).rounded()))%物理攻撃)"), ja)
             }
             if slot == .skill2 {
@@ -178,7 +178,7 @@ final class Kit_H025Tests: XCTestCase {
                         XCTAssertEqual(Kit_H025.s1Duration(rank: rank), 4 + (lv - 1), accuracy: 1e-9, "持続 4 → 9 秒")
                         XCTAssertEqual(n.extras.first { $0.key == "duration" }?.value ?? 0, 4 + (lv - 1), accuracy: 1e-9)
                         XCTAssertEqual(n.cooldown, 11 * cdr, accuracy: 1e-9, "MLBB の CD 11 秒（全ランク固定）")
-                        XCTAssertEqual(n.cost, 50 + (lv - 1) * 5, accuracy: 1e-9, "MP 50 → 75")
+                        XCTAssertEqual(n.cost, 60 + (lv - 1) * 5, accuracy: 1e-9, "MP 60 → 85（日本語クライアント）")
                     case .skill2:
                         // 着弾 270 → 420（+45%）、小さな矢 40 → 105（+20%）。6 本すべてが 1 体に当たる最悪でも着弾の 3 倍未満
                         XCTAssertEqual(n.damage, (270 + (lv - 1) * 30 + 0.45 * atk) * 3.0 * T.s2Scale, accuracy: 1e-6,
@@ -204,9 +204,9 @@ final class Kit_H025Tests: XCTestCase {
                 }
             }
         }
-        // 月影 = 公式 30(+25% 物理攻撃) の形を shadowScale 倍
-        XCTAssertEqual(T.shadowFlat, 30 * T.shadowScale, accuracy: 1e-9)
-        XCTAssertEqual(T.shadowRatio, 0.25 * T.shadowScale, accuracy: 1e-9)
+        // 月影 = 公式（日本語クライアント）25(+20% 物理攻撃) の形を shadowScale 倍
+        XCTAssertEqual(T.shadowFlat, 25 * T.shadowScale, accuracy: 1e-9)
+        XCTAssertEqual(T.shadowRatio, 0.20 * T.shadowScale, accuracy: 1e-9)
         XCTAssertEqual(T.attackSpeedPerStack, 0.05)
         // ランクが上がると S1・S2 は強くなる
         let stats = HeroGrowth.baseStats(def: def, level: 6)
@@ -222,7 +222,7 @@ final class Kit_H025Tests: XCTestCase {
         XCTAssertEqual(HeroKits.tags(heroID: "H025", slot: .passive), ["buff"])
         XCTAssertEqual(HeroKits.tags(heroID: "H025", slot: .skill1), ["buff", "aoe"])
         XCTAssertEqual(HeroKits.tags(heroID: "H025", slot: .skill2), ["disrupt", "aoe"])
-        XCTAssertEqual(HeroKits.tags(heroID: "H025", slot: .ultimate), ["buff", "mobility"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H025", slot: .ultimate), ["conceal", "cleanse"])
         for slot in SkillSlot.allCases {
             for tag in HeroKits.tags(heroID: "H025", slot: slot) { XCTAssertTrue(KitTag.all.contains(tag), tag) }
         }
@@ -403,6 +403,28 @@ final class Kit_H025Tests: XCTestCase {
         XCTAssertEqual(w.kit(k).luminaSplashArrows, 2)
         // 副矢は段を積まない（主矢の命中 1 回 = 1 段）
         XCTAssertEqual(w.kit(k).luminaStacks, 1)
+    }
+
+    func testMoonArrowCastEventCarriesTheRanksBuffDuration() {
+        // 発動の合図（SkillCastEvent.duration）はランクの持続（4 → 9 秒）。App の演出はこれで効果の長さを決める
+        for rank in 1...Balance.basicSkillMaxRank {
+            var w = SkillWorld()
+            let k = addLumina(&w, ranks: [rank, 1, 1], level: 12)
+            w.tick()
+            XCTAssertTrue(w.cast(k, .skill1), "r\(rank)")
+            let cast = w.castEvents.last
+            XCTAssertEqual(cast?.slot, .skill1)
+            XCTAssertEqual(cast?.duration ?? 0, Kit_H025.s1Duration(rank: rank), accuracy: 1e-9, "r\(rank)")
+            XCTAssertEqual(w.kit(k).luminaMoonArrow, Kit_H025.s1Duration(rank: rank), accuracy: 1e-9, "r\(rank)")
+        }
+        XCTAssertEqual(Kit_H025.s1Duration(rank: Balance.basicSkillMaxRank), 9, accuracy: 1e-9)
+        // 奥義も持続を渡す（隠密 2 秒）
+        var w = SkillWorld()
+        let k = addLumina(&w, ranks: [1, 1, 1], level: 12)
+        w.tick()
+        XCTAssertTrue(w.cast(k, .ultimate))
+        XCTAssertEqual(w.castEvents.last?.slot, .ultimate)
+        XCTAssertEqual(w.castEvents.last?.duration ?? 0, T.ultDuration, accuracy: 1e-9)
     }
 
     func testMoonArrowSplashNeedsOthersInRangeAndSparesStructures() throws {
@@ -826,7 +848,7 @@ final class Kit_H025Tests: XCTestCase {
     func testCostFollowsTheOfficialTableAndCCBlocksCasts() {
         var w = SkillWorld()
         let k = addLumina(&w)
-        for (slot, mp) in [(SkillSlot.skill1, 50.0), (.skill2, 80), (.ultimate, 120)] {
+        for (slot, mp) in [(SkillSlot.skill1, 60.0), (.skill2, 80), (.ultimate, 120)] {
             let n = w.numbers(k, slot)
             XCTAssertEqual(n.cost, mp, "公式のマナ（ランク 1）")
             let before = w.s.units[k].resource

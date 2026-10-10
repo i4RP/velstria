@@ -267,7 +267,7 @@ final class Kit_H032Tests: XCTestCase {
         // タグ（公式: パッシブ = バフ・回復、S1 = 範囲技・減速、S2 = 移動・ダメージ、ULT = バースト・減速）
         XCTAssertEqual(HeroKits.tags(heroID: "H032", slot: .passive), ["buff", "heal"])
         XCTAssertEqual(HeroKits.tags(heroID: "H032", slot: .skill1), ["aoe", "slow"])
-        XCTAssertEqual(HeroKits.tags(heroID: "H032", slot: .skill2), ["mobility", "burst"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H032", slot: .skill2), ["mobility", "damage"])
         XCTAssertEqual(HeroKits.tags(heroID: "H032", slot: .ultimate), ["burst", "slow"])
         for slot in SkillSlot.allCases {
             for tag in HeroKits.tags(heroID: "H032", slot: slot) { XCTAssertTrue(KitTag.all.contains(tag), tag) }

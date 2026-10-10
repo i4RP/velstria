@@ -174,8 +174,8 @@ final class Kit_H034Tests: XCTestCase {
             XCTAssertEqual(SkillCatalog.numbers(for: skill(.skill2), hero: hero, rank: rank, stats: stats).cooldown,
                            expected(7, 4.5, rank: rank, maxRank: 4), accuracy: 1e-9)
         }
-        for (rank, sec) in [(1, 62.0), (2, 55), (3, 45)] {
-            // 公式（Fandom の現行）62 / 55 / 45 秒（等差ではないので表で引く）
+        for (rank, sec) in [(1, 62.0), (2, 55), (3, 48)] {
+            // 公式（日本語クライアント）62 / 55 / 48 秒（表で引く）
             XCTAssertEqual(SkillCatalog.numbers(for: skill(.ultimate), hero: hero, rank: rank, stats: stats).cooldown,
                            sec * (1 - cdr) * Balance.Skills.cooldownScale, accuracy: 1e-9)
         }
@@ -212,7 +212,7 @@ final class Kit_H034Tests: XCTestCase {
     func testTagsFollowTheOfficialSkillTags() {
         // 公式: パッシブ Buff / S1 CC・Damage（Damage のキーが無いので「バースト」）/ S2 Slow / アルティメット Burst・CC
         XCTAssertEqual(HeroKits.tags(heroID: "H034", slot: .passive), ["buff"])
-        XCTAssertEqual(HeroKits.tags(heroID: "H034", slot: .skill1), ["disrupt", "burst"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H034", slot: .skill1), ["disrupt", "damage"])
         XCTAssertEqual(HeroKits.tags(heroID: "H034", slot: .skill2), ["slow"])
         XCTAssertEqual(HeroKits.tags(heroID: "H034", slot: .ultimate), ["burst", "disrupt"])
         for slot in SkillSlot.allCases {
@@ -257,7 +257,8 @@ final class Kit_H034Tests: XCTestCase {
         }
         let passive = try ja(.passive)
         // 闘気の増える間隔は Tune.stackInterval から、最大の上乗せは 15% × 10 = 150%（公式の「最大 150%」）
-        for token in ["5秒", "10%", "1%", "+15%", "最大10個", "1秒に1個", "最大150%"] {
+        for token in ["5秒間ダメージを受けなかった場合", "10%上昇", "1秒ごとに最大HPの1%を回復", "+15%", "最大10スタック", "1秒に1スタック",
+                      "最大150%増加"] {
             XCTAssertTrue(passive.contains(token), "\(token): \(passive)")
         }
         // 単位の無い距離（680 / 260 / 350）は出さず、近接攻撃の射程（150）に対する倍率で書く
@@ -266,12 +267,14 @@ final class Kit_H034Tests: XCTestCase {
         let b1 = Int(Kit_H034.scaledBase(Tune.hookBase, slot: .skill1, scale: Tune.hookScale, rank: 2, maxRank: 4).rounded())
         let p1 = Int(Kit_H034.attackPercent(Tune.hookAttackRatio, slot: .skill1, scale: Tune.hookScale).rounded())
         XCTAssertEqual(n1.ccDuration, Tune.hookPull, "スタンは引き寄せの間だけ")
-        for token in ["約4.5倍", "\(b1)(+\(p1)%物理攻撃)の物理ダメージ", "0.3秒"] { XCTAssertTrue(s1.contains(token), "\(token): \(s1)") }
+        for token in ["約4.5倍", "最初に命中した敵に\(b1)(+\(p1)%物理攻撃)の物理ダメージ", "自身の元へ引き寄せる", "0.3秒"] {
+            XCTAssertTrue(s1.contains(token), "\(token): \(s1)")
+        }
         let s2 = try ja(.skill2, rank: 2)
         let n2 = SkillCatalog.numbers(for: skill(.skill2), hero: hero, rank: 2, stats: w.s.units[k].stats)
         let b2 = Int(Kit_H034.scaledBase(Tune.shockBase, slot: .skill2, scale: Tune.shockScale, rank: 2, maxRank: 4).rounded())
         XCTAssertGreaterThan(n2.damage, Double(b2))
-        for token in ["約1.7倍", "\(b2)+自身の最大HPの4%", "70%", "1.5秒"] {
+        for token in ["約1.7倍", "\(b2)(+自身の最大HPの4%)の物理ダメージ", "1.5秒間移動速度を70%低下"] {
             XCTAssertTrue(s2.contains(token), "\(token): \(s2)")
         }
         let ult = try ja(.ultimate, rank: 2)
@@ -279,7 +282,9 @@ final class Kit_H034Tests: XCTestCase {
         let b3 = Int(Kit_H034.scaledBase(Tune.ultHitBase, slot: .ultimate, scale: Tune.ultScale, rank: 2, maxRank: 3).rounded())
         let p3 = Int(Kit_H034.attackPercent(Tune.ultHitAttackRatio, slot: .ultimate, scale: Tune.ultScale).rounded())
         XCTAssertEqual(n3.hits, 6)
-        for token in ["約2.3倍", "\(b3)(+\(p3)%物理攻撃)", "1.8秒", "6回"] { XCTAssertTrue(ult.contains(token), "\(token): \(ult)") }
+        for token in ["約2.3倍", "攻撃ごとに\(b3)(+\(p3)%物理攻撃)の物理ダメージ", "1.8秒間、制圧状態", "6回攻撃"] {
+            XCTAssertTrue(ult.contains(token), "\(token): \(ult)")
+        }
     }
 
     // MARK: - パッシブ: 鉄鎖の執念
