@@ -223,7 +223,7 @@ final class Kit_H028Tests: XCTestCase {
         XCTAssertTrue(ja1.contains("\(Int(n1.damage.rounded()))ダメージ"), ja1)
         XCTAssertTrue(ja1.contains("最大\(Tune.pulseCount)回"), ja1)
         XCTAssertEqual(n1.extras.map(\.key), ["strikeDamage", "duration", "refund", "passPercent"])
-        XCTAssertEqual(n1.extras[2].value, 0.5, accuracy: 1e-9)
+        XCTAssertEqual(n1.extras[2].value, 1.0, accuracy: 1e-9)
         let p = try XCTUnwrap(MasterData.shared.skill(hero: "H028", slot: .passive))
         let pn = SkillCatalog.numbers(for: p, hero: hero, rank: 1, stats: stats)
         XCTAssertEqual(pn.extras.map(\.value), [3, 8, 5, 5])

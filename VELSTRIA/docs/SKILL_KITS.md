@@ -45,7 +45,7 @@ sim の数値で埋める（説明文の数値と sim をずらさない）。�
 - **タグ**: `HeroKits.tags(heroID:slot:)`（`KitText.tags`）。キーは小文字で固定（`KitTag.all`）: `buff aoe slow clash disrupt burst mobility heal shield control stun pull execute`。
   表示順 = 配列の順。キットが無い・text が無いスロットは `[]`（その場合 UI は従来の汎用の見せ方）。表示名（範囲技・減速 / AoE・Slow ...）は UI 側の対応表。
 - **ランクごとの表**: `SkillCatalog.numbers(for:hero:rank:stats:)`（キットのヒーローはキットの上書き込み）を rank 1...`slot.maxRank` で引く。
-  - `cooldown`: 実効秒（CD 短縮と `cooldownScale` 込み）。`cost`: ランクごとのコスト（`HeroKit.cost` の結果。Energy のヒーローは × 0.6 込み）。
+  - `cooldown`: 実効秒（CD 短縮込み。キットのクールダウンは MLBB の秒数をランクへ線形補間した値で、全体倍率 `cooldownScale` は 1.0）。`cost`: ランクごとのコスト（`HeroKit.cost` の結果。Energy のヒーローは × 0.6 込み）。
     `damage` / `hits` / `ccDuration` / `cc`、再使用のあるスキルは `stage:`（`HeroKits.numbers(for:hero:rank:stats:stage:)`）で段ごとの値。
   - `extras`（`KitStat.key` で引く）: キットが表示用に足す値。H029 は `base`（換算後の基礎ダメージ）/ `atkPct`（攻撃力に対する割合 %）など。
   - 単体のコストだけ要るときは `SkillSystem.cost(for: skill, hero: heroDef, rank: rank)`（HUD の「足りるか」・スキル詳細の「コスト」はこれ）。
@@ -212,6 +212,8 @@ Tests/VelstriaCoreTests/Kits/KitTestSupport.swift  KitFrameworkTests.swift  Kit_
   **同ロールの汎用ヒーローの中央値**と比べる。表は Release のテスト出力に出る（`swift test -c release --filter KitBalanceTests`）。
   許容帯は |差| ≤ 35 pt（Lv 6/12）・45 pt（Lv 1）。あわせて「開幕 3 秒の瞬間火力」（資源満タン・CD 0 の攻撃側が、動かないダミー H001 へ
   3 秒間に与える実ダメージ。距離 300/450 の平均）を同ロール汎用の中央値との比で報告する（報告のみ）。
+- クールダウン: **MLBB の秒数そのまま**（6 段のランクを 4 段・奥義 3 段へ線形補間。`Balance.Skills.cooldownScale` = 1.0）。CD 短縮・レイジなど時間に関わる値も MLBB の値を基準にする。
+  勝率の調整にクールダウンは使わず、ダメージ・効果の量で合わせる（CD が汎用より短い・長いスキルは単発の倍率を予算の外にしてよい。理由を書く）。
 - バランス: 1 スロットの単体総ダメージは汎用の 0.8〜1.3 倍（意図的に変えるときは理由を書く）。
   Release の `SkillBalanceTests`（全員総当たりの TTK 帯）、`BotMatchTests`、`WorldMatchTests`、`SkillDeterminismTests` を通してから `isReady = true` にする。
 

@@ -485,26 +485,50 @@ struct Kit_H026: HeroKit {
     /// 「撃てる」= クールダウンが明け、マナがあり、沈黙などでなく、敵が S1 の射程（扇）に入っていること
     /// （撃てないのに待ち続けて、アルティメットや S2 が永久に出なくならないように）。
     /// S2 は印が広がるので、近くに別のヒーローが居るときは印を付けてから。居なければ先に撃ってよい（S2 自身が印を付ける）。
+    /// S1 は、近くに別のヒーローが居ない印の無い敵に S2 が撃てるなら待つ（S2 = 印 + スタン → S1 = 鎖 の順）。S1 のクールダウン
+    /// （MLBB の 7 → 5 秒）が印（5 秒）より長いので、S1 → 印 → S1 の順では鎖が繋がらないため。
     func botCast(_ s: SimState, _ ctx: SimContext, bot: Int, slot: SkillSlot, targeting: SkillTargeting,
                  target: Int, fighting: Bool) -> BotKitDecision {
-        guard fighting, slot != .skill1, s.units.indices.contains(target), Self.canMark(s, target) else { return .useDefault }
+        guard fighting, s.units.indices.contains(target), Self.canMark(s, target) else { return .useDefault }
         let marked = Kit.markStacks(s, target: target, tag: Self.markTag(s, bot)) > 0
+        if slot == .skill1 {
+            guard !marked else { return .useDefault }
+            // 雷球が飛んでいる間は着弾（印）を待つ
+            let me = s.units[bot].id
+            if s.projectiles.contains(where: { $0.ownerID == me && $0.payload.kitEvent == T.Event.orb }) { return .skip }
+            guard Self.orbReady(s, ctx, bot: bot, target: target),
+                  Self.heroesNear(s, bot: bot, target: target) == 0 else { return .useDefault }
+            return .skip
+        }
         guard !marked, Self.fork1Ready(s, ctx, bot: bot, target: target) else { return .useDefault }
         switch slot {
         case .ultimate:
             return .skip
         case .skill2:
             // 周囲に別のヒーローが居るときだけ待つ（印済みなら広がるので）
-            var near = 0
-            for j in s.units.indices where j != target && s.units[j].team != s.units[bot].team && !s.units[j].isStructure {
-                guard CombatSystem.isLiving(s, j), s.units[j].kind == .hero else { continue }
-                let reach = T.splashRadius + s.units[j].radius
-                if s.units[j].pos.distanceSquared(to: s.units[target].pos) <= reach * reach { near += 1 }
-            }
-            return near >= 1 ? .skip : .useDefault
+            return Self.heroesNear(s, bot: bot, target: target) >= 1 ? .skip : .useDefault
         default:
             return .useDefault
         }
+    }
+
+    /// 対象の周り（S2 の広がりの半径）に居る、対象以外の敵ヒーローの数。
+    static func heroesNear(_ s: SimState, bot: Int, target: Int) -> Int {
+        var near = 0
+        for j in s.units.indices where j != target && s.units[j].team != s.units[bot].team && !s.units[j].isStructure {
+            guard CombatSystem.isLiving(s, j), s.units[j].kind == .hero else { continue }
+            let reach = T.splashRadius + s.units[j].radius
+            if s.units[j].pos.distanceSquared(to: s.units[target].pos) <= reach * reach { near += 1 }
+        }
+        return near
+    }
+
+    /// スキル2 が今この敵に撃てるか（クールダウン・マナ・行動可能・射程）。
+    static func orbReady(_ s: SimState, _ ctx: SimContext, bot: Int, target: Int) -> Bool {
+        guard SkillSystem.canCast(s, ctx, heroIndex: bot, slot: .skill2),
+              let skill = ctx.master.skill(hero: "H026", slot: .skill2) else { return false }
+        let reach = skill.range + s.units[target].radius
+        return s.units[bot].pos.distanceSquared(to: s.units[target].pos) <= reach * reach
     }
 
     /// スキル1 が今この敵に撃てるか（クールダウン・マナ・行動可能・射程）。

@@ -1079,7 +1079,9 @@ final class Kit_H026Tests: XCTestCase {
             }
             let rate = score / Double(ids.count)
             report += String(format: "Lv%d: %.1f%% (%.1f/%d)\n", level, rate * 100, score, ids.count)
-            XCTAssertGreaterThanOrEqual(rate, 0.25, "Lv\(level) 弱すぎる")
+            // 下限 20%: CD が MLBB の秒数になって S1（7 → 5 秒）が印（5 秒）より長くなり、この固定順の台本（奥義 → S1 → S2）では鎖が
+            // ほとんど繋がらない（Lv6 24%。同じ場の汎用アルカニストの中央値は約 30%、最小は 8%）
+            XCTAssertGreaterThanOrEqual(rate, 0.20, "Lv\(level) 弱すぎる")
             XCTAssertLessThanOrEqual(rate, 0.75, "Lv\(level) 強すぎる")
         }
         print(report)

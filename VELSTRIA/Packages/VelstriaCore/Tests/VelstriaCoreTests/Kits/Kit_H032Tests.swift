@@ -209,7 +209,7 @@ final class Kit_H032Tests: XCTestCase {
         XCTAssertTrue(ja1.contains("\(Int(try XCTUnwrap(n1.extras.first { $0.key == "abyssTotal" }).value.rounded()))"), ja1)
         let sp = try XCTUnwrap(MasterData.shared.skill(hero: "H032", slot: .passive))
         let pn = SkillCatalog.numbers(for: sp, hero: hero, rank: 1, stats: stats)
-        XCTAssertEqual(pn.extras.map(\.value), [4, 10, 150, 180])
+        XCTAssertEqual(pn.extras.map(\.value), [2, 5, 150, 180])
         let ult = try XCTUnwrap(MasterData.shared.skill(hero: "H032", slot: .ultimate))
         let un = SkillCatalog.numbers(for: ult, hero: hero, rank: 2, stats: stats)
         XCTAssertEqual(un.extras.count, 4)

@@ -155,8 +155,8 @@
 - ランク: 基本スキル最大 4、Ult 最大 3（Lv 4/8/12 で習得可能）。Lv1 で 1 ポイント、以後レベル毎 +1。
 - 自動習得（既定 ON）: Ult > Skill1 > Skill2 の順で可能なもの。
 - ダメージ = base_damage × (1 + 0.30×(rank−1)) + scaling_attack × 総攻撃力 × 0.6 + scaling_power × 魔力
-- CD = cooldown_sec × (1 − 0.06×(rank−1)) × (1 − CD短縮) × 0.5（調整倍率 `Balance.Skills.cooldownScale`）。CD短縮上限 40%。
-- 調整倍率（1v1 の TTK 3〜13 秒を目標に `SkillBalanceTests` で決定）: ダメージ ×[Skill1 4.0 / Skill2 3.0 / Ult 2.6]、回復・シールド系 ×2.4。
+- CD = cooldown_sec × (1 − 0.06×(rank−1)) × (1 − CD短縮)。CD短縮上限 40%。**スキルのクールダウンは Mobile Legends と同じ秒数**（調整倍率 `Balance.Skills.cooldownScale` = 1.0。2026-10 に 0.5 から変更）。キット（H025–H034）のヒーローは MLBB の秒数をランクへ線形補間した値（`docs/kits/*.md`）。
+- 調整倍率: ダメージ ×[Skill1 4.0 / Skill2 3.0 / Ult 2.6]、回復・シールド系 ×2.4。1v1 の TTK の帯は `SkillBalanceTests`（2.5〜20 秒、全員総当たりで外れは 2% 以内）。CD を MLBB の秒数にしたときダメージ倍率は上げなかった: スキル 1 発のダメージはすでに MLBB 以上（汎用のスキル1 は Lv1 で約 900 = MLBB の 2〜3 倍）で、上げると MLBB から遠ざかるため。代わりに TTK の帯を MLBB の装備なしの 1v1（15〜20 秒前後）に合わせて 15 → 20 秒へ広げた。
 - コスト = cost（Mana/Energy）。Energy ヒーローは cost × 0.6。
 - ダメージ種別はヒーロー毎（マスター damage_type）。
 - アーキタイプ（`SkillArchetype`）:

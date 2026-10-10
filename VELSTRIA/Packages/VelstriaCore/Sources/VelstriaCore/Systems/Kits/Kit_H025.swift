@@ -22,9 +22,9 @@ import Foundation
 enum LuminaTuning {
     // MARK: パッシブ（月環の導き）
     static let maxStacks = 5
-    /// 1 段あたりの攻撃速度（ミヤは 5%）。Velstria は TTK が短く立ち上がりが遅いので 9%（最大 +45%）に調整。
-    /// 総当たりの勝率がレンジャー中央値より Lv6 で 25 pt 低かったため（0.06 → 0.09 と月影の増強で -14 pt 台へ）。
-    static let attackSpeedPerStack: Double = 0.09
+    /// 1 段あたりの攻撃速度（ミヤは 5%）。7%（最大 +35%）。CD が半分だったころは TTK が短く立ち上がりが遅いので 9% にしていたが、
+    /// CD が MLBB の秒数になって 1v1 が長くなり（Lv1 の中央値 10 → 13.6 秒）、段が積み上がる Lv1 の勝率がレンジャー中央値 +28 pt に偏ったので 7% へ戻した。
+    static let attackSpeedPerStack: Double = 0.07
     static let stackDuration: Double = 4
     /// 月影: ミヤは 30 + 攻撃力 25%（攻撃力 115 に対し約 0.5 倍の追撃）。Velstria は TTK が短く構えの立ち上がりが遅い分、
     /// 固定値 70・攻撃力 40%（攻撃力 138〜200 に対し約 0.9 倍）に調整した。docs/kits/Miya.md の対応表を参照。

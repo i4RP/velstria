@@ -2,16 +2,22 @@ import XCTest
 @testable import VelstriaCore
 
 /// バランスのスモーク: ロール代表（H001–H006）同士の 1v1 を Lv 1/6/12（自動習得のランク）で戦わせ、
-/// 通常攻撃 + CD 毎のスキルで決着までの時間（TTK）が 2.5〜15 秒に収まることを確認する。
+/// 通常攻撃 + CD 毎のスキルで決着までの時間（TTK）が 2.5〜20 秒に収まることを確認する。
 /// 外れる場合は Balance.Skills の係数（SkillBalance.swift）で調整する（マスターデータは変えない）。
+///
+/// 帯の根拠: スキルのクールダウンは Mobile Legends と同じ秒数（Balance.Skills.cooldownScale = 1.0）。MLBB の装備なしの 1v1 は
+/// Lv1 で HP 約 2500 に対し通常攻撃が毎秒 100 前後（防御込み）+ スキル1 が 6〜11 秒ごとに 300〜400 で、決着まで 15〜20 秒前後かかる。
+/// Velstria のスキル 1 発のダメージは MLBB 以上（汎用のスキル1 は Lv1 で約 900 = MLBB の 2〜3 倍）なので、同じクールダウンなら TTK は
+/// MLBB 以下になる。上限 20 秒はその MLBB の目安。下限 2.5 秒（一撃死の防止）は CD が半分だったころと同じ。
+/// 全員総当たりの分布（Release）: 中央値 Lv1 13.6 / Lv6 8.6 / Lv12 9.1 秒（CD が半分だったころは 10.0 / 5.3 / 5.8 秒、上限 15 秒）。
 final class SkillBalanceTests: XCTestCase {
     static let representatives = ["H001", "H002", "H003", "H004", "H005", "H006"]
     static let levels = [1, 6, 12]
     static let minTTK = 2.5
-    static let maxTTK = 15.0
+    static let maxTTK = 20.0
     /// 全員総当たり（testFullRosterStaysNearBand）で 1 戦も外れてはいけない帯。
     static let hardMinTTK = 2.0
-    static let hardMaxTTK = 17.0
+    static let hardMaxTTK = 25.0
 
     struct DuelResult {
         var ttk: Double

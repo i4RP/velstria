@@ -25,8 +25,10 @@ enum OriaTuning {
     /// 汎用の S1（遠隔直線弾）のダメージに対する倍率。氷塊 + 雹 5 発がすべて 1 体に当たって 0.92 倍。
     /// 氷塊 0.85 + 雹 5 × 0.06 = 1.15 倍（全部当たったとき）。雹を氷塊の周りへ広げた（中心に立つ相手には当たらない）ぶん、氷塊を 0.64 から上げた
     /// （S1 だけの Lv1 と全スキルの Lv12 を同時に合わせるため。0.64 のままだと Lv12 が中央値より下がった）。
-    static let s1MeteorRatio: Double = 0.85
-    static let s1HailRatio: Double = 0.06
+    /// クールダウンが MLBB の 6.0 → 4.0 秒（以前は汎用に揃えた 6.5 → 5.3 秒）になって撃つ回数が約 1.2 倍になったので、1 発を 0.85 → 0.70・
+    /// 雹を 0.06 → 0.05 に下げた（Lv12 の勝率がアルカニスト中央値 +40 pt で帯の外だった）。
+    static let s1MeteorRatio: Double = 0.70
+    static let s1HailRatio: Double = 0.05
     static let s1Hails = 5
     static let s1Range: Double = 650
     /// 氷塊の半径（スキル定義の radius 155 より少し広く）。

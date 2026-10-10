@@ -128,13 +128,15 @@ final class Kit_H033Tests: XCTestCase {
     /// 例外: S1 はランクが上がるほど倍率を下げる（0.88 → 0.64）ので、ランク 2 以降は 0.8 を割る。序盤（Lv1〜3 はスキル1 だけ）を
     /// 強くして、ランクが上がってスキル2・アルティメット（クールダウン半減・追撃）が揃ったあとの火力と 3 秒の瞬間火力を抑えるため
     /// （docs/kits/Alucard.md の「バランス」）。
+    /// 例外 2: S2 のクールダウンは MLBB の 6 → 4 秒で、汎用の S2（9.8 秒から）の約半分なので、1 発は 0.5 倍（1 秒あたりでは汎用の約 0.8 倍）。
+    /// S1 もクールダウンが MLBB の秒数になってランク 4 は 0.56 倍。
     func testNumbersStayWithinDamageBudgetAndFollowCooldownFormula() throws {
         for level in [1, 6, 12] {
             for rank in 1...Balance.basicSkillMaxRank {
                 for slot in [SkillSlot.skill1, .skill2] {
                     let (n, g) = try numbers(slot, level: level, rank: rank)
                     let r = n.totalDamage / g.totalDamage
-                    let floor = slot == .skill1 ? 0.6 : 0.8
+                    let floor = slot == .skill1 ? 0.55 : 0.45
                     XCTAssertTrue((floor...1.3).contains(r), "\(slot) Lv\(level) r\(rank): \(r)")
                 }
             }
