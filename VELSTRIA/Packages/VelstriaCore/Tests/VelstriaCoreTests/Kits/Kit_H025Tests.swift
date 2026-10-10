@@ -1129,10 +1129,13 @@ final class Kit_H025Tests: XCTestCase {
                     st.units[i].hero!.skillRanks[SkillSlot.ultimate.rawValue] = 1
                     sim.restore(from: st)
                 }
-                // 奥義は AI の判断が厳しいので、120 秒以降は 15 秒おきに自動照準で奥義・S2 を撃たせ、状態遷移も通す
+                // 奥義は AI の判断が厳しいので、120 秒以降は 15 秒おきに自動照準で奥義・S2・S1 を撃たせ、状態遷移も通す
+                // （S1 はクールダウンが MLBB の 11 秒になり、交戦の少ない序盤の 3 分では AI が一度も撃たない種がある）
                 var commands: [HeroCommand] = []
                 if sim.state.time >= 120, sim.state.tick % 450 == 0 {
                     commands.append(HeroCommand(heroID: id, command: .castSkill(slot: .ultimate, target: .none)))
+                } else if sim.state.time >= 120, sim.state.tick % 450 == 300 {
+                    commands.append(HeroCommand(heroID: id, command: .castSkill(slot: .skill1, target: .none)))
                 } else if sim.state.time >= 120, sim.state.tick % 450 == 150 {
                     commands.append(HeroCommand(heroID: id, command: .castSkill(slot: .skill2, target: .none)))
                 }

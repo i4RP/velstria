@@ -87,8 +87,9 @@ enum EuriaTuning {
     static let chainDuration: Double = 1.0
     /// 同じ相手へは、前の鎖を結んでからこの秒数が過ぎるまで次の鎖を結ばない。印は消費しない（印のあいだ S1 が当たるたびに鎖が繋がり、
     /// 終わりの一撃のクールダウン短縮で回り続けるのを抑える）。総当たりの勝率（アルカニスト中央値との差）は
-    /// 制限なし Lv1 +40 / Lv6 +15 / Lv12 +41 pt → 3 秒で Lv1 +4 / Lv6 +12 / Lv12 +28 pt。それ以上の秒数ではほとんど変わらない（6 秒でも同程度）。
-    static let chainLockout: Double = 3.0
+    /// 制限なし Lv1 +40 / Lv6 +15 / Lv12 +41 pt → 3 秒で Lv1 +4 / Lv6 +12 / Lv12 +28 pt（全体の CD が半分だったころ。6 秒でも同程度）。
+    /// CD が MLBB の秒数（2 倍）になったので、CD に対する割合を保って 6 秒にした（3 秒のままだと CD 短縮なしでは一度も効かない）。
+    static let chainLockout: Double = 6.0
     static let chainSpeed: Double = 0.40
     /// 鎖が切れる距離（調査に無い。S1 の射程 650 に余裕を足した値）。術者と対象の中心間。
     static let chainLeash: Double = 800

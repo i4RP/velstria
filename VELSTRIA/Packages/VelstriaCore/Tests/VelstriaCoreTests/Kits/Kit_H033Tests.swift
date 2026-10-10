@@ -129,7 +129,7 @@ final class Kit_H033Tests: XCTestCase {
     /// 強くして、ランクが上がってスキル2・アルティメット（クールダウン半減・追撃）が揃ったあとの火力と 3 秒の瞬間火力を抑えるため
     /// （docs/kits/Alucard.md の「バランス」）。
     /// 例外 2: S2 のクールダウンは MLBB の 6 → 4 秒で、汎用の S2（9.8 秒から）の約半分なので、1 発は 0.5 倍（1 秒あたりでは汎用の約 0.8 倍）。
-    /// S1 もクールダウンが MLBB の秒数になってランク 4 は 0.56 倍。
+    /// S1 もクールダウンが MLBB の秒数になってランク 4 は 0.60 倍。
     func testNumbersStayWithinDamageBudgetAndFollowCooldownFormula() throws {
         for level in [1, 6, 12] {
             for rank in 1...Balance.basicSkillMaxRank {

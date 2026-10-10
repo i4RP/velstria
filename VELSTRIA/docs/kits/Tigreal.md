@@ -143,7 +143,7 @@ H029 聖槌のボルグ（サポート・近接 150・Mana）= Velstria 版の T
 
 ### 検証した 1v1 の目安
 
-- `Kit_H029Tests.testDuelTimeToKillStaysInBandAgainstTheRoleRepresentatives`: H001〜H006 相手の TTK は Lv 1 / 6 / 12 とも 2.5〜15 秒。
+- `Kit_H029Tests.testDuelTimeToKillStaysInBandAgainstTheRoleRepresentatives`: H001〜H006 相手の TTK は Lv 1 / 6 / 12 とも 2.5〜22 秒（CD が半分だったころの帯は 2.5〜15 秒）。
 - `KitBalanceTests`（Release、`BalanceHarness`）の勝率（総当たり・両陣営 x 開始距離 x 種の平均、%）。ロール「サポート」の汎用ヒーローの中央値との比較:
 
   | | Lv1 | Lv6 | Lv12 |
@@ -169,3 +169,7 @@ H029 聖槌のボルグ（サポート・近接 150・Mana）= Velstria 版の T
 - 無効化の合図は `SkillFXDirector` の既存の hook だけで出している。`passiveRelease` は「スキルの発動の直後（0.6 秒以内）」にしか呼ばれないので、通常の無効化（敵の攻撃を受けた瞬間）は「バッジがタイマーになる → パッシブの合図」で見せる（`FX_H029.passiveRelease` の金の盾の弾けは、発動の直後に無効化したときだけ）。
 - 無効化の印（`kit.H029.blocked`）は HUD の状態アイコン列に 0.3 秒だけ汎用の「刻印」として出る（`KitStatusVisuals` は共有ファイルのため名前・アイコンを足していない）。
 - `SkillFXDirector` は duration / count を読まない。スキル2 の演出は stage 1 を `recipe(_:stage:_:)` に分けた（cast = 振りかぶり、impact = 叩きつけ）。アルティメットの段は `at` で表した（詠唱 0.3 / 0.8 秒を固定のタイミングで書いてある）。
+
+### クールダウンを MLBB の秒数に（2026-10）
+
+- 全体の CD 倍率 0.5 を廃止（スキル1 7 → 4 秒、スキル2 16 → 13 秒、アルティメット 55 / 50 / 45 秒 = 公式の秒数そのまま）。数値は変えていない。`KitBalanceTests`（サポート中央値との差）: 変更前 −8.3 / −1.3 / −7.3 → 変更後 +19.1 / +17.8 / +4.4 pt。

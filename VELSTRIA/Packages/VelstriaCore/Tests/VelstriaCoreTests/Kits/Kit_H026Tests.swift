@@ -435,11 +435,11 @@ final class Kit_H026Tests: XCTestCase {
         XCTAssertEqual(events(w, to: a, .skill(.skill1)).count, 6)
         XCTAssertEqual(events(w, to: b, .skill(.skill1)).count, 6)
         XCTAssertNil(status(w, k, .speedBoost))
-        // 前の鎖から 3 秒以内（印が残っていても）は、同じ相手に鎖を結び直さない（鎖が無限に繋がらない）
+        // 前の鎖から chainLockout（6 秒）以内（印が残っていても）は、同じ相手に鎖を結び直さない（鎖が無限に繋がらない）
         XCTAssertTrue(w.cast(k, .skill1, .direction(Self.east)))
         XCTAssertEqual(kit(w, k).scheduled.count, 0, "ロックアウト中は新しい鎖なし")
         XCTAssertEqual(kit(w, k).euriaChains, 2)
-        // 3 秒たてば再び結べる（予約は対象ごとに 1 組 = 張り直しでも増えない）
+        // chainLockout たてば再び結べる（予約は対象ごとに 1 組 = 張り直しでも増えない）
         w.run(seconds: T.chainLockout)
         mark(&w, owner: k, on: a)
         mark(&w, owner: k, on: b)
@@ -471,11 +471,12 @@ final class Kit_H026Tests: XCTestCase {
         XCTAssertTrue(w.cast(k, .skill1, .direction(Self.east)))
         XCTAssertEqual(kit(w, k).euriaChains, 2, "a はロックアウト中、b は新しい鎖")
         XCTAssertGreaterThan(kit(w, k).euriaChainLockout(for: w.id(b)), 0)
-        // ロックアウトは自動で明ける
+        // ロックアウトは自動で明ける（その間に印（5 秒）は切れるので両方に付け直す）
         w.run(seconds: T.chainLockout + 0.1)
         XCTAssertEqual(kit(w, k).euriaChainLockout(for: w.id(a)), 0)
         XCTAssertEqual(kit(w, k).euriaChainLockout(for: w.id(b)), 0)
         mark(&w, owner: k, on: a)
+        mark(&w, owner: k, on: b)
         XCTAssertTrue(w.cast(k, .skill1, .direction(Self.east)))
         XCTAssertEqual(kit(w, k).euriaChains, 4, "a と b の両方に結び直す")
     }
@@ -938,7 +939,7 @@ final class Kit_H026Tests: XCTestCase {
                 XCTAssertTrue(ja.contains("分岐雷") && ja.contains("雷球") && ja.contains("九天雷鳴"), ja)
                 XCTAssertTrue(ja.contains("スキル1") && ja.contains("スキル2") && ja.contains("アルティメット"), ja)
             }
-            if slot == .skill1 { XCTAssertTrue(ja.contains("3秒に1回"), ja) }
+            if slot == .skill1 { XCTAssertTrue(ja.contains("\(Int(T.chainLockout))秒に1回"), ja) }
             if slot == .skill2 { XCTAssertTrue(ja.contains("ミニオンにはダメージのみ"), ja) }
         }
     }
@@ -1080,7 +1081,7 @@ final class Kit_H026Tests: XCTestCase {
             let rate = score / Double(ids.count)
             report += String(format: "Lv%d: %.1f%% (%.1f/%d)\n", level, rate * 100, score, ids.count)
             // 下限 20%: CD が MLBB の秒数になって S1（7 → 5 秒）が印（5 秒）より長くなり、この固定順の台本（奥義 → S1 → S2）では鎖が
-            // ほとんど繋がらない（Lv6 24%。同じ場の汎用アルカニストの中央値は約 30%、最小は 8%）
+            // ほとんど繋がらない（Lv6 21%。同じ場の汎用アルカニストの中央値は約 33%、最小は 10%）
             XCTAssertGreaterThanOrEqual(rate, 0.20, "Lv\(level) 弱すぎる")
             XCTAssertLessThanOrEqual(rate, 0.75, "Lv\(level) 強すぎる")
         }
