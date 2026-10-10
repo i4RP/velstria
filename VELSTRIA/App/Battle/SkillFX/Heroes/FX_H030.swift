@@ -20,9 +20,10 @@ import VelstriaCore
 // SkillFXDirector は duration / count を読まない: 時刻は at（遅れ）で表す。
 
 enum FX_H030: HeroFXSet {
-    static let palette = FXPalette(core: RGB(1.0, 0.97, 0.96), primary: RGB(1.0, 0.45, 0.72),
-                                   secondary: RGB(1.0, 0.82, 0.92), accent: RGB(1.0, 0.82, 0.3),
-                                   dark: RGB(0.16, 0.03, 0.1))
+    // 造形（白と金の砲・水色の動力球）と MLBB の Layla の既定スキンに合わせ、水色のエネルギーを主色、虚空の紫を副色、金を差し色にする。
+    static let palette = FXPalette(core: RGB(0.96, 0.99, 1.0), primary: RGB(0.36, 0.82, 1.0),
+                                   secondary: RGB(0.68, 0.5, 1.0), accent: RGB(1.0, 0.84, 0.36),
+                                   dark: RGB(0.03, 0.04, 0.16))
 
     /// 虚空の紫（星爆弾の光球と刻印）。
     private static let voidTint = FXTint.rgb(0.64, 0.38, 1.0)

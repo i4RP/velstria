@@ -21,9 +21,10 @@ import VelstriaCore
 // SkillFXDirector は duration / count を読まない: 時刻は at（遅れ）で表す。
 
 enum FX_H025: HeroFXSet {
-    static let palette = FXPalette(core: RGB(0.96, 1.0, 0.97), primary: RGB(0.3, 0.92, 0.6),
-                                   secondary: RGB(0.78, 0.95, 1.0), accent: RGB(1.0, 0.95, 0.55),
-                                   dark: RGB(0.02, 0.1, 0.06))
+    // 造形（銀白の髪・青紫の衣装・水色に光る弦）と MLBB の Miya の既定スキンの月光に合わせ、月光の青を主色にする。
+    static let palette = FXPalette(core: RGB(0.96, 0.99, 1.0), primary: RGB(0.42, 0.76, 1.0),
+                                   secondary: RGB(0.82, 0.92, 1.0), accent: RGB(0.62, 0.95, 1.0),
+                                   dark: RGB(0.02, 0.05, 0.14))
 
     // MARK: - sim の時刻・寸法（Kit_H025.LuminaTuning と同じ値。sim を変えたらここも合わせる）
 
