@@ -14,19 +14,24 @@ extension BodyBuild {
 
 /// knight = 基調色（青）の板金に、金属色（金）の縁取り・胸の聖印・籠手の輪を添えた重装（H029 ボルグ）。
 /// plate は金属色そのものが鎧の地色になる（銀・鉄・金の鎧）。
-enum ArmorStyle { case plate, leather, cloth, rock, fur, mech, light, knight }
+/// frost / dragon / abyss は H031 オーリア・H027 ジャルド・H032 ディアス専用（HeroAssembler の各 case に説明）。
+enum ArmorStyle { case plate, leather, cloth, rock, fur, mech, light, knight, frost, dragon, abyss }
 
-enum PauldronStyle { case none, small, round, big, rock, fur, crystal, feather }
+/// spiked = 濃い紫の肩甲から上へ反る棘（H032 ディアス）。
+enum PauldronStyle { case none, small, round, big, rock, fur, crystal, feather, spiked }
 
-enum SkirtStyle { case none, tassets, robe, shortSkirt, coat, loincloth, petals, kilt }
+/// iceGown = 裾が氷の結晶で広がる人魚形の長いドレス（H031）。longCoat = 淡い上衣の長い前後の裾と青緑の草摺（H027）。
+enum SkirtStyle { case none, tassets, robe, shortSkirt, coat, loincloth, petals, kilt, iceGown, longCoat }
 
-enum HairStyle { case none, short, spiky, long, ponytail, twinTails, bob, topknot, braids, mohawk, wild }
+/// flowing = 腰まで流れる量の多い長髪と、肩の前へ垂らす房（H031）。
+enum HairStyle { case none, short, spiky, long, ponytail, twinTails, bob, topknot, braids, mohawk, wild, flowing }
 
 enum HeadGear {
     case knightHelm, hood, deepHood, mask, starPin, shellCrown, flameCrown, goggles, beastMask
     case hornHelm, vikingHelm, wideHat, foxEars, wingedHelm, nightcap, flowerCrown, circlet
     case featherPin, glassVisor, ironVisor, headband, beard, crescentPin, ribbon
     case iceCrown
+    case dragonCrest, demonHorns
 }
 
 enum WeaponKind {
@@ -36,17 +41,21 @@ enum WeaponKind {
     case thunderLance, dreamNeedle
     case dragonSpear, stormWand, photonBlade, holyMaul
     case starCannon, iceStaff, fistBlade, bloodGreatsword, hookChain
+    /// 手首の刃の輪（H032 ディアス。左手は OffhandKind.abyssRing）。
+    case abyssRing
 }
 
 enum OffhandKind {
     case none, gateShield, harpBow, ashBow, moonLantern, stoneFist, grimoire, glassDagger, hideShield
     case shortBlade, petalBlade, lightBow, azureClaw, dreamNeedle
     case crescentBow, heaterShield
+    case abyssRing
 }
 
 enum BackKind {
     case none, cape, quiver, ironWings, warBell, gearPack, mistCloak, tatteredCape, scarfTails
     case windRibbons, sash, furCape, chainSash
+    case demonTail
 }
 
 enum FloatKind {
@@ -255,11 +264,13 @@ enum HeroBlueprints {
                       gear: [.ribbon], weapon: .stormWand, offhand: .none, back: .cape, float: .sparkOrbs,
                       attack: .staff, metal: .silver, skin: .fair, hairColor: HSB(0.77, 0.6, 0.62),
                       accent: HSB(0.76, 0.7, 0.95), glow: HSB(0.52, 0.5, 1.0)),
-        // H027 竜槍のジャルド（Duelist）: 竜牙の長槍・銀青の鎧・赤い房飾りと鉢巻・茶髪の結い髪
-        HeroBlueprint(build: .standard, armor: .plate, pauldron: .round, skirt: .tassets, hair: .topknot,
-                      gear: [.headband], weapon: .dragonSpear, offhand: .none, back: .scarfTails, float: .none,
-                      attack: .thrust, metal: .silver, skin: .fair, hairColor: HSB(0.07, 0.6, 0.4),
-                      accent: HSB(0.99, 0.78, 0.92), glow: HSB(0.57, 0.5, 1.0), scale: 1.02),
+        // H027 竜槍のジャルド（Duelist）: 青緑の竜の胸甲と大きな肩当てに金の縁・淡い上衣の長い裾・赤いマント・茶髪の高い結い髪に
+        // 青緑の竜の額当て。身の丈の 1.6 倍ほどの竜槍（青緑の竜頭の口から伸びる金の炎の穂先、橙に光る目と芯）。
+        // 基調色 = Theme.heroHue（青緑 0.50）、cloth = 淡い上衣、metal = 金（縁・穂先・竜の角）、accent = 赤（マント・髪紐）、glow = 橙。
+        HeroBlueprint(build: .standard, armor: .dragon, pauldron: .big, skirt: .longCoat, hair: .ponytail,
+                      gear: [.dragonCrest], weapon: .dragonSpear, offhand: .none, back: .cape, float: .none,
+                      attack: .thrust, metal: .gold, skin: .fair, hairColor: HSB(0.06, 0.55, 0.3),
+                      accent: HSB(0.99, 0.8, 0.75), glow: HSB(0.08, 0.8, 1.0), scale: 1.06),
         // H028 断空のザイル（Assassin）: 光刃の長剣・濃紺の軽装甲・光る visor
         HeroBlueprint(build: .slim, armor: .light, pauldron: .small, skirt: .coat, hair: .spiky,
                       gear: [.glassVisor], weapon: .photonBlade, offhand: .none, back: .none, float: .none,
@@ -277,16 +288,20 @@ enum HeroBlueprints {
                       gear: [.starPin, .ribbon], weapon: .starCannon, offhand: .none, back: .gearPack, float: .none,
                       attack: .gun, metal: .gold, skin: .fair, hairColor: HSB(0.05, 0.38, 1.0),
                       accent: HSB(0.99, 0.72, 0.92), glow: HSB(0.93, 0.5, 1.0), scale: 0.98),
-        // H031 氷嵐のオーリア（Arcanist）: 氷の杖・氷の冠・淡い青白の長髪・周囲に浮く氷の結晶
-        HeroBlueprint(build: .robed, armor: .cloth, pauldron: .crystal, skirt: .robe, hair: .long,
-                      gear: [.iceCrown], weapon: .iceStaff, offhand: .none, back: .none, float: .iceCrystals,
-                      attack: .staff, metal: .platinum, skin: .pale, hairColor: HSB(0.56, 0.12, 1.0),
-                      accent: HSB(0.74, 0.35, 0.95), glow: HSB(0.54, 0.45, 1.0), scale: 1.04),
-        // H032 赤拳のディアス（Duelist）: 刃付きの籠手（拳剣）・黒髪と赤い鉢巻・赤黒の軽装甲
-        HeroBlueprint(build: .standard, armor: .leather, pauldron: .small, skirt: .kilt, hair: .spiky,
-                      gear: [.headband], weapon: .fistBlade, offhand: .none, back: .sash, float: .none,
-                      attack: .slash, metal: .iron, skin: .tan, hairColor: HSB(0.0, 0.2, 0.1),
-                      accent: HSB(0.99, 0.85, 0.85), glow: HSB(0.01, 0.8, 1.0), scale: 1.02),
+        // H031 氷嵐のオーリア（Arcanist）: 背の高い氷の女王。群青の人魚形のドレス（裾は氷の結晶）・銀青の袖と手首の氷・
+        // 腰まで流れる白銀の長髪・頭の後ろに立つ氷の光輪の冠・肩から引く半透明の氷のヴェール。杖は持たず、氷華に覆われた右手から放つ。
+        // 基調色 = Theme.heroHue（群青 0.645）、cloth = 銀青の袖、metal = 白金（冠の額の輪）、accent = 氷の水色（結晶）、veil = 氷のヴェール。
+        HeroBlueprint(build: .robed, armor: .frost, pauldron: .crystal, skirt: .iceGown, hair: .flowing,
+                      gear: [.iceCrown], weapon: .none, offhand: .none, back: .mistCloak, float: .iceCrystals,
+                      attack: .spellThrow, metal: .platinum, skin: .pale, hairColor: HSB(0.58, 0.06, 1.0),
+                      accent: HSB(0.52, 0.55, 1.0), glow: HSB(0.54, 0.45, 1.0), scale: 1.12),
+        // H032 赤拳のディアス（Duelist）: 深淵の王子。両手首に金の刃の輪（内縁が紅く光る）・白い髪と金の角・紅く光る目・
+        // 薄紫の肌のはだけた胸に紅い光の核・濃い紫の棘の肩甲と上着・紅のズボンと脛の棘の輪・長い黒い尾。小柄。
+        // 基調色 = Theme.heroHue（紫 0.71。secondary = 濃い紫の鎧）、metal = 金（刃の輪・角）、accent = 紅（ズボン・襟の裏）、glow = 赤。
+        HeroBlueprint(build: .slim, armor: .abyss, pauldron: .spiked, skirt: .none, hair: .wild,
+                      gear: [.demonHorns], weapon: .abyssRing, offhand: .abyssRing, back: .demonTail, float: .none,
+                      attack: .dualSlash, metal: .gold, skin: .violet, hairColor: HSB(0.72, 0.06, 0.97),
+                      accent: HSB(0.97, 0.8, 0.6), glow: HSB(0.99, 0.85, 1.0), scale: 1.0, glowingEyes: true),
         // H033 紅牙のヴァルド（Assassin）: 巨大な血の大剣（両手持ち）・長い黒髪・蝙蝠の翼風のマント・深紅と黒の鎧
         HeroBlueprint(build: .standard, armor: .plate, pauldron: .round, skirt: .coat, hair: .long,
                       gear: [], weapon: .bloodGreatsword, offhand: .none, back: .tatteredCape, float: .none,

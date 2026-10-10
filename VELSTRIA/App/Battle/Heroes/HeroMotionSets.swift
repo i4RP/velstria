@@ -164,10 +164,11 @@ enum HeroMotionSets {
         "H029": make(["sword_combo_1", "axe_chop"], idle: "combat_idle"),
         // 星砲（Ranger・遠隔の両手持ち）
         "H030": make(["gun_fire"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer", weaponGrip: held),
-        // 氷の杖（Arcanist・遠隔: 払い・指し示し）
-        "H031": make(["cast_a", "cast_point"], idle: "idle_b", death: "death_forward", victory: "victory_cheer", weaponGrip: held),
-        // 拳剣（Duelist・近接。右手の籠手で薙ぐ・打ち上げる）
-        "H032": make(["sword_slash_r", "uppercut_r", "sword_combo_1"], idle: "ready_idle", death: "death_forward"),
+        // 氷華の右手（Arcanist・遠隔: 杖は持たず手から放つ・指し示し）
+        "H031": make(["cast_throw", "cast_point"], idle: "idle_b", death: "death_forward", victory: "victory_cheer", weaponGrip: held),
+        // 両手首の刃の輪（Duelist・近接の左右交互の連撃）
+        "H032": make(["dual_combo_a", "dual_combo_b", "dual_combo_c"], idle: "ready_idle", death: "death_forward",
+                     offhandGrip: HeroMotionSet.fistGrip),
         // 血の大剣（Assassin・近接の両手の重い振り）
         "H033": make(["overhead_2h", "sword_charged", "sword_upward"], idle: "combat_idle", death: "death_forward"),
         // 鎖鉤（Support・近接の振り回し）
