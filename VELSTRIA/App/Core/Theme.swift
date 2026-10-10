@@ -58,12 +58,12 @@ enum Theme {
 
     /// 造形設計の配色（NEW_HEROES.md）に合わせて、番号から決まる色相を上書きするヒーロー。
     private static let heroHueOverrides: [String: Double] = [
-        "H025": 0.40,  // ルミナ: 翠緑
-        "H026": 0.76,  // エウリア: 紫
+        "H025": 0.66,  // ルミナ: 青紫（銀は HeroBlueprints の metal、外套の青は accent）
+        "H026": 0.62,  // エウリア: 青（全身衣。白い外套は cloth、電光の青紫は glow）
         "H027": 0.50,  // ジャルド: 青緑の鎧（淡い上衣は cloth、金は metal、赤は accent）
         "H028": 0.59,  // ザイル: 鋼青（黒い下地は dark、銀は metal、赤い visor・襟巻きは glow・accent）
         "H029": 0.60,  // ボルグ: 青（金は HeroBlueprints の metal、赤は accent）
-        "H030": 0.92,  // ライナ: 桃
+        "H030": 0.63,  // ライナ: 青（スカート・紺のネクタイ。白い上着は cloth、金は metal、茶革は accent）
         "H031": 0.645, // オーリア: 群青のドレス（銀青の袖は cloth、氷の水色は accent）
         "H032": 0.71,  // ディアス: 濃い紫の鎧（secondary。金の刃の輪は metal、紅は accent・glow）
         "H033": 0.61,  // ヴァルド: 青（濃紺のコートは secondary、銀の大剣は metal、銅の縁は accent）

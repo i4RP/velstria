@@ -19,20 +19,28 @@ extension BodyBuild {
 /// cyber = 黒い下地（dark）に基調色の装甲板・銀の縁・赤く光る線（H028 ザイル）。
 /// hunter = 濃紺の長いコート（secondary）に銅の縁（accent）・銀の籠手（H033 ヴァルド）。
 /// viking = 緑の上衣（accent）に鉄の鱗の胸当て・毛皮の襟・素肌の前腕と革の籠手（H034 ゴルム）。
-enum ArmorStyle { case plate, leather, cloth, rock, fur, mech, light, knight, frost, dragon, abyss, cyber, hunter, viking }
+/// huntress = 素肌の胴に短い胸当て（H025）、stormCoat = 白い外套の前から青い全身衣（H026）、gunnerJacket = 白い上着に茶革の胴着（H030）。
+enum ArmorStyle {
+    case plate, leather, cloth, rock, fur, mech, light, knight, frost, dragon, abyss, cyber, hunter, viking
+    case huntress, stormCoat, gunnerJacket
+}
 
 /// spiked = 濃い紫の肩甲から上へ反る棘（H032 ディアス）。
 /// angular = 角張った機甲の肩当て（H028）、mantle = 肩を覆う短いケープ（H033）、disc = 鉄の円盾のような大きな肩当て（H034）。
-enum PauldronStyle { case none, small, round, big, rock, fur, crystal, feather, spiked, angular, mantle, disc }
+enum PauldronStyle { case none, small, round, big, rock, fur, crystal, feather, spiked, angular, mantle, disc, crescentGuard, stormSpike }
 
 /// iceGown = 裾が氷の結晶で広がる人魚形の長いドレス（H031）。tabard = 淡い上衣の長い前後の裾と青緑の草摺（H027）。
 /// longCoat = 膝下まで届く前開きのコートの裾（H033）。
-enum SkirtStyle { case none, tassets, robe, shortSkirt, coat, loincloth, petals, kilt, iceGown, tabard, longCoat }
+enum SkirtStyle { case none, tassets, robe, shortSkirt, coat, loincloth, petals, kilt, iceGown, tabard, longCoat, openCoat }
 
 /// flowing = 腰まで流れる量の多い長髪と、肩の前へ垂らす房（H031）。
 /// highPonytail = 頭頂で結んで後ろへ跳ねる長い髪（H028）、swept = 前髪を立ち上げて流した短髪（H033）、
 /// mane = 兜の下から背へ流れる長い髪（H034）。
-enum HairStyle { case none, short, spiky, long, ponytail, twinTails, bob, topknot, braids, mohawk, wild, flowing, highPonytail, swept, mane }
+/// fallingPonytail = 高く結って背中へ流れ落ちる長い馬の尾（H025）、longTwinTails = 腰まで流れる長く豊かなツインテール（H030）。
+enum HairStyle {
+    case none, short, spiky, long, ponytail, twinTails, bob, topknot, braids, mohawk, wild, flowing
+    case highPonytail, swept, mane, fallingPonytail, longTwinTails
+}
 
 enum HeadGear {
     case knightHelm, hood, deepHood, mask, starPin, shellCrown, flameCrown, goggles, beastMask
@@ -43,6 +51,7 @@ enum HeadGear {
     /// cyberVisor = 目を覆う赤い visor と銀の耳当て・アンテナ（H028）、raiderHelm = 大きな角の鉄兜（H034）、
     /// fullBeard = 胸まで届く大きな髭と跳ね上がった口髭（H034）。
     case cyberVisor, raiderHelm, fullBeard
+    case elfEars, stormCrest, gemBand
 }
 
 enum WeaponKind {
@@ -54,6 +63,7 @@ enum WeaponKind {
     case starCannon, iceStaff, fistBlade, bloodGreatsword, hookChain
     /// 手首の刃の輪（H032 ディアス。左手は OffhandKind.abyssRing）。
     case abyssRing
+    case ballLightning
 }
 
 enum OffhandKind {
@@ -269,16 +279,20 @@ enum HeroBlueprints {
                       float: .dreamThreads, attack: .dualSlash, metal: .silver, skin: .fair,
                       hairColor: HSB(0.75, 0.3, 0.95), accent: HSB(0.78, 0.35, 1.0), glow: HSB(0.8, 0.45, 1.0),
                       scale: 0.96),
-        // H025 月弦のルミナ（Ranger）: 三日月の長弓・銀白の長髪・翠と白の外套
-        HeroBlueprint(build: .slim, armor: .light, pauldron: .small, skirt: .shortSkirt, hair: .long,
-                      gear: [.featherPin, .crescentPin], weapon: .none, offhand: .crescentBow, back: .cape, float: .none,
-                      attack: .bow, metal: .silver, skin: .fair, hairColor: HSB(0.13, 0.07, 0.98),
-                      accent: HSB(0.42, 0.7, 0.72), glow: HSB(0.14, 0.4, 1.0)),
-        // H026 紫電のエウリア（Arcanist）: 細身の雷杖・紫の髪と短い外套・周囲に浮く雷球
-        HeroBlueprint(build: .robed, armor: .cloth, pauldron: .small, skirt: .robe, hair: .ponytail,
-                      gear: [.ribbon], weapon: .stormWand, offhand: .none, back: .cape, float: .sparkOrbs,
-                      attack: .staff, metal: .silver, skin: .fair, hairColor: HSB(0.77, 0.6, 0.62),
-                      accent: HSB(0.76, 0.7, 0.95), glow: HSB(0.52, 0.5, 1.0)),
+        // H025 月弦のルミナ（Ranger = MLBB の Miya）: 月の狩人のエルフ。背丈ほどの銀の三日月の長弓（外側の棘・月光の内縁と弦）・
+        // 銀白の高い馬の尾と尖った耳・銀の額冠と青い羽根・青紫の短い胸当てと銀の三日月の肩当て・青い外套。
+        // 基調色 = Theme.heroHue（青紫 0.66）、metal = 銀（弓・肩当て・籠手）、accent = 青（外套・羽根・立ち襟）、glow = 月光の水色。
+        HeroBlueprint(build: .slim, armor: .huntress, pauldron: .crescentGuard, skirt: .tassets, hair: .fallingPonytail,
+                      gear: [.circlet, .elfEars, .featherPin], weapon: .none, offhand: .crescentBow, back: .cape, float: .none,
+                      attack: .bow, metal: .silver, skin: .fair, hairColor: HSB(0.62, 0.08, 0.96),
+                      accent: HSB(0.64, 0.7, 0.85), glow: HSB(0.53, 0.55, 1.0)),
+        // H026 紫電のエウリア（Arcanist = MLBB の Eudora）: 雷の魔女のエルフ。杖は持たず右手の上に球電を浮かべ、まわりを雷球が巡る。
+        // 足元まで届く白い外套（尖った肩・広い袖口）の前から青い全身衣、銀白の短髪・尖った耳・こめかみから伸びる銀の刃の角。
+        // 基調色 = Theme.heroHue（青 0.62 = 全身衣）、cloth = 白い外套、metal = 銀（角・縁）、accent = 水色の稲妻の筋、glow = 青紫の電光。
+        HeroBlueprint(build: .robed, armor: .stormCoat, pauldron: .stormSpike, skirt: .openCoat, hair: .short,
+                      gear: [.elfEars, .stormCrest], weapon: .ballLightning, offhand: .none, back: .none, float: .sparkOrbs,
+                      attack: .spellThrow, metal: .silver, skin: .fair, hairColor: HSB(0.6, 0.06, 0.95),
+                      accent: HSB(0.56, 0.55, 1.0), glow: HSB(0.66, 0.5, 1.0), scale: 1.04),
         // H027 竜槍のジャルド（Duelist）: 青緑の竜の胸甲と大きな肩当てに金の縁・淡い上衣の長い裾・赤いマント・茶髪の高い結い髪に
         // 青緑の竜の額当て。身の丈の 1.6 倍ほどの竜槍（青緑の竜頭の口から伸びる金の炎の穂先、橙に光る目と芯）。
         // 基調色 = Theme.heroHue（青緑 0.50）、cloth = 淡い上衣、metal = 金（縁・穂先・竜の角）、accent = 赤（マント・髪紐）、glow = 橙。
@@ -300,11 +314,13 @@ enum HeroBlueprints {
                       gear: [.circlet], weapon: .holyMaul, offhand: .heaterShield, back: .cape, float: .none,
                       attack: .slash, metal: .gold, skin: .fair, hairColor: HSB(0.13, 0.45, 1.0),
                       accent: HSB(0.99, 0.78, 0.85), glow: HSB(0.13, 0.5, 1.0), scale: 1.32),
-        // H030 星砲のライナ（Ranger）: 背丈ほどの星の砲（両手持ち）・桃みがかった金髪のツインテール・白と金の戦闘服
-        HeroBlueprint(build: .slim, armor: .light, pauldron: .round, skirt: .shortSkirt, hair: .twinTails,
-                      gear: [.starPin, .ribbon], weapon: .starCannon, offhand: .none, back: .gearPack, float: .none,
-                      attack: .gun, metal: .gold, skin: .fair, hairColor: HSB(0.05, 0.38, 1.0),
-                      accent: HSB(0.99, 0.72, 0.92), glow: HSB(0.93, 0.5, 1.0), scale: 0.98),
+        // H030 星砲のライナ（Ranger = MLBB の Layla）: 背丈を超える魔砲（白い砲身・金の枠と 2 本の砲角・水色の動力球）を腰だめに構える。
+        // 腰まで届く金髪の長いツインテール・茶革の髪留めと水色の宝石、白い上着・茶革の胴着・紺のネクタイ・青いスカート・黒い長靴下。
+        // 基調色 = Theme.heroHue（青 0.63 = スカート）、cloth = 白い上着、accent = 茶革、metal = 金（砲の枠・肩章）、glow = 水色。
+        HeroBlueprint(build: .slim, armor: .gunnerJacket, pauldron: .none, skirt: .shortSkirt, hair: .longTwinTails,
+                      gear: [.gemBand], weapon: .starCannon, offhand: .none, back: .none, float: .none,
+                      attack: .gun, metal: .gold, skin: .fair, hairColor: HSB(0.12, 0.5, 1.0),
+                      accent: HSB(0.07, 0.55, 0.5), glow: HSB(0.5, 0.6, 1.0)),
         // H031 氷嵐のオーリア（Arcanist）: 背の高い氷の女王。群青の人魚形のドレス（裾は氷の結晶）・銀青の袖と手首の氷・
         // 腰まで流れる白銀の長髪・頭の後ろに立つ氷の光輪の冠・肩から引く半透明の氷のヴェール。杖は持たず、氷華に覆われた右手から放つ。
         // 基調色 = Theme.heroHue（群青 0.645）、cloth = 銀青の袖、metal = 白金（冠の額の輪）、accent = 氷の水色（結晶）、veil = 氷のヴェール。
