@@ -5,6 +5,7 @@ import Foundation
 // 氷の魔導士。パッシブは「致命傷を受けると無効にして 1.5 秒凍りつく（無敵・最大 HP の 30% を少しずつ回復、CD 150 秒）」、
 // S1 は地点に落ちる氷塊（鈍足）と続く 5 つの雹、S2 は遅れて広がる扇状の霜風（離れた敵を凍結）と扇の先の凍った地面、
 // 奥義は前へ走る氷の道（大幅な鈍足）が氷河に育って砕け、範囲の敵を凍結する（魔力で凍結が延びる）。
+// 霜風・砕けの凍結は敵のタワーにも効く（凍ったタワーは攻撃しない。ダメージは与えない。freezeTurret）。
 // 対応表は docs/kits/Aurora.md の「Velstria 実装対応表」と「公式（現行シーズン）の数値」。
 // 数値の換算（H029 ボルグと同じ方法）: 公式のダメージ表を Velstria のランク（スキル1・2 は 4 段、アルティメットは 3 段）へ線形補間し
 //   （ランク 1 = Lv1、最大ランク = 公式の最終 Lv）、(基礎 + 係数 × 魔力) × スロット倍率 × スキルごとの換算（OriaTuning.*Scale）。
@@ -120,6 +121,8 @@ enum OriaTuning {
     /// HitPayload.kitEvent
     enum Event {
         static let breeze = 1
+        /// 氷河の砕け（敵の構造物を凍らせるためだけ。ヒーロー・ミニオンの凍結は payload の statuses）。
+        static let shatter = 2
     }
 }
 
@@ -166,6 +169,12 @@ extension KitState {
     var oriaBreezeFreeze: Double {
         get { reals[3] }
         set { reals[3] = newValue }
+    }
+
+    /// 氷河の凍結秒（発動時の魔力で決める。敵の構造物を凍らせるときに使う）。0 = 未設定（1 秒として扱う）。
+    var oriaGlacierFreeze: Double {
+        get { reals[4] }
+        set { reals[4] = newValue }
     }
 }
 
@@ -290,10 +299,12 @@ struct Kit_H031: HeroKit {
             return KitText(
                 ja: "致命的なダメージを受けると、{freeze}秒間自身を凍結させる。その間は無敵となり、最大HPを徐々に回復する"
                     + "（回復量はレベルで伸び、レベル1で{healMin}%、レベル\(T.prideHealFullLevel)以降で{x1}%）。この効果のクールダウンは{cooldown}秒。"
-                    + "\n\n致命的なダメージは無効になり、復活系の装備より先に発動する。凍結中は行動できない。",
+                    + "\n\n致命的なダメージは無効になり、復活系の装備より先に発動する。凍結中は行動できない。"
+                    + "\n\n自身の凍結効果はタワーにも効く（凍ったタワーは攻撃しない）。",
                 en: "Upon taking fatal damage, freeze yourself for {freeze}s, becoming invincible during this time and gradually recovering Max HP "
                     + "(the amount grows with level: {healMin}% at level 1, {x1}% from level \(T.prideHealFullLevel)). This effect has a {cooldown}s cooldown."
-                    + "\n\nThe fatal damage is negated, and this triggers before revival items. You cannot act while frozen.",
+                    + "\n\nThe fatal damage is negated, and this triggers before revival items. You cannot act while frozen."
+                    + "\n\nYour freeze effects also affect turrets (a frozen turret does not attack).",
                 tags: [KitTag.buff])
         case .skill1:
             return KitText(
@@ -389,8 +400,9 @@ struct Kit_H031: HeroKit {
         Kit.emitCast(&s, c, origin: origin, target: origin + dir * T.s2Range, shape: .fan, halfAngle: T.s2HalfAngle,
                      duration: T.s2Delay, count: 1)
 
+        // kitHitsStructures: 霜風の凍結はタワーにも効く（freezeTurret）
         let wave = HitPayload(damage: c.numbers.damage, damageType: c.numbers.damageType, source: .skill(.skill2),
-                              skillID: skillID, kitEvent: T.Event.breeze)
+                              skillID: skillID, kitEvent: T.Event.breeze, kitHitsStructures: true)
         ZoneSystem.spawn(&s, ownerIndex: i, center: origin, radius: T.s2Range,
                          shape: .cone(direction: dir, halfAngle: T.s2HalfAngle), delay: T.s2Delay, payload: wave,
                          visual: c.check.skill.effectID)
@@ -424,15 +436,22 @@ struct Kit_H031: HeroKit {
         // 凍結の長さは発動時の魔力で決める（砕けるまでに魔力が変わっても、撃った時点の値）
         let freeze = StatusEffect(kind: .stun, duration: Self.glacierFreeze(abilityPower: s.units[i].stats.abilityPower),
                                   sourceID: id, tag: T.freezeTag)
+        s.units[i].hero!.kit!.oriaGlacierFreeze = freeze.duration
+        // kitHitsStructures: 砕けの凍結はタワーにも効く（freezeTurret）
         let shatter = HitPayload(damage: Self.shatterDamage(rank: c.numbers.rank, stats: s.units[i].stats),
                                  damageType: c.numbers.damageType,
-                                 source: .skill(.ultimate), statuses: [freeze], skillID: skillID)
+                                 source: .skill(.ultimate), statuses: [freeze], skillID: skillID,
+                                 kitEvent: T.Event.shatter, kitHitsStructures: true)
         ZoneSystem.spawn(&s, ownerIndex: i, center: origin + dir * T.ultGlacierCenter, radius: T.ultGlacierRadius,
                          delay: T.ultGlacierDelay, payload: shatter, visual: visual)
     }
 
     /// 霜風の命中: 撃った位置から十分に離れた敵だけ凍結する（1 秒 + 魔法攻撃 100 ごとに 0.06 秒。撃った時点の魔力）。
     func onHit(_ s: inout SimState, _ ctx: SimContext, owner: Int, target: Int, event: Int, dealt: Double) {
+        if s.units.indices.contains(target), s.units[target].isStructure {
+            freezeTurret(&s, ctx, owner: owner, target: target, event: event)
+            return
+        }
         guard event == T.Event.breeze, let k = s.units[owner].hero?.kit, CombatSystem.isLiving(s, target),
               !s.units[target].isStructure else { return }
         guard k.oriaBreezeOrigin.distance(to: s.units[target].pos) >= T.s2FreezeMin else { return }
@@ -445,6 +464,24 @@ struct Kit_H031: HeroKit {
         if after > before + 1e-9 {
             s.emit(.ccApplied(targetID: s.units[target].id, cc: .stun, duration: duration))
         }
+    }
+
+    /// オーリアの凍結はタワーにも効く（公式）。霜風（撃った位置から s2FreezeMin 以上 = 公式の「扇の 2〜6 マスの敵とタワー」）と
+    /// 氷河の砕けの範囲の敵の構造物（ZoneSystem が HitPayload.kitHitsStructures で呼ぶ）を、ヒーローと同じ秒数だけ凍らせる。
+    /// 構造物へのダメージは無い（公式の記載なし）。無敵の構造物は凍らない（Kit.freezeStructure）。
+    private func freezeTurret(_ s: inout SimState, _ ctx: SimContext, owner: Int, target: Int, event: Int) {
+        guard let k = s.units[owner].hero?.kit else { return }
+        let duration: Double
+        switch event {
+        case T.Event.breeze:
+            guard k.oriaBreezeOrigin.distance(to: s.units[target].pos) >= T.s2FreezeMin else { return }
+            duration = k.oriaBreezeFreeze > 0 ? k.oriaBreezeFreeze : T.s2Freeze
+        case T.Event.shatter:
+            duration = k.oriaGlacierFreeze > 0 ? k.oriaGlacierFreeze : T.ultFreeze
+        default:
+            return
+        }
+        Kit.freezeStructure(&s, ctx, target: target, duration: duration, sourceID: s.units[owner].id, tag: T.freezeTag)
     }
 
     func update(_ s: inout SimState, _ ctx: SimContext, owner: Int) {
@@ -460,6 +497,7 @@ struct Kit_H031: HeroKit {
         fresh.oriaPrideCooldown = old.oriaPrideCooldown
         fresh.oriaBreezeOrigin = old.oriaBreezeOrigin
         fresh.oriaBreezeFreeze = old.oriaBreezeFreeze
+        fresh.oriaGlacierFreeze = old.oriaGlacierFreeze
     }
 
     // MARK: - C. パッシブ（氷の誇り）

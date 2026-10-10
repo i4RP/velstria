@@ -2,7 +2,8 @@ import Foundation
 
 // 担当: core-combat
 // 地面の範囲効果: 予告（delay）→ 発動 → 持続中は tickInterval 毎に再適用。
-// 形状は円 / 扇形 / 線分（いずれも対象の半径を含めて判定）。視界に関係なく当たり、構造物には当たらない。
+// 形状は円 / 扇形 / 線分（いずれも対象の半径を含めて判定）。視界に関係なく当たり、構造物には当たらない
+// （例外: HitPayload.kitHitsStructures のゾーンは、範囲内の敵の構造物にキットの onHit だけを呼ぶ）。
 // 所有者が死亡・消滅しても発動・持続は続く（followsOwner は生存中のみ追従）。
 
 public enum ZoneSystem {
@@ -83,6 +84,8 @@ public enum ZoneSystem {
             guard contains(shape: z.shape, center: z.center, radius: z.radius, point: pos, pointRadius: r) else { continue }
             targets.append(i)
         }
+        // キット層: 構造物にはキットの onHit だけを呼ぶ（HitPayload.kitHitsStructures。ダメージ・CC は与えない）
+        if z.payload.kitHitsStructures, z.payload.kitEvent != 0 { KitDamage.notifyStructures(&s, ctx, zone: z) }
         guard !targets.isEmpty else { return }
         if z.duration <= 0 {
             for t in targets { s.zones[k].hitIDs.append(s.units[t].id) }

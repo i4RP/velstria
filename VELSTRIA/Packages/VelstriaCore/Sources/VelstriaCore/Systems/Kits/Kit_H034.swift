@@ -8,7 +8,7 @@ import Foundation
 //                           ロール「サポート」の味方回復パッシブ・奥義の味方回復はキットが置き換える。
 //   スキル1 鎖鉤           — 射程 680 の非貫通の鉤。最初に当たった敵（ミニオン・モンスター含む、タワーは除く）に
 //                           400 → 650（+100% 物理攻撃）、スタンしてから自分の足元まで引き寄せる（スタンは引き寄せの間だけ）。
-//                           壁は越えて飛び、引き寄せは壁の手前で止まる。
+//                           壁は越えて飛び、引き寄せも壁を越える（足元が壁の中なら壁の手前まで。Kit.pullIgnoringTerrain）。
 //   スキル2 鉄鎖旋         — 自身中心の範囲に 300 → 450 + 自分の最大 HP の 4% の物理ダメージ、70% 減速 1.5 秒。
 //   アルティメット 狩猟鎖獄 — 敵ヒーロー 1 体を指定。踏み込んで 1.8 秒 suppress（解除不可・CC 無効も無視）し、その間に 6 回
 //                           50 / 60 / 70（+70% 物理攻撃）で殴る。ゴルムも動けず、スタン等で中断されると相手は解放される。
@@ -308,10 +308,10 @@ struct Kit_H034: HeroKit {
         case .skill1:
             return KitText(
                 ja: "指定方向へ鉄の鉤を放つ（届くのは近接攻撃の射程の約{reachMult}倍）。鉤は最初に命中した敵ユニットを捕らえ、{base}(+{atkPct}%物理攻撃)の物理ダメージを与えて自分の元へ引き寄せる。\n\n"
-                    + "鉤は先にスタンを付けてから引き寄せる（スタンは引き寄せの{x0}秒の間）。鉤は壁を越えて飛ぶが、引き寄せは壁の手前で止まる。タワーには当たらない。",
+                    + "鉤は先にスタンを付けてから引き寄せる（スタンは引き寄せの{x0}秒の間）。鉤は壁を越えて飛び、引き寄せも壁を越える（自分の前が壁の中なら壁の手前まで）。タワーには当たらない。",
                 en: "Launch an iron hook in the target direction (reaching about {reachMult}x the melee attack range). The hook snags the first enemy unit hit, "
                     + "dealing {base} (+{atkPct}% Physical Attack) physical damage and dragging them to Gorm.\n\n"
-                    + "The hook stuns first, then pulls (the stun lasts for the {x0}s pull). It flies over walls, but the pull stops at walls; it does not hit turrets.",
+                    + "The hook stuns first, then pulls (the stun lasts for the {x0}s pull). It flies over walls and pulls through them too (if the spot in front of Gorm is inside a wall, the pull stops at the wall); it does not hit turrets.",
                 tags: [KitTag.disrupt, KitTag.burst])
         case .skill2:
             return KitText(
@@ -387,10 +387,9 @@ struct Kit_H034: HeroKit {
         let i = c.caster
         let amp = consumeStacks(&s, i)
         let stun = StatusEffect(kind: .stun, duration: Tune.hookStun, sourceID: s.units[i].id, tag: Tune.hookStunTag)
-        // 距離は十分に大きく取る（実際の移動量は gap で決まる）
-        let pull = HitEffect.pullToOwner(distance: Tune.hookRange + 400, duration: Tune.hookPull, gap: Tune.hookGap)
+        // 引き寄せは onHit（hookPull。壁越しでも足元まで運ぶ）
         let p = HitPayload(damage: c.numbers.damage * amp, damageType: c.numbers.damageType, source: .skill(.skill1),
-                           statuses: [stun], skillID: c.check.skill.skillID, effects: [pull],
+                           statuses: [stun], skillID: c.check.skill.skillID,
                            originPos: s.units[i].pos, kitEvent: Event.hook)
         Kit.emitCast(&s, c, target: s.units[i].pos + c.aim.direction * Tune.hookRange, unit: c.aim.unit,
                      shape: .wideLine, duration: Tune.hookRange / Tune.hookSpeed, count: 1)
@@ -521,6 +520,18 @@ struct Kit_H034: HeroKit {
     func onHit(_ s: inout SimState, _ ctx: SimContext, owner: Int, target: Int, event: Int, dealt: Double) {
         guard event == Event.hook, s.units[owner].hero?.kit != nil else { return }
         s.units[owner].hero!.kit!.gormHooksLanded += 1
+        Self.hookPull(&s, ctx, owner: owner, target: target)
+    }
+
+    /// 鉤の引き寄せ: 足元（端同士の隙間 hookGap）まで直線で運ぶ。鉤は壁を越えて当たるので、引き寄せも壁を無視する
+    /// （調査: 地形を無視して引き寄せる）。足元が壁の中などで歩けないときは、壁の手前で止まる（Kit.pullIgnoringTerrain）。
+    /// CC 無効・無敵の相手は動かない。
+    static func hookPull(_ s: inout SimState, _ ctx: SimContext, owner: Int, target: Int) {
+        guard s.units.indices.contains(target), CombatSystem.isLiving(s, target) else { return }
+        // 距離は十分に大きく取る（実際の移動量は gap で決まる）
+        Kit.pullIgnoringTerrain(&s, ctx, target: target, toward: s.units[owner].pos, distance: Tune.hookRange + 400,
+                                duration: Tune.hookPull,
+                                gap: s.units[owner].radius + s.units[target].radius + Tune.hookGap)
     }
 
     func update(_ s: inout SimState, _ ctx: SimContext, owner i: Int) {

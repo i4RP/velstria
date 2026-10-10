@@ -701,11 +701,13 @@ struct Kit_H032: HeroKit {
         }
         s.units[attacker].hero!.kit!.diasSwings = 0
         s.units[attacker].hero!.kit!.diasCircles += 1
-        // 円撃: 主対象は plan（会心込みの攻撃力 × 倍率）、周りの敵には同じダメージを別に与える（命中時効果・吸血は主対象だけ）。
+        // 円撃: 主対象は plan（会心込みの攻撃力 × 倍率）、周りの敵には同じダメージを別に与える（吸血は主対象だけ）。
         // 強化ダメージはタワー（構造物）には乗らない（公式）: 主対象が構造物なら通常攻撃のダメージのまま、周りには倍率込み
         let level = s.units[attacker].hero?.level ?? 1
         let circle = plan.payload.damage * Self.circleRatio(level: level)
         if !s.units[target].isStructure { plan.payload.damage = circle }
+        // 円撃は装備の攻撃エフェクト（命中時効果）を発動しない（公式）。吸血・クールダウン短縮は主対象に乗ったまま
+        plan.payload.skipsItemOnHit = true
         let around = HitPayload(damage: circle, damageType: .physical, source: .basicAttack,
                                 isCrit: plan.payload.isCrit, appliesOnHit: false)
         let center = s.units[attacker].pos

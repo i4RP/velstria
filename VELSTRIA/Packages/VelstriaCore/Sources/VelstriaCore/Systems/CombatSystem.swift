@@ -348,7 +348,9 @@ public enum CombatSystem {
 
     /// 状態効果を付与（同一 kind + tag は重ねず、残り時間・強さはそれぞれ大きい方）。
     /// CC 無効中・構造物には行動阻害を、無敵・構造物には弱体を付与しない。
-    public static func addStatus(_ s: inout SimState, targetIndex t: Int, _ effect: StatusEffect) {
+    /// allowStructure = true は構造物への弱体を許す（キット層の `Kit.freezeStructure` だけが使う。オーリアの凍結）。
+    public static func addStatus(_ s: inout SimState, targetIndex t: Int, _ effect: StatusEffect,
+                                 allowStructure: Bool = false) {
         guard s.units.indices.contains(t), isLiving(s, t), effect.remaining > 0 else { return }
         var effect = effect
         // コントロール時間短縮（タフブーツ・ブレストプレート）: 行動阻害と減速の効果時間を縮める
@@ -360,7 +362,7 @@ public enum CombatSystem {
             }
         }
         let kind = effect.kind
-        if kind.combatIsHarmful && (s.units[t].isStructure || s.units[t].has(.invulnerable)) { return }
+        if kind.combatIsHarmful && ((s.units[t].isStructure && !allowStructure) || s.units[t].has(.invulnerable)) { return }
         if kind.combatIsCrowdControl && s.units[t].has(.ccImmune) { return }
 
         if let k = s.units[t].statuses.firstIndex(where: { $0.kind == kind && $0.tag == effect.tag }) {
@@ -482,7 +484,8 @@ public enum CombatSystem {
         // 紅焔バフ: 敵ヒーローに通常攻撃・スキルが当たると溶岩の魂が追撃（3 秒毎）
         if dealt > 0 { JungleBuffs.redBuffStrike(&s, ctx, attacker: a, target: t, source: payload.source) }
         if payload.source == .basicAttack && payload.appliesOnHit {
-            basicAttackLanded(&s, ctx, attacker: a, target: t, dealt: dealt, isCrit: payload.isCrit)
+            basicAttackLanded(&s, ctx, attacker: a, target: t, dealt: dealt, isCrit: payload.isCrit,
+                              itemEffects: !payload.skipsItemOnHit)
         } else if payload.damage <= 0, case .skill(let slot) = payload.source {
             // ダメージの無いスキル（CC のみ）も命中として通知する
             PassiveHooks.onSkillHit(&s, ctx, attacker: a, target: t, slot: slot, damage: 0)
@@ -496,11 +499,12 @@ public enum CombatSystem {
         return e
     }
 
-    /// ヒーローの通常攻撃が命中した時の効果（命中数・パッシブ）。紅焔バフの追撃は applyHit（スキルの命中でも出る）。
+    /// ヒーローの通常攻撃が命中した時の効果（命中数・装備の命中時効果・パッシブ）。紅焔バフの追撃は applyHit（スキルの命中でも出る）。
+    /// itemEffects = false は装備の命中時効果だけを外す（HitPayload.skipsItemOnHit。ディロスの円撃）。
     static func basicAttackLanded(_ s: inout SimState, _ ctx: SimContext, attacker a: Int, target t: Int,
-                                  dealt: Double, isCrit: Bool = false) {
+                                  dealt: Double, isCrit: Bool = false, itemEffects: Bool = true) {
         if s.units[a].hero != nil { s.units[a].hero!.basicAttackCount += 1 }
-        ItemEffects.onBasicAttackLanded(&s, ctx, attacker: a, target: t, dealt: dealt, isCrit: isCrit)
+        if itemEffects { ItemEffects.onBasicAttackLanded(&s, ctx, attacker: a, target: t, dealt: dealt, isCrit: isCrit) }
         PassiveHooks.onBasicAttackHit(&s, ctx, attacker: a, target: t, damage: dealt)
     }
 

@@ -1,6 +1,17 @@
 import XCTest
 @testable import VelstriaCore
 
+private extension SkillWorld {
+    /// 任意の文脈（テスト用の地形）で始める世界。既定の init と同じく開始レベルの処理を避ける。
+    init(context: SimContext) {
+        ctx = context
+        s = SimState(config: context.config)
+        s.phase = .playing
+        s.tick = 30
+        s.time = 1
+    }
+}
+
 /// H034 鎖鉤のゴルム（Franco の Velstria 版）のキット。仕様: docs/kits/Franco.md、実装対応表: 同ファイル末尾。
 /// キットは HeroKits.testOverride に有効な Kit_H034 を差して試す（本番の有効化とは独立。有効化後も同じ結果）。
 /// 敵は動かない通常のヒーロー（H001 / H003 ほか）。パッシブの闘気は、調べるテスト以外では「たまらない状態」から始める。
@@ -624,12 +635,17 @@ final class Kit_H034Tests: XCTestCase {
         return nil
     }
 
-    func testHookFliesOverWallsButThePullStopsInFrontOfTheWall() throws {
+    /// ゴルムが壁に張り付いていて足元（端同士の隙間 hookGap の位置）が壁の中になるときは、引き寄せは壁の手前で止まる
+    /// （Kit.pullIgnoringTerrain の戻り先 = Kit.pull）。足元が歩ける場所なら壁を越える（下の薄い壁のテスト）。
+    func testHookFliesOverWallsButThePullStopsAtTheWallWhenTheSpotInFrontIsInsideIt() throws {
         let sc = try XCTUnwrap(wallScenario(), "壁を挟める障害物がマップに無い")
         var w = SkillWorld()
         let k = w.addHero("H034", team: .blue, at: sc.gorm, level: 12, ranks: [1, 1, 1], facing: Double.pi / 2)
         w.s.units[k].hero!.kit!.gormCalm = 1000
         let e = w.addHero("H001", team: .red, at: sc.enemy, level: 12, ranks: [1, 1, 1])
+        // 足元は壁の中
+        let front = sc.gorm + (sc.enemy - sc.gorm).normalized * contact(w, k, e, gap: Tune.hookGap)
+        XCTAssertFalse(w.ctx.nav.isWalkable(front, radius: w.s.units[e].radius))
         XCTAssertTrue(w.cast(k, .skill1, .unit(w.id(e))))
         w.run(seconds: 0.7)
         // 鉤は壁を越えて当たる（調査: 壁・タワーを通り抜ける）
@@ -640,6 +656,69 @@ final class Kit_H034Tests: XCTestCase {
         XCTAssertGreaterThanOrEqual(p.y, sc.rect.maxY + w.s.units[e].radius - 1)
         XCTAssertFalse(Obstacle.rect(sc.rect).contains(p, inflatedBy: w.s.units[e].radius - 1))
         XCTAssertTrue(w.ctx.nav.isWalkable(p, radius: w.s.units[e].radius - 1))
+    }
+
+    /// 闘技場に東西に長い薄い壁（厚さ 120）を 1 枚だけ置いた地形。
+    private static let thinWall = Rect2(minX: 4900, minY: 5400, maxX: 5500, maxY: 5520)
+    private static let thinWallContext: SimContext = {
+        var m = MapDefinition.standard
+        m.brushes = []
+        m.obstacles = [.rect(thinWall)]
+        return SimContext(master: .shared, map: m, config: MatchConfig(mode: .standard, seed: 1, players: []))
+    }()
+
+    /// 鉤は壁を越えて当たり、足元が歩ける場所なら引き寄せも壁を越えて、ゴルムの前（端同士の隙間 hookGap）まで運ぶ
+    /// （調査: 地形を無視して引き寄せる。Kit.pullIgnoringTerrain）。以前は壁の向こう側で止まり、壁の反対側でスタンしていた。
+    func testHookPullsATargetAcrossAThinWallToTheSpotInFront() {
+        var w = SkillWorld(context: Self.thinWallContext)
+        let gorm = Vec2(5200, Self.thinWall.minY - 300)
+        let k = w.addHero("H034", team: .blue, at: gorm, level: 12, ranks: [1, 1, 1], facing: Double.pi / 2)
+        w.s.units[k].hero!.kit!.gormCalm = 1000
+        let e = w.addHero("H001", team: .red, at: Vec2(5200, Self.thinWall.maxY + 90), level: 12, ranks: [1, 1, 1])
+        let r = w.s.units[e].radius
+        // 直線は壁で遮られている（壁の手前で止まる引き寄せなら、壁の北側に残る）
+        XCTAssertGreaterThan(w.ctx.nav.raycast(from: w.s.units[e].pos, to: gorm, radius: r).y, Self.thinWall.maxY)
+        XCTAssertTrue(w.cast(k, .skill1, .unit(w.id(e))))
+        w.run(seconds: 0.9)
+        XCTAssertGreaterThan(w.damage(to: e), 0)
+        XCTAssertEqual(w.s.units[k].hero!.kit!.gormHooksLanded, 1)
+        let p = w.s.units[e].pos
+        XCTAssertLessThan(p.y, Self.thinWall.minY - r, "壁の南（ゴルムの側）へ運ばれる")
+        XCTAssertEqual(dist(w, k, e), contact(w, k, e, gap: Tune.hookGap), accuracy: 1)
+        XCTAssertEqual(p.x, gorm.x, accuracy: 1e-6, "直線で運ぶ")
+        XCTAssertTrue(w.ctx.nav.isWalkable(p, radius: r))
+        XCTAssertNil(w.s.units[e].displacement)
+        XCTAssertEqual(w.s.units[k].pos, gorm, "ゴルムは動かない")
+
+        // 足元が壁の中（壁に張り付いている）なら、これまでどおり壁の手前で止まる
+        var w2 = SkillWorld(context: Self.thinWallContext)
+        let k2 = w2.addHero("H034", team: .blue, at: Vec2(5200, Self.thinWall.minY - 90), level: 12, ranks: [1, 1, 1],
+                            facing: Double.pi / 2)
+        w2.s.units[k2].hero!.kit!.gormCalm = 1000
+        let e2 = w2.addHero("H001", team: .red, at: Vec2(5200, Self.thinWall.maxY + 200), level: 12, ranks: [1, 1, 1])
+        XCTAssertTrue(w2.cast(k2, .skill1, .unit(w2.id(e2))))
+        w2.run(seconds: 0.7)
+        XCTAssertGreaterThan(w2.damage(to: e2), 0)
+        let p2 = w2.s.units[e2].pos
+        XCTAssertGreaterThanOrEqual(p2.y, Self.thinWall.maxY + r - 1)
+        XCTAssertLessThan(p2.y, Self.thinWall.maxY + 200 - 50, "壁の手前までは引き寄せる")
+        XCTAssertTrue(w2.ctx.nav.isWalkable(p2, radius: r - 1))
+    }
+
+    /// 壁の無いところでは、地形を無視する引き寄せも Kit.pull と同じ終点・同じ変位（結果を変えない）。
+    func testPullIgnoringTerrainMatchesThePlainPullWithoutWalls() {
+        var a = SkillWorld()
+        var b = SkillWorld()
+        let ka = a.addHero("H034", team: .blue, at: skillArena, level: 12, ranks: [1, 1, 1], facing: 0)
+        let ea = a.addHero("H001", team: .red, at: skillArena + Vec2(437.3, 121.9), level: 12, ranks: [1, 1, 1])
+        let kb = b.addHero("H034", team: .blue, at: skillArena, level: 12, ranks: [1, 1, 1], facing: 0)
+        let eb = b.addHero("H001", team: .red, at: skillArena + Vec2(437.3, 121.9), level: 12, ranks: [1, 1, 1])
+        let gap = a.s.units[ka].radius + a.s.units[ea].radius + Tune.hookGap
+        XCTAssertTrue(Kit.pull(&a.s, a.ctx, target: ea, toward: a.s.units[ka].pos, distance: 1080, duration: 0.3, gap: gap))
+        XCTAssertTrue(Kit.pullIgnoringTerrain(&b.s, b.ctx, target: eb, toward: b.s.units[kb].pos, distance: 1080,
+                                              duration: 0.3, gap: gap))
+        XCTAssertEqual(a.s.units[ea].displacement, b.s.units[eb].displacement)
+        XCTAssertEqual(a.s.events, b.s.events)
     }
 
     // MARK: - スキル2: 鉄鎖旋
