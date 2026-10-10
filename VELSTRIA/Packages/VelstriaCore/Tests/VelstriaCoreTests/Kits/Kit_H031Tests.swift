@@ -508,6 +508,91 @@ final class Kit_H031Tests: XCTestCase {
         XCTAssertFalse(SkillSystem.canCast(w.s, w.ctx, heroIndex: e, slot: .skill1), "凍結中は撃てない")
     }
 
+    // MARK: - 凍結はタワーにも効く
+
+    /// TowerSystem（索敵）込みで進める（SkillWorld.tick は TowerSystem を回さない）。
+    private func runWithTowers(_ w: inout SkillWorld, seconds: Double) {
+        for _ in 0..<Int((seconds * Balance.tickRate).rounded(.up)) {
+            TowerSystem.update(&w.s, w.ctx)
+            w.tick()
+        }
+    }
+
+    private func towerAttackStarts(_ w: SkillWorld, _ t: Int) -> Int {
+        w.log.filter { if case .attackStarted(let src, _) = $0 { return src == w.id(t) } else { return false } }.count
+    }
+
+    /// 公式: 「オーロラの凍結はタワーにも効く」「扇の 2〜6 マスの敵とタワーが凍る」。霜風は離れた敵のタワーを凍らせ、
+    /// 凍結の間タワーは攻撃しない。タワーへのダメージは無く、味方のタワーは凍らない。他の弱体はこれまでどおり構造物に付かない。
+    func testBreezeFreezesAnEnemyTurretSoItStopsAttackingWithoutDamage() throws {
+        var w = SkillWorld()
+        let k = addOria(&w)
+        let tower = w.addTower(team: .red, at: skillArena + Vec2(450, 0))
+        let ally = w.addTower(team: .blue, at: skillArena + Vec2(400, 150))
+        for t in [tower, ally] { w.s.units[t].visibleMask = Team.blue.visionBit | Team.red.visionBit }
+        let hp = w.s.units[tower].hp
+        XCTAssertTrue(w.cast(k, .skill2, .direction(Self.east)))
+        runWithTowers(&w, seconds: 0.4)
+        let freeze = try XCTUnwrap(status(w, tower, .stun, tag: T.freezeTag), "霜風の凍結はタワーにも効く")
+        XCTAssertGreaterThan(freeze.remaining, 0.85)
+        XCTAssertLessThanOrEqual(freeze.remaining, 1.0)
+        XCTAssertFalse(w.s.units[tower].canAct)
+        XCTAssertNil(w.s.units[tower].windupRemaining)
+        XCTAssertTrue(w.log.contains { if case .ccApplied(let id, .stun, _) = $0 { return id == w.id(tower) } else { return false } })
+        XCTAssertNil(status(w, ally, .stun), "味方のタワーは凍らない")
+        // 凍結の間は攻撃しない（射程内のオーリアを狙ったまま）
+        w.log.removeAll()
+        runWithTowers(&w, seconds: 0.8)
+        XCTAssertEqual(towerAttackStarts(w, tower), 0, "凍ったタワーは攻撃しない")
+        XCTAssertEqual(w.s.units[tower].attackTargetID, w.id(k), "凍結の間は狙いを変えない")
+        // 解けると攻撃を再開する
+        runWithTowers(&w, seconds: 1.5)
+        XCTAssertNil(status(w, tower, .stun, tag: T.freezeTag))
+        XCTAssertGreaterThan(towerAttackStarts(w, tower), 0, "解けたタワーは攻撃を再開する")
+        // タワーへのダメージは無い
+        XCTAssertEqual(w.damage(to: tower), 0)
+        XCTAssertEqual(w.s.units[tower].hp, hp, accuracy: 1e-9)
+        // 汎用の CC・弱体はこれまでどおり構造物に付かない
+        CombatSystem.addStatus(&w.s, targetIndex: ally, StatusEffect(kind: .stun, duration: 1, sourceID: w.id(k)))
+        CombatSystem.addStatus(&w.s, targetIndex: tower, StatusEffect(kind: .slow, duration: 1, magnitude: 0.5))
+        XCTAssertFalse(w.s.units[ally].has(.stun))
+        XCTAssertFalse(w.s.units[tower].has(.slow))
+    }
+
+    /// 近すぎるタワー（撃った位置から s2FreezeMin 未満）は霜風で凍らない（ヒーローと同じ規則）。
+    func testBreezeDoesNotFreezeATurretRightNextToOria() {
+        var w = SkillWorld()
+        let k = addOria(&w)
+        let tower = w.addTower(team: .red, at: skillArena + Vec2(T.s2FreezeMin - 20, 0))
+        XCTAssertTrue(w.cast(k, .skill2, .direction(Self.east)))
+        w.run(seconds: 0.4)
+        XCTAssertNil(status(w, tower, .stun))
+        XCTAssertEqual(w.damage(to: tower), 0)
+    }
+
+    /// 氷河の砕けもタワーを凍らせる（発動時の魔力の秒数）。無敵の構造物（前段が残る内側のタワー）は凍らない。ダメージは無い。
+    func testGlacierShatterFreezesEnemyTurretsButNotInvulnerableOnes() throws {
+        var w = SkillWorld()
+        let k = addOria(&w)
+        let outer = w.addTower(team: .red, at: skillArena + Vec2(600, 0))
+        let innerUnit = UnitFactory.makeStructure(TowerSpot(team: .red, lane: .mid, tier: .inner,
+                                                            pos: skillArena + Vec2(450, 250), isCore: false))
+        let innerID = w.s.addUnit(innerUnit)
+        let inner = try XCTUnwrap(w.s.index(of: innerID))
+        XCTAssertTrue(TowerSystem.isInvulnerable(w.s, w.ctx, index: inner))
+        let expected = Kit_H031.glacierFreeze(abilityPower: w.s.units[k].stats.abilityPower)
+        XCTAssertTrue(w.cast(k, .ultimate, .direction(Self.east)))
+        w.run(seconds: 1.1)
+        XCTAssertNil(status(w, outer, .stun), "砕ける前は凍らない")
+        w.run(seconds: 0.2)   // 1.3 秒
+        let freeze = try XCTUnwrap(status(w, outer, .stun, tag: T.freezeTag), "砕けの凍結はタワーにも効く")
+        XCTAssertEqual(freeze.duration, expected, accuracy: 1e-9)
+        XCTAssertFalse(w.s.units[outer].canAct)
+        XCTAssertNil(status(w, inner, .stun), "無敵の構造物は凍らない")
+        XCTAssertEqual(w.damage(to: outer), 0)
+        XCTAssertEqual(w.damage(to: inner), 0)
+    }
+
     // MARK: - 奥義
 
     func testUltimatePathSlowsThenGlacierShattersAndFreezes() throws {

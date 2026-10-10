@@ -147,13 +147,21 @@ public struct HitPayload: Codable, Hashable, Sendable {
     public var originPos: Vec2?
     /// 0 以外ならダメージ適用後にキットの onHit(event:) を呼ぶ。
     public var kitEvent: Int
+    /// true なら通常攻撃（appliesOnHit）でも装備の命中時効果（`ItemEffects.onBasicAttackLanded`）を働かせない。
+    /// 吸血・パッシブの命中フックはそのまま（キット層。ディロスの円撃「攻撃エフェクトは発動しない」）。
+    public var skipsItemOnHit: Bool
+    /// true なら、ゾーンが範囲内の敵の構造物（タワー・Core）にもキットの onHit(event:)（dealt = 0）だけを呼ぶ。
+    /// 構造物へのダメージ・CC・状態・追加効果は与えない（キットが `Kit.freezeStructure` で凍結を付ける。オーリアの凍結はタワーにも効く）。
+    /// kitEvent が 0 なら働かない。
+    public var kitHitsStructures: Bool
 
     public init(damage: Double, damageType: DamageType, source: DamageSource,
                 isCrit: Bool = false, cc: CrowdControl = .none, ccIsUltimate: Bool = false,
                 statuses: [StatusEffect] = [], affectsEnemies: Bool = true, affectsAllies: Bool = false,
                 healAmount: Double = 0, shieldAmount: Double = 0, shieldDuration: Double = 0,
                 appliesOnHit: Bool = false, heroesOnly: Bool = false, skillID: String? = nil,
-                effects: [HitEffect] = [], scaling: DamageScaling? = nil, originPos: Vec2? = nil, kitEvent: Int = 0) {
+                effects: [HitEffect] = [], scaling: DamageScaling? = nil, originPos: Vec2? = nil, kitEvent: Int = 0,
+                skipsItemOnHit: Bool = false, kitHitsStructures: Bool = false) {
         self.damage = damage
         self.damageType = damageType
         self.source = source
@@ -173,6 +181,8 @@ public struct HitPayload: Codable, Hashable, Sendable {
         self.scaling = scaling
         self.originPos = originPos
         self.kitEvent = kitEvent
+        self.skipsItemOnHit = skipsItemOnHit
+        self.kitHitsStructures = kitHitsStructures
     }
 }
 

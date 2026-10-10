@@ -1,7 +1,7 @@
 import Foundation
 
 // 担当: core-skills（キット層。docs/SKILL_KITS.md）
-// 状態系のプリミティブ: マーク（敵側のスタック）・維持されるステルス・対象不可・打ち上げ・suppress・シールド・吸血系。
+// 状態系のプリミティブ: マーク（敵側のスタック）・維持されるステルス・対象不可・打ち上げ・suppress・構造物の凍結・シールド・吸血系。
 // 敵側のスタック/マークは `.mark` status（magnitude = スタック数。tag に所有者 ID を含める）。
 
 /// キットが status / shield に付ける tag。
@@ -99,6 +99,24 @@ extension Kit {
 
     static func releaseSuppress(_ s: inout SimState, target t: Int) {
         s.units[t].statuses.removeAll { $0.kind == .suppress }
+    }
+
+    /// 敵の構造物（タワー・Core）を凍結する（`.stun`。凍結の間は索敵・攻撃をしない: TowerSystem / CombatSystem.stepAttacker）。
+    /// ダメージは与えない。無敵の構造物には効かない。構造物に弱体を付けられるのはこの関数だけ（`addStatus(allowStructure:)`）。
+    /// 付いた（残り時間が延びた）ら true。
+    @discardableResult
+    static func freezeStructure(_ s: inout SimState, _ ctx: SimContext, target t: Int, duration: Double,
+                                sourceID: EntityID?, tag: String) -> Bool {
+        guard s.units.indices.contains(t), s.units[t].isStructure, CombatSystem.isLiving(s, t), duration > 0,
+              !CombatSystem.isInvulnerable(s, ctx, t) else { return false }
+        if let src = s.index(of: sourceID), s.units[src].team == s.units[t].team { return false }
+        let before = s.units[t].statuses.first { $0.kind == .stun && $0.tag == tag }?.remaining ?? 0
+        CombatSystem.addStatus(&s, targetIndex: t, StatusEffect(kind: .stun, duration: duration, sourceID: sourceID,
+                                                                tag: tag), allowStructure: true)
+        let after = s.units[t].statuses.first { $0.kind == .stun && $0.tag == tag }?.remaining ?? 0
+        guard after > before + 1e-9 else { return false }
+        s.emit(.ccApplied(targetID: s.units[t].id, cc: .stun, duration: duration))
+        return true
     }
 
     // MARK: - シールド・吸血

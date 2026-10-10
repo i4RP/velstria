@@ -472,6 +472,54 @@ final class Kit_H032Tests: XCTestCase {
         XCTAssertEqual(w.damage(to: t2), 0, "周りのタワーには当たらない（円撃は構造物を巻き込まない）")
     }
 
+    /// 公式: 円撃は攻撃エフェクト（装備の命中時効果）を発動しない。通常の攻撃では働き、円撃の主対象では働かない
+    /// （HitPayload.skipsItemOnHit）。吸血は円撃の主対象にも乗る（Fandom の注記）。
+    func testCircleStrikeDoesNotTriggerItemOnHitEffectsButKeepsLifesteal() {
+        var (w, k) = world()
+        w.s.units[k].hero!.items = ["EQ119"]   // ラスティサイズ: 命中時に 80 の物理（.item）+ 減速
+        let e = addEnemy(&w, dx: 140)
+        w.s.units[k].attackTargetID = w.id(e)
+        var itemHits: [Int] = []
+        for _ in 0..<400 where itemHits.count < 4 {
+            w.s.units[e].hp = w.s.units[e].stats.maxHP
+            w.log.removeAll(keepingCapacity: true)
+            w.tick()
+            let tid = w.id(e)
+            guard w.damageEvents.contains(where: { $0.targetID == tid && $0.source == .basicAttack }) else { continue }
+            itemHits.append(w.damageEvents.filter { $0.targetID == tid && $0.source == .item }.count)
+        }
+        XCTAssertEqual(itemHits, [1, 0, 1, 0], "円撃（2 回に 1 回）は装備の命中時効果を発動しない")
+        XCTAssertEqual(kit(w, k).diasCircles, 2)
+
+        // 吸血は円撃の主対象にも乗る（skipsItemOnHit は装備の命中時効果だけを外す）: 吸血 +50% の有無で、円撃の回復が与えたダメージの 50% だけ違う
+        func circle(lifesteal: Double) -> (heal: Double, dealt: Double) {
+            var (g, d) = world()
+            g.s.units[d].hero!.kit!.diasSwings = 1
+            let v = addEnemy(&g, dx: 140)
+            g.s.units[d].hp = g.s.units[d].stats.maxHP * 0.3
+            if lifesteal > 0 {
+                CombatSystem.addStatus(&g.s, targetIndex: d, StatusEffect(kind: .lifestealBoost, duration: 10, magnitude: lifesteal,
+                                                                          sourceID: g.id(d), tag: "test.lifesteal"))
+            }
+            g.s.units[d].attackTargetID = g.id(v)
+            for _ in 0..<60 {
+                g.log.removeAll(keepingCapacity: true)
+                g.tick()
+                let hits = g.damageEvents.filter { $0.targetID == g.id(v) && $0.source == .basicAttack }
+                if !hits.isEmpty {
+                    XCTAssertEqual(kit(g, d).diasCircles, 1)
+                    return (heals(g, of: d).reduce(0, +), hits.map(\.amount).reduce(0, +))
+                }
+            }
+            XCTFail("円撃が出ない")
+            return (0, 0)
+        }
+        let plain = circle(lifesteal: 0)
+        let vamp = circle(lifesteal: 0.5)
+        XCTAssertGreaterThan(vamp.dealt, 0)
+        XCTAssertEqual(vamp.heal - plain.heal, vamp.dealt * 0.5, accuracy: 1e-6, "円撃の主対象への吸血")
+    }
+
     // MARK: - パッシブ: クールダウン短縮
 
     func testHeroDamageShortensSkillCooldownsButMinionDamageDoesNot() {

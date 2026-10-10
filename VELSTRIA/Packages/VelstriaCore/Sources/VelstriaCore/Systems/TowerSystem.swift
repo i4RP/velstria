@@ -2,6 +2,7 @@ import Foundation
 
 // 担当: core-world。構造物（タワー / Core）の索敵・連続命中・ダメージ補正・無敵判定（DESIGN §3・§4）。
 // 構造物は移動しない。攻撃の前隙・発射は CombatSystem、1 発のダメージ量は attackDamage が決める。
+// 凍結（キット層の Kit.freezeStructure）の間は索敵せず、CombatSystem も攻撃しない（行動不能の状態は canAct で見る）。
 
 public enum TowerSystem {
     /// 外塔のエネルギーシールドの識別子（`Shield.tag`）。
@@ -16,6 +17,9 @@ public enum TowerSystem {
         let candidates = WorldTargeting.candidates(s)
         let grid = WorldSpatialIndex(candidates)
         for i in s.units.indices where s.units[i].isStructure && s.units[i].isAlive {
+            // 凍結（行動不能。オーリアの凍結だけが構造物に付く）の間は索敵も向きの変更もしない。
+            // 攻撃の前隙・発射は CombatSystem.stepAttacker が canAct で止める
+            guard s.units[i].canAct else { continue }
             let pick = chooseTarget(s, towerIndex: i, candidates: candidates, grid: grid)
             let newID = pick.map { s.units[$0].id }
             if newID != s.units[i].attackTargetID {

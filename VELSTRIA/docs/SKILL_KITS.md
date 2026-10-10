@@ -90,7 +90,8 @@ sim の数値で埋める（説明文の数値と sim をずらさない）。�
   `armorShred` / `untargetable` / `suppress`（解除不可・`ccImmune` 無視）/ `channeling`。`preventsMovement` / `preventsActions` /
   `combatIsHarmful` / `combatIsBeneficial` / `StatusModifiers` も更新。App の `StatusKind` の網羅 switch（`HUDSnapshots.swift` の
   `status` / `statusName` / `all` など）は同じ PR で直す。
-- `HitPayload` に `effects: [HitEffect]` / `scaling: DamageScaling?` / `originPos: Vec2?` / `kitEvent: Int`。
+- `HitPayload` に `effects: [HitEffect]` / `scaling: DamageScaling?` / `originPos: Vec2?` / `kitEvent: Int` /
+  `skipsItemOnHit: Bool`（装備の命中時効果を外す）/ `kitHitsStructures: Bool`（ゾーンが敵の構造物にキットの onHit だけを呼ぶ）。
   `HitEffect`: `knockUp / pullToOwner / pushAway / addMark / healOwner / refundCooldown`。
   `DamageScaling`: `missingHealth / maxHealth / distance(near,far,minMult,maxMult) / marks(tag, perStack, consume)`。
 - `AreaZone.followsTargetID`。
@@ -135,6 +136,9 @@ public struct KitState: Codable, Hashable, Sendable {
 | 対象指定突進 | `.targetedBlink` + `requiresTarget`。移動するなら `MovementSystem.dash` + 到着時に `strikeSequence`。 |
 | 打ち上げ `knockUp` | `.airborne` status（既存）。 |
 | 引き寄せ `pull` / `pushAway` | `kind: .knockback` の変位（新しい `DisplacementKind` は作らない）。フックは非貫通の弾 + `HitEffect.pullToOwner`。 |
+| 地形を無視する引き寄せ `pullIgnoringTerrain`（`KitPull.swift`） | 終点（`pull` と同じ位置）が歩ける場所なら、途中の壁を無視して直線で運ぶ。壁が無い・終点が歩けないときは `pull` と同じ。H034 の鉤（`onHit` で呼ぶ）。 |
+| 構造物の凍結 `freezeStructure` | 敵のタワー・Core に `.stun` を付ける唯一の入口（`addStatus(allowStructure:)`）。凍ったタワーは索敵・攻撃をしない（`canAct`）。ダメージなし・無敵の構造物は対象外。ゾーンの payload に `kitHitsStructures` を立てると、`ZoneSystem` が範囲内の敵の構造物にキットの `onHit`（dealt = 0）だけを呼ぶ。H031 の凍結。 |
+| 通常攻撃の命中時効果を外す | `HitPayload.skipsItemOnHit`: 通常攻撃（`appliesOnHit`）のまま、装備の命中時効果（`ItemEffects.onBasicAttackLanded`）だけを働かせない（吸血・パッシブの命中フックは残る）。H032 の円撃。 |
 | シールド・回復・吸血 | `addShield`（tag 付き）/ `.lifestealBoost` / `HitEffect.healOwner`。 |
 | ダメージ補正 | `applyHit` の `dealDamage` 前に `payload.scaling` を評価。 |
 | 隠密・対象不可 | `.stealth` を維持する tag（`KitTags.persistentStealth`）/ `.untargetable`（範囲・直線は当たる）。 |
@@ -196,7 +200,7 @@ public struct KitState: Codable, Hashable, Sendable {
 ```
 Sim/KitState.swift
 Systems/Kits/HeroKit.swift  KitRegistry.swift  KitRuntime.swift  KitRecast.swift  KitTimers.swift
-Systems/Kits/KitMovement.swift  KitProjectiles.swift  KitStatus.swift  KitDamage.swift  KitBasicAttack.swift
+Systems/Kits/KitMovement.swift  KitPull.swift  KitProjectiles.swift  KitStatus.swift  KitDamage.swift  KitBasicAttack.swift
 Systems/Kits/Kit_H025.swift ... Kit_H034.swift     （最初は isReady = false のスタブ）
 Tests/VelstriaCoreTests/Kits/KitTestSupport.swift  KitFrameworkTests.swift  Kit_H0xxTests.swift
 ```

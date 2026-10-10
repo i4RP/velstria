@@ -60,6 +60,20 @@ enum KitDamage {
         }
     }
 
+    /// ゾーン z の範囲内の敵の構造物（タワー・Core）に、所有者のキットの onHit(event:)（dealt = 0）を添字昇順で呼ぶ
+    /// （HitPayload.kitHitsStructures。ZoneSystem.applyZone が呼ぶ）。ダメージ・CC・状態・追加効果は与えない。
+    /// 無敵の構造物（前段のタワーが残っている間など）は対象外。
+    static func notifyStructures(_ s: inout SimState, _ ctx: SimContext, zone z: AreaZone) {
+        guard let owner = s.index(of: z.ownerID), let kit = HeroKits.kit(in: s, owner) else { return }
+        for i in s.units.indices where s.units[i].isStructure {
+            guard CombatSystem.isLiving(s, i), s.units[i].team != z.team, s.units[i].team != .neutral,
+                  ZoneSystem.contains(shape: z.shape, center: z.center, radius: z.radius, point: s.units[i].pos,
+                                      pointRadius: s.units[i].radius),
+                  !CombatSystem.isInvulnerable(s, ctx, i) else { continue }
+            kit.onHit(&s, ctx, owner: owner, target: i, event: z.payload.kitEvent, dealt: 0)
+        }
+    }
+
     /// 命中の後始末: マークの消費・追加効果・キットの onHit。ダメージを与えた後に呼ぶ（dealt = 実際に減った量）。
     static func afterHit(_ s: inout SimState, _ ctx: SimContext, sourceID: EntityID?, target t: Int,
                          payload: HitPayload, dealt: Double, from: Vec2) {
