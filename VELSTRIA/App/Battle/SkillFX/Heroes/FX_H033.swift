@@ -22,9 +22,11 @@ import VelstriaCore
 // SkillFXDirector は duration / count を読まない。
 
 enum FX_H033: HeroFXSet {
-    static let palette = FXPalette(core: RGB(1.0, 0.94, 0.94), primary: RGB(0.9, 0.06, 0.16),
-                                   secondary: RGB(1.0, 0.36, 0.42), accent: RGB(0.78, 0.86, 1.0),
-                                   dark: RGB(0.12, 0.0, 0.04))
+    // 造形（青い紺のコート・青く光る銀の大剣）と MLBB の Alucard の既定スキンの光に合わせて青を主色にし、
+    // 吸血の光だけを深紅の差し色に残す。
+    static let palette = FXPalette(core: RGB(0.94, 0.97, 1.0), primary: RGB(0.22, 0.52, 1.0),
+                                   secondary: RGB(0.58, 0.82, 1.0), accent: RGB(0.95, 0.18, 0.28),
+                                   dark: RGB(0.02, 0.04, 0.14))
 
     /// 土煙・岩片（暗い土色のアルファ合成）。
     private static let dust = FXTint.rgb(0.42, 0.34, 0.3)
