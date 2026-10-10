@@ -193,6 +193,40 @@ final class HeroModelTests: XCTestCase {
         }
     }
 
+    /// H027 ジャルド・H031 オーリア・H032 ディアスは参照の MLBB ヒーロー（趙子龍・オーロラ・ディロス）の配色と形に見えること。
+    /// 上方カメラで読める決め手（長い竜槍・裾の広がるドレスと氷の光輪・平らな刃の輪と長い尾）が縮んだり消えたりする退行を防ぐ。
+    func testMLBBReworkHeroesReadFromAbove() throws {
+        let r = HeroBlueprints.roster
+        // H027: 青緑の鎧に金の縁（金は metal だけ）。竜槍は柄から穂先まで 2.6m 超、竜頭のたてがみが左右へ広がる
+        let zilong = HeroPalettes.base(heroID: "H027", blueprint: r[26])
+        XCTAssertTrue((0.46...0.54).contains(zilong.primary.h), "青緑 \(zilong.primary.h)")
+        XCTAssertEqual(zilong.metalKind, .gold)
+        let spear = try XCTUnwrap(HeroModelLibrary.meshSet(heroID: "H027", blueprint: r[26]).weapon).bounds
+        XCTAssertGreaterThan(spear.extents.y * r[26].weaponScale, 2.6, "竜槍の長さ")
+        XCTAssertGreaterThan(spear.extents.x, 0.45, "竜頭のたてがみの幅")
+        // H031: 群青のドレス・白金（金ではない）。冠の光輪の棘が髪より上へ立ち、後ろ髪は腰まで、ドレスの裾は胴の 1.8 倍以上に広がる
+        let aurora = HeroPalettes.base(heroID: "H031", blueprint: r[30])
+        XCTAssertTrue((0.6...0.7).contains(aurora.primary.h), "群青 \(aurora.primary.h)")
+        XCTAssertEqual(aurora.metalKind, .platinum)
+        let am = HeroModelLibrary.meshSet(heroID: "H031", blueprint: r[30])
+        let auroraMetrics = BodyMetrics.make(r[30].build)
+        XCTAssertGreaterThan(am.head.bounds.max.y, auroraMetrics.headY + auroraMetrics.headR * 1.6, "氷の光輪の冠")
+        XCTAssertLessThan(am.head.bounds.min.y, -0.4, "腰まで流れる長髪")
+        XCTAssertGreaterThan(am.hips.bounds.extents.x, auroraMetrics.torsoW * 1.8, "裾の広がる氷のドレス")
+        XCTAssertNil(am.weapon, "杖は持たない")
+        // H032: 濃い紫の鎧（secondary は暗い）・金の刃の輪。輪は直径 0.4 超の平たい輪（構えで水平）で両手に付き、尾は後ろへ 0.7m 超
+        let dyrroth = HeroPalettes.base(heroID: "H032", blueprint: r[31])
+        XCTAssertTrue((0.66...0.76).contains(dyrroth.primary.h), "紫 \(dyrroth.primary.h)")
+        XCTAssertLessThan(dyrroth.secondary.b, 0.5)
+        let dm = HeroModelLibrary.meshSet(heroID: "H032", blueprint: r[31])
+        let ring = try XCTUnwrap(dm.weapon).bounds
+        XCTAssertGreaterThan(ring.extents.x, 0.4, "刃の輪の直径")
+        XCTAssertLessThan(ring.extents.z, 0.08, "刃の輪は平たい")
+        XCTAssertNotNil(dm.offhand, "左手にも刃の輪")
+        let tail = try XCTUnwrap(dm.back).bounds
+        XCTAssertGreaterThan(tail.extents.z, 0.7, "長い尾")
+    }
+
     /// 追加ヒーロー H025〜H034（docs/NEW_HEROES.md。第 1 段階 H025〜H029・第 2 段階 H030〜H034）の見た目の要件: 武器・体格・攻撃の型・配色の方向。
     func testNewHeroBlueprintsFollowSpec() {
         let r = HeroBlueprints.roster
@@ -211,11 +245,16 @@ final class HeroModelTests: XCTestCase {
         XCTAssertEqual(r[25].build, .robed)
         XCTAssertTrue((0.7...0.85).contains(r[25].hairColor.h), "紫の髪 \(r[25].hairColor.h)")
         XCTAssertTrue((0.45...0.58).contains(r[25].glow.h), "電光の水色 \(r[25].glow.h)")
-        // H027 ジャルド: 竜牙の長槍の近接。銀青の鎧・赤い差し色
+        // H027 ジャルド: 竜槍の近接。青緑の竜の鎧（淡い上衣・金の縁）・赤いマント・茶髪の高い結い髪・青緑の竜の額当て・橙の光
         XCTAssertEqual(r[26].weapon, .dragonSpear)
         XCTAssertEqual(r[26].attack, .thrust)
-        XCTAssertEqual(r[26].armor, .plate)
-        XCTAssertTrue(r[26].accent.h > 0.95 || r[26].accent.h < 0.03, "赤い房飾り \(r[26].accent.h)")
+        XCTAssertEqual(r[26].armor, .dragon)
+        XCTAssertEqual(r[26].metal, .gold)
+        XCTAssertEqual(r[26].back, .cape)
+        XCTAssertEqual(r[26].hair, .ponytail)
+        XCTAssertTrue(r[26].gear.contains(.dragonCrest))
+        XCTAssertTrue(r[26].accent.h > 0.95 || r[26].accent.h < 0.03, "赤いマント \(r[26].accent.h)")
+        XCTAssertTrue((0.05...0.12).contains(r[26].glow.h), "橙の竜の光 \(r[26].glow.h)")
         // H028 ザイル: 光刃の長剣・濃紺の軽装甲・光る visor・シアンの光
         XCTAssertEqual(r[27].weapon, .photonBlade)
         XCTAssertEqual(r[27].attack, .slash)
@@ -243,21 +282,35 @@ final class HeroModelTests: XCTestCase {
         XCTAssertEqual(r[29].metal, .gold)
         XCTAssertTrue((0.88...0.98).contains(r[29].glow.h), "桃の光 \(r[29].glow.h)")
         XCTAssertTrue(r[29].accent.h > 0.95 || r[29].accent.h < 0.03, "赤い差し色 \(r[29].accent.h)")
-        // H031 オーリア: 氷の杖・氷の冠・青白の長髪・周囲に浮く氷の結晶・氷青の光
-        XCTAssertEqual(r[30].weapon, .iceStaff)
+        // H031 オーリア: 杖は持たず氷華の右手から放つ氷の女王。群青のドレス（裾は氷の結晶）・腰までの白銀の長髪・氷の光輪の冠・
+        // 氷のヴェール・周囲に浮く氷の結晶・氷青の光
+        XCTAssertEqual(r[30].weapon, .none)
+        XCTAssertEqual(r[30].attack, .spellThrow)
         XCTAssertEqual(r[30].float, .iceCrystals)
         XCTAssertEqual(r[30].build, .robed)
+        XCTAssertEqual(r[30].armor, .frost)
+        XCTAssertEqual(r[30].skirt, .iceGown)
+        XCTAssertEqual(r[30].hair, .flowing)
+        XCTAssertEqual(r[30].back, .mistCloak)
         XCTAssertTrue(r[30].gear.contains(.iceCrown))
-        XCTAssertTrue((0.5...0.62).contains(r[30].hairColor.h), "青白い髪 \(r[30].hairColor.h)")
-        XCTAssertLessThan(r[30].hairColor.s, 0.2, "青白い髪")
+        XCTAssertLessThan(r[30].hairColor.s, 0.1, "白銀の髪")
+        XCTAssertGreaterThan(r[30].hairColor.b, 0.95, "白銀の髪")
         XCTAssertTrue((0.5...0.6).contains(r[30].glow.h), "氷青の光 \(r[30].glow.h)")
-        // H032 ディアス: 刃付きの籠手（拳剣）の近接・黒髪・赤黒の軽装甲・鉄の灰
-        XCTAssertEqual(r[31].weapon, .fistBlade)
-        XCTAssertEqual(r[31].attack, .slash)
+        XCTAssertNotEqual(r[30].metal, .gold)
+        // H032 ディアス: 両手首の金の刃の輪で左右交互に斬る近接。白い髪と金の角・紅く光る目・薄紫の肌・濃い紫の鎧・紅のズボン・黒い尾
+        XCTAssertEqual(r[31].weapon, .abyssRing)
+        XCTAssertEqual(r[31].offhand, .abyssRing)
+        XCTAssertEqual(r[31].attack, .dualSlash)
         XCTAssertFalse(r[31].twoHanded)
-        XCTAssertLessThan(r[31].hairColor.b, 0.2, "黒髪")
-        XCTAssertTrue(r[31].accent.h > 0.95 || r[31].accent.h < 0.03, "赤い差し色 \(r[31].accent.h)")
-        XCTAssertEqual(r[31].metal, .iron)
+        XCTAssertEqual(r[31].back, .demonTail)
+        XCTAssertTrue(r[31].gear.contains(.demonHorns))
+        XCTAssertTrue(r[31].glowingEyes)
+        XCTAssertEqual(r[31].skin, .violet)
+        XCTAssertGreaterThan(r[31].hairColor.b, 0.9, "白い髪")
+        XCTAssertEqual(r[31].metal, .gold)
+        XCTAssertTrue(r[31].accent.h > 0.95 || r[31].accent.h < 0.03, "紅 \(r[31].accent.h)")
+        XCTAssertTrue(r[31].glow.h > 0.95 || r[31].glow.h < 0.03, "赤い光 \(r[31].glow.h)")
+        XCTAssertTrue(HeroWeaponPoints.dualBlades.contains(.abyssRing), "左手の輪にも軌跡を出す")
         // H033 ヴァルド: 両手持ちの巨大な大剣・青白い肌・蝙蝠の翼風のマント・深紅
         XCTAssertEqual(r[32].weapon, .bloodGreatsword)
         XCTAssertEqual(r[32].attack, .heavySwing)

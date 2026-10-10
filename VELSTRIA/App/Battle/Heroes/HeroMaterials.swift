@@ -83,6 +83,8 @@ enum MetalKind: Equatable {
 
 enum SkinTone: Equatable {
     case fair, tan, deep, pale, ashen
+    /// 深淵の薄紫の肌（H032 ディアス）。
+    case violet
 
     var color: HSB {
         switch self {
@@ -91,6 +93,7 @@ enum SkinTone: Equatable {
         case .deep: return HSB(0.06, 0.50, 0.58)
         case .pale: return HSB(0.62, 0.07, 0.97)
         case .ashen: return HSB(0.40, 0.10, 0.74)
+        case .violet: return HSB(0.72, 0.2, 0.86)
         }
     }
 }
