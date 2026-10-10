@@ -159,6 +159,9 @@ struct FXEmit: Hashable, Sendable {
     var noise: Float = 0
     var vortex: Float = 0
     var attract: Float = 0
+    /// 継続放出の長さ（duration）を発動のイベントの長さ（SkillCastEvent.duration）から取る（rate > 0 のときだけ。
+    /// イベントの長さが 0 なら書いた duration のまま。上限は FXCue.castDurationLimit）。cast・発動と同時の impact だけで効く。
+    var durationFromCast = false
 
     /// 回収までの秒数。
     var span: Float {
@@ -252,6 +255,9 @@ struct FXMesh: Hashable, Sendable {
     var rise: Float = 0
     /// 前方への移動速度（m/s）。
     var advance: Float = 0
+    /// 寿命（life）を発動のイベントの長さ（SkillCastEvent.duration）から取る（イベントの長さが 0 なら書いた life のまま。
+    /// 上限は FXCue.castDurationLimit。fadeIn・fadeOut は寿命に対する比なので一緒に伸びる）。cast・発動と同時の impact だけで効く。
+    var durationFromCast = false
 
     func with(_ f: (inout FXMesh) -> Void) -> FXMesh {
         var c = self
@@ -319,6 +325,53 @@ struct FXCue: Hashable, Sendable {
         c.offset.z += r
         c.orbit = 0.0001
         return c
+    }
+}
+
+// MARK: - 発動の長さ（SkillCastEvent.duration）
+
+extension FXCue {
+    /// 発動のイベントから取る長さの上限（秒）。予算の検査（メッシュの寿命 4 秒など）は書いた値にかかるので、上書きはここで抑える。
+    static let castDurationLimit: Float = 10
+    /// 上書きの下限（秒。極端に短い値で一瞬で消えないように）。
+    static let castDurationFloor: Float = 0.2
+
+    /// 発動のイベントの長さ（秒）→ 上書きに使う長さ。0 以下・有限でない値は nil（= 書いた値のまま）。
+    static func castDuration(_ seconds: Double) -> Float? {
+        guard seconds.isFinite, seconds > 0 else { return nil }
+        return min(castDurationLimit, max(castDurationFloor, Float(seconds)))
+    }
+
+    /// 長さを発動のイベントから取る合図か（durationFromCast の継続放出・メッシュ）。
+    var usesCastDuration: Bool {
+        switch element {
+        case .emit(let e): return e.durationFromCast && e.rate > 0
+        case .mesh(let m): return m.durationFromCast
+        case .shake: return false
+        }
+    }
+
+    /// durationFromCast の要素の長さを d 秒にする（継続放出の duration・メッシュの life）。それ以外はそのまま。
+    func withCastDuration(_ d: Float) -> FXCue {
+        guard usesCastDuration else { return self }
+        var c = self
+        switch element {
+        case .emit(var e):
+            e.duration = d
+            c.element = .emit(e)
+        case .mesh(var m):
+            m.life = d
+            c.element = .mesh(m)
+        case .shake:
+            break
+        }
+        return c
+    }
+
+    /// 合図の並びに発動の長さを当てる（seconds = SkillCastEvent.duration。0 なら書いた値のまま）。
+    static func applyingCastDuration(_ cues: [FXCue], seconds: Double) -> [FXCue] {
+        guard let d = castDuration(seconds), cues.contains(where: { $0.usesCastDuration }) else { return cues }
+        return cues.map { $0.withCastDuration(d) }
     }
 }
 

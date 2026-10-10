@@ -154,7 +154,7 @@ enum HeroMotionSets {
         "H024": make(["dual_combo_b", "dual_combo_d", "thrust"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer", offhandGrip: HeroMotionSet.fistGrip),
         // 三日月の長弓（Ranger・遠隔。弓は左手の副手）
         "H025": make(["bow_shot_b", "bow_shot"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer"),
-        // 雷杖（Arcanist・遠隔: 指し示し・払い）
+        // 右手の上の球電（Arcanist・遠隔: 杖は持たず、指し示し・払い）
         "H026": make(["cast_a", "cast_point", "cast_throw"], idle: "ready_idle", victory: "victory_cheer", weaponGrip: held),
         // 竜牙の長槍（Duelist・近接の突き）
         "H027": make(["thrust", "sword_slash_r", "sword_upward"], idle: "ready_idle", death: "death_forward", weaponGrip: held),
@@ -169,8 +169,9 @@ enum HeroMotionSets {
         // 両手首の刃の輪（Duelist・近接の左右交互の連撃）
         "H032": make(["dual_combo_a", "dual_combo_b", "dual_combo_c"], idle: "ready_idle", death: "death_forward",
                      offhandGrip: HeroMotionSet.fistGrip),
-        // 血の大剣（Assassin・近接の両手の重い振り）
-        "H033": make(["overhead_2h", "sword_charged", "sword_upward"], idle: "combat_idle", death: "death_forward"),
+        // 魔狩りの大剣（Assassin・近接の片手の連斬り。アルーカードは巨大な剣を片手で振る）。左手を柄へ添える両手の振り
+        // （overhead_2h・sword_upward）や左手も大きく動く溜め斬り（sword_charged）ではなく、右手で振る剣のクリップ
+        "H033": make(["sword_slash_r", "sword_combo_3", "sword_slash_l2"], idle: "combat_idle", death: "death_forward"),
         // 鎖鉤（Support・近接の振り回し）
         "H034": make(["axe_chop", "sword_slash_r", "sword_combo_1"], idle: "combat_idle"),
     ]

@@ -111,7 +111,8 @@ struct HeroFXProfile: Equatable {
         case weaponTip
         /// 副手の弓の握り（H003）。
         case bow
-        /// 手のひら（体に付ける籠手・爪。左手で打つクリップなら左手）。
+        /// 手のひら（体に付ける籠手・爪。左手で打つクリップなら左手）。武器を持たない術者（H031 オーリア）は右の手のひら
+        /// （HeroWeaponPoints: weapon .none の weaponTip = 手の握りの点）。
         case hands
     }
 
@@ -198,10 +199,10 @@ enum HeroFXProfiles {
         static let photonBlade = T(inner: 0.2, outer: 1.08, life: 0.2, look: .blade, opacity: 0.85)
         /// 聖槌: 槌頭の重い光の帯。
         static let holyMaul = T(inner: 0.4, outer: 1.12, life: 0.18, look: .heavy, opacity: 0.8)
-        /// 拳剣: 拳の先から伸びる刃の短く鋭い帯。
-        static let fistBlade = T(inner: 0.25, outer: 1.1, life: 0.14, look: .blade, opacity: 0.85)
-        /// 血の大剣: 長い刃に重く尾を引く帯。
-        static let greatsword = T(inner: 0.25, outer: 1.08, life: 0.22, look: .heavy, opacity: 0.85)
+        /// 手首の刃の輪（H032。左右交互）: 輪の外縁から前の鉤刃の先までの短く鋭い帯（握り → 鉤刃の先 0.36 m の 0.4〜1.12）。
+        static let abyssRing = T(inner: 0.4, outer: 1.12, life: 0.14, look: .blade, opacity: 0.85)
+        /// 片手で振る魔狩りの大剣（H033）: 刃の根元（鍔の上 0.3 m）から先まで、くっきりした刃の帯。片手の速い振りなので重い帯より短め。
+        static let hunterGreatsword = T(inner: 0.24, outer: 1.06, life: 0.18, look: .blade, opacity: 0.85)
         /// 鎖鉤: 鎖の長さいっぱいに流れる柔らかい帯。
         static let hookChain = T(inner: 0.15, outer: 1.1, life: 0.22, look: .soft, opacity: 0.75)
     }
@@ -265,25 +266,27 @@ enum HeroFXProfiles {
         "H023": Spec(impact: .electric, shot: .lightning, muzzle: .spark, launch: .weaponTip),
         // M ノア: 紫の夢の糸の細い帯、小さな紫のきらめき
         "H024": Spec(trail: Trails.needle, impact: .sparkle, muzzle: .none, launch: .weaponTip),
-        // R ルミナ: 副手の三日月の長弓から月光の矢（光の筋の尾）、柔らかい月光の弾け
+        // H025〜H034 は造形の作り直し（MLBB の既定スキン）に合わせる。H025・H027・H030・H033 は通常攻撃の .efk が旧モデルのままなので
+        // この表で描く（EffekseerRouting.staleAttackHeroes）。他のキットのヒーローも武器の軌跡（近接）はこの表で描く。
+        // R ルミナ: 副手の三日月の長弓（握り）から月光の水色の矢（光の筋の尾）、柔らかい月光の弾け
         "H025": Spec(impact: .softBurst, shot: .arrow, shotTrail: .streak, muzzle: .bow, launch: .bow),
-        // R エウリア: 雷杖の先から電光の光球（光の筋の尾）、電撃
+        // R エウリア: 杖は持たず、右手の上に浮かべた球電（weaponTip = 球の中心）から青紫の電光の光球（光の筋の尾）、電撃
         "H026": Spec(impact: .electric, shot: .lightOrb, shotTrail: .streak, muzzle: .spark, launch: .weaponTip),
-        // M ジャルド: 銀青の竜槍の突きの帯、突きの火花
+        // M ジャルド: 竜槍の金の炎の穂先（橙）の突きの帯、突きの火花
         "H027": Spec(trail: Trails.dragonSpear, impact: .pierce, muzzle: .none, launch: .weaponTip),
-        // M ザイル: シアンの光刃の長い帯、刃の火花
+        // M ザイル: 黒い長剣の赤く光る刃縁の長い帯、刃の火花
         "H028": Spec(trail: Trails.photonBlade, impact: .slash, muzzle: .none, launch: .weaponTip),
         // M ボルグ: 金白の聖槌の重い帯、地面の輪と破片を伴う大きな打撃
         "H029": Spec(trail: Trails.holyMaul, impact: .heavyBlunt, muzzle: .none, launch: .weaponTip),
-        // R ライナ: 星砲の砲口から桃の光弾（光の筋の尾）、大きな発射炎、炎の弾け
+        // R ライナ: 腰だめに構えた魔砲の砲口（2 本の砲角の先 = weaponTip）から水色の光弾（光の筋の尾）、大きな発射炎、光の弾け
         "H030": Spec(impact: .fireBurst, shot: .lightOrb, shotTrail: .streak, muzzle: .blast, launch: .weaponTip),
-        // R オーリア: 氷の杖の先から氷青の水球（光の筋の尾）、氷のきらめき
-        "H031": Spec(impact: .sparkle, shot: .waterOrb, shotTrail: .streak, muzzle: .cast, launch: .weaponTip),
-        // M ディアス: 赤い拳剣の短く鋭い帯、赤い燃えさしの弾け
-        "H032": Spec(trail: Trails.fistBlade, impact: .embers, muzzle: .none, launch: .weaponTip),
-        // M ヴァルド: 深紅の大剣の重い帯、刃の火花
-        "H033": Spec(trail: Trails.greatsword, impact: .slash, muzzle: .none, launch: .weaponTip),
-        // M ゴルム: 錆びた赤の鎖鉤の柔らかい長い帯、鈍い打撃（燃えさし + 地面の小さな輪）
+        // R オーリア: 杖は持たず、氷華に覆われた右手（手のひら）から氷青の水球（光の筋の尾）、氷のきらめき
+        "H031": Spec(impact: .sparkle, shot: .waterOrb, shotTrail: .streak, muzzle: .cast, launch: .hands),
+        // M ディアス: 両手首の刃の輪の短く鋭い帯（左右交互の二刀。左手は副手の輪）、赤い燃えさしの弾け
+        "H032": Spec(trail: Trails.abyssRing, impact: .embers, muzzle: .none, launch: .weaponTip),
+        // M ヴァルド: 片手で振る銀の大剣の青く光る樋の刃の帯、刃の火花
+        "H033": Spec(trail: Trails.hunterGreatsword, impact: .slash, muzzle: .none, launch: .weaponTip),
+        // M ゴルム: 鉄の鎖鉤の柔らかい長い帯（握り → 鉤の先）、鈍い打撃（燃えさし + 地面の小さな輪）
         "H034": Spec(trail: Trails.hookChain, impact: .blunt, muzzle: .none, launch: .weaponTip),
     ]
 

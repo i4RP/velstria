@@ -309,6 +309,94 @@ final class SkillFXTests: XCTestCase {
         XCTAssertFalse(SkillFXCatalog.merged(stage, over: base).hitPerHit, "段が自分の hit を持てば段の指定")
     }
 
+    /// 発動のイベントの長さ（SkillCastEvent.duration）: 0 以下・有限でない値は使わず、上書きは下限〜上限に収める。
+    func testCastDurationIsClampedAndFallsBackWhenZero() {
+        XCTAssertNil(FXCue.castDuration(0), "0 = 書いた値のまま")
+        XCTAssertNil(FXCue.castDuration(-1))
+        XCTAssertNil(FXCue.castDuration(.nan))
+        XCTAssertNil(FXCue.castDuration(.infinity))
+        XCTAssertEqual(FXCue.castDuration(6.5) ?? 0, 6.5, accuracy: 1e-5)
+        XCTAssertEqual(FXCue.castDuration(30) ?? 0, FXCue.castDurationLimit, "上限で抑える")
+        XCTAssertEqual(FXCue.castDuration(0.01) ?? 0, FXCue.castDurationFloor, "下限で抑える")
+        XCTAssertLessThanOrEqual(FXCue.castDurationLimit, 10)
+    }
+
+    /// durationFromCast を立てた継続放出の duration・メッシュの life だけが発動の長さになる。
+    func testCastDurationOverridesOnlyFlaggedCues() {
+        let loop = FXEmit(rate: 10, duration: 4, life: 0.4, durationFromCast: true)
+        let burst = FXEmit(count: 8, life: 0.4, durationFromCast: true)
+        let plainLoop = FXEmit(rate: 10, duration: 4, life: 0.4)
+        let mesh = FXMesh(shape: .disc, life: 4, durationFromCast: true)
+        let plainMesh = FXMesh(shape: .disc, life: 4)
+        let cues: [FXCue] = [.emit(loop, .follow), .emit(burst), .emit(plainLoop, .follow), .mesh(mesh, .follow),
+                             .mesh(plainMesh), .shake(0.2)]
+        XCTAssertEqual(cues.map(\.usesCastDuration), [true, false, false, true, false, false],
+                       "一斉放出（rate 0）・印の無い合図・揺れは対象外")
+
+        let out = FXCue.applyingCastDuration(cues, seconds: 9)
+        XCTAssertEqual(out.count, cues.count)
+        guard case .emit(let e0) = out[0].element, case .emit(let e1) = out[1].element, case .emit(let e2) = out[2].element,
+              case .mesh(let m3) = out[3].element, case .mesh(let m4) = out[4].element else {
+            return XCTFail("要素の種類が変わった")
+        }
+        XCTAssertEqual(e0.duration, 9, accuracy: 1e-5)
+        XCTAssertEqual(e0.life, 0.4, accuracy: 1e-5, "粒子 1 つの寿命は変えない")
+        XCTAssertEqual(e1, burst)
+        XCTAssertEqual(e2, plainLoop)
+        XCTAssertEqual(m3.life, 9, accuracy: 1e-5)
+        XCTAssertEqual(m4, plainMesh)
+        XCTAssertEqual(out[5], cues[5])
+        XCTAssertEqual(out[3].anchor, .follow, "置き方は変えない")
+
+        XCTAssertEqual(FXCue.applyingCastDuration(cues, seconds: 0), cues, "長さ 0 = 書いた値のまま")
+        let clamped = FXCue.applyingCastDuration(cues, seconds: 600)
+        guard case .mesh(let mc) = clamped[3].element, case .emit(let ec) = clamped[0].element else { return XCTFail() }
+        XCTAssertEqual(mc.life, FXCue.castDurationLimit)
+        XCTAssertEqual(ec.duration, FXCue.castDurationLimit)
+    }
+
+    /// ルミナの S1（効果時間 4→9 秒）: 効果中の足元の三日月・弓のきらめきは発動の長さに合わせ、書いた値はランク 1 の 4 秒。
+    func testLuminaMoonArrowBuffFollowsCastDuration() {
+        let r = SkillFXCatalog.recipe(heroID: "H025", slot: .skill1, master: master)
+        let flagged = r.cast.filter(\.usesCastDuration)
+        XCTAssertEqual(flagged.count, 2, "足元の三日月（メッシュ）と弓のきらめき（継続放出）")
+        for cue in flagged {
+            XCTAssertEqual(cue.anchor, .follow, "効果中の演出は術者に追従する")
+            switch cue.element {
+            case .mesh(let m): XCTAssertEqual(m.life, 4, accuracy: 1e-5)
+            case .emit(let e): XCTAssertEqual(e.duration, 4, accuracy: 1e-5)
+            case .shake: XCTFail()
+            }
+        }
+        for cue in FXCue.applyingCastDuration(r.cast, seconds: 9).filter(\.usesCastDuration) {
+            switch cue.element {
+            case .mesh(let m): XCTAssertEqual(m.life, 9, accuracy: 1e-5)
+            case .emit(let e): XCTAssertEqual(e.duration, 9, accuracy: 1e-5)
+            case .shake: XCTFail()
+            }
+        }
+        XCTAssertTrue(r.impact.allSatisfy { !$0.usesCastDuration }, "放つ矢は長さに関係しない")
+        // 奥義（隠密）は位置を見せないため、効果の長さで追従する合図を持たない
+        let ult = SkillFXCatalog.recipe(heroID: "H025", slot: .ultimate, master: master)
+        XCTAssertTrue(ult.all.allSatisfy { !$0.usesCastDuration })
+    }
+
+    /// 発動の長さを取る合図も、書いた値は予算の範囲（testRecipesRespectBudgets）。上書きは上限で抑えられる。
+    func testCastDurationCuesStayBoundedForEveryHero() {
+        for id in heroIDs {
+            for slot in SkillSlot.allCases {
+                let r = SkillFXCatalog.recipe(heroID: id, slot: slot, master: master)
+                for cue in FXCue.applyingCastDuration(r.cast + r.impact, seconds: 1_000) where cue.usesCastDuration {
+                    switch cue.element {
+                    case .mesh(let m): XCTAssertLessThanOrEqual(m.life, FXCue.castDurationLimit, "\(id) \(slot)")
+                    case .emit(let e): XCTAssertLessThanOrEqual(e.duration, FXCue.castDurationLimit, "\(id) \(slot)")
+                    case .shake: break
+                    }
+                }
+            }
+        }
+    }
+
     func testTexturesAreDrawn() {
         for t in FXTex.allCases {
             let img = FXTextureLibrary.image(t)

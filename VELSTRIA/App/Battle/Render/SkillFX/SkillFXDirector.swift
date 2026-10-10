@@ -14,6 +14,8 @@ import VelstriaCore
 //                      キットのヒーローはロールの合図を使わず、キットのパッシブのバッジの変化から出す。スタックが増えた / タイマーが始まった
 //                      → recipe(.passive).cast、スキルの発動の直後にスタックが尽きた → HeroFXSet.passiveRelease（持つヒーローだけ））
 //   再使用の段        → skillCast.stage >= 1 は、ヒーローが段の演出（HeroFXSet.recipe(_:stage:_:)）を持てばそれを使う
+//   効果の長さ        → cast と発動と同時の impact のうち durationFromCast の合図（FXEmit の継続放出の duration・FXMesh の life）は
+//                      skillCast.duration を使う（0 なら書いた値。上限 FXCue.castDurationLimit）。count・shape はまだ読まない
 
 @MainActor
 final class SkillFXDirector {
@@ -157,15 +159,16 @@ final class SkillFXDirector {
         dir.y = 0
         let forward: SIMD3<Float>? = simd_length(dir) > 0.05 ? dir : facing(c.casterID, state)
         let ctx = context(key, origin: caster, caster: caster, target: target, forward: forward, follow: .unit(c.casterID))
-        player.play(r.cast, ctx)
+        // durationFromCast の合図（効果中ずっと続く追従の放出・メッシュ）は長さを発動のイベントから取る（0 なら書いた値）
+        player.play(FXCue.applyingCastDuration(r.cast, seconds: c.duration), ctx)
         // 即時に解決するアーキタイプは着弾もこの場で
         switch c.archetype {
         case .cone, .selfAoE, .teamHeal:
-            player.play(r.impact, ctx)
+            player.play(FXCue.applyingCastDuration(r.impact, seconds: c.duration), ctx)
         case .targetedBlink, .blinkEmpower:
             var hit = ctx
             hit.origin = target
-            player.play(r.impact, hit)
+            player.play(FXCue.applyingCastDuration(r.impact, seconds: c.duration), hit)
         default:
             break
         }

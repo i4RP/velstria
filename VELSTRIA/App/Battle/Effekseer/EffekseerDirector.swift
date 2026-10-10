@@ -14,9 +14,11 @@ import VelstriaCore
 // 同じヒーローの効果が 1 つでもあれば、そのヒーローの旧来の演出（SkillFX・通常攻撃の演出）は止める（二重に出さない）。
 // 例外: キット（ヒーロー固有スキル。docs/SKILL_KITS.md）のヒーローは、スキル（s1/s2/ult/passive）を SkillFX に任せる
 // （EffekseerRouting）。通常攻撃（atk_*）は Effekseer のまま。理由は docs/EFFEKSEER.md「キットのヒーローの役割分担」。
+// 例外 2: 造形を作り直して atk_* の .efk（旧モデルの武器・配色で作った）と合わなくなったヒーロー（EffekseerRouting.staleAttackHeroes）は、
+// 通常攻撃を旧来の演出（HeroFXProfiles: 実際の武器の発射位置・軌跡に付き、色は設計図の glow）に任せる。
 
 /// どのヒーローのどの演出を Effekseer が担当するか（純粋。単体テスト対象）。
-/// - 効果（.efk）を持つヒーロー（`heroes`）は、通常攻撃の演出を Effekseer が出す。
+/// - 効果（.efk）を持つヒーロー（`heroes`）は、通常攻撃の演出を Effekseer が出す。ただし `attackOptOut` は旧来の演出（HeroFXProfiles）。
 /// - スキルは、`skillOptOut`（キットのヒーロー）では SkillFX が出す。.efk は旧来の汎用ロール挙動（アーキタイプ）に合わせて
 ///   作ったため、キットの実際の挙動（再使用・対象指定・形）と合わない。SkillFX の FX_H025〜H034 は実際の挙動に合わせてある。
 struct EffekseerRouting: Equatable {
@@ -24,6 +26,18 @@ struct EffekseerRouting: Equatable {
     var heroes: Set<String> = []
     /// スキルを SkillFX に任せるヒーロー（heroes の部分集合）。
     var skillOptOut: Set<String> = []
+    /// 通常攻撃を旧来の演出（HeroFXProfiles）に任せるヒーロー（heroes の部分集合）。
+    var attackOptOut: Set<String> = []
+
+    /// 造形の作り直しで atk_* の .efk と合わなくなったヒーロー（EffekseerDirector の既定の attackOptOut）。
+    /// 発射位置は attackLaunchPoint（新しい武器の先端・弓・手）なので全員合っているが、.efk の色・形が旧モデルのまま:
+    /// - H025 ルミナ: 翠緑の月光 → 造形・スキルは月光の青
+    /// - H027 ジャルド: 銀青の突き → 竜槍の金の炎の穂先（橙）。武器の軌跡（橙）と二重に違う色が出ていた
+    /// - H030 ライナ: 桃の星の砲弾 → 腰だめの白い魔砲と水色の動力球（スキルも水色）
+    /// - H033 ヴァルド: 深紅の大剣の袈裟斬り → 片手で振る銀の大剣と青い樋（スキルも青）
+    /// H026（球電）・H031（素手）・H032（手首の刃の輪）は武器が変わったが、.efk の発射の閃光は発射位置に、近接の弧は術者の前に出るだけで
+    /// 武器の形に依らず、色も造形と合うので Effekseer のまま。.efk を新しい造形で作り直したら、ここから外すと Effekseer に戻る。
+    static let staleAttackHeroes: Set<String> = ["H025", "H027", "H030", "H033"]
 
     /// 効果の名前（`H027_s1_cast`）からヒーロー ID（`H027`）。ヒーローの効果でなければ nil（試作の `Zt_*` など）。
     static func heroID(ofEffect n: String) -> String? {
@@ -31,16 +45,20 @@ struct EffekseerRouting: Equatable {
         return String(n.prefix(4))
     }
 
-    static func make<S: Sequence>(effectNames: S, skillOptOut isOptOut: (String) -> Bool) -> EffekseerRouting
+    static func make<S: Sequence>(effectNames: S, skillOptOut isOptOut: (String) -> Bool,
+                                  attackOptOut isAttackOptOut: (String) -> Bool = { _ in false }) -> EffekseerRouting
     where S.Element == String {
         var r = EffekseerRouting()
         r.heroes = Set(effectNames.compactMap { heroID(ofEffect: $0) })
         r.skillOptOut = r.heroes.filter(isOptOut)
+        r.attackOptOut = r.heroes.filter(isAttackOptOut)
         return r
     }
 
     /// 通常攻撃（atk_*）の演出を Effekseer が出すか。
-    func handlesAttack(_ heroID: String?) -> Bool { heroID.map { heroes.contains($0) } ?? false }
+    func handlesAttack(_ heroID: String?) -> Bool {
+        heroID.map { heroes.contains($0) && !attackOptOut.contains($0) } ?? false
+    }
 
     /// スキル（s1/s2/ult/passive）の演出を Effekseer が出すか。
     func handlesSkill(_ heroID: String?) -> Bool {
@@ -55,11 +73,15 @@ final class EffekseerDirector {
     private unowned let projectiles: ProjectileLayer
     /// スキルを SkillFX に任せるヒーローの判定（既定 = キットのヒーロー）。
     private let skillOptOut: (String) -> Bool
+    /// 通常攻撃を旧来の演出（HeroFXProfiles）に任せるヒーローの判定（既定 = EffekseerRouting.staleAttackHeroes）。
+    private let attackOptOut: (String) -> Bool
     private(set) var routing = EffekseerRouting()
     /// 効果を持つヒーロー。
     var heroes: Set<String> { routing.heroes }
     /// スキルを SkillFX に任せるヒーロー（効果は通常攻撃だけ）。
     var skillOptOutHeroes: Set<String> { routing.skillOptOut }
+    /// 通常攻撃を旧来の演出に任せるヒーロー（通常攻撃の弾の見た目を隠さない）。
+    var attackOptOutHeroes: Set<String> { routing.attackOptOut }
 
     private enum Target { case unit(EntityID), projectile(EntityID) }
     private struct Follow {
@@ -76,19 +98,21 @@ final class EffekseerDirector {
     private var time: Float = 0
 
     init(overlay: EffekseerOverlay, units: UnitLayer, projectiles: ProjectileLayer,
-         skillOptOut: @escaping (String) -> Bool = { HeroKits.hasKit($0) }) {
+         skillOptOut: @escaping (String) -> Bool = { HeroKits.hasKit($0) },
+         attackOptOut: @escaping (String) -> Bool = { EffekseerRouting.staleAttackHeroes.contains($0) }) {
         self.overlay = overlay
         self.units = units
         self.projectiles = projectiles
         self.skillOptOut = skillOptOut
+        self.attackOptOut = attackOptOut
         refreshHeroes()
     }
 
     func refreshHeroes() {
-        routing = EffekseerRouting.make(effectNames: overlay.effectNames, skillOptOut: skillOptOut)
+        routing = EffekseerRouting.make(effectNames: overlay.effectNames, skillOptOut: skillOptOut, attackOptOut: attackOptOut)
     }
 
-    /// 効果を持つヒーローか（通常攻撃の演出を Effekseer が出す）。
+    /// 通常攻撃の演出を Effekseer が出すヒーローか（attackOptOut のヒーローは false = 旧来の演出）。
     func handles(_ heroID: String?) -> Bool { routing.handlesAttack(heroID) }
 
     /// スキルの演出を Effekseer が出すヒーローか（キットのヒーローは false = SkillFX）。
@@ -134,7 +158,7 @@ final class EffekseerDirector {
     /// 通常攻撃の発射・打撃。効果を再生したら true（呼び出し側は旧来の発射演出を出さない）。
     @discardableResult
     func onAttackReleased(src: EntityID, target: EntityID, isRanged: Bool, state: SimState) -> Bool {
-        guard let hero = state.unit(src)?.hero?.heroID, heroes.contains(hero) else { return false }
+        guard let hero = state.unit(src)?.hero?.heroID, routing.handlesAttack(hero) else { return false }
         let from = (units.hero(src)?.handle.attackLaunchPoint()) ?? units.worldPositionOf(src).map { $0 + [0, 1, 0] } ?? .zero
         let tp = units.worldPositionOf(target) ?? from + facing(src, state)
         let fwd = Self.flat(tp - from, fallback: facing(src, state))
@@ -194,6 +218,7 @@ final class EffekseerDirector {
         guard let hero = state.unit(ownerID)?.hero?.heroID, heroes.contains(hero) else { return }
         let stage: String
         if visual == "basic_attack" {
+            guard routing.handlesAttack(hero) else { return }   // 通常攻撃を旧来の演出に任せるヒーローの弾は ProjectileLayer
             stage = "atk_travel"
         } else if routing.handlesSkill(hero), let s = slotFor(visual: visual, hero: hero) {
             stage = "\(Self.slotName(s))_travel"
@@ -217,6 +242,8 @@ final class EffekseerDirector {
               let hero = state.unit(proj.ownerID)?.hero?.heroID, heroes.contains(hero) else { return false }
         // キットのヒーローのスキルの弾の命中は SkillFX に任せる（通常攻撃の弾は Effekseer）
         if proj.visual != "basic_attack", !routing.handlesSkill(hero) { return false }
+        // 通常攻撃を旧来の演出に任せるヒーローの弾の命中は HeroFXProfiles（BattleWorld）
+        if proj.visual == "basic_attack", !routing.handlesAttack(hero) { return false }
         let info = projectiles.info(projectileID)
         if !proj.pierce, let handle = shots[projectileID] {
             overlay.runtime.stopHandle(handle)
@@ -238,8 +265,8 @@ final class EffekseerDirector {
         let stage: String
         switch d.source {
         case .basicAttack:
-            // 遠隔の通常攻撃は projectileHit で出す。近接だけここで
-            guard !Self.isRangedAttacker(u) else { return }
+            // 遠隔の通常攻撃は projectileHit で出す。近接だけここで（旧来の演出に任せるヒーローは BattleWorld の meleeImpact）
+            guard routing.handlesAttack(hero), !Self.isRangedAttacker(u) else { return }
             stage = "atk_hit"
         case .skill(let slot):
             guard routing.handlesSkill(hero) else { return }   // キットのヒーローのスキルの被弾は SkillFX

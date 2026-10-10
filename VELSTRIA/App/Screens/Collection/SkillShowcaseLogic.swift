@@ -26,8 +26,11 @@ struct SkillTagStyle: Equatable {
 /// スキルのタグ（バフ・範囲技・減速・衝突・妨害 など）。キーは小文字の英字（`HeroKits.tags` と同じ語彙）。
 enum SkillTags {
     /// 画面が知っているキー。これ以外のキーは名前をそのまま出し、灰色にする。
+    /// debuff / damage / conceal / cleanse はキット層（`KitTag`）に足されるキー。Core の定数が無くても動くよう文字列で持つ。
+    /// blink は mobility と同じ札（MLBB の「ブリンク」）で、キット層が将来この名前で足しても同じ名前・色になる。
+    /// 日本語の名前は MLBB の日本語版の札に合わせる（バフ・範囲技・減速・衝突・妨害・爆発力・攻撃・ブリンク・デバフ・隠れ身・コントロール解除）。
     static let knownKeys = ["buff", "aoe", "slow", "clash", "disrupt", "burst", "mobility", "heal", "shield",
-                            "control", "stun", "pull", "execute"]
+                            "control", "stun", "pull", "execute", "debuff", "damage", "conceal", "cleanse", "blink"]
 
     /// 1 つのスキルに付けるタグの最大数。
     static let maxTagsPerSkill = 2
@@ -37,20 +40,25 @@ enum SkillTags {
     private static let buffRGB = SkillRGB(r: 0.20, g: 0.74, b: 0.74)       // バフ = ティール
     private static let aoeRGB = SkillRGB(r: 0.93, g: 0.52, b: 0.18)        // 範囲 = オレンジ
     private static let controlRGB = SkillRGB(r: 0.86, g: 0.32, b: 0.44)    // 減速・妨害・スタン・拘束 = ピンクがかった赤
-    private static let mobilityRGB = SkillRGB(r: 0.58, g: 0.38, b: 0.86)   // 衝突・移動 = 紫
+    private static let mobilityRGB = SkillRGB(r: 0.58, g: 0.38, b: 0.86)   // 衝突・ブリンク = 紫
     private static let burstRGB = SkillRGB(r: 0.94, g: 0.36, b: 0.20)      // 爆発・処刑 = 赤みのオレンジ
     private static let healRGB = SkillRGB(r: 0.28, g: 0.76, b: 0.42)       // 回復 = 緑
     private static let shieldRGB = SkillRGB(r: 0.30, g: 0.55, b: 0.95)     // シールド = 青
+    private static let damageRGB = SkillRGB(r: 0.96, g: 0.62, b: 0.24)     // 攻撃 = オレンジ（範囲より黄寄り・爆発力より明るい）
     private static let unknownRGB = SkillRGB(r: 0.50, g: 0.54, b: 0.62)
 
     /// タグの色（この関数が色の唯一の対応表）。
     static func rgb(for key: String) -> SkillRGB {
         switch normalized(key) {
-        case "buff": return buffRGB
+        // 隠れ身・コントロール解除も MLBB ではバフと同じ青系の札
+        case "buff", "conceal", "cleanse": return buffRGB
         case "aoe": return aoeRGB
-        case "slow", "disrupt", "stun", "control", "pull": return controlRGB
-        case "clash", "mobility": return mobilityRGB
+        // デバフ（防御・魔防の低下など）も相手を弱める側なので妨害系のピンクがかった赤
+        case "slow", "disrupt", "stun", "control", "pull", "debuff": return controlRGB
+        case "clash", "mobility", "blink": return mobilityRGB
         case "burst", "execute": return burstRGB
+        // 攻撃（攻撃の強化・追加ダメージ。MLBB の「攻撃」）はオレンジ
+        case "damage": return damageRGB
         case "heal": return healRGB
         case "shield": return shieldRGB
         default: return unknownRGB
@@ -64,14 +72,19 @@ enum SkillTags {
         case "slow": return L("減速", "Slow")
         case "clash": return L("衝突", "Clash")
         case "disrupt": return L("妨害", "Disrupt")
-        case "burst": return L("バースト", "Burst")
-        case "mobility": return L("移動", "Mobility")
+        case "burst": return L("爆発力", "Burst")
+        // 英語はスペル「Blink」（瞬歩）と紛らわしいので Mobility（HUDSkillTag と同じ）
+        case "mobility", "blink": return L("ブリンク", "Mobility")
         case "heal": return L("回復", "Heal")
         case "shield": return L("シールド", "Shield")
         case "control": return L("拘束", "Control")
         case "stun": return L("スタン", "Stun")
         case "pull": return L("引き寄せ", "Pull")
         case "execute": return L("処刑", "Execute")
+        case "debuff": return L("デバフ", "Debuff")
+        case "damage": return L("攻撃", "Damage")
+        case "conceal": return L("隠れ身", "Conceal")
+        case "cleanse": return L("コントロール解除", "Cleanse")
         default: return key
         }
     }
@@ -84,13 +97,17 @@ enum SkillTags {
         case "clash": return "arrow.right.to.line"
         case "disrupt": return "exclamationmark.triangle.fill"
         case "burst": return "burst.fill"
-        case "mobility": return "wind"
+        case "mobility", "blink": return "wind"
         case "heal": return "cross.circle.fill"
         case "shield": return "shield.fill"
         case "control": return "link"
         case "stun": return "star.circle.fill"
         case "pull": return "arrow.down.left.and.arrow.up.right"
         case "execute": return "scope"
+        case "debuff": return "arrow.down.circle.fill"
+        case "damage": return "flame.fill"
+        case "conceal": return "eye.slash.fill"
+        case "cleanse": return "sparkles"
         default: return "tag.fill"
         }
     }

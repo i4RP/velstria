@@ -345,13 +345,23 @@ final class ProjectileLayer {
     /// suppressedHeroes のうち、スキルの弾（.skill・.empowered）の見た目を残すヒーロー（スキルを SkillFX に任せるキットのヒーロー。
     /// 通常攻撃の弾は Effekseer の効果があるので隠す）。
     var skillShotsKept: Set<String> = []
+    /// suppressedHeroes のうち、通常攻撃の弾（.heroShot・.heroBolt）の見た目を残すヒーロー（通常攻撃を旧来の演出に任せる
+    /// EffekseerRouting.attackOptOut。atk_travel の効果を出さないので隠すと何も見えない）。
+    var attackShotsKept: Set<String> = []
 
     /// 弾の旧来の見た目を隠すか。
     private func isSuppressed(_ style: Style, hero: String) -> Bool {
-        guard suppressedHeroes.contains(hero) else { return false }
+        Self.isSuppressed(style, hero: hero, suppressed: suppressedHeroes, skillKept: skillShotsKept, attackKept: attackShotsKept)
+    }
+
+    /// 弾の旧来の見た目を隠すか（純粋。テスト用）。
+    static func isSuppressed(_ style: Style, hero: String, suppressed: Set<String>, skillKept: Set<String>,
+                             attackKept: Set<String>) -> Bool {
+        guard suppressed.contains(hero) else { return false }
         switch style {
-        case .skill, .empowered: return !skillShotsKept.contains(hero)
-        default: return true
+        case .skill, .empowered: return !skillKept.contains(hero)
+        case .heroShot, .heroBolt: return !attackKept.contains(hero)
+        case .minionBolt, .tower: return true
         }
     }
 

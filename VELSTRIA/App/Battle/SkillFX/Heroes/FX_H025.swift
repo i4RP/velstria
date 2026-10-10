@@ -7,9 +7,10 @@ import VelstriaCore
 // sim の実際の挙動（Systems/Kits/Kit_H025.swift の LuminaTuning）に合わせたタイミング:
 //   パッシブ 月環の導き   — 通常攻撃の命中で段が積もるたび（0.4 秒に 1 回まで・5 段まで。隠れ月光が解けて最大の段になる瞬間も）:
 //                           頭上に小さな三日月が灯り、弓の先がきらめき、足元を細い月の輪が一巡する（攻撃のたびなので小さく短く）
-//   スキル1 月弦分矢      — 自己強化 4 秒（自身中心なので cast と impact を発動と同時に再生）。0.1 秒で弦を離すと、
+//   スキル1 月弦分矢      — 自己強化 4〜9 秒（ランク。自身中心なので cast と impact を発動と同時に再生）。0.1 秒で弦を離すと、
 //                           主矢（中央・2 枚重ねで明るい）と左右 16° の副矢が弓から前へ飛んで分かれ、通り道に翠の筋が残る。
-//                           効果中は足元を三日月が巡り、弓の先に月のきらめきが流れ続ける（4 秒）
+//                           効果中は足元を三日月が巡り、弓の先に月のきらめきが流れ続ける（長さは発動のイベントの duration
+//                           = 効果時間。0 なら書いた 4 秒: durationFromCast）
 //   スキル2 月蝕の矢      — 0.1 秒で天へ矢を放つ（cast）。着弾点（ゾーンの telegraph = 発動と同時）に月の印が浮かび、
 //                           0.03〜0.35 秒に月光の矢の雨と主矢が真上から落ち、0.35 秒（s2Delay）に着弾: 地に刺さった主矢・月光の柱・
 //                           噛み合う二つの三日月（月蝕）・暗い影・砕ける結晶。移動不能 1.2 秒の敵は足元を月の輪と三日月の枷が締める（hit）。
@@ -18,7 +19,8 @@ import VelstriaCore
 //                           着弾の本体は telegraph（at = 0.35）に置き、impact は小さな閃きだけにする
 //   アルティメット 隠れ月光 — 腰を落とした瞬間、月光の帳（光の円柱）が降りて姿を包み、霞・翠の木の葉・小さな三日月が舞い散る。
 //                           隠密 2 秒のあいだの位置を敵に見せないよう、演出は発動の位置に置き、追従するのは走り出す 0.3 秒の尾だけ
-// SkillFXDirector は duration / count を読まない: 時刻は at（遅れ）で表す。
+// SkillFXDirector は count を読まない: 時刻は at（遅れ）で表す。duration は durationFromCast の合図（S1 の効果中の演出）だけが使う。
+// 奥義の隠密（2 秒）は位置を見せないため、効果の長さに合わせて追従する合図を置かない。
 
 enum FX_H025: HeroFXSet {
     // 造形（銀白の髪・青紫の衣装・水色に光る弦）と MLBB の Miya の既定スキンの月光に合わせ、月光の青を主色にする。
@@ -28,7 +30,7 @@ enum FX_H025: HeroFXSet {
 
     // MARK: - sim の時刻・寸法（Kit_H025.LuminaTuning と同じ値。sim を変えたらここも合わせる）
 
-    /// スキル1 の効果時間（s1Duration）。
+    /// スキル1 の効果時間（s1Duration のランク 1。実際の長さ（ランクで 4→9 秒）は発動のイベントの duration から取る）。
     private static let buffTime: Float = 4
     /// スキル2: 着弾までの遅れ（s2Delay）・半径（s2Radius 170）・移動不能（s2Root）。
     private static let eclipseDelay: Float = 0.35
@@ -104,7 +106,7 @@ enum FX_H025: HeroFXSet {
 
     // MARK: - スキル1 月弦分矢
 
-    /// 自己強化（4 秒）。弦を離す 0.1 秒に、主矢と左右の副矢が弓から前へ飛んで分かれる。
+    /// 自己強化（4〜9 秒）。弦を離す 0.1 秒に、主矢と左右の副矢が弓から前へ飛んで分かれる。
     private static func moonArrow() -> SkillFXRecipe {
         var r = SkillFXRecipe()
         let t: Float = 0.1
@@ -114,13 +116,15 @@ enum FX_H025: HeroFXSet {
             .emit(.gather(12, radius: 0.55, .secondary, life: t), offset: bow),
             .emit(.flare(1.3, .core, life: 0.16, tex: .flare4), at: t, offset: bow),
             .mesh(.sprite(.moon, 0.6, .accent, life: 0.32, grow: 1.6, alpha: 0.95), at: t, offset: bow),
-            // 効果中（4 秒）: 足元を三日月が巡り、弓の先に月のきらめきが流れ続ける
+            // 効果中（4〜9 秒 = 発動のイベントの duration）: 足元を三日月が巡り、弓の先に月のきらめきが流れ続ける
             .mesh(FXMesh.decal(.moon, 1.7, .secondary, life: buffTime, spin: 170, grow: 1.0, alpha: 0.5).with {
                 $0.fadeIn = 0.04
                 $0.fadeOut = 0.88
+                $0.durationFromCast = true
             }, .follow),
             .emit(.trail(.twinkle, .secondary, rate: 14, life: 0.45, size: 0.13).with {
                 $0.duration = buffTime
+                $0.durationFromCast = true
                 $0.dir = .up
                 $0.speed = 0.6
                 $0.tintEnd = .primary

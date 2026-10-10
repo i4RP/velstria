@@ -30,7 +30,7 @@ final class SkillShowcaseTests: XCTestCase {
         XCTAssertEqual(SkillTags.rgb(for: "pull"), control)
         XCTAssertEqual(SkillTags.rgb(for: "mobility"), mobility)
         XCTAssertEqual(SkillTags.rgb(for: "execute"), SkillTags.rgb(for: "burst"))
-        // 7 系統（バフ・範囲・妨害系・衝突/移動・バースト・回復・シールド）はそれぞれ別の色
+        // 7 系統（バフ・範囲・妨害系・衝突/移動・爆発力・回復・シールド）はそれぞれ別の色
         let distinct = [buff, aoe, control, mobility, SkillTags.rgb(for: "burst"), SkillTags.rgb(for: "heal"),
                         SkillTags.rgb(for: "shield")]
         for i in distinct.indices {
@@ -38,6 +38,52 @@ final class SkillShowcaseTests: XCTestCase {
         }
         // 大文字小文字は区別しない
         XCTAssertEqual(SkillTags.rgb(for: "AOE"), aoe)
+    }
+
+    /// キット層に足されるキー（debuff / damage / conceal / cleanse）: デバフ = 妨害系の色、攻撃 = オレンジ（範囲・爆発力とは別）、
+    /// 隠れ身・コントロール解除 = バフと同じ青系。名前は MLBB の日本語版の表記（爆発力・攻撃・隠れ身・コントロール解除）に合わせる。
+    func testKitTagKeysHaveNamesAndColors() {
+        XCTAssertEqual(SkillTags.rgb(for: "debuff"), SkillTags.rgb(for: "slow"))
+        let damage = SkillTags.rgb(for: "damage")
+        XCTAssertGreaterThan(damage.r, damage.g)
+        XCTAssertGreaterThan(damage.g, damage.b)
+        XCTAssertNotEqual(damage, SkillTags.rgb(for: "aoe"))
+        XCTAssertNotEqual(damage, SkillTags.rgb(for: "burst"))
+        XCTAssertGreaterThan(damage.g, SkillTags.rgb(for: "burst").g, "爆発力（赤みのオレンジ）より黄寄り")
+        for v in [damage.r, damage.g, damage.b] { XCTAssertTrue((0...1).contains(v)) }
+        XCTAssertEqual(SkillTags.rgb(for: "conceal"), SkillTags.rgb(for: "buff"))
+        XCTAssertEqual(SkillTags.rgb(for: "cleanse"), SkillTags.rgb(for: "buff"))
+        XCTAssertEqual(SkillTags.name(for: "debuff"), "デバフ")
+        // MLBB の「ブリンク」（紫）: mobility と、将来足されうる blink は同じ札
+        XCTAssertEqual(SkillTags.name(for: "mobility"), "ブリンク")
+        XCTAssertEqual(SkillTags.name(for: "blink"), "ブリンク")
+        XCTAssertEqual(SkillTags.rgb(for: "blink"), SkillTags.rgb(for: "mobility"))
+        XCTAssertEqual(SkillTags.rgb(for: "blink"), SkillTags.rgb(for: "clash"), "衝突と同じ紫")
+        XCTAssertEqual(SkillTags.symbol(for: "blink"), SkillTags.symbol(for: "mobility"))
+        XCTAssertTrue(SkillTags.knownKeys.contains("blink"))
+        XCTAssertEqual(SkillTags.name(for: "damage"), "攻撃")
+        XCTAssertEqual(SkillTags.name(for: "burst"), "爆発力")
+        XCTAssertEqual(SkillTags.name(for: "conceal"), "隠れ身")
+        XCTAssertEqual(SkillTags.name(for: "cleanse"), "コントロール解除")
+        XCTAssertEqual(SkillTags.name(for: "CLEANSE"), "コントロール解除", "大文字小文字は区別しない")
+        // アイコンの下の見出しは主タグ（先頭）の名前（MLBB のマイヤ: バフ / バフ / 妨害 / 隠れ身）
+        XCTAssertEqual(SkillTags.caption(for: ["conceal", "cleanse"]), "隠れ身")
+        XCTAssertEqual(SkillTags.caption(for: ["disrupt", "damage"]), "妨害")
+        // セイバー: デバフ / 範囲技 / ブリンク / 爆発力
+        XCTAssertEqual(["debuff", "aoe", "mobility", "burst"].map { SkillTags.caption(for: [$0]) }, ["デバフ", "範囲技", "ブリンク", "爆発力"])
+        Loc.current = .en
+        XCTAssertEqual(SkillTags.name(for: "mobility"), "Mobility", "英語はスペルの Blink と紛らわしいので Mobility")
+        XCTAssertEqual(SkillTags.name(for: "debuff"), "Debuff")
+        XCTAssertEqual(SkillTags.name(for: "damage"), "Damage")
+        XCTAssertEqual(SkillTags.name(for: "conceal"), "Conceal")
+        XCTAssertEqual(SkillTags.name(for: "cleanse"), "Cleanse")
+        Loc.current = .ja
+        for key in ["debuff", "damage", "conceal", "cleanse"] {
+            XCTAssertTrue(SkillTags.knownKeys.contains(key), key)
+            XCTAssertNotEqual(SkillTags.symbol(for: key), SkillTags.symbol(for: "mystery"), key)
+        }
+        // キット層が使ってよいキーは全て画面が知っている（Core に新しいキーが足されたら、ここで気づく）
+        for key in KitTag.all { XCTAssertTrue(SkillTags.knownKeys.contains(key), key) }
     }
 
     func testTagColorHues() {

@@ -170,9 +170,12 @@ public struct KitState: Codable, Hashable, Sendable {
   （半幅 = `radius` の帯 + 矢印）/ `.dashToPoint`（半幅 = `radius` の帯 + 終点の輪）/ `.circleAtPoint` / `.selfRing` / `.lockOn`（対象の輪）。`.auto`、および aim と合わない
   組み合わせ（扇で角度なし など）は `.legacy` = 従来の archetype / aim の分岐。`HUDAim.castTarget` は変えない（`lockOn` は aim `.unit` なので敵ヒーローを送り、居なければ `.none`
   = sim が自動選択・`requiresTarget` は拒否）。
-- **演出**: キットのヒーローは **通常攻撃 = Effekseer、スキル = SkillFX**（`EffekseerRouting`。理由は `docs/EFFEKSEER.md`）。SkillFX は `SkillCastEvent.stage` が 1 以上のとき
+- **演出**: キットのヒーローは **通常攻撃 = Effekseer、スキル = SkillFX**（`EffekseerRouting`。理由は `docs/EFFEKSEER.md`。造形を作り直して `atk_*` の `.efk` と
+  合わなくなった H025・H027・H030・H033 は通常攻撃も `HeroFXProfiles` = `EffekseerRouting.staleAttackHeroes`）。SkillFX は `SkillCastEvent.stage` が 1 以上のとき
   `HeroFXSet.recipe(_:stage:_:)` の段の演出を使える（既定 nil。FX_H0xx はまだ使っていない）。キットのヒーローのパッシブの演出は、ロールの合図ではなくパッシブのバッジの変化で出す
-  （`SkillFXDirector.observeKitPassives`）。`count` / `duration` / `shape` は Director ではまだ読まない（FX_H0xx は固定のタイミングで書いてある）。
+  （`SkillFXDirector.observeKitPassives`）。`duration` は **`durationFromCast` を立てた合図だけ**が読む（`FXEmit` の継続放出の `duration`・`FXMesh` の `life` を
+  `SkillCastEvent.duration` に置き換える。cast と発動と同時の impact のみ。0 なら書いた値、上限 `FXCue.castDurationLimit` = 10 秒。予算の検査は書いた値にかかる。
+  例: H025 S1 の効果中の足元の三日月と弓のきらめき = 効果時間 4→9 秒）。`count` / `shape` はまだ読まない（FX_H0xx は固定のタイミングで書いてある）。
 - **演出（追加の hook）**: (1) 多段ヒットのスキルは同じ相手へ `hit` を **0.9 秒に 1 回**しか再生しない（キットのヒーローのみ。`SkillFXDirector.hitInterval`。
   1 発ごとに出したい短い演出だけ `r.hitPerHit = true`、それ以外のヒーローは従来の 0.15 秒）。(2) パッシブのスタックを**使い切った**（>= 1 → 0）のが
   スキルの発動の直後（0.6 秒以内）なら、積む演出ではなく `HeroFXSet.passiveRelease(_ s: FXSkillInfo, released: Int) -> [FXCue]?` を術者に追従して再生する

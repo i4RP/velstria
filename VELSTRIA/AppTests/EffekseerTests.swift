@@ -103,13 +103,16 @@ final class EffekseerTests: XCTestCase {
         XCTAssertEqual(plain.skillOptOut, [])
     }
 
-    /// 同梱の効果 × 実際のキット: キットのヒーローは通常攻撃だけ Effekseer、それ以外のヒーローは全部 Effekseer。
+    /// 同梱の効果 × 実際のキット: キットのヒーローは通常攻撃だけ Effekseer（造形を作り直して .efk と合わなくなったヒーローは
+    /// 通常攻撃も旧来の演出）、それ以外のヒーローは全部 Effekseer。
     func testRoutingWithBundledEffectsAndRealKits() throws {
         let names = try bundledFiles().map { $0.deletingPathExtension().lastPathComponent }
-        let r = EffekseerRouting.make(effectNames: names, skillOptOut: { HeroKits.hasKit($0) })
+        let stale = EffekseerRouting.staleAttackHeroes
+        let r = EffekseerRouting.make(effectNames: names, skillOptOut: { HeroKits.hasKit($0) },
+                                      attackOptOut: { stale.contains($0) })
         for hero in r.heroes {
+            XCTAssertEqual(r.handlesAttack(hero), !stale.contains(hero), hero)
             if HeroKits.hasKit(hero) {
-                XCTAssertTrue(r.handlesAttack(hero), hero)
                 XCTAssertFalse(r.handlesSkill(hero), "\(hero): キットのスキルは SkillFX")
                 XCTAssertTrue(names.contains("\(hero)_atk_cast"), "\(hero): 通常攻撃の効果は残っている")
             } else {
@@ -117,6 +120,59 @@ final class EffekseerTests: XCTestCase {
             }
         }
         XCTAssertEqual(r.skillOptOut, r.heroes.filter { HeroKits.hasKit($0) })
+        XCTAssertEqual(r.attackOptOut, stale.intersection(r.heroes))
+    }
+
+    /// 通常攻撃のオプトアウト: 効果（.efk）を持っていても旧来の演出（HeroFXProfiles）に任せる。スキルの判定とは独立。
+    /// 既定の対象は造形を作り直したキットのヒーローのうち、通常攻撃の .efk の色・形が新しい造形と合わないもの。
+    func testAttackOptOutLeavesBasicAttacksToHeroFXProfiles() {
+        let names = ["H025_atk_cast", "H025_s1_cast", "H031_atk_cast", "H003_atk_cast", "H003_s1_cast"]
+        let r = EffekseerRouting.make(effectNames: names, skillOptOut: { $0 == "H025" || $0 == "H031" },
+                                      attackOptOut: { $0 == "H025" || $0 == "H999" })
+        XCTAssertEqual(r.attackOptOut, ["H025"], "効果を持たないヒーローは入らない")
+        XCTAssertFalse(r.handlesAttack("H025"), "通常攻撃も旧来の演出")
+        XCTAssertFalse(r.handlesSkill("H025"))
+        XCTAssertTrue(r.handlesAttack("H031"), "オプトアウトしていないキットのヒーローは通常攻撃だけ Effekseer")
+        XCTAssertFalse(r.handlesSkill("H031"))
+        XCTAssertTrue(r.handlesAttack("H003"))
+        XCTAssertTrue(r.handlesSkill("H003"))
+        // 既定（attackOptOut を渡さない）は従来どおり
+        let plain = EffekseerRouting.make(effectNames: names, skillOptOut: { _ in false })
+        XCTAssertTrue(plain.handlesAttack("H025"))
+        XCTAssertEqual(plain.attackOptOut, [])
+        // 既定の対象: 造形を作り直したキットのヒーローだけ（H025〜H034）。全員の演出表があり、遠隔は投射物・発射炎、近接は軌跡を持つ
+        XCTAssertEqual(EffekseerRouting.staleAttackHeroes, ["H025", "H027", "H030", "H033"])
+        for hero in EffekseerRouting.staleAttackHeroes {
+            let n = Int(hero.dropFirst()) ?? 0
+            XCTAssertTrue((25...34).contains(n), hero)
+            guard let p = HeroFXProfiles.profile(hero) else { XCTFail("\(hero): 演出表が無い"); continue }
+            if p.isRanged {
+                XCTAssertNotNil(p.shot, hero)
+                XCTAssertNotEqual(p.muzzle, HeroFXProfile.Muzzle.none, hero)
+            } else {
+                XCTAssertNotNil(p.trail, hero)
+            }
+        }
+    }
+
+    /// 弾の旧来の見た目: 効果を持つヒーローの弾は隠し、スキルの弾はスキルのオプトアウト、通常攻撃の弾は通常攻撃のオプトアウトで残す。
+    func testProjectileSuppressionFollowsRouting() {
+        let suppressed: Set<String> = ["H025", "H031", "H003"]
+        let skillKept: Set<String> = ["H025", "H031"]
+        let attackKept: Set<String> = ["H025"]
+        func hidden(_ style: ProjectileLayer.Style, _ hero: String) -> Bool {
+            ProjectileLayer.isSuppressed(style, hero: hero, suppressed: suppressed, skillKept: skillKept, attackKept: attackKept)
+        }
+        let skill = ProjectileLayer.Style.skill(hue: 500, streak: true)
+        XCTAssertFalse(hidden(.heroShot(heroID: "H025", team: .blue), "H025"), "通常攻撃を旧来の演出に任せる = 弾を見せる")
+        XCTAssertFalse(hidden(.heroBolt(.blue), "H025"))
+        XCTAssertFalse(hidden(skill, "H025"))
+        XCTAssertTrue(hidden(.heroShot(heroID: "H031", team: .red), "H031"), "atk_travel が弾を描く")
+        XCTAssertFalse(hidden(skill, "H031"), "スキルは SkillFX = 弾を見せる")
+        XCTAssertFalse(hidden(.empowered, "H031"))
+        XCTAssertTrue(hidden(.heroShot(heroID: "H003", team: .blue), "H003"))
+        XCTAssertTrue(hidden(skill, "H003"), "スキルも Effekseer")
+        XCTAssertFalse(hidden(.heroShot(heroID: "H001", team: .blue), "H001"), "効果を持たないヒーロー")
     }
 
     /// 追加ヒーロー（第 1 段階 H025〜H029・第 2 段階 H030〜H034）の効果が、役割ごとの段の組をそろえていること。

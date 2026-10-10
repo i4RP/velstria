@@ -30,6 +30,7 @@ final class BattleWorld {
         effekseer = director
         projectiles.suppressedHeroes = director.heroes
         projectiles.skillShotsKept = director.skillOptOutHeroes
+        projectiles.attackShotsKept = director.attackOptOutHeroes
     }
     /// Effekseer が通常攻撃の演出を出すヒーローか（旧来の通常攻撃の演出・被弾を止める）。
     private func fxHandlesAttack(_ id: EntityID?, _ f: RenderFrame) -> Bool {

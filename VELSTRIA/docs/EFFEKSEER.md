@@ -45,7 +45,14 @@ H025〜H034 は sim が固有スキル（キット）で動く。`.efk` は **�
 | 通常攻撃（`atk_cast` / `atk_cast2` / `atk_travel` / `atk_hit`） | Effekseer（従来どおり） | 武器の型ごとの発射・命中で、キットが整形（三連突きなど）しても発射と命中のイベントは同じ |
 | スキルの発動・飛翔・着弾・ゾーン・被弾（`s1_*` `s2_*` `ult_*`）・パッシブ | SkillFX | キットの実際の挙動（段・形・タイミング）に合わせた FX_H0xx。旧 `.efk` の段は再生しない |
 
-- 判定は `EffekseerRouting`（純粋。`heroes` = 効果を持つヒーロー、`skillOptOut` = スキルを SkillFX に任せるヒーロー。既定は `HeroKits.hasKit`）。
+- 例外（通常攻撃）: 3D モデルを MLBB の既定スキンに作り直して、`atk_*` の `.efk`（旧モデルの武器・配色で作った）と合わなくなったヒーロー
+  （`EffekseerRouting.staleAttackHeroes` = H025 ルミナ・H027 ジャルド・H030 ライナ・H033 ヴァルド）は、通常攻撃も旧来の演出
+  （`HeroFXProfiles`: 発射位置・軌跡は実際の武器に付き、色は設計図の glow / accent）で出す（`attackOptOut`。弾の見た目は `ProjectileLayer.attackShotsKept` で残す）。
+  発射位置は `attackLaunchPoint`（新しい武器の先端・弓の握り・手）なので全員合っており、外したのは色・形が造形と食い違うヒーローだけ。
+  H026（球電）・H031（素手）・H032（手首の刃の輪）は武器が変わったが、`.efk` の発射の閃光は発射位置に、近接の弧は術者の前に出るだけで色も合うので Effekseer のまま。
+  `.efk` を新しい造形で作り直したら `staleAttackHeroes` から外す。
+- 判定は `EffekseerRouting`（純粋。`heroes` = 効果を持つヒーロー、`skillOptOut` = スキルを SkillFX に任せるヒーロー。既定は `HeroKits.hasKit`。
+  `attackOptOut` = 通常攻撃を旧来の演出に任せるヒーロー。既定は `staleAttackHeroes`）。
   `handlesAttack` / `handlesSkill` で、`EffekseerDirector` の各イベントと `BattleWorld`（被弾・ゾーン・投射物の旧演出を止めるか）と `ProjectileLayer`
   （`skillShotsKept`: スキルの弾の見た目を隠さない。通常攻撃の弾は従来どおり隠す）が分岐する。
 - `.efk` は消さず作り直さない（名前・段の組のテストはそのまま）。キットのスキルの `.efk` は使われないだけ。キットが新しくなったら、その段の `.efk` を
