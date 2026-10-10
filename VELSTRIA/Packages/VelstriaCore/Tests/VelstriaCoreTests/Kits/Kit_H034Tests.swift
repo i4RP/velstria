@@ -163,10 +163,9 @@ final class Kit_H034Tests: XCTestCase {
             (a + (b - a) * Double(rank - 1) / Double(maxRank - 1)) * (1 - cdr) * Balance.Skills.cooldownScale
         }
         for rank in 1...4 {
-            // ランク 1 だけ短い（Lv1 は鉤しか持たない）。ランク 2 以降は 15 → 11 の線形補間のまま
+            // MLBB の 15 → 11 秒の線形補間（ランク 1 も 15 秒）
             XCTAssertEqual(SkillCatalog.numbers(for: skill(.skill1), hero: hero, rank: rank, stats: stats).cooldown,
-                           rank == 1 ? expected(Tune.hookRank1Cooldown, Tune.hookRank1Cooldown, rank: 1, maxRank: 4)
-                                     : expected(15, 11, rank: rank, maxRank: 4), accuracy: 1e-9)
+                           expected(15, 11, rank: rank, maxRank: 4), accuracy: 1e-9)
             XCTAssertEqual(SkillCatalog.numbers(for: skill(.skill2), hero: hero, rank: rank, stats: stats).cooldown,
                            expected(7, 4.5, rank: rank, maxRank: 4), accuracy: 1e-9)
         }
@@ -180,12 +179,12 @@ final class Kit_H034Tests: XCTestCase {
         XCTAssertEqual(h1.cc, .stun)
         XCTAssertEqual(h1.ccDuration, Tune.hookStun)
         XCTAssertGreaterThan(h4.damage, h1.damage)
-        // ランク 2 以降はランクが上がるほど CD が短い。ランク 1 だけは Lv1 の勝率のために短く、最大ランク（11 秒）より少し短い
+        // ランクが上がるほど CD が短い
         let h2 = SkillCatalog.numbers(for: skill(.skill1), hero: hero, rank: 2, stats: stats)
         let h3 = SkillCatalog.numbers(for: skill(.skill1), hero: hero, rank: 3, stats: stats)
         XCTAssertLessThan(h4.cooldown, h3.cooldown)
         XCTAssertLessThan(h3.cooldown, h2.cooldown)
-        XCTAssertLessThan(h1.cooldown, h4.cooldown, "ランク 1 の鉤は最も短い（Tune.hookRank1Cooldown）")
+        XCTAssertLessThan(h2.cooldown, h1.cooldown)
         let s2 = SkillCatalog.numbers(for: skill(.skill2), hero: hero, rank: 1, stats: stats)
         XCTAssertEqual(s2.cc, .slow)
         XCTAssertEqual(s2.ccDuration, Tune.shockSlowDuration)

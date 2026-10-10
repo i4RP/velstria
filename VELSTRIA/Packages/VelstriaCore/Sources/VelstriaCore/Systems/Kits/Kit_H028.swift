@@ -146,8 +146,8 @@ struct Kit_H028: HeroKit {
         static let strikePassRadius = 80.0
         static let strikePassOvershoot = 100.0
         static let strikePassRatio = 0.5
-        /// 剣撃 1 本あたりの S2 のクールダウン短縮（MLBB は 1 秒。Velstria はクールダウンが半分なので同じ割合の 0.5 秒）。
-        static let chargeRefund = 1.0 * Balance.Skills.cooldownScale
+        /// 剣撃 1 本あたりの S2 のクールダウン短縮（MLBB と同じ 1 秒。CD が MLBB の秒数なので換算しない）。
+        static let chargeRefund = 1.0
 
         // S2 突進
         static let dashRange = 350.0
@@ -179,20 +179,16 @@ struct Kit_H028: HeroKit {
         /// 1〜3 撃目の重み（120 : 120 : 240 = 0.75 : 0.75 : 1.5。合計 3 = 平均 1 撃 × 3）。
         static let ultWeights: [Double] = [0.75, 0.75, 1.5]
         /// 三連撃の合計 ÷ 汎用奥義のダメージ。打ち上げ 1.2 秒の確定コンボ・防御ダウン 3 層・剣撃 2 本が乗るので、予算の下限寄り
-        /// （クールダウンは汎用より長い 22 → 18 秒。1v1 の勝率で決めた: docs/kits/Saber.md の対応表）。
+        /// （クールダウンは汎用（約 33 秒）より長い 44 → 36 秒。1v1 の勝率で決めた: docs/kits/Saber.md の対応表）。
         static let ultRatio = 0.85
         static let channelTag = KitTags.buff("H028", "channel")
         /// ボットが関門を待たずに奥義を撃つ、敵ヒーローの HP の割合の上限（打ち上げ中の 3 連撃 + 防御ダウンで削り切れる目安）。
         static let botExecuteRatio = 0.6
 
-        // クールダウン（MLBB 秒 → ランク間を線形補間 → Balance.Skills.cooldownScale を掛ける）
-        /// S1 は全ランク 10 秒（調査: 2 つの資料が 10 秒で一定、Fandom の抜粋は 9 秒。10 秒を採る）。
+        // クールダウン（MLBB の秒数そのまま。ランク間を線形補間し、CD 短縮を掛ける。全体倍率 Balance.Skills.cooldownScale は 1.0）
+        /// S1 は全ランク 10 秒（調査: 2 つの資料が 10 秒で一定、Fandom の抜粋は 9 秒。10 秒を採る）。持続 5 秒なので剣が回るのは
+        /// 約 50%（MLBB と同じ）。全体の CD が半分だったころは 5 秒 = 持続と同じで、剣はほぼ常に回っていた。
         static let swordsCooldown = (10.0, 10.0)
-        /// S1 の倍率 = 全体倍率（0.5）。クールダウン 5 秒 = 持続 5 秒なので、剣はほぼ常に回る（MLBB は 10 秒で約 50%）。
-        /// 秒数そのまま（1.0）に近づけると Lv1（スキル1 だけ）の勝率が崩れるので採らなかった: 1v1 の総当たりで
-        /// 倍率 0.5 = Lv1 34% / 0.6 = 22% / 0.65 = 13% / 0.75 以上 = 3%（Lv1 の決闘は 10 秒前後で、2 回目の剣が間に合うかで決まる）。
-        /// 倍率 1.0 にダメージを上乗せして補っても（接触 0.75・剣撃 0.28）Lv1 は 3% のままだった。
-        static let swordsCooldownScale = Balance.Skills.cooldownScale
         static let chargeCooldown = (7.0, 7.0)
         static let ultCooldown = (44.0, 36.0)
     }
@@ -243,8 +239,7 @@ struct Kit_H028: HeroKit {
             n.damage = base.damage * Tune.contactRatio / Double(Tune.pulseCount)
             n.cc = .none
             n.ccDuration = 0
-            n.cooldown = Self.cooldown(Tune.swordsCooldown, rank: rank, maxRank: slot.maxRank, stats: stats,
-                                       scale: Tune.swordsCooldownScale)
+            n.cooldown = Self.cooldown(Tune.swordsCooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
             n.extras = [KitStat(key: "strikeDamage", value: (base.damage * Tune.strikeRatio).rounded()),
                         KitStat(key: "duration", value: Tune.swordsDuration),
                         KitStat(key: "refund", value: Tune.chargeRefund),
@@ -654,12 +649,11 @@ struct Kit_H028: HeroKit {
         return Tune.baneMinPerStack + (Tune.baneMaxPerStack - Tune.baneMinPerStack) * t
     }
 
-    /// MLBB のクールダウン（秒）をランクで線形補間し、Velstria の全体倍率と CD 短縮を掛ける。
-    static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats,
-                         scale: Double = Balance.Skills.cooldownScale) -> Double {
+    /// MLBB のクールダウン（秒）をランクで線形補間し、CD 短縮を掛ける（全体倍率 cooldownScale は 1.0 = MLBB の秒数のまま）。
+    static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats) -> Double {
         let sec = lerp(range.0, range.1, rank: rank, maxRank: maxRank)
         let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))
-        return sec * (1 - reduction) * scale
+        return sec * (1 - reduction) * Balance.Skills.cooldownScale
     }
 
     private static func lerp(_ a: Double, _ b: Double, rank: Int, maxRank: Int) -> Double {

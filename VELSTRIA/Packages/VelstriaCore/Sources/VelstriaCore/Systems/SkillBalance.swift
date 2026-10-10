@@ -12,9 +12,10 @@ extension Balance {
         public static let damageScaleBySlot: [Double] = [0, 4.0, 3.0, 2.6]
         /// 回復・シールド系スキル（healZone / teamHeal）の倍率。
         public static let healScale: Double = 2.4
-        /// クールダウン倍率（DESIGN §6 の式に掛ける）。Lv1 はスキルが 1 つしか無いため CD を短くして持続火力を確保し、
-        /// ダメージ倍率は Lv12 の同時発動（バースト）で一撃死しない水準に抑える。
-        public static let cooldownScale: Double = 0.5
+        /// クールダウン倍率（DESIGN §6 の式に掛ける）。**1.0 で固定**: スキルのクールダウンは Mobile Legends と同じ秒数にする
+        /// （オーナーの決定。汎用のヒーローはマスターの cooldown_sec、キットのヒーローは MLBB の秒数をそのまま使う）。
+        /// 以前は 0.5（全員の CD を半分）で、キットの一部（CD 短縮の秒数・レイジの速さなど）がそれを打ち消す補正を持っていた。
+        public static let cooldownScale: Double = 1.0
         /// ミニオンへのスキルダメージの倍率（防御軽減の後に掛ける）。ヒーロー・モンスター・構造物には掛けない。
         /// 0.2 なら、装備なしの Lv1〜13 のどのスキルも 1 発ではミニオンを倒せず（最強のスキルでも遠隔ミニオンの HP の 9 割以下）、
         /// 近接ミニオンは中央値のスキルで約 3 発かかる（参照ゲームは少なくとも 2 回）。スキルごとの強弱は残る。

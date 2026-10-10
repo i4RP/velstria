@@ -148,7 +148,7 @@ struct Kit_H029: HeroKit {
         static let ultPullGap = 20.0
         static let ultStun = 1.8
         /// 汎用の奥義（Support は味方回復でダメージ 0）には比べる相手が居ないので、他ロールの奥義と同じ式の結果に掛ける倍率。
-        /// クールダウンが汎用の奥義より長い（22〜27 秒 vs 約 17 秒）ぶんと、回復を失うぶんを補う。
+        /// クールダウンが汎用の奥義より長い（45〜55 秒 vs 約 34 秒）ぶんと、回復を失うぶんを補う。
         /// 詠唱を調査寄りに長くした（溜め 0.2 → 0.3 秒、全体 0.7 → 0.8 秒。敵の CC で溜めが潰れやすくなる）ぶんと、
         /// スキル1 の波が前へ広がる（遠い敵に当たる波が減る）ぶんの勝率の落ち込みを埋めるため 1.8 → 3.0 にした
         /// （KitBalanceTests のロール中央値との差で決めた値: docs/kits/Tigreal.md）。
@@ -158,7 +158,7 @@ struct Kit_H029: HeroKit {
         static let botAllyRange = 900.0
         static let botWeakHP = 0.5
 
-        // クールダウン（MLBB 秒 → ランク間を線形補間 → Balance.Skills.cooldownScale を掛ける）
+        // クールダウン（MLBB の秒数そのまま。ランク間を線形補間し、CD 短縮を掛ける。全体倍率 Balance.Skills.cooldownScale は 1.0）
         static let waveCooldown = (7.0, 4.0)
         static let hammerCooldown = (16.0, 13.0)
         static let ultCooldown = (55.0, 45.0)
@@ -648,7 +648,7 @@ struct Kit_H029: HeroKit {
         return raw * Tune.ultRatio
     }
 
-    /// MLBB のクールダウン（秒）をランクで線形補間し、Velstria の全体倍率と CD 短縮を掛ける。
+    /// MLBB のクールダウン（秒）をランクで線形補間し、CD 短縮を掛ける（全体倍率 cooldownScale は 1.0 = MLBB の秒数のまま）。
     static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats) -> Double {
         let sec = lerp(range.0, range.1, rank: rank, maxRank: maxRank)
         let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))

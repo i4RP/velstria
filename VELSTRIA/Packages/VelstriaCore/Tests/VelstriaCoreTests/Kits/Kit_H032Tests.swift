@@ -219,14 +219,15 @@ final class Kit_H032Tests: XCTestCase {
     // MARK: - パッシブ: レイジ
 
     func testRageGainsOverTimeByLevelAndCapsAtMax() {
-        for (level, perSecond) in [(1, 4.0), (15, 10.0)] {
+        // MLBB と同じ毎秒 2%（Lv1）〜 5%（最大レベル）
+        for (level, perSecond) in [(1, 2.0), (15, 5.0)] {
             var (w, k) = world(level: level)
             XCTAssertEqual(kit(w, k).diasRage, 0, "開始時は 0")
             w.run(seconds: 5)
             XCTAssertEqual(kit(w, k).diasRage, perSecond * 5, accuracy: 0.2, "Lv\(level)")
         }
-        XCTAssertEqual(Kit_H032.rageRate(level: 1), 2 * Tune.rageTimeScale, accuracy: 1e-9)
-        XCTAssertEqual(Kit_H032.rageRate(level: Balance.maxLevel), 5 * Tune.rageTimeScale, accuracy: 1e-9)
+        XCTAssertEqual(Kit_H032.rageRate(level: 1), 2, accuracy: 1e-9)
+        XCTAssertEqual(Kit_H032.rageRate(level: Balance.maxLevel), 5, accuracy: 1e-9)
         XCTAssertGreaterThan(Kit_H032.rageRate(level: 8), Kit_H032.rageRate(level: 7))
         var (w, k) = world()
         setRage(&w, k, 99.9)

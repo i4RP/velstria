@@ -92,8 +92,8 @@ enum EuriaTuning {
     static let chainSpeed: Double = 0.40
     /// 鎖が切れる距離（調査に無い。S1 の射程 650 に余裕を足した値）。術者と対象の中心間。
     static let chainLeash: Double = 800
-    /// 鎖の終わりの一撃が当たったときの S1 のクールダウン短縮（MLBB 1.5 秒 × 全体のクールダウン倍率）。
-    static let chainRefund: Double = 1.5 * Balance.Skills.cooldownScale
+    /// 鎖の終わりの一撃が当たったときの S1 のクールダウン短縮（MLBB と同じ 1.5 秒。CD が MLBB の秒数なので換算しない）。
+    static let chainRefund: Double = 1.5
     static let chainSpeedTag = KitTags.buff("H026", "chain")
 
     // MARK: S2（Ball Lightning）
@@ -122,7 +122,7 @@ enum EuriaTuning {
     static let burstRadius: Double = 190
     static let burstDelay: Double = 0.5
 
-    // MARK: クールダウン（MLBB 秒 → ランク間を線形補間 → Balance.Skills.cooldownScale を掛ける）
+    // MARK: クールダウン（MLBB の秒数そのまま。ランク間を線形補間し、CD 短縮を掛ける。全体倍率 Balance.Skills.cooldownScale は 1.0）
     static let s1Cooldown = (7.0, 5.0)
     static let s2Cooldown = (11.0, 8.5)
     static let ultCooldown = (32.0, 26.0)
@@ -563,7 +563,7 @@ struct Kit_H026: HeroKit {
         return (skill, SkillCatalog.numbers(for: skill, hero: def, rank: max(1, h.rank(slot)), stats: s.units[i].stats))
     }
 
-    /// MLBB のクールダウン（秒）をランクで線形補間し、Velstria の全体倍率と CD 短縮を掛ける。
+    /// MLBB のクールダウン（秒）をランクで線形補間し、CD 短縮を掛ける（全体倍率 cooldownScale は 1.0 = MLBB の秒数のまま）。
     static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats) -> Double {
         let sec = lerp(range.0, range.1, rank: rank, maxRank: maxRank)
         let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))

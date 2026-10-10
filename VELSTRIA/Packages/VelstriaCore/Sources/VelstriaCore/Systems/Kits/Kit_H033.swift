@@ -143,16 +143,11 @@ struct Kit_H033: HeroKit {
         /// 汎用の奥義（アサシン = 対象指定の一撃 + 失った HP の 12%）に対する衝撃波のダメージ倍率。
         static let waveRatio = 0.81
 
-        // クールダウン（MLBB 秒 → ランク間を線形補間 → 倍率）。奥義は Balance.Skills.cooldownScale（0.5）を掛ける。
-        // S1・S2 の倍率は 0.5 より大きい: 奥義の「クールダウン半減」が掛かる 6 秒間だけ他のヒーローの通常のリズム（0.5 倍付近）に
-        // なる、という MLBB の緩急を保つため。0.5 を掛けると半減中に S2 が 1.2 秒おきに飛び、1v1 の総当たりで 100% 勝つほど強かった
-        // （docs/kits/Alucard.md の「バランス」）。S2 は MLBB の秒数の 1.2 倍（4〜6 秒 → 4.8〜7.2 秒。1.0 だと半減中に連打になり、
-        // Lv6/12 で +15pt 以上強かった）。S1 はランク別（Lv1〜3 はスキル1 しか無く、奥義の半減も無いので、序盤だけ短くする。
-        // ランクが上がってもクールダウンが延びないよう、倍率は秒数の減り方（8.5 → 6.5）に合わせて上げる: ランク 1〜4 で約 4.7 / 4.6 / 4.6 / 4.6 秒）。
+        // クールダウン（MLBB の秒数そのまま。ランク間を線形補間し、CD 短縮を掛ける。全体倍率 Balance.Skills.cooldownScale は 1.0）。
+        // 全体の CD が半分だったころは、奥義の「クールダウン半減」との緩急を保つために S1 をランク別の倍率 0.55〜0.70（約 4.7 秒）、
+        // S2 を MLBB の 1.2 倍にしていた（docs/kits/Alucard.md の「バランス」）。今は全員が MLBB の秒数なので倍率は持たない。
         static let s1Cooldown = (8.5, 6.5)
-        static let s1CooldownScales: [Double] = [0.55, 0.59, 0.64, 0.7]
         static let s2Cooldown = (6.0, 4.0)
-        static let s2CooldownScale = 1.2
         static let ultCooldown = (40.0, 30.0)
     }
 
@@ -204,8 +199,7 @@ struct Kit_H033: HeroKit {
             n.cc = .slow
             n.ccIsUltimate = false
             n.ccDuration = Tune.s1SlowDuration
-            n.cooldown = Self.cooldown(Tune.s1Cooldown, rank: rank, maxRank: slot.maxRank, stats: stats,
-                                       scale: Self.s1CooldownScale(rank: rank))
+            n.cooldown = Self.cooldown(Tune.s1Cooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
             n.extras = [KitStat(key: "slow", value: Tune.s1Slow * 100),
                         KitStat(key: "slowDuration", value: Tune.s1SlowDuration)]
         case .skill2:
@@ -213,7 +207,7 @@ struct Kit_H033: HeroKit {
             n.hits = 1
             n.cc = .none
             n.ccDuration = 0
-            n.cooldown = Self.cooldown(Tune.s2Cooldown, rank: rank, maxRank: slot.maxRank, stats: stats, scale: Tune.s2CooldownScale)
+            n.cooldown = Self.cooldown(Tune.s2Cooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
         case .ultimate:
             // damage = 衝撃波のダメージ（吸収そのものにダメージは無い。説明・予算の基準として 1 回目にも載せる）
             n.damage = base.damage * Tune.waveRatio
@@ -512,21 +506,14 @@ struct Kit_H033: HeroKit {
         Tune.s1Ratios[min(max(1, rank), Tune.s1Ratios.count) - 1]
     }
 
-    /// S1 のクールダウン倍率（ランク別: 序盤ほど短い）。
-    static func s1CooldownScale(rank: Int) -> Double {
-        Tune.s1CooldownScales[min(max(1, rank), Tune.s1CooldownScales.count) - 1]
-    }
-
     /// 奥義ランク（0 = 未習得）に応じた通常攻撃の吸血率。
     static func lifesteal(rank: Int) -> Double {
         guard rank > 0 else { return 0 }
         return Tune.hybridLifesteal[min(rank, Tune.hybridLifesteal.count) - 1]
     }
 
-    /// MLBB のクールダウン（秒）をランクで線形補間し、倍率と CD 短縮を掛ける。
-    /// scale は全体倍率（既定は Balance.Skills.cooldownScale）。
-    static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats,
-                         scale: Double = Balance.Skills.cooldownScale) -> Double {
+    /// MLBB のクールダウン（秒）をランクで線形補間し、CD 短縮を掛ける（全体倍率 cooldownScale は 1.0 = MLBB の秒数のまま）。
+    static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats) -> Double {
         let sec: Double
         if maxRank > 1 {
             let t = Double(min(max(1, rank), maxRank) - 1) / Double(maxRank - 1)
@@ -535,7 +522,7 @@ struct Kit_H033: HeroKit {
             sec = range.0
         }
         let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))
-        return sec * (1 - reduction) * scale
+        return sec * (1 - reduction) * Balance.Skills.cooldownScale
     }
 
     static func skillID(_ ctx: SimContext, _ slot: SkillSlot) -> String? {

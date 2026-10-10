@@ -123,7 +123,7 @@ struct Kit_H027: HeroKit {
         static let ultMoveTag = "kit.H027.ult.move"
         static let ultAttackTag = "kit.H027.ult.attack"
 
-        // クールダウン（MLBB 秒 → ランク間を線形補間 → Balance.Skills.cooldownScale を掛ける）
+        // クールダウン（MLBB の秒数そのまま。ランク間を線形補間し、CD 短縮を掛ける。全体倍率 Balance.Skills.cooldownScale は 1.0）
         static let flipCooldown = (12.0, 9.5)
         static let strikeCooldown = (12.0, 9.0)
         static let ultCooldown = (35.0, 27.0)
@@ -561,7 +561,7 @@ struct Kit_H027: HeroKit {
         lerp(Tune.shredMinFlat, Tune.shredMaxFlat, rank: rank, maxRank: maxRank)
     }
 
-    /// MLBB のクールダウン（秒）をランクで線形補間し、Velstria の全体倍率と CD 短縮を掛ける。
+    /// MLBB のクールダウン（秒）をランクで線形補間し、CD 短縮を掛ける（全体倍率 cooldownScale は 1.0 = MLBB の秒数のまま）。
     static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats) -> Double {
         let sec = lerp(range.0, range.1, rank: rank, maxRank: maxRank)
         let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))

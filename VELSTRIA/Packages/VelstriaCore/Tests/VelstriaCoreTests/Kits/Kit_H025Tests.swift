@@ -174,8 +174,8 @@ final class Kit_H025Tests: XCTestCase {
                         let ratio = n.damage * Double(n.hits) / (base.damage * Double(base.hits))
                         XCTAssertGreaterThanOrEqual(ratio, 0.8, "S1 rank \(rank) Lv\(level)")
                         XCTAssertLessThanOrEqual(ratio, 1.3, "S1 rank \(rank) Lv\(level)")
-                        XCTAssertEqual(n.cooldown, 11 * 0.5 * (1 - min(0.4, stats.cooldownReduction)), accuracy: 1e-9,
-                                       "MLBB の CD 11 秒（全ランク固定）× 全体倍率")
+                        XCTAssertEqual(n.cooldown, 11 * (1 - min(0.4, stats.cooldownReduction)), accuracy: 1e-9,
+                                       "MLBB の CD 11 秒（全ランク固定）")
                     case .skill2:
                         // 汎用の遠隔 S2 は「ブリンク + 強化攻撃」で半分: 基準は元のスキル値。6 本すべてが 1 体に当たった最悪の場合も 1.3 倍以内
                         let reference = base.damage / Balance.Skills.empowerRatio
@@ -185,7 +185,8 @@ final class Kit_H025Tests: XCTestCase {
                         XCTAssertLessThanOrEqual(worst, 1.3, "S2 rank \(rank) Lv\(level)")
                         XCTAssertGreaterThanOrEqual((n.damage + minor * 2) / reference, 0.8,
                                                     "標準的な 2 本命中でも下限を割らない")
-                        XCTAssertEqual(n.cooldown, base.cooldown, accuracy: 1e-9)
+                        XCTAssertEqual(n.cooldown, 8 * (1 - min(0.4, stats.cooldownReduction)), accuracy: 1e-9,
+                                       "MLBB の CD 8 秒（全ランク固定）")
                         XCTAssertEqual(n.cc, .root)
                         XCTAssertEqual(n.ccDuration, 1.2)
                         XCTAssertEqual(n.delay, T.s2Delay)
@@ -193,7 +194,7 @@ final class Kit_H025Tests: XCTestCase {
                         // 奥義は直接ダメージを持たない（ミヤの Hidden Moonlight と同じ。価値は隠密と最大の段 = docs の対応表）
                         XCTAssertEqual(n.damage, 0)
                         XCTAssertEqual(n.cc, .none)
-                        let want = [30.0, 25, 20][rank - 1] * 0.5 * (1 - min(0.4, stats.cooldownReduction))
+                        let want = [30.0, 25, 20][rank - 1] * (1 - min(0.4, stats.cooldownReduction))
                         XCTAssertEqual(n.cooldown, want, accuracy: 1e-9, "CD 30 / 25 / 20 秒")
                     case .passive:
                         break
@@ -455,7 +456,7 @@ final class Kit_H025Tests: XCTestCase {
         XCTAssertNil(HeroKits.badge(w.s.units[k].hero!, slot: .skill1))
         XCTAssertTrue(w.cast(k, .skill1))
         XCTAssertEqual(w.s.units[k].hero!.cooldown(.skill1), n.cooldown, accuracy: 1e-9)
-        XCTAssertEqual(n.cooldown, 5.5, accuracy: 1e-9)
+        XCTAssertEqual(n.cooldown, 11, accuracy: 1e-9)
         let badge = HeroKits.badge(w.s.units[k].hero!, slot: .skill1)
         XCTAssertEqual(badge?.kind, .timer)
         XCTAssertEqual(badge?.total, T.s1Duration)
@@ -466,8 +467,8 @@ final class Kit_H025Tests: XCTestCase {
         w.run(seconds: 0.2)
         XCTAssertEqual(w.kit(k).luminaMoonArrow, 0, accuracy: 1e-9)
         XCTAssertNil(HeroKits.badge(w.s.units[k].hero!, slot: .skill1))
-        XCTAssertFalse(w.cast(k, .skill1), "効果が終わってもクールダウン中（残り約 1.4 秒）")
-        w.run(seconds: 1.5)
+        XCTAssertFalse(w.cast(k, .skill1), "効果が終わってもクールダウン中（残り約 6.9 秒）")
+        w.run(seconds: 7.0)
         XCTAssertTrue(w.cast(k, .skill1))
 
         // 効果が切れたら通常攻撃は元に戻る

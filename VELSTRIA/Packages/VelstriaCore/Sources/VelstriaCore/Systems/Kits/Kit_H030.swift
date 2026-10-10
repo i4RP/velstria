@@ -58,6 +58,12 @@ enum RainaTuning {
     static let ultWindup: Double = 0.2
     static let ultBeamSpeed: Double = 7000
 
+    // MARK: クールダウン（MLBB の秒数そのまま。ランク間を線形補間し、CD 短縮を掛ける。全体倍率 Balance.Skills.cooldownScale は 1.0）
+    /// ライラ: S1 6.0 → 4.0 / S2 7.5 → 6.5 / 奥義 37 / 32 / 27 秒（以前はマスターの CD 6.5 / 7.6 / 33 秒のままだった）。
+    static let s1Cooldown = (6.0, 4.0)
+    static let s2Cooldown = (7.5, 6.5)
+    static let ultCooldown = (37.0, 27.0)
+
     // MARK: タグ・コード
     static let ultRangeTag = KitTags.buff("H030", "ultRange")
     static let s1RangeTag = KitTags.buff("H030", "s1Range")
@@ -144,6 +150,7 @@ struct Kit_H030: HeroKit {
                         KitStat(key: "farDistance", value: T.farDistance)]
         case .skill1:
             n.damage = base.damage * T.s1Ratio
+            n.cooldown = Self.cooldown(T.s1Cooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
             n.extras = [KitStat(key: "rangeBuff", value: T.s1RangeBuff[0]),
                         KitStat(key: "rangeBuffDuration", value: T.s1RangeBuffDuration),
                         KitStat(key: "rushPercent", value: T.rushSpeed * 100),
@@ -152,6 +159,7 @@ struct Kit_H030: HeroKit {
         case .skill2:
             let raw = base.damage / Balance.Skills.empowerRatio
             n.damage = raw * T.s2PrimaryRatio
+            n.cooldown = Self.cooldown(T.s2Cooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
             n.cc = .slow
             n.ccDuration = T.orbSlowDuration
             n.extras = [KitStat(key: "detonation", value: raw * T.s2DetonationRatio),
@@ -162,6 +170,7 @@ struct Kit_H030: HeroKit {
                         KitStat(key: "slowDuration", value: T.orbSlowDuration)]
         case .ultimate:
             n.damage = base.damage * T.ultRatio
+            n.cooldown = Self.cooldown(T.ultCooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
             n.extras = [KitStat(key: "rangePerRank", value: T.ultRangePerRank),
                         KitStat(key: "windup", value: T.ultWindup)]
         }
@@ -438,6 +447,17 @@ struct Kit_H030: HeroKit {
         guard let h = s.units[i].hero, let def = ctx.master.hero(h.heroID),
               let skill = ctx.master.skill(hero: h.heroID, slot: slot) else { return nil }
         return (skill, SkillCatalog.numbers(for: skill, hero: def, rank: max(1, h.rank(slot)), stats: s.units[i].stats))
+    }
+
+    /// MLBB のクールダウン（秒）をランクで線形補間し、CD 短縮を掛ける（全体倍率 cooldownScale は 1.0 = MLBB の秒数のまま）。
+    static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats) -> Double {
+        var sec = range.0
+        if maxRank > 1 {
+            let t = Double(min(max(1, rank), maxRank) - 1) / Double(maxRank - 1)
+            sec = range.0 + (range.1 - range.0) * t
+        }
+        let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))
+        return sec * (1 - reduction) * Balance.Skills.cooldownScale
     }
 
     /// 会心の判定（通常攻撃と同じ。確率が 0 のときは乱数を引かない）。

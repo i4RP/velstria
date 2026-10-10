@@ -123,8 +123,11 @@ final class Kit_H030Tests: XCTestCase {
                     let ratio = total / reference
                     XCTAssertGreaterThanOrEqual(ratio, 0.8, "\(slot) rank \(rank) Lv\(level)")
                     XCTAssertLessThanOrEqual(ratio, 1.3, "\(slot) rank \(rank) Lv\(level)")
-                    // CD とコストは汎用のまま（コストは SkillSystem が定義から引く）
-                    XCTAssertEqual(n.cooldown, base.cooldown, accuracy: 1e-9)
+                    // CD はライラの秒数（ランクで線形補間）、コストは汎用のまま（SkillSystem が定義から引く）
+                    let (a, b): (Double, Double) = slot == .skill1 ? (6, 4) : slot == .skill2 ? (7.5, 6.5) : (37, 27)
+                    let mlbb = a + (b - a) * Double(rank - 1) / Double(slot.maxRank - 1)
+                    XCTAssertEqual(n.cooldown, mlbb * (1 - min(0.4, stats.cooldownReduction)), accuracy: 1e-9,
+                                   "\(slot) rank \(rank)")
                     XCTAssertEqual(n.cost, base.cost)
                     XCTAssertEqual(n.resource, .mana)
                 }
@@ -850,7 +853,7 @@ final class Kit_H030Tests: XCTestCase {
         XCTAssertGreaterThan(p.damage(to: e), 0)
     }
 
-    func testManaCostAndCooldownFollowTheGenericSkillDefinitions() {
+    func testManaCostFollowsTheGenericSkillDefinitionsAndCooldownStartsOnCast() {
         var w = SkillWorld()
         let k = addRaina(&w)
         for slot in SkillSlot.actives {

@@ -149,15 +149,15 @@ final class Kit_H033Tests: XCTestCase {
         // クールダウン = MLBB の秒数（ランクで線形）× 全体倍率 × (1 − CD 短縮)
         let (w, k) = world()
         let cdr = w.s.units[k].stats.cooldownReduction
-        func expected(_ a: Double, _ b: Double, rank: Int, maxRank: Int, scale: Double = Balance.Skills.cooldownScale) -> Double {
-            (a + (b - a) * Double(rank - 1) / Double(maxRank - 1)) * (1 - cdr) * scale
+        func expected(_ a: Double, _ b: Double, rank: Int, maxRank: Int) -> Double {
+            (a + (b - a) * Double(rank - 1) / Double(maxRank - 1)) * (1 - cdr) * Balance.Skills.cooldownScale
         }
         for rank in 1...4 {
+            // MLBB の 8.5 → 6.5 秒 / 6.0 → 4.0 秒
             XCTAssertEqual(try numbers(.skill1, level: 12, rank: rank).kit.cooldown,
-                           expected(8.5, 6.5, rank: rank, maxRank: 4, scale: Kit_H033.s1CooldownScale(rank: rank)),
-                           accuracy: 1e-9)
+                           expected(8.5, 6.5, rank: rank, maxRank: 4), accuracy: 1e-9)
             XCTAssertEqual(try numbers(.skill2, level: 12, rank: rank).kit.cooldown,
-                           expected(6, 4, rank: rank, maxRank: 4, scale: Tune.s2CooldownScale), accuracy: 1e-9)
+                           expected(6, 4, rank: rank, maxRank: 4), accuracy: 1e-9)
         }
         for rank in 1...3 {
             // MLBB の 40 / 35 / 30 秒
@@ -244,12 +244,8 @@ final class Kit_H033Tests: XCTestCase {
         }
     }
 
-    /// S1 のクールダウンの倍率はランク別（序盤はスキル1 しか無いので短い）。ランクが上がってもクールダウンは延びない。
-    func testGroundsplitterCooldownScaleDependsOnRankAndNeverGrowsWithRank() throws {
-        XCTAssertEqual(Tune.s1CooldownScales.count, 4)
-        XCTAssertLessThan(Kit_H033.s1CooldownScale(rank: 1), Kit_H033.s1CooldownScale(rank: 4))
-        XCTAssertEqual(Kit_H033.s1CooldownScale(rank: 0), Kit_H033.s1CooldownScale(rank: 1), "未習得は 1 と同じ（下限）")
-        XCTAssertEqual(Kit_H033.s1CooldownScale(rank: 9), Kit_H033.s1CooldownScale(rank: 4), "上限")
+    /// S1 のクールダウンは MLBB の秒数（8.5 → 6.5 秒）。ランクが上がってもクールダウンは延びない。
+    func testGroundsplitterCooldownNeverGrowsWithRank() throws {
         var last = Double.infinity
         for rank in 1...4 {
             let cd = try numbers(.skill1, level: 12, rank: rank).kit.cooldown

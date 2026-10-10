@@ -145,7 +145,7 @@ struct Kit_H034: HeroKit {
         static let ultFirst = 0.15
         static let ultInterval = 0.30
         /// 汎用の式で出した奥義（ランク 1）のダメージ（サポートの汎用の奥義は回復でダメージ 0 なので自前で計算）に対する、6 回の合計の倍率。
-        /// クールダウンが汎用（34 秒 × 0.5）より長い（62 → 48 秒 × 0.5）ぶんの補正で、1 秒あたりでは汎用の 1.1〜1.25 倍。
+        /// クールダウンが汎用（34 秒）より長い（62 → 48 秒）ぶんの補正で、1 秒あたりでは汎用の 1.1〜1.25 倍。
         static let ultTotalRatio = 2.1
         /// ランクごとの倍率（MLBB は 1 撃 50 / 60 / 70 = 1 : 1.2 : 1.4。汎用の +30%/ランクより緩やか）。
         static let ultRankScale: [Double] = [1.0, 1.2, 1.4]
@@ -162,12 +162,10 @@ struct Kit_H034: HeroKit {
         static let botWeakHP = 0.7
         static let botAllyRange = 800.0
 
-        // クールダウン（MLBB 秒 → ランク間を線形補間 → Balance.Skills.cooldownScale を掛ける）
+        // クールダウン（MLBB の秒数そのまま。ランク間を線形補間し、CD 短縮を掛ける。全体倍率 Balance.Skills.cooldownScale は 1.0）
+        /// MLBB の 15 → 11 秒そのまま（ランク 1 も 15 秒。全体の CD が半分だったころは、Lv1 の勝率のためにランク 1 だけ 10 秒にしていた）。
         static let hookCooldown = (15.0, 11.0)
-        /// ランク 1 の鉤の MLBB 秒。Lv1 の 1v1 は鉤しか持たない（スキルは 1 つだけ習得）ため、15 秒のままだと勝率が 2% まで落ちる。
-        /// ランク 2 以降の手前の値（15 → 11 の線形補間）は変えない: Lv6 / Lv12 は動かさずに Lv1 だけ引き上げる。
-        static let hookRank1Cooldown = 10.0
-        /// MLBB の 7.0 → 4.5 秒そのまま（汎用の S2 は 9.8 秒 × 0.5）。
+        /// MLBB の 7.0 → 4.5 秒そのまま（汎用の S2 は 9.8 秒からランクで短縮）。
         static let shockCooldown = (7.0, 4.5)
         static let ultCooldown = (62.0, 48.0)
     }
@@ -217,8 +215,7 @@ struct Kit_H034: HeroKit {
                         KitStat(key: "stackInterval", value: Tune.stackInterval)]
         case .skill1:
             n.damage = base.damage * Tune.hookDamageRatio
-            n.cooldown = Self.cooldown(rank <= 1 ? (Tune.hookRank1Cooldown, Tune.hookRank1Cooldown) : Tune.hookCooldown,
-                                       rank: rank, maxRank: slot.maxRank, stats: stats)
+            n.cooldown = Self.cooldown(Tune.hookCooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
             n.cc = .stun
             n.ccDuration = Tune.hookStun
             n.extras = [KitStat(key: "stun", value: Tune.hookStun),
@@ -589,7 +586,7 @@ struct Kit_H034: HeroKit {
 
     // MARK: - 部品
 
-    /// MLBB のクールダウン（秒）をランクで線形補間し、Velstria の全体倍率と CD 短縮を掛ける。
+    /// MLBB のクールダウン（秒）をランクで線形補間し、CD 短縮を掛ける（全体倍率 cooldownScale は 1.0 = MLBB の秒数のまま）。
     static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats) -> Double {
         let sec = lerp(range.0, range.1, rank: rank, maxRank: maxRank)
         let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))

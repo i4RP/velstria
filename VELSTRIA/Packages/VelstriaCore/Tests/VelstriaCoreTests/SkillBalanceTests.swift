@@ -9,6 +9,9 @@ final class SkillBalanceTests: XCTestCase {
     static let levels = [1, 6, 12]
     static let minTTK = 2.5
     static let maxTTK = 15.0
+    /// 全員総当たり（testFullRosterStaysNearBand）で 1 戦も外れてはいけない帯。
+    static let hardMinTTK = 2.0
+    static let hardMaxTTK = 17.0
 
     struct DuelResult {
         var ttk: Double
@@ -98,16 +101,26 @@ final class SkillBalanceTests: XCTestCase {
         var total = 0
         var outside: [String] = []
         var hard: [String] = []
+        var byLevel: [Int: [Double]] = [:]
         for level in Self.levels {
             for (x, a) in ids.enumerated() {
                 for b in ids[x...] {
                     let r = Self.duel(a, b, level: level)
                     total += 1
+                    byLevel[level, default: []].append(r.ttk)
                     let label = String(format: "Lv%d %@ vs %@: %.2f s", level, a, b, r.ttk)
                     if r.ttk < Self.minTTK || r.ttk > Self.maxTTK { outside.append(label) }
-                    if r.ttk < 2.0 || r.ttk > 17.0 { hard.append(label) }
+                    if r.ttk < Self.hardMinTTK || r.ttk > Self.hardMaxTTK { hard.append(label) }
                 }
             }
+        }
+        // TTK の分布（帯を見直すときの根拠。レベル別の分位点）
+        for level in Self.levels {
+            let v = (byLevel[level] ?? []).sorted()
+            guard !v.isEmpty else { continue }
+            func q(_ p: Double) -> Double { v[min(v.count - 1, Int((Double(v.count - 1) * p).rounded()))] }
+            print(String(format: "SkillBalanceTests roster Lv%d: n %d / min %.1f / p5 %.1f / p25 %.1f / median %.1f / p75 %.1f / p95 %.1f / max %.1f s",
+                         level, v.count, v[0], q(0.05), q(0.25), q(0.5), q(0.75), q(0.95), v[v.count - 1]))
         }
         print("SkillBalanceTests roster: \(total) duels, \(outside.count) outside \(Self.minTTK)–\(Self.maxTTK) s: \(outside)")
         XCTAssertTrue(hard.isEmpty, "\(hard)")

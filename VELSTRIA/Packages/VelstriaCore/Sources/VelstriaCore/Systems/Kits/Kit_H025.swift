@@ -33,7 +33,7 @@ enum LuminaTuning {
 
     // MARK: S1（月矢の連弾）
     static let s1Duration: Double = 4
-    /// 主矢の追加ダメージの合計（標準的な s1Arrows 本ぶん）が、汎用 S1 の何倍か。CD が汎用の 3.25 秒に対し 5.5 秒と長いので 1.3 倍の上限近くまで使う。
+    /// 主矢の追加ダメージの合計（標準的な s1Arrows 本ぶん）が、汎用 S1 の何倍か。CD が汎用の 6.5 秒に対し 11 秒と長いので 1.3 倍の上限近くまで使う。
     static let s1Ratio: Double = 1.28
     /// 効果時間内に撃つ標準的な本数（基礎の攻撃速度で 4 秒に撃つ数。説明・予算の目安で、攻撃速度の段が積もれば 6 本前後まで増える）。
     static let s1Arrows = 4
@@ -66,6 +66,8 @@ enum LuminaTuning {
     static let s2PrimaryRatio: Double = 0.66
     /// 小さな矢 1 本 = 着弾の 0.15 倍（ミヤ: 40/270 = 0.15）。6 本すべてが 1 体に当たる最悪でも合計 1.26 倍。
     static let s2MinorRatio: Double = 0.10
+    /// MLBB の CD 8 秒（全ランク固定）。以前はマスターの CD（8.7 秒からランクで 6% ずつ短縮）のままだった。
+    static let s2Cooldown = (8.0, 8.0)
 
     // MARK: 奥義（隠れ月光）
     static let ultDuration: Double = 2
@@ -200,6 +202,7 @@ struct Kit_H025: HeroKit {
             n.damage = raw * T.s2PrimaryRatio
             n.hits = 1
             n.delay = T.s2Delay
+            n.cooldown = Self.cooldown(T.s2Cooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
             n.cc = .root
             n.ccDuration = T.s2Root
             // 説明に出す値は整数にそろえる（実際の小さな矢のダメージは minorDamage(primary:) が持つ）
@@ -518,7 +521,7 @@ struct Kit_H025: HeroKit {
         return (skill, SkillCatalog.numbers(for: skill, hero: def, rank: max(1, h.rank(slot)), stats: s.units[i].stats))
     }
 
-    /// MLBB のクールダウン（秒）をランクで線形補間し、Velstria の全体倍率と CD 短縮を掛ける。
+    /// MLBB のクールダウン（秒）をランクで線形補間し、CD 短縮を掛ける（全体倍率 cooldownScale は 1.0 = MLBB の秒数のまま）。
     static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats) -> Double {
         var sec = range.0
         if maxRank > 1 {

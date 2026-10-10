@@ -63,7 +63,7 @@ H034 鎖鉤のゴルム（サポート・近接 150・Mana）= Velstria 版の F
 （追加プリミティブ `KitGormLock.swift`）、テスト: `Tests/VelstriaCoreTests/Kits/Kit_H034Tests.swift`、演出: `App/Battle/SkillFX/Heroes/FX_H034.swift`。
 スロットは上の調査の順に割り当てる（スキル1 = Iron Hook「鎖鉤」、スキル2 = Fury Shock「鉄鎖旋」、アルティメット = Bloody Hunt「狩猟鎖獄」、パッシブ = Wasteland Force「鉄鎖の執念」。名前はマスターデータのもの）。
 距離は Velstria 単位（≈ MLBB × 100）。調査に無い値（射程・幅・半径など）は下の「選んだ値」に書いた。
-ダメージ・クールダウンは Velstria 全体の係数（`Balance.Skills`）に合わせた換算で、MLBB の数値そのままではない。
+ダメージは Velstria 全体の係数（`Balance.Skills`）に合わせた換算で、MLBB の数値そのままではない。クールダウンは MLBB の秒数そのまま（6 段のランクを Velstria の 4 段・奥義 3 段へ線形補間。全体倍率 `cooldownScale` は 1.0）。
 このキットはロール「サポート」の汎用の味方回復パッシブと、アルティメットの味方全体回復を置き換える（ゴルムは回復役ではなく鉤の起点役）。
 ツールチップの距離は単位の無い数字を出さず、近接攻撃の射程（150）に対する倍率で書く（`{reachMult}`: 鎖鉤 約 4.5 倍、鉄鎖旋 約 1.7 倍、狩猟鎖獄 約 2.3 倍）。
 
