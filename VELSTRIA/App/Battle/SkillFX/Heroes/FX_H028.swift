@@ -21,7 +21,7 @@ import VelstriaCore
 
 enum FX_H028: HeroFXSet {
     static let palette = FXPalette(core: RGB(0.93, 1.0, 1.0), primary: RGB(0.2, 0.84, 1.0),
-                                   secondary: RGB(0.58, 0.78, 1.0), accent: RGB(0.52, 0.42, 1.0),
+                                   secondary: RGB(0.58, 0.78, 1.0), accent: RGB(1.0, 0.24, 0.3),
                                    dark: RGB(0.02, 0.04, 0.14))
 
     // MARK: - sim の時刻（Kit_H028.Tune と同じ値。sim の値を変えたらここも合わせる）
