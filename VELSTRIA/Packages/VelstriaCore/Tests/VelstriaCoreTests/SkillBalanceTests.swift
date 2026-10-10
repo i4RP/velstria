@@ -2,13 +2,24 @@ import XCTest
 @testable import VelstriaCore
 
 /// バランスのスモーク: ロール代表（H001–H006）同士の 1v1 を Lv 1/6/12（自動習得のランク）で戦わせ、
-/// 通常攻撃 + CD 毎のスキルで決着までの時間（TTK）が 2.5〜15 秒に収まることを確認する。
+/// 通常攻撃 + CD 毎のスキルで決着までの時間（TTK）が 2.5〜22 秒に収まることを確認する。
 /// 外れる場合は Balance.Skills の係数（SkillBalance.swift）で調整する（マスターデータは変えない）。
+///
+/// 帯の根拠: スキルのクールダウンは Mobile Legends と同じ秒数（Balance.Skills.cooldownScale = 1.0）。MLBB の装備なしの 1v1 は
+/// Lv1 で HP 2500〜2900 に対し通常攻撃が毎秒 100〜130 前後（防御込み）+ スキル1 が 6〜11 秒ごとに 300〜400 で、決着まで 15〜22 秒前後かかる。
+/// Velstria のスキル 1 発のダメージは MLBB 以上（汎用のスキル1 は Lv1 で約 900 = MLBB の 2〜3 倍）なので、同じクールダウンなら TTK は
+/// MLBB 以下になる。上限 22 秒はその MLBB の目安（硬いヒーロー同士・回復や蘇生のパッシブ持ちで長くなる側）。
+/// 下限 2.5 秒（一撃死の防止）は CD が半分だったころと同じ。
+/// 全員総当たりの分布（Release）: 中央値 Lv1 13.6 / Lv6 8.7 / Lv12 9.2 秒、最大 21.3 秒（CD が半分だったころは 10.0 / 5.3 / 5.7 秒、
+/// 最大 15.0 秒で、上限は 15 秒だった）。
 final class SkillBalanceTests: XCTestCase {
     static let representatives = ["H001", "H002", "H003", "H004", "H005", "H006"]
     static let levels = [1, 6, 12]
     static let minTTK = 2.5
-    static let maxTTK = 15.0
+    static let maxTTK = 22.0
+    /// 全員総当たり（testFullRosterStaysNearBand）で 1 戦も外れてはいけない帯。
+    static let hardMinTTK = 2.0
+    static let hardMaxTTK = 25.0
 
     struct DuelResult {
         var ttk: Double
@@ -98,16 +109,26 @@ final class SkillBalanceTests: XCTestCase {
         var total = 0
         var outside: [String] = []
         var hard: [String] = []
+        var byLevel: [Int: [Double]] = [:]
         for level in Self.levels {
             for (x, a) in ids.enumerated() {
                 for b in ids[x...] {
                     let r = Self.duel(a, b, level: level)
                     total += 1
+                    byLevel[level, default: []].append(r.ttk)
                     let label = String(format: "Lv%d %@ vs %@: %.2f s", level, a, b, r.ttk)
                     if r.ttk < Self.minTTK || r.ttk > Self.maxTTK { outside.append(label) }
-                    if r.ttk < 2.0 || r.ttk > 17.0 { hard.append(label) }
+                    if r.ttk < Self.hardMinTTK || r.ttk > Self.hardMaxTTK { hard.append(label) }
                 }
             }
+        }
+        // TTK の分布（帯を見直すときの根拠。レベル別の分位点）
+        for level in Self.levels {
+            let v = (byLevel[level] ?? []).sorted()
+            guard !v.isEmpty else { continue }
+            func q(_ p: Double) -> Double { v[min(v.count - 1, Int((Double(v.count - 1) * p).rounded()))] }
+            print(String(format: "SkillBalanceTests roster Lv%d: n %d / min %.1f / p5 %.1f / p25 %.1f / median %.1f / p75 %.1f / p95 %.1f / max %.1f s",
+                         level, v.count, v[0], q(0.05), q(0.25), q(0.5), q(0.75), q(0.95), v[v.count - 1]))
         }
         print("SkillBalanceTests roster: \(total) duels, \(outside.count) outside \(Self.minTTK)–\(Self.maxTTK) s: \(outside)")
         XCTAssertTrue(hard.isEmpty, "\(hard)")

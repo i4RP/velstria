@@ -209,7 +209,7 @@ final class Kit_H032Tests: XCTestCase {
         XCTAssertTrue(ja1.contains("\(Int(try XCTUnwrap(n1.extras.first { $0.key == "abyssTotal" }).value.rounded()))"), ja1)
         let sp = try XCTUnwrap(MasterData.shared.skill(hero: "H032", slot: .passive))
         let pn = SkillCatalog.numbers(for: sp, hero: hero, rank: 1, stats: stats)
-        XCTAssertEqual(pn.extras.map(\.value), [4, 10, 150, 180])
+        XCTAssertEqual(pn.extras.map(\.value), [2, 5, 150, 180])
         let ult = try XCTUnwrap(MasterData.shared.skill(hero: "H032", slot: .ultimate))
         let un = SkillCatalog.numbers(for: ult, hero: hero, rank: 2, stats: stats)
         XCTAssertEqual(un.extras.count, 4)
@@ -219,14 +219,15 @@ final class Kit_H032Tests: XCTestCase {
     // MARK: - パッシブ: レイジ
 
     func testRageGainsOverTimeByLevelAndCapsAtMax() {
-        for (level, perSecond) in [(1, 4.0), (15, 10.0)] {
+        // MLBB と同じ毎秒 2%（Lv1）〜 5%（最大レベル）
+        for (level, perSecond) in [(1, 2.0), (15, 5.0)] {
             var (w, k) = world(level: level)
             XCTAssertEqual(kit(w, k).diasRage, 0, "開始時は 0")
             w.run(seconds: 5)
             XCTAssertEqual(kit(w, k).diasRage, perSecond * 5, accuracy: 0.2, "Lv\(level)")
         }
-        XCTAssertEqual(Kit_H032.rageRate(level: 1), 2 * Tune.rageTimeScale, accuracy: 1e-9)
-        XCTAssertEqual(Kit_H032.rageRate(level: Balance.maxLevel), 5 * Tune.rageTimeScale, accuracy: 1e-9)
+        XCTAssertEqual(Kit_H032.rageRate(level: 1), 2, accuracy: 1e-9)
+        XCTAssertEqual(Kit_H032.rageRate(level: Balance.maxLevel), 5, accuracy: 1e-9)
         XCTAssertGreaterThan(Kit_H032.rageRate(level: 8), Kit_H032.rageRate(level: 7))
         var (w, k) = world()
         setRage(&w, k, 99.9)

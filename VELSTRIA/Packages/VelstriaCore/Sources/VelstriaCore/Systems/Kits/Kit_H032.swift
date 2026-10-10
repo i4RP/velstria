@@ -3,7 +3,7 @@ import Foundation
 // 担当: kit-H032（docs/SKILL_KITS.md / docs/NEW_HEROES.md / docs/kits/Dyrroth.md）
 // H032 赤拳のディアス = Velstria 版の Dyrroth（MLBB。調査: docs/kits/Dyrroth.md、対応表: 同ファイル末尾）。
 // デュエリスト（EXP）の近接。キットはロールの汎用パッシブ（通常攻撃の攻撃速度スタック）を置き換える。
-//   パッシブ 紅血の拳（Wrath of the Abyss）— レイジ（0〜100）が時間でたまる（毎秒 2〜5%、レベルで増える。Velstria は CD が半分なので ×2）。
+//   パッシブ 紅血の拳（Wrath of the Abyss）— レイジ（0〜100）が時間でたまる（毎秒 2〜5%、レベルで増える。MLBB と同じ）。
 //                           50 以上でスキル1・スキル2 が「アビス強化」になり、使うと 50 を消費する。
 //                           HUD のバッジ = Int(レイジ / 50)（0〜2）。演出（SkillFXDirector）はバッジが増えた瞬間（50・100）だけ出す
 //                           通常攻撃 2 回に 1 回は円撃（Circle Strike）: 周囲の敵へ攻撃力の 150〜180%、最大 HP の 4.2〜6% 回復（MLBB 7〜10% の 0.6 倍）
@@ -109,9 +109,7 @@ struct Kit_H032: HeroKit {
     enum Tune {
         // パッシブ: レイジ
         static let rageMax = 100.0
-        /// 毎秒のレイジ（MLBB: 2〜5%/s をレベル 1〜最大で補間）に掛ける時間の倍率。Velstria はスキルの CD が半分
-        /// （Balance.Skills.cooldownScale）なので、同じ「CD 1 回あたりのレイジ」になるよう 1 / cooldownScale 倍にする。
-        static let rageTimeScale = 1 / Balance.Skills.cooldownScale
+        /// 毎秒のレイジ（MLBB と同じ 2〜5%/s をレベル 1〜最大で補間）。以前は CD が半分だったので ×2 していた（CD 1 回あたりのレイジは同じ）。
         static let rageGain = (2.0, 5.0)
         /// アビス強化に要るレイジと、使ったときの消費量（調査: 50% で強化、消費量は不明 → 50 を選んだ）。
         static let abyssCost = 50.0
@@ -128,11 +126,11 @@ struct Kit_H032: HeroKit {
 
         // パッシブ: 敵ヒーローにダメージを与えるたびに S1・S2 のクールダウンを縮める秒数。
         // 通常攻撃・円撃の命中 = cooldownRefund、スキルの命中（1 回の発動につき 1 度）= skillCooldownRefund。
-        // MLBB は 1 秒。Velstria は CD が半分（cooldownScale 0.5）なので 0.5 秒が素直な換算だが、1v1 の勝率が全員総当たりで
-        // 汎用の Duelist より上へ偏った（スキルの稼働率が上がる）ので、通常攻撃・円撃は 0.3、スキルの命中は 0.05 に抑えた
-        // （docs/kits/Dyrroth.md の対応表）。
-        static let cooldownRefund = 0.3
-        static let skillCooldownRefund = 0.05
+        // MLBB は 1 秒。そのままだとスキルの稼働率が上がりすぎて 1v1 の勝率が汎用の Duelist より上へ偏るので、通常攻撃・円撃は
+        // MLBB の 60%（0.6 秒）、スキルの命中は 10%（0.1 秒）に抑える（docs/kits/Dyrroth.md の対応表）。CD が半分だったころの
+        // 0.3 / 0.05 秒（素直な換算 0.5 秒の 60% / 10%）と、CD に対する割合は同じ。
+        static let cooldownRefund = 0.6
+        static let skillCooldownRefund = 0.1
 
         // S1 爆裂連撃
         static let burstReach = 300.0
@@ -206,7 +204,7 @@ struct Kit_H032: HeroKit {
         static let ultRatio = 0.90
         static let ultRankFactor: [Double] = [0.9, 1.0, 1.1]
 
-        // クールダウン（MLBB 秒 → ランク間を線形補間 → Balance.Skills.cooldownScale を掛ける）
+        // クールダウン（MLBB の秒数そのまま。ランク間を線形補間し、CD 短縮を掛ける。全体倍率 Balance.Skills.cooldownScale は 1.0）
         static let burstCooldown = (6.0, 4.0)
         static let spectreCooldown = (6.0, 6.0)
         static let ultCooldown = (36.0, 28.0)
@@ -261,8 +259,8 @@ struct Kit_H032: HeroKit {
         case .passive:
             n.damage = 0
             n.hits = 1
-            n.extras = [KitStat(key: "rageMin", value: Tune.rageGain.0 * Tune.rageTimeScale),
-                        KitStat(key: "rageMax", value: Tune.rageGain.1 * Tune.rageTimeScale),
+            n.extras = [KitStat(key: "rageMin", value: Tune.rageGain.0),
+                        KitStat(key: "rageMax", value: Tune.rageGain.1),
                         KitStat(key: "circleMin", value: Tune.circleRatio.0 * 100),
                         KitStat(key: "circleMax", value: Tune.circleRatio.1 * 100)]
         case .skill1:
@@ -728,7 +726,7 @@ struct Kit_H032: HeroKit {
     static func lostHealth(_ u: Unit) -> Double { max(0, u.stats.maxHP - max(0, u.hp)) }
 
     static func rageRate(level: Int) -> Double {
-        lerp(Tune.rageGain.0, Tune.rageGain.1, level: level) * Tune.rageTimeScale
+        lerp(Tune.rageGain.0, Tune.rageGain.1, level: level)
     }
 
     static func circleRatio(level: Int) -> Double { lerp(Tune.circleRatio.0, Tune.circleRatio.1, level: level) }
@@ -746,7 +744,7 @@ struct Kit_H032: HeroKit {
         return a + (b - a) * t
     }
 
-    /// MLBB のクールダウン（秒）をランクで線形補間し、Velstria の全体倍率と CD 短縮を掛ける。
+    /// MLBB のクールダウン（秒）をランクで線形補間し、CD 短縮を掛ける（全体倍率 cooldownScale は 1.0 = MLBB の秒数のまま）。
     static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats) -> Double {
         let sec: Double
         if maxRank > 1 {

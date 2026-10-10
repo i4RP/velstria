@@ -164,11 +164,15 @@ final class Kit_H031Tests: XCTestCase {
                 XCTAssertLessThan(hi.cooldown, lo.cooldown, "\(slot)")
             }
         }
-        // CD は MLBB の秒数 × 調整係数
+        // CD は MLBB の秒数そのまま（S1 6.0 → 4.0 / S2 13 / 奥義 50 → 40）
         let lo1 = SkillCatalog.numbers(for: skill(.skill1), hero: def, rank: 1, stats: Stats())
-        XCTAssertEqual(lo1.cooldown, 6.5 * Balance.Skills.cooldownScale, accuracy: 1e-9)
+        XCTAssertEqual(lo1.cooldown, 6.0, accuracy: 1e-9)
+        let hi1 = SkillCatalog.numbers(for: skill(.skill1), hero: def, rank: 4, stats: Stats())
+        XCTAssertEqual(hi1.cooldown, 4.0, accuracy: 1e-9)
         let lo2 = SkillCatalog.numbers(for: skill(.skill2), hero: def, rank: 1, stats: Stats())
-        XCTAssertEqual(lo2.cooldown, 13.0 * Balance.Skills.cooldownScale, accuracy: 1e-9)
+        XCTAssertEqual(lo2.cooldown, 13.0, accuracy: 1e-9)
+        let ult = SkillCatalog.numbers(for: skill(.ultimate), hero: def, rank: 1, stats: Stats())
+        XCTAssertEqual(ult.cooldown, 50.0, accuracy: 1e-9)
         // CC: S1 鈍足 40% / 1 秒、S2 凍結 1 秒、奥義 凍結（魔力で延びる）
         let n1 = SkillCatalog.numbers(for: skill(.skill1), hero: def, rank: 1, stats: stats)
         XCTAssertEqual(n1.cc, .slow)

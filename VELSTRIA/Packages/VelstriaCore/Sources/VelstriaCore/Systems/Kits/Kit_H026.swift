@@ -87,13 +87,14 @@ enum EuriaTuning {
     static let chainDuration: Double = 1.0
     /// 同じ相手へは、前の鎖を結んでからこの秒数が過ぎるまで次の鎖を結ばない。印は消費しない（印のあいだ S1 が当たるたびに鎖が繋がり、
     /// 終わりの一撃のクールダウン短縮で回り続けるのを抑える）。総当たりの勝率（アルカニスト中央値との差）は
-    /// 制限なし Lv1 +40 / Lv6 +15 / Lv12 +41 pt → 3 秒で Lv1 +4 / Lv6 +12 / Lv12 +28 pt。それ以上の秒数ではほとんど変わらない（6 秒でも同程度）。
-    static let chainLockout: Double = 3.0
+    /// 制限なし Lv1 +40 / Lv6 +15 / Lv12 +41 pt → 3 秒で Lv1 +4 / Lv6 +12 / Lv12 +28 pt（全体の CD が半分だったころ。6 秒でも同程度）。
+    /// CD が MLBB の秒数（2 倍）になったので、CD に対する割合を保って 6 秒にした（3 秒のままだと CD 短縮なしでは一度も効かない）。
+    static let chainLockout: Double = 6.0
     static let chainSpeed: Double = 0.40
     /// 鎖が切れる距離（調査に無い。S1 の射程 650 に余裕を足した値）。術者と対象の中心間。
     static let chainLeash: Double = 800
-    /// 鎖の終わりの一撃が当たったときの S1 のクールダウン短縮（MLBB 1.5 秒 × 全体のクールダウン倍率）。
-    static let chainRefund: Double = 1.5 * Balance.Skills.cooldownScale
+    /// 鎖の終わりの一撃が当たったときの S1 のクールダウン短縮（MLBB と同じ 1.5 秒。CD が MLBB の秒数なので換算しない）。
+    static let chainRefund: Double = 1.5
     static let chainSpeedTag = KitTags.buff("H026", "chain")
 
     // MARK: S2（Ball Lightning）
@@ -122,7 +123,7 @@ enum EuriaTuning {
     static let burstRadius: Double = 190
     static let burstDelay: Double = 0.5
 
-    // MARK: クールダウン（MLBB 秒 → ランク間を線形補間 → Balance.Skills.cooldownScale を掛ける）
+    // MARK: クールダウン（MLBB の秒数そのまま。ランク間を線形補間し、CD 短縮を掛ける。全体倍率 Balance.Skills.cooldownScale は 1.0）
     static let s1Cooldown = (7.0, 5.0)
     static let s2Cooldown = (11.0, 8.5)
     static let ultCooldown = (32.0, 26.0)
@@ -485,26 +486,50 @@ struct Kit_H026: HeroKit {
     /// 「撃てる」= クールダウンが明け、マナがあり、沈黙などでなく、敵が S1 の射程（扇）に入っていること
     /// （撃てないのに待ち続けて、アルティメットや S2 が永久に出なくならないように）。
     /// S2 は印が広がるので、近くに別のヒーローが居るときは印を付けてから。居なければ先に撃ってよい（S2 自身が印を付ける）。
+    /// S1 は、近くに別のヒーローが居ない印の無い敵に S2 が撃てるなら待つ（S2 = 印 + スタン → S1 = 鎖 の順）。S1 のクールダウン
+    /// （MLBB の 7 → 5 秒）が印（5 秒）より長いので、S1 → 印 → S1 の順では鎖が繋がらないため。
     func botCast(_ s: SimState, _ ctx: SimContext, bot: Int, slot: SkillSlot, targeting: SkillTargeting,
                  target: Int, fighting: Bool) -> BotKitDecision {
-        guard fighting, slot != .skill1, s.units.indices.contains(target), Self.canMark(s, target) else { return .useDefault }
+        guard fighting, s.units.indices.contains(target), Self.canMark(s, target) else { return .useDefault }
         let marked = Kit.markStacks(s, target: target, tag: Self.markTag(s, bot)) > 0
+        if slot == .skill1 {
+            guard !marked else { return .useDefault }
+            // 雷球が飛んでいる間は着弾（印）を待つ
+            let me = s.units[bot].id
+            if s.projectiles.contains(where: { $0.ownerID == me && $0.payload.kitEvent == T.Event.orb }) { return .skip }
+            guard Self.orbReady(s, ctx, bot: bot, target: target),
+                  Self.heroesNear(s, bot: bot, target: target) == 0 else { return .useDefault }
+            return .skip
+        }
         guard !marked, Self.fork1Ready(s, ctx, bot: bot, target: target) else { return .useDefault }
         switch slot {
         case .ultimate:
             return .skip
         case .skill2:
             // 周囲に別のヒーローが居るときだけ待つ（印済みなら広がるので）
-            var near = 0
-            for j in s.units.indices where j != target && s.units[j].team != s.units[bot].team && !s.units[j].isStructure {
-                guard CombatSystem.isLiving(s, j), s.units[j].kind == .hero else { continue }
-                let reach = T.splashRadius + s.units[j].radius
-                if s.units[j].pos.distanceSquared(to: s.units[target].pos) <= reach * reach { near += 1 }
-            }
-            return near >= 1 ? .skip : .useDefault
+            return Self.heroesNear(s, bot: bot, target: target) >= 1 ? .skip : .useDefault
         default:
             return .useDefault
         }
+    }
+
+    /// 対象の周り（S2 の広がりの半径）に居る、対象以外の敵ヒーローの数。
+    static func heroesNear(_ s: SimState, bot: Int, target: Int) -> Int {
+        var near = 0
+        for j in s.units.indices where j != target && s.units[j].team != s.units[bot].team && !s.units[j].isStructure {
+            guard CombatSystem.isLiving(s, j), s.units[j].kind == .hero else { continue }
+            let reach = T.splashRadius + s.units[j].radius
+            if s.units[j].pos.distanceSquared(to: s.units[target].pos) <= reach * reach { near += 1 }
+        }
+        return near
+    }
+
+    /// スキル2 が今この敵に撃てるか（クールダウン・マナ・行動可能・射程）。
+    static func orbReady(_ s: SimState, _ ctx: SimContext, bot: Int, target: Int) -> Bool {
+        guard SkillSystem.canCast(s, ctx, heroIndex: bot, slot: .skill2),
+              let skill = ctx.master.skill(hero: "H026", slot: .skill2) else { return false }
+        let reach = skill.range + s.units[target].radius
+        return s.units[bot].pos.distanceSquared(to: s.units[target].pos) <= reach * reach
     }
 
     /// スキル1 が今この敵に撃てるか（クールダウン・マナ・行動可能・射程）。
@@ -563,7 +588,7 @@ struct Kit_H026: HeroKit {
         return (skill, SkillCatalog.numbers(for: skill, hero: def, rank: max(1, h.rank(slot)), stats: s.units[i].stats))
     }
 
-    /// MLBB のクールダウン（秒）をランクで線形補間し、Velstria の全体倍率と CD 短縮を掛ける。
+    /// MLBB のクールダウン（秒）をランクで線形補間し、CD 短縮を掛ける（全体倍率 cooldownScale は 1.0 = MLBB の秒数のまま）。
     static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats) -> Double {
         let sec = lerp(range.0, range.1, rank: rank, maxRank: maxRank)
         let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))

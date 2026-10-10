@@ -16,7 +16,7 @@ import Foundation
 //                               0.3 秒で周囲の敵を引き寄せ（0.38 秒かけて集める）、0.8 秒で 600 / 800 / 1000（+130% 物理攻撃）のダメージ + スタン 1.8 秒。
 // 数値の換算: MLBB のダメージ表を Velstria のランク（スキル1・2 は 4 段、アルティメットは 3 段）へ線形補間し（ランク 1 = Lv1、最大ランク = 公式の最終 Lv）、
 //   sim の通常の式 (基礎 + 係数 × 攻撃力 × skillAttackScalingFactor) × スロット倍率 に、スキルごとの換算（Tune.*Scale）を掛ける。
-//   コスト（マナ）・クールダウンの表もランクで補間（コストは HeroKit.cost、クールダウンは × cooldownScale）。
+//   コスト（マナ）・クールダウンの表もランクで補間（コストは HeroKit.cost、クールダウンは公式の秒数そのまま）。
 //
 // 状態（KitState）:
 //   ints[0]  = 誓い（0..4。4 = ブロックの準備完了）    ints[1] = 奥義の段（0 = なし / 1 = 溜め / 2 = 引き寄せ後）
@@ -156,14 +156,14 @@ struct Kit_H029: HeroKit {
         static let ultAttackRatio = 1.3
         /// 公式の値 → Velstria の換算。汎用の奥義（Support は味方回復でダメージ 0）には比べる相手が居ないので、勝率で決めた値
         /// （同ロール汎用の中央値との差が ±15 pt に収まるように。公式の表へ置き換えた直後は 1.2 で Lv12 が −17 pt だった: docs/kits/Tigreal.md）。
-        /// クールダウンが汎用より長い（22〜27 秒 vs 約 17 秒）ぶんと回復を失うぶん、詠唱が CC に弱いぶんを含む。
+        /// クールダウンが汎用より長い（45〜55 秒 vs 約 34 秒）ぶんと回復を失うぶん、詠唱が CC に弱いぶんを含む。
         static let ultScale = 1.5
         static let channelTag = KitTags.buff("H029", "channel")
         /// ボットのアルティメット: 近くに味方ヒーロー（この距離以内）が居るか、相手の HP がこの割合未満のときだけ。敵タワーの射程内では撃たない。
         static let botAllyRange = 900.0
         static let botWeakHP = 0.5
 
-        // クールダウン（公式の秒 → ランク間を線形補間 → CD 短縮 → Balance.Skills.cooldownScale を掛ける）
+        // クールダウン（公式の秒数そのまま。ランク間を線形補間し、CD 短縮を掛ける。全体倍率 Balance.Skills.cooldownScale は 1.0）
         static let waveCooldown = (7.0, 4.0)
         static let hammerCooldown = (16.0, 13.0)
         static let ultCooldown = (55.0, 45.0)
@@ -710,7 +710,7 @@ struct Kit_H029: HeroKit {
         damage(base: Tune.ultBase, ratio: Tune.ultAttackRatio, slot: .ultimate, scale: Tune.ultScale, rank: rank, stats: stats)
     }
 
-    /// 公式のクールダウン（秒）をランクで線形補間し、Velstria の全体倍率と CD 短縮を掛ける。
+    /// 公式のクールダウン（秒）をランクで線形補間し、CD 短縮を掛ける（全体倍率 cooldownScale は 1.0 = 公式の秒数のまま）。
     static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats) -> Double {
         let sec = lerp(range.0, range.1, rank: rank, maxRank: maxRank)
         let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))

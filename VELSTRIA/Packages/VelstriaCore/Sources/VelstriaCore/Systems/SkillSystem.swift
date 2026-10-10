@@ -296,7 +296,7 @@ public enum SkillSystem {
         validate(s, ctx, heroIndex: i, slot: slot) != nil
     }
 
-    /// 実効クールダウン（ランク・CD 短縮込み、調整倍率 Balance.Skills.cooldownScale 込み）。
+    /// 実効クールダウン（ランク・CD 短縮込み。Balance.Skills.cooldownScale は 1.0 = マスターの秒数のまま）。
     public static func cooldown(for skill: SkillDef, rank: Int, cdr: Double) -> Double {
         let reduction = min(Balance.maxCooldownReduction, max(0, cdr))
         return skill.cooldownSec * (1 - Balance.skillCooldownPerRank * Double(max(0, rank - 1))) * (1 - reduction)

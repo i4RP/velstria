@@ -180,10 +180,9 @@ final class Kit_H028Tests: XCTestCase {
         let hero = try XCTUnwrap(MasterData.shared.hero("H028"))
         for rank in 1...4 {
             let s1 = try XCTUnwrap(MasterData.shared.skill(hero: "H028", slot: .skill1))
-            // S1 は全体倍率ではなく秒数そのまま（Tune.swordsCooldownScale）: 剣の稼働率を 100% から約 50% へ
+            // S1 は MLBB の 10 秒そのまま（持続 5 秒なので剣の稼働率は約 50%）
             XCTAssertEqual(SkillCatalog.numbers(for: s1, hero: hero, rank: rank, stats: w.s.units[k].stats).cooldown,
-                           expected(10, 10, rank: rank, maxRank: 4) / Balance.Skills.cooldownScale * Tune.swordsCooldownScale,
-                           accuracy: 1e-9)
+                           expected(10, 10, rank: rank, maxRank: 4), accuracy: 1e-9)
             let s2 = try XCTUnwrap(MasterData.shared.skill(hero: "H028", slot: .skill2))
             XCTAssertEqual(SkillCatalog.numbers(for: s2, hero: hero, rank: rank, stats: w.s.units[k].stats).cooldown,
                            expected(7, 7, rank: rank, maxRank: 4), accuracy: 1e-9)
@@ -224,7 +223,7 @@ final class Kit_H028Tests: XCTestCase {
         XCTAssertTrue(ja1.contains("\(Int(n1.damage.rounded()))ダメージ"), ja1)
         XCTAssertTrue(ja1.contains("最大\(Tune.pulseCount)回"), ja1)
         XCTAssertEqual(n1.extras.map(\.key), ["strikeDamage", "duration", "refund", "passPercent"])
-        XCTAssertEqual(n1.extras[2].value, 0.5, accuracy: 1e-9)
+        XCTAssertEqual(n1.extras[2].value, 1.0, accuracy: 1e-9)
         let p = try XCTUnwrap(MasterData.shared.skill(hero: "H028", slot: .passive))
         let pn = SkillCatalog.numbers(for: p, hero: hero, rank: 1, stats: stats)
         XCTAssertEqual(pn.extras.map(\.value), [3, 8, 5, 5])
@@ -243,10 +242,9 @@ final class Kit_H028Tests: XCTestCase {
         XCTAssertLessThanOrEqual(Tune.contactRatio, 0.6)
         XCTAssertGreaterThanOrEqual(Tune.chargeBonusRatio, 0.2)
         XCTAssertGreaterThanOrEqual(Tune.strikeGap, 0.3)
-        XCTAssertEqual(Tune.swordsCooldownScale, Balance.Skills.cooldownScale)
+        XCTAssertEqual(Tune.chargeRefund, 1.0, "剣撃 1 本で突撃のクールダウンが MLBB と同じ 1 秒縮む")
         let (w, k) = world()
-        XCTAssertEqual(w.numbers(k, .skill1).cooldown, 10 * Balance.Skills.cooldownScale * (1 - w.s.units[k].stats.cooldownReduction),
-                       accuracy: 1e-9)
+        XCTAssertEqual(w.numbers(k, .skill1).cooldown, 10 * (1 - w.s.units[k].stats.cooldownReduction), accuracy: 1e-9)
     }
 
     /// 説明文: UI の用語（スキル1 / スキル2 / アルティメットの言い方）と最終名、剣撃の言い方。
