@@ -160,6 +160,39 @@ final class HeroModelTests: XCTestCase {
         }
     }
 
+    /// H029 ボルグは「青い鎧に金の縁」の巨漢に見えること。全身が金一色になる（基調色が金）・小さい玩具のように見える退行を防ぐ。
+    func testH029IsBlueAndGoldHeavyKnight() {
+        let bp = HeroBlueprints.roster[28]
+        // 基調色（鎧の地色）は青。金は metal（縁・聖印・槌の打撃面）、赤は accent（マント）
+        let hue = Theme.heroHue("H029")
+        XCTAssertTrue((0.55...0.65).contains(hue), "基調色 \(hue)")
+        let p = HeroPalettes.base(heroID: "H029", blueprint: bp)
+        XCTAssertTrue((0.55...0.65).contains(p.primary.h), "primary \(p.primary.h)")
+        XCTAssertEqual(p.metalKind, .gold)
+        XCTAssertTrue((0.08...0.16).contains(p.metal.h), "金 \(p.metal.h)")
+        XCTAssertTrue(p.accent.h > 0.95 || p.accent.h < 0.03, "赤いマント \(p.accent.h)")
+        // 大きさ: 他の重装（H001・H019・H034 は 1.06〜1.12）より明らかに大きく、肩幅・胸板も heavy より広い
+        XCTAssertGreaterThanOrEqual(bp.scale, 1.25)
+        let titan = BodyMetrics.make(.titan), heavy = BodyMetrics.make(.heavy)
+        XCTAssertGreaterThan(titan.torsoW, heavy.torsoW)
+        XCTAssertGreaterThan(titan.shoulderX, heavy.shoulderX)
+        XCTAssertGreaterThan(titan.armR, heavy.armR)
+        XCTAssertLessThan(titan.headTop, heavy.headTop, "頭は肩の間に沈め、scale を上げても高さの上限（overheadHeight 2.7）に収める")
+        XCTAssertLessThanOrEqual((titan.headTop + 0.38) * bp.scale, 2.7)
+        // 実際のモデルでも、足元から頭頂までが上限に収まり、肩幅（左右）は他の重装より広い
+        let model = HeroModelLibrary.makeHero(heroID: "H029", skinID: nil, team: .blue, master: master, options: Self.showcase)
+        model.update(dt: 1.0 / 60.0, moveSpeed: 0)
+        let rival = HeroModelLibrary.makeHero(heroID: "H019", skinID: nil, team: .blue, master: master, options: Self.showcase)
+        rival.update(dt: 1.0 / 60.0, moveSpeed: 0)
+        let torso = model.root.findEntity(named: "torso")?.visualBounds(recursive: false, relativeTo: nil)
+        let rivalTorso = rival.root.findEntity(named: "torso")?.visualBounds(recursive: false, relativeTo: nil)
+        XCTAssertNotNil(torso)
+        XCTAssertNotNil(rivalTorso)
+        if let torso, let rivalTorso {
+            XCTAssertGreaterThan(torso.extents.x, rivalTorso.extents.x * 1.15, "H029 の胴は H019 より 15% 以上広い")
+        }
+    }
+
     /// 追加ヒーロー H025〜H034（docs/NEW_HEROES.md。第 1 段階 H025〜H029・第 2 段階 H030〜H034）の見た目の要件: 武器・体格・攻撃の型・配色の方向。
     func testNewHeroBlueprintsFollowSpec() {
         let r = HeroBlueprints.roster
@@ -188,14 +221,20 @@ final class HeroModelTests: XCTestCase {
         XCTAssertEqual(r[27].attack, .slash)
         XCTAssertTrue(r[27].gear.contains(.glassVisor))
         XCTAssertTrue((0.45...0.58).contains(r[27].glow.h), "シアンの光刃 \(r[27].glow.h)")
-        // H029 ボルグ: 大柄な重装。聖槌 + 円盾（片手の槌なので両手持ちではない）・青と金
-        XCTAssertEqual(r[28].build, .heavy)
-        XCTAssertGreaterThan(r[28].scale, 1.05)
+        // H029 ボルグ: 巨漢の重装。聖槌 + 大盾（片手の槌なので両手持ちではない）・青い板金に金の縁・赤いマント・金髪（兜は被らない）
+        XCTAssertEqual(r[28].build, .titan)
+        XCTAssertEqual(r[28].armor, .knight)
+        XCTAssertGreaterThanOrEqual(r[28].scale, 1.25)
         XCTAssertEqual(r[28].weapon, .holyMaul)
-        XCTAssertEqual(r[28].offhand, .roundShield)
+        XCTAssertEqual(r[28].offhand, .heaterShield)
+        XCTAssertEqual(r[28].back, .cape)
         XCTAssertFalse(r[28].twoHanded)
         XCTAssertEqual(r[28].metal, .gold)
-        XCTAssertTrue((0.55...0.65).contains(r[28].accent.h), "青い房 \(r[28].accent.h)")
+        XCTAssertTrue(r[28].accent.h > 0.95 || r[28].accent.h < 0.03, "赤いマント \(r[28].accent.h)")
+        XCTAssertTrue((0.1...0.16).contains(r[28].hairColor.h), "金髪 \(r[28].hairColor.h)")
+        XCTAssertGreaterThan(r[28].hairColor.b, 0.9, "金髪")
+        XCTAssertEqual(r[28].hair, .short)
+        XCTAssertFalse(r[28].gear.contains(.knightHelm), "兜のドームで顔と髪を隠さない")
         // H030 ライナ: 背丈ほどの星の砲（両手持ちの銃）・ツインテール・桃の光・赤い差し色・白と金
         XCTAssertEqual(r[29].weapon, .starCannon)
         XCTAssertEqual(r[29].attack, .gun)
