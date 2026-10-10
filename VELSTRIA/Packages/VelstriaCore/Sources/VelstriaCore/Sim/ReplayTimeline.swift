@@ -68,7 +68,8 @@ public struct TimelineEvent: Codable, Hashable, Sendable {
             switch kind {
             case .astralWyrm, .ancientColossus: return 0.9
             case .blueSentinel, .redSentinel: return 0.5
-            case .campLarge, .campSmall: return 0.2
+            case .campLarge, .campSmall, .azureWhelp, .hornLizard, .emberBeetle, .emberGrub, .magmaGolem,
+                 .treasureCrab, .crablet, .mossWanderer: return 0.2
             }
         case .ace: return 0.85
         case .matchEnd: return 1

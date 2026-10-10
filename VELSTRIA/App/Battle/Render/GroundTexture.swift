@@ -125,8 +125,8 @@ enum GroundTextureGenerator {
                 ctx.fillPath()
             }
         }
-        for camp in map.camps where camp.kind == .small || camp.kind == .blueSentinel || camp.kind == .redSentinel {
-            let big = camp.kind != .small
+        for camp in map.camps where camp.kind.hasClearing {
+            let big = camp.kind.isSentinel
             fill(RGB(0.44, 0.40, 0.27), 0.35)
             ctx.fillEllipse(in: circle(camp.pos, big ? 520 : 420))
             fill(RGB(0.50, 0.44, 0.30), 0.35)

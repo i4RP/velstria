@@ -138,12 +138,33 @@ public enum TowerTier: Int, Codable, Hashable, Sendable, CaseIterable {
 }
 
 public enum MonsterKind: Int, Codable, Hashable, Sendable {
+    /// 旧マップの小キャンプ（大 1 + 小 2）。標準マップでは使わない（raw 値を変えないため残す）。
     case campLarge
     case campSmall
-    case blueSentinel   // 蒼晶の番人
-    case redSentinel    // 紅焔の番人
-    case astralWyrm     // 星喰竜
-    case ancientColossus // 古環の巨像
+    case blueSentinel   // 蒼晶の番人（紫バフ。仔と 2 体で出る）
+    case redSentinel    // 紅焔の番人（赤バフ）
+    case astralWyrm     // 星喰竜（序盤ボス）
+    case ancientColossus // 古環の巨像（後半ボス）
+    // 以下は MLBB の現行マップに合わせて追加したジャングルの種類（docs/DESIGN.md §2）。raw 値を変えないため末尾に追加
+    case azureWhelp     // 蒼晶の仔（番人の連れ。倒すと回復）
+    case hornLizard     // 棘角トカゲ（遠隔。HP が半分を切ると硬くなる）
+    case emberBeetle    // 熾甲虫（倒すと幼体が出る）
+    case emberGrub      // 熾甲虫の幼体（15 秒で消える）
+    case magmaGolem     // 熔岩の岩人
+    case treasureCrab   // 宝殻蟹（3:00 から。倒すと Gold が入り続ける）
+    case crablet        // 宝殻蟹の子（3:00 まで 20 秒ごとに出る）
+    case mossWanderer   // 苔甲の徘徊者（川。反撃しない。倒すと苔草が付いてくる）
+}
+
+extension MonsterKind {
+    /// 星喰竜・古環の巨像。
+    public var isBoss: Bool { self == .astralWyrm || self == .ancientColossus }
+    /// バフを落とす番人（多人数軽減の対象）。
+    public var isSentinel: Bool { self == .blueSentinel || self == .redSentinel }
+    /// 各陣地の小キャンプの主（倒すと回復。狩猟印の対象）。
+    public var isJungleCreep: Bool { self == .hornLizard || self == .emberBeetle || self == .magmaGolem }
+    /// 攻撃されても反撃しない。
+    public var isPassive: Bool { self == .mossWanderer }
 }
 
 public enum ItemCategory: String, Codable, Hashable, Sendable, CaseIterable {

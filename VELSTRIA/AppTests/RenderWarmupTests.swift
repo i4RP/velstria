@@ -113,7 +113,7 @@ final class RenderWarmupTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(h.controller.state.time, 8 * 60 + 30, "試合が 8:30 を越えて進んだ")
         XCTAssertTrue(sawWyrm, "ワーム（2:00）が出た")
         XCTAssertTrue(sawColossus, "巨像（8:00）が出た")
-        XCTAssertGreaterThanOrEqual(peakMonsters, 28, "0:30 にジャングル 28 体が同時に出た")
+        XCTAssertGreaterThanOrEqual(peakMonsters, 12, "0:25 にジャングル 12 体が同時に出た")
         let st = h.world.vfx.stats
         print("vfx: spawns \(st.spawns) borrowed \(st.borrowed) stolen \(st.stolen) peak "
               + VFXPreset.allCases.map { "\($0)=\(st.peak[$0] ?? 0)" }.joined(separator: " ")
@@ -366,8 +366,14 @@ final class RenderWarmupTests: XCTestCase {
     func testCreaturePoolSizesCoverMapAndWaves() {
         let sizes = UnitLayer.creaturePoolSizes(map: .standard, dummySpots: 0)
         func size(_ k: CreatureKey) -> Int { sizes.first { $0.key == k }?.count ?? 0 }
-        XCTAssertEqual(size(.monster(.campLarge)), 11)   // 小キャンプ（片側 5 × 2 + 川の中立 1）
-        XCTAssertEqual(size(.monster(.campSmall)), 22)
+        // MLBB の現行マップのジャングル（片側: 蒼晶の番人 + 仔・紅焔の番人・トカゲ・岩人・甲虫、川: 宝殻蟹 2・徘徊者 1）
+        for kind in [MonsterKind.blueSentinel, .azureWhelp, .redSentinel, .hornLizard, .magmaGolem, .emberBeetle, .treasureCrab] {
+            XCTAssertEqual(size(.monster(kind)), 2, "\(kind)")
+        }
+        XCTAssertEqual(size(.monster(.emberGrub)), 2)    // 甲虫を倒すと出る幼体
+        XCTAssertEqual(size(.monster(.crablet)), 2)      // 3:00 までの宝殻蟹の子
+        XCTAssertEqual(size(.monster(.mossWanderer)), 1)
+        XCTAssertEqual(size(.monster(.campLarge)), 0)
         XCTAssertEqual(size(.monster(.astralWyrm)), 1)
         XCTAssertEqual(size(.monster(.ancientColossus)), 1)
         // 1 波 = 近接 3（10:00 以降 4）+ 遠隔 3 × 3 レーン。2 波以上が重なっても足りる

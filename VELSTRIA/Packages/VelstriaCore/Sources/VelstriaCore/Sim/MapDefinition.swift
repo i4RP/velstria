@@ -13,11 +13,34 @@ public struct TowerSpot: Codable, Hashable, Sendable {
 }
 
 public enum CampKind: Int, Codable, Hashable, Sendable {
+    /// 旧マップの小キャンプ（大 1 + 小 2）。標準マップでは使わない。
     case small
     case blueSentinel
     case redSentinel
     case astralWyrm
     case ancientColossus
+    // MLBB の現行マップに合わせて追加（docs/DESIGN.md §2）
+    case hornLizard
+    case emberBeetle
+    case magmaGolem
+    /// 宝殻蟹（サイドレーン脇の川の端。3:00 までは子が出る）。
+    case treasureCrab
+    /// 苔甲の徘徊者（川の中立、mid の片側だけ）。
+    case mossWanderer
+}
+
+extension CampKind {
+    /// 星喰竜・古環の巨像。
+    public var isBoss: Bool { self == .astralWyrm || self == .ancientColossus }
+    /// 紫・赤バフの番人。
+    public var isSentinel: Bool { self == .blueSentinel || self == .redSentinel }
+    /// 地面に広めの空き地を作るキャンプ（番人・小キャンプ）。川の中立・ボスの巣は別。
+    public var hasClearing: Bool {
+        switch self {
+        case .small, .blueSentinel, .redSentinel, .hornLizard, .emberBeetle, .magmaGolem: return true
+        case .astralWyrm, .ancientColossus, .treasureCrab, .mossWanderer: return false
+        }
+    }
 }
 
 public struct CampSpot: Codable, Hashable, Sendable {
@@ -33,6 +56,14 @@ public struct CampSpot: Codable, Hashable, Sendable {
 public struct BrushArea: Codable, Hashable, Sendable {
     public var id: Int
     public var rect: Rect2
+    /// 草むらの番号（1 つの草むらが複数の矩形からなるとき同じ値。先頭の矩形の id）。同じ草むらの中は互いに見える。
+    public var bush: Int
+
+    public init(id: Int, rect: Rect2, bush: Int? = nil) {
+        self.id = id
+        self.rect = rect
+        self.bush = bush ?? id
+    }
 }
 
 public enum Obstacle: Codable, Hashable, Sendable {
@@ -135,9 +166,9 @@ public struct MapDefinition: Codable, Hashable, Sendable {
         p.distance(to: fountain(team)) <= Balance.fountainRadius
     }
 
-    /// 点を含む草むらの添字。
+    /// 点を含む草むらの番号（`BrushArea.bush`。複数の矩形からなる草むらはどの矩形でも同じ値）。
     public func brushIndex(at p: Vec2) -> Int? {
-        for k in brushes.indices where brushes[k].rect.contains(p) { return k }
+        for k in brushes.indices where brushes[k].rect.contains(p) { return brushes[k].bush }
         return nil
     }
 
@@ -277,59 +308,65 @@ extension MapDefinition {
         towers.append(TowerSpot(team: .blue, lane: nil, tier: .base, pos: blueCore, isCore: true))
         towers.append(TowerSpot(team: .red, lane: nil, tier: .base, pos: redCore, isCore: true))
 
-        // キャンプ: ミニマップのアイコンから測った位置（誤差 数十）。ゲーム側の配置は厳密な点対称ではないので、
-        // Red 側も測った値をそのまま使う（Blue 側の写像とのずれは最大 約 100）。ボスと川の中立は中立。
-        // Blue: 西のジャングル（左レーンと mid の間）に蒼晶の番人と小 2、南のジャングル（下レーンと mid の間）に紅焔の番人と小 3。
+        // キャンプ: MLBB の現行マップ（Sanctum Island）と同じ種類・配置（docs/DESIGN.md §2）。
+        // 位置はミニマップのアイコンから測り（誤差 数十）、種類は MLBB Wiki のミニマップ凡例と俯瞰画像で確かめた。
+        // ゲーム側の配置は厳密な点対称ではないので、Red 側も測った値をそのまま使う（Blue 側の写像とのずれは最大 約 100）。
+        // 各陣地: 紫バフ（蒼晶の番人 + 仔）と棘角トカゲが EXP レーン側から遠い方（Blue は西）、
+        // 赤バフ（紅焔の番人）と熔岩の岩人・熾甲虫が近い方（Blue は南）。
         let blueCamps: [(CampKind, Vec2)] = [
             (.blueSentinel, Vec2(3075, 5755)),
             (.redSentinel, Vec2(5609, 2627)),
-            (.small, Vec2(1994, 6821)),
-            (.small, Vec2(2578, 6632)),
-            (.small, Vec2(6095, 3184)),
-            (.small, Vec2(6645, 2401)),
-            (.small, Vec2(7480, 2235)),
+            (.hornLizard, Vec2(1994, 6821)),
+            (.magmaGolem, Vec2(6095, 3184)),
+            (.emberBeetle, Vec2(7480, 2235)),
         ]
-        // Red: 東のジャングル（Blue の西の対）に蒼晶の番人と小 2、北のジャングル（Blue の南の対）に紅焔の番人と小 3。
         let redCamps: [(CampKind, Vec2)] = [
             (.blueSentinel, Vec2(9089, 6224)),
             (.redSentinel, Vec2(6370, 9366)),
-            (.small, Vec2(10096, 5158)),
-            (.small, Vec2(9424, 5368)),
-            (.small, Vec2(5905, 8820)),
-            (.small, Vec2(5358, 9597)),
-            (.small, Vec2(4613, 9859)),
+            (.hornLizard, Vec2(10096, 5158)),
+            (.magmaGolem, Vec2(5905, 8820)),
+            (.emberBeetle, Vec2(4613, 9859)),
         ]
         var camps: [CampSpot] = []
-        func respawn(_ k: CampKind) -> Double {
+        func timing(_ k: CampKind) -> (first: Double, respawn: Double) {
+            typealias J = Balance.Jungle
             switch k {
-            // 参照仕様（REFERENCE_SPEC §3.3）: 小キャンプもバフも再出現 90 秒（以前は小 60 秒）。
-            case .small, .blueSentinel, .redSentinel: return 90
-            // 序盤ボス 120 秒・後半ボス 180 秒（参照仕様 §5.1・§5.3。旧: 240 / 300 秒）
-            case .astralWyrm: return 120
-            case .ancientColossus: return 180
+            case .blueSentinel, .redSentinel: return (J.campFirstSpawn, J.buffRespawn)
+            case .hornLizard, .emberBeetle, .magmaGolem, .small: return (J.campFirstSpawn, J.creepRespawn)
+            // 序盤ボス 2:00・再出現 120 秒、後半ボス 8:00・再出現 180 秒（参照仕様 §5.1・§5.3）
+            case .astralWyrm: return (120, 120)
+            case .ancientColossus: return (480, 180)
+            // 子の 20 秒周期と 3:00 の交代は SpawnSystem が扱う（ここの値は親の再出現）
+            case .treasureCrab: return (J.crabFirstSpawn, J.crabRespawn)
+            case .mossWanderer: return (J.wandererFirstSpawn, J.wandererRespawn)
             }
         }
-        for (k, p) in blueCamps {
-            camps.append(CampSpot(id: camps.count, side: .blue, kind: k, pos: p, firstSpawn: 30, respawn: respawn(k)))
+        func add(_ side: Team, _ k: CampKind, _ p: Vec2) {
+            let t = timing(k)
+            camps.append(CampSpot(id: camps.count, side: side, kind: k, pos: p, firstSpawn: t.first, respawn: t.respawn))
         }
-        for (k, p) in redCamps {
-            camps.append(CampSpot(id: camps.count, side: .red, kind: k, pos: p, firstSpawn: 30, respawn: respawn(k)))
-        }
-        camps.append(CampSpot(id: camps.count, side: .neutral, kind: .astralWyrm, pos: Vec2(8260, 3590),
-                              firstSpawn: 120, respawn: respawn(.astralWyrm)))
-        camps.append(CampSpot(id: camps.count, side: .neutral, kind: .ancientColossus, pos: Vec2(3740, 8410),
-                              firstSpawn: 480, respawn: respawn(.ancientColossus)))
-        // 川の中立（片側のみ: 古環の巨像の巣の側）。参照仕様 §3.3 / §5.1: 約 0:45 に出現、再出現 2 分。
-        camps.append(CampSpot(id: camps.count, side: .neutral, kind: .small, pos: Vec2(4710, 7285),
-                              firstSpawn: 45, respawn: 120))
+        for (k, p) in blueCamps { add(.blue, k, p) }
+        for (k, p) in redCamps { add(.red, k, p) }
+        add(.neutral, .astralWyrm, Vec2(8260, 3590))
+        add(.neutral, .ancientColossus, Vec2(3740, 8410))
+        // 川の中立は mid の片側だけ（古環の巨像の巣の側）。
+        add(.neutral, .mossWanderer, Vec2(4710, 7285))
+        // 宝殻蟹は左上・右下の川の端（サイドレーン脇の結晶の岩のそば）に 1 体ずつ。俯瞰画像から読んだ位置を、
+        // 岩（壁）から 300 離れるよう少し川側へ寄せた。
+        add(.neutral, .treasureCrab, Vec2(2220, 8850))
+        add(.neutral, .treasureCrab, Vec2(2220, 8850).mirrored)
 
         // 障害物・草むら: Blue 陣地（西と南のジャングル + 左上の角）を定義し、点対称で Red 半面を作る。
         // 角（左上）の写像が右下の角になる。
         let blueHalfObstacles = standardBlueJungleObstacles + standardCornerObstacles
         let obstacles = blueHalfObstacles + blueHalfObstacles.map(\.mirrored)
 
-        let brushRects = standardBlueBrushes + standardBlueBrushes.map(\.mirrored)
-        let brushes = brushRects.enumerated().map { BrushArea(id: $0.offset, rect: $0.element) }
+        // 草むら: 1 つの草むらを成す矩形には同じ番号（先頭の矩形の id）を振る。
+        var brushes: [BrushArea] = []
+        for rects in standardBlueBushes + standardBlueBushes.map({ $0.map(\.mirrored) }) {
+            let bush = brushes.count
+            for r in rects { brushes.append(BrushArea(id: brushes.count, rect: r, bush: bush)) }
+        }
 
         return MapDefinition(
             size: Balance.mapSize,
@@ -383,24 +420,25 @@ extension MapDefinition {
         )
     }()
 
-    /// Blue 陣地（西と南のジャングル）の壁（48 個 × 2）。ミニマップの暗い塊を抽出して円と矩形で当てはめた
-    /// （`tools/map_proto/fitwalls.mjs`。制約: レーンから 400・キャンプから 330・タワーから 250・Core から 1900・ボスの巣から 1100）。
+    /// Blue 陣地（西と南のジャングル）の壁（47 個 × 2）。ミニマップの暗い塊を抽出して円と矩形で当てはめ
+    /// （`tools/map_proto/fitwalls.mjs`。制約: レーンから 400・キャンプから 330・タワーから 250・Core から 1900・ボスの巣から 1100）、
+    /// MLBB の草むらと重なる所は深さを半分ずつ譲った（`tools/map_proto/resolve_bushes.mjs`）。
     /// Red 側は点対称。`validationIssues` の制約（レーン 350・キャンプ 300・タワー 210）を満たす。
     static let standardBlueJungleObstacles: [Obstacle] = [
         .rect(Rect2(minX: 1400, minY: 3450, maxX: 1750, maxY: 3750)),
         .rect(Rect2(minX: 1400, minY: 7950, maxX: 1900, maxY: 9100)),
-        .rect(Rect2(minX: 1400, minY: 6000, maxX: 1900, maxY: 6500)),
+        .rect(Rect2(minX: 1400, minY: 6110, maxX: 1900, maxY: 6500)),
+        .rect(Rect2(minX: 1400, minY: 4250, maxX: 1940, maxY: 5250)),
         .rect(Rect2(minX: 1400, minY: 3400, maxX: 1950, maxY: 3650)),
-        .rect(Rect2(minX: 1400, minY: 4250, maxX: 2050, maxY: 5250)),
-        .rect(Rect2(minX: 1600, minY: 7150, maxX: 2200, maxY: 7400)),
-        .rect(Rect2(minX: 1400, minY: 8000, maxX: 2450, maxY: 8500)),
+        .rect(Rect2(minX: 1400, minY: 8000, maxX: 2240, maxY: 8500)),
+        .rect(Rect2(minX: 1600, minY: 7150, maxX: 2200, maxY: 7340)),
         .circle(center: Vec2(2030, 4230), radius: 150),
         .rect(Rect2(minX: 1850, minY: 3200, maxX: 2250, maxY: 3450)),
         .circle(center: Vec2(2630, 5330), radius: 100),
         .rect(Rect2(minX: 2600, minY: 7200, maxX: 2900, maxY: 7750)),
-        .rect(Rect2(minX: 2650, minY: 5100, maxX: 3000, maxY: 5400)),
+        .rect(Rect2(minX: 2650, minY: 5190, maxX: 3000, maxY: 5400)),
         .rect(Rect2(minX: 2700, minY: 3900, maxX: 3100, maxY: 4350)),
-        .circle(center: Vec2(2930, 7230), radius: 250),
+        .circle(center: Vec2(2930, 7230), radius: 110),
         .rect(Rect2(minX: 2900, minY: 6100, maxX: 3350, maxY: 6350)),
         .rect(Rect2(minX: 2950, minY: 4200, maxX: 3600, maxY: 4550)),
         .rect(Rect2(minX: 3150, minY: 1150, maxX: 3550, maxY: 2200)),
@@ -408,15 +446,15 @@ extension MapDefinition {
         .rect(Rect2(minX: 3450, minY: 6800, maxX: 3700, maxY: 7100)),
         .circle(center: Vec2(3630, 1330), radius: 200),
         .circle(center: Vec2(3930, 2730), radius: 150),
-        .rect(Rect2(minX: 3900, minY: 4800, maxX: 4200, maxY: 5400)),
-        .circle(center: Vec2(4130, 3030), radius: 350),
-        .rect(Rect2(minX: 4000, minY: 4950, maxX: 4350, maxY: 5600)),
-        .rect(Rect2(minX: 4100, minY: 5450, maxX: 4550, maxY: 5700)),
+        .rect(Rect2(minX: 3900, minY: 4800, maxX: 4200, maxY: 5360)),
+        .circle(center: Vec2(4130, 3030), radius: 200),
+        .rect(Rect2(minX: 4140, minY: 4950, maxX: 4350, maxY: 5600)),
         .circle(center: Vec2(4330, 2130), radius: 300),
         .circle(center: Vec2(4330, 3330), radius: 100),
+        .rect(Rect2(minX: 4120, minY: 5450, maxX: 4550, maxY: 5700)),
         .circle(center: Vec2(4430, 1830), radius: 100),
         .circle(center: Vec2(4530, 6530), radius: 150),
-        .rect(Rect2(minX: 4550, minY: 6200, maxX: 4800, maxY: 6550)),
+        .rect(Rect2(minX: 4550, minY: 6200, maxX: 4800, maxY: 6460)),
         .circle(center: Vec2(4930, 3830), radius: 250),
         .circle(center: Vec2(4930, 6130), radius: 200),
         .rect(Rect2(minX: 5000, minY: 3850, maxX: 5650, maxY: 4450)),
@@ -425,42 +463,71 @@ extension MapDefinition {
         .circle(center: Vec2(6030, 1530), radius: 100),
         .rect(Rect2(minX: 5900, minY: 4950, maxX: 6250, maxY: 5250)),
         .rect(Rect2(minX: 5950, minY: 2350, maxX: 6250, maxY: 2850)),
-        .circle(center: Vec2(6230, 4930), radius: 200),
-        .rect(Rect2(minX: 6200, minY: 4650, maxX: 6550, maxY: 4950)),
-        .rect(Rect2(minX: 6400, minY: 3050, maxX: 6650, maxY: 3650)),
-        .rect(Rect2(minX: 6400, minY: 4500, maxX: 6700, maxY: 4800)),
+        .circle(center: Vec2(6230, 4930), radius: 90),
+        .rect(Rect2(minX: 6200, minY: 4650, maxX: 6550, maxY: 4840)),
+        .rect(Rect2(minX: 6400, minY: 3050, maxX: 6650, maxY: 3580)),
+        .rect(Rect2(minX: 6400, minY: 4500, maxX: 6700, maxY: 4740)),
         .circle(center: Vec2(6730, 4430), radius: 100),
         .rect(Rect2(minX: 6600, minY: 1350, maxX: 7550, maxY: 1750)),
         .rect(Rect2(minX: 6950, minY: 2550, maxX: 7500, maxY: 2800)),
         .rect(Rect2(minX: 8150, minY: 1400, maxX: 9350, maxY: 1650)),
-        .circle(center: Vec2(8930, 2130), radius: 100),
-        .rect(Rect2(minX: 8650, minY: 1400, maxX: 9450, maxY: 2100)),
+        .rect(Rect2(minX: 8650, minY: 1400, maxX: 9450, maxY: 2080)),
     ]
 
     /// 左上の角を 45° に切る壁（円の連なり）。点対称の写像が右下の角になる。
-    /// レーンの斜めの区間（(700,9400)→(2600,11300)）から 550 以上離す。
+    /// MLBB の角の壁の線（斜めのレーン中心 y − x = 8700 から 約 950 外側、y − x = 10000）に円の縁が来るよう置き、
+    /// 最後の 1 つで地図の角との隙間を埋める。レーンとの間に角の草むらが入る。
     static let standardCornerObstacles: [Obstacle] = [
-        .circle(center: Vec2(150, 10450), radius: 500),
-        .circle(center: Vec2(750, 11050), radius: 500),
-        .circle(center: Vec2(250, 11650), radius: 500),
-        .circle(center: Vec2(1350, 11650), radius: 500),
-        .circle(center: Vec2(1900, 12100), radius: 500),
+        .circle(center: Vec2(-350, 10357), radius: 500),
+        .circle(center: Vec2(150, 10857), radius: 500),
+        .circle(center: Vec2(650, 11357), radius: 500),
+        .circle(center: Vec2(1150, 11857), radius: 500),
+        .circle(center: Vec2(1650, 12357), radius: 500),
+        .circle(center: Vec2(100, 11900), radius: 500),
     ]
 
-    /// Blue 陣地の草むら（12 個 × 2）。レーン脇・河川・番人の近く（ミニマップに草むらは出ないので位置は設計）。
-    static let standardBlueBrushes: [Rect2] = [
-        Rect2(minX: 1000, minY: 7600, maxX: 1400, maxY: 8200),
-        Rect2(minX: 1000, minY: 4800, maxX: 1400, maxY: 5400),
-        Rect2(minX: 4900, minY: 7000, maxX: 5300, maxY: 7300),
-        Rect2(minX: 2600, minY: 3100, maxX: 3000, maxY: 3450),
-        Rect2(minX: 1950, minY: 5400, maxX: 2250, maxY: 5750),
-        Rect2(minX: 3700, minY: 6300, maxX: 4100, maxY: 6600),
-        Rect2(minX: 5500, minY: 1000, maxX: 6000, maxY: 1250),
-        Rect2(minX: 8000, minY: 1000, maxX: 8500, maxY: 1250),
-        Rect2(minX: 4550, minY: 2800, maxX: 4850, maxY: 3150),
-        Rect2(minX: 7150, minY: 4350, maxX: 7450, maxY: 4650),
-        Rect2(minX: 5500, minY: 3500, maxX: 5900, maxY: 3800),
-        Rect2(minX: 7800, minY: 2100, maxX: 8200, maxY: 2400),
+    /// Blue 側の草むら（16 か所 × 2、矩形 22 個 × 2）。MLBB の現行マップの俯瞰画像を、タワーの位置で
+    /// 射影変換して真上から見た図にし、背の高い草の範囲を読み取った（`tools/map_proto/bushes_mlbb.mjs`）。
+    /// 斜めや細長い草むらは複数の矩形で近似し、同じ草むらとして扱う。Red 側は点対称。
+    static let standardBlueBushes: [[Rect2]] = [
+        // 左レーン外側
+        [Rect2(minX: 100, minY: 7200, maxX: 540, maxY: 7950)],
+        // 下レーン外側
+        [Rect2(minX: 7000, minY: 200, maxX: 8000, maxY: 550)],
+        // 右下の角（斜めの帯）
+        [Rect2(minX: 9875, minY: 275, maxX: 10325, maxY: 725),
+         Rect2(minX: 10325, minY: 725, maxX: 10775, maxY: 1175),
+         Rect2(minX: 10775, minY: 1175, maxX: 11225, maxY: 1625),
+         Rect2(minX: 11225, minY: 1625, maxX: 11675, maxY: 2075)],
+        // 紅焔の番人の下
+        [Rect2(minX: 5400, minY: 1720, maxX: 6250, maxY: 2150)],
+        // 祠の右
+        [Rect2(minX: 4350, minY: 2600, maxX: 4650, maxY: 3050)],
+        // 竜の巣の西岸
+        [Rect2(minX: 6420, minY: 3610, maxX: 6800, maxY: 3920)],
+        // 熾甲虫の右
+        [Rect2(minX: 7800, minY: 1750, maxX: 8300, maxY: 2350)],
+        // 環状の岩の上
+        [Rect2(minX: 8750, minY: 2100, maxX: 9750, maxY: 2450)],
+        // 宝殻蟹（上）の右
+        [Rect2(minX: 1850, minY: 7360, maxX: 2450, maxY: 7900),
+         Rect2(minX: 2260, minY: 7900, maxX: 2550, maxY: 8500)],
+        // 棘角トカゲの岩の右
+        [Rect2(minX: 1600, minY: 5700, maxX: 2100, maxY: 6090)],
+        // 左下の岩の右
+        [Rect2(minX: 1960, minY: 4390, maxX: 2330, maxY: 4750)],
+        // 蒼晶の番人の下
+        [Rect2(minX: 2800, minY: 4840, maxX: 3400, maxY: 5170)],
+        // 巨像の池の西岸
+        [Rect2(minX: 2850, minY: 6800, maxX: 3300, maxY: 7110)],
+        // 蒼晶の番人の右
+        [Rect2(minX: 3700, minY: 5390, maxX: 4090, maxY: 6000)],
+        // 中央の帯（北西側）
+        [Rect2(minX: 4690, minY: 6490, maxX: 4980, maxY: 6850),
+         Rect2(minX: 4980, minY: 6650, maxX: 5410, maxY: 7100),
+         Rect2(minX: 5410, minY: 6900, maxX: 5670, maxY: 7130)],
+        // 川の中の草むら（巨像の側）
+        [Rect2(minX: 4380, minY: 7440, maxX: 4770, maxY: 7870)],
     ]
 }
 

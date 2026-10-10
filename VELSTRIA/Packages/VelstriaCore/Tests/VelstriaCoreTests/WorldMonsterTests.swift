@@ -62,10 +62,11 @@ final class WorldMonsterTests: XCTestCase {
 
     func testWholeCampRespondsTogether() {
         var (s, ctx) = makeJungle()
-        let camp = ctx.map.camps.first { $0.kind == .small && $0.side == .blue }!
+        // 紫バフのキャンプ（蒼晶の番人 + 仔）
+        let camp = ctx.map.camps.first { $0.kind == .blueSentinel && $0.side == .blue }!
         let members = s.units.indices.filter { s.units[$0].monster?.campID == camp.id }
-        XCTAssertEqual(members.count, 3)
-        let large = members.first { s.units[$0].monster?.kind == .campLarge }!
+        XCTAssertEqual(members.count, 2)
+        let large = members.first { s.units[$0].monster?.kind == .blueSentinel }!
         let hero = Kit.addHero(&s, ctx, team: .blue, pos: camp.pos + Vec2(0, -350))
         CombatSystem.applyDamage(&s, ctx, sourceID: s.units[hero].id, targetIndex: large, amount: 50,
                                  type: .physical, source: .basicAttack)
@@ -289,8 +290,8 @@ final class WorldMonsterTests: XCTestCase {
         XCTAssertEqual(hit(.spell), 100, accuracy: 1e-6, "狩猟印などのバトルスペルは軽減されない")
         for k in 0..<3 { Kit.addHero(&s, ctx, team: .blue, pos: pos + Vec2(0, -300 - Double(k) * 50)) }
         XCTAssertEqual(hit(), 40, accuracy: 1e-6, "最大 −60%")
-        // 通常のキャンプは対象外
-        let camp = s.units.indices.first { s.units[$0].monster?.kind == .campLarge }!
+        // 通常のキャンプ（小キャンプの主）は対象外
+        let camp = s.units.indices.first { s.units[$0].monster?.kind == .hornLizard }!
         let before = s.units[camp].hp
         CombatSystem.applyDamage(&s, ctx, sourceID: s.units[h1].id, targetIndex: camp, amount: 100,
                                  type: .trueDamage, source: .basicAttack)

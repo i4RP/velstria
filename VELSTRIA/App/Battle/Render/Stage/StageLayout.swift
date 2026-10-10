@@ -367,7 +367,7 @@ struct StageLayout {
                 pitRuins(center: c)
             case .blueSentinel, .redSentinel:
                 runeDisc(center: c, radius: 2.5, rotation: Float(camp.id) * 0.7)
-            case .small:
+            case .small, .hornLizard, .emberBeetle, .magmaGolem, .treasureCrab, .mossWanderer:
                 break
             }
         }
@@ -436,7 +436,7 @@ struct StageLayout {
         for team in Team.players {
             if simd_distance(p, geo.m(map.fountain(team))) < 10.5 || simd_distance(p, geo.m(map.core(team))) < 15 { return false }
         }
-        for c in map.camps where simd_distance(p, geo.m(c.pos)) < (c.kind == .small ? 3.6 : 8.6) { return false }
+        for c in map.camps where simd_distance(p, geo.m(c.pos)) < (c.kind.isSentinel || c.kind.isBoss ? 8.6 : 3.6) { return false }
         for t in map.towers where simd_distance(p, geo.m(t.pos)) < 3.4 { return false }
         return true
     }
@@ -591,8 +591,16 @@ struct StageLayout {
 
     // MARK: 草むら
 
+    /// 地図全体の草の房の上限（房 = 葉 5〜7 枚 × 4 三角形 → 最大 約 8.4 万三角形。StageTests の予算 9 万）。
+    static let maxBrushClumps: Float = 3000
+
     mutating func brushFields() {
-        let step: Float = level == .low ? 0.55 : 0.45
+        // MLBB の草むらは広い（総面積 約 940 m²）ので、房の間隔を総面積に合わせて広げ、三角形数を予算内に収める
+        let total = map.brushes.reduce(Float(0)) { acc, b in
+            let lo = geo.m(Vec2(b.rect.minX, b.rect.minY)), hi = geo.m(Vec2(b.rect.maxX, b.rect.maxY))
+            return acc + abs((hi.x - lo.x) * (hi.y - lo.y))
+        }
+        let step: Float = max(level == .low ? 0.55 : 0.45, (total / StageLayout.maxBrushClumps).squareRoot())
         for b in map.brushes {
             let lo = geo.m(Vec2(b.rect.minX, b.rect.minY)), hi = geo.m(Vec2(b.rect.maxX, b.rect.maxY))
             let center = (lo + hi) / 2
@@ -634,8 +642,9 @@ struct StageLayout {
             let dark = SIMD3<Float>(0.04, 0.14, 0.06)
             let mid = SIMD3<Float>(0.1, 0.33, 0.13)
             let tip: SIMD3<Float> = yellow ? SIMD3(0.62, 0.66, 0.26) : SIMD3(0.36 + hueShift, 0.62, 0.22)
+            // 1 段（根元と先だけ）の葉。草むらが広いので 1 枚あたりの三角形を抑える
             buf.blade(base: root, direction: dir, side: side, height: h, width: rng.range(0.1, 0.15), bend: rng.range(0.08, 0.24),
-                      segments: 2) { t in
+                      segments: 1) { t in
                 let c = t < 0.5 ? dark + (mid - dark) * (t * 2) : mid + (tip - mid) * ((t - 0.5) * 2)
                 return stageColor(c.x, c.y, c.z, t)
             }

@@ -42,9 +42,10 @@ enum StageSplat {
         for c in map.camps {
             let p = geo.m(c.pos)
             switch c.kind {
-            case .small: dirt.stampDisc(p, inner: 0.9, outer: 2.3, wobble: 0.8, seed: 23)
+            case .small, .hornLizard, .emberBeetle, .magmaGolem: dirt.stampDisc(p, inner: 0.9, outer: 2.3, wobble: 0.8, seed: 23)
             case .blueSentinel, .redSentinel: dirt.stampDisc(p, inner: 2.4, outer: 3.3, wobble: 0.5, seed: 29)
-            case .astralWyrm, .ancientColossus: break
+            // 川の中立・宝殻蟹・ボスは土の空き地を作らない（川・祭壇の床）
+            case .astralWyrm, .ancientColossus, .treasureCrab, .mossWanderer: break
             }
         }
         // 石畳: 拠点（泉・Core・参道）、タワーの台座、祭壇
@@ -62,7 +63,7 @@ enum StageSplat {
             switch c.kind {
             case .astralWyrm, .ancientColossus: pave.stampDisc(p, inner: 7.0, outer: 8.2, wobble: 0.6, seed: 47)
             case .blueSentinel, .redSentinel: pave.stampDisc(p, inner: 2.6, outer: 3.2, wobble: 0.3, seed: 53)
-            case .small: break
+            case .small, .hornLizard, .emberBeetle, .magmaGolem, .treasureCrab, .mossWanderer: break
             }
         }
         // 川（祭壇の床では途切れる）

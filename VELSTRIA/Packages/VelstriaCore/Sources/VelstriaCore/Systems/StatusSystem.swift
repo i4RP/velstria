@@ -93,10 +93,8 @@ public enum StatusModifiers {
             case .healReduction: healCut = max(healCut, st.magnitude)
             // 威嚇（上古の鎧）は物理ダメージだけを下げる（ItemEffects.outgoingDamageBonus）
             case .damageDealtReduction where st.tag != ItemEffects.deterTag: dealtCut = max(dealtCut, st.magnitude)
-            case .blueBuff:
-                stats.cooldownReduction += Balance.combatBlueBuffCooldownReduction
-                stats.resourceRegen += Balance.combatBlueBuffResourceRegen
-            case .wyrmBlessing: stats.damageBonus += Balance.combatWyrmBlessingDamageBonus
+            // 紫バフの消費軽減・赤バフ・星喰竜の加護・苔草は JungleBuffs（消費・追撃・位置やシールドに依存する補正）
+            case .blueBuff: stats.cooldownReduction += Balance.Jungle.purpleCooldownReduction
             case .colossusBlessing: stats.damageBonus += Balance.combatColossusBlessingDamageBonus
             case .lifestealBoost: stats.lifesteal += st.magnitude
             case .spellVampBoost: stats.spellVamp += st.magnitude

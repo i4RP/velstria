@@ -48,6 +48,8 @@ public enum EconomySystem {
                                          type: .trueDamage, source: .fountain)
             }
         }
+        // ジャングルのバフ: 宝殻蟹の Gold・苔草の Mana 回復・星喰竜の加護のシールドの張り直し
+        JungleBuffs.update(&s, ctx)
     }
 
     /// 戦闘中か（直近 combatTimeout 秒以内に敵ヒーロー/タワーと交戦）。HUD・移動速度補正が参照。

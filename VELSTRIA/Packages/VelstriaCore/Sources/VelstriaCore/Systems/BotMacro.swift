@@ -33,7 +33,11 @@ enum BotMacro {
         let groupPhase = t >= profile.groupStart
         let retryAt = s.bots.teams[team.rawValue].objectiveRetryAt
         let center = centroid(s, aliveBots)
-        let blessedDuo = aliveBots.filter { s.units[$0].has(.wyrmBlessing) && s.units[$0].hero?.position != .jungle }
+        // 星喰竜の直後（撃破者の加護か、味方への一度きりのシールドが残っている）
+        let blessedDuo = aliveBots.filter { i in
+            (s.units[i].has(.wyrmBlessing) || s.units[i].shields.contains { $0.tag == JungleBuffs.wyrmAllyShieldTag })
+                && s.units[i].hero?.position != .jungle
+        }
 
         // 1. 防衛: 敵ヒーローが自軍構造物を攻めている（直前の防衛は少し続けて行ったり来たりを防ぐ）。
         //    集団期に自分たちの押し込みが進んでいる時は、外塔・内塔は取り合いにして押し切りを優先する

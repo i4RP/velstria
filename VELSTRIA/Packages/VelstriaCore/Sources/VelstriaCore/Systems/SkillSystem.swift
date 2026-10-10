@@ -329,7 +329,9 @@ public enum SkillSystem {
            !kit.canStart(s, ctx, caster: i, slot: slot) { return nil }
         guard free || recasting || h.cooldown(slot) <= CombatSystem.timeEpsilon else { return nil }
         let cost = free || recasting ? 0 : cost(for: skill, hero: def, rank: rank, resource: h.resourceKind)
-        guard s.units[i].resource + 1e-9 >= cost else { return nil }
+        // 紫バフ: 消費 Mana −60% / Energy −25%
+        let paid = cost * JungleBuffs.skillCostMultiplier(s.units[i])
+        guard s.units[i].resource + 1e-9 >= paid else { return nil }
         // ルート中は突進・跳躍できない（ブリンクは可）
         if s.units[i].has(.root) {
             switch SkillCatalog.activeTargeting(s, caster: i, slot: slot, skill: skill, hero: def).archetype {
@@ -337,7 +339,7 @@ public enum SkillSystem {
             default: break
             }
         }
-        return SkillCastCheck(def: def, skill: skill, slot: slot, rank: rank, cost: cost, free: free)
+        return SkillCastCheck(def: def, skill: skill, slot: slot, rank: rank, cost: paid, free: free)
     }
 
     /// CD 進行・パッシブのタイマー。

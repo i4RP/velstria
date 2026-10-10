@@ -68,6 +68,8 @@ public enum DeathSystem {
             case .dummy:
                 break
             }
+            // 紫バフ: 敵を倒したヒーローの回復
+            JungleBuffs.onKill(&s, ctx, victimIndex: v, killerID: d.killerID)
         }
     }
 
@@ -325,29 +327,54 @@ public enum DeathSystem {
             }
         }
 
+        let monsterID = s.units[v].id
+        let shareXP = { (s: inout SimState) in
+            HeroGrowth.shareXP(&s, ctx, team: team, around: pos, amount: Balance.Economy.monsterXP(md.kind),
+                               isMonster: true)
+        }
         switch md.kind {
-        case .campLarge, .campSmall:
-            HeroGrowth.shareXP(&s, ctx, team: team, around: pos, amount: Balance.Economy.monsterXP(md.kind),
-                               isMonster: true)
+        case .campLarge, .campSmall, .emberGrub:
+            shareXP(&s)
+        case .hornLizard, .magmaGolem, .emberBeetle, .azureWhelp:
+            shareXP(&s)
+            // 回復バフ（350 HP + 最大 Mana の 5%）
+            if let kh = killerHero { JungleBuffs.grantHealingBuff(&s, ctx, heroIndex: kh) }
+            // 熾甲虫は倒すと幼体になって少しの間残る（同じキャンプ扱い。幼体が消えるまで再出現の待ちに入らない）
+            if md.kind == .emberBeetle {
+                var grub = UnitFactory.makeMonster(kind: .emberGrub, campID: md.campID, pos: pos)
+                grub.monster?.home = md.home
+                grub.monster?.expiresAt = s.time + Balance.Jungle.grubLifetime
+                grub.facing = s.units[v].facing
+                s.addUnit(grub)
+            }
         case .blueSentinel, .redSentinel:
-            HeroGrowth.shareXP(&s, ctx, team: team, around: pos, amount: Balance.Economy.monsterXP(md.kind),
-                               isMonster: true)
+            shareXP(&s)
             if let kh = killerHero {
                 s.units[kh].hero?.score.objectivesTaken += 1
-                let kind: StatusKind = md.kind == .blueSentinel ? .blueBuff : .redBuff
-                let d = Balance.Economy.sentinelBuffDuration
-                CombatSystem.addStatus(&s, targetIndex: kh,
-                                       StatusEffect(kind: kind, duration: d, sourceID: s.units[v].id, tag: "sentinel"))
+                let buff = md.kind == .blueSentinel
+                    ? StatusEffect(kind: .blueBuff, duration: Balance.Economy.sentinelBuffDuration, sourceID: monsterID,
+                                   tag: "sentinel")
+                    : JungleBuffs.redBuff(for: s.units[kh], sourceID: monsterID)
+                CombatSystem.addStatus(&s, targetIndex: kh, buff)
             }
             s.emit(.objectiveTaken(kind: md.kind, team: team, killerID: killerID))
+        case .treasureCrab, .crablet:
+            shareXP(&s)
+            if let kh = killerHero {
+                let crab = md.kind == .treasureCrab
+                JungleBuffs.grantGoldBuff(&s, heroIndex: kh,
+                                          total: crab ? Balance.Jungle.crabGoldBuffTotal : Balance.Jungle.crabletGoldBuffTotal,
+                                          duration: crab ? Balance.Jungle.crabGoldBuffDuration : Balance.Jungle.crabletGoldBuffDuration,
+                                          sourceID: monsterID)
+            }
+        case .mossWanderer:
+            shareXP(&s)
+            JungleBuffs.wandererReward(&s, ctx, killer: killerHero, team: team, at: pos, sourceID: monsterID)
         case .astralWyrm:
+            let kills = s.teams[team.rawValue].wyrmKills
             s.teams[team.rawValue].wyrmKills += 1
             if let kh = killerHero { s.units[kh].hero?.score.objectivesTaken += 1 }
-            teamObjectiveReward(&s, ctx, team: team, gold: Balance.Economy.wyrmTeamGold,
-                                xp: Balance.Economy.wyrmTeamXP,
-                                blessing: StatusEffect(kind: .wyrmBlessing, duration: Balance.Economy.wyrmBlessingDuration,
-                                                       magnitude: Balance.Economy.wyrmBlessingDamageBonus,
-                                                       sourceID: s.units[v].id, tag: "wyrm"))
+            JungleBuffs.wyrmReward(&s, ctx, team: team, killer: killerHero, kills: kills, sourceID: monsterID)
             s.emit(.objectiveTaken(kind: md.kind, team: team, killerID: killerID))
             s.emit(.announcement(.wyrmSlain(team: team)))
         case .ancientColossus:

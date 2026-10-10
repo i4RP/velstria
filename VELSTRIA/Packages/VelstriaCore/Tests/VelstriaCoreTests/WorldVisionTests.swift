@@ -12,9 +12,9 @@ final class WorldVisionTests: XCTestCase {
         return (s, ctx)
     }
 
-    /// 構造物から遠い草むら（Blue 南ジャングルの「亀の巣の南」）。
+    /// 構造物から遠い草むら（Blue 南ジャングルの「熾甲虫の右」）。
     var jungleBrush: BrushArea {
-        MapDefinition.standard.brushes.first { $0.rect == Rect2(minX: 7800, minY: 2100, maxX: 8200, maxY: 2400) }!
+        MapDefinition.standard.brushes.first { $0.rect == Rect2(minX: 7800, minY: 1750, maxX: 8300, maxY: 2350) }!
     }
 
     func testGridShapeAndFountainVision() {

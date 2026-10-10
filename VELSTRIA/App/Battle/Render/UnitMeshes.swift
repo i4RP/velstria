@@ -278,11 +278,20 @@ final class UnitMeshLibrary {
         var pivot = SIMD3<Float>.zero
         var mirror = false
         switch kind {
-        case .campLarge, .campSmall:
-            // 結晶を背負う四足獣
-            let large = kind == .campLarge
-            let fur: Swatch = large ? .beastPurple : .furBrown
-            let crystal: Ramp = large ? .crystalPurple : .crystalBlue
+        case .campLarge, .campSmall, .azureWhelp, .hornLizard, .emberBeetle, .emberGrub, .treasureCrab, .crablet,
+             .mossWanderer:
+            // 結晶を背負う四足獣（種類ごとに毛色と背の結晶の色を変える。大きさは UnitVisuals の scale）
+            let fur: Swatch
+            let crystal: Ramp
+            switch kind {
+            case .campLarge: fur = .beastPurple; crystal = .crystalPurple
+            case .azureWhelp: fur = .furGrey; crystal = .crystalBlue
+            case .hornLizard: fur = .leafTeal; crystal = .crystalPurple
+            case .emberBeetle, .emberGrub: fur = .redDark; crystal = .crystalRed
+            case .treasureCrab, .crablet: fur = .sand; crystal = .crystalGold
+            case .mossWanderer: fur = .moss; crystal = .canopyTeal
+            default: fur = .furBrown; crystal = .crystalBlue
+            }
             body.sphere(radius: 1, segments: 10, rings: 7, color: .solid(fur), transform: MX.t(0, 0.72, 0.05) * MX.s(0.5, 0.42, 0.78))
             body.sphere(radius: 1, segments: 8, rings: 5, color: .solid(.beastBelly), transform: MX.t(0, 0.6, 0.05) * MX.s(0.4, 0.3, 0.62))
             for (x, z) in [(Float(-0.3), Float(-0.45)), (0.3, -0.45), (-0.3, 0.5), (0.3, 0.5)] {
@@ -305,11 +314,12 @@ final class UnitMeshLibrary {
                              color: .ramp(crystal, from: 0.3, to: 1),
                              transform: MX.t(0, 1.0 - abs(z) * 0.2, z) * MX.rz(Float(k % 2 == 0 ? 0.25 : -0.25)))
             }
-        case .blueSentinel, .redSentinel, .ancientColossus:
+        case .blueSentinel, .redSentinel, .ancientColossus, .magmaGolem:
             let colossus = kind == .ancientColossus
             let stone: Ramp = colossus ? .colossus : .rock
             let coreRamp: Ramp = colossus ? .crystalGold : (kind == .blueSentinel ? .crystalBlue : .crystalRed)
-            let rune: Swatch = colossus ? .glowGold : (kind == .blueSentinel ? .glowBlue : .glowRed)
+            let rune: Swatch = colossus ? .glowGold : (kind == .blueSentinel ? .glowBlue
+                : (kind == .magmaGolem ? .glowOrange : .glowRed))
             // 脚
             for s: Float in [-1, 1] {
                 body.frustum(bottomRadius: 0.24, topRadius: 0.3, height: 0.75, segments: 6, color: .ramp(stone, from: 0.1, to: 0.6),

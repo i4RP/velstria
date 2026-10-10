@@ -23,6 +23,7 @@ export const blueCamps = layout.blueCamps;
 export const redCamps = layout.redCamps;
 export const bosses = layout.bosses;
 export const riverCamp = layout.riverCamp;
+export const crabs = layout.crabs ?? [];
 
 const shapes = JSON.parse(fs.readFileSync(new URL(process.env.SHAPES || './shapes.json', import.meta.url)));
 const toOb = (s) => s.t === 'R' ? R(...s.v) : C(...s.v);
@@ -84,6 +85,7 @@ export function allCamps() {
   out.push({ side: 'neutral', kind: 'wyrm', p: bosses.wyrm });
   out.push({ side: 'neutral', kind: 'colossus', p: bosses.colossus });
   out.push({ side: 'neutral', kind: 'river', p: riverCamp });
+  for (const p of crabs) out.push({ side: 'neutral', kind: 'crab', p });
   return out;
 }
 
@@ -200,7 +202,7 @@ export function render(file, scale = 14) { // 1 px = scale units
   }
   const dot = (p, r, c) => { const cx = Math.round(p[0] / scale), cy = Math.round((S - p[1]) / scale); for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (dx * dx + dy * dy <= r * r) put(cx + dx, cy + dy, c); };
   for (const t of allTowers()) dot(t.p, 6, t.team === 'blue' ? [60, 140, 255] : [255, 80, 80]);
-  for (const c of allCamps()) dot(c.p, c.kind === 'wyrm' || c.kind === 'colossus' ? 12 : 5, c.kind.includes('Sentinel') ? [230, 60, 220] : c.kind === 'river' ? [80, 220, 255] : c.kind === 'small' ? [90, 220, 90] : [255, 100, 255]);
+  for (const c of allCamps()) dot(c.p, c.kind === 'wyrm' || c.kind === 'colossus' ? 12 : 5, c.kind.includes('Sentinel') ? [230, 60, 220] : c.kind === 'river' ? [80, 220, 255] : c.kind === 'crab' ? [240, 200, 60] : ['hornLizard', 'magmaGolem', 'emberBeetle', 'small'].includes(c.kind) ? [90, 220, 90] : [255, 100, 255]);
   dot(blueCore, 9, [40, 100, 255]); dot(redCore, 9, [255, 40, 40]);
   fs.writeFileSync(file, png(W, W, buf));
 }

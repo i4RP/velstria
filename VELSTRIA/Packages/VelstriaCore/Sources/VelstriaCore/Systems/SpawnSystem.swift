@@ -111,15 +111,36 @@ public enum SpawnSystem {
     // MARK: - 中立キャンプ
 
     /// キャンプの構成（モンスター種別と、キャンプ中心からの配置オフセット）。
+    /// 宝殻蟹は 3:00 までは子（`crablet`）が出る（`campMembers(_:time:)`）。
     public static func campMembers(_ kind: CampKind) -> [(kind: MonsterKind, offset: Vec2)] {
         switch kind {
         case .small:
             return [(.campLarge, Vec2(0, 0)), (.campSmall, Vec2(-170, 150)), (.campSmall, Vec2(170, -150))]
-        case .blueSentinel: return [(.blueSentinel, .zero)]
+        // 紫バフは大小 2 体（MLBB の雷狼の親子）
+        case .blueSentinel: return [(.blueSentinel, .zero), (.azureWhelp, Vec2(-190, 170))]
         case .redSentinel: return [(.redSentinel, .zero)]
         case .astralWyrm: return [(.astralWyrm, .zero)]
         case .ancientColossus: return [(.ancientColossus, .zero)]
+        case .hornLizard: return [(.hornLizard, .zero)]
+        case .emberBeetle: return [(.emberBeetle, .zero)]
+        case .magmaGolem: return [(.magmaGolem, .zero)]
+        case .treasureCrab: return [(.treasureCrab, .zero)]
+        case .mossWanderer: return [(.mossWanderer, .zero)]
         }
+    }
+
+    /// 出現時刻での構成（宝殻蟹は 3:00 より前なら子）。
+    static func campMembers(_ kind: CampKind, time: Double) -> [(kind: MonsterKind, offset: Vec2)] {
+        if kind == .treasureCrab, time + timeEpsilon < Balance.Jungle.crabUpgradeTime { return [(.crablet, .zero)] }
+        return campMembers(kind)
+    }
+
+    /// 全滅後の再出現時刻。宝殻蟹は 3:00 まで子が 20 秒ごと（3:00 を越える分は 3:00 に親が出る）、以後は親の周期。
+    static func nextSpawn(_ camp: CampSpot, now: Double) -> Double {
+        guard camp.kind == .treasureCrab else { return now + camp.respawn }
+        let upgrade = Balance.Jungle.crabUpgradeTime
+        if now + timeEpsilon < upgrade { return min(now + Balance.Jungle.crabletRespawn, upgrade) }
+        return now + camp.respawn
     }
 
     /// 全滅したキャンプに再出現時刻を設定し、時刻が来たキャンプを出現させる。
@@ -132,6 +153,19 @@ public enum SpawnSystem {
         for u in s.units where u.kind == .monster && u.isAlive {
             if let c = u.monster?.campID, c >= 0, c < alive.count { alive[c] += 1 }
         }
+        // 3:00: 生き残っている宝殻蟹の子を親に替える（子は報酬なしで消す）
+        let upgrade = Balance.Jungle.crabUpgradeTime
+        if s.time + timeEpsilon >= upgrade, s.time - Balance.dt + timeEpsilon < upgrade {
+            for i in s.units.indices where s.units[i].kind == .monster && s.units[i].isAlive
+                && s.units[i].monster?.kind == .crablet {
+                s.units[i].isAlive = false
+                s.units[i].hp = 0
+                if let c = s.units[i].monster?.campID, c >= 0, c < alive.count {
+                    alive[c] -= 1
+                    if alive[c] == 0 { s.world.campRespawnAt[c] = s.time }
+                }
+            }
+        }
         for (k, camp) in camps.enumerated() {
             if let at = s.world.campRespawnAt[k] {
                 if s.time + timeEpsilon >= at {
@@ -141,7 +175,7 @@ public enum SpawnSystem {
             } else if alive[k] == 0 {
                 // 序盤ボスは 6:00 以降に倒されると再出現しない
                 if camp.kind == .astralWyrm, s.time >= Balance.wyrmNoRespawnAfter { continue }
-                s.world.campRespawnAt[k] = s.time + camp.respawn
+                s.world.campRespawnAt[k] = nextSpawn(camp, now: s.time)
             }
         }
     }
@@ -149,7 +183,7 @@ public enum SpawnSystem {
     static func spawnCamp(_ s: inout SimState, _ ctx: SimContext, camp: CampSpot) {
         // 配置オフセットは Red 側で点対称に反転する（マップの対称性を保つ）
         let flip: Double = camp.side == .red ? -1 : 1
-        for member in campMembers(camp.kind) {
+        for member in campMembers(camp.kind, time: s.time) {
             let pos = ctx.nav.nearestWalkable(camp.pos + member.offset * flip,
                                               radius: UnitFactory.monsterProfile(member.kind).radius)
             var u = UnitFactory.makeMonster(kind: member.kind, campID: camp.id, pos: pos)
@@ -317,9 +351,42 @@ public enum UnitFactory {
         case .campSmall:
             return MonsterProfile(maxHP: 400, attack: 20, attackInterval: 1.2, armor: 15, magicResist: 15,
                                   radius: 50, attackRange: 110, moveSpeed: 260, isBoss: false)
-        case .blueSentinel, .redSentinel:
+        // ジャングル: MLBB の各モンスターの HP・攻撃を、紅焔の番人（MLBB 4941 HP / 攻撃 214）との比で
+        // こちらの番人（2200 / 65）へ換算した（DESIGN §4）。
+        case .redSentinel:
             return MonsterProfile(maxHP: 2200, attack: 65, attackInterval: 1.2, armor: 25, magicResist: 25,
                                   radius: 110, attackRange: 150, moveSpeed: 250, isBoss: false)
+        case .blueSentinel:
+            // MLBB の雷狼（親 4090 HP）。仔と合わせて紅焔の番人と同じくらいの手間
+            return MonsterProfile(maxHP: 1800, attack: 65, attackInterval: 1.2, armor: 25, magicResist: 15,
+                                  radius: 110, attackRange: 150, moveSpeed: 250, isBoss: false)
+        case .azureWhelp:
+            // 仔: HP は低いが攻撃が速い
+            return MonsterProfile(maxHP: 450, attack: 30, attackInterval: 0.8, armor: 15, magicResist: 0,
+                                  radius: 60, attackRange: 120, moveSpeed: 270, isBoss: false)
+        case .hornLizard:
+            // 遠隔（舌の攻撃）。HP が半分を切ると硬くなる（MonsterSystem）
+            return MonsterProfile(maxHP: 1350, attack: 34, attackInterval: 1.0, armor: 15, magicResist: 15,
+                                  radius: 80, attackRange: 400, moveSpeed: 250, isBoss: false)
+        case .emberBeetle:
+            return MonsterProfile(maxHP: 1100, attack: 35, attackInterval: 1.0, armor: 15, magicResist: 15,
+                                  radius: 80, attackRange: 130, moveSpeed: 260, isBoss: false)
+        case .emberGrub:
+            return MonsterProfile(maxHP: 300, attack: 18, attackInterval: 1.0, armor: 10, magicResist: 10,
+                                  radius: 50, attackRange: 110, moveSpeed: 270, isBoss: false)
+        case .magmaGolem:
+            return MonsterProfile(maxHP: 1350, attack: 47, attackInterval: 1.0, armor: 15, magicResist: 15,
+                                  radius: 95, attackRange: 140, moveSpeed: 240, isBoss: false)
+        case .treasureCrab:
+            return MonsterProfile(maxHP: 1600, attack: 17, attackInterval: 1.0, armor: 15, magicResist: 15,
+                                  radius: 85, attackRange: 130, moveSpeed: 250, isBoss: false)
+        case .crablet:
+            return MonsterProfile(maxHP: 650, attack: 10, attackInterval: 1.0, armor: 10, magicResist: 10,
+                                  radius: 55, attackRange: 110, moveSpeed: 260, isBoss: false)
+        case .mossWanderer:
+            // 反撃しない（攻撃 0）。物理に硬く魔法に弱い（MLBB: 物防 60・魔防 0）
+            return MonsterProfile(maxHP: 1000, attack: 0, attackInterval: 1.0, armor: 40, magicResist: 0,
+                                  radius: 75, attackRange: 100, moveSpeed: 220, isBoss: false)
         case .astralWyrm:
             return MonsterProfile(maxHP: 5500, attack: 120, attackInterval: 1.5, armor: 40, magicResist: 40,
                                   radius: 180, attackRange: 175, moveSpeed: 230, isBoss: true)
