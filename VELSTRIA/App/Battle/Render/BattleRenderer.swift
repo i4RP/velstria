@@ -253,7 +253,12 @@ final class BattleRenderer {
             } else if !(await StagePrep.ready(map: map, quality: quality)) {
                 image = await GroundTextureCache.image(map: map, size: size, colorblind: colorblind)
             }
+            // 構造物・ミニオンの生成モデル（読めなかった種類は手続きメッシュのまま）
+            let s0 = CACurrentMediaTime()
+            await StructureAssets.load()
+            let structureMs = (CACurrentMediaTime() - s0) * 1000
             guard let self, !Task.isCancelled else { return }
+            self.note(String(format: "structure models %d, waited %.0f ms", StructureAssets.loadedModels.count, structureMs))
             self.note(String(format: "ground %@ (%d²), waited %.0f ms", state, size, (CACurrentMediaTime() - t0) * 1000))
             self.buildWorld(groundImage: image)
         }

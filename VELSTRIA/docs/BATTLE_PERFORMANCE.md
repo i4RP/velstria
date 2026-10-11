@@ -32,6 +32,7 @@
 | キャラ | `HeroModelTests` / `SkinnedHeroModelTests` の三角形・Entity 予算 |
 | スキル | `SkillFXTests` の全レシピ・粒子・寿命・live 生成予算 |
 | 地形 | `StageTests` の結合・配置・三角形予算 |
+| 構造物・ミニオン | `StructureAssetsTests` の三角形（塔・Core 台座 6k、結晶・ミニオン 2.5k）・テクスチャ（1024 / ミニオン 512 px）予算。超過したアセットは読み込まず手続きメッシュに戻す |
 | 戦闘中の生成 | `PerfReport.ledger.live` とサンプルを確認。新しい生成の増加は要修正 |
 
 計測は同一端末、Release、同じ seed・画質・速度・時間で比較する。最低 65 秒、集団戦や後半は

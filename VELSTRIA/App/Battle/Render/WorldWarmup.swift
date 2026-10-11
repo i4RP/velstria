@@ -186,6 +186,10 @@ extension BattleWorld {
         // メッシュ全て（GPU への転送を幕の裏で済ませる）
         for m in meshes.builtMeshes { g.addModel(m, material: materials.lit, faded: false) }
         for m in units.structureMeshList { g.addModel(m, material: materials.glow, faded: false) }
+        // 構造物・ミニオンの生成モデル（チーム別の材質。塔は隠す時・ミニオンは死亡時に半透明になる）
+        for model in StructureAssets.loadedModels {
+            for team in Team.players { g.addModel(model.mesh, material: model.material(team), faded: true) }
+        }
         let textMaterial = materials.unlit(RGB(1, 0.94, 0.72), alpha: 1, depthTest: false)
         for m in text.builtMeshes { g.addModel(m, material: textMaterial, size: 0.3, faded: false) }
         // スキル演出の材質（画像 × 色）全てと形全て

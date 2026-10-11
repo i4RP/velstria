@@ -375,6 +375,8 @@ final class CreatureVisual {
     private var idlePhase: Float = 0
     private(set) var dyingT: Float?
     private var opacityApplied: Float = 1
+    /// 生成 3D モデルで表示しているか（テスト用）。
+    private(set) var isGenerated = false
 
     init(key: CreatureKey, meshes: UnitMeshLibrary, materials: RenderMaterials, text: TextMeshCache) {
         self.key = key
@@ -384,9 +386,16 @@ final class CreatureVisual {
         let pm: PartMeshes
         var barColor = OverheadBar.monsterFill
         var barStyle: OverheadBar.Style = .monster(boss: false)
+        /// 生成 3D モデル（StructureAssets。読み込み済みのミニオンのみ）。部位を分けない 1 メッシュで、揺れ・傾き・突進で動かす。
+        var generated: ModelEntity?
         switch key {
         case .minion(let type, let team):
-            pm = meshes.minion(type, team: team)
+            if let model = StructureAssets.model(.minion(type)) {
+                generated = model.makeEntity(team: team)
+                pm = PartMeshes()
+            } else {
+                pm = meshes.minion(type, team: team)
+            }
             scale = 1
             headHeight = type == .siege ? 1.45 : 1.25
             barColor = materials.teams.main(team)
@@ -411,6 +420,8 @@ final class CreatureVisual {
             barStyle = .minion
         }
         body.scale = SIMD3(repeating: scale)
+        if let generated { body.addChild(generated) }
+        isGenerated = generated != nil
         if let m = pm.body { body.addChild(ModelEntity(mesh: m, materials: [materials.lit])) }
         if let m = pm.bodyGlow { body.addChild(ModelEntity(mesh: m, materials: [materials.glow])) }
         if case .monster(.astralWyrm) = key {

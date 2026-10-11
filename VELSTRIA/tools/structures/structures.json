@@ -1,0 +1,90 @@
+{
+  "notes": "タワー・本拠地のクリスタル・ミニオンの生成 3D モデルの仕様。concept は Codex（ChatGPT ログインの画像生成）で作り、model は Tripo（P1）か Meshy（smart-topology meshy-t2）で作る。画像・GLB は build/structures/<id>/（git 管理外）。チーム色は青チームの配色で作り、赤チームは bake の色相の付け替え（青〜紫 → 赤〜マゼンタ）で別テクスチャにする（メッシュは 1 つ）。",
+  "style": "Single 3D game asset concept render for a stylized fantasy x sci-fi mobile MOBA (Mobile Legends: Bang Bang / Honor of Kings art direction): hand-painted stylized PBR textures, chunky readable silhouette, clean bevelled shapes, polished gold/brass metal combined with deep navy-blue enamel armor plates, and glowing cyan-blue crystal energy as the accent color (the team color). Show exactly ONE object, whole and uncropped, centered, three-quarter view from slightly above (about 30 degrees), isolated on a plain flat light-grey (#d8d8d8) background, evenly lit, no ground plane, no cast shadow on the background, no other objects, no particles, no text, no frame. Original design (do not copy any existing game asset).",
+  "styleReference": "/Users/i4rp/gh2/vel-refs/mlbb_tower.jpg",
+  "assets": [
+    {
+      "id": "tower",
+      "use": "タワー（外塔・内塔・基地塔で共用）の本体。頂部の結晶球は tower_orb（浮遊・回転・破壊で落下）",
+      "provider": "tripo",
+      "faces": 5000,
+      "useStyleReference": true,
+      "size": {
+        "height": 4.35
+      },
+      "prompt": "a lane defense guard tower: a wide round stepped base platform made of gold/brass and navy-blue metal with four short curved brass pipe feet around its rim and small glowing cyan light gems set into the rim; from its center rises a tall tapering dark navy-blue clockwork column wrapped with gold gear rings and spiral grooves, a large golden cog wheel mounted on one side of the column and a slim vertical brass lever arm on the other side; at the very top an open four-pronged golden claw cradle pointing upward that is EMPTY (nothing inside or above it: no orb, no crystal, no ball). Total height about 1.5 times the base diameter."
+    },
+    {
+      "id": "tower_orb",
+      "use": "タワー頂部の浮遊する結晶球（チーム色。回転・上下・破壊で落下）",
+      "provider": "tripo",
+      "faces": 900,
+      "size": {
+        "height": 1.15,
+        "origin": "center",
+        "texture": 512
+      },
+      "prompt": "a floating spherical crystal orb power core: a faceted glowing cyan-blue gemstone sphere (low-poly faceted surface, bright glowing inner light) held inside two thin crossing golden ring bands, with a small ornate golden cap on the top and the bottom of the sphere. Nothing else.",
+      "textureQuality": "standard"
+    },
+    {
+      "id": "core_base",
+      "use": "本拠地（Core）の台座。中央の結晶は core_crystal",
+      "provider": "tripo",
+      "faces": 5500,
+      "size": {
+        "diameter": 6.8
+      },
+      "prompt": "the base platform of a MOBA team's home crystal nexus: a large wide circular stepped pedestal of pale cream stone with gold trim and deep navy-blue enamel panels, six short golden mechanical pylons evenly spaced around the outer rim, each pylon topped with a small glowing cyan crystal, glowing cyan rune lines inlaid in the steps, and a raised round central socket in the middle that is EMPTY (nothing on it: no crystal, no orb). Wide and low: the height is about one quarter of the diameter."
+    },
+    {
+      "id": "core_crystal",
+      "use": "本拠地（Core）の浮遊する大結晶（チーム色。回転・上下・破壊で落下）",
+      "provider": "tripo",
+      "faces": 1800,
+      "size": {
+        "height": 3.3,
+        "origin": "center"
+      },
+      "prompt": "a giant floating energy crystal for a MOBA base nexus: one big tall double-pointed faceted gem crystal (elongated octahedron shape), glowing bright cyan-blue from inside with lighter cyan-white facet edges, several smaller crystal shards clustered around its waist, and an ornate golden band with navy-blue inlays around its middle. Nothing else, no base, no stand."
+    },
+    {
+      "id": "minion_melee",
+      "use": "近接ミニオン（剣と盾の兵士）",
+      "provider": "tripo",
+      "faces": 2200,
+      "size": {
+        "height": 1.15,
+        "texture": 512,
+        "yaw": 120
+      },
+      "prompt": "a small sturdy armored soldier minion with chibi proportions (big head about one third of the height): a stocky little knight in gold-trimmed navy-blue plate armor, a round helmet with a glowing cyan visor slit, a round navy-blue shield with a gold rim on the left arm, a short broad sword held down at the right side, standing in a neutral pose, full body including feet.",
+      "textureQuality": "standard"
+    },
+    {
+      "id": "minion_ranged",
+      "use": "遠隔ミニオン（杖を持つ魔術師）",
+      "provider": "tripo",
+      "faces": 2000,
+      "size": {
+        "height": 1.2,
+        "texture": 512,
+        "yaw": 90
+      },
+      "prompt": "a small robed mage minion with chibi proportions: a hooded navy-blue robe with gold trim and a pointed hood, the face hidden in shadow with two glowing cyan eyes, holding a slim golden staff topped with a glowing cyan crystal upright in the right hand, the robe flares out at the bottom like a bell (no visible legs), full body.",
+      "textureQuality": "standard"
+    },
+    {
+      "id": "minion_siege",
+      "use": "攻城ミニオン（大砲の車）",
+      "provider": "tripo",
+      "faces": 2400,
+      "size": {
+        "length": 1.35,
+        "texture": 512,
+        "yaw": 135
+      },
+      "prompt": "a small siege cannon war machine minion: a compact four-wheeled cart built of dark wood and brass with navy-blue armored side plates and gold trim, one big brass cannon barrel on top pointing forward, a glowing cyan crystal power core mounted on the back, four chunky round wheels. Seen from the front-left three-quarter view so the cannon points toward the lower left."
+    }
+  ]
+}

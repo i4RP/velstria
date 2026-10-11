@@ -6,6 +6,8 @@ import VelstriaCore
 // 担当: battle-renderer。タワー（台座 + 柱 + 浮遊結晶）と Star Core（巨大な星結晶 + 回転する環）。
 // 破壊後は柱と結晶を消して瓦礫を出す（結晶は落ちながらフェード）。
 // 状態が置き換わって（シーク・オンラインの再同期）生きていれば元の姿へ戻す。
+// 生成 3D モデル（StructureAssets: タワーの本体・頂部の結晶球、Core の台座・大結晶）が読み込み済みならそれを使い、
+// 無い部位は従来の手続きメッシュ（StructureMeshes）。浮遊する結晶の高さは本体の寸法から決める。
 
 @MainActor
 final class StructureMeshes {
@@ -170,9 +172,13 @@ final class StructureVisual {
     private var rangeAlpha: Float = 0
     private var opacityFloating: Float = 1
     private var occlusionAlpha: Float = 1
+    /// 浮遊する結晶の基準の高さ（上下の揺れの中心）。
+    let floatBaseY: Float
+    /// 生成 3D モデルを使っている部位の数（テスト用。0 = 全て手続きメッシュ）。
+    private(set) var generatedParts = 0
 
     /// 攻撃の発射点（world 高さ）。
-    var muzzleHeight: Float { isCore ? 3.4 : 4.5 }
+    let muzzleHeight: Float
 
     init(unit u: VelstriaCore.Unit, meshes: StructureMeshes, unitMeshes: UnitMeshLibrary, materials: RenderMaterials, text: TextMeshCache) {
         id = u.id
@@ -184,32 +190,67 @@ final class StructureVisual {
         let s = meshes.set(u.team)
         root.addChild(intact)
         root.addChild(floating)
+        var generated = 0
         if isCore {
-            if let m = s.coreBase { root.addChild(ModelEntity(mesh: m, materials: [materials.lit])) }
-            if let m = s.coreBaseGlow { root.addChild(ModelEntity(mesh: m, materials: [materials.glow])) }
-            if let m = s.coreStar { floating.addChild(ModelEntity(mesh: m, materials: [materials.glow])) }
-            floating.position.y = 3.6
+            let base = StructureAssets.model(.coreBase), star = StructureAssets.model(.coreCrystal)
+            if let base {
+                // 台座は破壊後も残る（従来の手続きの台座と同じ）
+                root.addChild(base.makeEntity(team: u.team))
+                generated += 1
+            } else {
+                if let m = s.coreBase { root.addChild(ModelEntity(mesh: m, materials: [materials.lit])) }
+                if let m = s.coreBaseGlow { root.addChild(ModelEntity(mesh: m, materials: [materials.glow])) }
+            }
+            if let star {
+                floating.addChild(star.makeEntity(team: u.team))
+                generated += 1
+            } else if let m = s.coreStar {
+                floating.addChild(ModelEntity(mesh: m, materials: [materials.glow]))
+            }
+            // 大結晶の下端が台座の上面より 0.35 m 上（従来の高さ 3.6 m より下げない）
+            let baseTop = base?.bounds.max.y ?? 1.24
+            let half = star.map { -$0.bounds.min.y } ?? 1.5
+            floatBaseY = max(3.6, baseTop + half + 0.35)
+            muzzleHeight = floatBaseY - 0.2
+            floating.position.y = floatBaseY
             let a = Entity(), b = Entity()
             if let m = s.coreRing { a.addChild(ModelEntity(mesh: m, materials: [materials.glow])) }
             if let m = s.coreRingSmall { b.addChild(ModelEntity(mesh: m, materials: [materials.glow])) }
-            a.position.y = 3.6
-            b.position.y = 3.6
+            a.position.y = floatBaseY
+            b.position.y = floatBaseY
             intact.addChild(a)
             intact.addChild(b)
             ringA = a
             ringB = b
         } else {
-            if let m = s.plinth { root.addChild(ModelEntity(mesh: m, materials: [materials.lit])) }
-            if let m = s.pillar { intact.addChild(ModelEntity(mesh: m, materials: [materials.lit])) }
-            if let m = s.pillarGlow { intact.addChild(ModelEntity(mesh: m, materials: [materials.glow])) }
-            if let m = s.crystal { floating.addChild(ModelEntity(mesh: m, materials: [materials.glow])) }
-            floating.position.y = 4.95
+            let tower = StructureAssets.model(.tower), orb = StructureAssets.model(.towerOrb)
+            if let tower {
+                // 台座ごと 1 つのメッシュ（破壊で消え、瓦礫に置き換わる）
+                intact.addChild(tower.makeEntity(team: u.team))
+                generated += 1
+            } else {
+                if let m = s.plinth { root.addChild(ModelEntity(mesh: m, materials: [materials.lit])) }
+                if let m = s.pillar { intact.addChild(ModelEntity(mesh: m, materials: [materials.lit])) }
+                if let m = s.pillarGlow { intact.addChild(ModelEntity(mesh: m, materials: [materials.glow])) }
+            }
+            if let orb {
+                floating.addChild(orb.makeEntity(team: u.team))
+                generated += 1
+            } else if let m = s.crystal {
+                floating.addChild(ModelEntity(mesh: m, materials: [materials.glow]))
+            }
+            // 生成モデルの塔は頂部の爪（高さ 3.6〜4.35 m、内径約 0.7 m）の中に球（半径約 0.55 m）を浮かべる。
+            // 爪の先端 = 外接箱の上端から 0.2 m 下が球の中心（揺れ ±0.12 m でも爪の根元の台に沈み込まない）
+            floatBaseY = tower.map { $0.bounds.max.y - 0.2 } ?? 4.95
+            muzzleHeight = tower == nil ? 4.5 : floatBaseY
+            floating.position.y = floatBaseY
             let sh = Entity()
             if let m = s.shards { sh.addChild(ModelEntity(mesh: m, materials: [materials.glow])) }
-            sh.position.y = 4.8
+            sh.position.y = floatBaseY - 0.15
             intact.addChild(sh)
             shards = sh
         }
+        generatedParts = generated
         if let m = unitMeshes.rubble {
             let r = ModelEntity(mesh: m, materials: [materials.lit])
             r.scale = SIMD3(repeating: isCore ? 2.0 : 1.0)
@@ -222,7 +263,8 @@ final class StructureVisual {
         }
         bar = OverheadBar(style: .structure(core: isCore), fillColor: materials.teams.main(u.team), materials: materials,
                           meshes: unitMeshes, text: text)
-        bar.root.position.y = isCore ? 7.0 : 6.4
+        // 結晶の上（手続きメッシュでは従来どおり Core 7.0 m・塔 6.4 m）
+        bar.root.position.y = floatBaseY + (isCore ? 3.4 : 1.45)
         root.addChild(bar.root)
         let range = Float((isCore ? Balance.coreRange : Balance.towerRange) / Balance.unitsPerMeter)
         rangeRing = ModelEntity(mesh: unitMeshes.ring(radius: range, thickness: 0.12) ?? unitMeshes.unitSphere,
@@ -255,7 +297,7 @@ final class StructureVisual {
         rubble?.isEnabled = false
         bar.root.isEnabled = true
         floating.isEnabled = true
-        floating.position.y = isCore ? 3.6 : 4.95
+        floating.position.y = floatBaseY
         floating.orientation = simd_quatf(angle: 0, axis: [0, 1, 0])
         opacityFloating = 1
         occlusionAlpha = 1
@@ -325,12 +367,12 @@ final class StructureVisual {
         }
         let t = phase
         if isCore {
-            floating.position.y = 3.6 + sin(t * 1.1) * 0.18
+            floating.position.y = floatBaseY + sin(t * 1.1) * 0.18
             floating.orientation = simd_quatf(angle: t * 0.35, axis: [0, 1, 0])
             ringA?.orientation = simd_quatf(angle: t * 0.8, axis: [0, 1, 0]) * simd_quatf(angle: 0.45, axis: [1, 0, 0])
             ringB?.orientation = simd_quatf(angle: -t * 1.1, axis: [0, 1, 0]) * simd_quatf(angle: -0.6, axis: [0, 0, 1])
         } else {
-            floating.position.y = 4.95 + sin(t * 1.6) * 0.12
+            floating.position.y = floatBaseY + sin(t * 1.6) * 0.12
             floating.orientation = simd_quatf(angle: t * 0.7, axis: [0, 1, 0])
             shards?.orientation = simd_quatf(angle: -t * 1.3, axis: [0, 1, 0])
         }
