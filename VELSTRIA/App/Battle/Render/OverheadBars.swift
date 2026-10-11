@@ -99,6 +99,9 @@ final class OverheadBar {
     private var resource: ModelEntity?
     private var levelText: ModelEntity?
     private var nameText: ModelEntity?
+    /// HP の区切り目盛り（ヒーローのみ。MLBB のように一定量ごとの細い線。最大 tickPool 本を使い回す）。
+    private var ticks: [ModelEntity] = []
+    private var tickMaxHP: Float = -1
     private let width: Float
     private let height: Float
     private var shownHP: Float = -1
@@ -177,23 +180,36 @@ final class OverheadBar {
             resource = r
         }
 
-        levelMaterial = materials.unlit(RGB(1, 0.94, 0.72), alpha: 1, depthTest: false)
+        levelMaterial = materials.unlit(RGB(1, 0.97, 0.9), alpha: 1, depthTest: false)
         if case .hero(let isSelf, _) = style {
-            // レベル章（左端）
-            let badgeSize: Float = 0.4
-            let badge = ModelEntity(mesh: quad, materials: [materials.unlit(RGB(0.03, 0.04, 0.08), alpha: 0.95, depthTest: false)])
-            badge.position = [-w / 2 - pad - badgeSize, -(totalH - h) / 2, 0]
-            badge.scale = [badgeSize, totalH + pad * 2 + 0.06, 1]
-            OverlayOrder.apply(badge, OverlayOrder.barBack)
+            // レベルの丸い章（左端。MLBB のように縁取りの丸の中に数字。バーの端に少し重ねる）
+            let disc = meshes.barDisc ?? quad
+            let badgeD: Float = 0.46
+            let badgeX = -w / 2 - pad - 0.2
+            let badgeY = -(totalH - h) / 2
+            let rim = ModelEntity(mesh: disc, materials: [materials.unlit(isSelf ? TeamColors.gold : RGB(0.92, 0.94, 1.0),
+                                                                           alpha: 0.95, depthTest: false)])
+            rim.position = [badgeX, badgeY, 0]
+            rim.scale = [badgeD + 0.06, badgeD + 0.06, 1]
+            OverlayOrder.apply(rim, OverlayOrder.barBack)
+            root.addChild(rim)
+            let badge = ModelEntity(mesh: disc, materials: [materials.unlit(RGB(0.03, 0.04, 0.08), alpha: 1, depthTest: false)])
+            badge.position = [badgeX, badgeY, 0]
+            badge.scale = [badgeD, badgeD, 1]
+            OverlayOrder.apply(badge, OverlayOrder.barLag)
             root.addChild(badge)
-            let edge = ModelEntity(mesh: quad, materials: [materials.unlit(isSelf ? TeamColors.gold : fillColor, alpha: 1,
-                                                                            depthTest: false)])
-            edge.position = [-w / 2 - pad - badgeSize, -(totalH - h) / 2 - (totalH + pad * 2 + 0.06) / 2 + 0.02, 0]
-            edge.scale = [badgeSize, 0.04, 1]
-            OverlayOrder.apply(edge, OverlayOrder.barFront)
-            root.addChild(edge)
+            // HP の区切り目盛り（使う本数は最大 HP で決まる。update で並べ直す）
+            let tickMaterial = materials.unlit(RGB(0.02, 0.03, 0.05), alpha: 0.7, depthTest: false)
+            for _ in 0..<OverheadBar.tickPool {
+                let t = ModelEntity(mesh: quad, materials: [tickMaterial])
+                t.scale = [0.022, h, 1]
+                t.isEnabled = false
+                OverlayOrder.apply(t, OverlayOrder.barFront)
+                root.addChild(t)
+                ticks.append(t)
+            }
             let lt = ModelEntity()
-            lt.position = [-w / 2 - pad - badgeSize / 2, -(totalH - h) / 2 + 0.01, 0.001]
+            lt.position = [badgeX, badgeY + 0.01, 0.001]
             OverlayOrder.apply(lt, OverlayOrder.barText)
             root.addChild(lt)
             levelText = lt
@@ -208,6 +224,28 @@ final class OverheadBar {
                 nameText = nt
             }
         }
+    }
+
+    /// HP の区切り目盛りの最大本数（ヒーロー 1 人あたりのエンティティ数の上限）。
+    static let tickPool = 6
+
+    /// 区切り目盛りの間隔（HP）。500 から始め、本数が tickPool を超えないよう 500 単位で広げる。
+    static func tickStep(maxHP: Float) -> Float {
+        let units = max(1, (maxHP / (Float(tickPool + 1) * 500)).rounded(.up))
+        return 500 * units
+    }
+
+    /// 区切り目盛りの位置（最大 HP 比 0〜1。端と重なる目盛りは出さない）。
+    static func tickFractions(maxHP: Float) -> [Float] {
+        guard maxHP > 1 else { return [] }
+        let step = tickStep(maxHP: maxHP)
+        var out: [Float] = []
+        var v = step
+        while v < maxHP - step * 0.25, out.count < tickPool {
+            out.append(v / maxHP)
+            v += step
+        }
+        return out
     }
 
     /// レベル・名前の文字の大きさ（TextMeshCache のキー。事前生成と同じ値を使う）。
@@ -253,7 +291,20 @@ final class OverheadBar {
     var displayedLevel: Int { shownLevel }
 
     /// 値を反映する（変化時のみエンティティを更新）。hp/shield は最大 HP 比（shield は hp + shield ≤ 1 に収める）。
-    func update(hp: Float, shield sh: Float, resource res: Float?, level: Int?, dt: Float) {
+    /// maxHP を渡すとヒーローの区切り目盛りを並べ直す（最大 HP が変わった時だけ）。
+    func update(hp: Float, shield sh: Float, resource res: Float?, level: Int?, dt: Float, maxHP: Float? = nil) {
+        if let maxHP, !ticks.isEmpty, abs(maxHP - tickMaxHP) > 0.5 {
+            tickMaxHP = maxHP
+            let fractions = OverheadBar.tickFractions(maxHP: maxHP)
+            for (k, t) in ticks.enumerated() {
+                if k < fractions.count {
+                    t.position = [-width / 2 + width * fractions[k] - 0.011, 0, 0]
+                    t.isEnabled = true
+                } else {
+                    t.isEnabled = false
+                }
+            }
+        }
         let hpC = max(0, min(1, hp))
         let shC = max(0, min(1 - hpC, sh))
         if abs(hpC - shownHP) > 0.001 {

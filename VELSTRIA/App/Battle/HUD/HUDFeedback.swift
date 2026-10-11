@@ -374,10 +374,14 @@ enum HUDDeathMetrics {
         return CGSize(width: cells * cell + (cells - 1) * spacing + padding * 2, height: cell + padding * 2)
     }
 
-    /// 味方の一覧: ヒーローパネルのすぐ上（スティックとスキル群の間）。
+    /// 味方の一覧: ヒーローパネルのすぐ上（スティックとスキル群の間）。小さなパネルより幅が広いので、
+    /// スティックの円にかからないよう画面中央側へ寄せる（右手配置。左利きは反転）。
     static func stripCenter(_ l: HUDLayout) -> CGPoint {
         let h = cell + padding * 2
-        return CGPoint(x: l.heroPanelCenterX, y: l.bottomEdge - HUDRootMetrics.heroPanelHeight(l) - 6 - h / 2)
+        let half = stripSize(allies: 4).width / 2
+        let joyEdge = l.leftHanded ? l.joystickRest.x - l.joystickRadius : l.joystickRest.x + l.joystickRadius
+        let x = l.leftHanded ? min(l.heroPanelCenterX, joyEdge - 4 - half) : max(l.heroPanelCenterX, joyEdge + 4 + half)
+        return CGPoint(x: x, y: l.bottomEdge - HUDRootMetrics.heroPanelHeight(l) - 6 - h / 2)
     }
 
     static func stripFrame(_ l: HUDLayout, allies n: Int) -> CGRect {

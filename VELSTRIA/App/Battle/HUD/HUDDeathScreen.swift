@@ -375,7 +375,7 @@ extension HUDLayout {
     /// ミニマップドック（全体マップボタン込み）・スティックの受付領域にもかからない（左利きの反転でも同じ）。
     /// 詠唱バーと同じ高さになるが、死亡中は詠唱しない。
     var deathEmblemCenter: CGPoint {
-        let bottom = HUDDeathMetrics.stripFrame(self, allies: 4).minY - 4
+        let bottom = HUDDeathMetrics.stripFrame(self, allies: 4).minY - 2
         return CGPoint(x: heroPanelCenterX, y: bottom - deathEmblemSize.height / 2)
     }
 

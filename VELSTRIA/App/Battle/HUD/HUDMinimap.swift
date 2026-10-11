@@ -22,11 +22,12 @@ struct HUDMinimapView: View {
             HUDMinimapObjective(model: model, projection: proj)
         }
         .frame(width: size, height: size)
-        .clipShape(RoundedRectangle(cornerRadius: isExpanded ? 18 : 14, style: .continuous))
+        // MLBB 風: 角の小さい正方形に細い金の縁
+        .clipShape(RoundedRectangle(cornerRadius: isExpanded ? 12 : 5, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: isExpanded ? 18 : 14, style: .continuous)
-                .strokeBorder(LinearGradient(colors: [Color.white.opacity(0.65), HUDStyle.rim.opacity(0.7)],
-                                             startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1.5)
+            RoundedRectangle(cornerRadius: isExpanded ? 12 : 5, style: .continuous)
+                .strokeBorder(LinearGradient(colors: [HUDStyle.goldRim, HUDStyle.goldRim.opacity(0.35)],
+                                             startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.45), radius: 8, y: 3)
         .contentShape(Rectangle())

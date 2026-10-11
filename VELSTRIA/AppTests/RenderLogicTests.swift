@@ -404,4 +404,19 @@ extension RenderLogicTests {
         XCTAssertLessThan(wide, 30 / OverheadBar.referenceDistance, "引いた時はバーも少し小さく見える")
         XCTAssertEqual(OverheadBar.screenScale(distance: 1, zoomScale: k), 0.5)
     }
+
+    /// 頭上の HP の区切り目盛り（MLBB 風）: 500 刻みから始め、本数は tickPool を超えない。端には出さない。
+    func testOverheadBarTicksStayWithinThePool() {
+        XCTAssertEqual(OverheadBar.tickFractions(maxHP: 2861).count, 5, "2861 HP は 500 刻みで 5 本")
+        XCTAssertEqual(OverheadBar.tickStep(maxHP: 2861), 500)
+        XCTAssertTrue(OverheadBar.tickFractions(maxHP: 400).isEmpty, "1 区切りに満たない HP は目盛り無し")
+        XCTAssertTrue(OverheadBar.tickFractions(maxHP: 0).isEmpty)
+        for hp in stride(from: Float(300), through: 20_000, by: 137) {
+            let f = OverheadBar.tickFractions(maxHP: hp)
+            XCTAssertLessThanOrEqual(f.count, OverheadBar.tickPool, "\(hp)")
+            XCTAssertEqual(OverheadBar.tickStep(maxHP: hp).truncatingRemainder(dividingBy: 500), 0, "\(hp)")
+            for v in f { XCTAssertTrue(v > 0 && v < 1, "\(hp): \(v)") }
+            XCTAssertEqual(f, f.sorted(), "\(hp)")
+        }
+    }
 }

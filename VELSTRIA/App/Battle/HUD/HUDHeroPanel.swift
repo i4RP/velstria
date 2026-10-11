@@ -3,8 +3,8 @@ import VelstriaCore
 
 // 担当: battle-hud。下部中央のヒーローパネル:
 // ポートレート + レベル（XP リング）、HP（シールド）/ リソースのバーと数値、状態アイコン（残り時間）、
-// Gold とショップボタン（UI028）、おすすめ装備のクイック購入（脈動）、装備枠（タップでショップの売却へ）。
-// 死亡中は顔を暗転し HP の数値の代わりに「復活待ち」、ショップボタンを金色の脈動で目立たせて買い物を促す。
+// おすすめ装備のクイック購入（脈動）、装備枠（タップでショップの売却へ）。Gold とショップは右上の札（HUDGoldPlate）。
+// 死亡中は顔を暗転し HP の数値の代わりに「復活待ち」、右上のゴールドの札を金色の脈動で目立たせて買い物を促す。
 
 struct HUDHeroPanel: View {
     let model: HUDModel
@@ -14,37 +14,21 @@ struct HUDHeroPanel: View {
         let hero = model.hero
         let dead = hero.isDead
         let s = min(layout.scale, 1.08)
+        // MLBB 風の小さな状態パネル: 顔とレベル・HP/リソース、その下に装備 6 枠。ゴールドとショップは右上の札（HUDGoldPlate）
         VStack(alignment: .leading, spacing: 2 * s) {
-            HStack(spacing: 9 * s) {
-                HUDPortraitLevel(heroID: hero.heroID, level: hero.level, xp: hero.xpProgress, size: 50 * s,
+            HStack(spacing: 6 * s) {
+                HUDPortraitLevel(heroID: hero.heroID, level: hero.level, xp: hero.xpProgress, size: 36 * s,
                                  pulse: model.levelUpPulse, dead: dead)
-                VStack(alignment: .leading, spacing: 3 * s) {
-                    HStack(spacing: 4 * s) {
-                        Image(systemName: Theme.roleSymbol(hero.role))
-                            .foregroundStyle(Theme.roleColor(hero.role))
-                        Text(MasterData.shared.hero(hero.heroID).map { MasterText.hero($0) } ?? hero.heroID)
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.75)
-                        Spacer(minLength: 0)
-                    }
-                    .font(.system(size: 9 * s, weight: .heavy, design: .rounded))
-                    HUDVitalsBars(model: model, scale: s, dead: dead)
-                }
+                HUDVitalsBars(model: model, scale: s, dead: dead, hpHeight: 13 * s, resourceHeight: 8 * s)
             }
-            HStack(spacing: 4 * s) {
-                HUDItemSlots(model: model, items: hero.items, slot: 30 * s)
-                HUDShopButton(model: model, gold: hero.gold, width: 62 * s, beckon: dead,
-                              highlighted: model.tutorial?.highlight == .shop)
-            }
-            .padding(.top, 1 * s)
-            .overlay(alignment: .top) { Rectangle().fill(HUDStyle.rim.opacity(0.6)).frame(height: 0.5) }
+            .frame(height: 36 * s)
+            HUDItemSlots(model: model, items: hero.items, slot: 23 * s)
         }
-        .padding(.horizontal, 8 * s)
-        .padding(.top, 7 * s)
-        .padding(.bottom, 2 * s)
-        .frame(width: layout.heroPanelWidth)
-        .hudGlass(cornerRadius: 18, tint: HUDStyle.accent.opacity(0.45))
+        .padding(.horizontal, 6 * s)
+        .padding(.top, 6 * s)
+        .padding(.bottom, 2)
+        .frame(width: layout.heroPanelWidth, height: HUDRootMetrics.heroPanelHeight(layout), alignment: .top)
+        .hudGlass(cornerRadius: 12, tint: HUDStyle.rim)
         .overlay(alignment: .topLeading) {
             HUDStatusRow(statuses: hero.statuses, size: 22 * s, passive: hero.passiveBadge)
                 .offset(x: 4 * s, y: -26 * s)
@@ -54,11 +38,28 @@ struct HUDHeroPanel: View {
             if let itemID = model.quickBuyItemID {
                 HUDQuickBuyButton(model: model, itemID: itemID, size: 38 * s,
                                   highlighted: model.tutorial?.step == .buyItem)
-                    .offset(x: 2 * s, y: -46 * s)
+                    .offset(quickBuyOffset(dead: dead, scale: s))
                     .transition(.scale.combined(with: .opacity))
             }
         }
         .animation(.spring(duration: 0.3), value: model.quickBuyItemID)
+        .animation(.easeInOut(duration: 0.3), value: dead)
+    }
+
+    /// おすすめ購入のずらし（パネルの右上が基準）。生きている間はパネルの右上の少し上。
+    /// 倒れている間はパネルの上に味方の一覧（パネルより幅が広い）が出るので、その一覧のスキル群の側の隣へ移す
+    /// （復活までの買い物を一覧の下に隠さない）。
+    private func quickBuyOffset(dead: Bool, scale s: CGFloat) -> CGSize {
+        guard dead else { return CGSize(width: 2 * s, height: -46 * s) }
+        let panelH = HUDRootMetrics.heroPanelHeight(layout)
+        let panelMaxX = layout.heroPanelCenterX + layout.heroPanelWidth / 2
+        let panelTop = layout.bottomEdge - panelH
+        let vote = model.surrender != nil ? HUDSurrenderMetrics.frame(layout) : nil
+        let strip = HUDDeathMetrics.stripFrame(layout, allies: HUDLayout.allyStripMax, avoiding: vote)
+        let half: CGFloat = 22
+        let target = CGPoint(x: layout.leftHanded ? strip.minX - 4 - half : strip.maxX + 4 + half, y: strip.midY)
+        // 揃えの基準（ずらし 0）はボタン（44pt）の右上がパネルの右上に重なる位置
+        return CGSize(width: target.x - (panelMaxX - half), height: target.y - (panelTop + half))
     }
 }
 
@@ -68,6 +69,8 @@ struct HUDVitalsBars: View {
     let model: HUDModel
     let scale: CGFloat
     var dead = false
+    var hpHeight: CGFloat? = nil
+    var resourceHeight: CGFloat? = nil
 
     /// 死亡中の HP バーの表示。
     static var respawningCaption: String { L("復活待ち", "Respawning") }
@@ -76,7 +79,7 @@ struct HUDVitalsBars: View {
         let v = model.vitals
         VStack(alignment: .leading, spacing: 3 * scale) {
             HUDBar(value: dead ? 0 : v.hp, max: v.maxHP, shield: dead ? 0 : v.shield,
-                   color: v.hpRatio < 0.3 ? HUDStyle.hpLow : HUDStyle.hp, height: 17 * scale, showsText: true,
+                   color: v.hpRatio < 0.3 ? HUDStyle.hpLow : HUDStyle.hp, height: hpHeight ?? 17 * scale, showsText: true,
                    caption: dead ? Self.respawningCaption : nil)
                 .accessibilityElement()
                 .accessibilityLabel(L("HP", "HP"))
@@ -84,7 +87,7 @@ struct HUDVitalsBars: View {
                 .accessibilityIdentifier("hud_hp")
             if v.maxResource > 0 {
                 HUDBar(value: v.resource, max: v.maxResource, shield: 0,
-                       color: HUDStyle.resourceColor(v.resourceKind), height: 10 * scale, showsText: !dead)
+                       color: HUDStyle.resourceColor(v.resourceKind), height: resourceHeight ?? 10 * scale, showsText: !dead)
                     .opacity(dead ? 0.45 : 1)
                     .accessibilityElement()
                     .accessibilityLabel(v.resourceKind == .energy ? L("エナジー", "Energy") : L("マナ", "Mana"))
@@ -321,45 +324,51 @@ struct HUDItemSlots: View {
     }
 }
 
-struct HUDShopButton: View {
+/// 右上のゴールドの札（MLBB の「$50」）。タップでショップ（UI028）。死亡中は金色の脈動で買い物を促す。
+/// ゴールドの値だけを観測する（15Hz の HUD 全体を描き直さない）。
+struct HUDGoldPlate: View {
     let model: HUDModel
-    let gold: Int
     let width: CGFloat
-    /// 死亡中: 金色の発光を脈動させて買い物を促す（参考画面の目立つ Gold 表示の代わり）。
-    var beckon = false
-    let highlighted: Bool
+    let height: CGFloat
 
     var body: some View {
+        let gold = model.hero.gold
+        let beckon = model.hero.isDead
+        let highlighted = model.tutorial?.highlight == .shop
+        let corner = height * 0.22
         Button { model.openShop() } label: {
-            VStack(spacing: 2) {
-                HStack(spacing: 3) {
-                    Image(systemName: "bag.fill")
-                    Text(L("ショップ", "SHOP"))
-                }
-                .font(.system(size: 7, weight: .black, design: .rounded))
-                .foregroundStyle(HUDStyle.surface)
-                HStack(spacing: 3) {
-                    HUDCoin(size: 10)
-                    Text("\(gold)")
-                        .font(.system(size: 13, weight: .black, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(HUDStyle.surface)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                }
+            HStack(spacing: 3) {
+                HUDCoin(size: height * 0.5)
+                Text("\(gold)")
+                    .font(.system(size: height * 0.5, weight: .black, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(Color(red: 1.0, green: 0.93, blue: 0.70))
+                    .shadow(color: .black.opacity(0.7), radius: 1, y: 1)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
             }
-            .padding(.horizontal, 5)
-            .frame(width: width, height: 38)
-            .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(LinearGradient(colors: [Color(red: 1, green: 0.88, blue: 0.43), Theme.gold],
-                                     startPoint: .top, endPoint: .bottom)))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.white.opacity(0.65), lineWidth: 1))
-            .background { if beckon { HUDShopBeckon(width: width, height: 38).transition(.opacity) } }
-            .frame(height: 44)
+            .padding(.horizontal, 6)
+            .frame(width: width, height: height)
+            .background(
+                RoundedRectangle(cornerRadius: corner, style: .continuous)
+                    .fill(LinearGradient(colors: [Color(red: 0.42, green: 0.32, blue: 0.10).opacity(0.92),
+                                                  Color(red: 0.20, green: 0.14, blue: 0.04).opacity(0.92)],
+                                         startPoint: .top, endPoint: .bottom))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: corner, style: .continuous)
+                    .strokeBorder(LinearGradient(colors: [Color(red: 1.0, green: 0.90, blue: 0.58), Theme.gold.opacity(0.55)],
+                                                 startPoint: .top, endPoint: .bottom), lineWidth: 1.2)
+            )
+            .background { if beckon { HUDShopBeckon(width: width, height: height).transition(.opacity) } }
+            .shadow(color: .black.opacity(0.35), radius: 3, y: 2)
+            .frame(width: width, height: max(44, height), alignment: .top)
             .contentShape(Rectangle())
         }
         .buttonStyle(HUDPressStyle())
-        .overlay { if highlighted { HUDHighlightRing(diameter: width + 12) } }
+        .overlay(alignment: .top) {
+            if highlighted { HUDHighlightRing(diameter: width + 12).frame(height: height) }
+        }
         .animation(.easeInOut(duration: 0.3), value: beckon)
         .accessibilityLabel(L("ショップ", "Shop"))
         .accessibilityValue("\(gold) Gold")

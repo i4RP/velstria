@@ -4,8 +4,9 @@ import VelstriaCore
 // 担当: battle-hud。上部の HUD:
 // 中央に小型のスコア（青キル・試合時間・赤キル、キルの下に破壊タワー数）、
 // スコアのミニマップ側に味方 4 人の状態列（顔・HP・倒れた味方の赤い復活秒数・必殺技）、
-// 情報側（右手配置は右上、左利きは左上 = HUDLayout.topInfoAlignment）に自分の K/D/A（剣・ドクロ・拍手のアイコン + 数字）・CS と
-// スコアボード（UI029）、ミニマップの内側に端末状態と 設定（UI030）・消音・ズームの縦列（HUDUtilityColumn.swift）。
+// 情報側（右手配置は右上、左利きは左上 = HUDLayout.topInfoAlignment）に自分の K/D/A（剣・ドクロ・拍手のアイコン + 数字）・CS
+// （タップでスコアボード UI029）と、画面の端にゴールドの札（タップでショップ UI028。MLBB の「$50」）、
+// ミニマップの内側に端末状態と 設定（UI030）・消音・ズームの縦列（HUDUtilityColumn.swift）。
 // ミニマップドック（左利きでは右上）に合わせ、味方列と縦列は左右反転する。
 // 観戦・リプレイでは味方列と縦列を出さず、情報側にスコアボード・一時停止・退出を並べる。
 // 各部品の位置は HUDLayout の拡張（下）で決め、HUDTopBarTests で重なりが無いことを確かめる。
@@ -78,18 +79,21 @@ struct HUDScoreCapsule: View, Equatable {
         }
         .padding(.horizontal, 5 * scale)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // MLBB: 青のキル | 暗い時計 | 赤のキル の 3 つの札（境目ははっきり分ける）
         .background(
-            RoundedRectangle(cornerRadius: 8 * scale, style: .continuous)
-                .fill(LinearGradient(stops: [.init(color: blue.opacity(0.45), location: 0),
-                                             .init(color: HUDStyle.glassBottom, location: 0.34),
-                                             .init(color: HUDStyle.glassBottom, location: 0.66),
-                                             .init(color: red.opacity(0.45), location: 1)],
+            RoundedRectangle(cornerRadius: 4 * scale, style: .continuous)
+                .fill(LinearGradient(stops: [.init(color: blue.opacity(0.62), location: 0),
+                                             .init(color: blue.opacity(0.38), location: 0.29),
+                                             .init(color: HUDStyle.surface.opacity(0.72), location: 0.29),
+                                             .init(color: HUDStyle.surface.opacity(0.72), location: 0.71),
+                                             .init(color: red.opacity(0.38), location: 0.71),
+                                             .init(color: red.opacity(0.62), location: 1)],
                                      startPoint: .leading, endPoint: .trailing))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 8 * scale, style: .continuous)
-                .strokeBorder(LinearGradient(colors: [blue.opacity(0.75), Color.white.opacity(0.16), red.opacity(0.75)],
-                                             startPoint: .leading, endPoint: .trailing), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 4 * scale, style: .continuous)
+                .strokeBorder(LinearGradient(colors: [blue.opacity(0.8), HUDStyle.goldRim.opacity(0.5), red.opacity(0.8)],
+                                             startPoint: .leading, endPoint: .trailing), lineWidth: 0.8)
         )
         .shadow(color: .black.opacity(0.3), radius: 3, y: 2)
         .allowsHitTesting(false)
@@ -107,7 +111,7 @@ struct HUDScoreCapsule: View, Equatable {
                 Text("\(kills)")
                     .font(.system(size: 16 * scale, weight: .black, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(color)
+                    .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.6), radius: 1, y: 1)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
@@ -120,7 +124,7 @@ struct HUDScoreCapsule: View, Equatable {
                     .font(.system(size: 7.5 * scale, weight: .heavy, design: .rounded))
                     .monospacedDigit()
             }
-            .foregroundStyle(color.opacity(0.9))
+            .foregroundStyle(.white.opacity(0.82))
             .lineLimit(1)
             .minimumScaleFactor(0.6)
         }
@@ -267,7 +271,8 @@ struct HUDOutlinedNumber: View {
 
 // MARK: - 情報側（K/D/A・CS・スコアボード）
 
-/// 右上（左利きは左上）の列。操作中: 自分の成績 + スコアボード、観戦: スコアボード・一時停止・退出。
+/// 右上（左利きは左上）の列。操作中: 自分の成績（タップでスコアボード）+ ゴールドの札（タップでショップ）、
+/// 観戦: スコアボード・一時停止・退出。
 struct HUDTopRight: View {
     let model: HUDModel
     let layout: HUDLayout
@@ -291,13 +296,21 @@ struct HUDTopRight: View {
                     model.requestLeave()
                 }
             } else {
-                // 成績の欄はボタンの見た目と中心の高さをそろえる（ボタンのタップ領域は下へ広げる）
-                HUDPlayerStats(top: model.top, scale: layout.topScale)
-                    .equatable()
-                    .padding(.top, max(0, (layout.utilityButtonSize - layout.topStatsHeight) / 2))
-                HUDUtilityButton(symbol: "list.bullet.rectangle.fill", label: L("スコアボード", "Scoreboard"),
-                                 identifier: "hud_scoreboard", size: layout.utilityButtonSize,
-                                 hitAlignment: .top) { toggleScoreboard() }
+                // MLBB と同じく K/D/A をタップでスコアボード。その外側（画面の端）にゴールドの札（タップでショップ）
+                let stats = HUDPlayerStats(top: model.top, scale: layout.topScale).equatable()
+                let gold = HUDGoldPlate(model: model, width: layout.goldPlateWidth, height: layout.topStatsHeight)
+                if layout.leftHanded { gold }
+                Button { toggleScoreboard() } label: {
+                    stats
+                        .frame(height: layout.utilityHitSize, alignment: .top)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(HUDPressStyle())
+                .accessibilityLabel(L("スコアボード", "Scoreboard"))
+                .accessibilityValue(L("キル \(model.top.kills)、デス \(model.top.deaths)、アシスト \(model.top.assists)、CS \(model.top.creepScore)",
+                                      "Kills \(model.top.kills), deaths \(model.top.deaths), assists \(model.top.assists), CS \(model.top.creepScore)"))
+                .accessibilityIdentifier("hud_scoreboard")
+                if !layout.leftHanded { gold }
             }
         }
         .fixedSize()
@@ -352,10 +365,14 @@ struct HUDPlayerStats: View, Equatable {
         }
         .font(.system(size: 13 * scale, weight: .heavy, design: .rounded))
         .monospacedDigit()
+        .shadow(color: .black.opacity(0.85), radius: 1.2, y: 0.8)
         .padding(.horizontal, 9 * scale)
         .frame(height: 26 * scale)
-        .hudGlass(cornerRadius: 13 * scale)
-        .allowsHitTesting(false)
+        // MLBB: 枠のない数字。読みやすさのため左右が消える薄い帯だけを敷く
+        .background(
+            Capsule().fill(LinearGradient(colors: [.clear, Color.black.opacity(0.42), Color.black.opacity(0.42), .clear],
+                                          startPoint: .leading, endPoint: .trailing))
+        )
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("hud_kda")
     }
@@ -498,9 +515,12 @@ extension HUDLayout {
     /// 自分の成績の欄に確保する幅（2 桁の K/D/A と 3 桁の CS まで収まる）。
     var topStatsWidth: CGFloat { 176 * topScale }
 
-    /// 情報側の列（操作中: 成績 + スコアボード、観戦: スコアボード・一時停止・退出）。Safe Area の内側の端に寄せる。
+    /// 情報側の列（操作中: 成績（スコアボード）+ ゴールドの札、観戦: スコアボード・一時停止・退出）。Safe Area の内側の端に寄せる。
+    /// 右上のゴールドの札（タップでショップ）の幅。
+    var goldPlateWidth: CGFloat { 66 * topScale }
+
     func topInfoFrame(spectating: Bool) -> CGRect {
-        let w = spectating ? topButtonSize * 3 + 12 : topStatsWidth + 6 + utilityHitSize
+        let w = spectating ? topButtonSize * 3 + 12 : topStatsWidth + 6 + goldPlateWidth
         let h = spectating ? topButtonSize : utilityHitSize
         return CGRect(x: leftHanded ? leadingEdge : trailingEdge - w, y: topEdge, width: w, height: h)
     }

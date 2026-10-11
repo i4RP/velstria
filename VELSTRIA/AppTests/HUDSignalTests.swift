@@ -224,11 +224,13 @@ final class HUDSignalTests: XCTestCase {
                 }
             }
         }
-        // 確認: 正式名のままだと切れる（英語の二つ名・日本語の長い名前）
+        // 確認: 送り主の短い名前は正式名（英語の二つ名・日本語の長い名前）より短い。
+        // MLBB 風の配置（下部パネルを小さくしてスペル列の内側へ寄せた）でメッセージの欄は広がったが、
+        // 狭い欄でも切れないよう短い名前を使い続ける。
         Loc.current = .en
-        XCTAssertTrue(layouts().contains { !fits(MasterText.hero(mirea), "Coming!", $0.l) })
+        XCTAssertGreaterThan(width(MasterText.hero(mirea), size: 10), width(HUDSignalCenter.senderName(mirea), size: 10))
         Loc.current = .ja
-        XCTAssertTrue(layouts().contains { !fits(MasterText.hero(alden), "了解、下がる！", $0.l) })
+        XCTAssertGreaterThan(width(MasterText.hero(alden), size: 10), width(HUDSignalCenter.senderName(alden), size: 10))
     }
 
     @MainActor
@@ -481,9 +483,9 @@ final class HUDSignalTests: XCTestCase {
             for c in controls(l) {
                 XCTAssertFalse(hits(f, c), "\(tag) メッセージと \(c.name) が重なる")
             }
-            // 詠唱バー（幅 210・ヒーローパネルの上）と重ならない
+            // 詠唱バー（ヒーローパネルと同じ幅・パネルの上）と重ならない
             let barY = l.bottomEdge - HUDRootMetrics.heroPanelHeight(l) - 60 * min(l.scale, 1.08)
-            let bar = CGRect(x: l.heroPanelCenterX - 105, y: barY - 12, width: 210, height: 24)
+            let bar = CGRect(x: l.heroPanelCenterX - l.channelBarWidth / 2, y: barY - 12, width: l.channelBarWidth, height: 24)
             XCTAssertFalse(f.intersects(bar), "\(tag) メッセージと詠唱バー")
         }
     }

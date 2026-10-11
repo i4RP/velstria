@@ -264,7 +264,8 @@ final class HUDControlLabelTests: XCTestCase {
                 let panel = CGRect(x: l.heroPanelCenterX - l.heroPanelWidth / 2, y: l.bottomEdge - panelH,
                                    width: l.heroPanelWidth, height: panelH)
                 let quickBuy = CGRect(x: panel.maxX - 44 + 2 * s, y: panel.minY - 46 * s, width: 44, height: 44).insetBy(dx: -2, dy: -2)
-                let channel = CGRect(x: l.heroPanelCenterX - 105, y: panel.minY - 60 * s - 14, width: 210, height: 28)
+                let channel = CGRect(x: l.heroPanelCenterX - l.channelBarWidth / 2, y: panel.minY - 60 * s - 14,
+                                     width: l.channelBarWidth, height: 28)
                 for lang in [AppLanguage.ja, .en] {
                     let ls = labels(l, language: lang)
                     for lb in ls {

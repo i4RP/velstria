@@ -46,6 +46,12 @@ final class UnitMeshLibrary {
         return try? MeshResource.generate(from: [d])
     }()
 
+    /// 中心原点・+Z 向きの単位円（直径 1。頭上のレベルの丸い章）。
+    lazy var barDisc: MeshResource? = {
+        AssetLedger.record(.mesh, "barDisc")
+        return MeshResource.generatePlane(width: 1, height: 1, cornerRadius: 0.5)
+    }()
+
     /// 中心原点・+Z 向きの単位四角形。
     lazy var centeredQuad: MeshResource? = {
         var d = MeshDescriptor(name: "centeredQuad")

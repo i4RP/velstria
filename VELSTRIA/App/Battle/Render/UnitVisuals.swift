@@ -834,7 +834,7 @@ final class HeroVisual {
             var res: Float?
             if isSelf, u.stats.maxResource > 0 { res = Float(u.resource / u.stats.maxResource) }
             bar.update(hp: Float(u.hp / maxHP), shield: Float(u.totalShield / maxHP), resource: res,
-                       level: u.hero?.level, dt: dt)
+                       level: u.hero?.level, dt: dt, maxHP: Float(maxHP))
             bar.keepScreenSize(camera: f.camera)
             status.update(StatusIndicators.flags(of: u), dt: dt)
         } else {

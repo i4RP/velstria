@@ -4,11 +4,17 @@ import VelstriaCore
 // 担当: battle-hud。戦闘 HUD の共通スタイルと画面配置（横画面・左利き反転・Safe Area 対応）。
 
 enum HUDStyle {
-    static let surface = Color(red: 0.04, green: 0.08, blue: 0.17)
-    static let glassTop = Color(red: 0.10, green: 0.17, blue: 0.29).opacity(0.94)
-    static let glassBottom = surface.opacity(0.94)
-    static let rim = Color(red: 0.61, green: 0.78, blue: 1.0).opacity(0.32)
+    // MLBB 風: 半透明の暗いガラス + 細い金/シアンの縁取り（戦場が透けて見える濃さ）
+    static let surface = Color(red: 0.03, green: 0.06, blue: 0.13)
+    static let glassTop = Color(red: 0.08, green: 0.14, blue: 0.25).opacity(0.78)
+    static let glassBottom = surface.opacity(0.82)
+    static let rim = Color(red: 0.55, green: 0.86, blue: 1.0).opacity(0.42)
+    /// 金の細い縁取り（ミニマップ・ゴールドの札・必殺技）。
+    static let goldRim = Color(red: 0.96, green: 0.80, blue: 0.45).opacity(0.75)
     static let accent = Color(red: 0.38, green: 0.88, blue: 1.0)
+    /// 攻撃ボタンのクリスタル（明るいシアン → 深い青）。
+    static let crystalLight = Color(red: 0.62, green: 0.93, blue: 1.0)
+    static let crystalDeep = Color(red: 0.10, green: 0.42, blue: 0.68)
     static let violet = Color(red: 0.66, green: 0.51, blue: 1.0)
     static let mutedText = Color(red: 0.69, green: 0.78, blue: 0.89)
     static let hp = Color(red: 0.64, green: 0.95, blue: 0.38)
@@ -66,7 +72,13 @@ struct HUDGlass: ViewModifier {
                     .strokeBorder(LinearGradient(colors: [tint, tint.opacity(0.12)], startPoint: .top, endPoint: .bottom),
                                   lineWidth: 1)
             )
-            .shadow(color: Color.black.opacity(0.24), radius: 5, y: 3)
+            .overlay(
+                // 上端の細いハイライト（MLBB の光沢のある縁）
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.10), lineWidth: 0.5)
+                    .padding(1.5)
+            )
+            .shadow(color: Color.black.opacity(0.28), radius: 4, y: 2)
     }
 }
 
@@ -203,7 +215,7 @@ struct HUDLayout: Equatable {
     }
     var skillDiameter: CGFloat { 60 * scale }
     var ultDiameter: CGFloat { 66 * scale }
-    var spellDiameter: CGFloat { 50 * scale }
+    var spellDiameter: CGFloat { 46 * scale }
     var recallDiameter: CGFloat { max(44, 46 * scale) }
     var levelBadgeDiameter: CGFloat { 30 * scale }
 
@@ -246,16 +258,25 @@ struct HUDLayout: Equatable {
         }
     }
 
-    func spellCenter(_ index: Int) -> CGPoint {
-        index == 0 ? actionPoint(x: -204, y: -26) : actionPoint(x: -181, y: -90)
+    /// 下部中央寄りの「帰還・スペル 1・スペル 2」の横一列（MLBB のリコール・回復・バトルスペル）。
+    /// スキル1 の画面中央側に、画面の下端に沿って並べる（右手配置で左から 帰還・スペル1・スペル2）。
+    var spellRowY: CGFloat { bottomEdge - spellDiameter / 2 - 4 * scale }
+
+    private func spellRowPoint(_ x: CGFloat) -> CGPoint {
+        let c = attackCenterRight
+        return mirrored(CGPoint(x: c.x + x * scale, y: spellRowY))
     }
 
-    var recallCenter: CGPoint { actionPoint(x: -218, y: 89) }
+    func spellCenter(_ index: Int) -> CGPoint {
+        index == 0 ? spellRowPoint(-267) : spellRowPoint(-217)
+    }
 
-    /// 右側クラスタの内側（画面中央側）の端。
+    var recallCenter: CGPoint { spellRowPoint(-317) }
+
+    /// 右側クラスタ（下部のスペル列を含む）の内側（画面中央側）の端。
     var clusterInnerEdge: CGFloat {
         let r = recallCenter.x
-        return leftHanded ? r + recallDiameter / 2 + 8 : r - recallDiameter / 2 - 8
+        return leftHanded ? r + recallDiameter / 2 + 3 : r - recallDiameter / 2 - 3
     }
 
     // MARK: キャンセル領域（照準中のみ表示）
@@ -313,14 +334,19 @@ struct HUDLayout: Equatable {
 
     // MARK: 下部中央のヒーローパネル
 
-    var heroPanelWidth: CGFloat { 290 * min(scale, 1.08) }
+    /// MLBB 風の小さな状態パネル（顔・HP/リソース・装備 6 枠）。ゴールドとショップは右上の札へ移した。
+    /// 死亡中にパネルの上へ出す復活カウントのエンブレム（画面幅の 19%）が収まる幅は確保する。
+    var heroPanelWidth: CGFloat { max(166 * min(scale, 1.08), (width * 0.19).rounded() + 6) }
 
-    /// スティックとスキル群の間の中央。
+    /// スティックとスキル群の間で、下部のスペル列（帰還・スペル）のすぐ内側に寄せる
+    /// （スティック側を空け、死亡中のエンブレムがスティックの受付領域・ミニマップの縦列にかからないように）。
     var heroPanelCenterX: CGFloat {
-        let joyEdge = leftHanded ? joystickRest.x - joystickRadius : joystickRest.x + joystickRadius
-        let clusterEdge = clusterInnerEdge
-        return (joyEdge + clusterEdge) / 2
+        let half = heroPanelWidth / 2 + 2
+        return leftHanded ? clusterInnerEdge + half : clusterInnerEdge - half
     }
+
+    /// 詠唱バー（帰還・テレポート）の幅。ヒーローパネルの幅に合わせる（メッセージの欄にかからない）。
+    var channelBarWidth: CGFloat { min(210, heroPanelWidth) }
 
     // MARK: 上部中央（スコア）
 
