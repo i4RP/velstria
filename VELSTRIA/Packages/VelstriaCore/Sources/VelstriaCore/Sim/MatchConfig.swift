@@ -58,7 +58,8 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     /// 11: キット（H025 / H026 / H028 / H029 / H030 / H034）の数値・挙動を MLBB の日本語クライアントの画面に合わせた
     ///     （ライラの距離補正 115%・セイバーの追加物理攻撃・エウドラの炸裂は超伝導の敵だけ など）。キットの忠実度（H031 の凍結がタワーにも効く・
     ///     H032 の円撃は装備の命中時効果を発動しない・H034 の鉤の引き寄せが壁を越える）。
-    public static let currentSimVersion = 11
+    /// 12: H032 の奥義の失った HP の割合 20% → 25%（日本語クライアントの画面）。
+    public static let currentSimVersion = 12
 
     public var simVersion: Int
     public var mode: MatchMode

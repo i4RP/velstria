@@ -15,7 +15,7 @@ import Foundation
 //                           敵ヒーローへ飛びかかり、ダメージ + 物理防御 −40%（アビス強化 −60% + 鈍足 90% 1 秒、射程と威力 150%）4 秒。
 //                           ダメージは 230 → 355（+60% 追加物理攻撃）/ 345 → 570（+120% 追加物理攻撃）。
 //   奥義 奈落の一撃（Abysm Strike）— 0.5 秒の溜め（その場から動けない。CC では止まらず、suppress だけで中断）のあと、
-//                           前方 650 の直線上（半幅 140）の敵へ 650 / 950 / 1250（+250% 追加物理攻撃）+ 対象の失った HP の 20% + 鈍足 55% 0.8 秒
+//                           前方 650 の直線上（半幅 140）の敵へ 650 / 950 / 1250（+250% 追加物理攻撃）+ 対象の失った HP の 25% + 鈍足 55% 0.8 秒
 //                           （ヒーロー以外へは合計に上限 1500 / 2000 / 2500 を換算した値）。
 //                           ボットは溜めの間の敵の動きを読んで撃つ（botCast。敵ヒーローに届けば汎用の関門を待たない）。
 // 数値の正は公式（現行シーズン。docs/kits/Dyrroth.md の「公式（現行シーズン）の数値」）。ダメージは公式の表をランクへ線形補間し、
@@ -215,8 +215,8 @@ struct Kit_H032: HeroKit {
         /// 直線の長さ（線分の部分）。命中は線分から半幅 + 対象の半径までなので、丸い端を含めて射程 650 ちょうどに収まる。
         static let ultLineLength = ultReach - ultHalfWidth
         static let ultCharge = 0.5
-        /// 対象の失った HP の 20%（公式。Liquipedia・Fandom とも）。換算せずそのまま足す。
-        static let ultLostHealth = 0.20
+        /// 対象の失った HP の 25%（日本語クライアントの画面。Liquipedia・Fandom の 20% は古い）。換算せずそのまま足す。
+        static let ultLostHealth = 0.25
         static let ultSlow = 0.55
         static let ultSlowDuration = 0.8
         static let ultSlowTag = KitTags.buff("H032", "ultSlow")
@@ -226,7 +226,7 @@ struct Kit_H032: HeroKit {
         static let ultExtraRatio = 2.5
         static let ultNonHeroCap = (1500.0, 2500.0)
         /// 公式の値 → Velstria の換算。基礎ダメージは汎用の奥義（Duelist = 3 連撃）の合計の 0.57〜0.80 倍（予算の下限 0.8 を割る）:
-        /// 失った HP の 20% が換算なしで乗り、クールダウン短縮・円撃もあるので、Lv12 の勝率で決めた値。
+        /// 失った HP の 25% が換算なしで乗り、クールダウン短縮・円撃もあるので、Lv12 の勝率で決めた値。
         static let ultScale = 0.40
 
         // クールダウン（MLBB の秒数そのまま。ランク間を線形補間し、CD 短縮を掛ける。全体倍率 Balance.Skills.cooldownScale は 1.0）
@@ -630,7 +630,7 @@ struct Kit_H032: HeroKit {
                               from: s.units[owner].pos)
     }
 
-    /// 奥義の解放: 今の位置から固定の向きの直線上の敵へ、基礎ダメージ + 失った HP の 20%。ヒーロー以外へは合計に上限
+    /// 奥義の解放: 今の位置から固定の向きの直線上の敵へ、基礎ダメージ + 失った HP の 25%。ヒーロー以外へは合計に上限
     /// （公式の 1500 / 2000 / 2500 を基礎と同じに換算）。suppress 中は不発。
     private func release(_ s: inout SimState, _ ctx: SimContext, owner: Int) {
         guard let kit = s.units[owner].hero?.kit, kit.diasUltCharging == 1 else { return }
@@ -838,7 +838,7 @@ struct Kit_H032: HeroKit {
         scaledBase(Tune.ultBase, slot: .ultimate, scale: Tune.ultScale, rank: rank)
     }
 
-    /// 奥義の 1 体ぶんのダメージ（防御で軽減する前）: 基礎 + 失った HP の 20%。ヒーロー以外は上限 cap まで。
+    /// 奥義の 1 体ぶんのダメージ（防御で軽減する前）: 基礎 + 失った HP の 25%。ヒーロー以外は上限 cap まで。
     static func ultHitDamage(flat: Double, lostHealth: Double, isHero: Bool, cap: Double) -> Double {
         let raw = flat + max(0, lostHealth) * Tune.ultLostHealth
         return isHero ? raw : min(raw, cap)

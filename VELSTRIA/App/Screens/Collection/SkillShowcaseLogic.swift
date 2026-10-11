@@ -28,7 +28,7 @@ enum SkillTags {
     /// 画面が知っているキー。これ以外のキーは名前をそのまま出し、灰色にする。
     /// debuff / damage / conceal / cleanse はキット層（`KitTag`）に足されるキー。Core の定数が無くても動くよう文字列で持つ。
     /// blink は mobility と同じ札（MLBB の「ブリンク」）で、キット層が将来この名前で足しても同じ名前・色になる。
-    /// 日本語の名前は MLBB の日本語版の札に合わせる（バフ・範囲技・減速・衝突・妨害・爆発力・攻撃・ブリンク・デバフ・隠れ身・コントロール解除）。
+    /// 日本語の名前は MLBB の日本語版の札に合わせる（バフ・範囲技・減速・衝突・妨害・爆発力・攻撃・ブリンク・デバフ・隠れ身・コントロール解除・ヒール）。
     static let knownKeys = ["buff", "aoe", "slow", "clash", "disrupt", "burst", "mobility", "heal", "shield",
                             "control", "stun", "pull", "execute", "debuff", "damage", "conceal", "cleanse", "blink"]
 
@@ -75,7 +75,8 @@ enum SkillTags {
         case "burst": return L("爆発力", "Burst")
         // 英語はスペル「Blink」（瞬歩）と紛らわしいので Mobility（HUDSkillTag と同じ）
         case "mobility", "blink": return L("ブリンク", "Mobility")
-        case "heal": return L("回復", "Heal")
+        // MLBB の日本語版の札は「ヒール」（ディロスのアビスレイジ: バフ・ヒール）
+        case "heal": return L("ヒール", "Heal")
         case "shield": return L("シールド", "Shield")
         case "control": return L("拘束", "Control")
         case "stun": return L("スタン", "Stun")

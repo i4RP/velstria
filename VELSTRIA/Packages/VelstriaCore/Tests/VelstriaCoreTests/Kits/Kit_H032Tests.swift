@@ -126,7 +126,7 @@ final class Kit_H032Tests: XCTestCase {
     /// 1 スロットの単体総ダメージは汎用の 0.8〜1.3 倍（アビス強化の版も含めて）。例外（docs/kits/Dyrroth.md の「バランス」）:
     /// - S1 の通常版は 0.40 以上、強化版は 0.75 以上。公式の減衰（2 発目以降 30%）と「1 発ごとに 140%」の強化（5 発）で、強化版の単体合計は
     ///   通常版の 1.925 倍になる。クールダウン短縮・円撃が上乗せされるので Lv12 の勝率で換算を決めた。
-    /// - 奥義の基礎は 0.55 以上。失った HP の 20% が換算なしで乗る（下の testAbysmDamageGrowsWithTheTargetsLostHealth）。
+    /// - 奥義の基礎は 0.55 以上。失った HP の 25% が換算なしで乗る（下の testAbysmDamageGrowsWithTheTargetsLostHealth）。
     func testNumbersStayWithinDamageBudgetAndFollowCooldownFormula() throws {
         for level in [1, 6, 12] {
             for rank in 1...Balance.basicSkillMaxRank {
@@ -216,7 +216,7 @@ final class Kit_H032Tests: XCTestCase {
         let ult = try XCTUnwrap(MasterData.shared.skill(hero: "H032", slot: .ultimate))
         let un = SkillCatalog.numbers(for: ult, hero: hero, rank: 2, stats: stats)
         XCTAssertEqual(un.extras.count, 7)
-        for (a, b) in zip(un.extras.map { $0.value }, [20, 0.5, 55, 0.8]) { XCTAssertEqual(a, b, accuracy: 1e-9) }
+        for (a, b) in zip(un.extras.map { $0.value }, [25, 0.5, 55, 0.8]) { XCTAssertEqual(a, b, accuracy: 1e-9) }
     }
 
     func testOfficialTablesCostsAndTags() throws {
@@ -244,7 +244,7 @@ final class Kit_H032Tests: XCTestCase {
             XCTAssertEqual(n.damage, b * su * Tune.ultScale, accuracy: 1e-6)
             XCTAssertEqual(Kit_H032.ultNonHeroCap(rank: rank), cap * su * Tune.ultScale, accuracy: 1e-6)
         }
-        XCTAssertEqual(Tune.ultLostHealth, 0.20)
+        XCTAssertEqual(Tune.ultLostHealth, 0.25)
         XCTAssertEqual(Tune.burstMinionFactor, 0.75)
         XCTAssertEqual(Tune.fatalSlowAbyss, 0.9)
         XCTAssertEqual(Tune.fatalSlowDuration, 1.0)
@@ -282,7 +282,7 @@ final class Kit_H032Tests: XCTestCase {
         let nu = HeroKits.numbers(for: try skill(.ultimate), hero: hero, rank: 1, stats: st)
         let jau = try XCTUnwrap(HeroKits.text(heroID: "H032", slot: .ultimate)).filled(
             english: false, numbers: nu, targeting: SkillCatalog.targeting(for: try skill(.ultimate), hero: hero))
-        XCTAssertTrue(jau.contains("対象の失ったHPの20%の物理ダメージ") && jau.contains("制圧によってのみ中断される"), jau)
+        XCTAssertTrue(jau.contains("対象の失ったHPの25%の物理ダメージ") && jau.contains("制圧によってのみ中断される"), jau)
     }
 
     // MARK: - パッシブ: レイジ
@@ -1002,7 +1002,7 @@ final class Kit_H032Tests: XCTestCase {
             let hits = skillHits(w, on: e, .ultimate)
             XCTAssertEqual(hits.count, 1, "HP \(hpFraction)")
             let lost = w.s.units[e].stats.maxHP * (1 - hpFraction)
-            XCTAssertEqual(raw, w.numbers(k, .ultimate).damage + lost * 0.20, accuracy: 1e-6, "公式: 失った HP の 20%")
+            XCTAssertEqual(raw, w.numbers(k, .ultimate).damage + lost * 0.25, accuracy: 1e-6, "公式: 失った HP の 25%")
             XCTAssertEqual(hits[0].amount, w.mitigated(raw, .physical, on: e), accuracy: regenSlack, "HP \(hpFraction)")
             amounts.append(hits[0].amount)
             raws.append(raw)
@@ -1014,7 +1014,7 @@ final class Kit_H032Tests: XCTestCase {
             for: MasterData.shared.skill(hero: "H032", slot: .ultimate)!, hero: MasterData.shared.hero("H032")!, rank: 1,
             stats: w.s.units[k].stats).totalDamage
         XCTAssertLessThanOrEqual(raws[0] / generic, 1.3)
-        XCTAssertGreaterThan(raws[4], raws[0] * 2, "HP 5% の相手へは基礎の 2 倍を超える（失った HP の 20% の追加）")
+        XCTAssertGreaterThan(raws[4], raws[0] * 2, "HP 5% の相手へは基礎の 2 倍を超える（失った HP の 25% の追加）")
     }
 
     func testAbysmHitsEveryEnemyOnTheLineButNotOutsideItAndCapsNonHeroDamage() {
@@ -1036,7 +1036,7 @@ final class Kit_H032Tests: XCTestCase {
         XCTAssertEqual(skillHits(w, on: off, .ultimate).count, 0)
         XCTAssertEqual(skillHits(w, on: beyond, .ultimate).count, 0)
         XCTAssertEqual(skillHits(w, on: behind, .ultimate).count, 0)
-        // ミニオンにも失った HP の 20% が乗る（公式）。ヒーロー以外への合計は上限（1500 / 2000 / 2500 の換算）まで
+        // ミニオンにも失った HP の 25% が乗る（公式）。ヒーロー以外への合計は上限（1500 / 2000 / 2500 の換算）まで
         let mh = skillHits(w, on: m, .ultimate)
         XCTAssertEqual(mh.count, 1)
         let rawM = min(flat + lostM * Tune.ultLostHealth, Kit_H032.ultNonHeroCap(rank: 1))
@@ -1044,8 +1044,8 @@ final class Kit_H032Tests: XCTestCase {
         // 大きなモンスター: 失った HP が大きくても上限で止まる。ヒーローには上限が無い
         let cap = Kit_H032.ultNonHeroCap(rank: 1)
         XCTAssertEqual(Kit_H032.ultHitDamage(flat: flat, lostHealth: 100_000, isHero: false, cap: cap), cap, accuracy: 1e-9)
-        XCTAssertEqual(Kit_H032.ultHitDamage(flat: flat, lostHealth: 100_000, isHero: true, cap: cap), flat + 20_000, accuracy: 1e-9)
-        XCTAssertEqual(Kit_H032.ultHitDamage(flat: flat, lostHealth: 100, isHero: false, cap: cap), flat + 20, accuracy: 1e-9)
+        XCTAssertEqual(Kit_H032.ultHitDamage(flat: flat, lostHealth: 100_000, isHero: true, cap: cap), flat + 25_000, accuracy: 1e-9)
+        XCTAssertEqual(Kit_H032.ultHitDamage(flat: flat, lostHealth: 100, isHero: false, cap: cap), flat + 25, accuracy: 1e-9)
     }
 
     func testStunDuringTheChargeDoesNotStopTheStrikeButSuppressionDoes() {
