@@ -199,8 +199,8 @@
       "name": "Lumina",
       "ja": "月弦のルミナ",
       "role": "Ranger",
-      "background": "moonlit teal and silver",
-      "description": "Lumina of the Moon String: a graceful young female elf archer of a moon-temple forest, with long silver-white hair, pointed ears and a small silver crescent ornament on her brow. Light emerald-green and white leather-and-cloth archer outfit with a flowing green cape and moon-yellow trims. She holds a large silver crescent-moon longbow drawn with an arrow of pale moonlight."
+      "background": "deep violet-blue moonlit night with cyan moonlight",
+      "description": "Lumina of the Moon String: a graceful young female moon-hunter elf with fair skin, long pointed elf ears and calm moonlight-cyan eyes. Silver-white hair tied in a long high ponytail that falls behind her back, a slim silver circlet on her brow with a small blue feather pin. A fitted blue-violet huntress bodice with high collar (chest and midriff fully covered), silver crescent-moon shaped shoulder guards, silver bracers and a deep blue cloak. She holds a huge silver crescent-moon longbow as tall as herself, its outer edge lined with small thorn-like spikes, the inner rim and bowstring glowing with cool cyan moonlight, an arrow of pale moonlight nocked."
     },
     {
       "id": "H026",
@@ -208,39 +208,39 @@
       "ja": "紫電のエウリア",
       "role": "Arcanist",
       "background": "deep violet with electric blue",
-      "description": "Euria of the Violet Bolt: a confident young female lightning mage with vivid violet hair and bright eyes, wearing a black and violet dress with a short high-collared cape and silver trims. She holds a slim silver wand tipped with a lightning-bolt head, and small crackling spheres of white-blue lightning orbit her."
+      "description": "Euria of the Violet Bolt: a confident young female lightning sorceress elf with fair skin, long pointed elf ears and bright violet eyes. Short silver-white hair with two sleek silver blade-like horns sweeping back from her temples. A long flowing white coat with sharp pointed shoulders and wide cuffs, open at the front over a fitted blue full-length bodysuit with glowing cyan lightning-streak lines (fully covered). She holds no staff: a crackling sphere of violet-blue ball lightning floats above her raised right palm, and small white-blue lightning orbs circle around her."
     },
     {
       "id": "H027",
       "name": "Jarld",
       "ja": "竜槍のジャルド",
       "role": "Duelist",
-      "background": "steel blue and white",
-      "description": "Jarld of the Dragon Spear: a calm, heroic young male spear warrior with brown hair tied in a ponytail and a red headband. Silver-and-blue plate armor with dragon-scale motifs, a white undersuit and a red scarf. He holds a very long silver double-bladed dragon spear with a blue fin guard and a red tassel."
+      "background": "teal-green and warm orange flame",
+      "description": "Jarld of the Dragon Spear: a calm, heroic young male dragon lancer with brown hair tied in a high ponytail with a red cord, wearing a teal-green dragon-head crest guard on his forehead. Teal-green dragon-scale breastplate and large dragon-scale pauldrons with gold trims, a pale long-skirted tunic beneath and a red cape. He holds a very long dragon spear: the shaft ends in a teal-green dragon head whose open jaws project a golden flame-shaped spear blade, the dragon's eyes and the blade core glowing orange."
     },
     {
       "id": "H028",
       "name": "Zail",
       "ja": "断空のザイル",
       "role": "Assassin",
-      "background": "midnight navy and cyan",
-      "description": "Zail the Sky Cleaver: a sleek futuristic male swordsman with short dark hair and a thin glowing cyan visor over his eyes. Slim dark navy light armor with cyan light-line accents and a short high collar. He holds a long single-handed sword whose blade is made of pale cyan light, with light trails curling behind it."
+      "background": "midnight steel-blue with crimson light",
+      "description": "Zail the Sky Cleaver: a sleek futuristic male cyber swordsman with fair skin and silver-white hair tied in a high ponytail with a red band. A glowing red visor covers his eyes, with small silver antenna fins at the sides of his head. Black bodysuit under angular steel-blue mechanical armor plates with silver trims, a long red scarf trailing behind. He holds a long black sword whose edge glows crimson red, and three small floating blades orbit around him."
     },
     {
       "id": "H029",
       "name": "Borg",
       "ja": "聖槌のボルグ",
       "role": "Support",
-      "background": "royal blue and gold",
-      "description": "Borg of the Holy Hammer: a towering, stoic male heavy knight in royal-blue and gold full plate armor with huge pauldrons, a great helm with a blue plume and a blue cape. He holds an enormous gold-headed war maul in one hand and a large round blue shield with a golden holy emblem on the other arm."
+      "background": "royal blue and holy gold",
+      "description": "Borg of the Holy Hammer: a towering, stoic male paladin titan with short golden-blond hair and a gold circlet on his brow (no helmet), a strong square jaw and steady eyes. Massive royal-blue plate armor with gold trims and huge pauldrons, a red cape. He holds an enormous holy war maul with a gold striking head engraved with a holy sigil in one hand, and a large gold-rimmed blue heater shield bearing a golden holy emblem on the other arm."
     },
     {
       "id": "H030",
       "name": "Raina",
       "ja": "星砲のライナ",
       "role": "Ranger",
-      "background": "soft pink and starlit gold",
-      "description": "Raina of the Star Cannon: a cheerful young female gunner with pinkish-blonde twin tails and bright determined eyes, wearing a white and gold space-pilot style combat suit with red accents, a short cropped jacket and goggles pushed up on her forehead. She hauls a huge ornate star-shaped cannon rifle nearly as tall as herself, glowing with pink-white starlight at the muzzle."
+      "background": "sky blue and starlit gold",
+      "description": "Raina of the Star Cannon: a cheerful young female magic gunner with fair skin and bright blue eyes, very long golden-blonde twin tails reaching her waist held by brown leather hair clips with cyan gems. A white jacket with gold epaulettes, a brown leather corset-vest worn over it (fully covered), a navy necktie, a blue pleated skirt worn over black opaque tights. She holds at her hip a huge magic cannon taller than herself: a white barrel with an ornate gold frame, two horn-like gold prongs at the muzzle, and a glowing cyan power orb in its core."
     },
     {
       "id": "H031",
@@ -248,23 +248,23 @@
       "ja": "氷嵐のオーリア",
       "role": "Arcanist",
       "background": "icy blue and pale lilac",
-      "description": "Oria of the Ice Storm: a tall, composed female ice sorceress with long pale blue-white hair, a jagged ice-crystal crown and calm pale eyes. A flowing white and ice-blue gown with high collar and frost-feather trims (shoulders and chest covered). She holds a tall staff topped with a floating ice crystal, and shards of ice and snowflakes drift around her."
+      "description": "Oria of the Ice Storm: a tall, regal female ice queen with very pale skin, calm pale-blue eyes and very long straight silver-white hair flowing to her waist. A halo-shaped crown of jagged ice crystals stands behind her head, with a thin platinum circlet on her brow. A deep ultramarine mermaid-silhouette gown with a high collar (shoulders and chest covered), silver-blue fitted sleeves with ice formed at the wrists, the hem made of ice crystals, and a translucent icy veil trailing from her shoulders. She holds no staff: her raised right hand is covered in frost flowers, conjuring swirling ice shards and snowflakes."
     },
     {
       "id": "H032",
       "name": "Dias",
       "ja": "赤拳のディアス",
       "role": "Duelist",
-      "background": "smoky red and charcoal",
-      "description": "Dias of the Red Fist: a fierce young male brawler-swordsman with messy black hair and a determined scowl, wearing red-and-black light armor with a torn scarf and bandaged forearms. One arm bears an oversized iron gauntlet with a long curved blade along the knuckles, wreathed in crimson energy."
+      "background": "smoky crimson and abyssal violet",
+      "description": "Dias of the Red Fist: a fierce young male abyss prince with pale lavender skin, wild white hair, a pair of golden horns and glowing crimson eyes, a determined scowl. Dark-purple spiked pauldrons and a high-collared dark-purple armored jacket (chest covered) with a glowing crimson core gem set in the center of the chest plate, crimson trousers. A golden bladed ring circles each wrist like a chakram, its inner edge glowing crimson, and a long black demonic tail curls behind him."
     },
     {
       "id": "H033",
       "name": "Vald",
       "ja": "紅牙のヴァルド",
       "role": "Assassin",
-      "background": "blood crimson and black",
-      "description": "Vald of the Crimson Fang: a pale, elegant vampiric male swordsman with long black hair, sharp red eyes and small fangs, wearing deep crimson and black armor under a high-collared cloak that spreads like bat wings. He holds an enormous two-handed greatsword with a red-edged blade, a blood-red crescent moon behind him."
+      "background": "midnight navy with a faint crimson moon",
+      "description": "Vald of the Crimson Fang: a handsome, elegant male demon hunter swordsman with swept-back golden-blond hair, sharp eyes with a hint of red and a confident smirk. A long dark-navy coat with copper trims and buttons, a short blue capelet over the shoulders, a silver gauntlet on his right arm. He wields one-handed an enormous silver greatsword with a skull-shaped crossguard, a jagged serrated spine and a fuller glowing icy blue."
     },
     {
       "id": "H034",
@@ -272,7 +272,7 @@
       "ja": "鎖鉤のゴルム",
       "role": "Support",
       "background": "rust brown and iron grey",
-      "description": "Gorm of the Chain Hook: a huge, burly bearded male bruiser with a short mohawk-style cut and scarred skin, wearing iron shoulder plates and a chest plate with a thick rusty chain wrapped around his waist and shoulder. He swings a heavy iron chain ending in a large curved hook, with a grim confident grin."
+      "description": "Gorm of the Chain Hook: a huge, barrel-chested male viking bruiser with tan skin, a big horned iron helmet, a thick red beard reaching his chest and long red hair flowing down his back, a grim confident grin. Round iron disc shoulder guards like shields, an iron scale chestplate over a green tunic with a fur collar, thick muscular forearms with leather bracers. He holds a heavy iron chain ending in a huge curved iron hook, the chain also wrapped around his shoulder."
     }
   ],
   "skins": [

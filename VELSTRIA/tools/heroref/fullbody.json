@@ -177,6 +177,76 @@
       "costume": "a cozy layered tunic, loose lilac trousers and soft boots",
       "wear": "none",
       "remove": "the twin silver needles and the violet dream threads"
+    },
+    {
+      "id": "H025",
+      "keep": "her graceful elf female face with long pointed elf ears and moonlight-cyan eyes, the silver-white high ponytail, the slim silver circlet with the small blue feather pin, the blue-violet huntress bodice with high collar, the silver crescent-moon shoulder guards and silver bracers, the deep blue cloak",
+      "costume": "a fitted blue-violet huntress bodice and tunic with silver trims, a short layered skirt of silver-edged tassets over fitted dark-blue leggings that cover the legs completely, and silver-trimmed knee-high boots; the deep blue cloak hangs straight behind her back and ends above the knees",
+      "wear": "the silver crescent-moon shoulder guards",
+      "remove": "the crescent moon longbow, any arrow, moonlight glow and sparkles"
+    },
+    {
+      "id": "H026",
+      "keep": "her elf female face with long pointed elf ears and bright violet eyes, the short silver-white hair, the two silver blade-like horns sweeping back from her temples, the white coat with sharp pointed shoulders, the fitted blue bodysuit with cyan lightning-streak lines",
+      "costume": "the white coat is fitted on the torso and arms with short cuffs at the wrists, and opens below the waist into two coat tails reaching the knees, showing the fitted blue bodysuit on the legs and white knee-high boots",
+      "wear": "the pointed white coat shoulders",
+      "remove": "the ball lightning, the lightning orbs, electricity and glow"
+    },
+    {
+      "id": "H027",
+      "keep": "his heroic young male face, the brown high ponytail with the red cord, the teal-green dragon-head crest guard on his forehead, the teal-green dragon-scale breastplate and large dragon-scale pauldrons with gold trims, the pale tunic and the red cape",
+      "costume": "the pale tunic ends in a knee-length tabard at front and back over fitted dark trousers, teal-green dragon-scale greaves and boots; the red cape hangs straight down behind the back to the knees",
+      "wear": "the large dragon-scale pauldrons",
+      "remove": "the dragon spear and any flame or glow"
+    },
+    {
+      "id": "H028",
+      "keep": "his sleek male face, the silver-white high ponytail with the red band, the glowing red visor over his eyes and the small silver antenna fins, the black bodysuit with angular steel-blue mechanical armor plates and silver trims, the red scarf",
+      "costume": "angular steel-blue armor plates on the chest, shoulders, forearms, hips and shins over the black bodysuit, armored boots; the red scarf is wrapped around the neck with two short tails hanging down the back",
+      "wear": "the angular steel-blue shoulder plates",
+      "remove": "the black sword, the three floating blades, light trails and red glow effects (the visor itself stays)"
+    },
+    {
+      "id": "H029",
+      "keep": "his towering massive male build, the short golden-blond hair, the gold circlet on his brow, his square-jawed face, the royal-blue plate armor with gold trims and the huge pauldrons, the red cape",
+      "costume": "full royal-blue plate armor with gold trims covering the whole body, plate tassets over the hips, armored greaves and sabatons; the red cape hangs straight down behind the back to the calves",
+      "wear": "the huge royal-blue pauldrons with gold trims",
+      "remove": "the holy war maul, the heater shield and any holy glow"
+    },
+    {
+      "id": "H030",
+      "keep": "her cheerful young female face and bright blue eyes, the very long golden-blonde twin tails with the brown leather hair clips and cyan gems, the white jacket with gold epaulettes, the brown leather corset-vest, the navy necktie, the blue pleated skirt and black opaque tights",
+      "costume": "the white jacket is fitted with sleeves to the wrists, the blue pleated skirt ends at mid-thigh over black opaque tights that cover the legs completely, and brown leather knee-high boots; the twin tails fall straight down behind her back on both sides without touching the arms",
+      "wear": "the gold epaulettes on the shoulders",
+      "remove": "the magic cannon, the power orb, starlight glow and sparkles"
+    },
+    {
+      "id": "H031",
+      "keep": "her tall regal female face with very pale skin and calm pale-blue eyes, the very long silver-white hair, the halo-shaped crown of jagged ice crystals behind her head with the thin platinum circlet, the deep ultramarine gown with high collar, the silver-blue sleeves with ice at the wrists",
+      "costume": "the deep ultramarine gown is fitted to the body and flares slightly below the knees into a hem of ice crystals that ends at the ankles with a clear gap between the feet (two separate legs inside, fitted ultramarine leggings and silver-blue boots visible at the hem); the translucent icy veil is short and hangs only behind the back",
+      "wear": "the ice crystal halo crown behind her head",
+      "remove": "the frost flowers on the hand, the ice shards, the snowflakes and any glow (the ice at the wrist cuffs stays as small solid cuffs)"
+    },
+    {
+      "id": "H032",
+      "keep": "his fierce young male face with pale lavender skin, the wild white hair, the pair of golden horns, the crimson eyes, the dark-purple spiked pauldrons and high-collared dark-purple armored jacket with the crimson core gem in the chest plate, the crimson trousers",
+      "costume": "the dark-purple armored jacket covers the torso and arms to the wrists, crimson trousers with spiked dark-purple shin guards and dark boots",
+      "wear": "the dark-purple spiked pauldrons and a long black demonic tail that comes out from behind his lower back and curves out to his left side (viewer's right), its tip resting on the ground about one foot-length beside his left boot, clearly separated from both legs with background visible between the tail and the leg",
+      "remove": "the golden bladed wrist rings and any crimson glow effects (the chest gem and the eyes stay)"
+    },
+    {
+      "id": "H033",
+      "keep": "his handsome male face, the swept-back golden-blond hair, the sharp eyes, the long dark-navy coat with copper trims and buttons, the short blue capelet, the silver gauntlet on the right arm",
+      "costume": "the dark-navy coat is fitted on the torso and arms and opens below the waist into coat tails reaching the knees at front and back, dark fitted trousers and tall dark boots; the blue capelet covers only the shoulders",
+      "wear": "the short blue capelet and the silver gauntlet on the right forearm and hand",
+      "remove": "the silver greatsword and any blue glow"
+    },
+    {
+      "id": "H034",
+      "keep": "his huge barrel-chested male build with short sturdy legs, tan skin, the big horned iron helmet, the thick red beard reaching his chest, the long red hair, the round iron disc shoulder guards, the iron scale chestplate over the green tunic with the fur collar, the leather bracers",
+      "costume": "the iron scale chestplate and green tunic end at the hips over a short leather loincloth-style kilt with thick brown fur-lined trousers underneath covering the legs, heavy fur boots; bare thick upper arms with leather bracers on the forearms; the long red hair falls straight down behind the back",
+      "wear": "the round iron disc shoulder guards and a thick rusty chain worn diagonally across the chest like a sash",
+      "remove": "the iron hook and the loose swinging chain"
     }
   ]
 }

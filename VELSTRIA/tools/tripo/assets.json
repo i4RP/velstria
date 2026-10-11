@@ -130,6 +130,56 @@
       "id": "H024", "name_ja": "夢織のノア", "name_en": "Noa, Dreamweaver", "role": "Assassin",
       "prompt": "Dreamy adult woman, slim build, fair skin. Soft layered lime-green and lilac cloth outfit with silver trims, short ruffled kilt over striped leggings, soft boots. Lavender bob hair under a long floppy lilac nightcap with a silver crescent pin. Silver thread-spool ornaments on the belt. Palette: lime green, lilac, lavender, silver.",
       "notes": "両手の dreamNeedle は Prop、夢の糸（dreamThreads）は実行時。blueprint.scale 0.96。"
+    },
+    {
+      "id": "H025", "name_ja": "月弦のルミナ", "name_en": "Lumina, Moon String", "role": "Ranger",
+      "prompt": "her graceful elf female face with long pointed elf ears and moonlight-cyan eyes, the silver-white high ponytail, the slim silver circlet with the small blue feather pin, the blue-violet huntress bodice with high collar, the silver crescent-moon shoulder guards and silver bracers, the deep blue cloak. a fitted blue-violet huntress bodice and tunic with silver trims, a short layered skirt of silver-edged tassets over fitted dark-blue leggings that cover the legs completely, and silver-trimmed knee-high boots; the deep blue cloak hangs straight behind her back and ends above the knees. Body-worn: the silver crescent-moon shoulder guards.",
+      "notes": "本体は build/heroref/<ID>/fullbody.png（ポートレートから作った全身 T ポーズ）を --concept-source fullbody で使う。武器・浮遊物は実行時の手続きメッシュ（Prop なし）。"
+    },
+    {
+      "id": "H026", "name_ja": "紫電のエウリア", "name_en": "Euria, Violet Bolt", "role": "Arcanist",
+      "prompt": "her elf female face with long pointed elf ears and bright violet eyes, the short silver-white hair, the two silver blade-like horns sweeping back from her temples, the white coat with sharp pointed shoulders, the fitted blue bodysuit with cyan lightning-streak lines. the white coat is fitted on the torso and arms with short cuffs at the wrists, and opens below the waist into two coat tails reaching the knees, showing the fitted blue bodysuit on the legs and white knee-high boots. Body-worn: the pointed white coat shoulders.",
+      "notes": "本体は build/heroref/<ID>/fullbody.png（ポートレートから作った全身 T ポーズ）を --concept-source fullbody で使う。武器・浮遊物は実行時の手続きメッシュ（Prop なし）。"
+    },
+    {
+      "id": "H027", "name_ja": "竜槍のジャルド", "name_en": "Jarld, Dragon Spear", "role": "Duelist",
+      "prompt": "his heroic young male face, the brown high ponytail with the red cord, the teal-green dragon-head crest guard on his forehead, the teal-green dragon-scale breastplate and large dragon-scale pauldrons with gold trims, the pale tunic and the red cape. the pale tunic ends in a knee-length tabard at front and back over fitted dark trousers, teal-green dragon-scale greaves and boots; the red cape hangs straight down behind the back to the knees. Body-worn: the large dragon-scale pauldrons.",
+      "notes": "本体は build/heroref/<ID>/fullbody.png（ポートレートから作った全身 T ポーズ）を --concept-source fullbody で使う。武器・浮遊物は実行時の手続きメッシュ（Prop なし）。"
+    },
+    {
+      "id": "H028", "name_ja": "断空のザイル", "name_en": "Zail, Sky Cleaver", "role": "Assassin",
+      "prompt": "his sleek male face, the silver-white high ponytail with the red band, the glowing red visor over his eyes and the small silver antenna fins, the black bodysuit with angular steel-blue mechanical armor plates and silver trims, the red scarf. angular steel-blue armor plates on the chest, shoulders, forearms, hips and shins over the black bodysuit, armored boots; the red scarf is wrapped around the neck with two short tails hanging down the back. Body-worn: the angular steel-blue shoulder plates.",
+      "notes": "本体は build/heroref/<ID>/fullbody.png（ポートレートから作った全身 T ポーズ）を --concept-source fullbody で使う。武器・浮遊物は実行時の手続きメッシュ（Prop なし）。"
+    },
+    {
+      "id": "H029", "name_ja": "聖槌のボルグ", "name_en": "Borg, Holy Hammer", "role": "Support",
+      "prompt": "his towering massive male build, the short golden-blond hair, the gold circlet on his brow, his square-jawed face, the royal-blue plate armor with gold trims and the huge pauldrons, the red cape. full royal-blue plate armor with gold trims covering the whole body, plate tassets over the hips, armored greaves and sabatons; the red cape hangs straight down behind the back to the calves. Body-worn: the huge royal-blue pauldrons with gold trims.",
+      "notes": "本体は build/heroref/<ID>/fullbody.png（ポートレートから作った全身 T ポーズ）を --concept-source fullbody で使う。武器・浮遊物は実行時の手続きメッシュ（Prop なし）。"
+    },
+    {
+      "id": "H030", "name_ja": "星砲のライナ", "name_en": "Raina, Star Cannon", "role": "Ranger",
+      "prompt": "her cheerful young female face and bright blue eyes, the very long golden-blonde twin tails with the brown leather hair clips and cyan gems, the white jacket with gold epaulettes, the brown leather corset-vest, the navy necktie, the blue pleated skirt and black opaque tights. the white jacket is fitted with sleeves to the wrists, the blue pleated skirt ends at mid-thigh over black opaque tights that cover the legs completely, and brown leather knee-high boots; the twin tails fall straight down behind her back on both sides without touching the arms. Body-worn: the gold epaulettes on the shoulders.",
+      "notes": "本体は build/heroref/<ID>/fullbody.png（ポートレートから作った全身 T ポーズ）を --concept-source fullbody で使う。武器・浮遊物は実行時の手続きメッシュ（Prop なし）。"
+    },
+    {
+      "id": "H031", "name_ja": "氷嵐のオーリア", "name_en": "Oria, Ice Storm", "role": "Arcanist",
+      "prompt": "her tall regal female face with very pale skin and calm pale-blue eyes, the very long silver-white hair, the halo-shaped crown of jagged ice crystals behind her head with the thin platinum circlet, the deep ultramarine gown with high collar, the silver-blue sleeves with ice at the wrists. the deep ultramarine gown is fitted to the body and flares slightly below the knees into a hem of ice crystals that ends at the ankles with a clear gap between the feet (two separate legs inside, fitted ultramarine leggings and silver-blue boots visible at the hem); the translucent icy veil is short and hangs only behind the back. Body-worn: the ice crystal halo crown behind her head.",
+      "notes": "本体は build/heroref/<ID>/fullbody.png（ポートレートから作った全身 T ポーズ）を --concept-source fullbody で使う。武器・浮遊物は実行時の手続きメッシュ（Prop なし）。"
+    },
+    {
+      "id": "H032", "name_ja": "赤拳のディアス", "name_en": "Dias, Red Fist", "role": "Duelist",
+      "prompt": "his fierce young male face with pale lavender skin, the wild white hair, the pair of golden horns, the crimson eyes, the dark-purple spiked pauldrons and high-collared dark-purple armored jacket with the crimson core gem in the chest plate, the crimson trousers. the dark-purple armored jacket covers the torso and arms to the wrists, crimson trousers with spiked dark-purple shin guards and dark boots. Body-worn: the dark-purple spiked pauldrons and a long black demonic tail hanging straight down behind him to the ground.",
+      "notes": "本体は build/heroref/<ID>/fullbody.png（ポートレートから作った全身 T ポーズ）を --concept-source fullbody で使う。武器・浮遊物は実行時の手続きメッシュ（Prop なし）。"
+    },
+    {
+      "id": "H033", "name_ja": "紅牙のヴァルド", "name_en": "Vald, Crimson Fang", "role": "Assassin",
+      "prompt": "his handsome male face, the swept-back golden-blond hair, the sharp eyes, the long dark-navy coat with copper trims and buttons, the short blue capelet, the silver gauntlet on the right arm. the dark-navy coat is fitted on the torso and arms and opens below the waist into coat tails reaching the knees at front and back, dark fitted trousers and tall dark boots; the blue capelet covers only the shoulders. Body-worn: the short blue capelet and the silver gauntlet on the right forearm and hand.",
+      "notes": "本体は build/heroref/<ID>/fullbody.png（ポートレートから作った全身 T ポーズ）を --concept-source fullbody で使う。武器・浮遊物は実行時の手続きメッシュ（Prop なし）。"
+    },
+    {
+      "id": "H034", "name_ja": "鎖鉤のゴルム", "name_en": "Gorm, Chain Hook", "role": "Support",
+      "prompt": "his huge barrel-chested male build with short sturdy legs, tan skin, the big horned iron helmet, the thick red beard reaching his chest, the long red hair, the round iron disc shoulder guards, the iron scale chestplate over the green tunic with the fur collar, the leather bracers. the iron scale chestplate and green tunic end at the hips over a short leather loincloth-style kilt with thick brown fur-lined trousers underneath covering the legs, heavy fur boots; bare thick upper arms with leather bracers on the forearms; the long red hair falls straight down behind the back. Body-worn: the round iron disc shoulder guards and a thick rusty chain worn diagonally across the chest like a sash.",
+      "notes": "本体は build/heroref/<ID>/fullbody.png（ポートレートから作った全身 T ポーズ）を --concept-source fullbody で使う。武器・浮遊物は実行時の手続きメッシュ（Prop なし）。"
     }
   ],
   "props": [
