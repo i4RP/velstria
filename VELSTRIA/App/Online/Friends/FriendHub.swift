@@ -35,6 +35,13 @@ struct PartyInvite: Equatable, Identifiable {
     var receivedAt: Date
 }
 
+/// 送った招待の状態（フレンド一覧の表示用）。
+struct SentInvite: Equatable {
+    enum State: Equatable { case pending, accepted, waiting, declined, busy }
+    var state: State
+    var at: Date
+}
+
 @Observable
 @MainActor
 final class FriendHub {
@@ -46,6 +53,8 @@ final class FriendHub {
     private(set) var incomingRequests: [FriendRequest] = []
     /// 画面に出している招待（返事を待っている）。
     private(set) var pendingInvite: PartyInvite?
+    /// 送った招待（フレンドコード → 状態）。返事が来ると更新する。
+    private(set) var sentInvites: [String: SentInvite] = [:]
 
     @ObservationIgnored weak var host: FriendProfileAccess?
     /// 試合中など、招待を受けられない。
@@ -98,6 +107,13 @@ final class FriendHub {
     var isOnline: Bool { status == .online }
 
     func friend(code: String) -> Friend? { friends.first { $0.code == code } }
+    /// 送った招待の状態（古いものは無視する）。
+    func sentInvite(to code: String) -> SentInvite? {
+        guard let s = sentInvites[code], now().timeIntervalSince(s.at) <= Self.inviteLifetime else { return nil }
+        return s
+    }
+    /// 返事待ちの申請を送った相手か。
+    func hasOutgoingRequest(to code: String) -> Bool { host?.profile.outgoingFriendRequests.contains(code) == true }
     func isFriendOnline(_ code: String) -> Bool { onlineCodes.contains(code) }
 
     // MARK: - 接続
@@ -267,6 +283,7 @@ final class FriendHub {
             guard let self else { return }
             switch result {
             case .delivered:
+                self.sentInvites[friend.code] = SentInvite(state: .pending, at: self.now())
                 self.onNotice?(L("\(name) を招待しました", "Invited \(name)"))
             case .queued, .offline:
                 self.onNotice?(L("\(name) はオフラインです", "\(name) is offline"))
@@ -407,6 +424,14 @@ final class FriendHub {
     private func handleReply(from code: String, payload: InboxPayload) {
         guard let known = friend(code: code), let answer = payload.answer.flatMap(InboxPayload.Answer.init(rawValue:)) else { return }
         let name = FriendNames.display(known.name)
+        let state: SentInvite.State
+        switch answer {
+        case .accept: state = .accepted
+        case .decline: state = .declined
+        case .wait: state = .waiting
+        case .busy: state = .busy
+        }
+        sentInvites[code] = SentInvite(state: state, at: now())
         switch answer {
         case .accept:
             onNotice?(L("\(name) が参加します", "\(name) is joining"))

@@ -115,10 +115,18 @@ struct OnlinePeer: Codable, Hashable, Identifiable {
     var leftMatch = false
     /// この試合を観戦した（霧の向こうを見たので、選手としては戻れない。再接続しても分かるようにホストが持つ）。
     var watchedMatch = false
+    /// 名乗ったアイコンのヒーロー（パーティの枠に出す）・フレンドコード（パーティからフレンド申請する）。自己申告なので表示にだけ使う。
+    var avatar: String?
+    var friendCode: String?
 }
 
 enum OnlineRoomPhase: Int, Codable, Hashable {
     case lobby, loading, playing, ended
+}
+
+/// ロビーの段階: パーティ（メンバーを集める）→ ピック（チーム分けの後、座席でヒーローを選ぶ）。
+enum OnlineRoomStage: Int, Codable, Hashable {
+    case party, pick
 }
 
 /// 部屋の全状態。ホストが正本を持ち、変化するたびに全員へ配る（差分管理をしないので取りこぼしに強い）。
@@ -135,6 +143,8 @@ struct OnlineRoom: Codable, Hashable {
     var allowsSpectators = true
     /// 観戦者への配信の遅延（tick。ロビーでだけ変えられる。試合中に縮めると遅延の意味がなくなる）。
     var spectatorDelayTicks = OnlineProtocol.ticks(seconds: OnlineProtocol.defaultSpectatorDelaySeconds)
+    /// ロビーの段階（nil = パーティ）。ホストがチーム分けを決めるとピックへ進み、試合が終わるとパーティへ戻る。
+    var stage: OnlineRoomStage?
 
     init(name: String, hostPeerID: OnlinePeerID) {
         self.name = name
@@ -142,6 +152,9 @@ struct OnlineRoom: Codable, Hashable {
         self.seats = (0..<OnlineProtocol.seatCount).map { OnlineSeat.empty($0) }
         self.peers = []
     }
+
+    /// ピック（座席でヒーローを選ぶ）の段階か。
+    var isPicking: Bool { stage == .pick }
 
     func seat(of peerID: OnlinePeerID) -> OnlineSeat? { seats.first { $0.peerID == peerID } }
     func seatIndex(of peerID: OnlinePeerID) -> Int? { seats.firstIndex { $0.peerID == peerID } }
@@ -188,6 +201,9 @@ struct OnlineHello: Codable, Hashable {
     var simVersion = MatchConfig.currentSimVersion
     /// 観戦席で入りたい（試合中なら途中から観戦する）。v1 の名乗りには無いので任意（版数の照合より先に復号する）。
     var wantsSpectate: Bool?
+    /// アイコンのヒーロー・フレンドコード（任意。パーティの表示用）。
+    var avatar: String?
+    var friendCode: String?
 }
 
 /// 配線上のメッセージ。

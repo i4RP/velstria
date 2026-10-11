@@ -13,16 +13,7 @@ struct FriendsView: View {
 
     private var hub: FriendHub { app.friends }
 
-    /// いま招待に使える部屋（自分がホストで中継が開いている、または部屋コードで入っている）。
-    private var inviteRoom: (code: String, name: String)? {
-        guard let session = app.online else { return nil }
-        if session.isHost {
-            guard let code = session.relayCode, session.relayStatus?.isReady == true else { return nil }
-            return (code, session.room.name)
-        }
-        guard let code = session.joinedRelayCode, session.isConnected else { return nil }
-        return (code, session.room.name)
-    }
+    private var inviteRoom: (code: String, name: String)? { app.partyInviteRoom }
 
     var body: some View {
         ZStack {
@@ -370,20 +361,9 @@ struct FriendsView: View {
         .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.08)))
     }
 
-    /// 招待する。部屋がまだ無ければ作り、部屋コードが使えるようになるまで（最大 10 秒）待ってから送る。
     private func invite(_ friend: Friend) {
         FlowFX.confirm(app)
-        if inviteRoom == nil { app.hostPartyRoom() }
-        Task { @MainActor in
-            for _ in 0..<40 {
-                if let room = inviteRoom {
-                    hub.invite(friend, roomCode: room.code, roomName: room.name)
-                    return
-                }
-                try? await Task.sleep(for: .milliseconds(250))
-            }
-            app.showToast(L("部屋の準備ができませんでした。もう一度お試しください", "The room is not ready. Please try again"))
-        }
+        app.inviteToParty(friend)
     }
 }
 

@@ -585,4 +585,41 @@ final class OnlineSessionTests: XCTestCase {
         s.pair.client.setReady(true)
         XCTAssertTrue(s.pair.host.startMatch(master: .shared, seed: 8))
     }
+
+    func testPartyArrangeTeamsSeatsPlayersAndReturnsToPartyAfterMatch() {
+        let p = makePair()
+        XCTAssertFalse(p.host.room.isPicking)
+        XCTAssertFalse(p.client.room.isPicking)
+        // 名乗りのアイコン・フレンドコードがホストの部屋に載る（無効なコードは捨てる）
+        XCTAssertEqual(p.host.room.peer("guest")?.friendCode, nil)
+        // 全員味方: 2 人とも Blue、相手は AI
+        p.host.arrangeTeams(blue: ["host", "guest"], red: [])
+        XCTAssertTrue(p.client.room.isPicking)
+        XCTAssertEqual(p.host.room.seat(of: "host")?.team, .blue)
+        XCTAssertEqual(p.host.room.seat(of: "guest")?.team, .blue)
+        // パーティへ戻して、敵味方に分け直す
+        p.host.returnToParty()
+        XCTAssertFalse(p.client.room.isPicking)
+        p.host.arrangeTeams(blue: ["host"], red: ["guest"])
+        XCTAssertEqual(p.client.room.seat(of: "guest")?.team, .red)
+        XCTAssertEqual(p.host.room.humanSeats.count, 2)
+        // 試合の後はパーティへ戻る
+        p.host.setLoadout(OnlineLoadout(heroID: "H001"))
+        p.client.setLoadout(OnlineLoadout(heroID: "H002"))
+        p.host.setReady(true)
+        p.client.setReady(true)
+        XCTAssertTrue(p.host.startMatch(master: .shared, seed: 3))
+        p.host.matchEnded()
+        XCTAssertFalse(p.client.room.isPicking)
+    }
+
+    func testHelloCarriesAvatarAndValidFriendCode() {
+        let host = OnlineSession.host(peerID: "host", name: "Host", roomName: "Room", avatar: "H002", friendCode: "ABCD2345")
+        let (a, b) = LoopbackConnection.pair()
+        host.accept(a)
+        let client = OnlineSession.join(peerID: "guest", name: "Guest", connection: b, avatar: "H003", friendCode: "WXYZ6789")
+        XCTAssertEqual(host.room.peer("guest")?.avatar, "H003")
+        XCTAssertEqual(host.room.peer("guest")?.friendCode, "WXYZ6789")
+        XCTAssertEqual(client.room.peer("host")?.friendCode, "ABCD2345")
+    }
 }

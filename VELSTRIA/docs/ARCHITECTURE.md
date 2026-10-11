@@ -186,6 +186,12 @@ WebSocket Hibernation）で、**中身を解釈しない土管**。ゲームの�
   - 参加: 同意で `AppModel.joinPartyRoom` が部屋コードで入り、`OnlineSession.seatsWithHostTeam` により **ホストと同じチームの空席に自動で座る**
     （`OnlineSession.partySeat`。ホストが未着席なら Blue、チームが満席なら他チーム）。残りの席は従来どおり AI。ヒーロー選択と準備完了は各自、開始はホスト。
 - 在席: 繋がっている間 20 秒ごとにフレンドの在席を問い合わせる。
+- 画面（2026-10-11 刷新、`PartyLobbyView`）: オンラインの画面を開くと `AppModel.ensurePartyRoom` が自分のパーティ（部屋）を作る。
+  左にメンバーの枠（5 つ。6 人以上で 10）・AI の強さ・部屋コード、右のパネルにタブ（フレンド / フレンド申請 / 近く（同じ Wi-Fi）/ 部屋コード）。
+  部屋は段階 `OnlineRoom.stage`（nil = party / pick）を持ち、ホストの「ゲーム開始」→ チーム分け（全員味方 / 敵味方に分かれる）→
+  `OnlineSession.arrangeTeams` で座らせてピック（従来の座席の画面）へ。試合の後・「パーティへ」でパーティへ戻る。
+  名乗り（`OnlineHello`）に任意のアイコン・フレンドコードを添え、枠からフレンドでない参加者へ申請できる。
+  `-onlineHost` の検証用の部屋はピックから始まる（`-onlineParty` でパーティから。`-partyTeams` でチーム分けを開く）。
 - 保存: `Profile.friends` / `outgoingFriendRequests`（`PersistenceService` の elementTemplates と sanitize に対応）。
 - テスト: `FriendTests`（コード・リンク・符号化・受信箱への接続・申請/承認/招待の手順・パーティの席・保存の互換）、中継は `relay/test/relay.test.mjs`。
 - 公開前の課題: ブロック・通報、表示名の不適切語対策、プライバシーの文言（フレンドコードと表示名が中継を通ること）、年齢区分。

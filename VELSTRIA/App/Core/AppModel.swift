@@ -167,7 +167,8 @@ final class AppModel: FriendProfileAccess {
         leaveOnlineRoom()
         let name = profile.displayName.isEmpty ? L("プレイヤー", "Player") : profile.displayName
         let session = OnlineSession.host(peerID: profile.playerID, name: name,
-                                         roomName: roomName ?? L("\(name) の部屋", "\(name)'s room"))
+                                         roomName: roomName ?? L("\(name) の部屋", "\(name)'s room"),
+                                         avatar: profile.avatarHeroID, friendCode: profile.friendCode)
         wire(session)
         session.startListening(preferredPort: port)
         if relay { session.startRelay(baseURL: OnlineRelayConfig.baseURL, code: relayCode) }
@@ -254,6 +255,39 @@ final class AppModel: FriendProfileAccess {
         showOnlineLobby()
     }
 
+    /// オンラインの画面を開いた: 部屋に入っていなければ自分のパーティ（部屋）を作る（フレンドをすぐ招待できるように）。
+    func ensurePartyRoom() {
+        guard FeatureFlags.lanMatch, online == nil, activeBattle == nil, activeMagicChess == nil else { return }
+        let name = profile.displayName.isEmpty ? L("プレイヤー", "Player") : profile.displayName
+        hostOnlineRoom(name: L("\(name) のパーティ", "\(name)'s party"))
+    }
+
+    /// いま招待に使える部屋（自分がホストで中継が開いている、または部屋コードで入っている）。
+    var partyInviteRoom: (code: String, name: String)? {
+        guard let session = online else { return nil }
+        if session.isHost {
+            guard let code = session.relayCode, session.relayStatus?.isReady == true else { return nil }
+            return (code, session.room.name)
+        }
+        guard let code = session.joinedRelayCode, session.isConnected else { return nil }
+        return (code, session.room.name)
+    }
+
+    /// フレンドをパーティへ招待する。部屋がまだ無ければ作り、部屋コードが使えるようになるまで（最大 10 秒）待ってから送る。
+    func inviteToParty(_ friend: Friend) {
+        if partyInviteRoom == nil && online == nil { ensurePartyRoom() }
+        Task { @MainActor in
+            for _ in 0..<40 {
+                if let room = partyInviteRoom {
+                    friends.invite(friend, roomCode: room.code, roomName: room.name)
+                    return
+                }
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+            showToast(L("部屋の準備ができませんでした。もう一度お試しください", "The room is not ready. Please try again"))
+        }
+    }
+
     /// フレンドの招待に同意した: 部屋コードで入り、ホストと同じチームの空席に自動で座る。
     func joinPartyRoom(code: String) {
         guard FeatureFlags.lanMatch, RelayRoomCode.isValid(code) else { return }
@@ -286,7 +320,8 @@ final class AppModel: FriendProfileAccess {
     func joinOnlineRoom(connection: OnlineConnection, wantsSpectate: Bool = false) {
         leaveOnlineRoom()
         let name = profile.displayName.isEmpty ? L("プレイヤー", "Player") : profile.displayName
-        let session = OnlineSession.join(peerID: profile.playerID, name: name, connection: connection, wantsSpectate: wantsSpectate)
+        let session = OnlineSession.join(peerID: profile.playerID, name: name, connection: connection, wantsSpectate: wantsSpectate,
+                                         avatar: profile.avatarHeroID, friendCode: profile.friendCode)
         wire(session)
         online = session
     }

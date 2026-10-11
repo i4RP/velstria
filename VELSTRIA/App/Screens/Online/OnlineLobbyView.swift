@@ -1,150 +1,53 @@
 import SwiftUI
 import VelstriaCore
 
-// 担当: online。オンライン対戦（リッスンサーバー）の入口と部屋。
-// - 入口: 部屋を作る（LAN の待ち受けと中継の両方を開く）/ 部屋コードで入る（中継経由。違う場所・違う Wi-Fi）・観戦で入る /
-//   同じ Wi-Fi の部屋（Bonjour）に入る・観戦で入る / アドレスを打って入る
-// - ホストの部屋: 部屋コードを大きく出し、コピー・共有（文面 + velstria://join?code=…）、中継の状態と再試行
-// - 部屋: 座席（Blue 5 / Red 5）に着く → ヒーローを選ぶ → 準備完了 → ホストが開始
+// 担当: online。オンライン対戦（リッスンサーバー）の画面の切り替えと、ピック以降の部屋。
+// - パーティ（PartyLobbyView）: 画面を開くと自分のパーティ（部屋）を作る。右パネルでフレンドの招待・申請、近くの部屋、部屋コード。
+//   ホストが「ゲーム開始」→ チーム分け（全員味方 / 敵味方に分かれる）→ ピックの段階へ。
+// - 部屋（ピック）: 座席（Blue 5 / Red 5）でヒーローを選ぶ → 準備完了 → ホストが開始。ホストはパーティへ戻せる。
 // - 観戦: 座らずに観戦席へ移ると、試合開始で観戦画面が開く（遅延付き）。試合中に入った・抜けた人は「観戦する」。
 //   ホストは観戦の許可・遅延を決め、座らずに実況（キャスター）として開始することもできる。
-// 部屋の状態は AppModel.online（OnlineSession）が持ち、戦闘・リザルトの後もここに戻る。
+// 部屋の状態は AppModel.online（OnlineSession）が持ち、戦闘・リザルトの後もここに戻る（試合の後はパーティへ戻る）。
 
 struct OnlineLobbyView: View {
     @Environment(AppModel.self) private var app
-    /// フレンドの画面（入口と部屋の両方から開く。部屋を作ると入口が部屋に替わるので、シートはここで持つ）。
+    /// フレンドの画面（ピックの段階の部屋から開く）。
     @State private var showsFriends = false
 
     var body: some View {
-        ScreenScaffold(title: L("オンライン対戦", "Online Match"), showsCurrencies: false) {
-            if let session = app.online {
-                OnlineRoomView(session: session, onShowFriends: { showsFriends = true })
+        Group {
+            if let session = app.online, Self.showsRoom(session) {
+                ScreenScaffold(title: L("オンライン対戦", "Online Match"), showsCurrencies: false) {
+                    OnlineRoomView(session: session, onShowFriends: { showsFriends = true })
+                }
             } else {
-                OnlineEntryView(onShowFriends: { showsFriends = true })
+                // パーティ（メンバー集め）: 部屋に入っていなければ自分のパーティを作る
+                PartyLobbyView()
             }
         }
         .sheet(isPresented: $showsFriends) {
             FriendsView().environment(app)
         }
     }
+
+    /// 座席の画面（ピック・試合中・切断）を出すか。ロビーのパーティの段階はパーティの画面。
+    static func showsRoom(_ session: OnlineSession) -> Bool {
+        if case .disconnected = session.status { return true }
+        return session.room.isPicking || session.room.phase != .lobby || session.isSittingOutMatch
+    }
 }
 
-// MARK: - 入口
+// MARK: - 部屋コードで参加（中継経由）
 
-private struct OnlineEntryView: View {
-    let onShowFriends: () -> Void
+/// 部屋コードの入力と「観戦」「参加」（パーティの右パネルの「コード」タブ）。
+struct OnlineCodeJoinSection: View {
     @Environment(AppModel.self) private var app
-    @State private var browser = NWOnlineBrowser()
-    @State private var address = ""
-    @State private var roomName = ""
-    @State private var rooms: [NWOnlineBrowser.Room] = []
     /// 部屋コードの入力（RelayRoomCode.cleaned で大文字・区切りなし・6 文字まで）。
     @State private var codeInput = ""
     @State private var joinAsSpectator = false
-    /// 入口の幅（iPhone SE の横 667pt では「部屋を作る」の列を詰めて、コードの入力欄に回す）。
-    @State private var entryWidth: CGFloat = 0
 
-    var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            hostPanel.frame(width: entryWidth > 0 && entryWidth < 700 ? 250 : 300)
-            joinPanel.frame(maxWidth: .infinity)
-        }
-        .padding(.horizontal, 20)
-        .padding(.bottom, 10)
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { entryWidth = $0 }
-        .onAppear {
-            if roomName.isEmpty {
-                let name = app.profile.displayName.isEmpty ? L("プレイヤー", "Player") : app.profile.displayName
-                roomName = L("\(name) の部屋", "\(name)'s room")
-            }
-            browser.onChange = { rooms = $0 }
-            browser.start()
-        }
-        .onDisappear { browser.stop() }
-    }
+    var body: some View { codeJoinSection }
 
-    /// フレンドの画面を開くボタン（届いている申請の数をバッジで出す）。
-    private var friendsButton: some View {
-        let requests = app.friends.incomingRequests.count
-        return Button {
-            FlowFX.confirm(app)
-            onShowFriends()
-        } label: {
-            HStack(spacing: 6) {
-                Label(L("フレンド", "Friends"), systemImage: "person.2.fill").frame(maxWidth: .infinity)
-                if requests > 0 {
-                    Text("\(requests)")
-                        .font(.system(size: 11, weight: .heavy, design: .rounded))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Capsule().fill(Theme.danger))
-                        .accessibilityLabel(L("申請 \(requests) 件", "\(requests) requests"))
-                }
-            }
-        }
-        .buttonStyle(SecondaryButtonStyle())
-        .accessibilityIdentifier("online_friends")
-    }
-
-    private var hostPanel: some View {
-        Panel(padding: 14) {
-            VStack(alignment: .leading, spacing: 10) {
-                friendsButton
-                Label(L("部屋を作る", "Host a Room"), systemImage: "antenna.radiowaves.left.and.right")
-                    .font(Theme.heading(16))
-                    .foregroundStyle(Theme.textPrimary)
-                Text(L("あなたの iPhone がホスト（サーバー）になります。部屋コードを伝えれば、違う場所・違う Wi-Fi の相手も参加できます（中継サーバー経由）。",
-                       "Your iPhone acts as the host (server). Share the room code so players anywhere, on any network, can join (via the relay server)."))
-                    .font(Theme.body(12))
-                    .foregroundStyle(Theme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                TextField(L("部屋の名前", "Room name"), text: $roomName)
-                    .textFieldStyle(.roundedBorder)
-                    .font(Theme.body(14))
-                    .onChange(of: roomName) { _, v in if v.count > 20 { roomName = String(v.prefix(20)) } }
-                    .accessibilityIdentifier("online_room_name")
-                Button {
-                    FlowFX.confirm(app)
-                    app.hostOnlineRoom(name: roomName.isEmpty ? nil : roomName)
-                } label: {
-                    Label(L("部屋を作る", "Create Room"), systemImage: "plus.circle.fill").frame(maxWidth: .infinity)
-                }
-                .buttonStyle(PrimaryButtonStyle())
-                .accessibilityIdentifier("online_host")
-                Spacer(minLength: 0)
-                let addresses = OnlineNetwork.localIPv4Addresses()
-                if !addresses.isEmpty {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(L("この端末のアドレス（同じ Wi-Fi 用）", "This device (same Wi-Fi)"))
-                            .font(Theme.body(11))
-                            .foregroundStyle(Theme.textSecondary)
-                        Text(addresses.map { "\($0):\(OnlineProtocol.defaultPort)" }.joined(separator: "  "))
-                            .font(Theme.mono(12))
-                            .foregroundStyle(Theme.cyan)
-                            .lineLimit(2)
-                            .textSelection(.enabled)
-                    }
-                }
-            }
-        }
-    }
-
-    private var joinPanel: some View {
-        Panel(padding: 14) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
-                    codeJoinSection
-                    Divider().overlay(Theme.panelStroke)
-                    lanSection
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .scrollBounceBehavior(.basedOnSize)
-        }
-    }
-
-    // MARK: 部屋コードで参加（中継経由）
 
     private var parsedCode: Result<String, RelayRoomCode.InputError> { RelayRoomCode.parse(codeInput) }
 
@@ -244,8 +147,26 @@ private struct OnlineEntryView: View {
             app.showToast(e.message)
         }
     }
+}
 
-    // MARK: 同じ Wi-Fi（Bonjour / アドレス入力）
+// MARK: - 同じ Wi-Fi（Bonjour / アドレス入力）
+
+/// 同じネットワークの部屋の一覧とアドレス入力（パーティの右パネルの「近く」タブ）。
+struct OnlineLANSection: View {
+    @Environment(AppModel.self) private var app
+    @State private var browser = NWOnlineBrowser()
+    @State private var address = ""
+    @State private var rooms: [NWOnlineBrowser.Room] = []
+
+    var body: some View {
+        lanSection
+            .onAppear {
+                browser.onChange = { rooms = $0 }
+                browser.start()
+            }
+            .onDisappear { browser.stop() }
+    }
+
 
     private var lanSection: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -291,6 +212,14 @@ private struct OnlineEntryView: View {
                 }
                 .buttonStyle(SecondaryButtonStyle())
                 .accessibilityIdentifier("online_connect")
+            }
+            let addresses = OnlineNetwork.localIPv4Addresses()
+            if !addresses.isEmpty {
+                Text(L("この端末のアドレス: ", "This device: ") + addresses.map { "\($0):\(OnlineProtocol.defaultPort)" }.joined(separator: "  "))
+                    .font(Theme.mono(11))
+                    .foregroundStyle(Theme.cyan)
+                    .lineLimit(2)
+                    .textSelection(.enabled)
             }
             Text(L("開発中の機能です。ホストの端末が試合を進めるため、ホストが離脱すると試合は終了します。",
                    "Development feature. The host's device runs the match; if the host leaves, the match ends."))
@@ -431,6 +360,16 @@ struct OnlineRoomView: View {
                     .foregroundStyle(Theme.textSecondary)
             }
             Spacer()
+            if session.isHost, room.phase == .lobby {
+                Button {
+                    FlowFX.back(app)
+                    session.returnToParty()
+                } label: {
+                    Label(L("パーティへ", "Party"), systemImage: "person.3.fill")
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .accessibilityIdentifier("online_back_to_party")
+            }
             if let onShowFriends, room.phase == .lobby {
                 Button {
                     FlowFX.tap(app)
@@ -1010,7 +949,7 @@ struct OnlineRoomView: View {
 
 /// ホストの部屋コード（大きく）・コピー・共有・中継の状態と再試行。部屋の上の帯に置く。
 /// コードをタップすると詳細（説明・状態の理由・LAN のアドレス）を出す。
-private struct RelayInviteControls: View {
+struct RelayInviteControls: View {
     let session: OnlineSession
     @Environment(AppModel.self) private var app
     @State private var showsDetail = false

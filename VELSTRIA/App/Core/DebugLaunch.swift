@@ -33,6 +33,7 @@ import VelstriaCore
 //   -onlineHost [port]    起動後にオンライン対戦の部屋を作る（待ち受けポート省略時は既定）。LAN の待ち受けと中継（部屋コード）の両方を開く
 //   -relayCode <CODE>     -onlineHost の部屋コードを決める（自動検証用。使われていても作り直さない）
 //   -relayURL <ws(s)://…> 中継サーバーの URL を差し替える（既定は OnlineRelayConfig.defaultBaseURL。例 ws://127.0.0.1:8787）
+//   -onlineParty          -onlineHost の部屋をパーティの画面（メンバー集め）から始める（既定は座席の画面から）
 //   -onlineJoin <host:port>  起動後に部屋へ接続する（LAN）
 //   -onlineJoinCode <CODE>   起動後に部屋コードで部屋へ入る（中継経由）
 //   -onlineAuto           部屋で自動的に着席・ヒーロー選択・準備完了にし、ホストは全員揃ったら開始する（2 台のシミュレータでの検証用）
@@ -100,6 +101,8 @@ enum DebugLaunch {
             let port = value(after: "-onlineHost").flatMap { UInt16($0) } ?? OnlineProtocol.defaultPort
             let code: String? = value(after: "-relayCode").flatMap { try? RelayRoomCode.parse($0).get() }
             app.hostOnlineRoom(name: "\(p.displayName.isEmpty ? "Host" : p.displayName) (sim)", port: port, relayCode: code)
+            // 検証用の部屋はパーティを経ずに座席（ピック）から始める（-onlineParty ならパーティの画面）
+            if !args.contains("-onlineParty") { app.online?.enterPickStage() }
             app.router.path = [.onlineLobby]
         } else if let raw = value(after: "-onlineJoinCode") {
             switch RelayRoomCode.parse(raw) {
