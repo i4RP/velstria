@@ -87,6 +87,14 @@
 | hideShield | 0.50 | axis vertical, yaw 90 | 丸盾の面（中央の突起）-Z、元画像の上 +Y、最も薄い Z | 同じ（propMount center） |
 | stoneFist / azureClaw | - | bodyWorn | 取り込まない | 付けない（本体に含む） |
 
+## 取り込み前の修正（tools/blender/fix_hero_mesh.py）
+- Tripo の生成で崩れた部品を、新しい生成をせずに元の rigged.glb から切り取り・重みを付け直してから通常の取り込みに通す
+  （使い方はスクリプトの先頭）。直した rigged.glb は一時の build ディレクトリに置き、`TRIPO_BUILD_DIR` などを一時へ向けて
+  `node tools/tripo.mjs import heroes <ID>` で正規化・検査し、合格した `Hero_<ID>.usdz` だけを写す。
+- H003（2026-10-11）: 矢筒の矢が背中の後ろへ 1.4 m 突き出した細い部品（頭・左腕・左前腕の混ざった重みで、腕を下ろすと
+  背中に剣が浮いて見えた）を、背中から 0.38 m より後ろで切り、残った矢羽根の束を Spine2 だけに付け直した
+  （AppTests/HeroGripTests.testFirielQuiverDoesNotStickOutBehind）。
+
 ## 生成（tools/tripo.mjs run）
 - ヒーロー: concept（画像）→ model（P1 image-to-model、face_limit 10000、PBR・HD テクスチャ）→ rigcheck → rig（Mixamo 骨の biped）。
   進捗は `tools/tripo/state.json`、ダウンロード物は `build/tripo/heroes/<ID>/`（`concept.png` / `model.glb` / `rigged.glb`）。
