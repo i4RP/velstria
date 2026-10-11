@@ -14,7 +14,7 @@ final class BattleHUDUITests: XCTestCase {
 
     private func launch(_ args: [String]) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments += ["-uiTesting", "-skipOnboarding", "-grant"] + args
+        app.launchArguments += ["-uiTesting", "-skipOnboarding", "-grant", "-hudCapture"] + args
         app.launch()
         return app
     }
@@ -38,6 +38,20 @@ final class BattleHUDUITests: XCTestCase {
         return e
     }
 
+    /// 実際の戦闘シーンで上端・下端のアンカーを目視比較するための添付。
+    func testStandardHUDVisualCapture() {
+        let app = launch(["-battle", "standard", "-hero", "H003", "-language", "ja"])
+        XCTAssertTrue(element(app, "hud_attack").waitForExistence(timeout: Self.battleStartTimeout))
+        XCTAssertTrue(element(app, "hud_shop").exists)
+        XCTAssertFalse(element(app, "hud_hp").exists, "詳細HPはショップに集約する")
+        // CI の描画速度に左右されないよう、HUD の実データ表示だけを確認してから撮る。
+        let score = element(app, "hud_score")
+        XCTAssertTrue(score.exists)
+        XCTAssertFalse(score.label.isEmpty)
+        Thread.sleep(forTimeInterval: 2)
+        snap("hud_standard_ui2")
+    }
+
     func testPracticeControlsShopPauseAndLeave() {
         let app = launch(["-battle", "practice", "-language", "ja"])
         XCTAssertTrue(element(app, "hud_attack").waitForExistence(timeout: BattleHUDUITests.battleStartTimeout), "HUD が表示されない")
@@ -46,8 +60,12 @@ final class BattleHUDUITests: XCTestCase {
         let minionAttack = element(app, "hud_attack_bottom")
         XCTAssertTrue(towerAttack.exists)
         XCTAssertTrue(minionAttack.exists)
-        XCTAssertLessThan(towerAttack.frame.maxY, heroAttack.frame.minY)
-        XCTAssertLessThan(heroAttack.frame.maxY, minionAttack.frame.minY)
+        XCTAssertLessThan(towerAttack.frame.midY, heroAttack.frame.midY)
+        XCTAssertGreaterThan(hypot(towerAttack.frame.midX - heroAttack.frame.midX,
+                                   towerAttack.frame.midY - heroAttack.frame.midY),
+                             (towerAttack.frame.width + heroAttack.frame.width) / 2)
+        XCTAssertLessThan(minionAttack.frame.maxX, heroAttack.frame.minX)
+        XCTAssertGreaterThan(heroAttack.frame.width, minionAttack.frame.width)
         snap("hud_practice")
 
         // スティックを少し倒す
@@ -67,6 +85,8 @@ final class BattleHUDUITests: XCTestCase {
         // ショップ
         tap(app, "hud_shop")
         XCTAssertTrue(element(app, "shop_panel").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(app, "shop_hero_details").exists)
+        XCTAssertTrue(element(app, "hud_hp").exists)
         snap("hud_shop")
         tap(app, "shop_tab_attack")
         XCTAssertTrue(element(app, "shop_item_EQ101").waitForExistence(timeout: 5))
@@ -79,6 +99,12 @@ final class BattleHUDUITests: XCTestCase {
         snap("hud_shop_roam")
         tap(app, "shop_close")
         XCTAssertTrue(element(app, "shop_panel").waitForNonExistence(timeout: 5))
+
+        // ミニマップの拡大入口も小型HUDに接続されている。
+        tap(app, "hud_minimap_expand")
+        XCTAssertTrue(element(app, "hud_tactical_map").waitForExistence(timeout: 5))
+        snap("hud_map")
+        tap(app, "hud_tactical_close")
 
         // スコアボード
         tap(app, "hud_scoreboard")

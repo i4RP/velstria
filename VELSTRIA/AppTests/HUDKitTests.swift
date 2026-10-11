@@ -338,6 +338,18 @@ final class HUDKitTests: XCTestCase {
         XCTAssertEqual(KitStatusVisuals.stealthOpacity(stealthed: true, dead: true, unitTeam: .blue, viewerTeam: .blue), 1)
     }
 
+    /// 草むらで隠れている表示（半透明・斜線の目）は自分・味方の視点だけ。敵・観戦では出さない。
+    func testBrushConcealShownOnlyToOwnTeam() {
+        var u = VelstriaCore.Unit(id: 1, kind: .hero, team: .blue, pos: .zero, radius: 50, stats: Stats())
+        u.brushConcealed = true
+        XCTAssertTrue(HeroVisual.showsBrushConceal(unit: u, viewerTeam: .blue, dead: false))
+        XCTAssertFalse(HeroVisual.showsBrushConceal(unit: u, viewerTeam: .red, dead: false))
+        XCTAssertFalse(HeroVisual.showsBrushConceal(unit: u, viewerTeam: nil, dead: false), "観戦")
+        XCTAssertFalse(HeroVisual.showsBrushConceal(unit: u, viewerTeam: .blue, dead: true))
+        u.brushConcealed = false
+        XCTAssertFalse(HeroVisual.showsBrushConceal(unit: u, viewerTeam: .blue, dead: false))
+    }
+
     /// 氷の誇りの輪: H031 の生きているヒーローで、パッシブのバッジが「準備できた」ときだけ。
     func testIceReadyRingFollowsThePassiveBadge() {
         let ready = KitBadge(kind: .stacks, value: 1, maxValue: 1)

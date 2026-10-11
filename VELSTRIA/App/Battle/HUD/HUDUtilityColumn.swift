@@ -2,24 +2,16 @@ import SwiftUI
 import UIKit
 import VelstriaCore
 
-// 担当: battle-hud。ミニマップ横の縦列（操作中のみ。観戦・リプレイでは出さない）:
-// 上から 端末状態（電池残量・充電中、現在時刻 HH:mm）、設定（UI030 のポーズメニュー）、消音（一時的。保存しない。
-// 設定の BGM・効果音がどちらも 0 の間は消音の表示で、押すと音量の設定へ案内する）、
-// ズーム（視野を広げる。保存しない）。オフライン対 AI のため通信の ms 表示とボイスチャットは無い。
-// 見た目は小さな丸ボタン（HUDLayout.utilityButtonSize）、タップ領域は 44pt。
-// ミニマップの内側に置く（右手配置はミニマップの右、左利きはミニマップが右上へ移るのでその左。位置は HUDLayout.utilityButtonFrame）。
+// ミニマップ内側の設定・消音・視野変更。既存操作のみを44ptのタッチ領域へ分ける。
+// 端末時刻・電池・未実装の通信値やマイクボタンは戦闘HUDに表示しない。
 
 struct HUDUtilityColumn: View {
     let model: HUDModel
     let layout: HUDLayout
 
     var body: some View {
-        let status = layout.utilityStatusFrame
         let size = layout.utilityButtonSize
         ZStack {
-            HUDDeviceStatusView(scale: layout.topScale)
-                .frame(width: status.width, height: status.height)
-                .position(x: status.midX, y: status.midY)
             column(0) {
                 HUDUtilityButton(symbol: "gearshape.fill", label: L("ポーズ・設定", "Pause & Settings"),
                                  identifier: "hud_pause", size: size) {
@@ -52,7 +44,7 @@ private struct HUDSoundButton: View {
                          value: model.soundMuted ? L("消音中", "Muted")
                              : (muted ? L("音量 0（設定）", "Volume off in Settings") : L("オン", "On")),
                          identifier: "hud_sound", size: size,
-                         tint: muted ? Theme.danger : .white, rim: muted ? Theme.danger.opacity(0.8) : HUDStyle.rim) {
+                         tint: muted ? .white.opacity(0.48) : .white.opacity(0.9)) {
             model.toggleSound()
         }
     }
@@ -98,14 +90,12 @@ struct HUDUtilityButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: size * 0.44, weight: .bold))
+                .font(.system(size: size * 0.85, weight: .semibold))
                 .foregroundStyle(tint)
                 .contentTransition(.symbolEffect(.replace))
                 .frame(width: size, height: size)
-                .background(Circle().fill(LinearGradient(colors: [HUDStyle.glassTop, HUDStyle.glassBottom],
-                                                         startPoint: .top, endPoint: .bottom)))
-                .overlay(Circle().strokeBorder(rim, lineWidth: 1))
-                .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
+                .background(Circle().fill(Color.black.opacity(0.13)))
+                .shadow(color: .black.opacity(0.65), radius: 1, y: 0.5)
                 .frame(width: max(44, size), height: max(44, size), alignment: hitAlignment)
                 .contentShape(Rectangle())
         }

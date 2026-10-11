@@ -64,7 +64,12 @@ final class WorldVisionTests: XCTestCase {
         XCTAssertFalse(s.isVisible(enemy, to: .blue))
     }
 
-    func testBrushHidesUnlessSameBrushOrClose() {
+    /// 視界の更新を n 回（1 回 = 0.1 秒）。
+    func updateVision(_ s: inout SimState, _ ctx: SimContext, times n: Int) {
+        for _ in 0..<n { VisionSystem.update(&s, ctx) }
+    }
+
+    func testBrushHidesAfterDelayUnlessSameBrush() {
         var (s, ctx) = makeState()
         let b = jungleBrush
         let hider = Kit.addHero(&s, ctx, team: .red, pos: Vec2(b.rect.minX + 30, b.rect.center.y))
@@ -73,25 +78,81 @@ final class WorldVisionTests: XCTestCase {
         XCTAssertEqual(s.units[hider].brushIndex, b.id)
         XCTAssertNil(s.units[scout].brushIndex)
         XCTAssertTrue(s.vision.isLit(s.units[hider].pos, for: .blue))
+        // 入って 0.25 秒は見えている
+        XCTAssertTrue(s.isVisible(hider, to: .blue), "conceal delay")
+        XCTAssertFalse(s.units[hider].brushConcealed)
+        updateVision(&s, ctx, times: 2)
         XCTAssertFalse(s.isVisible(hider, to: .blue), "hidden in brush")
+        XCTAssertTrue(s.units[hider].brushConcealed)
         XCTAssertTrue(s.isVisible(scout, to: .red), "scout outside brush is visible")
 
-        // 300 以内に近づくと見える
-        s.units[scout].pos = Vec2(b.rect.minX - 250, b.rect.center.y)
+        // 草むらの外からはすぐ横でも見えない（MLBB）
+        s.units[scout].pos = Vec2(b.rect.minX - 150, b.rect.center.y)
         VisionSystem.update(&s, ctx)
-        XCTAssertTrue(s.isVisible(hider, to: .blue))
+        XCTAssertFalse(s.isVisible(hider, to: .blue))
 
-        // 同じ草むら内なら距離が 300 超でも見える
+        // 同じ草むらに入ると見える（距離によらない）
         s.units[scout].pos = Vec2(b.rect.maxX - 10, b.rect.maxY - 10)
         s.units[hider].pos = Vec2(b.rect.minX + 10, b.rect.minY + 10)
-        XCTAssertGreaterThan(s.units[scout].pos.distance(to: s.units[hider].pos), Balance.brushRevealRadius)
         VisionSystem.update(&s, ctx)
         XCTAssertTrue(s.isVisible(hider, to: .blue))
         XCTAssertTrue(s.isVisible(scout, to: .red))
+        XCTAssertFalse(s.units[hider].brushConcealed)
+
+        // 敵が出て行った後は 0.75 秒で隠れ直す
+        s.units[scout].pos = Vec2(b.rect.minX - 600, b.rect.center.y)
+        updateVision(&s, ctx, times: 7)
+        XCTAssertTrue(s.isVisible(hider, to: .blue))
+        VisionSystem.update(&s, ctx)
+        XCTAssertFalse(s.isVisible(hider, to: .blue))
 
         // Revealed は草むらでも見える
-        s.units[scout].pos = Vec2(b.rect.minX - 600, b.rect.center.y)
         s.units[hider].statuses.append(StatusEffect(kind: .revealed, duration: 3))
+        VisionSystem.update(&s, ctx)
+        XCTAssertTrue(s.isVisible(hider, to: .blue))
+        XCTAssertFalse(s.units[hider].brushConcealed)
+    }
+
+    func testEnteringBrushWhileSeenTakesLonger() {
+        var (s, ctx) = makeState()
+        let b = jungleBrush
+        let hider = Kit.addHero(&s, ctx, team: .red, pos: Vec2(b.rect.minX - 100, b.rect.center.y))
+        _ = Kit.addHero(&s, ctx, team: .blue, pos: Vec2(b.rect.minX - 600, b.rect.center.y))
+        VisionSystem.update(&s, ctx)
+        XCTAssertTrue(s.isVisible(hider, to: .blue))
+        s.units[hider].pos = Vec2(b.rect.minX + 30, b.rect.center.y)
+        updateVision(&s, ctx, times: 7)
+        XCTAssertTrue(s.isVisible(hider, to: .blue), "0.75 s when seen before entering")
+        VisionSystem.update(&s, ctx)
+        XCTAssertFalse(s.isVisible(hider, to: .blue))
+    }
+
+    func testAttackingFromBrushExposesForThreeSeconds() {
+        var (s, ctx) = makeState()
+        let b = jungleBrush
+        let hider = Kit.addHero(&s, ctx, team: .red, pos: Vec2(b.rect.minX + 30, b.rect.center.y))
+        let scout = Kit.addHero(&s, ctx, team: .blue, pos: Vec2(b.rect.minX - 600, b.rect.center.y))
+        let minion = Kit.addMinion(&s, ctx, team: .blue, pos: Vec2(b.rect.minX - 500, b.rect.center.y + 200))
+        updateVision(&s, ctx, times: 3)
+        XCTAssertFalse(s.isVisible(hider, to: .blue))
+        let id = s.units[hider].id
+
+        // スキルでミニオンだけを削っても隠れたまま
+        CombatSystem.applyDamage(&s, ctx, sourceID: id, targetIndex: minion, amount: 10, type: .magic, source: .skill(.skill1))
+        VisionSystem.update(&s, ctx)
+        XCTAssertFalse(s.isVisible(hider, to: .blue))
+
+        // 敵ヒーローへのダメージで 3 秒姿を晒す
+        CombatSystem.applyDamage(&s, ctx, sourceID: id, targetIndex: scout, amount: 10, type: .magic, source: .skill(.skill1))
+        VisionSystem.update(&s, ctx)
+        XCTAssertTrue(s.isVisible(hider, to: .blue))
+        XCTAssertFalse(s.units[hider].brushConcealed)
+        Kit.setTime(&s, s.time + Balance.brushExposeDuration + 0.1)
+        VisionSystem.update(&s, ctx)
+        XCTAssertFalse(s.isVisible(hider, to: .blue))
+
+        // ミニオンへの通常攻撃でも晒す
+        CombatSystem.applyDamage(&s, ctx, sourceID: id, targetIndex: minion, amount: 10, type: .physical, source: .basicAttack)
         VisionSystem.update(&s, ctx)
         XCTAssertTrue(s.isVisible(hider, to: .blue))
     }
@@ -145,7 +206,7 @@ final class WorldVisionTests: XCTestCase {
         let b = jungleBrush
         let hider = Kit.addHero(&s, ctx, team: .red, pos: b.rect.center)
         Kit.addHero(&s, ctx, team: .blue, pos: b.rect.center + Vec2(-700, 0))
-        VisionSystem.update(&s, ctx)
+        updateVision(&s, ctx, times: 3)
         XCTAssertFalse(s.isTargetableEnemy(hider, of: .blue))
         XCTAssertTrue(s.enemies(of: .blue, near: b.rect.center, radius: 100).isEmpty)
     }

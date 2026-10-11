@@ -14,6 +14,8 @@ import VelstriaCore
 final class HUDIntegratedLayoutTests: XCTestCase {
     /// HUDLayoutTests と同じ端末（横画面の論理サイズと Safe Area）。
     private let devices: [(name: String, size: CGSize, side: CGFloat, bottom: CGFloat)] = [
+        ("16:9 compact", CGSize(width: 667, height: 375), 0, 0),
+        ("16:9 large", CGSize(width: 736, height: 414), 0, 0),
         ("iPhone 13 mini", CGSize(width: 812, height: 375), 44, 21),
         ("iPhone 16e", CGSize(width: 844, height: 390), 47, 21),
         ("iPhone 17 Pro", CGSize(width: 874, height: 402), 62, 20),
@@ -109,6 +111,7 @@ final class HUDIntegratedLayoutTests: XCTestCase {
             let groups: [(owner: String, rects: [(String, CGRect)])] = [
                 ("top", topRects(l)),
                 ("signals", signalRects(l)),
+                ("economy", [("所持金", l.shopFrame), ("クイック購入", l.quickBuyFrame)]),
                 ("death", [("エンブレム", emblemRect(l))]),
                 ("controls", tagRects(l)),
             ]

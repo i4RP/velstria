@@ -2,7 +2,7 @@ import SwiftUI
 import VelstriaCore
 
 // 担当: battle-hud（death）。倒されてから復活するまでの画面:
-// 死亡中の色調（カラーのまま少し落ち着かせる）、復活カウントの赤い翼型エンブレム（下部パネルの中央の上。
+// 死亡中の色調（カラーのまま少し落ち着かせる）、復活カウントの小型エンブレム（味方追従列の上。
 // 上に「デス情報を見る」、タップで開く）、デス情報パネル（とどめ・アシスト・直近 10 秒の被ダメージ内訳）と、
 // その元になる被ダメージの記録（HUDDamageLog）。
 // 15Hz で変わる復活秒数はエンブレムとパネル見出しの小さなビューだけが読む。
@@ -361,22 +361,17 @@ enum HUDDeathStyle {
 // MARK: - 配置
 
 extension HUDLayout {
-    /// エンブレムの基準の高さ（16e で 52pt = ラベル 14pt + 翼 38pt）。
-    static let deathEmblemBaseHeight: CGFloat = 52
+    /// 復活カウントのコンパクトな詳細ボタン。視覚サイズと44ptのタッチ領域を一致させる。
+    static let deathEmblemBaseHeight: CGFloat = 44
 
-    /// 復活カウントのエンブレムの大きさ（「デス情報を見る」のラベルを含むタップ領域）。
-    /// 参考画面の比率で幅は画面の約 19%、翼の高さは画面の約 1 割。
     var deathEmblemSize: CGSize {
-        CGSize(width: (width * 0.19).rounded(), height: max(44, Self.deathEmblemBaseHeight * min(scale, 1.1)))
+        CGSize(width: min(96, HUDDeathMetrics.stripFrame(self, allies: 4).width), height: 44)
     }
 
-    /// エンブレムの中心: 下部パネルの中央の上、味方の追従一覧（HUDDeathMetrics.stripFrame。味方の数に関わらず高さ一定）のさらに上。
-    /// 状態アイコン列（パネル左上 26pt 上）・おすすめ購入（パネル右上）とは横に離れ、スペル・帰還・攻撃列（3 つ）・
-    /// ミニマップドック（全体マップボタン込み）・スティックの受付領域にもかからない（左利きの反転でも同じ）。
-    /// 詠唱バーと同じ高さになるが、死亡中は詠唱しない。
+    /// 味方追従の小さな列の上。ショップ・クイックチャット・装備アクティブから分離する。
     var deathEmblemCenter: CGPoint {
-        let bottom = HUDDeathMetrics.stripFrame(self, allies: 4).minY - 2
-        return CGPoint(x: heroPanelCenterX, y: bottom - deathEmblemSize.height / 2)
+        let strip = HUDDeathMetrics.stripFrame(self, allies: 4)
+        return CGPoint(x: strip.midX, y: strip.minY - 4 - deathEmblemSize.height / 2)
     }
 
     /// デス情報パネルの大きさ（16e の高さ 390 にも収まる）。
@@ -494,41 +489,35 @@ private struct HUDDeathRecapLayer: View {
 
 // MARK: - エンブレム
 
-/// 復活カウントのエンブレム: 中央の台座から左右へ先細りの赤い翼、中に秒数、上に「デス情報を見る ›」。
-/// 出現時は翼が中央から広がり、残り 3 秒以下は秒が変わるたびに数字が脈動し縁が明るくなる。
+/// 復活までの秒数とデス情報への入口。残り3秒以下だけ秒数を短く強調する。
 struct HUDDeathEmblem: View, Equatable {
     let model: HUDModel
     let seconds: Int
     let size: CGSize
-    @State private var spread = false
 
     static func == (a: Self, b: Self) -> Bool { a.seconds == b.seconds && a.size == b.size }
 
     var body: some View {
-        let s = size.height / HUDLayout.deathEmblemBaseHeight
-        let labelHeight = 14 * s
-        let wingHeight = size.height - labelHeight
         let urgent = seconds <= 3
         Button { model.openDeathRecap() } label: {
-            VStack(spacing: 0) {
-                label(s)
-                    .frame(height: labelHeight)
-                ZStack {
-                    HUDDeathWings(width: size.width, height: wingHeight, scale: s, urgent: urgent, beat: seconds)
-                        .scaleEffect(x: spread ? 1 : 0.12, y: spread ? 1 : 0.6)
-                        .opacity(spread ? 1 : 0)
-                    number(s, urgent: urgent)
-                        .offset(y: -wingHeight * 0.08)
+            VStack(spacing: 1) {
+                HStack(spacing: 3) {
+                    number(1, urgent: urgent)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 7, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.8))
                 }
-                .frame(width: size.width, height: wingHeight)
+                Text(L("デス情報", "Recap"))
+                    .font(.system(size: 8, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.85))
             }
             .frame(width: size.width, height: size.height)
+            .background(RoundedRectangle(cornerRadius: 6).fill(HUDStyle.surface.opacity(0.4)))
+            .overlay(RoundedRectangle(cornerRadius: 6)
+                .strokeBorder((urgent ? HUDDeathStyle.rimUrgent : HUDDeathStyle.rim).opacity(0.65), lineWidth: 0.7))
             .contentShape(Rectangle())
         }
         .buttonStyle(HUDPressStyle())
-        .onAppear {
-            withAnimation(.spring(duration: 0.55, bounce: 0.2)) { spread = true }
-        }
         // 名前は見えている文字（「デス情報を見る」）にそろえる（音声コントロールで見たまま言えば押せる）。
         // 毎秒変わる復活秒数は値へ
         .hudAccessibility(id: "hud_death", label: L("デス情報を見る", "View death recap"),
@@ -536,19 +525,6 @@ struct HUDDeathEmblem: View, Equatable {
             model.openDeathRecap()
         }
         .accessibilityInputLabels([L("デス情報を見る", "View death recap"), L("デス情報", "Death recap")])
-    }
-
-    private func label(_ s: CGFloat) -> some View {
-        HStack(spacing: 2 * s) {
-            Text(L("デス情報を見る", "View death recap"))
-            Image(systemName: "chevron.right")
-                .font(.system(size: 7.5 * s, weight: .heavy))
-        }
-        .font(.system(size: 10.5 * s, weight: .semibold, design: .rounded))
-        .foregroundStyle(.white.opacity(0.86))
-        .shadow(color: .black.opacity(0.9), radius: 1.5)
-        .lineLimit(1)
-        .minimumScaleFactor(0.7)
     }
 
     private func number(_ s: CGFloat, urgent: Bool) -> some View {

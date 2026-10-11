@@ -4,7 +4,7 @@ import XCTest
 import VelstriaCore
 
 /// 死亡中の味方追従（プレイヤー）: 戦っている味方の判定・自動で追う味方の選び方、味方一覧の中身と並び、
-/// 死亡中の表示の配置（iPhone SE〜17 Pro Max の横画面・左右配置で、操作部品・ヒーローパネルと重ならず 44pt 以上）。
+/// 死亡中の表示の配置（iPhone SE〜17 Pro Max の横画面・左右配置で、操作部品・チャットと重ならず 44pt 以上）。
 @MainActor
 final class DeathSpectateTests: XCTestCase {
     /// 自分（Blue の人間）が倒れていて、味方を互いに離れた場所に置いた状態（time = 200 秒、視界は全て暗い）。
@@ -149,14 +149,16 @@ final class DeathSpectateTests: XCTestCase {
     ]
 
     private func circles(_ l: HUDLayout) -> [(name: String, center: CGPoint, radius: CGFloat)] {
-        var out = AttackButtonSlot.allCases.map { ("attack", l.attackCenter(for: $0), l.attackDiameter(for: $0) / 2) }
+        var out = AttackButtonSlot.allCases.map { ("attack", l.attackCenter(for: $0), max(44, l.attackDiameter(for: $0)) / 2) }
         for slot in SkillSlot.actives {
-            out.append(("skill\(slot.rawValue)", l.skillCenter(slot), (slot == .ultimate ? l.ultDiameter : l.skillDiameter) / 2))
-            out.append(("level\(slot.rawValue)", l.levelBadgeCenter(slot), l.levelBadgeDiameter / 2))
+            out.append(("skill\(slot.rawValue)", l.skillCenter(slot), max(44, slot == .ultimate ? l.ultDiameter : l.skillDiameter) / 2))
+            out.append(("level\(slot.rawValue)", l.levelBadgeCenter(slot), max(44, l.levelBadgeDiameter) / 2))
         }
-        out.append(("spell0", l.spellCenter(0), l.spellDiameter / 2))
-        out.append(("spell1", l.spellCenter(1), l.spellDiameter / 2))
-        out.append(("recall", l.recallCenter, l.recallDiameter / 2))
+        out.append(("spell0", l.spellCenter(0), max(44, l.spellDiameter) / 2))
+        out.append(("spell1", l.spellCenter(1), max(44, l.spellDiameter) / 2))
+        out.append(("recall", l.recallCenter, max(44, l.recallDiameter) / 2))
+        out.append(("item", l.itemActiveCenter, max(44, l.itemActiveDiameter) / 2))
+        out.append(("gear", l.gearActiveCenter, max(44, l.itemActiveDiameter) / 2))
         out.append(("joystick", l.joystickRest, l.joystickRadius))
         return out
     }
@@ -170,10 +172,12 @@ final class DeathSpectateTests: XCTestCase {
                 let tag = "\(d.name) \(left ? "左利き" : "右手")"
                 XCTAssertGreaterThanOrEqual(strip.minX, l.leadingEdge, "\(tag): 左の Safe Area")
                 XCTAssertLessThanOrEqual(strip.maxX, l.trailingEdge, "\(tag): 右の Safe Area")
-                // ヒーローパネルの上に載る（重ならない）
-                let panelTop = l.bottomEdge - HUDRootMetrics.heroPanelHeight(l)
-                XCTAssertLessThanOrEqual(strip.maxY, panelTop, "\(tag): ヒーローパネルと重なる")
+                XCTAssertLessThanOrEqual(strip.maxY, l.bottomEdge, "\(tag): 下の Safe Area")
                 XCTAssertFalse(strip.intersects(l.minimapDockFrame), "\(tag): ミニマップと重なる")
+                XCTAssertFalse(strip.intersects(l.joystickZone), "\(tag): 移動受付と重なる")
+                XCTAssertFalse(strip.intersects(l.signalChatMenuFrame), "\(tag): チャットと重なる")
+                XCTAssertGreaterThanOrEqual(strip.width, HUDDeathMetrics.cell + HUDDeathMetrics.padding * 2,
+                                           "\(tag): スクロールしても1人分の44ptタッチ領域は表示する")
                 for c in circles(l) {
                     let nearest = CGPoint(x: min(max(c.center.x, strip.minX), strip.maxX),
                                           y: min(max(c.center.y, strip.minY), strip.maxY))
@@ -183,7 +187,7 @@ final class DeathSpectateTests: XCTestCase {
             }
         }
         XCTAssertGreaterThanOrEqual(HUDDeathMetrics.cell, 44, "タッチ領域は 44pt 以上")
-        XCTAssertEqual(HUDDeathMetrics.stripSize(allies: 0).width, 44 + 10, "味方がいなくても自動の枠は 1 つ")
+        XCTAssertEqual(HUDDeathMetrics.stripSize(allies: 0).width, 44 + HUDDeathMetrics.padding * 2, "味方がいなくても自動の枠は 1 つ")
     }
 
     func testCameraLeadKeepsTheAllyAboveTheStrip() {
