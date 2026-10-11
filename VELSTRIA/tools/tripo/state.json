@@ -5132,8 +5132,1258 @@
         "verifyLog": "build/tripo/props/ashBow/import_verify.log",
         "provider": "tripo"
       }
+    },
+    "heroes/H025": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": null,
+          "local": true,
+          "source": {
+            "kind": "fullbody",
+            "path": "build/heroref/H025/fullbody.png",
+            "sha256": "a5c26e9919ab5bbe850d9ffc6a6ebc14fc5911ba71ea8ff30cb25833b7f35dfd",
+            "tag": "t1",
+            "width": 1024,
+            "height": 1536
+          },
+          "input": null,
+          "request": null,
+          "estimate": 0,
+          "submitted_at": "2026-10-11T12:48:17.954Z",
+          "completed_at": "2026-10-11T12:48:17.954Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": null,
+          "files": {
+            "image": "build/tripo/heroes/H025/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T12:48:17.954Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "6d8abff3-469b-44ca-987a-17a2f5db08e4",
+          "input": "file_93ca1dca-9b06-4ebc-abf3-23dd14a1e80b",
+          "request": {
+            "input": "file_93ca1dca-9b06-4ebc-abf3-23dd14a1e80b",
+            "model": "P1-20260311",
+            "face_limit": 10000,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image"
+          },
+          "upload": {
+            "file": "build/tripo/heroes/H025/concept.png",
+            "sha256": "a5c26e9919ab5bbe850d9ffc6a6ebc14fc5911ba71ea8ff30cb25833b7f35dfd",
+            "file_token": "file_93ca1dca-9b06-4ebc-abf3-23dd14a1e80b",
+            "uploaded_at": "2026-10-11T13:10:28.165Z"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-11T13:10:28.165Z",
+          "completed_at": "2026-10-11T13:11:36.888519Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H025/model.glb",
+            "preview": "build/tripo/heroes/H025/preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:11:41.115Z"
+        },
+        "rigcheck": {
+          "status": "success",
+          "task_id": "5c51f1af-ffed-4003-ad96-7549b321b79d",
+          "input": "6d8abff3-469b-44ca-987a-17a2f5db08e4",
+          "request": {
+            "input": "6d8abff3-469b-44ca-987a-17a2f5db08e4"
+          },
+          "estimate": 0,
+          "submitted_at": "2026-10-11T13:11:41.120Z",
+          "completed_at": "2026-10-11T13:11:42.425151Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": {
+            "riggable": true,
+            "rig_type": "biped"
+          },
+          "files": {},
+          "error": null,
+          "updated_at": "2026-10-11T13:11:48.086Z"
+        },
+        "rig": {
+          "status": "success",
+          "task_id": "991a8f19-5e87-46ee-98ec-006ec0171d0a",
+          "input": "6d8abff3-469b-44ca-987a-17a2f5db08e4",
+          "request": {
+            "input": "6d8abff3-469b-44ca-987a-17a2f5db08e4",
+            "model": "v1.0-20240301",
+            "rig_type": "biped",
+            "spec": "mixamo",
+            "out_format": "glb"
+          },
+          "estimate": 25,
+          "submitted_at": "2026-10-11T13:11:51.669Z",
+          "completed_at": "2026-10-11T13:11:58.968185Z",
+          "progress": 100,
+          "credits_consumed": 25,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H025/rigged.glb"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:12:06.392Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-11T13:17:08.618Z",
+        "out": "App/Resources/Heroes/Hero_H025.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H025/import_report.json",
+        "log": "build/tripo/heroes/H025/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H025/import_verify.log"
+      }
+    },
+    "heroes/H026": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": null,
+          "local": true,
+          "source": {
+            "kind": "fullbody",
+            "path": "build/heroref/H026/fullbody.png",
+            "sha256": "eb9a0d01b19b1c8cb40134709a88f772d3bc162eee2a4dff46ffd9c1b792c3fe",
+            "tag": "t1",
+            "width": 1024,
+            "height": 1536
+          },
+          "input": null,
+          "request": null,
+          "estimate": 0,
+          "submitted_at": "2026-10-11T13:10:25.683Z",
+          "completed_at": "2026-10-11T13:10:25.683Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": null,
+          "files": {
+            "image": "build/tripo/heroes/H026/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:10:25.683Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "d1f5703a-29b5-4fa6-973c-f6b66b11b702",
+          "input": "file_31882940-82ea-4cec-92f7-36cf8845717f",
+          "request": {
+            "input": "file_31882940-82ea-4cec-92f7-36cf8845717f",
+            "model": "P1-20260311",
+            "face_limit": 10000,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image"
+          },
+          "upload": {
+            "file": "build/tripo/heroes/H026/concept.png",
+            "sha256": "eb9a0d01b19b1c8cb40134709a88f772d3bc162eee2a4dff46ffd9c1b792c3fe",
+            "file_token": "file_31882940-82ea-4cec-92f7-36cf8845717f",
+            "uploaded_at": "2026-10-11T13:10:32.784Z"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-11T13:10:32.784Z",
+          "completed_at": "2026-10-11T13:11:23.654799Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H026/model.glb",
+            "preview": "build/tripo/heroes/H026/preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:11:31.550Z"
+        },
+        "rigcheck": {
+          "status": "success",
+          "task_id": "0f3239b0-af8b-445f-83ab-e9069fe4a23a",
+          "input": "d1f5703a-29b5-4fa6-973c-f6b66b11b702",
+          "request": {
+            "input": "d1f5703a-29b5-4fa6-973c-f6b66b11b702"
+          },
+          "estimate": 0,
+          "submitted_at": "2026-10-11T13:11:31.552Z",
+          "completed_at": "2026-10-11T13:11:32.965471Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": {
+            "riggable": true,
+            "rig_type": "biped"
+          },
+          "files": {},
+          "error": null,
+          "updated_at": "2026-10-11T13:11:33.402Z"
+        },
+        "rig": {
+          "status": "success",
+          "task_id": "0219b712-3a4c-4560-828f-98643d75d7a8",
+          "input": "d1f5703a-29b5-4fa6-973c-f6b66b11b702",
+          "request": {
+            "input": "d1f5703a-29b5-4fa6-973c-f6b66b11b702",
+            "model": "v1.0-20240301",
+            "rig_type": "biped",
+            "spec": "mixamo",
+            "out_format": "glb"
+          },
+          "estimate": 25,
+          "submitted_at": "2026-10-11T13:11:33.576Z",
+          "completed_at": "2026-10-11T13:11:39.404209Z",
+          "progress": 100,
+          "credits_consumed": 25,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H026/rigged.glb"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:11:47.245Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-11T13:17:10.433Z",
+        "out": "App/Resources/Heroes/Hero_H026.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H026/import_report.json",
+        "log": "build/tripo/heroes/H026/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H026/import_verify.log"
+      }
+    },
+    "heroes/H027": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": null,
+          "local": true,
+          "source": {
+            "kind": "fullbody",
+            "path": "build/heroref/H027/fullbody.png",
+            "sha256": "e5fb7cbb1a40731879c03b9cb8c00411d033968006e963610e032527b75d8044",
+            "tag": "t1",
+            "width": 1024,
+            "height": 1536
+          },
+          "input": null,
+          "request": null,
+          "estimate": 0,
+          "submitted_at": "2026-10-11T13:10:25.688Z",
+          "completed_at": "2026-10-11T13:10:25.688Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": null,
+          "files": {
+            "image": "build/tripo/heroes/H027/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:10:25.688Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "d2273084-1be4-465e-b411-9b9edb2ae1d5",
+          "input": "file_a6af5725-b9c1-4102-bc30-f8cad90603bf",
+          "request": {
+            "input": "file_a6af5725-b9c1-4102-bc30-f8cad90603bf",
+            "model": "P1-20260311",
+            "face_limit": 10000,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image"
+          },
+          "upload": {
+            "file": "build/tripo/heroes/H027/concept.png",
+            "sha256": "e5fb7cbb1a40731879c03b9cb8c00411d033968006e963610e032527b75d8044",
+            "file_token": "file_a6af5725-b9c1-4102-bc30-f8cad90603bf",
+            "uploaded_at": "2026-10-11T13:10:37.414Z"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-11T13:10:37.414Z",
+          "completed_at": "2026-10-11T13:11:47.348885Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H027/model.glb",
+            "preview": "build/tripo/heroes/H027/preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:11:51.778Z"
+        },
+        "rigcheck": {
+          "status": "success",
+          "task_id": "10f56c27-e660-440e-ac85-c0e121f11375",
+          "input": "d2273084-1be4-465e-b411-9b9edb2ae1d5",
+          "request": {
+            "input": "d2273084-1be4-465e-b411-9b9edb2ae1d5"
+          },
+          "estimate": 0,
+          "submitted_at": "2026-10-11T13:11:53.082Z",
+          "completed_at": "2026-10-11T13:11:54.271095Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": {
+            "riggable": true,
+            "rig_type": "biped"
+          },
+          "files": {},
+          "error": null,
+          "updated_at": "2026-10-11T13:11:59.151Z"
+        },
+        "rig": {
+          "status": "success",
+          "task_id": "6d5bab6e-58ae-4132-b0cd-7c288dd803c6",
+          "input": "d2273084-1be4-465e-b411-9b9edb2ae1d5",
+          "request": {
+            "input": "d2273084-1be4-465e-b411-9b9edb2ae1d5",
+            "model": "v1.0-20240301",
+            "rig_type": "biped",
+            "spec": "mixamo",
+            "out_format": "glb"
+          },
+          "estimate": 25,
+          "submitted_at": "2026-10-11T13:11:59.870Z",
+          "completed_at": "2026-10-11T13:12:06.985976Z",
+          "progress": 100,
+          "credits_consumed": 25,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H027/rigged.glb"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:12:14.307Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-11T13:17:12.229Z",
+        "out": "App/Resources/Heroes/Hero_H027.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H027/import_report.json",
+        "log": "build/tripo/heroes/H027/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H027/import_verify.log"
+      }
+    },
+    "heroes/H028": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": null,
+          "local": true,
+          "source": {
+            "kind": "fullbody",
+            "path": "build/heroref/H028/fullbody.png",
+            "sha256": "250469c1d62a84d86f6a633b556a82074c30d43e184b19a91f32553d2299ca7f",
+            "tag": "t1",
+            "width": 1024,
+            "height": 1536
+          },
+          "input": null,
+          "request": null,
+          "estimate": 0,
+          "submitted_at": "2026-10-11T13:11:47.249Z",
+          "completed_at": "2026-10-11T13:11:47.249Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": null,
+          "files": {
+            "image": "build/tripo/heroes/H028/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:11:47.250Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "e96eb1e3-60b2-45f7-a81c-d145c3d646f6",
+          "input": "file_11723f9b-5792-40e0-bc08-d51c14caabd2",
+          "request": {
+            "input": "file_11723f9b-5792-40e0-bc08-d51c14caabd2",
+            "model": "P1-20260311",
+            "face_limit": 10000,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image"
+          },
+          "upload": {
+            "file": "build/tripo/heroes/H028/concept.png",
+            "sha256": "250469c1d62a84d86f6a633b556a82074c30d43e184b19a91f32553d2299ca7f",
+            "file_token": "file_11723f9b-5792-40e0-bc08-d51c14caabd2",
+            "uploaded_at": "2026-10-11T13:11:49.738Z"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-11T13:11:49.739Z",
+          "completed_at": "2026-10-11T13:13:05.377563Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H028/model.glb",
+            "preview": "build/tripo/heroes/H028/preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:13:14.455Z"
+        },
+        "rigcheck": {
+          "status": "success",
+          "task_id": "0930dc6e-f5c4-434e-b50b-4d25ac0c297a",
+          "input": "e96eb1e3-60b2-45f7-a81c-d145c3d646f6",
+          "request": {
+            "input": "e96eb1e3-60b2-45f7-a81c-d145c3d646f6"
+          },
+          "estimate": 0,
+          "submitted_at": "2026-10-11T13:13:14.457Z",
+          "completed_at": "2026-10-11T13:13:15.449559Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": {
+            "riggable": true,
+            "rig_type": "biped"
+          },
+          "files": {},
+          "error": null,
+          "updated_at": "2026-10-11T13:13:15.728Z"
+        },
+        "rig": {
+          "status": "success",
+          "task_id": "fc6f3555-470a-4e2f-aea8-d7d7156554ee",
+          "input": "e96eb1e3-60b2-45f7-a81c-d145c3d646f6",
+          "request": {
+            "input": "e96eb1e3-60b2-45f7-a81c-d145c3d646f6",
+            "model": "v1.0-20240301",
+            "rig_type": "biped",
+            "spec": "mixamo",
+            "out_format": "glb"
+          },
+          "estimate": 25,
+          "submitted_at": "2026-10-11T13:13:15.911Z",
+          "completed_at": "2026-10-11T13:13:34.849546Z",
+          "progress": 100,
+          "credits_consumed": 25,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H028/rigged.glb"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:13:42.186Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-11T13:17:14.096Z",
+        "out": "App/Resources/Heroes/Hero_H028.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H028/import_report.json",
+        "log": "build/tripo/heroes/H028/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H028/import_verify.log"
+      }
+    },
+    "heroes/H029": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": null,
+          "local": true,
+          "source": {
+            "kind": "fullbody",
+            "path": "build/heroref/H029/fullbody.png",
+            "sha256": "72ff7b0148444a660cadceeeba4be34184b3403301961e6e76923d36c8070b22",
+            "tag": "t1",
+            "width": 1254,
+            "height": 1254
+          },
+          "input": null,
+          "request": null,
+          "estimate": 0,
+          "submitted_at": "2026-10-11T13:12:06.397Z",
+          "completed_at": "2026-10-11T13:12:06.397Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": null,
+          "files": {
+            "image": "build/tripo/heroes/H029/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:12:06.397Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "03143011-aa59-4e27-9c6e-2cda706ad125",
+          "input": "file_de5e2d4a-58b9-4b77-a067-20021115c322",
+          "request": {
+            "input": "file_de5e2d4a-58b9-4b77-a067-20021115c322",
+            "model": "P1-20260311",
+            "face_limit": 10000,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image"
+          },
+          "upload": {
+            "file": "build/tripo/heroes/H029/concept.png",
+            "sha256": "72ff7b0148444a660cadceeeba4be34184b3403301961e6e76923d36c8070b22",
+            "file_token": "file_de5e2d4a-58b9-4b77-a067-20021115c322",
+            "uploaded_at": "2026-10-11T13:12:09.230Z"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-11T13:12:09.230Z",
+          "completed_at": "2026-10-11T13:13:17.524670Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H029/model.glb",
+            "preview": "build/tripo/heroes/H029/preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:13:22.735Z"
+        },
+        "rigcheck": {
+          "status": "success",
+          "task_id": "a3dd0294-a195-4f8d-9ab5-2bb1a20da447",
+          "input": "03143011-aa59-4e27-9c6e-2cda706ad125",
+          "request": {
+            "input": "03143011-aa59-4e27-9c6e-2cda706ad125"
+          },
+          "estimate": 0,
+          "submitted_at": "2026-10-11T13:13:22.736Z",
+          "completed_at": "2026-10-11T13:13:23.925533Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": {
+            "riggable": true,
+            "rig_type": "biped"
+          },
+          "files": {},
+          "error": null,
+          "updated_at": "2026-10-11T13:13:24.926Z"
+        },
+        "rig": {
+          "status": "success",
+          "task_id": "2bbb1e64-969c-40e6-86d3-93e2e14d5206",
+          "input": "03143011-aa59-4e27-9c6e-2cda706ad125",
+          "request": {
+            "input": "03143011-aa59-4e27-9c6e-2cda706ad125",
+            "model": "v1.0-20240301",
+            "rig_type": "biped",
+            "spec": "mixamo",
+            "out_format": "glb"
+          },
+          "estimate": 25,
+          "submitted_at": "2026-10-11T13:13:25.141Z",
+          "completed_at": "2026-10-11T13:13:35.720765Z",
+          "progress": 100,
+          "credits_consumed": 25,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H029/rigged.glb"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:13:39.450Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-11T13:17:15.947Z",
+        "out": "App/Resources/Heroes/Hero_H029.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H029/import_report.json",
+        "log": "build/tripo/heroes/H029/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H029/import_verify.log"
+      }
+    },
+    "heroes/H030": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": null,
+          "local": true,
+          "source": {
+            "kind": "fullbody",
+            "path": "build/heroref/H030/fullbody.png",
+            "sha256": "c6648b494e3f8e1d46c6afdbfbffc793d50f8ad1c4f75dd728c9f30a19de23fb",
+            "tag": "t1",
+            "width": 1024,
+            "height": 1536
+          },
+          "input": null,
+          "request": null,
+          "estimate": 0,
+          "submitted_at": "2026-10-11T13:12:14.312Z",
+          "completed_at": "2026-10-11T13:12:14.312Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": null,
+          "files": {
+            "image": "build/tripo/heroes/H030/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:12:14.312Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "38220600-5d1b-4fe9-9a27-e028095cc707",
+          "input": "file_a708052f-8eb9-4cf6-96f0-e343b9142b15",
+          "request": {
+            "input": "file_a708052f-8eb9-4cf6-96f0-e343b9142b15",
+            "model": "P1-20260311",
+            "face_limit": 10000,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image"
+          },
+          "upload": {
+            "file": "build/tripo/heroes/H030/concept.png",
+            "sha256": "c6648b494e3f8e1d46c6afdbfbffc793d50f8ad1c4f75dd728c9f30a19de23fb",
+            "file_token": "file_a708052f-8eb9-4cf6-96f0-e343b9142b15",
+            "uploaded_at": "2026-10-11T13:12:17.419Z"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-11T13:12:17.419Z",
+          "completed_at": "2026-10-11T13:13:17.873750Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H030/model.glb",
+            "preview": "build/tripo/heroes/H030/preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:13:25.117Z"
+        },
+        "rigcheck": {
+          "status": "success",
+          "task_id": "c9e3848f-ba2f-4397-b184-79e16e2c863b",
+          "input": "38220600-5d1b-4fe9-9a27-e028095cc707",
+          "request": {
+            "input": "38220600-5d1b-4fe9-9a27-e028095cc707"
+          },
+          "estimate": 0,
+          "submitted_at": "2026-10-11T13:13:25.810Z",
+          "completed_at": "2026-10-11T13:13:27.684641Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": {
+            "riggable": true,
+            "rig_type": "biped"
+          },
+          "files": {},
+          "error": null,
+          "updated_at": "2026-10-11T13:13:32.269Z"
+        },
+        "rig": {
+          "status": "success",
+          "task_id": "44873fec-c7e5-4e89-9b35-a2338d95e72f",
+          "input": "38220600-5d1b-4fe9-9a27-e028095cc707",
+          "request": {
+            "input": "38220600-5d1b-4fe9-9a27-e028095cc707",
+            "model": "v1.0-20240301",
+            "rig_type": "biped",
+            "spec": "mixamo",
+            "out_format": "glb"
+          },
+          "estimate": 25,
+          "submitted_at": "2026-10-11T13:13:32.839Z",
+          "completed_at": "2026-10-11T13:13:38.985962Z",
+          "progress": 100,
+          "credits_consumed": 25,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H030/rigged.glb"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:13:43.555Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-11T13:17:17.703Z",
+        "out": "App/Resources/Heroes/Hero_H030.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H030/import_report.json",
+        "log": "build/tripo/heroes/H030/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H030/import_verify.log"
+      }
+    },
+    "heroes/H031": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": null,
+          "local": true,
+          "source": {
+            "kind": "fullbody",
+            "path": "build/heroref/H031/fullbody.png",
+            "sha256": "04b7c1aaff959ad810254be84f187a410cda19cd791841df039baf39c2c87be7",
+            "tag": "t1",
+            "width": 1024,
+            "height": 1536
+          },
+          "input": null,
+          "request": null,
+          "estimate": 0,
+          "submitted_at": "2026-10-11T13:13:39.454Z",
+          "completed_at": "2026-10-11T13:13:39.454Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": null,
+          "files": {
+            "image": "build/tripo/heroes/H031/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:13:39.454Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "6f7a809a-c90e-4a8d-8f37-124dabb14288",
+          "input": "file_7493f6d3-55a9-4ac5-8a94-bd4a731dcbda",
+          "request": {
+            "input": "file_7493f6d3-55a9-4ac5-8a94-bd4a731dcbda",
+            "model": "P1-20260311",
+            "face_limit": 10000,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image"
+          },
+          "upload": {
+            "file": "build/tripo/heroes/H031/concept.png",
+            "sha256": "04b7c1aaff959ad810254be84f187a410cda19cd791841df039baf39c2c87be7",
+            "file_token": "file_7493f6d3-55a9-4ac5-8a94-bd4a731dcbda",
+            "uploaded_at": "2026-10-11T13:13:48.652Z"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-11T13:13:48.652Z",
+          "completed_at": "2026-10-11T13:14:42.432096Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H031/model.glb",
+            "preview": "build/tripo/heroes/H031/preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:14:48.485Z"
+        },
+        "rigcheck": {
+          "status": "success",
+          "task_id": "23cb9a58-793f-4f61-b237-028f80692c00",
+          "input": "6f7a809a-c90e-4a8d-8f37-124dabb14288",
+          "request": {
+            "input": "6f7a809a-c90e-4a8d-8f37-124dabb14288"
+          },
+          "estimate": 0,
+          "submitted_at": "2026-10-11T13:14:48.487Z",
+          "completed_at": "2026-10-11T13:14:50.763473Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": {
+            "riggable": true,
+            "rig_type": "biped"
+          },
+          "files": {},
+          "error": null,
+          "updated_at": "2026-10-11T13:14:56.016Z"
+        },
+        "rig": {
+          "status": "success",
+          "task_id": "a8172b0c-80a0-4e14-8f30-96f96d369b41",
+          "input": "6f7a809a-c90e-4a8d-8f37-124dabb14288",
+          "request": {
+            "input": "6f7a809a-c90e-4a8d-8f37-124dabb14288",
+            "model": "v1.0-20240301",
+            "rig_type": "biped",
+            "spec": "mixamo",
+            "out_format": "glb"
+          },
+          "estimate": 25,
+          "submitted_at": "2026-10-11T13:14:56.203Z",
+          "completed_at": "2026-10-11T13:15:15.363446Z",
+          "progress": 100,
+          "credits_consumed": 25,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H031/rigged.glb"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:15:20.559Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-11T13:17:19.500Z",
+        "out": "App/Resources/Heroes/Hero_H031.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H031/import_report.json",
+        "log": "build/tripo/heroes/H031/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H031/import_verify.log"
+      }
+    },
+    "heroes/H032": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": null,
+          "local": true,
+          "source": {
+            "kind": "fullbody",
+            "path": "build/heroref/H032/fullbody.png",
+            "sha256": "fb4e8a4d7015d39c015a5eccde921cfe31b311e3041389083841d84ac364b1e4",
+            "tag": "t2",
+            "width": 1024,
+            "height": 1536
+          },
+          "input": null,
+          "request": null,
+          "estimate": 0,
+          "submitted_at": "2026-10-11T13:13:42.189Z",
+          "completed_at": "2026-10-11T13:13:42.189Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": null,
+          "files": {
+            "image": "build/tripo/heroes/H032/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:13:42.189Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "7151ceba-4779-49b9-b9d1-6acb73cf49e8",
+          "input": "file_82f27ba1-a998-42ca-a396-1724673d4f85",
+          "request": {
+            "input": "file_82f27ba1-a998-42ca-a396-1724673d4f85",
+            "model": "P1-20260311",
+            "face_limit": 10000,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image"
+          },
+          "upload": {
+            "file": "build/tripo/heroes/H032/concept.png",
+            "sha256": "fb4e8a4d7015d39c015a5eccde921cfe31b311e3041389083841d84ac364b1e4",
+            "file_token": "file_82f27ba1-a998-42ca-a396-1724673d4f85",
+            "uploaded_at": "2026-10-11T13:13:53.645Z"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-11T13:13:53.645Z",
+          "completed_at": "2026-10-11T13:14:52.303201Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H032/model.glb",
+            "preview": "build/tripo/heroes/H032/preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:14:59.685Z"
+        },
+        "rigcheck": {
+          "status": "success",
+          "task_id": "ef7a5e44-f3da-4314-9764-53c86b9eacc9",
+          "input": "7151ceba-4779-49b9-b9d1-6acb73cf49e8",
+          "request": {
+            "input": "7151ceba-4779-49b9-b9d1-6acb73cf49e8"
+          },
+          "estimate": 0,
+          "submitted_at": "2026-10-11T13:14:59.688Z",
+          "completed_at": "2026-10-11T13:15:00.766838Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": {
+            "riggable": true,
+            "rig_type": "biped"
+          },
+          "files": {},
+          "error": null,
+          "updated_at": "2026-10-11T13:15:05.587Z"
+        },
+        "rig": {
+          "status": "success",
+          "task_id": "8931c7fb-70ee-40ff-a560-6d51c6c80b29",
+          "input": "7151ceba-4779-49b9-b9d1-6acb73cf49e8",
+          "request": {
+            "input": "7151ceba-4779-49b9-b9d1-6acb73cf49e8",
+            "model": "v1.0-20240301",
+            "rig_type": "biped",
+            "spec": "mixamo",
+            "out_format": "glb"
+          },
+          "estimate": 25,
+          "submitted_at": "2026-10-11T13:15:06.303Z",
+          "completed_at": "2026-10-11T13:15:12.096354Z",
+          "progress": 100,
+          "credits_consumed": 25,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H032/rigged.glb"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:15:14.895Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-11T13:17:21.331Z",
+        "out": "App/Resources/Heroes/Hero_H032.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H032/import_report.json",
+        "log": "build/tripo/heroes/H032/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H032/import_verify.log"
+      }
+    },
+    "heroes/H033": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": null,
+          "local": true,
+          "source": {
+            "kind": "fullbody",
+            "path": "build/heroref/H033/fullbody.png",
+            "sha256": "13ad69fbb3878184d4053361ba8685765a8da0e5b7e24b88b60531ce259adc3d",
+            "tag": "t1",
+            "width": 1024,
+            "height": 1536
+          },
+          "input": null,
+          "request": null,
+          "estimate": 0,
+          "submitted_at": "2026-10-11T13:13:43.559Z",
+          "completed_at": "2026-10-11T13:13:43.559Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": null,
+          "files": {
+            "image": "build/tripo/heroes/H033/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:13:43.559Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "a9fcc89e-0967-47ef-8467-b5d741f504ed",
+          "input": "file_b9e94080-d628-4b05-8094-a378b1b84f34",
+          "request": {
+            "input": "file_b9e94080-d628-4b05-8094-a378b1b84f34",
+            "model": "P1-20260311",
+            "face_limit": 10000,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image"
+          },
+          "upload": {
+            "file": "build/tripo/heroes/H033/concept.png",
+            "sha256": "13ad69fbb3878184d4053361ba8685765a8da0e5b7e24b88b60531ce259adc3d",
+            "file_token": "file_b9e94080-d628-4b05-8094-a378b1b84f34",
+            "uploaded_at": "2026-10-11T13:13:59.346Z"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-11T13:13:59.346Z",
+          "completed_at": "2026-10-11T13:14:53.266736Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H033/model.glb",
+            "preview": "build/tripo/heroes/H033/preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:15:04.829Z"
+        },
+        "rigcheck": {
+          "status": "success",
+          "task_id": "9919e130-bf4e-4381-a123-03a53c25c429",
+          "input": "a9fcc89e-0967-47ef-8467-b5d741f504ed",
+          "request": {
+            "input": "a9fcc89e-0967-47ef-8467-b5d741f504ed"
+          },
+          "estimate": 0,
+          "submitted_at": "2026-10-11T13:15:04.832Z",
+          "completed_at": "2026-10-11T13:15:05.904454Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": {
+            "riggable": true,
+            "rig_type": "biped"
+          },
+          "files": {},
+          "error": null,
+          "updated_at": "2026-10-11T13:15:06.121Z"
+        },
+        "rig": {
+          "status": "success",
+          "task_id": "628b2d03-97c7-430f-a6fa-96c67ae33717",
+          "input": "a9fcc89e-0967-47ef-8467-b5d741f504ed",
+          "request": {
+            "input": "a9fcc89e-0967-47ef-8467-b5d741f504ed",
+            "model": "v1.0-20240301",
+            "rig_type": "biped",
+            "spec": "mixamo",
+            "out_format": "glb"
+          },
+          "estimate": 25,
+          "submitted_at": "2026-10-11T13:15:06.973Z",
+          "completed_at": "2026-10-11T13:15:12.232612Z",
+          "progress": 100,
+          "credits_consumed": 25,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H033/rigged.glb"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:15:16.974Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-11T13:17:23.165Z",
+        "out": "App/Resources/Heroes/Hero_H033.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H033/import_report.json",
+        "log": "build/tripo/heroes/H033/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H033/import_verify.log"
+      }
+    },
+    "heroes/H034": {
+      "stages": {
+        "concept": {
+          "status": "success",
+          "task_id": null,
+          "local": true,
+          "source": {
+            "kind": "fullbody",
+            "path": "build/heroref/H034/fullbody.png",
+            "sha256": "865df29652494a5d613276da20aeeb7ed0b76c823b804f88a01cca8d2b301d70",
+            "tag": "t1",
+            "width": 1254,
+            "height": 1254
+          },
+          "input": null,
+          "request": null,
+          "estimate": 0,
+          "submitted_at": "2026-10-11T13:15:14.901Z",
+          "completed_at": "2026-10-11T13:15:14.901Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": null,
+          "files": {
+            "image": "build/tripo/heroes/H034/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:15:14.901Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "e732348c-3f05-40c9-a958-976935e7652a",
+          "input": "file_715325b6-5633-46ea-b7e1-b3b03b890f1c",
+          "request": {
+            "input": "file_715325b6-5633-46ea-b7e1-b3b03b890f1c",
+            "model": "P1-20260311",
+            "face_limit": 10000,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image"
+          },
+          "upload": {
+            "file": "build/tripo/heroes/H034/concept.png",
+            "sha256": "865df29652494a5d613276da20aeeb7ed0b76c823b804f88a01cca8d2b301d70",
+            "file_token": "file_715325b6-5633-46ea-b7e1-b3b03b890f1c",
+            "uploaded_at": "2026-10-11T13:15:21.106Z"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-11T13:15:21.106Z",
+          "completed_at": "2026-10-11T13:16:22.541682Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H034/model.glb",
+            "preview": "build/tripo/heroes/H034/preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:16:30.939Z"
+        },
+        "rigcheck": {
+          "status": "success",
+          "task_id": "38d23d99-c183-4b88-86f0-de189fe3b6e3",
+          "input": "e732348c-3f05-40c9-a958-976935e7652a",
+          "request": {
+            "input": "e732348c-3f05-40c9-a958-976935e7652a"
+          },
+          "estimate": 0,
+          "submitted_at": "2026-10-11T13:16:30.945Z",
+          "completed_at": "2026-10-11T13:16:32.696572Z",
+          "progress": 100,
+          "credits_consumed": 0,
+          "output": {
+            "riggable": true,
+            "rig_type": "biped"
+          },
+          "files": {},
+          "error": null,
+          "updated_at": "2026-10-11T13:16:38.353Z"
+        },
+        "rig": {
+          "status": "success",
+          "task_id": "5aabb341-895d-440f-97c9-e7b162491c34",
+          "input": "e732348c-3f05-40c9-a958-976935e7652a",
+          "request": {
+            "input": "e732348c-3f05-40c9-a958-976935e7652a",
+            "model": "v1.0-20240301",
+            "rig_type": "biped",
+            "spec": "mixamo",
+            "out_format": "glb"
+          },
+          "estimate": 25,
+          "submitted_at": "2026-10-11T13:16:38.894Z",
+          "completed_at": "2026-10-11T13:16:44.494492Z",
+          "progress": 100,
+          "credits_consumed": 25,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/heroes/H034/rigged.glb"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T13:16:51.187Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-11T13:17:25.131Z",
+        "out": "App/Resources/Heroes/Hero_H034.usdz",
+        "status": "success",
+        "report": "build/tripo/heroes/H034/import_report.json",
+        "log": "build/tripo/heroes/H034/import_normalize.log",
+        "verifyLog": "build/tripo/heroes/H034/import_verify.log"
+      }
     }
   },
   "note": "tools/tripo.mjs が自動生成。task_id・状態・消費クレジット・ローカルパスのみ（秘密情報なし）",
-  "updated_at": "2026-10-07T00:58:06.932Z"
+  "updated_at": "2026-10-11T13:17:25.131Z"
 }
