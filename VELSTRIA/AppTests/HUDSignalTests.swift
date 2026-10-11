@@ -224,13 +224,14 @@ final class HUDSignalTests: XCTestCase {
                 }
             }
         }
-        // 確認: 送り主の短い名前は正式名（英語の二つ名・日本語の長い名前）より短い。
-        // MLBB 風の配置（下部パネルを小さくしてスペル列の内側へ寄せた）でメッセージの欄は広がったが、
-        // 狭い欄でも切れないよう短い名前を使い続ける。
-        Loc.current = .en
-        XCTAssertGreaterThan(width(MasterText.hero(mirea), size: 10), width(HUDSignalCenter.senderName(mirea), size: 10))
-        Loc.current = .ja
-        XCTAssertGreaterThan(width(MasterText.hero(alden), size: 10), width(HUDSignalCenter.senderName(alden), size: 10))
+        // 肩書きを除く既存の短縮表記は、広くなったメッセージ欄でも維持する。
+        for lang in [AppLanguage.en, .ja] {
+            Loc.current = lang
+            for hero in [mirea, alden] {
+                XCTAssertLessThan(HUDSignalCenter.senderName(hero).count, MasterText.hero(hero).count)
+                XCTAssertLessThan(width(HUDSignalCenter.senderName(hero), size: 10), width(MasterText.hero(hero), size: 10))
+            }
+        }
     }
 
     @MainActor
@@ -310,6 +311,8 @@ final class HUDSignalTests: XCTestCase {
     // MARK: 配置
 
     private let devices: [(name: String, size: CGSize, side: CGFloat, bottom: CGFloat)] = [
+        ("16:9 compact", CGSize(width: 667, height: 375), 0, 0),
+        ("16:9 large", CGSize(width: 736, height: 414), 0, 0),
         ("iPhone 13 mini", CGSize(width: 812, height: 375), 44, 21),
         ("iPhone 16e", CGSize(width: 844, height: 390), 47, 21),
         ("iPhone 17 Pro", CGSize(width: 874, height: 402), 62, 20),
@@ -325,15 +328,15 @@ final class HUDSignalTests: XCTestCase {
     /// 操作部品（攻撃ボタン 3 つ・スキル・必殺技・スペル・帰還）とスティックの土台。
     private func controls(_ l: HUDLayout) -> [Disc] {
         var out = AttackButtonSlot.allCases.map {
-            Disc(name: "attack_\($0.rawValue)", center: l.attackCenter(for: $0), radius: l.attackDiameter(for: $0) / 2)
+            Disc(name: "attack_\($0.rawValue)", center: l.attackCenter(for: $0), radius: max(44, l.attackDiameter(for: $0)) / 2)
         }
         for slot in SkillSlot.actives {
             out.append(Disc(name: "skill\(slot.rawValue)", center: l.skillCenter(slot),
                             radius: (slot == .ultimate ? l.ultDiameter : l.skillDiameter) / 2))
         }
-        out.append(Disc(name: "spell0", center: l.spellCenter(0), radius: l.spellDiameter / 2))
-        out.append(Disc(name: "spell1", center: l.spellCenter(1), radius: l.spellDiameter / 2))
-        out.append(Disc(name: "recall", center: l.recallCenter, radius: l.recallDiameter / 2))
+        out.append(Disc(name: "spell0", center: l.spellCenter(0), radius: max(44, l.spellDiameter) / 2))
+        out.append(Disc(name: "spell1", center: l.spellCenter(1), radius: max(44, l.spellDiameter) / 2))
+        out.append(Disc(name: "recall", center: l.recallCenter, radius: max(44, l.recallDiameter) / 2))
         // 移動スティックの待機位置の円（浮動スティックでも触っていない時はここに描く）
         out.append(Disc(name: "joystick", center: l.joystickRest, radius: l.joystickRadius))
         return out
@@ -392,16 +395,21 @@ final class HUDSignalTests: XCTestCase {
             let tray = l.signalTrayFrame
             // 情報側の端（右手配置 = 右、左利き = 左。ミニマップの反対側）
             if l.leftHanded {
-                XCTAssertEqual(l.signalSlotFrame(.toggle).minX, l.leadingEdge, accuracy: 0.5, "\(tag) 折りたたみボタンは左端")
+                XCTAssertEqual(l.signalSlotFrame(.attack).minX, l.leadingEdge, accuracy: 0.5, "\(tag) 送信列は左端")
                 XCTAssertLessThan(tray.midX, l.width / 2)
             } else {
-                XCTAssertEqual(l.signalSlotFrame(.toggle).maxX, l.trailingEdge, accuracy: 0.5, "\(tag) 折りたたみボタンは右端")
+                XCTAssertEqual(l.signalSlotFrame(.attack).maxX, l.trailingEdge, accuracy: 0.5, "\(tag) 送信列は右端")
                 XCTAssertGreaterThan(tray.midX, l.width / 2)
             }
             XCTAssertEqual(tray.midX > l.width / 2, l.topInfoAlignment == .topTrailing, "\(tag) 情報列と同じ側")
             XCTAssertFalse(tray.intersects(l.minimapDockFrame), "\(tag) シグナル列とミニマップ")
-            XCTAssertFalse(tray.intersects(topInfoBand(l)), "\(tag) シグナル列と情報列")
-            XCTAssertFalse(tray.intersects(killFeedFrame(l)), "\(tag) シグナル列とキルフィード")
+            // 開閉は上部の所持金隣、送信列は右端。外接矩形の空白でなく実際のタッチ領域を検査。
+            for slot in slots {
+                XCTAssertFalse(slot.frame.intersects(l.topInfoFrame(spectating: false)), "\(tag) シグナルと戦績")
+                XCTAssertFalse(slot.frame.intersects(l.shopFrame), "\(tag) シグナルと所持金")
+                XCTAssertFalse(slot.frame.intersects(l.quickBuyFrame), "\(tag) シグナルとクイック購入")
+                XCTAssertFalse(slot.frame.intersects(killFeedFrame(l)), "\(tag) シグナルとキルフィード")
+            }
             for s in slots {
                 XCTAssertGreaterThanOrEqual(s.frame.width, 44, "\(tag) \(s.slot) のタップ領域")
                 XCTAssertGreaterThanOrEqual(s.frame.height, 44, "\(tag) \(s.slot) のタップ領域")
@@ -420,16 +428,20 @@ final class HUDSignalTests: XCTestCase {
                     XCTAssertFalse(slots[i].frame.intersects(slots[j].frame), "\(tag) \(slots[i].slot) と \(slots[j].slot)")
                 }
             }
-            XCTAssertGreaterThanOrEqual(l.signalButtonSize, 30)
+            XCTAssertGreaterThanOrEqual(l.signalButtonSize, 22)
             XCTAssertLessThanOrEqual(l.signalButtonSize, l.signalHitSize)
-            // 主な端末（16e 以上）は 1 行
-            if l.width >= 844 { XCTAssertEqual(l.signalTrayColumns, HUDSignalSlot.allCases.count, tag) }
+            XCTAssertEqual(l.signalTrayColumns, 1, "\(tag) 送信操作は1列")
+            for pair in zip(HUDSignalSlot.tray, HUDSignalSlot.tray.dropFirst()) {
+                XCTAssertEqual(l.signalSlotFrame(pair.0).midX, l.signalSlotFrame(pair.1).midX, accuracy: 0.01, tag)
+                XCTAssertEqual(l.signalSlotFrame(pair.0).maxY, l.signalSlotFrame(pair.1).minY, accuracy: 0.01, tag)
+            }
 
-            // チャットのメニュー: Safe Area 内、列の下、端にそろえる
+            // チャットのメニュー: Safe Area内で縦列の内側へ開く。
             let menu = l.signalChatMenuFrame
             XCTAssertGreaterThanOrEqual(menu.minX, side, tag)
             XCTAssertLessThanOrEqual(menu.maxX, l.width - side, tag)
-            XCTAssertGreaterThanOrEqual(menu.minY, tray.maxY, tag)
+            XCTAssertGreaterThanOrEqual(menu.minY, l.topEdge + l.topButtonSize, tag)
+            for slot in slots { XCTAssertFalse(menu.intersects(slot.frame), tag) }
             XCTAssertLessThanOrEqual(menu.maxY, l.bottomEdge, tag)
             XCTAssertFalse(menu.intersects(l.minimapDockFrame), "\(tag) メニューとミニマップ")
             XCTAssertGreaterThanOrEqual(HUDLayout.signalChatItemSize.height, 44)
@@ -443,8 +455,11 @@ final class HUDSignalTests: XCTestCase {
             XCTAssertGreaterThanOrEqual(feed.minX, side, tag)
             XCTAssertLessThanOrEqual(feed.maxX, l.width - side, tag)
             XCTAssertGreaterThanOrEqual(feed.minY, l.topEdge + l.topButtonSize, "\(tag) キルフィードと情報列・スコア")
-            XCTAssertFalse(feed.intersects(l.signalTrayFrame), "\(tag) キルフィードとシグナル列")
+            for slot in HUDSignalSlot.allCases {
+                XCTAssertFalse(feed.intersects(l.signalSlotFrame(slot)), "\(tag) キルフィードとシグナル")
+            }
             XCTAssertFalse(feed.intersects(l.minimapDockFrame), "\(tag) キルフィードとミニマップ")
+            XCTAssertFalse(feed.intersects(l.quickBuyFrame), "\(tag) キルフィードとクイック購入")
             XCTAssertFalse(feed.intersects(l.signalMessageFrame), "\(tag) キルフィードとメッセージ")
             for c in controls(l) {
                 XCTAssertFalse(hits(feed, c), "\(tag) キルフィードと \(c.name) が重なる")
@@ -454,7 +469,7 @@ final class HUDSignalTests: XCTestCase {
             }
             // 情報側の半分に収まる（スコアの下、情報側寄り）
             XCTAssertEqual(feed.midX > l.width / 2, !l.leftHanded, tag)
-            XCTAssertGreaterThanOrEqual(l.killFeedSideReserve, l.signalTrayFrame.width + 6)
+            XCTAssertGreaterThanOrEqual(l.killFeedSideReserve, l.signalHitSize + 6)
         }
     }
 
@@ -479,7 +494,6 @@ final class HUDSignalTests: XCTestCase {
             XCTAssertLessThan(f.maxY, l.bottomEdge, tag)
             XCTAssertFalse(f.intersects(l.signalTrayFrame), "\(tag) メッセージとシグナル列")
             XCTAssertFalse(f.intersects(l.signalChatMenuFrame), "\(tag) メッセージとメニュー")
-            XCTAssertFalse(f.intersects(heroPanelFrame(l)), "\(tag) メッセージとヒーローパネル")
             for c in controls(l) {
                 XCTAssertFalse(hits(f, c), "\(tag) メッセージと \(c.name) が重なる")
             }

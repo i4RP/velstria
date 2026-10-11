@@ -149,6 +149,7 @@ final class BattleRenderView: UIView {
         addSubview(combatText)
         #if DEBUG
         addSubview(debugOverlay)
+        debugOverlay.isHidden = !ProcessInfo.processInfo.arguments.contains("-hud-debug-stats")
         #endif
         if let perfLabel { addSubview(perfLabel) }
         addSubview(curtain)
@@ -173,7 +174,7 @@ final class BattleRenderView: UIView {
         if let perfLabel {
             perfLabel.frame = CGRect(x: max(8, safeAreaInsets.left + 6), y: max(8, safeAreaInsets.top) + 200, width: 250, height: 56)
             #if DEBUG
-            debugOverlay.isHidden = !perfLabel.isHidden
+            debugOverlay.isHidden = !ProcessInfo.processInfo.arguments.contains("-hud-debug-stats") || !perfLabel.isHidden
             #endif
         }
     }

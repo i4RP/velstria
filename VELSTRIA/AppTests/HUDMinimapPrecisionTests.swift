@@ -12,17 +12,17 @@ final class HUDMinimapPrecisionTests: XCTestCase {
     }
 
     func testPaddedProjectionUsesTheSameExtentForMarkersAndTouches() {
-        for size in [CGFloat(132), 164, 340] {
-            let projection = HUDMinimapProjection(size: size, mapSize: 9000, inset: 9)
-            XCTAssertEqual(projection.point(.zero), CGPoint(x: 9, y: size - 9))
-            XCTAssertEqual(projection.point(Vec2(9000, 9000)), CGPoint(x: size - 9, y: 9))
+        for (size, inset) in [(CGFloat(119), CGFloat(2)), (124, 2), (140, 2), (340, 12)] {
+            let projection = HUDMinimapProjection(size: size, mapSize: 9000, inset: inset)
+            XCTAssertEqual(projection.point(.zero), CGPoint(x: inset, y: size - inset))
+            XCTAssertEqual(projection.point(Vec2(9000, 9000)), CGPoint(x: size - inset, y: inset))
             for p in [Vec2.zero, Vec2(4500, 4500), Vec2(733, 8700), Vec2(9000, 9000)] {
                 let roundTrip = projection.world(projection.point(p))
                 XCTAssertEqual(roundTrip.x, p.x, accuracy: 1e-8)
                 XCTAssertEqual(roundTrip.y, p.y, accuracy: 1e-8)
             }
             XCTAssertEqual(projection.world(CGPoint(x: -20, y: size + 20)), .zero)
-            XCTAssertEqual(projection.length(9000), size - 18)
+            XCTAssertEqual(projection.length(9000), size - 2 * inset)
         }
         XCTAssertEqual(HUDMinimapProjection(size: 0).world(.zero), Balance.mapCenter)
         XCTAssertEqual(HUDMinimapProjection(size: 10, inset: 8).world(.zero), Balance.mapCenter)

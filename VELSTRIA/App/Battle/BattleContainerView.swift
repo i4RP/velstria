@@ -48,7 +48,7 @@ struct BattleContainerView: View {
                     }
                 }
                 #if DEBUG
-                if DebugLaunch.isUITesting { uiTestFastForwardButton(controller) }
+                if DebugLaunch.isUITesting && !DebugLaunch.args.contains("-hudCapture") { uiTestFastForwardButton(controller) }
                 #endif
             }
         }

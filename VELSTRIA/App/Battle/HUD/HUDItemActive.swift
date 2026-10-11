@@ -2,11 +2,10 @@ import SwiftUI
 import VelstriaCore
 
 // 担当: battle-hud。装備のアクティブ（ウィンタークラウン・ナチュラルウィンド）と祝福のアクティブ（ロームの隠蔽）の
-// 小さな丸ボタン、効果中のポーションの表示値。右側クラスタ（HUDActionCluster）に 1 行で差し込む。
-// ・装備のアクティブ: 上の攻撃ボタンの画面中央側。装備のアイコン + クールダウンの扇形。押すと .useItemActive。
-// ・隠蔽: 必殺技の習得バッジの上（共栄ゴールドで隠蔽を解放した時だけ）。押すと .useGearActive。
-// どちらもスペルより画面の端側に置き、キルフィード（スペルより画面中央側）・シグナル列（上端の行）・
-// 他の操作部品と重ならない（HUDItemActiveTests）。
+// 小さな丸ボタン、効果中のポーションの表示値。補助アクション列の 1 段上に必要な時だけ表示する。
+// ・装備のアクティブ: 第1スペルの上。装備のアイコン + クールダウンの扇形。押すと .useItemActive。
+// ・隠蔽: 帰還の上（共栄ゴールドで隠蔽を解放した時だけ）。押すと .useGearActive。
+// 44pt のタップ領域を含めて、他の操作部品と重ならない（HUDItemActiveTests）。
 
 /// アクティブ装備・祝福のアクティブ・効果中のポーションの表示値（15Hz で作り、変化した時だけ HUDModel が差し替える）。
 struct HUDItemActiveSnapshot: Equatable {
@@ -62,19 +61,17 @@ enum HUDItemActiveLogic {
 
 extension HUDLayout {
     /// アクティブ装備・隠蔽のボタンの見た目の直径（タップ領域は 44pt 以上）。
-    var itemActiveDiameter: CGFloat { 40 * scale }
+    var itemActiveDiameter: CGFloat { 32 * scale }
 
-    /// アクティブ装備: 上の攻撃ボタンの画面中央側（右手配置で中央の攻撃ボタンから左 60・上 80）。
-    var itemActiveCenter: CGPoint { itemActionPoint(x: -60, y: -80) }
+    /// アクティブ装備: 補助スペル列の 1 段上。通常攻撃の対象指定とは独立した位置。
+    var itemActiveCenter: CGPoint {
+        let c = spellCenter(0)
+        return CGPoint(x: c.x, y: c.y - 58 * scale)
+    }
 
-    /// 隠蔽: 必殺技の習得バッジの上（右手配置で中央の攻撃ボタンから左 114・上 125）。
-    var gearActiveCenter: CGPoint { itemActionPoint(x: -114, y: -125) }
-
-    /// 中央の攻撃ボタンからの位置（右手配置の向き。左利きは左右反転。スキル・スペルの配置と同じ規則）。
-    private func itemActionPoint(x: CGFloat, y: CGFloat) -> CGPoint {
-        let c = attackCenter
-        let dx = x * scale
-        return CGPoint(x: leftHanded ? c.x - dx : c.x + dx, y: c.y + y * scale)
+    /// 隠蔽: 帰還の上。解放している場合のみ現れる。
+    var gearActiveCenter: CGPoint {
+        CGPoint(x: recallCenter.x, y: recallCenter.y - 58 * scale)
     }
 }
 
@@ -156,7 +153,7 @@ struct HUDItemActiveButton: View {
             ZStack {
                 ZStack {
                     face
-                    Circle().strokeBorder(ready ? Theme.gold : HUDStyle.rim, lineWidth: ready ? 2 : 1.2)
+                    Circle().strokeBorder(ready ? HUDStyle.accent.opacity(0.65) : HUDStyle.rim, lineWidth: 0.8)
                 }
                 .hudDeadDim(dead)
                 if ability.cooldown > 0 {
@@ -165,7 +162,7 @@ struct HUDItemActiveButton: View {
                 }
             }
             .frame(width: diameter, height: diameter)
-            .shadow(color: ready ? Theme.gold.opacity(0.35) : .clear, radius: 4)
+            .shadow(color: ready ? HUDStyle.accent.opacity(0.1) : .clear, radius: 2)
             .frame(width: max(44, diameter), height: max(44, diameter))
             .contentShape(Circle())
         }
@@ -187,8 +184,7 @@ struct HUDItemActiveButton: View {
                 .frame(width: diameter, height: diameter)
                 .clipShape(Circle())
         } else {
-            Circle()
-                .fill(LinearGradient(colors: [HUDStyle.glassTop, HUDStyle.glassBottom], startPoint: .top, endPoint: .bottom))
+            HUDAbilityFace(color: HUDStyle.accent, diameter: diameter)
             Image(systemName: symbol ?? "sparkles")
                 .font(.system(size: diameter * 0.42, weight: .bold))
                 .foregroundStyle(symbol == nil ? Theme.gold : Theme.cyan)

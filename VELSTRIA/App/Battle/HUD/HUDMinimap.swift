@@ -15,21 +15,20 @@ struct HUDMinimapView: View {
 
     var body: some View {
         let map = model.controller.ctx.map
-        let proj = HUDMinimapProjection(size: size, mapSize: map.size, inset: isExpanded ? 12 : 8)
+        let proj = HUDMinimapProjection(size: size, mapSize: map.size, inset: isExpanded ? 12 : 2)
         ZStack(alignment: .topLeading) {
             HUDMinimapTerrain(projection: proj, map: map, colorblind: model.settings.colorblindMode).equatable()
             HUDMinimapUnits(model: model, projection: proj, expanded: isExpanded)
             HUDMinimapObjective(model: model, projection: proj)
         }
         .frame(width: size, height: size)
-        // MLBB 風: 角の小さい正方形に細い金の縁
-        .clipShape(RoundedRectangle(cornerRadius: isExpanded ? 12 : 5, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: isExpanded ? 12 : 3, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: isExpanded ? 12 : 5, style: .continuous)
-                .strokeBorder(LinearGradient(colors: [HUDStyle.goldRim, HUDStyle.goldRim.opacity(0.35)],
-                                             startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
+            RoundedRectangle(cornerRadius: isExpanded ? 12 : 3, style: .continuous)
+                .strokeBorder(LinearGradient(colors: [Color.white.opacity(0.36), HUDStyle.rim.opacity(0.22)],
+                                             startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 0.6)
         )
-        .shadow(color: .black.opacity(0.45), radius: 8, y: 3)
+        .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
         .contentShape(Rectangle())
         .gesture(
             DragGesture(minimumDistance: 0, coordinateSpace: .local)
@@ -58,10 +57,10 @@ private struct HUDMinimapTerrain: View, Equatable {
     var body: some View {
         Canvas { ctx, size in
             let proj = projection
-            ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color(red: 0.06, green: 0.09, blue: 0.17)))
+            ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color(red: 0.06, green: 0.09, blue: 0.17).opacity(0.66)))
             let bounds = HUDMinimapDrawing.rect(Rect2(minX: 0, minY: 0, maxX: map.size, maxY: map.size), proj)
             ctx.fill(Path(bounds), with: .linearGradient(
-                Gradient(colors: [Color(red: 0.17, green: 0.26, blue: 0.28), Color(red: 0.10, green: 0.17, blue: 0.24)]),
+                Gradient(colors: [Color(red: 0.17, green: 0.26, blue: 0.28).opacity(0.8), Color(red: 0.10, green: 0.17, blue: 0.24).opacity(0.8)]),
                 startPoint: bounds.origin, endPoint: CGPoint(x: bounds.maxX, y: bounds.maxY)))
             ctx.clip(to: Path(bounds))
             var river = Path()
