@@ -214,9 +214,9 @@ final class AppStoreAssetsTests: XCTestCase {
     func testEveryHeroAndSkinHasPortraitArt() {
         let m = MasterData.shared
         var missing: [String] = []
-        // 追加ヒーロー第 1・第 2 段階（docs/NEW_HEROES.md）。立ち絵は未生成で、頭文字の暫定表示になる。
+        // 立ち絵が未生成で頭文字の暫定表示になるヒーロー（docs/NEW_HEROES.md）。
         // tools/portraits/portraits.py で生成・取り込みしたらこの一覧から外す（外し忘れても下の確認で気づける）。
-        let artPending: Set<String> = ["H025", "H026", "H027", "H028", "H029", "H030", "H031", "H032", "H033", "H034"]
+        let artPending: Set<String> = []
         for h in m.heroes {
             guard let img = PortraitArt.hero(h.heroID) else {
                 if !artPending.contains(h.heroID) { missing.append(h.heroID) }
