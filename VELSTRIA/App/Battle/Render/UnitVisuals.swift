@@ -672,7 +672,7 @@ final class HeroVisual {
     private var yaw: Float = 0
     var visibility: Float = 1
     private var opacityApplied: Float = 1
-    /// モデル本体（modelRoot）の不透明度。草むらの中の自分とステルス中の自分・味方で下げる（HP バー・足元リングは薄くしない）。
+    /// モデル本体（modelRoot）の不透明度。草むらで隠れている自分・味方とステルス中の自分・味方で下げる（HP バー・足元リングは薄くしない）。
     private var modelOpacity: Float = 1
     private var castUntil: Float = -1
     private var castSlot: SkillSlot = .skill1
@@ -778,9 +778,11 @@ final class HeroVisual {
         let deathFade: Float = dead ? max(0, 1 - max(0, deadTime - 2.2) / 0.6) : 1
         let alpha = visibility * deathFade
         applyOpacity(alpha)
-        // 草むらの中では操作中のヒーロー本体だけを薄くし、HP バー・足元リングは読みやすく保つ。
+        // 草むらで敵から隠れている自分・味方のヒーローは本体を薄くし、頭上に斜線の目を出す（MLBB）。
+        // HP バー・足元リングは読みやすく保つ。
         // ステルス中は自分・味方（と観戦）にだけ薄く見せる。敵の視点では何も変えない（敵のステルスは視界の判定で消える）。
-        let brushTarget: Float = id == f.humanID && f.viewerTeam != nil && !dead && u.brushIndex != nil ? 0.65 : 1
+        let concealed = HeroVisual.showsBrushConceal(unit: u, viewerTeam: f.viewerTeam, dead: dead)
+        let brushTarget: Float = concealed ? HeroVisual.brushOpacity : 1
         let stealthTarget = KitStatusVisuals.stealthOpacity(stealthed: u.has(.stealth), dead: dead, unitTeam: u.team,
                                                             viewerTeam: f.viewerTeam)
         let modelTarget = min(brushTarget, stealthTarget)
@@ -836,10 +838,21 @@ final class HeroVisual {
             bar.update(hp: Float(u.hp / maxHP), shield: Float(u.totalShield / maxHP), resource: res,
                        level: u.hero?.level, dt: dt, maxHP: Float(maxHP))
             bar.keepScreenSize(camera: f.camera)
+            bar.setConcealed(concealed)
             status.update(StatusIndicators.flags(of: u), dt: dt)
         } else {
+            bar.setConcealed(false)
             status.reset()
         }
+    }
+
+    /// 草むらで隠れている間のヒーロー本体の不透明度。
+    static let brushOpacity: Float = 0.5
+
+    /// 草むらで隠れている表示（半透明・斜線の目）を出すか: 自分・味方のヒーローで、敵から隠れている間だけ。
+    /// 観戦（viewerTeam = nil）と敵の視点では出さない。
+    static func showsBrushConceal(unit u: VelstriaCore.Unit, viewerTeam: Team?, dead: Bool) -> Bool {
+        !dead && u.brushConcealed && viewerTeam == u.team
     }
 
     /// 武器の軌跡（ハンドルの更新の後 = 今フレームの姿勢の刃）。見えない・死亡・画質で切った間は消して標本を捨てる。

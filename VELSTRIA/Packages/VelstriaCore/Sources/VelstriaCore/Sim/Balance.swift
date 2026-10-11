@@ -102,7 +102,12 @@ public enum Balance {
     // MARK: 視界
     public static let visionCellSize: Double = 200
     public static let visionUpdateEveryTicks = 3
-    public static let brushRevealRadius: Double = 300
+    /// 草むら（MLBB の Bush）: 同じ草むらに敵の視界源が居なければ、入って 0.25 秒で隠れる。
+    /// 入る直前に敵に見られていたら 0.75 秒。草むらの外からは距離によらず見えない。
+    public static let brushConcealDelay: Double = 0.25
+    public static let brushConcealDelaySeen: Double = 0.75
+    /// 敵ヒーローへのダメージ・敵ミニオンや構造物への通常攻撃から 3 秒は草むらでも隠れない。
+    public static let brushExposeDuration: Double = 3
     public static let stealthRevealRadius: Double = 250
     public static let towerTrueSightRadius: Double = 750
 

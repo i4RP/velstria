@@ -181,6 +181,7 @@ extension BattleWorld {
         g.addModel(meshes.unitSphere, material: materials.lit, faded: true)
         g.addModel(meshes.unitSphere, material: materials.glow, faded: true)
         if let cs = materials.contactShadow { g.addModel(cs.mesh, material: cs.material, faded: true) }
+        if let eye = materials.concealEye { g.addModel(eye.mesh, material: eye.material, faded: false) }
         // 単色マテリアル全て（不透明・半透明・深度なし。OpacityComponent の変種も）
         for m in materials.builtUnlit { g.addModel(quad, material: m, size: 0.25, faded: true) }
         // メッシュ全て（GPU への転送を幕の裏で済ませる）

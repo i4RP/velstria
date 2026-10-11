@@ -244,6 +244,12 @@ public struct Unit: Codable, Hashable, Sendable, Identifiable {
     public var visibleMask: UInt8 = 0
     /// 現在いる草むらのインデックス（MapDefinition.brushes）。
     public var brushIndex: Int?
+    /// 草むらで隠れるまでの残り秒（入った時に 0.25 秒。直前に敵に見られていた・同じ草むらに敵が居たら 0.75 秒）。
+    public var brushConcealDelay: Double = 0
+    /// 草むらの中で敵チームから隠れているか（VisionSystem が更新。自分・味方の半透明と頭上の斜線の目に使う）。
+    public var brushConcealed = false
+    /// 攻撃して姿を晒している期限（s.time。この時刻までは草むらでも隠れない）。
+    public var brushExposedUntil: Double = -999
 
     public var hero: HeroData?
     public var minion: MinionData?

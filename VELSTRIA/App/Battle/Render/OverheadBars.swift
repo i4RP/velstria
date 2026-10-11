@@ -99,6 +99,8 @@ final class OverheadBar {
     private var resource: ModelEntity?
     private var levelText: ModelEntity?
     private var nameText: ModelEntity?
+    /// 草むらで隠れている印（ヒーローのみ。HP バーの右端。setConcealed で切り替える）。
+    private var concealIcon: ModelEntity?
     /// HP の区切り目盛り（ヒーローのみ。MLBB のように一定量ごとの細い線。最大 tickPool 本を使い回す）。
     private var ticks: [ModelEntity] = []
     private var tickMaxHP: Float = -1
@@ -223,8 +225,28 @@ final class OverheadBar {
                 root.addChild(nt)
                 nameText = nt
             }
+            if let eye = materials.concealEye {
+                let e = ModelEntity(mesh: eye.mesh, materials: [eye.material])
+                e.position = [w / 2 + pad + 0.26, badgeY, 0.002]
+                e.scale = [OverheadBar.concealIconSize, OverheadBar.concealIconSize, 1]
+                e.isEnabled = false
+                OverlayOrder.apply(e, OverlayOrder.barText)
+                root.addChild(e)
+                concealIcon = e
+            }
         }
     }
+
+    /// 草むらで隠れている印の直径（m。レベルの章と同じくらい）。
+    static let concealIconSize: Float = 0.46
+
+    /// 草むらで隠れている印を出すか。
+    func setConcealed(_ on: Bool) {
+        guard let e = concealIcon, e.isEnabled != on else { return }
+        e.isEnabled = on
+    }
+
+    var isConcealIconShown: Bool { concealIcon?.isEnabled == true }
 
     /// HP の区切り目盛りの最大本数（ヒーロー 1 人あたりのエンティティ数の上限）。
     static let tickPool = 6

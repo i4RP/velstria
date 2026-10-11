@@ -46,7 +46,7 @@ final class JungleTests: XCTestCase {
         Kit.suppressWaves(&s)
         let rects = Dictionary(grouping: map.brushes, by: \.bush).values.first { $0.count == 4 }!.sorted { $0.id < $1.id }
         let a = rects[0].rect.center, b = rects[1].rect.center
-        XCTAssertGreaterThan(a.distance(to: b), Balance.brushRevealRadius)
+        XCTAssertGreaterThan(a.distance(to: b), 300)
         let hider = Kit.addHero(&s, ctx, team: .red, pos: a)
         let scout = Kit.addHero(&s, ctx, team: .blue, pos: b)
         VisionSystem.update(&s, ctx)

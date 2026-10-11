@@ -135,6 +135,11 @@ public enum CombatSystem {
                 s.units[t].lastCombatTime = s.time
             }
             if attackerKind == .hero {
+                // 攻撃すると 3 秒は草むらで隠れない（MLBB: 敵ヒーローへのダメージ、敵ミニオン・構造物への通常攻撃。
+                // スキルでミニオンだけを削るのは隠れたまま）
+                if victimKind == .hero || (source == .basicAttack && victimKind != .monster) {
+                    s.units[a].brushExposedUntil = s.time + Balance.brushExposeDuration
+                }
                 recordDamager(&s, attacker: a, victim: t)
                 if victimKind == .hero {
                     s.units[a].hero?.score.damageToHeroes += dealt

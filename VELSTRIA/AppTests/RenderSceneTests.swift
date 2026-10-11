@@ -698,5 +698,11 @@ final class RenderSceneTests: XCTestCase {
         XCTAssertEqual(bar.displayedLevel, 7)
         bar.update(hp: 1.4, shield: 0, resource: nil, level: 7, dt: 1.0 / 60)
         XCTAssertEqual(bar.displayedHP, 1, accuracy: 1e-5)
+        // 草むらで隠れている印
+        XCTAssertFalse(bar.isConcealIconShown)
+        bar.setConcealed(true)
+        XCTAssertTrue(bar.isConcealIconShown)
+        bar.setConcealed(false)
+        XCTAssertFalse(bar.isConcealIconShown)
     }
 }
