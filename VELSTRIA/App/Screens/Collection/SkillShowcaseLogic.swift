@@ -28,9 +28,12 @@ enum SkillTags {
     /// 画面が知っているキー。これ以外のキーは名前をそのまま出し、灰色にする。
     /// debuff / damage / conceal / cleanse はキット層（`KitTag`）に足されるキー。Core の定数が無くても動くよう文字列で持つ。
     /// blink は mobility と同じ札（MLBB の「ブリンク」）で、キット層が将来この名前で足しても同じ名前・色になる。
-    /// 日本語の名前は MLBB の日本語版の札に合わせる（バフ・範囲技・減速・衝突・妨害・爆発力・攻撃・ブリンク・デバフ・隠れ身・コントロール解除・ヒール）。
+    /// haste（加速）/ deathimmunity（死亡無効）もキット層のキー（子龍の武神降臨・オーロラのプライド・オブ・アイス）。
+    /// 日本語の名前は MLBB の日本語版の札に合わせる（バフ・範囲技・減速・衝突・妨害・爆発力・攻撃・ブリンク・デバフ・隠れ身・コントロール解除・ヒール・
+    /// 加速・死亡無効）。
     static let knownKeys = ["buff", "aoe", "slow", "clash", "disrupt", "burst", "mobility", "heal", "shield",
-                            "control", "stun", "pull", "execute", "debuff", "damage", "conceal", "cleanse", "blink"]
+                            "control", "stun", "pull", "execute", "debuff", "damage", "conceal", "cleanse", "blink",
+                            "haste", "deathimmunity"]
 
     /// 1 つのスキルに付けるタグの最大数。
     static let maxTagsPerSkill = 2
@@ -45,13 +48,14 @@ enum SkillTags {
     private static let healRGB = SkillRGB(r: 0.28, g: 0.76, b: 0.42)       // 回復 = 緑
     private static let shieldRGB = SkillRGB(r: 0.30, g: 0.55, b: 0.95)     // シールド = 青
     private static let damageRGB = SkillRGB(r: 0.96, g: 0.62, b: 0.24)     // 攻撃 = オレンジ（範囲より黄寄り・爆発力より明るい）
+    private static let deathImmunityRGB = SkillRGB(r: 0.80, g: 0.68, b: 0.36)  // 死亡無効 = 金（MLBB の札の色。攻撃のオレンジより黄・くすみ）
     private static let unknownRGB = SkillRGB(r: 0.50, g: 0.54, b: 0.62)
 
     /// タグの色（この関数が色の唯一の対応表）。
     static func rgb(for key: String) -> SkillRGB {
         switch normalized(key) {
-        // 隠れ身・コントロール解除も MLBB ではバフと同じ青系の札
-        case "buff", "conceal", "cleanse": return buffRGB
+        // 隠れ身・コントロール解除・加速も MLBB ではバフと同じ青系の札
+        case "buff", "conceal", "cleanse", "haste": return buffRGB
         case "aoe": return aoeRGB
         // デバフ（防御・魔防の低下など）も相手を弱める側なので妨害系のピンクがかった赤
         case "slow", "disrupt", "stun", "control", "pull", "debuff": return controlRGB
@@ -61,6 +65,8 @@ enum SkillTags {
         case "damage": return damageRGB
         case "heal": return healRGB
         case "shield": return shieldRGB
+        // 死亡無効は MLBB では金の札（他のどの系統とも別の色）
+        case "deathimmunity": return deathImmunityRGB
         default: return unknownRGB
         }
     }
@@ -86,6 +92,8 @@ enum SkillTags {
         case "damage": return L("攻撃", "Damage")
         case "conceal": return L("隠れ身", "Conceal")
         case "cleanse": return L("コントロール解除", "Cleanse")
+        case "haste": return L("加速", "Haste")
+        case "deathimmunity": return L("死亡無効", "Death Immunity")
         default: return key
         }
     }
@@ -109,6 +117,8 @@ enum SkillTags {
         case "damage": return "flame.fill"
         case "conceal": return "eye.slash.fill"
         case "cleanse": return "sparkles"
+        case "haste": return "hare.fill"
+        case "deathimmunity": return "infinity.circle.fill"
         default: return "tag.fill"
         }
     }

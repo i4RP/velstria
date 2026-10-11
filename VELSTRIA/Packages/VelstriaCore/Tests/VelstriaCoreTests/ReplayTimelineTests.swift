@@ -15,8 +15,10 @@ final class ReplayTimelineTests: XCTestCase {
 
     func testTimelineIsDeterministicAndSampled() {
         let ticks = 30 * 60 * 6   // 6 分
-        let (a, stateA) = runBotMatch(seed: 77, ticks: ticks)
-        let (b, _) = runBotMatch(seed: 77, ticks: ticks)
+        // シード 9 はキットのヒーローが居ない試合（キットの調整で展開が変わらない）。最初のキルは約 4 分。
+        // 以前のシード 77（マイヤ・ボルグ入り）は最初のキルが 5.3 分で、H025 のマナを日本語クライアントの値にしたら 6 分を過ぎた
+        let (a, stateA) = runBotMatch(seed: 9, ticks: ticks)
+        let (b, _) = runBotMatch(seed: 9, ticks: ticks)
         XCTAssertEqual(a, b, "同じシードなら同じ年表")
         XCTAssertEqual(a.coveredTick, stateA.tick)
         XCTAssertEqual(a.samples.first?.tick, 0)

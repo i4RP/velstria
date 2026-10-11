@@ -7,6 +7,8 @@ import Foundation
 //                           1 発目は通常攻撃と同じ tick、2・3 発目は 4 / 8 tick（約 0.13 / 0.27 秒）後（onTimer。対象が倒れた・射程外なら出ない。
 //                           HP 50% 未満の +30 と回復の倍率は 1 発ごとに、当たる瞬間の対象で決める）。回復はヒーロー以外には半分。
 //                           HP 50% 未満の相手へは通常攻撃・スキルのダメージが常に +30（固定値）。
+//                           三連突きでない通常攻撃は公式の式「100 (+80% 物理攻撃)」（汎用の攻撃力 100% を置き換える。固定値 100 だけ
+//                           換算 basicFlatScale を掛け、係数 80% は公式のまま）。
 //   S1   跳槍撃（槍の跳ね上げ）— 対象指定。敵を槍で跳ね上げて背後へ放り投げる（打ち上げ 0.8 秒）。
 //   S2   竜牙突き（竜牙の踏み込み）— 対象指定の突進。踏み込みざまにダメージ + 防御ダウン 2 秒、その後は通常攻撃へ。
 //                           敵を倒す（0.5 秒以内に倒れた敵を含む）たびにクールダウンがリセットされる。
@@ -14,7 +16,7 @@ import Foundation
 //   奥義 至高の武人        — 自己強化 7.5 秒: 移動速度 +40%・攻撃速度 +35/45/55%・スロウ解除と無効。
 //                           三連突きは 2 回のダメージごとに発動する。ダメージ・CC は無い。
 // 再使用の窓は Zilong に無いので使わない（SkillSystem.cast の経路は 3 スキルとも初回発動のみ）。
-// 数値の正は公式（現行シーズン。docs/kits/Zilong.md の「公式（現行シーズン）の数値」）。スキル1・2 のダメージは公式の表をランクへ線形補間し、
+// 数値の正は日本語クライアントの画面（docs/kits/Zilong.md の「日本語クライアントの画面（2026-10-11・無加工の原本）」。数値は「公式（現行シーズン）の数値」と一致）。スキル1・2 のダメージは公式の表をランクへ線形補間し、
 //   (基礎 + 係数 × 攻撃力 × skillAttackScalingFactor) × スロット倍率 × 換算（Tune.flipScale / strikeScale）。H029 ボルグと同じ方法。
 //   パッシブの三連突きのダメージは公式の 80 + 30% に換算 0.6 を掛ける（回復 50 + 20% と +30 は公式の値そのまま）。マナ消費は公式の表（HeroKit.cost、Energy は × 0.6）。
 //
@@ -99,6 +101,16 @@ struct Kit_H027: HeroKit {
         /// HP がこの割合未満の相手へ、通常攻撃・スキルのダメージが固定で +executeFlat。
         static let executeBelow = 0.5
         static let executeFlat = 30.0
+        /// 通常攻撃そのものの式（日本語クライアント・Liquipedia・Fandom のパッシブの文「通常攻撃は 100 (+80% 物理攻撃) の物理ダメージを与える」）。
+        /// sim の汎用の通常攻撃（攻撃力の 100%）を、100 × basicFlatScale + 攻撃力 80% に置き換える（会心の倍率はそのまま掛かる）。
+        /// 係数 80% は公式のまま（Velstria の攻撃力は MLBB とほぼ同じ尺度。装備も MLBB の値）で、固定値 100 だけを換算する。
+        /// 公式の形（固定値のぶん攻撃力が低いほど汎用に近く、攻撃力が上がるほど汎用の 100% より伸びが緩い）は残る。
+        /// 換算 0.25（25 + 攻撃力 80%: Lv1 で汎用とほぼ同じ、Lv12 で約 0.94 倍）は KitBalanceTests の勝率で選んだ
+        /// （0.30 で Lv1 +14.6 / Lv6 −10.6、0.50 で +17.2 / −9.1、全体に 0.6〜0.7 倍を掛ける形は Lv6 と装備込みの終盤が弱くなりすぎる。
+        /// docs/kits/Zilong.md の「日本語クライアントの原本へ（2026-10-11）」）。
+        static let basicFlat = 100.0
+        static let basicAttackRatio = 0.80
+        static let basicFlatScale = 0.25
 
         // S1 槍の跳ね上げ
         static let flipReach = 300.0
@@ -195,7 +207,10 @@ struct Kit_H027: HeroKit {
                         KitStat(key: "flurryFlat", value: (Tune.flurryFlat * Tune.flurryScale).rounded()),
                         KitStat(key: "flurryPct", value: (Tune.flurryAttackRatio * Tune.flurryScale * 100).rounded()),
                         KitStat(key: "healFlat", value: Tune.flurryHealFlat),
-                        KitStat(key: "healPct", value: Tune.flurryHealRatio * 100)]
+                        KitStat(key: "healPct", value: Tune.flurryHealRatio * 100),
+                        KitStat(key: "basicFlat", value: (Tune.basicFlat * Tune.basicFlatScale).rounded()),
+                        KitStat(key: "basicPct", value: (Tune.basicAttackRatio * 100).rounded()),
+                        KitStat(key: "basicDamage", value: Self.basicDamage(attack: stats.attack).rounded())]
         case .skill1:
             n.damage = Self.flipDamage(rank: rank, stats: stats)
             n.cooldown = Self.cooldown(Tune.flipCooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
@@ -258,16 +273,19 @@ struct Kit_H027: HeroKit {
             return KitText(
                 ja: "通常攻撃かスキルでダメージを{charge}回与えると、次の通常攻撃で竜の三連突きが発動し、対象を{hits}回攻撃する（射程が伸び、\(gap)秒おきに突く）。"
                     + "1回ごとに{flurryFlat}(+{flurryPct}%物理攻撃)の通常攻撃ダメージ（現在{flurryDamage}）を与え、{healFlat}(+{healPct}%物理攻撃)のHP（現在{flurryHeal}）を回復する"
-                    + "（ヒーロー以外が相手なら回復は{nonHeroHeal}%）。\n\n対象のHPが50%未満の場合、スキルと通常攻撃のダメージが{executeFlat}増加する。",
+                    + "（ヒーロー以外が相手なら回復は{nonHeroHeal}%）。"
+                    + "\n\n通常攻撃は{basicFlat}(+{basicPct}%物理攻撃)の物理ダメージ（現在{basicDamage}）を与える。"
+                    + "\n\n対象のHPが50%未満の場合、スキルと通常攻撃のダメージが{executeFlat}増加する。",
                 en: "After dealing damage {charge} times with basic attacks or skills, your next basic attack triggers Dragon Flurry, hitting the target {hits} times (with extra range, \(gap)s apart). "
                     + "Each hit deals {flurryFlat} (+{flurryPct}% Physical Attack) basic attack damage (now {flurryDamage}) and heals you for {flurryHeal} HP ({healFlat} +{healPct}% Physical Attack; {nonHeroHeal}% against targets that are not heroes). "
+                    + "\n\nYour basic attacks deal {basicFlat} (+{basicPct}% Physical Attack) physical damage (now {basicDamage})."
                     + "\n\nIf the target's HP is below 50%, all damage dealt by your skills and basic attacks is increased by {executeFlat}.",
                 tags: [KitTag.buff, KitTag.heal])
         case .skill1:
             return KitText(
                 ja: "対象の敵を槍で頭上へ跳ね上げて背後へ放り投げ、{base}(+{atkPct}%物理攻撃)の物理ダメージ（現在{damage}）を与える。対象は{airborne}秒間打ち上げられて行動できない。",
                 en: "With your Spear, fling the target enemy over your head to land behind you, dealing {base} (+{atkPct}% Physical Attack) physical damage (now {damage}). The target is airborne for {airborne}s and cannot act.",
-                tags: [KitTag.control, KitTag.damage])
+                tags: [KitTag.disrupt, KitTag.damage])
         case .skill2:
             return KitText(
                 ja: "対象の敵に突きかかり、{base}(+{atkPct}%物理攻撃)の物理ダメージ（現在{damage}）を与えて、物理防御を{shredDuration}秒間{shred}低下させる。踏み込んだあとはそのまま通常攻撃に移る。"
@@ -281,7 +299,7 @@ struct Kit_H027: HeroKit {
                     + "\n\nこの間は、{charge}回ごとに竜の三連突きが発動する（通常は\(Tune.chargeNormal)回）。",
                 en: "Remove all slow effects on yourself and gain {moveSpeed}% Movement Speed, {attackSpeed}% Attack Speed and Slow Immunity for {duration}s (stuns and other disables still work on you). "
                     + "\n\nFor the duration, Dragon Flurry triggers after every {charge} hits (instead of \(Tune.chargeNormal)).",
-                tags: [KitTag.mobility, KitTag.buff])
+                tags: [KitTag.haste, KitTag.buff])
         }
     }
 
@@ -466,6 +484,9 @@ struct Kit_H027: HeroKit {
         let flat = Self.executeBonus(s, target)
         let need = k.jarldUltRemaining > 0 ? Tune.chargeUlt : Tune.chargeNormal
         guard k.jarldCharge >= need else {
+            // 通常攻撃の式: 攻撃力 × 会心倍率 → (100 + 攻撃力 80%) × 換算 × 会心倍率（会心・会心軽減の倍率は payload のまま）
+            let attack = s.units[attacker].stats.attack
+            if attack > 0 { plan.payload.damage *= Self.basicDamage(attack: attack) / attack }
             plan.payload.damage += flat
             return
         }
@@ -592,6 +613,11 @@ struct Kit_H027: HeroKit {
     static func executeBonus(_ s: SimState, _ t: Int) -> Double {
         guard s.units.indices.contains(t), !s.units[t].isStructure, s.units[t].hpRatio < Tune.executeBelow else { return 0 }
         return Tune.executeFlat
+    }
+
+    /// 通常攻撃 1 発（会心なし）: 公式の 100（× 換算 basicFlatScale）+ 80% 物理攻撃。
+    static func basicDamage(attack: Double) -> Double {
+        Tune.basicFlat * Tune.basicFlatScale + Tune.basicAttackRatio * max(0, attack)
     }
 
     /// 三連突き 1 回のダメージ: (公式の 80 + 30% 物理攻撃) × 換算 flurryScale。

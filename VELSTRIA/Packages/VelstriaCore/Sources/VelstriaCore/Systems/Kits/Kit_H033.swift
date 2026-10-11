@@ -2,12 +2,14 @@ import Foundation
 
 // 担当: kit-H033（docs/SKILL_KITS.md / docs/NEW_HEROES.md / docs/kits/Alucard.md）
 // H033 紅牙のヴァルド = Velstria 版の Alucard（MLBB。調査: docs/kits/Alucard.md、対応表: 同ファイル末尾）。
-// 数値の正は MLBB Fandom の現行のスキル表（docs/kits/Alucard.md の「公式（MLBB Fandom 現行）の数値」）。
+// 数値の正は MLBB の日本語クライアントのスキル詳細（docs/kits/Alucard.md の「日本語クライアントの画面」）。それと一致する
+// Fandom の現行のスキル表（同「公式（MLBB Fandom 現行）の数値」）も参照（違いは S1 の係数 +85% とデビルハンター）。
 // アサシン（ジャングル）の近接。キットはロールの汎用パッシブ（奇襲 +30% とキル/アシストの全 CD −30%）を置き換える。
 // 公式はスキルにコストが無い（HeroKit.cost で 0）。
 //   パッシブ 追撃（Pursuit）            — スキルを発動するたび、5 秒以内の次の通常攻撃が「追撃」になる: 射程 400（公式 4）まで伸び、
 //                                          敵の目の前まで踏み込みながら物理攻撃の 125% の物理ダメージ。
-//   S1   裂地撃（Groundsplitter）       — 指定した地点へ転がり込み、大剣を叩きつける。270 → 370（+80% 物理攻撃）+ 鈍足 40%（2 秒）。
+//                                          デビルハンター: モンスターへのダメージは 110%（通常攻撃・スキルすべて。outgoingDamageBonus）。
+//   S1   裂地撃（Groundsplitter）       — 指定した地点へ転がり込み、大剣を叩きつける。270 → 370（+85% 物理攻撃）+ 鈍足 40%（2 秒）。
 //                                          ボットはミニオン・ジャングルにも使う（botFarm）。
 //   S2   旋回斬（Whirling Smash）       — その場で大剣を回転させ、周囲の敵に 345 → 570（+120%）（照準なし）。
 //   奥義 核分裂波（Fission Wave）       — 1 回目: 指定地点の範囲の敵のエネルギーを吸収（鈍足 30%・複合防御 −10 / 15 / 20、4 秒）。
@@ -88,6 +90,10 @@ struct Kit_H033: HeroKit {
         /// 踏み込みで止まる位置（半径の和 + この値）。
         static let pursuitGap = 5.0
         static let pursuitRangeTag = KitTags.buff("H033", "pursuitRange")
+        /// デビルハンター（パッシブ。日本語クライアントの画面 2026-10-11）: モンスター（ジャングル・バフ・亀・ロード = `UnitKind.monster`）へ
+        /// 110% のダメージ。文は「モンスターに対して 110% のダメージを与える」で追撃に限らないので、ヴァルド自身の通常攻撃とスキルの
+        /// すべてのダメージに掛ける（バトルスペル・装備の追加ダメージは除く）。ミニオンには掛からない。
+        static let devilHunterBonus = 0.10
 
         // 吸血（奥義のパッシブ。調査: 10% 一定 / 10・20・30% で割れている → 奥義ランクで伸びる 10 / 20 / 30% を採る）
         static let hybridLifesteal: [Double] = [0.10, 0.20, 0.30]
@@ -111,9 +117,10 @@ struct Kit_H033: HeroKit {
         static let s1Slow = 0.40
         static let s1SlowDuration = 2.0
         static let s1SlowTag = KitTags.buff("H033", "slow")
-        /// 公式: 270 → 370（+80% 追加物理攻撃。Liquipedia は +85%）。Lv1 → Lv6 を最大ランクへ線形補間。
+        /// 公式: 270 → 370（**+85%** 追加物理攻撃。日本語クライアントの画面（2026-10-11）と Liquipedia。以前は Fandom の +80%）。
+        /// Lv1 → Lv6 を最大ランクへ線形補間。
         static let s1Base = (270.0, 370.0)
-        static let s1AttackRatio = 0.8
+        static let s1AttackRatio = 0.85
         /// 公式の値 → Velstria の換算（sim の通常の式 × スロット倍率の後ろに掛ける）。Lv1〜3 はスキル1 しか無いので、
         /// Lv1 の勝率がほぼこの値で決まる（docs/kits/Alucard.md の「バランス」）。
         static let s1Scale = 0.66
@@ -201,7 +208,8 @@ struct Kit_H033: HeroKit {
             n.hits = 1
             n.extras = [KitStat(key: "pursuit", value: Tune.pursuitRatio * 100),
                         KitStat(key: "window", value: Tune.pursuitWindow),
-                        KitStat(key: "reachMult", value: (hero.attackRange + Tune.pursuitRangeBonus) / hero.attackRange)]
+                        KitStat(key: "reachMult", value: (hero.attackRange + Tune.pursuitRangeBonus) / hero.attackRange),
+                        KitStat(key: "devilHunter", value: ((1 + Tune.devilHunterBonus) * 100).rounded())]
         case .skill1:
             n.damage = Self.s1Damage(rank: rank, stats: stats)
             n.hits = 1
@@ -262,8 +270,10 @@ struct Kit_H033: HeroKit {
         switch slot {
         case .passive:
             return KitText(
-                ja: "スキルを発動するたびに、次の通常攻撃（{window}秒以内。射程は近接攻撃の約{reachMult}倍）で対象の位置へ踏み込み、(+{pursuit}%物理攻撃)の物理ダメージを与える。",
-                en: "After each skill cast, Vald's next basic attack (within {window}s, reaching about {reachMult}x the melee attack range) lets him dash to the target's location and deal (+{pursuit}% Physical Attack) physical damage.",
+                ja: "スキルを発動するたびに、次の通常攻撃（{window}秒以内。射程は近接攻撃の約{reachMult}倍）で対象の位置へ踏み込み、(+{pursuit}%物理攻撃)の物理ダメージを与える。"
+                    + "\n\nデビルハンター：モンスターに対して{devilHunter}%のダメージを与える。",
+                en: "After each skill cast, Vald's next basic attack (within {window}s, reaching about {reachMult}x the melee attack range) lets him dash to the target's location and deal (+{pursuit}% Physical Attack) physical damage."
+                    + "\n\nDevil Hunter: Vald deals {devilHunter}% damage to monsters.",
                 tags: [KitTag.buff])
         case .skill1:
             return KitText(
@@ -436,10 +446,18 @@ struct Kit_H033: HeroKit {
         s.units[owner].hero?.kit?.valdSlamDamage = 0
     }
 
-    // MARK: - C. パッシブ（追撃・複合吸血）
+    // MARK: - C. パッシブ（追撃・デビルハンター・複合吸血）
 
     func onSkillCast(_ s: inout SimState, _ ctx: SimContext, caster: Int, slot: SkillSlot) {
         armPursuit(&s, caster)
+    }
+
+    /// デビルハンター: モンスターへの通常攻撃・スキルのダメージ +10%（= 110%）。与ダメ補正の加算に入る（CombatSystem.dealDamage）。
+    func outgoingDamageBonus(_ s: inout SimState, _ ctx: SimContext, attacker: Int, target: Int,
+                             source: DamageSource) -> Double {
+        guard s.units.indices.contains(target), s.units[target].kind == .monster else { return 0 }
+        guard source == .basicAttack || source.isSkill else { return 0 }
+        return Tune.devilHunterBonus
     }
 
     func shapeBasicAttack(_ s: inout SimState, _ ctx: SimContext, attacker: Int, target: Int,
@@ -542,7 +560,7 @@ struct Kit_H033: HeroKit {
             * Balance.Skills.damageScale(slot) * scale
     }
 
-    /// S1 の叩きつけ（270 → 370 + 80% 物理攻撃）。
+    /// S1 の叩きつけ（270 → 370 + 85% 物理攻撃）。
     static func s1Damage(rank: Int, stats: Stats) -> Double {
         damage(base: Tune.s1Base, ratio: Tune.s1AttackRatio, slot: .skill1, scale: Tune.s1Scale, rank: rank, stats: stats)
     }

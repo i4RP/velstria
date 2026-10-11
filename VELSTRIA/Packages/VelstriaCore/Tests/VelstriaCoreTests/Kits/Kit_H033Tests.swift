@@ -157,7 +157,7 @@ final class Kit_H033Tests: XCTestCase {
         for rank in 1...4 {
             let lv = 1 + Double(rank - 1) * 5 / 3
             XCTAssertEqual(try numbers(.skill1, level: 12, rank: rank).kit.damage,
-                           (270 + (lv - 1) * 20 + 0.8 * atk) * Balance.Skills.damageScale(.skill1) * Tune.s1Scale,
+                           (270 + (lv - 1) * 20 + 0.85 * atk) * Balance.Skills.damageScale(.skill1) * Tune.s1Scale,
                            accuracy: 1e-6, "S1 r\(rank)")
             XCTAssertEqual(try numbers(.skill2, level: 12, rank: rank).kit.damage,
                            (345 + (lv - 1) * 45 + 1.2 * atk) * Balance.Skills.damageScale(.skill2) * Tune.s2Scale,
@@ -271,7 +271,10 @@ final class Kit_H033Tests: XCTestCase {
         }
         let sp = try XCTUnwrap(MasterData.shared.skill(hero: "H033", slot: .passive))
         let pn = SkillCatalog.numbers(for: sp, hero: hero, rank: 1, stats: stats)
-        XCTAssertEqual(pn.extras.map(\.value), [125, 5, (150 + Tune.pursuitRangeBonus) / 150])
+        XCTAssertEqual(pn.extras.map(\.value), [125, 5, (150 + Tune.pursuitRangeBonus) / 150, 110])
+        let pja = try XCTUnwrap(HeroKits.text(heroID: "H033", slot: .passive)).filled(
+            english: false, numbers: pn, targeting: SkillCatalog.targeting(for: sp, hero: hero))
+        XCTAssertTrue(pja.contains("デビルハンター：モンスターに対して110%のダメージを与える。"), pja)
         let ult = try XCTUnwrap(MasterData.shared.skill(hero: "H033", slot: .ultimate))
         let un = SkillCatalog.numbers(for: ult, hero: hero, rank: 2, stats: stats)
         XCTAssertEqual(Array(un.extras.map(\.value).prefix(8)), [30, 15, 6, 20, 15, Tune.absorbDuration, Tune.ultWindow, 33])
@@ -619,6 +622,23 @@ final class Kit_H033Tests: XCTestCase {
         w.run(seconds: 0.6)
         XCTAssertEqual(skillHits(w, on: m, .skill1).count, 1)
         XCTAssertEqual(skillHits(w, on: mon, .skill1).count, 1)
+    }
+
+    /// デビルハンター（日本語クライアントのパッシブ）: モンスターへの通常攻撃・スキルは 110%。ミニオン・ヒーロー・バトルスペルには掛からない。
+    func testDevilHunterAddsTenPercentAgainstMonstersOnly() {
+        var (w, k) = world()
+        let mon = w.addMonster(.campSmall, at: skillArena + Vec2(300, -80))
+        let m = w.addMinion(team: .red, at: skillArena + Vec2(300, 60))
+        let e = addEnemy(&w, dx: 300)
+        XCTAssertEqual(Tune.devilHunterBonus, 0.10, accuracy: 1e-12)
+        for source in [DamageSource.basicAttack, .skill(.skill1), .skill(.skill2), .skill(.ultimate)] {
+            XCTAssertEqual(PassiveHooks.outgoingDamageBonus(&w.s, w.ctx, attacker: k, target: mon, source: source), 0.10,
+                           accuracy: 1e-12, "\(source)")
+            XCTAssertEqual(PassiveHooks.outgoingDamageBonus(&w.s, w.ctx, attacker: k, target: m, source: source), 0, "\(source)")
+            XCTAssertEqual(PassiveHooks.outgoingDamageBonus(&w.s, w.ctx, attacker: k, target: e, source: source), 0, "\(source)")
+        }
+        XCTAssertEqual(PassiveHooks.outgoingDamageBonus(&w.s, w.ctx, attacker: k, target: mon, source: .spell), 0)
+        XCTAssertEqual(PassiveHooks.outgoingDamageBonus(&w.s, w.ctx, attacker: k, target: mon, source: .item), 0)
     }
 
     func testStunMidRollCancelsTheSlamButKeepsTheCooldown() {

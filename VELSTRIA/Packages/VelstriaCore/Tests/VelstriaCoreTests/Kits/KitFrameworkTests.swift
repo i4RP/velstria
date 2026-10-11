@@ -213,7 +213,10 @@ final class KitFrameworkTests: KitTestCase {
         XCTAssertEqual(HeroKits.tags(heroID: "H002", slot: .skill2), [], "text が無いスロットは空")
         XCTAssertEqual(HeroKits.tags(heroID: "H001", slot: .skill1), [], "キットが無いヒーローは空")
         XCTAssertEqual(KitTag.all, ["buff", "aoe", "slow", "clash", "disrupt", "burst", "mobility", "heal", "shield",
-                                    "control", "stun", "pull", "execute", "debuff", "damage", "conceal", "cleanse"])
+                                    "control", "stun", "pull", "execute", "debuff", "damage", "conceal", "cleanse",
+                                    "haste", "deathimmunity"])
+        // キーは小文字だけ（UI は小文字に揃えてから引くので、大文字が混ざると名前・色が引けない）
+        for key in KitTag.all { XCTAssertEqual(key, key.lowercased(), key) }
         // 既存のテキストの検証に影響しない（テンプレートの埋め込みは tags と無関係）
         let text = KitText(ja: "x{damage}", en: "y", tags: [KitTag.buff])
         var n = SkillNumbers()

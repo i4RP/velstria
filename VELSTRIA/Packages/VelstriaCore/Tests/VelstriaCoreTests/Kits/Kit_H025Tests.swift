@@ -188,7 +188,7 @@ final class Kit_H025Tests: XCTestCase {
                         XCTAssertEqual(try XCTUnwrap(n.extras.first { $0.key == "minorDamage" }).value, minor.rounded())
                         XCTAssertLessThan(minor * Double(T.s2Arrows), n.damage * 3)
                         XCTAssertEqual(n.cooldown, 8 * cdr, accuracy: 1e-9, "MLBB の CD 8 秒（全ランク固定）")
-                        XCTAssertEqual(n.cost, 80 + (lv - 1) * 10, accuracy: 1e-9, "MP 80 → 130")
+                        XCTAssertEqual(n.cost, 90, accuracy: 1e-9, "MP 90（全 Lv 一定。日本語クライアント）")
                         XCTAssertEqual(n.cc, .root)
                         XCTAssertEqual(n.ccDuration, 1.2)
                         XCTAssertEqual(n.delay, T.s2Delay)
@@ -848,7 +848,8 @@ final class Kit_H025Tests: XCTestCase {
     func testCostFollowsTheOfficialTableAndCCBlocksCasts() {
         var w = SkillWorld()
         let k = addLumina(&w)
-        for (slot, mp) in [(SkillSlot.skill1, 60.0), (.skill2, 80), (.ultimate, 120)] {
+        // スキル2 は日本語クライアントの原本の 90（全 Lv 一定）
+        for (slot, mp) in [(SkillSlot.skill1, 60.0), (.skill2, 90), (.ultimate, 120)] {
             let n = w.numbers(k, slot)
             XCTAssertEqual(n.cost, mp, "公式のマナ（ランク 1）")
             let before = w.s.units[k].resource

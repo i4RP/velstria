@@ -199,6 +199,13 @@ final class Kit_H027Tests: XCTestCase {
         XCTAssertEqual(Kit_H027.flurryHitDamage(attack: 200), (80 + 60) * 0.6, accuracy: 1e-9)
         XCTAssertEqual(Kit_H027.flurryHeal(attack: 200), 50 + 40, accuracy: 1e-9)
         XCTAssertEqual(Tune.executeFlat, 30)
+        // 通常攻撃: 公式（日本語クライアント・Liquipedia・Fandom）の 100 + 80% 物理攻撃。係数は公式のまま、固定値だけ換算 basicFlatScale
+        XCTAssertEqual(Tune.basicFlat, 100)
+        XCTAssertEqual(Tune.basicAttackRatio, 0.8)
+        XCTAssertEqual(Kit_H027.basicDamage(attack: 200), 100 * Tune.basicFlatScale + 160, accuracy: 1e-9)
+        // 序盤（攻撃力が低い）は汎用の攻撃力 100% より強く、攻撃力が上がると汎用より伸びが緩い（公式の形）
+        XCTAssertGreaterThan(Kit_H027.basicDamage(attack: 120), 120)
+        XCTAssertLessThan(Kit_H027.basicDamage(attack: 400), 400)
         // マナ（公式: S1 80 → 105、S2 40、ULT 120 / 140 / 160）。Energy のヒーローなので × energyCostMultiplier
         XCTAssertEqual(hero.resource, .energy)
         let e = Balance.energyCostMultiplier
@@ -217,11 +224,12 @@ final class Kit_H027Tests: XCTestCase {
         let before = v.s.units[j].resource
         XCTAssertTrue(v.cast(j, .skill1, .unit(v.id(target))))
         XCTAssertEqual(before - v.s.units[j].resource, 80 * e, accuracy: 1e-9)
-        // タグ（公式: パッシブ = バフ・回復、S1 = CC・ダメージ、S2 = 移動（ブリンク）・デバフ、ULT = 加速・バフ）
+        // タグ（日本語クライアント: パッシブ = バフ・ヒール、S1 = 妨害・攻撃、S2 = ブリンク・デバフ、ULT = 加速・バフ）
         XCTAssertEqual(HeroKits.tags(heroID: "H027", slot: .passive), ["buff", "heal"])
-        XCTAssertEqual(HeroKits.tags(heroID: "H027", slot: .skill1), ["control", "damage"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H027", slot: .skill1), ["disrupt", "damage"])
         XCTAssertEqual(HeroKits.tags(heroID: "H027", slot: .skill2), ["mobility", "debuff"])
-        XCTAssertEqual(HeroKits.tags(heroID: "H027", slot: .ultimate), ["mobility", "buff"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H027", slot: .ultimate), ["haste", "buff"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H027", slot: .ultimate).first, KitTag.haste)
         for slot in SkillSlot.allCases {
             for tag in HeroKits.tags(heroID: "H027", slot: slot) { XCTAssertTrue(KitTag.all.contains(tag), tag) }
         }
@@ -237,6 +245,8 @@ final class Kit_H027Tests: XCTestCase {
             english: false, numbers: pn, targeting: SkillCatalog.targeting(for: try skill(.passive), hero: hero))
         XCTAssertTrue(jap.contains("48(+18%物理攻撃)の通常攻撃ダメージ") && jap.contains("50(+20%物理攻撃)のHP"), jap)
         XCTAssertTrue(jap.contains("ダメージが30増加する"), jap)
+        let basicFlat = Int((100 * Tune.basicFlatScale).rounded())
+        XCTAssertTrue(jap.contains("通常攻撃は\(basicFlat)(+80%物理攻撃)の物理ダメージ"), jap)
     }
 
     func testTextFillsEverySlotWithSimNumbers() throws {
@@ -295,7 +305,9 @@ final class Kit_H027Tests: XCTestCase {
         XCTAssertEqual(volleys.prefix(8).map(\.count), [1, 1, 1, 3, 1, 1, 1, 3])
         let atk = w.s.units[k].stats.attack
         let flurryHit = Kit_H027.flurryHitDamage(attack: atk)
-        for hit in volleys[0] { XCTAssertEqual(hit.amount, w.mitigated(atk, .physical, on: e), accuracy: 1e-6) }
+        // 単発の通常攻撃は公式の式 (100 + 80% 物理攻撃) × 換算（汎用の攻撃力 100% ではない）
+        let basic = Kit_H027.basicDamage(attack: atk)
+        for hit in volleys[0] { XCTAssertEqual(hit.amount, w.mitigated(basic, .physical, on: e), accuracy: 1e-6) }
         for hit in volleys[3] { XCTAssertEqual(hit.amount, w.mitigated(flurryHit, .physical, on: e), accuracy: 1e-6) }
         XCTAssertLessThanOrEqual(kit(w, k).jarldCharge, 3)
     }
@@ -506,16 +518,16 @@ final class Kit_H027Tests: XCTestCase {
     func testExecuteBonusAddsFlatDamageBelowHalfHealth() {
         var (w, k) = world(level: 12)
         let e = addEnemy(&w, dx: 140)
-        let atk = w.s.units[k].stats.attack
+        let basic = Kit_H027.basicDamage(attack: w.s.units[k].stats.attack)
         w.s.units[e].hp = w.s.units[e].stats.maxHP * 0.4
         w.s.units[k].attackTargetID = w.id(e)
         let low = attackVolleys(&w, target: e, ticks: 20)
-        XCTAssertEqual(low.first?.first?.amount ?? 0, w.mitigated(atk + 30, .physical, on: e), accuracy: 1e-6)
+        XCTAssertEqual(low.first?.first?.amount ?? 0, w.mitigated(basic + 30, .physical, on: e), accuracy: 1e-6)
         // 半分以上なら無し
         fullHP(&w, e)
         w.s.units[e].hp = w.s.units[e].stats.maxHP * 0.6
         let high = attackVolleys(&w, target: e, ticks: 40)
-        XCTAssertEqual(high.first?.first?.amount ?? 0, w.mitigated(atk, .physical, on: e), accuracy: 1e-6)
+        XCTAssertEqual(high.first?.first?.amount ?? 0, w.mitigated(basic, .physical, on: e), accuracy: 1e-6)
         // 三連突きの 1 撃ごとに +30
         var (w2, k2) = world(level: 12)
         let e2 = addEnemy(&w2, dx: 140)

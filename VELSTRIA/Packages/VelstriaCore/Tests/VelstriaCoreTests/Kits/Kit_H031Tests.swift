@@ -152,7 +152,10 @@ final class Kit_H031Tests: XCTestCase {
                     let ratio = total / reference
                     // 例外: アルティメットの下限は 0.65（公式の表はランク 1 → 3 で 2 倍に伸び、氷の誇りもあるので Lv12 の勝率で換算を決めた。
                     // ランク 3 は 0.87 倍前後。docs/kits/Aurora.md の「バランス」）
-                    XCTAssertGreaterThanOrEqual(ratio, slot == .ultimate ? 0.65 : 0.8, "\(slot) rank \(rank) Lv\(level)")
+                    // 例外 2: スキル1 の下限は 0.75（日本語クライアントの CD 5 → 4 秒でランク 1 の CD が 6 → 5 秒に縮み、Lv1 の勝率が
+                    // アルカニスト中央値 +21 pt になったので 1 発の換算を 0.29 → 0.27 に下げた。ランク 4・Lv12 で汎用の約 0.79 倍）
+                    let lower = slot == .ultimate ? 0.65 : (slot == .skill1 ? 0.75 : 0.8)
+                    XCTAssertGreaterThanOrEqual(ratio, lower, "\(slot) rank \(rank) Lv\(level)")
                     XCTAssertLessThanOrEqual(ratio, 1.3, "\(slot) rank \(rank) Lv\(level)")
                     // コストは公式の表（HeroKit.cost。マスターの値ではない）
                     XCTAssertEqual(n.cost, SkillSystem.cost(for: sk, hero: def, rank: rank))
@@ -169,13 +172,13 @@ final class Kit_H031Tests: XCTestCase {
             XCTAssertGreaterThan(hi.damage, lo.damage, "\(slot)")
             XCTAssertLessThan(hi.cooldown, lo.cooldown, "\(slot)")
         }
-        // CD は公式の秒数そのまま（S1 6.0 → 4.0 / S2 12.0 → 8.0 / 奥義 50 → 40）
+        // CD は公式（日本語クライアント）の秒数そのまま（S1 5.0 → 4.0 / S2 10.0 → 8.0 / 奥義 50 → 40）
         let lo1 = SkillCatalog.numbers(for: skill(.skill1), hero: def, rank: 1, stats: Stats())
-        XCTAssertEqual(lo1.cooldown, 6.0, accuracy: 1e-9)
+        XCTAssertEqual(lo1.cooldown, 5.0, accuracy: 1e-9)
         let hi1 = SkillCatalog.numbers(for: skill(.skill1), hero: def, rank: 4, stats: Stats())
         XCTAssertEqual(hi1.cooldown, 4.0, accuracy: 1e-9)
         let lo2 = SkillCatalog.numbers(for: skill(.skill2), hero: def, rank: 1, stats: Stats())
-        XCTAssertEqual(lo2.cooldown, 12.0, accuracy: 1e-9)
+        XCTAssertEqual(lo2.cooldown, 10.0, accuracy: 1e-9)
         let hi2 = SkillCatalog.numbers(for: skill(.skill2), hero: def, rank: 4, stats: Stats())
         XCTAssertEqual(hi2.cooldown, 8.0, accuracy: 1e-9)
         let ult = SkillCatalog.numbers(for: skill(.ultimate), hero: def, rank: 1, stats: Stats())
@@ -250,8 +253,9 @@ final class Kit_H031Tests: XCTestCase {
         strong.attack += 300
         XCTAssertEqual(SkillCatalog.numbers(for: skill(.skill1), hero: def, rank: 2, stats: strong).damage,
                        SkillCatalog.numbers(for: skill(.skill1), hero: def, rank: 2, stats: st).damage, accuracy: 1e-9)
-        // クールダウン: スキル1 6.0 → 4.0、スキル2 12.0 → 8.0、アルティメット 50 / 45 / 40（公式の秒数をランクで線形補間）
-        for (rank, c1, c2) in [(1, 6.0, 12.0), (2, 16.0 / 3, 32.0 / 3), (3, 14.0 / 3, 28.0 / 3), (4, 4.0, 8.0)] {
+        // クールダウン: スキル1 5.0 → 4.0、スキル2 10.0 → 8.0、アルティメット 50 / 45 / 40（日本語クライアントの秒数をランクで線形補間。
+        // ランク r = Lv 1 + (r − 1) × 5 / 3。S1 は Lv ごとに 0.2 秒、S2 は 0.4 秒）
+        for (rank, c1, c2) in [(1, 5.0, 10.0), (2, 14.0 / 3, 28.0 / 3), (3, 13.0 / 3, 26.0 / 3), (4, 4.0, 8.0)] {
             XCTAssertEqual(SkillCatalog.numbers(for: skill(.skill1), hero: def, rank: rank, stats: Stats()).cooldown, c1, accuracy: 1e-9)
             XCTAssertEqual(SkillCatalog.numbers(for: skill(.skill2), hero: def, rank: rank, stats: Stats()).cooldown, c2, accuracy: 1e-9)
         }
@@ -267,11 +271,12 @@ final class Kit_H031Tests: XCTestCase {
         for (rank, mp) in [(1, 140.0), (2, 160), (3, 180)] {
             XCTAssertEqual(SkillSystem.cost(for: skill(.ultimate), hero: def, rank: rank), mp)
         }
-        // タグ（公式: パッシブ = 死亡回避 → バフ、スキル1 = 範囲技・減速、スキル2 = 範囲技・CC、アルティメット = CC・範囲技）
-        XCTAssertEqual(HeroKits.tags(heroID: "H031", slot: .passive), ["buff"])
+        // タグ（日本語クライアント: パッシブ = 死亡無効、スキル1 = 範囲技・減速、スキル2 = 妨害・範囲技、アルティメット = 妨害・範囲技）
+        XCTAssertEqual(HeroKits.tags(heroID: "H031", slot: .passive), ["deathimmunity"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H031", slot: .passive), [KitTag.deathImmunity])
         XCTAssertEqual(HeroKits.tags(heroID: "H031", slot: .skill1), ["aoe", "slow"])
-        XCTAssertEqual(HeroKits.tags(heroID: "H031", slot: .skill2), ["aoe", "control"])
-        XCTAssertEqual(HeroKits.tags(heroID: "H031", slot: .ultimate), ["control", "aoe"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H031", slot: .skill2), ["disrupt", "aoe"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H031", slot: .ultimate), ["disrupt", "aoe"])
         for slot in SkillSlot.allCases {
             for tag in HeroKits.tags(heroID: "H031", slot: slot) { XCTAssertTrue(KitTag.all.contains(tag), tag) }
         }

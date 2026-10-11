@@ -64,9 +64,13 @@ public enum KitTag {
     public static let damage = "damage"
     public static let conceal = "conceal"
     public static let cleanse = "cleanse"
+    /// 公式（MLBB の日本語クライアント）のタグの「加速」（子龍の武神降臨）と「死亡無効」（オーロラのプライド・オブ・アイス）。
+    /// キーは他と同じく小文字だけ（UI は小文字に揃えてから引く）。
+    public static let haste = "haste"
+    public static let deathImmunity = "deathimmunity"
     /// 使ってよいキー（テストが検証する）。
     public static let all: [String] = [buff, aoe, slow, clash, disrupt, burst, mobility, heal, shield, control, stun, pull, execute,
-                                       debuff, damage, conceal, cleanse]
+                                       debuff, damage, conceal, cleanse, haste, deathImmunity]
 }
 
 /// スキル説明（ja / en のテンプレート）。`{damage} {total} {hits} {shield} {heal} {range} {radius} {cd} {x0}..{x3}` と、

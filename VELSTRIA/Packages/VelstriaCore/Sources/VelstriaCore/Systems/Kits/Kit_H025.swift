@@ -85,8 +85,9 @@ enum LuminaTuning {
     static let s2Scale: Double = 0.30
     /// MLBB の CD 8 秒（全ランク固定）。以前はマスターの CD（8.7 秒からランクで 6% ずつ短縮）のままだった。
     static let s2Cooldown = (8.0, 8.0)
-    /// 公式のマナ 80 / 90 / 100 / 110 / 120 / 130。
-    static let s2Cost = (80.0, 130.0)
+    /// 公式（日本語クライアントの画面 2026-10-11）のマナ 90（全 Lv 一定）。「MP消費量：90」は画面の吹き出しの半透明の裏から読んだ
+    /// （表に MP の行が無い = 全 Lv 同じ）。以前は Fandom の 80 / 90 / 100 / 110 / 120 / 130。
+    static let s2Cost = (90.0, 90.0)
 
     // MARK: 奥義（隠れ月光）
     static let ultDuration: Double = 2
@@ -251,7 +252,8 @@ struct Kit_H025: HeroKit {
         return n
     }
 
-    /// ランクごとのマナ消費（公式: スキル1 = 60 → 85、スキル2 = 80 → 130（日本語クライアントの画面に無いので Fandom の値）、アルティメット = 120 / 145 / 170）。
+    /// ランクごとのマナ消費（公式（日本語クライアント）: スキル1 = 60 → 85、スキル2 = 90（全 Lv 一定。画面の吹き出しの裏から読んだ値）、
+    /// アルティメット = 120 / 145 / 170）。
     func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double {
         let table: (Double, Double)
         switch slot {
@@ -300,8 +302,8 @@ struct Kit_H025: HeroKit {
                 tags: [KitTag.disrupt, KitTag.aoe])
         case .ultimate:
             return KitText(
-                ja: "すべてのデバフを解除し、隠密状態になる。最大{duration}秒間、移動速度が{speedPercent}%上昇する"
-                    + "（攻撃すると状態が早期終了する。攻撃 = 通常攻撃とアルティメット以外のスキル）。\n\n隠密状態が終了すると、最大スタック（{stacks}）の月環の導きを獲得する。",
+                ja: "すべてのデバフを解除し、隠蔽状態になる。最大{duration}秒間、移動速度が{speedPercent}%上昇する"
+                    + "（攻撃すると状態が早期終了する。攻撃 = 通常攻撃とアルティメット以外のスキル）。\n\n隠蔽状態が終了すると、最大スタック（{stacks}）の月環の導きを獲得する。",
                 en: "Removes all debuffs and enters concealment. Movement speed increases by {speedPercent}% for up to {duration}s "
                     + "(attacking ends the state early: basic attacks and non-Ultimate skills).\n\nWhen concealment ends, gain max "
                     + "stacks ({stacks}) of Moonring Guidance.",

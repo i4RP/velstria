@@ -59,7 +59,9 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     ///     （ライラの距離補正 115%・セイバーの追加物理攻撃・エウドラの炸裂は超伝導の敵だけ など）。キットの忠実度（H031 の凍結がタワーにも効く・
     ///     H032 の円撃は装備の命中時効果を発動しない・H034 の鉤の引き寄せが壁を越える）。
     /// 12: H032 の奥義の失った HP の割合 20% → 25%（日本語クライアントの画面）。
-    public static let currentSimVersion = 12
+    /// 13: 日本語クライアントの無加工の画面に合わせた: H031 の S1・S2 のクールダウン（5 → 4 / 10 → 8 秒）、H033 の S1 の係数 +85% と
+    ///     デビルハンター（モンスターへ 110%）、H027 の通常攻撃の式（100 + 物理攻撃 80%）、H025 の S2 のマナ 90（全 Lv）。
+    public static let currentSimVersion = 13
 
     public var simVersion: Int
     public var mode: MatchMode

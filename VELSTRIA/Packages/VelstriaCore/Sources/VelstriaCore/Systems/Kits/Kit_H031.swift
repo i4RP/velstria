@@ -33,8 +33,10 @@ enum OriaTuning {
     static let s1MeteorPowerRatio: Double = 0.90
     static let s1HailBase = (40.0, 40.0)
     static let s1HailPowerRatio: Double = 0.10
-    /// 公式の値 → Velstria の換算（氷塊と雹で共通）。氷塊 + 雹 5 発が全部 1 体に当たったときに汎用 S1 の 0.8〜1.3 倍に収まる値。
-    static let s1Scale: Double = 0.29
+    /// 公式の値 → Velstria の換算（氷塊と雹で共通）。氷塊 + 雹 5 発が全部 1 体に当たったときに汎用 S1 の約 0.79〜1.3 倍。
+    /// 日本語クライアントの CD（ランク 1 が 6 → 5 秒）で Lv1 の勝率がアルカニスト中央値 +21 pt になったので 0.29 → 0.27
+    /// （0.28 で +18、0.26 で −0.5。docs/kits/Aurora.md の「日本語クライアントの原本へ（2026-10-11）」）。
+    static let s1Scale: Double = 0.27
     static let s1Hails = 5
     static let s1Range: Double = 650
     /// 氷塊の半径（スキル定義の radius 155 より少し広く）。
@@ -102,9 +104,10 @@ enum OriaTuning {
     static let ultFreezePerHundredAP: Double = 0.2
 
     // MARK: クールダウン（公式の秒数そのまま。ランク間を線形補間し、CD 短縮を掛ける。全体倍率 Balance.Skills.cooldownScale は 1.0）
-    /// 現行: S1 6.0 → 4.0 / S2 12.0 → 8.0 / 奥義 50 / 45 / 40 秒（以前は S2 をヒーローページの 13 秒固定にしていた）。
-    static let s1Cooldown = (6.0, 4.0)
-    static let s2Cooldown = (12.0, 8.0)
+    /// 日本語クライアントの画面（2026-10-11）: S1 5.0 / 4.8 / 4.6 / 4.4 / 4.2 / 4.0、S2 10.0 / 9.6 / 9.2 / 8.8 / 8.4 / 8.0、奥義 50 / 45 / 40 秒
+    /// （以前は Fandom の S1 6.0 → 4.0 / S2 12.0 → 8.0。その前は S2 をヒーローページの 13 秒固定にしていた）。
+    static let s1Cooldown = (5.0, 4.0)
+    static let s2Cooldown = (10.0, 8.0)
     static let ultCooldown = (50.0, 40.0)
     // MARK: マナ消費（公式。ランクで補間して整数に丸める）
     static let s1Cost = (60.0, 85.0)
@@ -305,7 +308,7 @@ struct Kit_H031: HeroKit {
                     + "(the amount grows with level: {healMin}% at level 1, {x1}% from level \(T.prideHealFullLevel)). This effect has a {cooldown}s cooldown."
                     + "\n\nThe fatal damage is negated, and this triggers before revival items. You cannot act while frozen."
                     + "\n\nYour freeze effects also affect turrets (a frozen turret does not attack).",
-                tags: [KitTag.buff])
+                tags: [KitTag.deathImmunity])
         case .skill1:
             return KitText(
                 ja: "指定地点に氷塊を落とし、{meteorBase}(+{meteorPct}%魔法攻撃)の魔法ダメージを与えて、命中した敵の移動速度を{slowDuration}秒間{slow}%低下させる。"
@@ -321,7 +324,7 @@ struct Kit_H031: HeroKit {
                 en: "Blow Frosty Breeze in a fan-shaped area in the target direction, dealing {hitBase} (+{hitPct}% Magic Power) magic damage to enemies hit and freezing them for {freeze}s (enemies right next to you are not frozen). "
                     + "A frozen area is created at the far end of the attack, dealing a total of {patchBase} (+{patchPct}% Magic Power) magic damage to enemies in it over {patchDuration}s. "
                     + "Every 100 Magic Power adds \(Self.seconds(T.s2FreezePerHundredAP))s to the freeze.",
-                tags: [KitTag.aoe, KitTag.control])
+                tags: [KitTag.disrupt, KitTag.aoe])
         case .ultimate:
             return KitText(
                 ja: "指定方向に氷の道を作り、道の上の敵に{pathBase}(+{pathPct}%魔法攻撃)の魔法ダメージを与えて、移動速度を{slowDuration}秒間{slow}%低下させる。"
@@ -330,7 +333,7 @@ struct Kit_H031: HeroKit {
                 en: "Create a frost path in the target direction, dealing {pathBase} (+{pathPct}% Magic Power) magic damage to enemies in the path and reducing their Movement Speed by {slow}% for {slowDuration}s. "
                     + "The frost path gradually becomes glaciers that spread to their maximum size and shatter, dealing {shatterBase} (+{shatterPct}% Magic Power) magic damage to all enemies in the area and freezing them for {freeze}s. "
                     + "Every 100 Magic Power adds \(Self.seconds(T.ultFreezePerHundredAP))s to the freeze.",
-                tags: [KitTag.control, KitTag.aoe])
+                tags: [KitTag.disrupt, KitTag.aoe])
         }
     }
 

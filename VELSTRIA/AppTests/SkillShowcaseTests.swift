@@ -86,6 +86,44 @@ final class SkillShowcaseTests: XCTestCase {
         for key in KitTag.all { XCTAssertTrue(SkillTags.knownKeys.contains(key), key) }
     }
 
+    /// 日本語クライアントのタグ「加速」（子龍の武神降臨）と「死亡無効」（オーロラのプライド・オブ・アイス）。
+    /// 加速はバフと同じ青系、死亡無効は MLBB の金の札（他のどの系統とも別の色）。
+    func testHasteAndDeathImmunityTags() throws {
+        XCTAssertTrue(SkillTags.knownKeys.contains("haste"))
+        XCTAssertTrue(SkillTags.knownKeys.contains("deathimmunity"))
+        XCTAssertTrue(SkillTags.knownKeys.contains(KitTag.haste))
+        XCTAssertTrue(SkillTags.knownKeys.contains(KitTag.deathImmunity))
+        XCTAssertEqual(SkillTags.name(for: "haste"), "加速")
+        XCTAssertEqual(SkillTags.name(for: "deathimmunity"), "死亡無効")
+        XCTAssertEqual(SkillTags.name(for: "DeathImmunity"), "死亡無効", "大文字小文字は区別しない")
+        XCTAssertEqual(SkillTags.rgb(for: "haste"), SkillTags.rgb(for: "buff"))
+        let gold = SkillTags.rgb(for: "deathimmunity")
+        let damage = SkillTags.rgb(for: "damage")
+        // 金: 赤 > 緑 > 青。攻撃（オレンジ）より黄寄り
+        XCTAssertGreaterThan(gold.r, gold.g)
+        XCTAssertGreaterThan(gold.g, gold.b)
+        XCTAssertGreaterThan(gold.g / gold.r, damage.g / damage.r)
+        for v in [gold.r, gold.g, gold.b] { XCTAssertTrue((0...1).contains(v)) }
+        for other in SkillTags.knownKeys where other != "deathimmunity" {
+            XCTAssertNotEqual(gold, SkillTags.rgb(for: other), other)
+        }
+        for key in ["haste", "deathimmunity"] {
+            XCTAssertNotEqual(SkillTags.symbol(for: key), SkillTags.symbol(for: "mystery"), key)
+            XCTAssertNotEqual(SkillTags.rgb(for: key), SkillTags.rgb(for: "mystery"), key)
+        }
+        // 見出し（主タグ）と実際のヒーロー: 子龍の奥義 = 加速・バフ、オーロラのパッシブ = 死亡無効
+        XCTAssertEqual(SkillTags.caption(for: ["haste", "buff"]), "加速")
+        XCTAssertEqual(SkillTags.caption(for: ["deathimmunity"]), "死亡無効")
+        let zilong = try XCTUnwrap(master.hero("H027"))
+        XCTAssertEqual(SkillTags.tags(for: try skill("H027", .ultimate), hero: zilong, master: master), ["haste", "buff"])
+        let aurora = try XCTUnwrap(master.hero("H031"))
+        XCTAssertEqual(SkillTags.tags(for: try skill("H031", .passive), hero: aurora, master: master), ["deathimmunity"])
+        Loc.current = .en
+        XCTAssertEqual(SkillTags.name(for: "haste"), "Haste")
+        XCTAssertEqual(SkillTags.name(for: "deathimmunity"), "Death Immunity")
+        Loc.current = .ja
+    }
+
     func testTagColorHues() {
         // バフ = ティール（緑と青が赤より強い）、範囲 = オレンジ、妨害系 = 赤みが強い、衝突 = 紫（青が緑より強い）、回復 = 緑、シールド = 青
         let buff = SkillTags.rgb(for: "buff")
@@ -189,7 +227,8 @@ final class SkillShowcaseTests: XCTestCase {
                 XCTAssertLessThanOrEqual(tags.count, SkillTags.maxTagsPerSkill, skill.skillID)
                 XCTAssertEqual(Set(tags).count, tags.count, skill.skillID)
                 for key in tags { XCTAssertTrue(SkillTags.knownKeys.contains(key), "\(skill.skillID) \(key)") }
-                if skill.slot == .passive { XCTAssertEqual(tags, ["buff"], skill.skillID) }
+                // 派生ルールのパッシブはバフ。キットのヒーローは公式のタグ（ディロス・子龍 = バフ・ヒール、オーロラ = 死亡無効）
+                if skill.slot == .passive, !HeroKits.hasKit(hero.heroID) { XCTAssertEqual(tags, ["buff"], skill.skillID) }
             }
             let feature = SkillTags.featureTags(hero: hero, master: master)
             XCTAssertFalse(feature.isEmpty, hero.heroID)

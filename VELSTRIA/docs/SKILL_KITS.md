@@ -42,8 +42,12 @@ sim の数値で埋める（説明文の数値と sim をずらさない）。�
 
 ### UI が読めるもの（スキル詳細の表・タグ）
 
-- **タグ**: `HeroKits.tags(heroID:slot:)`（`KitText.tags`）。キーは小文字で固定（`KitTag.all`）: `buff aoe slow clash disrupt burst mobility heal shield control stun pull execute debuff damage conceal cleanse`（末尾の 4 つは公式のタグ Debuff / Damage / Conceal / Remove CC = デバフ・ダメージ・隠密・CC 解除）。
-  表示順 = 配列の順。キットが無い・text が無いスロットは `[]`（その場合 UI は従来の汎用の見せ方）。表示名（範囲技・減速 / AoE・Slow ...）は UI 側の対応表。
+- **タグ**: `HeroKits.tags(heroID:slot:)`（`KitText.tags`）。キーは小文字で固定（`KitTag.all`）: `buff aoe slow clash disrupt burst mobility heal shield control stun pull execute debuff damage conceal cleanse haste deathimmunity`
+  （`debuff damage conceal cleanse` は公式のタグ Debuff / Damage / Conceal / Remove CC = デバフ・攻撃・隠れ身・コントロール解除。`haste` = 日本語クライアントの「加速」（子龍の武神降臨。英語版 Speed Up）、
+  `deathimmunity` = 「死亡無効」（オーロラのプライド・オブ・アイス。Swift の定数名は `KitTag.deathImmunity`、キーは小文字だけ）。
+  キーは日本語クライアントの札に合わせる: 妨害 = `disrupt`、攻撃 = `damage`、ブリンク = `mobility`、ヒール = `heal`、加速 = `haste`、死亡無効 = `deathimmunity`）。
+  表示順 = 配列の順。キットが無い・text が無いスロットは `[]`（その場合 UI は従来の汎用の見せ方）。表示名（範囲技・減速 / AoE・Slow ...）と色は UI 側の対応表
+  （`App/Screens/Collection/SkillShowcaseLogic.swift` の `SkillTags`。加速はバフと同じ青系、死亡無効は MLBB の札と同じ金）。新しいキーを足したら `SkillTags.knownKeys`・`name`・`symbol`・`rgb` にも足す（`AppTests/SkillShowcaseTests` が `KitTag.all` を検証する）。
 - **ランクごとの表**: `SkillCatalog.numbers(for:hero:rank:stats:)`（キットのヒーローはキットの上書き込み）を rank 1...`slot.maxRank` で引く。
   - `cooldown`: 実効秒（CD 短縮込み。キットのクールダウンは MLBB の秒数をランクへ線形補間した値で、全体倍率 `cooldownScale` は 1.0）。`cost`: ランクごとのコスト（`HeroKit.cost` の結果。Energy のヒーローは × 0.6 込み）。
     `damage` / `hits` / `ccDuration` / `cc`、再使用のあるスキルは `stage:`（`HeroKits.numbers(for:hero:rank:stats:stage:)`）で段ごとの値。
