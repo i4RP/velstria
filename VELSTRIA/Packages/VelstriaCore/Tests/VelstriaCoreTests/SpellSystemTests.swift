@@ -44,6 +44,16 @@ final class SpellSystemTests: XCTestCase {
         XCTAssertGreaterThan(o.s.units[b].pos.x, start.x + 50)
         XCTAssertLessThan(o.s.units[b].pos.x, 4750 - Balance.heroRadius + 1)
         XCTAssertTrue(o.ctx.nav.isWalkable(o.s.units[b].pos, radius: Balance.heroRadius))
+        // 薄い壁は越える（着地点が歩行可能なら壁の向こうへ）
+        var thin = MapDefinition.brawl
+        thin.obstacles = [.rect(Rect2(minX: 5900, minY: 5000, maxX: 6100, maxY: 7000))]
+        let nav = NavGrid(map: thin)
+        let land = nav.blinkLanding(from: Vec2(5800, 6000), to: Vec2(6200, 6000), radius: Balance.heroRadius)
+        XCTAssertEqual(land.x, 6200, accuracy: 1e-6)
+        // 着地点が壁の中なら手前へ戻る（向こう側まで届かない）
+        let short = nav.blinkLanding(from: Vec2(5600, 6000), to: Vec2(6000, 6000), radius: Balance.heroRadius)
+        XCTAssertLessThan(short.x, 5900 - Balance.heroRadius + 1)
+        XCTAssertTrue(nav.isWalkable(short, radius: Balance.heroRadius))
         // .none は向いている方向
         var f = SkillWorld()
         let c = f.addHero("H001", team: .blue, at: skillArena, spells: ["BS01", "BS03"], facing: Double.pi / 2)

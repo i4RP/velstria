@@ -145,6 +145,30 @@ public final class NavGrid: @unchecked Sendable {
         return p
     }
 
+    /// ブリンクの着地点（MLBB のフラッシュと同じく壁を越えられる）。to が歩行可能ならそこ、壁の中なら from 側へ
+    /// 戻って最初の歩行可能点。始点から歩いて行けない閉じた区画には降りない。見つからなければ raycast と同じ。
+    public func blinkLanding(from: Vec2, to: Vec2, radius: Double = 0) -> Vec2 {
+        let r = max(0, radius)
+        let a = clampToMap(from, radius: r)
+        let b = clampToMap(to, radius: r)
+        let d = b - a
+        let len = d.length
+        if len < 1e-9 { return a }
+        let baked = abs(r - NavGrid.bakedRadius) < 1e-9
+        let startComp = baked ? bakedComponents[cellIndex(of: a)] : -1
+        let step = max(1, cellSize * 0.1)
+        var dist = len
+        while dist > 0 {
+            let p = a + d * (dist / len)
+            if isWalkable(p, radius: r) {
+                let comp = baked ? bakedComponents[cellIndex(of: p)] : -1
+                if startComp < 0 || comp < 0 || comp == startComp { return p }
+            }
+            dist -= step
+        }
+        return raycast(from: a, to: b, radius: r)
+    }
+
     /// 1 tick 分の移動を障害物に沿って解決（壁ずり）。
     public func resolveMove(from: Vec2, to: Vec2, radius: Double) -> Vec2 {
         let r = max(0, radius)
