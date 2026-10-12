@@ -148,7 +148,7 @@ final class HUDKitTests: XCTestCase {
 
     /// 実際のキットが設定する shape は、全スロット・全段で aim と合い、計画（.legacy 以外）になる。
     func testEveryRealKitShapeResolvesToAPlan() throws {
-        let kitHeroes = master.heroes.filter { HeroKits.hasKit($0.heroID) }
+        let kitHeroes = master.allHeroes.filter { HeroKits.hasKit($0.heroID) }
         try XCTSkipIf(kitHeroes.isEmpty, "有効なキットが無い")
         for hero in kitHeroes {
             for slot in SkillSlot.actives {

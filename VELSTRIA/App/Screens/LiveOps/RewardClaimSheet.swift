@@ -118,7 +118,7 @@ struct RewardClaimIcon: View {
         Group {
             switch attachment.kind {
             case .hero:
-                HeroPortraitView(heroID: attachment.refID ?? "H001", size: size, showsRole: size >= 40)
+                HeroPortraitView(heroID: attachment.refID ?? HeroRoster.defaultHeroID, size: size, showsRole: size >= 40)
             case .cosmetic:
                 let def = attachment.refID.flatMap { app.master.cosmetic($0) }
                 let tint = def.map { Theme.rarityColor($0.rarity) } ?? Theme.cyan

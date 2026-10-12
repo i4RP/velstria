@@ -72,7 +72,7 @@ struct HeroListView: View {
                     CollectionFilterChip(title: L("全ロール", "All Roles"), symbol: "square.grid.2x2.fill",
                                          color: Theme.cyan, isSelected: role == nil) { role = nil }
                         .accessibilityIdentifier("heroes_role_all")
-                    ForEach(Role.allCases, id: \.self) { r in
+                    ForEach(Role.allCases.filter { r in app.master.heroes.contains { $0.role == r } }, id: \.self) { r in
                         CollectionFilterChip(title: MasterText.role(r), symbol: Theme.roleSymbol(r),
                                              color: Theme.roleColor(r), isSelected: role == r, showsTitle: false) {
                             role = role == r ? nil : r

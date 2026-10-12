@@ -14,7 +14,7 @@ final class HeroModelSkinTests: XCTestCase {
             XCTAssertEqual(HeroSkins.resolve(heroID: "H001", skinID: other.cosmeticID, master: master), .standard)
         }
         // スキン以外のコスメも既定扱い
-        if let emote = master.cosmetics.first(where: { $0.type != .heroSkin }) {
+        if let emote = master.allCosmetics.first(where: { $0.type != .heroSkin }) {
             XCTAssertEqual(HeroSkins.resolve(heroID: "H001", skinID: emote.cosmeticID, master: master), .standard)
         }
     }
@@ -38,7 +38,7 @@ final class HeroModelSkinTests: XCTestCase {
     }
 
     func testDefaultPaletteUsesHeroHue() {
-        for def in master.heroes {
+        for def in master.allHeroes {
             let bp = HeroBlueprints.blueprint(heroID: def.heroID, role: def.role)
             let p = HeroPalettes.palette(heroID: def.heroID, blueprint: bp, skin: .standard)
             XCTAssertEqual(p.primary.h, Theme.heroHue(def.heroID), accuracy: 0.0001)
@@ -47,7 +47,7 @@ final class HeroModelSkinTests: XCTestCase {
     }
 
     func testSkinnedModelsBuild() {
-        for c in master.cosmetics where c.type == .heroSkin {
+        for c in master.allCosmetics where c.type == .heroSkin {
             let model = HeroModelLibrary.makeHero(heroID: c.heroID, skinID: c.cosmeticID, team: .red, master: master,
                                                   options: HeroModelOptions.battle.with(mesh: .procedural))
             XCTAssertEqual(model.skin.cosmeticID, c.cosmeticID)

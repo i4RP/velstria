@@ -926,9 +926,9 @@ struct OnlineRoomView: View {
         guard let seat = mySeat else { return }
         if seat.loadout.heroID == nil {
             let taken = room.pickedHeroIDs
-            let preferredHero = DebugLaunch.value(after: "-hero") ?? app.profile.lastPickedHeroID ?? "H003"
+            let preferredHero = DebugLaunch.value(after: "-hero") ?? app.profile.lastPickedHeroID ?? HeroRoster.defaultHeroID
             let hero = app.master.hero(preferredHero) != nil && !taken.contains(preferredHero)
-                ? preferredHero : (app.master.heroes.first { !taken.contains($0.heroID) }?.heroID ?? "H001")
+                ? preferredHero : (app.master.heroes.first { !taken.contains($0.heroID) }?.heroID ?? HeroRoster.defaultHeroID)
             session.setLoadout(loadout(for: hero))
             return
         }

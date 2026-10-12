@@ -184,7 +184,7 @@ final class HUDSignalTests: XCTestCase {
     func testSenderNamesFitTheMessageArea() {
         let saved = Loc.current
         defer { Loc.current = saved }
-        let heroes = MasterData.shared.heroes
+        let heroes = MasterData.shared.allHeroes
         XCTAssertFalse(heroes.isEmpty)
         let alden = MasterData.shared.hero("H001")!, mirea = MasterData.shared.hero("H004")!
 

@@ -335,14 +335,21 @@ public struct MasterMeta: Codable, Hashable, Sendable {
 public final class MasterData: @unchecked Sendable {
     public let meta: MasterMeta
     public let gameRules: [GameRuleDef]
+    /// ゲームに出すヒーロー（HeroRoster.activeHeroIDs。一覧・ボット・ドラフトはこれを使う）。
     public let heroes: [HeroDef]
+    /// マスターの全ヒーロー（非表示のヒーローを含む。データの検査・ツール用）。
+    public let allHeroes: [HeroDef]
     public let skills: [SkillDef]
     public let items: [ItemDef]
     public let spells: [SpellDef]
     public let runes: [RuneDef]
     public let effects: [EffectDef]
+    /// 出すヒーローのコスメ（非表示のヒーローのスキンは除く）と、ヒーローに依らないコスメ。
     public let cosmetics: [CosmeticDef]
+    /// ストアの商品（非表示のヒーローの解放・そのヒーローのコスメを除く）。
     public let store: [StoreItemDef]
+    public let allCosmetics: [CosmeticDef]
+    public let allStore: [StoreItemDef]
 
     private let heroByID: [String: HeroDef]
     private let skillByID: [String: SkillDef]
@@ -375,16 +382,27 @@ public final class MasterData: @unchecked Sendable {
         let raw = try JSONDecoder().decode(Raw.self, from: jsonData)
         meta = raw.meta
         gameRules = raw.gameRules
-        heroes = raw.heroes.sorted { $0.heroID < $1.heroID }
+        allHeroes = raw.heroes.sorted { $0.heroID < $1.heroID }
+        heroes = allHeroes.filter { HeroRoster.isActive($0.heroID) }
         skills = raw.skills.sorted { $0.skillID < $1.skillID }
         items = raw.equipment.sorted { $0.itemID < $1.itemID }
         spells = raw.battleSpells.sorted { $0.spellID < $1.spellID }
         runes = raw.runes.sorted { $0.runeID < $1.runeID }
         effects = raw.effects.sorted { $0.effectID < $1.effectID }
-        cosmetics = raw.cosmetics.sorted { $0.cosmeticID < $1.cosmeticID }
-        store = raw.store.sorted { $0.sku < $1.sku }
+        allCosmetics = raw.cosmetics.sorted { $0.cosmeticID < $1.cosmeticID }
+        allStore = raw.store.sorted { $0.sku < $1.sku }
+        let shownCosmetic: (CosmeticDef) -> Bool = { $0.heroID.isEmpty || HeroRoster.isActive($0.heroID) }
+        cosmetics = allCosmetics.filter(shownCosmetic)
+        let hiddenCosmetics = Set(allCosmetics.filter { !shownCosmetic($0) }.map(\.cosmeticID))
+        store = allStore.filter { item in
+            switch item.type {
+            case .heroUnlock: return HeroRoster.isActive(item.grantID)
+            case .cosmetic: return !hiddenCosmetics.contains(item.grantID)
+            default: return true
+            }
+        }
 
-        heroByID = Dictionary(uniqueKeysWithValues: heroes.map { ($0.heroID, $0) })
+        heroByID = Dictionary(uniqueKeysWithValues: allHeroes.map { ($0.heroID, $0) })
         skillByID = Dictionary(uniqueKeysWithValues: skills.map { ($0.skillID, $0) })
         skillsByHero = Dictionary(grouping: skills, by: { $0.heroID })
             .mapValues { $0.sorted { $0.slot.rawValue < $1.slot.rawValue } }
@@ -392,8 +410,8 @@ public final class MasterData: @unchecked Sendable {
         spellByID = Dictionary(uniqueKeysWithValues: spells.map { ($0.spellID, $0) })
         runeByID = Dictionary(uniqueKeysWithValues: runes.map { ($0.runeID, $0) })
         effectByID = Dictionary(uniqueKeysWithValues: effects.map { ($0.effectID, $0) })
-        cosmeticByID = Dictionary(uniqueKeysWithValues: cosmetics.map { ($0.cosmeticID, $0) })
-        storeBySKU = Dictionary(uniqueKeysWithValues: store.map { ($0.sku, $0) })
+        cosmeticByID = Dictionary(uniqueKeysWithValues: allCosmetics.map { ($0.cosmeticID, $0) })
+        storeBySKU = Dictionary(uniqueKeysWithValues: allStore.map { ($0.sku, $0) })
     }
 
     /// パッケージ同梱の master_runtime.json を読み込む（アプリ・テスト共通）。

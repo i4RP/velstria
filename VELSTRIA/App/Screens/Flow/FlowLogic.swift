@@ -214,12 +214,21 @@ struct DraftEngine: Equatable {
     private(set) var bluePicks: [DraftPick] = []
     private(set) var redPicks: [DraftPick] = []
 
-    init(seed: UInt64, ownedHeroIDs: [String], master: MasterData = .shared) {
-        heroIDs = master.heroes.map(\.heroID)
-        roles = master.heroes.map(\.role)
+    /// roster: 名簿（既定はゲームに出すヒーロー master.heroes。テストは全員で組める）。
+    init(seed: UInt64, ownedHeroIDs: [String], master: MasterData = .shared, roster: [HeroDef]? = nil) {
+        let heroes = roster ?? master.heroes
+        heroIDs = heroes.map(\.heroID)
+        roles = heroes.map(\.role)
         self.ownedHeroIDs = ownedHeroIDs
         rng = SplitMix64(seed: seed ^ 0xD8AF_7B4E_11C3_9A05)
+        // 名簿が BAN + 10 ピックに足りない（H025〜H034 の 10 体だけの間）は BAN を飛ばす（全手番を nil で確定）
+        if !hasBans {
+            while currentTurn?.action == .ban { commit(nil) }
+        }
     }
+
+    /// BAN を行うか（名簿が BAN 全数 + 10 ピック以上の時だけ）。
+    var hasBans: Bool { heroIDs.count >= Self.bansPerTeam * 2 + 10 }
 
     var currentTurn: DraftTurn? { turnIndex < Self.turns.count ? Self.turns[turnIndex] : nil }
     var isComplete: Bool { turnIndex >= Self.turns.count }

@@ -32,10 +32,10 @@ final class CollectionUITests: XCTestCase {
 
     func testHeroListToDetailToSkill() {
         let app = launch(route: "heroes")
-        let card = element(app, "hero_H007")
+        let card = element(app, "hero_H029")
         XCTAssertTrue(card.waitForExistence(timeout: 10))
-        element(app, "heroes_role_Vanguard").tap()
-        snapshot(app, "heroes_vanguard")
+        element(app, "heroes_role_Support").tap()
+        snapshot(app, "heroes_support")
         card.tap()
         let skillsTab = element(app, "herodetail_tab_skills")
         XCTAssertTrue(skillsTab.waitForExistence(timeout: 5))

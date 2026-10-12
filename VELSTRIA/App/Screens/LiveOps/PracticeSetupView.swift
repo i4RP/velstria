@@ -10,7 +10,7 @@ enum PracticeSetup {
     static func defaultHeroID(profile: Profile, master: MasterData = .shared) -> String {
         if let last = profile.lastPickedHeroID, master.hero(last) != nil { return last }
         if let owned = profile.ownedHeroIDs.first(where: { master.hero($0) != nil }) { return owned }
-        return master.heroes.first?.heroID ?? "H001"
+        return master.heroes.first?.heroID ?? HeroRoster.defaultHeroID
     }
 
     /// ロードアウト（スペル・ルーン・スキン・自動習得）を反映した練習場の設定。未所持ヒーローも練習可能。

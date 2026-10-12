@@ -10,7 +10,7 @@ import VelstriaCore
 final class SkillFXTests: XCTestCase {
     private var master: MasterData { MasterData.shared }
 
-    private var heroIDs: [String] { master.heroes.map(\.heroID).sorted() }
+    private var heroIDs: [String] { master.allHeroes.map(\.heroID).sorted() }
 
     override func tearDown() {
         AssetLedger.end()

@@ -42,12 +42,12 @@ final class HUDControlLabelTests: XCTestCase {
 
     func testEveryHeroSkillHasShortTag() {
         let master = MasterData.shared
-        XCTAssertFalse(master.heroes.isEmpty)
+        XCTAssertFalse(master.allHeroes.isEmpty)
         var used = Set<HUDSkillTag>()
         for lang in [AppLanguage.ja, .en] {
             Loc.current = lang
             let limit = lang == .ja ? HUDSkillTag.maxLengthJa : HUDSkillTag.maxLengthEn
-            for hero in master.heroes {
+            for hero in master.allHeroes {
                 for slot in SkillSlot.actives {
                     guard let skill = master.skill(hero: hero.heroID, slot: slot) else {
                         XCTFail("\(hero.heroID) \(slot) のスキルが無い")
@@ -83,7 +83,7 @@ final class HUDControlLabelTests: XCTestCase {
         Loc.current = .ja
         let master = MasterData.shared
         func skill(where match: (SkillDef, SkillArchetype) -> Bool) -> SkillDef? {
-            for hero in master.heroes {
+            for hero in master.allHeroes {
                 for slot in SkillSlot.actives {
                     if let s = master.skill(hero: hero.heroID, slot: slot), match(s, targeting(s).archetype) { return s }
                 }

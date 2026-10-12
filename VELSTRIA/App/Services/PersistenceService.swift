@@ -294,6 +294,11 @@ final class PersistenceService: @unchecked Sendable {
             p.matchHistory = Array(p.matchHistory.prefix(RewardService.maxMatchHistory))
         }
         if p.ownedHeroIDs.isEmpty { p.ownedHeroIDs = Profile().ownedHeroIDs }
+        // 名簿の切り替え（2026-10-12: H025〜H034 に絞った）: 出すヒーローを全員が持つようにし、
+        // 非表示のヒーローを指したままのアバター・前回のピックを出すヒーローへ戻す
+        for id in HeroRoster.starterHeroIDs where !p.ownedHeroIDs.contains(id) { p.ownedHeroIDs.append(id) }
+        if !HeroRoster.isActive(p.avatarHeroID) { p.avatarHeroID = HeroRoster.defaultHeroID }
+        if let last = p.lastPickedHeroID, !HeroRoster.isActive(last) { p.lastPickedHeroID = nil }
         if p.playerID.isEmpty { p.playerID = UUID().uuidString }
         // フレンド: 識別子が壊れていたら作り直す。改変されたフレンド・申請は取り除く（重複・自分自身・不正なコード）
         if !FriendCode.isValid(p.friendCode) { p.friendCode = FriendCode.generate() }

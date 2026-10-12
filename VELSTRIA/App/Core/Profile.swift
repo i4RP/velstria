@@ -483,7 +483,7 @@ struct Profile: Codable, Equatable {
     var playerID: String = UUID().uuidString
     var displayName: String = ""
     var createdAt = Date()
-    var avatarHeroID: String = "H001"
+    var avatarHeroID: String = HeroRoster.defaultHeroID
 
     // オンボーディング
     var acceptedTermsVersion: Int = 0
@@ -504,7 +504,8 @@ struct Profile: Codable, Equatable {
     var paidGem = 0
 
     // 所持
-    var ownedHeroIDs: [String] = ["H001", "H002", "H003", "H004", "H005", "H006"]
+    /// 最初から持つヒーロー（オンボーディングヒーロー。HeroRoster.starterHeroIDs）。
+    var ownedHeroIDs: [String] = HeroRoster.starterHeroIDs
     var ownedCosmeticIDs: [String] = []
     /// heroID → cosmeticID（HeroSkin）
     var equippedSkins: [String: String] = [:]

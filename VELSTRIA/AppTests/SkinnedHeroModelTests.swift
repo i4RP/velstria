@@ -741,7 +741,7 @@ final class SkinnedHeroModelTests: XCTestCase {
 
     func testAllSkinsBuildSkinned() throws {
         let url = try XCTUnwrap(Self.fixture("SkinnedTestHero"))
-        for c in master.cosmetics where c.type == .heroSkin {
+        for c in master.allCosmetics where c.type == .heroSkin {
             let model = HeroModelLibrary.makeHero(heroID: c.heroID, skinID: c.cosmeticID, team: .red, master: master,
                                                   options: HeroModelOptions.battle.with(mesh: .skinned(url)))
             XCTAssertTrue(model.isSkinned, c.cosmeticID)
@@ -889,7 +889,7 @@ final class SkinnedHeroModelTests: XCTestCase {
             XCTAssertTrue((1.6...1.8).contains(t.bounds.max.y), "\(name) 身長 \(t.bounds.max.y)")
             XCTAssertEqual(t.bounds.min.y, 0, accuracy: 0.05, "\(name) 足元")
         }
-        for def in master.heroes where HeroAssetLibrary.bundledURL("Hero_\(def.heroID)") != nil {
+        for def in master.allHeroes where HeroAssetLibrary.bundledURL("Hero_\(def.heroID)") != nil {
             let m = HeroModelLibrary.makeHero(heroID: def.heroID, skinID: nil, team: .blue, master: master, options: .battle)
             XCTAssertTrue(m.isSkinned, def.heroID)
             XCTAssertLessThanOrEqual(m.entityCount, 35, def.heroID)
@@ -901,7 +901,7 @@ final class SkinnedHeroModelTests: XCTestCase {
             // 薄い向きは水平（刃物 ±X、面が ±Z の副手は ±Z）。合わせ込み後の横の広い向きが手続きと同じ
             XCTAssertLessThanOrEqual(min(t.bounds.extents.x, t.bounds.extents.z), t.bounds.extents.y, "\(name) 長軸が Y でない")
             let kind = String(url.deletingPathExtension().lastPathComponent.dropFirst("Prop_".count))
-            for def in master.heroes {
+            for def in master.allHeroes {
                 let bp = HeroBlueprints.blueprint(heroID: def.heroID, role: def.role)
                 let ms = HeroModelLibrary.meshSet(heroID: def.heroID, blueprint: bp)
                 let mesh = "\(bp.weapon)" == kind ? ms.weapon : "\(bp.offhand)" == kind ? ms.offhand : nil

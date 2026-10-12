@@ -701,7 +701,7 @@ final class HeroVisual {
         team = u.team
         self.isSelf = isSelf
         let h = u.hero
-        handle = HeroModelFactory.make(heroID: h?.heroID ?? "H001", skinID: h?.skinID, team: u.team, master: master)
+        handle = HeroModelFactory.make(heroID: h?.heroID ?? HeroRoster.defaultHeroID, skinID: h?.skinID, team: u.team, master: master)
         root.name = "hero_\(u.id)"
         root.addChild(modelRoot)
         modelRoot.addChild(handle.root)
