@@ -373,18 +373,17 @@ final class MapScene {
     // MARK: 地面の輪郭（テクスチャでは滲む細部を平面メッシュで描く）
 
     /// 高さは GroundLayer の段に分ける（重なる印を同じ高さに置くと Z-fighting でちらつく）:
-    /// 石畳 paving < 泉の輪・タワーの輪 marking < 八芒星 markingLine < Core の輪 markingTop。
+    /// 石畳 paving < ボスの巣の輪 marking < 星 markingLine。
     /// paving = false のときは広場の石畳を作らない（ステージの地面が石畳を描く）。
     private func buildGroundDecals(map: MapDefinition, materials: RenderMaterials, paving: Bool) {
         var lit = MeshBuilder(reserve: 4096), glow = MeshBuilder(reserve: 2048)
-        for team in Team.players {
-            let soft: Swatch = team == .blue ? .glowBlueSoft : .glowRedSoft
-            let strong: Swatch = team == .blue ? .glowBlue : .glowRed
-            let core = worldPosition(map.core(team)), fountain = worldPosition(map.fountain(team))
+        // Core・泉・タワー台座の光る輪と線（床のガイド線に見えた）は描かない
+        for team in Team.players where paving {
+            let core = worldPosition(map.core(team))
             // 広場の石畳（24〜44 分割 × 6 環、目地を残す）
             var r: Float = 4.6
             var ring = 0
-            while paving && r < 14.2 {
+            while r < 14.2 {
                 let r1 = r + 1.85
                 let segs = 24 + ring * 4
                 for k in 0..<segs {
@@ -399,30 +398,6 @@ final class MapScene {
                 r = r1
                 ring += 1
             }
-            let top = GroundLayer.markingTop
-            glow.annulus(inner: 13.05, outer: 13.45, segments: 72, y: top, color: .solid(strong), transform: MX.t(core))
-            glow.annulus(inner: 12.45, outer: 12.6, segments: 72, y: top, color: .solid(soft), transform: MX.t(core))
-            glow.annulus(inner: 4.35, outer: 4.55, segments: 40, y: top, color: .solid(soft), transform: MX.t(core))
-            // 泉の紋章（Core の広場と重なる: 泉と Core は 11.3 m しか離れていない）
-            glow.annulus(inner: 6.95, outer: 7.45, segments: 64, y: GroundLayer.marking, color: .solid(strong),
-                         transform: MX.t(fountain))
-            glow.annulus(inner: 5.1, outer: 5.3, segments: 56, y: GroundLayer.marking, color: .solid(soft),
-                         transform: MX.t(fountain))
-            for k in 0..<8 {
-                let a0 = Float(k) / 8 * 2 * .pi, a1 = Float(k + 3) / 8 * 2 * .pi
-                let p0 = SIMD3<Float>(cos(a0) * 7.0, 0, -sin(a0) * 7.0), p1 = SIMD3<Float>(cos(a1) * 7.0, 0, -sin(a1) * 7.0)
-                let d = p1 - p0
-                let len = simd_length(d)
-                let yaw = atan2(-d.z, d.x)
-                glow.flatRect(width: len, depth: 0.14, y: GroundLayer.markingLine, color: .solid(soft),
-                              transform: MX.t(fountain + (p0 + p1) / 2) * MX.ry(yaw))
-            }
-        }
-        // タワー台座の輪
-        for t in map.towers where !t.isCore {
-            let soft: Swatch = t.team == .blue ? .glowBlueSoft : .glowRedSoft
-            glow.annulus(inner: 2.28, outer: 2.48, segments: 40, y: GroundLayer.marking, color: .solid(soft),
-                         transform: MX.t(worldPosition(t.pos)))
         }
         // ボスの巣の紋章
         for camp in map.camps where camp.kind == .astralWyrm || camp.kind == .ancientColossus {
