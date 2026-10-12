@@ -19,16 +19,18 @@ final class ServicesEconomyTests: XCTestCase {
 
     func testHeroPriceMultiplierAndCoinPurchase() {
         let item = master.storeItem("SKU079")!
-        XCTAssertEqual(EconomyService.price(of: item), 3011) // 12043 × 0.25 = 3010.75
+        // 購入の挙動の確認用に、全ヒーローの解放はマスター価格 1（× 0.25 でも最低 1 コイン）
+        XCTAssertEqual(item.price, 1)
+        XCTAssertEqual(EconomyService.price(of: item), 1)
         var p = Profile()
-        p.starlightCoin = 3010
+        p.starlightCoin = 0
         XCTAssertFalse(EconomyService.canAfford(item, profile: p))
         XCTAssertEqual(EconomyService.purchase(sku: "SKU079", profile: &p, master: master), .insufficientFunds)
-        XCTAssertEqual(p.starlightCoin, 3010)
+        XCTAssertEqual(p.starlightCoin, 0)
         p.starlightCoin = 5000
         XCTAssertTrue(EconomyService.canAfford(item, profile: p))
         XCTAssertEqual(EconomyService.purchase(sku: "SKU079", profile: &p, master: master), .success(granted: ["H007"]))
-        XCTAssertEqual(p.starlightCoin, 5000 - 3011)
+        XCTAssertEqual(p.starlightCoin, 5000 - 1)
         XCTAssertTrue(EconomyService.isOwned(heroID: "H007", profile: p))
         XCTAssertEqual(EconomyService.purchaseCount(sku: "SKU079", profile: p), 1)
         XCTAssertEqual(EconomyService.purchase(sku: "SKU079", profile: &p, master: master), .alreadyOwned)

@@ -58,7 +58,8 @@ enum EconomyService {
 
     /// SKU の実売価格。
     static func price(of item: StoreItemDef) -> Int {
-        item.type == .heroUnlock ? Int((Double(item.price) * heroPriceMultiplier).rounded()) : item.price
+        // ヒーロー解放は最低 1 コイン（マスター価格 1 の検証用設定でも無料にしない）
+        item.type == .heroUnlock ? max(1, Int((Double(item.price) * heroPriceMultiplier).rounded())) : item.price
     }
 
     /// 既に所持している（購入不可）か。バンドルは中身が全て所持済みの場合。

@@ -338,7 +338,8 @@ final class ServicesLiveOpsTests: XCTestCase {
         XCTAssertEqual(p.ownedCosmeticIDs.filter { $0 == "CO002" }.count, 1)
         let dupHero = LiveOpsService.grantResolved(MailAttachment(kind: .hero, amount: 1, refID: "H010"), to: &p)
         XCTAssertEqual(dupHero.kind, .coin)
-        XCTAssertGreaterThan(dupHero.amount, 0)
+        // 解放価格の半額（検証用に解放が 1 コインの間は 0）
+        XCTAssertEqual(dupHero.amount, EconomyService.heroDuplicateRefundCoins(heroID: "H010"))
         XCTAssertEqual(p.ownedHeroIDs.filter { $0 == "H010" }.count, 1)
         // 不正な参照は何もしない
         let before = p
