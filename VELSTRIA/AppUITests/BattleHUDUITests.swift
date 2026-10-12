@@ -146,6 +146,8 @@ final class BattleHUDUITests: XCTestCase {
     /// ランク戦の途中退出は警告どおり敗北として記録され、報酬なしのリザルトへ進む。
     func testRankedLeaveIsRecordedAsLoss() {
         let app = launch(["-battle", "ranked", "-language", "en"])
+        // GPU-less CI needs a quiet interval while all ten skinned heroes load.
+        sleep(15)
         tap(app, "hud_pause", timeout: BattleHUDUITests.battleStartTimeout)
         tap(app, "pause_leave")
         let confirm = element(app, "leave_confirm")
