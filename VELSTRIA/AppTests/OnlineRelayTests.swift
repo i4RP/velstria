@@ -21,10 +21,11 @@ final class OnlineRelayTests: XCTestCase {
     }
 
     /// 中継を開いたホスト。codes を渡すとその順にコードを作る（使われていれば次へ）。
-    private func makeHost(relay given: InMemoryRelay? = nil, codes: [String]? = nil, fixed: String? = nil) -> Rig {
+    private func makeHost(relay given: InMemoryRelay? = nil, codes: [String]? = nil, fixed: String? = nil,
+                          roomName: String = "Relay Room") -> Rig {
         let relay = given ?? InMemoryRelay()
         let clock = ManualRelayScheduler()
-        let host = OnlineSession.host(peerID: "host", name: "Host", roomName: "Relay Room")
+        let host = OnlineSession.host(peerID: "host", name: "Host", roomName: roomName)
         var queue = codes ?? []
         let makeCode: (() -> String)? = codes == nil ? nil : {
             queue.isEmpty ? RelayRoomCode.generate() : queue.removeFirst()
@@ -383,7 +384,9 @@ final class OnlineRelayTests: XCTestCase {
     }
 
     func testLargeMessagesAreChunkedBothWays() throws {
-        let rig = makeHost()
+        // ホスト → 参加者の大きな歓迎（部屋の状態）を作るため、部屋の名前を大きくする（ホスト自身の名前は検査しない）
+        let longName = String(repeating: "名", count: 100_000)
+        let rig = makeHost(roomName: longName)
         let conn = guestConnection(rig)
         var received: [OnlineMessage] = []
         conn.onMessage = { received.append($0) }
@@ -393,13 +396,14 @@ final class OnlineRelayTests: XCTestCase {
         let endpointCount = rig.host.relayGuestCount
         XCTAssertEqual(endpointCount, 1)
 
-        // 参加者 → ホスト: 300 KB 超の名乗り（壊れていないことを部屋の名前で確かめる）
-        let longName = String(repeating: "名", count: 100_000)
+        // 参加者 → ホスト: 300 KB 超の名乗り（組み直せたことを部屋の参加者で確かめる。名前はホストが 12 文字に切る）
         conn.send(.hello(OnlineHello(peerID: "big", name: longName)))
         XCTAssertLessThanOrEqual(rig.relay.largestGuestMessage, 64 * 1024)
-        XCTAssertEqual(rig.host.room.peer("big")?.name, longName, "64 KiB に分けても組み直せる")
+        XCTAssertEqual(rig.host.room.peer("big")?.name, String(longName.prefix(PlayerNameRules.maxLength)), "64 KiB に分けても組み直せる")
+        // ホスト → 参加者: 300 KB 超の歓迎（部屋の名前）
         guard case .welcome(let room)? = received.first else { return XCTFail("\(received.count)") }
-        XCTAssertEqual(room.peer("big")?.name, longName)
+        XCTAssertEqual(room.name, longName)
+        XCTAssertEqual(room.peer("big")?.name, String(longName.prefix(PlayerNameRules.maxLength)))
         XCTAssertLessThanOrEqual(rig.relay.largestHostMessage, 64 * 1024, "ホストの SEND もヘッダ込みで 64 KiB 以下")
         XCTAssertGreaterThan(rig.relay.hostBinaryCount, 5)
     }

@@ -1,17 +1,22 @@
 // VELSTRIA のインターネット対戦用の中継（仕様 v1。詳細は README.md）。
 //
 // 中身を解釈しない土管: ホストの iPhone（権威シミュレーション）と参加者の間で、部屋コードごとにバイト列を流すだけ。
-// ゲームの手順（アプリの OnlineMessage / OnlineFramer の長さ区切り JSON）はそのまま運ぶ。何も保存しない（参加者番号の採番だけ）。
+// ゲームの手順（アプリの OnlineMessage / OnlineFramer の長さ区切り JSON）はそのまま運ぶ。部屋については何も保存しない（参加者番号の採番だけ）。
 // 部屋コード 1 つ = Durable Object（RelayRoom）1 つ。WebSocket Hibernation API で、通信の無い間は DO を眠らせる。
 
 import { DurableObject } from "cloudflare:workers";
-import { FRIEND_CODE, FriendInbox } from "./inbox";
+import { FRIEND_CODE, FriendInbox, INBOX_CLOSE, INBOX_KEY, isSuspended, sha256Hex } from "./inbox";
 
 export { FriendInbox };
 
 export interface Env {
   RELAY_ROOM: DurableObjectNamespace<RelayRoom>;
   FRIEND_INBOX: DurableObjectNamespace<FriendInbox>;
+  /**
+   * 運営が利用を止めたフレンドコード（空白・カンマ区切り）。通報を受けて規約違反を確かめた時に `wrangler secret put` で設定する
+   * （公開リポジトリには書かない）。止めたコードは受信箱へ繋げず（4013 inbox_suspended）、申請・招待を送れない。
+   */
+  SUSPENDED_FRIEND_CODES?: string;
 }
 
 /** 中継の版数（URL の rv と /v1/health の relay）。形式を変えたら上げる */
@@ -20,6 +25,10 @@ const RELAY_VERSION = 1;
 const ROOM_CODE = /^[ABCDEFGHJKMNPQRSTUVWXYZ2-9]{6}$/;
 const ROOM_PATH = /^\/v1\/rooms\/([^/]*)$/;
 const INBOX_PATH = /^\/v1\/inbox\/([^/]*)$/;
+/** 受信箱の消去（POST。本文 {"key":"…"}）。持ち主の鍵で、中継に保存した受信箱の情報をすべて消す */
+const INBOX_ERASE_PATH = /^\/v1\/inbox\/([^/]*)\/erase$/;
+/** 消去の要求の本文の上限（バイト） */
+const MAX_ERASE_BODY_BYTES = 1024;
 /** 1 メッセージの上限（超えたら 1009 で閉じる）。アプリは 64 KiB 以下に分けて送る */
 const MAX_MESSAGE_BYTES = 256 * 1024;
 /** 1 部屋の参加者（ホストを除く）の上限 */
@@ -50,6 +59,7 @@ const CLOSE = {
   roomTaken: [4009, "room_taken"],
   relayVersion: [4010, "relay_version"],
   hostReplaced: [4011, "host_replaced"],
+  inboxSuspended: INBOX_CLOSE.suspended,
   malformed: [1003, "malformed"],
   tooBig: [1009, "message_too_big"],
 } as const satisfies Record<string, readonly [number, string]>;
@@ -73,6 +83,8 @@ export default {
       if (request.method !== "GET" && request.method !== "HEAD") return plain(405, "method_not_allowed");
       return Response.json({ ok: true, relay: RELAY_VERSION }, { headers: { "cache-control": "no-store" } });
     }
+    const erase = INBOX_ERASE_PATH.exec(url.pathname);
+    if (erase) return eraseInbox(request, env, erase[1]);
     const inbox = INBOX_PATH.exec(url.pathname);
     if (inbox) {
       if (request.method !== "GET") return plain(405, "method_not_allowed");
@@ -82,6 +94,8 @@ export default {
         return plain(426, "websocket_required", { Upgrade: "websocket" });
       }
       if (url.searchParams.get("rv") !== String(RELAY_VERSION)) return rejectSocket(CLOSE.relayVersion);
+      // 運営が利用を止めたコード（DO は起こさない）
+      if (isSuspended(env, code)) return rejectSocket(CLOSE.inboxSuspended);
       // DO には code を query で渡す（DO の fetch は URL のパスを見ない）
       url.searchParams.set("code", code);
       return env.FRIEND_INBOX.getByName(code).fetch(new Request(url, request));
@@ -101,6 +115,28 @@ export default {
     return env.RELAY_ROOM.getByName(code).fetch(request);
   },
 } satisfies ExportedHandler<Env>;
+
+/**
+ * 受信箱の消去: `POST /v1/inbox/<FRIENDCODE>/erase`、本文 `{"key":"<KEY>"}`（鍵は URL に載せない）。
+ * 200 `{"ok":true,"result":"erased"|"none"}`（消した・消し済み / 受信箱が無かった）、403 `inbox_taken`（鍵が違う）、
+ * 400（コード・鍵・本文の誤り）、405（POST 以外）。運営が利用を止めたコードでも消せる（本人の削除の求めには応じる）。
+ */
+async function eraseInbox(request: Request, env: Env, code: string): Promise<Response> {
+  if (request.method !== "POST") return plain(405, "method_not_allowed", { Allow: "POST" });
+  if (!FRIEND_CODE.test(code)) return plain(400, "bad_friend_code");
+  const text = await request.text();
+  if (text.length > MAX_ERASE_BODY_BYTES) return plain(400, "bad_request");
+  let key: unknown;
+  try {
+    key = (JSON.parse(text) as { key?: unknown } | null)?.key;
+  } catch {
+    return plain(400, "bad_request");
+  }
+  if (typeof key !== "string" || !INBOX_KEY.test(key)) return plain(400, "bad_key");
+  const result = await env.FRIEND_INBOX.getByName(code).erase(await sha256Hex(key));
+  if (result === "forbidden") return plain(403, "inbox_taken");
+  return Response.json({ ok: true, result }, { headers: { "cache-control": "no-store" } });
+}
 
 /** 部屋 1 つ。ホスト 1 本と参加者（最大 32）の WebSocket を持ち、枠を付け外しして中継する */
 export class RelayRoom extends DurableObject<Env> {

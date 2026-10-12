@@ -33,6 +33,8 @@ const QUIET_MS = 400;
 const TIMEOUT_MS = 15_000;
 
 let wsBase = process.env.RELAY_URL?.replace(/\/+$/, "");
+/** 手元の Worker でだけ、運営が利用を止めたコード（SUSPENDED_FRIEND_CODES）として渡すコード */
+const SUSPENDED_CODE = process.env.RELAY_URL ? null : randomFriendCode();
 let devServer;
 let persistDir;
 
@@ -50,6 +52,7 @@ before(async () => {
     "--port", String(port),
     "--inspector-port", String(inspectorPort),
     "--persist-to", persistDir,
+    "--var", `SUSPENDED_FRIEND_CODES:ZZZZZZZZ,${SUSPENDED_CODE}`,
     "--show-interactive-dev-session=false",
     "--log-level", "warn",
   ];
@@ -553,11 +556,9 @@ describe("部屋", { concurrency: false }, () => {
 
 // ---- フレンドの受信箱 ----
 
-const FRIEND_ALPHABET = ALPHABET;
-
 function randomFriendCode() {
   let code = "";
-  for (let i = 0; i < 8; i++) code += FRIEND_ALPHABET[randomInt(FRIEND_ALPHABET.length)];
+  for (let i = 0; i < 8; i++) code += ALPHABET[randomInt(ALPHABET.length)];
   return code;
 }
 
@@ -585,6 +586,21 @@ async function openInbox(code, key, label = `inbox ${code}`) {
 
 async function nextJson(peer, ms) {
   return JSON.parse(await peer.next(ms));
+}
+
+/** 受信箱の消去（POST /v1/inbox/<code>/erase）。状態コードと本文を返す */
+async function eraseInbox(code, body, method = "POST") {
+  const init = { method };
+  if (method === "POST") init.body = typeof body === "string" ? body : JSON.stringify(body);
+  const response = await fetch(`${httpBase()}/v1/inbox/${code}/erase`, init);
+  const text = await response.text();
+  let json = null;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    // 誤りの応答は平文
+  }
+  return { status: response.status, text: text.trim(), json };
 }
 
 describe("フレンドの受信箱", () => {
@@ -652,5 +668,72 @@ describe("フレンドの受信箱", () => {
     assert.equal(await upgradeStatus(`${wsBase}/v1/inbox/ABC?key=${randomKey()}&rv=1`), 400);
     await expectRejected(`${wsBase}/v1/inbox/${randomFriendCode()}?key=short&rv=1`, 1003, "malformed");
     await expectRejected(inboxURL(randomFriendCode(), randomKey(), "99"), 4010, "relay_version");
+  });
+
+  test("同じ差出人の同じ申請は 1 通にまとまる", async () => {
+    const aCode = randomFriendCode(), bCode = randomFriendCode();
+    const a = await openInbox(aCode, randomKey(), "A");
+    for (const id of [1, 2]) {
+      a.send(JSON.stringify({ t: "send", to: bCode, id, queue: true, m: { k: "friendRequest", name: "A" } }));
+      assert.deepEqual(await nextJson(a), { t: "ack", id, result: "queued" });
+    }
+    const b = track(new Peer(inboxURL(bCode, randomKey()), "B"));
+    assert.deepEqual(await nextJson(b), { t: "hello", code: bCode });
+    assert.deepEqual(await nextJson(b), { t: "msg", from: aCode, m: { k: "friendRequest", name: "A" } });
+    await b.expectQuiet();
+  });
+});
+
+describe("受信箱の消去と利用停止", () => {
+  after(closeAll);
+
+  test("持ち主の鍵で消すと接続は 4014 で閉じ、預かりも消え、コードは二度と使えない", async () => {
+    const aCode = randomFriendCode(), bCode = randomFriendCode(), bKey = randomKey();
+    const b = await openInbox(bCode, bKey, "B");
+    b.close();
+    await b.closeEvent();
+    const a = await openInbox(aCode, randomKey(), "A");
+    a.send(JSON.stringify({ t: "send", to: bCode, id: 1, queue: true, m: { k: "friendRequest", name: "A" } }));
+    assert.deepEqual(await nextJson(a), { t: "ack", id: 1, result: "queued" });
+
+    // 鍵が違えば消せない
+    assert.equal((await eraseInbox(bCode, { key: randomKey() })).status, 403);
+    const erased = await eraseInbox(bCode, { key: bKey });
+    assert.equal(erased.status, 200);
+    assert.deepEqual(erased.json, { ok: true, result: "erased" });
+
+    // 同じ鍵でも別の鍵でも、もう繋げない。申請も預からない。消し直しは erased のまま
+    await expectRejected(inboxURL(bCode, bKey), 4014, "inbox_erased");
+    await expectRejected(inboxURL(bCode, randomKey()), 4014, "inbox_erased");
+    a.send(JSON.stringify({ t: "send", to: bCode, id: 2, queue: true, m: { k: "friendRequest", name: "A" } }));
+    assert.deepEqual(await nextJson(a), { t: "ack", id: 2, result: "offline" });
+    assert.deepEqual((await eraseInbox(bCode, { key: randomKey() })).json, { ok: true, result: "erased" });
+  });
+
+  test("繋いでいる最中に消すと、その接続は 4014 inbox_erased で閉じる", async () => {
+    const code = randomFriendCode(), key = randomKey();
+    const peer = await openInbox(code, key, "connected");
+    assert.deepEqual((await eraseInbox(code, { key })).json, { ok: true, result: "erased" });
+    assert.deepEqual(await peer.closeEvent(), { code: 4014, reason: "inbox_erased" });
+  });
+
+  test("繋いだことのないコードは none（何も作らない。その後は普通に使える）", async () => {
+    const code = randomFriendCode(), key = randomKey();
+    assert.deepEqual((await eraseInbox(code, { key: randomKey() })).json, { ok: true, result: "none" });
+    await openInbox(code, key, "fresh");
+  });
+
+  test("消去の要求の誤りは 400 / 405", async () => {
+    const code = randomFriendCode();
+    assert.equal((await eraseInbox("ABC", { key: randomKey() })).status, 400);
+    assert.equal((await eraseInbox(code, { key: "short" })).status, 400);
+    assert.equal((await eraseInbox(code, "{not json")).status, 400);
+    assert.equal((await eraseInbox(code, {})).status, 400);
+    assert.equal((await eraseInbox(code, null, "GET")).status, 405);
+  });
+
+  test("運営が利用を止めたコードは 4013 で断られる（消去はできる）", { skip: SUSPENDED_CODE === null && "配備済みの中継には止めたコードを渡せない" }, async () => {
+    await expectRejected(inboxURL(SUSPENDED_CODE, randomKey()), 4013, "inbox_suspended");
+    assert.deepEqual((await eraseInbox(SUSPENDED_CODE, { key: randomKey() })).json, { ok: true, result: "none" });
   });
 });

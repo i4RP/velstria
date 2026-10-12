@@ -1,1 +1,1 @@
-Play a 5v5 MOBA offline vs AI
+5v5 MOBA vs AI or with friends

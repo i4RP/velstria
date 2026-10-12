@@ -1101,7 +1101,7 @@ final class HUDModel {
                 let u = s.units[i]
                 guard let h = u.hero else { continue }
                 let showCooldowns = ally == nil || ally == team
-                var row = HUDScoreRow(id: u.id, heroID: h.heroID, name: h.displayName, team: team,
+                var row = HUDScoreRow(id: u.id, heroID: h.heroID, name: PlayerNameRules.shown(h.displayName), team: team,
                                       isHuman: u.id == me, level: h.level, kills: h.score.kills,
                                       deaths: h.score.deaths, assists: h.score.assists, creepScore: h.score.creepScore,
                                       items: h.items, spells: h.spells,
@@ -1311,7 +1311,7 @@ final class HUDModel {
 
     /// ユニットの表示名（ヒーロー名、それ以外は種類名）。
     static func unitName(_ u: VelstriaCore.Unit, _ ctx: SimContext) -> String {
-        if let h = u.hero { return ctx.master.hero(h.heroID).map { MasterText.hero($0) } ?? h.displayName }
+        if let h = u.hero { return ctx.master.hero(h.heroID).map { MasterText.hero($0) } ?? PlayerNameRules.shown(h.displayName) }
         return HUDText.unitKind(u.kind)
     }
 

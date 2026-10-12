@@ -110,8 +110,17 @@ def declared() -> dict[str, list[str]]:
         errors.append("NSPrivacyTracking が false ではありません")
     if plist.get("NSPrivacyTrackingDomains", []) != []:
         errors.append("NSPrivacyTrackingDomains が空ではありません（トラッキングしない方針）")
-    if plist.get("NSPrivacyCollectedDataTypes", []) != []:
-        errors.append("NSPrivacyCollectedDataTypes が空ではありません（App Store の「データの収集なし」と矛盾）")
+    # App Store の「App のプライバシー」の申告（docs/appstore/app_privacy.md）と同じ: ユーザ ID だけ（関連付けあり・トラッキングなし・App の機能）。
+    # フレンドの受信箱（relay/src/inbox.ts）がフレンドコード・鍵のハッシュ・不在時の申請を保存するため
+    expected_collected = [{
+        "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeUserID",
+        "NSPrivacyCollectedDataTypeLinked": True,
+        "NSPrivacyCollectedDataTypeTracking": False,
+        "NSPrivacyCollectedDataTypePurposes": ["NSPrivacyCollectedDataTypePurposeAppFunctionality"],
+    }]
+    if plist.get("NSPrivacyCollectedDataTypes", []) != expected_collected:
+        errors.append("NSPrivacyCollectedDataTypes が docs/appstore/app_privacy.md の申告（ユーザ ID・関連付けあり・トラッキングなし・"
+                      "App の機能の 1 件だけ）と一致しません")
     if errors:
         for e in errors:
             print(f"error: {e}", file=sys.stderr)

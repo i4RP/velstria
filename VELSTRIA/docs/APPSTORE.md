@@ -86,14 +86,15 @@ App Store Connect（ASC）への v1.0 提出に必要なもの一式と手順。
 ## 5. App のプライバシー
 
 - プライバシーポリシー URL: `metadata/ja/privacy_url.txt`（日本語）、`metadata/en-US/privacy_url.txt`（英語）。本文は `docs/legal/privacy_policy_*.md`。
-- データ収集: **「データを収集しない」（Data Not Collected）** → 詳細と根拠は [app_privacy.md](appstore/app_privacy.md)。
+- データ収集: **「データを収集する」— ID > ユーザ ID だけ**（ユーザーに関連付け・トラッキングなし・App の機能。フレンドの受信箱が
+  フレンドコード・鍵のハッシュ・不在時の申請を中継に保存するため）→ 詳細と根拠は [app_privacy.md](appstore/app_privacy.md)。
 - トラッキング: なし（App Tracking Transparency のダイアログも出さない）。
-- プライバシーマニフェスト `PrivacyInfo.xcprivacy`: トラッキングなし・収集データなし・Required Reason API は
+- プライバシーマニフェスト `PrivacyInfo.xcprivacy`: トラッキングなし・収集データはユーザ ID だけ（上と同じ）・Required Reason API は
   UserDefaults（CA92.1）、File timestamp（C617.1: アプリ内のリプレイファイルの更新日時・サイズ）、System boot time（35F9.1: 効果音・触覚の再生間隔の計測に
   `ProcessInfo.systemUptime` を使用）。コードに API を追加したら `python3 tools/privacy_audit.py` で宣言漏れを確認する。
 - リプレイの共有（`.vreplay` の書き出し・取り込み）: 利用者が共有シート・ファイル選択・「VELSIA で開く」を操作した時だけ、
   端末内のリプレイ（試合の構成・入力・結果。表示名を含む）をそのファイルとして受け渡す。アプリから外部へ自動で送信することは無いので
-  「データを収集しない」の判断は変わらない。取り込むファイルの日時・サイズの属性は参照しない（大きさは読み込んだバイト数で判定）。
+  リプレイについての判断（収集しない）は変わらない。取り込むファイルの日時・サイズの属性は参照しない（大きさは読み込んだバイト数で判定）。
   観戦・リプレイの視聴記録（通算の回数）も端末内のプロフィールにだけ保存する。
 
 ## 6. 審査に関する情報（App Review Information）

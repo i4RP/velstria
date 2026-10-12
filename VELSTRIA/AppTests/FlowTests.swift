@@ -10,8 +10,10 @@ final class FlowNameAndOnboardingTests: XCTestCase {
         XCTAssertEqual(PlayerNameRules.normalized("  ab  "), "ab")
         XCTAssertEqual(PlayerNameRules.validate("a"), .tooShort)
         XCTAssertEqual(PlayerNameRules.validate("   "), .tooShort)
-        XCTAssertNil(PlayerNameRules.validate("123456789012"))
+        XCTAssertNil(PlayerNameRules.validate("Abcdefghijk2"))
         XCTAssertEqual(PlayerNameRules.validate("1234567890123"), .tooLong)
+        // 長さが収まっても、電話番号のような数字の並び（連絡先）は使えない（OnlineSafetyTests にフィルタの詳細）
+        XCTAssertEqual(PlayerNameRules.validate("123456789012"), .inappropriate)
         XCTAssertNil(PlayerNameRules.validate("星環の旅人"))
         XCTAssertEqual(PlayerNameRules.validate("ab\ncd"), .invalidCharacters)
         XCTAssertEqual(PlayerNameRules.validate("ab\u{0007}c"), .invalidCharacters)

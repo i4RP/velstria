@@ -20,8 +20,31 @@ struct MatchResultView: View {
     @State private var bannerIn = false
     @State private var showReport = false
     @State private var closing = false
+    /// オンライン対戦: 通報の種類（不具合 / プレイヤー）を選ぶ。
+    @State private var choosesReport = false
+    @State private var moderation = ModerationPrompt()
 
     private var summary: MatchSummary { outcome.summary }
+
+    /// オンライン対戦の相手（自分以外の人間）。通報・ブロックの対象（ガイドライン 1.2）。
+    /// プレイヤー ID・フレンドコードは、試合を始めた時に控えた座席の参加者（BattleLaunch.onlineSeatPlayers）から座席で引く。
+    /// 名前では引かない（隠した名前は「プレイヤー」に揃うので、同じ名前の別人を通報・ブロックしてしまう）。控えが無ければ名前だけ。
+    private var onlinePlayers: [PlayerReportTarget] {
+        guard outcome.launch.isOnline, outcome.launch.replay == nil else { return [] }
+        let players = outcome.launch.config.players
+        let session = app.online
+        let seated = outcome.launch.onlineSeatPlayers
+        return players.indices.compactMap { i in
+            let p = players[i]
+            guard p.controller == .human, i != outcome.launch.onlineSeat else { return nil }
+            let who = seated[i]
+            if let who, who.peerID == session?.localPeerID { return nil }
+            return PlayerReportTarget(name: PlayerNameRules.shown(p.displayName), friendCode: who?.friendCode, peerID: who?.peerID,
+                                      source: .match, roomCode: session?.relayCode ?? session?.joinedRelayCode,
+                                      detail: "Seed: \(summary.seed) / \(L("試合時間", "Duration")): \(FlowText.duration(summary.duration)) / \(L("座席", "Seat")): \(i + 1)",
+                                      seat: i)
+        }
+    }
 
     /// 左パネルに出す選手（人間。観戦では試合 MVP）。
     private var focus: PlayerSummary? {
@@ -155,6 +178,7 @@ struct MatchResultView: View {
                 .frame(maxHeight: .infinity)
                 buttons
             }
+            .moderationPrompts(moderation)
             .padding(.horizontal, 16)
             .padding(.vertical, 6)
             // 戦闘の全画面表示ではルートのトーストが隠れるため、ここにも重ねる
@@ -220,13 +244,27 @@ struct MatchResultView: View {
             buttonRow(compactReport: true, compact: false)
             buttonRow(compactReport: true, compact: true)
         }
+        // オンライン対戦: 不具合の報告か、相手プレイヤーの通報（ブロックも）を選ぶ
+        .confirmationDialog(L("通報・不具合報告", "Report"), isPresented: $choosesReport, titleVisibility: .visible) {
+            Button(L("不具合・ご意見を報告", "Report a problem")) { showReport = true }
+            ForEach(onlinePlayers) { target in
+                Button(L("\(target.displayName) を通報・ブロック", "Report or block \(target.displayName)")) {
+                    moderation.report = target
+                }
+            }
+            Button(L("キャンセル", "Cancel"), role: .cancel) {}
+        }
     }
 
     private func buttonRow(compactReport: Bool, compact: Bool) -> some View {
         HStack(spacing: compact ? 8 : 10) {
             Button {
                 FlowFX.tap(app)
-                showReport = true
+                if onlinePlayers.isEmpty {
+                    showReport = true
+                } else {
+                    choosesReport = true
+                }
             } label: {
                 if compactReport {
                     Image(systemName: "exclamationmark.bubble.fill").frame(minWidth: 20)
@@ -424,7 +462,7 @@ private struct FocusPanel: View {
                         if showsMatchMVPCaption {
                             Text(L("試合 MVP", "Match MVP")).font(Theme.heading(11)).foregroundStyle(Theme.gold)
                         }
-                        Text(player.displayName)
+                        Text(PlayerNameRules.shown(player.displayName))
                             .font(Theme.heading(14))
                             .foregroundStyle(Theme.textPrimary)
                             .lineLimit(1)
@@ -560,7 +598,7 @@ private struct EvaluationTab: View {
                     GradeBadge(grade: p.grade, size: 18)
                 }
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(i + 1). \(p.displayName) \(String(format: "%.1f", p.mvpScore)) \(p.grade)")
+                .accessibilityLabel("\(i + 1). \(PlayerNameRules.shown(p.displayName)) \(String(format: "%.1f", p.mvpScore)) \(p.grade)")
             }
         }
         .padding(10)

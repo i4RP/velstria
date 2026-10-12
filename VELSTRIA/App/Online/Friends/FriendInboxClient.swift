@@ -2,7 +2,9 @@ import Foundation
 
 // 担当: online。フレンドの受信箱への接続（中継サーバーの `/v1/inbox/<フレンドコード>?key=…`）。
 //
-// アプリを開いている間だけ繋ぐ。切れたら指数バックオフで繋ぎ直す（コードを奪われた・版が合わない時は諦める）。
+// アプリを開いている間だけ繋ぐ。切れたら指数バックオフで繋ぎ直す（コードを奪われた・版が合わない・運営が利用を止めた・
+// 受信箱が消されている時は諦める。消されている時は onErased で知らせ、FriendHub が新しいコードを作り直す）。
+// 受信箱の消去（中継に保存した情報をすべて消す）は WebSocket ではなく HTTP の POST（FriendInboxEraser）。
 // 送信は ack（delivered / queued / offline）を返す。繋がっていなければ notConnected。
 // 生存確認はテキストの ping（中継が pong を自動応答。部屋の中継と同じ）。
 // すべての呼び出し・コールバックはメインアクターで行う（RelaySocket の約束）。
@@ -16,6 +18,59 @@ extension OnlineRelayConfig {
         c.path = path + "/v1/inbox/" + code
         c.queryItems = [URLQueryItem(name: "key", value: key), URLQueryItem(name: "rv", value: "\(relayVersion)")]
         return c.url ?? base
+    }
+
+    /// 受信箱の消去の URL（`https://<host>/v1/inbox/<CODE>/erase`。base の ws / wss を http / https に読み替える）。
+    static func inboxEraseURL(base: URL, code: String) -> URL {
+        var c = URLComponents(url: base, resolvingAgainstBaseURL: false) ?? URLComponents()
+        switch c.scheme?.lowercased() {
+        case "ws": c.scheme = "http"
+        case "wss": c.scheme = "https"
+        default: break
+        }
+        var path = c.path
+        while path.hasSuffix("/") { path.removeLast() }
+        c.path = path + "/v1/inbox/" + code + "/erase"
+        c.queryItems = nil
+        return c.url ?? base
+    }
+}
+
+/// 中継サーバーの受信箱を消す（`POST /v1/inbox/<CODE>/erase`、本文 `{"key":"…"}`。relay/README.md「受信箱の消去」）。
+/// 鍵のハッシュ・最後に繋いだ日時・預かっている申請がすべて消え、そのコードは二度と使えなくなる。
+enum FriendInboxEraser {
+    enum Result: Equatable {
+        /// 消した（消し済み・受信箱が無かった・ほかの鍵の持ち主のもので自分の情報が無い場合を含む）。
+        case erased
+        /// 通信できなかった・中継の誤り（もう一度試す）。
+        case failed
+    }
+
+    /// HTTP の送り手（テストは差し替える）。
+    typealias Transport = @Sendable (URLRequest) async throws -> (Data, URLResponse)
+    static let urlSession: Transport = { request in try await URLSession.shared.data(for: request) }
+
+    static func request(base: URL, code: String, key: String) -> URLRequest {
+        var r = URLRequest(url: OnlineRelayConfig.inboxEraseURL(base: base, code: code), timeoutInterval: 20)
+        r.httpMethod = "POST"
+        r.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        r.httpBody = try? JSONSerialization.data(withJSONObject: ["key": key])
+        return r
+    }
+
+    /// 応答の解釈: 200（erased / none）と 403（ほかの鍵の持ち主のコード = 自分の受信箱は無い）は消えたものとして扱う。
+    static func result(status: Int) -> Result {
+        status == 200 || status == 403 ? .erased : .failed
+    }
+
+    static func erase(base: URL, code: String, key: String, transport: Transport = urlSession) async -> Result {
+        guard FriendCode.isValid(code), FriendInboxKey.isValid(key) else { return .erased }
+        do {
+            let (_, response) = try await transport(request(base: base, code: code, key: key))
+            return result(status: (response as? HTTPURLResponse)?.statusCode ?? 0)
+        } catch {
+            return .failed
+        }
     }
 }
 
@@ -38,6 +93,8 @@ final class FriendInboxClient {
     var onStatus: ((Status) -> Void)?
     var onMessage: ((_ from: String, _ payload: InboxPayload) -> Void)?
     var onPresence: (([String]) -> Void)?
+    /// 受信箱が消されていた（4014。本人が別の端末で消した・1 年繋がなかった）。このコードは二度と使えない。
+    var onErased: (() -> Void)?
 
     let baseURL: URL
     let code: String
@@ -169,6 +226,14 @@ final class FriendInboxClient {
         case 4010:
             started = false
             status = .failed(RelayCloseCode.relayVersion.message)
+        case 4013:
+            // 運営が利用を止めたコード（利用規約・コミュニティガイドラインの違反）
+            started = false
+            status = .failed(Self.suspendedMessage)
+        case 4014:
+            started = false
+            status = .offline
+            onErased?()
         case 4011:
             // 同じ鍵の別の接続に入れ替えられた（別の端末・再接続）。こちらは繋ぎ直さずに身を引く
             started = false
@@ -183,6 +248,11 @@ final class FriendInboxClient {
                 self.connect()
             }
         }
+    }
+
+    static var suspendedMessage: String {
+        L("このフレンドコードは、利用規約にもとづき利用を停止しています。お問い合わせは \(FeatureFlags.supportEmail) へ",
+          "This friend code has been suspended under the Terms of Service. Contact \(FeatureFlags.supportEmail)")
     }
 
     private func failPending() {

@@ -6,6 +6,7 @@ import VelstriaCore
 // - 右のパネル: フレンド（在席・招待）/ フレンド申請（自分のコード・コードで申請・届いた申請）/ 近く（同じ Wi-Fi）/ 部屋コードで参加
 // - 「ゲーム開始」（ホスト）→ チーム分け（全員味方 / 敵味方に分かれる）→ ピックの段階（OnlineRoomView の座席）へ
 // フレンド申請は部屋と関係なく受信箱（FriendHub）で送り合う。パーティの枠からも、フレンドでない参加者へ申請できる。
+// 自分以外の枠・フレンド・届いた申請の「…」から 通報・ブロック、ホストなら部屋から外す（ガイドライン 1.2。OnlineSafetyViews）。
 
 /// パーティの右パネルのタブ。
 enum PartySideTab: String, CaseIterable, Identifiable {
@@ -41,6 +42,8 @@ struct PartyMember: Identifiable, Equatable {
     var isHost: Bool
     var isMe: Bool
     var rtt: Double?
+    /// ブロックした相手（名前を出さない）。
+    var isBlocked = false
 }
 
 struct PartyLobbyView: View {
@@ -48,6 +51,8 @@ struct PartyLobbyView: View {
     @State private var tab: PartySideTab = .friends
     @State private var showsTeamSetup = false
     @State private var confirmsLeave = false
+    @State private var showsMembers = false
+    @State private var moderation = ModerationPrompt()
 
     private var session: OnlineSession? { app.online }
     private var isHost: Bool { session?.isHost ?? true }
@@ -96,6 +101,7 @@ struct PartyLobbyView: View {
             bottomBar
         }
         .padding(.vertical, 8)
+        .moderationPrompts(moderation)
     }
 
     private var header: some View {
@@ -212,9 +218,11 @@ struct PartyLobbyView: View {
         let ordered = players.filter { $0.id == room.hostPeerID } + players.filter { $0.id != room.hostPeerID }
         return ordered.map { p in
             let me = p.id == app.profile.playerID
-            return PartyMember(id: p.id, name: p.name, avatar: me ? app.profile.avatarHeroID : p.avatar,
+            let blocked = !me && p.friendCode.map(app.friends.isBlocked) == true
+            return PartyMember(id: p.id, name: blocked ? PlayerReportTarget.blockedName : p.name,
+                               avatar: me ? app.profile.avatarHeroID : p.avatar,
                                friendCode: p.friendCode, isHost: p.id == room.hostPeerID, isMe: me,
-                               rtt: me && !session.isHost ? session.rtt : p.rtt)
+                               rtt: me && !session.isHost ? session.rtt : p.rtt, isBlocked: blocked)
         }
     }
 
@@ -254,6 +262,7 @@ struct PartyLobbyView: View {
     private func slot(_ member: PartyMember?, compact: Bool) -> some View {
         PartySlotCard(member: member, compact: compact,
                       friendState: member.map(friendState(of:)) ?? .none,
+                      target: member.flatMap(target(of:)), moderation: moderation, canKick: isHost,
                       onInvite: {
                           FlowFX.tap(app)
                           tab = .friends
@@ -264,8 +273,17 @@ struct PartyLobbyView: View {
                       })
     }
 
+    /// 通報・ブロックの対象（自分は対象外。名前は部屋の正本のもの）。
+    private func target(of member: PartyMember) -> PlayerReportTarget? {
+        guard !member.isMe, let session else { return nil }
+        let name = session.room.peer(member.id)?.name ?? member.name
+        return PlayerReportTarget(name: name, friendCode: member.friendCode, peerID: member.id, source: .party,
+                                  roomCode: session.relayCode ?? session.joinedRelayCode)
+    }
+
     private func friendState(of member: PartyMember) -> PartySlotCard.FriendState {
         guard !member.isMe, let code = member.friendCode else { return .none }
+        if app.friends.isBlocked(code) { return .blocked }
         if app.friends.friend(code: code) != nil { return .friend }
         if app.friends.hasOutgoingRequest(to: code) { return .requested }
         return .canRequest(code)
@@ -293,9 +311,28 @@ struct PartyLobbyView: View {
                         .foregroundStyle(Theme.textSecondary)
                 }
                 Spacer()
-                Text(L("\(members.count) 人", "\(members.count) players"))
-                    .font(Theme.body(12))
-                    .foregroundStyle(Theme.textSecondary)
+                // 参加者の一覧（観戦席を含む。通報・ブロック・部屋から外す）
+                Button {
+                    FlowFX.tap(app)
+                    showsMembers = true
+                } label: {
+                    Label(L("\(members.count) 人", "\(members.count) players"), systemImage: "list.bullet")
+                        .font(Theme.body(12))
+                        .foregroundStyle(Theme.textSecondary)
+                        .padding(.horizontal, 6)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(session == nil)
+                .accessibilityLabel(L("参加者の一覧（\(members.count) 人）", "Members (\(members.count))"))
+                .accessibilityIdentifier("party_members")
+                .popover(isPresented: $showsMembers) {
+                    if let session {
+                        OnlineMembersView(session: session, source: .party)
+                            .presentationCompactAdaptation(.popover)
+                    }
+                }
             }
             startButton
         }
@@ -338,13 +375,18 @@ struct PartyLobbyView: View {
 
 struct PartySlotCard: View {
     enum FriendState: Equatable {
-        case none, friend, requested
+        case none, friend, requested, blocked
         case canRequest(String)
     }
 
     let member: PartyMember?
     var compact = false
     var friendState: FriendState = .none
+    /// 通報・ブロックの対象（自分・空き枠は nil）。
+    var target: PlayerReportTarget?
+    var moderation: ModerationPrompt?
+    /// 自分がホスト（部屋から外せる）。
+    var canKick = false
     var onInvite: () -> Void
     var onAddFriend: (String) -> Void
 
@@ -374,6 +416,12 @@ struct PartySlotCard: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .overlay(alignment: .topTrailing) {
+            if let target, let moderation {
+                PlayerActionsMenu(target: target, prompt: moderation, canKick: canKick, size: compact ? 13 : 17)
+                    .offset(x: 4, y: compact ? -6 : -2)
+            }
+        }
     }
 
     private var portraitSize: CGFloat { compact ? 40 : 66 }
@@ -421,6 +469,8 @@ struct PartySlotCard: View {
                 badge(L("フレンド", "Friend"), color: Theme.success)
             case .requested:
                 badge(L("申請中", "Requested"), color: Theme.textSecondary)
+            case .blocked:
+                badge(L("ブロック中", "Blocked"), color: Theme.danger)
             case .canRequest(let code):
                 Button {
                     onAddFriend(code)
@@ -630,6 +680,7 @@ struct PartyFriendsTab: View {
     var onAddFriend: () -> Void
     @Environment(AppModel.self) private var app
     @State private var removing: Friend?
+    @State private var moderation = ModerationPrompt()
 
     private var hub: FriendHub { app.friends }
 
@@ -659,6 +710,7 @@ struct PartyFriendsTab: View {
                 }
             }
             .padding(.bottom, 10)
+            .moderationPrompts(moderation)
         }
         .scrollBounceBehavior(.basedOnSize)
         .refreshable { hub.refreshPresence() }
@@ -754,6 +806,8 @@ struct PartyFriendsTab: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 4)
+            PlayerActionsMenu(target: PlayerReportTarget(name: friend.name, friendCode: friend.code, source: .friend),
+                              prompt: moderation, size: 15)
             action(friend, online: online)
         }
         .padding(.vertical, 8)
@@ -765,6 +819,16 @@ struct PartyFriendsTab: View {
                 removing = friend
             } label: {
                 Label(L("フレンドから外す", "Remove friend"), systemImage: "person.crop.circle.badge.minus")
+            }
+            Button {
+                moderation.report = PlayerReportTarget(name: friend.name, friendCode: friend.code, source: .friend)
+            } label: {
+                Label(L("通報する", "Report"), systemImage: "exclamationmark.bubble")
+            }
+            Button(role: .destructive) {
+                moderation.confirm = .block(PlayerReportTarget(name: friend.name, friendCode: friend.code, source: .friend))
+            } label: {
+                Label(L("ブロックする", "Block"), systemImage: "hand.raised.fill")
             }
         }
         .accessibilityIdentifier("party_friend_\(friend.code)")
@@ -858,6 +922,7 @@ struct FriendAvatar: View {
 struct PartyRequestsTab: View {
     @Environment(AppModel.self) private var app
     @State private var codeInput = ""
+    @State private var moderation = ModerationPrompt()
 
     private var hub: FriendHub { app.friends }
 
@@ -875,6 +940,7 @@ struct PartyRequestsTab: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.vertical, 10)
+            .moderationPrompts(moderation)
         }
         .scrollBounceBehavior(.basedOnSize)
     }
@@ -982,6 +1048,9 @@ struct PartyRequestsTab: View {
         case .isSelf:
             FlowFX.error(app)
             app.showToast(L("自分のフレンドコードです", "That is your own friend code"))
+        case .blocked:
+            FlowFX.error(app)
+            app.showToast(FriendHub.blockedMessage)
         case .invalid(let message):
             FlowFX.error(app)
             app.showToast(message)
@@ -1001,6 +1070,8 @@ struct PartyRequestsTab: View {
                         Text(FriendCode.display(request.code)).font(Theme.mono(9)).foregroundStyle(Theme.textSecondary)
                     }
                     Spacer(minLength: 2)
+                    PlayerActionsMenu(target: PlayerReportTarget(name: request.name, friendCode: request.code, source: .request),
+                                      prompt: moderation, size: 14)
                     Button {
                         FlowFX.tap(app)
                         hub.ignore(request)

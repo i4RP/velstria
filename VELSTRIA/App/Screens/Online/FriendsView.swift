@@ -4,12 +4,14 @@ import SwiftUI
 // - 自分のフレンドコード（コピー・共有）/ コードで申請 / 届いた申請の承認 / フレンド一覧（在席・招待・削除）
 // - 招待: 自分の部屋（パーティ）がなければ作ってから、部屋コードをフレンドの受信箱へ送る。受け取った側は 拒否 / 待って / 同意。
 // - 招待のダイアログ（PartyInviteOverlay）はルートに重ねる。戦闘中は出さない（届いた時点で「試合中」と返す）。
+// - フレンド・届いた申請・招待から 通報・ブロック できる（ガイドライン 1.2。OnlineSafetyViews）。
 
 struct FriendsView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
     @State private var codeInput = ""
     @State private var removing: Friend?
+    @State private var moderation = ModerationPrompt()
 
     private var hub: FriendHub { app.friends }
 
@@ -32,6 +34,7 @@ struct FriendsView: View {
                     .frame(width: 290)
                     friendsPanel.frame(maxWidth: .infinity)
                 }
+                .moderationPrompts(moderation)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 10)
@@ -223,6 +226,9 @@ struct FriendsView: View {
         case .isSelf:
             FlowFX.error(app)
             app.showToast(L("自分のフレンドコードです", "That is your own friend code"))
+        case .blocked:
+            FlowFX.error(app)
+            app.showToast(FriendHub.blockedMessage)
         case .invalid(let message):
             FlowFX.error(app)
             app.showToast(message)
@@ -244,6 +250,8 @@ struct FriendsView: View {
                             Text(FriendCode.display(request.code)).font(Theme.mono(10)).foregroundStyle(Theme.textSecondary)
                         }
                         Spacer(minLength: 4)
+                        PlayerActionsMenu(target: PlayerReportTarget(name: request.name, friendCode: request.code, source: .request),
+                                          prompt: moderation, size: 15)
                         Button {
                             FlowFX.tap(app)
                             hub.ignore(request)
@@ -328,6 +336,8 @@ struct FriendsView: View {
                     .foregroundStyle(online ? Theme.success : Theme.textSecondary)
             }
             Spacer(minLength: 4)
+            PlayerActionsMenu(target: PlayerReportTarget(name: friend.name, friendCode: friend.code, source: .friend),
+                              prompt: moderation, size: 15)
             Button {
                 FlowFX.tap(app)
                 removing = friend
@@ -373,8 +383,16 @@ struct FriendsView: View {
 struct PartyInviteOverlay: View {
     @Environment(AppModel.self) private var app
     @State private var suppress = false
+    @State private var moderation = ModerationPrompt()
 
     var body: some View {
+        // 招待を断って通報の画面を出しても消えないよう、確認と通報の画面は外側（常にある ZStack）に付ける
+        ZStack { content }
+            .moderationPrompts(moderation)
+    }
+
+    @ViewBuilder
+    private var content: some View {
         if let invite = app.friends.pendingInvite, app.activeBattle == nil, app.activeMagicChess == nil {
             ZStack {
                 Color.black.opacity(0.55).ignoresSafeArea()
@@ -443,6 +461,34 @@ struct PartyInviteOverlay: View {
                     .buttonStyle(.plain)
                     .accessibilityAddTraits(suppress ? .isSelected : [])
                     .accessibilityIdentifier("invite_suppress")
+                    HStack(spacing: 16) {
+                        Button {
+                            FlowFX.tap(app)
+                            let target = Self.target(invite)
+                            respond(.decline(suppress: false))
+                            moderation.report = target
+                        } label: {
+                            Label(L("通報する", "Report"), systemImage: "exclamationmark.bubble")
+                                .font(Theme.body(12))
+                                .foregroundStyle(Theme.textSecondary)
+                                .frame(minHeight: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("invite_report")
+                        Button {
+                            FlowFX.tap(app)
+                            moderation.confirm = .block(Self.target(invite))
+                        } label: {
+                            Label(L("ブロックする", "Block"), systemImage: "hand.raised.fill")
+                                .font(Theme.body(12))
+                                .foregroundStyle(Theme.danger)
+                                .frame(minHeight: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("invite_block")
+                    }
                 }
                 .padding(20)
                 .frame(maxWidth: 520)
@@ -458,5 +504,10 @@ struct PartyInviteOverlay: View {
     private func respond(_ response: FriendHub.InviteResponse) {
         suppress = false
         app.friends.respond(response)
+    }
+
+    private static func target(_ invite: PartyInvite) -> PlayerReportTarget {
+        PlayerReportTarget(name: invite.name, friendCode: invite.from, source: .invite, roomCode: invite.room,
+                           detail: invite.roomName.isEmpty ? nil : L("部屋の名前: \(invite.roomName)", "Room name: \(invite.roomName)"))
     }
 }

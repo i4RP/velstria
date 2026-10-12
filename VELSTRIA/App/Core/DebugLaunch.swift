@@ -9,7 +9,8 @@ import VelstriaCore
 // （規約同意・年齢区分の省略）・-heroGallery などの隠し機能はバイナリに含まれない（ガイドライン 2.3.1）。
 //
 //   -uiTesting            一時ディレクトリの新規プロフィールで起動（実データに触れない）
-//   -skipOnboarding       オンボーディング完了済みにする
+//   -skipOnboarding       オンボーディング完了済みにする（オンラインのルールにも同意済みにする）
+//   -onlineRulesPending   -skipOnboarding でもオンラインのルールは未同意のまま（同意の画面の確認用）
 //   -grant                Coin 100000 / Gem 10000 を付与し全ヒーロー解放
 //   -route <name>         起動後に画面へ直行（例: heroes, heroDetail:H003, store, settings）
 //   -battle <mode>        起動後に戦闘開始（standard / ranked / practice / tutorial / spectate / replay）
@@ -81,6 +82,8 @@ enum DebugLaunch {
             p.acceptedTermsVersion = FeatureFlags.currentTermsVersion
             p.ageBracket = p.ageBracket ?? .adult
             if p.displayName.isEmpty { p.displayName = "Tester" }
+            // オンラインのルールにも同意済みにする（-onlineRulesPending なら同意の画面を確かめられるよう未同意のまま）
+            if !args.contains("-onlineRulesPending") { p.acceptedOnlineRulesVersion = FeatureFlags.currentOnlineRulesVersion }
         }
         if args.contains("-grant") {
             p.starlightCoin = max(p.starlightCoin, 100_000)
