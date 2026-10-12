@@ -160,6 +160,98 @@
       "credits": 60,
       "bytes": 10119184,
       "completed_at": "2026-10-11T07:38:40.195Z"
+    },
+    "tower_base": {
+      "provider": "tripo",
+      "status": "success",
+      "concept_sha256": "bfd49af5f1dba338f00ee30dee1296bcef8823d3485adcd74e65ca4487d29241",
+      "request": {
+        "input": "<concept.png の file_token>",
+        "model": "P1-20260311",
+        "face_limit": 5200,
+        "texture": true,
+        "pbr": true,
+        "texture_quality": "detailed",
+        "texture_version": "v3.5-20260815",
+        "delight": true,
+        "texture_alignment": "original_image",
+        "orientation": "align_image"
+      },
+      "balance_before": 4270,
+      "submitted_at": "2026-10-12T11:09:40.838Z",
+      "task_id": "ceaeb731-f75a-406c-8da1-0972a740612e",
+      "credits": 60,
+      "bytes": 10331108,
+      "completed_at": "2026-10-12T11:11:50.823Z"
+    },
+    "star_core": {
+      "provider": "tripo",
+      "status": "success",
+      "concept_sha256": "3d76632953f23a1d50c84aa7ad3dbfbaf054b0fbf4bf03ea39f313cbffd9ac29",
+      "request": {
+        "input": "<concept.png の file_token>",
+        "model": "P1-20260311",
+        "face_limit": 7800,
+        "texture": true,
+        "pbr": true,
+        "texture_quality": "detailed",
+        "texture_version": "v3.5-20260815",
+        "delight": true,
+        "texture_alignment": "original_image",
+        "orientation": "align_image"
+      },
+      "balance_before": 4270,
+      "submitted_at": "2026-10-12T11:09:40.878Z",
+      "task_id": "61881d6b-feb2-4472-a5d0-0b0cbc744bbf",
+      "credits": 60,
+      "bytes": 13260140,
+      "completed_at": "2026-10-12T11:11:44.216Z"
+    },
+    "tower_outer": {
+      "provider": "tripo",
+      "status": "success",
+      "concept_sha256": "139c1cd71703212c67ea1c4db7622852eb645f53110bfe6d841b3a8bbbb21fc7",
+      "request": {
+        "input": "<concept.png の file_token>",
+        "model": "P1-20260311",
+        "face_limit": 5200,
+        "texture": true,
+        "pbr": true,
+        "texture_quality": "detailed",
+        "texture_version": "v3.5-20260815",
+        "delight": true,
+        "texture_alignment": "original_image",
+        "orientation": "align_image"
+      },
+      "balance_before": 4270,
+      "submitted_at": "2026-10-12T11:09:40.882Z",
+      "task_id": "2c9ae99a-0e00-4a83-91ff-08c674e8d036",
+      "credits": 60,
+      "bytes": 13607924,
+      "completed_at": "2026-10-12T11:11:35.242Z"
+    },
+    "tower_inner": {
+      "provider": "tripo",
+      "status": "success",
+      "concept_sha256": "d1ed67cd31783443b737112399e09696ec473de907acdaecf92b0824b03af804",
+      "request": {
+        "input": "<concept.png の file_token>",
+        "model": "P1-20260311",
+        "face_limit": 5200,
+        "texture": true,
+        "pbr": true,
+        "texture_quality": "detailed",
+        "texture_version": "v3.5-20260815",
+        "delight": true,
+        "texture_alignment": "original_image",
+        "orientation": "align_image"
+      },
+      "balance_before": 4270,
+      "submitted_at": "2026-10-12T11:09:40.885Z",
+      "task_id": "5da0ae28-5943-456f-b41a-87f1453f4795",
+      "credits": 60,
+      "bytes": 13632588,
+      "completed_at": "2026-10-12T11:12:02.392Z"
     }
   }
 }

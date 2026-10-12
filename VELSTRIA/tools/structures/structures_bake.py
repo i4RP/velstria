@@ -216,11 +216,10 @@ def preview(obj, path):
     bpy.data.objects.remove(cam)
 
 
-def main(a):
-    size = json.loads(a.size or "{}")
-    origin = a.origin or size.get("origin", "")
+def load_model(glb, name):
+    """GLB を読み、メッシュを 1 つに結合して変換を適用する（修飾・頂点グループ・形状キーは捨てる）。"""
     nc.reset_scene()
-    nc.import_glb(a.glb)
+    nc.import_glb(glb)
     meshes = [o for o in bpy.data.objects if o.type == 'MESH']
     if not meshes:
         raise SystemExit("no mesh")
@@ -232,14 +231,17 @@ def main(a):
     nc.delete_except(meshes)
     nc.apply_transforms(meshes)
     obj = nc.join_meshes(meshes)
-    obj.name = f"Struct_{a.id}"
+    obj.name = name
     obj.data.name = obj.name
     if obj.data.shape_keys:
         nc.select_only([obj])
         bpy.ops.object.shape_key_remove(all=True, apply_mix=False)
-    raw_tris = nc.tri_count(obj)
+    return obj
 
-    yaw = a.yaw if a.yaw is not None else float(size.get("yaw", 0.0))
+
+def fit(obj, size, yaw, origin):
+    """yaw（Z 軸回り、度）で回し、size（height / diameter / length）で拡縮して原点を合わせる。
+    maxRadius があれば、足跡の中心からの最大距離がそれを超えない所まで縮める（台座がレーンへはみ出さない）。"""
     if yaw:
         transform(obj, Matrix.Rotation(math.radians(yaw), 4, 'Z'))
     lo, hi = nc.bbox([v.co for v in obj.data.vertices])
@@ -257,6 +259,23 @@ def main(a):
         transform(obj, Matrix.Translation(-c))
     else:
         transform(obj, Matrix.Translation((-c.x, -c.y, -lo.z)))
+    if "maxRadius" in size:
+        r = max(math.hypot(v.co.x, v.co.y) for v in obj.data.vertices)
+        if r > size["maxRadius"]:
+            k = size["maxRadius"] / r
+            transform(obj, Matrix.Diagonal((k, k, k, 1.0)))
+            s *= k
+    return s
+
+
+def main(a):
+    size = json.loads(a.size or "{}")
+    origin = a.origin or size.get("origin", "")
+    obj = load_model(a.glb, f"Struct_{a.id}")
+    raw_tris = nc.tri_count(obj)
+
+    yaw = a.yaw if a.yaw is not None else float(size.get("yaw", 0.0))
+    fit(obj, size, yaw, origin)
 
     if raw_tris > a.faces * 1.05:
         nc.decimate(obj, a.faces)
@@ -307,4 +326,5 @@ def main(a):
     log(json.dumps(report))
 
 
-main(parse())
+if __name__ == "__main__":
+    main(parse())
