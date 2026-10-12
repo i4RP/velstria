@@ -147,6 +147,11 @@ final class OnlineSession: OnlineBattleLink {
     @ObservationIgnored private var acceptedAt: [UUID: TimeInterval] = [:]
     /// 参加者毎の最後のスナップショット（ずれの再同期の間隔を空ける）。
     @ObservationIgnored private var lastSnapshotAt: [OnlinePeerID: TimeInterval] = [:]
+    /// ホスト: 部屋から外した参加者（プレイヤー ID とフレンドコード。この部屋には入り直せない）。
+    @ObservationIgnored private var kickedPeers: Set<OnlinePeerID> = []
+    @ObservationIgnored private var kickedFriendCodes: Set<String> = []
+    /// ホスト: 部屋に入れない相手のフレンドコード（ブロックした相手。AppModel がプロフィールから渡す）。
+    @ObservationIgnored var blockedFriendCodes: () -> Set<String> = { [] }
 
     // ホスト側: 観戦
     /// 観戦者への遅延配信の記録。
@@ -271,6 +276,23 @@ final class OnlineSession: OnlineBattleLink {
         let team = room.seat(of: room.hostPeerID)?.team ?? .blue
         let free = room.seats.filter { $0.peerID == nil }
         return (free.first { $0.team == team } ?? free.first)?.index
+    }
+
+    /// クライアント: ホストから届いた部屋の名前（部屋名・参加者・座席）を表示用に整える。ホストは名乗りの時点で確かめているが、
+    /// 改変したホストは何でも送れるので、受け取った側でも不適切な名前を隠す（中身の他の項目は変えない）。
+    static func sanitizedForDisplay(_ room: OnlineRoom) -> OnlineRoom {
+        var r = room
+        if !r.name.isEmpty {
+            let name = PlayerNameRules.sanitizedRoomName(r.name, maxLength: OnlineProtocol.maxServiceNameBytes)
+            r.name = name.isEmpty ? L("パーティ", "Party") : name
+        }
+        func clean(_ raw: String) -> String {
+            let name = PlayerNameRules.sanitizedRemote(raw)
+            return name.isEmpty ? L("プレイヤー", "Player") : name
+        }
+        for i in r.peers.indices { r.peers[i].name = clean(r.peers[i].name) }
+        for i in r.seats.indices where r.seats[i].isHuman { r.seats[i].name = clean(r.seats[i].name) }
+        return r
     }
 
     var isHost: Bool { role == .host }
@@ -595,6 +617,13 @@ final class OnlineSession: OnlineBattleLink {
             reject(L("自分自身には接続できません", "Cannot connect to yourself"))
             return
         }
+        // 外した参加者・ブロックした相手は入れない（理由は伏せる）
+        let helloCode = hello.friendCode.flatMap { FriendCode.isValid($0) ? $0 : nil }
+        if kickedPeers.contains(hello.peerID)
+            || helloCode.map({ kickedFriendCodes.contains($0) || blockedFriendCodes().contains($0) }) == true {
+            reject(L("この部屋には参加できません", "You cannot join this room"))
+            return
+        }
         if let existing = connectionByPeer[hello.peerID], existing != c.id {
             // 同じ参加者の古い接続を置き換える
             if let old = connections[existing] {
@@ -632,9 +661,11 @@ final class OnlineSession: OnlineBattleLink {
         }
         peerByConnection[c.id] = hello.peerID
         connectionByPeer[hello.peerID] = c.id
-        let name = hello.name.isEmpty ? L("プレイヤー", "Player") : hello.name
+        // 名乗りの名前は改変したクライアントなら何でも送れるので、長さ・文字・不適切語を確かめてから部屋に載せる
+        let cleanName = PlayerNameRules.sanitizedRemote(hello.name)
+        let name = cleanName.isEmpty ? L("プレイヤー", "Player") : cleanName
         let avatar = hello.avatar.map { String($0.prefix(16)) }
-        let friendCode = hello.friendCode.flatMap { FriendCode.isValid($0) ? $0 : nil }
+        let friendCode = helloCode
         if let i = room.peers.firstIndex(where: { $0.id == hello.peerID }) {
             room.peers[i].name = name
             room.peers[i].avatar = avatar
@@ -660,6 +691,25 @@ final class OnlineSession: OnlineBattleLink {
         }
         note(asSpectator ? L("\(name) が観戦席に入りました", "\(name) joined as a spectator") : L("\(name) が参加しました", "\(name) joined"))
         broadcastRoom()
+    }
+
+    /// ホスト: 参加者を部屋から外す（迷惑な参加者。ガイドライン 1.2）。この部屋には同じプレイヤー ID・フレンドコードで入り直せない。
+    /// 試合中なら、その参加者のヒーローは AI が引き継ぐ。
+    func kick(_ peerID: OnlinePeerID) {
+        guard role == .host, !closed, peerID != localPeerID, let peer = room.peer(peerID) else { return }
+        kickedPeers.insert(peerID)
+        if let code = peer.friendCode { kickedFriendCodes.insert(code) }
+        if let c = connection(of: peerID) {
+            c.send(.reject(reason: L("ホストが部屋から外しました", "The host removed you from the room")))
+            hostLost(c)
+            // 送り切ってから閉じる
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { c.close() }
+        } else if room.phase == .lobby || room.seat(of: peerID) == nil {
+            vacate(peerID)
+            room.peers.removeAll { $0.id == peerID }
+            broadcastRoom()
+        }
+        note(L("\(peer.name) を部屋から外しました", "Removed \(peer.name) from the room"))
     }
 
     // MARK: - ホスト: 部屋の操作
@@ -1117,10 +1167,10 @@ final class OnlineSession: OnlineBattleLink {
         if let c = connection { lastInbound[c.id] = uptime() }
         switch m {
         case .welcome(let room):
-            self.room = room
+            self.room = Self.sanitizedForDisplay(room)
             // 試合中に入った時も、ホストが開始（再接続の選手）か観戦の案内を送ってくるまでは部屋で待つ
             status = .lobby
-            note(L("\(room.name) に参加しました", "Joined \(room.name)"))
+            note(L("\(self.room.name) に参加しました", "Joined \(self.room.name)"))
             if seatsWithHostTeam {
                 seatsWithHostTeam = false
                 if !wantsSpectateOnJoin, let index = Self.partySeat(in: room, for: localPeerID) { connection?.send(.takeSeat(index)) }
@@ -1130,7 +1180,7 @@ final class OnlineSession: OnlineBattleLink {
         case .room(let room):
             // ホストが先にリザルトへ進むと部屋はロビーに戻るが、こちらはまだ最後の配信を消化中のことがある。
             // 配信バッファは試合開始（startMatch / spectateMatch）でだけ捨てる
-            self.room = room
+            self.room = Self.sanitizedForDisplay(room)
             if room.phase == .lobby {
                 if status != .lobby, status != .connecting { status = .lobby }
                 watchedCurrentMatch = false

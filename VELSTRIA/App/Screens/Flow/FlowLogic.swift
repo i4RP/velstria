@@ -14,6 +14,8 @@ enum PlayerNameRules {
         case tooShort
         case tooLong
         case invalidCharacters
+        /// 不適切な言葉・連絡先・運営をかたる名前（ContentFilter。ガイドライン 1.2 のフィルタ）。
+        case inappropriate
     }
 
     /// 前後の空白・改行を除いた名前。
@@ -28,6 +30,7 @@ enum PlayerNameRules {
         if name.unicodeScalars.contains(where: { forbidden.contains($0) }) { return .invalidCharacters }
         if name.count < minLength { return .tooShort }
         if name.count > maxLength { return .tooLong }
+        if ContentFilter.isInappropriate(name) { return .inappropriate }
         return nil
     }
 
@@ -36,6 +39,9 @@ enum PlayerNameRules {
         case .tooShort: return L("\(minLength) 文字以上で入力してください", "Use at least \(minLength) characters")
         case .tooLong: return L("\(maxLength) 文字以内で入力してください", "Use at most \(maxLength) characters")
         case .invalidCharacters: return L("使用できない文字が含まれています", "Contains characters that can't be used")
+        case .inappropriate:
+            return L("この名前は使えません（不適切な言葉・連絡先・運営をかたる名前は使えません）",
+                     "This name can't be used (no offensive words, contact details or staff impersonation)")
         }
     }
 
@@ -336,6 +342,13 @@ enum BackupRestore {
 
         // 同意済みの規約・完了済みのオンボーディングは戻さない。初回準備は端末ごとの処理なので現在の値
         p.acceptedTermsVersion = max(imported.acceptedTermsVersion, current.acceptedTermsVersion)
+        p.acceptedOnlineRulesVersion = max(imported.acceptedOnlineRulesVersion, current.acceptedOnlineRulesVersion)
+        // 中継の受信箱に繋いだ記録は残す（全データの削除で中継の受信箱も消せるように）
+        p.inboxRegistered = imported.inboxRegistered || current.inboxRegistered
+        // ブロックは古いバックアップで外れないよう、両方の和集合
+        for b in current.blockedPlayers where !p.blockedPlayers.contains(where: { $0.code == b.code }) {
+            p.blockedPlayers.append(b)
+        }
         p.onboardingCompleted = imported.onboardingCompleted || current.onboardingCompleted
         p.tutorialCompleted = imported.tutorialCompleted || current.tutorialCompleted
         p.firstResourcePrepared = current.firstResourcePrepared

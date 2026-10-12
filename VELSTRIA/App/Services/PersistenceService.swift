@@ -235,6 +235,7 @@ final class PersistenceService: @unchecked Sendable {
             ("purchaseLedger[]", jsonObject(PurchaseRecord(transactionID: 0, productID: "", gemsGranted: 0, priceJPY: 0, date: epoch))),
             ("storePurchases[]", jsonObject(StorePurchaseCount(sku: "", count: 0))),
             ("friends[]", jsonObject(Friend(code: "", name: "", addedAt: epoch))),
+            ("blockedPlayers[]", jsonObject(BlockedPlayer(code: "", name: "", blockedAt: epoch))),
             ("missions.daily[]", jsonObject(MissionProgress(id: ""))),
             ("missions.weekly[]", jsonObject(MissionProgress(id: ""))),
             ("achievements{}", jsonObject(AchievementProgress())),
@@ -306,6 +307,11 @@ final class PersistenceService: @unchecked Sendable {
         var seen: Set<String> = [p.friendCode]
         p.friends = p.friends.filter { FriendCode.isValid($0.code) && seen.insert($0.code).inserted }
         p.outgoingFriendRequests = p.outgoingFriendRequests.filter { FriendCode.isValid($0) && $0 != p.friendCode }
+        let outgoing = Set(p.outgoingFriendRequests)
+        p.outgoingFriendRequestDates = p.outgoingFriendRequestDates.filter { outgoing.contains($0.key) }
+        var blocked: Set<String> = [p.friendCode]
+        p.blockedPlayers = p.blockedPlayers.filter { FriendCode.isValid($0.code) && blocked.insert($0.code).inserted }
+        p.acceptedOnlineRulesVersion = max(0, p.acceptedOnlineRulesVersion)
     }
 
     // MARK: - 保存

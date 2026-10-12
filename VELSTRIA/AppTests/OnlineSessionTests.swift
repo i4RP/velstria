@@ -613,6 +613,84 @@ final class OnlineSessionTests: XCTestCase {
         XCTAssertFalse(p.client.room.isPicking)
     }
 
+    // MARK: 安全（ガイドライン 1.2）
+
+    func testHostCleansNamesFromHello() {
+        let host = OnlineSession.host(peerID: "host", name: "Host", roomName: "Room")
+        let (a, b) = LoopbackConnection.pair()
+        host.accept(a)
+        let first = OnlineSession.join(peerID: "long", name: "  ABCDEFGHIJKLMNOPQRSTUVWXYZ\n", connection: b)
+        XCTAssertEqual(host.room.peer("long")?.name, "ABCDEFGHIJKL", "名乗りの名前は 12 文字に切り、改行を除く")
+        XCTAssertEqual(first.room.peer("long")?.name, "ABCDEFGHIJKL")
+
+        let (c, d) = LoopbackConnection.pair()
+        host.accept(c)
+        let client = OnlineSession.join(peerID: "rude", name: "fuck", connection: d)
+        let shown = host.room.peer("rude")?.name
+        XCTAssertNotEqual(shown, "fuck", "不適切な名前は部屋に載せない")
+        XCTAssertEqual(shown, L("プレイヤー", "Player"))
+        XCTAssertEqual(client.room.peer("rude")?.name, shown)
+    }
+
+    func testClientHidesOffensiveNamesSentByAModifiedHost() {
+        var room = OnlineRoom(name: "死ね", hostPeerID: "host")
+        room.peers = [OnlinePeer(id: "host", name: "bitch"), OnlinePeer(id: "guest", name: "Guest")]
+        room.seats[0].peerID = "host"
+        room.seats[0].name = "bitch"
+        let shown = OnlineSession.sanitizedForDisplay(room)
+        XCTAssertEqual(shown.name, L("パーティ", "Party"))
+        XCTAssertEqual(shown.peers.map(\.name), [L("プレイヤー", "Player"), "Guest"])
+        XCTAssertEqual(shown.seats[0].name, L("プレイヤー", "Player"))
+        XCTAssertEqual(shown.seats[1].name, "", "AI の席の名前は変えない")
+        // 問題のない部屋はそのまま
+        let pair = makePair()
+        XCTAssertEqual(OnlineSession.sanitizedForDisplay(pair.host.room), pair.host.room)
+    }
+
+    func testHostKickRemovesPeerAndKeepsThemOut() {
+        let host = OnlineSession.host(peerID: "host", name: "Host", roomName: "Room")
+        let (a, b) = LoopbackConnection.pair()
+        host.accept(a)
+        let client = OnlineSession.join(peerID: "guest", name: "Guest", connection: b, friendCode: "WXYZ6789")
+        client.takeSeat(redMid)
+        XCTAssertEqual(host.room.peers.count, 2)
+        var disconnectReason: String?
+        client.onDisconnected = { disconnectReason = $0 }
+        host.kick("guest")
+        XCTAssertEqual(host.room.peers.map(\.id), ["host"], "外した参加者は部屋から消える")
+        XCTAssertFalse(host.room.seats[redMid].isHuman, "座席も空く")
+        XCTAssertNotNil(disconnectReason, "外された側は切断される")
+        guard case .disconnected = client.status else { return XCTFail("外された側は切断状態: \(client.status)") }
+
+        // 同じプレイヤー ID でも、同じフレンドコードの別 ID でも入り直せない
+        for hello in [OnlineHello(peerID: "guest", name: "Guest"), OnlineHello(peerID: "other", name: "Other", friendCode: "WXYZ6789")] {
+            let (c, d) = LoopbackConnection.pair()
+            host.accept(c)
+            var received: [OnlineMessage] = []
+            d.onMessage = { received.append($0) }
+            d.start()
+            d.send(.hello(hello))
+            guard case .reject? = received.last else { return XCTFail("外した相手は拒否: \(received)") }
+        }
+        XCTAssertEqual(host.room.peers.count, 1)
+        // 自分は外せない
+        host.kick("host")
+        XCTAssertEqual(host.room.peers.count, 1)
+    }
+
+    func testHostRejectsBlockedFriendCode() {
+        let host = OnlineSession.host(peerID: "host", name: "Host", roomName: "Room")
+        host.blockedFriendCodes = { ["WXYZ6789"] }
+        let (a, b) = LoopbackConnection.pair()
+        host.accept(a)
+        var received: [OnlineMessage] = []
+        b.onMessage = { received.append($0) }
+        b.start()
+        b.send(.hello(OnlineHello(peerID: "guest", name: "Guest", friendCode: "WXYZ6789")))
+        guard case .reject? = received.last else { return XCTFail("ブロックした相手は部屋に入れない: \(received)") }
+        XCTAssertEqual(host.room.peers.count, 1)
+    }
+
     func testHelloCarriesAvatarAndValidFriendCode() {
         let host = OnlineSession.host(peerID: "host", name: "Host", roomName: "Room", avatar: "H002", friendCode: "ABCD2345")
         let (a, b) = LoopbackConnection.pair()

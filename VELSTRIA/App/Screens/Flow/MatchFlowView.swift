@@ -597,7 +597,7 @@ private struct LineupRow: View {
             HeroPortraitView(heroID: slot.heroID, size: 36)
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 4) {
-                    Text(human ? slot.displayName : (app.master.hero(slot.heroID).map { MasterText.hero($0) } ?? slot.heroID))
+                    Text(human ? PlayerNameRules.shown(slot.displayName) : (app.master.hero(slot.heroID).map { MasterText.hero($0) } ?? slot.heroID))
                         .font(Theme.heading(12))
                         .foregroundStyle(human ? Theme.gold : Theme.textPrimary)
                         .lineLimit(1)

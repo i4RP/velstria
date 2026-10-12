@@ -146,14 +146,21 @@ final class AppStoreAssetsTests: XCTestCase {
 
     // MARK: プライバシーマニフェスト
 
-    func testPrivacyManifestIsBundledWithNoTrackingAndNoCollection() throws {
+    func testPrivacyManifestIsBundledWithNoTrackingAndOnlyUserIDCollection() throws {
         let url = try XCTUnwrap(Bundle.main.url(forResource: "PrivacyInfo", withExtension: "xcprivacy"),
                                 "PrivacyInfo.xcprivacy がアプリバンドルに含まれていません")
         let plist = try XCTUnwrap(
             PropertyListSerialization.propertyList(from: Data(contentsOf: url), format: nil) as? [String: Any])
         XCTAssertEqual(plist["NSPrivacyTracking"] as? Bool, false)
         XCTAssertEqual((plist["NSPrivacyTrackingDomains"] as? [Any])?.count, 0)
-        XCTAssertEqual((plist["NSPrivacyCollectedDataTypes"] as? [Any])?.count, 0)
+        // docs/appstore/app_privacy.md の申告と同じ: フレンドの受信箱のユーザ ID だけ（関連付けあり・トラッキングなし・App の機能）
+        let collected = try XCTUnwrap(plist["NSPrivacyCollectedDataTypes"] as? [[String: Any]])
+        XCTAssertEqual(collected.count, 1)
+        let userID = try XCTUnwrap(collected.first)
+        XCTAssertEqual(userID["NSPrivacyCollectedDataType"] as? String, "NSPrivacyCollectedDataTypeUserID")
+        XCTAssertEqual(userID["NSPrivacyCollectedDataTypeLinked"] as? Bool, true)
+        XCTAssertEqual(userID["NSPrivacyCollectedDataTypeTracking"] as? Bool, false)
+        XCTAssertEqual(userID["NSPrivacyCollectedDataTypePurposes"] as? [String], ["NSPrivacyCollectedDataTypePurposeAppFunctionality"])
 
         let apis = try XCTUnwrap(plist["NSPrivacyAccessedAPITypes"] as? [[String: Any]])
         let declared = apis.compactMap { entry -> (String, [String])? in

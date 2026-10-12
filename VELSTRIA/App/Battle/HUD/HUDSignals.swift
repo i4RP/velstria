@@ -325,7 +325,7 @@ final class HUDSignalCenter {
             let u = s.units[i]
             guard u.id != me, let h = u.hero else { return nil }
             let dead = shown.first(where: { $0.id == u.id })?.isDead ?? h.isDead
-            let name = master.hero(h.heroID).map { senderName($0) } ?? h.displayName
+            let name = master.hero(h.heroID).map { senderName($0) } ?? PlayerNameRules.shown(h.displayName)
             return HUDSignalAlly(id: u.id, name: name, pos: u.pos, alive: u.isAlive && !dead)
         }
     }

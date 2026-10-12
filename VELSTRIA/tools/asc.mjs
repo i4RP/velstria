@@ -626,8 +626,8 @@ async function preSubmitChecks(appID, versions, open) {
   }
   if (firstRelease) {
     // 2 回目以降は前のバージョンの回答・設定が引き継がれる
-    warn("App のプライバシー（栄養ラベル）は API で確認できません。Web で「データを収集しない」を公開済みか確認してください"
-      + "（docs/appstore/app_privacy.md）");
+    warn("App のプライバシー（栄養ラベル）は API で確認できません。Web で「データを収集する: ID > ユーザ ID（ユーザーに関連付け・"
+      + "トラッキングなし・App の機能）」だけを公開済みか確認してください（docs/appstore/app_privacy.md、PrivacyInfo.xcprivacy と同じ内容）");
     warn("Apple Silicon Mac / Apple Vision Pro での配信可否は API で確認できません。Web の「価格および配信状況」で"
       + "オフになっているか確認してください（docs/APPSTORE.md §4）");
   }

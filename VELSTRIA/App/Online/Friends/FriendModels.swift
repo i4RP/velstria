@@ -129,13 +129,10 @@ struct FriendLink: Equatable {
     }
 }
 
-/// 相手が名乗った表示名の整形（受信箱の中身は相手が自由に書けるので、制御文字を除き長さを揃える）。
+/// 相手が名乗った表示名の整形（受信箱の中身は相手が自由に書けるので、制御文字を除き長さを揃え、不適切な名前は空にする）。
 enum FriendNames {
     static func clean(_ raw: String) -> String {
-        let forbidden = CharacterSet.controlCharacters.union(.newlines).union(.illegalCharacters)
-        let scalars = raw.unicodeScalars.filter { !forbidden.contains($0) }
-        let text = String(String.UnicodeScalarView(scalars)).trimmingCharacters(in: .whitespacesAndNewlines)
-        return String(text.prefix(PlayerNameRules.maxLength))
+        PlayerNameRules.sanitizedRemote(raw)
     }
 
     /// 空なら代わりの名前（表示用）。

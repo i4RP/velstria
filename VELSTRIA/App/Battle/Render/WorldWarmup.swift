@@ -66,7 +66,7 @@ extension BattleWorld {
         })
         steps.append(WarmupStep("text", heavy: true) { [weak self] in
             guard let self else { return }
-            self.text.prewarm(names: self.controller.state.units.compactMap { $0.hero?.displayName })
+            self.text.prewarm(names: self.controller.state.units.compactMap { $0.hero.map { PlayerNameRules.shown($0.displayName) } })
         })
         steps.append(WarmupStep("materials") { [weak self] in
             guard let self else { return }

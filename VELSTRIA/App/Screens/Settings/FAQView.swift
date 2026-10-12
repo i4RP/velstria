@@ -84,11 +84,11 @@ enum FAQCatalog {
                  answerEn: "Check your connection and restart the app; unfinished purchases are processed at launch. The Star Pass Premium can be recovered via Restore Purchases. Contact us if it persists."),
         FAQEntry(id: "data_backup", category: .data,
                  questionJa: "データはどこに保存されますか？", questionEn: "Where is my data stored?",
-                 answerJa: "すべてのデータはこの端末内にのみ保存され、サーバーには送信されません"
-                    + (FeatureFlags.lanMatch ? "（部屋コードで遊ぶオンライン対戦の間だけ、対戦データを中継サーバー経由で相手の端末へ送ります。中継サーバーは保存しません）" : "")
+                 answerJa: "プレイデータ（プロフィール・所持品・戦績・リプレイ・設定）はこの端末内に保存され、サーバーには送信されません"
+                    + (FeatureFlags.lanMatch ? "（オンライン機能を使うと、対戦に必要なデータを相手の端末へ送り、フレンド機能のためにフレンドコードの受信箱と預かり中のフレンド申請を中継サーバーに保存します。詳しくは 設定 > プライバシー）" : "")
                     + "。設定 > データ引き継ぎ からバックアップを書き出せます。",
-                 answerEn: "All data is stored only on this device and never sent to a server"
-                    + (FeatureFlags.lanMatch ? " (during online matches played with a room code, match data is passed to the other players through a relay server that stores nothing)" : "")
+                 answerEn: "Your play data (profile, items, history, replays and settings) is stored on this device and never sent to a server"
+                    + (FeatureFlags.lanMatch ? " (online features send match data to other players, and the relay stores your friend code's inbox and pending friend requests; see Settings > Privacy)" : "")
                     + ". Export a backup from Settings > Data Transfer."),
         FAQEntry(id: "data_transfer", category: .data,
                  questionJa: "機種変更するときは？", questionEn: "I'm switching to a new iPhone",
@@ -96,16 +96,32 @@ enum FAQCatalog {
                  answerEn: "Export a backup from Settings > Data Transfer on your old device, then import it from the same screen on the new one."),
         FAQEntry(id: "data_delete", category: .data,
                  questionJa: "アプリを削除するとどうなりますか？", questionEn: "What happens if I delete the app?",
-                 answerJa: "端末内のデータ（所持品・通貨・戦績・リプレイ）はすべて消去され、復元できません。削除する前にバックアップを書き出してください。",
-                 answerEn: "All on-device data (items, currencies, history, replays) is erased and cannot be recovered. Export a backup first."),
+                 answerJa: "端末内のデータ（所持品・通貨・戦績・リプレイ）はすべて消去され、復元できません。削除する前にバックアップを書き出してください。"
+                    + (FeatureFlags.lanMatch ? "オンライン機能を使ったことがある場合、中継サーバーの受信箱はアプリを削除しても消えません（最後の接続から 1 年で自動的に削除）。先に 設定 > プライバシー の「フレンドサーバーのデータを削除」か「全データを削除」を使ってください。" : ""),
+                 answerEn: "All on-device data (items, currencies, history, replays) is erased and cannot be recovered. Export a backup first."
+                    + (FeatureFlags.lanMatch ? " If you have used online features, your inbox on the relay server is not removed by deleting the app (it is deleted automatically one year after your last connection). Use Delete Friend Server Data or Delete All Data in Settings > Privacy first." : "")),
         FAQEntry(id: "safety_limits", category: .safety,
                  questionJa: "年齢による購入の上限はありますか？", questionEn: "Are there spending limits by age?",
                  answerJa: "はい。15 歳以下は月 5,000 円、16〜19 歳は月 10,000 円までに制限しています。年齢区分は初回起動時に確認します。",
                  answerEn: "Yes. Players aged 15 or under are limited to ¥5,000 per month, and ages 16–19 to ¥10,000. Your age group is confirmed on first launch."),
         FAQEntry(id: "safety_parents", category: .safety,
                  questionJa: "保護者の方へ", questionEn: "For parents and guardians",
-                 answerJa: "iOS の「スクリーンタイム」でアプリ内課金の制限やプレイ時間の管理ができます。本作にはチャットなど他者と交流する機能はありません。",
-                 answerEn: "Use iOS Screen Time to restrict in-app purchases and manage play time. The game has no chat or other ways to interact with strangers."),
+                 answerJa: "iOS の「スクリーンタイム」でアプリ内課金の制限やプレイ時間の管理ができます。"
+                    + (FeatureFlags.lanMatch
+                       ? "自由入力のチャットはありませんが、オンライン機能では表示名が他のプレイヤーに表示され、フレンドの申請や招待ができます。13 歳未満と申告した場合、オンライン機能は使えません。"
+                       : "本作にはチャットなど他者と交流する機能はありません。"),
+                 answerEn: "Use iOS Screen Time to restrict in-app purchases and manage play time. "
+                    + (FeatureFlags.lanMatch
+                       ? "There is no free-text chat, but online features show your name to other players and allow friend requests and invites. Online features are not available to players who said they are under 13."
+                       : "The game has no chat or other ways to interact with strangers.")),
+    ] + (FeatureFlags.lanMatch ? onlineSafety : [])
+
+    /// オンライン機能の通報・ブロック（ガイドライン 1.2）。
+    private static let onlineSafety: [FAQEntry] = [
+        FAQEntry(id: "safety_report", category: .safety,
+                 questionJa: "迷惑なプレイヤーを通報・ブロックするには？", questionEn: "How do I report or block a player?",
+                 answerJa: "パーティの枠・参加者の一覧・フレンド・届いた申請の「…」、招待の画面、オンライン対戦の結果の「通報・不具合報告」から通報・ブロックできます。ブロックした相手からは申請や招待が届かず、あなたの部屋にも入れません。ホストは参加者を部屋から外せます。ブロックの解除は 設定 > プライバシー。通報は運営が確認し、利用規約とコミュニティガイドラインに沿って対応します。",
+                 answerEn: "Use the \"…\" menu on party slots, the member list, friends and requests, the invite screen, or \"Report\" on online match results. Blocked players can't send you requests or invites or join your room, and hosts can remove players from their room. Unblock in Settings > Privacy. We review every report and act under the Terms and Community Guidelines."),
     ]
 }
 

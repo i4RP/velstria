@@ -736,7 +736,7 @@ final class HeroVisual {
         let fill = isSelf ? TeamColors.selfColor : materials.teams.main(u.team)
         let resColor = h?.resourceKind == .energy ? RGB(1.0, 0.84, 0.3) : RGB(0.35, 0.62, 1.0)
         bar = OverheadBar(style: .hero(isSelf: isSelf, showResource: isSelf), fillColor: fill, materials: materials,
-                          meshes: meshes, text: text, name: h?.displayName, resourceColor: resColor)
+                          meshes: meshes, text: text, name: h.map { PlayerNameRules.shown($0.displayName) }, resourceColor: resColor)
         bar.root.position.y = handle.overheadHeight + 0.45
         root.addChild(bar.root)
         status = StatusIndicators(meshes: meshes, materials: materials, headHeight: handle.overheadHeight, size: 0.85,

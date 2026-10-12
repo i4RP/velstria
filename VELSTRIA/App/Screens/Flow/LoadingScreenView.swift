@@ -311,7 +311,7 @@ private struct LoadingPlayerCard: View {
                         .offset(x: 6, y: -4)
                 }
             }
-            Text(human ? slot.displayName : (hero.map { MasterText.hero($0) } ?? slot.heroID))
+            Text(human ? PlayerNameRules.shown(slot.displayName) : (hero.map { MasterText.hero($0) } ?? slot.heroID))
                 .font(Theme.heading(11))
                 .foregroundStyle(highlight ? Theme.gold : Theme.textPrimary)
                 .lineLimit(1)

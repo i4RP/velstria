@@ -284,6 +284,13 @@ private struct NameEditOverlay: View {
                     Text(PlayerNameRules.message(issue)).font(Theme.body(12)).foregroundStyle(Theme.danger)
                 }
                 HStack {
+                    if FeatureFlags.lanMatch {
+                        // 名前はオンラインで他のプレイヤーに見えるので、ルールへのリンクを置く（ガイドライン 1.2）
+                        Link(L("名前のルール", "Name rules"), destination: FeatureFlags.communityGuidelinesURL)
+                            .font(Theme.body(12))
+                            .foregroundStyle(Theme.cyan)
+                            .accessibilityIdentifier("profile_name_guidelines")
+                    }
                     Spacer()
                     Button(L("キャンセル", "Cancel")) { onDone(nil) }
                         .buttonStyle(SecondaryButtonStyle())
