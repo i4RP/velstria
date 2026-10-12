@@ -77,11 +77,15 @@ final class BattleAudioDirector {
             self?.handle(events)
         }
         app?.haptics.prepareAll()
+        // 塔・Star Core の立ち上がり・倒壊の音（描画側の時刻表で鳴る。StructureFX.swift）
+        let audio = app?.audio
+        StructureAudio.sink = { [weak audio] sfx, gain in audio?.play(sfx, gain: gain) }
     }
 
     func stop() {
         if let token, let controller { controller.unsubscribe(token) }
         token = nil
+        StructureAudio.sink = nil
     }
 
     private func handle(_ events: [SimEvent]) {

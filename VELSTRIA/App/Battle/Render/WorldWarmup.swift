@@ -196,6 +196,16 @@ extension BattleWorld {
         for model in StructureAssets.loadedModels {
             for team in Team.players { g.addModel(model.mesh, material: model.material(team), faded: true) }
         }
+        // 複数部品の塔（部品ごと。支柱は隠す時に半透明になる）と破損の材質
+        for rig in StructureAssets.loadedRigs {
+            for team in Team.players {
+                let set = rig.materials(team)
+                for part in rig.kind.parts {
+                    for p in rig.parts[part] ?? [] { g.addModel(p.mesh, material: set.levels[3], faded: part != .plinth) }
+                }
+                if let p = rig.parts[.plinth]?.first { g.addModel(p.mesh, material: set.ruin, faded: false) }
+            }
+        }
         let textMaterial = materials.unlit(RGB(1, 0.94, 0.72), alpha: 1, depthTest: false)
         for m in text.builtMeshes { g.addModel(m, material: textMaterial, size: 0.3, faded: false) }
         // スキル演出の材質（画像 × 色）全てと形全て

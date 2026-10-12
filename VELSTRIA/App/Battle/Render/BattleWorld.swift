@@ -22,6 +22,8 @@ final class BattleWorld {
     let projectiles: ProjectileLayer
     let zones: ZoneLayer
     let vfx: VFXSystem
+    /// 塔・Star Core の立ち上がり・損傷・倒壊の合図 → 粒子・音（StructureFX.swift）。
+    let structureFX: StructureFXDirector
     /// スキル固有の演出（SkillFX）。
     let skillDirector: SkillFXDirector
     /// Effekseer の効果（ヒーロー別の通常攻撃・スキル）。Metal が使えない環境では nil。BattleRenderer が設定する。
@@ -88,6 +90,8 @@ final class BattleWorld {
     private var hasSyncedViewer = false
     #if DEBUG
     private let showcase: RenderShowcase?
+    /// 塔の一生を繰り返す確認用（-towerDemo）。
+    private let towerDemo: TowerDemo?
     #endif
 
     init(controller: BattleController, settings: RenderSettings, groundImage: CGImage?, arView: ARView,
@@ -112,6 +116,7 @@ final class BattleWorld {
         root.addChild(zones.root)
         vfx = VFXSystem(quality: settings.quality, materials: materials, meshes: meshes)
         root.addChild(vfx.root)
+        structureFX = StructureFXDirector(vfx: vfx, materials: materials)
         skillDirector = SkillFXDirector(master: controller.ctx.master, quality: settings.quality, units: units,
                                         projectiles: projectiles)
         root.addChild(skillDirector.player.root)
@@ -131,6 +136,7 @@ final class BattleWorld {
         director = controller.isSpectating ? CameraDirector(controller: controller, link: cameraLink) : nil
         #if DEBUG
         showcase = RenderShowcase.isRequested ? RenderShowcase(master: controller.ctx.master) : nil
+        towerDemo = TowerDemo.requested.map { TowerDemo(target: $0) }
         if SkillFXDemo.isRequested {
             let demo = SkillFXDemo()
             demo.walk = { [weak controller] p in controller?.send(.moveTo(point: p)) }
@@ -182,6 +188,12 @@ final class BattleWorld {
             showcase.apply(&frame, events: &injected)
             for e in injected { handle(e, frame: frame) }
         }
+        if let towerDemo {
+            towerDemo.apply(&frame, units: units)
+            if let id = towerDemo.towerID, let v = units.structure(id) {
+                for a in towerDemo.hits { structureFX.hit(v, attacker: a, time: time, near: nearCamera(v.root.position)) }
+            }
+        }
         #else
         var frame = makeFrame(dt: dt)
         frame.camera = rig.camera.position
@@ -208,6 +220,7 @@ final class BattleWorld {
         t = probe.start()
         workStats.measure(.units, live: live) { units.sync(frame) }
         flushMuzzles(frame)
+        flushStructureCues(frame, rig: rig)
         probe.stop(.units, t)
         workStats.measure(.projectiles, live: live) {
             t = probe.start()
@@ -306,6 +319,7 @@ final class BattleWorld {
         pendingHeal = 0
         pendingHealTimer = 0
         shakeRequest = 0
+        structureFX.reset()
         // 1 回目で見た目を今の状態から作り直し、2 回目で作ったばかりの見た目のフェード（HP バーの遅れなど）も終わらせる
         for _ in 0..<2 { sync(events: [], dt: BattleWorld.presentationSnapDt, rig: rig) }
         let state = controller.state
@@ -476,6 +490,7 @@ final class BattleWorld {
         case .damage(let d):
             units.noteHit(targetID: d.targetID)
             onDamage(d, f)
+            structureHit(d, f)
             if isShown(d.targetID, f) {
                 effekseer?.onDamage(d, state: f.state)
                 if !fxHandlesSkill(d.sourceID, f) { skillDirector.onDamage(d, state: f.state) }
@@ -566,18 +581,12 @@ final class BattleWorld {
             guard isShown(heroID, f), let base = units.worldPositionOf(heroID) else { break }
             vfx.spawn(.levelUp, at: base + SIMD3(0, 0.1, 0), color: FXColors.levelUp, important: true)
             vfx.ring(at: base, color: FXRings.levelUp, from: 0.3, to: 1.8, duration: 0.7)
-        case .structureDestroyed(let id, let kind, let team, _, _, _):
-            guard let base = units.worldPositionOf(id) else { break }
-            let top = base + SIMD3(0, kind == .core ? 3.6 : 4.6, 0)
-            vfx.spawn(.towerExplosion, at: top, color: teamLight(team), scale: kind == .core ? 1.6 : 1,
-                      important: true)
-            vfx.spawn(.debris, at: top - SIMD3(0, 1.5, 0), color: .gray, scale: kind == .core ? 1.5 : 1, important: true)
-            vfx.spawn(.smoke, at: base + SIMD3(0, 1.2, 0), color: .gray, scale: kind == .core ? 1.6 : 1, important: true)
-            vfx.flash(at: top, color: materials.teams.light(team), radius: kind == .core ? 4.5 : 3, duration: 0.45, alpha: 0.7)
-            vfx.ring(at: base, color: materials.teams.light(team), from: 1, to: kind == .core ? 12 : 8, duration: 0.8)
-            if let focus = f.focusID, let fp = units.worldPositionOf(focus), simd_distance(fp, base) < 20 {
-                shakeRequest = max(shakeRequest, kind == .core ? 0.8 : 0.55)
-            }
+        case .structureDestroyed(let id, let kind, _, _, _, _):
+            // 倒壊は構造物の見た目が deathTime からの時刻表（TowerPose）で段階的に見せ、粉塵・破片・音はその合図
+            // （flushStructureCues）が出す。ここは追従ヒーローが近い時だけ小さく揺らす（遠い塔では揺らさない）
+            guard let base = units.worldPositionOf(id), let focus = f.focusID, let fp = units.worldPositionOf(focus),
+                  simd_distance(fp, base) < (kind == .core ? 16 : 12) else { break }
+            shakeRequest = max(shakeRequest, kind == .core ? 0.3 : 0.18)
         case .respawned(let heroID, let pos):
             let p = worldPosition(pos)
             guard f.viewerTeam == nil || f.state.unit(heroID)?.team == f.viewerTeam else { break }
@@ -644,6 +653,8 @@ final class BattleWorld {
                                                            important: involvesFocus) }
                         break
                     }
+                    // 構造物への命中は攻撃者に向いた側面の火花と石の粉（structureHit）
+                    if units.structure(d.targetID) != nil { break }
                     // ミニオン同士の小競り合いは控えめに
                     let minor = src?.kind == .minion && f.state.unit(d.targetID)?.kind == .minion
                     if !minor || settings.quality.level == .high {
@@ -669,6 +680,23 @@ final class BattleWorld {
                       stackKey: d.targetID)
             if case .skill(.ultimate) = d.source { shakeRequest = max(shakeRequest, 0.45) }
         }
+    }
+
+    /// 構造物の被弾: 攻撃者に向いた側面に小さな火花と石の粉（攻撃者が視点チームから見えている時だけ。隠れた敵の位置を漏らさない）。
+    private func structureHit(_ d: DamageEvent, _ f: RenderFrame) {
+        guard d.amount > 0, let v = units.structure(d.targetID), let src = d.sourceID, let si = f.state.index(of: src),
+              f.isVisible(si), let a = units.worldPositionOf(src) else { return }
+        structureFX.hit(v, attacker: a, time: time, near: nearCamera(v.root.position))
+    }
+
+    /// 構造物の合図（立ち上がり・損傷・倒壊・Core の崩壊）→ 粒子・音（StructureFXDirector）。近い時の着地・衝撃波は小さく揺らす。
+    private func flushStructureCues(_ f: RenderFrame, rig: CameraRig) {
+        guard !units.structureCues.isEmpty else { return }
+        let focus = (f.focusID ?? controller.humanHeroID).flatMap { units.worldPositionOf($0) }
+        let shake = structureFX.play(units.structureCues, now: time, near: nearCamera, listener: rig.focus.value, focus: focus,
+                                     speed: controller.isOnline ? 1 : controller.speed)
+        shakeRequest = max(shakeRequest, shake)
+        units.clearStructureCues()
     }
 
     private func onHeal(target: EntityID, source: EntityID?, amount: Double, _ f: RenderFrame) {

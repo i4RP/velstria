@@ -77,12 +77,23 @@ final class StructureAssetsTests: XCTestCase {
         let core = try XCTUnwrap(sim.state.units.first { $0.kind == .core })
         let tv = try XCTUnwrap(l.structure(tower.id))
         let cv = try XCTUnwrap(l.structure(core.id))
-        XCTAssertEqual(tv.generatedParts, 2, "塔の本体と結晶球")
-        XCTAssertEqual(cv.generatedParts, 2, "Core の台座と大結晶")
-        // 球は爪の中（本体の上端の少し下）、HP バーは球の上
-        XCTAssertEqual(tv.floatBaseY, 4.15, accuracy: 0.05)
+        if let rig = StructureAssets.rig(.tower(tower.tower?.tier ?? .outer)) {
+            // 複数部品の塔（同梱されていれば）: 部品の数、発射点は結晶
+            XCTAssertEqual(tv.generatedParts, rig.kind.parts.count)
+            XCTAssertEqual(tv.muzzleHeight, tv.floatBaseY)
+        } else {
+            XCTAssertEqual(tv.generatedParts, 2, "塔の本体と結晶球")
+            // 球は爪の中（本体の上端の少し下）
+            XCTAssertEqual(tv.floatBaseY, 4.15, accuracy: 0.05)
+        }
+        if let rig = StructureAssets.rig(.starCore) {
+            XCTAssertEqual(cv.generatedParts, rig.kind.parts.count)
+        } else {
+            XCTAssertEqual(cv.generatedParts, 2, "Core の台座と大結晶")
+            XCTAssertGreaterThanOrEqual(cv.floatBaseY, 3.6)
+        }
+        // HP バーは結晶の上
         XCTAssertGreaterThan(tv.bar.root.position.y, tv.floatBaseY + 0.6)
-        XCTAssertGreaterThanOrEqual(cv.floatBaseY, 3.6)
         let minion = try XCTUnwrap(sim.state.units.first { $0.kind == .minion && $0.isAlive })
         XCTAssertEqual(l.creature(minion.id)?.isGenerated, true)
 
@@ -114,6 +125,34 @@ final class StructureAssetsTests: XCTestCase {
         XCTAssertEqual(tv.muzzleHeight, 4.5)
         let minion = try XCTUnwrap(sim.state.units.first { $0.kind == .minion && $0.isAlive })
         XCTAssertEqual(l.creature(minion.id)?.isGenerated, false)
+    }
+
+    /// 複数部品の塔（Struct_tower_outer / _inner / _base / Struct_star_core）: 同梱されている種類は全て読めて、
+    /// 部品が揃い、三角形（本体 6k・結晶 2.5k）と赤のテクスチャ（1024 px）の予算に収まる。同梱が無ければ従来のモデル。
+    func testBundledRigsFitBudgets() async throws {
+        await StructureAssets.load()
+        for kind in StructureAssets.RigKind.allCases {
+            guard StructureAssets.resolver(kind.fileName, "usdz") != nil else {
+                XCTAssertNil(StructureAssets.rig(kind), "\(kind.fileName) が無ければ従来のモデル")
+                continue
+            }
+            let rig = try XCTUnwrap(StructureAssets.rig(kind), "\(kind.fileName) が読めない（部品・予算・材質）")
+            XCTAssertEqual(Set(rig.parts.keys), Set(kind.parts))
+            XCTAssertLessThanOrEqual(rig.bodyTriangles, StructureAssets.RigKind.bodyTriangleBudget, "\(kind)")
+            XCTAssertLessThanOrEqual(rig.crystalTriangles, StructureAssets.RigKind.crystalTriangleBudget, "\(kind)")
+            let g = try XCTUnwrap(rig.geometry)
+            XCTAssertEqual(g.plinth?.min.y ?? 0, 0, accuracy: 0.15, "\(kind) 足元が地面")
+            XCTAssertGreaterThan(g.crystal.center.y, g.plinthTop, "\(kind)")
+            for suffix in ["_red", "_red_emit"] {
+                guard let url = StructureAssets.resolver(kind.fileName + suffix, "jpg") else { continue }
+                let src = try XCTUnwrap(CGImageSourceCreateWithURL(url as CFURL, nil))
+                let props = try XCTUnwrap(CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any])
+                XCTAssertLessThanOrEqual(props[kCGImagePropertyPixelWidth] as? Int ?? .max, 1024, "\(kind)\(suffix)")
+            }
+        }
+        // -legacyStructures は複数部品の塔を使わない
+        StructureAssets.useLegacyModels = true
+        for kind in StructureAssets.RigKind.allCases { XCTAssertNil(StructureAssets.rig(kind)) }
     }
 
     /// 同梱が見つからない種類は nil（読み込み失敗で落ちない）。

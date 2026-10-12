@@ -253,6 +253,67 @@ enum SFXSynth {
             c.addBell(start: 0, frequency: m(79), amplitude: 0.4, decay: 0.18)
             c.addBell(start: 0.14, frequency: m(84), amplitude: 0.4, decay: 0.25)
             peak = 0.48
+        // 塔・Star Core（重い石と青銅、結晶の澄んだ響き。どれも低めで短い）
+        case .towerRise:
+            // 地鳴り: ゆっくり立ち上がる低い唸りと、石が擦れるこもったノイズ
+            c = canvas(0.8)
+            c.add(SynthNote(start: 0, duration: 0.8, frequency: 46, endFrequency: 52, amplitude: 0.7, attack: 0.25,
+                            release: 0.2, tremoloRate: 7, tremoloDepth: 0.3))
+            c.add(SynthNoise(start: 0, duration: 0.8, amplitude: 0.5, attack: 0.3, decay: nil, release: 0.25,
+                             lowpassFrom: 260, lowpassTo: 420, seed: 211))
+            for (i, t) in [0.22, 0.41, 0.58].enumerated() {
+                c.add(SynthNoise(start: t, duration: 0.08, amplitude: 0.12, attack: 0.004, decay: 0.03,
+                                 lowpassFrom: 900, seed: 220 + UInt64(i)))
+            }
+            peak = 0.6
+        case .towerLock:
+            // ロック: 低い打撃 + 青銅の短い響き
+            c = canvas(0.45)
+            c.add(SynthNote(start: 0, duration: 0.3, frequency: 130, endFrequency: 70, sweepTime: 0.12, amplitude: 0.8,
+                            attack: 0.002, decay: 0.08, release: 0.04))
+            c.add(SynthNoise(start: 0, duration: 0.06, amplitude: 0.5, attack: 0.001, decay: 0.015, lowpassFrom: 3000, seed: 231))
+            c.addBell(start: 0.01, frequency: 311, amplitude: 0.18, decay: 0.07)
+            peak = 0.55
+        case .towerCrack:
+            // 亀裂: 乾いた破裂と、細かく続くひびの音
+            c = canvas(0.5)
+            c.add(SynthNoise(start: 0, duration: 0.12, amplitude: 0.8, attack: 0.001, decay: 0.03, lowpassFrom: 6000,
+                             highpass: 400, seed: 241))
+            for (i, t) in [0.05, 0.09, 0.16, 0.22, 0.31, 0.38].enumerated() {
+                c.add(SynthNoise(start: t, duration: 0.04, amplitude: 0.35 - Float(i) * 0.04, attack: 0.001, decay: 0.01,
+                                 lowpassFrom: 4500, highpass: 600, seed: 250 + UInt64(i)))
+            }
+            c.add(SynthNote(start: 0, duration: 0.25, frequency: 95, endFrequency: 60, amplitude: 0.4, attack: 0.002, decay: 0.08))
+            peak = 0.6
+        case .towerCollapse:
+            // 倒壊: 低い唸りの上で石が崩れる不規則な音
+            c = canvas(0.8)
+            c.add(SynthNote(start: 0, duration: 0.8, frequency: 60, endFrequency: 40, sweepTime: 0.7, amplitude: 0.6,
+                            attack: 0.05, decay: 0.45, release: 0.15))
+            c.add(SynthNoise(start: 0, duration: 0.8, amplitude: 0.45, attack: 0.06, decay: 0.4, release: 0.15,
+                             lowpassFrom: 1400, lowpassTo: 300, seed: 261))
+            for (i, t) in [0.08, 0.17, 0.24, 0.36, 0.45, 0.57].enumerated() {
+                c.add(SynthNoise(start: t, duration: 0.07, amplitude: 0.22, attack: 0.002, decay: 0.025,
+                                 lowpassFrom: 1600, seed: 270 + UInt64(i)))
+            }
+            peak = 0.66
+        case .towerImpact:
+            // 着地: 重い衝撃と低い砂煙のノイズ（跳ね返りの音は無い）
+            c = canvas(0.75)
+            c.add(SynthNote(start: 0, duration: 0.7, frequency: 70, endFrequency: 32, sweepTime: 0.35, amplitude: 0.95,
+                            attack: 0.002, decay: 0.22, release: 0.1))
+            c.add(SynthNoise(start: 0, duration: 0.7, amplitude: 0.6, attack: 0.003, decay: 0.25, release: 0.1,
+                             lowpassFrom: 1800, lowpassTo: 200, seed: 281))
+            peak = 0.72
+        case .crystalFade:
+            // 結晶の消失: 澄んだ高い響きが下りながら薄れる
+            c = canvas(0.8)
+            for (i, note) in [93.0, 88, 84, 79].enumerated() {
+                c.addBell(start: Double(i) * 0.11, frequency: m(note), amplitude: 0.26 - Float(i) * 0.03, decay: 0.12)
+            }
+            c.add(SynthNoise(start: 0, duration: 0.7, amplitude: 0.06, attack: 0.1, decay: nil, release: 0.3,
+                             lowpassFrom: 10_000, highpass: 5000, seed: 291))
+            peak = 0.45
         }
         c.fadeOut(0.006)
         c.normalize(peak: peak)

@@ -75,6 +75,7 @@ jobs:
             -only-testing:VELSTRIATests/HeroModelTests/testAllHeroesBuildWithinBudget \
             -only-testing:VELSTRIATests/SkinnedHeroModelTests/testBundledHeroAssetsMeetContract \
             -only-testing:VELSTRIATests/StageTests/testTriangleBudget \
+            -only-testing:VELSTRIATests/TowerPoseTests \
             -only-testing:VELSTRIATests/OnlineProtocolTests \
             -only-testing:VELSTRIATests/OnlineSessionTests \
             -only-testing:VELSTRIATests/OnlineTransportTests \
