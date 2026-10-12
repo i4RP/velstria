@@ -284,19 +284,26 @@ enum HUDMatchResultKind: Equatable {
 }
 
 enum HUDEndPhase: Equatable {
+    /// Star Core の終幕（カメラが Core の倒壊を見せている間。HUD を全部隠す。TowerTimeline.finaleResult でバナーへ）。
+    case finale(HUDMatchResultKind, EndReason)
     case banner(HUDMatchResultKind, EndReason)
     case prompt(HUDMatchResultKind, EndReason)
 
     var kind: HUDMatchResultKind {
         switch self {
-        case .banner(let k, _), .prompt(let k, _): return k
+        case .finale(let k, _), .banner(let k, _), .prompt(let k, _): return k
         }
     }
 
     var reason: EndReason {
         switch self {
-        case .banner(_, let r), .prompt(_, let r): return r
+        case .finale(_, let r), .banner(_, let r), .prompt(_, let r): return r
         }
+    }
+
+    var isFinale: Bool {
+        if case .finale = self { return true }
+        return false
     }
 }
 

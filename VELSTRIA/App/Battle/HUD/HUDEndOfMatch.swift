@@ -3,72 +3,40 @@ import VelstriaCore
 
 // 担当: battle-hud。試合終了の演出: VICTORY / DEFEAT（観戦はチーム勝利、引き分け）の大きなバナー（約 2.5 秒）、
 // その後「続ける」でリザルトへ（controller.makeOutcome(abandoned: false)）。
+// Star Core の終幕の後は、引きの構図（Core が右寄せ）の空いた左側へバナーを寄せ、暗幕も左を濃く右を薄くする（壊れた Core を見せたまま）。
 
 struct HUDEndOfMatchView: View {
     let model: HUDModel
     let phase: HUDEndPhase
     let colorblind: Bool
+    /// Star Core の終幕の後（バナーを左へ寄せる）。
+    var leading = false
 
     @State private var appeared = false
     @State private var shine = false
 
     var body: some View {
         let style = Self.style(phase.kind, colorblind: colorblind)
-        ZStack {
-            Rectangle()
-                .fill(Color.black.opacity(appeared ? 0.55 : 0))
-                .ignoresSafeArea()
-            RadialGradient(colors: [style.color.opacity(0.45), .clear], center: .center, startRadius: 10, endRadius: 420)
-                .opacity(appeared ? 1 : 0)
-                .ignoresSafeArea()
-            VStack(spacing: 10) {
-                ZStack {
-                    // 光条
-                    ForEach(0..<12, id: \.self) { k in
-                        Capsule()
-                            .fill(LinearGradient(colors: [style.color.opacity(0.55), .clear], startPoint: .bottom, endPoint: .top))
-                            .frame(width: 6, height: 150)
-                            .offset(y: -75)
-                            .rotationEffect(.degrees(Double(k) * 30 + (shine ? 15 : 0)))
-                    }
-                    .opacity(phase.kind == .defeat ? 0.25 : 0.8)
-                    Image(systemName: style.symbol)
-                        .font(.system(size: 54, weight: .black))
-                        .foregroundStyle(LinearGradient(colors: [.white, style.color], startPoint: .top, endPoint: .bottom))
-                        .shadow(color: style.color, radius: 16)
+        GeometryReader { geo in
+            ZStack {
+                if leading {
+                    LinearGradient(colors: [.black.opacity(0.62), .black.opacity(0.38), .black.opacity(0.06)],
+                                   startPoint: .leading, endPoint: .trailing)
+                        .opacity(appeared ? 1 : 0)
+                } else {
+                    Rectangle()
+                        .fill(Color.black.opacity(appeared ? 0.55 : 0))
                 }
-                .frame(height: 110)
-                Text(style.title)
-                    .font(.system(size: 58, weight: .black, design: .serif))
-                    .italic()
-                    .tracking(6)
-                    .foregroundStyle(LinearGradient(colors: [.white, style.color], startPoint: .top, endPoint: .bottom))
-                    .shadow(color: style.color.opacity(0.9), radius: 18)
-                    .scaleEffect(appeared ? 1 : 1.8)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
-                Text(style.subtitle)
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.9))
-                if let reason = HUDText.endReason(phase.reason) {
-                    Text(reason)
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.6))
-                }
-                ZStack {
-                    if case .prompt = phase {
-                        Button { model.continueAfterEnd() } label: {
-                            Label(L("続ける", "Continue"), systemImage: "chevron.right.2").frame(minWidth: 180)
-                        }
-                        .buttonStyle(PrimaryButtonStyle(color: style.color))
-                        .accessibilityIdentifier("result_continue")
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
-                }
-                .frame(height: 52)
+                RadialGradient(colors: [style.color.opacity(leading ? 0.32 : 0.45), .clear],
+                               center: leading ? UnitPoint(x: Self.leadingCenterX, y: 0.5) : .center,
+                               startRadius: 10, endRadius: 420)
+                    .opacity(appeared ? 1 : 0)
+                content(style)
+                    .frame(maxWidth: leading ? geo.size.width * Self.leadingCenterX * 1.8 : nil)
+                    .position(x: geo.size.width * (leading ? Self.leadingCenterX : 0.5), y: geo.size.height / 2)
             }
-            .opacity(appeared ? 1 : 0)
         }
+        .ignoresSafeArea()
         .animation(.spring(duration: 0.4), value: phase)
         .onAppear {
             withAnimation(.spring(duration: 0.9, bounce: 0.35)) { appeared = true }
@@ -76,6 +44,59 @@ struct HUDEndOfMatchView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("hud_end")
+    }
+
+    /// 終幕の後のバナーの中心（画面の幅に対する割合。引きの構図で Core は 0.65 付近）。
+    static let leadingCenterX: CGFloat = 0.3
+
+    private func content(_ style: Style) -> some View {
+        VStack(spacing: 10) {
+            ZStack {
+                // 光条
+                ForEach(0..<12, id: \.self) { k in
+                    Capsule()
+                        .fill(LinearGradient(colors: [style.color.opacity(0.55), .clear], startPoint: .bottom, endPoint: .top))
+                        .frame(width: 6, height: 150)
+                        .offset(y: -75)
+                        .rotationEffect(.degrees(Double(k) * 30 + (shine ? 15 : 0)))
+                }
+                .opacity(phase.kind == .defeat ? 0.25 : 0.8)
+                Image(systemName: style.symbol)
+                    .font(.system(size: 54, weight: .black))
+                    .foregroundStyle(LinearGradient(colors: [.white, style.color], startPoint: .top, endPoint: .bottom))
+                    .shadow(color: style.color, radius: 16)
+            }
+            .frame(height: 110)
+            Text(style.title)
+                .font(.system(size: 58, weight: .black, design: .serif))
+                .italic()
+                .tracking(6)
+                .foregroundStyle(LinearGradient(colors: [.white, style.color], startPoint: .top, endPoint: .bottom))
+                .shadow(color: style.color.opacity(0.9), radius: 18)
+                .scaleEffect(appeared ? 1 : 1.8)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+            Text(style.subtitle)
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.9))
+            if let reason = HUDText.endReason(phase.reason) {
+                Text(reason)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+            ZStack {
+                if case .prompt = phase {
+                    Button { model.continueAfterEnd() } label: {
+                        Label(L("続ける", "Continue"), systemImage: "chevron.right.2").frame(minWidth: 180)
+                    }
+                    .buttonStyle(PrimaryButtonStyle(color: style.color))
+                    .accessibilityIdentifier("result_continue")
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .frame(height: 52)
+        }
+        .opacity(appeared ? 1 : 0)
     }
 
     struct Style {

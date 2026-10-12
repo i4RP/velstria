@@ -22,6 +22,8 @@ import VelstriaCore
 //   -sampleReplays        リプレイ一覧の確認用に見本のリプレイを保存する（AI 観戦・自分の試合・乱闘・別バージョン）
 //   -practiceNoCD / -practiceLevel <n>  -battle practice の設定（クールダウン無し / 開始レベル）
 //   -efkAuto <atk|s1|s2|ult>  -battle practice で、人形へ近づいて 2 秒ごとに通常攻撃 / スキルを撃ち続ける（Effekseer の確認用）
+//   -coreFinaleDemo <red|blue>  幕が上がって 2 秒後にその Core を数秒で壊させ、Star Core の終幕を流す（BattleRenderer。
+//                         -battle spectate、または -battle standard -botControl と併せる。sim の規則は変えず状態を置き換えるだけ）
 //   -hero <heroID>        -battle で自分が使うヒーロー（省略時は最後に選んだヒーロー、無ければ H003）
 //   -language <ja|en>     表示言語
 //   -graphics <low|medium|high>  画質
