@@ -1,0 +1,181 @@
+{
+  "version": 1,
+  "assets": {
+    "cliff_rock_a": {
+      "status": "success",
+      "concept_sha256": "0862396fbffa76cedf73041860b8dda1e8170852aef2fae649e495ccea54954f",
+      "request": {
+        "input": "<concept.png の file_token>",
+        "model": "P1-20260311",
+        "face_limit": 20000,
+        "texture": true,
+        "pbr": true,
+        "texture_quality": "detailed",
+        "texture_version": "v3.5-20260815",
+        "delight": true,
+        "texture_alignment": "original_image",
+        "orientation": "align_image"
+      },
+      "balance_before": 4030,
+      "submitted_at": "2026-10-12T11:17:59.482Z",
+      "task_id": "95e67bc6-f378-41c2-8404-db4da5cd40ff",
+      "credits": 60,
+      "bytes": 18122660,
+      "completed_at": "2026-10-12T11:19:19.152Z"
+    },
+    "bush": {
+      "status": "success",
+      "concept_sha256": "72e5ff3bd7bcfc2b4d7dbafc086fd2f69fe650b1f63a7dfbaa1d09fd76613afc",
+      "request": {
+        "input": "<concept.png の file_token>",
+        "model": "P1-20260311",
+        "face_limit": 16000,
+        "texture": true,
+        "pbr": true,
+        "texture_quality": "detailed",
+        "texture_version": "v3.5-20260815",
+        "delight": true,
+        "texture_alignment": "original_image",
+        "orientation": "align_image"
+      },
+      "balance_before": 3970,
+      "submitted_at": "2026-10-12T11:19:56.303Z",
+      "task_id": "b5f3461d-16db-48cd-b24d-9d94a4b058f8",
+      "credits": 60,
+      "bytes": 9690656,
+      "completed_at": "2026-10-12T11:21:15.383Z"
+    },
+    "tree_tall": {
+      "status": "success",
+      "concept_sha256": "f2aa86901807dfec99f91a36ca2af4cfeb5d31f127d49dae9d668300ed763a30",
+      "request": {
+        "input": "<concept.png の file_token>",
+        "model": "P1-20260311",
+        "face_limit": 20000,
+        "texture": true,
+        "pbr": true,
+        "texture_quality": "detailed",
+        "texture_version": "v3.5-20260815",
+        "delight": true,
+        "texture_alignment": "original_image",
+        "orientation": "align_image"
+      },
+      "balance_before": 3970,
+      "submitted_at": "2026-10-12T11:19:56.310Z",
+      "task_id": "44af269f-9bad-4614-aa35-501d20d4f5ca",
+      "credits": 60,
+      "bytes": 11550020,
+      "completed_at": "2026-10-12T11:21:35.150Z"
+    },
+    "boulder": {
+      "status": "success",
+      "concept_sha256": "1543185e879dc8b0e93010f098dfe33a788f8465d07d2bfc464b2739483fc1e0",
+      "request": {
+        "input": "<concept.png の file_token>",
+        "model": "P1-20260311",
+        "face_limit": 20000,
+        "texture": true,
+        "pbr": true,
+        "texture_quality": "detailed",
+        "texture_version": "v3.5-20260815",
+        "delight": true,
+        "texture_alignment": "original_image",
+        "orientation": "align_image"
+      },
+      "balance_before": 3970,
+      "submitted_at": "2026-10-12T11:19:56.314Z",
+      "task_id": "31c2770f-ec2f-46ec-ac2a-883458181c52",
+      "credits": 60,
+      "bytes": 23071032,
+      "completed_at": "2026-10-12T11:23:23.182Z"
+    },
+    "tree_round": {
+      "status": "success",
+      "concept_sha256": "8837465014b64a0cdfee9ef3f982f7d356a4af1fe621bdc5328f5293611fbf65",
+      "request": {
+        "input": "<concept.png の file_token>",
+        "model": "P1-20260311",
+        "face_limit": 20000,
+        "texture": true,
+        "pbr": true,
+        "texture_quality": "detailed",
+        "texture_version": "v3.5-20260815",
+        "delight": true,
+        "texture_alignment": "original_image",
+        "orientation": "align_image"
+      },
+      "balance_before": 3970,
+      "submitted_at": "2026-10-12T11:19:56.318Z",
+      "task_id": "69f26634-a97d-4a76-a450-a5e566ca3e74",
+      "credits": 60,
+      "bytes": 11472436,
+      "completed_at": "2026-10-12T11:21:50.265Z"
+    },
+    "ruin_pillar": {
+      "status": "success",
+      "concept_sha256": "b71e08acf2b7354e904af0f902e628c1df71dcfdf1d948b90286e0b34a12b892",
+      "request": {
+        "input": "<concept.png の file_token>",
+        "model": "P1-20260311",
+        "face_limit": 20000,
+        "texture": true,
+        "pbr": true,
+        "texture_quality": "detailed",
+        "texture_version": "v3.5-20260815",
+        "delight": true,
+        "texture_alignment": "original_image",
+        "orientation": "align_image"
+      },
+      "balance_before": 3970,
+      "submitted_at": "2026-10-12T11:19:56.321Z",
+      "task_id": "80e8f00c-a2df-4971-9ab0-6f2f4fe13f37",
+      "credits": 60,
+      "bytes": 15790052,
+      "completed_at": "2026-10-12T11:21:36.934Z"
+    },
+    "spawn_dais": {
+      "status": "success",
+      "concept_sha256": "2a77191698684f3b2670bba2cdae567060a3d5840fb20bfb838dab8a686789e5",
+      "request": {
+        "input": "<concept.png の file_token>",
+        "model": "P1-20260311",
+        "face_limit": 20000,
+        "texture": true,
+        "pbr": true,
+        "texture_quality": "detailed",
+        "texture_version": "v3.5-20260815",
+        "delight": true,
+        "texture_alignment": "original_image",
+        "orientation": "align_image"
+      },
+      "balance_before": 3610,
+      "submitted_at": "2026-10-12T11:23:50.142Z",
+      "task_id": "7e369059-b6e6-45c7-974f-8917a191dbf4",
+      "credits": 60,
+      "bytes": 15273308,
+      "completed_at": "2026-10-12T11:25:18.518Z"
+    },
+    "cliff_rock_b": {
+      "status": "success",
+      "concept_sha256": "de3d051e64b19cc995ce9dabbb82488d5cbd5f43b977f1e86aff090cd0deae24",
+      "request": {
+        "input": "<concept.png の file_token>",
+        "model": "P1-20260311",
+        "face_limit": 20000,
+        "texture": true,
+        "pbr": true,
+        "texture_quality": "detailed",
+        "texture_version": "v3.5-20260815",
+        "delight": true,
+        "texture_alignment": "original_image",
+        "orientation": "align_image"
+      },
+      "balance_before": 3970,
+      "submitted_at": "2026-10-12T11:19:56.330Z",
+      "task_id": "cf8c6535-106b-4ff0-9661-40dfecd24648",
+      "credits": 60,
+      "bytes": 16595008,
+      "completed_at": "2026-10-12T11:21:24.816Z"
+    }
+  }
+}

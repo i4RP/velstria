@@ -14,6 +14,10 @@ final class StageScene {
     /// index = MapDefinition.brushes の添字。
     private(set) var brushEntities: [ModelEntity] = []
     private(set) var triangleCount = 0
+    /// 素材のセット（StageArtSet）。
+    let artSet: StageArtSet
+    /// 泉の台座の柱の頂部（world、Team.players の順）。台座の無いセットでは空（MapScene が旧来の泉を作る）。
+    let fountainSockets: [[SIMD3<Float>]]
 
     struct Materials {
         var ground: CustomMaterial
@@ -25,6 +29,8 @@ final class StageScene {
 
     init?(plan: StagePlan) {
         root.name = "stage"
+        artSet = plan.assets.set
+        fountainSockets = plan.layout.fountainSockets
         let t0 = CFAbsoluteTimeGetCurrent()
         guard let materials = StageScene.makeMaterials(plan: plan) else {
             StagePrep.log.error("stage materials unavailable; falling back to procedural terrain")
@@ -110,6 +116,8 @@ final class StageScene {
               let control = raw(plan.maps.control), let aux = raw(plan.maps.aux) else { return nil }
         let level = plan.quality.level
         let wind: Float = level == .low ? 0 : 1
+        // 新セットの見た目の切り替え（シェーダーの custom_parameter。旧セットは 0 で 2026-10-05 の見た目のまま）
+        let ruins: Float = a.set == .ruins ? 1 : 0
         do {
             var ground = try CustomMaterial(surfaceShader: .init(named: "stageGroundSurface", in: lib), lightingModel: .lit)
             ground.baseColor = .init(texture: .init(grass))
@@ -119,22 +127,23 @@ final class StageScene {
             ground.metallic = .init(texture: .init(bed))
             ground.ambientOcclusion = .init(texture: .init(aux))
             ground.custom.texture = .init(control)
-            ground.custom.value = SIMD4(level == .low ? 0 : 1, 1, level == .high ? 4 : (level == .medium ? 2 : 1), 0)
+            ground.custom.value = SIMD4(level == .low ? 0 : 1, 1, level == .high ? 4 : (level == .medium ? 2 : 1), ruins)
 
             var rock = try CustomMaterial(surfaceShader: .init(named: "stageRockSurface", in: lib), lightingModel: .lit)
             rock.baseColor = .init(texture: .init(rockTile))
             // 苔は roughness のスロットへ（clearcoat のスロットは .lit では束縛されない）
             rock.roughness = .init(texture: .init(moss))
+            rock.custom.value = SIMD4(ruins, 0, 0, 0)
 
             let windModifier = CustomMaterial.GeometryModifier(named: "stageWindGeometry", in: lib)
             var prop = try CustomMaterial(surfaceShader: .init(named: "stagePropSurface", in: lib),
                                           geometryModifier: windModifier, lightingModel: .lit)
             prop.baseColor = .init(texture: .init(atlas))
-            prop.custom.value = SIMD4(wind, 0, 0, 0)
+            prop.custom.value = SIMD4(wind, ruins, 0, 0)
 
             var flora = try CustomMaterial(surfaceShader: .init(named: "stageVertexColorSurface", in: lib),
                                            geometryModifier: windModifier, lightingModel: .lit)
-            flora.custom.value = SIMD4(wind, 0, 0, 0)
+            flora.custom.value = SIMD4(wind, ruins, 0, 0)
 
             var runeMat = PhysicallyBasedMaterial()
             runeMat.baseColor = .init(tint: .white, texture: .init(rune))

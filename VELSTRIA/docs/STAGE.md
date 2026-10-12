@@ -1,7 +1,16 @@
 # ステージ（戦場の地形・小物）の作り方
 
-担当: battle-renderer（ステージ）。2026-10-05 に全面的に作り直した。目標の画作りは Arena of Valor / Honor of Kings 系:
-手描き風の草地と土のレーン、苔の乗った灰色の岩の崖、茂み・木、青緑の川、彫刻のある円形の石の台座、遺跡、暖かく彩度の高い光。
+担当: battle-renderer（ステージ）。2026-10-05 に全面的に作り直し、2026-10-12 に素材を「遺跡と森」のセットへ替えた。
+
+- 既定のセット（`StageArtSet.ruins`、2026-10-12）: 古代の石の遺跡と豊かな自然が共存し、建築に魔力が残る世界。スタイライズドな
+  セミリアル。石 = 重く風化した灰緑の花崗岩（艶なし・欠け・苔）、金属 = 暗い古びた青銅、光るのは結晶とルーンだけ。色は深緑・青緑・
+  灰色の石・くすんだ土。チーム色は結晶・ルーン・小さな飾りだけ。拠点の石畳は中央をきれいに保ち、縁ほど崩れて土と苔が入り込む。
+  泉は遺跡の台座（柱の受け皿にチーム色の小さな結晶）。
+- 旧セット（`StageArtSet.legacy`、2026-10-05）: Arena of Valor / Honor of Kings 系の手描き風（暖かく彩度の高い草地と土のレーン、
+  灰色の岩の崖）。素材ファイルはそのまま残してあり、起動引数 `-legacyStage`（DEBUG / SCREENSHOTS ビルド）で読む（見比べ用）。
+
+配置・衝突・草むら・川の規則（1 章）と配置のコード（`StageLayout`）は両セットで同じ。違うのは素材ファイル・拠点の石畳の配合・
+シェーダーの色合わせ（custom_parameter の「新セット」の値）・泉の見た目だけ。
 
 ## 1. 守ること（ゲームの判定と食い違わせない）
 
@@ -23,10 +32,13 @@
 ## 2. 全体の流れ
 
 ```
-[オフライン]
- tools/stage/stage_art.py      Codex で 2D 素材（地面タイル・祭壇の模様・Meshy 用コンセプト画像） → build/stage/art/
- tools/stage/stage_meshy.mjs   Meshy Image to 3D（コンセプト画像 → GLB + テクスチャ） → build/stage/meshy/<id>/
- tools/stage/stage_bake.py     タイルのシームレス化・縮小、GLB の正規化・減面・アトラス化 → App/Resources/Stage/
+[オフライン]（セットは環境変数 STAGE_SET=ruins（既定）| legacy）
+ tools/stage/stage_art.py      Codex で 2D 素材（地面タイル・祭壇の模様・3D 生成用コンセプト画像）
+                               仕様 ruins: stage_art_ruins.json → build/stage/ruins/art/、legacy: stage_art.json → build/stage/art/
+ tools/stage/stage_tripo.mjs   ruins: Tripo image-to-model（P1・PBR・光の除去。コンセプト画像 → GLB、base_color.png を取り出す）
+                               → build/stage/ruins/tripo/<id>/（状態 tools/stage/tripo_state.json）
+ tools/stage/stage_meshy.mjs   legacy: Meshy Image to 3D → build/stage/meshy/<id>/（2026-10-11 から無料プランの API では作れない）
+ tools/stage/stage_bake.py     タイルのシームレス化・縮小、GLB の正規化・減面・色と遮蔽の焼き付け・アトラス化 → App/Resources/Stage/
  tools/stage/build_shaders.sh  StageShaders.metal → metallib（実機 / シミュレータ / macOS） → App/Resources/Stage/
 
 [実行時]
@@ -41,7 +53,16 @@ Metal のシェーダーはアプリのターゲットでコンパイルしな�
 
 ## 3. 素材の形式
 
-### 3.1 地面タイル `App/Resources/Stage/StageTile_<id>.jpg`
+ファイル名はセットごとに分ける（App/Resources/Stage/ はバンドルの直下に平らに入る）:
+
+| | ruins（既定） | legacy（-legacyStage） |
+|---|---|---|
+| 地面タイル | `StageRuinsTile_<id>.jpg` | `StageTile_<id>.jpg` |
+| 小物メッシュ | `StageRuinsProps.bin` | `StageProps.bin` |
+| 小物アトラス | `StageRuinsPropsAtlas.jpg` | `StagePropsAtlas.jpg` |
+| 祭壇の模様・シェーダー | 共用（`StageDecal_rune.jpg`・`StageShaders-*.metallib`） | 同 |
+
+### 3.1 地面タイル `App/Resources/Stage/StageTile_<id>.jpg`（新セットは `StageRuinsTile_<id>.jpg`）
 - id: `grass` `grass_dark` `dirt` `paving` `rock` `moss` `riverbed`。1024×1024、JPEG 品質 90、sRGB。
 - 4 辺ともシームレス（オフセット合成）。色の調整はしない（シェーダー側の定数で合わせる）。
 - 実寸の周期（シェーダーの定数）: grass 6 m、grass_dark 6 m、dirt 7 m、paving 5 m、rock 4 m、moss 4 m、riverbed 6 m。
@@ -49,12 +70,13 @@ Metal のシェーダーはアプリのターゲットでコンパイルしな�
 ### 3.2 祭壇の模様 `App/Resources/Stage/StageDecal_rune.jpg`
 - 円形の石の台座を上から見た絵。円がちょうど内接する正方形に切り出し 1024×1024。円の外は使わない（円盤メッシュに貼る）。
 
-### 3.3 小物メッシュ `App/Resources/Stage/StageProps.bin` + `StagePropsAtlas.jpg`
+### 3.3 小物メッシュ `App/Resources/Stage/StageProps.bin` + `StagePropsAtlas.jpg`（新セットは `StageRuinsProps.bin` + `StageRuinsPropsAtlas.jpg`）
 - アトラス: 2048×1024 の JPEG（品質 90）。512×512 のセルを 4 列 × 2 行。各セルの中身は 496×496 + 周囲 8 px の端の引き伸ばし。
   既定（`STAGE_PROPS_UV=rebake`）は、減面後のメッシュに新しい UV を作り、Meshy の base_color を元のメッシュから焼き付けた絵。
   Meshy の UV は数千の小島に分かれていて、大きく減面すると三角形が島をまたいで色が崩れるため
   （`STAGE_PROPS_UV=meshy` で Meshy の UV と base_color の縮小をそのまま使う）。セルの並び（左上から行優先）:
   `cliff_rock_a, cliff_rock_b, boulder, tree_round / tree_tall, bush, ruin_pillar, ruin_arch`。
+  新セットは最後のセルが `spawn_dais`（泉の遺跡の台座。旧セットの `ruin_arch` は配置に使っていなかった）。
 - バイナリ（リトルエンディアン）:
   ```
   "VSP1"(4) | u32 version=1 | u32 jsonLength | JSON(UTF-8) | 0 埋めで 16 バイト境界 | データ
@@ -80,7 +102,14 @@ Metal のシェーダーはアプリのターゲットでコンパイルしな�
   | tree_tall | 1050 | 高さ 5.0 m |
   | bush | 450 | 足跡の長辺 1.6 m |
   | ruin_pillar | 900 | 高さ 2.6 m |
-  | ruin_arch | 1400 | 幅（X）4.0 m |
+  | ruin_arch（旧セット） | 1400 | 幅（X）4.0 m |
+  | spawn_dais（新セット） | 2000 | 足跡の長辺 6.8 m（旧い泉の台座の直径） |
+
+- 新セット（Tripo）の焼き方（stage_bake.py の表。理由はコメント）: 岩・遺跡は面積が全体の 1% 未満の部分（シダ・蔦の葉の板）を
+  減面の前に消す（`MIN_PART`）。木・茂みはボクセルで塊にし、内側の空洞の面を消してならしてから減らす（`REMESH`・`DROP_CAVITIES`・
+  `SMOOTH`）。円の壁・矩形の壁の角に置く岩は平面形の角を超楕円で落とす（`ROUND_PLAN`。足跡からのはみ出し 0.4 m の規則のため）。
+  色は元のメッシュから焼き付け、減面後の形の遮蔽（Cycles の AO、足元に地面の板）を 0.55 の強さで掛ける（`STAGE_BAKE_AO`）。
+  葉は光を除いた色が暗いのでガンマで持ち上げる（`COLOR_GAMMA`）。
 
 ### 3.4 シェーダー `App/Resources/Stage/StageShaders-ios.metallib`・`StageShaders-sim.metallib`
 - ソース `tools/stage/shaders/StageShaders.metal`。関数（`[[visible]]`）:
@@ -88,6 +117,11 @@ Metal のシェーダーはアプリのターゲットでコンパイルしな�
   - `stageRockSurface`（崖の芯: 側面は rock、上向きの面は moss を三平面投影）
   - `stageFoliageGeometry`（草・葉の揺れ: 頂点の高さに応じて時間で揺らす）
   - `stagePropSurface`（小物アトラス: 色調の統一）
+- custom_parameter（CustomMaterial の custom.value）: 地面 = (繰り返し対策の強さ, 水面の動き, 異方性, **新セット**)、
+  崖の芯 = (**新セット**, 0, 0, 0)、小物・草花 = (揺れの強さ, **新セット**, 0, 0)。新セットが 0 のときは 2026-10-05 の式のまま
+  （旧セットの見た目を変えない）。新セットでは: タイルごとの色合わせ、石畳の風化（補助マップの A）で石を苔寄りに暗くし暗い目地を
+  森の下草で埋める、拠点の中央のきれいな床は石目のコントラストを抑える、小物の根元を湿った青緑に暗くする、葉の上面を日の当たる
+  黄緑にする、揺れは個体ごとの位相（頂点色の rgb = 個体の色味のハッシュ）・ゆっくり流れる突風・葉先の細かな震え（数 cm）。
 - テクスチャの割り当て（CustomMaterial のスロット → 中身）:
 
   | 材質 | base_color | emissive | roughness | metallic | specular | ambient_occlusion | custom |
@@ -101,7 +135,11 @@ Metal のシェーダーはアプリのターゲットでコンパイルしな�
   R = 土（レーン・キャンプ）、G = 石畳（拠点・祭壇まわり）、B = 川（川底 + 水面）、A = 森の下草（壁際・木陰）。
   草地（grass）は 1 − (R+G+B+A) の残り。
 - 補助マップ（ambient_occlusion、RGBA8、同じ範囲）: R = 遮蔽（崖の根元・木陰・草むらの下を暗く）、
-  G = 大きな色むら（0.5 が中立）、B = 川の深さ（0 = 岸、1 = 中央）、A = 予備。
+  G = 大きな色むら（0.5 が中立）、B = 川の深さ（0 = 岸、1 = 中央）、A = 石畳の風化（新セットだけ。拠点の中央 0 → 縁 1、
+  塔の台座・祭壇のまわりは 0.55〜0.8。旧セットは 0）。
+- 新セットの拠点の石畳（`StageSplat.BasePlaza`）: 泉から 5.0 m・Core から 6.8 m・参道の中心線から 2.2 m は必ず石畳（風化 0）。
+  その外は旧セットの広場の縁（泉 8.9 m・Core 13.2 m・参道 5.1 m）を大小のノイズで揺らして 3 m ほどかけて崩し、縁寄りには石の
+  抜けた穴が点々と空く。崩れた所はノイズで踏み固めた土（R）と苔（A）に分ける。レーンの土は縁を広く揺らす（2.1〜4.0 m）。
 
 ## 4. 実行時の構成（`App/Battle/Render/Stage/`）
 
@@ -111,6 +149,11 @@ Metal のシェーダーはアプリのターゲットでコンパイルしな�
 - `StagePrep` — 上の 3 つをまとめて背景で作り、`MapScene` が拾う。
 - `StageMaterials` — CustomMaterial を作る。作れないとき（シェーダーが読めない・未対応の環境）は PBR に落とす
   （地面は配合マップとタイルを CPU で合成した 2048 px の画像）。
+- 泉（新セット）: `StageLayout.fountains` が台座（spawn_dais）を最初に置く（装飾の三角形の予算で省かれない。歩ける所の飾りなので
+  placements には入れない）。床の高さ・縁の柱の頂部はメッシュから求め（`daisFeatures`）、床が 0.12 m になるまで沈め、柱の無い
+  向きを Core へ向ける。柱の頂部（`StageLayoutResult.fountainSockets`）に MapScene がチーム色の小さな結晶を置き、浮遊結晶
+  （`fountainSpires`）は細長い両錐 + 腰の小結晶 3 本にして台座の受け口の上（底 0.95 m）に浮かべる。拠点の門柱は遺跡の標柱
+  （`MapProps.ruinPost`: 花崗岩 + 青銅の帯 + チーム色の結晶）、旧来の吊りランタンは置かない。旧セットは旧来の泉のまま。
 
 チャンク: 小物は 12 m 格子のチャンク × 材質（小物・崖の芯・草花）ごとに 1 メッシュへ結合する（視錐台カリング用）。
 計画（StagePlan）は 1 つだけ取っておき、MapScene が取り出したら手放す（読み込みを中断したら BattleRenderer.teardown が捨てる）。
@@ -130,4 +173,6 @@ DEBUG の `-uiTesting`（UI テスト）と単体テストのホストでは小�
 
 - シミュレータ: `-uiTesting -skipOnboarding -battle spectate`（霧なし）または `-battle standard` で起動し
   `xcrun simctl io <UDID> screenshot`。ブルーム・色調補正はシミュレータでは出ない（実機のみ）。
+  `tools/stage/stage_shots.sh <UDID> <出力> 16,18 12,12,1.3 42,42 60,60 56,30 6,3,0.9`（最後は泉）で撮り、
+  `-- -legacyStage` を付けて同じ位置の旧セットと見比べる。
 - `-stageTour` 起動引数（DEBUG）: カメラを地図の名所（青の拠点・中央の川・ボスの巣・ジャングル）へ順に動かす。

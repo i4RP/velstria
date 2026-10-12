@@ -6,7 +6,9 @@ import VelstriaCore
 // 担当: battle-renderer（ステージ）。地面の配合マップと補助マップを地図データから作る（純粋関数、背景スレッド可）。
 // 範囲は地図座標（m）で x, y とも −20…140（地図の外 20 m を含む）。画像の上端が北（y = 140）。
 //   配合マップ RGBA: R 土 / G 石畳 / B 川 / A 森の下草（草地は残り）
-//   補助マップ RGBA: R 遮蔽 / G 大きな色むら（0.5 中立）/ B 川の深さ / A 予備
+//   補助マップ RGBA: R 遮蔽 / G 大きな色むら（0.5 中立）/ B 川の深さ / A 石畳の風化（新セットだけ。0 = 中央のきれいな床）
+// 新セット（StageArtSet.ruins）は拠点の石畳を一様に敷き詰めない: 泉・Core・参道の中央はきれいな床のまま、外へ行くほど
+// 縁が不規則に崩れ、踏み固めた土と苔が入り込む（風化は A に入れ、シェーダーが石の色を苔寄りに変える）。
 // 意味は docs/STAGE.md の 3.4、シェーダーは tools/stage/shaders/StageShaders.metal の stageGroundSurface。
 
 enum StageSplat {
@@ -28,32 +30,57 @@ enum StageSplat {
     /// 太陽（左上の奥）の影が伸びる向き（地図座標、南東）。
     static let shadowDirection = simd_normalize(SIMD2<Float>(0.75, -0.66))
 
-    static func make(map: MapDefinition, shades: [Shade], controlSize n: Int = 1024, auxSize na: Int = 512) -> Maps? {
+    static func make(map: MapDefinition, shades: [Shade], controlSize n: Int = 1024, auxSize na: Int = 512,
+                     set: StageArtSet = .ruins) -> Maps? {
         let geo = StageGeometry(map: map)
+        let ruins = set == .ruins
         // MARK: 配合マップ
         var dirt = Field(n), pave = Field(n), river = Field(n), forest = Field(n)
-        // 土: レーン
+        // 土: レーン（新セットは縁を広く揺らし、草地へなじませる）
         for path in geo.lanes {
             for k in 0..<(path.count - 1) {
-                dirt.stampSegment(path[k], path[k + 1], inner: 2.3, outer: 3.6, wobble: 0.7, seed: 11)
+                if ruins {
+                    dirt.stampSegment(path[k], path[k + 1], inner: 2.1, outer: 4.0, wobble: 0.95, seed: 11)
+                } else {
+                    dirt.stampSegment(path[k], path[k + 1], inner: 2.3, outer: 3.6, wobble: 0.7, seed: 11)
+                }
             }
         }
         // 土: キャンプの空き地
         for c in map.camps {
             let p = geo.m(c.pos)
             switch c.kind {
-            case .small, .hornLizard, .emberBeetle, .magmaGolem: dirt.stampDisc(p, inner: 0.9, outer: 2.3, wobble: 0.8, seed: 23)
+            // 新セットはキャンプの空き地の縁を広く揺らす（丸い土の染みに見えないように）
+            case .small, .hornLizard, .emberBeetle, .magmaGolem:
+                if ruins {
+                    // 踏み荒らした草地: 中心だけ土が出て、縁は草が島のように残る
+                    dirt.stamp(minX: p.x - 4, maxX: p.x + 4, minY: p.y - 4, maxY: p.y + 4) { q in
+                        let d = simd_distance(q, p) + (valueNoise(q * 0.7, seed: 23) - 0.5) * 2.0
+                        let patch = 0.5 + 0.5 * smoothstep(0.3, 0.65, fbm(q * 0.9, seed: 27))
+                        return (1 - smoothstep(0.4, 2.7, d)) * patch
+                    }
+                } else {
+                    dirt.stampDisc(p, inner: 0.9, outer: 2.3, wobble: 0.8, seed: 23)
+                }
             case .blueSentinel, .redSentinel: dirt.stampDisc(p, inner: 2.4, outer: 3.3, wobble: 0.5, seed: 29)
             // 川の中立・宝殻蟹・ボスは土の空き地を作らない（川・祭壇の床）
             case .astralWyrm, .ancientColossus, .treasureCrab, .mossWanderer: break
             }
         }
         // 石畳: 拠点（泉・Core・参道）、タワーの台座、祭壇
-        for team in Team.players {
-            let f = geo.m(map.fountain(team)), c = geo.m(map.core(team))
-            pave.stampDisc(f, inner: 8.4, outer: 9.4, wobble: 0.5, seed: 31)
-            pave.stampDisc(c, inner: 12.6, outer: 13.8, wobble: 0.7, seed: 37)
-            pave.stampSegment(f, c, inner: 4.6, outer: 5.6, wobble: 0.4, seed: 41)
+        let plazas = Team.players.map { BasePlaza(fountain: geo.m(map.fountain($0)), core: geo.m(map.core($0))) }
+        for b in plazas {
+            if ruins {
+                // 縁は 3 m ほどかけて不規則に崩れる。崩れた所は踏み固めた土と苔（森の下草）が分け合う
+                let pad: Float = 4
+                pave.stamp(minX: b.minX - pad, maxX: b.maxX + pad, minY: b.minY - pad, maxY: b.maxY + pad) { p in b.paving(p) }
+                dirt.stamp(minX: b.minX - pad, maxX: b.maxX + pad, minY: b.minY - pad, maxY: b.maxY + pad) { p in b.earth(p) }
+                forest.stamp(minX: b.minX - pad, maxX: b.maxX + pad, minY: b.minY - pad, maxY: b.maxY + pad) { p in b.moss(p) }
+            } else {
+                pave.stampDisc(b.fountain, inner: 8.4, outer: 9.4, wobble: 0.5, seed: 31)
+                pave.stampDisc(b.core, inner: 12.6, outer: 13.8, wobble: 0.7, seed: 37)
+                pave.stampSegment(b.fountain, b.core, inner: 4.6, outer: 5.6, wobble: 0.4, seed: 41)
+            }
         }
         for t in map.towers where !t.isCore {
             pave.stampDisc(geo.m(t.pos), inner: 2.5, outer: 3.2, wobble: 0.35, seed: 43)
@@ -125,15 +152,80 @@ enum StageSplat {
                     // レーンが川を渡る所は浅瀬
                     depth *= 0.45 + 0.55 * smoothstep(2.5, 5.5, geo.laneDistance(p))
                 }
+                var wear: Float = 0
+                if ruins {
+                    // 拠点の広場は中央ほどきれい（0）。ほかの石畳（塔の台座・祭壇のまわり）は中くらいに風化
+                    wear = 0.55 + 0.25 * valueNoise(p * 0.55, seed: 157)
+                    for b in plazas where b.edge(p) < 6 { wear = min(wear, b.wear(p)) }
+                }
                 let i = (row * na + col) * 4
                 aux[i] = q(min(1, ao))
                 aux[i + 1] = q(macro)
                 aux[i + 2] = q(depth)
-                aux[i + 3] = 0
+                aux[i + 3] = q(wear)
             }
         }
         guard let c = image(control, n), let a = image(aux, na) else { return nil }
         return Maps(control: c, aux: a)
+    }
+
+    // MARK: 拠点の石畳（新セット）
+
+    /// 拠点の広場（泉の円・Core の円・その間の参道）。地図座標（m）。
+    struct BasePlaza {
+        let fountain: SIMD2<Float>
+        let core: SIMD2<Float>
+
+        var minX: Float { min(fountain.x - 9.4, core.x - 13.8) }
+        var maxX: Float { max(fountain.x + 9.4, core.x + 13.8) }
+        var minY: Float { min(fountain.y - 9.4, core.y - 13.8) }
+        var maxY: Float { max(fountain.y + 9.4, core.y + 13.8) }
+
+        /// 広場の縁からの距離（内側は負）。縁 = 旧セットの石畳の外周（泉 8.9 m・Core 13.2 m・参道 5.1 m）。
+        func edge(_ p: SIMD2<Float>) -> Float {
+            min(simd_distance(p, fountain) - 8.9, simd_distance(p, core) - 13.2, segmentDistance(p, fountain, core) - 5.1)
+        }
+
+        /// きれいな床（泉の台座・Core のまわりと参道の中央）の縁からの距離（内側は負）。
+        func clean(_ p: SIMD2<Float>) -> Float {
+            min(simd_distance(p, fountain) - 5.0, simd_distance(p, core) - 6.8, segmentDistance(p, fountain, core) - 2.2)
+        }
+
+        /// 縁の揺れ（大きな入り江と細かな欠け）。
+        func ragged(_ p: SIMD2<Float>) -> Float {
+            (fbm(p * 0.16, seed: 131) - 0.5) * 4.2 + (valueNoise(p * 0.9, seed: 137) - 0.5) * 0.9
+        }
+
+        /// 石畳の重み。中央は 1、縁は不規則に崩れ、縁に近い所には石の抜けた穴が点々と空く（きれいな床には空けない）。
+        func paving(_ p: SIMD2<Float>) -> Float {
+            let d = edge(p) + ragged(p)
+            let w = 1 - smoothstep(-2.4, 0.3, d)
+            let cl = clean(p)
+            let hole = smoothstep(0.52, 0.66, fbm(p * 0.42 + 3.7, seed: 139)) * smoothstep(-0.5, 2.0, cl)
+            // きれいな床の内側は縁の揺れに関わらず石畳
+            return max(w * (1 - hole * smoothstep(-8, -1.5, d)), 1 - smoothstep(-0.6, 0.4, cl))
+        }
+
+        /// 崩れた所を土と苔のどちらが埋めるか（1 = 土）。
+        func earthPatch(_ p: SIMD2<Float>) -> Float { smoothstep(0.38, 0.6, fbm(p * 0.21 + 9.1, seed: 149)) }
+
+        /// 崩れた所の踏み固めた土（縁の内側と、穴の中）。
+        func earth(_ p: SIMD2<Float>) -> Float {
+            let d = edge(p) + ragged(p)
+            return (1 - smoothstep(-0.8, 2.6, d)) * earthPatch(p) * smoothstep(-1, 1.5, clean(p))
+        }
+
+        /// 崩れた所の苔（土の無い所）。
+        func moss(_ p: SIMD2<Float>) -> Float {
+            let d = edge(p) + ragged(p)
+            return (1 - smoothstep(0.5, 3.4, d)) * 0.85 * (1 - earthPatch(p)) * smoothstep(-1, 1.5, clean(p))
+        }
+
+        /// 石畳の風化（0 = 中央のきれいな床、1 = 縁の苔むした石）。
+        func wear(_ p: SIMD2<Float>) -> Float {
+            let w = smoothstep(-0.5, 4.0, clean(p) + (fbm(p * 0.3 + 1.3, seed: 151) - 0.5) * 2.5)
+            return w * (0.65 + 0.35 * valueNoise(p * 0.55, seed: 157))
+        }
     }
 
     // MARK: 内部

@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """ステージ素材の取り込み（アプリ用に焼く）。仕様は docs/STAGE.md 3 章。
 
-入力（git 管理外）: build/stage/art/<id>.png（stage_art.py）、build/stage/meshy/<id>/（stage_meshy.mjs）。
-出力: App/Resources/Stage/ の StageTile_<id>.jpg・StageDecal_rune.jpg・StageProps.bin・StagePropsAtlas.jpg。
+素材のセットは環境変数 STAGE_SET で選ぶ（stage_art.py と同じ。docs/STAGE.md 2 章）:
+  ruins（既定）  入力 build/stage/ruins/art/<id>.png（stage_art.py）、build/stage/ruins/tripo/<id>/（stage_tripo.mjs）
+                出力 App/Resources/Stage/ の StageRuinsTile_<id>.jpg・StageRuinsProps.bin・StageRuinsPropsAtlas.jpg
+                （祭壇の模様は旧セットの StageDecal_rune.jpg を共用する）
+  legacy        入力 build/stage/art/<id>.png、build/stage/meshy/<id>/（stage_meshy.mjs）
+                出力 StageTile_<id>.jpg・StageDecal_rune.jpg・StageProps.bin・StagePropsAtlas.jpg（-legacyStage で読む）
 
   python3 tools/stage/stage_bake.py tiles      # 地面タイル 7 種: シームレス化（オフセット合成）→ 1024px JPEG
   python3 tools/stage/stage_bake.py decal      # 祭壇の模様: 円の外接正方形で切り出し → 1024px JPEG
@@ -12,8 +16,9 @@
   python3 tools/stage/stage_bake.py all        # 上の 4 つを順に
 
 環境変数: STAGE_PROPS_UV=rebake|meshy（UV の作り方、下の UV_MODE）、STAGE_BAKE_JOBS（Blender の同時実行数、既定 4）、
-STAGE_BUSH_REMESH（茂みのボクセルの大きさ / 対角、既定 0.02）。中間物は build/stage/props/（npz・焼いた色・Blender のログ・
-report.json）。
+STAGE_BUSH_REMESH（茂みのボクセルの大きさ / 対角、既定 0.02）、STAGE_BAKE_AO（減面後の形の遮蔽を色へ掛ける強さ。
+ruins の既定 0.55、legacy の既定 0 = 掛けない）。中間物は build/stage/props/（ruins は build/stage/ruins/props/。npz・焼いた色・
+Blender のログ・report.json）。
 
 numpy と Pillow が要る。無ければ build/stage/venv の Python で自分を起動し直す（venv の作り方は下の VENV_HELP）。
 Blender は環境変数 BLENDER（既定 /Applications/Blender.app/Contents/MacOS/Blender）。Blender 側の処理は
@@ -45,11 +50,21 @@ except ImportError:
         os.execv(str(py), [str(py), str(Path(__file__).resolve()), *sys.argv[1:]])
     sys.exit(VENV_HELP)
 
-ART = ROOT / "build" / "stage" / "art"
-MESHY = ROOT / "build" / "stage" / "meshy"
-WORK = ROOT / "build" / "stage" / "props"
-PREVIEW = ROOT / "build" / "stage" / "preview"
+STAGE_SET = os.environ.get("STAGE_SET", "ruins")
+if STAGE_SET not in ("ruins", "legacy"):
+    sys.exit(f"STAGE_SET must be ruins or legacy: {STAGE_SET}")
+LEGACY = STAGE_SET == "legacy"
+_BUILD = ROOT / "build" / "stage" / ("" if LEGACY else "ruins")
+ART = _BUILD / "art"
+# 3D 生成の結果（<id>/model.glb + base_color.png）。旧セットは Meshy、新セットは Tripo
+MESHY = _BUILD / ("meshy" if LEGACY else "tripo")
+WORK = _BUILD / "props"
+PREVIEW = _BUILD / "preview"
 OUT = ROOT / "App" / "Resources" / "Stage"
+# 出力のファイル名（App/Resources/Stage/ はバンドルの直下に平らに入るので、セットごとに名前を分ける）
+TILE_PREFIX = "StageTile_" if LEGACY else "StageRuinsTile_"
+PROPS_NAME = "StageProps" if LEGACY else "StageRuinsProps"
+ATLAS_NAME = "StagePropsAtlas" if LEGACY else "StageRuinsPropsAtlas"
 BLENDER = os.environ.get("BLENDER", "/Applications/Blender.app/Contents/MacOS/Blender")
 BLENDER_SCRIPT = Path(__file__).with_name("stage_props_blender.py")
 
@@ -70,15 +85,48 @@ PROPS = [
     ("bush", 450, ("footprint", 1.6)),
     ("ruin_pillar", 900, ("height", 2.6)),
     ("ruin_arch", 1400, ("width", 4.0)),
+] if LEGACY else [
+    # 新セット: 三角形と寸法は旧セットと同じ（配置の規則・三角形の予算をそのまま使う）。最後のセルは使われていなかった
+    # ruin_arch の代わりに泉の台座（足跡 = 旧い泉の台座の直径 6.8 m。地図に 2 個だけなので面数を多めに）
+    ("cliff_rock_a", 1000, ("width", 4.0)),
+    ("cliff_rock_b", 900, ("height", 3.0)),
+    ("boulder", 500, ("footprint", 2.0)),
+    ("tree_round", 1100, ("height", 4.2)),
+    ("tree_tall", 1050, ("height", 5.0)),
+    ("bush", 450, ("footprint", 1.6)),
+    ("ruin_pillar", 900, ("height", 2.6)),
+    ("spawn_dais", 2000, ("footprint", 6.8)),
 ]
 # 茂みは葉の板の集まりで、1000 三角形まで減らすと葉が三角形の破片になる → ボクセルで 1 つの塊にしてから減らす
 # （値 = ボクセルの大きさ / 外接箱の対角）。色は元の葉から焼き付ける
-REMESH = {"bush": float(os.environ.get("STAGE_BUSH_REMESH", "0.02"))}
+# 新セット（Tripo）は葉が板の集まりで届き、減面すると板が三角形の破片になって飛び出す → ボクセルで塊にし、
+# 内側の空洞の面（開いた板のボクセル化でできる殻の内側）を消してから減らす（stage_props_blender.py の drop_cavities）
+REMESH = {"bush": float(os.environ.get("STAGE_BUSH_REMESH", "0.02"))} if LEGACY else {
+    "tree_round": 0.04, "tree_tall": 0.035, "bush": float(os.environ.get("STAGE_BUSH_REMESH", "0.04")),
+}
+DROP_CAVITIES = set() if LEGACY else {"tree_round", "tree_tall", "bush"}
+# ボクセルの塊をならす回数（角張った凹凸を丸い葉の房にしてから減らす）
+SMOOTH = {} if LEGACY else {"tree_round": 5, "tree_tall": 5, "bush": 8}
+# 新セットの岩・遺跡は、岩の上のシダ・蔦の葉の板が別の部分として付いてくる（面数は岩本体より多く、面積は 1 割ほど）。
+# 面積が全体のこの割合より小さい部分を減面の前に消す（色は元のメッシュから焼き付けるので、苔・シダの模様は残る）
+MIN_PART = {} if LEGACY else {"cliff_rock_a": 0.01, "cliff_rock_b": 0.01, "boulder": 0.01, "ruin_pillar": 0.004,
+                              "spawn_dais": 0.002}
+# 平面形の角を落とす小物（新セット）: 足跡の外接矩形に内接する超楕円 |x/a|^n + |z/b|^n = 1 の外の頂点だけを超楕円の上へ
+# 寄せる（値 = n。2 は楕円、大きいほど角が残る）。Tripo の岩は角張った箱形で、足跡の矩形の角まで詰まっている。円の壁の
+# まわりに接線向きで並べると角が壁の足跡からはみ出す（StageTests: 地面近くは 0.4 m まで）。旧セットの丸みのある岩と
+# 同じ置き方のまま規則を守るための形の調整
+ROUND_PLAN = {} if LEGACY else {"boulder": 2.0, "cliff_rock_a": 3.0}
+# 色の持ち上げ（sRGB のガンマ。1 未満で明るく）。Tripo の葉は光を除くと暗い青緑（平均 sRGB 0.15 前後）で、旧セットの
+# 葉（0.25〜0.4）より大きく暗く、真上から見ると濡れた塊に見える。焼いた色をセルに入れる前に持ち上げる
+COLOR_GAMMA = {} if LEGACY else {"tree_round": 0.7, "tree_tall": 0.8, "bush": 0.68}
 # UV の作り方。rebake（既定）: 減面後のメッシュに新しい UV を作り、Meshy の base_color.png を元のメッシュから
 # 焼き付けた絵をセルに入れる。meshy: Meshy の UV と base_color をそのまま使う（STAGE.md 3.3 の字義どおり）。
 # Meshy の UV は 1 体あたり数千の小島に分かれていて、1/5〜1/10 の減面で三角形が複数の島にまたがり色が崩れる。
 UV_MODE = os.environ.get("STAGE_PROPS_UV", "rebake")
 BAKE_SIZE = 1024
+# 減面後の形の遮蔽（Cycles の AO を同じ UV へ焼く）を色へ掛ける強さ。Tripo の色は光を除いてある（delight）ので、
+# 葉の塊の間・岩の割れ目・柱の根元の暗さが無く平板に見える。0 で掛けない（旧セットの既定）
+AO_STRENGTH = float(os.environ.get("STAGE_BAKE_AO", "0" if LEGACY else "0.55"))
 ATLAS_W, ATLAS_H = 2048, 1024
 CELL, PAD = 512, 8
 INNER = CELL - 2 * PAD   # 496
@@ -245,13 +293,16 @@ def bake_tiles():
         band = int(round(TILE_BAND * TILE_SIZE / 16)) * 16
         small = src.resize((TILE_SIZE + band, TILE_SIZE + band), Image.Resampling.LANCZOS)
         out = make_seamless(np.asarray(small), TILE_SIZE, tile_seed(tid))
-        save_jpeg(Image.fromarray(out), OUT / f"StageTile_{tid}.jpg")
+        save_jpeg(Image.fromarray(out), OUT / f"{TILE_PREFIX}{tid}.jpg")
 
 
 # ---------------------------------------------------------------- decal
 
 def bake_decal():
     """円形の台座（背景は平らな中間灰色）の外接矩形を求め、円がちょうど内接する正方形で切り出す。"""
+    if not LEGACY:
+        log("decal: ruins は旧セットの StageDecal_rune.jpg を共用する（焼かない）")
+        return None
     img = load_rgb(ART / "rune_circle.png")
     a = np.asarray(img).astype(np.int16)
     h, w, _ = a.shape
@@ -304,8 +355,16 @@ def blender_bake(pid, tris):
             "--mode", UV_MODE]
     if UV_MODE == "rebake":
         args += ["--base-color", str(base), "--bake-out", str(WORK / f"{pid}_color.png"), "--bake-size", str(BAKE_SIZE)]
+        if pid in MIN_PART:
+            args += ["--min-part", str(MIN_PART[pid])]
         if pid in REMESH:
             args += ["--remesh", str(REMESH[pid])]
+        if pid in DROP_CAVITIES:
+            args += ["--drop-cavities", "1"]
+        if pid in SMOOTH:
+            args += ["--smooth", str(SMOOTH[pid])]
+        if AO_STRENGTH > 0:
+            args += ["--ao-out", str(WORK / f"{pid}_ao.png")]
     stdout = run_blender(args, WORK / f"{pid}.blender.log")
     stats = {}
     for line in stdout.splitlines():
@@ -359,6 +418,17 @@ def finish_prop(index, pid, size_rule, npz):
     yaw = best_yaw(pos)
     pos = rot_y(pos, yaw)
     nrm = rot_y(nrm, yaw)
+
+    rounded = 0
+    if pid in ROUND_PLAN:
+        lo, hi = pos.min(axis=0), pos.max(axis=0)
+        c, half = (lo + hi) / 2, (hi - lo) / 2
+        n = ROUND_PLAN[pid]
+        e = np.abs((pos[:, 0] - c[0]) / half[0]) ** n + np.abs((pos[:, 2] - c[2]) / half[2]) ** n
+        k = np.where(e > 1, np.maximum(e, 1e-12) ** (-1.0 / n), 1.0)
+        pos[:, 0] = c[0] + (pos[:, 0] - c[0]) * k
+        pos[:, 2] = c[2] + (pos[:, 2] - c[2]) * k
+        rounded = int((e > 1).sum())
 
     lo, hi = pos.min(axis=0), pos.max(axis=0)
     ext = hi - lo
@@ -440,7 +510,7 @@ def finish_prop(index, pid, size_rule, npz):
     info = {
         "id": pid, "yawDeg": yaw, "scale": round(float(scale), 6), "flipped": flipped,
         "windingAgree": round(agree, 4), "droppedDegenerate": dropped, "zeroNormalsFixed": zero_normals,
-        "tris": int(len(idx) // 3), "verts": int(len(verts)),
+        "tris": int(len(idx) // 3), "verts": int(len(verts)), "roundedPlanVerts": rounded,
         "size": [round(float(x), 4) for x in (bmax - bmin)],
     }
     return verts, idx, [float(x) for x in bmin], [float(x) for x in bmax], info
@@ -478,7 +548,19 @@ def load_cell_source(pid):
         return img
     a = np.asarray(img)
     unbaked = (a[..., 0] == 255) & (a[..., 1] == 0) & (a[..., 2] == 255)
-    return Image.fromarray(pull_push_fill(a, ~unbaked))
+    filled = pull_push_fill(a, ~unbaked)
+    ao_png = WORK / f"{pid}_ao.png"
+    if AO_STRENGTH > 0 and ao_png.exists():
+        # 遮蔽（白 = 開けている）を色へ掛ける。焼かれなかった画素（印の色）は 1 として扱い、余白は端の値で埋める
+        ao = np.asarray(Image.open(ao_png).convert("RGB")).astype(np.float64)
+        ao_unbaked = (ao[..., 0] > 250) & (ao[..., 1] < 5) & (ao[..., 2] > 250)
+        ao_filled = pull_push_fill(ao.astype(np.uint8), ~ao_unbaked)[..., 0].astype(np.float64) / 255.0
+        k = 1.0 - AO_STRENGTH * (1.0 - np.clip(ao_filled, 0.0, 1.0))
+        filled = np.clip(np.rint(filled.astype(np.float64) * k[..., None]), 0, 255).astype(np.uint8)
+    if pid in COLOR_GAMMA:
+        g = (filled.astype(np.float64) / 255.0) ** COLOR_GAMMA[pid]
+        filled = np.clip(np.rint(g * 255.0), 0, 255).astype(np.uint8)
+    return Image.fromarray(filled)
 
 
 def build_atlas():
@@ -491,7 +573,7 @@ def build_atlas():
         col, row = i % 4, i // 4
         atlas[row * CELL:(row + 1) * CELL, col * CELL:(col + 1) * CELL] = cell
     # UV の島が細かいので色差の間引き（4:2:0）はしない（4:4:4）
-    save_jpeg(Image.fromarray(atlas), OUT / "StagePropsAtlas.jpg", subsampling=0)
+    save_jpeg(Image.fromarray(atlas), OUT / f"{ATLAS_NAME}.jpg", subsampling=0)
 
 
 def write_props_bin(entries, path):
@@ -549,7 +631,7 @@ def bake_props():
         log(f"{pid}: {info['tris']} tris (target {tris}), {info['verts']} verts, yaw {info['yawDeg']}°, "
             f"size {info['size']}, winding {info['windingAgree']:.3f}{' (flipped)' if info['flipped'] else ''}")
     build_atlas()
-    write_props_bin(entries, OUT / "StageProps.bin")
+    write_props_bin(entries, OUT / f"{PROPS_NAME}.bin")
     (WORK / "report.json").write_text(json.dumps(infos, ensure_ascii=False, indent=2) + "\n")
     return infos
 
@@ -569,7 +651,7 @@ def preview_tiles():
     out.mkdir(parents=True, exist_ok=True)
     thumbs = []
     for tid in TILES:
-        t = np.asarray(Image.open(OUT / f"StageTile_{tid}.jpg").convert("RGB"))
+        t = np.asarray(Image.open(OUT / f"{TILE_PREFIX}{tid}.jpg").convert("RGB"))
         big = np.tile(t, (3, 3, 1))
         Image.fromarray(big).resize((big.shape[1] // 2, big.shape[0] // 2), Image.Resampling.LANCZOS) \
             .save(out / f"{tid}_3x3.jpg", quality=88)
@@ -595,9 +677,9 @@ def preview_props():
     """StageProps.bin + StagePropsAtlas.jpg を Blender で読み戻して描く（GLB は使わない）→ 一覧 props_sheet.png。"""
     out = PREVIEW / "props"
     out.mkdir(parents=True, exist_ok=True)
-    run_blender(["render", "--bin", str(OUT / "StageProps.bin"), "--atlas", str(OUT / "StagePropsAtlas.jpg"),
+    run_blender(["render", "--bin", str(OUT / f"{PROPS_NAME}.bin"), "--atlas", str(OUT / f"{ATLAS_NAME}.jpg"),
                  "--outdir", str(out), "--res", "512", "--azimuths", "25,205"], out / "render.blender.log")
-    header = json.loads(read_header(OUT / "StageProps.bin"))
+    header = json.loads(read_header(OUT / f"{PROPS_NAME}.bin"))
     recs = {p["id"]: p for p in header["props"]}
     cw, ch, top = 1024, 512, 44
     sheet = Image.new("RGB", (cw * 4, (ch + top) * 2), (24, 24, 24))
@@ -606,7 +688,7 @@ def preview_props():
         x, y = (k % 4) * cw, (k // 4) * (ch + top)
         for v in range(2):
             sheet.paste(Image.open(out / f"{pid}_v{v}.png").convert("RGB"), (x + v * 512, y + top))
-        thumb = MESHY / pid / "thumbnail.png"
+        thumb = MESHY / pid / "thumbnail.png" if LEGACY else ART / f"{pid}.png"
         if thumb.exists():
             sheet.paste(Image.open(thumb).convert("RGB").resize((160, 160), Image.Resampling.LANCZOS), (x + cw - 166, y + top + 6))
         r = recs[pid]
