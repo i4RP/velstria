@@ -200,12 +200,13 @@ final class UnitLayer {
 
     func clearStructureCues() { structureCues.removeAll(keepingCapacity: true) }
 
-    /// 倒れている途中の塔を集める（短縮版の判定。破壊の時刻だけで決まる）。
+    /// 倒れている途中の塔を集める（短縮版の判定。破壊の時刻だけで決まる）。後から倒れた塔の判定が途中で変わらないよう、
+    /// 整理の終わりから倒れる時間の分だけ長く残す（collapseStyle は topple 以内に先に倒れた塔を数える）。
     private func collectCollapsing(_ state: SimState, now: Double) {
         collapsing.removeAll(keepingCapacity: true)
         for s in structureList where !s.isCore {
             guard let i = state.index(of: s.id), !state.units[i].isAlive, let d = state.units[i].deathTime,
-                  now - d < CollapseTimes.full.clear else { continue }
+                  now - d < CollapseTimes.full.clear + CollapseTimes.full.topple else { continue }
             collapsing.append((d, s.id))
         }
     }

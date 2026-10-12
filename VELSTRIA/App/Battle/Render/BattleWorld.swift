@@ -306,6 +306,9 @@ final class BattleWorld {
     /// - 詠唱中（帰還・転移）のヒーローのループは今の状態から付け直す
     /// - 霧は補間せずに今の視界へ（次の計算結果で一度に合わせる）、カメラは切り替え（滑らせない）
     /// イベントは配らない・受け取らない（シークで飛ばした区間の演出は出さない）。一時停止中でも呼ばれる。
+    /// resetForPresentationEpoch の作り直し中（構造物の合図は出さない: 2 回目の同期で飛ばした区間の合図が出るため）。
+    private var snapping = false
+
     func resetForPresentationEpoch(rig: CameraRig) {
         units.resetForPresentationEpoch()
         projectiles.resetForPresentationEpoch()
@@ -321,7 +324,9 @@ final class BattleWorld {
         shakeRequest = 0
         structureFX.reset()
         // 1 回目で見た目を今の状態から作り直し、2 回目で作ったばかりの見た目のフェード（HP バーの遅れなど）も終わらせる
+        snapping = true
         for _ in 0..<2 { sync(events: [], dt: BattleWorld.presentationSnapDt, rig: rig) }
+        snapping = false
         let state = controller.state
         let viewer = controller.viewerTeam
         for i in state.units.indices where state.units[i].kind == .hero {
@@ -692,9 +697,13 @@ final class BattleWorld {
     /// 構造物の合図（立ち上がり・損傷・倒壊・Core の崩壊）→ 粒子・音（StructureFXDirector）。近い時の着地・衝撃波は小さく揺らす。
     private func flushStructureCues(_ f: RenderFrame, rig: CameraRig) {
         guard !units.structureCues.isEmpty else { return }
+        if snapping {
+            units.clearStructureCues()
+            return
+        }
         let focus = (f.focusID ?? controller.humanHeroID).flatMap { units.worldPositionOf($0) }
         let shake = structureFX.play(units.structureCues, now: time, near: nearCamera, listener: rig.focus.value, focus: focus,
-                                     speed: controller.isOnline ? 1 : controller.speed)
+                                     speed: controller.isOnline || f.ended ? 1 : controller.speed)
         shakeRequest = max(shakeRequest, shake)
         units.clearStructureCues()
     }
