@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""ステージ（戦場）用 2D 素材の生成。地面テクスチャ・崖の質感・Meshy に渡すコンセプト画像。
+"""ステージ（戦場）用 2D 素材の生成。地面テクスチャ・崖の質感・3D 生成（Tripo / Meshy）に渡すコンセプト画像。
 
-仕様（画風・各素材のプロンプト）は tools/stage/stage_art.json。
+素材のセットは環境変数 STAGE_SET で選ぶ（docs/STAGE.md 2 章）:
+  ruins（既定）  2026-10-12 の「遺跡と森」セット。仕様 tools/stage/stage_art_ruins.json、原寸 build/stage/ruins/art/
+  legacy        2026-10-05 の旧セット（-legacyStage で読む）。仕様 tools/stage/stage_art.json、原寸 build/stage/art/
 
   python3 tools/stage/stage_art.py list                         # 素材 ID の一覧
   python3 tools/stage/stage_art.py prompt grass                 # 生成プロンプトを表示
@@ -23,8 +25,11 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]  # VELSTRIA/
-SPEC = Path(__file__).with_name("stage_art.json")
-RAW = ROOT / "build" / "stage" / "art"
+STAGE_SET = os.environ.get("STAGE_SET", "ruins")
+if STAGE_SET not in ("ruins", "legacy"):
+    sys.exit(f"STAGE_SET must be ruins or legacy: {STAGE_SET}")
+SPEC = Path(__file__).with_name("stage_art.json" if STAGE_SET == "legacy" else "stage_art_ruins.json")
+RAW = ROOT / "build" / "stage" / ("art" if STAGE_SET == "legacy" else "ruins/art")
 MODEL = os.environ.get("STAGE_ART_CODEX_MODEL", "gpt-6-astra")
 SLOTS = int(os.environ.get("STAGE_ART_SLOTS", "4"))
 
@@ -44,7 +49,8 @@ def entry(sid):
 def build_prompt(sid, extra=""):
     s, e = entry(sid)
     style = s["styles"][e["kind"]]
-    text = style + "\n\nSubject: " + e["prompt"]
+    # 旧セットのプロンプトは主題だけ（"Subject: " を付ける）、新セットは "Subject:" / "Object:" から書いてある
+    text = style + "\n\n" + (e["prompt"] if e["prompt"].startswith(("Subject:", "Object:")) else "Subject: " + e["prompt"])
     if extra:
         text += "\n\nAdditional direction: " + extra
     return text

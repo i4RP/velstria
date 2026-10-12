@@ -4,12 +4,16 @@
 
   python3 tools/stage/check_stage_assets.py          # 失敗があれば一覧を出して終了コード 1
 
+新旧 2 つのセット（docs/STAGE.md 2 章）の両方を確かめる: 新セット（ruins）= StageRuinsTile_<id>.jpg・StageRuinsProps.bin・
+StageRuinsPropsAtlas.jpg、旧セット（legacy、-legacyStage）= StageTile_<id>.jpg・StageProps.bin・StagePropsAtlas.jpg。
+祭壇の模様 StageDecal_rune.jpg は共用。
+
 確かめること:
-- StageTile_<id>.jpg: 1024×1024・JPEG 品質 90（量子化表）・4 辺シームレス
+- タイル: 1024×1024・JPEG 品質 90（量子化表）・4 辺シームレス
   （向かい合う端の行/列の平均絶対差 ÷ 内側の隣り合う行/列の平均絶対差 < 1.5）
 - StageDecal_rune.jpg: 1024×1024、円が正方形に内接（前景の外接矩形が辺の 97% 以上・中心がずれていない）
-- StagePropsAtlas.jpg: 2048×1024、各セルの周囲 8 px が端の画素の引き伸ばし
-- StageProps.bin: マジック・版・JSON・16 バイト境界・各ブロックがファイル内で 4 バイト境界・重ならない、
+- アトラス: 2048×1024、各セルの周囲 8 px が端の画素の引き伸ばし
+- 小物のバイナリ: マジック・版・JSON・16 バイト境界・各ブロックがファイル内で 4 バイト境界・重ならない、
   添字 < 頂点数、法線が単位長（±1e-2）、UV がそのセルの内側（496 px 四方）、boundsMin/Max = 頂点の範囲、
   最低点 y = 0（±1e-3）、足跡の中心が原点（< 1e-2）、三角形数が表の ±15%、実寸が ±2%、
   巻き順（(b−a)×(c−a) と頂点の法線が同じ向き）が 95% 超、水平で最も長い向きが X。
@@ -39,7 +43,7 @@ except ImportError:
 STAGE = ROOT / "App" / "Resources" / "Stage"
 TILES = ["grass", "grass_dark", "dirt", "paving", "rock", "moss", "riverbed"]
 # docs/STAGE.md 3.3 の表（並び = アトラスのセル順）。(id, 三角形, 寸法の種類, メートル)
-PROPS = [
+_COMMON = [
     ("cliff_rock_a", 1000, "width", 4.0),
     ("cliff_rock_b", 900, "height", 3.0),
     ("boulder", 500, "footprint", 2.0),
@@ -47,7 +51,12 @@ PROPS = [
     ("tree_tall", 1050, "height", 5.0),
     ("bush", 450, "footprint", 1.6),
     ("ruin_pillar", 900, "height", 2.6),
-    ("ruin_arch", 1400, "width", 4.0),
+]
+# セット: (名前, タイルの頭, 小物のバイナリ, アトラス, 小物の表)
+SETS = [
+    ("ruins", "StageRuinsTile_", "StageRuinsProps.bin", "StageRuinsPropsAtlas.jpg",
+     _COMMON + [("spawn_dais", 2000, "footprint", 6.8)]),
+    ("legacy", "StageTile_", "StageProps.bin", "StagePropsAtlas.jpg", _COMMON + [("ruin_arch", 1400, "width", 4.0)]),
 ]
 ATLAS_W, ATLAS_H, CELL, PAD = 2048, 1024, 512, 8
 INNER = CELL - 2 * PAD
@@ -94,15 +103,15 @@ def seam_ratio(a, axis):
     return seam / max(interior, 1e-9)
 
 
-def check_tiles(q90):
-    print("tiles")
+def check_tiles(q90, prefix):
+    print(f"tiles ({prefix}<id>.jpg)")
     for tid in TILES:
-        a = check_jpeg(STAGE / f"StageTile_{tid}.jpg", (1024, 1024), q90)
+        a = check_jpeg(STAGE / f"{prefix}{tid}.jpg", (1024, 1024), q90)
         if a is None:
             continue
         rx, ry = seam_ratio(a, 1), seam_ratio(a, 0)
         print(f"  {tid:11s} seam ratio x {rx:.3f}  y {ry:.3f}")
-        check(rx < 1.5 and ry < 1.5, f"StageTile_{tid}.jpg: not seamless (ratio x {rx:.2f}, y {ry:.2f})")
+        check(rx < 1.5 and ry < 1.5, f"{prefix}{tid}.jpg: not seamless (ratio x {rx:.2f}, y {ry:.2f})")
 
 
 def check_decal(q90):
@@ -127,9 +136,9 @@ def check_decal(q90):
           f"StageDecal_rune.jpg: circle not centred ({cx:.1f}, {cy:.1f})")
 
 
-def check_atlas(q90):
-    print("atlas")
-    a = check_jpeg(STAGE / "StagePropsAtlas.jpg", (ATLAS_W, ATLAS_H), q90)
+def check_atlas(q90, name):
+    print(f"atlas ({name})")
+    a = check_jpeg(STAGE / name, (ATLAS_W, ATLAS_H), q90)
     if a is None:
         return
     worst = 0.0
@@ -143,29 +152,29 @@ def check_atlas(q90):
                 np.abs(c[:PAD, PAD:PAD + INNER] - inner[:1, :]).mean(),
                 np.abs(c[PAD + INNER:, PAD:PAD + INNER] - inner[-1:, :]).mean())
         worst = max(worst, d)
-        check(d < 8.0, f"StagePropsAtlas.jpg: cell {i} padding is not edge-extended (mean diff {d:.1f})")
+        check(d < 8.0, f"{name}: cell {i} padding is not edge-extended (mean diff {d:.1f})")
     print(f"  padding vs edge pixels: worst mean abs diff {worst:.2f}")
 
 
-def check_props():
-    print("props")
-    path = STAGE / "StageProps.bin"
-    if not check(path.exists(), "StageProps.bin: missing"):
+def check_props(name, PROPS):
+    print(f"props ({name})")
+    path = STAGE / name
+    if not check(path.exists(), f"{name}: missing"):
         return
     blob = path.read_bytes()
     size = len(blob)
-    if not check(blob[:4] == b"VSP1", f"StageProps.bin: magic {blob[:4]!r}"):
+    if not check(blob[:4] == b"VSP1", f"{name}: magic {blob[:4]!r}"):
         return
     version, jlen = struct.unpack_from("<II", blob, 4)
-    check(version == 1, f"StageProps.bin: version {version}")
-    if not check(12 + jlen <= size, "StageProps.bin: JSON runs past end of file"):
+    check(version == 1, f"{name}: version {version}")
+    if not check(12 + jlen <= size, f"{name}: JSON runs past end of file"):
         return
     header = json.loads(blob[12:12 + jlen].decode("utf-8"))
     base = (12 + jlen + 15) // 16 * 16
-    check(all(b == 0 for b in blob[12 + jlen:base]), "StageProps.bin: padding after JSON is not zero")
-    check(header.get("atlas") == {"width": ATLAS_W, "height": ATLAS_H}, f"StageProps.bin: atlas {header.get('atlas')}")
+    check(all(b == 0 for b in blob[12 + jlen:base]), f"{name}: padding after JSON is not zero")
+    check(header.get("atlas") == {"width": ATLAS_W, "height": ATLAS_H}, f"{name}: atlas {header.get('atlas')}")
     recs = header.get("props", [])
-    check([r.get("id") for r in recs] == [p[0] for p in PROPS], f"StageProps.bin: prop ids/order {[r.get('id') for r in recs]}")
+    check([r.get("id") for r in recs] == [p[0] for p in PROPS], f"{name}: prop ids/order {[r.get('id') for r in recs]}")
     ranges = []
     print(f"  file {size} bytes, JSON {jlen} bytes, data at {base}")
     print(f"  {'id':13s} {'tris':>5s} {'target':>6s} {'verts':>6s}  size x/y/z (m)          wind   check")
@@ -225,15 +234,17 @@ def check_props():
               f"            {agree:.3f}")
     ranges.sort()
     for (s0, e0, n0), (s1, e1, n1) in zip(ranges, ranges[1:]):
-        check(e0 <= s1, f"StageProps.bin: {n0} overlaps {n1}")
+        check(e0 <= s1, f"{name}: {n0} overlaps {n1}")
 
 
 def main():
     q90 = q90_tables()
-    check_tiles(q90)
     check_decal(q90)
-    check_atlas(q90)
-    check_props()
+    for set_name, prefix, props_bin, atlas, table in SETS:
+        print(f"== {set_name}")
+        check_tiles(q90, prefix)
+        check_atlas(q90, atlas)
+        check_props(props_bin, table)
     if FAILURES:
         print(f"\n{len(FAILURES)} failure(s)")
         return 1

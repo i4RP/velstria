@@ -20,19 +20,19 @@ enum StagePrep {
     /// 取っておく計画は 1 つだけ（頂点の配列は数十 MB になる。読み込みを途中でやめた試合の分を溜めない）。
     nonisolated(unsafe) private static var ready: (key: String, plan: StagePlan)?
 
-    private static func key(_ map: MapDefinition, _ q: RenderQuality) -> String {
-        "\(map.size)-\(map.obstacles.count)-\(map.brushes.count)-\(q.level.rawValue)-\(q.decorationDensity)-\(lite)"
+    private static func key(_ map: MapDefinition, _ q: RenderQuality, _ set: StageArtSet) -> String {
+        "\(map.size)-\(map.obstacles.count)-\(map.brushes.count)-\(q.level.rawValue)-\(q.decorationDensity)-\(lite)-\(set.rawValue)"
     }
 
     /// 計画を作って取っておく（背景スレッドから呼ぶ）。作れたら true（素材やシェーダーが欠けていれば false）。
     @discardableResult
-    static func prepare(map: MapDefinition, quality: RenderQuality) -> Bool {
-        let k = key(map, quality)
+    static func prepare(map: MapDefinition, quality: RenderQuality, set: StageArtSet = .current) -> Bool {
+        let k = key(map, quality, set)
         lock.lock()
         let has = ready?.key == k
         lock.unlock()
         if has { return true }
-        guard let plan = make(map: map, quality: quality) else { return false }
+        guard let plan = make(map: map, quality: quality, set: set) else { return false }
         lock.lock()
         ready = (k, plan)
         lock.unlock()
@@ -40,35 +40,35 @@ enum StagePrep {
     }
 
     /// 取っておいた計画を取り出す（取り出した後は保持しない）。無ければその場で作る。
-    static func take(map: MapDefinition, quality: RenderQuality) -> StagePlan? {
-        let k = key(map, quality)
+    static func take(map: MapDefinition, quality: RenderQuality, set: StageArtSet = .current) -> StagePlan? {
+        let k = key(map, quality, set)
         lock.lock()
         let plan = ready?.key == k ? ready?.plan : nil
         ready = nil
         lock.unlock()
-        return plan ?? make(map: map, quality: quality)
+        return plan ?? make(map: map, quality: quality, set: set)
     }
 
     nonisolated(unsafe) private static var inflight: (key: String, task: Task<Bool, Never>)?
 
     /// 背景で準備を始める（ロード画面から。準備済み・準備中なら何もしない）。
-    static func prefetch(map: MapDefinition, quality: RenderQuality) {
-        _ = task(map: map, quality: quality)
+    static func prefetch(map: MapDefinition, quality: RenderQuality, set: StageArtSet = .current) {
+        _ = task(map: map, quality: quality, set: set)
     }
 
     /// 準備が終わるまで待つ（準備中ならその完了、無ければ背景で作る）。作れたら true。
-    static func ready(map: MapDefinition, quality: RenderQuality) async -> Bool {
-        await task(map: map, quality: quality).value
+    static func ready(map: MapDefinition, quality: RenderQuality, set: StageArtSet = .current) async -> Bool {
+        await task(map: map, quality: quality, set: set).value
     }
 
-    private static func task(map: MapDefinition, quality: RenderQuality) -> Task<Bool, Never> {
-        let k = key(map, quality)
+    private static func task(map: MapDefinition, quality: RenderQuality, set: StageArtSet) -> Task<Bool, Never> {
+        let k = key(map, quality, set)
         lock.lock()
         defer { lock.unlock() }
         if ready?.key == k { return Task { true } }
         if let f = inflight, f.key == k { return f.task }
         let t = Task.detached(priority: .userInitiated) { () -> Bool in
-            let ok = prepare(map: map, quality: quality)
+            let ok = prepare(map: map, quality: quality, set: set)
             lock.lock()
             if inflight?.key == k { inflight = nil }
             lock.unlock()
@@ -100,9 +100,9 @@ enum StagePrep {
         #endif
     }
 
-    static func make(map: MapDefinition, quality: RenderQuality) -> StagePlan? {
+    static func make(map: MapDefinition, quality: RenderQuality, set: StageArtSet = .current) -> StagePlan? {
         let t0 = CFAbsoluteTimeGetCurrent()
-        guard let assets = StageAssets.load() else {
+        guard let assets = StageAssets.load(set: set) else {
             log.error("stage assets unavailable; falling back to procedural terrain")
             return nil
         }
@@ -113,11 +113,11 @@ enum StagePrep {
                                        lite: lite)
         let t2 = CFAbsoluteTimeGetCurrent()
         guard let maps = StageSplat.make(map: map, shades: layout.shades, controlSize: lite ? 512 : 1024,
-                                         auxSize: lite ? 256 : 512) else { return nil }
+                                         auxSize: lite ? 256 : 512, set: set) else { return nil }
         let t3 = CFAbsoluteTimeGetCurrent()
         let brushTris = layout.brushes.reduce(0) { $0 + $1.triangleCount }
         log.notice("""
-            stage prep: assets \(Int((t1 - t0) * 1000))ms layout \(Int((t2 - t1) * 1000))ms splat \(Int((t3 - t2) * 1000))ms \
+            stage prep (\(set.rawValue)): assets \(Int((t1 - t0) * 1000))ms layout \(Int((t2 - t1) * 1000))ms splat \(Int((t3 - t2) * 1000))ms \
             tris chunks \(layout.chunks.triangleCount) brushes \(brushTris) \
             props \(layout.counts.map { "\($0.key.rawValue)=\($0.value)" }.sorted().joined(separator: " "))
             """)
