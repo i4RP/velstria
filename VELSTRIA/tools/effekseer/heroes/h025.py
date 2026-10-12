@@ -1,4 +1,4 @@
-"""H025 月弦のルミナ（Miya 型: 月光の矢・扇状に分かれる矢・月影ステップ・月の祝福）。翠緑 + 白銀 + 淡い月光の黄。遠隔レンジャー。
+"""H025 月弦のルミナ（Miya 型: 月光の矢・扇状に分かれる矢・月影ステップ・月の祝福）。月光の青 + 白銀 + 淡い水色（造形・SkillFX のパレットに合わせる）。遠隔レンジャー。
 
 段: atk_cast / atk_travel / atk_hit / s1_cast / s1_travel / s1_impact / s1_hit / s2_cast / s2_impact / s2_hit /
     ult_cast / ult_travel / ult_impact / ult_hit（H003 と同じ構成）
@@ -10,7 +10,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from kit import *  # noqa: E402
 
-S = Style(core=(240, 255, 240), main=(120, 235, 165), accent=(255, 244, 180), dark=(30, 110, 75))
+S = Style(core=(245, 252, 255), main=(107, 194, 255), accent=(158, 242, 255), dark=(25, 60, 140))
 P = "H025_"
 
 

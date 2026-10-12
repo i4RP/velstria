@@ -1,4 +1,4 @@
-"""H027 竜槍のジャルド（趙子龍 型: 長槍の連突き・竜牙の踏み込み突き・昇竜）。銀青 + 白 + 赤の房。近接デュエリスト。
+"""H027 竜槍のジャルド（趙子龍 型: 長槍の連突き・竜牙の踏み込み突き・昇竜）。竜槍の金の炎（橙）+ 白 + 赤の房。近接デュエリスト。
 
 段: atk_cast / atk_cast2 / atk_hit / s1_cast / s1_impact / s1_hit / s2_cast / s2_impact / s2_hit / ult_cast / ult_impact / ult_hit
 """
@@ -9,7 +9,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from kit import *  # noqa: E402
 
-S = Style(core=(245, 250, 255), main=(150, 190, 240), accent=(255, 95, 95), dark=(40, 70, 135))
+S = Style(core=(255, 247, 219), main=(255, 173, 51), accent=(255, 77, 56), dark=(120, 55, 18))
 P = "H027_"
 
 

@@ -1,4 +1,4 @@
-"""H030 星砲のライナ（Layla 型: 連射する星の砲弾・反動で下がる射撃・星砕の大砲）。桃 + 白 + 金。遠隔レンジャー。
+"""H030 星砲のライナ（Layla 型: 連射する星の砲弾・反動で下がる射撃・星砕の大砲）。水色の動力球 + 白 + 金。遠隔レンジャー。
 
 段: atk_cast / atk_travel / atk_hit / s1_cast / s1_travel / s1_impact / s1_hit / s2_cast / s2_impact / s2_hit /
     ult_cast / ult_travel / ult_impact / ult_hit（H003 と同じ構成）
@@ -10,7 +10,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from kit import *  # noqa: E402
 
-S = Style(core=(255, 248, 240), main=(255, 125, 185), accent=(255, 214, 96), dark=(150, 38, 95))
+S = Style(core=(245, 252, 255), main=(92, 209, 255), accent=(255, 214, 92), dark=(45, 60, 140))
 P = "H030_"
 
 
