@@ -254,7 +254,7 @@
         "yaw": -90
       },
       "prompt": "Approved master design (build/tower_redesign/, tools/structures/redesign.json): ancient grey-green granite ruins with moss, dark aged bronze fittings, team-color crystal and rune channels as the only glowing parts. STAR CORE: wide round 3-step sanctuary platform with four stairways and glowing rune circles, six monoliths with small crystals and banners, a central altar socket, two broken stone arches and a bronze ring around a giant floating crystal cluster.",
-      "budget": 9000,
+      "budget": 8500,
       "parts": {
         "notes": "殻が分かれているので切らない。上端 1.5 m 以上（石柱・弧・輪）と弧の根元の金具（重心 1.1 m 以上、中心から 1.2〜1.9 m）が part_upper、中央の光る塊が part_crystal、残り（台座・祭壇・弧の台石）が part_plinth",
         "cuts": [],

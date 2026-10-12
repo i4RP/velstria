@@ -33,8 +33,10 @@ import norm_common as nc  # noqa: E402  (structures_bake が tools/blender を p
 PARTS = ["part_plinth", "part_lower", "part_upper", "part_crown", "part_crystal"]
 # 分解図で縦に離す順（下から）
 EXPLODE_ORDER = PARTS
-# 赤チームの色の既定。光る所（結晶・紋様）は橙寄りの赤（熾火 #ff5a3c 付近）、光らない所（布・七宝）は深い紅（#7a1f2a 付近）
-TEAM_DEFAULT = {"hue": [165.0, 300.0], "minSat": 0.14, "redHue": 353.0, "redGlowHue": 369.0}
+# 赤チームの色の既定。光る所（結晶・紋様）は紅寄りの赤、光らない所（布・七宝）は深い紅（#7a1f2a 付近）。
+# save_jpeg（save_render）の表示変換で赤は橙側へ約 8° ずれるので、光る所は 346° で書いて jpg で 354° 前後
+# （以前の 9° は jpg で 12° になり、ゲーム内の発光で橙に見えた）。赤のテクスチャだけ作り直す時は red_textures.py
+TEAM_DEFAULT = {"hue": [165.0, 300.0], "minSat": 0.14, "redHue": 353.0, "redGlowHue": 346.0}
 EPS = 1e-4
 
 
@@ -608,4 +610,5 @@ def main(a):
     log(json.dumps({k: summary[k] for k in ("id", "triangles", "budget", "size", "bytes")}))
 
 
-main(parse())
+if __name__ == "__main__":
+    main(parse())

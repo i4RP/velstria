@@ -640,7 +640,8 @@ final class VFXSystem {
             m.opacityCurve = .gradualFadeInOut
             m.sizeMultiplierAtEndOfLifespan = 2.2
             m.dampingFactor = 1
-            m.color = .constant(.single(UIColor(red: 0.05, green: 0.05, blue: 0.07, alpha: 0.6)))
+            // 色は呼び出し側（構造物の石の粉。線形空間なので暗めに指定する）
+            m.color = .constant(.single(color))
             emitDuration = 0.2
         case .gold:
             n = 12; life = 0.8

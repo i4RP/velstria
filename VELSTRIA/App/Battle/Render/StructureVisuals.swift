@@ -156,7 +156,8 @@ final class StructureMeshes {
         a.blob(radius: 0.17, jitter: 0.3, seed: 811, color: .ramp(.mossRock, from: 0, to: 0.55), transform: MX.s(1.1, 0.7, 1))
         if let m = a.makeMesh(name: "structureChunk0") { out.append(m) }
         var b = MeshBuilder()
-        b.box(size: [0.3, 0.18, 0.24], color: .solid(.stoneDark), transform: MX.ry(0.4) * MX.rz(0.12) * MX.t(0, -0.09, 0))
+        // 灰緑の暗い石（stoneDark は紫がかって明るく、生成モデルの花崗岩の隣で浮く）
+        b.box(size: [0.3, 0.18, 0.24], color: .ramp(.mossRock, from: 0, to: 0.2), transform: MX.ry(0.4) * MX.rz(0.12) * MX.t(0, -0.09, 0))
         b.blob(radius: 0.08, jitter: 0.25, seed: 823, color: .ramp(.mossRock, from: 0.4, to: 1), transform: MX.t(0.04, 0.06, 0))
         if let m = b.makeMesh(name: "structureChunk1") { out.append(m) }
         var c = MeshBuilder()
@@ -225,12 +226,15 @@ private struct GlowSlot {
     var levels: [RealityKit.Material] = []
     /// 破損の材質（nil = 差し替えない）。
     var ruin: RealityKit.Material?
+    /// 明るさへの倍率（複数部品の塔の結晶は発光が面全体に乗って形が飛ぶので抑える）。
+    var gain: Float = 1
     private var current = -1
 
     init() {}
 
-    init(_ entities: [ModelEntity], set: StructureAssets.MaterialSet?) {
+    init(_ entities: [ModelEntity], set: StructureAssets.MaterialSet?, gain: Float = 1) {
         self.entities = entities
+        self.gain = gain
         if let set {
             levels = set.levels
             ruin = set.ruin
@@ -246,7 +250,7 @@ private struct GlowSlot {
 
     mutating func set(glow: Float, ruined: Bool) {
         guard !entities.isEmpty, !levels.isEmpty else { return }
-        let k = ruined && ruin != nil ? levels.count : StructureAssets.glowLevel(glow)
+        let k = ruined && ruin != nil ? levels.count : StructureAssets.glowLevel(glow * gain)
         guard k != current else { return }
         current = k
         let m = k == levels.count ? (ruin ?? levels[0]) : levels[min(k, levels.count - 1)]
@@ -323,6 +327,10 @@ final class StructureVisual {
     private var clock: Float
     /// 被弾の演出の時刻（同時 2 つまで・0.15 秒以内はまとめる）。
     private var hitTimes: [Float] = []
+
+    /// 複数部品の塔の結晶の明るさの倍率（通常 1 → 発光の段階 0.65。面全体が光って結晶の面が見えなくなるのを抑える。
+    /// 攻撃の溜め・異常発光の山は段階 1.7 まで残る）。
+    static let rigCrystalGain: Float = 0.6
 
     /// 1 基あたりの被弾の演出の同時数・まとめる間隔・1 つの長さ。
     static let maxConcurrentHits = 2
@@ -410,7 +418,7 @@ final class StructureVisual {
             }
             plinthGlow = GlowSlot(made[.plinth] ?? [], set: set)
             bodyGlow = GlowSlot((made[.lower] ?? []) + (made[.upper] ?? []) + (made[.crown] ?? []), set: set)
-            crystalGlow = GlowSlot(made[.crystal] ?? [], set: set)
+            crystalGlow = GlowSlot(made[.crystal] ?? [], set: set, gain: StructureVisual.rigCrystalGain)
         } else if isCore {
             let base = StructureAssets.model(.coreBase), star = StructureAssets.model(.coreCrystal)
             if let base {

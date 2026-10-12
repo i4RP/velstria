@@ -69,6 +69,29 @@ struct TowerGeometry: Equatable, Sendable {
     var breakY: Float
     /// 破断線での支柱の半径（支点 = 倒れる側の縁）。Core は石柱の環の半径。
     var breakRadius: Float
+    /// 待機中に結晶を静止時の位置から持ち上げる高さ（浮いて見せる。複数部品の Core は大結晶の下端が祭壇の約 5 cm 上
+    /// なので持ち上げてから揺らす）。
+    var crystalLift: Float = 0
+    /// 待機中の結晶の上下の揺れ幅（m）。
+    var crystalBob: Float = 0.07
+    /// 倒れる向きの北からの振れ（rad。個体ごとに北西か北東）。見下ろすカメラでは真北へ倒れた上部が画面の縦に伸びて
+    /// 「まだ立っている塔」に見えるので斜めに倒す。脇に飾り（内塔の控え壁の弧）がある塔は北寄りにして突き抜けを避ける。
+    var toppleYaw: ClosedRange<Float> = 0.75...1.0
+
+    /// 上部の高さ ÷ 太さ（倒れ方を決める）。
+    var upperAspect: Float { upper.extents.y / Swift.max(0.01, (upper.extents.x + upper.extents.z) / 2) }
+
+    /// 倒れ切った角度。細長い上部はほぼ横倒し、背の低い幅広の上部（内塔の胴）は少し傾いたまま落ちる
+    /// （90° 倒すと幅の分だけ高い壁になって立ってしまう）。
+    var toppleMax: Float {
+        let k = Swift.min(1, Swift.max(0, (upperAspect - 0.65) / 0.75))
+        return 0.5 + (TowerPose.toppleMaxAngle - 0.5) * k * k * (3 - 2 * k)
+    }
+
+    /// 上部が倒れずに根元の中へ崩れ落ちる（高さが太さの 0.65 倍未満 = 基地塔の天守。幅のある塊を根元から外へ
+    /// 落とすには根元の幅以上に飛ばす必要があり、重さが出ない）。頂部は外れて倒れる側へ落ちる。
+    /// 崩れ落ちた上部は整理でも消さず、折れた根元の一部として残す。
+    var cavesIn: Bool { plinth != nil && upperAspect < 0.65 }
 
     /// 全体の上端（立ち上がりで沈める深さの基準）。
     var top: Float { Swift.max(upper.max.y, crown?.max.y ?? 0, crystal.max.y) }
@@ -82,12 +105,16 @@ struct TowerGeometry: Equatable, Sendable {
         if isCore {
             let ring = Swift.max(upper.extents.x, upper.extents.z) / 2
             return TowerGeometry(isCore: true, plinth: plinth, lower: nil, upper: upper, crown: nil, crystal: crystal,
-                                 plinthTop: plinth.max.y, breakY: plinth.max.y, breakRadius: Swift.max(1, ring * 0.85))
+                                 plinthTop: plinth.max.y, breakY: plinth.max.y, breakRadius: Swift.max(1, ring * 0.85),
+                                 crystalLift: 0.2, crystalBob: 0.12)
         }
         guard let lower = boxes[.lower] else { return nil }
         let crown = boxes[.crown]
+        // 基壇の上面: 根元が基壇の上に載っている（地面より上から始まる）なら根元の下端。基壇の外接箱は控え壁の弧・角の柱
+        // などの飾りで高くなる（内塔は 3 m）ので、それより下で部品を沈めると基壇の上に出てしまう
+        let top = lower.min.y > 0.05 ? Swift.min(plinth.max.y, lower.min.y) : plinth.max.y
         return TowerGeometry(isCore: false, plinth: plinth, lower: lower, upper: upper, crown: crown, crystal: crystal,
-                             plinthTop: plinth.max.y, breakY: Swift.max(lower.max.y, upper.min.y),
+                             plinthTop: top, breakY: Swift.max(lower.max.y, upper.min.y),
                              breakRadius: Swift.max(0.25, lower.width / 2 * 0.9))
     }
 
@@ -111,7 +138,7 @@ struct TowerGeometry: Equatable, Sendable {
     static func legacyCore(base: PartBox, rings: PartBox, crystal: PartBox) -> TowerGeometry {
         TowerGeometry(isCore: true, plinth: base, lower: nil, upper: rings, crown: nil, crystal: crystal,
                       plinthTop: Swift.min(base.max.y, 1.3), breakY: Swift.min(base.max.y, 1.3),
-                      breakRadius: Swift.max(2.2, base.width * 0.4))
+                      breakRadius: Swift.max(2.2, base.width * 0.4), crystalBob: 0.16)
     }
 }
 
@@ -261,7 +288,10 @@ extension TowerPose {
     static let gravity: Float = 15
 
     /// 立ち上がりで部品を沈める深さ（浮いた頂部も含めて全て基壇の上面より下 = 基壇と地面に隠れる）。
-    static func riseDepth(_ g: TowerGeometry) -> Float { max(0, g.top - g.plinthTop) + 0.08 + (g.crown != nil ? crownLift : 0) }
+    /// 上部の下端が基壇の上面より低い（Core の石柱は祭壇より低い外周の段に立つ）なら、その下端より下まで沈める。
+    static func riseDepth(_ g: TowerGeometry) -> Float {
+        max(0, g.top - min(g.plinthTop, g.upper.min.y)) + 0.08 + (g.crown != nil ? crownLift : 0)
+    }
 
     // MARK: 評価
 
@@ -309,7 +339,7 @@ extension TowerPose {
         let ph = Float(hash(input.seed, 7)) * 6.283
         let ignite = smooth(Float(clamp01((t - TowerTimeline.riseLockEnd) / (TowerTimeline.riseEnd - TowerTimeline.riseLockEnd))))
         let tf = Float(t.truncatingRemainder(dividingBy: 3600))
-        let bob = (g.isCore ? sin(tf * 1.1 + ph) * 0.16 : sin(tf * 1.6 + ph) * 0.07) * ignite
+        let bob = (g.crystalLift + (g.isCore ? sin(tf * 1.1 + ph) : sin(tf * 1.6 + ph)) * g.crystalBob) * ignite
         let spin = tf * (g.isCore ? 0.3 : 0.5)
         let charge = max(0, min(1, input.charge))
         let pulse = 1 + (0.025 * sin(tf * 2.3 + ph)) * ignite + 0.06 * charge
@@ -375,17 +405,21 @@ extension TowerPose {
         var p = TowerPose()
         p.phase = e < T.crack ? .breaking : e < T.topple ? .toppling : e < T.impact ? .settling
             : e < T.hold ? .rubble : e < T.clear ? .clearing : .cleared
-        // 基壇: 破断の衝撃で少し沈み、整理の間にさらに下がって破損基壇になる。紋様は最初の 0.1 秒で消える
+        // 基壇: 破断の衝撃で少し沈み、整理の間にさらに下がって破損基壇になる。紋様は最初の 0.1 秒で消える。
+        // 根元（と根元へ崩れ落ちた上部）は基壇に載っているので一緒に下がる（基壇との間に隙間を作らない）
         let joltU = smooth(Float(clamp01((e - T.flash) / 0.12)))
         let lowered = smooth(Float(clamp01((e - T.hold) / (T.clear - T.hold))))
-        p.plinth.matrix = translation([0, -0.03 * joltU - 0.12 * lowered, 0])
-        p.lower.matrix = matrix_identity_float4x4
+        let sink = translation([0, -0.03 * joltU - 0.12 * lowered, 0])
+        p.plinth.matrix = sink
+        p.lower.matrix = sink
         p.plinthGlow = e < 0.1 ? 1.7 : 0
         p.bodyGlow = e < 0.1 ? 1.4 : 0
         p.ruined = e >= T.flash
         if e >= T.clear {
-            // 整理の後は破損基壇と根元だけ（毎フレームの計算もここまで）
-            p.upper.visible = false
+            // 整理の後は破損基壇と根元だけ（毎フレームの計算もここまで）。根元へ崩れ落ちた上部は折れた根元の一部として残す
+            // （切り口の平らな蓋だけが残ると箱に見える）
+            p.upper.visible = g.cavesIn
+            if g.cavesIn { p.upper.matrix = translation([0, -0.12 * lowered, 0]) * upperMatrix(g, e: T.topple, times: T, seed: seed) }
             p.crown.visible = false
             p.crystal.visible = false
             p.crystalGlow = 0
@@ -398,7 +432,8 @@ extension TowerPose {
             p.upper.visible = false
             p.crown.visible = false
         } else {
-            p.upper.matrix = clearChunk(upperM, box: g.upper, e: e, window: T.chunkClear)
+            p.upper.matrix = g.cavesIn ? translation([0, -0.12 * lowered, 0]) * upperM
+                : clearChunk(upperM, box: g.upper, e: e, window: T.chunkClear)
             if let crown = g.crown {
                 p.crown.matrix = clearChunk(crownMatrix(g, e: e, times: T, style: input.style, seed: seed), box: crown, e: e,
                                             window: T.chunkClear)
@@ -463,9 +498,12 @@ extension TowerPose {
         return p
     }
 
-    /// 倒れる向き（北 = -z を中心に個体ごとに ±0.3 rad）・回転軸・支点（破断線の倒れる側の縁）。
+    /// 倒れる向き（奥 = 北 -z から個体ごとに北西か北東へ TowerGeometry.toppleYaw）・回転軸・支点（破断線の倒れる側の縁）。
+    /// 真北へ倒すと、見下ろすカメラ（56°）では倒れた上部が画面の縦に伸びて「まだ立っている塔」に見えるので斜めにずらす。
     static func toppleFrame(_ g: TowerGeometry, seed: UInt64) -> (dir: SIMD3<Float>, axis: SIMD3<Float>, pivot: SIMD3<Float>) {
-        let a = (Float(hash(seed, 1)) - 0.5) * 0.6
+        let side: Float = hash(seed, 2) < 0.5 ? -1 : 1
+        let y = g.toppleYaw
+        let a = side * (y.lowerBound + (y.upperBound - y.lowerBound) * Float(hash(seed, 1)))
         let dir = SIMD3<Float>(sin(a), 0, -cos(a))
         let axis = simd_normalize(simd_cross(SIMD3<Float>(0, 1, 0), dir))
         return (dir, axis, SIMD3(0, g.breakY, 0) + dir * g.breakRadius)
@@ -478,25 +516,41 @@ extension TowerPose {
     }
 
     /// 倒壊中の上部の傾き（ラジアン）。亀裂で少し傾き、倒れ始めると重さで加速する。
-    static func toppleAngle(e: Double, times T: CollapseTimes) -> Float {
+    static func toppleAngle(_ g: TowerGeometry, e: Double, times T: CollapseTimes) -> Float {
         let lean = leanAngle(stage: 2) + 0.03 * smooth(Float(clamp01((e - T.flash) / 0.12)))
         guard e > T.crack else { return lean }
         let u = Float(clamp01((e - T.crack) / (T.topple - T.crack)))
-        return lean + (toppleMaxAngle - lean) * u * u
+        return lean + (g.toppleMax - lean) * u * u
     }
 
     /// 倒れ切った時に上部が地面に載るまで下げる量（外接箱の角で測り、角の分だけ少し埋める）。
     static func landingDrop(_ g: TowerGeometry, seed: UInt64) -> Float {
-        let r = toppleRotation(g, seed: seed, angle: toppleMaxAngle)
+        let r = toppleRotation(g, seed: seed, angle: g.toppleMax)
         var lowest = Float.greatestFiniteMagnitude
         for c in g.upper.corners { lowest = min(lowest, transform(r, c).y) }
         return max(0, lowest + 0.2 * g.upper.width)
     }
 
+    /// 倒れた上部が根元の縁から外へ滑り出る距離（m）。倒れ切った上部の外接箱が、根元の外接箱より倒れる側の外に
+    /// 出るまで（根元に寄りかかった・めり込んだ姿にしない）。最低 0.35 m。
+    static func landingSlide(_ g: TowerGeometry, seed: UInt64) -> Float {
+        let f = toppleFrame(g, seed: seed)
+        let r = toppleRotation(g, seed: seed, angle: g.toppleMax)
+        var near = Float.greatestFiniteMagnitude
+        for c in g.upper.corners {
+            let p = transform(r, c)
+            near = min(near, p.x * f.dir.x + p.z * f.dir.z)
+        }
+        var reach: Float = 0
+        for c in (g.lower ?? g.upper).corners { reach = max(reach, c.x * f.dir.x + c.z * f.dir.z) }
+        return max(0.35, reach + 0.1 - near)
+    }
+
     static func upperMatrix(_ g: TowerGeometry, e: Double, times T: CollapseTimes, seed: UInt64) -> simd_float4x4 {
-        var theta = toppleAngle(e: e, times: T)
+        var theta = toppleAngle(g, e: e, times: T)
         let joltU = smooth(Float(clamp01((e - T.flash) / 0.12)))
         var drop = 0.07 * joltU
+        var slide = SIMD3<Float>(repeating: 0)
         if g.plinth == nil {
             // 基壇ごと 1 つのメッシュ（従来のモデル）: 横倒しにすると底面が見えるので、少し奥へ傾きながら地面へ崩れ沈む
             theta = leanAngle(stage: 2) + 0.03 * joltU
@@ -505,10 +559,21 @@ extension TowerPose {
                 theta += 0.22 * u
                 drop += (g.upper.max.y + 0.3) * u * u
             }
+        } else if g.cavesIn {
+            // 背の低い幅広の上部: 少し奥へ傾きながら根元の中へ半分ほど崩れ落ち、傾いた上半分が瓦礫として残る
+            // （根元の壁が沈んだ下半分を隠す）。整理の後も折れた根元の一部として残る
+            theta = leanAngle(stage: 2) + 0.03 * joltU
+            if e > T.crack {
+                let u = Float(clamp01((e - T.crack) / (T.topple - T.crack)))
+                theta += 0.12 * u
+                drop += (g.upper.extents.y * 0.55 - drop) * u * u
+            }
         } else if e > T.crack {
             let u = Float(clamp01((e - T.crack) / (T.topple - T.crack)))
             let k = Float(clamp01(Double((u - 0.35) / 0.65)))
             drop += (landingDrop(g, seed: seed) - drop) * k * k
+            // 落ちながら根元の縁から外へ滑り出る（根元に寄りかかった姿に見えないよう、着地点を根元から離す）
+            slide = toppleFrame(g, seed: seed).dir * (landingSlide(g, seed: seed) * k * k)
         }
         // 亀裂の区間は破断線で小さく震える（次第に収まる）
         var jitter = SIMD3<Float>(repeating: 0)
@@ -517,7 +582,7 @@ extension TowerPose {
             let n = Int(floor(e * 40))
             jitter = SIMD3(Float(hash(seed &+ 31, n)) - 0.5, 0, Float(hash(seed &+ 37, n)) - 0.5) * 2 * amp
         }
-        return translation(jitter + SIMD3(0, -drop, 0)) * toppleRotation(g, seed: seed, angle: theta)
+        return translation(jitter + slide + SIMD3(0, -drop, 0)) * toppleRotation(g, seed: seed, angle: theta)
     }
 
     /// 頂部: 外れるまでは上部と一体。外れた後は勢いのまま回りながら落ち、地面で止まる（通常版だけ）。
@@ -533,28 +598,56 @@ extension TowerPose {
     }
 
     /// 頂部が外れる瞬間の位置・速度・向きと、地面に着くまでの秒。
+    /// 外れた頂部は倒れた上部の先の半ばの脇（北寄りの側）へ転がり落ちる（上部に重なって隠れない）。
+    /// 着地の向きは外れた時の傾きからさらに倒れた姿（背の高い頂部は 1.05〜1.45 rad、平たい頂部は 0.3〜0.4 rad）で、
+    /// 外接箱の角が少し地面に埋まる高さで止まる。
     private static func crownFall(_ g: TowerGeometry, crown: PartBox, times T: CollapseTimes, seed: UInt64)
         -> (start: SIMD3<Float>, velocity: SIMD3<Float>, rotation: simd_float4x4, omega: Float, land: Float) {
-        let h = 0.03
+        let frame = toppleFrame(g, seed: seed)
         let ms = upperMatrix(g, e: T.separate, times: T, seed: seed)
-        let mp = upperMatrix(g, e: T.separate - h, times: T, seed: seed)
         let c = crown.center
         let start = transform(ms, c)
-        var v = (start - transform(mp, c)) / Float(h)
-        // 横の勢いは控えめ（基部から 3 m ほどに落ちる）
-        let horizontal = SIMD2(v.x, v.z)
-        let hl = simd_length(horizontal)
-        if hl > 2.2 {
-            let s = 2.2 / hl
-            v.x *= s
-            v.z *= s
-        }
-        v.y = min(v.y, 0.4)
         var rot = ms
         rot.columns.3 = SIMD4(0, 0, 0, 1)
-        let omega = (toppleAngle(e: T.separate, times: T) - toppleAngle(e: T.separate - h, times: T)) / Float(h) * 0.6
-        let floor = crown.width * 0.45
-        return (start, v, rot, omega, landingTime(y0: start.y - floor, vy: v.y))
+        // 着地の向き（背の高い頂部は横倒し、平たい頂部 = 内塔の光輪・基地塔の胸壁は少し傾いた程度。立った壁にしない）と、
+        // その向きで外接箱の下端が地面から少し埋まる中心の高さ
+        let tall = min(1, max(0, (crown.extents.y / max(0.01, (crown.extents.x + crown.extents.z) / 2) - 0.6) / 0.4))
+        let turn: Float = (0.3 + 0.75 * tall) + (0.1 + 0.3 * tall) * Float(hash(seed &+ 71, 0))
+        let final = simd_float4x4(simd_quatf(angle: turn, axis: frame.axis)) * rot
+        var low: Float = 0
+        for k in crown.corners { low = min(low, transform(final, k - c).y) }
+        let floor = max(0.1, -low - 0.12 * crown.width)
+        // 着地点: 倒れ切った上部の外接箱の、倒れる向きの先の半ば・脇の外（上部が根元へ崩れ落ちる塔は根元の先）
+        var side = simd_normalize(simd_cross(SIMD3<Float>(0, 1, 0), frame.dir))
+        if side.z > 0 { side = -side }
+        let half = max(crown.extents.x, crown.extents.z) * 0.4
+        let target: SIMD3<Float>
+        if g.cavesIn {
+            var reach: Float = 0
+            for k in (g.lower ?? g.upper).corners { reach = max(reach, k.x * frame.dir.x + k.z * frame.dir.z) }
+            target = frame.dir * (reach + half + 0.15) + side * 0.3
+        } else {
+            let landed = upperMatrix(g, e: T.topple, times: T, seed: seed)
+            var far: Float = -.greatestFiniteMagnitude, near: Float = .greatestFiniteMagnitude, wide: Float = 0
+            for k in g.upper.corners {
+                let p = transform(landed, k)
+                let along = p.x * frame.dir.x + p.z * frame.dir.z
+                far = max(far, along)
+                near = min(near, along)
+                wide = max(wide, p.x * side.x + p.z * side.z)
+            }
+            target = frame.dir * (near + (far - near) * 0.7) + side * (wide + half + 0.1)
+        }
+        let vy: Float = 0.8
+        let land = landingTime(y0: start.y - floor, vy: vy)
+        var v = SIMD3<Float>((target.x - start.x) / land, vy, (target.z - start.z) / land)
+        // 横の勢いの上限（飛びすぎない）
+        let hl = simd_length(SIMD2(v.x, v.z))
+        if hl > 5 {
+            v.x *= 5 / hl
+            v.z *= 5 / hl
+        }
+        return (start, v, rot, turn / land, land)
     }
 
     /// 高さ y0（着地面からの高さ）・上向きの速度 vy で投げた物が着地面に着くまでの秒。
@@ -643,7 +736,8 @@ extension TowerPose {
             let amp: Float = 0.03 + 0.05 * Float(min(1, e / CoreCollapse.implodeStart))
             let j = SIMD3(Float(hash(seed &+ 61, n)) - 0.5, Float(hash(seed &+ 63, n)) - 0.5, Float(hash(seed &+ 67, n)) - 0.5)
                 * 2 * amp
-            let lift = 0.5 * smooth(Float(clamp01((e - CoreCollapse.overloadEnd) / (CoreCollapse.implodeStart - CoreCollapse.overloadEnd))))
+            let lift = g.crystalLift
+                + 0.5 * smooth(Float(clamp01((e - CoreCollapse.overloadEnd) / (CoreCollapse.implodeStart - CoreCollapse.overloadEnd))))
             let base = Float(deathTime.truncatingRemainder(dividingBy: 3600)) * 0.3
             let spin = base + Float(e * e) * 1.6
             let ku = Float(clamp01((e - CoreCollapse.implodeStart) / (CoreCollapse.implodeEnd - CoreCollapse.implodeStart)))

@@ -304,6 +304,15 @@ enum StructureAssets {
         /// 三角形の上限（docs/BATTLE_PERFORMANCE.md の塔・Core 台座 6k / 結晶 2.5k と同じ）: 結晶以外の合計と結晶。
         static let bodyTriangleBudget = 6000
         static let crystalTriangleBudget = 2500
+        /// Star Core は部品の合計（従来の Core の台座 6k + 結晶 2.5k の合計と同じ。石柱・弧・輪が台座と別の部品なので、
+        /// 本体だけで 6k を超えてもよい）。
+        static let coreTriangleBudget = bodyTriangleBudget + crystalTriangleBudget
+
+        /// 予算に収まるか（塔: 本体 6k・結晶 2.5k、Star Core: 合計 8.5k・結晶 2.5k）。
+        func fitsBudget(body: Int, crystal: Int) -> Bool {
+            guard crystal <= Self.crystalTriangleBudget else { return false }
+            return isCore ? body + crystal <= Self.coreTriangleBudget : body <= Self.bodyTriangleBudget
+        }
     }
 
     /// 読み込んだ複数部品の塔（メッシュは共有、材質はチーム別・発光の段階別）。
@@ -345,7 +354,11 @@ enum StructureAssets {
         var geometry: TowerGeometry? {
             var boxes: [TowerPart: PartBox] = [:]
             for p in TowerPart.allCases { boxes[p] = box(p) }
-            return TowerGeometry.rig(isCore: kind.isCore, boxes: boxes)
+            guard var g = TowerGeometry.rig(isCore: kind.isCore, boxes: boxes) else { return nil }
+            // 内塔は東西の控え壁の弧（基壇の一部、z が -0.2〜0.3 m の薄い板）が胴の脇に付いているので、既定より北寄りに
+            // 倒して弧を長く突き抜けない（真北だと倒れた胴が根元の奥に隠れて立ったままに見える）
+            if kind == .towerInner { g.toppleYaw = 0.45...0.6 }
+            return g
         }
 
         /// 結晶以外の三角形の合計。
@@ -433,9 +446,9 @@ enum StructureAssets {
         if let redEmit { red.emissiveColor.texture = .init(redEmit) }
         let rig = RigModel(kind: kind, parts: parts, blue: materialSet(pbr, label: "\(kind.fileName) blue"),
                            red: materialSet(red, label: "\(kind.fileName) red"))
-        if rig.bodyTriangles > RigKind.bodyTriangleBudget || rig.crystalTriangles > RigKind.crystalTriangleBudget {
+        if !kind.fitsBudget(body: rig.bodyTriangles, crystal: rig.crystalTriangles) {
             // 予算超過のアセットは使わない（従来のモデルへ戻す）
-            structureAssetLog.error("\(kind.fileName, privacy: .public): 本体 \(rig.bodyTriangles) / 結晶 \(rig.crystalTriangles) 三角形（上限 \(RigKind.bodyTriangleBudget) / \(RigKind.crystalTriangleBudget)）")
+            structureAssetLog.error("\(kind.fileName, privacy: .public): 本体 \(rig.bodyTriangles) / 結晶 \(rig.crystalTriangles) 三角形（予算超過）")
             return nil
         }
         guard rig.geometry != nil else {

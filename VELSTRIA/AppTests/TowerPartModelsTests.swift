@@ -4,7 +4,7 @@ import XCTest
 @testable import VELSTRIA
 
 /// 塔・Star Core の部品分けモデル（tools/structures/tower_parts.py → App/Resources/Structures/Struct_<id>.usdz）:
-/// 部品の子メッシュ名（TowerTimeline.swift の part_*）・三角形の予算（塔 6k・Star Core 9k、部品の合計）・寸法
+/// 部品の子メッシュ名（TowerTimeline.swift の part_*）・三角形の予算（塔 6k・Star Core 8.5k = 従来の Core の台座 6k + 結晶 2.5k、部品の合計）・寸法
 /// （足元が地面、足跡が従来の台座から大きくはみ出さない）・部品が共通の原点のままであること・材質と赤チームのテクスチャ。
 @MainActor
 final class TowerPartModelsTests: XCTestCase {
@@ -22,7 +22,7 @@ final class TowerPartModelsTests: XCTestCase {
         Spec(file: "Struct_tower_outer", parts: towerParts, budget: 6000, height: 5.35...5.45, reach: 1.9),
         Spec(file: "Struct_tower_inner", parts: towerParts, budget: 6000, height: 4.4...4.7, reach: 2.15),
         Spec(file: "Struct_tower_base", parts: towerParts, budget: 6000, height: 4.5...4.8, reach: 2.45),
-        Spec(file: "Struct_star_core", parts: ["part_plinth", "part_upper", "part_crystal"], budget: 9000, height: 3.8...4.1,
+        Spec(file: "Struct_star_core", parts: ["part_plinth", "part_upper", "part_crystal"], budget: 8500, height: 3.8...4.1,
              reach: 3.55),
     ]
 

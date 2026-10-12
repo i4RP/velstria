@@ -128,7 +128,7 @@ final class StructureAssetsTests: XCTestCase {
     }
 
     /// 複数部品の塔（Struct_tower_outer / _inner / _base / Struct_star_core）: 同梱されている種類は全て読めて、
-    /// 部品が揃い、三角形（本体 6k・結晶 2.5k）と赤のテクスチャ（1024 px）の予算に収まる。同梱が無ければ従来のモデル。
+    /// 部品が揃い、三角形（塔は本体 6k・結晶 2.5k、Star Core は合計 8.5k）と赤のテクスチャ（1024 px）の予算に収まる。同梱が無ければ従来のモデル。
     func testBundledRigsFitBudgets() async throws {
         await StructureAssets.load()
         for kind in StructureAssets.RigKind.allCases {
@@ -138,8 +138,14 @@ final class StructureAssetsTests: XCTestCase {
             }
             let rig = try XCTUnwrap(StructureAssets.rig(kind), "\(kind.fileName) が読めない（部品・予算・材質）")
             XCTAssertEqual(Set(rig.parts.keys), Set(kind.parts))
-            XCTAssertLessThanOrEqual(rig.bodyTriangles, StructureAssets.RigKind.bodyTriangleBudget, "\(kind)")
+            XCTAssertTrue(kind.fitsBudget(body: rig.bodyTriangles, crystal: rig.crystalTriangles),
+                          "\(kind) 本体 \(rig.bodyTriangles) / 結晶 \(rig.crystalTriangles)")
             XCTAssertLessThanOrEqual(rig.crystalTriangles, StructureAssets.RigKind.crystalTriangleBudget, "\(kind)")
+            if kind.isCore {
+                XCTAssertLessThanOrEqual(rig.bodyTriangles + rig.crystalTriangles, StructureAssets.RigKind.coreTriangleBudget)
+            } else {
+                XCTAssertLessThanOrEqual(rig.bodyTriangles, StructureAssets.RigKind.bodyTriangleBudget, "\(kind)")
+            }
             let g = try XCTUnwrap(rig.geometry)
             XCTAssertEqual(g.plinth?.min.y ?? 0, 0, accuracy: 0.15, "\(kind) 足元が地面")
             XCTAssertGreaterThan(g.crystal.center.y, g.plinthTop, "\(kind)")

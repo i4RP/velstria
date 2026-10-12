@@ -9,13 +9,14 @@ import VelstriaCore
 // 対象: 塔 = 青の mid レーンのその段の塔、core = 赤の Star Core。
 // カメラ（-stageCam x,y[,zoom]。地図座標 m。tools/stage/stage_shots.sh の位置引数と同じ）:
 // 塔の位置（地図座標）は外塔 (46.6, 49.9)・内塔 (33.9, 37.1)・基地塔 (24.0, 24.0)・赤の Core (107.5, 107.5)。
-// 注視点を 1 m 北（y + 1）へずらすと塔の全体が HUD の上に収まる:
-//   青の mid 外塔   46.6,51.0,0.8    例: tools/stage/stage_shots.sh <UDID> build/tower 46.6,51.0,0.8 -- -towerDemo outer
-//   青の mid 内塔   33.9,38.1,0.8
-//   青の mid 基地塔 24.0,25.0,0.8
-//   赤の Star Core  107.5,108.5,1.0  例: tools/stage/stage_shots.sh <UDID> build/core 107.5,108.5,1.0 -- -towerDemo core
+// 注視点を 2 m ほど北（y + 2）へずらすと、塔の全体と奥へ倒れた瓦礫が HUD の上に収まる:
+//   青の mid 外塔   46.6,52.0,0.9    例: tools/stage/stage_shots.sh <UDID> build/tower 46.6,52.0,0.9 -- -towerDemo outer
+//   青の mid 内塔   33.9,39.3,0.9
+//   青の mid 基地塔 24.0,26.0,0.9
+//   赤の Star Core  107.5,108.6,1.2  例: tools/stage/stage_shots.sh <UDID> build/core 107.5,108.6,1.2 -- -towerDemo core
 // 動画: xcrun simctl io <UDID> recordVideo build/tower.mov（-stageCam を付けて起動した後に録る）。
 // -towerDemoAt <秒> を足すと演出時刻をその値に止める（姿勢は時刻だけで決まるので、その瞬間の姿を撮れる。粒子は出ない）。
+// -towerDemoSpeed <倍率> で演出時刻の進みを変える（0.25 = 4 倍のスロー。動画からコマを抜いて確かめる用）。
 
 @MainActor
 final class TowerDemo {
@@ -34,6 +35,13 @@ final class TowerDemo {
         let args = ProcessInfo.processInfo.arguments
         guard let i = args.firstIndex(of: "-towerDemoAt"), i + 1 < args.count else { return nil }
         return Double(args[i + 1])
+    }()
+
+    /// -towerDemoSpeed <倍率>: 演出時刻の進みの倍率（既定 1）。
+    static let speed: Double = {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-towerDemoSpeed"), i + 1 < args.count, let v = Double(args[i + 1]), v > 0 else { return 1 }
+        return v
     }()
 
     // 時刻表（演出時刻 = この 1 基の秒）
@@ -68,7 +76,7 @@ final class TowerDemo {
         if let held = TowerDemo.heldTime {
             clock = held
         } else {
-            clock += Double(f.dt)
+            clock += Double(f.dt) * TowerDemo.speed
             if clock >= period {
                 clock = TowerDemo.start
                 lastHit = -10

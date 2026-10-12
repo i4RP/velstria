@@ -37,6 +37,8 @@ final class StructureFXDirector {
     static let hearing: Float = 30
     /// 石の粉・火花の色（加算で淡く光る灰色）。
     static let dustColor = UIColor(red: 0.74, green: 0.72, blue: 0.64, alpha: 1)
+    /// 粉塵の煙（灰緑がかった石の粉。粒子の色は線形空間なので暗めに指定する。黒い煙にしない）。
+    static let dustCloud = UIColor(red: 0.25, green: 0.24, blue: 0.2, alpha: 0.5)
 
     init(vfx: VFXSystem, materials: RenderMaterials) {
         self.vfx = vfx
@@ -106,9 +108,9 @@ final class StructureFXDirector {
         switch e.cue {
         case .riseStart:
             // 基壇の継ぎ目から砂（紋様の点灯は材質の段階で出す）
-            vfx.spawn(.smoke, at: p + SIMD3(0, 0.1, 0), color: .gray, scale: 0.6)
+            vfx.spawn(.smoke, at: p + SIMD3(0, 0.1, 0), color: StructureFXDirector.dustCloud, scale: 0.6)
         case .riseLock:
-            vfx.spawn(.smoke, at: p, color: .gray, scale: 0.35, count: 6)
+            vfx.spawn(.smoke, at: p, color: StructureFXDirector.dustCloud, scale: 0.35, count: 6)
             vfx.spawn(.hitSpark, at: p, color: StructureFXDirector.dustColor, scale: 0.6, count: 5)
         case .crystalIgnite:
             vfx.spawn(.magicHit, at: p, color: team, scale: 0.8)
@@ -117,16 +119,16 @@ final class StructureFXDirector {
             vfx.spawn(.death, at: p, color: team, scale: 0.55, count: 4)
         case .damaged:
             vfx.spawn(.debris, at: p, color: .gray, scale: 0.45, count: 6)
-            vfx.spawn(.smoke, at: p, color: .gray, scale: 0.4, count: 5)
+            vfx.spawn(.smoke, at: p, color: StructureFXDirector.dustCloud, scale: 0.4, count: 5)
         case .breakFlash:
             // 結晶の異常発光・破断箇所の粉塵（稼働光は材質で消える）
             vfx.flash(at: p, color: light, radius: full ? 1.3 : 0.9, duration: 0.25, alpha: 0.6)
-            if full { vfx.spawn(.smoke, at: p - SIMD3(0, 1.2, 0), color: .gray, scale: 0.5, count: 6) }
+            if full { vfx.spawn(.smoke, at: p - SIMD3(0, 1.2, 0), color: StructureFXDirector.dustCloud, scale: 0.5, count: 6) }
         case .crack:
             vfx.spawn(.debris, at: p, color: .gray, scale: 0.55, count: 8)
             vfx.spawn(.hitSpark, at: p, color: StructureFXDirector.dustColor, scale: 0.8, count: 8)
         case .toppleStart:
-            vfx.spawn(.smoke, at: p, color: .gray, scale: 0.55, count: 6)
+            vfx.spawn(.smoke, at: p, color: StructureFXDirector.dustCloud, scale: 0.55, count: 6)
         case .crystalShatter:
             // 割れた結晶からチームの魔力が小さく弾ける
             vfx.spawn(.magicHit, at: p, color: team, scale: full ? 1.3 : 0.9)
@@ -134,34 +136,35 @@ final class StructureFXDirector {
         case .separate:
             vfx.spawn(.debris, at: p, color: .gray, scale: 0.4, count: 5)
         case .crownImpact:
-            vfx.spawn(.smoke, at: ground, color: .gray, scale: 0.7, count: 6)
+            vfx.spawn(.smoke, at: ground, color: StructureFXDirector.dustCloud, scale: 0.7, count: 6)
         case .impact:
             // 低く広がる粉塵と少しの破片（跳ね返りは無い）
-            vfx.spawn(.smoke, at: ground, color: .gray, scale: full ? 1.6 : 0.9, count: full ? 12 : 6)
+            vfx.spawn(.smoke, at: ground, color: StructureFXDirector.dustCloud, scale: full ? 1.6 : 0.9, count: full ? 12 : 6)
             if full { vfx.spawn(.debris, at: ground, color: .gray, scale: 0.7, count: 10) }
         case .clearDebris:
-            vfx.spawn(.smoke, at: ground, color: .gray, scale: 0.5, count: 5)
+            vfx.spawn(.smoke, at: ground, color: StructureFXDirector.dustCloud, scale: 0.5, count: 5)
         case .crystalFade:
             // 結晶片が光の粒になって消える
             vfx.spawn(.death, at: p, color: team, scale: 0.9, count: full ? 10 : 5)
         case .crumble:
-            vfx.spawn(.smoke, at: ground, color: .gray, scale: full ? 1.2 : 0.7, count: full ? 10 : 5)
+            vfx.spawn(.smoke, at: ground, color: StructureFXDirector.dustCloud, scale: full ? 1.2 : 0.7, count: full ? 10 : 5)
         case .coreOverload:
-            vfx.flash(at: p, color: light, radius: 2.2, duration: 0.5, alpha: 0.5)
+            // 閃光の球は大結晶を包む大きさまで（台座に食い込むと台座全体が色の付いた円盤に見える）
+            vfx.flash(at: p, color: light, radius: 1.5, duration: 0.45, alpha: 0.45)
             vfx.spawn(.magicHit, at: p, color: team, scale: 1.6, important: true)
         case .coreArchesFall:
-            vfx.spawn(.smoke, at: p + SIMD3(0, 0.3, 0), color: .gray, scale: 1.5, important: true)
+            vfx.spawn(.smoke, at: p + SIMD3(0, 0.3, 0), color: StructureFXDirector.dustCloud, scale: 1.5, important: true)
         case .coreArchesImpact:
-            vfx.spawn(.smoke, at: ground, color: .gray, scale: 2.2, important: true)
+            vfx.spawn(.smoke, at: ground, color: StructureFXDirector.dustCloud, scale: 2.2, important: true)
             vfx.spawn(.debris, at: ground + SIMD3(0, 0.5, 0), color: .gray, scale: 1.3, important: true)
         case .coreImplode:
-            vfx.flash(at: p, color: light, radius: 3.2, duration: 0.5, alpha: 0.65)
+            vfx.flash(at: p, color: light, radius: 1.9, duration: 0.4, alpha: 0.6)
             vfx.spawn(.towerExplosion, at: p, color: team, scale: 1.3, important: true)
         case .coreShockwave:
             vfx.ring(at: SIMD3(p.x, 0, p.z), color: light, from: 2, to: 15, duration: 0.9, alpha: 0.8)
-            vfx.spawn(.smoke, at: ground, color: .gray, scale: 2.0, important: true)
+            vfx.spawn(.smoke, at: ground, color: StructureFXDirector.dustCloud, scale: 2.0, important: true)
         case .coreSettle:
-            vfx.spawn(.smoke, at: ground, color: .gray, scale: 1.2)
+            vfx.spawn(.smoke, at: ground, color: StructureFXDirector.dustCloud, scale: 1.2)
         }
     }
 

@@ -195,7 +195,7 @@ final class TowerPoseTests: XCTestCase {
             XCTAssertTrue(after.shards.isEmpty && after.debris.isEmpty)
             XCTAssertTrue(after.ruined, "紋様の消えた破損基壇")
             XCTAssertLessThan(after.plinth.matrix.columns.3.y, -0.05, "基壇は少し下がる")
-            assertClose(after.lower.matrix, matrix_identity_float4x4)
+            assertClose(after.lower.matrix, after.plinth.matrix, "根元は基壇と一緒に下がる（隙間を作らない）")
             // 整理の直前: 大きな石は地面へ沈み切っている（一様に薄くして消すのではない）
             let before = TowerPose.evaluate(input(g, d + times.clear - 0.001, death: d, style: style))
             let top = g.upper.corners.map { TowerPose.transform(before.upper.matrix, $0).y }.max()!
@@ -448,6 +448,11 @@ final class TowerPoseTests: XCTestCase {
         XCTAssertNil(StructureAssets.assembleRig(.starCore, root: rigRoot(omit: .crystal, core: true), redBase: nil, redEmit: nil))
         XCTAssertEqual(StructureAssets.RigKind.bodyTriangleBudget, 6000)
         XCTAssertEqual(StructureAssets.RigKind.crystalTriangleBudget, 2500)
+        // Star Core は従来の Core（台座 6k + 結晶 2.5k）の合計まで。塔は本体だけで 6k
+        XCTAssertEqual(StructureAssets.RigKind.coreTriangleBudget, 8500)
+        XCTAssertTrue(StructureAssets.RigKind.starCore.fitsBudget(body: 7000, crystal: 300))
+        XCTAssertFalse(StructureAssets.RigKind.starCore.fitsBudget(body: 8300, crystal: 300))
+        XCTAssertFalse(StructureAssets.RigKind.towerOuter.fitsBudget(body: 6100, crystal: 30))
     }
 
     /// 複数部品のモデルがあれば使い、無い・-legacyStructures なら従来のモデル（または手続き）へ戻る。
@@ -547,6 +552,69 @@ final class TowerPoseTests: XCTestCase {
         XCTAssertEqual(g.crystal.center.y, 5.2, accuracy: 0.01)
         XCTAssertNil(StructureAssets.rig(.towerInner), "無い段は従来のモデル")
         XCTAssertNotNil(StructureAssets.model(.tower), "従来のモデルも読む（戻り先）")
+    }
+
+    /// 同梱の複数部品のモデル（外塔・内塔・基地塔・Star Core）の寸法で姿勢を確かめる:
+    /// 立ち上がりの始まりは部品が基壇の上面より下、待機中の Core の大結晶は祭壇へ沈まない、倒れた上部は根元に重ならず
+    /// 地面に載る（基地塔の天守は根元へ崩れ落ちて残る）、頂部は上部の脇に落ちる、倒れる向きは奥の斜め。
+    func testBundledRigPosesFitTheirShapes() async throws {
+        await StructureAssets.load()
+        let d = 300.0
+        for kind in StructureAssets.RigKind.allCases {
+            let rig = try XCTUnwrap(StructureAssets.rig(kind), "\(kind)")
+            let g = try XCTUnwrap(rig.geometry, "\(kind)")
+            func lowHigh(_ m: simd_float4x4, _ b: PartBox) -> (Float, Float) {
+                let ys = b.corners.map { TowerPose.transform(m, $0).y }
+                return (ys.min()!, ys.max()!)
+            }
+            // 立ち上がりの始まり: 上部・頂部・結晶は基壇の上面より下
+            let start = TowerPose.evaluate(input(g, 0))
+            XCTAssertLessThanOrEqual(lowHigh(start.upper.matrix, g.upper).1, g.plinthTop + 1e-3, "\(kind)")
+            XCTAssertLessThanOrEqual(lowHigh(start.crystal.matrix, g.crystal).1, g.plinthTop + 1e-3, "\(kind)")
+            if let crown = g.crown { XCTAssertLessThanOrEqual(lowHigh(start.crown.matrix, crown).1, g.plinthTop + 1e-3, "\(kind)") }
+            // 待機中: 結晶は静止位置より下へ沈まない（Core は持ち上げてから揺らす）
+            if g.isCore {
+                for t in stride(from: 3.0, to: 9.0, by: 0.25) {
+                    let p = TowerPose.evaluate(input(g, t))
+                    XCTAssertGreaterThanOrEqual(lowHigh(p.crystal.matrix, g.crystal).0, g.crystal.min.y - 0.01, "\(kind) t = \(t)")
+                }
+                continue
+            }
+            for seed: UInt64 in [3, 42, 977] {
+                var i = input(g, d + TowerTimeline.impactEnd, death: d)
+                i.seed = seed
+                let f = TowerPose.toppleFrame(g, seed: seed)
+                XCTAssertLessThan(f.dir.z, -0.3, "\(kind) 奥へ倒れる")
+                XCTAssertGreaterThan(abs(f.dir.x), 0.3, "\(kind) 斜め（真北だと倒れた姿が立ったままに見える）")
+                let p = TowerPose.evaluate(i)
+                let (lo, hi) = lowHigh(p.upper.matrix, g.upper)
+                if g.cavesIn {
+                    // 根元へ崩れ落ちて上半分が残り、整理の後も折れた根元として残る
+                    XCTAssertLessThan(TowerPose.transform(p.upper.matrix, g.upper.center).y, g.upper.center.y - 0.3, "\(kind)")
+                    XCTAssertGreaterThan(hi, g.breakY, "\(kind) 上半分は根元の上に残る")
+                    i.time = d + TowerTimeline.clearEnd + 1
+                    XCTAssertTrue(TowerPose.evaluate(i).upper.visible, "\(kind)")
+                } else {
+                    // 地面に載り、倒れる向きに見て根元の先へ出ている（根元に寄りかからない・めり込まない）
+                    XCTAssertGreaterThan(lo, -0.5, "\(kind)")
+                    XCTAssertLessThan(lo, 0.1, "\(kind)")
+                    let lower = try XCTUnwrap(g.lower)
+                    let reach = lower.corners.map { $0.x * f.dir.x + $0.z * f.dir.z }.max()!
+                    let near = g.upper.corners.map { c -> Float in
+                        let q = TowerPose.transform(p.upper.matrix, c)
+                        return q.x * f.dir.x + q.z * f.dir.z
+                    }.min()!
+                    XCTAssertGreaterThan(near, reach, "\(kind) seed \(seed)")
+                }
+                // 頂部は地面に載る（跳ねない・埋まり切らない）
+                let crown = try XCTUnwrap(g.crown)
+                let (clo, chi) = lowHigh(p.crown.matrix, crown)
+                XCTAssertLessThan(clo, 0.05, "\(kind)")
+                XCTAssertGreaterThan(chi, 0.3, "\(kind)")
+                let cc = TowerPose.transform(p.crown.matrix, crown.center)
+                XCTAssertLessThan(simd_length(SIMD2(cc.x, cc.z)), 4.5, "\(kind) 基部の近くに落ちる")
+            }
+        }
     }
 
     /// 1 基のエンティティ数と破片の数の上限（作るのは読み込み中だけ）。
