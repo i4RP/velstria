@@ -479,6 +479,76 @@ final class TowerPoseTests: XCTestCase {
         XCTAssertNil(try XCTUnwrap(legacy.structure(outer.id)).rigKind)
     }
 
+    /// 実際の USD ファイル（部品ごとの Xform の下にメッシュ。Blender の書き出しと同じ形）を読み込みの経路で読み、
+    /// 子の名前で部品を集める。赤のテクスチャが無くても読める。
+    func testLoadsMultiPartUSDFileByPartNames() async throws {
+        let parts: [(String, SIMD3<Float>, SIMD3<Float>)] = [
+            ("part_plinth", [-1.6, 0, -1.6], [1.6, 0.7, 1.6]), ("part_lower", [-0.6, 0, -0.6], [0.6, 1.6, 0.6]),
+            ("part_upper", [-0.7, 1.6, -0.7], [0.7, 3.8, 0.7]), ("part_crown", [-0.9, 3.8, -0.9], [0.9, 4.6, 0.9]),
+            ("part_crystal", [-0.4, 4.7, -0.4], [0.4, 5.7, 0.4]),
+        ]
+        var usda = "#usda 1.0\n(\n    defaultPrim = \"Struct_tower_outer\"\n    metersPerUnit = 1\n    upAxis = \"Y\"\n)\n"
+        usda += "def Xform \"Struct_tower_outer\"\n{\n"
+        for (name, lo, hi) in parts {
+            let pts = [SIMD3(lo.x, lo.y, lo.z), SIMD3(hi.x, lo.y, lo.z), SIMD3(hi.x, hi.y, lo.z), SIMD3(lo.x, hi.y, lo.z),
+                       SIMD3(lo.x, lo.y, hi.z), SIMD3(hi.x, lo.y, hi.z), SIMD3(hi.x, hi.y, hi.z), SIMD3(lo.x, hi.y, hi.z)]
+            let points = pts.map { "(\($0.x), \($0.y), \($0.z))" }.joined(separator: ", ")
+            usda += """
+                def Xform "\(name)"
+                {
+                    def Mesh "\(name)_geo" (
+                        prepend apiSchemas = ["MaterialBindingAPI"]
+                    )
+                    {
+                        int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+                        int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 2, 3, 7, 6, 1, 2, 6, 5, 0, 4, 7, 3]
+                        point3f[] points = [\(points)]
+                        uniform token subdivisionScheme = "none"
+                        rel material:binding = </Struct_tower_outer/Looks/Stone>
+                    }
+                }
+
+            """
+        }
+        usda += """
+            def Scope "Looks"
+            {
+                def Material "Stone"
+                {
+                    token outputs:surface.connect = </Struct_tower_outer/Looks/Stone/PBR.outputs:surface>
+                    def Shader "PBR"
+                    {
+                        uniform token info:id = "UsdPreviewSurface"
+                        color3f inputs:diffuseColor = (0.42, 0.47, 0.42)
+                        color3f inputs:emissiveColor = (0.05, 0.4, 0.45)
+                        token outputs:surface
+                    }
+                }
+            }
+        }
+
+        """
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("Struct_tower_outer_test.usda")
+        try usda.write(to: url, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: url) }
+        StructureAssets.resolver = { name, ext in
+            if name == "Struct_tower_outer" && ext == "usdz" { return url }
+            if name.hasPrefix("Struct_tower_outer") || name.hasPrefix("Struct_tower_inner") || name.hasPrefix("Struct_tower_base")
+                || name.hasPrefix("Struct_star_core") { return nil }
+            return Bundle.main.url(forResource: name, withExtension: ext)
+        }
+        await StructureAssets.load()
+        let rig = try XCTUnwrap(StructureAssets.rig(.towerOuter), "部品の名前で集められる")
+        XCTAssertEqual(Set(rig.parts.keys), Set(TowerPart.allCases))
+        let g = try XCTUnwrap(rig.geometry)
+        XCTAssertEqual(g.plinthTop, 0.7, accuracy: 0.01)
+        XCTAssertEqual(g.breakY, 1.6, accuracy: 0.01)
+        XCTAssertEqual(g.crown?.max.y ?? 0, 4.6, accuracy: 0.01)
+        XCTAssertEqual(g.crystal.center.y, 5.2, accuracy: 0.01)
+        XCTAssertNil(StructureAssets.rig(.towerInner), "無い段は従来のモデル")
+        XCTAssertNotNil(StructureAssets.model(.tower), "従来のモデルも読む（戻り先）")
+    }
+
     /// 1 基のエンティティ数と破片の数の上限（作るのは読み込み中だけ）。
     func testStructureEntityBudget() throws {
         StructureAssets.isEnabled = false
