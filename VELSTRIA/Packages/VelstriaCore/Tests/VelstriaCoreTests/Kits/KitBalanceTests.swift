@@ -11,7 +11,7 @@ final class KitBalanceTests: XCTestCase {
     /// 各キットの調整が済んだら該当行を消して帯を守らせる（新しい外れ値は即失敗になる）。
     static let knownOutliers: Set<String> = []
 
-    static var kitIDs: [String] { MasterData.shared.heroes.map(\.heroID).filter { HeroKits.hasKit($0) } }
+    static var kitIDs: [String] { MasterData.shared.allHeroes.map(\.heroID).filter { HeroKits.hasKit($0) } }
 
     // MARK: - ハーネスの健全性（Debug でも走る軽いもの）
 
@@ -35,7 +35,7 @@ final class KitBalanceTests: XCTestCase {
     }
 
     func testKitHeroesAreInTheRosterAndRolesHaveGenericPeers() {
-        let ids = MasterData.shared.heroes.map(\.heroID)
+        let ids = MasterData.shared.allHeroes.map(\.heroID)
         XCTAssertEqual(Self.kitIDs.count, 10)
         for kit in Self.kitIDs {
             let role = MasterData.shared.hero(kit)!.role
@@ -59,7 +59,7 @@ final class KitBalanceTests: XCTestCase {
         #else
         let started = Date()
         let master = MasterData.shared
-        let ids = master.heroes.map(\.heroID)
+        let ids = master.allHeroes.map(\.heroID)
         let kits = Self.kitIDs
         var rates: [Int: [String: Double]] = [:]
         for level in BalanceHarness.levels {
@@ -117,7 +117,7 @@ final class KitBalanceTests: XCTestCase {
         throw XCTSkip("Release で実行する: swift test -c release --filter KitBalanceTests")
         #else
         let master = MasterData.shared
-        let ids = master.heroes.map(\.heroID)
+        let ids = master.allHeroes.map(\.heroID)
         var table = "KitBurst: 開幕 3 秒にダミー(H001)へ与える実ダメージ（開始距離 300/450 の平均）。比 = 同ロール汎用ヒーローの中央値に対する倍率\n"
         table += "kit    role       | Lv1 dmg  ratio | Lv6 dmg  ratio | Lv12 dmg ratio\n"
         for kit in Self.kitIDs {

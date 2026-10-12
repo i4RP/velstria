@@ -4,7 +4,7 @@ import XCTest
 /// AI ドラフト（ピック / BAN）と、それを使う MatchFactory。
 final class BotDraftTests: XCTestCase {
     let master = MasterData.shared
-    var allIDs: [String] { master.heroes.map(\.heroID) }
+    var allIDs: [String] { master.allHeroes.map(\.heroID) }
 
     func testPickFitsPositionRoles() {
         for position in LanePosition.allCases {
@@ -19,7 +19,7 @@ final class BotDraftTests: XCTestCase {
 
     func testPickAvoidsDuplicatingAllyRolesWhenAlternativesExist() {
         // 味方にアサシンが 2 人居るなら、ジャングルでもデュエリストを選ぶ
-        let assassins = master.heroes(role: .assassin).map(\.heroID)
+        let assassins = master.allHeroes.filter { $0.role == .assassin }.map(\.heroID)
         var rng = SplitMix64(seed: 3)
         let available = allIDs.filter { !assassins.prefix(2).contains($0) }
         let id = DraftAI.draftPick(available: available, allyPicks: Array(assassins.prefix(2)), enemyPicks: [],
@@ -57,7 +57,7 @@ final class BotDraftTests: XCTestCase {
         }
     }
 
-    func testBotMatchDraftsTenUniqueHeroesWithFittingRolesAndSpells() {
+    func testBotMatchDraftsTenUniqueActiveHeroesWithPositionSpells() {
         for seed in UInt64(1)...12 {
             let cfg = MatchFactory.botMatch(difficulty: .hard, seed: seed)
             XCTAssertEqual(cfg.players.count, 10)
@@ -65,7 +65,8 @@ final class BotDraftTests: XCTestCase {
             for p in cfg.players {
                 XCTAssertEqual(p.controller, .bot)
                 XCTAssertEqual(p.botDifficulty, .hard)
-                XCTAssertTrue(MatchFactory.preferredRoles(for: p.position).contains(master.hero(p.heroID)!.role))
+                // 10体の名簿を使い切るドラフトでは適性ロールが残らない枠もある。
+                XCTAssertTrue(HeroRoster.isActive(p.heroID))
                 XCTAssertEqual(p.spells, MatchFactory.defaultSpells(for: p.position))
             }
             XCTAssertTrue(cfg.players.filter { $0.position == .jungle }.allSatisfy { $0.spells.contains("BS05") })

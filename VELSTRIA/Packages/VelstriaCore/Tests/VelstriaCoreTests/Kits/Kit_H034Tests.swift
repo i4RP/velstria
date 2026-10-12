@@ -1357,7 +1357,7 @@ final class Kit_H034Tests: XCTestCase {
 
     /// 全ヒーローとの総当たり（Lv 6 / 12）の勝率。サポートのタンクとして 35〜65% を目安にし、極端な偏りだけを落とす。
     func testRoundRobinWinRateAgainstTheWholeRosterIsNotLopsided() {
-        let foes = MasterData.shared.heroes.map(\.heroID).filter { $0 != "H034" }
+        let foes = MasterData.shared.allHeroes.map(\.heroID).filter { $0 != "H034" }
         var table = "H034 round robin\n"
         var allWins = 0.0
         var allTotal = 0
