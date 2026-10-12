@@ -163,7 +163,7 @@ enum EconomyService {
         guard grantID.hasPrefix("BUNDLE_"), let number = Int(grantID.dropFirst("BUNDLE_".count)), number >= 1 else {
             return []
         }
-        let all = master.cosmetics
+        let all = master.allCosmetics // 対応表は全コスメで固定（名簿を絞っても中身・レア度の並びを変えない）
         guard !all.isEmpty else { return [] }
         var result: [String] = []
         // 先に剰余を取って巨大な番号でも桁あふれしないようにする（回り込みの結果は同じ）

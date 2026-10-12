@@ -358,13 +358,13 @@ final class ServicesLiveOpsTests: XCTestCase {
         XCTAssertTrue(LiveOpsService.evaluateAchievements(profile: &p, master: master, now: now).isEmpty)
         p.career.wins = 10
         p.career.matches = 12
-        p.career.perHero["H001"] = HeroCareer(matches: 5)
-        p.career.perHero["H002"] = HeroCareer(matches: 1)
+        p.career.perHero["H027"] = HeroCareer(matches: 5)
+        p.career.perHero["H028"] = HeroCareer(matches: 1)
         let unlocked = LiveOpsService.evaluateAchievements(profile: &p, master: master, now: now)
         XCTAssertTrue(unlocked.contains("ACH_FIRST_WIN"))
         XCTAssertTrue(unlocked.contains("ACH_WINS_10"))
         XCTAssertTrue(unlocked.contains("ACH_MATCHES_10"))
-        let h1Role = master.hero("H001")!.role
+        let h1Role = master.hero("H027")!.role
         XCTAssertTrue(unlocked.contains("ACH_ROLE_\(h1Role.rawValue.uppercased())"))
         XCTAssertFalse(unlocked.contains("ACH_WINS_50"))
         XCTAssertEqual(p.achievements["ACH_WINS_50"]?.progress, 10)

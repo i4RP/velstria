@@ -237,7 +237,7 @@ final class FlowMatchModelTests: XCTestCase {
 
     func testSkinMustBeOwnedAndMatchHero() throws {
         var p = profile()
-        let skin = try XCTUnwrap(MasterData.shared.cosmetics.first { $0.type == .heroSkin && $0.heroID == "H001" })
+        let skin = try XCTUnwrap(MasterData.shared.allCosmetics.first { $0.type == .heroSkin && $0.heroID == "H001" })
         p.equippedSkins["H001"] = skin.cosmeticID
         let m = MatchFlowModel(seed: 1)
         m.selectHero("H001", profile: p, master: .shared)
@@ -258,12 +258,12 @@ final class FlowMatchModelTests: XCTestCase {
         p.lastPickedHeroID = "H020"
         let m = MatchFlowModel(seed: 1)
         m.configure(profile: p, master: .shared)
-        XCTAssertEqual(m.heroID, "H001", "未所持の前回ヒーローは使わず所持の先頭")
-        p.lastPickedHeroID = "H004"
+        XCTAssertEqual(m.heroID, HeroRoster.defaultHeroID, "未所持の前回ヒーローは使わず所持の先頭")
+        p.lastPickedHeroID = "H027"
         p.preferredDifficulty = .hard
         let m2 = MatchFlowModel(seed: 1)
         m2.configure(profile: p, master: .shared)
-        XCTAssertEqual(m2.heroID, "H004")
+        XCTAssertEqual(m2.heroID, "H027")
         XCTAssertEqual(m2.difficulty, .hard)
     }
 

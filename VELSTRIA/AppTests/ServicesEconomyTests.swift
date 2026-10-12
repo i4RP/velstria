@@ -6,13 +6,15 @@ final class ServicesEconomyTests: XCTestCase {
     private let master = ServicesFixtures.master
 
     func testCatalogHelpers() {
-        XCTAssertEqual(EconomyService.storeItems(ofType: .cosmetic).count, 102)
-        XCTAssertEqual(EconomyService.storeItems(ofType: .heroUnlock).count, 34)
+        // 名簿（H025〜H034）の外のヒーローの解放・スキン 12 点は単品で売らない
+        XCTAssertEqual(EconomyService.storeItems(ofType: .cosmetic).count, 90)
+        XCTAssertEqual(EconomyService.storeItems(ofType: .heroUnlock).count, 10)
         XCTAssertEqual(EconomyService.storeItems(ofType: .bundle).count, 18)
-        XCTAssertEqual(EconomyService.cosmetics(ofType: .heroSkin).count, 12)
+        XCTAssertEqual(EconomyService.cosmetics(ofType: .heroSkin).count, 0)
         XCTAssertEqual(EconomyService.cosmetics(ofType: .avatarFrame).count, 18)
         XCTAssertEqual(EconomyService.storeItem(forCosmetic: "CO004")?.sku, "SKU004")
-        XCTAssertEqual(EconomyService.storeItem(forHero: "H007")?.sku, "SKU079")
+        XCTAssertNil(EconomyService.storeItem(forHero: "H007"))
+        XCTAssertEqual(EconomyService.storeItem(forHero: "H027")?.sku, "SKU126")
         XCTAssertEqual(EconomyService.gemPrice(ofCosmetic: "CO004"), 880)
         XCTAssertEqual(EconomyService.duplicateRefundGems(cosmeticID: "CO002"), 130)
     }
@@ -34,8 +36,8 @@ final class ServicesEconomyTests: XCTestCase {
         XCTAssertTrue(EconomyService.isOwned(heroID: "H007", profile: p))
         XCTAssertEqual(EconomyService.purchaseCount(sku: "SKU079", profile: p), 1)
         XCTAssertEqual(EconomyService.purchase(sku: "SKU079", profile: &p, master: master), .alreadyOwned)
-        // 初期所持ヒーローは購入不可
-        XCTAssertEqual(EconomyService.purchase(sku: "SKU073", profile: &p, master: master), .alreadyOwned)
+        // 初期所持ヒーロー（オンボーディングヒーロー）は購入不可
+        XCTAssertEqual(EconomyService.purchase(sku: "SKU118", profile: &p, master: master), .alreadyOwned)
     }
 
     func testGemSpendOrderFreeThenPaid() {
