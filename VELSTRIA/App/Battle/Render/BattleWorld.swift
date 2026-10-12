@@ -886,6 +886,9 @@ final class BattleWorld {
     /// 死亡中の味方追従（プレイヤー）: 追っている味方を画面の中央より少し上に置く（下の味方一覧に隠れないように。m）。
     static let deathFollowLead: Float = -0.7
 
+    /// 演出の時刻（RenderFrame.presentationTime と同じ値。Star Core の終幕のカメラが倒壊と同じ時計で動く）。
+    var presentationTime: Double { controller.state.time + endedClock }
+
     func updateCamera(rig: CameraRig, dt: Float, snap: Bool) {
         let seeking = controller.seekingToTick != nil
         // シーク中は sim が途中の tick を行き来する（描画は同期しない）ので、視界の切替の反映もシークの後で行う

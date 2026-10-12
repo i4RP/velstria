@@ -10,6 +10,8 @@ import VelstriaCore
 // - 2 倍速を超えると主要でない音（攻撃・命中・スキル・Gold など）を弱め、4 倍速を超えると鳴らさない。
 // シーク・再同期（presentationEpoch の変化）の直後は短い間すべて鳴らさない（追いつきの連続イベントで音が溢れない）。
 // 同じ音の連打は AudioService が間引く。ここでは他ユニットのスキル音と被弾の触覚を追加で間引く。
+// Star Core の終幕（Core の破壊で決着）: 決着の瞬間は崩壊の音だけを鳴らし、勝敗の音（cues の .matchEnded）は勝敗のバナーが
+// 出る時刻（TowerTimeline.finaleResult）まで遅らせる。それまでに巻き戻す・試合を出たら鳴らさない。
 
 @MainActor
 final class BattleAudioDirector {
@@ -65,6 +67,8 @@ final class BattleAudioDirector {
     /// 最後に見た presentationEpoch と、変化に気付いてから音を止める期限（systemUptime）。
     private var seenEpoch: Int?
     private var suppressUntil: TimeInterval = 0
+    /// 終幕の後に鳴らす勝敗の音（バナーの時刻まで待つ）。
+    private var resultTask: Task<Void, Never>?
 
     init(controller: BattleController, app: AppModel) {
         self.controller = controller
@@ -86,6 +90,8 @@ final class BattleAudioDirector {
         if let token, let controller { controller.unsubscribe(token) }
         token = nil
         StructureAudio.sink = nil
+        resultTask?.cancel()
+        resultTask = nil
     }
 
     private func handle(_ events: [SimEvent]) {
@@ -107,6 +113,13 @@ final class BattleAudioDirector {
         ctx.speed = controller.isOnline ? 1 : controller.speed
         ctx.suppressed = noteDiscontinuity(epoch: controller.presentationEpoch, now: now)
         for e in events {
+            if CoreFinale.isTrigger(e), let delay = CoreFinale.remainingUntilResult(s), delay > 0 {
+                // 終幕: 今は Core の崩壊の音、勝敗の音はバナーと一緒に
+                app.audio.play(.towerDestroyed, gain: 1)
+                if !ctx.isSpectating { app.haptics.impact(.heavy, intensity: 1) }
+                deferResult(Self.cues(for: e, context: ctx), after: delay, epoch: controller.presentationEpoch)
+                continue
+            }
             for cue in Self.cues(for: e, context: ctx) {
                 switch cue {
                 case .sound(let sfx, let gain):
@@ -117,6 +130,23 @@ final class BattleAudioDirector {
                     app.audio.play(sfx, gain: gain)
                 case .haptic(let h):
                     play(h, app: app, now: now)
+                }
+            }
+        }
+    }
+
+    /// 勝敗の音を終幕の後（バナーの時刻）に鳴らす。巻き戻し・再同期（presentationEpoch の変化）・退出の後は鳴らさない。
+    private func deferResult(_ cues: [Cue], after delay: Double, epoch: Int) {
+        resultTask?.cancel()
+        resultTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled, let self, let controller = self.controller, let app = self.app,
+                  controller.isEnded, controller.presentationEpoch == epoch else { return }
+            let now = ProcessInfo.processInfo.systemUptime
+            for cue in cues {
+                switch cue {
+                case .sound(let sfx, let gain): app.audio.play(sfx, gain: gain)
+                case .haptic(let h): self.play(h, app: app, now: now)
                 }
             }
         }
