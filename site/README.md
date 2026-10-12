@@ -1,4 +1,4 @@
-# VELSIA 公開サイト（https://velsia.bitcessing.com）
+# VELSIA 公開サイト（https://velsia.xyz）
 
 静的サイト（Vercel、プロジェクト `velsia-site`）。トップ・サポート・プレスキットと、規約・ポリシーの一覧（/legal）および各法務ページ（日英）。
 
@@ -27,10 +27,10 @@
 - App Store Connect に登録する URL（/legal の表）は `build.mjs` の `ASC_URLS`。リポジトリ内のビルドでは `docs/appstore/metadata/<locale>/*_url.txt` と照合する。
 - 事業者情報・窓口メール・施行日・改定日は `config.json`。変えたら `VELSTRIA/App/Screens/Store/StoreLogic.swift`（`StoreLegalText`）と `FeatureFlags.swift`、`docs/appstore/metadata/*/…_url.txt` も合わせる。
 - 全角の括弧に続く URL は GFM の自動リンクに巻き込まれて壊れるので、法務文書の URL は `<https://…>` で囲む（ビルドが壊れたリンクを検出して止める）。
-- ビルドの最後に、出力した全ページの内部リンク（`/…` と `https://velsia.bitcessing.com/…`）・画像・og:image・アンカー（`#…`）が実在するか、
+- ビルドの最後に、出力した全ページの内部リンク（`/…` と `https://velsia.xyz/…`）・画像・og:image・アンカー（`#…`）が実在するか、
   リポジトリ内のビルドでは `FeatureFlags.swift` に書いたこのサイトの URL が実在するページか確かめ、無ければエラーにする。
 - プレスキットのヒーローは `ACTIVE_HERO_IDS`（`HeroRoster.activeHeroIDs` と照合する）。出していないヒーローとそのスキンは載せない。
 - プレスキット（`/press`・`/en/press`）: 素材は `assets/press/`（一覧用の縮小版は `thumbs/`、スクショは `assets/shots/`）。一式の ZIP はビルド時に `public/assets/press/velsia-presskit.zip` として作る（コミットしない）。素材を差し替えるときはファイル名も変える（`/assets/` は immutable キャッシュ）。
 - デプロイ: git の作者情報が付くと Vercel が「コミット作者に権限がない」として BLOCKED にするため、リポジトリ外へコピーして行う:
   `rsync -a --exclude node_modules --exclude public --exclude .env.local site/ /tmp/velsia-site-deploy/ && cd /tmp/velsia-site-deploy && vercel deploy --prod --yes`
-- ドメインの DNS は Njalla（外部）。`A velsia.bitcessing.com 76.76.21.21` が必要。
+- ドメインの DNS は Njalla（外部）。`A velsia.xyz / www.velsia.xyz 76.76.21.21` が必要。

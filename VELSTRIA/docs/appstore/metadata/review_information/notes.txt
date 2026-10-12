@@ -25,7 +25,7 @@ SAFETY (Guideline 1.2)
 - Block: same menu > Block. Their requests and invitations are discarded and they can't join rooms you host. Unblock in Settings > Privacy.
 - Hosts can Remove from Room. Party invitations are accepted only from friends.
 - We begin reviewing reports within 2 business days and can suspend a violator's friend code.
-- Rules: https://velsia.bitcessing.com/en/community
+- Rules: https://velsia.xyz/en/community
 
 IN-APP PURCHASES
 - Consumable Astral Gem packs: com.bitcoinpay.velstria.gem.60, .gem.300, .gem.980, .gem.1980, .gem.3280, .gem.6480
