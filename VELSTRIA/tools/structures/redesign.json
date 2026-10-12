@@ -1,0 +1,90 @@
+{
+  "notes": "タワー系（外塔・内塔・基地塔・Star Core）の再デザインの 2D 画像（設計確認用と Tripo 入力用）。画像は build/tower_redesign/（git 管理外）。生成は tools/structures/redesign.mjs。ref は採用済みのマスター画像（build/tower_redesign/<ref>.png）を Codex に添付し、同じ設計から派生させる。",
+  "parts": {
+    "art": "Art direction: high-end stylized semi-realistic MOBA environment art (painterly but physically grounded PBR materials, like a premium modern mobile MOBA; neither photoreal nor low-poly). World theme: ancient stone ruins coexisting with lush nature; the architecture still holds residual magic. Priority: silhouette > large light/shadow masses > material separation > mid-scale forms > fine details. Materials: (1) STONE = heavy weathered grey-green granite blocks with thick chamfered edges, chipped corners, worn steps, thin moss and lichen in crevices and on top surfaces, matte; (2) METAL = dark aged bronze and blackened iron fittings (clamps, bands, brackets, rivets) with restrained low-gloss reflections and a little green patina; (3) CRYSTAL = the magic core and thin rune channels carved into the stone, the ONLY glowing parts, glow kept contained and soft. Palette: deep forest green, blue-green teal, grey stone, muted earth brown, with the team color used sparingly. The team color appears only in the crystal core, the rune inlays, small cloth banners and a few metal enamel accents; the stone body stays natural grey — never paint the whole building blue or red. Light: one warm-neutral key light from the upper left, soft sky fill, clear form shadows and ambient occlusion in crevices that show thickness and weight.",
+    "blue": "Team color for this image: BLUE team = cool cyan-teal magic glow (#3fd0e0) and deep blue-teal enamel and cloth (#1f5f7a).",
+    "red": "Team color for this image: RED team = warm crimson-orange ember magic glow (#ff5a3c) and deep crimson enamel and cloth (#7a1f2a).",
+    "object": "Image type: single-object concept for image-to-3D (Tripo). Show exactly ONE object, whole and uncropped with margin on all sides, centred, viewed three-quarter from above at about 45 degrees (like a MOBA game camera) so the top surfaces and the top-view silhouette are clearly readable. Plain flat light-grey (#d8d8d8) background, soft even studio lighting, no cast shadow on the background, no ground diorama, no display pedestal or turntable, no grass patch around it. The building's own stone foundation plinth IS included and its bottom edge is flat (it will be sunk slightly into the terrain).",
+    "break": "Construction must read as a breakable assembly with visible seams: (a) a fixed stepped stone foundation plinth with a shaft opening at its top (the tower rises out of it at match start), (b) one central monolithic stone pillar, (c) outer cladding made of a few large stone blocks around the pillar, (d) an upper crown structure, (e) the magic core crystal held at the top, (f) dark bronze support brackets, clamps and bands joining the parts, (g) small decorations (cloth banner, hanging chain). Joints between parts are clear, with bronze clamps across them.",
+    "exclude": "Exclude: HUD, UI, text, letters, numbers, logos, watermarks, people, characters, unrelated extra objects, extreme wide-angle distortion, fog, smoke, sparks, particles, glow bloom or light rays hiding the outline, floating debris, uniform plastic shine, noisy micro-detail, over-ornamentation, merging the object into the background.",
+    "board": "Image type: animation storyboard / keyframe sheet (a design-check image, not for 3D). Equal panels separated by thin white gutters, consistent scale and lighting across panels, the tower in every panel is the SAME design as the attached reference image (same parts, stone, bronze and crystal). Use subtle motion lines only where needed. Landscape 16:9. No text, no numbers, no letters, no captions, no UI.",
+    "redvar": "This is the RED team version of the attached reference design: keep exactly the same shape, proportions, parts, stone and metal; change only the team-colored elements (crystal, rune inlays, banners, enamel accents) to the RED team colors."
+  },
+  "items": [
+    {
+      "id": "outer_blue",
+      "use": "外塔（1 番目のタワー）のマスター設計。Tripo 入力",
+      "parts": ["art", "blue", "object", "break", "exclude"],
+      "prompt": "Object: OUTER lane defense tower (tier 1, the lightest and most forward tower of the family). Silhouette: slim, tall, a single vertical pillar — the narrowest of the tower family. A square 2-step granite foundation plinth with a square shaft opening and four short bronze-capped corner posts; rising from it a square-section, slightly tapered stone pillar about 3 times as tall as the plinth width, cladded with four large chamfered granite slabs bound by two dark bronze bands with rivets; one thin vertical rune channel carved up each face, glowing faintly; crown: four inward-curving stone fangs (like a cupped hand) with bronze tips, cradling one floating elongated faceted crystal (team-color glow) that hovers slightly above the crown with a visible gap; one small narrow cloth banner hanging from a bronze bracket on the front face. Top view reads as a square with four fangs and a bright crystal in the centre. Moss on the plinth steps and in the slab seams."
+    },
+    {
+      "id": "inner_blue",
+      "use": "内塔（2 番目）のマスター設計。Tripo 入力",
+      "parts": ["art", "blue", "object", "break", "exclude"],
+      "prompt": "Object: INNER lane defense tower (tier 2, sturdier than the outer tower). Silhouette: medium-tall and noticeably thicker, with two flying-buttress stone ribs. An octagonal 3-step granite foundation plinth with an octagonal shaft opening; a thick octagonal stone pillar (about 2.5 times as tall as the plinth width) cladded with large chamfered stone blocks in two courses and three dark bronze bands; two opposite curved stone buttress ribs lean against the pillar from the plinth corners up to two-thirds of its height, joined to the pillar by heavy bronze brackets; crown: a thick stone ring (like a broken halo) on four short bronze arms, holding a larger faceted crystal cluster (one main crystal plus two small shards) floating in the ring's centre; two cloth banners hang from the tops of the buttresses. Top view reads as an octagon with a ring and two buttress arms."
+    },
+    {
+      "id": "base_blue",
+      "use": "基地塔（3 番目、高台）のマスター設計。Tripo 入力",
+      "parts": ["art", "blue", "object", "break", "exclude"],
+      "prompt": "Object: BASE high-ground defense tower (tier 3, the strongest lane tower, guarding the base entrance). Silhouette: broad, heavy and fortress-like — the widest and strongest silhouette of the family, only slightly taller than the inner tower. A wide square 3-step granite foundation with chamfered corners and a square shaft opening; a massive square keep-like pillar with four corner buttress columns, battered (sloped) lower walls of large stone blocks, three dark bronze bands with big rivets and an armored bronze ring near the top; crown: a crenellated stone parapet with four bronze-capped corner spires, inside it a large floating faceted crystal core (team-color glow) surrounded by three small orbiting crystal shards; carved rune channels on the four faces; two larger cloth banners on the front corners. Top view reads as a square fortress with four spires and a bright core."
+    },
+    {
+      "id": "core_blue",
+      "use": "Star Core（最後のクリスタル。破壊で試合終了）のマスター設計。Tripo 入力",
+      "parts": ["art", "blue", "object", "break", "exclude"],
+      "prompt": "Object: the STAR CORE — the team's final crystal nexus (destroying it ends the match). Monumental and the visual focal point of the base, larger than every tower but wide rather than tall. A wide circular ancient sanctuary platform of grey-green granite: three low concentric steps with four short stairways (front, back, left, right), worn and mossy, rune circles carved into the top floor glowing faintly; six standing stone monoliths arranged evenly around the rim, each bound with a dark bronze band and holding a small team-color crystal shard on its top; in the centre a low round stone altar with a bronze socket ring; above it a GIANT floating faceted crystal cluster (one huge elongated double-pointed main crystal with a cluster of smaller crystals around its lower half) glowing with team-color inner light, held in place by three broken stone arch fragments curving up around it and a bronze armillary-style ring circling its waist. Here the 'shaft opening' of the family is the altar socket the crystal hovers above. Top view reads as a large circle with six dots and a bright centre. Total height about 0.8 times the platform diameter."
+    },
+    { "id": "outer_red", "use": "外塔の赤チーム版（設計確認用。実機は色相替えのテクスチャ）", "ref": "outer_blue", "parts": ["redvar", "art", "red", "object", "exclude"], "prompt": "Object: the attached OUTER lane defense tower, red team version." },
+    { "id": "inner_red", "use": "内塔の赤チーム版（設計確認用）", "ref": "inner_blue", "parts": ["redvar", "art", "red", "object", "exclude"], "prompt": "Object: the attached INNER lane defense tower, red team version." },
+    {
+      "id": "outer_parts",
+      "use": "外塔の分解図（可動部・固定部・破断面の設計確認。Tripo には入れない）",
+      "ref": "outer_blue",
+      "parts": ["art", "blue", "exclude"],
+      "prompt": "Image type: exploded-view design check sheet (not for 3D), landscape 3:2, plain light-grey background, same three-quarter top-down view as the attached design. Left two-thirds: the attached tower separated vertically into its parts with even gaps, from bottom to top: the fixed foundation plinth (stays in place), the central pillar (the part that rises out of the shaft at match start, shown with its lower hidden section that sits inside the plinth), the four outer cladding slabs pulled slightly outward, the bronze bands and clamps, the four crown fangs, the magic core crystal, the cloth banner. Right third: two small detail views — (1) the pillar snapped at mid-height showing a SOLID stone fracture face with inner darker stone and a rusted iron reinforcing rod (not hollow), (2) a cladding slab showing its real thickness and its broken edge. Simple thin arrows allowed; no text, no labels, no letters."
+    },
+    {
+      "id": "outer_states",
+      "use": "外塔の状態一覧（収納・稼働・損傷 2 段階・瓦礫・破壊後）",
+      "ref": "outer_blue",
+      "parts": ["art", "blue", "exclude"],
+      "prompt": "Image type: state sheet (design check, not for 3D), wide landscape 16:9, plain light-grey background with a thin flat grey-green stone ground line under each state. The attached tower shown in 6 states side by side in one row, same camera angle, same scale: 1) RETRACTED: only the foundation plinth visible, the pillar sunk into the shaft and the shaft closed by stone segments, runes dark; 2) ACTIVE: the complete tower, crystal glowing; 3) DAMAGED 1: hairline cracks on the cladding slabs, a few chipped corners, crystal glow slightly weaker; 4) DAMAGED 2: one cladding slab broken off exposing the solid inner pillar, deep cracks, one bent bronze band, thin wisps of team-colored magic leaking from the cracks, one crown fang cracked; 5) RUBBLE: the pillar snapped at mid-height, the upper part fallen beside the plinth as 3 large stone chunks plus some small debris, crystal shattered and dark, a low silhouette; 6) AFTERMATH: only the broken foundation plinth with the pillar stump, ground cracks and a few small stones. The materials and ornaments are identical across all states (same master model). No text, no numbers."
+    },
+    {
+      "id": "anim_rise",
+      "use": "試合開始時の立ち上がり（0.0〜2.4 秒）の絵コンテ",
+      "ref": "outer_blue",
+      "parts": ["board", "art", "blue", "exclude"],
+      "prompt": "Storyboard of the attached tower's match-start awakening, 4 panels in a 2x2 grid, all from the same fixed MOBA game camera (three-quarter top-down) over a simple flat grey-green stone ground: 1) dormant: only the foundation plinth at ground level, the shaft opening closed by stone segments; a faint team-colored glow starting in the plinth's rune lines; a little sand and dust puffing from the seams. 2) the central pillar rising straight up out of the opened shaft, about half extended, heavy and rigid (no stretching or bouncing), thin dust curtains falling from its sides, the cladding slabs still folded down flat around it. 3) fully extended: the cladding slabs swing up and lock against the pillar, bronze clamps snap shut, the crown fangs unfold, small dust puffs at each joint; the crystal is still dark. 4) magic flows from the plinth up the rune channels to the top, the crystal ignites with a short bright flare, the dust settles; the tower is ready."
+    },
+    {
+      "id": "anim_collapse",
+      "use": "破壊（破断の予兆 → 傾き → 落下 → 衝突 → 瓦礫）の絵コンテ",
+      "ref": "outer_blue",
+      "parts": ["board", "art", "blue", "exclude"],
+      "prompt": "Storyboard of the attached tower's destruction, 6 panels in a 3-column by 2-row grid, all from the same fixed MOBA game camera (three-quarter top-down) over a simple flat grey-green stone ground: 1) the final hit: the crystal flares abnormally bright and flickers, dust bursts from the pillar's mid-height joint, the rune lines go dark; 2) cracks race across the pillar at mid-height, a bronze band snaps, a cladding slab begins to slide; 3) the upper half (crown, crystal and upper pillar) loses support and tilts heavily to one side, toward the back-left away from the camera, the crystal cracking and venting a little magic; 4) the upper section breaks into 3 large readable stone chunks that fall and rotate slowly and heavily, the crystal shatters into a few big shards releasing a small puff of team-colored energy; 5) impact: the chunks hit the ground right beside the plinth, a low wide dust wave, small debris near the base, nothing flies far; 6) settled: a low rubble silhouette — the pillar stump on the plinth, 3 big chunks lying heavily next to it, dark broken crystal pieces, the dust thinning."
+    },
+    {
+      "id": "anim_rubble",
+      "use": "瓦礫の整理（小破片 → 結晶 → 大きな石 → 破壊痕）の絵コンテ",
+      "ref": "outer_blue",
+      "parts": ["board", "art", "blue", "exclude"],
+      "prompt": "Storyboard of the rubble clean-up after the attached tower's collapse, 4 panels in one horizontal row, all from the same fixed MOBA game camera (three-quarter top-down) over a simple flat grey-green stone ground: 1) settled rubble resting heavily: the pillar stump on the plinth, 3 big stone chunks, small pebbles, dark crystal shards; 2) the small pebbles fade first; the crystal shards dim and dissolve upward into a few small team-colored motes; 3) the big stone chunks crumble from their surface into sand and dust and sink slightly into the ground; the bent bronze pieces disappear inside the dust; 4) aftermath: only the low broken foundation plinth with the pillar stump and ground crack marks remains, with only its own small contact shadow."
+    },
+    {
+      "id": "anim_core_finale",
+      "use": "Star Core 破壊 → 第三者視点カメラ → リザルトへの絵コンテ（全員の画面に流す）",
+      "ref": "core_blue",
+      "parts": ["board", "art", "blue", "exclude"],
+      "prompt": "Cinematic storyboard of the Star Core's final destruction at the end of the match, 6 panels in a 3-column by 2-row grid, using cinematic camera framing (only panel 1 uses the top-down game camera), set in its base plaza of worn stone paving with grass and moss at the edges: 1) top-down game camera: the last hit lands, the giant crystal flashes white-hot and cracks of light spread across it; 2) the camera cuts to a low third-person angle near the sanctuary steps looking up at the core: the six monoliths' crystals go dark one after another, the bronze ring bends, light leaks from every crack; 3) slow camera orbit: the broken stone arches fall away, the giant crystal splits into large shards hanging in the air, a column of team-colored light shoots up into the sky; 4) the crystal implodes into a bright point and releases a radiant shockwave ring running along the ground, the platform floor cracks; 5) the shards and arch stones fall and settle heavily on the platform, the light fades into drifting motes, dust rolls outward; 6) a wide calm shot of the ruined, dark sanctuary with dim lingering motes in soft dusk light, composed with empty space on the left for the match result panel (no text)."
+    },
+    {
+      "id": "lineup",
+      "use": "タワー系 4 種の並び（俯瞰シルエットで強さ・役割が分かるか確認）",
+      "refs": ["outer_blue", "inner_blue", "base_blue", "core_blue"],
+      "parts": ["art", "blue", "exclude"],
+      "prompt": "Image type: family lineup design check (not for 3D), wide landscape 16:9, plain light-grey background. The four attached designs shown side by side at the SAME scale, left to right in order of strength: the outer tower, the inner tower, the base tower, and the large Star Core, all from the same three-quarter top-down MOBA camera, standing on a thin flat grey-green ground line. Keep each design exactly as in its attached image. They must read as one architectural family (same stone, same bronze, same crystal), with the silhouette growing heavier and wider from left to right. No text, no labels."
+    }
+  ]
+}

@@ -18,6 +18,9 @@ struct RenderFrame {
     var focusID: EntityID?
     var ended: Bool
     var winner: Team?
+    /// 演出の時刻（秒）: 試合中は sim の時刻、試合終了後（sim は止まる）はそこから実時間で進む。
+    /// 塔の倒壊・Core の終幕は「この時刻 − きっかけの時刻」で求める（TowerTimeline）。
+    var presentationTime: Double = 0
     /// カメラの world 位置（HP バーの画面サイズ一定化に使う）。
     var camera: SIMD3<Float> = SIMD3(60, 10, -50)
 

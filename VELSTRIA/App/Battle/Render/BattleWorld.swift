@@ -57,6 +57,8 @@ final class BattleWorld {
     private weak var arView: ARView?
     private weak var overlay: CombatTextOverlay?
     private var time: Float = 0
+    /// 試合終了後に経った実時間（sim は終了で止まるので、終幕の演出はこれで進める）。終了前へ戻ったら 0。
+    private var endedClock: Double = 0
     private var textSeed = 0
     private var lastHealFX: [EntityID: Float] = [:]
     private var pendingHeal: Double = 0
@@ -156,9 +158,11 @@ final class BattleWorld {
     private func makeFrame(dt: Float) -> RenderFrame {
         let state = controller.state
         let focus = controller.presentationFocusID
-        return RenderFrame(state: state, alpha: Float(controller.interpolationAlpha), dt: dt, time: time,
-                           viewerTeam: controller.viewerTeam, humanID: controller.humanHeroID, focusID: focus,
-                           ended: state.phase == .ended, winner: state.winner)
+        var f = RenderFrame(state: state, alpha: Float(controller.interpolationAlpha), dt: dt, time: time,
+                            viewerTeam: controller.viewerTeam, humanID: controller.humanHeroID, focusID: focus,
+                            ended: state.phase == .ended, winner: state.winner)
+        f.presentationTime = state.time + endedClock
+        return f
     }
 
     // MARK: 毎フレーム
@@ -168,6 +172,7 @@ final class BattleWorld {
         if gallery != nil, controller.state.tick != galleryTick { finishWarmup() }
         gallery?.update(dt: dt)
         time += dt
+        endedClock = controller.state.phase == .ended ? endedClock + Double(dt) : 0
         updateCullBounds(rig: rig)
         #if DEBUG
         var frame = makeFrame(dt: dt)
