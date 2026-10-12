@@ -81,8 +81,9 @@ enum EconomyService {
         profile.ownedCosmeticIDs.contains(cosmeticID)
     }
 
+    /// ゲームに出すヒーロー（HeroRoster）は全員が使える（解放・所持の制限なし）。
     static func isOwned(heroID: String, profile: Profile) -> Bool {
-        profile.ownedHeroIDs.contains(heroID)
+        HeroRoster.isActive(heroID) || profile.ownedHeroIDs.contains(heroID)
     }
 
     /// 所持通貨で支払えるか。

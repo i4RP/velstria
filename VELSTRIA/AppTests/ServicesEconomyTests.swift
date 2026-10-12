@@ -6,15 +6,16 @@ final class ServicesEconomyTests: XCTestCase {
     private let master = ServicesFixtures.master
 
     func testCatalogHelpers() {
-        // 名簿（H025〜H034）の外のヒーローの解放・スキン 12 点は単品で売らない
+        // ヒーロー解放は売らない（全員が全ヒーローを使える）。名簿の外のヒーローのスキン 12 点も単品で売らない
         XCTAssertEqual(EconomyService.storeItems(ofType: .cosmetic).count, 90)
-        XCTAssertEqual(EconomyService.storeItems(ofType: .heroUnlock).count, 10)
+        XCTAssertEqual(EconomyService.storeItems(ofType: .heroUnlock).count, 0)
         XCTAssertEqual(EconomyService.storeItems(ofType: .bundle).count, 18)
         XCTAssertEqual(EconomyService.cosmetics(ofType: .heroSkin).count, 0)
         XCTAssertEqual(EconomyService.cosmetics(ofType: .avatarFrame).count, 18)
         XCTAssertEqual(EconomyService.storeItem(forCosmetic: "CO004")?.sku, "SKU004")
         XCTAssertNil(EconomyService.storeItem(forHero: "H007"))
-        XCTAssertEqual(EconomyService.storeItem(forHero: "H027")?.sku, "SKU126")
+        XCTAssertNil(EconomyService.storeItem(forHero: "H027"))
+        XCTAssertTrue(EconomyService.isOwned(heroID: "H027", profile: { var q = Profile(); q.ownedHeroIDs = []; return q }()), "名簿のヒーローは所持に依らず使える")
         XCTAssertEqual(EconomyService.gemPrice(ofCosmetic: "CO004"), 880)
         XCTAssertEqual(EconomyService.duplicateRefundGems(cosmeticID: "CO002"), 130)
     }

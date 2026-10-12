@@ -147,7 +147,7 @@ final class FlowUITests: XCTestCase {
         tap(app, "home_play", timeout: 15)
         tap(app, "flow_mode_ranked")
 
-        // 名簿が H025〜H034 の 10 体だけの間は BAN が無く、最初からプレイヤーのピック（B1）
+        // BAN は無く、最初からプレイヤーのピック（B1）
         XCTAssertTrue(element(app, "flow_draft_timer").waitForExistence(timeout: 10))
         tap(app, "flow_hero_H027")
         snap("draft_02_pick")

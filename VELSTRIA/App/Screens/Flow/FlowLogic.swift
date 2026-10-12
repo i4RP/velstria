@@ -165,13 +165,10 @@ enum HomeBadges {
 // MARK: - ランク戦ドラフト
 
 struct DraftTurn: Equatable {
-    enum Action: Equatable { case ban, pick }
-
     let team: Team
-    let action: Action
     /// 人間プレイヤーが操作する手番か。
     let isPlayer: Bool
-    /// ピック枠の表示名（"B1" / "R3"）。BAN は空。
+    /// ピック枠の表示名（"B1" / "R3"）。
     let slotLabel: String
 }
 
@@ -182,61 +179,39 @@ struct DraftPick: Equatable, Identifiable {
     var isPlayer: Bool
 }
 
-/// BAN 2 × 2 → スネークピック（B1 R1 R2 B2 B3 R3 R4 B4 B5 R5）。プレイヤーは B1。
+/// スネークピック（B1 R1 R2 B2 B3 R3 R4 B4 B5 R5）。プレイヤーは B1。BAN は無い（2026-10-12 に廃止）。
+/// 全員が全ヒーローを使える（所持の制限なし）。同じ試合で同じヒーローは 1 人だけ。
 /// AI の選択は SplitMix64 で決定的（同じシード・同じ入力なら同じ結果）。
 struct DraftEngine: Equatable {
-    static let bansPerTeam = 2
-
     static let turns: [DraftTurn] = {
-        var t: [DraftTurn] = [
-            DraftTurn(team: .blue, action: .ban, isPlayer: true, slotLabel: ""),
-            DraftTurn(team: .red, action: .ban, isPlayer: false, slotLabel: ""),
-            DraftTurn(team: .blue, action: .ban, isPlayer: false, slotLabel: ""),
-            DraftTurn(team: .red, action: .ban, isPlayer: false, slotLabel: ""),
-        ]
         let snake: [(Team, Int)] = [(.blue, 1), (.red, 1), (.red, 2), (.blue, 2), (.blue, 3),
                                     (.red, 3), (.red, 4), (.blue, 4), (.blue, 5), (.red, 5)]
-        for (team, n) in snake {
-            t.append(DraftTurn(team: team, action: .pick, isPlayer: team == .blue && n == 1,
-                               slotLabel: (team == .blue ? "B" : "R") + "\(n)"))
+        return snake.map { team, n in
+            DraftTurn(team: team, isPlayer: team == .blue && n == 1, slotLabel: (team == .blue ? "B" : "R") + "\(n)")
         }
-        return t
     }()
 
-    /// 全ヒーロー ID（ID 昇順）。
+    /// 選べるヒーロー ID（ID 昇順）。
     let heroIDs: [String]
-    let ownedHeroIDs: [String]
     private let roles: [Role]
     private(set) var rng: SplitMix64
     private(set) var turnIndex = 0
-    private(set) var blueBans: [String?] = []
-    private(set) var redBans: [String?] = []
     private(set) var bluePicks: [DraftPick] = []
     private(set) var redPicks: [DraftPick] = []
 
-    /// roster: 名簿（既定はゲームに出すヒーロー master.heroes。テストは全員で組める）。
-    init(seed: UInt64, ownedHeroIDs: [String], master: MasterData = .shared, roster: [HeroDef]? = nil) {
+    /// roster: 名簿（既定はゲームに出すヒーロー master.heroes）。
+    init(seed: UInt64, master: MasterData = .shared, roster: [HeroDef]? = nil) {
         let heroes = roster ?? master.heroes
         heroIDs = heroes.map(\.heroID)
         roles = heroes.map(\.role)
-        self.ownedHeroIDs = ownedHeroIDs
         rng = SplitMix64(seed: seed ^ 0xD8AF_7B4E_11C3_9A05)
-        // 名簿が BAN + 10 ピックに足りない（H025〜H034 の 10 体だけの間）は BAN を飛ばす（全手番を nil で確定）
-        if !hasBans {
-            while currentTurn?.action == .ban { commit(nil) }
-        }
     }
-
-    /// BAN を行うか（名簿が BAN 全数 + 10 ピック以上の時だけ）。
-    var hasBans: Bool { heroIDs.count >= Self.bansPerTeam * 2 + 10 }
 
     var currentTurn: DraftTurn? { turnIndex < Self.turns.count ? Self.turns[turnIndex] : nil }
     var isComplete: Bool { turnIndex >= Self.turns.count }
-    var bannedHeroIDs: [String] { (blueBans + redBans).compactMap { $0 } }
     var pickedHeroIDs: [String] { (bluePicks + redPicks).map(\.heroID) }
     var playerPick: DraftPick? { bluePicks.first { $0.isPlayer } }
 
-    func bans(for team: Team) -> [String?] { team == .blue ? blueBans : redBans }
     func picks(for team: Team) -> [DraftPick] { team == .blue ? bluePicks : redPicks }
 
     func role(of heroID: String) -> Role? {
@@ -244,30 +219,12 @@ struct DraftEngine: Equatable {
         return roles[i]
     }
 
-    func isTaken(_ heroID: String) -> Bool {
-        bannedHeroIDs.contains(heroID) || pickedHeroIDs.contains(heroID)
-    }
+    func isTaken(_ heroID: String) -> Bool { pickedHeroIDs.contains(heroID) }
 
-    /// プレイヤーがまだ選べる所持ヒーロー（ID 昇順）。
-    var playerOwnedAvailable: [String] {
-        heroIDs.filter { ownedHeroIDs.contains($0) && !isTaken($0) }
-    }
-
-    /// プレイヤーがピックできるヒーローか。所持ヒーローが 1 体も残っていない場合（復元データの欠損など）は
-    /// ドラフトが止まらないよう、空いている全ヒーローを選べるようにする。
-    func isPlayerPickable(_ heroID: String) -> Bool {
-        ownedHeroIDs.contains(heroID) || playerOwnedAvailable.isEmpty
-    }
-
-    /// BAN するとプレイヤーのピック候補（所持ヒーロー）が無くなるか。ピック前の BAN でのみ守る。
-    func banWouldStrandPlayer(_ heroID: String) -> Bool {
-        playerPick == nil && ownedHeroIDs.contains(heroID) && playerOwnedAvailable.count <= 1
-    }
-
-    /// プレイヤーの手番で、このヒーローを選べるか（ピックは所持ヒーローのみ）。
+    /// プレイヤーの手番で、このヒーローを選べるか。
     func canPlayerSelect(_ heroID: String) -> Bool {
-        guard let t = currentTurn, t.isPlayer, heroIDs.contains(heroID), !isTaken(heroID) else { return false }
-        return t.action == .ban ? !banWouldStrandPlayer(heroID) : isPlayerPickable(heroID)
+        guard let t = currentTurn, t.isPlayer, heroIDs.contains(heroID) else { return false }
+        return !isTaken(heroID)
     }
 
     func openPositions(for team: Team) -> [LanePosition] {
@@ -284,22 +241,12 @@ struct DraftEngine: Equatable {
         return open.first ?? preferred
     }
 
-    /// 現在の手番を確定する。BAN は nil でスキップ（時間切れ）。成功で true。
+    /// 現在の手番を確定する。成功で true。
     @discardableResult
     mutating func commit(_ heroID: String?) -> Bool {
-        guard let turn = currentTurn else { return false }
-        switch turn.action {
-        case .ban:
-            if let id = heroID {
-                guard heroIDs.contains(id), !isTaken(id), !banWouldStrandPlayer(id) else { return false }
-            }
-            if turn.team == .blue { blueBans.append(heroID) } else { redBans.append(heroID) }
-        case .pick:
-            guard let id = heroID, let role = role(of: id), !isTaken(id) else { return false }
-            if turn.isPlayer && !isPlayerPickable(id) { return false }
-            let pick = DraftPick(heroID: id, position: bestOpenPosition(for: role, team: turn.team), isPlayer: turn.isPlayer)
-            if turn.team == .blue { bluePicks.append(pick) } else { redPicks.append(pick) }
-        }
+        guard let turn = currentTurn, let id = heroID, let role = role(of: id), !isTaken(id) else { return false }
+        let pick = DraftPick(heroID: id, position: bestOpenPosition(for: role, team: turn.team), isPlayer: turn.isPlayer)
+        if turn.team == .blue { bluePicks.append(pick) } else { redPicks.append(pick) }
         turnIndex += 1
         return true
     }
@@ -308,23 +255,17 @@ struct DraftEngine: Equatable {
     mutating func aiChoice() -> String? {
         guard let turn = currentTurn, !turn.isPlayer else { return nil }
         let available = heroIDs.filter { !isTaken($0) }
-        switch turn.action {
-        case .ban:
-            return rng.pick(available.filter { !banWouldStrandPlayer($0) })
-        case .pick:
-            let target = openPositions(for: turn.team).first ?? .mid
-            for role in MatchFactory.preferredRoles(for: target) {
-                let pool = available.filter { self.role(of: $0) == role }
-                if let h = rng.pick(pool) { return h }
-            }
-            return rng.pick(available)
+        let target = openPositions(for: turn.team).first ?? .mid
+        for role in MatchFactory.preferredRoles(for: target) {
+            let pool = available.filter { self.role(of: $0) == role }
+            if let h = rng.pick(pool) { return h }
         }
+        return rng.pick(available)
     }
 
-    /// プレイヤーの持ち時間切れ時の自動選択。BAN はスキップ（nil）、ピックは希望順 → 所持の先頭。
+    /// プレイヤーの持ち時間切れ時の自動選択（希望順 → 空いている先頭）。
     func autoChoiceForPlayer(preferred: [String]) -> String? {
         guard let turn = currentTurn, turn.isPlayer else { return nil }
-        if turn.action == .ban { return nil }
         if let h = preferred.first(where: { canPlayerSelect($0) }) { return h }
         return heroIDs.first { canPlayerSelect($0) }
     }

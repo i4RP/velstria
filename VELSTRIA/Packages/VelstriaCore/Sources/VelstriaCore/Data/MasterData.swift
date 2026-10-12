@@ -346,7 +346,7 @@ public final class MasterData: @unchecked Sendable {
     public let effects: [EffectDef]
     /// 出すヒーローのコスメ（非表示のヒーローのスキンは除く）と、ヒーローに依らないコスメ。
     public let cosmetics: [CosmeticDef]
-    /// ストアの商品（非表示のヒーローの解放・そのヒーローのコスメを除く）。
+    /// ストアの商品（ヒーロー解放は売らない = 全員が全ヒーローを使える。非表示のヒーローのコスメも除く）。
     public let store: [StoreItemDef]
     public let allCosmetics: [CosmeticDef]
     public let allStore: [StoreItemDef]
@@ -396,7 +396,7 @@ public final class MasterData: @unchecked Sendable {
         let hiddenCosmetics = Set(allCosmetics.filter { !shownCosmetic($0) }.map(\.cosmeticID))
         store = allStore.filter { item in
             switch item.type {
-            case .heroUnlock: return HeroRoster.isActive(item.grantID)
+            case .heroUnlock: return false
             case .cosmetic: return !hiddenCosmetics.contains(item.grantID)
             default: return true
             }

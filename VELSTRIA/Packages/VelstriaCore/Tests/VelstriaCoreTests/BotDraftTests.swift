@@ -37,14 +37,9 @@ final class BotDraftTests: XCTestCase {
         XCTAssertTrue(available.contains(x))
     }
 
-    func testBanChoosesAvailableHeroAndEmptyInputReturnsEmpty() {
+    func testEmptyInputReturnsEmpty() {
         var rng = SplitMix64(seed: 7)
-        let picks = ["H003", "H004"]
-        let available = allIDs.filter { !picks.contains($0) }
-        let ban = DraftAI.draftBan(available: available, allyPicks: picks, enemyPicks: [], rng: &rng)
-        XCTAssertTrue(available.contains(ban))
         XCTAssertEqual(DraftAI.draftPick(available: [], allyPicks: [], enemyPicks: [], position: .top, rng: &rng), "")
-        XCTAssertEqual(DraftAI.draftBan(available: [], allyPicks: [], enemyPicks: [], rng: &rng), "")
     }
 
     func testHeroPowerIsRelativeWithinRole() {
@@ -74,13 +69,11 @@ final class BotDraftTests: XCTestCase {
         XCTAssertEqual(MatchFactory.botMatch(seed: 5), MatchFactory.botMatch(seed: 5))
     }
 
-    func testStandardMatchRespectsHumanAndBans() {
-        let banned = ["H001", "H002", "H005", "H006"]
+    func testStandardMatchRespectsHuman() {
         let cfg = MatchFactory.standardMatch(mode: .ranked, humanHeroID: "H004", humanName: "Me", humanTeam: .red,
-                                             allyDifficulty: .easy, enemyDifficulty: .hard, banned: banned, seed: 77)
+                                             allyDifficulty: .easy, enemyDifficulty: .hard, seed: 77)
         XCTAssertEqual(cfg.players.count, 10)
         XCTAssertEqual(Set(cfg.players.map(\.heroID)).count, 10)
-        XCTAssertTrue(cfg.players.allSatisfy { !banned.contains($0.heroID) })
         let human = cfg.players.filter { $0.controller == .human }
         XCTAssertEqual(human.map(\.heroID), ["H004"])
         XCTAssertEqual(human.first?.team, .red)
