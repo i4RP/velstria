@@ -613,12 +613,12 @@ private struct OnboardingPrepareStep: View {
 
 private struct OnboardingTutorialStep: View {
     @Environment(AppModel.self) private var app
-    @State private var heroID = "H002"
+    @State private var heroID = TutorialCatalog.heroID
 
     private var candidates: [HeroDef] {
-        let starters = ["H001", "H002", "H003", "H004", "H005", "H006"]
+        let starters = HeroRoster.starterHeroIDs
         let owned = starters.filter { app.owns(heroID: $0) }
-        let ids = owned.isEmpty ? Array(app.profile.ownedHeroIDs.prefix(6)) : owned
+        let ids = owned.isEmpty ? starters : owned
         return ids.compactMap { app.master.hero($0) }
     }
 

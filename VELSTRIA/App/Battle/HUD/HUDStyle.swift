@@ -205,8 +205,8 @@ struct HUDLayout: Equatable {
     func attackDiameter(for slot: AttackButtonSlot) -> CGFloat {
         slot == .center ? attackDiameter : 25 * scale
     }
-    var skillDiameter: CGFloat { 50 * scale }
-    var ultDiameter: CGFloat { 52 * scale }
+    var skillDiameter: CGFloat { 64 * scale }
+    var ultDiameter: CGFloat { 66 * scale }
     var spellDiameter: CGFloat { 38 * scale }
     var recallDiameter: CGFloat { 38 * scale }
     var levelBadgeDiameter: CGFloat { 18 * scale }
@@ -232,8 +232,8 @@ struct HUDLayout: Equatable {
 
     func skillCenter(_ slot: SkillSlot) -> CGPoint {
         switch slot {
-        case .skill1: return actionPoint(x: -117, y: 6)
-        case .skill2: return actionPoint(x: -79, y: -69)
+        case .skill1: return actionPoint(x: -122, y: 6)
+        case .skill2: return actionPoint(x: -79, y: -77)
         case .ultimate, .passive: return actionPoint(x: -12, y: -112)
         }
     }
@@ -241,8 +241,8 @@ struct HUDLayout: Equatable {
     // 見た目は小さな＋、判定は44pt。スキルのドラッグ開始領域と分離する。
     func levelBadgeCenter(_ slot: SkillSlot) -> CGPoint {
         switch slot {
-        case .skill1: return actionPoint(x: -164, y: -36)
-        case .skill2: return actionPoint(x: -132, y: -90)
+        case .skill1: return actionPoint(x: -175, y: -40)
+        case .skill2: return actionPoint(x: -145, y: -99)
         case .ultimate, .passive: return actionPoint(x: -68, y: -148)
         }
     }

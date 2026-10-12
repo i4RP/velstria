@@ -81,8 +81,9 @@ enum EconomyService {
         profile.ownedCosmeticIDs.contains(cosmeticID)
     }
 
+    /// ゲームに出すヒーロー（HeroRoster）は全員が使える（解放・所持の制限なし）。
     static func isOwned(heroID: String, profile: Profile) -> Bool {
-        profile.ownedHeroIDs.contains(heroID)
+        HeroRoster.isActive(heroID) || profile.ownedHeroIDs.contains(heroID)
     }
 
     /// 所持通貨で支払えるか。
@@ -163,7 +164,7 @@ enum EconomyService {
         guard grantID.hasPrefix("BUNDLE_"), let number = Int(grantID.dropFirst("BUNDLE_".count)), number >= 1 else {
             return []
         }
-        let all = master.cosmetics
+        let all = master.allCosmetics // 対応表は全コスメで固定（名簿を絞っても中身・レア度の並びを変えない）
         guard !all.isEmpty else { return [] }
         var result: [String] = []
         // 先に剰余を取って巨大な番号でも桁あふれしないようにする（回り込みの結果は同じ）

@@ -394,7 +394,7 @@ struct PartySlotCard: View {
                 }
             }
             .frame(minHeight: compact ? 12 : 16)
-            HeroPortraitView(heroID: m.avatar ?? "H001", size: portraitSize, showsRole: false)
+            HeroPortraitView(heroID: m.avatar ?? HeroRoster.defaultHeroID, size: portraitSize, showsRole: false)
                 .overlay(RoundedRectangle(cornerRadius: portraitSize * 0.2, style: .continuous)
                     .stroke(m.isMe ? Theme.gold : Color.white.opacity(0.5), lineWidth: 2))
             Text(m.name)

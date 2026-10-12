@@ -34,7 +34,7 @@ struct StoreHomeView: View {
 
     private func categoryTiles(proxy: ScrollViewProxy) -> some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 6), spacing: 8) {
-            ForEach(StoreCategory.allCases) { c in
+            ForEach(StoreCategory.allCases.filter { $0 != .heroes }) { c in
                 StoreCategoryTile(category: c, selected: c == category && c != .skins && c != .gems,
                                   count: StoreCatalog.items(in: c, master: app.master).count) {
                     app.haptics.tap()

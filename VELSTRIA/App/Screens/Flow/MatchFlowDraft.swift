@@ -1,7 +1,7 @@
 import SwiftUI
 import VelstriaCore
 
-// 担当: ui-flow。UI024 ランク戦ドラフト（BAN 2×2 → スネークピック B1 R1 R2 B2 B3 R3 R4 B4 B5 R5）。
+// 担当: ui-flow。UI024 ランク戦ドラフト（スネークピック B1 R1 R2 B2 B3 R3 R4 B4 B5 R5。BAN は 2026-10-12 に廃止）。
 // AI の手番は短い演出の後に確定。プレイヤーの手番は持ち時間があり、切れると仮選択（なければ自動）で確定する。
 
 struct DraftStep: View {
@@ -12,11 +12,10 @@ struct DraftStep: View {
     @State private var aiHover: String?
     @State private var confirmLeave = false
 
-    static let banSeconds = 20
     static let pickSeconds = 30
 
     var body: some View {
-        let draft = model.draft ?? DraftEngine(seed: model.seed, ownedHeroIDs: app.profile.ownedHeroIDs, master: app.master)
+        let draft = model.draft ?? DraftEngine(seed: model.seed, master: app.master)
         let colorblind = app.profile.settings.colorblindMode
         VStack(spacing: 8) {
             MatchFlowHeader(title: L("ランク戦ドラフト", "Ranked Draft"), subtitle: phaseText(draft),
@@ -49,19 +48,16 @@ struct DraftStep: View {
     // MARK: 表示
 
     private func phaseText(_ d: DraftEngine) -> String {
-        guard let t = d.currentTurn else { return L("ドラフト完了 · ロードアウトを確認", "Draft complete · Check your loadout") }
-        return t.action == .ban ? L("BAN フェーズ（各チーム 2 体）", "Ban phase (2 per team)") : L("ピックフェーズ", "Pick phase")
+        guard d.currentTurn != nil else { return L("ドラフト完了 · ロードアウトを確認", "Draft complete · Check your loadout") }
+        return L("ピックフェーズ", "Pick phase")
     }
 
     private func turnText(_ d: DraftEngine) -> String {
         guard let t = d.currentTurn else { return L("完了", "Done") }
-        switch (t.isPlayer, t.action, t.team) {
-        case (true, .ban, _): return L("あなたの BAN", "Your ban")
-        case (true, .pick, _): return L("あなたのピック", "Your pick")
-        case (false, .ban, .blue): return L("味方 AI が BAN 中", "Ally AI banning")
-        case (false, .ban, _): return L("敵チームが BAN 中", "Enemy banning")
-        case (false, .pick, .blue): return L("味方 AI がピック中", "Ally AI picking")
-        case (false, .pick, _): return L("敵チームがピック中", "Enemy picking")
+        switch (t.isPlayer, t.team) {
+        case (true, _): return L("あなたのピック", "Your pick")
+        case (false, .blue): return L("味方 AI がピック中", "Ally AI picking")
+        case (false, _): return L("敵チームがピック中", "Enemy picking")
         }
     }
 
@@ -69,12 +65,12 @@ struct DraftStep: View {
         let t = d.currentTurn
         return HStack(spacing: 10) {
             if let t {
-                Text(t.action == .pick ? t.slotLabel : "BAN")
+                Text(t.slotLabel)
                     .font(.system(size: 12, weight: .black, design: .rounded))
                     .foregroundStyle(.black)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
-                    .background(Capsule().fill(t.action == .ban ? Theme.danger : Theme.teamColor(t.team)))
+                    .background(Capsule().fill(Theme.teamColor(t.team)))
             }
             Text(turnText(d))
                 .font(Theme.heading(14))
@@ -133,20 +129,17 @@ struct DraftStep: View {
     }
 
     private func cell(_ h: HeroDef, _ d: DraftEngine) -> HeroGridCell {
-        let banned = d.bannedHeroIDs.contains(h.heroID)
         let picked = d.pickedHeroIDs.contains(h.heroID)
         let turn = d.currentTurn
-        let unownedForPick = turn?.action != .ban && !d.isPlayerPickable(h.heroID)
         let hovered = (turn?.isPlayer == true && model.draftHover == h.heroID) || aiHover == h.heroID
-        return HeroGridCell(hero: h, selected: hovered, locked: unownedForPick && !banned && !picked,
-                            unavailable: banned || picked, unavailableLabel: banned ? "BAN" : (picked ? "PICK" : nil))
+        return HeroGridCell(hero: h, selected: hovered, locked: false,
+                            unavailable: picked, unavailableLabel: picked ? "PICK" : nil)
     }
 
     private func lockBar(_ d: DraftEngine) -> some View {
         let turn = d.currentTurn
         let playerTurn = turn?.isPlayer == true
         let candidate = model.draftHover.flatMap { d.canPlayerSelect($0) ? $0 : nil }
-        let isBan = turn?.action == .ban
         return HStack(spacing: 8) {
             if let c = candidate, playerTurn, let h = app.master.hero(c) {
                 HeroPortraitView(heroID: c, size: 34, showsRole: false)
@@ -158,23 +151,14 @@ struct DraftStep: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 4)
-            if playerTurn && isBan {
-                Button {
-                    commit(nil, timedOut: false)
-                } label: {
-                    Text(L("BAN しない", "No ban")).lineLimit(1).fixedSize()
-                }
-                .buttonStyle(SecondaryButtonStyle())
-                .accessibilityIdentifier("flow_skip_ban")
-            }
             Button {
                 commit(candidate, timedOut: false)
             } label: {
-                Label(isBan ? L("BAN する", "Ban") : L("ピック確定", "Lock In"), systemImage: isBan ? "nosign" : "lock.fill")
+                Label(L("ピック確定", "Lock In"), systemImage: "lock.fill")
                     .lineLimit(1)
                     .fixedSize()
             }
-            .buttonStyle(PrimaryButtonStyle(color: isBan ? Theme.danger : Theme.gold))
+            .buttonStyle(PrimaryButtonStyle(color: Theme.gold))
             .disabled(!playerTurn || candidate == nil)
             .opacity(playerTurn && candidate != nil ? 1 : 0.45)
             .accessibilityIdentifier("flow_lock")
@@ -194,14 +178,8 @@ struct DraftStep: View {
         if d.canPlayerSelect(h.heroID) {
             FlowFX.tap(app)
             withAnimation(.spring(duration: 0.25)) { model.draftHover = h.heroID }
-        } else if d.isTaken(h.heroID) {
-            FlowFX.error(app)
-        } else if turn.action == .ban {
-            FlowFX.error(app)
-            app.showToast(L("BAN するとピックできる所持ヒーローがいなくなります", "Banning this hero would leave you no hero to pick"))
         } else {
             FlowFX.error(app)
-            app.showToast(L("未所持のヒーローはピックできません", "You can only pick heroes you own"))
         }
     }
 
@@ -209,12 +187,10 @@ struct DraftStep: View {
     private func runTurn() async {
         guard let draft = model.draft, let turn = draft.currentTurn else { return }
         if turn.isPlayer {
-            let limit = turn.action == .ban ? Self.banSeconds : Self.pickSeconds
+            let limit = Self.pickSeconds
             turnLimit = limit
             remaining = limit
-            if turn.action == .ban {
-                model.draftHover = nil
-            } else if model.draftHover.map({ !draft.canPlayerSelect($0) }) ?? true {
+            if model.draftHover.map({ !draft.canPlayerSelect($0) }) ?? true {
                 model.draftHover = app.profile.lastPickedHeroID.flatMap { draft.canPlayerSelect($0) ? $0 : nil }
             }
             while remaining > 0 {
@@ -225,7 +201,7 @@ struct DraftStep: View {
             }
             guard let current = model.draft, current.turnIndex == draft.turnIndex else { return }
             var choice = model.draftHover.flatMap { current.canPlayerSelect($0) ? $0 : nil }
-            if choice == nil && turn.action == .pick {
+            if choice == nil {
                 choice = current.autoChoiceForPlayer(preferred: [app.profile.lastPickedHeroID].compactMap { $0 })
             }
             commit(choice, timedOut: true)
@@ -251,13 +227,9 @@ struct DraftStep: View {
         guard var d = model.draft, let turn = d.currentTurn else { return }
         var ok = d.commit(heroID)
         if !ok {
-            // 無効な選択（競合など）は BAN ならスキップ、ピックなら自動選択で確定する。
-            if turn.action == .ban {
-                ok = d.commit(nil)
-            } else {
-                let fallback = turn.isPlayer ? d.autoChoiceForPlayer(preferred: []) : d.aiChoice()
-                ok = d.commit(fallback)
-            }
+            // 無効な選択（競合など）は自動選択で確定する。
+            let fallback = turn.isPlayer ? d.autoChoiceForPlayer(preferred: []) : d.aiChoice()
+            ok = d.commit(fallback)
         }
         guard ok else { return }
         withAnimation(.spring(duration: 0.4, bounce: 0.25)) {
@@ -268,16 +240,15 @@ struct DraftStep: View {
         model.aiPending = nil
         if turn.isPlayer {
             app.haptics.impact(.heavy)
-            if turn.action == .pick, let pick = d.playerPick {
+            if let pick = d.playerPick {
                 model.selectHero(pick.heroID, profile: app.profile, master: app.master)
                 model.position = pick.position
             }
             if timedOut {
-                app.showToast(turn.action == .ban ? L("時間切れ: BAN なしで進みます", "Time's up: no ban")
-                                                  : L("時間切れ: 自動でピックしました", "Time's up: auto-picked"))
+                app.showToast(L("時間切れ: 自動でピックしました", "Time's up: auto-picked"))
             }
         }
-        app.audio.play(turn.action == .ban ? .uiConfirm : .skillCast)
+        app.audio.play(.skillCast)
         if d.isComplete { app.audio.play(.announcement) }
     }
 
@@ -288,7 +259,7 @@ struct DraftStep: View {
     }
 }
 
-// MARK: - チーム列（BAN 2 枠 + ピック 5 枠）
+// MARK: - チーム列（ピック 5 枠）
 
 private struct DraftTeamColumn: View {
     let team: Team
@@ -308,7 +279,6 @@ private struct DraftTeamColumn: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
                 Spacer()
-                ForEach(0..<DraftEngine.bansPerTeam, id: \.self) { i in banSlot(i) }
             }
             ForEach(0..<5, id: \.self) { i in pickSlot(i, color: color) }
         }
@@ -316,48 +286,9 @@ private struct DraftTeamColumn: View {
         .glass(cornerRadius: 14, tint: color.opacity(0.7))
     }
 
-    private func isActiveBan(_ i: Int) -> Bool {
-        guard let t = draft.currentTurn else { return false }
-        return t.action == .ban && t.team == team && i == draft.bans(for: team).count
-    }
-
     private func isActivePick(_ i: Int) -> Bool {
         guard let t = draft.currentTurn else { return false }
-        return t.action == .pick && t.team == team && i == draft.picks(for: team).count
-    }
-
-    @ViewBuilder private func banSlot(_ i: Int) -> some View {
-        let bans = draft.bans(for: team)
-        ZStack {
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .strokeBorder(Theme.danger.opacity(0.6), style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
-            if i < bans.count {
-                if let id = bans[i] {
-                    HeroPortraitView(heroID: id, size: 28, showsRole: false)
-                        .saturation(0)
-                        .overlay(Image(systemName: "nosign").font(.system(size: 18, weight: .bold)).foregroundStyle(Theme.danger))
-                        .transition(.scale.combined(with: .opacity))
-                } else {
-                    Text("—").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary)
-                }
-            } else if isActiveBan(i) {
-                if let hover {
-                    HeroPortraitView(heroID: hover, size: 28, showsRole: false).opacity(0.6)
-                }
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .stroke(Theme.danger, lineWidth: 2)
-                    .glowPulse(Theme.danger, radius: 6)
-            }
-        }
-        .frame(width: 30, height: 30)
-        .accessibilityElement()
-        .accessibilityLabel(banLabel(i, bans))
-    }
-
-    private func banLabel(_ i: Int, _ bans: [String?]) -> String {
-        guard i < bans.count else { return L("BAN 枠 \(i + 1)", "Ban slot \(i + 1)") }
-        guard let id = bans[i] else { return L("BAN なし", "No ban") }
-        return "BAN " + (app.master.hero(id).map { MasterText.hero($0) } ?? id)
+        return t.team == team && i == draft.picks(for: team).count
     }
 
     @ViewBuilder private func pickSlot(_ i: Int, color: Color) -> some View {

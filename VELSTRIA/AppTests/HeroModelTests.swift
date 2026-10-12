@@ -12,7 +12,7 @@ final class HeroModelTests: XCTestCase {
 
     func testAllHeroesBuildWithinBudget() {
         let start = CFAbsoluteTimeGetCurrent()
-        for def in master.heroes {
+        for def in master.allHeroes {
             let model = HeroModelLibrary.makeHero(heroID: def.heroID, skinID: nil, team: .blue, master: master,
                                                   options: Self.battle)
             XCTAssertLessThanOrEqual(model.entityCount, 35, def.heroID)
@@ -38,7 +38,7 @@ final class HeroModelTests: XCTestCase {
     }
 
     func testFeetAtOriginAndHeroHeight() {
-        for def in master.heroes {
+        for def in master.allHeroes {
             let model = HeroModelLibrary.makeHero(heroID: def.heroID, skinID: nil, team: .neutral, master: master,
                                                   options: Self.showcase)
             model.update(dt: 1.0 / 60.0, moveSpeed: 0)
@@ -149,7 +149,7 @@ final class HeroModelTests: XCTestCase {
             signatures.insert(sig)
         }
         // ロールごとの攻撃モーション系統
-        for def in master.heroes {
+        for def in master.allHeroes {
             let bp = HeroBlueprints.blueprint(heroID: def.heroID, role: def.role)
             switch def.role {
             case .ranger: XCTAssertTrue(bp.attack == .bow || bp.attack == .gun, def.heroID)

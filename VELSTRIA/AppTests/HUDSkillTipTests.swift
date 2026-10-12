@@ -162,20 +162,14 @@ final class HUDSkillTipTests: XCTestCase {
 
     // MARK: 必殺・枠番号のバッジ
 
-    /// バッジ（必殺 / ULT / 枠番号）はボタンの円の内側に収まる（円の外へはみ出さない）。
-    /// カプセルは両端が半円: 端の円の中心 (±(幅/2 − 高さ/2), 縦位置) から高さ/2 まで。
+    /// 固定番号は右下に重ね、透明な追加タッチ領域を作らない。
     func testSkillBadgeStaysInsideTheButtonDisc() {
         for (tag, l) in layouts() {
             for slot in SkillSlot.actives {
                 let d = slot == .ultimate ? l.ultDiameter : l.skillDiameter
-                // 文字は全角 2 文字（必殺）か英大文字 3 文字（ULT）。余裕を見て 2.4em
-                let font = d * HUDSkillButton.badgeFontRatio
-                let width = font * 2.4 + d * 0.09 * 2
-                let height = font * 1.2 + 5
-                let capCenterX = width / 2 - height / 2
-                let capCenterY = d * HUDSkillButton.badgeOffsetRatio
-                let farthest = hypot(capCenterX, capCenterY) + height / 2
-                XCTAssertLessThanOrEqual(farthest, d / 2, "\(tag) \(slot): バッジがボタンの円からはみ出す")
+                let edge = d * (HUDSkillButton.badgeOffsetRatio + HUDSkillButton.badgeDiameterRatio / 2)
+                XCTAssertLessThanOrEqual(edge, d / 2, "\(tag) \(slot): 番号がボタン矩形からはみ出す")
+                XCTAssertGreaterThan(HUDSkillButton.badgeDiameterRatio, HUDSkillButton.badgeFontRatio)
             }
         }
     }

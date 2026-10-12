@@ -24,7 +24,7 @@ final class AppStoreAssetsTests: XCTestCase {
         func need(_ key: String) {
             if (overlay[key] ?? "").trimmingCharacters(in: .whitespaces).isEmpty { missing.append(key) }
         }
-        for h in m.heroes {
+        for h in m.allHeroes {
             need(h.heroID)
             for suffix in [".epithet", ".lore", ".strengths", ".weaknesses", ".counterplay"] { need(h.heroID + suffix) }
         }
@@ -38,18 +38,19 @@ final class AppStoreAssetsTests: XCTestCase {
         }
         for s in m.spells { need(s.spellID); need(s.spellID + ".desc") }
         for r in m.runes { need(r.runeID); need(r.runeID + ".desc") }
-        for c in m.cosmetics { need(c.cosmeticID) }
-        for s in m.store { need(s.sku) }
+        for c in m.allCosmetics { need(c.cosmeticID) }
+        for s in m.allStore { need(s.sku) }
         for e in m.effects { need(e.effectID) }
         XCTAssertEqual(missing, [], "未翻訳のキーがあります（python3 tools/gen_master_en.py で再生成）")
 
-        XCTAssertEqual(m.heroes.count, 34)
+        XCTAssertEqual(m.allHeroes.count, 34)
+        XCTAssertEqual(m.heroes.count, 10, "ゲームに出すのは H025〜H034（HeroRoster）")
         XCTAssertEqual(m.skills.count, 136)
         XCTAssertEqual(m.items.count, 92)  // 攻撃 34・魔法 25・防御 25・移動 8
         XCTAssertEqual(m.spells.count, 15)
         XCTAssertEqual(m.runes.count, 30)
-        XCTAssertEqual(m.cosmetics.count, 102)
-        XCTAssertEqual(m.store.count, 154)
+        XCTAssertEqual(m.allCosmetics.count, 102)
+        XCTAssertEqual(m.allStore.count, 154)
     }
 
     func testEnglishOverlayContainsNoJapaneseText() throws {
@@ -66,7 +67,7 @@ final class AppStoreAssetsTests: XCTestCase {
         let m = MasterData.shared
         for s in m.skills {
             let desc = try XCTUnwrap(overlay[s.skillID + ".desc"])
-            let hero = try XCTUnwrap(m.heroes.first { $0.heroID == s.heroID })
+            let hero = try XCTUnwrap(m.allHeroes.first { $0.heroID == s.heroID })
             // キットのヒーローの説明は HeroKits.text（SkillMath.description）が持つ。汎用文（.desc）は存在チェックのみ
             if HeroKits.hasKit(hero.heroID) { continue }
             switch s.slot {
@@ -98,7 +99,7 @@ final class AppStoreAssetsTests: XCTestCase {
         let saved = Loc.current
         defer { Loc.current = saved }
         let m = MasterData.shared
-        let alden = try XCTUnwrap(m.heroes.first { $0.heroID == "H001" })
+        let alden = try XCTUnwrap(m.allHeroes.first { $0.heroID == "H001" })
         let lyraRecall = try XCTUnwrap(m.cosmetics.first { $0.cosmeticID == "CO002" })
         let dagger = try XCTUnwrap(m.items.first { $0.itemID == "EQ133" })
 
@@ -217,7 +218,7 @@ final class AppStoreAssetsTests: XCTestCase {
         // 立ち絵が未生成で頭文字の暫定表示になるヒーロー（docs/NEW_HEROES.md）。
         // tools/portraits/portraits.py で生成・取り込みしたらこの一覧から外す（外し忘れても下の確認で気づける）。
         let artPending: Set<String> = []
-        for h in m.heroes {
+        for h in m.allHeroes {
             guard let img = PortraitArt.hero(h.heroID) else {
                 if !artPending.contains(h.heroID) { missing.append(h.heroID) }
                 continue

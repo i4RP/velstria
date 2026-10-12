@@ -329,11 +329,11 @@ final class LiveOpsScreensTests: XCTestCase {
         var p = Profile()
         p.heroSpells["H001"] = ["BS01", "BS01"]
         XCTAssertNil(PracticeSetup.spells(heroID: "H001", profile: p))
-        XCTAssertEqual(PracticeSetup.defaultHeroID(profile: p), "H001")
+        XCTAssertEqual(PracticeSetup.defaultHeroID(profile: p), HeroRoster.defaultHeroID)
         p.lastPickedHeroID = "H020"
         XCTAssertEqual(PracticeSetup.defaultHeroID(profile: p), "H020")
         p.lastPickedHeroID = "HXXX"
-        XCTAssertEqual(PracticeSetup.defaultHeroID(profile: p), "H001")
+        XCTAssertEqual(PracticeSetup.defaultHeroID(profile: p), HeroRoster.defaultHeroID)
         let config = PracticeSetup.config(heroID: "H001", options: PracticeOptions(startLevel: 0), profile: p, seed: 1)
         XCTAssertEqual(config.practice?.startLevel, 1)
         XCTAssertEqual(config.humanSlot?.spells.count, 2)

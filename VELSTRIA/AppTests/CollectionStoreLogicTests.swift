@@ -14,11 +14,12 @@ final class CollectionStoreLogicTests: XCTestCase {
     }
 
     func testCategoryContents() {
-        XCTAssertEqual(StoreCatalog.items(in: .skins, master: master).count, 12)
+        // スキン 12 点はすべて非表示のヒーロー（H001〜H024）のもの（HeroRoster）
+        XCTAssertEqual(StoreCatalog.items(in: .skins, master: master).count, 0)
         XCTAssertEqual(StoreCatalog.items(in: .effects, master: master).count, 54)
         XCTAssertEqual(StoreCatalog.items(in: .emotes, master: master).count, 18)
         XCTAssertEqual(StoreCatalog.items(in: .frames, master: master).count, 18)
-        XCTAssertEqual(StoreCatalog.items(in: .heroes, master: master).count, 34)
+        XCTAssertEqual(StoreCatalog.items(in: .heroes, master: master).count, 0, "全員が全ヒーローを使えるので解放は売らない")
         XCTAssertTrue(StoreCatalog.items(in: .gems, master: master).isEmpty)
         XCTAssertEqual(StoreCatalog.bundles(master: master).count, 18)
         for c in StoreCategory.allCases {
@@ -37,8 +38,9 @@ final class CollectionStoreLogicTests: XCTestCase {
     }
 
     func testLookupHelpers() {
-        XCTAssertEqual(StoreCatalog.storeItem(forCosmetic: "CO001", master: master)?.sku, "SKU001")
-        XCTAssertEqual(StoreCatalog.unlockItem(heroID: "H007", master: master)?.sku, "SKU079")
+        XCTAssertNil(StoreCatalog.storeItem(forCosmetic: "CO001", master: master), "非表示のヒーローのスキンは売らない")
+        XCTAssertNil(StoreCatalog.unlockItem(heroID: "H007", master: master), "非表示のヒーローは売らない")
+        XCTAssertNil(StoreCatalog.unlockItem(heroID: "H027", master: master), "全員が全ヒーローを使えるので解放は売らない")
         XCTAssertNil(StoreCatalog.unlockItem(heroID: "H999", master: master))
         XCTAssertEqual(StoreCatalog.cosmetic(for: master.storeItem("SKU004")!, master: master)?.type, .emote)
         XCTAssertNil(StoreCatalog.cosmetic(for: master.storeItem("SKU079")!, master: master))
@@ -87,7 +89,7 @@ final class CollectionStoreLogicTests: XCTestCase {
         let emotes = master.cosmetics.filter { $0.type == .emote }
         let symbols = emotes.map { CosmeticInfo.emoteSymbol($0, master: master) }
         XCTAssertEqual(Set(symbols).count, emotes.count)
-        XCTAssertEqual(CosmeticInfo.skins(heroID: "H001", master: master).map(\.cosmeticID), ["CO001", "CO025", "CO049"])
+        XCTAssertEqual(CosmeticInfo.skins(heroID: "H001", master: master).map(\.cosmeticID), [], "非表示のヒーローのスキンは出さない")
         XCTAssertTrue(CosmeticInfo.skins(heroID: "H002", master: master).isEmpty)
     }
 

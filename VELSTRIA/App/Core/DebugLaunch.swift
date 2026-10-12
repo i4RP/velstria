@@ -241,11 +241,11 @@ enum DebugLaunch {
         case "rankRewards": return .rankRewards
         case "accountLink": return .accountLink
         case "heroes": return .heroes
-        case "heroDetail": return .heroDetail(arg.isEmpty ? "H001" : arg)
+        case "heroDetail": return .heroDetail(arg.isEmpty ? HeroRoster.defaultHeroID : arg)
         case "skillDetail": return .skillDetail(arg.isEmpty ? "SK001_2" : arg)
         case "items": return .items
         case "itemDetail": return .itemDetail(arg.isEmpty ? "EQ101" : arg)
-        case "buildEditor": return .buildEditor(arg.isEmpty ? "H001" : arg)
+        case "buildEditor": return .buildEditor(arg.isEmpty ? HeroRoster.defaultHeroID : arg)
         case "runes": return .runes
         case "spells": return .spells
         case "store": return .store

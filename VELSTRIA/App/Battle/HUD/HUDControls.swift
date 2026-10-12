@@ -135,13 +135,14 @@ struct HUDAttackButton: View {
         let priority = model.settings.attackPriority(for: slot)
         let main = slot == .center
         ZStack {
-            Circle()
-                .fill(HUDStyle.surface.opacity(main ? 0.38 : 0.24))
-            Circle()
-                .fill(LinearGradient(colors: [HUDStyle.accent.opacity(main ? 0.38 : 0.10), .clear],
-                                     startPoint: .topLeading, endPoint: .bottomTrailing))
-            Circle()
-                .strokeBorder(HUDStyle.accent.opacity(main ? 0.75 : 0.28), lineWidth: main ? 1.1 : 0.65)
+            if main {
+                HUDCrystalShape().fill(LinearGradient(colors: [HUDStyle.accent.opacity(0.6), HUDStyle.crystalDeep.opacity(0.5), HUDStyle.surface.opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .overlay(HUDCrystalShape().stroke(HUDStyle.accent, lineWidth: 1.2))
+                HUDCrystalFacet().fill(HUDStyle.crystalLight.opacity(0.25))
+            } else {
+                Circle().fill(HUDStyle.surface.opacity(0.24))
+                    .overlay(Circle().strokeBorder(HUDStyle.accent.opacity(0.4), lineWidth: 0.7))
+            }
             HUDAttackGlyph(icon: HUDAttackIcon.main(slot: slot, priority: priority),
                            size: diameter * (main ? 0.69 : 0.46),
                            color: main ? .white : HUDStyle.accent)
@@ -523,8 +524,9 @@ struct HUDSkillButton: View {
             }
             .saturation(dim && !cooling && !dead ? 0.35 : 1)
             .hudDeadDim(dead)
+            .padding(diameter * 0.09)
             if cooling {
-                HUDCooldownOverlay(cooldown: snapshot.cooldown, fraction: snapshot.cooldownFraction, diameter: diameter,
+                HUDCooldownOverlay(cooldown: snapshot.cooldown, fraction: snapshot.cooldownFraction, diameter: diameter * 0.82,
                                    fontRatio: 0.34)
             } else if snapshot.learned && !snapshot.affordable && !snapshot.recasting {
                 Image(systemName: "drop.fill")
@@ -532,7 +534,7 @@ struct HUDSkillButton: View {
                     .foregroundStyle(HUDStyle.resourceColor(model.vitals.resourceKind))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                     .padding(diameter * 0.12)
-            } else if !snapshot.learned {
+            } else if !snapshot.learned && !snapshot.canLevel {
                 Image(systemName: "lock.fill")
                     .font(.system(size: diameter * 0.22, weight: .bold))
                     .foregroundStyle(.white.opacity(0.8))
@@ -541,21 +543,21 @@ struct HUDSkillButton: View {
                     .font(.system(size: diameter * 0.42, weight: .bold))
                     .foregroundStyle(.white)
             }
-            // 必殺・枠番号のバッジ（ボタンの円の内側に収める）
-            Text(isUlt ? L("必殺", "ULT") : CollectionStyle.slotBadge(snapshot.slot))
-                .font(.system(size: diameter * 0.12, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.8))
-                .shadow(color: .black.opacity(0.85), radius: 1)
-                .opacity(dead ? 0.85 : 1)
-                .offset(y: -diameter * 0.34)
             if let info = snapshot.recast {
-                HUDRecastRing(info: info, diameter: diameter, color: HUDStyle.accent)
+                HUDRecastRing(info: info, diameter: diameter * 0.82, color: HUDStyle.accent)
             }
             if snapshot.isReady && isUlt && !snapshot.recasting {
                 Circle().strokeBorder(HUDStyle.violet.opacity(0.45), lineWidth: 0.8).padding(2)
             }
-            HUDRankPips(rank: snapshot.rank, maxRank: snapshot.slot.maxRank, diameter: diameter, color: color)
-                .opacity(dead ? 0.8 : 1)
+            HUDRankPips(rank: snapshot.rank, maxRank: snapshot.slot.maxRank, diameter: diameter, color: HUDStyle.accent)
+            Text(String(snapshot.slot.rawValue))
+                .font(.system(size: diameter * Self.badgeFontRatio, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: diameter * Self.badgeDiameterRatio, height: diameter * Self.badgeDiameterRatio)
+                .background(Circle().fill(HUDStyle.surface))
+                .overlay(Circle().stroke(HUDStyle.accent, lineWidth: 1.2))
+                .offset(x: diameter * Self.badgeOffsetRatio, y: diameter * Self.badgeOffsetRatio)
+                .allowsHitTesting(false)
             // キット層のバッジ（スタック・形態・タイマー）。右上の角（枠番号・種別タグ・習得バッジと重ならない位置）
             if let badge = snapshot.badge {
                 HUDKitBadgeChip(badge: badge, size: diameter * 0.3, tint: color)
@@ -590,9 +592,10 @@ struct HUDSkillButton: View {
         .accessibilityHint(tag)
     }
 
-    /// 必殺・枠番号のバッジの文字サイズ・縦位置（ボタン直径に対する割合）。
-    static let badgeFontRatio: CGFloat = 0.15
-    static let badgeOffsetRatio: CGFloat = 0.33
+    /// 固定番号バッジ。右下へ重ね、ボタンの矩形内に収める。
+    static let badgeFontRatio: CGFloat = 0.23
+    static let badgeOffsetRatio: CGFloat = 0.32
+    static let badgeDiameterRatio: CGFloat = 0.32
 
     private var accessibilityValue: String {
         if !snapshot.learned { return L("未習得", "Not learned") }
@@ -672,28 +675,50 @@ struct HUDKitBadgeChip: View, Equatable {
     }
 }
 
-/// ランクの目盛り（ボタン下側の弧）。
+/// 右下の番号用の隙間を除き、時計回りに1区画1段階を表示する。
 struct HUDRankPips: View {
     let rank: Int
     let maxRank: Int
     let diameter: CGFloat
     let color: Color
-
+    @State private var flashingFrom = Int.max
     var body: some View {
         ZStack {
-            ForEach(0..<maxRank, id: \.self) { k in
-                let spread = 13.0
-                let angle = 90 + (Double(k) - Double(maxRank - 1) / 2) * spread
-                Capsule()
-                    .fill(k < rank ? color : Color.black.opacity(0.6))
-                    .overlay(Capsule().stroke(Color.white.opacity(k < rank ? 0.8 : 0.35), lineWidth: 0.5))
-                    .frame(width: diameter * 0.08, height: diameter * 0.035)
-                    .rotationEffect(.degrees(angle - 90))
-                    .offset(x: CGFloat(cos(angle * .pi / 180)) * diameter * 0.45,
-                            y: CGFloat(sin(angle * .pi / 180)) * diameter * 0.45)
+            ForEach(0..<max(0, maxRank), id: \.self) { k in
+                let step = 300.0 / Double(max(1, maxRank))
+                let start = 75.0 + Double(k) * step
+                HUDRankSegment(start: start + 2, end: start + step - 2)
+                    .fill(k < rank ? color : Color(red: 0.10, green: 0.24, blue: 0.36))
+                    .overlay(HUDRankSegment(start: start + 2, end: start + step - 2)
+                        .stroke(HUDStyle.crystalLight.opacity(k < rank ? 0.85 : 0.42), lineWidth: 0.65))
+                    .brightness(k >= flashingFrom && k < rank ? 0.4 : 0)
             }
         }
+        .frame(width: diameter, height: diameter)
+        .onChange(of: rank) { old, new in
+            if new > old { flashingFrom = old }
+        }
+        .task(id: rank) {
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.2)) { flashingFrom = Int.max }
+        }
         .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+struct HUDRankSegment: Shape {
+    let start: Double
+    let end: Double
+    func path(in rect: CGRect) -> Path {
+        let c = CGPoint(x: rect.midX, y: rect.midY)
+        let r = min(rect.width, rect.height) * 0.49
+        var p = Path()
+        p.addArc(center: c, radius: r, startAngle: .degrees(start), endAngle: .degrees(end), clockwise: false)
+        p.addArc(center: c, radius: r * 0.86, startAngle: .degrees(end), endAngle: .degrees(start), clockwise: true)
+        p.closeSubpath()
+        return p
     }
 }
 

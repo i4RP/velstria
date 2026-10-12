@@ -416,6 +416,7 @@ final class AppModel: FriendProfileAccess {
         toast = message
     }
 
-    func owns(heroID: String) -> Bool { profile.ownedHeroIDs.contains(heroID) }
+    /// ゲームに出すヒーロー（HeroRoster）は全員が使える（解放・所持の制限なし。2026-10-12）。
+    func owns(heroID: String) -> Bool { EconomyService.isOwned(heroID: heroID, profile: profile) }
     func owns(cosmeticID: String) -> Bool { profile.ownedCosmeticIDs.contains(cosmeticID) }
 }

@@ -228,7 +228,7 @@ public enum Difficulty: Int, Codable, Hashable, Sendable, CaseIterable {
 public enum MatchMode: Int, Codable, Hashable, Sendable {
     /// 5v5 対 AI（通常）。
     case standard
-    /// ランク戦（対 AI、BAN あり）。
+    /// ランク戦（対 AI、ピックのドラフト）。
     case ranked
     /// 練習場（敵ヒーローなし・人形あり）。
     case practice
