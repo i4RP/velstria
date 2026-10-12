@@ -313,6 +313,9 @@ final class StructureVisual {
     private var lastStyle: CollapseStyle = .full
     private var applied = false
     private var nodeCache: [simd_float4x4] = Array(repeating: simd_float4x4(diagonal: SIMD4(repeating: .nan)), count: 5)
+    /// 破片の最後に書いた行列（止まっている瓦礫は書き直さない）。
+    private var shardCache: [simd_float4x4] = []
+    private var debrisCache: [simd_float4x4] = []
     private var piecesShown = false
     private var columnShown = false
     private var rangeAlpha: Float = 0
@@ -700,8 +703,8 @@ final class StructureVisual {
             }
         } else {
             piecesShown = true
-            setPieces(shardNodes, p.shards)
-            setPieces(debrisNodes, p.debris)
+            setPieces(shardNodes, p.shards, cache: &shardCache)
+            setPieces(debrisNodes, p.debris, cache: &debrisCache)
         }
         // Core の光の柱
         if let column {
@@ -727,7 +730,10 @@ final class StructureVisual {
         e.transform = Transform(matrix: piece.matrix)
     }
 
-    private func setPieces(_ nodes: [ModelEntity], _ pieces: [TowerPose.Piece]) {
+    private func setPieces(_ nodes: [ModelEntity], _ pieces: [TowerPose.Piece], cache: inout [simd_float4x4]) {
+        if cache.count != nodes.count {
+            cache = Array(repeating: simd_float4x4(diagonal: SIMD4(repeating: .nan)), count: nodes.count)
+        }
         for (k, e) in nodes.enumerated() {
             guard k < pieces.count, pieces[k].visible else {
                 if e.isEnabled { e.isEnabled = false }
@@ -735,7 +741,10 @@ final class StructureVisual {
             }
             let piece = pieces[k]
             if !e.isEnabled { e.isEnabled = true }
-            e.transform = Transform(matrix: piece.matrix)
+            if cache[k] != piece.matrix {
+                cache[k] = piece.matrix
+                e.transform = Transform(matrix: piece.matrix)
+            }
             if piece.opacity < 0.995 {
                 e.components.set(OpacityComponent(opacity: max(0, piece.opacity)))
             } else if e.components.has(OpacityComponent.self) {
