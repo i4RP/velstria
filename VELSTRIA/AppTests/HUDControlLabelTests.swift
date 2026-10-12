@@ -351,6 +351,50 @@ final class HUDControlLabelTests: XCTestCase {
         return HUDModel(controller: BattleController(launch: BattleLaunch(config: config)))
     }
 
+    @MainActor
+    func testSkillRankUpgradeCapture() {
+        var config = MatchFactory.practiceMatch(humanHeroID: "H003", humanName: "Tester",
+                                                options: PracticeOptions(startLevel: 6), seed: 17)
+        for i in config.players.indices { config.players[i].autoLevelSkills = false }
+        let controller = BattleController(launch: BattleLaunch(config: config))
+        let model = HUDModel(controller: controller)
+        let app = AppModel(persistence: ServicesFixtures.tempPersistence())
+        app.profile.settings.autoLevelSkills = false
+        model.start(app: app, onFinish: { _ in })
+        defer { model.stop() }
+        func advance() {
+            for _ in 0..<4 { controller.frame(dt: Balance.dt) }
+            model.refresh()
+        }
+        func capture(_ name: String) -> HUDSkillSnapshot {
+            model.refresh()
+            let sn = model.skills.first { $0.slot == .skill1 }!
+            let view = HUDSkillButton(model: model, snapshot: sn, role: .arcanist, diameter: 128,
+                                      center: .zero, name: "", highlighted: false)
+                .padding(20).background(HUDStyle.surface)
+            let renderer = ImageRenderer(content: view)
+            renderer.scale = 3
+            if let image = renderer.uiImage {
+                let attachment = XCTAttachment(image: image)
+                attachment.name = name
+                attachment.lifetime = .keepAlways
+                add(attachment)
+            } else { XCTFail("HUD rendering failed") }
+            return sn
+        }
+        advance()
+        model.levelSkill(.skill1)
+        advance()
+        let before = capture("skill1_before")
+        model.levelSkill(.skill1)
+        advance()
+        let after = capture("skill1_after")
+        XCTAssertEqual(before.slot.rawValue, 1)
+        XCTAssertEqual(after.slot.rawValue, 1)
+        XCTAssertEqual(after.rank, before.rank + 1)
+        XCTAssertEqual(after.slot.maxRank, before.slot.maxRank)
+    }
+
     /// 描画したボタンの平均の明るさ（0〜1、透明部分は除く）。
     @MainActor
     private func meanLuminance<V: View>(_ view: V, size: CGFloat) -> (luma: Double, alpha: Double) {
