@@ -636,3 +636,12 @@ struct Kit_H030: HeroKit {
         return chance > 0 && s.rng.nextDouble() < chance
     }
 }
+
+extension Kit_H030 {
+    /// ZoneSystem.spawn と同じ形（描画の事前生成用。HeroKit.plannedZones）。
+    func plannedZones(master: MasterData) -> [KitZoneShape] {
+        // S2 の印の起爆（印の付いた敵ごと。最大 5 体）
+        guard let r = master.skill(hero: heroID, slot: .skill2)?.radius else { return [] }
+        return [KitZoneShape(radius: r, count: 5)]
+    }
+}

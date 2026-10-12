@@ -167,6 +167,11 @@ public enum HeroKits {
 
     public static func hasKit(_ heroID: String) -> Bool { kit(for: heroID) != nil }
 
+    /// キットが作るゾーンの形（描画の事前生成用。キットが無ければ空）。
+    public static func plannedZones(heroID: String, master: MasterData) -> [KitZoneShape] {
+        kit(for: heroID)?.plannedZones(master: master) ?? []
+    }
+
     /// 汎用の結果を土台にしたキットの照準情報（キットが無ければ汎用）。
     public static func targeting(for skill: SkillDef, hero: HeroDef, stage: Int) -> SkillTargeting {
         let base = SkillCatalog.genericTargeting(for: skill, hero: hero)

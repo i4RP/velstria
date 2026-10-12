@@ -15,6 +15,21 @@ public struct KitStat: Codable, Hashable, Sendable {
     }
 }
 
+/// キットが作るゾーンの形（HeroKit.plannedZones）。半径は sim 単位。
+public struct KitZoneShape: Hashable, Sendable {
+    public var radius: Double
+    /// 扇形の半角（rad）。nil = 円。
+    public var halfAngle: Double?
+    /// 1 回の発動で同時に出る最大数（ゾーンの見た目のプールの見積り）。
+    public var count: Int
+
+    public init(radius: Double, halfAngle: Double? = nil, count: Int = 1) {
+        self.radius = radius
+        self.halfAngle = halfAngle
+        self.count = count
+    }
+}
+
 /// キットのスキル発動に渡す文脈（初回も再使用も同じ形）。
 struct KitCast {
     var caster: Int
@@ -62,6 +77,8 @@ protocol HeroKit: Sendable {
     /// ランクごとのコスト（発動の検証・消費・numbers の cost・ボット・HUD が同じ値を使う）。base は汎用の実効コスト
     /// （リソースが Energy なら energyCostMultiplier 込み）。キットが固定の値を返すときは `HeroKits.resourceCost` を通す。
     func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double
+    /// ZoneSystem.spawn で作るゾーンの形（描画が読み込み中にゾーンの見た目とメッシュを作り切るため。汎用の型のゾーンは除く）。
+    func plannedZones(master: MasterData) -> [KitZoneShape]
 
     // MARK: B. 実行
 
@@ -133,6 +150,7 @@ extension HeroKit {
     func text(slot: SkillSlot) -> KitText? { nil }
     func badge(slot: SkillSlot, hero: HeroData) -> KitBadge? { nil }
     func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double { base }
+    func plannedZones(master: MasterData) -> [KitZoneShape] { [] }
 
     func resolveAim(_ s: SimState, _ ctx: SimContext, caster: Int, slot: SkillSlot, stage: Int,
                     targeting: SkillTargeting, target: SkillTarget) -> SkillAim?? {

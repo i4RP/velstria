@@ -786,3 +786,11 @@ struct Kit_H026: HeroKit {
         return best
     }
 }
+
+extension Kit_H026 {
+    /// ZoneSystem.spawn と同じ形（描画の事前生成用。HeroKit.plannedZones）。
+    func plannedZones(master: MasterData) -> [KitZoneShape] {
+        // 奥義の大雷（外側の半径）と、超伝導の敵ごとの炸裂（最大 5 体）
+        [KitZoneShape(radius: T.ultOuterRadius), KitZoneShape(radius: T.burstRadius, count: 5)]
+    }
+}

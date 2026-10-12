@@ -30,6 +30,8 @@ final class UnitLayer {
     private let trailKit: WeaponTrailKit?
     /// 今の画質で武器の軌跡を出すか。
     private var weaponTrailsOn: Bool
+    /// クリーチャーにキットの状態表示（マーク・凍結の氷）を事前に作るか（prepareKitStatus）。
+    private var kitStatus: (mark: Bool, ice: Bool) = (false, false)
 
     init(materials: RenderMaterials, meshes: UnitMeshLibrary, text: TextMeshCache, master: MasterData,
          quality: RenderQuality = .preset(.medium)) {
@@ -64,6 +66,14 @@ final class UnitLayer {
         for team in Team.players {
             for (type, n) in [(MinionType.melee, 10), (.ranged, 10), (.siege, 3)] { prewarm(.minion(type, team), count: n) }
         }
+    }
+
+    /// 試合のキットが付けるマーク・凍結の表示を、クリーチャー（作り済みのプール・表示中も含む）に事前に作る。
+    /// 以後に作るクリーチャーにも作る。
+    func prepareKitStatus(mark: Bool, ice: Bool) {
+        kitStatus = (kitStatus.mark || mark, kitStatus.ice || ice)
+        for list in pools.values { for v in list { v.status.prepareKitStatus(mark: kitStatus.mark, ice: kitStatus.ice) } }
+        for v in activeCreatures { v.status.prepareKitStatus(mark: kitStatus.mark, ice: kitStatus.ice) }
     }
 
     /// key のプールが count 体になるまで作る（無効のまま。状態表示・HP バーも含めて全て作る）。
@@ -141,6 +151,7 @@ final class UnitLayer {
     private func make(_ key: CreatureKey) -> CreatureVisual {
         AssetLedger.record(.entity, "creature \(key)")
         let v = CreatureVisual(key: key, meshes: meshes, materials: materials, text: text)
+        if kitStatus.mark || kitStatus.ice { v.status.prepareKitStatus(mark: kitStatus.mark, ice: kitStatus.ice) }
         v.root.isEnabled = false
         root.addChild(v.root)
         return v

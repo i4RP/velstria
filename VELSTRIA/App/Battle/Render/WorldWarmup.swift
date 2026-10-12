@@ -32,6 +32,9 @@ extension BattleWorld {
             _ = self.meshes.centeredQuad
             _ = self.materials.contactShadow
         })
+        // キットのマーク・凍結の表示（クリーチャーのプールを作る前に決める。作るのはプールの各体と同時）
+        let kitHeroes = controller.state.units.compactMap { $0.hero?.heroID }.filter { HeroKits.hasKit($0) }
+        units.prepareKitStatus(mark: !kitHeroes.isEmpty, ice: kitHeroes.contains(KitStatusVisuals.freezeHeroID))
         // クリーチャーのプール（種類ごと・12 体ずつ）
         let dummySpots = controller.state.world.dummySpots.count
         for (key, count) in UnitLayer.creaturePoolSizes(map: controller.ctx.map, dummySpots: dummySpots) {
@@ -54,8 +57,10 @@ extension BattleWorld {
         steps.append(WarmupStep("zones+aim") { [weak self] in
             guard let self else { return }
             let master = self.controller.ctx.master
-            self.zones.prewarm(count: BattleWorld.zonePoolSize,
-                               radii: ZoneLayer.plannedRadii(state: self.controller.state, master: master))
+            let state = self.controller.state
+            self.zones.prewarm(count: ZoneLayer.plannedPoolSize(state: state, master: master, base: BattleWorld.zonePoolSize),
+                               radii: ZoneLayer.plannedRadii(state: state, master: master),
+                               sectors: ZoneLayer.plannedSectors(state: state, master: master))
             self.aim.prewarm(ranges: AimLayer.plannedRanges(state: self.controller.state, humanID: self.controller.humanHeroID,
                                                             master: master))
         })

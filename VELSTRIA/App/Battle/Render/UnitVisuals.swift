@@ -125,6 +125,13 @@ final class StatusIndicators {
         reset()
     }
 
+    /// キットの状態表示（マーク・凍結の氷）を事前に作る（ヒーロー以外のユニット用。ヒーローは init で作る）。
+    /// 試合にマークを付けるキット・凍結させるキットが居る時だけ呼ぶ（WorldWarmup → UnitLayer.prepareKitStatus）。
+    func prepareKitStatus(mark withMark: Bool, ice withIce: Bool) {
+        if withMark && mark == nil { mark = makeMark("") }
+        if withIce && iceShell == nil { makeIce() }
+    }
+
     /// 帰還リングの色（転移は紫、帰還はチームの明色）。
     static func recallColor(_ team: Team, materials: RenderMaterials) -> RGB {
         team == .neutral ? teleportColor : materials.teams.light(team)
