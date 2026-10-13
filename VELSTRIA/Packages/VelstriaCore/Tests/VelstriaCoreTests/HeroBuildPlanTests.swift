@@ -29,8 +29,8 @@ final class HeroBuildPlanTests: XCTestCase {
 
     func testEveryHeroHasAWellFormedBuild() throws {
         let m = MasterData.shared
-        XCTAssertEqual(m.heroes.count, 34)
-        for hero in m.heroes {
+        XCTAssertEqual(m.allHeroes.count, 34)
+        for hero in m.allHeroes {
             let build = ItemSystem.recommendedBuild(heroID: hero.heroID, role: hero.role, master: m)
             assertWellFormed(build, hero.heroID)
             if let own = ItemSystem.heroBuilds[hero.heroID] {

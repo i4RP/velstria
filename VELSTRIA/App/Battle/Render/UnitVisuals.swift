@@ -18,6 +18,9 @@ struct RenderFrame {
     var focusID: EntityID?
     var ended: Bool
     var winner: Team?
+    /// 演出の時刻（秒）: 試合中は sim の時刻、試合終了後（sim は止まる）はそこから実時間で進む。
+    /// 塔の倒壊・Core の終幕は「この時刻 − きっかけの時刻」で求める（TowerTimeline）。
+    var presentationTime: Double = 0
     /// カメラの world 位置（HP バーの画面サイズ一定化に使う）。
     var camera: SIMD3<Float> = SIMD3(60, 10, -50)
 
@@ -123,6 +126,13 @@ final class StatusIndicators {
         }
         if iceReady { iceRing = makeIceRing() }
         reset()
+    }
+
+    /// キットの状態表示（マーク・凍結の氷）を事前に作る（ヒーロー以外のユニット用。ヒーローは init で作る）。
+    /// 試合にマークを付けるキット・凍結させるキットが居る時だけ呼ぶ（WorldWarmup → UnitLayer.prepareKitStatus）。
+    func prepareKitStatus(mark withMark: Bool, ice withIce: Bool) {
+        if withMark && mark == nil { mark = makeMark("") }
+        if withIce && iceShell == nil { makeIce() }
     }
 
     /// 帰還リングの色（転移は紫、帰還はチームの明色）。
@@ -694,7 +704,7 @@ final class HeroVisual {
         team = u.team
         self.isSelf = isSelf
         let h = u.hero
-        handle = HeroModelFactory.make(heroID: h?.heroID ?? "H001", skinID: h?.skinID, team: u.team, master: master)
+        handle = HeroModelFactory.make(heroID: h?.heroID ?? HeroRoster.defaultHeroID, skinID: h?.skinID, team: u.team, master: master)
         root.name = "hero_\(u.id)"
         root.addChild(modelRoot)
         modelRoot.addChild(handle.root)
@@ -726,7 +736,7 @@ final class HeroVisual {
         let fill = isSelf ? TeamColors.selfColor : materials.teams.main(u.team)
         let resColor = h?.resourceKind == .energy ? RGB(1.0, 0.84, 0.3) : RGB(0.35, 0.62, 1.0)
         bar = OverheadBar(style: .hero(isSelf: isSelf, showResource: isSelf), fillColor: fill, materials: materials,
-                          meshes: meshes, text: text, name: h?.displayName, resourceColor: resColor)
+                          meshes: meshes, text: text, name: h.map { PlayerNameRules.shown($0.displayName) }, resourceColor: resColor)
         bar.root.position.y = handle.overheadHeight + 0.45
         root.addChild(bar.root)
         status = StatusIndicators(meshes: meshes, materials: materials, headHeight: handle.overheadHeight, size: 0.85,

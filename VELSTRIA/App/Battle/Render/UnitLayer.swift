@@ -19,6 +19,14 @@ final class UnitLayer {
     private var heroList: [HeroVisual] = []
     private(set) var structures: [EntityID: StructureVisual] = [:]
     private var structureList: [StructureVisual] = []
+    /// このフレームの構造物の一度きりの合図（BattleWorld が粒子・音へ変えて clearStructureCues で空にする）。
+    private(set) var structureCues: [StructureCueEvent] = []
+    /// 倒れている途中の塔（破壊の時刻・ID。同時に倒れる数の上限で短縮版を決める）。
+    private var collapsing: [(deathTime: Double, id: EntityID)] = []
+    #if DEBUG
+    /// 演出の確認（TowerDemo）: この構造物だけ演出時刻を差し替える。
+    var demoClock: (id: EntityID, time: Double)?
+    #endif
     private var creatures: [EntityID: CreatureVisual] = [:]
     private var activeCreatures: [CreatureVisual] = []
     private var dying: [CreatureVisual] = []
@@ -30,6 +38,8 @@ final class UnitLayer {
     private let trailKit: WeaponTrailKit?
     /// 今の画質で武器の軌跡を出すか。
     private var weaponTrailsOn: Bool
+    /// クリーチャーにキットの状態表示（マーク・凍結の氷）を事前に作るか（prepareKitStatus）。
+    private var kitStatus: (mark: Bool, ice: Bool) = (false, false)
 
     init(materials: RenderMaterials, meshes: UnitMeshLibrary, text: TextMeshCache, master: MasterData,
          quality: RenderQuality = .preset(.medium)) {
@@ -64,6 +74,14 @@ final class UnitLayer {
         for team in Team.players {
             for (type, n) in [(MinionType.melee, 10), (.ranged, 10), (.siege, 3)] { prewarm(.minion(type, team), count: n) }
         }
+    }
+
+    /// 試合のキットが付けるマーク・凍結の表示を、クリーチャー（作り済みのプール・表示中も含む）に事前に作る。
+    /// 以後に作るクリーチャーにも作る。
+    func prepareKitStatus(mark: Bool, ice: Bool) {
+        kitStatus = (kitStatus.mark || mark, kitStatus.ice || ice)
+        for list in pools.values { for v in list { v.status.prepareKitStatus(mark: kitStatus.mark, ice: kitStatus.ice) } }
+        for v in activeCreatures { v.status.prepareKitStatus(mark: kitStatus.mark, ice: kitStatus.ice) }
     }
 
     /// key のプールが count 体になるまで作る（無効のまま。状態表示・HP バーも含めて全て作る）。
@@ -141,6 +159,7 @@ final class UnitLayer {
     private func make(_ key: CreatureKey) -> CreatureVisual {
         AssetLedger.record(.entity, "creature \(key)")
         let v = CreatureVisual(key: key, meshes: meshes, materials: materials, text: text)
+        if kitStatus.mark || kitStatus.ice { v.status.prepareKitStatus(mark: kitStatus.mark, ice: kitStatus.ice) }
         v.root.isEnabled = false
         root.addChild(v.root)
         return v
@@ -173,12 +192,35 @@ final class UnitLayer {
 
     // MARK: 同期
 
+    /// 構造物の演出時刻: 試合中は描画の補間（interpolationAlpha）の分だけ戻して滑らかにする（sim は 30 Hz）。
+    /// 試合終了後（sim は止まる）は presentationTime そのもの。
+    static func presentationClock(_ f: RenderFrame) -> Double {
+        f.ended ? f.presentationTime : f.presentationTime - Balance.dt * Double(1 - max(0, min(1, f.alpha)))
+    }
+
+    func clearStructureCues() { structureCues.removeAll(keepingCapacity: true) }
+
+    /// 倒れている途中の塔を集める（短縮版の判定。破壊の時刻だけで決まる）。後から倒れた塔の判定が途中で変わらないよう、
+    /// 整理の終わりから倒れる時間の分だけ長く残す（collapseStyle は topple 以内に先に倒れた塔を数える）。
+    private func collectCollapsing(_ state: SimState, now: Double) {
+        collapsing.removeAll(keepingCapacity: true)
+        for s in structureList where !s.isCore {
+            guard let i = state.index(of: s.id), !state.units[i].isAlive, let d = state.units[i].deathTime,
+                  now - d < CollapseTimes.full.clear + CollapseTimes.full.topple else { continue }
+            collapsing.append((d, s.id))
+        }
+    }
+
     func sync(_ f: RenderFrame) {
         stamp &+= 1
         let state = f.state
         let viewerHero = f.humanID.flatMap { state.index(of: $0) }
         let viewerPos = viewerHero.map { state.units[$0].pos }
         let focusWorld = f.focusID.flatMap { heroes[$0]?.root.position }
+        let clock = UnitLayer.presentationClock(f)
+        collectCollapsing(state, now: clock)
+        // 合図を受け取る側（BattleWorld）が無い使い方（単体の UnitLayer）でも溜め続けない
+        if structureCues.count > 128 { structureCues.removeAll(keepingCapacity: true) }
         for i in state.units.indices {
             let kind = state.units[i].kind
             let id = state.units[i].id
@@ -214,7 +256,15 @@ final class UnitLayer {
                     showRange = vp.distanceSquared(to: state.units[i].pos) < reach * reach
                 }
                 let occluding = focusWorld.map { v.occludes($0) } ?? false
-                v.update(f, index: i, showRange: showRange, occluding: occluding)
+                var now = clock
+                #if DEBUG
+                if let demo = demoClock, demo.id == id { now = demo.time }
+                #endif
+                var style = CollapseStyle.full
+                if kind == .tower, !state.units[i].isAlive, let d = state.units[i].deathTime, !collapsing.isEmpty {
+                    style = TowerPose.collapseStyle(id: id, deathTime: d, others: collapsing)
+                }
+                v.update(f, index: i, now: now, style: style, showRange: showRange, occluding: occluding, cues: &structureCues)
             case .minion, .monster, .dummy:
                 let v: CreatureVisual
                 if let c = creatures[id] {
@@ -277,6 +327,7 @@ final class UnitLayer {
         dying.removeAll(keepingCapacity: true)
         creatures.removeAll(keepingCapacity: true)
         for s in structureList { s.resetForPresentationEpoch() }
+        structureCues.removeAll(keepingCapacity: true)
     }
 
     // MARK: イベント
@@ -312,6 +363,7 @@ final class UnitLayer {
         heroList.removeAll()
         structures.removeAll()
         structureList.removeAll()
+        structureCues.removeAll()
         creatures.removeAll()
         activeCreatures.removeAll()
         dying.removeAll()

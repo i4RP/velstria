@@ -30,14 +30,10 @@ struct EffekseerRouting: Equatable {
     var attackOptOut: Set<String> = []
 
     /// 造形の作り直しで atk_* の .efk と合わなくなったヒーロー（EffekseerDirector の既定の attackOptOut）。
-    /// 発射位置は attackLaunchPoint（新しい武器の先端・弓・手）なので全員合っているが、.efk の色・形が旧モデルのまま:
-    /// - H025 ルミナ: 翠緑の月光 → 造形・スキルは月光の青
-    /// - H027 ジャルド: 銀青の突き → 竜槍の金の炎の穂先（橙）。武器の軌跡（橙）と二重に違う色が出ていた
-    /// - H030 ライナ: 桃の星の砲弾 → 腰だめの白い魔砲と水色の動力球（スキルも水色）
-    /// - H033 ヴァルド: 深紅の大剣の袈裟斬り → 片手で振る銀の大剣と青い樋（スキルも青）
-    /// H026（球電）・H031（素手）・H032（手首の刃の輪）は武器が変わったが、.efk の発射の閃光は発射位置に、近接の弧は術者の前に出るだけで
-    /// 武器の形に依らず、色も造形と合うので Effekseer のまま。.efk を新しい造形で作り直したら、ここから外すと Effekseer に戻る。
-    static let staleAttackHeroes: Set<String> = ["H025", "H027", "H030", "H033"]
+    /// 発射位置は attackLaunchPoint（新しい武器の先端・弓・手）なので全員合っている。合わないのは .efk の色・形で、作り直すまでここに入れて
+    /// 旧来の演出（HeroFXProfiles）で描く。2026-10-12 に H025・H027・H030・H033 の .efk を新しい造形の配色（SkillFX のパレット）で
+    /// 作り直したので、今は空。
+    static let staleAttackHeroes: Set<String> = []
 
     /// 効果の名前（`H027_s1_cast`）からヒーロー ID（`H027`）。ヒーローの効果でなければ nil（試作の `Zt_*` など）。
     static func heroID(ofEffect n: String) -> String? {

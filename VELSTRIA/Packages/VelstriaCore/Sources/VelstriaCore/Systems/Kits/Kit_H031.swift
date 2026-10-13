@@ -644,3 +644,14 @@ struct Kit_H031: HeroKit {
         return a + (b - a) * t
     }
 }
+
+extension Kit_H031 {
+    /// ZoneSystem.spawn と同じ形（描画の事前生成用。HeroKit.plannedZones）。
+    func plannedZones(master: MasterData) -> [KitZoneShape] {
+        // S1 隕石 + 5 つの雹、S2 霜風の扇 + 凍った地面、奥義の氷河
+        var out = [KitZoneShape(radius: T.s1Radius), KitZoneShape(radius: T.hailRadius, count: T.s1Hails),
+                   KitZoneShape(radius: T.s2Range, halfAngle: T.s2HalfAngle), KitZoneShape(radius: T.ultGlacierRadius)]
+        if let r = master.skill(hero: heroID, slot: .skill2)?.radius { out.append(KitZoneShape(radius: r)) }
+        return out
+    }
+}

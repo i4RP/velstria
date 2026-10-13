@@ -43,12 +43,12 @@ App 内課金の審査用スクリーンショット（Gem 購入画面・スタ
 |---|---|---|---|---|
 | 1 | `01_battle_teamfight` | `-grant -battle standard -botControl -battleSpeed 4`（120 秒後） | 5v5 の集団戦・スキル演出（操作キャラを AI に任せ、4 倍速で中盤まで進める） | 5対5の本格MOBAを、いつでもどこでも / A true 5v5 MOBA, anywhere |
 | 2 | `02_home` | なし | ホーム画面の世界観 | 星環が砕けた世界ベルシアへ / Enter the shattered world of Velsia |
-| 3 | `03_heroes` | `-grant -route heroes` | 24 ヒーロー・6 ロール | 24人のヒーロー、6つのロール / 24 heroes, 6 roles |
+| 3 | `03_heroes` | `-grant -route heroes` | 10 ヒーロー・5 ロール（全員が最初から使える） | 10人のヒーロー、5つのロール / 10 heroes, 5 roles |
 | 4 | `04_battle_lanes` | `-grant -battle standard -botControl -battleSpeed 2`（60 秒後） | 3 レーンとミニオン、HUD | 3つのレーンとジャングルを制せ / Command three lanes and the jungle |
-| 5 | `05_hero_detail` | `-grant -route heroDetail:H003 -heroTab skills` | スキル詳細 | パッシブ＋3スキル＋アルティメット / Passive, 3 skills and an ultimate |
-| 6 | `06_build_editor` | `-grant -route buildEditor:H003` | 装備ビルド | 92種の装備で自分だけのビルドを / Craft your build from 92 items |
+| 5 | `05_hero_detail` | `-grant -route heroDetail:H025 -heroTab skills` | スキル詳細 | パッシブ＋2スキル＋アルティメット / Passive, 2 skills and an ultimate |
+| 6 | `06_build_editor` | `-grant -route buildEditor:H025` | 装備ビルド | 92種の装備で自分だけのビルドを / Craft your build from 92 items |
 | 7 | `07_ranked` | `-route rankOverview` | 対 AI ランク | 隕鉄から星環王へ、ランク戦 / Climb the ranked ladder |
-| 8 | `08_skin_store` | `-route skinStore` | 見た目のみの課金 | 課金は見た目が中心。ヒーローはコインで解放 / Mostly cosmetics. Heroes unlock with Coins. |
+| 8 | `08_skin_store` | `-route skinStore` | 見た目のみの課金 | 課金は見た目が中心。ヒーローは全員が最初から使える / Mostly cosmetics. Every hero is free to play. |
 | 9 | `09_star_pass` | `-route starPass` | スターパス | ミッションとスターパスで報酬を / Earn rewards with missions and the Star Pass |
 | 10 | `10_spectate` | `-battle spectate -spectateDirector on -spectateSpeed 4`（120 秒後） | 観戦・オフライン | 通信不要。AI同士の対戦も観戦できる / No connection needed. Watch AI battles too. |
 
@@ -56,6 +56,10 @@ App 内課金の審査用スクリーンショット（Gem 購入画面・スタ
 実際のゲーム画面が画像面積の過半を占めるようにする（ガイドライン 2.3.3: スクリーンショットは実際の使用画面を示すこと）。
 
 ## 確認事項
+
+- [ ] 2026-10-12 の名簿の変更（H025〜H034 の 10 体・5 ロール、全員が最初から使える、ヒーローの解放・販売なし）と、
+      スキル 2 つの新仕様に合わせて撮り直した（それ以前の 03・05・06・08 は 24 体・H003・スキル 3・旧ストアのまま）。
+      ストアで売る見た目アイテムに、出していないヒーロー（H001〜H024）のスキンが写っていない。
 
 - [ ] デバッグ表示・プレースホルダ文言（「UI0xx — 画面名」など）が写っていない（UI 実装完了後に撮影する）。
 - [ ] システムの通知バナー・Dynamic Island のアクティビティが写っていない。

@@ -17,6 +17,9 @@ enum SFX: String, CaseIterable {
     case attackMelee, attackRanged, hit, crit, skillCast, ultimateCast, heal, shield
     case death, kill, multiKill, towerDestroyed, objective, gold, recall, respawn
     case countdown, victory, defeat, announcement
+    /// 塔・Star Core（描画側の StructureFXDirector が画面付近の構造物だけ鳴らす）: 立ち上がりの地鳴り・頂部のロック・
+    /// 亀裂・倒壊・着地・結晶の消失。
+    case towerRise, towerLock, towerCrack, towerCollapse, towerImpact, crystalFade
 }
 
 enum MusicTrack: String, CaseIterable {

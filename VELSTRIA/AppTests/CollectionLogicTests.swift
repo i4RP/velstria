@@ -91,7 +91,7 @@ final class CollectionLogicTests: XCTestCase {
         XCTAssertEqual(n.hits, 3)
         XCTAssertEqual(n.damage, ult.baseDamage * Balance.Skills.damageScale(.ultimate) * 0.45, accuracy: 1e-9)
         XCTAssertTrue(SkillMath.figureValue(.damage, n).hasPrefix("3×"))
-        let ranged = try XCTUnwrap(master.heroes.first { $0.isRanged })
+        let ranged = try XCTUnwrap(master.allHeroes.first { $0.isRanged })
         let blink = try XCTUnwrap(master.skill(hero: ranged.heroID, slot: .skill2))
         XCTAssertEqual(SkillMath.figures(SkillCatalog.targeting(for: blink, hero: ranged).archetype), [.bonusDamage])
         XCTAssertEqual(SkillMath.numbers(blink, hero: ranged, rank: 1).damage,
@@ -129,7 +129,7 @@ final class CollectionLogicTests: XCTestCase {
     /// キット（ヒーロー固有スキル）のヒーローの説明文は HeroKits.text から。プレースホルダが残らず、日英で違い、
     /// キットの無いヒーローは従来の文のまま。
     func testKitDescriptionsComeFromTheKit() throws {
-        let kitHeroes = master.heroes.map(\.heroID).filter { HeroKits.hasKit($0) }
+        let kitHeroes = master.allHeroes.map(\.heroID).filter { HeroKits.hasKit($0) }
         try XCTSkipIf(kitHeroes.isEmpty, "有効なキットが無い")
         defer { Loc.current = .ja }
         for id in kitHeroes {
@@ -150,7 +150,7 @@ final class CollectionLogicTests: XCTestCase {
             }
         }
         // キットの無いヒーローはキットの説明を持たない（従来の生成文）
-        let plain = try XCTUnwrap(master.heroes.first { !HeroKits.hasKit($0.heroID) })
+        let plain = try XCTUnwrap(master.allHeroes.first { !HeroKits.hasKit($0.heroID) })
         let skill = try XCTUnwrap(master.skill(hero: plain.heroID, slot: .skill1))
         XCTAssertNil(SkillMath.kitDescription(skill, hero: plain, english: false))
     }
@@ -183,7 +183,7 @@ final class CollectionLogicTests: XCTestCase {
         let t = SkillCatalog.targeting(for: ult, hero: hero)
         XCTAssertEqual(SkillMath.figures(ult, hero: hero, archetype: t.archetype), [])
         // キットの無いヒーローは従来どおり
-        let plain = try XCTUnwrap(master.heroes.first { !HeroKits.hasKit($0.heroID) })
+        let plain = try XCTUnwrap(master.allHeroes.first { !HeroKits.hasKit($0.heroID) })
         let sk = try XCTUnwrap(master.skill(hero: plain.heroID, slot: .skill1))
         XCTAssertEqual(SkillMath.cooldown(sk, hero: plain, rank: 2), SkillMath.cooldown(sk, rank: 2), accuracy: 1e-9)
         let pt = SkillCatalog.targeting(for: sk, hero: plain)
@@ -425,7 +425,7 @@ final class CollectionLogicTests: XCTestCase {
     }
 
     func testRecommendedBuildIsSanitizedAndWithinSlots() {
-        for hero in master.heroes {
+        for hero in master.allHeroes {
             let build = BuildRules.recommended(for: hero.heroID, master: master)
             XCTAssertEqual(build.count, BuildRules.slotCount, hero.heroID)
             XCTAssertEqual(BuildRules.sanitized(build, master: master), build)
@@ -580,11 +580,11 @@ final class CollectionLogicTests: XCTestCase {
 
     func testHeroListFilter() {
         let owned = ["H001", "H002", "H007"]
-        XCTAssertEqual(HeroListFilter.heroes(master.heroes, role: nil, ownership: .all, owned: owned).count, 34)
-        XCTAssertEqual(HeroListFilter.heroes(master.heroes, role: nil, ownership: .owned, owned: owned).map(\.heroID), owned)
-        XCTAssertEqual(HeroListFilter.heroes(master.heroes, role: .vanguard, ownership: .owned, owned: owned).map(\.heroID),
+        XCTAssertEqual(HeroListFilter.heroes(master.allHeroes, role: nil, ownership: .all, owned: owned).count, 34)
+        XCTAssertEqual(HeroListFilter.heroes(master.allHeroes, role: nil, ownership: .owned, owned: owned).map(\.heroID), owned)
+        XCTAssertEqual(HeroListFilter.heroes(master.allHeroes, role: .vanguard, ownership: .owned, owned: owned).map(\.heroID),
                        ["H001", "H007"])
-        XCTAssertEqual(HeroListFilter.heroes(master.heroes, role: .vanguard, ownership: .locked, owned: owned).map(\.heroID),
+        XCTAssertEqual(HeroListFilter.heroes(master.allHeroes, role: .vanguard, ownership: .locked, owned: owned).map(\.heroID),
                        ["H013", "H019"])
     }
 

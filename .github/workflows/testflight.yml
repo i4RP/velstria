@@ -10,6 +10,11 @@ on:
     branches-ignore: [production]
     paths: ["VELSTRIA/**", ".github/workflows/**"]
   workflow_dispatch:
+    inputs:
+      run_tests:
+        description: テストを流してから配信する（既定は省略）
+        type: boolean
+        default: false
 
 # ブランチごとに 1 本ずつ（同じブランチの待機中の実行は新しい push で置き換わる）。ブランチ間は並行に走る
 concurrency:
@@ -23,3 +28,5 @@ jobs:
   testflight:
     uses: ./.github/workflows/build-upload.yml
     secrets: inherit
+    with:
+      run_tests: ${{ inputs.run_tests == true }}

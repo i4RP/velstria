@@ -9,6 +9,8 @@ import VelstriaCore
 // - 倍率の範囲が広い（spectatorZoomRange。地図の余白は広げた分だけ内側へ寄せ、地図の外の虚空を見せない）
 // - 追う対象の切替は glide（時間指定のイーズ）か cut（即座）。指で動かす自由カメラは direct（ばねを掛けない）
 // - 複数の対象を収める framing（注視点と距離を逆算）、画面上の点 → 地面の点の変換（パン・ピンチ）
+// 演出のカメラ（Star Core の終幕。CoreFinaleCamera.swift）: update の後に BattleRenderer が present で姿勢を差し替える。
+// ゲームカメラ（注視点・距離のばね）は裏で追従を続け、次の update で向きも既定へ戻る（演出をやめれば即座にゲームの画）。
 
 /// 臨界減衰のスムージング（SmoothDamp）。smoothTime ≒ 目標到達までの時間。
 struct CriticallyDampedSpring {
@@ -120,6 +122,11 @@ final class CameraRig {
     private var time: Float = 0
     private var initialized = false
     private var glide: Glide?
+    /// 最後の update で求めたゲームカメラの姿勢（揺れなし。終幕の寄りの起点）。
+    private(set) var gamePose = CameraPose(position: CameraRig.offset(distance: CameraRig.baseDistance), yaw: 0,
+                                           pitch: -CameraRig.pitchDegrees * .pi / 180)
+    /// 演出の姿勢を描いている（次の update で既定の向きへ戻す）。
+    private(set) var isPresenting = false
 
     private struct Glide {
         var from: SIMD2<Float>
@@ -314,6 +321,11 @@ final class CameraRig {
         distance.update(target: targetDistance, smoothTime: d.directZoom ? 0.04 : (d.zoomSmoothTime ?? 0.25), dt: dt)
 
         var pos = SIMD3(focus.value.x, 0, focus.value.y) + CameraRig.offset(distance: distance.value)
+        gamePose.position = pos
+        if isPresenting {
+            camera.orientation = CameraRig.orientation
+            isPresenting = false
+        }
         if trauma > 0.001 {
             let k = trauma * trauma
             let sx = sin(time * 37) * 0.6 + sin(time * 61 + 1.3) * 0.4
@@ -322,5 +334,12 @@ final class CameraRig {
             trauma = max(0, trauma - dt * 1.8)
         }
         camera.position = pos
+    }
+
+    /// 演出のカメラ（Star Core の終幕）の姿勢で描く。update の後に毎フレーム呼ぶ（呼ばなければ次の update でゲームカメラに戻る）。
+    func present(_ pose: CameraPose) {
+        camera.position = pose.position
+        camera.orientation = pose.orientation
+        isPresenting = true
     }
 }

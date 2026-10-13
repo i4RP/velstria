@@ -44,7 +44,7 @@ extension MatchFactory {
     /// players の並びは standardMatch と同じ（Blue のポジション順 → Red のポジション順）なので、
     /// 座席番号 `onlineSeatIndex` がそのまま players の添字になる。同じ (team, position) の人間が複数いれば後の方は無視する。
     public static func onlineMatch(humans: [OnlineHumanSlot], botDifficulty: Difficulty = .normal,
-                                   banned: [String] = [], seed: UInt64,
+                                   seed: UInt64,
                                    master: MasterData = .shared) -> MatchConfig {
         var rng = SplitMix64(seed: seed ^ 0x5EED_0A11_1E57_C0DE)
         var bySeat: [Int: OnlineHumanSlot] = [:]
@@ -53,7 +53,7 @@ extension MatchFactory {
             if bySeat[i] == nil { bySeat[i] = h }
         }
         let seats = bySeat.keys.sorted()
-        var used = Set(banned + seats.map { bySeat[$0]!.heroID })
+        var used = Set(seats.map { bySeat[$0]!.heroID })
         var picks = draftTeams(used: &used, rng: &rng, master: master,
                                fixed: seats.map { (bySeat[$0]!.team, bySeat[$0]!.position, bySeat[$0]!.heroID) })
         var players: [PlayerSlot] = []

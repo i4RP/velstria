@@ -85,6 +85,15 @@
 | moonLantern | 0.95 | | 上端の吊り輪が握り、灯籠は -Y に吊り下がる | 同じ |
 | grimoire | 0.50 | yaw 180 | 表紙（正面）-X、高さ +Y、幅 ±Z、厚み ±X | 同じ（留め具 -Z、propMount center） |
 | hideShield | 0.50 | axis vertical, yaw 90 | 丸盾の面（中央の突起）-Z、元画像の上 +Y、最も薄い Z | 同じ（propMount center） |
+| crescentBow | 0.50 | side bow | ashBow と同じ（弓は YZ 面、弦と弓先 +Z、外側の棘 -Z） | bow 系と同じ YZ 平面、実行時 ry(0.6)、center |
+| dragonSpear | 0.29 | yaw -90 | 穂先・たてがみの面 ±Z（広がり ±X）、竜頭の正面 +Z、穂先 +Y | 同じ |
+| photonBlade | 0.10 | yaw -90 | 刃の面 ±Z、光る刃縁 +X、銀の峰 -X、切先 +Y | 同じ |
+| holyMaul | 0.25 | | 柄 +Y、槌頭の長さと打撃面 ±Z、面 ±X | 同じ |
+| heaterShield | 0.50 | axis vertical, yaw 90 | 盾面（正面）-Z、平らな上辺 +Y、最も薄い Z | 同じ形を腕の外へ（propMount center, ry(0.3)） |
+| starCannon | 0.37 | side gun | 砲口と 2 本の砲角 +Y、上面（動力球）+Z | 同じ |
+| abyssRing | 0.22 | 左右共用, axis vertical, yaw -90 | 輪は XY 面（面 ±Z）、握りの棒は輪の下寄りを X 方向 | 同じ |
+| bloodGreatsword | 0.20 | yaw -90 | 刃の面 ±Z、ギザギザの峰 -X、刃 +X、髑髏の鍔の正面 +Z | 同じ |
+| hookChain | 0.24 | yaw -90 | 鉤の面 ±Z、鉤は +X へ曲がる、鎖は -X | 同じ |
 | stoneFist / azureClaw | - | bodyWorn | 取り込まない | 付けない（本体に含む） |
 
 ## 取り込み前の修正（tools/blender/fix_hero_mesh.py）

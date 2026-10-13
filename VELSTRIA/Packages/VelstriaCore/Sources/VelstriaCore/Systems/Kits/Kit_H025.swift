@@ -632,3 +632,11 @@ struct Kit_H025: HeroKit {
         return t
     }
 }
+
+extension Kit_H025 {
+    /// ZoneSystem.spawn と同じ形（描画の事前生成用。HeroKit.plannedZones）。
+    func plannedZones(master: MasterData) -> [KitZoneShape] {
+        // S2 月蝕: 照準の半径の円（castEclipse）
+        [KitZoneShape(radius: T.s2Radius)]
+    }
+}

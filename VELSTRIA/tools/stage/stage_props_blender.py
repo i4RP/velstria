@@ -251,6 +251,97 @@ def bbox_diag(obj):
     return float(np.linalg.norm(co.max(axis=0) - co.min(axis=0)))
 
 
+def drop_small_parts(obj, fraction):
+    """面のつながりで分けた部分のうち、面積が全体の fraction 未満のものを消す（Tripo の岩の上のシダ・蔦の葉の板。
+    岩本体より面数が多いのに面積は 1 割ほどで、減面の三角形を食い、残ると板の破片として飛び出す。色は元のメッシュから
+    焼き付けるので、苔・シダの模様は岩の表面に残る）。消した部分の数。"""
+    me = obj.data
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bm.faces.ensure_lookup_table()
+    seen, parts = set(), []
+    for f in bm.faces:
+        if f.index in seen:
+            continue
+        stack, faces = [f], []
+        seen.add(f.index)
+        while stack:
+            g = stack.pop()
+            faces.append(g)
+            for e in g.edges:
+                for h in e.link_faces:
+                    if h.index not in seen:
+                        seen.add(h.index)
+                        stack.append(h)
+        parts.append((sum(g.calc_area() for g in faces), faces))
+    total = sum(a for a, _ in parts)
+    small = [g for a, fs in parts if a < fraction * total for g in fs]
+    if small:
+        bmesh.ops.delete(bm, geom=small, context='FACES')
+        loose = [v for v in bm.verts if not v.link_faces]
+        if loose:
+            bmesh.ops.delete(bm, geom=loose, context='VERTS')
+    bm.to_mesh(me)
+    bm.free()
+    me.update()
+    dropped = sum(1 for a, _ in parts if a < fraction * total)
+    log(f"dropped {dropped} of {len(parts)} parts (< {fraction} of area): {tri_count(obj)} faces left")
+    return dropped
+
+
+def drop_cavities(obj, min_fraction=0.01):
+    """ボクセルで塊にした後の、内側の空洞の面（つながった部分のうち符号付き体積が負 = 面が内向き）と、面積が全体の
+    min_fraction 未満のかけらを消す。葉の板（開いた面）をボクセル化すると板のまわりに殻ができ、茂みの中が空洞になる。
+    空洞の面を残すと減面で外の面と絡んで穴と破片になる。消した部分の数。"""
+    me = obj.data
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bm.faces.ensure_lookup_table()
+    seen, parts = set(), []
+    for f in bm.faces:
+        if f.index in seen:
+            continue
+        stack, faces = [f], []
+        seen.add(f.index)
+        while stack:
+            g = stack.pop()
+            faces.append(g)
+            for e in g.edges:
+                for h in e.link_faces:
+                    if h.index not in seen:
+                        seen.add(h.index)
+                        stack.append(h)
+        vol = 0.0
+        for g in faces:
+            vs = [v.co for v in g.verts]
+            for k in range(1, len(vs) - 1):
+                vol += vs[0].dot(vs[k].cross(vs[k + 1])) / 6.0
+        parts.append((sum(g.calc_area() for g in faces), vol, faces))
+    total = sum(a for a, _, _ in parts)
+    bad = [(a, v, fs) for a, v, fs in parts if v < 0 or a < min_fraction * total]
+    if bad:
+        bmesh.ops.delete(bm, geom=[g for _, _, fs in bad for g in fs], context='FACES')
+        loose = [v for v in bm.verts if not v.link_faces]
+        if loose:
+            bmesh.ops.delete(bm, geom=loose, context='VERTS')
+    bm.to_mesh(me)
+    bm.free()
+    me.update()
+    log(f"dropped {sum(1 for _, v, _ in bad if v < 0)} cavities and {sum(1 for _, v, _ in bad if v >= 0)} specks "
+        f"of {len(parts)} parts: {tri_count(obj)} faces left")
+    return len(bad)
+
+
+def smooth_shape(obj, iterations):
+    """形をならす（Laplacian に近い Smooth の繰り返し）。ボクセルで塊にした葉の角張った凹凸を丸い房にしてから減面する。"""
+    mod = obj.modifiers.new("Smooth", 'SMOOTH')
+    mod.factor = 0.6
+    mod.iterations = iterations
+    select_only([obj])
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+    log(f"smooth x{iterations}")
+
+
 def voxel_remesh(obj, fraction):
     """葉の集まり（薄い板が離れて並ぶ茂み）を 1 つの閉じた塊にする。ボクセルの大きさ = 外接箱の対角 × fraction。
     減面で葉が三角形の破片になるのを避ける（色は元の葉から焼き付けるので、葉の模様は塊の表面に残る）。"""
@@ -383,6 +474,42 @@ def bake_base_color(high, low, base_color, out_png, size, margin_px):
     log(f"baked base color -> {out_png}")
 
 
+def bake_ao(high, low, out_png, size, margin_px, samples):
+    """遮蔽（Cycles の AO、白 = 開けている）を減面したメッシュの新しい UV へ焼く。元の高密度メッシュの表面で測る
+    （selected to active。減面したメッシュは光線から見えなくして、自分自身の殻で塞がないようにする）。足元に地面の板を置き、
+    接地する根元を暗くする（地面に埋まった岩・木の根元）。"""
+    lo_z = min((high.matrix_world @ v.co).z for v in high.data.vertices)
+    diag = bbox_diag(high)
+    bpy.ops.mesh.primitive_plane_add(size=diag * 3, location=(0, 0, lo_z))
+    ground = bpy.context.active_object
+    target = bpy.data.images.new("ao_target", size, size, alpha=False, float_buffer=False)
+    target.generated_color = (1.0, 0.0, 1.0, 1.0)   # 焼かれなかった画素の印（stage_bake.py が埋める）
+    mat = low.data.materials[0]
+    nt = mat.node_tree
+    node = nt.nodes.new("ShaderNodeTexImage")
+    node.image = target
+    nt.nodes.active = node
+    for attr in ("visible_camera", "visible_diffuse", "visible_glossy", "visible_transmission", "visible_volume_scatter",
+                 "visible_shadow"):
+        if hasattr(low, attr):
+            setattr(low, attr, False)
+    scene = bpy.context.scene
+    scene.cycles.samples = samples
+    scene.world = scene.world or bpy.data.worlds.new("w")
+    scene.world.light_settings.distance = diag * 0.35
+    bk = scene.render.bake
+    bk.margin = margin_px
+    bk.use_clear = False
+    select_only([high, low], active=low)
+    ground.select_set(False)
+    bpy.ops.object.bake(type='AO')
+    target.filepath_raw = out_png
+    target.file_format = 'PNG'
+    target.save()
+    bpy.data.objects.remove(ground, do_unlink=True)
+    log(f"baked AO -> {out_png}")
+
+
 def bake(opts):
     """mode=rebake（既定）: 形だけで減面 → 新しい UV → 元の色を焼き付け（--bake-out の PNG）。
     mode=meshy: Meshy の UV のまま減面（継ぎ目の頂点を重みで守る）。Meshy の UV は数千の小島に分かれていて、
@@ -393,15 +520,22 @@ def bake(opts):
     seam_weight = float(opts.get("seam-weight", "0.35"))
     seam_factor = float(opts.get("seam-factor", "1.0"))
     remesh = float(opts.get("remesh", "0"))
+    min_part = float(opts.get("min-part", "0"))
     reset_scene()
     high = import_glb(glb)
     stats = {"mode": mode, "glbTris": tri_count(high)}
     obj = duplicate(high, "low") if mode == "rebake" else high
     stats.update(weld_and_mark(obj, seam_weight if mode == "meshy" else 1.0))
+    if (min_part > 0 or remesh > 0) and mode != "rebake":
+        raise SystemExit("--min-part / --remesh need --mode rebake")
+    if min_part > 0:
+        stats["droppedParts"] = drop_small_parts(obj, min_part)
     if remesh > 0:
-        if mode != "rebake":
-            raise SystemExit("--remesh needs --mode rebake")
         voxel_remesh(obj, remesh)
+        if opts.get("drop-cavities") == "1":
+            stats["droppedCavities"] = drop_cavities(obj)
+        if int(opts.get("smooth", "0")) > 0:
+            smooth_shape(obj, int(opts["smooth"]))
         stats["remeshFaces"] = tri_count(obj)
     decimate_to(obj, target, seam_factor if mode == "meshy" else 0.0)
     stats["decimatedBoundaryEdges"] = cleanup_triangulate(obj)
@@ -409,6 +543,8 @@ def bake(opts):
         size = int(opts.get("bake-size", "1024"))
         stats["hiddenIslandsShrunk"] = smart_uv(obj, margin=float(opts.get("uv-margin", "0.006")))
         bake_base_color(high, obj, opts["base-color"], opts["bake-out"], size, int(opts.get("bake-margin", "16")))
+        if opts.get("ao-out"):
+            bake_ao(high, obj, opts["ao-out"], size, int(opts.get("bake-margin", "16")), int(opts.get("ao-samples", "48")))
     me = obj.data
     # 滑らかな法線 + 角度で鋭い辺（Blender 4.1+ の API。自動スムーズは廃止された）
     me.shade_smooth()

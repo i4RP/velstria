@@ -26,3 +26,6 @@ VELSTRIA/tools/stage/meshy_state.json.*.tmp
 # Windows の swift build がパッケージ直下に吐くリソースバンドルの副産物
 VELSTRIA/Packages/VelstriaCore/Info.plist
 VELSTRIA/Packages/VelstriaCore/master_runtime.json
+
+# tools/stage/stage_tripo.mjs の一時ファイル
+VELSTRIA/tools/stage/tripo_state.json.*.tmp

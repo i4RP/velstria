@@ -95,7 +95,7 @@ final class ReplayLibraryUITests: XCTestCase {
 
         tap(app, "spectate_roster")
         tap(app, "spectate_slot_red_2")
-        tap(app, "spectate_hero_H001")
+        tap(app, "spectate_hero_H025")
         sleep(1)
         snap("spectate_roster_en")
         tap(app, "spectate_roster_close")

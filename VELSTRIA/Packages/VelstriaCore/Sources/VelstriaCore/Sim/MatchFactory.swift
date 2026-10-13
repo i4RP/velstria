@@ -36,17 +36,17 @@ public enum MatchFactory {
         }
     }
 
-    /// 人間 1 人 + AI 9 人の 5v5 を作る。banned / 人間のヒーローは AI が選ばない。
+    /// 人間 1 人 + AI 9 人の 5v5 を作る。人間のヒーローは AI が選ばない。
     /// AI のピックは DraftAI（ポジション適性・編成の補完・相性）で、両チーム交互に行う。
     public static func standardMatch(mode: MatchMode = .standard, humanHeroID: String, humanName: String,
                                      humanTeam: Team = .blue, humanSpells: [String]? = nil,
                                      humanRunes: [String] = [], humanSkin: String? = nil,
                                      humanPosition: LanePosition? = nil,
                                      allyDifficulty: Difficulty = .normal, enemyDifficulty: Difficulty = .normal,
-                                     banned: [String] = [], seed: UInt64,
+                                     seed: UInt64,
                                      master: MasterData = .shared) -> MatchConfig {
         var rng = SplitMix64(seed: seed ^ 0xD1B5_4A32_D192_ED03)
-        var used = Set(banned + [humanHeroID])
+        var used: Set<String> = [humanHeroID]
         let humanDef = master.hero(humanHeroID)
         let humanPos = humanPosition ?? defaultPosition(for: humanDef?.role ?? .duelist)
         var picks = draftTeams(used: &used, rng: &rng, master: master,
@@ -109,10 +109,10 @@ public enum MatchFactory {
                                   humanRunes: [String] = [], humanSkin: String? = nil,
                                   humanPosition: LanePosition? = nil,
                                   allyDifficulty: Difficulty = .normal, enemyDifficulty: Difficulty = .normal,
-                                  banned: [String] = [], seed: UInt64,
+                                  seed: UInt64,
                                   master: MasterData = .shared) -> MatchConfig {
         var rng = SplitMix64(seed: seed ^ 0xB7A1_55C2_9E3F_1D04)
-        var used = Set(banned)
+        var used = Set<String>()
         let humanHero: String = humanHeroID ?? {
             let pool = master.heroes.map(\.heroID).filter { !used.contains($0) }
             return rng.pick(pool) ?? master.heroes[0].heroID
@@ -149,17 +149,17 @@ public enum MatchFactory {
                                    humanSpells: [String]? = nil, humanRunes: [String] = [], humanSkin: String? = nil,
                                    humanPosition: LanePosition? = nil,
                                    allyDifficulty: Difficulty = .normal, enemyDifficulty: Difficulty = .normal,
-                                   banned: [String] = [], seed: UInt64,
+                                   seed: UInt64,
                                    master: MasterData = .shared) -> MatchConfig {
         if let humanSide, let humanHeroID {
             return standardMatch(mode: .custom, humanHeroID: humanHeroID, humanName: humanName,
                                  humanTeam: humanSide, humanSpells: humanSpells, humanRunes: humanRunes,
                                  humanSkin: humanSkin, humanPosition: humanPosition,
                                  allyDifficulty: allyDifficulty, enemyDifficulty: enemyDifficulty,
-                                 banned: banned, seed: seed, master: master)
+                                 seed: seed, master: master)
         }
         var rng = SplitMix64(seed: seed ^ 0x51ED_2701_44AB_9CF3)
-        var used = Set(banned)
+        var used = Set<String>()
         var picks = draftTeams(used: &used, rng: &rng, master: master, fixed: [])
         var players: [PlayerSlot] = []
         for team in Team.players {

@@ -1,4 +1,4 @@
-"""H033 紅牙のヴァルド（Alucard 型: 大剣の叩き割り・追い打ちの踏み込み・血月断裂）。深紅 + 黒 + 青白。近接アサシン。
+"""H033 紅牙のヴァルド（Alucard 型: 大剣の叩き割り・追い打ちの踏み込み・血月断裂）。銀の大剣の青い樋 + 白 + 差し色の紅。近接アサシン。
 
 段: atk_cast / atk_cast2 / atk_hit / s1_cast / s1_impact / s1_hit / s2_cast / s2_impact / s2_hit / ult_cast / ult_impact / ult_hit
 """
@@ -9,7 +9,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from kit import *  # noqa: E402
 
-S = Style(core=(255, 232, 232), main=(225, 28, 58), accent=(188, 208, 255), dark=(75, 6, 22))
+S = Style(core=(240, 247, 255), main=(56, 133, 255), accent=(242, 46, 71), dark=(10, 28, 90))
 P = "H033_"
 
 

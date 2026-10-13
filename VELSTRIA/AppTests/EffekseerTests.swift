@@ -140,8 +140,9 @@ final class EffekseerTests: XCTestCase {
         let plain = EffekseerRouting.make(effectNames: names, skillOptOut: { _ in false })
         XCTAssertTrue(plain.handlesAttack("H025"))
         XCTAssertEqual(plain.attackOptOut, [])
-        // 既定の対象: 造形を作り直したキットのヒーローだけ（H025〜H034）。全員の演出表があり、遠隔は投射物・発射炎、近接は軌跡を持つ
-        XCTAssertEqual(EffekseerRouting.staleAttackHeroes, ["H025", "H027", "H030", "H033"])
+        // 既定の対象: 造形を作り直したキットのヒーローだけ（H025〜H034）。全員の演出表があり、遠隔は投射物・発射炎、近接は軌跡を持つ。
+        // H025・H027・H030・H033 の .efk は新しい造形の配色で作り直したので、今は空
+        XCTAssertEqual(EffekseerRouting.staleAttackHeroes, [])
         for hero in EffekseerRouting.staleAttackHeroes {
             let n = Int(hero.dropFirst()) ?? 0
             XCTAssertTrue((25...34).contains(n), hero)

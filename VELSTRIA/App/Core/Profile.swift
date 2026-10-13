@@ -483,7 +483,7 @@ struct Profile: Codable, Equatable {
     var playerID: String = UUID().uuidString
     var displayName: String = ""
     var createdAt = Date()
-    var avatarHeroID: String = "H001"
+    var avatarHeroID: String = HeroRoster.defaultHeroID
 
     // オンボーディング
     var acceptedTermsVersion: Int = 0
@@ -504,7 +504,8 @@ struct Profile: Codable, Equatable {
     var paidGem = 0
 
     // 所持
-    var ownedHeroIDs: [String] = ["H001", "H002", "H003", "H004", "H005", "H006"]
+    /// 最初から持つヒーロー（オンボーディングヒーロー。HeroRoster.starterHeroIDs）。
+    var ownedHeroIDs: [String] = HeroRoster.starterHeroIDs
     var ownedCosmeticIDs: [String] = []
     /// heroID → cosmeticID（HeroSkin）
     var equippedSkins: [String: String] = [:]
@@ -568,6 +569,16 @@ struct Profile: Codable, Equatable {
     var friends: [Friend] = []
     /// 自分から申請して、承認を待っている相手のコード。
     var outgoingFriendRequests: [String] = []
+    /// 申請した日時（outgoingFriendRequests のコード → 日時）。申請から 14 日を過ぎたら送り直さずに取り下げる
+    /// （中継の預かりの期限と同じ。FriendHub.outgoingRequestLifetime）。
+    var outgoingFriendRequestDates: [String: Date] = [:]
+    /// フレンドの受信箱（中継サーバー）に繋いだことがあるか。「全データを削除」などで中継の受信箱も消すかの判断に使う。
+    var inboxRegistered = false
+    /// ブロックしたプレイヤー（フレンドコード単位。申請・招待を受け取らず、自分の部屋に入れない。設定 > プライバシーで解除）。
+    var blockedPlayers: [BlockedPlayer] = []
+    /// 同意したオンライン機能のルール（コミュニティガイドライン・利用規約のオンラインの条項）の版。
+    /// FeatureFlags.currentOnlineRulesVersion 未満の間はオンライン機能を使えず、フレンドの受信箱へも繋がない（OnlineAccess）。
+    var acceptedOnlineRulesVersion = 0
 
     var totalGem: Int { freeGem + paidGem }
 }

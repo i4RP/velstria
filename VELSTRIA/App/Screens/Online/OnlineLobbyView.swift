@@ -15,6 +15,18 @@ struct OnlineLobbyView: View {
     @State private var showsFriends = false
 
     var body: some View {
+        switch app.onlineAccess {
+        case .available:
+            lobby
+        case .needsConsent:
+            // 初回（またはルールの改定後）: コミュニティガイドライン・利用規約に同意してから部屋を作る（ガイドライン 1.2）
+            OnlineRulesConsentView()
+        case .ageRestricted, .disabled:
+            OnlineUnavailableView()
+        }
+    }
+
+    private var lobby: some View {
         Group {
             if let session = app.online, Self.showsRoom(session) {
                 ScreenScaffold(title: L("オンライン対戦", "Online Match"), showsCurrencies: false) {
@@ -221,8 +233,8 @@ struct OnlineLANSection: View {
                     .lineLimit(2)
                     .textSelection(.enabled)
             }
-            Text(L("開発中の機能です。ホストの端末が試合を進めるため、ホストが離脱すると試合は終了します。",
-                   "Development feature. The host's device runs the match; if the host leaves, the match ends."))
+            Text(L("同じ Wi-Fi の人なら誰でも、部屋を見つけて参加・観戦できます。迷惑な参加者は、参加者の一覧から部屋から外したりブロックしたりできます。ホストの端末が試合を進めるため、ホストが抜けると試合は終わります。",
+                   "Anyone on the same Wi-Fi can find, join and watch your room. Remove or block unwanted players from the member list. The host's device runs the match; if the host leaves, the match ends."))
                 .font(Theme.body(11))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -236,7 +248,7 @@ struct OnlineLANSection: View {
                 .foregroundStyle(room.inMatch ? Theme.gold : Theme.cyan)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
-                Text(room.name).font(Theme.heading(14)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                Text(displayName(room)).font(Theme.heading(14)).foregroundStyle(Theme.textPrimary).lineLimit(1)
                 Text(roomSummary(room)).font(Theme.body(10)).foregroundStyle(room.isCompatible ? Theme.textSecondary : Theme.danger)
                     .lineLimit(1)
             }
@@ -254,7 +266,7 @@ struct OnlineLANSection: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(L("\(room.name) を観戦", "Watch \(room.name)"))
+                    .accessibilityLabel(L("\(displayName(room)) を観戦", "Watch \(displayName(room))"))
                     .accessibilityIdentifier("online_watch_\(room.name)")
                 }
                 Button {
@@ -268,7 +280,7 @@ struct OnlineLANSection: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(L("\(room.name) に参加", "Join \(room.name)"))
+                .accessibilityLabel(L("\(displayName(room)) に参加", "Join \(displayName(room))"))
                 .accessibilityIdentifier("online_room_\(room.name)")
             }
         }
@@ -276,6 +288,12 @@ struct OnlineLANSection: View {
         .padding(.trailing, 4)
         .frame(minHeight: 44)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.08)))
+    }
+
+    /// 近くの部屋の名前（同じネットワークの誰でも広告できるので、不適切な名前は隠す）。
+    private func displayName(_ room: NWOnlineBrowser.Room) -> String {
+        let name = PlayerNameRules.sanitizedRoomName(room.name, maxLength: OnlineProtocol.maxServiceNameBytes)
+        return name.isEmpty ? L("部屋", "Room") : name
     }
 
     private func roomSummary(_ room: NWOnlineBrowser.Room) -> String {
@@ -640,9 +658,6 @@ struct OnlineRoomView: View {
                         FlowFX.tap(app)
                         session.setLoadout(loadout(for: h.heroID))
                     })
-                    Text(L("開発中は未所持のヒーローも選べます。", "All heroes are selectable during development."))
-                        .font(Theme.body(11))
-                        .foregroundStyle(Theme.textSecondary)
                 } else {
                     unseatedPanel
                 }
@@ -926,9 +941,9 @@ struct OnlineRoomView: View {
         guard let seat = mySeat else { return }
         if seat.loadout.heroID == nil {
             let taken = room.pickedHeroIDs
-            let preferredHero = DebugLaunch.value(after: "-hero") ?? app.profile.lastPickedHeroID ?? "H003"
+            let preferredHero = DebugLaunch.value(after: "-hero") ?? app.profile.lastPickedHeroID ?? HeroRoster.defaultHeroID
             let hero = app.master.hero(preferredHero) != nil && !taken.contains(preferredHero)
-                ? preferredHero : (app.master.heroes.first { !taken.contains($0.heroID) }?.heroID ?? "H001")
+                ? preferredHero : (app.master.heroes.first { !taken.contains($0.heroID) }?.heroID ?? HeroRoster.defaultHeroID)
             session.setLoadout(loadout(for: hero))
             return
         }
@@ -1192,10 +1207,13 @@ private struct OnlineSpectateSettingsView: View {
     }
 }
 
-/// 部屋の参加者の一覧（選手・観戦席）。座っている選手からも観戦席が見えるように、状態バーの人数から開く。
-private struct OnlineMembersView: View {
+/// 部屋の参加者の一覧（選手・観戦席）。座っている選手からも観戦席が見えるように、状態バーの人数から開く（パーティの下の帯からも）。
+/// 自分以外の行から 通報・ブロック、ホストなら部屋から外す（ガイドライン 1.2）。
+struct OnlineMembersView: View {
     let session: OnlineSession
+    var source: PlayerReportTarget.Source = .room
     @Environment(AppModel.self) private var app
+    @State private var moderation = ModerationPrompt()
 
     private var room: OnlineRoom { session.room }
 
@@ -1212,7 +1230,7 @@ private struct OnlineMembersView: View {
                     header(L("実況", "Caster"), symbol: "mic.fill")
                     row(name: host.name, mine: host.id == session.localPeerID, host: true,
                         detail: L("座らずに試合を回す（遅延なし）", "Runs the match without playing (live)"),
-                        symbol: "mic.fill", tint: Theme.gold)
+                        symbol: "mic.fill", tint: Theme.gold, peer: host)
                 }
                 if room.allowsSpectators || !room.spectators.isEmpty {
                     header(L("観戦席 \(room.spectators.count)/\(OnlineProtocol.maxSpectators)",
@@ -1226,7 +1244,8 @@ private struct OnlineMembersView: View {
                     ForEach(room.spectators) { peer in
                         row(name: peer.name, mine: peer.id == session.localPeerID, host: false,
                             detail: peer.isWatching ? L("観戦中", "Watching") : L("待機中", "Waiting"),
-                            symbol: peer.isWatching ? "eye.fill" : "eye", tint: peer.isWatching ? Theme.cyan : Theme.textSecondary)
+                            symbol: peer.isWatching ? "eye.fill" : "eye", tint: peer.isWatching ? Theme.cyan : Theme.textSecondary,
+                            peer: peer)
                     }
                 } else {
                     header(L("観戦: 不可", "Spectating: Off"), symbol: "eye.slash")
@@ -1234,10 +1253,18 @@ private struct OnlineMembersView: View {
             }
             .padding(14)
         }
-        .frame(width: 300)
+        .frame(width: 320)
         .frame(maxHeight: 280)
         .background(Theme.panel)
+        .moderationPrompts(moderation)
         .accessibilityIdentifier("online_members")
+    }
+
+    /// 通報・ブロックの対象（自分は対象外）。
+    private func target(_ peer: OnlinePeer) -> PlayerReportTarget? {
+        guard peer.id != session.localPeerID else { return nil }
+        return PlayerReportTarget(name: peer.name, friendCode: peer.friendCode, peerID: peer.id, source: source,
+                                  roomCode: session.relayCode ?? session.joinedRelayCode)
     }
 
     private func header(_ text: String, symbol: String) -> some View {
@@ -1261,10 +1288,21 @@ private struct OnlineMembersView: View {
         return row(name: peer.name, mine: peer.id == session.localPeerID, host: peer.id == room.hostPeerID,
                    detail: detail,
                    symbol: seat.map { FlowText.teamSymbol($0.team) } ?? "chair.lounge",
-                   tint: seat.map { Theme.teamColor($0.team, colorblind: colorblind) } ?? Theme.textSecondary)
+                   tint: seat.map { Theme.teamColor($0.team, colorblind: colorblind) } ?? Theme.textSecondary,
+                   peer: peer)
     }
 
-    private func row(name: String, mine: Bool, host: Bool, detail: String, symbol: String, tint: Color) -> some View {
+    private func row(name: String, mine: Bool, host: Bool, detail: String, symbol: String, tint: Color,
+                     peer: OnlinePeer? = nil) -> some View {
+        HStack(spacing: 8) {
+            rowLabel(name: name, mine: mine, host: host, detail: detail, symbol: symbol, tint: tint)
+            if let peer, let target = target(peer) {
+                PlayerActionsMenu(target: target, prompt: moderation, canKick: session.isHost, size: 16)
+            }
+        }
+    }
+
+    private func rowLabel(name: String, mine: Bool, host: Bool, detail: String, symbol: String, tint: Color) -> some View {
         HStack(spacing: 8) {
             Image(systemName: symbol)
                 .font(.system(size: 13, weight: .bold))

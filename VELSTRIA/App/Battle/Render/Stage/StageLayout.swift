@@ -44,6 +44,9 @@ struct StageLayoutResult: Sendable {
     var counts: [StagePropKind: Int] = [:]
     /// 置いた小物（テスト用: 硬い物が歩ける所に無いことを確かめる）。
     var placements: [StagePlacement] = []
+    /// 泉の台座（新セットの spawn_dais）の柱の頂部の受け皿（world）。添字 = Team.players の順。台座が無いセットでは空。
+    /// MapScene がここへチーム色の小さな結晶を置く。
+    var fountainSockets: [[SIMD3<Float>]] = []
 }
 
 struct StagePlacement: Sendable {
@@ -62,6 +65,8 @@ struct StageLayout {
     let props: [StagePropKind: StagePropMesh]
     let density: Float
     let level: GraphicsQuality
+    /// 新セット（泉の台座がある = StageArtSet.ruins）の色合わせ。配置と乱数の消費は旧セットと同じ。
+    let ruinsLook: Bool
     var rng: RenderRNG
     var out = StageLayoutResult()
     private var propTriangles = 0
@@ -72,6 +77,7 @@ struct StageLayout {
         self.props = props
         self.density = density
         self.level = level
+        ruinsLook = props[.spawnDais] != nil
         rng = RenderRNG(seed: 0x57A6E)
     }
 
@@ -79,6 +85,8 @@ struct StageLayout {
     static func build(map: MapDefinition, props: [StagePropKind: StagePropMesh], density: Float,
                       level: GraphicsQuality, lite: Bool = false) -> StageLayoutResult {
         var l = StageLayout(map: map, props: props, density: density, level: level)
+        // 泉の台座は試合の目印なので、装飾の三角形の予算で省かれないよう最初に置く
+        l.fountains()
         l.walls()
         if !lite { l.border() }
         l.pits()
@@ -105,7 +113,8 @@ struct StageLayout {
     }
 
     mutating func leafTint() -> SIMD4<UInt8> {
-        let v = rng.range(0.88, 1.08)
+        // 新セットは Tripo の葉の色が暗いので少し明るく
+        let v = rng.range(0.88, 1.08) * (ruinsLook ? 1.1 : 1)
         let hue = rng.range(-1, 1)
         // + は黄緑寄り、− は青緑寄り
         return tint(v * (1 + hue * 0.08), v, v * (1 - hue * 0.1))
@@ -356,6 +365,97 @@ struct StageLayout {
         }
     }
 
+    // MARK: 泉の台座（新セット）
+
+    /// 泉の遺跡の台座のメッシュの特徴（ローカル座標。メッシュから求めるので、作り直しても配置を書き換えずに済む）。
+    struct DaisFeatures {
+        /// 床（歩く面）の高さ。
+        var floor: Float
+        /// 縁の柱の頂部の受け皿（柱ごとに 1 つ）。
+        var sockets: [SIMD3<Float>]
+    }
+
+    static func daisFeatures(_ m: StagePropMesh) -> DaisFeatures {
+        let radius = max(m.size.x, m.size.z) / 2
+        // 床: 上向きの面の頂点（中心の窪みと縁の柱・段を除く）の高さの中央値
+        var ys: [Float] = []
+        for (i, p) in m.positions.enumerated() {
+            let r = simd_length(SIMD2(p.x, p.z))
+            if m.normals[i].y > 0.9 && r > 0.2 * radius && r < 0.6 * radius { ys.append(p.y) }
+        }
+        ys.sort()
+        let floor = ys.isEmpty ? m.size.y * 0.3 : ys[ys.count / 2]
+        // 柱: 床より十分高く縁に近い頂点を、地図の角度（x 右・北が +）で束ねる
+        let cut = floor + (m.boundsMax.y - floor) * 0.45
+        var pts: [(a: Float, p: SIMD3<Float>)] = []
+        for p in m.positions where p.y > cut && simd_length(SIMD2(p.x, p.z)) > 0.5 * radius {
+            pts.append((atan2(-p.z, p.x), p))
+        }
+        guard pts.count >= 3 else { return DaisFeatures(floor: floor, sockets: []) }
+        pts.sort { $0.a < $1.a }
+        // 最も広い角度の空きの直後から一周し、20° 以上の空きで束を切る（-π/π をまたぐ束もつながる）
+        var widest = 0, widestGap: Float = -1
+        for k in pts.indices {
+            let next = pts[(k + 1) % pts.count].a + (k + 1 == pts.count ? 2 * .pi : 0)
+            if next - pts[k].a > widestGap { (widest, widestGap) = (k, next - pts[k].a) }
+        }
+        var clusters: [[SIMD3<Float>]] = [[]]
+        for j in 0..<pts.count {
+            let k = (widest + 1 + j) % pts.count
+            if j > 0 {
+                let prev = (k + pts.count - 1) % pts.count
+                var gap = pts[k].a - pts[prev].a
+                if gap < 0 { gap += 2 * .pi }
+                if gap > 0.35 { clusters.append([]) }
+            }
+            clusters[clusters.count - 1].append(pts[k].p)
+        }
+        var sockets: [SIMD3<Float>] = []
+        for c in clusters where c.count >= 4 {
+            let top = c.map(\.y).max() ?? 0
+            let crown = c.filter { $0.y > top - 0.08 }
+            let mid = crown.reduce(SIMD3<Float>.zero, +) / Float(max(1, crown.count))
+            sockets.append(SIMD3(mid.x, top, mid.z))
+        }
+        return DaisFeatures(floor: floor, sockets: sockets)
+    }
+
+    /// 泉の床から上の床の高さ（m）。ユニットは地面（y = 0）に立つので、台座は床がこの高さになるまで沈める（縁の段は埋まってよい）。
+    static let daisFloorHeight: Float = 0.12
+
+    /// 泉（両チーム）に遺跡の台座を置く。歩ける所に置く飾りなので placements（硬い物の記録）には入れない。
+    /// 柱の無い向き（最も広い空き）を Core の方へ向け、泉から Core への通り道に柱を立てない。
+    mutating func fountains() {
+        guard let mesh = props[.spawnDais] else { return }
+        let f = StageLayout.daisFeatures(mesh)
+        var gapCenter: Float = 0
+        if !f.sockets.isEmpty {
+            let angles = f.sockets.map { atan2(-$0.z, $0.x) }.sorted()
+            var best: Float = -1
+            for k in angles.indices {
+                let next = k + 1 < angles.count ? angles[k + 1] : angles[0] + 2 * .pi
+                if next - angles[k] > best { (best, gapCenter) = (next - angles[k], (angles[k] + next) / 2) }
+            }
+        }
+        for team in Team.players {
+            let c = geo.m(map.fountain(team)), core = geo.m(map.core(team))
+            let toCore = atan2(core.y - c.y, core.x - c.x)
+            let m = transform(c, y: min(-0.02, StageLayout.daisFloorHeight - f.floor), yaw: toCore - gapCenter,
+                              scale: SIMD3(repeating: 1))
+            guard admitProp(mesh) else { continue }
+            out.counts[.spawnDais, default: 0] += 1
+            let key = StageChunks.key(world(c))
+            var buf = out.chunks.props.removeValue(forKey: key) ?? StageMeshBuffer(reserveVertices: 4096)
+            // 灰緑の石を少し明るく（拠点の中央の床と揃える）
+            buf.append(mesh, transform: m, color: tint(1.12, 1.12, 1.1))
+            out.chunks.props[key] = buf
+            out.fountainSockets.append(f.sockets.map { s in
+                let w = m * SIMD4(s, 1)
+                return SIMD3(w.x, w.y, w.z)
+            })
+        }
+    }
+
     // MARK: 祭壇（ボスの巣・番人のキャンプ）
 
     mutating func pits() {
@@ -570,7 +670,8 @@ struct StageLayout {
         let c = world(p, 0)
         let squash = rng.range(0.45, 0.7)
         let shade = rng.range(0.14, 0.24) // 線形値（sRGB で 0.4〜0.53 程度の灰色）
-        let col = stageColor(shade, shade * 1.02, shade * 1.06, 0)
+        // 新セットは暗い地面に合わせて暗い灰緑の花崗岩（明るい灰色だと白い紙片に見える）
+        let col = ruinsLook ? stageColor(shade * 0.55, shade * 0.62, shade * 0.56, 0) : stageColor(shade, shade * 1.02, shade * 1.06, 0)
         var moved: [SIMD3<Float>] = []
         for v in verts {
             let j = 1 + rng.range(-0.18, 0.18)

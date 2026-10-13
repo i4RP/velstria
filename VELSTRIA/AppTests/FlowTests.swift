@@ -10,8 +10,10 @@ final class FlowNameAndOnboardingTests: XCTestCase {
         XCTAssertEqual(PlayerNameRules.normalized("  ab  "), "ab")
         XCTAssertEqual(PlayerNameRules.validate("a"), .tooShort)
         XCTAssertEqual(PlayerNameRules.validate("   "), .tooShort)
-        XCTAssertNil(PlayerNameRules.validate("123456789012"))
+        XCTAssertNil(PlayerNameRules.validate("Abcdefghijk2"))
         XCTAssertEqual(PlayerNameRules.validate("1234567890123"), .tooLong)
+        // 長さが収まっても、電話番号のような数字の並び（連絡先）は使えない（OnlineSafetyTests にフィルタの詳細）
+        XCTAssertEqual(PlayerNameRules.validate("123456789012"), .inappropriate)
         XCTAssertNil(PlayerNameRules.validate("星環の旅人"))
         XCTAssertEqual(PlayerNameRules.validate("ab\ncd"), .invalidCharacters)
         XCTAssertEqual(PlayerNameRules.validate("ab\u{0007}c"), .invalidCharacters)
@@ -52,27 +54,21 @@ final class FlowNameAndOnboardingTests: XCTestCase {
 }
 
 final class FlowDraftTests: XCTestCase {
-    private let owned = ["H001", "H002", "H003", "H004", "H005", "H006"]
+    /// 全員分の名簿（ロールがそろい、AI の選択の幅が広い）。ゲームの既定は master.heroes（H025〜H034）。
+    private let roster = MasterData.shared.allHeroes
 
     func testTurnOrder() {
         let t = DraftEngine.turns
-        XCTAssertEqual(t.count, 14)
-        XCTAssertEqual(t.prefix(4).map(\.action), [.ban, .ban, .ban, .ban])
-        XCTAssertEqual(t.prefix(4).map(\.team), [.blue, .red, .blue, .red])
-        XCTAssertEqual(t.dropFirst(4).map(\.slotLabel), ["B1", "R1", "R2", "B2", "B3", "R3", "R4", "B4", "B5", "R5"])
-        XCTAssertEqual(t.indices.filter { t[$0].isPlayer }, [0, 4])
+        XCTAssertEqual(t.count, 10, "BAN は無い（2026-10-12 に廃止）")
+        XCTAssertEqual(t.map(\.slotLabel), ["B1", "R1", "R2", "B2", "B3", "R3", "R4", "B4", "B5", "R5"])
+        XCTAssertEqual(t.indices.filter { t[$0].isPlayer }, [0])
     }
 
-    /// プレイヤーの BAN/ピック以外を AI に任せて最後まで進める。希望ヒーローが BAN されていたら自動選択。
-    static func runDraft(seed: UInt64, owned: [String], playerBan: String?, playerPick: String) -> DraftEngine {
-        var d = DraftEngine(seed: seed, ownedHeroIDs: owned)
+    /// プレイヤーのピック以外を AI に任せて最後まで進める。希望ヒーローが取られていたら自動選択。
+    static func runDraft(seed: UInt64, playerPick: String, roster: [HeroDef]? = MasterData.shared.allHeroes) -> DraftEngine {
+        var d = DraftEngine(seed: seed, roster: roster)
         while let turn = d.currentTurn {
-            let choice: String?
-            if turn.isPlayer {
-                choice = turn.action == .ban ? playerBan : d.autoChoiceForPlayer(preferred: [playerPick])
-            } else {
-                choice = d.aiChoice()
-            }
+            let choice = turn.isPlayer ? d.autoChoiceForPlayer(preferred: [playerPick]) : d.aiChoice()
             guard d.commit(choice) else {
                 XCTFail("手番 \(d.turnIndex) の確定に失敗")
                 break
@@ -81,66 +77,37 @@ final class FlowDraftTests: XCTestCase {
         return d
     }
 
-    private func runDraft(seed: UInt64, playerBan: String?, playerPick: String) -> DraftEngine {
-        Self.runDraft(seed: seed, owned: owned, playerBan: playerBan, playerPick: playerPick)
-    }
-
-    /// 先頭 4 手の BAN で指定ヒーローが選ばれないシードを探す（テストの前提を固定する）。
-    private func seed(avoidingBanOf hero: String, from start: UInt64) -> UInt64 {
-        var s = start
-        while Self.runDraft(seed: s, owned: owned, playerBan: nil, playerPick: hero).playerPick?.heroID != hero { s += 1 }
-        return s
-    }
-
     func testFullDraftIsValidAndDeterministic() {
-        let s = seed(avoidingBanOf: "H003", from: 777)
-        let a = runDraft(seed: s, playerBan: "H010", playerPick: "H003")
-        let b = runDraft(seed: s, playerBan: "H010", playerPick: "H003")
+        let a = Self.runDraft(seed: 777, playerPick: "H003")
+        let b = Self.runDraft(seed: 777, playerPick: "H003")
         XCTAssertEqual(a, b)
         XCTAssertTrue(a.isComplete)
-        XCTAssertEqual(a.bannedHeroIDs.count, 4)
-        XCTAssertTrue(a.bannedHeroIDs.contains("H010"))
         let picked = a.pickedHeroIDs
         XCTAssertEqual(picked.count, 10)
         XCTAssertEqual(Set(picked).count, 10)
-        XCTAssertTrue(Set(picked).isDisjoint(with: Set(a.bannedHeroIDs)))
         for team in Team.players {
             XCTAssertEqual(Set(a.picks(for: team).map(\.position)), Set(LanePosition.allCases))
         }
-        XCTAssertEqual(a.playerPick?.heroID, "H003")
+        XCTAssertEqual(a.playerPick?.heroID, "H003", "プレイヤーは最初の手番（B1）なので必ず取れる")
         XCTAssertEqual(a.playerPick?.position, .carry)   // Ranger → ボット
 
-        let others = (1...5).map { runDraft(seed: s &+ UInt64($0) * 1000, playerBan: "H010", playerPick: "H003").pickedHeroIDs }
+        let others = (1...5).map { Self.runDraft(seed: 777 &+ UInt64($0) * 1000, playerPick: "H003").pickedHeroIDs }
         XCTAssertTrue(others.contains { $0 != a.pickedHeroIDs }, "シードが違えば AI の選択も変わる")
     }
 
+    /// 所持の制限は無く、取られていないヒーローなら誰でも選べる。AI の手番ではプレイヤーは選べない。
     func testPlayerRestrictions() {
-        var d = DraftEngine(seed: 1, ownedHeroIDs: owned)
-        // BAN は未所持でも可能
+        var d = DraftEngine(seed: 1, roster: roster)
         XCTAssertTrue(d.canPlayerSelect("H020"))
         XCTAssertFalse(d.commit("H999"))
+        XCTAssertFalse(d.commit(nil), "ピックは省略できない")
         XCTAssertTrue(d.commit("H020"))
-        // AI の手番ではプレイヤーは選べない
-        XCTAssertFalse(d.canPlayerSelect("H001"))
-        while let t = d.currentTurn, !t.isPlayer { d.commit(d.aiChoice()) }
-        XCTAssertEqual(d.currentTurn?.action, .pick)
-        XCTAssertFalse(d.canPlayerSelect("H020"), "BAN 済み")
-        XCTAssertFalse(d.canPlayerSelect("H007"), "未所持")
-        XCTAssertFalse(d.commit("H007"))
-        let expected = ["H004", "H005", "H006", "H001"].first { d.canPlayerSelect($0) }
-        XCTAssertEqual(d.autoChoiceForPlayer(preferred: ["H020"] + [expected].compactMap { $0 }), expected)
-    }
-
-    func testBanTimeoutSkips() {
-        var d = DraftEngine(seed: 5, ownedHeroIDs: owned)
-        XCTAssertNil(d.autoChoiceForPlayer(preferred: ["H001"]))
-        XCTAssertTrue(d.commit(nil))
-        XCTAssertEqual(d.bans(for: .blue), [nil])
-        XCTAssertEqual(d.bannedHeroIDs, [])
+        XCTAssertFalse(d.canPlayerSelect("H001"), "AI の手番")
+        XCTAssertEqual(d.autoChoiceForPlayer(preferred: ["H001"]), nil)
     }
 
     func testPositionSwapWithAlly() {
-        var d = runDraft(seed: seed(avoidingBanOf: "H003", from: 99), playerBan: nil, playerPick: "H003")
+        var d = Self.runDraft(seed: 99, playerPick: "H003")
         XCTAssertEqual(d.playerPick?.position, .carry)
         let allyAtMid = d.heroID(team: .blue, position: .mid)
         XCTAssertNotNil(allyAtMid)
@@ -151,18 +118,25 @@ final class FlowDraftTests: XCTestCase {
     }
 
     func testApplyDraftToConfig() throws {
-        let d = runDraft(seed: 2024, playerBan: "H016", playerPick: "H003")
+        let d = Self.runDraft(seed: 2024, playerPick: "H003")
         let hero = try XCTUnwrap(d.playerPick?.heroID)
         var config = MatchFactory.standardMatch(mode: .ranked, humanHeroID: hero, humanName: "Tester",
-                                                humanPosition: d.playerPick?.position, banned: d.bannedHeroIDs, seed: 2024)
+                                                humanPosition: d.playerPick?.position, seed: 2024)
         d.apply(to: &config)
         XCTAssertEqual(config.players.count, 10)
         XCTAssertEqual(Set(config.players.map(\.heroID)).count, 10)
         for slot in config.players {
             XCTAssertEqual(d.heroID(team: slot.team, position: slot.position), slot.heroID)
-            XCTAssertFalse(d.bannedHeroIDs.contains(slot.heroID))
         }
         XCTAssertEqual(config.humanSlot?.heroID, hero)
+    }
+
+    /// ゲームの既定の名簿（H025〜H034 の 10 体）でちょうど 10 ピックが埋まる。
+    func testActiveRosterFillsAllPicks() {
+        let d = Self.runDraft(seed: 20261001, playerPick: "H027", roster: nil)
+        XCTAssertTrue(d.isComplete)
+        XCTAssertEqual(d.playerPick?.heroID, "H027")
+        XCTAssertEqual(Set(d.pickedHeroIDs), Set(HeroRoster.activeHeroIDs))
     }
 }
 
@@ -219,7 +193,7 @@ final class FlowMatchModelTests: XCTestCase {
         m.startRanked(profile: p)
         var d = try XCTUnwrap(m.draft)
         while let t = d.currentTurn {
-            let choice = t.isPlayer ? (t.action == .ban ? "H012" : d.autoChoiceForPlayer(preferred: ["H001"])) : d.aiChoice()
+            let choice = t.isPlayer ? d.autoChoiceForPlayer(preferred: ["H027"]) : d.aiChoice()
             guard d.commit(choice) else { return XCTFail("ドラフトが進まない") }
         }
         m.draft = d
@@ -227,7 +201,6 @@ final class FlowMatchModelTests: XCTestCase {
         m.selectHero(hero, profile: p, master: .shared)
         let config = try XCTUnwrap(m.buildConfig(profile: p, master: .shared))
         XCTAssertEqual(config.mode, .ranked)
-        XCTAssertFalse(config.players.map(\.heroID).contains("H012"))
         let diffs = RankService.botDifficulty(for: p.rank)
         XCTAssertTrue(config.players.filter { $0.team == .red }.allSatisfy { $0.botDifficulty == diffs.enemy })
         for slot in config.players {
@@ -237,7 +210,7 @@ final class FlowMatchModelTests: XCTestCase {
 
     func testSkinMustBeOwnedAndMatchHero() throws {
         var p = profile()
-        let skin = try XCTUnwrap(MasterData.shared.cosmetics.first { $0.type == .heroSkin && $0.heroID == "H001" })
+        let skin = try XCTUnwrap(MasterData.shared.allCosmetics.first { $0.type == .heroSkin && $0.heroID == "H001" })
         p.equippedSkins["H001"] = skin.cosmeticID
         let m = MatchFlowModel(seed: 1)
         m.selectHero("H001", profile: p, master: .shared)
@@ -258,12 +231,12 @@ final class FlowMatchModelTests: XCTestCase {
         p.lastPickedHeroID = "H020"
         let m = MatchFlowModel(seed: 1)
         m.configure(profile: p, master: .shared)
-        XCTAssertEqual(m.heroID, "H001", "未所持の前回ヒーローは使わず所持の先頭")
-        p.lastPickedHeroID = "H004"
+        XCTAssertEqual(m.heroID, HeroRoster.defaultHeroID, "未所持の前回ヒーローは使わず所持の先頭")
+        p.lastPickedHeroID = "H027"
         p.preferredDifficulty = .hard
         let m2 = MatchFlowModel(seed: 1)
         m2.configure(profile: p, master: .shared)
-        XCTAssertEqual(m2.heroID, "H004")
+        XCTAssertEqual(m2.heroID, "H027")
         XCTAssertEqual(m2.difficulty, .hard)
     }
 
@@ -387,46 +360,6 @@ final class FlowResultTests: XCTestCase {
 // MARK: - レビュー修正の回帰テスト
 
 final class FlowReviewFixTests: XCTestCase {
-    /// 所持ヒーローが 1 体だけでも、BAN でピック候補が無くならずドラフトが最後まで進む。
-    func testDraftNeverStrandsPlayerWithSingleOwnedHero() {
-        for seed in UInt64(0)..<40 {
-            var d = DraftEngine(seed: seed, ownedHeroIDs: ["H003"])
-            // プレイヤー自身も最後の所持ヒーローは BAN できない
-            XCTAssertFalse(d.canPlayerSelect("H003"))
-            XCTAssertTrue(d.canPlayerSelect("H004"))
-            XCTAssertFalse(d.commit("H003"))
-            XCTAssertTrue(d.commit(nil))
-            while let t = d.currentTurn {
-                let choice = t.isPlayer ? d.autoChoiceForPlayer(preferred: ["H003"]) : d.aiChoice()
-                guard d.commit(choice) else { return XCTFail("seed \(seed): 手番 \(d.turnIndex) で停止") }
-            }
-            XCTAssertFalse(d.bannedHeroIDs.contains("H003"), "seed \(seed)")
-            XCTAssertEqual(d.playerPick?.heroID, "H003", "seed \(seed)")
-        }
-    }
-
-    /// 所持ヒーローが無い（壊れた復元データ）場合も、空いているヒーローでピックでき、ドラフトが止まらない。
-    func testDraftFallsBackWhenNoOwnedHeroIsAvailable() {
-        var d = DraftEngine(seed: 7, ownedHeroIDs: [])
-        while let t = d.currentTurn {
-            let choice = t.isPlayer ? (t.action == .ban ? nil : d.autoChoiceForPlayer(preferred: [])) : d.aiChoice()
-            guard d.commit(choice) else { return XCTFail("手番 \(d.turnIndex) で停止") }
-        }
-        XCTAssertTrue(d.isComplete)
-        XCTAssertNotNil(d.playerPick)
-        XCTAssertEqual(Set(d.pickedHeroIDs).count, 10)
-    }
-
-    /// UI テスト（FlowUITests.testRankedDraft）が前提にするシードの AI BAN。
-    func testUITestDraftSeedKeepsH003Available() throws {
-        let seed = try XCTUnwrap(UInt64(FlowUITestsSeed.draft))
-        var d = DraftEngine(seed: seed, ownedHeroIDs: Profile().ownedHeroIDs)
-        XCTAssertTrue(d.commit("H010"))
-        while let t = d.currentTurn, t.action == .ban { XCTAssertTrue(d.commit(d.aiChoice())) }
-        XCTAssertFalse(d.bannedHeroIDs.contains("H003"))
-        XCTAssertTrue(d.canPlayerSelect("H003"))
-    }
-
     func testBackupRestoreKeepsDevicePurchaseRecordsAndAge() {
         let t0 = Date(timeIntervalSince1970: 1_800_000_000)
         var current = Profile()

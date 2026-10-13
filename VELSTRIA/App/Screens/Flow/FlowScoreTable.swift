@@ -117,7 +117,7 @@ private struct ScoreRow: View {
                 HeroPortraitView(heroID: player.heroID, size: 28, showsRole: false)
                 VStack(alignment: .leading, spacing: 1) {
                     HStack(spacing: 4) {
-                        Text(player.displayName)
+                        Text(PlayerNameRules.shown(player.displayName))
                             .font(Theme.heading(12))
                             .foregroundStyle(player.isHuman ? Theme.gold : Theme.textPrimary)
                             .lineLimit(1)
@@ -156,7 +156,7 @@ private struct ScoreRow: View {
 
     private var accessibilityText: String {
         let s = player.score
-        var t = "\(player.displayName)、\(heroName)、Lv \(player.level)、"
+        var t = "\(PlayerNameRules.shown(player.displayName))、\(heroName)、Lv \(player.level)、"
         t += L("キル \(s.kills) デス \(s.deaths) アシスト \(s.assists)、CS \(s.creepScore)、評価 \(player.grade)",
                "\(s.kills) kills \(s.deaths) deaths \(s.assists) assists, CS \(s.creepScore), grade \(player.grade)")
         if player.isMVP { t += "、MVP" }

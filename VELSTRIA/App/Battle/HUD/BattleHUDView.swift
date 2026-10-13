@@ -12,6 +12,7 @@ import VelstriaCore
 // 15Hz で変わる値は各レイヤーの小さなビューだけが読む（HUD 全体の body を毎回評価しない）。
 // 観戦者は最下層の操作レイヤーで 3D 画面をドラッグ・ピンチ・ダブルタップできる（HUDSpectatorGestures）。
 // 倒れている間は彩度を落とす幕（操作部品の下）と、復活までの秒・味方の一覧（操作部品の上）を出す。
+// Star Core の終幕（endPhase = .finale）の間は全部を消して映像だけにする（触れても何も起きない）。勝敗のバナーから戻す。
 
 struct BattleHUDView: View {
     let controller: BattleController
@@ -85,6 +86,7 @@ private struct HUDRoot: View {
         let spectating = model.isSpectating
         let settings = model.settings
         let ended = model.endPhase != nil
+        let finale = model.endPhase?.isFinale == true
         let tutorialDone = model.tutorial?.isComplete ?? false
         let showControls = !spectating && !ended && !tutorialDone
         ZStack {
@@ -171,12 +173,18 @@ private struct HUDRoot: View {
                 HUDTutorialComplete(model: model, director: tutorial)
                     .transition(.opacity)
             }
-            if !(spectating && model.controller.isSeekable), let phase = model.endPhase {
-                HUDEndOfMatchView(model: model, phase: phase, colorblind: settings.colorblindMode)
+            if !(spectating && model.controller.isSeekable), let phase = model.endPhase, !phase.isFinale {
+                HUDEndOfMatchView(model: model, phase: phase, colorblind: settings.colorblindMode,
+                                  leading: model.endFollowsFinale)
                     .transition(.opacity)
             }
         }
         .frame(width: layout.width, height: layout.height)
+        // 終幕: 寄りの間（0.6 秒）に消し切る。勝敗のバナーで戻す
+        .opacity(finale ? 0 : 1)
+        .allowsHitTesting(!finale)
+        .accessibilityHidden(finale)
+        .animation(.easeOut(duration: 0.4), value: finale)
         .animation(.easeInOut(duration: 0.4), value: tutorialDone)
         .animation(.easeInOut(duration: 0.4), value: ended)
     }
@@ -327,7 +335,8 @@ enum HUDSpectatorEndCardRule {
     static func isVisible(_ model: HUDModel) -> Bool {
         let t = model.spectator.transport
         guard t.seekingTo == nil, model.panel == nil, !model.isTacticalMapOpen else { return false }
-        return model.endPhase != nil || (t.isEnded && model.controller.state.endReason == .aborted)
+        if let phase = model.endPhase { return !phase.isFinale }
+        return t.isEnded && model.controller.state.endReason == .aborted
     }
 }
 

@@ -10,6 +10,9 @@ import VelstriaCore
 // 地面テクスチャはメインスレッド外で生成し（ロード画面から先行して始め、試合をまたいで使い回す）、準備完了まで sim を進めない。
 // 世界の構築後は WarmupScheduler が準備の段を複数フレームに分けて実行し、描画が落ち着いた合図で読み込み幕を上げる。
 // プレイ中は AdaptiveQuality（画質の自動調整）がフレーム時間・端末温度・低電力モードを見て、ユーザー設定を上限に画質を上下させる。
+// Core の破壊で試合が終わったら、ゲームカメラの上に Star Core の終幕のカメラ（CoreFinaleCamera.swift）を重ねる。
+// 終幕は Core が壊れた通知を受けた時だけ流し、通知を受けずに終わった状態になった時（シーク・再同期・途中から観戦）は
+// 引きの構図から始める（HUD も同じ規則でバナーから始める）。巻き戻して終わっていない状態に戻ればゲームカメラへ戻る。
 
 @MainActor
 final class BattleRenderer {
@@ -51,6 +54,16 @@ final class BattleRenderer {
     private var sunShadowOn = false
     /// 影マップの範囲の倍率（観戦者が大きく引いた時だけ 1 より大きい。shadowExtentScale）。
     private var shadowScale: Float = 1
+    /// Star Core の終幕（Core の破壊で試合が終わった後だけ）。
+    private var finale: CoreFinaleRun?
+    /// Core の破壊で試合が終わった通知が届いた（次に作る終幕を最初から流す）。
+    private var finaleTriggered = false
+    /// 終幕のカメラが描いている間の影の範囲（中心 world x・z と倍率）。nil = ゲームカメラに合わせる。
+    private var finaleShadow: (center: SIMD2<Float>, scale: Float)?
+    /// 終幕の撮り方の候補（地図だけで決まる重い検査。読み込み中に両チームの Core の分を作る）。
+    private var finaleCandidates: [Team: [CoreFinaleShot.Candidate]] = [:]
+    /// 終幕の空（読み込み中に作る。終幕の間だけ出す）。
+    private var finaleSky: CoreFinaleSky?
     /// 端末本来の描画倍率（ウィンドウへ載った時に読む）と、適用中の倍率。
     private var nativeScale: CGFloat = 0
     private var appliedScale: Float = 1
@@ -211,17 +224,23 @@ final class BattleRenderer {
 
     /// 太陽（影の投影の中心）を画面に映る地面の中心へ動かす。向きは固定で、光の座標の x・y を画素格子に丸める。
     /// 倍率は設定値ではなくカメラが実際に描いている距離から（減衰中・観戦者のピンチ・自動カメラの framing を含む。B27）。
+    /// 終幕のカメラの間は Core の周り（CoreFinaleShot.shadowFrame）を覆う。
     private func followSun() {
         guard sunShadowOn else { return }
-        let f = rig.focus.value
-        let zoom = rig.currentZoom
-        let scale = BattleRenderer.shadowExtentScale(forZoom: zoom)
+        let center: SIMD2<Float>, scale: Float
+        if let shadow = finaleShadow {
+            center = shadow.center
+            scale = shadow.scale
+        } else {
+            let zoom = rig.currentZoom
+            scale = BattleRenderer.shadowExtentScale(forZoom: zoom)
+            center = rig.focus.value + BattleRenderer.shadowCenterOffset * Float(zoom)
+        }
         if scale != shadowScale {
             shadowScale = scale
             sun.shadow = BattleRenderer.sunShadow(scale: scale)
         }
-        let o = BattleRenderer.shadowCenterOffset * Float(zoom)
-        let c = SIMD3<Float>(f.x + o.x, 0, f.y + o.y)
+        let c = SIMD3<Float>(center.x, 0, center.y)
         sun.position = BattleRenderer.snappedSunPosition(center: c, orientation: sun.orientation,
                                                          step: BattleRenderer.shadowSnapStep * scale)
     }
@@ -282,6 +301,16 @@ final class BattleRenderer {
             w.attach(effekseer: EffekseerDirector(overlay: fx, units: w.units, projectiles: w.projectiles))
         }
         world = w
+        // Star Core の終幕の空と撮り方の候補（地図の検査）は幕の裏で作っておく（決着の瞬間に作らない）
+        let f0 = CACurrentMediaTime()
+        let sky = CoreFinaleSky()
+        anchor.addChild(sky.entity)
+        finaleSky = sky
+        let map = controller.ctx.map
+        for team in Team.players {
+            finaleCandidates[team] = CoreFinaleShot.candidates(core: worldPosition(map.core(team)), map: map)
+        }
+        note(String(format: "core finale prep %.0f ms", (CACurrentMediaTime() - f0) * 1000))
         // 最初のフレームで追従対象へカメラを合わせる
         w.updateCamera(rig: rig, dt: 0, snap: true)
         note(String(format: "world build %.0f ms", (CACurrentMediaTime() - buildStart) * 1000))
@@ -356,8 +385,7 @@ final class BattleRenderer {
         if controller.seekingToTick != nil {
             // シーク中は sim が途中の tick を行き来するので同期せず、直前の画のままカメラだけ動かす
             pendingEvents.removeAll(keepingCapacity: true)
-            world.updateCamera(rig: rig, dt: Float(dt), snap: false)
-            followSun()
+            updateCamera(world: world, dt: Float(dt))
             return
         }
         if controller.isPaused {
@@ -376,8 +404,7 @@ final class BattleRenderer {
                 if small { world.updateOverlay(dt: 0, rig: rig) }
             }
             pendingEvents.removeAll(keepingCapacity: true)
-            world.updateCamera(rig: rig, dt: Float(dt), snap: false)
-            followSun()
+            updateCamera(world: world, dt: Float(dt))
             return
         }
         if wasPaused {
@@ -388,6 +415,7 @@ final class BattleRenderer {
         }
         #if DEBUG
         debugAutoDrive(dt: dt)
+        debugCoreFinaleDemo()
         #endif
         let t0 = CACurrentMediaTime()
         controller.frame(dt: deltaTime)
@@ -400,8 +428,7 @@ final class BattleRenderer {
         world.sync(events: pendingEvents, dt: Float(dt), rig: rig)
         pendingEvents.removeAll(keepingCapacity: true)
         let tc = probe.start()
-        world.updateCamera(rig: rig, dt: Float(dt), snap: false)
-        followSun()
+        updateCamera(world: world, dt: Float(dt))
         probe.stop(.camera, tc)
         let t2 = CACurrentMediaTime()
         world.updateOverlay(dt: Float(dt), rig: rig)
@@ -469,18 +496,92 @@ final class BattleRenderer {
 
     /// sim のイベントを次の同期まで溜める（不連続より前に溜まった分は捨てる）。
     private func receive(_ events: [SimEvent]) {
-        if epochs.noteEvents(epoch: controller.presentationEpoch) { pendingEvents.removeAll(keepingCapacity: true) }
+        if epochs.noteEvents(epoch: controller.presentationEpoch) {
+            pendingEvents.removeAll(keepingCapacity: true)
+            finaleTriggered = false
+        }
         pendingEvents.append(contentsOf: events)
+        if events.contains(where: CoreFinale.isTrigger) { finaleTriggered = true }
     }
 
     /// presentationEpoch が変わっていたら描画を今の状態で作り直す（シークの完了・オンラインの再同期。一時停止中も）。
     private func syncPresentationEpoch(world: BattleWorld) {
         let change = epochs.beginFrame(epoch: controller.presentationEpoch)
         guard change.reset else { return }
-        if change.dropPending { pendingEvents.removeAll(keepingCapacity: true) }
+        if change.dropPending {
+            pendingEvents.removeAll(keepingCapacity: true)
+            finaleTriggered = false
+        }
+        // 終幕は作り直す（終わっていない時刻へ戻ればゲームカメラ、終わった時刻なら引きの構図。この後の updateCamera で決める）
+        endFinale()
         world.resetForPresentationEpoch(rig: rig)
         syncedTick = controller.state.tick
         followSun()
+    }
+
+    // MARK: Star Core の終幕
+
+    /// ゲームカメラ → 終幕のカメラ（Core の破壊で終わった後）→ 影の追従。
+    private func updateCamera(world: BattleWorld, dt: Float) {
+        world.updateCamera(rig: rig, dt: dt, snap: false)
+        updateFinaleCamera(world: world)
+        followSun()
+    }
+
+    /// 終幕の姿勢をゲームカメラの上に重ねる（時刻は倒壊の演出と同じ BattleWorld.presentationTime − Core の deathTime）。
+    /// 終幕を始めた後に終わっていない状態へ戻った（巻き戻し）ら外す。リザルトの後に観戦者がカメラを動かしたら（戦術マップ・
+    /// 追従先の選択）ゲームカメラへ返す。
+    private func updateFinaleCamera(world: BattleWorld) {
+        guard let end = CoreFinale.destroyedCore(in: controller.state) else {
+            finaleTriggered = false
+            if finale != nil { endFinale() }
+            return
+        }
+        if finale?.team != end.team || finale?.deathTime != end.deathTime {
+            // 決着の時刻のヒーローの位置（sim は止まっている）も見て、手前のヒーローで結晶が隠れにくい向きにする
+            let s = controller.state
+            let heroes = s.units.compactMap { u -> SIMD2<Float>? in
+                guard u.kind == .hero, u.isAlive, u.hero?.isDead != true else { return nil }
+                let p = worldPosition(u.pos)
+                return SIMD2(p.x, p.z)
+            }
+            let shot = CoreFinaleShot(team: end.team, map: controller.ctx.map, candidates: finaleCandidates[end.team],
+                                      heroes: heroes, reducedMotion: UIAccessibility.isReduceMotionEnabled, aspect: viewAspect)
+            finale = CoreFinaleRun(team: end.team, shot: shot, deathTime: end.deathTime, skipped: !finaleTriggered,
+                                   cameraMode: controller.cameraMode)
+            finaleTriggered = false
+        }
+        guard var run = finale, !run.released else { return }
+        let t = run.elapsed(presentationTime: world.presentationTime)
+        if t >= TowerTimeline.finaleResult, controller.cameraMode != run.cameraMode {
+            run.released = true
+            finale = run
+            finaleShadow = nil
+            OverheadBar.cinematicHidden = false
+            finaleSky?.isShown = false
+            return
+        }
+        let pose = run.shot.pose(at: t, game: rig.gamePose)
+        rig.present(pose)
+        finaleShadow = run.shot.shadowFrame(for: pose)
+        let cinematic = run.shot.hidesOverheadBars(at: t)
+        OverheadBar.cinematicHidden = cinematic
+        finaleSky?.isShown = cinematic
+        if cinematic { finaleSky?.follow(pose.position) }
+    }
+
+    /// 終幕をやめてゲームカメラへ戻す（次の updateCamera で向きも戻る）。
+    private func endFinale() {
+        finale = nil
+        finaleShadow = nil
+        OverheadBar.cinematicHidden = false
+        finaleSky?.isShown = false
+    }
+
+    /// 描画中の画面の縦横比。
+    private var viewAspect: Float {
+        guard let size = view?.arView.bounds.size, size.width > 0, size.height > 0 else { return CameraRig.designAspect }
+        return Float(size.width / size.height)
     }
 
     /// 幕の裏の 1 フレーム。描画同期（初回はヒーロー・構造物の生成）→ 準備の段 → 影の両状態 → 落ち着き待ち。
@@ -491,6 +592,9 @@ final class BattleRenderer {
         world.sync(events: [], dt: Float(dt), rig: rig)
         world.updateCamera(rig: rig, dt: 0, snap: true)
         followSun()
+        // 終幕の空も幕の裏で描いておく（シェーダーの用意。カメラの位置に置くので画面の隅に映るだけ）
+        finaleSky?.isShown = true
+        finaleSky?.follow(rig.camera.position)
         // 最初のフレームは同期そのもの（ヒーロー・構造物の初回生成）が重いので、準備の段は次のフレームから
         guard warmupFrameIndex > 1 else {
             let now = CACurrentMediaTime()
@@ -525,6 +629,7 @@ final class BattleRenderer {
         if let ms = MaterialPrograms.buildMs { note(String(format: "material programs built in %.0f ms", ms)) }
         if let ms = PostProcessShaderCache.compileMs { note(String(format: "post-process pipelines compiled in %.0f ms", ms)) }
         world.finishWarmup()
+        finaleSky?.isShown = false
         setSunShadow(governed.settings.quality.shadows)
         // 影の両状態を描き終えたので、自動調整が影を切り替えてよい
         if let change = governor.setShadowSwitchable(scheduler.shadowVariantsWarmed) { applyGovernor(change) }
@@ -632,6 +737,53 @@ final class BattleRenderer {
         case "s2": controller.send(.castSkill(slot: .skill2, target: .unit(foe.id)))
         case "ult": controller.send(.castSkill(slot: .ultimate, target: .unit(foe.id)))
         default: controller.send(.attack(targetID: foe.id))
+        }
+    }
+
+    private var finaleDemoDone = false
+    /// -coreFinaleDemo <red|blue>: 幕が上がって 2 秒後、その Core を守る塔を倒した状態に置き換え（controller.restore。sim の
+    /// 規則は変えない）、攻める側のヒーローを Core の前へ、守る側を地図の中央へ移して Core の HP を僅かにする。
+    /// 数秒で Core が sim の規則どおりに壊れ、終幕が流れる（撮影用。-battle spectate / standard -botControl と併せる）。
+    private func debugCoreFinaleDemo() {
+        guard !finaleDemoDone, let raw = DebugLaunch.value(after: "-coreFinaleDemo"), !controller.isEnded,
+              controller.isPresentationReady, CACurrentMediaTime() - liveAt > 2 else { return }
+        finaleDemoDone = true
+        let team: Team = raw == "blue" ? .blue : .red
+        let map = controller.ctx.map
+        let core = map.core(team)
+        let inward = (Balance.mapCenter - core).normalized
+        var s = controller.state
+        var attacker = 0, defender = 0
+        for i in s.units.indices {
+            let u = s.units[i]
+            switch u.kind {
+            case .tower where u.team == team:
+                s.units[i].isAlive = false
+                s.units[i].hp = 0
+                s.units[i].deathTime = s.time
+            case .core where u.team == team:
+                s.units[i].hp = min(u.hp, u.stats.maxHP * 0.03)
+            case .hero where u.team == team.opponent:
+                let a = (Double(attacker) - 2) * 0.32
+                let dir = Vec2(inward.x * cos(a) - inward.y * sin(a), inward.x * sin(a) + inward.y * cos(a))
+                place(&s.units[i], at: core + dir * 520)
+                s.units[i].attackTargetID = s.units.first { $0.kind == .core && $0.team == team }?.id
+                attacker += 1
+            case .hero where u.team == team:
+                place(&s.units[i], at: Balance.mapCenter + Vec2(Double(defender) * 150, 0))
+                defender += 1
+            default:
+                break
+            }
+        }
+        controller.restore(s)
+
+        func place(_ u: inout VelstriaCore.Unit, at p: Vec2) {
+            u.pos = p
+            u.prevPos = p
+            u.path.removeAll()
+            u.moveIntent = .none
+            u.hp = u.stats.maxHP
         }
     }
 
@@ -743,6 +895,7 @@ final class BattleRenderer {
         }
         scheduler = nil
         pendingEvents.removeAll()
+        endFinale()
         world?.teardown()
         world = nil
         anchor.removeFromParent()

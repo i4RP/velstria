@@ -303,7 +303,7 @@ struct RankOverviewView: View {
             ruleRow("arrow.up.circle.fill", Theme.success, L("勝利で星 +1。星 3 つの状態で勝利すると次の段階へ昇格します。", "Win: +1 star. Winning with three stars promotes you to the next division."))
             ruleRow("arrow.down.circle.fill", Theme.danger, L("敗北で星 −1（隕鉄では降格しません）。", "Loss: −1 star (no demotion in Meteorite)."))
             ruleRow("cpu", Theme.cyan, L("ランクが上がるほど AI が強くなります。", "Higher ranks face stronger AI."))
-            ruleRow("hand.raised.fill", Theme.gold, L("ランク戦では各チーム 2 体ずつ BAN してからピックします。", "In ranked, each team bans two heroes before picking."))
+            ruleRow("hand.raised.fill", Theme.gold, L("ランク戦ではドラフトで交互にピックします（同じヒーローは 1 人だけ）。", "In ranked, teams take turns picking (each hero once per match)."))
         }
         .padding(12)
         .glass(cornerRadius: 14)

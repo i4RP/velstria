@@ -1074,11 +1074,12 @@ extension HeroGearBuilder {
         switch kind {
         case "\(OffhandKind.gateShield)": return (1, 0.4, true)  // 盾面 -Z、trs((-0.15, 0.1, -0.1), ry(0.4)) で腕の外へ
         case "\(OffhandKind.hideShield)": return (1, 0, true)    // 盾面 -Z、o = (-0.1, 0.08, -0.1)
+        case "\(OffhandKind.heaterShield)": return (1, 0.3, true) // 盾面 -Z、trs((-0.1, 0.02, -0.12), ry(0.3))
         case "\(OffhandKind.harpBow)": return (1, 0, true)       // XY 平面、o = (-0.02, 0.2, -0.04)
         case "\(OffhandKind.grimoire)": return (1, 0, true)      // o = (-0.03, 0.06, -0.06)
         case "\(WeaponKind.mechCrossbow)": return (-1, 0, false) // 弓は ±X、上面 +Z
         // bow() は YZ 平面・握りが原点で弓先と弦が +Z、ry(0.6)。Prop は握りの断面に弦が入り原点が握りと弦の間になるので中心で合わせる
-        case "\(OffhandKind.ashBow)", "\(OffhandKind.lightBow)": return (1, 0.6, true)
+        case "\(OffhandKind.ashBow)", "\(OffhandKind.lightBow)", "\(OffhandKind.crescentBow)": return (1, 0.6, true)
         default: return (1, 0, false)
         }
     }

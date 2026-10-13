@@ -235,6 +235,7 @@ final class PersistenceService: @unchecked Sendable {
             ("purchaseLedger[]", jsonObject(PurchaseRecord(transactionID: 0, productID: "", gemsGranted: 0, priceJPY: 0, date: epoch))),
             ("storePurchases[]", jsonObject(StorePurchaseCount(sku: "", count: 0))),
             ("friends[]", jsonObject(Friend(code: "", name: "", addedAt: epoch))),
+            ("blockedPlayers[]", jsonObject(BlockedPlayer(code: "", name: "", blockedAt: epoch))),
             ("missions.daily[]", jsonObject(MissionProgress(id: ""))),
             ("missions.weekly[]", jsonObject(MissionProgress(id: ""))),
             ("achievements{}", jsonObject(AchievementProgress())),
@@ -294,6 +295,11 @@ final class PersistenceService: @unchecked Sendable {
             p.matchHistory = Array(p.matchHistory.prefix(RewardService.maxMatchHistory))
         }
         if p.ownedHeroIDs.isEmpty { p.ownedHeroIDs = Profile().ownedHeroIDs }
+        // 名簿の切り替え（2026-10-12: H025〜H034 に絞った）: 出すヒーローを全員が持つようにし、
+        // 非表示のヒーローを指したままのアバター・前回のピックを出すヒーローへ戻す
+        for id in HeroRoster.starterHeroIDs where !p.ownedHeroIDs.contains(id) { p.ownedHeroIDs.append(id) }
+        if !HeroRoster.isActive(p.avatarHeroID) { p.avatarHeroID = HeroRoster.defaultHeroID }
+        if let last = p.lastPickedHeroID, !HeroRoster.isActive(last) { p.lastPickedHeroID = nil }
         if p.playerID.isEmpty { p.playerID = UUID().uuidString }
         // フレンド: 識別子が壊れていたら作り直す。改変されたフレンド・申請は取り除く（重複・自分自身・不正なコード）
         if !FriendCode.isValid(p.friendCode) { p.friendCode = FriendCode.generate() }
@@ -301,6 +307,11 @@ final class PersistenceService: @unchecked Sendable {
         var seen: Set<String> = [p.friendCode]
         p.friends = p.friends.filter { FriendCode.isValid($0.code) && seen.insert($0.code).inserted }
         p.outgoingFriendRequests = p.outgoingFriendRequests.filter { FriendCode.isValid($0) && $0 != p.friendCode }
+        let outgoing = Set(p.outgoingFriendRequests)
+        p.outgoingFriendRequestDates = p.outgoingFriendRequestDates.filter { outgoing.contains($0.key) }
+        var blocked: Set<String> = [p.friendCode]
+        p.blockedPlayers = p.blockedPlayers.filter { FriendCode.isValid($0.code) && blocked.insert($0.code).inserted }
+        p.acceptedOnlineRulesVersion = max(0, p.acceptedOnlineRulesVersion)
     }
 
     // MARK: - 保存

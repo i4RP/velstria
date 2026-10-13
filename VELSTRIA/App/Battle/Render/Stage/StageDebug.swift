@@ -5,6 +5,7 @@ import QuartzCore
 //   -stageCam <x>,<y>[,<zoom>]   カメラを地図座標（m）の位置に固定する（例: -stageCam 37,83）
 //   -stageTour                   カメラを名所（拠点・レーン・川・ボスの巣・ジャングル）へ 6 秒ごとに順に動かす
 //   -stageFull                   -uiTesting でもステージを間引かない（StagePrep.lite を参照）
+//   -legacyStage                 2026-10-05 の旧ステージ素材で描く（StageArtSet.legacy。新旧の見比べ用）
 
 enum StageDebug {
     #if DEBUG

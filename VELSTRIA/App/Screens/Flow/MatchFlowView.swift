@@ -2,7 +2,7 @@ import SwiftUI
 import VelstriaCore
 
 // 担当: ui-flow。UI021〜025 対戦前フロー（全画面）。
-// 1. モード選択 → 2a. ヒーロー選択（通常戦） / 2b. BAN・ピックのドラフト（ランク戦） → 3. 出撃準備（両チーム確認）→ 戦闘。
+// 1. モード選択 → 2a. ヒーロー選択（通常戦） / 2b. ピックのドラフト（ランク戦） → 3. 出撃準備（両チーム確認）→ 戦闘。
 
 /// 対戦フローの状態（画面間で共有）。
 @Observable
@@ -98,7 +98,7 @@ final class MatchFlowModel {
 
     func startRanked(profile: Profile) {
         kind = .ranked
-        draft = DraftEngine(seed: seed, ownedHeroIDs: profile.ownedHeroIDs)
+        draft = DraftEngine(seed: seed)
         draftHover = nil
         aiPending = nil
         config = nil
@@ -135,7 +135,7 @@ final class MatchFlowModel {
                                                 humanTeam: .blue, humanSpells: spells, humanRunes: runeIDs(profile: profile),
                                                 humanSkin: skinID, humanPosition: position,
                                                 allyDifficulty: diffs.ally, enemyDifficulty: diffs.enemy,
-                                                banned: draft?.bannedHeroIDs ?? [], seed: seed, master: master)
+                                                seed: seed, master: master)
         if ranked, let draft {
             draft.apply(to: &config, master: master)
         }
@@ -367,8 +367,8 @@ private struct MatchModeStep: View {
         let r = app.profile.rank
         let diffs = RankService.botDifficulty(for: r)
         return VStack(alignment: .leading, spacing: 8) {
-            cardHeader(symbol: "crown.fill", tint: Theme.gold, title: L("ランク戦", "Ranked"), subtitle: L("BAN あり · 対AI", "Bans · vs AI"))
-            Text(L("BAN とピックのドラフトを経て対戦。勝敗でランクの星が増減します。", "Draft with bans and picks. Wins and losses move your rank stars."))
+            cardHeader(symbol: "crown.fill", tint: Theme.gold, title: L("ランク戦", "Ranked"), subtitle: L("ドラフト · 対AI", "Draft · vs AI"))
+            Text(L("ピックのドラフトを経て対戦。勝敗でランクの星が増減します。", "Draft your picks, then battle. Wins and losses move your rank stars."))
                 .font(Theme.body(12))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -597,7 +597,7 @@ private struct LineupRow: View {
             HeroPortraitView(heroID: slot.heroID, size: 36)
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 4) {
-                    Text(human ? slot.displayName : (app.master.hero(slot.heroID).map { MasterText.hero($0) } ?? slot.heroID))
+                    Text(human ? PlayerNameRules.shown(slot.displayName) : (app.master.hero(slot.heroID).map { MasterText.hero($0) } ?? slot.heroID))
                         .font(Theme.heading(12))
                         .foregroundStyle(human ? Theme.gold : Theme.textPrimary)
                         .lineLimit(1)

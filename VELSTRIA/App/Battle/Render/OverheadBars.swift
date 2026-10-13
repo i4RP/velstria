@@ -284,6 +284,9 @@ final class OverheadBar {
     /// 観戦者が大きく引いた時に上限を広げる倍率（BattleWorld がカメラの実際の倍率から毎フレーム設定する。
     /// プレイヤーの倍率範囲では 1 で従来どおり）。
     static var zoomScale: Float = 1
+    /// 演出のカメラ（Star Core の終幕の低い視点・引きの構図）の間は隠す（画面に平行な板はゲームカメラの向き専用）。
+    /// BattleRenderer が毎フレーム設定し、試合を出る時に戻す。
+    static var cinematicHidden = false
     private var screenScale: Float = 1
 
     /// カメラの倍率 → 上限の広げ方。引くほどバーも少しずつ小さく見えるよう、倍率の平方根で広げる
@@ -301,7 +304,8 @@ final class OverheadBar {
     /// 画面上の大きさを一定に保つ（カメラからの距離に比例して拡縮。手前の構造物のバーが巨大化しない）。
     func keepScreenSize(camera: SIMD3<Float>) {
         let world = (root.parent?.position ?? .zero) + root.position
-        let s = OverheadBar.screenScale(distance: simd_distance(world, camera), zoomScale: OverheadBar.zoomScale)
+        let s = OverheadBar.cinematicHidden ? 0.0001
+            : OverheadBar.screenScale(distance: simd_distance(world, camera), zoomScale: OverheadBar.zoomScale)
         guard abs(s - screenScale) > 0.01 else { return }
         screenScale = s
         root.scale = SIMD3(repeating: s)

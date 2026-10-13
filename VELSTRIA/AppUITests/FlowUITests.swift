@@ -101,7 +101,7 @@ final class FlowUITests: XCTestCase {
         snap("flow_01_mode")
         tap(app, "flow_mode_standard")
 
-        tap(app, "flow_hero_H003")
+        tap(app, "flow_hero_H027")
         snap("flow_02_hero")
         tap(app, "flow_spell_0")
         XCTAssertTrue(element(app, "flow_spellpick_BS07").waitForExistence(timeout: 5))
@@ -139,7 +139,7 @@ final class FlowUITests: XCTestCase {
         XCTAssertTrue(element(app, "home_play").waitForExistence(timeout: 10))
     }
 
-    /// ドラフトの AI 選択を固定するシード（H010 を BAN した後の AI の BAN に H003 が含まれない。FlowDraftTests で検証）。
+    /// ドラフトの AI 選択を固定するシード。
     static let draftSeed = "20261001"
 
     func testRankedDraft() {
@@ -147,20 +147,9 @@ final class FlowUITests: XCTestCase {
         tap(app, "home_play", timeout: 15)
         tap(app, "flow_mode_ranked")
 
-        // プレイヤーの BAN（未所持ヒーローも BAN できる）
+        // BAN は無く、最初からプレイヤーのピック（B1）
         XCTAssertTrue(element(app, "flow_draft_timer").waitForExistence(timeout: 10))
-        tap(app, "flow_hero_H010")
-        snap("draft_01_ban")
-        tap(app, "flow_lock")
-
-        // AI の BAN 3 回の後、プレイヤーのピック（B1）
-        sleep(1)
-        XCTAssertTrue(element(app, "flow_draft_timer").waitForExistence(timeout: 20))
-        // 未所持ヒーローはピックできず、全画面の対戦フロー上でもトーストで理由が見える
-        tap(app, "flow_hero_H007")
-        XCTAssertTrue(element(app, "toast").waitForExistence(timeout: 3), "対戦フロー内のトーストが表示されない")
-        snap("draft_02a_toast")
-        tap(app, "flow_hero_H003")
+        tap(app, "flow_hero_H027")
         snap("draft_02_pick")
         tap(app, "flow_lock")
 
@@ -211,7 +200,7 @@ final class FlowUITests: XCTestCase {
         XCTAssertTrue(element(app, "flow_mode_standard").waitForExistence(timeout: 5))
         snap("en_mode")
         tap(app, "flow_mode_standard")
-        tap(app, "flow_hero_H001")
+        tap(app, "flow_hero_H025")
         snap("en_hero")
         tap(app, "flow_next")
         XCTAssertTrue(element(app, "flow_confirm").waitForExistence(timeout: 5))

@@ -633,6 +633,8 @@ final class ProjectileLayer {
         for k in state.projectiles.indices {
             let p = state.projectiles[k]
             if p.done { continue }
+            // 試合終了で sim が止まると弾は宙で止まる（終幕の低い視点では平らな円盤に見える）ので描かない
+            if f.ended { continue }
             // 視点チームから見えない位置の敵弾は描かない
             if let viewer = f.viewerTeam, p.team != viewer, !state.vision.isLit(p.pos, for: viewer) {
                 if let v = active.removeValue(forKey: p.id) { detach(v) }
@@ -650,7 +652,8 @@ final class ProjectileLayer {
                 v.launchOffset = .zero
                 let owner = state.unit(p.ownerID)
                 if let owner, owner.isStructure {
-                    v.startHeight = owner.kind == .core ? 3.6 : 4.9
+                    // 塔・Core の結晶の高さ（StructureVisual.muzzleHeight）
+                    v.startHeight = heightOf(owner.id)
                 } else {
                     v.startHeight = owner.map { heightOf($0.id) * 0.6 } ?? 1
                     // ヒーローの追尾弾は武器の先端・弓・手から出す（高さと水平のずれ。ずれは残り距離に比例して消す）

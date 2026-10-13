@@ -104,11 +104,11 @@ public enum MovementSystem {
         s.emit(.displaced(unitID: s.units[i].id, kind: .knockback, from: from, to: to, duration: d.duration))
     }
 
-    /// 瞬間移動（障害物の手前で止まる）。戻り値 = 実際の到達点。
+    /// 瞬間移動（壁を越えられる。着地点が壁の中なら手前へ戻る）。戻り値 = 実際の到達点。
     @discardableResult
     public static func blink(_ s: inout SimState, _ ctx: SimContext, unitIndex i: Int, to target: Vec2) -> Vec2 {
         let from = s.units[i].pos
-        let to = ctx.nav.raycast(from: from, to: target, radius: s.units[i].radius)
+        let to = ctx.nav.blinkLanding(from: from, to: target, radius: s.units[i].radius)
         s.units[i].pos = to
         s.units[i].prevPos = to
         s.units[i].displacement = nil

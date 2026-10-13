@@ -1,5 +1,5 @@
 {
-  "notes": "タワー・本拠地のクリスタル・ミニオンの生成 3D モデルの仕様。concept は Codex（ChatGPT ログインの画像生成）で作り、model は Tripo（P1）か Meshy（smart-topology meshy-t2）で作る。画像・GLB は build/structures/<id>/（git 管理外）。チーム色は青チームの配色で作り、赤チームは bake の色相の付け替え（青〜紫 → 赤〜マゼンタ）で別テクスチャにする（メッシュは 1 つ）。",
+  "notes": "タワー・本拠地のクリスタル・ミニオンの生成 3D モデルの仕様。concept は Codex（ChatGPT ログインの画像生成）で作り、model は Tripo（P1）か Meshy（smart-topology meshy-t2）で作る。画像・GLB は build/structures/<id>/（git 管理外）。チーム色は青チームの配色で作り、赤チームは bake の色相の付け替え（青〜紫 → 赤〜マゼンタ）で別テクスチャにする（メッシュは 1 つ）。塔の再デザイン（tower_outer / tower_inner / tower_base / star_core）は採用済みのマスター画像（conceptSource、tools/structures/redesign.mjs で作成）から Tripo で作り、tools/structures/tower_parts.py で部品（part_plinth〜part_crystal）に分ける（parts。cuts・rules の高さは正規化後の m）。旧 tower / tower_orb / core_base / core_crystal はそのまま残す（読み込めない時の代替）。塔の再デザインの yaw -90 は、Tripo の GLB でマスター画像の視点が +X 側に来るのを、ゲームのカメラ側（南 = USD +Z）へ向けるため。",
   "style": "Single 3D game asset concept render for a stylized fantasy x sci-fi mobile MOBA (Mobile Legends: Bang Bang / Honor of Kings art direction): hand-painted stylized PBR textures, chunky readable silhouette, clean bevelled shapes, polished gold/brass metal combined with deep navy-blue enamel armor plates, and glowing cyan-blue crystal energy as the accent color (the team color). Show exactly ONE object, whole and uncropped, centered, three-quarter view from slightly above (about 30 degrees), isolated on a plain flat light-grey (#d8d8d8) background, evenly lit, no ground plane, no cast shadow on the background, no other objects, no particles, no text, no frame. Original design (do not copy any existing game asset).",
   "styleReference": "/Users/i4rp/gh2/vel-refs/mlbb_tower.jpg",
   "assets": [
@@ -85,6 +85,201 @@
         "yaw": 135
       },
       "prompt": "a small siege cannon war machine minion: a compact four-wheeled cart built of dark wood and brass with navy-blue armored side plates and gold trim, one big brass cannon barrel on top pointing forward, a glowing cyan crystal power core mounted on the back, four chunky round wheels. Seen from the front-left three-quarter view so the cannon points toward the lower left."
+    },
+    {
+      "id": "tower_outer",
+      "use": "外塔（1 番目のタワー）。部品に分けて書き出す（part_plinth / part_lower / part_upper / part_crown / part_crystal）",
+      "provider": "tripo",
+      "faces": 5200,
+      "conceptSource": "build/tower_redesign/outer_blue.png",
+      "size": {
+        "height": 5.4,
+        "maxRadius": 1.9,
+        "yaw": -90
+      },
+      "prompt": "Approved master design (build/tower_redesign/, tools/structures/redesign.json): ancient grey-green granite ruins with moss, dark aged bronze fittings, team-color crystal and rune channels as the only glowing parts. OUTER lane tower: square 2-step plinth with four corner posts, slim tapered square pillar with two bronze bands and rune channels, four curved stone fangs cradling a floating crystal, one banner.",
+      "budget": 6000,
+      "parts": {
+        "notes": "高さは正規化後の m。台座の上面 0.75 の少し上（竪穴の中の支柱だけ切る）、下の帯（1.45〜1.7）と旗（2.0〜）の間、上の帯（〜3.85）の上",
+        "faces": 4700,
+        "cuts": [
+          {
+            "z": 0.8,
+            "radius": 0.9,
+            "shaft": true
+          },
+          {
+            "z": 1.95
+          },
+          {
+            "z": 3.9
+          }
+        ],
+        "rules": [
+          {
+            "part": "part_crystal",
+            "minGlow": 0.6,
+            "minZ": 4.0,
+            "maxRadius": 0.4
+          },
+          {
+            "part": "part_crown",
+            "minZ": 3.9
+          },
+          {
+            "part": "part_upper",
+            "minZ": 1.95
+          },
+          {
+            "part": "part_lower",
+            "minZ": 0.8,
+            "maxRadius": 0.9
+          },
+          {
+            "part": "part_plinth"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tower_inner",
+      "use": "内塔（2 番目）。部品に分けて書き出す",
+      "provider": "tripo",
+      "faces": 5200,
+      "conceptSource": "build/tower_redesign/inner_blue.png",
+      "size": {
+        "height": 5.2,
+        "maxRadius": 2.1,
+        "yaw": -90
+      },
+      "prompt": "Approved master design (build/tower_redesign/, tools/structures/redesign.json): ancient grey-green granite ruins with moss, dark aged bronze fittings, team-color crystal and rune channels as the only glowing parts. INNER lane tower: octagonal 3-step plinth, thick octagonal pillar, two curved buttress arches with banners, a broken stone halo ring on bronze arms holding a crystal cluster.",
+      "budget": 6000,
+      "parts": {
+        "notes": "八角の台座が広いので maxRadius で足跡を抑える（高さ約 4.57 m）。控え壁の弧・旗・鎖・弧の金具は台座側に残す（radius 1.0 の外は切らない。高さ 2.52 m より下で中心から 0.69 m より外の塊は台座）",
+        "cuts": [
+          {
+            "z": 2.1,
+            "radius": 1.0
+          },
+          {
+            "z": 3.25
+          }
+        ],
+        "rules": [
+          {
+            "part": "part_crystal",
+            "minGlow": 0.6,
+            "minZ": 3.3,
+            "maxRadius": 0.6
+          },
+          {
+            "part": "part_crown",
+            "minZ": 3.25
+          },
+          {
+            "part": "part_plinth",
+            "maxZ": 2.52,
+            "minRadius": 0.69
+          },
+          {
+            "part": "part_upper",
+            "minZ": 2.1,
+            "maxRadius": 1.0
+          },
+          {
+            "part": "part_lower",
+            "minZ": 0.9,
+            "maxRadius": 1.0
+          },
+          {
+            "part": "part_plinth"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tower_base",
+      "use": "基地塔（3 番目）。部品に分けて書き出す",
+      "provider": "tripo",
+      "faces": 5200,
+      "conceptSource": "build/tower_redesign/base_blue.png",
+      "size": {
+        "height": 5.4,
+        "maxRadius": 2.4,
+        "yaw": -90
+      },
+      "prompt": "Approved master design (build/tower_redesign/, tools/structures/redesign.json): ancient grey-green granite ruins with moss, dark aged bronze fittings, team-color crystal and rune channels as the only glowing parts. BASE tower: wide square 3-step plinth, massive keep with four corner columns, crenellated parapet with four bronze spires around a large floating crystal and small shards, two banners.",
+      "budget": 6000,
+      "parts": {
+        "notes": "台座が最も広いので maxRadius で足跡を抑える（高さ約 4.66 m）。壁・角柱・胸壁は別の殻なので切るのは柱の中ほどだけ。天守の中は空洞で内側の面が無い壁もあるので、切り口は全体の凸包でも塞ぐ（hull）",
+        "cuts": [
+          {
+            "z": 2.0,
+            "hull": true
+          }
+        ],
+        "rules": [
+          {
+            "part": "part_crystal",
+            "minGlow": 0.6,
+            "minZ": 3.3,
+            "maxRadius": 0.8
+          },
+          {
+            "part": "part_crown",
+            "minZ": 3.2
+          },
+          {
+            "part": "part_upper",
+            "minZ": 2.0
+          },
+          {
+            "part": "part_lower",
+            "minZ": 0.55
+          },
+          {
+            "part": "part_plinth"
+          }
+        ]
+      }
+    },
+    {
+      "id": "star_core",
+      "use": "Star Core（本拠地）。部品に分けて書き出す（part_plinth = 聖域の台座と祭壇、part_upper = 石柱・弧・輪、part_crystal = 大結晶）",
+      "provider": "tripo",
+      "faces": 7800,
+      "conceptSource": "build/tower_redesign/core_blue.png",
+      "size": {
+        "diameter": 7.0,
+        "yaw": -90
+      },
+      "prompt": "Approved master design (build/tower_redesign/, tools/structures/redesign.json): ancient grey-green granite ruins with moss, dark aged bronze fittings, team-color crystal and rune channels as the only glowing parts. STAR CORE: wide round 3-step sanctuary platform with four stairways and glowing rune circles, six monoliths with small crystals and banners, a central altar socket, two broken stone arches and a bronze ring around a giant floating crystal cluster.",
+      "budget": 8500,
+      "parts": {
+        "notes": "殻が分かれているので切らない。上端 1.5 m 以上（石柱・弧・輪）と弧の根元の金具（重心 1.1 m 以上、中心から 1.2〜1.9 m）が part_upper、中央の光る塊が part_crystal、残り（台座・祭壇・弧の台石）が part_plinth",
+        "cuts": [],
+        "rules": [
+          {
+            "part": "part_crystal",
+            "minGlow": 0.6,
+            "minZ": 1.0,
+            "maxRadius": 1.0
+          },
+          {
+            "part": "part_upper",
+            "minTop": 1.5
+          },
+          {
+            "part": "part_upper",
+            "minZ": 1.1,
+            "minRadius": 1.2,
+            "maxRadius": 1.9
+          },
+          {
+            "part": "part_plinth"
+          }
+        ]
+      }
     }
   ]
 }

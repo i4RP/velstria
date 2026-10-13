@@ -9,7 +9,8 @@ import VelstriaCore
 // （規約同意・年齢区分の省略）・-heroGallery などの隠し機能はバイナリに含まれない（ガイドライン 2.3.1）。
 //
 //   -uiTesting            一時ディレクトリの新規プロフィールで起動（実データに触れない）
-//   -skipOnboarding       オンボーディング完了済みにする
+//   -skipOnboarding       オンボーディング完了済みにする（オンラインのルールにも同意済みにする）
+//   -onlineRulesPending   -skipOnboarding でもオンラインのルールは未同意のまま（同意の画面の確認用）
 //   -grant                Coin 100000 / Gem 10000 を付与し全ヒーロー解放
 //   -route <name>         起動後に画面へ直行（例: heroes, heroDetail:H003, store, settings）
 //   -battle <mode>        起動後に戦闘開始（standard / ranked / practice / tutorial / spectate / replay）
@@ -22,6 +23,8 @@ import VelstriaCore
 //   -sampleReplays        リプレイ一覧の確認用に見本のリプレイを保存する（AI 観戦・自分の試合・乱闘・別バージョン）
 //   -practiceNoCD / -practiceLevel <n>  -battle practice の設定（クールダウン無し / 開始レベル）
 //   -efkAuto <atk|s1|s2|ult>  -battle practice で、人形へ近づいて 2 秒ごとに通常攻撃 / スキルを撃ち続ける（Effekseer の確認用）
+//   -coreFinaleDemo <red|blue>  幕が上がって 2 秒後にその Core を数秒で壊させ、Star Core の終幕を流す（BattleRenderer。
+//                         -battle spectate、または -battle standard -botControl と併せる。sim の規則は変えず状態を置き換えるだけ）
 //   -hero <heroID>        -battle で自分が使うヒーロー（省略時は最後に選んだヒーロー、無ければ H003）
 //   -language <ja|en>     表示言語
 //   -graphics <low|medium|high>  画質
@@ -79,6 +82,8 @@ enum DebugLaunch {
             p.acceptedTermsVersion = FeatureFlags.currentTermsVersion
             p.ageBracket = p.ageBracket ?? .adult
             if p.displayName.isEmpty { p.displayName = "Tester" }
+            // オンラインのルールにも同意済みにする（-onlineRulesPending なら同意の画面を確かめられるよう未同意のまま）
+            if !args.contains("-onlineRulesPending") { p.acceptedOnlineRulesVersion = FeatureFlags.currentOnlineRulesVersion }
         }
         if args.contains("-grant") {
             p.starlightCoin = max(p.starlightCoin, 100_000)
@@ -239,11 +244,11 @@ enum DebugLaunch {
         case "rankRewards": return .rankRewards
         case "accountLink": return .accountLink
         case "heroes": return .heroes
-        case "heroDetail": return .heroDetail(arg.isEmpty ? "H001" : arg)
+        case "heroDetail": return .heroDetail(arg.isEmpty ? HeroRoster.defaultHeroID : arg)
         case "skillDetail": return .skillDetail(arg.isEmpty ? "SK001_2" : arg)
         case "items": return .items
         case "itemDetail": return .itemDetail(arg.isEmpty ? "EQ101" : arg)
-        case "buildEditor": return .buildEditor(arg.isEmpty ? "H001" : arg)
+        case "buildEditor": return .buildEditor(arg.isEmpty ? HeroRoster.defaultHeroID : arg)
         case "runes": return .runes
         case "spells": return .spells
         case "store": return .store

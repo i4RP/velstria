@@ -220,7 +220,7 @@ final class SkillShowcaseTests: XCTestCase {
     }
 
     func testTagsForEverySkillAreValid() {
-        for hero in master.heroes {
+        for hero in master.allHeroes {
             for skill in master.skills(forHero: hero.heroID) {
                 let tags = SkillTags.tags(for: skill, hero: hero, master: master)
                 XCTAssertFalse(tags.isEmpty, skill.skillID)
@@ -300,7 +300,7 @@ final class SkillShowcaseTests: XCTestCase {
     func testRatingsForEveryHeroAreInUnitRange() {
         var bestSurvivability = -Double.infinity
         var bestHero = ""
-        for hero in master.heroes {
+        for hero in master.allHeroes {
             let r = HeroRatingMath.ratings(for: hero, master: master)
             for v in [r.survivability, r.offense, r.control, r.difficulty] {
                 XCTAssertTrue((0...1).contains(v), "\(hero.heroID) \(v)")
@@ -319,7 +319,7 @@ final class SkillShowcaseTests: XCTestCase {
         let best = master.hero(bestHero).map { HeroRatingMath.ratings(for: $0, master: master) }
         XCTAssertEqual(best?.survivability ?? 0, 1, accuracy: 1e-9)
         // 誰かには CC がある（コントロール効果の最大は 1）
-        let controls = master.heroes.map { HeroRatingMath.ratings(for: $0, master: master).control }
+        let controls = master.allHeroes.map { HeroRatingMath.ratings(for: $0, master: master).control }
         XCTAssertEqual(controls.max() ?? 0, 1, accuracy: 1e-9)
     }
 
@@ -358,7 +358,7 @@ final class SkillShowcaseTests: XCTestCase {
 
     func testLevelTableHealingUltimateListsHealAndShield() throws {
         // 味方全体回復（サポートのアルティメット）は回復量とシールド量の行を持つ
-        let support = try XCTUnwrap(master.heroes.first { $0.role == .support && !HeroKits.hasKit($0.heroID) })
+        let support = try XCTUnwrap(master.allHeroes.first { $0.role == .support && !HeroKits.hasKit($0.heroID) })
         let ult = try skill(support.heroID, .ultimate)
         let table = SkillLevelTable.build(skill: ult, hero: support)
         XCTAssertTrue(table.rows.contains { $0.kind == .figure(.heal) })
@@ -371,7 +371,7 @@ final class SkillShowcaseTests: XCTestCase {
         XCTAssertFalse(SkillLevelTable.costsVary([40, 40, 40]))
         XCTAssertTrue(SkillLevelTable.costsVary([40, 45, 50]))
         // キットの無いヒーローのコストはこれまでどおり一定
-        for hero in master.heroes where !HeroKits.hasKit(hero.heroID) {
+        for hero in master.allHeroes where !HeroKits.hasKit(hero.heroID) {
             for skill in master.skills(forHero: hero.heroID) where skill.slot != .passive {
                 for rank in SkillMath.ranks(for: skill.slot) {
                     XCTAssertEqual(SkillMath.cost(skill, hero: hero, rank: rank), SkillMath.cost(skill, resource: hero.resource),
@@ -382,7 +382,7 @@ final class SkillShowcaseTests: XCTestCase {
     }
 
     func testLevelTableColumnsMatchForEverySkill() {
-        for hero in master.heroes {
+        for hero in master.allHeroes {
             for skill in master.skills(forHero: hero.heroID) {
                 let table = SkillLevelTable.build(skill: skill, hero: hero)
                 XCTAssertEqual(table.ranks, SkillMath.ranks(for: skill.slot), skill.skillID)

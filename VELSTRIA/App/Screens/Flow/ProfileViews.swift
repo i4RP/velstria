@@ -97,7 +97,7 @@ struct ProfileView: View {
                     infoRow("person.text.rectangle", "ID", shortID(p.playerID))
                     infoRow("calendar", L("開始日", "Since"), FlowText.date(p.createdAt, time: false))
                     infoRow("sun.max", L("ログイン日数", "Login days"), "\(p.totalLoginDays)")
-                    infoRow("person.3", L("所持ヒーロー", "Heroes owned"), "\(p.ownedHeroIDs.count) / \(app.master.heroes.count)")
+                    infoRow("person.3", L("所持ヒーロー", "Heroes owned"), "\(p.ownedHeroIDs.filter(HeroRoster.isActive).count) / \(app.master.heroes.count)")
                 }
                 .padding(10)
                 .glass(cornerRadius: 12)
@@ -284,6 +284,13 @@ private struct NameEditOverlay: View {
                     Text(PlayerNameRules.message(issue)).font(Theme.body(12)).foregroundStyle(Theme.danger)
                 }
                 HStack {
+                    if FeatureFlags.lanMatch {
+                        // 名前はオンラインで他のプレイヤーに見えるので、ルールへのリンクを置く（ガイドライン 1.2）
+                        Link(L("名前のルール", "Name rules"), destination: FeatureFlags.communityGuidelinesURL)
+                            .font(Theme.body(12))
+                            .foregroundStyle(Theme.cyan)
+                            .accessibilityIdentifier("profile_name_guidelines")
+                    }
                     Spacer()
                     Button(L("キャンセル", "Cancel")) { onDone(nil) }
                         .buttonStyle(SecondaryButtonStyle())

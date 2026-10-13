@@ -25,7 +25,7 @@ final class HeroGripTests: XCTestCase {
 
     func testWeaponsStayInHandAcrossBundledHeroes() throws {
         var checked = 0
-        for def in master.heroes {
+        for def in master.allHeroes {
             for (state, t) in [(HeroAnimState.idle, 1.5), (.attack, 0.35), (.cast(.skill1), 0.3)] {
                 guard let s = skinned(def.heroID, state: state, seconds: t) else { continue }
                 let hr = try XCTUnwrap(s.jointPosition(.handR)), hl = try XCTUnwrap(s.jointPosition(.handL))

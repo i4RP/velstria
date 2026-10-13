@@ -58,8 +58,8 @@ struct TutorialTip: Identifiable, Equatable {
 }
 
 enum TutorialCatalog {
-    /// チュートリアルで操作するヒーロー（扱いやすい近接デュエリスト）。
-    static let heroID = "H002"
+    /// チュートリアルで操作するヒーロー（扱いやすい近接デュエリスト。竜槍のジャルド）。
+    static let heroID = "H027"
     /// チュートリアルは毎回同じ展開にする。
     static let seed: UInt64 = 20261001
 

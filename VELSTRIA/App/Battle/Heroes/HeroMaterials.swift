@@ -138,7 +138,8 @@ struct HeroSkinInfo: Equatable {
 enum HeroSkins {
     /// ヒーローの HeroSkin コスメ（ID 昇順）。
     static func skins(for heroID: String, master: MasterData) -> [CosmeticDef] {
-        master.cosmetics.filter { $0.type == .heroSkin && $0.heroID == heroID }
+        // 描画のデータ（非表示のヒーローのスキンも引ける。ストア・コレクションの一覧は master.cosmetics）
+        master.allCosmetics.filter { $0.type == .heroSkin && $0.heroID == heroID }
     }
 
     /// skinID を解決する。未知・他ヒーロー用・スキン以外は既定スキン。

@@ -4,7 +4,7 @@ import XCTest
 /// AI ドラフト（ピック / BAN）と、それを使う MatchFactory。
 final class BotDraftTests: XCTestCase {
     let master = MasterData.shared
-    var allIDs: [String] { master.heroes.map(\.heroID) }
+    var allIDs: [String] { master.allHeroes.map(\.heroID) }
 
     func testPickFitsPositionRoles() {
         for position in LanePosition.allCases {
@@ -19,7 +19,7 @@ final class BotDraftTests: XCTestCase {
 
     func testPickAvoidsDuplicatingAllyRolesWhenAlternativesExist() {
         // 味方にアサシンが 2 人居るなら、ジャングルでもデュエリストを選ぶ
-        let assassins = master.heroes(role: .assassin).map(\.heroID)
+        let assassins = master.allHeroes.filter { $0.role == .assassin }.map(\.heroID)
         var rng = SplitMix64(seed: 3)
         let available = allIDs.filter { !assassins.prefix(2).contains($0) }
         let id = DraftAI.draftPick(available: available, allyPicks: Array(assassins.prefix(2)), enemyPicks: [],
@@ -37,14 +37,9 @@ final class BotDraftTests: XCTestCase {
         XCTAssertTrue(available.contains(x))
     }
 
-    func testBanChoosesAvailableHeroAndEmptyInputReturnsEmpty() {
+    func testEmptyInputReturnsEmpty() {
         var rng = SplitMix64(seed: 7)
-        let picks = ["H003", "H004"]
-        let available = allIDs.filter { !picks.contains($0) }
-        let ban = DraftAI.draftBan(available: available, allyPicks: picks, enemyPicks: [], rng: &rng)
-        XCTAssertTrue(available.contains(ban))
         XCTAssertEqual(DraftAI.draftPick(available: [], allyPicks: [], enemyPicks: [], position: .top, rng: &rng), "")
-        XCTAssertEqual(DraftAI.draftBan(available: [], allyPicks: [], enemyPicks: [], rng: &rng), "")
     }
 
     func testHeroPowerIsRelativeWithinRole() {
@@ -57,7 +52,7 @@ final class BotDraftTests: XCTestCase {
         }
     }
 
-    func testBotMatchDraftsTenUniqueHeroesWithFittingRolesAndSpells() {
+    func testBotMatchDraftsTenUniqueActiveHeroesWithPositionSpells() {
         for seed in UInt64(1)...12 {
             let cfg = MatchFactory.botMatch(difficulty: .hard, seed: seed)
             XCTAssertEqual(cfg.players.count, 10)
@@ -65,7 +60,8 @@ final class BotDraftTests: XCTestCase {
             for p in cfg.players {
                 XCTAssertEqual(p.controller, .bot)
                 XCTAssertEqual(p.botDifficulty, .hard)
-                XCTAssertTrue(MatchFactory.preferredRoles(for: p.position).contains(master.hero(p.heroID)!.role))
+                // 10体の名簿を使い切るドラフトでは適性ロールが残らない枠もある。
+                XCTAssertTrue(HeroRoster.isActive(p.heroID))
                 XCTAssertEqual(p.spells, MatchFactory.defaultSpells(for: p.position))
             }
             XCTAssertTrue(cfg.players.filter { $0.position == .jungle }.allSatisfy { $0.spells.contains("BS05") })
@@ -73,13 +69,11 @@ final class BotDraftTests: XCTestCase {
         XCTAssertEqual(MatchFactory.botMatch(seed: 5), MatchFactory.botMatch(seed: 5))
     }
 
-    func testStandardMatchRespectsHumanAndBans() {
-        let banned = ["H001", "H002", "H005", "H006"]
+    func testStandardMatchRespectsHuman() {
         let cfg = MatchFactory.standardMatch(mode: .ranked, humanHeroID: "H004", humanName: "Me", humanTeam: .red,
-                                             allyDifficulty: .easy, enemyDifficulty: .hard, banned: banned, seed: 77)
+                                             allyDifficulty: .easy, enemyDifficulty: .hard, seed: 77)
         XCTAssertEqual(cfg.players.count, 10)
         XCTAssertEqual(Set(cfg.players.map(\.heroID)).count, 10)
-        XCTAssertTrue(cfg.players.allSatisfy { !banned.contains($0.heroID) })
         let human = cfg.players.filter { $0.controller == .human }
         XCTAssertEqual(human.map(\.heroID), ["H004"])
         XCTAssertEqual(human.first?.team, .red)

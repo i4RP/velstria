@@ -118,7 +118,7 @@ struct RoleFilterBar: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
                 chip(nil, title: L("すべて", "All"), symbol: "square.grid.2x2.fill")
-                ForEach(Role.allCases, id: \.self) { r in
+                ForEach(Role.allCases.filter { r in app.master.heroes.contains { $0.role == r } }, id: \.self) { r in
                     chip(r, title: MasterText.role(r), symbol: Theme.roleSymbol(r))
                 }
             }

@@ -266,8 +266,8 @@ enum HeroFXProfiles {
         "H023": Spec(impact: .electric, shot: .lightning, muzzle: .spark, launch: .weaponTip),
         // M ノア: 紫の夢の糸の細い帯、小さな紫のきらめき
         "H024": Spec(trail: Trails.needle, impact: .sparkle, muzzle: .none, launch: .weaponTip),
-        // H025〜H034 は造形の作り直し（MLBB の既定スキン）に合わせる。H025・H027・H030・H033 は通常攻撃の .efk が旧モデルのままなので
-        // この表で描く（EffekseerRouting.staleAttackHeroes）。他のキットのヒーローも武器の軌跡（近接）はこの表で描く。
+        // H025〜H034 は造形の作り直し（MLBB の既定スキン）に合わせる。通常攻撃の .efk が造形と合わないヒーローは
+        // この表で描く（EffekseerRouting.staleAttackHeroes）。キットのヒーローも武器の軌跡（近接）はこの表で描く。
         // R ルミナ: 副手の三日月の長弓（握り）から月光の水色の矢（光の筋の尾）、柔らかい月光の弾け
         "H025": Spec(impact: .softBurst, shot: .arrow, shotTrail: .streak, muzzle: .bow, launch: .bow),
         // R エウリア: 杖は持たず、右手の上に浮かべた球電（weaponTip = 球の中心）から青紫の電光の光球（光の筋の尾）、電撃

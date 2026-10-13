@@ -10,11 +10,16 @@
 // usage（VELSTRIA/ で実行）:
 //   node tools/structures/structures.mjs balance                       Tripo / Meshy の残高（無料）
 //   node tools/structures/structures.mjs concept <id...|all> [--tag t] Codex の画像生成で build/structures/<id>/concept[_t].png
+//                                                                      （conceptSource がある物 = 塔の再デザインは採用済みのマスター画像を写すだけ）
 //   node tools/structures/structures.mjs select <id> <tag>             concept_<tag>.png を採用版 concept.png にする
 //   node tools/structures/structures.mjs model <id...|all> [--dry-run] [--force] [--max-credits N]
 //                                                                       concept.png から 3D 生成 → build/structures/<id>/model.glb
 //   node tools/structures/structures.mjs bake <id...|all>               Blender（tools/structures/structures_bake.py）で
 //                                                                       App/Resources/Structures/Struct_<id>.usdz と赤チームのテクスチャ
+//                                                                       （parts の仕様がある物は下の parts と同じ）
+//   node tools/structures/structures.mjs parts <id...|all>              塔・Star Core の部品分け（tools/structures/tower_parts.py）:
+//                                                                       part_plinth〜part_crystal の子メッシュの USDZ・赤チームのテクスチャ、
+//                                                                       部品の範囲と三角形数を tools/structures/parts/<id>.json へ
 //   node tools/structures/structures.mjs status
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -29,6 +34,8 @@ const STATE_PATH = path.join(ROOT, "tools", "structures", "state.json");
 const BUILD = path.join(ROOT, "build", "structures");
 const RES = path.join(ROOT, "App", "Resources", "Structures");
 const BAKE = path.join(ROOT, "tools", "structures", "structures_bake.py");
+const PARTS = path.join(ROOT, "tools", "structures", "tower_parts.py");
+const PARTS_JSON = path.join(ROOT, "tools", "structures", "parts");
 const BLENDER = process.env.BLENDER || "/Applications/Blender.app/Contents/MacOS/Blender";
 const CODEX_MODEL = process.env.STRUCT_CODEX_MODEL || "gpt-6-astra";
 const CODEX_SLOTS = Number(process.env.STRUCT_CODEX_SLOTS || 4);
@@ -130,6 +137,14 @@ async function concept(s, a, tag) {
   const dir = dirOf(a.id);
   fs.mkdirSync(dir, { recursive: true });
   const out = path.join(dir, tag ? `concept_${tag}.png` : "concept.png");
+  // 採用済みのマスター画像がある物（塔の再デザイン）は作り直さず写すだけ
+  if (a.conceptSource) {
+    const src = path.resolve(ROOT, a.conceptSource);
+    if (!fs.existsSync(src)) { console.error(`${a.id}: ${a.conceptSource} がありません`); return null; }
+    fs.copyFileSync(src, out);
+    log(`${a.id}: ${a.conceptSource} → ${path.relative(ROOT, out)}`);
+    return out;
+  }
   const ref = a.useStyleReference && s.styleReference && fs.existsSync(s.styleReference) ? s.styleReference : null;
   const instruction =
     "Use your built-in image generation tool to create exactly ONE image from the prompt below"
@@ -270,6 +285,7 @@ async function model(a, state, o) {
 // MARK: - bake
 
 function bake(a) {
+  if (a.parts) return bakeParts(a);
   const glb = path.join(dirOf(a.id), "model.glb");
   if (!fs.existsSync(glb)) { log(`${a.id}: model.glb がありません`); return false; }
   fs.mkdirSync(RES, { recursive: true });
@@ -279,6 +295,23 @@ function bake(a) {
   const out = (r.stdout || "") + (r.stderr || "");
   const lines = out.split("\n").filter((l) => l.startsWith("[bake]") || /Error|Traceback/.test(l));
   for (const l of lines) log(l);
+  if (r.status !== 0) { log(out.slice(-3000)); return false; }
+  return true;
+}
+
+// 塔・Star Core: 部品（part_plinth / part_lower / part_upper / part_crown / part_crystal）に分けて書き出す
+function bakeParts(a) {
+  const glb = path.join(dirOf(a.id), "model.glb");
+  if (!fs.existsSync(glb)) { log(`${a.id}: model.glb がありません`); return false; }
+  if (!a.parts) { log(`${a.id}: parts の仕様がありません`); return false; }
+  fs.mkdirSync(RES, { recursive: true });
+  fs.mkdirSync(PARTS_JSON, { recursive: true });
+  const r = spawnSync(BLENDER, ["-b", "--factory-startup", "-noaudio", "--python", PARTS, "--",
+    "--id", a.id, "--glb", glb, "--out", RES, "--work", dirOf(a.id), "--faces", String(a.faces),
+    "--budget", String(a.budget ?? 6000), "--size", JSON.stringify(a.size), "--parts", JSON.stringify(a.parts),
+    "--json", path.join(PARTS_JSON, `${a.id}.json`)], { encoding: "utf8", maxBuffer: 64 << 20 });
+  const out = (r.stdout || "") + (r.stderr || "");
+  for (const l of out.split("\n").filter((l) => l.startsWith("[parts]") || /Error|Traceback/.test(l))) log(l);
   if (r.status !== 0) { log(out.slice(-3000)); return false; }
   return true;
 }
@@ -317,6 +350,7 @@ async function main() {
       return;
     }
     case "bake": { const ok = pick(s, ids).map(bake); process.exitCode = ok.every(Boolean) ? 0 : 1; return; }
+    case "parts": { const ok = pick(s, ids).filter((a) => a.parts).map(bakeParts); process.exitCode = ok.length && ok.every(Boolean) ? 0 : 1; return; }
     case "status": {
       const state = loadState();
       for (const a of s.assets) {
@@ -329,7 +363,7 @@ async function main() {
       return;
     }
     default:
-      log(fs.readFileSync(fileURLToPath(import.meta.url), "utf8").split("\n").slice(1, 20).join("\n"));
+      log(fs.readFileSync(fileURLToPath(import.meta.url), "utf8").split("\n").slice(1, 23).join("\n"));
   }
 }
 
