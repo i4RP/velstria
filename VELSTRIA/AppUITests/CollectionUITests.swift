@@ -205,31 +205,34 @@ final class CollectionUITests: XCTestCase {
         XCTAssertTrue(buy.waitForExistence(timeout: 5))
     }
 
-    func testRunePageNameIsRestoredWhenCleared() {
-        let app = launch(route: "runes")
-        let field = element(app, "rune_page_name")
-        XCTAssertTrue(field.waitForExistence(timeout: 10))
-        field.tap()
-        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 12))
-        XCTAssertNotEqual(field.value as? String, "ページ1", "名前が消去されていない")
-        // 空のままページを追加して切り替えても、元のページ名は既定名に戻る
-        element(app, "rune_page_add").tap()
-        let first = element(app, "rune_page_0")
-        XCTAssertTrue(first.waitForExistence(timeout: 5))
-        XCTAssertTrue(first.label.hasPrefix("ページ1"), first.label)
-    }
-
-    func testRunePageEditing() {
-        let app = launch(route: "runes")
-        let arcana = element(app, "rune_path_Arcana")
-        XCTAssertTrue(arcana.waitForExistence(timeout: 10))
-        arcana.tap()
-        element(app, "rune_RN27").tap()
-        snapshot(app, "runes_arcana")
-        element(app, "rune_page_add").tap()
-        XCTAssertTrue(element(app, "rune_page_1").waitForExistence(timeout: 5))
-        XCTAssertTrue(element(app, "rune_page_activate").exists)
-        snapshot(app, "runes_second_page")
+    /// エンブレム: タブでセットを切り替え、天賦の枠から別の天賦を装備し、一括設定でヒーローに付ける。
+    func testEmblemTalentPickAndBulkApply() {
+        let app = launch(route: "emblems")
+        let tank = element(app, "emblem_tab_EM_TANK")
+        XCTAssertTrue(tank.waitForExistence(timeout: 10))
+        tank.tap()
+        element(app, "emblem_slot_3").tap()
+        let finder = element(app, "emblem_talent_TL_WEAKNESS_FINDER")
+        XCTAssertTrue(finder.waitForExistence(timeout: 5))
+        finder.tap()
+        let equip = element(app, "emblem_equip")
+        XCTAssertTrue(equip.waitForExistence(timeout: 5))
+        equip.tap()
+        XCTAssertTrue(element(app, "emblem_equipped").waitForExistence(timeout: 5), "装備すると「装備中」になる")
+        snapshot(app, "emblem_picker_core")
+        element(app, "emblem_picker_back").tap()
+        element(app, "emblem_detail").tap()
+        XCTAssertTrue(element(app, "emblem_detail_close").waitForExistence(timeout: 5))
+        snapshot(app, "emblem_detail")
+        element(app, "emblem_detail_close").tap()
+        element(app, "emblem_bulk").tap()
+        let all = element(app, "emblem_bulk_all")
+        XCTAssertTrue(all.waitForExistence(timeout: 5))
+        element(app, "emblem_bulk_filter_support").tap()
+        all.tap()
+        snapshot(app, "emblem_bulk")
+        element(app, "emblem_bulk_ok").tap()
+        XCTAssertTrue(tank.waitForExistence(timeout: 5))
     }
 
     func testSpellLoadoutAssignment() {

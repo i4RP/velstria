@@ -75,7 +75,9 @@ enum OnlinePeerRole: String, Codable, Hashable {
 struct OnlineLoadout: Codable, Hashable {
     var heroID: String?
     var spells: [String] = ["BS01", "BS03"]
-    var runes: [String] = []
+    /// エンブレム（nil = 選んだバトルプランのエンブレム）。旧版のロビーには無いので任意（旧版の runes は読まない。
+    /// 版数の違うクライアントは OnlineHello の simVersion で弾かれる）。
+    var emblem: EmblemLoadout?
     var skinID: String?
     var autoLevelSkills = true
     /// 選んだバトルプランの添字（nil = 「有効」のプラン）。旧版のロビーには無いので任意。
@@ -189,7 +191,7 @@ struct OnlineRoom: Codable, Hashable {
             guard let hero = s.loadout.heroID else { return nil }
             return OnlineHumanSlot(team: s.team, position: s.position, heroID: hero,
                                    displayName: s.name.isEmpty ? L("プレイヤー", "Player") : s.name,
-                                   spells: s.loadout.spells, runes: s.loadout.runes, skinID: s.loadout.skinID,
+                                   spells: s.loadout.spells, emblem: s.loadout.emblem, skinID: s.loadout.skinID,
                                    autoLevelSkills: s.loadout.autoLevelSkills, buildPlan: s.loadout.buildPlan)
         }
         return MatchFactory.onlineMatch(humans: humans, botDifficulty: botDifficulty, seed: seed, master: master)

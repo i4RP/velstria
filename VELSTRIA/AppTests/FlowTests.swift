@@ -240,14 +240,17 @@ final class FlowMatchModelTests: XCTestCase {
         XCTAssertEqual(m2.difficulty, .hard)
     }
 
-    func testRuneIDsFromSelectedPage() {
+    func testEmblemFromBulkApplyOrBattlePlan() {
         var p = profile()
-        p.runePages = [RunePage(name: "A", primaryPath: .valor, runeIDs: ["RN01", "", "RN11"])]
+        p.lastPickedHeroID = "H027"
         let m = MatchFlowModel(seed: 1)
         m.configure(profile: p, master: .shared)
-        XCTAssertEqual(m.runeIDs(profile: p), ["RN01", "RN11"])
-        m.runePageIndex = nil
-        XCTAssertEqual(m.runeIDs(profile: p), [])
+        // 一括設定が無ければ「有効」のバトルプランのエンブレム（Lv60）
+        XCTAssertEqual(m.emblem(profile: p, master: .shared), ItemSystem.plan(heroID: "H027", chosen: nil)?.emblem)
+        let tank = EmblemCatalog.defaultLoadout(set: .tank)
+        EmblemMath.apply(set: .tank, to: ["H027"], profile: &p)
+        XCTAssertEqual(m.emblem(profile: p, master: .shared), tank)
+        XCTAssertEqual(m.buildConfig(profile: p, master: .shared)?.humanSlot?.emblem, tank)
     }
 }
 

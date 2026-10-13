@@ -9,21 +9,22 @@ public struct OnlineHumanSlot: Codable, Hashable, Sendable {
     public var heroID: String
     public var displayName: String
     public var spells: [String]?
-    public var runes: [String]
+    /// エンブレム（nil = 選んだバトルプランのエンブレム。旧版のロビーには無いので任意）。
+    public var emblem: EmblemLoadout?
     public var skinID: String?
     public var autoLevelSkills: Bool
     /// 選んだバトルプランの添字（nil = 「有効」のプラン。旧版のロビーには無いので任意）。
     public var buildPlan: Int?
 
     public init(team: Team, position: LanePosition, heroID: String, displayName: String,
-                spells: [String]? = nil, runes: [String] = [], skinID: String? = nil, autoLevelSkills: Bool = true,
+                spells: [String]? = nil, emblem: EmblemLoadout? = nil, skinID: String? = nil, autoLevelSkills: Bool = true,
                 buildPlan: Int? = nil) {
         self.team = team
         self.position = position
         self.heroID = heroID
         self.displayName = displayName
         self.spells = spells
-        self.runes = runes
+        self.emblem = emblem
         self.skinID = skinID
         self.autoLevelSkills = autoLevelSkills
         self.buildPlan = buildPlan
@@ -65,7 +66,8 @@ extension MatchFactory {
             for pos in LanePosition.allCases {
                 if let h = bySeat[onlineSeatIndex(team: team, position: pos)] {
                     players.append(PlayerSlot(team: team, heroID: h.heroID, controller: .human, position: pos,
-                                              spells: h.spells ?? defaultSpells(for: pos), runes: h.runes,
+                                              spells: h.spells ?? defaultSpells(for: pos),
+                                              emblem: h.emblem ?? humanDefaultEmblem(h.heroID, plan: h.buildPlan, master: master),
                                               skinID: h.skinID, displayName: h.displayName,
                                               autoLevelSkills: h.autoLevelSkills, buildPlan: h.buildPlan))
                     continue
@@ -74,7 +76,7 @@ extension MatchFactory {
                 picks[team.rawValue][pos.rawValue] = heroID
                 let name = master.hero(heroID)?.codeName ?? heroID
                 players.append(PlayerSlot(team: team, heroID: heroID, controller: .bot, position: pos,
-                                          spells: defaultSpells(for: pos), runes: [],
+                                          spells: defaultSpells(for: pos), emblem: EmblemCatalog.botLoadout(heroID: heroID, master: master),
                                           displayName: "\(name)_AI", botDifficulty: botDifficulty))
             }
         }

@@ -98,7 +98,7 @@ final class HomeScreenTests: XCTestCase {
             if case .push(let r) = $0.action(difficulty: .normal) { return r } else { return nil }
         }
         routes += [.profile, .rankOverview, .currencyStore, .mail, .notices, .settings, .events, .starPass]
-        for r in [Route.heroes, .items, .runes, .store, .records, .replays, .spectateSetup, .practiceSetup, .onlineLobby,
+        for r in [Route.heroes, .items, .emblems, .store, .records, .replays, .spectateSetup, .practiceSetup, .onlineLobby,
                   .settings, .missions, .events, .starPass, .arcade, .rising, .customSetup, .magicChess] {
             XCTAssertTrue(routes.contains(r), "\(r) へ行けない")
         }

@@ -152,7 +152,10 @@ final class EconomyGrowthTests: XCTestCase {
         XCTAssertEqual(u.hp, u.stats.maxHP, accuracy: 1e-6)
         XCTAssertEqual(h.gold, Balance.Economy.practiceGold)
         let def = MasterData.shared.hero("H001")!
-        XCTAssertEqual(u.stats.maxHP, HeroGrowth.baseStats(def: def, level: 6).maxHP, accuracy: 1e-6)
+        // 練習場の人間にもエンブレム（H001 はプランが無いのでロール別: タンク = HP +500、活力 +225）が付く。
+        // Lv6 の成長にエンブレムの HP を足した値になる
+        XCTAssertEqual(h.emblem, EmblemCatalog.roleDefault(.vanguard))
+        XCTAssertEqual(u.stats.maxHP, HeroGrowth.baseStats(def: def, level: 6).maxHP + 500 + 225, accuracy: 1e-6)
     }
 
     func testStandardMatchLearnsFirstSkillOnFirstTick() {

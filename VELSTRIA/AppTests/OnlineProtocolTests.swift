@@ -9,7 +9,7 @@ final class OnlineProtocolTests: XCTestCase {
         var room = OnlineRoom(name: "部屋", hostPeerID: "host")
         room.seats[2].peerID = "host"
         room.seats[2].name = "Host"
-        room.seats[2].loadout = OnlineLoadout(heroID: "H001", spells: ["BS01", "BS03"], runes: ["R001"], skinID: nil, autoLevelSkills: false)
+        room.seats[2].loadout = OnlineLoadout(heroID: "H001", spells: ["BS01", "BS03"], emblem: EmblemCatalog.defaultLoadout(set: .tank), skinID: nil, autoLevelSkills: false)
         room.peers = [OnlinePeer(id: "host", name: "Host", loaded: true, rtt: 0.012)]
         let config = MatchFactory.onlineMatch(humans: [OnlineHumanSlot(team: .blue, position: .mid, heroID: "H001", displayName: "Host")], seed: 9)
         let state = Simulation(config: config).state

@@ -27,7 +27,7 @@ public struct Stats: Codable, Hashable, Sendable {
     public var damageBonus: Double = 0
     /// 通常攻撃のみの与ダメ補正（Attack 装備パッシブ等）。
     public var basicAttackDamageBonus: Double = 0
-    /// スキルのみの与ダメ補正（Magic 装備パッシブ・Arcana ルーン等）。
+    /// スキルのみの与ダメ補正（Magic 装備パッシブ等）。
     public var skillDamageBonus: Double = 0
     /// モンスターへの与ダメ補正（Jungle 装備）。
     public var monsterDamageBonus: Double = 0
@@ -47,7 +47,7 @@ public struct Stats: Codable, Hashable, Sendable {
     public var armorPenFlat: Double = 0
     public var magicPenPct: Double = 0
     public var magicPenFlat: Double = 0
-    /// コントロール時間短縮（0.3 = 行動阻害の効果時間 −30%。装備・ルーン。上限 Balance.maxCCReduction）。
+    /// コントロール時間短縮（0.3 = 行動阻害の効果時間 −30%。装備。上限 Balance.maxCCReduction）。
     public var ccReduction: Double = 0
     /// 減速軽減（0.35 = 受ける減速 −35%。装備）。
     public var slowReduction: Double = 0

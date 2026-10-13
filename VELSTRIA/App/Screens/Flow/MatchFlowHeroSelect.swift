@@ -1,7 +1,7 @@
 import SwiftUI
 import VelstriaCore
 
-// 担当: ui-flow。UI025 ヒーロー選択（通常戦）とロードアウト（ポジション・スキン・スペル・ルーン）。
+// 担当: ui-flow。UI025 ヒーロー選択（通常戦）とロードアウト（ポジション・スキン・スペル・エンブレム）。
 
 // MARK: - 2a. ヒーロー選択
 
@@ -178,7 +178,7 @@ struct LoadoutPanel<Footer: View>: View {
                     if model.heroID != nil {
                         positionSection
                         spellSection
-                        runeSection
+                        emblemSection
                         skinSection
                     }
                 }
@@ -307,73 +307,33 @@ struct LoadoutPanel<Footer: View>: View {
         }
     }
 
-    private var runeSection: some View {
-        let pages = app.profile.runePages
+    /// このヒーローで使うエンブレム（エンブレム画面の一括設定で付けたもの、無ければ選んだバトルプランのもの）。
+    private var emblemSection: some View {
+        let emblem = model.emblem(profile: app.profile, master: app.master)
+        let custom = model.heroID.map { EmblemMath.custom(for: $0, profile: app.profile) != nil } ?? false
         return VStack(alignment: .leading, spacing: 5) {
-            FlowSectionTitle(title: L("ルーン", "Runes"), symbol: "seal.fill")
-            if pages.isEmpty {
-                Text(L("ルーンページがありません。ホームの「ルーン」で作成できます。", "No rune pages yet. Create one from Runes on the home screen."))
-                    .font(Theme.body(11))
-                    .foregroundStyle(Theme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                Menu {
-                    Button {
-                        model.runePageIndex = nil
-                    } label: {
-                        menuLabel(L("使用しない", "None"), checked: model.runePageIndex == nil)
-                    }
-                    ForEach(pages.indices, id: \.self) { i in
-                        Button {
-                            model.runePageIndex = i
-                        } label: {
-                            menuLabel("\(pages[i].name) · \(pathName(pages[i].primaryPath))", checked: model.runePageIndex == i)
-                        }
-                    }
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "seal.fill").foregroundStyle(Theme.gold)
-                        VStack(alignment: .leading, spacing: 1) {
-                            if let i = model.runePageIndex, pages.indices.contains(i) {
-                                Text(pages[i].name).font(Theme.heading(12)).foregroundStyle(Theme.textPrimary).lineLimit(1)
-                                Text(runeSummary(pages[i])).font(Theme.body(10)).foregroundStyle(Theme.textSecondary).lineLimit(1)
-                            } else {
-                                Text(L("使用しない", "None")).font(Theme.heading(12)).foregroundStyle(Theme.textSecondary)
-                            }
-                        }
-                        Spacer(minLength: 0)
-                        Image(systemName: "chevron.up.chevron.down").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
-                    }
-                    .padding(.horizontal, 10)
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .glass(cornerRadius: 10)
+            FlowSectionTitle(title: L("エンブレム", "Emblem"), symbol: "shield.checkered",
+                             trailing: custom ? L("一括設定", "Custom") : L("バトルプラン", "Battle plan"))
+            if let emblem {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(EmblemMath.setName(emblem.set))  Lv\(emblem.level)")
+                        .font(Theme.heading(12))
+                        .foregroundStyle(EmblemStyle.color(emblem.set))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    EmblemLoadoutBadge(emblem: emblem, compact: true)
                 }
-                .accessibilityIdentifier("flow_rune_page")
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .glass(cornerRadius: 10)
+                .accessibilityIdentifier("flow_emblem")
             }
+            Text(L("ホームの「エンブレム」で天賦の変更と一括設定ができます。", "Change talents and apply emblems to heroes from Emblems on the home screen."))
+                .font(Theme.body(10))
+                .foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
-    }
-
-    @ViewBuilder private func menuLabel(_ title: String, checked: Bool) -> some View {
-        if checked {
-            Label(title, systemImage: "checkmark")
-        } else {
-            Text(title)
-        }
-    }
-
-    private func pathName(_ p: RunePath) -> String {
-        switch p {
-        case .valor: return L("勇気", "Valor")
-        case .arcana: return L("秘術", "Arcana")
-        case .resolve: return L("堅守", "Resolve")
-        case .cunning: return L("狡知", "Cunning")
-        case .harmony: return L("調和", "Harmony")
-        }
-    }
-
-    private func runeSummary(_ page: RunePage) -> String {
-        let names = page.runeIDs.filter { !$0.isEmpty }.compactMap { app.master.rune($0).map { MasterText.rune($0) } }
-        return pathName(page.primaryPath) + (names.isEmpty ? "" : " · " + names.joined(separator: " / "))
     }
 
     private var skinSection: some View {

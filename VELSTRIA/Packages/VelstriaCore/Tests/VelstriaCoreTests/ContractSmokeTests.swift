@@ -10,7 +10,9 @@ final class ContractSmokeTests: XCTestCase {
         XCTAssertEqual(m.skills.count, 136)
         XCTAssertEqual(m.items.count, 92)  // MLBB の図鑑: 攻撃 34・魔法 25・防御 25・移動 8
         XCTAssertEqual(m.spells.count, 15)
-        XCTAssertEqual(m.runes.count, 30)
+        // ルーンはエンブレムに置き換えた（7 セット・タレント 8 / 8 / 10。EmblemTests）
+        XCTAssertEqual(EmblemCatalog.sets.count, 7)
+        XCTAssertEqual(EmblemCatalog.talents.count, 26)
         XCTAssertEqual(m.allCosmetics.count, 102)
         XCTAssertEqual(m.allStore.count, 154)
         XCTAssertEqual(m.skills(forHero: "H001").map(\.slot), SkillSlot.allCases)

@@ -17,10 +17,10 @@ A Tutorial and Practice mode help newcomers. Matches against AI need no connecti
 ◆ 10 HEROES, 5 ROLES
 Duelist, Ranger, Arcanist, Support and Assassin, two heroes each. Every hero has a Passive, two Skills and an Ultimate. All 10 heroes are available from the start; heroes are never unlocked or sold.
 
-◆ 92 ITEMS, 15 BATTLE SPELLS, 30 RUNES
+◆ 92 ITEMS, 15 BATTLE SPELLS, 7 EMBLEMS
 - Items: attack, magic, defense and movement; buy anywhere, any time, and combine at a discount using the components you own. Boots can carry a jungle or roam blessing
 - Battle Spells: Blink, Cleanse, Ignite and more
-- Runes: five paths
+- Emblems: seven sets with freely combined talents
 
 ◆ MODES
 - Classic (Standard): you and four AI allies vs five AI enemies

@@ -39,9 +39,11 @@ public enum MatchFactory {
     /// 人間 1 人 + AI 9 人の 5v5 を作る。人間のヒーローは AI が選ばない。
     /// AI のピックは DraftAI（ポジション適性・編成の補完・相性）で、両チーム交互に行う。
     /// humanBuildPlan = 人間が選んだバトルプランの添字（ItemSystem.heroPlans。nil なら「有効」のプラン。AI は常に「有効」）。
+    /// humanEmblem = 人間のエンブレム（nil なら選んだバトルプランのエンブレム、プランの無いヒーローはロール別）。
+    /// AI は「有効」のバトルプランのエンブレム（無ければロール別。Lv60。EmblemCatalog.botLoadout）。
     public static func standardMatch(mode: MatchMode = .standard, humanHeroID: String, humanName: String,
                                      humanTeam: Team = .blue, humanSpells: [String]? = nil,
-                                     humanRunes: [String] = [], humanSkin: String? = nil,
+                                     humanEmblem: EmblemLoadout? = nil, humanSkin: String? = nil,
                                      humanPosition: LanePosition? = nil,
                                      allyDifficulty: Difficulty = .normal, enemyDifficulty: Difficulty = .normal,
                                      humanBuildPlan: Int? = nil,
@@ -58,7 +60,8 @@ public enum MatchFactory {
             for pos in LanePosition.allCases {
                 if team == humanTeam && pos == humanPos {
                     players.append(PlayerSlot(team: team, heroID: humanHeroID, controller: .human, position: pos,
-                                              spells: humanSpells ?? defaultSpells(for: pos), runes: humanRunes,
+                                              spells: humanSpells ?? defaultSpells(for: pos),
+                                              emblem: humanEmblem ?? humanDefaultEmblem(humanHeroID, plan: humanBuildPlan, master: master),
                                               skinID: humanSkin, displayName: humanName, buildPlan: humanBuildPlan))
                     continue
                 }
@@ -67,11 +70,18 @@ public enum MatchFactory {
                 let diff = team == humanTeam ? allyDifficulty : enemyDifficulty
                 let name = master.hero(heroID)?.codeName ?? heroID
                 players.append(PlayerSlot(team: team, heroID: heroID, controller: .bot, position: pos,
-                                          spells: defaultSpells(for: pos), runes: [],
+                                          spells: defaultSpells(for: pos),
+                                          emblem: EmblemCatalog.botLoadout(heroID: heroID, master: master),
                                           displayName: "\(name)_AI", botDifficulty: diff))
             }
         }
         return MatchConfig(mode: mode, seed: seed, players: players)
+    }
+
+    /// 人間のエンブレムを渡されなかった時: 選んだバトルプラン（nil は「有効」）のエンブレム、無ければロール別の既定（Lv60）。
+    static func humanDefaultEmblem(_ heroID: String, plan: Int?, master: MasterData) -> EmblemLoadout? {
+        guard let def = master.hero(heroID) else { return nil }
+        return EmblemCatalog.loadout(heroID: heroID, role: def.role, plan: plan, master: master)
     }
 
     /// 全員 AI の 5v5（観戦・テスト用）。
@@ -86,8 +96,9 @@ public enum MatchFactory {
                 picks[team.rawValue][pos.rawValue] = heroID
                 let name = master.hero(heroID)?.codeName ?? heroID
                 players.append(PlayerSlot(team: team, heroID: heroID, controller: .bot, position: pos,
-                                          spells: defaultSpells(for: pos), displayName: "\(name)_AI",
-                                          botDifficulty: difficulty))
+                                          spells: defaultSpells(for: pos),
+                                          emblem: EmblemCatalog.botLoadout(heroID: heroID, master: master),
+                                          displayName: "\(name)_AI", botDifficulty: difficulty))
             }
         }
         return MatchConfig(mode: .spectate, seed: seed, players: players)
@@ -95,12 +106,14 @@ public enum MatchFactory {
 
     /// 練習場（人間 1 人）。
     public static func practiceMatch(humanHeroID: String, humanName: String, options: PracticeOptions,
-                                     tutorial: Bool = false, humanBuildPlan: Int? = nil,
+                                     tutorial: Bool = false, humanBuildPlan: Int? = nil, humanEmblem: EmblemLoadout? = nil,
                                      seed: UInt64, master: MasterData = .shared) -> MatchConfig {
         let role = master.hero(humanHeroID)?.role ?? .duelist
         let pos = defaultPosition(for: role)
         let slot = PlayerSlot(team: .blue, heroID: humanHeroID, controller: .human, position: pos,
-                              spells: defaultSpells(for: pos), displayName: humanName, buildPlan: humanBuildPlan)
+                              spells: defaultSpells(for: pos),
+                              emblem: humanEmblem ?? humanDefaultEmblem(humanHeroID, plan: humanBuildPlan, master: master),
+                              displayName: humanName, buildPlan: humanBuildPlan)
         return MatchConfig(mode: tutorial ? .tutorial : .practice, seed: seed, players: [slot], practice: options,
                            maxDuration: 60 * 60)
     }
@@ -109,7 +122,7 @@ public enum MatchFactory {
     /// シードからランダムに選ぶ。短縮クロック（15 分）。マップは `MapDefinition.map(for: .brawl)` が担う。
     public static func brawlMatch(humanHeroID: String? = nil, humanName: String,
                                   humanTeam: Team = .blue, humanSpells: [String]? = nil,
-                                  humanRunes: [String] = [], humanSkin: String? = nil,
+                                  humanEmblem: EmblemLoadout? = nil, humanSkin: String? = nil,
                                   humanPosition: LanePosition? = nil,
                                   allyDifficulty: Difficulty = .normal, enemyDifficulty: Difficulty = .normal,
                                   humanBuildPlan: Int? = nil,
@@ -130,7 +143,8 @@ public enum MatchFactory {
             for pos in LanePosition.allCases {
                 if team == humanTeam && pos == humanPos {
                     players.append(PlayerSlot(team: team, heroID: humanHero, controller: .human, position: pos,
-                                              spells: humanSpells ?? ["BS01", "BS03"], runes: humanRunes,
+                                              spells: humanSpells ?? ["BS01", "BS03"],
+                                              emblem: humanEmblem ?? humanDefaultEmblem(humanHero, plan: humanBuildPlan, master: master),
                                               skinID: humanSkin, displayName: humanName, buildPlan: humanBuildPlan))
                     continue
                 }
@@ -140,7 +154,7 @@ public enum MatchFactory {
                 let name = master.hero(heroID)?.codeName ?? heroID
                 // ジャングルが無いので全員 BS05 無しの汎用スペル。
                 players.append(PlayerSlot(team: team, heroID: heroID, controller: .bot, position: pos,
-                                          spells: ["BS01", "BS03"], runes: [],
+                                          spells: ["BS01", "BS03"], emblem: EmblemCatalog.botLoadout(heroID: heroID, master: master),
                                           displayName: "\(name)_AI", botDifficulty: diff))
             }
         }
@@ -150,7 +164,7 @@ public enum MatchFactory {
     /// カスタム対戦（対 AI、標準マップ）。`humanSide` が nil なら全員 AI。side 別に難易度を指定できる。
     /// 乱闘マップを使いたい場合は呼び出し側で `brawlMatch` を使う（マップは mode から導出するため）。
     public static func customMatch(humanSide: Team? = .blue, humanHeroID: String? = nil, humanName: String = "Player",
-                                   humanSpells: [String]? = nil, humanRunes: [String] = [], humanSkin: String? = nil,
+                                   humanSpells: [String]? = nil, humanEmblem: EmblemLoadout? = nil, humanSkin: String? = nil,
                                    humanPosition: LanePosition? = nil,
                                    allyDifficulty: Difficulty = .normal, enemyDifficulty: Difficulty = .normal,
                                    humanBuildPlan: Int? = nil,
@@ -158,7 +172,7 @@ public enum MatchFactory {
                                    master: MasterData = .shared) -> MatchConfig {
         if let humanSide, let humanHeroID {
             return standardMatch(mode: .custom, humanHeroID: humanHeroID, humanName: humanName,
-                                 humanTeam: humanSide, humanSpells: humanSpells, humanRunes: humanRunes,
+                                 humanTeam: humanSide, humanSpells: humanSpells, humanEmblem: humanEmblem,
                                  humanSkin: humanSkin, humanPosition: humanPosition,
                                  allyDifficulty: allyDifficulty, enemyDifficulty: enemyDifficulty,
                                  humanBuildPlan: humanBuildPlan, seed: seed, master: master)
@@ -174,8 +188,9 @@ public enum MatchFactory {
                 let diff = team == .blue ? allyDifficulty : enemyDifficulty
                 let name = master.hero(heroID)?.codeName ?? heroID
                 players.append(PlayerSlot(team: team, heroID: heroID, controller: .bot, position: pos,
-                                          spells: defaultSpells(for: pos), displayName: "\(name)_AI",
-                                          botDifficulty: diff))
+                                          spells: defaultSpells(for: pos),
+                                          emblem: EmblemCatalog.botLoadout(heroID: heroID, master: master),
+                                          displayName: "\(name)_AI", botDifficulty: diff))
             }
         }
         return MatchConfig(mode: .custom, seed: seed, players: players)

@@ -23,7 +23,7 @@ enum Route: Hashable {
     case items                   // UI040
     case itemDetail(String)      // UI041
     case buildEditor(String)     // UI042（heroID）
-    case runes                   // UI043
+    case emblems                 // UI043（旧ルーン。MLBB のエンブレム）
     case spells                  // UI044
     case store                   // UI045
     case skinStore               // UI046
@@ -94,7 +94,7 @@ struct RouteDestination: View {
         case .items: ItemListView()
         case .itemDetail(let id): ItemDetailView(itemID: id)
         case .buildEditor(let id): BuildEditorView(heroID: id)
-        case .runes: RunePageView()
+        case .emblems: EmblemView()
         case .spells: SpellLoadoutView()
         case .store: StoreHomeView()
         case .skinStore: SkinStoreView()

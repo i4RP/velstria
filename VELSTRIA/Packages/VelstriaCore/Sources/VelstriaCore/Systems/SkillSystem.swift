@@ -350,7 +350,10 @@ public enum SkillSystem {
             guard s.units[i].hero != nil else { continue }
             for k in 0..<SkillSlot.allCases.count {
                 let v = s.units[i].hero?.skillCooldowns[k] ?? 0
-                if v > 0 { s.units[i].hero?.skillCooldowns[k] = noCD ? 0 : max(0, v - dt) }
+                guard v > 0, let h = s.units[i].hero else { continue }
+                // エンブレム（時の支配）: 必殺技の後はほかのスキルの CD が速く減る
+                let rate = h.emblem == nil ? 1 : EmblemEffects.skillCooldownRate(h, slot: k, time: s.time)
+                s.units[i].hero?.skillCooldowns[k] = noCD ? 0 : max(0, v - dt * rate)
             }
             SkillPassives.update(&s, ctx, i, dt: dt)
             ItemEffects.update(&s, ctx, hero: i)
@@ -418,6 +421,7 @@ public enum PassiveHooks {
     /// スキル発動の完了。サポートの回復。
     public static func onSkillCast(_ s: inout SimState, _ ctx: SimContext, caster: Int, slot: SkillSlot) {
         ItemEffects.onSkillCast(&s, ctx, caster: caster, slot: slot)
+        EmblemEffects.onSkillCast(&s, caster: caster, slot: slot)
         if let kit = HeroKits.kit(in: s, caster) {
             kit.onSkillCast(&s, ctx, caster: caster, slot: slot)
             return

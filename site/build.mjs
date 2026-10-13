@@ -212,7 +212,7 @@ const HOME = {
 <div class="grid">
 <div class="card"><h3>10人のヒーロー、5つのロール</h3><p>デュエリスト、レンジャー、アルカニスト、サポート、アサシン。パッシブ、2つのスキル、アルティメットで戦い方が変わります。10人全員を最初から使えます。</p></div>
 <div class="card"><h3>3レーンとジャングル</h3><p>3段のタワー、番人、河川ボス。視界と草むらを使った奇襲や、ボス争奪の集団戦が勝敗を分けます。</p></div>
-<div class="card"><h3>92装備・15スペル・30ルーン</h3><p>試合中いつでも購入、素材から上位装備へ合成。ヒーローごとに自分だけのビルドを組めます。</p></div>
+<div class="card"><h3>92装備・15スペル・7エンブレム</h3><p>試合中いつでも購入、素材から上位装備へ合成。ヒーローごとに自分だけのビルドを組めます。</p></div>
 <div class="card"><h3>考えて動くAI</h3><p>味方も敵もレーン戦、ジャングル、撤退、ボス争奪、集団戦を状況で判断。難易度は3段階。AIとの対戦は通信なしで遊べます。</p></div>
 <div class="card"><h3>友達とオンライン対戦</h3><p>部屋コードを送れば離れた友達と、同じWi-Fiなら近くの人と、最大10人で対戦。空いた席はAIが担当し、観戦席もあります。フレンドコードでフレンドになれば、パーティに招待できます。</p></div>
 <div class="card"><h3>はじめてでも安心</h3><p>チュートリアルと練習場つき。攻撃の自動ターゲットや、おすすめ装備のワンタップ購入が使えます。</p></div>
@@ -232,7 +232,7 @@ const HOME = {
 <div class="grid">
 <div class="card"><h3>10 heroes, 5 roles</h3><p>Duelist, Ranger, Arcanist, Support and Assassin. Every hero has a Passive, two Skills and an Ultimate, and all 10 are available from the start.</p></div>
 <div class="card"><h3>Three lanes and a jungle</h3><p>Three tiers of towers, jungle sentinels and river bosses. Ambush from the brush and fight for bosses to swing the match.</p></div>
-<div class="card"><h3>92 items, 15 spells, 30 runes</h3><p>Buy any time during a match and combine components into stronger items. Build your own loadout for every hero.</p></div>
+<div class="card"><h3>92 items, 15 spells, 7 emblems</h3><p>Buy any time during a match and combine components into stronger items. Build your own loadout for every hero.</p></div>
 <div class="card"><h3>AI that reads the game</h3><p>Allies and enemies lane, jungle, retreat, contest bosses and group for teamfights. Choose from three difficulty levels. Matches against AI need no connection.</p></div>
 <div class="card"><h3>Play online with friends</h3><p>Share a room code to play with friends anywhere, or join people nearby on the same Wi-Fi, with up to 10 players. AI fills any empty seats, and there are spectator seats too. Add friends with friend codes and invite them to your party.</p></div>
 <div class="card"><h3>Newcomer friendly</h3><p>A Tutorial and Practice mode, auto-targeting attacks and one-tap recommended items.</p></div>
@@ -359,7 +359,7 @@ const FACTS = {
     ["課金モデル", "アプリ内課金あり。アストラルジェム（160円〜15,800円）とスターパス プレミアム（シーズンごとに980円）、いずれも税込。ジェムで買えるのは見た目アイテム（演出・エモート・アイコンの枠など）。ヒーローは全員が最初から使え、販売しない。スターパス プレミアムは見た目アイテムに加えてジェムなども獲得できる。ランダム型の有料アイテムと広告はなし。"],
     ["言語", "日本語、英語（アプリ内で切り替え可能）"],
     ["通信", "AIとの対戦は通信不要。オンライン対戦（部屋コード、同じWi-Fi）とフレンド機能、アプリ内課金の購入で通信を使用"],
-    ["収録内容", "ヒーロー10人（5ロール、全員を最初から使える）、装備92種、バトルスペル15種、ルーン30種"],
+    ["収録内容", "ヒーロー10人（5ロール、全員を最初から使える）、装備92種、バトルスペル15種、エンブレム7種"],
     ["年齢区分", "9+（予定）"],
     ["開発・販売", cfg.ja.PUBLISHER_NAME],
     ["公式サイト", cfg.baseURL],
@@ -377,7 +377,7 @@ const FACTS = {
     ["Business model", "Optional in-app purchases: Astral Gems (JPY 160 to 15,800) and Star Pass Premium (JPY 980 per season), tax included, Japan App Store prices. Gems buy cosmetic items such as effects, emotes and avatar frames. Every hero is available from the start and heroes are never sold. Star Pass Premium also awards Astral Gems and other rewards on top of cosmetics. No paid item is randomized and there are no ads."],
     ["Languages", "Japanese, English (switchable in the app)"],
     ["Connectivity", "Not needed for matches against AI. Online matches (room code or same Wi-Fi), friends and in-app purchases use a connection"],
-    ["Content", "10 heroes in 5 roles (all available from the start), 92 items, 15 battle spells, 30 runes"],
+    ["Content", "10 heroes in 5 roles (all available from the start), 92 items, 15 battle spells, 7 emblems"],
     ["Age rating", "9+ (planned)"],
     ["Developer / Publisher", cfg.en.PUBLISHER_NAME],
     ["Website", cfg.baseURL + "/en"],
@@ -390,12 +390,12 @@ const FACTS = {
 const ABOUT = {
   ja: [
     "『VELSIA - 星環の戦場』は、iPhone 向けの 5対5 MOBA です。舞台は星環が砕けた世界ベルシア。10人のヒーローから1人を選び、AIの味方4人と3つのレーンを押し上げて、敵のスターコアの破壊を目指します。1試合は10〜18分ほどが目安です。",
-    "ヒーローは5つのロール（デュエリスト、レンジャー、アルカニスト、サポート、アサシン）に2人ずつ分かれ、どのヒーローもパッシブ、2つのスキル、アルティメットを持ちます。10人全員を最初から使えます。装備92種は試合中いつでも購入・合成でき、15種のバトルスペル、30種のルーンと組み合わせて自分のビルドを作れます。レーンごとに3段のタワーがあり、ジャングルの番人や河川のボス、草むらと視界を使った駆け引きが勝敗を分けます。味方も敵もAIが状況を見て動き、難易度は3段階から選べます。",
+    "ヒーローは5つのロール（デュエリスト、レンジャー、アルカニスト、サポート、アサシン）に2人ずつ分かれ、どのヒーローもパッシブ、2つのスキル、アルティメットを持ちます。10人全員を最初から使えます。装備92種は試合中いつでも購入・合成でき、15種のバトルスペル、7種のエンブレムと組み合わせて自分のビルドを作れます。レーンごとに3段のタワーがあり、ジャングルの番人や河川のボス、草むらと視界を使った駆け引きが勝敗を分けます。味方も敵もAIが状況を見て動き、難易度は3段階から選べます。",
     "モードは、クラシック、ランク戦（ドラフト、7段階のランク）、乱闘、ライジング、AI対戦／カスタム、8人で戦うオートバトラーの6つです。チュートリアル、練習場、AI同士の観戦、リプレイも用意しています。AIとの対戦は通信なしで遊べます。部屋コードや同じWi-Fiで集まれば、友達と最大10人でオンライン対戦もできます（空いた席はAIが担当）。基本プレイ無料で、有料のアプリ内課金は見た目アイテム（演出・エモート・アイコンの枠など）に使うアストラルジェムと、シーズンごとに購入するスターパス プレミアムです。ヒーローは販売せず、スターパス プレミアムでは見た目アイテムに加えてジェムなども獲得できます。ランダム型の有料アイテムや広告はありません。日本語と英語に対応しています。",
   ],
   en: [
     "VELSIA: Star Ring Arena is a 5v5 MOBA for iPhone. It is set in Velsia, a world where the Star Ring has shattered. Choose one of 10 heroes, team up with four AI allies, push three lanes and destroy the enemy Star Core. Matches last roughly 10 to 18 minutes.",
-    "Heroes are split into five roles, two each: Duelist, Ranger, Arcanist, Support and Assassin. Every hero has a Passive, two Skills and an Ultimate, and all 10 are available from the start. You can buy and combine any of the 92 items at any point in a match, and pair them with 15 battle spells and 30 runes to make your build. Each lane has three tiers of towers. Jungle sentinels, river bosses, brush and vision all shape the match. AI allies and enemies react to how the match unfolds, and you can choose from three difficulty levels.",
+    "Heroes are split into five roles, two each: Duelist, Ranger, Arcanist, Support and Assassin. Every hero has a Passive, two Skills and an Ultimate, and all 10 are available from the start. You can buy and combine any of the 92 items at any point in a match, and pair them with 15 battle spells and 7 emblems to make your build. Each lane has three tiers of towers. Jungle sentinels, river bosses, brush and vision all shape the match. AI allies and enemies react to how the match unfolds, and you can choose from three difficulty levels.",
     "The modes are Classic, Ranked (a hero draft and seven tiers), Brawl, Rising, AI & Custom, and an 8-player Auto Battler. There are also a Tutorial, Practice mode, AI vs AI spectating and replays. Matches against AI work without a connection. With a room code or on the same Wi-Fi, up to 10 friends can also play online matches, with AI filling any empty seats. The game is free to play. The paid in-app purchases are Astral Gems, which buy cosmetic items such as effects, emotes and avatar frames, and Star Pass Premium, which is bought each season. Heroes are never sold, and Star Pass Premium also awards Astral Gems and other rewards on top of cosmetics. There are no randomized paid items and no ads. The game is available in Japanese and English.",
   ],
 };
@@ -405,7 +405,7 @@ const FEATURES = {
   ja: [
     ["10人のヒーロー、5つのロール", "デュエリスト、レンジャー、アルカニスト、サポート、アサシンに2人ずつ。どのヒーローもパッシブ、2つのスキル、アルティメットを持ち、10人全員を最初から使える。"],
     ["3レーンとジャングル", "レーンごとに3段のタワー、ジャングルの番人（蒼晶・紅焔）、河川のボス（星喰竜・古環の巨像）、草むらとチームごとの視界。最大レベル15。"],
-    ["92種の装備、15種のバトルスペル、30種のルーン", "装備は攻撃・魔法・防御・移動の4カテゴリで、試合中いつでも購入・合成できる。ルーンは5つのパス。"],
+    ["92種の装備、15種のバトルスペル、7種のエンブレム", "装備は攻撃・魔法・防御・移動の4カテゴリで、試合中いつでも購入・合成できる。エンブレムは7つのセットに天賦を自由に組み合わせる。"],
     ["状況を読むAI", "味方も敵もレーン戦、ジャングル、撤退、ボス争奪、集団戦を状況で判断。難易度は3段階（かんたん・ふつう・むずかしい）。"],
     ["多彩なモード", "クラシック、ランク戦（ドラフト、隕鉄から星環王までの7段階）、乱闘、ライジング（6ステージの勝ち上がり）、AI対戦／カスタム、8人のオートバトラー。"],
     ["友達とオンライン対戦", "部屋コードか同じWi-Fiで集まって、最大10人で5対5。空いた席はAIが担当し、観戦席もある。フレンドコードでフレンドになり、パーティに招待できる。自由入力のチャットはなし。"],
@@ -417,7 +417,7 @@ const FEATURES = {
   en: [
     ["10 heroes, 5 roles", "Two each of Duelist, Ranger, Arcanist, Support and Assassin. Every hero has a Passive, two Skills and an Ultimate, and all 10 are available from the start."],
     ["Three lanes and a jungle", "Three tiers of towers per lane, Azure and Crimson Sentinels, the river's Astral Wyrm and Ancient Colossus, brush and team vision. Level cap of 15."],
-    ["92 items, 15 battle spells, 30 runes", "Items cover attack, magic, defense and movement and can be bought and combined at any point in a match. Runes come in five paths."],
+    ["92 items, 15 battle spells, 7 emblems", "Items cover attack, magic, defense and movement and can be bought and combined at any point in a match. Emblems are seven sets with freely combined talents."],
     ["AI that reads the game", "Allies and enemies decide when to lane, jungle, retreat, fight for bosses and group up. Choose Easy, Normal or Hard."],
     ["Lots of modes", "Classic, Ranked (a hero draft and seven tiers, Meteorite to Star Sovereign), Brawl, Rising (a six-stage win-to-advance run), AI & Custom and an 8-player Auto Battler."],
     ["Play online with friends", "Get together with a room code or on the same Wi-Fi for 5v5 matches with up to 10 players. AI fills empty seats, and there are spectator seats. Add friends with friend codes and invite them to your party. There is no free-text chat."],

@@ -22,7 +22,6 @@ final class MatchFlowModel {
     var position: LanePosition = .mid
     var skinID: String?
     var spells: [String] = ["BS01", "BS03"]
-    var runePageIndex: Int?
 
     var draft: DraftEngine?
     /// ドラフトでプレイヤーが仮選択しているヒーロー。
@@ -55,9 +54,6 @@ final class MatchFlowModel {
         guard !configured else { return }
         configured = true
         difficulty = profile.preferredDifficulty
-        if !profile.runePages.isEmpty {
-            runePageIndex = min(max(0, profile.selectedRunePage), profile.runePages.count - 1)
-        }
         let last = profile.lastPickedHeroID.flatMap { profile.ownedHeroIDs.contains($0) ? $0 : nil }
         let initial = last ?? master.heroes.first { profile.ownedHeroIDs.contains($0.heroID) }?.heroID
         if let initial { selectHero(initial, profile: profile, master: master) }
@@ -91,9 +87,10 @@ final class MatchFlowModel {
         if kind == .ranked { draft?.setPlayerPosition(p) }
     }
 
-    func runeIDs(profile: Profile) -> [String] {
-        guard let i = runePageIndex, profile.runePages.indices.contains(i) else { return [] }
-        return profile.runePages[i].runeIDs.filter { !$0.isEmpty }
+    /// 試合で使うエンブレム（一括設定で付けたもの、無ければ選んだバトルプランのもの。EmblemMath.loadout）。
+    func emblem(profile: Profile, master: MasterData) -> EmblemLoadout? {
+        guard let heroID else { return nil }
+        return EmblemMath.loadout(for: heroID, profile: profile, master: master)
     }
 
     func startRanked(profile: Profile) {
@@ -125,7 +122,7 @@ final class MatchFlowModel {
         let name = profile.displayName.isEmpty ? "Player" : profile.displayName
         if kind == .brawl {
             return MatchFactory.brawlMatch(humanHeroID: heroID, humanName: name, humanSpells: spells,
-                                           humanRunes: runeIDs(profile: profile), humanSkin: skinID,
+                                           humanEmblem: emblem(profile: profile, master: master), humanSkin: skinID,
                                            humanPosition: position, allyDifficulty: .normal,
                                            enemyDifficulty: difficulty, humanBuildPlan: profile.heroBuildPlans[heroID],
                                            seed: seed, master: master)
@@ -133,7 +130,7 @@ final class MatchFlowModel {
         let ranked = kind == .ranked
         let diffs = ranked ? RankService.botDifficulty(for: profile.rank) : (ally: Difficulty.normal, enemy: difficulty)
         var config = MatchFactory.standardMatch(mode: ranked ? .ranked : .standard, humanHeroID: heroID, humanName: name,
-                                                humanTeam: .blue, humanSpells: spells, humanRunes: runeIDs(profile: profile),
+                                                humanTeam: .blue, humanSpells: spells, humanEmblem: emblem(profile: profile, master: master),
                                                 humanSkin: skinID, humanPosition: position,
                                                 allyDifficulty: diffs.ally, enemyDifficulty: diffs.enemy,
                                                 humanBuildPlan: profile.heroBuildPlans[heroID],
@@ -544,7 +541,6 @@ private struct ReadyStep: View {
         p.lastPickedHeroID = heroID
         if model.kind == .standard { p.preferredDifficulty = model.difficulty }
         p.heroSpells[heroID] = model.spells
-        if let i = model.runePageIndex { p.selectedRunePage = i }
         if let skin = model.skinID {
             p.equippedSkins[heroID] = skin
         } else {

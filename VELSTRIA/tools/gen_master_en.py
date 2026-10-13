@@ -15,7 +15,6 @@ usage（リポジトリの VELSTRIA/ で）:
     <skill_id> / <skill_id>.desc   スキル名と説明（パッシブ含む）
     <item_id> / <item_id>.desc / <item_id>.passive
     <spell_id> / <spell_id>.desc
-    <rune_id> / <rune_id>.desc
     <cosmetic_id>                  コスメ名
     <sku>                          ストア商品名
     <effect_id>                    演出名 "Alden - Unbreakable Oath"（デバッグ・クレジット表示用）
@@ -357,25 +356,6 @@ SPELL_DESCS = {
 }
 
 # ---------------------------------------------------------------------------
-# ルーン
-# ---------------------------------------------------------------------------
-RUNE_PATHS = {"勇気": "Valor", "秘術": "Arcana", "堅守": "Resolve", "狡知": "Cunning", "調和": "Harmony"}
-RUNE_PATTERN = re.compile(r"^(?P<path>.+)の星紋(?P<no>\d{2})$")
-RUNE_EFFECT = re.compile(r"^条件達成時に主要能力を(?P<x>\d+)%補助する。$")
-
-
-def rune_desc(path: str, x: int) -> str:
-    """DESIGN §8 のルーン効果（X = effect の %）。"""
-    return {
-        "Valor": f"+{x}% attack.",
-        "Arcana": f"+{x}% ability power and +{num(x / 2)}% skill damage.",
-        "Resolve": f"+{x}% max HP and +{x}% armor and magic resist.",
-        "Cunning": f"+{num(x / 2)}% move speed and +{num(x / 2)}% cooldown reduction.",
-        "Harmony": f"+{3 * x}% HP and mana regeneration, and +{x}% healing.",
-    }[path]
-
-
-# ---------------------------------------------------------------------------
 # コスメ・ストア
 # ---------------------------------------------------------------------------
 COSMETIC_PATTERN = re.compile(r"^(?P<hero>.+) (?P<type>[A-Za-z]+) (?P<no>\d+)$")
@@ -495,21 +475,6 @@ def build(master: dict) -> dict[str, str]:
         put(sid, need(SPELL_NAMES, sp["name_ja"], sid))
         put(f"{sid}.desc", need(SPELL_DESCS, sid, sid))
 
-    # ルーン
-    for r in master["runes"]:
-        rid = r["rune_id"]
-        m = RUNE_PATTERN.match(r["name_ja"])
-        if not m:
-            raise TranslationError(f"{rid}: ルーン名の文型が想定外です: {r['name_ja']}")
-        path = need(RUNE_PATHS, m["path"], rid)
-        if path != r["path"]:
-            raise TranslationError(f"{rid}: 名前のパス {path} が path {r['path']} と一致しません")
-        put(rid, f"{path} Starglyph {m['no']}")
-        em = RUNE_EFFECT.match(r["effect"])
-        if not em:
-            raise TranslationError(f"{rid}: effect の文型が想定外です: {r['effect']}")
-        put(f"{rid}.desc", rune_desc(path, int(em["x"])))
-
     # コスメ
     cosmetic_name_by_id = {}
     cosmetic_ja_by_id = {}
@@ -579,7 +544,6 @@ TABLES = [
     ("skills", "skill_id", ["", ".desc"], False),
     ("equipment", "item_id", ["", ".desc", ".passive", ".tag"], True),
     ("battle_spells", "spell_id", ["", ".desc"], True),
-    ("runes", "rune_id", ["", ".desc"], True),
     ("cosmetics", "cosmetic_id", [""], True),
     ("store", "sku", [""], True),
     ("effects", "effect_id", [""], False),
@@ -625,7 +589,7 @@ def validate(master: dict, overlay: dict[str, str]) -> list[str]:
         if key.endswith(".desc") and len(value) > MAX_DESC_LEN:
             errors.append(f"説明が長すぎます: {key}（{len(value)} 文字）")
     # 規模（DESIGN §0 / 仕様パッケージ README と一致すること）
-    for table, n in {"heroes": 34, "skills": 136, "equipment": 92, "battle_spells": 15, "runes": 30,
+    for table, n in {"heroes": 34, "skills": 136, "equipment": 92, "battle_spells": 15,
                      "cosmetics": 102, "store": 154}.items():
         if counts.get(table) != n:
             errors.append(f"{table} の件数が想定外です: {counts.get(table)}（想定 {n}）")

@@ -249,7 +249,8 @@ enum DebugLaunch {
         case "items": return .items
         case "itemDetail": return .itemDetail(arg.isEmpty ? "EQ101" : arg)
         case "buildEditor": return .buildEditor(arg.isEmpty ? HeroRoster.defaultHeroID : arg)
-        case "runes": return .runes
+        // 旧ルーンの画面はエンブレムに置き換えた（"runes" も受け付ける）
+        case "emblems", "runes": return .emblems
         case "spells": return .spells
         case "store": return .store
         case "skinStore": return .skinStore

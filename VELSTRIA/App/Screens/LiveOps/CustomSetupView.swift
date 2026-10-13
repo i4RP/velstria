@@ -16,18 +16,18 @@ enum CustomSetup {
                        profile: Profile, seed: UInt64, master: MasterData = .shared) -> MatchConfig {
         let name = profile.displayName.isEmpty ? "Player" : profile.displayName
         let spells = PracticeSetup.spells(heroID: heroID, profile: profile, master: master)
-        let runes = PracticeSetup.runes(profile: profile, master: master)
+        let emblem = PracticeSetup.emblem(heroID: heroID, profile: profile, master: master)
         let skin = profile.equippedSkins[heroID].flatMap { profile.ownedCosmeticIDs.contains($0) ? $0 : nil }
         let plan = profile.heroBuildPlans[heroID]
         switch mapKind {
         case .brawl:
             return MatchFactory.brawlMatch(humanHeroID: heroID, humanName: name, humanTeam: side,
-                                           humanSpells: spells, humanRunes: runes, humanSkin: skin,
+                                           humanSpells: spells, humanEmblem: emblem, humanSkin: skin,
                                            allyDifficulty: allyDifficulty, enemyDifficulty: enemyDifficulty,
                                            humanBuildPlan: plan, seed: seed, master: master)
         case .standard:
             return MatchFactory.customMatch(humanSide: side, humanHeroID: heroID, humanName: name,
-                                            humanSpells: spells, humanRunes: runes, humanSkin: skin,
+                                            humanSpells: spells, humanEmblem: emblem, humanSkin: skin,
                                             allyDifficulty: allyDifficulty, enemyDifficulty: enemyDifficulty,
                                             humanBuildPlan: plan, seed: seed, master: master)
         }

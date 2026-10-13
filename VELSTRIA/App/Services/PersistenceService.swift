@@ -231,7 +231,9 @@ final class PersistenceService: @unchecked Sendable {
                 deaths: 0, assists: 0, creepScore: 0, gold: 0, damageToHeroes: 0, grade: "", isMVP: false,
                 items: [], replayID: nil, summary: nil))),
             ("replays[]", jsonObject(ReplayMeta(date: epoch, fileName: "", mode: .standard, heroID: nil, won: nil, duration: 0))),
-            ("runePages[]", jsonObject(RunePage(name: "", primaryPath: .valor, runeIDs: ["", "", ""]))),
+            // エンブレム（旧版のルーン runePages は読まない）。emblemTalents / heroEmblems の 1 式（EmblemLoadout）は
+            // 欠けたキーをそのセットの既定で読むので、ここでは補わない（通常共通の値で埋めると別のセットの既定とずれる）
+            ("emblemSetProgress{}", jsonObject(EmblemSetProgress())),
             ("purchaseLedger[]", jsonObject(PurchaseRecord(transactionID: 0, productID: "", gemsGranted: 0, priceJPY: 0, date: epoch))),
             ("storePurchases[]", jsonObject(StorePurchaseCount(sku: "", count: 0))),
             ("friends[]", jsonObject(Friend(code: "", name: "", addedAt: epoch))),
@@ -286,11 +288,11 @@ final class PersistenceService: @unchecked Sendable {
         p.accountLevel = min(RewardService.maxAccountLevel, max(1, p.accountLevel))
         p.accountXP = max(0, p.accountXP)
         p.pass.xp = min(LiveOpsService.passXPPerLevel * LiveOpsService.passMaxLevel, max(0, p.pass.xp))
-        if p.runePages.isEmpty {
-            p.selectedRunePage = 0
-        } else {
-            p.selectedRunePage = min(p.runePages.count - 1, max(0, p.selectedRunePage))
-        }
+        // エンブレム: 知らないセット・ヒーロー・段の合わない天賦を除く（読み込みの時点で既定に直っている）
+        if EmblemSetID(rawValue: p.selectedEmblemSet) == nil { p.selectedEmblemSet = EmblemSetID.common.rawValue }
+        p.emblemTalents = p.emblemTalents.filter { EmblemSetID(rawValue: $0.key) == $0.value.set && $0.value.isValid }
+        p.emblemSetProgress = p.emblemSetProgress.filter { EmblemSetID(rawValue: $0.key) != nil }
+        p.heroEmblems = p.heroEmblems.filter { !$0.key.isEmpty && $0.value.isValid }
         if p.matchHistory.count > RewardService.maxMatchHistory {
             p.matchHistory = Array(p.matchHistory.prefix(RewardService.maxMatchHistory))
         }

@@ -1,7 +1,7 @@
 import Foundation
 
 // 担当: core-economy
-// 装備・ルーンの事前計算表。ItemDef.passivePercent / RuneDef.percent は呼ぶ度に正規表現で文字列を解析するため、
+// 装備の事前計算表。ItemDef.passivePercent は呼ぶ度に正規表現で文字列を解析するため、
 // 毎 tick の能力値再計算（ItemStats.apply）や AI の購入判断で直接使うと tick 予算を圧迫する。
 // マスターは試合中不変なので、% 値とカテゴリ別の評価順を一度だけ求めて使い回す。
 
@@ -29,8 +29,6 @@ final class EconomyItemTable: @unchecked Sendable {
 
     /// 装備 ID → passive_text の %（検索専用・列挙禁止）。
     private let itemPercent: [String: Double]
-    /// ルーン ID → effect の %（検索専用・列挙禁止）。
-    private let runePercent: [String: Double]
     /// ItemCategory.allCases の順。各カテゴリの装備を評価順（上位 Tier → 評価値 → ID 昇順）に並べたもの。
     private let ranked: [[ItemDef]]
 
@@ -38,10 +36,7 @@ final class EconomyItemTable: @unchecked Sendable {
         owner = master
         var ip: [String: Double] = [:]
         for it in master.items { ip[it.itemID] = it.passivePercent }
-        var rp: [String: Double] = [:]
-        for r in master.runes { rp[r.runeID] = r.percent }
         itemPercent = ip
-        runePercent = rp
         ranked = ItemCategory.allCases.map { cat in
             master.items.filter { $0.category == cat && !$0.isConsumable }.sorted { a, b in
                 if a.tier != b.tier { return a.tier > b.tier }
@@ -54,7 +49,6 @@ final class EconomyItemTable: @unchecked Sendable {
     }
 
     func percent(item it: ItemDef) -> Double { itemPercent[it.itemID] ?? it.passivePercent }
-    func percent(rune r: RuneDef) -> Double { runePercent[r.runeID] ?? r.percent }
 
     func rankedItems(_ category: ItemCategory) -> [ItemDef] {
         guard let k = ItemCategory.allCases.firstIndex(of: category) else { return [] }

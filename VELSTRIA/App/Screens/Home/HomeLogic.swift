@@ -350,7 +350,7 @@ enum HomeQuickLink: String, CaseIterable, Identifiable {
 // MARK: - フッター: タブ
 
 enum HomeTab: String, CaseIterable, Identifiable {
-    case home, heroes, items, runes, inventory
+    case home, heroes, items, emblems, inventory
 
     var id: String { rawValue }
     var identifier: String { self == .home ? "home_tab_home" : "home_\(rawValue)" }
@@ -361,7 +361,7 @@ enum HomeTab: String, CaseIterable, Identifiable {
         case .home: return nil
         case .heroes: return .heroes
         case .items: return .items
-        case .runes: return .runes
+        case .emblems: return .emblems
         case .inventory: return .inventory
         }
     }
@@ -371,7 +371,7 @@ enum HomeTab: String, CaseIterable, Identifiable {
         case .home: return L("ホーム", "HOME")
         case .heroes: return L("ヒーロー", "HEROES")
         case .items: return L("装備", "ITEMS")
-        case .runes: return L("ルーン", "RUNES")
+        case .emblems: return L("エンブレム", "EMBLEMS")
         case .inventory: return L("バッグ", "BAG")
         }
     }
@@ -381,7 +381,7 @@ enum HomeTab: String, CaseIterable, Identifiable {
         case .home: return "house.fill"
         case .heroes: return "person.3.fill"
         case .items: return "shield.fill"
-        case .runes: return "seal.fill"
+        case .emblems: return "shield.checkered"
         case .inventory: return "bag.fill"
         }
     }

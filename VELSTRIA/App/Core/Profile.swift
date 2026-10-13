@@ -142,12 +142,28 @@ extension GameSettings {
     }
 }
 
-struct RunePage: Codable, Equatable, Identifiable {
-    var id: UUID = UUID()
-    var name: String
-    var primaryPath: RunePath
-    /// Tier1/2/3 の rune_id（未選択は空文字）。
-    var runeIDs: [String]
+/// エンブレムのセット 1 つの所持状態（MLBB: 新規は通常共通エンブレムだけを持ち、ほかの 6 つは魔法の粉で解放する）。
+/// TODO: 解放の費用・順番、レベル上げ（セット別の欠片・魔法の粉）が決まったら既定値と解放・強化の画面を足す（docs/EMBLEMS.md）。
+/// 今は全員・全セットが解放済みの Lv60（ゲームの挙動を変えないため）。
+struct EmblemSetProgress: Codable, Equatable {
+    var unlocked: Bool = true
+    var level: Int = EmblemCatalog.maxLevel
+
+    init(unlocked: Bool = true, level: Int = EmblemCatalog.maxLevel) {
+        self.unlocked = unlocked
+        self.level = EmblemCatalog.clampLevel(level)
+    }
+
+    private enum CodingKeys: String, CodingKey { case unlocked, level }
+
+    /// 欠けたキー・範囲外のレベルを既定に直して読む。
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let u: Bool? = try? c.decodeIfPresent(Bool.self, forKey: .unlocked)
+        let lv: Int? = try? c.decodeIfPresent(Int.self, forKey: .level)
+        unlocked = u ?? true
+        level = EmblemCatalog.clampLevel(lv ?? EmblemCatalog.maxLevel)
+    }
 }
 
 enum RankTier: Int, Codable, CaseIterable, Comparable, Identifiable {
@@ -518,8 +534,16 @@ struct Profile: Codable, Equatable {
     var storePurchases: [StorePurchaseCount] = []
 
     // ロードアウト
-    var runePages: [RunePage] = []
-    var selectedRunePage: Int = 0
+    // エンブレム（MLBB のエンブレム画面。旧版のルーン runePages / selectedRunePage はもう読まない）
+    /// セット ID（EmblemSetID.rawValue）→ そのセットに付けた天賦（level は使わない。レベルは emblemSetProgress）。
+    /// 無いセットはセットの既定の天賦（EmblemCatalog.defaultLoadout）。
+    var emblemTalents: [String: EmblemLoadout] = [:]
+    /// セット ID → 解放とレベル。無いセットは解放済みの Lv60（EmblemSetProgress の TODO）。
+    var emblemSetProgress: [String: EmblemSetProgress] = [:]
+    /// エンブレム画面で開いているセット。
+    var selectedEmblemSet: String = EmblemSetID.common.rawValue
+    /// heroID → そのヒーローに付けたエンブレム（一括設定で保存。無ければ選んだバトルプランのエンブレム）。試合では PlayerSlot.emblem になる。
+    var heroEmblems: [String: EmblemLoadout] = [:]
     var defaultSpells: [String] = ["BS01", "BS03"]
     /// heroID → スペル 2 つ（未設定は defaultSpells）
     var heroSpells: [String: [String]] = [:]

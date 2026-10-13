@@ -270,6 +270,10 @@ public enum DeathSystem {
         ItemEffects.onKill(&s, ctx, hero: k)
         ItemEffects.onKillOrAssist(&s, ctx, hero: k)
         for a in assistIdx { ItemEffects.onKillOrAssist(&s, ctx, hero: a) }
+        // エンブレム: キル（殺戮の連鎖の CD リセット）、キル・アシスト（血の祭典・立て直しのスタック、時の支配の延長）
+        EmblemEffects.onKill(&s, hero: k)
+        EmblemEffects.onKillOrAssist(&s, hero: k)
+        for a in assistIdx { EmblemEffects.onKillOrAssist(&s, hero: a) }
     }
 
     static func assistIDsOf(_ s: SimState, _ idx: [Int]) -> [EntityID] { idx.map { s.units[$0].id } }

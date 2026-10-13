@@ -233,22 +233,6 @@ public struct SpellDef: Codable, Hashable, Sendable, Identifiable {
     }
 }
 
-public struct RuneDef: Codable, Hashable, Sendable, Identifiable {
-    public var id: String { runeID }
-    public let runeID: String
-    public let nameJa: String
-    public let path: RunePath
-    public let tier: Int
-    public let effect: String
-
-    /// effect 中の「N%」の N。
-    public var percent: Double { MasterData.firstPercent(in: effect) }
-
-    enum CodingKeys: String, CodingKey {
-        case runeID = "rune_id", nameJa = "name_ja", path, tier, effect
-    }
-}
-
 public struct EffectDef: Codable, Hashable, Sendable, Identifiable {
     public var id: String { effectID }
     public let effectID: String
@@ -342,7 +326,6 @@ public final class MasterData: @unchecked Sendable {
     public let skills: [SkillDef]
     public let items: [ItemDef]
     public let spells: [SpellDef]
-    public let runes: [RuneDef]
     public let effects: [EffectDef]
     /// 出すヒーローのコスメ（非表示のヒーローのスキンは除く）と、ヒーローに依らないコスメ。
     public let cosmetics: [CosmeticDef]
@@ -356,7 +339,6 @@ public final class MasterData: @unchecked Sendable {
     private let skillsByHero: [String: [SkillDef]]
     private let itemByID: [String: ItemDef]
     private let spellByID: [String: SpellDef]
-    private let runeByID: [String: RuneDef]
     private let effectByID: [String: EffectDef]
     private let cosmeticByID: [String: CosmeticDef]
     private let storeBySKU: [String: StoreItemDef]
@@ -368,13 +350,12 @@ public final class MasterData: @unchecked Sendable {
         let skills: [SkillDef]
         let equipment: [ItemDef]
         let battleSpells: [SpellDef]
-        let runes: [RuneDef]
         let effects: [EffectDef]
         let cosmetics: [CosmeticDef]
         let store: [StoreItemDef]
         enum CodingKeys: String, CodingKey {
             case meta, gameRules = "game_rules", heroes, skills, equipment
-            case battleSpells = "battle_spells", runes, effects, cosmetics, store
+            case battleSpells = "battle_spells", effects, cosmetics, store
         }
     }
 
@@ -387,7 +368,6 @@ public final class MasterData: @unchecked Sendable {
         skills = raw.skills.sorted { $0.skillID < $1.skillID }
         items = raw.equipment.sorted { $0.itemID < $1.itemID }
         spells = raw.battleSpells.sorted { $0.spellID < $1.spellID }
-        runes = raw.runes.sorted { $0.runeID < $1.runeID }
         effects = raw.effects.sorted { $0.effectID < $1.effectID }
         allCosmetics = raw.cosmetics.sorted { $0.cosmeticID < $1.cosmeticID }
         allStore = raw.store.sorted { $0.sku < $1.sku }
@@ -408,7 +388,6 @@ public final class MasterData: @unchecked Sendable {
             .mapValues { $0.sorted { $0.slot.rawValue < $1.slot.rawValue } }
         itemByID = Dictionary(uniqueKeysWithValues: items.map { ($0.itemID, $0) })
         spellByID = Dictionary(uniqueKeysWithValues: spells.map { ($0.spellID, $0) })
-        runeByID = Dictionary(uniqueKeysWithValues: runes.map { ($0.runeID, $0) })
         effectByID = Dictionary(uniqueKeysWithValues: effects.map { ($0.effectID, $0) })
         cosmeticByID = Dictionary(uniqueKeysWithValues: allCosmetics.map { ($0.cosmeticID, $0) })
         storeBySKU = Dictionary(uniqueKeysWithValues: allStore.map { ($0.sku, $0) })
@@ -433,7 +412,6 @@ public final class MasterData: @unchecked Sendable {
     }
     public func item(_ id: String) -> ItemDef? { itemByID[id] }
     public func spell(_ id: String) -> SpellDef? { spellByID[id] }
-    public func rune(_ id: String) -> RuneDef? { runeByID[id] }
     public func effect(_ id: String) -> EffectDef? { effectByID[id] }
     public func cosmetic(_ id: String) -> CosmeticDef? { cosmeticByID[id] }
     public func storeItem(_ sku: String) -> StoreItemDef? { storeBySKU[sku] }

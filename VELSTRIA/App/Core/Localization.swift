@@ -39,7 +39,7 @@ enum MasterText {
     /// （tools/gen_master_ja.py で生成）。
     static let jaOverlay: [String: String] = loadOverlay("master_ja")
 
-    /// ID（hero_id / skill_id / item_id / spell_id / rune_id / cosmetic_id / sku）→ 表示名。
+    /// ID（hero_id / skill_id / item_id / spell_id / cosmetic_id / sku）→ 表示名。
     static func name(id: String, ja: String) -> String {
         guard Loc.isEnglish else { return jaOverlay[id] ?? ja }
         return overlay[id] ?? ja
@@ -59,7 +59,6 @@ enum MasterText {
     static func skill(_ s: SkillDef) -> String { name(id: s.skillID, ja: s.nameJa) }
     static func item(_ i: ItemDef) -> String { name(id: i.itemID, ja: i.nameJa) }
     static func spell(_ s: SpellDef) -> String { name(id: s.spellID, ja: s.nameJa) }
-    static func rune(_ r: RuneDef) -> String { name(id: r.runeID, ja: r.nameJa) }
     static func cosmetic(_ c: CosmeticDef) -> String { name(id: c.cosmeticID, ja: c.nameJa) }
     static func storeItem(_ s: StoreItemDef) -> String { name(id: s.sku, ja: s.nameJa) }
 

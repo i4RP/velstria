@@ -94,7 +94,8 @@ enum FlowWarmUp {
         }
         for i in master.items where master.item(i.itemID) != nil { count += 1 }
         for s in master.spells where master.spell(s.spellID) != nil { count += 1 }
-        for r in master.runes where master.rune(r.runeID) != nil { count += 1 }
+        // エンブレムはマスターではなく EmblemCatalog（Swift の表）
+        count += EmblemCatalog.sets.count + EmblemCatalog.talents.count
         for c in master.cosmetics where master.cosmetic(c.cosmeticID) != nil { count += 1 }
         for s in master.store where master.storeItem(s.sku) != nil { count += 1 }
         return count
@@ -107,7 +108,7 @@ enum FlowWarmUp {
         for s in master.skills { chars += MasterText.skill(s).count }
         for i in master.items { chars += MasterText.item(i).count }
         for s in master.spells { chars += MasterText.spell(s).count }
-        for r in master.runes { chars += MasterText.rune(r).count }
+        for t in EmblemCatalog.talents { chars += EmblemMath.talentName(t.id).count }
         for c in master.cosmetics { chars += MasterText.cosmetic(c).count }
         return chars
     }
@@ -299,6 +300,8 @@ struct DraftEngine: Equatable {
             config.players[i].heroID = h
             config.players[i].displayName = "\(master.hero(h)?.codeName ?? h)_AI"
             config.players[i].skinID = nil
+            // ボットのエンブレムも差し替えたヒーローの既定（「有効」のバトルプラン、無ければロール別）にする
+            config.players[i].emblem = EmblemCatalog.botLoadout(heroID: h, master: master)
         }
     }
 }

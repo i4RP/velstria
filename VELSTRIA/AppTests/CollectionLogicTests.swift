@@ -513,52 +513,81 @@ final class CollectionLogicTests: XCTestCase {
         Loc.current = .ja
     }
 
-    // MARK: ルーン
+    // MARK: エンブレム
 
-    func testDefaultRunePageSelectsOneRunePerTierFromPath() {
-        for path in RunePath.allCases {
-            let page = RuneMath.defaultPage(name: "P", path: path, master: master)
-            XCTAssertEqual(page.runeIDs.count, 3)
-            for (i, id) in page.runeIDs.enumerated() {
-                let rune = master.rune(id)
-                XCTAssertEqual(rune?.path, path)
-                XCTAssertEqual(rune?.tier, i + 1)
-            }
+    func testEmblemPagesDefaultToTheSetTalentsAndEquipStaysInTier() {
+        var p = Profile()
+        // 保存が無ければセットの既定の天賦・解放済みの Lv60（TODO: 解放・強化が決まったら変わる）
+        for set in EmblemSetID.allCases {
+            XCTAssertEqual(EmblemMath.page(set, profile: p), EmblemCatalog.defaultLoadout(set: set))
+            XCTAssertTrue(EmblemMath.isUnlocked(set, profile: p))
+            XCTAssertEqual(EmblemMath.level(set, profile: p), 60)
         }
+        // 組み換え自由: タンクのセットにコアの弱点分析・2 段目の武器マスター
+        EmblemMath.equip(.weaknessFinder, set: .tank, profile: &p)
+        EmblemMath.equip(.weaponMaster, set: .tank, profile: &p)
+        let tank = EmblemMath.page(.tank, profile: p)
+        XCTAssertEqual(tank, EmblemLoadout(.tank, .vitality, .weaponMaster, .weaknessFinder))
+        XCTAssertEqual(EmblemMath.page(.common, profile: p), EmblemCatalog.defaultLoadout(set: .common), "ほかのセットは変わらない")
+        // 解放していないセットは付け替えられない
+        p.emblemSetProgress[EmblemSetID.mage.rawValue] = EmblemSetProgress(unlocked: false)
+        EmblemMath.equip(.fatal, set: .mage, profile: &p)
+        XCTAssertEqual(EmblemMath.page(.mage, profile: p).tier1, .inspire)
+        XCTAssertEqual(EmblemMath.selectedSet(p), .common)
+        p.selectedEmblemSet = "EM_BOGUS"
+        XCTAssertEqual(EmblemMath.selectedSet(p), .common)
     }
 
-    func testNormalizedRunePageRepairsMismatches() {
-        let page = RunePage(name: "   とても長いルーンページの名前ですよ   ", primaryPath: .arcana, runeIDs: ["RN01", "RN12"])
-        let fixed = RuneMath.normalized(page, master: master)
-        XCTAssertEqual(fixed.runeIDs, ["RN02", "RN12", "RN22"])
-        XCTAssertLessThanOrEqual(fixed.name.count, RuneMath.maxNameLength)
-        XCTAssertFalse(fixed.name.hasPrefix(" "))
-        let switched = RuneMath.changingPath(fixed, to: .harmony, master: master)
-        XCTAssertEqual(switched.primaryPath, .harmony)
-        XCTAssertTrue(switched.runeIDs.allSatisfy { master.rune($0)?.path == .harmony })
+    func testEmblemBulkApplyAndMatchLoadout() {
+        var p = Profile()
+        // 一括設定が無ければ選んだバトルプラン（未設定は「有効」）のエンブレム
+        XCTAssertEqual(EmblemMath.loadout(for: "H027", profile: p, master: master),
+                       ItemSystem.plan(heroID: "H027", chosen: nil)?.emblem)
+        p.heroBuildPlans["H027"] = 2
+        XCTAssertEqual(EmblemMath.loadout(for: "H027", profile: p, master: master), ItemSystem.heroPlans["H027"]?[2].emblem)
+        // 一括設定: セットの今の天賦を選んだヒーローに付ける
+        EmblemMath.equip(.braveSmite, set: .fighter, profile: &p)
+        XCTAssertEqual(EmblemMath.apply(set: .fighter, to: ["H027", "H032"], profile: &p), 2)
+        let fighter = EmblemLoadout(.fighter, .firmness, .festivalOfBlood, .braveSmite)
+        XCTAssertEqual(EmblemMath.loadout(for: "H027", profile: p, master: master), fighter)
+        XCTAssertEqual(EmblemMath.custom(for: "H032", profile: p), fighter)
+        XCTAssertEqual(EmblemMath.heroesUsing(fighter, profile: p), ["H027", "H032"])
+        // 練習場などの試合構成にも入る
+        XCTAssertEqual(PracticeSetup.emblem(heroID: "H027", profile: p, master: master), fighter)
+        // 外すとプランに戻る
+        EmblemMath.clearCustom(heroID: "H027", profile: &p)
+        XCTAssertEqual(EmblemMath.loadout(for: "H027", profile: p, master: master), ItemSystem.heroPlans["H027"]?[2].emblem)
+        // 一括設定の候補はロールで絞れる（ハンター = レンジャー）
+        let hunters = EmblemMath.bulkCandidates(filter: .marksman, profile: p, master: master)
+        XCTAssertFalse(hunters.isEmpty)
+        XCTAssertTrue(hunters.allSatisfy { $0.role == .ranger })
+        XCTAssertEqual(EmblemMath.bulkCandidates(filter: .all, profile: p, master: master).count,
+                       master.heroes.filter { p.ownedHeroIDs.contains($0.heroID) }.count)
+        // 候補のいないロールのタブは出さない（今の名簿にヴァンガードはいない）
+        let filters = EmblemMath.bulkFilters(profile: p, master: master)
+        XCTAssertEqual(filters.first, .all)
+        XCTAssertFalse(filters.contains(.tank))
+        XCTAssertTrue(filters.contains(.support) && filters.contains(.marksman))
+        // 解放していないセットは一括設定できず、付けていたヒーローは通常共通になる
+        p.emblemSetProgress[EmblemSetID.fighter.rawValue] = EmblemSetProgress(unlocked: false)
+        XCTAssertEqual(EmblemMath.apply(set: .fighter, to: ["H030"], profile: &p), 0)
+        XCTAssertNil(EmblemMath.custom(for: "H032", profile: p))
     }
 
-    func testRuneBonusFollowsPathRules() {
-        // Valor: RN01 3% + RN11 6% + RN21 2% = 攻撃力 +11%
-        let valor = RunePage(name: "V", primaryPath: .valor, runeIDs: ["RN01", "RN11", "RN21"])
-        XCTAssertEqual(RuneMath.bonus(for: valor, master: master).attackPct, 11, accuracy: 1e-9)
-        // Arcana: 魔力 +X、スキルダメ +X/2
-        let arcana = RuneMath.bonus(path: .arcana, percent: 8)
-        XCTAssertEqual(arcana.abilityPowerPct, 8)
-        XCTAssertEqual(arcana.skillDamagePct, 4)
-        // Resolve: HP と防御 +X
-        let resolve = RuneMath.bonus(path: .resolve, percent: 5)
-        XCTAssertEqual(resolve.maxHPPct, 5)
-        XCTAssertEqual(resolve.defensesPct, 5)
-        // Cunning: 移動 X/2・CD X/2
-        let cunning = RuneMath.bonus(path: .cunning, percent: 6)
-        XCTAssertEqual(cunning.moveSpeedPct, 3)
-        XCTAssertEqual(cunning.cooldownReductionPct, 3)
-        // Harmony: 回復 3X・回復量 X
-        let harmony = RuneMath.bonus(path: .harmony, percent: 4)
-        XCTAssertEqual(harmony.regenPct, 12)
-        XCTAssertEqual(harmony.healingPct, 4)
-        XCTAssertEqual(harmony.lines.count, 2)
+    func testEmblemTexts() {
+        let common = EmblemCatalog.set(.common)
+        XCTAssertEqual(EmblemMath.attributeValue(common.attributes[0], level: 60), "+12.00")
+        XCTAssertEqual(EmblemMath.currentMaxText(EmblemCatalog.set(.marksman).attributes[2], level: 60), "+10.00% / 10.00%")
+        XCTAssertEqual(EmblemMath.tierLabel(.tier1), "通常天賦")
+        XCTAssertEqual(EmblemMath.tierLabel(.core), "コア天賦")
+        XCTAssertEqual(EmblemMath.talentName(.weaponMaster), "武器マスター")
+        XCTAssertEqual(EmblemMath.talentSubtitle(.tenacity), "低HP時防御力上昇")
+        XCTAssertNil(EmblemMath.talentSubtitle(.vitality), "1 段目には小見出しが無い")
+        XCTAssertEqual(EmblemMath.summary(EmblemCatalog.defaultLoadout(set: .tank)), "オーダーエンブレム(タンク) · 活力 / 強靭 / 強震撃")
+        Loc.current = .en
+        XCTAssertEqual(EmblemMath.talentName(.weaponMaster), "Weapon Master")
+        XCTAssertEqual(EmblemMath.tierLabel(.core), "Core Talent")
+        Loc.current = .ja
     }
 
     // MARK: スペル

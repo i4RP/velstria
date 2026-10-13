@@ -57,6 +57,7 @@ public enum CombatSystem {
             if s.units[t].kind == .monster { bonus += st.monsterDamageBonus }
             bonus += PassiveHooks.outgoingDamageBonus(&s, ctx, attacker: a, target: t, source: source)
             bonus += ItemEffects.outgoingDamageBonus(&s, ctx, attacker: a, target: t, type: type)
+            bonus += EmblemEffects.outgoingDamageBonus(s, ctx, attacker: a, target: t, source: source)
             amount *= max(0, 1 + bonus)
         }
         // 構造物: 序盤保護・裏取り保護・攻城補正（core-world）
@@ -187,9 +188,11 @@ public enum CombatSystem {
         if victimKind == .hero {
             PassiveHooks.onDamageTaken(&s, ctx, victim: t, attacker: a, amount: dealt)
             ItemEffects.onDamageTaken(&s, ctx, victim: t, attacker: a, dealt: dealt, raw: raw, type: type, source: source)
+            if dealt > 0 { EmblemEffects.onDamageTaken(&s, victim: t, attacker: a) }
         }
         if let a, hostile, a != t, s.units[a].kind == .hero {
             ItemEffects.onDamageDealt(&s, ctx, attacker: a, target: t, raw: raw, dealt: dealt, type: type, source: source)
+            EmblemEffects.onDamageDealt(&s, ctx, attacker: a, target: t, dealt: dealt, type: type, source: source)
         }
         if case .skill(let slot) = source, let a {
             PassiveHooks.onSkillHit(&s, ctx, attacker: a, target: t, slot: slot, damage: dealt)
@@ -509,7 +512,11 @@ public enum CombatSystem {
     static func basicAttackLanded(_ s: inout SimState, _ ctx: SimContext, attacker a: Int, target t: Int,
                                   dealt: Double, isCrit: Bool = false, itemEffects: Bool = true) {
         if s.units[a].hero != nil { s.units[a].hero!.basicAttackCount += 1 }
-        if itemEffects { ItemEffects.onBasicAttackLanded(&s, ctx, attacker: a, target: t, dealt: dealt, isCrit: isCrit) }
+        if itemEffects {
+            ItemEffects.onBasicAttackLanded(&s, ctx, attacker: a, target: t, dealt: dealt, isCrit: isCrit)
+            // エンブレムのコア天賦（強震撃・弱点分析）も装備の命中時効果と同じ扱い
+            EmblemEffects.onBasicAttackLanded(&s, ctx, attacker: a, target: t)
+        }
         PassiveHooks.onBasicAttackHit(&s, ctx, attacker: a, target: t, damage: dealt)
     }
 

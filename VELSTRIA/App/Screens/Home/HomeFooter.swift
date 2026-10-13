@@ -1,7 +1,7 @@
 import SwiftUI
 import VelstriaCore
 
-// 担当: home-chrome。ホームのフッター: タブ（ホーム / ヒーロー / 装備 / ルーン / バッグ）と、右下の対戦開始ボタン。
+// 担当: home-chrome。ホームのフッター: タブ（ホーム / ヒーロー / 装備 / エンブレム / バッグ）と、右下の対戦開始ボタン。
 
 struct HomeFooter: View {
     let metrics: HomeMetrics

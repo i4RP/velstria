@@ -7,8 +7,9 @@ public struct PlayerSlot: Codable, Hashable, Sendable {
     public var position: LanePosition
     /// バトルスペル 2 つ。
     public var spells: [String]
-    /// ルーン 3 つ（Tier1/2/3）。
-    public var runes: [String]
+    /// エンブレム（nil = 無し）。MatchFactory は人間に選んだもの、ボットに「有効」のバトルプラン（無ければロール別）のものを入れる。
+    /// 後から足した任意の値なので、旧版の構成・リプレイ（runes を持つ）は nil として読む。
+    public var emblem: EmblemLoadout?
     public var skinID: String?
     public var displayName: String
     public var botDifficulty: Difficulty
@@ -18,7 +19,7 @@ public struct PlayerSlot: Codable, Hashable, Sendable {
     public var buildPlan: Int?
 
     public init(team: Team, heroID: String, controller: Controller, position: LanePosition,
-                spells: [String] = ["BS01", "BS03"], runes: [String] = [], skinID: String? = nil,
+                spells: [String] = ["BS01", "BS03"], emblem: EmblemLoadout? = nil, skinID: String? = nil,
                 displayName: String, botDifficulty: Difficulty = .normal, autoLevelSkills: Bool = true,
                 buildPlan: Int? = nil) {
         self.team = team
@@ -26,7 +27,7 @@ public struct PlayerSlot: Codable, Hashable, Sendable {
         self.controller = controller
         self.position = position
         self.spells = spells
-        self.runes = runes
+        self.emblem = emblem
         self.skinID = skinID
         self.displayName = displayName
         self.botDifficulty = botDifficulty
@@ -70,7 +71,9 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     /// 15: 推奨ビルドを日本語クライアントのバトルプランに合わせる（H025 ほか。ボットの購入が変わる）。
     /// 16: H025〜H034 に 3 つのバトルプラン（人間は PlayerSlot.buildPlan で選べる）。H027 / H030 / H032 の推奨ビルドも
     ///     「有効」のプランになる（ボットの購入が変わる）。
-    public static let currentSimVersion = 16
+    /// 17: ルーンを廃止して MLBB のエンブレム（7 セット・タレント 3 段）に置き換え（ボットも「有効」のバトルプラン、無ければロール別の
+    ///     エンブレムを付ける。能力値と戦い方が変わる）。
+    public static let currentSimVersion = 17
 
     public var simVersion: Int
     public var mode: MatchMode

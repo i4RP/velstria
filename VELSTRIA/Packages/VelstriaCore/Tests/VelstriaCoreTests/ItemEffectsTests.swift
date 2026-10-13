@@ -6,7 +6,7 @@ import XCTest
 final class ItemEffectsTests: XCTestCase {
     private let spot = Vec2(6000, 6000)
 
-    /// 1v1（blue の攻撃側 a と red の受け側 v）。キット・ルーン・自動習得を外す。
+    /// 1v1（blue の攻撃側 a と red の受け側 v）。キット・エンブレム・自動習得を外す。
     /// 受け側は防御・魔防・被ダメ軽減 0、最大 HP 20000（ダメージがそのまま通り、倒れない）。受け側を計算し直すと元に戻る。
     private func duel(_ attackerItems: [String] = [], victimItems: [String] = [], attacker: String = "H002",
                       victim: String = "H008", level: Int = 1) -> (EconomyFixture, Int, Int) {
@@ -23,7 +23,7 @@ final class ItemEffectsTests: XCTestCase {
         for (i, items) in [(a, attackerItems), (v, victimItems)] {
             let invested = items.map { MasterData.shared.item($0)?.priceGold ?? 0 }
             f.s.units[i].hero!.kit = nil
-            f.s.units[i].hero!.runes = []
+            f.s.units[i].hero!.emblem = nil
             f.s.units[i].hero!.level = level
             f.s.units[i].hero!.items = items
             f.s.units[i].hero!.itemInvested = invested
@@ -569,7 +569,7 @@ final class ItemEffectsTests: XCTestCase {
         for (level, mult) in [(1, 1.21), (15, 1.35)] {
             let (f, a, _) = duel(["EQ210"], attacker: "H004", level: level)
             var st = Stats()
-            ItemStats.apply(items: ["EQ210", "EQ210"], runes: [], to: &st, master: f.master, hero: f.hero(a))
+            ItemStats.apply(items: ["EQ210", "EQ210"], to: &st, master: f.master, hero: f.hero(a))
             XCTAssertEqual(st.abilityPower, 330 * mult, accuracy: 1e-9, "Lv\(level): 神秘は 1 つだけ")
             let base = f.s.units[a].baseStats.abilityPower
             XCTAssertEqual(f.s.units[a].stats.abilityPower, (base + 165) * mult, accuracy: 1e-6, "Lv\(level)")

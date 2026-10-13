@@ -83,7 +83,9 @@ public enum SpellSystem {
               let plan = resolve(check.spell, s, ctx, caster: i, target: target) else { return false }
         let spell = check.spell
         let origin = s.units[i].pos
-        s.units[i].hero?.spellCooldowns[spellIndex] = check.free ? 0 : check.def.cooldownSec
+        // エンブレム（立て直し）: バトルスペルの CD 短縮
+        let cdScale = s.units[i].hero.map { EmblemEffects.spellCooldownMultiplier($0) } ?? 1
+        s.units[i].hero?.spellCooldowns[spellIndex] = check.free ? 0 : check.def.cooldownSec * cdScale
         s.emit(.spellCast(casterID: s.units[i].id, spellID: spell.rawValue, origin: origin, target: plan.point))
         if spell.isOffensive { SkillPassives.breakStealth(&s, i) }
         apply(spell, &s, ctx, caster: i, plan: plan)

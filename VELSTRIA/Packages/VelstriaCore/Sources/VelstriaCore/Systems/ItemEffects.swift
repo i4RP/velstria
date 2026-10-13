@@ -173,20 +173,19 @@ public enum ItemEffects {
         return scale
     }
 
-    /// 適応（攻撃力か魔力か）でヒーローの主なダメージが魔法か。
+    /// 適応（攻撃力か魔力か）でヒーローの主なダメージが魔法か。MLBB の用語説明どおり「追加」の物理攻撃と魔法攻撃
+    /// （レベル成長の素の値を除いた分）を比べ、同じならヒーローのダメージタイプ。エンブレムの適応ダメージも同じ判定。
     static func adaptiveIsMagic(_ u: Unit, _ master: MasterData) -> Bool {
         guard let h = u.hero else { return false }
-        if u.stats.abilityPower != u.stats.attack {
-            let extraPower = u.stats.abilityPower
-            let extraAttack = u.stats.attack - u.baseStats.attack
-            if extraPower != extraAttack { return extraPower > extraAttack }
-        }
+        let extraPower = u.stats.abilityPower - u.baseStats.abilityPower
+        let extraAttack = u.stats.attack - u.baseStats.attack
+        if extraPower != extraAttack { return extraPower > extraAttack }
         return master.skills(forHero: h.heroID).first?.damageType == .magic
     }
 
     // MARK: - 能力値
 
-    /// 能力値だけで決まる効果（ItemStats がルーンの後に呼ぶ）。base = レベル成長だけの能力値。
+    /// 能力値だけで決まる効果（ItemStats がエンブレムの後に呼ぶ）。base = レベル成長だけの能力値。
     static func applyStatEffects(items: [String], hero: HeroData?, to stats: inout Stats, base: Stats, master: MasterData) {
         var found: [ItemEffectKind: (tier: Int, v: [Double])] = [:]
         for id in items {
@@ -883,7 +882,8 @@ public enum ItemEffects {
               let v = values(info.kind, of: s.units[i], ctx.master) else { return }
         let now = s.time
         let id = s.units[i].id
-        s.units[i].hero!.itemRuntime.setReady(info.kind, at: now + info.cooldown)
+        // エンブレム（立て直し）: 装備のアクティブの CD 短縮
+        s.units[i].hero!.itemRuntime.setReady(info.kind, at: now + info.cooldown * EmblemEffects.spellCooldownMultiplier(h))
         switch info.kind {
         case .frozen:
             let d = v[0]

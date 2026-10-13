@@ -242,48 +242,6 @@ enum CollectionStyle {
         }
     }
 
-    // MARK: ルーン
-
-    static func runePathName(_ p: RunePath) -> String {
-        switch p {
-        case .valor: return L("勇気", "Valor")
-        case .arcana: return L("秘術", "Arcana")
-        case .resolve: return L("堅守", "Resolve")
-        case .cunning: return L("狡知", "Cunning")
-        case .harmony: return L("調和", "Harmony")
-        }
-    }
-
-    static func runePathSymbol(_ p: RunePath) -> String {
-        switch p {
-        case .valor: return "flame.fill"
-        case .arcana: return "sparkles"
-        case .resolve: return "shield.lefthalf.filled"
-        case .cunning: return "eye.fill"
-        case .harmony: return "leaf.fill"
-        }
-    }
-
-    static func runePathColor(_ p: RunePath) -> Color {
-        switch p {
-        case .valor: return Color(red: 1.0, green: 0.45, blue: 0.35)
-        case .arcana: return Color(red: 0.72, green: 0.52, blue: 1.0)
-        case .resolve: return Color(red: 0.40, green: 0.72, blue: 1.0)
-        case .cunning: return Color(red: 1.0, green: 0.80, blue: 0.32)
-        case .harmony: return Color(red: 0.40, green: 0.92, blue: 0.62)
-        }
-    }
-
-    static func runePathTagline(_ p: RunePath) -> String {
-        switch p {
-        case .valor: return L("攻撃力を高める", "Raises attack")
-        case .arcana: return L("魔力とスキルダメージ", "Power & skill damage")
-        case .resolve: return L("最大HPと防御", "Max HP & defenses")
-        case .cunning: return L("移動速度とCD短縮", "Speed & cooldowns")
-        case .harmony: return L("回復と自然回復", "Healing & regen")
-        }
-    }
-
     // MARK: コスメ・レアリティ
 
     static func rarityName(_ r: Rarity) -> String {

@@ -178,14 +178,6 @@ public enum ItemCategory: String, Codable, Hashable, Sendable, CaseIterable {
     case roam = "Roam"
 }
 
-public enum RunePath: String, Codable, Hashable, Sendable, CaseIterable {
-    case valor = "Valor"
-    case arcana = "Arcana"
-    case resolve = "Resolve"
-    case cunning = "Cunning"
-    case harmony = "Harmony"
-}
-
 public enum EffectType: String, Codable, Hashable, Sendable {
     case burst = "Burst"
     case trail = "Trail"

@@ -36,7 +36,7 @@ When you open the App's online screen, the App creates a room (party) for you. I
 | Information | Sent to | Purpose |
 |---|---|---|
 | When joining: player ID, display name, the hero set as your icon, friend code, App version, whether you want to spectate | The host's device | Joining the room, returning to the same seat after a disconnection, showing players, friend requests |
-| Room state: every participant's player ID, display name, icon and friend code, connection latency, role (host, player or spectator), seat, chosen hero, battle spells, runes and skin, ready status, the room name and room settings | Everyone in the room, including spectators | Showing and syncing the lobby and hero selection screens |
+| Room state: every participant's player ID, display name, icon and friend code, connection latency, role (host, player or spectator), seat, chosen hero, battle spells, emblem and skin, ready status, the room name and room settings | Everyone in the room, including spectators | Showing and syncing the lobby and hero selection screens |
 | Match data: your inputs and the game state | Everyone in the room (spectators receive it with the delay set for the room) | Running the match, correcting desyncs, spectating |
 
 The room name is generated automatically from your display name, in the form "[display name]'s party". Your friend code is sent to the other devices in the room and is shown on screens such as the report and block screens. Other players can send you a friend request from those screens.

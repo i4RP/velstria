@@ -2,7 +2,7 @@ import Foundation
 
 // 担当: 統合（契約）。合成順序のみ定義。各段の中身は担当システムが実装する。
 //   1. HeroGrowth.baseStats   (core-economy) レベル成長
-//   2. ItemStats.apply        (core-economy) 装備・ルーン
+//   2. ItemStats.apply        (core-economy) 装備・エンブレム
 //   3. StatusModifiers.apply  (core-combat)  バフ/デバフ
 
 public enum StatCalculator {
@@ -12,9 +12,10 @@ public enum StatCalculator {
         if let hero = u.hero, let def = ctx.master.hero(hero.heroID) {
             stats = HeroGrowth.baseStats(def: def, level: hero.level)
             s.units[i].baseStats = stats
-            ItemStats.apply(items: hero.items, runes: hero.runes, to: &stats, ctx: ctx, hero: hero, time: s.time)
+            ItemStats.apply(items: hero.items, emblem: hero.emblem, to: &stats, ctx: ctx, hero: hero, time: s.time)
             GearEffects.applyStats(hero, to: &stats, master: ctx.master)
             ItemEffects.applyRuntimeStats(s.units[i], to: &stats, time: s.time, master: ctx.master)
+            EmblemEffects.applyRuntimeStats(s.units[i], to: &stats, time: s.time, map: ctx.map)
         } else {
             stats = u.baseStats
         }

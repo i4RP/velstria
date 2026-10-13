@@ -176,6 +176,21 @@ public struct MapDefinition: Codable, Hashable, Sendable {
     public func isInRiver(_ p: Vec2) -> Bool {
         abs(p.x + p.y - size) / 2.0.squareRoot() <= riverWidth / 2
     }
+
+    /// ジャングルか川か（エンブレムの山野の主）。マップに区域の定義は無いので近似:
+    /// 川の帯、またはレーンの通り道（中心線から wildernessLaneHalfWidth）と両陣地（泉・コアの周り baseClearRadius）の外。
+    public func isInWilderness(_ p: Vec2) -> Bool {
+        if isInRiver(p) { return true }
+        for t in Team.players {
+            if p.distance(to: fountain(t)) < MapDefinition.baseClearRadius || p.distance(to: core(t)) < MapDefinition.baseClearRadius {
+                return false
+            }
+        }
+        return nearestLane(to: p).distance > MapDefinition.wildernessLaneHalfWidth
+    }
+
+    /// 山野の主の「レーンの通り道」の半幅（障害物はレーンの中心線から laneObstacleClearance 以上離れている）。
+    public static let wildernessLaneHalfWidth: Double = 400
 }
 
 // MARK: - レーン幾何（ミニオン・ボット・HUD が使う）

@@ -286,7 +286,9 @@ public enum UnitFactory {
         u.facing = slot.team == .blue ? Double.pi / 4 : -3 * Double.pi / 4
         u.hero = HeroData(heroID: def.heroID, role: def.role, isRanged: def.isRanged, resourceKind: def.resource,
                           controller: slot.controller, position: slot.position, displayName: slot.displayName,
-                          botDifficulty: slot.botDifficulty, spells: slot.spells, runes: slot.runes, skinID: slot.skinID)
+                          botDifficulty: slot.botDifficulty, spells: slot.spells,
+                          emblem: slot.emblem.map { $0.isValid ? $0 : EmblemCatalog.defaultLoadout(set: $0.set) },
+                          skinID: slot.skinID)
         u.hero?.autoLevelSkills = slot.autoLevelSkills
         u.hero?.buildPlan = slot.buildPlan
         // キットが有効なヒーローだけ状態を持つ（無効なら nil のまま = これまでと同じ）

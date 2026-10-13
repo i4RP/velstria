@@ -99,7 +99,10 @@ public struct HeroData: Codable, Hashable, Sendable {
     /// バトルスペル ID（2 要素）。
     public var spells: [String]
     public var spellCooldowns: [Double] = [0, 0]
-    public var runes: [String]
+    /// エンブレム（セット + タレント 3 つ + セットのレベル。nil = 無し）。旧版の runes はもう読まない。
+    public var emblem: EmblemLoadout?
+    /// エンブレムのタレントの状態（CD・窓・スタック。Systems/EmblemEffects.swift）。
+    public var emblemRuntime = EmblemRuntime()
     public var skinID: String?
     /// 人間が選んだバトルプランの添字（ItemSystem.heroPlans。nil・範囲外は「有効」のプラン。ボットは nil）。
     /// 推奨ビルド（AI の買い物・HUD のおすすめ購入）がこのプランの装備になる。
@@ -136,7 +139,7 @@ public struct HeroData: Codable, Hashable, Sendable {
 
     public init(heroID: String, role: Role, isRanged: Bool, resourceKind: ResourceKind,
                 controller: Controller, position: LanePosition, displayName: String,
-                botDifficulty: Difficulty, spells: [String], runes: [String], skinID: String?) {
+                botDifficulty: Difficulty, spells: [String], emblem: EmblemLoadout?, skinID: String?) {
         self.heroID = heroID
         self.role = role
         self.isRanged = isRanged
@@ -146,7 +149,7 @@ public struct HeroData: Codable, Hashable, Sendable {
         self.displayName = displayName
         self.botDifficulty = botDifficulty
         self.spells = spells
-        self.runes = runes
+        self.emblem = emblem
         self.skinID = skinID
     }
 

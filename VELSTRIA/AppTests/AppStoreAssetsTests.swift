@@ -37,7 +37,6 @@ final class AppStoreAssetsTests: XCTestCase {
             if !i.tagJa.isEmpty { need(i.itemID + ".tag") }
         }
         for s in m.spells { need(s.spellID); need(s.spellID + ".desc") }
-        for r in m.runes { need(r.runeID); need(r.runeID + ".desc") }
         for c in m.allCosmetics { need(c.cosmeticID) }
         for s in m.allStore { need(s.sku) }
         for e in m.effects { need(e.effectID) }
@@ -48,7 +47,8 @@ final class AppStoreAssetsTests: XCTestCase {
         XCTAssertEqual(m.skills.count, 136)
         XCTAssertEqual(m.items.count, 92)  // 攻撃 34・魔法 25・防御 25・移動 8
         XCTAssertEqual(m.spells.count, 15)
-        XCTAssertEqual(m.runes.count, 30)
+        // ルーンはエンブレム（VelstriaCore の EmblemCatalog。名前は日英とも Swift の表）に置き換えた
+        XCTAssertEqual(EmblemCatalog.sets.count, 7)
         XCTAssertEqual(m.allCosmetics.count, 102)
         XCTAssertEqual(m.allStore.count, 154)
     }

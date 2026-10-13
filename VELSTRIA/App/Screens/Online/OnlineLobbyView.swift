@@ -768,12 +768,12 @@ struct OnlineRoomView: View {
         return isHost ? L("実況する", "Cast the Match") : L("観戦席に移る", "Move to Spectators")
     }
 
-    /// プロフィールの保存値（スペル・ルーン・スキン・自動習得）を反映したロードアウト。
+    /// プロフィールの保存値（スペル・エンブレム・スキン・自動習得）を反映したロードアウト。
     private func loadout(for heroID: String) -> OnlineLoadout {
         let p = app.profile
         var l = OnlineLoadout(heroID: heroID)
         l.spells = MatchFlowModel.sanitizedSpells(p.heroSpells[heroID] ?? p.defaultSpells, master: app.master)
-        l.runes = PracticeSetup.runes(profile: p, master: app.master)
+        l.emblem = PracticeSetup.emblem(heroID: heroID, profile: p, master: app.master)
         l.skinID = p.equippedSkins[heroID].flatMap { p.ownedCosmeticIDs.contains($0) ? $0 : nil }
         l.autoLevelSkills = p.settings.autoLevelSkills
         l.buildPlan = p.heroBuildPlans[heroID]

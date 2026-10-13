@@ -220,7 +220,7 @@ private struct HeroStatsSection: View {
                     legend(color: color, text: "Lv1")
                     legend(color: color.opacity(0.35), text: "Lv\(Balance.maxLevel)")
                     Spacer()
-                    Text(L("装備・ルーン補正を除く", "Excludes items and runes"))
+                    Text(L("装備・エンブレム補正を除く", "Excludes items and emblems"))
                         .font(Theme.body(10))
                         .foregroundStyle(Theme.textSecondary)
                 }
@@ -472,6 +472,32 @@ private struct HeroBattlePlanSection: View {
                 ForEach(Array(plans.enumerated()), id: \.offset) { k, plan in
                     planCard(plan, index: k, isActive: k == active)
                 }
+                customEmblemNote
+            }
+        }
+    }
+
+    /// エンブレム画面の一括設定で付けたエンブレムがあれば、試合ではプランのエンブレムの代わりにそれを使う。
+    @ViewBuilder private var customEmblemNote: some View {
+        if let custom = EmblemMath.custom(for: hero.heroID, profile: app.profile) {
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(L("一括設定のエンブレムを使います", "Using the emblem applied from the Emblems screen"))
+                        .font(Theme.body(11))
+                        .foregroundStyle(Theme.textSecondary)
+                    EmblemLoadoutBadge(emblem: custom, compact: true)
+                }
+                Spacer(minLength: 4)
+                Button {
+                    var p = app.profile
+                    EmblemMath.clearCustom(heroID: hero.heroID, profile: &p)
+                    app.profile = p
+                    app.haptics.tap()
+                } label: {
+                    Text(L("プランに戻す", "Use Plan")).lineLimit(1)
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .accessibilityIdentifier("herodetail_emblem_clear")
             }
         }
     }
@@ -526,6 +552,16 @@ private struct HeroBattlePlanSection: View {
                     .accessibilityElement(children: .combine)
                 }
             }
+            // エンブレム（セット + 天賦 3 つ。画面のエンブレムの列）
+            HStack(spacing: 6) {
+                Text(L("エンブレム", "Emblem"))
+                    .font(Theme.body(10))
+                    .foregroundStyle(Theme.textSecondary)
+                EmblemLoadoutBadge(emblem: plan.emblem)
+                Spacer(minLength: 0)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("herodetail_plan_\(index)_emblem")
         }
         .padding(10)
         .background(

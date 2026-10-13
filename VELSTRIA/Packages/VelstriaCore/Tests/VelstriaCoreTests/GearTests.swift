@@ -16,7 +16,7 @@ final class GearTests: XCTestCase {
         f.parkHeroesAtFountains()
         for i in f.s.heroIndices {
             f.s.units[i].hero!.autoLevelSkills = false
-            f.s.units[i].hero!.runes = []
+            f.s.units[i].hero!.emblem = nil
             f.s.units[i].hero!.kit = nil
         }
         let a = f.human

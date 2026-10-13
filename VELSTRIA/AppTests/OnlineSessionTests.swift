@@ -90,7 +90,7 @@ final class OnlineSessionTests: XCTestCase {
         p.host.setLoadout(OnlineLoadout(heroID: "H001"))
         p.client.setLoadout(OnlineLoadout(heroID: "H001"))
         XCTAssertNil(p.client.room.seat(of: "guest")?.loadout.heroID)
-        p.client.setLoadout(OnlineLoadout(heroID: "H002", spells: ["BS02", "BS04"], runes: ["R001"], skinID: nil, autoLevelSkills: false))
+        p.client.setLoadout(OnlineLoadout(heroID: "H002", spells: ["BS02", "BS04"], emblem: EmblemCatalog.defaultLoadout(set: .fighter), skinID: nil, autoLevelSkills: false))
         XCTAssertEqual(p.host.room.seat(of: "guest")?.loadout.heroID, "H002")
 
         // ヒーロー未選択では準備完了にならない
