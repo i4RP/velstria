@@ -13,10 +13,14 @@ public struct PlayerSlot: Codable, Hashable, Sendable {
     public var displayName: String
     public var botDifficulty: Difficulty
     public var autoLevelSkills: Bool
+    /// 人間が選んだバトルプランの添字（ItemSystem.heroPlans。nil = 「有効」のプラン。ボットは常に nil）。
+    /// 後から足した任意の値なので、旧版の構成・リプレイは nil として読む。
+    public var buildPlan: Int?
 
     public init(team: Team, heroID: String, controller: Controller, position: LanePosition,
                 spells: [String] = ["BS01", "BS03"], runes: [String] = [], skinID: String? = nil,
-                displayName: String, botDifficulty: Difficulty = .normal, autoLevelSkills: Bool = true) {
+                displayName: String, botDifficulty: Difficulty = .normal, autoLevelSkills: Bool = true,
+                buildPlan: Int? = nil) {
         self.team = team
         self.heroID = heroID
         self.controller = controller
@@ -27,6 +31,7 @@ public struct PlayerSlot: Codable, Hashable, Sendable {
         self.displayName = displayName
         self.botDifficulty = botDifficulty
         self.autoLevelSkills = autoLevelSkills
+        self.buildPlan = buildPlan
     }
 }
 
@@ -63,7 +68,9 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     ///     デビルハンター（モンスターへ 110%）、H027 の通常攻撃の式（100 + 物理攻撃 80%）、H025 の S2 のマナ 90（全 Lv）。
     /// 14: H026 / H031 / H034 の推奨ビルドを日本語クライアントのバトルプランに合わせ、H034 のロームの祝福を激励に（ボットの購入が変わる）。
     /// 15: 推奨ビルドを日本語クライアントのバトルプランに合わせる（H025 ほか。ボットの購入が変わる）。
-    public static let currentSimVersion = 15
+    /// 16: H025〜H034 に 3 つのバトルプラン（人間は PlayerSlot.buildPlan で選べる）。H027 / H030 / H032 の推奨ビルドも
+    ///     「有効」のプランになる（ボットの購入が変わる）。
+    public static let currentSimVersion = 16
 
     public var simVersion: Int
     public var mode: MatchMode

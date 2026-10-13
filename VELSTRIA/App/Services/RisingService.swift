@@ -40,6 +40,7 @@ enum RisingService {
         return MatchFactory.standardMatch(mode: .standard, humanHeroID: heroID, humanName: name,
                                           humanSpells: spells, humanRunes: runes, humanSkin: skin,
                                           allyDifficulty: .normal, enemyDifficulty: stage.enemyDifficulty,
+                                          humanBuildPlan: profile.heroBuildPlans[heroID],
                                           seed: seed, master: master)
     }
 

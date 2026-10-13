@@ -604,10 +604,18 @@ enum BuildRules {
         build.compactMap { master.item($0)?.priceGold }.reduce(0, +)
     }
 
-    /// 推奨ビルド（ヒーロー別、無ければロール別。未提供なら空）。
+    /// 推奨ビルド（ヒーロー別、無ければロール別。未提供なら空）。ヒーロー別はバトルプランの「有効」のもの。
     static func recommended(for heroID: String, master: MasterData) -> [String] {
         guard let role = master.hero(heroID)?.role else { return [] }
         return sanitized(ItemSystem.recommendedBuild(heroID: heroID, role: role, master: master), master: master)
+    }
+
+    /// プレイヤーの推奨ビルド: バトルプランを選んでいればそのプラン、無ければ「有効」のプラン（プランの無いヒーローはロール別）。
+    static func recommended(for heroID: String, profile: Profile, master: MasterData) -> [String] {
+        guard let role = master.hero(heroID)?.role else { return [] }
+        let build = ItemSystem.recommendedBuild(heroID: heroID, role: role, master: master,
+                                                plan: chosenPlanIndex(for: heroID, profile: profile))
+        return sanitized(build, master: master)
     }
 
     /// 保存済みのカスタムビルド（今のマスターで有効な装備だけ）。装備の入れ替えで 1 つも残らなければ nil。
@@ -617,9 +625,64 @@ enum BuildRules {
         return clean.isEmpty ? nil : clean
     }
 
-    /// 表示・編集の初期値: カスタムビルド優先、無ければ推奨。
+    /// 表示・編集の初期値: カスタムビルド優先、無ければ推奨（選んだバトルプラン）。
     static func current(for heroID: String, profile: Profile, master: MasterData) -> [String] {
-        custom(for: heroID, profile: profile, master: master) ?? recommended(for: heroID, master: master)
+        custom(for: heroID, profile: profile, master: master) ?? recommended(for: heroID, profile: profile, master: master)
+    }
+
+    // MARK: バトルプラン（ItemSystem.heroPlans。1 ヒーロー 3 つ、MLBB の日本語クライアントの画面どおり）
+
+    /// ヒーローのバトルプラン（無いヒーローは空）。
+    static func plans(for heroID: String) -> [BuildPlan] {
+        ItemSystem.plans(forHero: heroID)
+    }
+
+    /// プレイヤーが「使う」にしたプランの添字（範囲外・未設定は nil）。
+    static func chosenPlanIndex(for heroID: String, profile: Profile) -> Int? {
+        guard let k = profile.heroBuildPlans[heroID], plans(for: heroID).indices.contains(k) else { return nil }
+        return k
+    }
+
+    /// 「有効」と表示するプランの添字（選んだもの、無ければ既定）。プランの無いヒーローは nil。
+    static func activePlanIndex(for heroID: String, profile: Profile) -> Int? {
+        ItemSystem.planIndex(heroID: heroID, chosen: profile.heroBuildPlans[heroID])
+    }
+
+    /// プランを「使う」にする。既定のプランを選んだ時は保存値を消す（既定が変わっても追従する）。
+    static func choosePlan(_ index: Int, for heroID: String, profile: inout Profile) {
+        guard plans(for: heroID).indices.contains(index) else { return }
+        if index == ItemSystem.planIndex(heroID: heroID, chosen: nil) {
+            profile.heroBuildPlans[heroID] = nil
+        } else {
+            profile.heroBuildPlans[heroID] = index
+        }
+    }
+
+    /// プラン名の表示（英語は nameEN）。
+    static func planName(_ plan: BuildPlan) -> String {
+        L(plan.name, plan.nameEN)
+    }
+
+    /// タグのチップの英語表記（日本語は画面の文字のまま）。
+    private static let planTagEN: [String: String] = [
+        "クリティカル": "Crit", "攻撃速度": "Attack Speed", "ジャングル": "Jungle", "攻防一体": "Balanced",
+        "バースト": "Burst", "ポーク": "Poke", "ローム": "Roam", "生存": "Survival", "持続力": "Sustain",
+        "ファーム": "Farm", "HP吸収": "Lifesteal",
+    ]
+
+    static func planTag(_ tag: String) -> String {
+        L(tag, planTagEN[tag] ?? tag)
+    }
+
+    /// バトルスキル（MLBB の名前。Velstria のスペルとは別の表示用）の英語表記。
+    private static let planSpellEN: [String: String] = [
+        "フリッカー": "Flicker", "天罰": "Retribution", "浄化": "Purify", "疾走": "Sprint", "激励": "Inspire",
+        "治療": "Revitalize", "復讐": "Vengeance", "イージス": "Aegis", "石化": "Petrify", "炎の弾": "Flameshot",
+        "処刑": "Execute",
+    ]
+
+    static func planSpell(_ spell: String) -> String {
+        L(spell, planSpellEN[spell] ?? spell)
     }
 
     static func move(_ build: [String], from: Int, by offset: Int) -> [String] {

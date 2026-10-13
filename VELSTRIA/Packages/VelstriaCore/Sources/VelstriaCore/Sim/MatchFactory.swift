@@ -38,11 +38,13 @@ public enum MatchFactory {
 
     /// 人間 1 人 + AI 9 人の 5v5 を作る。人間のヒーローは AI が選ばない。
     /// AI のピックは DraftAI（ポジション適性・編成の補完・相性）で、両チーム交互に行う。
+    /// humanBuildPlan = 人間が選んだバトルプランの添字（ItemSystem.heroPlans。nil なら「有効」のプラン。AI は常に「有効」）。
     public static func standardMatch(mode: MatchMode = .standard, humanHeroID: String, humanName: String,
                                      humanTeam: Team = .blue, humanSpells: [String]? = nil,
                                      humanRunes: [String] = [], humanSkin: String? = nil,
                                      humanPosition: LanePosition? = nil,
                                      allyDifficulty: Difficulty = .normal, enemyDifficulty: Difficulty = .normal,
+                                     humanBuildPlan: Int? = nil,
                                      seed: UInt64,
                                      master: MasterData = .shared) -> MatchConfig {
         var rng = SplitMix64(seed: seed ^ 0xD1B5_4A32_D192_ED03)
@@ -57,7 +59,7 @@ public enum MatchFactory {
                 if team == humanTeam && pos == humanPos {
                     players.append(PlayerSlot(team: team, heroID: humanHeroID, controller: .human, position: pos,
                                               spells: humanSpells ?? defaultSpells(for: pos), runes: humanRunes,
-                                              skinID: humanSkin, displayName: humanName))
+                                              skinID: humanSkin, displayName: humanName, buildPlan: humanBuildPlan))
                     continue
                 }
                 let heroID = picks[team.rawValue][pos.rawValue] ?? pickHero(for: pos, used: &used, rng: &rng, master: master)
@@ -93,11 +95,12 @@ public enum MatchFactory {
 
     /// 練習場（人間 1 人）。
     public static func practiceMatch(humanHeroID: String, humanName: String, options: PracticeOptions,
-                                     tutorial: Bool = false, seed: UInt64, master: MasterData = .shared) -> MatchConfig {
+                                     tutorial: Bool = false, humanBuildPlan: Int? = nil,
+                                     seed: UInt64, master: MasterData = .shared) -> MatchConfig {
         let role = master.hero(humanHeroID)?.role ?? .duelist
         let pos = defaultPosition(for: role)
         let slot = PlayerSlot(team: .blue, heroID: humanHeroID, controller: .human, position: pos,
-                              spells: defaultSpells(for: pos), displayName: humanName)
+                              spells: defaultSpells(for: pos), displayName: humanName, buildPlan: humanBuildPlan)
         return MatchConfig(mode: tutorial ? .tutorial : .practice, seed: seed, players: [slot], practice: options,
                            maxDuration: 60 * 60)
     }
@@ -109,6 +112,7 @@ public enum MatchFactory {
                                   humanRunes: [String] = [], humanSkin: String? = nil,
                                   humanPosition: LanePosition? = nil,
                                   allyDifficulty: Difficulty = .normal, enemyDifficulty: Difficulty = .normal,
+                                  humanBuildPlan: Int? = nil,
                                   seed: UInt64,
                                   master: MasterData = .shared) -> MatchConfig {
         var rng = SplitMix64(seed: seed ^ 0xB7A1_55C2_9E3F_1D04)
@@ -127,7 +131,7 @@ public enum MatchFactory {
                 if team == humanTeam && pos == humanPos {
                     players.append(PlayerSlot(team: team, heroID: humanHero, controller: .human, position: pos,
                                               spells: humanSpells ?? ["BS01", "BS03"], runes: humanRunes,
-                                              skinID: humanSkin, displayName: humanName))
+                                              skinID: humanSkin, displayName: humanName, buildPlan: humanBuildPlan))
                     continue
                 }
                 let heroID = picks[team.rawValue][pos.rawValue] ?? pickHero(for: pos, used: &used, rng: &rng, master: master)
@@ -149,6 +153,7 @@ public enum MatchFactory {
                                    humanSpells: [String]? = nil, humanRunes: [String] = [], humanSkin: String? = nil,
                                    humanPosition: LanePosition? = nil,
                                    allyDifficulty: Difficulty = .normal, enemyDifficulty: Difficulty = .normal,
+                                   humanBuildPlan: Int? = nil,
                                    seed: UInt64,
                                    master: MasterData = .shared) -> MatchConfig {
         if let humanSide, let humanHeroID {
@@ -156,7 +161,7 @@ public enum MatchFactory {
                                  humanTeam: humanSide, humanSpells: humanSpells, humanRunes: humanRunes,
                                  humanSkin: humanSkin, humanPosition: humanPosition,
                                  allyDifficulty: allyDifficulty, enemyDifficulty: enemyDifficulty,
-                                 seed: seed, master: master)
+                                 humanBuildPlan: humanBuildPlan, seed: seed, master: master)
         }
         var rng = SplitMix64(seed: seed ^ 0x51ED_2701_44AB_9CF3)
         var used = Set<String>()

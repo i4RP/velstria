@@ -18,17 +18,18 @@ enum CustomSetup {
         let spells = PracticeSetup.spells(heroID: heroID, profile: profile, master: master)
         let runes = PracticeSetup.runes(profile: profile, master: master)
         let skin = profile.equippedSkins[heroID].flatMap { profile.ownedCosmeticIDs.contains($0) ? $0 : nil }
+        let plan = profile.heroBuildPlans[heroID]
         switch mapKind {
         case .brawl:
             return MatchFactory.brawlMatch(humanHeroID: heroID, humanName: name, humanTeam: side,
                                            humanSpells: spells, humanRunes: runes, humanSkin: skin,
                                            allyDifficulty: allyDifficulty, enemyDifficulty: enemyDifficulty,
-                                           seed: seed, master: master)
+                                           humanBuildPlan: plan, seed: seed, master: master)
         case .standard:
             return MatchFactory.customMatch(humanSide: side, humanHeroID: heroID, humanName: name,
                                             humanSpells: spells, humanRunes: runes, humanSkin: skin,
                                             allyDifficulty: allyDifficulty, enemyDifficulty: enemyDifficulty,
-                                            seed: seed, master: master)
+                                            humanBuildPlan: plan, seed: seed, master: master)
         }
     }
 

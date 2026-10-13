@@ -776,6 +776,7 @@ struct OnlineRoomView: View {
         l.runes = PracticeSetup.runes(profile: p, master: app.master)
         l.skinID = p.equippedSkins[heroID].flatMap { p.ownedCosmeticIDs.contains($0) ? $0 : nil }
         l.autoLevelSkills = p.settings.autoLevelSkills
+        l.buildPlan = p.heroBuildPlans[heroID]
         return l
     }
 

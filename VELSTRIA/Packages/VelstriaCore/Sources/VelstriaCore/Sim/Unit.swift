@@ -101,6 +101,9 @@ public struct HeroData: Codable, Hashable, Sendable {
     public var spellCooldowns: [Double] = [0, 0]
     public var runes: [String]
     public var skinID: String?
+    /// 人間が選んだバトルプランの添字（ItemSystem.heroPlans。nil・範囲外は「有効」のプラン。ボットは nil）。
+    /// 推奨ビルド（AI の買い物・HUD のおすすめ購入）がこのプランの装備になる。
+    public var buildPlan: Int?
 
     public var passive = PassiveState()
     public var empoweredAttack: EmpoweredAttack?

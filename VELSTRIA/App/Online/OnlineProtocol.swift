@@ -78,6 +78,8 @@ struct OnlineLoadout: Codable, Hashable {
     var runes: [String] = []
     var skinID: String?
     var autoLevelSkills = true
+    /// 選んだバトルプランの添字（nil = 「有効」のプラン）。旧版のロビーには無いので任意。
+    var buildPlan: Int?
 }
 
 /// ロビーの座席。peerID が nil なら AI が入る。
@@ -188,7 +190,7 @@ struct OnlineRoom: Codable, Hashable {
             return OnlineHumanSlot(team: s.team, position: s.position, heroID: hero,
                                    displayName: s.name.isEmpty ? L("プレイヤー", "Player") : s.name,
                                    spells: s.loadout.spells, runes: s.loadout.runes, skinID: s.loadout.skinID,
-                                   autoLevelSkills: s.loadout.autoLevelSkills)
+                                   autoLevelSkills: s.loadout.autoLevelSkills, buildPlan: s.loadout.buildPlan)
         }
         return MatchFactory.onlineMatch(humans: humans, botDifficulty: botDifficulty, seed: seed, master: master)
     }

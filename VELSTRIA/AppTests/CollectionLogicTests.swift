@@ -460,6 +460,59 @@ final class CollectionLogicTests: XCTestCase {
                        BuildRules.recommended(for: "H003", master: master), "旧装備だけのビルドはおすすめに戻す")
     }
 
+    /// バトルプラン: 3 つから「使う」を選ぶと保存され、おすすめビルドと試合の構成（人間の枠）に反映される。
+    func testBattlePlanChoiceDrivesRecommendedBuildAndMatchConfig() {
+        var p = Profile()
+        let plans = BuildRules.plans(for: "H027")
+        XCTAssertEqual(plans.count, 3)
+        XCTAssertNil(BuildRules.chosenPlanIndex(for: "H027", profile: p))
+        XCTAssertEqual(BuildRules.activePlanIndex(for: "H027", profile: p), 1, "既定は日本語クライアントで「有効」の「爆発力」")
+        XCTAssertEqual(BuildRules.recommended(for: "H027", profile: p, master: master), plans[1].items)
+        XCTAssertEqual(BuildRules.recommended(for: "H027", profile: p, master: master),
+                       BuildRules.recommended(for: "H027", master: master))
+        BuildRules.choosePlan(2, for: "H027", profile: &p)
+        XCTAssertEqual(p.heroBuildPlans["H027"], 2)
+        XCTAssertEqual(BuildRules.activePlanIndex(for: "H027", profile: p), 2)
+        XCTAssertEqual(BuildRules.recommended(for: "H027", profile: p, master: master), plans[2].items)
+        XCTAssertEqual(BuildRules.current(for: "H027", profile: p, master: master), plans[2].items)
+        // 試合の構成: 選んだプランは人間の枠だけに入る
+        let practice = PracticeSetup.config(heroID: "H027", options: PracticeOptions(), profile: p, seed: 1)
+        XCTAssertEqual(practice.humanSlot?.buildPlan, 2)
+        let custom = CustomSetup.config(heroID: "H027", side: .blue, mapKind: .standard,
+                                        allyDifficulty: .normal, enemyDifficulty: .hard, profile: p, seed: 7)
+        XCTAssertEqual(custom.humanSlot?.buildPlan, 2)
+        XCTAssertTrue(custom.players.filter { $0.controller == .bot }.allSatisfy { $0.buildPlan == nil })
+        let brawl = CustomSetup.config(heroID: "H027", side: .red, mapKind: .brawl,
+                                       allyDifficulty: .normal, enemyDifficulty: .hard, profile: p, seed: 7)
+        XCTAssertEqual(brawl.humanSlot?.buildPlan, 2)
+        let rising = RisingService.config(for: RisingService.ladder[0], heroID: "H027", profile: p, seed: 3)
+        XCTAssertEqual(rising.humanSlot?.buildPlan, 2)
+        // カスタムビルドは選んだプランより優先（戦闘中のおすすめ購入も同じ順）
+        p.customBuilds["H027"] = ["EQ101", "EQ106"]
+        XCTAssertEqual(BuildRules.current(for: "H027", profile: p, master: master), ["EQ101", "EQ106"])
+        p.customBuilds["H027"] = nil
+        // 既定のプランを選び直すと保存値は消える。範囲外は無視
+        BuildRules.choosePlan(1, for: "H027", profile: &p)
+        XCTAssertNil(p.heroBuildPlans["H027"])
+        BuildRules.choosePlan(5, for: "H027", profile: &p)
+        XCTAssertNil(p.heroBuildPlans["H027"])
+        // 範囲外の保存値（古いデータ）は「有効」のプランとして扱う
+        p.heroBuildPlans["H027"] = 9
+        XCTAssertNil(BuildRules.chosenPlanIndex(for: "H027", profile: p))
+        XCTAssertEqual(BuildRules.activePlanIndex(for: "H027", profile: p), 1)
+        // プランの無いヒーロー
+        XCTAssertTrue(BuildRules.plans(for: "H003").isEmpty)
+        XCTAssertNil(BuildRules.activePlanIndex(for: "H003", profile: p))
+        // 表示: 日本語は画面の文字、タグ・スペルの英語表記
+        XCTAssertEqual(BuildRules.planName(plans[2]), "終盤の中核")
+        XCTAssertEqual(BuildRules.planTag("クリティカル"), "クリティカル")
+        Loc.current = .en
+        XCTAssertEqual(BuildRules.planName(plans[2]), plans[2].nameEN)
+        XCTAssertEqual(BuildRules.planTag("クリティカル"), "Crit")
+        XCTAssertEqual(BuildRules.planSpell("天罰"), "Retribution")
+        Loc.current = .ja
+    }
+
     // MARK: ルーン
 
     func testDefaultRunePageSelectsOneRunePerTierFromPath() {

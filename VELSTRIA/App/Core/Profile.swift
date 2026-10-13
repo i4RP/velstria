@@ -525,6 +525,8 @@ struct Profile: Codable, Equatable {
     var heroSpells: [String: [String]] = [:]
     /// heroID → 装備 ID 列（カスタムビルド）
     var customBuilds: [String: [String]] = [:]
+    /// heroID → 選んだバトルプランの添字（ItemSystem.heroPlans。未設定は「有効」のプラン）。試合では PlayerSlot.buildPlan になる。
+    var heroBuildPlans: [String: Int] = [:]
     var lastPickedHeroID: String?
     var preferredDifficulty: Difficulty = .normal
 

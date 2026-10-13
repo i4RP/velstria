@@ -288,6 +288,7 @@ public enum UnitFactory {
                           controller: slot.controller, position: slot.position, displayName: slot.displayName,
                           botDifficulty: slot.botDifficulty, spells: slot.spells, runes: slot.runes, skinID: slot.skinID)
         u.hero?.autoLevelSkills = slot.autoLevelSkills
+        u.hero?.buildPlan = slot.buildPlan
         // キットが有効なヒーローだけ状態を持つ（無効なら nil のまま = これまでと同じ）
         if HeroKits.hasKit(def.heroID) { u.hero?.kit = KitState() }
         return u

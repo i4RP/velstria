@@ -350,10 +350,20 @@ private struct HeroBuildSection: View {
     @Environment(AppModel.self) private var app
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            buildPanel
+            // バトルプラン（MLBB の元ヒーロー H025〜H034 だけ。3 つから「使う」を選ぶ）
+            if !BuildRules.plans(for: hero.heroID).isEmpty {
+                HeroBattlePlanSection(hero: hero)
+            }
+        }
+    }
+
+    private var buildPanel: some View {
         let isCustom = BuildRules.custom(for: hero.heroID, profile: app.profile, master: app.master) != nil
         let build = BuildRules.current(for: hero.heroID, profile: app.profile, master: app.master)
-        let recommended = BuildRules.recommended(for: hero.heroID, master: app.master)
-        Panel(padding: 12) {
+        let recommended = BuildRules.recommended(for: hero.heroID, profile: app.profile, master: app.master)
+        return Panel(padding: 12) {
             VStack(alignment: .leading, spacing: 10) {
                 CollectionSectionTitle(title: isCustom ? L("カスタムビルド", "Custom Build") : L("おすすめビルド", "Recommended Build"),
                                        symbol: isCustom ? "person.fill" : "star.fill",
@@ -433,5 +443,106 @@ private struct HeroBuildSection: View {
         .buttonStyle(CollectionPressStyle())
         .accessibilityLabel("\(index + 1). \(MasterText.item(item))")
         .accessibilityIdentifier("herodetail_build_\(index)_\(item.itemID)")
+    }
+}
+
+// MARK: - バトルプラン
+
+/// MLBB の「バトルプラン」と同じく、3 つのプラン（名前・タグ・装備 6 個・バトルスキル）を並べ、
+/// 使っているものに「有効」、ほかに「使う」を出す。選んだプランは Profile.heroBuildPlans に保存し、試合の構成へ渡る。
+private struct HeroBattlePlanSection: View {
+    let hero: HeroDef
+    @Environment(AppModel.self) private var app
+
+    var body: some View {
+        let plans = BuildRules.plans(for: hero.heroID)
+        let active = BuildRules.activePlanIndex(for: hero.heroID, profile: app.profile)
+        let isCustom = BuildRules.custom(for: hero.heroID, profile: app.profile, master: app.master) != nil
+        Panel(padding: 12) {
+            VStack(alignment: .leading, spacing: 8) {
+                CollectionSectionTitle(title: L("バトルプラン", "Battle Plans"), symbol: "list.bullet.rectangle.fill",
+                                       trailing: L("\(plans.count) 件", "\(plans.count) plans"))
+                if isCustom {
+                    Text(L("カスタムビルドを保存している間は、試合のおすすめ購入にカスタムビルドを使います。",
+                           "While a custom build is saved, in-match recommendations use the custom build."))
+                        .font(Theme.body(11))
+                        .foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                ForEach(Array(plans.enumerated()), id: \.offset) { k, plan in
+                    planCard(plan, index: k, isActive: k == active)
+                }
+            }
+        }
+    }
+
+    private func planCard(_ plan: BuildPlan, index: Int, isActive: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Text(BuildRules.planName(plan))
+                    .font(Theme.heading(13))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                ForEach(plan.tags, id: \.self) { tag in
+                    CollectionInfoTag(text: BuildRules.planTag(tag), color: Theme.cyan)
+                }
+                Spacer(minLength: 4)
+                if isActive {
+                    Label(L("有効", "Active"), systemImage: "checkmark.circle.fill")
+                        .font(Theme.heading(13))
+                        .foregroundStyle(Theme.success)
+                        .frame(minHeight: 44)
+                        .accessibilityIdentifier("herodetail_plan_\(index)_active")
+                } else {
+                    Button {
+                        use(index, plan: plan)
+                    } label: {
+                        Text(L("使う", "Use")).lineLimit(1)
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("herodetail_plan_\(index)_use")
+                }
+            }
+            HStack(spacing: 6) {
+                ForEach(Array(plan.items.enumerated()), id: \.offset) { i, id in
+                    if let item = app.master.item(id) {
+                        ItemIconView(item: item, size: 36)
+                            .accessibilityLabel("\(i + 1). \(MasterText.item(item))")
+                    }
+                }
+                Spacer(minLength: 4)
+                if let spell = plan.spellHint {
+                    VStack(alignment: .trailing, spacing: 1) {
+                        Text(L("バトルスキル", "Spell"))
+                            .font(Theme.body(10))
+                            .foregroundStyle(Theme.textSecondary)
+                        Text(BuildRules.planSpell(spell))
+                            .font(Theme.body(12))
+                            .foregroundStyle(Theme.textPrimary)
+                            .lineLimit(1)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(isActive ? Theme.success.opacity(0.12) : Color.white.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(isActive ? Theme.success.opacity(0.7) : Theme.panelStroke, lineWidth: isActive ? 1.5 : 1)
+        )
+    }
+
+    private func use(_ index: Int, plan: BuildPlan) {
+        var p = app.profile
+        BuildRules.choosePlan(index, for: hero.heroID, profile: &p)
+        app.profile = p
+        app.haptics.tap()
+        app.showToast(L("バトルプラン「\(plan.name)」を使います", "Using battle plan \"\(plan.nameEN)\""))
     }
 }

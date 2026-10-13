@@ -195,36 +195,15 @@ public enum ItemSystem {
         .support: ["EQ405", "EQ202", "EQ305", "EQ307", "EQ306", "EQ304"],
     ]
 
-    /// ヒーロー固有の推奨ビルド（MLBB の元ヒーローの定番構成）。無いヒーローはロール別。
-    static let heroBuilds: [String: [String]] = [
-        // ルミナ（ミヤ）: 日本語クライアントのバトルプラン「ヒット＆アウェイ」（2026-10-13 のスクショ）。
-        // スイフトブーツ → ウィンドテラー → バーサーク → ブラッドクロウ → マジックガン → トライデント
-        "H025": ["EQ403", "EQ108", "EQ110", "EQ111", "EQ101", "EQ103"],
-        // エウリア（エウドラ）: 日本語クライアントのバトルプラン「魔法バースト」（2026-10-13 のスクショ）。
-        // アーケインブーツ → ジーニアスワンド → ボルトロッド → ヒートロッド → 魔法の聖剣 → ガーディアンレリック
-        "H026": ["EQ404", "EQ203", "EQ204", "EQ207", "EQ211", "EQ210"],
-        // ジャルド（趙子龍）: スイフトブーツ → ラスティサイズ → ブラッドクロウ → バーサーク → ディスペアブレイド → ナチュラルウィンド
-        "H027": ["EQ403", "EQ119", "EQ111", "EQ110", "EQ106", "EQ117"],
-        // ザイル（セイバー）: 日本語クライアントのバトルプラン「DPS」（2026-10-13 のスクショ。狩猟印のジャングラー）。
-        // ハンターストライク → マジックブーツ（ジャングルの祝福）→ 常勝の神斧 → エンドレスバトル → スピリットシャウト → ディスペアブレイド
-        "H028": ["EQ105", "EQ405", "EQ116", "EQ109", "EQ112", "EQ106"],
-        // ボルグ（ティグリアル）: 日本語クライアントのバトルプラン「生存」（2026-10-13 のスクショ）。
-        // ラピッドブーツ（ロームの祝福）→ ドミナントシールド → 上古の鎧 → フリーティングタイム → 聖光の鎧 → イモータル
-        "H029": ["EQ402", "EQ305", "EQ308", "EQ114", "EQ301", "EQ304"],
-        // ライナ（ライラ）: スイフトブーツ → マジックガン → ウィンドテラー → バーサーク → ディスペアブレイド → ナチュラルウィンド
-        "H030": ["EQ403", "EQ101", "EQ108", "EQ110", "EQ106", "EQ117"],
-        // オーリア（オーロラ）: 日本語クライアントのバトルプラン「持続的ダメージ」（2026-10-13 のスクショ）。
-        // アーケインブーツ → ヒートロッド → ボルトロッド → 魔法の聖剣 → ウィッシュランタン → ガーディアンレリック
-        "H031": ["EQ404", "EQ207", "EQ204", "EQ211", "EQ201", "EQ210"],
-        // ディアス（ディロス）: ウォリアーブーツ → 常勝の神斧 → ハンターストライク → スピリットシャウト → ディスペアブレイド → イモータル
-        "H032": ["EQ407", "EQ116", "EQ105", "EQ112", "EQ106", "EQ304"],
-        // ヴァルド（アルカード）: 日本語クライアントのバトルプラン「DPS」（2026-10-13 のスクショ。狩猟印のジャングラー）。
-        // タフブーツ（ジャングルの祝福）→ 常勝の神斧 → デモンフォール → エンドレスバトル → ディスペアブレイド → クイーンズウイング
-        "H033": ["EQ406", "EQ116", "EQ104", "EQ109", "EQ106", "EQ312"],
-        // ゴルム（フランコ）: 日本語クライアントのビルド「チームバフ」（2026-10-13 のスクショ）。
-        // ラピッドブーツ（激励）→ ウィンタークラウン → フリーティングタイム → 上古の鎧 → ヴァルキュリアブレス → イモータル
-        "H034": ["EQ402", "EQ113", "EQ114", "EQ308", "EQ306", "EQ304"],
-    ]
+    /// ヒーロー固有の推奨ビルド = バトルプラン（BuildPlans.swift の heroPlans）の「有効」のプランの装備。無いヒーローはロール別。
+    /// 例: ルミナ（ミヤ）は「ヒット＆アウェイ」、ジャルド（趙子龍）は「爆発力」、ヴァルド（アルカード）は「DPS」。
+    static let heroBuilds: [String: [String]] = {
+        var out: [String: [String]] = [:]
+        for heroID in ItemSystem.heroPlans.keys {
+            if let p = ItemSystem.plan(heroID: heroID, chosen: nil) { out[heroID] = p.items }
+        }
+        return out
+    }()
 
     /// ロール別の推奨ビルド（購入順の item ID。マスターに無い ID は除く）。
     public static func recommendedBuild(role: Role, master: MasterData) -> [String] {
@@ -232,16 +211,18 @@ public enum ItemSystem {
     }
 
     /// ヒーロー別（無ければロール別）の推奨ビルド。heroID のロールと role が食い違う時（テストの差し替えなど）はロール別。
-    public static func recommendedBuild(heroID: String, role: Role, master: MasterData) -> [String] {
-        if let build = heroBuilds[heroID], master.hero(heroID)?.role == role {
-            return build.filter { master.item($0) != nil }
+    /// plan = 選んだバトルプランの添字（nil・範囲外は「有効」のプラン）。
+    public static func recommendedBuild(heroID: String, role: Role, master: MasterData, plan chosen: Int? = nil) -> [String] {
+        if master.hero(heroID)?.role == role, let p = ItemSystem.plan(heroID: heroID, chosen: chosen) {
+            return p.items.filter { master.item($0) != nil }
         }
         return recommendedBuild(role: role, master: master)
     }
 
-    /// ヒーローの推奨ビルド（AI と HUD の「おすすめ購入」）。祝福は靴に付くので、ジャングル・ロームでも装備の並びは変わらない。
+    /// ヒーローの推奨ビルド（AI と HUD の「おすすめ購入」）。人間が選んだバトルプラン（HeroData.buildPlan）があればそれ、
+    /// 無ければ「有効」のプラン。祝福は靴に付くので、ジャングル・ロームでも装備の並びは変わらない。
     public static func recommendedBuild(for hero: HeroData, master: MasterData) -> [String] {
-        recommendedBuild(heroID: hero.heroID, role: hero.role, master: master)
+        recommendedBuild(heroID: hero.heroID, role: hero.role, master: master, plan: hero.buildPlan)
     }
 
     /// カテゴリ内の完成品候補を評価順に並べる（上位 Tier → 評価値 → ID 昇順。消耗品は除く）。

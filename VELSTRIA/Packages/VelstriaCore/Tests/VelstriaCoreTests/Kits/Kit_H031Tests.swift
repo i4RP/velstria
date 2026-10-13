@@ -1135,7 +1135,10 @@ final class Kit_H031Tests: XCTestCase {
                     pride = max(pride, k.oriaSaves)
                 }
             }
-            if casts[.skill1, default: 0] > 0, casts[.skill2, default: 0] > 0, casts[.ultimate, default: 0] > 0 { break }
+            // 全スロットを撃ち、S1・S2 がダメージを出したシードで止める（下の判定はそのシードの値で見る）。
+            // シード 11 は sim 16（H027 / H030 / H032 のボットがバトルプランの装備を買う）で S1 を 1 回だけ撃って外すので、次のシードへ進む。
+            if casts[.skill1, default: 0] > 0, casts[.skill2, default: 0] > 0, casts[.ultimate, default: 0] > 0,
+               skillDamage[.skill1, default: 0] > 0, skillDamage[.skill2, default: 0] > 0 { break }
         }
         XCTAssertTrue(found)
         XCTAssertGreaterThan(casts[.skill1, default: 0], 0, "S1: \(casts)")

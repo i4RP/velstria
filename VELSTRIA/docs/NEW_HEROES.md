@@ -118,6 +118,11 @@
 ヒーロー別（H025〜H034 は元の MLBB ヒーローの定番ビルド）とロール別の、装備 ID の並び（`ItemSystem.heroBuilds` / `roleBuilds`、`recommendedBuild`）。
 装備は MLBB の図鑑そのものなので、ビルドも MLBB の定番をそのまま並べている。
 
+H025〜H034 は MLBB の日本語クライアントと同じく 3 つの「バトルプラン」を持つ（`ItemSystem.heroPlans`、`Systems/BuildPlans.swift`）。
+`heroBuilds` は「有効」のプラン（`defaultPlanIndex`）の装備で、AI はこれを買う。プレイヤーはヒーロー詳細の「使う」で別のプランを選べる
+（`Profile.heroBuildPlans` → `PlayerSlot.buildPlan`）。各プランの名前・タグ・装備・バトルスキル・エンブレムは
+[`BUILD_PLANS.md`](BUILD_PLANS.md)（2026-10-13 の日本語クライアントのスクショから）。
+
 ## TODO（後の段階）
 
 - ヒーロー別の固有スキル挙動（今は全ヒーロー、ロールの型で動く）

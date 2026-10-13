@@ -127,7 +127,8 @@ final class MatchFlowModel {
             return MatchFactory.brawlMatch(humanHeroID: heroID, humanName: name, humanSpells: spells,
                                            humanRunes: runeIDs(profile: profile), humanSkin: skinID,
                                            humanPosition: position, allyDifficulty: .normal,
-                                           enemyDifficulty: difficulty, seed: seed, master: master)
+                                           enemyDifficulty: difficulty, humanBuildPlan: profile.heroBuildPlans[heroID],
+                                           seed: seed, master: master)
         }
         let ranked = kind == .ranked
         let diffs = ranked ? RankService.botDifficulty(for: profile.rank) : (ally: Difficulty.normal, enemy: difficulty)
@@ -135,6 +136,7 @@ final class MatchFlowModel {
                                                 humanTeam: .blue, humanSpells: spells, humanRunes: runeIDs(profile: profile),
                                                 humanSkin: skinID, humanPosition: position,
                                                 allyDifficulty: diffs.ally, enemyDifficulty: diffs.enemy,
+                                                humanBuildPlan: profile.heroBuildPlans[heroID],
                                                 seed: seed, master: master)
         if ranked, let draft {
             draft.apply(to: &config, master: master)

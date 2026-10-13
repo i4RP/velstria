@@ -12,9 +12,12 @@ public struct OnlineHumanSlot: Codable, Hashable, Sendable {
     public var runes: [String]
     public var skinID: String?
     public var autoLevelSkills: Bool
+    /// 選んだバトルプランの添字（nil = 「有効」のプラン。旧版のロビーには無いので任意）。
+    public var buildPlan: Int?
 
     public init(team: Team, position: LanePosition, heroID: String, displayName: String,
-                spells: [String]? = nil, runes: [String] = [], skinID: String? = nil, autoLevelSkills: Bool = true) {
+                spells: [String]? = nil, runes: [String] = [], skinID: String? = nil, autoLevelSkills: Bool = true,
+                buildPlan: Int? = nil) {
         self.team = team
         self.position = position
         self.heroID = heroID
@@ -23,6 +26,7 @@ public struct OnlineHumanSlot: Codable, Hashable, Sendable {
         self.runes = runes
         self.skinID = skinID
         self.autoLevelSkills = autoLevelSkills
+        self.buildPlan = buildPlan
     }
 }
 
@@ -63,7 +67,7 @@ extension MatchFactory {
                     players.append(PlayerSlot(team: team, heroID: h.heroID, controller: .human, position: pos,
                                               spells: h.spells ?? defaultSpells(for: pos), runes: h.runes,
                                               skinID: h.skinID, displayName: h.displayName,
-                                              autoLevelSkills: h.autoLevelSkills))
+                                              autoLevelSkills: h.autoLevelSkills, buildPlan: h.buildPlan))
                     continue
                 }
                 let heroID = picks[team.rawValue][pos.rawValue] ?? pickHero(for: pos, used: &used, rng: &rng, master: master)

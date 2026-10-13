@@ -30,6 +30,7 @@ enum PracticeSetup {
             config.players[i].skinID = skin
         }
         config.players[i].autoLevelSkills = profile.settings.autoLevelSkills
+        config.players[i].buildPlan = profile.heroBuildPlans[heroID]
         return config
     }
 
