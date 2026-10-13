@@ -61,7 +61,8 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     /// 12: H032 の奥義の失った HP の割合 20% → 25%（日本語クライアントの画面）。
     /// 13: 日本語クライアントの無加工の画面に合わせた: H031 の S1・S2 のクールダウン（5 → 4 / 10 → 8 秒）、H033 の S1 の係数 +85% と
     ///     デビルハンター（モンスターへ 110%）、H027 の通常攻撃の式（100 + 物理攻撃 80%）、H025 の S2 のマナ 90（全 Lv）。
-    public static let currentSimVersion = 13
+    /// 14: H026 / H031 / H034 の推奨ビルドを日本語クライアントのバトルプランに合わせ、H034 のロームの祝福を激励に（ボットの購入が変わる）。
+    public static let currentSimVersion = 14
 
     public var simVersion: Int
     public var mode: MatchMode

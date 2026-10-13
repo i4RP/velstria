@@ -68,4 +68,14 @@ final class HeroBuildPlanTests: XCTestCase {
         h.spells = [Balance.Economy.smiteSpellID, "BS01"]
         XCTAssertEqual(ItemSystem.recommendedBuild(for: h, master: m), ItemSystem.heroBuilds["H028"])
     }
+
+    /// 日本語クライアントの推奨: フランコ（H034）はラピッドブーツ（激励）。他のサポートは役割別（恩恵）、狩猟印は炎撃のまま。
+    func testFrancoRoamBlessingFollowsTheJapaneseClient() {
+        XCTAssertEqual(GearOption.defaultOption(for: .roam, role: .support, heroID: "H034"), .encourage)
+        XCTAssertEqual(GearOption.defaultOption(for: .roam, role: .support, heroID: "H011"), .favor)
+        XCTAssertEqual(GearOption.defaultOption(for: .jungle, role: .support, heroID: "H034"), .flame)
+        XCTAssertEqual(ItemSystem.heroBuilds["H034"], ["EQ402", "EQ113", "EQ114", "EQ308", "EQ306", "EQ304"])
+        XCTAssertEqual(ItemSystem.heroBuilds["H026"], ["EQ404", "EQ203", "EQ204", "EQ207", "EQ211", "EQ210"])
+        XCTAssertEqual(ItemSystem.heroBuilds["H031"], ["EQ404", "EQ207", "EQ204", "EQ211", "EQ201", "EQ210"])
+    }
 }

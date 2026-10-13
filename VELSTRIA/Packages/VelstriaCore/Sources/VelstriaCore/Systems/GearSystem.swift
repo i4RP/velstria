@@ -38,6 +38,16 @@ public enum GearOption: String, Codable, Hashable, Sendable, CaseIterable {
         allCases.filter { $0.category == category }
     }
 
+    /// ヒーロー固有のロームの祝福（MLBB の日本語クライアントの推奨ビルド。無いヒーローは役割別）。
+    /// ゴルム（フランコ）= ラピッドブーツ（激励）。
+    public static let heroRoamOptions: [String: GearOption] = ["H034": .encourage]
+
+    /// 自動で付ける時の既定（ヒーロー固有があればそれ。無ければ役割別）。
+    public static func defaultOption(for category: ItemCategory, role: Role, heroID: String) -> GearOption? {
+        if category == .roam, let own = heroRoamOptions[heroID] { return own }
+        return defaultOption(for: category, role: role)
+    }
+
     /// 自動で付ける時の既定（ジャングル = 炎撃、ローム = 役割別）。
     public static func defaultOption(for category: ItemCategory, role: Role) -> GearOption? {
         switch category {
@@ -327,7 +337,7 @@ public enum GearSystem {
         if hasSmite {
             option = GearOption.defaultOption(for: .jungle, role: h.role)
         } else if h.controller == .bot, h.position == .support, time <= Balance.Gear.roamPurchaseDeadline {
-            option = GearOption.defaultOption(for: .roam, role: h.role)
+            option = GearOption.defaultOption(for: .roam, role: h.role, heroID: h.heroID)
         }
         guard let option else { return }
         var g = h.gear ?? GearState()
