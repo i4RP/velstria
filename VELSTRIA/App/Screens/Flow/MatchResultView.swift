@@ -692,7 +692,7 @@ private struct RewardsTab: View {
                                    value: "+\(report.passXP)")
                     }
                     if report.magicDust > 0 {
-                        rewardCell(symbol: EmblemStyle.dustSymbol, tint: EmblemStyle.dustColor, title: L("魔法の粉", "Magic Dust"),
+                        rewardCell(symbol: EmblemStyle.dustSymbol, tint: EmblemStyle.dustColor, title: L("マジックダスト", "Magic Dust"),
                                    value: "+\(report.magicDust)")
                     }
                 }

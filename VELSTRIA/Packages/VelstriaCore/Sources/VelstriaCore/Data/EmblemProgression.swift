@@ -24,7 +24,7 @@ public enum EmblemProgression {
 
     // MARK: - 強化の費用
 
-    /// Lv(n) → Lv(n+1) の費用（添字 0 = Lv1→2。59 個）。セットの欠片を先に使い、足りない分を魔法の粉で払う（1:1）。
+    /// Lv(n) → Lv(n+1) の費用（添字 0 = Lv1→2。59 個）。セットの欠片を先に使い、足りない分をマジックダストで払う（1:1）。
     /// 第三者の攻略の 10 レベルごとの合計（Lv1→10: 483 / 11→20: 1,210 / 21→30: 2,540 / 31→40: 3,880 / 41→50: 5,510 /
     /// 51→60: 9,150、合計 22,773）にちょうど合わせ、範囲の中は滑らかに増やし、キーレベルに上がる 1 回だけ 1.45 倍
     /// （サポートの 29→30 = 488 と タンクの 28→29 = 337 の比）にした。画面で確かめた 26→27 = 227・28→29 = 337・
@@ -156,13 +156,13 @@ public enum EmblemProgression {
     static func round2(_ v: Double) -> Double { (v * 100).rounded() / 100 }
 }
 
-/// 強化 1 回の支払い（欠片を先に、足りない分を魔法の粉で）。画面の「10+217/227」。
+/// 強化 1 回の支払い（欠片を先に、足りない分をマジックダストで）。画面の「10+217/227」。
 public struct EmblemUpgradeQuote: Equatable, Sendable {
     /// 必要な量。
     public var needed: Int
     /// 使う欠片（持っている分まで）。
     public var fromFragments: Int
-    /// 使う魔法の粉（足りない分を、持っている分まで）。
+    /// 使うマジックダスト（足りない分を、持っている分まで）。
     public var fromDust: Int
 
     public init(needed: Int, fromFragments: Int, fromDust: Int) {
@@ -174,7 +174,7 @@ public struct EmblemUpgradeQuote: Equatable, Sendable {
     /// 払えるか。
     public var affordable: Bool { fromFragments + fromDust >= needed }
 
-    /// 欠片 fragments・魔法の粉 dust を持っている時の、費用 cost の払い方。
+    /// 欠片 fragments・マジックダスト dust を持っている時の、費用 cost の払い方。
     public static func make(cost: Int, fragments: Int, dust: Int) -> EmblemUpgradeQuote {
         let need = max(0, cost)
         let f = min(max(0, fragments), need)
@@ -276,9 +276,9 @@ public struct EmblemChestReward: Equatable, Sendable {
 public enum EmblemEconomy {
     // MARK: 解放
 
-    /// セットの解放に要る魔法の粉（MLBB の費用は不明。仮）。
+    /// セットの解放に要るマジックダスト（MLBB の費用は不明。仮）。
     public static let unlockCost = 500
-    /// 新しいプレイヤーへの最初の魔法の粉（ウェルカムメール。セットを 1 つ解放できる量）。
+    /// 新しいプレイヤーへの最初のマジックダスト（ウェルカムメール。セットを 1 つ解放できる量）。
     public static let starterDust = 500
 
     // MARK: 無料のエンブレム宝箱
@@ -287,7 +287,7 @@ public enum EmblemEconomy {
     public static let chestInterval: TimeInterval = 4 * 3600
     /// 貯められる回数。
     public static let chestMaxCharges = 2
-    /// 1 回の魔法の粉。
+    /// 1 回のマジックダスト。
     public static let chestDust = 15
     /// 1 回の欠片（1 つのセット）。
     public static let chestFragments = 10
@@ -302,11 +302,11 @@ public enum EmblemEconomy {
 
     // MARK: 試合
 
-    /// 通常戦・ランク戦・乱闘の 1 試合の魔法の粉（Coin と同じ時間係数を掛ける）。
+    /// 通常戦・ランク戦・乱闘の 1 試合のマジックダスト（Coin と同じ時間係数を掛ける）。
     public static let matchDustWin = 15
     public static let matchDustLoss = 8
 
-    /// 1 試合の魔法の粉（時間係数 0.3〜1.0 を掛けて四捨五入）。
+    /// 1 試合のマジックダスト（時間係数 0.3〜1.0 を掛けて四捨五入）。
     public static func matchDust(won: Bool, durationFactor: Double) -> Int {
         let f = durationFactor.isFinite ? min(1, max(0, durationFactor)) : 0
         return Int((Double(won ? matchDustWin : matchDustLoss) * f).rounded())
@@ -322,7 +322,7 @@ public enum EmblemEconomy {
     public static let dailyObjectiveDust = 20
     /// デイリー: ロールでプレイ（D10〜D12）。そのロールのセットの欠片。
     public static let dailyRoleFragments = 15
-    /// ウィークリー: W01（15 試合）・W03（40 キル）・W04（タワー 12 本）の魔法の粉。
+    /// ウィークリー: W01（15 試合）・W03（40 キル）・W04（タワー 12 本）のマジックダスト。
     public static let weeklyPlayDust = 120
     public static let weeklyKillsDust = 80
     public static let weeklyTowersDust = 80
@@ -331,7 +331,7 @@ public enum EmblemEconomy {
 
     // MARK: スターパス
 
-    /// 無料トラックで魔法の粉を配る段階（Coin の段階の一部と入れ替える）と量。
+    /// 無料トラックでマジックダストを配る段階（Coin の段階の一部と入れ替える）と量。
     public static let passDustLevels = [3, 8, 13, 18, 23, 28]
     public static let passDust = 150
 
@@ -343,7 +343,7 @@ public enum EmblemEconomy {
         public var dust: Double
         public var fragments: [EmblemSetID: Double]
 
-        /// set を上げるのに使える 1 週間の量（魔法の粉 + そのセットの欠片）。
+        /// set を上げるのに使える 1 週間の量（マジックダスト + そのセットの欠片）。
         public func usable(for set: EmblemSetID) -> Double { dust + (fragments[set] ?? 0) }
     }
 
@@ -370,7 +370,7 @@ public enum EmblemEconomy {
         return WeeklyIncome(dust: dust, fragments: frag)
     }
 
-    /// set を Lv1 → 60 にするのに掛かる週（解放の費用は最初の魔法の粉で払う前提。スターパスの粉は入れない）。
+    /// set を Lv1 → 60 にするのに掛かる週（解放の費用は最初のマジックダストで払う前提。スターパスの粉は入れない）。
     public static func weeksToMax(_ set: EmblemSetID, income: WeeklyIncome = weeklyIncome()) -> Double {
         Double(EmblemProgression.totalCost) / max(1, income.usable(for: set))
     }

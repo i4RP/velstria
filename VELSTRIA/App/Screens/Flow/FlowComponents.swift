@@ -988,7 +988,7 @@ enum FlowText {
         case .hero:
             if let id = a.refID, let h = master.hero(id) { return MasterText.hero(h) }
             return L("ヒーロー", "Hero")
-        case .magicDust: return "\(a.amount.formatted()) " + L("魔法の粉", "Magic Dust")
+        case .magicDust: return "\(a.amount.formatted()) " + L("マジックダスト", "Magic Dust")
         case .emblemFragment: return "\(a.amount.formatted()) " + EmblemService.fragmentName(a)
         }
     }

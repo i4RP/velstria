@@ -100,7 +100,7 @@ final class EmblemEconomyTests: XCTestCase {
     func testUnlockCostsDustAndStartsAtLevelOne() {
         var p = Profile()
         XCTAssertFalse(EmblemService.canUnlock(.tank, profile: p))
-        XCTAssertFalse(EmblemService.unlock(.tank, profile: &p), "魔法の粉が足りない")
+        XCTAssertFalse(EmblemService.unlock(.tank, profile: &p), "マジックダストが足りない")
         p.magicDust = EmblemEconomy.unlockCost + 20
         XCTAssertTrue(EmblemService.canImprove(.tank, profile: p), "タブの上向きの矢印")
         XCTAssertTrue(EmblemService.unlock(.tank, profile: &p))
@@ -125,7 +125,7 @@ final class EmblemEconomyTests: XCTestCase {
         XCTAssertEqual(EmblemService.fragments(.assassin, profile: p), 0)
         XCTAssertNil(p.emblemFragments[EmblemSetID.assassin.rawValue], "使い切った欠片は消す")
         XCTAssertEqual(p.magicDust, 83)
-        // 欠片だけで足りれば魔法の粉は使わない（27→28 = 280）
+        // 欠片だけで足りればマジックダストは使わない（27→28 = 280）
         p.emblemFragments[EmblemSetID.assassin.rawValue] = 500
         XCTAssertTrue(EmblemService.upgrade(.assassin, profile: &p))
         XCTAssertEqual(EmblemService.fragments(.assassin, profile: p), 220)
@@ -138,7 +138,7 @@ final class EmblemEconomyTests: XCTestCase {
         XCTAssertEqual(EmblemService.fragments(.assassin, profile: p), 100)
         XCTAssertEqual(p.magicDust, 83)
         XCTAssertEqual(EmblemService.upgradeQuote(.assassin, profile: p).map { EmblemMath.costText($0, set: .assassin) }, "100+83/337")
-        // 通常共通は魔法の粉だけ（表示も「粉/必要」）
+        // 通常共通はマジックダストだけ（表示も「粉/必要」）
         p.magicDust = 30
         XCTAssertEqual(EmblemService.upgradeQuote(.common, profile: p).map { EmblemMath.costText($0, set: .common) }, "30/30")
         XCTAssertTrue(EmblemService.upgrade(.common, profile: &p))
@@ -152,19 +152,19 @@ final class EmblemEconomyTests: XCTestCase {
         p.emblemFragments[EmblemSetID.tank.rawValue] = 2000
         XCTAssertTrue(EmblemService.upgrade(.tank, profile: &p), "59→60 = 1583 を欠片で払う")
         XCTAssertTrue(EmblemService.isMaxLevel(.tank, profile: p))
-        XCTAssertEqual(p.magicDust, 2000 - 1583, "最大になったら残りの欠片は魔法の粉に")
+        XCTAssertEqual(p.magicDust, 2000 - 1583, "最大になったら残りの欠片はマジックダストに")
         XCTAssertEqual(EmblemService.fragments(.tank, profile: p), 0)
         XCTAssertNil(EmblemService.upgradeQuote(.tank, profile: p), "MAX")
         XCTAssertFalse(EmblemService.upgrade(.tank, profile: &p))
         XCTAssertFalse(EmblemService.canImprove(.tank, profile: p))
         XCTAssertNil(EmblemMath.nextKeyLevelText(.tank, level: 60))
-        // 最大のセットの欠片は受け取った時に魔法の粉に
+        // 最大のセットの欠片は受け取った時にマジックダストに
         let before = p.magicDust
         let got = LiveOpsService.grantResolved(EmblemService.fragmentAttachment(40, set: .tank), to: &p)
         XCTAssertEqual(got, EmblemService.dustAttachment(40))
         XCTAssertEqual(p.magicDust, before + 40)
         XCTAssertEqual(EmblemService.fragments(.tank, profile: p), 0)
-        // 通常共通の欠片も魔法の粉（通常共通は欠片を使わない）
+        // 通常共通の欠片もマジックダスト（通常共通は欠片を使わない）
         XCTAssertEqual(LiveOpsService.grantResolved(EmblemService.fragmentAttachment(5, set: .common), to: &p).kind, .magicDust)
         // ほかのセットは欠片のまま（未解放でも貯められる）
         let frag = LiveOpsService.grantResolved(EmblemService.fragmentAttachment(15, set: .mage), to: &p)
@@ -175,7 +175,7 @@ final class EmblemEconomyTests: XCTestCase {
         let bogus = LiveOpsService.grantResolved(MailAttachment(kind: .emblemFragment, amount: 9, refID: "EM_BOGUS"), to: &p)
         XCTAssertEqual(bogus.amount, 0)
         XCTAssertEqual(p.magicDust, dust)
-        // 旧版から引き継いだプレイヤーは全部最大なので、欠片はすべて魔法の粉
+        // 旧版から引き継いだプレイヤーは全部最大なので、欠片はすべてマジックダスト
         var old = Profile()
         EmblemService.grandfather(&old)
         XCTAssertEqual(LiveOpsService.grantResolved(EmblemService.fragmentAttachment(10, set: .support), to: &old).kind, .magicDust)
@@ -314,7 +314,7 @@ final class EmblemEconomyTests: XCTestCase {
         // 旧版の種類はそのまま読める
         let old = try JSONDecoder().decode(MailAttachment.self, from: Data(#"{"kind":"coin","amount":100}"#.utf8))
         XCTAssertEqual(old, MailAttachment(kind: .coin, amount: 100))
-        // まとめ: 魔法の粉は合算、欠片は同じセットだけ合算
+        // まとめ: マジックダストは合算、欠片は同じセットだけ合算
         let more = list + [EmblemService.dustAttachment(20), EmblemService.fragmentAttachment(5, set: .tank),
                            EmblemService.fragmentAttachment(7, set: .mage)]
         let merged = LiveOpsService.mergeAttachments(more)
@@ -322,16 +322,16 @@ final class EmblemEconomyTests: XCTestCase {
                                 EmblemService.fragmentAttachment(7, set: .mage)])
         XCTAssertEqual(RewardClaimText.merged(more), merged)
         // 表示
-        XCTAssertEqual(RewardClaimText.name(EmblemService.dustAttachment(30)), "魔法の粉 ×30")
+        XCTAssertEqual(RewardClaimText.name(EmblemService.dustAttachment(30)), "マジックダスト ×30")
         XCTAssertEqual(RewardClaimText.shortName(EmblemService.fragmentAttachment(15, set: .tank)), "タンクの欠片")
         XCTAssertEqual(RewardClaimText.chipText(EmblemService.fragmentAttachment(15, set: .tank)), "15")
         XCTAssertEqual(LiveOpsService.describe(EmblemService.fragmentAttachment(15, set: .marksman)), "ハンターの欠片 ×15")
-        XCTAssertEqual(FlowText.attachmentTitle(EmblemService.dustAttachment(30), master: .shared), "30 魔法の粉")
+        XCTAssertEqual(FlowText.attachmentTitle(EmblemService.dustAttachment(30), master: .shared), "30 マジックダスト")
     }
 
     func testMissionsPassAndWelcomeMailGrantDustAndFragments() {
         typealias E = EmblemEconomy
-        // デイリー: 参加・戦闘・タワーは魔法の粉、ロールでプレイはそのロールのセットの欠片
+        // デイリー: 参加・戦闘・タワーはマジックダスト、ロールでプレイはそのロールのセットの欠片
         XCTAssertEqual(LiveOpsService.missionDef(id: "D01")?.extraRewards, [EmblemService.dustAttachment(E.dailyParticipationDust)])
         XCTAssertEqual(LiveOpsService.missionDef(id: "D05")?.extraRewards, [EmblemService.dustAttachment(E.dailyCombatDust)])
         XCTAssertEqual(LiveOpsService.missionDef(id: "D09")?.extraRewards, [EmblemService.dustAttachment(E.dailyObjectiveDust)])
@@ -339,7 +339,7 @@ final class EmblemEconomyTests: XCTestCase {
         XCTAssertEqual(LiveOpsService.missionDef(id: "D11")?.extraRewards.first?.refID, EmblemSetID.marksman.rawValue)
         XCTAssertEqual(LiveOpsService.missionDef(id: "D12")?.extraRewards.first?.refID, EmblemSetID.support.rawValue)
         XCTAssertTrue(LiveOpsService.dailyMissionPool.allSatisfy { !$0.extraRewards.isEmpty })
-        // ウィークリー: W02 は 6 つのセットの欠片のまとめ、ほかは魔法の粉
+        // ウィークリー: W02 は 6 つのセットの欠片のまとめ、ほかはマジックダスト
         let w02 = LiveOpsService.missionDef(id: "W02")?.extraRewards ?? []
         XCTAssertEqual(Set(w02.compactMap(\.refID)), Set(E.chestRotation.map(\.rawValue)))
         XCTAssertTrue(w02.allSatisfy { $0.kind == .emblemFragment && $0.amount == E.weeklyFragmentsPerSet })
@@ -356,7 +356,7 @@ final class EmblemEconomyTests: XCTestCase {
         let pass = LiveOpsService.passRewards()
         XCTAssertEqual(pass.filter { $0.free?.kind == .magicDust }.map(\.level), E.passDustLevels)
         XCTAssertTrue(pass.filter { $0.free?.kind == .magicDust }.allSatisfy { $0.free?.amount == E.passDust })
-        // ウェルカムメール: セットを 1 つ解放できる魔法の粉。起動で宝箱の時計も数え始める
+        // ウェルカムメール: セットを 1 つ解放できるマジックダスト。起動で宝箱の時計も数え始める
         var fresh = Profile()
         LiveOpsService.onLaunch(profile: &fresh, master: .shared, now: now)
         let welcome = fresh.mail.first { $0.attachments.contains { $0.kind == .magicDust } }

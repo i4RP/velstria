@@ -50,7 +50,7 @@ final class EmblemProgressionTests: XCTestCase {
         let q = EmblemUpgradeQuote.make(cost: 227, fragments: 10, dust: 500)
         XCTAssertEqual(q, EmblemUpgradeQuote(needed: 227, fromFragments: 10, fromDust: 217))
         XCTAssertTrue(q.affordable)
-        // 欠片が足りていれば魔法の粉は使わない
+        // 欠片が足りていればマジックダストは使わない
         XCTAssertEqual(EmblemUpgradeQuote.make(cost: 50, fragments: 80, dust: 999),
                        EmblemUpgradeQuote(needed: 50, fromFragments: 50, fromDust: 0))
         // 足りない（タンクの 145 / 337）
@@ -277,7 +277,7 @@ final class EmblemProgressionTests: XCTestCase {
         XCTAssertEqual(E.matchDust(won: false, durationFactor: 1), 8)
         XCTAssertEqual(E.matchDust(won: true, durationFactor: 0.3), 5)
         XCTAssertEqual(E.matchDust(won: true, durationFactor: .nan), 0)
-        XCTAssertEqual(E.starterDust, E.unlockCost, "最初の魔法の粉でセットを 1 つ解放できる")
+        XCTAssertEqual(E.starterDust, E.unlockCost, "最初のマジックダストでセットを 1 つ解放できる")
 
         let normal = E.weeklyIncome()
         XCTAssertEqual(normal.dust, 1302, accuracy: 1e-9, "docs/EMBLEMS.md の計算")

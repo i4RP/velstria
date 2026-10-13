@@ -17,7 +17,7 @@ import VelstriaCore
 // （UI は daily + weekly から ID で進捗を引くため）。週の切替では持ち越し、イベント終了時に
 // 達成済み・未受取の報酬をメールで届けて枠を外す。ウィークリーの一覧は weeklyMissions(profile:) で引くこと。
 // 所持品が増える受取（ミッション・パス・メール・ランク報酬・ストア購入）の後は実績を再評価する。
-// エンブレムの魔法の粉・欠片（EmblemEconomy の決まった量。確率は無い）: デイリーの全ミッション・ウィークリー・スターパスの
+// エンブレムのマジックダスト・欠片（EmblemEconomy の決まった量。確率は無い）: デイリーの全ミッション・ウィークリー・スターパスの
 // 無料トラックの一部・ウェルカムメール（セットを 1 つ解放できる量）。欠片の付与は EmblemService.grant（最大のセットは粉に替える）。
 
 struct MissionDef: Identifiable, Equatable {
@@ -117,7 +117,7 @@ enum LiveOpsService {
 
     private static let dailyGroupSize = 4
 
-    /// エンブレムの報酬（魔法の粉・欠片）。
+    /// エンブレムの報酬（マジックダスト・欠片）。
     private typealias EE = EmblemEconomy
 
     private static func dust(_ n: Int) -> [MailAttachment] { [EmblemService.dustAttachment(n)] }
@@ -380,7 +380,7 @@ enum LiveOpsService {
         PassReward(level: level, free: freePassReward(level), premium: premiumPassReward(level))
     }
 
-    /// 無料トラック: 10 の倍数でコスメ、5 の倍数で Gem 30、3・8・13・18・23・28 で魔法の粉（EmblemEconomy.passDust）、
+    /// 無料トラック: 10 の倍数でコスメ、5 の倍数で Gem 30、3・8・13・18・23・28 でマジックダスト（EmblemEconomy.passDust）、
     /// それ以外は Coin（100 + 10×段階）。
     private static func freePassReward(_ level: Int) -> MailAttachment {
         switch level {
@@ -622,7 +622,7 @@ enum LiveOpsService {
             guard let id = attachment.refID, let def = master.hero(id) else { return L("ヒーロー", "Hero") }
             return L("ヒーロー解放: ", "Hero unlock: ") + MasterText.hero(def)
         case .magicDust:
-            return L("魔法の粉 ×\(attachment.amount.formatted())", "Magic Dust ×\(attachment.amount.formatted())")
+            return L("マジックダスト ×\(attachment.amount.formatted())", "Magic Dust ×\(attachment.amount.formatted())")
         case .emblemFragment:
             return EmblemService.fragmentName(attachment) + " ×\(attachment.amount.formatted())"
         }
@@ -1051,12 +1051,12 @@ enum LiveOpsService {
             profile.ownedHeroIDs.append(id)
             return attachment
         case .magicDust, .emblemFragment:
-            // 最大レベルのセット・通常共通の欠片は魔法の粉に替わる
+            // 最大レベルのセット・通常共通の欠片はマジックダストに替わる
             return EmblemService.grant(attachment, to: &profile)
         }
     }
 
-    /// 同種の通貨・XP・魔法の粉・同じセットの欠片をまとめる（コスメ・ヒーローはそのまま）。
+    /// 同種の通貨・XP・マジックダスト・同じセットの欠片をまとめる（コスメ・ヒーローはそのまま）。
     static func mergeAttachments(_ list: [MailAttachment]) -> [MailAttachment] {
         var result: [MailAttachment] = []
         for a in list {
@@ -1116,7 +1116,7 @@ enum LiveOpsService {
     }
 
     private static func sendWelcomeMail(to profile: inout Profile, master: MasterData, now: Date) {
-        // 魔法の粉はエンブレムのセットを 1 つ解放できる量（EmblemEconomy.starterDust）
+        // マジックダストはエンブレムのセットを 1 つ解放できる量（EmblemEconomy.starterDust）
         var attachments = [MailAttachment(kind: .coin, amount: 500), MailAttachment(kind: .gem, amount: 100),
                            EmblemService.dustAttachment(EmblemEconomy.starterDust)]
         if let frame = master.cosmetics.first(where: { $0.type == .avatarFrame }) {

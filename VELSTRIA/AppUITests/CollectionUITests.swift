@@ -236,7 +236,7 @@ final class CollectionUITests: XCTestCase {
         XCTAssertTrue(tank.waitForExistence(timeout: 5))
     }
 
-    /// エンブレムの宝箱・解放・強化（新規のプレイヤー: -emblemFresh = 通常共通だけ Lv1、魔法の粉 2,000、宝箱 1 回分）。
+    /// エンブレムの宝箱・解放・強化（新規のプレイヤー: -emblemFresh = 通常共通だけ Lv1、マジックダスト 2,000、宝箱 1 回分）。
     func testEmblemChestUnlockAndUpgradeForANewPlayer() {
         let app = launch(route: "emblems", extra: ["-emblemFresh"])
         let chest = element(app, "emblem_chest")

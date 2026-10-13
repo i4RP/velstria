@@ -231,7 +231,7 @@ enum EmblemMath {
         return L("Lv\(key) コア属性大幅アップ \(name)", "Lv\(key): Core stat boost — \(name)")
     }
 
-    /// 強化の費用の行（画面の「10+217/227」= 使う欠片 + 使う魔法の粉 / 必要な量。通常共通は欠片が無いので「217/227」）。
+    /// 強化の費用の行（画面の「10+217/227」= 使う欠片 + 使うマジックダスト / 必要な量。通常共通は欠片が無いので「217/227」）。
     static func costText(_ q: EmblemUpgradeQuote, set: EmblemSetID) -> String {
         set == .common ? "\(q.fromDust)/\(q.needed)" : "\(q.fromFragments)+\(q.fromDust)/\(q.needed)"
     }
@@ -244,7 +244,7 @@ enum EmblemMath {
         return valueText(next, percent: a.kind.isPercent)
     }
 
-    /// 魔法の粉の量の表示（「1,234」）。
+    /// マジックダストの量の表示（「1,234」）。
     static func amountText(_ n: Int) -> String { n.formatted() }
 
     /// 1 行の要約（「通常共通エンブレム · 衝撃 / 山野の主 / 不純な怒り」）。
@@ -336,7 +336,7 @@ enum EmblemStyle {
         t.tier == .core ? Theme.gold : Color(red: 0.70, green: 0.84, blue: 1.0)
     }
 
-    /// 魔法の粉の記号と色（紫の粒）。
+    /// マジックダストの記号と色（紫の粒）。
     static let dustSymbol = "sparkles"
     static let dustColor = Color(red: 0.78, green: 0.62, blue: 1.0)
     /// 無料のエンブレム宝箱の記号。

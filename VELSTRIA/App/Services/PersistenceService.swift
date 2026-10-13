@@ -298,7 +298,7 @@ final class PersistenceService: @unchecked Sendable {
             p.emblemSetProgress[EmblemSetID.common.rawValue] = common
         }
         p.heroEmblems = p.heroEmblems.filter { !$0.key.isEmpty && $0.value.isValid }
-        // 魔法の粉・欠片・宝箱: 負の値と、欠片を使わないセット（通常共通）・知らないセットを除く
+        // マジックダスト・欠片・宝箱: 負の値と、欠片を使わないセット（通常共通）・知らないセットを除く
         p.magicDust = max(0, p.magicDust)
         p.emblemFragments = p.emblemFragments.filter { entry in
             guard let set = EmblemSetID(rawValue: entry.key) else { return false }

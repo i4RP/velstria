@@ -142,7 +142,7 @@ extension GameSettings {
     }
 }
 
-/// エンブレムのセット 1 つの所持状態（MLBB: 新規は通常共通エンブレムだけを持ち、ほかの 6 つは魔法の粉で解放する）。
+/// エンブレムのセット 1 つの所持状態（MLBB: 新規は通常共通エンブレムだけを持ち、ほかの 6 つはマジックダストで解放する）。
 /// 保存の無いセットは EmblemService.progress の既定（新規 = 通常共通だけ解放済みの Lv1、旧版から引き継いだプレイヤー =
 /// 全セット解放済みの Lv60）。解放・強化は EmblemService（docs/EMBLEMS.md「解放・レベル・入手」）。
 struct EmblemSetProgress: Codable, Equatable {
@@ -460,7 +460,7 @@ struct RisingProgress: Codable, Equatable {
 }
 
 struct MailAttachment: Codable, Equatable {
-    /// magicDust = 魔法の粉（エンブレムの解放・強化）、emblemFragment = エンブレムの欠片（refID = セット ID。EmblemSetID.rawValue）。
+    /// magicDust = マジックダスト（エンブレムの解放・強化）、emblemFragment = エンブレムの欠片（refID = セット ID。EmblemSetID.rawValue）。
     /// 生の値は保存データに入るので変えない（足す時は後ろに。旧版のデータは知っている種類だけなので読める）。
     enum Kind: String, Codable { case coin, gem, cosmetic, hero, passXP, magicDust, emblemFragment }
     var kind: Kind
@@ -521,7 +521,7 @@ struct Profile: Codable, Equatable {
     var freeGem = 0
     /// 有償 AstralGem（課金で購入）。
     var paidGem = 0
-    /// 魔法の粉（MLBB のマジックダスト。エンブレムの解放・強化に使う。課金では買えない）。
+    /// マジックダスト（MLBB のマジックダスト。エンブレムの解放・強化に使う。課金では買えない）。
     var magicDust = 0
 
     // 所持
@@ -545,7 +545,7 @@ struct Profile: Codable, Equatable {
     var emblemTalents: [String: EmblemLoadout] = [:]
     /// セット ID → 解放とレベル。無いセットは EmblemService.progress の既定（新規は通常共通だけ解放済みの Lv1）。
     var emblemSetProgress: [String: EmblemSetProgress] = [:]
-    /// セット ID → そのセットのエンブレムの欠片（通常共通は欠片を使わない。最大レベルのセットの欠片は魔法の粉になる）。
+    /// セット ID → そのセットのエンブレムの欠片（通常共通は欠片を使わない。最大レベルのセットの欠片はマジックダストになる）。
     var emblemFragments: [String: Int] = [:]
     /// 無料のエンブレム宝箱（4 時間ごと・2 回分まで）。
     var emblemChest = EmblemChestState()

@@ -4,7 +4,7 @@ import VelstriaCore
 // 担当: ui-collection。エンブレム（MLBB のエンブレム画面を写したもの。旧 UI043 ルーンの置き換え。docs/EMBLEMS.md）。
 // 上に 7 つのセットのタブ（記号 + Lv。強化・解放できるセットに緑の上向きの矢印）と無料のエンブレム宝箱（残り時間）、
 // 左にセット名とリング（右上 = 1 段目・左 = 2 段目・下 = コアの天賦）、右にステータス。
-// リングの下: 強化の費用（セットの記号「欠片+魔法の粉/必要な量」）と「アップグレード」、最大なら「MAX」、未解放なら「解放」。
+// リングの下: 強化の費用（セットの記号「欠片+マジックダスト/必要な量」）と「アップグレード」、最大なら「MAX」、未解放なら「解放」。
 // ステータスは次のレベルで変わる値に「→」、次のキーレベルの「コア属性大幅アップ」、解放レベル未満の段に鍵と「Lv○で解放」。
 // 天賦の枠を押すとその段の天賦の一覧（装備中に ✓）と、名前・橙の小見出し・説明・「装備」/「装備中」。
 // 左上の 🔍 はエンブレムステータス（現在/最大レベル）と天賦の説明、右下のボタンは一括設定（ヒーローを選んで付ける）。
@@ -265,7 +265,7 @@ struct EmblemView: View {
         }
     }
 
-    /// リングの下の強化（費用の行と「アップグレード」）・「MAX」・「解放」（魔法の粉の費用）。
+    /// リングの下の強化（費用の行と「アップグレード」）・「MAX」・「解放」（マジックダストの費用）。
     @ViewBuilder
     private func upgradeArea(set: EmblemSetID, unlocked: Bool, maxed: Bool) -> some View {
         if !unlocked {
@@ -286,7 +286,7 @@ struct EmblemView: View {
             .buttonStyle(PrimaryButtonStyle(color: Theme.cyan))
             .disabled(!can)
             .opacity(can ? 1 : 0.5)
-            .accessibilityLabel(L("魔法の粉 \(EmblemEconomy.unlockCost) で解放", "Unlock for \(EmblemEconomy.unlockCost) Magic Dust"))
+            .accessibilityLabel(L("マジックダスト \(EmblemEconomy.unlockCost) で解放", "Unlock for \(EmblemEconomy.unlockCost) Magic Dust"))
             .accessibilityIdentifier("emblem_unlock")
         } else if maxed {
             Text("MAX")
@@ -494,11 +494,11 @@ struct EmblemView: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// 魔法の粉と、このセットの欠片（通常共通は欠片を使わない）。
+    /// マジックダストと、このセットの欠片（通常共通は欠片を使わない）。
     private func walletBadges(set: EmblemSetID) -> some View {
         HStack(spacing: 6) {
             walletBadge(symbol: EmblemStyle.dustSymbol, tint: EmblemStyle.dustColor, amount: app.profile.magicDust,
-                        label: L("魔法の粉", "Magic Dust"), identifier: "emblem_dust")
+                        label: L("マジックダスト", "Magic Dust"), identifier: "emblem_dust")
             if set != .common {
                 walletBadge(symbol: EmblemStyle.setSymbol(set), tint: EmblemStyle.color(set),
                             amount: EmblemService.fragments(set, profile: app.profile),

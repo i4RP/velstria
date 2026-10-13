@@ -4,11 +4,11 @@ import VelstriaCore
 // 担当: app-services
 // エンブレムの解放・強化・欠片・無料の宝箱（プロフィールの操作）。数値・規則は VelstriaCore の EmblemProgression / EmblemEconomy
 // （docs/EMBLEMS.md「解放・レベル・入手」）。
-// - 新規: 通常共通エンブレムだけ解放済みの Lv1。ほかの 6 つは魔法の粉（EmblemEconomy.unlockCost）で解放し、Lv1 から。
+// - 新規: 通常共通エンブレムだけ解放済みの Lv1。ほかの 6 つはマジックダスト（EmblemEconomy.unlockCost）で解放し、Lv1 から。
 // - 旧版から引き継いだプレイヤー（Profile.emblemGrandfathered）: 全セット解放済みの Lv60 のまま。
-// - 強化: そのセットの欠片を先に使い、足りない分を魔法の粉で払う（1:1）。最大（Lv60）では強化できない。
-// - 欠片: 通常共通には無い。最大レベルのセットの欠片は、受け取った時・最大になった時に魔法の粉に 1:1 で替える。
-// - 無料の宝箱: 4 時間ごとに 1 回分、2 回分まで。中身は決まった量の魔法の粉と、巡回する 1 つのセットの欠片（確率は無い）。
+// - 強化: そのセットの欠片を先に使い、足りない分をマジックダストで払う（1:1）。最大（Lv60）では強化できない。
+// - 欠片: 通常共通には無い。最大レベルのセットの欠片は、受け取った時・最大になった時にマジックダストに 1:1 で替える。
+// - 無料の宝箱: 4 時間ごとに 1 回分、2 回分まで。中身は決まった量のマジックダストと、巡回する 1 つのセットの欠片（確率は無い）。
 
 enum EmblemService {
     // MARK: - 状態
@@ -62,7 +62,7 @@ enum EmblemService {
 
     // MARK: - 操作
 
-    /// 魔法の粉でセットを解放する（Lv1 から）。払えない・解放済みなら false。
+    /// マジックダストでセットを解放する（Lv1 から）。払えない・解放済みなら false。
     @discardableResult
     static func unlock(_ set: EmblemSetID, profile: inout Profile) -> Bool {
         guard canUnlock(set, profile: profile) else { return false }
@@ -71,8 +71,8 @@ enum EmblemService {
         return true
     }
 
-    /// 1 レベル上げる（欠片を先に、足りない分を魔法の粉で）。払えない・未解放・最大なら false。
-    /// 最大になったら、残りの欠片を魔法の粉に替える。
+    /// 1 レベル上げる（欠片を先に、足りない分をマジックダストで）。払えない・未解放・最大なら false。
+    /// 最大になったら、残りの欠片をマジックダストに替える。
     @discardableResult
     static func upgrade(_ set: EmblemSetID, profile: inout Profile) -> Bool {
         guard let q = upgradeQuote(set, profile: profile), q.affordable else { return false }
@@ -84,7 +84,7 @@ enum EmblemService {
         return true
     }
 
-    /// 欠片を足す。通常共通・最大レベルのセットの分は魔法の粉に替え、替えた量を返す。
+    /// 欠片を足す。通常共通・最大レベルのセットの分はマジックダストに替え、替えた量を返す。
     @discardableResult
     static func addFragments(_ amount: Int, set: EmblemSetID, profile: inout Profile) -> Int {
         let n = max(0, amount)
@@ -101,7 +101,7 @@ enum EmblemService {
         profile.magicDust += max(0, amount)
     }
 
-    /// 最大レベルのセットの欠片を魔法の粉に替える（1:1）。替えた量を返す。
+    /// 最大レベルのセットの欠片をマジックダストに替える（1:1）。替えた量を返す。
     @discardableResult
     static func convertFragmentsToDust(_ set: EmblemSetID, profile: inout Profile) -> Int {
         let n = fragments(set, profile: profile)
@@ -143,7 +143,7 @@ enum EmblemService {
         profile.emblemChest = profile.emblemChest.refreshed(now: now)
     }
 
-    /// 宝箱を 1 回開けて中身を受け取る（貯まっていなければ nil）。返すのは実際に付与した内容（最大のセットの欠片は魔法の粉）。
+    /// 宝箱を 1 回開けて中身を受け取る（貯まっていなければ nil）。返すのは実際に付与した内容（最大のセットの欠片はマジックダスト）。
     static func openChest(profile: inout Profile, now: Date) -> [MailAttachment]? {
         var c = profile.emblemChest
         guard let r = c.open(now: now) else {
@@ -178,7 +178,7 @@ enum EmblemService {
         return L("\(EmblemMath.shortSetName(set))の欠片", "\(EmblemMath.shortSetName(set)) Fragments")
     }
 
-    /// 添付を所持に反映する（LiveOpsService.grantResolved から）。最大レベル・通常共通の欠片は魔法の粉にして返す。
+    /// 添付を所持に反映する（LiveOpsService.grantResolved から）。最大レベル・通常共通の欠片はマジックダストにして返す。
     static func grant(_ attachment: MailAttachment, to profile: inout Profile) -> MailAttachment {
         let amount = max(0, attachment.amount)
         switch attachment.kind {

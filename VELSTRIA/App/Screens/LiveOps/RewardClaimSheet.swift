@@ -32,7 +32,7 @@ enum RewardClaimText {
         case .hero:
             if let id = a.refID, let def = master.hero(id) { return L("ヒーロー: ", "Hero: ") + MasterText.hero(def) }
             return L("ヒーロー", "Hero")
-        case .magicDust: return L("魔法の粉 ×\(a.amount.formatted())", "Magic Dust ×\(a.amount.formatted())")
+        case .magicDust: return L("マジックダスト ×\(a.amount.formatted())", "Magic Dust ×\(a.amount.formatted())")
         case .emblemFragment: return EmblemService.fragmentName(a) + " ×\(a.amount.formatted())"
         }
     }
@@ -49,7 +49,7 @@ enum RewardClaimText {
         case .hero:
             if let id = a.refID, let def = master.hero(id) { return MasterText.hero(def) }
             return L("ヒーロー", "Hero")
-        case .magicDust: return L("魔法の粉", "Magic Dust")
+        case .magicDust: return L("マジックダスト", "Magic Dust")
         case .emblemFragment: return EmblemService.fragmentName(a)
         }
     }
@@ -77,7 +77,7 @@ enum RewardClaimText {
         }
     }
 
-    /// 数量系（コイン・ジェム・パス XP・魔法の粉・同じセットの欠片）を合算し、コスメ・ヒーローは重複を除いて並べる（出現順を維持）。
+    /// 数量系（コイン・ジェム・パス XP・マジックダスト・同じセットの欠片）を合算し、コスメ・ヒーローは重複を除いて並べる（出現順を維持）。
     /// 合計 0 以下の数量系（付与できなかった報酬の代替など）は表示しない。
     static func merged(_ list: [MailAttachment]) -> [MailAttachment] {
         var result: [MailAttachment] = []
@@ -112,7 +112,7 @@ enum RewardClaimText {
     static let passXPColor = Color(red: 0.74, green: 0.56, blue: 1.0)
 }
 
-/// 添付のアイコン（コイン・ジェム・パス XP・コスメ・ヒーロー・魔法の粉・エンブレムの欠片）。
+/// 添付のアイコン（コイン・ジェム・パス XP・コスメ・ヒーロー・マジックダスト・エンブレムの欠片）。
 struct RewardClaimIcon: View {
     let attachment: MailAttachment
     var size: CGFloat = 44
