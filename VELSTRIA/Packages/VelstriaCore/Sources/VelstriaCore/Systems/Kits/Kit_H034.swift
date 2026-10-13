@@ -5,8 +5,8 @@ import Foundation
 //   パッシブ 鉄鎖の執念    — 5 秒ダメージを受けないと 移動速度 +10%・毎秒 最大 HP の 1% 回復、闘気が 1 秒に 1 つたまる（最大 10）。
 //                           次に使うスキルが闘気をすべて消費し、1 つにつきそのスキルのダメージ +15%（最大 +150%）。ダメージで解除。
 //                           ロール「サポート」の味方回復パッシブ・奥義の味方回復はキットが置き換える。
-//   スキル1 鎖鉤           — 射程 680 の非貫通の鉤。最初に当たった敵（ミニオン・モンスター含む、タワーは除く）に物理ダメージ、
-//                           自分の足元まで引き寄せてスタン。壁は越えて飛び、引き寄せは壁の手前で止まる。
+//   スキル1 鎖鉤           — 射程 1050 の非貫通の鉤。最初に当たった敵（ミニオン・モンスター含む、タワーは除く）に物理ダメージ、
+//                           自分の足元まで引き寄せてスタン。鉤も引き寄せも壁を越える。
 //   スキル2 鉄鎖旋         — 自身中心の範囲に 固定部分 + 自分の最大 HP の 4% の物理ダメージ、70% 減速 1.5 秒。
 //   アルティメット 狩猟鎖獄 — 敵ヒーロー 1 体を指定。踏み込んで 1.8 秒 suppress（解除不可・CC 無効も無視）し、その間に 6 回殴る。
 //                           ゴルムも動けず、スタン等で中断されると相手は解放される。
@@ -111,7 +111,8 @@ struct Kit_H034: HeroKit {
         static let permanent = 1_000_000.0
 
         // S1 鎖鉤
-        static let hookRange = 680.0
+        /// MLBB の照準の円（実機スクショをカメラで地面へ戻して半径 約 10.5 m）。
+        static let hookRange = 1050.0
         /// 鉤の当たり幅（半径）。ヒーロー半径 55 と合わせて、左右 110 の筋に届く。
         static let hookWidth = 55.0
         static let hookSpeed = 1800.0
@@ -267,10 +268,10 @@ struct Kit_H034: HeroKit {
         case .skill1:
             return KitText(
                 ja: "指定方向へ近接攻撃の射程の約{reachMult}倍まで届く鎖鉤を打ち出し、最初に当たった敵に{damage}の物理ダメージ。"
-                    + "当たった敵を自分の足元まで引き寄せ、{x0}秒スタンさせる（壁は越えて飛び、引き寄せは壁の手前で止まる。タワーには当たらない）。"
+                    + "当たった敵を自分の足元まで引き寄せ、{x0}秒スタンさせる（壁を越えて引き寄せる。タワーには当たらない）。"
                     + "クールダウン{cd}秒。",
                 en: "Fires a chain hook reaching about {reachMult}x your melee attack range that deals {damage} physical damage to the first enemy hit, "
-                    + "drags them to your feet and stuns them for {x0}s (flies over walls, but the pull stops at walls; "
+                    + "drags them to your feet and stuns them for {x0}s (flies over walls and pulls them across; "
                     + "does not hit turrets). Cooldown {cd}s.")
         case .skill2:
             return KitText(
@@ -345,7 +346,8 @@ struct Kit_H034: HeroKit {
         let amp = consumeStacks(&s, i)
         let stun = StatusEffect(kind: .stun, duration: Tune.hookStun, sourceID: s.units[i].id, tag: Tune.hookStunTag)
         // 距離は十分に大きく取る（実際の移動量は gap で決まる）
-        let pull = HitEffect.pullToOwner(distance: Tune.hookRange + 400, duration: Tune.hookPull, gap: Tune.hookGap)
+        let pull = HitEffect.pullToOwner(distance: Tune.hookRange + 400, duration: Tune.hookPull, gap: Tune.hookGap,
+                                         overWalls: true)
         let p = HitPayload(damage: c.numbers.damage * amp, damageType: c.numbers.damageType, source: .skill(.skill1),
                            statuses: [stun], skillID: c.check.skill.skillID, effects: [pull],
                            originPos: s.units[i].pos, kitEvent: Event.hook)

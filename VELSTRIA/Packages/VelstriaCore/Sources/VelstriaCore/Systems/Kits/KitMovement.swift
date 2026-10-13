@@ -27,17 +27,18 @@ extension Kit {
         return true
     }
 
-    /// target を point へ引き寄せる。gap = 止まる位置の中心間距離の下限（近づきすぎない）。壁の手前で止まる。
-    /// 動かせたら true。
+    /// target を point へ引き寄せる。gap = 止まる位置の中心間距離の下限（近づきすぎない）。壁の手前で止まる
+    /// （overWalls なら壁を越え、着地点が壁の中なら point 側の歩行可能点へ）。動かせたら true。
     @discardableResult
     static func pull(_ s: inout SimState, _ ctx: SimContext, target t: Int, toward point: Vec2, distance: Double,
-                     duration: Double, gap: Double = 0) -> Bool {
+                     duration: Double, gap: Double = 0, overWalls: Bool = false) -> Bool {
         guard canDisplace(s, ctx, t), distance > 0 else { return false }
         let delta = point - s.units[t].pos
         let d = delta.length
         let travel = min(distance, d - max(0, gap))
         guard d > 1e-6, travel > 1e-6 else { return false }
-        MovementSystem.knockback(&s, ctx, unitIndex: t, direction: delta / d, distance: travel, duration: duration)
+        MovementSystem.knockback(&s, ctx, unitIndex: t, direction: delta / d, distance: travel, duration: duration,
+                                 overWallsFrom: overWalls ? point : nil)
         return true
     }
 

@@ -9,7 +9,8 @@ public enum HitEffect: Codable, Hashable, Sendable {
     /// 打ち上げ（.airborne）。CC 無効・無敵には効かない。
     case knockUp(duration: Double)
     /// 所有者の位置へ引き寄せる。gap = 止まる位置の端同士の隙間（所有者・対象の半径は自動で足す）。
-    case pullToOwner(distance: Double, duration: Double, gap: Double)
+    /// overWalls = 壁を越えて引き寄せる（着地点が壁の中なら所有者側の歩行可能点へ）。
+    case pullToOwner(distance: Double, duration: Double, gap: Double, overWalls: Bool = false)
     /// 所有者から遠ざけるように押し出す。
     case pushAway(distance: Double, duration: Double)
     /// マークを積む（name は KitTags.mark の name。所有者ごとに分かれる）。
@@ -82,10 +83,10 @@ enum KitDamage {
         case .knockUp(let duration):
             guard CombatSystem.isLiving(s, t) else { return }
             Kit.knockUp(&s, target: t, duration: duration, sourceID: ownerID)
-        case .pullToOwner(let distance, let duration, let gap):
+        case .pullToOwner(let distance, let duration, let gap, let overWalls):
             guard let owner, CombatSystem.isLiving(s, t) else { return }
             Kit.pull(&s, ctx, target: t, toward: s.units[owner].pos, distance: distance, duration: duration,
-                     gap: s.units[owner].radius + s.units[t].radius + max(0, gap))
+                     gap: s.units[owner].radius + s.units[t].radius + max(0, gap), overWalls: overWalls)
         case .pushAway(let distance, let duration):
             guard CombatSystem.isLiving(s, t) else { return }
             let origin = owner.map { s.units[$0].pos } ?? from

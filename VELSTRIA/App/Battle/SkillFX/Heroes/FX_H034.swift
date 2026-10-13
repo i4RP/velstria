@@ -65,7 +65,7 @@ enum FX_H034: HeroFXSet {
             ]
             r.hit = []
         case .skill1:
-            // 射程 6.8m の長い鉤。鉤は弾として飛び（travel）、鎖が鉤に追従して手元まで伸びる。最初の敵に食い込み（impact）、
+            // 射程 10.5m の長い鉤。鉤は弾として飛び（travel）、鎖が鉤に追従して手元まで伸びる。最初の敵に食い込み（impact）、
             // 相手から手元へ短い鎖が張って縮み（hit）、鎖が巻きつく
             r.cast = [
                 .emit(.flare(1.0, .core, life: 0.12), at: 0.05, offset: [0.3, 1.1, 0.7]),

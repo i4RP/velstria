@@ -234,10 +234,10 @@ final class Kit_H034Tests: XCTestCase {
         for token in ["5秒", "10%", "1%", "15%", "最大10個", "1秒に1個", "最大+150%", "スキル1・スキル2・アルティメット"] {
             XCTAssertTrue(passive.contains(token), "\(token): \(passive)")
         }
-        // 単位の無い距離（680 / 260 / 350）は出さず、近接攻撃の射程（150）に対する倍率で書く
+        // 単位の無い距離（1050 / 260 / 350）は出さず、近接攻撃の射程（150）に対する倍率で書く
         let s1 = try ja(.skill1, rank: 2)
         let n1 = SkillCatalog.numbers(for: skill(.skill1), hero: hero, rank: 2, stats: w.s.units[k].stats)
-        for token in ["約4.5倍", "\(Int(n1.damage.rounded()))", "1秒"] { XCTAssertTrue(s1.contains(token), "\(token): \(s1)") }
+        for token in ["約7倍", "\(Int(n1.damage.rounded()))", "1秒"] { XCTAssertTrue(s1.contains(token), "\(token): \(s1)") }
         let s2 = try ja(.skill2, rank: 2)
         let n2 = SkillCatalog.numbers(for: skill(.skill2), hero: hero, rank: 2, stats: w.s.units[k].stats)
         for token in ["約1.7倍", "\(Int(n2.damage.rounded()))", "70%", "1.5秒", "4%"] {
@@ -473,9 +473,9 @@ final class Kit_H034Tests: XCTestCase {
             w.run(seconds: 1.2)
             return w.damage(to: e) > 0
         }
-        XCTAssertTrue(fires(dx: 700), "射程 680 + 対象の縁")
-        XCTAssertTrue(fires(dx: 735))
-        XCTAssertFalse(fires(dx: 900), "射程の外")
+        XCTAssertTrue(fires(dx: 1070), "射程 1050 + 対象の縁")
+        XCTAssertTrue(fires(dx: 1100))
+        XCTAssertFalse(fires(dx: 1250), "射程の外")
         XCTAssertTrue(fires(dx: 400, dy: 100), "弾幅 55 + 対象の半径 55 以内")
         XCTAssertFalse(fires(dx: 400, dy: 140), "横にそれていたら外れ")
         XCTAssertFalse(fires(dx: -400), "後ろには飛ばない")
@@ -569,7 +569,7 @@ final class Kit_H034Tests: XCTestCase {
         return nil
     }
 
-    func testHookFliesOverWallsButThePullStopsInFrontOfTheWall() throws {
+    func testHookFliesOverWallsAndPullsAcross() throws {
         let sc = try XCTUnwrap(wallScenario(), "壁を挟める障害物がマップに無い")
         var w = SkillWorld()
         let k = w.addHero("H034", team: .blue, at: sc.gorm, level: 12, ranks: [1, 1, 1], facing: Double.pi / 2)
@@ -580,9 +580,9 @@ final class Kit_H034Tests: XCTestCase {
         // 鉤は壁を越えて当たる（調査: 壁・タワーを通り抜ける）
         XCTAssertGreaterThan(w.damage(to: e), 0)
         XCTAssertTrue(w.s.units[e].has(.stun))
-        // 引き寄せは壁の手前で止まり、壁の中へは入らない（壁の反対側に残る）
+        // 引き寄せも壁を越えてゴルムの側へ（壁の中には降りない）
         let p = w.s.units[e].pos
-        XCTAssertGreaterThanOrEqual(p.y, sc.rect.maxY + w.s.units[e].radius - 1)
+        XCTAssertLessThanOrEqual(p.y, sc.rect.minY - w.s.units[e].radius + 1)
         XCTAssertFalse(Obstacle.rect(sc.rect).contains(p, inflatedBy: w.s.units[e].radius - 1))
         XCTAssertTrue(w.ctx.nav.isWalkable(p, radius: w.s.units[e].radius - 1))
     }
