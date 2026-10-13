@@ -143,26 +143,26 @@ extension GameSettings {
 }
 
 /// エンブレムのセット 1 つの所持状態（MLBB: 新規は通常共通エンブレムだけを持ち、ほかの 6 つは魔法の粉で解放する）。
-/// TODO: 解放の費用・順番、レベル上げ（セット別の欠片・魔法の粉）が決まったら既定値と解放・強化の画面を足す（docs/EMBLEMS.md）。
-/// 今は全員・全セットが解放済みの Lv60（ゲームの挙動を変えないため）。
+/// 保存の無いセットは EmblemService.progress の既定（新規 = 通常共通だけ解放済みの Lv1、旧版から引き継いだプレイヤー =
+/// 全セット解放済みの Lv60）。解放・強化は EmblemService（docs/EMBLEMS.md「解放・レベル・入手」）。
 struct EmblemSetProgress: Codable, Equatable {
-    var unlocked: Bool = true
-    var level: Int = EmblemCatalog.maxLevel
+    var unlocked: Bool = false
+    var level: Int = EmblemProgression.startLevel
 
-    init(unlocked: Bool = true, level: Int = EmblemCatalog.maxLevel) {
+    init(unlocked: Bool = false, level: Int = EmblemProgression.startLevel) {
         self.unlocked = unlocked
         self.level = EmblemCatalog.clampLevel(level)
     }
 
     private enum CodingKeys: String, CodingKey { case unlocked, level }
 
-    /// 欠けたキー・範囲外のレベルを既定に直して読む。
+    /// 欠けたキー・範囲外のレベルを直して読む（欠けたキーは未解放・Lv1。旧版のデータは ProfileMigrator が全部書いてから読む）。
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let u: Bool? = try? c.decodeIfPresent(Bool.self, forKey: .unlocked)
         let lv: Int? = try? c.decodeIfPresent(Int.self, forKey: .level)
-        unlocked = u ?? true
-        level = EmblemCatalog.clampLevel(lv ?? EmblemCatalog.maxLevel)
+        unlocked = u ?? false
+        level = EmblemCatalog.clampLevel(lv ?? EmblemProgression.startLevel)
     }
 }
 
@@ -460,7 +460,9 @@ struct RisingProgress: Codable, Equatable {
 }
 
 struct MailAttachment: Codable, Equatable {
-    enum Kind: String, Codable { case coin, gem, cosmetic, hero, passXP }
+    /// magicDust = 魔法の粉（エンブレムの解放・強化）、emblemFragment = エンブレムの欠片（refID = セット ID。EmblemSetID.rawValue）。
+    /// 生の値は保存データに入るので変えない（足す時は後ろに。旧版のデータは知っている種類だけなので読める）。
+    enum Kind: String, Codable { case coin, gem, cosmetic, hero, passXP, magicDust, emblemFragment }
     var kind: Kind
     var amount: Int = 0
     var refID: String?
@@ -495,7 +497,8 @@ struct StorePurchaseCount: Codable, Equatable {
 }
 
 struct Profile: Codable, Equatable {
-    var schemaVersion = 3
+    /// 4: エンブレムの解放・レベル（v3 までのプレイヤーは全セット解放済みの Lv60 のまま。ProfileMigrator）。
+    var schemaVersion = 4
     var playerID: String = UUID().uuidString
     var displayName: String = ""
     var createdAt = Date()
@@ -518,6 +521,8 @@ struct Profile: Codable, Equatable {
     var freeGem = 0
     /// 有償 AstralGem（課金で購入）。
     var paidGem = 0
+    /// 魔法の粉（MLBB のマジックダスト。エンブレムの解放・強化に使う。課金では買えない）。
+    var magicDust = 0
 
     // 所持
     /// 最初から持つヒーロー（オンボーディングヒーロー。HeroRoster.starterHeroIDs）。
@@ -538,8 +543,15 @@ struct Profile: Codable, Equatable {
     /// セット ID（EmblemSetID.rawValue）→ そのセットに付けた天賦（level は使わない。レベルは emblemSetProgress）。
     /// 無いセットはセットの既定の天賦（EmblemCatalog.defaultLoadout）。
     var emblemTalents: [String: EmblemLoadout] = [:]
-    /// セット ID → 解放とレベル。無いセットは解放済みの Lv60（EmblemSetProgress の TODO）。
+    /// セット ID → 解放とレベル。無いセットは EmblemService.progress の既定（新規は通常共通だけ解放済みの Lv1）。
     var emblemSetProgress: [String: EmblemSetProgress] = [:]
+    /// セット ID → そのセットのエンブレムの欠片（通常共通は欠片を使わない。最大レベルのセットの欠片は魔法の粉になる）。
+    var emblemFragments: [String: Int] = [:]
+    /// 無料のエンブレム宝箱（4 時間ごと・2 回分まで）。
+    var emblemChest = EmblemChestState()
+    /// エンブレムの解放・レベルより前（schemaVersion 3 以前）から遊んでいるプレイヤー。保存の無いセットも解放済みの Lv60 とする
+    /// （テスターが今の強さを失わないように。ProfileMigrator が全セットを書き込む）。
+    var emblemGrandfathered = false
     /// エンブレム画面で開いているセット。
     var selectedEmblemSet: String = EmblemSetID.common.rawValue
     /// heroID → そのヒーローに付けたエンブレム（一括設定で保存。無ければ選んだバトルプランのエンブレム）。試合では PlayerSlot.emblem になる。

@@ -193,8 +193,8 @@ public struct EmblemAttribute: Codable, Hashable, Sendable {
     public var kind: EmblemAttributeKind
     /// Lv60（最大）の値。
     public var maxValue: Double
-    /// レベル別の値（添字 0 = Lv1）。nil・範囲外は maxValue を使う。
-    /// TODO: レベルごとの伸び方は未確定（docs/EMBLEMS.md「未実装: レベルとチケット」）。今は全員 Lv60 なので nil のまま。
+    /// レベル別の値（添字 0 = Lv1）。nil・範囲外は maxValue を使う。EmblemCatalog.sets は仮の表
+    /// （EmblemProgression.levelValues。画面で確かめた点を通り、Lv60 で最大）を持つ。
     public var levelValues: [Double]?
     /// コア属性（キーレベルで大きく伸びる能力値。どのセットもステータス欄の 1 つ目）。画面で確かめたのは通常共通 = 混合回復・
     /// タンク = HP・アサシン = 適応貫通・サポート = 回復効果。メイジ・ファイター・ハンターは 1 つ目と仮定（EmblemSetDef.coreConfirmed）。
@@ -249,7 +249,7 @@ public struct EmblemTalentDef: Hashable, Sendable, Identifiable {
     /// 日本語の橙の小見出しを画面で確かめたか（ピッカーにしか出ない）。
     public var subtitleConfirmed: Bool = false
     /// このタレントを付けられるようになるセットのレベル（nil = 不明。画面は期間限定の「全天賦解放」中で確かめられない）。
-    /// 今は全員 Lv60 なので、不明のものも含めてすべて付けられる。
+    /// nil の間は段の解放レベル（EmblemProgression.talentUnlockLevels。仮: 1 段目 Lv10・2 段目 Lv15・コア Lv20）。
     public var unlockLevel: Int?
     /// 効果の係数（表示・テスト用。シミュレーションは Balance.Emblems の同じ値を使う）。
     public var params: [String: Double]
@@ -263,7 +263,8 @@ public struct EmblemLoadout: Codable, Hashable, Sendable {
     public var tier1: EmblemTalentID
     public var tier2: EmblemTalentID
     public var core: EmblemTalentID
-    /// セットのレベル（1...60）。能力値はこのレベルの値（EmblemAttribute.value）。ボットは 60。
+    /// セットのレベル（1...60）。能力値はこのレベルの値（EmblemAttribute.value）、天賦は解放レベル以上の段だけ働く
+    /// （isActive）。人間はプレイヤーのセットのレベル、ボットは 60。古いデータでキーが無ければ 60。
     public var level: Int
 
     public init(set: EmblemSetID, tier1: EmblemTalentID, tier2: EmblemTalentID, core: EmblemTalentID,
@@ -342,6 +343,14 @@ public struct EmblemLoadout: Codable, Hashable, Sendable {
 
     /// talent を付けているか。
     public func has(_ id: EmblemTalentID) -> Bool { tier1 == id || tier2 == id || core == id }
+
+    /// 段 tier の天賦がこのレベルで働くか（解放レベル未満の段は付けていても働かない。EmblemProgression.unlockLevel）。
+    public func isActive(_ tier: EmblemTier) -> Bool { level >= EmblemProgression.unlockLevel(talent: talent(tier)) }
+
+    /// 働いている 1 段目・2 段目・コアの天賦（解放レベル未満は nil）。試合の効果はこちらを見る。
+    public var activeTier1: EmblemTalentID? { isActive(.tier1) ? tier1 : nil }
+    public var activeTier2: EmblemTalentID? { isActive(.tier2) ? tier2 : nil }
+    public var activeCore: EmblemTalentID? { isActive(.core) ? core : nil }
 }
 
 public enum EmblemCatalog {
@@ -350,8 +359,11 @@ public enum EmblemCatalog {
 
     public static func clampLevel(_ level: Int) -> Int { min(maxLevel, max(1, level)) }
 
-    /// 7 つのセット（タブの並び）。数値は Lv60。
-    public static let sets: [EmblemSetDef] = [
+    /// 7 つのセット（タブの並び）。maxValue は Lv60 の値、levelValues は仮のレベル別の表（EmblemProgression.levelValues）。
+    public static let sets: [EmblemSetDef] = baseSets.map(EmblemProgression.attachingLevelTables)
+
+    /// 7 つのセットの Lv60 の値（画面・Fandom）。
+    private static let baseSets: [EmblemSetDef] = [
         // スクショ: 通常共通エンブレム Lv60（混合回復 +12.00 / HP +275.00 / 適応攻撃 +22.00）。タレントは衝撃 / 山野の主 / 不純な怒り。
         // フレンドの 🔍（Lv42）: 次のキーレベル Lv45 で「コア属性大幅アップ 混合回復」。
         EmblemSetDef(id: .common, nameJa: "通常共通エンブレム", nameEn: "Basic Common Emblem", jaConfirmed: true, coreConfirmed: true,

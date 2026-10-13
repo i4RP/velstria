@@ -150,7 +150,7 @@ public enum EmblemEffects {
         var weaponMaster: Double = 0
     }
 
-    /// エンブレムの能力値（セットのレベルの値 + タレント）。hero はスタック（血の祭典）用。
+    /// エンブレムの能力値（セットのレベルの値 + 解放レベル以上の段のタレント）。hero はスタック（血の祭典）用。
     static func statBlock(_ e: EmblemLoadout, hero: HeroData?) -> StatBlock {
         var b = StatBlock()
         for a in EmblemCatalog.set(e.set).attributes {
@@ -177,7 +177,7 @@ public enum EmblemEffects {
             case .attackSpeedPct: b.attackSpeedPct += p
             }
         }
-        switch e.tier1 {
+        switch e.activeTier1 {
         case .thrill: b.adaptiveAttack += K.thrillAdaptive
         case .swift: b.attackSpeedPct += K.swiftAttackSpeed
         case .vitality: b.hp += K.vitalityHP
@@ -192,7 +192,7 @@ public enum EmblemEffects {
             b.critDamage += K.fatalCritDamage
         default: break
         }
-        switch e.tier2 {
+        switch e.activeTier2 {
         case .festivalOfBlood:
             let n = min(K.festivalMaxStacks, max(0, hero?.emblemRuntime.takedowns ?? 0))
             b.spellVamp += K.festivalSpellVamp + K.festivalPerStack * Double(n)
@@ -206,7 +206,7 @@ public enum EmblemEffects {
     /// HP・位置・交戦で変わる能力値（強靭・山野の主）。StatCalculator が装備の時間効果の後・状態効果の前に呼ぶ。
     static func applyRuntimeStats(_ u: Unit, to stats: inout Stats, time now: Double, map: MapDefinition) {
         guard let h = u.hero, let e = h.emblem else { return }
-        switch e.tier2 {
+        switch e.activeTier2 {
         case .tenacity:
             let ratio = stats.maxHP > 0 ? max(0, u.hp) / stats.maxHP : 1
             if ratio < K.tenacityHPRatio { stats.damageReduction += K.tenacityDamageReduction }
@@ -222,19 +222,19 @@ public enum EmblemEffects {
 
     /// 掘り出し上手: 装備の購入価格の倍率（ItemSystem.combine）。
     public static func purchasePriceMultiplier(_ h: HeroData) -> Double {
-        h.emblem?.tier2 == .bargainHunter ? K.bargainPriceRatio : 1
+        h.emblem?.activeTier2 == .bargainHunter ? K.bargainPriceRatio : 1
     }
 
     /// 立て直し: バトルスペル・装備のアクティブの CD の倍率。
     public static func spellCooldownMultiplier(_ h: HeroData) -> Double {
-        guard h.emblem?.tier2 == .pullYourselfTogether else { return 1 }
+        guard h.emblem?.activeTier2 == .pullYourselfTogether else { return 1 }
         let n = min(K.pullMaxStacks, max(0, h.emblemRuntime.takedowns))
         return max(0, 1 - K.pullCooldownReduction - K.pullPerStack * Double(n))
     }
 
     /// 時の支配: スキル枠 slot の CD が減る速さの倍率（必殺技の後 4 秒間、必殺技以外が 1.5 倍）。
     public static func skillCooldownRate(_ h: HeroData, slot: Int, time now: Double) -> Double {
-        guard h.emblem?.core == .temporalReign, slot != SkillSlot.ultimate.rawValue, slot != SkillSlot.passive.rawValue,
+        guard h.emblem?.activeCore == .temporalReign, slot != SkillSlot.ultimate.rawValue, slot != SkillSlot.passive.rawValue,
               now < h.emblemRuntime.until else { return 1 }
         return K.temporalRate
     }
@@ -255,7 +255,7 @@ public enum EmblemEffects {
         var bonus = 0.0
         if s.units[t].kind == .hero { bonus += focusBonus(s, attacker: a, target: t) }
         guard let e = s.units[a].hero?.emblem else { return bonus }
-        switch e.tier2 {
+        switch e.activeTier2 {
         case .seasonedHunter:
             // 狩猟印（バトルスペル）のダメージには効かない
             guard source != .spell, s.units[t].kind == .monster, let m = s.units[t].monster else { break }
@@ -287,7 +287,7 @@ public enum EmblemEffects {
     static func focusMarker(_ s: SimState, attacker a: Int, target t: Int) -> Int? {
         let tid = s.units[t].id, team = s.units[a].team, now = s.time
         for j in s.units.indices where s.units[j].kind == .hero && s.units[j].team == team {
-            guard let h = s.units[j].hero, h.emblem?.core == .focusingMark, h.emblemRuntime.markedID == tid,
+            guard let h = s.units[j].hero, h.emblem?.activeCore == .focusingMark, h.emblemRuntime.markedID == tid,
                   now < h.emblemRuntime.until else { continue }
             return j
         }
@@ -320,7 +320,7 @@ public enum EmblemEffects {
         var rt = s.units[a].hero!.emblemRuntime
         let attackerID = s.units[a].id
         let level = s.units[a].hero?.level ?? 1
-        switch e.core {
+        switch e.activeCore {
         case .impureRage:
             guard source.isSkill, rt.ready(at: now) else { break }
             rt.readyAt = now + K.impureRageCooldown
@@ -422,7 +422,7 @@ public enum EmblemEffects {
 
     /// ヒーローがダメージを受けた後（山野の主: ボスとの交戦の記録）。
     static func onDamageTaken(_ s: inout SimState, victim t: Int, attacker a: Int?) {
-        guard let a, s.units[t].hero?.emblem?.tier2 == .wildernessBlessing,
+        guard let a, s.units[t].hero?.emblem?.activeTier2 == .wildernessBlessing,
               s.units[a].monster?.kind.isBoss == true else { return }
         s.units[t].hero!.emblemRuntime.bossCombatAt = s.time
     }
@@ -436,7 +436,7 @@ public enum EmblemEffects {
         let now = s.time
         let attackerID = s.units[a].id
         var rt = s.units[a].hero!.emblemRuntime
-        switch e.core {
+        switch e.activeCore {
         case .concussiveBlast:
             guard rt.ready(at: now) else { break }
             rt.readyAt = now + K.concussiveCooldown
@@ -472,7 +472,7 @@ public enum EmblemEffects {
 
     /// スキルを使った時（時の支配: 必殺技で加速の窓を開く）。
     static func onSkillCast(_ s: inout SimState, caster c: Int, slot: SkillSlot) {
-        guard slot == .ultimate, let h = s.units[c].hero, h.emblem?.core == .temporalReign,
+        guard slot == .ultimate, let h = s.units[c].hero, h.emblem?.activeCore == .temporalReign,
               h.emblemRuntime.ready(at: s.time) else { return }
         let now = s.time
         s.units[c].hero!.emblemRuntime.readyAt = now + K.temporalCooldown
@@ -484,14 +484,14 @@ public enum EmblemEffects {
     static func onKillOrAssist(_ s: inout SimState, hero i: Int) {
         guard let h = s.units[i].hero, let e = h.emblem else { return }
         s.units[i].hero!.emblemRuntime.takedowns += 1
-        if e.core == .temporalReign, s.time < h.emblemRuntime.until {
+        if e.activeCore == .temporalReign, s.time < h.emblemRuntime.until {
             s.units[i].hero!.emblemRuntime.until += K.temporalExtend
         }
     }
 
     /// 敵ヒーローを倒した時（殺戮の連鎖: CD のリセット）。
     static func onKill(_ s: inout SimState, hero i: Int) {
-        guard s.units[i].hero?.emblem?.core == .killingSpree else { return }
+        guard s.units[i].hero?.emblem?.activeCore == .killingSpree else { return }
         s.units[i].hero!.emblemRuntime.readyAt = 0
     }
 

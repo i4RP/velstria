@@ -17,6 +17,8 @@ import VelstriaCore
 // （UI は daily + weekly から ID で進捗を引くため）。週の切替では持ち越し、イベント終了時に
 // 達成済み・未受取の報酬をメールで届けて枠を外す。ウィークリーの一覧は weeklyMissions(profile:) で引くこと。
 // 所持品が増える受取（ミッション・パス・メール・ランク報酬・ストア購入）の後は実績を再評価する。
+// エンブレムの魔法の粉・欠片（EmblemEconomy の決まった量。確率は無い）: デイリーの全ミッション・ウィークリー・スターパスの
+// 無料トラックの一部・ウェルカムメール（セットを 1 つ解放できる量）。欠片の付与は EmblemService.grant（最大のセットは粉に替える）。
 
 struct MissionDef: Identifiable, Equatable {
     enum Kind: String { case playMatches, winMatches, kills, assists, creepScore, destroyTowers, useHeroRole, dealDamage }
@@ -115,45 +117,70 @@ enum LiveOpsService {
 
     private static let dailyGroupSize = 4
 
+    /// エンブレムの報酬（魔法の粉・欠片）。
+    private typealias EE = EmblemEconomy
+
+    private static func dust(_ n: Int) -> [MailAttachment] { [EmblemService.dustAttachment(n)] }
+
+    private static func fragments(_ set: EmblemSetID, _ n: Int) -> [MailAttachment] {
+        [EmblemService.fragmentAttachment(n, set: set)]
+    }
+
     private static let dailyPool: [MissionDef] = [
         // グループ 0: 参加
         MissionDef(id: "D01", titleJa: "対戦を 2 回プレイする", titleEn: "Play 2 matches",
-                   kind: .playMatches, target: 2, rewardCoins: 150, rewardPassXP: 150),
+                   kind: .playMatches, target: 2, rewardCoins: 150, rewardPassXP: 150,
+                   extraRewards: dust(EE.dailyParticipationDust)),
         MissionDef(id: "D02", titleJa: "対戦を 3 回プレイする", titleEn: "Play 3 matches",
-                   kind: .playMatches, target: 3, rewardCoins: 250, rewardPassXP: 200),
+                   kind: .playMatches, target: 3, rewardCoins: 250, rewardPassXP: 200,
+                   extraRewards: dust(EE.dailyParticipationDust)),
         MissionDef(id: "D03", titleJa: "対戦で 1 回勝利する", titleEn: "Win 1 match",
-                   kind: .winMatches, target: 1, rewardCoins: 200, rewardPassXP: 200),
+                   kind: .winMatches, target: 1, rewardCoins: 200, rewardPassXP: 200,
+                   extraRewards: dust(EE.dailyParticipationDust)),
         MissionDef(id: "D04", titleJa: "対戦で 2 回勝利する", titleEn: "Win 2 matches",
-                   kind: .winMatches, target: 2, rewardCoins: 300, rewardPassXP: 250),
+                   kind: .winMatches, target: 2, rewardCoins: 300, rewardPassXP: 250,
+                   extraRewards: dust(EE.dailyParticipationDust)),
         // グループ 1: 戦闘
         MissionDef(id: "D05", titleJa: "敵ヒーローを 6 体倒す", titleEn: "Defeat 6 enemy heroes",
-                   kind: .kills, target: 6, rewardCoins: 200, rewardPassXP: 200),
+                   kind: .kills, target: 6, rewardCoins: 200, rewardPassXP: 200,
+                   extraRewards: dust(EE.dailyCombatDust)),
         MissionDef(id: "D06", titleJa: "アシストを 10 回獲得する", titleEn: "Earn 10 assists",
-                   kind: .assists, target: 10, rewardCoins: 200, rewardPassXP: 200),
+                   kind: .assists, target: 10, rewardCoins: 200, rewardPassXP: 200,
+                   extraRewards: dust(EE.dailyCombatDust)),
         MissionDef(id: "D07", titleJa: "敵ヒーローに 20,000 ダメージを与える", titleEn: "Deal 20,000 damage to enemy heroes",
-                   kind: .dealDamage, target: 20_000, rewardCoins: 200, rewardPassXP: 200),
+                   kind: .dealDamage, target: 20_000, rewardCoins: 200, rewardPassXP: 200,
+                   extraRewards: dust(EE.dailyCombatDust)),
         MissionDef(id: "D08", titleJa: "ミニオン・モンスターを 80 体倒す（CS）", titleEn: "Reach 80 creep score",
-                   kind: .creepScore, target: 80, rewardCoins: 200, rewardPassXP: 200),
+                   kind: .creepScore, target: 80, rewardCoins: 200, rewardPassXP: 200,
+                   extraRewards: dust(EE.dailyCombatDust)),
         // グループ 2: 目標・ロール
         MissionDef(id: "D09", titleJa: "チームでタワーを 3 本破壊する", titleEn: "Destroy 3 towers with your team",
-                   kind: .destroyTowers, target: 3, rewardCoins: 200, rewardPassXP: 200),
+                   kind: .destroyTowers, target: 3, rewardCoins: 200, rewardPassXP: 200,
+                   extraRewards: dust(EE.dailyObjectiveDust)),
         MissionDef(id: "D10", titleJa: "ヴァンガードで 1 回プレイする", titleEn: "Play 1 match as a Vanguard",
-                   kind: .useHeroRole, target: 1, rewardCoins: 150, rewardPassXP: 150, role: .vanguard),
+                   kind: .useHeroRole, target: 1, rewardCoins: 150, rewardPassXP: 150, role: .vanguard,
+                   extraRewards: fragments(EmblemCatalog.setForRole(.vanguard), EE.dailyRoleFragments)),
         MissionDef(id: "D11", titleJa: "レンジャーで 1 回プレイする", titleEn: "Play 1 match as a Ranger",
-                   kind: .useHeroRole, target: 1, rewardCoins: 150, rewardPassXP: 150, role: .ranger),
+                   kind: .useHeroRole, target: 1, rewardCoins: 150, rewardPassXP: 150, role: .ranger,
+                   extraRewards: fragments(EmblemCatalog.setForRole(.ranger), EE.dailyRoleFragments)),
         MissionDef(id: "D12", titleJa: "サポートで 1 回プレイする", titleEn: "Play 1 match as a Support",
-                   kind: .useHeroRole, target: 1, rewardCoins: 150, rewardPassXP: 150, role: .support),
+                   kind: .useHeroRole, target: 1, rewardCoins: 150, rewardPassXP: 150, role: .support,
+                   extraRewards: fragments(EmblemCatalog.setForRole(.support), EE.dailyRoleFragments)),
     ]
 
     private static let weeklyPool: [MissionDef] = [
         MissionDef(id: "W01", titleJa: "対戦を 15 回プレイする", titleEn: "Play 15 matches",
-                   kind: .playMatches, target: 15, rewardCoins: 1000, rewardPassXP: 800),
+                   kind: .playMatches, target: 15, rewardCoins: 1000, rewardPassXP: 800,
+                   extraRewards: dust(EE.weeklyPlayDust)),
         MissionDef(id: "W02", titleJa: "対戦で 7 回勝利する", titleEn: "Win 7 matches",
-                   kind: .winMatches, target: 7, rewardCoins: 1200, rewardPassXP: 1000),
+                   kind: .winMatches, target: 7, rewardCoins: 1200, rewardPassXP: 1000,
+                   extraRewards: EE.chestRotation.flatMap { fragments($0, EE.weeklyFragmentsPerSet) }),
         MissionDef(id: "W03", titleJa: "敵ヒーローを 40 体倒す", titleEn: "Defeat 40 enemy heroes",
-                   kind: .kills, target: 40, rewardCoins: 800, rewardPassXP: 600),
+                   kind: .kills, target: 40, rewardCoins: 800, rewardPassXP: 600,
+                   extraRewards: dust(EE.weeklyKillsDust)),
         MissionDef(id: "W04", titleJa: "チームでタワーを 12 本破壊する", titleEn: "Destroy 12 towers with your team",
-                   kind: .destroyTowers, target: 12, rewardCoins: 800, rewardPassXP: 600),
+                   kind: .destroyTowers, target: 12, rewardCoins: 800, rewardPassXP: 600,
+                   extraRewards: dust(EE.weeklyTowersDust)),
     ]
 
     private static let eventPool: [MissionDef] = [
@@ -353,13 +380,15 @@ enum LiveOpsService {
         PassReward(level: level, free: freePassReward(level), premium: premiumPassReward(level))
     }
 
-    /// 無料トラック: 10 の倍数でコスメ、5 の倍数で Gem 30、それ以外は Coin（100 + 10×段階）。
+    /// 無料トラック: 10 の倍数でコスメ、5 の倍数で Gem 30、3・8・13・18・23・28 で魔法の粉（EmblemEconomy.passDust）、
+    /// それ以外は Coin（100 + 10×段階）。
     private static func freePassReward(_ level: Int) -> MailAttachment {
         switch level {
         case 10: return cosmeticReward("CO017", fallbackGems: 60)
         case 20: return cosmeticReward("CO030", fallbackGems: 120)
         case 30: return cosmeticReward("CO026", fallbackGems: 120)
         case _ where level % 5 == 0: return MailAttachment(kind: .gem, amount: 30)
+        case _ where EmblemEconomy.passDustLevels.contains(level): return EmblemService.dustAttachment(EmblemEconomy.passDust)
         default: return MailAttachment(kind: .coin, amount: 100 + 10 * level)
         }
     }
@@ -592,6 +621,10 @@ enum LiveOpsService {
         case .hero:
             guard let id = attachment.refID, let def = master.hero(id) else { return L("ヒーロー", "Hero") }
             return L("ヒーロー解放: ", "Hero unlock: ") + MasterText.hero(def)
+        case .magicDust:
+            return L("魔法の粉 ×\(attachment.amount.formatted())", "Magic Dust ×\(attachment.amount.formatted())")
+        case .emblemFragment:
+            return EmblemService.fragmentName(attachment) + " ×\(attachment.amount.formatted())"
         }
     }
 
@@ -1017,15 +1050,18 @@ enum LiveOpsService {
             }
             profile.ownedHeroIDs.append(id)
             return attachment
+        case .magicDust, .emblemFragment:
+            // 最大レベルのセット・通常共通の欠片は魔法の粉に替わる
+            return EmblemService.grant(attachment, to: &profile)
         }
     }
 
-    /// 同種の通貨・XP をまとめる（コスメ・ヒーローはそのまま）。
+    /// 同種の通貨・XP・魔法の粉・同じセットの欠片をまとめる（コスメ・ヒーローはそのまま）。
     static func mergeAttachments(_ list: [MailAttachment]) -> [MailAttachment] {
         var result: [MailAttachment] = []
         for a in list {
-            if a.kind == .coin || a.kind == .gem || a.kind == .passXP,
-               let i = result.firstIndex(where: { $0.kind == a.kind && $0.refID == nil }) {
+            if a.kind == .coin || a.kind == .gem || a.kind == .passXP || a.kind == .magicDust || a.kind == .emblemFragment,
+               let i = result.firstIndex(where: { $0.kind == a.kind && $0.refID == a.refID }) {
                 result[i].amount += a.amount
             } else {
                 result.append(a)
@@ -1074,11 +1110,15 @@ enum LiveOpsService {
         }
         refreshMissions(profile: &profile, now: now)
         pruneMail(profile: &profile, now: now)
+        // 無料のエンブレム宝箱: 貯まった分を反映し、数え始めの時刻を残す
+        EmblemService.refreshChest(profile: &profile, now: now)
         evaluateAchievements(profile: &profile, master: master, now: now)
     }
 
     private static func sendWelcomeMail(to profile: inout Profile, master: MasterData, now: Date) {
-        var attachments = [MailAttachment(kind: .coin, amount: 500), MailAttachment(kind: .gem, amount: 100)]
+        // 魔法の粉はエンブレムのセットを 1 つ解放できる量（EmblemEconomy.starterDust）
+        var attachments = [MailAttachment(kind: .coin, amount: 500), MailAttachment(kind: .gem, amount: 100),
+                           EmblemService.dustAttachment(EmblemEconomy.starterDust)]
         if let frame = master.cosmetics.first(where: { $0.type == .avatarFrame }) {
             attachments.append(MailAttachment(kind: .cosmetic, amount: 1, refID: frame.cosmeticID))
         }

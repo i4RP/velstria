@@ -4,6 +4,7 @@ import VelstriaCore
 // 担当: ui-collection。エンブレム（MLBB のエンブレム画面。旧 UI043 ルーンの置き換え）の表示と保存のロジック。
 // データは VelstriaCore の EmblemCatalog（7 セット・天賦 8 / 8 / 10）。docs/EMBLEMS.md。
 // 保存: Profile.emblemTalents（セットごとの天賦）・emblemSetProgress（解放・レベル）・heroEmblems（ヒーローごと）。
+// 解放・強化・欠片・宝箱の操作は EmblemService（Services/EmblemService.swift）。
 
 /// 一括設定のロール絞り込み（MLBB の一括設定のタブ: 全て / タンク / ファイター / アサシン / ハンター / メイジ。サポートを足す）。
 enum EmblemHeroFilter: String, CaseIterable, Identifiable {
@@ -40,11 +41,11 @@ enum EmblemHeroFilter: String, CaseIterable, Identifiable {
 }
 
 enum EmblemMath {
-    // MARK: 解放・レベル
+    // MARK: 解放・レベル（EmblemService）
 
-    /// セットの解放とレベル（保存が無ければ解放済みの Lv60。TODO: 解放・強化の仕組みが決まったら既定を変える）。
+    /// セットの解放とレベル（保存が無ければ新規は通常共通だけ解放済みの Lv1、旧版から引き継いだプレイヤーは解放済みの Lv60）。
     static func progress(_ set: EmblemSetID, profile: Profile) -> EmblemSetProgress {
-        profile.emblemSetProgress[set.rawValue] ?? EmblemSetProgress()
+        EmblemService.progress(set, profile: profile)
     }
 
     static func isUnlocked(_ set: EmblemSetID, profile: Profile) -> Bool { progress(set, profile: profile).unlocked }
@@ -53,6 +54,11 @@ enum EmblemMath {
 
     static func isMaxLevel(_ set: EmblemSetID, profile: Profile) -> Bool {
         level(set, profile: profile) >= EmblemCatalog.maxLevel
+    }
+
+    /// 段 tier の天賦を、このセットのレベルで付けられるか（1 段目 Lv10・2 段目 Lv15・コア Lv20。仮）。
+    static func isTierUnlocked(_ tier: EmblemTier, set: EmblemSetID, profile: Profile) -> Bool {
+        EmblemService.isTierUnlocked(tier, set: set, profile: profile)
     }
 
     // MARK: セットごとの天賦
@@ -67,9 +73,9 @@ enum EmblemMath {
         return e
     }
 
-    /// セットの天賦を付け替える（同じ段の枠へ入る）。解放していないセットは変えない。
+    /// セットの天賦を付け替える（同じ段の枠へ入る。費用は無い）。解放していないセット・解放レベル未満の段は変えない。
     static func equip(_ talent: EmblemTalentID, set: EmblemSetID, profile: inout Profile) {
-        guard isUnlocked(set, profile: profile) else { return }
+        guard isUnlocked(set, profile: profile), isTierUnlocked(talent.tier, set: set, profile: profile) else { return }
         var e = page(set, profile: profile).replacing(talent)
         e.level = EmblemCatalog.maxLevel
         profile.emblemTalents[set.rawValue] = e
@@ -145,6 +151,19 @@ enum EmblemMath {
         return L(d.nameJa, d.nameEn)
     }
 
+    /// セットの短い名前（報酬の「タンクの欠片」。画面のセット名の括弧の中）。
+    static func shortSetName(_ set: EmblemSetID) -> String {
+        switch set {
+        case .common: return L("通常共通", "Common")
+        case .tank: return L("タンク", "Tank")
+        case .assassin: return L("アサシン", "Assassin")
+        case .mage: return L("メイジ", "Mage")
+        case .fighter: return L("ファイター", "Fighter")
+        case .support: return L("サポート", "Support")
+        case .marksman: return L("ハンター", "Marksman")
+        }
+    }
+
     static func talentName(_ t: EmblemTalentID) -> String {
         let d = EmblemCatalog.talent(t)
         return L(d.nameJa, d.nameEn)
@@ -189,6 +208,44 @@ enum EmblemMath {
     static func tierLabel(_ tier: EmblemTier) -> String {
         tier == .core ? L("コア天賦", "Core Talent") : L("通常天賦", "Standard Talent")
     }
+
+    // MARK: 強化・解放の表示
+
+    /// 段 tier の解放の文（「Lv10で解放」）。
+    static func tierLockText(_ tier: EmblemTier) -> String {
+        let lv = EmblemProgression.unlockLevel(tier)
+        return L("Lv\(lv)で解放", "Unlocks at Lv\(lv)")
+    }
+
+    /// コア属性の呼び名（画面の「コア属性大幅アップ 最大HP」。HP は「最大HP」と出る）。
+    static func coreAttributeName(_ k: EmblemAttributeKind) -> String {
+        k == .hp ? L("最大HP", "Max HP") : attributeName(k)
+    }
+
+    /// 次のキーレベルの行（「Lv30 コア属性大幅アップ 適応貫通」。最大なら nil）。
+    static func nextKeyLevelText(_ set: EmblemSetID, level: Int) -> String? {
+        guard let key = EmblemProgression.nextKeyLevel(after: level) else { return nil }
+        let def = EmblemCatalog.set(set)
+        guard let core = def.attributes.first(where: \.isCore) ?? def.attributes.first else { return nil }
+        let name = coreAttributeName(core.kind)
+        return L("Lv\(key) コア属性大幅アップ \(name)", "Lv\(key): Core stat boost — \(name)")
+    }
+
+    /// 強化の費用の行（画面の「10+217/227」= 使う欠片 + 使う魔法の粉 / 必要な量。通常共通は欠片が無いので「217/227」）。
+    static func costText(_ q: EmblemUpgradeQuote, set: EmblemSetID) -> String {
+        set == .common ? "\(q.fromDust)/\(q.needed)" : "\(q.fromFragments)+\(q.fromDust)/\(q.needed)"
+    }
+
+    /// 次のレベルで変わる能力値の値（「+1.30%」。変わらない・最大なら nil）。ステータス欄の「+1.20% → +1.30%」。
+    static func nextValueText(_ a: EmblemAttribute, level: Int) -> String? {
+        guard level < EmblemCatalog.maxLevel else { return nil }
+        let next = a.value(level: level + 1)
+        guard next != a.value(level: level) else { return nil }
+        return valueText(next, percent: a.kind.isPercent)
+    }
+
+    /// 魔法の粉の量の表示（「1,234」）。
+    static func amountText(_ n: Int) -> String { n.formatted() }
 
     /// 1 行の要約（「通常共通エンブレム · 衝撃 / 山野の主 / 不純な怒り」）。
     static func summary(_ e: EmblemLoadout) -> String {
@@ -278,4 +335,12 @@ enum EmblemStyle {
     static func talentColor(_ t: EmblemTalentID) -> Color {
         t.tier == .core ? Theme.gold : Color(red: 0.70, green: 0.84, blue: 1.0)
     }
+
+    /// 魔法の粉の記号と色（紫の粒）。
+    static let dustSymbol = "sparkles"
+    static let dustColor = Color(red: 0.78, green: 0.62, blue: 1.0)
+    /// 無料のエンブレム宝箱の記号。
+    static let chestSymbol = "gift.fill"
+    /// 「コア属性大幅アップ」の橙（ピッカーの小見出しと同じ）。
+    static let keyLevelColor = Color(red: 1.0, green: 0.68, blue: 0.30)
 }

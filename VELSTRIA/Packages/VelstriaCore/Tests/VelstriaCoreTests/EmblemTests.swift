@@ -38,7 +38,7 @@ final class EmblemTests: XCTestCase {
             XCTAssertFalse(t.descriptionJa.isEmpty)
             XCTAssertFalse(t.descriptionEn.isEmpty)
             XCTAssertFalse(t.params.isEmpty, t.id.rawValue)
-            XCTAssertNil(t.unlockLevel, "解放レベルは不明（全員 Lv60 なので全部付けられる）")
+            XCTAssertNil(t.unlockLevel, "天賦ごとの解放レベルは不明（段の解放レベル EmblemProgression.talentUnlockLevels を使う）")
         }
     }
 
@@ -87,8 +87,8 @@ final class EmblemTests: XCTestCase {
         let b = EmblemAttribute(.hp, 500, levelValues: [10, 20, 30])
         XCTAssertEqual(b.value(level: 2), 20)
         XCTAssertEqual(b.value(level: 60), 500, "表の外は Lv60 の値")
-        XCTAssertTrue(EmblemCatalog.sets.allSatisfy { $0.attributes.allSatisfy { $0.levelValues == nil } },
-                      "レベルごとの伸び方は未確定（TODO）")
+        XCTAssertTrue(EmblemCatalog.sets.allSatisfy { $0.attributes.allSatisfy { $0.levelValues?.count == 60 } },
+                      "セットは仮のレベル別の表を持つ（EmblemProgression.levelValues）")
         XCTAssertEqual(EmblemCatalog.clampLevel(0), 1)
         XCTAssertEqual(EmblemCatalog.clampLevel(99), 60)
         XCTAssertFalse(EmblemLoadout(.common, .thrill, .tenacity, .impureRage, level: 61).isValid)

@@ -5,6 +5,8 @@ import VelstriaCore
 
 struct HomeFooter: View {
     let metrics: HomeMetrics
+    /// バッジ（無料のエンブレム宝箱）の時刻。
+    var now = Date()
     @Environment(AppModel.self) private var app
 
     var body: some View {
@@ -24,6 +26,7 @@ struct HomeFooter: View {
 
     private func tabButton(_ tab: HomeTab) -> some View {
         let selected = tab == .home
+        let badge = tab.badge(profile: app.profile, now: now)
         return Button {
             guard let route = tab.route else { return }
             FlowFX.tap(app)
@@ -34,6 +37,7 @@ struct HomeFooter: View {
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(selected ? Theme.gold : Theme.cyan)
                     .shadow(color: (selected ? Theme.gold : Theme.cyan).opacity(0.8), radius: selected ? 5 : 2)
+                    .overlay(alignment: .topTrailing) { FlowCountBadge(count: badge).offset(x: 12, y: -6) }
                 Text(tab.title)
                     .font(HomeFont.tech(10.5))
                     .tracking(Loc.isEnglish ? 1 : 0)
@@ -53,7 +57,7 @@ struct HomeFooter: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(HomePressStyle(scale: 0.92))
-        .accessibilityLabel(tab.title)
+        .accessibilityLabel(tab.title + (badge > 0 ? L("、受取可能 \(badge)", ", \(badge) to claim") : ""))
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityIdentifier(tab.identifier)
     }

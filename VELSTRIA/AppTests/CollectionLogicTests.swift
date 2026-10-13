@@ -517,7 +517,17 @@ final class CollectionLogicTests: XCTestCase {
 
     func testEmblemPagesDefaultToTheSetTalentsAndEquipStaysInTier() {
         var p = Profile()
-        // 保存が無ければセットの既定の天賦・解放済みの Lv60（TODO: 解放・強化が決まったら変わる）
+        // 新規: 保存が無ければセットの既定の天賦。通常共通だけ解放済みで、どれも Lv1
+        for set in EmblemSetID.allCases {
+            XCTAssertEqual(EmblemMath.page(set, profile: p), EmblemCatalog.defaultLoadout(set: set, level: 1))
+            XCTAssertEqual(EmblemMath.isUnlocked(set, profile: p), set == .common, "\(set)")
+            XCTAssertEqual(EmblemMath.level(set, profile: p), 1)
+        }
+        // Lv1 は天賦の段がどれも未解放なので付け替えられない
+        EmblemMath.equip(.fatal, set: .common, profile: &p)
+        XCTAssertEqual(EmblemMath.page(.common, profile: p).tier1, .thrill)
+        // 旧版から引き継いだプレイヤー（全セット解放済みの Lv60）
+        EmblemService.grandfather(&p)
         for set in EmblemSetID.allCases {
             XCTAssertEqual(EmblemMath.page(set, profile: p), EmblemCatalog.defaultLoadout(set: set))
             XCTAssertTrue(EmblemMath.isUnlocked(set, profile: p))
@@ -540,6 +550,7 @@ final class CollectionLogicTests: XCTestCase {
 
     func testEmblemBulkApplyAndMatchLoadout() {
         var p = Profile()
+        EmblemService.grandfather(&p)
         // 一括設定が無ければ選んだバトルプラン（未設定は「有効」）のエンブレム
         XCTAssertEqual(EmblemMath.loadout(for: "H027", profile: p, master: master),
                        ItemSystem.plan(heroID: "H027", chosen: nil)?.emblem)

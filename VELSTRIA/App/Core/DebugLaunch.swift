@@ -11,7 +11,8 @@ import VelstriaCore
 //   -uiTesting            一時ディレクトリの新規プロフィールで起動（実データに触れない）
 //   -skipOnboarding       オンボーディング完了済みにする（オンラインのルールにも同意済みにする）
 //   -onlineRulesPending   -skipOnboarding でもオンラインのルールは未同意のまま（同意の画面の確認用）
-//   -grant                Coin 100000 / Gem 10000 を付与し全ヒーロー解放
+//   -grant                Coin 100000 / Gem 10000 を付与し全ヒーロー解放。エンブレムは全セット解放済みの Lv60（魔法の粉 30000）
+//   -emblemFresh          エンブレムを新規のプレイヤーの状態に（通常共通だけ Lv1・魔法の粉 2000・アサシンの欠片 10・宝箱 1 回分）
 //   -route <name>         起動後に画面へ直行（例: heroes, heroDetail:H003, store, settings）
 //   -battle <mode>        起動後に戦闘開始（standard / ranked / practice / tutorial / spectate / replay）
 //                         replay = 保存済みの最新のリプレイ（無ければ AI 同士 5 分の合成リプレイ）
@@ -89,6 +90,17 @@ enum DebugLaunch {
             p.starlightCoin = max(p.starlightCoin, 100_000)
             p.freeGem = max(p.freeGem, 10_000)
             p.ownedHeroIDs = app.master.heroes.map(\.heroID)
+            // エンブレムは全セット解放済みの Lv60（旧版から引き継いだプレイヤーと同じ）と、強化を試せる量の魔法の粉
+            EmblemService.grandfather(&p)
+            p.magicDust = max(p.magicDust, 30_000)
+        }
+        if args.contains("-emblemFresh") {
+            // 新規のプレイヤーのエンブレム（通常共通だけ解放済みの Lv1）と、解放・強化を試せる魔法の粉・欠片・宝箱 1 回分
+            p.emblemGrandfathered = false
+            p.emblemSetProgress = [:]
+            p.emblemFragments = [EmblemSetID.assassin.rawValue: 10]
+            p.magicDust = 2_000
+            p.emblemChest = EmblemChestState()
         }
         if let lang = value(after: "-language"), let l = AppLanguage(rawValue: lang) {
             p.settings.language = l

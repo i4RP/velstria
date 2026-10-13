@@ -98,7 +98,7 @@ struct HomeView: View {
         // フッター（下から）
         Group {
             HomeBandBackground(side: .bottom).homePlaced(in: m.footerRect)
-            HomeFooter(metrics: m)
+            HomeFooter(metrics: m, now: now)
         }
         .offset(y: hidden ? m.footerRect.height + 12 : 0)
         .opacity(hidden ? 0 : 1)

@@ -73,7 +73,9 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     ///     「有効」のプランになる（ボットの購入が変わる）。
     /// 17: ルーンを廃止して MLBB のエンブレム（7 セット・タレント 3 段）に置き換え（ボットも「有効」のバトルプラン、無ければロール別の
     ///     エンブレムを付ける。能力値と戦い方が変わる）。
-    public static let currentSimVersion = 17
+    /// 18: エンブレムのレベル（仮の表）。人間の能力値はセットのレベルの値になり、解放レベル未満の段の天賦は働かない
+    ///     （1 段目 Lv10・2 段目 Lv15・コア Lv20）。ボットは Lv60 のまま。
+    public static let currentSimVersion = 18
 
     public var simVersion: Int
     public var mode: MatchMode

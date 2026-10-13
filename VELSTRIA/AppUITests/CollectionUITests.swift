@@ -8,11 +8,12 @@ final class CollectionUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    private func launch(route: String, grant: Bool = true, language: String = "ja") -> XCUIApplication {
+    private func launch(route: String, grant: Bool = true, language: String = "ja", extra: [String] = []) -> XCUIApplication {
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication()
         app.launchArguments += ["-uiTesting", "-skipOnboarding", "-route", route, "-language", language]
         if grant { app.launchArguments.append("-grant") }
+        app.launchArguments += extra
         app.launch()
         return app
     }
@@ -233,6 +234,30 @@ final class CollectionUITests: XCTestCase {
         snapshot(app, "emblem_bulk")
         element(app, "emblem_bulk_ok").tap()
         XCTAssertTrue(tank.waitForExistence(timeout: 5))
+    }
+
+    /// エンブレムの宝箱・解放・強化（新規のプレイヤー: -emblemFresh = 通常共通だけ Lv1、魔法の粉 2,000、宝箱 1 回分）。
+    func testEmblemChestUnlockAndUpgradeForANewPlayer() {
+        let app = launch(route: "emblems", extra: ["-emblemFresh"])
+        let chest = element(app, "emblem_chest")
+        XCTAssertTrue(chest.waitForExistence(timeout: 10))
+        snapshot(app, "emblem_fresh_common")
+        chest.tap()
+        let ok = element(app, "reward_claim_ok")
+        XCTAssertTrue(ok.waitForExistence(timeout: 5), "宝箱の中身の受取ポップアップ")
+        snapshot(app, "emblem_chest_reward")
+        ok.tap()
+        element(app, "emblem_tab_EM_ASSASSIN").tap()
+        let unlock = element(app, "emblem_unlock")
+        XCTAssertTrue(unlock.waitForExistence(timeout: 5), "未解放のセットは「解放」")
+        snapshot(app, "emblem_locked")
+        unlock.tap()
+        let upgrade = element(app, "emblem_upgrade")
+        XCTAssertTrue(upgrade.waitForExistence(timeout: 5), "解放すると Lv1 から強化できる")
+        XCTAssertTrue(element(app, "emblem_upgrade_cost").exists)
+        upgrade.tap()
+        XCTAssertTrue(element(app, "emblem_next_key").waitForExistence(timeout: 5))
+        snapshot(app, "emblem_upgraded")
     }
 
     func testSpellLoadoutAssignment() {

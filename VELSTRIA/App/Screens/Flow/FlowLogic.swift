@@ -167,6 +167,11 @@ enum HomeBadges {
     static func firstWinAvailable(_ p: Profile, now: Date) -> Bool {
         p.lastFirstWinDayKey != LiveOpsService.dayKey(now)
     }
+
+    /// 開けられる無料のエンブレム宝箱の数（フッターのエンブレムのタブ）。
+    static func emblemChest(_ p: Profile, now: Date) -> Int {
+        EmblemService.chestCharges(p, now: now)
+    }
 }
 
 // MARK: - ランク戦ドラフト

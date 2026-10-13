@@ -243,7 +243,8 @@ final class ServicesPersistenceTests: XCTestCase {
         XCTAssertEqual(decoded.career.perHero["H003"]?.mvps, 0)
         XCTAssertEqual(decoded.missions.daily, [MissionProgress(id: "D01", progress: 2, claimed: false)])
         XCTAssertEqual(decoded.emblemTalents["EM_TANK"], EmblemLoadout(.tank, .fatal, .tenacity, .warCry, level: 60))
-        XCTAssertEqual(decoded.emblemSetProgress["EM_MAGE"], EmblemSetProgress(unlocked: true, level: 60), "欠けたレベルは 60")
+        XCTAssertEqual(decoded.emblemSetProgress["EM_MAGE"], EmblemSetProgress(unlocked: true, level: 1),
+                       "欠けたレベルは Lv1（旧版のデータは ProfileMigrator が全セットを書いてから読む）")
         XCTAssertEqual(decoded.heroEmblems["H027"], EmblemLoadout(.fighter, .thrill, .festivalOfBlood, .braveSmite))
     }
 

@@ -2,10 +2,13 @@ import SwiftUI
 import VelstriaCore
 
 // 担当: ui-collection。エンブレム（MLBB のエンブレム画面を写したもの。旧 UI043 ルーンの置き換え。docs/EMBLEMS.md）。
-// 上に 7 つのセットのタブ（記号 + Lv）、左にセット名とリング（右上 = 1 段目・左 = 2 段目・下 = コアの天賦）、右にステータス。
+// 上に 7 つのセットのタブ（記号 + Lv。強化・解放できるセットに緑の上向きの矢印）と無料のエンブレム宝箱（残り時間）、
+// 左にセット名とリング（右上 = 1 段目・左 = 2 段目・下 = コアの天賦）、右にステータス。
+// リングの下: 強化の費用（セットの記号「欠片+魔法の粉/必要な量」）と「アップグレード」、最大なら「MAX」、未解放なら「解放」。
+// ステータスは次のレベルで変わる値に「→」、次のキーレベルの「コア属性大幅アップ」、解放レベル未満の段に鍵と「Lv○で解放」。
 // 天賦の枠を押すとその段の天賦の一覧（装備中に ✓）と、名前・橙の小見出し・説明・「装備」/「装備中」。
 // 左上の 🔍 はエンブレムステータス（現在/最大レベル）と天賦の説明、右下のボタンは一括設定（ヒーローを選んで付ける）。
-// 天賦は組み換え自由（どのセットにもどの天賦でも付けられる。段は合わせる）。
+// 天賦は組み換え自由（どのセットにもどの天賦でも付けられる。段は合わせる。付け替えに費用は無い）。
 
 struct EmblemView: View {
     @Environment(AppModel.self) private var app
@@ -15,6 +18,8 @@ struct EmblemView: View {
     @State private var preview: EmblemTalentID?
     @State private var showsBulk = false
     @State private var showsDetail = false
+    /// 宝箱を開けた時の受取ポップアップ。
+    @State private var reward: RewardClaimContent?
 
     private var current: EmblemSetID { EmblemMath.selectedSet(app.profile) }
 
@@ -24,14 +29,17 @@ struct EmblemView: View {
         let unlocked = EmblemMath.isUnlocked(set, profile: app.profile)
         ScreenScaffold(title: L("エンブレム", "Emblems")) {
             VStack(spacing: 8) {
-                setTabs
+                HStack(spacing: 6) {
+                    setTabs
+                    chestButton
+                }
                 HStack(alignment: .top, spacing: 12) {
                     ringPanel(set: set, page: page, unlocked: unlocked)
                         .frame(width: 330)
                     if let tier = pickingTier, unlocked {
                         pickerPanel(tier: tier, page: page)
                     } else {
-                        statusPanel(set: set, page: page)
+                        statusPanel(set: set, page: page, unlocked: unlocked)
                     }
                 }
             }
@@ -39,6 +47,8 @@ struct EmblemView: View {
             .padding(.bottom, 10)
             .animation(.easeInOut(duration: 0.2), value: pickingTier)
         }
+        .rewardClaimPopup($reward)
+        .onAppear(perform: refreshChest)
         .sheet(isPresented: $showsBulk) {
             EmblemBulkApplySheet(set: set).environment(app)
         }
@@ -62,6 +72,9 @@ struct EmblemView: View {
         let color = EmblemStyle.color(set)
         let unlocked = EmblemMath.isUnlocked(set, profile: app.profile)
         let level = EmblemMath.level(set, profile: app.profile)
+        // 強化か解放ができる（MLBB のタブの緑の上向きの矢印）
+        let improvable = EmblemService.canImprove(set, profile: app.profile)
+        let state = unlocked ? "Lv\(level)" : L("未解放", "Locked")
         return Button {
             guard !selected else { return }
             app.haptics.tap()
@@ -78,7 +91,17 @@ struct EmblemView: View {
                         .foregroundStyle(unlocked ? color : Theme.textSecondary)
                 }
                 .frame(width: 32, height: 32)
-                Text(unlocked ? "Lv\(level)" : L("未解放", "Locked"))
+                .overlay(alignment: .topTrailing) {
+                    if improvable {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 12, weight: .heavy))
+                            .foregroundStyle(Theme.success)
+                            .background(Circle().fill(Color.black.opacity(0.7)))
+                            .offset(x: 4, y: -4)
+                            .accessibilityHidden(true)
+                    }
+                }
+                Text(state)
                     .font(Theme.mono(12))
                     .foregroundStyle(unlocked ? Theme.success : Theme.textSecondary)
                     .lineLimit(1)
@@ -96,12 +119,79 @@ struct EmblemView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(EmblemMath.setName(set)) \(unlocked ? "Lv\(level)" : L("未解放", "Locked"))")
+        .accessibilityLabel("\(EmblemMath.setName(set)) \(state)" + (improvable ? L("、強化できます", ", can be upgraded") : ""))
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityIdentifier("emblem_tab_\(set.rawValue)")
     }
 
-    // MARK: リング（セット名・天賦 3 枠・🔍・MAX・一括設定）
+    // MARK: 無料のエンブレム宝箱
+
+    /// 宝箱のボタン（貯まった回数のバッジ。貯まっていなければ次の 1 回までの残り時間）。
+    private var chestButton: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let now = context.date
+            let charges = EmblemService.chestCharges(app.profile, now: now)
+            let remaining = EmblemService.chestSecondsUntilNext(app.profile, now: now)
+            let detail = charges > 0 ? L("受け取る", "Open") : (remaining.map(EmblemService.countdownText) ?? "")
+            Button {
+                openChest()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: EmblemStyle.chestSymbol)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(charges > 0 ? Theme.gold : Theme.textSecondary)
+                        .frame(width: 26, height: 26)
+                        .overlay(alignment: .topTrailing) { FlowCountBadge(count: charges).offset(x: 9, y: -9) }
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(L("宝箱", "Chest"))
+                            .font(Theme.body(11))
+                            .foregroundStyle(Theme.textPrimary)
+                            .lineLimit(1)
+                        Text(detail)
+                            .font(Theme.mono(10))
+                            .foregroundStyle(charges > 0 ? Theme.success : Theme.textSecondary)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+                }
+                .padding(.horizontal, 8)
+                .frame(minWidth: 92, minHeight: 44)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white.opacity(charges > 0 ? 0.10 : 0.05))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(charges > 0 ? Theme.gold : Theme.panelStroke.opacity(0.6), lineWidth: 1)
+                )
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(charges == 0)
+            .accessibilityLabel(L("無料のエンブレム宝箱", "Free Emblem Chest") + "、" + detail)
+            .accessibilityIdentifier("emblem_chest")
+        }
+    }
+
+    /// 貯まった分を保存に残す（数え始めの時刻を残す。開いた時）。
+    private func refreshChest() {
+        var p = app.profile
+        EmblemService.refreshChest(profile: &p, now: Date())
+        if p != app.profile { app.profile = p }
+    }
+
+    private func openChest() {
+        var p = app.profile
+        guard let granted = EmblemService.openChest(profile: &p, now: Date()) else {
+            app.haptics.warning()
+            return
+        }
+        app.profile = p
+        app.haptics.success()
+        reward = RewardClaimContent(title: L("無料のエンブレム宝箱", "Free Emblem Chest"), attachments: granted)
+    }
+
+    // MARK: リング（セット名・天賦 3 枠・🔍・強化 / MAX / 解放・一括設定）
 
     private func ringPanel(set: EmblemSetID, page: EmblemLoadout, unlocked: Bool) -> some View {
         let color = EmblemStyle.color(set)
@@ -113,6 +203,7 @@ struct EmblemView: View {
                         Text("Lv\(page.level)")
                             .font(Theme.title(24))
                             .foregroundStyle(Theme.gold)
+                            .accessibilityIdentifier("emblem_level")
                         Text(EmblemMath.setName(set))
                             .font(Theme.body(12))
                             .foregroundStyle(Theme.textPrimary)
@@ -151,13 +242,9 @@ struct EmblemView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 220)
-                HStack {
-                    Spacer()
-                    Text(unlocked ? (maxed ? "MAX" : "Lv\(page.level) / \(EmblemCatalog.maxLevel)") : L("未解放", "Locked"))
-                        .font(Theme.heading(15))
-                        .foregroundStyle(Theme.textSecondary)
-                        .accessibilityIdentifier("emblem_level_state")
-                    Spacer()
+                HStack(spacing: 8) {
+                    upgradeArea(set: set, unlocked: unlocked, maxed: maxed)
+                    Spacer(minLength: 4)
                     Button {
                         app.haptics.tap()
                         showsBulk = true
@@ -178,10 +265,95 @@ struct EmblemView: View {
         }
     }
 
-    /// 天賦の枠（押すとその段の一覧。右下に入れ替えの印）。
+    /// リングの下の強化（費用の行と「アップグレード」）・「MAX」・「解放」（魔法の粉の費用）。
+    @ViewBuilder
+    private func upgradeArea(set: EmblemSetID, unlocked: Bool, maxed: Bool) -> some View {
+        if !unlocked {
+            let can = EmblemService.canUnlock(set, profile: app.profile)
+            Button {
+                unlock(set)
+            } label: {
+                HStack(spacing: 4) {
+                    Text(L("解放", "Unlock"))
+                        .font(Theme.heading(13))
+                    Image(systemName: EmblemStyle.dustSymbol)
+                        .font(.system(size: 11, weight: .bold))
+                    Text(EmblemMath.amountText(EmblemEconomy.unlockCost))
+                        .font(Theme.mono(12))
+                }
+                .lineLimit(1)
+            }
+            .buttonStyle(PrimaryButtonStyle(color: Theme.cyan))
+            .disabled(!can)
+            .opacity(can ? 1 : 0.5)
+            .accessibilityLabel(L("魔法の粉 \(EmblemEconomy.unlockCost) で解放", "Unlock for \(EmblemEconomy.unlockCost) Magic Dust"))
+            .accessibilityIdentifier("emblem_unlock")
+        } else if maxed {
+            Text("MAX")
+                .font(Theme.heading(15))
+                .foregroundStyle(Theme.gold)
+                .accessibilityIdentifier("emblem_level_state")
+        } else if let q = EmblemService.upgradeQuote(set, profile: app.profile) {
+            HStack(spacing: 6) {
+                HStack(spacing: 3) {
+                    Image(systemName: set == .common ? EmblemStyle.dustSymbol : EmblemStyle.setSymbol(set))
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(set == .common ? EmblemStyle.dustColor : EmblemStyle.color(set))
+                    Text(EmblemMath.costText(q, set: set))
+                        .font(Theme.mono(12))
+                        .foregroundStyle(q.affordable ? Theme.textPrimary : Theme.danger)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("emblem_upgrade_cost")
+                Button {
+                    upgrade(set)
+                } label: {
+                    Text(L("アップグレード", "Upgrade"))
+                        .font(Theme.heading(13))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+                .buttonStyle(PrimaryButtonStyle(color: Theme.success))
+                .disabled(!q.affordable)
+                .opacity(q.affordable ? 1 : 0.5)
+                .accessibilityIdentifier("emblem_upgrade")
+            }
+        }
+    }
+
+    private func unlock(_ set: EmblemSetID) {
+        var p = app.profile
+        guard EmblemService.unlock(set, profile: &p) else {
+            app.haptics.error()
+            return
+        }
+        app.profile = p
+        app.haptics.success()
+        app.showToast(L("\(EmblemMath.setName(set))を解放しました", "Unlocked \(EmblemMath.setName(set))"))
+    }
+
+    private func upgrade(_ set: EmblemSetID) {
+        var p = app.profile
+        guard EmblemService.upgrade(set, profile: &p) else {
+            app.haptics.error()
+            return
+        }
+        app.profile = p
+        app.haptics.success()
+        let lv = EmblemMath.level(set, profile: p)
+        if EmblemProgression.isKeyLevel(lv) {
+            app.showToast(L("Lv\(lv) コア属性大幅アップ！", "Lv\(lv): core stat boosted!"))
+        }
+    }
+
+    /// 天賦の枠（押すとその段の一覧。右下に入れ替えの印。解放レベル未満の段は鍵と「Lv○」）。
     private func slot(_ tier: EmblemTier, page: EmblemLoadout, unlocked: Bool) -> some View {
         let id = page.talent(tier)
         let selected = pickingTier == tier
+        let open = EmblemProgression.isTierUnlocked(tier, level: page.level)
         let color = EmblemStyle.talentColor(id)
         let size: CGFloat = tier == .core ? 70 : 60
         return Button {
@@ -198,10 +370,20 @@ struct EmblemView: View {
             ZStack(alignment: .bottomTrailing) {
                 ZStack {
                     Circle().fill(Color.black.opacity(0.55))
-                    Circle().stroke(selected ? Theme.gold : color.opacity(0.7), lineWidth: selected ? 3 : 2)
+                    Circle().stroke(selected ? Theme.gold : color.opacity(open ? 0.7 : 0.3), lineWidth: selected ? 3 : 2)
                     Image(systemName: EmblemStyle.talentSymbol(id))
                         .font(.system(size: size * 0.4, weight: .bold))
                         .foregroundStyle(color)
+                        .opacity(open ? 1 : 0.25)
+                    if !open {
+                        VStack(spacing: 1) {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 13, weight: .bold))
+                            Text("Lv\(EmblemProgression.unlockLevel(tier))")
+                                .font(Theme.mono(10))
+                        }
+                        .foregroundStyle(Theme.textPrimary)
+                    }
                 }
                 .frame(width: size, height: size)
                 Image(systemName: "arrow.triangle.2.circlepath")
@@ -210,63 +392,137 @@ struct EmblemView: View {
                     .frame(width: 20, height: 20)
                     .background(Circle().fill(Theme.cyan.opacity(0.6)))
                     .offset(x: 2, y: 2)
+                    .opacity(open ? 1 : 0)
             }
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(EmblemMath.tierLabel(tier))：\(EmblemMath.talentName(id))")
+        .accessibilityLabel("\(EmblemMath.tierLabel(tier))：\(EmblemMath.talentName(id))" + (open ? "" : "、" + EmblemMath.tierLockText(tier)))
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityIdentifier("emblem_slot_\(tier.rawValue)")
     }
 
     // MARK: ステータス
 
-    private func statusPanel(set: EmblemSetID, page: EmblemLoadout) -> some View {
+    private func statusPanel(set: EmblemSetID, page: EmblemLoadout, unlocked: Bool) -> some View {
         let def = EmblemCatalog.set(set)
         let color = EmblemStyle.color(set)
         return Panel(padding: 12) {
-            VStack(alignment: .leading, spacing: 10) {
-                CollectionSectionTitle(title: L("ステータス", "Stats"), symbol: "chart.bar.fill")
-                ForEach(Array(def.attributes.enumerated()), id: \.offset) { _, a in
-                    HStack(spacing: 10) {
-                        Image(systemName: EmblemStyle.attributeSymbol(a.kind))
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(color)
-                            .frame(width: 34, height: 34)
-                            .background(RoundedRectangle(cornerRadius: 8).fill(color.opacity(0.14)))
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(EmblemMath.attributeName(a.kind))
-                                .font(Theme.body(13))
-                                .foregroundStyle(Theme.textPrimary)
-                            Text(EmblemMath.attributeValue(a, level: page.level))
-                                .font(Theme.mono(14))
-                                .foregroundStyle(Theme.textPrimary)
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .accessibilityElement(children: .combine)
-                }
-                CollectionSectionTitle(title: L("天賦", "Talents"), symbol: "sparkles")
-                ForEach(EmblemTier.allCases, id: \.self) { tier in
-                    let id = page.talent(tier)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 8) {
-                        Image(systemName: EmblemStyle.talentSymbol(id))
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(EmblemStyle.talentColor(id))
-                            .frame(width: 22)
-                        Text("\(EmblemMath.tierLabel(tier))：\(EmblemMath.talentName(id))")
-                            .font(Theme.body(12))
-                            .foregroundStyle(Theme.textSecondary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.75)
+                        CollectionSectionTitle(title: L("ステータス", "Stats"), symbol: "chart.bar.fill")
+                        walletBadges(set: set)
                     }
-                    .accessibilityElement(children: .combine)
+                    ForEach(Array(def.attributes.enumerated()), id: \.offset) { _, a in
+                        attributeRow(a, level: page.level, color: color, showsNext: unlocked)
+                    }
+                    // 次のキーレベル（「Lv30 コア属性大幅アップ 適応貫通」）
+                    if unlocked, let key = EmblemMath.nextKeyLevelText(set, level: page.level) {
+                        Label(key, systemImage: "arrow.up.circle.fill")
+                            .font(Theme.body(12))
+                            .foregroundStyle(EmblemStyle.keyLevelColor)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .accessibilityIdentifier("emblem_next_key")
+                    }
+                    CollectionSectionTitle(title: L("天賦", "Talents"), symbol: "sparkles")
+                    ForEach(EmblemTier.allCases, id: \.self) { tier in
+                        talentRow(tier, page: page)
+                    }
                 }
-                Spacer(minLength: 0)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .scrollIndicators(.hidden)
         }
+    }
+
+    /// ステータスの 1 行（次のレベルで変わる値に「+1.20% → +1.30%」）。
+    private func attributeRow(_ a: EmblemAttribute, level: Int, color: Color, showsNext: Bool) -> some View {
+        let next = showsNext ? EmblemMath.nextValueText(a, level: level) : nil
+        return HStack(spacing: 10) {
+            Image(systemName: EmblemStyle.attributeSymbol(a.kind))
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(color)
+                .frame(width: 34, height: 34)
+                .background(RoundedRectangle(cornerRadius: 8).fill(color.opacity(0.14)))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(EmblemMath.attributeName(a.kind))
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.textPrimary)
+                HStack(spacing: 5) {
+                    Text(EmblemMath.attributeValue(a, level: level))
+                        .font(Theme.mono(14))
+                        .foregroundStyle(Theme.textPrimary)
+                    if let next {
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(Theme.success)
+                        Text(next)
+                            .font(Theme.mono(14))
+                            .foregroundStyle(Theme.success)
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// 天賦の 1 行（解放レベル未満の段は鍵と「Lv○で解放」）。
+    private func talentRow(_ tier: EmblemTier, page: EmblemLoadout) -> some View {
+        let id = page.talent(tier)
+        let open = EmblemProgression.isTierUnlocked(tier, level: page.level)
+        return HStack(spacing: 8) {
+            Image(systemName: open ? EmblemStyle.talentSymbol(id) : "lock.fill")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(open ? EmblemStyle.talentColor(id) : Theme.textSecondary)
+                .frame(width: 22)
+            Text("\(EmblemMath.tierLabel(tier))：\(EmblemMath.talentName(id))")
+                .font(Theme.body(12))
+                .foregroundStyle(Theme.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            if !open {
+                Text(EmblemMath.tierLockText(tier))
+                    .font(Theme.body(11))
+                    .foregroundStyle(EmblemStyle.keyLevelColor)
+                    .lineLimit(1)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// 魔法の粉と、このセットの欠片（通常共通は欠片を使わない）。
+    private func walletBadges(set: EmblemSetID) -> some View {
+        HStack(spacing: 6) {
+            walletBadge(symbol: EmblemStyle.dustSymbol, tint: EmblemStyle.dustColor, amount: app.profile.magicDust,
+                        label: L("魔法の粉", "Magic Dust"), identifier: "emblem_dust")
+            if set != .common {
+                walletBadge(symbol: EmblemStyle.setSymbol(set), tint: EmblemStyle.color(set),
+                            amount: EmblemService.fragments(set, profile: app.profile),
+                            label: L("エンブレムの欠片", "Emblem Fragments"), identifier: "emblem_fragments")
+            }
+        }
+    }
+
+    private func walletBadge(symbol: String, tint: Color, amount: Int, label: String, identifier: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: symbol)
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(tint)
+            Text(EmblemMath.amountText(amount))
+                .font(Theme.mono(12))
+                .foregroundStyle(Theme.textPrimary)
+                .monospacedDigit()
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Capsule().fill(Color.black.opacity(0.35)))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label) \(amount)")
+        .accessibilityIdentifier(identifier)
     }
 
     // MARK: 天賦の一覧
@@ -274,6 +530,7 @@ struct EmblemView: View {
     private func pickerPanel(tier: EmblemTier, page: EmblemLoadout) -> some View {
         let options = EmblemCatalog.talents(tier: tier)
         let shown = preview.flatMap { $0.tier == tier ? $0 : nil } ?? page.talent(tier)
+        let open = EmblemProgression.isTierUnlocked(tier, level: page.level)
         let columns = Array(repeating: GridItem(.fixed(58), spacing: 10), count: 3)
         return Panel(padding: 12) {
             HStack(alignment: .top, spacing: 12) {
@@ -281,13 +538,14 @@ struct EmblemView: View {
                     LazyVGrid(columns: columns, spacing: 10) {
                         ForEach(options) { t in
                             talentOption(t.id, equipped: page.talent(tier) == t.id, shown: shown == t.id)
+                                .opacity(open ? 1 : 0.6)
                         }
                     }
                     .padding(4)
                 }
                 .scrollIndicators(.hidden)
                 .frame(width: 210)
-                talentDetail(shown, equipped: page.talent(tier) == shown)
+                talentDetail(shown, equipped: page.talent(tier) == shown, open: open)
             }
         }
     }
@@ -323,7 +581,7 @@ struct EmblemView: View {
         .accessibilityIdentifier("emblem_talent_\(id.rawValue)")
     }
 
-    private func talentDetail(_ id: EmblemTalentID, equipped: Bool) -> some View {
+    private func talentDetail(_ id: EmblemTalentID, equipped: Bool, open: Bool) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(EmblemMath.talentName(id))
@@ -351,7 +609,7 @@ struct EmblemView: View {
                     if let sub = EmblemMath.talentSubtitle(id) {
                         Text(sub)
                             .font(Theme.body(13))
-                            .foregroundStyle(Color(red: 1.0, green: 0.68, blue: 0.30))
+                            .foregroundStyle(EmblemStyle.keyLevelColor)
                     }
                     Text(EmblemMath.talentDescription(id))
                         .font(Theme.body(12))
@@ -364,7 +622,14 @@ struct EmblemView: View {
             Rectangle().fill(Theme.panelStroke).frame(height: 1)
             HStack {
                 Spacer()
-                if equipped {
+                if !open {
+                    // 解放レベル未満の段（MLBB は「期間限定で全天賦解放」の間だけ全部付けられる）
+                    Label(EmblemMath.tierLockText(id.tier), systemImage: "lock.fill")
+                        .font(Theme.heading(14))
+                        .foregroundStyle(Theme.textSecondary)
+                        .frame(minHeight: 44)
+                        .accessibilityIdentifier("emblem_tier_locked")
+                } else if equipped {
                     Text(L("装備中", "Equipped"))
                         .font(Theme.heading(14))
                         .foregroundStyle(Theme.textSecondary)
@@ -569,10 +834,13 @@ struct EmblemDetailSheet: View {
                             .padding(.top, 4)
                         ForEach(EmblemTier.allCases, id: \.self) { tier in
                             let id = page.talent(tier)
+                            // 解放レベル未満の段は試合で働かない（「Lv○で解放」）
+                            let open = EmblemProgression.isTierUnlocked(tier, level: page.level)
                             VStack(alignment: .leading, spacing: 3) {
-                                Text("\(EmblemMath.tierLabel(tier))：\(EmblemMath.talentName(id))")
+                                Text("\(EmblemMath.tierLabel(tier))：\(EmblemMath.talentName(id))"
+                                     + (open ? "" : "（\(EmblemMath.tierLockText(tier))）"))
                                     .font(Theme.heading(13))
-                                    .foregroundStyle(EmblemStyle.talentColor(id))
+                                    .foregroundStyle(open ? EmblemStyle.talentColor(id) : Theme.textSecondary)
                                 Text(EmblemMath.talentDescription(id))
                                     .font(Theme.body(12))
                                     .foregroundStyle(Theme.textSecondary)

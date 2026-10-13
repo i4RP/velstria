@@ -691,6 +691,10 @@ private struct RewardsTab: View {
                         rewardCell(symbol: "bolt.fill", tint: Color(red: 1.0, green: 0.62, blue: 0.3), title: L("スターパス XP", "Star Pass XP"),
                                    value: "+\(report.passXP)")
                     }
+                    if report.magicDust > 0 {
+                        rewardCell(symbol: EmblemStyle.dustSymbol, tint: EmblemStyle.dustColor, title: L("魔法の粉", "Magic Dust"),
+                                   value: "+\(report.magicDust)")
+                    }
                 }
                 accountSection
                 if let before = report.rankBefore, let after = report.rankAfter {

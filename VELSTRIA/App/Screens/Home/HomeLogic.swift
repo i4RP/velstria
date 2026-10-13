@@ -385,6 +385,11 @@ enum HomeTab: String, CaseIterable, Identifiable {
         case .inventory: return "bag.fill"
         }
     }
+
+    /// タブの右上に出す件数（エンブレム = 開けられる無料のエンブレム宝箱）。
+    func badge(profile: Profile, now: Date) -> Int {
+        self == .emblems ? HomeBadges.emblemChest(profile, now: now) : 0
+    }
 }
 
 // MARK: - メニュードロワー

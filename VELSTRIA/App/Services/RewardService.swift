@@ -11,6 +11,7 @@ import VelstriaCore
 // - 初勝利ボーナス: その日（端末ローカル日付）の最初の勝利に +300（日付キーが前回より進んだ時のみ）。
 // - アカウント XP: 勝利 120 / 敗北 80。次のレベルまで 400 + 100×Lv、最大 Lv 60（最大到達後の XP は 0 に固定）。
 // - ランク戦は RankService.apply。パス XP: 勝利 150 / 敗北 100。
+// - 魔法の粉（エンブレム）: 勝利 15 / 敗北 8 × 時間係数（EmblemEconomy.matchDust）。
 // - ミッション進捗・通算成績（ヒーロー別・MVP・連勝・ペンタキル）・戦績（最新 50 件）・リプレイ保存（最新 20 件）・実績評価。
 // - 報酬の対象外（観戦・カスタム・オンラインなど）のリプレイ保存と視聴記録は ReplayArchiveService が行う（報酬・戦績は無し）。
 // - 反映後は即時保存する（デバウンス待ちの間にアプリが終了しても報酬・戦績を失わないように）。
@@ -27,6 +28,8 @@ struct RewardReport: Equatable {
     var rankBefore: RankState?
     var rankAfter: RankState?
     var passXP = 0
+    /// 魔法の粉（エンブレムの解放・強化）。
+    var magicDust = 0
     /// 進捗したミッション ID。
     var missionsProgressed: [String] = []
     /// 新たに解除した実績 ID。
@@ -163,6 +166,10 @@ enum RewardService {
             RankService.apply(won: won, to: &profile.rank)
             report.rankAfter = profile.rank
         }
+
+        // エンブレムの魔法の粉（Coin と同じ時間係数）
+        report.magicDust = EmblemEconomy.matchDust(won: won, durationFactor: report.durationFactor)
+        EmblemService.addDust(report.magicDust, profile: &profile)
 
         // スターパス
         report.passXP = won ? winPassXP : lossPassXP

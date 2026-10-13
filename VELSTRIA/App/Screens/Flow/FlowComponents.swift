@@ -544,6 +544,8 @@ struct AttachmentChip: View {
         case .cosmetic: return "sparkles"
         case .hero: return "person.crop.circle.badge.plus"
         case .passXP: return "bolt.fill"
+        case .magicDust: return EmblemStyle.dustSymbol
+        case .emblemFragment: return EmblemStyle.setSymbol(fragmentSet)
         }
     }
 
@@ -554,7 +556,14 @@ struct AttachmentChip: View {
         case .cosmetic: return Color(red: 0.8, green: 0.55, blue: 1.0)
         case .hero: return Theme.success
         case .passXP: return Color(red: 1.0, green: 0.62, blue: 0.3)
+        case .magicDust: return EmblemStyle.dustColor
+        case .emblemFragment: return EmblemStyle.color(fragmentSet)
         }
+    }
+
+    /// 欠片のセット（知らない ID は通常共通）。
+    private var fragmentSet: EmblemSetID {
+        attachment.refID.flatMap(EmblemSetID.init(rawValue:)) ?? .common
     }
 
     private var title: String {
@@ -979,6 +988,8 @@ enum FlowText {
         case .hero:
             if let id = a.refID, let h = master.hero(id) { return MasterText.hero(h) }
             return L("ヒーロー", "Hero")
+        case .magicDust: return "\(a.amount.formatted()) " + L("魔法の粉", "Magic Dust")
+        case .emblemFragment: return "\(a.amount.formatted()) " + EmblemService.fragmentName(a)
         }
     }
 

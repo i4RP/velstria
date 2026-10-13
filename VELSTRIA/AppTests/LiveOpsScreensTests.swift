@@ -306,7 +306,8 @@ final class LiveOpsScreensTests: XCTestCase {
         var p = Profile()
         p.displayName = "Nova"
         p.heroSpells["H013"] = ["BS02", "BS07"]
-        // エンブレムの一括設定（H013 はプランが無いので、無ければロール別の既定）
+        // エンブレムの一括設定（H013 はプランが無いので、無ければロール別の既定）。全セット解放済みの Lv60 で
+        EmblemService.grandfather(&p)
         EmblemMath.equip(.fatal, set: .assassin, profile: &p)
         EmblemMath.apply(set: .assassin, to: ["H013"], profile: &p)
         p.equippedSkins["H013"] = "CO_NOT_OWNED"

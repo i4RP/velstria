@@ -242,6 +242,8 @@ final class FlowMatchModelTests: XCTestCase {
 
     func testEmblemFromBulkApplyOrBattlePlan() {
         var p = profile()
+        // 全セット解放済みの Lv60（旧版から引き継いだプレイヤー）。新規のプレイヤーは EmblemEconomyTests
+        EmblemService.grandfather(&p)
         p.lastPickedHeroID = "H027"
         let m = MatchFlowModel(seed: 1)
         m.configure(profile: p, master: .shared)

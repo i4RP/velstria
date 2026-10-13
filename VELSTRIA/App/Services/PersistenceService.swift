@@ -292,7 +292,20 @@ final class PersistenceService: @unchecked Sendable {
         if EmblemSetID(rawValue: p.selectedEmblemSet) == nil { p.selectedEmblemSet = EmblemSetID.common.rawValue }
         p.emblemTalents = p.emblemTalents.filter { EmblemSetID(rawValue: $0.key) == $0.value.set && $0.value.isValid }
         p.emblemSetProgress = p.emblemSetProgress.filter { EmblemSetID(rawValue: $0.key) != nil }
+        // 通常共通はいつでも解放済み
+        if var common = p.emblemSetProgress[EmblemSetID.common.rawValue], !common.unlocked {
+            common.unlocked = true
+            p.emblemSetProgress[EmblemSetID.common.rawValue] = common
+        }
         p.heroEmblems = p.heroEmblems.filter { !$0.key.isEmpty && $0.value.isValid }
+        // 魔法の粉・欠片・宝箱: 負の値と、欠片を使わないセット（通常共通）・知らないセットを除く
+        p.magicDust = max(0, p.magicDust)
+        p.emblemFragments = p.emblemFragments.filter { entry in
+            guard let set = EmblemSetID(rawValue: entry.key) else { return false }
+            return set != .common && entry.value > 0
+        }
+        p.emblemChest.charges = min(EmblemEconomy.chestMaxCharges, max(0, p.emblemChest.charges))
+        p.emblemChest.opened = max(0, p.emblemChest.opened)
         if p.matchHistory.count > RewardService.maxMatchHistory {
             p.matchHistory = Array(p.matchHistory.prefix(RewardService.maxMatchHistory))
         }
@@ -771,7 +784,26 @@ enum ProfileMigrator {
             settings["sfxVolume"] = 0
             obj["settings"] = settings
         }),
+        // v3 → v4: エンブレムの解放・レベルを入れた。それまでのプレイヤー（全セット解放済みの Lv60 として遊んでいた）は
+        // 7 つのセットを解放済みのまま今のレベル（保存が無ければ 60）で書き込み、引き継いだ印を付ける（新規は通常共通だけ）
+        (from: 3, apply: { obj in
+            ProfileMigrator.grandfatherEmblems(&obj)
+        }),
     ]
+
+    /// 旧版のプレイヤーのエンブレム: 全セットを解放済みにし、保存されていたレベル（無ければ 60）を残す。
+    static func grandfatherEmblems(_ obj: inout [String: Any]) {
+        var progress = obj["emblemSetProgress"] as? [String: Any] ?? [:]
+        for set in EmblemSetID.allCases {
+            var entry = progress[set.rawValue] as? [String: Any] ?? [:]
+            let level = (entry["level"] as? NSNumber)?.intValue ?? EmblemCatalog.maxLevel
+            entry["unlocked"] = true
+            entry["level"] = EmblemCatalog.clampLevel(level)
+            progress[set.rawValue] = entry
+        }
+        obj["emblemSetProgress"] = progress
+        obj["emblemGrandfathered"] = true
+    }
 
     static func migrate(_ object: inout [String: Any], from version: Int) {
         var v = version
