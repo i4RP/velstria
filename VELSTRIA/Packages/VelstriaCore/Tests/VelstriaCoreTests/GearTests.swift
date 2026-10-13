@@ -172,7 +172,8 @@ final class GearTests: XCTestCase {
             f.s.time = time
             f.s.units[sup].hero!.gold = 1000
             ItemSystem.buy(&f.s, f.ctx, heroIndex: sup, itemID: boots)
-            let expected = expectRoam ? GearOption.defaultOption(for: .roam, role: f.hero(sup).role) : nil
+            // ヒーロー固有の祝福（H034 フランコ = 激励）があればそれ、無ければ役割別
+            let expected = expectRoam ? GearOption.defaultOption(for: .roam, role: f.hero(sup).role, heroID: f.hero(sup).heroID) : nil
             XCTAssertEqual(f.hero(sup).gear?.option, expected, "t=\(time)")
         }
     }
