@@ -3,7 +3,8 @@ import XCTest
 
 /// 担当: 推奨ビルド（ロール別・ヒーロー別の具体的な装備 ID の列。Mobile Legends の定番構成）。
 final class HeroBuildPlanTests: XCTestCase {
-    /// 推奨ビルドとして正しい形か: 6 個・重複なし・マスターにある・消耗品なし・靴は先頭の 1 足だけ・残りは完成品。
+    /// 推奨ビルドとして正しい形か: 6 個・重複なし・マスターにある・消耗品なし・靴は 1 足（Tier 2）・残りは完成品。
+    /// 靴の位置は MLBB のバトルプランの購入順どおり（セイバーはハンターストライクの次に靴）なので先頭とは限らない。
     private func assertWellFormed(_ build: [String], _ label: String, file: StaticString = #filePath, line: UInt = #line) {
         let m = MasterData.shared
         XCTAssertEqual(build.count, Balance.itemSlots, label, file: file, line: line)
@@ -12,9 +13,8 @@ final class HeroBuildPlanTests: XCTestCase {
         XCTAssertEqual(items.count, build.count, "\(label) はマスターにある装備だけ", file: file, line: line)
         XCTAssertFalse(items.contains { $0.isConsumable }, "\(label) にポーションは入れない", file: file, line: line)
         XCTAssertEqual(items.filter(\.isBoots).count, 1, "\(label): 靴は 1 足", file: file, line: line)
-        XCTAssertEqual(items.first?.isBoots, true, "\(label): 靴から買う", file: file, line: line)
-        XCTAssertNotEqual(items.first?.itemID, Balance.Gear.baseBootsID, "\(label): 靴は Tier 2", file: file, line: line)
-        XCTAssertTrue(items.dropFirst().allSatisfy { $0.tier == 3 }, "\(label): 靴以外は完成品", file: file, line: line)
+        XCTAssertFalse(items.contains { $0.itemID == Balance.Gear.baseBootsID }, "\(label): 靴は Tier 2", file: file, line: line)
+        XCTAssertTrue(items.filter { !$0.isBoots }.allSatisfy { $0.tier == 3 }, "\(label): 靴以外は完成品", file: file, line: line)
     }
 
     func testRoleBuildsAreWellFormed() {
@@ -77,5 +77,10 @@ final class HeroBuildPlanTests: XCTestCase {
         XCTAssertEqual(ItemSystem.heroBuilds["H034"], ["EQ402", "EQ113", "EQ114", "EQ308", "EQ306", "EQ304"])
         XCTAssertEqual(ItemSystem.heroBuilds["H026"], ["EQ404", "EQ203", "EQ204", "EQ207", "EQ211", "EQ210"])
         XCTAssertEqual(ItemSystem.heroBuilds["H031"], ["EQ404", "EQ207", "EQ204", "EQ211", "EQ201", "EQ210"])
+        XCTAssertEqual(ItemSystem.heroBuilds["H025"], ["EQ403", "EQ108", "EQ110", "EQ111", "EQ101", "EQ103"])
+        // セイバー: 1 つ目はハンターストライク、靴（マジックブーツ）は 2 つ目
+        XCTAssertEqual(ItemSystem.heroBuilds["H028"], ["EQ105", "EQ405", "EQ116", "EQ109", "EQ112", "EQ106"])
+        XCTAssertEqual(ItemSystem.heroBuilds["H029"], ["EQ402", "EQ305", "EQ308", "EQ114", "EQ301", "EQ304"])
+        XCTAssertEqual(ItemSystem.heroBuilds["H033"], ["EQ406", "EQ116", "EQ104", "EQ109", "EQ106", "EQ312"])
     }
 }
