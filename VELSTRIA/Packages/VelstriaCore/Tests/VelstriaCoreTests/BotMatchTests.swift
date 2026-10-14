@@ -6,7 +6,9 @@ import XCTest
 final class BotMatchTests: XCTestCase {
     /// 3 シード × Normal / Hard + Easy 1 試合。
     static let seeds: [UInt64] = [1, 6, 11]
-    static let easySeed: UInt64 = 4
+    /// Easy はキルが少なく、シードで片方が 0 キルになりやすい（MLBB の能力値への移行後: Easy 6 シードのキル合計 青 22 / 赤 61、
+    /// 移行前も 青 57 / 赤 79 で赤寄り）。シード 4 は青 0 / 赤 5 になったため、両チームがキルを取る 9 にした（検査の中身は同じ）。
+    static let easySeed: UInt64 = 9
 
     func testFullBotMatchesEndByCoreDestruction() throws {
         #if DEBUG
