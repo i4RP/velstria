@@ -2,21 +2,26 @@ import Foundation
 
 // 担当: kit-H029（docs/SKILL_KITS.md / docs/NEW_HEROES.md）
 // H029 聖槌のボルグ = Velstria 版の Tigreal（MLBB）。数値・文言の正は日本語クライアントのスキル詳細（docs/kits/Tigreal.md の
-// 「公式（日本語クライアント）の数値」）。ウェブ調査の値と食い違うところは公式が優先。対応表: 同ファイル末尾。
+// 「公式（日本語クライアント）の数値」。Liquipedia の Tigreal の AbilityCard と一致）。ウェブ調査の値と食い違うところは公式が優先。
+// 対応表: 同ファイル末尾。
 // サポート（ローム）の近接タンク。キットはロールの汎用パッシブ（味方回復）と汎用奥義（味方全体回復）を置き換える。
 //   パッシブ 聖鎚の誓い        — 通常攻撃（タワー・ジャングルの敵を含む。ミニオンは数えない）を受ける / スキルを使うたびに「誓い」+1。
 //                               4 つで次に受ける通常攻撃（タワーからの攻撃を含む）をブロック（ダメージ無効）して誓いが消える（Fearless）。
 //                               時間では消えない（公式の文に期限が無い）。ミニオンのダメージは誓いを増やしも消費もしない。
 //                               ブロックの瞬間は自分に 0.3 秒の「blocked」の印（.mark）が付き、パッシブのバッジが 0.3 秒だけタイマーになる（App の演出の合図）。
 //   スキル1 聖槌波（Attack Wave）— 前方の扇に衝撃波を 3 回。扇の半径が射程の 0.7 → 0.85 → 1.0 倍と前へ広がる（近くの敵ほど多く当たる）。
-//                               1 回ごとに 270 → 520（+70% 物理攻撃）のダメージ + 移動速度低下（20 → 40 → 60%、1.5 秒。命中した回数で深まる）。
+//                               1 回ごとに 270〜520（+70% 物理攻撃）のダメージ + 移動速度低下（20 → 40 → 60%、1.5 秒。命中した回数で深まる）。
 //   スキル2 聖槌突撃（Sacred Hammer）— 突進して進路の敵に 100% 物理攻撃のダメージ（基礎ダメージなし）、突進の終点まで押し出す。
-//                               4 秒以内の再使用（同じ castSkill）で前方の敵に 280 → 380（+60% 物理攻撃）+ 0.6 秒の打ち上げ。再使用の窓が閉じてからクールダウンを数える。
+//                               4 秒以内の再使用（同じ castSkill）で前方の敵に 280〜380（+60% 物理攻撃）+ 0.6 秒の打ち上げ。再使用の窓が閉じてからクールダウンを数える。
+//                               突進は術者を動かすのでバインド（敵の root）中は撃てない。再使用の叩きつけは動かないので撃てる。
+//                               突進はスタンでは止まらず、ノックアップ・制圧で止まる（CC の段階。KitRuntime）。
 //   アルティメット 崩落聖域（Implosion） — 詠唱 0.8 秒。最初の 0.3 秒は CC（スタン・打ち上げ・suppress）で、その後は suppress だけで中断される。
 //                               0.3 秒で周囲の敵を引き寄せ（0.38 秒かけて集める）、0.8 秒で 600 / 800 / 1000（+130% 物理攻撃）のダメージ + スタン 1.8 秒。
-// 数値の換算: MLBB のダメージ表を Velstria のランク（スキル1・2 は 4 段、アルティメットは 3 段）へ線形補間し（ランク 1 = Lv1、最大ランク = 公式の最終 Lv）、
-//   sim の通常の式 (基礎 + 係数 × 攻撃力 × skillAttackScalingFactor) × スロット倍率 に、スキルごとの換算（Tune.*Scale）を掛ける。
-//   コスト（マナ）・クールダウンの表もランクで補間（コストは HeroKit.cost、クールダウンは公式の秒数そのまま）。
+//                               詠唱中の自分の足止め（root）はバインドではない（瞬歩を使える。Unit.isBound）。
+// 数値: 公式の段の表をそのまま使う（スキル1・2 = Lv1〜6、アルティメット = Lv1〜3。rank = 公式の Lv。換算・補間なし）。
+//   ダメージ = 公式の基礎[段] + 公式の係数 × 合計の物理攻撃（Kit.official。公式の文は「(+N%物理攻撃)」= 合計）。
+//   クールダウン = 公式の秒数[段] × (1 − CD 短縮)（Kit.cooldown）、マナ = 公式の表（HeroKit.cost）。
+//   スキル吸収率・攻撃エフェクト・ミニオン / モンスターへの補正は公式の文に無いので既定（吸収 100%・補正なし）。
 //
 // 状態（KitState）:
 //   ints[0]  = 誓い（0..4。4 = ブロックの準備完了）    ints[1] = 奥義の段（0 = なし / 1 = 溜め / 2 = 引き寄せ後）
@@ -113,12 +118,9 @@ struct Kit_H029: HeroKit {
         static let waveSlowDuration = 1.5
         static let waveSlowTag = KitTags.buff("H029", "waveSlow")
         static let waveMark = "wave"
-        /// 公式の基礎ダメージ（1 回ごと。Lv1 → Lv6 を Velstria の最大ランクへ線形補間）と攻撃力係数（+70% 物理攻撃）。
-        static let waveBase = (270.0, 520.0)
+        /// 公式の基礎ダメージ（1 回の爆発ごと。Lv1〜6）と係数（+70% 物理攻撃 = 合計の物理攻撃）。
+        static let waveBase: [Double] = [270, 320, 370, 420, 470, 520]
         static let waveAttackRatio = 0.7
-        /// 公式の値 → Velstria の換算（sim の通常の式 × スロット倍率の後ろに掛ける）。3 回ぶんの合計が汎用 S1 の 0.8〜1.3 倍に収まる値
-        /// （ランク 1〜4・Lv 1〜12 で約 1.08〜1.19 倍）。CD が MLBB の秒数（7 → 4 秒）になって Lv1 / Lv6 がサポート中央値 +21 / +15 pt になったので 0.17 → 0.16（スキル2 の 0.52 と組で決めた。docs/kits/Tigreal.md）。
-        static let waveScale = 0.16
 
         // スキル2 聖槌突撃
         static let dashRange = 420.0
@@ -135,12 +137,12 @@ struct Kit_H029: HeroKit {
         static let smashHalfAngle = 0.8
         /// 打ち上げの秒数（公式 0.6 秒）。
         static let smashAirborne = 0.6
-        /// 突進のダメージは 100% 物理攻撃で基礎ダメージなし。再使用は 280 → 380（+60% 物理攻撃）（Lv1 → Lv6 を最大ランクへ線形補間）。
+        /// 突進のダメージは (100% 物理攻撃) で基礎ダメージなし（公式の段の表は再使用のノックアップダメージだけ）。
+        static let dashBase: [Double] = [0]
         static let dashAttackRatio = 1.0
-        static let smashBase = (280.0, 380.0)
+        /// 再使用のノックアップダメージ（Lv1〜6）と係数（+60% 物理攻撃）。
+        static let smashBase: [Double] = [280, 300, 320, 340, 360, 380]
         static let smashAttackRatio = 0.6
-        /// 公式の値 → Velstria の換算（突進と再使用で共通）。突進 + 再使用の合計が汎用 S2 の 0.8〜1.3 倍に収まる値（ランク 1〜4・Lv 1〜12 で約 0.82〜1.14 倍）。2026-10 に Lv6 を帯へ寄せて 0.58 → 0.52。
-        static let hammerScale = 0.52
 
         // アルティメット 崩落聖域（Implosion）
         static let ultReach = 520.0
@@ -151,26 +153,22 @@ struct Kit_H029: HeroKit {
         static let ultPullTime = 0.38
         static let ultPullGap = 20.0
         static let ultStun = 1.8
-        /// 公式の基礎ダメージ（Lv1〜3 = ランク 1〜3 そのまま）と攻撃力係数（+130% 物理攻撃）。
-        static let ultBase = (600.0, 1000.0)
+        /// 公式の基礎ダメージ（Lv1〜3）と係数（+130% 物理攻撃）。
+        static let ultBase: [Double] = [600, 800, 1000]
         static let ultAttackRatio = 1.3
-        /// 公式の値 → Velstria の換算。汎用の奥義（Support は味方回復でダメージ 0）には比べる相手が居ないので、勝率で決めた値
-        /// （同ロール汎用の中央値との差が ±15 pt に収まるように。公式の表へ置き換えた直後は 1.2 で Lv12 が −17 pt だった: docs/kits/Tigreal.md）。
-        /// クールダウンが汎用より長い（45〜55 秒 vs 約 34 秒）ぶんと回復を失うぶん、詠唱が CC に弱いぶんを含む。
-        static let ultScale = 1.5
         static let channelTag = KitTags.buff("H029", "channel")
         /// ボットのアルティメット: 近くに味方ヒーロー（この距離以内）が居るか、相手の HP がこの割合未満のときだけ。敵タワーの射程内では撃たない。
         static let botAllyRange = 900.0
         static let botWeakHP = 0.5
 
-        // クールダウン（公式の秒数そのまま。ランク間を線形補間し、CD 短縮を掛ける。全体倍率 Balance.Skills.cooldownScale は 1.0）
-        static let waveCooldown = (7.0, 4.0)
-        static let hammerCooldown = (16.0, 13.0)
-        static let ultCooldown = (55.0, 45.0)
-        // マナ消費（公式。スキル1・2 はランクによらず一定、アルティメットは 120 / 140 / 160）
-        static let waveCost = (45.0, 45.0)
-        static let hammerCost = (70.0, 70.0)
-        static let ultCost = (120.0, 160.0)
+        // クールダウン（公式の段の表の秒数。CD 短縮を掛ける）
+        static let waveCooldown: [Double] = [7.0, 6.4, 5.8, 5.2, 4.6, 4.0]
+        static let hammerCooldown: [Double] = [16.0, 15.4, 14.8, 14.2, 13.6, 13.0]
+        static let ultCooldown: [Double] = [55, 50, 45]
+        // マナ消費（公式。スキル1・2 は全段一定、アルティメットは 120 / 140 / 160）
+        static let waveCost: [Double] = [45]
+        static let hammerCost: [Double] = [70]
+        static let ultCost: [Double] = [120, 140, 160]
     }
 
     /// HitPayload.kitEvent
@@ -230,7 +228,7 @@ struct Kit_H029: HeroKit {
         case .skill1:
             n.hits = Tune.waveCount
             n.damage = Self.waveDamage(rank: rank, stats: stats)
-            n.cooldown = Self.cooldown(Tune.waveCooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
+            n.cooldown = Kit.cooldown(Tune.waveCooldown, rank: rank, stats: stats)
             n.cc = .slow
             n.ccDuration = Tune.waveSlowDuration
             n.extras = [KitStat(key: "slow1", value: Tune.waveSlowPerStack * 100),
@@ -238,10 +236,8 @@ struct Kit_H029: HeroKit {
                         KitStat(key: "slow3", value: Tune.waveSlowPerStack * 300),
                         KitStat(key: "slowDuration", value: Tune.waveSlowDuration),
                         KitStat(key: "reachMult", value: Tune.waveReach / hero.attackRange),
-                        KitStat(key: "base", value: Self.scaledBase(Tune.waveBase, slot: .skill1, scale: Tune.waveScale,
-                                                                    rank: rank, maxRank: slot.maxRank).rounded()),
-                        KitStat(key: "atkPct", value: Self.attackPercent(Tune.waveAttackRatio, slot: .skill1,
-                                                                         scale: Tune.waveScale).rounded())]
+                        KitStat(key: "base", value: Kit.level(Tune.waveBase, rank: rank)),
+                        KitStat(key: "atkPct", value: Self.percent(Tune.waveAttackRatio))]
         case .skill2:
             let dash = Self.dashDamage(stats: stats)
             let smash = Self.smashDamage(rank: rank, stats: stats)
@@ -249,19 +245,16 @@ struct Kit_H029: HeroKit {
             n.damage = stage >= 1 ? smash : dash
             n.cc = stage >= 1 ? .knockback : .none
             n.ccDuration = stage >= 1 ? Tune.smashAirborne : 0
-            n.cooldown = Self.cooldown(Tune.hammerCooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
+            n.cooldown = Kit.cooldown(Tune.hammerCooldown, rank: rank, stats: stats)
             n.stages = 2
             n.recastWindow = Tune.recastWindow
             n.extras = [KitStat(key: "dashDamage", value: dash.rounded()),
                         KitStat(key: "smashDamage", value: smash.rounded()),
                         KitStat(key: "airborne", value: Tune.smashAirborne),
                         KitStat(key: "window", value: Tune.recastWindow),
-                        KitStat(key: "dashPct", value: Self.attackPercent(Tune.dashAttackRatio, slot: .skill2,
-                                                                          scale: Tune.hammerScale).rounded()),
-                        KitStat(key: "smashBase", value: Self.scaledBase(Tune.smashBase, slot: .skill2, scale: Tune.hammerScale,
-                                                                         rank: rank, maxRank: slot.maxRank).rounded()),
-                        KitStat(key: "smashPct", value: Self.attackPercent(Tune.smashAttackRatio, slot: .skill2,
-                                                                           scale: Tune.hammerScale).rounded())]
+                        KitStat(key: "dashPct", value: Self.percent(Tune.dashAttackRatio)),
+                        KitStat(key: "smashBase", value: Kit.level(Tune.smashBase, rank: rank)),
+                        KitStat(key: "smashPct", value: Self.percent(Tune.smashAttackRatio))]
         case .ultimate:
             n.hits = 1
             n.damage = Self.ultDamage(rank: rank, stats: stats)
@@ -274,32 +267,30 @@ struct Kit_H029: HeroKit {
             n.shieldDuration = 0
             n.damageReduction = 0
             n.damageReductionDuration = 0
-            n.cooldown = Self.cooldown(Tune.ultCooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
+            n.cooldown = Kit.cooldown(Tune.ultCooldown, rank: rank, stats: stats)
             n.extras = [KitStat(key: "stun", value: Tune.ultStun),
                         KitStat(key: "channel", value: Tune.ultTotal),
                         KitStat(key: "gather", value: Tune.ultGather),
                         KitStat(key: "reachMult", value: Tune.ultReach / hero.attackRange),
-                        KitStat(key: "base", value: Self.scaledBase(Tune.ultBase, slot: .ultimate, scale: Tune.ultScale,
-                                                                    rank: rank, maxRank: slot.maxRank).rounded()),
-                        KitStat(key: "atkPct", value: Self.attackPercent(Tune.ultAttackRatio, slot: .ultimate,
-                                                                         scale: Tune.ultScale).rounded())]
+                        KitStat(key: "base", value: Kit.level(Tune.ultBase, rank: rank)),
+                        KitStat(key: "atkPct", value: Self.percent(Tune.ultAttackRatio))]
         }
         return n
     }
 
-    /// ランクごとのマナ消費（公式: スキル1 = 45、スキル2 = 70、アルティメット = 120 / 140 / 160）。
+    /// 段ごとのマナ消費（公式: スキル1 = 45、スキル2 = 70、アルティメット = 120 / 140 / 160）。
     func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double {
-        let table: (Double, Double)
+        let table: [Double]
         switch slot {
         case .skill1: table = Tune.waveCost
         case .skill2: table = Tune.hammerCost
         case .ultimate: table = Tune.ultCost
         case .passive: return base
         }
-        return HeroKits.resourceCost(Self.lerp(table.0, table.1, rank: rank, maxRank: slot.maxRank), hero: hero)
+        return HeroKits.resourceCost(Kit.level(table, rank: rank), hero: hero)
     }
 
-    /// 説明文は公式の文の構造に合わせる（数値は {トークン} で sim から。{base}(+{atkPct}%物理攻撃) は sim の式に換算した値）。
+    /// 説明文は公式の文の構造に合わせる（数値は {トークン} で sim から。{base}(+{atkPct}%物理攻撃) は公式の値そのまま）。
     func text(slot: SkillSlot) -> KitText? {
         switch slot {
         case .passive:
@@ -314,7 +305,7 @@ struct Kit_H029: HeroKit {
                 tags: [KitTag.aoe, KitTag.slow])
         case .skill2:
             return KitText(
-                ja: "指定方向へ突進し、進路上の敵に(+{dashPct}%物理攻撃)の物理ダメージを与えて突進の終点まで押し出す。\n\n再発動：{window}秒以内にもう一度使うと、前方の敵に{smashBase}(+{smashPct}%物理攻撃)の物理ダメージを与えて{airborne}秒間ノックアップさせる。クールダウンは再発動の窓が閉じてから数える。",
+                ja: "指定方向へ突進し、進路上の敵に({dashPct}%物理攻撃)の物理ダメージを与えて突進の終点まで押し出す。\n\n再発動：{window}秒以内にもう一度使うと、前方の敵に{smashBase}(+{smashPct}%物理攻撃)の物理ダメージを与えて{airborne}秒間ノックアップさせる。クールダウンは再発動の窓が閉じてから数える。",
                 en: "Charge in the specified direction, dealing physical damage equal to {dashPct}% of your Physical Attack to enemies along the way and pushing them to the end of the charge.\n\nRecast: use it again within {window}s to deal {smashBase} (+{smashPct}% Physical Attack) physical damage to enemies in front of you and knock them up for {airborne}s. The cooldown starts when the window closes.",
                 tags: [KitTag.clash, KitTag.disrupt])
         case .ultimate:
@@ -448,7 +439,7 @@ struct Kit_H029: HeroKit {
     }
 
     /// スキル1 の 1 回ぶん: 原点から方向の扇にダメージ + 鈍足の層（命中ごとに 1 層、最大 3 層）。
-    /// 扇の半径は波ごとに広がる（timer.index 0 → 2 で射程の 0.45 → 0.75 → 1.0 倍）: 手前の敵ほど多くの波に当たり、鈍足が深まる。
+    /// 扇の半径は波ごとに広がる（timer.index 0 → 2 で射程の 0.7 → 0.85 → 1.0 倍）: 手前の敵ほど多くの波に当たり、鈍足が深まる。
     private func erupt(_ s: inout SimState, _ ctx: SimContext, owner: Int, timer: KitTimer) {
         guard let dir = s.units[owner].hero?.kit?.borgAim, dir != .zero else { return }
         let p = HitPayload(damage: timer.param, damageType: .physical, source: .skill(.skill1),
@@ -672,55 +663,29 @@ struct Kit_H029: HeroKit {
         }
     }
 
-    /// 公式の基礎ダメージ（ランクで補間）を sim の通常の式に通した「換算後の基礎」。
-    static func scaledBase(_ table: (Double, Double), slot: SkillSlot, scale: Double, rank: Int, maxRank: Int) -> Double {
-        lerp(table.0, table.1, rank: rank, maxRank: maxRank) * Balance.Skills.damageScale(slot) * scale
+    /// 公式の係数（0.7 など）を説明文の「+N%」の N にする（70 など。丸めの誤差を残さない）。
+    static func percent(_ ratio: Double) -> Double {
+        (ratio * 100).rounded()
     }
 
-    /// 公式の「+N% 物理攻撃」を sim の通常の式（× skillAttackScalingFactor × スロット倍率 × 換算）に通した、攻撃力に対する割合（%）。
-    static func attackPercent(_ ratio: Double, slot: SkillSlot, scale: Double) -> Double {
-        ratio * Balance.skillAttackScalingFactor * Balance.Skills.damageScale(slot) * scale * 100
-    }
-
-    /// (公式の基礎 + 係数 × 攻撃力 × skillAttackScalingFactor) × スロット倍率 × 換算。
-    private static func damage(base: (Double, Double), ratio: Double, slot: SkillSlot, scale: Double, rank: Int,
-                               stats: Stats) -> Double {
-        let b = lerp(base.0, base.1, rank: rank, maxRank: slot.maxRank)
-        return (b + ratio * stats.attack * Balance.skillAttackScalingFactor) * Balance.Skills.damageScale(slot) * scale
-    }
-
-    /// スキル1: 1 回の爆発のダメージ（270 → 520 + 70% 物理攻撃）。
+    /// スキル1: 1 回の爆発のダメージ（公式: 270 / 320 / 370 / 420 / 470 / 520（+70% 物理攻撃））。
     static func waveDamage(rank: Int, stats: Stats) -> Double {
-        damage(base: Tune.waveBase, ratio: Tune.waveAttackRatio, slot: .skill1, scale: Tune.waveScale, rank: rank, stats: stats)
+        Kit.official(Tune.waveBase, rank: rank, ratio: Tune.waveAttackRatio, .totalAttack, stats: stats)
     }
 
-    /// スキル2 の突進のダメージ（100% 物理攻撃。基礎ダメージなし）。
+    /// スキル2 の突進のダメージ（公式: (100% 物理攻撃)。基礎ダメージなし・全段同じ）。
     static func dashDamage(stats: Stats) -> Double {
-        damage(base: (0, 0), ratio: Tune.dashAttackRatio, slot: .skill2, scale: Tune.hammerScale, rank: 1, stats: stats)
+        Kit.official(Tune.dashBase, rank: 1, ratio: Tune.dashAttackRatio, .totalAttack, stats: stats)
     }
 
-    /// スキル2 の再使用のダメージ（280 → 380 + 60% 物理攻撃）。
+    /// スキル2 の再使用のダメージ（公式: 280 / 300 / 320 / 340 / 360 / 380（+60% 物理攻撃））。
     static func smashDamage(rank: Int, stats: Stats) -> Double {
-        damage(base: Tune.smashBase, ratio: Tune.smashAttackRatio, slot: .skill2, scale: Tune.hammerScale, rank: rank,
-               stats: stats)
+        Kit.official(Tune.smashBase, rank: rank, ratio: Tune.smashAttackRatio, .totalAttack, stats: stats)
     }
 
-    /// 奥義のダメージ（600 / 800 / 1000 + 130% 物理攻撃）。汎用の Support の奥義は回復でダメージ 0 なので比べる式は無い。
+    /// 奥義のダメージ（公式: 600 / 800 / 1000（+130% 物理攻撃））。
     static func ultDamage(rank: Int, stats: Stats) -> Double {
-        damage(base: Tune.ultBase, ratio: Tune.ultAttackRatio, slot: .ultimate, scale: Tune.ultScale, rank: rank, stats: stats)
-    }
-
-    /// 公式のクールダウン（秒）をランクで線形補間し、CD 短縮を掛ける（全体倍率 cooldownScale は 1.0 = 公式の秒数のまま）。
-    static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats) -> Double {
-        let sec = lerp(range.0, range.1, rank: rank, maxRank: maxRank)
-        let reduction = HeroKits.cooldownReduction(stats)
-        return sec * (1 - reduction) * Balance.Skills.cooldownScale
-    }
-
-    private static func lerp(_ a: Double, _ b: Double, rank: Int, maxRank: Int) -> Double {
-        guard maxRank > 1 else { return a }
-        let t = Double(min(max(1, rank), maxRank) - 1) / Double(maxRank - 1)
-        return a + (b - a) * t
+        Kit.official(Tune.ultBase, rank: rank, ratio: Tune.ultAttackRatio, .totalAttack, stats: stats)
     }
 
     static func skillID(_ ctx: SimContext, _ slot: SkillSlot) -> String? {

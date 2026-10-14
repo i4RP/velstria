@@ -160,7 +160,7 @@ final class KitFrameworkTests: KitTestCase {
         // ランク込み: スキル1 は Mana 基準の素の値に Energy の倍率（resourceCost）、スキル2 は実効値のまま、ほかは汎用
         XCTAssertEqual(SkillSystem.cost(for: try skill(.skill1), hero: hero, rank: 1), 30 * mult, accuracy: 1e-9)
         XCTAssertEqual(SkillSystem.cost(for: try skill(.skill1), hero: hero, rank: 3), 50 * mult, accuracy: 1e-9)
-        XCTAssertEqual(SkillSystem.cost(for: try skill(.skill1), hero: hero, rank: 99), 60 * mult, accuracy: 1e-9, "最大ランクに丸める")
+        XCTAssertEqual(SkillSystem.cost(for: try skill(.skill1), hero: hero, rank: 99), 80 * mult, accuracy: 1e-9, "最大ランク（6）に丸める")
         XCTAssertEqual(SkillSystem.cost(for: try skill(.skill1), hero: hero, rank: 0), 30 * mult, accuracy: 1e-9, "1 に丸める")
         XCTAssertEqual(SkillSystem.cost(for: try skill(.skill2), hero: hero, rank: 2), 33)
         XCTAssertEqual(SkillSystem.cost(for: try skill(.ultimate), hero: hero, rank: 1),
@@ -494,7 +494,34 @@ final class KitFrameworkTests: KitTestCase {
         XCTAssertEqual(w.s.units[k].pos.x, skillArena.x + 600, accuracy: 1)
     }
 
-    func testSweepIsCancelledByHardCCMidDash() {
+    /// ノックアップ（高レベル）と制圧（最上級）は進行中の突進を止める（MLBB の日本語クライアント「状態説明」:
+    /// ノックアップ = 多くのスキルおよびブリンクやアサルトの効果を中断できる）。
+    func testSweepIsCancelledByKnockUpMidDash() {
+        for knockUp in [true, false] {
+            var w = SkillWorld()
+            let k = w.addKitHero()
+            let near = w.addDummyEnemy(at: skillArena + Vec2(250, 0))
+            let far = w.addDummyEnemy(at: skillArena + Vec2(450, 0), hero: "H004")
+            XCTAssertTrue(w.cast(k, .skill2, .direction(Vec2(1, 0))))
+            w.tick(3)
+            if knockUp {
+                Kit.knockUp(&w.s, target: k, duration: 1, sourceID: w.id(near))
+                XCTAssertNil(w.s.units[k].displacement, "打ち上げた瞬間に突進が止まる")
+            } else {
+                Kit.suppress(&w.s, target: k, duration: 1, sourceID: w.id(near))
+            }
+            w.run(seconds: 0.6)
+            XCTAssertNil(w.kit(k).sweep, "knockUp \(knockUp)")
+            XCTAssertEqual(w.kit(k).reals[0], 1)
+            XCTAssertEqual(w.kit(k).ints[5], 0, "着地しない")
+            XCTAssertEqual(w.damageEvents.filter { $0.targetID == w.id(near) }.count, 1)
+            XCTAssertEqual(w.damage(to: far), 0)
+            XCTAssertLessThan(w.s.units[k].pos.x, skillArena.x + 600 - 100, "突進は途中で止まる")
+        }
+    }
+
+    /// スタン（基本）は突進を止めない（「一部のスキルを中断できる」= 中断できるタイマーだけ）。突進は着地まで続き、経路上の敵に当たる。
+    func testStunDoesNotStopADashButCancelsInterruptibleTimers() {
         var w = SkillWorld()
         let k = w.addKitHero()
         let near = w.addDummyEnemy(at: skillArena + Vec2(250, 0))
@@ -503,12 +530,23 @@ final class KitFrameworkTests: KitTestCase {
         w.tick(3)
         CombatSystem.addStatus(&w.s, targetIndex: k, StatusEffect(kind: .stun, duration: 1))
         w.run(seconds: 0.6)
-        XCTAssertNil(w.kit(k).sweep)
-        XCTAssertEqual(w.kit(k).reals[0], 1)
-        XCTAssertEqual(w.kit(k).ints[5], 0, "着地しない")
+        XCTAssertNil(w.kit(k).sweep, "着地で外れる")
+        XCTAssertEqual(w.kit(k).ints[5], 1, "着地する")
         XCTAssertEqual(w.damageEvents.filter { $0.targetID == w.id(near) }.count, 1)
-        XCTAssertEqual(w.damage(to: far), 0)
-        XCTAssertLessThan(w.s.units[k].pos.x, skillArena.x + 600 - 100, "突進は途中で止まる")
+        XCTAssertEqual(w.damageEvents.filter { $0.targetID == w.id(far) }.count, 1)
+        XCTAssertEqual(w.s.units[k].pos.x, skillArena.x + 600, accuracy: 1)
+    }
+
+    /// CC の段階（MLBB の日本語クライアント「状態説明」）。
+    func testCrowdControlTiers() {
+        XCTAssertEqual(StatusKind.root.ccTier, .low)
+        XCTAssertEqual(StatusKind.stun.ccTier, .basic)
+        XCTAssertEqual(StatusKind.silence.ccTier, .basic)
+        XCTAssertEqual(StatusKind.airborne.ccTier, .high)
+        XCTAssertEqual(StatusKind.suppress.ccTier, .top)
+        XCTAssertEqual(StatusKind.slow.ccTier, .none)
+        XCTAssertTrue(CrowdControlTier.low < .basic && CrowdControlTier.basic < .high && CrowdControlTier.high < .top)
+        XCTAssertEqual([StatusKind.stun, .root, .airborne, .suppress, .silence].filter(\.interruptsDash), [.airborne, .suppress])
     }
 
     func testSweepOnlyDamagesEnemiesAndHeroesOnlyFilter() {

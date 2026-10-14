@@ -142,7 +142,10 @@ public enum HeroGrowth {
 
 /// スキルポイントの割り振り（DESIGN §6）。
 public enum SkillLeveling {
-    /// その枠を今上げられるか。
+    /// その枠を今上げられるか（MLBB の規則。Balance.basicSkillMaxRank の注記）。
+    /// - アルティメット: Lv4 / 8 / 12 で 1 段ずつ（最大 3 段）。
+    /// - スキル1・2: 段 ≤ ceil(Lv / 2)（Lv1・3・5・7・9・11 で 1〜6 段目。最大 6 段）。
+    /// 6 + 6 + 3 = 15 = Lv15 までのスキルポイントの数なので、どの Lv でも割り振れないポイントは残らない。
     public static func canLevel(_ hero: HeroData, slot: SkillSlot) -> Bool {
         guard slot != .passive, hero.skillPoints > 0 else { return false }
         let rank = hero.rank(slot)
@@ -150,7 +153,7 @@ public enum SkillLeveling {
         if slot == .ultimate {
             return rank < Balance.ultimateUnlockLevels.filter { hero.level >= $0 }.count
         }
-        // 基本スキルは (Lv+1)/2 までに制限
+        // 基本スキルは ceil(Lv/2) = (Lv+1)/2 までに制限
         return rank < (hero.level + 1) / 2
     }
 

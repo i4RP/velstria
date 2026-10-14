@@ -111,6 +111,8 @@ public enum StatusModifiers {
             case .flatDefenseMod:
                 stats.armor += st.magnitude
                 stats.magicResist += st.magnitude
+            case .flatArmorMod:
+                stats.armor += st.magnitude
             default:
                 // 行動阻害・無敵・ステルス・燃焼・マーク・対象不可・suppress などは能力値に影響しない（各システムが直接参照）
                 break

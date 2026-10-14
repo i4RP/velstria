@@ -212,6 +212,13 @@ public enum HeroKits {
         min(stats.cooldownReductionCap, max(0, stats.cooldownReduction))
     }
 
+    /// ユニット i のこのスキル（今の再使用の段）が術者を動かすか（バインドで撃てないスキルか。SkillSystem.validate）。
+    static func movesCaster(_ s: SimState, _ i: Int, slot: SkillSlot, targeting: SkillTargeting) -> Bool {
+        let base = SkillCatalog.movesCaster(targeting.archetype)
+        guard let kit = kit(in: s, i), let h = s.units[i].hero else { return base }
+        return kit.movesCaster(slot: slot, stage: activeStage(h, slot: slot), base: base)
+    }
+
     /// UI のタグ（`KitTag` のキー）。キットが無い・タグが無ければ空。
     public static func tags(heroID: String, slot: SkillSlot) -> [String] {
         kit(for: heroID)?.text(slot: slot)?.tags ?? []

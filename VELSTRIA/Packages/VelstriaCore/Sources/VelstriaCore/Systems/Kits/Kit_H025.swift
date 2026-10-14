@@ -4,16 +4,15 @@ import Foundation
 // H025 月弦のルミナ = MLBB ミヤの Velstria 版（レンジャー・遠隔 480（MLBB の 4.8）・マナ）。調査: docs/kits/Miya.md、対応表: 同ファイル末尾。
 // 数値の正は MLBB の日本語クライアントのスキル詳細（docs/kits/Miya.md の「公式（日本語クライアント）の数値」。Fandom と違うところはこちらが優先）。
 //   パッシブ 月環の導き  — 通常攻撃が命中するたびに攻撃速度 +5%（4 秒・最大 5 段）。最大のあいだは通常攻撃のたびに「月影」が
-//                          25(+20% 物理攻撃) の形の物理ダメージを追って与える（換算 × shadowScale）。ロールの「4 発毎の確定会心」は置き換え。
-//   スキル1 月弦分矢     — 自己強化 4 → 9 秒（ランクで伸びる）。通常攻撃が主矢 + 副矢 2 本になる（主矢 = 通常攻撃 + 基礎 10 → 35 の換算、
-//                          周囲の敵 2 体へ主矢の 30%）。効果中は再使用できない（CD 11 秒）。
-//   スキル2 月蝕の矢     — 指定地点（遅延あり）。半径内の敵に 270 → 420(+45%) の形の物理ダメージと 1.2 秒の移動不能。着弾点から 6 本の小さな矢が
-//                          等間隔に散り、それぞれ最初に当たった敵に 40 → 105(+20%) の形の物理ダメージと 2 秒の 30% スロウ。
+//                          25(+20% 物理攻撃) の物理ダメージを追って与える（攻撃エフェクト 20%）。ロールの「4 発毎の確定会心」は置き換え。
+//   スキル1 月弦分矢     — 自己強化 4 / 5 / 6 / 7 / 8 / 9 秒。通常攻撃が主矢 + 副矢 2 本になる（主矢 = 通常攻撃 + 基礎 10〜35、
+//                          周囲の敵 2 体へ主矢の 30%。副矢は攻撃エフェクト 30%）。効果中は再使用できない（CD 11 秒）。
+//   スキル2 月蝕の矢     — 指定地点（遅延あり）。半径内の敵に 270〜420(+45%) の物理ダメージと 1.2 秒のバインド。着弾点から 6 本の小さな矢が
+//                          等間隔に散り、それぞれ最初に当たった敵に 40〜105(+20%) の物理ダメージと 2 秒の 30% スロウ。
 //   アルティメット 隠れ月光 — 弱体をすべて解除して姿を隠し、2 秒間 移動速度 +65%。通常攻撃かスキルの発動（奥義を除く）で解ける。
 //                          解けた（時間切れ含む）瞬間に月環の導きが最大の段になる。ボットは低 HP で敵が近いとき、逃走・解除に使う。
-// 数値の換算: 公式の表を Velstria のランク（スキル1・2 は 4 段、アルティメットは 3 段）へ線形補間し（ランク 1 = Lv1、最大ランク = 公式の最終 Lv）、
-//   ダメージは sim の通常の式 (基礎 + 係数 × 攻撃力 × skillAttackScalingFactor) × スロット倍率 にスキルごとの換算（s1Scale ほか）を掛ける。
-//   コスト（マナ）・クールダウン・S1 の持続も同じ補間（コストは HeroKit.cost）。
+// 数値: 公式の表をそのまま使う（スキル1・2 = Lv1〜6、アルティメット = Lv1〜3。rank = 公式の Lv。換算・補間なし）。
+//   ダメージ = 公式の基礎[段] + 公式の係数 × 合計の物理攻撃（Kit.official）。コスト（マナ）・クールダウン・S1 の持続も表を引く（Kit.level）。
 // 再使用の窓は Miya に無いので使わない。
 //
 // 状態（KitState）:
@@ -22,33 +21,31 @@ import Foundation
 //   timers[0] = 段の残り秒（4）  timers[1] = 月矢の連弾の残り秒  timers[2] = 隠れ月光の残り秒
 //   reals[0] = 月矢の連弾の主矢の追加ダメージ（発動時のランク・能力値で固定）
 
-/// ルミナの調整値（docs/kits/Miya.md の数値を Velstria の単位・TTK に合わせたもの）。
+/// ルミナの値。数値は MLBB の日本語クライアントのスキル詳細の表そのまま（docs/kits/Miya.md の「公式（日本語クライアント）の数値」）。
+/// 距離・遅延・散り方など公式の文に無い値は Velstria の推測（同 docs の「まだ MLBB と違うところ」）。
 enum LuminaTuning {
-    // MARK: パッシブ（月環の導き）
+    // MARK: パッシブ（月環の導き = スイフト）
     static let maxStacks = 5
-    /// 1 段あたりの攻撃速度。MLBB のミヤと同じ 5%（最大 +25%）。CD が半分だったころは TTK が短く立ち上がりが遅いので 9% にしていたが、
-    /// CD が MLBB の秒数になって 1v1 が長くなり（Lv1 の中央値 10 → 13.6 秒）、段が積み上がる Lv1 の勝率がレンジャー中央値 +28 pt（7% でも +20 pt、
-    /// 全員との総当たり 83%）に偏ったので MLBB の値へ戻した。
+    /// 1 段あたりの攻撃速度（公式 5%、最大 +25%）。
     static let attackSpeedPerStack: Double = 0.05
     static let stackDuration: Double = 4
-    /// 月影: 公式（日本語クライアント）は 25(+20% 物理攻撃)（Fandom の 30(+25%) は誤り）。形（固定値と攻撃力の比）はそのまま、
-    /// Velstria の火力の尺度へ shadowScale 倍する（2.6 で 65 + 攻撃力 52%。以前は Fandom の 30(+25%) × 2.2 = 66 + 55%。25(+20%) × 2.2 では Lv1 がレンジャー中央値 −22 pt になったので、2.6 / 2.8 / 3.2 / 3.6 を KitBalanceTests で比べて 2.6）。
-    static let shadowBase: Double = 25
-    static let shadowAttackRatio: Double = 0.20
-    static let shadowScale: Double = 2.6
-    static let shadowFlat: Double = shadowBase * shadowScale
-    static let shadowRatio: Double = shadowAttackRatio * shadowScale
+    /// 月影（ムーンライトシャドウ）: 公式 25(+20% 物理攻撃)（Fandom の 30(+25%) は古い値）。
+    static let shadowFlat: Double = 25
+    static let shadowRatio: Double = 0.20
+    /// 月影は攻撃効果の 20% を引き継ぐ（公式）。HitPayload.attackEffect（装備の命中時効果・通常攻撃吸収をこの割合で）。
+    static let shadowAttackEffect: Double = 0.20
 
-    // MARK: S1（月矢の連弾）
-    /// 持続（公式: 4 / 5 / 6 / 7 / 8 / 9 秒 → ランク 1〜4 へ補間 = 4 / 5.67 / 7.33 / 9 秒）。
-    static let s1DurationTable = (4.0, 9.0)
+    // MARK: S1（月弦分矢 = スプリットショット）
+    /// 持続（公式: Lv1〜6 = 4 / 5 / 6 / 7 / 8 / 9 秒）。
+    static let s1Duration: [Double] = [4, 5, 6, 7, 8, 9]
     /// 主矢の追加ダメージの基礎（公式: 10 / 15 / 20 / 25 / 30 / 35。+100% 物理攻撃は通常攻撃そのもの）。
-    /// 換算は スロット倍率（4.0）× s1Scale（1 本 72 → 252。持続も 4 → 9 秒に伸びるので、公式どおりランクでの伸びが大きい）。
-    /// 1.0 / 1.5 / 1.8 / 2.0 / 2.5 / 3.0 を KitBalanceTests で比べ、Lv6・12 がレンジャー中央値に近い 1.8。
-    static let s1Base = (10.0, 35.0)
-    static let s1Scale: Double = 1.8
+    static let s1Base: [Double] = [10, 15, 20, 25, 30, 35]
+    /// その他の対象へのダメージ（公式 30%）。
     static let splashRatio: Double = 0.30
+    /// 各矢は攻撃効果の 30% を引き継ぐ（公式）。副矢の HitPayload.attackEffect。
+    static let splashAttackEffect: Double = 0.30
     static let splashCount = 2
+    /// 副矢が飛ぶ「その他の対象」の範囲（主矢の対象から。公式の文に無い Velstria の推測）。
     static let splashRadius: Double = 300
     /// 副矢が飛ぶ範囲の余裕（術者の射程 + 対象の半径 + この値）。
     static let splashLeeway: Double = 150
@@ -57,47 +54,47 @@ enum LuminaTuning {
     static let selfRing: Double = 480
     /// 「撃てる距離」の目安（`reachOverride`。敵がこの内側に居るときだけ撃つ）。
     static let s1Reach: Double = 600
-    /// MLBB の CD 11 秒（全ランク固定）。
-    static let s1Cooldown = (11.0, 11.0)
-    /// 公式（日本語クライアント）のマナ 60 / 65 / 70 / 75 / 80 / 85（Fandom の 50 → 75 は誤り）。
-    static let s1Cost = (60.0, 85.0)
+    /// 公式の CD 11 秒（全 Lv 一定）。
+    static let s1Cooldown: [Double] = [11]
+    /// 公式（日本語クライアント）のマナ 60 / 65 / 70 / 75 / 80 / 85（Fandom の 50 → 75 は古い値）。
+    static let s1Cost: [Double] = [60, 65, 70, 75, 80, 85]
 
-    // MARK: S2（月蝕の矢）
+    // MARK: S2（月蝕の矢 = レインアロー）
+    /// 半径（パッチ履歴 1.1.22 の 1.7）・着弾までの遅延（公式の文に無い。推測）。
     static let s2Radius: Double = 170
     static let s2Delay: Double = 0.35
+    /// バインド（公式 1.2 秒）。敵に付ける root = バインド（移動・ブリンク・アサルトスキル・瞬歩を封じる。スキルは中断しない）。
     static let s2Root: Double = 1.2
     static let s2Slow: Double = 0.30
     static let s2SlowDuration: Double = 2
     static let s2Arrows = 6
-    /// 6 本を等間隔（60° おき）に散らす: 中心から ±30° / ±90° / ±150°。
+    /// 6 本を等間隔（60° おき）に散らす: 中心から ±30° / ±90° / ±150°（散り方・速さ・射程・幅は公式の文に無い。推測）。
     static let s2ScatterHalfAngle: Double = Double.pi * 5 / 6
     static let s2ArrowSpeed: Double = 1800
     static let s2ArrowRange: Double = 420
     static let s2ArrowWidth: Double = 35
-    /// 着弾: 公式 270 / 300 / 330 / 360 / 390 / 420（+45% 物理攻撃）。
-    static let s2Base = (270.0, 420.0)
+    /// 着弾: 公式 270 / 300 / 330 / 360 / 390 / 420（+45% 物理攻撃 = 合計の物理攻撃）。
+    static let s2Base: [Double] = [270, 300, 330, 360, 390, 420]
     static let s2AttackRatio: Double = 0.45
-    /// 小さな矢 1 本: 公式 40 / 53 / 66 / 79 / 92 / 105（+20% 物理攻撃）。
-    static let s2MinorBase = (40.0, 105.0)
+    /// 小さな矢 1 本: 公式 40 / 53 / 66 / 79 / 92 / 105（+20% 物理攻撃 = 合計の物理攻撃）。
+    static let s2MinorBase: [Double] = [40, 53, 66, 79, 92, 105]
     static let s2MinorAttackRatio: Double = 0.20
-    /// 着弾・小さな矢に共通の換算（スロット倍率 3.0 に掛ける）。0.39 で着弾がランク 1 の汎用 S2 の元の値の 0.66 倍（以前の比）、
-    /// 0.30 / 0.34 / 0.39 を KitBalanceTests で比べ、0.34。月影を 2.6 に上げた（日本語クライアントの 25(+20%)）ときに Lv12 が +13 pt になったので 0.30 に下げた。
-    static let s2Scale: Double = 0.30
-    /// MLBB の CD 8 秒（全ランク固定）。以前はマスターの CD（8.7 秒からランクで 6% ずつ短縮）のままだった。
-    static let s2Cooldown = (8.0, 8.0)
+    /// 公式の CD 8 秒（全 Lv 一定）。
+    static let s2Cooldown: [Double] = [8]
     /// 公式（日本語クライアントの画面 2026-10-11）のマナ 90（全 Lv 一定）。「MP消費量：90」は画面の吹き出しの半透明の裏から読んだ
     /// （表に MP の行が無い = 全 Lv 同じ）。以前は Fandom の 80 / 90 / 100 / 110 / 120 / 130。
-    static let s2Cost = (90.0, 90.0)
+    static let s2Cost: [Double] = [90]
 
-    // MARK: 奥義（隠れ月光）
+    // MARK: 奥義（隠れ月光 = 隠月）
     static let ultDuration: Double = 2
     static let ultSpeed: Double = 0.65
     /// 「撃てる距離」の目安（奥義の距離 770。`reachOverride`）。
     static let ultReach: Double = 770
-    static let ultCooldown = (30.0, 20.0)
+    /// 公式の CD 30 / 25 / 20 秒。
+    static let ultCooldown: [Double] = [30, 25, 20]
     /// 公式のマナ 120 / 145 / 170。
-    static let ultCost = (120.0, 170.0)
-    /// ボットが隠れ月光で離脱する HP の割合（通常 / 減速・移動不能を受けているとき）。
+    static let ultCost: [Double] = [120, 145, 170]
+    /// ボットが隠れ月光で離脱する HP の割合（通常 / 減速・バインドを受けているとき）。
     static let escapeHP: Double = 0.45
     static let escapeHPHobbled: Double = 0.70
 
@@ -208,43 +205,45 @@ struct Kit_H025: HeroKit {
                         KitStat(key: "stackDuration", value: T.stackDuration),
                         KitStat(key: "shadowFlat", value: T.shadowFlat),
                         KitStat(key: "shadowRatio", value: T.shadowRatio * 100),
+                        KitStat(key: "shadowEffect", value: T.shadowAttackEffect * 100),
                         KitStat(key: "maxSpeed", value: T.attackSpeedPerStack * Double(T.maxStacks) * 100)]
         case .skill1:
             // damage = 主矢 1 本あたりの追加ダメージ（通常攻撃に足す）。hits = 効果時間に基礎の攻撃速度で撃つ本数の目安
             let duration = Self.s1Duration(rank: rank)
             n.hits = max(1, Int((duration * max(0.1, stats.attackSpeed)).rounded()))
             n.damage = Self.arrowBonus(rank: rank)
-            n.cooldown = Self.cooldown(T.s1Cooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
+            n.cooldown = Kit.cooldown(T.s1Cooldown, rank: rank, stats: stats)
             n.cc = .none
             n.ccDuration = 0
             n.extras = [KitStat(key: "duration", value: duration),
                         KitStat(key: "splashPercent", value: T.splashRatio * 100),
+                        KitStat(key: "splashEffect", value: T.splashAttackEffect * 100),
                         KitStat(key: "splashCount", value: Double(T.splashCount)),
                         KitStat(key: "splashRadius", value: T.splashRadius),
-                        KitStat(key: "base", value: n.damage.rounded())]
+                        KitStat(key: "base", value: n.damage)]
         case .skill2:
             n.damage = Self.eclipseDamage(rank: rank, stats: stats)
             n.hits = 1
             n.delay = T.s2Delay
-            n.cooldown = Self.cooldown(T.s2Cooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
+            n.cooldown = Kit.cooldown(T.s2Cooldown, rank: rank, stats: stats)
             n.cc = .root
             n.ccDuration = T.s2Root
-            // 説明に出す値は整数にそろえる（実際の小さな矢のダメージは minorDamage(rank:stats:) が持つ）
+            // 説明に出す値は公式の基礎と係数そのまま（実際の小さな矢のダメージは minorDamage(rank:stats:) が持つ）
             n.extras = [KitStat(key: "minorDamage", value: Self.minorDamage(rank: rank, stats: stats).rounded()),
                         KitStat(key: "root", value: T.s2Root),
                         KitStat(key: "slowPercent", value: T.s2Slow * 100),
                         KitStat(key: "slowDuration", value: T.s2SlowDuration),
-                        KitStat(key: "base", value: Self.scaledBase(T.s2Base, rank: rank).rounded()),
-                        KitStat(key: "atkPct", value: Self.attackPercent(T.s2AttackRatio).rounded()),
-                        KitStat(key: "minorBase", value: Self.scaledBase(T.s2MinorBase, rank: rank).rounded()),
-                        KitStat(key: "minorPct", value: Self.attackPercent(T.s2MinorAttackRatio).rounded())]
+                        KitStat(key: "base", value: Kit.level(T.s2Base, rank: rank)),
+                        KitStat(key: "atkPct", value: T.s2AttackRatio * 100),
+                        KitStat(key: "minorBase", value: Kit.level(T.s2MinorBase, rank: rank)),
+                        KitStat(key: "minorPct", value: T.s2MinorAttackRatio * 100)]
         case .ultimate:
             n.damage = 0
             n.hits = 1
             n.cc = .none
             n.ccIsUltimate = false
             n.ccDuration = 0
-            n.cooldown = Self.cooldown(T.ultCooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
+            n.cooldown = Kit.cooldown(T.ultCooldown, rank: rank, stats: stats)
             n.extras = [KitStat(key: "duration", value: T.ultDuration),
                         KitStat(key: "speedPercent", value: T.ultSpeed * 100),
                         KitStat(key: "stacks", value: Double(T.maxStacks))]
@@ -252,38 +251,42 @@ struct Kit_H025: HeroKit {
         return n
     }
 
-    /// ランクごとのマナ消費（公式（日本語クライアント）: スキル1 = 60 → 85、スキル2 = 90（全 Lv 一定。画面の吹き出しの裏から読んだ値）、
-    /// アルティメット = 120 / 145 / 170）。
+    /// ランクごとのマナ消費（公式（日本語クライアント）: スキル1 = 60 / 65 / 70 / 75 / 80 / 85、スキル2 = 90（全 Lv 一定。
+    /// 画面の吹き出しの裏から読んだ値）、アルティメット = 120 / 145 / 170）。
     func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double {
-        let table: (Double, Double)
+        let table: [Double]
         switch slot {
         case .skill1: table = T.s1Cost
         case .skill2: table = T.s2Cost
         case .ultimate: table = T.ultCost
         case .passive: return base
         }
-        return HeroKits.resourceCost(Self.lerp(table.0, table.1, rank: rank, maxRank: slot.maxRank), hero: hero)
+        return HeroKits.resourceCost(Kit.level(table, rank: rank), hero: hero)
     }
 
     /// 説明文は公式（日本語クライアント）の文の構造に合わせる。数値は {トークン} で sim から入れる
-    /// （{base}(+{atkPct}%物理攻撃) は sim の式に換算した値）。名前は master のもの（スイフト = 月環の導き、ムーンライトシャドウ = 月影）。
-    /// 「攻撃効果の 20% / 30% を引き継ぐ」は sim に無い（月影・副矢は命中時効果を持たない）ので書かない。
+    /// （{base}(+{atkPct}%物理攻撃) は公式の基礎と係数そのもの）。名前は master のもの（スイフト = 月環の導き、ムーンライトシャドウ = 月影）。
+    /// 「攻撃効果の 20% / 30% を引き継ぐ」は公式の節（HitPayload.attackEffect で実装）。
     func text(slot: SkillSlot) -> KitText? {
         switch slot {
         case .passive:
             return KitText(
                 ja: "通常攻撃が対象に命中するたび、{stackDuration}秒間、攻撃速度が{attackSpeedPerStack}%上昇する（最大\(T.maxStacks)スタック・合計{maxSpeed}%）。\n\n"
-                    + "最大スタック時、通常攻撃のたびに「月影」を召喚して対象を攻撃し、{shadowFlat}(+{shadowRatio}%物理攻撃)の物理ダメージを与える。",
+                    + "最大スタック時、通常攻撃のたびに「月影」を召喚して対象を攻撃し、{shadowFlat}(+{shadowRatio}%物理攻撃)の物理ダメージを与える。"
+                    + "「月影」は攻撃効果の{shadowEffect}%を引き継ぐ。",
                 en: "Each time a basic attack hits a target, attack speed increases by {attackSpeedPerStack}% for {stackDuration}s "
                     + "(up to \(T.maxStacks) stacks, {maxSpeed}% in total).\n\nAt max stacks, each basic attack summons a Moonlight "
-                    + "Shadow to attack the target, dealing {shadowFlat} (+{shadowRatio}% Physical Attack) physical damage.",
+                    + "Shadow to attack the target, dealing {shadowFlat} (+{shadowRatio}% Physical Attack) physical damage. "
+                    + "The Moonlight Shadow inherits {shadowEffect}% of attack effects.",
                 tags: [KitTag.buff])
         case .skill1:
             return KitText(
-                ja: "通常攻撃時、追加で分裂の矢を{splashCount}本放つ。メインターゲットに{base}(+100%物理攻撃)の物理ダメージ、"
+                ja: "通常攻撃時、追加で分裂の矢を{splashCount}本放つ。各矢は攻撃効果の{splashEffect}%を引き継ぎ、"
+                    + "メインターゲットに{base}(+100%物理攻撃)の物理ダメージ、"
                     + "その他の対象（メインターゲットの周囲{splashRadius}以内で近い{splashCount}体）に{splashPercent}%のダメージを与える。\n\n"
                     + "この効果は{duration}秒間持続する。クールダウンは発動した時点から数える。効果中は再使用できない。",
-                en: "Basic attacks fire {splashCount} extra split arrows, dealing {base} (+100% Physical Attack) physical damage "
+                en: "Basic attacks fire {splashCount} extra split arrows. Each arrow inherits {splashEffect}% of attack effects, "
+                    + "dealing {base} (+100% Physical Attack) physical damage "
                     + "to the main target and {splashPercent}% damage to other targets (the {splashCount} nearest enemies within "
                     + "{splashRadius} of the main target).\n\nThis effect lasts {duration}s. The cooldown starts on cast. Cannot be "
                     + "cast again until the effect ends.",
@@ -291,12 +294,12 @@ struct Kit_H025: HeroKit {
         case .skill2:
             return KitText(
                 ja: "指定エリアに月蝕の力を呼び起こし（着弾まで\(Self.seconds(T.s2Delay))秒）、範囲内（半径{radius}）の敵に{base}(+{atkPct}%物理攻撃)の"
-                    + "物理ダメージを与え、{root}秒間バインド状態にする（移動できないが、攻撃とスキルは使える）。\n\n"
+                    + "物理ダメージを与え、{root}秒間バインド状態にする（移動・ブリンク・アサルトスキルが使えない。スキルは中断されない）。\n\n"
                     + "その後、攻撃は\(T.s2Arrows)本の矢に分裂して様々な方向へ飛んでいく（等間隔に散る）。各矢は最初に命中した敵に{minorBase}(+{minorPct}%物理攻撃)の"
                     + "物理ダメージを与え、命中した敵の移動速度を{slowDuration}秒間{slowPercent}%低下させる。",
                 en: "Calls down the power of the eclipse on the target area (lands after \(Self.seconds(T.s2Delay))s), dealing {base} "
                     + "(+{atkPct}% Physical Attack) physical damage to enemies within (radius {radius}) and binding them "
-                    + "for {root}s (they cannot move but can still attack and cast).\n\nThe attack then splits into \(T.s2Arrows) scattering "
+                    + "for {root}s (they cannot move, blink or dash; their skills are not interrupted).\n\nThe attack then splits into \(T.s2Arrows) scattering "
                     + "arrows flying in different directions. Each arrow deals {minorBase} (+{minorPct}% Physical Attack) physical damage "
                     + "to the first enemy hit and reduces its movement speed by {slowPercent}% for {slowDuration}s.",
                 tags: [KitTag.disrupt, KitTag.aoe])
@@ -373,7 +376,7 @@ struct Kit_H025: HeroKit {
                      duration: duration, count: 1 + T.splashCount)
     }
 
-    /// S2: 遅延のあとに範囲ダメージ + 移動不能（ゾーン）、同じ tick に 6 本の小さな矢が散る（タイマー）。
+    /// S2: 遅延のあとに範囲ダメージ + バインド（ゾーン。敵に付ける root = Unit.isBound）、同じ tick に 6 本の小さな矢が散る（タイマー）。
     private func castEclipse(_ s: inout SimState, _ c: KitCast) {
         let i = c.caster
         let skill = c.check.skill
@@ -443,7 +446,7 @@ struct Kit_H025: HeroKit {
 
     func shapeBasicAttack(_ s: inout SimState, _ ctx: SimContext, attacker: Int, target: Int,
                           plan: inout BasicAttackPlan) {
-        // 構造物には月矢・月影は働かない（攻城の火力は汎用のレンジャーのまま。攻撃速度の段は積む）
+        // 構造物には月矢・月影は働かない（公式の文に無い Velstria の推測。攻城の火力は汎用のレンジャーのまま。攻撃速度の段は積む）
         guard !s.units[target].isStructure, let k = s.units[attacker].hero?.kit else { return }
         if k.luminaMoonArrow > 0 {
             plan.payload.damage += k.luminaArrowBonus
@@ -451,11 +454,8 @@ struct Kit_H025: HeroKit {
                             isCrit: plan.payload.isCrit)
         }
         if k.luminaStacks >= T.maxStacks {
-            // 月影: 会心にならず、命中時効果（吸血・段の加算）も持たない追加ダメージ
-            let attack = s.units[attacker].stats.attack
-            plan.extras.append(HitPayload(damage: Self.shadowDamage(attack: attack), damageType: .physical,
-                                          source: .basicAttack))
             s.units[attacker].hero?.kit?.luminaShadows += 1
+            plan.extras.append(Self.shadowPayload(attack: s.units[attacker].stats.attack))
         }
     }
 
@@ -492,7 +492,7 @@ struct Kit_H025: HeroKit {
         return Self.needsEscape(s, bot) ? .castNow(.none) : .skip
     }
 
-    /// 離脱が要る状態か: HP が 45% 以下、または減速・移動不能を受けていて HP が 70% 以下。すでに隠れている間は不要。
+    /// 離脱が要る状態か: HP が 45% 以下、または減速・バインド（root）を受けていて HP が 70% 以下。すでに隠れている間は不要。
     static func needsEscape(_ s: SimState, _ bot: Int) -> Bool {
         guard s.units.indices.contains(bot), s.units[bot].hero?.kit?.luminaHidden != true else { return false }
         let hp = s.units[bot].hpRatio
@@ -502,51 +502,31 @@ struct Kit_H025: HeroKit {
 
     // MARK: ヘルパー
 
-    /// 月影のダメージ（公式 30 + 攻撃力 25% を shadowScale 倍）。
+    /// 月影のダメージ（公式 25 (+20% 物理攻撃) = 25 + 合計の物理攻撃 × 0.20）。
     static func shadowDamage(attack: Double) -> Double { T.shadowFlat + T.shadowRatio * attack }
 
-    /// 月弦分矢の持続（公式 4 → 9 秒をランクで補間）。
-    static func s1Duration(rank: Int) -> Double {
-        lerp(T.s1DurationTable.0, T.s1DurationTable.1, rank: rank, maxRank: SkillSlot.skill1.maxRank)
+    /// 月影の命中: 通常攻撃のダメージ（source .basicAttack）で、攻撃エフェクト 20%（装備の命中時効果・通常攻撃吸収を 20% だけ）。
+    /// 通常攻撃そのものではない（appliesOnHit = false: 命中数・段の加算・パッシブの命中フックに数えない）。会心にならない
+    /// （公式の文に会心の記述が無い。未検証）。
+    static func shadowPayload(attack: Double) -> HitPayload {
+        HitPayload(damage: shadowDamage(attack: attack), damageType: .physical, source: .basicAttack,
+                   attackEffect: T.shadowAttackEffect)
     }
 
-    /// 月弦分矢の主矢 1 本の追加ダメージ（公式の基礎 10 → 35 をランクで補間し、スロット倍率 × s1Scale。+100% 物理攻撃は通常攻撃そのもの）。
-    static func arrowBonus(rank: Int) -> Double {
-        lerp(T.s1Base.0, T.s1Base.1, rank: rank, maxRank: SkillSlot.skill1.maxRank) * Balance.Skills.damageScale(.skill1)
-            * T.s1Scale
-    }
+    /// 月弦分矢の持続（公式 4 / 5 / 6 / 7 / 8 / 9 秒）。
+    static func s1Duration(rank: Int) -> Double { Kit.level(T.s1Duration, rank: rank) }
 
-    /// 月蝕の矢の着弾のダメージ（公式 270 → 420 + 45% 物理攻撃）。
+    /// 月弦分矢の主矢 1 本の追加ダメージ（公式の基礎 10 / 15 / 20 / 25 / 30 / 35。+100% 物理攻撃は通常攻撃そのもの）。
+    static func arrowBonus(rank: Int) -> Double { Kit.level(T.s1Base, rank: rank) }
+
+    /// 月蝕の矢の着弾のダメージ（公式 270〜420 (+45% 物理攻撃)。合計の物理攻撃）。
     static func eclipseDamage(rank: Int, stats: Stats) -> Double {
-        s2Damage(T.s2Base, ratio: T.s2AttackRatio, rank: rank, stats: stats)
+        Kit.official(T.s2Base, rank: rank, ratio: T.s2AttackRatio, .totalAttack, stats: stats)
     }
 
-    /// 月蝕の矢の小さな矢 1 本のダメージ（公式 40 → 105 + 20% 物理攻撃）。
+    /// 月蝕の矢の小さな矢 1 本のダメージ（公式 40〜105 (+20% 物理攻撃)。合計の物理攻撃）。
     static func minorDamage(rank: Int, stats: Stats) -> Double {
-        s2Damage(T.s2MinorBase, ratio: T.s2MinorAttackRatio, rank: rank, stats: stats)
-    }
-
-    /// (公式の基礎 + 係数 × 攻撃力 × skillAttackScalingFactor) × スロット倍率 × s2Scale。
-    private static func s2Damage(_ base: (Double, Double), ratio: Double, rank: Int, stats: Stats) -> Double {
-        let b = lerp(base.0, base.1, rank: rank, maxRank: SkillSlot.skill2.maxRank)
-        return (b + ratio * stats.attack * Balance.skillAttackScalingFactor) * Balance.Skills.damageScale(.skill2) * T.s2Scale
-    }
-
-    /// スキル2 の公式の基礎（ランクで補間）を sim の式に通した「換算後の基礎」。
-    static func scaledBase(_ table: (Double, Double), rank: Int) -> Double {
-        lerp(table.0, table.1, rank: rank, maxRank: SkillSlot.skill2.maxRank) * Balance.Skills.damageScale(.skill2) * T.s2Scale
-    }
-
-    /// スキル2 の公式の「+N% 物理攻撃」を sim の式に通した、攻撃力に対する割合（%）。
-    static func attackPercent(_ ratio: Double) -> Double {
-        ratio * Balance.skillAttackScalingFactor * Balance.Skills.damageScale(.skill2) * T.s2Scale * 100
-    }
-
-    /// 公式の Lv1 → 最終 Lv の値を、ランク 1 → 最大ランクへ線形補間する。
-    static func lerp(_ a: Double, _ b: Double, rank: Int, maxRank: Int) -> Double {
-        guard maxRank > 1 else { return a }
-        let t = Double(min(max(1, rank), maxRank) - 1) / Double(maxRank - 1)
-        return a + (b - a) * t
+        Kit.official(T.s2MinorBase, rank: rank, ratio: T.s2MinorAttackRatio, .totalAttack, stats: stats)
     }
 
     /// 段を 1 つ積み、持続を 4 秒に戻す。
@@ -583,8 +563,8 @@ struct Kit_H025: HeroKit {
         setStacks(&s, i, T.maxStacks)
     }
 
-    /// 副矢: 主矢の対象の周囲にいる最も近い敵（最大 splashCount 体）へ、主矢の 30% の追尾弾。
-    /// 術者の射程の近くにいる敵だけ（射程外の敵へは飛ばない）。構造物へは飛ばない。
+    /// 副矢: 主矢の対象の周囲にいる最も近い敵（最大 splashCount 体）へ、主矢の 30% の追尾弾（攻撃エフェクト 30%）。
+    /// 術者の射程の近くにいる敵だけ（射程外の敵へは飛ばない）。構造物へは飛ばない（対象の選び方は Velstria の推測）。
     static func fireSplash(_ s: inout SimState, attacker i: Int, primary t: Int, mainDamage: Double, isCrit: Bool) {
         let team = s.units[i].team
         let center = s.units[t].pos
@@ -602,7 +582,7 @@ struct Kit_H025: HeroKit {
         }
         guard !picked.isEmpty else { return }
         picked.sort { $0.d != $1.d ? $0.d < $1.d : $0.j < $1.j }
-        let p = HitPayload(damage: mainDamage * T.splashRatio, damageType: .physical, source: .basicAttack, isCrit: isCrit)
+        let p = splashPayload(mainDamage: mainDamage, isCrit: isCrit)
         for entry in picked.prefix(T.splashCount) {
             ProjectileSystem.spawn(&s, ownerIndex: i, motion: .homing(targetID: s.units[entry.j].id),
                                    speed: Balance.heroProjectileSpeed, payload: p, visual: "basic_attack")
@@ -610,18 +590,18 @@ struct Kit_H025: HeroKit {
         }
     }
 
+    /// 副矢の命中: 主矢（追加ダメージ込み）の 30% の通常攻撃のダメージで、攻撃エフェクト 30%（公式「各矢は攻撃効果の30%を引き継ぎ」）。
+    /// 通常攻撃そのものではない（appliesOnHit = false: 段・命中数に数えない）。会心の表示は主矢から引き継ぐ。
+    static func splashPayload(mainDamage: Double, isCrit: Bool) -> HitPayload {
+        HitPayload(damage: mainDamage * T.splashRatio, damageType: .physical, source: .basicAttack, isCrit: isCrit,
+                   attackEffect: T.splashAttackEffect)
+    }
+
     /// 現在のランク・能力値でのスキルと数値。
     static func numbersNow(_ s: SimState, _ ctx: SimContext, _ i: Int, _ slot: SkillSlot) -> (SkillDef, SkillNumbers)? {
         guard let h = s.units[i].hero, let def = ctx.master.hero(h.heroID),
               let skill = ctx.master.skill(hero: h.heroID, slot: slot) else { return nil }
         return (skill, SkillCatalog.numbers(for: skill, hero: def, rank: max(1, h.rank(slot)), stats: s.units[i].stats))
-    }
-
-    /// MLBB のクールダウン（秒）をランクで線形補間し、CD 短縮を掛ける（全体倍率 cooldownScale は 1.0 = MLBB の秒数のまま）。
-    static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats) -> Double {
-        let sec = lerp(range.0, range.1, rank: rank, maxRank: maxRank)
-        let reduction = HeroKits.cooldownReduction(stats)
-        return sec * (1 - reduction) * Balance.Skills.cooldownScale
     }
 
     /// 説明文に埋める秒数（整数なら整数、そうでなければ小数 2 桁まで。0.35 が 0.3 / 0.4 に丸まらないように）。

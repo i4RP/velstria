@@ -543,6 +543,7 @@ enum HUDSymbols {
         case .flatPowerMod: return "burst.fill"
         case .flatMoveSpeedMod: return "figure.run"
         case .flatDefenseMod: return "shield.checkered"
+        case .flatArmorMod: return "shield.lefthalf.filled"
         case .untargetable: return "eye.slash.fill"
         case .suppress: return "lock.fill"
         case .channeling: return "dot.radiowaves.left.and.right"
@@ -573,7 +574,7 @@ enum HUDSymbols {
 
     /// 固定値の増減（装備と靴の祝福）。種類では強化・弱体が決まらず、magnitude の符号で決まる（負 = 弱体）。
     static func isSignedMod(_ k: StatusKind) -> Bool {
-        k == .flatPowerMod || k == .flatMoveSpeedMod || k == .flatDefenseMod
+        k == .flatPowerMod || k == .flatMoveSpeedMod || k == .flatDefenseMod || k == .flatArmorMod
     }
 
     /// 強化か（固定値の増減は magnitude の符号で決める）。
@@ -587,6 +588,7 @@ enum HUDSymbols {
         case .flatPowerMod: return isBuff ? L("攻撃・魔力上昇", "Attack & power up") : L("攻撃・魔力低下", "Attack & power down")
         case .flatMoveSpeedMod: return isBuff ? L("移動速度上昇", "Move speed up") : L("移動速度低下", "Move speed down")
         case .flatDefenseMod: return isBuff ? L("防御・魔防上昇", "Defenses up") : L("防御・魔防低下", "Defenses down")
+        case .flatArmorMod: return isBuff ? L("物理防御上昇", "Armor up") : L("物理防御低下", "Armor down")
         default: return statusName(k, tag: tag)
         }
     }
@@ -628,6 +630,7 @@ enum HUDSymbols {
         case .flatPowerMod: return L("攻撃・魔力の増減", "Attack & power change")
         case .flatMoveSpeedMod: return L("移動速度の増減", "Move speed change")
         case .flatDefenseMod: return L("防御・魔防の増減", "Defenses change")
+        case .flatArmorMod: return L("物理防御の増減", "Armor change")
         case .untargetable: return L("選択不可", "Untargetable")
         case .suppress: return L("制圧", "Suppressed")
         case .channeling: return L("詠唱中", "Channeling")
@@ -675,7 +678,7 @@ enum HUDSymbols {
         let statuses: [StatusKind] = [.stun, .root, .slow, .airborne, .silence, .speedBoost, .attackSpeedBoost,
                                       .damageBoost, .damageReduction, .ccImmune, .invulnerable, .stealth, .burn,
                                       .healReduction, .damageDealtReduction, .revealed, .blueBuff, .redBuff,
-                                      .flatPowerMod, .flatMoveSpeedMod, .flatDefenseMod,
+                                      .flatPowerMod, .flatMoveSpeedMod, .flatDefenseMod, .flatArmorMod,
                                       .wyrmBlessing, .colossusBlessing, .mark, .lifestealBoost, .spellVampBoost,
                                       .attackRangeBoost, .armorShred, .magicShred, .untargetable, .suppress, .channeling,
                                       .goldBuff, .mossGrass]

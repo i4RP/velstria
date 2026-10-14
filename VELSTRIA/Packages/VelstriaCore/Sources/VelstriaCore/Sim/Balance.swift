@@ -65,12 +65,14 @@ public enum Balance {
     public static let xpToNext: [Double] = [240, 270, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850]
 
     // MARK: スキル
-    public static let basicSkillMaxRank = 4
+    /// スキルの段（MLBB と同じ 6 / 6 / 3。2026-10-14 に 4 / 4 / 3 から。4 は Wild Rift 由来だった）。
+    /// スキルポイントは Lv1〜15 で 1 つずつ計 15 = 6 + 6 + 3（余りが出ない）。
+    /// 上げられる条件（SkillLeveling.canLevel）: スキル1・2 の段 ≤ ceil(ヒーローの Lv / 2)（Lv1・3・5・7・9・11 で 1〜6 段目）、
+    /// アルティメットは Lv4 / 8 / 12 で 1 段ずつ（MLBB の Fandom「Ultimate」: Lv4 で習得・3 段まで）。
+    /// スキル1・2 の「Lv/2 の切り上げ」は監査 B §3 の「奇数 Lv」の規則（日本語クライアントのレベルアップ画面での確認待ち）。
+    public static let basicSkillMaxRank = 6
     public static let ultimateMaxRank = 3
     public static let ultimateUnlockLevels = [4, 8, 12]
-    public static let skillDamagePerRank: Double = 0.30
-    public static let skillCooldownPerRank: Double = 0.06
-    public static let skillAttackScalingFactor: Double = 0.6
     /// CD 短縮の上限（MLBB の日本語クライアント「通常、短縮率の上限は40%」）。魔導の護符などは Stats.cooldownReductionCap を上げる。
     public static let maxCooldownReduction: Double = 0.40
     /// エナジーのヒーローの汎用スキルのコスト倍率（master の cost は Mana 基準）。エナジーの上限を MLBB の 100 にした
