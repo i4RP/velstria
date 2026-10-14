@@ -2,7 +2,7 @@
 // `node tools/hero_stats_apply.mjs` が master_runtime.json の heroes の能力値の列を書き換える。
 //
 // 出典の優先順（ユーザー指示 2026-10-12・14）:
-//   1. 日本語クライアントの画面（基礎能力値のスクリーンショットはまだ無い。届いたら ref に足して置き換える）
+//   1. 日本語クライアントの画面（試合中のステータス画面の Lv1 / Lv15。届いたヒーローは jp に書く。2026-10-14: 10 体すべて）
 //   2. Liquipedia の infobox（Lv1 の値だけ。2026-10-14 取得。ティグリアルのスキルは日本語クライアントと完全に一致した）
 //   3. Fandom の Module:Hero/data（Lv1 と Lv15。2026-10-14 取得、版の日時 2026-10-01T16:35:15Z）
 // Lv1 は Liquipedia（無ければ Fandom）、レベル毎の成長は Fandom の (Lv15 − Lv1) / 14。両者の Lv1 が違う項目は
@@ -21,60 +21,90 @@ export const FETCHED = {
 export const MLBB_HEROES = [
   {
     id: "H025", mlbb: "Miya", resource: "Mana",
+    // 日本語クライアント: 試合中のステータス画面（2026-10-14 受領。装備なし・エンブレム込みの表示から基礎値の列だけ）
+    jp: { hp: [2320, 4420], atk: [115, 227], def: [17, 73], mdef: [15, 50], as: [1.06, 1.27], hpRegen: [6.0, 9.0],
+          mana: [500, 1900], manaRegen: [4.0, 6.8], ms: 250, range: 4.8 },
     lq: { hp: 2320, hpRegen: 6, atk: 115, def: 17, mdef: 15, as: 1.06, asRatio: 1, mana: 500, manaRegen: 4, ms: 250 },
     fd: { hp: [2225, 4367], hpRegen: [6.0, 9.0], atk: [115, 227], def: [17, 74], mdef: [15, 50], as: [1.06, 1.41],
           mana: [500, 1900], manaRegen: [4, 6.8], ms: 240, range: 4.8 },
   },
   {
     id: "H026", mlbb: "Eudora", resource: "Mana",
+    // 日本語クライアント: 試合中のステータス画面（2026-10-14 受領。緑の数字＝エンブレム・靴の分は除く）
+    jp: { hp: [2440, 4890], atk: [112, 193], def: [18, 74], mdef: [15, 50], as: [1.0, 1.14], hpRegen: [7.6, 12.0],
+          mana: [500, 1900], manaRegen: [4.0, 6.8], ms: 250, range: 4.7 },
     lq: { hp: 2440, hpRegen: 7.6, atk: 112, def: 18, mdef: 15, as: 1.0, asRatio: 1, mana: 500, manaRegen: 4, ms: 250 },
     fd: { hp: [2403, 4771], hpRegen: [7.6, 12.0], atk: [112, 193], def: [19, 77], mdef: [15, 50], as: [1.0, 1.14],
           mana: [500, 1900], manaRegen: [4, 6.8], ms: 250, range: 4.5 },
   },
   {
     id: "H027", mlbb: "Zilong", resource: "Mana",
+    // 日本語クライアント: 試合中のステータス画面（2026-10-14 受領。緑の数字＝エンブレム・靴の分は除く）
+    jp: { hp: [2511, 5549], atk: [123, 249], def: [25, 90], mdef: [15, 50], as: [1.05, 1.33], hpRegen: [7.0, 12.6],
+          mana: [500, 1900], manaRegen: [4.0, 6.8], ms: 265, range: 1.8 },
     lq: { hp: 2511, hpRegen: 7, atk: 123, def: 25, mdef: 15, as: 1.05, asRatio: 1, mana: 500, manaRegen: 4, ms: 265 },
     fd: { hp: [2511, 5549], hpRegen: [7.0, 12.6], atk: [123, 249], def: [25, 90], mdef: [15, 50], as: [1.05, 1.33],
           mana: [500, 1900], manaRegen: [4, 6.8], ms: 265, range: 1.8 /* 三連突きは 2.5（キット） */ },
   },
   {
     id: "H028", mlbb: "Saber", resource: "Mana",
+    // 日本語クライアント: 試合中のステータス画面（2026-10-14 受領。緑の数字＝エンブレム・靴の分は除く）
+    jp: { hp: [2500, 5230], atk: [118, 254], def: [20, 83], mdef: [15, 50], as: [1.08, 1.36], hpRegen: [7.0, 13.2],
+          mana: [500, 1900], manaRegen: [4.0, 6.8], ms: 260, range: 1.8 },
     lq: { hp: 2500, hpRegen: 7, atk: 118, def: 20, mdef: 15, as: 1.08, asRatio: 1, mana: 500, manaRegen: 4, ms: 260 },
     fd: { hp: [2440, 4960], hpRegen: [7, 13.2], atk: [118, 254], def: [20, 77], mdef: [15, 50], as: [1.08, 1.36],
           mana: [500, 1900], manaRegen: [4, 6.8], ms: 260, range: 1.8 },
   },
   {
     id: "H029", mlbb: "Tigreal", resource: "Mana",
+    // 日本語クライアント: 試合中のステータス画面（2026-10-14 受領。緑の数字＝エンブレムの分は除く）
+    jp: { hp: [2700, 6760], atk: [112, 207], def: [25, 123], mdef: [15, 71], as: [1.03, 1.31], hpRegen: [8.4, 16.8],
+          mana: [500, 1900], manaRegen: [4.0, 6.8], ms: 260, range: 1.8 },
     lq: { hp: 2581, hpRegen: 8.4, atk: 112, def: 20, mdef: 15, as: 1.03, asRatio: 1, mana: 500, manaRegen: 4, ms: 260 },
     fd: { hp: [2581, 6879], hpRegen: [8.4, 16.8], atk: [112, 207], def: [20, 95], mdef: [15, 71], as: [1.03, 1.31],
           mana: [500, 1900], manaRegen: [4, 6.8], ms: 260, range: 1.8 },
   },
   {
     id: "H030", mlbb: "Layla", resource: "Mana",
+    // 日本語クライアント: 試合中のステータス画面（2026-10-14 受領。緑の数字＝エンブレム・靴の分は除く）
+    jp: { hp: [2320, 4420], atk: [133, 259], def: [17, 73], mdef: [15, 50], as: [1.06, 1.34], hpRegen: [5.4, 8.2],
+          mana: [500, 1900], manaRegen: [4.0, 6.8], ms: 250, range: 4.3 },
     lq: { hp: 2320, hpRegen: 5.4, atk: 133, def: 17, mdef: 15, as: 1.06, asRatio: 1, mana: 500, manaRegen: 4, ms: 250 },
     fd: { hp: [2250, 4378], hpRegen: [5.4, 8.2], atk: [133, 252], def: [15, 71], mdef: [15, 50], as: [1.06, 1.34],
           mana: [500, 1900], manaRegen: [4, 6.8], ms: 240, range: 4.3 },
   },
   {
     id: "H031", mlbb: "Aurora", resource: "Mana",
+    // 日本語クライアント: 試合中のステータス画面（2026-10-14 受領。緑の数字＝エンブレムの分は除く）
+    jp: { hp: [2380, 4550], atk: [110, 225], def: [17, 73], mdef: [15, 50], as: [1.0, 1.21], hpRegen: [6.8, 11.0],
+          mana: [500, 1900], manaRegen: [4.0, 6.8], ms: 250, range: 4.7 },
     lq: { hp: 2380, hpRegen: 6.8, atk: 110, def: 17, mdef: 15, as: 1.0, asRatio: 1, mana: 500, manaRegen: 4, ms: 250 },
     fd: { hp: [2380, 4496], hpRegen: [6.8, 11.0], atk: [110, 225], def: [17, 73], mdef: [15, 50], as: [1.0, 1.21],
           mana: [500, 1900], manaRegen: [4, 6.8], ms: 250, range: 4.7 },
   },
   {
     id: "H032", mlbb: "Dyrroth", resource: "Rage",
+    // 日本語クライアント: 試合中のステータス画面（2026-10-14 受領。緑の数字＝エンブレムの分は除く。MP 0 = 怒り）
+    jp: { hp: [2580, 5800], atk: [117, 266], def: [22, 87], mdef: [15, 50], as: [1.14, 1.56], hpRegen: [8.2, 15.0],
+          ms: 265, range: 1.7 },
     lq: { hp: 2580, hpRegen: 8.2, atk: 117, def: 22, mdef: 15, as: 1.14, asRatio: 1, mana: 0, manaRegen: 0, ms: 265 },
     fd: { hp: [2758, 5768], hpRegen: [8.2, 15.0], atk: [117, 266], def: [22, 75], mdef: [15, 38], as: [1.14, 1.56],
           mana: [0, 0], manaRegen: [0, 0], ms: 265, range: 1.7 /* 円撃は 2.0（キット） */ },
   },
   {
     id: "H033", mlbb: "Alucard", resource: "None",
+    // 日本語クライアント: 試合中のステータス画面（2026-10-14 受領。緑の数字＝エンブレム・靴の分は除く。MP 0 = リソースなし）
+    jp: { hp: [2443, 5593], atk: [123, 244], def: [21, 85], mdef: [15, 50], as: [1.12, 1.54], hpRegen: [7.8, 14.0],
+          ms: 260, range: 1.8 },
     lq: { hp: 2443, hpRegen: 7.8, atk: 123, def: 21, mdef: 15, as: 1.12, asRatio: 1, mana: 0, manaRegen: 0, ms: 260 },
     fd: { hp: [2443, 5593], hpRegen: [7.8, 14.0], atk: [123, 244], def: [21, 86], mdef: [15, 50], as: [1.13, 1.54],
           mana: [0, 0], manaRegen: [0, 0], ms: 260, range: 1.8 },
   },
   {
     id: "H034", mlbb: "Franco", resource: "Mana",
+    // 日本語クライアント: 試合中のステータス画面（2026-10-14 受領。緑の数字＝エンブレム・靴の分は除く）
+    jp: { hp: [2600, 6520], atk: [116, 217], def: [25, 130], mdef: [15, 71], as: [1.03, 1.24], hpRegen: [9.2, 18.6],
+          mana: [500, 1900], manaRegen: [4.0, 6.8], ms: 260, range: 1.8 },
     lq: { hp: 2600, hpRegen: 9.2, atk: 116, def: 25, mdef: 15, as: 1.03, asRatio: 1, mana: 500, manaRegen: 4, ms: 260 },
     fd: { hp: [2600, 6534], hpRegen: [9.2, 18.6], atk: [116, 217], def: [25, 93], mdef: [15, 50], as: [1.03, 1.24],
           mana: [500, 1900], manaRegen: [4, 6.8], ms: 260, range: 1.8 },
@@ -138,11 +168,15 @@ export const ENERGY = { max: 100, growth: 0, regen: 2.4, regenGrowth: 0 };
 
 const round = (v, d) => { const k = 10 ** d; return Math.round(v * k) / k; };
 const growth = ([lv1, lv15]) => (lv15 - lv1) / 14;
+/** 成長の元: 日本語クライアントの [Lv1, Lv15] があればそれ、無ければ Fandom。 */
+const series = (h, key) => (h.jp && Array.isArray(h.jp[key]) ? h.jp[key] : h.fd[key]);
 
 /** MLBB の 1 体（MLBB_HEROES の要素）から master の能力値の列を作る。Lv1 は Liquipedia（無ければ Fandom）、成長は
  *  Fandom の (Lv15 − Lv1) / 14。Lv1 が食い違う項目は onConflict({ id, mlbb, label, lq, fd }) に渡す。 */
 export function mlbbStatColumns(h, onConflict = () => {}) {
   const pick = (key, label) => {
+    // 日本語クライアントの値があれば最優先（食い違いの判定もしない）
+    if (h.jp && h.jp[key] !== undefined) return Array.isArray(h.jp[key]) ? h.jp[key][0] : h.jp[key];
     const lq = h.lq[key];
     const fd = Array.isArray(h.fd[key]) ? h.fd[key][0] : h.fd[key];
     if (lq !== undefined && fd !== undefined && lq !== fd) onConflict({ id: h.id, mlbb: h.mlbb, label, lq, fd });
@@ -150,16 +184,16 @@ export function mlbbStatColumns(h, onConflict = () => {}) {
   };
   const res = h.resource === "Mana" ? MANA : h.resource === "Energy" ? ENERGY : null;
   return {
-    base_hp: pick("hp", "HP"), hp_growth: round(growth(h.fd.hp), 4),
-    base_attack: pick("atk", "物理攻撃"), attack_growth: round(growth(h.fd.atk), 4),
-    base_defense: pick("def", "物理防御"), defense_growth: round(growth(h.fd.def), 4),
-    base_magic_defense: pick("mdef", "魔法防御"), magic_defense_growth: round(growth(h.fd.mdef), 4),
+    base_hp: pick("hp", "HP"), hp_growth: round(growth(series(h, "hp")), 4),
+    base_attack: pick("atk", "物理攻撃"), attack_growth: round(growth(series(h, "atk")), 4),
+    base_defense: pick("def", "物理防御"), defense_growth: round(growth(series(h, "def")), 4),
+    base_magic_defense: pick("mdef", "魔法防御"), magic_defense_growth: round(growth(series(h, "mdef")), 4),
     move_speed: pick("ms", "移動速度"),
-    attack_range: round(h.fd.range * 100, 0),
-    attack_speed: pick("as", "攻撃速度"), attack_speed_growth: round(growth(h.fd.as), 5), attack_speed_ratio: h.lq.asRatio,
-    hp_regen: pick("hpRegen", "HP 回復"), hp_regen_growth: round(growth(h.fd.hpRegen), 4),
+    attack_range: round((h.jp?.range ?? h.fd.range) * 100, 0),
+    attack_speed: pick("as", "攻撃速度"), attack_speed_growth: round(growth(series(h, "as")), 5), attack_speed_ratio: h.lq.asRatio,
+    hp_regen: pick("hpRegen", "HP 回復"), hp_regen_growth: round(growth(series(h, "hpRegen")), 4),
     resource: h.resource,
-    resource_max: res ? pick("mana", "マナ") : 0, resource_growth: res ? round(growth(h.fd.mana), 4) : 0,
-    resource_regen: res ? pick("manaRegen", "マナ回復") : 0, resource_regen_growth: res ? round(growth(h.fd.manaRegen), 4) : 0,
+    resource_max: res ? pick("mana", "マナ") : 0, resource_growth: res ? round(growth(series(h, "mana")), 4) : 0,
+    resource_regen: res ? pick("manaRegen", "マナ回復") : 0, resource_regen_growth: res ? round(growth(series(h, "manaRegen")), 4) : 0,
   };
 }

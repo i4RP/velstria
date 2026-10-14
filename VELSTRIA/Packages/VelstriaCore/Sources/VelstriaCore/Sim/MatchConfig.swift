@@ -79,7 +79,8 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     /// 20: 能力値と戦闘の式を MLBB に合わせた（防御 120/(120+防御)・下限 −60、クリティカル 200%、攻撃速度 = 基礎 + 追加 × 比率・
     ///     上限 3、移動速度の加算式・減速の合計 90%、強靭の掛け算、被ダメ軽減の上限撤廃、シールドの消費順など）。全ヒーローの能力値を
     ///     MLBB の値（H025〜H034）とロール中央値（H001〜H024）へ。docs/HERO_STATS.md。
-    public static let currentSimVersion = 20
+    /// 21: H025〜H034 の 10 体の能力値を日本語クライアントの試合中のステータス画面（Lv1 / Lv15）の値に（Fandom の成長は古かった）。
+    public static let currentSimVersion = 21
 
     public var simVersion: Int
     public var mode: MatchMode
