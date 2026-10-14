@@ -268,7 +268,10 @@ final class JungleTests: XCTestCase {
         let inRiver = f.s.units[a].stats.moveSpeed
         f.place(a, at: Vec2(3000, 3000))
         StatCalculator.recompute(&f.s, a, f.ctx)
-        XCTAssertEqual(inRiver / f.s.units[a].stats.moveSpeed, 1 + Balance.Jungle.mossGrassRiverSpeed, accuracy: 1e-9)
+        // MLBB の移動速度は 基礎 × (100% + 全加速%)。苔の草の +15% は他の加速（エンブレムの移動速度など）と足し算なので、
+        // 比ではなく差（基礎の 15% × マップの縮尺）で確かめる（420 を超えないので逓減はかからない）
+        XCTAssertEqual(inRiver - f.s.units[a].stats.moveSpeed,
+                       f.s.units[a].baseStats.moveSpeed * Balance.Jungle.mossGrassRiverSpeed * Balance.mapScale, accuracy: 1e-6)
         // 近くの味方の Mana を毎秒 1%
         f.place(a, at: river)
         f.s.units[b].resource = 0

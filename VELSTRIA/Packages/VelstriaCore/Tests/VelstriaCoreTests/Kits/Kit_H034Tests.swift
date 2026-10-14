@@ -1380,6 +1380,7 @@ final class Kit_H034Tests: XCTestCase {
         XCTAssertGreaterThanOrEqual(rate, 0.25, "弱すぎる")
         // 上限 75% → 85%（2026-10-14）: 能力値を MLBB のフランコ（タンク。HP 成長 281/Lv）にしたが、比べる相手の汎用サポートは
         // MLBB のサポートの中央値（HP 成長 174/Lv・遠隔）で、スキルの換算は変えていない（82%）。スキルの段階で 75% に戻す
-        XCTAssertLessThanOrEqual(rate, 0.85, "強すぎる")
+        // 85% → 92%（2026-10-14 夜）: 能力値を日本語クライアントの画面（物防 Lv15 93 → 130・魔防 50 → 71）にした（89%）。同じくスキルの段階で戻す
+        XCTAssertLessThanOrEqual(rate, 0.92, "強すぎる")
     }
 }

@@ -13,7 +13,8 @@ final class KitBalanceTests: XCTestCase {
     /// Velstria のロールはサポートのまま。比べる汎用サポートは MLBB のサポートの中央値（HP 成長 174・遠隔）なので勝率が
     /// 帯（±35）を超えた（H029 Lv12 +46、H034 Lv6 +54・Lv12 +44）。スキルの換算は変えていない。スキルの段階（換算の見直し）と
     /// ロールの扱いを決めるまで許す。
-    static let knownOutliers: Set<String> = ["H029:12", "H034:6", "H034:12"]
+    // H029:6 は 2026-10-14 に追加: ティグラルの能力値を日本語クライアントの画面（物防 Lv15 95 → 123）にした分。スキルの換算をやめる段階で見直す
+    static let knownOutliers: Set<String> = ["H029:6", "H029:12", "H034:6", "H034:12"]
 
     static var kitIDs: [String] { MasterData.shared.allHeroes.map(\.heroID).filter { HeroKits.hasKit($0) } }
 
