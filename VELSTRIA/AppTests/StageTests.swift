@@ -78,7 +78,7 @@ final class StageTests: XCTestCase {
 
     func testShaderLibraryHasStageFunctions() throws {
         let lib = try XCTUnwrap(StageScene.shaderLibrary(try assets().shaderURL))
-        for name in ["stageGroundSurface", "stageRockSurface", "stagePropSurface", "stageVertexColorSurface", "stageWindGeometry"] {
+        for name in ["stageGroundSurface", "stageRockSurface", "stagePropSurface", "stageVertexColorSurface", "stageWindGeometry", "stageBrushSurface"] {
             XCTAssertTrue(lib.functionNames.contains(name), name)
         }
     }
@@ -252,6 +252,38 @@ final class StageTests: XCTestCase {
                 XCTAssertLessThan(brush, 90_000, "\(set) \(q)")
             }
         }
+    }
+
+    func testBrushLODAndExport() throws {
+        let l = try layout()
+        XCTAssertEqual(l.brushCards.count, l.brushes.count)
+        for i in l.brushes.indices {
+            let near = l.brushes[i], far = l.brushCards[i]
+            XCTAssertLessThan(far.triangleCount, near.triangleCount)
+            XCTAssertEqual(near.boundsMax.y, far.boundsMax.y, accuracy: 0.001)
+            XCTAssertTrue(near.colors.contains { $0.w == 0 })
+            XCTAssertTrue(near.colors.contains { $0.w == 255 })
+        }
+        let texture = try XCTUnwrap(StageAssets.image(.main, "StageBrushAtlas", "png"))
+        XCTAssertEqual(texture.width, 1024)
+        XCTAssertEqual(texture.height, 512)
+        // Review assets are exported from the actual runtime buffers, not a separate model.
+        let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("BrushReview")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        for (name, mesh) in [("brush_near", l.brushes[6]), ("brush_far", l.brushCards[6])] {
+            var obj = "mtllib brush.mtl\nusemtl foliage\n"
+            for p in mesh.positions { obj += "v \(p.x) \(p.y) \(p.z)\n" }
+            for uv in mesh.uvs { obj += "vt \(uv.x) \(uv.y)\n" }
+            for n in mesh.normals { obj += "vn \(n.x) \(n.y) \(n.z)\n" }
+            for k in stride(from: 0, to: mesh.indices.count, by: 3) {
+                obj += "f " + mesh.indices[k..<k+3].map { "\($0+1)/\($0+1)/\($0+1)" }.joined(separator: " ") + "\n"
+            }
+            try obj.write(to: directory.appendingPathComponent(name + ".obj"), atomically: true, encoding: .utf8)
+        }
+        let counts = "areas=\(l.brushes.count) near=\(l.brushes.reduce(0) { $0 + $1.triangleCount }) far=\(l.brushCards.reduce(0) { $0 + $1.triangleCount }) sampleNear=\(l.brushes[6].triangleCount) sampleFar=\(l.brushCards[6].triangleCount)"
+        try counts.write(to: directory.appendingPathComponent("counts.txt"), atomically: true, encoding: .utf8)
+        print("BRUSH REVIEW \(directory.path): \(counts)")
     }
 
     // MARK: シーン

@@ -346,6 +346,26 @@ inline float caustics(float2 m, float t) {
     params.surface().set_specular(0.3h);
 }
 
+// Cutout keeps depth writes and avoids sorting dozens of overlapping transparent cards.
+// Fractional edge coverage uses a stable screen-door mask; rim emission models transmitted light.
+[[visible]] void stageBrushSurface(realitykit::surface_parameters params) {
+    float2 uv = params.geometry().uv0();
+    uv.y = 1.0 - uv.y;
+    half4 leaf = params.textures().base_color().sample(stage::atlasSampler, uv);
+    float2 pixel = floor(params.geometry().screen_position().xy);
+    float threshold = 0.18 + 0.58 * stage::hash12(pixel);
+    if (float(leaf.a) < threshold) { discard_fragment(); }
+    half3 tint = half3(params.geometry().color().rgb) * 2.0h;
+    half tip = half(1.0 - uv.y);
+    half rim = (1.0h - leaf.a) * tip;
+    params.surface().set_base_color(leaf.rgb * tint);
+    params.surface().set_emissive_color(leaf.rgb * (0.10h + rim * 0.35h));
+    params.surface().set_roughness(0.88h);
+    params.surface().set_specular(0.18h);
+    params.surface().set_metallic(0.0h);
+    params.surface().set_ambient_occlusion(0.72h + tip * 0.28h);
+}
+
 // MARK: - 風の揺れ（頂点色の a = 揺れの重み。0 の頂点は動かない）
 // custom_parameter: x = 揺れの強さ（low 0）、y = 新セット（1）/ 旧セット（0）
 

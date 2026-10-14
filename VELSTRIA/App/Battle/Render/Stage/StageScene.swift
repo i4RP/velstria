@@ -18,12 +18,16 @@ final class StageScene {
     let artSet: StageArtSet
     /// 泉の台座の柱の頂部（world、Team.players の順）。台座の無いセットでは空（MapScene が旧来の泉を作る）。
     let fountainSockets: [[SIMD3<Float>]]
+    private var brushLODs: [(near: MeshResource, far: MeshResource)] = []
+    private var brushIsFar: [Bool] = []
+    private var lodElapsed: Float = 0
 
     struct Materials {
         var ground: CustomMaterial
         var rock: CustomMaterial
         var prop: CustomMaterial
         var flora: CustomMaterial
+        var brush: CustomMaterial
         var rune: PhysicallyBasedMaterial
     }
 
@@ -51,8 +55,19 @@ final class StageScene {
             add(chunks.flora[key], name: "stageFlora_\(key)", material: materials.flora, castsShadow: false)
         }
         for (i, buf) in plan.layout.brushes.enumerated() {
-            // 添字を MapDefinition.brushes と一致させるため、メッシュが作れなくても空のエンティティを置く
-            let e = buf.makeMesh().map { ModelEntity(mesh: $0, materials: [materials.flora]) } ?? ModelEntity()
+            // 両LODをロード中に準備。失敗時はステージ全体を既存の手続き地形へ戻す。
+            guard let near = buf.makeMesh(), let far = plan.layout.brushCards[i].makeMesh() else { return nil }
+            AssetLedger.record(.mesh, "brush near")
+            AssetLedger.record(.mesh, "brush far")
+            AssetLedger.record(.entity, "brush")
+            var brushMaterial = materials.brush
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-brushLegacy") { brushMaterial = materials.flora }
+            #endif
+            let e = ModelEntity(mesh: near, materials: [brushMaterial])
+            e.components.set(DynamicLightShadowComponent(castsShadow: false))
+            brushLODs.append((near, far))
+            brushIsFar.append(false)
             e.name = "brush_\(i)"
             e.position = plan.layout.brushCenters[i]
             triangleCount += buf.triangleCount
@@ -61,6 +76,24 @@ final class StageScene {
         }
         if let disc = add(plan.layout.runeDiscs, name: "stageRunes", material: materials.rune, castsShadow: false) {
             disc.name = "stageRunes"
+        }
+    }
+
+    /// Distance from camera to nearest brush edge, with hysteresis. Only swaps cached meshes.
+    func updateBrushLOD(camera: SIMD3<Float>, dt: Float) {
+        lodElapsed += dt
+        guard lodElapsed >= 0.2 else { return }
+        lodElapsed = 0
+        for i in brushEntities.indices {
+            let e = brushEntities[i]
+            let bounds = brushLODs[i].near.bounds
+            let lo = e.position + bounds.min, hi = e.position + bounds.max
+            let nearest = simd_min(simd_max(camera, lo), hi)
+            let distance = simd_distance(camera, nearest)
+            let far = distance > (brushIsFar[i] ? 29 : 34)
+            guard far != brushIsFar[i] else { continue }
+            e.model?.mesh = far ? brushLODs[i].far : brushLODs[i].near
+            brushIsFar[i] = far
         }
     }
 
@@ -145,12 +178,22 @@ final class StageScene {
                                            geometryModifier: windModifier, lightingModel: .lit)
             flora.custom.value = SIMD4(wind, ruins, 0, 0)
 
+            guard let brushImage = StageAssets.image(.main, "StageBrushAtlas", "png"),
+                  let brushTexture = color(brushImage) else { return nil }
+            AssetLedger.record(.texture, "brush atlas 1024x512")
+            AssetLedger.record(.material, "brush foliage")
+            var brush = try CustomMaterial(surfaceShader: .init(named: "stageBrushSurface", in: lib),
+                                           geometryModifier: windModifier, lightingModel: .lit)
+            brush.baseColor = .init(texture: .init(brushTexture))
+            brush.faceCulling = .none
+            brush.custom.value = SIMD4(level == .low ? 0.5 : 1, 0, 0, 0)
+
             var runeMat = PhysicallyBasedMaterial()
             runeMat.baseColor = .init(tint: .white, texture: .init(rune))
             runeMat.roughness = .init(floatLiteral: 0.9)
             runeMat.metallic = .init(floatLiteral: 0)
             runeMat.specular = .init(floatLiteral: 0.2)
-            return Materials(ground: ground, rock: rock, prop: prop, flora: flora, rune: runeMat)
+            return Materials(ground: ground, rock: rock, prop: prop, flora: flora, brush: brush, rune: runeMat)
         } catch {
             return nil
         }

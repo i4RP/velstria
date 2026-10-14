@@ -215,7 +215,7 @@ final class BattleWorld {
             shakeRequest = 0
         }
         t = probe.start()
-        workStats.measure(.map, live: live) { map.update(dt: dt) }
+        workStats.measure(.map, live: live) { map.update(dt: dt, camera: frame.camera) }
         probe.stop(.map, t)
         t = probe.start()
         workStats.measure(.units, live: live) { units.sync(frame) }
