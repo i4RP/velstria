@@ -29,6 +29,8 @@
   "BS14.desc": "Long-range bolt deals 200–680 + 50–170% magic power with distance. Knock back nearby enemies on cast.",
   "BS15": "Vengeance",
   "BS15.desc": "For 3s reduce incoming damage by 35% and reflect 40% as magic damage.",
+  "BS16": "Revitalize",
+  "BS16.desc": "For 4s heal allies in the pool for 2.5% max HP every 0.4s; +25% healing and shields. Pools do not stack.",
   "CO001": "Starforged Alden",
   "CO002": "Starstring Recall I",
   "CO003": "Moonbow Arrival I",
@@ -741,6 +743,7 @@
   "H034.lore": "In a Velsia left shattered by the fall of the Star Ring, Gorm, Chainhook, joins the battle for the lost shards of the Star Core.",
   "H034.strengths": "Excels at starting teamfights and fulfilling a team role",
   "H034.weaknesses": "Vulnerable to sustained long-range pressure",
+  "Recall.desc": "Channel to return to your fountain. Movement or damage interrupts.",
   "SK001_1": "Unbreakable Oath",
   "SK001_1.desc": "When HP falls below 40%, Alden gains a shield equal to 15.3% of max HP (20s cooldown).",
   "SK001_2": "Alden Style: Flashstrike",
@@ -1166,8 +1169,5 @@
   "SKU151": "Chainhook Takedown I",
   "SKU152": "Chainhook Takedown II",
   "SKU153": "Chainhook Takedown III",
-  "SKU154": "Unlock Gorm, Chainhook",
-  "BS16": "Revitalize",
-  "BS16.desc": "For 4s heal allies in the pool for 2.5% max HP every 0.4s; +25% healing and shields. Pools do not stack.",
-  "Recall.desc": "Channel to return to your fountain. Movement or damage interrupts."
+  "SKU154": "Unlock Gorm, Chainhook"
 }
