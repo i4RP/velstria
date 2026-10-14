@@ -104,13 +104,13 @@ final class EconomyObjectiveTests: XCTestCase {
         f.s.units[a].hero!.itemInvested = [250]
         f.s.units[a].hero!.gear = GearState(option: .flame)
         StatCalculator.recompute(&f.s, a, f.ctx)
-        XCTAssertEqual(f.s.units[a].stats.monsterGoldBonus, 0.2, accuracy: 1e-9)
+        XCTAssertEqual(f.s.units[a].stats.monsterGoldBonus, 0, accuracy: 1e-9)
         let gold = f.hero(a).gold
         f.kill(f.addMonster(.campLarge, at: spot), by: f.id(a))
-        XCTAssertEqual(f.hero(a).gold - gold, 48)
+        XCTAssertEqual(f.hero(a).gold - gold, 64)
         f.kill(f.addMonster(.campSmall, at: spot), by: f.id(a))
-        XCTAssertEqual(f.hero(a).gold - gold, 48 + 18)
-        XCTAssertEqual(f.hero(a).xp, 80, accuracy: 1e-9)
+        XCTAssertEqual(f.hero(a).gold - gold, 64 + 24)
+        XCTAssertEqual(f.hero(a).xp, 128, accuracy: 1e-9)
     }
 
     func testWyrmRewardsWholeTeam() {
@@ -183,7 +183,7 @@ final class EconomyObjectiveTests: XCTestCase {
         f.place(b, at: spot)
         f.kill(f.addMonster(.campLarge, at: spot), by: f.id(a))
         XCTAssertEqual(f.hero(a).xp, 50 * 1.3 / 2, accuracy: 1e-9)
-        XCTAssertEqual(f.hero(b).xp, 50 * 1.3 / 2, accuracy: 1e-9)
+        XCTAssertEqual(f.hero(b).xp, 50 * 1.3 / 2 * 1.6, accuracy: 1e-9)
         XCTAssertEqual(f.hero(a).score.monsterKills, 1)
     }
 }

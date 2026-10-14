@@ -706,7 +706,12 @@ enum SpellLoadoutRules {
     static let fixedSpellID = "BS03"
 
     /// 選べる枠に入れられるスペルか（固定スペル以外）。
-    static func isSelectable(_ spellID: String) -> Bool { spellID != fixedSpellID }
+    static func isSelectable(_ spellID: String) -> Bool {
+        BattleSpell.selectable.contains { $0.rawValue == spellID }
+    }
+    static func isUnlocked(_ spellID: String, level: Int) -> Bool {
+        BattleSpell(rawValue: spellID)?.isUnlocked(accountLevel: level) == true
+    }
 
     /// 選べる枠に spellID を入れる。固定枠・固定スペルは変更しない。
     static func assigning(_ spellID: String, slot: Int, in current: [String]) -> [String] {
@@ -724,8 +729,8 @@ enum SpellLoadoutRules {
 
     /// ヒーローの実効スペル（上書きが無ければ既定）。
     static func effective(heroID: String?, profile: Profile) -> [String] {
-        if let heroID, let override = profile.heroSpells[heroID] { return normalized(override) }
-        return normalized(profile.defaultSpells)
+        let selected = normalized(heroID.flatMap { profile.heroSpells[$0] } ?? profile.defaultSpells)
+        return isUnlocked(selected[0], level: profile.accountLevel) ? selected : ["BS01", fixedSpellID]
     }
 }
 

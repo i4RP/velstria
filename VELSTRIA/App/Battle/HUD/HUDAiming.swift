@@ -170,7 +170,7 @@ enum HUDSpellAim {
     static func teleportDestination(state s: SimState, team: Team, origin: Vec2, drag: CGVector,
                                     fountain: Vec2) -> Vec2 {
         var towers: [Vec2] = []
-        for u in s.units where u.kind == .tower && u.team == team && u.isAlive { towers.append(u.pos) }
+        for u in s.units where (u.kind == .tower || u.kind == .minion) && u.team == team && u.isAlive { towers.append(u.pos) }
         guard !towers.isEmpty else { return fountain }
         let len = (drag.dx * drag.dx + drag.dy * drag.dy).squareRoot()
         if len < HUDAim.tapThreshold {

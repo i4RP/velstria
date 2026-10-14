@@ -177,6 +177,7 @@ struct LoadoutPanel<Footer: View>: View {
                     heroHeader
                     if model.heroID != nil {
                         positionSection
+                        buildSection
                         spellSection
                         emblemSection
                         skinSection
@@ -253,57 +254,40 @@ struct LoadoutPanel<Footer: View>: View {
         }
     }
 
-    private var spellSection: some View {
+    private var buildSection: some View {
         VStack(alignment: .leading, spacing: 5) {
-            FlowSectionTitle(title: L("バトルスペル", "Battle Spells"), symbol: "wand.and.stars")
-            HStack(spacing: 6) {
-                ForEach(0..<2, id: \.self) { slot in
-                    let id = model.spells.indices.contains(slot) ? model.spells[slot] : "BS01"
-                    let locked = slot == SpellLoadoutRules.fixedSlot
-                    Button {
-                        FlowFX.tap(app)
-                        model.spellPickerSlot = slot
-                    } label: {
-                        HStack(spacing: 6) {
-                            SpellIconView(spellID: id, size: 32)
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(FlowText.spellName(id)).font(Theme.heading(12)).foregroundStyle(Theme.textPrimary).lineLimit(1)
-                                Text(locked ? L("固定", "Fixed") : L("変更", "Change"))
-                                    .font(Theme.body(9))
-                                    .foregroundStyle(locked ? Theme.textSecondary : Theme.cyan)
-                            }
-                            Spacer(minLength: 0)
-                            if locked {
-                                Image(systemName: "lock.fill").font(.system(size: 10)).foregroundStyle(Theme.textSecondary)
-                            }
-                        }
-                        .padding(.horizontal, 6)
-                        .frame(maxWidth: .infinity, minHeight: 46)
-                        .glass(cornerRadius: 10)
-                        .contentShape(Rectangle())
+            FlowSectionTitle(title: L("ビルド", "Build"), symbol: "shield.fill")
+            if let heroID = model.heroID {
+                HStack(spacing: 3) {
+                    ForEach(Array(BuildRules.current(for: heroID, profile: app.profile, master: app.master).enumerated()), id: \.offset) { _, id in
+                        if let item = app.master.item(id) { ItemIconView(item: item, size: 32) }
                     }
-                    .buttonStyle(.plain)
-                    .disabled(locked)
-                    .accessibilityLabel(locked
-                        ? L("スペル \(slot + 1): \(FlowText.spellName(id))、固定", "Spell \(slot + 1): \(FlowText.spellName(id)), fixed")
-                        : L("スペル \(slot + 1): \(FlowText.spellName(id))、変更", "Spell \(slot + 1): \(FlowText.spellName(id)), change"))
-                    .accessibilityIdentifier("flow_spell_\(slot)")
                 }
+                Button { app.router.push(.buildEditor(heroID)) } label: {
+                    Label(L("変更", "Change"), systemImage: "arrow.triangle.2.circlepath")
+                        .font(Theme.body(11)).foregroundStyle(Theme.cyan)
+                }.buttonStyle(.plain).frame(minHeight: 30)
             }
-            if model.position == .jungle && !model.spells.contains("BS05") {
-                Button {
-                    FlowFX.tap(app)
-                    model.setSpell("BS05", slot: SpellLoadoutRules.selectableSlot)
-                } label: {
-                    Label(L("ジャングルには「狩猟印」が必要です（タップでセット）", "Jungle needs Hunter's Mark (tap to equip)"), systemImage: "exclamationmark.triangle.fill")
-                        .font(Theme.body(11))
-                        .foregroundStyle(Color(red: 1.0, green: 0.7, blue: 0.3))
-                        .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
-                        .contentShape(Rectangle())
+        }
+    }
+
+    private var spellSection: some View {
+        let id = model.spells.first ?? "BS01"
+        return VStack(alignment: .leading, spacing: 6) {
+            FlowSectionTitle(title: L("バトルスキル", "Battle Skill"), symbol: "wand.and.stars")
+            HStack(spacing: 12) {
+                SpellIconView(spellID: id, size: 48)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(FlowText.spellName(id)).font(Theme.heading(13)).foregroundStyle(Theme.textPrimary)
+                    Text(L("追加スキル · 1枠", "One extra skill")).font(Theme.body(10)).foregroundStyle(Theme.textSecondary)
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("flow_spell_jungle_fix")
-            }
+            }.frame(maxWidth: .infinity, alignment: .center)
+            Button { FlowFX.tap(app); model.spellPickerSlot = SpellLoadoutRules.selectableSlot } label: {
+                Label(L("変更", "Change"), systemImage: "arrow.triangle.2.circlepath")
+                    .font(Theme.body(11)).foregroundStyle(Theme.cyan)
+            }.buttonStyle(.plain).frame(minHeight: 30).accessibilityIdentifier("flow_spell_0")
+            Text(L("リコール・回復は常時使用可能", "Recall and Recovery always available"))
+                .font(Theme.body(9)).foregroundStyle(Theme.textSecondary)
         }
     }
 
@@ -383,25 +367,20 @@ struct SpellPickerOverlay: View {
                 .ignoresSafeArea()
                 .onTapGesture { model.spellPickerSlot = nil }
                 .accessibilityHidden(true)
-            VStack(spacing: 8) {
+            VStack(spacing: 12) {
                 HStack {
-                    Text(L("バトルスペルを選択", "Choose Battle Spell"))
-                        .font(Theme.heading(17))
-                        .foregroundStyle(Theme.textPrimary)
+                    Text(L("バトルスキル", "Battle Skills")).font(Theme.heading(21)).foregroundStyle(Theme.textPrimary)
                     Spacer()
                     FlowCloseButton(identifier: "flow_spell_close") { model.spellPickerSlot = nil }
                 }
-                ScrollView {
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-                        ForEach(app.master.spells.filter { SpellLoadoutRules.isSelectable($0.spellID) }) { s in
-                            spellCard(s)
-                        }
-                    }
-                    .padding(.bottom, 6)
+                BattleSkillPicker(current: model.spells[0]) { id in
+                    model.setSpell(id, slot: SpellLoadoutRules.selectableSlot)
+                    if let heroID = model.heroID { app.profile.heroSpells[heroID] = model.spells }
+                    model.spellPickerSlot = nil
                 }
             }
             .padding(14)
-            .frame(maxWidth: 680)
+            .frame(maxWidth: 900, maxHeight: 440)
             .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Theme.panel))
             .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Theme.panelStroke))
             .padding(.vertical, 12)
@@ -409,38 +388,4 @@ struct SpellPickerOverlay: View {
         }
     }
 
-    private func spellCard(_ s: SpellDef) -> some View {
-        let current = model.spells.indices.contains(slot) && model.spells[slot] == s.spellID
-        return Button {
-            FlowFX.tap(app)
-            model.setSpell(s.spellID, slot: slot)
-            model.spellPickerSlot = nil
-        } label: {
-            HStack(alignment: .top, spacing: 10) {
-                SpellIconView(spellID: s.spellID, size: 38)
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text(MasterText.spell(s)).font(Theme.heading(14)).foregroundStyle(Theme.textPrimary)
-                        Text("CD \(Int(s.cooldownSec))s").font(Theme.mono(10)).foregroundStyle(Theme.textSecondary)
-                        Spacer(minLength: 0)
-                        if current {
-                            Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.gold)
-                        }
-                    }
-                    Text(FlowText.spellDescription(s.spellID))
-                        .font(Theme.body(11))
-                        .foregroundStyle(Theme.textSecondary)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .padding(10)
-            .frame(maxWidth: .infinity, minHeight: 60, alignment: .topLeading)
-            .glass(cornerRadius: 12, tint: current ? Theme.gold : Theme.panelStroke, highlighted: current)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("flow_spellpick_\(s.spellID)")
-        .accessibilityAddTraits(current ? .isSelected : [])
-    }
 }

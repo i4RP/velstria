@@ -13,7 +13,7 @@ enum HeroDetailTab: String, CaseIterable, Identifiable {
         case .stats: return L("能力値", "Stats")
         case .skills: return L("スキル", "Skills")
         case .skins: return L("スキン", "Skins")
-        case .build: return L("ビルド", "Build")
+        case .build: return L("戦闘準備", "Preparation")
         }
     }
 
@@ -34,6 +34,7 @@ struct HeroDetailView: View {
     // 出荷ビルドでは DebugLaunch.args が空なので常に .overview。-heroTab <skills 等> はストア用スクリーンショットの撮影用。
     @State private var tab: HeroDetailTab = DebugLaunch.value(after: "-heroTab").flatMap(HeroDetailTab.init(rawValue:)) ?? .overview
     @State private var pendingSKU: String?
+    @State private var showsBattleSkills = false
     /// スキルタブで開いているスキル（nil = スキル 1）。
     @State private var selectedSkillID: String?
 
@@ -83,6 +84,19 @@ struct HeroDetailView: View {
                 .padding(.bottom, 6)
             }
             .storePurchaseFlow(sku: $pendingSKU)
+            .sheet(isPresented: $showsBattleSkills) {
+                VStack(spacing: 10) {
+                    HStack {
+                        Text(L("バトルスキル", "Battle Skills")).font(Theme.heading(20))
+                        Spacer()
+                        Button(L("閉じる", "Close")) { showsBattleSkills = false }
+                    }
+                    BattleSkillPicker(current: SpellLoadoutRules.effective(heroID: heroID, profile: app.profile)[0]) { id in
+                        app.profile.heroSpells[heroID] = [id, SpellLoadoutRules.fixedSpellID]
+                        showsBattleSkills = false
+                    }
+                }.padding(16).background(Theme.panel).foregroundStyle(Theme.textPrimary)
+            }
         } else {
             ScreenScaffold(title: L("ヒーロー詳細", "Hero Details")) {
                 CollectionEmptyState(symbol: "questionmark.circle", title: L("ヒーローが見つかりません", "Hero not found"))
@@ -126,7 +140,7 @@ struct HeroDetailView: View {
         case .stats: HeroStatsSection(hero: hero)
         case .skills: EmptyView()   // スキルは右パネル（SkillShowcasePanel）に出す
         case .skins: HeroSkinsSection(hero: hero)
-        case .build: HeroBuildSection(hero: hero)
+        case .build: HeroBuildSection(hero: hero, onChangeBattleSkill: { showsBattleSkills = true })
         }
     }
 }
@@ -347,50 +361,55 @@ private struct HeroSkinsSection: View {
 
 private struct HeroBuildSection: View {
     let hero: HeroDef
+    var onChangeBattleSkill: () -> Void
     @Environment(AppModel.self) private var app
 
     var body: some View {
+        let build = BuildRules.current(for: hero.heroID, profile: app.profile, master: app.master)
+        let skill = SpellLoadoutRules.effective(heroID: hero.heroID, profile: app.profile)[0]
         VStack(alignment: .leading, spacing: 10) {
-            buildPanel
-            // バトルプラン（MLBB の元ヒーロー H025〜H034 だけ。3 つから「使う」を選ぶ）
+            Panel(padding: 12) {
+                HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(L("ビルド", "Build")).font(Theme.heading(14))
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 4) {
+                            ForEach(Array(build.enumerated()), id: \.offset) { _, id in
+                                if let item = app.master.item(id) { ItemIconView(item: item, size: 30) }
+                            }
+                        }.frame(height: 52)
+                    }.scrollIndicators(.hidden)
+                    Button { app.router.push(.buildEditor(hero.heroID)) } label: {
+                        Label(L("変更", "Change"), systemImage: "arrow.triangle.2.circlepath")
+                    }.labelStyle(.iconOnly).buttonStyle(SecondaryButtonStyle()).accessibilityLabel(L("変更", "Change")).accessibilityIdentifier("herodetail_build_edit")
+                }.frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(L("エンブレム", "Emblems")).font(Theme.heading(14))
+                    if let emblem = EmblemMath.loadout(for: hero.heroID, profile: app.profile, master: app.master) {
+                        VStack(spacing: 3) {
+                            Image(systemName: EmblemStyle.setSymbol(emblem.set))
+                                .font(.system(size: 28))
+                                .foregroundStyle(EmblemStyle.color(emblem.set))
+                            Text(EmblemMath.setName(emblem.set)).font(Theme.body(9)).lineLimit(1)
+                        }
+                        .frame(height: 52)
+                    }
+                    Button { app.router.push(.emblems) } label: {
+                        Label(L("変更", "Change"), systemImage: "arrow.triangle.2.circlepath")
+                    }.labelStyle(.iconOnly).buttonStyle(SecondaryButtonStyle()).accessibilityLabel(L("変更", "Change"))
+                }.frame(width: 90, alignment: .leading)
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(L("バトルスキル", "Battle Skill")).font(Theme.heading(13)).lineLimit(1)
+                    SpellIconView(spellID: skill, size: 48).frame(height: 52)
+                    Button { onChangeBattleSkill() } label: {
+                        Label(L("変更", "Change"), systemImage: "arrow.triangle.2.circlepath")
+                    }.labelStyle(.iconOnly).buttonStyle(SecondaryButtonStyle()).accessibilityLabel(L("変更", "Change")).accessibilityIdentifier("herodetail_battle_skill_change")
+                    Text(FlowText.spellName(skill)).font(Theme.body(11))
+                }.frame(width: 90, alignment: .leading)
+                }
+            }
             if !BuildRules.plans(for: hero.heroID).isEmpty {
                 HeroBattlePlanSection(hero: hero)
-            }
-        }
-    }
-
-    private var buildPanel: some View {
-        let isCustom = BuildRules.custom(for: hero.heroID, profile: app.profile, master: app.master) != nil
-        let build = BuildRules.current(for: hero.heroID, profile: app.profile, master: app.master)
-        let recommended = BuildRules.recommended(for: hero.heroID, profile: app.profile, master: app.master)
-        return Panel(padding: 12) {
-            VStack(alignment: .leading, spacing: 10) {
-                CollectionSectionTitle(title: isCustom ? L("カスタムビルド", "Custom Build") : L("おすすめビルド", "Recommended Build"),
-                                       symbol: isCustom ? "person.fill" : "star.fill",
-                                       trailing: build.isEmpty ? nil : totalLabel(build))
-                if build.isEmpty {
-                    CollectionEmptyState(symbol: "shippingbox",
-                                         title: L("ビルドが未設定です", "No build yet"),
-                                         message: L("ビルド編集で購入順を決めておくと、戦闘中のおすすめ購入に反映されます。",
-                                                    "Set up a purchase order in the build editor to use it as in-match recommendations."))
-                } else {
-                    buildRow(build, iconSize: 50)
-                }
-                // カスタム使用中でも、ロール別のおすすめを参考として並べる
-                if isCustom && !recommended.isEmpty && recommended != build {
-                    CollectionSectionTitle(title: L("おすすめビルド（\(MasterText.role(hero.role))）", "Recommended (\(MasterText.role(hero.role)))"),
-                                           symbol: "star.fill", trailing: totalLabel(recommended))
-                    buildRow(recommended, iconSize: 40)
-                }
-                Button {
-                    app.haptics.tap()
-                    app.router.push(.buildEditor(hero.heroID))
-                } label: {
-                    Label(L("ビルド編集", "Edit Build"), systemImage: "square.and.pencil")
-                }
-                .buttonStyle(PrimaryButtonStyle())
-                .frame(minHeight: 44)
-                .accessibilityIdentifier("herodetail_build_edit")
             }
         }
     }

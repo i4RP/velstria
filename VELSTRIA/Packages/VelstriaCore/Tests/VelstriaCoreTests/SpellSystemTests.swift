@@ -20,6 +20,46 @@ final class SpellSystemTests: XCTestCase {
         XCTAssertNil(SpellSystem.targeting(for: "BS99"))
     }
 
+    func testExecuteIgnoresShieldAndKillRefundsCooldown() {
+        var w = SkillWorld()
+        let a = w.addHero("H001", team: .blue, at: skillArena, spells: ["BS11", "BS03"])
+        let b = w.addHero("H003", team: .red, at: skillArena + Vec2(200, 0))
+        w.s.units[b].hp = 50
+        CombatSystem.addShield(&w.s, w.ctx, sourceID: w.id(b), targetIndex: b, amount: 10000, duration: 5)
+        XCTAssertTrue(w.castSpell(a, 0, .unit(w.id(b))))
+        XCTAssertFalse(w.s.units[b].isAlive)
+        XCTAssertEqual(w.s.units[a].hero?.spellCooldowns[0], 54)
+    }
+
+    func testFountainPulsesAndDoesNotStack() {
+        var w = SkillWorld()
+        let a = w.addHero("H001", team: .blue, at: skillArena, spells: ["BS16", "BS03"])
+        let b = w.addHero("H003", team: .blue, at: skillArena + Vec2(50, 0), spells: ["BS16", "BS03"])
+        w.s.units[a].hp = 100
+        w.s.units[b].hp = 100
+        let maxHP = w.s.units[a].stats.maxHP
+        XCTAssertTrue(w.castSpell(a, 0))
+        XCTAssertTrue(w.castSpell(b, 0))
+        w.run(seconds: 4.2)
+        let pulses = w.log.compactMap { event -> Double? in
+            if case .heal(let id, _, let amount) = event, id == w.id(a) { return amount }
+            return nil
+        }
+        XCTAssertEqual(pulses.count, 10)
+        XCTAssertEqual(pulses.reduce(0, +), maxHP * 0.25, accuracy: 0.01)
+    }
+
+    func testBattleSkillUnlocksAndIndependentCooldown() {
+        XCTAssertEqual(BattleSpell.selectable.count, 12)
+        XCTAssertEqual(BattleSpell.selectable.map(\.unlockLevel), Array(stride(from: 1, through: 23, by: 2)))
+        var w = SkillWorld()
+        let a = w.addHero("H001", team: .blue, at: skillArena, spells: ["BS01", "BS03"])
+        w.s.units[a].stats.cooldownReduction = 0.4
+        XCTAssertTrue(w.castSpell(a, 0))
+        XCTAssertEqual(w.s.units[a].hero?.spellCooldowns[0], 120)
+        XCTAssertEqual(w.s.units[a].statuses.first { $0.tag == "spell.BS01" }?.magnitude, 6)
+    }
+
     // MARK: - BS01 瞬歩
 
     func testBlinkMovesFourHundredAndStopsBeforeObstacles() {
@@ -27,7 +67,7 @@ final class SpellSystemTests: XCTestCase {
         let h = w.addHero("H001", team: .blue, at: skillArena, spells: ["BS01", "BS03"])
         XCTAssertTrue(w.castSpell(h, 0, .direction(Vec2(1, 0))))
         XCTAssertEqual(w.s.units[h].pos.x, skillArena.x + 400, accuracy: 1e-6)
-        XCTAssertEqual(w.s.units[h].hero!.spellCooldowns[0], 90)
+        XCTAssertEqual(w.s.units[h].hero!.spellCooldowns[0], 120)
         let e = spellEvents(w).last!
         XCTAssertEqual(e.1, "BS01")
         XCTAssertEqual(e.2, skillArena)
@@ -76,7 +116,7 @@ final class SpellSystemTests: XCTestCase {
         XCTAssertFalse(w.s.units[h].has(.stun))
         XCTAssertFalse(w.s.units[h].has(.slow))
         XCTAssertTrue(w.s.units[h].has(.ccImmune))
-        XCTAssertEqual(w.s.units[h].hero!.spellCooldowns[1], 100)
+        XCTAssertEqual(w.s.units[h].hero!.spellCooldowns[1], 90)
         // CC 無効中は CC を受けない
         CombatSystem.applyCC(&w.s, w.ctx, sourceID: w.id(e), targetIndex: h, cc: .root, isUltimate: false,
                              from: w.s.units[e].pos)
@@ -108,7 +148,7 @@ final class SpellSystemTests: XCTestCase {
         XCTAssertEqual(w.s.units[lower].hp, 100)
         XCTAssertEqual(w.s.units[h].status(.speedBoost)?.magnitude, 0.2)
         XCTAssertEqual(w.s.units[low].status(.speedBoost)?.remaining, 2)
-        XCTAssertEqual(w.s.units[h].hero!.spellCooldowns[0], 80)
+        XCTAssertEqual(w.s.units[h].hero!.spellCooldowns[0], 75)
     }
 
     func testBarrierAndGhost() {
@@ -116,16 +156,16 @@ final class SpellSystemTests: XCTestCase {
         let h = w.addHero("H001", team: .blue, at: skillArena, spells: ["BS04", "BS06"])
         let speed = w.s.units[h].stats.moveSpeed
         XCTAssertTrue(w.castSpell(h, 0))
-        XCTAssertEqual(w.s.units[h].totalShield, w.s.units[h].stats.maxHP * 0.2, accuracy: 1e-6)
+        XCTAssertEqual(w.s.units[h].totalShield, 800, accuracy: 1e-6)
         XCTAssertTrue(w.castSpell(h, 1))
         w.tick()
-        XCTAssertEqual(w.s.units[h].stats.moveSpeed, speed * 1.4, accuracy: 1e-6)
-        w.run(seconds: 3)
+        XCTAssertEqual(w.s.units[h].stats.moveSpeed, speed * 1.5, accuracy: 1e-6)
+        w.run(seconds: 5)
         XCTAssertEqual(w.s.units[h].totalShield, 0, "鉄壁は 3 秒")
         XCTAssertGreaterThan(w.s.units[h].stats.moveSpeed, speed)
-        w.run(seconds: 2)
+        w.run(seconds: 1)
         XCTAssertEqual(w.s.units[h].stats.moveSpeed, speed, accuracy: 1e-6, "加速陣は 5 秒")
-        XCTAssertEqual(w.s.units[h].hero!.spellCooldowns[0], 75 - 5 - Balance.dt, accuracy: 0.05)
+        XCTAssertEqual(w.s.units[h].hero!.spellCooldowns[0], 90 - 6 - Balance.dt, accuracy: 0.05)
     }
 
     // MARK: - BS05 狩猟印
@@ -142,17 +182,17 @@ final class SpellSystemTests: XCTestCase {
         let farMonster = w.addMonster(.blueSentinel, at: skillArena + Vec2(0, -900))
         let hpBefore = w.s.units[monster].hp
         XCTAssertTrue(w.castSpell(h, 0))
-        XCTAssertEqual(hpBefore - w.s.units[monster].hp, 600 + 40 * 5, accuracy: 1e-6, "モンスター優先・確定ダメージ")
+        XCTAssertEqual(hpBefore - w.s.units[monster].hp, min(hpBefore, 520 + 80 * 5), accuracy: 1e-6, "モンスター優先・確定ダメージ")
         XCTAssertEqual(w.s.units[minion].hp, w.s.units[minion].stats.maxHP)
         XCTAssertEqual(w.s.units[farMonster].hp, w.s.units[farMonster].stats.maxHP)
-        XCTAssertEqual(w.s.units[h].hero!.spellCooldowns[0], 45)
+        XCTAssertEqual(w.s.units[h].hero!.spellCooldowns[0], 35)
         // ユニット指定
         var u = SkillWorld()
         let h2 = u.addHero("H006", team: .blue, at: skillArena, level: 1, spells: ["BS05", "BS01"])
         let m2 = u.addMinion(.siege, team: .red, at: skillArena + Vec2(0, 300))
         u.addMonster(.campLarge, at: skillArena + Vec2(-400, 0))
         XCTAssertTrue(u.castSpell(h2, 0, .unit(u.id(m2))))
-        XCTAssertEqual(u.damage(to: m2), 640, accuracy: 1e-6)
+        XCTAssertEqual(u.damage(to: m2), 600, accuracy: 1e-6)
     }
 
     // MARK: - BS07 点火
@@ -236,7 +276,7 @@ final class SpellSystemTests: XCTestCase {
         XCTAssertTrue(w.castSpell(h, 0, .point(towerPos + Vec2(0, 200))))
         XCTAssertEqual(w.s.units[h].hero!.channel?.kind, .teleport)
         XCTAssertEqual(w.s.units[h].hero!.channel?.total, 3)
-        XCTAssertEqual(w.s.units[h].hero!.spellCooldowns[0], 120)
+        XCTAssertEqual(w.s.units[h].hero!.spellCooldowns[0], 75)
         w.run(seconds: 2.9)
         XCTAssertEqual(w.s.units[h].pos, skillArena)
         w.run(seconds: 0.2)
@@ -260,7 +300,7 @@ final class SpellSystemTests: XCTestCase {
                                  source: .basicAttack)
         w.tick()
         XCTAssertNil(w.s.units[h].hero!.channel, "被ダメで中断")
-        XCTAssertGreaterThan(w.s.units[h].hero!.spellCooldowns[0], 100, "CD は消費済み")
+        XCTAssertGreaterThan(w.s.units[h].hero!.spellCooldowns[0], 40, "中断CDは45秒から経過")
     }
 
     // MARK: - BS10 星鎖
@@ -318,7 +358,7 @@ final class SpellSystemTests: XCTestCase {
         let missing = w.s.units[t].stats.maxHP - w.s.units[t].hp
         let hpBefore = w.s.units[t].hp
         XCTAssertTrue(w.castSpell(h, 0, .unit(w.id(t))))
-        XCTAssertEqual(hpBefore - w.s.units[t].hp, 150 + 30 * 5 + 0.25 * missing, accuracy: 1e-6)
+        XCTAssertEqual(hpBefore - w.s.units[t].hp, 100 + 10 * 5 + 0.13 * missing, accuracy: 1e-6)
         XCTAssertEqual(w.s.units[h].hero!.spellCooldowns[0], 90)
         // 射程外・ミニオンのみなら失敗（CD を消費しない）
         var o = SkillWorld()
@@ -337,7 +377,7 @@ final class SpellSystemTests: XCTestCase {
         let base = w.s.units[h].stats.attackSpeed
         XCTAssertTrue(w.castSpell(h, 0))
         w.tick()
-        XCTAssertEqual(w.s.units[h].stats.attackSpeed, base * 1.5, accuracy: 1e-9)
+        XCTAssertEqual(w.s.units[h].stats.attackSpeed, base * 1.55, accuracy: 1e-9)
         w.run(seconds: 5.1)
         XCTAssertEqual(w.s.units[h].stats.attackSpeed, base, accuracy: 1e-9)
         XCTAssertEqual(w.s.units[h].hero!.spellCooldowns[0], 75 - 5.1, accuracy: 0.1)
@@ -355,10 +395,10 @@ final class SpellSystemTests: XCTestCase {
         XCTAssertTrue(w.s.units[near].has(.stun))
         XCTAssertFalse(w.s.units[far].has(.stun))
         XCTAssertFalse(w.s.units[ally].has(.stun))
-        XCTAssertEqual(w.s.units[h].hero!.spellCooldowns[0], 80)
+        XCTAssertEqual(w.s.units[h].hero!.spellCooldowns[0], 75)
         w.run(seconds: 0.9)
         XCTAssertFalse(w.s.units[near].has(.stun), "0.8 秒でスタンは切れる")
-        XCTAssertEqual(w.s.units[near].status(.slow)?.magnitude ?? 0, 0.3, accuracy: 1e-9)
+        XCTAssertEqual(w.s.units[near].status(.slow)?.magnitude ?? 0, 0.5, accuracy: 1e-9)
         w.run(seconds: 1.6)
         XCTAssertFalse(w.s.units[near].has(.slow))
         // CC 無効中は掛からない
@@ -380,24 +420,24 @@ final class SpellSystemTests: XCTestCase {
         let second = w.addHero("H003", team: .red, at: skillArena + Vec2(560, 0))
         let startX = w.s.units[t].pos.x
         XCTAssertTrue(w.castSpell(h, 0, .direction(Vec2(1, 0))))
-        XCTAssertEqual(w.s.units[h].hero!.spellCooldowns[0], 55)
+        XCTAssertEqual(w.s.units[h].hero!.spellCooldowns[0], 50)
         w.run(seconds: 0.5)
-        XCTAssertEqual(w.damage(to: t, from: .spell), w.mitigated(100 + 20 * 3, .magic, on: t), accuracy: 1e-6)
-        XCTAssertEqual(w.damage(to: minion), 0, "ミニオンには当たらない")
+        XCTAssertEqual(w.damage(to: t, from: .spell), 0, "手前のミニオンで止まる")
+        XCTAssertGreaterThan(w.damage(to: minion), 200, "距離で威力が増す")
         XCTAssertEqual(w.damage(to: second), 0, "貫通しない")
-        XCTAssertGreaterThan(w.s.units[t].pos.x, startX + 100, "進行方向へ押し出される")
+        XCTAssertEqual(w.s.units[t].pos.x, startX, "発射時の近距離だけノックバック")
         // 外れても発動（CD 消費）
         var m = SkillWorld()
         let h2 = m.addHero("H006", team: .blue, at: skillArena, spells: ["BS14", "BS01"])
         XCTAssertTrue(m.castSpell(h2, 0, .direction(Vec2(0, 1))))
-        XCTAssertEqual(m.s.units[h2].hero!.spellCooldowns[0], 55)
+        XCTAssertEqual(m.s.units[h2].hero!.spellCooldowns[0], 50)
         // 射程（700）の外には届かない
         var f = SkillWorld()
         let h3 = f.addHero("H006", team: .blue, at: skillArena, spells: ["BS14", "BS01"])
         let out = f.addHero("H013", team: .red, at: skillArena + Vec2(900, 0))
         XCTAssertTrue(f.castSpell(h3, 0, .direction(Vec2(1, 0))))
         f.run(seconds: 1)
-        XCTAssertEqual(f.damage(to: out), 0)
+        XCTAssertGreaterThan(f.damage(to: out), 0)
     }
 
     // MARK: - BS15 報復
@@ -413,13 +453,13 @@ final class SpellSystemTests: XCTestCase {
         let dealt = CombatSystem.applyDamage(&w.s, w.ctx, sourceID: w.id(e), targetIndex: h, amount: 200,
                                              type: .physical, source: .spell)
         XCTAssertEqual(before - w.s.units[h].hp, dealt, accuracy: 1e-6)
-        let expected = w.mitigated(200, .physical, on: h) * (1 - 0.30)
+        let expected = w.mitigated(200, .physical, on: h) * (1 - 0.35)
         XCTAssertEqual(dealt, expected, accuracy: 1e-6, "被ダメ −30%")
-        XCTAssertEqual(attackerHP - w.s.units[e].hp, dealt * 0.35, accuracy: 1e-6, "35% を確定ダメージで反射")
-        // 継続ダメージは反射しない
+        XCTAssertEqual(attackerHP - w.s.units[e].hp, w.mitigated(dealt * 0.40, .magic, on: e), accuracy: 1e-6, "35% を確定ダメージで反射")
+        // 継続ダメージも反射する（反射そのものは再反射しない）
         let hp2 = w.s.units[e].hp
         CombatSystem.applyDamage(&w.s, w.ctx, sourceID: w.id(e), targetIndex: h, amount: 100, type: .trueDamage, source: .dot)
-        XCTAssertEqual(w.s.units[e].hp, hp2, accuracy: 1e-9)
+        XCTAssertLessThan(w.s.units[e].hp, hp2)
         // 5 秒で切れる
         w.run(seconds: 5.1)
         XCTAssertNil(w.s.units[h].statuses.first { $0.tag == Balance.Spells.vengeanceTag })

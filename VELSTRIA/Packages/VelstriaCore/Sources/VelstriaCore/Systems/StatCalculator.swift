@@ -24,7 +24,8 @@ public enum StatCalculator {
 
         // 制約
         stats.cooldownReduction = min(max(0, stats.cooldownReduction), stats.cooldownReductionCap)
-        stats.attackSpeed = min(max(0.1, stats.attackSpeed), Balance.maxAttackSpeed)
+        let inspired = u.statuses.contains { $0.tag == "spell.BS12" && $0.kind == .mark }
+        stats.attackSpeed = min(max(0.1, stats.attackSpeed), inspired ? 5 : Balance.maxAttackSpeed)
         stats.moveSpeed = max(stats.moveSpeed, u.kind == .hero ? Balance.minMoveSpeed : 0)
         stats.maxHP = max(1, stats.maxHP)
 

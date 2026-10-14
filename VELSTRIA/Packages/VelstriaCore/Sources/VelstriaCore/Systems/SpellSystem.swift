@@ -22,6 +22,14 @@ public enum BattleSpell: String, Codable, Hashable, Sendable, CaseIterable {
     case petrify = "BS13"
     case flameshot = "BS14"
     case vengeance = "BS15"
+    case revitalize = "BS16"
+
+    /// Public selection order; legacy spell IDs remain decodable for replays.
+    public static let selectable: [BattleSpell] = [.blink, .execute, .smite, .inspire, .ghost, .revitalize,
+                                                   .barrier, .petrify, .cleanse, .flameshot, .teleport, .vengeance]
+    public var unlockLevel: Int { Self.selectable.firstIndex(of: self).map { 1 + $0 * 2 } ?? 1 }
+    public func isUnlocked(accountLevel: Int) -> Bool { accountLevel >= unlockLevel }
+
 
     /// 照準方式（HUD のドラッグ照準・AI）。
     public var aim: AimType {
@@ -29,7 +37,7 @@ public enum BattleSpell: String, Codable, Hashable, Sendable, CaseIterable {
         case .blink, .flameshot: return .direction
         case .smite, .ignite, .exhaust, .execute: return .unit
         case .teleport: return .point
-        case .cleanse, .heal, .barrier, .ghost, .stealth, .inspire, .petrify, .vengeance: return .none
+        case .cleanse, .heal, .barrier, .ghost, .stealth, .inspire, .petrify, .vengeance, .revitalize: return .none
         }
     }
 
@@ -41,6 +49,7 @@ public enum BattleSpell: String, Codable, Hashable, Sendable, CaseIterable {
         case .ignite: return Balance.Spells.igniteRange
         case .exhaust: return Balance.Spells.exhaustRange
         case .heal: return Balance.Spells.healAllyRadius
+        case .revitalize: return 500
         case .execute: return Balance.Spells.executeRange
         case .petrify: return Balance.Spells.petrifyRadius
         case .flameshot: return Balance.Spells.flameshotRange
@@ -88,6 +97,7 @@ public enum SpellSystem {
         s.units[i].hero?.spellCooldowns[spellIndex] = check.free ? 0 : check.def.cooldownSec * cdScale
         s.emit(.spellCast(casterID: s.units[i].id, spellID: spell.rawValue, origin: origin, target: plan.point))
         if spell.isOffensive { SkillPassives.breakStealth(&s, i) }
+        ItemEffects.onSkillCast(&s, ctx, caster: i, slot: .skill1)
         apply(spell, &s, ctx, caster: i, plan: plan)
         return true
     }
@@ -115,7 +125,7 @@ public enum SpellSystem {
         case .teleport:
             return SkillTargeting(archetype: .groundAoE, aim: .point, range: 0,
                                   radius: Balance.Economy.teleportTowerRadius, targetsAllies: true)
-        case .heal:
+        case .heal, .revitalize:
             return SkillTargeting(archetype: .selfAoE, aim: .none, range: 0, radius: spell.range, targetsAllies: true)
         case .cleanse, .barrier, .ghost, .stealth, .inspire, .vengeance:
             return SkillTargeting(archetype: .selfAoE, aim: .none, range: 0, radius: 0)
@@ -130,6 +140,11 @@ public enum SpellSystem {
                 s.units[i].hero?.spellCooldowns[k] = noCD ? 0 : max(0, h.spellCooldowns[k] - Balance.dt)
             }
         }
+    }
+
+    static func fountainMultiplier(_ s: SimState, target: Int) -> Double {
+        s.zones.contains { !$0.done && $0.visual == "spell.BS16" && $0.team == s.units[target].team
+            && $0.center.distance(to: s.units[target].pos) <= $0.radius + s.units[target].radius } ? 1.25 : 1
     }
 
     // MARK: - 検証
@@ -189,7 +204,7 @@ public enum SpellSystem {
             guard let dest = teleportRequest(s, ctx, caster: i, target: target),
                   RecallSystem.teleportDestination(s, ctx, heroIndex: i, requested: dest) != nil else { return nil }
             return SpellPlan(point: dest, unit: nil)
-        case .cleanse, .heal, .barrier, .ghost, .stealth, .inspire, .petrify, .vengeance:
+        case .cleanse, .heal, .barrier, .ghost, .stealth, .inspire, .petrify, .vengeance, .revitalize:
             return SpellPlan(point: pos, unit: nil)
         }
     }
@@ -287,7 +302,7 @@ public enum SpellSystem {
             }
             return best.map { s.units[$0].pos }
         case .unit(let id):
-            if let j = s.index(of: id), s.units[j].kind == .tower, s.units[j].team == team, s.units[j].isAlive {
+            if let j = s.index(of: id), (s.units[j].kind == .tower || s.units[j].kind == .minion), s.units[j].team == team, s.units[j].isAlive {
                 return s.units[j].pos
             }
             return autoTeleport(s, ctx, caster: i)
@@ -338,7 +353,16 @@ public enum SpellSystem {
         switch spell {
         case .blink:
             MovementSystem.blink(&s, ctx, unitIndex: i, to: plan.point)
+            CombatSystem.addStatus(&s, targetIndex: i, StatusEffect(kind: .flatDefenseMod, duration: 1,
+                magnitude: 5 + level, sourceID: casterID, tag: tag))
+        case .revitalize:
+            // Ten pulses, at 0.4 ... 4.0 seconds; bounded by the normal zone lifecycle.
+            ZoneSystem.spawn(&s, ownerIndex: i, center: s.units[i].pos, radius: 500,
+                delay: 0.4, duration: 3.6, tickInterval: 0.4,
+                payload: HitPayload(damage: 0, damageType: .magic, source: .spell, affectsEnemies: false, affectsAllies: true, heroesOnly: true), visual: tag)
         case .cleanse:
+            CombatSystem.addStatus(&s, targetIndex: i, StatusEffect(kind: .speedBoost, duration: 1.2,
+                magnitude: 0.15, sourceID: casterID, tag: tag))
             CombatSystem.cleanse(&s, targetIndex: i)
             CombatSystem.addStatus(&s, targetIndex: i, StatusEffect(kind: .ccImmune, duration: k.cleanseImmunityDuration,
                                                                     sourceID: casterID, tag: tag))
@@ -353,13 +377,19 @@ public enum SpellSystem {
             }
         case .barrier:
             CombatSystem.addShield(&s, ctx, sourceID: casterID, targetIndex: i,
-                                   amount: s.units[i].stats.maxHP * k.barrierPct, duration: k.barrierDuration, tag: tag)
+                                   amount: 750 + 50 * level, duration: k.barrierDuration, tag: tag)
+            if let ally = lowestAlly(s, caster: i, radius: k.healAllyRadius) {
+                CombatSystem.addShield(&s, ctx, sourceID: casterID, targetIndex: ally,
+                    amount: (750 + 50 * level) * 0.7, duration: k.barrierDuration, tag: tag)
+            }
         case .smite:
             guard let u = plan.unit else { return }
             if s.units[u].kind == .hero {
                 GearSystem.applySmiteOnHero(&s, ctx, caster: i, target: u)
                 return
             }
+            CombatSystem.addStatus(&s, targetIndex: i, StatusEffect(kind: .mark, duration: 3,
+                magnitude: 0.3, sourceID: casterID, tag: "spell.huntingBoost"))
             CombatSystem.applyDamage(&s, ctx, sourceID: casterID, targetIndex: u,
                                      amount: k.smiteBase + k.smitePerLevel * level, type: .trueDamage, source: .spell)
         case .ghost:
@@ -397,17 +427,24 @@ public enum SpellSystem {
             let missing = max(0, s.units[u].stats.maxHP - s.units[u].hp)
             CombatSystem.applyDamage(&s, ctx, sourceID: casterID, targetIndex: u,
                                      amount: k.executeBase + k.executePerLevel * level + k.executeMissingHPPct * missing,
-                                     type: .trueDamage, source: .spell)
+                                     type: .trueDamage, source: .spell, bypassShield: true)
+            if !s.units[u].isAlive, let slot = s.units[i].hero?.spells.firstIndex(of: spell.rawValue) {
+                s.units[i].hero?.spellCooldowns[slot] *= 0.6
+            }
         case .inspire:
+            CombatSystem.addStatus(&s, targetIndex: i, StatusEffect(kind: .mark, duration: 5,
+                magnitude: 8, sourceID: casterID, tag: tag))
             CombatSystem.addStatus(&s, targetIndex: i, StatusEffect(kind: .attackSpeedBoost, duration: k.inspireDuration,
                                                                     magnitude: k.inspireAttackSpeed, sourceID: casterID,
                                                                     tag: tag))
         case .petrify:
             let team = s.units[i].team
             let origin = s.units[i].pos
-            for j in s.units.indices where s.units[j].kind == .hero && s.isTargetableEnemy(j, of: team) {
+            for j in s.units.indices where !s.units[j].isStructure && s.isTargetableEnemy(j, of: team) {
                 let r = k.petrifyRadius + s.units[j].radius
                 guard s.units[j].pos.distanceSquared(to: origin) <= r * r else { continue }
+                CombatSystem.applyDamage(&s, ctx, sourceID: casterID, targetIndex: j,
+                    amount: 100 + 15 * level, type: .magic, source: .spell)
                 CombatSystem.addStatus(&s, targetIndex: j, StatusEffect(kind: .stun, duration: k.petrifyStun,
                                                                         sourceID: casterID, tag: tag))
                 CombatSystem.addStatus(&s, targetIndex: j, StatusEffect(kind: .slow,
@@ -417,11 +454,14 @@ public enum SpellSystem {
             }
         case .flameshot:
             let dir = (plan.point - s.units[i].pos).normalized
-            let damage = k.flameshotBase + k.flameshotPerLevel * level
+            let damage = 200 + 0.5 * s.units[i].stats.abilityPower
+            for j in s.units.indices where isEnemyHero(s, caster: i, j, range: 250) {
+                CombatSystem.applyHit(&s, ctx, sourceID: casterID, team: s.units[i].team, targetIndex: j,
+                    payload: HitPayload(damage: 0, damageType: .magic, source: .spell, cc: .knockback), from: s.units[i].pos)
+            }
             ProjectileSystem.spawn(&s, ownerIndex: i, motion: .linear(direction: dir, maxDistance: k.flameshotRange),
                                    speed: k.flameshotSpeed, width: k.flameshotWidth, pierce: false,
-                                   payload: HitPayload(damage: damage, damageType: .magic, source: .spell, cc: .knockback,
-                                                       heroesOnly: true),
+                                   payload: HitPayload(damage: damage, damageType: .magic, source: .spell),
                                    visual: tag)
         case .vengeance:
             CombatSystem.addStatus(&s, targetIndex: i, StatusEffect(kind: .damageReduction, duration: k.vengeanceDuration,

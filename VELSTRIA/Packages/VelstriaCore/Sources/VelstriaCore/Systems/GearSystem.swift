@@ -100,7 +100,7 @@ extension Balance {
         public static let jungleBlessingUnlockCount = 5
         /// 2 段目の強化（物理攻撃・魔法攻撃 +10、最大 HP +100）に必要な合計。
         public static let jungleSecondUnlockCount = 15
-        public static let jungleSecondAttack: Double = 10
+        public static let jungleSecondAttack: Double = 15
         public static let jungleSecondHP: Double = 100
         /// 狩人: モンスターにダメージを与えた後、3 秒かけて 40（+3×レベル）（+最大 HP の 1%）の確定ダメージ。射手以外は 2 倍。
         public static let hunterBase: Double = 40
@@ -206,20 +206,20 @@ public enum GearEffects {
 
     /// ミニオンを倒した時の自分の Gold/XP 倍率（ジャングルの祝福は 2:00 まで半減）。
     public static func minionRewardMultiplier(_ h: HeroData, time: Double, master: MasterData) -> Double {
-        if time < Balance.Gear.jungleMinionPenaltyEnd, has(h, .jungle, master: master) {
-            return Balance.Gear.jungleMinionMultiplier
+        if h.spells.contains("BS05") {
+            return 0.3
         }
         return 1
     }
 
     /// モンスターを倒した時の Gold/XP 倍率（今の MLBB のロームには自分の狩りの減額が無いので 1）。
     public static func monsterRewardMultiplier(_ h: HeroData, time: Double, master: MasterData) -> Double {
-        1
+        h.spells.contains("BS05") ? 1.6 : 1
     }
 
     /// ジャングルの祝福の進み（モンスター + キル + アシスト）。
     public static func jungleProgress(_ h: HeroData) -> Int {
-        h.score.monsterKills + h.score.kills + h.score.assists
+        h.score.monsterKills + h.score.kills
     }
 
     /// 狩猟印が強化済み（ヒーローに使える）か。
@@ -237,11 +237,11 @@ public enum GearEffects {
         guard let o = option(of: h, master: master) else { return }
         switch o.category {
         case .jungle:
-            stats.monsterGoldBonus += Balance.Economy.jungleMonsterGoldBonus
+            // Hunting rewards are applied once by monsterRewardMultiplier.
             if jungleProgress(h) >= Balance.Gear.jungleSecondUnlockCount {
                 stats.attack += Balance.Gear.jungleSecondAttack
                 stats.abilityPower += Balance.Gear.jungleSecondAttack
-                stats.maxHP += Balance.Gear.jungleSecondHP
+                // No additional HP at the second hunting blessing.
             }
         case .roam:
             if o == .direHit, roamBlessingUnlocked(h) {

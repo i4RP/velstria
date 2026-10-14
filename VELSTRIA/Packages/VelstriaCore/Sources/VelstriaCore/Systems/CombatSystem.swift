@@ -26,16 +26,16 @@ public enum CombatSystem {
     @discardableResult
     public static func applyDamage(_ s: inout SimState, _ ctx: SimContext, sourceID: EntityID?, targetIndex t: Int,
                                    amount raw: Double, type: DamageType, source: DamageSource,
-                                   isCrit: Bool = false) -> Double {
+                                   isCrit: Bool = false, bypassShield: Bool = false) -> Double {
         dealDamage(&s, ctx, sourceID: sourceID, targetIndex: t, amount: raw, type: type, source: source,
-                   isCrit: isCrit, appliesOnHit: source == .basicAttack)
+                   isCrit: isCrit, appliesOnHit: source == .basicAttack, bypassShield: bypassShield)
     }
 
     /// applyDamage の本体。appliesOnHit = 通常攻撃のライフスティールを適用するか（HitPayload.appliesOnHit）。
     @discardableResult
     static func dealDamage(_ s: inout SimState, _ ctx: SimContext, sourceID: EntityID?, targetIndex t: Int,
                            amount raw: Double, type: DamageType, source: DamageSource, isCrit: Bool,
-                           appliesOnHit: Bool) -> Double {
+                           appliesOnHit: Bool, bypassShield: Bool = false) -> Double {
         guard s.units.indices.contains(t), isLiving(s, t), raw > 0, raw.isFinite else { return 0 }
         // 1. 無敵
         if isInvulnerable(s, ctx, t) { return 0 }
@@ -54,7 +54,10 @@ public enum CombatSystem {
             case .skill: bonus += st.skillDamageBonus
             default: break
             }
-            if s.units[t].kind == .monster { bonus += st.monsterDamageBonus }
+            if s.units[t].kind == .monster {
+                bonus += st.monsterDamageBonus
+                if source != .spell, s.units[a].statuses.contains(where: { $0.tag == "spell.huntingBoost" }) { bonus += 0.3 }
+            }
             bonus += PassiveHooks.outgoingDamageBonus(&s, ctx, attacker: a, target: t, source: source)
             bonus += ItemEffects.outgoingDamageBonus(&s, ctx, attacker: a, target: t, type: type)
             bonus += EmblemEffects.outgoingDamageBonus(s, ctx, attacker: a, target: t, source: source)
@@ -68,6 +71,13 @@ public enum CombatSystem {
         if s.units[t].kind == .monster, source != .spell {
             amount *= MonsterSystem.gangReductionMultiplier(s, monsterIndex: t)
         }
+        if let a, s.units[t].hero?.spells.contains("BS05") == true, s.units[a].kind == .monster {
+            amount *= 0.6
+        }
+        if s.time < 120, s.units[t].hero?.spells.contains("BS05") == true,
+           ctx.map.camps.contains(where: { $0.side == s.units[t].team && $0.pos.distance(to: s.units[t].pos) <= 1000 }) {
+            amount *= 0.85
+        }
         // 4. 防御軽減（確定ダメージは無視）。ヒーローの貫通（装備）は、構造物以外の防御・魔防を割合で無視してから固定値を引く
         var armor = s.units[t].stats.armor, resist = s.units[t].stats.magicResist
         if let a, !environmental, !s.units[t].isStructure, s.units[a].kind == .hero {
@@ -77,6 +87,10 @@ public enum CombatSystem {
                                flat: st.armorPenFlat)
             resist = penetrated(resist, pct: st.magicPenPct + ItemEffects.extraPenetration(s, ctx, attacker: a, target: t, magic: true),
                                 flat: st.magicPenFlat)
+        }
+        if source == .basicAttack, let a,
+           s.units[a].statuses.contains(where: { $0.tag == "spell.BS12" && $0.kind == .mark }) {
+            armor -= 8 + Double(s.units[a].hero?.level ?? 1)
         }
         amount *= mitigationMultiplier(type, armor: armor, magicResist: resist)
         // 5. 被ダメ軽減（上限 60%）
@@ -101,7 +115,7 @@ public enum CombatSystem {
         var remaining = amount
         var absorbed = 0.0
         var turretShieldAbsorbed = 0.0
-        if !s.units[t].shields.isEmpty {
+        if !bypassShield && !s.units[t].shields.isEmpty {
             for k in s.units[t].shields.indices where remaining > 0 {
                 let take = min(remaining, max(0, s.units[t].shields[k].amount))
                 s.units[t].shields[k].amount -= take
@@ -159,11 +173,11 @@ public enum CombatSystem {
             RecallSystem.cancelChannel(&s, t)
         }
 
-        // 報復（BS15）: 受けたダメージの一部を攻撃者へ確定ダメージで反射する（反射ダメージは .passive で、再反射しない）
+        // 報復（BS15）: 受けたダメージの一部を攻撃者へ魔法ダメージで反射する（反射ダメージは .passive で、再反射しない）
         if dealt > 0, hostile, let a, a != t, !s.units[a].isStructure, reflectsDamage(source),
            s.units[t].statuses.contains(where: { $0.kind == .damageReduction && $0.tag == Balance.Spells.vengeanceTag }) {
             dealDamage(&s, ctx, sourceID: s.units[t].id, targetIndex: a, amount: dealt * Balance.Spells.vengeanceReflect,
-                       type: .trueDamage, source: .passive, isCrit: false, appliesOnHit: false)
+                       type: .magic, source: .passive, isCrit: false, appliesOnHit: false)
         }
 
         // 7. ライフスティール（通常攻撃）/ スペルヴァンプ（スキル）
@@ -204,7 +218,7 @@ public enum CombatSystem {
     /// 報復で反射できるダメージ源か（継続・泉・パッシブ由来は反射しない）。
     static func reflectsDamage(_ source: DamageSource) -> Bool {
         switch source {
-        case .dot, .fountain, .passive: return false
+        case .fountain, .passive: return false
         default: return true
         }
     }
@@ -275,7 +289,7 @@ public enum CombatSystem {
                               amount: Double, isVamp: Bool) -> Double {
         guard s.units.indices.contains(t), isLiving(s, t), amount > 0, amount.isFinite else { return 0 }
         let src = s.index(of: sourceID)
-        var value = amount
+        var value = amount * SpellSystem.fountainMultiplier(s, target: t)
         if !isVamp, let src { value *= max(0, 1 + s.units[src].stats.healShieldPower) }
         value *= max(0, s.units[t].stats.healingReceivedMultiplier)
         let before = s.units[t].hp
@@ -297,7 +311,7 @@ public enum CombatSystem {
                                  amount: Double, duration: Double, tag: String = "") {
         guard s.units.indices.contains(t), isLiving(s, t), amount > 0, amount.isFinite else { return }
         let src = s.index(of: sourceID)
-        var value = amount
+        var value = amount * SpellSystem.fountainMultiplier(s, target: t)
         if let src { value *= max(0, 1 + s.units[src].stats.healShieldPower) }
         guard value > 0 else { return }
         let d = duration > 0 ? duration : Balance.combatDefaultShieldDuration
@@ -512,9 +526,17 @@ public enum CombatSystem {
     static func basicAttackLanded(_ s: inout SimState, _ ctx: SimContext, attacker a: Int, target t: Int,
                                   dealt: Double, isCrit: Bool = false, itemEffects: Bool = true) {
         if s.units[a].hero != nil { s.units[a].hero!.basicAttackCount += 1 }
+        if let mark = s.units[a].statuses.firstIndex(where: { $0.tag == "spell.BS12" && $0.kind == .mark }) {
+            let stats = s.units[a].stats
+            heal(&s, ctx, sourceID: s.units[a].id, targetIndex: a,
+                 amount: 60 + 0.15 * stats.attack + 0.15 * stats.abilityPower)
+            s.units[a].statuses[mark].magnitude -= 1
+            if s.units[a].statuses[mark].magnitude <= 0 {
+                s.units[a].statuses.removeAll { $0.tag == "spell.BS12" }
+            }
+        }
         if itemEffects {
             ItemEffects.onBasicAttackLanded(&s, ctx, attacker: a, target: t, dealt: dealt, isCrit: isCrit)
-            // エンブレムのコア天賦（強震撃・弱点分析）も装備の命中時効果と同じ扱い
             EmblemEffects.onBasicAttackLanded(&s, ctx, attacker: a, target: t)
         }
         PassiveHooks.onBasicAttackHit(&s, ctx, attacker: a, target: t, damage: dealt)

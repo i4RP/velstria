@@ -91,6 +91,18 @@ public enum ZoneSystem {
             for t in targets { s.zones[k].hitIDs.append(s.units[t].id) }
         }
         for t in targets {
+            if z.visual == "spell.BS16" {
+                // Overlapping fountains share one pulse stream (lowest live zone ID wins).
+                let overlaps = s.zones.contains { other in
+                    other.id < z.id && other.visual == z.visual && other.team == z.team
+                    && other.center.distance(to: s.units[t].pos) <= other.radius + s.units[t].radius
+                }
+                if !overlaps {
+                    CombatSystem.heal(&s, ctx, sourceID: z.ownerID, targetIndex: t,
+                                      amount: s.units[t].stats.maxHP * 0.025 / SpellSystem.fountainMultiplier(s, target: t))
+                }
+                continue
+            }
             CombatSystem.applyHit(&s, ctx, sourceID: z.ownerID, team: z.team, targetIndex: t, payload: z.payload,
                                   from: z.center)
         }

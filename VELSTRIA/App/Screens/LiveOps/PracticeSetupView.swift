@@ -38,7 +38,7 @@ enum PracticeSetup {
     static func spells(heroID: String, profile: Profile, master: MasterData = .shared) -> [String]? {
         let chosen = profile.heroSpells[heroID] ?? profile.defaultSpells
         guard chosen.count == 2, Set(chosen).count == 2, chosen.allSatisfy({ master.spell($0) != nil }) else { return nil }
-        return SpellLoadoutRules.normalized(chosen, master: master)
+        return SpellLoadoutRules.effective(heroID: heroID, profile: profile)
     }
 
     /// 試合で使うエンブレム（一括設定で付けたもの、無ければ選んだバトルプランのもの。EmblemMath.loadout）。
