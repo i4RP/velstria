@@ -10,6 +10,8 @@ enum KitTags {
     static let persistentStealth = "kit.stealth"
     static let untargetable = "kit.untargetable"
     static let knockUp = "kit.knockUp"
+    /// 強靭（コントロール時間短縮）で縮まない打ち上げ（スキルの説明に「強靭の影響を受けない」とあるもの）。
+    static let knockUpIgnoresResilience = "kit.knockUp.fixed"
     static let suppress = "kit.suppress"
 
     /// 所有者ごとに分かれるマークの tag。例: mark("H032", "brand", owner: id)
@@ -83,10 +85,13 @@ extension Kit {
 
     // MARK: - CC
 
-    /// 打ち上げ（既存の .airborne。CC 無効・無敵には効かない）。
-    static func knockUp(_ s: inout SimState, target t: Int, duration: Double, sourceID: EntityID?) {
-        CombatSystem.addStatus(&s, targetIndex: t, StatusEffect(kind: .airborne, duration: duration,
-                                                                sourceID: sourceID, tag: KitTags.knockUp))
+    /// 打ち上げ（既存の .airborne。CC 無効・無敵には効かない）。強靭で縮む（MLBB の日本語クライアントの「強靭」）。
+    /// ignoresResilience = true はスキルの説明に「強靭の影響を受けない」とある打ち上げ（セイバーの奥義）。
+    static func knockUp(_ s: inout SimState, target t: Int, duration: Double, sourceID: EntityID?,
+                        ignoresResilience: Bool = false) {
+        CombatSystem.addStatus(&s, targetIndex: t, StatusEffect(kind: .airborne, duration: duration, sourceID: sourceID,
+                                                                tag: ignoresResilience ? KitTags.knockUpIgnoresResilience
+                                                                                       : KitTags.knockUp))
     }
 
     /// suppress（行動不能・移動不能。解除不可で CC 無効も無視する。無敵・構造物には効かない）。

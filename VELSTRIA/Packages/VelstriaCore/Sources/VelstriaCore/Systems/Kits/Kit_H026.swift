@@ -2,7 +2,7 @@ import Foundation
 
 // 担当: kit-H026（docs/SKILL_KITS.md / docs/NEW_HEROES.md / docs/kits/Eudora.md）
 // H026 紫電のエウリア = Velstria 版の Eudora（MLBB。調査: docs/kits/Eudora.md、対応表: 同ファイル末尾）。
-// アルカニスト（遠隔 550・マナ）。ロールの汎用パッシブ（スキル命中で他スキルの CD 短縮）を置き換える。
+// アルカニスト（遠隔 450（MLBB の 4.5）・マナ）。ロールの汎用パッシブ（スキル命中で他スキルの CD 短縮）を置き換える。
 //   パッシブ 超伝導        — スキルが命中した敵（ミニオンを除く）に「超伝導」の印を 5 秒付ける。
 //                            印の付いた敵に当たると各スキルに追加効果（印そのものはダメージを増やさない）。
 //   スキル1 分岐雷         — 前方の扇に雷（ミニオンには 2 倍）。超伝導の敵に当たると 1 秒の「雷の鎖」: 移動速度 +40%・継続ダメージ・
@@ -702,7 +702,7 @@ struct Kit_H026: HeroKit {
     /// MLBB のクールダウン（秒）をランクで線形補間し、CD 短縮を掛ける（全体倍率 cooldownScale は 1.0 = MLBB の秒数のまま）。
     static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats) -> Double {
         let sec = lerp(range.0, range.1, rank: rank, maxRank: maxRank)
-        let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))
+        let reduction = HeroKits.cooldownReduction(stats)
         return sec * (1 - reduction) * Balance.Skills.cooldownScale
     }
 

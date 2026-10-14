@@ -1,7 +1,7 @@
 import Foundation
 
 // 担当: kit-H031（docs/SKILL_KITS.md / docs/NEW_HEROES.md / docs/kits/Aurora.md）
-// H031 氷嵐のオーリア = MLBB オーロラの Velstria 版（アルカニスト・遠隔 550・マナ）。
+// H031 氷嵐のオーリア = MLBB オーロラの Velstria 版（アルカニスト・遠隔 470（MLBB の 4.7）・マナ）。
 // 氷の魔導士。パッシブは「致命傷を受けると無効にして 1.5 秒凍りつく（無敵・最大 HP の 30% を少しずつ回復、CD 150 秒）」、
 // S1 は地点に落ちる氷塊（鈍足）と続く 5 つの雹、S2 は遅れて広がる扇状の霜風（離れた敵を凍結）と扇の先の凍った地面、
 // 奥義は前へ走る氷の道（大幅な鈍足）が氷河に育って砕け、範囲の敵を凍結する（魔力で凍結が延びる）。
@@ -634,7 +634,7 @@ struct Kit_H031: HeroKit {
     /// MLBB のクールダウン（秒）をランクで線形補間し、CD 短縮を掛ける（全体倍率 cooldownScale は 1.0 = MLBB の秒数のまま）。
     static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats) -> Double {
         let sec = lerp(range.0, range.1, rank: rank, maxRank: maxRank)
-        let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))
+        let reduction = HeroKits.cooldownReduction(stats)
         return sec * (1 - reduction) * Balance.Skills.cooldownScale
     }
 

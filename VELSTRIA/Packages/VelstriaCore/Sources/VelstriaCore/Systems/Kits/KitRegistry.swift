@@ -197,9 +197,19 @@ public enum HeroKits {
                         base: base)
     }
 
-    /// キットが「Mana 基準の素の値」を返すときのためのヘルパ。Energy のヒーローには energyCostMultiplier を掛ける。
+    /// キットが「Mana 基準の素の値」を返すときのためのヘルパ。Energy のヒーローには energyCostMultiplier を掛け、
+    /// 怒り・リソースなしのヒーローは 0（MLBB のディロス・アルカード）。
     public static func resourceCost(_ raw: Double, hero: HeroDef) -> Double {
-        hero.resource == .energy ? raw * Balance.energyCostMultiplier : raw
+        switch hero.resource {
+        case .mana: return raw
+        case .energy: return raw * Balance.energyCostMultiplier
+        case .rage, .noResource: return 0
+        }
+    }
+
+    /// キットの CD 短縮の割合（能力値の上限 Stats.cooldownReductionCap で切る。魔導の護符の +5% が効く）。
+    static func cooldownReduction(_ stats: Stats) -> Double {
+        min(stats.cooldownReductionCap, max(0, stats.cooldownReduction))
     }
 
     /// UI のタグ（`KitTag` のキー）。キットが無い・タグが無ければ空。

@@ -348,9 +348,7 @@ enum HeroStatKind: CaseIterable, Identifiable {
         case .attack: return def.attackGrowth
         case .defense: return def.defenseGrowth
         case .magicDefense: return def.magicDefenseGrowth
-        case .attackSpeed:
-            let base = def.isRanged ? Balance.rangedAttackSpeed : Balance.meleeAttackSpeed
-            return base * Balance.attackSpeedPerLevel
+        case .attackSpeed: return def.attackSpeedGrowth
         case .moveSpeed, .range: return nil
         }
     }

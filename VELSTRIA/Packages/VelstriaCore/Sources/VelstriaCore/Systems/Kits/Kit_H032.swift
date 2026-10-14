@@ -233,7 +233,7 @@ struct Kit_H032: HeroKit {
         static let burstCooldown = (6.0, 4.0)
         static let spectreCooldown = (6.0, 6.0)
         static let ultCooldown = (36.0, 28.0)
-        // コスト: 公式はどのスキルも無し（HeroKit.cost で 0。マスターの Energy の値は使わない）
+        // コスト: 公式はどのスキルも無し（HeroKit.cost で 0。MLBB のディロスはマナを持たず怒り = master の resource は Rage）
     }
 
     /// KitTimer.code
@@ -361,7 +361,7 @@ struct Kit_H032: HeroKit {
         return n
     }
 
-    /// コストは公式どおり無し（どのスキルも 0。マスターの Energy の値は使わない）。
+    /// コストは公式どおり無し（どのスキルも 0。master の resource は Rage で、ユニットのリソースは持たない）。
     func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double {
         slot == .passive ? base : 0
     }
@@ -879,7 +879,7 @@ struct Kit_H032: HeroKit {
         } else {
             sec = range.0
         }
-        let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))
+        let reduction = HeroKits.cooldownReduction(stats)
         return sec * (1 - reduction) * Balance.Skills.cooldownScale
     }
 

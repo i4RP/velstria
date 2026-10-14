@@ -244,12 +244,12 @@ final class WorldTowerTests: XCTestCase {
         s.units[outer].shields.append(Shield(amount: 100, duration: 100, tag: TowerSystem.shieldTag))
         XCTAssertEqual(TowerSystem.damageTakenMultiplier(s, ctx, structureIndex: outer, sourceIndex: hero), 0.5 * 0.7, accuracy: 1e-9)
         s.units[outer].shields.removeAll()
-        // 実ダメージにも反映される（防御 80: 100 / 180）
+        // 実ダメージにも反映される（防御 80: MLBB の式 120 / 200）
         Kit.setTime(&s, 300)
         let before = s.units[outer].hp
         CombatSystem.applyDamage(&s, ctx, sourceID: s.units[hero].id, targetIndex: outer, amount: 180,
                                  type: .physical, source: .basicAttack)
-        XCTAssertEqual(before - s.units[outer].hp, 180 * 0.5 * 100 / 180, accuracy: 1e-6)
+        XCTAssertEqual(before - s.units[outer].hp, 180 * 0.5 * 120 / 200, accuracy: 1e-6)
     }
 
     func testInvulnerabilityOrder() {

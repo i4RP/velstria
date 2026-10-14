@@ -280,10 +280,14 @@ final class SkillArchetypeTests: XCTestCase {
         // 範囲外のランクは丸める
         XCTAssertEqual(SkillCatalog.numbers(for: skill, hero: hero, rank: 9, stats: st).rank, 4)
         XCTAssertEqual(SkillCatalog.numbers(for: skill, hero: hero, rank: 0, stats: st).rank, 1)
-        // CD 短縮は 40% で頭打ち
+        // CD 短縮は能力値の上限（通常 40%。MLBB の日本語クライアント「通常、短縮率の上限は40%」）で頭打ち
         st.cooldownReduction = 0.9
         let capped = SkillCatalog.numbers(for: skill, hero: hero, rank: 1, stats: st)
         XCTAssertEqual(capped.cooldown, skill.cooldownSec * 0.6 * Balance.Skills.cooldownScale, accuracy: 1e-9)
+        // 魔導の護符などで上限が 45% に上がれば 45% まで効く（以前は CD の計算で 40% に切り直していた）
+        st.cooldownReductionCap = 0.45
+        let talisman = SkillCatalog.numbers(for: skill, hero: hero, rank: 1, stats: st)
+        XCTAssertEqual(talisman.cooldown, skill.cooldownSec * 0.55 * Balance.Skills.cooldownScale, accuracy: 1e-9)
     }
 
     func testNumbersArchetypeExtras() {
@@ -294,7 +298,8 @@ final class SkillArchetypeTests: XCTestCase {
         XCTAssertEqual(duel.hits, 3)
         XCTAssertEqual(duel.damageReduction, 0.25)
         XCTAssertEqual(duel.ccDuration, Balance.ultStunDuration)
-        XCTAssertEqual(duel.cost, m.skill(hero: "H002", slot: .ultimate)!.cost * 0.6, accuracy: 1e-9, "Energy は ×0.6")
+        XCTAssertEqual(duel.cost, m.skill(hero: "H002", slot: .ultimate)!.cost * Balance.energyCostMultiplier, accuracy: 1e-9,
+                       "Energy は × energyCostMultiplier（上限 100 に合わせた 0.12）")
 
         let ranger = m.hero("H003")!
         let blink = SkillCatalog.numbers(for: m.skill(hero: "H003", slot: .skill2)!, hero: ranger, rank: 1,
@@ -363,14 +368,16 @@ final class SkillArchetypeTests: XCTestCase {
         XCTAssertFalse(d.cast(dead, .skill2))
     }
 
-    func testEnergyHeroesPaySixtyPercent() {
+    /// エナジーのヒーローは master の cost（Mana 基準）× energyCostMultiplier（エナジーの上限を MLBB の 100 にしたので 0.12）。
+    func testEnergyHeroesPayScaledCost() {
         var w = SkillWorld()
         let a = w.addHero("H002", team: .blue, at: skillArena)
         XCTAssertEqual(w.s.units[a].hero!.resourceKind, .energy)
         let skill = w.ctx.master.skill(hero: "H002", slot: .skill1)!
         let before = w.s.units[a].resource
         XCTAssertTrue(w.cast(a, .skill1, .direction(Vec2(1, 0))))
-        XCTAssertEqual(before - w.s.units[a].resource, skill.cost * 0.6, accuracy: 1e-9)
+        XCTAssertEqual(w.s.units[a].stats.maxResource, Balance.energyMax, accuracy: 1e-9)
+        XCTAssertEqual(before - w.s.units[a].resource, skill.cost * Balance.energyCostMultiplier, accuracy: 1e-9)
     }
 
     func testPracticeNoCooldownsKeepsCooldownsZeroAndCastsFree() {

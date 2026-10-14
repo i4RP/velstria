@@ -1,5 +1,7 @@
 # Eudora (MLBB) - Kit Specification
 
+> 2026-10-14: ヒーローの能力値（HP・物理攻撃・防御・魔防・攻撃速度・HP 回復・マナ・移動速度・射程・リソースの種類）と能力値の式（防御 120/(120+防御)・クリティカル 200%・攻撃速度の加算・移動速度の加算式など）を MLBB の値へ置き換えた（`docs/HERO_STATS.md`）。この文書の能力値の記述（「マスターの値」「近接 150」「Energy」、Energy のコストの × 0.6 など）は置き換え前のもの。スキルのダメージの換算（スロット倍率・物理係数の × 0.6・キットの倍率）は変えていない（次の段階）。
+
 This is the revamped Eudora (Patch 2.1.47, main server 2026-01-28). Primary source: Mobile Legends Fandom hero page (fetched via the MediaWiki API, page edited 2026-10-01). Cross-checked against mlbbhub.com (patch 2.1.47 notes and revamp guide, descriptions only) and search extracts. "unknown" = not found. "disputed" = sources disagree. Ranges are in wiki "units".
 
 ## Hero overview

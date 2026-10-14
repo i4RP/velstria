@@ -186,7 +186,7 @@ public enum JungleBuffs {
             if magical { stats.magicPenPct += red.magnitude } else { stats.armorPenPct += red.magnitude }
         }
         if u.has(.mossGrass), map.isInRiver(u.pos) {
-            stats.moveSpeed *= 1 + Balance.Jungle.mossGrassRiverSpeed
+            stats.moveSpeedBonus += Balance.Jungle.mossGrassRiverSpeed
         }
         if u.has(.wyrmBlessing), u.shields.contains(where: { $0.tag == wyrmShieldTag && $0.amount > 0 }) {
             let level = Double(u.hero?.level ?? 1)

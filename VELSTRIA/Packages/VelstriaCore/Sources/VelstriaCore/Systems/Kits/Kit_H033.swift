@@ -260,7 +260,7 @@ struct Kit_H033: HeroKit {
         return n
     }
 
-    /// 公式はスキルにコストが無い（MLBB の Alucard は資源を持たない）。Energy のバーは残るが、どのスキルも消費しない。
+    /// 公式はスキルにコストが無い（MLBB の Alucard は資源を持たない。master の resource は None でリソースのバーも無い）。
     func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double {
         slot == .passive ? base : 0
     }
@@ -606,7 +606,7 @@ struct Kit_H033: HeroKit {
         } else {
             sec = range.0
         }
-        let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))
+        let reduction = HeroKits.cooldownReduction(stats)
         return sec * (1 - reduction) * Balance.Skills.cooldownScale
     }
 

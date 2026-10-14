@@ -3,7 +3,7 @@ import Foundation
 // 担当: kit-H028（docs/SKILL_KITS.md / docs/NEW_HEROES.md）
 // H028 断空のザイル = Velstria 版の Saber（MLBB。調査: docs/kits/Saber.md、対応表: 同ファイル末尾）。
 // 数値の正は MLBB の日本語クライアントのスキル詳細（docs/kits/Saber.md の「公式（日本語クライアント）の数値」。Fandom と違うところはこちらが優先）。
-// アサシン（近接 150・Energy）。キットはロールの汎用パッシブ（奇襲ボーナス・キル/アシストの全 CD 短縮）を置き換える。
+// アサシン（近接 180・Mana。MLBB の値。2026-10-14 に 150・Energy から直した）。キットはロールの汎用パッシブ（奇襲ボーナス・キル/アシストの全 CD 短縮）を置き換える。
 //   パッシブ 空断の理（Enemy's Bane）— ダメージを与えるたび（通常攻撃・スキル）に相手の物理防御を下げる。5 層・5 秒、
 //                                      1 層あたり 3 → 8（公式のレベル別の表: Lv1〜3 = 3、…、Lv15 = 8）。
 //   S1   環剣（Flying Sword）        — 5 本の剣が 5 秒間 周囲を回り、触れた敵に 75 → 125（+25% 追加物理攻撃）の接触ダメージ（0.5 秒ごと）。
@@ -213,7 +213,7 @@ struct Kit_H028: HeroKit {
         static let swordsCooldown = (10.0, 10.0)
         static let chargeCooldown = (7.0, 7.0)
         static let ultCooldown = (44.0, 36.0)
-        // コスト（公式のマナ。Energy のヒーローなので HeroKits.resourceCost で × energyCostMultiplier）
+        // コスト（公式のマナ。MLBB のセイバーは Mana のヒーローなので倍率は掛からない）
         /// 日本語クライアント: S1 60 → 85、S2 40 → 60、奥義 100 / 120 / 140（Fandom の S1 75 → 125・S2 70 → 45 は誤り）。
         static let swordsCost = (60.0, 85.0)
         static let chargeCost = (40.0, 60.0)
@@ -325,7 +325,7 @@ struct Kit_H028: HeroKit {
         return n
     }
 
-    /// ランクごとのコスト（公式のマナ: S1 60 → 85、S2 40 → 60、奥義 100 / 120 / 140。Energy なので × energyCostMultiplier）。
+    /// ランクごとのコスト（公式のマナ: S1 60 → 85、S2 40 → 60、奥義 100 / 120 / 140。Mana なので公式の値そのまま）。
     func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double {
         let table: (Double, Double)
         switch slot {
@@ -564,7 +564,8 @@ struct Kit_H028: HeroKit {
         let id = s.units[owner].id
         s.units[owner].hero!.kit!.zailUltPhase = 2
         // 打ち上げ（CC 無効・無敵の相手には掛からないが、三連撃は続ける）
-        Kit.knockUp(&s, target: t, duration: Tune.airborne, sourceID: id)
+        // 公式「強靭の影響を受けない」
+        Kit.knockUp(&s, target: t, duration: Tune.airborne, sourceID: id, ignoresResilience: true)
         let face = (s.units[t].pos - s.units[owner].pos)
         if face != .zero { s.units[owner].facing = face.angle }
         // 三連撃の間は動かない。打ち上げたあとは制圧（suppress）でのみ中断される（公式。スタンなどでは止まらない）
@@ -813,7 +814,7 @@ struct Kit_H028: HeroKit {
     /// 公式のクールダウン（秒）をランクで線形補間し、CD 短縮を掛ける（全体倍率 cooldownScale は 1.0 = 公式の秒数のまま）。
     static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats) -> Double {
         let sec = lerp(range.0, range.1, rank: rank, maxRank: maxRank)
-        let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))
+        let reduction = HeroKits.cooldownReduction(stats)
         return sec * (1 - reduction) * Balance.Skills.cooldownScale
     }
 

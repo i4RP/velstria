@@ -199,7 +199,8 @@ final class CombatAttackTests: XCTestCase {
     func testEmpoweredAttackAddsBonusInstanceAndIsConsumed() {
         var w = CombatWorld()
         let a = w.addHero(team: .blue, at: Vec2(5000, 5000), stats: CombatWorld.stats(attack: 100))
-        let t = w.addHero(team: .red, at: Vec2(5150, 5000), stats: CombatWorld.stats(hp: 5000, armor: 100))
+        // 防御 120 → 物理は 120/(120+120) = 50%（MLBB の防御の式）。魔防 0 の魔法はそのまま
+        let t = w.addHero(team: .red, at: Vec2(5150, 5000), stats: CombatWorld.stats(hp: 5000, armor: 120))
         w.s.units[a].hero?.empoweredAttack = EmpoweredAttack(bonusDamage: 80, damageType: .magic, cc: .stun)
         CombatSystem.releaseAttack(&w.s, w.ctx, attacker: a, target: t)
 

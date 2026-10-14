@@ -523,8 +523,9 @@ final class Kit_H030Tests: XCTestCase {
         XCTAssertGreaterThan(hero0.remaining, 2.0)
         XCTAssertLessThanOrEqual(hero0.duration, T.rushHeroDuration + 1e-9)
         XCTAssertEqual(hero0.magnitude, 0.6, accuracy: 1e-9)
+        // 加速 60%（MLBB の単位で 250 × 1.6 = 400、420 未満なので逓減しない）の後にマップ縮尺
         XCTAssertEqual(w.s.units[k].stats.moveSpeed,
-                       HeroGrowth.baseStats(def: def, level: 1).moveSpeed * 1.6, accuracy: 1.0)
+                       HeroGrowth.baseStats(def: def, level: 1).moveSpeed * 1.6 * Balance.mapScale, accuracy: 1.0)
         w.run(seconds: 1.5)   // 残り ≈ 0.6 秒 → 0.3
         let mid = try XCTUnwrap(w.s.units[k].statuses.first { $0.tag == T.rushTag })
         XCTAssertEqual(mid.magnitude, 0.6 * mid.remaining / T.rushDuration, accuracy: 0.03)

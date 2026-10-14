@@ -18,7 +18,7 @@ import Foundation
 // 再使用の窓は Zilong に無いので使わない（SkillSystem.cast の経路は 3 スキルとも初回発動のみ）。
 // 数値の正は日本語クライアントの画面（docs/kits/Zilong.md の「日本語クライアントの画面（2026-10-11・無加工の原本）」。数値は「公式（現行シーズン）の数値」と一致）。スキル1・2 のダメージは公式の表をランクへ線形補間し、
 //   (基礎 + 係数 × 攻撃力 × skillAttackScalingFactor) × スロット倍率 × 換算（Tune.flipScale / strikeScale）。H029 ボルグと同じ方法。
-//   パッシブの三連突きのダメージは公式の 80 + 30% に換算 0.6 を掛ける（回復 50 + 20% と +30 は公式の値そのまま）。マナ消費は公式の表（HeroKit.cost、Energy は × 0.6）。
+//   パッシブの三連突きのダメージは公式の 80 + 30% に換算 0.6 を掛ける（回復 50 + 20% と +30 は公式の値そのまま）。マナ消費は公式の表（HeroKit.cost。MLBB の趙子龍は Mana なので倍率なし）。
 //
 // 状態（KitState）:
 //   ints[0]  = 竜気（0..3）            ints[1] = 三連突きの命中で竜気にしない残り数（その命中の瞬間だけ立つ。update で 0 に戻す）
@@ -153,7 +153,7 @@ struct Kit_H027: HeroKit {
         static let strikeCooldown = (12.0, 9.0)
         static let ultCooldown = (35.0, 27.0)
         // マナ消費（公式: スキル1 80 → 105、スキル2 40 一定、アルティメット 120 / 140 / 160。補間した値を整数に丸め、
-        // Energy のヒーローなので HeroKits.resourceCost で × energyCostMultiplier）
+        // MLBB の趙子龍は Mana のヒーロー（2026-10-14 に Energy から直した）なので倍率は掛からない）
         static let flipCost = (80.0, 105.0)
         static let strikeCost = (40.0, 40.0)
         static let ultCost = (120.0, 160.0)
@@ -253,7 +253,7 @@ struct Kit_H027: HeroKit {
         return n
     }
 
-    /// ランクごとのマナ消費（公式: スキル1 80 → 105、スキル2 40、アルティメット 120 / 140 / 160）。Energy なので × energyCostMultiplier。
+    /// ランクごとのマナ消費（公式: スキル1 80 → 105、スキル2 40、アルティメット 120 / 140 / 160）。Mana なので公式の値そのまま。
     func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double {
         let table: (Double, Double)
         switch slot {
@@ -668,7 +668,7 @@ struct Kit_H027: HeroKit {
     /// MLBB のクールダウン（秒）をランクで線形補間し、CD 短縮を掛ける（全体倍率 cooldownScale は 1.0 = MLBB の秒数のまま）。
     static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats) -> Double {
         let sec = lerp(range.0, range.1, rank: rank, maxRank: maxRank)
-        let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))
+        let reduction = HeroKits.cooldownReduction(stats)
         return sec * (1 - reduction) * Balance.Skills.cooldownScale
     }
 

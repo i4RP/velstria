@@ -97,7 +97,8 @@ public struct CombatResult: Codable, Hashable, Sendable {
 
 public struct MagicChessConfig: Codable, Hashable, Sendable {
     /// マジックチェス独自の版数（MatchConfig とは別）。
-    public static let currentSimVersion = 1
+    /// 2: ヒーローの能力値と防御・被ダメ軽減・攻撃速度の式を MLBB に合わせた（MatchConfig の 19 と同時。docs/HERO_STATS.md）。
+    public static let currentSimVersion = 2
     public var simVersion: Int
     public var seed: UInt64
     public var participantCount: Int

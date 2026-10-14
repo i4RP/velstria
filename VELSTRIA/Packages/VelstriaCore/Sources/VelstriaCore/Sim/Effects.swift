@@ -51,8 +51,12 @@ extension StatusKind {
     public var preventsMovement: Bool { self == .stun || self == .root || self == .airborne || self == .suppress }
     /// 攻撃・スキル不可にする CC。
     public var preventsActions: Bool { self == .stun || self == .airborne || self == .suppress }
-    /// コントロール時間短縮で効果時間が縮む行動阻害・減速。
-    public var reducedByCCReduction: Bool { self == .stun || self == .root || self == .silence || self == .slow }
+    /// 強靭（コントロール時間短縮）で効果時間が縮む行動阻害・減速。制圧（suppress）は縮まない。
+    /// 打ち上げ（airborne）は MLBB の日本語クライアントの「強靭」の説明（制圧と強制ブリンクを除く）に従って縮む。
+    /// 強制ブリンク（ノックバック・引き寄せ）の状態は CombatSystem.resilienceExemptTags で外す。
+    public var reducedByCCReduction: Bool {
+        self == .stun || self == .root || self == .silence || self == .slow || self == .airborne
+    }
     /// 浄化で解除される弱体。
     public var isCleansable: Bool {
         switch self {

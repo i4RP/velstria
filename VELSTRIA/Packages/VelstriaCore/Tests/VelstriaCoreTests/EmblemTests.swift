@@ -241,6 +241,8 @@ final class EmblemTests: XCTestCase {
                          spells: ["BS01", "BS03"], emblem: e, skinID: nil)
         h.emblemRuntime.takedowns = takedowns
         ItemStats.apply(items: items, emblem: e, to: &st, master: .shared, hero: h)
+        // 攻撃速度（基礎 + 追加 × 比率）と移動速度（基礎 × (100% + 加速 − 減速)）を確定する。マップ縮尺・逓減は見ない（isHero: false）
+        StatCalculator.finalize(&st, isHero: false)
         return st
     }
 
@@ -289,7 +291,8 @@ final class EmblemTests: XCTestCase {
         XCTAssertEqual(s.moveSpeed, b.moveSpeed * 1.06, accuracy: 1e-9)
         // ハンター（適応貫通は割合）
         (s, b) = d(.marksman)
-        XCTAssertEqual(s.attackSpeed, b.attackSpeed * 1.15, accuracy: 1e-9)
+        // 攻撃速度 +15% は追加の攻撃速度 +0.15 回/秒（MLBB: 基礎 + 追加 × 比率）
+        XCTAssertEqual(s.attackSpeed, b.attackSpeed + 0.15, accuracy: 1e-9)
         XCTAssertEqual(s.attack - b.attack, 16, accuracy: 1e-9)
         XCTAssertEqual(s.armorPenPct - b.armorPenPct, 0.10, accuracy: 1e-9)
         XCTAssertEqual(s.magicPenPct, b.magicPenPct, accuracy: 1e-9)
@@ -344,7 +347,7 @@ final class EmblemTests: XCTestCase {
         XCTAssertEqual(base.critChance - noCrit.critChance, 0.05, accuracy: 1e-9)
         XCTAssertEqual(base.critMultiplier - noCrit.critMultiplier, 0.05, accuracy: 1e-9)
         XCTAssertEqual(with(.thrill).attack - noCrit.attack, 16, accuracy: 1e-9)
-        XCTAssertEqual(with(.swift).attackSpeed, noCrit.attackSpeed * 1.10, accuracy: 1e-9)
+        XCTAssertEqual(with(.swift).attackSpeed, noCrit.attackSpeed + 0.10, accuracy: 1e-9)
         XCTAssertEqual(with(.vitality).maxHP - base.maxHP, 225, accuracy: 1e-9)
         XCTAssertEqual(with(.rupture).armorPenFlat - base.armorPenFlat, 5, accuracy: 1e-9)
         XCTAssertEqual(with(.inspire).cooldownReduction - base.cooldownReduction, 0.05, accuracy: 1e-9)
@@ -482,6 +485,9 @@ final class EmblemTests: XCTestCase {
 
         var (g, b, w) = duel(EmblemLoadout(.assassin, .rupture, .masterAssassin, .warCry), extraRed: "H006")
         XCTAssertEqual(EmblemEffects.outgoingDamageBonus(g.s, g.ctx, attacker: b, target: w, source: .basicAttack), 0.07, accuracy: 1e-9)
+        // MLBB: 固定貫通は防御を 0 より下まで下げる（−60 まで）。貫通の分だけ防御を持たせて実効防御を 0 にし、倍率だけを見る
+        g.s.units[w].stats.armor = g.s.units[b].stats.armorPenFlat
+        XCTAssertEqual(g.s.units[b].stats.armorPenPct, 0, accuracy: 1e-12)
         XCTAssertEqual(hit(&g, b, w, 1000), 1070, accuracy: 1e-6)
         // もう 1 体の敵ヒーローが近くに来たら効かない
         let other = g.heroes(.red).first { $0 != w }!
@@ -651,6 +657,9 @@ final class EmblemTests: XCTestCase {
 
     func testLethalIgnitionAfterThreeBigHitsWithinFiveSeconds() {
         var (f, a, v) = duel(EmblemLoadout(.mage, .rupture, .bargainHunter, .lethalIgnition), attacker: "H004")
+        // MLBB: 固定の魔法貫通は魔防を 0 より下まで下げる（−60 まで）。貫通の分だけ魔防を持たせて実効魔防を 0 にする
+        f.s.units[v].stats.magicResist = f.s.units[a].stats.magicPenFlat
+        XCTAssertEqual(f.s.units[a].stats.magicPenPct, 0, accuracy: 1e-12)
         // 最大 HP 20000 の 7% = 1400 を超えるダメージ
         hit(&f, a, v, 1300, .magic)
         advance(&f, 1)

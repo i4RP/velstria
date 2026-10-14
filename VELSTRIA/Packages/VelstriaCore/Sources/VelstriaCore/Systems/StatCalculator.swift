@@ -24,8 +24,8 @@ public enum StatCalculator {
 
         // 制約
         stats.cooldownReduction = min(max(0, stats.cooldownReduction), stats.cooldownReductionCap)
-        stats.attackSpeed = min(max(0.1, stats.attackSpeed), Balance.maxAttackSpeed)
-        stats.moveSpeed = max(stats.moveSpeed, u.kind == .hero ? Balance.minMoveSpeed : 0)
+        let isHero = u.kind == .hero
+        finalize(&stats, isHero: isHero, outOfCombat: isHero && s.time - u.lastCombatTime > Balance.combatTimeout)
         stats.maxHP = max(1, stats.maxHP)
 
         // 最大 HP/リソースが変わったら現在値の割合を維持
@@ -37,5 +37,46 @@ public enum StatCalculator {
             s.units[i].resource = min(stats.maxResource, s.units[i].resource * stats.maxResource / old.maxResource)
         }
         s.units[i].stats = stats
+    }
+
+    /// 攻撃速度と移動速度を MLBB の式で確定する（合成の最後に 1 回だけ）。追加の攻撃速度・加速・減速は 0 に戻す。
+    /// - 攻撃速度 = 基礎 + 追加 × 攻撃速度比率（上限 3）。MLBB の用語注釈「攻撃速度」。
+    /// - 移動速度 = 基礎 × (100% + 全加速% − 全減速%)。減速の合計は 90% まで。ヒーローは計算値が 230 未満・420 超で逓減し、
+    ///   最後にマップ縮尺（Balance.mapScale）を掛けてワールドの単位/秒にする。MLBB の用語注釈「移動速度」。
+    /// outOfCombat = 非戦闘中（直近 5 秒に交戦なし）。装備の非戦闘時の加速をほかの加速と同じく足す。
+    public static func finalize(_ stats: inout Stats, isHero: Bool, outOfCombat: Bool = false) {
+        stats.attackSpeed = min(max(0.1, stats.attackSpeed + stats.extraAttackSpeed * stats.attackSpeedRatio),
+                                Balance.maxAttackSpeed)
+        stats.extraAttackSpeed = 0
+        if outOfCombat { stats.moveSpeedBonus += max(0, stats.outOfCombatMoveSpeedBonus) }
+        let calculated = MoveSpeedMath.calculated(basic: stats.moveSpeed, bonus: stats.moveSpeedBonus,
+                                                  slow: stats.moveSpeedSlow, slowReduction: stats.slowReduction,
+                                                  decays: isHero)
+        stats.moveSpeed = isHero ? max(Balance.minMoveSpeed, calculated * Balance.mapScale) : calculated
+        stats.moveSpeedBonus = 0
+        stats.moveSpeedSlow = 0
+    }
+}
+
+/// MLBB の移動速度の式（用語注釈「移動速度」）。
+public enum MoveSpeedMath {
+    /// 計算移動速度 = 基礎 × (100% + 全加速% − 全減速%)。減速は合計して減速軽減を掛け、上限 Balance.maxSlow（90%）。
+    /// decays = true（ヒーロー）なら、加速・減速で 230 未満・420 超へ動いた分を逓減させる（`decayed`）。
+    public static func calculated(basic: Double, bonus: Double, slow: Double, slowReduction: Double = 0,
+                                  decays: Bool) -> Double {
+        let b = max(0, basic)
+        let totalSlow = min(Balance.maxSlow, max(0, slow) * (1 - min(1, max(0, slowReduction))))
+        let raw = b * max(0, 1 + bonus - totalSlow)
+        return decays ? decayed(raw, basic: b) : raw
+    }
+
+    /// 加速・減速の効果のうち、230 未満・420 超へはみ出した分に Balance.moveSpeedDecayRate を掛ける
+    /// （効果だけが逓減する。基礎がもともと 230 未満・420 超ならその値から先だけ）。率は資料に無く仮の値。
+    public static func decayed(_ v: Double, basic: Double) -> Double {
+        let k = Balance.moveSpeedDecayRate
+        let hi = max(Balance.moveSpeedDecayAbove, basic), lo = min(Balance.moveSpeedDecayBelow, basic)
+        if v > hi { return hi + (v - hi) * k }
+        if v < lo { return lo - (lo - v) * k }
+        return v
     }
 }

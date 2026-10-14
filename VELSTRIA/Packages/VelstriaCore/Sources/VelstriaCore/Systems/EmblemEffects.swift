@@ -214,7 +214,7 @@ public enum EmblemEffects {
             guard map.isInWilderness(u.pos) else { break }
             let fighting = now - u.lastCombatTime <= Balance.combatTimeout
                 || now - h.emblemRuntime.bossCombatAt <= Balance.combatTimeout
-            stats.moveSpeed *= 1 + K.wildernessMoveSpeed * (fighting ? K.wildernessCombatScale : 1)
+            stats.moveSpeedBonus += K.wildernessMoveSpeed * (fighting ? K.wildernessCombatScale : 1)
         default:
             break
         }

@@ -309,6 +309,8 @@ public enum ItemStats {
         var mana: Double = 0, slowReduction: Double = 0, critChancePct: Double = 0
         var unique: [String: Double] = [:]
         var seen: [String] = []
+        // 強靭（コントロール時間短縮）: 同じ装備は加算、違う装備は掛け算で重ねる（MLBB の Resilience）
+        var resilience: [(id: String, r: Double)] = []
         for id in all {
             guard let it = master.item(id) else { continue }
             itemAttack += it.attack
@@ -336,7 +338,13 @@ public enum ItemStats {
             stats.outOfCombatMoveSpeedBonus += it.outOfCombatMovePct / 100
             stats.healShieldPower += it.healShieldPowerPct / 100
             stats.monsterDamageBonus += it.monsterDamagePct / 100
-            stats.ccReduction += it.ccReductionPct / 100
+            if it.ccReductionPct != 0 {
+                if let k = resilience.firstIndex(where: { $0.id == id }) {
+                    resilience[k].r += it.ccReductionPct / 100
+                } else {
+                    resilience.append((id, it.ccReductionPct / 100))
+                }
+            }
             slowReduction = max(slowReduction, it.slowReductionPct / 100)
             stats.healingReceivedMultiplier += it.healReceivedPct / 100
             stats.critDamageReduction += it.critDamageReductionPct / 100
@@ -347,6 +355,7 @@ public enum ItemStats {
                 for (k, v) in it.uniqueStats { unique[k] = max(unique[k] ?? 0, v) }
             }
         }
+        for src in resilience { stats.addResilience(src.r) }
         for (k, v) in unique.sorted(by: { $0.key < $1.key }) {
             switch k {
             case "armor_pen_flat": stats.armorPenFlat += v
@@ -406,7 +415,9 @@ public enum ItemStats {
         if adaptiveMagic { stats.magicPenFlat += emb.adaptivePenFlat } else { stats.armorPenFlat += emb.adaptivePenFlat }
         stats.slowReduction = slowReduction
         stats.critChance += critChancePct / 100
-        stats.attackSpeed *= 1 + attackSpeedPct
+        // 攻撃速度の「+30%」は追加の攻撃速度 +0.30（毎秒の攻撃回数。基礎への掛け算ではない。MLBB の用語注釈
+        // 「現在の攻撃速度 = 基礎 + 追加 × 攻撃速度比率」。比率と上限は StatCalculator.finalize）
+        stats.extraAttackSpeed += attackSpeedPct
         stats.abilityPower *= 1 + abilityPowerPct
         stats.critChance = min(1, stats.critChance)
         // 武器マスター: 装備・エンブレム・天賦で得た物理攻撃・魔法攻撃 +8%（スキルの強化は状態効果の後なので含めない）
@@ -414,7 +425,8 @@ public enum ItemStats {
             stats.attack += max(0, stats.attack - base.attack) * emb.weaponMaster
             stats.abilityPower += max(0, stats.abilityPower - base.abilityPower) * emb.weaponMaster
         }
-        stats.moveSpeed *= 1 + emb.moveSpeedPct + moveSpeedItemPct
+        // 移動速度の割合は加速として足す（MLBB: 基礎 × (100% + 全加速% − 全減速%)。StatCalculator.finalize）
+        stats.moveSpeedBonus += emb.moveSpeedPct + moveSpeedItemPct
         // 能力値で決まる固有効果（射程・魔力の割合・クリティカルの換算・混合防御など）。エンブレムの後の値で計算する
         ItemEffects.applyStatEffects(items: all, hero: hero, to: &stats, base: base, master: master)
     }

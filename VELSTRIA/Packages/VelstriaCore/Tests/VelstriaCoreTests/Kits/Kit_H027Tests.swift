@@ -206,9 +206,10 @@ final class Kit_H027Tests: XCTestCase {
         // 序盤（攻撃力が低い）は汎用の攻撃力 100% より強く、攻撃力が上がると汎用より伸びが緩い（公式の形）
         XCTAssertGreaterThan(Kit_H027.basicDamage(attack: 120), 120)
         XCTAssertLessThan(Kit_H027.basicDamage(attack: 400), 400)
-        // マナ（公式: S1 80 → 105、S2 40、ULT 120 / 140 / 160）。Energy のヒーローなので × energyCostMultiplier
-        XCTAssertEqual(hero.resource, .energy)
-        let e = Balance.energyCostMultiplier
+        // マナ（公式: S1 80 → 105、S2 40、ULT 120 / 140 / 160）。MLBB の趙子龍は Mana のヒーロー（2026-10-14 に Energy から
+        // 直した）なので公式の値そのまま（以前は Energy で × energyCostMultiplier が掛かっていた）
+        XCTAssertEqual(hero.resource, .mana)
+        let e = 1.0
         for (rank, mp) in [(1, 80.0), (2, 88), (3, 97), (4, 105)] {
             XCTAssertEqual(SkillSystem.cost(for: try skill(.skill1), hero: hero, rank: rank), mp * e, accuracy: 1e-9)
             XCTAssertEqual(SkillSystem.cost(for: try skill(.skill2), hero: hero, rank: rank), 40 * e, accuracy: 1e-9)
@@ -652,7 +653,8 @@ final class Kit_H027Tests: XCTestCase {
         w.run(seconds: 0.4)
         let hits = w.damageEvents.filter { $0.targetID == w.id(e) && $0.source == .skill(.skill2) }
         XCTAssertEqual(hits.count, 1, "到着した tick に 1 度だけ")
-        XCTAssertEqual(hits[0].amount, n.damage * 100 / (100 + armor0), accuracy: 1e-6,
+        // MLBB の防御の式 120 / (120 + 防御)
+        XCTAssertEqual(hits[0].amount, n.damage * 120 / (120 + armor0), accuracy: 1e-6,
                        "防御ダウンはこの 1 撃には掛からない（掛かる前の防御で軽減）")
         XCTAssertNil(kit(w, k).sweep)
         // 対象の縁で止まる
@@ -772,6 +774,8 @@ final class Kit_H027Tests: XCTestCase {
                     w.tick()
                     if w.damage(to: m, from: .basicAttack) > 0 { break }
                 }
+                // 1 発だけ当てて攻撃をやめる（MLBB の攻撃速度では 0.8 秒の間に次の通常攻撃が当たり、窓が開き直してしまう）
+                w.s.units[k].attackTargetID = nil
             } else {
                 w.hit(k, m, SkillWorld.truePayload(10))
             }
@@ -816,7 +820,8 @@ final class Kit_H027Tests: XCTestCase {
         XCTAssertTrue(w.damageEvents.isEmpty, "ダメージを持たない")
         w.tick(2)
         XCTAssertEqual(w.s.units[k].stats.moveSpeed, baseMS * 1.4, accuracy: 1e-6)
-        XCTAssertEqual(w.s.units[k].stats.attackSpeed, baseAS * 1.35, accuracy: 1e-6)
+        // 攻撃速度 +35% は追加の攻撃速度 +0.35 回/秒（MLBB: 基礎 + 追加 × 攻撃速度比率）
+        XCTAssertEqual(w.s.units[k].stats.attackSpeed, baseAS + 0.35 * w.s.units[k].stats.attackSpeedRatio, accuracy: 1e-6)
         XCTAssertEqual(kit(w, k).jarldUltRemaining, Tune.ultDuration, accuracy: 0.1)
         let ev = try XCTUnwrap(w.castEvents.last)
         XCTAssertEqual(ev.shape, .selfRing)
@@ -843,7 +848,8 @@ final class Kit_H027Tests: XCTestCase {
             ref.tick(2)
             XCTAssertTrue(w.cast(k, .ultimate))
             w.tick(2)
-            XCTAssertEqual(w.s.units[k].stats.attackSpeed, ref.s.units[rk].stats.attackSpeed * (1 + expected),
+            XCTAssertEqual(w.s.units[k].stats.attackSpeed,
+                           ref.s.units[rk].stats.attackSpeed + expected * w.s.units[k].stats.attackSpeedRatio,
                            accuracy: 1e-6, "rank \(rank)")
         }
     }

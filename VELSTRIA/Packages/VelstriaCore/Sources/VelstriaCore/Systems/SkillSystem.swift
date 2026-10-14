@@ -178,7 +178,7 @@ public enum SkillCatalog {
         n.rank = r
         n.damageType = skill.damageType
         n.damage = raw
-        n.cooldown = SkillSystem.cooldown(for: skill, rank: r, cdr: stats.cooldownReduction)
+        n.cooldown = SkillSystem.cooldown(for: skill, rank: r, cdr: stats.cooldownReduction, cap: stats.cooldownReductionCap)
         n.cost = SkillSystem.cost(for: skill, resource: hero.resource)
         n.resource = hero.resource
         n.cc = skill.cc
@@ -297,15 +297,22 @@ public enum SkillSystem {
     }
 
     /// 実効クールダウン（ランク・CD 短縮込み。Balance.Skills.cooldownScale は 1.0 = マスターの秒数のまま）。
-    public static func cooldown(for skill: SkillDef, rank: Int, cdr: Double) -> Double {
-        let reduction = min(Balance.maxCooldownReduction, max(0, cdr))
+    /// cdr はユニットの CD 短縮（Stats.cooldownReduction）。上限（通常 40%、魔導の護符で 45%）は StatCalculator が
+    /// Stats.cooldownReductionCap で切ってあるので、ここで 40% に切り直さない（以前は切り直していて護符の +5% が効かなかった）。
+    /// cap を渡すとその値でも切る（能力値を通さない呼び出し用）。
+    public static func cooldown(for skill: SkillDef, rank: Int, cdr: Double, cap: Double = 1) -> Double {
+        let reduction = min(cap, min(1, max(0, cdr)))
         return skill.cooldownSec * (1 - Balance.skillCooldownPerRank * Double(max(0, rank - 1))) * (1 - reduction)
             * Balance.Skills.cooldownScale
     }
 
-    /// 実効コスト（汎用。キットの上書きを含まない）。
+    /// 実効コスト（汎用。キットの上書きを含まない）。怒り・リソースなしのヒーローは 0。
     public static func cost(for skill: SkillDef, resource: ResourceKind) -> Double {
-        resource == .energy ? skill.cost * Balance.energyCostMultiplier : skill.cost
+        switch resource {
+        case .mana: return skill.cost
+        case .energy: return skill.cost * Balance.energyCostMultiplier
+        case .rage, .noResource: return 0
+        }
     }
 
     /// ランク込みの実効コスト（キットのヒーローはキットの `cost` を反映する。キットが無ければ上の汎用と同じ）。

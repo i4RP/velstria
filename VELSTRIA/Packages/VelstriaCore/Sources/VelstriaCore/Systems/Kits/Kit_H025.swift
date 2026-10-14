@@ -1,7 +1,7 @@
 import Foundation
 
 // 担当: kit-H025（docs/SKILL_KITS.md / docs/NEW_HEROES.md / docs/kits/Miya.md）
-// H025 月弦のルミナ = MLBB ミヤの Velstria 版（レンジャー・遠隔 550・マナ）。調査: docs/kits/Miya.md、対応表: 同ファイル末尾。
+// H025 月弦のルミナ = MLBB ミヤの Velstria 版（レンジャー・遠隔 480（MLBB の 4.8）・マナ）。調査: docs/kits/Miya.md、対応表: 同ファイル末尾。
 // 数値の正は MLBB の日本語クライアントのスキル詳細（docs/kits/Miya.md の「公式（日本語クライアント）の数値」。Fandom と違うところはこちらが優先）。
 //   パッシブ 月環の導き  — 通常攻撃が命中するたびに攻撃速度 +5%（4 秒・最大 5 段）。最大のあいだは通常攻撃のたびに「月影」が
 //                          25(+20% 物理攻撃) の形の物理ダメージを追って与える（換算 × shadowScale）。ロールの「4 発毎の確定会心」は置き換え。
@@ -52,9 +52,9 @@ enum LuminaTuning {
     static let splashRadius: Double = 300
     /// 副矢が飛ぶ範囲の余裕（術者の射程 + 対象の半径 + この値）。
     static let splashLeeway: Double = 150
-    /// 自己強化の照準リングの半径 = 通常攻撃の射程（550）。「この範囲に敵が居れば撃つ」を HUD の輪で示す。
-    /// ボットの奥義の関門（周囲の敵を数える半径 = 輪 × 1.4 = 770）もこれに従う。
-    static let selfRing: Double = 550
+    /// 自己強化の照準リングの半径 = 通常攻撃の射程（MLBB の 4.8 = 480。2026-10-14 に 550 から）。「この範囲に敵が居れば撃つ」を
+    /// HUD の輪で示す。ボットの奥義の関門（周囲の敵を数える半径 = 輪 × 1.4 = 672）もこれに従う。
+    static let selfRing: Double = 480
     /// 「撃てる距離」の目安（`reachOverride`。敵がこの内側に居るときだけ撃つ）。
     static let s1Reach: Double = 600
     /// MLBB の CD 11 秒（全ランク固定）。
@@ -620,7 +620,7 @@ struct Kit_H025: HeroKit {
     /// MLBB のクールダウン（秒）をランクで線形補間し、CD 短縮を掛ける（全体倍率 cooldownScale は 1.0 = MLBB の秒数のまま）。
     static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats) -> Double {
         let sec = lerp(range.0, range.1, rank: rank, maxRank: maxRank)
-        let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))
+        let reduction = HeroKits.cooldownReduction(stats)
         return sec * (1 - reduction) * Balance.Skills.cooldownScale
     }
 

@@ -65,7 +65,7 @@ final class Kit_H025Tests: XCTestCase {
         HeroKits.testOverride = [Kit_H025(isReady: true)]
 
         let m = MasterData.shared
-        // スキル1 月弦分矢: 自己強化（照準なし）。リングは通常攻撃の射程と同じ 550、撃てる距離の目安 (reach) は 600
+        // スキル1 月弦分矢: 自己強化（照準なし）。リングは通常攻撃の射程と同じ 480（MLBB の 4.8）、撃てる距離の目安 (reach) は 600
         let t1 = SkillCatalog.targeting(for: skill(.skill1), hero: def)
         XCTAssertEqual(t1.archetype, .selfAoE)
         XCTAssertEqual(t1.aim, .none)
@@ -85,7 +85,7 @@ final class Kit_H025Tests: XCTestCase {
         XCTAssertEqual(t2.shape, .circleAtPoint)
         XCTAssertEqual(t2.reach, 650 + T.s2Radius)
 
-        // アルティメット 隠れ月光: 自己強化。リングは 550、撃てる距離の目安 (reach) は奥義の距離 770
+        // アルティメット 隠れ月光: 自己強化。リングは 480、撃てる距離の目安 (reach) は奥義の距離 770
         let t3 = SkillCatalog.targeting(for: skill(.ultimate), hero: def)
         XCTAssertEqual(t3.archetype, .selfAoE)
         XCTAssertEqual(t3.aim, .none)
@@ -249,9 +249,10 @@ final class Kit_H025Tests: XCTestCase {
             if st != lastStacks {
                 stackLog.append(st)
                 lastStacks = st
-                // 攻撃速度は段 × 5%
+                // 攻撃速度は段 × 5% の追加の攻撃速度（MLBB: 基礎 + 追加 × 攻撃速度比率）
                 w.tick()
-                XCTAssertEqual(w.s.units[k].stats.attackSpeed, baseSpeed * (1 + T.attackSpeedPerStack * Double(st)), accuracy: 1e-9)
+                XCTAssertEqual(w.s.units[k].stats.attackSpeed,
+                               baseSpeed + T.attackSpeedPerStack * Double(st) * w.s.units[k].stats.attackSpeedRatio, accuracy: 1e-9)
             }
         }
         XCTAssertEqual(Array(stackLog.prefix(5)), [1, 2, 3, 4, 5], "命中ごとに 1 段")
@@ -623,8 +624,10 @@ final class Kit_H025Tests: XCTestCase {
         let slow = try XCTUnwrap(w.s.units[near].statuses.first { $0.tag == T.slowTag })
         XCTAssertLessThanOrEqual(slow.remaining, 2.0)
         XCTAssertGreaterThan(slow.remaining, 0.4)
+        // 30% の減速。MLBB の移動速度の式（230 未満へ動いた分は逓減）の後にマップ縮尺
+        let basic = HeroGrowth.baseStats(def: MasterData.shared.hero("H003")!, level: 1).moveSpeed
         XCTAssertEqual(w.s.units[near].stats.moveSpeed,
-                       HeroGrowth.baseStats(def: MasterData.shared.hero("H003")!, level: 1).moveSpeed * 0.7, accuracy: 1.0)
+                       MoveSpeedMath.calculated(basic: basic, bonus: 0, slow: 0.3, decays: true) * Balance.mapScale, accuracy: 1.0)
         w.run(seconds: 2)
         XCTAssertNil(slowMagnitude(w, near))
     }

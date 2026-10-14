@@ -14,6 +14,9 @@ public enum CombatSystem {
     static let tagStun = "cc.stun"
     static let tagKnockback = "cc.knockback"
     static let tagRedBuff = "redBuff"
+    /// 強靭（コントロール時間短縮）が効かない状態の tag: 強制ブリンク（汎用のノックバック）と、
+    /// スキルの説明で「強靭の影響を受けない」とある打ち上げ（KitTags.knockUpIgnoresResilience。セイバーの奥義など）。
+    static let resilienceExemptTags: Set<String> = [tagKnockback, KitTags.knockUpIgnoresResilience]
 
     /// これ以下の HP は 0 とみなす（浮動小数の端数で 1e-9 だけ生き残るのを防ぐ）。
     static let deathEpsilon = 1e-6
@@ -79,8 +82,8 @@ public enum CombatSystem {
                                 flat: st.magicPenFlat)
         }
         amount *= mitigationMultiplier(type, armor: armor, magicResist: resist)
-        // 5. 被ダメ軽減（上限 60%）
-        if !environmental { amount *= damageReductionMultiplier(s.units[t].stats.damageReduction) }
+        // 5. 被ダメ軽減（防御の後の最終ダメージを割合で減らす。上限なし、確定ダメージには効かない。MLBB の用語注釈「ダメージ軽減」）
+        if !environmental, type != .trueDamage { amount *= damageReductionMultiplier(s.units[t].stats.damageReduction) }
         guard amount > 0, amount.isFinite else { return 0 }
         // ミニオンへのスキルダメージは倍率を下げる（スキル倍率が大きく、そのままだと 1 発でウェーブが消えるため）
         if source.isSkill, s.units[t].kind == .minion {
@@ -97,12 +100,13 @@ public enum CombatSystem {
             guard amount > 0, amount.isFinite else { return 0 }
         }
 
-        // 6. シールド（古いものから）→ HP
+        // 6. シールド（残り時間の短いものから。同じなら量の少ないもの → 古いもの）→ HP
+        // MLBB の用語注釈「シールド」: 重なったときは持続の短いもの・量の少ないものから先に削れる
         var remaining = amount
         var absorbed = 0.0
         var turretShieldAbsorbed = 0.0
         if !s.units[t].shields.isEmpty {
-            for k in s.units[t].shields.indices where remaining > 0 {
+            for k in shieldOrder(s.units[t].shields) where remaining > 0 {
                 let take = min(remaining, max(0, s.units[t].shields[k].amount))
                 s.units[t].shields[k].amount -= take
                 remaining -= take
@@ -224,23 +228,43 @@ public enum CombatSystem {
         }
     }
 
-    /// 貫通後の防御（魔防）。割合で無視してから固定値を引き、下限は 0。
-    static func penetrated(_ defense: Double, pct: Double, flat: Double) -> Double {
-        max(0, max(0, defense) * (1 - min(1, max(0, pct))) - max(0, flat))
+    /// シールドを削る順（添字）。残り時間の短いもの → 量の少ないもの → 古いもの。
+    static func shieldOrder(_ shields: [Shield]) -> [Int] {
+        guard shields.count > 1 else { return Array(shields.indices) }
+        return shields.indices.sorted { a, b in
+            let x = shields[a], y = shields[b]
+            if x.remaining != y.remaining { return x.remaining < y.remaining }
+            if x.amount != y.amount { return x.amount < y.amount }
+            return a < b
+        }
     }
 
-    /// 防御軽減の倍率（物理 = 100/(100+防御)、魔法 = 100/(100+魔防)、確定 = 1）。
+    /// 貫通後の防御（魔防）。MLBB の用語注釈「物理貫通」: 実効防御 = 防御 × (100% − 割合貫通) − 固定貫通。下限 −60。
+    /// 割合貫通は正の防御にだけ効く（すでに負の防御を 0 へ戻さない）。
+    static func penetrated(_ defense: Double, pct: Double, flat: Double) -> Double {
+        let d = defense > 0 ? defense * (1 - min(1, max(0, pct))) : defense
+        return max(Balance.minDefense, d - max(0, flat))
+    }
+
+    /// 防御軽減の倍率（物理 = 120/(120+防御)、魔法 = 120/(120+魔防)、確定 = 1）。防御は −60 まで（受けるダメージは最大 200%）。
+    /// MLBB の用語注釈「物理防御」「魔法防御」（Fandom の Notes の写し）。
     public static func mitigationMultiplier(_ type: DamageType, armor: Double, magicResist: Double) -> Double {
+        let k = Balance.defenseConstant
         switch type {
-        case .physical: return 100 / (100 + max(0, armor))
-        case .magic: return 100 / (100 + max(0, magicResist))
+        case .physical: return k / (k + max(Balance.minDefense, armor))
+        case .magic: return k / (k + max(Balance.minDefense, magicResist))
         case .trueDamage: return 1
         }
     }
 
-    /// 被ダメ軽減の倍率 1 − min(0.6, damageReduction)。
+    /// 被ダメ軽減の倍率 1 − damageReduction（上限なし。MLBB の用語注釈「ダメージ軽減」。0 未満にはしない）。
     public static func damageReductionMultiplier(_ damageReduction: Double) -> Double {
-        1 - min(Balance.maxDamageReduction, max(0, damageReduction))
+        max(0, 1 - max(0, damageReduction))
+    }
+
+    /// クリティカルの倍率。MLBB: 元のダメージ × (200% + 全クリティカルダメージ増加 − 全クリティカルダメージ減少)。1 倍未満にはしない。
+    static func critMultiplier(attacker: Stats, target: Stats) -> Double {
+        max(1, attacker.critMultiplier - max(0, target.critDamageReduction))
     }
 
     /// 無敵状態か（Invulnerable ステータス、または保護中の構造物）。
@@ -292,13 +316,15 @@ public enum CombatSystem {
         return healed
     }
 
-    /// シールド付与（古いものから消費される）。tag が空でなければ同じ tag のシールドを置き換える。
+    /// シールド付与（残り時間の短いものから消費される）。tag が空でなければ同じ tag のシールドを置き換える。
+    /// 量 = 元 × 与える側の回復効果 × 受ける側のシールド＆HP回復（MLBB の日本語クライアント: どちらも回復とシールドの両方に効く）。
     public static func addShield(_ s: inout SimState, _ ctx: SimContext, sourceID: EntityID?, targetIndex t: Int,
                                  amount: Double, duration: Double, tag: String = "") {
         guard s.units.indices.contains(t), isLiving(s, t), amount > 0, amount.isFinite else { return }
         let src = s.index(of: sourceID)
         var value = amount
         if let src { value *= max(0, 1 + s.units[src].stats.healShieldPower) }
+        value *= max(0, s.units[t].stats.healingReceivedMultiplier)
         guard value > 0 else { return }
         let d = duration > 0 ? duration : Balance.combatDefaultShieldDuration
         if !tag.isEmpty { s.units[t].shields.removeAll { $0.tag == tag } }
@@ -361,12 +387,16 @@ public enum CombatSystem {
                                  allowStructure: Bool = false) {
         guard s.units.indices.contains(t), isLiving(s, t), effect.remaining > 0 else { return }
         var effect = effect
-        // コントロール時間短縮（タフブーツ・ブレストプレート）: 行動阻害と減速の効果時間を縮める
-        if effect.kind.reducedByCCReduction, s.units[t].kind == .hero, s.units[t].team != .neutral {
-            let r = min(Balance.Items.maxCCReduction, max(0, s.units[t].stats.ccReduction))
+        // 強靭（コントロール時間短縮。タフブーツ・ブレストプレート）: 行動阻害と減速の効果時間を縮める。0.1 秒より短くしない。
+        // 制圧と強制ブリンク（ノックバック・引き寄せ）には効かない（MLBB の日本語クライアント「強靭」）。打ち上げは日本語の
+        // 説明では対象（Fandom の Resilience は対象外と書く。食い違いは docs/HERO_STATS.md）。
+        if effect.kind.reducedByCCReduction, !resilienceExemptTags.contains(effect.tag),
+           s.units[t].kind == .hero, s.units[t].team != .neutral {
+            let r = min(1, max(0, s.units[t].stats.ccReduction))
             if r > 0, effect.sourceID != s.units[t].id {
-                effect.remaining *= 1 - r
-                effect.duration *= 1 - r
+                let floor = min(effect.remaining, Balance.minCrowdControlDuration)
+                effect.remaining = max(floor, effect.remaining * (1 - r))
+                effect.duration = max(min(effect.duration, Balance.minCrowdControlDuration), effect.duration * (1 - r))
             }
         }
         let kind = effect.kind
@@ -669,9 +699,8 @@ public enum CombatSystem {
                     isCrit = s.rng.nextDouble() < chance
                 }
             }
-            // 対象のクリティカルダメージ軽減（ブレイドアーマー）はクリティカルの上乗せ分を減らす
-            let critCut = min(1, max(0, s.units[t].stats.critDamageReduction))
-            let multiplier = isCrit ? max(1, 1 + (s.units[i].stats.critMultiplier - 1) * (1 - critCut)) : 1
+            // MLBB: 元 × (200% + クリティカルダメージ増加 − 減少)。対象のクリティカルダメージ軽減（ブレイドアーマー）を引く
+            let multiplier = isCrit ? critMultiplier(attacker: s.units[i].stats, target: s.units[t].stats) : 1
             if isCrit { ItemEffects.onCrit(&s, ctx, attacker: i) }
             payload = HitPayload(damage: s.units[i].stats.attack * multiplier, damageType: .physical,
                                  source: .basicAttack, isCrit: isCrit, appliesOnHit: true)

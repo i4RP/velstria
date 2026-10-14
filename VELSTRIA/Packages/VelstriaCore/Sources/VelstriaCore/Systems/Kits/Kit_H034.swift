@@ -650,14 +650,14 @@ struct Kit_H034: HeroKit {
     /// MLBB のクールダウン（秒）をランクで線形補間し、CD 短縮を掛ける（全体倍率 cooldownScale は 1.0 = MLBB の秒数のまま）。
     static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats) -> Double {
         let sec = lerp(range.0, range.1, rank: rank, maxRank: maxRank)
-        let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))
+        let reduction = HeroKits.cooldownReduction(stats)
         return sec * (1 - reduction) * Balance.Skills.cooldownScale
     }
 
     /// アルティメットのクールダウン（公式 62 / 55 / 48 秒を表で引き、CD 短縮を掛ける）。
     static func ultCooldown(rank: Int, stats: Stats) -> Double {
         let sec = Tune.ultCooldowns[min(max(1, rank), Tune.ultCooldowns.count) - 1]
-        let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))
+        let reduction = HeroKits.cooldownReduction(stats)
         return sec * (1 - reduction) * Balance.Skills.cooldownScale
     }
 

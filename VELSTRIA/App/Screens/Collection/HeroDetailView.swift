@@ -142,7 +142,10 @@ private struct HeroOverviewSection: View {
         VStack(alignment: .leading, spacing: 10) {
             // リソース・ダメージの種類・射程・難易度（左パネルからこちらへ移した基本情報）
             HStack(spacing: 5) {
-                CollectionInfoTag(text: "\(CollectionStyle.resourceName(hero.resource)) \(Int(hero.resourceMax))",
+                // 最大値は Lv1（怒り・リソースなしは量を持たないので名前だけ）
+                CollectionInfoTag(text: hero.resource.usesPool
+                                      ? "\(CollectionStyle.resourceName(hero.resource)) \(Int(hero.resourceMax))"
+                                      : CollectionStyle.resourceName(hero.resource),
                                   symbol: CollectionStyle.resourceSymbol(hero.resource),
                                   color: CollectionStyle.resourceColor(hero.resource))
                 CollectionInfoTag(text: CollectionStyle.damageTypeName(damageType),

@@ -1,7 +1,7 @@
 import Foundation
 
 // 担当: kit-H030（docs/SKILL_KITS.md / docs/NEW_HEROES.md / docs/kits/Layla.md）
-// H030 星砲のライナ = MLBB ライラの Velstria 版（レンジャー・遠隔 550・マナ）。
+// H030 星砲のライナ = MLBB ライラの Velstria 版（レンジャー・遠隔 430（MLBB の 4.3）・マナ）。
 // 遠距離ほど火力が伸びる砲撃手。パッシブは距離補正（通常攻撃・スキル。タワーには効かない）、
 // スキル1（遠星弾）は会心のある直線弾（命中で射程延長と加速）、スキル2（星爆弾）は爆発する星環弾（誰にも当たらなくても射程の端で
 // 爆発し、軽い減速と刻印を付ける。刻印へ当てると弾けて周囲をスタン）、アルティメット（星砕の大砲）は短い溜めの後に画面を貫く貫通ビーム。
@@ -618,7 +618,7 @@ struct Kit_H030: HeroKit {
     /// MLBB のクールダウン（秒）をランクで線形補間し、CD 短縮を掛ける（全体倍率 cooldownScale は 1.0 = MLBB の秒数のまま）。
     static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats) -> Double {
         let sec = lerp(range.0, range.1, rank: rank, maxRank: maxRank)
-        let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))
+        let reduction = HeroKits.cooldownReduction(stats)
         return sec * (1 - reduction) * Balance.Skills.cooldownScale
     }
 

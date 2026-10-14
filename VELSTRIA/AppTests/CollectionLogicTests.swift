@@ -27,11 +27,15 @@ final class CollectionLogicTests: XCTestCase {
         XCTAssertEqual(SkillMath.cooldown(skill, rank: 3), skill.cooldownSec * 0.88 * scale, accuracy: 1e-9)
     }
 
-    func testEnergyHeroesPaySixtyPercentCost() throws {
+    /// エナジーのヒーローは master の cost（Mana 基準）× energyCostMultiplier（エナジーの上限 100 に合わせた 0.12）。
+    /// 怒り・リソースなし（MLBB のディロス・アルカード）は 0。
+    func testEnergyHeroesPayScaledCostAndPoollessHeroesPayNothing() throws {
         let skill = try XCTUnwrap(master.skill(hero: "H002", slot: .skill1))
         XCTAssertEqual(master.hero("H002")?.resource, .energy)
-        XCTAssertEqual(SkillMath.cost(skill, resource: .energy), skill.cost * 0.6, accuracy: 1e-9)
+        XCTAssertEqual(SkillMath.cost(skill, resource: .energy), skill.cost * Balance.energyCostMultiplier, accuracy: 1e-9)
         XCTAssertEqual(SkillMath.cost(skill, resource: .mana), skill.cost, accuracy: 1e-9)
+        XCTAssertEqual(SkillMath.cost(skill, resource: .rage), 0)
+        XCTAssertEqual(SkillMath.cost(skill, resource: .noResource), 0)
     }
 
     func testRankListsPerSlot() {

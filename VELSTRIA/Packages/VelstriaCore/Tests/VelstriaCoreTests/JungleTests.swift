@@ -185,19 +185,23 @@ final class JungleTests: XCTestCase {
     // MARK: - バフ
 
     func testPurpleBuffCutsSkillCostsAndHealsOnKill() {
-        var f = EconomyFixture.standard()
+        // H025〜H034 には Energy のヒーローがいない（MLBB の趙子龍・セイバーは Mana）ので、人間を Energy の H002 にする
+        var f = EconomyFixture(config: MatchFactory.standardMatch(humanHeroID: "H002", humanName: "Tester", seed: 11))
         f.parkHeroesAtFountains()
         let blue = f.heroes(.blue)
         let mana = blue.first { f.hero($0).resourceKind == .mana }!
         let energy = blue.first { f.hero($0).resourceKind == .energy }!
         XCTAssertEqual(JungleBuffs.skillCostMultiplier(f.s.units[mana]), 1)
+        // ボットはエンブレム（CD 短縮を含むことがある）を付けているので、バフの前後の差で見る
+        StatCalculator.recompute(&f.s, mana, f.ctx)
+        let cdrBefore = f.s.units[mana].stats.cooldownReduction
         for i in [mana, energy] {
             CombatSystem.addStatus(&f.s, targetIndex: i, StatusEffect(kind: .blueBuff, duration: 75, tag: "sentinel"))
         }
         XCTAssertEqual(JungleBuffs.skillCostMultiplier(f.s.units[mana]), 0.4, accuracy: 1e-9)
         XCTAssertEqual(JungleBuffs.skillCostMultiplier(f.s.units[energy]), 0.75, accuracy: 1e-9)
         StatCalculator.recompute(&f.s, mana, f.ctx)
-        XCTAssertEqual(f.s.units[mana].stats.cooldownReduction, Balance.Jungle.purpleCooldownReduction, accuracy: 1e-9)
+        XCTAssertEqual(f.s.units[mana].stats.cooldownReduction - cdrBefore, Balance.Jungle.purpleCooldownReduction, accuracy: 1e-9)
         // 敵を倒すと回復: ミニオン 3% / モンスター 12%
         let maxHP = f.s.units[mana].stats.maxHP
         f.s.units[mana].hp = maxHP * 0.5
@@ -222,7 +226,9 @@ final class JungleTests: XCTestCase {
         let after = f.s.units[a]
         XCTAssertEqual(after.stats.maxHP - after.hp, 500 * after.stats.maxHP / st.maxHP - Balance.Jungle.healingBuffHP,
                        accuracy: 1e-6)
-        XCTAssertEqual(after.resource, st.maxResource * Balance.Jungle.healingBuffManaPct, accuracy: 1e-6)
+        // 最大マナはレベルで増える（MLBB: 500 + 100/Lv）。回復は Lv2 の最大マナの割合
+        XCTAssertGreaterThan(after.stats.maxResource, st.maxResource)
+        XCTAssertEqual(after.resource, after.stats.maxResource * Balance.Jungle.healingBuffManaPct, accuracy: 1e-6)
     }
 
     func testCrabGivesGoldOverTime() {

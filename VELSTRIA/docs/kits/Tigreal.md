@@ -1,5 +1,7 @@
 # Tigreal (MLBB) - Kit Specification
 
+> 2026-10-14: ヒーローの能力値（HP・物理攻撃・防御・魔防・攻撃速度・HP 回復・マナ・移動速度・射程・リソースの種類）と能力値の式（防御 120/(120+防御)・クリティカル 200%・攻撃速度の加算・移動速度の加算式など）を MLBB の値へ置き換えた（`docs/HERO_STATS.md`）。この文書の能力値の記述（「マスターの値」「近接 150」「Energy」、Energy のコストの × 0.6 など）は置き換え前のもの。スキルのダメージの換算（スロット倍率・物理係数の × 0.6・キットの倍率）は変えていない（次の段階）。
+
 **正は下の「公式（日本語クライアント）の数値」**（オーナーが提供した実機のスキル詳細 4 枚）。それ以前のウェブ調査（この節より上）と食い違う値は公式が優先する。
 
 Values come from Mobile Legends Fandom / Liquipedia search extracts plus mlbb.io, mlbb.tools and guide sites (direct Fandom/Liquipedia fetch was blocked). "unknown" = not found. "disputed" = sources disagree.

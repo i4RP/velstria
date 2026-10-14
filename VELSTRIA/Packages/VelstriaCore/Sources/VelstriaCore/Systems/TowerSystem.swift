@@ -114,12 +114,10 @@ public enum TowerSystem {
             case .ranged: pct = Balance.towerRangedMinionDamagePct
             case .siege: pct = Balance.towerSiegeMinionDamagePct
             }
-            // CombatSystem は構造物 → ミニオンの弾を確定ダメージ（防御無視）として適用する。
-            // 最終的に最大 HP の pct だけ削れるよう、その際に掛かる与ダメ補正と被ダメ軽減（DESIGN §5 の 3・5）を
-            // あらかじめ打ち消しておく
+            // CombatSystem は構造物 → ミニオンの弾を確定ダメージ（防御・被ダメ軽減を無視）として適用する。
+            // 最終的に最大 HP の pct だけ削れるよう、その際に掛かる与ダメ補正（DESIGN §5 の 3）をあらかじめ打ち消しておく
             let bonus = max(0.05, 1 + tower.stats.damageBonus)
-            let reduction = max(0.05, 1 - min(Balance.maxDamageReduction, max(0, target.stats.damageReduction)))
-            return pct * target.stats.maxHP / (bonus * reduction)
+            return pct * target.stats.maxHP / bonus
         case .hero, .dummy:
             var hits = 0
             if tower.tower?.rampTargetID == target.id { hits = tower.tower?.rampHits ?? 0 }

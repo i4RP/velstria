@@ -272,7 +272,10 @@ final class SpellSystemTests: XCTestCase {
         let speed = w.s.units[t].stats.moveSpeed
         XCTAssertTrue(w.castSpell(h, 0))
         w.tick()
-        XCTAssertEqual(w.s.units[t].stats.moveSpeed, speed * 0.6, accuracy: 1e-6)
+        // 40% の減速。MLBB の移動速度の式（MLBB の単位で計算し、230 未満へ動いた分は逓減）の後にマップ縮尺
+        let slowed = MoveSpeedMath.calculated(basic: speed / Balance.mapScale, bonus: 0, slow: 0.4, decays: true) * Balance.mapScale
+        XCTAssertEqual(w.s.units[t].stats.moveSpeed, slowed, accuracy: 1e-6)
+        XCTAssertLessThan(w.s.units[t].stats.moveSpeed, speed * 0.85)
         XCTAssertEqual(w.s.units[t].stats.damageBonus, -0.3, accuracy: 1e-9)
         let dealt = CombatSystem.applyDamage(&w.s, w.ctx, sourceID: w.id(t), targetIndex: h, amount: 100,
                                              type: .trueDamage, source: .basicAttack)
@@ -337,7 +340,8 @@ final class SpellSystemTests: XCTestCase {
         let base = w.s.units[h].stats.attackSpeed
         XCTAssertTrue(w.castSpell(h, 0))
         w.tick()
-        XCTAssertEqual(w.s.units[h].stats.attackSpeed, base * 1.5, accuracy: 1e-9)
+        // 攻撃速度 +50% は追加の攻撃速度 +0.5 回/秒（MLBB: 基礎 + 追加 × 攻撃速度比率）
+        XCTAssertEqual(w.s.units[h].stats.attackSpeed, base + 0.5 * w.s.units[h].stats.attackSpeedRatio, accuracy: 1e-9)
         w.run(seconds: 5.1)
         XCTAssertEqual(w.s.units[h].stats.attackSpeed, base, accuracy: 1e-9)
         XCTAssertEqual(w.s.units[h].hero!.spellCooldowns[0], 75 - 5.1, accuracy: 0.1)

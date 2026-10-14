@@ -75,7 +75,10 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     ///     エンブレムを付ける。能力値と戦い方が変わる）。
     /// 18: エンブレムのレベル（仮の表）。人間の能力値はセットのレベルの値になり、解放レベル未満の段の天賦は働かない
     ///     （1 段目 Lv10・2 段目 Lv15・コア Lv20）。ボットは Lv60 のまま。
-    public static let currentSimVersion = 18
+    /// 19: 能力値と戦闘の式を MLBB に合わせた（防御 120/(120+防御)・下限 −60、クリティカル 200%、攻撃速度 = 基礎 + 追加 × 比率・
+    ///     上限 3、移動速度の加算式・減速の合計 90%、強靭の掛け算、被ダメ軽減の上限撤廃、シールドの消費順など）。全ヒーローの能力値を
+    ///     MLBB の値（H025〜H034）とロール中央値（H001〜H024）へ。docs/HERO_STATS.md。
+    public static let currentSimVersion = 19
 
     public var simVersion: Int
     public var mode: MatchMode

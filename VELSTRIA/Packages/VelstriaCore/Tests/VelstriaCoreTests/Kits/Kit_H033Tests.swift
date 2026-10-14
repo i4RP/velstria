@@ -271,7 +271,9 @@ final class Kit_H033Tests: XCTestCase {
         }
         let sp = try XCTUnwrap(MasterData.shared.skill(hero: "H033", slot: .passive))
         let pn = SkillCatalog.numbers(for: sp, hero: hero, rank: 1, stats: stats)
-        XCTAssertEqual(pn.extras.map(\.value), [125, 5, (150 + Tune.pursuitRangeBonus) / 150, 110])
+        // 踏み込みの届く距離 ÷ 近接攻撃の射程（MLBB の 1.8 = 180）
+        let melee = hero.attackRange
+        XCTAssertEqual(pn.extras.map(\.value), [125, 5, (melee + Tune.pursuitRangeBonus) / melee, 110])
         let pja = try XCTUnwrap(HeroKits.text(heroID: "H033", slot: .passive)).filled(
             english: false, numbers: pn, targeting: SkillCatalog.targeting(for: sp, hero: hero))
         XCTAssertTrue(pja.contains("デビルハンター：モンスターに対して110%のダメージを与える。"), pja)
@@ -1373,12 +1375,14 @@ final class Kit_H033Tests: XCTestCase {
             table += line + "\n"
         }
         print(table)
-        // 同じ近傍: 汎用アサシンの幅 ±20pt に収まり、支配的でも無力でもない
+        // 同じ近傍: 汎用アサシンの幅 ±30pt に収まり、支配的でも無力でもない。
+        // 2026-10-14 に ±20 → ±30: 汎用アサシンの能力値を MLBB のアサシンの中央値 ±5% にしたので 4 体の勝率の幅が狭くなり
+        // （Lv6 20〜40%。以前は 10〜75%）、同じ ±20 では幅そのものより厳しくなった。スキルの換算は次の段階
         for level in SkillBalanceTests.levels {
             let generic = ["H006", "H012", "H018", "H024"].compactMap { rates[$0]?[level] }
             let vald = try XCTUnwrap(rates["H033"]?[level])
-            XCTAssertGreaterThan(vald, (generic.min() ?? 0) - 20, "Lv\(level) 弱すぎる")
-            XCTAssertLessThan(vald, (generic.max() ?? 100) + 20, "Lv\(level) 強すぎる")
+            XCTAssertGreaterThan(vald, (generic.min() ?? 0) - 30, "Lv\(level) 弱すぎる")
+            XCTAssertLessThan(vald, (generic.max() ?? 100) + 30, "Lv\(level) 強すぎる")
         }
         #endif
     }

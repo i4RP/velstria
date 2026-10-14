@@ -38,13 +38,10 @@ public enum MovementSystem {
         if hasMinions { separateMinions(&s, ctx) }
     }
 
-    /// 現在の移動速度（ヒーローは非戦闘時に outOfCombatMoveSpeedBonus の割合を加算）。
+    /// 現在の移動速度（ワールドの単位/秒）。非戦闘時の装備の加速は StatCalculator がほかの加速と合わせて足してある
+    /// （MLBB の移動速度の式は加速の合計）。
     public static func currentMoveSpeed(_ s: SimState, _ i: Int) -> Double {
-        var speed = s.units[i].stats.moveSpeed
-        if s.units[i].kind == .hero, s.time - s.units[i].lastCombatTime > Balance.combatTimeout {
-            speed *= 1 + max(0, s.units[i].stats.outOfCombatMoveSpeedBonus)
-        }
-        return max(0, speed)
+        max(0, s.units[i].stats.moveSpeed)
     }
 
     // MARK: - 強制移動

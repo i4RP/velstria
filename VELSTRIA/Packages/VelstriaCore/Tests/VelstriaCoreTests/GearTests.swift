@@ -281,9 +281,10 @@ final class GearTests: XCTestCase {
                 XCTAssertEqual(f.s.units[v].stats.abilityPower, max(0, target.abilityPower - 85), accuracy: 1e-6)
                 XCTAssertEqual(gearStatus(f, v, "gear_smite").first?.remaining ?? 0, 3, accuracy: 1e-9)
             case .ice:
-                // 移動速度を 50 + 2 × 5 = 60 奪う
-                XCTAssertEqual(f.s.units[a].stats.moveSpeed, caster.moveSpeed + 60, accuracy: 1e-6)
-                XCTAssertEqual(f.s.units[v].stats.moveSpeed, target.moveSpeed - 60, accuracy: 1e-6)
+                // 移動速度を 50 + 2 × 5 = 60 奪う。固定値は基礎移動速度（MLBB の単位）への加減なので、ワールドの速さは
+                // マップ縮尺の分だけ動く（どちらも % の加速・減速は無い）
+                XCTAssertEqual(f.s.units[a].stats.moveSpeed, caster.moveSpeed + 60 * Balance.mapScale, accuracy: 1e-6)
+                XCTAssertEqual(f.s.units[v].stats.moveSpeed, target.moveSpeed - 60 * Balance.mapScale, accuracy: 1e-6)
             case .bloody:
                 // 300（+自分の追加 HP の 24%）を 3 秒かけて奪う（スピードブーツは HP 0）
                 let total = 300 + 0.24 * (caster.maxHP - f.s.units[a].baseStats.maxHP)
@@ -543,7 +544,8 @@ final class GearTests: XCTestCase {
         }
         walk(10)                          // 1 マス（100）につき 1
         XCTAssertEqual(f.hero(a).gear?.force ?? 0, 30, accuracy: 1e-9)
-        XCTAssertEqual(f.s.units[a].stats.moveSpeed, speed + 30, accuracy: 1e-6, "フォース 1 につき移動速度 +1")
+        // フォース 1 につき移動速度 +1（MLBB の単位。ワールドの速さはマップ縮尺の分）
+        XCTAssertEqual(f.s.units[a].stats.moveSpeed, speed + 30 * Balance.mapScale, accuracy: 1e-6, "フォース 1 につき移動速度 +1")
         walk(10)
         XCTAssertEqual(f.hero(a).gear?.force ?? 0, 40, accuracy: 1e-9, "最大 40")
         // 敵ヒーローへのダメージでフォースを全部使い、フォース × 7.5 の確定ダメージ

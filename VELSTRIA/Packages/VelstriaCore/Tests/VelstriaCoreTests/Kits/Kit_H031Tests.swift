@@ -376,7 +376,10 @@ final class Kit_H031Tests: XCTestCase {
         let before = w.s.units[e].stats.moveSpeed
         XCTAssertTrue(w.cast(k, .skill1, .point(center)))
         w.run(seconds: 0.6)
-        XCTAssertEqual(w.s.units[e].stats.moveSpeed, before * 0.6, accuracy: 1e-6)
+        // 40% の減速。MLBB の移動速度の式（MLBB の単位で計算し、230 未満へ動いた分は逓減）の後にマップ縮尺
+        XCTAssertEqual(w.s.units[e].stats.moveSpeed,
+                       MoveSpeedMath.calculated(basic: before / Balance.mapScale, bonus: 0, slow: 0.4, decays: true) * Balance.mapScale,
+                       accuracy: 1e-6)
         w.run(seconds: 1.2)
         XCTAssertNil(status(w, e, .slow, tag: T.s1SlowTag), "1 秒で解ける")
         XCTAssertEqual(w.s.units[e].stats.moveSpeed, before, accuracy: 1e-6)

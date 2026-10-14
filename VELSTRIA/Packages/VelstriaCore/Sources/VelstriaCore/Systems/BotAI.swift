@@ -566,8 +566,9 @@ public enum BotAI {
             * max(0.2, 1 + st.damageBonus + st.basicAttackDamageBonus) * crit
         let skill = (40 + 16 * level + 0.5 * st.abilityPower + 0.25 * st.attack) * max(0.2, 1 + st.skillDamageBonus)
         let hp = max(0, s.units[i].hp) + s.units[i].totalShield
-        let ehp = hp * (1 + (max(0, st.armor) + max(0, st.magicResist)) / 200)
-            / max(0.4, 1 - min(Balance.maxDamageReduction, max(0, st.damageReduction)))
+        // 実効 HP = HP / 防御の倍率（120/(120+防御) の逆数。物理と魔法の平均の防御で見る）
+        let ehp = hp * (1 + (max(0, st.armor) + max(0, st.magicResist)) / (2 * Balance.defenseConstant))
+            / max(0.4, CombatSystem.damageReductionMultiplier(st.damageReduction))
         return (basic + skill, ehp)
     }
 

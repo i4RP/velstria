@@ -18,10 +18,25 @@ public struct HeroDef: Codable, Hashable, Sendable, Identifiable {
     public let defenseGrowth: Double
     public let baseMagicDefense: Double
     public let magicDefenseGrowth: Double
+    /// 移動速度（MLBB の値そのまま。ワールドの速さは Balance.mapScale を掛けたもの）。
     public let moveSpeed: Double
+    /// 通常攻撃の射程（MLBB の値 × 100。近接 1.8 → 180）。
     public let attackRange: Double
+    // 攻撃速度・HP 回復・リソースの成長（2026-10-14 に MLBB の能力値へ揃えた時に足した列。docs/HERO_STATS.md）。
+    /// 攻撃速度（Lv1 の毎秒の攻撃回数）とレベル毎の成長、攻撃速度比率（追加の攻撃速度が効く割合。1 = 100%）。
+    public let attackSpeed: Double
+    public let attackSpeedGrowth: Double
+    public let attackSpeedRatio: Double
+    /// HP 回復（Lv1 の毎秒の回復量）とレベル毎の成長。
+    public let hpRegen: Double
+    public let hpRegenGrowth: Double
     public let resource: ResourceKind
+    /// リソースの最大値（Lv1）とレベル毎の成長（Mana は 500 + 100/Lv、エナジーは 100 固定、怒り・なしは 0）。
     public let resourceMax: Double
+    public let resourceGrowth: Double
+    /// リソースの回復（Lv1 の毎秒の回復量）とレベル毎の成長（Mana は 4 + 0.2/Lv）。
+    public let resourceRegen: Double
+    public let resourceRegenGrowth: Double
     public let lore: String
     public let strengths: String
     public let weaknesses: String
@@ -37,8 +52,12 @@ public struct HeroDef: Codable, Hashable, Sendable, Identifiable {
         case baseAttack = "base_attack", attackGrowth = "attack_growth", baseDefense = "base_defense"
         case defenseGrowth = "defense_growth", baseMagicDefense = "base_magic_defense"
         case magicDefenseGrowth = "magic_defense_growth", moveSpeed = "move_speed"
-        case attackRange = "attack_range", resource, resourceMax = "resource_max", lore, strengths
-        case weaknesses, counterplay
+        case attackRange = "attack_range"
+        case attackSpeed = "attack_speed", attackSpeedGrowth = "attack_speed_growth", attackSpeedRatio = "attack_speed_ratio"
+        case hpRegen = "hp_regen", hpRegenGrowth = "hp_regen_growth"
+        case resource, resourceMax = "resource_max", resourceGrowth = "resource_growth"
+        case resourceRegen = "resource_regen", resourceRegenGrowth = "resource_regen_growth"
+        case lore, strengths, weaknesses, counterplay
     }
 }
 

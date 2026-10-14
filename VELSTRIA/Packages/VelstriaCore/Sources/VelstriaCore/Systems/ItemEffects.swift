@@ -11,8 +11,7 @@ import Foundation
 
 extension Balance {
     public enum Items {
-        /// コントロール時間短縮の上限。
-        public static let maxCCReduction: Double = 0.7
+        // コントロール時間短縮（強靭）の上限 0.7 は外した（2026-10-14。MLBB は出どころごとに掛け算で重ね、上限なし）。
         /// 同じスキルの他の命中にも共鳴（ボルトロッド）を乗せる猶予（秒）。
         public static let resonateWindow: Double = 0.1
         /// ウィンドテラーの台風の魔法ダメージ（攻撃速度 1 以下で 150、3 以上で 362、その間は 106 × 攻撃速度 + 44）。
@@ -200,8 +199,8 @@ public enum ItemEffects {
         let level = Double(hero?.level ?? 1)
         if let v = found[.maleficEnergy]?.v, v.count >= 1 { stats.attackRange *= 1 + v[0] }
         if let v = found[.goldenStaff]?.v, v.count >= 1 {
-            // 追加のクリティカル率を攻撃速度へ（クリティカルは出なくなる）
-            stats.attackSpeed *= 1 + max(0, stats.critChance) * v[0]
+            // 追加のクリティカル率を追加の攻撃速度へ（クリティカルは出なくなる）
+            stats.extraAttackSpeed += max(0, stats.critChance) * v[0]
             stats.critChance = 0
         }
         if let v = found[.mystery]?.v, v.count >= 2 { stats.abilityPower *= 1 + v[0] + v[1] * level }
@@ -228,7 +227,7 @@ public enum ItemEffects {
                 let n = rt.liveStacks(.fightingSpirit, now: now, duration: v[1])
                 stats.attack += v[0] * n * roleScale(h.role, halfFor: [.ranger, .arcanist, .support], scale: v[4])
             case .impulse where v.count >= 3:
-                stats.attackSpeed *= 1 + v[0] * rt.liveStacks(.impulse, now: now, duration: v[1])
+                stats.extraAttackSpeed += v[0] * rt.liveStacks(.impulse, now: now, duration: v[1])
             case .recharge where v.count >= 5:
                 stats.abilityPower += v[0] * rt.liveStacks(.recharge, now: now, duration: v[4])
             case .destiny where v.count >= 5:
@@ -243,8 +242,9 @@ public enum ItemEffects {
                 let n = rt.liveStacks(.bruteForce, now: now, duration: v[2])
                 guard n > 0 else { break }
                 if adaptiveIsMagic(u, master) { stats.abilityPower += v[0] * n } else { stats.attack += v[0] * n }
-                stats.moveSpeed *= 1 + v[1] * n
-                if n >= v[3] { stats.ccReduction += v[4] }
+                stats.moveSpeedBonus += v[1] * n
+                // 強靭は出どころ（装備）ごとに掛け算で重ねる
+                if n >= v[3] { stats.addResilience(v[4]) }
             case .guardWings where v.count >= 6:
                 if u.shields.contains(where: { $0.tag == guardWingsTag }) { stats.moveSpeed += v[3] }
                 if now < rt.until(.guardWings) { stats.moveSpeed += v[4] }
@@ -259,7 +259,7 @@ public enum ItemEffects {
                 break
             }
         }
-        stats.ccReduction = min(Balance.Items.maxCCReduction, max(0, stats.ccReduction))
+        stats.ccReduction = min(1, max(0, stats.ccReduction))
     }
 
     // MARK: - 与ダメ・貫通・被ダメ
@@ -506,10 +506,9 @@ public enum ItemEffects {
         }
     }
 
-    /// クリティカルの倍率（対象のクリティカルダメージ軽減で上乗せ分が減る。CombatSystem の通常攻撃と同じ式）。
+    /// クリティカルの倍率（CombatSystem の通常攻撃と同じ式）。
     static func critMultiplier(_ s: SimState, attacker a: Int, target t: Int) -> Double {
-        let cut = min(1, max(0, s.units[t].stats.critDamageReduction))
-        return max(1, 1 + (s.units[a].stats.critMultiplier - 1) * (1 - cut))
+        CombatSystem.critMultiplier(attacker: s.units[a].stats, target: s.units[t].stats)
     }
 
     /// スキル使用後の窓が開いていて、この窓でまだ使っておらず、CD も明けているか。

@@ -88,13 +88,16 @@ struct CombatWorld {
 
 final class CombatDamageTests: XCTestCase {
 
+    /// MLBB の用語注釈「物理防御」「魔法防御」: 受けるダメージ = 120 / (120 + 防御)。防御は −60 を下回らない（最大 200%）。
+    /// 「ダメージ軽減」: 防御の後の最終ダメージを減らす（上限なし）。
     func testArmorMagicResistAndDamageReductionMitigation() {
         var w = CombatWorld()
         let a = w.addHero(team: .blue, at: Vec2(1000, 1000))
         let t = w.addHero(team: .red, at: Vec2(1100, 1000),
-                          stats: CombatWorld.stats(hp: 5000, armor: 100, magicResist: 50))
+                          stats: CombatWorld.stats(hp: 5000, armor: 120, magicResist: 60))
         let src = w.id(a)
 
+        // 防御 120 → 120/240 = 50%、魔防 60 → 120/180
         XCTAssertEqual(CombatSystem.applyDamage(&w.s, w.ctx, sourceID: src, targetIndex: t, amount: 200,
                                                 type: .physical, source: .spell), 100, accuracy: 1e-9)
         XCTAssertEqual(CombatSystem.applyDamage(&w.s, w.ctx, sourceID: src, targetIndex: t, amount: 150,
@@ -102,11 +105,29 @@ final class CombatDamageTests: XCTestCase {
         w.s.units[t].stats.damageReduction = 0.3
         XCTAssertEqual(CombatSystem.applyDamage(&w.s, w.ctx, sourceID: src, targetIndex: t, amount: 200,
                                                 type: .physical, source: .spell), 70, accuracy: 1e-9)
-        // 被ダメ軽減は 60% で頭打ち
+        // 被ダメ軽減に上限はない（以前の 60% の頭打ちは MLBB に無い）
         w.s.units[t].stats.damageReduction = 0.9
         XCTAssertEqual(CombatSystem.applyDamage(&w.s, w.ctx, sourceID: src, targetIndex: t, amount: 200,
-                                                type: .physical, source: .spell), 40, accuracy: 1e-9)
-        XCTAssertEqual(w.s.units[t].hp, 5000 - 310, accuracy: 1e-9)
+                                                type: .physical, source: .spell), 10, accuracy: 1e-9)
+        XCTAssertEqual(w.s.units[t].hp, 5000 - 280, accuracy: 1e-9)
+        // 防御が負なら受けるダメージが増え、−60 で止まる（120 / (120 − 60) = 200%）
+        w.s.units[t].stats.damageReduction = 0
+        w.s.units[t].stats.armor = -30
+        XCTAssertEqual(CombatSystem.applyDamage(&w.s, w.ctx, sourceID: src, targetIndex: t, amount: 90,
+                                                type: .physical, source: .spell), 120, accuracy: 1e-9)
+        w.s.units[t].stats.armor = -500
+        XCTAssertEqual(CombatSystem.applyDamage(&w.s, w.ctx, sourceID: src, targetIndex: t, amount: 50,
+                                                type: .physical, source: .spell), 100, accuracy: 1e-9)
+        XCTAssertEqual(CombatSystem.mitigationMultiplier(.magic, armor: 0, magicResist: -60), 2, accuracy: 1e-12)
+    }
+
+    /// MLBB の用語注釈「物理貫通」: 実効防御 = 防御 × (100% − 割合貫通) − 固定貫通。固定貫通は −60 まで下げられる。
+    func testPenetrationIsPercentThenFlatAndFloorsAtMinusSixty() {
+        XCTAssertEqual(CombatSystem.penetrated(100, pct: 0.4, flat: 20), 40, accuracy: 1e-12)
+        XCTAssertEqual(CombatSystem.penetrated(30, pct: 0, flat: 50), -20, accuracy: 1e-12)
+        XCTAssertEqual(CombatSystem.penetrated(30, pct: 0, flat: 500), Balance.minDefense, accuracy: 1e-12)
+        // 割合貫通は負の防御を 0 へ戻さない
+        XCTAssertEqual(CombatSystem.penetrated(-10, pct: 0.5, flat: 0), -10, accuracy: 1e-12)
     }
 
     func testOutgoingBonusesDependOnSourceAndTarget() {
@@ -134,7 +155,8 @@ final class CombatDamageTests: XCTestCase {
         XCTAssertEqual(hit(hero, .spell), 0)
     }
 
-    func testTrueDamageIgnoresArmorButNotDamageReduction() {
+    /// MLBB の用語注釈「ダメージ軽減」: 確定ダメージは減らせない（防御も被ダメ軽減も無視する）。
+    func testTrueDamageIgnoresArmorAndDamageReduction() {
         var w = CombatWorld()
         let t = w.addHero(team: .red, at: Vec2(1000, 1000),
                           stats: CombatWorld.stats(hp: 1000, armor: 300, magicResist: 300))
@@ -142,17 +164,22 @@ final class CombatDamageTests: XCTestCase {
                                                 type: .trueDamage, source: .dot), 120, accuracy: 1e-9)
         w.s.units[t].stats.damageReduction = 0.25
         XCTAssertEqual(CombatSystem.applyDamage(&w.s, w.ctx, sourceID: nil, targetIndex: t, amount: 100,
-                                                type: .trueDamage, source: .dot), 75, accuracy: 1e-9)
+                                                type: .trueDamage, source: .dot), 100, accuracy: 1e-9)
+        // 物理には効く（120/(120+300) × 0.75）
+        XCTAssertEqual(CombatSystem.applyDamage(&w.s, w.ctx, sourceID: nil, targetIndex: t, amount: 105,
+                                                type: .physical, source: .dot), 105 * 120 / 420 * 0.75, accuracy: 1e-9)
         // 泉は環境ダメージで被ダメ軽減も受けない
         XCTAssertEqual(CombatSystem.applyDamage(&w.s, w.ctx, sourceID: nil, targetIndex: t, amount: 100,
                                                 type: .trueDamage, source: .fountain), 100, accuracy: 1e-9)
     }
 
-    func testShieldsAbsorbOldestFirstThenHP() {
+    /// MLBB の用語注釈「シールド」: 重なったときは持続の短いもの・量の少ないものから先に削れる（以前は古いものから）。
+    func testShieldsAbsorbShortestFirstThenHP() {
         var w = CombatWorld()
         let t = w.addHero(team: .red, at: Vec2(1000, 1000))
+        // 持続の長いものを先に付けても、持続の短い方（"old"）から削れる
+        CombatSystem.addShield(&w.s, w.ctx, sourceID: nil, targetIndex: t, amount: 100, duration: 8, tag: "new")
         CombatSystem.addShield(&w.s, w.ctx, sourceID: nil, targetIndex: t, amount: 50, duration: 5, tag: "old")
-        CombatSystem.addShield(&w.s, w.ctx, sourceID: nil, targetIndex: t, amount: 100, duration: 5, tag: "new")
 
         let dealt = CombatSystem.applyDamage(&w.s, w.ctx, sourceID: nil, targetIndex: t, amount: 120,
                                              type: .trueDamage, source: .dot)
@@ -396,13 +423,14 @@ final class CombatDamageTests: XCTestCase {
         let capped = CombatSystem.heal(&w.s, w.ctx, sourceID: w.id(healer), targetIndex: target, amount: 10_000)
         XCTAssertEqual(capped, 725, accuracy: 1e-9)
 
-        // シールドには回復量倍率が掛からない
+        // シールドにも与える側（回復効果 +50%）と受ける側（シールド＆HP回復 ×0.5）の両方が掛かる
+        // （MLBB の日本語クライアントの用語説明「回復効果」「シールド＆HP回復」）
         CombatSystem.addShield(&w.s, w.ctx, sourceID: w.id(healer), targetIndex: target, amount: 100, duration: 2)
-        XCTAssertEqual(w.s.units[target].totalShield, 150, accuracy: 1e-9)
+        XCTAssertEqual(w.s.units[target].totalShield, 75, accuracy: 1e-9)
         XCTAssertEqual(w.s.units[healer].hero?.score.healingDone ?? 0, 800, accuracy: 1e-9)
-        XCTAssertEqual(w.s.units[healer].hero?.score.shieldingDone ?? 0, 150, accuracy: 1e-9)
+        XCTAssertEqual(w.s.units[healer].hero?.score.shieldingDone ?? 0, 75, accuracy: 1e-9)
         XCTAssertTrue(w.s.events.contains(.heal(targetID: w.id(target), sourceID: w.id(healer), amount: 75)))
-        XCTAssertTrue(w.s.events.contains(.shieldGained(targetID: w.id(target), sourceID: w.id(healer), amount: 150)))
+        XCTAssertTrue(w.s.events.contains(.shieldGained(targetID: w.id(target), sourceID: w.id(healer), amount: 75)))
 
         // 同じ tag は置き換え、持続 0 は既定の持続になる
         CombatSystem.addShield(&w.s, w.ctx, sourceID: nil, targetIndex: target, amount: 40, duration: 0, tag: "x")

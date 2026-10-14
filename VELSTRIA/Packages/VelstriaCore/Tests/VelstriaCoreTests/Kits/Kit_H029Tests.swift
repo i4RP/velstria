@@ -235,7 +235,8 @@ final class Kit_H029Tests: XCTestCase {
         XCTAssertTrue(ja1.contains("扇形範囲で3回爆発する衝撃波を放つ"), ja1)
         XCTAssertTrue(ja1.contains("\(Int(n1.extras[5].value))(+\(Int(n1.extras[6].value))%物理攻撃)の物理ダメージ"), ja1)
         XCTAssertTrue(ja1.contains("移動速度を1.5秒間20%/40%/60%低下させる"), ja1)
-        XCTAssertTrue(ja1.contains("約2倍"), ja1)
+        // 扇の奥 ÷ 近接攻撃の射程（MLBB の 1.8 = 180）
+        XCTAssertTrue(ja1.contains("約1.7倍"), ja1)
         let (en1, _) = try filled(.skill1, english: true)
         XCTAssertTrue(en1.contains("20%/40%/60% for 1.5s"), en1)
         XCTAssertTrue(en1.contains("erupts 3 times"), en1)
@@ -249,12 +250,12 @@ final class Kit_H029Tests: XCTestCase {
         XCTAssertTrue(en2.contains("within 4s"), en2)
         XCTAssertTrue(en2.contains("knock them up for 0.6s"), en2)
         // アルティメット: 引き寄せ + {base}(+{atkPct}%) + 1.8 秒スタン、前半は CC・後半は制圧でのみ中断。
-        // 単位の無い距離の数字は出さず、近接攻撃の射程に対する倍率で書く（520 ÷ 150 ≈ 3.5）
+        // 単位の無い距離の数字は出さず、近接攻撃の射程に対する倍率で書く（520 ÷ 180 ≈ 2.9。射程は MLBB の 1.8）
         let (jau, nu) = try filled(.ultimate)
         XCTAssertTrue(jau.contains("\(Int(nu.extras[4].value))(+\(Int(nu.extras[5].value))%物理攻撃)の物理ダメージ"), jau)
         XCTAssertTrue(jau.contains("1.8秒間スタンさせる"), jau)
         XCTAssertTrue(jau.contains("後半は制圧によってのみ中断される"), jau)
-        XCTAssertTrue(jau.contains("約3.5倍"), jau)
+        XCTAssertTrue(jau.contains("約2.9倍"), jau)
         let (enu, _) = try filled(.ultimate, english: true)
         XCTAssertTrue(enu.contains("stun them for 1.8s"), enu)
         XCTAssertTrue(enu.contains("only be interrupted by suppression"), enu)
@@ -459,7 +460,10 @@ final class Kit_H029Tests: XCTestCase {
         let r = addEnemy(&ref, dx: 150)
         ref.tick(2)
         w.tick(1)
-        XCTAssertEqual(w.s.units[e].stats.moveSpeed, ref.s.units[r].stats.moveSpeed * 0.4, accuracy: 1e-6)
+        // MLBB の移動速度の式（MLBB の単位で計算し、230 未満へ動いた分は逓減）の後にマップ縮尺
+        let basic = ref.s.units[r].stats.moveSpeed / Balance.mapScale
+        XCTAssertEqual(w.s.units[e].stats.moveSpeed,
+                       MoveSpeedMath.calculated(basic: basic, bonus: 0, slow: 0.6, decays: true) * Balance.mapScale, accuracy: 1e-6)
         // 1.5 秒で切れる（層も消える）
         w.run(seconds: 1.6)
         XCTAssertTrue(slows(w, e).isEmpty)
