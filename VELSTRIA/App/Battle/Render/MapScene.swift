@@ -679,7 +679,8 @@ final class MapScene {
     }
 
     /// 水面のきらめきを流す（30Hz。1 段の移動は 0.7 cm ≒ 画面上 1 px 未満。マテリアルの差し替えは毎フレームだと重い）。
-    func update(dt: Float) {
+    func update(dt: Float, camera: SIMD3<Float>? = nil) {
+        if let camera { stage?.updateBrushLOD(camera: camera, dt: dt) }
         waterTime += dt
         fadeBrushes(dt: dt)
         for (k, s) in fountainSpires.enumerated() {

@@ -315,44 +315,48 @@ def load_item_passives() -> dict[str, dict]:
 # ---------------------------------------------------------------------------
 SPELL_NAMES = {
     "瞬歩": "Blink",
-    "浄化": "Cleanse",
+    "瞬間移動": "Blink",
+    "浄化": "Purify",
     "治癒波": "Healing Wave",
+    "回復": "Recovery",
     "鉄壁": "Bulwark",
+    "守護": "Aegis",
     "狩猟印": "Hunter's Mark",
+    "狩猟": "Retribution",
     "加速陣": "Haste Sigil",
+    "疾走": "Sprint",
     "点火": "Ignite",
     "虚像": "Phantom",
     "帰還門": "Return Gate",
+    "降臨": "Arrival",
     "星鎖": "Starbind",
     "処断": "Verdict",
+    "執行": "Execute",
     "鼓舞": "Inspire",
+    "奮起": "Inspire",
     "石化": "Petrify",
-    "火炎弾": "Flare Shot",
-    "報復": "Reprisal",
+    "火炎弾": "Flameshot",
+    "報復": "Vengeance",
+    "回復の泉": "Revitalize",
 }
 SPELL_DESCS = {
-    "BS01": "Instantly teleports 400 units in the target direction, stopping short of walls.",
-    "BS02": "Removes all crowd control effects and grants crowd control immunity for 1.5 seconds.",
-    "BS03": ("Restores 15% HP to yourself and the ally with the lowest HP% within 800 units, "
-             "and grants both +20% move speed for 2 seconds."),
-    "BS04": "Grants a shield equal to 20% of max HP for 3 seconds.",
-    "BS05": ("Deals 600 + 40 × level true damage to an enemy minion or monster within 500 units. "
-             "Required to buy Jungle items."),
-    "BS06": "Grants +40% move speed for 5 seconds.",
+    "BS01": "Blink 400 units through walls. Gain 5 + level defense for 1s.",
+    "BS02": "Cleanse except suppression. CC immunity and +15% speed for 1.2s.",
+    "BS03": "Heal yourself and the lowest-health nearby ally for 15% max HP; +20% speed for 2s.",
+    "BS04": "Shield yourself for 750 + 50 × level for 5s, and the lowest-health nearby ally for 70%.",
+    "BS05": "Deal 520 + 80 × level true damage to monsters/minions. +60% jungle rewards, −40% monster damage taken, −70% minion rewards.",
+    "BS06": "Gain +50% speed and slow immunity for 6s.",
     "BS07": ("Burns an enemy hero within 600 units for 70 + 20 × level true damage over 5 seconds "
              "and reduces their healing by 50%."),
     "BS08": "Become stealthed for 1.5 seconds and gain +25% move speed.",
-    "BS09": ("After a 3-second channel, teleports to a chosen allied tower or your fountain. "
-             "Taking damage interrupts the channel."),
+    "BS09": "Channel 3s to an allied tower, minion or fountain. +60% speed decays over 3s. Interrupted: cooldown −30s.",
     "BS10": "Slows an enemy hero within 650 units by 40% and reduces their damage dealt by 30% for 2.5 seconds.",
-    "BS11": ("Deals 150 + 30 × level true damage plus 25% of the target's missing HP "
-             "to an enemy hero within 600 units."),
-    "BS12": "Grants +50% attack speed for 5 seconds.",
-    "BS13": "Stuns enemy heroes within 450 units for 0.8 seconds, then slows them by 30% for 1.5 seconds.",
-    "BS14": ("Fires a flame bolt up to 700 units in a direction. The first enemy hero hit takes "
-             "100 + 20 × level magic damage and is knocked back."),
-    "BS15": ("For 5 seconds, takes 30% less damage and reflects 35% of damage taken "
-             "to the attacker as true damage."),
+    "BS11": "Deal 100 + 10 × level + 13% missing HP true damage, ignoring shields. Kill: cooldown reduced to 54s.",
+    "BS12": "For 5s, empower 8 attacks: ×1.55 speed (500% cap), ignore 8 + level armor, heal 60 + 15% attack + 15% magic power per hit.",
+    "BS13": "Deal 100 + 15 × level magic damage nearby. Petrify 0.8s, then slow 50% for 0.8s.",
+    "BS14": "Long-range bolt deals 200–680 + 50–170% magic power with distance. Knock back nearby enemies on cast.",
+    "BS15": "For 3s reduce incoming damage by 35% and reflect 40% as magic damage.",
+    "BS16": "For 4s heal allies in the pool for 2.5% max HP every 0.4s; +25% healing and shields. Pools do not stack.",
 }
 
 # ---------------------------------------------------------------------------
@@ -474,6 +478,7 @@ def build(master: dict) -> dict[str, str]:
         sid = sp["spell_id"]
         put(sid, need(SPELL_NAMES, sp["name_ja"], sid))
         put(f"{sid}.desc", need(SPELL_DESCS, sid, sid))
+    put("Recall.desc", "Channel to return to your fountain. Movement or damage interrupts.")
 
     # コスメ
     cosmetic_name_by_id = {}
@@ -552,7 +557,7 @@ TABLES = [
 
 def validate(master: dict, overlay: dict[str, str]) -> list[str]:
     errors: list[str] = []
-    expected: set[str] = set()
+    expected: set[str] = {"Recall.desc"}
     counts = {}
     for table, col, suffixes, unique in TABLES:
         rows = master[table]
@@ -589,7 +594,7 @@ def validate(master: dict, overlay: dict[str, str]) -> list[str]:
         if key.endswith(".desc") and len(value) > MAX_DESC_LEN:
             errors.append(f"説明が長すぎます: {key}（{len(value)} 文字）")
     # 規模（DESIGN §0 / 仕様パッケージ README と一致すること）
-    for table, n in {"heroes": 34, "skills": 136, "equipment": 92, "battle_spells": 15,
+    for table, n in {"heroes": 34, "skills": 136, "equipment": 92, "battle_spells": 16,
                      "cosmetics": 102, "store": 154}.items():
         if counts.get(table) != n:
             errors.append(f"{table} の件数が想定外です: {counts.get(table)}（想定 {n}）")

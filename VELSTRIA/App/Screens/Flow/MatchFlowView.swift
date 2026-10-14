@@ -68,7 +68,7 @@ final class MatchFlowModel {
         } else {
             position = MatchFactory.defaultPosition(for: role)
         }
-        spells = Self.sanitizedSpells(profile.heroSpells[id] ?? profile.defaultSpells, master: master)
+        spells = SpellLoadoutRules.effective(heroID: id, profile: profile)
         skinID = profile.equippedSkins[id].flatMap { profile.ownedCosmeticIDs.contains($0) ? $0 : nil }
     }
 

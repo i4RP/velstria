@@ -845,6 +845,11 @@ final class HeroVisual {
             let maxHP = max(1, u.stats.maxHP)
             var res: Float?
             if isSelf, u.stats.maxResource > 0 { res = Float(u.resource / u.stats.maxResource) }
+            if let player = f.state.unit(f.humanID), player.team != u.team,
+               player.hero?.spells.contains("BS11") == true {
+                let damage = 100 + 10 * Double(player.hero?.level ?? 1) + max(0, maxHP - u.hp) * 0.13
+                bar.setExecutable(u.hp <= damage * CombatSystem.damageReductionMultiplier(u.stats.damageReduction))
+            } else { bar.setExecutable(false) }
             bar.update(hp: Float(u.hp / maxHP), shield: Float(u.totalShield / maxHP), resource: res,
                        level: u.hero?.level, dt: dt, maxHP: Float(maxHP))
             bar.keepScreenSize(camera: f.camera)

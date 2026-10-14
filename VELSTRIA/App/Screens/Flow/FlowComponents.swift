@@ -887,24 +887,7 @@ enum FlowText {
     }
 
     static func spellDescription(_ id: String) -> String {
-        switch id {
-        case "BS01": return L("指定方向へ 400 瞬間移動する。", "Teleport 400 units in a direction.")
-        case "BS02": return L("全ての行動妨害を解除し、1.5 秒間無効にする。", "Remove all crowd control and become immune for 1.5s.")
-        case "BS03": return L("自身と近くの味方 1 人の HP を 15% 回復し、移動速度 +20%。", "Heal yourself and a nearby ally for 15% HP and gain 20% move speed.")
-        case "BS04": return L("3 秒間、最大 HP 20% のシールドを得る。", "Gain a shield equal to 20% max HP for 3s.")
-        case "BS05": return L("近くのミニオン・モンスターに確定ダメージ。ジャングルに必須。", "Deal true damage to a nearby minion or monster. Required for Jungle.")
-        case "BS06": return L("5 秒間、移動速度 +40%。", "Gain 40% move speed for 5s.")
-        case "BS07": return L("敵ヒーローを燃やし継続ダメージ、回復量 −50%。", "Burn an enemy hero for true damage over time and cut healing by 50%.")
-        case "BS08": return L("1.5 秒間ステルス状態になり、移動速度 +25%。", "Become stealthed for 1.5s and gain 25% move speed.")
-        case "BS09": return L("3 秒の詠唱後、味方タワーか泉へ転移する。", "After a 3s channel, teleport to an allied tower or the fountain.")
-        case "BS10": return L("敵ヒーローを 40% スローし、与ダメージ −30%（2.5 秒）。", "Slow an enemy hero by 40% and reduce their damage by 30% for 2.5s.")
-        case "BS11": return L("敵ヒーローに確定ダメージ。失った HP が多いほど大きい。", "Deal true damage to an enemy hero, more the lower their HP.")
-        case "BS12": return L("5 秒間、攻撃速度 +50%。", "Gain 50% attack speed for 5s.")
-        case "BS13": return L("近くの敵ヒーローを 0.8 秒スタンさせ、続けてスロー。", "Stun nearby enemy heroes for 0.8s, then slow them.")
-        case "BS14": return L("指定方向へ火炎弾を撃ち、当たった敵ヒーローをノックバック。", "Fire a flame bolt that knocks back the first enemy hero hit.")
-        case "BS15": return L("5 秒間、被ダメージ −30% とダメージ反射 35%。", "For 5s take 30% less damage and reflect 35% of damage taken.")
-        default: return MasterData.shared.spell(id).map { MasterText.description(id: id, ja: $0.description) } ?? ""
-        }
+        SpellInfo.of(id).effect
     }
 
     static func spellSymbol(_ id: String) -> String {

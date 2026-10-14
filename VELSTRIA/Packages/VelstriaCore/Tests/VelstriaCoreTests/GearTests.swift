@@ -203,24 +203,24 @@ final class GearTests: XCTestCase {
         f.s.units[a].hero!.score.kills = 1
         XCTAssertEqual(GearEffects.jungleProgress(f.hero(a)), 4)
         XCTAssertFalse(GearEffects.jungleBlessingActive(f.hero(a), master: f.master))
-        f.s.units[a].hero!.score.assists = 1
+        f.s.units[a].hero!.score.kills = 2
         XCTAssertTrue(GearEffects.jungleBlessingActive(f.hero(a), master: f.master), "合計 5 で狩猟印をヒーローに使える")
         f.s.units[a].hero!.score.monsterKills = 12
         StatCalculator.recompute(&f.s, a, f.ctx)
         XCTAssertEqual(f.s.units[a].stats.attack, before.attack, accuracy: 1e-9, "合計 14")
         f.s.units[a].hero!.score.monsterKills = 13
         StatCalculator.recompute(&f.s, a, f.ctx)
-        XCTAssertEqual(f.s.units[a].stats.attack, before.attack + 10, accuracy: 1e-9, "合計 15")
-        XCTAssertEqual(f.s.units[a].stats.abilityPower, before.abilityPower + 10, accuracy: 1e-9)
-        XCTAssertEqual(f.s.units[a].stats.maxHP, before.maxHP + 100, accuracy: 1e-9)
+        XCTAssertEqual(f.s.units[a].stats.attack, before.attack + 15, accuracy: 1e-9, "合計 15")
+        XCTAssertEqual(f.s.units[a].stats.abilityPower, before.abilityPower + 15, accuracy: 1e-9)
+        XCTAssertEqual(f.s.units[a].stats.maxHP, before.maxHP, accuracy: 1e-9)
         // ロームの祝福には付かない
         var (g, b) = blessed(.encourage)
         g.s.units[b].hero!.score.monsterKills = 20
         XCTAssertFalse(GearEffects.jungleBlessingActive(g.hero(b), master: g.master))
     }
 
-    func testJungleBlessingHalvesMinionRewardsUntilTwoMinutes() {
-        for (time, factor) in [(100.0, 0.5), (200.0, 1.0)] {
+    func testHuntingReducesMinionRewardsBySeventyPercent() {
+        for (time, factor) in [(100.0, 0.3), (200.0, 0.3)] {
             var (f, a) = blessed(.flame, time: time)
             let m = f.addMinion(.melee, team: .red, at: spot)
             let gold = f.hero(a).gold, xp = f.hero(a).xp

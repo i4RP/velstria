@@ -87,8 +87,10 @@ public enum StatusModifiers {
         for st in statuses {
             switch st.kind {
             case .slow: slow += max(0, st.magnitude)
-            case .speedBoost: speedBoost += st.magnitude
-            case .attackSpeedBoost: attackSpeedBoost += st.magnitude
+            case .speedBoost: speedBoost += st.magnitude * (st.tag == "spell.BS09" ? max(0, st.remaining / st.duration) : 1)
+            case .attackSpeedBoost:
+                // 鼓舞（BS12）の攻撃速度は StatCalculator.finalize で ×1.55（追加の攻撃速度ではない）
+                if st.tag != "spell.BS12" { attackSpeedBoost += st.magnitude }
             case .damageBoost: stats.damageBonus += st.magnitude
             case .damageReduction: stats.damageReduction += st.magnitude
             case .healReduction: healCut = max(healCut, st.magnitude)
@@ -119,6 +121,8 @@ public enum StatusModifiers {
         // 固定の防御低下は 0 を下回ってよい（実効防御の下限 −60 は CombatSystem.mitigationMultiplier）
         if magicShred > 0 { stats.magicResist -= magicShred }
         stats.extraAttackSpeed += attackSpeedBoost
+        // 加速陣（BS06）の間は減速を受けない
+        if statuses.contains(where: { $0.tag == "spell.BS06" && $0.kind == .speedBoost }) { slow = 0 }
         // 減速は合計（上限 90%・減速軽減は StatCalculator.finalize）。固定の増減は基礎移動速度へ
         stats.moveSpeed = max(0, stats.moveSpeed + flatSpeed)
         stats.moveSpeedBonus += speedBoost

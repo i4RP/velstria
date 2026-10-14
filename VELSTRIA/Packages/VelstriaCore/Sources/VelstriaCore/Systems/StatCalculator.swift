@@ -25,7 +25,10 @@ public enum StatCalculator {
         // 制約
         stats.cooldownReduction = min(max(0, stats.cooldownReduction), stats.cooldownReductionCap)
         let isHero = u.kind == .hero
-        finalize(&stats, isHero: isHero, outOfCombat: isHero && s.time - u.lastCombatTime > Balance.combatTimeout)
+        // 鼓舞（BS12）: 攻撃速度 ×1.55、上限 5（MLBB の Inspire）
+        let inspired = u.statuses.contains { $0.tag == "spell.BS12" && $0.kind == .mark }
+        finalize(&stats, isHero: isHero, outOfCombat: isHero && s.time - u.lastCombatTime > Balance.combatTimeout,
+                 inspired: inspired)
         stats.maxHP = max(1, stats.maxHP)
 
         // 最大 HP/リソースが変わったら現在値の割合を維持
@@ -44,9 +47,10 @@ public enum StatCalculator {
     /// - 移動速度 = 基礎 × (100% + 全加速% − 全減速%)。減速の合計は 90% まで。ヒーローは計算値が 230 未満・420 超で逓減し、
     ///   最後にマップ縮尺（Balance.mapScale）を掛けてワールドの単位/秒にする。MLBB の用語注釈「移動速度」。
     /// outOfCombat = 非戦闘中（直近 5 秒に交戦なし）。装備の非戦闘時の加速をほかの加速と同じく足す。
-    public static func finalize(_ stats: inout Stats, isHero: Bool, outOfCombat: Bool = false) {
-        stats.attackSpeed = min(max(0.1, stats.attackSpeed + stats.extraAttackSpeed * stats.attackSpeedRatio),
-                                Balance.maxAttackSpeed)
+    public static func finalize(_ stats: inout Stats, isHero: Bool, outOfCombat: Bool = false, inspired: Bool = false) {
+        // 攻撃速度 = 基礎 + 追加 × 比率（上限 3）。鼓舞（BS12）は最終値 ×1.55・上限 5
+        let attackSpeed = (stats.attackSpeed + stats.extraAttackSpeed * stats.attackSpeedRatio) * (inspired ? 1.55 : 1)
+        stats.attackSpeed = min(max(0.1, attackSpeed), inspired ? 5 : Balance.maxAttackSpeed)
         stats.extraAttackSpeed = 0
         if outOfCombat { stats.moveSpeedBonus += max(0, stats.outOfCombatMoveSpeedBonus) }
         let calculated = MoveSpeedMath.calculated(basic: stats.moveSpeed, bonus: stats.moveSpeedBonus,

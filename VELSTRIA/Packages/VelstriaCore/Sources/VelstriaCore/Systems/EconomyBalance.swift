@@ -105,7 +105,7 @@ extension Balance {
         /// 蒼晶/紅焔バフの持続。
         public static let sentinelBuffDuration: Double = 75
         /// Jungle 装備のモンスター Gold 補正。
-        public static let jungleMonsterGoldBonus: Double = 0.20
+        public static let jungleMonsterGoldBonus: Double = 0
 
         // MARK: キル告知
         /// 連続キル（マルチキル）の間隔上限。

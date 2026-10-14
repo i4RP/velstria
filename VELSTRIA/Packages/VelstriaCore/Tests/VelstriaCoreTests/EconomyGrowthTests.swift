@@ -27,6 +27,7 @@ final class EconomyGrowthTests: XCTestCase {
         f.place(a, at: spot)
         f.place(b, at: spot + Vec2(0, 1000))
         f.place(far, at: spot + Vec2(0, 1500))
+        f.s.units[b].hero!.spells = ["BS01", "BS03"]
         let goldB = f.hero(b).gold
         let m = f.addMinion(.siege, team: .red, at: spot)
         f.kill(m, by: f.id(a))

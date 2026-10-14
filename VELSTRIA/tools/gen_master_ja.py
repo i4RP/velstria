@@ -108,6 +108,25 @@ SKILL3_JA = "境界制圧"
 # 日本語表示に残してはいけない開発用の語（コスメ種別の英語名・ラテン文字のコード名）
 LATIN = re.compile(r"[A-Za-z]{2,}")
 
+BATTLE_SPELL_DESCS = {
+    "BS01": "指定方向に400瞬間移動。壁を越え、1秒間、物理・魔法防御が5+Lv上昇。",
+    "BS02": "制圧以外の状態異常を解除。1.2秒間CC無効、移動速度+15%。",
+    "BS03": "自身と近くのHP割合が最も低い味方を最大HPの15%回復。2秒間移動速度+20%。",
+    "BS04": "5秒間750+50×Lvのシールド。近くのHP割合が最も低い味方にも70%分を付与。",
+    "BS05": "モンスター・ミニオンに520+80×Lvの確定ダメージ。狩猟報酬+60%、モンスターからのダメージ−40%、ミニオン報酬−70%。",
+    "BS06": "6秒間、移動速度+50%、減速無効。",
+    "BS07": "敵ヒーローを燃焼させ、回復効果を低下させる。",
+    "BS08": "短時間ステルスになり、移動速度が上昇する。",
+    "BS09": "3秒詠唱後、味方タワー・ミニオン・泉へ転送。移動速度+60%が3秒で減衰。中断時CD−30秒。",
+    "BS10": "敵ヒーローを減速させ、与えるダメージを低下させる。",
+    "BS11": "100+10×Lv+対象の損失HP13%の確定ダメージ。シールド無視。撃破時CDを40%短縮（54秒）。",
+    "BS12": "5秒間、8回まで通常攻撃速度×1.55（上限500%）。防御8+Lv無視。攻撃ごとに60+物理攻撃15%+魔法攻撃15%回復。",
+    "BS13": "周囲に100+15×Lvの魔法ダメージ。0.8秒石化後、0.8秒間50%減速。",
+    "BS14": "長距離の火炎弾。距離に応じ200〜680+魔法攻撃50〜170%の魔法ダメージ。発射時に周囲をノックバック。",
+    "BS15": "3秒間、被ダメージ35%軽減。受けたダメージの40%を魔法ダメージで反射。",
+    "BS16": "4秒間、範囲内の味方を0.4秒ごとに最大HP2.5%回復。回復・シールド効果+25%。複数の泉は重複しない。",
+}
+
 
 class GenerationError(Exception):
     pass
@@ -182,6 +201,14 @@ def build(master: dict) -> dict[str, str]:
             raise GenerationError(f"{st['sku']}: 商品名 {st['name_ja']} が付与コスメ {gid} の名前と一致しません")
         put(st["sku"], cosmetic_by_id[gid])
 
+    for sp in master["battle_spells"]:
+        sid = sp["spell_id"]
+        put(sid, sp["name_ja"])
+        if sid not in BATTLE_SPELL_DESCS:
+            raise GenerationError(f"{sid}: バトルスキル説明がありません")
+        put(f"{sid}.desc", BATTLE_SPELL_DESCS[sid])
+    put("Recall.desc", "詠唱して泉に戻る。移動・被ダメージで中断。")
+
     return dict(sorted(out.items()))
 
 
@@ -192,6 +219,9 @@ def validate(master: dict, overlay: dict[str, str]) -> list[str]:
     expected |= {s["skill_id"] for s in master["skills"]
                  if SKILL1_PATTERN.match(s["name_ja"]) or SKILL2_PATTERN.match(s["name_ja"])
                  or SKILL3_PATTERN.match(s["name_ja"])}
+    expected |= {sp["spell_id"] for sp in master["battle_spells"]}
+    expected |= {sp["spell_id"] + ".desc" for sp in master["battle_spells"]}
+    expected.add("Recall.desc")
     for key in sorted(expected - overlay.keys()):
         errors.append(f"未記入: {key}")
     for key in sorted(overlay.keys() - expected):
@@ -207,10 +237,10 @@ def validate(master: dict, overlay: dict[str, str]) -> list[str]:
     for key, value in overlay.items():
         if not value.strip() or value != value.strip() or "  " in value:
             errors.append(f"空・余分な空白: {key} → {value!r}")
-        if len(value) > MAX_NAME_LEN:
+        if not key.endswith(".desc") and len(value) > MAX_NAME_LEN:
             errors.append(f"名前が長すぎます（{len(value)} > {MAX_NAME_LEN}）: {key} → {value!r}")
         # ローマ数字（I/II/III）以外のラテン文字は開発用の仮名の残り
-        if LATIN.search(re.sub(r" [IVX]+$", "", value)):
+        if not key.endswith(".desc") and LATIN.search(re.sub(r" [IVX]+$", "", value)):
             errors.append(f"ラテン文字が残っています: {key} → {value!r}")
     return errors
 

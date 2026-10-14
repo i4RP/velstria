@@ -36,7 +36,7 @@ public enum JungleBuffs {
         case .monster: pct = Balance.Jungle.purpleKillHealMonster
         case .tower, .core, .dummy: return
         }
-        CombatSystem.heal(&s, ctx, sourceID: nil, targetIndex: k, amount: s.units[k].stats.maxHP * pct)
+        CombatSystem.heal(&s, ctx, sourceID: nil, targetIndex: k, amount: s.units[k].stats.maxHP * pct * (s.units[v].kind == .monster && s.units[k].hero?.spells.contains("BS05") == true ? 1.6 : 1))
     }
 
     // MARK: - 赤バフ
@@ -89,7 +89,7 @@ public enum JungleBuffs {
     /// 回復バフ: 350 HP と最大 Mana の 5%（Energy のヒーローは HP のみ）。
     static func grantHealingBuff(_ s: inout SimState, _ ctx: SimContext, heroIndex k: Int) {
         guard s.units[k].isAlive, s.units[k].hero?.isDead == false else { return }
-        CombatSystem.heal(&s, ctx, sourceID: nil, targetIndex: k, amount: Balance.Jungle.healingBuffHP)
+        CombatSystem.heal(&s, ctx, sourceID: nil, targetIndex: k, amount: Balance.Jungle.healingBuffHP * (s.units[k].hero?.spells.contains("BS05") == true ? 1.6 : 1))
         if s.units[k].hero?.resourceKind == .mana {
             let st = s.units[k].stats
             s.units[k].resource = min(st.maxResource, s.units[k].resource + st.maxResource * Balance.Jungle.healingBuffManaPct)

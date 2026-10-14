@@ -215,7 +215,7 @@ final class BattleWorld {
             shakeRequest = 0
         }
         t = probe.start()
-        workStats.measure(.map, live: live) { map.update(dt: dt) }
+        workStats.measure(.map, live: live) { map.update(dt: dt, camera: frame.camera) }
         probe.stop(.map, t)
         t = probe.start()
         workStats.measure(.units, live: live) { units.sync(frame) }
@@ -831,7 +831,7 @@ final class BattleWorld {
         switch spell {
         case "BS02":
             vfx.spawn(.skillBurst, at: p + SIMD3(0, 1, 0), color: .white, important: true)
-        case "BS03":
+        case "BS03", "BS16":
             vfx.spawn(.heal, at: p, color: FXColors.heal, scale: 1.4, important: true)
             vfx.ring(at: p, color: FXRings.heal, from: 0.5, to: 8, duration: 0.6)
         case "BS04":

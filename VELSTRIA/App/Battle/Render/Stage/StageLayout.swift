@@ -35,6 +35,7 @@ struct StageLayoutResult: Sendable {
     var chunks = StageChunks()
     /// index = MapDefinition.brushes の添字。頂点は草むらの中心が原点。
     var brushes: [StageMeshBuffer] = []
+    var brushCards: [StageMeshBuffer] = []
     var brushCenters: [SIMD3<Float>] = []
     /// 祭壇の円盤（ルーンの模様、RealityKit 標準材質の UV）。
     var runeDiscs = StageMeshBuffer()
@@ -692,10 +693,84 @@ struct StageLayout {
 
     // MARK: 草むら
 
-    /// 地図全体の草の房の上限（房 = 葉 5〜7 枚 × 4 三角形 → 最大 約 8.4 万三角形。StageTests の予算 9 万）。
+    /// 地図全体の房の密度基準。近景12 / 遠景4三角形。既存9万三角形予算を維持。
     static let maxBrushClumps: Float = 3000
 
     mutating func brushFields() {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-brushLegacy") { legacyBrushFields(); return }
+        #endif
+        // MLBB の草むらは広い（総面積 約 940 m²）ので、房の間隔を総面積に合わせて広げ、三角形数を予算内に収める
+        let total = map.brushes.reduce(Float(0)) { acc, b in
+            let lo = geo.m(Vec2(b.rect.minX, b.rect.minY)), hi = geo.m(Vec2(b.rect.maxX, b.rect.maxY))
+            return acc + abs((hi.x - lo.x) * (hi.y - lo.y))
+        }
+        let step: Float = max(level == .low ? 0.55 : 0.45, (total / StageLayout.maxBrushClumps).squareRoot())
+        for b in map.brushes {
+            let lo = geo.m(Vec2(b.rect.minX, b.rect.minY)), hi = geo.m(Vec2(b.rect.maxX, b.rect.maxY))
+            let center = (lo + hi) / 2
+            var buf = StageMeshBuffer(reserveVertices: 20_000)
+            var cards = StageMeshBuffer()
+            var brng = RenderRNG(seed: UInt64(b.id) &* 613 &+ 7)
+            let w = hi.x - lo.x, d = hi.y - lo.y
+            let nx = max(1, Int((w / step).rounded())), ny = max(1, Int((d / step).rounded()))
+            for ix in 0..<nx {
+                for iy in 0..<ny {
+                    let lx = (Float(ix) + 0.5) / Float(nx) * w - w / 2 + brng.range(-0.12, 0.12)
+                    let ly = (Float(iy) + 0.5) / Float(ny) * d - d / 2 + brng.range(-0.12, 0.12)
+                    // 縁の房は内側へ少し倒す（見た目の縁を判定の矩形に合わせる: はみ出しは 0.5 m 以内）
+                    let edgeX = abs(lx) / (w / 2), edgeY = abs(ly) / (d / 2)
+                    let inward = SIMD2<Float>(edgeX > 0.6 ? (lx > 0 ? -1 : 1) : 0, edgeY > 0.6 ? (ly > 0 ? -1 : 1) : 0)
+                    let root = SIMD2(min(max(lx, -w / 2 + 0.08), w / 2 - 0.08), min(max(ly, -d / 2 + 0.08), d / 2 - 0.08))
+                    let seed = brng.next()
+                    var nearRNG = RenderRNG(seed: seed), farRNG = RenderRNG(seed: seed)
+                    brushClump(&buf, rng: &nearRNG, at: root, lean: inward)
+                    brushClump(&cards, rng: &farRNG, at: root, lean: inward, distant: true)
+                }
+            }
+            out.brushes.append(buf)
+            out.brushCards.append(cards)
+            out.brushCenters.append(world(center))
+        }
+    }
+
+    /// Three bent foliage cards per cell; shared atlas, one material/mesh per brush area.
+    /// Near = 12 triangles/cell, far = 4. Roots and placement are identical for both LODs.
+    func brushClump(_ buf: inout StageMeshBuffer, rng: inout RenderRNG, at p: SIMD2<Float>,
+                    lean: SIMD2<Float>, distant: Bool = false) {
+        let yaw = rng.range(0, .pi)
+        let h = rng.range(1.05, 1.35)
+        let tile = Int(rng.range(0, 4))
+        let tint = rng.range(0.88, 1.08)
+        let count = distant ? 2 : 3
+        let segments = distant ? 1 : 2
+        for card in 0..<count {
+            let a = yaw + Float(card) * .pi / Float(count)
+            let side = SIMD3<Float>(cos(a), 0, sin(a))
+            let face = SIMD3<Float>(-sin(a), 0, cos(a))
+            let start = UInt32(buf.vertexCount)
+            for row in 0...segments {
+                let t = Float(row) / Float(segments)
+                let offset = SIMD3<Float>(lean.x, 0, -lean.y) * (0.12 * t * t)
+                let center = SIMD3<Float>(p.x, -0.03 + h * t, -p.y) + offset + face * (0.10 * t * t)
+                for edge in 0...1 {
+                    let u = Float(edge)
+                    let pos = center + side * ((u - 0.5) * 0.94)
+                    let uv = SIMD2<Float>((Float((tile + card) % 4) + 0.015 + u * 0.97) / 4, 0.015 + t * 0.97)
+                    buf.addVertex(pos, simd_normalize(face + SIMD3<Float>(0, 0.65, 0)), uv,
+                                  stageColor(tint * 0.5, tint * 0.5, tint * 0.5, t * t))
+                }
+            }
+            for row in 0..<segments {
+                let i = start + UInt32(row * 2)
+                buf.addTriangle(i, i + 1, i + 3)
+                buf.addTriangle(i, i + 3, i + 2)
+            }
+        }
+    }
+
+    #if DEBUG
+    mutating func legacyBrushFields() {
         // MLBB の草むらは広い（総面積 約 940 m²）ので、房の間隔を総面積に合わせて広げ、三角形数を予算内に収める
         let total = map.brushes.reduce(Float(0)) { acc, b in
             let lo = geo.m(Vec2(b.rect.minX, b.rect.minY)), hi = geo.m(Vec2(b.rect.maxX, b.rect.maxY))
@@ -717,16 +792,17 @@ struct StageLayout {
                     let edgeX = abs(lx) / (w / 2), edgeY = abs(ly) / (d / 2)
                     let inward = SIMD2<Float>(edgeX > 0.6 ? (lx > 0 ? -1 : 1) : 0, edgeY > 0.6 ? (ly > 0 ? -1 : 1) : 0)
                     let root = SIMD2(min(max(lx, -w / 2 + 0.08), w / 2 - 0.08), min(max(ly, -d / 2 + 0.08), d / 2 - 0.08))
-                    brushClump(&buf, rng: &brng, at: root, lean: inward)
+                    legacyBrushClump(&buf, rng: &brng, at: root, lean: inward)
                 }
             }
             out.brushes.append(buf)
+            out.brushCards.append(buf)
             out.brushCenters.append(world(center))
         }
     }
 
     /// 草むらの 1 房（背の高い葉 6〜9 枚）。座標は草むらの中心が原点。
-    func brushClump(_ buf: inout StageMeshBuffer, rng: inout RenderRNG, at p: SIMD2<Float>, lean: SIMD2<Float>) {
+    func legacyBrushClump(_ buf: inout StageMeshBuffer, rng: inout RenderRNG, at p: SIMD2<Float>, lean: SIMD2<Float>) {
         let blades = Int(rng.range(5, 8))
         let base = SIMD3<Float>(p.x, -0.03, -p.y)
         let hueShift = rng.range(-0.05, 0.05)
@@ -751,6 +827,8 @@ struct StageLayout {
             }
         }
     }
+
+    #endif
 
     // MARK: 形状の生成
 

@@ -131,6 +131,9 @@ public enum ProjectileSystem {
             }
             s.projectiles[k] = p
             s.emit(.projectileHit(projectileID: p.id, targetID: targetID, pos: hitPos))
+            if p.visual == "spell.BS14" {
+                p.payload.damage *= 1 + 2.4 * min(1, p.traveled / Balance.Spells.flameshotRange)
+            }
             // ノックバックは弾の進行方向へ
             CombatSystem.applyHit(&s, ctx, sourceID: p.ownerID, team: p.team, targetIndex: h.index,
                                   payload: p.payload, from: s.units[h.index].pos - dir * 100)

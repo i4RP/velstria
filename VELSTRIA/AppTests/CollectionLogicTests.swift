@@ -608,38 +608,39 @@ final class CollectionLogicTests: XCTestCase {
     // MARK: スペル
 
     func testSpellInfoCoversAllMasterSpells() {
-        XCTAssertEqual(SpellInfo.all.count, master.spells.count)
-        for spell in master.spells {
+        XCTAssertEqual(BattleSpell.selectable.count, 12)
+        for spell in master.spells.filter({ SpellLoadoutRules.isSelectable($0.spellID) || $0.spellID == "BS03" }) {
             let info = SpellInfo.of(spell.spellID)
             XCTAssertEqual(info.id, spell.spellID)
             XCTAssertFalse(info.effectJa.isEmpty)
             XCTAssertFalse(info.effectEn.isEmpty)
         }
-        XCTAssertNotNil(SpellInfo.of("BS05").tip)
+        XCTAssertFalse(SpellInfo.of("BS05").effect.isEmpty)
     }
 
     func testSpellAssignmentKeepsHealFixed() {
         // 1 枠目だけ変えられる。2 枠目は常に治癒波（BS03）
-        XCTAssertEqual(SpellLoadoutRules.assigning("BS07", slot: 0, in: ["BS01", "BS03"]), ["BS07", "BS03"])
-        XCTAssertEqual(SpellLoadoutRules.assigning("BS07", slot: 1, in: ["BS01", "BS03"]), ["BS01", "BS03"])
+        XCTAssertEqual(SpellLoadoutRules.assigning("BS11", slot: 0, in: ["BS01", "BS03"]), ["BS11", "BS03"])
+        XCTAssertEqual(SpellLoadoutRules.assigning("BS11", slot: 1, in: ["BS01", "BS03"]), ["BS01", "BS03"])
         XCTAssertEqual(SpellLoadoutRules.assigning("BS03", slot: 0, in: ["BS01", "BS03"]), ["BS01", "BS03"])
         XCTAssertEqual(SpellLoadoutRules.normalized([]), ["BS01", "BS03"])
         // 旧データ（治癒波が 1 枠目・重複・他スペルが 2 枠目）は治癒波を 2 枠目に寄せる
         XCTAssertEqual(SpellLoadoutRules.normalized(["BS03", "BS01"]), ["BS01", "BS03"])
         XCTAssertEqual(SpellLoadoutRules.normalized(["BS03", "BS03"]), ["BS01", "BS03"])
-        XCTAssertEqual(SpellLoadoutRules.normalized(["BS07", "BS01"]), ["BS07", "BS03"])
+        XCTAssertEqual(SpellLoadoutRules.normalized(["BS11", "BS01"]), ["BS11", "BS03"])
         // 不明な ID は除外して既定で補う
-        XCTAssertEqual(SpellLoadoutRules.normalized(["BS99", "BS07"]), ["BS07", "BS03"])
+        XCTAssertEqual(SpellLoadoutRules.normalized(["BS99", "BS11"]), ["BS11", "BS03"])
         XCTAssertEqual(SpellLoadoutRules.normalized(["", "BS02"]), ["BS02", "BS03"])
     }
 
     func testSmiteNameFollowsMasterSpellName() {
-        XCTAssertEqual(BuildRules.smiteName(master: master), "狩猟印")
+        XCTAssertEqual(BuildRules.smiteName(master: master), "狩猟")
         XCTAssertEqual(BuildRules.smiteName(master: master), master.spell(BuildRules.smiteSpellID).map { MasterText.spell($0) })
     }
 
     func testEffectiveSpellsUseHeroOverride() {
         var p = Profile()
+        p.accountLevel = 23
         p.defaultSpells = ["BS02", "BS04"]
         p.heroSpells["H006"] = ["BS05", "BS01"]
         XCTAssertEqual(SpellLoadoutRules.effective(heroID: nil, profile: p), ["BS02", "BS03"])
@@ -697,6 +698,6 @@ final class CollectionLogicTests: XCTestCase {
             XCTAssertFalse(text.isEmpty)
             XCTAssertNil(text.range(of: "[\\u3040-\\u30ff\\u3400-\\u9fff]", options: .regularExpression), text)
         }
-        XCTAssertTrue(SpellInfo.of("BS01").effect.hasPrefix("Teleport"))
+        XCTAssertTrue(SpellInfo.of("BS01").effect.hasPrefix("Blink"))
     }
 }

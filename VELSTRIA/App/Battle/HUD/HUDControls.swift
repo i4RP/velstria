@@ -834,19 +834,7 @@ struct HUDRecallButton: View {
             ZStack {
                 ZStack {
                     HUDAbilityFace(color: HUDStyle.accent, diameter: diameter)
-                    Ellipse()
-                        .stroke(HUDStyle.accent.opacity(0.9), lineWidth: 1.2)
-                        .frame(width: diameter * 0.56, height: diameter * 0.20)
-                        .offset(y: diameter * 0.22)
-                    RoundedRectangle(cornerRadius: 1)
-                        .fill(LinearGradient(colors: [.white, HUDStyle.accent.opacity(0.12)],
-                                             startPoint: .top, endPoint: .bottom))
-                        .frame(width: diameter * 0.11, height: diameter * 0.57)
-                        .offset(y: -diameter * 0.02)
-                    Image(systemName: "sparkle")
-                        .font(.system(size: diameter * 0.34, weight: .light))
-                        .foregroundStyle(.white.opacity(0.9))
-                        .offset(y: -diameter * 0.08)
+                    SpellIconView(spellID: "Recall", size: diameter - 3)
                 }
                 .hudDeadDim(dead)
                 if let ch = channel, ch.kind == .recall, ch.total > 0 {
@@ -860,7 +848,7 @@ struct HUDRecallButton: View {
             }
             .frame(width: diameter, height: diameter)
             .overlay {
-                HUDSpellLabel(text: L("帰還", "Recall"), diameter: diameter)
+                HUDSpellLabel(text: L("リコール", "Recall"), diameter: diameter)
                     .offset(y: HUDSpellLabel.labelCenterOffset(diameter))
                     .allowsHitTesting(false)
             }
@@ -869,7 +857,7 @@ struct HUDRecallButton: View {
         }
         .buttonStyle(HUDPressStyle())
         .overlay { if highlighted { HUDHighlightRing(diameter: diameter + 14) } }
-        .accessibilityLabel(L("帰還", "Recall"))
+        .accessibilityLabel(L("リコール", "Recall"))
         .accessibilityIdentifier("hud_recall")
     }
 }

@@ -30,8 +30,8 @@ public enum MatchFactory {
     /// 既定スペル（ジャングルは狩猟印）。
     public static func defaultSpells(for position: LanePosition) -> [String] {
         switch position {
-        case .jungle: return ["BS05", "BS01"]
-        case .support: return ["BS01", "BS04"]
+        case .jungle: return ["BS05", "BS03"]
+        case .support: return ["BS04", "BS03"]
         default: return ["BS01", "BS03"]
         }
     }

@@ -98,6 +98,8 @@ final class OverheadBar {
     private let shield: ModelEntity
     private var resource: ModelEntity?
     private var levelText: ModelEntity?
+    private var executeMark: ModelEntity?
+    func setExecutable(_ value: Bool) { executeMark?.isEnabled = value }
     private var nameText: ModelEntity?
     /// 草むらで隠れている印（ヒーローのみ。HP バーの右端。setConcealed で切り替える）。
     private var concealIcon: ModelEntity?
@@ -215,6 +217,14 @@ final class OverheadBar {
             OverlayOrder.apply(lt, OverlayOrder.barText)
             root.addChild(lt)
             levelText = lt
+            let mark = ModelEntity(mesh: quad, materials: [materials.unlit(RGB(1, 0.12, 0.12), alpha: 1, depthTest: false)])
+            mark.position = [badgeX, badgeY, 0.004]
+            mark.scale = [0.62, 0.05, 1]
+            mark.orientation = simd_quatf(angle: .pi / 4, axis: [0, 0, 1])
+            mark.isEnabled = false
+            OverlayOrder.apply(mark, OverlayOrder.barText + 1)
+            root.addChild(mark)
+            executeMark = mark
             if let name, let e = text.mesh(name, size: OverheadBar.nameTextSize) {
                 let nt = ModelEntity(mesh: e.mesh, materials: [materials.unlit(isSelf ? RGB(1, 0.95, 0.78) : RGB(0.96, 0.97, 1.0),
                                                                              alpha: 1, depthTest: false)])

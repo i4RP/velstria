@@ -254,7 +254,7 @@ struct HUDLayout: Equatable {
     var auxiliaryY: CGFloat { bottomEdge - 32 * scale }
     var spellRowY: CGFloat { auxiliaryY }
     func spellCenter(_ index: Int) -> CGPoint {
-        mirrored(CGPoint(x: auxiliaryMiddleX + CGFloat(index) * 54 * scale, y: auxiliaryY))
+        mirrored(CGPoint(x: auxiliaryMiddleX + CGFloat(1 - index) * 54 * scale, y: auxiliaryY))
     }
     var recallCenter: CGPoint {
         mirrored(CGPoint(x: auxiliaryMiddleX - 54 * scale, y: auxiliaryY))

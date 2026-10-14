@@ -1,0 +1,76 @@
+{
+  "tool": "built-in image_gen",
+  "prompt": "Use case: stylized-concept. Create one premium AAA fantasy MOBA ability icon for {subject}. Square painted raster game asset, richly detailed luminous effects, extremely readable strong central silhouette at 64px, full bleed dark colored background, circular composition filling frame. No text, letters, numbers, UI, watermark or external frame.",
+  "assets": [
+    {
+      "id": "BS01",
+      "subject": "golden teleportation: dark heroic human silhouette stepping forward, golden afterimage behind, brilliant yellow arcing light",
+      "path": "App/Resources/Assets.xcassets/SpellIcons/BS01.imageset/icon.png"
+    },
+    {
+      "id": "BS02",
+      "subject": "purification: emerald glowing sacred orb between two hands, cleansing white green spirals",
+      "path": "App/Resources/Assets.xcassets/SpellIcons/BS02.imageset/icon.png"
+    },
+    {
+      "id": "BS03",
+      "subject": "healing: green human silhouette bathed in vertical lime light with small luminous healing crosses",
+      "path": "App/Resources/Assets.xcassets/SpellIcons/BS03.imageset/icon.png"
+    },
+    {
+      "id": "BS04",
+      "subject": "protection: radiant golden spherical shield dome around a figure",
+      "path": "App/Resources/Assets.xcassets/SpellIcons/BS04.imageset/icon.png"
+    },
+    {
+      "id": "BS05",
+      "subject": "hunting: purple clawed beast hand striking downward through orange fire",
+      "path": "App/Resources/Assets.xcassets/SpellIcons/BS05.imageset/icon.png"
+    },
+    {
+      "id": "BS06",
+      "subject": "sprint: blue runner silhouette with cyan rushing motion trails",
+      "path": "App/Resources/Assets.xcassets/SpellIcons/BS06.imageset/icon.png"
+    },
+    {
+      "id": "BS09",
+      "subject": "arrival teleport: vertical blue white column arriving in a magical cyan circle",
+      "path": "App/Resources/Assets.xcassets/SpellIcons/BS09.imageset/icon.png"
+    },
+    {
+      "id": "BS11",
+      "subject": "execution: red orange sharpened execution blade plunging downward",
+      "path": "App/Resources/Assets.xcassets/SpellIcons/BS11.imageset/icon.png"
+    },
+    {
+      "id": "BS12",
+      "subject": "inspiration: three golden arrows accelerating diagonally through amber light",
+      "path": "App/Resources/Assets.xcassets/SpellIcons/BS12.imageset/icon.png"
+    },
+    {
+      "id": "BS13",
+      "subject": "petrification: blue stone humanoid bust fractured at its base with cyan aura",
+      "path": "App/Resources/Assets.xcassets/SpellIcons/BS13.imageset/icon.png"
+    },
+    {
+      "id": "BS14",
+      "subject": "flameshot: brilliant yellow fiery projectile streaking diagonally across dark red",
+      "path": "App/Resources/Assets.xcassets/SpellIcons/BS14.imageset/icon.png"
+    },
+    {
+      "id": "BS15",
+      "subject": "vengeance: electric blue energy star exploding inside a reflective sphere",
+      "path": "App/Resources/Assets.xcassets/SpellIcons/BS15.imageset/icon.png"
+    },
+    {
+      "id": "BS16",
+      "subject": "healing fountain: empty green magical pool with concentric runes and rising green healing crosses",
+      "path": "App/Resources/Assets.xcassets/SpellIcons/BS16.imageset/icon.png"
+    },
+    {
+      "id": "Recall",
+      "subject": "recall: empty blue luminous portal ring on the ground with vertical azure beams",
+      "path": "App/Resources/Assets.xcassets/SpellIcons/Recall.imageset/icon.png"
+    }
+  ]
+}
