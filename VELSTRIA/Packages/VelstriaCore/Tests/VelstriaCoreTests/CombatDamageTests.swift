@@ -294,40 +294,81 @@ final class CombatDamageTests: XCTestCase {
         XCTAssertEqual(w.s.units[a].lastCombatTime, 50)
     }
 
-    func testSkillDamageToMinionsIsScaledByTheMinionMultiplier() {
-        let mult = Balance.Skills.minionDamageMultiplier
-        XCTAssertLessThan(mult, 1)
+    /// MLBB にミニオンへのスキルダメージの全体の倍率は無い（以前の × 0.2 は 2026-10-14 に外した）。スキルごとの「ミニオンには ○%」は
+    /// HitPayload.minionMultiplier（エウドラの S1 200% など）、モンスターへは monsterMultiplier（アルカードのデビルハンター 110%）。
+    func testSkillDamageToMinionsHasNoGlobalMultiplierButPerSkillOnes() {
         for type in [MinionType.melee, .ranged, .siege] {
             var w = CombatWorld()
             let a = w.addHero(team: .blue, at: Vec2(1000, 1000))
             let m = w.addMinion(type, team: .red, at: Vec2(1100, 1000))
             let hp = w.s.units[m].hp
             // 確定ダメージ（防御を通らない）で倍率だけを見る
-            let dealt = CombatSystem.applyDamage(&w.s, w.ctx, sourceID: w.id(a), targetIndex: m, amount: 1000,
+            let dealt = CombatSystem.applyDamage(&w.s, w.ctx, sourceID: w.id(a), targetIndex: m, amount: 100,
                                                  type: .trueDamage, source: .skill(.skill1))
-            XCTAssertEqual(dealt, 1000 * mult, accuracy: 1e-9, "(type)")
-            XCTAssertEqual(w.s.units[m].hp, hp - 1000 * mult, accuracy: 1e-9, "(type)")
+            XCTAssertEqual(dealt, 100, accuracy: 1e-9, "\(type)")
+            XCTAssertEqual(w.s.units[m].hp, hp - 100, accuracy: 1e-9, "\(type)")
         }
-        // 物理・魔法も防御軽減の後に同じ倍率（近接ミニオンの防御・魔防は 0）
+        // スキルごとの倍率: ミニオンには掛かり、ヒーローには掛からない
         var w = CombatWorld()
         let a = w.addHero(team: .blue, at: Vec2(1000, 1000))
         let m = w.addMinion(.melee, team: .red, at: Vec2(1100, 1000))
-        XCTAssertEqual(CombatSystem.applyDamage(&w.s, w.ctx, sourceID: w.id(a), targetIndex: m, amount: 100,
-                                                type: .magic, source: .skill(.skill2)), 100 * mult, accuracy: 1e-9)
-        XCTAssertEqual(CombatSystem.applyDamage(&w.s, w.ctx, sourceID: w.id(a), targetIndex: m, amount: 100,
-                                                type: .physical, source: .skill(.ultimate)), 100 * mult, accuracy: 1e-9)
+        let h = w.addHero(team: .red, at: Vec2(1000, 1200))
+        let p = HitPayload(damage: 100, damageType: .trueDamage, source: .skill(.skill1), minionMultiplier: 2)
+        let minionBefore = w.s.units[m].hp, heroBefore = w.s.units[h].hp
+        CombatSystem.applyHit(&w.s, w.ctx, sourceID: w.id(a), team: .blue, targetIndex: m, payload: p, from: w.s.units[a].pos)
+        CombatSystem.applyHit(&w.s, w.ctx, sourceID: w.id(a), team: .blue, targetIndex: h, payload: p, from: w.s.units[a].pos)
+        XCTAssertEqual(minionBefore - w.s.units[m].hp, 200, accuracy: 1e-9)
+        XCTAssertEqual(heroBefore - w.s.units[h].hp, 100, accuracy: 1e-9)
     }
 
-    /// Lv1・ランク1 のスキル 1 発（マスターの全スキルで 435〜1029）が、どのミニオンも一撃では倒さない。
-    func testNoSkillHitOneShotsAMinion() {
-        for type in [MinionType.melee, .ranged, .siege] {
-            for raw in [435.0, 646, 1029] {
-                var w = CombatWorld()
-                let a = w.addHero(team: .blue, at: Vec2(1000, 1000))
-                let m = w.addMinion(type, team: .red, at: Vec2(1100, 1000))
-                CombatSystem.applyDamage(&w.s, w.ctx, sourceID: w.id(a), targetIndex: m, amount: raw,
-                                         type: .physical, source: .skill(.skill1))
-                XCTAssertTrue(w.s.units[m].isAlive, "(type) raw=(raw)")
+    /// スキル吸収率（スキルごと）と攻撃エフェクト（通常攻撃吸収に掛かる割合）。MLBB: 回復 = ダメージ × 吸収 × 吸収率。
+    func testSpellVampRatioAndAttackEffectScaleTheHeal() {
+        var w = CombatWorld()
+        let a = w.addHero(team: .blue, at: Vec2(1000, 1000))
+        let t = w.addHero(team: .red, at: Vec2(1100, 1000))
+        w.s.units[a].stats.spellVamp = 0.2
+        w.s.units[a].stats.lifesteal = 0.2
+        w.s.units[a].hp = 100
+        // スキル吸収率 50%: 100 × 20% × 50% = 10
+        CombatSystem.applyHit(&w.s, w.ctx, sourceID: w.id(a), team: .blue, targetIndex: t,
+                              payload: HitPayload(damage: 100, damageType: .trueDamage, source: .skill(.skill1),
+                                                  spellVampRatio: 0.5), from: w.s.units[a].pos)
+        XCTAssertEqual(w.s.units[a].hp, 110, accuracy: 1e-9)
+        // 攻撃エフェクト 30% の追加の通常攻撃ダメージ: 100 × 20% × 30% = 6
+        CombatSystem.applyHit(&w.s, w.ctx, sourceID: w.id(a), team: .blue, targetIndex: t,
+                              payload: HitPayload(damage: 100, damageType: .trueDamage, source: .basicAttack,
+                                                  attackEffect: 0.3), from: w.s.units[a].pos)
+        XCTAssertEqual(w.s.units[a].hp, 116, accuracy: 1e-9)
+        // 攻撃エフェクトの無い追加の通常攻撃ダメージ（既定）は吸収しない
+        CombatSystem.applyHit(&w.s, w.ctx, sourceID: w.id(a), team: .blue, targetIndex: t,
+                              payload: HitPayload(damage: 100, damageType: .trueDamage, source: .basicAttack),
+                              from: w.s.units[a].pos)
+        XCTAssertEqual(w.s.units[a].hp, 116, accuracy: 1e-9)
+        // 割合の命中は命中数に数えない（通常攻撃そのものではない）
+        XCTAssertEqual(w.s.units[a].hero?.basicAttackCount, 0)
+    }
+
+    /// 装備なしの Lv1・ランク1 の汎用のスキル1・スキル2 の 1 発（MLBB の型の値。H001–H024）が、近接・攻城ミニオンを一撃では倒さない
+    /// （奥義は除く: MLBB でもメイジの奥義の範囲攻撃はウェーブを一掃できる。アルカニストの奥義は Lv1 の型で約 570）。
+    /// 以前はミニオンへの × 0.2 で「どのスキルもどのミニオンも一撃で倒さない」を保っていたが、MLBB に全体の倍率は無いので外した
+    /// （2026-10-14）。遠隔ミニオン（HP 330）は MLBB の値のスキル（例: レンジャーの S1 は Lv1 で約 360）なら一撃で倒れることがある。
+    /// ミニオンの HP 自体はまだ MLBB の値ではない（監査 C の MN3。ワールドの段階で直す）。
+    func testNoLevelOneGenericSkillOneShotsAMeleeOrSiegeMinion() {
+        let master = MasterData.shared
+        for hero in master.allHeroes where !HeroKits.hasKit(hero.heroID) {
+            let stats = HeroGrowth.baseStats(def: hero, level: 1)
+            for slot in [SkillSlot.skill1, .skill2] {
+                guard let skill = master.skill(hero: hero.heroID, slot: slot) else { continue }
+                let n = SkillCatalog.numbers(for: skill, hero: hero, rank: 1, stats: stats)
+                guard n.damage > 0 else { continue }
+                for type in [MinionType.melee, .siege] {
+                    var w = CombatWorld()
+                    let a = w.addHero(team: .blue, at: Vec2(1000, 1000))
+                    let m = w.addMinion(type, team: .red, at: Vec2(1100, 1000))
+                    CombatSystem.applyDamage(&w.s, w.ctx, sourceID: w.id(a), targetIndex: m, amount: n.damage,
+                                             type: skill.damageType, source: .skill(slot))
+                    XCTAssertTrue(w.s.units[m].isAlive, "\(type) \(skill.skillID) \(n.damage)")
+                }
             }
         }
     }

@@ -114,120 +114,102 @@ final class Kit_H033Tests: XCTestCase {
         }
     }
 
-    private func numbers(_ slot: SkillSlot, level: Int, rank: Int, stage: Int = 0) throws -> (kit: SkillNumbers, generic: SkillNumbers) {
+    /// キットの数値（装備なし。rank = 公式の Lv）。
+    private func numbers(_ slot: SkillSlot, level: Int, rank: Int, stage: Int = 0) throws -> SkillNumbers {
         let (w, k) = world(level: level)
         let m = MasterData.shared
         let hero = try XCTUnwrap(m.hero("H033"))
         let skill = try XCTUnwrap(m.skill(hero: "H033", slot: slot))
-        let stats = w.s.units[k].stats
-        return (HeroKits.numbers(for: skill, hero: hero, rank: rank, stats: stats, stage: stage),
-                SkillCatalog.genericNumbers(for: skill, hero: hero, rank: rank, stats: stats))
+        return HeroKits.numbers(for: skill, hero: hero, rank: rank, stats: w.s.units[k].stats, stage: stage)
     }
 
-    /// 1 スロットの単体総ダメージは汎用の 0.8〜1.3 倍（奥義は衝撃波のダメージ）。
-    /// 例外: S1 はランクが上がるほど倍率を下げる（0.88 → 0.64）ので、ランク 2 以降は 0.8 を割る。序盤（Lv1〜3 はスキル1 だけ）を
-    /// 強くして、ランクが上がってスキル2・アルティメット（クールダウン半減・追撃）が揃ったあとの火力と 3 秒の瞬間火力を抑えるため
-    /// （docs/kits/Alucard.md の「バランス」）。
-    /// 例外 2: S2 のクールダウンは MLBB の 6 → 4 秒で、汎用の S2（9.8 秒から）の約半分なので、1 発は 0.5 倍（1 秒あたりでは汎用の約 0.8 倍）。
-    /// S1 もクールダウンが MLBB の秒数になってランク 4 は 0.60 倍。
-    func testNumbersStayWithinDamageBudgetAndFollowCooldownFormula() throws {
-        // 予算（汎用の何倍か）。公式の表の形（S1 270 → 370 は汎用の +30%/ランクより緩やか）とクールダウン（S2 は汎用の約半分）の
-        // ぶん、S1・S2 は汎用の 0.8〜1.3 倍の帯から外れる（docs/kits/Alucard.md の「公式の数値へ」）
-        for level in [1, 6, 12] {
-            for rank in 1...Balance.basicSkillMaxRank {
-                for slot in [SkillSlot.skill1, .skill2] {
-                    let (n, g) = try numbers(slot, level: level, rank: rank)
-                    let r = n.totalDamage / g.totalDamage
-                    let band = slot == .skill1 ? Self.s1Budget : Self.s2Budget
-                    XCTAssertTrue(band.contains(r), "\(slot) Lv\(level) r\(rank): \(r)")
-                }
-            }
-            for rank in 1...Balance.ultimateMaxRank {
-                for stage in [0, 1] {
-                    let (u, g) = try numbers(.ultimate, level: level, rank: rank, stage: stage)
-                    let r = u.totalDamage / g.totalDamage
-                    XCTAssertTrue(Self.waveBudget.contains(r), "ult stage\(stage) Lv\(level) r\(rank): \(r)")
-                }
-            }
-        }
-        // 公式のダメージ: (基礎 + 係数 × 攻撃力 × 0.6) × スロット倍率 × 換算。基礎は Lv1 → Lv6 をランクで線形補間
-        let (w0, k0) = world()
-        let st = w0.s.units[k0].stats
-        let atk = st.attack * Balance.skillAttackScalingFactor
-        for rank in 1...4 {
-            let lv = 1 + Double(rank - 1) * 5 / 3
-            XCTAssertEqual(try numbers(.skill1, level: 12, rank: rank).kit.damage,
-                           (270 + (lv - 1) * 20 + 0.85 * atk) * Balance.Skills.damageScale(.skill1) * Tune.s1Scale,
-                           accuracy: 1e-6, "S1 r\(rank)")
-            XCTAssertEqual(try numbers(.skill2, level: 12, rank: rank).kit.damage,
-                           (345 + (lv - 1) * 45 + 1.2 * atk) * Balance.Skills.damageScale(.skill2) * Tune.s2Scale,
-                           accuracy: 1e-6, "S2 r\(rank)")
-        }
-        for (rank, b) in [(1, 400.0), (2, 550), (3, 700)] {
-            XCTAssertEqual(try numbers(.ultimate, level: 12, rank: rank, stage: 1).kit.damage,
-                           (b + 2.0 * atk) * Balance.Skills.damageScale(.ultimate) * Tune.waveScale, accuracy: 1e-6,
-                           "衝撃波 r\(rank)")
-        }
-        // 公式はコストなし（どのスキルも 0）
-        let heroDef = try XCTUnwrap(MasterData.shared.hero("H033"))
-        for slot in [SkillSlot.skill1, .skill2, .ultimate] {
-            let def = try XCTUnwrap(MasterData.shared.skill(hero: "H033", slot: slot))
-            for rank in 1...slot.maxRank {
-                XCTAssertEqual(SkillSystem.cost(for: def, hero: heroDef, rank: rank), 0, "\(slot) r\(rank)")
-            }
-        }
-        // クールダウン = MLBB の秒数（ランクで線形）× 全体倍率 × (1 − CD 短縮)
+    /// 公式の表（日本語クライアントのスキル詳細 = REAL_DATA.md「H033 ヴァルド = アルカード」。Liquipedia の表とも一致）と等しい:
+    /// ダメージ = 基礎[Lv] + 係数 × 追加物理攻撃、CD = 表の秒数 × (1 − CD 短縮)。rank = 公式の Lv（S1・S2 は 1〜6、奥義は 1〜3）。
+    func testNumbersEqualTheOfficialTables() throws {
+        // 装備なし（追加物理攻撃 0）: ダメージは基礎の表そのまま
+        let s1Base: [Double] = [270, 290, 310, 330, 350, 370]
+        let s2Base: [Double] = [345, 390, 435, 480, 525, 570]
+        let waveBase: [Double] = [400, 550, 700]
+        let s1CD = [8.5, 8.1, 7.7, 7.3, 6.9, 6.5]
+        let s2CD = [6.0, 5.6, 5.2, 4.8, 4.4, 4.0]
+        let ultCD: [Double] = [40, 35, 30]
+        XCTAssertEqual(SkillSlot.skill1.maxRank, 6)
+        XCTAssertEqual(SkillSlot.ultimate.maxRank, 3)
         let (w, k) = world()
         let cdr = w.s.units[k].stats.cooldownReduction
-        func expected(_ a: Double, _ b: Double, rank: Int, maxRank: Int) -> Double {
-            (a + (b - a) * Double(rank - 1) / Double(maxRank - 1)) * (1 - cdr) * Balance.Skills.cooldownScale
-        }
-        for rank in 1...4 {
-            // MLBB の 8.5 → 6.5 秒 / 6.0 → 4.0 秒
-            XCTAssertEqual(try numbers(.skill1, level: 12, rank: rank).kit.cooldown,
-                           expected(8.5, 6.5, rank: rank, maxRank: 4), accuracy: 1e-9)
-            XCTAssertEqual(try numbers(.skill2, level: 12, rank: rank).kit.cooldown,
-                           expected(6, 4, rank: rank, maxRank: 4), accuracy: 1e-9)
+        XCTAssertEqual(w.s.units[k].stats.extraAttack, 0, "装備なしは追加物理攻撃 0")
+        for rank in 1...6 {
+            let s1 = try numbers(.skill1, level: 12, rank: rank)
+            let s2 = try numbers(.skill2, level: 12, rank: rank)
+            XCTAssertEqual(s1.damage, s1Base[rank - 1], accuracy: 1e-9, "S1 Lv\(rank)")
+            XCTAssertEqual(s2.damage, s2Base[rank - 1], accuracy: 1e-9, "S2 Lv\(rank)")
+            XCTAssertEqual(s1.cooldown, s1CD[rank - 1] * (1 - cdr), accuracy: 1e-9, "S1 CD Lv\(rank)")
+            XCTAssertEqual(s2.cooldown, s2CD[rank - 1] * (1 - cdr), accuracy: 1e-9, "S2 CD Lv\(rank)")
+            XCTAssertEqual(s1.hits, 1)
+            XCTAssertEqual(s2.hits, 1)
         }
         for rank in 1...3 {
-            // MLBB の 40 / 35 / 30 秒
-            XCTAssertEqual(try numbers(.ultimate, level: 12, rank: rank).kit.cooldown,
-                           expected(40, 30, rank: rank, maxRank: 3), accuracy: 1e-9)
+            for stage in [0, 1] {
+                let u = try numbers(.ultimate, level: 12, rank: rank, stage: stage)
+                XCTAssertEqual(u.damage, waveBase[rank - 1], accuracy: 1e-9, "衝撃波 Lv\(rank) stage\(stage)")
+                XCTAssertEqual(u.cooldown, ultCD[rank - 1] * (1 - cdr), accuracy: 1e-9, "奥義 CD Lv\(rank)")
+            }
         }
-        // ランクが上がるほど強く、CD は短く
-        let a = try numbers(.skill1, level: 12, rank: 1).kit
-        let b = try numbers(.skill1, level: 12, rank: 4).kit
-        XCTAssertGreaterThan(b.damage, a.damage)
-        XCTAssertLessThan(b.cooldown, a.cooldown)
+        // 係数は追加物理攻撃（Stats.extraAttack）に掛かる: S1 +85% / S2 +120% / 衝撃波 +200%。合計の物理攻撃は使わない
+        let m = MasterData.shared
+        let hero = try XCTUnwrap(m.hero("H033"))
+        var st = w.s.units[k].stats
+        st.attack += 100
+        st.extraAttack = 100
+        var totalOnly = w.s.units[k].stats
+        totalOnly.attack += 100
+        for rank in 1...6 {
+            let s1 = HeroKits.numbers(for: try XCTUnwrap(m.skill(hero: "H033", slot: .skill1)), hero: hero, rank: rank, stats: st)
+            let s2 = HeroKits.numbers(for: try XCTUnwrap(m.skill(hero: "H033", slot: .skill2)), hero: hero, rank: rank, stats: st)
+            XCTAssertEqual(s1.damage, s1Base[rank - 1] + 0.85 * 100, accuracy: 1e-9, "S1 Lv\(rank)")
+            XCTAssertEqual(s2.damage, s2Base[rank - 1] + 1.20 * 100, accuracy: 1e-9, "S2 Lv\(rank)")
+            let plain = HeroKits.numbers(for: try XCTUnwrap(m.skill(hero: "H033", slot: .skill1)), hero: hero, rank: rank,
+                                         stats: totalOnly)
+            XCTAssertEqual(plain.damage, s1Base[rank - 1], accuracy: 1e-9, "合計の物理攻撃だけ増えても S1 は増えない")
+        }
+        for rank in 1...3 {
+            let u = HeroKits.numbers(for: try XCTUnwrap(m.skill(hero: "H033", slot: .ultimate)), hero: hero, rank: rank,
+                                     stats: st, stage: 1)
+            XCTAssertEqual(u.damage, waveBase[rank - 1] + 2.0 * 100, accuracy: 1e-9, "衝撃波 Lv\(rank)")
+        }
+        // 公式はコストなし（どのスキルも 0）
+        for slot in [SkillSlot.skill1, .skill2, .ultimate] {
+            let def = try XCTUnwrap(m.skill(hero: "H033", slot: slot))
+            for rank in 1...slot.maxRank {
+                XCTAssertEqual(SkillSystem.cost(for: def, hero: hero, rank: rank), 0, "\(slot) r\(rank)")
+            }
+        }
+        // CC: S1 は 40% 減速 2 秒、S2 は無し、吸収は 30% 減速（持続は記載なし: 4 秒）
+        let a = try numbers(.skill1, level: 12, rank: 1)
         XCTAssertEqual(a.cc, .slow)
-        XCTAssertEqual(a.ccDuration, Tune.s1SlowDuration)
-        let s2 = try numbers(.skill2, level: 12, rank: 1).kit
-        XCTAssertEqual(s2.cc, .none)
-        let u1 = try numbers(.ultimate, level: 12, rank: 1).kit
-        let u3 = try numbers(.ultimate, level: 12, rank: 3).kit
-        XCTAssertGreaterThan(u3.damage, u1.damage)
-        // 窓・段・吸収の鈍足
+        XCTAssertEqual(a.ccDuration, 2.0)
+        XCTAssertEqual(Tune.s1Slow, 0.40)
+        XCTAssertEqual(try numbers(.skill2, level: 12, rank: 1).cc, .none)
+        let u1 = try numbers(.ultimate, level: 12, rank: 1)
         XCTAssertEqual(u1.stages, 2)
         XCTAssertEqual(u1.recastWindow, Tune.ultWindow)
         XCTAssertEqual(u1.cc, .slow)
         XCTAssertEqual(u1.ccDuration, Tune.absorbDuration)
-        XCTAssertEqual(try numbers(.ultimate, level: 12, rank: 1, stage: 1).kit.cc, .none)
-        // 吸血は奥義ランクで 10 / 20 / 30%、複合防御の増減は 10 / 15 / 20
+        XCTAssertEqual(Tune.absorbSlow, 0.30)
+        XCTAssertEqual(try numbers(.ultimate, level: 12, rank: 1, stage: 1).cc, .none)
+        // 表: 混合吸収 10 / 20 / 30%、混合防御減少 10 / 15 / 20、混合防御力増加 10 / 15 / 20
         for (rank, want, defense) in [(1, 10.0, 10.0), (2, 20.0, 15.0), (3, 30.0, 20.0)] {
-            let n = try numbers(.ultimate, level: 12, rank: rank).kit
+            let n = try numbers(.ultimate, level: 12, rank: rank)
             XCTAssertEqual(try XCTUnwrap(n.extras.first { $0.key == "lifesteal" }).value, want, accuracy: 1e-9)
             XCTAssertEqual(try XCTUnwrap(n.extras.first { $0.key == "defense" }).value, defense, accuracy: 1e-9)
             XCTAssertEqual(try XCTUnwrap(n.extras.first { $0.key == "gain" }).value, defense, accuracy: 1e-9)
+            XCTAssertEqual(Kit_H033.lifesteal(rank: rank), want / 100, accuracy: 1e-12)
         }
-        XCTAssertEqual(Tune.hasteDuration, 6, "クールダウン半減は公式の 6 秒")
-        XCTAssertEqual(Tune.pursuitRatio, 1.25, "追撃は公式の物理攻撃 125%")
+        XCTAssertEqual(Kit_H033.lifesteal(rank: 0), 0, "未習得は混合吸収なし")
+        XCTAssertEqual(Tune.hasteDuration, 6, "他のスキルの CD 時間が 50% になるのは公式の 6 秒")
+        XCTAssertEqual(Tune.pursuitRatio, 1.25, "追撃は公式の (125% 物理攻撃)")
+        XCTAssertEqual(Tune.devilHunter, 1.10, "デビルハンターは公式のモンスターに 110%")
     }
-
-    /// 予算の帯（汎用の何倍か）。S1 は公式の表がランクで緩やかに伸びるぶんランクが上がるほど下がる。S2（約 0.15 倍）と衝撃波（約 0.55 倍）は、
-    /// 公式のコスト 0・クールダウン半減 6 秒・複合防御 ±20 で Lv12 が強くなりすぎたぶん、勝率で汎用の帯より下げた（docs/kits/Alucard.md）。
-    static let s1Budget = 0.55...1.3
-    static let s2Budget = 0.1...1.3
-    static let waveBudget = 0.5...1.3
 
     func testTagsFollowTheOfficialSkillTags() {
         // 公式: パッシブ Buff / S1 Blink・AOE / S2 AOE / 奥義 Buff・Burst
@@ -257,17 +239,16 @@ final class Kit_H033Tests: XCTestCase {
         }
         // 数値は sim と一致する
         let stats = w.s.units[k].stats
-        // 公式の文の構造: {base}(+{atkPct}%物理攻撃) は sim の式に換算した基礎と攻撃力の %
-        for (slot, table, ratio, scale) in [(SkillSlot.skill1, Tune.s1Base, Tune.s1AttackRatio, Tune.s1Scale),
-                                            (.skill2, Tune.s2Base, Tune.s2AttackRatio, Tune.s2Scale),
-                                            (.ultimate, Tune.waveBase, Tune.waveAttackRatio, Tune.waveScale)] {
+        // 公式の文: {base}(+{atkPct}%追加物理攻撃) は公式の表の値そのもの（Lv2: S1 290 +85%、S2 390 +120%、衝撃波 550 +200%）
+        for (slot, b, pct) in [(SkillSlot.skill1, 290, 85), (.skill2, 390, 120), (.ultimate, 550, 200)] {
             let skill = try XCTUnwrap(MasterData.shared.skill(hero: "H033", slot: slot))
             let n = SkillCatalog.numbers(for: skill, hero: hero, rank: 2, stats: stats)
-            let b = Int(Kit_H033.scaledBase(table, slot: slot, scale: scale, rank: 2).rounded())
-            let pct = Int(Kit_H033.attackPercent(ratio, slot: slot, scale: scale).rounded())
             let s = try XCTUnwrap(HeroKits.text(heroID: "H033", slot: slot)).filled(
                 english: false, numbers: n, targeting: SkillCatalog.targeting(for: skill, hero: hero))
-            XCTAssertTrue(s.contains("\(b)(+\(pct)%物理攻撃)の物理ダメージ"), "\(slot): \(s)")
+            XCTAssertTrue(s.contains("\(b)(+\(pct)%追加物理攻撃)の物理ダメージ"), "\(slot): \(s)")
+            let en = try XCTUnwrap(HeroKits.text(heroID: "H033", slot: slot)).filled(
+                english: true, numbers: n, targeting: SkillCatalog.targeting(for: skill, hero: hero))
+            XCTAssertTrue(en.contains("\(b) (+\(pct)% Extra Physical Attack)"), "\(slot): \(en)")
         }
         let sp = try XCTUnwrap(MasterData.shared.skill(hero: "H033", slot: .passive))
         let pn = SkillCatalog.numbers(for: sp, hero: hero, rank: 1, stats: stats)
@@ -279,30 +260,34 @@ final class Kit_H033Tests: XCTestCase {
         XCTAssertTrue(pja.contains("デビルハンター：モンスターに対して110%のダメージを与える。"), pja)
         let ult = try XCTUnwrap(MasterData.shared.skill(hero: "H033", slot: .ultimate))
         let un = SkillCatalog.numbers(for: ult, hero: hero, rank: 2, stats: stats)
-        XCTAssertEqual(Array(un.extras.map(\.value).prefix(8)), [30, 15, 6, 20, 15, Tune.absorbDuration, Tune.ultWindow, 33])
+        // 吸収の鈍足 30・混合防御 15・半減 6 秒・混合吸収 20%・混合防御 +15・持続・窓・衝撃波の基礎 550 (+200%)
+        XCTAssertEqual(un.extras.map(\.value), [30, 15, 6, 20, 15, Tune.absorbDuration, Tune.ultWindow, 550, 200])
         let s1 = try XCTUnwrap(MasterData.shared.skill(hero: "H033", slot: .skill1))
         XCTAssertEqual(Array(SkillCatalog.numbers(for: s1, hero: hero, rank: 2, stats: stats).extras.map(\.value).prefix(2)),
                        [40, 2])
         let ja = try XCTUnwrap(HeroKits.text(heroID: "H033", slot: .ultimate)).filled(
             english: false, numbers: un, targeting: SkillCatalog.targeting(for: ult, hero: hero))
         XCTAssertTrue(ja.contains("パッシブ：") && ja.contains("アクティブ：") && ja.contains("再発動："), ja)
+        // 日本語クライアントの文（Lv2）
+        XCTAssertTrue(ja.contains("パッシブ：混合吸収が永久に20%上昇する。"), ja)
+        XCTAssertTrue(ja.contains("混合防御を15低下させる。命中した敵ヒーロー1体につき自身の混合防御が15上昇し、6秒間、他のスキルのCD時間が50%に短縮される。"), ja)
     }
 
-    /// S1 のダメージはランクで増える（公式の 270 → 370）。
+    /// S1 のダメージは段で増える（公式の 270 → 370）。
     func testGroundsplitterDamageGrowsWithRank() throws {
         var last = 0.0
-        for rank in 1...4 {
-            let (n, _) = try numbers(.skill1, level: 12, rank: rank)
+        for rank in 1...SkillSlot.skill1.maxRank {
+            let n = try numbers(.skill1, level: 12, rank: rank)
             XCTAssertGreaterThan(n.damage, last, "ランク \(rank) で S1 のダメージが減る")
             last = n.damage
         }
     }
 
-    /// S1 のクールダウンは MLBB の秒数（8.5 → 6.5 秒）。ランクが上がってもクールダウンは延びない。
+    /// S1 のクールダウンは公式の秒数（8.5 → 6.5 秒）。段が上がってもクールダウンは延びない。
     func testGroundsplitterCooldownNeverGrowsWithRank() throws {
         var last = Double.infinity
-        for rank in 1...4 {
-            let cd = try numbers(.skill1, level: 12, rank: rank).kit.cooldown
+        for rank in 1...SkillSlot.skill1.maxRank {
+            let cd = try numbers(.skill1, level: 12, rank: rank).cooldown
             XCTAssertLessThanOrEqual(cd, last + 1e-9, "ランク \(rank) でクールダウンが延びる")
             last = cd
         }
@@ -357,7 +342,8 @@ final class Kit_H033Tests: XCTestCase {
         return 0
     }
 
-    func testPursuitDashesFromFarAndDealsOnePointFourTimesAndIsSpentOnce() {
+    /// 追撃（公式「次の通常攻撃で対象へダッシュし、(125% 物理攻撃) の物理ダメージ」）: 通常攻撃（物理攻撃の 100%）の 1.25 倍。
+    func testPursuitDashesFromFarAndDeals125PercentAndIsSpentOnce() {
         let plain = plainAttackDamage()
         XCTAssertGreaterThan(plain, 0)
         var (w, k) = world()
@@ -376,7 +362,7 @@ final class Kit_H033Tests: XCTestCase {
             if hits.count >= 2 { second = hits[1]; break }
         }
         XCTAssertNotNil(first)
-        XCTAssertEqual(first?.amount ?? 0, plain * Tune.pursuitRatio, accuracy: 1e-6, "攻撃力の 140%")
+        XCTAssertEqual(first?.amount ?? 0, plain * 1.25, accuracy: 1e-6, "物理攻撃の 125%")
         XCTAssertEqual(second?.amount ?? 0, plain, accuracy: 1e-6, "追撃は 1 回で使い切る")
         XCTAssertEqual(kit(w, k).valdPursuit, 0)
         XCTAssertEqual(kit(w, k).valdPursuits, 1)
@@ -431,7 +417,7 @@ final class Kit_H033Tests: XCTestCase {
     }
 
     func testPursuitOnAMinionAlsoGetsTheBonusButOnAStructureIsSpentWithoutIt() {
-        // ミニオン: 通常攻撃の 1.4 倍
+        // ミニオン: 通常攻撃の 1.25 倍（ミニオンへの補正は無い）
         var (w, k) = world()
         let m = w.addMinion(team: .red, at: skillArena + Vec2(300, 0))
         XCTAssertTrue(w.cast(k, .skill2))
@@ -439,6 +425,8 @@ final class Kit_H033Tests: XCTestCase {
                                                        appliesOnHit: true), ranged: false)
         Kit_H033(isReady: true).shapeBasicAttack(&w.s, w.ctx, attacker: k, target: m, plan: &plan)
         XCTAssertEqual(plan.payload.damage, 100 * Tune.pursuitRatio, accuracy: 1e-9)
+        XCTAssertEqual(plan.payload.minionMultiplier, 1)
+        XCTAssertNil(plan.payload.attackEffect, "追撃は通常攻撃そのもの（攻撃エフェクト 100%）")
         XCTAssertEqual(kit(w, k).valdPursuit, 0)
         // 通常攻撃（準備なし）は変えない
         var plain = BasicAttackPlan(payload: HitPayload(damage: 100, damageType: .physical, source: .basicAttack), ranged: false)
@@ -482,14 +470,15 @@ final class Kit_H033Tests: XCTestCase {
         XCTAssertTrue(plan.payload.isCrit)
     }
 
-    // MARK: - 複合吸血（奥義のパッシブ）
+    // MARK: - 混合吸収（奥義のパッシブ）
 
+    /// 公式「混合吸収が永久に 10 / 20 / 30% 上昇」（混合吸収 = 通常攻撃吸収 + スキル吸収。両方に同じ値。以前のスキル吸収 × 0.33 は廃止）。
     func testHybridLifestealFollowsTheUltimateRank() {
         for (rank, want) in [(0, 0.0), (1, 0.10), (2, 0.20), (3, 0.30)] {
             var (w, k) = world(ranks: [1, 1, rank])
             w.tick(3)
             XCTAssertEqual(w.s.units[k].stats.lifesteal, want, accuracy: 1e-9, "rank \(rank)")
-            XCTAssertEqual(w.s.units[k].stats.spellVamp, want * Tune.spellVampFactor, accuracy: 1e-9, "rank \(rank)")
+            XCTAssertEqual(w.s.units[k].stats.spellVamp, want, accuracy: 1e-9, "rank \(rank)")
             if rank == 0 {
                 XCTAssertNil(status(w, k, .lifestealBoost))
                 XCTAssertNil(status(w, k, .spellVampBoost))
@@ -526,6 +515,7 @@ final class Kit_H033Tests: XCTestCase {
         XCTFail("通常攻撃が当たらない")
     }
 
+    /// スキル吸収はスキルごとのスキル吸収率（日本語クライアントに記載なし = 既定 100%）で、命中した対象ごとに 1 回。
     func testSkillDamageHealsBySpellVampOncePerTarget() {
         var (w, k) = world(ranks: [1, 1, 2])
         let e1 = addEnemy(&w, dx: 100)
@@ -540,7 +530,7 @@ final class Kit_H033Tests: XCTestCase {
         XCTAssertGreaterThan(d2, 0)
         let healed = heals(w, of: k)
         XCTAssertEqual(healed.count, 2)
-        XCTAssertEqual(healed.reduce(0, +), (d1 + d2) * 0.20 * Tune.spellVampFactor, accuracy: 1e-6)
+        XCTAssertEqual(healed.reduce(0, +), (d1 + d2) * 0.20, accuracy: 1e-6)
     }
 
     func testNoLifestealBeforeTheUltimateIsLearned() {
@@ -626,30 +616,85 @@ final class Kit_H033Tests: XCTestCase {
         XCTAssertEqual(skillHits(w, on: mon, .skill1).count, 1)
     }
 
-    /// デビルハンター（日本語クライアントのパッシブ）: モンスターへの通常攻撃・スキルは 110%。ミニオン・ヒーロー・バトルスペルには掛からない。
-    func testDevilHunterAddsTenPercentAgainstMonstersOnly() {
+    /// デビルハンター（日本語クライアントのパッシブ「モンスターに対して 110% のダメージを与える」）: モンスターへの通常攻撃・スキルは 110%
+    /// （HitPayload.monsterMultiplier。防御の後に掛け算）。ミニオン・ヒーローには掛からない。与ダメ補正の加算（outgoingDamageBonus）には入れない。
+    func testDevilHunterDeals110PercentToMonstersOnly() throws {
         var (w, k) = world()
-        let mon = w.addMonster(.campSmall, at: skillArena + Vec2(300, -80))
-        let m = w.addMinion(team: .red, at: skillArena + Vec2(300, 60))
-        let e = addEnemy(&w, dx: 300)
-        XCTAssertEqual(Tune.devilHunterBonus, 0.10, accuracy: 1e-12)
+        let mon = w.addMonster(.campSmall, at: skillArena + Vec2(120, -150))
+        let m = w.addMinion(team: .red, at: skillArena + Vec2(120, 150))
+        let e = addEnemy(&w, dx: 150)
+        let n = w.numbers(k, .skill2)
+        XCTAssertTrue(w.cast(k, .skill2))
+        let onMonster = try XCTUnwrap(skillHits(w, on: mon, .skill2).first).amount
+        XCTAssertEqual(onMonster, w.mitigated(n.damage * 1.10, .physical, on: mon), accuracy: 1e-6, "モンスターには 110%")
+        XCTAssertEqual(try XCTUnwrap(skillHits(w, on: m, .skill2).first).amount, w.mitigated(n.damage, .physical, on: m),
+                       accuracy: 1e-6, "ミニオンには 100%（スキルの補正なし。全体の × 0.2 も無い）")
+        XCTAssertEqual(try XCTUnwrap(skillHits(w, on: e, .skill2).first).amount, w.mitigated(n.damage, .physical, on: e),
+                       accuracy: 1e-6, "ヒーローには 100%")
+        // 通常攻撃（追撃の有無にかかわらず）とすべてのスキルの命中に載る
+        var plain = BasicAttackPlan(payload: HitPayload(damage: 100, damageType: .physical, source: .basicAttack,
+                                                        appliesOnHit: true), ranged: false)
+        w.s.units[k].hero!.kit!.valdPursuit = 0
+        Kit_H033(isReady: true).shapeBasicAttack(&w.s, w.ctx, attacker: k, target: mon, plan: &plain)
+        XCTAssertEqual(plain.payload.monsterMultiplier, 1.10, accuracy: 1e-12)
+        XCTAssertEqual(plain.payload.damage, 100)
+        // 与ダメ補正の加算には入らない（掛け算: ほかの与ダメ補正と足さない。MLBB での重なり方は未確認 = docs/kits/Alucard.md）
         for source in [DamageSource.basicAttack, .skill(.skill1), .skill(.skill2), .skill(.ultimate)] {
-            XCTAssertEqual(PassiveHooks.outgoingDamageBonus(&w.s, w.ctx, attacker: k, target: mon, source: source), 0.10,
-                           accuracy: 1e-12, "\(source)")
-            XCTAssertEqual(PassiveHooks.outgoingDamageBonus(&w.s, w.ctx, attacker: k, target: m, source: source), 0, "\(source)")
-            XCTAssertEqual(PassiveHooks.outgoingDamageBonus(&w.s, w.ctx, attacker: k, target: e, source: source), 0, "\(source)")
+            XCTAssertEqual(PassiveHooks.outgoingDamageBonus(&w.s, w.ctx, attacker: k, target: mon, source: source), 0, "\(source)")
         }
-        XCTAssertEqual(PassiveHooks.outgoingDamageBonus(&w.s, w.ctx, attacker: k, target: mon, source: .spell), 0)
-        XCTAssertEqual(PassiveHooks.outgoingDamageBonus(&w.s, w.ctx, attacker: k, target: mon, source: .item), 0)
     }
 
-    func testStunMidRollCancelsTheSlamButKeepsTheCooldown() {
+    /// デビルハンターは S1 の叩きつけ・衝撃波にも載り、装備のモンスターへの与ダメ補正とは掛け算で重なる。
+    func testDevilHunterAppliesToTheSlamAndTheShockwaveAndMultipliesOtherBonuses() throws {
+        var (w, k) = world()
+        let mon = w.addMonster(.campSmall, at: skillArena + Vec2(300, 0))
+        let n1 = w.numbers(k, .skill1)
+        XCTAssertTrue(w.cast(k, .skill1, at(200)))
+        w.run(seconds: 0.6)
+        let slam = try XCTUnwrap(skillHits(w, on: mon, .skill1).first).amount
+        XCTAssertEqual(slam, w.mitigated(n1.damage * 1.10, .physical, on: mon), accuracy: 1e-6)
+        // 衝撃波（懲罰の後のモンスターへの与ダメ +30%（加算の与ダメ補正）を持つ状態）: 1.1 × 1.3 = 1.43（足し算の 1.4 ではない）
+        var (v, j) = world()
+        // HP の多いモンスター（小さいキャンプは 1 発で倒れ、ダメージの記録が残り HP で頭打ちになる）
+        let mon2 = v.addMonster(.magmaGolem, at: skillArena + Vec2(300, 0))
+        XCTAssertTrue(v.cast(j, .ultimate, at(-400)))
+        let wave = HeroKits.numbers(for: try XCTUnwrap(MasterData.shared.skill(hero: "H033", slot: .ultimate)),
+                                    hero: try XCTUnwrap(MasterData.shared.hero("H033")), rank: 1, stats: v.s.units[j].stats,
+                                    stage: 1)
+        CombatSystem.addStatus(&v.s, targetIndex: j, StatusEffect(kind: .mark, duration: 3, magnitude: 0.3,
+                                                                  sourceID: v.id(j), tag: "spell.huntingBoost"))
+        v.log.removeAll()
+        XCTAssertTrue(v.cast(j, .ultimate, east))
+        v.run(seconds: 0.5)
+        let got = try XCTUnwrap(skillHits(v, on: mon2, .ultimate).first).amount
+        XCTAssertGreaterThan(v.s.units[mon2].hp, 0)
+        XCTAssertEqual(got, v.mitigated(wave.damage * 1.10 * 1.30, .physical, on: mon2), accuracy: 1e-6)
+    }
+
+    /// スタン（基本のコントロール）は進行中の転がりを止めない（MLBB: 突進を中断できるのはノックアップ・制圧だけ）。着地で叩きつける。
+    func testStunMidRollDoesNotStopTheRollAndTheSlamLands() {
         var (w, k) = world()
         let e = addEnemy(&w, dx: 350)
         XCTAssertTrue(w.cast(k, .skill1, at(330)))
         w.tick(2)
         XCTAssertNotNil(kit(w, k).sweep)
         CombatSystem.addStatus(&w.s, targetIndex: k, StatusEffect(kind: .stun, duration: 1.0, sourceID: w.id(e), tag: "t"))
+        w.run(seconds: 0.8)
+        XCTAssertNil(kit(w, k).sweep)
+        XCTAssertEqual(w.s.units[k].pos.x, skillArena.x + 330, accuracy: 1, "転がりは最後まで続く")
+        XCTAssertEqual(skillHits(w, on: e, .skill1).count, 1)
+        XCTAssertEqual(kit(w, k).valdSlams, 1)
+        XCTAssertEqual(kit(w, k).valdSlamDamage, 0)
+    }
+
+    /// ノックアップ（高レベルのコントロール）は転がりを止め、叩きつけは出ない。CD は戻らない。
+    func testKnockUpMidRollCancelsTheSlamButKeepsTheCooldown() {
+        var (w, k) = world()
+        let e = addEnemy(&w, dx: 350)
+        XCTAssertTrue(w.cast(k, .skill1, at(330)))
+        w.tick(2)
+        XCTAssertNotNil(kit(w, k).sweep)
+        Kit.knockUp(&w.s, target: k, duration: 1.0, sourceID: w.id(e))
         w.run(seconds: 0.8)
         XCTAssertNil(kit(w, k).sweep)
         XCTAssertEqual(skillHits(w, on: e, .skill1).count, 0)
@@ -659,12 +704,22 @@ final class Kit_H033Tests: XCTestCase {
         XCTAssertGreaterThan(cooldown(w, k, .skill1), 0)
     }
 
-    func testRootBlocksTheRollButNotTheSpin() {
+    /// バインド（敵の root）: 転がり（跳躍）と追撃の踏み込みは封じるが、旋回斬・吸収・衝撃波（術者が動かない）は撃てる。
+    /// 自分で付けた root（バインドではない）も跳躍は封じる（以前どおり）。
+    func testBindBlocksTheRollButNotTheSpinOrTheUltimate() {
         var (w, k) = world()
         CombatSystem.addStatus(&w.s, targetIndex: k, StatusEffect(kind: .root, duration: 2, sourceID: w.id(k), tag: "t"))
         XCTAssertFalse(w.cast(k, .skill1, at(300)), "ルート中は転がれない")
         XCTAssertEqual(cooldown(w, k, .skill1), 0)
         XCTAssertTrue(w.cast(k, .skill2), "旋回斬は動かないので撃てる")
+        var (v, j) = world()
+        let e = addEnemy(&v, dx: 300)
+        CombatSystem.addStatus(&v.s, targetIndex: j, StatusEffect(kind: .root, duration: 3, sourceID: v.id(e), tag: "bind"))
+        XCTAssertTrue(v.s.units[j].isBound)
+        XCTAssertFalse(v.cast(j, .skill1, at(300)), "バインド中は転がれない")
+        XCTAssertTrue(v.cast(j, .skill2))
+        XCTAssertTrue(v.cast(j, .ultimate, at(300)), "吸収は術者を動かさない")
+        XCTAssertTrue(v.cast(j, .ultimate, east), "衝撃波も撃てる")
     }
 
     // MARK: - S2 旋回斬
@@ -703,6 +758,19 @@ final class Kit_H033Tests: XCTestCase {
         XCTAssertEqual(kit(w, k).valdPursuit, Tune.pursuitWindow)
     }
 
+    /// 実戦の命中: 装備などで増えた追加物理攻撃（StatCalculator が入れる Stats.extraAttack）だけが係数に掛かる。
+    /// ダガー（物理攻撃 +15）で、旋回斬（Lv1）は 345 + 1.2 × 15。
+    func testWhirlingSmashScalesWithExtraAttackFromItems() throws {
+        var (w, k) = world(level: 1)
+        let e = addEnemy(&w, dx: 150)
+        w.s.units[k].hero!.items = ["EQ133"]
+        w.tick()
+        XCTAssertEqual(w.s.units[k].stats.extraAttack, 15, accuracy: 1e-9)
+        XCTAssertTrue(w.cast(k, .skill2))
+        let hit = try XCTUnwrap(skillHits(w, on: e, .skill2).first).amount
+        XCTAssertEqual(hit, w.mitigated(345 + 1.2 * 15, .physical, on: e), accuracy: 1e-6)
+    }
+
     /// 説明文: UI の用語（スキル1 / スキル2 / アルティメット）で、奥義の文は 吸収 / 半減 / 衝撃波 / 吸血 に分けてある。
     func testTextsUseUITermsAndTheUltimateTextIsSplitIntoParts() throws {
         for slot in SkillSlot.allCases {
@@ -717,16 +785,18 @@ final class Kit_H033Tests: XCTestCase {
         let n = SkillCatalog.numbers(for: ult, hero: hero, rank: 1, stats: w.s.units[k].stats)
         let ja = try XCTUnwrap(HeroKits.text(heroID: "H033", slot: .ultimate)).filled(
             english: false, numbers: n, targeting: SkillCatalog.targeting(for: ult, hero: hero))
-        // 公式の段落: パッシブ（吸血）/ アクティブ（吸収・半減）/ 再発動（衝撃波）
-        for part in ["パッシブ：", "アクティブ：", "再発動：", "複合吸血", "クールダウンを50%"] { XCTAssertTrue(ja.contains(part), "\(part): \(ja)") }
+        // 公式の段落: パッシブ（混合吸収）/ アクティブ（吸収・CD 50%）/ 再発動（衝撃波）
+        for part in ["パッシブ：混合吸収が永久に10%上昇する。", "アクティブ：", "再発動：", "CD時間が50%に短縮される"] {
+            XCTAssertTrue(ja.contains(part), "\(part): \(ja)")
+        }
         let sp = try XCTUnwrap(MasterData.shared.skill(hero: "H033", slot: .passive))
         let pja = try XCTUnwrap(HeroKits.text(heroID: "H033", slot: .passive)).filled(
             english: false, numbers: SkillCatalog.numbers(for: sp, hero: hero, rank: 1, stats: w.s.units[k].stats),
             targeting: SkillCatalog.targeting(for: sp, hero: hero))
-        XCTAssertTrue(pja.contains("(+125%物理攻撃)"), pja)
-        // スキルの吸血は通常攻撃の 1/3（範囲スキルが大勢に当たったときの回復が過大にならない）。吸血はアルティメットの文に書く
-        XCTAssertEqual(Tune.spellVampFactor, 0.33, accuracy: 1e-9)
-        XCTAssertTrue(ja.contains("33%"), ja)
+        // 日本語クライアント「(125% 物理攻撃) の物理ダメージ」（+ は付かない = 合計の物理攻撃の 125%）
+        XCTAssertTrue(pja.contains("(125%物理攻撃)の物理ダメージを与える。"), pja)
+        // 以前の「スキルの吸血は通常攻撃の 33%」（独自の吸収率）は無い
+        XCTAssertFalse(ja.contains("33%"), ja)
     }
 
     // MARK: - 奥義 1 回目: 吸収
@@ -942,7 +1012,7 @@ final class Kit_H033Tests: XCTestCase {
         XCTAssertGreaterThan(dealt, 0)
         let healed = heals(w, of: k)
         XCTAssertEqual(healed.count, 2)
-        XCTAssertEqual(healed.reduce(0, +), dealt * 0.10 * Tune.spellVampFactor, accuracy: 1e-6)
+        XCTAssertEqual(healed.reduce(0, +), dealt * 0.10, accuracy: 1e-6, "混合吸収 10% × スキル吸収率 100%")
     }
 
     func testStunDuringTheWindowBlocksTheShockwaveButNotTheWindowOrTheHaste() {
@@ -1378,11 +1448,15 @@ final class Kit_H033Tests: XCTestCase {
         // 同じ近傍: 汎用アサシンの幅 ±30pt に収まり、支配的でも無力でもない。
         // 2026-10-14 に ±20 → ±30: 汎用アサシンの能力値を MLBB のアサシンの中央値 ±5% にしたので 4 体の勝率の幅が狭くなり
         // （Lv6 20〜40%。以前は 10〜75%）、同じ ±20 では幅そのものより厳しくなった。スキルの換算は次の段階
+        // 上限（2026-10-14、スキルの段階）: 汎用アサシンの最高 + 30pt → セイバー（H028。同じ MLBB のアサシンで公式の値）+ 30pt 未満。
+        // 汎用アサシン（MLBB のスキルの中央値の型。1 撃ずつ）はゲームに出す 9 体（全員 MLBB）にほぼ全敗（0〜30%）で、公式の値の
+        // アルカード（0 / 44 / 56%）が帯の外に出た。セイバーは 33 / 78 / 78%。数値は公式のままなので基準を MLBB のヒーローに置き換えた
         for level in SkillBalanceTests.levels {
             let generic = ["H006", "H012", "H018", "H024"].compactMap { rates[$0]?[level] }
             let vald = try XCTUnwrap(rates["H033"]?[level])
+            let saber = try XCTUnwrap(rates["H028"]?[level])
             XCTAssertGreaterThan(vald, (generic.min() ?? 0) - 30, "Lv\(level) 弱すぎる")
-            XCTAssertLessThan(vald, (generic.max() ?? 100) + 30, "Lv\(level) 強すぎる")
+            XCTAssertLessThan(vald, saber + 30, "Lv\(level) 強すぎる")
         }
         #endif
     }

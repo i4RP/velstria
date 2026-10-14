@@ -44,9 +44,38 @@ public enum StatusKind: Int, Codable, Hashable, Sendable {
     // ジャングルのバフ（docs/DESIGN.md §2）。raw 値を変えないため末尾に追加
     case goldBuff        // magnitude = 毎秒の Gold（宝殻蟹）
     case mossGrass       // 苔草: 川で移動速度 +15%、近くの味方の Mana を毎秒 1% 回復（苔甲の徘徊者）
+    // スキルの段階（2026-10-14）。raw 値を変えないため末尾に追加
+    case flatArmorMod    // magnitude = 物理防御だけの増減（固定値。負 = 減少。子龍の S2・セイバーのエネミーベイン。魔法防御は変えない）
+}
+
+/// コントロール（CC）の段階（MLBB の日本語クライアント「状態説明」）。段階が高いほど、受けた側の発動中のスキルを多く中断する。
+/// - 低レベル（バインド・武装解除・拘束・張り付き）: スキルを中断しない。
+/// - 基本（スタン・沈黙・恐怖・挑発）: 一部のスキルを中断する。
+/// - 高レベル（フリーズ・石化・ノックアップ・変身）: 多くのスキルを中断する。ノックアップはブリンク・突進の効果も中断する。
+/// - 最上級（制圧・一時停止）: 多くのスキル・ブリンク・突進を中断する（一時停止は中断しない）。妨害・解除されない。
+public enum CrowdControlTier: Int, Comparable, Sendable {
+    case none = 0, low, basic, high, top
+
+    public static func < (a: CrowdControlTier, b: CrowdControlTier) -> Bool { a.rawValue < b.rawValue }
 }
 
 extension StatusKind {
+    /// CC の段階（CC でない状態は .none）。Velstria の状態との対応: root = バインド（低）、stun = スタン（基本。
+    /// オーロラのフリーズも stun で表す。フリーズは高レベルだが、中断の違いはスタンと同じ扱い: 突進を止めない）、
+    /// silence = 沈黙（基本）、airborne = ノックアップ（高）、suppress = 制圧（最上級）。slow は CC の段階に入らない。
+    public var ccTier: CrowdControlTier {
+        switch self {
+        case .root: return .low
+        case .stun, .silence: return .basic
+        case .airborne: return .high
+        case .suppress: return .top
+        default: return .none
+        }
+    }
+
+    /// 受けた側の進行中の突進・跳躍（キットの経路ヒット突進・汎用の突進）を止める CC か（ノックアップと制圧だけ）。
+    public var interruptsDash: Bool { self == .airborne || self == .suppress }
+
     /// 移動不可にする CC。
     public var preventsMovement: Bool { self == .stun || self == .root || self == .airborne || self == .suppress }
     /// 攻撃・スキル不可にする CC。
@@ -158,6 +187,19 @@ public struct HitPayload: Codable, Hashable, Sendable {
     /// 構造物へのダメージ・CC・状態・追加効果は与えない（キットが `Kit.freezeStructure` で凍結を付ける。オーリアの凍結はタワーにも効く）。
     /// kitEvent が 0 なら働かない。
     public var kitHitsStructures: Bool
+    /// スキル吸収率（MLBB のスキルごとの「スキル吸収率」。スキル吸収の回復 = ダメージ × スキル吸収 × この値）。既定 100%。
+    /// エウドラの S1 は 50%。スキル以外（通常攻撃・装備）のダメージには関係しない。
+    public var spellVampRatio: Double
+    /// 攻撃エフェクト（MLBB の「攻撃エフェクト」= 装備の命中時効果・通常攻撃吸収をどれだけ引き継ぐか）。
+    /// nil = appliesOnHit なら 100%、そうでなければ 0%（以前の全か無か）。0 < 値 < 1 の命中は、命中時効果のダメージ・回復と
+    /// 通常攻撃吸収をこの割合で与え、命中数・パッシブの命中フック・クールダウン型の装備効果は数えない
+    /// （ミヤの月影 20%・分裂の矢 30%、子龍の狂龍乱舞 50%。source は .basicAttack のときだけ意味がある）。
+    public var attackEffect: Double?
+    /// ミニオンへのダメージの倍率（スキルごとの「ミニオンには ○%」。防御の後に掛ける）。MLBB に全体の倍率は無い。
+    /// エウドラの S1 = 2.0、ディロスの S1 = 0.75、セイバーの剣撃 = 0.5。
+    public var minionMultiplier: Double
+    /// モンスター（中立）へのダメージの倍率（防御の後に掛ける）。アルカードのデビルハンター = 1.1。
+    public var monsterMultiplier: Double
 
     public init(damage: Double, damageType: DamageType, source: DamageSource,
                 isCrit: Bool = false, cc: CrowdControl = .none, ccIsUltimate: Bool = false,
@@ -165,7 +207,8 @@ public struct HitPayload: Codable, Hashable, Sendable {
                 healAmount: Double = 0, shieldAmount: Double = 0, shieldDuration: Double = 0,
                 appliesOnHit: Bool = false, heroesOnly: Bool = false, skillID: String? = nil,
                 effects: [HitEffect] = [], scaling: DamageScaling? = nil, originPos: Vec2? = nil, kitEvent: Int = 0,
-                skipsItemOnHit: Bool = false, kitHitsStructures: Bool = false) {
+                skipsItemOnHit: Bool = false, kitHitsStructures: Bool = false, spellVampRatio: Double = 1,
+                attackEffect: Double? = nil, minionMultiplier: Double = 1, monsterMultiplier: Double = 1) {
         self.damage = damage
         self.damageType = damageType
         self.source = source
@@ -187,7 +230,15 @@ public struct HitPayload: Codable, Hashable, Sendable {
         self.kitEvent = kitEvent
         self.skipsItemOnHit = skipsItemOnHit
         self.kitHitsStructures = kitHitsStructures
+        self.spellVampRatio = spellVampRatio
+        self.attackEffect = attackEffect
+        self.minionMultiplier = minionMultiplier
+        self.monsterMultiplier = monsterMultiplier
     }
+
+    /// 実際の攻撃エフェクトの割合（attackEffect が nil なら appliesOnHit で 100% / 0%）。
+    @inline(__always)
+    public var attackEffectRatio: Double { attackEffect ?? (appliesOnHit ? 1 : 0) }
 }
 
 // MARK: - 投射物・ゾーン

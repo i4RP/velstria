@@ -467,9 +467,22 @@ public enum ItemEffects {
         }
     }
 
+    /// 攻撃エフェクトの一部だけを引き継ぐ命中（MLBB の「攻撃エフェクト ○%」。ミヤの月影 20%・分裂の矢 30%、子龍の狂龍乱舞 50%）。
+    /// 命中ごとの効果（applyOnHitEffects: 追加ダメージ・回復・減速の重ね）をダメージ・回復・減速の量 × ratio で与える。
+    /// クールダウン・回数で働く効果（台風・裁き・如意棒の数え方など）とエンブレムの命中時効果は、本体の通常攻撃だけが起こす
+    /// （割合の命中が CD を使い切って本体の発動を奪わないように）。
+    static func onPartialAttackEffect(_ s: inout SimState, _ ctx: SimContext, attacker a: Int, target t: Int, ratio: Double) {
+        guard ratio > 0, s.units[a].kind == .hero, s.units[a].hero?.items.isEmpty == false,
+              s.units[t].team != s.units[a].team else { return }
+        let effects = active(s.units[a], ctx.master)
+        guard !effects.isEmpty else { return }
+        applyOnHitEffects(&s, ctx, attacker: a, target: t, effects: effects, ratio: min(1, ratio))
+    }
+
     /// 命中時の効果（追加ダメージ・回復・減速の重ね）。如意棒の「無尽の打撃」で繰り返される。
+    /// ratio = 攻撃エフェクトの割合（1 = 通常攻撃そのもの。量だけを ratio 倍する）。
     private static func applyOnHitEffects(_ s: inout SimState, _ ctx: SimContext, attacker a: Int, target t: Int,
-                                          effects: [Active]) {
+                                          effects: [Active], ratio: Double = 1) {
         let attackerID = s.units[a].id
         let level = Double(s.units[a].hero?.level ?? 1)
         for (kind, v) in effects {
@@ -477,28 +490,29 @@ public enum ItemEffects {
             let minion = s.units[t].kind == .minion
             switch kind {
             case .corrosive where v.count >= 5:
-                CombatSystem.dealDamage(&s, ctx, sourceID: attackerID, targetIndex: t, amount: v[0], type: .physical,
+                CombatSystem.dealDamage(&s, ctx, sourceID: attackerID, targetIndex: t, amount: v[0] * ratio, type: .physical,
                                         source: .item, isCrit: false, appliesOnHit: false)
+                // 1 回の重ね = per × ratio、上限 = per × 回数（割合の命中でも上限は同じ）
                 let per = v[1] * ((s.units[a].hero?.isRanged ?? false) ? v[2] : 1)
                 let cur = s.units[t].statuses.first { $0.kind == .slow && $0.tag == "item.corrosive" }?.magnitude ?? 0
                 CombatSystem.addStatus(&s, targetIndex: t, StatusEffect(kind: .slow, duration: v[3],
-                                                                        magnitude: min(per * v[4], cur + per),
+                                                                        magnitude: min(per * v[4], cur + per * ratio),
                                                                         sourceID: attackerID, tag: "item.corrosive"))
             case .engulf where v.count >= 2:
                 var extra = max(0, s.units[t].hp) * v[0]
                 if minion { extra = min(extra, v[1]) }
-                CombatSystem.dealDamage(&s, ctx, sourceID: attackerID, targetIndex: t, amount: extra, type: .physical,
+                CombatSystem.dealDamage(&s, ctx, sourceID: attackerID, targetIndex: t, amount: extra * ratio, type: .physical,
                                         source: .item, isCrit: false, appliesOnHit: false)
             case .devour where v.count >= 3:
-                let heal = (v[0] + v[1] * level) * (minion ? v[2] : 1)
+                let heal = (v[0] + v[1] * level) * (minion ? v[2] : 1) * ratio
                 CombatSystem.heal(&s, ctx, sourceID: attackerID, targetIndex: a, amount: heal)
             case .crossbow where v.count >= 1:
                 let type: DamageType = adaptiveIsMagic(s.units[a], ctx.master) ? .magic : .physical
-                CombatSystem.dealDamage(&s, ctx, sourceID: attackerID, targetIndex: t, amount: v[0], type: type,
+                CombatSystem.dealDamage(&s, ctx, sourceID: attackerID, targetIndex: t, amount: v[0] * ratio, type: type,
                                         source: .item, isCrit: false, appliesOnHit: false)
             case .affliction where v.count >= 2:
                 CombatSystem.dealDamage(&s, ctx, sourceID: attackerID, targetIndex: t,
-                                        amount: v[0] + v[1] * s.units[a].stats.abilityPower, type: .magic,
+                                        amount: (v[0] + v[1] * s.units[a].stats.abilityPower) * ratio, type: .magic,
                                         source: .item, isCrit: false, appliesOnHit: false)
             default:
                 break

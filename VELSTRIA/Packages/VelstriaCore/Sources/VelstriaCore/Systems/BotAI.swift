@@ -577,11 +577,11 @@ public enum BotAI {
         guard let h = s.units[i].hero else { return 0 }
         var total = CombatSystem.estimateBasicAttackDamage(s, ctx, attacker: i, target: t) * 3
         let st = s.units[i].stats
+        let heroDef = ctx.master.hero(h.heroID)
         for slot in SkillSlot.actives where skills && h.rank(slot) > 0 && h.cooldown(slot) <= 0 {
-            guard let def = ctx.master.skill(hero: h.heroID, slot: slot) else { continue }
-            let rank = Double(h.rank(slot) - 1)
-            var dmg = def.baseDamage * (1 + Balance.skillDamagePerRank * rank)
-                + def.scalingAttack * st.attack * Balance.skillAttackScalingFactor + def.scalingPower * st.abilityPower
+            guard let def = ctx.master.skill(hero: h.heroID, slot: slot), let heroDef else { continue }
+            // スキルの 1 回の発動の合計（シミュレーションと同じ数値。キットのヒーローはキットの公式の表）
+            var dmg = SkillCatalog.numbers(for: def, hero: heroDef, rank: h.rank(slot), stats: st).totalDamage
             dmg *= max(0, 1 + st.damageBonus + st.skillDamageBonus)
             dmg *= CombatSystem.mitigationMultiplier(def.damageType, armor: s.units[t].stats.armor,
                                                     magicResist: s.units[t].stats.magicResist)

@@ -599,7 +599,7 @@ final class ItemEffectsTests: XCTestCase {
         let hero = f.master.hero("H004")!
         let skill = f.master.skill(hero: "H004", slot: .skill1)!
         XCTAssertEqual(SkillCatalog.numbers(for: skill, hero: hero, rank: 1, stats: st).cooldown,
-                       skill.cooldownSec * 0.55 * Balance.Skills.cooldownScale, accuracy: 1e-9)
+                       skill.cooldownSec * 0.55, accuracy: 1e-9)
         XCTAssertEqual(HeroKits.cooldownReduction(st), 0.45, accuracy: 1e-9)
         let miya = f.master.hero("H025")!
         let s1 = f.master.skill(hero: "H025", slot: .skill1)!

@@ -296,4 +296,8 @@ public struct Unit: Codable, Hashable, Sendable, Identifiable {
     }
 
     public var canCast: Bool { canAct && !has(.silence) }
+
+    /// バインド中か（自分以外が付けた root。MLBB の「バインド」= 移動とブリンク・突進のスキル・瞬歩を封じる低レベルのコントロール）。
+    /// キットが自分に付ける root（詠唱中の足止め）は含めない（ティグラルの奥義の詠唱中の瞬歩などを止めない）。
+    public var isBound: Bool { statuses.contains { $0.kind == .root && $0.sourceID != id } }
 }

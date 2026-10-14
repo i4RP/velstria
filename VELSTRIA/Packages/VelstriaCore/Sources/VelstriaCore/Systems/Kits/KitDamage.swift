@@ -32,6 +32,49 @@ public enum DamageScaling: Codable, Hashable, Sendable {
     case marks(name: String, perStack: Double, consume: Bool)
 }
 
+/// 公式の係数が掛かる能力値（MLBB の日本語クライアントの表記: (+N%) = 合計の物理攻撃 / 魔法攻撃、(+N%追加) = 追加物理攻撃、
+/// (+N%最大HP) = 自身の最大 HP）。
+enum KitScaling: Hashable, Sendable {
+    /// 総物理攻撃（Stats.attack）。
+    case totalAttack
+    /// 追加物理攻撃（Stats.extraAttack = 装備・エンブレム・スキルで増えた分）。
+    case extraAttack
+    /// 魔法攻撃（Stats.abilityPower）。
+    case magicPower
+    /// 自身の最大 HP（Stats.maxHP）。
+    case maxHP
+
+    func value(_ stats: Stats) -> Double {
+        switch self {
+        case .totalAttack: return stats.attack
+        case .extraAttack: return stats.extraAttack
+        case .magicPower: return stats.abilityPower
+        case .maxHP: return stats.maxHP
+        }
+    }
+}
+
+extension Kit {
+    /// 公式の段の表の値（MLBB のスキル詳細の表: スキル1・2 = Lv1〜6、アルティメット = Lv1〜3 をそのまま。換算・補間なし）。
+    /// rank は 1...表の長さに丸める（未習得の表示は 1 段目）。全段同じ値の項目は 1 要素の表でよい。
+    @inline(__always)
+    static func level(_ table: [Double], rank: Int) -> Double {
+        table[min(max(1, rank), table.count) - 1]
+    }
+
+    /// 公式の式: 基礎（段の表）+ 係数 × 能力値。全体の倍率は掛けない。
+    @inline(__always)
+    static func official(_ table: [Double], rank: Int, ratio: Double, _ scaling: KitScaling, stats: Stats) -> Double {
+        level(table, rank: rank) + ratio * scaling.value(stats)
+    }
+
+    /// 公式の CD（段の表の秒数）に CD 短縮を掛ける（上限は能力値の Stats.cooldownReductionCap）。
+    @inline(__always)
+    static func cooldown(_ table: [Double], rank: Int, stats: Stats) -> Double {
+        level(table, rank: rank) * (1 - HeroKits.cooldownReduction(stats))
+    }
+}
+
 extension HitPayload {
     /// 命中時にキット側の処理が要るか（applyHit の hot path を軽く保つ）。
     @inline(__always)

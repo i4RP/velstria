@@ -2,8 +2,8 @@ import Foundation
 
 // 担当: kit-H032（docs/SKILL_KITS.md / docs/kits/Dyrroth.md）
 // 赤拳のディアス用のプリミティブ:
-//   hitAreaEach     — 範囲内の敵へ「対象ごとに内容が違う」命中を与える（ミニオンへの減衰・失った HP の加算・円の除外）
-//   firstBlocker    — 突進の進路で最初に当たる敵（ヒーロー・ミニオン・モンスター）。そこで止まる突進に使う
+//   hitAreaEach     — 範囲内の敵へ「対象ごとに内容が違う」命中を与える（失った HP の加算・円の除外）
+//   firstBlocker    — 突進の進路で最初に当たる敵（止める種類は stopsAt で選ぶ。S2 はヒーロー・モンスター）。そこで止まる突進に使う
 
 extension Kit {
     /// 範囲（扇・円・線）内の敵（構造物を除く）に、対象ごとに作った payload を適用する。
@@ -34,15 +34,17 @@ extension Kit {
 
     /// 術者の位置から direction へ延びる進路（幅 = width の半幅）で、最初に当たる敵と、その敵に接するまでの突進距離。
     /// 構造物・対象不可・死亡中は除く。突進が届く距離（maxDistance）より遠い敵は無視する。
+    /// stopsAt = 突進を止める敵か（ディアスの S2 はヒーロー・モンスターだけ。ミニオンは通り抜ける）。
     static func firstBlocker(_ s: SimState, caster i: Int, direction: Vec2, maxDistance: Double, width: Double,
-                             contactGap: Double = 5) -> (index: Int, distance: Double)? {
+                             contactGap: Double = 5,
+                             stopsAt: (Unit) -> Bool = { _ in true }) -> (index: Int, distance: Double)? {
         let dir = direction.normalized
         guard dir != .zero else { return nil }
         let team = s.units[i].team
         let origin = s.units[i].pos
         var best: (index: Int, distance: Double)?
         for j in s.units.indices where s.units[j].team != team && !s.units[j].isStructure {
-            guard CombatSystem.isLiving(s, j), !s.units[j].has(.untargetable) else { continue }
+            guard CombatSystem.isLiving(s, j), !s.units[j].has(.untargetable), stopsAt(s.units[j]) else { continue }
             let rel = s.units[j].pos - origin
             let along = rel.dot(dir)
             guard along > 0 else { continue }

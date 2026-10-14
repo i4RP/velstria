@@ -257,16 +257,19 @@ final class SkillArchetypeTests: XCTestCase {
         let m = MasterData.shared
         let hero = m.hero("H001")!
         let skill = m.skill(hero: "H001", slot: .skill1)!
+        // H001（ヴァンガード）の Skill1 は魔法: MLBB のタンクの Skill1 の型 275 → 480（+90% 魔法攻撃）× 個性。物理攻撃では伸びない
+        let t = Balance.Skills.genericTemplate(role: hero.role, slot: .skill1)!
+        XCTAssertEqual(t.base, [275, 316, 357, 398, 439, 480])
         var st = Stats()
         st.attack = 200
         st.abilityPower = 50
         st.cooldownReduction = 0.1
-        for rank in 1...4 {
+        for rank in 1...6 {
             let n = SkillCatalog.numbers(for: skill, hero: hero, rank: rank, stats: st)
-            let raw = skill.baseDamage * (1 + 0.30 * Double(rank - 1)) + skill.scalingAttack * 200 * 0.6
-                + skill.scalingPower * 50
-            XCTAssertEqual(n.damage, raw * Balance.Skills.damageScale(.skill1), accuracy: 1e-9)
-            let cd = skill.cooldownSec * (1 - 0.06 * Double(rank - 1)) * 0.9 * Balance.Skills.cooldownScale
+            let raw = t.base[rank - 1] * skill.baseDamage / t.meanBase + t.ratio * skill.scalingPower / t.meanScaling * 50
+            XCTAssertEqual(n.damage, raw, accuracy: 1e-9)
+            // CD は 1 段 −4%（MLBB の段の表の中央値）× CD 短縮
+            let cd = skill.cooldownSec * (1 - 0.04 * Double(rank - 1)) * 0.9
             XCTAssertEqual(n.cooldown, cd, accuracy: 1e-9)
             XCTAssertEqual(n.cost, skill.cost)
             XCTAssertEqual(n.cc, skill.cc)
@@ -274,20 +277,38 @@ final class SkillArchetypeTests: XCTestCase {
         }
         // ランクが上がるほど強く・短く
         let r1 = SkillCatalog.numbers(for: skill, hero: hero, rank: 1, stats: st)
-        let r4 = SkillCatalog.numbers(for: skill, hero: hero, rank: 4, stats: st)
-        XCTAssertGreaterThan(r4.damage, r1.damage)
-        XCTAssertLessThan(r4.cooldown, r1.cooldown)
-        // 範囲外のランクは丸める
-        XCTAssertEqual(SkillCatalog.numbers(for: skill, hero: hero, rank: 9, stats: st).rank, 4)
+        let r6 = SkillCatalog.numbers(for: skill, hero: hero, rank: 6, stats: st)
+        XCTAssertGreaterThan(r6.damage, r1.damage)
+        XCTAssertLessThan(r6.cooldown, r1.cooldown)
+        // 範囲外のランクは丸める（スキル1・2 は 6 段）
+        XCTAssertEqual(SkillCatalog.numbers(for: skill, hero: hero, rank: 9, stats: st).rank, 6)
         XCTAssertEqual(SkillCatalog.numbers(for: skill, hero: hero, rank: 0, stats: st).rank, 1)
         // CD 短縮は能力値の上限（通常 40%。MLBB の日本語クライアント「通常、短縮率の上限は40%」）で頭打ち
         st.cooldownReduction = 0.9
         let capped = SkillCatalog.numbers(for: skill, hero: hero, rank: 1, stats: st)
-        XCTAssertEqual(capped.cooldown, skill.cooldownSec * 0.6 * Balance.Skills.cooldownScale, accuracy: 1e-9)
+        XCTAssertEqual(capped.cooldown, skill.cooldownSec * 0.6, accuracy: 1e-9)
         // 魔導の護符などで上限が 45% に上がれば 45% まで効く（以前は CD の計算で 40% に切り直していた）
         st.cooldownReductionCap = 0.45
         let talisman = SkillCatalog.numbers(for: skill, hero: hero, rank: 1, stats: st)
-        XCTAssertEqual(talisman.cooldown, skill.cooldownSec * 0.55 * Balance.Skills.cooldownScale, accuracy: 1e-9)
+        XCTAssertEqual(talisman.cooldown, skill.cooldownSec * 0.55, accuracy: 1e-9)
+    }
+
+    /// 汎用の型の平均（meanBase / meanScaling）が master の H001–H024 と合っていること（master を変えたら型の平均も直す）。
+    func testGenericTemplateMeansMatchTheMaster() {
+        let m = MasterData.shared
+        let generic = m.allHeroes.filter { !HeroKits.hasKit($0.heroID) }
+        for role in Role.allCases {
+            for slot in SkillSlot.actives {
+                let t = Balance.Skills.genericTemplate(role: role, slot: slot)!
+                XCTAssertEqual(t.base.count, slot.maxRank, "\(role) \(slot)")
+                let skills = generic.filter { $0.role == role }.compactMap { m.skill(hero: $0.heroID, slot: slot) }
+                guard !skills.isEmpty else { continue }
+                let meanBase = skills.map(\.baseDamage).reduce(0, +) / Double(skills.count)
+                let scaling = skills.map { $0.damageType == .magic ? $0.scalingPower : $0.scalingAttack }
+                XCTAssertEqual(t.meanBase, meanBase, accuracy: 0.01, "\(role) \(slot)")
+                XCTAssertEqual(t.meanScaling, scaling.reduce(0, +) / Double(scaling.count), accuracy: 0.01, "\(role) \(slot)")
+            }
+        }
     }
 
     func testNumbersArchetypeExtras() {
@@ -304,9 +325,11 @@ final class SkillArchetypeTests: XCTestCase {
         let ranger = m.hero("H003")!
         let blink = SkillCatalog.numbers(for: m.skill(hero: "H003", slot: .skill2)!, hero: ranger, rank: 1,
                                          stats: HeroGrowth.baseStats(def: ranger, level: 1))
+        // 遠隔の Skill2 = ブリンク + 強化通常攻撃。型の値が追加分そのもの（MLBB のマークスマンの Skill2 の中央値の半分）
         let skill = m.skill(hero: "H003", slot: .skill2)!
-        let full = (skill.baseDamage + skill.scalingAttack * ranger.baseAttack * 0.6) * Balance.Skills.damageScale(.skill2)
-        XCTAssertEqual(blink.damage, full * 0.5, accuracy: 1e-6)
+        let t = Balance.Skills.genericTemplate(role: .ranger, slot: .skill2)!
+        let bonus = t.base[0] * skill.baseDamage / t.meanBase + t.ratio * skill.scalingAttack / t.meanScaling * ranger.baseAttack
+        XCTAssertEqual(blink.damage, bonus, accuracy: 1e-6)
 
         let support = m.hero("H005")!
         let sst = HeroGrowth.baseStats(def: support, level: 6)
@@ -357,10 +380,20 @@ final class SkillArchetypeTests: XCTestCase {
         CombatSystem.addStatus(&w.s, targetIndex: a, StatusEffect(kind: .root, duration: 1))
         XCTAssertFalse(SkillSystem.canCast(w.s, w.ctx, heroIndex: a, slot: .skill2), "ルート中は突進できない")
         XCTAssertFalse(w.cast(a, .skill2, .direction(Vec2(1, 0))))
+        // バインド（敵の root）はブリンクも封じる（MLBB「移動、またはブリンクやアサルトスキルの使用ができなくなる」）
         var r = SkillWorld()
         let ranger = r.addHero("H003", team: .blue, at: skillArena)
-        CombatSystem.addStatus(&r.s, targetIndex: ranger, StatusEffect(kind: .root, duration: 1))
-        XCTAssertTrue(r.cast(ranger, .skill2, .direction(Vec2(1, 0))), "ブリンクはルート中も可")
+        let foe = r.addHero("H001", team: .red, at: skillArena + Vec2(600, 0))
+        CombatSystem.addStatus(&r.s, targetIndex: ranger, StatusEffect(kind: .root, duration: 1, sourceID: r.id(foe)))
+        XCTAssertTrue(r.s.units[ranger].isBound)
+        XCTAssertFalse(r.cast(ranger, .skill2, .direction(Vec2(1, 0))), "バインド中はブリンクできない")
+        // ブリンク以外のスキルは撃てる（低レベルのコントロールはスキルを中断・封印しない）
+        XCTAssertTrue(r.cast(ranger, .skill1, .direction(Vec2(1, 0))), "バインド中も移動しないスキルは撃てる")
+        // 自分で付けた root（キットの詠唱中の足止め）はバインドではない: ブリンクは撃てる
+        r.s.units[ranger].statuses.removeAll()
+        CombatSystem.addStatus(&r.s, targetIndex: ranger, StatusEffect(kind: .root, duration: 1, sourceID: r.id(ranger)))
+        XCTAssertFalse(r.s.units[ranger].isBound)
+        XCTAssertTrue(r.cast(ranger, .skill2, .direction(Vec2(1, 0))), "自分の足止めの間はブリンクできる")
         // 死亡中
         var d = SkillWorld()
         let dead = d.addHero("H001", team: .blue, at: skillArena)

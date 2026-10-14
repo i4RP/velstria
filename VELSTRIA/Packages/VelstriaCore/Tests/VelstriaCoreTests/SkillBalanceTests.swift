@@ -2,24 +2,29 @@ import XCTest
 @testable import VelstriaCore
 
 /// バランスのスモーク: ロール代表（H001–H006）同士の 1v1 を Lv 1/6/12（自動習得のランク）で戦わせ、
-/// 通常攻撃 + CD 毎のスキルで決着までの時間（TTK）が 2.5〜22 秒に収まることを確認する。
-/// 外れる場合は Balance.Skills の係数（SkillBalance.swift）で調整する（マスターデータは変えない）。
+/// 通常攻撃 + CD 毎のスキルで決着までの時間（TTK）が帯（minTTK〜maxTTK）に収まることを確認する。
+/// スキルの数値は MLBB の値そのもの（キット = 公式の表、汎用 = MLBB のロール × 枠の型。docs/GENERIC_SKILLS.md）なので、
+/// 外れても数値は直さない（帯の外れは実装の不具合か、帯の見直しのどちらか）。
 ///
-/// 帯の根拠: スキルのクールダウンは Mobile Legends と同じ秒数（Balance.Skills.cooldownScale = 1.0）。MLBB の装備なしの 1v1 は
-/// Lv1 で HP 2500〜2900 に対し通常攻撃が毎秒 100〜130 前後（防御込み）+ スキル1 が 6〜11 秒ごとに 300〜400 で、決着まで 15〜22 秒前後かかる。
-/// Velstria のスキル 1 発のダメージは MLBB 以上（汎用のスキル1 は Lv1 で約 900 = MLBB の 2〜3 倍）なので、同じクールダウンなら TTK は
-/// MLBB 以下になる。上限 22 秒はその MLBB の目安（硬いヒーロー同士・回復や蘇生のパッシブ持ちで長くなる側）。
-/// 下限 2.5 秒（一撃死の防止）は CD が半分だったころと同じ。
-/// 全員総当たりの分布（Release）: 中央値 Lv1 13.6 / Lv6 8.7 / Lv12 9.2 秒、最大 21.3 秒（CD が半分だったころは 10.0 / 5.3 / 5.7 秒、
-/// 最大 15.0 秒で、上限は 15 秒だった）。
+/// 帯の見直し（2026-10-14、スキルの段階。Release の計測: Windows・`swift test -c release`）:
+/// - 以前の帯 2.5〜22 秒（全員総当たりの絶対帯 2.0〜25 秒）は、スキルが MLBB の 2〜3 倍（スロット倍率 4.0 / 3.0 / 2.6、回復 × 2.4）だった尺度の帯。
+///   倍率を外して MLBB の値にしたら、ロール代表の TTK は 4.1〜16.4 秒 → 10.5〜36.4 秒になった（Lv1 は 12.9〜26.2 秒）。
+/// - 上限 22 → 38 秒: 伸びたのはタンク（ヴァンガード）とサポートの組（22〜36 秒）。MLBB の値ではタンクの HP 成長が大きく、サポートの奥義は
+///   味方全体回復（MLBB のフローリンのブルームの 250 から）+ シールドで、装備なしの硬い同士・回復持ち同士は長引く（最長はサポート同士の Lv12 36.4 秒）。
+///   38 秒は対戦の打ち切り（40 秒 = 引き分け）の手前で、引き分けになる組（決着がつかない不具合）を落とす。
+/// - 下限 2.5 → 1.8 秒: 縮んだのはディアス（H032）の Lv6 / 12 の遠隔の柔らかい相手（H003 2.0〜2.1 秒、H030 2.2〜2.4 秒）。公式の値の
+///   奥義 650〜1250 + 損失 HP の 25%・S1 の 3 連の爆発・ダメージ 1 回ごとの S1・S2 の CD −1 秒が重なる、MLBB のディアスのバーストそのもの。
+///   1.8 秒は計測の最短（2.0 秒）の 1 割下で、一撃で倒れる（数 tick で決着する）不具合だけを落とす。
+/// - 全員総当たり（ゲームに出す 10 体 = H025–H034）の絶対帯 2.0〜25 → 1.5〜40 秒（下限は上と同じ理由で 0.5 秒下げ、上限は打ち切りの 40 秒）。
+///   分布（Release）: 中央値 Lv1 13.5 / Lv6 8.5 / Lv12 9.1 秒、最短 2.2 秒、最長 24.2 秒（フランコ同士の Lv12）。外れは 2% まで（変えていない）。
 final class SkillBalanceTests: XCTestCase {
     static let representatives = ["H001", "H002", "H003", "H004", "H005", "H006"]
     static let levels = [1, 6, 12]
-    static let minTTK = 2.5
-    static let maxTTK = 22.0
+    static let minTTK = 1.8
+    static let maxTTK = 38.0
     /// 全員総当たり（testFullRosterStaysNearBand）で 1 戦も外れてはいけない帯。
-    static let hardMinTTK = 2.0
-    static let hardMaxTTK = 25.0
+    static let hardMinTTK = 1.5
+    static let hardMaxTTK = 40.0
 
     struct DuelResult {
         var ttk: Double
@@ -131,11 +136,7 @@ final class SkillBalanceTests: XCTestCase {
                          level, v.count, v[0], q(0.05), q(0.25), q(0.5), q(0.75), q(0.95), v[v.count - 1]))
         }
         print("SkillBalanceTests roster: \(total) duels, \(outside.count) outside \(Self.minTTK)–\(Self.maxTTK) s: \(outside)")
-        // 既知の例外（2026-10-14）: ティグラル（H029）がマイヤ（H025）を Lv6 で 1.6 秒で倒す。ティグラルの能力値を日本語クライアントの値に
-        // したが、スキルはまだ換算のまま（奥義は MLBB の約 3.5 倍）。スキルの換算をやめる段階で外す
-        let knownHard = ["Lv6 H025 vs H029"]
-        let unexpectedHard = hard.filter { label in !knownHard.contains { label.hasPrefix($0) } }
-        XCTAssertTrue(unexpectedHard.isEmpty, "\(unexpectedHard)")
+        XCTAssertTrue(hard.isEmpty, "\(hard)")
         XCTAssertLessThanOrEqual(Double(outside.count), Double(total) * 0.02)
         #endif
     }

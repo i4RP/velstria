@@ -15,8 +15,9 @@ public enum CombatSystem {
     static let tagKnockback = "cc.knockback"
     static let tagRedBuff = "redBuff"
     /// 強靭（コントロール時間短縮）が効かない状態の tag: 強制ブリンク（汎用のノックバック）と、
-    /// スキルの説明で「強靭の影響を受けない」とある打ち上げ（KitTags.knockUpIgnoresResilience。セイバーの奥義など）。
-    static let resilienceExemptTags: Set<String> = [tagKnockback, KitTags.knockUpIgnoresResilience]
+    /// スキルの説明で「強靭の影響を受けない」とある打ち上げ（KitTags.knockUpIgnoresResilience。セイバーの奥義など）、
+    /// 引き寄せの間のスタン（フランコの鉤。引き寄せ = 強制ブリンクの間だけ行動を止めるもの）。
+    static let resilienceExemptTags: Set<String> = [tagKnockback, KitTags.knockUpIgnoresResilience, Kit_H034.Tune.hookStunTag]
 
     /// これ以下の HP は 0 とみなす（浮動小数の端数で 1e-9 だけ生き残るのを防ぐ）。
     static let deathEpsilon = 1e-6
@@ -34,11 +35,14 @@ public enum CombatSystem {
                    isCrit: isCrit, appliesOnHit: source == .basicAttack, bypassShield: bypassShield)
     }
 
-    /// applyDamage の本体。appliesOnHit = 通常攻撃のライフスティールを適用するか（HitPayload.appliesOnHit）。
+    /// applyDamage の本体。appliesOnHit = 通常攻撃のライフスティール（通常攻撃吸収）を適用するか（HitPayload.appliesOnHit）。
+    /// attackEffect = 通常攻撃吸収に掛ける割合（MLBB の「攻撃エフェクト」。月影 20% など）。
+    /// spellVampRatio = スキル吸収に掛ける割合（MLBB の「スキル吸収率」。エウドラの S1 50% など）。
     @discardableResult
     static func dealDamage(_ s: inout SimState, _ ctx: SimContext, sourceID: EntityID?, targetIndex t: Int,
                            amount raw: Double, type: DamageType, source: DamageSource, isCrit: Bool,
-                           appliesOnHit: Bool, bypassShield: Bool = false) -> Double {
+                           appliesOnHit: Bool, bypassShield: Bool = false, attackEffect: Double = 1,
+                           spellVampRatio: Double = 1) -> Double {
         guard s.units.indices.contains(t), isLiving(s, t), raw > 0, raw.isFinite else { return 0 }
         // 1. 無敵
         if isInvulnerable(s, ctx, t) { return 0 }
@@ -99,10 +103,8 @@ public enum CombatSystem {
         // 5. 被ダメ軽減（防御の後の最終ダメージを割合で減らす。上限なし、確定ダメージには効かない。MLBB の用語注釈「ダメージ軽減」）
         if !environmental, type != .trueDamage { amount *= damageReductionMultiplier(s.units[t].stats.damageReduction) }
         guard amount > 0, amount.isFinite else { return 0 }
-        // ミニオンへのスキルダメージは倍率を下げる（スキル倍率が大きく、そのままだと 1 発でウェーブが消えるため）
-        if source.isSkill, s.units[t].kind == .minion {
-            amount *= Balance.Skills.minionDamageMultiplier
-        }
+        // （ミニオンへのスキルダメージの全体の倍率 × 0.2 は 2026-10-14 に外した。MLBB はスキルごとの「ミニオンには ○%」だけ:
+        //  HitPayload.minionMultiplier）
         // 装備の固有効果による被ダメ補正（黄昏の挑戦の上限・魔人化の軽減。防御・軽減の後、シールドの前）
         if s.units[t].kind == .hero, !environmental {
             amount = ItemEffects.modifyIncoming(&s, ctx, victim: t, attacker: a, type: type, source: source, amount: amount)
@@ -184,13 +186,14 @@ public enum CombatSystem {
                        type: .magic, source: .passive, isCrit: false, appliesOnHit: false)
         }
 
-        // 7. ライフスティール（通常攻撃）/ スペルヴァンプ（スキル）
+        // 7. 通常攻撃吸収（ライフスティール）/ スキル吸収（スペルヴァンプ）。MLBB: 回復 = ダメージ × 吸収 × その攻撃の吸収率
+        //    （通常攻撃は攻撃エフェクトの割合、スキルはスキル吸収率。既定 100%）
         if let a, dealt > 0, !environmental {
             let ratio: Double
             if source == .basicAttack && appliesOnHit {
-                ratio = s.units[a].stats.lifesteal + ItemEffects.lifestealBonus(s, ctx, attacker: a)
+                ratio = (s.units[a].stats.lifesteal + ItemEffects.lifestealBonus(s, ctx, attacker: a)) * max(0, attackEffect)
             } else if source.isSkill {
-                ratio = s.units[a].stats.spellVamp
+                ratio = s.units[a].stats.spellVamp * max(0, spellVampRatio)
             } else {
                 ratio = 0
             }
@@ -511,13 +514,21 @@ public enum CombatSystem {
 
         guard payload.affectsEnemies, !isInvulnerable(s, ctx, t) else { return }
         var dealt = 0.0
+        let effect = max(0, payload.attackEffectRatio)
         if payload.damage > 0 {
             // キット層: ダメージ補正（失った HP・距離・マーク）を dealDamage の前に反映
-            let amount = payload.scaling == nil ? payload.damage
+            var amount = payload.scaling == nil ? payload.damage
                 : KitDamage.scaledDamage(s, sourceID: sourceID, target: t, payload: payload)
+            // スキルごとのミニオン・モンスターへの倍率（防御は掛け算なので、ここで掛けても防御の後に掛けても同じ）
+            switch s.units[t].kind {
+            case .minion: amount *= max(0, payload.minionMultiplier)
+            case .monster: amount *= max(0, payload.monsterMultiplier)
+            default: break
+            }
             dealt = dealDamage(&s, ctx, sourceID: sourceID, targetIndex: t, amount: amount,
                                type: payload.damageType, source: payload.source, isCrit: payload.isCrit,
-                               appliesOnHit: payload.appliesOnHit)
+                               appliesOnHit: payload.source == .basicAttack && effect > 0, attackEffect: effect,
+                               spellVampRatio: payload.spellVampRatio)
         }
         if isLiving(s, t) {
             if payload.cc != .none {
@@ -537,7 +548,10 @@ public enum CombatSystem {
         if dealt > 0 { JungleBuffs.redBuffStrike(&s, ctx, attacker: a, target: t, source: payload.source) }
         if payload.source == .basicAttack && payload.appliesOnHit {
             basicAttackLanded(&s, ctx, attacker: a, target: t, dealt: dealt, isCrit: payload.isCrit,
-                              itemEffects: !payload.skipsItemOnHit)
+                              itemEffects: !payload.skipsItemOnHit, itemEffectRatio: effect)
+        } else if payload.source == .basicAttack, effect > 0, !payload.skipsItemOnHit {
+            // 攻撃エフェクトの一部を引き継ぐ追加の命中（月影・分裂の矢・狂龍乱舞など）: 命中時効果だけを割合で
+            ItemEffects.onPartialAttackEffect(&s, ctx, attacker: a, target: t, ratio: effect)
         } else if payload.damage <= 0, case .skill(let slot) = payload.source {
             // ダメージの無いスキル（CC のみ）も命中として通知する
             PassiveHooks.onSkillHit(&s, ctx, attacker: a, target: t, slot: slot, damage: 0)
@@ -553,8 +567,10 @@ public enum CombatSystem {
 
     /// ヒーローの通常攻撃が命中した時の効果（命中数・装備の命中時効果・パッシブ）。紅焔バフの追撃は applyHit（スキルの命中でも出る）。
     /// itemEffects = false は装備の命中時効果だけを外す（HitPayload.skipsItemOnHit。ディロスの円撃）。
+    /// itemEffectRatio < 1 は装備の命中時効果を一部だけ（攻撃エフェクトの割合。ItemEffects.onPartialAttackEffect）。
     static func basicAttackLanded(_ s: inout SimState, _ ctx: SimContext, attacker a: Int, target t: Int,
-                                  dealt: Double, isCrit: Bool = false, itemEffects: Bool = true) {
+                                  dealt: Double, isCrit: Bool = false, itemEffects: Bool = true,
+                                  itemEffectRatio: Double = 1) {
         if s.units[a].hero != nil { s.units[a].hero!.basicAttackCount += 1 }
         if let mark = s.units[a].statuses.firstIndex(where: { $0.tag == "spell.BS12" && $0.kind == .mark }) {
             let stats = s.units[a].stats
@@ -565,9 +581,11 @@ public enum CombatSystem {
                 s.units[a].statuses.removeAll { $0.tag == "spell.BS12" }
             }
         }
-        if itemEffects {
+        if itemEffects && itemEffectRatio >= 1 {
             ItemEffects.onBasicAttackLanded(&s, ctx, attacker: a, target: t, dealt: dealt, isCrit: isCrit)
             EmblemEffects.onBasicAttackLanded(&s, ctx, attacker: a, target: t)
+        } else if itemEffects && itemEffectRatio > 0 {
+            ItemEffects.onPartialAttackEffect(&s, ctx, attacker: a, target: t, ratio: itemEffectRatio)
         }
         PassiveHooks.onBasicAttackHit(&s, ctx, attacker: a, target: t, damage: dealt)
     }

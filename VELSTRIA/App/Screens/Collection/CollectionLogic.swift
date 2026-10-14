@@ -6,19 +6,13 @@ import VelstriaCore
 // MARK: - スキル（DESIGN §5・§6）
 
 enum SkillMath {
-    /// ランク 1...最大ランク。
+    /// ランク 1...最大ランク（MLBB と同じ: スキル1・2 は 1〜6、アルティメットは 1〜3）。
     static func ranks(for slot: SkillSlot) -> [Int] {
         slot == .passive ? [] : Array(1...slot.maxRank)
     }
 
-    /// 基礎ダメージ（ランク補正込み）= base × (1 + 0.30 × (rank − 1))。
-    static func damage(base: Double, rank: Int) -> Double {
-        base * (1 + Balance.skillDamagePerRank * Double(max(0, rank - 1)))
-    }
-
     /// 実戦の数値（シミュレーションと同じ `SkillCatalog.numbers`）。能力値ボーナス（攻撃力・魔力）を含めない値
-    /// ＝ 表示上の「基礎値」。スロット別の調整倍率（Balance.Skills.damageScaleBySlot）と
-    /// アーキタイプ補正（強化攻撃 50%・連続斬り 45%×3・回復倍率・味方全体回復のダメージなし など）は込み。
+    /// ＝ 表示上の「基礎値」。キットのヒーローは公式の段の表、汎用のヒーローは MLBB のロール × 枠の型（全体の倍率は無い）。
     static func numbers(_ skill: SkillDef, hero: HeroDef, rank: Int) -> SkillNumbers {
         SkillCatalog.numbers(for: skill, hero: hero, rank: rank, stats: Stats())
     }
@@ -34,8 +28,10 @@ enum SkillMath {
     static func scaling(_ skill: SkillDef, hero: HeroDef) -> (damage: Scaling, heal: Scaling) {
         let probe = 100.0
         let base = numbers(skill, hero: hero, rank: 1)
+        // 装備で物理攻撃が増えた場合（総物理攻撃と追加物理攻撃の両方が増える。「+N% 追加物理攻撃」のスキルも拾う）
         var atk = Stats()
         atk.attack = probe
+        atk.extraAttack = probe
         var pow = Stats()
         pow.abilityPower = probe
         let a = SkillCatalog.numbers(for: skill, hero: hero, rank: 1, stats: atk)
@@ -87,7 +83,7 @@ enum SkillMath {
         }
     }
 
-    /// CD（CD 短縮なし）= cooldown × (1 − 0.06 × (rank − 1)) × 調整倍率。
+    /// 汎用の CD（CD 短縮なし）= cooldown × 段の倍率（スキル1・2 は 1 段 −4%、アルティメットは 1 段 −9%）。
     static func cooldown(_ skill: SkillDef, rank: Int) -> Double {
         SkillSystem.cooldown(for: skill, rank: rank, cdr: 0)
     }
@@ -124,7 +120,7 @@ enum SkillMath {
         }
     }
 
-    /// 実効コスト（Energy は ×0.6）。
+    /// 実効コスト（Energy は Balance.energyCostMultiplier 倍）。
     static func cost(_ skill: SkillDef, resource: ResourceKind) -> Double {
         SkillSystem.cost(for: skill, resource: resource)
     }

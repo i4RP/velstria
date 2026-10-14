@@ -62,6 +62,22 @@ final class SpellSystemTests: XCTestCase {
 
     // MARK: - BS01 瞬歩
 
+    /// バインド（敵の root）中は瞬歩を使えない（MLBB「バインド: 移動、またはブリンクやアサルトスキルの使用ができなくなる」）。
+    /// 自分で付けた root（ティグラルの奥義の詠唱中など）は止めない（奥義 + 瞬歩の連携）。
+    func testBindBlocksBlinkButASelfRootDoesNot() {
+        var w = SkillWorld()
+        let h = w.addHero("H001", team: .blue, at: skillArena, spells: ["BS01", "BS03"])
+        let foe = w.addHero("H002", team: .red, at: skillArena + Vec2(0, 600))
+        CombatSystem.addStatus(&w.s, targetIndex: h, StatusEffect(kind: .root, duration: 1, sourceID: w.id(foe)))
+        XCTAssertFalse(SpellSystem.canCast(w.s, w.ctx, heroIndex: h, spellIndex: 0))
+        XCTAssertFalse(w.castSpell(h, 0, .direction(Vec2(1, 0))))
+        XCTAssertEqual(w.s.units[h].pos, skillArena)
+        w.s.units[h].statuses.removeAll()
+        CombatSystem.addStatus(&w.s, targetIndex: h, StatusEffect(kind: .root, duration: 1, sourceID: w.id(h)))
+        XCTAssertTrue(w.castSpell(h, 0, .direction(Vec2(1, 0))))
+        XCTAssertEqual(w.s.units[h].pos.x, skillArena.x + 400, accuracy: 1e-6)
+    }
+
     func testBlinkMovesFourHundredAndStopsBeforeObstacles() {
         var w = SkillWorld()
         let h = w.addHero("H001", team: .blue, at: skillArena, spells: ["BS01", "BS03"])

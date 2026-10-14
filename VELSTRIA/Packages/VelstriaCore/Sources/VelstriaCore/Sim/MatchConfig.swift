@@ -80,7 +80,10 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     ///     上限 3、移動速度の加算式・減速の合計 90%、強靭の掛け算、被ダメ軽減の上限撤廃、シールドの消費順など）。全ヒーローの能力値を
     ///     MLBB の値（H025〜H034）とロール中央値（H001〜H024）へ。docs/HERO_STATS.md。
     /// 21: H025〜H034 の 10 体の能力値を日本語クライアントの試合中のステータス画面（Lv1 / Lv15）の値に（Fandom の成長は古かった）。
-    public static let currentSimVersion = 21
+    /// 22: スキルを MLBB の値に（スキルの段 6 / 6 / 3、キットは公式の表をそのまま・換算と全体の倍率を撤廃、汎用は MLBB のロール × 枠の型、
+    ///     ミニオンへのスキル × 0.2 を撤廃しスキルごとの補正、スキル吸収率・攻撃エフェクト、バインドがブリンク・突進を封じる、
+    ///     ノックアップ・制圧だけが突進を止める）。docs/SKILL_KITS.md・docs/GENERIC_SKILLS.md。
+    public static let currentSimVersion = 22
 
     public var simVersion: Int
     public var mode: MatchMode

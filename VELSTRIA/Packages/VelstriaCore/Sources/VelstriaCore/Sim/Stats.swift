@@ -6,6 +6,9 @@ public struct Stats: Codable, Hashable, Sendable {
     public var maxHP: Double = 1
     public var maxResource: Double = 0
     public var attack: Double = 0
+    /// 追加物理攻撃（MLBB の「追加物理攻撃」= 装備・エンブレム・スキルで増えた分。レベルの基礎値と成長を除く）。
+    /// StatCalculator.recompute が最後に attack − 基礎（Unit.baseStats.attack）で入れる。キットの「+N% 追加物理攻撃」の係数が使う。
+    public var extraAttack: Double = 0
     public var abilityPower: Double = 0
     public var armor: Double = 0
     public var magicResist: Double = 0

@@ -329,21 +329,22 @@ final class SkillShowcaseTests: XCTestCase {
         let hero = try XCTUnwrap(master.hero("H001"))
         let skill = try self.skill("H001", .skill1)
         let table = SkillLevelTable.build(skill: skill, hero: hero)
-        XCTAssertEqual(table.ranks, [1, 2, 3, 4])
+        // スキル1・2 は MLBB と同じ 6 段
+        XCTAssertEqual(table.ranks, [1, 2, 3, 4, 5, 6])
         XCTAssertEqual(table.rows.first?.kind, .cooldown)
         XCTAssertEqual(table.rows.first?.title, "CD時間")
-        for row in table.rows { XCTAssertEqual(row.values.count, 4, row.title) }
+        for row in table.rows { XCTAssertEqual(row.values.count, 6, row.title) }
         // CD は SkillMath と同じ値（小数 1 桁）で、ランクが上がるほど短い
         let cd1 = SkillMath.cooldown(skill, hero: hero, rank: 1)
         XCTAssertEqual(table.rows[0].values[0], SkillShowcaseText.fixed1(cd1))
-        XCTAssertLessThan(SkillMath.cooldown(skill, hero: hero, rank: 4), cd1)
+        XCTAssertLessThan(SkillMath.cooldown(skill, hero: hero, rank: 6), cd1)
         // 汎用スキルのコストはランクで変わらない → 行を出さない
         XCTAssertFalse(table.rows.contains { $0.kind == .cost })
         // 主な数値の行（ダメージ）
         let damageRow = try XCTUnwrap(table.rows.first { $0.kind == .figure(.damage) })
         XCTAssertEqual(damageRow.title, "基礎ダメージ")
         XCTAssertEqual(damageRow.values[0], SkillMath.figureValue(.damage, SkillMath.numbers(skill, hero: hero, rank: 1)))
-        XCTAssertEqual(damageRow.values[3], SkillMath.figureValue(.damage, SkillMath.numbers(skill, hero: hero, rank: 4)))
+        XCTAssertEqual(damageRow.values[5], SkillMath.figureValue(.damage, SkillMath.numbers(skill, hero: hero, rank: 6)))
     }
 
     func testLevelTableUltimateHasThreeColumnsAndPassiveHasNone() throws {

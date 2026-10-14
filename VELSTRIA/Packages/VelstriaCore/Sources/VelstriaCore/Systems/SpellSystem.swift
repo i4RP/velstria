@@ -156,6 +156,8 @@ public enum SpellSystem {
         let free = ctx.config.practice?.noCooldowns == true
         guard free || h.spellCooldowns[k] <= CombatSystem.timeEpsilon else { return nil }
         guard spell.usableWhileDisabled || s.units[i].canAct else { return nil }
+        // バインド中は瞬歩（ブリンク）を使えない（MLBB の「バインド」: ブリンクやアサルトの使用不可）
+        if spell == .blink, s.units[i].isBound { return nil }
         return SpellCheck(spell: spell, def: def, free: free)
     }
 

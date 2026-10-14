@@ -30,6 +30,8 @@ public enum StatCalculator {
         finalize(&stats, isHero: isHero, outOfCombat: isHero && s.time - u.lastCombatTime > Balance.combatTimeout,
                  inspired: inspired)
         stats.maxHP = max(1, stats.maxHP)
+        // 追加物理攻撃 = 合計 − レベルの基礎値（装備・エンブレム・バフで増えた分。下がっていれば 0）
+        stats.extraAttack = isHero ? max(0, stats.attack - s.units[i].baseStats.attack) : 0
 
         // 最大 HP/リソースが変わったら現在値の割合を維持
         let old = s.units[i].stats
