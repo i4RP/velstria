@@ -82,19 +82,33 @@ private struct HUDMinimapTerrain: View, Equatable {
                 switch obstacle {
                 case .rect(let rect): wall = Path(HUDMinimapDrawing.rect(rect, proj))
                 case .circle(let center, let radius): wall = HUDMinimapDrawing.circle(proj.point(center), proj.length(radius))
+                case .polygon(let points): wall = HUDMinimapDrawing.polyline(points, proj, closed: true)
                 }
                 ctx.fill(wall, with: .color(Color(red: 0.06, green: 0.10, blue: 0.16)))
                 ctx.stroke(wall, with: .color(Color(red: 0.38, green: 0.49, blue: 0.52).opacity(0.75)), lineWidth: 0.65)
             }
-            for brush in map.brushes {
-                let rect = HUDMinimapDrawing.rect(brush.rect, proj)
-                ctx.fill(Path(rect), with: .color(Color(red: 0.29, green: 0.53, blue: 0.34)))
-                ctx.stroke(Path(rect), with: .color(Color(red: 0.53, green: 0.77, blue: 0.44).opacity(0.8)), lineWidth: 0.5)
-                // Texture distinguishes brush from open ground without relying on hue.
-                var stripe = Path()
-                stripe.move(to: CGPoint(x: rect.midX, y: rect.minY + rect.height * 0.2))
-                stripe.addLine(to: CGPoint(x: rect.midX, y: rect.maxY - rect.height * 0.2))
-                ctx.stroke(stripe, with: .color(.white.opacity(0.3)), lineWidth: 0.6)
+            for (k, brush) in map.brushes.enumerated() {
+                guard map.bushMask != nil else {
+                    let rect = HUDMinimapDrawing.rect(brush.rect, proj)
+                    ctx.fill(Path(rect), with: .color(Color(red: 0.29, green: 0.53, blue: 0.34)))
+                    ctx.stroke(Path(rect), with: .color(Color(red: 0.53, green: 0.77, blue: 0.44).opacity(0.8)), lineWidth: 0.5)
+                    // Texture distinguishes brush from open ground without relying on hue.
+                    var stripe = Path()
+                    stripe.move(to: CGPoint(x: rect.midX, y: rect.minY + rect.height * 0.2))
+                    stripe.addLine(to: CGPoint(x: rect.midX, y: rect.maxY - rect.height * 0.2))
+                    ctx.stroke(stripe, with: .color(.white.opacity(0.3)), lineWidth: 0.6)
+                    continue
+                }
+                // 細かい格子の草むら: 形どおりに塗り（行ごとのセルの連なり）、色に頼らない目印として中に点を散らす
+                var shape = Path()
+                for r in map.brushRects(k, step: 3) { shape.addRect(HUDMinimapDrawing.rect(r, proj)) }
+                ctx.fill(shape, with: .color(Color(red: 0.29, green: 0.53, blue: 0.34)))
+                var dots = Path()
+                for r in map.brushRects(k, step: 16) {
+                    let c = HUDMinimapDrawing.rect(r, proj)
+                    dots.addEllipse(in: CGRect(x: c.midX - 0.45, y: c.midY - 0.45, width: 0.9, height: 0.9))
+                }
+                ctx.fill(dots, with: .color(.white.opacity(0.35)))
             }
             for team in Team.players {
                 let p = proj.point(map.fountain(team)), r = proj.length(Balance.fountainRadius)

@@ -3,8 +3,8 @@
 // tools/stage/build_shaders.sh が metallib（実機 / シミュレータ / macOS）を作り App/Resources/Stage/ へ置く。
 // テクスチャの割り当て・配合マップの意味は docs/STAGE.md の 3.4 を参照。
 //
-// 座標: 地図座標 m = (x, -z)（m）。+m.y が北（画面の上）。地面の配合マップは m = (-20…140, -20…140) を覆い、
-// 画像の上端が北（m.y = 140）。テクスチャは画像の上端が v = 0（Metal の向き。RealityKit 標準材質の UV とは上下が逆）。
+// 座標: 地図座標 m = (x, -z)（m）。+m.y が北（画面の上）。地面の配合マップは m = (-20…152, -20…152) を覆い、
+// 画像の上端が北（m.y = 152）。テクスチャは画像の上端が v = 0（Metal の向き。RealityKit 標準材質の UV とは上下が逆）。
 //
 // 素材のセット（StageArtSet）: custom_parameter の「新セット」の値（地面は w、崖の芯は x、小物・草花は y）が 1 のとき
 // 2026-10-12 の「遺跡と森」の色合わせ・石畳の風化・個体ごとの揺れを使う。0 は 2026-10-05 の旧セット（-legacyStage）の
@@ -24,7 +24,7 @@ constexpr sampler mapSampler(coord::normalized, address::clamp_to_edge, filter::
 constexpr sampler atlasSampler(coord::normalized, address::clamp_to_edge, filter::linear, mip_filter::linear, max_anisotropy(2));
 
 constant float kMapOrigin = -20.0;
-constant float kMapSpan = 160.0;
+constant float kMapSpan = 172.0;
 
 // タイルの実寸の周期（m）
 constant float kPeriodGrass = 6.0;

@@ -66,7 +66,7 @@ final class AmbientParticles {
             add(glint, rate: 9, at: base + SIMD3(0, AmbientParticles.spireHeight, 0))
         }
         // 河川（sim (0, 12000) → (12000, 0) = world (0, -120) → (120, 0)）の水面のきらめき
-        let M = MapScene.mapMeters
+        let M = Float(map.size / Balance.unitsPerMeter)
         let length = M * Float(2).squareRoot()
         let width = Float(map.riverWidth / Balance.unitsPerMeter) * 0.92
         let n = AmbientParticles.riverSegments

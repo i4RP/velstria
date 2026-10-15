@@ -29,7 +29,8 @@ final class MapScene {
     private var spireSpin: Float = 0.6
 
     /// 地図の境界（m）。
-    static let mapMeters: Float = Float(Balance.mapSize / Balance.unitsPerMeter)
+    static let mapMeters: Float = Float(MapDefinition.relayout.size / Balance.unitsPerMeter)
+    private let extent: Float
 
     /// 素材から作ったステージ（docs/STAGE.md）。素材やシェーダーが使えない環境では nil で、従来の手続き生成の地形を使う。
     private(set) var stage: StageScene?
@@ -37,6 +38,7 @@ final class MapScene {
     /// artSet: ステージの素材のセット（既定は起動引数で選ばれたもの。テストが新旧を指定する）。
     init(map: MapDefinition, materials: RenderMaterials, quality: RenderQuality, groundImage: CGImage?,
          artSet: StageArtSet = .current) {
+        extent = Float(map.size / Balance.unitsPerMeter)
         root.name = "map"
         if let plan = StagePrep.take(map: map, quality: quality, set: artSet), let stage = StageScene(plan: plan) {
             self.stage = stage
@@ -68,7 +70,7 @@ final class MapScene {
     // MARK: 地面
 
     private func buildGround(image: CGImage?, quality: RenderQuality) {
-        let M = MapScene.mapMeters
+        let M = extent
         var d = MeshDescriptor(name: "ground")
         d.positions = MeshBuffers.Positions([[0, 0, 0], [M, 0, 0], [M, 0, -M], [0, 0, -M]])
         d.normals = MeshBuffers.Normals([[0, 1, 0], [0, 1, 0], [0, 1, 0], [0, 1, 0]])
@@ -105,7 +107,7 @@ final class MapScene {
     }
 
     private func buildOuterGround() {
-        let M = MapScene.mapMeters
+        let M = extent
         let size: Float = M + 140
         let mesh = MeshResource.generatePlane(width: size, depth: size)
         var mat = PhysicallyBasedMaterial()
@@ -247,18 +249,38 @@ final class MapScene {
                         MapProps.smallFlora(&l, glow: &g, at: w(c + Vec2(radius + 40, 0)), seed: seed &+ 7)
                     }
                 }
+            case .polygon:
+                // 多角形の壁: 外接矩形の格子のうち内側の点に崖の塊（手続き地形の予備。通常はステージの一枚岩）
+                let b = o.bounds
+                let step = 135.0
+                var y = b.minY + step / 2
+                var k = 0
+                while y < b.maxY {
+                    var x = b.minX + step / 2
+                    while x < b.maxX {
+                        let p = Vec2(x, y)
+                        if o.contains(p) {
+                            let h = rng.range(1.2, 2.0), rad = rng.range(0.85, 1.2)
+                            let s = seed &+ UInt64(k)
+                            batch.add(at: w(p)) { l, _ in MapProps.cliff(&l, at: w(p), radius: rad, height: h, seed: s) }
+                            k += 1
+                        }
+                        x += step
+                    }
+                    y += step
+                }
             }
         }
 
         // 外周の森（地図の外側 1.5〜14 m）
-        let M = MapScene.mapMeters
+        let M = extent
         let ringStep: Float = 2.6 / max(0.6, density)
         for side in 0..<4 where terrain {
             var t: Float = -14
-            while t < M + 14 {
+            while t < Float(MapDefinition.standard.size / Balance.unitsPerMeter) + 14 {
                 for row in 0..<4 {
                     let depth = 1.8 + Float(row) * 3.1 + rng.range(-0.8, 0.8)
-                    let along = t + rng.range(-0.9, 0.9) + (row % 2 == 0 ? 0 : ringStep / 2)
+                    let along = (t + 14) * (M + 28) / 148 - 14 + rng.range(-0.9, 0.9) + (row % 2 == 0 ? 0 : ringStep / 2)
                     let p: SIMD3<Float>
                     switch side {
                     case 0: p = [along, 0, depth]                 // 南（sim y < 0）
@@ -285,7 +307,7 @@ final class MapScene {
         var placed = 0, attempts = 0
         while placed < floraCount && attempts < floraCount * 8 {
             attempts += 1
-            let p = Vec2(Double(rng.range(300, 11700)), Double(rng.range(300, 11700)))
+            let p = Vec2(Double(rng.range(300, Float(map.size - 300))), Double(rng.range(300, Float(map.size - 300))))
             guard map.nearestLane(to: p).distance > 650, !map.isInRiver(p),
                   map.obstacleIndex(at: p, inflatedBy: 60) == nil, map.brushIndex(at: p) == nil else { continue }
             guard !map.camps.contains(where: { $0.pos.distance(to: p) < 650 }),
@@ -487,7 +509,7 @@ final class MapScene {
     private func buildDetailOverlay() {
         guard let img = MapScene.detailImage(),
               let tex = try? TextureResource(image: img, options: .init(semantic: .color)) else { return }
-        let M = MapScene.mapMeters
+        let M = extent
         var d = MeshDescriptor(name: "detail")
         d.positions = MeshBuffers.Positions([[0, 0, 0], [M, 0, 0], [M, 0, -M], [0, 0, -M]])
         d.normals = MeshBuffers.Normals([[0, 1, 0], [0, 1, 0], [0, 1, 0], [0, 1, 0]])
@@ -557,7 +579,7 @@ final class MapScene {
     // MARK: 草むら
 
     private func buildBrushes(map: MapDefinition, materials: RenderMaterials, quality: RenderQuality) {
-        for b in map.brushes {
+        for (k, b) in map.brushes.enumerated() {
             var mb = MeshBuilder(reserve: 2048)
             let r = b.rect
             let step: Float = quality.level == .low ? 0.62 : 0.5
@@ -569,6 +591,9 @@ final class MapScene {
                 for iy in 0..<ny {
                     let lx = (Float(ix) + 0.5) / Float(nx) * wM - wM / 2 + rng.range(-0.18, 0.18)
                     let lz = -((Float(iy) + 0.5) / Float(ny) * hM - hM / 2) + rng.range(-0.18, 0.18)
+                    // 細かい格子の草むらは形の中だけに房を置く（地図座標の y は −z）
+                    let p = Vec2(r.center.x + Double(lx) * Balance.unitsPerMeter, r.center.y - Double(lz) * Balance.unitsPerMeter)
+                    guard map.brush(k, contains: p) else { continue }
                     mb.grassClump(at: [lx, 0, lz], height: rng.range(0.95, 1.35), seed: rng.next())
                 }
             }
@@ -603,10 +628,9 @@ final class MapScene {
 
     /// 地面の円（sim 座標）と重なる草むらを印付けする（スキル予告を草で隠さない）。
     func markBrushes(overlapping center: Vec2, radius: Double, map: MapDefinition) {
-        for k in map.brushes.indices where k < brushWanted.count {
-            let r = map.brushes[k].rect
-            let q = Vec2(min(max(center.x, r.minX), r.maxX), min(max(center.y, r.minY), r.maxY))
-            if q.distanceSquared(to: center) <= radius * radius { brushWanted[k] = true }
+        // 細かい格子の草むらはセル単位で重なりを見る
+        for k in map.brushIndices(overlappingCircle: center, radius: radius) where k < brushWanted.count {
+            brushWanted[k] = true
         }
     }
 
@@ -644,7 +668,7 @@ final class MapScene {
     private func buildWater(map: MapDefinition) {
         guard let img = MapScene.waterHighlightImage(),
               let tex = try? TextureResource(image: img, options: .init(semantic: .color)) else { return }
-        let length: Float = MapScene.mapMeters * 1.42 + 10
+        let length: Float = extent * 1.42 + 10
         let width = Float(map.riverWidth / 100) * 0.92
         var d = MeshDescriptor(name: "water")
         let hw = width / 2, hl = length / 2
@@ -668,7 +692,7 @@ final class MapScene {
         mat.writesDepth = false
         let e = ModelEntity(mesh: mesh, materials: [mat])
         e.name = "water"
-        let M = MapScene.mapMeters
+        let M = extent
         e.position = [M / 2, GroundLayer.water, -M / 2]
         OverlayOrder.apply(e, OverlayOrder.water)
         // 河川は sim (0,12000)→(12000,0) = world (0,-120)→(120,0)（+x かつ +z 方向）

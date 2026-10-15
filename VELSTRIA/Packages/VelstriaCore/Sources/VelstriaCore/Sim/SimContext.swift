@@ -10,7 +10,8 @@ public final class SimContext: @unchecked Sendable {
     public init(master: MasterData, map: MapDefinition = .standard, config: MatchConfig) {
         self.master = master
         self.map = map
-        self.nav = NavGrid(map: map)
+        // 格子の焼き込みは地図ごとに 1 回（NavGrid は不変。経路のキャッシュは決定論的な値だけを持つ）
+        self.nav = NavGrid.shared(for: map)
         self.config = config
     }
 }

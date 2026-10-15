@@ -128,7 +128,9 @@ final class ItemEffectsTests: XCTestCase {
         XCTAssertEqual(hit(&f, a, v, 1000, .physical), 1000 * 120 / 165, accuracy: 1e-6)
         // 10 × (1 − 0.31) − 15 = −8.1（負の防御は受けるダメージを増やす）
         f.s.units[v].stats.armor = 10
-        XCTAssertEqual(hit(&f, a, v, 1000, .physical), 1000 * 120 / (120 + 10 * 0.69 - 15), accuracy: 1e-6)
+        let effectiveDefense = 10.0 * 0.69 - 15.0
+        let expectedDamage = 120_000.0 / (120.0 + effectiveDefense)
+        XCTAssertEqual(hit(&f, a, v, 1000, .physical), expectedDamage, accuracy: 1e-6)
     }
 
     func testSpellbreakerAndMagicPenetration() {

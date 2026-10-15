@@ -4,7 +4,7 @@ import simd
 import VelstriaCore
 
 // 担当: battle-renderer（ステージ）。地面の配合マップと補助マップを地図データから作る（純粋関数、背景スレッド可）。
-// 範囲は地図座標（m）で x, y とも −20…140（地図の外 20 m を含む）。画像の上端が北（y = 140）。
+// 範囲は地図座標（m）で x, y とも −20…152（地図の外 20 m を含む）。画像の上端が北（y = 152）。
 //   配合マップ RGBA: R 土 / G 石畳 / B 川 / A 森の下草（草地は残り）
 //   補助マップ RGBA: R 遮蔽 / G 大きな色むら（0.5 中立）/ B 川の深さ / A 石畳の風化（新セットだけ。0 = 中央のきれいな床）
 // 新セット（StageArtSet.ruins）は拠点の石畳を一様に敷き詰めない: 泉・Core・参道の中央はきれいな床のまま、外へ行くほど
@@ -13,7 +13,7 @@ import VelstriaCore
 
 enum StageSplat {
     static let origin: Float = -20
-    static let span: Float = 160
+    static let span: Float = 172
 
     /// 地面に落ちる影（木の樹冠など）。中心は地図座標（m）。
     struct Shade: Sendable {
@@ -143,7 +143,8 @@ enum StageSplat {
                 var ao: Float = (1 - smoothstep(0, 1.6, dObs)) * 0.75 + (1 - smoothstep(0, 3.4, dObs)) * 0.25
                 ao = max(ao, shadeGrid.shade(at: p))
                 if obstacleGrid.inBrush(p, margin: 0.2) { ao = max(ao, 0.32) }
-                ao = max(ao, smoothstep(0, 10, geo.outsideDistance(p)) * 0.55)
+                // 地図の外は崖の帯（縁から 1〜7 m）へ向かって暗く（その外は StageLayout.edgeSkirt の暗がり）
+                ao = max(ao, smoothstep(0, 7, geo.outsideDistance(p)))
                 let macro = fbm(p * 0.035, seed: 83) * 0.85 + valueNoise(p * 0.21, seed: 89) * 0.15
                 let rd = geo.riverDistance(p)
                 var depth = 1 - smoothstep(0, halfWidth, rd)
@@ -359,6 +360,7 @@ enum StageSplat {
         let geo: StageGeometry
         var rectCells: [Int: [Int]] = [:]
         var circleCells: [Int: [Int]] = [:]
+        var polygonCells: [Int: [Int]] = [:]
         var brushCells: [Int: [Int]] = [:]
 
         init(geo: StageGeometry) {
@@ -375,7 +377,10 @@ enum StageSplat {
             for (i, c) in geo.circles.enumerated() {
                 cover(c.center - c.radius, c.center + c.radius) { circleCells[$0, default: []].append(i) }
             }
-            for (i, b) in geo.brushes.enumerated() { cover(b.min, b.max) { brushCells[$0, default: []].append(i) } }
+            for (i, b) in geo.polygonBounds.enumerated() { cover(b.min, b.max) { polygonCells[$0, default: []].append(i) } }
+            if geo.brushField == nil {
+                for (i, b) in geo.brushes.enumerated() { cover(b.min, b.max) { brushCells[$0, default: []].append(i) } }
+            }
         }
 
         func key(_ p: SIMD2<Float>) -> Int {
@@ -387,10 +392,14 @@ enum StageSplat {
             var d = limit
             for i in rectCells[k] ?? [] { d = min(d, rectDistance(p, geo.rects[i].min, geo.rects[i].max)) }
             for i in circleCells[k] ?? [] { d = min(d, simd_distance(p, geo.circles[i].center) - geo.circles[i].radius) }
+            for i in polygonCells[k] ?? [] where rectDistance(p, geo.polygonBounds[i].min, geo.polygonBounds[i].max) < d {
+                d = min(d, polygonDistance(p, geo.polygons[i]))
+            }
             return d
         }
 
         func inBrush(_ p: SIMD2<Float>, margin: Float) -> Bool {
+            if geo.brushField != nil { return geo.brushDistance(p) < margin }
             for i in brushCells[key(p)] ?? [] where rectDistance(p, geo.brushes[i].min, geo.brushes[i].max) < margin { return true }
             return false
         }
@@ -428,7 +437,12 @@ struct StageGeometry {
     let lanes: [[SIMD2<Float>]]
     let rects: [(min: SIMD2<Float>, max: SIMD2<Float>)]
     let circles: [(center: SIMD2<Float>, radius: Float)]
+    /// 多角形の壁（反時計回り、地図座標 m）と外接矩形。
+    let polygons: [[SIMD2<Float>]]
+    let polygonBounds: [(min: SIMD2<Float>, max: SIMD2<Float>)]
     let brushes: [(min: SIMD2<Float>, max: SIMD2<Float>)]
+    /// 草むらが細かい格子（MapDefinition.bushMask）のとき: 格子と、各セルから最も近い草むらのセルまでの距離（m）。
+    let brushField: (mask: BushMask, meters: [Float])?
     let mapMeters: Float
 
     init(map: MapDefinition) {
@@ -436,15 +450,28 @@ struct StageGeometry {
         lanes = map.lanes.map { lane in map.lanePath(lane, for: .blue).map(m) }
         var rects: [(SIMD2<Float>, SIMD2<Float>)] = []
         var circles: [(SIMD2<Float>, Float)] = []
+        var polygons: [[SIMD2<Float>]] = []
         for o in map.obstacles {
             switch o {
             case .rect(let r): rects.append((m(Vec2(r.minX, r.minY)), m(Vec2(r.maxX, r.maxY))))
             case .circle(let c, let radius): circles.append((m(c), Float(radius / Balance.unitsPerMeter)))
+            case .polygon(let points): polygons.append(points.map(m))
             }
         }
         self.rects = rects.map { (min: $0.0, max: $0.1) }
         self.circles = circles.map { (center: $0.0, radius: $0.1) }
+        self.polygons = polygons
+        polygonBounds = polygons.map { pts in
+            (min: pts.reduce(SIMD2<Float>(repeating: .greatestFiniteMagnitude)) { simd_min($0, $1) },
+             max: pts.reduce(SIMD2<Float>(repeating: -.greatestFiniteMagnitude)) { simd_max($0, $1) })
+        }
         brushes = map.brushes.map { (min: m(Vec2($0.rect.minX, $0.rect.minY)), max: m(Vec2($0.rect.maxX, $0.rect.maxY))) }
+        if let mask = map.bushMask {
+            let cellMeters = Float(mask.cell / Balance.unitsPerMeter)
+            brushField = (mask, mask.distanceField().map { $0 * cellMeters })
+        } else {
+            brushField = nil
+        }
         mapMeters = Float(map.size / Balance.unitsPerMeter)
     }
 
@@ -455,10 +482,20 @@ struct StageGeometry {
         var d = Float.greatestFiniteMagnitude
         for r in rects { d = min(d, rectDistance(p, r.min, r.max)) }
         for c in circles { d = min(d, simd_distance(p, c.center) - c.radius) }
+        for (i, poly) in polygons.enumerated() where rectDistance(p, polygonBounds[i].min, polygonBounds[i].max) < d {
+            d = min(d, polygonDistance(p, poly))
+        }
         return d
     }
 
     func brushDistance(_ p: SIMD2<Float>) -> Float {
+        if let f = brushField {
+            // 格子: セルの中心どうしの距離から半セル引いて、草むらの縁までの距離にする（草むらの中は負）
+            let sim = Vec2(Double(p.x) * Balance.unitsPerMeter, Double(p.y) * Balance.unitsPerMeter)
+            guard let q = f.mask.index(at: sim) else { return .greatestFiniteMagnitude }
+            let half = Float(f.mask.cell / Balance.unitsPerMeter) / 2
+            return f.mask.cells[q] != 0 ? -half : f.meters[q] - half
+        }
         var d = Float.greatestFiniteMagnitude
         for b in brushes { d = min(d, rectDistance(p, b.min, b.max)) }
         return d
@@ -496,6 +533,20 @@ func segmentDistance(_ p: SIMD2<Float>, _ a: SIMD2<Float>, _ b: SIMD2<Float>) ->
     let len2 = simd_length_squared(ab)
     let t = len2 > 0 ? max(0, min(1, simd_dot(p - a, ab) / len2)) : 0
     return simd_distance(p, a + ab * t)
+}
+
+/// 多角形までの距離（内側は負: 最も近い辺までの距離）。
+func polygonDistance(_ p: SIMD2<Float>, _ poly: [SIMD2<Float>]) -> Float {
+    var d = Float.greatestFiniteMagnitude
+    var inside = false
+    var j = poly.count - 1
+    for i in poly.indices {
+        let a = poly[i], b = poly[j]
+        d = min(d, segmentDistance(p, a, b))
+        if (a.y > p.y) != (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x { inside.toggle() }
+        j = i
+    }
+    return inside ? -d : d
 }
 
 /// 矩形までの距離（内側は負: 最も近い辺までの距離）。

@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import VelstriaCore
 import Metal
 import RealityKit
 import UIKit
@@ -48,6 +49,7 @@ final class StageScene {
                 """)
         }
         buildGround(material: materials.ground)
+        add(plan.layout.edgeSkirt, name: "stageEdgeSkirt", material: materials.flora, castsShadow: false)
         let chunks = plan.layout.chunks
         for key in Set(chunks.props.keys).union(chunks.rocks.keys).union(chunks.flora.keys).sorted() {
             add(chunks.rocks[key], name: "stageRock_\(key)", material: materials.rock)
@@ -109,10 +111,10 @@ final class StageScene {
         return e
     }
 
-    /// 地面: 地図の外 40 m まで覆う 1 枚の板（配合マップの外は端の値＝森の下草が続く）。
+    /// 地面: 地図の外 70 m まで覆う 1 枚の板（配合マップの外は端の値＝森の下草が続く）。
     private func buildGround(material: CustomMaterial) {
         var b = StageMeshBuffer(reserveVertices: 4)
-        let lo: Float = -40, hi: Float = 160
+        let lo: Float = -70, hi: Float = Float(MapDefinition.relayout.size / Balance.unitsPerMeter) + 70
         let up = SIMD3<Float>(0, 1, 0)
         let c = stageColor(0.5, 0.5, 0.5, 0)
         let i0 = b.addVertex([lo, GroundLayer.ground, -lo], up, [0, 0], c)

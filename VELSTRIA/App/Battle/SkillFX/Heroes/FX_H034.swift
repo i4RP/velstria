@@ -306,19 +306,20 @@ enum FX_H034: HeroFXSet {
             m.hold(0.14) { $0.glow = 2.0; $0.hipsDrop = 0.2 }
             m.settle(0.14)
         case .ultimate:
-            // 掴みかかって鎖で縛り（0.25 秒）、左右交互に叩き伏せる（0.25 / 0.57 / 0.89 / 1.21 / 1.53 秒。6 撃目は戻りの間）
+            // 掴みかかって鎖で縛り、左右交互に叩き伏せる（撃は 0.25 秒から 0.32 秒おき。奥義のモーションの上限 1.7 秒に収めるため
+            // 振りかぶりを短くし、5〜6 撃目は戻りの間に演出だけで見せる）
             m.brace(0.06, depth: 0.14)
-            m.overhead(0.13)
+            m.overhead(0.08)
             m.smash(0.06)
-            m.overhead(0.2)
+            m.overhead(0.14)
             m.smash(0.12)
-            m.windup(0.2, side: 1, power: 1.1)
+            m.windup(0.14, side: 1, power: 1.1)
             m.slash(0.12, side: 1, power: 1.2)
-            m.overhead(0.2)
+            m.overhead(0.14)
             m.smash(0.12)
-            m.windup(0.2, side: -1, power: 1.1)
+            m.windup(0.14, side: -1, power: 1.1)
             m.slash(0.12, side: -1, power: 1.2)
-            m.settle(0.14)
+            m.settle(0.08)
         }
     }
 }
