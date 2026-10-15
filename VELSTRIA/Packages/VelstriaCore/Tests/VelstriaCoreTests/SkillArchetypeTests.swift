@@ -752,7 +752,10 @@ final class SkillArchetypeTests: XCTestCase {
         for hero in MasterData.shared.heroes {
             var w = SkillWorld()
             let a = w.addHero(hero.heroID, team: .blue, at: skillArena, level: 12, ranks: [4, 4, 3])
-            let foe = w.addHero("H013", team: .red, at: skillArena + Vec2(250, 0), level: 12)
+            // 相手は中心間 250。フランコ（H034）の奥義の射程は縁まで 188（MLBB の画面収録で測った照準の円 1.88。docs/kits/Franco.md）で、
+            // 250 は届かないので 230 に置く（188 + 半径 55 = 243 の内側）
+            let gap: Double = hero.heroID == "H034" ? 230 : 250
+            let foe = w.addHero("H013", team: .red, at: skillArena + Vec2(gap, 0), level: 12)
             for slot in SkillSlot.actives {
                 XCTAssertTrue(w.cast(a, slot, .unit(w.id(foe))), "\(hero.heroID) \(slot)")
                 w.run(seconds: 1.2)
@@ -761,7 +764,7 @@ final class SkillArchetypeTests: XCTestCase {
                 w.s.units[foe].hp = w.s.units[foe].stats.maxHP
                 w.s.units[foe].statuses.removeAll()
                 w.s.units[foe].displacement = nil
-                w.s.units[foe].pos = w.s.units[a].pos + Vec2(250, 0)
+                w.s.units[foe].pos = w.s.units[a].pos + Vec2(gap, 0)
             }
             XCTAssertEqual(w.castEvents.count, 3, hero.heroID)
             XCTAssertGreaterThan(w.damage(to: foe) + w.s.units[a].totalShield, 0, hero.heroID)

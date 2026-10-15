@@ -8,21 +8,25 @@ import Foundation
 //                           次に使うスキルが闘気をすべて消費し、そのスキルのダメージを最大 +150%。ダメージで解除。
 //                           たまる速さ（1 秒に 1 つ）と 1 つあたり（+15%）は推測（公式の文に無い）。
 //                           ロール「サポート」の味方回復パッシブ・奥義の味方回復はキットが置き換える。
-//   スキル1 鎖鉤           — 非貫通の鉤。最初に当たった敵（ミニオン・モンスター含む、タワーは除く）に
-//                           400〜650（+100% 物理攻撃）、自分の足元まで引き寄せる。引き寄せの間はスタン
-//                           （Fandom の「Stunned」: Iron Hook はスタン + 引き寄せ。MLBB の引き寄せは発動中のスキルを中断する）。
+//   スキル1 鎖鉤           — 0.33 秒の振りかぶりの後に飛ぶ非貫通の鉤（射程 823・半幅 35・毎秒 1515）。最初に当たった敵
+//                           （ミニオン・モンスター含む、タワーは除く）に 400〜650（+100% 物理攻撃）。当たった敵はその場でスタンし
+//                           （Fandom の「Stunned」: Iron Hook はスタン + 引き寄せ。動画でも「スタン」の表示）、0.45 秒後に 0.25 秒で
+//                           足元へ引き寄せられ、着地でさらに 0.6 秒スタン（命中から合計 1.3 秒）。
 //                           壁は越えて飛び、引き寄せも壁を越える（足元が壁の中なら壁の手前まで。Kit.pullIgnoringTerrain）。
-//   スキル2 鉄鎖旋         — 自身中心の範囲に 300〜450（+自身の最大 HP の 4%）の物理ダメージ、70% 減速 1.5 秒。
-//   アルティメット 狩猟鎖獄 — 射程内の敵ヒーロー 1 体を、その場で 1.8 秒 suppress（解除不可・CC 無効も無視）し、その間に 6 回
-//                           50 / 60 / 70（+70% 物理攻撃）で殴る。ゴルムは動かない（MLBB の Bloody Hunt に踏み込みは無い。
-//                           バインド中も撃てる）。拘束中はゴルムも動けず、スタン等で中断されると相手は解放される。
+//   スキル2 鉄鎖旋         — 0.27 秒の振りかぶりの後、発動の位置の周り（半径 257）に 300〜450（+自身の最大 HP の 4%）の
+//                           物理ダメージ、70% 減速 1.5 秒。
+//   アルティメット 狩猟鎖獄 — 射程内（縁まで 188）の敵ヒーロー 1 体へ 0.25 秒で掴みかかり、その場で 1.8 秒 suppress（解除不可・
+//                           CC 無効も無視）。掴んだ瞬間から 0.32 秒おきに 6 回 50 / 60 / 70（+70% 物理攻撃）で殴る。ゴルムは
+//                           動かない（MLBB の Bloody Hunt に踏み込みは無い。バインド中も撃てる）。掴みかかりと拘束の間はゴルムも
+//                           動けず、スタン等で中断されると相手は解放される。
+// 幾何と時間は MLBB の画面収録で測った値（docs/kits/Franco.md「動画で測った値（2026-10-16）」。距離は MLBB × 100）。
 // ダメージ = 公式の基礎[Lv] + 係数 × 能力値（Kit.official）。全体の倍率・キットの換算・ダメージの上限は無い。CD・マナ消費も公式の表。
 // スキル吸収率・攻撃エフェクト・ミニオン / モンスターへの補正は日本語クライアントの文に無いので既定（吸収 100%・補正なし）。
 // 再使用の窓は Franco に無いので使わない。
 //
 // 状態（KitState）:
 //   ints[0]   = 闘気（0..10）            ints[1] = 「5 秒の無被弾」状態に入っているか（0/1）
-//   ints[2]   = 奥義の段（0 = なし / 1 = 拘束中）   ints[3] = 拘束中に殴った回数
+//   ints[2]   = 奥義の段（0 = なし / 1 = 拘束中 / 2 = 掴みかかり中）   ints[3] = 拘束中に殴った回数
 //   ints[4]   = 命中した鉤の数（検証用）  ints[5] = 直前のスキルが消費した闘気の数（検証用）
 //   ints[6]   = 無被弾の間に闘気を消費した（1 = 次にダメージを受けるまで闘気はたまらない）
 //   timers[0] = 最後のダメージからの待ち（5 秒）  timers[1] = 次の闘気まで   timers[2] = 次の回復まで
@@ -125,20 +129,27 @@ struct Kit_H034: HeroKit {
         /// 「ダメージを受けるまで続く」加速のステータスに持たせる持続（実質無期限）。
         static let permanent = 1_000_000.0
 
-        // S1 鎖鉤
-        /// 射程・幅・速さは推測（日本語クライアントの文に無い）。
-        static let hookRange = 680.0
-        /// 鉤の当たり幅（半径）。ヒーロー半径 55 と合わせて、左右 110 の筋に届く。
-        static let hookWidth = 55.0
-        static let hookSpeed = 1800.0
-        /// 引き寄せの所要時間（推測。この間は強制移動で動けない）。
-        static let hookPull = 0.30
-        /// 引き寄せた後に止まる、端同士の隙間。
-        static let hookGap = 10.0
-        /// 引き寄せの間のスタン（= hookPull。着いたあとの追加のスタンは無い）。日本語クライアントの文には無いが、Fandom の「Stunned」の頁に
-        /// Iron Hook が「スタン + 引き寄せ」として載る。MLBB の引き寄せは移動・通常攻撃・スキルを封じ、発動中のスキルを中断する。
-        /// Velstria の強制移動は移動・行動を封じるが中断はしないので、中断はこのスタン（基本の段階）で起こす。
-        static let hookStun = hookPull
+        // S1 鎖鉤（幾何と時間は動画で測った値。docs/kits/Franco.md「動画で測った値（2026-10-16）」。距離は MLBB × 100）
+        /// 射程 = 照準の円の半径 8.23。
+        static let hookRange = 823.0
+        /// 鉤の当たり幅（半径）= 照準の線の半幅 0.35。ヒーロー半径 55 と合わせて、左右 90 の筋に届く。
+        static let hookWidth = 35.0
+        /// 鉤の速さ（毎秒 15.1。鉤の頭が 1 コマに 31.5 px）。射程の端まで 0.54 秒。
+        static let hookSpeed = 1515.0
+        /// 指を離してから鉤が飛び出すまで（振りかぶり 10 コマ）。この間にスタン以上を受けると鉤は出ない（コスト・CD は戻らない）。
+        static let hookDelay = 0.33
+        /// 命中から引き寄せが始まるまで（相手はその場でスタンしたまま。13〜14 コマ）。
+        static let hookHold = 0.45
+        /// 引き寄せの所要時間（8 コマ。距離に関わらず一定とした）。この間は強制移動で動けない。
+        static let hookPull = 0.25
+        /// 引き寄せた後に止まる、端同士の隙間（測った中心間の距離 1.38 = ヒーロー半径 55 × 2 + 28）。
+        static let hookGap = 28.0
+        /// 命中から引き寄せ終わるまでのスタン（hookHold + hookPull = 0.70 秒。動画の「スタン」の表示 21 コマ）。日本語クライアントの文には
+        /// 無いが、Fandom の「Stunned」の頁に Iron Hook が「スタン + 引き寄せ」として載る。MLBB の引き寄せは移動・通常攻撃・スキルを封じ、
+        /// 発動中のスキルを中断する。Velstria の強制移動は移動・行動を封じるが中断はしないので、中断はこのスタン（基本の段階）で起こす。
+        static let hookStun = hookHold + hookPull
+        /// 着地のスタン（引き寄せの後に新しく付く。動画の 2 つ目の「スタン」の表示 16 コマ + 表示の切れ目 2 コマ）。命中から合計 1.3 秒。
+        static let hookLandStun = 0.6
         static let hookStunTag = KitTags.buff("H034", "hookStun")
         /// 公式: Lv1〜6 の基礎ダメージ（+100% 物理攻撃 = 合計の物理攻撃）。
         static let hookBase: [Double] = [400, 450, 500, 550, 600, 650]
@@ -148,8 +159,10 @@ struct Kit_H034: HeroKit {
         static let hookCost: [Double] = [135, 140, 145, 150, 155, 160]
 
         // スキル2 鉄鎖旋
-        /// 半径は推測（日本語クライアントの文に無い）。
-        static let shockRadius = 260.0
+        /// 半径 = 照準の円の半径 2.57（2 回の照準で 2.577 / 2.570）。対象の半径まで含めて当たる。
+        static let shockRadius = 257.0
+        /// 指を離してから叩きつけ（ダメージ）まで（7.5〜8.5 コマ）。発動の位置の周りに当たる。この間にスタン以上を受けると出ない。
+        static let shockDelay = 0.27
         static let shockSlow = 0.70
         static let shockSlowDuration = 1.5
         static let shockSlowTag = KitTags.buff("H034", "shockSlow")
@@ -161,13 +174,18 @@ struct Kit_H034: HeroKit {
         static let shockCost: [Double] = [40, 45, 50, 55, 60, 65]
 
         // 奥義 狩猟鎖獄
-        /// 術者の中心から対象の縁までの射程（推測。公式は「対象の敵ヒーロー」だけで距離は無い）。踏み込みは無いので、この距離のまま拘束する。
-        static let ultReach = 350.0
+        /// 術者の中心から対象の縁までの射程 = 照準の円の半径 1.88（動画で測った値）。踏み込みは無いので、この距離のまま拘束する。
+        static let ultReach = 188.0
+        /// 指を離してから掴む（制圧と 1 撃目）まで（7〜7.5 コマ）。この間はゴルムも動けず、スタン以上で取り消される。
+        static let ultDelay = 0.25
+        /// 掴みかかりの間に対象が射程（縁まで ultReach）から離れてよい距離（推測。0.25 秒に歩ける距離 + 余裕）。超えたら掴めない。
+        static let ultLeash = 100.0
         static let ultSuppress = 1.8
         static let ultHits = 6
-        /// 拘束してから最初の 1 撃まで・撃つ間隔（推測。6 回が拘束の 1.8 秒に収まる: 0.15, 0.45, ... 1.65）。
-        static let ultFirst = 0.15
-        static let ultInterval = 0.30
+        /// 1 撃目は掴んだ瞬間、以後 0.32 秒おき（0, 0.32, ..., 1.60 秒。動画の 6 撃は掴んでから 0 / 10 / 20 / 30 / 38 / 48 コマで、
+        /// 等間隔の当てはめが 9.5 コマ = 0.32 秒）。6 撃目のあと 0.2 秒で拘束が解ける。
+        static let ultFirst = 0.0
+        static let ultInterval = 0.32
         /// 公式: Lv1〜3 の 1 撃の基礎ダメージ（+70% 物理攻撃 = 合計の物理攻撃）。6 回の合計に上限は無い。
         static let ultHitBase: [Double] = [50, 60, 70]
         static let ultHitAttackRatio = 0.7
@@ -183,6 +201,16 @@ struct Kit_H034: HeroKit {
 
     private enum Code {
         static let strike = 1
+        /// 鉤が飛び出す（振りかぶりの終わり。point = 向き、param = ダメージ）。
+        static let hookLaunch = 2
+        /// 命中した相手を引き寄せ始める（targetID = 相手）。
+        static let hookYank = 3
+        /// 引き寄せの終わりの着地のスタン（targetID = 相手）。
+        static let hookLand = 4
+        /// スキル2 の叩きつけ（point = 中心、param = ダメージ）。
+        static let shockSlam = 5
+        /// 奥義の掴み（掴みかかりの終わり。targetID = 相手）。
+        static let ultGrab = 6
     }
 
     /// HitPayload.kitEvent
@@ -231,8 +259,10 @@ struct Kit_H034: HeroKit {
             n.damage = Self.hookDamage(rank: rank, stats: stats)
             n.cooldown = Kit.cooldown(Tune.hookCooldown, rank: rank, stats: stats)
             n.cc = .stun
-            n.ccDuration = Tune.hookStun
+            // HUD・AI 用: 命中から動けない時間の合計（その場のスタン + 引き寄せ + 着地のスタン）
+            n.ccDuration = Tune.hookStun + Tune.hookLandStun
             n.extras = [KitStat(key: "stun", value: Tune.hookStun),
+                        KitStat(key: "landStun", value: Tune.hookLandStun),
                         KitStat(key: "pull", value: Tune.hookPull),
                         KitStat(key: "reachMult", value: Tune.hookRange / hero.attackRange),
                         KitStat(key: "base", value: Kit.level(Tune.hookBase, rank: rank)),
@@ -295,10 +325,10 @@ struct Kit_H034: HeroKit {
         case .skill1:
             return KitText(
                 ja: "指定方向へ鎖鉤を放ち（届くのは近接攻撃の射程の約{reachMult}倍）、最初に命中した敵に{base}(+{atkPct}%物理攻撃)の物理ダメージを与え、自身の元へ引き寄せる。\n\n"
-                    + "引き寄せの間（{stun}秒）、対象はスタン状態になる。鉤は壁を越えて飛び、引き寄せも壁を越える（自身の前が壁の中なら壁の手前まで）。タワーには当たらない。",
+                    + "対象は引き寄せが終わるまで（{stun}秒）スタン状態になり、着地でさらに{landStun}秒スタンする。鉤は壁を越えて飛び、引き寄せも壁を越える（自身の前が壁の中なら壁の手前まで）。タワーには当たらない。",
                 en: "Launch the chain hook in the target direction (reaching about {reachMult}x the melee attack range), dealing {base} (+{atkPct}% Physical Attack) "
                     + "physical damage to the first enemy hit and pulling them to Gorm.\n\n"
-                    + "The target is stunned while being pulled ({stun}s). The hook flies over walls and pulls through them too (if the spot in front of Gorm is inside a wall, the pull stops at the wall); it does not hit turrets.",
+                    + "The target is stunned until the pull ends ({stun}s) and for another {landStun}s on landing. The hook flies over walls and pulls through them too (if the spot in front of Gorm is inside a wall, the pull stops at the wall); it does not hit turrets.",
                 tags: [KitTag.disrupt, KitTag.damage])
         case .skill2:
             return KitText(
@@ -343,9 +373,12 @@ struct Kit_H034: HeroKit {
                                      facing: Vec2.fromAngle(s.units[caster].facing)))
     }
 
-    /// 奥義の最中は、他のスキルも奥義も撃てない（鎖で相手と繋がっている）。
+    /// 奥義の最中（掴みかかり・拘束）は、他のスキルも奥義も撃てない（鎖で相手と繋がっている）。鉤・S2 の振りかぶりの間も、
+    /// 次のスキルは始められない（MLBB の発動の動作の間。動画の振りかぶり 0.33 / 0.27 秒）。
     func canStart(_ s: SimState, _ ctx: SimContext, caster: Int, slot: SkillSlot) -> Bool {
-        (s.units[caster].hero?.kit?.gormUltPhase ?? 0) == 0
+        guard let k = s.units[caster].hero?.kit else { return true }
+        guard k.gormUltPhase == 0 else { return false }
+        return !k.scheduled.contains { $0.code == Code.hookLaunch || $0.code == Code.shockSlam }
     }
 
     func cast(_ s: inout SimState, _ ctx: SimContext, _ c: KitCast) -> KitCastOutcome {
@@ -369,53 +402,89 @@ struct Kit_H034: HeroKit {
         return 1 + Tune.stackBonus * Double(n)
     }
 
-    /// S1: 非貫通の鉤。最初に当たった敵へダメージ + スタン（引き寄せの間）+ 足元への引き寄せ。
+    /// S1: 振りかぶり（hookDelay）の後に非貫通の鉤が飛ぶ（onTimer の hookLaunch）。闘気は発動の時に消費し、ダメージに掛けておく。
+    /// 振りかぶりの間にスタン以上を受けると鉤は出ない（予約は interruptible。コスト・CD は戻らない）。
     private func castHook(_ s: inout SimState, _ c: KitCast) {
         let i = c.caster
         let amp = consumeStacks(&s, i)
-        let stun = StatusEffect(kind: .stun, duration: Tune.hookStun, sourceID: s.units[i].id, tag: Tune.hookStunTag)
-        // 引き寄せは onHit（hookPull。壁越しでも足元まで運ぶ）
-        let p = HitPayload(damage: c.numbers.damage * amp, damageType: c.numbers.damageType, source: .skill(.skill1),
-                           statuses: [stun], skillID: c.check.skill.skillID,
-                           originPos: s.units[i].pos, kitEvent: Event.hook)
         Kit.emitCast(&s, c, target: s.units[i].pos + c.aim.direction * Tune.hookRange, unit: c.aim.unit,
-                     shape: .wideLine, duration: Tune.hookRange / Tune.hookSpeed, count: 1)
-        ProjectileSystem.spawn(&s, ownerIndex: i, motion: .linear(direction: c.aim.direction, maxDistance: Tune.hookRange),
-                               speed: Tune.hookSpeed, width: Tune.hookWidth, pierce: false, payload: p,
-                               visual: c.check.skill.effectID)
+                     shape: .wideLine, duration: Tune.hookDelay + Tune.hookRange / Tune.hookSpeed, count: 1)
+        Kit.schedule(&s, caster: i, slot: .skill1, code: Code.hookLaunch, after: Tune.hookDelay,
+                     param: c.numbers.damage * amp, point: c.aim.direction, interruptible: true)
     }
 
-    /// S2: 自身中心の円。公式の基礎 + 自分の最大 HP の 4%（numbers に含まれる）に闘気の補正、70% 減速。
+    /// S1 の鉤が飛び出す: 今の位置から、発動の時の向きへ。最初に当たった敵へダメージ + スタン（その場 + 引き寄せの間）、
+    /// 引き寄せと着地のスタンは onHit から予約する（hookYank → hookLand）。
+    private func launchHook(_ s: inout SimState, _ ctx: SimContext, owner i: Int, timer: KitTimer) {
+        let dir = timer.point.normalized
+        guard dir != .zero else { return }
+        let stun = StatusEffect(kind: .stun, duration: Tune.hookStun, sourceID: s.units[i].id, tag: Tune.hookStunTag)
+        let skill = ctx.master.skill(hero: heroID, slot: .skill1)
+        let p = HitPayload(damage: timer.param, damageType: .physical, source: .skill(.skill1),
+                           statuses: [stun], skillID: skill?.skillID,
+                           originPos: s.units[i].pos, kitEvent: Event.hook)
+        ProjectileSystem.spawn(&s, ownerIndex: i, motion: .linear(direction: dir, maxDistance: Tune.hookRange),
+                               speed: Tune.hookSpeed, width: Tune.hookWidth, pierce: false, payload: p,
+                               visual: skill?.effectID ?? "")
+    }
+
+    /// S2: 振りかぶり（shockDelay）の後に、発動の位置の周りへ叩きつける（onTimer の shockSlam）。闘気は発動の時に消費する。
     private func castShock(_ s: inout SimState, _ ctx: SimContext, _ c: KitCast) {
         let i = c.caster
         let amp = consumeStacks(&s, i)
+        let origin = s.units[i].pos
+        Kit.emitCast(&s, c, target: origin, shape: .selfRing, duration: Tune.shockDelay, count: 1)
+        Kit.schedule(&s, caster: i, slot: .skill2, code: Code.shockSlam, after: Tune.shockDelay,
+                     param: c.numbers.damage * amp, point: origin, interruptible: true)
+    }
+
+    /// S2 の叩きつけ: 円（半径 shockRadius + 対象の半径）に公式の基礎 + 自分の最大 HP の 4%（numbers に含まれる）に闘気の補正、70% 減速。
+    private func slam(_ s: inout SimState, _ ctx: SimContext, owner i: Int, timer: KitTimer) {
         let slow = StatusEffect(kind: .slow, duration: Tune.shockSlowDuration, magnitude: Tune.shockSlow,
                                 sourceID: s.units[i].id, tag: Tune.shockSlowTag)
-        let p = HitPayload(damage: c.numbers.damage * amp, damageType: c.numbers.damageType, source: .skill(.skill2),
-                           statuses: [slow], skillID: c.check.skill.skillID, originPos: s.units[i].pos)
-        Kit.emitCast(&s, c, target: s.units[i].pos, shape: .selfRing, count: 1)
-        SkillArchetypes.hitArea(&s, ctx, caster: i, center: s.units[i].pos, radius: c.targeting.radius, shape: .circle,
+        let p = HitPayload(damage: timer.param, damageType: .physical, source: .skill(.skill2),
+                           statuses: [slow], skillID: Self.skillID(ctx, .skill2), originPos: timer.point)
+        SkillArchetypes.hitArea(&s, ctx, caster: i, center: timer.point, radius: Tune.shockRadius, shape: .circle,
                                 payload: p)
     }
 
-    /// 奥義: 射程内の対象を、その場で拘束して 6 回殴る（踏み込みは無い。照準 resolveAim が同じ tick に射程を確かめている）。
+    /// 奥義: 射程内の対象へ掴みかかり（ultDelay。その間ゴルムは動けない）、掴んだらその場で拘束して 6 回殴る（踏み込みは無い。
+    /// 照準 resolveAim が同じ tick に射程を確かめている）。
     private func castHunt(_ s: inout SimState, _ ctx: SimContext, _ c: KitCast) {
         let i = c.caster
         guard let t = c.aim.unit else { return }
         let amp = consumeStacks(&s, i)
+        let id = s.units[i].id
         s.units[i].hero!.kit!.gormUltTarget = s.units[t].id
         s.units[i].hero!.kit!.gormUltDamage = c.numbers.damage * amp
-        Kit.emitCast(&s, c, target: s.units[t].pos, unit: t, shape: .lockOn, duration: Tune.ultSuppress,
+        s.units[i].hero!.kit!.gormUltPhase = 2
+        Kit.emitCast(&s, c, target: s.units[t].pos, unit: t, shape: .lockOn, duration: Tune.ultDelay + Tune.ultSuppress,
                      count: Tune.ultHits)
-        beginLock(&s, ctx, owner: i)
+        // 掴みかかりから拘束の終わりまで、自分に付ける足止め（sourceID = 自分。バインドではない）と詠唱の表示
+        let total = Tune.ultDelay + Tune.ultSuppress
+        CombatSystem.addStatus(&s, targetIndex: i, StatusEffect(kind: .root, duration: total, sourceID: id,
+                                                                 tag: Tune.lockRootTag))
+        CombatSystem.addStatus(&s, targetIndex: i, StatusEffect(kind: .channeling, duration: total, sourceID: id,
+                                                                 tag: Tune.lockTag))
+        let face = s.units[t].pos - s.units[i].pos
+        if face != .zero { s.units[i].facing = face.angle }
+        s.units[i].windupRemaining = nil
+        Kit.schedule(&s, caster: i, slot: .ultimate, code: Code.ultGrab, after: Tune.ultDelay, targetID: s.units[t].id,
+                     interruptible: true)
     }
 
-    /// 拘束の開始: 対象を suppress し、自分は動けない詠唱に入り、6 回の連撃を予約する。成立しなければ何もせず終わる。
+    /// 拘束の開始（掴みかかりの終わり）: 対象を suppress し、6 回の連撃を予約する（1 撃目は同じ tick）。対象が倒れた・射程から
+    /// ultLeash 以上離れた・無敵などで成立しなければ、何もせず終わる（クールダウンは戻らない）。
     private func beginLock(_ s: inout SimState, _ ctx: SimContext, owner i: Int) {
         guard let k = s.units[i].hero?.kit else { return }
         let tid = k.gormUltTarget
         guard tid != 0, let t = s.index(of: tid), CombatSystem.isLiving(s, t), s.units[t].team != s.units[i].team,
               s.units[t].kind == .hero else {
+            endLock(&s, owner: i, release: false)
+            return
+        }
+        let leash = Tune.ultReach + s.units[t].radius + Tune.ultLeash
+        guard s.units[t].pos.distanceSquared(to: s.units[i].pos) <= leash * leash else {
             endLock(&s, owner: i, release: false)
             return
         }
@@ -426,7 +495,8 @@ struct Kit_H034: HeroKit {
             endLock(&s, owner: i, release: false)
             return
         }
-        // 自分に付ける足止め（sourceID = 自分。バインドではない）と詠唱の表示
+        // 自分に付ける足止め（sourceID = 自分。バインドではない）と詠唱の表示。発動の時に付けたもの（掴みかかり + 拘束）を、
+        // 浄化などで外れていても拘束の終わりまで付け直す（同じタグは長い方が残る）
         CombatSystem.addStatus(&s, targetIndex: i, StatusEffect(kind: .root, duration: Tune.ultSuppress, sourceID: id,
                                                                  tag: Tune.lockRootTag))
         CombatSystem.addStatus(&s, targetIndex: i, StatusEffect(kind: .channeling, duration: Tune.ultSuppress,
@@ -437,6 +507,7 @@ struct Kit_H034: HeroKit {
         s.units[i].hero!.kit!.gormUltPhase = 1
         s.units[i].hero!.kit!.gormUltRemaining = Tune.ultSuppress
         s.units[i].hero!.kit!.gormUltStrikes = 0
+        // 1 撃目（firstDelay 0）は同じ tick に入る（KitRuntime.fireTimers が発火中に積まれた 0 秒の予約も消化する）
         Kit.strikeSequence(&s, caster: i, slot: .ultimate, code: Code.strike, count: Tune.ultHits,
                            interval: Tune.ultInterval, firstDelay: Tune.ultFirst, targetID: tid)
     }
@@ -456,9 +527,25 @@ struct Kit_H034: HeroKit {
     }
 
     func onTimer(_ s: inout SimState, _ ctx: SimContext, owner: Int, timer: KitTimer) {
-        guard let k = s.units[owner].hero?.kit, timer.code == Code.strike else { return }
-        guard k.gormUltPhase == 1, k.gormUltTarget == timer.targetID else { return }
-        strike(&s, ctx, owner: owner, timer: timer)
+        guard let k = s.units[owner].hero?.kit else { return }
+        switch timer.code {
+        case Code.strike:
+            guard k.gormUltPhase == 1, k.gormUltTarget == timer.targetID else { return }
+            strike(&s, ctx, owner: owner, timer: timer)
+        case Code.ultGrab:
+            guard k.gormUltPhase == 2, k.gormUltTarget == timer.targetID else { return }
+            beginLock(&s, ctx, owner: owner)
+        case Code.hookLaunch:
+            launchHook(&s, ctx, owner: owner, timer: timer)
+        case Code.hookYank:
+            yank(&s, ctx, owner: owner, timer: timer)
+        case Code.hookLand:
+            land(&s, owner: owner, timer: timer)
+        case Code.shockSlam:
+            slam(&s, ctx, owner: owner, timer: timer)
+        default:
+            break
+        }
     }
 
     /// 拘束中の 1 撃。対象が倒れた・居なくなった・拘束が外れていたら、残りの連撃を取りやめて解放する。
@@ -477,13 +564,33 @@ struct Kit_H034: HeroKit {
         if !CombatSystem.isLiving(s, t) { endLock(&s, owner: i, release: true) }
     }
 
+    /// 鉤の命中: 相手はその場でスタンしたまま（payload のスタン hookStun）、hookHold 秒後に引き寄せが始まる（hookYank）。
+    /// 予約はゴルムが CC を受けても消えない（鉤はすでに掛かっている）。ゴルムが倒れたら消える（死亡でキットの状態は全部リセット）。
     func onHit(_ s: inout SimState, _ ctx: SimContext, owner: Int, target: Int, event: Int, dealt: Double) {
         guard event == Event.hook, s.units[owner].hero?.kit != nil else { return }
         s.units[owner].hero!.kit!.gormHooksLanded += 1
-        Self.hookPull(&s, ctx, owner: owner, target: target)
+        Kit.schedule(&s, caster: owner, slot: .skill1, code: Code.hookYank, after: Tune.hookHold,
+                     targetID: s.units[target].id, interruptible: false)
     }
 
-    /// 鉤の引き寄せ: 足元（端同士の隙間 hookGap）まで直線で運ぶ。鉤は壁を越えて当たるので、引き寄せも壁を無視する
+    /// 引き寄せの始まり: CC 無効・無敵でない相手を引き寄せ、引き寄せの終わり（hookPull 秒後）に着地のスタンを予約する。
+    /// 浄化の呪文（CC 無効が付く）で逃れた相手は引かない。強靭でその場のスタンが短くなっていても引き寄せる（MLBB の引き寄せは強靭で縮まない）。
+    /// すでに足元に居る相手（動かない）も着地のスタンは受ける。
+    private func yank(_ s: inout SimState, _ ctx: SimContext, owner i: Int, timer: KitTimer) {
+        guard let t = s.index(of: timer.targetID), Kit.canDisplace(s, ctx, t) else { return }
+        Self.hookPull(&s, ctx, owner: i, target: t)
+        Kit.schedule(&s, caster: i, slot: .skill1, code: Code.hookLand, after: Tune.hookPull, targetID: timer.targetID,
+                     interruptible: false)
+    }
+
+    /// 着地のスタン（hookLandStun。引き寄せの間のスタンと同じタグ = ボットの「鉤でスタン中」も続く）。CC 無効・無敵には入らない。
+    private func land(_ s: inout SimState, owner i: Int, timer: KitTimer) {
+        guard let t = s.index(of: timer.targetID), CombatSystem.isLiving(s, t) else { return }
+        CombatSystem.addStatus(&s, targetIndex: t, StatusEffect(kind: .stun, duration: Tune.hookLandStun,
+                                                                 sourceID: s.units[i].id, tag: Tune.hookStunTag))
+    }
+
+    /// 鉤の引き寄せ: 足元（端同士の隙間 hookGap）まで直線で、hookPull 秒で運ぶ。鉤は壁を越えて当たるので、引き寄せも壁を無視する
     /// （調査: 地形を無視して引き寄せる）。足元が壁の中などで歩けないときは、壁の手前で止まる（Kit.pullIgnoringTerrain）。
     /// CC 無効・無敵の相手は動かない。
     static func hookPull(_ s: inout SimState, _ ctx: SimContext, owner: Int, target: Int) {
@@ -502,6 +609,14 @@ struct Kit_H034: HeroKit {
         // 奥義の拘束中: 通常攻撃はしない。時間が来たら終わり（相手の拘束は自然に切れる）
         if k.gormUltPhase == 1 {
             if k.gormUltRemaining <= eps {
+                endLock(&s, owner: i, release: false)
+            } else {
+                s.units[i].windupRemaining = nil
+                if s.units[i].attackCooldown < 0.1 { s.units[i].attackCooldown = 0.1 }
+            }
+        } else if k.gormUltPhase == 2 {
+            // 掴みかかりの間も通常攻撃はしない。掴みの予約が消えていたら（想定外の取り消し）終える
+            if Kit.scheduledCount(s, caster: i, code: Code.ultGrab) == 0 {
                 endLock(&s, owner: i, release: false)
             } else {
                 s.units[i].windupRemaining = nil

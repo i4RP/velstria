@@ -287,6 +287,11 @@ Tests/VelstriaCoreTests/Kits/KitTestSupport.swift  KitFrameworkTests.swift  Kit_
   「動画で測った値」。Windows・`swift test -c release`）: `KitBalanceTests` の同ロール中央値との差 +34.3 / +29.5 / **+38.9**（Lv12 は既知の外れ値のまま）、
   ゲームに出す 10 体の総当たり 70.4 / 53.7 / 72.2%、`Kit_H029Tests` の総当たり Lv6 66.7% / Lv12 77.8%。スキル1 が止まった相手に 1〜2 回しか当たらず、
   奥義の半径が 520 → 278 と狭くなったぶん下がった。
+- フランコの幾何と時間を MLBB の画面収録で測った値に変えた後（2026-10-16、`MatchConfig.currentSimVersion` 23 → 24。docs/kits/Franco.md
+  「動画で測った値」。Windows・`swift test -c release`）: `KitBalanceTests` のヴァンガードの中央値との差 +8.1 / +22.0 / +24.7 → +3.5 / +18.9 / +26.3、
+  ゲームに出す 10 体の総当たり 44.4 / 35.2 / 25.9 → 44.4 / 22.2 / 25.9%、`Kit_H034Tests` の総当たり Lv6 82% → 79% / Lv12 79% → 79%、
+  ロール代表との TTK 12.1〜22.1 → 13.1〜24.0 秒（17 → 16 / 18 勝）。鉤・S2・奥義に振りかぶりが入り、奥義の射程が 350 → 188 と短くなったぶん下がった
+  （鉤の射程 680 → 823 と命中から 1.3 秒のスタンで一部を取り戻す）。
 
 ## 進め方
 

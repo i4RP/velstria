@@ -23,6 +23,13 @@
   python measure.py montage --frames F --box 380,40,980,380 --scale 0.5 196 198 200 204   # コマの一覧（目視用）
   python measure.py diff   --frames F 40 35 --gain 4    # 差分画像（照準の縁を見る）
 
+Franco（docs/kits/Franco.md）で足したもの（カメラは Tigreal の cam.json をそのまま使う）:
+  python measure.py arc    --frames F --ref 100 --at 80,84,88,92 --r0 7 --r1 9.5 --skip 25:50 --name s1   # 画面に収まらない大きな照準の円
+  python measure.py lines  --frames F --ref 100 --at 80,84,88,92 --axis 37 --s0 1 --s1 7    # 線の照準の断面（向きと半幅）
+  python measure.py tip    --frames F --ref 104 --from 107 --to 116 --p0 625,235 --p1 745,178 --theta 40.6 --smax 215   # 飛ぶ鉤の頭の速さ
+  python measure.py bar    --frames F --tpl 178:570,146,640,170 --from 100 --to 160   # 的の体力バーの位置と CC の時間のバー（引き寄せ・CC の時刻）
+  python measure.py walk   --frames F --from 500 --to 510   # 歩きの特徴点の変位の分布（床の塊 = 最も遅い山）
+
 依存: numpy, opencv-python-headless, scipy（pip install numpy opencv-python-headless scipy）。
 """
 from __future__ import annotations
@@ -594,6 +601,183 @@ def cmd_diff(args):
     print(path)
 
 
+def cmd_arc(args):
+    """画面に収まらない大きな照準の円（Franco の鉤の射程など）: カメラ（cam.json）を固定して、術者から地面の放射に沿って
+    照準の差分の強さが最大の半径（山の重心）を拾う。ring と違い楕円を当てはめないので、円の一部しか見えなくてよい。
+    --skip で照準の線・扇の向き（度）を、--exclude で UI の箱を除く。結果は ring_<name>.json（camera に渡せる）。"""
+    fr = Frames(args.frames, args.pattern)
+    cam = load_cam(args)
+    sc = cyan_score(fr, [int(a) for a in args.at.split(",")], args.ref)
+    H, W = sc.shape
+    boxes = parse_boxes(args.exclude) + [DEFAULT_UI[0]]
+    skips = [tuple(float(v) for v in s.split(":")) for s in (args.skip or [])]
+    s = cam.s or 1.0
+    out = []
+    for deg in np.arange(-180, 180, args.step):
+        if any(a0 <= deg <= a1 for a0, a1 in skips):
+            continue
+        t = math.radians(deg)
+        rs = np.arange(args.r0, args.r1, 0.005) * s
+        u, v = cam.project(rs * math.cos(t), rs * math.sin(t))
+        ok = (u >= 1) & (u < W - 2) & (v >= 1) & (v < H - 2)
+        if ok.sum() < len(rs) * 0.9:
+            continue
+        vals = map_coordinates(sc, [v, u], order=1, cval=-1e9)
+        i = int(np.argmax(vals))
+        if vals[i] < args.min or in_boxes(u[i], v[i], boxes):
+            continue
+        j0, j1 = max(0, i - 16), min(len(rs), i + 17)
+        w = np.clip(vals[j0:j1] - vals[j0:j1].min(), 0, None)
+        rc = float((rs[j0:j1] * w).sum() / w.sum()) if w.sum() > 0 else float(rs[i])
+        out.append((deg, rc, float(u[i]), float(v[i])))
+    if not out:
+        raise SystemExit("縁が見つからない（--r0/--r1・--min・--ref を見直す）")
+    A = np.array(out)
+    med = np.median(A[:, 1])
+    good = np.abs(A[:, 1] - med) < 0.15 * s
+    unit = (lambda px: f"{px:.1f} px = {px / cam.s:.3f} 単位") if cam.s else (lambda px: f"{px:.1f} px")
+    for lo in range(-180, 180, 30):
+        m = (A[:, 0] >= lo) & (A[:, 0] < lo + 30)
+        if m.sum():
+            print(f"  {lo:+4d}°: {unit(float(np.median(A[m, 1])))}（{m.sum()} 点）")
+    print(f"{args.name}: 半径 {unit(float(A[good, 1].mean()))} ± {A[good, 1].std():.2f} px（{good.sum()} 点、角度 "
+          f"{A[:, 0].min():.0f}〜{A[:, 0].max():.0f}°）")
+    with open(os.path.join(out_dir(args), f"ring_{args.name}.json"), "w", encoding="utf-8") as f:
+        json.dump({"points": A[good][:, 2:4].tolist(), "radius_px": float(A[good, 1].mean())}, f)
+
+
+def cmd_lines(args):
+    """線の照準（鉤・突進の矢印）の断面: 軸（--axis 度）に直交する断面ごとに、照準の差分の山（線）の横の位置を出す。
+    山の横の位置が軸に沿って一定の割合でずれていれば、軸の向きがずれている（ずれ / 奥行き = tan）。左右の線の間 / 2 = 半幅。"""
+    from scipy.signal import find_peaks
+    fr = Frames(args.frames, args.pattern)
+    cam = load_cam(args)
+    sc = cyan_score(fr, [int(a) for a in args.at.split(",")], args.ref)
+    t = math.radians(args.axis)
+    ax = np.array([math.cos(t), math.sin(t)])
+    nr = np.array([-math.sin(t), math.cos(t)])
+    s = cam.s or 1.0
+    rows = []
+    for d in np.arange(args.s0, args.s1, 0.25):
+        es = np.arange(-args.half, args.half, 0.005)
+        P = (d * ax[None, :] + es[:, None] * nr[None, :]) * s
+        u, v = cam.project(P[:, 0], P[:, 1])
+        vals = map_coordinates(sc, [v, u], order=1, cval=0)
+        idx, _ = find_peaks(vals, height=args.min, distance=20)
+        rows.append((d, [float(es[i]) for i in idx]))
+        print(f"奥行き {d:.2f}: 線の横 " + "  ".join(f"{es[i]:+.3f}" for i in idx))
+    # 一番左・一番右の線の直線の当てはめ（向きのずれと半幅）
+    L = np.array([(d, p[0]) for d, p in rows if len(p) >= 2])
+    R = np.array([(d, p[-1]) for d, p in rows if len(p) >= 2])
+    if len(L) >= 3:
+        pl, pr = np.polyfit(L[:, 0], L[:, 1], 1), np.polyfit(R[:, 0], R[:, 1], 1)
+        slope = (pl[0] + pr[0]) / 2
+        half = float(np.mean(np.polyval(pr, L[:, 0]) - np.polyval(pl, L[:, 0]))) / 2 * math.cos(math.atan(slope))
+        mid0 = (pl[1] + pr[1]) / 2
+        print(f"向き {args.axis + math.degrees(math.atan(slope)):.1f}°、半幅 {half:.3f} 単位、術者の位置での中心の横 {mid0:+.3f}"
+              f"（左右の線の開き {math.degrees(math.atan(pr[0]) - math.atan(pl[0])):+.2f}°）")
+
+
+def cmd_tip(args):
+    """飛ぶもの（鉤・弾）の頭: 画面の直線（--p0 → --p1。手元から飛ぶ向き）から --width 以内で、発射前（--ref）とも前のコマとも
+    違う画素の、線に沿った最も先の点。宙に浮いた物は地面へ戻すと奥へずれるので、横の座標 u だけで地面の距離を出す:
+    r = (u − u0) / (cos θ − q (u − u0) sin θ)（θ = 飛ぶ向き。lines で測る）。的の手前まで（--smax）で当てはめる。"""
+    fr = Frames(args.frames, args.pattern)
+    cam = load_cam(args)
+    p0 = np.array([float(v) for v in args.p0.split(",")])
+    p1 = np.array([float(v) for v in args.p1.split(",")])
+    d = (p1 - p0) / np.linalg.norm(p1 - p0)
+    nrm = np.array([-d[1], d[0]])
+    H, W = fr.bgr(args.ref).shape[:2]
+    vs, us = np.mgrid[0:H, 0:W]
+    s_ = (us - p0[0]) * d[0] + (vs - p0[1]) * d[1]
+    e_ = (us - p0[0]) * nrm[0] + (vs - p0[1]) * nrm[1]
+    band = (np.abs(e_) < args.width) & (s_ > args.smin) & (s_ < args.smax)
+    R = fr.f32(args.ref)
+    P = fr.f32(args.start - 1)
+    th = math.radians(args.theta)
+    rows = []
+    for n in range(args.start, args.end):
+        C = fr.f32(n)
+        m = band & (np.abs(C - R).max(axis=2) > args.thr) & (np.abs(C - P).max(axis=2) > args.thr)
+        P = C
+        if m.sum() < 5:
+            print(f"{n}: 動く画素が少ない")
+            continue
+        S = s_[m]
+        k = np.argsort(S)[min(m.sum() - 1, int(args.q * m.sum()))]
+        tu, tv = us[m][k], vs[m][k]
+        du = tu - cam.u0
+        r = du / (math.cos(th) - cam.q * du * math.sin(th))
+        rows.append((n, r))
+        print(f"{n} t={(n - 1) / args.fps:.3f} 頭 ({tu},{tv}) 距離 {r:.1f} px" + (f" = {r / cam.s:.3f} 単位" if cam.s else ""))
+    if len(rows) >= 3:
+        A = np.array(rows)
+        p = np.polyfit(A[:, 0], A[:, 1], 1)
+        res = A[:, 1] - np.polyval(p, A[:, 0])
+        v = p[0] * args.fps
+        print(f"速さ {p[0]:.2f} px/コマ" + (f" = 毎秒 {v / cam.s:.2f} 単位" if cam.s else "")
+              + f"（残差 {res.std():.1f} px）、距離 0 のコマ {-p[1] / p[0]:.2f}")
+
+
+def cmd_bar(args):
+    """的（または味方）の体力バーを追う: --tpl コマ:x0,y0,x1,y1（バッジとバーの左端の箱）のテンプレートで各コマの位置を出す。
+    バーの位置は画面の固定のずれでユニットの足元に付いてくるので、引き寄せ・突進の始まりと終わりのコマが分かる。
+    バーのすぐ上の白い線（CC の時間のバー）の長さも出す（線の右端が縮む速さ = 残り時間。新しい CC で満タンに戻る）。"""
+    fr = Frames(args.frames, args.pattern)
+    tn, box = args.tpl.split(":")
+    x0, y0, x1, y1 = [int(v) for v in box.split(",")]
+    tpl = fr.bgr(int(tn))[y0:y1, x0:x1]
+    sx0, sy0, sx1, sy1 = [int(v) for v in args.search.split(",")]
+    prev = None
+    for n in range(args.start, args.end):
+        im = fr.bgr(n)
+        r = cv2.matchTemplate(im[sy0:sy1, sx0:sx1], tpl, cv2.TM_CCOEFF_NORMED)
+        _, mv, _, ml = cv2.minMaxLoc(r)
+        px, py = ml[0] + sx0, ml[1] + sy0
+        line = ""
+        if py >= 1:
+            band = im[py:py + 3, px + 20:px + 130].astype(int).min(axis=2).max(axis=0)
+            cols = np.nonzero(band > 150)[0]
+            if len(cols):
+                end = cols[0]
+                for c in cols[1:]:
+                    if c - end > 4:
+                        break
+                    end = c
+                line = f" CC の線 {end - cols[0] + 1:3d} px"
+        mv_ = "" if prev is None else f" 動き {math.hypot(px - prev[0], py - prev[1]):5.1f}"
+        print(f"{n} t={(n - 1) / args.fps:.3f} バー ({px},{py}) 一致 {mv:.2f}{mv_}{line}")
+        prev = (px, py)
+
+
+def cmd_walk(args):
+    """歩きの 1 コマの特徴点の変位（地面へ戻した、歩く向きの成分）の分布。床の点は最も遅い塊、岩・草など高い所の点は速い。
+    --floor を決める前の見当に使う（Tigreal: 床 5.40、全部の点の中央値 5.75）。"""
+    fr = Frames(args.frames, args.pattern)
+    cam = load_cam(args)
+    shape = fr.bgr(args.start).shape
+    ui = ui_mask(shape, DEFAULT_UI if not args.ui else parse_boxes(args.ui))
+    allD = []
+    for n in range(args.start, args.end):
+        D, _ = track_pair(fr.gray(n), fr.gray(n + 1), ui, cam)
+        g, _ = robust_mean(D, tol=1.5)
+        if g is None:
+            continue
+        t = g / np.linalg.norm(g)
+        along = D @ t
+        ok = np.abs(D @ np.array([-t[1], t[0]])) < 0.6
+        allD.append(along[ok])
+        q = np.percentile(along[ok], [5, 25, 50, 75, 95])
+        print(f"{n}: 点 {ok.sum():3d}  5%={q[0]:.2f} 25%={q[1]:.2f} 50%={q[2]:.2f} 75%={q[3]:.2f} 95%={q[4]:.2f}")
+    if not allD:
+        return
+    A = np.concatenate(allD)
+    h, e = np.histogram(A, bins=np.arange(np.percentile(A, 1) - 0.2, np.percentile(A, 99) + 0.2, 0.1))
+    for c, lo in zip(h, e):
+        print(f"{lo:5.2f} {'#' * int(60 * c / max(1, h.max()))} {c}")
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--out", help=f"出力のフォルダ（既定 {DEFAULT_OUT}。リポジトリの外に置く）")
@@ -688,6 +872,60 @@ def main(argv=None):
     p.add_argument("b", type=int)
     p.add_argument("--gain", type=float, default=3.0)
     p.set_defaults(fn=cmd_diff)
+
+    p = sub.add_parser("arc", help="画面に収まらない大きな照準の円（カメラ固定・放射ごと）")
+    frames_arg(p)
+    p.add_argument("--ref", type=int, required=True)
+    p.add_argument("--at", required=True)
+    p.add_argument("--r0", type=float, required=True, help="探す半径の下限（単位）")
+    p.add_argument("--r1", type=float, required=True, help="探す半径の上限（単位）")
+    p.add_argument("--step", type=float, default=0.5, help="角度の刻み（度）")
+    p.add_argument("--skip", action="append", help="除く角度 a0:a1（度。照準の線・扇）")
+    p.add_argument("--exclude", action="append", help="除く箱 x0,y0,x1,y1")
+    p.add_argument("--min", type=float, default=12.0)
+    p.add_argument("--name", required=True)
+    p.set_defaults(fn=cmd_arc)
+
+    p = sub.add_parser("lines", help="線の照準の断面（向きと半幅）")
+    frames_arg(p)
+    p.add_argument("--ref", type=int, required=True)
+    p.add_argument("--at", required=True)
+    p.add_argument("--axis", type=float, required=True, help="軸の見当（度）")
+    p.add_argument("--s0", type=float, default=1.0)
+    p.add_argument("--s1", type=float, default=6.0)
+    p.add_argument("--half", type=float, default=1.2, help="断面の横の範囲（単位）")
+    p.add_argument("--min", type=float, default=15.0)
+    p.set_defaults(fn=cmd_lines)
+
+    p = sub.add_parser("tip", help="飛ぶものの頭の速さ（画面の横の座標から）")
+    frames_arg(p)
+    p.add_argument("--ref", type=int, required=True, help="発射前のコマ")
+    p.add_argument("--from", dest="start", type=int, required=True)
+    p.add_argument("--to", dest="end", type=int, required=True)
+    p.add_argument("--p0", required=True, help="手元の画素 u,v")
+    p.add_argument("--p1", required=True, help="飛ぶ向きの先の画素 u,v")
+    p.add_argument("--theta", type=float, required=True, help="地面での飛ぶ向き（度。lines で測る）")
+    p.add_argument("--width", type=float, default=14.0)
+    p.add_argument("--smin", type=float, default=30.0, help="線に沿った下限（画素。手元の体を除く）")
+    p.add_argument("--smax", type=float, default=1e9, help="線に沿った上限（画素。的の手前まで）")
+    p.add_argument("--thr", type=float, default=40.0)
+    p.add_argument("--q", type=float, default=0.99)
+    p.set_defaults(fn=cmd_tip)
+
+    p = sub.add_parser("bar", help="体力バーの位置と CC の時間のバー")
+    frames_arg(p)
+    p.add_argument("--tpl", required=True, help="コマ:x0,y0,x1,y1（バッジとバーの左端）")
+    p.add_argument("--search", default="200,0,1000,330", help="探す範囲 x0,y0,x1,y1")
+    p.add_argument("--from", dest="start", type=int, required=True)
+    p.add_argument("--to", dest="end", type=int, required=True)
+    p.set_defaults(fn=cmd_bar)
+
+    p = sub.add_parser("walk", help="歩きの特徴点の変位の分布（床の見当）")
+    frames_arg(p)
+    p.add_argument("--from", dest="start", type=int, required=True)
+    p.add_argument("--to", dest="end", type=int, required=True)
+    p.add_argument("--ui", action="append")
+    p.set_defaults(fn=cmd_walk)
 
     args = ap.parse_args(argv)
     args.fn(args)

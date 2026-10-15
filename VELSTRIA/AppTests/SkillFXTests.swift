@@ -279,8 +279,8 @@ final class SkillFXTests: XCTestCase {
         XCTAssertLessThan(SkillFXDirector.kitHitInterval, 1, "lastHit のお掃除（1 秒）より短い")
         XCTAssertFalse(SkillFXRecipe().hitPerHit, "既定は間引く")
 
-        // ゴルムの奥義: 0.3 秒おきの 6 ヒット
-        let times: [Float] = [0, 0.3, 0.6, 0.9, 1.2, 1.5]
+        // ゴルムの奥義: 0.32 秒おきの 6 ヒット（MLBB の画面収録で測った値。Kit_H034.Tune.ultInterval）
+        let times: [Float] = [0, 0.32, 0.64, 0.96, 1.28, 1.6]
         func replays(_ interval: Float) -> Int {
             var last: Float?
             var n = 0
@@ -291,7 +291,7 @@ final class SkillFXTests: XCTestCase {
             return n
         }
         XCTAssertEqual(replays(SkillFXDirector.plainHitInterval), 6, "従来の間隔なら全ヒットで再生")
-        XCTAssertEqual(replays(SkillFXDirector.kitHitInterval), 2, "最初と 0.9 秒後だけ")
+        XCTAssertEqual(replays(SkillFXDirector.kitHitInterval), 2, "最初と 0.96 秒後だけ")
         XCTAssertTrue(SkillFXDirector.hitReplayAllowed(last: nil, now: 0, interval: 0.9), "初回は再生")
         XCTAssertFalse(SkillFXDirector.hitReplayAllowed(last: 1, now: 1.5, interval: 0.9))
         XCTAssertTrue(SkillFXDirector.hitReplayAllowed(last: 1, now: 2, interval: 0.9))

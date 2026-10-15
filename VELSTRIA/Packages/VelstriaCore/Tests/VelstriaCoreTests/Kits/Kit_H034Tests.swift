@@ -131,6 +131,48 @@ final class Kit_H034Tests: XCTestCase {
         XCTAssertNotEqual(ult, generic)
     }
 
+    /// 幾何と時間は MLBB の画面収録で測った値（docs/kits/Franco.md「動画で測った値（2026-10-16）」。距離は MLBB × 100、mapScale は掛けない）。
+    func testGeometryAndTimingAreTheVideoMeasurements() {
+        // スキル1: 照準の円 8.23・線の半幅 0.35・鉤の速さ 毎秒 15.15・振りかぶり 10 コマ・その場 13〜14 コマ・引き寄せ 8 コマ・
+        // 着地の中心間 1.38（= 55 + 55 + 28）・着地のスタン（16 コマ + 表示の切れ目 2 コマ）
+        XCTAssertEqual(Tune.hookRange, 823)
+        XCTAssertEqual(Tune.hookWidth, 35)
+        XCTAssertEqual(Tune.hookSpeed, 1515)
+        XCTAssertEqual(Tune.hookDelay, 0.33)
+        XCTAssertEqual(Tune.hookHold, 0.45)
+        XCTAssertEqual(Tune.hookPull, 0.25)
+        XCTAssertEqual(Tune.hookGap + 2 * Balance.heroRadius, 138)
+        XCTAssertEqual(Tune.hookStun, 0.70, accuracy: 1e-9, "動画の 1 つ目の「スタン」の表示 21 コマ")
+        XCTAssertEqual(Tune.hookLandStun, 0.6)
+        // スキル2: 照準の円 2.57（2 回で 2.577 / 2.570）・指を離してから叩きつけまで 7.5〜8.5 コマ
+        XCTAssertEqual(Tune.shockRadius, 257)
+        XCTAssertEqual(Tune.shockDelay, 0.27)
+        // 奥義: 照準の円 1.88・掴むまで 7〜7.5 コマ・6 撃は掴んでから 0 / 10 / 20 / 30 / 38 / 48 コマ（等間隔の当てはめ 0.32 秒）
+        XCTAssertEqual(Tune.ultReach, 188)
+        XCTAssertEqual(Tune.ultDelay, 0.25)
+        XCTAssertEqual(Tune.ultFirst, 0)
+        XCTAssertEqual(Tune.ultInterval, 0.32)
+        XCTAssertEqual(Tune.ultFirst + Tune.ultInterval * Double(Tune.ultHits - 1), 1.60, accuracy: 1e-9)
+        XCTAssertLessThan(Tune.ultFirst + Tune.ultInterval * Double(Tune.ultHits - 1), Tune.ultSuppress)
+    }
+
+    /// 鉤・S2 の振りかぶりと奥義の間は、次のスキルを始められない（コスト・CD を消費しない）。振りかぶりが終われば撃てる。
+    func testNoOtherSkillStartsDuringAWindUp() {
+        var (w, k) = world(level: 12)
+        let e = addEnemy(&w, dx: 150)
+        XCTAssertTrue(w.cast(k, .skill1, .unit(w.id(e))))
+        XCTAssertFalse(SkillSystem.canCast(w.s, w.ctx, heroIndex: k, slot: .skill2))
+        XCTAssertFalse(w.cast(k, .skill2))
+        XCTAssertFalse(w.cast(k, .ultimate, .unit(w.id(e))))
+        XCTAssertEqual(w.s.units[k].hero!.cooldown(.skill2), 0)
+        XCTAssertEqual(w.s.units[k].hero!.cooldown(.ultimate), 0)
+        w.run(seconds: Tune.hookDelay)
+        XCTAssertTrue(w.cast(k, .skill2), "鉤が飛び出したら撃てる")
+        XCTAssertFalse(w.cast(k, .ultimate, .unit(w.id(e))), "S2 の振りかぶりの間")
+        w.run(seconds: Tune.shockDelay)
+        XCTAssertTrue(w.cast(k, .ultimate, .unit(w.id(e))))
+    }
+
     // MARK: 公式の表（REAL_DATA.md「H034 ゴルム = フランコ」= 日本語クライアントのスキル詳細。Liquipedia の Franco も同じ）
     // スキル1・2 は Lv1〜6、アルティメットは Lv1〜3。rank = 公式の Lv。
 
@@ -206,11 +248,11 @@ final class Kit_H034Tests: XCTestCase {
         stats.cooldownReduction = 0.9
         XCTAssertEqual(SkillCatalog.numbers(for: skill(.skill2), hero: hero, rank: 1, stats: stats).cooldown,
                        7.0 * (1 - stats.cooldownReductionCap), accuracy: 1e-9)
-        // 鉤はスタン（引き寄せの間）、S2 は減速（HUD・AI 用の CC 種別）
+        // 鉤はスタン（その場 + 引き寄せの間 + 着地。HUD・AI 用は合計）、S2 は減速（HUD・AI 用の CC 種別）
         let h1 = SkillCatalog.numbers(for: skill(.skill1), hero: hero, rank: 1, stats: w.s.units[k].stats)
         XCTAssertEqual(h1.cc, .stun)
-        XCTAssertEqual(h1.ccDuration, Tune.hookStun)
-        XCTAssertEqual(Tune.hookStun, Tune.hookPull, "スタンは引き寄せの間だけ")
+        XCTAssertEqual(h1.ccDuration, Tune.hookStun + Tune.hookLandStun, accuracy: 1e-9)
+        XCTAssertEqual(Tune.hookStun, Tune.hookHold + Tune.hookPull, accuracy: 1e-9, "その場のスタン + 引き寄せの間")
         let s2 = SkillCatalog.numbers(for: skill(.skill2), hero: hero, rank: 1, stats: w.s.units[k].stats)
         XCTAssertEqual(s2.cc, .slow)
         XCTAssertEqual(s2.ccDuration, Tune.shockSlowDuration)
@@ -251,6 +293,7 @@ final class Kit_H034Tests: XCTestCase {
         }
         let n = w.numbers(k, .skill2)
         XCTAssertTrue(w.cast(k, .skill2))
+        w.run(seconds: Tune.shockDelay + 0.1)    // 叩きつけは振りかぶりの後
         for (u, label) in [(minion, "ミニオン"), (monster, "モンスター")] {
             let hits = events(w, to: u, .skill(.skill2))
             XCTAssertEqual(hits.count, 1, label)
@@ -262,20 +305,25 @@ final class Kit_H034Tests: XCTestCase {
         CombatSystem.addShield(&w2.s, w2.ctx, sourceID: w2.id(minion2), targetIndex: minion2, amount: 1e6, duration: 10)
         let n2 = w2.numbers(k2, .skill1)
         XCTAssertTrue(w2.cast(k2, .skill1, .direction(Vec2(1, 0))))
-        w2.run(seconds: 0.5)
+        w2.run(seconds: 0.8)
         XCTAssertEqual(events(w2, to: minion2, .skill(.skill1)).first?.amount ?? 0,
                        w2.mitigated(n2.damage, .physical, on: minion2), accuracy: 1e-6, "鉤もミニオンに同じ値")
-        // スキル吸収（装備などの spellVamp）は 100% のまま掛かる
+        // スキル吸収（装備などの spellVamp）は 100% のまま掛かる。叩きつけは振りかぶりの後なので、能力値の計算で消えない付与で試す
         var (w3, k3) = world(level: 12)
         let e3 = addEnemy(&w3, dx: 150)
-        w3.s.units[k3].stats.spellVamp = 0.2
+        Kit.grantSpellVamp(&w3.s, target: k3, ratio: 0.2, duration: 30, tag: "test")
+        w3.tick(1)
+        let vamp = w3.s.units[k3].stats.spellVamp
+        XCTAssertGreaterThanOrEqual(vamp, 0.2 - 1e-9)
         w3.s.units[k3].hp = w3.s.units[k3].stats.maxHP * 0.5
-        let before = w3.s.units[k3].hp
+        w3.log.removeAll()
         XCTAssertTrue(w3.cast(k3, .skill2))
+        w3.run(seconds: Tune.shockDelay + 0.1)
         let dealt = w3.damage(to: e3, from: .skill(.skill2))
         XCTAssertGreaterThan(dealt, 0)
-        XCTAssertEqual(w3.s.units[k3].hp - before, dealt * 0.2 * w3.s.units[k3].stats.healingReceivedMultiplier,
-                       accuracy: 1e-6)
+        let id3 = w3.id(k3)
+        let healed = w3.log.reduce(0.0) { if case .heal(let t, let src, let a) = $1, t == id3, src == id3 { return $0 + a } else { return $0 } }
+        XCTAssertEqual(healed, dealt * vamp * w3.s.units[k3].stats.healingReceivedMultiplier, accuracy: 1e-6)
     }
 
     func testTagsFollowTheOfficialSkillTags() {
@@ -338,11 +386,13 @@ final class Kit_H034Tests: XCTestCase {
         for token in ["1秒に1スタック", "+15%", "1スタックにつき"] {
             XCTAssertFalse(passive.contains(token), "\(token): \(passive)")
         }
-        // 単位の無い距離（680 / 260 / 350）は出さず、近接攻撃の射程（MLBB の 1.8 = 180）に対する倍率で書く
+        // 単位の無い距離（823 / 257 / 188）は出さず、近接攻撃の射程（MLBB の 1.8 = 180）に対する倍率で書く
+        // （823 ÷ 180 ≈ 4.6、257 ÷ 180 ≈ 1.4、188 ÷ 180 ≈ 1。動画で測った 8.23 / 2.57 / 1.88）
         let s1 = try ja(.skill1, rank: 2)
         let n1 = SkillCatalog.numbers(for: skill(.skill1), hero: hero, rank: 2, stats: w.s.units[k].stats)
-        XCTAssertEqual(n1.ccDuration, Tune.hookPull, "スタンは引き寄せの間だけ")
-        for token in ["約3.8倍", "最初に命中した敵に450(+100%物理攻撃)の物理ダメージ", "自身の元へ引き寄せる", "0.3秒"] {
+        XCTAssertEqual(n1.ccDuration, Tune.hookStun + Tune.hookLandStun, accuracy: 1e-9, "命中から動けない時間の合計")
+        for token in ["約4.6倍", "最初に命中した敵に450(+100%物理攻撃)の物理ダメージ", "自身の元へ引き寄せる",
+                      "引き寄せが終わるまで（0.7秒）スタン", "着地でさらに0.6秒スタン"] {
             XCTAssertTrue(s1.contains(token), "\(token): \(s1)")
         }
         XCTAssertFalse(s1.contains("先にスタンを付けてから"), s1)
@@ -356,7 +406,7 @@ final class Kit_H034Tests: XCTestCase {
         let ult = try ja(.ultimate, rank: 2)
         let n3 = SkillCatalog.numbers(for: skill(.ultimate), hero: hero, rank: 2, stats: w.s.units[k].stats)
         XCTAssertEqual(n3.hits, 6)
-        for token in ["約1.9倍", "攻撃ごとに60(+70%物理攻撃)の物理ダメージ", "1.8秒間、制圧状態", "6回攻撃"] {
+        for token in ["約1倍以内", "攻撃ごとに60(+70%物理攻撃)の物理ダメージ", "1.8秒間、制圧状態", "6回攻撃"] {
             XCTAssertTrue(ult.contains(token), "\(token): \(ult)")
         }
         XCTAssertTrue(try ja(.ultimate, rank: 3).contains("攻撃ごとに70(+70%物理攻撃)"))
@@ -460,8 +510,9 @@ final class Kit_H034Tests: XCTestCase {
         let n = w.numbers(k, .skill2)
         w.s.units[k].hero!.kit!.gormStacks = 4
         XCTAssertTrue(w.cast(k, .skill2))
-        XCTAssertEqual(kit(w, k).gormStacks, 0)
+        XCTAssertEqual(kit(w, k).gormStacks, 0, "発動の時に消費")
         XCTAssertEqual(kit(w, k).gormLastConsumed, 4)
+        w.run(seconds: Tune.shockDelay + 0.1)
         XCTAssertEqual(events(w, to: e, .skill(.skill2)).first?.amount ?? 0, w.mitigated(n.damage * 1.6, .physical, on: e),
                        accuracy: 1e-6)
         // 10 個 → +150%（調査: 最大 +150%）
@@ -470,6 +521,7 @@ final class Kit_H034Tests: XCTestCase {
         let n2 = w2.numbers(k2, .skill2)
         w2.s.units[k2].hero!.kit!.gormStacks = 10
         XCTAssertTrue(w2.cast(k2, .skill2))
+        w2.run(seconds: Tune.shockDelay + 0.1)
         XCTAssertEqual(events(w2, to: e2, .skill(.skill2)).first?.amount ?? 0,
                        w2.mitigated(n2.damage * 2.5, .physical, on: e2), accuracy: 1e-6)
         // 闘気なしは補正なし
@@ -477,6 +529,7 @@ final class Kit_H034Tests: XCTestCase {
         let e3 = addEnemy(&w3, dx: 150)
         let n3 = w3.numbers(k3, .skill2)
         XCTAssertTrue(w3.cast(k3, .skill2))
+        w3.run(seconds: Tune.shockDelay + 0.1)
         XCTAssertEqual(events(w3, to: e3, .skill(.skill2)).first?.amount ?? 0, w3.mitigated(n3.damage, .physical, on: e3),
                        accuracy: 1e-6)
     }
@@ -515,7 +568,8 @@ final class Kit_H034Tests: XCTestCase {
         let n2 = w2.numbers(k2, .skill1)
         w2.s.units[k2].hero!.kit!.gormStacks = 10
         XCTAssertTrue(w2.cast(k2, .skill1, .unit(w2.id(e2))))
-        w2.run(seconds: 0.5)
+        XCTAssertEqual(kit(w2, k2).gormStacks, 0, "振りかぶりの前（発動の時）に消費")
+        w2.run(seconds: 0.8)
         XCTAssertEqual(events(w2, to: e2, .skill(.skill1)).first?.amount ?? 0,
                        w2.mitigated(n2.damage * 2.5, .physical, on: e2), accuracy: 1e-6)
         // 奥義: 6 回すべてに補正（発動時に闘気を消費）
@@ -538,6 +592,7 @@ final class Kit_H034Tests: XCTestCase {
         w.s.units[ally].hp = w.s.units[ally].stats.maxHP * 0.3
         let e = addEnemy(&w, dx: 150)
         XCTAssertTrue(w.cast(k, .skill2))
+        w.run(seconds: Tune.shockDelay + 0.05)
         XCTAssertTrue(w.cast(k, .ultimate, .unit(w.id(e))))
         w.run(seconds: 0.5)
         XCTAssertTrue(w.s.units[ally].shields.isEmpty)
@@ -561,44 +616,111 @@ final class Kit_H034Tests: XCTestCase {
         XCTAssertEqual(ev.shape, .wideLine)
         XCTAssertEqual(ev.range, Tune.hookRange)
         XCTAssertEqual(ev.archetype, .lineSkillshot)
-        XCTAssertEqual(w.s.projectiles.count, 1)
+        XCTAssertEqual(ev.duration, Tune.hookDelay + Tune.hookRange / Tune.hookSpeed, accuracy: 1e-9)
+        XCTAssertTrue(w.s.projectiles.isEmpty, "振りかぶりの間は鉤が出ていない")
+        w.run(seconds: Tune.hookDelay)
+        XCTAssertEqual(w.s.projectiles.count, 1, "振りかぶりの後に鉤が飛び出す")
         XCTAssertFalse(w.s.projectiles[0].pierce, "非貫通")
+        XCTAssertEqual(w.s.projectiles[0].width, Tune.hookWidth)
         XCTAssertEqual(w.damage(to: near), 0, "飛んでいる間はダメージが無い")
-        w.run(seconds: 0.6)
+        w.run(seconds: 0.4)
         let hits = events(w, to: near, .skill(.skill1))
         XCTAssertEqual(hits.count, 1)
         XCTAssertEqual(hits[0].amount, w.mitigated(n.damage, .physical, on: near), accuracy: 1e-6)
+        // 命中した敵はその場でスタン（引き寄せは命中の 0.45 秒後から）
+        XCTAssertTrue(w.s.units[near].has(.stun))
+        XCTAssertEqual(w.s.units[near].pos.x, skillArena.x + 500, accuracy: 1, "まだ引き寄せていない")
         // 最初の敵だけ: 奥の敵には何も起きない
         XCTAssertEqual(w.damage(to: far), 0)
         XCTAssertEqual(w.s.units[far].pos, farPos)
         XCTAssertTrue(w.s.units[far].statuses.isEmpty)
-        // 足元へ引き寄せ（端同士の隙間 10 で止まる）
+        // 足元へ引き寄せ（端同士の隙間 28 = 中心間 138 で止まる。動画の 1.38）
+        w.run(seconds: Tune.hookHold + Tune.hookPull)
         XCTAssertEqual(dist(w, k, near), contact(w, k, near, gap: Tune.hookGap), accuracy: 3)
         XCTAssertEqual(w.s.units[near].pos.y, skillArena.y, accuracy: 1)
         XCTAssertGreaterThan(w.s.units[near].pos.x, w.s.units[k].pos.x)
-        // スタン（Fandom の「Stunned」: Iron Hook はスタン + 引き寄せ）は引き寄せの間だけ（命中から 0.3 秒）。着いたらすぐ動ける
-        XCTAssertFalse(w.s.units[near].has(.stun), "命中から 0.6 秒後にはスタンは解けている")
+        // 着地でもう一度スタン（命中から合計 1.3 秒）。その後は動ける
+        XCTAssertTrue(w.s.units[near].has(.stun), "着地のスタン")
+        XCTAssertFalse(w.s.units[near].canAct)
+        w.run(seconds: Tune.hookLandStun)
+        XCTAssertFalse(w.s.units[near].has(.stun), "命中から 1.3 秒でスタンは解ける")
         XCTAssertTrue(w.s.units[near].canAct)
         XCTAssertEqual(kit(w, k).gormHooksLanded, 1)
         XCTAssertFalse(w.s.units[near].statuses.contains { $0.kind == .stun })
+        XCTAssertEqual(Kit.scheduledCount(w.s, caster: k), 0)
     }
 
-    func testHookStunDurationAndPullTimeMatchTheTuning() throws {
+    /// 動画で測った時間（docs/kits/Franco.md「動画で測った値（2026-10-16）」）: 指を離してから 0.33 秒で鉤が飛び出し、毎秒 1515 で飛ぶ。
+    /// 命中から 0.45 秒はその場でスタン、0.25 秒で引き寄せ、着地のスタン 0.6 秒（命中から合計 1.3 秒。スタンは途切れない）。
+    func testHookTimelineMatchesTheVideoMeasurements() throws {
         var (w, k) = world(level: 12)
-        let e = addEnemy(&w, dx: 300)
+        let e = addEnemy(&w, dx: 600)
         XCTAssertTrue(w.cast(k, .skill1, .unit(w.id(e))))
-        var hitTick: Int?
-        var stunEnd: Int?
-        var pullEnd: Int?
-        for t in 1...90 {
+        var launch: Int?, hit: Int?, pullStart: Int?, pullEnd: Int?, free: Int?
+        var stunnedAgain = false
+        for t in 1...120 {
             w.tick()
-            if hitTick == nil, w.damage(to: e) > 0 { hitTick = t }
-            if hitTick != nil, pullEnd == nil, w.s.units[e].displacement == nil { pullEnd = t }
-            if hitTick != nil, stunEnd == nil, !w.s.units[e].has(.stun) { stunEnd = t }
+            if launch == nil, !w.s.projectiles.isEmpty { launch = t }
+            if hit == nil, w.damage(to: e) > 0 { hit = t }
+            if hit != nil, pullStart == nil, w.s.units[e].displacement != nil { pullStart = t }
+            if pullStart != nil, pullEnd == nil, w.s.units[e].displacement == nil { pullEnd = t }
+            // スタンが途切れたら、あとから着地のスタンが付くことは無い（その場 → 引き寄せ → 着地のスタンは切れ目なく続く）
+            if let f = free, t > f, w.s.units[e].has(.stun) { stunnedAgain = true }
+            if hit != nil, free == nil, !w.s.units[e].has(.stun) { free = t }
         }
-        let h = try XCTUnwrap(hitTick), p = try XCTUnwrap(pullEnd), s = try XCTUnwrap(stunEnd)
-        XCTAssertEqual(Double(p - h) / Balance.tickRate, Tune.hookPull, accuracy: 0.1)
-        XCTAssertEqual(Double(s - h) / Balance.tickRate, Tune.hookStun, accuracy: 0.1)
+        let rate = Balance.tickRate
+        let l = try XCTUnwrap(launch), h = try XCTUnwrap(hit), ps = try XCTUnwrap(pullStart)
+        let pe = try XCTUnwrap(pullEnd), f = try XCTUnwrap(free)
+        XCTAssertEqual(Double(l) / rate, Tune.hookDelay, accuracy: 0.04, "振りかぶり")
+        // 飛ぶ距離 = 中心間 600 − 鉤の半幅 − 相手の半径
+        let flight = (600 - Tune.hookWidth - w.s.units[e].radius) / Tune.hookSpeed
+        XCTAssertEqual(Double(h - l) / rate, flight, accuracy: 0.05, "毎秒 1515")
+        XCTAssertEqual(Double(ps - h) / rate, Tune.hookHold, accuracy: 0.05, "その場でスタン")
+        XCTAssertEqual(Double(pe - ps) / rate, Tune.hookPull, accuracy: 0.05, "引き寄せ")
+        XCTAssertEqual(Double(f - h) / rate, Tune.hookStun + Tune.hookLandStun, accuracy: 0.05, "命中から動けない時間")
+        XCTAssertFalse(stunnedAgain, "スタンに切れ目が無い")
+        XCTAssertEqual(Tune.hookStun + Tune.hookLandStun, 1.3, accuracy: 1e-9)
+    }
+
+    /// 振りかぶり（0.33 秒）の間にスタン以上を受けると鉤は出ない（コスト・CD は戻らない）。バインド・減速では止まらない。
+    func testHookWindUpIsCancelledByHardCCButNotByBind() {
+        var (w, k) = world(level: 12)
+        let e = addEnemy(&w, dx: 400)
+        XCTAssertTrue(w.cast(k, .skill1, .unit(w.id(e))))
+        let cd = w.s.units[k].hero!.cooldown(.skill1)
+        w.tick(3)
+        CombatSystem.addStatus(&w.s, targetIndex: k, StatusEffect(kind: .stun, duration: 0.3, sourceID: w.id(e)))
+        w.run(seconds: 1.5)
+        XCTAssertTrue(w.s.projectiles.isEmpty, "鉤は出ない")
+        XCTAssertEqual(w.damage(to: e), 0)
+        XCTAssertGreaterThan(w.s.units[k].hero!.cooldown(.skill1), cd - 2, "CD は戻らない")
+        XCTAssertEqual(Kit.scheduledCount(w.s, caster: k), 0)
+        // バインド（敵の root）は振りかぶりを止めない
+        var (w2, k2) = world(level: 12)
+        let e2 = addEnemy(&w2, dx: 400)
+        XCTAssertTrue(w2.cast(k2, .skill1, .unit(w2.id(e2))))
+        w2.tick(3)
+        CombatSystem.addStatus(&w2.s, targetIndex: k2, StatusEffect(kind: .root, duration: 1, sourceID: w2.id(e2)))
+        w2.run(seconds: 0.8)
+        XCTAssertGreaterThan(w2.damage(to: e2, from: .skill(.skill1)), 0)
+    }
+
+    /// その場でスタンしている間（0.45 秒）に浄化の呪文（スタンを外して CC 無効を付ける）で逃れた相手は引き寄せない（着地のスタンも無い）。
+    func testHookTargetPurifiedDuringTheHoldIsNotPulled() {
+        var (w, k) = world(level: 12)
+        let e = addEnemy(&w, dx: 500)
+        XCTAssertTrue(w.cast(k, .skill1, .unit(w.id(e))))
+        for _ in 0..<40 where w.damage(to: e) == 0 { w.tick() }
+        XCTAssertTrue(w.s.units[e].has(.stun))
+        // 浄化の呪文と同じ（SpellSystem の cleanse）
+        CombatSystem.cleanse(&w.s, targetIndex: e)
+        CombatSystem.addStatus(&w.s, targetIndex: e, StatusEffect(kind: .ccImmune, duration: 1.2, sourceID: w.id(e)))
+        XCTAssertFalse(w.s.units[e].has(.stun))
+        let at = w.s.units[e].pos
+        w.run(seconds: 1.5)
+        XCTAssertEqual(w.s.units[e].pos, at, "引き寄せない")
+        XCTAssertFalse(w.s.units[e].has(.stun), "着地のスタンも無い")
+        XCTAssertEqual(Kit.scheduledCount(w.s, caster: k), 0)
     }
 
     func testHookRangeAndWidth() {
@@ -609,11 +731,12 @@ final class Kit_H034Tests: XCTestCase {
             w.run(seconds: 1.2)
             return w.damage(to: e) > 0
         }
-        XCTAssertTrue(fires(dx: 700), "射程 680 + 対象の縁")
-        XCTAssertTrue(fires(dx: 735))
-        XCTAssertFalse(fires(dx: 900), "射程の外")
-        XCTAssertTrue(fires(dx: 400, dy: 100), "弾幅 55 + 対象の半径 55 以内")
-        XCTAssertFalse(fires(dx: 400, dy: 140), "横にそれていたら外れ")
+        // 射程 823（動画の照準の円 8.23）。鉤の終点から、鉤の半幅 35 + 対象の半径 55 までが当たる
+        XCTAssertTrue(fires(dx: 850), "射程 823 + 対象の縁")
+        XCTAssertTrue(fires(dx: 895))
+        XCTAssertFalse(fires(dx: 960), "射程の外")
+        XCTAssertTrue(fires(dx: 400, dy: 80), "鉤の半幅 35 + 対象の半径 55 以内")
+        XCTAssertFalse(fires(dx: 400, dy: 110), "横にそれていたら外れ（以前の半幅 55 なら当たっていた）")
         XCTAssertFalse(fires(dx: -400), "後ろには飛ばない")
     }
 
@@ -624,7 +747,7 @@ final class Kit_H034Tests: XCTestCase {
         let hp = w.s.units[tower].hp
         let e = addEnemy(&w, dx: 520)
         XCTAssertTrue(w.cast(k, .skill1, .direction(Vec2(1, 0))))
-        w.run(seconds: 0.7)
+        w.run(seconds: 1.5)    // 振りかぶり 0.33 + 飛行 + その場 0.45 + 引き寄せ 0.25
         XCTAssertGreaterThan(w.damage(to: e), 0)
         XCTAssertEqual(w.damage(to: tower), 0)
         XCTAssertEqual(w.s.units[tower].hp, hp)
@@ -636,7 +759,7 @@ final class Kit_H034Tests: XCTestCase {
         let ally = w2.addHero("H002", team: .blue, at: skillArena + Vec2(250, 0), level: 12)
         let e2 = addEnemy(&w2, dx: 500)
         XCTAssertTrue(w2.cast(k2, .skill1, .direction(Vec2(1, 0))))
-        w2.run(seconds: 0.7)
+        w2.run(seconds: 1.0)
         XCTAssertEqual(w2.damage(to: ally), 0)
         XCTAssertEqual(w2.s.units[ally].pos, skillArena + Vec2(250, 0))
         XCTAssertGreaterThan(w2.damage(to: e2), 0)
@@ -646,7 +769,7 @@ final class Kit_H034Tests: XCTestCase {
         let minion = w3.addMinion(team: .red, at: skillArena + Vec2(300, 0))
         let e3 = addEnemy(&w3, dx: 520)
         XCTAssertTrue(w3.cast(k3, .skill1, .direction(Vec2(1, 0))))
-        w3.run(seconds: 0.7)
+        w3.run(seconds: 1.5)
         XCTAssertGreaterThan(w3.damage(to: minion), 0)
         XCTAssertEqual(w3.damage(to: e3), 0)
         XCTAssertEqual(w3.s.units[e3].pos, skillArena + Vec2(520, 0))
@@ -659,30 +782,34 @@ final class Kit_H034Tests: XCTestCase {
         CombatSystem.addStatus(&w.s, targetIndex: e, StatusEffect(kind: .ccImmune, duration: 5))
         let at = w.s.units[e].pos
         XCTAssertTrue(w.cast(k, .skill1, .unit(w.id(e))))
-        w.run(seconds: 1.0)
+        // 命中・その場・引き寄せ・着地のどの時点でもスタンは入らず、動かない
+        for _ in 0..<60 {
+            w.tick()
+            XCTAssertFalse(w.s.units[e].has(.stun))
+        }
         XCTAssertGreaterThan(w.damage(to: e), 0)
-        XCTAssertFalse(w.s.units[e].has(.stun))
         XCTAssertEqual(w.s.units[e].pos, at)
         // 無敵の相手には何も起きない
         var (w2, k2) = world(level: 12)
         let e2 = addEnemy(&w2, dx: 450)
         CombatSystem.addStatus(&w2.s, targetIndex: e2, StatusEffect(kind: .invulnerable, duration: 5))
         XCTAssertTrue(w2.cast(k2, .skill1, .unit(w2.id(e2))))
-        w2.run(seconds: 1.0)
+        w2.run(seconds: 2.0)
         XCTAssertEqual(w2.damage(to: e2), 0)
         XCTAssertEqual(w2.s.units[e2].pos, skillArena + Vec2(450, 0))
     }
 
     func testHookAtPointBlankStunsWithoutMovingAndCostsResources() {
         var (w, k) = world(level: 12)
-        let e = addEnemy(&w, dx: 125)    // 端同士の隙間 5 < 10: すでに足元
+        let e = addEnemy(&w, dx: 125)    // 端同士の隙間 15 < 28: すでに足元
         XCTAssertTrue(w.cast(k, .skill1, .unit(w.id(e))))
-        // 命中した tick にはスタンが付いている（引き寄せの間だけ）
+        // 命中した tick にはスタンが付いている（その場 + 引き寄せの間）
         for _ in 0..<30 where w.damage(to: e) == 0 { w.tick() }
         XCTAssertGreaterThan(w.damage(to: e), 0)
         XCTAssertTrue(w.s.units[e].has(.stun))
-        w.run(seconds: 0.5)
+        w.run(seconds: Tune.hookStun + 0.1)
         XCTAssertEqual(dist(w, k, e), 125, accuracy: 6)
+        XCTAssertTrue(w.s.units[e].has(.stun), "動かなくても着地のスタンは受ける")
         // 資源が足りない・スタン中は撃てない
         var (w2, k2) = world(level: 12)
         w2.s.units[k2].resource = 0
@@ -702,10 +829,11 @@ final class Kit_H034Tests: XCTestCase {
         w.s.units[foe].hero!.kit!.gormCalm = 1000
         let ally = w.addHero("H002", team: .blue, at: skillArena + Vec2(600, 0), level: 12)
         XCTAssertTrue(w.cast(foe, .ultimate, .unit(w.id(ally))))
+        w.run(seconds: Tune.ultDelay)    // 掴みかかり
         XCTAssertTrue(w.s.units[ally].has(.suppress))
         XCTAssertEqual(kit(w, foe).gormUltPhase, 1)
         XCTAssertTrue(w.cast(k, .skill1, .unit(w.id(foe))))
-        w.run(seconds: 0.6)
+        w.run(seconds: 0.7)
         XCTAssertGreaterThan(w.damage(to: foe, from: .skill(.skill1)), 0, "鉤は敵のゴルムに当たる")
         XCTAssertEqual(kit(w, foe).gormUltPhase, 0, "引き寄せ（スタン）で奥義は中断される")
         XCTAssertEqual(Kit.scheduledCount(w.s, caster: foe), 0)
@@ -742,7 +870,7 @@ final class Kit_H034Tests: XCTestCase {
         let front = sc.gorm + (sc.enemy - sc.gorm).normalized * contact(w, k, e, gap: Tune.hookGap)
         XCTAssertFalse(w.ctx.nav.isWalkable(front, radius: w.s.units[e].radius))
         XCTAssertTrue(w.cast(k, .skill1, .unit(w.id(e))))
-        w.run(seconds: 0.7)
+        w.run(seconds: 1.6)
         // 鉤は壁を越えて当たる（調査: 壁・タワーを通り抜ける）
         XCTAssertGreaterThan(w.damage(to: e), 0)
         XCTAssertEqual(w.s.units[k].hero!.kit!.gormHooksLanded, 1)
@@ -774,7 +902,7 @@ final class Kit_H034Tests: XCTestCase {
         // 直線は壁で遮られている（壁の手前で止まる引き寄せなら、壁の北側に残る）
         XCTAssertGreaterThan(w.ctx.nav.raycast(from: w.s.units[e].pos, to: gorm, radius: r).y, Self.thinWall.maxY)
         XCTAssertTrue(w.cast(k, .skill1, .unit(w.id(e))))
-        w.run(seconds: 0.9)
+        w.run(seconds: 1.6)
         XCTAssertGreaterThan(w.damage(to: e), 0)
         XCTAssertEqual(w.s.units[k].hero!.kit!.gormHooksLanded, 1)
         let p = w.s.units[e].pos
@@ -792,7 +920,7 @@ final class Kit_H034Tests: XCTestCase {
         w2.s.units[k2].hero!.kit!.gormCalm = 1000
         let e2 = w2.addHero("H001", team: .red, at: Vec2(5200, Self.thinWall.maxY + 200), level: 12, ranks: [1, 1, 1])
         XCTAssertTrue(w2.cast(k2, .skill1, .unit(w2.id(e2))))
-        w2.run(seconds: 0.7)
+        w2.run(seconds: 1.5)
         XCTAssertGreaterThan(w2.damage(to: e2), 0)
         let p2 = w2.s.units[e2].pos
         XCTAssertGreaterThanOrEqual(p2.y, Self.thinWall.maxY + r - 1)
@@ -830,6 +958,14 @@ final class Kit_H034Tests: XCTestCase {
         XCTAssertTrue(w.cast(k, .skill2))
         XCTAssertLessThan(w.s.units[k].resource, mana)
         XCTAssertEqual(w.s.units[k].hero!.cooldown(.skill2), n.cooldown, accuracy: 1e-9)
+        XCTAssertEqual(w.damage(to: a), 0, "振りかぶりの間はまだ当たらない")
+        // 叩きつけ（動画で測った 0.27 秒）の tick まで進める
+        var slamTick = 0
+        for t in 1...30 where w.damage(to: a) == 0 {
+            w.tick()
+            slamTick = t
+        }
+        XCTAssertEqual(Double(slamTick) / Balance.tickRate, Tune.shockDelay, accuracy: 0.05)
         for e in [a, b] {
             let hits = events(w, to: e, .skill(.skill2))
             XCTAssertEqual(hits.count, 1)
@@ -846,6 +982,7 @@ final class Kit_H034Tests: XCTestCase {
         let ev = try XCTUnwrap(w.castEvents.last)
         XCTAssertEqual(ev.shape, .selfRing)
         XCTAssertEqual(ev.radius, Tune.shockRadius)
+        XCTAssertEqual(ev.duration, Tune.shockDelay, accuracy: 1e-9)
         // 移動速度は 70% 減（残り 30%）、1.5 秒で解ける
         w.tick(2)
         var w2 = SkillWorld()
@@ -861,12 +998,13 @@ final class Kit_H034Tests: XCTestCase {
 
     func testShockRadiusEdgeAndCCImmuneTarget() {
         var (w, k) = world(level: 12)
-        // 半径 260 + 対象の半径までが範囲
+        // 半径 257（動画の照準の円 2.57）+ 対象の半径までが範囲
         let edge = addEnemy(&w, dx: Tune.shockRadius + 50)
         let out = addEnemy(&w, dx: 0, dy: Tune.shockRadius + 70, hero: "H003")
         let immune = addEnemy(&w, dx: -150, hero: "H004")
         CombatSystem.addStatus(&w.s, targetIndex: immune, StatusEffect(kind: .ccImmune, duration: 5))
         XCTAssertTrue(w.cast(k, .skill2))
+        w.run(seconds: Tune.shockDelay + 0.1)
         XCTAssertGreaterThan(w.damage(to: edge), 0)
         XCTAssertEqual(w.damage(to: out), 0)
         XCTAssertGreaterThan(w.damage(to: immune), 0)
@@ -874,12 +1012,36 @@ final class Kit_H034Tests: XCTestCase {
         XCTAssertTrue(w.s.units[edge].has(.slow))
     }
 
+    /// 振りかぶり（0.27 秒）の間にスタン以上を受けると叩きつけは出ない（コスト・CD は戻らない）。叩きつけの中心は発動の位置
+    /// （振りかぶりの間に動いても、発動の位置の周りに当たる）。
+    func testShockWindUpIsCancelledByHardCCAndSlamsAtTheCastPosition() {
+        var (w, k) = world(level: 12)
+        let e = addEnemy(&w, dx: 200)
+        XCTAssertTrue(w.cast(k, .skill2))
+        w.tick(3)
+        CombatSystem.addStatus(&w.s, targetIndex: k, StatusEffect(kind: .stun, duration: 0.5, sourceID: w.id(e)))
+        w.run(seconds: 0.8)
+        XCTAssertEqual(w.damage(to: e), 0, "叩く前にスタンされた")
+        XCTAssertFalse(w.s.units[e].has(.slow))
+        XCTAssertGreaterThan(w.s.units[k].hero!.cooldown(.skill2), 0, "CD は戻らない")
+        XCTAssertEqual(Kit.scheduledCount(w.s, caster: k), 0)
+        // 発動の位置: 振りかぶりの間にゴルムが 300 離れても、発動の位置の近くの敵に当たり、新しい位置の近くの敵には当たらない
+        var (w2, k2) = world(level: 12)
+        let near = addEnemy(&w2, dx: 200)
+        let away = addEnemy(&w2, dx: -520, hero: "H003")
+        XCTAssertTrue(w2.cast(k2, .skill2))
+        w2.s.units[k2].pos = skillArena + Vec2(-300, 0)
+        w2.run(seconds: Tune.shockDelay + 0.1)
+        XCTAssertGreaterThan(w2.damage(to: near), 0)
+        XCTAssertEqual(w2.damage(to: away), 0)
+    }
+
     // MARK: - 奥義: 狩猟鎖獄
 
     func testUltimateNeedsAnEnemyHeroInReachAndKeepsResourcesOtherwise() {
         var (w, k) = world(level: 12)
         let minion = w.addMinion(team: .red, at: skillArena + Vec2(150, 0))
-        let far = addEnemy(&w, dx: 420)    // 縁まで 365 > 350
+        let far = addEnemy(&w, dx: 300)    // 縁まで 245 > 188（動画で測った照準の円 1.88）
         let before = w.s.units[k].resource
         XCTAssertFalse(w.cast(k, .ultimate, .unit(w.id(far))))
         XCTAssertFalse(w.cast(k, .ultimate, .unit(w.id(minion))), "敵ヒーローだけが対象")
@@ -904,7 +1066,7 @@ final class Kit_H034Tests: XCTestCase {
         CombatSystem.addStatus(&w.s, targetIndex: squishy, StatusEffect(kind: .invulnerable, duration: 5))
         XCTAssertEqual(Kit_H034.pickHero(w.s, caster: k, reach: Tune.ultReach, target: .none), tank, "無敵は選べない")
         XCTAssertTrue(w.cast(k, .ultimate))
-        w.run(seconds: 0.3)
+        w.run(seconds: Tune.ultDelay + 0.05)
         XCTAssertTrue(w.s.units[tank].has(.suppress))
         XCTAssertFalse(w.s.units[squishy].has(.suppress))
     }
@@ -920,18 +1082,10 @@ final class Kit_H034Tests: XCTestCase {
         let ev = try XCTUnwrap(w.castEvents.last)
         XCTAssertEqual(ev.shape, .lockOn)
         XCTAssertEqual(ev.targetUnitID, w.id(e))
-        XCTAssertEqual(ev.duration, Tune.ultSuppress)
+        XCTAssertEqual(ev.duration, Tune.ultDelay + Tune.ultSuppress, accuracy: 1e-9)
         XCTAssertEqual(ev.count, Tune.ultHits)
-        // 拘束: 行動・移動不能、スキルは使えない
-        let sup = try XCTUnwrap(w.s.units[e].statuses.first { $0.kind == .suppress })
-        XCTAssertEqual(sup.remaining, 1.8, accuracy: 1e-9)
-        XCTAssertEqual(sup.sourceID, w.id(k))
-        XCTAssertFalse(w.s.units[e].canAct)
-        XCTAssertFalse(w.s.units[e].canMove)
-        XCTAssertFalse(SkillSystem.canCast(w.s, w.ctx, heroIndex: e, slot: .skill1))
-        XCTAssertEqual(StatusKind.suppress.ccTier, .top, "制圧は最上級のコントロール")
-        // ゴルムも動けない・他のスキルも撃てない・通常攻撃もしない（自分の足止めはバインドではない）
-        XCTAssertEqual(kit(w, k).gormUltPhase, 1)
+        // 掴みかかり（動画で測った 0.25 秒）: ゴルムは動けず、他のスキルも撃てない（自分の足止めはバインドではない）。相手はまだ自由
+        XCTAssertEqual(kit(w, k).gormUltPhase, 2)
         XCTAssertTrue(w.s.units[k].has(.root))
         XCTAssertFalse(w.s.units[k].isBound)
         XCTAssertTrue(w.s.units[k].has(.channeling))
@@ -939,32 +1093,52 @@ final class Kit_H034Tests: XCTestCase {
         XCTAssertFalse(w.cast(k, .skill1, .unit(w.id(e))))
         XCTAssertFalse(w.cast(k, .skill2))
         XCTAssertFalse(w.cast(k, .ultimate, .unit(w.id(e))))
-        let badge = try XCTUnwrap(HeroKits.badge(w.s.units[k].hero!, slot: .ultimate))
-        XCTAssertEqual(badge.kind, .timer)
-        XCTAssertEqual(badge.total, Tune.ultSuppress)
-        XCTAssertEqual(w.damage(to: e), 0, "最初の 1 撃は 0.15 秒後")
+        XCTAssertFalse(w.s.units[e].has(.suppress), "掴むまでは自由")
+        XCTAssertNil(HeroKits.badge(w.s.units[k].hero!, slot: .ultimate), "拘束のタイマーは掴んでから")
+        XCTAssertEqual(w.damage(to: e), 0)
 
         w.s.units[k].attackTargetID = w.id(e)
         var strikeTicks: [Int] = []
+        var grabTick: Int?
         var count = 0
-        for t in 1...57 {
+        for t in 1...70 {
             w.tick()
             let c = events(w, to: e, .skill(.ultimate)).count
             if c > count { strikeTicks.append(contentsOf: Array(repeating: t, count: c - count)) }
             count = c
+            if grabTick == nil, w.s.units[e].has(.suppress) {
+                grabTick = t
+                // 拘束: 行動・移動不能、スキルは使えない
+                let sup = try XCTUnwrap(w.s.units[e].statuses.first { $0.kind == .suppress })
+                XCTAssertEqual(sup.remaining, 1.8, accuracy: 1e-9)
+                XCTAssertEqual(sup.sourceID, w.id(k))
+                XCTAssertFalse(w.s.units[e].canAct)
+                XCTAssertFalse(w.s.units[e].canMove)
+                XCTAssertFalse(SkillSystem.canCast(w.s, w.ctx, heroIndex: e, slot: .skill1))
+                XCTAssertEqual(StatusKind.suppress.ccTier, .top, "制圧は最上級のコントロール")
+                XCTAssertEqual(kit(w, k).gormUltPhase, 1)
+                let badge = try XCTUnwrap(HeroKits.badge(w.s.units[k].hero!, slot: .ultimate))
+                XCTAssertEqual(badge.kind, .timer)
+                XCTAssertEqual(badge.total, Tune.ultSuppress)
+            }
             if t == 30 {
                 XCTAssertTrue(w.s.units[e].has(.suppress), "1 秒の時点ではまだ拘束中")
                 XCTAssertTrue(w.s.units[k].has(.root))
             }
         }
+        let g = try XCTUnwrap(grabTick)
+        XCTAssertEqual(Double(g) / Balance.tickRate, Tune.ultDelay, accuracy: 0.04, "0.25 秒で掴む")
         let hits = events(w, to: e, .skill(.ultimate))
         XCTAssertEqual(hits.count, 6)
         for h in hits { XCTAssertEqual(h.amount, w.mitigated(n.damage, .physical, on: e), accuracy: 1e-6) }
         XCTAssertEqual(strikeTicks.count, 6)
-        // 拘束の 1.8 秒の中に等間隔（0.15, 0.45, ..., 1.65 秒）
-        XCTAssertEqual(Double(strikeTicks.first!) / Balance.tickRate, 0.15, accuracy: 0.07)
-        XCTAssertEqual(Double(strikeTicks.last!) / Balance.tickRate, 1.65, accuracy: 0.1)
-        XCTAssertLessThan(Double(strikeTicks.last!) / Balance.tickRate, Tune.ultSuppress)
+        // 動画で測った時刻: 掴んだ瞬間に 1 撃目、以後 0.32 秒おき（0, 0.32, ..., 1.60 秒）。拘束の 1.8 秒の中
+        XCTAssertEqual(strikeTicks.first, g, "掴んだ tick に 1 撃目")
+        for (k6, t) in strikeTicks.enumerated() {
+            XCTAssertEqual(Double(t - g) / Balance.tickRate, Tune.ultInterval * Double(k6), accuracy: 0.04, "\(k6 + 1) 撃目")
+        }
+        XCTAssertEqual(Double(strikeTicks.last! - g) / Balance.tickRate, 1.60, accuracy: 0.04)
+        XCTAssertLessThan(Double(strikeTicks.last! - g) / Balance.tickRate, Tune.ultSuppress)
         XCTAssertEqual(w.damage(to: e, from: .basicAttack), 0, "拘束中は通常攻撃をしない")
         XCTAssertEqual(kit(w, k).gormUltStrikes, 6)
         // 1.8 秒で解ける: 相手も自分も自由に
@@ -983,9 +1157,13 @@ final class Kit_H034Tests: XCTestCase {
         var (w, k) = world(level: 12)
         let e = addEnemy(&w, dx: 120)
         CombatSystem.addStatus(&w.s, targetIndex: e, StatusEffect(kind: .ccImmune, duration: 10))
-        w.s.units[e].windupRemaining = 0.2    // 攻撃の前隙の途中
-        w.s.units[e].attackTargetID = w.id(k)
         XCTAssertTrue(w.cast(k, .ultimate, .unit(w.id(e))))
+        // 掴みかかり（0.25 秒 = 8 tick）の最後の tick の前に、相手は攻撃の前隙の途中
+        w.tick(7)
+        XCTAssertFalse(w.s.units[e].has(.suppress), "掴むまでは自由")
+        w.s.units[e].windupRemaining = 0.2
+        w.s.units[e].attackTargetID = w.id(k)
+        w.tick()
         XCTAssertTrue(w.s.units[e].has(.suppress), "CC 無効を無視する")
         XCTAssertNil(w.s.units[e].windupRemaining, "相手の行動は中断される")
         CombatSystem.cleanse(&w.s, targetIndex: e)
@@ -999,17 +1177,20 @@ final class Kit_H034Tests: XCTestCase {
         XCTAssertFalse(w.s.units[e].has(.stun))
     }
 
-    /// MLBB の Bloody Hunt に踏み込みは無い（以前の「離れていれば踏み込む」は外した）: 射程の端の相手も、発動の tick にその場
-    /// （離れたまま）で拘束する。ゴルムも相手も動かない。
+    /// MLBB の Bloody Hunt に踏み込みは無い（以前の「離れていれば踏み込む」は外した。動画でもフランコは動かない）: 射程の端の相手も、
+    /// 掴みかかり（0.25 秒）の後にその場（離れたまま）で拘束する。ゴルムも相手も動かない。
     func testUltimateLocksATargetAtTheEdgeOfReachInPlaceWithoutRushing() throws {
         var (w, k) = world(level: 12)
-        let e = addEnemy(&w, dx: 340)
+        let e = addEnemy(&w, dx: 240)    // 縁まで 185 ≦ 188
         let gormAt = w.s.units[k].pos
         let foeAt = w.s.units[e].pos
         XCTAssertTrue(w.cast(k, .ultimate, .unit(w.id(e))))
-        // 踏み込みの段は無い: すぐ拘束
-        XCTAssertEqual(kit(w, k).gormUltPhase, 1)
+        // 踏み込みの段は無い: 掴みかかりの間もゴルムは動かない
+        XCTAssertEqual(kit(w, k).gormUltPhase, 2)
         XCTAssertNil(kit(w, k).sweep)
+        XCTAssertNil(w.s.units[k].displacement)
+        w.run(seconds: Tune.ultDelay)
+        XCTAssertEqual(kit(w, k).gormUltPhase, 1)
         XCTAssertNil(w.s.units[k].displacement)
         XCTAssertTrue(w.s.units[e].has(.suppress))
         XCTAssertFalse(w.cast(k, .skill1, .unit(w.id(e))), "拘束中は撃てない")
@@ -1018,11 +1199,12 @@ final class Kit_H034Tests: XCTestCase {
         XCTAssertEqual(kit(w, k).gormUltPhase, 0)
         XCTAssertEqual(w.s.units[k].pos.distance(to: gormAt), 0, accuracy: 1e-6, "ゴルムは動かない")
         XCTAssertEqual(w.s.units[e].pos.distance(to: foeAt), 0, accuracy: 1e-6, "相手もその場で拘束される")
-        // 射程の縁ちょうど（縁まで 350）でも同じ
+        // 射程の縁ちょうど（縁まで 188）でも同じ
         var (w2, k2) = world(level: 12)
         let e2 = addEnemy(&w2, dx: 1)
         w2.s.units[e2].pos = skillArena + Vec2(Tune.ultReach + w2.s.units[e2].radius - 1, 0)
         XCTAssertTrue(w2.cast(k2, .ultimate, .unit(w2.id(e2))))
+        w2.run(seconds: Tune.ultDelay)
         XCTAssertTrue(w2.s.units[e2].has(.suppress))
         w2.run(seconds: 2.0)
         XCTAssertEqual(events(w2, to: e2, .skill(.ultimate)).count, 6)
@@ -1038,18 +1220,21 @@ final class Kit_H034Tests: XCTestCase {
         XCTAssertEqual(StatusKind.root.ccTier, .low)
         XCTAssertTrue(SkillSystem.canCast(w.s, w.ctx, heroIndex: k, slot: .ultimate))
         XCTAssertTrue(w.cast(k, .ultimate, .unit(w.id(e))))
-        XCTAssertTrue(w.s.units[e].has(.suppress))
+        w.run(seconds: Tune.ultDelay)
+        XCTAssertTrue(w.s.units[e].has(.suppress), "バインドは掴みかかりを止めない")
         w.run(seconds: 2.0)
         XCTAssertEqual(events(w, to: e, .skill(.ultimate)).count, 6)
         XCTAssertTrue(w.s.units[k].isBound, "バインドは自分の足止めとは別に残る")
-        // 鉤・S2
+        // 鉤・S2（どちらも振りかぶりはバインドで止まらない）
         var (w2, k2) = world(level: 12)
         let e2 = addEnemy(&w2, dx: 200)
         CombatSystem.addStatus(&w2.s, targetIndex: k2, StatusEffect(kind: .root, duration: 3, sourceID: w2.id(e2)))
         XCTAssertTrue(w2.cast(k2, .skill2))
+        w2.run(seconds: Tune.shockDelay + 0.05)
         XCTAssertTrue(w2.cast(k2, .skill1, .unit(w2.id(e2))))
-        w2.run(seconds: 0.5)
+        w2.run(seconds: 0.7)
         XCTAssertGreaterThan(w2.damage(to: e2, from: .skill(.skill1)), 0)
+        XCTAssertGreaterThan(w2.damage(to: e2, from: .skill(.skill2)), 0)
     }
 
     func testUltimateEndsWhenTheTargetDiesAndStopsStriking() {
@@ -1106,6 +1291,49 @@ final class Kit_H034Tests: XCTestCase {
         XCTAssertEqual(kit(w3, k3).gormUltPhase, 0)
     }
 
+    /// 掴みかかり（0.25 秒）の間にゴルムがスタンされると、掴まない（相手は拘束されず、ゴルムの足止めも外れる。CD は戻らない）。
+    /// 相手が射程から ultLeash 以上離れた・無敵になった場合も掴まない。
+    func testUltimateWindUpIsCancelledByStunAndNeedsTheTargetStillInReach() {
+        var (w, k) = world(level: 12)
+        let e = addEnemy(&w, dx: 150)
+        XCTAssertTrue(w.cast(k, .ultimate, .unit(w.id(e))))
+        w.tick(3)
+        CombatSystem.addStatus(&w.s, targetIndex: k, StatusEffect(kind: .stun, duration: 0.5, sourceID: w.id(e)))
+        w.run(seconds: 2.5)
+        XCTAssertFalse(w.s.units[e].has(.suppress))
+        XCTAssertEqual(w.damage(to: e, from: .skill(.ultimate)), 0)
+        XCTAssertEqual(kit(w, k).gormUltPhase, 0)
+        XCTAssertFalse(w.s.units[k].has(.channeling))
+        XCTAssertFalse(w.s.units[k].statuses.contains { $0.kind == .root && $0.sourceID == w.id(k) })
+        XCTAssertGreaterThan(w.s.units[k].hero!.cooldown(.ultimate), 5, "CD は戻らない")
+        // 掴みかかりの間に相手が離れた（縁まで 188 + 100 を超えた）: 掴まない
+        var (w2, k2) = world(level: 12)
+        let e2 = addEnemy(&w2, dx: 200)
+        XCTAssertTrue(w2.cast(k2, .ultimate, .unit(w2.id(e2))))
+        w2.s.units[e2].pos = skillArena + Vec2(Tune.ultReach + w2.s.units[e2].radius + Tune.ultLeash + 20, 0)
+        w2.run(seconds: 2.5)
+        XCTAssertFalse(w2.s.units[e2].has(.suppress))
+        XCTAssertEqual(w2.damage(to: e2, from: .skill(.ultimate)), 0)
+        XCTAssertEqual(kit(w2, k2).gormUltPhase, 0)
+        XCTAssertFalse(w2.s.units[k2].has(.root))
+        // 少し離れただけ（ultLeash の内側）なら掴む
+        var (w3, k3) = world(level: 12)
+        let e3 = addEnemy(&w3, dx: 200)
+        XCTAssertTrue(w3.cast(k3, .ultimate, .unit(w3.id(e3))))
+        w3.s.units[e3].pos = skillArena + Vec2(Tune.ultReach + w3.s.units[e3].radius + Tune.ultLeash - 20, 0)
+        w3.run(seconds: Tune.ultDelay)
+        XCTAssertTrue(w3.s.units[e3].has(.suppress))
+        // 掴みかかりの間に無敵になった: 掴まない
+        var (w4, k4) = world(level: 12)
+        let e4 = addEnemy(&w4, dx: 150)
+        XCTAssertTrue(w4.cast(k4, .ultimate, .unit(w4.id(e4))))
+        CombatSystem.addStatus(&w4.s, targetIndex: e4, StatusEffect(kind: .invulnerable, duration: 1))
+        w4.run(seconds: 2.5)
+        XCTAssertEqual(w4.damage(to: e4, from: .skill(.ultimate)), 0)
+        XCTAssertEqual(kit(w4, k4).gormUltPhase, 0)
+        XCTAssertFalse(w4.s.units[k4].has(.channeling))
+    }
+
     func testGormDyingMidChannelReleasesTheTargetAndResetsEverything() {
         var (w, k) = world(level: 12)
         let e = addEnemy(&w, dx: 120)
@@ -1158,9 +1386,10 @@ final class Kit_H034Tests: XCTestCase {
         let e = addEnemy(&w, dx: 300)
         XCTAssertTrue(w.cast(k, .skill1, .unit(w.id(e))))
         XCTAssertEqual(w.s.units[k].hero!.cooldown(.skill1), 0)
-        w.run(seconds: 0.6)
+        w.run(seconds: 1.4)    // 鉤で足元へ引き寄せてから（奥義の射程 188 の内側）
         XCTAssertTrue(w.cast(k, .skill2))
         XCTAssertEqual(w.s.units[k].hero!.cooldown(.skill2), 0)
+        w.run(seconds: Tune.shockDelay + 0.05)
         XCTAssertTrue(w.cast(k, .ultimate, .unit(w.id(e))))
         XCTAssertEqual(w.s.units[k].hero!.cooldown(.ultimate), 0)
         w.run(seconds: 2.5)
@@ -1246,8 +1475,17 @@ final class Kit_H034Tests: XCTestCase {
         var (b, kb, b1, b2, bm) = makeScriptWorld()
         b.cast(kb, .skill1, .unit(b.id(b1)))
         b.tick(4)
-        XCTAssertFalse(b.s.projectiles.filter { !$0.done }.isEmpty, "鉤は飛翔中")
+        XCTAssertEqual(Kit.scheduledCount(b.s, caster: kb), 1, "振りかぶりの途中（鉤の予約が残っている）")
         var data = try JSONEncoder().encode(b.s)
+        var windUp = b
+        windUp.s = try JSONDecoder().decode(SimState.self, from: data)
+        XCTAssertEqual(windUp.s.stateHash(), b.s.stateHash())
+        b.tick(8)
+        windUp.tick(8)
+        XCTAssertEqual(windUp.s.stateHash(), b.s.stateHash())
+        XCTAssertFalse(b.s.projectiles.filter { !$0.done }.isEmpty, "鉤は飛翔中")
+        XCTAssertEqual(windUp.s.units, b.s.units)
+        data = try JSONEncoder().encode(b.s)
         var resumed = b
         resumed.s = try JSONDecoder().decode(SimState.self, from: data)
         XCTAssertEqual(resumed.s.units, b.s.units)
@@ -1356,7 +1594,7 @@ final class Kit_H034Tests: XCTestCase {
 
     func testBotUltimateIsCastNowOnAHookedWeakOrSupportedTargetWithinReach() {
         var (w, k) = world(level: 12)
-        let e = addEnemy(&w, dx: 300)
+        let e = addEnemy(&w, dx: 200)    // 縁まで 145 ≦ 188
         // 満タンの相手・味方なし: 汎用の判断
         XCTAssertEqual(decide(w, k, .ultimate, target: e), "default")
         // 傷ついた相手（< 70%）
@@ -1377,7 +1615,7 @@ final class Kit_H034Tests: XCTestCase {
         XCTAssertEqual(decide(w, k, .ultimate, target: e), "castNow(target)")
         w.s.units[ally].pos = skillArena + Vec2(-(Tune.botAllyRange + 100), 0)
         XCTAssertEqual(decide(w, k, .ultimate, target: e), "default", "味方が遠い")
-        // 射程（350 + 半径）の外では撃たない
+        // 射程（188 + 半径）の外では撃たない
         w.s.units[e].hp = w.s.units[e].stats.maxHP * 0.5
         w.s.units[e].pos = skillArena + Vec2(Tune.ultReach + 200, 0)
         XCTAssertEqual(decide(w, k, .ultimate, target: e), "skip", "射程外")
@@ -1417,9 +1655,11 @@ final class Kit_H034Tests: XCTestCase {
             XCTAssertTrue(k.reals.allSatisfy { $0.isFinite })
             XCTAssertTrue(k.timers.allSatisfy { $0.isFinite && $0 >= 0 })
             XCTAssertLessThanOrEqual(k.gormUltRemaining, Tune.ultSuppress + 1e-9)
+            // 予約: 奥義の連撃（掴んだ tick に 1 撃目が出るので残り 5）と、鉤の引き寄せ・着地（1 つずつ順に）。鉤の振りかぶり・
+            // S2 の叩きつけは奥義の間に撃てない
             XCTAssertLessThanOrEqual(k.scheduled.count, 6)
             XCTAssertLessThanOrEqual(u.statuses.count, 24)
-            if k.gormUltPhase == 1 { XCTAssertTrue(u.has(.channeling)) }
+            if k.gormUltPhase != 0 { XCTAssertTrue(u.has(.channeling)) }
             // 生きているゴルムの拘束だけが残る: 死んだゴルムの suppress は誰にも残らない
             if u.hero!.isDead || !u.isAlive {
                 XCTAssertFalse(sim.state.units.contains { $0.statuses.contains { $0.kind == .suppress && $0.sourceID == heroID } })
