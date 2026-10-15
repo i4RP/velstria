@@ -10,25 +10,24 @@ final class MapRelayoutTests: XCTestCase {
     func testPreservedObjectsAndClearRoutes() {
         let old = MapDefinition.standard, map = MapDefinition.relayout
         XCTAssertEqual(map.validationIssues(), [])
-        XCTAssertEqual(old.obstacles.count, map.obstacles.count)
         XCTAssertEqual(old.towers.count, map.towers.count)
         XCTAssertEqual(old.camps.map(\.id), map.camps.map(\.id))
-        for (a, b) in zip(old.obstacles, map.obstacles) {
-            XCTAssertEqual(a.bounds.width, b.bounds.width, accuracy: 0.00001)
-            XCTAssertEqual(a.bounds.height, b.bounds.height, accuracy: 0.00001)
+        // 壁は MLBB のミニマップ原本から起こした滑らかな多角形（2026-10-16。旧: standard の矩形と円の寸法のまま中心だけ移した）。
+        // Blue 半面 + 点対称 + 中心の壁、どれも反時計回り
+        XCTAssertEqual(map.obstacles.count,
+                       MapDefinition.sanctumBlueWallSplines.count * 2 + MapDefinition.sanctumCenterWallSplines.count)
+        for o in map.obstacles {
+            guard case .polygon(let v) = o else { return XCTFail("壁が多角形でない: \(o)") }
+            XCTAssertGreaterThan(Spline.signedArea(v), 0)
+            // 1 mm の精度で細かく分けている（弦は 50 以下）
+            for (a, b) in zip(v, v.dropFirst() + v.prefix(1)) { XCTAssertLessThanOrEqual(a.distance(to: b), 50.01) }
         }
-        func overlaps(_ a: Obstacle, _ b: Obstacle) -> Bool {
-            switch (a, b) {
-            case (.rect(let r), _): return MapDefinition.rect(r, overlaps: b)
-            case (_, .rect(let r)): return MapDefinition.rect(r, overlaps: a)
-            case (.circle(let p, let r), .circle(let q, let s)): return p.distance(to: q) < r + s - 0.001
-            }
+        // 点対称（relayout の一辺で写す）
+        for o in map.obstacles {
+            let c = o.bounds.center, m = Vec2(map.size - c.x, map.size - c.y)
+            XCTAssertTrue(map.obstacles.contains { $0.bounds.center.distance(to: m) < 1 }, "no mirror for wall at \(c)")
         }
-        for i in old.obstacles.indices {
-            for j in old.obstacles.indices where j > i && !overlaps(old.obstacles[i], old.obstacles[j]) {
-                XCTAssertFalse(overlaps(map.obstacles[i], map.obstacles[j]), "new wall overlap \(i)/\(j)")
-            }
-        }
+        XCTAssertEqual(map.brushes.map(\.id), Array(0..<map.brushes.count))
         let nav = NavGrid(map: map)
         for lane in map.lanes {
             let path = map.lanePath(lane, for: .blue)

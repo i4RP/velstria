@@ -157,16 +157,18 @@ final class StageTests: XCTestCase {
         return StageLayout.build(map: .relayout, props: try assets(set).props, density: preset.decorationDensity, level: q)
     }
 
-    /// 壁の足跡からのはみ出し（m）。矩形は衝突と同じ L∞（角の立った膨張）、円はユークリッド距離。内側は 0。
+    /// 壁の足跡からのはみ出し（m）。矩形は L∞（角の立った足跡）、円・多角形はユークリッド距離。内側は 0。
     private func wallOverhang(_ p: SIMD2<Float>, near walls: [Int], geo: StageGeometry) -> Float {
         var d = Float.greatestFiniteMagnitude
         for i in walls {
             if i < geo.rects.count {
                 let r = geo.rects[i]
                 d = min(d, max(max(r.min.x - p.x, p.x - r.max.x), max(r.min.y - p.y, p.y - r.max.y)))
-            } else {
+            } else if i < geo.rects.count + geo.circles.count {
                 let c = geo.circles[i - geo.rects.count]
                 d = min(d, simd_distance(p, c.center) - c.radius)
+            } else {
+                d = min(d, polygonDistance(p, geo.polygons[i - geo.rects.count - geo.circles.count]))
             }
         }
         return max(0, d)
@@ -187,11 +189,15 @@ final class StageTests: XCTestCase {
         let geo = StageGeometry(map: .relayout)
         let map = MapDefinition.relayout
         let bases = Team.players.flatMap { [geo.m(map.fountain($0)), geo.m(map.core($0))] }
-        let wallCount = geo.rects.count + geo.circles.count
+        let wallCount = geo.rects.count + geo.circles.count + geo.polygons.count
         func wallBounds(_ i: Int) -> (SIMD2<Float>, SIMD2<Float>) {
             if i < geo.rects.count { return (geo.rects[i].min, geo.rects[i].max) }
-            let c = geo.circles[i - geo.rects.count]
-            return (c.center - c.radius, c.center + c.radius)
+            if i < geo.rects.count + geo.circles.count {
+                let c = geo.circles[i - geo.rects.count]
+                return (c.center - c.radius, c.center + c.radius)
+            }
+            let b = geo.polygonBounds[i - geo.rects.count - geo.circles.count]
+            return (b.min, b.max)
         }
         for q in GraphicsQuality.allCases {
             let l = try layout(q, set: set)

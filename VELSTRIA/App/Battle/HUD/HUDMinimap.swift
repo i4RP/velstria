@@ -82,6 +82,7 @@ private struct HUDMinimapTerrain: View, Equatable {
                 switch obstacle {
                 case .rect(let rect): wall = Path(HUDMinimapDrawing.rect(rect, proj))
                 case .circle(let center, let radius): wall = HUDMinimapDrawing.circle(proj.point(center), proj.length(radius))
+                case .polygon(let points): wall = HUDMinimapDrawing.polyline(points, proj, closed: true)
                 }
                 ctx.fill(wall, with: .color(Color(red: 0.06, green: 0.10, blue: 0.16)))
                 ctx.stroke(wall, with: .color(Color(red: 0.38, green: 0.49, blue: 0.52).opacity(0.75)), lineWidth: 0.65)

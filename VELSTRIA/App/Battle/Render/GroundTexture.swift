@@ -114,6 +114,14 @@ enum GroundTextureGenerator {
                     fill(RGB(0.12, 0.20, 0.13), a)
                     ctx.fillEllipse(in: circle(c, radius + e))
                 }
+            case .polygon(let points):
+                // 多角形は膨らませずに 2 回重ねる（手続き地形の予備。通常はステージの配合マップ）
+                for a in [0.3, 0.5] {
+                    fill(RGB(0.12, 0.20, 0.13), a)
+                    ctx.addLines(between: points.map { CGPoint(x: $0.x, y: $0.y) })
+                    ctx.closePath()
+                    ctx.fillPath()
+                }
             }
         }
         for k in map.brushes.indices {

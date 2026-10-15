@@ -360,6 +360,7 @@ enum StageSplat {
         let geo: StageGeometry
         var rectCells: [Int: [Int]] = [:]
         var circleCells: [Int: [Int]] = [:]
+        var polygonCells: [Int: [Int]] = [:]
         var brushCells: [Int: [Int]] = [:]
 
         init(geo: StageGeometry) {
@@ -376,6 +377,7 @@ enum StageSplat {
             for (i, c) in geo.circles.enumerated() {
                 cover(c.center - c.radius, c.center + c.radius) { circleCells[$0, default: []].append(i) }
             }
+            for (i, b) in geo.polygonBounds.enumerated() { cover(b.min, b.max) { polygonCells[$0, default: []].append(i) } }
             if geo.brushField == nil {
                 for (i, b) in geo.brushes.enumerated() { cover(b.min, b.max) { brushCells[$0, default: []].append(i) } }
             }
@@ -390,6 +392,9 @@ enum StageSplat {
             var d = limit
             for i in rectCells[k] ?? [] { d = min(d, rectDistance(p, geo.rects[i].min, geo.rects[i].max)) }
             for i in circleCells[k] ?? [] { d = min(d, simd_distance(p, geo.circles[i].center) - geo.circles[i].radius) }
+            for i in polygonCells[k] ?? [] where rectDistance(p, geo.polygonBounds[i].min, geo.polygonBounds[i].max) < d {
+                d = min(d, polygonDistance(p, geo.polygons[i]))
+            }
             return d
         }
 
@@ -432,6 +437,9 @@ struct StageGeometry {
     let lanes: [[SIMD2<Float>]]
     let rects: [(min: SIMD2<Float>, max: SIMD2<Float>)]
     let circles: [(center: SIMD2<Float>, radius: Float)]
+    /// 多角形の壁（反時計回り、地図座標 m）と外接矩形。
+    let polygons: [[SIMD2<Float>]]
+    let polygonBounds: [(min: SIMD2<Float>, max: SIMD2<Float>)]
     let brushes: [(min: SIMD2<Float>, max: SIMD2<Float>)]
     /// 草むらが細かい格子（MapDefinition.bushMask）のとき: 格子と、各セルから最も近い草むらのセルまでの距離（m）。
     let brushField: (mask: BushMask, meters: [Float])?
@@ -442,14 +450,21 @@ struct StageGeometry {
         lanes = map.lanes.map { lane in map.lanePath(lane, for: .blue).map(m) }
         var rects: [(SIMD2<Float>, SIMD2<Float>)] = []
         var circles: [(SIMD2<Float>, Float)] = []
+        var polygons: [[SIMD2<Float>]] = []
         for o in map.obstacles {
             switch o {
             case .rect(let r): rects.append((m(Vec2(r.minX, r.minY)), m(Vec2(r.maxX, r.maxY))))
             case .circle(let c, let radius): circles.append((m(c), Float(radius / Balance.unitsPerMeter)))
+            case .polygon(let points): polygons.append(points.map(m))
             }
         }
         self.rects = rects.map { (min: $0.0, max: $0.1) }
         self.circles = circles.map { (center: $0.0, radius: $0.1) }
+        self.polygons = polygons
+        polygonBounds = polygons.map { pts in
+            (min: pts.reduce(SIMD2<Float>(repeating: .greatestFiniteMagnitude)) { simd_min($0, $1) },
+             max: pts.reduce(SIMD2<Float>(repeating: -.greatestFiniteMagnitude)) { simd_max($0, $1) })
+        }
         brushes = map.brushes.map { (min: m(Vec2($0.rect.minX, $0.rect.minY)), max: m(Vec2($0.rect.maxX, $0.rect.maxY))) }
         if let mask = map.bushMask {
             let cellMeters = Float(mask.cell / Balance.unitsPerMeter)
@@ -467,6 +482,9 @@ struct StageGeometry {
         var d = Float.greatestFiniteMagnitude
         for r in rects { d = min(d, rectDistance(p, r.min, r.max)) }
         for c in circles { d = min(d, simd_distance(p, c.center) - c.radius) }
+        for (i, poly) in polygons.enumerated() where rectDistance(p, polygonBounds[i].min, polygonBounds[i].max) < d {
+            d = min(d, polygonDistance(p, poly))
+        }
         return d
     }
 
@@ -515,6 +533,20 @@ func segmentDistance(_ p: SIMD2<Float>, _ a: SIMD2<Float>, _ b: SIMD2<Float>) ->
     let len2 = simd_length_squared(ab)
     let t = len2 > 0 ? max(0, min(1, simd_dot(p - a, ab) / len2)) : 0
     return simd_distance(p, a + ab * t)
+}
+
+/// 多角形までの距離（内側は負: 最も近い辺までの距離）。
+func polygonDistance(_ p: SIMD2<Float>, _ poly: [SIMD2<Float>]) -> Float {
+    var d = Float.greatestFiniteMagnitude
+    var inside = false
+    var j = poly.count - 1
+    for i in poly.indices {
+        let a = poly[i], b = poly[j]
+        d = min(d, segmentDistance(p, a, b))
+        if (a.y > p.y) != (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x { inside.toggle() }
+        j = i
+    }
+    return inside ? -d : d
 }
 
 /// 矩形までの距離（内側は負: 最も近い辺までの距離）。

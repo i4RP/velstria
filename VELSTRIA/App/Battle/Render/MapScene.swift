@@ -249,6 +249,26 @@ final class MapScene {
                         MapProps.smallFlora(&l, glow: &g, at: w(c + Vec2(radius + 40, 0)), seed: seed &+ 7)
                     }
                 }
+            case .polygon:
+                // 多角形の壁: 外接矩形の格子のうち内側の点に崖の塊（手続き地形の予備。通常はステージの一枚岩）
+                let b = o.bounds
+                let step = 135.0
+                var y = b.minY + step / 2
+                var k = 0
+                while y < b.maxY {
+                    var x = b.minX + step / 2
+                    while x < b.maxX {
+                        let p = Vec2(x, y)
+                        if o.contains(p) {
+                            let h = rng.range(1.2, 2.0), rad = rng.range(0.85, 1.2)
+                            let s = seed &+ UInt64(k)
+                            batch.add(at: w(p)) { l, _ in MapProps.cliff(&l, at: w(p), radius: rad, height: h, seed: s) }
+                            k += 1
+                        }
+                        x += step
+                    }
+                    y += step
+                }
             }
         }
 

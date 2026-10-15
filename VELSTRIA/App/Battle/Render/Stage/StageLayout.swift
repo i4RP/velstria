@@ -175,6 +175,8 @@ struct StageLayout {
                 rectWall(lo: lo, hi: hi, index: oi)
             case .circle(let c, let radius):
                 circleWall(center: geo.m(c), radius: Float(radius / Balance.unitsPerMeter), index: oi)
+            case .polygon(let points):
+                polygonWall(points.map { geo.m($0) }, index: oi)
             }
         }
     }
@@ -183,7 +185,7 @@ struct StageLayout {
     /// 2026-10-16 まで辺に崖の岩・角に柱状の岩を並べていたが、境界がガタガタで隙間が暗く見えたので一枚岩にした。
     mutating func rectWall(lo: SIMD2<Float>, hi: SIMD2<Float>, index: Int) {
         let coreH = rng.range(1.85, 2.15)
-        // 角は少し丸める（衝突は角の立った膨張なので丸めすぎない。足元は裾 0.28 m の張り出しで角の近くまで埋まる）。
+        // 角は少し丸める（衝突は角をユニットの半径で丸めた膨張。足元は裾 0.28 m の張り出しで角の近くまで埋まる）。
         // 半径は上面の縁の入り（slabCore の inset、最大 0.55 m・短辺の 0.28 倍）以上にする（小さいと角で上面の輪が裏返る）
         let outline = StageLayout.roundedRect(lo: lo, hi: hi, radius: min(0.6, min(hi.x - lo.x, hi.y - lo.y) * 0.45), step: 1.1)
         appendRock(StageLayout.slabCore(outline: outline, height: coreH, seed: UInt64(index) &* 977, tint: rockTint()), at: (lo + hi) / 2)
@@ -232,6 +234,41 @@ struct StageLayout {
         }
     }
 
+    /// 多角形の壁（2026-10-16、MLBB のミニマップ原本から起こした滑らかな輪郭）: 足跡いっぱいの一枚岩（slopedSlab）+ 上に茂みと木。
+    mutating func polygonWall(_ outline: [SIMD2<Float>], index: Int) {
+        guard outline.count >= 3 else { return }
+        let slab = StageLayout.slopedSlab(outline: outline, seed: UInt64(index) &* 1733, tint: rockTint(),
+                                          fine: level != .low, refine: level == .high)
+        let center = outline.reduce(SIMD2<Float>.zero, +) / Float(outline.count)
+        appendRock(slab.mesh, at: center)
+        // 上の茂みと木: 上面の輪の内側（縁から 0.45 m より内）。上面は頂点ごとに高さが違うので低い方に合わせて少し沈める
+        let top = slab.top
+        guard top.count >= 3 else { return }
+        var lo = top[0], hi = top[0]
+        for p in top { lo = simd_min(lo, p); hi = simd_max(hi, p) }
+        let area = abs(StageLayout.signedArea(top))
+        func spot(southBias: Bool) -> SIMD2<Float>? {
+            for _ in 0..<12 {
+                let p = SIMD2(rng.range(lo.x, hi.x), southBias ? rng.range(lo.y, lo.y + (hi.y - lo.y) * 0.65) : rng.range(lo.y, hi.y))
+                if polygonDistance(p, top) < -0.45 { return p }
+            }
+            return nil
+        }
+        let bushes = Int((area / 4.5 * density).rounded())
+        for _ in 0..<bushes {
+            guard let p = spot(southBias: false) else { continue }
+            let b = size(.bush)
+            let k = rng.range(1.0, 1.6) / max(b.x, b.z)
+            place(.bush, at: p, y: slab.minTopHeight - 0.25, yaw: rng.range(0, 6.28), scale: SIMD3(k, k * rng.range(0.85, 1.15), k))
+        }
+        // 木は南（手前）寄り: 木が隠すのは壁の上になる
+        let trees = Int((area / 14 * density).rounded())
+        for t in 0..<trees {
+            guard let p = spot(southBias: true) else { continue }
+            placeTree(at: p, y: slab.minTopHeight - 0.3, height: rng.range(2.6, 3.2), tall: t % 3 == 2)
+        }
+    }
+
     mutating func appendRock(_ core: StageMeshBuffer, at p: SIMD2<Float>) {
         let key = StageChunks.key(world(p))
         var buf = out.chunks.rocks.removeValue(forKey: key) ?? StageMeshBuffer(reserveVertices: 2048)
@@ -244,16 +281,17 @@ struct StageLayout {
     mutating func border() {
         let M = geo.mapMeters
         // 縁の崖: 重なり合う一枚岩の帯（2026-10-16。小岩の列だと縁がガタガタに見えた）。
-        // 南は低く遠く（手前の地図を隠さない）、北は高い。北・南の帯は角まで伸ばす
+        // 縁は移動の限界（地図の縁）に合わせる: 崖の裾が地図の縁にかかり、ユニットが何もない所で止まって見えない。
+        // 南は低く（手前の地図を隠さない）、北は高い。北・南の帯は角まで伸ばす
         for side in 0..<4 {
             let south = side == 0, north = side == 2, alongX = side % 2 == 0
             let (u0, u1): (Float, Float) = alongX ? (-7, M + 7) : (-1.5, M + 1.5)
             var u = u0
             while u < u1 {
                 let len = max(2.5, min(rng.range(6.5, 9.5), u1 - u + 1))
-                let inner: Float = south ? 2.2 : rng.range(0.8, 1.4)
+                let inner: Float = south ? 0.25 : rng.range(-0.1, 0.15)
                 let depth: Float = rng.range(4.2, 5.6)
-                let h: Float = south ? rng.range(1.0, 1.4) : (north ? rng.range(2.5, 3.2) : rng.range(2.1, 2.8))
+                let h: Float = south ? rng.range(0.8, 1.1) : (north ? rng.range(2.5, 3.2) : rng.range(2.1, 2.8))
                 let lo: SIMD2<Float>, hi: SIMD2<Float>
                 switch side {
                 case 0: lo = SIMD2(u, -inner - depth); hi = SIMD2(u + len, -inner)
@@ -514,6 +552,30 @@ struct StageLayout {
                 pebble(&buf, at: p, size: rng.range(0.18, 0.34))
                 grassTuft(&buf, at: p + SIMD2(rng.range(-0.3, 0.3), rng.range(-0.3, 0.3)), height: rng.range(0.3, 0.5), blades: 6)
                 out.chunks.flora[StageChunks.key(world(p))] = buf
+            }
+        }
+        // 多角形の壁の根元: 裾のすぐ外（足跡から 0.3〜0.5 m）に低い草の房と小石を並べ、岩の根元を地面になじませる
+        // （膝下の高さだけなので歩ける所に置いてよい）
+        let rootStep = 1.4 / max(0.5, density)
+        for poly in geo.polygons {
+            var acc: Float = 0
+            for k in poly.indices {
+                let a = poly[k], b = poly[(k + 1) % poly.count]
+                let len = simd_distance(a, b)
+                guard len > 1e-4 else { continue }
+                acc += len
+                let e = (b - a) / len, nrm = SIMD2(e.y, -e.x) // 反時計回りの輪郭の外向き
+                while acc > rootStep {
+                    acc -= rootStep
+                    let p = a + (b - a) * rng.range(0, 1) + nrm * rng.range(0.3, 0.5)
+                    guard p.x > 0.5, p.y > 0.5, p.x < M - 0.5, p.y < M - 0.5,
+                          geo.laneDistance(p) > 2.5, geo.obstacleDistance(p) > 0.2 else { continue }
+                    let key = StageChunks.key(world(p))
+                    var buf = out.chunks.flora.removeValue(forKey: key) ?? StageMeshBuffer(reserveVertices: 2048)
+                    grassTuft(&buf, at: p, height: rng.range(0.3, 0.55), blades: 6)
+                    if rng.chance(0.3) { pebble(&buf, at: p + nrm * 0.15, size: rng.range(0.16, 0.3)) }
+                    out.chunks.flora[key] = buf
+                }
             }
         }
         // 川岸の小石と葦
@@ -803,6 +865,367 @@ struct StageLayout {
             }
         }
         return pts
+    }
+
+    /// 壁の形の基準値（2026-10-16、docs/STAGE.md 1.1）。カメラは 56° 見下ろし・縦画角 48° なので、画面の上端の視線は 32°、
+    /// 中央は 56°、下端は 80°。面の傾斜がその視線より寝ていれば、面の向こうの地面は隠れない。
+    enum WallProfile {
+        /// 高さの上限（m）。ヒーロー（約 1.8 m）の頭が壁の向こうに見える。
+        static let maxHeight: Float = 2.0
+        /// 細い壁は低く: 高さ ≤ heightBase + heightPerHalfWidth × 半分の厚み（m）。
+        static let heightBase: Float = 0.55
+        static let heightPerHalfWidth: Float = 1.1
+        /// 面の傾斜角（度）。北向き（奥）は画面の中央の視線 56° より十分寝かせ、壁の向こうの歩ける所を隠さない
+        /// （上端の視線 32° でも隠すのは高さ × 0.32 だけ）。南向き（手前）は立てて崖に見せる（隠すのは壁の上だけ）。
+        static let slopeNorth: Float = 38
+        static let slopeSide: Float = 58
+        static let slopeSouth: Float = 74
+        /// 裾の張り出し（m）。足跡（衝突）から 0.4 m 以内（1 章の規則）。
+        static let footFlare: Float = 0.28
+    }
+
+    /// 傾斜付きの一枚岩（2026-10-16）。輪郭（凹んでいてよい）を足跡とし、面の向きごとに WallProfile の傾斜で上をすぼめ、
+    /// 上の縁を丸めて上面（苔）をなだらかに盛り上げる。法線は滑らか。
+    /// fine（画質 中・高）: 縦 13 段・上面の内側 3 段の盛り上がり・数 cm の起伏で岩らしくする。低は縦 9 段・平らな上面。
+    /// refine（画質 高）: さらに輪郭をもう一度 centripetal Catmull-Rom で補間して頂点を 2 倍にする（衝突の多角形は 1 mm の精度
+    /// なので形は変わらない）。壁 44 の三角形は 低 約 16 万・中 約 28 万・高 約 57 万（ステージ全体の予算は 90 万 / 100 万）。
+    /// 戻り値の top は上面の輪（地図座標 m）、minTopHeight は上面の縁の最も低い高さ。
+    static func slopedSlab(outline raw: [SIMD2<Float>], seed: UInt64, tint: SIMD4<UInt8>, fine: Bool = true, refine: Bool = false)
+        -> (mesh: StageMeshBuffer, top: [SIMD2<Float>], minTopHeight: Float) {
+        var rng = RenderRNG(seed: seed | 1)
+        let ccw = signedArea(raw) < 0 ? Array(raw.reversed()) : raw
+        let outline = refine ? refineOutline(ccw) : ccw
+        let n = outline.count
+        guard n >= 3 else { return (StageMeshBuffer(), [], 0) }
+        // 頂点ごとの外向きの法線・半分の厚み（内向きに伸ばした線が向こうの辺に当たるまでの半分）
+        var normals: [SIMD2<Float>] = [], halfWidth: [Float] = []
+        for k in 0..<n {
+            let a = outline[(k + n - 1) % n], b = outline[k], c = outline[(k + 1) % n]
+            let e0 = simd_normalize(b - a), e1 = simd_normalize(c - b)
+            let nn = SIMD2(e0.y, -e0.x) + SIMD2(e1.y, -e1.x)
+            normals.append(simd_length(nn) > 1e-5 ? simd_normalize(nn) : SIMD2(e1.y, -e1.x))
+        }
+        // 厚みは格子（2 m）で辺を探して O(n) 近くに抑える（頂点が数百〜千あるため）。内向きの線が向こうの辺に当たる距離と、
+        // 輪郭に沿って 1 m 以内の辺を除いた最も近い辺までの距離の短い方（三日月の先端で、線が細い先の奥まで伸びて
+        // 厚く見積もるのを防ぐ）
+        let edgeGrid = EdgeGrid(outline, cell: 2)
+        for k in 0..<n {
+            let ray = edgeGrid.rayHit(from: outline[k], dir: -normals[k], skip: k, limit: 40)
+            let other = edgeGrid.nearestOther(to: k, excludingArc: 1.0, limit: 40)
+            halfWidth.append(min(ray, other) / 2)
+        }
+        // 厚みのむらをならす（近くの 5 点の最小）
+        let smoothHalf = (0..<n).map { k in (-2...2).map { halfWidth[(k + $0 + n) % n] }.min() ?? halfWidth[k] }
+        var heights: [Float] = [], runs: [Float] = [], lips: [Float] = []
+        for k in 0..<n {
+            let h = min(WallProfile.maxHeight, WallProfile.heightBase + WallProfile.heightPerHalfWidth * smoothHalf[k])
+            let ny = normals[k].y
+            let deg = ny >= 0 ? WallProfile.slopeSide + (WallProfile.slopeNorth - WallProfile.slopeSide) * ny
+                              : WallProfile.slopeSide + (WallProfile.slopeSouth - WallProfile.slopeSide) * -ny
+            let run = min(h / tan(deg * .pi / 180), smoothHalf[k] * 0.75)
+            heights.append(h)
+            runs.append(run)
+            lips.append(min(0.35, max(0, smoothHalf[k] - run) * 0.4))
+        }
+        // 上面の輪が自己交差しない（耳刈りで刈り切れる）所まで、傾斜と縁の丸めの入りを一律に縮める
+        // （三日月の細い先では厚みの見積もりが粗く、内へ寄せた輪が交差しうる。縮めた壁は面が少し立つ）
+        for scale in [Float(1), 0.7, 0.45, 0.25, 0] {
+            let ring = (0..<n).map { k in outline[k] - normals[k] * ((runs[k] + lips[k]) * scale) }
+            if triangulate(ring).count == n - 2 || scale == 0 {
+                runs = runs.map { $0 * scale }
+                lips = lips.map { $0 * scale }
+                break
+            }
+        }
+        // 高さを輪に沿ってならす（急な段差を作らない。頂点が細かいほど広い窓で）
+        let win = fine ? 3 : 1
+        let h2 = (0..<n).map { k -> Float in
+            var s: Float = 0, w: Float = 0
+            for d in -win...win { let wt = Float(win + 1 - abs(d)); s += heights[(k + d + n) % n] * wt; w += wt }
+            return s / w
+        }
+        // 縦の段（f = 高さの割合。負は地面の下 0.06 m）: 裾の張り出しは下ほど強く 2 乗で消え、傾斜は直線、
+        // 上の縁は smoothstep で丸める
+        let fs: [Float] = fine ? [-1, 0.03, 0.08, 0.15, 0.24, 0.35, 0.48, 0.62, 0.75, 0.86, 0.94, 0.985, 1.0]
+                               : [-1, 0.05, 0.14, 0.28, 0.46, 0.66, 0.84, 0.96, 1.0]
+        func foot(_ f: Float) -> Float { f < 0 ? 1 : pow(max(0, 1 - f / 0.45), 2) }
+        func lipAt(_ f: Float) -> Float { smoothstep(0.82, 1.0, f) }
+        let bulge = (0..<n).map { _ in rng.range(-0.04, 0.05) }
+        let noiseSeed = Float(seed % 997)
+        func shaded(_ s: Float) -> SIMD4<UInt8> {
+            func m(_ v: UInt8) -> UInt8 { UInt8(max(0, min(255, (Float(v) * s).rounded()))) }
+            return SIMD4(m(tint.x), m(tint.y), m(tint.z), tint.w)
+        }
+        var positions: [SIMD3<Float>] = [], colors: [SIMD4<UInt8>] = []
+        var top: [SIMD2<Float>] = []
+        for (li, f) in fs.enumerated() {
+            let last = li == fs.count - 1
+            for k in 0..<n {
+                var off = WallProfile.footFlare * foot(f) - runs[k] * max(0, f) - lips[k] * lipAt(f)
+                if f > 0 && !last { off += bulge[k] * sin(.pi * f) }
+                var q = outline[k] + normals[k] * off
+                // 岩の起伏（裾は足跡の規則のため動かさない）: 低い周波数の 3D ノイズで ±5 cm
+                if fine && f > 0.1 && !last {
+                    let p3 = SIMD3(q.x, f * h2[k], q.y) * 0.9 + noiseSeed
+                    q += normals[k] * (StageLayout.valueNoise3(p3) - 0.5) * 0.1 * min(1, (f - 0.1) * 4)
+                }
+                let y = f < 0 ? -0.06 : h2[k] * f + (last ? 0.04 : 0)
+                positions.append(SIMD3(q.x, y, -q.y))
+                colors.append(shaded(0.82 + 0.32 * max(0, f)))
+                if last { top.append(q) }
+            }
+        }
+        var tris: [(Int, Int, Int)] = []
+        func band(_ r: Int) {
+            for k in 0..<n {
+                let a = r * n + k, b = r * n + (k + 1) % n, c = (r + 1) * n + (k + 1) % n, d = (r + 1) * n + k
+                tris.append((a, b, c))
+                tris.append((a, c, d))
+            }
+        }
+        for r in 0..<(fs.count - 1) { band(r) }
+        // 上面の盛り上がり（fine）: 縁の内側に 3 段の輪を足して中ほどを少し高くする。内側の輪から順に耳刈りを試し、
+        // 自己交差して刈り切れない輪は使わない（その外の輪で閉じる）
+        var rings: [[SIMD2<Float>]] = [top]
+        if fine {
+            for j in 1...3 {
+                let t = Float(j) / 4
+                rings.append((0..<n).map { k in top[k] - normals[k] * (max(0, smoothHalf[k] - runs[k] - lips[k]) * 0.8 * t) })
+            }
+        }
+        var use = rings.count - 1
+        var cap = triangulate(rings[use])
+        while cap.count != n - 2 && use > 0 {
+            use -= 1
+            cap = triangulate(rings[use])
+        }
+        var capRing = fs.count - 1
+        if use > 0 {
+            for j in 1...use {
+                let t = Float(j) / 4
+                for k in 0..<n {
+                    let dome = min(0.22, 0.12 * smoothHalf[k]) * (1 - (1 - t) * (1 - t))
+                    positions.append(SIMD3(rings[j][k].x, h2[k] + 0.04 + dome, -rings[j][k].y))
+                    colors.append(shaded(1.14 + 0.03 * t))
+                }
+                band(capRing)
+                capRing += 1
+            }
+        }
+        // 上面: 耳刈り（凹んだ形でも正しく覆う）。刈り切れなければ足跡の輪郭（単純な多角形）の分け方を使い、
+        // それも駄目なら重心からの扇
+        let base = capRing * n
+        if cap.count != n - 2 { cap = triangulate(outline) }
+        if cap.count != n - 2 {
+            let ring = rings[use]
+            let c = ring.reduce(SIMD2<Float>.zero, +) / Float(n)
+            positions.append(SIMD3(c.x, h2.reduce(0, +) / Float(n) + 0.04, -c.y))
+            colors.append(shaded(1.14))
+            let ci = positions.count - 1 - base
+            cap = (0..<n).map { ($0, ($0 + 1) % n, ci) }
+        }
+        for t in cap { tris.append((base + t.0, base + t.1, base + t.2)) }
+        var vn = [SIMD3<Float>](repeating: .zero, count: positions.count)
+        for t in tris {
+            let a = positions[t.0], b = positions[t.1], c = positions[t.2]
+            let nrm = simd_cross(b - a, c - a)
+            vn[t.0] += nrm
+            vn[t.1] += nrm
+            vn[t.2] += nrm
+        }
+        var buf = StageMeshBuffer(reserveVertices: positions.count)
+        for (i, p) in positions.enumerated() {
+            let nn = simd_length(vn[i]) > 1e-6 ? simd_normalize(vn[i]) : SIMD3<Float>(0, 1, 0)
+            buf.addVertex(p, nn, .zero, colors[i])
+        }
+        for t in tris { buf.addTriangle(UInt32(t.0), UInt32(t.1), UInt32(t.2)) }
+        return (buf, top, h2.min() ?? 0)
+    }
+
+    /// 閉じた折れ線の各辺の中点を、centripetal Catmull-Rom の値に置き換えて足す（頂点 2 倍。元の頂点は動かさない）。
+    static func refineOutline(_ pts: [SIMD2<Float>]) -> [SIMD2<Float>] {
+        let n = pts.count
+        guard n >= 4 else { return pts }
+        var out: [SIMD2<Float>] = []
+        out.reserveCapacity(n * 2)
+        func knot(_ a: SIMD2<Float>, _ b: SIMD2<Float>) -> Float { max(1e-5, simd_distance(a, b).squareRoot()) }
+        for i in 0..<n {
+            let p0 = pts[(i + n - 1) % n], p1 = pts[i], p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n]
+            let t0: Float = 0, t1 = t0 + knot(p0, p1), t2 = t1 + knot(p1, p2), t3 = t2 + knot(p2, p3)
+            let t = (t1 + t2) / 2
+            func lerp(_ a: SIMD2<Float>, _ b: SIMD2<Float>, _ ta: Float, _ tb: Float) -> SIMD2<Float> {
+                (a * (tb - t) + b * (t - ta)) / (tb - ta)
+            }
+            let a1 = lerp(p0, p1, t0, t1), a2 = lerp(p1, p2, t1, t2), a3 = lerp(p2, p3, t2, t3)
+            let mid = lerp(lerp(a1, a2, t0, t2), lerp(a2, a3, t1, t3), t1, t2)
+            out.append(p1)
+            out.append(mid)
+        }
+        return out
+    }
+
+    /// 3D の値ノイズ（0〜1、滑らか）。岩の起伏用。
+    static func valueNoise3(_ p: SIMD3<Float>) -> Float {
+        let i = SIMD3<Float>(floor(p.x), floor(p.y), floor(p.z)), f = p - i
+        let u = f * f * (SIMD3<Float>(repeating: 3) - 2 * f)
+        func h(_ x: Float, _ y: Float, _ z: Float) -> Float {
+            var v = UInt32(bitPattern: Int32(truncatingIfNeeded: Int(x))) &* 0x8DA6_B343
+            v ^= UInt32(bitPattern: Int32(truncatingIfNeeded: Int(y))) &* 0xD816_3841
+            v ^= UInt32(bitPattern: Int32(truncatingIfNeeded: Int(z))) &* 0xCB1A_B31F
+            v ^= v >> 13
+            v = v &* 0x5BD1_E995
+            v ^= v >> 15
+            return Float(v & 0xFFFF) / 65535
+        }
+        func l(_ a: Float, _ b: Float, _ t: Float) -> Float { a + (b - a) * t }
+        let x0 = l(l(h(i.x, i.y, i.z), h(i.x + 1, i.y, i.z), u.x), l(h(i.x, i.y + 1, i.z), h(i.x + 1, i.y + 1, i.z), u.x), u.y)
+        let x1 = l(l(h(i.x, i.y, i.z + 1), h(i.x + 1, i.y, i.z + 1), u.x),
+                   l(h(i.x, i.y + 1, i.z + 1), h(i.x + 1, i.y + 1, i.z + 1), u.x), u.y)
+        return l(x0, x1, u.z)
+    }
+
+    /// 輪郭の辺を格子に入れて、内向きの線が最初に当たる辺までの距離を速く求める。
+    struct EdgeGrid {
+        let pts: [SIMD2<Float>]
+        let cell: Float
+        let origin: SIMD2<Float>
+        let cols: Int, rows: Int
+        var buckets: [[Int]]
+
+        init(_ pts: [SIMD2<Float>], cell: Float) {
+            self.pts = pts
+            self.cell = cell
+            var lo = pts[0], hi = pts[0]
+            for p in pts { lo = simd_min(lo, p); hi = simd_max(hi, p) }
+            origin = lo
+            cols = max(1, Int((hi.x - lo.x) / cell) + 1)
+            rows = max(1, Int((hi.y - lo.y) / cell) + 1)
+            var b = [[Int]](repeating: [], count: cols * rows)
+            let n = pts.count
+            for j in 0..<n {
+                let a = pts[j], c = pts[(j + 1) % n]
+                let c0 = Int((min(a.x, c.x) - lo.x) / cell), c1 = Int((max(a.x, c.x) - lo.x) / cell)
+                let r0 = Int((min(a.y, c.y) - lo.y) / cell), r1 = Int((max(a.y, c.y) - lo.y) / cell)
+                for r in max(0, r0)...min(rows - 1, r1) { for cc in max(0, c0)...min(cols - 1, c1) { b[r * cols + cc].append(j) } }
+            }
+            buckets = b
+        }
+
+        /// 頂点 k から、輪郭に沿って arc（m）以内の辺を除いた最も近い辺までの距離（無ければ limit）。
+        func nearestOther(to k: Int, excludingArc arc: Float, limit: Float) -> Float {
+            let n = pts.count
+            let p = pts[k]
+            // 輪郭に沿った距離で除く範囲（前後に何本の辺か）
+            var back = 0, fwd = 0
+            var acc: Float = 0
+            while back < n / 2 && acc < arc { acc += simd_distance(pts[(k - back - 1 + n) % n], pts[(k - back + n) % n]); back += 1 }
+            acc = 0
+            while fwd < n / 2 && acc < arc { acc += simd_distance(pts[(k + fwd) % n], pts[(k + fwd + 1) % n]); fwd += 1 }
+            func excluded(_ j: Int) -> Bool {
+                let d = (j - k + n) % n // 辺 j は頂点 j → j+1
+                return d < fwd || d >= n - back
+            }
+            var best = limit
+            let cc = Int((p.x - origin.x) / cell), rr = Int((p.y - origin.y) / cell)
+            var ring = 0
+            while Float(ring - 1) * cell < best && ring <= max(cols, rows) {
+                for r in (rr - ring)...(rr + ring) {
+                    for c in (cc - ring)...(cc + ring) where max(abs(r - rr), abs(c - cc)) == ring {
+                        guard r >= 0, c >= 0, r < rows, c < cols else { continue }
+                        for j in buckets[r * cols + c] where !excluded(j) {
+                            let a = pts[j], b = pts[(j + 1) % n], ab = b - a
+                            let l2 = simd_dot(ab, ab)
+                            let t = l2 > 0 ? max(0, min(1, simd_dot(p - a, ab) / l2)) : 0
+                            best = min(best, simd_distance(p, a + ab * t))
+                        }
+                    }
+                }
+                ring += 1
+            }
+            return best
+        }
+
+        /// p から dir へ伸ばした線が、skip の隣の辺以外に最初に当たる距離（当たらなければ limit）。
+        func rayHit(from p: SIMD2<Float>, dir: SIMD2<Float>, skip k: Int, limit: Float) -> Float {
+            let n = pts.count
+            var best = limit
+            var seen = Set<Int>()
+            // 線に沿って格子を歩く（半セルずつ）
+            var s: Float = 0
+            while s < best + cell {
+                let q = p + dir * s
+                let cc = Int((q.x - origin.x) / cell), r = Int((q.y - origin.y) / cell)
+                if cc < 0 || r < 0 || cc >= cols || r >= rows { break }
+                for dr in -1...1 {
+                    for dc in -1...1 {
+                        let rr = r + dr, c2 = cc + dc
+                        guard rr >= 0, c2 >= 0, rr < rows, c2 < cols else { continue }
+                        for j in buckets[rr * cols + c2] where j != k && (j + 1) % n != k && !seen.contains(j) {
+                            seen.insert(j)
+                            let a = pts[j], e = pts[(j + 1) % n] - a
+                            let den = dir.x * e.y - dir.y * e.x
+                            guard abs(den) > 1e-6 else { continue }
+                            let w = a - p
+                            let t = (w.x * e.y - w.y * e.x) / den
+                            let u = (w.x * dir.y - w.y * dir.x) / den
+                            if t > 0.05 && u >= 0 && u <= 1 { best = min(best, t) }
+                        }
+                    }
+                }
+                s += cell * 0.5
+            }
+            return best
+        }
+    }
+
+    /// 符号付き面積（反時計回りが正）。
+    static func signedArea(_ pts: [SIMD2<Float>]) -> Float {
+        var a: Float = 0
+        for k in pts.indices {
+            let p = pts[k], q = pts[(k + 1) % pts.count]
+            a += p.x * q.y - q.x * p.y
+        }
+        return a / 2
+    }
+
+    /// 単純多角形（反時計回り）の耳刈り。三角形は元の添字（反時計回り）。自己交差などで刈り切れなければ途中までを返す。
+    static func triangulate(_ pts: [SIMD2<Float>]) -> [(Int, Int, Int)] {
+        var idx = Array(pts.indices)
+        var tris: [(Int, Int, Int)] = []
+        func cross(_ o: SIMD2<Float>, _ a: SIMD2<Float>, _ b: SIMD2<Float>) -> Float {
+            (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
+        }
+        // 刈った所の続きから探す（毎回先頭から探すと O(n³) になる。頂点が 1 mm の精度で数百あるため）。
+        // 耳の中に入りうるのは凹んだ頂点だけなので、中に頂点が無いかは凹んだ頂点だけで調べる
+        var start = 0
+        while idx.count > 3 {
+            var clipped = false
+            let m = idx.count
+            let reflex = (0..<m).map { k in cross(pts[idx[(k + m - 1) % m]], pts[idx[k]], pts[idx[(k + 1) % m]]) <= 1e-7 }
+            for step in 0..<m {
+                let i = (start + step) % m
+                let i0 = idx[(i + m - 1) % m], i1 = idx[i], i2 = idx[(i + 1) % m]
+                let a = pts[i0], b = pts[i1], c = pts[i2]
+                guard !reflex[i] else { continue }
+                var ear = true
+                for k in 0..<m where reflex[k] {
+                    let j = idx[k]
+                    guard j != i0 && j != i1 && j != i2 else { continue }
+                    let p = pts[j]
+                    if cross(a, b, p) >= 0 && cross(b, c, p) >= 0 && cross(c, a, p) >= 0 { ear = false; break }
+                }
+                if ear {
+                    tris.append((i0, i1, i2))
+                    idx.remove(at: i)
+                    start = i % max(1, idx.count)
+                    clipped = true
+                    break
+                }
+            }
+            if !clipped { return tris }
+        }
+        if idx.count == 3 { tris.append((idx[0], idx[1], idx[2])) }
+        return tris
     }
 
     /// 壁の一枚岩（2026-10-16）。足跡の輪郭をそのまま押し出し、裾を少し広げ、上の縁を丸めて苔の平らな上面にした 1 つの塊。
