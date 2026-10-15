@@ -376,7 +376,9 @@ enum StageSplat {
             for (i, c) in geo.circles.enumerated() {
                 cover(c.center - c.radius, c.center + c.radius) { circleCells[$0, default: []].append(i) }
             }
-            for (i, b) in geo.brushes.enumerated() { cover(b.min, b.max) { brushCells[$0, default: []].append(i) } }
+            if geo.brushField == nil {
+                for (i, b) in geo.brushes.enumerated() { cover(b.min, b.max) { brushCells[$0, default: []].append(i) } }
+            }
         }
 
         func key(_ p: SIMD2<Float>) -> Int {
@@ -392,6 +394,7 @@ enum StageSplat {
         }
 
         func inBrush(_ p: SIMD2<Float>, margin: Float) -> Bool {
+            if geo.brushField != nil { return geo.brushDistance(p) < margin }
             for i in brushCells[key(p)] ?? [] where rectDistance(p, geo.brushes[i].min, geo.brushes[i].max) < margin { return true }
             return false
         }
@@ -430,6 +433,8 @@ struct StageGeometry {
     let rects: [(min: SIMD2<Float>, max: SIMD2<Float>)]
     let circles: [(center: SIMD2<Float>, radius: Float)]
     let brushes: [(min: SIMD2<Float>, max: SIMD2<Float>)]
+    /// 草むらが細かい格子（MapDefinition.bushMask）のとき: 格子と、各セルから最も近い草むらのセルまでの距離（m）。
+    let brushField: (mask: BushMask, meters: [Float])?
     let mapMeters: Float
 
     init(map: MapDefinition) {
@@ -446,6 +451,12 @@ struct StageGeometry {
         self.rects = rects.map { (min: $0.0, max: $0.1) }
         self.circles = circles.map { (center: $0.0, radius: $0.1) }
         brushes = map.brushes.map { (min: m(Vec2($0.rect.minX, $0.rect.minY)), max: m(Vec2($0.rect.maxX, $0.rect.maxY))) }
+        if let mask = map.bushMask {
+            let cellMeters = Float(mask.cell / Balance.unitsPerMeter)
+            brushField = (mask, mask.distanceField().map { $0 * cellMeters })
+        } else {
+            brushField = nil
+        }
         mapMeters = Float(map.size / Balance.unitsPerMeter)
     }
 
@@ -460,6 +471,13 @@ struct StageGeometry {
     }
 
     func brushDistance(_ p: SIMD2<Float>) -> Float {
+        if let f = brushField {
+            // 格子: セルの中心どうしの距離から半セル引いて、草むらの縁までの距離にする（草むらの中は負）
+            let sim = Vec2(Double(p.x) * Balance.unitsPerMeter, Double(p.y) * Balance.unitsPerMeter)
+            guard let q = f.mask.index(at: sim) else { return .greatestFiniteMagnitude }
+            let half = Float(f.mask.cell / Balance.unitsPerMeter) / 2
+            return f.mask.cells[q] != 0 ? -half : f.meters[q] - half
+        }
         var d = Float.greatestFiniteMagnitude
         for b in brushes { d = min(d, rectDistance(p, b.min, b.max)) }
         return d

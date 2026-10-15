@@ -151,6 +151,9 @@ public struct MapDefinition: Codable, Hashable, Sendable {
     public var brushes: [BrushArea]
     public var obstacles: [Obstacle]
     public var riverWidth: Double
+    /// 草むらの細かい格子（MLBB のミニマップの形のまま。BushMask.swift）。nil なら `brushes` の矩形が草むら。
+    /// あるときは `brushes[k]` は草むら k の外接矩形で、判定は格子で行う。
+    public var bushMask: BushMask? = nil
 
     /// team のミニオンが進む経路。Red は Blue 経路の逆順。
     public func lanePath(_ lane: Lane, for team: Team) -> [Vec2] {
@@ -168,6 +171,11 @@ public struct MapDefinition: Codable, Hashable, Sendable {
 
     /// 点を含む草むらの番号（`BrushArea.bush`。複数の矩形からなる草むらはどの矩形でも同じ値）。
     public func brushIndex(at p: Vec2) -> Int? {
+        if let m = bushMask {
+            // `brushes` を空にした地図（テスト）では草むらなし
+            guard let k = m.bush(at: p), k < brushes.count else { return nil }
+            return brushes[k].bush
+        }
         for k in brushes.indices where brushes[k].rect.contains(p) { return brushes[k].bush }
         return nil
     }
@@ -582,6 +590,21 @@ extension MapDefinition {
             if let k = obstacleIndex(at: c.pos, inflatedBy: 300) {
                 issues.append("camp \(c.id) overlaps obstacle \(k)")
             }
+        }
+        if let m = bushMask {
+            // 格子の草むら: セルの中心が壁の中に入っていないこと（セルは 1 つの草むらにしか属さないので草むら同士は重ならない）
+            // 多角形の壁は 1 回の判定が重いので、外接矩形で先に絞る
+            let boxes = obstacles.map(\.bounds)
+            var reported = Set<Int>()
+            for (q, v) in m.cells.enumerated() where v != 0 && !reported.contains(Int(v) - 1) {
+                let p = m.center(col: q % m.cols, row: q / m.cols)
+                if let k = obstacles.indices.first(where: { boxes[$0].contains(p) && obstacles[$0].contains(p) }) {
+                    issues.append("brush \(Int(v) - 1) overlaps obstacle \(k)")
+                    reported.insert(Int(v) - 1)
+                }
+            }
+            if m.bushCount != brushes.count { issues.append("bush mask has \(m.bushCount) bushes for \(brushes.count) brushes") }
+            return issues
         }
         for b in brushes {
             for (k, o) in obstacles.enumerated() where MapDefinition.rect(b.rect, overlaps: o) {

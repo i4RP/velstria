@@ -10,8 +10,8 @@ enum WorldTestKit {
     }
 
     /// Simulation.init と同じ手順で初期状態を作る（テストで状態を直接いじるため）。
-    static func makeState(_ config: MatchConfig) -> (SimState, SimContext) {
-        let ctx = SimContext(master: .shared, map: .standard, config: config)
+    static func makeState(_ config: MatchConfig, map: MapDefinition = .standard) -> (SimState, SimContext) {
+        let ctx = SimContext(master: .shared, map: map, config: config)
         var s = SimState(config: config)
         SpawnSystem.setupMatch(&s, ctx)
         for i in s.units.indices { StatCalculator.recompute(&s, i, ctx) }

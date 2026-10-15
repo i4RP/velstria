@@ -24,7 +24,8 @@
   - 硬く見えるもの（岩・崖・木の幹）は壁の足跡の内側か、地図の外にだけ置く。足跡の外は歩ける見た目（平らな地面・低い草花）。
   - 矩形の壁は角まで埋める（衝突は角の立った膨張なので、丸めると何もない所で止まって見える）。円の壁は丸く見せる。
   - レーン中心線から 3.5 m・泉/Core から 18 m 以内に背の高いものを置かない。
-  - 草むらの見た目の縁は矩形に合わせる（判定は中心点が矩形の内側か）。
+  - 草むらの見た目の縁は矩形に合わせる（判定は中心点が矩形の内側か）。稼働版 `relayout` の草むらは細かい格子（`MapDefinition.bushMask`）で、
+    房はセルの中だけに置き、地面の下草・HUD のミニマップも格子の形どおりに塗る（`MapDefinition.brush(_:contains:)`・`brushRects`）。
 - 平面の高さは `GroundLayer`（`App/Battle/Render/GroundLayer.swift`）の段を使う。重なる不透明な平面は 4 mm 以上離す。
 - `MapScene` の契約: `init(map:materials:quality:groundImage:)`・`root`・`mapMeters`・`update(dt:)`・草むらの API
   （`brushEntities` の添字 = `MapDefinition.brushes` の添字、半透明フェード）・`fountainSpires`（2 本）。

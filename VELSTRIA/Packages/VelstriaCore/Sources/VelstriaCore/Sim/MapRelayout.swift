@@ -82,37 +82,8 @@ extension MapDefinition {
             }
         }
 
-        // Terrain patches move as whole bush groups; keep IDs and connected silhouettes.
-        let patches: [Rect2] = [
-            Rect2(minX: 81.00, minY: 5832.00, maxX: 437.40, maxY: 6439.50),
-            Rect2(minX: 5670.00, minY: 162.00, maxX: 6480.00, maxY: 445.50),
-            Rect2(minX: 7948.75, minY: 297.75, maxX: 8313.25, maxY: 662.25),
-            Rect2(minX: 8313.25, minY: 662.25, maxX: 8677.75, maxY: 1026.75),
-            Rect2(minX: 8677.75, minY: 1026.75, maxX: 9042.25, maxY: 1391.25),
-            Rect2(minX: 9042.25, minY: 1391.25, maxX: 9406.75, maxY: 1755.75),
-            Rect2(minX: 4174.00, minY: 1418.20, maxX: 4862.50, maxY: 1766.50),
-            Rect2(minX: 3548.50, minY: 2106.00, maxX: 3791.50, maxY: 2470.50),
-            Rect2(minX: 5200.20, minY: 2974.10, maxX: 5508.00, maxY: 3225.20),
-            Rect2(minX: 6318.00, minY: 1417.50, maxX: 6723.00, maxY: 1903.50),
-            Rect2(minX: 7087.50, minY: 1826.00, maxX: 7897.50, maxY: 2109.50),
-            Rect2(minX: 1898.50, minY: 6336.60, maxX: 2384.50, maxY: 6774.00),
-            Rect2(minX: 2230.60, minY: 6774.00, maxX: 2465.50, maxY: 7260.00),
-            Rect2(minX: 1296.00, minY: 4492.00, maxX: 1701.00, maxY: 4807.90),
-            Rect2(minX: 1637.60, minY: 3580.90, maxX: 1937.30, maxY: 3872.50),
-            Rect2(minX: 2268.00, minY: 3845.40, maxX: 2754.00, maxY: 4112.70),
-            Rect2(minX: 2308.50, minY: 5483.00, maxX: 2673.00, maxY: 5734.10),
-            Rect2(minX: 2747.00, minY: 4215.90, maxX: 3062.90, maxY: 4710.00),
-            Rect2(minX: 3448.90, minY: 5456.90, maxX: 3683.80, maxY: 5748.50),
-            Rect2(minX: 3683.80, minY: 5586.50, maxX: 4032.10, maxY: 5951.00),
-            Rect2(minX: 4032.10, minY: 5789.00, maxX: 4242.70, maxY: 5975.30),
-            Rect2(minX: 3547.80, minY: 6026.40, maxX: 3863.70, maxY: 6374.70),
-        ]
-        for i in copy.brushes.indices {
-            let r = patches[i % patches.count]
-            copy.brushes[i].rect = i < patches.count ? r :
-                Rect2(minX: copy.size - r.maxX, minY: copy.size - r.maxY,
-                      maxX: copy.size - r.minX, maxY: copy.size - r.minY)
-        }
+        // 草むら: MLBB のミニマップの形の細かい格子（BushMask.sanctum）を地図と同じ倍率で縮め、壁に重なるセルを除く
+        copy.applySanctumBushes(scale: k)
         return copy
     }
 }

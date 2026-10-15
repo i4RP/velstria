@@ -116,12 +116,16 @@ enum GroundTextureGenerator {
                 }
             }
         }
-        for b in map.brushes {
-            let r = b.rect
+        for k in map.brushes.indices {
+            // 細かい格子の草むらは形どおり（行ごとのセルの連なりを 1 つのパスにまとめて塗る: 重なりで濃くならない）
+            let rects = map.brushRects(k, step: 2)
             for (e, a) in [(90.0, 0.35), (30.0, 0.55)] {
                 fill(RGB(0.10, 0.28, 0.14), a)
-                let rr = CGRect(x: r.minX - e, y: r.minY - e, width: r.width + e * 2, height: r.height + e * 2)
-                ctx.addPath(CGPath(roundedRect: rr, cornerWidth: 80, cornerHeight: 80, transform: nil))
+                for r in rects {
+                    let rr = CGRect(x: r.minX - e, y: r.minY - e, width: r.width + e * 2, height: r.height + e * 2)
+                    let corner = min(80, rr.width / 2, rr.height / 2)
+                    ctx.addPath(CGPath(roundedRect: rr, cornerWidth: corner, cornerHeight: corner, transform: nil))
+                }
                 ctx.fillPath()
             }
         }

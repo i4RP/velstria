@@ -634,12 +634,12 @@ struct StageLayout {
         if ProcessInfo.processInfo.arguments.contains("-brushLegacy") { legacyBrushFields(); return }
         #endif
         // MLBB の草むらは広い（総面積 約 940 m²）ので、房の間隔を総面積に合わせて広げ、三角形数を予算内に収める
-        let total = map.brushes.reduce(Float(0)) { acc, b in
-            let lo = geo.m(Vec2(b.rect.minX, b.rect.minY)), hi = geo.m(Vec2(b.rect.maxX, b.rect.maxY))
-            return acc + abs((hi.x - lo.x) * (hi.y - lo.y))
+        // （細かい格子の草むらは外接矩形ではなくセルの面積で数える）
+        let total = map.brushes.indices.reduce(Float(0)) { acc, k in
+            acc + Float(map.brushArea(k) / (Balance.unitsPerMeter * Balance.unitsPerMeter))
         }
         let step: Float = max(level == .low ? 0.55 : 0.45, (total / StageLayout.maxBrushClumps).squareRoot())
-        for b in map.brushes {
+        for (k, b) in map.brushes.enumerated() {
             let lo = geo.m(Vec2(b.rect.minX, b.rect.minY)), hi = geo.m(Vec2(b.rect.maxX, b.rect.maxY))
             let center = (lo + hi) / 2
             var buf = StageMeshBuffer(reserveVertices: 20_000)
@@ -647,19 +647,35 @@ struct StageLayout {
             var brng = RenderRNG(seed: UInt64(b.id) &* 613 &+ 7)
             let w = hi.x - lo.x, d = hi.y - lo.y
             let nx = max(1, Int((w / step).rounded())), ny = max(1, Int((d / step).rounded()))
+            /// 草むらの形の中か（q = 草むらの中心からの位置 m）。細かい格子の草むらは格子で、矩形の草むらは矩形で判定する。
+            func inside(_ q: SIMD2<Float>) -> Bool {
+                map.brush(k, contains: Vec2(Double(center.x + q.x) * Balance.unitsPerMeter, Double(center.y + q.y) * Balance.unitsPerMeter))
+            }
+            var placed = 0
             for ix in 0..<nx {
                 for iy in 0..<ny {
                     let lx = (Float(ix) + 0.5) / Float(nx) * w - w / 2 + brng.range(-0.12, 0.12)
                     let ly = (Float(iy) + 0.5) / Float(ny) * d - d / 2 + brng.range(-0.12, 0.12)
-                    // 縁の房は内側へ少し倒す（見た目の縁を判定の矩形に合わせる: はみ出しは 0.5 m 以内）
-                    let edgeX = abs(lx) / (w / 2), edgeY = abs(ly) / (d / 2)
-                    let inward = SIMD2<Float>(edgeX > 0.6 ? (lx > 0 ? -1 : 1) : 0, edgeY > 0.6 ? (ly > 0 ? -1 : 1) : 0)
                     let root = SIMD2(min(max(lx, -w / 2 + 0.08), w / 2 - 0.08), min(max(ly, -d / 2 + 0.08), d / 2 - 0.08))
                     let seed = brng.next()
+                    guard inside(root) else { continue }
+                    // 縁の房は内側へ少し倒す（見た目の縁を草むらの形に合わせる: 0.45 m 先が外なら反対へ）
+                    var inward = SIMD2<Float>(0, 0)
+                    for dir in [SIMD2<Float>(1, 0), SIMD2<Float>(-1, 0), SIMD2<Float>(0, 1), SIMD2<Float>(0, -1)] where !inside(root + dir * 0.45) {
+                        inward -= dir
+                    }
                     var nearRNG = RenderRNG(seed: seed), farRNG = RenderRNG(seed: seed)
                     brushClump(&buf, rng: &nearRNG, at: root, lean: inward)
                     brushClump(&cards, rng: &farRNG, at: root, lean: inward, distant: true)
+                    placed += 1
                 }
+            }
+            if placed == 0 {
+                // 房の間隔より小さい草むら（壁に削られたものなど）にも 1 房は置く（メッシュを空にしない）
+                let root = geo.m(map.brushInteriorPoint(k)) - center
+                var nearRNG = RenderRNG(seed: UInt64(b.id) &+ 11), farRNG = RenderRNG(seed: UInt64(b.id) &+ 11)
+                brushClump(&buf, rng: &nearRNG, at: root, lean: .zero)
+                brushClump(&cards, rng: &farRNG, at: root, lean: .zero, distant: true)
             }
             out.brushes.append(buf)
             out.brushCards.append(cards)

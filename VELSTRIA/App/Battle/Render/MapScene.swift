@@ -559,7 +559,7 @@ final class MapScene {
     // MARK: 草むら
 
     private func buildBrushes(map: MapDefinition, materials: RenderMaterials, quality: RenderQuality) {
-        for b in map.brushes {
+        for (k, b) in map.brushes.enumerated() {
             var mb = MeshBuilder(reserve: 2048)
             let r = b.rect
             let step: Float = quality.level == .low ? 0.62 : 0.5
@@ -571,6 +571,9 @@ final class MapScene {
                 for iy in 0..<ny {
                     let lx = (Float(ix) + 0.5) / Float(nx) * wM - wM / 2 + rng.range(-0.18, 0.18)
                     let lz = -((Float(iy) + 0.5) / Float(ny) * hM - hM / 2) + rng.range(-0.18, 0.18)
+                    // 細かい格子の草むらは形の中だけに房を置く（地図座標の y は −z）
+                    let p = Vec2(r.center.x + Double(lx) * Balance.unitsPerMeter, r.center.y - Double(lz) * Balance.unitsPerMeter)
+                    guard map.brush(k, contains: p) else { continue }
                     mb.grassClump(at: [lx, 0, lz], height: rng.range(0.95, 1.35), seed: rng.next())
                 }
             }
@@ -605,10 +608,9 @@ final class MapScene {
 
     /// 地面の円（sim 座標）と重なる草むらを印付けする（スキル予告を草で隠さない）。
     func markBrushes(overlapping center: Vec2, radius: Double, map: MapDefinition) {
-        for k in map.brushes.indices where k < brushWanted.count {
-            let r = map.brushes[k].rect
-            let q = Vec2(min(max(center.x, r.minX), r.maxX), min(max(center.y, r.minY), r.maxY))
-            if q.distanceSquared(to: center) <= radius * radius { brushWanted[k] = true }
+        // 細かい格子の草むらはセル単位で重なりを見る
+        for k in map.brushIndices(overlappingCircle: center, radius: radius) where k < brushWanted.count {
+            brushWanted[k] = true
         }
     }
 
