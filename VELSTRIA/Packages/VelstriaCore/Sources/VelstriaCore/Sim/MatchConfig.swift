@@ -90,7 +90,9 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     /// 25: H034（フランコ）の幾何と時間を MLBB の画面収録で測った値に（スキル1 = 射程 823・半幅 35・毎秒 1515・0.33 秒の振りかぶり、
     ///     命中でその場 0.45 秒 → 0.25 秒で引き寄せ → 着地のスタン 0.6 秒、スキル2 = 半径 257・0.27 秒で叩きつけ、
     ///     奥義 = 縁まで 188・0.25 秒で掴んで 0.32 秒おきに 6 撃）。docs/kits/Franco.md「動画で測った値」。
-    public static let currentSimVersion = 25
+    /// 26: 遊ぶ地図の壁を MLBB のミニマップ原本から起こした滑らかな多角形に（ed0f086。キャンプの位置・拠点の周りの規則も）、
+    ///     矩形の角の衝突を丸い膨張に、経路探索の格子を 100 → 50（粗い格子で下見）。
+    public static let currentSimVersion = 26
 
     public var simVersion: Int
     public var mode: MatchMode

@@ -78,7 +78,9 @@ final class WorldTutorialTests: XCTestCase {
 
     func testRemovalIsIdempotentAndSurvivesReplay() throws {
         let cfg = config()
-        let sim = Simulation(config: cfg)
+        // 記録はアプリ（BattleController）と同じく map(for:) の地図で。ReplayPlayer は map(for:) で再生するので、
+        // 既定の .standard で記録すると別の地図を比べることになる
+        let sim = Simulation(config: cfg, map: MapDefinition.map(for: cfg.mode))
         let recorder = ReplayRecorder(config: cfg)
         sim.recorder = recorder
         let command = HeroCommand(heroID: try XCTUnwrap(sim.state.humanHeroID), command: .removeTutorialDummies)

@@ -115,7 +115,9 @@ enum FlowWarmUp {
 
     /// AI 同士の試合を指定秒数だけヘッドレスで回す（ナビ格子・各システムの初回コストを前払い）。戻り値は tick 数。
     static func runSimulationWarmUp(seconds: Double = 1.0, seed: UInt64 = 0x57A2_2026) -> Int {
-        let sim = Simulation(config: MatchFactory.botMatch(seed: seed))
+        // 実際の試合と同じ地図で（経路の格子は地図ごとに共有されるので、ここで焼いておけば試合の読み込みが速い）
+        let config = MatchFactory.botMatch(seed: seed)
+        let sim = Simulation(config: config, map: MapDefinition.map(for: config.mode))
         sim.runHeadless(maxTime: seconds)
         return sim.state.tick
     }

@@ -63,7 +63,9 @@ final class BotMatchTests: XCTestCase {
         #else
         let cfg = MatchFactory.standardMatch(humanHeroID: "H002", humanName: "Rec", humanPosition: .top,
                                              allyDifficulty: .hard, enemyDifficulty: .normal, seed: 8)
-        let sim = Simulation(config: cfg)
+        // 記録はアプリ（BattleController）と同じく map(for:) の地図で。ReplayPlayer は map(for:) で再生するので、
+        // 既定の .standard で記録すると別の地図を比べることになる
+        let sim = Simulation(config: cfg, map: MapDefinition.map(for: cfg.mode))
         let recorder = ReplayRecorder(config: cfg)
         sim.recorder = recorder
         let human = sim.state.humanHeroID!
