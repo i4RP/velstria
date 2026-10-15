@@ -28,7 +28,7 @@ public enum SpawnSystem {
     /// 試合開始時の配置（構造物・ヒーロー・人形）。
     public static func setupMatch(_ s: inout SimState, _ ctx: SimContext) {
         for spot in ctx.map.towers {
-            s.addUnit(UnitFactory.makeStructure(spot))
+            s.addUnit(UnitFactory.makeStructure(spot, mapSize: ctx.map.size))
         }
         let practice = isPracticeMode(ctx.config)
         for (n, slot) in ctx.config.players.enumerated() {
@@ -187,7 +187,7 @@ public enum SpawnSystem {
             let pos = ctx.nav.nearestWalkable(camp.pos + member.offset * flip,
                                               radius: UnitFactory.monsterProfile(member.kind).radius)
             var u = UnitFactory.makeMonster(kind: member.kind, campID: camp.id, pos: pos)
-            u.facing = (Balance.mapCenter - camp.pos).angle
+            u.facing = (Vec2(ctx.map.size / 2, ctx.map.size / 2) - camp.pos).angle
             s.addUnit(u)
         }
         switch camp.kind {
@@ -296,7 +296,7 @@ public enum UnitFactory {
         return u
     }
 
-    public static func makeStructure(_ spot: TowerSpot) -> Unit {
+    public static func makeStructure(_ spot: TowerSpot, mapSize: Double = Balance.mapSize) -> Unit {
         var st = Stats()
         if spot.isCore {
             st.maxHP = 7000; st.attack = 360; st.armor = 110; st.magicResist = 110; st.attackRange = Balance.coreRange
@@ -313,7 +313,7 @@ public enum UnitFactory {
         st.sightRange = Balance.towerSight
         var u = Unit(id: 0, kind: spot.isCore ? .core : .tower, team: spot.team, pos: spot.pos,
                      radius: spot.isCore ? Balance.coreRadius : Balance.towerRadius, stats: st)
-        u.facing = (Balance.mapCenter - spot.pos).angle
+        u.facing = (Vec2(mapSize / 2, mapSize / 2) - spot.pos).angle
         u.tower = TowerData(lane: spot.lane, tier: spot.tier)
         // 外塔にはエネルギーシールド（開始〜5:00）。参照仕様 §5.4
         if !spot.isCore, spot.tier == .outer {

@@ -29,7 +29,8 @@ final class MapScene {
     private var spireSpin: Float = 0.6
 
     /// 地図の境界（m）。
-    static let mapMeters: Float = Float(Balance.mapSize / Balance.unitsPerMeter)
+    static let mapMeters: Float = Float(MapDefinition.relayout.size / Balance.unitsPerMeter)
+    private let extent: Float
 
     /// 素材から作ったステージ（docs/STAGE.md）。素材やシェーダーが使えない環境では nil で、従来の手続き生成の地形を使う。
     private(set) var stage: StageScene?
@@ -37,6 +38,7 @@ final class MapScene {
     /// artSet: ステージの素材のセット（既定は起動引数で選ばれたもの。テストが新旧を指定する）。
     init(map: MapDefinition, materials: RenderMaterials, quality: RenderQuality, groundImage: CGImage?,
          artSet: StageArtSet = .current) {
+        extent = Float(map.size / Balance.unitsPerMeter)
         root.name = "map"
         if let plan = StagePrep.take(map: map, quality: quality, set: artSet), let stage = StageScene(plan: plan) {
             self.stage = stage
@@ -68,7 +70,7 @@ final class MapScene {
     // MARK: 地面
 
     private func buildGround(image: CGImage?, quality: RenderQuality) {
-        let M = MapScene.mapMeters
+        let M = extent
         var d = MeshDescriptor(name: "ground")
         d.positions = MeshBuffers.Positions([[0, 0, 0], [M, 0, 0], [M, 0, -M], [0, 0, -M]])
         d.normals = MeshBuffers.Normals([[0, 1, 0], [0, 1, 0], [0, 1, 0], [0, 1, 0]])
@@ -105,7 +107,7 @@ final class MapScene {
     }
 
     private func buildOuterGround() {
-        let M = MapScene.mapMeters
+        let M = extent
         let size: Float = M + 140
         let mesh = MeshResource.generatePlane(width: size, depth: size)
         var mat = PhysicallyBasedMaterial()
@@ -251,14 +253,14 @@ final class MapScene {
         }
 
         // 外周の森（地図の外側 1.5〜14 m）
-        let M = MapScene.mapMeters
+        let M = extent
         let ringStep: Float = 2.6 / max(0.6, density)
         for side in 0..<4 where terrain {
             var t: Float = -14
-            while t < M + 14 {
+            while t < Float(MapDefinition.standard.size / Balance.unitsPerMeter) + 14 {
                 for row in 0..<4 {
                     let depth = 1.8 + Float(row) * 3.1 + rng.range(-0.8, 0.8)
-                    let along = t + rng.range(-0.9, 0.9) + (row % 2 == 0 ? 0 : ringStep / 2)
+                    let along = (t + 14) * (M + 28) / 148 - 14 + rng.range(-0.9, 0.9) + (row % 2 == 0 ? 0 : ringStep / 2)
                     let p: SIMD3<Float>
                     switch side {
                     case 0: p = [along, 0, depth]                 // 南（sim y < 0）
@@ -285,7 +287,7 @@ final class MapScene {
         var placed = 0, attempts = 0
         while placed < floraCount && attempts < floraCount * 8 {
             attempts += 1
-            let p = Vec2(Double(rng.range(300, 11700)), Double(rng.range(300, 11700)))
+            let p = Vec2(Double(rng.range(300, Float(map.size - 300))), Double(rng.range(300, Float(map.size - 300))))
             guard map.nearestLane(to: p).distance > 650, !map.isInRiver(p),
                   map.obstacleIndex(at: p, inflatedBy: 60) == nil, map.brushIndex(at: p) == nil else { continue }
             guard !map.camps.contains(where: { $0.pos.distance(to: p) < 650 }),
@@ -487,7 +489,7 @@ final class MapScene {
     private func buildDetailOverlay() {
         guard let img = MapScene.detailImage(),
               let tex = try? TextureResource(image: img, options: .init(semantic: .color)) else { return }
-        let M = MapScene.mapMeters
+        let M = extent
         var d = MeshDescriptor(name: "detail")
         d.positions = MeshBuffers.Positions([[0, 0, 0], [M, 0, 0], [M, 0, -M], [0, 0, -M]])
         d.normals = MeshBuffers.Normals([[0, 1, 0], [0, 1, 0], [0, 1, 0], [0, 1, 0]])
@@ -644,7 +646,7 @@ final class MapScene {
     private func buildWater(map: MapDefinition) {
         guard let img = MapScene.waterHighlightImage(),
               let tex = try? TextureResource(image: img, options: .init(semantic: .color)) else { return }
-        let length: Float = MapScene.mapMeters * 1.42 + 10
+        let length: Float = extent * 1.42 + 10
         let width = Float(map.riverWidth / 100) * 0.92
         var d = MeshDescriptor(name: "water")
         let hw = width / 2, hl = length / 2
@@ -668,7 +670,7 @@ final class MapScene {
         mat.writesDepth = false
         let e = ModelEntity(mesh: mesh, materials: [mat])
         e.name = "water"
-        let M = MapScene.mapMeters
+        let M = extent
         e.position = [M / 2, GroundLayer.water, -M / 2]
         OverlayOrder.apply(e, OverlayOrder.water)
         // 河川は sim (0,12000)→(12000,0) = world (0,-120)→(120,0)（+x かつ +z 方向）

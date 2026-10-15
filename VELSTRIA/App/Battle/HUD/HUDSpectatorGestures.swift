@@ -27,11 +27,11 @@ enum SpectatorCameraMath {
     }
 
     /// パン: 開始時の注視点（sim）と、指の開始点・現在点（HUD 座標）から新しい注視点。開始点の下にあった地面が指の下に来る。
-    static func panFocus(startFocus: Vec2, from a: CGPoint, to b: CGPoint, size: CGSize, zoom: Double) -> Vec2 {
+    static func panFocus(startFocus: Vec2, from a: CGPoint, to b: CGPoint, size: CGSize, zoom: Double, mapSize: Double = MapDefinition.relayout.size) -> Vec2 {
         guard let ga = groundOffset(a, size: size, zoom: zoom), let gb = groundOffset(b, size: size, zoom: zoom) else {
             return startFocus
         }
-        return clamp(startFocus + ga - gb, zoom: zoom)
+        return clamp(startFocus + ga - gb, zoom: zoom, mapSize: mapSize)
     }
 
     /// ピンチ: 開始時の倍率と拡大率（> 1 で寄る）→ 新しい倍率（観戦者の範囲）。
@@ -42,16 +42,16 @@ enum SpectatorCameraMath {
     }
 
     /// ピンチの中心（HUD 座標）の下の地面を動かさない注視点（自由カメラ）。
-    static func pinchFocus(startFocus: Vec2, anchor: CGPoint, size: CGSize, fromZoom: Double, toZoom: Double) -> Vec2 {
+    static func pinchFocus(startFocus: Vec2, anchor: CGPoint, size: CGSize, fromZoom: Double, toZoom: Double, mapSize: Double = MapDefinition.relayout.size) -> Vec2 {
         guard let a = groundOffset(anchor, size: size, zoom: fromZoom),
               let b = groundOffset(anchor, size: size, zoom: toZoom) else { return startFocus }
-        return clamp(startFocus + a - b, zoom: toZoom)
+        return clamp(startFocus + a - b, zoom: toZoom, mapSize: mapSize)
     }
 
     /// 注視点をカメラの地図内クランプ（倍率に応じた余白）へ合わせる（地図の端の先へ指を動かしても、戻す時に遊びが出ない）。
-    static func clamp(_ focus: Vec2, zoom: Double) -> Vec2 {
+    static func clamp(_ focus: Vec2, zoom: Double, mapSize: Double = MapDefinition.relayout.size) -> Vec2 {
         let world = SIMD2(Float(focus.x / Balance.unitsPerMeter), Float(-focus.y / Balance.unitsPerMeter))
-        let c = CameraRig.clampFocus(world, mapMeters: MapScene.mapMeters, zoom: zoom)
+        let c = CameraRig.clampFocus(world, mapMeters: Float(mapSize / Balance.unitsPerMeter), zoom: zoom)
         return Vec2(Double(c.x) * Balance.unitsPerMeter, -Double(c.y) * Balance.unitsPerMeter)
     }
 
@@ -154,7 +154,7 @@ struct HUDSpectatorGestureLayer: View {
         }
         guard let pan else { return }
         let focus = SpectatorCameraMath.panFocus(startFocus: pan.focus, from: pan.start, to: value.location, size: size,
-                                                 zoom: pan.zoom)
+                                                 zoom: pan.zoom, mapSize: controller.ctx.map.size)
         model.minimapDragged(to: focus)
     }
 
@@ -166,7 +166,7 @@ struct HUDSpectatorGestureLayer: View {
         guard let pan, pinch == nil else { return }
         // 離した勢いで少し滑らせる（自由カメラのばねが減速しながら止める）
         let end = SpectatorCameraMath.flingEnd(from: value.location, predicted: value.predictedEndLocation, size: size)
-        let focus = SpectatorCameraMath.panFocus(startFocus: pan.focus, from: pan.start, to: end, size: size, zoom: pan.zoom)
+        let focus = SpectatorCameraMath.panFocus(startFocus: pan.focus, from: pan.start, to: end, size: size, zoom: pan.zoom, mapSize: controller.ctx.map.size)
         model.minimapDragged(to: focus)
         link.noteManualCameraInput()
     }
@@ -192,7 +192,7 @@ struct HUDSpectatorGestureLayer: View {
         controller.cameraZoomOverride = zoom
         if pinch.free {
             model.minimapDragged(to: SpectatorCameraMath.pinchFocus(startFocus: pinch.focus, anchor: pinch.anchor, size: size,
-                                                                    fromZoom: pinch.zoom, toZoom: zoom))
+                                                                    fromZoom: pinch.zoom, toZoom: zoom, mapSize: controller.ctx.map.size))
         }
     }
 

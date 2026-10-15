@@ -4,7 +4,7 @@ import simd
 import VelstriaCore
 
 // 担当: battle-renderer。見下ろしカメラ（透視 ~48°、俯角 56°、回転なし）。
-// 注視点を臨界減衰バネで追従し、地図内にクランプ。大きな出来事で小さく揺らす（トラウマ方式）。
+// 注視点を臨界減衰バネで追従（自由視点だけ地図内にクランプ）。大きな出来事で小さく揺らす（トラウマ方式）。
 // 観戦（BattleWorld が CameraDrive で指示する）:
 // - 倍率の範囲が広い（spectatorZoomRange。地図の余白は広げた分だけ内側へ寄せ、地図の外の虚空を見せない）
 // - 追う対象の切替は glide（時間指定のイーズ）か cut（即座）。指で動かす自由カメラは direct（ばねを掛けない）
@@ -102,8 +102,8 @@ final class CameraRig {
     nonisolated static let fovDegrees: Float = 48
     /// cameraZoom = 1 のときの注視点までの距離（m）。
     nonisolated static let baseDistance: Float = 12.5
-    /// 注視点を置く位置（ヒーローの少し前方 = 画面のやや下にヒーロー）。
-    nonisolated static let focusLead: Float = 0.9
+    /// 通常の追従はヒーローを画面中央に置く。
+    nonisolated static let focusLead: Float = 0
     /// プレイヤーの倍率（設定 0.8〜1.3 + 余裕）。
     nonisolated static let playerZoomRange: ClosedRange<Double> = 0.7...1.4
     /// 観戦者の倍率（ピンチ・自動カメラの framing）。2.5 で地図のおよそ半分が映る。
@@ -286,8 +286,10 @@ final class CameraRig {
         time += dt
         let targetDistance = CameraRig.distance(forZoom: d.zoom, range: d.zoomRange)
         let lead = d.lead ?? (d.free ? 0 : CameraRig.focusLead)
-        let desired = CameraRig.clampFocus(d.target + SIMD2(0, -lead), mapMeters: mapMeters,
-                                           zoom: Double(targetDistance / CameraRig.baseDistance))
+        // Follow targets may reach every map edge. Only manual/free cameras are clamped.
+        let target = d.target + SIMD2(0, -lead)
+        let desired = d.free ? CameraRig.clampFocus(target, mapMeters: mapMeters,
+                                                  zoom: Double(targetDistance / CameraRig.baseDistance)) : target
         var transition = d.transition
         if !initialized { transition = .cut }
         switch transition {

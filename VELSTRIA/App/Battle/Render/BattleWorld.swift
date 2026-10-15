@@ -127,7 +127,7 @@ final class BattleWorld {
         root.addChild(ambient.root)
         if controller.viewerTeam != nil || controller.isSpectating {
             // 観戦者は試合中に視点チームを選べるので、全体視点で始まっても作っておく（途中で作るとヒッチになる）
-            fog = FogOfWar(team: controller.viewerTeam, size: settings.quality.fogTextureSize)
+            fog = FogOfWar(team: controller.viewerTeam, size: settings.quality.fogTextureSize, mapSize: controller.ctx.map.size)
             if let fog { root.addChild(fog.entity) }
         } else {
             fog = nil
@@ -924,7 +924,7 @@ final class BattleWorld {
         if let z = StageDebug.cameraZoom { drive.zoom = z }
         #endif
         drive.transition = cameraTransition(rig: rig, aim: aim, target: target, snap: snap)
-        rig.update(drive, dt: dt, mapMeters: MapScene.mapMeters)
+        rig.update(drive, dt: dt, mapMeters: Float(controller.ctx.map.size / Balance.unitsPerMeter))
         lastCameraSubject = aim.subject
         lastCameraKind = aim.kind
         lastCameraFitZoom = aim.fitZoom

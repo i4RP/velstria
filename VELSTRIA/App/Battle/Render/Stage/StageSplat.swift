@@ -4,7 +4,7 @@ import simd
 import VelstriaCore
 
 // 担当: battle-renderer（ステージ）。地面の配合マップと補助マップを地図データから作る（純粋関数、背景スレッド可）。
-// 範囲は地図座標（m）で x, y とも −20…140（地図の外 20 m を含む）。画像の上端が北（y = 140）。
+// 範囲は地図座標（m）で x, y とも −20…152（地図の外 20 m を含む）。画像の上端が北（y = 152）。
 //   配合マップ RGBA: R 土 / G 石畳 / B 川 / A 森の下草（草地は残り）
 //   補助マップ RGBA: R 遮蔽 / G 大きな色むら（0.5 中立）/ B 川の深さ / A 石畳の風化（新セットだけ。0 = 中央のきれいな床）
 // 新セット（StageArtSet.ruins）は拠点の石畳を一様に敷き詰めない: 泉・Core・参道の中央はきれいな床のまま、外へ行くほど
@@ -13,7 +13,7 @@ import VelstriaCore
 
 enum StageSplat {
     static let origin: Float = -20
-    static let span: Float = 160
+    static let span: Float = 172
 
     /// 地面に落ちる影（木の樹冠など）。中心は地図座標（m）。
     struct Shade: Sendable {

@@ -12,6 +12,23 @@ import VelstriaCore
 final class SpectatorCameraTests: XCTestCase {
     private let M = MapScene.mapMeters
 
+    func testFollowCentersEveryEdgeAtEveryZoom() {
+        for zoom in [0.7, 1.0, 1.4, 2.5] {
+            let rig = CameraRig()
+            for target in [SIMD2<Float>(0, 0), SIMD2(M, 0), SIMD2(0, -M), SIMD2(M, -M),
+                           SIMD2(M / 2, 0), SIMD2(M, -M / 2)] {
+                let drive = CameraDrive(target: target, zoom: zoom, transition: .cut,
+                                        zoomRange: CameraRig.spectatorZoomRange)
+                rig.update(drive, dt: 1 / 60, mapMeters: M)
+                XCTAssertEqual(rig.focus.value, target)
+                let offset = CameraRig.groundOffsetPerDistance(ndc: .zero, aspectRatio: 2.16)!
+                XCTAssertLessThan(simd_length(offset), 0.00001)
+                let left = target.x - rig.currentDistance * tan(CameraRig.fovDegrees * .pi / 360) * 2.16
+                if target.x == 0 { XCTAssertLessThan(left, 0) }
+            }
+        }
+    }
+
     // MARK: カメラの移り方
 
     func testCutSnapsAndGlideEasesToTheTarget() {

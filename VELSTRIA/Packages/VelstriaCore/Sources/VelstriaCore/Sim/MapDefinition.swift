@@ -1,7 +1,7 @@
 import Foundation
 
 // 担当: core-world（草むら・障害物・河川の詳細設計はこのファイルで行う）。
-// タワー / Core / 泉 / レーン経路 / キャンプの座標は docs/DESIGN.md §2 の値を維持すること。
+// 保存版 standard の座標は docs/DESIGN.md §2。稼働版 relayout は docs/maps/RELAYOUT_2026-10.md。
 
 public struct TowerSpot: Codable, Hashable, Sendable {
     public var team: Team
@@ -396,10 +396,41 @@ extension MapDefinition {
         )
     }()
 
+    /// 2026-10 relayout: original `standard` remains an immutable comparison fixture.
+    /// Only positions and terrain extents change; obstacle footprints and gameplay stats do not.
+    public static let relayout: MapDefinition = {
+        var copy = standard
+        let k = 1.1
+        copy.size = 13_200
+        copy.fountains = copy.fountains.map { $0 * k }
+        copy.cores = copy.cores.map { $0 * k }
+        copy.lanePaths = copy.lanePaths.map { $0.map { $0 * k } }
+        for i in copy.towers.indices { copy.towers[i].pos *= k }
+        for i in copy.camps.indices { copy.camps[i].pos *= k }
+        copy.obstacles = copy.obstacles.map { obstacle in
+            switch obstacle {
+            case .circle(let center, let radius):
+                return .circle(center: center * k, radius: radius)
+            case .rect(let r):
+                let offset = Vec2((r.minX + r.maxX) / 2, (r.minY + r.maxY) / 2) * (k - 1)
+                return .rect(Rect2(minX: r.minX + offset.x, minY: r.minY + offset.y,
+                                   maxX: r.maxX + offset.x, maxY: r.maxY + offset.y))
+            }
+        }
+        // Vegetation patches are terrain; keep their silhouettes connected.
+        for i in copy.brushes.indices {
+            let r = copy.brushes[i].rect
+            copy.brushes[i].rect = Rect2(minX: r.minX * k, minY: r.minY * k,
+                                       maxX: r.maxX * k, maxY: r.maxY * k)
+        }
+        copy.riverWidth *= k
+        return copy
+    }()
+
     /// モードに応じたマップ（`config.mode` から決定論的に導出する。リプレイはマップを保存しないため、
     /// `Simulation` を組む全箇所でこれを使うこと）。マジックチェスは専用の `magicChessBoard` を直接使う。
     public static func map(for mode: MatchMode) -> MapDefinition {
-        mode == .brawl ? .brawl : .standard
+        mode == .brawl ? .brawl : .relayout
     }
 
     /// 乱闘マップ（単レーン・ジャングル無し）。mid の対角 1 本だけを使う 5v5。

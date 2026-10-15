@@ -321,7 +321,9 @@ struct StageLayout {
             (SIMD2(M + 16, M), SIMD2(-1, 0), SIMD2(0, 1), false),
             (SIMD2(0, M + 16), SIMD2(0, -1), SIMD2(-1, 0), false),
         ]
-        let len = M + 32
+        // Redistribute the existing border props without changing their size/count.
+        let len = Float(MapDefinition.standard.size / Balance.unitsPerMeter) + 32
+        let spacing = (M + 32) / len
         let step = 4.4 / max(0.6, density)
         for s in sides {
             // 縁の崖（南は低く、少し外へ）
@@ -333,7 +335,7 @@ struct StageLayout {
                 let sy = h / rock.y
                 let sz = sx * rng.range(0.9, 1.2)
                 let off: Float = (s.south ? 2.4 : 1.3) + rock.z * sz * 0.5
-                let p = s.start + s.dir * t + s.out * off
+                let p = s.start + s.dir * (t * spacing) + s.out * off
                 place(.cliffRockA, at: p, y: -0.1, yaw: atan2(s.dir.y, s.dir.x) + (rng.chance(0.5) ? .pi : 0), scale: SIMD3(sx, sy, sz))
                 t += width * 0.82
             }
@@ -342,7 +344,7 @@ struct StageLayout {
             for (ri, depth) in rows.enumerated() {
                 var u: Float = rng.range(0, step)
                 while u < len {
-                    let p = s.start + s.dir * u + s.out * (depth + rng.range(-1.0, 1.0))
+                    let p = s.start + s.dir * (u * spacing) + s.out * (depth + rng.range(-1.0, 1.0))
                     let tall = ri == rows.count - 1 ? rng.chance(0.6) : rng.chance(0.25)
                     placeTree(at: p, y: -0.05, height: tall ? rng.range(4.4, 5.4) : rng.range(3.6, 4.6), tall: tall)
                     if ri == 0 && rng.chance(0.6 * density) {

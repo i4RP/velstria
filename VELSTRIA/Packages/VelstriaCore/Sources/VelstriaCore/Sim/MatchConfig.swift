@@ -76,7 +76,8 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     /// 18: エンブレムのレベル（仮の表）。人間の能力値はセットのレベルの値になり、解放レベル未満の段の天賦は働かない
     ///     （1 段目 Lv10・2 段目 Lv15・コア Lv20）。ボットは Lv60 のまま。
     /// 19: 共通回復と12種類のバトルスキル、戦闘効果・CD・狩猟報酬を更新。
-    public static let currentSimVersion = 19
+    /// 20: 5v5 relayout; earlier replay inputs use a different map.
+    public static let currentSimVersion = 20
 
     public var simVersion: Int
     public var mode: MatchMode

@@ -52,9 +52,9 @@ final class StageTests: XCTestCase {
         XCTAssertLessThanOrEqual(f.sockets.count, 8)
         let l = try layout(set: .ruins)
         XCTAssertEqual(l.fountainSockets.count, Team.players.count)
-        let geo = StageGeometry(map: .standard)
+        let geo = StageGeometry(map: .relayout)
         for (k, team) in Team.players.enumerated() {
-            let c = geo.m(MapDefinition.standard.fountain(team))
+            let c = geo.m(MapDefinition.relayout.fountain(team))
             XCTAssertEqual(l.fountainSockets[k].count, f.sockets.count)
             for s in l.fountainSockets[k] {
                 XCTAssertLessThan(simd_distance(SIMD2(s.x, -s.z), c), 3.5, "柱が旧い泉の足跡の外にある")
@@ -96,28 +96,28 @@ final class StageTests: XCTestCase {
 
     func testSplatMarksLanesRiverBasesAndJungle() throws {
         for set in StageArtSet.allCases {
-            let maps = try XCTUnwrap(StageSplat.make(map: .standard, shades: [], set: set))
+            let maps = try XCTUnwrap(StageSplat.make(map: .relayout, shades: [], set: set))
             // 上レーン（x = 7 m）は土
-            XCTAssertGreaterThan(try pixel(maps.control, [7, 80]).x, 0.9, set.rawValue)
+            XCTAssertGreaterThan(try pixel(maps.control, [7.7, 88]).x, 0.9, set.rawValue)
             // 川の中央は水、補助マップの深さも深い
-            XCTAssertGreaterThan(try pixel(maps.control, [45, 75]).z, 0.9, set.rawValue)
-            XCTAssertGreaterThan(try pixel(maps.aux, [45, 75]).z, 0.8, set.rawValue)
+            XCTAssertGreaterThan(try pixel(maps.control, [49.5, 82.5]).z, 0.9, set.rawValue)
+            XCTAssertGreaterThan(try pixel(maps.aux, [49.5, 82.5]).z, 0.8, set.rawValue)
             // Core の広場は石畳
-            XCTAssertGreaterThan(try pixel(maps.control, [15, 15]).y, 0.9, set.rawValue)
+            XCTAssertGreaterThan(try pixel(maps.control, [16.5, 16.5]).y, 0.9, set.rawValue)
             // ジャングルの開けた所は草地（土・石畳・川が無い）
-            let jungle = try pixel(maps.control, [36, 73])
+            let jungle = try pixel(maps.control, [39.6, 80.3])
             XCTAssertLessThan(jungle.x + jungle.y + jungle.z, 0.1, set.rawValue)
             // 地図の外は森の下草
             XCTAssertGreaterThan(try pixel(maps.control, [-10, 60]).w, 0.9, set.rawValue)
             // 祭壇（ボスの巣）の床では川が途切れる
-            XCTAssertLessThan(try pixel(maps.control, [83, 37]).z, 0.05, set.rawValue)
+            XCTAssertLessThan(try pixel(maps.control, [91.3, 40.7]).z, 0.05, set.rawValue)
         }
     }
 
     /// 新セットの拠点の石畳は一様に敷き詰めない: 泉・Core の中央はきれいな石畳（風化 0）、旧い広場の範囲の外寄りには
     /// 土・苔が入り込んだ所と風化した石がある（旧セットは広場全体が石畳）。
     func testRuinsBasePlazaBlendsStoneEarthAndMoss() throws {
-        let map = MapDefinition.standard
+        let map = MapDefinition.relayout
         let geo = StageGeometry(map: map)
         let ruins = try XCTUnwrap(StageSplat.make(map: map, shades: [], set: .ruins))
         let legacy = try XCTUnwrap(StageSplat.make(map: map, shades: [], set: .legacy))
@@ -154,7 +154,7 @@ final class StageTests: XCTestCase {
 
     private func layout(_ q: GraphicsQuality = .medium, set: StageArtSet = .ruins) throws -> StageLayoutResult {
         let preset = RenderQuality.preset(q)
-        return StageLayout.build(map: .standard, props: try assets(set).props, density: preset.decorationDensity, level: q)
+        return StageLayout.build(map: .relayout, props: try assets(set).props, density: preset.decorationDensity, level: q)
     }
 
     /// 壁の足跡からのはみ出し（m）。矩形は衝突と同じ L∞（角の立った膨張）、円はユークリッド距離。内側は 0。
@@ -184,8 +184,8 @@ final class StageTests: XCTestCase {
 
     private func checkSolidProps(_ set: StageArtSet, limit: Float) throws {
         let props = try assets(set).props
-        let geo = StageGeometry(map: .standard)
-        let map = MapDefinition.standard
+        let geo = StageGeometry(map: .relayout)
+        let map = MapDefinition.relayout
         let bases = Team.players.flatMap { [geo.m(map.fountain($0)), geo.m(map.core($0))] }
         let wallCount = geo.rects.count + geo.circles.count
         func wallBounds(_ i: Int) -> (SIMD2<Float>, SIMD2<Float>) {
@@ -224,7 +224,7 @@ final class StageTests: XCTestCase {
 
     func testBrushMeshesCoverTheirRects() throws {
         let l = try layout()
-        let map = MapDefinition.standard
+        let map = MapDefinition.relayout
         XCTAssertEqual(l.brushes.count, map.brushes.count)
         for (i, b) in map.brushes.enumerated() {
             let buf = l.brushes[i]
@@ -290,11 +290,11 @@ final class StageTests: XCTestCase {
 
     func testMapSceneUsesStage() throws {
         for set in StageArtSet.allCases {
-            let scene = MapScene(map: .standard, materials: RenderMaterials(colorblind: false), quality: .preset(.medium),
+            let scene = MapScene(map: .relayout, materials: RenderMaterials(colorblind: false), quality: .preset(.medium),
                                  groundImage: nil, artSet: set)
             let stage = try XCTUnwrap(scene.stage, "ステージの材質が作れず従来の地形に戻った（\(set.rawValue)）")
             XCTAssertEqual(stage.artSet, set)
-            XCTAssertEqual(scene.brushEntities.count, MapDefinition.standard.brushes.count)
+            XCTAssertEqual(scene.brushEntities.count, MapDefinition.relayout.brushes.count)
             XCTAssertNotNil(stage.root.findEntity(named: "ground"))
             XCTAssertNotNil(stage.root.findEntity(named: "stageRunes"))
             XCTAssertEqual(scene.fountainSpires.count, 2)

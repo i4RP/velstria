@@ -253,14 +253,14 @@ final class FogOfWar {
     /// 表示中の濃度場（テスト用）。
     var displayedField: FogField { field }
 
-    init?(team: Team?, size: Int) {
+    init?(team: Team?, size: Int, mapSize: Double = MapDefinition.relayout.size) {
         self.team = team
         field = FogField(size: size)
         let n = field.size
         worker = FogWorker(size: n)
         cpuBytes = [UInt8](repeating: 255, count: n * n * 4)
         // 霧の板（地図全体、地面の少し上）
-        let M = MapScene.mapMeters
+        let M = Float(mapSize / Balance.unitsPerMeter)
         var d = MeshDescriptor(name: "fog")
         d.positions = MeshBuffers.Positions([[0, 0, 0], [M, 0, 0], [M, 0, -M], [0, 0, -M]])
         d.normals = MeshBuffers.Normals([[0, 1, 0], [0, 1, 0], [0, 1, 0], [0, 1, 0]])
