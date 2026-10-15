@@ -8,21 +8,26 @@ final class CombatMovementTests: XCTestCase {
     private let origin = Vec2(5000, 5000)
     private let lane = Vec2(1, 1).normalized
 
+    /// 移動は能力値の移動速度（ワールドの単位/秒）で進む。非戦闘時の装備の加速は StatCalculator.finalize が
+    /// ほかの加速と同じく足す（MLBB: 基礎 × (100% + 全加速% − 全減速%)）。
     func testDirectionMovementUsesMoveSpeedAndOutOfCombatBonus() {
         var w = CombatWorld()
-        var st = CombatWorld.stats(moveSpeed: 300)
-        st.outOfCombatMoveSpeedBonus = 0.2
-        let h = w.addHero(team: .blue, at: origin, stats: st)
+        let h = w.addHero(team: .blue, at: origin, stats: CombatWorld.stats(moveSpeed: 300))
         w.s.units[h].moveIntent = .direction(lane * 3) // 正規化される
         w.tick(30)
-        XCTAssertEqual(w.s.units[h].pos.distance(to: origin), 360, accuracy: 1e-6)
+        XCTAssertEqual(w.s.units[h].pos.distance(to: origin), 300, accuracy: 1e-6)
         XCTAssertEqual(w.s.units[h].facing, .pi / 4, accuracy: 1e-9)
-
-        // 戦闘中（5 秒以内に交戦）は非戦闘ボーナスなし
-        w.s.units[h].lastCombatTime = w.s.time
-        w.tick(30)
-        XCTAssertEqual(w.s.units[h].pos.distance(to: origin), 660, accuracy: 1e-6)
         XCTAssertEqual(MovementSystem.currentMoveSpeed(w.s, h), 300)
+
+        // 非戦闘時の加速 20% と装備の加速 10% は足し合わせ（掛け算ではない）。戦闘中は非戦闘時の分が付かない
+        var st = CombatWorld.stats(moveSpeed: 250)
+        st.moveSpeedBonus = 0.1
+        st.outOfCombatMoveSpeedBonus = 0.2
+        var calm = st, fighting = st
+        StatCalculator.finalize(&calm, isHero: true, outOfCombat: true)
+        StatCalculator.finalize(&fighting, isHero: true, outOfCombat: false)
+        XCTAssertEqual(calm.moveSpeed, 250 * 1.3 * Balance.mapScale, accuracy: 1e-9)
+        XCTAssertEqual(fighting.moveSpeed, 250 * 1.1 * Balance.mapScale, accuracy: 1e-9)
     }
 
     func testNoMovementDuringWindupCrowdControlOrChannel() {

@@ -8,16 +8,17 @@ import VelstriaCore
 // sim の実際の挙動（Systems/Kits/Kit_H029.swift の Tune）に合わせたタイミング:
 //   パッシブ 聖鎚の誓い       — 誓いが積まれる / 防御が発動する（バッジのタイマー）たびに、左腕の盾に小さな金のきらめき。
 //                              スキルの発動の直後（0.6 秒以内）の防御は passiveRelease: 青い六角の盾の殻と金の盾面が弾ける
-//   スキル1 聖槌波           — 0.12 秒で槌が地を打ち、前方の扇（±45°）に衝撃波が 3 回はじける
-//                              （0.12 / 0.32 / 0.52 秒 = waveFirstDelay + waveInterval × n、半径は射程 3m の 0.7 / 0.85 / 1.0 倍）。
-//                              回ごとに金の弧が前の半径から次の半径へ走り、弧の上の 3 点で金の爆発・土の破片・地割れが起きる
-//   スキル2 聖槌突撃         — 1 回目: 盾を前に突進（4.2m を約 0.25 秒）。通り道に金の筋と土煙、終点（照準点）で押し運んだ衝撃。
-//                              突進は impact を再生しない（ゾーンを作らない）ので、終点の演出は cast の .target に 0.25 秒遅れで置く。
-//                              再使用（stage 1、4 秒以内）: 0.2 秒（smashDelay）で槌を振り上げ、前方の扇（3.2m）に金の光の柱・
+//   スキル1 聖槌波           — 0.25 秒で槌が地を打ち、前方の台形（奥行き 6.1m）に衝撃波が手前 → 中 → 奥へ 3 回はじける
+//                              （0.25 / 0.58 / 0.92 秒 = waveFirstDelay + waveInterval × n、帯の中心は奥行きの 1/4・1/2・3/4）。
+//                              回ごとに金の弧が前の位置から次の位置へ走り、弧の上の 3 点で金の爆発・土の破片・地割れが起きる
+//   スキル2 聖槌突撃         — 1 回目: 盾を前に突進（5.25m を約 0.67 秒）。通り道に金の筋と土煙、終点（照準点）で押し運んだ衝撃。
+//                              突進は impact を再生しない（ゾーンを作らない）ので、終点の演出は cast の .target に 0.67 秒遅れで置く。
+//                              再使用（stage 1、4 秒以内）: 0.2 秒（smashDelay）で槌を振り上げ、前方の扇（2.15m）に金の光の柱・
 //                              昇る輪・上へ噴く火花 = 打ち上げ（0.6 秒）。段の演出は recipe(_:stage:_:)
-//   アルティメット 崩落聖域    — 詠唱 0.8 秒。0〜0.3 秒: 槌を掲げて金の光が集まり、半径 5.2m の金の陣が範囲を示す。
-//                              0.3 秒: 引き寄せ（0.38 秒かけて集める）= 外から内へ縮む衝撃の輪・逆巻く渦・吸い込まれる光の筋と土煙。
-//                              0.8 秒: 槌が落ちて崩落 = 金の柱・広がる三重の衝撃波・地割れ・円陣に噴く光の柱 + 気絶（1.8 秒）の星
+//   アルティメット 崩落聖域    — 詠唱 1.0 秒。0 秒: 半径 2.78m の金の陣が範囲を示し、引き寄せ（0.67 秒で集める）= 外から内へ縮む
+//                              衝撃の輪・逆巻く渦・吸い込まれる光の筋と土煙。掲げた槌に金の光が集まり続ける。
+//                              1.0 秒: 槌が落ちて崩落 = 金の柱・広がる三重の衝撃波・地割れ・円陣に噴く光の柱 + 気絶（発動から 1.8 秒）の星
+// 時刻と寸法は MLBB の画面収録で測った値（docs/kits/Tigreal.md「動画で測った値」）。
 // SkillFXDirector は duration / count を読まない: 波の回数・段は at（遅れ）と recipe(_:stage:_:) で表す。
 // 扇・自身中心のアーキタイプ（S1・S2 の再使用・奥義）は発動と同時に cast と impact を再生する（impact の at が sim の時刻）。
 
@@ -31,17 +32,17 @@ enum FX_H029: HeroFXSet {
 
     // MARK: - sim の時刻（Kit_H029.Tune と同じ値。sim の値を変えたらここも合わせる）
 
-    /// スキル1: 1 回目の衝撃波の遅れ・間隔・回ごとの扇の半径（射程に対する比）。
-    private static let waveFirst: Float = 0.12
-    private static let waveInterval: Float = 0.2
-    private static let waveScale: [Float] = [0.7, 0.85, 1.0]
-    /// スキル2: 突進の所要（4.2m / 17m/s ≈ 0.25 秒）、再使用の振り上げまでの遅れと扇の奥行き（m）。
-    private static let dashTime: Float = 0.25
+    /// スキル1: 1 回目の衝撃波の遅れ・間隔・回ごとの帯の中心（奥行きに対する比。帯 = waveBandStart + waveBandLength / 2）。
+    private static let waveFirst: Float = 0.25
+    private static let waveInterval: Float = 1.0 / 3.0
+    private static let waveScale: [Float] = [0.25, 0.5, 0.75]
+    /// スキル2: 突進の所要（5.25m / 7.8m/s ≈ 0.67 秒）、再使用の振り上げまでの遅れと扇の奥行き（m）。
+    private static let dashTime: Float = 0.67
     private static let smashDelay: Float = 0.2
-    private static let smashReach: Float = 3.2
-    /// アルティメット: 引き寄せ（ultGather）と崩落（ultTotal）。
-    private static let ultPull: Float = 0.3
-    private static let ultSlam: Float = 0.8
+    private static let smashReach: Float = 2.15
+    /// アルティメット: 引き寄せの始まり（発動の瞬間）と崩落（ultTotal）。
+    private static let ultPull: Float = 0
+    private static let ultSlam: Float = 1.0
 
     // MARK: - 部品
 
@@ -94,10 +95,10 @@ enum FX_H029: HeroFXSet {
 
     // MARK: - スキル1 聖槌波
 
-    /// 0.12 秒で槌が地を打つ → 扇に 3 回、前へ進みながらはじける（R = 扇の奥行き 3m）。
+    /// 0.25 秒で槌が地を打つ → 台形に 3 回、前へ進みながらはじける（R = 台形の奥行き 6.1m = 射程。s.radius は照準の帯の半幅）。
     private static func waveRecipe(_ s: FXSkillInfo) -> SkillFXRecipe {
         var r = SkillFXRecipe()
-        let R = min(s.radius, 4.0)
+        let R = min(s.range, 6.5)
         // 槌の頭が地を打つ点（右手の槌 = やや右前）
         r.cast = [
             .emit(.flare(1.4, .core, life: 0.14, tex: .flare6), at: waveFirst - 0.02, offset: [0.25, 0.4, 0.9]),
@@ -187,7 +188,7 @@ enum FX_H029: HeroFXSet {
         return r
     }
 
-    /// 再使用（stage 1）: 0.2 秒で聖槌を下から振り上げ、前方の扇（3.2m）の敵を打ち上げる（0.6 秒）。
+    /// 再使用（stage 1）: 0.2 秒で聖槌を下から振り上げ、前方の扇（2.15m）の敵を打ち上げる（0.6 秒）。
     /// 突進の尾（共通の cast）は出さない。被弾演出は昇る輪つき（共通の hit は突進の火花）。
     static func recipe(_ slot: SkillSlot, stage: Int, _ s: FXSkillInfo) -> SkillFXRecipe? {
         guard slot == .skill2, stage == 1 else { return nil }
@@ -233,14 +234,14 @@ enum FX_H029: HeroFXSet {
 
     // MARK: - アルティメット 崩落聖域
 
-    /// 詠唱 0.8 秒: 掲げて集める（0〜0.3）→ 吸い寄せ（0.3〜0.68）→ 崩落（0.8）。R = 引き寄せ・爆発の半径（5.2m）。
+    /// 詠唱 1.0 秒: 発動の瞬間から吸い寄せ（0〜0.67）しながら掲げて集める → 崩落（1.0）。R = 引き寄せ・爆発の半径（2.78m）。
     private static func implosionRecipe(_ s: FXSkillInfo) -> SkillFXRecipe {
         var r = SkillFXRecipe()
         let R = min(s.radius, 6.0)
         let p = ultPull, t = ultSlam
-        // 掲げた槌の頭（右手・頭上）に金の光が集まる
+        // 掲げた槌の頭（右手・頭上）に金の光が集まる（崩落の少し前まで）
         r.cast = [
-            .emit(.gather(20, radius: 1.2, .primary, life: p), .follow, offset: [0.3, 2.5, 0.1]),
+            .emit(.gather(20, radius: 1.2, .primary, life: t - 0.2), .follow, offset: [0.3, 2.5, 0.1]),
             .emit(.flare(1.8, .core, life: 0.3, tex: .flare6), at: 0.14, .follow, offset: [0.3, 2.7, 0.1]),
             .mesh(.halo(1.2, .primary, life: t, spin: 200, tex: .ringDouble), .follow, offset: [0, 0.2, 0]),
         ]
@@ -248,7 +249,7 @@ enum FX_H029: HeroFXSet {
             // 0〜: 範囲を示す金の陣と青い縁（崩落まで残る）
             .mesh(.decal(.runeCircle, R * 2, .primary, life: t + 0.05, spin: 40, grow: 1.0, alpha: 0.55)),
             .mesh(.halo(R, .secondary, life: t + 0.05, spin: -60, tex: .beam, alpha: 0.5)),
-            // 0.3: 引き寄せ。外から内へ縮む衝撃の輪 2 つ・逆巻く渦 2 枚・吸い込まれる光の筋と土煙
+            // 0（発動の瞬間）: 引き寄せ。外から内へ縮む衝撃の輪 2 つ・逆巻く渦 2 枚・吸い込まれる光の筋と土煙
             .emit(.flare(2.0, .primary, life: 0.2), at: p, offset: [0.3, 2.6, 0.1]),
             .mesh(implodeRing(from: R * 2, to: 1.2, .primary, life: 0.42), at: p),
             .mesh(implodeRing(from: R * 1.7, to: 1.0, .secondary, life: 0.38), at: p + 0.1),
@@ -264,7 +265,7 @@ enum FX_H029: HeroFXSet {
                 $0.shape = .ring(R * 0.85); $0.surface = true; $0.speed = 0; $0.attract = 6
             }, at: p, quality: 1),
             .shake(0.2, at: p),
-            // 0.8: 聖槌が落ちて崩落（白金の閃光・金の柱・広がる三重の衝撃波・地割れ・円陣に噴く光の柱）
+            // 1.0: 聖槌が落ちて崩落（白金の閃光・金の柱・広がる三重の衝撃波・地割れ・円陣に噴く光の柱）
             .emit(.flare(3.2, .core, life: 0.3, tex: .flare6), at: t, offset: [0, 1.0, 0.4]),
             .mesh(.orb(1.0, .core, life: 0.25, grow: 2.4, alpha: 0.7), at: t, offset: [0, 0.3, 0.5]),
             .mesh(.pillar(1.2, height: 7, .primary, life: 0.5), at: t - 0.02),
@@ -284,12 +285,11 @@ enum FX_H029: HeroFXSet {
             .emit(.embers(20, radius: R * 0.8, .primary, life: 1.3), at: t + 0.1, quality: 1),
             .shake(0.65, at: t),
         ]
-        // 崩落の瞬間の被弾（気絶 1.8 秒）: 白金の閃光・頭上を回る金の輪（2 回）と星のきらめき
+        // 崩落の瞬間の被弾（残りの気絶 0.8 秒。発動から合計 1.8 秒）: 白金の閃光・頭上を回る金の輪と星のきらめき
         r.hit = [
             .emit(.flare(1.2, .core, life: 0.15), offset: [0, 1.0, 0]),
             .emit(.sparks(8, speed: 4, .primary, end: .accent), offset: [0, 1.0, 0]),
-            .mesh(.halo(0.5, .primary, life: 0.9, spin: 300, tex: .ringDouble), .follow, offset: [0, 2.0, 0])
-                .repeated(2, every: 0.9),
+            .mesh(.halo(0.5, .primary, life: 0.8, spin: 300, tex: .ringDouble), .follow, offset: [0, 2.0, 0]),
             .emit(.flutter(.star, 6, radius: 0.35, .primary, speed: 0.5, life: 1.2, size: 0.16).with {
                 $0.gravity = 0; $0.vortex = 5
             }, .follow, offset: [0, 2.0, 0], quality: 1),
@@ -319,24 +319,25 @@ enum FX_H029: HeroFXSet {
         case .passive:
             break
         case .skill1:
-            // 槌を頭上へ振りかぶり、0.12 秒（1 回目の衝撃波）で地へ叩きつけ、3 回目（0.52 秒）まで押し込んで光らせる
-            m.overhead(0.07)
-            m.smash(0.05)
-            m.hold(0.2) { $0.glow = 2.0; $0.torsoPitch = 0.55 }
-            m.hold(0.2) { $0.glow = 2.4 }
+            // 槌を頭上へ振りかぶり、0.25 秒（1 回目の衝撃波）で地へ叩きつけ、3 回目（0.92 秒）の手前まで押し込んで光らせる
+            // （基本スキルのモーションの上限 1.1 秒に収める。戻りの分を含めて 1.09 秒）
+            m.overhead(0.18)
+            m.smash(0.07)
+            m.hold(0.33) { $0.glow = 2.0; $0.torsoPitch = 0.55 }
+            m.hold(0.26) { $0.glow = 2.4 }
         case .skill2:
-            // 盾を前に前傾で突っ込み（突進 0.25 秒）、槌を下から振り上げる（再使用の打ち上げ 0.2 秒にほぼ合わせる）
+            // 盾を前に前傾で突っ込み（突進 0.67 秒）、槌を下から振り上げる（再使用の打ち上げ 0.2 秒にほぼ合わせる）
             m.dash(0.04, lean: 0.5)
             m.shieldBash(0.06)
             m.uppercut(0.12)
             m.hold(0.1) { $0.glow = 1.8 }
             m.settle(0.1)
         case .ultimate:
-            // 足を踏ん張って槌を天へ掲げ（0.3 秒で引き寄せ）、光を溜めて 0.8 秒で地へ叩き落とす
+            // 足を踏ん張って槌を天へ掲げ（発動の瞬間から引き寄せ）、光を溜めて 1.0 秒で地へ叩き落とす
             m.brace(0.06, depth: 0.08)
             m.raise(0.12, glow: 1.8)
             m.hold(0.12) { $0.ring = 1.2 }
-            m.hold(0.42) { $0.glow = 2.6; $0.ring = 1.6; $0.torsoPitch = -0.3 }
+            m.hold(0.62) { $0.glow = 2.6; $0.ring = 1.6; $0.torsoPitch = -0.3 }
             m.smash(0.08)
             m.hold(0.2) { $0.glow = 2.0; $0.hipsDrop = 0.22 }
         }

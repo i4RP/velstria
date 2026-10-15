@@ -88,7 +88,7 @@ enum SkillPassives {
     // MARK: - Ranger: 4 発毎の確定クリティカル
 
     /// 今回の発射が 4 発目（命中済み 3, 7, 11, ...）なら確定クリティカル。同じ命中数で 2 度出さない。
-    /// 倍率 1.75×k は、この tick の実効クリティカル倍率に k を掛けて表す（次 tick の再計算で戻る）。
+    /// 倍率（既定 2.0 = MLBB のクリティカルダメージ 200%）×k は、この tick の実効クリティカル倍率に k を掛けて表す（次 tick の再計算で戻る）。
     static func rangerForceCrit(_ s: inout SimState, _ ctx: SimContext, attacker a: Int) -> Bool? {
         guard let h = s.units[a].hero else { return nil }
         let every = max(1, Balance.Skills.rangerCritEvery)

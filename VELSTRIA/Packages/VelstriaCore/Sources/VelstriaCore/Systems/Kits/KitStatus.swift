@@ -10,6 +10,8 @@ enum KitTags {
     static let persistentStealth = "kit.stealth"
     static let untargetable = "kit.untargetable"
     static let knockUp = "kit.knockUp"
+    /// 強靭（コントロール時間短縮）で縮まない打ち上げ（スキルの説明に「強靭の影響を受けない」とあるもの）。
+    static let knockUpIgnoresResilience = "kit.knockUp.fixed"
     static let suppress = "kit.suppress"
 
     /// 所有者ごとに分かれるマークの tag。例: mark("H032", "brand", owner: id)
@@ -83,10 +85,19 @@ extension Kit {
 
     // MARK: - CC
 
-    /// 打ち上げ（既存の .airborne。CC 無効・無敵には効かない）。
-    static func knockUp(_ s: inout SimState, target t: Int, duration: Double, sourceID: EntityID?) {
-        CombatSystem.addStatus(&s, targetIndex: t, StatusEffect(kind: .airborne, duration: duration,
-                                                                sourceID: sourceID, tag: KitTags.knockUp))
+    /// 打ち上げ（既存の .airborne。CC 無効・無敵には効かない）。強靭で縮む（MLBB の日本語クライアントの「強靭」）。
+    /// ignoresResilience = true はスキルの説明に「強靭の影響を受けない」とある打ち上げ（セイバーの奥義）。
+    static func knockUp(_ s: inout SimState, target t: Int, duration: Double, sourceID: EntityID?,
+                        ignoresResilience: Bool = false) {
+        let tag = ignoresResilience ? KitTags.knockUpIgnoresResilience : KitTags.knockUp
+        CombatSystem.addStatus(&s, targetIndex: t, StatusEffect(kind: .airborne, duration: duration, sourceID: sourceID,
+                                                                tag: tag))
+        // ノックアップは高レベルのコントロール: 受けた側の進行中の突進・跳躍を止める（MLBB「多くのスキルおよびブリンクや
+        // アサルトの効果を中断できる」）。付かなかった（CC 無効・無敵）ときは止めない。強制移動（引き寄せ・押し出し）は止めない
+        guard s.units.indices.contains(t), s.units[t].statuses.contains(where: { $0.kind == .airborne && $0.tag == tag }),
+              let d = s.units[t].displacement, d.kind == .dash || d.kind == .leap else { return }
+        s.units[t].displacement = nil
+        s.units[t].path.removeAll()
     }
 
     /// suppress（行動不能・移動不能。解除不可で CC 無効も無視する。無敵・構造物には効かない）。

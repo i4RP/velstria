@@ -44,9 +44,12 @@ final class SkillPassiveTests: XCTestCase {
         let t = w.addHero("H013", team: .red, at: skillArena + Vec2(200, 0))
         let baseAS = w.s.units[d].stats.attackSpeed
         w.s.units[d].attackTargetID = w.id(t)
-        w.run(seconds: 1.3)
+        // 1 発目だけが当たる長さ（MLBB の攻撃速度 1.07 回/秒では 2 発目は約 1.1 秒）
+        w.run(seconds: 0.6)
         XCTAssertEqual(w.s.units[d].hero!.passive.stacks, 1)
-        XCTAssertEqual(w.s.units[d].stats.attackSpeed, baseAS * (1 + 0.06 * 1.04), accuracy: 1e-9)
+        // 攻撃速度 +6%×k は追加の攻撃速度（MLBB: 基礎 + 追加 × 攻撃速度比率）
+        XCTAssertEqual(w.s.units[d].stats.attackSpeed,
+                       baseAS + 0.06 * 1.04 * w.s.units[d].stats.attackSpeedRatio, accuracy: 1e-9)
         w.run(seconds: 8)
         XCTAssertEqual(w.s.units[d].hero!.passive.stacks, 5, "最大 5 スタック")
         let buff = w.s.units[d].statuses.first { $0.tag == Balance.Skills.duelistPassiveTag }
@@ -71,7 +74,8 @@ final class SkillPassiveTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(hits.count, 8)
         for (n, h) in hits.enumerated() {
             XCTAssertEqual(h.isCrit, n % 4 == 3, "\(n + 1) 発目")
-            let mult = h.isCrit ? 1.75 * 1.06 : 1
+            // 既定のクリティカルダメージ 200%（MLBB）× k
+            let mult = h.isCrit ? Balance.critMultiplier * 1.06 : 1
             XCTAssertEqual(h.amount, w.mitigated(attack * mult, .physical, on: t), accuracy: 1e-6)
         }
         XCTAssertEqual(w.s.units[r].stats.critMultiplier, Balance.critMultiplier, "倍率は次 tick の再計算で戻る")

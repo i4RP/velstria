@@ -71,11 +71,12 @@ public enum StatusSystem {
 }
 
 /// ステータス効果を能力値へ反映する。
-/// スロー・回復阻害・与ダメ低下は最大値のみ、加速・攻撃速度・与ダメ上昇・被ダメ軽減は加算。
+/// 回復阻害・与ダメ低下は最大値のみ。減速・加速・攻撃速度・与ダメ上昇・被ダメ軽減は加算（MLBB: 移動速度は
+/// 「基礎 × (100% + 全加速% − 全減速%)」、攻撃速度は追加の攻撃速度として足す。確定は StatCalculator.finalize）。
 public enum StatusModifiers {
     public static func apply(_ statuses: [StatusEffect], to stats: inout Stats) {
         guard !statuses.isEmpty else { return }
-        var maxSlow = 0.0
+        var slow = 0.0
         var speedBoost = 0.0
         var attackSpeedBoost = 0.0
         var healCut = 0.0
@@ -85,9 +86,10 @@ public enum StatusModifiers {
         var flatSpeed = 0.0
         for st in statuses {
             switch st.kind {
-            case .slow: maxSlow = max(maxSlow, st.magnitude)
+            case .slow: slow += max(0, st.magnitude)
             case .speedBoost: speedBoost += st.magnitude * (st.tag == "spell.BS09" ? max(0, st.remaining / st.duration) : 1)
             case .attackSpeedBoost:
+                // 鼓舞（BS12）の攻撃速度は StatCalculator.finalize で ×1.55（追加の攻撃速度ではない）
                 if st.tag != "spell.BS12" { attackSpeedBoost += st.magnitude }
             case .damageBoost: stats.damageBonus += st.magnitude
             case .damageReduction: stats.damageReduction += st.magnitude
@@ -109,6 +111,8 @@ public enum StatusModifiers {
             case .flatDefenseMod:
                 stats.armor += st.magnitude
                 stats.magicResist += st.magnitude
+            case .flatArmorMod:
+                stats.armor += st.magnitude
             default:
                 // 行動阻害・無敵・ステルス・燃焼・マーク・対象不可・suppress などは能力値に影響しない（各システムが直接参照）
                 break
@@ -116,14 +120,15 @@ public enum StatusModifiers {
         }
         stats.damageBonus -= dealtCut
         if armorShred > 0 { stats.armor *= 1 - min(1, armorShred) }
-        if magicShred > 0 { stats.magicResist = max(0, stats.magicResist - magicShred) }
-        stats.attackSpeed *= max(0, 1 + attackSpeedBoost)
-        if statuses.contains(where: { $0.tag == "spell.BS12" && $0.kind == .mark }) { stats.attackSpeed *= 1.55 }
-        // 減速軽減（ラピッドブーツ）は受ける減速の割合を弱める
-        if statuses.contains(where: { $0.tag == "spell.BS06" && $0.kind == .speedBoost }) { maxSlow = 0 }
-        let slow = min(1, max(0, maxSlow)) * (1 - min(1, max(0, stats.slowReduction)))
+        // 固定の防御低下は 0 を下回ってよい（実効防御の下限 −60 は CombatSystem.mitigationMultiplier）
+        if magicShred > 0 { stats.magicResist -= magicShred }
+        stats.extraAttackSpeed += attackSpeedBoost
+        // 加速陣（BS06）の間は減速を受けない
+        if statuses.contains(where: { $0.tag == "spell.BS06" && $0.kind == .speedBoost }) { slow = 0 }
+        // 減速は合計（上限 90%・減速軽減は StatCalculator.finalize）。固定の増減は基礎移動速度へ
         stats.moveSpeed = max(0, stats.moveSpeed + flatSpeed)
-        stats.moveSpeed *= max(0, 1 + speedBoost) * (1 - slow)
+        stats.moveSpeedBonus += speedBoost
+        stats.moveSpeedSlow += slow
         stats.healingReceivedMultiplier *= 1 - min(1, max(0, healCut))
     }
 }

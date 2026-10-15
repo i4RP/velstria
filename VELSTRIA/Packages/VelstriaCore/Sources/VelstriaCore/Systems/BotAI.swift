@@ -566,8 +566,9 @@ public enum BotAI {
             * max(0.2, 1 + st.damageBonus + st.basicAttackDamageBonus) * crit
         let skill = (40 + 16 * level + 0.5 * st.abilityPower + 0.25 * st.attack) * max(0.2, 1 + st.skillDamageBonus)
         let hp = max(0, s.units[i].hp) + s.units[i].totalShield
-        let ehp = hp * (1 + (max(0, st.armor) + max(0, st.magicResist)) / 200)
-            / max(0.4, 1 - min(Balance.maxDamageReduction, max(0, st.damageReduction)))
+        // 実効 HP = HP / 防御の倍率（120/(120+防御) の逆数。物理と魔法の平均の防御で見る）
+        let ehp = hp * (1 + (max(0, st.armor) + max(0, st.magicResist)) / (2 * Balance.defenseConstant))
+            / max(0.4, CombatSystem.damageReductionMultiplier(st.damageReduction))
         return (basic + skill, ehp)
     }
 
@@ -576,11 +577,11 @@ public enum BotAI {
         guard let h = s.units[i].hero else { return 0 }
         var total = CombatSystem.estimateBasicAttackDamage(s, ctx, attacker: i, target: t) * 3
         let st = s.units[i].stats
+        let heroDef = ctx.master.hero(h.heroID)
         for slot in SkillSlot.actives where skills && h.rank(slot) > 0 && h.cooldown(slot) <= 0 {
-            guard let def = ctx.master.skill(hero: h.heroID, slot: slot) else { continue }
-            let rank = Double(h.rank(slot) - 1)
-            var dmg = def.baseDamage * (1 + Balance.skillDamagePerRank * rank)
-                + def.scalingAttack * st.attack * Balance.skillAttackScalingFactor + def.scalingPower * st.abilityPower
+            guard let def = ctx.master.skill(hero: h.heroID, slot: slot), let heroDef else { continue }
+            // スキルの 1 回の発動の合計（シミュレーションと同じ数値。キットのヒーローはキットの公式の表）
+            var dmg = SkillCatalog.numbers(for: def, hero: heroDef, rank: h.rank(slot), stats: st).totalDamage
             dmg *= max(0, 1 + st.damageBonus + st.skillDamageBonus)
             dmg *= CombatSystem.mitigationMultiplier(def.damageType, armor: s.units[t].stats.armor,
                                                     magicResist: s.units[t].stats.magicResist)

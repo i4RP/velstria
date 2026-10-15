@@ -2,22 +2,21 @@ import Foundation
 
 // 担当: kit-H033（docs/SKILL_KITS.md / docs/NEW_HEROES.md / docs/kits/Alucard.md）
 // H033 紅牙のヴァルド = Velstria 版の Alucard（MLBB。調査: docs/kits/Alucard.md、対応表: 同ファイル末尾）。
-// 数値の正は MLBB の日本語クライアントのスキル詳細（docs/kits/Alucard.md の「日本語クライアントの画面」）。それと一致する
-// Fandom の現行のスキル表（同「公式（MLBB Fandom 現行）の数値」）も参照（違いは S1 の係数 +85% とデビルハンター）。
+// 数値の正は MLBB の日本語クライアントのスキル詳細（docs/kits/Alucard.md の「日本語クライアントの画面」）。Liquipedia の表とも一致する。
 // アサシン（ジャングル）の近接。キットはロールの汎用パッシブ（奇襲 +30% とキル/アシストの全 CD −30%）を置き換える。
 // 公式はスキルにコストが無い（HeroKit.cost で 0）。
-//   パッシブ 追撃（Pursuit）            — スキルを発動するたび、5 秒以内の次の通常攻撃が「追撃」になる: 射程 400（公式 4）まで伸び、
-//                                          敵の目の前まで踏み込みながら物理攻撃の 125% の物理ダメージ。
-//                                          デビルハンター: モンスターへのダメージは 110%（通常攻撃・スキルすべて。outgoingDamageBonus）。
-//   S1   裂地撃（Groundsplitter）       — 指定した地点へ転がり込み、大剣を叩きつける。270 → 370（+85% 物理攻撃）+ 鈍足 40%（2 秒）。
+//   パッシブ 追撃（チェイス）           — スキルを発動するたび、5 秒以内の次の通常攻撃が「追撃」になる: 射程 400（公式 4）まで伸び、
+//                                          敵の目の前まで踏み込みながら (125% 物理攻撃) = 合計の物理攻撃の 125% の物理ダメージ。
+//                                          デビルハンター: モンスターへのダメージは 110%（通常攻撃・スキルすべて。HitPayload.monsterMultiplier）。
+//   S1   裂地撃（グランドスプリッター） — 指定した地点へ転がり込み、大剣を叩きつける。270〜370（+85% 追加物理攻撃）+ 鈍足 40%（2 秒）。
 //                                          ボットはミニオン・ジャングルにも使う（botFarm）。
-//   S2   旋回斬（Whirling Smash）       — その場で大剣を回転させ、周囲の敵に 345 → 570（+120%）（照準なし）。
-//   奥義 核分裂波（Fission Wave）       — 1 回目: 指定地点の範囲の敵のエネルギーを吸収（鈍足 30%・複合防御 −10 / 15 / 20、4 秒）。
-//                                          敵ヒーロー 1 体につき自分に複合防御 +10 / 15 / 20、6 秒間 S1・S2 のクールダウンが半分。
-//                                          6 秒以内の再使用（同じ castSkill）で、向きへ貫通する衝撃波 400 / 550 / 700（+200%）。
-//                                          奥義を習得している間は常に複合吸血（通常攻撃 10 / 20 / 30%、スキルはその 0.33 倍）。
-// 数値の換算: 公式の表を Velstria のランクへ線形補間し、sim の通常の式 (基礎 + 係数 × 攻撃力 × 0.6) × スロット倍率 に
-//   スキルごとの換算（Tune.*Scale）を掛ける（H029 と同じ）。「追加物理攻撃」の係数は総攻撃力に掛ける。
+//   S2   旋回斬（サークルスマッシュ）   — その場で大剣を回転させ、周囲の敵に 345〜570（+120% 追加物理攻撃）（照準なし）。
+//   奥義 核分裂波（フィッションウェーブ） — 1 回目: 指定地点の範囲の敵のエネルギーを吸収（鈍足 30%・混合防御 −10 / 15 / 20、4 秒）。
+//                                          敵ヒーロー 1 体につき自分に混合防御 +10 / 15 / 20、6 秒間 S1・S2 の CD が 50%。
+//                                          6 秒以内の再使用（同じ castSkill）で、向きへ貫通する衝撃波 400 / 550 / 700（+200% 追加物理攻撃）。
+//                                          奥義を習得している間は常に混合吸収 10 / 20 / 30%（通常攻撃吸収とスキル吸収の両方に同じ値）。
+// 数値: 公式の表をそのまま使う（S1・S2 = Lv1〜6、奥義 = Lv1〜3。rank = 公式の Lv。Kit.level / Kit.official / Kit.cooldown）。
+//   ダメージ = 公式の基礎 + 公式の係数 × 能力値（(+N%追加) = 追加物理攻撃 Stats.extraAttack、(125%) = 合計の物理攻撃）。換算・補間なし。
 //
 // 状態（KitState）:
 //   timers[0] = 追撃の残り秒（>0 = 次の通常攻撃が追撃）   timers[1] = 奥義のクールダウン半減の残り秒
@@ -76,76 +75,76 @@ struct Kit_H033: HeroKit {
         self.isReady = isReady
     }
 
-    // MARK: - 数値（MLBB の値はそのまま。距離は Velstria 単位 ≈ MLBB × 100 を近接スキルの射程に合わせて調整）
+    // MARK: - 数値（公式の表はそのまま。距離・時間は公式に記載が無いので選んだ値: docs/kits/Alucard.md）
 
     enum Tune {
-        // パッシブ 追撃
-        /// 追撃のダメージ（物理攻撃の 125%。Fandom・Liquipedia の現行。mlbb.io の 140% は採らない）。
+        // パッシブ 追撃（チェイス）
+        /// 追撃のダメージ（公式「(125% 物理攻撃) の物理ダメージ」= 合計の物理攻撃の 125%。日本語クライアント・Liquipedia）。
+        /// 通常攻撃（物理攻撃 × 会心の倍率）に掛ける。
         static let pursuitRatio = 1.25
         /// 公式に記載なし: スキルの発動から追撃を使えるまでの猶予。
         static let pursuitWindow = 5.0
-        /// 追撃のために射程が伸びる量（公式の強化通常攻撃の射程 4 = 400。通常攻撃 150 → 400）。踏み込める距離。
+        /// 追撃のために射程が伸びる量（Fandom の強化通常攻撃の射程 4 = 400。通常攻撃 150 → 400）。踏み込める距離。
         static let pursuitRangeBonus = 250.0
         static let pursuitDashSpeed = 2600.0
         /// 踏み込みで止まる位置（半径の和 + この値）。
         static let pursuitGap = 5.0
         static let pursuitRangeTag = KitTags.buff("H033", "pursuitRange")
-        /// デビルハンター（パッシブ。日本語クライアントの画面 2026-10-11）: モンスター（ジャングル・バフ・亀・ロード = `UnitKind.monster`）へ
-        /// 110% のダメージ。文は「モンスターに対して 110% のダメージを与える」で追撃に限らないので、ヴァルド自身の通常攻撃とスキルの
-        /// すべてのダメージに掛ける（バトルスペル・装備の追加ダメージは除く）。ミニオンには掛からない。
-        static let devilHunterBonus = 0.10
+        /// デビルハンター（パッシブ。日本語クライアント「モンスターに対して 110% のダメージを与える」。Liquipedia「Creeps に 10% の追加ダメージ」）:
+        /// モンスター（ジャングル・バフ・亀・ロード = `UnitKind.monster`）への、ヴァルド自身の通常攻撃とスキルのダメージを 110% にする
+        /// （HitPayload.monsterMultiplier。掛け算で、ほかの与ダメ補正とは足し合わせない。MLBB での重なり方は未確認）。
+        /// 文は追撃の文とは別の行で、追撃に限らない。ミニオン・ヒーロー・構造物・バトルスペル・装備の追加ダメージには掛からない。
+        static let devilHunter = 1.10
 
-        // 吸血（奥義のパッシブ。調査: 10% 一定 / 10・20・30% で割れている → 奥義ランクで伸びる 10 / 20 / 30% を採る）
+        // 混合吸収（奥義のパッシブ。公式 10 / 20 / 30%。日本語クライアントの表「混合吸収」）
+        /// 通常攻撃吸収（lifestealBoost）とスキル吸収（spellVampBoost）に同じ値を足す（用語説明「混合吸収 = 通常攻撃吸収 + スキル吸収」）。
+        /// スキルごとのスキル吸収率は、日本語クライアントのスキル詳細に記載が無いので既定の 100%（HitPayload.spellVampRatio = 1）。
         static let hybridLifesteal: [Double] = [0.10, 0.20, 0.30]
-        /// スキルのダメージの吸血は通常攻撃の何倍か。MLBB の複合吸血は範囲スキルが 1/3、単体は等倍。
-        /// Velstria のスペルヴァンプは命中した対象ごとに全量（範囲スキルで大勢に当てると回復が人数倍になる）ので、
-        /// 範囲スキルの 1/3 に合わせた。S1・S2 はどちらも範囲で、ジャングルの周回での回復が過大にならない。
-        static let spellVampFactor = 0.33
         static let lifestealTag = KitTags.buff("H033", "lifesteal")
         static let spellVampTag = KitTags.buff("H033", "spellVamp")
         /// 常時効果のステータスに持たせる持続（実質無期限）。
         static let permanent: Double = 1_000_000
 
-        // S1 地割り
-        /// 転がる距離の最大（調査に「不明」。近接スキルの標準 ≈ 300 に少し足した）。
+        // S1 地割り（グランドスプリッター）
+        /// 転がる距離の最大（公式に記載なし。近接スキルの標準 ≈ 300 に少し足した）。
         static let s1Range = 350.0
-        /// 着地で叩きつける範囲の半径。
+        /// 着地で叩きつける範囲の半径（公式に記載なし）。
         static let s1Radius = 190.0
         static let s1Speed = 1800.0
         /// 対象を指定したときに、対象の縁の手前で止まる余裕。
         static let s1Gap = 5.0
+        /// 公式: 移動速度を 2 秒間 40% 低下。
         static let s1Slow = 0.40
         static let s1SlowDuration = 2.0
         static let s1SlowTag = KitTags.buff("H033", "slow")
-        /// 公式: 270 → 370（**+85%** 追加物理攻撃。日本語クライアントの画面（2026-10-11）と Liquipedia。以前は Fandom の +80%）。
-        /// Lv1 → Lv6 を最大ランクへ線形補間。
-        static let s1Base = (270.0, 370.0)
-        static let s1AttackRatio = 0.85
-        /// 公式の値 → Velstria の換算（sim の通常の式 × スロット倍率の後ろに掛ける）。Lv1〜3 はスキル1 しか無いので、
-        /// Lv1 の勝率がほぼこの値で決まる（docs/kits/Alucard.md の「バランス」）。
-        static let s1Scale = 0.66
+        /// 公式: 基礎ダメージ 270 / 290 / 310 / 330 / 350 / 370（+85% 追加物理攻撃）。
+        static let s1Base: [Double] = [270, 290, 310, 330, 350, 370]
+        static let s1ExtraAttackRatio = 0.85
+        /// 公式: CD 8.5 / 8.1 / 7.7 / 7.3 / 6.9 / 6.5 秒。
+        static let s1Cooldown: [Double] = [8.5, 8.1, 7.7, 7.3, 6.9, 6.5]
 
-        // S2 旋回斬
+        // S2 旋回斬（サークルスマッシュ）
+        /// 回転斬りの半径（公式に記載なし）。
         static let s2Radius = 250.0
-        /// 公式: 345 → 570（+120% 追加物理攻撃）。
-        static let s2Base = (345.0, 570.0)
-        static let s2AttackRatio = 1.2
-        /// 公式の値 → Velstria の換算。1 発は汎用の S2 の約 0.15 倍（予算 0.8〜1.3 倍を大きく割る）: クールダウンが公式の 6 → 4 秒
-        /// （汎用の S2 = 9.8 秒の約半分）で、アルティメットの半減中はさらに半分、公式どおりコストも無いので、何度でも撃てて
-        /// そのたびに追撃（物理攻撃 125% の踏み込み）と吸血が乗る。Lv12 の勝率は S2 の値に最も敏感（0.01 で約 3 pt）なので、勝率で決めた。
-        static let s2Scale = 0.08
+        /// 公式: 基礎ダメージ 345 / 390 / 435 / 480 / 525 / 570（+120% 追加物理攻撃）。
+        static let s2Base: [Double] = [345, 390, 435, 480, 525, 570]
+        static let s2ExtraAttackRatio = 1.2
+        /// 公式: CD 6.0 / 5.6 / 5.2 / 4.8 / 4.4 / 4.0 秒。
+        static let s2Cooldown: [Double] = [6.0, 5.6, 5.2, 4.8, 4.4, 4.0]
 
-        // 奥義 核分裂波
-        /// 吸収の中心を置ける距離と、吸収の半径。
+        // 奥義 核分裂波（フィッションウェーブ）
+        /// 吸収の中心を置ける距離と、吸収の半径（公式に記載なし）。
         static let ultCastRange = 450.0
         static let absorbRadius = 300.0
+        /// 公式: 移動速度 −30%。
         static let absorbSlow = 0.30
-        /// 敵の複合防御（物理防御・魔法防御）を下げる固定値（公式 10 / 15 / 20）と、鈍足・防御ダウンの持続（公式に記載なし）。
-        static let absorbDefense = (10.0, 20.0)
+        /// 公式: 敵の混合防御（物理防御・魔法防御）を下げる固定値 10 / 15 / 20（表「混合防御減少」）。
+        static let absorbDefense: [Double] = [10, 15, 20]
+        /// 鈍足・防御ダウンの持続（公式に記載なし）。
         static let absorbDuration = 4.0
-        /// 敵ヒーロー 1 体につき自分が得る複合防御（公式 10 / 15 / 20。`flatDefenseMod`、hasteDuration の間）。
-        static let defensePerHero = (10.0, 20.0)
-        /// S1・S2 のクールダウンが半分になる秒数（公式 6 秒）と、再使用の窓（公式に記載なし: 6 秒を選んだ）。
+        /// 公式: 敵ヒーロー 1 体につき自分が得る混合防御 10 / 15 / 20（表「混合防御力増加」。`flatDefenseMod`、hasteDuration の間）。
+        static let defensePerHero: [Double] = [10, 15, 20]
+        /// 公式: 6 秒間、他のスキルの CD 時間が 50% に短縮。再使用の窓（公式に記載なし: 6 秒を選んだ）。
         static let hasteDuration = 6.0
         static let ultWindow = 6.0
         static let hasteTag = KitTags.buff("H033", "defense")
@@ -155,17 +154,11 @@ struct Kit_H033: HeroKit {
         static let waveRange = 900.0
         static let waveHalfWidth = 130.0
         static let waveSpeed = 2200.0
-        /// 公式: 衝撃波 400 / 550 / 700（+200% 追加物理攻撃）。アルティメットの 3 ランク = 公式の Lv1〜3 そのまま。
-        static let waveBase = (400.0, 700.0)
-        static let waveAttackRatio = 2.0
-        /// 公式の値 → Velstria の換算。衝撃波は汎用の奥義の約 0.55 倍（予算 0.8〜1.3 倍を割る）: 吸収で複合防御 +20/体・敵 −20、
-        /// 6 秒のクールダウン半減、コスト 0 が公式の値になって Lv12 が同ロール中央値 +31 pt まで強くなったので、勝率で下げた。
-        static let waveScale = 0.34
-
-        // クールダウン（公式の秒数そのまま。ランク間を線形補間し、CD 短縮を掛ける。全体倍率 Balance.Skills.cooldownScale は 1.0）。
-        static let s1Cooldown = (8.5, 6.5)
-        static let s2Cooldown = (6.0, 4.0)
-        static let ultCooldown = (40.0, 30.0)
+        /// 公式: 衝撃波の基礎ダメージ 400 / 550 / 700（+200% 追加物理攻撃）。
+        static let waveBase: [Double] = [400, 550, 700]
+        static let waveExtraAttackRatio = 2.0
+        /// 公式: CD 40 / 35 / 30 秒（最初の発動で消費。再使用では変わらない）。
+        static let ultCooldown: [Double] = [40, 35, 30]
     }
 
     /// KitTimer.code
@@ -209,90 +202,84 @@ struct Kit_H033: HeroKit {
             n.extras = [KitStat(key: "pursuit", value: Tune.pursuitRatio * 100),
                         KitStat(key: "window", value: Tune.pursuitWindow),
                         KitStat(key: "reachMult", value: (hero.attackRange + Tune.pursuitRangeBonus) / hero.attackRange),
-                        KitStat(key: "devilHunter", value: ((1 + Tune.devilHunterBonus) * 100).rounded())]
+                        KitStat(key: "devilHunter", value: (Tune.devilHunter * 100).rounded())]
         case .skill1:
             n.damage = Self.s1Damage(rank: rank, stats: stats)
             n.hits = 1
             n.cc = .slow
             n.ccIsUltimate = false
             n.ccDuration = Tune.s1SlowDuration
-            n.cooldown = Self.cooldown(Tune.s1Cooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
+            n.cooldown = Kit.cooldown(Tune.s1Cooldown, rank: rank, stats: stats)
             n.extras = [KitStat(key: "slow", value: Tune.s1Slow * 100),
                         KitStat(key: "slowDuration", value: Tune.s1SlowDuration),
-                        KitStat(key: "base", value: Self.scaledBase(Tune.s1Base, slot: .skill1, scale: Tune.s1Scale,
-                                                                    rank: rank).rounded()),
-                        KitStat(key: "atkPct", value: Self.attackPercent(Tune.s1AttackRatio, slot: .skill1,
-                                                                         scale: Tune.s1Scale).rounded())]
+                        KitStat(key: "base", value: Kit.level(Tune.s1Base, rank: rank)),
+                        KitStat(key: "atkPct", value: Tune.s1ExtraAttackRatio * 100)]
         case .skill2:
             n.damage = Self.s2Damage(rank: rank, stats: stats)
             n.hits = 1
             n.cc = .none
             n.ccDuration = 0
-            n.cooldown = Self.cooldown(Tune.s2Cooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
-            n.extras = [KitStat(key: "base", value: Self.scaledBase(Tune.s2Base, slot: .skill2, scale: Tune.s2Scale,
-                                                                    rank: rank).rounded()),
-                        KitStat(key: "atkPct", value: Self.attackPercent(Tune.s2AttackRatio, slot: .skill2,
-                                                                         scale: Tune.s2Scale).rounded())]
+            n.cooldown = Kit.cooldown(Tune.s2Cooldown, rank: rank, stats: stats)
+            n.extras = [KitStat(key: "base", value: Kit.level(Tune.s2Base, rank: rank)),
+                        KitStat(key: "atkPct", value: Tune.s2ExtraAttackRatio * 100)]
         case .ultimate:
-            // damage = 衝撃波のダメージ（吸収そのものにダメージは無い。説明・予算の基準として 1 回目にも載せる）
+            // damage = 衝撃波のダメージ（吸収そのものにダメージは無い。説明・ボットの判断の基準として 1 回目にも載せる）
             n.damage = Self.waveDamage(rank: rank, stats: stats)
             n.hits = 1
             n.missingHealthRatio = 0
             n.cc = stage >= 1 ? .none : .slow
             n.ccIsUltimate = false
             n.ccDuration = stage >= 1 ? 0 : Tune.absorbDuration
-            n.cooldown = Self.cooldown(Tune.ultCooldown, rank: rank, maxRank: slot.maxRank, stats: stats)
+            n.cooldown = Kit.cooldown(Tune.ultCooldown, rank: rank, stats: stats)
             n.stages = 2
             n.recastWindow = Tune.ultWindow
             n.extras = [KitStat(key: "slow", value: Tune.absorbSlow * 100),
                         KitStat(key: "defense", value: Self.absorbDefense(rank: rank)),
                         KitStat(key: "haste", value: Tune.hasteDuration),
-                        KitStat(key: "lifesteal", value: Self.lifesteal(rank: rank) * 100),
+                        KitStat(key: "lifesteal", value: Self.lifesteal(rank: max(1, rank)) * 100),
                         KitStat(key: "gain", value: Self.defensePerHero(rank: rank)),
                         KitStat(key: "debuff", value: Tune.absorbDuration),
                         KitStat(key: "window", value: Tune.ultWindow),
-                        KitStat(key: "vampPct", value: Tune.spellVampFactor * 100),
-                        KitStat(key: "base", value: Self.scaledBase(Tune.waveBase, slot: .ultimate, scale: Tune.waveScale,
-                                                                    rank: rank).rounded()),
-                        KitStat(key: "atkPct", value: Self.attackPercent(Tune.waveAttackRatio, slot: .ultimate,
-                                                                         scale: Tune.waveScale).rounded())]
+                        KitStat(key: "base", value: Kit.level(Tune.waveBase, rank: rank)),
+                        KitStat(key: "atkPct", value: Tune.waveExtraAttackRatio * 100)]
         }
         return n
     }
 
-    /// 公式はスキルにコストが無い（MLBB の Alucard は資源を持たない）。Energy のバーは残るが、どのスキルも消費しない。
+    /// 公式はスキルにコストが無い（MLBB の Alucard は資源を持たない。master の resource は None でリソースのバーも無い）。
     func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double {
         slot == .passive ? base : 0
     }
 
-    /// 説明文は公式の文の構造に合わせる（数値は {トークン} で sim から。{base}(+{atkPct}%物理攻撃) は sim の式に換算した値）。
+    /// 説明文は日本語クライアントの文に合わせる（数値は {トークン} で sim から。{base}(+{atkPct}%追加物理攻撃) は公式の値そのもの）。
+    /// 公式の文に無いのは、追撃の猶予・射程、吸収の持続、再使用の窓（どれも公式に記載が無く、選んだ値を括弧・前置きで書く）。
     func text(slot: SkillSlot) -> KitText? {
         switch slot {
         case .passive:
             return KitText(
-                ja: "スキルを発動するたびに、次の通常攻撃（{window}秒以内。射程は近接攻撃の約{reachMult}倍）で対象の位置へ踏み込み、(+{pursuit}%物理攻撃)の物理ダメージを与える。"
+                ja: "スキルを発動するたびに、次の通常攻撃（{window}秒以内。射程は近接攻撃の約{reachMult}倍）で対象へダッシュし、({pursuit}%物理攻撃)の物理ダメージを与える。"
                     + "\n\nデビルハンター：モンスターに対して{devilHunter}%のダメージを与える。",
-                en: "After each skill cast, Vald's next basic attack (within {window}s, reaching about {reachMult}x the melee attack range) lets him dash to the target's location and deal (+{pursuit}% Physical Attack) physical damage."
+                en: "After each skill cast, Vald's next basic attack (within {window}s, reaching about {reachMult}x the melee attack range) lets him dash to the target and deal ({pursuit}% Physical Attack) physical damage."
                     + "\n\nDevil Hunter: Vald deals {devilHunter}% damage to monsters.",
                 tags: [KitTag.buff])
         case .skill1:
             return KitText(
-                ja: "指定エリアへ跳び込んで斬りつけ、命中した敵に{base}(+{atkPct}%物理攻撃)の物理ダメージを与え、移動速度を{slowDuration}秒間{slow}%低下させる。",
-                en: "Leap to the target area and slash, dealing {base} (+{atkPct}% Physical Attack) physical damage to enemies hit and slowing them by {slow}% for {slowDuration}s.",
+                ja: "指定エリアへ跳躍して斬りつけ、範囲内の敵に{base}(+{atkPct}%追加物理攻撃)の物理ダメージを与え、移動速度を{slowDuration}秒間{slow}%低下させる。",
+                en: "Leap to the target area and slash, dealing {base} (+{atkPct}% Extra Physical Attack) physical damage to enemies in the area and slowing them by {slow}% for {slowDuration}s.",
                 tags: [KitTag.mobility, KitTag.aoe])
         case .skill2:
             return KitText(
-                ja: "回転斬りを放ち、周囲の敵に{base}(+{atkPct}%物理攻撃)の物理ダメージを与える。",
-                en: "Launch a whirling slash, dealing {base} (+{atkPct}% Physical Attack) physical damage to nearby enemies.",
+                ja: "回転斬りを放ち、周囲の敵に{base}(+{atkPct}%追加物理攻撃)の物理ダメージを与える。",
+                en: "Launch a whirling slash, dealing {base} (+{atkPct}% Extra Physical Attack) physical damage to nearby enemies.",
                 tags: [KitTag.aoe])
         case .ultimate:
             return KitText(
-                ja: "パッシブ：常に{lifesteal}%の複合吸血を得る（スキルのダメージの吸血はその{vampPct}%）。\n\n"
-                    + "アクティブ：指定エリアの敵のエネルギーを吸収し、{debuff}秒間 移動速度を{slow}%、複合防御を{defense}低下させる。命中した敵ヒーロー1体につき複合防御を{gain}得て、{haste}秒間 他のスキルのクールダウンを50%にする。\n\n"
-                    + "再発動：{window}秒以内に指定方向へ強力な衝撃波を放ち、命中した敵に{base}(+{atkPct}%物理攻撃)の物理ダメージを与える。",
-                en: "Passive: Vald permanently gains {lifesteal}% Hybrid Lifesteal ({vampPct}% of that on skill damage).\n\n"
-                    + "Active: absorb the energy of enemies in the target area, reducing their Movement Speed by {slow}% and Hybrid Defense by {defense} for {debuff}s. Vald gains {gain} Hybrid Defense for each enemy hero hit and reduces the cooldown of his other skills to 50% for {haste}s.\n\n"
-                    + "Use Again: within {window}s, release a powerful shockwave in the target direction, dealing {base} (+{atkPct}% Physical Attack) physical damage to enemies hit.",
+                ja: "パッシブ：混合吸収が永久に{lifesteal}%上昇する。\n\n"
+                    + "アクティブ：指定範囲内の敵のエネルギーを吸収し、{debuff}秒間 移動速度を{slow}%、混合防御を{defense}低下させる。命中した敵ヒーロー1体につき自身の混合防御が{gain}上昇し、{haste}秒間、他のスキルのCD時間が50%に短縮される。\n\n"
+                    + "再発動：{window}秒以内に、前方に強力な衝撃波を放ち、{base}(+{atkPct}%追加物理攻撃)の物理ダメージを与える。",
+                en: "Passive: Vald permanently gains {lifesteal}% Hybrid Lifesteal.\n\n"
+                    + "Active: absorb the energy of enemies in the target area, reducing their Movement Speed by {slow}% and Hybrid Defense by {defense} for {debuff}s. Vald gains {gain} Hybrid Defense for each enemy hero hit, and the cooldowns of his other skills are reduced to 50% for {haste}s.\n\n"
+                    + "Use Again: within {window}s, release a powerful shockwave forward, dealing {base} (+{atkPct}% Extra Physical Attack) physical damage.",
                 tags: [KitTag.buff, KitTag.burst])
         }
     }
@@ -326,6 +313,7 @@ struct Kit_H033: HeroKit {
     }
 
     /// S1: 指定地点へ転がる。経路の敵には当たらず、転がり終えた tick に 1 度だけ範囲を叩く（onTimer）。
+    /// 転がり（突進）はノックアップ・制圧でだけ止まる（スタンでは止まらず、着地で叩きつける。CrowdControlTier）。
     private func castGroundsplitter(_ s: inout SimState, _ ctx: SimContext, _ c: KitCast) {
         let i = c.caster
         let from = s.units[i].pos
@@ -338,7 +326,7 @@ struct Kit_H033: HeroKit {
         travel = min(Tune.s1Range, max(0, travel))
         let dir = c.aim.direction
         s.units[i].hero!.kit!.valdSlamDamage = c.numbers.damage
-        // 経路上の敵には当たらない（affectsEnemies = false）。ハード CC の中断と着地の通知だけを使う
+        // 経路上の敵には当たらない（affectsEnemies = false）。突進の中断と着地の通知だけを使う
         let carrier = HitPayload(damage: 0, damageType: .physical, source: .skill(.skill1), affectsEnemies: false)
         let landing = Kit.dashSweeping(&s, ctx, caster: i, slot: .skill1, to: from + dir * travel,
                                        speed: Tune.s1Speed, payload: carrier, radius: 0, arriveCode: Code.slam)
@@ -352,12 +340,12 @@ struct Kit_H033: HeroKit {
         let center = s.units[i].pos
         Kit.emitCast(&s, c, origin: center, target: center, shape: .selfRing, count: 1)
         var p = HitPayload(damage: c.numbers.damage, damageType: .physical, source: .skill(.skill2),
-                           skillID: c.check.skill.skillID)
+                           skillID: c.check.skill.skillID, monsterMultiplier: Tune.devilHunter)
         p.originPos = center
         SkillArchetypes.hitArea(&s, ctx, caster: i, center: center, radius: Tune.s2Radius, shape: .circle, payload: p)
     }
 
-    /// 奥義の 1 回目: 範囲の敵を吸収（鈍足・防御ダウン）。敵ヒーローの数だけ被ダメ軽減を得て、S1・S2 のクールダウンを半減させる。
+    /// 奥義の 1 回目: 範囲の敵を吸収（鈍足・防御ダウン）。敵ヒーローの数だけ混合防御を得て、S1・S2 のクールダウンを半減させる。
     private func castAbsorb(_ s: inout SimState, _ ctx: SimContext, _ c: KitCast) {
         let i = c.caster
         let id = s.units[i].id
@@ -368,7 +356,7 @@ struct Kit_H033: HeroKit {
         let rank = c.numbers.rank
         let shred = Self.absorbDefense(rank: rank)
         let hit = Kit.hitAreaEach(&s, ctx, caster: i, center: center, radius: Tune.absorbRadius, shape: .circle) { _, _ in
-            // 複合防御（物理防御と魔法防御）を固定値で下げる（公式 10 / 15 / 20）
+            // 混合防御（物理防御と魔法防御）を固定値で下げる（公式 10 / 15 / 20）
             let statuses = [
                 StatusEffect(kind: .slow, duration: Tune.absorbDuration, magnitude: Tune.absorbSlow, sourceID: id,
                              tag: Tune.absorbSlowTag),
@@ -386,7 +374,7 @@ struct Kit_H033: HeroKit {
         s.units[i].hero!.kit!.valdAbsorbHeroes = heroes
         s.units[i].hero!.kit!.valdHaste = Tune.hasteDuration
         if heroes > 0 {
-            // 敵ヒーロー 1 体につき複合防御 +10 / 15 / 20（公式。hasteDuration の間）
+            // 敵ヒーロー 1 体につき混合防御 +10 / 15 / 20（公式。hasteDuration の間）
             CombatSystem.addStatus(&s, targetIndex: i,
                                    StatusEffect(kind: .flatDefenseMod, duration: Tune.hasteDuration,
                                                 magnitude: Self.defensePerHero(rank: rank) * Double(heroes), sourceID: id,
@@ -407,7 +395,7 @@ struct Kit_H033: HeroKit {
         Kit.emitCast(&s, c, origin: origin, target: origin + dir * Tune.waveRange, unit: c.aim.unit, shape: .wideLine,
                      duration: Tune.waveRange / Tune.waveSpeed, count: 1)
         var p = HitPayload(damage: c.numbers.damage, damageType: .physical, source: .skill(.ultimate),
-                           skillID: c.check.skill.skillID)
+                           skillID: c.check.skill.skillID, monsterMultiplier: Tune.devilHunter)
         p.originPos = origin
         ProjectileSystem.spawn(&s, ownerIndex: i, motion: .linear(direction: dir, maxDistance: Tune.waveRange),
                                speed: Tune.waveSpeed, width: Tune.waveHalfWidth, pierce: true, payload: p,
@@ -426,7 +414,7 @@ struct Kit_H033: HeroKit {
         let slow = StatusEffect(kind: .slow, duration: Tune.s1SlowDuration, magnitude: Tune.s1Slow,
                                 sourceID: s.units[owner].id, tag: Tune.s1SlowTag)
         var p = HitPayload(damage: kit.valdSlamDamage, damageType: .physical, source: .skill(.skill1),
-                           statuses: [slow], skillID: Self.skillID(ctx, .skill1))
+                           statuses: [slow], skillID: Self.skillID(ctx, .skill1), monsterMultiplier: Tune.devilHunter)
         p.originPos = center
         SkillArchetypes.hitArea(&s, ctx, caster: owner, center: center, radius: Tune.s1Radius, shape: .circle, payload: p)
     }
@@ -442,26 +430,20 @@ struct Kit_H033: HeroKit {
     }
 
     func onInterrupted(_ s: inout SimState, _ ctx: SimContext, owner: Int) {
-        // 転がりが止められた: 着地の処理が呼ばれないので記録を捨てる
+        // 転がりが止められた（ノックアップ・制圧・ノックバック）: 着地の処理が呼ばれないので記録を捨てる
         s.units[owner].hero?.kit?.valdSlamDamage = 0
     }
 
-    // MARK: - C. パッシブ（追撃・デビルハンター・複合吸血）
+    // MARK: - C. パッシブ（追撃・デビルハンター・混合吸収）
 
     func onSkillCast(_ s: inout SimState, _ ctx: SimContext, caster: Int, slot: SkillSlot) {
         armPursuit(&s, caster)
     }
 
-    /// デビルハンター: モンスターへの通常攻撃・スキルのダメージ +10%（= 110%）。与ダメ補正の加算に入る（CombatSystem.dealDamage）。
-    func outgoingDamageBonus(_ s: inout SimState, _ ctx: SimContext, attacker: Int, target: Int,
-                             source: DamageSource) -> Double {
-        guard s.units.indices.contains(target), s.units[target].kind == .monster else { return 0 }
-        guard source == .basicAttack || source.isSkill else { return 0 }
-        return Tune.devilHunterBonus
-    }
-
+    /// 通常攻撃: デビルハンター（モンスターに 110%）はすべての通常攻撃に、追撃（125%・踏み込み）は準備があるときの 1 回に。
     func shapeBasicAttack(_ s: inout SimState, _ ctx: SimContext, attacker: Int, target: Int,
                           plan: inout BasicAttackPlan) {
+        plan.payload.monsterMultiplier = Tune.devilHunter
         guard let k = s.units[attacker].hero?.kit, k.valdPursuit > 0 else { return }
         // 追撃は 1 回で使い切る（構造物にも消費するが、威力と踏み込みは乗らない）
         s.units[attacker].hero!.kit!.valdPursuit = 0
@@ -518,12 +500,11 @@ struct Kit_H033: HeroKit {
                              tag: Tune.pursuitRangeTag)
     }
 
-    /// 奥義を習得している間の常時効果: 複合吸血（通常攻撃の吸血 + スキルの吸血）。ランクが上がれば大きさだけ更新する。
+    /// 奥義を習得している間の常時効果: 混合吸収（通常攻撃吸収 + スキル吸収に同じ値）。ランクが上がれば大きさだけ更新する。
     private func syncHybridLifesteal(_ s: inout SimState, _ i: Int) {
-        let rank = min(max(0, s.units[i].hero?.rank(.ultimate) ?? 0), Tune.hybridLifesteal.count)
-        let life = Self.lifesteal(rank: rank)
+        let life = Self.lifesteal(rank: s.units[i].hero?.rank(.ultimate) ?? 0)
         sync(&s, i, kind: .lifestealBoost, tag: Tune.lifestealTag, want: life)
-        sync(&s, i, kind: .spellVampBoost, tag: Tune.spellVampTag, want: life * Tune.spellVampFactor)
+        sync(&s, i, kind: .spellVampBoost, tag: Tune.spellVampTag, want: life)
     }
 
     private func sync(_ s: inout SimState, _ i: Int, kind: StatusKind, tag: String, want: Double) {
@@ -541,73 +522,36 @@ struct Kit_H033: HeroKit {
         }
     }
 
-    // MARK: - ダメージ（公式の表 → sim の式）
+    // MARK: - ダメージ（公式の式: 基礎[段] + 係数 × 追加物理攻撃）
 
-    /// 公式の基礎ダメージ（ランクで補間）を sim の通常の式に通した「換算後の基礎」。
-    static func scaledBase(_ table: (Double, Double), slot: SkillSlot, scale: Double, rank: Int) -> Double {
-        lerp(table, rank: rank, maxRank: slot.maxRank) * Balance.Skills.damageScale(slot) * scale
-    }
-
-    /// 公式の「+N% 物理攻撃」を sim の通常の式（× skillAttackScalingFactor × スロット倍率 × 換算）に通した、攻撃力に対する割合（%）。
-    static func attackPercent(_ ratio: Double, slot: SkillSlot, scale: Double) -> Double {
-        ratio * Balance.skillAttackScalingFactor * Balance.Skills.damageScale(slot) * scale * 100
-    }
-
-    /// (公式の基礎 + 係数 × 攻撃力 × skillAttackScalingFactor) × スロット倍率 × 換算。
-    private static func damage(base: (Double, Double), ratio: Double, slot: SkillSlot, scale: Double, rank: Int,
-                               stats: Stats) -> Double {
-        (lerp(base, rank: rank, maxRank: slot.maxRank) + ratio * stats.attack * Balance.skillAttackScalingFactor)
-            * Balance.Skills.damageScale(slot) * scale
-    }
-
-    /// S1 の叩きつけ（270 → 370 + 85% 物理攻撃）。
+    /// S1 の叩きつけ: 270〜370 (+85% 追加物理攻撃)。
     static func s1Damage(rank: Int, stats: Stats) -> Double {
-        damage(base: Tune.s1Base, ratio: Tune.s1AttackRatio, slot: .skill1, scale: Tune.s1Scale, rank: rank, stats: stats)
+        Kit.official(Tune.s1Base, rank: rank, ratio: Tune.s1ExtraAttackRatio, .extraAttack, stats: stats)
     }
 
-    /// S2 の回転斬り（345 → 570 + 120% 物理攻撃）。
+    /// S2 の回転斬り: 345〜570 (+120% 追加物理攻撃)。
     static func s2Damage(rank: Int, stats: Stats) -> Double {
-        damage(base: Tune.s2Base, ratio: Tune.s2AttackRatio, slot: .skill2, scale: Tune.s2Scale, rank: rank, stats: stats)
+        Kit.official(Tune.s2Base, rank: rank, ratio: Tune.s2ExtraAttackRatio, .extraAttack, stats: stats)
     }
 
-    /// 奥義の衝撃波（400 / 550 / 700 + 200% 物理攻撃）。
+    /// 奥義の衝撃波: 400 / 550 / 700 (+200% 追加物理攻撃)。
     static func waveDamage(rank: Int, stats: Stats) -> Double {
-        damage(base: Tune.waveBase, ratio: Tune.waveAttackRatio, slot: .ultimate, scale: Tune.waveScale, rank: rank,
-               stats: stats)
+        Kit.official(Tune.waveBase, rank: rank, ratio: Tune.waveExtraAttackRatio, .extraAttack, stats: stats)
     }
 
-    /// 吸収で敵の複合防御を下げる量（10 / 15 / 20）と、敵ヒーロー 1 体につき自分が得る複合防御（10 / 15 / 20）。
+    /// 吸収で敵の混合防御を下げる量（10 / 15 / 20）と、敵ヒーロー 1 体につき自分が得る混合防御（10 / 15 / 20）。
     static func absorbDefense(rank: Int) -> Double {
-        lerp(Tune.absorbDefense, rank: rank, maxRank: SkillSlot.ultimate.maxRank)
+        Kit.level(Tune.absorbDefense, rank: rank)
     }
 
     static func defensePerHero(rank: Int) -> Double {
-        lerp(Tune.defensePerHero, rank: rank, maxRank: SkillSlot.ultimate.maxRank)
+        Kit.level(Tune.defensePerHero, rank: rank)
     }
 
-    static func lerp(_ range: (Double, Double), rank: Int, maxRank: Int) -> Double {
-        guard maxRank > 1 else { return range.0 }
-        let t = Double(min(max(1, rank), maxRank) - 1) / Double(maxRank - 1)
-        return range.0 + (range.1 - range.0) * t
-    }
-
-    /// 奥義ランク（0 = 未習得）に応じた通常攻撃の吸血率。
+    /// 奥義ランク（0 = 未習得）に応じた混合吸収（通常攻撃吸収とスキル吸収に同じ値）。
     static func lifesteal(rank: Int) -> Double {
         guard rank > 0 else { return 0 }
-        return Tune.hybridLifesteal[min(rank, Tune.hybridLifesteal.count) - 1]
-    }
-
-    /// MLBB のクールダウン（秒）をランクで線形補間し、CD 短縮を掛ける（全体倍率 cooldownScale は 1.0 = MLBB の秒数のまま）。
-    static func cooldown(_ range: (Double, Double), rank: Int, maxRank: Int, stats: Stats) -> Double {
-        let sec: Double
-        if maxRank > 1 {
-            let t = Double(min(max(1, rank), maxRank) - 1) / Double(maxRank - 1)
-            sec = range.0 + (range.1 - range.0) * t
-        } else {
-            sec = range.0
-        }
-        let reduction = min(Balance.maxCooldownReduction, max(0, stats.cooldownReduction))
-        return sec * (1 - reduction) * Balance.Skills.cooldownScale
+        return Kit.level(Tune.hybridLifesteal, rank: rank)
     }
 
     static func skillID(_ ctx: SimContext, _ slot: SkillSlot) -> String? {

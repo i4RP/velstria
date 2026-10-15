@@ -4,23 +4,25 @@ import Foundation
 // レベル成長・XP 付与/分配・スキルポイント（DESIGN §4, §6, §8）。
 
 public enum HeroGrowth {
-    /// レベル成長込みの素の能力値（DESIGN §4）。
+    /// レベル成長込みの素の能力値（DESIGN §4）。MLBB と同じく、どの項目も Lv1 の値 + 成長 × (Lv − 1)。
+    /// ヒーローごとの値は master（docs/HERO_STATS.md）。移動速度は MLBB の値のまま（マップ縮尺は StatCalculator が掛ける）、
+    /// 攻撃速度は基礎だけ（追加の攻撃速度は StatCalculator が比率を掛けて足す）。
     public static func baseStats(def: HeroDef, level: Int) -> Stats {
         let lv = min(max(1, level), Balance.maxLevel)
         let n = Double(lv - 1)
         var st = Stats()
         st.maxHP = def.baseHP + def.hpGrowth * n
-        st.maxResource = def.resourceMax
+        st.maxResource = def.resource.usesPool ? max(0, def.resourceMax + def.resourceGrowth * n) : 0
         st.attack = def.baseAttack + def.attackGrowth * n
         st.armor = def.baseDefense + def.defenseGrowth * n
         st.magicResist = def.baseMagicDefense + def.magicDefenseGrowth * n
-        let baseAS = def.isRanged ? Balance.rangedAttackSpeed : Balance.meleeAttackSpeed
-        st.attackSpeed = baseAS * (1 + Balance.attackSpeedPerLevel * n)
-        st.moveSpeed = def.moveSpeed * Balance.heroMoveSpeedScale
+        st.attackSpeed = def.attackSpeed + def.attackSpeedGrowth * n
+        st.attackSpeedRatio = def.attackSpeedRatio
+        st.moveSpeed = def.moveSpeed
         st.attackRange = def.attackRange
         st.sightRange = Balance.heroSight
-        st.hpRegen = 4 + 0.6 * Double(lv)
-        st.resourceRegen = def.resource == .energy ? Balance.energyRegenPerSecond : 3 + 0.35 * Double(lv)
+        st.hpRegen = def.hpRegen + def.hpRegenGrowth * n
+        st.resourceRegen = def.resource.usesPool ? def.resourceRegen + def.resourceRegenGrowth * n : 0
         return st
     }
 
@@ -140,7 +142,10 @@ public enum HeroGrowth {
 
 /// スキルポイントの割り振り（DESIGN §6）。
 public enum SkillLeveling {
-    /// その枠を今上げられるか。
+    /// その枠を今上げられるか（MLBB の規則。Balance.basicSkillMaxRank の注記）。
+    /// - アルティメット: Lv4 / 8 / 12 で 1 段ずつ（最大 3 段）。
+    /// - スキル1・2: 段 ≤ ceil(Lv / 2)（Lv1・3・5・7・9・11 で 1〜6 段目。最大 6 段）。
+    /// 6 + 6 + 3 = 15 = Lv15 までのスキルポイントの数なので、どの Lv でも割り振れないポイントは残らない。
     public static func canLevel(_ hero: HeroData, slot: SkillSlot) -> Bool {
         guard slot != .passive, hero.skillPoints > 0 else { return false }
         let rank = hero.rank(slot)
@@ -148,7 +153,7 @@ public enum SkillLeveling {
         if slot == .ultimate {
             return rank < Balance.ultimateUnlockLevels.filter { hero.level >= $0 }.count
         }
-        // 基本スキルは (Lv+1)/2 までに制限
+        // 基本スキルは ceil(Lv/2) = (Lv+1)/2 までに制限
         return rank < (hero.level + 1) / 2
     }
 

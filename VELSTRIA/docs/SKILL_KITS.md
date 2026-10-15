@@ -4,6 +4,12 @@
 `docs/SKILL_REWORK.md` が予告していた「ヒーロー × スロットで上書きできる層」を **キット** として足す。
 元ヒーローの調査は `docs/kits/*.md`。割り当ては `docs/NEW_HEROES.md`。
 
+**数値（2026-10-14 から）**: キットのスキルは MLBB の日本語クライアントの公式の表をそのまま使う。段は MLBB と同じ 6 / 6 / 3
+（スキル1・2 = Lv1〜6、アルティメット = Lv1〜3。rank = 公式の Lv。`Balance.basicSkillMaxRank`）。ダメージ = 基礎[段] + 係数 × 能力値
+（合計の物理攻撃 / 追加物理攻撃 `Stats.extraAttack` / 魔法攻撃 / 最大 HP。公式の文のとおり）で、スロット倍率・物理係数 × 0.6・キットの換算・
+ミニオンへの全体の × 0.2 は無い。スキルごとのスキル吸収率・攻撃エフェクト・ミニオン / モンスターへの補正は `HitPayload` に持つ（下の「テスト方針」の表）。
+汎用のヒーロー（H001–H024）は `docs/GENERIC_SKILLS.md`。
+
 パスは `VELSTRIA/Packages/VelstriaCore/` 起点（`App/` `AppTests/` `tools/` `docs/` は `VELSTRIA/` 起点）。
 
 ## 原則
@@ -30,7 +36,7 @@ public enum HeroKits {
     public static func text(heroID: String, slot: SkillSlot) -> KitText?        // ja/en テンプレート + tags
     public static func tags(heroID: String, slot: SkillSlot) -> [String]        // UI のタグ（KitTag のキー。無ければ空）
     public static func cost(for:hero:rank:base:) -> Double                      // ランク込みの実効コスト（キットの cost）
-    public static func resourceCost(_ raw: Double, hero: HeroDef) -> Double     // Mana 基準の値を Energy のヒーローなら × 0.6
+    public static func resourceCost(_ raw: Double, hero: HeroDef) -> Double     // Mana 基準の値（Energy は × energyCostMultiplier、怒り・なしは 0）
 }
 ```
 
@@ -49,9 +55,9 @@ sim の数値で埋める（説明文の数値と sim をずらさない）。�
   表示順 = 配列の順。キットが無い・text が無いスロットは `[]`（その場合 UI は従来の汎用の見せ方）。表示名（範囲技・減速 / AoE・Slow ...）と色は UI 側の対応表
   （`App/Screens/Collection/SkillShowcaseLogic.swift` の `SkillTags`。加速はバフと同じ青系、死亡無効は MLBB の札と同じ金）。新しいキーを足したら `SkillTags.knownKeys`・`name`・`symbol`・`rgb` にも足す（`AppTests/SkillShowcaseTests` が `KitTag.all` を検証する）。
 - **ランクごとの表**: `SkillCatalog.numbers(for:hero:rank:stats:)`（キットのヒーローはキットの上書き込み）を rank 1...`slot.maxRank` で引く。
-  - `cooldown`: 実効秒（CD 短縮込み。キットのクールダウンは MLBB の秒数をランクへ線形補間した値で、全体倍率 `cooldownScale` は 1.0）。`cost`: ランクごとのコスト（`HeroKit.cost` の結果。Energy のヒーローは × 0.6 込み）。
+  - `cooldown`: 実効秒（CD 短縮込み。キットのクールダウンは公式の段の表の秒数そのまま。全体の倍率は無い）。`cost`: ランクごとのコスト（`HeroKit.cost` の結果 = 公式の段の表の MP）。
     `damage` / `hits` / `ccDuration` / `cc`、再使用のあるスキルは `stage:`（`HeroKits.numbers(for:hero:rank:stats:stage:)`）で段ごとの値。
-  - `extras`（`KitStat.key` で引く）: キットが表示用に足す値。H029 は `base`（換算後の基礎ダメージ）/ `atkPct`（攻撃力に対する割合 %）など。
+  - `extras`（`KitStat.key` で引く）: キットが表示用に足す値。`base`（公式の基礎ダメージ）/ `atkPct`（公式の係数 %）など。
   - 単体のコストだけ要るときは `SkillSystem.cost(for: skill, hero: heroDef, rank: rank)`（HUD の「足りるか」・スキル詳細の「コスト」はこれ）。
     旧 `SkillSystem.cost(for:resource:)` は汎用の値（キットを含まない）。
 
@@ -61,9 +67,10 @@ sim の数値で埋める（説明文の数値と sim をずらさない）。�
 
 - **A. 記述（HUD・AI・ツールチップ）**: `targeting(slot, stage, skill, hero, base)` / `numbers(slot, stage, skill, hero, rank, stats, base)` /
   `text(slot)`（`KitText(ja:en:tags:)`）/ `badge(slot, hero)` / `cost(slot, rank, skill, hero, base) -> Double`（既定 = base）。
-  `base` は汎用の結果。ダメージは `base.damage` の比で表し TTK を保つ（公式の表をそのまま写すキットは、sim の通常の式 × 換算で絶対値を出してよい: H029）。
+  `base` は汎用の結果。**キットのダメージは公式の表そのまま**（`Kit.official` = 基礎[段] + 係数 × 能力値。汎用の値の比や換算は使わない）。
+  `movesCaster(slot, stage, base) -> Bool`: そのスキルが術者を動かすか（バインドで撃てない）。base は照準の型からの既定（dashStrike / leapSlam / targetedBlink / blinkEmpower）。
   **コストの上書き**: `cost` は発動の検証・消費（`SkillSystem.validate`）・`numbers.cost`・ボットの「足りるか」・HUD が共通で読む唯一の値。
-  `base` は汎用の実効コスト（Energy は × 0.6 込み）。固定値を返すときは `HeroKits.resourceCost(raw, hero:)` を通すと Energy の倍率が付く。
+  `base` は汎用の実効コスト。公式の MP を返すときは `HeroKits.resourceCost(Kit.level(表, rank:), hero:)` を通す（怒り・リソースなしのヒーローは 0）。
   再使用（窓が開いている間）と練習場の `noCooldowns` はこれまでどおりコスト 0。
 - **B. 実行**: `resolveAim`（nil = 既定、`.some(nil)` = 拒否）/ `canStart` / `cast(KitCast) -> KitCastOutcome`
   （`.done` か `.generic(targeting?, numbers?)` で `SkillArchetypes.execute` に委ねる）/ `recast(KitCast, window:)` /
@@ -95,7 +102,9 @@ sim の数値で埋める（説明文の数値と sim をずらさない）。�
   `combatIsHarmful` / `combatIsBeneficial` / `StatusModifiers` も更新。App の `StatusKind` の網羅 switch（`HUDSnapshots.swift` の
   `status` / `statusName` / `all` など）は同じ PR で直す。
 - `HitPayload` に `effects: [HitEffect]` / `scaling: DamageScaling?` / `originPos: Vec2?` / `kitEvent: Int` /
-  `skipsItemOnHit: Bool`（装備の命中時効果を外す）/ `kitHitsStructures: Bool`（ゾーンが敵の構造物にキットの onHit だけを呼ぶ）。
+  `skipsItemOnHit: Bool`（装備の命中時効果を外す）/ `kitHitsStructures: Bool`（ゾーンが敵の構造物にキットの onHit だけを呼ぶ）/
+  `spellVampRatio: Double`（スキル吸収率。既定 1）/ `attackEffect: Double?`（攻撃エフェクト。nil = appliesOnHit で 1 か 0）/
+  `minionMultiplier` / `monsterMultiplier`（スキルごとのミニオン・モンスターへの倍率。既定 1）。
   `HitEffect`: `knockUp / pullToOwner / pushAway / addMark / healOwner / refundCooldown`。
   `DamageScaling`: `missingHealth / maxHealth / distance(near,far,minMult,maxMult) / marks(tag, perStack, consume)`。
 - `AreaZone.followsTargetID`。
@@ -121,24 +130,27 @@ public struct KitState: Codable, Hashable, Sendable {
 - 各キットは自分のファイルの `extension KitState` に名前付きアクセサを置く（レジスタは重ねてよい: 1 ヒーロー = 1 キット）。
 - 敵側のスタック/マークは `.mark` status（tag に所有者 ID を含める: `KitTags.mark("H032","brand", owner:)`）。
 - 死亡で全リセット（`onDeath` で残すものを選べる）。ハード CC（スタン・打ち上げ・suppress）で `interruptible` なタイマーを取り消し `onInterrupted`。
+  進行中の経路ヒット突進を止めるのは打ち上げと suppress だけ（MLBB の CC の段階: ノックアップ・制圧だけがブリンク・突進を中断する。スタンは止めない。`StatusKind.ccTier` / `interruptsDash`）。
 - `stateHash()` に kit のレジスタ・形態・窓の段・予約中の各 `KitTimer`（code・remaining・slot・targetID・index。挿入順）・
   突進の有無と `arriveCode`・status の (kind, tag, magnitude) を混ぜる。
 
 ### 決定性のルール（キットを書く人向け）
 - ユニットは添字昇順で列挙する。乱数は `s.rng` だけ。`Date` / `Dictionary` の列挙順は使わない。
 - zone / projectile / timer の生成順を固定する。クロージャや参照を状態に持たない。
-- ダメージは `base.damage`（Double）から計算する。
+- ダメージは公式の段の表（Double）と能力値から計算する（`Kit.official`）。
 
 ## プリミティブ（`enum Kit`、`Systems/Kits/Kit*.swift`）
 
 | 部品 | 要点 |
 |---|---|
+| 公式の表 `Kit.level / official / cooldown`（`KitDamage.swift`） | `Kit.level(表, rank:)` = MLBB のスキル詳細の段の表（スキル1・2 = Lv1〜6、奥義 = Lv1〜3）をそのまま引く（換算・補間なし。全段同じなら 1 要素）。`Kit.official(表, rank:, ratio:, KitScaling, stats:)` = 基礎 + 係数 × 能力値。`KitScaling`: `.totalAttack`（(+N%) = 合計の物理攻撃）/ `.extraAttack`（(+N%追加) = `Stats.extraAttack`）/ `.magicPower` / `.maxHP`。`Kit.cooldown(表, rank:, stats:)` = 公式の CD × (1 − CD 短縮)。 |
+| スキル吸収率・攻撃エフェクト・ミニオン補正 | `HitPayload.spellVampRatio`（エウドラの S1 0.5）/ `attackEffect`（ミヤの月影 0.2・分裂の矢 0.3、子龍の狂龍乱舞 0.5。0 < 値 < 1 の通常攻撃の追加の命中は、装備の命中時効果の量と通常攻撃吸収をその割合で与え、命中数・パッシブの命中フック・CD 型の装備効果は数えない: `ItemEffects.onPartialAttackEffect`）/ `minionMultiplier`（エウドラの S1 2.0・ディロスの S1 0.75・セイバーの剣撃 0.5）/ `monsterMultiplier`（アルカード 1.1）。 |
 | 再使用の窓 `openRecast / closeRecast / window` | 最初の発動は **必ず** コストと CD を消費する（ボットの「当たった」判定が CD > 0 で見るため）。再使用は CD・コスト無視で同じ `castSkill` コマンド。窓が閉じたら `cooldownOnClose` を適用。 |
 | 遅延・連撃 `schedule / cancelScheduled / strikeSequence` | `KitState.scheduled` を挿入順に消化し `onTimer` を呼ぶ。remaining 0 は同 tick に発火。 |
 | 経路ヒット突進 `dashSweeping` | `MovementSystem.dash` + `KitSweep`。毎 tick `prevPos → pos` の線分上の敵を 1 度ずつ。着地で `arriveCode`。 |
 | 扇状の弾 `fan` | `ProjectileSystem.spawn` のループ（角度は均等、乱数なし）。 |
 | 対象指定突進 | `.targetedBlink` + `requiresTarget`。移動するなら `MovementSystem.dash` + 到着時に `strikeSequence`。 |
-| 打ち上げ `knockUp` | `.airborne` status（既存）。 |
+| 打ち上げ `knockUp` | `.airborne` status（既存）。受けた側の進行中の突進・跳躍も止める（ノックアップ = 高レベルのコントロール）。 |
 | 引き寄せ `pull` / `pushAway` | `kind: .knockback` の変位（新しい `DisplacementKind` は作らない）。フックは非貫通の弾 + `HitEffect.pullToOwner`。 |
 | 地形を無視する引き寄せ `pullIgnoringTerrain`（`KitPull.swift`） | 終点（`pull` と同じ位置）が歩ける場所なら、途中の壁を無視して直線で運ぶ。壁が無い・終点が歩けないときは `pull` と同じ。H034 の鉤（`onHit` で呼ぶ）。 |
 | 構造物の凍結 `freezeStructure` | 敵のタワー・Core に `.stun` を付ける唯一の入口（`addStatus(allowStructure:)`）。凍ったタワーは索敵・攻撃をしない（`canAct`）。ダメージなし・無敵の構造物は対象外。ゾーンの payload に `kitHitsStructures` を立てると、`ZoneSystem` が範囲内の敵の構造物にキットの `onHit`（dealt = 0）だけを呼ぶ。H031 の凍結。 |
@@ -221,42 +233,60 @@ Tests/VelstriaCoreTests/Kits/KitTestSupport.swift  KitFrameworkTests.swift  Kit_
 - バランス計測: `Tests/.../Kits/KitBalanceHarness.swift`（`BalanceHarness`）と `KitBalanceTests.swift`。1 組を「両陣営の割り当て ×
   開始距離 300/450/600 × 乱数の種 2 つ」の 12 戦で平均し（引き分け = 0.5）、Lv 1/6/12 の全員総当たりの勝率を出して、キットのヒーローを
   **同ロールの汎用ヒーローの中央値**と比べる。表は Release のテスト出力に出る（`swift test -c release --filter KitBalanceTests`）。
-  許容帯は |差| ≤ 35 pt（Lv 6/12）・45 pt（Lv 1）。あわせて「開幕 3 秒の瞬間火力」（資源満タン・CD 0 の攻撃側が、動かないダミー H001 へ
-  3 秒間に与える実ダメージ。距離 300/450 の平均）を同ロール汎用の中央値との比で報告する（報告のみ）。
-- クールダウン: **MLBB の秒数そのまま**（6 段のランクを 4 段・奥義 3 段へ線形補間。`Balance.Skills.cooldownScale` = 1.0）。CD 短縮・レイジなど時間に関わる値も MLBB の値を基準にする。
-  勝率の調整にクールダウンは使わず、ダメージ・効果の量で合わせる（CD が汎用より短い・長いスキルは単発の倍率を予算の外にしてよい。理由を書く）。
-- バランス: 1 スロットの単体総ダメージは汎用の 0.8〜1.3 倍（意図的に変えるときは理由を書く）。
-- クールダウンを MLBB の秒数にしたとき（2026-10、`cooldownScale` 0.5 → 1.0）の同ロール中央値との差（pt、Lv1 / Lv6 / Lv12。Release の `KitBalanceTests`）:
+  帯は |差| ≤ 35 pt（Lv 6/12）・45 pt（Lv 1）。比べる汎用ヒーローは **MLBB のロール**（ティグラル H029・フランコ H034 = タンク → ヴァンガード。
+  `KitBalanceTests.peerRole`）。あわせて「開幕 3 秒の瞬間火力」（資源満タン・CD 0 の攻撃側が、動かないダミー H001 へ
+  3 秒間に与える実ダメージ。距離 300/450 の平均）を同ロール汎用の中央値との比で報告する（報告のみ）。ゲームに出す 10 体（H025–H034）同士の
+  総当たりも報告する（`testActiveRosterRoundRobin`。報告のみ）。
+- **スキルの数値は公式の表そのまま**（2026-10-14 のスキルの段階から）: スキル1・2 = Lv1〜6、アルティメット = Lv1〜3 の表を `Kit.level` で引く
+  （rank = 公式の Lv。補間・換算・スロット倍率・物理係数 × 0.6 は無い）。クールダウン・MP・持続も公式の表。
+  **勝率・TTK を帯に合わせるために公式の値を変えない。** 帯を外れたら、実装の不具合を探し、無ければ理由を書いて帯（外れ値の表）を見直す。
+- スキルごとの割合（公式の文にあるものだけ。無ければ既定 = 吸収率 100%・攻撃エフェクト = 通常攻撃なら 100%・ミニオン / モンスター 100%）:
 
-  | キット | 変更前（CD × 0.5） | 変更後 | 変えた値 |
+  | キット | 割合 | 出典 |
+  |---|---|---|
+  | H025 ミヤ | 月影 攻撃エフェクト 20%、分裂の矢 攻撃エフェクト 30% | 日本語クライアント（REAL_DATA） |
+  | H026 エウドラ | S1 スキル吸収率 50%、S1 ミニオンに 200% | 日本語クライアント |
+  | H027 子龍 | 狂龍乱舞の 3 撃 攻撃エフェクト 50% | 日本語クライアント |
+  | H028 セイバー | 剣撃 ミニオンへ 50%（進路上の 50% にも掛けて 25%） | 日本語クライアント |
+  | H032 ディアス | S1 ミニオンに 75%、円撃は攻撃エフェクトなし（`skipsItemOnHit`） | 日本語クライアント |
+  | H033 アルカード | デビルハンター モンスターに 110%（`monsterMultiplier`。ほかの与ダメ補正と掛け算） | 日本語クライアント |
+
+- 外した独自ルール（MLBB に無い、旧尺度のバランスのためのもの）: エウドラの鎖の 6 秒の再リンク禁止（S1 の 50% の CD 短縮は 1 回の発動につき 1 回。
+  鎖が 2 本でも CD が 0 にならない）、オーロラのパッシブの回復の Lv 補間（0% → 30%。今は常に 30%）・霜風の「近くは凍らない」、
+  ディアスの円撃の回復 × 0.2（今は最大 HP の 7〜10%）・CD 短縮 0.55 / 0.05 秒と「敵ヒーローのみ」（今は敵にダメージを与えるたび 1 秒。1 回の行動につき 1 回）、
+  フランコの奥義の最大 HP 80% の上限・奥義の踏み込み、セイバーの剣撃のモンスター 50%、アルカードの「追加物理攻撃」の係数を合計の物理攻撃に掛けていたこと・
+  スキル吸収 × 0.33、子龍の通常攻撃の固定値 × 0.25・連撃 × 0.6・ヒーロー以外への回復 50%、エウドラの S2 の「ミニオンにはダメージのみ」。
+  防御ダウンの割合への換算（子龍の S2・セイバーのパッシブ）は物理防御だけの固定値（`flatArmorMod`）。
+- スキルの段階（2026-10-14、`MatchConfig.currentSimVersion` 21 → 22）の前後の Release の `KitBalanceTests`（同ロール中央値との差、pt、Lv1 / Lv6 / Lv12。
+  Windows・`swift test -c release`。前 = 換算あり・汎用は旧倍率・ロールは Velstria のロール、後 = 公式の表・汎用は MLBB の型・ロールは MLBB のロール）:
+
+  | キット | 前 | 後 | 後の外れ値の理由（`KitBalanceTests.knownOutliers`） |
   |---|---|---|---|
-  | H025 ルミナ | −2.5 / −13.4 / −8.6 | +4.8 / −12.8 / −11.0 | S2 の CD をマスター → MLBB の 8 秒。攻撃速度 / 段 9% → 5%（MLBB と同じ。7% でも Lv1 +20 pt） |
-  | H026 エウリア | −11.4 / +13.6 / +24.0 | −21.2 / +1.6 / +24.1 | 終わりの一撃の短縮 0.75 → 1.5 秒、鎖のロックアウト 3 → 6 秒、ボットは S2 → S1 の順 |
-  | H027 ジャルド | +6.1 / −3.5 / +8.1 | +24.7 / −1.5 / +13.4 | なし |
-  | H028 ザイル | +4.2 / −9.5 / −1.8 | +15.0 / +29.7 / +14.3 | 剣撃の短縮 0.5 → 1 秒、S1 の CD の特例（全体倍率のまま 5 秒）を外して 10 秒 |
-  | H029 ボルグ | −8.3 / −1.3 / −7.3 | +19.1 / +17.8 / +4.4 | なし |
-  | H030 ライナ | −29.8 / −0.3 / −1.5 | −5.3 / −3.4 / +3.4 | CD をマスター → ライラの 6→4 / 7.5→6.5 / 37→27 秒 |
-  | H031 オーリア | +13.4 / +6.8 / +21.0 | −5.1 / −3.4 / +30.2 | CD を 6.5→5.3 / 40→32 秒 → MLBB の 6→4 / 50→40 秒。氷塊 0.85 → 0.70・雹 0.06 → 0.05 |
-  | H032 ディアス | +7.6 / −5.6 / +4.5 | +21.7 / +18.2 / +28.0 | レイジ ×2 を外す（2〜5%/s）、CD 短縮 0.3 / 0.05 → 0.6 / 0.1 秒 |
-  | H033 ヴァルド | −11.0 / −0.9 / −0.3 | −12.2 / +4.9 / +22.3 | CD の倍率（S1 0.55〜0.70・S2 × 1.2）を外す。S1 0.78 / 0.70 / 0.64 → 0.76 / 0.67 / 0.60（ランク 2〜4）、S2 0.81 → 0.50 |
-  | H034 ゴルム | −7.8 / +4.0 / +7.8 | −17.3 / +12.8 / +13.0 | 鉤のランク 1 の特例（10 秒）を外して 15 秒 |
+  | H025 ミヤ | −10.6 / +16.7 / +7.8 | +3.5 / +8.3 / +8.7 | |
+  | H026 エウドラ | −9.1 / +27.8 / +19.4 | +41.2 / **+75.8** / **+75.8** | 汎用のアルカニストはダメージのスキルが実質 S1 と奥義だけ（S2 はブリンク + 強化攻撃）で、装備なしは魔法攻撃 0 |
+  | H027 子龍 | +12.1 / −15.9 / −1.0 | +14.9 / +20.5 / +19.3 | |
+  | H028 セイバー | −22.7 / +19.7 / +24.0 | +31.8 / **+63.4** / **+62.5** | MLBB のアサシンの多段（剣の接触・剣撃・三連撃）と汎用のアサシンの 1 撃ずつ |
+  | H029 ティグラル | −19.2 / **+36.6** / **+48.0** | +33.3 / +33.1 / **+43.4** | MLBB のタンク（HP 成長 307）+ 奥義 3 段目 1000 (+130%)（比べるのはヴァンガード） |
+  | H030 ライラ | −3.0 / +22.2 / +20.7 | +17.7 / +27.0 / +31.9 | |
+  | H031 オーロラ | +2.3 / +12.1 / +29.8 | **+81.6** / **+75.0** / **+77.0** | H026 と同じ（汎用のアルカニストの中央値 4.5〜10.4%） |
+  | H032 ディアス | −24.2 / +1.3 / +15.2 | +21.0 / +26.5 / +28.4 | |
+  | H033 アルカード | +14.6 / +13.6 / +22.0 | +26.8 / **+53.3** / **+56.4** | H028 と同じ |
+  | H034 フランコ | −31.6 / **+59.3** / **+55.8** | +8.1 / +22.0 / +24.7 | （ヴァンガードと比べると帯の中。以前の外れ値を外した） |
 
-  変更前の H033 の S2 0.81 のままだと Lv6 / Lv12 が +39 / +42（帯の外。S2 の CD が汎用の約半分になるため）、H031 の S1 を変えないと Lv12 +40 だった。
-  Release の `SkillBalanceTests`（全員総当たりの TTK 帯）、`BotMatchTests`、`WorldMatchTests`、`SkillDeterminismTests` を通してから `isReady = true` にする。
-- 日本語クライアントの数値（2026-10-10 受領の実機のスクリーンショット。各 `docs/kits/*.md` の「公式（日本語クライアント）の数値」）に H025 / H026 / H028 / H030 / H034 を合わせ、
-  H029 の Lv1 / Lv6 を帯へ寄せたあとの Release の `KitBalanceTests`（同ロール中央値との差、pt。`MatchConfig.currentSimVersion` 11）:
-
-  | キット | 変更前（上の表の後の計測） | 変更後 | 変えた値 |
-  |---|---|---|---|
-  | H025 ルミナ | −21.9 / −2.9 / +7.7（月影を 25(+20%) にした直後） | −9.8 / +0.1 / +10.2 | 月影 30(+25%) × 2.2 → 25(+20%) × 2.6、S1 MP 60 → 85、S2 の換算 0.34 → 0.30 |
-  | H026 エウリア | −20.2 / −1.7 / +10.6 | −12.4 / +11.5 / +12.6 | S1 CD 7 → 5 秒を全 Lv 5 秒、MP、炸裂 330 / 440 / 550 で超伝導の敵だけ（換算は同じ） |
-  | H028 ザイル | −7.0 / −28.4 / −11.0（追加物理攻撃にした直後） | +11.7 / −7.8 / +13.3 | S1 CD 9 → 10 秒・剣撃で S1 −0.5 秒、接触・剣撃・奥義の表と追加物理攻撃、MP、換算 0.12 / 1.05 / 0.44 → 0.14 / 1.2 / 0.55 |
-  | H029 ボルグ | +22.6 / +17.6 / −0.1 | +12.9 / +10.7 / −2.7 | スキル1 の換算 0.17 → 0.16、スキル2 0.58 → 0.52 |
-  | H030 ライナ | −20.4 / −2.9 / +3.7（距離補正を 115% にした直後） | −8.3 / +2.7 / +8.0 | 距離補正 770 で 130% → 600 で 115%、S1 / S2 の MP、S2 の減速を外す、換算 S1 0.53 → 0.58・奥義 0.56 → 0.52 |
-  | H034 ゴルム | −5.7 / +9.7 / −8.0 | −7.3 / +12.5 / −9.0 | 奥義の CD 62 / 55 / 45 → 62 / 55 / 48（換算は同じ） |
-
-  ほかのキット（変えていない）: H027 +12.6 / −10.9 / −1.5、H031 −1.5 / −11.5 / +10.9、H032 −6.6 / −4.3 / +15.7、H033 +2.1 / −5.3 / +6.2。
-  H029 の換算は帯の中ほど（スキル1 0.155）だと Release の `BotMatchTests` の seed 6 normal で blue のキルが 0 になって落ちたので、通る組（0.16 + スキル2 0.52）を選んだ（`docs/kits/Tigreal.md`）。
+  前の太字は eb8d5b8 の時点の失敗（H029 Lv6 +36.6）と既知の外れ値。汎用ヒーローの中央値は前後で大きく動いた（Lv6: ヴァンガード 89.1 → 57.8・
+  デュエリスト 79.5 → 73.5・レンジャー 23.7 → 35.1・アルカニスト 12.1 → 4.5・サポート 23.5 → 25.3・アサシン 52.5 → 31.6%）。
+  汎用ヒーロー（H001–H024）はゲームに出していない（`HeroRoster.activeHeroIDs` = H025–H034）。ゲームに出す 10 体同士の総当たり（後、Lv1 / Lv6 / Lv12 %）:
+  ミヤ 29.6 / 0.0 / 0.0、エウドラ 18.5 / 37.0 / 31.5、子龍 77.8 / 77.8 / 66.7、セイバー 48.1 / 81.5 / 77.8、ティグラル 66.7 / 66.7 / 88.9、
+  ライラ 44.4 / 11.1 / 11.1、オーロラ 70.4 / 46.3 / 42.6、ディアス 100 / 100 / 100、アルカード 0.0 / 44.4 / 55.6、フランコ 44.4 / 35.2 / 25.9
+  （装備なしの 1v1 の台本。公式の値どうしの結果なので帯で縛らない。ディアスの全勝はダメージ 1 回ごとの CD −1 秒と 3 連の爆発・奥義の損失 HP 25% による）。
+- TTK（`SkillBalanceTests`）: ロール代表（H001–H006）の 1v1 は 4.1〜16.4 秒 → 10.5〜36.4 秒、ゲームに出す 10 体の総当たりの中央値は
+  Lv1 12.2 → 13.5 / Lv6 7.5 → 8.5 / Lv12 8.1 → 9.1 秒（最短 1.6 → 2.2 秒・最長 21.8 → 24.2 秒）。帯は 2.5〜22 → 1.8〜38 秒
+  （全員総当たりの絶対帯 2.0〜25 → 1.5〜40 秒）。理由はテストのコメント（伸びたのはタンク・サポートの組、縮んだのはディアスの柔らかい相手へのバースト）。
+  キットごとの帯: ティグラルの総当たりの上限 0.75 → 0.9、ディアス・アルカードの総当たりの上限は汎用の同ロール → 同じロールの MLBB のヒーロー（子龍 + 35 pt・セイバー + 30 pt）。
+- ティグラルの幾何と時間を MLBB の画面収録で測った値に変えた後（2026-10-15、`MatchConfig.currentSimVersion` 22 → 23。docs/kits/Tigreal.md
+  「動画で測った値」。Windows・`swift test -c release`）: `KitBalanceTests` の同ロール中央値との差 +34.3 / +29.5 / **+38.9**（Lv12 は既知の外れ値のまま）、
+  ゲームに出す 10 体の総当たり 70.4 / 53.7 / 72.2%、`Kit_H029Tests` の総当たり Lv6 66.7% / Lv12 77.8%。スキル1 が止まった相手に 1〜2 回しか当たらず、
+  奥義の半径が 520 → 278 と狭くなったぶん下がった。
 
 ## 進め方
 

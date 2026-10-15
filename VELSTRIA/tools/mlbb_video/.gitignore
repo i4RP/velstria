@@ -1,0 +1,12 @@
+# 動画・コマ・切り出した画像・計測の出力はコミットしない（著作物。公開リポジトリ）
+*.png
+*.jpg
+*.jpeg
+*.mp4
+*.mov
+*.zip
+*.json
+*.npy
+out/
+frames/
+__pycache__/

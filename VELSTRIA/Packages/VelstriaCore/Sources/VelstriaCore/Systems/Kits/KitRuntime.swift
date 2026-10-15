@@ -7,9 +7,17 @@ import Foundation
 
 /// キットが使うプリミティブの名前空間（Kit*.swift が extension で足す）。
 enum Kit {
-    /// 取り消しの対象になるハード CC（スタン・打ち上げ・suppress）。
+    /// 取り消しの対象になるハード CC（スタン・打ち上げ・suppress）。基本以上の段階で行動を封じるもの（CrowdControlTier）。
+    /// 中断できるタイマー（詠唱・遅延の連撃）を取り消す。
     static func hasHardCC(_ statuses: [StatusEffect]) -> Bool {
         for st in statuses where st.kind == .stun || st.kind == .airborne || st.kind == .suppress { return true }
+        return false
+    }
+
+    /// 進行中の突進を止める CC（ノックアップ・制圧。MLBB: 高レベルのノックアップと最上級の制圧だけが「ブリンクやアサルトの効果を
+    /// 中断できる」。スタン・フリーズは突進を止めない）。
+    static func hasDashInterruptingCC(_ statuses: [StatusEffect]) -> Bool {
+        for st in statuses where st.kind.interruptsDash { return true }
         return false
     }
 
@@ -39,8 +47,10 @@ enum KitRuntime {
             if v > 0 { s.units[i].hero!.kit!.timers[k] = max(0, v - dt) }
         }
 
-        // 2. ハード CC: 中断できるタイマーと突進を取り消す
-        if Kit.hasHardCC(s.units[i].statuses) { interrupt(&s, ctx, i, kit) }
+        // 2. ハード CC: 中断できるタイマーを取り消す。突進はノックアップ・制圧のときだけ止める（CrowdControlTier）
+        if Kit.hasHardCC(s.units[i].statuses) {
+            interrupt(&s, ctx, i, kit, dashes: Kit.hasDashInterruptingCC(s.units[i].statuses))
+        }
 
         // 3. 経路ヒット突進
         stepSweep(&s, ctx, i, kit)
@@ -68,10 +78,11 @@ enum KitRuntime {
 
     // MARK: - 中断
 
-    static func interrupt(_ s: inout SimState, _ ctx: SimContext, _ i: Int, _ kit: any HeroKit) {
+    /// dashes = 進行中の経路ヒット突進も取り消す（ノックアップ・制圧）。スタンは中断できるタイマーだけ（突進は着地まで続く）。
+    static func interrupt(_ s: inout SimState, _ ctx: SimContext, _ i: Int, _ kit: any HeroKit, dashes: Bool = true) {
         guard var k = s.units[i].hero?.kit else { return }
         var cancelled = false
-        if let sw = k.sweep, sw.interruptible {
+        if dashes, let sw = k.sweep, sw.interruptible {
             k.sweep = nil
             cancelled = true
             // 突進そのものも止める（自分で押し出されている最中は触らない）

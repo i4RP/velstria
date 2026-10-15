@@ -50,7 +50,8 @@ final class MapRelayoutTests: XCTestCase {
 
     private func measure(_ map: MapDefinition, name: String) {
         let ctx = SimContext(master: .shared, map: map, config: MatchConfig(mode: .practice, seed: 1, players: []))
-        let speed = MasterData.shared.heroes.first { $0.heroID == "H025" }!.moveSpeed
+        // Freeze the original H025 baseline so later hero balancing cannot change the comparison.
+        let speed: Double = 262
         let center = Vec2(map.size / 2, map.size / 2)
         let clearance = map.obstacles.flatMap { o in map.lanes.map { MapDefinition.distance(from: o, toPolyline: map.lanePath($0, for: .blue)) } }.min()!
         let midTowers = map.towers.filter { $0.team == .blue && $0.lane == .mid }

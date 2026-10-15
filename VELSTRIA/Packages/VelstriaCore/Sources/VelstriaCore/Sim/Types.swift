@@ -68,9 +68,18 @@ public enum Role: String, Codable, Hashable, Sendable, CaseIterable {
     }
 }
 
+/// スキルのリソース（MLBB の「リソースバー」）。
 public enum ResourceKind: String, Codable, Hashable, Sendable {
     case mana = "Mana"
+    /// エナジー（最大 Balance.energyMax = 100）。
     case energy = "Energy"
+    /// 怒り（MLBB のディロスなど。マナは無く、スキルのコストは 0。怒りの量はキットが持つ: Kit_H032.diasRage）。
+    case rage = "Rage"
+    /// リソースなし（MLBB のアルカードなど。スキルのコストは 0）。`.none` は Optional と紛れるので別名にする。
+    case noResource = "None"
+
+    /// スキルを使うとリソースを消費するか（マナ・エナジー）。怒り・なしはユニットのリソースを持たない（最大 0）。
+    public var usesPool: Bool { self == .mana || self == .energy }
 }
 
 public enum DamageType: String, Codable, Hashable, Sendable {

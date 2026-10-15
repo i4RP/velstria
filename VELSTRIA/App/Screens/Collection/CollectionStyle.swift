@@ -26,6 +26,8 @@ enum CollectionStyle {
         switch r {
         case .mana: return L("マナ", "Mana")
         case .energy: return L("エナジー", "Energy")
+        case .rage: return L("怒り", "Rage")
+        case .noResource: return L("リソースなし", "No Resource")
         }
     }
 
@@ -33,11 +35,18 @@ enum CollectionStyle {
         switch r {
         case .mana: return Color(red: 0.38, green: 0.62, blue: 1.0)
         case .energy: return Color(red: 1.0, green: 0.85, blue: 0.35)
+        case .rage: return Color(red: 1.0, green: 0.38, blue: 0.3)
+        case .noResource: return Color(red: 0.7, green: 0.7, blue: 0.74)
         }
     }
 
     static func resourceSymbol(_ r: ResourceKind) -> String {
-        r == .mana ? "drop.fill" : "bolt.fill"
+        switch r {
+        case .mana: return "drop.fill"
+        case .energy: return "bolt.fill"
+        case .rage: return "flame.fill"
+        case .noResource: return "circle.slash"
+        }
     }
 
     static func damageTypeName(_ d: DamageType) -> String {

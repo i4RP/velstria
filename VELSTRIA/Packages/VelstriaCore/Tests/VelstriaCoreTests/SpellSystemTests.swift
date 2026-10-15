@@ -62,6 +62,22 @@ final class SpellSystemTests: XCTestCase {
 
     // MARK: - BS01 瞬歩
 
+    /// バインド（敵の root）中は瞬歩を使えない（MLBB「バインド: 移動、またはブリンクやアサルトスキルの使用ができなくなる」）。
+    /// 自分で付けた root（ティグラルの奥義の詠唱中など）は止めない（奥義 + 瞬歩の連携）。
+    func testBindBlocksBlinkButASelfRootDoesNot() {
+        var w = SkillWorld()
+        let h = w.addHero("H001", team: .blue, at: skillArena, spells: ["BS01", "BS03"])
+        let foe = w.addHero("H002", team: .red, at: skillArena + Vec2(0, 600))
+        CombatSystem.addStatus(&w.s, targetIndex: h, StatusEffect(kind: .root, duration: 1, sourceID: w.id(foe)))
+        XCTAssertFalse(SpellSystem.canCast(w.s, w.ctx, heroIndex: h, spellIndex: 0))
+        XCTAssertFalse(w.castSpell(h, 0, .direction(Vec2(1, 0))))
+        XCTAssertEqual(w.s.units[h].pos, skillArena)
+        w.s.units[h].statuses.removeAll()
+        CombatSystem.addStatus(&w.s, targetIndex: h, StatusEffect(kind: .root, duration: 1, sourceID: w.id(h)))
+        XCTAssertTrue(w.castSpell(h, 0, .direction(Vec2(1, 0))))
+        XCTAssertEqual(w.s.units[h].pos.x, skillArena.x + 400, accuracy: 1e-6)
+    }
+
     func testBlinkMovesFourHundredAndStopsBeforeObstacles() {
         var w = SkillWorld()
         let h = w.addHero("H001", team: .blue, at: skillArena, spells: ["BS01", "BS03"])
@@ -312,7 +328,10 @@ final class SpellSystemTests: XCTestCase {
         let speed = w.s.units[t].stats.moveSpeed
         XCTAssertTrue(w.castSpell(h, 0))
         w.tick()
-        XCTAssertEqual(w.s.units[t].stats.moveSpeed, speed * 0.6, accuracy: 1e-6)
+        // 40% の減速。MLBB の移動速度の式（MLBB の単位で計算し、230 未満へ動いた分は逓減）の後にマップ縮尺
+        let slowed = MoveSpeedMath.calculated(basic: speed / Balance.mapScale, bonus: 0, slow: 0.4, decays: true) * Balance.mapScale
+        XCTAssertEqual(w.s.units[t].stats.moveSpeed, slowed, accuracy: 1e-6)
+        XCTAssertLessThan(w.s.units[t].stats.moveSpeed, speed * 0.85)
         XCTAssertEqual(w.s.units[t].stats.damageBonus, -0.3, accuracy: 1e-9)
         let dealt = CombatSystem.applyDamage(&w.s, w.ctx, sourceID: w.id(t), targetIndex: h, amount: 100,
                                              type: .trueDamage, source: .basicAttack)
@@ -377,6 +396,7 @@ final class SpellSystemTests: XCTestCase {
         let base = w.s.units[h].stats.attackSpeed
         XCTAssertTrue(w.castSpell(h, 0))
         w.tick()
+        // 鼓舞: 攻撃速度 ×1.55（MLBB の Inspire。追加の攻撃速度ではなく最終値に掛ける）
         XCTAssertEqual(w.s.units[h].stats.attackSpeed, base * 1.55, accuracy: 1e-9)
         w.run(seconds: 5.1)
         XCTAssertEqual(w.s.units[h].stats.attackSpeed, base, accuracy: 1e-9)

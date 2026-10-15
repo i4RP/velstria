@@ -14,49 +14,66 @@ final class CollectionLogicTests: XCTestCase {
 
     // MARK: スキル
 
-    func testSkillDamageScalesThirtyPercentPerRank() {
-        XCTAssertEqual(SkillMath.damage(base: 100, rank: 1), 100, accuracy: 1e-9)
-        XCTAssertEqual(SkillMath.damage(base: 100, rank: 2), 130, accuracy: 1e-9)
-        XCTAssertEqual(SkillMath.damage(base: 100, rank: 4), 190, accuracy: 1e-9)
-    }
-
-    func testSkillCooldownDropsSixPercentPerRank() throws {
+    /// 汎用のスキルは MLBB のロール × 枠の型（Balance.Skills.GenericTemplate）の段の表をそのまま使う（docs/GENERIC_SKILLS.md）。
+    func testGenericSkillDamageFollowsTheMlbbTemplateTable() throws {
         let skill = try XCTUnwrap(master.skill("SK001_2"))
-        let scale = Balance.Skills.cooldownScale
-        XCTAssertEqual(SkillMath.cooldown(skill, rank: 1), skill.cooldownSec * scale, accuracy: 1e-9)
-        XCTAssertEqual(SkillMath.cooldown(skill, rank: 3), skill.cooldownSec * 0.88 * scale, accuracy: 1e-9)
+        let hero = try XCTUnwrap(master.hero(skill.heroID))
+        let t = try XCTUnwrap(Balance.Skills.genericTemplate(role: hero.role, slot: skill.slot))
+        for rank in 1...Balance.basicSkillMaxRank {
+            XCTAssertEqual(SkillMath.numbers(skill, hero: hero, rank: rank).damage,
+                           t.base[rank - 1] * skill.baseDamage / t.meanBase, accuracy: 1e-9, "rank \(rank)")
+        }
     }
 
-    func testEnergyHeroesPaySixtyPercentCost() throws {
+    /// 汎用の CD は 1 段 −4%（スキル1・2）/ −9%（アルティメット）。MLBB の段の表の中央値。
+    func testSkillCooldownDropsFourPercentPerRank() throws {
+        let skill = try XCTUnwrap(master.skill("SK001_2"))
+        XCTAssertEqual(SkillMath.cooldown(skill, rank: 1), skill.cooldownSec, accuracy: 1e-9)
+        XCTAssertEqual(SkillMath.cooldown(skill, rank: 3), skill.cooldownSec * 0.92, accuracy: 1e-9)
+        XCTAssertEqual(SkillMath.cooldown(skill, rank: 6), skill.cooldownSec * 0.80, accuracy: 1e-9)
+        let ult = try XCTUnwrap(master.skill(hero: skill.heroID, slot: .ultimate))
+        XCTAssertEqual(SkillMath.cooldown(ult, rank: 3), ult.cooldownSec * 0.82, accuracy: 1e-9)
+    }
+
+    /// エナジーのヒーローは master の cost（Mana 基準）× energyCostMultiplier（エナジーの上限 100 に合わせた 0.12）。
+    /// 怒り・リソースなし（MLBB のディロス・アルカード）は 0。
+    func testEnergyHeroesPayScaledCostAndPoollessHeroesPayNothing() throws {
         let skill = try XCTUnwrap(master.skill(hero: "H002", slot: .skill1))
         XCTAssertEqual(master.hero("H002")?.resource, .energy)
-        XCTAssertEqual(SkillMath.cost(skill, resource: .energy), skill.cost * 0.6, accuracy: 1e-9)
+        XCTAssertEqual(SkillMath.cost(skill, resource: .energy), skill.cost * Balance.energyCostMultiplier, accuracy: 1e-9)
         XCTAssertEqual(SkillMath.cost(skill, resource: .mana), skill.cost, accuracy: 1e-9)
+        XCTAssertEqual(SkillMath.cost(skill, resource: .rage), 0)
+        XCTAssertEqual(SkillMath.cost(skill, resource: .noResource), 0)
     }
 
     func testRankListsPerSlot() {
         XCTAssertEqual(SkillMath.ranks(for: .passive), [])
-        XCTAssertEqual(SkillMath.ranks(for: .skill2), [1, 2, 3, 4])
+        // MLBB と同じ 6 / 6 / 3
+        XCTAssertEqual(SkillMath.ranks(for: .skill1), [1, 2, 3, 4, 5, 6])
+        XCTAssertEqual(SkillMath.ranks(for: .skill2), [1, 2, 3, 4, 5, 6])
         XCTAssertEqual(SkillMath.ranks(for: .ultimate), [1, 2, 3])
     }
 
     // スキル詳細の数値はシミュレーション（SkillCatalog.numbers）と一致すること。
 
-    func testSkillNumbersIncludeSlotMultiplier() throws {
+    func testSkillNumbersUseTheTemplateWithoutGlobalMultipliers() throws {
+        // SK001_2（H001 ヴァンガードの Skill1。魔法）: 型の基礎 × 個性 + 型の係数 × 個性 × 魔法攻撃。物理攻撃では伸びない
         let skill = try XCTUnwrap(master.skill("SK001_2"))
         let hero = try XCTUnwrap(master.hero(skill.heroID))
-        let scale = Balance.Skills.damageScale(.skill1)
-        XCTAssertEqual(SkillMath.numbers(skill, hero: hero, rank: 1).damage, skill.baseDamage * scale, accuracy: 1e-9)
-        XCTAssertEqual(SkillMath.numbers(skill, hero: hero, rank: 4).damage, skill.baseDamage * 1.9 * scale, accuracy: 1e-9)
-        // 係数もスロット倍率込み（攻撃力は 0.6 の共通補正も掛かる）
+        let t = try XCTUnwrap(Balance.Skills.genericTemplate(role: hero.role, slot: skill.slot))
+        XCTAssertEqual(skill.damageType, .magic)
+        XCTAssertEqual(SkillMath.numbers(skill, hero: hero, rank: 1).damage, t.base[0] * skill.baseDamage / t.meanBase,
+                       accuracy: 1e-9)
         let s = SkillMath.scaling(skill, hero: hero)
-        XCTAssertEqual(s.damage.attack, skill.scalingAttack * Balance.skillAttackScalingFactor * scale, accuracy: 1e-9)
-        XCTAssertEqual(s.damage.power, skill.scalingPower * scale, accuracy: 1e-9)
+        XCTAssertEqual(s.damage.attack, 0, accuracy: 1e-9)
+        XCTAssertEqual(s.damage.power, t.ratio * skill.scalingPower / t.meanScaling, accuracy: 1e-9)
     }
 
     func testSkillNumbersMatchSimulationForEverySkill() throws {
+        // 物理攻撃の増分は装備から（総物理攻撃と追加物理攻撃の両方。SkillMath.scaling の見本と同じ）
         var stats = Stats()
         stats.attack = 150
+        stats.extraAttack = 150
         stats.abilityPower = 80
         for skill in master.skills where skill.slot != .passive {
             let hero = try XCTUnwrap(master.hero(skill.heroID))
@@ -71,31 +88,35 @@ final class CollectionLogicTests: XCTestCase {
     }
 
     func testSupportSkillsShowHealInsteadOfRawDamage() throws {
-        // SK005_5 ヴォスの Ult（味方全体回復）: ダメージ 0、回復 = 基礎 × 2.4 × 1.2
+        // SK005_5 ヴォスの Ult（味方全体回復）: ダメージ 0、回復 = サポートの奥義の型 250 × 個性（base_damage / 平均）
         let ult = try XCTUnwrap(master.skill("SK005_5"))
         let voss = try XCTUnwrap(master.hero(ult.heroID))
         let t = SkillCatalog.targeting(for: ult, hero: voss)
         XCTAssertEqual(t.archetype, .teamHeal)
         XCTAssertEqual(SkillMath.figures(t.archetype), [.heal, .shield])
         let n = SkillMath.numbers(ult, hero: voss, rank: 1)
+        let template = try XCTUnwrap(Balance.Skills.genericTemplate(role: voss.role, slot: .ultimate))
         XCTAssertEqual(n.damage, 0)
-        XCTAssertEqual(n.heal, ult.baseDamage * Balance.Skills.healScale * Balance.Skills.teamHealRatio, accuracy: 1e-9)
-        XCTAssertEqual(SkillMath.figureValue(.heal, n), "590")
+        XCTAssertEqual(n.heal, template.base[0] * ult.baseDamage / template.meanBase, accuracy: 1e-9)
+        XCTAssertEqual(SkillMath.figureValue(.heal, n), CollectionStyle.number(n.heal, digits: 0))
+        XCTAssertEqual(n.shield, n.heal * Balance.Skills.teamHealShieldRatio, accuracy: 1e-9)
     }
 
-    func testMultiStrikeAndEmpowerUseArchetypeRatios() throws {
-        // SK002_5 リラの Ult（連続斬り 45% × 3）、SK020_3 など遠隔 Skill2（強化攻撃 50%）
+    func testMultiStrikeAndEmpowerUseTheTemplateValues() throws {
+        // SK002_5 リラの Ult（連続斬り 3 回。型の値は 1 撃）、遠隔 Skill2（型の値は強化攻撃の追加分）
         let ult = try XCTUnwrap(master.skill("SK002_5"))
         let lyra = try XCTUnwrap(master.hero(ult.heroID))
         let n = SkillMath.numbers(ult, hero: lyra, rank: 1)
+        let strike = try XCTUnwrap(Balance.Skills.genericTemplate(role: lyra.role, slot: .ultimate))
         XCTAssertEqual(n.hits, 3)
-        XCTAssertEqual(n.damage, ult.baseDamage * Balance.Skills.damageScale(.ultimate) * 0.45, accuracy: 1e-9)
+        XCTAssertEqual(n.damage, strike.base[0] * ult.baseDamage / strike.meanBase, accuracy: 1e-9)
         XCTAssertTrue(SkillMath.figureValue(.damage, n).hasPrefix("3×"))
-        let ranged = try XCTUnwrap(master.allHeroes.first { $0.isRanged })
+        let ranged = try XCTUnwrap(master.allHeroes.first { $0.isRanged && !HeroKits.hasKit($0.heroID) })
         let blink = try XCTUnwrap(master.skill(hero: ranged.heroID, slot: .skill2))
+        let empower = try XCTUnwrap(Balance.Skills.genericTemplate(role: ranged.role, slot: .skill2))
         XCTAssertEqual(SkillMath.figures(SkillCatalog.targeting(for: blink, hero: ranged).archetype), [.bonusDamage])
         XCTAssertEqual(SkillMath.numbers(blink, hero: ranged, rank: 1).damage,
-                       blink.baseDamage * Balance.Skills.damageScale(.skill2) * 0.5, accuracy: 1e-9)
+                       empower.base[0] * blink.baseDamage / empower.meanBase, accuracy: 1e-9)
     }
 
     func testSkillDescriptionsUseSimulationNumbers() throws {

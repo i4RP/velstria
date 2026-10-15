@@ -102,30 +102,35 @@ final class ItemEffectsTests: XCTestCase {
 
     // MARK: - 貫通
 
+    /// 受けるダメージは MLBB の防御の式 120 / (120 + 実効防御)。
     func testArmorBusterAndBreakerAddPercentPenetration() {
         var (f, a, v) = duel(["EQ112"])    // スピリットシャウト: 撃砕 30% + 破壊者 [0.001, 0.3]
         XCTAssertEqual(f.s.units[a].stats.armorPenPct, 0.30, accuracy: 1e-9)
         f.s.units[v].stats.armor = 100
         // 30% + 防御 100 × 0.1% = 40% → 防御 60
-        XCTAssertEqual(hit(&f, a, v, 1000, .physical), 1000 * 100 / 160, accuracy: 1e-6)
+        XCTAssertEqual(hit(&f, a, v, 1000, .physical), 1000 * 120 / 180, accuracy: 1e-6)
         // 防御 400: 破壊者は +30% で頭打ち → 60% → 160
         f.s.units[v].stats.armor = 400
-        XCTAssertEqual(hit(&f, a, v, 1000, .physical), 1000 * 100 / 260, accuracy: 1e-6)
+        XCTAssertEqual(hit(&f, a, v, 1000, .physical), 1000 * 120 / 280, accuracy: 1e-6)
         // 魔法ダメージには効かない
         f.s.units[v].stats.magicResist = 100
-        XCTAssertEqual(hit(&f, a, v, 1000, .magic), 500, accuracy: 1e-6)
+        XCTAssertEqual(hit(&f, a, v, 1000, .magic), 1000 * 120 / 220, accuracy: 1e-6)
     }
 
-    func testFlatPenetrationAppliesAfterPercentAndStopsAtZero() {
+    /// MLBB の用語注釈「物理貫通」: 実効防御 = 防御 × (100% − 割合貫通) − 固定貫通。固定貫通は防御を 0 より下（−60 まで）へ下げる。
+    func testFlatPenetrationAppliesAfterPercentAndCanGoBelowZero() {
         // マジックガン・スピリットシャウトの撃砕（重ならない）+ 破壊者 + ハンターストライクの固有の固定貫通 15
         var (f, a, v) = duel(["EQ101", "EQ112", "EQ105"])
         XCTAssertEqual(f.s.units[a].stats.armorPenPct, 0.30, accuracy: 1e-9)
         XCTAssertEqual(f.s.units[a].stats.armorPenFlat, 15, accuracy: 1e-9)
         f.s.units[v].stats.armor = 100
         // 100 × (1 − 0.4) − 15 = 45
-        XCTAssertEqual(hit(&f, a, v, 1000, .physical), 1000 * 100 / 145, accuracy: 1e-6)
+        XCTAssertEqual(hit(&f, a, v, 1000, .physical), 1000 * 120 / 165, accuracy: 1e-6)
+        // 10 × (1 − 0.31) − 15 = −8.1（負の防御は受けるダメージを増やす）
         f.s.units[v].stats.armor = 10
-        XCTAssertEqual(hit(&f, a, v, 1000, .physical), 1000, accuracy: 1e-6)
+        let effectiveDefense = 10.0 * 0.69 - 15.0
+        let expectedDamage = 120_000.0 / (120.0 + effectiveDefense)
+        XCTAssertEqual(hit(&f, a, v, 1000, .physical), expectedDamage, accuracy: 1e-6)
     }
 
     func testSpellbreakerAndMagicPenetration() {
@@ -135,13 +140,13 @@ final class ItemEffectsTests: XCTestCase {
         XCTAssertEqual(f.s.units[a].stats.magicPenFlat, 10, accuracy: 1e-9)
         f.s.units[v].stats.magicResist = 100
         // 100 × (1 − 0.5) − 10 = 40
-        XCTAssertEqual(hit(&f, a, v, 1000, .magic), 1000 * 100 / 140, accuracy: 1e-6)
+        XCTAssertEqual(hit(&f, a, v, 1000, .magic), 1000 * 120 / 160, accuracy: 1e-6)
         // 300 × (1 − 0.6) − 10 = 110（魔法破りは +20% で頭打ち）
         f.s.units[v].stats.magicResist = 300
-        XCTAssertEqual(hit(&f, a, v, 1000, .magic), 1000 * 100 / 210, accuracy: 1e-6)
+        XCTAssertEqual(hit(&f, a, v, 1000, .magic), 1000 * 120 / 230, accuracy: 1e-6)
         // 物理には効かない。確定ダメージは防御を無視
         f.s.units[v].stats.armor = 100
-        XCTAssertEqual(hit(&f, a, v, 1000, .physical), 500, accuracy: 1e-6)
+        XCTAssertEqual(hit(&f, a, v, 1000, .physical), 1000 * 120 / 220, accuracy: 1e-6)
         XCTAssertEqual(hit(&f, a, v, 500, .trueDamage), 500, accuracy: 1e-6)
     }
 
@@ -234,6 +239,9 @@ final class ItemEffectsTests: XCTestCase {
 
     func testAmbushArmsAfterFiveQuietSecondsAndEmpowersOneBasicAttack() {
         var (f, a, v) = duel(["EQ107"])   // オーシャンエッジ [5, 160, 0.4, 0.4, 1.5]
+        // 固定の物理貫通は防御を 0 より下（−60 まで）へ下げる（MLBB）。貫通の分だけ防御を持たせて実効防御 0 で見る
+        f.s.units[v].stats.armor = f.s.units[a].stats.armorPenFlat
+        XCTAssertEqual(f.s.units[a].stats.armorPenPct, 0, accuracy: 1e-12)
         let attack = f.s.units[a].stats.attack
         ItemEffects.update(&f.s, f.ctx, hero: a)
         XCTAssertGreaterThan(runtime(f, a).until(.ambush), f.s.time, "構えた")
@@ -308,7 +316,8 @@ final class ItemEffectsTests: XCTestCase {
         XCTAssertEqual(status(f, v, "item.corrosive")?.remaining ?? 0, 1.5, accuracy: 1e-9)
         XCTAssertEqual(runtime(f, a).stack(.impulse), 5)
         StatCalculator.recompute(&f.s, a, f.ctx)
-        XCTAssertEqual(f.s.units[a].stats.attackSpeed, speed * 1.30, accuracy: 1e-9)
+        // 衝動 6% × 5 = 追加の攻撃速度 +0.30 回/秒（MLBB: 基礎 + 追加 × 攻撃速度比率）
+        XCTAssertEqual(f.s.units[a].stats.attackSpeed, speed + 0.30 * f.s.units[a].stats.attackSpeedRatio, accuracy: 1e-9)
         advance(&f, 3.1)
         StatCalculator.recompute(&f.s, a, f.ctx)
         XCTAssertEqual(f.s.units[a].stats.attackSpeed, speed, accuracy: 1e-9, "3 秒で切れる")
@@ -338,12 +347,14 @@ final class ItemEffectsTests: XCTestCase {
     }
 
     func testGoldenStaffTurnsCritIntoAttackSpeedAndRepeatsOnHitEffects() {
-        // 迅速 [1, ...]: クリティカル率 1% → 攻撃速度 +1%（クリティカルは出ない）。ジャベリン: クリティカル率 8%
+        // 迅速 [1, ...]: クリティカル率 1% → 追加の攻撃速度 +1%（クリティカルは出ない）。ジャベリン: クリティカル率 8%。
+        // MLBB の攻撃速度 = 基礎 + 追加 × 攻撃速度比率（装備の +15% は +0.15 回/秒）
         let (f, a, _) = duel(["EQ118", "EQ131"])
         let base = HeroGrowth.baseStats(def: f.master.hero("H002")!, level: 1)
         XCTAssertEqual(f.s.units[a].stats.critChance, 0, accuracy: 1e-9)
         XCTAssertEqual(f.s.units[a].stats.attackSpeed,
-                       min(Balance.maxAttackSpeed, base.attackSpeed * 1.15 * (1 + base.critChance + 0.08)), accuracy: 1e-9)
+                       min(Balance.maxAttackSpeed, base.attackSpeed + (0.15 + base.critChance + 0.08) * base.attackSpeedRatio),
+                       accuracy: 1e-9)
         // 無尽の打撃: クリティカルでない通常攻撃 2 回ごとに、次の通常攻撃の命中時効果が 2 回多く働く
         var (g, b, w) = duel(["EQ118", "EQ119"])
         var hp = g.s.units[w].hp
@@ -547,7 +558,8 @@ final class ItemEffectsTests: XCTestCase {
         let shield = f.s.units[a].shields.first { $0.tag == ItemEffects.guardWingsTag }
         XCTAssertEqual(shield?.amount ?? 0, 800 + power, accuracy: 1e-6)
         StatCalculator.recompute(&f.s, a, f.ctx)
-        XCTAssertEqual(f.s.units[a].stats.moveSpeed, speed + 30, accuracy: 1e-6, "シールドがある間 +30")
+        // 固定の移動速度は基礎（MLBB の単位）への加算なので、ワールドの速さはマップ縮尺の分（この構成に % の加速は無い）
+        XCTAssertEqual(f.s.units[a].stats.moveSpeed, speed + 30 * Balance.mapScale, accuracy: 1e-6, "シールドがある間 +30")
         // 割れると 1 秒間 +150
         f.s.units[a].stats.damageReduction = 0
         hit(&f, v, a, (shield?.amount ?? 0) + 10, .trueDamage)
@@ -555,7 +567,7 @@ final class ItemEffectsTests: XCTestCase {
         ItemEffects.update(&f.s, f.ctx, hero: a)
         XCTAssertTrue(f.s.units[a].shields.isEmpty, "受けてから 20 秒は張り直さない")
         StatCalculator.recompute(&f.s, a, f.ctx)
-        XCTAssertEqual(f.s.units[a].stats.moveSpeed, speed + 150, accuracy: 1e-6)
+        XCTAssertEqual(f.s.units[a].stats.moveSpeed, speed + 150 * Balance.mapScale, accuracy: 1e-6)
         advance(&f, 1.1, update: [a])
         StatCalculator.recompute(&f.s, a, f.ctx)
         XCTAssertEqual(f.s.units[a].stats.moveSpeed, speed, accuracy: 1e-6)
@@ -584,6 +596,18 @@ final class ItemEffectsTests: XCTestCase {
         StatCalculator.recompute(&f.s, a, f.ctx)
         XCTAssertEqual(f.s.units[a].stats.cooldownReductionCap, 0.45, accuracy: 1e-9)
         XCTAssertEqual(f.s.units[a].stats.cooldownReduction, 0.45, accuracy: 1e-9)
+        // スキルの CD にも 45% が効く（以前は CD の計算で 40% に切り直していた不具合。汎用・キットとも）
+        let st = f.s.units[a].stats
+        let hero = f.master.hero("H004")!
+        let skill = f.master.skill(hero: "H004", slot: .skill1)!
+        XCTAssertEqual(SkillCatalog.numbers(for: skill, hero: hero, rank: 1, stats: st).cooldown,
+                       skill.cooldownSec * 0.55, accuracy: 1e-9)
+        XCTAssertEqual(HeroKits.cooldownReduction(st), 0.45, accuracy: 1e-9)
+        let miya = f.master.hero("H025")!
+        let s1 = f.master.skill(hero: "H025", slot: .skill1)!
+        let kitFree = SkillCatalog.numbers(for: s1, hero: miya, rank: 1, stats: HeroGrowth.baseStats(def: miya, level: 1))
+        XCTAssertEqual(SkillCatalog.numbers(for: s1, hero: miya, rank: 1, stats: st).cooldown, kitFree.cooldown * 0.55,
+                       accuracy: 1e-9)
     }
 
     // MARK: - 防御の固有効果
@@ -646,7 +670,8 @@ final class ItemEffectsTests: XCTestCase {
         XCTAssertEqual(chastise?.magnitude ?? 0, -0.25, accuracy: 1e-9)
         XCTAssertEqual(chastise?.remaining ?? 0, 2, accuracy: 1e-9)
         StatCalculator.recompute(&f.s, a, f.ctx)
-        XCTAssertEqual(f.s.units[a].stats.attackSpeed, speed * 0.75, accuracy: 1e-9)
+        // 攻撃速度 −25% は追加の攻撃速度 −0.25 回/秒（MLBB: 基礎 + 追加 × 攻撃速度比率）
+        XCTAssertEqual(f.s.units[a].stats.attackSpeed, speed - 0.25 * f.s.units[a].stats.attackSpeedRatio, accuracy: 1e-9)
         // 贖罪: 30% を下回ると 2 秒かけて最大 HP の 20% を回復
         f.s.units[v].hp = 7000            // 35%
         hit(&f, a, v, 2000, .trueDamage)  // 25%
@@ -699,7 +724,7 @@ final class ItemEffectsTests: XCTestCase {
         f.s.units[a].stats.armor = 0
         f.s.units[a].stats.damageReduction = 0
         var own = f.s.units[a].hp
-        XCTAssertEqual(hit(&f, a, v, 1000, .physical, .basicAttack), 500, accuracy: 1e-6)
+        XCTAssertEqual(hit(&f, a, v, 1000, .physical, .basicAttack), 1000 * 120 / 220, accuracy: 1e-6)
         // 軽減前の 1000 × (30 + 防御 100 × 0.02)% = 320 の物理ダメージを返し、15% 減速 1 秒
         XCTAssertEqual(own - f.s.units[a].hp, 320, accuracy: 1e-6)
         XCTAssertEqual(status(f, a, "item.bladedArmor")?.magnitude ?? 0, 0.15, accuracy: 1e-9)
@@ -708,7 +733,7 @@ final class ItemEffectsTests: XCTestCase {
         own = f.s.units[a].hp
         hit(&f, a, v, 1000, .physical)
         XCTAssertEqual(f.s.units[a].hp, own, accuracy: 1e-9)
-        // クリティカルは上乗せ分（倍率 − 1）が 20% 減る（実際の通常攻撃）
+        // MLBB: クリティカルダメージ = 元 × (200% + 増加 − 減少)。ブレイドアーマーの 20% は合計から引く（実際の通常攻撃）
         f.s.units[v].stats.armor = 0
         f.s.units[a].stats.critChance = 1
         let attack = f.s.units[a].stats.attack, mult = f.s.units[a].stats.critMultiplier
@@ -719,7 +744,7 @@ final class ItemEffectsTests: XCTestCase {
             return nil
         }.first
         XCTAssertEqual(crit?.isCrit, true)
-        XCTAssertEqual(crit?.amount ?? 0, attack * (1 + (mult - 1) * 0.8), accuracy: 1e-6)
+        XCTAssertEqual(crit?.amount ?? 0, attack * (mult - 0.20), accuracy: 1e-6)
     }
 
     func testThunderBeltStrikesEveryFourSecondsAndGrowsDefense() {
@@ -798,14 +823,16 @@ final class ItemEffectsTests: XCTestCase {
             var (f, a, v) = duel([boots])
             XCTAssertEqual(f.s.units[a].stats.slowReduction, reduction, accuracy: 1e-9, boots)
             let speed = f.s.units[a].stats.moveSpeed
-            CombatSystem.addStatus(&f.s, targetIndex: a, StatusEffect(kind: .slow, duration: 2, magnitude: 0.4,
+            // 20% の減速（計算移動速度が 230 を下回らない範囲。下回ると逓減する: CombatStatusTests）
+            CombatSystem.addStatus(&f.s, targetIndex: a, StatusEffect(kind: .slow, duration: 2, magnitude: 0.2,
                                                                       sourceID: f.id(v), tag: "test.slow"))
             StatCalculator.recompute(&f.s, a, f.ctx)
-            XCTAssertEqual(f.s.units[a].stats.moveSpeed, speed * (1 - 0.4 * (1 - reduction)), accuracy: 1e-6, boots)
+            XCTAssertEqual(f.s.units[a].stats.moveSpeed, speed * (1 - 0.2 * (1 - reduction)), accuracy: 1e-6, boots)
         }
     }
 
-    func testToughBootsAndBruteForceShortenCrowdControlUpToTheCap() {
+    /// 強靭（MLBB の Resilience）: 違う出どころは掛け算で重ねる 1 − Π(1 − r)、上限なし、CC は 0.1 秒より短くならない。
+    func testToughBootsAndBruteForceShortenCrowdControlMultiplicatively() {
         var (f, a, v) = duel([], victimItems: ["EQ406"])   // タフブーツ: コントロール時間短縮 25%
         StatCalculator.recompute(&f.s, v, f.ctx)
         XCTAssertEqual(f.s.units[v].stats.ccReduction, 0.25, accuracy: 1e-9)
@@ -829,11 +856,14 @@ final class ItemEffectsTests: XCTestCase {
         }
         XCTAssertEqual(runtime(f, v).stack(.bruteForce), 6)
         StatCalculator.recompute(&f.s, v, f.ctx)
-        XCTAssertEqual(f.s.units[v].stats.ccReduction, 0.50, accuracy: 1e-9)
-        XCTAssertEqual(apply(.stun, from: a), 1.0, accuracy: 1e-9)
-        // 上限 70%
+        // 違う装備は掛け算: 1 − (1 − 0.25)(1 − 0.25) = 0.4375（以前の加算 0.50 ではない）
+        XCTAssertEqual(f.s.units[v].stats.ccReduction, 1 - 0.75 * 0.75, accuracy: 1e-9)
+        XCTAssertEqual(apply(.stun, from: a), 2 * 0.75 * 0.75, accuracy: 1e-9)
+        // 上限はなく（以前の 70% の頭打ちは無い）、縮めても 0.1 秒より短くはならない
         f.s.units[v].stats.ccReduction = 0.9
-        XCTAssertEqual(apply(.stun, from: a), 2 * (1 - Balance.Items.maxCCReduction), accuracy: 1e-9)
+        XCTAssertEqual(apply(.stun, from: a), 2 * 0.1, accuracy: 1e-9)
+        f.s.units[v].stats.ccReduction = 0.99
+        XCTAssertEqual(apply(.stun, from: a), Balance.minCrowdControlDuration, accuracy: 1e-9)
     }
 
     func testDemonShoesRestoreManaOnMinionKills() {

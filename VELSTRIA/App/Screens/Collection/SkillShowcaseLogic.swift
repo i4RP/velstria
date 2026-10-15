@@ -304,12 +304,13 @@ enum HeroRatingMath {
     }
 
     /// ヒーロー 1 人分の生の評価値。最大レベルの能力値とランク 1 のスキル数値（キットのヒーローはキットの値）から求める。
-    /// - 生存: 最大 HP × (100 + 防御と魔防の平均) / 100（被ダメージ軽減 100 / (100 + 防御) の逆数）
+    /// - 生存: 最大 HP × (120 + 防御と魔防の平均) / 120（MLBB の防御の式 120 / (120 + 防御) の逆数。Balance.defenseConstant）
     /// - 攻撃: 通常攻撃の毎秒ダメージ + 各スキルの 1 回の合計ダメージ ÷ CD（1 秒未満は 1 秒）
     /// - コントロール: 各スキルの CC の強さの合計（アルティメットは 1.25 倍）
     static func raw(for hero: HeroDef, master: MasterData) -> HeroRawRatings {
         let st = HeroGrowth.baseStats(def: hero, level: Balance.maxLevel)
-        let survivability = st.maxHP * (100 + (st.armor + st.magicResist) / 2) / 100
+        let k = Balance.defenseConstant
+        let survivability = st.maxHP * (k + (st.armor + st.magicResist) / 2) / k
         var offense = st.attack * st.attackSpeed
         var control = 0.0
         for skill in master.skills(forHero: hero.heroID) where skill.slot != .passive {

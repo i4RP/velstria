@@ -11,8 +11,7 @@ import Foundation
 
 extension Balance {
     public enum Items {
-        /// コントロール時間短縮の上限。
-        public static let maxCCReduction: Double = 0.7
+        // コントロール時間短縮（強靭）の上限 0.7 は外した（2026-10-14。MLBB は出どころごとに掛け算で重ね、上限なし）。
         /// 同じスキルの他の命中にも共鳴（ボルトロッド）を乗せる猶予（秒）。
         public static let resonateWindow: Double = 0.1
         /// ウィンドテラーの台風の魔法ダメージ（攻撃速度 1 以下で 150、3 以上で 362、その間は 106 × 攻撃速度 + 44）。
@@ -200,8 +199,8 @@ public enum ItemEffects {
         let level = Double(hero?.level ?? 1)
         if let v = found[.maleficEnergy]?.v, v.count >= 1 { stats.attackRange *= 1 + v[0] }
         if let v = found[.goldenStaff]?.v, v.count >= 1 {
-            // 追加のクリティカル率を攻撃速度へ（クリティカルは出なくなる）
-            stats.attackSpeed *= 1 + max(0, stats.critChance) * v[0]
+            // 追加のクリティカル率を追加の攻撃速度へ（クリティカルは出なくなる）
+            stats.extraAttackSpeed += max(0, stats.critChance) * v[0]
             stats.critChance = 0
         }
         if let v = found[.mystery]?.v, v.count >= 2 { stats.abilityPower *= 1 + v[0] + v[1] * level }
@@ -228,7 +227,7 @@ public enum ItemEffects {
                 let n = rt.liveStacks(.fightingSpirit, now: now, duration: v[1])
                 stats.attack += v[0] * n * roleScale(h.role, halfFor: [.ranger, .arcanist, .support], scale: v[4])
             case .impulse where v.count >= 3:
-                stats.attackSpeed *= 1 + v[0] * rt.liveStacks(.impulse, now: now, duration: v[1])
+                stats.extraAttackSpeed += v[0] * rt.liveStacks(.impulse, now: now, duration: v[1])
             case .recharge where v.count >= 5:
                 stats.abilityPower += v[0] * rt.liveStacks(.recharge, now: now, duration: v[4])
             case .destiny where v.count >= 5:
@@ -243,8 +242,9 @@ public enum ItemEffects {
                 let n = rt.liveStacks(.bruteForce, now: now, duration: v[2])
                 guard n > 0 else { break }
                 if adaptiveIsMagic(u, master) { stats.abilityPower += v[0] * n } else { stats.attack += v[0] * n }
-                stats.moveSpeed *= 1 + v[1] * n
-                if n >= v[3] { stats.ccReduction += v[4] }
+                stats.moveSpeedBonus += v[1] * n
+                // 強靭は出どころ（装備）ごとに掛け算で重ねる
+                if n >= v[3] { stats.addResilience(v[4]) }
             case .guardWings where v.count >= 6:
                 if u.shields.contains(where: { $0.tag == guardWingsTag }) { stats.moveSpeed += v[3] }
                 if now < rt.until(.guardWings) { stats.moveSpeed += v[4] }
@@ -259,7 +259,7 @@ public enum ItemEffects {
                 break
             }
         }
-        stats.ccReduction = min(Balance.Items.maxCCReduction, max(0, stats.ccReduction))
+        stats.ccReduction = min(1, max(0, stats.ccReduction))
     }
 
     // MARK: - 与ダメ・貫通・被ダメ
@@ -467,9 +467,22 @@ public enum ItemEffects {
         }
     }
 
+    /// 攻撃エフェクトの一部だけを引き継ぐ命中（MLBB の「攻撃エフェクト ○%」。ミヤの月影 20%・分裂の矢 30%、子龍の狂龍乱舞 50%）。
+    /// 命中ごとの効果（applyOnHitEffects: 追加ダメージ・回復・減速の重ね）をダメージ・回復・減速の量 × ratio で与える。
+    /// クールダウン・回数で働く効果（台風・裁き・如意棒の数え方など）とエンブレムの命中時効果は、本体の通常攻撃だけが起こす
+    /// （割合の命中が CD を使い切って本体の発動を奪わないように）。
+    static func onPartialAttackEffect(_ s: inout SimState, _ ctx: SimContext, attacker a: Int, target t: Int, ratio: Double) {
+        guard ratio > 0, s.units[a].kind == .hero, s.units[a].hero?.items.isEmpty == false,
+              s.units[t].team != s.units[a].team else { return }
+        let effects = active(s.units[a], ctx.master)
+        guard !effects.isEmpty else { return }
+        applyOnHitEffects(&s, ctx, attacker: a, target: t, effects: effects, ratio: min(1, ratio))
+    }
+
     /// 命中時の効果（追加ダメージ・回復・減速の重ね）。如意棒の「無尽の打撃」で繰り返される。
+    /// ratio = 攻撃エフェクトの割合（1 = 通常攻撃そのもの。量だけを ratio 倍する）。
     private static func applyOnHitEffects(_ s: inout SimState, _ ctx: SimContext, attacker a: Int, target t: Int,
-                                          effects: [Active]) {
+                                          effects: [Active], ratio: Double = 1) {
         let attackerID = s.units[a].id
         let level = Double(s.units[a].hero?.level ?? 1)
         for (kind, v) in effects {
@@ -477,28 +490,29 @@ public enum ItemEffects {
             let minion = s.units[t].kind == .minion
             switch kind {
             case .corrosive where v.count >= 5:
-                CombatSystem.dealDamage(&s, ctx, sourceID: attackerID, targetIndex: t, amount: v[0], type: .physical,
+                CombatSystem.dealDamage(&s, ctx, sourceID: attackerID, targetIndex: t, amount: v[0] * ratio, type: .physical,
                                         source: .item, isCrit: false, appliesOnHit: false)
+                // 1 回の重ね = per × ratio、上限 = per × 回数（割合の命中でも上限は同じ）
                 let per = v[1] * ((s.units[a].hero?.isRanged ?? false) ? v[2] : 1)
                 let cur = s.units[t].statuses.first { $0.kind == .slow && $0.tag == "item.corrosive" }?.magnitude ?? 0
                 CombatSystem.addStatus(&s, targetIndex: t, StatusEffect(kind: .slow, duration: v[3],
-                                                                        magnitude: min(per * v[4], cur + per),
+                                                                        magnitude: min(per * v[4], cur + per * ratio),
                                                                         sourceID: attackerID, tag: "item.corrosive"))
             case .engulf where v.count >= 2:
                 var extra = max(0, s.units[t].hp) * v[0]
                 if minion { extra = min(extra, v[1]) }
-                CombatSystem.dealDamage(&s, ctx, sourceID: attackerID, targetIndex: t, amount: extra, type: .physical,
+                CombatSystem.dealDamage(&s, ctx, sourceID: attackerID, targetIndex: t, amount: extra * ratio, type: .physical,
                                         source: .item, isCrit: false, appliesOnHit: false)
             case .devour where v.count >= 3:
-                let heal = (v[0] + v[1] * level) * (minion ? v[2] : 1)
+                let heal = (v[0] + v[1] * level) * (minion ? v[2] : 1) * ratio
                 CombatSystem.heal(&s, ctx, sourceID: attackerID, targetIndex: a, amount: heal)
             case .crossbow where v.count >= 1:
                 let type: DamageType = adaptiveIsMagic(s.units[a], ctx.master) ? .magic : .physical
-                CombatSystem.dealDamage(&s, ctx, sourceID: attackerID, targetIndex: t, amount: v[0], type: type,
+                CombatSystem.dealDamage(&s, ctx, sourceID: attackerID, targetIndex: t, amount: v[0] * ratio, type: type,
                                         source: .item, isCrit: false, appliesOnHit: false)
             case .affliction where v.count >= 2:
                 CombatSystem.dealDamage(&s, ctx, sourceID: attackerID, targetIndex: t,
-                                        amount: v[0] + v[1] * s.units[a].stats.abilityPower, type: .magic,
+                                        amount: (v[0] + v[1] * s.units[a].stats.abilityPower) * ratio, type: .magic,
                                         source: .item, isCrit: false, appliesOnHit: false)
             default:
                 break
@@ -506,10 +520,9 @@ public enum ItemEffects {
         }
     }
 
-    /// クリティカルの倍率（対象のクリティカルダメージ軽減で上乗せ分が減る。CombatSystem の通常攻撃と同じ式）。
+    /// クリティカルの倍率（CombatSystem の通常攻撃と同じ式）。
     static func critMultiplier(_ s: SimState, attacker a: Int, target t: Int) -> Double {
-        let cut = min(1, max(0, s.units[t].stats.critDamageReduction))
-        return max(1, 1 + (s.units[a].stats.critMultiplier - 1) * (1 - cut))
+        CombatSystem.critMultiplier(attacker: s.units[a].stats, target: s.units[t].stats)
     }
 
     /// スキル使用後の窓が開いていて、この窓でまだ使っておらず、CD も明けているか。

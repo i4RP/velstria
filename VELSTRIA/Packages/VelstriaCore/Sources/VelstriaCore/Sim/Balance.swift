@@ -28,35 +28,56 @@ public enum Balance {
     public static let minionScalingPerMinute: Double = 0.03
 
     // MARK: ヒーロー
+    // 能力値の式は MLBB の用語注釈に合わせる（2026-10-14。docs/HERO_STATS.md）。ヒーローごとの基礎値・成長は master。
     public static let heroRadius: Double = 55
     public static let heroSight: Double = 1200
-    public static let meleeAttackSpeed: Double = 0.85
-    public static let rangedAttackSpeed: Double = 0.80
-    public static let attackSpeedPerLevel: Double = 0.02
-    public static let maxAttackSpeed: Double = 2.5
+    /// 攻撃速度の上限（毎秒の攻撃回数）。MLBB の用語注釈「攻撃速度」: 毎秒 3 回まで。
+    public static let maxAttackSpeed: Double = 3.0
     public static let attackWindupRatio: Double = 0.25
     public static let heroProjectileSpeed: Double = 1500
-    public static let energyRegenPerSecond: Double = 12
     public static let combatTimeout: Double = 5
+    /// 移動速度の下限（ワールドの単位/秒。MLBB の式の後の安全弁。減速の上限 90% と逓減で通常は届かない）。
     public static let minMoveSpeed: Double = 100
-    /// ヒーロー移動速度の倍率（マスターの move_speed に掛ける）。実機の体感調整で 1.35（平均 257.5 → 約 348 ユニット/秒）。
-    public static let heroMoveSpeedScale: Double = 1.35
-    public static let critMultiplier: Double = 1.75
+    /// 移動速度のマップ縮尺（MLBB の移動速度の式の後に、全ヒーローへ一律に掛ける）。**MLBB に無い唯一の値**。
+    /// マップの大きさが MLBB の単位（距離 ×100）と合っているか未確認のため、外すと全員がマップとミニオンに対して 26% 遅くなる。
+    /// 歩行時間の実測（同じ区間を MLBB と Velstria で歩く）で決め直す（docs/HERO_STATS.md「MLBB に無い値」）。
+    public static let mapScale: Double = 1.35
+    /// クリティカルダメージの既定（MLBB の日本語クライアント「クリティカルダメージ … デフォルトは200%」）。
+    public static let critMultiplier: Double = 2.0
+    /// 防御の式の定数: 受けるダメージ = 120 / (120 + 防御)（MLBB の用語注釈「物理防御」「魔法防御」。物理・魔法とも）。
+    public static let defenseConstant: Double = 120
+    /// 実効防御の下限（貫通・防御低下の後）。−60 で受けるダメージは最大 200%（MLBB の用語注釈「… −60 を下回らない」）。
+    public static let minDefense: Double = -60
+    /// エナジーの上限（MLBB のエナジーのヒーローは最大 100）。
+    public static let energyMax: Double = 100
+    /// 減速の上限（合計。MLBB: 移動速度の最大 90% まで）。
+    public static let maxSlow: Double = 0.9
+    /// 移動速度の逓減（MLBB の用語注釈「移動速度」: 計算値が 230 未満・420 超では加速も減速も逓減する）。
+    /// 率は資料に無い（Fandom も「unknown rate」）。0.5 = 閾値を越えた分の半分だけ効く、は仮の値（実機の計測待ち）。
+    public static let moveSpeedDecayBelow: Double = 230
+    public static let moveSpeedDecayAbove: Double = 420
+    public static let moveSpeedDecayRate: Double = 0.5
+    /// 強靭（コントロール時間短縮）で縮めた後の CC の下限（秒。MLBB: 0.1 秒より短くならない）。
+    public static let minCrowdControlDuration: Double = 0.1
     public static let assistWindow: Double = 10
     public static let xpShareRadius: Double = 1400
     /// Lv→Lv+1 に必要な XP（index 0 = Lv1→2）。
     public static let xpToNext: [Double] = [240, 270, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850]
 
     // MARK: スキル
-    public static let basicSkillMaxRank = 4
+    /// スキルの段（MLBB と同じ 6 / 6 / 3。2026-10-14 に 4 / 4 / 3 から。4 は Wild Rift 由来だった）。
+    /// スキルポイントは Lv1〜15 で 1 つずつ計 15 = 6 + 6 + 3（余りが出ない）。
+    /// 上げられる条件（SkillLeveling.canLevel）: スキル1・2 の段 ≤ ceil(ヒーローの Lv / 2)（Lv1・3・5・7・9・11 で 1〜6 段目）、
+    /// アルティメットは Lv4 / 8 / 12 で 1 段ずつ（MLBB の Fandom「Ultimate」: Lv4 で習得・3 段まで）。
+    /// スキル1・2 の「Lv/2 の切り上げ」は監査 B §3 の「奇数 Lv」の規則（日本語クライアントのレベルアップ画面での確認待ち）。
+    public static let basicSkillMaxRank = 6
     public static let ultimateMaxRank = 3
     public static let ultimateUnlockLevels = [4, 8, 12]
-    public static let skillDamagePerRank: Double = 0.30
-    public static let skillCooldownPerRank: Double = 0.06
-    public static let skillAttackScalingFactor: Double = 0.6
+    /// CD 短縮の上限（MLBB の日本語クライアント「通常、短縮率の上限は40%」）。魔導の護符などは Stats.cooldownReductionCap を上げる。
     public static let maxCooldownReduction: Double = 0.40
-    public static let energyCostMultiplier: Double = 0.6
-    public static let maxDamageReduction: Double = 0.60
+    /// エナジーのヒーローの汎用スキルのコスト倍率（master の cost は Mana 基準）。エナジーの上限を MLBB の 100 にした
+    /// （2026-10-14）ので、以前の 0.6（上限約 500 の時）に 100/500 を掛けて、発動の間隔（コスト / 上限）を保つ。暫定。
+    public static let energyCostMultiplier: Double = 0.12
 
     // MARK: CC
     public static let slowPct: Double = 0.30

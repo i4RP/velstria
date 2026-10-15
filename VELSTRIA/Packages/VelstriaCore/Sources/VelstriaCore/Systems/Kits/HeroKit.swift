@@ -79,6 +79,9 @@ protocol HeroKit: Sendable {
     func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double
     /// ZoneSystem.spawn で作るゾーンの形（描画が読み込み中にゾーンの見た目とメッシュを作り切るため。汎用の型のゾーンは除く）。
     func plannedZones(master: MasterData) -> [KitZoneShape]
+    /// このスキル（段）が術者を動かすか（ブリンク・突進・跳躍。バインド中は撃てない）。base は照準の型からの既定
+    /// （SkillCatalog.movesCaster: dashStrike / leapSlam / targetedBlink / blinkEmpower）。型と実際の動きが違うキットだけ上書きする。
+    func movesCaster(slot: SkillSlot, stage: Int, base: Bool) -> Bool
 
     // MARK: B. 実行
 
@@ -151,6 +154,7 @@ extension HeroKit {
     func badge(slot: SkillSlot, hero: HeroData) -> KitBadge? { nil }
     func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double { base }
     func plannedZones(master: MasterData) -> [KitZoneShape] { [] }
+    func movesCaster(slot: SkillSlot, stage: Int, base: Bool) -> Bool { base }
 
     func resolveAim(_ s: SimState, _ ctx: SimContext, caster: Int, slot: SkillSlot, stage: Int,
                     targeting: SkillTargeting, target: SkillTarget) -> SkillAim?? {

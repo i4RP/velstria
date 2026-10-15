@@ -162,23 +162,22 @@ public enum SkillCatalog {
     }
 
     /// 汎用の数値。rank は 1...最大ランクに丸める（未習得の表示は rank 1 相当）。キットの上書きを含まない。
-    /// ダメージ = (base × (1 + 0.30×(rank−1)) + scaling_attack × 総攻撃力 × 0.6 + scaling_power × 魔力) × スロット倍率。
+    /// 1 回の値 = MLBB のロール × 枠の型（Balance.Skills.GenericTemplate。docs/GENERIC_SKILLS.md）:
+    /// 型の基礎[段] × (base_damage / 平均) + 型の係数 × (係数 / 平均) × 能力値（物理 = 総物理攻撃、魔法 = 魔法攻撃）。
+    /// 全体の倍率（以前のスロット倍率・物理係数 × 0.6・回復 × 2.4）は無い。
     public static func genericNumbers(for skill: SkillDef, hero: HeroDef, rank: Int, stats: Stats) -> SkillNumbers {
         let k = Balance.Skills.self
         var n = SkillNumbers()
         guard skill.slot != .passive else { return n }
         let r = min(max(1, rank), skill.slot.maxRank)
         let isUlt = skill.slot == .ultimate
-        let rankedBase = skill.baseDamage * (1 + Balance.skillDamagePerRank * Double(r - 1))
-        let raw = (rankedBase + skill.scalingAttack * stats.attack * Balance.skillAttackScalingFactor
-            + skill.scalingPower * stats.abilityPower) * k.damageScale(skill.slot)
-        // 回復は基礎値と魔力のみでスケール（攻撃力は乗らない）
-        let healBase = (rankedBase + skill.scalingPower * stats.abilityPower) * k.healScale
+        // 1 回分（多段は 1 撃、強化攻撃は追加分、回復は 1 体分。型がそう定義してある）
+        let raw = k.genericValue(skill, role: hero.role, rank: r, stats: stats)
 
         n.rank = r
         n.damageType = skill.damageType
         n.damage = raw
-        n.cooldown = SkillSystem.cooldown(for: skill, rank: r, cdr: stats.cooldownReduction)
+        n.cooldown = SkillSystem.cooldown(for: skill, rank: r, cdr: stats.cooldownReduction, cap: stats.cooldownReductionCap)
         n.cost = SkillSystem.cost(for: skill, resource: hero.resource)
         n.resource = hero.resource
         n.cc = skill.cc
@@ -189,23 +188,25 @@ public enum SkillCatalog {
         case .passive:
             n.damage = 0
         case .blinkEmpower:
-            n.damage = raw * k.empowerRatio
+            // 型の値 = 強化通常攻撃の追加ダメージ
+            break
         case .groundAoE:
             n.delay = isUlt ? k.arcanistUltTelegraph : k.groundTelegraph
         case .selfAoE:
             n.shield = stats.maxHP * k.selfShieldMaxHPRatio
             n.shieldDuration = k.selfShieldDuration
         case .healZone:
-            n.heal = healBase * k.healZoneRatio
+            n.heal = raw
             n.delay = k.groundTelegraph
         case .multiStrike:
-            n.damage = raw * k.multiStrikeRatio
+            // 型の値 = 1 撃
             n.hits = k.multiStrikeCount
             n.damageReduction = k.multiStrikeDamageReduction
             n.damageReductionDuration = k.multiStrikeReductionDuration
         case .teamHeal:
+            // 型の値 = 味方 1 体あたりの回復量（ダメージなし）
             n.damage = 0
-            n.heal = healBase * k.teamHealRatio
+            n.heal = raw
             n.shield = n.heal * k.teamHealShieldRatio
             n.shieldDuration = k.teamHealShieldDuration
         case .targetedBlink:
@@ -224,6 +225,15 @@ public enum SkillCatalog {
         case .root: return isUltimate ? Balance.ultRootDuration : Balance.rootDuration
         case .stun: return isUltimate ? Balance.ultStunDuration : Balance.stunDuration
         case .knockback: return Balance.knockbackTime + Balance.knockbackStun
+        }
+    }
+
+    /// 術者を動かすスキル（ブリンク・突進・跳躍）の型か（バインドで撃てない。キットは HeroKit.movesCaster で上書きできる）。
+    public static func movesCaster(_ archetype: SkillArchetype) -> Bool {
+        switch archetype {
+        case .dashStrike, .leapSlam, .targetedBlink, .blinkEmpower: return true
+        case .passive, .cone, .lineSkillshot, .piercingLine, .groundAoE, .selfAoE, .healZone, .multiStrike, .teamHeal:
+            return false
         }
     }
 
@@ -247,7 +257,7 @@ struct SkillCastCheck {
 
 public enum SkillSystem {
     /// スキル発動。成功で true（CD・コスト消費、.skillCast 発行）。
-    /// 検証: 生存・行動可能（スタン/打ち上げ/沈黙/強制移動中は不可、ルート中は突進・跳躍不可）・ランク > 0・CD 完了・
+    /// 検証: 生存・行動可能（スタン/打ち上げ/沈黙/強制移動中は不可、バインド中はブリンク・突進・跳躍不可）・ランク > 0・CD 完了・
     /// リソース ≥ コスト。
     /// 照準: .none は射程内の最適な敵ヒーロー → 最寄りの敵 → 向きの順に自動照準。地点は射程内に丸める。
     public static func cast(_ s: inout SimState, _ ctx: SimContext, heroIndex i: Int, slot: SkillSlot,
@@ -296,16 +306,23 @@ public enum SkillSystem {
         validate(s, ctx, heroIndex: i, slot: slot) != nil
     }
 
-    /// 実効クールダウン（ランク・CD 短縮込み。Balance.Skills.cooldownScale は 1.0 = マスターの秒数のまま）。
-    public static func cooldown(for skill: SkillDef, rank: Int, cdr: Double) -> Double {
-        let reduction = min(Balance.maxCooldownReduction, max(0, cdr))
-        return skill.cooldownSec * (1 - Balance.skillCooldownPerRank * Double(max(0, rank - 1))) * (1 - reduction)
-            * Balance.Skills.cooldownScale
+    /// 汎用の実効クールダウン（段・CD 短縮込み）= cooldown_sec × 段の倍率（Balance.Skills.genericCooldownFactor。
+    /// MLBB の段の表の中央値: スキル1・2 は 1 段 −4%、アルティメットは 1 段 −9%）× (1 − CD 短縮)。全体の倍率は無い。
+    /// cdr はユニットの CD 短縮（Stats.cooldownReduction）。上限（通常 40%、魔導の護符で 45%）は StatCalculator が
+    /// Stats.cooldownReductionCap で切ってあるので、ここで 40% に切り直さない（以前は切り直していて護符の +5% が効かなかった）。
+    /// cap を渡すとその値でも切る（能力値を通さない呼び出し用）。
+    public static func cooldown(for skill: SkillDef, rank: Int, cdr: Double, cap: Double = 1) -> Double {
+        let reduction = min(cap, min(1, max(0, cdr)))
+        return skill.cooldownSec * Balance.Skills.genericCooldownFactor(slot: skill.slot, rank: rank) * (1 - reduction)
     }
 
-    /// 実効コスト（汎用。キットの上書きを含まない）。
+    /// 実効コスト（汎用。キットの上書きを含まない）。怒り・リソースなしのヒーローは 0。
     public static func cost(for skill: SkillDef, resource: ResourceKind) -> Double {
-        resource == .energy ? skill.cost * Balance.energyCostMultiplier : skill.cost
+        switch resource {
+        case .mana: return skill.cost
+        case .energy: return skill.cost * Balance.energyCostMultiplier
+        case .rage, .noResource: return 0
+        }
     }
 
     /// ランク込みの実効コスト（キットのヒーローはキットの `cost` を反映する。キットが無ければ上の汎用と同じ）。
@@ -332,11 +349,14 @@ public enum SkillSystem {
         // 紫バフ: 消費 Mana −60% / Energy −25%
         let paid = cost * JungleBuffs.skillCostMultiplier(s.units[i])
         guard s.units[i].resource + 1e-9 >= paid else { return nil }
-        // ルート中は突進・跳躍できない（ブリンクは可）
+        // バインド（敵の root。MLBB の日本語クライアント「バインド: 移動、またはブリンクやアサルトスキルの使用ができなくなる。
+        // スキルを中断できない」= 低レベルのコントロール）: 術者を動かすスキル（ブリンク・突進・跳躍）は撃てない。
+        // 自分で付けた root（詠唱中の足止め）は突進・跳躍だけを封じる（ブリンクは可。以前のまま）。
         if s.units[i].has(.root) {
-            switch SkillCatalog.activeTargeting(s, caster: i, slot: slot, skill: skill, hero: def).archetype {
-            case .dashStrike, .leapSlam: return nil
-            default: break
+            let t = SkillCatalog.activeTargeting(s, caster: i, slot: slot, skill: skill, hero: def)
+            if HeroKits.movesCaster(s, i, slot: slot, targeting: t) {
+                if s.units[i].isBound { return nil }
+                if t.archetype == .dashStrike || t.archetype == .leapSlam { return nil }
             }
         }
         return SkillCastCheck(def: def, skill: skill, slot: slot, rank: rank, cost: paid, free: free)
