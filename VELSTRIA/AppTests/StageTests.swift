@@ -98,19 +98,19 @@ final class StageTests: XCTestCase {
         for set in StageArtSet.allCases {
             let maps = try XCTUnwrap(StageSplat.make(map: .relayout, shades: [], set: set))
             // 上レーン（x = 7 m）は土
-            XCTAssertGreaterThan(try pixel(maps.control, [7.7, 88]).x, 0.9, set.rawValue)
+            XCTAssertGreaterThan(try pixel(maps.control, [5.67, 64.8]).x, 0.9, set.rawValue)
             // 川の中央は水、補助マップの深さも深い
-            XCTAssertGreaterThan(try pixel(maps.control, [49.5, 82.5]).z, 0.9, set.rawValue)
-            XCTAssertGreaterThan(try pixel(maps.aux, [49.5, 82.5]).z, 0.8, set.rawValue)
+            XCTAssertGreaterThan(try pixel(maps.control, [36.45, 60.75]).z, 0.9, set.rawValue)
+            XCTAssertGreaterThan(try pixel(maps.aux, [36.45, 60.75]).z, 0.8, set.rawValue)
             // Core の広場は石畳
-            XCTAssertGreaterThan(try pixel(maps.control, [16.5, 16.5]).y, 0.9, set.rawValue)
+            XCTAssertGreaterThan(try pixel(maps.control, [12.15, 12.15]).y, 0.9, set.rawValue)
             // ジャングルの開けた所は草地（土・石畳・川が無い）
-            let jungle = try pixel(maps.control, [39.6, 80.3])
+            let jungle = try pixel(maps.control, [29.16, 59.13])
             XCTAssertLessThan(jungle.x + jungle.y + jungle.z, 0.1, set.rawValue)
             // 地図の外は森の下草
             XCTAssertGreaterThan(try pixel(maps.control, [-10, 60]).w, 0.9, set.rawValue)
             // 祭壇（ボスの巣）の床では川が途切れる
-            XCTAssertLessThan(try pixel(maps.control, [91.3, 40.7]).z, 0.05, set.rawValue)
+            XCTAssertLessThan(try pixel(maps.control, [67.23, 29.97]).z, 0.05, set.rawValue)
         }
     }
 
