@@ -83,7 +83,10 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     /// 22: スキルを MLBB の値に（スキルの段 6 / 6 / 3、キットは公式の表をそのまま・換算と全体の倍率を撤廃、汎用は MLBB のロール × 枠の型、
     ///     ミニオンへのスキル × 0.2 を撤廃しスキルごとの補正、スキル吸収率・攻撃エフェクト、バインドがブリンク・突進を封じる、
     ///     ノックアップ・制圧だけが突進を止める）。docs/SKILL_KITS.md・docs/GENERIC_SKILLS.md。
-    public static let currentSimVersion = 22
+    /// 23: H029（ティグラル）の幾何と時間を MLBB の画面収録で測った値に（スキル1 = 台形を手前から奥へ 3 回・0.25 / 0.58 / 0.92 秒、
+    ///     スキル2 = 525 を 0.67 秒・当たった敵に 0.6 秒のスタン・CD は最初の発動から・再使用の範囲 215、
+    ///     奥義 = 半径 278・発動の瞬間にスタン + 引き寄せ・1.0 秒で爆発）。docs/kits/Tigreal.md「動画で測った値」。
+    public static let currentSimVersion = 23
 
     public var simVersion: Int
     public var mode: MatchMode

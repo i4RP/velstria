@@ -9,26 +9,30 @@ import Foundation
 //                               4 つで次に受ける通常攻撃（タワーからの攻撃を含む）をブロック（ダメージ無効）して誓いが消える（Fearless）。
 //                               時間では消えない（公式の文に期限が無い）。ミニオンのダメージは誓いを増やしも消費もしない。
 //                               ブロックの瞬間は自分に 0.3 秒の「blocked」の印（.mark）が付き、パッシブのバッジが 0.3 秒だけタイマーになる（App の演出の合図）。
-//   スキル1 聖槌波（Attack Wave）— 前方の扇に衝撃波を 3 回。扇の半径が射程の 0.7 → 0.85 → 1.0 倍と前へ広がる（近くの敵ほど多く当たる）。
+//   スキル1 聖槌波（Attack Wave）— 前方の台形（手前が狭く奥が広い）に衝撃波を 3 回。衝撃波は手前 → 中 → 奥へ進みながらはじける
+//                               （回ごとの帯は奥行きの 0〜1/2・1/4〜3/4・1/2〜1。止まっている敵には 1〜2 回当たる）。
 //                               1 回ごとに 270〜520（+70% 物理攻撃）のダメージ + 移動速度低下（20 → 40 → 60%、1.5 秒。命中した回数で深まる）。
-//   スキル2 聖槌突撃（Sacred Hammer）— 突進して進路の敵に 100% 物理攻撃のダメージ（基礎ダメージなし）、突進の終点まで押し出す。
-//                               4 秒以内の再使用（同じ castSkill）で前方の敵に 280〜380（+60% 物理攻撃）+ 0.6 秒の打ち上げ。再使用の窓が閉じてからクールダウンを数える。
+//   スキル2 聖槌突撃（Sacred Hammer）— 突進して進路の敵に 100% 物理攻撃のダメージ（基礎ダメージなし）+ スタン、突進の終点まで押し出す。
+//                               4 秒以内の再使用（同じ castSkill）で前方の敵に 280〜380（+60% 物理攻撃）+ 0.6 秒の打ち上げ。クールダウンは最初の発動から数える。
 //                               突進は術者を動かすのでバインド（敵の root）中は撃てない。再使用の叩きつけは動かないので撃てる。
 //                               突進はスタンでは止まらず、ノックアップ・制圧で止まる（CC の段階。KitRuntime）。
-//   アルティメット 崩落聖域（Implosion） — 詠唱 0.8 秒。最初の 0.3 秒は CC（スタン・打ち上げ・suppress）で、その後は suppress だけで中断される。
-//                               0.3 秒で周囲の敵を引き寄せ（0.38 秒かけて集める）、0.8 秒で 600 / 800 / 1000（+130% 物理攻撃）のダメージ + スタン 1.8 秒。
-//                               詠唱中の自分の足止め（root）はバインドではない（瞬歩を使える。Unit.isBound）。
+//   アルティメット 崩落聖域（Implosion） — 詠唱 1.0 秒。発動の瞬間から周囲の敵をスタンして引き寄せ（0.67 秒で集める）、1.0 秒で
+//                               600 / 800 / 1000（+130% 物理攻撃）のダメージ + 残りのスタン（発動から合計 1.8 秒）。
+//                               最初の 0.5 秒（前半）は CC（スタン・打ち上げ・suppress）で、その後は suppress だけで中断される。中断したら敵を放す。
+//                               詠唱中の自分の足止め（root）はバインドではない（瞬歩を使える。Unit.isBound）。瞬歩の先で集め直す。
+// 幾何と時間は MLBB の画面収録（訓練場のティグラル、2026-10-15）から測った値（docs/kits/Tigreal.md「動画で測った値」）。距離 = MLBB × 100。
 // 数値: 公式の段の表をそのまま使う（スキル1・2 = Lv1〜6、アルティメット = Lv1〜3。rank = 公式の Lv。換算・補間なし）。
 //   ダメージ = 公式の基礎[段] + 公式の係数 × 合計の物理攻撃（Kit.official。公式の文は「(+N%物理攻撃)」= 合計）。
 //   クールダウン = 公式の秒数[段] × (1 − CD 短縮)（Kit.cooldown）、マナ = 公式の表（HeroKit.cost）。
 //   スキル吸収率・攻撃エフェクト・ミニオン / モンスターへの補正は公式の文に無いので既定（吸収 100%・補正なし）。
 //
 // 状態（KitState）:
-//   ints[0]  = 誓い（0..4。4 = ブロックの準備完了）    ints[1] = 奥義の段（0 = なし / 1 = 溜め / 2 = 引き寄せ後）
-//   ints[2]  = ブロックした回数（累計。検証用）         ints[3] = 直近の引き寄せで動かせた敵の数（検証用）
+//   ints[0]  = 誓い（0..4。4 = ブロックの準備完了）    ints[1] = 奥義の段（0 = なし / 1 = 前半 / 2 = 後半）
+//   ints[2]  = ブロックした回数（累計。検証用）         ints[3] = 直近の奥義で捕まえた敵の数（検証用）
+//   ints[4..5] = 奥義の引き寄せの中心（整数に丸めた座標。瞬歩で動いたら集め直す）
 //   timers[0] = 未使用（誓いに期限は無い）              timers[1] = 奥義の詠唱の残り秒（HUD 用）
 //   timers[2] = ブロックの演出の残り秒（0.3 秒。バッジをタイマーにする）
-//   reals[0..1] = S1 / S2 の方向    reals[2..3] = S2 の突進の終点    reals[4..5] = S2 再使用の方向
+//   reals[0..1] = S1 の方向    reals[2..3] = S2 の突進の終点    reals[4..5] = S2 再使用の方向    reals[6..7] = S2 の突進の方向
 
 extension KitState {
     var borgVow: Int {
@@ -84,6 +88,24 @@ extension KitState {
             reals[5] = newValue.y
         }
     }
+
+    /// S2 の突進の向き（押し運ぶ向き）。S1 の向き（borgAim）とは分ける（S1 の衝撃波が走っている間に突進しても混ざらない）。
+    var borgDashDir: Vec2 {
+        get { Vec2(reals[6], reals[7]) }
+        set {
+            reals[6] = newValue.x
+            reals[7] = newValue.y
+        }
+    }
+
+    /// 奥義の引き寄せの中心（整数に丸めた座標）。術者がここから動いたら（瞬歩）捕まえた敵を集め直す。
+    var borgPullCenter: Vec2 {
+        get { Vec2(Double(ints[4]), Double(ints[5])) }
+        set {
+            ints[4] = Int(newValue.x.rounded())
+            ints[5] = Int(newValue.y.rounded())
+        }
+    }
 }
 
 struct Kit_H029: HeroKit {
@@ -95,7 +117,10 @@ struct Kit_H029: HeroKit {
         self.isReady = isReady
     }
 
-    // MARK: - 数値（MLBB の値はそのまま。距離は Velstria 単位 ≈ MLBB × 100 を近接スキルの射程に合わせて調整）
+    // MARK: - 数値（MLBB の値はそのまま。距離は Velstria 単位 = MLBB × 100。幾何と時間は MLBB の画面収録から測った値）
+    // 計測（2026-10-15、iPhone の画面収録 30fps、訓練場の Lv4 ティグラル）: カメラの地面への写像を 2 つの同心の照準円で合わせ、
+    // 縮尺を歩き（移動速度 260 = 毎秒 2.6）で決めた。誤差は距離で約 ±3%、時間は ±1 コマ（0.033 秒）。手順と数値: docs/kits/Tigreal.md、
+    // 道具: tools/mlbb_video/measure.py。
 
     enum Tune {
         // パッシブ 聖鎚の誓い
@@ -105,14 +130,23 @@ struct Kit_H029: HeroKit {
         static let blockFlash = 0.3
         static let blockMark = "blocked"
 
-        // スキル1 聖槌波
-        static let waveReach = 300.0
-        static let waveHalfAngle = Balance.Skills.coneHalfAngle
+        // スキル1 聖槌波（動画: 照準は台形。手前の幅 2.14・奥の幅 4.26・奥行き 6.1（MLBB の単位）。左右の辺はそれぞれ 9.9° 開く）
+        /// 台形の奥行き（術者の位置から奥の辺まで）。奥の辺は僅かに丸いが直線で近似（差は角で 0.2 以下）。
+        static let waveReach = 610.0
+        /// 台形の半幅: 手前（術者の位置）→ 奥（waveReach）へ線形に広がる。
+        static let waveNearHalfWidth = 107.0
+        static let waveFarHalfWidth = 213.0
+        /// 照準表示（AimShape.wideLine の帯）の半幅 = 台形の平均の半幅（HUD に台形が無いので帯で近似）。
+        static let waveAimHalfWidth = 160.0
         static let waveCount = 3
-        /// 衝撃波が前へ進んで見えるよう、波ごとの扇の半径（射程に対する比。1 回目 → 3 回目）。近くの敵ほど多くの波に当たり、鈍足が深まる。
-        static let waveRadiusScale: [Double] = [0.7, 0.85, 1.0]
-        static let waveFirstDelay = 0.12
-        static let waveInterval = 0.2
+        /// 衝撃波は手前から奥へ進む: k 回目の帯 = 奥行きの [waveBandStart[k], waveBandStart[k] + waveBandLength] 倍
+        /// （帯の中心は 1/4・1/2・3/4。動画の 3 回の爆発の中心 = 奥行きの 0.23 / 0.52 / 0.77 倍）。帯は半分ずつ重なるので、
+        /// 止まっている敵には 1〜2 回当たる（動画: 奥行きの約 0.51 倍に居た的は 2 回目と 3 回目に当たった）。
+        static let waveBandStart: [Double] = [0, 0.25, 0.5]
+        static let waveBandLength = 0.5
+        /// 発動（指を離した瞬間）から 1 回目まで（動画: 7〜8 コマ）と、回の間隔（動画: 10 コマ = 1/3 秒）。
+        static let waveFirstDelay = 0.25
+        static let waveInterval = 1.0 / 3.0
         /// 命中 1 回ごとの鈍足（20 → 40 → 60%）。
         static let waveSlowPerStack = 0.20
         static let waveSlowDuration = 1.5
@@ -122,18 +156,25 @@ struct Kit_H029: HeroKit {
         static let waveBase: [Double] = [270, 320, 370, 420, 470, 520]
         static let waveAttackRatio = 0.7
 
-        // スキル2 聖槌突撃
-        static let dashRange = 420.0
-        static let dashSpeed = 1700.0
-        /// 経路の当たり半径（対象の半径は別に足す）。
+        // スキル2 聖槌突撃（動画: 照準の円の半径 5.56・矢印の先も同じ。実際に進んだ距離 5.23 を約 0.67 秒）
+        /// 突進の距離（実際に進んだ距離。照準の円 556 より 6% 短い。円は届く先の目安で、術者の半径ぶん長いと考える）。
+        static let dashRange = 525.0
+        /// 突進の速さ（525 を約 0.67 秒）。
+        static let dashSpeed = 780.0
+        /// 経路の当たり半径（対象の半径は別に足す）。動画の照準の矢印の半幅 0.99 と同じ。
         static let dashWidth = 100.0
+        /// 突進に当たった敵のスタン（動画: 当たった瞬間から「スタン」の表示と時間のバーが 20 コマ = 0.63〜0.67 秒。押し運ばれる間を含む。
+        /// 公式 0.6 秒の再使用のノックアップの表示も同じ 20 コマだったので 0.6 秒とみる）。
+        static let dashStun = 0.6
         /// 押し運んだ敵を突進の終点の先に置く隙間（半径どうしの和に足す）。
         static let carryGap = 20.0
         /// 到着した tick に当たった敵を押し出す最小の時間。
         static let carryMinTime = 0.12
         static let recastWindow = 4.0
+        /// 再使用の振りかぶり（動画: 指を離してから打ち上げの表示まで 6〜7 コマ）。
         static let smashDelay = 0.2
-        static let smashReach = 320.0
+        /// 再使用の範囲: 照準の円（半径 2.15）の前方の扇（照準の弧の開き ±45〜50°）。
+        static let smashReach = 215.0
         static let smashHalfAngle = 0.8
         /// 打ち上げの秒数（公式 0.6 秒）。
         static let smashAirborne = 0.6
@@ -144,15 +185,23 @@ struct Kit_H029: HeroKit {
         static let smashBase: [Double] = [280, 300, 320, 340, 360, 380]
         static let smashAttackRatio = 0.6
 
-        // アルティメット 崩落聖域（Implosion）
-        static let ultReach = 520.0
-        /// 詠唱の最初の部分（ultGather 秒。CC で中断できる）と全体。ultGather の終わりに引き寄せ、ultTotal の終わりに爆発。
-        static let ultGather = 0.3
-        static let ultTotal = 0.8
-        /// 引き寄せの所要時間（爆発の前に集まり終わる）と、引き寄せた敵を置く隙間。
-        static let ultPullTime = 0.38
+        // アルティメット 崩落聖域（Implosion）（動画: 照準の円の半径 2.78。発動の次のコマで「スタン」と引き寄せが始まり、
+        // 0.67 秒で集まり、1.0 秒でダメージ。スタンの表示は発動から 1.77〜1.8 秒で消える）
+        /// 引き寄せ・爆発の半径。
+        static let ultReach = 278.0
+        /// 詠唱の前半（ultGather 秒。CC で中断できる）と全体（ultTotal 秒の終わりに爆発）。前半 = 全体の半分（公式の「前半 / 後半」）。
+        static let ultGather = 0.5
+        static let ultTotal = 1.0
+        /// 引き寄せの所要時間（発動から。爆発の前に集まり終わる）と、引き寄せた敵を置く隙間。
+        static let ultPullTime = 0.67
         static let ultPullGap = 20.0
+        /// スタンの合計（公式 1.8 秒。発動の瞬間から数える）。捕まえた敵は爆発まで ultHoldTag のスタン、爆発で残り（ultSlamStun）。
         static let ultStun = 1.8
+        static let ultSlamStun = ultStun - ultTotal
+        /// 詠唱の間に敵を捕まえておくスタンの tag の頭（術者の ID を足す。中断したら外して放す）。
+        static let ultHoldTag = KitTags.buff("H029", "implosionHold")
+        /// 引き寄せの間に術者がこれより動いたら（瞬歩）、新しい位置へ集め直す。
+        static let ultRegatherDistance = 30.0
         /// 公式の基礎ダメージ（Lv1〜3）と係数（+130% 物理攻撃）。
         static let ultBase: [Double] = [600, 800, 1000]
         static let ultAttackRatio = 1.3
@@ -181,7 +230,8 @@ struct Kit_H029: HeroKit {
     private enum Code {
         static let wave = 1
         static let smash = 2
-        static let ultPull = 3
+        /// 奥義の前半の終わり（ここから先は suppress だけで中断される）。
+        static let ultHalf = 3
         static let ultDetonate = 4
     }
 
@@ -190,14 +240,14 @@ struct Kit_H029: HeroKit {
     func targeting(slot: SkillSlot, stage: Int, skill: SkillDef, hero: HeroDef, base: SkillTargeting) -> SkillTargeting {
         switch slot {
         case .skill1:
-            // 前方の扇（汎用の近接 S1 と同じ cone）。範囲の半径 = 射程
+            // 前方の台形（判定は waveTargets）。照準表示は台形の平均の半幅の帯（HUD に台形の形が無いため）
             var t = base
             t.archetype = .cone
             t.aim = .direction
             t.range = Tune.waveReach
-            t.radius = Tune.waveReach
-            t.shape = .fan
-            t.halfAngle = Tune.waveHalfAngle
+            t.radius = Tune.waveAimHalfWidth
+            t.shape = .wideLine
+            t.halfAngle = 0
             return t
         case .skill2:
             if stage >= 1 {
@@ -243,8 +293,8 @@ struct Kit_H029: HeroKit {
             let smash = Self.smashDamage(rank: rank, stats: stats)
             n.hits = 1
             n.damage = stage >= 1 ? smash : dash
-            n.cc = stage >= 1 ? .knockback : .none
-            n.ccDuration = stage >= 1 ? Tune.smashAirborne : 0
+            n.cc = stage >= 1 ? .knockback : .stun
+            n.ccDuration = stage >= 1 ? Tune.smashAirborne : Tune.dashStun
             n.cooldown = Kit.cooldown(Tune.hammerCooldown, rank: rank, stats: stats)
             n.stages = 2
             n.recastWindow = Tune.recastWindow
@@ -254,7 +304,8 @@ struct Kit_H029: HeroKit {
                         KitStat(key: "window", value: Tune.recastWindow),
                         KitStat(key: "dashPct", value: Self.percent(Tune.dashAttackRatio)),
                         KitStat(key: "smashBase", value: Kit.level(Tune.smashBase, rank: rank)),
-                        KitStat(key: "smashPct", value: Self.percent(Tune.smashAttackRatio))]
+                        KitStat(key: "smashPct", value: Self.percent(Tune.smashAttackRatio)),
+                        KitStat(key: "dashStun", value: Tune.dashStun)]
         case .ultimate:
             n.hits = 1
             n.damage = Self.ultDamage(rank: rank, stats: stats)
@@ -300,18 +351,18 @@ struct Kit_H029: HeroKit {
                 tags: [KitTag.buff])
         case .skill1:
             return KitText(
-                ja: "ハンマーで地面を叩き、扇形範囲で{hits}回爆発する衝撃波を放つ（扇の奥は近接攻撃の射程の約{reachMult}倍。手前の敵ほど多くの爆発に当たる）。各爆発は命中した敵に{base}(+{atkPct}%物理攻撃)の物理ダメージを与え、移動速度を{slowDuration}秒間{slow1}%/{slow2}%/{slow3}%低下させる（同じ敵に命中した爆発の数で深くなる）。",
-                en: "Slam the ground with the hammer, sending out a shockwave that erupts {hits} times in a fan (the fan reaches about {reachMult}x your melee attack range; closer enemies are caught by more eruptions). Each eruption deals {base} (+{atkPct}% Physical Attack) physical damage to enemies hit and slows their movement speed by {slow1}%/{slow2}%/{slow3}% for {slowDuration}s (deeper with each eruption that hits the same enemy).",
+                ja: "ハンマーで地面を叩き、扇形範囲で{hits}回爆発する衝撃波を放つ（範囲の奥行きは近接攻撃の射程の約{reachMult}倍。衝撃波は手前から奥へ進みながら爆発する）。各爆発は命中した敵に{base}(+{atkPct}%物理攻撃)の物理ダメージを与え、移動速度を{slowDuration}秒間{slow1}%/{slow2}%/{slow3}%低下させる（同じ敵に命中した爆発の数で深くなる）。",
+                en: "Slam the ground with the hammer, sending out a shockwave that erupts {hits} times in a fan (the area reaches about {reachMult}x your melee attack range; the shockwave erupts from near to far as it travels). Each eruption deals {base} (+{atkPct}% Physical Attack) physical damage to enemies hit and slows their movement speed by {slow1}%/{slow2}%/{slow3}% for {slowDuration}s (deeper with each eruption that hits the same enemy).",
                 tags: [KitTag.aoe, KitTag.slow])
         case .skill2:
             return KitText(
-                ja: "指定方向へ突進し、進路上の敵に({dashPct}%物理攻撃)の物理ダメージを与えて突進の終点まで押し出す。\n\n再発動：{window}秒以内にもう一度使うと、前方の敵に{smashBase}(+{smashPct}%物理攻撃)の物理ダメージを与えて{airborne}秒間ノックアップさせる。クールダウンは再発動の窓が閉じてから数える。",
-                en: "Charge in the specified direction, dealing physical damage equal to {dashPct}% of your Physical Attack to enemies along the way and pushing them to the end of the charge.\n\nRecast: use it again within {window}s to deal {smashBase} (+{smashPct}% Physical Attack) physical damage to enemies in front of you and knock them up for {airborne}s. The cooldown starts when the window closes.",
+                ja: "指定方向へ突進し、進路上の敵に({dashPct}%物理攻撃)の物理ダメージを与えて突進の終点まで押し出す（押し出された敵は{dashStun}秒間スタン）。\n\n再発動：{window}秒以内にもう一度使うと、前方の敵に{smashBase}(+{smashPct}%物理攻撃)の物理ダメージを与えて{airborne}秒間ノックアップさせる。",
+                en: "Charge in the specified direction, dealing physical damage equal to {dashPct}% of your Physical Attack to enemies along the way and pushing them to the end of the charge (pushed enemies are stunned for {dashStun}s).\n\nRecast: use it again within {window}s to deal {smashBase} (+{smashPct}% Physical Attack) physical damage to enemies in front of you and knock them up for {airborne}s.",
                 tags: [KitTag.clash, KitTag.disrupt])
         case .ultimate:
             return KitText(
-                ja: "ハンマーの力を解放し、{channel}秒の詠唱ののち周囲（近接攻撃の射程の約{reachMult}倍）の敵を引き寄せて{base}(+{atkPct}%物理攻撃)の物理ダメージを与え、{stun}秒間スタンさせる。\n\nスキルの前半（詠唱の最初の{gather}秒）はコントロール効果によって中断されるが、後半は制圧によってのみ中断される。",
-                en: "Unleash the power of the hammer: after a {channel}s channel, pull in nearby enemies (within about {reachMult}x your melee attack range), deal {base} (+{atkPct}% Physical Attack) physical damage and stun them for {stun}s.\n\nThe first half of the skill (the first {gather}s of the channel) can be interrupted by control effects, but the second half can only be interrupted by suppression.",
+                ja: "ハンマーの力を解放し、周囲（近接攻撃の射程の約{reachMult}倍）の敵を引き寄せて{base}(+{atkPct}%物理攻撃)の物理ダメージを与え、{stun}秒間スタンさせる（引き寄せとスタンは発動の瞬間から、ダメージは{channel}秒後）。\n\nスキルの前半（最初の{gather}秒）はコントロール効果によって中断されるが、後半は制圧によってのみ中断される。",
+                en: "Unleash the power of the hammer, pulling in nearby enemies (within about {reachMult}x your melee attack range), dealing {base} (+{atkPct}% Physical Attack) physical damage and stunning them for {stun}s (the pull and the stun start at once; the damage lands after {channel}s).\n\nThe first half of the skill (the first {gather}s) can be interrupted by control effects, but the second half can only be interrupted by suppression.",
                 tags: [KitTag.disrupt, KitTag.aoe])
         }
     }
@@ -358,45 +409,45 @@ struct Kit_H029: HeroKit {
         switch c.slot {
         case .skill1: castWave(&s, c)
         case .skill2: castCharge(&s, ctx, c)
-        case .ultimate: castImplosion(&s, c)
+        case .ultimate: castImplosion(&s, ctx, c)
         case .passive: break
         }
         return .done
     }
 
-    /// S1: 発動の方向と原点に 3 回、扇の衝撃波を起こす（途中でスタンされても止まらない: すでに地面に走った衝撃波）。
+    /// S1: 発動の方向と原点に 3 回、台形の衝撃波を手前から奥へ起こす（途中でスタンされても止まらない: すでに地面に走った衝撃波）。
     private func castWave(_ s: inout SimState, _ c: KitCast) {
         let i = c.caster
         let origin = s.units[i].pos
         let dir = c.aim.direction
         s.units[i].hero!.kit!.borgAim = dir
-        Kit.emitCast(&s, c, origin: origin, target: origin + dir * Tune.waveReach, unit: c.aim.unit, shape: .fan,
-                     halfAngle: Tune.waveHalfAngle,
-                     duration: Tune.waveFirstDelay + Tune.waveInterval * Double(Tune.waveCount - 1),
+        Kit.emitCast(&s, c, origin: origin, target: origin + dir * Tune.waveReach, unit: c.aim.unit, shape: .wideLine,
+                     halfAngle: 0, duration: Tune.waveFirstDelay + Tune.waveInterval * Double(Tune.waveCount - 1),
                      count: Tune.waveCount)
         Kit.strikeSequence(&s, caster: i, slot: .skill1, code: Code.wave, count: Tune.waveCount,
                            interval: Tune.waveInterval, firstDelay: Tune.waveFirstDelay, param: c.numbers.damage,
                            point: origin, interruptible: false)
     }
 
-    /// S2 の 1 回目: 突進。通り道の敵にダメージを与え、突進の終点まで押し運ぶ。再使用の窓を開く。
+    /// S2 の 1 回目: 突進。通り道の敵にダメージ + スタンを与え、突進の終点まで押し運ぶ。再使用の窓を開く。
+    /// クールダウンは最初の発動から数える（動画: 再使用の前から CD の表示が 16 秒から減っていた）。
     private func castCharge(_ s: inout SimState, _ ctx: SimContext, _ c: KitCast) {
         let i = c.caster
         let from = s.units[i].pos
         let dir = c.aim.direction
-        var p = HitPayload(damage: c.numbers.damage, damageType: .physical, source: .skill(.skill2),
+        let stun = StatusEffect(kind: .stun, duration: Tune.dashStun, sourceID: s.units[i].id, tag: CombatSystem.tagStun)
+        var p = HitPayload(damage: c.numbers.damage, damageType: .physical, source: .skill(.skill2), statuses: [stun],
                            skillID: c.check.skill.skillID, kitEvent: Event.dash)
         p.originPos = from
         let landing = Kit.dashSweeping(&s, ctx, caster: i, slot: .skill2, to: from + dir * Tune.dashRange,
                                        speed: Tune.dashSpeed, payload: p, radius: Tune.dashWidth)
         let actual = (landing - from).normalized
-        s.units[i].hero!.kit!.borgAim = actual == .zero ? dir : actual
+        s.units[i].hero!.kit!.borgDashDir = actual == .zero ? dir : actual
         s.units[i].hero!.kit!.borgDashEnd = landing
         Kit.emitCast(&s, c, origin: from, target: landing, unit: c.aim.unit, shape: .dashToPoint,
                      duration: from.distance(to: landing) / Tune.dashSpeed, count: 1)
-        // 窓が閉じてからクールダウンを数える（最初の発動のコスト・CD は消費済み）
-        Kit.openRecast(&s, caster: i, slot: .skill2, duration: Tune.recastWindow, stage: 1, charges: 1,
-                       cooldownOnClose: c.numbers.cooldown)
+        // 最初の発動のコスト・CD は消費済み。窓を閉じても CD は変えない
+        Kit.openRecast(&s, caster: i, slot: .skill2, duration: Tune.recastWindow, stage: 1, charges: 1)
     }
 
     /// S2 の再使用: 短い振りかぶりのあと、前方の扇を叩いて打ち上げる。
@@ -416,14 +467,19 @@ struct Kit_H029: HeroKit {
         Kit.advanceRecast(&s, ctx, caster: i, slot: .skill2)
     }
 
-    /// 奥義: 詠唱の開始。溜め（ultGather 秒）の終わりに引き寄せ、詠唱の終わり（ultTotal 秒）に爆発（どちらも onTimer）。
-    private func castImplosion(_ s: inout SimState, _ c: KitCast) {
+    /// 奥義: 詠唱の開始。発動の瞬間に周囲の敵を捕まえて（スタン + 引き寄せ）、前半（ultGather 秒）の終わりから後半、
+    /// 詠唱の終わり（ultTotal 秒）に爆発（onTimer）。引き寄せの間（ultPullTime 秒）に瞬歩で動いたら update が新しい位置へ集め直す。
+    /// 引き寄せの途中で半径へ入ってきた敵は捕まえない（爆発の瞬間に半径内ならダメージと残りのスタン）。
+    private func castImplosion(_ s: inout SimState, _ ctx: SimContext, _ c: KitCast) {
         let i = c.caster
         let pos = s.units[i].pos
         Kit.emitCast(&s, c, origin: pos, target: pos, shape: .selfRing, duration: Tune.ultTotal, count: 2)
         beginChannel(&s, i)
-        // 溜め（CC で中断できる）の終わり = 引き寄せ。それ以降は suppress だけで中断される（CC では取り消されない）
-        Kit.schedule(&s, caster: i, slot: .ultimate, code: Code.ultPull, after: Tune.ultGather, interruptible: true)
+        s.units[i].hero!.kit!.borgPulled = 0
+        s.units[i].hero!.kit!.borgPullCenter = pos
+        gather(&s, ctx, owner: i, elapsed: 0, regather: false)
+        // 前半（CC で中断できる）の終わり。それ以降は suppress だけで中断される（CC では取り消されない）
+        Kit.schedule(&s, caster: i, slot: .ultimate, code: Code.ultHalf, after: Tune.ultGather, interruptible: true)
         Kit.schedule(&s, caster: i, slot: .ultimate, code: Code.ultDetonate, after: Tune.ultTotal,
                      param: c.numbers.damage, interruptible: false)
     }
@@ -432,14 +488,14 @@ struct Kit_H029: HeroKit {
         switch timer.code {
         case Code.wave: erupt(&s, ctx, owner: owner, timer: timer)
         case Code.smash: smash(&s, ctx, owner: owner, timer: timer)
-        case Code.ultPull: pullIn(&s, ctx, owner: owner)
+        case Code.ultHalf: enterSecondHalf(&s, owner: owner)
         case Code.ultDetonate: detonate(&s, ctx, owner: owner, timer: timer)
         default: break
         }
     }
 
-    /// スキル1 の 1 回ぶん: 原点から方向の扇にダメージ + 鈍足の層（命中ごとに 1 層、最大 3 層）。
-    /// 扇の半径は波ごとに広がる（timer.index 0 → 2 で射程の 0.7 → 0.85 → 1.0 倍）: 手前の敵ほど多くの波に当たり、鈍足が深まる。
+    /// スキル1 の 1 回ぶん: 台形の k 回目の帯（waveTargets）にダメージ + 鈍足の層（命中ごとに 1 層、最大 3 層）。
+    /// 帯は回ごとに奥へ進む（timer.index 0 → 2）: 止まっている敵には 1〜2 回、衝撃波と一緒に奥へ逃げる敵には 3 回当たる。
     private func erupt(_ s: inout SimState, _ ctx: SimContext, owner: Int, timer: KitTimer) {
         guard let dir = s.units[owner].hero?.kit?.borgAim, dir != .zero else { return }
         let p = HitPayload(damage: timer.param, damageType: .physical, source: .skill(.skill1),
@@ -447,9 +503,41 @@ struct Kit_H029: HeroKit {
                            effects: [.addMark(name: Tune.waveMark, stacks: 1, maxStacks: Tune.waveCount,
                                               duration: Tune.waveSlowDuration)],
                            kitEvent: Event.wave)
-        let scale = Tune.waveRadiusScale[min(max(0, timer.index), Tune.waveRadiusScale.count - 1)]
-        SkillArchetypes.hitArea(&s, ctx, caster: owner, center: timer.point, radius: Tune.waveReach * scale,
-                                shape: .cone(direction: dir, halfAngle: Tune.waveHalfAngle), payload: p)
+        let targets = Self.waveTargets(s, owner: owner, origin: timer.point, direction: dir, eruption: timer.index)
+        guard !targets.isEmpty else { return }
+        let casterID = s.units[owner].id
+        let team = s.units[owner].team
+        for j in targets {
+            CombatSystem.applyHit(&s, ctx, sourceID: casterID, team: team, targetIndex: j, payload: p, from: timer.point)
+        }
+    }
+
+    /// スキル1 の k 回目の衝撃波が当たる敵（構造物・死亡を除く。添字昇順）。台形 = origin から direction へ奥行き waveReach、
+    /// 半幅は手前 waveNearHalfWidth → 奥 waveFarHalfWidth（線形）。k 回目の帯 = 奥行きの [waveBandStart[k], + waveBandLength] 倍。
+    /// 帯の前後は対象の中心で見る（帯の境目は衝撃波の位置で、隣の帯と重なる）。台形の外周（手前・奥・左右の辺）は対象の半径まで含む。
+    static func waveTargets(_ s: SimState, owner i: Int, origin: Vec2, direction: Vec2, eruption k: Int) -> [Int] {
+        let dir = direction.normalized
+        guard dir != .zero else { return [] }
+        let team = s.units[i].team
+        let last = Tune.waveBandStart.count - 1
+        let band = min(max(0, k), last)
+        let lo = Tune.waveBandStart[band] * Tune.waveReach
+        let hi = (Tune.waveBandStart[band] + Tune.waveBandLength) * Tune.waveReach
+        var out: [Int] = []
+        for j in s.units.indices where s.units[j].team != team && !s.units[j].isStructure {
+            guard CombatSystem.isLiving(s, j) else { continue }
+            let r = s.units[j].radius
+            let rel = s.units[j].pos - origin
+            let along = rel.dot(dir)
+            // 前後: 帯の中（最初の帯の手前・最後の帯の奥は台形の辺なので対象の半径まで）
+            guard along >= (band == 0 ? -r : lo), along <= (band == last ? Tune.waveReach + r : hi) else { continue }
+            // 左右: その奥行きでの台形の半幅 + 対象の半径
+            let f = min(max(along, 0), Tune.waveReach) / Tune.waveReach
+            let half = Tune.waveNearHalfWidth + (Tune.waveFarHalfWidth - Tune.waveNearHalfWidth) * f
+            guard abs(rel.x * dir.y - rel.y * dir.x) <= half + r else { continue }
+            out.append(j)
+        }
+        return out
     }
 
     /// S2 の再使用: 今の位置から前方の扇へダメージ + 打ち上げ。
@@ -461,30 +549,76 @@ struct Kit_H029: HeroKit {
                                 shape: .cone(direction: dir, halfAngle: Tune.smashHalfAngle), payload: p)
     }
 
-    /// 奥義の溜めの終わり: 周囲の敵（構造物を除く）を引き寄せる。CC 無効・無敵の相手は動かない。
-    private func pullIn(_ s: inout SimState, _ ctx: SimContext, owner: Int) {
-        guard s.units[owner].hero?.kit?.borgUltPhase == 1 else { return }
-        s.units[owner].hero!.kit!.borgUltPhase = 2
-        let team = s.units[owner].team
-        let center = s.units[owner].pos
-        var pulled = 0
-        for j in s.units.indices where s.units[j].team != team && !s.units[j].isStructure {
-            guard CombatSystem.isLiving(s, j) else { continue }
-            let reach = Tune.ultReach + s.units[j].radius
-            guard s.units[j].pos.distanceSquared(to: center) <= reach * reach else { continue }
-            let gap = s.units[owner].radius + s.units[j].radius + Tune.ultPullGap
-            if Kit.pull(&s, ctx, target: j, toward: center, distance: Tune.ultReach, duration: Tune.ultPullTime,
-                        gap: gap) { pulled += 1 }
-        }
-        s.units[owner].hero!.kit!.borgPulled = pulled
+    /// 奥義で捕まえておくスタンの tag（術者ごと。別のボルグの奥義と混ざらない）。
+    static func holdTag(_ owner: EntityID) -> String { Tune.ultHoldTag + ".\(owner)" }
+
+    /// 敵 j を owner（EntityID）の奥義が捕まえているか（爆発までのスタンが残っている）。
+    static func isHeld(_ s: SimState, _ j: Int, by owner: EntityID) -> Bool {
+        let tag = holdTag(owner)
+        return s.units[j].statuses.contains { $0.kind == .stun && $0.tag == tag }
     }
 
-    /// 奥義の爆発: 周囲の敵にダメージ + スタン。suppress を受けていれば不発。
+    /// 奥義の引き寄せ: 今の位置の半径内の敵（構造物を除く）を捕まえる（爆発までスタン + 術者の元へ集める）。elapsed = 発動からの秒。
+    /// 集め終わりは発動から ultPullTime 秒（引き寄せの最中に捕まえた敵も同じ時刻に着く）。CC 無効・無敵の相手は捕まらない（爆発のダメージだけ）。
+    /// regather = 術者が瞬歩で動いた: 捕まえている敵も新しい位置へ集め直し、新しい位置の半径内の敵も捕まえる。
+    private func gather(_ s: inout SimState, _ ctx: SimContext, owner: Int, elapsed: Double, regather: Bool) {
+        let team = s.units[owner].team
+        let id = s.units[owner].id
+        let tag = Self.holdTag(id)
+        let center = s.units[owner].pos
+        let pullLeft = max(Balance.dt, Tune.ultPullTime - elapsed)
+        let holdLeft = max(Balance.dt, Tune.ultTotal - elapsed)
+        var caught = 0
+        for j in s.units.indices where s.units[j].team != team && !s.units[j].isStructure {
+            guard CombatSystem.isLiving(s, j) else { continue }
+            if !Self.isHeld(s, j, by: id) {
+                let reach = Tune.ultReach + s.units[j].radius
+                guard s.units[j].pos.distanceSquared(to: center) <= reach * reach, Kit.canDisplace(s, ctx, j) else { continue }
+                CombatSystem.addStatus(&s, targetIndex: j, StatusEffect(kind: .stun, duration: holdLeft, sourceID: id,
+                                                                        tag: tag))
+                guard Self.isHeld(s, j, by: id) else { continue }
+                caught += 1
+            } else if !regather {
+                continue
+            }
+            let gap = s.units[owner].radius + s.units[j].radius + Tune.ultPullGap
+            Kit.pull(&s, ctx, target: j, toward: center, distance: s.units[j].pos.distance(to: center),
+                     duration: pullLeft, gap: gap)
+        }
+        if caught > 0 { s.units[owner].hero!.kit!.borgPulled += caught }
+    }
+
+    /// 捕まえた敵を放す（爆発までのスタンを外す）。stopPull = 引き寄せの途中でも止める（詠唱を中断したとき）。
+    private func releaseHeld(_ s: inout SimState, owner: Int, stopPull: Bool) {
+        let tag = Self.holdTag(s.units[owner].id)
+        for j in s.units.indices {
+            guard s.units[j].statuses.contains(where: { $0.kind == .stun && $0.tag == tag }) else { continue }
+            s.units[j].statuses.removeAll { $0.kind == .stun && $0.tag == tag }
+            if stopPull, let d = s.units[j].displacement, d.kind == .knockback { s.units[j].displacement = nil }
+        }
+    }
+
+    /// 奥義の前半の終わり: ここから先は CC では止まらず、suppress だけが詠唱を止める。
+    private func enterSecondHalf(_ s: inout SimState, owner: Int) {
+        guard s.units[owner].hero?.kit?.borgUltPhase == 1 else { return }
+        s.units[owner].hero!.kit!.borgUltPhase = 2
+    }
+
+    /// 奥義の取り消し（前半の CC・後半の suppress・予約の消失）: 爆発を捨て、捕まえた敵を放して詠唱を終える（クールダウンは戻らない）。
+    private func cancelImplosion(_ s: inout SimState, owner: Int) {
+        Kit.cancelScheduled(&s, caster: owner, slot: .ultimate)
+        releaseHeld(&s, owner: owner, stopPull: true)
+        endChannel(&s, owner)
+    }
+
+    /// 奥義の爆発: 周囲の敵にダメージ + 残りのスタン（ultSlamStun。捕まえておくスタンと合わせて発動から ultStun 秒）。
+    /// suppress を受けていれば不発（捕まえた敵は放す）。
     private func detonate(_ s: inout SimState, _ ctx: SimContext, owner: Int, timer: KitTimer) {
         guard s.units[owner].hero?.kit?.borgUltPhase == 2 else { return }
         endChannel(&s, owner)
+        releaseHeld(&s, owner: owner, stopPull: false)
         guard !s.units[owner].has(.suppress) else { return }
-        let stun = StatusEffect(kind: .stun, duration: Tune.ultStun, sourceID: s.units[owner].id,
+        let stun = StatusEffect(kind: .stun, duration: Tune.ultSlamStun, sourceID: s.units[owner].id,
                                 tag: CombatSystem.tagStun)
         let p = HitPayload(damage: timer.param, damageType: .physical, source: .skill(.ultimate), statuses: [stun],
                            skillID: Self.skillID(ctx, .ultimate))
@@ -495,27 +629,31 @@ struct Kit_H029: HeroKit {
     func update(_ s: inout SimState, _ ctx: SimContext, owner: Int) {
         guard let k = s.units[owner].hero?.kit else { return }
         guard k.borgUltPhase != 0 else { return }
-        // 引き寄せたあとは suppress だけが詠唱を止める（溜めの間は KitRuntime がハード CC で取り消す）
+        // 後半は suppress だけが詠唱を止める（前半は KitRuntime がハード CC で取り消す → onInterrupted）
         if k.borgUltPhase == 2, s.units[owner].has(.suppress) {
-            Kit.cancelScheduled(&s, caster: owner, slot: .ultimate)
-            endChannel(&s, owner)
+            cancelImplosion(&s, owner: owner)
             return
         }
         // 詠唱中は動かず、攻撃も始めない
         s.units[owner].attackTargetID = nil
         s.units[owner].windupRemaining = nil
         s.units[owner].moveIntent = .none
+        // 引き寄せの間に術者が動いた（瞬歩）: 新しい位置へ集め直す
+        let elapsed = Tune.ultTotal - k.borgChannel
+        if elapsed < Tune.ultPullTime, s.units[owner].pos.distance(to: k.borgPullCenter) > Tune.ultRegatherDistance {
+            s.units[owner].hero!.kit!.borgPullCenter = s.units[owner].pos
+            gather(&s, ctx, owner: owner, elapsed: elapsed, regather: true)
+        }
         // 予約が消えていたら（想定外の取り消し）詠唱を終える
-        if Kit.scheduledCount(s, caster: owner, code: Code.ultPull) + Kit.scheduledCount(s, caster: owner, code: Code.ultDetonate) == 0 {
-            endChannel(&s, owner)
+        if Kit.scheduledCount(s, caster: owner, code: Code.ultHalf) + Kit.scheduledCount(s, caster: owner, code: Code.ultDetonate) == 0 {
+            cancelImplosion(&s, owner: owner)
         }
     }
 
     func onInterrupted(_ s: inout SimState, _ ctx: SimContext, owner: Int) {
-        // 溜めの間に CC を受けた: 引き寄せの予約が消えたので、爆発の予約も捨てて詠唱を終える（クールダウンは戻らない）
+        // 前半に CC を受けた: 前半の終わりの予約が消えたので、爆発の予約も捨て、捕まえた敵を放して詠唱を終える
         guard s.units[owner].hero?.kit?.borgUltPhase == 1 else { return }
-        Kit.cancelScheduled(&s, caster: owner, slot: .ultimate)
-        endChannel(&s, owner)
+        cancelImplosion(&s, owner: owner)
     }
 
     // MARK: - C. パッシブ（聖鎚の誓い）
@@ -632,7 +770,7 @@ struct Kit_H029: HeroKit {
     /// 突進に巻き込んだ敵を、突進の終点の先まで同じ向きに押し運ぶ（到着に間に合う速さで）。CC 無効の相手は動かない。
     private func carry(_ s: inout SimState, _ ctx: SimContext, owner: Int, target t: Int) {
         guard Kit.canDisplace(s, ctx, t), let k = s.units[owner].hero?.kit else { return }
-        var dir = k.borgAim
+        var dir = k.borgDashDir
         if dir == .zero { dir = Vec2.fromAngle(s.units[owner].facing) }
         let remaining: Double
         if let d = s.units[owner].displacement, d.kind == .dash {
