@@ -49,6 +49,7 @@ final class StageScene {
                 """)
         }
         buildGround(material: materials.ground)
+        add(plan.layout.edgeSkirt, name: "stageEdgeSkirt", material: materials.flora, castsShadow: false)
         let chunks = plan.layout.chunks
         for key in Set(chunks.props.keys).union(chunks.rocks.keys).union(chunks.flora.keys).sorted() {
             add(chunks.rocks[key], name: "stageRock_\(key)", material: materials.rock)

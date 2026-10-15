@@ -48,6 +48,8 @@ struct StageLayoutResult: Sendable {
     /// 泉の台座（新セットの spawn_dais）の柱の頂部の受け皿（world）。添字 = Team.players の順。台座が無いセットでは空。
     /// MapScene がここへチーム色の小さな結晶を置く。
     var fountainSockets: [[SIMD3<Float>]] = []
+    /// 地図の外の暗がり（頂点色の板。border が作る。lite では空）。
+    var edgeSkirt = StageMeshBuffer()
 }
 
 struct StagePlacement: Sendable {
@@ -177,65 +179,16 @@ struct StageLayout {
         }
     }
 
-    /// 矩形の壁: 芯の岩山 + 4 辺に崖の岩 + 角に柱状の岩 + 上に茂みと木。
+    /// 矩形の壁: 足跡いっぱいの一枚岩（slabCore）+ 上に茂みと木。
+    /// 2026-10-16 まで辺に崖の岩・角に柱状の岩を並べていたが、境界がガタガタで隙間が暗く見えたので一枚岩にした。
     mutating func rectWall(lo: SIMD2<Float>, hi: SIMD2<Float>, index: Int) {
-        let w = hi.x - lo.x, d = hi.y - lo.y
-        let coreH = rng.range(1.35, 1.6)
-        // 芯
-        let outline = StageLayout.roundedRect(lo: lo + 0.3, hi: hi - 0.3, radius: min(0.9, min(w, d) * 0.3), step: 0.8)
-        let core = StageLayout.rockCore(outline: outline, height: coreH, topInset: 0.35, seed: UInt64(index) &* 977, tint: rockTint())
-        appendRock(core, at: (lo + hi) / 2)
-        // 辺の崖（外向き）。カメラは南から北を見下ろすので、高い物は奥（北）の地面を隠す。
-        // 北の辺は低く（壁の向こうの歩ける所を隠さない）、南の辺は高く（隠すのは壁の上だけ）
-        let rock = size(.cliffRockA)
-        let sides: [(a: SIMD2<Float>, b: SIMD2<Float>, out: SIMD2<Float>)] = [
-            (SIMD2(lo.x, lo.y), SIMD2(hi.x, lo.y), SIMD2(0, -1)),  // 南
-            (SIMD2(hi.x, lo.y), SIMD2(hi.x, hi.y), SIMD2(1, 0)),   // 東
-            (SIMD2(hi.x, hi.y), SIMD2(lo.x, hi.y), SIMD2(0, 1)),   // 北
-            (SIMD2(lo.x, hi.y), SIMD2(lo.x, lo.y), SIMD2(-1, 0)),  // 西
-        ]
-        for (si, s) in sides.enumerated() {
-            let len = simd_distance(s.a, s.b)
-            let dir = (s.b - s.a) / max(len, 1e-3)
-            let n = max(1, Int(ceil(len / 3.8)))
-            let other = si % 2 == 0 ? d : w // 壁の奥行き（この辺に垂直）
-            for k in 0..<n {
-                // 短い辺では辺より長くしない（角の先へのはみ出しは片側 0.15 m まで）
-                let width = min(len + 0.3, min(5.8, max(2.0, len / Float(n) * 1.3)))
-                // 端の岩が角の先へはみ出さないように（はみ出しは 0.2 m まで）
-                var along = (Float(k) + 0.5) / Float(n) * len + rng.range(-0.2, 0.2)
-                along = len > width - 0.4 ? min(max(along, width / 2 - 0.2), len - width / 2 + 0.2) : len / 2
-                let sx = width / rock.x
-                let h = si == 0 ? rng.range(1.9, 2.5) : (si == 2 ? rng.range(1.4, 1.8) : rng.range(1.7, 2.3))
-                let sy = h / rock.y
-                // 奥行きは壁の厚みの 7 割まで（反対側の辺の岩と重なりすぎないように）
-                let sz = min(sx, other * 0.7 / rock.z)
-                let depth = rock.z * sz
-                let p = s.a + dir * along - s.out * (depth / 2 - 0.08)
-                let yaw = atan2(dir.y, dir.x) + (rng.chance(0.5) ? .pi : 0) + rng.range(-0.04, 0.04)
-                place(.cliffRockA, at: p, y: -0.06, yaw: yaw, scale: SIMD3(sx, sy, sz))
-            }
-        }
-        // 角
-        let corners = [SIMD2(lo.x, lo.y), SIMD2(hi.x, lo.y), SIMD2(hi.x, hi.y), SIMD2(lo.x, hi.y)]
-        for (ci, c) in corners.enumerated() {
-            // 軸ごとに内側へ（向きによらない足跡の半径だけ入れ、はみ出しは 0.25 m まで）
-            let sg = SIMD2<Float>(c.x < (lo.x + hi.x) / 2 ? 1 : -1, c.y < (lo.y + hi.y) / 2 ? 1 : -1)
-            let north = ci >= 2
-            if !north && rng.chance(0.6) {
-                let b = size(.cliffRockB)
-                let k = rng.range(2.0, 2.5) / b.y
-                let r = simd_length(SIMD2(b.x, b.z)) * k / 2
-                place(.cliffRockB, at: c + sg * max(0, r - 0.25), y: -0.06, yaw: rng.range(0, 6.28), scale: SIMD3(k, k, k))
-            } else {
-                let b = size(.boulder)
-                let k = rng.range(1.5, 2.0) / max(b.x, b.z)
-                let ky = min(k, (north ? 1.35 : 1.7) / b.y)
-                let r = simd_length(SIMD2(b.x, b.z)) * k / 2
-                place(.boulder, at: c + sg * max(0, r - 0.25), y: -0.08, yaw: rng.range(0, 6.28), scale: SIMD3(k, ky, k))
-            }
-        }
-        // 上の茂みと木（内側 0.9 m より内）
+        let coreH = rng.range(1.85, 2.15)
+        // 角は少し丸める（衝突は角の立った膨張なので丸めすぎない。足元は裾 0.28 m の張り出しで角の近くまで埋まる）。
+        // 半径は上面の縁の入り（slabCore の inset、最大 0.55 m・短辺の 0.28 倍）以上にする（小さいと角で上面の輪が裏返る）
+        let outline = StageLayout.roundedRect(lo: lo, hi: hi, radius: min(0.6, min(hi.x - lo.x, hi.y - lo.y) * 0.45), step: 1.1)
+        appendRock(StageLayout.slabCore(outline: outline, height: coreH, seed: UInt64(index) &* 977, tint: rockTint()), at: (lo + hi) / 2)
+        // 上の茂みと木（内側 0.9 m より内。上面は北ほど低いので少し沈める）
+        let top = coreH * 0.92
         let ilo = lo + 0.9, ihi = hi - 0.9
         guard ihi.x > ilo.x, ihi.y > ilo.y else { return }
         let area = (ihi.x - ilo.x) * (ihi.y - ilo.y)
@@ -244,13 +197,13 @@ struct StageLayout {
             let p = SIMD2(rng.range(ilo.x, ihi.x), rng.range(ilo.y, ihi.y))
             let b = size(.bush)
             let k = rng.range(1.1, 1.8) / max(b.x, b.z)
-            place(.bush, at: p, y: coreH - 0.25, yaw: rng.range(0, 6.28), scale: SIMD3(k, k * rng.range(0.85, 1.15), k))
+            place(.bush, at: p, y: top - 0.25, yaw: rng.range(0, 6.28), scale: SIMD3(k, k * rng.range(0.85, 1.15), k))
         }
         let trees = Int((area / 13 * density).rounded())
         for t in 0..<trees {
             // 南（手前）に寄せる: 木が隠すのは壁の上になる（北に置くと壁の向こうの歩ける所を隠す）
             let p = SIMD2(rng.range(ilo.x, ihi.x), ilo.y + (ihi.y - ilo.y) * rng.range(0, 0.65))
-            placeTree(at: p, y: coreH - 0.3, height: rng.range(2.8, 3.3), tall: t % 3 == 2)
+            placeTree(at: p, y: top - 0.3, height: rng.range(2.8, 3.3), tall: t % 3 == 2)
         }
     }
 
@@ -261,44 +214,21 @@ struct StageLayout {
         place(kind, at: p, y: y, yaw: rng.range(0, 6.28), scale: SIMD3(k, k, k) * SIMD3(rng.range(0.92, 1.08), 1, rng.range(0.92, 1.08)))
     }
 
-    /// 円の壁: 芯の岩山 + 周りに岩 + 上に茂み（大きければ木）。
+    /// 円の壁: 足跡いっぱいの丸い一枚岩 + 上に茂み（大きければ木）。
     mutating func circleWall(center c: SIMD2<Float>, radius r: Float, index: Int) {
-        let coreH = rng.range(1.1, 1.35)
+        let coreH = rng.range(1.5, 1.8)
         var outline: [SIMD2<Float>] = []
-        let segs = 18
+        let segs = max(16, Int((2 * .pi * r / 0.9).rounded()))
         for k in 0..<segs {
             let a = Float(k) / Float(segs) * 2 * .pi
-            outline.append(c + SIMD2(cos(a), sin(a)) * (r - 0.3))
+            outline.append(c + SIMD2(cos(a), sin(a)) * r)
         }
-        appendRock(StageLayout.rockCore(outline: outline, height: coreH, topInset: 0.3, seed: UInt64(index) &* 1307, tint: rockTint()), at: c)
-        let n = max(3, Int((2 * .pi * r / 2.3).rounded()))
-        let a0 = rng.range(0, 6.28)
-        for k in 0..<n {
-            let a = a0 + Float(k) / Float(n) * 2 * .pi
-            let outward = SIMD2(cos(a), sin(a))
-            // 北側（奥）は低く: 高いと壁の向こうの歩ける所を隠す
-            let north = outward.y > 0.5
-            let kind: StagePropKind = k % 3 == 1 ? .boulder : .cliffRockA
-            let b = size(kind)
-            let width = min(3.2, max(1.6, 2 * .pi * r / Float(n) * 1.25))
-            let sx = width / b.x
-            let h = north ? rng.range(1.25, 1.6) : rng.range(1.5, 2.1)
-            let sy = h / b.y
-            let sz = min(sx, r * 0.9 / b.z)
-            let depth = b.z * sz
-            // 接線方向の両端が円の外へ出すぎないよう、幅の半分だけ内側へ寄せる
-            let half = width / 2
-            let reach = (max(0, r * r - half * half)).squareRoot()
-            let p = c + outward * (min(r - depth / 2 + 0.15, reach - depth / 2 + 0.25))
-            // ローカル +X を接線（外向きの法線に垂直）へ
-            let yaw = atan2(outward.y, outward.x) + .pi / 2
-            place(kind, at: p, y: -0.06, yaw: yaw, scale: SIMD3(sx, sy, sz))
-        }
+        appendRock(StageLayout.slabCore(outline: outline, height: coreH, seed: UInt64(index) &* 1307, tint: rockTint()), at: c)
         let b = size(.bush)
         let k = min(1.8, r * 0.9) / max(b.x, b.z)
-        place(.bush, at: c + SIMD2(rng.range(-0.3, 0.3), rng.range(-0.3, 0.3)), y: coreH - 0.2, yaw: rng.range(0, 6.28), scale: SIMD3(k, k, k))
+        place(.bush, at: c + SIMD2(rng.range(-0.3, 0.3), rng.range(-0.3, 0.3)), y: coreH - 0.3, yaw: rng.range(0, 6.28), scale: SIMD3(k, k, k))
         if r >= 2.5 && rng.chance(0.75 * density) {
-            placeTree(at: c + SIMD2(rng.range(-0.4, 0.4), rng.range(0, 0.6)), y: coreH - 0.25, height: rng.range(2.8, 3.3), tall: rng.chance(0.3))
+            placeTree(at: c + SIMD2(rng.range(-0.4, 0.4), rng.range(-0.6, 0)), y: coreH - 0.35, height: rng.range(2.8, 3.3), tall: rng.chance(0.3))
         }
     }
 
@@ -313,42 +243,50 @@ struct StageLayout {
 
     mutating func border() {
         let M = geo.mapMeters
-        let rock = size(.cliffRockA)
-        // 4 辺: (始点, 向き, 外向き)
+        // 縁の崖: 重なり合う一枚岩の帯（2026-10-16。小岩の列だと縁がガタガタに見えた）。
+        // 南は低く遠く（手前の地図を隠さない）、北は高い。北・南の帯は角まで伸ばす
+        for side in 0..<4 {
+            let south = side == 0, north = side == 2, alongX = side % 2 == 0
+            let (u0, u1): (Float, Float) = alongX ? (-7, M + 7) : (-1.5, M + 1.5)
+            var u = u0
+            while u < u1 {
+                let len = max(2.5, min(rng.range(6.5, 9.5), u1 - u + 1))
+                let inner: Float = south ? 2.2 : rng.range(0.8, 1.4)
+                let depth: Float = rng.range(4.2, 5.6)
+                let h: Float = south ? rng.range(1.0, 1.4) : (north ? rng.range(2.5, 3.2) : rng.range(2.1, 2.8))
+                let lo: SIMD2<Float>, hi: SIMD2<Float>
+                switch side {
+                case 0: lo = SIMD2(u, -inner - depth); hi = SIMD2(u + len, -inner)
+                case 1: lo = SIMD2(M + inner, u); hi = SIMD2(M + inner + depth, u + len)
+                case 2: lo = SIMD2(u, M + inner); hi = SIMD2(u + len, M + inner + depth)
+                default: lo = SIMD2(-inner - depth, u); hi = SIMD2(-inner, u + len)
+                }
+                let outline = StageLayout.roundedRect(lo: lo, hi: hi, radius: 0.9, step: 1.3)
+                appendRock(StageLayout.slabCore(outline: outline, height: h, seed: UInt64(side * 1000) &+ UInt64(u + 20) &* 31,
+                                                tint: rockTint()), at: (lo + hi) / 2)
+                u += len - rng.range(0.8, 1.4)
+            }
+        }
         let sides: [(start: SIMD2<Float>, dir: SIMD2<Float>, out: SIMD2<Float>, south: Bool)] = [
             (SIMD2(-16, 0), SIMD2(1, 0), SIMD2(0, -1), true),
             (SIMD2(M, -16), SIMD2(0, 1), SIMD2(1, 0), false),
             (SIMD2(M + 16, M), SIMD2(-1, 0), SIMD2(0, 1), false),
             (SIMD2(0, M + 16), SIMD2(0, -1), SIMD2(-1, 0), false),
         ]
-        // Redistribute the existing border props without changing their size/count.
         let len = Float(MapDefinition.standard.size / Balance.unitsPerMeter) + 32
         let spacing = (M + 32) / len
         let step = 4.4 / max(0.6, density)
         for s in sides {
-            // 縁の崖（南は低く、少し外へ）
-            var t: Float = 0
-            while t < len {
-                let width = rng.range(4.8, 6.2)
-                let sx = width / rock.x
-                let h = s.south ? rng.range(1.1, 1.5) : rng.range(2.0, 2.9)
-                let sy = h / rock.y
-                let sz = sx * rng.range(0.9, 1.2)
-                let off: Float = (s.south ? 2.4 : 1.3) + rock.z * sz * 0.5
-                let p = s.start + s.dir * (t * spacing) + s.out * off
-                place(.cliffRockA, at: p, y: -0.1, yaw: atan2(s.dir.y, s.dir.x) + (rng.chance(0.5) ? .pi : 0), scale: SIMD3(sx, sy, sz))
-                t += width * 0.82
-            }
-            // 森（2〜3 列）。南は木を遠くへ（手前を隠さない）
-            let rows: [Float] = s.south ? [8.5] : [5.2, 10.0]
+            // 森（崖の後ろに 2 列。南は 1 列で遠くへ: 手前を隠さない）
+            let rows: [Float] = s.south ? [8.5] : [6.8, 11.0]
             for (ri, depth) in rows.enumerated() {
                 var u: Float = rng.range(0, step)
                 while u < len {
-                    let p = s.start + s.dir * (u * spacing) + s.out * (depth + rng.range(-1.0, 1.0))
+                    let p = s.start + s.dir * (u * spacing) + s.out * (depth + rng.range(-0.8, 1.0))
                     let tall = ri == rows.count - 1 ? rng.chance(0.6) : rng.chance(0.25)
                     placeTree(at: p, y: -0.05, height: tall ? rng.range(4.4, 5.4) : rng.range(3.6, 4.6), tall: tall)
                     if ri == 0 && rng.chance(0.6 * density) {
-                        let bp = p + s.dir * rng.range(-1.6, 1.6) - s.out * rng.range(1.2, 2.2)
+                        let bp = p + s.dir * rng.range(-1.6, 1.6) + s.out * rng.range(0.4, 1.4)
                         let b = size(.bush)
                         let k = rng.range(1.4, 2.2) / max(b.x, b.z)
                         place(.bush, at: bp, y: -0.05, yaw: rng.range(0, 6.28), scale: SIMD3(k, k, k))
@@ -358,14 +296,7 @@ struct StageLayout {
                 }
             }
         }
-        // 四隅の柱状の岩
-        let corners = [SIMD2<Float>(-3, -3), SIMD2(M + 3, -3), SIMD2(M + 3, M + 3), SIMD2(-3, M + 3)]
-        for (ci, c) in corners.enumerated() {
-            let b = size(.cliffRockB)
-            let h: Float = ci < 2 ? 1.8 : rng.range(2.8, 3.4)
-            let k = h / b.y
-            place(.cliffRockB, at: c, y: -0.1, yaw: rng.range(0, 6.28), scale: SIMD3(k, k, k))
-        }
+        out.edgeSkirt = StageLayout.edgeSkirt(mapMeters: M)
     }
 
     // MARK: 泉の台座（新セット）
@@ -858,68 +789,110 @@ struct StageLayout {
         return pts
     }
 
-    /// 崖の芯の岩山（輪郭を押し出し、上をすぼめて凹凸を付ける）。法線は滑らか。
-    static func rockCore(outline: [SIMD2<Float>], height h: Float, topInset: Float, seed: UInt64, tint: SIMD4<UInt8>) -> StageMeshBuffer {
+    /// 壁の一枚岩（2026-10-16）。足跡の輪郭をそのまま押し出し、裾を少し広げ、上の縁を丸めて苔の平らな上面にした 1 つの塊。
+    /// 小さな岩を辺に並べると境界がガタガタで隙間が暗く見えるので、壁 1 つを滑らかな 1 つの塊にする（MLBB 風のスタイライズ）。
+    /// outline は凸（矩形・円）。北向きの面は 2 割低く（カメラは南から見下ろすので、壁の向こうの歩ける所を隠さない）。
+    /// 裾は足跡から 0.3 m まで（docs/STAGE.md 1 章の 0.4 m の規則）。法線は滑らか（シェーダーが上向きの面を苔にする）。
+    static func slabCore(outline raw: [SIMD2<Float>], height h: Float, seed: UInt64, tint: SIMD4<UInt8>) -> StageMeshBuffer {
         var rng = RenderRNG(seed: seed | 1)
-        let n = outline.count
+        let n = raw.count
         guard n >= 3 else { return StageMeshBuffer() }
+        // 反時計回りに揃える
+        var area: Float = 0
+        for k in 0..<n { let a = raw[k], b = raw[(k + 1) % n]; area += a.x * b.y - b.x * a.y }
+        let outline = area < 0 ? Array(raw.reversed()) : raw
         let center = outline.reduce(SIMD2<Float>.zero, +) / Float(n)
-        // 段: (高さの割合, 外への張り出し m)
-        let levels: [(Float, Float)] = [(-0.08, 0.0), (0.45, 0.12), (0.8, -topInset * 0.4), (1.0, -topInset)]
-        var rings: [[SIMD3<Float>]] = []
-        for (li, (fy, push)) in levels.enumerated() {
-            var ring: [SIMD3<Float>] = []
-            for k in 0..<n {
-                let p = outline[k]
-                let out = simd_length(p - center) > 1e-4 ? simd_normalize(p - center) : SIMD2(1, 0)
-                let jitter = li == 0 ? 0 : rng.range(-0.12, 0.12)
-                let q = p + out * (push + jitter)
-                let y = fy < 0 ? fy : h * fy + (li == levels.count - 1 ? rng.range(-0.12, 0.1) : rng.range(-0.06, 0.06))
-                ring.append(SIMD3(q.x, y, -q.y))
-            }
-            rings.append(ring)
+        var lo = outline[0], hi = outline[0]
+        for p in outline { lo = simd_min(lo, p); hi = simd_max(hi, p) }
+        // 上面の縁の内側への入り（細い壁で反対側と交差しない量）
+        let inset = min(0.55, min(hi.x - lo.x, hi.y - lo.y) * 0.28)
+        // 頂点ごとの外向きの法線（隣り合う辺の法線の平均）・高さ・ふくらみ
+        var normals: [SIMD2<Float>] = [], heights: [Float] = [], bulge: [Float] = []
+        for k in 0..<n {
+            let a = outline[(k + n - 1) % n], b = outline[k], c = outline[(k + 1) % n]
+            let e0 = simd_normalize(b - a), e1 = simd_normalize(c - b)
+            let nn = SIMD2(e0.y, -e0.x) + SIMD2(e1.y, -e1.x)
+            normals.append(simd_length(nn) > 1e-5 ? simd_normalize(nn) : simd_normalize(b - center))
+            heights.append(h * (1 - 0.2 * max(0, normals[k].y)) + rng.range(-0.05, 0.05))
+            bulge.append(rng.range(-0.04, 0.05))
         }
-        // 頂点（共有）と三角形
-        var positions: [SIMD3<Float>] = rings.flatMap { $0 }
-        let top = SIMD3<Float>(center.x, h + 0.08, -center.y)
-        positions.append(top)
+        // 段: (高さの割合（負は絶対値 m）, 外への張り出し m, ふくらみの効き, 明るさ)
+        let levels: [(fy: Float, push: Float, bulge: Float, shade: Float)] = [
+            (-0.06, 0.28, 0, 0.84), (0.16, 0.17, 0.5, 0.9), (0.5, 0.07, 1, 1.0), (0.86, 0.0, 1, 1.05),
+            (1.0, -inset * 0.4, 0.5, 1.1), (1.02, -inset, 0, 1.14),
+        ]
+        var buf = StageMeshBuffer(reserveVertices: n * levels.count + 1)
+        var positions: [SIMD3<Float>] = []
+        var colors: [SIMD4<UInt8>] = []
+        func shaded(_ s: Float) -> SIMD4<UInt8> {
+            func m(_ v: UInt8) -> UInt8 { UInt8(max(0, min(255, (Float(v) * s).rounded()))) }
+            return SIMD4(m(tint.x), m(tint.y), m(tint.z), tint.w)
+        }
+        for l in levels {
+            for k in 0..<n {
+                let q = outline[k] + normals[k] * (l.push + bulge[k] * l.bulge)
+                let y = l.fy < 0 ? l.fy : heights[k] * l.fy
+                positions.append(SIMD3(q.x, y, -q.y))
+                colors.append(shaded(l.shade))
+            }
+        }
+        let topY = heights.reduce(0, +) / Float(n) * 1.02 + 0.04
+        positions.append(SIMD3(center.x, topY, -center.y))
+        colors.append(shaded(1.14))
         let topIndex = positions.count - 1
         var tris: [(Int, Int, Int)] = []
-        func idx(_ ring: Int, _ k: Int) -> Int { ring * n + (k % n) }
-        // 側面: 輪郭は地図座標で反時計回り → 外から見て反時計回りになる順で
-        for r in 0..<(rings.count - 1) {
+        func idx(_ r: Int, _ k: Int) -> Int { r * n + (k % n) }
+        // 輪郭は地図座標で反時計回り（上から見ても反時計回り）→ 側面は外から見て反時計回りになる順で
+        for r in 0..<(levels.count - 1) {
             for k in 0..<n {
                 let a = idx(r, k), b = idx(r, k + 1), c = idx(r + 1, k + 1), d = idx(r + 1, k)
                 tris.append((a, b, c))
                 tris.append((a, c, d))
             }
         }
-        let last = rings.count - 1
+        let last = levels.count - 1
         for k in 0..<n { tris.append((idx(last, k), idx(last, k + 1), topIndex)) }
-        // 向きの確認（外向きでなければ全体を反転）
-        var score: Float = 0
+        var vn = [SIMD3<Float>](repeating: .zero, count: positions.count)
         for t in tris {
             let a = positions[t.0], b = positions[t.1], c = positions[t.2]
             let nrm = simd_cross(b - a, c - a)
-            let mid = (a + b + c) / 3
-            score += simd_dot(nrm, mid - SIMD3(center.x, h * 0.4, -center.y))
+            vn[t.0] += nrm
+            vn[t.1] += nrm
+            vn[t.2] += nrm
         }
-        if score < 0 { tris = tris.map { ($0.0, $0.2, $0.1) } }
-        var normals = [SIMD3<Float>](repeating: .zero, count: positions.count)
-        for t in tris {
-            let a = positions[t.0], b = positions[t.1], c = positions[t.2]
-            let nrm = simd_cross(b - a, c - a)
-            normals[t.0] += nrm
-            normals[t.1] += nrm
-            normals[t.2] += nrm
-        }
-        var buf = StageMeshBuffer(reserveVertices: positions.count)
         for (i, p) in positions.enumerated() {
-            let nn = simd_length(normals[i]) > 1e-6 ? simd_normalize(normals[i]) : SIMD3<Float>(0, 1, 0)
-            positions[i] = p
-            buf.addVertex(p, nn, .zero, tint)
+            let nn = simd_length(vn[i]) > 1e-6 ? simd_normalize(vn[i]) : SIMD3<Float>(0, 1, 0)
+            buf.addVertex(p, nn, .zero, colors[i])
         }
         for t in tris { buf.addTriangle(UInt32(t.0), UInt32(t.1), UInt32(t.2)) }
+        return buf
+    }
+
+    /// 地図の外の暗がり（2026-10-16）。外周の崖の下（縁から 3 m）から外へ、暗い森の地面 → ほぼ黒へ落とす。
+    /// 頂点色だけの不透明な板（stageVertexColorSurface、揺れの重み 0）。地図の切れ目と地平線を見せない。
+    static func edgeSkirt(mapMeters M: Float) -> StageMeshBuffer {
+        // (縁からの距離 m, 線形の色)
+        let rings: [(Float, SIMD3<Float>)] = [
+            (3, SIMD3(0.020, 0.032, 0.026)), (12, SIMD3(0.007, 0.012, 0.011)), (30, SIMD3(0.002, 0.003, 0.004)),
+            (80, SIMD3(0.001, 0.0015, 0.002)),
+        ]
+        var buf = StageMeshBuffer(reserveVertices: rings.count * 4)
+        let y: Float = 0.006 // 地面（0）・細部タイル（0.004）より上、石畳（0.010）より下
+        let up = SIMD3<Float>(0, 1, 0)
+        for (d, c) in rings {
+            for corner in [SIMD2<Float>(-d, -d), SIMD2(M + d, -d), SIMD2(M + d, M + d), SIMD2(-d, M + d)] {
+                buf.addVertex(SIMD3(corner.x, y, -corner.y), up, .zero, stageColor(c.x, c.y, c.z, 0))
+            }
+        }
+        // 上から見て反時計回り（world の法線 +Y）。地図座標の反時計回りは world でも上から見て反時計回り
+        for r in 0..<(rings.count - 1) {
+            for k in 0..<4 {
+                let a = UInt32(r * 4 + k), b = UInt32(r * 4 + (k + 1) % 4)
+                let c = UInt32((r + 1) * 4 + (k + 1) % 4), d = UInt32((r + 1) * 4 + k)
+                buf.addTriangle(a, d, c)
+                buf.addTriangle(a, c, b)
+            }
+        }
         return buf
     }
 }

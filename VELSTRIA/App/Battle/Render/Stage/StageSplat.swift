@@ -143,7 +143,8 @@ enum StageSplat {
                 var ao: Float = (1 - smoothstep(0, 1.6, dObs)) * 0.75 + (1 - smoothstep(0, 3.4, dObs)) * 0.25
                 ao = max(ao, shadeGrid.shade(at: p))
                 if obstacleGrid.inBrush(p, margin: 0.2) { ao = max(ao, 0.32) }
-                ao = max(ao, smoothstep(0, 10, geo.outsideDistance(p)) * 0.55)
+                // 地図の外は崖の帯（縁から 1〜7 m）へ向かって暗く（その外は StageLayout.edgeSkirt の暗がり）
+                ao = max(ao, smoothstep(0, 7, geo.outsideDistance(p)))
                 let macro = fbm(p * 0.035, seed: 83) * 0.85 + valueNoise(p * 0.21, seed: 89) * 0.15
                 let rd = geo.riverDistance(p)
                 var depth = 1 - smoothstep(0, halfWidth, rd)
