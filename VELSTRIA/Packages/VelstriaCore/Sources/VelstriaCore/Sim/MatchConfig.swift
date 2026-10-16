@@ -96,17 +96,14 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     /// 28: H034（フランコ）のパッシブ ワイルドフォースを MLBB の画面収録に合わせた（闘気 1 つ +15% → +5%・10 で 1.5 倍、
     ///     消費はスキルの発動ではなくダメージが当たった時（外れたら残る）、奥義は 1 撃ごとにその時の闘気を掛けて最後の 1 撃で消費）。
     ///     docs/kits/Franco.md「パッシブを動画に合わせた（2026-10-16）」。
-    public static let currentSimVersion = 30
-    /// 27・28 はフランコ・ミヤの作業（別のブランチ）が使うので飛ばす。
     /// 29: H031（オーロラ）の幾何と時間を MLBB の画面収録で測った値に（スキル1 = 射程 556・半径 191・0.56 秒で着弾・雹 5 発は同じ円の
     ///     全員に 0.47 秒後から 0.15 秒おき、スキル2 = 半径 602・半角 25.3°・0.56 秒で霜風・0.76 秒に扇の先の半分（290〜602）の
     ///     凍結エリアで凍結・0.13 秒おきに 3 回、奥義 = 0.26 秒で道（−70〜680・半幅 48）・1.49 秒で帯の氷河（−70〜620・半幅 245）が
     ///     砕けて凍結）。ゾーンに内側の欠け（innerRadius）と端の四角い線分（squareEnds）を足した。docs/kits/Aurora.md「動画で測った値」。
-    public static let currentSimVersion = 29
     /// 30: H025（ミヤ）の幾何と時間を MLBB の画面収録で測った値に（通常攻撃の矢 = 毎秒 1650、月影 = 主矢の命中で術者から放つ、
     ///     スキル2 = 射程 545・離してから 0.65 秒で着弾・その 0.33 秒後に 6 本が撃った向きから 0° / ±60° / ±120° / 180° へ
     ///     毎秒 1250 で 400）。docs/kits/Miya.md「動画で測った値」。27（フランコ）と 29（オーロラ）は並行する別の作業が使う番号。
-    public static let currentSimVersion = 28
+    public static let currentSimVersion = 30
 
     public var simVersion: Int
     public var mode: MatchMode
