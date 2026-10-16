@@ -23,6 +23,11 @@ final class CreatureAssetsTests: XCTestCase {
             case .whelp: .azureWhelp
             case .wanderer: .mossWanderer
             case .golem: .magmaGolem
+            case .beetle: .emberBeetle
+            case .grub: .emberGrub
+            case .crab: .treasureCrab
+            case .crablet: .crablet
+            case .lizard: .hornLizard
             }
             let m = try XCTUnwrap(CreatureAssets.model(mk), "\(kind.fileName) が読めない")
             for clip in CreatureAssets.Clip.allCases {

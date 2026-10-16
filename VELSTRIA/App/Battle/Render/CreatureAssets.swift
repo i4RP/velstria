@@ -20,6 +20,11 @@ enum CreatureAssets {
         case whelp = "monster_whelp"
         case wanderer = "monster_wanderer"
         case golem = "monster_golem"
+        case beetle = "monster_beetle"
+        case grub = "monster_grub"
+        case crab = "monster_crab"
+        case crablet = "monster_crablet"
+        case lizard = "monster_lizard"
 
         var fileName: String { "Creature_\(rawValue)" }
 
@@ -32,6 +37,11 @@ enum CreatureAssets {
             case .azureWhelp: return .whelp
             case .mossWanderer: return .wanderer
             case .magmaGolem: return .golem
+            case .emberBeetle: return .beetle
+            case .emberGrub: return .grub
+            case .treasureCrab: return .crab
+            case .crablet: return .crablet
+            case .hornLizard: return .lizard
             default: return nil
             }
         }
@@ -40,8 +50,8 @@ enum CreatureAssets {
         var triangleBudget: Int {
             switch self {
             case .turtle, .lord: return 6000
-            case .red, .purple, .golem: return 5000
-            case .whelp, .wanderer: return 2800
+            case .red, .purple, .golem, .beetle, .crab, .lizard: return 5000
+            case .whelp, .wanderer, .grub, .crablet: return 2800
             }
         }
     }
