@@ -135,7 +135,10 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     ///     致命の一撃 = 3 撃に等分（+0 / +4 / +6 tick。防御ダウンは 1 撃目と一緒）、敵にダメージを与えたときのレイジ = 通常攻撃 2・円撃 10・
     ///     スキル1 は敵ごとに 10・突進 15・致命の一撃 1 撃ごとに 5・奥義 敵ごとに 15）。ダメージ・係数・減衰率・倍率は変えていない。
     ///     docs/kits/Dyrroth.md「動画に合わせた仕組み（2026-10-16）」。
-    public static let currentSimVersion = 39
+    /// 40: H028（セイバー）のスキル1 の剣を MLBB の画面収録に合わせた（剣撃 1 本ごとに輪の剣を 1 本使い、使った剣は戻らない・その剣の接触も
+    ///     無くなる・5 本を使い切ると効果がその場で終わる。スキル1 のバッジは残りの剣の本数）。ダメージ・係数・CD 短縮の秒数は変えていない。
+    ///     docs/kits/Saber.md「剣の本数（2026-10-16）」。**番号はマージのときに付け直す**。
+    public static let currentSimVersion = 40
 
     public var simVersion: Int
     public var mode: MatchMode

@@ -627,14 +627,180 @@ final class Kit_H028Tests: XCTestCase {
         XCTAssertEqual(hits.count, Tune.pulseCount, "作り直したぶんだけ")
     }
 
+    /// スキル1 のバッジは輪に残っている剣の本数（演出の回る刃もこの数で減る）。剣が戻ると消える。
     func testSwordsCastWithoutAnyEnemyAndShowBadge() throws {
         var (w, k) = world()
         XCTAssertTrue(w.cast(k, .skill1), "敵が居なくても撃てる")
         w.tick(3)
         let badge = try XCTUnwrap(HeroKits.badge(w.s.units[k].hero!, slot: .skill1))
-        XCTAssertEqual(badge.kind, .timer)
-        XCTAssertEqual(badge.total, Tune.swordsDuration)
-        XCTAssertLessThan(badge.remaining, Tune.swordsDuration)
+        XCTAssertEqual(badge, KitBadge(kind: .stacks, value: Tune.swordCount, maxValue: Tune.swordCount))
+        w.run(seconds: Tune.swordsDuration)
+        XCTAssertNil(HeroKits.badge(w.s.units[k].hero!, slot: .skill1))
+        XCTAssertEqual(kit(w, k).zailSwordsLeft, 0, "戻った剣は数えない")
+        XCTAssertEqual(kit(w, k).zailSpentSwords, 0)
+    }
+
+    // MARK: - S1: 剣の本数（docs/kits/Saber.md「剣の本数（2026-10-16）」）
+
+    /// 動画: 通常攻撃（強化通常攻撃を含む）のたびに輪の剣が 1 本飛び、その剣の席は戻りまで空のまま。
+    /// 5 回の通常攻撃で 5 本を使い、5 本目で効果が終わる（バッジ・接触の予約も消える）。5 本目の剣撃は飛んでいる途中なのでそのまま当たる。
+    func testFiveBasicAttacksUseFiveSwordsAndTheOrbitEndsAfterTheFifth() throws {
+        var (w, k) = world()
+        let e = addEnemy(&w, dx: 140)
+        let tid = w.id(e)
+        XCTAssertTrue(w.cast(k, .skill1))
+        XCTAssertEqual(kit(w, k).zailSwordsLeft, Tune.swordCount)
+        XCTAssertEqual(Kit.scheduledCount(w.s, caster: k, code: 1), Tune.pulseCount)
+        // 1 回目は S2 の強化通常攻撃（剣は強化通常攻撃でも飛ぶ: 動画の 171・554 コマ）
+        w.s.units[k].hero!.kit!.zailChargeWindow = Tune.enhanceWindow
+        w.s.units[k].attackTargetID = tid
+        var lefts: [Int] = []
+        var badges: [Int] = []
+        var attacks = 0
+        var strikesLanded = 0
+        let castTime = w.s.time
+        while attacks < Tune.swordCount, w.s.time - castTime < Tune.swordsDuration {
+            w.log.removeAll(keepingCapacity: true)
+            w.tick()
+            fullHP(&w, e)
+            strikesLanded += w.damageEvents.filter { $0.targetID == tid && $0.source == .skill(.skill1) }.count
+            let n = w.damageEvents.filter { $0.targetID == tid && $0.source == .basicAttack }.count
+            guard n > 0 else { continue }
+            attacks += n
+            lefts.append(kit(w, k).zailSwordsLeft)
+            badges.append(HeroKits.badge(w.s.units[k].hero!, slot: .skill1)?.value ?? 0)
+        }
+        XCTAssertEqual(attacks, Tune.swordCount, "4.8 秒のうちに 5 回殴れる")
+        XCTAssertEqual(lefts, [4, 3, 2, 1, 0], "通常攻撃 1 回ごとに 1 本")
+        XCTAssertEqual(badges, [4, 3, 2, 1, 0], "バッジは残りの本数（0 本で消える）")
+        XCTAssertEqual(kit(w, k).zailChargeWindow, 0, "1 回目は強化通常攻撃だった")
+        XCTAssertEqual(kit(w, k).zailSwordStrikes, Tune.swordCount)
+        XCTAssertLessThan(w.s.time - castTime, Tune.swordsDuration - 0.3, "効果時間の前に使い切った")
+        // 5 本目で効果が終わる: 剣の輪・バッジ・残りの接触の予約が無くなる
+        XCTAssertEqual(kit(w, k).zailSwordsRemaining, 0)
+        XCTAssertNil(HeroKits.badge(w.s.units[k].hero!, slot: .skill1))
+        XCTAssertEqual(Kit.scheduledCount(w.s, caster: k, code: 1), 0, "接触の予約は取り消した")
+        XCTAssertEqual(Kit.scheduledCount(w.s, caster: k, code: 2), 1, "5 本目の剣撃は飛んでいる")
+        w.log.removeAll()
+        w.run(seconds: 0.2)
+        strikesLanded += w.damage(to: e, from: .skill(.skill1)) > 0 ? 1 : 0
+        XCTAssertEqual(strikesLanded, Tune.swordCount, "5 本とも当たった")
+        // もう剣は無い: 殴っても飛ばない
+        w.log.removeAll()
+        w.run(seconds: 2)
+        XCTAssertGreaterThanOrEqual(w.damageEvents.filter { $0.targetID == tid && $0.source == .basicAttack }.count, 1)
+        XCTAssertEqual(w.damage(to: e, from: .skill(.skill1)), 0, "剣が無いので剣撃は飛ばない")
+        XCTAssertEqual(kit(w, k).zailSwordStrikes, Tune.swordCount)
+    }
+
+    /// 当たった剣撃 1 本ごとに S2（断空突進）のクールダウン −1 秒・S1（環剣）自身 −0.5 秒（日本語クライアント。動画: 3 本で S1 8.5 秒・S2 4.03 秒）。
+    /// 5 本で S2 −5 秒・S1 −2.5 秒。外れた剣撃も剣は使うが、クールダウンは縮まない。
+    func testEachStrikeThatHitsCutsChargeByOneSecondAndSwordsByHalfASecond() {
+        var (w, k) = world()
+        let e = addEnemy(&w, dx: 200)
+        XCTAssertTrue(w.cast(k, .skill1))
+        w.s.units[k].hero!.skillCooldowns[SkillSlot.skill2.rawValue] = 9.5
+        var last2 = w.s.units[k].hero!.cooldown(.skill2)
+        var last1 = w.s.units[k].hero!.cooldown(.skill1)
+        for i in 0..<Tune.swordCount {
+            poke(&w, k, e)
+            XCTAssertEqual(kit(w, k).zailSwordsLeft, Tune.swordCount - 1 - i, "剣撃 \(i + 1) 本目で 1 本使う")
+            let t0 = w.s.time
+            w.run(seconds: Tune.strikeGap + 0.05)
+            let dt = w.s.time - t0
+            let cd2 = w.s.units[k].hero!.cooldown(.skill2)
+            let cd1 = w.s.units[k].hero!.cooldown(.skill1)
+            XCTAssertEqual(last2 - cd2, Tune.chargeRefund + dt, accuracy: 1e-6, "剣撃 \(i + 1): S2 −1 秒")
+            XCTAssertEqual(last1 - cd1, Tune.swordsRefund + dt, accuracy: 1e-6, "剣撃 \(i + 1): S1 −0.5 秒")
+            last2 = cd2
+            last1 = cd1
+        }
+        XCTAssertEqual(kit(w, k).zailSwordStrikes, Tune.swordCount)
+        XCTAssertEqual(kit(w, k).zailSwordsRemaining, 0, "5 本で終わり")
+        // 外れた剣撃: 剣は使うがクールダウンは縮まない
+        var (w2, k2) = world()
+        let e2 = addEnemy(&w2, dx: 200)
+        XCTAssertTrue(w2.cast(k2, .skill1))
+        w2.s.units[k2].hero!.skillCooldowns[SkillSlot.skill2.rawValue] = 5
+        poke(&w2, k2, e2)
+        XCTAssertEqual(kit(w2, k2).zailSwordsLeft, Tune.swordCount - 1)
+        w2.s.units[e2].pos = w2.s.units[k2].pos + Vec2(900, 0)
+        let t0 = w2.s.time
+        w2.run(seconds: 0.3)
+        XCTAssertEqual(w2.s.units[k2].hero!.cooldown(.skill2), 5 - (w2.s.time - t0), accuracy: 1e-6, "外れたら縮まない")
+        XCTAssertEqual(kit(w2, k2).zailSwordsLeft, Tune.swordCount - 1, "外れても剣は戻らない")
+    }
+
+    /// 剣を使い切った後は、殴っても・スキルを当てても剣撃は飛ばない。輪の上の敵への接触も来ない。
+    func testNoStrikeOrContactOnceTheSwordsAreGone() {
+        var (w, k) = world()
+        let e = addEnemy(&w, dx: 200)
+        let onRing = addEnemy(&w, dx: -Tune.orbitRadius, hero: "H003")
+        CombatSystem.addStatus(&w.s, targetIndex: onRing, StatusEffect(kind: .stun, duration: 8, tag: "test.hold"))
+        XCTAssertTrue(w.cast(k, .skill1))
+        for _ in 0..<Tune.swordCount {
+            poke(&w, k, e)
+            w.run(seconds: Tune.strikeGap + 0.02)
+        }
+        XCTAssertEqual(kit(w, k).zailSwordsLeft, 0)
+        XCTAssertEqual(kit(w, k).zailSwordsRemaining, 0)
+        w.log.removeAll()
+        poke(&w, k, e)
+        XCTAssertEqual(Kit.scheduledCount(w.s, caster: k, code: 2), 0, "剣が無いので飛ばない")
+        w.s.units[k].attackTargetID = w.id(e)
+        w.run(seconds: 3)
+        XCTAssertEqual(kit(w, k).zailSwordStrikes, Tune.swordCount)
+        XCTAssertEqual(w.damage(to: e, from: .skill(.skill1)), 0)
+        XCTAssertEqual(w.damage(to: onRing, from: .skill(.skill1)), 0, "剣の輪が無いので接触も無い")
+        XCTAssertTrue(kit(w, k).scheduled.isEmpty)
+    }
+
+    /// 使った剣はもう輪に居ないので、その剣が通るはずだった接触は来ない（接触 i = 剣 i % 5 の回）。使う剣は次の接触を受け持つ剣。
+    /// 残った剣は効果時間の終わりに戻る（動画: 3 本・2 本・2 本が 4.6〜4.83 秒に戻った）。
+    func testUsedSwordsStopTouchingAndTheRestReturnAtTheEnd() {
+        var (w, k) = world()
+        let inner = addEnemy(&w, dx: 200)
+        let onRing = addEnemy(&w, dx: -Tune.orbitRadius, hero: "H003")
+        CombatSystem.addStatus(&w.s, targetIndex: onRing, StatusEffect(kind: .stun, duration: 8, tag: "test.hold"))
+        XCTAssertTrue(w.cast(k, .skill1))
+        // 発動の直後に 1 本（接触 0 = 剣 0）、0.4 秒後にもう 1 本（接触 0 はもう来ないので次の接触 1 = 剣 1）
+        poke(&w, k, inner)
+        XCTAssertEqual(kit(w, k).zailSpentSwords, 1 << 0)
+        w.run(seconds: 0.4)
+        poke(&w, k, inner)
+        XCTAssertEqual(kit(w, k).zailSpentSwords, (1 << 0) | (1 << 1))
+        XCTAssertEqual(kit(w, k).zailSwordsLeft, 3)
+        XCTAssertEqual(HeroKits.badge(w.s.units[k].hero!, slot: .skill1)?.value, 3)
+        let contacts = steps(&w, target: onRing, ticks: Int((Tune.swordsDuration + 0.5) / Balance.dt))
+            .filter { $0.source == .skill(.skill1) }
+        // 9 回のうち剣 0・1 の回（接触 0, 1, 5, 6）が来ない
+        let expected = (0..<Tune.pulseCount).filter { ![0, 1].contains(Kit_H028.sword(ofPulse: $0)) }
+        XCTAssertEqual(contacts.count, expected.count)
+        XCTAssertEqual(expected, [2, 3, 4, 7, 8])
+        // 発動は 1 秒の時点。残った剣の回の時刻どおり
+        for (h, i) in zip(contacts, expected) {
+            XCTAssertEqual(h.time, 1 + Tune.pulseFirst + Tune.pulseInterval * Double(i), accuracy: 0.05, "接触 \(i)")
+        }
+        // 効果時間の終わりに残りの 3 本が戻る
+        XCTAssertEqual(kit(w, k).zailSwordsRemaining, 0)
+        XCTAssertEqual(kit(w, k).zailSwordsLeft, 0)
+        XCTAssertNil(HeroKits.badge(w.s.units[k].hero!, slot: .skill1))
+    }
+
+    /// 剣を使った後に撃ち直す（クールダウンのリセット・練習場）と 5 本に戻る。
+    func testRecastingRefillsTheSwords() {
+        var (w, k) = world()
+        let e = addEnemy(&w, dx: 200)
+        XCTAssertTrue(w.cast(k, .skill1))
+        poke(&w, k, e)
+        w.run(seconds: Tune.strikeGap + 0.05)
+        poke(&w, k, e)
+        XCTAssertEqual(kit(w, k).zailSwordsLeft, 3)
+        w.s.units[k].hero!.skillCooldowns[SkillSlot.skill1.rawValue] = 0
+        XCTAssertTrue(w.cast(k, .skill1))
+        XCTAssertEqual(kit(w, k).zailSwordsLeft, Tune.swordCount)
+        XCTAssertEqual(kit(w, k).zailSpentSwords, 0)
+        XCTAssertEqual(Kit.scheduledCount(w.s, caster: k, code: 1), Tune.pulseCount)
     }
 
     // MARK: - S1: 剣撃
@@ -1578,6 +1744,7 @@ final class Kit_H028Tests: XCTestCase {
             XCTAssertGreaterThan(zail, 0.15, "弱すぎる Lv\(level): \(zail)")
             // Lv1 の上限は既知の外れ値（2026-10-16、KitBalanceTests の H028:1 と同じ理由）: S1 の剣の届く範囲を動画で測った 445 にしたら
             // （以前 230 で近接の立ち位置 235 に届かず、台本の決闘で Lv1 は S1 をほぼ使わなかった）Lv1 の勝率が 78 → 89% になった。数値は公式・実測のまま
+            // （剣撃ごとに剣を使い 5 本で終わるようにした後（2026-10-16、sim 40）は Lv1 67%・Lv6 56%・Lv12 33%）
             if level == 1 { continue }
             XCTAssertLessThan(zail, 0.85, "強すぎる Lv\(level): \(zail)")
         }

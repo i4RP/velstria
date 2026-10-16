@@ -242,6 +242,29 @@ final class SkillFXPlayer {
         pending.removeAll { $0.ctx.follow == f && $0.cue.anchor == .follow }
     }
 
+    /// 追従しているメッシュのうち FXMesh.group が g のものを fade 秒で消し、まだ出ていない同じ組の合図も取り消す
+    /// （sim の数が減ったとき。H028 の環剣で剣を 1 本使ったら、その刃を消す）。g = 0 は何もしない。
+    func cut(follow f: Follow, group g: Int, fade: Float = 0.12) {
+        guard g != 0 else { return }
+        for k in meshInsts.indices where meshInsts[k].follow == f && meshInsts[k].spec.group == g {
+            var m = meshInsts[k].spec
+            let age = max(0, time - meshInsts[k].start)
+            // もう消え始めている（寿命の終わりの fadeOut に入った）ものはそのまま
+            guard m.life > 0.01, age / m.life < m.fadeOut else { continue }
+            // fadeIn・fadeOut は寿命に対する比なので、秒に直してから新しい寿命の比に戻す（回転・上昇は経過の秒で決まるので変わらない）
+            let fadeInSeconds = m.fadeIn * m.life
+            let end = age + max(0.02, fade)
+            m.life = end
+            m.fadeIn = min(1, fadeInSeconds / end)
+            m.fadeOut = min(1, age / end)
+            meshInsts[k].spec = m
+        }
+        pending.removeAll { p in
+            guard p.ctx.follow == f, case .mesh(let m) = p.cue.element else { return false }
+            return m.group == g
+        }
+    }
+
     private func stopEmitting(_ k: Int) {
         let e = emits[k]
         if var c = e.emitter.entity.components[ParticleEmitterComponent.self] {
