@@ -399,6 +399,91 @@
         "yaw": 90,
         "legs": 0
       }
+    },
+    {
+      "id": "monster_beetle",
+      "use": "熾甲虫 emberBeetleの見た目。チーム色なし",
+      "provider": "tripo",
+      "faces": 4000,
+      "styleReference": "/Users/i4rp/gh2/vel-refs/mlbb_beetle.png",
+      "referenceNote": "the attached screenshot shows the reference creature (the crimson beetle-like creature with a flaming crest). Recreate a creature with the same overall design language (body shape, proportions, colors, materials) as a clean standalone concept render, but as your own original variation; ignore the UI, the hero character, the terrain and any other creature",
+      "size": {
+        "length": 2.2,
+        "yaw": 0
+      },
+      "prompt": "a fire beetle jungle monster for a MOBA: a crimson-red armored insect beast with a glossy segmented carapace, a big flame-shaped crest of orange-yellow fire plumes and pale violet crystal fins rising from its back, six spindly crimson legs with dark claw tips, a small head with two curved mandibles and glowing orange eyes. Standing in a neutral relaxed pose with all legs clearly separated from each other and from the body, side three-quarter view showing the whole body, head facing left.",
+      "creature": {
+        "yaw": 135,
+        "legs": 4
+      }
+    },
+    {
+      "id": "monster_grub",
+      "use": "熾甲虫の幼体 emberGrubの見た目。チーム色なし",
+      "provider": "tripo",
+      "faces": 2500,
+      "styleReference": "/Users/i4rp/gh2/vel-refs/mlbb_beetle.png",
+      "referenceNote": "the attached screenshot shows the reference creature (the crimson beetle-like creature with a flaming crest; make a tiny cute baby larva version of it). Recreate a creature with the same overall design language (body shape, proportions, colors, materials) as a clean standalone concept render, but as your own original variation; ignore the UI, the hero character, the terrain and any other creature",
+      "size": {
+        "length": 0.9,
+        "yaw": 0
+      },
+      "prompt": "a tiny cute baby fire beetle larva for a MOBA: a chubby round crimson-red grub with a soft segmented body, a small glowing orange flame tuft on its back, six very short stubby legs, big round glowing orange eyes, tiny mandibles. Standing in a neutral relaxed pose with all legs clearly separated from each other and from the body, side three-quarter view showing the whole body, head facing left.",
+      "creature": {
+        "yaw": 135,
+        "legs": 4
+      }
+    },
+    {
+      "id": "monster_crab",
+      "use": "宝殻蟹 treasureCrabの見た目。チーム色なし",
+      "provider": "tripo",
+      "faces": 4000,
+      "styleReference": "/Users/i4rp/gh2/vel-refs/mlbb_crab.png",
+      "referenceNote": "the attached screenshot shows the reference creature (the bronze crab carrying a crystal and a scroll on its back). Recreate a creature with the same overall design language (body shape, proportions, colors, materials) as a clean standalone concept render, but as your own original variation; ignore the UI, the hero character, the terrain and any other creature",
+      "size": {
+        "length": 2.2,
+        "yaw": 0
+      },
+      "prompt": "a treasure crab jungle monster for a MOBA: a sturdy bronze-orange crab with a wide flat shell, carrying on its back a bundle of a rolled golden parchment scroll strapped with brass bands and a cluster of glowing violet-blue crystals, two big pincers raised slightly, six pointed walking legs, small eyes on stalks. Standing in a neutral relaxed pose with all legs clearly separated from each other and from the body, side three-quarter view showing the whole body, head facing left.",
+      "creature": {
+        "yaw": 120,
+        "legs": 4
+      }
+    },
+    {
+      "id": "monster_crablet",
+      "use": "宝殻蟹の子 crabletの見た目。チーム色なし",
+      "provider": "tripo",
+      "faces": 2500,
+      "styleReference": "/Users/i4rp/gh2/vel-refs/mlbb_crab.png",
+      "referenceNote": "the attached screenshot shows the reference creature (the bronze crab carrying a crystal and a scroll on its back; make a tiny cute baby version of it). Recreate a creature with the same overall design language (body shape, proportions, colors, materials) as a clean standalone concept render, but as your own original variation; ignore the UI, the hero character, the terrain and any other creature",
+      "size": {
+        "length": 0.9,
+        "yaw": 0
+      },
+      "prompt": "a tiny cute baby treasure crab for a MOBA: a small round bronze-orange crab with oversized googly eyes on stalks, one small glowing violet crystal and a tiny gold coin pouch on its back, two little pincers, six short pointed legs. Standing in a neutral relaxed pose with all legs clearly separated from each other and from the body, side three-quarter view showing the whole body, head facing left.",
+      "creature": {
+        "yaw": 160,
+        "legs": 4
+      }
+    },
+    {
+      "id": "monster_lizard",
+      "use": "棘角トカゲ hornLizardの見た目。チーム色なし",
+      "provider": "tripo",
+      "faces": 4000,
+      "styleReference": "/Users/i4rp/gh2/vel-refs/mlbb_lizard.png",
+      "referenceNote": "the attached screenshot shows the reference creature (the pink-headed blue spiky lizard creature on the left). Recreate a creature with the same overall design language (body shape, proportions, colors, materials) as a clean standalone concept render, but as your own original variation; ignore the UI, the hero character, the terrain and any other creature",
+      "size": {
+        "length": 2.4,
+        "yaw": 0
+      },
+      "prompt": "a spiny horned lizard jungle monster for a MOBA: a lean quadruped lizard with dark teal-blue scaly body, a row of long translucent pale-blue spikes along its back and tail, a big frilled magenta-pink head crest with fins and two horns, glowing pink eyes, a long spiky tail, four clawed legs. Standing in a neutral relaxed pose with all legs clearly separated from each other and from the body, side three-quarter view showing the whole body, head facing left.",
+      "creature": {
+        "yaw": 133,
+        "legs": 4
+      }
     }
   ]
 }
