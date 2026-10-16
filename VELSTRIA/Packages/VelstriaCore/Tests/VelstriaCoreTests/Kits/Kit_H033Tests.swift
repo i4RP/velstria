@@ -87,19 +87,22 @@ final class Kit_H033Tests: XCTestCase {
         XCTAssertEqual(s2.aim, .none)
         XCTAssertEqual(s2.shape, .selfRing)
         XCTAssertEqual(s2.reach, Tune.s2Radius)
+        // 吸収: 衝撃波と同じ向きの帯（MLBB の照準も帯。地点の円ではない）。届く距離は帯の中央の先端
         let ult = try target(.ultimate)
-        XCTAssertEqual(ult.archetype, .groundAoE)
-        XCTAssertEqual(ult.aim, .point)
-        XCTAssertEqual(ult.shape, .circleAtPoint)
-        XCTAssertEqual(ult.range, Tune.ultCastRange)
-        XCTAssertEqual(ult.radius, Tune.absorbRadius)
+        XCTAssertEqual(ult.archetype, .piercingLine)
+        XCTAssertEqual(ult.aim, .direction)
+        XCTAssertEqual(ult.shape, .wideLine)
+        XCTAssertEqual(ult.range, Tune.absorbReach)
+        XCTAssertEqual(ult.radius, Tune.absorbHalfWidth)
+        XCTAssertEqual(ult.reach, Tune.absorbReach)
         XCTAssertTrue(ult.recastable)
         let wave = try target(.ultimate, stage: 1)
         XCTAssertEqual(wave.archetype, .piercingLine)
         XCTAssertEqual(wave.aim, .direction)
         XCTAssertEqual(wave.shape, .wideLine)
-        XCTAssertEqual(wave.range, Tune.waveRange)
+        XCTAssertEqual(wave.range, Tune.waveReach)
         XCTAssertEqual(wave.radius, Tune.waveHalfWidth)
+        XCTAssertEqual(wave.reach, Tune.waveReach)
         XCTAssertFalse(wave.requiresTarget)
         XCTAssertEqual(try target(.passive).archetype, .passive)
         // S1・S2 に段（再使用）は無い
@@ -184,7 +187,7 @@ final class Kit_H033Tests: XCTestCase {
                 XCTAssertEqual(SkillSystem.cost(for: def, hero: hero, rank: rank), 0, "\(slot) r\(rank)")
             }
         }
-        // CC: S1 は 40% 減速 2 秒、S2 は無し、吸収は 30% 減速（持続は記載なし: 4 秒）
+        // CC: S1 は 40% 減速 2 秒、S2 は無し、吸収は 30% 減速（持続は記載なし。動画の 6.1 秒 → 6 秒）
         let a = try numbers(.skill1, level: 12, rank: 1)
         XCTAssertEqual(a.cc, .slow)
         XCTAssertEqual(a.ccDuration, 2.0)
@@ -195,6 +198,7 @@ final class Kit_H033Tests: XCTestCase {
         XCTAssertEqual(u1.recastWindow, Tune.ultWindow)
         XCTAssertEqual(u1.cc, .slow)
         XCTAssertEqual(u1.ccDuration, Tune.absorbDuration)
+        XCTAssertEqual(Tune.absorbDuration, 6.0)
         XCTAssertEqual(Tune.absorbSlow, 0.30)
         XCTAssertEqual(try numbers(.ultimate, level: 12, rank: 1, stage: 1).cc, .none)
         // 表: 混合吸収 10 / 20 / 30%、混合防御減少 10 / 15 / 20、混合防御力増加 10 / 15 / 20
@@ -252,9 +256,11 @@ final class Kit_H033Tests: XCTestCase {
         }
         let sp = try XCTUnwrap(MasterData.shared.skill(hero: "H033", slot: .passive))
         let pn = SkillCatalog.numbers(for: sp, hero: hero, rank: 1, stats: stats)
-        // 踏み込みの届く距離 ÷ 近接攻撃の射程（MLBB の 1.8 = 180）
+        // 踏み込みの届く距離 ÷ 近接攻撃の射程（MLBB の 1.8 = 180。追撃の射程は動画の足元の円 3.96 = 公式の 4 = 400）
         let melee = hero.attackRange
-        XCTAssertEqual(pn.extras.map(\.value), [125, 5, (melee + Tune.pursuitRangeBonus) / melee, 110])
+        XCTAssertEqual(melee, 180)
+        XCTAssertEqual(melee + Tune.pursuitRangeBonus, 400)
+        XCTAssertEqual(pn.extras.map(\.value), [125, Tune.pursuitWindow, (melee + Tune.pursuitRangeBonus) / melee, 110])
         let pja = try XCTUnwrap(HeroKits.text(heroID: "H033", slot: .passive)).filled(
             english: false, numbers: pn, targeting: SkillCatalog.targeting(for: sp, hero: hero))
         XCTAssertTrue(pja.contains("デビルハンター：モンスターに対して110%のダメージを与える。"), pja)
@@ -801,11 +807,12 @@ final class Kit_H033Tests: XCTestCase {
 
     // MARK: - 奥義 1 回目: 吸収
 
-    func testAbsorbDealsNoDamageButSlowsAndShredsEverythingInTheCircle() throws {
+    func testAbsorbDealsNoDamageButSlowsAndShredsEverythingInTheBand() throws {
         var (w, k) = world()
         let e1 = addEnemy(&w, dx: 300)
         let m = w.addMinion(team: .red, at: skillArena + Vec2(300, 150))
         let out = addEnemy(&w, dx: 300, dy: 400, hero: "H003")
+        // 地点（+300）へ向けて撃つ = 東向きの帯
         let armor = w.s.units[e1].stats.armor
         let magic = w.s.units[e1].stats.magicResist
         XCTAssertTrue(w.cast(k, .ultimate, at(300)))
@@ -822,8 +829,11 @@ final class Kit_H033Tests: XCTestCase {
         // 複合防御（防御・魔防）が 10 下がる
         XCTAssertEqual(w.s.units[e1].stats.armor, armor - 10, accuracy: 1e-6)
         XCTAssertEqual(w.s.units[e1].stats.magicResist, magic - 10, accuracy: 1e-6)
-        // 4 秒で元に戻る
-        w.run(seconds: Tune.absorbDuration)
+        // 6 秒（動画の 183 コマ）の間は続き、その後に元に戻る
+        w.run(seconds: Tune.absorbDuration - 0.5)
+        XCTAssertNotNil(status(w, e1, .slow, tag: Tune.absorbSlowTag))
+        XCTAssertEqual(w.s.units[e1].stats.armor, armor - 10, accuracy: 1e-6)
+        w.run(seconds: 0.5)
         XCTAssertNil(status(w, e1, .slow, tag: Tune.absorbSlowTag))
         XCTAssertEqual(w.s.units[e1].stats.armor, armor, accuracy: 1e-6)
         XCTAssertEqual(w.s.units[e1].stats.magicResist, magic, accuracy: 1e-6)
@@ -838,7 +848,7 @@ final class Kit_H033Tests: XCTestCase {
         addEnemy(&w, dx: 300, dy: 500, hero: "H005")
         let armorBefore = w.s.units[k].stats.armor
         XCTAssertTrue(w.cast(k, .ultimate, at(300)))
-        XCTAssertEqual(kit(w, k).valdAbsorbHeroes, 3, "ミニオンと円の外の敵ヒーローは数えない")
+        XCTAssertEqual(kit(w, k).valdAbsorbHeroes, 3, "ミニオンと帯の外の敵ヒーローは数えない")
         XCTAssertEqual(kit(w, k).valdAbsorbs, 1)
         let gain = try XCTUnwrap(status(w, k, .flatDefenseMod, tag: Tune.hasteTag))
         XCTAssertEqual(gain.magnitude, Kit_H033.defensePerHero(rank: 1) * 3, accuracy: 1e-9, "敵ヒーロー 1 体につき複合防御 +10")
@@ -899,25 +909,38 @@ final class Kit_H033Tests: XCTestCase {
         XCTAssertNil(HeroKits.recast(w.s.units[k].hero!, slot: .ultimate))
         XCTAssertGreaterThan(cooldown(w, k, .ultimate), 0)
         XCTAssertFalse(w.cast(k, .ultimate, east), "窓が閉じれば CD 中は撃てない")
-        // 発動の通知: 吸収は段 0、地点の円
+        // 発動の通知: 吸収は段 0、向きの帯（照準点は帯の先端 = 術者から absorbReach）
         var (w2, k2) = world()
         w2.cast(k2, .ultimate, at(300))
         let ev = w2.castEvents.last
         XCTAssertEqual(ev?.stage, 0)
-        XCTAssertEqual(ev?.shape, .circleAtPoint)
-        XCTAssertEqual(ev?.target.x ?? 0, skillArena.x + 300, accuracy: 1e-6)
+        XCTAssertEqual(ev?.shape, .wideLine)
+        XCTAssertEqual(ev?.target.x ?? 0, skillArena.x + Tune.absorbReach, accuracy: 1e-6)
+        XCTAssertEqual(ev?.origin.x ?? 0, skillArena.x, accuracy: 1e-6)
     }
 
-    func testAbsorbWithNoTargetStillWorksAndCenterIsCappedAtTheCastRange() {
+    /// 吸収の範囲は術者から向きへ伸びる帯（動画: 照準の左右の線 ±1.47、中央の先端 6.4。帯の外の的は吸収されない）。
+    /// 遠くの地点を狙っても帯の長さは変わらない。敵が居なくても撃てる。
+    func testAbsorbIsABandFromTheCasterAndWorksWithNoTarget() {
         var (w, k) = world()
-        let e = addEnemy(&w, dx: 850)
-        // 射程 450 に丸められた中心（+450）から半径 300 → +750 まで。敵は +850（半径 55 を足しても円の外）
+        let tip = addEnemy(&w, dx: 600)
+        let side = addEnemy(&w, dx: 300, dy: 180, hero: "H004")
+        let wide = addEnemy(&w, dx: 300, dy: 260, hero: "H003")
+        let far = addEnemy(&w, dx: 720, hero: "H005")
+        let back = addEnemy(&w, dx: -400, hero: "H002")
         XCTAssertTrue(w.cast(k, .ultimate, at(1500)))
-        XCTAssertNil(status(w, e, .slow))
-        XCTAssertEqual(w.castEvents.last?.target.x ?? 0, skillArena.x + Tune.ultCastRange, accuracy: 1e-6)
+        // 帯: 中央は absorbReach（640）+ 敵の半径まで、横は半幅 150 + 敵の半径まで
+        XCTAssertNotNil(status(w, tip, .slow, tag: Tune.absorbSlowTag), "帯の先の方（+600）")
+        XCTAssertNotNil(status(w, side, .slow, tag: Tune.absorbSlowTag), "帯の縁（横 180）")
+        XCTAssertNil(status(w, wide, .slow), "帯の外（横 260）")
+        XCTAssertNil(status(w, far, .slow), "帯の先端の外（+720）")
+        XCTAssertNil(status(w, back, .slow), "術者の後ろ")
+        XCTAssertEqual(kit(w, k).valdAbsorbHeroes, 2)
+        XCTAssertEqual(w.castEvents.last?.target.x ?? 0, skillArena.x + Tune.absorbReach, accuracy: 1e-6)
         var (w2, k2) = world()
         XCTAssertTrue(w2.cast(k2, .ultimate))
         XCTAssertEqual(kit(w2, k2).valdAbsorbHeroes, 0)
+        XCTAssertEqual(kit(w2, k2).valdHaste, Tune.hasteDuration)
     }
 
     // MARK: - 奥義 2 回目: 衝撃波
@@ -931,29 +954,82 @@ final class Kit_H033Tests: XCTestCase {
     func testShockwavePiercesEverythingOnTheLineAndOnlyThere() throws {
         var (w, k) = world()
         let e1 = addEnemy(&w, dx: 300)
-        let e2 = addEnemy(&w, dx: 700, hero: "H004")
-        let m = w.addMinion(team: .red, at: skillArena + Vec2(500, 40))
+        let e2 = addEnemy(&w, dx: 600, hero: "H004")
+        let m = w.addMinion(team: .red, at: skillArena + Vec2(450, 40))
+        let edge = addEnemy(&w, dx: 400, dy: 200, hero: "H002")
         let off = addEnemy(&w, dx: 300, dy: 300, hero: "H003")
-        let beyond = addEnemy(&w, dx: 1100, hero: "H005")
+        let beyond = addEnemy(&w, dx: 730, hero: "H005")
         openWindow(&w, k)
         let n = HeroKits.numbers(for: try XCTUnwrap(MasterData.shared.skill(hero: "H033", slot: .ultimate)),
                                  hero: try XCTUnwrap(MasterData.shared.hero("H033")), rank: 1, stats: w.s.units[k].stats, stage: 1)
         XCTAssertTrue(w.cast(k, .ultimate, east))
+        XCTAssertEqual(w.castEvents.last?.stage, 1)
+        XCTAssertEqual(w.castEvents.last?.shape, .wideLine)
+        XCTAssertEqual(w.castEvents.last?.target.x ?? 0, skillArena.x + Tune.waveReach, accuracy: 1e-6)
+        // 振りかぶり（0.16 秒 = 5 tick）の間は波が出ない
+        XCTAssertTrue(w.s.projectiles.isEmpty, "振りかぶりの間は波が出ない")
+        w.tick(4)
+        XCTAssertTrue(w.s.projectiles.isEmpty)
+        w.tick(1)
         XCTAssertEqual(w.s.projectiles.count, 1)
         XCTAssertTrue(w.s.projectiles[0].pierce)
         XCTAssertEqual(w.s.projectiles[0].width, Tune.waveHalfWidth)
-        XCTAssertEqual(w.castEvents.last?.stage, 1)
-        XCTAssertEqual(w.castEvents.last?.shape, .wideLine)
+        if case .linear(_, let maxD) = w.s.projectiles[0].motion {
+            XCTAssertEqual(maxD, Tune.waveTravel, accuracy: 1e-9)
+        } else {
+            XCTFail("直線弾")
+        }
         w.run(seconds: 1.0)
-        for e in [e1, e2] {
+        for e in [e1, e2, edge] {
             let hits = skillHits(w, on: e, .ultimate)
             XCTAssertEqual(hits.count, 1, "\(e)")
             XCTAssertEqual(hits.first?.amount ?? 0, w.mitigated(n.damage, .physical, on: e), accuracy: 1e-6)
         }
         XCTAssertEqual(skillHits(w, on: m, .ultimate).count, 1)
-        XCTAssertEqual(skillHits(w, on: off, .ultimate).count, 0)
-        XCTAssertEqual(skillHits(w, on: beyond, .ultimate).count, 0, "長さ \(Tune.waveRange) の外")
+        XCTAssertEqual(skillHits(w, on: off, .ultimate).count, 0, "半幅 \(Tune.waveHalfWidth) の外")
+        XCTAssertEqual(skillHits(w, on: beyond, .ultimate).count, 0, "届く距離 \(Tune.waveReach) の外")
         XCTAssertEqual(kit(w, k).valdWaves, 1)
+    }
+
+    /// 衝撃波の時間（動画: 再使用の指を離してから、隣の的 5.5 コマ・術者から 5.5 の的 15.5 コマで命中）: 振りかぶり 0.16 秒の後、
+    /// 毎秒 1000 で進む弾（当たりは中心から半幅 + 対象の半径）。+550 の敵へは 0.16 + (550 − 165 − 55) / 1000 ≈ 0.49 秒。
+    func testShockwaveHitsAfterTheWindupAtTheMeasuredSpeed() {
+        var (w, k) = world()
+        let near = addEnemy(&w, dx: 150)
+        let far = addEnemy(&w, dx: 550, hero: "H004")
+        openWindow(&w, k)
+        let start = w.s.time
+        XCTAssertTrue(w.cast(k, .ultimate, east))
+        var nearAt: Double?
+        var farAt: Double?
+        for _ in 0..<45 {
+            w.tick()
+            if nearAt == nil, !skillHits(w, on: near, .ultimate).isEmpty { nearAt = w.s.time - start }
+            if farAt == nil, !skillHits(w, on: far, .ultimate).isEmpty { farAt = w.s.time - start }
+        }
+        let r = w.s.units[far].radius
+        XCTAssertEqual(nearAt ?? 0, Tune.waveDelay, accuracy: 2 * Balance.dt, "隣の敵は波が出てすぐに当たる")
+        XCTAssertEqual(farAt ?? 0, Tune.waveDelay + (550 - Tune.waveHalfWidth - r) / Tune.waveSpeed, accuracy: 2 * Balance.dt)
+    }
+
+    /// 振りかぶりの間にスタンを受けると波は出ず、追撃の準備も付かない（窓は再使用で閉じたまま）。振りかぶりの間はほかのスキルを始められない。
+    func testStunInTheWindupCancelsTheWaveAndTheWindupBlocksOtherSkills() {
+        var (w, k) = world()
+        let e = addEnemy(&w, dx: 300)
+        openWindow(&w, k)
+        w.run(seconds: Tune.pursuitWindow + 0.2)
+        XCTAssertEqual(kit(w, k).valdPursuit, 0)
+        XCTAssertTrue(w.cast(k, .ultimate, east))
+        XCTAssertFalse(w.cast(k, .skill2), "振りかぶりの間は次のスキルを始められない")
+        XCTAssertEqual(cooldown(w, k, .skill2), 0)
+        CombatSystem.addStatus(&w.s, targetIndex: k, StatusEffect(kind: .stun, duration: 0.5, sourceID: w.id(e), tag: "t"))
+        w.run(seconds: 1.0)
+        XCTAssertTrue(w.s.projectiles.isEmpty, "スタンで波は出ない")
+        XCTAssertEqual(skillHits(w, on: e, .ultimate).count, 0)
+        XCTAssertEqual(kit(w, k).valdWaves, 0)
+        XCTAssertEqual(kit(w, k).valdPursuit, 0)
+        XCTAssertNil(HeroKits.recast(w.s.units[k].hero!, slot: .ultimate))
+        XCTAssertTrue(w.cast(k, .skill2), "スタンが明ければ撃てる")
     }
 
     func testShockwaveClosesTheWindowWithoutTouchingTheCooldownAndNeedsNoCost() {
@@ -977,10 +1053,12 @@ final class Kit_H033Tests: XCTestCase {
         let e = addEnemy(&w, dx: 400, dy: 400, hero: "H004")
         openWindow(&w, k)
         XCTAssertTrue(w.cast(k, .ultimate, .unit(w.id(e))))
-        let dir = w.s.projectiles[0].motion
-        if case .linear(let d, let maxD) = dir {
+        w.run(seconds: Tune.waveDelay + 0.01)
+        XCTAssertEqual(w.s.projectiles.count, 1)
+        let dir = w.s.projectiles.first?.motion
+        if case .linear(let d, let maxD)? = dir {
             XCTAssertEqual(d.x, d.y, accuracy: 1e-6)
-            XCTAssertEqual(maxD, Tune.waveRange)
+            XCTAssertEqual(maxD, Tune.waveTravel, accuracy: 1e-9)
         } else {
             XCTFail("直線弾")
         }
@@ -1005,7 +1083,10 @@ final class Kit_H033Tests: XCTestCase {
         w.s.units[k].hp = w.s.units[k].stats.maxHP * 0.3
         w.log.removeAll()
         XCTAssertTrue(w.cast(k, .ultimate, east))
-        XCTAssertEqual(kit(w, k).valdPursuit, Tune.pursuitWindow, "衝撃波もスキルの発動")
+        XCTAssertEqual(kit(w, k).valdPursuit, 0, "追撃の準備は波が出るとき（動画: 追撃のアイコンは波と同じ頃）")
+        w.tick(5)
+        XCTAssertEqual(w.s.projectiles.count, 1)
+        XCTAssertEqual(kit(w, k).valdPursuit, Tune.pursuitWindow, accuracy: Balance.dt + 1e-9, "衝撃波もスキルの発動")
         w.run(seconds: 1.0)
         let dealt = skillHits(w, on: e1, .ultimate).reduce(0) { $0 + $1.amount }
             + skillHits(w, on: e2, .ultimate).reduce(0) { $0 + $1.amount }
@@ -1037,6 +1118,8 @@ final class Kit_H033Tests: XCTestCase {
         w.run(seconds: Tune.ultWindow - 0.2)
         XCTAssertNotNil(HeroKits.recast(w.s.units[k].hero!, slot: .ultimate))
         XCTAssertTrue(w.cast(k, .ultimate, east))
+        // 振りかぶりの途中で窓の時間を過ぎても、波は出る（再使用の時に窓は閉じている）
+        w.run(seconds: Tune.waveDelay + 0.1)
         XCTAssertEqual(w.s.projectiles.count, 1)
     }
 
@@ -1209,6 +1292,24 @@ final class Kit_H033Tests: XCTestCase {
         XCTAssertEqual(resumed2.s.units, c.s.units)
         XCTAssertEqual(resumed2.damageEvents.filter { $0.source == .skill(.ultimate) }.count,
                        c.damageEvents.filter { $0.source == .skill(.ultimate) }.count)
+
+        // 衝撃波の振りかぶりの途中（予約が向きとダメージを持っている）
+        var (d, kd, d1, d2, dm) = makeScriptWorld()
+        run(&d, kd, d1, d2, dm, from: 0, to: 2)
+        XCTAssertTrue(d.cast(kd, .ultimate, .direction(Vec2(1, 0))))
+        d.tick(2)
+        XCTAssertFalse(kit(d, kd).scheduled.isEmpty)
+        XCTAssertTrue(d.s.projectiles.isEmpty)
+        let data3 = try JSONEncoder().encode(d.s)
+        var resumed3 = d
+        resumed3.s = try JSONDecoder().decode(SimState.self, from: data3)
+        XCTAssertEqual(resumed3.s.stateHash(), d.s.stateHash())
+        d.run(seconds: 0.7)
+        resumed3.run(seconds: 0.7)
+        XCTAssertEqual(resumed3.s.stateHash(), d.s.stateHash())
+        XCTAssertEqual(resumed3.s.units, d.s.units)
+        XCTAssertEqual(kit(d, kd).valdWaves, 1)
+        XCTAssertEqual(resumed3.damageEvents.count, d.damageEvents.count)
     }
 
     // MARK: - ボットの判断（共有のボット処理を実際に通す）
