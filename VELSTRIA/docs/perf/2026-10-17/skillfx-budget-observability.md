@@ -84,6 +84,33 @@
 
 未計測: 通常の試合・集団戦での発生頻度（`perf_run.sh` を回していない）、実機 FPS、発熱、ブルームの見え方。
 
-## CI
+## CI（GitHub Actions・macos-26・Xcode 26.6・iPhone 17 シミュレータ）
 
-結果は下に追記する。
+| 実行 | 対象 | 結果 |
+|---|---|---|
+| [38928375868](https://github.com/i4RP/velstria/actions/runs/38928375868)（push） | `2527504` | 成功。Release のアーカイブ（アプリのビルド）・TestFlight の内部配信 build 24940812 |
+| [38928389819](https://github.com/i4RP/velstria/actions/runs/38928389819)（テストつき 1 回目） | `2527504` | テストの段で失敗。`SkillFXTests` 27 件（追加 7 件 + 既存 20 件）・`RenderLogicTests`・`PresentationResetTests` ほかは通過。失敗は 7 件（下） |
+| [38939540998](https://github.com/i4RP/velstria/actions/runs/38939540998)（比較: 変更なしの `main`） | `94bb340` | テストの段で失敗。失敗は下の 6 件で、同じテストが同じように落ちる |
+
+失敗したテスト（各 3 回の再試行すべて失敗）:
+
+| テスト | このブランチ | 変更なしの main |
+|---|---|---|
+| `CoreFinaleTests.testShotsStayInsideTheMapClearOfStructuresAndFrameTheCore`（地図の外） | 失敗 | 失敗 |
+| `FriendTests.testErasedInboxIsReplacedWithANewCodeAndReconnects` | 失敗 | 失敗 |
+| `HUDShopTests.testShopStateMarksCurrentBlessingAndProgress`（2 / 5 ≠ 3 / 5） | 失敗 | 失敗 |
+| `BattleHUDUITests.testRankedLeaveIsRecordedAsLoss` | 失敗 | 失敗 |
+| `BattleHUDUITests.testTutorialMoveStepAdvancesWithJoystick` | 失敗 | 失敗 |
+| `SpectatorHUDUITests.testSpectatorMenuPanelsSeekTacticalMapAndCinematic` | 失敗 | 失敗 |
+| `ReplayLibraryUITests.testReplayListDetailAndPlayback` | **失敗** | 通過 |
+
+`ReplayLibraryUITests` だけがこのブランチで落ちた。3 回のうち 2 回は戦闘の画面に入る前（リプレイ一覧でアプリが落ちた・起動直後に接続が切れた）で、
+スキル演出の再生器は戦闘の画面（`BattleWorld`）にしか無いため、今回の変更の経路は通っていない。残る 1 回は再生を終えて退出する所で応答が止まった。
+単体テストの側では、変更なしの main でもリプレイの計算（`LargeStackRunner` の `withoutActuallyEscaping`）で試験のアプリが落ちて再起動している
+（このブランチ 1 回・main 3 回）。
+
+同じコミットで同じジョブを再実行した結果（[38928389819 の 2 回目](https://github.com/i4RP/velstria/actions/runs/38928389819/attempts/2)）:
+`ReplayLibraryUITests.testReplayListDetailAndPlayback` は 1 回目の試行で通過、`SkillFXTests` 27 件も再び全て通過。
+`BattleHUDUITests.testTutorialMoveStepAdvancesWithJoystick` は 3 回目の試行で通過した。ほかの 5 件は変更なしの main と同じく失敗。
+リプレイの UI テストの失敗は不安定な失敗（同じコードで通る）と判断した。残る失敗は今回の変更の前から main にあり、この作業では直していない。
+テストの段が失敗するため、このワークフローは成功（緑）にならない。
