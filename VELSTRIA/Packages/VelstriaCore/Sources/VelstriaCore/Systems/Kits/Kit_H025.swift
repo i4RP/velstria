@@ -3,12 +3,15 @@ import Foundation
 // 担当: kit-H025（docs/SKILL_KITS.md / docs/NEW_HEROES.md / docs/kits/Miya.md）
 // H025 月弦のルミナ = MLBB ミヤの Velstria 版（レンジャー・遠隔 480（MLBB の 4.8）・マナ）。調査: docs/kits/Miya.md、対応表: 同ファイル末尾。
 // 数値の正は MLBB の日本語クライアントのスキル詳細（docs/kits/Miya.md の「公式（日本語クライアント）の数値」。Fandom と違うところはこちらが優先）。
-//   パッシブ 月環の導き  — 通常攻撃が命中するたびに攻撃速度 +5%（4 秒・最大 5 段）。最大のあいだは通常攻撃のたびに「月影」が
-//                          25(+20% 物理攻撃) の物理ダメージを追って与える（攻撃エフェクト 20%）。ロールの「4 発毎の確定会心」は置き換え。
+//   パッシブ 月環の導き  — 通常攻撃が命中するたびに攻撃速度 +5%（4 秒・最大 5 段）。最大のあいだは主矢が命中するたびに「月影」が現れ、
+//                          術者の位置から対象へ自分の矢を放って 25(+20% 物理攻撃) の物理ダメージ（攻撃エフェクト 20%）。
+//                          ロールの「4 発毎の確定会心」は置き換え。
 //   スキル1 月弦分矢     — 自己強化 4 / 5 / 6 / 7 / 8 / 9 秒。通常攻撃が主矢 + 副矢 2 本になる（主矢 = 通常攻撃 + 基礎 10〜35、
 //                          周囲の敵 2 体へ主矢の 30%。副矢は攻撃エフェクト 30%）。効果中は再使用できない（CD 11 秒）。
-//   スキル2 月蝕の矢     — 指定地点（遅延あり）。半径内の敵に 270〜420(+45%) の物理ダメージと 1.2 秒のバインド。着弾点から 6 本の小さな矢が
-//                          等間隔に散り、それぞれ最初に当たった敵に 40〜105(+20%) の物理ダメージと 2 秒の 30% スロウ。
+//   スキル2 月蝕の矢     — 指定地点（射程 545・離してから 0.65 秒で着弾）。半径内の敵に 270〜420(+45%) の物理ダメージと 1.2 秒のバインド。
+//                          着弾の 0.33 秒後に着弾点から 6 本の小さな矢が 60° おき（1 本は撃った向き）に散り、それぞれ最初に当たった敵に
+//                          40〜105(+20%) の物理ダメージと 2 秒の 30% スロウ。
+// 幾何と時間（射程・半径・遅れ・矢の向き / 速さ / 距離・月影の時刻）は MLBB の訓練場の画面収録で測った値（docs/kits/Miya.md「動画で測った値」）。
 //   アルティメット 隠れ月光 — 弱体をすべて解除して姿を隠し、2 秒間 移動速度 +65%。通常攻撃かスキルの発動（奥義を除く）で解ける。
 //                          解けた（時間切れ含む）瞬間に月環の導きが最大の段になる。ボットは低 HP で敵が近いとき、逃走・解除に使う。
 // 数値: 公式の表をそのまま使う（スキル1・2 = Lv1〜6、アルティメット = Lv1〜3。rank = 公式の Lv。換算・補間なし）。
@@ -22,12 +25,19 @@ import Foundation
 //   reals[0] = 月矢の連弾の主矢の追加ダメージ（発動時のランク・能力値で固定）
 
 /// ルミナの値。数値は MLBB の日本語クライアントのスキル詳細の表そのまま（docs/kits/Miya.md の「公式（日本語クライアント）の数値」）。
-/// 距離・遅延・散り方など公式の文に無い値は Velstria の推測（同 docs の「まだ MLBB と違うところ」）。
+/// 距離・遅延・散り方など公式の文に無い値は MLBB の画面収録で測った値（同 docs の「動画で測った値（2026-10-16）」。
+/// 距離は MLBB × 100）。測れなかったものは Velstria の推測（同 docs の「まだ MLBB と違うところ」）。
 enum LuminaTuning {
+    // MARK: 通常攻撃
+    /// 通常攻撃の矢の速さ（動画で測った値: 毎秒 16.5 単位 ± 1。主矢・副矢・月影の矢で同じ。印 0 / 5 で変わらない）。
+    /// 汎用の Balance.heroProjectileSpeed（1500）の代わり。
+    static let arrowSpeed: Double = 1650
+
     // MARK: パッシブ（月環の導き = スイフト）
     static let maxStacks = 5
     /// 1 段あたりの攻撃速度（公式 5%、最大 +25%）。
     static let attackSpeedPerStack: Double = 0.05
+    /// 段の持続（公式 4 秒。動画: 最後の主矢の命中からちょうど 4.0 秒で印が消える）。
     static let stackDuration: Double = 4
     /// 月影（ムーンライトシャドウ）: 公式 25(+20% 物理攻撃)（Fandom の 30(+25%) は古い値）。
     static let shadowFlat: Double = 25
@@ -45,9 +55,10 @@ enum LuminaTuning {
     /// 各矢は攻撃効果の 30% を引き継ぐ（公式）。副矢の HitPayload.attackEffect。
     static let splashAttackEffect: Double = 0.30
     static let splashCount = 2
-    /// 副矢が飛ぶ「その他の対象」の範囲（主矢の対象から。公式の文に無い Velstria の推測）。
+    /// 副矢が飛ぶ「その他の対象」の範囲（主矢の対象から。公式の文に無い Velstria の推測。動画では主矢の対象から 1.85 と 2.7〜2.8 の
+    /// 的に飛んで当たった = この範囲の内側。上限は測れていない）。
     static let splashRadius: Double = 300
-    /// 副矢が飛ぶ範囲の余裕（術者の射程 + 対象の半径 + この値）。
+    /// 副矢が飛ぶ範囲の余裕（術者の射程 + 対象の半径 + この値。動画では術者から 5.0〜5.5 = 射程 4.8 の外の的にも当たった）。
     static let splashLeeway: Double = 150
     /// 自己強化の照準リングの半径 = 通常攻撃の射程（MLBB の 4.8 = 480。2026-10-14 に 550 から）。「この範囲に敵が居れば撃つ」を
     /// HUD の輪で示す。ボットの奥義の関門（周囲の敵を数える半径 = 輪 × 1.4 = 672）もこれに従う。
@@ -60,18 +71,29 @@ enum LuminaTuning {
     static let s1Cost: [Double] = [60, 65, 70, 75, 80, 85]
 
     // MARK: S2（月蝕の矢 = レインアロー）
-    /// 半径（パッチ履歴 1.1.22 の 1.7）・着弾までの遅延（公式の文に無い。推測）。
+    /// 射程（動画で測った値: 最大の照準の円 5.43、照準を端まで引いたときの円の中心 5.47 → 545。以前はマスターの 650）。
+    static let s2Range: Double = 545
+    /// 半径（パッチ履歴 1.1.22 の 1.7。動画の照準の円 1.71 と合う）。
     static let s2Radius: Double = 170
-    static let s2Delay: Double = 0.35
+    /// 指を離してから着弾（ダメージ・バインド）まで（動画で測った値: 0.65 / 0.68 秒。距離 5.47 / 4.26 で同じ = 距離によらない。
+    /// 弓を天へ向ける 0.27 秒（CD の表示はここから）+ 矢が落ちる 0.40 秒。以前の推測は 0.35）。
+    static let s2Delay: Double = 0.65
+    /// 着弾から 6 本の小さな矢が散るまで（動画で測った値: 2 回とも 10 コマ = 0.33 秒。以前は着弾と同時）。
+    static let s2SplitDelay: Double = 0.33
     /// バインド（公式 1.2 秒）。敵に付ける root = バインド（移動・ブリンク・アサルトスキル・瞬歩を封じる。スキルは中断しない）。
     static let s2Root: Double = 1.2
     static let s2Slow: Double = 0.30
     static let s2SlowDuration: Double = 2
     static let s2Arrows = 6
-    /// 6 本を等間隔（60° おき）に散らす: 中心から ±30° / ±90° / ±150°（散り方・速さ・射程・幅は公式の文に無い。推測）。
+    /// 6 本を 60° おきに散らす。動画で測った値: 撃った向き（術者 → 着弾点）を 0° として 0° / ±60° / ±120° / 180°
+    /// （4 本の軌跡が予想の向きと 1.3° 以内）。Kit.fan の ±150° の扇を 30° 回して、1 本を撃った向きに揃える
+    /// （以前の推測は ±30° / ±90° / ±150°）。
     static let s2ScatterHalfAngle: Double = Double.pi * 5 / 6
-    static let s2ArrowSpeed: Double = 1800
-    static let s2ArrowRange: Double = 420
+    static let s2ScatterTurn: Double = Double.pi / 6
+    /// 小さな矢の速さ・射程（動画で測った値: 着弾点から毎秒 12.5 ± 0.4 単位、4.0 ± 0.1 で消える。以前の推測は 1800 / 420）。
+    static let s2ArrowSpeed: Double = 1250
+    static let s2ArrowRange: Double = 400
+    /// 小さな矢の幅（公式の文に無い。動画では測れなかった推測。docs の「まだ MLBB と違うところ」）。
     static let s2ArrowWidth: Double = 35
     /// 着弾: 公式 270 / 300 / 330 / 360 / 390 / 420（+45% 物理攻撃 = 合計の物理攻撃）。
     static let s2Base: [Double] = [270, 300, 330, 360, 390, 420]
@@ -86,7 +108,9 @@ enum LuminaTuning {
     static let s2Cost: [Double] = [90]
 
     // MARK: 奥義（隠れ月光 = 隠月）
+    /// 隠密と加速の長さ（公式「最大 2 秒」。動画: 発動から 1.98 秒で印が最大になり、同じコマで歩く速さが戻る）。
     static let ultDuration: Double = 2
+    /// 加速（公式 65%。動画: 隠れている間の歩きは普段の 1.66 倍）。
     static let ultSpeed: Double = 0.65
     /// 「撃てる距離」の目安（奥義の距離 770。`reachOverride`）。
     static let ultReach: Double = 770
@@ -181,8 +205,8 @@ struct Kit_H025: HeroKit {
             return SkillTargeting(archetype: .selfAoE, aim: .none, range: 0, radius: T.selfRing, shape: .selfRing,
                                   reachOverride: T.s1Reach)
         case .skill2:
-            // 指定地点の円（着弾まで遅延）
-            return SkillTargeting(archetype: .groundAoE, aim: .point, range: skill.range, radius: T.s2Radius,
+            // 指定地点の円（着弾まで遅延）。射程は動画で測った値（マスターの skill.range 650 の代わり）
+            return SkillTargeting(archetype: .groundAoE, aim: .point, range: T.s2Range, radius: T.s2Radius,
                                   shape: .circleAtPoint)
         case .ultimate:
             // 自己強化（隠密 + 加速）。reach は奥義の距離 770（ボットが交戦中とみなす目安）
@@ -295,12 +319,14 @@ struct Kit_H025: HeroKit {
             return KitText(
                 ja: "指定エリアに月蝕の力を呼び起こし（着弾まで\(Self.seconds(T.s2Delay))秒）、範囲内（半径{radius}）の敵に{base}(+{atkPct}%物理攻撃)の"
                     + "物理ダメージを与え、{root}秒間バインド状態にする（移動・ブリンク・アサルトスキルが使えない。スキルは中断されない）。\n\n"
-                    + "その後、攻撃は\(T.s2Arrows)本の矢に分裂して様々な方向へ飛んでいく（等間隔に散る）。各矢は最初に命中した敵に{minorBase}(+{minorPct}%物理攻撃)の"
+                    + "その後（着弾の\(Self.seconds(T.s2SplitDelay))秒後）、攻撃は\(T.s2Arrows)本の矢に分裂して様々な方向へ飛んでいく（60°おきに散る）。"
+                    + "各矢は最初に命中した敵に{minorBase}(+{minorPct}%物理攻撃)の"
                     + "物理ダメージを与え、命中した敵の移動速度を{slowDuration}秒間{slowPercent}%低下させる。",
                 en: "Calls down the power of the eclipse on the target area (lands after \(Self.seconds(T.s2Delay))s), dealing {base} "
                     + "(+{atkPct}% Physical Attack) physical damage to enemies within (radius {radius}) and binding them "
-                    + "for {root}s (they cannot move, blink or dash; their skills are not interrupted).\n\nThe attack then splits into \(T.s2Arrows) scattering "
-                    + "arrows flying in different directions. Each arrow deals {minorBase} (+{minorPct}% Physical Attack) physical damage "
+                    + "for {root}s (they cannot move, blink or dash; their skills are not interrupted).\n\n\(Self.seconds(T.s2SplitDelay))s later, "
+                    + "the attack splits into \(T.s2Arrows) scattering "
+                    + "arrows flying in different directions (60° apart). Each arrow deals {minorBase} (+{minorPct}% Physical Attack) physical damage "
                     + "to the first enemy hit and reduces its movement speed by {slowPercent}% for {slowDuration}s.",
                 tags: [KitTag.disrupt, KitTag.aoe])
         case .ultimate:
@@ -376,7 +402,8 @@ struct Kit_H025: HeroKit {
                      duration: duration, count: 1 + T.splashCount)
     }
 
-    /// S2: 遅延のあとに範囲ダメージ + バインド（ゾーン。敵に付ける root = Unit.isBound）、同じ tick に 6 本の小さな矢が散る（タイマー）。
+    /// S2: 遅延（s2Delay）のあとに範囲ダメージ + バインド（ゾーン。敵に付ける root = Unit.isBound）、
+    /// その s2SplitDelay 秒後に 6 本の小さな矢が散る（タイマー）。
     private func castEclipse(_ s: inout SimState, _ c: KitCast) {
         let i = c.caster
         let skill = c.check.skill
@@ -389,8 +416,8 @@ struct Kit_H025: HeroKit {
         ZoneSystem.spawn(&s, ownerIndex: i, center: center, radius: c.targeting.radius, delay: T.s2Delay, payload: p,
                          visual: skill.effectID)
         // 矢はもう放たれている: スタンしても散る（interruptible: false）。死亡すると状態ごと消える
-        Kit.schedule(&s, caster: i, slot: .skill2, code: T.Code.split, after: T.s2Delay, param: c.aim.direction.angle,
-                     point: center, interruptible: false)
+        Kit.schedule(&s, caster: i, slot: .skill2, code: T.Code.split, after: T.s2Delay + T.s2SplitDelay,
+                     param: c.aim.direction.angle, point: center, interruptible: false)
     }
 
     /// 奥義: 弱体の解除 + 隠密 + 加速。解除（時間切れ・攻撃・発動）は settleHidden が拾う。
@@ -414,7 +441,8 @@ struct Kit_H025: HeroKit {
         splitEclipse(&s, ctx, owner: owner, timer: timer)
     }
 
-    /// 着弾した矢が 6 本に分かれ、着弾点から等間隔に散る。それぞれ最初に当たった敵だけに当たる（貫通しない）。
+    /// 着弾した矢が 6 本に分かれ、着弾点から 60° おきに散る（撃った向きを 0° として 0° / ±60° / ±120° / 180°）。
+    /// それぞれ最初に当たった敵だけに当たる（貫通しない）。
     private func splitEclipse(_ s: inout SimState, _ ctx: SimContext, owner i: Int, timer: KitTimer) {
         guard let (skill, n) = Self.numbersNow(s, ctx, i, .skill2) else { return }
         let damage = Self.minorDamage(rank: n.rank, stats: s.units[i].stats)
@@ -422,7 +450,9 @@ struct Kit_H025: HeroKit {
                                 tag: T.slowTag)
         let p = HitPayload(damage: damage, damageType: skill.damageType, source: .skill(.skill2), statuses: [slow],
                            skillID: skill.skillID, originPos: timer.point)
-        Kit.fan(&s, caster: i, direction: Vec2.fromAngle(timer.param), count: T.s2Arrows, halfAngle: T.s2ScatterHalfAngle,
+        // ±150° の扇（-150, -90, …, 150）を 30° 回す = 撃った向きから -120, -60, 0, 60, 120, 180
+        Kit.fan(&s, caster: i, direction: Vec2.fromAngle(timer.param + T.s2ScatterTurn), count: T.s2Arrows,
+                halfAngle: T.s2ScatterHalfAngle,
                 speed: T.s2ArrowSpeed, range: T.s2ArrowRange, width: T.s2ArrowWidth, payload: p, visual: skill.effectID,
                 origin: timer.point)
     }
@@ -446,6 +476,8 @@ struct Kit_H025: HeroKit {
 
     func shapeBasicAttack(_ s: inout SimState, _ ctx: SimContext, attacker: Int, target: Int,
                           plan: inout BasicAttackPlan) {
+        // 矢の速さは動画で測った値（構造物への矢も同じ）
+        plan.projectileSpeed = T.arrowSpeed
         // 構造物には月矢・月影は働かない（公式の文に無い Velstria の推測。攻城の火力は汎用のレンジャーのまま。攻撃速度の段は積む）
         guard !s.units[target].isStructure, let k = s.units[attacker].hero?.kit else { return }
         if k.luminaMoonArrow > 0 {
@@ -453,14 +485,17 @@ struct Kit_H025: HeroKit {
             Self.fireSplash(&s, attacker: attacker, primary: target, mainDamage: plan.payload.damage,
                             isCrit: plan.payload.isCrit)
         }
-        if k.luminaStacks >= T.maxStacks {
-            s.units[attacker].hero?.kit?.luminaShadows += 1
-            plan.extras.append(Self.shadowPayload(attack: s.units[attacker].stats.attack))
-        }
+        // 月影は主矢の命中で現れる（onBasicAttackHit）。発射の時には何も足さない
     }
 
     func onBasicAttackHit(_ s: inout SimState, _ ctx: SimContext, attacker: Int, target: Int, damage: Double) {
-        guard s.units[attacker].hero?.kit != nil else { return }
+        guard let k = s.units[attacker].hero?.kit else { return }
+        // 月影（動画で測った値）: 最大の段のあいだ、主矢が命中した瞬間に術者の足元へ月影が現れ、術者の位置から対象へ自分の矢を放つ
+        // （約 4 の距離で主矢の 8 コマ = 0.27 秒後に着く）。段はこの命中で積む前の数で見る（5 段目を積んだ命中では出ない）。
+        // 構造物・倒れた対象には出ない
+        if k.luminaStacks >= T.maxStacks, !s.units[target].isStructure, CombatSystem.isLiving(s, target) {
+            Self.summonShadow(&s, attacker: attacker, target: target)
+        }
         Self.gainStack(&s, attacker)
     }
 
@@ -511,6 +546,13 @@ struct Kit_H025: HeroKit {
     static func shadowPayload(attack: Double) -> HitPayload {
         HitPayload(damage: shadowDamage(attack: attack), damageType: .physical, source: .basicAttack,
                    attackEffect: T.shadowAttackEffect)
+    }
+
+    /// 月影の矢: 術者の位置から対象への追尾弾（通常攻撃の矢と同じ速さ）。主矢の命中のたびに 1 本。
+    static func summonShadow(_ s: inout SimState, attacker i: Int, target t: Int) {
+        s.units[i].hero?.kit?.luminaShadows += 1
+        ProjectileSystem.spawn(&s, ownerIndex: i, motion: .homing(targetID: s.units[t].id), speed: T.arrowSpeed,
+                               payload: shadowPayload(attack: s.units[i].stats.attack), visual: "basic_attack")
     }
 
     /// 月弦分矢の持続（公式 4 / 5 / 6 / 7 / 8 / 9 秒）。
@@ -585,7 +627,7 @@ struct Kit_H025: HeroKit {
         let p = splashPayload(mainDamage: mainDamage, isCrit: isCrit)
         for entry in picked.prefix(T.splashCount) {
             ProjectileSystem.spawn(&s, ownerIndex: i, motion: .homing(targetID: s.units[entry.j].id),
-                                   speed: Balance.heroProjectileSpeed, payload: p, visual: "basic_attack")
+                                   speed: T.arrowSpeed, payload: p, visual: "basic_attack")
             s.units[i].hero?.kit?.luminaSplashArrows += 1
         }
     }

@@ -1488,7 +1488,9 @@ final class Kit_H032Tests: XCTestCase {
 
     /// ディアスをボットにして通常の 10 人戦を回す。S1 / S2（1・2 回目）/ 奥義のすべてを撃ち、状態が壊れない。
     func testBotSmokeCastsEverySlotAndStateStaysBounded() throws {
-        var cfg = MatchFactory.botMatch(seed: 31)
+        // シード 31 は 2026-10-16 にミヤ（H025）の幾何と時間を動画で測った値にしたら、ディアスが S2 の 2 回目を撃つ前の 648 秒で試合が
+        // 終わるようになったので 32 に替えた（32〜40・42 はどれも全スロットと 2 回目まで通る）
+        var cfg = MatchFactory.botMatch(seed: 32)
         let idx = try XCTUnwrap(cfg.players.firstIndex { $0.team == .blue && $0.position == .top })
         if let other = cfg.players.firstIndex(where: { $0.heroID == "H032" }), other != idx {
             cfg.players[other].heroID = cfg.players[idx].heroID

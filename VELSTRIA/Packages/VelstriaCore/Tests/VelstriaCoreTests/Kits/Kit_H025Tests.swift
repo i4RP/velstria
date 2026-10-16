@@ -76,14 +76,16 @@ final class Kit_H025Tests: XCTestCase {
         XCTAssertFalse(t1.requiresTarget)
         XCTAssertFalse(t1.recastable)
 
-        // S2 月蝕の矢: 射程 650 の地点指定の円
+        // S2 月蝕の矢: 射程 545（動画で測った値。マスターの 650 ではない）・半径 170 の地点指定の円
         let t2 = SkillCatalog.targeting(for: skill(.skill2), hero: def)
         XCTAssertEqual(t2.archetype, .groundAoE)
         XCTAssertEqual(t2.aim, .point)
-        XCTAssertEqual(t2.range, 650)
+        XCTAssertEqual(T.s2Range, 545)
+        XCTAssertEqual(T.s2Radius, 170)
+        XCTAssertEqual(t2.range, T.s2Range)
         XCTAssertEqual(t2.radius, T.s2Radius)
         XCTAssertEqual(t2.shape, .circleAtPoint)
-        XCTAssertEqual(t2.reach, 650 + T.s2Radius)
+        XCTAssertEqual(t2.reach, T.s2Range + T.s2Radius)
 
         // アルティメット 隠れ月光: 自己強化。リングは 480、撃てる距離の目安 (reach) は奥義の距離 770
         let t3 = SkillCatalog.targeting(for: skill(.ultimate), hero: def)
@@ -154,19 +156,25 @@ final class Kit_H025Tests: XCTestCase {
                 XCTAssertTrue(en.contains("inherits 30% of attack effects"), en)
             }
             if slot == .skill2 {
-                XCTAssertTrue(ja.contains("0.35秒"), ja)
+                // 着弾まで 0.65 秒・散るのは着弾の 0.33 秒後（動画で測った値）
+                XCTAssertTrue(ja.contains("着弾まで0.65秒"), ja)
+                XCTAssertTrue(ja.contains("着弾の0.33秒後"), ja)
+                XCTAssertTrue(ja.contains("60°おきに散る"), ja)
                 XCTAssertTrue(ja.contains("270(+45%物理攻撃)の物理ダメージ"), ja)
                 XCTAssertTrue(ja.contains("40(+20%物理攻撃)の物理ダメージ"), ja)
                 // バインド（MLBB の日本語クライアントの用語説明: 移動・ブリンク・アサルトスキル不可、スキルは中断されない）
                 XCTAssertTrue(ja.contains("1.2秒間バインド状態にする（移動・ブリンク・アサルトスキルが使えない。スキルは中断されない）"), ja)
                 XCTAssertFalse(ja.contains("移動できないが"), ja)
                 let en = text.filled(english: true, numbers: n, targeting: t)
-                XCTAssertTrue(en.contains("0.35s"), en)
+                XCTAssertTrue(en.contains("lands after 0.65s"), en)
+                XCTAssertTrue(en.contains("0.33s later"), en)
                 XCTAssertTrue(en.contains("cannot move, blink or dash"), en)
             }
             if slot == .ultimate { XCTAssertTrue(ja.contains("アルティメット以外のスキル"), ja) }
         }
         XCTAssertEqual(Kit_H025.seconds(0.35), "0.35")
+        XCTAssertEqual(Kit_H025.seconds(0.65), "0.65")
+        XCTAssertEqual(Kit_H025.seconds(0.33), "0.33")
         XCTAssertEqual(Kit_H025.seconds(4), "4")
         XCTAssertEqual(Kit_H025.seconds(1.2), "1.2")
         XCTAssertEqual(Kit_H025.seconds(0.5), "0.5")
@@ -268,17 +276,20 @@ final class Kit_H025Tests: XCTestCase {
         w.tick()
         let kit = try XCTUnwrap(HeroKits.kit(of: w.s.units[k]))
         let attack = w.s.units[k].stats.attack
-        // 月影の payload
+        // 月影の payload（最大の段で主矢が命中した瞬間に、術者から対象へ飛ぶ月影の矢）
         w.s.units[k].hero!.kit!.luminaStacks = 5
         var plan = BasicAttackPlan(payload: HitPayload(damage: attack, damageType: .physical, source: .basicAttack,
                                                        appliesOnHit: true), ranged: true)
         kit.shapeBasicAttack(&w.s, w.ctx, attacker: k, target: e, plan: &plan)
-        let shadow = try XCTUnwrap(plan.extras.first)
+        XCTAssertTrue(plan.extras.isEmpty, "月影は発射の時には足さない（主矢の命中で現れる）")
+        kit.onBasicAttackHit(&w.s, w.ctx, attacker: k, target: e, damage: attack)
+        let shadow = try XCTUnwrap(w.s.projectiles.first { !$0.done && $0.payload.attackEffect == 0.20 }?.payload)
         XCTAssertEqual(shadow.attackEffect, 0.20)
         XCTAssertEqual(shadow.attackEffectRatio, 0.20, accuracy: 1e-12)
         XCTAssertFalse(shadow.appliesOnHit)
         XCTAssertEqual(shadow.source, .basicAttack)
         XCTAssertEqual(plan.payload.attackEffectRatio, 1, "主矢は通常攻撃そのもの（攻撃エフェクト 100%）")
+        w.s.projectiles.removeAll()
         // 分裂の矢の payload（月矢の効果中に、周囲の敵へ飛ぶ追尾弾）
         XCTAssertTrue(w.cast(k, .skill1))
         var plan2 = BasicAttackPlan(payload: HitPayload(damage: attack, damageType: .physical, source: .basicAttack,
@@ -377,27 +388,70 @@ final class Kit_H025Tests: XCTestCase {
         w.s.units[k].hero!.kit!.luminaStacks = 5
         var plan = BasicAttackPlan(payload: HitPayload(damage: 100, damageType: .physical, source: .basicAttack), ranged: true)
         kit.shapeBasicAttack(&w.s, w.ctx, attacker: k, target: e, plan: &plan)
-        XCTAssertEqual(plan.extras.count, 1)
-        XCTAssertEqual(plan.extras[0].damage, 25 + 0.20 * attack, accuracy: 1e-9)
-        XCTAssertFalse(plan.extras[0].isCrit, "会心にならない（公式の文に会心の記述が無い）")
-        XCTAssertFalse(plan.extras[0].appliesOnHit, "月影は通常攻撃そのものではない（段・命中数に数えない）")
-        XCTAssertEqual(plan.extras[0].attackEffect, 0.20, "攻撃効果の 20% を引き継ぐ")
-        XCTAssertEqual(plan.extras[0].source, .basicAttack)
+        XCTAssertTrue(plan.extras.isEmpty, "発射の時には月影を足さない")
+        XCTAssertEqual(plan.projectileSpeed, T.arrowSpeed, "矢の速さは動画で測った値")
         XCTAssertEqual(plan.payload.damage, 100)
-        // 4 段では出ない
+        // 主矢の命中で月影が現れ、術者の位置から対象へ矢を放つ（動画で測った値: 主矢の命中の後に飛ぶ）
+        kit.onBasicAttackHit(&w.s, w.ctx, attacker: k, target: e, damage: 100)
+        XCTAssertEqual(w.s.projectiles.count, 1)
+        let shadow = try XCTUnwrap(w.s.projectiles.first)
+        XCTAssertEqual(shadow.pos.distance(to: w.s.units[k].pos), 0, accuracy: 1e-9, "術者の位置から")
+        XCTAssertEqual(shadow.speed, T.arrowSpeed)
+        guard case .homing(let tid) = shadow.motion else { return XCTFail("追尾弾") }
+        XCTAssertEqual(tid, w.id(e))
+        XCTAssertEqual(shadow.payload.damage, 25 + 0.20 * attack, accuracy: 1e-9)
+        XCTAssertFalse(shadow.payload.isCrit, "会心にならない（公式の文に会心の記述が無い）")
+        XCTAssertFalse(shadow.payload.appliesOnHit, "月影は通常攻撃そのものではない（段・命中数に数えない）")
+        XCTAssertEqual(shadow.payload.attackEffect, 0.20, "攻撃効果の 20% を引き継ぐ")
+        XCTAssertEqual(shadow.payload.source, .basicAttack)
+        XCTAssertEqual(w.kit(k).luminaShadows, 1)
+        w.s.projectiles.removeAll()
+        // 4 段では出ない（この命中で 5 段目を積んでも、その命中には月影は付かない）
         w.s.units[k].hero!.kit!.luminaStacks = 4
-        var plan4 = BasicAttackPlan(payload: HitPayload(damage: 100, damageType: .physical, source: .basicAttack), ranged: true)
-        kit.shapeBasicAttack(&w.s, w.ctx, attacker: k, target: e, plan: &plan4)
-        XCTAssertTrue(plan4.extras.isEmpty)
+        kit.onBasicAttackHit(&w.s, w.ctx, attacker: k, target: e, damage: 100)
+        XCTAssertTrue(w.s.projectiles.isEmpty)
+        XCTAssertEqual(w.kit(k).luminaStacks, 5)
         // 構造物には月影も月矢も働かない（公式の文に無い Velstria の推測。docs の「まだ MLBB と違うところ」）
         w.s.units[k].hero!.kit!.luminaStacks = 5
         w.s.units[k].hero!.kit!.luminaMoonArrow = 3
         w.s.units[k].hero!.kit!.luminaArrowBonus = 99
         var planT = BasicAttackPlan(payload: HitPayload(damage: 100, damageType: .physical, source: .basicAttack), ranged: true)
         kit.shapeBasicAttack(&w.s, w.ctx, attacker: k, target: tower, plan: &planT)
+        kit.onBasicAttackHit(&w.s, w.ctx, attacker: k, target: tower, damage: 100)
         XCTAssertTrue(planT.extras.isEmpty)
         XCTAssertEqual(planT.payload.damage, 100)
+        XCTAssertEqual(planT.projectileSpeed, T.arrowSpeed, "構造物への矢も同じ速さ")
         XCTAssertEqual(w.s.projectiles.count, 0)
+    }
+
+    /// 月影は主矢の命中の後に飛ぶ（動画で測った値: 約 4 の距離で主矢の 8 コマ = 0.27 秒後に着く）。主矢と同じ tick には当たらない。
+    func testShadowArrowLandsAfterTheMainArrow() throws {
+        XCTAssertEqual(T.arrowSpeed, 1650)
+        var w = SkillWorld()
+        let k = addLumina(&w)
+        let e = addFoe(&w, dx: 400)
+        w.tick()
+        Kit_H025.setStacks(&w.s, k, T.maxStacks)
+        w.s.units[k].attackTargetID = w.id(e)
+        w.tick()
+        let attack = w.s.units[k].stats.attack
+        let primary = w.mitigated(attack, .physical, on: e)
+        let shadowDamage = w.mitigated(Kit_H025.shadowDamage(attack: attack), .physical, on: e)
+        var mainTick: Int?
+        var shadowTick: Int?
+        for _ in 0..<45 where shadowTick == nil {
+            w.tick()
+            for ev in events(w, to: e, .basicAttack) {
+                if mainTick == nil, abs(ev.amount - primary) < 0.01 { mainTick = w.s.tick }
+                if shadowTick == nil, abs(ev.amount - shadowDamage) < 0.01 { shadowTick = w.s.tick }
+            }
+        }
+        let m = try XCTUnwrap(mainTick)
+        let sh = try XCTUnwrap(shadowTick)
+        // 術者から対象の縁まで（400 − 対象の半径）を毎秒 1650 で飛ぶ
+        let flight = (400 - w.s.units[e].radius) / T.arrowSpeed
+        XCTAssertGreaterThan(sh, m, "主矢より後")
+        XCTAssertEqual(Double(sh - m) * Balance.dt, flight, accuracy: 2.5 * Balance.dt)
     }
 
     func testStacksExpireAfterFourSecondsWithoutHitAndRefreshOnHit() {
@@ -638,10 +692,12 @@ final class Kit_H025Tests: XCTestCase {
         XCTAssertEqual(cast.halfAngle, Double.pi * 5 / 6, accuracy: 1e-9)
         XCTAssertEqual(cast.radius, T.s2Radius)
         XCTAssertEqual(Kit.scheduledCount(w.s, caster: k, code: T.Code.split), 1)
-        w.run(seconds: 0.25)
+        // 指を離してから 0.65 秒で着弾（動画で測った値）
+        XCTAssertEqual(T.s2Delay, 0.65)
+        w.run(seconds: 0.55)
         XCTAssertTrue(w.damageEvents.isEmpty, "着弾までは当たらない")
         XCTAssertTrue(w.s.projectiles.isEmpty)
-        w.run(seconds: 0.25)
+        w.run(seconds: 0.15)
         for e in [hit, edge] {
             let evs = events(w, to: e, .skill(.skill2)).filter { abs($0.amount - w.mitigated(n.damage, .physical, on: e)) < 0.01 }
             XCTAssertEqual(evs.count, 1, "着弾の範囲に 1 度")
@@ -670,13 +726,23 @@ final class Kit_H025Tests: XCTestCase {
         var w = SkillWorld()
         let k = addLumina(&w)
         let target = skillArena + Vec2(500, 0)
+        let start = w.s.tick
         XCTAssertTrue(w.cast(k, .skill2, .point(target)))
-        var fired = false
-        for _ in 0..<60 where !fired {
+        // 着弾（0.65 秒）の 0.33 秒後に散る（動画で測った値。着弾の時にはまだ散らない）
+        XCTAssertEqual(T.s2SplitDelay, 0.33)
+        var firedTick: Int?
+        var arrowsAtLanding = -1
+        for _ in 0..<60 where firedTick == nil {
             w.tick()
-            fired = Kit.scheduledCount(w.s, caster: k) == 0
+            let elapsed = Double(w.s.tick - start) * Balance.dt
+            if arrowsAtLanding < 0, elapsed >= T.s2Delay + 2 * Balance.dt {
+                arrowsAtLanding = w.s.projectiles.filter { $0.visual == skill(.skill2).effectID }.count
+            }
+            if Kit.scheduledCount(w.s, caster: k) == 0 { firedTick = w.s.tick }
         }
-        XCTAssertTrue(fired)
+        let fired = try XCTUnwrap(firedTick)
+        XCTAssertEqual(arrowsAtLanding, 0, "着弾の直後はまだ散っていない")
+        XCTAssertEqual(Double(fired - start) * Balance.dt, T.s2Delay + T.s2SplitDelay, accuracy: 1.5 * Balance.dt)
         let arrows = w.s.projectiles.filter { $0.visual == skill(.skill2).effectID && !$0.done }
         XCTAssertEqual(arrows.count, 6)
         var angles: [Double] = []
@@ -690,18 +756,24 @@ final class Kit_H025Tests: XCTestCase {
             XCTAssertEqual(dir.length, 1, accuracy: 1e-9)
             angles.append(degrees(dir))
         }
-        // 発射方向（東）を中心に 60° おき: -150, -90, -30, 30, 90, 150
-        for (got, want) in zip(angles, [-150.0, -90, -30, 30, 90, 150]) {
+        // 撃った向き（東 = 0°）から 60° おき: -120, -60, 0, 60, 120, 180（動画で測った値。1 本は撃った向き）
+        XCTAssertEqual(T.s2ArrowSpeed, 1250)
+        XCTAssertEqual(T.s2ArrowRange, 400)
+        let wrap = { (a: Double) -> Double in a <= -179.999 ? a + 360 : a }
+        for (got, want) in zip(angles.map(wrap), [-120.0, -60, 0, 60, 120, 180]) {
             XCTAssertEqual(got, want, accuracy: 1e-6)
         }
         // 撃つ向きが変われば散る向きもそれに従う（北向き = 90° 回転）
         var w2 = SkillWorld()
         let k2 = addLumina(&w2)
         XCTAssertTrue(w2.cast(k2, .skill2, .point(skillArena + Vec2(0, 500))))
-        w2.run(seconds: 0.6)
+        w2.run(seconds: 1.0)
         let north = w2.s.projectiles.filter { $0.visual == skill(.skill2).effectID }
+        XCTAssertEqual(north.count, 6)
         guard case .linear(let d0, _) = north[0].motion else { return XCTFail() }
-        XCTAssertEqual(degrees(d0), -60, accuracy: 1e-6, "北 (90°) の -150°")
+        XCTAssertEqual(degrees(d0), -30, accuracy: 1e-6, "北 (90°) の -120°")
+        guard case .linear(let d2, _) = north[2].motion else { return XCTFail() }
+        XCTAssertEqual(degrees(d2), 90, accuracy: 1e-6, "3 本目は撃った向き（北）")
     }
 
     func testEachMinorArrowHitsOnlyTheFirstEnemyAndSlows() throws {
@@ -710,12 +782,13 @@ final class Kit_H025Tests: XCTestCase {
         let n = w.numbers(k, .skill2)
         let minor = Kit_H025.minorDamage(rank: 1, stats: w.s.units[k].stats)
         let center = Vec2(500, 0)
-        // +30° の矢の上: 近い敵と遠い敵（円の外。近い方だけに当たる）
-        let ray = Vec2.fromAngle(30 * Double.pi / 180)
+        // +60° の矢の上: 近い敵と遠い敵（円の外。近い方だけに当たる）
+        let ray = Vec2.fromAngle(60 * Double.pi / 180)
         let near = addFoe(&w, dx: center.x + ray.x * 300, dy: ray.y * 300)
         let far = addFoe(&w, dx: center.x + ray.x * 390, dy: ray.y * 390, hero: "H004")
         XCTAssertTrue(w.cast(k, .skill2, .point(skillArena + center)))
-        w.run(seconds: 1.2)
+        // 散るのは 0.98 秒、300 先まで毎秒 1250 で 0.24 秒
+        w.run(seconds: 1.5)
         let nearEvs = events(w, to: near, .skill(.skill2))
         XCTAssertEqual(nearEvs.count, 1, "矢は 1 本だけ")
         XCTAssertEqual(nearEvs[0].amount, w.mitigated(minor, .physical, on: near), accuracy: 0.01)
@@ -735,30 +808,32 @@ final class Kit_H025Tests: XCTestCase {
     }
 
     func testTargetInsideTheBlastTakesTheBlastAndTheArrowsThatPassThroughIt() throws {
-        // 着弾点の 100 東に立つ敵: 円の中（移動不能）+ ±30° の 2 本が当たる（90° の矢は幅の外）
+        // 着弾点の 100 東に立つ敵: 円の中（移動不能）+ 0° の矢（真上を通る）と ±60° の 2 本（最も近づく所で横 86.6 < 半径 55 + 幅 35）が
+        // 当たる。±120° の矢は遠ざかる向き（出どころで 100 離れている）なので当たらない
         var w = SkillWorld()
         let k = addLumina(&w)
         let n = w.numbers(k, .skill2)
         let minor = Kit_H025.minorDamage(rank: 1, stats: w.s.units[k].stats)
         let e = addFoe(&w, dx: 600)
         XCTAssertTrue(w.cast(k, .skill2, .point(skillArena + Vec2(500, 0))))
-        w.run(seconds: 1.2)
+        w.run(seconds: 1.5)
         let evs = events(w, to: e, .skill(.skill2)).map(\.amount)
         let blast = w.mitigated(n.damage, .physical, on: e)
         let arrow = w.mitigated(minor, .physical, on: e)
-        XCTAssertEqual(evs.count, 3, "\(evs)")
+        XCTAssertLessThan(100 * sin(Double.pi / 3), w.s.units[e].radius + T.s2ArrowWidth, "±60° の矢は幅の内側を通る")
+        XCTAssertEqual(evs.count, 4, "\(evs)")
         XCTAssertEqual(evs.filter { abs($0 - blast) < 0.01 }.count, 1)
-        XCTAssertEqual(evs.filter { abs($0 - arrow) < 0.01 }.count, 2)
+        XCTAssertEqual(evs.filter { abs($0 - arrow) < 0.01 }.count, 3)
         XCTAssertNotNil(slowMagnitude(w, e))
         XCTAssertTrue(w.s.units[e].has(.root), "円の中は移動不能（1.2 秒）")
     }
 
     func testEclipseEdgeCases() throws {
-        // 射程 650 に丸める
+        // 射程 545 に丸める（動画で測った値）
         var w = SkillWorld()
         let k = addLumina(&w)
         XCTAssertTrue(w.cast(k, .skill2, .point(skillArena + Vec2(1500, 0))))
-        XCTAssertEqual(w.castEvents.last?.target.x ?? 0, skillArena.x + 650, accuracy: 1e-6)
+        XCTAssertEqual(w.castEvents.last?.target.x ?? 0, skillArena.x + T.s2Range, accuracy: 1e-6)
 
         // 味方・自分には当たらない
         var w2 = SkillWorld()
@@ -778,6 +853,8 @@ final class Kit_H025Tests: XCTestCase {
         XCTAssertTrue(w3.cast(k3, .skill2, .point(skillArena + Vec2(500, 0))))
         w3.tick(3)
         CombatSystem.addStatus(&w3.s, targetIndex: k3, StatusEffect(kind: .stun, duration: 0.6))
+        w3.run(seconds: 0.5)
+        XCTAssertEqual(Kit.scheduledCount(w3.s, caster: k3), 1, "スタンでは取り消されない（非中断）")
         w3.run(seconds: 0.5)
         XCTAssertEqual(Kit.scheduledCount(w3.s, caster: k3), 0, "非中断のタイマーは発火済み")
         w3.run(seconds: 1)

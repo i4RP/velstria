@@ -8,15 +8,18 @@ import VelstriaCore
 //   パッシブ 月環の導き   — 通常攻撃の命中で段が積もるたび（0.4 秒に 1 回まで・5 段まで。隠れ月光が解けて最大の段になる瞬間も）:
 //                           頭上に小さな三日月が灯り、弓の先がきらめき、足元を細い月の輪が一巡する（攻撃のたびなので小さく短く）
 //   スキル1 月弦分矢      — 自己強化 4〜9 秒（ランク。自身中心なので cast と impact を発動と同時に再生）。0.1 秒で弦を離すと、
-//                           主矢（中央・2 枚重ねで明るい）と左右 16° の副矢が弓から前へ飛んで分かれ、通り道に翠の筋が残る。
+//                           主矢（中央・2 枚重ねで明るい）と左右 30° の副矢が弓から前へ飛んで分かれ、通り道に翠の筋が残る
+//                           （MLBB の画面収録では副矢は周りの 2 体へ主矢から ±28〜36° に飛んだ）。
 //                           効果中は足元を三日月が巡り、弓の先に月のきらめきが流れ続ける（長さは発動のイベントの duration
 //                           = 効果時間。0 なら書いた 4 秒: durationFromCast）
-//   スキル2 月蝕の矢      — 0.1 秒で天へ矢を放つ（cast）。着弾点（ゾーンの telegraph = 発動と同時）に月の印が浮かび、
-//                           0.03〜0.35 秒に月光の矢の雨と主矢が真上から落ち、0.35 秒（s2Delay）に着弾: 地に刺さった主矢・月光の柱・
-//                           噛み合う二つの三日月（月蝕）・暗い影・砕ける結晶。移動不能 1.2 秒の敵は足元を月の輪と三日月の枷が締める（hit）。
-//                           着弾と同時に 6 本の小さな矢（本物の投射物）が ±30° / ±90° / ±150° へ散る = travel が各矢に付く。
+//   スキル2 月蝕の矢      — 弓を天へ向けて引き、0.32 秒で天へ矢を放つ（cast。画面収録: 指を離してから 0.27〜0.32 秒）。
+//                           着弾点（ゾーンの telegraph = 発動と同時）に月の印が浮かび、0.35〜0.65 秒に月光の矢の雨と主矢が真上から落ち、
+//                           0.65 秒（s2Delay）に着弾: 地に刺さった主矢・月光の柱・噛み合う二つの三日月（月蝕）・暗い影・砕ける結晶。
+//                           移動不能 1.2 秒の敵は足元を月の輪と三日月の枷が締める（hit）。
+//                           着弾の 0.33 秒後（0.98 秒、s2SplitDelay）に白い閃光とともに 6 本の小さな矢（本物の投射物）が撃った向きから
+//                           0° / ±60° / ±120° / 180° へ散る = travel が各矢に付く（毎秒 12.5 m で 4 m、0.32 秒）。
 //                           impact は「ゾーンの発動」と「小さな矢 6 本それぞれの終わり（命中・射程の端）」の計 7 回再生されるので、
-//                           着弾の本体は telegraph（at = 0.35）に置き、impact は小さな閃きだけにする
+//                           着弾の本体は telegraph（at = 0.65）に置き、impact は小さな閃きだけにする
 //   アルティメット 隠れ月光 — 腰を落とした瞬間、月光の帳（光の円柱）が降りて姿を包み、霞・翠の木の葉・小さな三日月が舞い散る。
 //                           隠密 2 秒のあいだの位置を敵に見せないよう、演出は発動の位置に置き、追従するのは走り出す 0.3 秒の尾だけ
 // SkillFXDirector は count を読まない: 時刻は at（遅れ）で表す。duration は durationFromCast の合図（S1 の効果中の演出）だけが使う。
@@ -32,19 +35,23 @@ enum FX_H025: HeroFXSet {
 
     /// スキル1 の効果時間（s1Duration のランク 1。実際の長さ（ランクで 4→9 秒）は発動のイベントの duration から取る）。
     private static let buffTime: Float = 4
-    /// スキル2: 着弾までの遅れ（s2Delay）・半径（s2Radius 170）・移動不能（s2Root）。
-    private static let eclipseDelay: Float = 0.35
+    /// スキル2: 着弾までの遅れ（s2Delay 0.65）・半径（s2Radius 170）・移動不能（s2Root）。
+    private static let eclipseDelay: Float = 0.65
     private static let eclipseRadius: Float = 1.7
     private static let rootTime: Float = 1.2
-    /// 小さな矢が射程の端（420）へ着くまで（速度 1800）。
-    private static let minorArrowTime: Float = 0.23
+    /// 天へ矢を放つ時刻（画面収録: 指を離してから弓を天へ向けて 0.27〜0.32 秒）。
+    private static let eclipseShoot: Float = 0.32
+    /// 6 本の小さな矢が散る時刻（着弾 + s2SplitDelay 0.33）。
+    private static let eclipseSplit: Float = 0.98
+    /// 小さな矢が射程の端（400）へ着くまで（速度 1250）。
+    private static let minorArrowTime: Float = 0.32
 
     /// 弓を構えた左手の先（局所座標）。
     private static let bow: SIMD3<Float> = [-0.1, 1.35, 0.6]
     /// 天へ向けて引いた弓の先（スキル2）。
     private static let bowHigh: SIMD3<Float> = [-0.1, 1.85, 0.45]
-    /// 副矢が分かれる角度（度）。
-    private static let split: Float = 16
+    /// 副矢が分かれる角度（度。画面収録では周りの 2 体へ ±28〜36°）。
+    private static let split: Float = 30
 
     // MARK: - 部品
 
@@ -149,12 +156,12 @@ enum FX_H025: HeroFXSet {
 
     // MARK: - スキル2 月蝕の矢
 
-    /// 天へ放つ（0.1）→ 矢の雨と主矢が落ちる（0.03〜0.35）→ 着弾（0.35）→ 6 本の小さな矢が散る（travel）。
+    /// 天へ放つ（0.32）→ 矢の雨と主矢が落ちる（0.35〜0.65）→ 着弾（0.65）→ 閃光とともに 6 本の小さな矢が散る（0.98、travel）。
     private static func eclipse() -> SkillFXRecipe {
         var r = SkillFXRecipe()
         let R = eclipseRadius
         let land = eclipseDelay
-        let shoot: Float = 0.1
+        let shoot = eclipseShoot
         let skyward = bowHigh + SIMD3<Float>(0, 0.6, 0)
         r.cast = [
             .emit(.gather(10, radius: 0.5, .secondary, life: shoot), offset: bowHigh),
@@ -167,21 +174,23 @@ enum FX_H025: HeroFXSet {
                 $0.spread = 18
             }, at: shoot, offset: bowHigh),
         ]
-        // ゾーンの telegraph は発動と同時に着弾点で再生される（中心が原点）。着弾の本体もここに at = 0.35 で置く
+        // ゾーンの telegraph は発動と同時に着弾点で再生される（中心が原点）。着弾の本体もここに at = 0.65 で置く
         r.telegraph = [
             // 0〜: 着弾点に月の印（細い輪と、巡る三日月）が浮かぶ
             .mesh(FXMesh.decal(.ring, R * 2, .secondary, life: land + 0.1, spin: 0, grow: 1.0, alpha: 0.55)),
             .mesh(FXMesh.decal(.moon, R * 1.5, .accent, life: land + 0.1, spin: 260, grow: 1.0, alpha: 0.55)),
-            // 0.03〜: 天から月光の矢の雨（縦の光の筋が着弾点の円へ降り注ぎ、0.3〜0.4 秒に地へ届く）
+            // 0.36〜: 天から月光の矢の雨（縦の光の筋が着弾点の円へ降り注ぎ、0.6〜0.75 秒に地へ届く）
             .emit(FXEmit(tex: .streak, tint: .core, tintEnd: .secondary, count: 16, emit: 0.1, life: 0.28, lifeVar: 0.05,
                          size: 0.16, sizeVar: 0.3, grow: 1, shape: .box([R, 0.2, R]), dir: .down, speed: 24,
-                         speedVar: 0.08, stretch: 3.2, fade: .linearFadeOut), at: 0.03, offset: [0, 6.6, 0]),
-            // 0.1: 主矢が真上から落ちる（下向きの矢。0.35 秒に矢じりが地に届く）
-            .mesh(uprightArrow(length: 2.6, width: 0.8, .core, life: land - 0.1, up: false).with {
+                         speedVar: 0.08, stretch: 3.2, fade: .linearFadeOut), at: shoot + 0.04, offset: [0, 6.6, 0]),
+            // 0.4: 主矢が真上から落ちる（下向きの矢。0.65 秒に矢じりが地に届く）
+            .mesh(uprightArrow(length: 2.6, width: 0.8, .core, life: 0.25, up: false).with {
                 $0.rise = -20
                 $0.fadeOut = 0.92
-            }, at: 0.1, offset: [0, 6.3, 0]).repeated(2, yaw: 90),
-            // 0.35: 着弾。白い閃光・地に刺さった主矢（移動不能のあいだ残る）・月光の柱・細い衝撃の輪
+            }, at: land - 0.25, offset: [0, 6.3, 0]).repeated(2, yaw: 90),
+            // 0.98: 6 本に分かれる瞬間の白い閃光（画面収録の着弾の 10 コマ後）
+            .mesh(.shockRing(R * 0.8, .core, life: 0.22, tex: .ring), at: eclipseSplit),
+            // 0.65: 着弾。白い閃光・地に刺さった主矢（移動不能のあいだ残る）・月光の柱・細い衝撃の輪
             .emit(.flare(2.3, .core, life: 0.2, tex: .flare6), at: land, offset: [0, 0.5, 0]),
             .mesh(uprightArrow(length: 1.7, width: 0.6, .secondary, life: rootTime, up: false, alpha: 0.95).with {
                 $0.fadeIn = 0.02
@@ -200,7 +209,7 @@ enum FX_H025: HeroFXSet {
             .emit(.rising(12, radius: R * 0.8, .primary, speed: 2.4, life: 0.8), at: land + 0.04, quality: 1),
             .shake(0.15, at: land),
         ]
-        // 着弾と同時に散る 6 本の小さな矢（本物の投射物。前方 = 飛ぶ向き）: 白い光の矢と銀青の筋
+        // 着弾の 0.33 秒後に散る 6 本の小さな矢（本物の投射物。前方 = 飛ぶ向き）: 白い光の矢と銀青の筋
         r.travel = [
             .mesh(FXMesh(shape: .disc, tex: .arrow, tint: .core, alpha: 1, size: [1.1, 1, 0.45], sizeEnd: [1.1, 1, 0.45],
                          ease: .linear, life: minorArrowTime + 0.08, fadeIn: 0.02, fadeOut: 0.8, yaw: 90), .follow,
@@ -277,10 +286,12 @@ enum FX_H025: HeroFXSet {
             m.release(0.04)
             m.hold(0.14) { $0.glow = 1.8 }
         case .skill2:
-            // 弓を天へ向けて引き（0.1 秒で放つ）、矢が落ちるまで空を見上げる
-            m.draw(0.08, up: 0.75)
+            // 弓を天へゆっくり向けて引き（画面収録: 指を離してから 0.27〜0.32 秒）、0.32 秒で放ち、矢が落ちるまで空を見上げる
+            // （0.32 + 0.2 + 0.1 + 戻り 0.25 = 0.87 秒）
+            m.draw(0.12, up: 0.35)
+            m.draw(0.16, up: 0.75)
             m.release(0.04)
-            m.hold(0.18) { $0.glow = 1.6; $0.headPitch = -0.35 }
+            m.hold(0.2) { $0.glow = 1.6; $0.headPitch = -0.35 }
             m.settle(0.1)
         case .ultimate:
             // 腰を落として外套で身を包み、月影に紛れる

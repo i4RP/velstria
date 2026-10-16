@@ -92,7 +92,10 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     ///     奥義 = 縁まで 188・0.25 秒で掴んで 0.32 秒おきに 6 撃）。docs/kits/Franco.md「動画で測った値」。
     /// 26: 遊ぶ地図の壁を MLBB のミニマップ原本から起こした滑らかな多角形に（ed0f086。キャンプの位置・拠点の周りの規則も）、
     ///     矩形の角の衝突を丸い膨張に、経路探索の格子を 100 → 50（粗い格子で下見）。
-    public static let currentSimVersion = 26
+    /// 28: H025（ミヤ）の幾何と時間を MLBB の画面収録で測った値に（通常攻撃の矢 = 毎秒 1650、月影 = 主矢の命中で術者から放つ、
+    ///     スキル2 = 射程 545・離してから 0.65 秒で着弾・その 0.33 秒後に 6 本が撃った向きから 0° / ±60° / ±120° / 180° へ
+    ///     毎秒 1250 で 400）。docs/kits/Miya.md「動画で測った値」。27（フランコ）と 29（オーロラ）は並行する別の作業が使う番号。
+    public static let currentSimVersion = 28
 
     public var simVersion: Int
     public var mode: MatchMode
