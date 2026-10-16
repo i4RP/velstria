@@ -5,20 +5,21 @@ import VelstriaCore
 // 主題: 紫の稲妻。電光の白い芯 × 紫（主）× 水色の電光（副）× 淡い藤色（差し色）× 黒に近い夜（暗）。円い光の床ではなく、
 // 「扇へ枝分かれして走る稲妻」「術者と敵を結ぶ雷の鎖」「稲光をまとう雷球」「天から落ちる縦の大雷と地を這う稲光」で形を見せる。
 // 縦の稲妻は、円盤を横倒しにした板 2 枚を直交させる（どの向きから見ても読める）か、カメラを向く粒を 90° 回して描く。
-// sim の実際の挙動（Systems/Kits/Kit_H026.swift の EuriaTuning）に合わせたタイミング:
+// sim の実際の挙動（Systems/Kits/Kit_H026.swift の EuriaTuning）に合わせたタイミング。時刻と寸法は MLBB の訓練場の画面収録で
+// 測った値（docs/kits/Eudora.md「動画で測った値（2026-10-16）」）:
 //   パッシブ 超伝導          — 印そのものの合図はバッジを持たないので試合中は出ない（cast は目視確認の実演用）。
-//                              アルティメットが超伝導の敵に当たると、その敵に追従するゾーン（半径 1.9m・0.5 秒後）が雷の炸裂を起こす。
-//                              ゾーンの演出 ID がこのパッシブなので、この枠の telegraph = 0.5 秒の収束（足元の陣が絞られ、頭上で三度瞬く）、
+//                              アルティメットが超伝導の敵に当たると、その敵に追従するゾーン（半径 2.61m・0.83 秒後）が雷の炸裂を起こす。
+//                              ゾーンの演出 ID がこのパッシブなので、この枠の telegraph = 0.83 秒の収束（足元の陣が絞られ、頭上で三度瞬く）、
 //                              impact = 炸裂（縦の雷・地を這う 4 本の稲光・光るひび）
-//   スキル1 分岐雷          — 前方の扇（射程 6.5m・半角 30°）へ即時（cast と impact を発動と同時に再生）。0.05 秒に中央の太い稲妻から
-//                              ±13° / ±26° へ枝分かれして走り、枝の先がさらに分かれ、0.15 秒まで向きを変えて瞬き直す。
-//                              被弾 1 回ごと（扇の初撃・雷の鎖の継続ダメージ 0.2 秒おき 4 回・1 秒後の終わりの一撃。hitPerHit）に、
+//   スキル1 分岐雷          — 前方の扇（射程 5.76m・半角 37.5°）へ即時（cast と impact を発動と同時に再生）。0.05 秒に中央の太い稲妻から
+//                              ±16° / ±32° へ枝分かれして走り、枝の先がさらに分かれ、0.15 秒まで向きを変えて瞬き直す。
+//                              被弾 1 回ごと（扇の初撃・雷の鎖の継続ダメージ 0.12 秒から 0.27 秒おき 4 回・1 秒後の終わりの一撃。hitPerHit）に、
 //                              術者 → 被弾者の線上へ稲妻の筋を連ねて「雷の鎖」を描く（.along。画質 1 以上）
-//   スキル2 雷球            — 対象を追う雷球（18 m/s。追尾弾は向きが決まらないので形は丸いものだけ）が稲光をまとって飛び、
+//   スキル2 雷球            — 対象を追う雷球（11.5 m/s。追尾弾は向きが決まらないので形は丸いものだけ）が稲光をまとって飛び、
 //                              当たって弾ける（縦の雷・6 本の放射の稲光・焦げたひび）。当たった敵ごと（印済みなら周囲 2.6m にも広がる）に
 //                              スタン 1 秒の電光のちらつきと頭上の輪、魔防ダウン 1.8 秒の足元の割れた六角の盾
-//   アルティメット 九天雷鳴 — 0.2 秒: 杖を掲げて天へ稲妻を昇らせる。予告 0.8 秒（telegraph）: 地面が嵐の影に沈み、外側の陣（半径 3m）と
-//                              中心の陣（半径 1.5m）が回り、陣の中を地を這う稲光が二度走る。0.8 秒（impact）: 中心へ縦の大雷（太細 2 組）と
+//   アルティメット 九天雷鳴 — 0.12 秒: 杖を掲げて天へ稲妻を昇らせる。予告 0.45 秒（telegraph）: 地面が嵐の影に沈み、外側の陣（半径 2.73m）と
+//                              中心の陣（半径 1.15m）が回り、陣の中を地を這う稲光が二度走る。0.45 秒（impact）: 中心へ縦の大雷（太細 2 組）と
 //                              光の柱、外側の輪の上に 0.3 秒かけて雷の筋が降り、中心から外縁へ地を這う 5 本の稲光、焼け跡と光るひび
 // SkillFXDirector は duration / count を読まない: 時刻は at（遅れ）で表す。
 
@@ -29,12 +30,12 @@ enum FX_H026: HeroFXSet {
 
     // MARK: - sim の時刻・寸法（Kit_H026.EuriaTuning と同じ値。sim を変えたらここも合わせる）
 
-    /// 雷の炸裂の遅れ（burstDelay）・半径（burstRadius 190）。
-    private static let burstDelay: Float = 0.5
-    private static let burstRadius: Float = 1.9
-    /// アルティメット: 予告（ultDelay）・中心の半径（ultCenterRadius 150）。
-    private static let ultDelay: Float = 0.8
-    private static let ultCenter: Float = 1.5
+    /// 雷の炸裂の遅れ（burstDelay 0.83）・半径（burstRadius 261）。
+    private static let burstDelay: Float = 0.83
+    private static let burstRadius: Float = 2.61
+    /// アルティメット: 予告（ultDelay 0.45）・中心の半径（ultCenterRadius 115）。
+    private static let ultDelay: Float = 0.45
+    private static let ultCenter: Float = 1.15
     /// スキル2: スタン・魔防ダウンの長さ。
     private static let stunTime: Float = 1.0
     private static let shredTime: Float = 1.8
@@ -122,14 +123,14 @@ enum FX_H026: HeroFXSet {
             .mesh(.halo(0.7, .primary, life: 0.6, spin: 480, tex: .ring), .follow, offset: [0, 1.0, 0]),
             .emit(.flare(0.9, .accent, life: 0.14), .follow, offset: [0, 1.6, 0]),
         ]
-        // 雷の炸裂の予告（0.5 秒。超伝導の敵の位置が原点）: 足元の雷の陣が絞られ、電光が集まり、頭上で稲光が三度瞬く
+        // 雷の炸裂の予告（0.83 秒。超伝導の敵の位置が原点）: 足元の雷の陣（半径 2.61m の輪）が絞られ、電光が集まり、頭上で稲光が三度瞬く
         r.telegraph = [
             .mesh(FXMesh(shape: .disc, tex: .techCircle, tint: .secondary, alpha: 0.85, size: [B * 2, 1, B * 2],
                          sizeEnd: [1.2, 1, 1.2], ease: .in, life: burstDelay, fadeIn: 0.15, fadeOut: 0.85, spin: -300)),
-            .emit(.gather(14, radius: 1.6, .secondary, life: burstDelay - 0.05), offset: [0, 0.8, 0]),
-            .emit(boltFlash(1.0, .accent), offset: [0, 2.0, 0]).repeated(3, every: 0.16),
+            .emit(.gather(14, radius: B * 0.85, .secondary, life: burstDelay - 0.05), offset: [0, 0.8, 0]),
+            .emit(boltFlash(1.0, .accent), at: 0.2, offset: [0, 2.0, 0]).repeated(3, every: 0.2),
         ]
-        // 炸裂: 縦の雷が敵へ落ち、地を這う 4 本の稲光と光るひびが半径 1.9m に走る
+        // 炸裂: 縦の雷が敵へ落ち、地を這う 4 本の稲光と光るひびが半径 2.61m に走る
         r.impact = [
             .mesh(bolt(height: 7, width: 1.3, .core, life: 0.24), offset: [0, 3.5, 0]).repeated(2, yaw: 90),
             .emit(.flare(2.2, .core, life: 0.2, tex: .flare6), offset: [0, 0.9, 0]),
@@ -146,7 +147,7 @@ enum FX_H026: HeroFXSet {
 
     // MARK: - スキル1 分岐雷
 
-    /// 扇（射程 6.5m・半角 30°）へ即時に枝分かれする稲妻。被弾ごとに雷の鎖の筋（hitPerHit）。
+    /// 扇（射程 5.76m・半角 37.5°）へ即時に枝分かれする稲妻。被弾ごとに雷の鎖の筋（hitPerHit）。
     private static func forkedLightning(_ s: FXSkillInfo) -> SkillFXRecipe {
         var r = SkillFXRecipe()
         let L = min(s.range, 7)
@@ -160,26 +161,26 @@ enum FX_H026: HeroFXSet {
         r.impact = [
             // 中央の太い稲妻から左右へ枝分かれして走る
             branch(0, length: L, .core, at: t, from: root, life: 0.3, width: 1.1),
-            branch(13, length: L * 0.88, .secondary, at: t + 0.02, from: root, width: 0.9),
-            branch(-13, length: L * 0.88, .secondary, at: t + 0.02, from: root, width: 0.9),
-            branch(26, length: L * 0.74, .primary, at: t + 0.04, from: root, width: 0.8),
-            branch(-26, length: L * 0.74, .primary, at: t + 0.04, from: root, width: 0.8),
+            branch(16, length: L * 0.88, .secondary, at: t + 0.02, from: root, width: 0.9),
+            branch(-16, length: L * 0.88, .secondary, at: t + 0.02, from: root, width: 0.9),
+            branch(32, length: L * 0.74, .primary, at: t + 0.04, from: root, width: 0.8),
+            branch(-32, length: L * 0.74, .primary, at: t + 0.04, from: root, width: 0.8),
             // 中央の枝の中ほどから、さらに外へ分かれる
-            branch(40, length: 2.0, .accent, at: t + 0.06, from: fork, life: 0.22, width: 0.6),
-            branch(-40, length: 2.0, .accent, at: t + 0.06, from: fork, life: 0.22, width: 0.6),
+            branch(46, length: 2.0, .accent, at: t + 0.06, from: fork, life: 0.22, width: 0.6),
+            branch(-46, length: 2.0, .accent, at: t + 0.06, from: fork, life: 0.22, width: 0.6),
             // ちらつき: 中央と左右の枝が逆の向きの模様で瞬き直す
             branch(4, length: L * 0.95, .secondary, at: t + 0.1, from: root, life: 0.18, width: 0.9, flip: true),
-            branch(-18, length: L * 0.8, .core, at: t + 0.12, from: root, life: 0.16, width: 0.7, flip: true),
-            branch(18, length: L * 0.8, .core, at: t + 0.14, from: root, life: 0.16, width: 0.7, flip: true),
+            branch(-22, length: L * 0.8, .core, at: t + 0.12, from: root, life: 0.16, width: 0.7, flip: true),
+            branch(22, length: L * 0.8, .core, at: t + 0.14, from: root, life: 0.16, width: 0.7, flip: true),
             // 扇へ散る電光の粒・中央の筋に沿って弾ける光・扇の先で弾ける電光
-            .emit(.fan(24, .primary, speed: 16, spread: 30, life: 0.32), at: t, offset: tip),
+            .emit(.fan(24, .primary, speed: 16, spread: 37, life: 0.32), at: t, offset: tip),
             .emit(.lineBurst(L * 0.45, count: 12, .secondary, life: 0.4, size: 0.2), at: t + 0.04,
                   offset: [0, 0.2, L * 0.5]),
             .emit(.sparks(14, speed: 5, .core, end: .secondary, size: 0.09, life: 0.3, gravity: 0).with {
                 $0.shape = .box([L * 0.5, 0.3, 0.6])
             }, at: t + 0.06, offset: rim),
         ]
-        // 被弾 1 回ごと（扇の初撃・鎖の継続ダメージ 4 回・終わりの一撃）: 術者 → 被弾者の線上（.along(0) = 術者、1 = 被弾者）に
+        // 被弾 1 回ごと（扇の初撃・鎖の継続ダメージ 0.12 / 0.39 / 0.66 / 0.93 秒・1 秒の終わりの一撃）: 術者 → 被弾者の線上（.along(0) = 術者、1 = 被弾者）に
         // 稲妻の筋を 4 本連ねて雷の鎖にし、被弾者の体を縦の稲光が走る。多くの敵に当たる扇の初撃もあるので、鎖の筋は画質 1 以上だけ
         r.hit = [
             .emit(boltFlash(1.4, .secondary), offset: [0, 1.1, 0]),
@@ -209,11 +210,11 @@ enum FX_H026: HeroFXSet {
             .emit(.flare(1.3, .core, life: 0.14, tex: .flare6), at: 0.02, offset: hand),
             .emit(boltFlash(1.0, .secondary, count: 2, life: 0.14), at: 0.02, offset: hand),
         ]
-        // 雷球（追尾弾は向きが決まらないので、丸い芯・殻・回る輪と、ばらばらの向きの稲光だけ）
+        // 雷球（追尾弾は向きが決まらないので、丸い芯・殻・回る輪と、ばらばらの向きの稲光だけ）。毎秒 11.5m で射程 5.05m の端まで約 0.45 秒
         r.travel = [
-            .mesh(.orb(0.26, .core, life: 0.5, grow: 1.0, alpha: 0.95).with { $0.fadeOut = 0.85 }, .follow, offset: ball),
-            .mesh(.orb(0.48, .secondary, life: 0.5, grow: 1.0, alpha: 0.4).with { $0.fadeOut = 0.85 }, .follow, offset: ball),
-            .mesh(.halo(0.55, .primary, life: 0.5, spin: 520, tex: .ringDouble).with {
+            .mesh(.orb(0.26, .core, life: 0.55, grow: 1.0, alpha: 0.95).with { $0.fadeOut = 0.85 }, .follow, offset: ball),
+            .mesh(.orb(0.48, .secondary, life: 0.55, grow: 1.0, alpha: 0.4).with { $0.fadeOut = 0.85 }, .follow, offset: ball),
+            .mesh(.halo(0.55, .primary, life: 0.55, spin: 520, tex: .ringDouble).with {
                 $0.size = [0.55, 1, 0.55]
                 $0.fadeOut = 0.85
             }, .follow, offset: ball),
@@ -249,7 +250,7 @@ enum FX_H026: HeroFXSet {
 
     // MARK: - アルティメット 九天雷鳴
 
-    /// 杖を掲げて天へ稲妻（0.2）→ 予告 0.8 秒（嵐の影・二重の陣・地を這う稲光）→ 0.8 秒に縦の大雷と外側に降る雷。
+    /// 杖を掲げて天へ稲妻（0.12）→ 予告 0.45 秒（嵐の影・二重の陣・地を這う稲光）→ 0.45 秒に縦の大雷と外側に降る雷。
     private static func thundersWrath(_ s: FXSkillInfo) -> SkillFXRecipe {
         var r = SkillFXRecipe()
         let R = min(s.radius, 3.2)
@@ -258,26 +259,27 @@ enum FX_H026: HeroFXSet {
         let high: SIMD3<Float> = [0.25, 2.5, 0.3]
         let sky = high + SIMD3<Float>(0, 2.3, 0)
         r.cast = [
-            .emit(.gather(22, radius: 1.2, .secondary, life: 0.3), offset: high),
-            .emit(.flare(2.0, .core, life: 0.24, tex: .flare6), at: 0.2, offset: high),
+            .emit(.gather(22, radius: 1.2, .secondary, life: 0.14), offset: high),
+            .emit(.flare(2.0, .core, life: 0.2, tex: .flare6), at: 0.1, offset: high),
             // 杖の先から天へ稲妻が昇る（雷を呼ぶ）
-            .mesh(bolt(height: 4.5, width: 1.0, .secondary, life: 0.22), at: 0.22, offset: sky).repeated(2, yaw: 90),
-            .mesh(.halo(0.9, .primary, life: 0.9, spin: 420, tex: .ringDouble), offset: [0, 0.2, 0]),
+            .mesh(bolt(height: 4.5, width: 1.0, .secondary, life: 0.2), at: 0.12, offset: sky).repeated(2, yaw: 90),
+            .mesh(.halo(0.9, .primary, life: 0.6, spin: 420, tex: .ringDouble), offset: [0, 0.2, 0]),
         ]
-        // 予告（0.8 秒。中心が原点）: 地面が嵐の影に沈み、外側の陣（半径 3m）と中心の陣（半径 1.5m）が逆に回り、
-        // 陣の中を地を這う稲光が 0.3 秒・0.55 秒に走る
+        // 予告（0.45 秒。中心が原点）: 地面が嵐の影に沈み、外側の陣（半径 2.73m）と中心の陣（半径 1.15m）が逆に回り、
+        // 陣の中を地を這う稲光が 0.15 秒・0.3 秒に走る
         r.telegraph = [
             .mesh(FXMesh(shape: .disc, tex: .glow, tint: .dark, alpha: 0.6, size: [R * 1.6, 1, R * 1.6],
-                         sizeEnd: [R * 2.4, 1, R * 2.4], ease: .out, life: land + 0.15, fadeIn: 0.2, fadeOut: 0.8)),
+                         sizeEnd: [R * 2.4, 1, R * 2.4], ease: .out, life: land + 0.15, fadeIn: 0.12, fadeOut: 0.8)),
             .mesh(.decal(.runeCircle, R * 2, .primary, life: land + 0.05, spin: 60, grow: 1.0, alpha: 0.6)),
             .mesh(.decal(.techCircle, C * 2, .secondary, life: land + 0.05, spin: -150, grow: 1.0, alpha: 0.85)),
-            radial(FXMesh.ray(.bolt, length: 2.2, width: 0.7, .secondary, life: 0.16), 3, radius: C + 0.3, at: 0.3),
-            radial(FXMesh.ray(.bolt, length: 2.0, width: 0.6, .accent, life: 0.16), 3, radius: C - 0.1, start: 60,
-                   at: 0.55, quality: 1),
-            .emit(.rising(18, radius: R * 0.8, .secondary, speed: 2.0, life: 0.7)),
-            .emit(.gather(20, radius: R, .accent, life: 0.45), at: 0.35, offset: [0, 0.5, 0]),
+            radial(FXMesh.ray(.bolt, length: 2.0, width: 0.7, .secondary, life: 0.14), 3, radius: C + 0.3, at: 0.15),
+            radial(FXMesh.ray(.bolt, length: 1.8, width: 0.6, .accent, life: 0.14), 3, radius: C - 0.1, start: 60,
+                   at: 0.3, quality: 1),
+            .emit(.rising(18, radius: R * 0.8, .secondary, speed: 2.0, life: 0.4)),
+            .emit(.gather(20, radius: R, .accent, life: 0.28), at: 0.15, offset: [0, 0.5, 0]),
         ]
-        // 0.8 秒: 中心へ縦の大雷（太細 2 組の直交の板）と光の柱、外側の輪の上に雷の筋が降り、中心から外縁へ地を這う稲光、焼け跡
+        // 0.45 秒: 中心へ縦の大雷（太細 2 組の直交の板）と光の柱、外側の輪の上に雷の筋が降り、中心から外縁へ地を這う稲光、焼け跡
+        // （MLBB の動画では外側の雷は中心の 0.13〜0.17 秒後。sim は中心と外側を同じ tick に当てる）
         r.impact = [
             .emit(.flare(3.4, .core, life: 0.3, tex: .flare6), offset: [0, 1.0, 0]),
             .mesh(bolt(height: 10, width: 2.0, .core, life: 0.3), offset: [0, 5.0, 0]).repeated(2, yaw: 90),
@@ -328,10 +330,11 @@ enum FX_H026: HeroFXSet {
             m.hold(0.06) { $0.glow = 1.6 }
             m.settle(0.1)
         case .ultimate:
-            // 杖を天へ掲げて雷を呼び（0.2 秒で天へ稲妻）、0.8 秒の落雷に合わせて杖を地へ突き立てる
-            m.raise(0.16, glow: 2.0)
-            m.hold(0.54) { $0.ring = 1.4; $0.glow = 2.6 }
-            m.plant(0.08)
+            // 杖を天へ掲げて雷を呼び（0.12 秒で天へ稲妻）、0.45 秒の落雷に合わせて杖を地へ突き立てる
+            // （0.12 + 0.26 + 0.07 = 0.45 秒に突き立て、戻りを足して 0.96 秒）
+            m.raise(0.12, glow: 2.0)
+            m.hold(0.26) { $0.ring = 1.4; $0.glow = 2.6 }
+            m.plant(0.07)
             m.hold(0.16) { $0.glow = 2.2 }
         }
     }

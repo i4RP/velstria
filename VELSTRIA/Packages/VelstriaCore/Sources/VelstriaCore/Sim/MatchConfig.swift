@@ -107,7 +107,11 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     /// 31: H027（子龍）の幾何と時間を MLBB の画面収録で測った値に（スキル1 = 打ち上げ 0.8 → 1.0 秒・0.4 秒持ち上げてから 0.2 秒で
     ///     背後 144 へ放り投げる（以前は命中の瞬間から 0.7 秒で背後 170）、スキル2 = 突進を毎秒 2400 → 1520）。
     ///     docs/kits/Zilong.md「動画で測った値」。
-    public static let currentSimVersion = 31
+    /// 32: H026（エウドラ）の幾何と時間を MLBB の画面収録で測った値に（スキル1 = 扇 576・半角 37.5°、鎖の継続ダメージ 0.12 秒から 0.27 秒おき 4 回、
+    ///     スキル2 = 射程 505・雷球 毎秒 1150、奥義 = 射程 615・0.45 秒・中心 115 / 外側 273、炸裂 = 0.83 秒後・半径 261）。
+    ///     docs/kits/Eudora.md「動画で測った値」。27〜31 は並行する他のヒーローの作業（フランコ・ミヤ・オーロラほか）が使うので 32 にした。
+    ///     **番号はマージのときに付け直す**（main に入る順で連番にする）。
+    public static let currentSimVersion = 32
 
     public var simVersion: Int
     public var mode: MatchMode
