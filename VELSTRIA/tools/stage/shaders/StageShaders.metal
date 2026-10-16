@@ -232,13 +232,13 @@ inline float caustics(float2 m, float t) {
         float d = float(aux.b);                      // 0 = 岸、1 = 中央
         float wet = smoothstep(0.15, 0.55, wRiver);  // 水に覆われている度合い
         // 色は線形値（sRGB で浅瀬 (60,150,150)、深み (25,85,105) 相当）
-        half3 shallow = half3(0.03, 0.20, 0.22);
-        half3 deep = half3(0.008, 0.07, 0.12);
+        half3 shallow = ruins ? half3(0.025, 0.095, 0.09) : half3(0.03, 0.20, 0.22);
+        half3 deep = ruins ? half3(0.012, 0.045, 0.052) : half3(0.008, 0.07, 0.12);
         half3 water = mix(shallow, deep, half(smoothstep(0.0, 1.0, d)));
         half3 under = color * half3(0.40, 0.62, 0.68) * half(mix(0.85, 0.3, d));
         half3 surf = mix(under, water, half(0.55 + 0.4 * d));
         // 浅瀬のコースティクス
-        float caus = caustics(m, t * cp.y) * (1.0 - d) * 0.10;
+        float caus = caustics(m, t * cp.y) * (1.0 - d) * (ruins ? 0.012 : 0.10);
         surf += half3(0.55, 0.85, 0.8) * half(caus);
         // さざ波の明暗と照り返し（太陽は左上の奥）
         float r0 = rippleHeight(m, t * cp.y);
@@ -246,14 +246,14 @@ inline float caustics(float2 m, float t) {
         float ry = rippleHeight(m + float2(0, 0.15), t * cp.y) - r0;
         float glint = pow(saturate(0.5 + (-rx * 0.8 + ry * 1.1) * 3.5), 6.0);
         float sparkle = step(0.86, vnoise(m * 4.0 + float2(t * 0.9, -t * 0.7))) * step(0.6, vnoise(m * 1.3 - t * 0.3));
-        emissive += half3(0.75, 0.95, 1.0) * half((glint * 0.12 + sparkle * 0.25) * wet * cp.y);
+        emissive += half3(0.75, 0.95, 1.0) * half((glint * 0.12 + sparkle * 0.25) * wet * cp.y * (ruins ? 0.08 : 1.0));
         surf *= half(0.93 + r0 * 0.14);
         // 岸の泡
         float foam = (1.0 - smoothstep(0.0, 0.55, abs(float(wRiver) - 0.42) * 4.0)) * step(0.45, vnoise(m * 2.4 + float2(t * 0.25, 0)));
-        surf = mix(surf, half3(0.62, 0.78, 0.76), half(foam * 0.3));
+        surf = mix(surf, half3(0.62, 0.78, 0.76), half(foam * (ruins ? 0.04 : 0.3)));
         color = mix(color, surf, half(wet));
-        roughness = mix(roughness, 0.18h, half(wet));
-        specular = mix(specular, 0.5h, half(wet));
+        roughness = mix(roughness, ruins ? 0.82h : 0.18h, half(wet));
+        specular = mix(specular, ruins ? 0.08h : 0.5h, half(wet));
     }
 
     // 遮蔽（崖の根元・木陰・草むらの下）: 色を青緑寄りに暗くする

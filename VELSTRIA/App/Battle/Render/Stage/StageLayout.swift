@@ -184,6 +184,11 @@ struct StageLayout {
     /// 矩形の壁: 足跡いっぱいの一枚岩（slabCore）+ 上に茂みと木。
     /// 2026-10-16 まで辺に崖の岩・角に柱状の岩を並べていたが、境界がガタガタで隙間が暗く見えたので一枚岩にした。
     mutating func rectWall(lo: SIMD2<Float>, hi: SIMD2<Float>, index: Int) {
+        if ruinsLook && isRiverRuin((lo + hi) / 2) {
+            masonryWall(outline: StageLayout.roundedRect(lo: lo + 0.12, hi: hi - 0.12,
+                                                        radius: 0.35, step: 0.8), center: (lo + hi) / 2)
+            return
+        }
         let coreH = rng.range(1.85, 2.15)
         // 角は少し丸める（衝突は角をユニットの半径で丸めた膨張。足元は裾 0.28 m の張り出しで角の近くまで埋まる）。
         // 半径は上面の縁の入り（slabCore の inset、最大 0.55 m・短辺の 0.28 倍）以上にする（小さいと角で上面の輪が裏返る）
@@ -218,6 +223,14 @@ struct StageLayout {
 
     /// 円の壁: 足跡いっぱいの丸い一枚岩 + 上に茂み（大きければ木）。
     mutating func circleWall(center c: SIMD2<Float>, radius r: Float, index: Int) {
+        if ruinsLook && isRiverRuin(c) {
+            let outline = (0..<16).map { k -> SIMD2<Float> in
+                let a = Float(k) / 16 * 2 * Float.pi
+                return c + SIMD2(cos(a), sin(a)) * (r - 0.12)
+            }
+            masonryWall(outline: outline, center: c)
+            return
+        }
         let coreH = rng.range(1.5, 1.8)
         var outline: [SIMD2<Float>] = []
         let segs = max(16, Int((2 * .pi * r / 0.9).rounded()))
@@ -237,6 +250,11 @@ struct StageLayout {
     /// 多角形の壁（2026-10-16、MLBB のミニマップ原本から起こした滑らかな輪郭）: 足跡いっぱいの一枚岩（slopedSlab）+ 上に茂みと木。
     mutating func polygonWall(_ outline: [SIMD2<Float>], index: Int) {
         guard outline.count >= 3 else { return }
+        let wallCenter = outline.reduce(SIMD2<Float>.zero, +) / Float(outline.count)
+        if ruinsLook && isRiverRuin(wallCenter) {
+            masonryWall(outline: StageLayout.signedArea(outline) < 0 ? Array(outline.reversed()) : outline, center: wallCenter)
+            return
+        }
         let slab = StageLayout.slopedSlab(outline: outline, seed: UInt64(index) &* 1733, tint: rockTint(),
                                           fine: level != .low, refine: level == .high)
         let center = outline.reduce(SIMD2<Float>.zero, +) / Float(outline.count)
@@ -274,6 +292,68 @@ struct StageLayout {
         var buf = out.chunks.rocks.removeValue(forKey: key) ?? StageMeshBuffer(reserveVertices: 2048)
         buf.append(core)
         out.chunks.rocks[key] = buf
+    }
+
+    /// 川沿いの既存の衝突形状を、そのまま低い石積みへ置き換える。
+    func isRiverRuin(_ p: SIMD2<Float>) -> Bool {
+        let center = SIMD2<Float>(repeating: geo.mapMeters / 2)
+        if simd_distance(p, center) < 16 { return true }
+        return map.camps.contains {
+            ($0.kind == .astralWyrm || $0.kind == .ancientColossus) && simd_distance(p, geo.m($0.pos)) < 10
+        }
+    }
+
+    mutating func masonryWall(outline: [SIMD2<Float>], center: SIMD2<Float>) {
+        stonePrism(outline, bottom: 0, top: 0.95, color: stageColor(0.27, 0.36, 0.34, 0))
+        stonePrism(outline, bottom: 0.95, top: 1.1, color: stageColor(0.48, 0.51, 0.39, 0))
+        // 控えめな金の笠石。壁の足跡の外には出さない。
+        let stride = max(3, outline.count / 16)
+        for i in outline.indices where i % stride == 0 {
+            let a = outline[i], b = outline[(i + 1) % outline.count]
+            let edge = b - a
+            guard simd_length(edge) > 0.001 else { continue }
+            let inward = simd_normalize(SIMD2(-edge.y, edge.x)) * 0.16
+            guard polygonDistance(a + inward, outline) < 0, polygonDistance(b + inward, outline) < 0 else { continue }
+            stonePrism([a, b, b + inward, a + inward],
+                       bottom: 1.1, top: 1.18, color: stageColor(0.46, 0.39, 0.20, 0))
+        }
+        guard polygonDistance(center, outline) < -0.8 else { return }
+        let b = size(.bush)
+        let k: Float = 1.5 / max(b.x, b.z)
+        place(.bush, at: center, y: 0.98, yaw: 0, scale: SIMD3(k, k * 0.65, k))
+    }
+
+    /// 歩行可能な円盤の縁は薄い床の象嵌（新しい見えない壁を作らない）。
+    mutating func terraceRing(center c: SIMD2<Float>, radius r: Float) {
+        for k in 0..<48 {
+            let a = Float(k) / 48 * 2 * Float.pi
+            let b = (Float(k) + 0.94) / 48 * 2 * Float.pi
+            let u = SIMD2(cos(a), sin(a)), v = SIMD2(cos(b), sin(b))
+            stonePrism([c + u * r, c + v * r, c + v * (r - 0.28), c + u * (r - 0.28)],
+                       bottom: 0.025, top: 0.055, color: stageColor(0.08, 0.16, 0.14, 0))
+        }
+    }
+
+    /// 静的な石材を既存の頂点色チャンクへ結合する（Entity / 更新処理の追加なし）。
+    mutating func stonePrism(_ outline: [SIMD2<Float>], bottom: Float, top: Float, color: SIMD4<UInt8>) {
+        guard outline.count >= 3 else { return }
+        let center = outline.reduce(SIMD2<Float>.zero, +) / Float(outline.count)
+        let key = StageChunks.key(world(center))
+        var mesh = out.chunks.flora.removeValue(forKey: key) ?? StageMeshBuffer()
+        let cap = outline.map { mesh.addVertex(world($0, top), [0, 1, 0], .zero, color) }
+        for (a, b, c) in StageLayout.triangulate(outline) { mesh.addTriangle(cap[a], cap[b], cap[c]) }
+        for i in outline.indices {
+            let a = outline[i], b = outline[(i + 1) % outline.count]
+            let edge = b - a
+            let normal = simd_normalize(SIMD3(edge.y, 0, edge.x))
+            let p0 = mesh.addVertex(world(a, bottom), normal, .zero, color)
+            let p1 = mesh.addVertex(world(b, bottom), normal, .zero, color)
+            let p2 = mesh.addVertex(world(b, top), normal, .zero, color)
+            let p3 = mesh.addVertex(world(a, top), normal, .zero, color)
+            mesh.addTriangle(p0, p1, p2)
+            mesh.addTriangle(p0, p2, p3)
+        }
+        out.chunks.flora[key] = mesh
     }
 
     // MARK: 地図の外（崖の壁と森）
@@ -431,11 +511,17 @@ struct StageLayout {
     // MARK: 祭壇（ボスの巣・番人のキャンプ）
 
     mutating func pits() {
+        if ruinsLook {
+            let c = SIMD2<Float>(repeating: geo.mapMeters / 2)
+            runeDisc(center: c, radius: 5.4, rotation: .pi / 4)
+            terraceRing(center: c, radius: 5.55)
+        }
         for camp in map.camps {
             let c = geo.m(camp.pos)
             switch camp.kind {
             case .astralWyrm, .ancientColossus:
                 runeDisc(center: c, radius: 5.6, rotation: camp.kind == .astralWyrm ? 0.2 : 1.0)
+                if ruinsLook { terraceRing(center: c, radius: 5.85) }
                 pitRuins(center: c)
             case .blueSentinel, .redSentinel:
                 runeDisc(center: c, radius: 2.5, rotation: Float(camp.id) * 0.7)

@@ -93,6 +93,13 @@ enum StageSplat {
             case .small, .hornLizard, .emberBeetle, .magmaGolem, .treasureCrab, .mossWanderer: break
             }
         }
+        // ミッド交差点は水面ではなく、川底と同じ青緑の遺跡広場。
+        if ruins {
+            let center = SIMD2<Float>(repeating: geo.mapMeters / 2)
+            pave.stampDisc(center, inner: 6.8, outer: 8.1, wobble: 0.2, seed: 59)
+            let along = SIMD2<Float>(repeating: 9.0)
+            pave.stampSegment(center - along, center + along, inner: 2.6, outer: 3.5, wobble: 0.25, seed: 57)
+        }
         // 川（祭壇の床では途切れる）
         let pits = map.camps.filter { $0.kind == .astralWyrm || $0.kind == .ancientColossus }.map { geo.m($0.pos) }
         let halfWidth = Float(map.riverWidth / 100) / 2

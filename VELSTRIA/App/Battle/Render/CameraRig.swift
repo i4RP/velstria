@@ -101,7 +101,7 @@ final class CameraRig {
     nonisolated static let pitchDegrees: Float = 56
     nonisolated static let fovDegrees: Float = 48
     /// cameraZoom = 1 のときの注視点までの距離（m）。
-    nonisolated static let baseDistance: Float = 12.5
+    nonisolated static let baseDistance: Float = 10.0
     /// 通常の追従はヒーローを画面中央に置く。
     nonisolated static let focusLead: Float = 0
     /// プレイヤーの倍率（設定 0.8〜1.3 + 余裕）。

@@ -191,7 +191,7 @@ final class StageScene {
             brush.custom.value = SIMD4(level == .low ? 0.5 : 1, 0, 0, 0)
 
             var runeMat = PhysicallyBasedMaterial()
-            runeMat.baseColor = .init(tint: .white, texture: .init(rune))
+            runeMat.baseColor = .init(tint: a.set == .ruins ? UIColor(red: 0.40, green: 0.66, blue: 0.59, alpha: 1) : .white, texture: .init(rune))
             runeMat.roughness = .init(floatLiteral: 0.9)
             runeMat.metallic = .init(floatLiteral: 0)
             runeMat.specular = .init(floatLiteral: 0.2)
