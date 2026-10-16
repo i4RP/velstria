@@ -298,6 +298,121 @@
       "credits": 60,
       "bytes": 10876068,
       "completed_at": "2026-10-16T07:53:12.844Z"
+    },
+    "monster_purple": {
+      "provider": "tripo",
+      "status": "success",
+      "concept_sha256": "a54bca6de6ef4173e9732095d47fa893f20d3b68c2af816cd0b0365e4f8092c0",
+      "request": {
+        "input": "<concept.png の file_token>",
+        "model": "P1-20260311",
+        "face_limit": 4500,
+        "texture": true,
+        "pbr": true,
+        "texture_quality": "detailed",
+        "texture_version": "v3.5-20260815",
+        "delight": true,
+        "texture_alignment": "original_image",
+        "orientation": "align_image"
+      },
+      "balance_before": 3480,
+      "submitted_at": "2026-10-16T08:36:32.125Z",
+      "task_id": "efccefc7-1ccf-45d2-a69a-3cb0d58e174f",
+      "credits": 60,
+      "bytes": 10818184,
+      "completed_at": "2026-10-16T08:37:57.305Z"
+    },
+    "monster_golem": {
+      "provider": "tripo",
+      "status": "success",
+      "concept_sha256": "0a0795575f5c6e0274b8e54bd514ba68ee4309eebe263cb46b06d96652d84bd8",
+      "request": {
+        "input": "<concept.png の file_token>",
+        "model": "P1-20260311",
+        "face_limit": 4500,
+        "texture": true,
+        "pbr": true,
+        "texture_quality": "detailed",
+        "texture_version": "v3.5-20260815",
+        "delight": true,
+        "texture_alignment": "original_image",
+        "orientation": "align_image"
+      },
+      "balance_before": 3480,
+      "submitted_at": "2026-10-16T08:36:32.350Z",
+      "task_id": "d32cf2a1-f645-4163-8d10-6b59a842be60",
+      "credits": 60,
+      "bytes": 13579084,
+      "completed_at": "2026-10-16T08:38:40.847Z"
+    },
+    "monster_red": {
+      "provider": "tripo",
+      "status": "success",
+      "concept_sha256": "d01ca6018be7e2a50ceb017abc023b7238d8fca8ab8f86bc308d573f17fe211f",
+      "request": {
+        "input": "<concept.png の file_token>",
+        "model": "P1-20260311",
+        "face_limit": 4500,
+        "texture": true,
+        "pbr": true,
+        "texture_quality": "detailed",
+        "texture_version": "v3.5-20260815",
+        "delight": true,
+        "texture_alignment": "original_image",
+        "orientation": "align_image"
+      },
+      "balance_before": 3480,
+      "submitted_at": "2026-10-16T08:36:32.366Z",
+      "task_id": "7a483e71-b7b1-4902-8103-f43831c1edcd",
+      "credits": 60,
+      "bytes": 10635720,
+      "completed_at": "2026-10-16T08:37:32.535Z"
+    },
+    "monster_whelp": {
+      "provider": "tripo",
+      "status": "success",
+      "concept_sha256": "ff01168de79826786c535dfe7228407442bbf9f39f37286b8c6994a041536b23",
+      "request": {
+        "input": "<concept.png の file_token>",
+        "model": "P1-20260311",
+        "face_limit": 2500,
+        "texture": true,
+        "pbr": true,
+        "texture_quality": "detailed",
+        "texture_version": "v3.5-20260815",
+        "delight": true,
+        "texture_alignment": "original_image",
+        "orientation": "align_image"
+      },
+      "balance_before": 3480,
+      "submitted_at": "2026-10-16T08:36:32.401Z",
+      "task_id": "5ff60448-c67e-4ad2-9c50-fc5219ff7b4b",
+      "credits": 60,
+      "bytes": 10571692,
+      "completed_at": "2026-10-16T08:38:05.965Z"
+    },
+    "monster_wanderer": {
+      "provider": "tripo",
+      "status": "success",
+      "concept_sha256": "9bea84a0107ce17282699c315d7626f5e968208c8abe62cf90c5b8a36b09d8c2",
+      "request": {
+        "input": "<concept.png の file_token>",
+        "model": "P1-20260311",
+        "face_limit": 2500,
+        "texture": true,
+        "pbr": true,
+        "texture_quality": "detailed",
+        "texture_version": "v3.5-20260815",
+        "delight": true,
+        "texture_alignment": "original_image",
+        "orientation": "align_image"
+      },
+      "balance_before": 3480,
+      "submitted_at": "2026-10-16T08:36:32.409Z",
+      "task_id": "7ed15aae-175d-4502-80a3-7807c9c3838e",
+      "credits": 60,
+      "bytes": 6836180,
+      "completed_at": "2026-10-16T08:38:13.833Z"
     }
   }
 }

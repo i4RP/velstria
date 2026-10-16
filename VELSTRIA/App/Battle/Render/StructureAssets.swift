@@ -27,9 +27,6 @@ enum StructureAssets {
         case minionMelee = "minion_melee"
         case minionRanged = "minion_ranged"
         case minionSiege = "minion_siege"
-        /// 中立ボス（タートル = astralWyrm、ロード = ancientColossus）。チーム色なし（青の材質だけ使う）。
-        case monsterTurtle = "monster_turtle"
-        case monsterLord = "monster_lord"
 
         var fileName: String { "Struct_\(rawValue)" }
 
@@ -37,16 +34,7 @@ enum StructureAssets {
         var isStructure: Bool {
             switch self {
             case .tower, .towerOrb, .coreBase, .coreCrystal: return true
-            case .minionMelee, .minionRanged, .minionSiege, .monsterTurtle, .monsterLord: return false
-            }
-        }
-
-        /// 生成モデルがある中立モンスター（無ければ nil = 手続きメッシュ）。
-        static func monster(_ k: MonsterKind) -> Kind? {
-            switch k {
-            case .astralWyrm: return .monsterTurtle
-            case .ancientColossus: return .monsterLord
-            default: return nil
+            case .minionMelee, .minionRanged, .minionSiege: return false
             }
         }
 
@@ -64,7 +52,6 @@ enum StructureAssets {
             case .tower, .coreBase: return 6000
             case .towerOrb, .coreCrystal: return 2500
             case .minionMelee, .minionRanged, .minionSiege: return 2500
-            case .monsterTurtle, .monsterLord: return 6000
             }
         }
     }
@@ -171,6 +158,8 @@ enum StructureAssets {
                 if let r = await loadRig(kind) { rigs[kind] = r }
             }
         }
+        // 中立モンスターの動くモデル（CreatureAssets）
+        await CreatureAssets.loadAll()
         let ms = (CFAbsoluteTimeGetCurrent() - start) * 1000
         structureAssetLog.info("loaded \(models.count, privacy: .public)/\(Kind.allCases.count, privacy: .public) + rigs \(rigs.count, privacy: .public)/\(RigKind.allCases.count, privacy: .public) in \(String(format: "%.0f", ms), privacy: .public) ms")
     }
@@ -488,5 +477,6 @@ enum StructureAssets {
         isEnabled = true
         useLegacyModels = false
         resolver = { Bundle.main.url(forResource: $0, withExtension: $1) }
+        CreatureAssets.resetForTesting()
     }
 }
