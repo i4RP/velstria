@@ -252,6 +252,52 @@
       "credits": 60,
       "bytes": 13632588,
       "completed_at": "2026-10-12T11:12:02.392Z"
+    },
+    "monster_lord": {
+      "provider": "tripo",
+      "status": "success",
+      "concept_sha256": "c29dbb6dae90af7550cd004ac8ded506540a2e4de754c8e717bb62b93449057e",
+      "request": {
+        "input": "<concept.png の file_token>",
+        "model": "P1-20260311",
+        "face_limit": 6000,
+        "texture": true,
+        "pbr": true,
+        "texture_quality": "detailed",
+        "texture_version": "v3.5-20260815",
+        "delight": true,
+        "texture_alignment": "original_image",
+        "orientation": "align_image"
+      },
+      "balance_before": 3600,
+      "submitted_at": "2026-10-16T07:51:16.209Z",
+      "task_id": "a54d6120-4638-4a85-a71e-dc1b7b2943c0",
+      "credits": 60,
+      "bytes": 13404720,
+      "completed_at": "2026-10-16T07:53:22.023Z"
+    },
+    "monster_turtle": {
+      "provider": "tripo",
+      "status": "success",
+      "concept_sha256": "54fb7fd77969b9c825485a7b41c1c81fd874b2cb9414d2eda09f58a129252ac2",
+      "request": {
+        "input": "<concept.png の file_token>",
+        "model": "P1-20260311",
+        "face_limit": 5000,
+        "texture": true,
+        "pbr": true,
+        "texture_quality": "detailed",
+        "texture_version": "v3.5-20260815",
+        "delight": true,
+        "texture_alignment": "original_image",
+        "orientation": "align_image"
+      },
+      "balance_before": 3600,
+      "submitted_at": "2026-10-16T07:51:16.217Z",
+      "task_id": "933107ac-0d22-4c38-871f-3666715eec09",
+      "credits": 60,
+      "bytes": 10876068,
+      "completed_at": "2026-10-16T07:53:12.844Z"
     }
   }
 }

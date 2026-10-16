@@ -411,17 +411,25 @@ final class CreatureVisual {
             barColor = materials.teams.main(team)
             barStyle = .minion
         case .monster(let kind):
-            pm = meshes.monster(kind)
+            if let gk = StructureAssets.Kind.monster(kind), let model = StructureAssets.model(gk) {
+                generated = model.makeEntity(team: .blue)
+                pm = PartMeshes()
+            } else {
+                pm = meshes.monster(kind)
+            }
+            var ms: Float = 1
             switch kind {
-            case .campSmall, .emberGrub, .crablet: scale = 0.62; headHeight = 0.95
-            case .azureWhelp: scale = 0.75; headHeight = 1.1
-            case .campLarge, .hornLizard, .emberBeetle, .treasureCrab, .mossWanderer: scale = 1.05; headHeight = 1.5
-            case .magmaGolem: scale = 0.95; headHeight = 2.4
-            case .blueSentinel, .redSentinel: scale = 1.2; headHeight = 2.95
-            case .astralWyrm: scale = 1.2; headHeight = 2.9
-            case .ancientColossus: scale = 2.05; headHeight = 5.0
+            case .campSmall, .emberGrub, .crablet: ms = 0.62; headHeight = 0.95
+            case .azureWhelp: ms = 0.75; headHeight = 1.1
+            case .campLarge, .hornLizard, .emberBeetle, .treasureCrab, .mossWanderer: ms = 1.05; headHeight = 1.5
+            case .magmaGolem: ms = 0.95; headHeight = 2.4
+            case .blueSentinel, .redSentinel: ms = 1.2; headHeight = 2.95
+            case .astralWyrm: ms = 1.2; headHeight = 2.9
+            case .ancientColossus: ms = 2.05; headHeight = 5.0
             }
             barStyle = .monster(boss: kind.isBoss)
+            // 生成モデルは実寸（m）で作ってあるので拡大しない
+            scale = generated != nil ? 1 : ms
         case .dummy:
             pm = meshes.dummy
             scale = 1
@@ -434,7 +442,7 @@ final class CreatureVisual {
         isGenerated = generated != nil
         if let m = pm.body { body.addChild(ModelEntity(mesh: m, materials: [materials.lit])) }
         if let m = pm.bodyGlow { body.addChild(ModelEntity(mesh: m, materials: [materials.glow])) }
-        if case .monster(.astralWyrm) = key {
+        if case .monster(.astralWyrm) = key, generated == nil {
             // 頭（body メッシュ）を持ち上げ、胴の節を後ろへ並べる
             for child in body.children {
                 child.position = [0, 1.6, -0.8]
