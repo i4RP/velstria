@@ -4,7 +4,7 @@ import VelstriaCore
 // 担当: ui-collection。エンブレム（MLBB のエンブレム画面を写したもの。旧 UI043 ルーンの置き換え。docs/EMBLEMS.md）。
 // 上に 7 つのセットのタブ（記号 + Lv。強化・解放できるセットに緑の上向きの矢印）と無料のエンブレム宝箱（残り時間）、
 // 左にセット名とリング（右上 = 1 段目・左 = 2 段目・下 = コアの天賦）、右にステータス。
-// リングの下: 強化の費用（セットの記号「欠片+マジックダスト/必要な量」）と「アップグレード」、最大なら「MAX」、未解放なら「解放」。
+// リングの左下: 強化の費用（セットの記号「欠片+マジックダスト/必要な量」）と「アップグレード」、最大なら「MAX」、未解放なら「解放」。
 // ステータスは次のレベルで変わる値に「→」、次のキーレベルの「コア属性大幅アップ」、解放レベル未満の段に鍵と「Lv○で解放」。
 // 天賦の枠を押すとその段の天賦の一覧（装備中に ✓）と、名前・橙の小見出し・説明・「装備」/「装備中」。
 // 左上の 🔍 はエンブレムステータス（現在/最大レベル）と天賦の説明、右下のボタンは一括設定（ヒーローを選んで付ける）。
@@ -193,75 +193,86 @@ struct EmblemView: View {
 
     // MARK: リング（セット名・天賦 3 枠・🔍・強化 / MAX / 解放・一括設定）
 
+    /// リングは空いた大きさに合わせて縮め（横画面の iPhone は中身の高さが 230pt 前後。縦に積むと画面より高くなり、
+    /// 上の「戻る」の行が画面の外へ押し出されていた）、レベル・🔍・強化・一括設定はリングの四隅に重ねる（MLBB と同じ配置）。
     private func ringPanel(set: EmblemSetID, page: EmblemLoadout, unlocked: Bool) -> some View {
         let color = EmblemStyle.color(set)
         let maxed = EmblemMath.isMaxLevel(set, profile: app.profile)
         return Panel(padding: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Lv\(page.level)")
-                            .font(Theme.title(24))
-                            .foregroundStyle(Theme.gold)
-                            .accessibilityIdentifier("emblem_level")
-                        Text(EmblemMath.setName(set))
-                            .font(Theme.body(12))
-                            .foregroundStyle(Theme.textPrimary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                    }
-                    Spacer(minLength: 4)
-                    Button {
-                        app.haptics.tap()
-                        showsDetail = true
-                    } label: {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(Theme.cyan)
-                            .frame(width: 44, height: 44)
-                            .background(Circle().fill(Color.white.opacity(0.08)))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(L("エンブレムステータス", "Emblem Details"))
-                    .accessibilityIdentifier("emblem_detail")
-                }
-                ZStack {
-                    Circle()
-                        .stroke(LinearGradient(colors: [color.opacity(0.9), Theme.cyan.opacity(0.5)],
-                                               startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 3)
-                        .frame(width: 170, height: 170)
-                    Circle()
-                        .fill(RadialGradient(colors: [color.opacity(0.25), .clear], center: .center, startRadius: 4, endRadius: 85))
-                        .frame(width: 160, height: 160)
-                    Image(systemName: unlocked ? EmblemStyle.setSymbol(set) : "lock.fill")
-                        .font(.system(size: 46, weight: .bold))
-                        .foregroundStyle(color.opacity(0.35))
-                    slot(.tier1, page: page, unlocked: unlocked).offset(x: 62, y: -62)
-                    slot(.tier2, page: page, unlocked: unlocked).offset(x: -86, y: 0)
-                    slot(.core, page: page, unlocked: unlocked).offset(x: 30, y: 82)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 220)
-                HStack(spacing: 8) {
-                    upgradeArea(set: set, unlocked: unlocked, maxed: maxed)
-                    Spacer(minLength: 4)
-                    Button {
-                        app.haptics.tap()
-                        showsBulk = true
-                    } label: {
-                        Image(systemName: "person.2.badge.gearshape.fill")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(Theme.textPrimary)
-                            .frame(width: 48, height: 48)
-                            .background(Circle().fill(color.opacity(0.35)))
-                            .overlay(Circle().stroke(color, lineWidth: 1.2))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!unlocked)
-                    .accessibilityLabel(L("一括設定", "Apply to Heroes"))
-                    .accessibilityIdentifier("emblem_bulk")
-                }
+            GeometryReader { geo in
+                ring(set: set, page: page, unlocked: unlocked, color: color)
+                    .scaleEffect(min(1, geo.size.height / 250, geo.size.width / 280))
+                    .position(x: geo.size.width / 2 + 8, y: geo.size.height / 2 + 4)
             }
+            .overlay(alignment: .topLeading) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Lv\(page.level)")
+                        .font(Theme.title(24))
+                        .foregroundStyle(Theme.gold)
+                        .accessibilityIdentifier("emblem_level")
+                    Text(EmblemMath.setName(set))
+                        .font(Theme.body(12))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+                .frame(maxWidth: 140, alignment: .leading)
+                .allowsHitTesting(false)
+            }
+            .overlay(alignment: .topTrailing) {
+                Button {
+                    app.haptics.tap()
+                    showsDetail = true
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Theme.cyan)
+                        .frame(width: 44, height: 44)
+                        .background(Circle().fill(Color.white.opacity(0.08)))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L("エンブレムステータス", "Emblem Details"))
+                .accessibilityIdentifier("emblem_detail")
+            }
+            .overlay(alignment: .bottomLeading) {
+                upgradeArea(set: set, unlocked: unlocked, maxed: maxed)
+            }
+            .overlay(alignment: .bottomTrailing) {
+                Button {
+                    app.haptics.tap()
+                    showsBulk = true
+                } label: {
+                    Image(systemName: "person.2.badge.gearshape.fill")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(Theme.textPrimary)
+                        .frame(width: 48, height: 48)
+                        .background(Circle().fill(color.opacity(0.35)))
+                        .overlay(Circle().stroke(color, lineWidth: 1.2))
+                }
+                .buttonStyle(.plain)
+                .disabled(!unlocked)
+                .accessibilityLabel(L("一括設定", "Apply to Heroes"))
+                .accessibilityIdentifier("emblem_bulk")
+            }
+        }
+    }
+
+    /// リングと天賦の 3 枠（右上 = 1 段目・左 = 2 段目・下 = コア）。等倍で幅 210・高さ 211 ほど。
+    private func ring(set: EmblemSetID, page: EmblemLoadout, unlocked: Bool, color: Color) -> some View {
+        ZStack {
+            Circle()
+                .stroke(LinearGradient(colors: [color.opacity(0.9), Theme.cyan.opacity(0.5)],
+                                       startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 3)
+                .frame(width: 170, height: 170)
+            Circle()
+                .fill(RadialGradient(colors: [color.opacity(0.25), .clear], center: .center, startRadius: 4, endRadius: 85))
+                .frame(width: 160, height: 160)
+            Image(systemName: unlocked ? EmblemStyle.setSymbol(set) : "lock.fill")
+                .font(.system(size: 46, weight: .bold))
+                .foregroundStyle(color.opacity(0.35))
+            slot(.tier1, page: page, unlocked: unlocked).offset(x: 62, y: -62)
+            slot(.tier2, page: page, unlocked: unlocked).offset(x: -86, y: 0)
+            slot(.core, page: page, unlocked: unlocked).offset(x: 30, y: 82)
         }
     }
 
@@ -294,7 +305,8 @@ struct EmblemView: View {
                 .foregroundStyle(Theme.gold)
                 .accessibilityIdentifier("emblem_level_state")
         } else if let q = EmblemService.upgradeQuote(set, profile: app.profile) {
-            HStack(spacing: 6) {
+            // 費用の下にボタン（横に並べるとリング下のコアの枠に重なる）
+            VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 3) {
                     Image(systemName: set == .common ? EmblemStyle.dustSymbol : EmblemStyle.setSymbol(set))
                         .font(.system(size: 11, weight: .bold))

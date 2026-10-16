@@ -211,6 +211,9 @@ final class CollectionUITests: XCTestCase {
         let app = launch(route: "emblems")
         let tank = element(app, "emblem_tab_EM_TANK")
         XCTAssertTrue(tank.waitForExistence(timeout: 10))
+        // 横画面の iPhone で中身が高すぎると「戻る」の行が画面の外へ押し出されていた
+        XCTAssertTrue(element(app, "nav_back").isHittable, "エンブレム画面に戻るボタンが見えない")
+        XCTAssertTrue(element(app, "emblem_bulk").isHittable, "一括設定が画面の外にある")
         tank.tap()
         element(app, "emblem_slot_3").tap()
         let finder = element(app, "emblem_talent_TL_WEAKNESS_FINDER")
