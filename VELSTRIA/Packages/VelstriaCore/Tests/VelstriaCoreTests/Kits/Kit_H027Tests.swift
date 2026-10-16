@@ -405,7 +405,8 @@ final class Kit_H027Tests: XCTestCase {
         XCTAssertEqual(kit(w, k).jarldCharge, Tune.chargeUlt)
     }
 
-    /// 三連突きの 3 発は同じ tick に重ならず、4 tick（約 0.133 秒）おきに当たる。1 発目は通常攻撃と同じ tick。
+    /// 三連突きの 3 発は同じ tick に重ならず、4 tick（0.133 秒）おきに当たる。1 発目は通常攻撃と同じ tick。
+    /// MLBB の画面収録（30fps）でも、的の総ダメージ・体力の表示が 1 発目から 4 / 8 コマ後に変わる（9 回すべて。奥義中も同じ）。
     func testFlurryHitsLandOnSeparateTicksAboutAFlurryGapApart() {
         var (w, k) = world(level: 12)
         let e = addEnemy(&w, dx: 140)
@@ -417,7 +418,8 @@ final class Kit_H027Tests: XCTestCase {
         XCTAssertEqual(Set(ticks).count, 3, "3 発が同じ tick に重ならない: \(ticks)")
         // 予約は撃った tick を 1 回目に数えて減るので、実際に当たるのは ceil(gap / dt) - 1 tick 後
         let gap = Int((Tune.flurryGap / Balance.dt).rounded(.up)) - 1
-        XCTAssertEqual(ticks[1] - ticks[0], gap, "2 発目は 1 発目の約 0.13 秒後")
+        XCTAssertEqual(gap, 4, "画面収録の 4 コマ（30fps）と同じ")
+        XCTAssertEqual(ticks[1] - ticks[0], gap, "2 発目は 1 発目の 0.133 秒後")
         XCTAssertEqual(ticks[2] - ticks[1], gap)
         XCTAssertGreaterThan(Double(gap) * Balance.dt, 0.12, "被弾演出の間引き（0.12 秒）に潰されない")
         // 予約は撃った時点で 2 つ入り、当たり切ると空になる
@@ -641,14 +643,76 @@ final class Kit_H027Tests: XCTestCase {
         XCTAssertEqual(ev.shape, .lockOn)
         XCTAssertEqual(ev.targetUnitID, w.id(e))
         XCTAssertEqual(ev.duration, Tune.flipAirborne)
-        // 術者の頭上を越えて背後に着地する
-        w.run(seconds: 0.4)
+        // 持ち上げている間（命中から 0.4 秒）はその場に浮いたまま
+        let at = w.s.units[e].pos
+        w.run(seconds: 0.3)
+        XCTAssertEqual(w.s.units[e].pos, at, "持ち上げている間は動かない")
         XCTAssertFalse(w.s.units[e].canAct, "宙に浮いている間は行動できない")
-        w.run(seconds: 0.6)
-        XCTAssertFalse(w.s.units[e].has(.airborne))
+        // 0.4 秒で頭上を越えて飛び、0.6 秒で背後に着地する。打ち上げは命中から 1.0 秒まで残る
+        w.run(seconds: 0.4)
         XCTAssertEqual(w.s.units[e].pos.x, w.s.units[k].pos.x - Tune.flipLandingGap, accuracy: 3)
         XCTAssertEqual(w.s.units[e].pos.y, w.s.units[k].pos.y, accuracy: 3)
+        XCTAssertNil(w.s.units[e].displacement, "着地している")
+        XCTAssertTrue(w.s.units[e].has(.airborne), "着地の後も打ち上げは続く")
+        XCTAssertFalse(w.s.units[e].canAct)
+        w.run(seconds: 0.4)
+        XCTAssertFalse(w.s.units[e].has(.airborne))
         XCTAssertTrue(w.s.units[e].canAct)
+    }
+
+    /// 打ち上げ 1.0 秒・持ち上げ 0.4 秒・飛ぶ 0.2 秒・背後 144 は MLBB の画面収録で測った値（docs/kits/Zilong.md「動画で測った値」）。
+    /// 放り投げる時刻を tick で確かめる: 命中から flipHold 秒まではその場、そこから flipFlight 秒で着地。
+    func testFlipThrowStartsAfterTheHoldAndLandsAfterTheFlight() throws {
+        XCTAssertEqual(Tune.flipAirborne, 1.0)
+        XCTAssertEqual(Tune.flipHold, 0.4)
+        XCTAssertEqual(Tune.flipFlight, 0.2)
+        XCTAssertEqual(Tune.flipLandingGap, 144)
+        XCTAssertLessThan(Tune.flipHold + Tune.flipFlight, Tune.flipAirborne, "着地してから打ち上げが解ける")
+        var (w, k) = world(level: 12)
+        let e = addEnemy(&w, dx: 220)
+        let at = w.s.units[e].pos
+        XCTAssertTrue(w.cast(k, .skill1, .unit(w.id(e))))
+        XCTAssertEqual(Kit.scheduledCount(w.s, caster: k, code: 3), 1, "放り投げの予約")
+        var started: Int?
+        var landed: Int?
+        for n in 1...40 {
+            w.tick()
+            if started == nil, w.s.units[e].pos != at { started = n }
+            if started != nil, landed == nil, w.s.units[e].displacement == nil { landed = n }
+        }
+        let s0 = try XCTUnwrap(started)
+        let s1 = try XCTUnwrap(landed)
+        XCTAssertEqual(Double(s0) * Balance.dt, Tune.flipHold, accuracy: 2 * Balance.dt, "\(s0) tick")
+        XCTAssertEqual(Double(s1 - s0) * Balance.dt, Tune.flipFlight, accuracy: 2 * Balance.dt, "\(s1 - s0) tick")
+        XCTAssertEqual(Kit.scheduledCount(w.s, caster: k), 0)
+    }
+
+    /// 放り投げは対象に入った打ち上げの続き: 持ち上げている間に術者がスタンされても投げる。打ち上げが先に解けた・
+    /// 術者が倒れたら投げない（その場に落ちる）。
+    func testFlipThrowSurvivesCasterStunButNotCasterDeathOrCleanse() {
+        func landing(_ mutate: (inout SkillWorld, Int, Int) -> Void) -> Vec2 {
+            var (w, k) = world(level: 12)
+            let e = addEnemy(&w, dx: 220)
+            XCTAssertTrue(w.cast(k, .skill1, .unit(w.id(e))))
+            w.tick(3)
+            mutate(&w, k, e)
+            w.run(seconds: 1.2)
+            return w.s.units[e].pos - skillArena
+        }
+        let thrown = landing { _, _, _ in }
+        XCTAssertEqual(thrown.x, -Tune.flipLandingGap, accuracy: 3)
+        let stunned = landing { w, k, e in
+            CombatSystem.addStatus(&w.s, targetIndex: k, StatusEffect(kind: .stun, duration: 1, sourceID: w.id(e)))
+        }
+        XCTAssertEqual(stunned.x, -Tune.flipLandingGap, accuracy: 3, "術者のスタンでは取り消さない")
+        let cleansed = landing { w, _, e in w.s.units[e].statuses.removeAll { $0.kind == .airborne } }
+        XCTAssertEqual(cleansed.x, 220, accuracy: 1, "打ち上げが解けていたら投げない")
+        let dead = landing { w, k, e in
+            CombatSystem.applyDamage(&w.s, w.ctx, sourceID: w.id(e), targetIndex: k, amount: 1e9, type: .trueDamage,
+                                     source: .spell)
+            DeathSystem.process(&w.s, w.ctx)
+        }
+        XCTAssertEqual(dead.x, 220, accuracy: 1, "術者が倒れたら投げない")
     }
 
     func testFlipRejectedWithoutTargetInReachAndKeepsResources() {
@@ -767,6 +831,27 @@ final class Kit_H027Tests: XCTestCase {
         w.run(seconds: 1.5)
         XCTAssertFalse(w.s.units[e].statuses.contains { $0.kind == .flatArmorMod })
         XCTAssertEqual(w.s.units[e].stats.armor, armor0, accuracy: 1e-6)
+    }
+
+    /// 突進の速さは MLBB の画面収録で測った毎秒 15.2 単位（= 1520。3.40 単位を 6.7 コマ、3.66 単位を 7.25 コマ）。
+    /// 到着の tick（= 踏み込みの一撃）は 距離 / 速さ。
+    func testStrikeDashSpeedIsTheMeasuredValue() throws {
+        XCTAssertEqual(Tune.strikeSpeed, 1520)
+        var (w, k) = world(level: 12)
+        let e = addEnemy(&w, dx: 400)
+        let travel = 400 - (w.s.units[k].radius + w.s.units[e].radius + 5)
+        XCTAssertTrue(w.cast(k, .skill2, .unit(w.id(e))))
+        var hitTick: Int?
+        for n in 1...30 {
+            w.log.removeAll(keepingCapacity: true)
+            w.tick()
+            if w.damageEvents.contains(where: { $0.targetID == w.id(e) && $0.source == .skill(.skill2) }) {
+                hitTick = n
+                break
+            }
+        }
+        let n = try XCTUnwrap(hitTick)
+        XCTAssertEqual(Double(n) * Balance.dt, travel / Tune.strikeSpeed, accuracy: 2 * Balance.dt, "\(n) tick")
     }
 
     /// 物理防御ダウンは公式の固定値の表（15 / 18 / 21 / 24 / 27 / 30）。相手の防御によらず同じ量を引く（固定値なので 0 を下回ってよい。

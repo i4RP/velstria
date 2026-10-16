@@ -103,7 +103,11 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     /// 30: H025（ミヤ）の幾何と時間を MLBB の画面収録で測った値に（通常攻撃の矢 = 毎秒 1650、月影 = 主矢の命中で術者から放つ、
     ///     スキル2 = 射程 545・離してから 0.65 秒で着弾・その 0.33 秒後に 6 本が撃った向きから 0° / ±60° / ±120° / 180° へ
     ///     毎秒 1250 で 400）。docs/kits/Miya.md「動画で測った値」。27（フランコ）と 29（オーロラ）は並行する別の作業が使う番号。
-    public static let currentSimVersion = 30
+    /// 27〜29: 同時に進めているほかのヒーローの動画の計測（別の作業）が使う番号。ここでは飛ばす。
+    /// 31: H027（子龍）の幾何と時間を MLBB の画面収録で測った値に（スキル1 = 打ち上げ 0.8 → 1.0 秒・0.4 秒持ち上げてから 0.2 秒で
+    ///     背後 144 へ放り投げる（以前は命中の瞬間から 0.7 秒で背後 170）、スキル2 = 突進を毎秒 2400 → 1520）。
+    ///     docs/kits/Zilong.md「動画で測った値」。
+    public static let currentSimVersion = 31
 
     public var simVersion: Int
     public var mode: MatchMode

@@ -1375,9 +1375,11 @@ final class Kit_H029Tests: XCTestCase {
 
     /// ボルグをボット（サポート枠）にして通常の 10 人戦を回す。S1 / S2（突進と再使用）/ 奥義をすべて撃ち、状態が壊れない。
     /// 種 31 → 32（sim 27 = フランコのパッシブの変更で試合の流れが変わり、種 31 は S2 の再使用の前に試合が終わる。種 32〜40 はどれも通る）。
-    func testBotSmokeCastsEverySlotAndRecastsAndStateStaysBounded() throws {
         // シード 31 は 2026-10-16 にミヤ（H025）の幾何と時間を動画で測った値にしたら、ボルグが S2 を再使用する前の 570 秒で試合が
         // 終わるようになったので 32 に替えた（32〜39・41・42 はどれも全スロットと再使用まで通る）
+    /// 2026-10-16（sim 30、子龍（H027。この試合に居る）の幾何と時間を動画で測った値に）: シード 31 は試合が 542 秒で終わるまで
+    /// S2 の再使用が 0 回になったため、隣の 32（S1 4・S2 2・奥義 1・再使用 1）にした（検査の中身は同じ）。シード 29・30・32〜40 はどれも再使用 1 回以上。
+    func testBotSmokeCastsEverySlotAndRecastsAndStateStaysBounded() throws {
         var cfg = MatchFactory.botMatch(seed: 32)
         let idx = try XCTUnwrap(cfg.players.firstIndex { $0.team == .blue && $0.position == .support })
         if let other = cfg.players.firstIndex(where: { $0.heroID == "H029" }), other != idx {

@@ -7,18 +7,22 @@ import Foundation
 //   パッシブ 竜の三連突き  — 攻撃エフェクト 50%。ダメージを与える（通常攻撃・スキル）たびに竜気 +1。3 つ（奥義中は 2 つ）で次の通常攻撃が
 //                           射程の伸びた三連撃（1 撃 80 (+30% 物理攻撃) の通常攻撃ダメージ・命中ごとに 50 (+20% 物理攻撃) 回復）になる。
 //                           各撃は攻撃エフェクトの 50%（装備の命中時効果と通常攻撃吸収が半分。命中数・竜気・通常攻撃の命中フックには数えない）。
-//                           1 発目は通常攻撃と同じ tick、2・3 発目は 4 / 8 tick（約 0.13 / 0.27 秒）後（onTimer。対象が倒れた・射程外なら出ない。
-//                           HP 50% 未満の +30 は 1 発ごとに、当たる瞬間の対象で決める）。
+//                           1 発目は通常攻撃と同じ tick、2・3 発目は 4 / 8 tick（0.133 / 0.267 秒）後（onTimer。対象が倒れた・射程外なら出ない。
+//                           HP 50% 未満の +30 は 1 発ごとに、当たる瞬間の対象で決める）。間隔は MLBB の画面収録で測った値と同じ
+//                           （4 コマおき。奥義の攻撃速度でも縮まない）。
 //                           HP 50% 未満の相手へは通常攻撃・スキルのダメージが常に +30（固定値）。
 //                           三連突きでない通常攻撃は公式の式「100 (+80% 物理攻撃)」（汎用の物理攻撃 100% を置き換える）。
-//   S1   跳槍撃（槍の跳ね上げ）— 対象指定。敵を槍で跳ね上げて背後へ放り投げる（打ち上げ 0.8 秒）。250〜350 (+80% 物理攻撃)。
-//   S2   竜牙突き（竜牙の踏み込み）— 対象指定の突進。踏み込みざまに 250〜450 (+60% 物理攻撃) + 物理防御 −15〜30（固定値）2 秒、
+//   S1   跳槍撃（槍の跳ね上げ）— 対象指定。敵を槍で跳ね上げ（打ち上げ 1.0 秒）、0.4 秒持ち上げてから 0.2 秒で頭上を越えて
+//                           背後 144 へ放り投げる。250〜350 (+80% 物理攻撃)。
+//   S2   竜牙突き（竜牙の踏み込み）— 対象指定の突進（毎秒 1520）。踏み込みざまに 250〜450 (+60% 物理攻撃) + 物理防御 −15〜30（固定値）2 秒、
 //                           その後は通常攻撃へ。敵を倒すたびにクールダウンがリセットされる（ヒーローは止めを刺したとき。ミニオン・モンスターは
 //                           直前 0.5 秒以内に傷つけたものが倒れたとき）。ボットはミニオン・ジャングルにも使う（botFarm。リセットの連鎖で周回が速くなる）。
 //   奥義 至高の武人        — 自己強化 7.5 秒: 移動速度 +40%・攻撃速度 +35/45/55%・スロウ解除と無効。
 //                           三連突きは 2 回のダメージごとに発動する。ダメージ・CC は無い。
 // 再使用の窓は Zilong に無いので使わない（SkillSystem.cast の経路は 3 スキルとも初回発動のみ）。
 // マナ消費は公式の表（HeroKits.resourceCost。MLBB の趙子龍は Mana なので公式の値そのまま）。
+// 幾何と時間（射程・突進の速さ・打ち上げと放り投げ・三連突きの間隔・奥義の秒数）は MLBB の画面収録で測った値
+// （docs/kits/Zilong.md「動画で測った値（2026-10-16）」。ダメージ・係数・CD・MP は公式の表のまま）。
 //
 // 状態（KitState）:
 //   ints[0]  = 竜気（0..3）
@@ -81,13 +85,16 @@ struct Kit_H027: HeroKit {
         /// 竜気がたまる数。奥義中は 2。
         static let chargeNormal = 3
         static let chargeUlt = 2
-        /// 三連突きの 2・3 発目を予約する間隔（秒。公式の文に無い推測の値）。予約は「撃った tick を 1 回目に数えて」減るので、
-        /// 0.14 秒の予約は 4 tick 後（約 0.133 秒）、0.28 秒は 8 tick 後（約 0.267 秒）に当たる。被弾演出（Effekseer の近接ヒットは
-        /// 同じ相手へ 0.12 秒に 1 回）に潰されないよう、当たる間隔が 0.12 秒より長くなる値にした（0.13 だと 3 tick = 0.1 秒おきになる）。
+        /// 三連突きの 2・3 発目を予約する間隔（秒）。予約は「撃った tick を 1 回目に数えて」減るので、0.14 秒の予約は 4 tick 後
+        /// （0.133 秒）、0.28 秒は 8 tick 後（0.267 秒）に当たる。MLBB の画面収録（30fps）の的の総ダメージ・体力の表示が変わるコマも
+        /// 1 発目から 4 / 8 コマ後（三連突き 9 回すべて。奥義の攻撃速度 +55% の間・物理防御ダウン中も同じ）で、この値と一致する
+        /// （ダメージの数字の出始めは 2 発目以降が 1 コマ遅れて見える）。被弾演出（Effekseer の近接ヒットは同じ相手へ 0.12 秒に 1 回）に
+        /// 潰されない（0.13 だと 3 tick = 0.1 秒おきになる）。
         static let flurryGap = 0.14
         /// 遅れて当たる発が届く余裕（射程 + 三連突きの伸び + 半径の和に足す。相手が少し動いても外れない程度）。
         static let flurrySlack = 30.0
         /// 三連突き中の射程の伸び（MLBB の通常攻撃の射程 1.8 → 三連突きの準備中 2.5 = +0.7 ユニット。Velstria 単位 × 100）。
+        /// 画面収録の射程の円も、竜気 2 つまで 1.78、満タンで 2.48（縮尺 62.3 px / 単位）で公式の値と合う。
         static let flurryRangeBonus = 70.0
         static let rangeTag = "kit.H027.flurryRange"
         /// HP がこの割合未満の相手へ、通常攻撃・スキルのダメージが固定で +executeFlat（公式。防御の前に足す）。
@@ -98,27 +105,35 @@ struct Kit_H027: HeroKit {
         static let basicFlat = 100.0
         static let basicAttackRatio = 0.80
 
-        // S1 槍の跳ね上げ（千鈞担槍）
+        // S1 槍の跳ね上げ（千鈞担槍）。幾何と時間は MLBB の画面収録で測った値（docs/kits/Zilong.md「動画で測った値」）
+        /// 射程（術者の中心から対象の縁まで）。照準の円の半径 2.97 単位（通常攻撃の円 1.78 = 公式 1.8 で割り戻すと 3.0）。
         static let flipReach = 300.0
-        static let flipAirborne = 0.8
-        static let flipFlight = 0.7
-        /// 放り投げた敵が着地する、術者の中心からの距離（背後）。
-        static let flipLandingGap = 170.0
+        /// 打ち上げ（ノックアップ）の秒数。命中のコマから的の「ノックアップ」の表示と時間のバーが消えるまで 31 コマ（1.03 秒。以前の推測は 0.8）。
+        static let flipAirborne = 1.0
+        /// 命中から放り投げるまで（対象を槍で持ち上げたまま。的の体力バーがその場で止まっている 12 コマ = 0.40 秒）。
+        static let flipHold = 0.4
+        /// 頭上を越えて背後へ飛ぶ時間（6 コマ = 0.20 秒）。着地の後も打ち上げは残る（命中から合計 flipAirborne）。
+        static let flipFlight = 0.2
+        /// 放り投げた敵が着地する、術者の中心からの距離（背後）。画面収録で 1.43〜1.44 単位（2026-10-16 までの推測は 170）。
+        static let flipLandingGap = 144.0
         /// 公式の基礎ダメージ（Lv1〜6）と係数（+80% 物理攻撃 = 合計の物理攻撃）。
         static let flipBase: [Double] = [250, 270, 290, 310, 330, 350]
         static let flipAttackRatio = 0.8
         static let flipCooldown: [Double] = [12.0, 11.5, 11.0, 10.5, 10.0, 9.5]
         static let flipCost: [Double] = [80, 85, 90, 95, 100, 105]
 
-        // S2 竜牙の踏み込み（破陣槍）
+        // S2 竜牙の踏み込み（破陣槍）。幾何と時間は MLBB の画面収録で測った値
+        /// 射程（術者の中心から対象の縁まで）。照準の円の半径 4.47 単位（2 回。通常攻撃の円 1.78 = 公式 1.8 で割り戻すと 4.52）。
         static let strikeReach = 450.0
-        static let strikeSpeed = 2400.0
+        /// 突進の速さ。床の 1 コマの変位 31.7 px（3.40 単位を 6.7 コマ、3.66 単位を 7.25 コマ）= 毎秒 15.2 単位。
+        /// 距離によらず同じ速さ（2026-10-16 までの推測は 2400）。
+        static let strikeSpeed = 1520.0
         /// 到着時に対象がこれより離れていたら外れ（突進の追尾はしない）。
         static let strikeSlack = 260.0
         /// 公式の基礎ダメージ（Lv1〜6）と係数（+60% 物理攻撃 = 合計の物理攻撃）。
         static let strikeBase: [Double] = [250, 290, 330, 370, 410, 450]
         static let strikeAttackRatio = 0.6
-        /// 公式の物理防御ダウン（固定値、Lv1〜6）と秒数。
+        /// 公式の物理防御ダウン（固定値、Lv1〜6）と秒数（画面収録で的の物理防御 −30 の表示が 63〜64 コマ = 2.1 秒。公式の 2 秒のまま）。
         static let shredFlat: [Double] = [15, 18, 21, 24, 27, 30]
         static let shredDuration = 2.0
         static let shredTag = "kit.H027.shred"
@@ -128,7 +143,7 @@ struct Kit_H027: HeroKit {
         static let strikeCooldown: [Double] = [12.0, 11.4, 10.8, 10.2, 9.6, 9.0]
         static let strikeCost: [Double] = [40]
 
-        // 奥義 至高の武人（武神降臨）
+        // 奥義 至高の武人（武神降臨）。画面収録で自分の体力バーの印（奥義の絵）が 226 コマ = 7.53 秒、歩きは 1.40 倍（公式の値のまま）
         static let ultDuration = 7.5
         static let ultMoveSpeed = 0.40
         static let ultAttackSpeed: [Double] = [0.35, 0.45, 0.55]
@@ -141,6 +156,7 @@ struct Kit_H027: HeroKit {
     private enum Code {
         static let strikeArrive = 1
         static let flurryHit = 2
+        static let flipThrow = 3
     }
 
     /// HitPayload.kitEvent（三連突きの命中: 竜気にはしないが、S2 リセットの窓には入れる）。
@@ -327,7 +343,8 @@ struct Kit_H027: HeroKit {
         return .done
     }
 
-    /// S1: 敵を跳ね上げてダメージ → 打ち上げ → 自分の背後へ放り投げる。
+    /// S1: 敵を跳ね上げてダメージ → 打ち上げ（1.0 秒）→ 0.4 秒持ち上げたまま → 0.2 秒で術者の頭上を越えて背後へ放り投げる
+    /// （MLBB の画面収録: 命中から 0.4 秒は対象がその場に浮き、0.6 秒で背後に着地、1.0 秒で打ち上げが解ける）。
     private func castFlip(_ s: inout SimState, _ ctx: SimContext, _ c: KitCast) {
         let i = c.caster
         guard let t = c.aim.unit else { return }
@@ -338,8 +355,18 @@ struct Kit_H027: HeroKit {
         p.originPos = s.units[i].pos
         CombatSystem.applyHit(&s, ctx, sourceID: s.units[i].id, team: s.units[i].team, targetIndex: t, payload: p,
                               from: s.units[i].pos)
-        // 打ち上げが入った相手は、術者の頭上を越えて背後へ飛ぶ（CC 無効・構造物には動かない）
+        // 打ち上げが入った相手だけ、持ち上げた後に頭上を越えて背後へ投げる（CC 無効・構造物には動かない）。
+        // 投げるのは対象に入った打ち上げの続きなので、術者がスタンされても取り消さない（術者が倒れたら投げずにその場で落ちる）
         guard CombatSystem.isLiving(s, t), s.units[t].has(.airborne), Kit.canDisplace(s, ctx, t) else { return }
+        Kit.schedule(&s, caster: i, slot: .skill1, code: Code.flipThrow, after: Tune.flipHold, targetID: s.units[t].id,
+                     interruptible: false)
+    }
+
+    /// S1 の続き（命中から flipHold 秒）: まだ打ち上げられている対象を、その時の術者の頭上を越えて背後 flipLandingGap へ flipFlight 秒で
+    /// 飛ばす。打ち上げが先に解けた（強靭・浄化）・倒れた・CC 無効になった相手は動かさない。
+    private func throwOverhead(_ s: inout SimState, _ ctx: SimContext, owner i: Int, timer: KitTimer) {
+        guard let t = s.index(of: timer.targetID), CombatSystem.isLiving(s, t), s.units[t].has(.airborne),
+              Kit.canDisplace(s, ctx, t) else { return }
         let from = s.units[t].pos
         let me = s.units[i].pos
         var dir = (me - from).normalized
@@ -390,6 +417,10 @@ struct Kit_H027: HeroKit {
     func onTimer(_ s: inout SimState, _ ctx: SimContext, owner: Int, timer: KitTimer) {
         if timer.code == Code.flurryHit {
             flurryHit(&s, ctx, owner: owner, timer: timer)
+            return
+        }
+        if timer.code == Code.flipThrow {
+            throwOverhead(&s, ctx, owner: owner, timer: timer)
             return
         }
         guard timer.code == Code.strikeArrive, let kit = s.units[owner].hero?.kit else { return }

@@ -5,17 +5,19 @@ import VelstriaCore
 // 主題: 竜の炎をまとう槍。白金の芯 × 竜炎の金橙（主。MLBB のスキルの金の槍炎）× 槍の鰭の青（副。モデルの発光色）×
 // 房の赤（差し色）× 土煙。上から見下ろすカメラで「敵を頭上越しに背後へ放り投げる」「対象へ一直線に踏み込んで突き通す」
 // 「三連の突き」「竜炎のオーラ」が読めるよう、全周の輪を主役にせず、頭上を越える縦の弧・金の筋・突き通す光条・燃え上がる炎で形を見せる。
-// sim の実際の挙動（Systems/Kits/Kit_H027.swift の Tune）に合わせたタイミング:
+// sim の実際の挙動（Systems/Kits/Kit_H027.swift の Tune。幾何と時間は MLBB の画面収録で測った値: docs/kits/Zilong.md
+// 「動画で測った値（2026-10-16）」）に合わせたタイミング:
 //   パッシブ 竜の三連突き — cast: 竜気が 1 つたまるたび（パッシブのバッジのスタックが増えるたび、0.4 秒に 1 回まで）に、槍の穂先に
-//                          小さな金の炎と回る輪。三連突き自体は通常攻撃（Effekseer）の 3 連続ヒット（0.13 秒おき）。
+//                          小さな金の炎と回る輪。三連突き自体は通常攻撃（Effekseer）の 3 連続ヒット（0.133 秒おき）。
 //                          passiveRelease: スキルの発動の直後（0.6 秒以内）に竜気を使い切った = スキル2 の踏み込みからそのまま
 //                          三連突き、のときだけ、前方へ 3 本の金の突き（0 / 0.135 / 0.27 秒）と竜頭の閃光
-//   スキル1 跳槍撃       — 扇（近接）のアーキタイプなので発動と同時に cast と impact（術者の位置、前方 = 対象）。槍で掬い上げる金の
-//                          縦の弧が術者の頭上を越えて背後へ（前方の対象から背後 1.7m へ）、地面にも前後へ走る金の筋。対象の足元で
-//                          土と火花が跳ね上がる。被弾（打ち上げ 0.8 秒、背後へ 0.7 秒で飛ぶ）: 被弾者に追従して、飛ぶ間は金の筋と
-//                          竜炎が上へ立ちのぼる尾（= 頭上を越える弧の軌跡）、昇る金の輪 → 0.7 秒で着地（追従するので実際の着地点）
+//   スキル1 跳槍撃       — 扇（近接）のアーキタイプなので発動と同時に cast と impact（術者の位置、前方 = 対象）。発動の瞬間は対象の
+//                          足元で土と火花が跳ね上がり（槍で持ち上げる）、0.4 秒で槍で掬い上げる金の縦の弧が術者の頭上を越えて背後へ
+//                          （前方の対象から背後 1.44m へ）、地面にも前後へ走る金の筋。被弾（打ち上げ 1.0 秒）: 被弾者に追従して、
+//                          持ち上げている 0.4 秒は昇る金の輪と穂先の炎、0.4〜0.6 秒の飛ぶ間は金の筋と竜炎が上へ立ちのぼる尾
+//                          （= 頭上を越える弧の軌跡）→ 0.6 秒で着地（追従するので実際の着地点）
 //   スキル2 竜牙突き     — 対象指定の突進（ブリンクのアーキタイプ: impact は発動時に対象の位置）。cast: 前に構えた槍の光条が術者と
-//                          一緒に走り、金の筋と青い光の尾（突進 ≈ 0.2 秒）。impact: 対象に金の照準の輪が縮む（捕捉）。
+//                          一緒に走り、金の筋と青い光の尾（突進は毎秒 15.2m ≈ 0.24 秒）。impact: 対象に金の照準の輪が縮む（捕捉）。
 //                          被弾（到着の瞬間 = 実際に当たった時刻）: 対象を突き通す光条・前へ吹く竜炎・青い鱗の盾が砕ける（防御ダウン）・
 //                          足元の赤いひび（防御ダウン 2 秒）
 //   アルティメット 至高の武人 — 自己強化（selfAoE: 発動と同時に cast と impact）。槍を回す金の弧 → 0.05〜0.1 秒で竜炎が渦を巻いて
@@ -35,12 +37,13 @@ enum FX_H027: HeroFXSet {
 
     // MARK: - sim の時刻（Kit_H027.Tune と同じ値。sim の値を変えたらここも合わせる）
 
-    /// スキル1: 背後へ飛んで着地するまで（flipFlight）・着地点（術者の中心から背後、flipLandingGap）。
-    private static let flipFlight: Float = 0.7
-    private static let flipLanding: Float = 1.7
-    /// スキル2: 突進の所要の目安（最長 450 / 2400 ≈ 0.19 秒）。
-    private static let strikeTime: Float = 0.2
-    /// パッシブ: 三連突きの間隔（4 tick ≈ 0.133 秒）。
+    /// スキル1: 持ち上げている時間（flipHold）・背後へ飛ぶ時間（flipFlight）・着地点（術者の中心から背後、flipLandingGap）。
+    private static let flipHold: Float = 0.4
+    private static let flipFlight: Float = 0.2
+    private static let flipLanding: Float = 1.44
+    /// スキル2: 突進の所要の目安（画面収録の 3.4〜3.7m を毎秒 15.2m ≈ 0.22〜0.24 秒。最長 450 / 1520 ≈ 0.30 秒）。
+    private static let strikeTime: Float = 0.24
+    /// パッシブ: 三連突きの間隔（4 tick ≈ 0.133 秒。MLBB の画面収録の 4 コマおきと同じ）。
     private static let flurryGap: Float = 0.135
     /// アルティメット: 強化の秒数。
     private static let ultDuration: Float = 7.5
@@ -110,46 +113,52 @@ enum FX_H027: HeroFXSet {
 
     // MARK: - スキル1 跳槍撃
 
-    /// 掬い上げ（0）→ 対象が頭上を越えて背後へ（0〜0.7 秒）→ 着地（0.7 秒）。
+    /// 持ち上げ（0〜0.4 秒）→ 掬い上げて対象が頭上を越えて背後へ（0.4〜0.6 秒）→ 着地（0.6 秒）。打ち上げは 1.0 秒まで。
     private static func flipRecipe(_ s: FXSkillInfo) -> SkillFXRecipe {
         var r = SkillFXRecipe()
+        let hold = flipHold
         let flight = flipFlight
+        let land = hold + flight
         // 低く構えた槍の穂先が地を擦る
         r.cast = [
             .emit(.flare(0.9, .primary, life: 0.12), offset: [0.25, 0.5, 0.8]),
             .emit(.sparks(8, speed: 4, .primary, end: .accent, gravity: 6), offset: [0.25, 0.15, 0.9]),
         ]
-        // 発動と同時（術者の位置、前方 = 対象）: 頭上を越える金の縦の弧（外の金 + 芯の白金）と、前後へ走る地面の金の筋。
-        // 対象の足元（.target）で土と火花が跳ね上がる
+        // 発動と同時: 対象の足元（.target）で土と火花が跳ね上がる（槍で持ち上げる）。
+        // 0.4 秒（放り投げ）: 術者の位置（前方 = 対象）から頭上を越える金の縦の弧（外の金 + 芯の白金）と、前後へ走る地面の金の筋
         r.impact = [
-            .mesh(flipArc(1.9, .primary, life: 0.42), at: 0.02, offset: [0, 0.25, 0]),
-            .mesh(flipArc(1.75, .core, life: 0.28, tex: .slashThin), at: 0.05, offset: [0, 0.3, 0]),
-            .mesh(.ray(.streak, length: 2 * flipLanding + 0.6, width: 0.9, .primary, life: 0.55, alpha: 0.8), at: 0.04,
-                  offset: [0, 0.02, 0.3]),
             .mesh(.decal(.crack, 1.6, .dark, life: 0.9, spin: 0, grow: 1.0, alpha: 0.6), .target),
             .emit(.flare(1.4, .core, life: 0.16, tex: .flare6), .target, offset: [0, 0.8, 0]),
             .emit(.sparks(14, speed: 7, .core, end: .primary, gravity: 9).with { $0.dir = .up; $0.spread = 30 }, .target,
                   offset: [0, 0.4, 0]),
             .emit(.debris(8, speed: 5, dust), .target),
             .emit(.smoke(6, radius: 0.4, dust, life: 0.8, size: 0.7), .target, quality: 1),
+            .mesh(flipArc(1.9, .primary, life: 0.42), at: hold + 0.02, offset: [0, 0.25, 0]),
+            .mesh(flipArc(1.75, .core, life: 0.28, tex: .slashThin), at: hold + 0.05, offset: [0, 0.3, 0]),
+            .mesh(.ray(.streak, length: 2 * flipLanding + 0.6, width: 0.9, .primary, life: 0.5, alpha: 0.8), at: hold + 0.04,
+                  offset: [0, 0.02, 0.3]),
         ]
-        // 被弾（打ち上げ 0.8 秒）: 被弾者に追従。飛ぶ間は金の筋と竜炎が上へ立ちのぼる尾、昇る金の輪 → 0.7 秒で実際の着地点に着地
+        // 被弾（打ち上げ 1.0 秒）: 被弾者に追従。持ち上げている間は昇る金の輪と小さな竜炎、0.4〜0.6 秒の飛ぶ間は金の筋と竜炎が
+        // 上へ立ちのぼる尾 → 0.6 秒で実際の着地点に着地
         r.hit = [
             .emit(.flare(1.0, .core, life: 0.14), offset: [0, 1.0, 0]),
+            .mesh(.halo(0.55, .primary, life: hold + 0.1, spin: 420, tex: .ringDouble).with { $0.rise = 1.2 }, .follow,
+                  offset: [0, 0.3, 0]),
+            .emit(FXEmit(tex: .flame, tint: .primary, tintEnd: .accent, rate: 18, duration: hold, life: 0.3, size: 0.28,
+                         sizeVar: 0.3, grow: 0.4, shape: .sphere(0.2), dir: .up, speed: 1.0, orient: .upright,
+                         fade: .gradualFadeInOut), .follow, offset: [0, 1.1, 0], quality: 1),
             .emit(FXEmit(tex: .streak, tint: .core, tintEnd: .primary, rate: 90, duration: flight, life: 0.32, size: 0.2,
                          sizeVar: 0.3, grow: 0.4, shape: .sphere(0.25), dir: .up, speed: 3, stretch: 2.0, fade: .linearFadeOut),
-                  .follow, offset: [0, 0.9, 0]),
+                  at: hold, .follow, offset: [0, 0.9, 0]),
             .emit(FXEmit(tex: .flame, tint: .primary, tintEnd: .accent, rate: 40, duration: flight, life: 0.4, size: 0.4,
                          sizeVar: 0.3, grow: 0.5, shape: .sphere(0.2), dir: .up, speed: 1.5, orient: .upright,
-                         fade: .gradualFadeInOut), .follow, offset: [0, 1.2, 0], quality: 1),
-            .mesh(.halo(0.55, .primary, life: 0.8, spin: 420, tex: .ringDouble).with { $0.rise = 1.5 }, .follow,
-                  offset: [0, 0.3, 0]),
+                         fade: .gradualFadeInOut), at: hold, .follow, offset: [0, 1.2, 0], quality: 1),
             // 着地（追従しているので実際の着地点）
-            .mesh(.shockRing(1.1, .primary, life: 0.3, tex: .ring), at: flight, .follow),
-            .mesh(.decal(.crack, 1.5, .dark, life: 0.9, spin: 0, grow: 1.0, alpha: 0.6), at: flight, .follow),
-            .emit(.debris(10, speed: 5, dust), at: flight, .follow),
-            .emit(.smoke(6, radius: 0.5, dust, life: 0.8, size: 0.8), at: flight, .follow, quality: 1),
-            .shake(0.18, at: flight),
+            .mesh(.shockRing(1.1, .primary, life: 0.3, tex: .ring), at: land, .follow),
+            .mesh(.decal(.crack, 1.5, .dark, life: 0.9, spin: 0, grow: 1.0, alpha: 0.6), at: land, .follow),
+            .emit(.debris(10, speed: 5, dust), at: land, .follow),
+            .emit(.smoke(6, radius: 0.5, dust, life: 0.8, size: 0.8), at: land, .follow, quality: 1),
+            .shake(0.18, at: land),
         ]
         return r
     }
@@ -238,15 +247,23 @@ enum FX_H027: HeroFXSet {
         case .passive:
             break
         case .skill1:
-            // 低く構え、槍を下から頭上へ掬い上げて敵を背後へ放り投げる
+            // 低く構え、槍を下から頭上へ掬い上げ（〜0.17 秒）、敵を頭上に掲げたまま持ち上げ（〜0.4 秒）、胸を反らして頭上を越えて
+            // 背後へ振り抜き放り投げる（0.4〜0.55 秒。sim の flipHold / flipFlight）。全体 0.67 秒 + 戻り 0.25 秒
             m.brace(0.05, depth: 0.15)
             m.uppercut(0.12)
-            m.hold(0.12) { $0.glow = 1.6 }
-            m.settle(0.1)
+            m.hold(0.23) { $0.glow = 1.6 }
+            m.key(0.15, .snap) { p in
+                p.armR = ArmPose(pitch: 3.3, out: 0.2, yaw: 0, elbow: 0.15)
+                p.weaponR = 1.0
+                p.torsoPitch = -0.4
+                p.headPitch = -0.35
+                p.glow = 1.8
+            }
+            m.settle(0.12)
         case .skill2:
-            // 前傾で駆け（≈ 0.2 秒）、踏み込みざまに槍を突き通す
-            m.dash(0.05, lean: 0.6)
-            m.lunge(0.07, distance: 0.6, lean: 0.35)
+            // 前傾で駆け（毎秒 15.2m ≈ 0.22〜0.24 秒）、着く瞬間に踏み込みざまに槍を突き通す。全体 0.43 秒 + 戻り 0.25 秒
+            m.dash(0.1, lean: 0.6)
+            m.lunge(0.08, distance: 0.6, lean: 0.35)
             m.thrust(0.05)
             m.hold(0.1) { $0.glow = 1.6 }
             m.settle(0.1)
