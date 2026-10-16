@@ -33,8 +33,13 @@ Franco（docs/kits/Franco.md）で足したもの（カメラは Tigreal の cam
 Aurora（docs/kits/Aurora.md）で足したもの（カメラは Tigreal の c・q。足元 u0, v0 は場面ごとに cam.json を書き換える）:
   python measure.py gshape  --frames F --ref 163 --at 159 --thr 20 --name s2   # 照準の扇・帯の形（歩きながらでも床のずれを打ち消す）
   python measure.py pcircle --frames F --ref 28 --at 44 --guess 3.4,4.3,1.9 --exclude 810,55,905,150 --name meteor   # 地点の照準の円
+
 Zilong（docs/kits/Zilong.md）で足したもの:
   python measure.py panel  --frames F --tpl 457:697,69,752,84 --from 609 --to 722   # 的の総ダメージの表示が変わるコマ（三連突きの間隔）
+
+Saber（docs/kits/Saber.md）で足したもの:
+  python measure.py ringhp --frames F --at 59 --r0 3.5 --r1 5.5      # 参照のコマ無しで照準の円（歩きながら・1 コマでも拾える）
+  python measure.py hpfill --frames F --tpl 340:770,143,875,178 --bar 26,21,112 --from 330 --to 490 --search 760,100,1108,300   # 的の体力バーの赤の長さ（最後の命中）
 
 依存: numpy, opencv-python-headless, scipy（pip install numpy opencv-python-headless scipy）。
 """
@@ -780,6 +785,74 @@ def cmd_panel(args):
         prev, prev_at = digits, (px, py)
 
 
+def cmd_ringhp(args):
+    """照準の円（水色の細い線）を参照のコマ無しで拾う（Saber の S1・S2・奥義の照準、通常攻撃・強化通常攻撃の足元の円）: 色の強さ
+    ((B+G)/2 − R) から 15 px の箱の平均を引いた高域の図（--at の数コマの中央値）で、足元から地面の放射ごとに [r0, r1] の山を拾う。
+    歩いている間でも使える（ring・arc は止まったコマの差分が要る）。体力バー・矢印の向きは --skip（度）・--exclude（箱）で除く。"""
+    fr = Frames(args.frames, args.pattern)
+    cam = load_cam(args)
+    if not cam.s:
+        raise SystemExit("縮尺 s が未定（先に speed を回す）")
+    acc = []
+    for n in [int(a) for a in args.at.split(",")]:
+        im = fr.f32(n)
+        sc = (im[..., 0] + im[..., 1]) / 2 - im[..., 2]
+        acc.append(sc - cv2.blur(sc, (15, 15)))
+    sc = cv2.GaussianBlur(np.median(np.array(acc), axis=0).astype(np.float32), (3, 3), 0)
+    H, W = sc.shape
+    boxes = parse_boxes(args.exclude) + list(DEFAULT_UI[:1]) + [(700, 230, 1108, 512), (530, 380, 720, 512), (100, 300, 320, 512)]
+    skips = [tuple(float(v) for v in s.split(":")) for s in (args.skip or [])]
+    out = []
+    for deg in np.arange(-180, 180, 2.0):
+        if any(a0 <= deg <= a1 for a0, a1 in skips):
+            continue
+        t = math.radians(deg)
+        rs = np.arange(args.r0, args.r1, 0.005) * cam.s
+        u, v = cam.project(rs * math.cos(t), rs * math.sin(t))
+        if ((u >= 1) & (u < W - 2) & (v >= 1) & (v < H - 2)).sum() < len(rs) * 0.95:
+            continue
+        vals = map_coordinates(sc, [v, u], order=1)
+        i = int(np.argmax(vals))
+        if vals[i] < args.min or in_boxes(u[i], v[i], boxes):
+            continue
+        out.append((deg, rs[i] / cam.s))
+    if not out:
+        raise SystemExit("縁が見つからない（--r0/--r1・--min を見直す）")
+    A = np.array(out)
+    for lo in range(-180, 180, 30):
+        m = (A[:, 0] >= lo) & (A[:, 0] < lo + 30)
+        if m.sum():
+            print(f"  {lo:+4d}°: {np.median(A[m, 1]):.3f}（{m.sum()} 本）")
+    med = np.median(A[:, 1])
+    good = np.abs(A[:, 1] - med) < 0.15
+    print(f"半径 {A[good, 1].mean():.3f} ± {A[good, 1].std():.3f} 単位（{good.sum()} / {len(A)} 本、中央値 {med:.3f}）")
+
+
+def cmd_hpfill(args):
+    """的の体力バーの赤い部分の長さ（画素）をコマごとに出す。赤が縮んだコマ = ダメージが入ったコマ（総ダメージの数字が UI に隠れても読める。
+    Saber の防御ダウンの最後の命中）。--tpl は名前の文字 + バッジ（同じ見た目のほかの的と取り違えないように名前を含める）、--bar は
+    テンプレートの左上から見たバーの左端・赤を数える行・右端。--search で探す範囲を絞る。"""
+    fr = Frames(args.frames, args.pattern)
+    tn, box = args.tpl.split(":")
+    x0, y0, x1, y1 = [int(v) for v in box.split(",")]
+    tpl = fr.bgr(int(tn))[y0:y1, x0:x1]
+    bx0, by, bx1 = [int(v) for v in args.bar.split(",")]
+    sx0, sy0, sx1, sy1 = [int(v) for v in args.search.split(",")]
+    prev = None
+    for n in range(args.start, args.end + 1):
+        im = fr.bgr(n)
+        r = cv2.matchTemplate(im[sy0:sy1, sx0:sx1], tpl, cv2.TM_CCOEFF_NORMED)
+        _, mv, _, (px, py) = cv2.minMaxLoc(r)
+        px, py = px + sx0, py + sy0
+        row = im[py + by - 1:py + by + 2, px + bx0:px + bx1].astype(int).mean(axis=0)
+        red = (row[:, 2] > 150) & (row[:, 1] < 90) & (row[:, 0] < 90)
+        rx = np.nonzero(red)[0]
+        rend = int(rx.max()) + 1 if len(rx) else 0
+        mark = "" if prev is None or prev == rend else f"  <== 赤 {prev} → {rend}"
+        print(f"{n} t={(n - 1) / args.fps:.3f} 一致 {mv:.2f} 位置 ({px},{py}) 赤 {rend:3d} px{mark}")
+        prev = rend
+
+
 def cmd_walk(args):
     """歩きの 1 コマの特徴点の変位（地面へ戻した、歩く向きの成分）の分布。床の点は最も遅い塊、岩・草など高い所の点は速い。
     --floor を決める前の見当に使う（Tigreal: 床 5.40、全部の点の中央値 5.75）。"""
@@ -1108,6 +1181,7 @@ def main(argv=None):
     p.add_argument("--min", type=float, default=15.0)
     p.add_argument("--name", required=True)
     p.set_defaults(fn=cmd_pcircle)
+
     p = sub.add_parser("panel", help="的の総ダメージの表示が変わるコマ（ダメージの時刻）")
     frames_arg(p)
     p.add_argument("--tpl", required=True, help="コマ:x0,y0,x1,y1（「総ダメージ」の文字）")
@@ -1116,6 +1190,25 @@ def main(argv=None):
     p.add_argument("--to", dest="end", type=int, required=True)
     p.add_argument("--min", type=float, default=10.0, help="変化とみなす画素数（数字の変化で 13〜130、ちらつきは 7 前後）")
     p.set_defaults(fn=cmd_panel)
+
+    p = sub.add_parser("ringhp", help="参照のコマ無しで照準の円の半径（歩きながらでも）")
+    frames_arg(p)
+    p.add_argument("--at", required=True, help="照準のコマ（カンマ区切り。中央値）")
+    p.add_argument("--r0", type=float, required=True, help="探す半径の下限（単位）")
+    p.add_argument("--r1", type=float, required=True, help="探す半径の上限（単位）")
+    p.add_argument("--skip", action="append", help="除く角度 a0:a1（度。矢印・体力バーの向き）")
+    p.add_argument("--exclude", action="append", help="除く箱 x0,y0,x1,y1")
+    p.add_argument("--min", type=float, default=12.0)
+    p.set_defaults(fn=cmd_ringhp)
+
+    p = sub.add_parser("hpfill", help="的の体力バーの赤の長さ（ダメージが入ったコマ）")
+    frames_arg(p)
+    p.add_argument("--tpl", required=True, help="コマ:x0,y0,x1,y1（名前の文字 + バッジ）")
+    p.add_argument("--bar", required=True, help="テンプレートの左上から見たバーの左端・行・右端 dx0,dy,dx1")
+    p.add_argument("--search", default="0,0,1108,512", help="探す範囲 x0,y0,x1,y1")
+    p.add_argument("--from", dest="start", type=int, required=True)
+    p.add_argument("--to", dest="end", type=int, required=True)
+    p.set_defaults(fn=cmd_hpfill)
 
     args = ap.parse_args(argv)
     args.fn(args)

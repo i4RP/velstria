@@ -97,7 +97,7 @@ final class Kit_H028Tests: XCTestCase {
         XCTAssertEqual(s1.archetype, .selfAoE)
         XCTAssertEqual(s1.aim, .none)
         XCTAssertEqual(s1.shape, .selfRing)
-        XCTAssertEqual(s1.radius, Tune.orbitRadius)
+        XCTAssertEqual(s1.radius, Tune.swordReach, "照準の円 = 剣の帯の外縁")
         XCTAssertFalse(s1.requiresTarget)
         let s2 = try target(.skill2)
         XCTAssertEqual(s2.archetype, .dashStrike)
@@ -494,11 +494,53 @@ final class Kit_H028Tests: XCTestCase {
         XCTAssertEqual(w.s.units[k].hero!.cooldown(.ultimate), 30, accuracy: 1e-9)
     }
 
+    // MARK: - 動画で測った幾何と時間（docs/kits/Saber.md「動画で測った値（2026-10-16）」）
+
+    /// MLBB の訓練場の画面収録（30fps、Lv15 のセイバー）で測った値。距離は MLBB × 100、時間は秒。
+    func testGeometryAndTimingMatchTheVideoMeasurements() {
+        // S1: 剣の中心 3.85・照準の円 4.45（= 帯の外縁）・毎秒 151° で 5 本 → 輪の 1 点を 0.48 秒ごとに通る
+        XCTAssertEqual(Tune.orbitRadius, 385)
+        XCTAssertEqual(Tune.swordReach, 445)
+        XCTAssertEqual(Tune.swordHalfWidth, 60, accuracy: 1e-9)
+        XCTAssertEqual(Tune.swordCount, 5)
+        XCTAssertEqual(360 / Double(Tune.swordCount) / Tune.orbitSpeed, Tune.pulseInterval, accuracy: 0.01)
+        // 剣は 0.47 秒で輪に着き、4.6 秒で戻り始め、4.83 秒で戻り終わる: 接触 9 回は戻り始める前に収まる
+        XCTAssertEqual(Tune.pulseFirst, 0.47)
+        XCTAssertEqual(Tune.pulseInterval, 0.48)
+        XCTAssertEqual(Tune.pulseCount, 9)
+        XCTAssertLessThan(Tune.pulseFirst + Tune.pulseInterval * Double(Tune.pulseCount - 1), 4.6)
+        XCTAssertGreaterThan(Tune.pulseFirst + Tune.pulseInterval * Double(Tune.pulseCount), 4.6, "10 回目は戻り始めた後")
+        XCTAssertEqual(Tune.swordsDuration, 4.8)
+        // 剣撃は命中の 3 コマ後
+        XCTAssertEqual(Tune.strikeDelay, 0.1)
+        // S2: 照準の円 2.97・毎秒 15.0（0.2 秒）
+        XCTAssertEqual(Tune.dashRange, 300)
+        XCTAssertEqual(Tune.dashSpeed, 1500)
+        XCTAssertEqual(Tune.dashRange / Tune.dashSpeed, 0.2, accuracy: 1e-9)
+        // 強化通常攻撃の円 2.48（公式 2.5）
+        XCTAssertEqual(Tune.enhanceRange, 250)
+        // 奥義: 照準の円 5.44・毎秒 17.0〜17.4・到着 + 0 / 0.39 / 0.78 秒・到着から 1.0 秒の硬直・打ち上げ 1.2 秒
+        XCTAssertEqual(Tune.ultReach, 545)
+        XCTAssertEqual(Tune.ultSpeed, 1700)
+        XCTAssertEqual(Tune.ultFirstDelay, 0)
+        XCTAssertEqual(Tune.ultInterval, 0.39)
+        XCTAssertEqual(Tune.ultLock, 1.0)
+        XCTAssertEqual(Tune.airborne, 1.2)
+        XCTAssertLessThan(Tune.ultFirstDelay + Tune.ultInterval * Double(Tune.strikeCount - 1), Tune.ultLock)
+        XCTAssertLessThan(Tune.ultLock, Tune.airborne, "術者が動けるようになるのは打ち上げが解ける前")
+        // パッシブ: Lv15 で 1 層 8・5 層 −40・5 秒（パネルの物理防御 −8〜−40、最後の命中から 4.93 秒で一度に 0）
+        XCTAssertEqual(Kit_H028.baneFlat(level: 15), 8)
+        XCTAssertEqual(Tune.baneMaxStacks, 5)
+        XCTAssertEqual(Tune.baneDuration, 5)
+        // 通常攻撃の円 1.78（公式 1.8）
+        XCTAssertEqual(MasterData.shared.hero("H028")?.attackRange ?? 0, 180, accuracy: 1e-9)
+    }
+
     // MARK: - S1: 周回する剣
 
-    func testSwordsPulseNineTimesEveryHalfSecondAndStopAfterFiveSeconds() throws {
+    func testSwordsPulseNineTimesAlongTheRingAndStopWhenTheSwordsReturn() throws {
         var (w, k) = world()
-        let e = addEnemy(&w, dx: 150)
+        let e = addEnemy(&w, dx: Tune.orbitRadius)
         let n = w.numbers(k, .skill1)
         let before = w.s.units[k].resource
         XCTAssertTrue(w.cast(k, .skill1))
@@ -514,8 +556,9 @@ final class Kit_H028Tests: XCTestCase {
         XCTAssertTrue(w.damageEvents.isEmpty, "発動の瞬間にはダメージが無い")
         let hits = steps(&w, target: e, ticks: 180).filter { $0.source == .skill(.skill1) }
         XCTAssertEqual(hits.count, Tune.pulseCount)
+        // 剣が輪に着く 0.47 秒から 0.48 秒ごと（発動は 1 秒の時点）
         for (i, h) in hits.enumerated() {
-            XCTAssertEqual(h.time, 1 + Tune.pulseInterval * Double(i + 1), accuracy: 0.07, "pulse \(i)")
+            XCTAssertEqual(h.time, 1 + Tune.pulseFirst + Tune.pulseInterval * Double(i), accuracy: 0.05, "pulse \(i)")
             XCTAssertEqual(h.amount, n.damage * mitigation(h.armor), accuracy: 1e-6, "pulse \(i)")
         }
         // 接触の防御ダウンが層になる
@@ -527,27 +570,41 @@ final class Kit_H028Tests: XCTestCase {
         XCTAssertTrue(steps(&w, target: e, ticks: 60).isEmpty)
     }
 
-    func testSwordsOnlyTouchEnemiesInsideTheOrbitAndHitMinionsToo() {
+    /// 動画: 剣は術者から 3.85 の輪を回り（照準の円 4.45 = 外縁）、術者の隣の敵には接触の数字が出ない。
+    /// 接触は輪の帯（orbitRadius ± swordHalfWidth = 325〜445）に体が掛かる敵だけ。内側・外側・味方には当たらない。
+    func testSwordsTouchOnlyEnemiesOnTheRingAndHitMinionsToo() {
         var (w, k) = world()
-        let inside = addEnemy(&w, dx: Tune.orbitRadius + 50)
-        let outside = addEnemy(&w, dx: -(Tune.orbitRadius + 80), hero: "H003")
-        let minion = w.addMinion(team: .red, at: skillArena + Vec2(0, 200))
-        let ally = w.addHero("H001", team: .blue, at: skillArena + Vec2(0, -100), level: 12, ranks: [1, 1, 1])
+        let onRing = addEnemy(&w, dx: Tune.orbitRadius)
+        let tooClose = addEnemy(&w, dx: 0, dy: 150, hero: "H004")
+        let outside = addEnemy(&w, dx: -(Tune.swordReach + 160), hero: "H003")
+        let minion = w.addMinion(team: .red, at: skillArena + Vec2(0, -Tune.orbitRadius))
+        let ally = w.addHero("H001", team: .blue, at: skillArena + Vec2(-Tune.orbitRadius, 0), level: 12, ranks: [1, 1, 1])
+        // 歩いて帯から外れないよう止める（スタンはダメージに関係しない）
+        for i in [onRing, tooClose, outside, minion, ally] {
+            CombatSystem.addStatus(&w.s, targetIndex: i, StatusEffect(kind: .stun, duration: 5, tag: "test.hold"))
+        }
         XCTAssertTrue(w.cast(k, .skill1))
-        w.run(seconds: 0.7)
-        XCTAssertGreaterThan(w.damage(to: inside), 0)
+        w.run(seconds: 0.4)
+        XCTAssertEqual(w.damage(to: onRing), 0, "剣が輪に着く前（0.47 秒）は当たらない")
+        w.run(seconds: 0.3)
+        XCTAssertGreaterThan(w.damage(to: onRing), 0)
+        XCTAssertEqual(w.damage(to: tooClose), 0, "輪の内側（術者のすぐそば）には触れない")
         XCTAssertEqual(w.damage(to: outside), 0)
         XCTAssertGreaterThan(w.damage(to: minion), 0)
         XCTAssertEqual(w.damage(to: ally), 0)
-        // 周回半径の外から一歩入れば、次の接触で当たる
-        w.s.units[outside].pos = w.s.units[k].pos + Vec2(-(Tune.orbitRadius - 20), 0)
-        w.run(seconds: 0.6)
+        // 帯の外縁に体が掛かれば、次の接触で当たる（中心は外縁の外でもよい）
+        let r = w.s.units[outside].radius
+        w.s.units[outside].pos = w.s.units[k].pos + Vec2(-(Tune.swordReach + r - 5), 0)
+        // 内側の敵も輪まで下がれば当たる
+        w.s.units[tooClose].pos = w.s.units[k].pos + Vec2(0, Tune.orbitRadius - Tune.swordHalfWidth)
+        w.run(seconds: 0.55)
         XCTAssertGreaterThan(w.damage(to: outside), 0)
+        XCTAssertGreaterThan(w.damage(to: tooClose), 0)
     }
 
     func testSwordsKeepOrbitingThroughStunAndDoNotStopWhenCasterIsHit() {
         var (w, k) = world()
-        let e = addEnemy(&w, dx: 150)
+        let e = addEnemy(&w, dx: Tune.orbitRadius)
         XCTAssertTrue(w.cast(k, .skill1))
         w.run(seconds: 0.7)
         let first = w.damage(to: e)
@@ -555,12 +612,12 @@ final class Kit_H028Tests: XCTestCase {
         CombatSystem.addStatus(&w.s, targetIndex: k, StatusEffect(kind: .stun, duration: 1.5))
         w.run(seconds: 1.5)
         XCTAssertGreaterThan(w.damage(to: e), first, "スタン中も剣は回る")
-        XCTAssertEqual(Kit.scheduledCount(w.s, caster: k), Tune.pulseCount - 4 + 0, "9 回のうち 4 回が済んだ")
+        XCTAssertEqual(Kit.scheduledCount(w.s, caster: k), Tune.pulseCount - 4 + 0, "9 回のうち 4 回（0.47〜1.91 秒）が済んだ")
     }
 
     func testRecastingSwordsRestartsInsteadOfDoublingThePulses() {
         var (w, k) = world()
-        let e = addEnemy(&w, dx: 150)
+        let e = addEnemy(&w, dx: Tune.orbitRadius)
         XCTAssertTrue(w.cast(k, .skill1))
         w.run(seconds: 1.2)
         w.s.units[k].hero!.skillCooldowns[SkillSlot.skill1.rawValue] = 0
@@ -587,6 +644,7 @@ final class Kit_H028Tests: XCTestCase {
         let e = addEnemy(&w, dx: 200)
         XCTAssertTrue(w.cast(k, .skill1))
         w.s.units[k].hero!.skillCooldowns[SkillSlot.skill2.rawValue] = 3
+        let hitTime = w.s.time
         poke(&w, k, e)
         XCTAssertEqual(stacks(w, k, e), 1)
         XCTAssertEqual(Kit.scheduledCount(w.s, caster: k, code: 2), 1, "剣が 1 本飛ぶ")
@@ -597,6 +655,8 @@ final class Kit_H028Tests: XCTestCase {
         let hits = steps(&w, target: e, ticks: 8).filter { $0.source == .skill(.skill1) }
         XCTAssertEqual(hits.count, 1)
         XCTAssertEqual(hits[0].amount, expected, accuracy: 1e-6)
+        // 動画: 命中から剣撃の数字まで 3 コマ（奥義の 1・2 撃目、2 回）
+        XCTAssertEqual(hits[0].time - hitTime, Tune.strikeDelay, accuracy: Balance.dt * 0.6)
         XCTAssertEqual(w.s.units[k].hero!.cooldown(.skill2), 3 - Tune.chargeRefund - 8 * Balance.dt, accuracy: 1e-6,
                        "剣撃 1 本で S2 のクールダウンが短縮")
         XCTAssertEqual(w.s.units[k].hero!.cooldown(.skill1), cd1 - Tune.swordsRefund - 8 * Balance.dt, accuracy: 1e-6,
@@ -765,8 +825,8 @@ final class Kit_H028Tests: XCTestCase {
 
     func testChargeHitsEveryEnemyOnTheLineOnceAndStopsAtFullRange() throws {
         var (w, k) = world()
-        let a = addEnemy(&w, dx: 150)
-        let b = addEnemy(&w, dx: 300, dy: 20, hero: "H003")
+        let a = addEnemy(&w, dx: 120)
+        let b = addEnemy(&w, dx: 230, dy: 20, hero: "H003")
         let off = addEnemy(&w, dx: 250, dy: 300, hero: "H004")
         let n = w.numbers(k, .skill2)
         let armorA = w.s.units[a].stats.armor
@@ -779,7 +839,11 @@ final class Kit_H028Tests: XCTestCase {
         XCTAssertEqual(ev.slot, .skill2)
         XCTAssertEqual(ev.shape, .dashToPoint)
         XCTAssertEqual(w.damage(to: a), 0, "到着前にまとめて当たらない: 経路に沿って 1 度ずつ")
-        w.run(seconds: 0.5)
+        // 動画: 毎秒 15.0（300 を 0.2 秒）。0.1 秒でおよそ半分
+        w.tick(3)
+        XCTAssertEqual(w.s.units[k].pos.x - skillArena.x, Tune.dashSpeed * 3 * Balance.dt, accuracy: Tune.dashSpeed * Balance.dt)
+        XCTAssertNotNil(kit(w, k).sweep, "0.1 秒ではまだ突進中")
+        w.run(seconds: 0.4)
         XCTAssertEqual(w.damageEvents.filter { $0.targetID == w.id(a) && $0.source == .skill(.skill2) }.count, 1)
         XCTAssertEqual(w.damageEvents.filter { $0.targetID == w.id(b) && $0.source == .skill(.skill2) }.count, 1)
         XCTAssertEqual(w.damage(to: off), 0)
@@ -865,7 +929,7 @@ final class Kit_H028Tests: XCTestCase {
     /// CC の段階: ノックアップ（高レベル）は進行中の突撃を止める（強化も付かない）。
     func testChargeIsCancelledByAKnockUpMidDashAndGivesNoEnhancement() {
         var (w, k) = world()
-        let e = addEnemy(&w, dx: 340)
+        let e = addEnemy(&w, dx: 330)
         XCTAssertTrue(w.cast(k, .skill2, .direction(Vec2(1, 0))))
         w.tick(2)
         Kit.knockUp(&w.s, target: k, duration: 0.5, sourceID: w.id(e))
@@ -880,7 +944,7 @@ final class Kit_H028Tests: XCTestCase {
     /// CC の段階: スタン（基本）は進行中の突撃を止めない（MLBB: ブリンク・アサルトの効果を中断できるのはノックアップ・制圧）。
     func testChargeKeepsGoingThroughAStunAndStillEnhances() {
         var (w, k) = world()
-        let e = addEnemy(&w, dx: 300)
+        let e = addEnemy(&w, dx: 230)
         XCTAssertTrue(w.cast(k, .skill2, .direction(Vec2(1, 0))))
         w.tick(2)
         CombatSystem.addStatus(&w.s, targetIndex: k, StatusEffect(kind: .stun, duration: 1, sourceID: w.id(e)))
@@ -1021,6 +1085,33 @@ final class Kit_H028Tests: XCTestCase {
         // 打ち上げは 1.2 秒で終わる
         w.run(seconds: 0.6)
         XCTAssertFalse(w.s.units[e].has(.airborne))
+    }
+
+    /// 動画: 術者は到着から 30 コマ（1.0 秒。3 撃目の 8 コマ後）で歩き出す（2 回とも）。3 撃目の後も硬直が明けるまでは動けず、
+    /// 通常攻撃・スキルも始めない。打ち上げ（1.2 秒）はそのあとも少し残る。
+    func testUltimateKeepsTheCasterLockedUntilOneSecondAfterArrival() {
+        var (w, k, e) = ultWorld()
+        XCTAssertTrue(w.cast(k, .ultimate, .unit(w.id(e))))
+        for _ in 0..<20 where kit(w, k).zailUltPhase != 2 { w.tick() }
+        XCTAssertEqual(kit(w, k).zailUltPhase, 2)
+        let arrival = w.s.time
+        while kit(w, k).zailUltStrikes < 3 && w.s.time < arrival + 1.5 { w.tick() }
+        XCTAssertEqual(kit(w, k).zailUltStrikes, 3)
+        XCTAssertEqual(w.s.time - arrival, Tune.ultFirstDelay + 2 * Tune.ultInterval, accuracy: 0.07, "3 撃目は到着から 0.78 秒")
+        // 3 撃目の後: まだ動けない
+        XCTAssertEqual(kit(w, k).zailUltPhase, 2, "硬直の間は奥義が続く")
+        XCTAssertTrue(w.s.units[k].has(.root))
+        w.s.units[k].attackTargetID = w.id(e)
+        w.tick()
+        XCTAssertNil(w.s.units[k].attackTargetID, "硬直の間は通常攻撃を始めない")
+        XCTAssertFalse(w.cast(k, .skill1), "硬直の間はスキルも始めない")
+        // 到着から 1.0 秒で解ける
+        while kit(w, k).zailUltPhase != 0 && w.s.time < arrival + 2 { w.tick() }
+        XCTAssertEqual(w.s.time - arrival, Tune.ultLock, accuracy: 0.05)
+        XCTAssertFalse(w.s.units[k].has(.root))
+        XCTAssertFalse(w.s.units[k].statuses.contains { $0.kind == .channeling })
+        XCTAssertEqual(Kit.scheduledCount(w.s, caster: k), 0)
+        XCTAssertTrue(w.s.units[e].has(.airborne), "術者が動けるようになっても打ち上げ（1.2 秒）はまだ残る")
     }
 
     func testUltimateSecondStrikeBenefitsFromTheStackedDefenseShred() {
