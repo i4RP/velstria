@@ -293,6 +293,7 @@ Tests/VelstriaCoreTests/Kits/KitTestSupport.swift  KitFrameworkTests.swift  Kit_
   ロール代表との TTK 12.1〜22.1 → 13.1〜24.0 秒（17 → 16 / 18 勝）。鉤・S2・奥義に振りかぶりが入り、奥義の射程が 350 → 188 と短くなったぶん下がった
   （鉤の射程 680 → 823 と命中から 1.3 秒のスタンで一部を取り戻す）。
 <<<<<<< HEAD
+<<<<<<< HEAD
 - フランコのパッシブ ワイルドフォースを MLBB の画面収録に合わせた後（2026-10-16、`MatchConfig.currentSimVersion` 26 → 27。docs/kits/Franco.md
   「パッシブを動画に合わせた」。闘気 1 つ +15% → +5%・消費はダメージが当たった時・奥義は 1 撃ごとにその時の闘気。Windows・`swift test -c release`）:
   `KitBalanceTests` のヴァンガードの中央値との差は +3.5 / +18.9 / +26.3 のまま、ゲームに出す 10 体の総当たり 44.4 / 22.2 / 25.9%、
@@ -306,6 +307,13 @@ Tests/VelstriaCoreTests/Kits/KitTestSupport.swift  KitFrameworkTests.swift  Kit_
   （扇の半角 37° → 25°・霜風の遅れ 0.3 → 0.56 秒・奥義の円 → 細い帯で一部を戻す）。ゾーンに内側の欠け（`innerRadius`）と端の四角い線分（`squareEnds`）を足した。
   `BotMatchTests` の泉に立つ人間の通常戦のシード 5（7:47 で 8 分未満）を 6 にした。
 >>>>>>> worktree-agent-aa7c7d76891f74a93
+=======
+- ミヤの幾何と時間を MLBB の画面収録で測った値に変えた後（2026-10-16、`MatchConfig.currentSimVersion` 26 → 28。27 は並行するフランコの作業の番号。
+  docs/kits/Miya.md「動画で測った値」。Windows・`swift test -c release`）: `KitBalanceTests` のレンジャーの中央値との差 +2.0 / +8.3 / +8.7 →
+  +2.0 / +9.6 / +8.7、ゲームに出す 10 体の総当たり 29.6 / 0.0 / 0.0% → 同じ、`Kit_H025Tests` の総当たり 33 / 0 / 0% → 同じ、ロール代表との
+  TTK 10.3〜17.8 秒 → 同じ（18 戦 15 → 14 勝）。通常攻撃の矢 1500 → 1650、月影は主矢の命中の後に術者から飛ぶ、S2 の射程 650 → 545・
+  着弾 0.35 → 0.65 秒・6 本は着弾の 0.33 秒後に撃った向きから 0° / ±60° / ±120° / 180°・毎秒 1250 で 400。
+>>>>>>> worktree-agent-ad294403d6e023d9c
 
 ## 進め方
 
