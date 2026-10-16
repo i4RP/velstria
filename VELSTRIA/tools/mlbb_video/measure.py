@@ -30,6 +30,15 @@ Franco（docs/kits/Franco.md）で足したもの（カメラは Tigreal の cam
   python measure.py bar    --frames F --tpl 178:570,146,640,170 --from 100 --to 160   # 的の体力バーの位置と CC の時間のバー（引き寄せ・CC の時刻）
   python measure.py walk   --frames F --from 500 --to 510   # 歩きの特徴点の変位の分布（床の塊 = 最も遅い山）
 
+Aurora（docs/kits/Aurora.md）で足したもの（カメラは Tigreal の c・q。足元 u0, v0 は場面ごとに cam.json を書き換える）:
+  python measure.py gshape  --frames F --ref 163 --at 159 --thr 20 --name s2   # 照準の扇・帯の形（歩きながらでも床のずれを打ち消す）
+  python measure.py pcircle --frames F --ref 28 --at 44 --guess 3.4,4.3,1.9 --exclude 810,55,905,150 --name meteor   # 地点の照準の円
+
+Dyrroth（docs/kits/Dyrroth.md）で足したもの（カメラは Tigreal の c・q。足元は cring で場面ごとに当てはめる）:
+  python measure.py cring    --frames F --ref 44 --at 55,57,59 --r0 2.8 --r1 4.8 --exclude 460,120,660,345 --name s2   # 術者が中心の照準の円（足元 + 半径）
+  python measure.py decal    --frames F --cast 761 --at 772,778,784 --roi 60,150,600,480 --exclude 520,230,600,320   # 地面の輪の中心と半径
+  python measure.py gridmove --frames F 921 934 --guess=270,30   # 止まったコマどうしの床のずれ（格子の小片の分布の山）
+
 依存: numpy, opencv-python-headless, scipy（pip install numpy opencv-python-headless scipy）。
 """
 from __future__ import annotations
@@ -778,6 +787,308 @@ def cmd_walk(args):
         print(f"{lo:5.2f} {'#' * int(60 * c / max(1, h.max()))} {c}")
 
 
+def ground_shift(fr: Frames, cam: GroundCam, a: int, b: int, ui, min_points: int = 40) -> np.ndarray:
+    """コマ a → b の地面の模様のずれ（ヒーロー px。1 コマずつの特徴点の変位を足す）。歩いている間に使う。
+    止まっているコマでは動く点がほとんど無く（演出・草の揺れだけ）、その変位を足すとずれがたまるので、
+    動いた点が min_points 未満のコマは 0 とする（歩いているコマは 200〜400 点）。"""
+    D = np.zeros(2)
+    step = 1 if b >= a else -1
+    for n in range(a, b, step):
+        d, _ = track_pair(fr.gray(n), fr.gray(n + step), ui, cam)
+        g, k = robust_mean(d)
+        if g is not None and k >= min_points:
+            D = D + g
+    return D
+
+
+def rectify_bgr(fr: Frames, n: int, cam: GroundCam, xr, zr, shift=(0.0, 0.0)):
+    """真上から見た図（色）。shift = 地面のずれ（ヒーロー px）を打ち消して、別のコマの地面に重ねる。"""
+    xs = np.arange(xr[0], xr[1], 1.0)
+    zs = np.arange(zr[1], zr[0], -1.0)
+    GX, GZ = np.meshgrid(xs, zs)
+    U, V = cam.project(GX.ravel() - shift[0], GZ.ravel() - shift[1])
+    im = fr.f32(n)
+    out = np.stack([map_coordinates(im[..., c], [V, U], order=1, cval=0).reshape(GX.shape) for c in range(3)], axis=2)
+    H, W = im.shape[:2]
+    ok = ((U >= 0) & (U < W - 1) & (V >= 0) & (V < H - 1)).reshape(GX.shape)
+    return out, ok, U.reshape(GX.shape), V.reshape(GX.shape)
+
+
+def cmd_gshape(args):
+    """歩きながら出した照準（扇・帯）の形: 照準の無いコマ（--ref）の地面を、照準のコマ（--at）の地面のずれだけ動かして重ね、
+    真上から見た図の上で照準（水色）の差分を取る（カメラはヒーローに固定なので、照準はヒーローに付いて動き、床は逆へ流れる）。
+    輪郭を地面（単位）で shape と同じ JSON に書く（trapezoid にそのまま渡せる）。高い所（岩・草）は床とずれるので残る。"""
+    fr = Frames(args.frames, args.pattern)
+    cam = load_cam(args)
+    shape = fr.bgr(args.ref).shape
+    ui = ui_mask(shape, DEFAULT_UI if not args.ui else parse_boxes(args.ui))
+    boxes = parse_boxes(args.exclude)
+    xr, zr = (-700, 700), (-250, 650)
+    scores = []
+    for n in [int(a) for a in args.at.split(",")]:
+        D = ground_shift(fr, cam, args.ref, n, ui)
+        A, oka, U, V = rectify_bgr(fr, n, cam, xr, zr)
+        R, okr, _, _ = rectify_bgr(fr, args.ref, cam, xr, zr, shift=D)
+        d = A - R
+        sc = (d[..., 0] + d[..., 1]) / 2 - np.maximum(d[..., 2], 0) * 0.5
+        bad = ~(oka & okr)
+        for x0, y0, x1, y1 in boxes:
+            bad |= (U >= x0) & (U <= x1) & (V >= y0) & (V <= y1)
+        sc[bad] = np.nan
+        scores.append(sc)
+        print(f"コマ {n}: 地面のずれ ({D[0]:+.1f}, {D[1]:+.1f}) ヒーロー px = {math.hypot(*D) / (cam.s or 1):.2f}"
+              + (" 単位" if cam.s else ""))
+    sc = np.nanmedian(np.array(scores), axis=0)
+    sc = np.nan_to_num(sc, nan=0.0).astype(np.float32)
+    sc = cv2.GaussianBlur(sc, (5, 5), 0)
+    m = (sc > args.thr).astype(np.uint8)
+    m = cv2.morphologyEx(m, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
+    m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8))
+    n_, lab, st, _ = cv2.connectedComponentsWithStats(m)
+    if n_ < 2:
+        raise SystemExit("照準が見つからない（--thr を下げる・--ref を確かめる）")
+    m = (lab == 1 + np.argmax(st[1:, cv2.CC_STAT_AREA])).astype(np.uint8)
+    cnts, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    c = max(cnts, key=cv2.contourArea).reshape(-1, 2).astype(float)
+    X, Z = cam.units(c[:, 0] + xr[0]), cam.units(zr[1] - c[:, 1])
+    d = out_dir(args)
+    with open(os.path.join(d, f"shape_{args.name}.json"), "w", encoding="utf-8") as f:
+        json.dump({"ground": np.c_[X, Z].tolist()}, f)
+    topdown_png(os.path.join(d, f"shape_{args.name}_top.png"), [np.c_[X, Z]], cam.s)
+    vis = np.clip(128 + sc * 2, 0, 255).astype(np.uint8)
+    vis = cv2.cvtColor(vis, cv2.COLOR_GRAY2BGR)
+    cv2.drawContours(vis, [c.astype(np.int32).reshape(-1, 1, 2)], -1, (0, 0, 255), 1)
+    cv2.circle(vis, (-xr[0], zr[1]), 4, (0, 255, 0), -1)
+    cv2.imwrite(os.path.join(d, f"gshape_{args.name}.png"), vis)
+    np.save(os.path.join(d, f"gshape_{args.name}.npy"), sc)
+    r = np.hypot(X, Z)
+    print(f"{args.name}: 輪郭 {len(c)} 点、術者からの距離 最小 {r.min():.2f} / 最大 {r.max():.2f} 単位 → {d}")
+
+
+def cmd_pcircle(args):
+    """地点の照準の円（Aurora の隕石の着弾点など、中心が術者でない地面の円）: カメラを固定して、地面の円（中心 cx,cz・半径 r。単位）を
+    画面へ写した円周の上の照準の差分の強さの平均が最大になる所を探す（格子で粗く → Nelder-Mead）。楕円の当てはめと違い、UI に隠れた
+    所（--exclude）を除いても形が崩れない。確かめに、角度 15° ごとの放射で縁の半径（差分の山）を出す。"""
+    from scipy.optimize import minimize
+    fr = Frames(args.frames, args.pattern)
+    cam = load_cam(args)
+    if not cam.s:
+        raise SystemExit("縮尺 s が未定（先に speed を回す）")
+    sc = cyan_score(fr, [int(a) for a in args.at.split(",")], args.ref)
+    H, W = sc.shape
+    boxes = parse_boxes(args.exclude) + [DEFAULT_UI[0]]
+    t = np.radians(np.arange(0, 360, 1.0))
+
+    def ring(cx, cz, r):
+        u, v = cam.project((cx + r * np.cos(t)) * cam.s, (cz + r * np.sin(t)) * cam.s)
+        ok = (u >= 1) & (u < W - 2) & (v >= 1) & (v < H - 2)
+        for x0, y0, x1, y1 in boxes:
+            ok &= ~((u >= x0) & (u <= x1) & (v >= y0) & (v <= y1))
+        return map_coordinates(sc, [v, u], order=1, cval=0), ok
+
+    def score(p):
+        vals, ok = ring(*p)
+        return 0.0 if ok.sum() < 60 else -float(np.mean(np.clip(vals[ok], -20, 60)))
+
+    cx0, cz0, r0 = [float(v) for v in args.guess.split(",")]
+    sp = args.span
+    best = None
+    for cx in np.arange(cx0 - sp, cx0 + sp + 1e-9, 0.05):
+        for cz in np.arange(cz0 - sp, cz0 + sp + 1e-9, 0.05):
+            for r in np.arange(max(0.3, r0 - sp), r0 + sp + 1e-9, 0.05):
+                v = score((cx, cz, r))
+                if best is None or v < best[0]:
+                    best = (v, cx, cz, r)
+    res = minimize(score, best[1:], method="Nelder-Mead", options=dict(xatol=1e-3, fatol=1e-3))
+    cx, cz, r = res.x
+    _, ok = ring(cx, cz, r)
+    rr = np.arange(r - 0.4, r + 0.4, 0.01)
+    peaks = []
+    for deg in range(0, 360, 15):
+        th = math.radians(deg)
+        u, v = cam.project((cx + rr * math.cos(th)) * cam.s, (cz + rr * math.sin(th)) * cam.s)
+        if not ((u >= 1) & (u < W - 2) & (v >= 1) & (v < H - 2)).all() or in_boxes(u.mean(), v.mean(), boxes):
+            continue
+        vv = map_coordinates(sc, [v, u], order=1, cval=0)
+        i = int(np.argmax(vv))
+        if vv[i] > args.min:
+            peaks.append(rr[i])
+    P = np.array(peaks)
+    print(f"{args.name}: 中心 ({cx:.3f}, {cz:.3f}) = 術者から {math.hypot(cx, cz):.3f}・向き {math.degrees(math.atan2(cz, cx)):.1f}°、"
+          f"半径 {r:.3f} 単位（円周の強さ {-res.fun:.1f}、使った点 {ok.sum()}）"
+          + (f"、放射ごとの縁 {np.median(P):.3f} ± {P.std():.3f}（{len(P)} 本）" if len(P) else ""))
+
+
+def cmd_cring(args):
+    """術者が中心の照準の円（c・q は cam.json のまま）: 足元 u0, v0 と半径を当てはめる（Aurora の「足元は場面ごとに ±2 px」）。
+    --ref の照準の無いコマが別のカメラ位置（歩いている）なら、床のずれ（ground_shift）だけ動かして照準のコマに重ねてから差分を取る
+    （--noshift で重ねない）。--fixfoot は足元を --foot のまま半径だけ。放射ごとの縁の点を、45° ごとの半径と一緒に出す。"""
+    fr = Frames(args.frames, args.pattern)
+    cam = load_cam(args)
+    if not cam.s:
+        raise SystemExit("縮尺 s が未定（先に speed を回す）")
+    if args.foot:
+        cam.u0, cam.v0 = [float(v) for v in args.foot.split(",")]
+    g0 = (cam.u0, cam.v0)
+    H, W = fr.bgr(args.ref).shape[:2]
+    ui = ui_mask((H, W), DEFAULT_UI)
+
+    def warped_ref(n):
+        if args.noshift:
+            return fr.f32(args.ref)
+        D = ground_shift(fr, cam, args.ref, n, ui)
+        vs, us = np.mgrid[0:H, 0:W].astype(float)
+        x, z = cam.unproject(us.ravel(), vs.ravel())
+        U, V = cam.project(x - D[0], z - D[1])
+        im = fr.f32(args.ref)
+        return np.stack([map_coordinates(im[..., c], [V, U], order=1, cval=0) for c in range(3)], axis=1).reshape(H, W, 3)
+
+    acc = []
+    for n in [int(a) for a in args.at.split(",")]:
+        d = fr.f32(n) - warped_ref(n)
+        acc.append((d[..., 0] + d[..., 1]) / 2 - np.maximum(d[..., 2], 0) * 0.5)
+    sc = cv2.GaussianBlur(np.ascontiguousarray(np.median(np.array(acc), axis=0), dtype=np.float32), (3, 3), 0)
+    boxes = parse_boxes(args.exclude) + [DEFAULT_UI[0]]
+    skips = [tuple(float(v) for v in s.split(":")) for s in (args.skip or [])]
+    pts = []
+    for deg in np.arange(-180, 180, args.step):
+        if any(a0 <= deg <= a1 for a0, a1 in skips):
+            continue
+        t = math.radians(deg)
+        rs = np.arange(args.r0, args.r1, 0.005) * cam.s
+        u, v = cam.project(rs * math.cos(t), rs * math.sin(t))
+        ok = (u >= 1) & (u < W - 2) & (v >= 1) & (v < H - 2)
+        if ok.sum() < len(rs) * 0.9:
+            continue
+        vals = map_coordinates(sc, [v, u], order=1, cval=-1e9)
+        i = int(np.argmax(vals))
+        if vals[i] < args.min or in_boxes(u[i], v[i], boxes):
+            continue
+        j0, j1 = max(0, i - 12), min(len(rs), i + 13)
+        w = np.clip(vals[j0:j1] - vals[j0:j1].min(), 0, None)
+        k = (np.arange(j0, j1) * w).sum() / w.sum() if w.sum() > 0 else i
+        pts.append((deg, float(np.interp(k, np.arange(len(u)), u)), float(np.interp(k, np.arange(len(v)), v))))
+    P = np.array(pts)
+    if len(P) < 10:
+        raise SystemExit(f"縁の点が少ない（{len(P)}）")
+
+    def resid(p, P):
+        c2 = GroundCam(p[0], p[1], cam.c, cam.q)
+        x, z = c2.unproject(P[:, 1], P[:, 2])
+        return (np.hypot(x, z) - p[2]) / (1 + cam.q * z)
+
+    p = [g0[0], g0[1], float(np.median(np.hypot(*cam.unproject(P[:, 1], P[:, 2]))))]
+    for _ in range(3):
+        if args.fixfoot:
+            r = least_squares(lambda q, P: resid([g0[0], g0[1], q[0]], P), [p[2]], args=(P,), loss="soft_l1", f_scale=1.0)
+            p = [g0[0], g0[1], r.x[0]]
+        else:
+            p = list(least_squares(resid, p, args=(P,), loss="soft_l1", f_scale=1.0).x)
+        rr = resid(p, P)
+        P = P[np.abs(rr) < max(2.5, 3 * np.std(rr))]
+    rr = resid(p, P)
+    print(f"{args.name}: 点 {len(P)}、足元 ({p[0]:.2f}, {p[1]:.2f})、半径 {p[2]:.1f} px = {p[2] / cam.s:.3f} 単位、"
+          f"残差 {np.sqrt(np.mean(rr ** 2)):.2f} px")
+    c2 = GroundCam(p[0], p[1], cam.c, cam.q)
+    x, z = c2.unproject(P[:, 1], P[:, 2])
+    th = np.degrees(np.arctan2(z, x))
+    for lo in range(-180, 180, 45):
+        m = (th >= lo) & (th < lo + 45)
+        if m.sum():
+            print(f"  {lo:+4d}°〜{lo + 45:+4d}°: {np.median(np.hypot(x[m], z[m])) / cam.s:.3f} 単位（{m.sum()} 点）")
+
+
+def cmd_decal(args):
+    """地面に描かれる輪（Dyrroth のスキル1 の衝撃の輪など）の円の当てはめ: 色（--color pink / purple）の画素を地面へ戻し、コマごとに
+    中心と半径（代数の円の当てはめ、半径の中央値・90%）を出す。--cast からの床のずれを打ち消して、撃った位置の地面の座標で書く
+    （--noshift で打ち消さない）。輪は地面より浮いて描かれるので、中心は画面の奥へ少しずれる（Dyrroth で 0.4 単位）。"""
+    fr = Frames(args.frames, args.pattern)
+    cam = load_cam(args)
+    if not cam.s:
+        raise SystemExit("縮尺 s が未定（先に speed を回す）")
+    if args.foot:
+        cam.u0, cam.v0 = [float(v) for v in args.foot.split(",")]
+    frames = [int(v) for v in args.at.split(",")]
+    H, W = fr.bgr(frames[0]).shape[:2]
+    ui = ui_mask((H, W), DEFAULT_UI)
+    boxes = parse_boxes(args.exclude)
+    D = np.zeros(2)
+    shifts = {args.cast: D.copy()}
+    for n in range(args.cast, max(frames)):
+        if not args.noshift:
+            d, _ = track_pair(fr.gray(n), fr.gray(n + 1), ui, cam)
+            g, k = robust_mean(d)
+            if g is not None and k >= 40:
+                D = D + g
+        shifts[n + 1] = D.copy()
+    x0, y0, x1, y1 = [int(v) for v in args.roi.split(",")]
+    for n in frames:
+        im = fr.bgr(n).astype(int)
+        B, G, R = im[..., 0], im[..., 1], im[..., 2]
+        if args.color == "pink":
+            m = (R > 140) & (B > 80) & (R - G > 80) & (B - G > 20)
+        else:
+            m = (B > 130) & (R > 80) & (B - G > 70) & (R - G > 30)
+        roi = np.zeros_like(m)
+        roi[y0:y1, x0:x1] = True
+        m &= roi
+        for bx0, by0, bx1, by1 in boxes:
+            m[by0:by1, bx0:bx1] = False
+        vs, us = np.nonzero(m)
+        if len(us) < 50:
+            print(f"{n}: 輪の画素が少ない（{len(us)}）")
+            continue
+        x, z = cam.unproject(us.astype(float), vs.astype(float))
+        sh = shifts.get(n, np.zeros(2))
+        x, z = (x - sh[0]) / cam.s, (z - sh[1]) / cam.s
+        A = np.c_[2 * x, 2 * z, np.ones_like(x)]
+        sol, *_ = np.linalg.lstsq(A, x * x + z * z, rcond=None)
+        cx, cz = sol[0], sol[1]
+        r = np.hypot(x - cx, z - cz)
+        print(f"{n} t={(n - 1) / args.fps:.2f} 画素 {len(us)}  中心 ({cx:+.3f}, {cz:+.3f}) = 撃った位置から {math.hypot(cx, cz):.3f}・"
+              f"向き {math.degrees(math.atan2(cz, cx)):.1f}°  半径 中央値 {np.percentile(r, 50):.3f} / 90% {np.percentile(r, 90):.3f} 単位")
+
+
+def cmd_gridmove(args):
+    """止まったコマ a → b の地面のずれを、真上から見た図に格子に並べた小片ぜんぶで測り、ずれの大きさの分布を出す
+    （move の小片を手で選ばない版）。最も多い山 = 床（岩・草・ユニットは別の山）。--guess は b での見当のずれ（ヒーロー px）。"""
+    fr = Frames(args.frames, args.pattern)
+    cam = load_cam(args)
+    ra, oka, _, _ = rectify(fr, args.a, cam, highpass=True)
+    rb, okb, _, _ = rectify(fr, args.b, cam, highpass=True)
+    gx, gz = [float(v) for v in args.guess.split(",")] if args.guess else (0.0, 0.0)
+    hf, sr = args.half, args.search
+    rows = []
+    for r in range(100, 860, 40):
+        for c in range(100, 1300, 40):
+            ex, ey = int(round(c + gx)), int(round(r - gz))
+            if not oka[r - hf:r + hf, c - hf:c + hf].all():
+                continue
+            if ey - hf - sr < 0 or ex - hf - sr < 0 or ey + hf + sr >= rb.shape[0] or ex + hf + sr >= rb.shape[1]:
+                continue
+            if not okb[ey - hf - sr:ey + hf + sr, ex - hf - sr:ex + hf + sr].all():
+                continue
+            if np.std(ra[r - hf:r + hf, c - hf:c + hf]) < 4:
+                continue
+            tx, ty, score = _patch_match(ra, rb, c, r, hf, ex, ey, sr)
+            if score > 0.5:
+                rows.append((c, r, tx - c, -(ty - r)))
+    if not rows:
+        raise SystemExit("一致する小片が無い（--guess・--search を見直す）")
+    R_ = np.array(rows)
+    mags = np.hypot(R_[:, 2], R_[:, 3]) / (cam.s or 1)
+    h, e = np.histogram(mags, bins=np.arange(mags.min() - 0.05, mags.max() + 0.1, 0.05))
+    k = int(np.argmax(h))
+    sel = (mags >= e[k] - 0.05) & (mags < e[k + 1] + 0.05)
+    d = np.median(R_[sel, 2:4], axis=0)
+    unit = " 単位" if cam.s else " px"
+    print(f"一致 0.5 超の小片 {len(R_)}、最も多い山 {e[k]:.2f}〜{e[k + 1]:.2f}{unit}（{h[k]} 個）: ずれ ({d[0]:+.1f}, {d[1]:+.1f}) px"
+          + (f" = {math.hypot(*d) / cam.s:.3f} 単位" if cam.s else ""))
+    for c_, lo in zip(h, e):
+        if c_:
+            print(f"  {lo:6.2f} {'#' * min(80, c_)}")
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--out", help=f"出力のフォルダ（既定 {DEFAULT_OUT}。リポジトリの外に置く）")
@@ -926,6 +1237,63 @@ def main(argv=None):
     p.add_argument("--to", dest="end", type=int, required=True)
     p.add_argument("--ui", action="append")
     p.set_defaults(fn=cmd_walk)
+
+    p = sub.add_parser("gshape", help="歩きながらの照準の形（床のずれを打ち消して地面で差分）")
+    frames_arg(p)
+    p.add_argument("--ref", type=int, required=True, help="照準の無いコマ（照準のコマの近く）")
+    p.add_argument("--at", required=True, help="照準のコマ（カンマ区切り。それぞれ ref に重ねて中央値）")
+    p.add_argument("--thr", type=float, default=20.0)
+    p.add_argument("--exclude", action="append", help="除く画面の箱 x0,y0,x1,y1（体・体力バー・ボタン）")
+    p.add_argument("--ui", action="append", help="地面のずれを測るときに除く UI の箱（既定 DEFAULT_UI）")
+    p.add_argument("--name", required=True)
+    p.set_defaults(fn=cmd_gshape)
+
+    p = sub.add_parser("pcircle", help="地点の照準の円（中心が術者でない地面の円）の中心と半径")
+    frames_arg(p)
+    p.add_argument("--ref", type=int, required=True, help="照準の無いコマ")
+    p.add_argument("--at", required=True, help="照準のコマ（カンマ区切り。中央値）")
+    p.add_argument("--guess", required=True, help="中心 x,z と半径の見当（単位）")
+    p.add_argument("--span", type=float, default=0.6, help="格子で探す幅（単位）")
+    p.add_argument("--exclude", action="append", help="除く箱 x0,y0,x1,y1")
+    p.add_argument("--min", type=float, default=15.0)
+    p.add_argument("--name", required=True)
+    p.set_defaults(fn=cmd_pcircle)
+
+    p = sub.add_parser("cring", help="術者が中心の照準の円（c・q は固定）で足元と半径を当てはめる")
+    frames_arg(p)
+    p.add_argument("--ref", type=int, required=True, help="照準の無いコマ（歩いていれば床のずれで重ねる）")
+    p.add_argument("--at", required=True, help="照準のコマ（カンマ区切り。中央値）")
+    p.add_argument("--r0", type=float, required=True, help="探す半径の下限（単位）")
+    p.add_argument("--r1", type=float, required=True, help="探す半径の上限（単位）")
+    p.add_argument("--foot", help="足元の見当 u0,v0（既定 cam.json）")
+    p.add_argument("--fixfoot", action="store_true", help="足元を固定して半径だけ")
+    p.add_argument("--noshift", action="store_true", help="ref を床のずれで重ねない（止まっているとき）")
+    p.add_argument("--skip", action="append", help="除く向き a0:a1（度。照準の線・帯）")
+    p.add_argument("--exclude", action="append", help="除く箱 x0,y0,x1,y1")
+    p.add_argument("--step", type=float, default=1.0)
+    p.add_argument("--min", type=float, default=12.0)
+    p.add_argument("--name", default="ring")
+    p.set_defaults(fn=cmd_cring)
+
+    p = sub.add_parser("decal", help="地面に描かれる輪の中心と半径（コマごと）")
+    frames_arg(p)
+    p.add_argument("--cast", type=int, required=True, help="撃ったコマ（ここからの床のずれを打ち消す）")
+    p.add_argument("--at", required=True, help="輪のコマ（カンマ区切り）")
+    p.add_argument("--roi", required=True, help="探す箱 x0,y0,x1,y1")
+    p.add_argument("--color", default="pink", choices=["pink", "purple"])
+    p.add_argument("--foot", help="足元 u0,v0（既定 cam.json）")
+    p.add_argument("--noshift", action="store_true")
+    p.add_argument("--exclude", action="append", help="除く箱 x0,y0,x1,y1（自分の体・的・ボタン）")
+    p.set_defaults(fn=cmd_decal)
+
+    p = sub.add_parser("gridmove", help="止まったコマどうしの地面のずれ（格子の小片の分布）")
+    frames_arg(p)
+    p.add_argument("a", type=int)
+    p.add_argument("b", type=int)
+    p.add_argument("--guess", help="b での見当のずれ dx,dz（ヒーロー px。負の数は = でつなぐ）")
+    p.add_argument("--search", type=int, default=60)
+    p.add_argument("--half", type=int, default=30)
+    p.set_defaults(fn=cmd_gridmove)
 
     args = ap.parse_args(argv)
     args.fn(args)
