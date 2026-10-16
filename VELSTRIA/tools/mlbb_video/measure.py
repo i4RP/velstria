@@ -30,6 +30,9 @@ Franco（docs/kits/Franco.md）で足したもの（カメラは Tigreal の cam
   python measure.py bar    --frames F --tpl 178:570,146,640,170 --from 100 --to 160   # 的の体力バーの位置と CC の時間のバー（引き寄せ・CC の時刻）
   python measure.py walk   --frames F --from 500 --to 510   # 歩きの特徴点の変位の分布（床の塊 = 最も遅い山）
 
+Zilong（docs/kits/Zilong.md）で足したもの:
+  python measure.py panel  --frames F --tpl 457:697,69,752,84 --from 609 --to 722   # 的の総ダメージの表示が変わるコマ（三連突きの間隔）
+
 依存: numpy, opencv-python-headless, scipy（pip install numpy opencv-python-headless scipy）。
 """
 from __future__ import annotations
@@ -751,6 +754,29 @@ def cmd_bar(args):
         prev = (px, py)
 
 
+def cmd_panel(args):
+    """的の情報パネル（訓練場の「総ダメージ」の行）が変わるコマ = ダメージが入ったコマ。ダメージの数字（出始めが重なって 1 コマ遅れて
+    見える）より正確で、体力が 1 で止まった的にも使える（Zilong の三連突きの間隔）。--tpl コマ:x0,y0,x1,y1 は「総ダメージ」の文字の箱、
+    --box dx0,dy0,dx1,dy1 はその左上から見た数字の箱。パネルは的に付いて動くので、パネルが動いたコマ（位置の列）の変化は無視する。"""
+    fr = Frames(args.frames, args.pattern)
+    tn, box = args.tpl.split(":")
+    x0, y0, x1, y1 = [int(v) for v in box.split(",")]
+    tpl = fr.bgr(int(tn))[y0:y1, x0:x1]
+    ox0, oy0, ox1, oy1 = [int(v) for v in args.box.split(",")]
+    prev = None
+    prev_at = None
+    for n in range(args.start, args.end + 1):
+        im = fr.bgr(n)
+        r = cv2.matchTemplate(im, tpl, cv2.TM_CCOEFF_NORMED)
+        _, mv, _, (px, py) = cv2.minMaxLoc(r)
+        digits = (im[py + oy0:py + oy1, px + ox0:px + ox1].astype(np.float32).mean(axis=2) > 170).astype(np.float32)
+        d = None if prev is None or prev.shape != digits.shape else float(np.abs(digits - prev).sum())
+        moved = prev_at is not None and (px, py) != prev_at
+        mark = "" if d is None or d <= args.min else ("  （パネルが動いた）" if moved else "  <== 変化")
+        print(f"{n} t={(n - 1) / args.fps:.3f} 一致 {mv:.2f} 位置 ({px},{py}) 変化 {d if d is not None else -1:5.0f}{mark}")
+        prev, prev_at = digits, (px, py)
+
+
 def cmd_walk(args):
     """歩きの 1 コマの特徴点の変位（地面へ戻した、歩く向きの成分）の分布。床の点は最も遅い塊、岩・草など高い所の点は速い。
     --floor を決める前の見当に使う（Tigreal: 床 5.40、全部の点の中央値 5.75）。"""
@@ -926,6 +952,15 @@ def main(argv=None):
     p.add_argument("--to", dest="end", type=int, required=True)
     p.add_argument("--ui", action="append")
     p.set_defaults(fn=cmd_walk)
+
+    p = sub.add_parser("panel", help="的の総ダメージの表示が変わるコマ（ダメージの時刻）")
+    frames_arg(p)
+    p.add_argument("--tpl", required=True, help="コマ:x0,y0,x1,y1（「総ダメージ」の文字）")
+    p.add_argument("--box", default="55,0,122,15", help="文字の箱の左上から見た数字の箱 dx0,dy0,dx1,dy1")
+    p.add_argument("--from", dest="start", type=int, required=True)
+    p.add_argument("--to", dest="end", type=int, required=True)
+    p.add_argument("--min", type=float, default=10.0, help="変化とみなす画素数（数字の変化で 13〜130、ちらつきは 7 前後）")
+    p.set_defaults(fn=cmd_panel)
 
     args = ap.parse_args(argv)
     args.fn(args)

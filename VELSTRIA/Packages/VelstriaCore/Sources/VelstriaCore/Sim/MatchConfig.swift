@@ -92,7 +92,11 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     ///     奥義 = 縁まで 188・0.25 秒で掴んで 0.32 秒おきに 6 撃）。docs/kits/Franco.md「動画で測った値」。
     /// 26: 遊ぶ地図の壁を MLBB のミニマップ原本から起こした滑らかな多角形に（ed0f086。キャンプの位置・拠点の周りの規則も）、
     ///     矩形の角の衝突を丸い膨張に、経路探索の格子を 100 → 50（粗い格子で下見）。
-    public static let currentSimVersion = 26
+    /// 27〜29: 同時に進めているほかのヒーローの動画の計測（別の作業）が使う番号。ここでは飛ばす。
+    /// 30: H027（子龍）の幾何と時間を MLBB の画面収録で測った値に（スキル1 = 打ち上げ 0.8 → 1.0 秒・0.4 秒持ち上げてから 0.2 秒で
+    ///     背後 144 へ放り投げる（以前は命中の瞬間から 0.7 秒で背後 170）、スキル2 = 突進を毎秒 2400 → 1520）。
+    ///     docs/kits/Zilong.md「動画で測った値」。
+    public static let currentSimVersion = 30
 
     public var simVersion: Int
     public var mode: MatchMode
