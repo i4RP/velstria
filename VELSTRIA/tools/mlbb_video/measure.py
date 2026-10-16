@@ -1465,6 +1465,15 @@ def main(argv=None):
     p.add_argument("--ui", action="append")
     p.set_defaults(fn=cmd_walk)
 
+    p = sub.add_parser("panel", help="的の総ダメージの表示が変わるコマ（ダメージの時刻）")
+    frames_arg(p)
+    p.add_argument("--tpl", required=True, help="コマ:x0,y0,x1,y1（「総ダメージ」の文字）")
+    p.add_argument("--box", default="55,0,122,15", help="文字の箱の左上から見た数字の箱 dx0,dy0,dx1,dy1")
+    p.add_argument("--from", dest="start", type=int, required=True)
+    p.add_argument("--to", dest="end", type=int, required=True)
+    p.add_argument("--min", type=float, default=10.0, help="変化とみなす画素数（数字の変化で 13〜130、ちらつきは 7 前後）")
+    p.set_defaults(fn=cmd_panel)
+
     p = sub.add_parser("gshape", help="歩きながらの照準の形（床のずれを打ち消して地面で差分）")
     frames_arg(p)
     p.add_argument("--ref", type=int, required=True, help="照準の無いコマ（照準のコマの近く）")
@@ -1485,15 +1494,6 @@ def main(argv=None):
     p.add_argument("--min", type=float, default=15.0)
     p.add_argument("--name", required=True)
     p.set_defaults(fn=cmd_pcircle)
-
-    p = sub.add_parser("panel", help="的の総ダメージの表示が変わるコマ（ダメージの時刻）")
-    frames_arg(p)
-    p.add_argument("--tpl", required=True, help="コマ:x0,y0,x1,y1（「総ダメージ」の文字）")
-    p.add_argument("--box", default="55,0,122,15", help="文字の箱の左上から見た数字の箱 dx0,dy0,dx1,dy1")
-    p.add_argument("--from", dest="start", type=int, required=True)
-    p.add_argument("--to", dest="end", type=int, required=True)
-    p.add_argument("--min", type=float, default=10.0, help="変化とみなす画素数（数字の変化で 13〜130、ちらつきは 7 前後）")
-    p.set_defaults(fn=cmd_panel)
 
     p = sub.add_parser("ringhp", help="参照のコマ無しで照準の円の半径（歩きながらでも）")
     frames_arg(p)

@@ -6,6 +6,8 @@ import Foundation
 // スキル1（遠星弾）は会心のある直線弾（命中で射程延長と加速）、スキル2（星爆弾）は爆発する星環弾（誰にも当たらなくても射程の端で
 // 爆発し、刻印を付ける。刻印へ当てると弾けて周囲をスタン）、アルティメット（星砕の大砲）は短い溜めの後に画面を貫く貫通ビーム。
 // アルティメットの Lv ごとに通常攻撃と星環弾の射程が常に伸びる。
+// 幾何と時間（通常攻撃の弾の速さ、S1 の射程・半幅・速さ、S2 の射程・速さ、奥義の溜め・半幅）は MLBB の訓練場の画面収録で測った値
+// （docs/kits/Layla.md「動画で測った値（2026-10-16）」。距離 = MLBB × 100、時間はコマ（1/30 秒）を tick に合わせた値）。
 // 数値の正は MLBB の日本語クライアントのスキル詳細（docs/kits/Layla.md の「公式（日本語クライアント）の数値」。Fandom と違うところはこちらが優先）。
 // 公式の表（スキル1・2 = Lv1〜6、アルティメット = Lv1〜3。ランク = 公式の Lv）をそのまま引き（Kit.level。補間なし）、
 // ダメージは 公式の基礎 + 公式の係数 × 合計の物理攻撃（Kit.official。スロット倍率・物理係数の × 0.6・キットの換算は掛けない）。
@@ -32,19 +34,34 @@ enum RainaTuning {
 
     // MARK: 射程
     /// アルティメットのパッシブ: 通常攻撃・星環弾の射程の常時延長（公式: Lv1〜3 で +0.6 / 1.2 / 1.8 ユニット）。
+    /// 動画: アルティメット Lv3 の通常攻撃の射程の円 6.09（4.3 + 1.8 = 6.1）。
     static let ultRange: [Double] = [60, 120, 180]
     /// S1 命中時の一時的な射程延長（アルティメット Lv0〜3）。日本語クライアントの文は「射程が 3 秒間伸びる」だけで量が無いので、
-    /// Fandom の +1.6 / 1.4 / 1.2 / 1.0 ユニットを使う。
+    /// Fandom の +1.6 / 1.4 / 1.2 / 1.0 ユニットを使う。動画: アルティメット Lv3 で射程の円が 6.09 → 7.10（+1.0）、
+    /// 3 回の S1 の命中で 2.97 / 3.07 / 3.03 秒続いた（円の大きさが変わり始めるコマから戻り始めるコマまで）。
     static let s1RangeBuff: [Double] = [160, 140, 120, 100]
     static let s1RangeBuffDuration: Double = 3
     /// 常時延長のステータスに持たせる持続（実質無期限）。
     static let permanent: Double = 1_000_000
 
+    // MARK: 通常攻撃
+    /// 通常攻撃の弾の速さ（動画: 弾の頭のコマごとの進み 毎秒 17.0〜19.0、銃口の閃光から命中まで 5 コマで約 3.1 = 毎秒 18.6。
+    /// 以前は全ヒーロー共通の Balance.heroProjectileSpeed 1500）。タワーへの通常攻撃も同じ弾。
+    static let basicShotSpeed: Double = 1800
+
     // MARK: S1（マジックボム = 遠星弾）
     /// 公式: 200 / 240 / 280 / 320 / 360 / 400（+80% 物理攻撃 = 合計）、クリティカル可能。
     static let s1Base: [Double] = [200, 240, 280, 320, 360, 400]
     static let s1AttackRatio: Double = 0.8
-    /// 命中時の加速（+60%、1.2 秒かけて 0 へ。敵ヒーローに当たると持続が倍）。
+    /// 射程（動画: 照準の帯の矢じりの先 7.50〜7.58、6 場面。帯は 6.6〜6.7 で矢じりになる。以前はマスターの 650）。
+    /// 照準は 3 回ともアルティメット Lv3・S1 の延長なし。射程の延長は公式の文どおり通常攻撃と S2 だけ（S1 には足さない）。
+    static let s1Range: Double = 755
+    /// 砲弾の半幅（動画: 照準の帯の左右の線が軸から ±0.60。以前は汎用の radius 155 × 0.5 = 77.5）。
+    static let s1Width: Double = 60
+    /// 砲弾の速さ（動画: 2 回の S1 で毎秒 19.5 / 19.3（画面の横の座標で測るので弾の高さに依らない）。以前は汎用の 1600）。
+    static let s1Speed: Double = 1950
+    /// 命中時の加速（+60%、1.2 秒かけて 0 へ。敵ヒーローに当たると持続が倍）。動画（CPU のヒーローに 2 回・訓練場の的に 1 回）: 最大 +59〜62%、
+    /// CPU への 1 回目は命中から 2.45 秒で普段の歩きに戻った（= 2.4 秒）。減り方は 3 回で揃わない（1 秒後に +60% のままの回と +40% の回）ので推測のまま。
     static let rushSpeed: Double = 0.6
     static let rushDuration: Double = 1.2
     static let rushHeroDuration: Double = 2.4
@@ -56,13 +73,21 @@ enum RainaTuning {
     static let s2AttackRatio: Double = 0.65
     static let detonationBase: [Double] = [100, 120, 140, 160, 180, 200]
     static let detonationAttackRatio: Double = 0.35
-    /// 弾の速さ・幅と爆発の半径（スキル定義の radius 190）は公式の文に無い（推測）。
-    static let s2Speed: Double = 1500
+    /// 基本の射程（アルティメットのパッシブと S1 の一時延長はこれに足す）。動画: アルティメット Lv3・S1 の延長なしの照準の扇の外の弧
+    /// 5.64（2 回の照準・7 コマ）= 3.84 + 1.8。以前はマスターの 650（Lv3 で 830）。
+    static let s2Range: Double = 384
+    /// 光球の速さ（動画: 止まって撃った 2 回で、指を離してから的の中心（5.7・2.7 先）に着くまで毎秒 9.6〜11、コマごとの進み 10.5〜11.1。
+    /// 以前は推測の 1500）。光球は弧を描いて飛ぶが、sim は直線の弾。
+    static let s2Speed: Double = 1050
+    /// 弾の幅と爆発の半径（スキル定義の radius 190）は公式の文に無い（推測）。動画の爆発の球の見た目は半径 1.6〜1.85 で、
+    /// 2.0 離れた別の的には当たらなかった（決め切れないので 190 のまま）。
     static let s2Width: Double = 60
     // 爆発の減速は無い（日本語クライアントの文・タグ「範囲技・妨害」に減速は無い。以前は Fandom のタグ「Slowed」から 30%・1 秒を足していた）。
     /// 射程の端で消える瞬間に爆発させる予約の余裕（弾が消えた次の tick 以降に爆発させる）。
     static let orbEndLag: Double = Balance.dt
     /// 爆発と刻印の弾けの半径は同じ（スキル定義の radius）。
+    /// 刻印の持続 3 秒は動画で確かめられなかった（4 回とも 0.13〜1.13 秒で通常攻撃が弾けさせた）。弾けは通常攻撃の命中の 0〜1 コマ後、
+    /// スタンの表示は 8 コマ（0.27 秒。表示の遅れ込みで 0.25 秒と合う）。
     static let markDuration: Double = 3
     static let markStun: Double = 0.25
 
@@ -70,10 +95,15 @@ enum RainaTuning {
     /// 公式: 500 / 650 / 800（+150% 物理攻撃）。
     static let ultBase: [Double] = [500, 650, 800]
     static let ultAttackRatio: Double = 1.5
-    /// 溜め（0.2 秒）とビームの速さ（7000）は公式の文に無い（推測）。弾は 1 tick の区間を線分で掃引して当てる（ProjectileSystem.stepLinear）ので
-    /// 7000（1 tick = 約 233）でもすり抜けない。射程 2000 を約 0.29 秒で貫くので、動く相手にも「撃った瞬間」に近く当たる。
-    static let ultWindup: Double = 0.2
+    /// 溜め（動画: 2 回とも指を離してから 17 コマ（0.57 秒）で発射と命中。0.55 で 17 tick 目。以前は推測の 0.2）。
+    /// 奥義のクールダウンの表示は発射のコマから始まった。
+    static let ultWindup: Double = 0.55
+    /// ビームの速さ（推測のまま）。動画では 3 体に 1〜2 コマの間に当たり、ほぼ一瞬（毎秒 60 以上）。弾は 1 tick の区間を線分で掃引して
+    /// 当てる（ProjectileSystem.stepLinear）ので 7000（1 tick = 約 233）でもすり抜けない。射程 2000 を約 0.29 秒で貫く。
+    /// 射程 2000 も推測のまま（動画の照準の線は画面の端 14.2 まで続き、先端は映っていない）。
     static let ultBeamSpeed: Double = 7000
+    /// ビームの半幅（動画: 照準の左右の線が軸から ±1.0（3 場面で 0.95〜1.04）。以前はスキル定義の radius 120）。
+    static let ultWidth: Double = 100
 
     // MARK: クールダウン（公式の表の秒数そのまま。CD 短縮だけを掛ける: Kit.cooldown）
     static let s1Cooldown: [Double] = [6.0, 5.6, 5.2, 4.8, 4.4, 4.0]
@@ -188,14 +218,20 @@ struct Kit_H030: HeroKit {
     func targeting(slot: SkillSlot, stage: Int, skill: SkillDef, hero: HeroDef, base: SkillTargeting) -> SkillTargeting {
         switch slot {
         case .skill1:
-            // 汎用の遠隔直線弾のまま（射程 650・弾幅は半径の半分）
-            return base
+            // 汎用の遠隔直線弾（射程と半幅は動画で測った 755・60。マスターの 650・77.5 は使わない）
+            var t = base
+            t.range = T.s1Range
+            t.radius = T.s1Width
+            return t
         case .skill2:
-            // 星環弾: 直線に飛んで最初の敵で爆発する。radius は弾の半幅（爆発の半径は numbers の extras）
-            return SkillTargeting(archetype: .lineSkillshot, aim: .direction, range: skill.range, radius: T.s2Width)
+            // 星環弾: 直線に飛んで最初の敵で爆発する。radius は弾の半幅（爆発の半径は numbers の extras）。
+            // range は基本の 384（実際の射程はアルティメットのパッシブと S1 の一時延長を足す: castOrb）
+            return SkillTargeting(archetype: .lineSkillshot, aim: .direction, range: T.s2Range, radius: T.s2Width)
         case .ultimate:
+            // 射程は汎用の貫通線の 2000、半幅は動画で測った 100（スキル定義の 120 は使わない）
             var t = base
             t.shape = .wideLine
+            t.radius = T.ultWidth
             return t
         case .passive:
             return base
@@ -366,7 +402,7 @@ struct Kit_H030: HeroKit {
         s.units[i].hero?.kit?.rainaBombOrigin = castAt
         Kit.emitCast(&s, c, target: s.units[i].pos + c.aim.direction * c.targeting.range, unit: c.aim.unit, count: 1)
         ProjectileSystem.spawn(&s, ownerIndex: i, motion: .linear(direction: c.aim.direction, maxDistance: c.targeting.range),
-                               speed: Balance.Skills.skillshotSpeed, width: c.targeting.radius, pierce: false,
+                               speed: T.s1Speed, width: c.targeting.radius, pierce: false,
                                payload: p, visual: c.check.skill.effectID)
     }
 
@@ -520,6 +556,8 @@ struct Kit_H030: HeroKit {
 
     func shapeBasicAttack(_ s: inout SimState, _ ctx: SimContext, attacker: Int, target: Int,
                           plan: inout BasicAttackPlan) {
+        // 弾の速さは動画で測った 1800（タワーへの通常攻撃も同じ弾）
+        plan.projectileSpeed = T.basicShotSpeed
         // タワーには効かない（公式「タワーには適用されない」）。弾の発射位置を起点に、命中時の距離で補正する
         guard !s.units[target].isStructure else { return }
         plan.payload.scaling = T.distanceScaling
@@ -538,18 +576,23 @@ struct Kit_H030: HeroKit {
 
     // MARK: D. ボット
 
-    /// アルティメットの狙い: 相手の動きを先読みする。ビームは発動の 0.2 秒後（溜め）に速さ 7000 で飛ぶので、
-    /// 到達までの時間は 溜め + 距離 ÷ 速さ。汎用の見積もり（0.1 + 距離 ÷ 1600）はビームより長いので使わない。
-    /// 先読みの強さは難易度の精度（乱数を引かない = botCast は状態を変えない）。撃つ判断は汎用の関門（倒せる / 2 体以上）のまま。
+    /// アルティメットの狙い: 相手の動きを先読みする。ビームは発動の 0.55 秒後（溜め）に速さ 7000 で飛ぶので、
+    /// 到達までの時間は 溜め + 距離 ÷ 速さ。汎用の見積もり（0.1 + 距離 ÷ 1600）はビームと違うので使わない。
+    /// スキル2 も同じ先読み（到達まで 距離 ÷ 1050）で、射程は延長込みの実際の射程で判断する。
+    /// 先読みの強さは難易度の精度（乱数を引かない = botCast は状態を変えない）。奥義を撃つ判断は汎用の関門（倒せる / 2 体以上）のまま。
     func botCast(_ s: SimState, _ ctx: SimContext, bot: Int, slot: SkillSlot, targeting: SkillTargeting, target: Int,
                  fighting: Bool) -> BotKitDecision {
-        guard slot == .ultimate, s.units.indices.contains(target), s.units.indices.contains(bot) else { return .useDefault }
+        guard slot == .ultimate || slot == .skill2, s.units.indices.contains(target), s.units.indices.contains(bot) else {
+            return .useDefault
+        }
         let me = s.units[bot].pos
         let foe = s.units[target]
         let dist = me.distance(to: foe.pos)
-        guard dist <= targeting.range + foe.radius else { return .skip }
+        // 星環弾は照準の射程（基本の 384）にアルティメットの常時延長と S1 の一時延長を足した所まで届く（汎用の判断は基本の射程しか見ない）
+        let reach = slot == .skill2 ? targeting.range + Self.rangeBonus(s, bot) : targeting.range
+        guard dist <= reach + foe.radius else { return .skip }
         let accuracy = BotProfile.of(s.units[bot].hero?.botDifficulty ?? .normal).accuracy
-        let travel = T.ultWindup + dist / T.ultBeamSpeed
+        let travel = slot == .skill2 ? dist / T.s2Speed : T.ultWindup + dist / T.ultBeamSpeed
         let velocity = Self.observedVelocity(s, bot: bot, target: target)
         let leadSeconds = travel * accuracy
         let lead = Vec2(velocity.x * leadSeconds, velocity.y * leadSeconds)

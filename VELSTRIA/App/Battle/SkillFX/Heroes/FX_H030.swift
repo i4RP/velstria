@@ -6,15 +6,17 @@ import VelstriaCore
 // 「衝撃の輪をまとって飛ぶ砲弾」「稲光をまとう光球の破裂」「射程いっぱいを貫く極太の光の円柱」で形を見せる。
 // sim の実際の挙動（Systems/Kits/Kit_H030.swift の RainaTuning）に合わせたタイミング:
 //   パッシブ 遠星の照準    — 距離補正（バッジを持たないので試合中は合図が出ない。目視確認の実演用）: 足元に照準の陣、頭上に星
-//   スキル1 遠星弾         — 発動の tick に砲弾が出る（速度 16 m/s・射程 6.5m = 約 0.4 秒）。砲口の閃光と前を向く衝撃の輪、
+//   スキル1 遠星弾         — 発動の tick に砲弾が出る（速度 19.5 m/s・射程 7.55m = 約 0.39 秒。動画で測った値）。砲口の閃光と前を向く衝撃の輪、
 //                            砲弾は白い芯に桃の彗星の尾をひき、通った後ろに衝撃の輪が次々と広がる（travel）。
 //                            命中・射程の端で砕け（impact）、命中した敵には閃光、術者の足元に金の輪（命中で加速・射程延長）
-//   スキル2 星爆弾         — 光球（15 m/s）が紫の殻と回る輪・稲光をまとって飛び（travel）、最初の敵か射程の端で破裂（impact、半径 1.9m）:
+//   スキル2 星爆弾         — 光球（10.5 m/s。射程 3.84m + 延長、アルティメット Lv3 で 5.64m = 約 0.54 秒）が紫の殻と回る輪・稲光を
+//                            まとって飛び（travel）、最初の敵か射程の端で破裂（impact、半径 1.9m）:
 //                            紫の球が膨らんで弾け、地を這う 5 本の稲光・虚空の陣・星屑。爆発を受けた敵の足元に刻印の陣と減速の輪（hit）。
 //                            刻印の弾け（刻印した敵に通常攻撃・S1・奥義が当たる。遅れ 0 のゾーン）は telegraph（頭上の刻印が砕けて
 //                            縦の稲光が落ちる = 0.25 秒のスタン）と同じ破裂（impact）が同時に出る
-//   アルティメット 星砕の大砲 — 0〜0.2 秒（ultWindup）: 腰を落として砲を据え、砲口へ光が吸い込まれ、前を向く照準の陣が回る。
-//                            0.2 秒: 射程いっぱい（20m）の極太のビーム。光の円柱を砲口から前へ・終点から後ろへ 2 本重ねて全長を均一に、
+//   アルティメット 星砕の大砲 — 0〜0.55 秒（ultWindup。動画: 指を離してから 17 コマ）: 腰を落として砲を据え、砲口へ光が吸い込まれ、
+//                            前を向く照準の陣が回る。
+//                            0.55 秒: 射程いっぱい（20m・半幅 1.0m）の極太のビーム。光の円柱を砲口から前へ・終点から後ろへ 2 本重ねて全長を均一に、
 //                            芯に白い光条、地に焼け跡。ビームの先頭（70 m/s の貫通弾）に閃光と光の尾（travel）、最初の命中か終点で星の破裂、
 //                            貫かれた敵ごとに光条と星（hit）
 // SkillFXDirector は duration / count を読まない: 時刻は at（遅れ）で表す。
@@ -34,8 +36,10 @@ enum FX_H030: HeroFXSet {
 
     /// 星爆弾の爆発と刻印の弾けの半径（スキル定義の radius 190）。
     private static let blast: Float = 1.9
-    /// 奥義の溜め（ultWindup）。
-    private static let windup: Float = 0.2
+    /// 奥義の溜め（ultWindup。動画: 指を離してから 17 コマ = 0.57 秒）。
+    private static let windup: Float = 0.55
+    /// 星環弾の光球が飛ぶ最長の時間（アルティメット Lv3 + S1 の延長の射程 6.64m ÷ 10.5 m/s ≒ 0.63 秒）。
+    private static let orbFlight: Float = 0.68
 
     /// 星の砲の砲口（局所座標）。
     private static let muzzle: SIMD3<Float> = [0.2, 1.2, 0.9]
@@ -157,9 +161,9 @@ enum FX_H030: HeroFXSet {
             }, offset: muzzle),
         ]
         r.travel = [
-            .mesh(.orb(0.2, .core, life: 0.6, grow: 1.0, alpha: 0.95).with { $0.fadeOut = 0.85 }, .follow, offset: orbAt),
-            .mesh(.orb(0.42, voidTint, life: 0.6, grow: 1.0, alpha: 0.5).with { $0.fadeOut = 0.85 }, .follow, offset: orbAt),
-            .mesh(.halo(0.5, .primary, life: 0.6, spin: 420, tex: .ringDouble).with {
+            .mesh(.orb(0.2, .core, life: orbFlight, grow: 1.0, alpha: 0.95).with { $0.fadeOut = 0.85 }, .follow, offset: orbAt),
+            .mesh(.orb(0.42, voidTint, life: orbFlight, grow: 1.0, alpha: 0.5).with { $0.fadeOut = 0.85 }, .follow, offset: orbAt),
+            .mesh(.halo(0.5, .primary, life: orbFlight, spin: 420, tex: .ringDouble).with {
                 $0.size = [0.5, 1, 0.5]
                 $0.fadeOut = 0.85
             }, .follow, offset: orbAt),
@@ -201,7 +205,7 @@ enum FX_H030: HeroFXSet {
 
     // MARK: - アルティメット 星砕の大砲
 
-    /// 0.2 秒溜めて、射程いっぱい（20m）を貫く極太のビーム。
+    /// 0.55 秒溜めて、射程いっぱい（20m）を貫く極太のビーム。
     private static func destructionRush(_ s: FXSkillInfo) -> SkillFXRecipe {
         var r = SkillFXRecipe()
         let L = s.range
@@ -213,12 +217,12 @@ enum FX_H030: HeroFXSet {
         let coreAxis: SIMD3<Float> = [muzzle.x, y + 0.05, 0]
         let sigil = muzzle + SIMD3<Float>(0, 0, 0.35)
         r.cast = [
-            // 0〜0.2: 砲を据えて溜める（砲口へ光が吸い込まれ、前を向く照準の陣が回り、足元に金の陣）
+            // 0〜0.55: 砲を据えて溜める（砲口へ光が吸い込まれ、前を向く照準の陣が回り、足元に金の陣）
             .emit(.gather(24, radius: 1.3, .primary, life: t), offset: muzzle),
             .emit(FXEmit(tex: .techCircle, tint: .accent, count: 1, life: t + 0.12, lifeVar: 0, size: 1.3, sizeVar: 0,
                          grow: 1.4, orient: .facing, spin: 260, fade: .easeFadeOut), offset: sigil),
             .mesh(.decal(.techCircle, 2.6, .accent, life: t + 0.5, spin: 140, alpha: 0.75)),
-            // 0.2: 発射。白い閃光・前を向く衝撃の輪・砲口から前へ流れる火花
+            // 0.55: 発射。白い閃光・前を向く衝撃の輪・砲口から前へ流れる火花
             .emit(.flare(3.2, .core, life: 0.26, tex: .flare6), at: t, offset: muzzle),
             .emit(muzzleRing(1.0, .secondary, life: 0.3, grow: 2.6), at: t, offset: sigil),
             .emit(.fan(26, .secondary, speed: 14, spread: 12, life: 0.35), at: t, offset: muzzle),
@@ -296,10 +300,11 @@ enum FX_H030: HeroFXSet {
             m.recoil(0.06, power: 0.85)
             m.settle(0.12)
         case .ultimate:
-            // 腰を落として砲を据え（0.2 秒の溜め）、撃った反動で上体が大きく跳ねて半歩下がり、ビームが消えるまで構え続ける
-            m.brace(0.06, depth: 0.2)
-            m.aim(0.08)
-            m.hold(0.06) { $0.glow = 2.6; $0.ring = 1.2 }
+            // 腰を落として砲を据え（0.55 秒の溜め = 0.12 + 0.2 + 0.23。動画: 指を離してから 17 コマ）、撃った反動で上体が大きく
+            // 跳ねて半歩下がり、ビームが消えるまで構え続ける（全体 = 1.06 + 戻り 0.35 = 1.41 秒）
+            m.brace(0.12, depth: 0.2)
+            m.aim(0.2)
+            m.hold(0.23) { $0.glow = 2.6; $0.ring = 1.2 }
             m.recoil(0.06, power: 1.2)
             m.hold(0.24) { $0.glow = 2.2 }
             m.settle(0.16)
