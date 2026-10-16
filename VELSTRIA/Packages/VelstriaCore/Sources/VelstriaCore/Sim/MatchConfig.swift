@@ -92,7 +92,10 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     ///     奥義 = 縁まで 188・0.25 秒で掴んで 0.32 秒おきに 6 撃）。docs/kits/Franco.md「動画で測った値」。
     /// 26: 遊ぶ地図の壁を MLBB のミニマップ原本から起こした滑らかな多角形に（ed0f086。キャンプの位置・拠点の周りの規則も）、
     ///     矩形の角の衝突を丸い膨張に、経路探索の格子を 100 → 50（粗い格子で下見）。
-    public static let currentSimVersion = 26
+    /// 34: H030（ライラ）の幾何と時間を MLBB の画面収録で測った値に（通常攻撃の弾 毎秒 1800、スキル1 = 射程 755・半幅 60・毎秒 1950、
+    ///     スキル2 = 基本の射程 384（アルティメット Lv3 で 564）・毎秒 1050、奥義 = 溜め 0.55 秒・半幅 100）。docs/kits/Layla.md「動画で測った値」。
+    ///     27〜33 は並行する他のヒーローの作業が使うので 34 にした。**番号はマージのときに付け直す**（main に入る順で連番にする）。
+    public static let currentSimVersion = 34
 
     public var simVersion: Int
     public var mode: MatchMode
