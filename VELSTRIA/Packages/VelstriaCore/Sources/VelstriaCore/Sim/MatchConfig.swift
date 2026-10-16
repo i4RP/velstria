@@ -122,7 +122,9 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     ///     振りかぶり 0.06 / 0.19 秒・毎秒 1200・90% の鈍足 0.6 秒、奥義 = 射程 614・半幅 137・溜め 0.76 秒、円撃の半径 200）。
     ///     docs/kits/Dyrroth.md「動画で測った値」。27〜30 はほかのヒーローの同じ作業（フランコ・ミヤ・オーロラなど）が使っているので、
     ///     まとめるときに番号を振り直す。
-    public static let currentSimVersion = 34
+    /// 35: ミッドの対向ブッシュを直線の Z 形に変更（隠蔽判定も同じ形）。
+    /// 36: Z 形を維持してミッド中央から両側のオブジェクト方向へ平行移動。
+    public static let currentSimVersion = 36
 
     public var simVersion: Int
     public var mode: MatchMode

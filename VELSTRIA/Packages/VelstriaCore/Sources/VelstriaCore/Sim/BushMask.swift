@@ -195,6 +195,40 @@ public struct BushMask: Sendable {
         return m
     }
 
+    /// ミッドの対向する草むらは三本の直線をつないだ細長い Z。描画・ミニマップ・隠蔽で同じ格子を使う。
+    func withMidZBrushes() -> BushMask {
+        let extent = Double(cols) * cell
+        let scale = extent / 9720
+        // 形状は維持し、タートル方向へ平行移動。葉の広がりも壁のミッド側先端より奥に収める。
+        let offset = Vec2(250, -250)
+        let path = [Vec2(4900, 4250), Vec2(5100, 4050), Vec2(5800, 4650), Vec2(6000, 4450)].map { ($0 + offset) * scale }
+        let halfWidth = 140.0 * scale
+        func inside(_ p: Vec2) -> Bool {
+            for (a, b) in zip(path, path.dropFirst()) {
+                let edge = b - a
+                let length = edge.length
+                let dir = edge / length
+                let q = p - a
+                let along = q.x * dir.x + q.y * dir.y
+                let across = abs(q.x * dir.y - q.y * dir.x)
+                if along >= -halfWidth && along <= length + halfWidth && across <= halfWidth { return true }
+            }
+            return false
+        }
+        var out = cells.map { ($0 == 14 || $0 == 38) ? UInt8(0) : $0 }
+        // 一方だけをラスタライズし、セル番号で反転して完全な点対称にする。
+        for row in 0..<rows {
+            for col in 0..<cols {
+                let p = center(col: col, row: row)
+                guard p.x >= (4300 + offset.x) * scale, p.x <= (6400 + offset.x) * scale,
+                      p.y >= (3600 + offset.y) * scale, p.y <= (4900 + offset.y) * scale, inside(p) else { continue }
+                out[row * cols + col] = 14
+                out[(rows - 1 - row) * cols + cols - 1 - col] = 38
+            }
+        }
+        return BushMask(cell: cell, cols: cols, rows: rows, cells: out)
+    }
+
     /// 中心が壁の中（または壁から margin 以内）に入るセルを草むらから外す（草むらと壁を重ねない）。
     public func carved(by obstacles: [Obstacle], margin: Double = 0) -> BushMask {
         let boxes = obstacles.map { $0.bounds.expanded(by: margin + cell) }
@@ -329,7 +363,7 @@ extension MapDefinition {
 
     /// MLBB の草むら（`BushMask.sanctum`）を地図の倍率 k で縮め、壁に重なるセルを除いて入れる。
     mutating func applySanctumBushes(scale k: Double) {
-        let mask = BushMask.sanctum.scaled(by: k).carved(by: obstacles)
+        let mask = BushMask.sanctum.scaled(by: k).withMidZBrushes().carved(by: obstacles)
         bushMask = mask
         brushes = MapDefinition.brushAreas(of: mask)
     }

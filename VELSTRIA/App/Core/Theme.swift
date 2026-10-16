@@ -209,8 +209,10 @@ struct ScreenScaffold<Content: View>: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
                 .padding(.bottom, 6)
+                // 中身が画面より高くても「戻る」の行を画面外へ押し出さない（中身の枠は空いた高さで止め、はみ出しは行の下に描く）
+                .zIndex(1)
                 content()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
             }
         }
         .toolbar(.hidden, for: .navigationBar)
