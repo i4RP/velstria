@@ -278,10 +278,8 @@ enum FX_H033: HeroFXSet {
             .mesh(.slash(2.6, .primary, from: 85, to: -85, life: 0.3), at: D + 0.02, offset: [0, 0.95, 0.2]),
             .mesh(.decal(.crack, 2.6, .dark, life: 1.2, spin: 0, grow: 1.0, alpha: 0.8), at: D, offset: [0, 0, 0.8]),
             .mesh(.ray(.bolt, length: 3.2, width: 1.0, .secondary, life: 0.45), at: D + 0.03, offset: [0, 0.02, 1.8]),
-            // 前へ噴く紅の光条・土煙・羽
+            // 前へ噴く紅の光条・羽（土煙は段の合図の上限 13 に収めるため省く。地面の割れ目で足元は見せる）
             .emit(.fan(20, .secondary, speed: 11, spread: 30, life: 0.35), at: D, offset: [0, 1.0, 0.4]),
-            .emit(.smoke(8, radius: 0.6, dust, life: 0.9, size: 0.8).with { $0.dir = .forward; $0.speed = 4 }, at: D,
-                  offset: [0, 0.2, 0.5], quality: 1),
             .emit(bats(10, radius: 0.6, speed: 4, life: 0.8), at: D, offset: [0, 1.0, 0.6], quality: 1),
             .shake(0.35, at: D),
         ]
