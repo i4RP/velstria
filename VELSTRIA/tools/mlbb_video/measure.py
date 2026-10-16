@@ -45,6 +45,11 @@ Dyrroth（docs/kits/Dyrroth.md）で足したもの（カメラは Tigreal の c
   python measure.py decal    --frames F --cast 761 --at 772,778,784 --roi 60,150,600,480 --exclude 520,230,600,320   # 地面の輪の中心と半径
   python measure.py gridmove --frames F 921 934 --guess=270,30   # 止まったコマどうしの床のずれ（格子の小片の分布の山）
 
+Alucard（docs/kits/Alucard.md）で足したもの（カメラは Tigreal の c・q、足元は S1 の射程の円で当て直した (557.3, 294.2)）:
+  python measure.py bandlines --frames F --at 340,416 --axis 40 --exclude 810,60,900,140   # 向きの帯の照準（向き・左右の線・奥行き）
+  python measure.py barground --frames F --tpl 180:722,119,835,154 --badge 12,23 --start-at 696,92 --from 472 --to 481   # 的の体力バー → 地面（速さ）
+  python measure.py wipe      --frames F --x 470 --y 396 --from 425 --to 466   # バフのアイコンの時計回りの減り方（1 周の秒数 = バフの長さ）
+
 依存: numpy, opencv-python-headless, scipy（pip install numpy opencv-python-headless scipy）。
 """
 from __future__ import annotations
@@ -1020,6 +1025,18 @@ def cmd_cring(args):
     """術者が中心の照準の円（c・q は cam.json のまま）: 足元 u0, v0 と半径を当てはめる（Aurora の「足元は場面ごとに ±2 px」）。
     --ref の照準の無いコマが別のカメラ位置（歩いている）なら、床のずれ（ground_shift）だけ動かして照準のコマに重ねてから差分を取る
     （--noshift で重ねない）。--fixfoot は足元を --foot のまま半径だけ。放射ごとの縁の点を、45° ごとの半径と一緒に出す。"""
+def aim_mask(im: np.ndarray) -> np.ndarray:
+    """照準の水色の線（B, G が高く R が低い）の 0/1 マスク。ミニマップは除く。"""
+    b, g, r = (im[..., k].astype(int) for k in range(3))
+    m = (b > 170) & (g > 150) & (r < 140) & (b - r > 90)
+    m[:175, :215] = False
+    return m
+
+
+def cmd_bandlines(args):
+    """向きの帯の照準（Alucard の吸収・衝撃波の照準）: 水色の画素を地面へ戻し、帯の向き（横の位置の分布が最も尖る向き）を探してから、
+    横の位置の山（左右の線・中央の矢印）と、それぞれの線の奥行きの範囲を出す。参照のコマは要らない（歩きながら・回しながらでも 1 コマで測れる）。"""
+    from scipy.signal import find_peaks
     fr = Frames(args.frames, args.pattern)
     cam = load_cam(args)
     if not cam.s:
@@ -1184,6 +1201,119 @@ def cmd_gridmove(args):
     for c_, lo in zip(h, e):
         if c_:
             print(f"  {lo:6.2f} {'#' * min(80, c_)}")
+    boxes = parse_boxes(args.exclude)
+    for n in [int(a) for a in args.at.split(",")]:
+        m = aim_mask(fr.bgr(n))
+        for x0, y0, x1, y1 in boxes:
+            m[y0:y1, x0:x1] = False
+        vs, us = np.nonzero(m)
+        x, z = cam.unproject(us, vs)
+        x, z = x / cam.s, z / cam.s
+        best = None
+        for th in np.arange(args.axis - 8, args.axis + 8, 0.1):
+            t = math.radians(th)
+            a = x * math.cos(t) + z * math.sin(t)
+            e = -x * math.sin(t) + z * math.cos(t)
+            sel = (a > args.a0) & (a < args.a1) & (np.abs(e) < args.half)
+            h, _ = np.histogram(e[sel], bins=np.arange(-args.half, args.half, 0.03))
+            sc = float((h.astype(float) ** 2).sum())
+            if best is None or sc > best[0]:
+                best = (sc, th)
+        th = best[1]
+        t = math.radians(th)
+        a = x * math.cos(t) + z * math.sin(t)
+        e = -x * math.sin(t) + z * math.cos(t)
+        sel = (a > args.a0) & (a < args.a1) & (np.abs(e) < args.half)
+        h, edges = np.histogram(e[sel], bins=np.arange(-args.half, args.half, 0.03))
+        pk, _ = find_peaks(h, height=max(15, h.max() * 0.15), distance=8)
+        print(f"コマ {n}: 帯の向き {th:.1f}°")
+        for i in pk:
+            lo = edges[i]
+            near = (e >= lo - 0.06) & (e < lo + 0.09)
+            off = float(e[near & sel].mean())
+            along = a[near & (a > 0) & (a < 12)]
+            print(f"  線の横 {off:+.3f}（{h[i]} 点）、奥行き {np.percentile(along, 1):.2f}〜{np.percentile(along, 99):.2f} 単位")
+
+
+def ground_at_height(cam: GroundCam, u, v, h):
+    """画面の点 (u, v) が地面から高さ h（ヒーロー px）にあるとしたときの真下の地面 (x, z)（ヒーロー px）。
+    地面の写像（c, q）を同じ遠近のピンホールとして読み替える: 足元での高さ 1 px の上向き = cos φ（sin φ = c）、奥行きの変化 = sin φ × q / cos φ。"""
+    phi = math.asin(cam.c)
+    k = math.cos(phi)
+    q2 = math.sin(phi) * cam.q / math.cos(phi)
+    dv = cam.v0 - np.asarray(v, float)
+    z = (dv * (1 - q2 * h) - k * h) / (cam.c - cam.q * dv)
+    x = (np.asarray(u, float) - cam.u0) * (1 + cam.q * z - q2 * h)
+    return x, z
+
+
+def cmd_barground(args):
+    """的（止まったユニット）の体力バーを前のコマの近くだけで追い（同じ見た目のほかの的に跳ばない）、バッジの中心を地面の上の高さ --height
+    （ヒーロー px）の点として真下の地面へ戻す。術者はカメラの中心なので、的の位置の変化 = 術者の動き（逆向き）。床の模様より速さが正確
+    （Saber の動画: 床の特徴点は高い所の点で 1.2 倍速く出る）。--tpl はバッジ（レベルの丸）を含む箱、--badge はその左上から見たバッジの中心、
+    --dx は足元がバッジの中心から右へずれる量（ヒーロー px。自分の体力バーと足元から 52）。"""
+    fr = Frames(args.frames, args.pattern)
+    cam = load_cam(args)
+    if not cam.s:
+        raise SystemExit("縮尺 s が未定（先に speed を回す）")
+    tn, box = args.tpl.split(":")
+    x0, y0, x1, y1 = [int(v) for v in box.split(",")]
+    tpl = fr.bgr(int(tn))[y0:y1, x0:x1]
+    h, w = tpl.shape[:2]
+    bx, by = [float(v) for v in args.badge.split(",")]
+    pu, pv = (float(v) for v in args.start_at.split(",")) if args.start_at else (x0, y0)
+    step = 1 if args.end >= args.start else -1
+    prev = None
+    for n in range(args.start, args.end + step, step):
+        im = fr.bgr(n)
+        sx0, sy0 = int(max(0, pu - args.search)), int(max(0, pv - args.search))
+        sx1, sy1 = int(min(im.shape[1], pu + w + args.search)), int(min(im.shape[0], pv + h + args.search))
+        r = cv2.matchTemplate(im[sy0:sy1, sx0:sx1], tpl, cv2.TM_CCOEFF_NORMED)
+        _, mv, _, ml = cv2.minMaxLoc(r)
+        pu, pv = ml[0] + sx0, ml[1] + sy0
+        gx, gz = ground_at_height(cam, pu + bx, pv + by, args.height)
+        X, Z = (gx + args.dx) / cam.s, gz / cam.s
+        mv_ = "" if prev is None else f"  1 コマ {math.hypot(X - prev[0], Z - prev[1]):.3f}"
+        print(f"{n} t={(n - 1) / args.fps:.3f} 一致 {mv:.2f} 的 ({X:+.3f}, {Z:+.3f}) 距離 {math.hypot(X, Z):.3f} 単位{mv_}")
+        prev = (X, Z)
+
+
+def cmd_wipe(args):
+    """バフのアイコンの時計回りの暗い扇（残り時間）: アイコン（--x, --y, --size の箱。コマごとに同じ所）を中心から 10° ごとの扇に分け、
+    扇の明るさが初めと最後の中間を下回るコマを出す。角度とコマを直線で当てはめ、1 周（360°）のコマ数 = バフの長さ。
+    Alucard の追撃のアイコンで 3.7〜4.2 秒、奥義のアイコンで 5.7〜5.9 秒（体力バーの印の 6.1 秒より 4〜7% 短く出る）。アイコンの列は増減で横にずれるので、
+    区間はアイコンが同じ所にある間だけにする。"""
+    fr = Frames(args.frames, args.pattern)
+    sec = args.sector
+    S = args.size
+    rows = []
+    for n in range(args.start, args.end + 1):
+        ic = fr.bgr(n)[args.y:args.y + S, args.x:args.x + S].astype(float).mean(axis=2)
+        c = (S - 1) / 2
+        yy, xx = np.mgrid[0:S, 0:S]
+        ang = np.degrees(np.arctan2(c - xx, c - yy)) % 360          # 0 = 上、反時計回り（画面で左回り）
+        rr = np.hypot(xx - c, yy - c)
+        rows.append([ic[(rr > 3) & (rr < c - 1.5) & (ang >= q) & (ang < q + sec)].mean() for q in np.arange(0, 360, sec)])
+    A = np.array(rows)
+    ns = np.arange(args.start, args.end + 1)
+    pts = []
+    for k, q in enumerate(np.arange(0, 360, sec)):
+        s = A[:, k]
+        hi, lo = float(np.median(s[:2])), float(s.min())
+        if hi - lo < args.min or s[-1] > hi - args.min * 0.8:
+            continue
+        mid = (hi + lo) / 2
+        i = int(np.argmax(s < mid))
+        if i == 0:
+            continue
+        t = ns[i - 1] + (s[i - 1] - mid) / (s[i - 1] - s[i])
+        pts.append((q + sec / 2, t))
+        print(f"  扇 {q:5.1f}〜{q + sec:5.1f}°: 明るさ {hi:.0f} → {lo:.0f}、中間を下回るコマ {t:.1f}")
+    if len(pts) < 3:
+        raise SystemExit("暗くなる扇が少ない（区間を延ばす・--min を下げる）")
+    P = np.array(pts)
+    p = np.polyfit(P[:, 0], P[:, 1], 1)
+    print(f"1 周 = {p[0] * 360:.0f} コマ = {p[0] * 360 / args.fps:.2f} 秒（扇 {len(P)} 個、0° のコマ {p[1]:.1f}）")
 
 
 def main(argv=None):
@@ -1418,6 +1548,39 @@ def main(argv=None):
     p.add_argument("--search", type=int, default=60)
     p.add_argument("--half", type=int, default=30)
     p.set_defaults(fn=cmd_gridmove)
+
+    p = sub.add_parser("bandlines", help="向きの帯の照準の向き・左右の線・奥行き（参照のコマ無し）")
+    frames_arg(p)
+    p.add_argument("--at", required=True, help="照準のコマ（カンマ区切り。1 コマずつ測る）")
+    p.add_argument("--axis", type=float, required=True, help="帯の向きの見当（度。±8° を探す）")
+    p.add_argument("--a0", type=float, default=1.5, help="向きを探すときに使う奥行きの下限（単位。体・体力バーを避ける）")
+    p.add_argument("--a1", type=float, default=4.8, help="同じく上限（先の三日月を避ける）")
+    p.add_argument("--half", type=float, default=2.6, help="横の位置を探す幅（単位）")
+    p.add_argument("--exclude", action="append", help="除く箱 x0,y0,x1,y1（取り消しの × など）")
+    p.set_defaults(fn=cmd_bandlines)
+
+    p = sub.add_parser("barground", help="的の体力バーを追って地面の位置（術者から）と 1 コマの動き")
+    frames_arg(p)
+    p.add_argument("--tpl", required=True, help="コマ:x0,y0,x1,y1（名前 + バッジ + バーの箱）")
+    p.add_argument("--badge", required=True, help="箱の左上から見たバッジの中心 dx,dy")
+    p.add_argument("--start-at", dest="start_at", help="--from のコマでの箱の左上 u,v（無ければ --tpl の箱）")
+    p.add_argument("--from", dest="start", type=int, required=True)
+    p.add_argument("--to", dest="end", type=int, required=True, help="--from より小さければ逆向きに追う")
+    p.add_argument("--height", type=float, default=122.0, help="バッジの中心の地面からの高さ（ヒーロー px）")
+    p.add_argument("--dx", type=float, default=52.0, help="足元がバッジの中心から右へずれる量（ヒーロー px）")
+    p.add_argument("--search", type=int, default=45, help="前のコマの位置から探す幅（px）")
+    p.set_defaults(fn=cmd_barground)
+
+    p = sub.add_parser("wipe", help="バフのアイコンの時計回りの減り方から長さ（1 周の秒数）")
+    frames_arg(p)
+    p.add_argument("--x", type=int, required=True, help="アイコンの箱の左")
+    p.add_argument("--y", type=int, required=True, help="アイコンの箱の上")
+    p.add_argument("--size", type=int, default=27, help="箱の一辺（px）")
+    p.add_argument("--from", dest="start", type=int, required=True)
+    p.add_argument("--to", dest="end", type=int, required=True)
+    p.add_argument("--sector", type=float, default=10.0, help="扇の角度（度）")
+    p.add_argument("--min", type=float, default=25.0, help="暗くなったとみなす明るさの差")
+    p.set_defaults(fn=cmd_wipe)
 
     args = ap.parse_args(argv)
     args.fn(args)

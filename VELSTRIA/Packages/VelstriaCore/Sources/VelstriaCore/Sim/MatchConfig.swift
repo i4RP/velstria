@@ -124,7 +124,11 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     ///     まとめるときに番号を振り直す。
     /// 35: ミッドの対向ブッシュを直線の Z 形に変更（隠蔽判定も同じ形）。
     /// 36: Z 形を維持してミッド中央から両側のオブジェクト方向へ平行移動。
-    public static let currentSimVersion = 36
+    /// 37: H033（アルカード）の幾何と時間を MLBB の画面収録で測った値に（スキル1 = 420 を毎秒 1250、奥義の吸収 = 地点の円をやめて
+    ///     術者から 640・半幅 150 の向きの帯・鈍足と防御ダウン 6 秒、衝撃波 = 0.16 秒の振りかぶりの後に届く距離 640・半幅 165・毎秒 1000、
+    ///     追撃 = 猶予 4 秒・射程 400・踏み込み 毎秒 1070）。docs/kits/Alucard.md「動画で測った値」。
+    ///     27〜34 は並行するほかのヒーローの作業が使う（マージで振り直す）。
+    public static let currentSimVersion = 37
 
     public var simVersion: Int
     public var mode: MatchMode
