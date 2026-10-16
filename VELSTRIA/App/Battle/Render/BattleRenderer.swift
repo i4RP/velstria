@@ -427,6 +427,9 @@ final class BattleRenderer {
         syncedTick = controller.state.tick
         world.sync(events: pendingEvents, dt: Float(dt), rig: rig)
         pendingEvents.removeAll(keepingCapacity: true)
+        #if DEBUG
+        fxCapture?.tick(controller: controller, world: world, arView: view.arView, quality: governed.settings.quality)
+        #endif
         let tc = probe.start()
         updateCamera(world: world, dt: Float(dt))
         probe.stop(.camera, tc)
@@ -715,6 +718,8 @@ final class BattleRenderer {
     }
 
     #if DEBUG
+    /// -fxCapture: スキル演出の比較撮影（FXCapture）。
+    private lazy var fxCapture: FXCapture? = FXCapture.isRequested ? FXCapture() : nil
     private var autoClock: Double = 0
     private var autoStep = 0
     /// -efkAuto <atk|s1|s2|ult>: 一番近い敵（人形）へ近づき、2 秒ごとに通常攻撃 / スキルを撃つ。

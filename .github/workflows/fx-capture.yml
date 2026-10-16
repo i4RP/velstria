@@ -1,0 +1,63 @@
+name: FX Capture
+
+# スキル演出の比較撮影（docs/vfx/）。fxcap-* のタグの push（または手動）で、シミュレータ用の Debug をビルドし、練習場で
+# 10 体のスキルを撃って戦闘画面を撮り、成果物に保存する（tools/fx_capture/run_ci.sh）。TestFlight への配信はしない。
+# タグの push はブランチの push ではないので、TestFlight のワークフロー（branches-ignore だけを書いている）は動かない。
+on:
+  push:
+    tags: ["fxcap-*"]
+  workflow_dispatch:
+    inputs:
+      heroes:
+        description: 撮るヒーロー（空白区切り）
+        default: "H025 H026 H027 H028 H029 H030 H031 H032 H033 H034"
+      presets:
+        description: カメラの組（legacy / mlbb、空白区切り）
+        default: "legacy mlbb"
+
+concurrency:
+  group: fx-capture-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    name: スキル演出の撮影
+    runs-on: macos-26
+    timeout-minutes: 150
+    env:
+      HEROES: ${{ inputs.heroes || 'H025 H026 H027 H028 H029 H030 H031 H032 H033 H034' }}
+      PRESETS: ${{ inputs.presets || 'legacy mlbb' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ツール準備
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -n 1)"
+          xcodebuild -version
+          brew install xcodegen
+
+      - name: シミュレータ用にビルド
+        working-directory: VELSTRIA
+        run: |
+          set -o pipefail
+          xcodegen generate --quiet
+          xcodebuild build -project VELSTRIA.xcodeproj -scheme VELSTRIA -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' -derivedDataPath build/dd \
+            CODE_SIGNING_ALLOWED=NO | grep -E "error:|warning: .*FXCapture|BUILD (SUCCEEDED|FAILED)" || true
+          test -d build/dd/Build/Products/Debug-iphonesimulator/VELSTRIA.app
+
+      - name: 撮影
+        working-directory: VELSTRIA
+        run: bash tools/fx_capture/run_ci.sh
+
+      - name: 撮影結果を保存
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fx-capture-${{ github.run_id }}-${{ github.run_attempt }}
+          path: VELSTRIA/build/fxcapture
+          if-no-files-found: warn
+          retention-days: 30

@@ -98,12 +98,34 @@ struct CameraDrive {
 
 @MainActor
 final class CameraRig {
-    nonisolated static let pitchDegrees: Float = 56
-    nonisolated static let fovDegrees: Float = 48
+    /// カメラの組: 見下ろし角・縦の画角（度）、cameraZoom = 1 のときの注視点までの距離（m）、追従の注視点をヒーローより前（北）へ
+    /// ずらす量（m。ずらすとヒーローは画面の中央より下に映る）。
+    struct Preset: Equatable, Sendable {
+        var pitch: Float
+        var fov: Float
+        var distance: Float
+        var lead: Float
+    }
+
+    /// 2026-10-17 までのカメラ。
+    nonisolated static let legacyPreset = Preset(pitch: 56, fov: 48, distance: 10.0, lead: 0)
+    /// MLBB の画面収録から解いた候補（docs/vfx/CAMERA.md。推定値で、確定ではない）。
+    nonisolated static let mlbbPreset = Preset(pitch: 42.9, fov: 30.1, distance: 15.9, lead: 0.91)
+    /// 使う組。Debug の起動引数 -cameraPreset <legacy|mlbb> で切り替える（演出の比較の撮影用。出荷ビルドは引数を読まない）。
+    nonisolated static let preset: Preset = {
+        switch DebugLaunch.value(after: "-cameraPreset") {
+        case "mlbb": return mlbbPreset
+        case "legacy": return legacyPreset
+        default: return legacyPreset
+        }
+    }()
+
+    nonisolated static let pitchDegrees: Float = preset.pitch
+    nonisolated static let fovDegrees: Float = preset.fov
     /// cameraZoom = 1 のときの注視点までの距離（m）。
-    nonisolated static let baseDistance: Float = 10.0
-    /// 通常の追従はヒーローを画面中央に置く。
-    nonisolated static let focusLead: Float = 0
+    nonisolated static let baseDistance: Float = preset.distance
+    /// 追従の注視点のずれ（legacy は 0 = ヒーローを画面中央に置く）。
+    nonisolated static let focusLead: Float = preset.lead
     /// プレイヤーの倍率（設定 0.8〜1.3 + 余裕）。
     nonisolated static let playerZoomRange: ClosedRange<Double> = 0.7...1.4
     /// 観戦者の倍率（ピンチ・自動カメラの framing）。2.5 で地図のおよそ半分が映る。
