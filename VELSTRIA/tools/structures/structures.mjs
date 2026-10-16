@@ -145,10 +145,12 @@ async function concept(s, a, tag) {
     log(`${a.id}: ${a.conceptSource} → ${path.relative(ROOT, out)}`);
     return out;
   }
-  const ref = a.useStyleReference && s.styleReference && fs.existsSync(s.styleReference) ? s.styleReference : null;
+  // 物ごとの参照画像（styleReference。中立ボスはデザインの参照）があればそれを優先する
+  const refPath = a.styleReference || (a.useStyleReference ? s.styleReference : null);
+  const ref = refPath && fs.existsSync(refPath) ? refPath : null;
   const instruction =
     "Use your built-in image generation tool to create exactly ONE image from the prompt below"
-    + (ref ? " (the attached image is only a loose mood/style reference for materials and colors; design a new original object, keep the plain background)" : "")
+    + (ref ? ` (${a.referenceNote || "the attached image is only a loose mood/style reference for materials and colors; design a new original object"}; keep the plain background)` : "")
     + `. When it is done, copy the generated PNG file to ${out} (overwrite if it exists).`
     + " Do not modify the image and do not create any other files. Reply only with the output path."
     + "\n\n=== IMAGE PROMPT ===\n" + promptFor(s, a);

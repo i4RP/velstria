@@ -76,6 +76,8 @@ final class HUDMinimapBuffer {
         var alive: Bool
         var isCore: Bool
         var hpFraction: Double = 1
+        /// 序盤の外塔のエネルギーシールドが残っている（金色の塔で描く）。
+        var shielded: Bool = false
     }
 
     struct Camp {

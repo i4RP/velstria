@@ -57,30 +57,28 @@ private struct HUDMinimapTerrain: View, Equatable {
     var body: some View {
         Canvas { ctx, size in
             let proj = projection
-            ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color(red: 0.06, green: 0.09, blue: 0.17).opacity(0.66)))
+            let P = HUDMinimapPalette.self
+            ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(P.frame))
             let bounds = HUDMinimapDrawing.rect(Rect2(minX: 0, minY: 0, maxX: map.size, maxY: map.size), proj)
-            ctx.fill(Path(bounds), with: .linearGradient(
-                Gradient(colors: [Color(red: 0.17, green: 0.26, blue: 0.28).opacity(0.8), Color(red: 0.10, green: 0.17, blue: 0.24).opacity(0.8)]),
-                startPoint: bounds.origin, endPoint: CGPoint(x: bounds.maxX, y: bounds.maxY)))
+            ctx.fill(Path(bounds), with: .color(P.ground))
             ctx.clip(to: Path(bounds))
-            let riverColor = Color(red: 0.24, green: 0.53, blue: 0.64)
             if case .polygon(let points)? = map.river {
-                ctx.fill(HUDMinimapDrawing.polyline(points, proj, closed: true), with: .color(riverColor))
+                ctx.fill(HUDMinimapDrawing.polyline(points, proj, closed: true), with: .color(P.river))
             } else {
                 var river = Path()
                 river.move(to: proj.point(Vec2(0, map.size)))
                 river.addLine(to: proj.point(Vec2(map.size, 0)))
-                ctx.stroke(river, with: .color(riverColor),
+                ctx.stroke(river, with: .color(P.river),
                            style: StrokeStyle(lineWidth: proj.length(map.riverWidth), lineCap: .butt))
             }
-            for points in map.lanePaths {
-                let lane = HUDMinimapDrawing.polyline(points, proj)
-                ctx.stroke(lane, with: .color(Color(red: 0.10, green: 0.15, blue: 0.21)),
-                           style: StrokeStyle(lineWidth: proj.length(900), lineCap: .round, lineJoin: .round))
-                ctx.stroke(lane, with: .color(Color(red: 0.59, green: 0.65, blue: 0.67)),
-                           style: StrokeStyle(lineWidth: proj.length(650), lineCap: .round, lineJoin: .round))
-                ctx.stroke(lane, with: .color(.white.opacity(0.12)),
-                           style: StrokeStyle(lineWidth: 0.6, lineCap: .round, lineJoin: .round))
+            for (k, brush) in map.brushes.enumerated() {
+                guard map.bushMask != nil else {
+                    ctx.fill(Path(HUDMinimapDrawing.rect(brush.rect, proj)), with: .color(P.brush))
+                    continue
+                }
+                var shape = Path()
+                for r in map.brushRects(k, step: 3) { shape.addRect(HUDMinimapDrawing.rect(r, proj)) }
+                ctx.fill(shape, with: .color(P.brush))
             }
             for obstacle in map.obstacles {
                 let wall: Path
@@ -89,47 +87,26 @@ private struct HUDMinimapTerrain: View, Equatable {
                 case .circle(let center, let radius): wall = HUDMinimapDrawing.circle(proj.point(center), proj.length(radius))
                 case .polygon(let points): wall = HUDMinimapDrawing.polyline(points, proj, closed: true)
                 }
-                ctx.fill(wall, with: .color(Color(red: 0.06, green: 0.10, blue: 0.16)))
-                ctx.stroke(wall, with: .color(Color(red: 0.38, green: 0.49, blue: 0.52).opacity(0.75)), lineWidth: 0.65)
+                ctx.fill(wall, with: .color(P.wall))
             }
-            for (k, brush) in map.brushes.enumerated() {
-                guard map.bushMask != nil else {
-                    let rect = HUDMinimapDrawing.rect(brush.rect, proj)
-                    ctx.fill(Path(rect), with: .color(Color(red: 0.29, green: 0.53, blue: 0.34)))
-                    ctx.stroke(Path(rect), with: .color(Color(red: 0.53, green: 0.77, blue: 0.44).opacity(0.8)), lineWidth: 0.5)
-                    // Texture distinguishes brush from open ground without relying on hue.
-                    var stripe = Path()
-                    stripe.move(to: CGPoint(x: rect.midX, y: rect.minY + rect.height * 0.2))
-                    stripe.addLine(to: CGPoint(x: rect.midX, y: rect.maxY - rect.height * 0.2))
-                    ctx.stroke(stripe, with: .color(.white.opacity(0.3)), lineWidth: 0.6)
-                    continue
-                }
-                // 細かい格子の草むら: 形どおりに塗り（行ごとのセルの連なり）、色に頼らない目印として中に点を散らす
-                var shape = Path()
-                for r in map.brushRects(k, step: 3) { shape.addRect(HUDMinimapDrawing.rect(r, proj)) }
-                ctx.fill(shape, with: .color(Color(red: 0.29, green: 0.53, blue: 0.34)))
-                var dots = Path()
-                for r in map.brushRects(k, step: 16) {
-                    let c = HUDMinimapDrawing.rect(r, proj)
-                    dots.addEllipse(in: CGRect(x: c.midX - 0.45, y: c.midY - 0.45, width: 0.9, height: 0.9))
-                }
-                ctx.fill(dots, with: .color(.white.opacity(0.35)))
+            for points in map.lanePaths {
+                let lane = HUDMinimapDrawing.polyline(points, proj)
+                ctx.stroke(lane, with: .color(P.laneEdge),
+                           style: StrokeStyle(lineWidth: proj.length(760), lineCap: .round, lineJoin: .round))
+                ctx.stroke(lane, with: .color(P.lane),
+                           style: StrokeStyle(lineWidth: proj.length(640), lineCap: .round, lineJoin: .round))
             }
+            // 本拠: 角を中心にした 4 分の 1 円（青は左下・赤は右上）。道の上に重ねて半透明で塗る
             for team in Team.players {
-                let p = proj.point(map.fountain(team)), r = proj.length(Balance.fountainRadius)
-                let color = Theme.teamColor(team, colorblind: colorblind)
-                let pool = HUDMinimapDrawing.circle(p, r)
-                ctx.fill(pool, with: .color(color.opacity(0.26)))
-                ctx.stroke(pool, with: .color(color.opacity(0.75)), lineWidth: 1)
-                var cross = Path()
-                let arm = max(1.5, r * 0.35)
-                cross.move(to: CGPoint(x: p.x - arm, y: p.y))
-                cross.addLine(to: CGPoint(x: p.x + arm, y: p.y))
-                cross.move(to: CGPoint(x: p.x, y: p.y - arm))
-                cross.addLine(to: CGPoint(x: p.x, y: p.y + arm))
-                ctx.stroke(cross, with: .color(.white.opacity(0.8)), lineWidth: 1)
+                let corner = team == .blue ? Vec2(0, 0) : Vec2(map.size, map.size)
+                let reach = map.core(team).distance(to: corner) + 1500
+                let c = proj.point(corner), r = proj.length(reach)
+                let disc = HUDMinimapDrawing.circle(c, r)
+                let tint = P.base(team, colorblind: colorblind)
+                ctx.fill(disc, with: .radialGradient(Gradient(colors: [tint.opacity(0.95), tint.opacity(0.78)]),
+                                                     center: c, startRadius: 0, endRadius: r))
+                ctx.stroke(disc, with: .color(.black.opacity(0.18)), lineWidth: 1)
             }
-            ctx.stroke(Path(bounds), with: .color(.white.opacity(0.16)), lineWidth: 1)
         }
         .frame(width: projection.size, height: projection.size)
         .allowsHitTesting(false)
@@ -184,46 +161,71 @@ private struct HUDMinimapUnits: View {
                 shadow.addRect(HUDMinimapDrawing.rect(rect, projection))
             }
         }
-        ctx.fill(shadow, with: .color(Color(red: 0.02, green: 0.04, blue: 0.12).opacity(0.48)))
+        ctx.fill(shadow, with: .color(Color(red: 0.02, green: 0.04, blue: 0.12).opacity(0.22)))
     }
 
     private func drawViewport(_ ctx: inout GraphicsContext, _ buffer: HUDMinimapBuffer) {
         guard buffer.viewportPolygon.count >= 3 else { return }
         let path = HUDMinimapDrawing.polyline(buffer.viewportPolygon, projection, closed: true)
-        ctx.fill(path, with: .color(.white.opacity(0.035)))
-        ctx.stroke(path, with: .color(.black.opacity(0.6)), lineWidth: 2.6)
-        ctx.stroke(path, with: .color(.white.opacity(0.8)), lineWidth: 1.1)
+        ctx.stroke(path, with: .color(.white.opacity(0.55)), lineWidth: 0.8)
     }
 
     private func drawCamp(_ ctx: inout GraphicsContext, _ camp: HUDMinimapBuffer.Camp) {
+        let P = HUDMinimapPalette.self
         let p = projection.point(camp.pos)
-        let r: CGFloat = camp.isBoss ? (expanded ? 7 : 4.6) : (expanded ? 3.4 : 2.3)
-        let shape = camp.isBoss ? HUDMinimapDrawing.diamond(p, r + 1) : HUDMinimapDrawing.circle(p, r)
-        let color: Color
+        let unit = projection.size
+        let ink = Color.black.opacity(0.55)
+        var labelOffset: CGFloat = 4
+        var labelColor = Color.white
         switch camp.kind {
-        case .blueSentinel: color = Theme.cyan
-        case .redSentinel: color = Color(red: 1, green: 0.60, blue: 0.32)
-        // 回復バフの小キャンプは緑、川の中立は青緑（MLBB のミニマップの色分け）。宝殻蟹・ボスは金
-        case .hornLizard, .emberBeetle, .magmaGolem: color = Color(red: 0.45, green: 0.85, blue: 0.45)
-        case .mossWanderer: color = Color(red: 0.35, green: 0.90, blue: 0.85)
-        default: color = Theme.gold
-        }
-        ctx.fill(shape, with: .color(Color(red: 0.08, green: 0.09, blue: 0.15)))
-        if camp.alive {
-            ctx.fill(shape, with: .color(color))
-            ctx.stroke(shape, with: .color(.black.opacity(0.8)), lineWidth: 1.2)
-            if camp.isBoss {
-                ctx.stroke(HUDMinimapDrawing.diamond(p, r + 3), with: .color(color.opacity(0.5)), lineWidth: 1)
-                let mark = camp.kind == .ancientColossus ? "◆" : "✦"
-                ctx.draw(Text(mark).font(.system(size: r * 1.5, weight: .black)).foregroundStyle(Color.black.opacity(0.7)), at: p)
+        case .astralWyrm?, .ancientColossus?:
+            // ロード（左上）・タートル（右下）: 青緑の巣の円に紫の記号
+            let pit = unit * (expanded ? 0.06 : 0.072)
+            ctx.fill(HUDMinimapDrawing.circle(p, pit), with: .color(P.pit.opacity(camp.alive ? 0.9 : 0.45)))
+            ctx.stroke(HUDMinimapDrawing.circle(p, pit), with: .color(P.pitRim.opacity(camp.alive ? 0.8 : 0.3)), lineWidth: 1)
+            let r = pit * 0.72
+            // 未出現・討伐後も紫のまま薄くする（場所が常に分かるように）
+            let color = P.boss.opacity(camp.alive ? 1 : 0.5)
+            if camp.kind == .ancientColossus {
+                let icon = HUDMinimapIcons.shape(HUDMinimapIcons.lord, at: p, radius: r)
+                ctx.fill(icon, with: .color(color))
+                ctx.stroke(icon, with: .color(ink), lineWidth: 0.8)
+            } else {
+                let turtle = HUDMinimapIcons.turtle(at: p, radius: r)
+                ctx.fill(turtle.body, with: .color(color))
+                ctx.stroke(turtle.body, with: .color(ink), lineWidth: 0.8)
+                ctx.stroke(turtle.pattern, with: .color(.black.opacity(0.4)), lineWidth: 0.7)
             }
-        } else {
-            ctx.stroke(shape, with: .color(color.opacity(0.45)), style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
+            labelOffset = pit + 6
+            labelColor = P.pitRim
+        case .blueSentinel?, .redSentinel?:
+            let r = unit * (expanded ? 0.026 : 0.034)
+            let icon = HUDMinimapIcons.shape(HUDMinimapIcons.sentinel, at: p, radius: r)
+            ctx.fill(icon, with: .color(P.boss.opacity(camp.alive ? 1 : 0.4)))
+            ctx.stroke(icon, with: .color(ink), lineWidth: 0.7)
+            labelOffset = r + 5
+        default:
+            let r = max(1.8, unit * (expanded ? 0.011 : 0.015))
+            let color: Color
+            let shape: Path
+            switch camp.kind {
+            case .mossWanderer?: color = P.wanderer; shape = HUDMinimapDrawing.diamond(p, r * 1.25)
+            case .treasureCrab?: color = P.crab; shape = HUDMinimapDrawing.circle(p, r)
+            default: color = P.camp; shape = HUDMinimapDrawing.circle(p, r)
+            }
+            if camp.alive {
+                ctx.fill(shape, with: .color(color))
+                ctx.stroke(shape, with: .color(ink), lineWidth: 0.6)
+            } else {
+                ctx.stroke(shape, with: .color(color.opacity(0.45)), style: StrokeStyle(lineWidth: 0.8, dash: [1.5, 1.5]))
+            }
+            labelOffset = r + 5
+            labelColor = color
         }
         if expanded {
             var label = ""
             if camp.isBoss {
-                label = camp.kind == .ancientColossus ? L("古環の巨像", "Colossus") : L("星喰竜", "Wyrm")
+                label = camp.kind == .ancientColossus ? L("ロード", "Lord") : L("タートル", "Turtle")
             }
             if let remaining = camp.respawnRemaining, remaining > 0 {
                 let seconds = Int(remaining.rounded(.up))
@@ -231,41 +233,42 @@ private struct HUDMinimapUnits: View {
                 label += label.isEmpty ? timer : " · \(timer)"
             }
             if !label.isEmpty {
-                drawLabel(&ctx, label, at: CGPoint(x: p.x, y: p.y + r + 7), color: color.opacity(0.85), fontSize: camp.isBoss ? 9 : 7)
+                drawLabel(&ctx, label, at: CGPoint(x: p.x, y: p.y + labelOffset), color: labelColor.opacity(0.9),
+                          fontSize: camp.isBoss ? 9 : 7)
             }
         }
     }
 
     private func drawStructure(_ ctx: inout GraphicsContext, _ structure: HUDMinimapBuffer.Structure, colorblind: Bool) {
+        let P = HUDMinimapPalette.self
         let p = projection.point(structure.pos)
-        let r: CGFloat = structure.isCore ? (expanded ? 9 : 6) : (expanded ? 5.3 : 3.6)
-        let color = Theme.teamColor(structure.team, colorblind: colorblind)
-        let outline = HUDMinimapDrawing.circle(p, r + 1)
-        let body = structure.isCore ? HUDMinimapDrawing.diamond(p, r) : HUDMinimapDrawing.circle(p, r - 0.7)
-        ctx.fill(outline, with: .color(Color(red: 0.03, green: 0.05, blue: 0.10)))
-        if structure.alive {
-            ctx.fill(body, with: .color(color.opacity(structure.isCore ? 0.9 : 0.6)))
-            ctx.stroke(outline, with: .color(color.opacity(0.24)), lineWidth: 1.6)
-            var hp = Path()
-            hp.addArc(center: p, radius: r + 1, startAngle: .degrees(-90),
-                      endAngle: .degrees(-90 + 360 * min(1, max(0, structure.hpFraction))), clockwise: false)
-            ctx.stroke(hp, with: .color(color), style: StrokeStyle(lineWidth: expanded ? 2.2 : 1.5, lineCap: .round))
-            ctx.fill(HUDMinimapDrawing.circle(p, structure.isCore ? 1.5 : 0.8), with: .color(.white.opacity(0.9)))
-        } else {
-            ctx.stroke(body, with: .color(color.opacity(0.35)), lineWidth: 1)
-            var slash = Path()
-            slash.move(to: CGPoint(x: p.x - r * 0.7, y: p.y + r * 0.7))
-            slash.addLine(to: CGPoint(x: p.x + r * 0.7, y: p.y - r * 0.7))
-            ctx.stroke(slash, with: .color(.white.opacity(0.25)), lineWidth: 0.8)
+        let unit = projection.size
+        let r = structure.isCore ? unit * (expanded ? 0.042 : 0.056) : max(4, unit * (expanded ? 0.026 : 0.034))
+        let icon = HUDMinimapIcons.shape(structure.isCore ? HUDMinimapIcons.crystal : HUDMinimapIcons.turret, at: p, radius: r)
+        guard structure.alive else {
+            ctx.fill(icon, with: .color(P.dead.opacity(0.55)))
+            ctx.stroke(icon, with: .color(.black.opacity(0.35)), lineWidth: 0.6)
+            return
+        }
+        // 序盤の盾付きの塔は金色。それ以外はチーム色
+        let color = structure.shielded ? P.shielded : P.structure(structure.team, colorblind: colorblind)
+        ctx.fill(icon, with: .color(color))
+        ctx.stroke(icon, with: .color(.black.opacity(0.55)), lineWidth: 0.8)
+        // 削れた分だけ下から暗くする（体力の目安。アイコンの形は崩さない）
+        let lost = 1 - min(1, max(0, structure.hpFraction))
+        if lost > 0.02 {
+            var c = ctx
+            c.clip(to: icon)
+            c.fill(Path(CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2 * CGFloat(lost))),
+                   with: .color(.black.opacity(0.45)))
         }
     }
 
     private func drawUnit(_ ctx: inout GraphicsContext, _ dot: HUDMinimapBuffer.Dot, _ buffer: HUDMinimapBuffer) {
         let p = projection.point(dot.pos)
         let r: CGFloat = expanded ? 2.2 : 1.5
-        let enemy = buffer.viewerTeam.map { dot.team != $0 && dot.team != .neutral } ?? (dot.team == .red)
-        let color = dot.team == .neutral ? Theme.gold : Theme.teamColor(dot.team, colorblind: buffer.colorblind)
-        let shape = enemy ? HUDMinimapDrawing.diamond(p, r + 0.5) : HUDMinimapDrawing.circle(p, r)
+        let color = dot.team == .neutral ? Theme.gold : HUDMinimapPalette.structure(dot.team, colorblind: buffer.colorblind)
+        let shape = HUDMinimapDrawing.diamond(p, r + 0.3)
         ctx.fill(shape, with: .color(color.opacity(dot.alpha)))
         ctx.stroke(shape, with: .color(.black.opacity(0.65)), lineWidth: 0.5)
     }
@@ -280,14 +283,11 @@ private struct HUDMinimapUnits: View {
                           faces: [String: Image], resolved: inout [String: GraphicsContext.ResolvedImage]) {
         let p = projection.point(dot.pos)
         let r = HUDMinimapFaces.radius(mapSize: projection.size, expanded: expanded) * (dot.isHuman ? 1.15 : 1)
-        let enemy = buffer.viewerTeam.map { dot.team != $0 } ?? (dot.team == .red)
         let ghost = dot.alpha < 1
-        let team = Theme.teamColor(dot.team, colorblind: buffer.colorblind)
-        // 味方 = 円、敵 = ひし形（ひし形は円と同じ大きさに見えるよう外接半径を広げる）
-        let k: CGFloat = enemy ? 1.3 : 1
-        func badge(_ radius: CGFloat) -> Path {
-            enemy ? HUDMinimapDrawing.diamond(p, radius * k) : HUDMinimapDrawing.circle(p, radius)
-        }
+        let team = HUDMinimapPalette.heroRim(dot.team, colorblind: buffer.colorblind)
+        // 顔は円で切り抜き、縁の色でチームを示す（自分は緑）
+        let k: CGFloat = 1
+        func badge(_ radius: CGFloat) -> Path { HUDMinimapDrawing.circle(p, radius) }
         let rim: CGFloat = dot.isHuman ? 2.2 : (expanded ? 2 : 1.6)
         var c = ctx
         c.opacity = dot.alpha
@@ -310,7 +310,7 @@ private struct HUDMinimapUnits: View {
                 .foregroundStyle(.white), at: p)
         }
         // 縁: チーム色（自分は白）。残像は点線
-        c.stroke(badge(r + rim / 2), with: .color(dot.isHuman ? .white : team),
+        c.stroke(badge(r + rim / 2), with: .color(dot.isHuman ? HUDMinimapPalette.selfRim : team),
                  style: StrokeStyle(lineWidth: rim, dash: ghost ? [2, 2] : []))
         guard dot.isHuman || dot.isFocus else { return }
         let outer = r + rim
@@ -319,18 +319,18 @@ private struct HUDMinimapUnits: View {
             ctx.stroke(badge(outer + 1.6), with: .color(.white), lineWidth: 1.4)
         }
         if let facing = dot.facing {
+            // 向き: 顔の外側に白い線の三角（中は抜く）
             let direction = CGVector(dx: CGFloat(facing.x), dy: CGFloat(-facing.y))
-            let reach = outer * (enemy ? k : 1)
-            let tip = CGPoint(x: p.x + direction.dx * (reach + 6.5), y: p.y + direction.dy * (reach + 6.5))
-            let base = CGPoint(x: p.x + direction.dx * (reach + 1.2), y: p.y + direction.dy * (reach + 1.2))
-            let half: CGFloat = expanded ? 4 : 3.2
+            let tip = CGPoint(x: p.x + direction.dx * (outer + 7), y: p.y + direction.dy * (outer + 7))
+            let base = CGPoint(x: p.x + direction.dx * (outer + 1.5), y: p.y + direction.dy * (outer + 1.5))
+            let half: CGFloat = expanded ? 4.4 : 3.6
             var arrow = Path()
             arrow.move(to: tip)
             arrow.addLine(to: CGPoint(x: base.x - direction.dy * half, y: base.y + direction.dx * half))
             arrow.addLine(to: CGPoint(x: base.x + direction.dy * half, y: base.y - direction.dx * half))
             arrow.closeSubpath()
-            ctx.stroke(arrow, with: .color(.black.opacity(0.8)), lineWidth: 2)
-            ctx.fill(arrow, with: .color(.white))
+            ctx.stroke(arrow, with: .color(.black.opacity(0.55)), style: StrokeStyle(lineWidth: 2.6, lineJoin: .round))
+            ctx.stroke(arrow, with: .color(.white), style: StrokeStyle(lineWidth: 1.2, lineJoin: .round))
         }
     }
 
@@ -498,5 +498,44 @@ private struct HUDMinimapObjective: View {
                 .frame(width: projection.size, height: projection.size)
                 .allowsHitTesting(false)
         }
+    }
+}
+
+/// ミニマップの配色（MLBB の灰青の地図に寄せる）。
+enum HUDMinimapPalette {
+    static let frame = Color(red: 0.30, green: 0.34, blue: 0.38).opacity(0.92)
+    static let ground = Color(red: 0.40, green: 0.45, blue: 0.49)
+    static let river = Color(red: 0.43, green: 0.48, blue: 0.53)
+    static let brush = Color(red: 0.30, green: 0.34, blue: 0.38)
+    static let wall = Color(red: 0.17, green: 0.19, blue: 0.22)
+    static let lane = Color(red: 0.62, green: 0.66, blue: 0.69)
+    static let laneEdge = Color(red: 0.50, green: 0.55, blue: 0.59)
+    static let pit = Color(red: 0.19, green: 0.55, blue: 0.60)
+    static let pitRim = Color(red: 0.42, green: 0.80, blue: 0.84)
+    static let boss = Color(red: 0.80, green: 0.35, blue: 0.84)
+    static let dead = Color(red: 0.42, green: 0.45, blue: 0.48)
+    static let shielded = Color(red: 0.96, green: 0.80, blue: 0.38)
+    static let camp = Color(red: 0.45, green: 0.80, blue: 0.36)
+    static let crab = Color(red: 0.98, green: 0.62, blue: 0.22)
+    static let wanderer = Color(red: 0.40, green: 0.82, blue: 0.90)
+    static let selfRim = Color(red: 0.42, green: 0.90, blue: 0.42)
+
+    static func base(_ team: Team, colorblind: Bool) -> Color {
+        switch team {
+        case .red: return colorblind ? Color(red: 0.62, green: 0.40, blue: 0.14) : Color(red: 0.58, green: 0.20, blue: 0.24)
+        default: return Color(red: 0.20, green: 0.38, blue: 0.66)
+        }
+    }
+
+    static func structure(_ team: Team, colorblind: Bool) -> Color {
+        switch team {
+        case .red: return colorblind ? Color(red: 1.0, green: 0.62, blue: 0.15) : Color(red: 0.92, green: 0.38, blue: 0.42)
+        case .blue: return Color(red: 0.56, green: 0.76, blue: 0.96)
+        case .neutral: return Theme.gold
+        }
+    }
+
+    static func heroRim(_ team: Team, colorblind: Bool) -> Color {
+        team == .red ? structure(.red, colorblind: colorblind) : Color(red: 0.34, green: 0.62, blue: 1.0)
     }
 }

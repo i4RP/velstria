@@ -226,6 +226,12 @@ enum PortraitArt {
 
     @MainActor static func skin(_ cosmeticID: String) -> UIImage? { image("SkinPortraits/\(cosmeticID)") }
 
+    /// 顔だけに寄せたアイコン（HeroFaces。ロード画面のカード絵 HeroCards から切り抜き。tools/portraits/cards.py）。
+    @MainActor static func face(_ heroID: String) -> UIImage? { image("HeroFaces/\(heroID)") }
+
+    /// ロード画面のカード絵（縦長 2:3。HeroCards）。
+    @MainActor static func card(_ heroID: String) -> UIImage? { image("HeroCards/\(heroID)") }
+
     /// 装備アイコン（Assets.xcassets の ItemIcons。仕様は tools/portraits/item_icons.json）。
     @MainActor static func item(_ itemID: String) -> UIImage? { image("ItemIcons/\(itemID)") }
 
@@ -249,13 +255,15 @@ struct HeroPortraitView: View {
     let heroID: String
     var size: CGFloat = 64
     var showsRole = true
+    /// 顔に寄せたアイコン（HeroFaces）を優先する（HUD の小さな枠用）。
+    var face = false
     @Environment(AppModel.self) private var app
 
     var body: some View {
         let def = app.master.hero(heroID)
         let hue = Theme.heroHue(heroID)
         ZStack {
-            if let art = PortraitArt.hero(heroID) {
+            if let art = (face ? PortraitArt.face(heroID) : nil) ?? PortraitArt.hero(heroID) {
                 Image(uiImage: art)
                     .resizable()
                     .interpolation(.high)

@@ -49,6 +49,9 @@ final class StructureAssetsTests: XCTestCase {
                 XCTAssertEqual(m.bounds.min.y, 0, accuracy: 0.01)
                 XCTAssertLessThan(size.y, 1.3, "HP バー（頭上 1.5 m〜）より低い")
                 XCTAssertLessThan(max(size.x, size.z), 1.4)
+            case .monsterTurtle, .monsterLord:
+                XCTAssertEqual(m.bounds.min.y, 0, accuracy: 0.01)
+                XCTAssertLessThan(size.y, 5.0, "HP バー（頭上）より低い")
             }
         }
     }

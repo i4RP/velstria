@@ -316,6 +316,8 @@ final class PersistenceService: @unchecked Sendable {
         if !HeroRoster.isActive(p.avatarHeroID) { p.avatarHeroID = HeroRoster.defaultHeroID }
         if let last = p.lastPickedHeroID, !HeroRoster.isActive(last) { p.lastPickedHeroID = nil }
         if p.playerID.isEmpty { p.playerID = UUID().uuidString }
+        if p.countryCode == nil { p.countryCode = CountryFlag.deviceRegion }
+        CountryFlag.local = p.countryCode
         // フレンド: 識別子が壊れていたら作り直す。改変されたフレンド・申請は取り除く（重複・自分自身・不正なコード）
         if !FriendCode.isValid(p.friendCode) { p.friendCode = FriendCode.generate() }
         if !FriendInboxKey.isValid(p.inboxKey) { p.inboxKey = FriendInboxKey.generate() }

@@ -250,7 +250,7 @@ final class OnlineSession: OnlineBattleLink {
     static func host(peerID: OnlinePeerID, name: String, roomName: String,
                      avatar: String? = nil, friendCode: String? = nil) -> OnlineSession {
         var room = OnlineRoom(name: roomName, hostPeerID: peerID)
-        room.peers = [OnlinePeer(id: peerID, name: name, avatar: avatar, friendCode: friendCode)]
+        room.peers = [OnlinePeer(id: peerID, name: name, avatar: avatar, friendCode: friendCode, country: CountryFlag.local)]
         let s = OnlineSession(role: .host, peerID: peerID, name: name, room: room)
         s.startPing()
         return s
@@ -666,16 +666,18 @@ final class OnlineSession: OnlineBattleLink {
         let name = cleanName.isEmpty ? L("プレイヤー", "Player") : cleanName
         let avatar = hello.avatar.map { String($0.prefix(16)) }
         let friendCode = helloCode
+        let country = hello.country.flatMap(CountryFlag.normalized)
         if let i = room.peers.firstIndex(where: { $0.id == hello.peerID }) {
             room.peers[i].name = name
             room.peers[i].avatar = avatar
             room.peers[i].friendCode = friendCode
+            room.peers[i].country = country
             room.peers[i].loaded = false
             room.peers[i].isWatching = false
             if asSpectator && room.seat(of: hello.peerID) == nil { room.peers[i].role = .spectator }
         } else {
             room.peers.append(OnlinePeer(id: hello.peerID, name: name, role: asSpectator ? .spectator : .player,
-                                         avatar: avatar, friendCode: friendCode))
+                                         avatar: avatar, friendCode: friendCode, country: country))
         }
         if let seat = room.seatIndex(of: hello.peerID) { room.seats[seat].name = name }
         c.send(.welcome(room: room))
@@ -1138,7 +1140,8 @@ final class OnlineSession: OnlineBattleLink {
             case .ready:
                 c.send(.hello(OnlineHello(peerID: self.localPeerID, name: self.localName,
                                           wantsSpectate: self.wantsSpectateOnJoin ? true : nil,
-                                          avatar: self.localAvatar, friendCode: self.localFriendCode)))
+                                          avatar: self.localAvatar, friendCode: self.localFriendCode,
+                                          country: CountryFlag.local)))
             case .failed(let reason):
                 self.disconnected(reason)
             case .closed:

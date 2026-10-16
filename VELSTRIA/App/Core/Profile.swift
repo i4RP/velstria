@@ -503,6 +503,8 @@ struct Profile: Codable, Equatable {
     var displayName: String = ""
     var createdAt = Date()
     var avatarHeroID: String = HeroRoster.defaultHeroID
+    /// 国・地域（ISO 3166 の 2 文字。アカウント作成時の端末の地域。ロード画面のカードの国旗）。旧版のセーブは読み込み時に補う。
+    var countryCode: String? = CountryFlag.deviceRegion
 
     // オンボーディング
     var acceptedTermsVersion: Int = 0

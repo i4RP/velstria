@@ -170,7 +170,7 @@ struct HUDAllyIcon: View, Equatable {
     var body: some View {
         let corner = size * 0.12
         VStack(spacing: barGap) {
-            HeroPortraitView(heroID: ally.heroID, size: size, showsRole: false)
+            HeroPortraitView(heroID: ally.heroID, size: size, showsRole: false, face: true)
                 .saturation(ally.isDead ? 0 : 1)
                 .overlay {
                     if ally.isDead {

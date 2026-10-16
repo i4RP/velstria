@@ -679,7 +679,8 @@ final class HUDModel {
             switch u.kind {
             case .tower, .core:
                 minimap.structures.append(.init(pos: u.pos, team: u.team, alive: u.isAlive, isCore: u.kind == .core,
-                                                hpFraction: min(1, max(0, u.hp / max(1, u.stats.maxHP)))))
+                                                hpFraction: min(1, max(0, u.hp / max(1, u.stats.maxHP))),
+                                                shielded: TowerSystem.hasTurretShield(u)))
             case .hero:
                 guard let h = u.hero else { continue }
                 let visible = viewer.map { s.isVisible(i, to: $0) } ?? true

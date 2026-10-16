@@ -280,6 +280,32 @@
           }
         ]
       }
+    },
+    {
+      "id": "monster_turtle",
+      "use": "中立ボス astralWyrm（タートル）の見た目。チーム色なし",
+      "provider": "tripo",
+      "faces": 5000,
+      "styleReference": "/Users/i4rp/gh2/vel-refs/mlbb_turtle.png",
+      "referenceNote": "the attached screenshot shows the reference creature (the big blue turtle on the right). Recreate a creature with the same overall design language (proportions, shell plating, colors, beard, horned helmet) as a clean standalone concept render, but as your own original variation; ignore the UI, the arena and the other character",
+      "size": {
+        "length": 4.6,
+        "yaw": 140
+      },
+      "prompt": "a giant ancient sea-turtle guardian boss monster for a MOBA jungle: a massive quadruped turtle standing on four thick stumpy clawed legs, a huge high-domed shell made of large glossy deep-teal/ocean-blue hexagonal plates outlined with raised bronze-orange ridges and short spikes along the rim, a long thick neck, a wise old head with a long flowing white beard and white mane on its chest, wearing an ornate teal-and-bronze horned helmet crown with one tall curved horn, glowing blue eyes, bronze armored plates on the legs and the front of the shell, a short spiky tail. Side three-quarter view showing the whole body, head facing left."
+    },
+    {
+      "id": "monster_lord",
+      "use": "中立ボス ancientColossus（ロード）の見た目。チーム色なし",
+      "provider": "tripo",
+      "faces": 6000,
+      "styleReference": "/Users/i4rp/gh2/vel-refs/mlbb_lord.png",
+      "referenceNote": "the attached screenshot shows the reference creature (the giant blue water titan holding a trident). Recreate a creature with the same overall design language (proportions, gold armor, water body, trident) as a clean standalone concept render, but as your own original variation; ignore the UI, the arena and the other character",
+      "size": {
+        "height": 4.8,
+        "yaw": 110
+      },
+      "prompt": "a colossal water-elemental titan lord boss for a MOBA: a hulking muscular humanoid giant whose body is made of translucent glowing deep-blue water and ice, broad massive shoulders and huge fists, wearing ornate heavy golden armor (a tall spiked golden crown-helmet with swept-back fins, big golden pauldrons with blade-like flares, a golden chest plate and belt), the lower body dissolving into a swirling column of water instead of legs, holding upright in its right hand a very long dark staff topped with a large glowing icy-blue trident head with gold trim. Front three-quarter view, full body, standing upright."
     }
   ]
 }
