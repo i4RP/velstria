@@ -122,7 +122,11 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     ///     振りかぶり 0.06 / 0.19 秒・毎秒 1200・90% の鈍足 0.6 秒、奥義 = 射程 614・半幅 137・溜め 0.76 秒、円撃の半径 200）。
     ///     docs/kits/Dyrroth.md「動画で測った値」。27〜30 はほかのヒーローの同じ作業（フランコ・ミヤ・オーロラなど）が使っているので、
     ///     まとめるときに番号を振り直す。
-    public static let currentSimVersion = 34
+    /// 35: H032（ディアス）の仕組みを MLBB の画面収録に合わせた（円撃 = 通常攻撃 2 回の後の 3 回目、スキル1 の減衰 = 敵ごとの命中の回数、
+    ///     致命の一撃 = 3 撃に等分（+0 / +4 / +6 tick。防御ダウンは 1 撃目と一緒）、敵にダメージを与えたときのレイジ = 通常攻撃 2・円撃 10・
+    ///     スキル1 は敵ごとに 10・突進 15・致命の一撃 1 撃ごとに 5・奥義 敵ごとに 15）。ダメージ・係数・減衰率・倍率は変えていない。
+    ///     docs/kits/Dyrroth.md「動画に合わせた仕組み（2026-10-16）」。
+    public static let currentSimVersion = 35
 
     public var simVersion: Int
     public var mode: MatchMode
