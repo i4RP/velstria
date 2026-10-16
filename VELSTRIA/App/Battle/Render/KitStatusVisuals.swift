@@ -59,6 +59,13 @@ enum KitStatusVisuals {
         }
     }
 
+    /// キットの内部の数えの印か（名前が `_` で始まるマーク。H032 のスキル1 の「その発動でその敵に何回目の命中か」など）。
+    /// MLBB の画面に出ない数えなので、頭上の記号・HUD の状態アイコンに出さない。
+    static func isInternal(_ s: StatusEffect) -> Bool {
+        guard s.kind == .mark, let m = parseMark(s.tag) else { return false }
+        return m.name.hasPrefix("_")
+    }
+
     /// 氷の殻で表す状態か（スタン・suppress のうち H031 の凍結）。
     static func isFreeze(_ s: StatusEffect) -> Bool {
         switch look(kind: s.kind, tag: s.tag) {
@@ -85,10 +92,10 @@ enum KitStatusVisuals {
         var stacks: Int
     }
 
-    /// 付いているマークのうち、頭上に出す 1 つ（スタックが最大のもの。同数なら先に付いたもの）。
+    /// 付いているマークのうち、頭上に出す 1 つ（スタックが最大のもの。同数なら先に付いたもの）。内部の数えの印（isInternal）は数えない。
     static func markGlyph(in statuses: [StatusEffect]) -> MarkGlyph? {
         var best: MarkGlyph?
-        for s in statuses where s.kind == .mark && s.remaining > 0 {
+        for s in statuses where s.kind == .mark && s.remaining > 0 && !isInternal(s) {
             let stacks = max(1, Int(s.magnitude.rounded()))
             if let b = best, b.stacks >= stacks { continue }
             best = MarkGlyph(heroID: parseMark(s.tag)?.heroID ?? "", stacks: stacks)

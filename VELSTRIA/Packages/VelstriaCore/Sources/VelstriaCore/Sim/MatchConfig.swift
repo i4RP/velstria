@@ -131,7 +131,11 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     /// 38: H030（ライラ）の幾何と時間を MLBB の画面収録で測った値に（通常攻撃の弾 毎秒 1800、スキル1 = 射程 755・半幅 60・毎秒 1950、
     ///     スキル2 = 基本の射程 384（アルティメット Lv3 で 564）・毎秒 1050、奥義 = 溜め 0.55 秒・半幅 100）。docs/kits/Layla.md「動画で測った値」。
     ///     27〜33 は並行する他のヒーローの作業が使うので 34 にした。**番号はマージのときに付け直す**（main に入る順で連番にする）。
-    public static let currentSimVersion = 38
+    /// 39: H032（ディアス）の仕組みを MLBB の画面収録に合わせた（円撃 = 通常攻撃 2 回の後の 3 回目、スキル1 の減衰 = 敵ごとの命中の回数、
+    ///     致命の一撃 = 3 撃に等分（+0 / +4 / +6 tick。防御ダウンは 1 撃目と一緒）、敵にダメージを与えたときのレイジ = 通常攻撃 2・円撃 10・
+    ///     スキル1 は敵ごとに 10・突進 15・致命の一撃 1 撃ごとに 5・奥義 敵ごとに 15）。ダメージ・係数・減衰率・倍率は変えていない。
+    ///     docs/kits/Dyrroth.md「動画に合わせた仕組み（2026-10-16）」。
+    public static let currentSimVersion = 39
 
     public var simVersion: Int
     public var mode: MatchMode

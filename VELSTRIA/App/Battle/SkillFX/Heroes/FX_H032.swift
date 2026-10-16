@@ -10,7 +10,8 @@ import VelstriaCore
 //   パッシブ 紅血の拳        — cast: レイジが 50・100 に届いた瞬間（バッジの段が増えたとき）: 両腕に回る紅の輪・足元の紫炎・燠。
 //                              passiveRelease: アビス強化を放ってバッジの段が 1 → 0 に戻った瞬間（スキルの発動の直後）: 足元の紫の渦が
 //                              拳へ吸い込まれ、紫炎が前へ噴く（スキル1 の 5 連・スキル2 の強化された致命の一撃に重なる）。
-//                              円撃（通常攻撃 2 回に 1 回）は専用のイベントが無いので通常攻撃の演出（Effekseer）のまま
+//                              円撃（通常攻撃 2 回の後の 3 回目。動画に合わせて 2026-10-16 に 2 回に 1 回から変えた）は専用のイベントが
+//                              無いので通常攻撃の演出（Effekseer）のまま（回数に依存する演出は無い）
 //   スキル1 赤拳連斬（帯）     — 近接の cone のアーキタイプなので発動と同時に cast と impact。0.26 / 0.46 / 0.66 秒（burstFirstDelay + 0.2 × n）に、
 //                              照準の帯の上の衝撃の円（半径 1.12m。中心は照準線の 0.22 / 0.49 / 0.76 = 1.05 / 2.33 / 3.6m）で紫の輪が弾け、
 //                              回転刃と斬線（右→左→右）が重なる。被弾は 1 発ごと（hitPerHit）に小さな火花と鈍足の紅の輪。
@@ -22,7 +23,9 @@ import VelstriaCore
 //                              2 回目（stage 1 = 致命の一撃、targetedBlink: impact は発動時に対象の位置）: 振りかぶり（0.06 秒、強化 0.19 秒）の
 //                              あと紅の閃光と尾を引いて飛びかかり（毎秒 12m）、
 //                              対象に紅の照準の輪が縮む。被弾（到着の瞬間）: 紫と紅の十字の斬撃・砕ける燠色の鎧（防御ダウン）・
-//                              足元の紫のひび（防御ダウン 4 秒）。段の演出は recipe(_:stage:_:)
+//                              足元の紫のひび（防御ダウン 4 秒）。sim はダメージを 3 撃（着いた tick・+4・+6 tick = 0 / 0.13 / 0.2 秒）に
+//                              分けるので、斬線もその時刻に 3 本（被弾の演出は 0.9 秒に 1 度なので、1 撃目の被弾で 3 本とも出す）。
+//                              段の演出は recipe(_:stage:_:)
 //   アルティメット 奈落の一撃  — 直線（piercingLine）だが投射物もゾーンも作らない（Kit.hitAreaEach）ので、全部を cast に置く。
 //                              0〜0.76 秒の溜め: 足元の黒と紫の渦が縮み、紫炎が立ちのぼり、両腕の紅の輪が回り、前方の直線（6.14m・半幅 1.37m）が
 //                              薄く光る。0.76 秒: 前へ 3 本の爪の光条（射程いっぱい）・前へ走る紫の三日月（advance）・地面の爪痕・
@@ -47,6 +50,8 @@ enum FX_H032: HeroFXSet {
     /// スキル2: 突進の所要（415 / 1040 ≈ 0.4 秒）と、致命の一撃の振りかぶり + 隣の敵への飛びかかりの目安（0.06 + 約 0.1 秒）。
     private static let dashTime: Float = 0.4
     private static let fatalTime: Float = 0.16
+    /// 致命の一撃の 2・3 撃目（1 撃目からの秒。sim の 4 / 6 tick 後 = Kit_H032.Tune.fatalTickAfter の当たる tick）。
+    private static let fatalTicks: [Float] = [4.0 / 30, 6.0 / 30]
     /// アルティメット: 溜め・射程（直線の長さ）・半幅。
     private static let ultCharge: Float = 0.76
     private static let ultReach: Float = 6.14
@@ -227,11 +232,16 @@ enum FX_H032: HeroFXSet {
             .mesh(lockOn(from: 2.2, to: 0.9, .secondary, life: t)),
             .mesh(.decal(.claw, 1.6, .secondary, life: 0.5, spin: 0, grow: 1.0, alpha: 0.8), at: 0.05),
         ]
-        // 到着の瞬間（被弾）: 紫と紅の十字の斬撃・砕ける燠色の鎧・足元の紫のひび（防御ダウン 4 秒）
+        // 到着の瞬間（1 撃目の被弾）: 3 撃（0 / 0.13 / 0.2 秒）の紫・紅・紫の斬線（十字から返し）・砕ける燠色の鎧・
+        // 足元の紫のひび（防御ダウン 4 秒）
         r.hit = [
             .mesh(.slash(1.2, .primary, from: 60, to: -60, height: 1.1, tilt: -40, life: 0.24), offset: [0, 1.1, -0.8]),
-            .mesh(.slash(1.2, .secondary, from: -60, to: 60, height: 1.1, tilt: 40, life: 0.24), at: 0.06,
+            .mesh(.slash(1.2, .secondary, from: -60, to: 60, height: 1.1, tilt: 40, life: 0.24), at: fatalTicks[0],
                   offset: [0, 1.1, -0.8]),
+            .mesh(.slash(1.3, .primary, from: 70, to: -70, height: 1.05, tilt: -8, life: 0.22), at: fatalTicks[1],
+                  offset: [0, 1.05, -0.8]),
+            .emit(.sparks(8, speed: 6, .core, end: .secondary), at: fatalTicks[0], offset: [0, 1.0, 0]),
+            .emit(.sparks(8, speed: 6, .core, end: .primary), at: fatalTicks[1], offset: [0, 1.0, 0]),
             .emit(.flare(1.6, .core, life: 0.16, tex: .flare6), offset: [0, 1.0, 0]),
             .mesh(.wall(.hexShield, width: 1.2, height: 1.4, .accent, life: 0.3, alpha: 0.7).with {
                 $0.ease = .out; $0.sizeEnd = [1.7, 1.7, 1]

@@ -599,6 +599,8 @@ final class HUDModel {
         for st in u.statuses where st.remaining > 0 {
             // 練習用人形の常時可視化などの長時間の内部状態は出さない
             if st.kind == .revealed && st.duration >= 30 { continue }
+            // キットの内部の数えの印（ディアスのスキル1 の命中の回数など。名前が `_` のマーク）も出さない
+            if KitStatusVisuals.isInternal(st) { continue }
             let rem = (st.remaining * 10).rounded(.up) / 10
             // 同じ種類でもキットの凍結・固有のマークは別のアイコン（名前と記号が違う）。汎用は従来どおり種類でまとめる
             // 固定値の増減（祝福の奪取・激励など）は強化と弱体を別のアイコンにする
