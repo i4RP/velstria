@@ -71,7 +71,9 @@ final class AmbientParticles {
         let width = Float(map.riverWidth / Balance.unitsPerMeter) * 0.92
         let n = AmbientParticles.riverSegments
         for k in 0..<n {
-            let t = (Float(k) + 0.5) / Float(n) * 0.88 + 0.06
+            var t = (Float(k) + 0.5) / Float(n) * 0.88 + 0.06
+            // 8 の字の川（MapDefinition.river）は角まで届かないので、池と中央の水路の範囲に寄せる
+            if map.river != nil { t = 0.5 + (t - 0.5) * 0.75 }
             var shimmer = AmbientParticles.base(texture: texture)
             shimmer.emitterShape = .box
             shimmer.birthLocation = .volume

@@ -55,7 +55,7 @@ final class MapScene {
         buildOuterGround()
         buildDecorations(map: map, materials: materials, quality: quality, terrain: true)
         buildBrushes(map: map, materials: materials, quality: quality)
-        buildWater(map: map)
+        if map.river == nil { buildWater(map: map) }  // 8 の字の川は地面のテクスチャだけで描く
         buildGroundDecals(map: map, materials: materials, paving: true)
         if quality.level != .low { buildDetailOverlay() }
     }

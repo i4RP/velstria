@@ -582,11 +582,23 @@ struct StageLayout {
         let riverHalf = Float(map.riverWidth / 100) / 2
         let bankCount = Int(260 * density)
         for _ in 0..<bankCount {
-            let s = rng.range(-8, M + 8)
-            let side: Float = rng.chance(0.5) ? 1 : -1
-            let along = SIMD2<Float>(s, M - s)
-            let normal = SIMD2<Float>(0.70710678, 0.70710678)
-            let p = along + normal * side * (riverHalf + rng.range(-0.2, 0.7))
+            let p: SIMD2<Float>
+            if geo.riverBank.count >= 3 {
+                // 多角形の川（反時計回り）: 岸の輪郭の上の点から外向き（右手側）へ少しずらす
+                let bank = geo.riverBank
+                let i = min(bank.count - 1, Int(rng.range(0, Float(bank.count))))
+                let a = bank[i], b = bank[(i + 1) % bank.count]
+                let edge = b - a, len = simd_length(edge)
+                guard len > 0.01 else { continue }
+                let outward = SIMD2<Float>(edge.y, -edge.x) / len
+                p = a + edge * rng.range(0, 1) + outward * rng.range(-0.2, 0.7)
+            } else {
+                let s = rng.range(-8, M + 8)
+                let side: Float = rng.chance(0.5) ? 1 : -1
+                let along = SIMD2<Float>(s, M - s)
+                let normal = SIMD2<Float>(0.70710678, 0.70710678)
+                p = along + normal * side * (riverHalf + rng.range(-0.2, 0.7))
+            }
             guard p.x > 0.5, p.y > 0.5, p.x < M - 0.5, p.y < M - 0.5, geo.laneDistance(p) > 4.6,
                   geo.obstacleDistance(p) > 0.2 else { continue }
             var nearPit = false

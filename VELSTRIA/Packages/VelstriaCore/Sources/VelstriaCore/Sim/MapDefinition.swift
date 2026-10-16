@@ -301,6 +301,9 @@ public struct MapDefinition: Codable, Hashable, Sendable {
     /// 草むらの細かい格子（MLBB のミニマップの形のまま。BushMask.swift）。nil なら `brushes` の矩形が草むら。
     /// あるときは `brushes[k]` は草むら k の外接矩形で、判定は格子で行う。
     public var bushMask: BushMask? = nil
+    /// 川の形（2026-10-16〜、設計図の 8 の字の水路: 左上と右下の池を中央の細い水路がつなぐ）。nil なら x + y = size の
+    /// 幅 riverWidth の帯（standard・乱闘）。
+    public var river: Obstacle? = nil
 
     /// team のミニオンが進む経路。Red は Blue 経路の逆順。
     public func lanePath(_ lane: Lane, for team: Team) -> [Vec2] {
@@ -327,9 +330,15 @@ public struct MapDefinition: Codable, Hashable, Sendable {
         return nil
     }
 
-    /// 河川（x + y = size の帯）上か。
+    /// 河川上か（`river` の多角形、無ければ x + y = size の帯）。
     public func isInRiver(_ p: Vec2) -> Bool {
-        abs(p.x + p.y - size) / 2.0.squareRoot() <= riverWidth / 2
+        riverSignedDistance(p) <= 0
+    }
+
+    /// 川の岸までの距離（川の中は負）。
+    public func riverSignedDistance(_ p: Vec2) -> Double {
+        if let river { return river.signedDistance(to: p) }
+        return abs(p.x + p.y - size) / 2.0.squareRoot() - riverWidth / 2
     }
 
     /// ジャングルか川か（エンブレムの山野の主）。マップに区域の定義は無いので近似:

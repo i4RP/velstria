@@ -1,4 +1,4 @@
-// trace_terrain.mjs の結果（trace_stats.json）を、遊ぶ地図（relayout、standard の 0.81 倍）の縮尺で
+// blueprint_terrain.mjs（2026-10-16〜。旧: trace_terrain.mjs）の結果（trace_stats.json）を、遊ぶ地図（relayout、standard の 0.81 倍）の縮尺で
 // MapDefinition.validationIssues と同じ規則で調べ、キャンプを壁に掛からない最寄りの位置へ寄せて、
 // Sim/MapSanctumTerrain.swift を書く（--write）。
 // 壁はスプライン（閉じた centripetal Catmull-Rom を 1 mm の精度で折れ線に）で多角形にしてから測る（Swift の Obstacle.smoothPolygon と同じ）。
@@ -9,6 +9,8 @@ import fs from 'fs';
 const K = 0.81, S = 12000;
 /** スプラインを折れ線にする精度（relayout のユニット = cm）: 弦と曲線のずれ 0.1（1 mm）以下・弦の長さ 50 以下（Swift の Spline.closedCatmullRom と同じ）。 */
 const TOLERANCE = 0.1, MAX_SEGMENT = 50;
+/** 川は大きく判定も描画も細かさが要らないので粗く（弦のずれ 2・弦 120）。Swift の sanctumRiverTolerance と同じ。 */
+const RIVER_TOLERANCE = 2, RIVER_MAX_SEGMENT = 120;
 /** relayout の規則（MapDefinition.validationIssues）。拠点の周りは MLBB の拠点を囲む壁が入るよう 1600（2026-10-16）。 */
 const RULE = { lane: 350, base: 1600, tower: 110 + 100, core: 250 + 100 };
 /** キャンプは「最も大きいモンスターの半径 + 40」まで壁に寄ってよい（MapDefinition.campClearance と同じ。MLBB の巣は岩のくぼみ）。 */
@@ -76,6 +78,10 @@ const camps = [
   ['astralWyrm', [8260, 3590], 'neutral'], ['ancientColossus', [3740, 8410], 'neutral'], ['mossWanderer', [4710, 7285], 'neutral'],
   ['crab', [2220, 8850], 'neutral'], ['crab', mir([2220, 8850]), 'neutral'],
 ];
+// 設計図から起こしたときはキャンプの位置も設計図のもの（standard の座標、同じ順）
+if (st.camps) st.camps.forEach((p, i) => { camps[i][1] = p; });
+const river = st.river ? catmull(st.river.map(sc), RIVER_TOLERANCE, RIVER_MAX_SEGMENT) : null;
+const inRiver = (p) => river && sdist(p, river) < 0;
 // 点対称の組（Blue 側の添字 → 相手の添字）。組は両方の平均を寄せて、相手はその写像にする
 const pairs = [[0, 5], [1, 6], [2, 7], [3, 8], [4, 9], [10, 11], [13, 14]];
 
@@ -123,6 +129,11 @@ walls.forEach((w, k) => {
 
 console.log(`walls ${walls.length}（頂点 ${walls.reduce((a, w) => a + w.length, 0)}）`);
 for (const m of moves) console.log(`  camp ${m[0]}: 寄せた距離 ${m.slice(1).map((v) => Math.round(v)).join(' / ')}`);
+if (river) {
+  console.log(`river 頂点 ${river.length}`);
+  for (const i of [12, 13, 14]) if (!inRiver(campPos[i])) issues.push(`camp ${camps[i][0]} is not in the river`);
+  for (const [name, path] of Object.entries(lanes)) if (name !== 'mid' && path.map(sc).some((p) => inRiver(p))) issues.push(`lane ${name} crosses the river`);
+}
 console.log(issues.length ? issues.join('\n') : 'OK: 違反なし');
 
 // 通路の幅（壁と壁、壁と地図の縁の最も狭い所。relayout のユニット）。レベルデザインの基準値の確認用
@@ -144,9 +155,9 @@ if (write) {
   const f = (v) => { const s = (Math.round(v * 10) / 10).toFixed(1); return s.endsWith('.0') ? s.slice(0, -2) : s; };
   const pt = (p) => `Vec2(${f(p[0])}, ${f(p[1])})`;
   const list = (cs) => cs.map((c) => `        [${c.map(pt).join(', ')}],`).join('\n');
-  const swift = `// 生成: tools/map_proto/trace_terrain.mjs → terrain_swift.mjs（MLBB Wiki の File:Minimap.png = Sanctum Island の
-// ミニマップ原本から）。手で編集しない。壁は standard（12000）の地図座標、キャンプは relayout の座標。
-// 草むらは同じ原本の細かい格子（terrain_grid.mjs → MapSanctumBushGrid.swift）。
+  const swift = `// 生成: tools/map_proto/blueprint_terrain.mjs → terrain_swift.mjs（2026-10-16 のマップ設計図 = 60×60 マスの方眼から）。
+// 手で編集しない。壁・川は standard（12000）の地図座標、キャンプは relayout の座標。
+// 草むらは同じ設計図の細かい格子（blueprint_terrain.mjs → MapSanctumBushGrid.swift）。
 
 extension MapDefinition {
     /// 壁（岩）の制御点（Blue 半面。Red は点対称）。閉じた Catmull-Rom スプラインでなめらかな多角形にする（Obstacle.smoothPolygon）。
@@ -159,8 +170,13 @@ ${list(blue)}
 ${list(center)}
     ]
 
-    /// relayout のキャンプの位置（standard.camps と同じ順）。測った位置（点対称の組は両陣営の平均）を縮め、
-    /// 壁から「最も大きいモンスターの半径 + 50」以上離れた最寄りの位置へ寄せた（MLBB のモンスターは岩のくぼみの巣にいる）。
+    /// 川の制御点（点対称の中心をまたぐ 1 つの閉じた輪郭: 左上の池 → 中央の細い水路 → 右下の池）。
+    static let sanctumRiverSpline: [Vec2] = [
+        ${(st.river || []).map(pt).join(', ')},
+    ]
+
+    /// relayout のキャンプの位置（standard.camps と同じ順）。設計図のアイコンの位置（点対称の組は両陣営の平均）を縮め、
+    /// 壁から「最も大きいモンスターの半径 + 50」以上離れた最寄りの位置へ寄せた。
     static let sanctumRelayoutCampPositions: [Vec2] = [
 ${campPos.map((p) => `        ${pt(p)},`).join('\n')}
     ]
@@ -168,6 +184,8 @@ ${campPos.map((p) => `        ${pt(p)},`).join('\n')}
     /// スプラインを折れ線にする精度（ユニット = cm。relayout の座標で）: 弦と曲線のずれ ${TOLERANCE}（1 mm）以下・弦の長さ ${MAX_SEGMENT} 以下。
     static let sanctumSplineTolerance: Double = ${TOLERANCE}
     static let sanctumSplineMaxSegment: Double = ${MAX_SEGMENT}
+    static let sanctumRiverTolerance: Double = ${RIVER_TOLERANCE}
+    static let sanctumRiverMaxSegment: Double = ${RIVER_MAX_SEGMENT}
 }
 `;
   fs.writeFileSync(here('../../Packages/VelstriaCore/Sources/VelstriaCore/Sim/MapSanctumTerrain.swift'), swift);

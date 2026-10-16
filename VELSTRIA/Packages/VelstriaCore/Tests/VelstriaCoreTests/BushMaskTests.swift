@@ -11,7 +11,7 @@ final class BushMaskTests: XCTestCase {
         XCTAssertEqual(m.rows, 600)
         XCTAssertEqual(m.cell, 20)
         XCTAssertEqual(m.cell * Double(m.cols), Balance.mapSize)
-        XCTAssertEqual(m.bushCount, 32)
+        XCTAssertEqual(m.bushCount, 48)  // 設計図の草むら Blue 24 + Red 24
         let half = m.bushCount / 2
         var mismatched = 0
         for q in m.cells.indices {
@@ -49,9 +49,9 @@ final class BushMaskTests: XCTestCase {
         let map = MapDefinition.relayout
         let m = try! XCTUnwrap(map.bushMask)
         XCTAssertEqual(m.cell, 20 * 0.81, accuracy: 1e-9)
-        XCTAssertEqual(map.brushes.count, 32)
-        XCTAssertEqual(map.brushes.map(\.id), Array(0..<32))
-        XCTAssertEqual(map.brushes.map(\.bush), Array(0..<32))
+        XCTAssertEqual(map.brushes.count, 48)
+        XCTAssertEqual(map.brushes.map(\.id), Array(0..<48))
+        XCTAssertEqual(map.brushes.map(\.bush), Array(0..<48))
         XCTAssertEqual(map.validationIssues(), [])
         for k in map.brushes.indices {
             XCTAssertGreaterThan(m.cellCount(of: k), 0, "bush \(k) が壁で消えた")

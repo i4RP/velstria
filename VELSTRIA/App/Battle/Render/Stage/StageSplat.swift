@@ -96,7 +96,7 @@ enum StageSplat {
         // 川（祭壇の床では途切れる）
         let pits = map.camps.filter { $0.kind == .astralWyrm || $0.kind == .ancientColossus }.map { geo.m($0.pos) }
         let halfWidth = Float(map.riverWidth / 100) / 2
-        river.fillDiagonalBand(sum: geo.mapMeters, halfWidth: halfWidth + 1.2) { p in
+        river.fillDiagonalBand(sum: geo.mapMeters, halfWidth: max(halfWidth, geo.riverReach) + 1.2) { p in
             let d = geo.riverDistance(p) + (valueNoise(p * 0.35, seed: 61) - 0.5) * 0.9
             var w = 1 - smoothstep(halfWidth - 0.6, halfWidth + 0.5, d)
             for c in pits { w *= smoothstep(7.4, 8.6, simd_distance(p, c)) }
@@ -444,6 +444,13 @@ struct StageGeometry {
     /// 草むらが細かい格子（MapDefinition.bushMask）のとき: 格子と、各セルから最も近い草むらのセルまでの距離（m）。
     let brushField: (mask: BushMask, meters: [Float])?
     let mapMeters: Float
+    /// 川の半幅（m。riverWidth / 2）。`riverDistance` はこの値から岸までの距離を足した「帯の中心線からの距離」と同じ物差し。
+    let riverHalf: Float
+    /// 川が多角形（MapDefinition.river）のとき: 岸の輪郭（反時計回り、m）と、0.5 m 格子の岸までの符号付き距離。
+    let riverBank: [SIMD2<Float>]
+    private let riverField: (cell: Float, n: Int, d: [Float])?
+    /// 川が対角線（x + y = 地図の一辺）から最も離れる距離（m）。対角の帯だけを塗る処理の幅。
+    let riverReach: Float
 
     init(map: MapDefinition) {
         func m(_ v: Vec2) -> SIMD2<Float> { SIMD2(Float(v.x / Balance.unitsPerMeter), Float(v.y / Balance.unitsPerMeter)) }
@@ -473,6 +480,23 @@ struct StageGeometry {
             brushField = nil
         }
         mapMeters = Float(map.size / Balance.unitsPerMeter)
+        riverHalf = Float(map.riverWidth / Balance.unitsPerMeter) / 2
+        if case .polygon(let points)? = map.river {
+            let bank = points.map(m)
+            let cell: Float = 0.5
+            let n = Int((mapMeters / cell).rounded(.up)) + 1
+            var d = [Float](repeating: 0, count: n * n)
+            for row in 0..<n {
+                for col in 0..<n { d[row * n + col] = polygonDistance(SIMD2(Float(col) * cell, Float(row) * cell), bank) }
+            }
+            riverBank = bank
+            riverField = (cell, n, d)
+            riverReach = bank.reduce(Float(0)) { max($0, abs($1.x + $1.y - mapMeters) * 0.70710678) }
+        } else {
+            riverBank = []
+            riverField = nil
+            riverReach = riverHalf
+        }
     }
 
     func m(_ v: Vec2) -> SIMD2<Float> { SIMD2(Float(v.x / Balance.unitsPerMeter), Float(v.y / Balance.unitsPerMeter)) }
@@ -509,8 +533,20 @@ struct StageGeometry {
         return d
     }
 
-    /// 川の中心線（x + y = 地図の一辺）からの距離。
-    func riverDistance(_ p: SIMD2<Float>) -> Float { abs(p.x + p.y - mapMeters) * 0.70710678 }
+    /// 川の中心線（x + y = 地図の一辺）からの距離。川が多角形なら「岸までの符号付き距離 + riverHalf」
+    /// （岸が riverHalf、池の奥ほど小さく負にもなる。帯のときと同じ比べ方で使える）。
+    func riverDistance(_ p: SIMD2<Float>) -> Float {
+        guard let f = riverField else { return abs(p.x + p.y - mapMeters) * 0.70710678 }
+        let fx = min(max(p.x / f.cell, 0), Float(f.n - 1)), fy = min(max(p.y / f.cell, 0), Float(f.n - 1))
+        let x0 = min(Int(fx), f.n - 2), y0 = min(Int(fy), f.n - 2)
+        let tx = fx - Float(x0), ty = fy - Float(y0)
+        let a = f.d[y0 * f.n + x0], b = f.d[y0 * f.n + x0 + 1]
+        let c = f.d[(y0 + 1) * f.n + x0], e = f.d[(y0 + 1) * f.n + x0 + 1]
+        let d = (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + e * tx) * ty
+        // 地図の外は格子の端の値に近い点までの距離を足す
+        let out = simd_length(p - SIMD2(fx, fy) * f.cell)
+        return d + out + riverHalf
+    }
 
     /// 地図の外へはみ出した距離（内側は負）。
     func outsideDistance(_ p: SIMD2<Float>) -> Float {

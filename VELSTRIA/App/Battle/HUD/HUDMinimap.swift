@@ -63,11 +63,16 @@ private struct HUDMinimapTerrain: View, Equatable {
                 Gradient(colors: [Color(red: 0.17, green: 0.26, blue: 0.28).opacity(0.8), Color(red: 0.10, green: 0.17, blue: 0.24).opacity(0.8)]),
                 startPoint: bounds.origin, endPoint: CGPoint(x: bounds.maxX, y: bounds.maxY)))
             ctx.clip(to: Path(bounds))
-            var river = Path()
-            river.move(to: proj.point(Vec2(0, map.size)))
-            river.addLine(to: proj.point(Vec2(map.size, 0)))
-            ctx.stroke(river, with: .color(Color(red: 0.24, green: 0.53, blue: 0.64)),
-                       style: StrokeStyle(lineWidth: proj.length(map.riverWidth), lineCap: .butt))
+            let riverColor = Color(red: 0.24, green: 0.53, blue: 0.64)
+            if case .polygon(let points)? = map.river {
+                ctx.fill(HUDMinimapDrawing.polyline(points, proj, closed: true), with: .color(riverColor))
+            } else {
+                var river = Path()
+                river.move(to: proj.point(Vec2(0, map.size)))
+                river.addLine(to: proj.point(Vec2(map.size, 0)))
+                ctx.stroke(river, with: .color(riverColor),
+                           style: StrokeStyle(lineWidth: proj.length(map.riverWidth), lineCap: .butt))
+            }
             for points in map.lanePaths {
                 let lane = HUDMinimapDrawing.polyline(points, proj)
                 ctx.stroke(lane, with: .color(Color(red: 0.10, green: 0.15, blue: 0.21)),

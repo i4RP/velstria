@@ -30,3 +30,8 @@
    `Spline.closedCatmullRom(_:tolerance:maxSegment:)` と同じ）、relayout の縮尺（0.81）で `validationIssues` と同じ規則を調べ、
    キャンプを壁に掛からない最寄りへ寄せて `Sim/MapSanctumTerrain.swift` を書く。通路の幅（隣り合う壁の最短距離）も表示する。
 
+
+設計図から作り直す（2026-10-16、現在の遊ぶ地図。`docs/DESIGN.md` §2.1）:
+1. ユーザーのマップ設計図（60×60 マスの方眼の画像 1448×1086。コミットしない）を `blueprint_ref.png` として置く。
+2. `node blueprint_terrain.mjs --write`: 壁・川・キャンプを `trace_stats.json` へ、草むらを `MapSanctumBushGrid.swift` へ。確認画像 `blueprint_debug.png`。
+3. `node terrain_swift.mjs --write` で違反 0 を確かめて `MapSanctumTerrain.swift`（壁・川・キャンプ）を書く。

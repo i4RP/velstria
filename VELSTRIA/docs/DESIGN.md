@@ -81,6 +81,13 @@
 - 乱闘マップ（`MapDefinition.brawl`）: mid の対角 1 本のみ（`lanes = [.mid]`）。タワーは mid の 3 段 + 両コアのみ、キャンプ・ボス無し、障害物無し。`lanePaths` はインデックス安全のため 3 要素（top=bot=mid）を保つが、ミニオン生成・ボットのレーン選択・検証は `map.lanes` を基準にする。
 
 ### 2.1 遊ぶ地図の地形（relayout、2026-10-16）
+- **2026-10-16（設計図版）**: 壁・草むら・川・キャンプをユーザーのマップ設計図（60×60 マスの方眼。青ベース左下・赤ベース右上・3 レーン、
+  中央を 8 の字の川が通る）から起こし直した。広さ・レーン・タワー・拠点はそのまま（設計図のレーンの帯の中心を standard のレーンの中心線に合わせて較正）。
+  生成は `tools/map_proto/blueprint_terrain.mjs`（画像 → 壁・川・キャンプは trace_stats.json、草むらは `MapSanctumBushGrid.swift`）→ `terrain_swift.mjs --write`。
+  設計図の左右は少し違うので、岩と草むらは Blue 半面（左下）を正として点対称に写す。川は両半面の平均。
+  - 川: `MapDefinition.river`（多角形）。左上の池（巨像）と右下の池（星喰竜）を中央の細い水路（幅 約 4 マス）がつなぎ、mid だけが渡る。
+    サイドレーンは川に掛からない。`isInRiver` / `riverSignedDistance` が多角形を見る（standard・乱闘は従来の対角の帯）。
+  - 以下の旧版（MLBB のミニマップ原本）の記述は、規則（レーン 350・拠点 1600・キャンプ）と精度については今も有効。
 - `standard` は比較用に固定。遊ぶ地図 `relayout` はレーン・タワー・キャンプを 0.81 倍に縮め（移動時間を MLBB に合わせた）、
   壁と草むらは MLBB のミニマップ原本（MLBB Wiki の File:Minimap.png、Sanctum Island）から起こした形を**同じ 0.81 倍**で入れる
   （形・通路の幅の比率が MLBB のまま）。生成は `tools/map_proto/trace_terrain.mjs` → `terrain_swift.mjs` → `Sim/MapSanctumTerrain.swift`。
