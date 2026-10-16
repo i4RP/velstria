@@ -92,7 +92,10 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     ///     奥義 = 縁まで 188・0.25 秒で掴んで 0.32 秒おきに 6 撃）。docs/kits/Franco.md「動画で測った値」。
     /// 26: 遊ぶ地図の壁を MLBB のミニマップ原本から起こした滑らかな多角形に（ed0f086。キャンプの位置・拠点の周りの規則も）、
     ///     矩形の角の衝突を丸い膨張に、経路探索の格子を 100 → 50（粗い格子で下見）。
-    public static let currentSimVersion = 26
+    /// 27: H034（フランコ）のパッシブ ワイルドフォースを MLBB の画面収録に合わせた（闘気 1 つ +15% → +5%・10 で 1.5 倍、
+    ///     消費はスキルの発動ではなくダメージが当たった時（外れたら残る）、奥義は 1 撃ごとにその時の闘気を掛けて最後の 1 撃で消費）。
+    ///     docs/kits/Franco.md「パッシブを動画に合わせた（2026-10-16）」。
+    public static let currentSimVersion = 27
 
     public var simVersion: Int
     public var mode: MatchMode
