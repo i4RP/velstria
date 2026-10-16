@@ -31,18 +31,15 @@ struct LoadingScreenView: View {
     var body: some View {
         ZStack {
             GeometryReader { geo in
-                Image("LoadingKeyArt")
+                // 試合前の背景（オーロラの夜空と遺跡の稜線。カードの邪魔をしない中間調。tools/portraits/cards.py と同じ Codex 生成）
+                Image("LoadingBackdrop")
                     .resizable()
                     .scaledToFill()
                     .frame(width: geo.size.width, height: geo.size.height)
                     .clipped()
             }
             .ignoresSafeArea()
-            LinearGradient(colors: [Color.black.opacity(0.16), .clear, Color.black.opacity(0.82)],
-                           startPoint: .top, endPoint: .bottom)
-                .ignoresSafeArea()
-            RadialGradient(colors: [.clear, Color(red: 0.015, green: 0.02, blue: 0.07).opacity(0.72)],
-                           center: .center, startRadius: 180, endRadius: 760)
+            LinearGradient(colors: [.clear, .clear, Color.black.opacity(0.45)], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
             GeometryReader { geo in
                 let rowHeight = max(96, min(170, (geo.size.height - 118) / 2))
