@@ -33,6 +33,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # タグの名前で絞れる: fxcap-<名前>--H029_H030@mlbb（-- の後 = ヒーロー、@ の後 = カメラの組。どちらも _ 区切り）
+      - name: 撮る範囲
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          spec="$TAG"
+          if [[ "$spec" == *"@"* ]]; then
+            echo "PRESETS=${spec##*@}" | tr '_' ' ' >> "$GITHUB_ENV"
+            spec="${spec%@*}"
+          fi
+          if [[ "$spec" == *"--"* ]]; then
+            echo "HEROES=${spec##*--}" | tr '_' ' ' >> "$GITHUB_ENV"
+          fi
+          cat "$GITHUB_ENV" || true
+
       - name: ツール準備
         run: |
           sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -n 1)"

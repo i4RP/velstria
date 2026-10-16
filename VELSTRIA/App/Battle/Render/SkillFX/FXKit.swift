@@ -238,3 +238,56 @@ extension FXMesh {
                sizeEnd: [radius, 1, radius], ease: .outBack, life: life, fadeIn: 0.1, fadeOut: 0.55, spin: spin)
     }
 }
+
+// MARK: - コマ送り・加算・流れる模様（FXSheet / FXBlend / FXFlow）
+// MLBB のスキルの「芯の白い閃光 → 炎・煙の塊 → 欠けながら消える」は、手続きの 1 枚絵の重ねではなくコマ送りの画像で出す。
+// 加算は光る部品（閃光・光の柱・衝撃波の縁・光るひび）だけ。煙・地割れの影・盾面はアルファ合成のまま（暗い・明るい地面で読める）。
+
+extension FXEmit {
+    /// コマ送りの 1 枚もの（爆発・閃光・煙の塊）。count 枚を radius の円盤の中に出す（0 = 一点）。size は m。
+    /// 1 回で消える画像は寿命で 16 コマを流す（最後のコマはほぼ空）。
+    static func sheet(_ s: FXSheet, _ size: Float, _ tint: FXTint = .primary, end: FXTint? = nil, count: Int = 1,
+                      life: Float = 0.5, additive: Bool = true, orient: FXOrient = .billboard, radius: Float = 0) -> FXEmit {
+        FXEmit().with {
+            $0.sheet = s
+            $0.tex = .glow
+            $0.tint = tint
+            $0.tintEnd = end
+            $0.count = count
+            $0.life = life
+            $0.lifeVar = 0.08
+            $0.size = size
+            $0.sizeVar = 0.15
+            $0.grow = 1.12
+            $0.shape = radius > 0 ? .disc(radius) : .point
+            $0.dir = .up
+            $0.speed = 0
+            $0.speedVar = 0
+            $0.orient = orient
+            $0.angleVar = 180
+            $0.fade = s.loops ? .quickFadeInOut : .easeFadeOut
+            $0.additive = additive
+            $0.sheetRandomStart = s.loops
+        }
+    }
+
+    /// 地面に寝かせたコマ送り（衝撃の輪・地割れの広がり・光るひび）。
+    static func groundSheet(_ s: FXSheet, _ size: Float, _ tint: FXTint = .primary, life: Float = 0.6,
+                            additive: Bool = true) -> FXEmit {
+        sheet(s, size, tint, life: life, additive: additive, orient: .ground).with {
+            $0.grow = 1.04
+            $0.sizeVar = 0.05
+        }
+    }
+}
+
+extension FXMesh {
+    /// 加算にする（光る部品だけ。重なるほど明るい）。
+    func glowing() -> FXMesh { with { $0.blend = .add } }
+
+    /// 形の中に流れる模様を付ける（scroll は UV / 秒。弧・帯は x が弧に沿う、柱は y が縦）。
+    func flowing(_ pattern: FXFlowTex = .noise, scroll: SIMD2<Float> = [0, -1], tiling: Float = 2, strength: Float = 0.7,
+                 erosion: Float = 0, edge: FXTint = .core) -> FXMesh {
+        with { $0.flow = FXFlow(pattern: pattern, scroll: scroll, tiling: tiling, strength: strength, erosion: erosion, edge: edge) }
+    }
+}
