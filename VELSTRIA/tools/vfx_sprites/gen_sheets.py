@@ -6,8 +6,8 @@ RGB は全面 255（白）で、形はすべてアルファに持つ（色はエ
 各コマの外周 2 px は必ず完全に透明（隣のコマへにじまない）。乱数の種は固定で、何度回しても同じバイト列になる。
 
 usage:
-  python gen_sheets.py                       # 全シートを ../../App/Resources/FX/Sheets へ
-  python gen_sheets.py --only fire_burst     # 1 枚だけ（manifest は既存の PNG から作り直す）
+  python gen_sheets.py                       # 全シートを ../../App/Resources/FX/Sheets へ、manifest.json はこの横へ
+  python gen_sheets.py --only fire_burst     # 1 枚だけ（manifest は出力先にある PNG から作り直す）
   python gen_sheets.py --preview "$TEMP/vfx_sprites_preview"   # 確認用の合成画像も書く（リポジトリの外へ）
 """
 import argparse
@@ -24,6 +24,8 @@ from scipy import ndimage
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_OUT = os.path.normpath(os.path.join(HERE, "..", "..", "App", "Resources", "FX", "Sheets"))
+# manifest は PNG の横に置かない（App/Resources 以下はアプリのバンドル直下へ平らに入るので、汎用の名前は衝突しうる）
+DEFAULT_MANIFEST = os.path.join(HERE, "manifest.json")
 
 GRID = 4
 FRAMES = GRID * GRID
@@ -248,8 +250,8 @@ def stroke(canvas, pts, radii, values, ss):
         np.maximum(sub, val, out=sub)
 
 
-def fill_poly(canvas, poly, ss, a0, a1=None, g0=None, g1=None):
-    """多角形を塗る（over 合成）。g0 → g1 の向きに a0 → a1 の直線グラデーション。"""
+def fill_poly(canvas, poly, ss, a0, a1=None, g0=None, g1=None, mode="over"):
+    """多角形を塗る（over か max 合成）。g0 → g1 の向きに a0 → a1 の直線グラデーション。"""
     n = canvas.shape[0]
     poly = np.asarray(poly, np.float64)
     px, py = to_px(poly, ss)
@@ -274,7 +276,10 @@ def fill_poly(canvas, poly, ss, a0, a1=None, g0=None, g1=None):
         tt = np.clip(((gx - q0[0]) * dq[0] + (gy - q0[1]) * dq[1]) / max(1e-9, dq @ dq), 0.0, 1.0)
         val = a0 + (a1 - a0) * tt
     sub = canvas[y0:y1, x0:x1]
-    sub[...] = sub * (1.0 - m) + val * m
+    if mode == "max":
+        np.maximum(sub, val * m, out=sub)
+    else:
+        sub[...] = sub * (1.0 - m) + val * m
 
 
 def jagged(p0, p1, depth, rough, rng, decay=0.58):
@@ -310,20 +315,20 @@ def clip_half(poly, p, nrm):
 # --- 1. smoke_puff ---------------------------------------------------------------------------------
 
 def fx_smoke_puff():
-    """土煙・煙の一吹き。大小のこぶ（メタボール）をドメインワープした fbm で崩し、約 1.6 倍に広がって縁から内側へ溶ける。"""
+    """土煙・煙の一吹き。こぶ（メタボール）をドメインワープした fbm で崩し、約 1.6 倍に広がって縁から内側へ溶ける。"""
     ss = 2
     X, Y = grid(ss)
     nA, nB, nC, nD, nE = (Perlin3(s) for s in (1101, 1102, 1103, 1104, 1106))
     rng = np.random.default_rng(1105)
-    lobes = [(0.0, 0.0, 0.50, 2.0)]
+    lobes = [(0.0, 0.0, 0.55)]
     for k in range(6):
         phi = 2 * math.pi * (k + rng.uniform(0.3, 0.7)) / 6
-        dist = rng.uniform(0.34, 0.46)
-        lobes.append((dist * math.cos(phi), dist * math.sin(phi), rng.uniform(0.33, 0.41), 2.0))
-    for k in range(16):
-        phi = 2 * math.pi * (k + rng.uniform(0.2, 0.8)) / 16
-        dist = rng.uniform(0.58, 0.74)
-        lobes.append((dist * math.cos(phi), dist * math.sin(phi), rng.uniform(0.13, 0.21), 2.4))
+        dist = rng.uniform(0.32, 0.44)
+        lobes.append((dist * math.cos(phi), dist * math.sin(phi), rng.uniform(0.34, 0.42)))
+    for k in range(11):
+        phi = 2 * math.pi * (k + rng.uniform(0.2, 0.8)) / 11
+        dist = rng.uniform(0.54, 0.64)
+        lobes.append((dist * math.cos(phi), dist * math.sin(phi), rng.uniform(0.19, 0.27)))
     out = []
     for i in range(FRAMES):
         t = i / (FRAMES - 1)
@@ -331,27 +336,27 @@ def fx_smoke_puff():
         cy = 0.05 * ease_out(t, 1.5)
         px, py = X / R, (Y - cy) / R
         z = 0.7 * t
-        wx = fbm(nA, px * 1.6 + 3.1, py * 1.6 - 1.7, z, 4)
-        wy = fbm(nA, px * 1.6 - 5.3, py * 1.6 + 2.9, z + 5.0, 4)
-        qx, qy = px + 0.11 * wx, py + 0.11 * wy
+        wx = fbm(nA, px * 1.5 + 3.1, py * 1.5 - 1.7, z, 4)
+        wy = fbm(nA, px * 1.5 - 5.3, py * 1.5 + 2.9, z + 5.0, 4)
+        qx, qy = px + 0.16 * wx, py + 0.16 * wy
         spread = 1.0 + 0.16 * ease_out(t, 1.8)
         union = np.zeros_like(X)
         top = np.zeros_like(X)
-        for cx, cyy, rho, kk in lobes:
+        for cx, cyy, rho in lobes:
             d = np.hypot(qx - cx * spread, qy - cyy * spread) / (rho * (1.0 + 0.12 * t))
-            g = np.exp(-kk * d * d)
+            g = np.exp(-2.0 * d * d)
             union = 1.0 - (1.0 - union) * (1.0 - g)
             top = np.maximum(top, g)
         fine = billow(nB, qx * 4.0, qy * 4.0, z, 4)
-        edge = sstep(0.18, 0.66, union + 0.26 * (fine - 0.5))
-        soft = n01(fbm(nC, qx * 2.6 + 9.0, qy * 2.6, z * 0.8, 4))
-        shade = 0.40 + 0.60 * top ** 0.6 * (0.55 + 0.45 * soft)
+        edge = sstep(0.16, 0.70, union + 0.34 * (fine - 0.5))
+        soft = n01(fbm(nC, qx * 2.4 + 9.0, qy * 2.4, z * 0.8, 4) * 1.3)
+        shade = 0.42 + 0.58 * (0.30 * top + 0.70 * soft)
         a = edge * shade
         # 縁から内側へ（ノイズの谷から）やわらかく溶ける
         er = n01(fbm(nD, qx * 2.6, qy * 2.6, z * 1.5, 4))
         er2 = n01(fbm(nE, qx * 6.0, qy * 6.0, z * 2.0, 3))
         field = 0.45 * er + 0.15 * er2 + 0.40 * union
-        a = dissolve(a, field, keep_curve(t, 0.22, 1.04, 1.15), soft=0.08)
+        a = dissolve(a, field, keep_curve(t, 0.22, 1.04, 1.15), soft=0.09)
         a = 0.80 * (1.0 - 0.3 * t) * np.clip(a * 1.2, 0.0, 1.0)
         out.append(down(a, ss))
     return out
@@ -367,42 +372,45 @@ def fx_fire_burst():
     out = []
     for i in range(FRAMES):
         t = i / (FRAMES - 1)
-        R = 0.38 + 0.36 * ease_out(t, 2.6)  # 0.38 → 0.74
-        rise = 0.14 * t ** 1.3
+        R = 0.42 + 0.36 * ease_out(t, 2.6)  # 0.42 → 0.78
+        rise = 0.10 * t ** 1.3
         x, y = X, Y - rise
-        yy = np.where(y > 0, y / (1.0 + 0.7 * t), y * 1.15)
+        yy = np.where(y > 0, y / (1.0 + 0.45 * t), y * 1.12)
         z = 1.5 * t
         adv = 1.4 * t
-        wx = fbm(nA, x * 2.4 + 1.3, (y - adv) * 2.4, z, 4)
-        wy = fbm(nA, x * 2.4 - 4.1, (y - adv) * 2.4 + 3.3, z + 4.0, 4)
-        k = 0.09 + 0.13 * t
+        wx = fbm(nA, x * 2.2 + 1.3, (y - adv) * 2.2, z, 4)
+        wy = fbm(nA, x * 2.2 - 4.1, (y - adv) * 2.2 + 3.3, z + 4.0, 4)
+        k = 0.10 + 0.16 * t
         qx, qy = x + k * wx, yy + k * wy
         r = np.hypot(qx, qy)
         th = np.arctan2(qy, qx)
-        # 炎の舌: 角度のノイズ（円周上でサンプル）で縁を外へ。上向きほど長い
-        tong = n01(fbm(nB, np.cos(th) * 3.4 + 5.0, np.sin(th) * 3.4 - 2.0, 1.2 * t, 3) * 1.3)
+        # 炎の舌: 角度のノイズ（円周上でサンプル）の山を尖らせて縁を外へ。上向きほど長い
+        tong = n01(fbm(nB, np.cos(th) * 2.4 + 5.0, np.sin(th) * 2.4 - 2.0, 1.2 * t, 3) * 1.6)
         up = np.clip(np.sin(th), 0.0, 1.0)
-        redge = R * (0.60 + 0.70 * tong ** 2 * (0.45 + 0.85 * up))
+        redge = R * (0.70 + 0.85 * tong ** 3 * (0.45 + 0.85 * up))
+        redge = 0.92 * np.tanh(redge / 0.92)  # 枠の手前で頭打ち
         d = r / redge
-        turb = fbm(nC, qx * 4.5, (qy - 1.8 * t) * 4.5, z * 1.3, 4)
-        body = sstep(1.0, 0.45, d + 0.24 * turb)
-        # 上へなめる細い炎（縦に伸ばしたノイズ）
-        lick_n = n01(fbm(nE, x * 6.0, (y - 2.2 * t) * 2.0, z, 3))
-        lick_env = sstep(1.55, 0.80, d) * sstep(-0.1, 0.45, qy / R) * sstep(0.0, 0.12, t)
-        licks = sstep(0.56, 0.80, lick_n) * lick_env
-        dens = np.maximum(body, licks * 0.8)
-        # 中のこぶ・すす（アルファの濃淡）と白い芯
-        crease = billow(nD, qx * 3.2, (qy - 0.8 * t) * 3.2, z, 4)
-        tex = 0.42 + 0.58 * crease
-        heat = 1.0 - sstep(0.05, 0.42, t)
-        core = sstep(0.78, 0.30, d + 0.20 * turb) * heat
-        a = np.clip(np.maximum(dens * tex * 0.86, core), 0.0, 1.0)
+        turb = fbm(nC, qx * 4.0, (qy - 1.8 * t) * 4.0, z * 1.3, 4)
+        body = sstep(1.0, 0.74, d + 0.20 * turb)
+        inner = sstep(0.95, 0.15, d + 0.10 * turb)
+        # 上へなめる炎（縦に伸ばしたノイズ）
+        lick_n = n01(fbm(nE, qx * 3.2, (y - 2.2 * t) * 1.6, z, 3))
+        lick_env = sstep(1.70, 0.90, d) * sstep(-0.1, 0.45, qy / R) * sstep(0.0, 0.12, t)
+        licks = sstep(0.56, 0.72, lick_n) * lick_env
+        # 中の濃淡（すすの筋は弱め）と白い芯
+        crease = billow(nD, qx * 3.0, (qy - 0.8 * t) * 3.0, z, 4)
+        smooth = n01(fbm(nD, qx * 2.2 + 7.0, (qy - 0.8 * t) * 2.2, z, 3) * 1.3)
+        tex = (0.62 + 0.38 * smooth) * (0.72 + 0.28 * crease)
+        a = np.maximum(body * (0.50 + 0.50 * inner), licks * (0.45 + 0.35 * sstep(1.7, 1.0, d))) * tex
+        heat = 1.0 - sstep(0.10, 0.45, t)
+        core = sstep(0.62, 0.25, d + 0.20 * turb) * heat
+        a = np.clip(np.maximum(a * 1.1, core), 0.0, 1.0)
         # 中心が燃え尽きて抜ける
         a = a * (1.0 - 0.6 * sstep(0.3, 0.9, t) * np.exp(-((r / (0.5 * R)) ** 2)))
         # 千切れて上へ流れる炎に（下・内側・谷から先に消える）
-        det = n01(fbm(nF, qx * 5.5, (qy - 2.4 * t) * 5.5, z, 4))
+        det = n01(fbm(nF, qx * 5.0, (qy - 2.4 * t) * 5.0, z, 4))
         field = 0.60 * det + 0.25 * np.clip(qy / R * 0.5 + 0.5, 0, 1) + 0.15 * (1.0 - np.clip(d, 0, 1))
-        a = dissolve(a, field, keep_curve(t, 0.30, 1.04, 1.1), soft=0.05)
+        a = dissolve(a, field, keep_curve(t, 0.30, 1.04, 1.1), soft=0.07)
         a = a * (1.0 - 0.25 * sstep(0.5, 1.0, t))
         out.append(down(a, ss))
     return out
@@ -410,37 +418,45 @@ def fx_fire_burst():
 
 # --- 3. flame_loop ---------------------------------------------------------------------------------
 
-def fx_flame_loop():
+def fx_flame_loop(times=None):
     """上へ揺らめく 1 本の炎（根元が広く先が細い）。ノイズの縦と時間に周期を持たせ、16 コマで継ぎ目なくループ。"""
     ss = 2
     X, Y = grid(ss)
     nA, nB, nC, nD = Perlin3(3101), Perlin3(3102), Perlin3(3103), Perlin3(3104)
     V = 2.0  # 模様が 1 ループで上へ流れる距離（正規化座標）
     base_y, height = -0.88, 1.68
+    hb = 0.22
+
+    def profile(h, top):
+        """根元は丸く、top で 0 に細る幅の形（0..1）。"""
+        lower = np.sqrt(np.clip(1.0 - ((h - hb) / hb) ** 2, 0.0, 1.0))
+        upper = np.clip((top - h) / (top - hb), 0.0, 1.0) ** 1.25
+        return np.where(h < hb, lower, upper)
+
     out = []
-    for i in range(FRAMES):
-        t = i / FRAMES
+    for t in (times if times is not None else [i / FRAMES for i in range(FRAMES)]):
         h = (Y - base_y) / height  # 0 = 根元、1 = 先
         hc = np.clip(h, 0.0, 1.3)
         sway = loop_fbm(nA, X * 1.0, Y, t, 1.0, V, 1, 3)
         turb = loop_fbm(nB, X * 3.0, Y, t, 3.0, V, 2, 4)
+        det = n01(loop_fbm(nC, X * 4.5, Y, t, 4.5, V, 2, 3))
         xd = X + (0.03 + 0.22 * hc ** 1.5) * sway * 1.5 + 0.04 * turb * hc
         W0 = 0.37 * (1.0 + 0.06 * math.sin(2 * math.pi * t) + 0.04 * math.sin(4 * math.pi * t + 1.0))
-        hb = 0.22
-        lower = np.sqrt(np.clip(1.0 - ((h - hb) / hb) ** 2, 0.0, 1.0))
-        upper = np.clip((1.0 - h) / (1.0 - hb), 0.0, 1.0) ** 1.25
-        w = W0 * np.where(h < hb, lower, upper) + 1e-4
-        q = np.abs(xd) / w
-        shape = sstep(1.0, 0.45, q + 0.25 * turb * (0.4 + hc)) * sstep(-0.03, 0.05, h)
-        cw = 0.55 * W0 * np.where(h < hb, lower, np.clip((0.60 - h) / (0.60 - hb), 0.0, 1.0) ** 1.1) + 1e-4
-        core = sstep(1.0, 0.30, np.abs(xd) / cw + 0.20 * turb) * sstep(0.0, 0.08, h)
-        det = n01(loop_fbm(nC, X * 4.5, Y, t, 4.5, V, 2, 3))
-        # 先端は外側から削れて二股・三股の舌になる
-        thr = 0.85 * sstep(0.42, 1.05, h)
+        # 外炎: 縁はノイズで削れて横にも舌が出る。上ほど強く削れて先が二股・三股に割れる
+        q = np.abs(xd) / (W0 * profile(h, 1.0) + 1e-4)
+        outer = sstep(1.0, 0.45, q + 0.25 * turb * (0.4 + hc)) * sstep(-0.03, 0.05, h)
+        thr = 0.16 + 0.70 * sstep(0.40, 1.05, h)
         fld = 0.55 * det + 0.45 * np.clip(1.0 - q, 0.0, 1.0)
-        shape = shape * sstep(thr - 0.05, thr + 0.10, fld + 0.12)
-        tex = 0.60 + 0.40 * det ** 1.2
-        a = np.clip(shape * tex * 0.74 + core, 0.0, 1.0)
+        outer = outer * sstep(thr - 0.05, thr + 0.10, fld + 0.12)
+        # 内炎（やや濃い）と白い芯
+        xm = X + (0.02 + 0.16 * hc ** 1.5) * sway * 1.5 + 0.03 * turb * hc
+        qm = np.abs(xm) / (0.68 * W0 * profile(h, 0.80) + 1e-4)
+        mid = sstep(1.0, 0.40, qm + 0.22 * turb) * sstep(0.0, 0.06, h)
+        qc = np.abs(xm) / (0.42 * W0 * profile(h, 0.52) + 1e-4)
+        core = sstep(1.0, 0.35, qc + 0.18 * turb) * sstep(0.0, 0.08, h)
+        tex = 0.55 + 0.45 * det ** 1.2
+        a = np.maximum(outer * tex * 0.66, mid * (0.80 + 0.20 * det))
+        a = np.clip(np.maximum(a, core), 0.0, 1.0)
         # 先から千切れて昇る小さな炎（1 ループに 2 つ）
         for b in range(2):
             life = ((t + 0.5 * b + 0.15) % 1.0) / 0.45
@@ -452,7 +468,7 @@ def fx_flame_loop():
             dx = (X - bx) / size
             dy = (Y - by) / (size * 1.8)
             blob = sstep(1.0, 0.3, np.hypot(dx, np.where(dy > 0, dy * 0.7, dy * 1.3)) + 0.35 * turb)
-            a = np.maximum(a, blob * math.sin(math.pi * life) ** 0.8 * 0.85)
+            a = np.maximum(a, blob * math.sin(math.pi * life) ** 0.8 * 0.80)
         out.append(down(a, ss))
     return out
 
@@ -625,8 +641,8 @@ def fx_slash_fade():
     """三日月形の斬撃（上半分・左から右へ振る）。0〜2 コマで弧が伸び、その後ノイズで削れつつ外へ少し流れて消える。"""
     ss = 2
     X, Y = grid(ss)
-    cy = -0.16
-    xr, yr = X, Y - cy
+    cy = -0.06
+    xr, yr = X, (Y - cy) * 1.22  # 横に長い楕円の弧（振りの勢い）
     r = np.hypot(xr, yr)
     th = np.arctan2(yr, xr)
     th = np.where(th < -math.pi / 2, th + 2 * math.pi, th)  # [-π/2, 3π/2)
@@ -639,8 +655,8 @@ def fx_slash_fade():
     out = []
     for i in range(FRAMES):
         tt = np.clip((i - 2) / (FRAMES - 3), 0.0, 1.0)
-        Ro = 0.78 + 0.07 * ease_out(tt, 1.6)
-        tau_max = 0.32 * (1.0 - 0.30 * tt)
+        Ro = 0.80 + 0.06 * ease_out(tt, 1.6)
+        tau_max = 0.40 * (1.0 - 0.30 * tt)
         if i < len(sweep):
             head = sweep[i]
             boost = 1.0 + 0.30 * np.exp(-((sc - head) / 0.16) ** 2)
@@ -654,8 +670,8 @@ def fx_slash_fade():
         q = (Ron - r) / tau  # 0 = 外縁、1 = 内縁
         qc = np.clip(q, 0.0, 1.0)
         lines = n01(streak * 1.3) ** 1.3
-        body = (1.0 - qc) ** 1.4 * (0.35 + 0.65 * lines)
-        body = np.maximum(body, sstep(0.32, 0.0, q))  # 外縁の太く明るい刃
+        body = (1.0 - qc) ** 1.1 * (0.40 + 0.60 * lines)
+        body = np.maximum(body, sstep(0.50, 0.05, q))  # 外縁の太く明るい刃
         body = np.where((q >= 0) & (q <= 1), body, 0.0) * sstep(1.0, 0.8, q)
         outer = np.where(q < 0, np.exp(-((r - Ron) / (1.3 * PX)) ** 2), 0.0) * prof ** 0.3
         # 内側の細い追い筋（二重の斬撃線）
@@ -768,9 +784,11 @@ def fx_ice_shatter():
             spine0 = np.array([sh["r0"], 0.0])
             spine1 = np.array([sh["r0"] + sh["L"], 0.0])
             if f0 is not None:
-                fill_poly(canvas, xf(f0), ss, 0.95 * lit * alpha, 0.50 * lit * alpha, xf(spine0[None])[0], xf(spine1[None])[0])
+                fill_poly(canvas, xf(f0), ss, 0.95 * lit * alpha, 0.50 * lit * alpha, xf(spine0[None])[0],
+                          xf(spine1[None])[0], mode="max")
             if f1 is not None:
-                fill_poly(canvas, xf(f1), ss, 0.40 * alpha, 0.72 * alpha, xf(spine0[None])[0], xf(spine1[None])[0])
+                fill_poly(canvas, xf(f1), ss, 0.40 * alpha, 0.72 * alpha, xf(spine0[None])[0],
+                          xf(spine1[None])[0], mode="max")
             ol = xf(pc["outline"])
             loop = np.vstack([ol, ol[:1]])
             stroke(lines, loop, 0.65, alpha, ss)
@@ -793,7 +811,7 @@ def fx_ice_shatter():
         # 中心の冷気の閃光
         X, Y = grid(1)
         rr = np.hypot(X, Y)
-        flash = [0.95, 0.75, 0.45, 0.25, 0.1][i] if i < 5 else 0.0
+        flash = [0.95, 0.75, 0.50, 0.34, 0.22, 0.12, 0.05][i] if i < 7 else 0.0
         if flash > 0:
             a = np.maximum(a, flash * np.exp(-(rr / (0.18 + 0.05 * i)) ** 2))
             a = a + 0.25 * flash * np.exp(-(rr / 0.5) ** 2) * (1 - a)
@@ -815,7 +833,7 @@ def fx_ice_shatter():
 
 # --- 9. spark_twinkle ------------------------------------------------------------------------------
 
-def fx_spark_twinkle():
+def fx_spark_twinkle(times=None):
     """4 方向に光が伸びるきらめき（大きさ・回転・明るさが脈打つ）と小さなきらめき。16 コマで継ぎ目なくループ。"""
     ss = 2
     X, Y = grid(ss)
@@ -836,8 +854,7 @@ def fx_spark_twinkle():
         return acc
 
     out = []
-    for i in range(FRAMES):
-        t = i / FRAMES
+    for t in (times if times is not None else [i / FRAMES for i in range(FRAMES)]):
         pulse = 0.5 - 0.5 * math.cos(2 * math.pi * t)
         sc = 0.55 + 0.45 * pulse ** 1.3
         inten = 0.60 + 0.40 * pulse
@@ -853,7 +870,7 @@ def fx_spark_twinkle():
                 continue
             x, y = X - sm["p"][0], Y - sm["p"][1]
             rs = np.hypot(x, y)
-            s_ = star(x, y, sm["L"] * (0.4 + 0.6 * k), 0.010, -ang * 0.5)
+            s_ = star(x, y, sm["L"] * (0.4 + 0.6 * k), 0.010, -ang)
             s_ = np.maximum(s_, np.exp(-(rs / 0.025) ** 2))
             a = np.maximum(a, k * s_)
         out.append(down(np.clip(a, 0, 1), ss))
@@ -896,7 +913,8 @@ def fx_dark_wisp():
         ang = 2 * math.pi * (k + rng.uniform(0.2, 0.8)) / S
         seeds.append(dict(ang=ang, r=rng.uniform(0.05, 0.22), L=rng.uniform(0.70, 1.25),
                           w=rng.uniform(0.40, 0.70), amp=rng.uniform(0.65, 1.0), fray=int(rng.integers(2, 4)),
-                          spread=rng.uniform(0.012, 0.03), seed=k * 7.3))
+                          spread=rng.uniform(0.012, 0.03), seed=k * 7.3,
+                          curl=rng.choice([-1, 1]) * rng.uniform(9.0, 16.0), cs=rng.uniform(0.55, 0.72)))
     Xs, Ys = grid(1)
     n = CELL
     gx, gy = np.meshgrid(np.arange(n, dtype=np.float32), np.arange(n, dtype=np.float32))
@@ -913,10 +931,13 @@ def fx_dark_wisp():
             p = np.array([[math.cos(ang), math.sin(ang)]]) * sd["r"] * (1.0 + 0.9 * t)
             pts = np.zeros((M, 2))
             tang = np.zeros((M, 2))
+            ex = 0.0  # 先端の巻き（流線からさらに曲げる角度）
             for j in range(M):
                 pts[j] = p[0]
                 v = np.array([_sample(c, vx, p)[0], _sample(c, vy, p)[0]])
                 v = v / (np.linalg.norm(v) + 1e-6)
+                ex += ds * sd["curl"] * float(sstep(sd["cs"], 1.0, j / (M - 1))) * (0.6 + 0.8 * t)
+                v = rot(ex) @ v
                 tang[j] = v
                 p = p + ds * v[None, :]
                 rp = np.hypot(*p[0])
@@ -924,21 +945,24 @@ def fx_dark_wisp():
                     p = p * (0.86 / rp)
             s = np.linspace(0, 1, M)
             nrm = np.stack([-tang[:, 1], tang[:, 0]], axis=1)
-            alpha_s = np.sin(np.pi * s ** 0.75) ** 0.9 * sd["amp"]
+            alpha_s = np.sin(np.pi * s ** 0.6) * sd["amp"]
             for f in range(sd["fray"]):
                 off = (f - (sd["fray"] - 1) / 2) * (0.004 + sd["spread"] * s ** 1.3 * (0.5 + 1.2 * t))
                 fn = fbm(nW, s * 5.0 + f * 3.1, sd["seed"] + f, t, 2)
                 q = pts + nrm * (off + 0.02 * fn * s)[:, None]
-                wr = sd["w"] * (0.30 + 0.70 * np.sin(np.pi * s) ** 0.6) * (1.0 - 0.35 * f / sd["fray"])
+                wr = sd["w"] * (0.30 + 0.70 * np.sin(np.pi * s ** 0.7) ** 0.6) * (1.0 - 0.35 * f / sd["fray"])
                 stroke(canvas, q, wr * (1.0 + 0.7 * t), alpha_s * (1.0 if f == 0 else 0.55), ss)
+            # 筋のまわりの薄い煙
+            stroke(canvas, pts, sd["w"] * 3.2 * (0.4 + 0.6 * np.sin(np.pi * s ** 0.7)) * (1.0 + 0.6 * t),
+                   alpha_s * 0.16, ss)
         a = down(canvas, ss)
         dx = fbm(nW, Xs * 2.0, Ys * 2.0, t * 0.9, 3) * (1.2 + 2.0 * t)
         dy = fbm(nW, Xs * 2.0 + 7.7, Ys * 2.0, t * 0.9 + 3.0, 3) * (1.2 + 2.0 * t)
         a = cv2.remap(a.astype(np.float32), gx + dx.astype(np.float32), gy + dy.astype(np.float32),
                       cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0).astype(np.float64)
         sharp = blur(a, 0.25 + 0.8 * t)
-        haze = blur(a, 4.0 + 3.0 * t)
-        a = np.clip(sharp * 1.35 + haze * 0.40, 0, 1)
+        haze = blur(a, 3.0 + 3.0 * t)
+        a = np.clip(sharp * 1.3 + haze * 0.55, 0, 1)
         er = n01(fbm(nE, Xs * 3.5, Ys * 3.5, t * 1.6, 4))
         a = dissolve(a, er * 0.85 + 0.15 * a, keep_curve(t, 0.35, 1.04, 1.1), soft=0.06)
         a = a * (1.0 - 0.35 * sstep(0.5, 1.0, t))
@@ -1217,7 +1241,7 @@ def write_preview(path, name, rgba, tint, ground):
     im.save(path, format="PNG", optimize=True)
 
 
-def write_manifest(out_dir):
+def write_manifest(out_dir, manifest_path):
     items = []
     for name, _, mode, fps, _, _ in sorted(SHEETS, key=lambda s: s[0]):
         path = os.path.join(out_dir, name + ".png")
@@ -1227,7 +1251,8 @@ def write_manifest(out_dir):
         items.append({"name": name, "file": name + ".png", "rows": GRID, "columns": GRID, "frames": FRAMES,
                       "frameSize": CELL, "mode": mode, "suggestedFPS": fps, "bytes": len(data),
                       "sha256": hashlib.sha256(data).hexdigest()})
-    with open(os.path.join(out_dir, "manifest.json"), "w", encoding="utf-8", newline="\n") as f:
+    os.makedirs(os.path.dirname(os.path.abspath(manifest_path)), exist_ok=True)
+    with open(manifest_path, "w", encoding="utf-8", newline="\n") as f:
         json.dump(items, f, indent=2, ensure_ascii=False)
         f.write("\n")
     return items
@@ -1236,7 +1261,8 @@ def write_manifest(out_dir):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--only", action="append", help="このシートだけ作る（複数指定可）")
-    ap.add_argument("--out", default=DEFAULT_OUT, help="PNG と manifest.json の出力先")
+    ap.add_argument("--out", default=DEFAULT_OUT, help="PNG の出力先")
+    ap.add_argument("--manifest", default=DEFAULT_MANIFEST, help="manifest.json の出力先（既定はこのスクリプトの横）")
     ap.add_argument("--preview", help="確認用の合成画像の出力先（リポジトリの外を指定する）")
     args = ap.parse_args(argv)
     names = [s[0] for s in SHEETS]
@@ -1260,7 +1286,7 @@ def main(argv=None):
             print(f"  warning: {name} is larger than 350 KB", file=sys.stderr)
         if args.preview:
             write_preview(os.path.join(args.preview, name + "_preview.png"), name, rgba, tint, ground)
-    write_manifest(args.out)
+    write_manifest(args.out, args.manifest)
 
 
 if __name__ == "__main__":

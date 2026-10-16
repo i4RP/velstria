@@ -8,8 +8,8 @@
     "frameSize": 128,
     "mode": "once",
     "suggestedFPS": 16,
-    "bytes": 47740,
-    "sha256": "83811fe6d7d8868012846db20ff4f9248460c0e2a8460b27553a04dc73f364d8"
+    "bytes": 61816,
+    "sha256": "6ed87fc3f03b582f48eee5d4785c5ec15e1759b2ef4ad01259e15171032c248d"
   },
   {
     "name": "electric_arc",
@@ -44,8 +44,8 @@
     "frameSize": 128,
     "mode": "once",
     "suggestedFPS": 24,
-    "bytes": 54792,
-    "sha256": "8819b0188cd2068cca31e0192175f1b3fba6f837d5ca566ef3531830d8b70709"
+    "bytes": 49591,
+    "sha256": "8a97f7f924e218769d2b73a762ee3bd7e3538cce599e5035bca8349e106e9efc"
   },
   {
     "name": "flame_loop",
@@ -56,8 +56,8 @@
     "frameSize": 128,
     "mode": "loop",
     "suggestedFPS": 20,
-    "bytes": 41148,
-    "sha256": "c0469add5984b53768b86b2cca897dae717dd0a3292f2f0f6e23b1a2fa9b1453"
+    "bytes": 43948,
+    "sha256": "e29b5786e3e3f42cc176869df2a6acfc9872bdad5ed0835e319a532d666c52b5"
   },
   {
     "name": "ground_crack",
@@ -92,8 +92,8 @@
     "frameSize": 128,
     "mode": "once",
     "suggestedFPS": 20,
-    "bytes": 68064,
-    "sha256": "35c71e57de205f0269b3091b26c6d41eedf34ecc57dd82419cac1bee9576c064"
+    "bytes": 69775,
+    "sha256": "128f6204ac6fc610a9396e8ffe146f22240d340cfd91c792797f027a4dbbdc42"
   },
   {
     "name": "shock_ring",
@@ -116,8 +116,8 @@
     "frameSize": 128,
     "mode": "once",
     "suggestedFPS": 24,
-    "bytes": 31946,
-    "sha256": "fd95ed750d036586e0666c3f1221d6d1dded6243ef3381fc18132e6b2174ba61"
+    "bytes": 30613,
+    "sha256": "29e9ac005c92c52afe97bb31c6f09a6c93fb44bb5516e0804891f615815fe40b"
   },
   {
     "name": "smoke_puff",
@@ -128,8 +128,8 @@
     "frameSize": 128,
     "mode": "once",
     "suggestedFPS": 20,
-    "bytes": 48492,
-    "sha256": "9384779ef68eda99efc203e27edc33ab25482028656a4730e110144e95f35438"
+    "bytes": 58630,
+    "sha256": "41cb905101e758cd505f732c913a39c7a8d82f3222918d5eefa2e7922e62bc29"
   },
   {
     "name": "spark_twinkle",
@@ -140,7 +140,7 @@
     "frameSize": 128,
     "mode": "loop",
     "suggestedFPS": 16,
-    "bytes": 33461,
-    "sha256": "2e0f9e4f405412b8c7bcbb6b35c81783d4acb1d2b5b21f2367916251dcb7fecb"
+    "bytes": 33471,
+    "sha256": "fd39330dee0a9ae78c3ec0b8fd60850d39394125f7eed84a738f3ec403102aab"
   }
 ]

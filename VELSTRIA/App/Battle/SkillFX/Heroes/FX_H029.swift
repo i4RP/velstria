@@ -32,8 +32,8 @@ enum FX_H029: HeroFXSet {
     /// 土煙・土の破片（明るい土色のアルファ合成。草地・石畳・水の上でも見える）。
     private static let dust = FXTint.rgb(0.58, 0.48, 0.34)
     /// MLBB の聖槌の爆発の炎（橙）と、その消え際（暗い朱）。
-    private static let flame = FXTint.rgb(1.0, 0.52, 0.14)
-    private static let ember = FXTint.rgb(0.55, 0.14, 0.04)
+    private static let flame = FXTint.rgb(1.0, 0.64, 0.22)
+    private static let ember = FXTint.rgb(0.45, 0.2, 0.1)
     /// 崩落で飛ぶ白い岩の破片。
     private static let rock = FXTint.rgb(0.86, 0.82, 0.74)
 
