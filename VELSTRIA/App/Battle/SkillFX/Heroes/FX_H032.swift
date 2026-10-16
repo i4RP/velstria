@@ -4,27 +4,29 @@ import VelstriaCore
 // スキル演出: H032 赤拳のディアス（Duelist / 刃付きの籠手（拳剣）・赤い気・包帯の腕。MLBB の Dyrroth の Velstria 版）。
 // 主題: 奈落の紫炎と紅のレイジ。桃白の芯 × 奈落の紫（主。MLBB のスキルの紫）× 紅（副。モデルの赤い気 = レイジ）×
 // 燠の橙（差し色。籠手の輪の光）× 黒紫（暗。アルファ合成の煙・亡霊の影）。
-// 上から見下ろすカメラで「腕に巻く紅の輪（レイジ）」「扇へ飛ぶ回転刃の衝撃 3 連」「亡霊の影を引く突進と、飛びかかる致命の一撃」
+// 上から見下ろすカメラで「腕に巻く紅の輪（レイジ）」「帯に沿って手前から奥へ弾ける衝撃の輪 3 連」「亡霊の影を引く突進と、飛びかかる致命の一撃」
 // 「溜めてから前へ 3 本の爪で裂く長い直線」が読めるよう、全周の輪を主役にせず、回転刃・爪痕・突進の影・直線の裂け目で形を見せる。
-// sim の実際の挙動（Systems/Kits/Kit_H032.swift の Tune）に合わせたタイミング:
+// sim の実際の挙動（Systems/Kits/Kit_H032.swift の Tune。MLBB の画面収録で測った値）に合わせたタイミング:
 //   パッシブ 紅血の拳        — cast: レイジが 50・100 に届いた瞬間（バッジの段が増えたとき）: 両腕に回る紅の輪・足元の紫炎・燠。
 //                              passiveRelease: アビス強化を放ってバッジの段が 1 → 0 に戻った瞬間（スキルの発動の直後）: 足元の紫の渦が
 //                              拳へ吸い込まれ、紫炎が前へ噴く（スキル1 の 5 連・スキル2 の強化された致命の一撃に重なる）。
 //                              円撃（通常攻撃 2 回に 1 回）は専用のイベントが無いので通常攻撃の演出（Effekseer）のまま
-//   スキル1 赤拳連斬（扇）     — 扇のアーキタイプなので発動と同時に cast と impact。0.1 / 0.24 / 0.38 秒（burstFirstDelay + 0.14 × n）に、
-//                              紫の回転刃が前へ飛び（advance）、右→左→右の斬線と紫の筋が扇へ吹く。足元に爪痕。被弾は 1 発ごと
-//                              （hitPerHit）に小さな火花と鈍足の紅の輪。アビス強化（5 連・射程 400）はレシピが共通なので 3 連の演出のまま
-//                              （passiveRelease の紫炎が重なる）
+//   スキル1 赤拳連斬（帯）     — 近接の cone のアーキタイプなので発動と同時に cast と impact。0.26 / 0.46 / 0.66 秒（burstFirstDelay + 0.2 × n）に、
+//                              照準の帯の上の衝撃の円（半径 1.12m。中心は照準線の 0.22 / 0.49 / 0.76 = 1.05 / 2.33 / 3.6m）で紫の輪が弾け、
+//                              回転刃と斬線（右→左→右）が重なる。被弾は 1 発ごと（hitPerHit）に小さな火花と鈍足の紅の輪。
+//                              アビス強化（5 つ・射程 6.44m）はレシピが共通なので 3 つの輪のまま（照準点が遠いので輪も奥まで並ぶ。
+//                              passiveRelease の紫炎が重なる）
 //   スキル2 紅蓮の踏込        — 1 回目（stage 0、dashStrike: impact は再生されない）: 紫の閃光から、紫の筋・紫炎・黒紫の亡霊の煙を引いて
-//                              突進（≈ 0.17 秒）、通り道に爪痕 2 つ、終点（照準 = 着地点）に回転刃と斬線（cast の .target、0.12 秒）。
+//                              突進（4.15m を 0.4 秒）、通り道に爪痕 2 つ、終点（照準 = 着地点）に回転刃と斬線（cast の .target）。
 //                              被弾（最初に当たった敵、到着の瞬間）: 押し出す火花。
-//                              2 回目（stage 1 = 致命の一撃、targetedBlink: impact は発動時に対象の位置）: 紅の閃光と尾を引いて飛びかかり、
+//                              2 回目（stage 1 = 致命の一撃、targetedBlink: impact は発動時に対象の位置）: 振りかぶり（0.06 秒、強化 0.19 秒）の
+//                              あと紅の閃光と尾を引いて飛びかかり（毎秒 12m）、
 //                              対象に紅の照準の輪が縮む。被弾（到着の瞬間）: 紫と紅の十字の斬撃・砕ける燠色の鎧（防御ダウン）・
 //                              足元の紫のひび（防御ダウン 4 秒）。段の演出は recipe(_:stage:_:)
 //   アルティメット 奈落の一撃  — 直線（piercingLine）だが投射物もゾーンも作らない（Kit.hitAreaEach）ので、全部を cast に置く。
-//                              0〜0.5 秒の溜め: 足元の黒と紫の渦が縮み、紫炎が立ちのぼり、両腕の紅の輪が回り、前方の直線（6.5m）が
-//                              薄く光る。0.5 秒: 前へ 3 本の爪の光条（射程いっぱい）・前へ走る紫の三日月（advance）・地面の爪痕・
-//                              線に沿って舞う紫の光と破片と黒煙・終端の裂け目と火花。被弾（0.5 秒）: 対象を裂く斬線・紫炎・鈍足の紅の輪
+//                              0〜0.76 秒の溜め: 足元の黒と紫の渦が縮み、紫炎が立ちのぼり、両腕の紅の輪が回り、前方の直線（6.14m・半幅 1.37m）が
+//                              薄く光る。0.76 秒: 前へ 3 本の爪の光条（射程いっぱい）・前へ走る紫の三日月（advance）・地面の爪痕・
+//                              線に沿って舞う紫の光と破片と黒煙・終端の裂け目と火花。被弾（0.76 秒）: 対象を裂く斬線・紫炎・鈍足の紅の輪
 
 enum FX_H032: HeroFXSet {
     static let palette = FXPalette(core: RGB(1.0, 0.9, 0.96), primary: RGB(0.62, 0.2, 1.0),
@@ -36,15 +38,19 @@ enum FX_H032: HeroFXSet {
 
     // MARK: - sim の時刻・寸法（Kit_H032.Tune と同じ値。sim の値を変えたらここも合わせる）
 
-    /// スキル1: 1 発目の遅れと間隔（通常版）。
-    private static let burstFirst: Float = 0.1
-    private static let burstInterval: Float = 0.14
-    /// スキル2: 突進の所要の目安（400 / 2400 ≈ 0.17 秒、致命の一撃は最長 500 / 2600 ≈ 0.19 秒）。
-    private static let dashTime: Float = 0.17
+    /// スキル1: 1 発目の遅れと間隔（通常版も強化も 0.2 秒おき）。
+    private static let burstFirst: Float = 0.26
+    private static let burstInterval: Float = 0.2
+    /// スキル1: 衝撃の円の半径（m）と、照準線（術者 → 照準点 = 射程）の上の円の中心の位置（通常版の 1.05 / 2.325 / 3.6m ÷ 4.72m）。
+    private static let burstRadius: Float = 1.12
+    private static let burstAlong: [Float] = [0.2225, 0.4926, 0.7627]
+    /// スキル2: 突進の所要（415 / 1040 ≈ 0.4 秒）と、致命の一撃の振りかぶり + 隣の敵への飛びかかりの目安（0.06 + 約 0.1 秒）。
+    private static let dashTime: Float = 0.4
+    private static let fatalTime: Float = 0.16
     /// アルティメット: 溜め・射程（直線の長さ）・半幅。
-    private static let ultCharge: Float = 0.5
-    private static let ultReach: Float = 6.5
-    private static let ultHalfWidth: Float = 1.4
+    private static let ultCharge: Float = 0.76
+    private static let ultReach: Float = 6.14
+    private static let ultHalfWidth: Float = 1.37
 
     // MARK: - 部品
 
@@ -116,31 +122,36 @@ enum FX_H032: HeroFXSet {
 
     // MARK: - スキル1 赤拳連斬
 
-    /// 0.1 / 0.24 / 0.38 秒に扇（±37°・3m）へ回転刃と斬線（右→左→右）。
+    /// 0.26 / 0.46 / 0.66 秒に、照準の帯の上の衝撃の円（半径 1.12m）が手前から奥へ弾ける。回転刃と斬線（右→左→右）が重なる。
     private static func burstRecipe(_ s: FXSkillInfo) -> SkillFXRecipe {
         var r = SkillFXRecipe()
-        let R = min(s.radius, 4.0)
+        let R = burstRadius
         let t0 = burstFirst, dt = burstInterval
         r.cast = [
             .emit(.flare(1.1, .core, life: 0.12, tex: .flare4), at: 0.06, offset: [0.35, 1.0, 0.6]),
         ]
+        // 円ごと（照準線の上の固定の位置）: 紫の輪が広がって弾け、回転刃が回り、地面に爪痕、紫の筋と火花
+        for (k, f) in burstAlong.enumerated() {
+            let t = t0 + dt * Float(k)
+            r.cast += [
+                .mesh(.shockRing(R, k == 1 ? .secondary : .primary, life: 0.3, tex: .ringDouble), at: t, .along(f),
+                      offset: [0, 0.05, 0]),
+                .mesh(chakram(R * 1.4, .primary, life: 0.24, speed: 0, spin: k == 1 ? -1100 : 1100), at: t - 0.02, .along(f),
+                      offset: [0, 0.5, 0]),
+                .mesh(.decal(.claw, R * 1.6, .primary, life: 0.8, spin: 0, grow: 1.0, alpha: 0.65), at: t + 0.01, .along(f)),
+                .emit(.sparks(8, speed: 6, .core, end: .secondary), at: t + 0.01, .along(f), offset: [0, 0.6, 0]),
+            ]
+        }
         r.impact = [
-            // 回転刃: 前へ飛びながら回る紫の渦の刃（3 発）
-            .mesh(chakram(R * 0.8, .primary, life: 0.26, speed: R * 2.6, spin: 1100), at: t0, offset: [0, 0.6, 0.6])
-                .repeated(3, every: dt),
-            // 斬線: 右→左（1・3 発目）、左→右（2 発目）。外の紫 + 芯の白
-            .mesh(.slash(R * 0.9, .primary, from: 75, to: -75, height: 1.0, tilt: -12, life: 0.22), at: t0,
+            // 斬線: 右→左（1・3 発目）、左→右（2 発目）。外の紫 + 芯の白（術者の前で振る）
+            .mesh(.slash(1.8, .primary, from: 75, to: -75, height: 1.0, tilt: -12, life: 0.22), at: t0,
                   offset: [0, 1.0, 0]).repeated(2, every: 2 * dt),
-            .mesh(.slash(R * 0.85, .secondary, from: -75, to: 75, height: 1.05, tilt: 14, life: 0.22), at: t0 + dt,
+            .mesh(.slash(1.7, .secondary, from: -75, to: 75, height: 1.05, tilt: 14, life: 0.22), at: t0 + dt,
                   offset: [0, 1.05, 0]),
-            .mesh(.slash(R * 0.8, .core, from: 70, to: -70, height: 1.0, tilt: -8, life: 0.16, tex: .slashThin), at: t0,
+            .mesh(.slash(1.6, .core, from: 70, to: -70, height: 1.0, tilt: -8, life: 0.16, tex: .slashThin), at: t0,
                   offset: [0, 1.02, 0]).repeated(3, every: dt),
-            // 扇へ吹く紫の筋（3 発）
-            .emit(.fan(12, .primary, speed: R * 4, spread: 32, life: 0.3), at: t0, offset: [0, 0.9, 0.4]).repeated(3, every: dt),
-            // 足元の爪痕と、最後の衝撃の火花
-            .mesh(.decal(.claw, R * 1.3, .primary, life: 0.9, spin: 0, grow: 1.0, alpha: 0.7), at: t0 + 0.01,
-                  offset: [0, 0, R * 0.5]),
-            .emit(.sparks(12, speed: 7, .core, end: .secondary), at: t0 + 2 * dt + 0.02, offset: [0, 0.9, R * 0.7]),
+            // 帯へ吹く紫の筋（3 発）
+            .emit(.fan(10, .primary, speed: 9, spread: 14, life: 0.3), at: t0, offset: [0, 0.9, 0.4]).repeated(3, every: dt),
             .shake(0.12, at: t0),
             .shake(0.16, at: t0 + 2 * dt),
         ]
@@ -162,7 +173,7 @@ enum FX_H032: HeroFXSet {
         let t = dashTime
         r.cast = [
             .emit(.flare(1.3, .primary, life: 0.14, tex: .flare6), offset: [0, 1.0, 0.3]),
-            // 突進の間（≈ 0.17 秒）: 紫の筋・紫炎・黒紫の亡霊の煙
+            // 突進の間（0.4 秒）: 紫の筋・紫炎・黒紫の亡霊の煙
             .emit(.trail(.streak, .primary, rate: 100, life: 0.3, size: 0.5).with {
                 $0.duration = t; $0.stretch = 3; $0.dir = .backward; $0.speed = 4; $0.tintEnd = .secondary
             }, .follow, offset: [0, 1.0, 0]),
@@ -172,9 +183,9 @@ enum FX_H032: HeroFXSet {
             .emit(.trail(.smoke, .dark, rate: 50, life: 0.6, size: 0.8).with {
                 $0.duration = t + 0.02; $0.additive = false; $0.grow = 1.8; $0.fade = .gradualFadeInOut; $0.tintEnd = nil
             }, .follow, offset: [0, 0.6, 0], quality: 1),
-            // 通り道の爪痕（照準線の 0.3 / 0.75。距離に合わせて並ぶ）
-            .mesh(.decal(.claw, 1.1, .primary, life: 0.9, spin: 0, grow: 1.0, alpha: 0.6), at: 0.03, .along(0.3)),
-            .mesh(.decal(.claw, 1.1, .secondary, life: 0.9, spin: 0, grow: 1.0, alpha: 0.6), at: 0.09, .along(0.75)),
+            // 通り道の爪痕（照準線の 0.3 / 0.75。突進が通る時刻 0.11 / 0.29 秒に）
+            .mesh(.decal(.claw, 1.1, .primary, life: 0.9, spin: 0, grow: 1.0, alpha: 0.6), at: 0.11, .along(0.3)),
+            .mesh(.decal(.claw, 1.1, .secondary, life: 0.9, spin: 0, grow: 1.0, alpha: 0.6), at: 0.29, .along(0.75)),
             // 終点（着地点）: 回転刃と斬線、前へ散る火花
             .mesh(chakram(1.8, .primary, life: 0.3, speed: 0, spin: 900), at: t - 0.05, .target, offset: [0, 0.5, 0.3]),
             .mesh(.slash(1.3, .secondary, from: 70, to: -70, height: 1.0, life: 0.2), at: t - 0.04, .target,
@@ -200,8 +211,8 @@ enum FX_H032: HeroFXSet {
     static func recipe(_ slot: SkillSlot, stage: Int, _ s: FXSkillInfo) -> SkillFXRecipe? {
         guard slot == .skill2, stage == 1 else { return nil }
         var r = SkillFXRecipe()
-        let t = dashTime + 0.02
-        // 紅の閃光と尾を引いて飛びかかる
+        let t = fatalTime
+        // 振りかぶりの紅の閃光と、尾を引いて飛びかかる
         r.cast = [
             .emit(.flare(1.4, .secondary, life: 0.14, tex: .flare6), offset: [0, 1.0, 0.3]),
             .emit(.trail(.streak, .secondary, rate: 100, life: 0.3, size: 0.55).with {
@@ -235,7 +246,7 @@ enum FX_H032: HeroFXSet {
 
     // MARK: - アルティメット 奈落の一撃
 
-    /// 0〜0.5 秒の溜め → 0.5 秒に前方の直線（6.5m・半幅 1.4m）を 3 本の爪で裂く。投射物もゾーンも無いので全部 cast。
+    /// 0〜0.76 秒の溜め → 0.76 秒に前方の直線（6.14m・半幅 1.37m）を 3 本の爪で裂く。投射物もゾーンも無いので全部 cast。
     private static func abysmRecipe(_ s: FXSkillInfo) -> SkillFXRecipe {
         var r = SkillFXRecipe()
         let L = min(s.range, ultReach)
@@ -253,7 +264,7 @@ enum FX_H032: HeroFXSet {
             .mesh(.ray(.streak, length: L, width: W * 1.9, .primary, life: t, alpha: 0.35).with {
                 $0.fadeIn = 0.4; $0.fadeOut = 0.9
             }, offset: [0, 0.02, L / 2]),
-            // 0.5 秒: 前へ 3 本の爪の光条（外の紫 + 芯の桃白）
+            // 0.76 秒: 前へ 3 本の爪の光条（外の紫 + 芯の桃白）
             .mesh(.ray(.streak, length: L, width: 1.2, .primary, life: 0.4, alpha: 0.9), at: t, offset: [-0.5, 0.12, L / 2])
                 .repeated(3, every: 0.02, step: [0.5, 0, 0]),
             .mesh(.ray(.streak, length: L, width: 0.5, .core, life: 0.26), at: t, offset: [-0.5, 0.15, L / 2], quality: 1)
@@ -287,7 +298,7 @@ enum FX_H032: HeroFXSet {
         // 投射物もゾーンも無いので impact / travel は本番では再生されない（目視確認の実演だけ）。既定演出で補われないよう揺れだけ置く
         r.impact = [.shake(0.2)]
         r.travel = [.shake(0.05)]
-        // 0.5 秒の被弾: 対象を裂く斬線・噴き上がる紫炎（失った HP の追撃）・鈍足（0.8 秒）の紅の輪
+        // 0.76 秒の被弾: 対象を裂く斬線・噴き上がる紫炎（失った HP の追撃）・鈍足（0.8 秒）の紅の輪
         r.hit = [
             .mesh(.slash(1.1, .primary, from: 70, to: -70, height: 1.0, tilt: -30, life: 0.24), offset: [0, 1.0, -0.6]),
             .emit(.flare(1.4, .core, life: 0.16, tex: .flare6), offset: [0, 1.0, 0]),
@@ -306,26 +317,29 @@ enum FX_H032: HeroFXSet {
         case .passive:
             break
         case .skill1:
-            // 右から薙ぎ（0.1）、返して左から（0.24）、もう一度右から（0.38）。3 連の衝撃に打撃のキーを合わせる
-            m.windup(0.06, side: 1, power: 1.0)
-            m.slash(0.04, side: 1, power: 1.2)
-            m.windup(0.07, side: -1, power: 0.9)
-            m.slash(0.07, side: -1, power: 1.1)
-            m.windup(0.07, side: 1, power: 0.9)
-            m.slash(0.07, side: 1, power: 1.2)
+            // 大きく振りかぶって右から薙ぎ（0.26）、返して左から（0.46）、もう一度右から（0.66）。3 連の衝撃に打撃のキーを合わせる
+            // （全長 0.74 + 戻り 0.25 = 0.99 秒）
+            m.windup(0.12, side: 1, power: 1.0)
             m.hold(0.1)
+            m.slash(0.04, side: 1, power: 1.2)
+            m.windup(0.1, side: -1, power: 0.9)
+            m.slash(0.1, side: -1, power: 1.1)
+            m.windup(0.1, side: 1, power: 0.9)
+            m.slash(0.1, side: 1, power: 1.2)
+            m.hold(0.08)
         case .skill2:
-            // 前傾で駆け（≈ 0.17 秒）、踏み込みざまに拳を突き出す
+            // 前傾で駆け（0.4 秒）、踏み込みざまに拳を突き出す（全長 0.58 + 戻り 0.25 = 0.83 秒）
             m.dash(0.05, lean: 0.6)
-            m.lunge(0.08, distance: 0.6, lean: 0.35)
-            m.thrust(0.05)
+            m.hold(0.25)
+            m.lunge(0.06, distance: 0.6, lean: 0.35)
+            m.thrust(0.04)
             m.hold(0.08)
             m.settle(0.1)
         case .ultimate:
-            // 腰を落として拳に奈落の気を溜め（0.5 秒）、踏み込んで前へ突き出す
+            // 腰を落として拳に奈落の気を溜め（0.76 秒）、踏み込んで前へ突き出す（全長 1.04 + 戻り 0.35 = 1.39 秒）
             m.brace(0.06, depth: 0.22)
-            m.gather(0.12)
-            m.hold(0.22) { $0.glow = 2.2; $0.ring = 1.2 }
+            m.gather(0.14)
+            m.hold(0.46) { $0.glow = 2.2; $0.ring = 1.2 }
             m.windup(0.06, side: 1, power: 1.3)
             m.lunge(0.04, distance: 0.5, lean: 0.4)
             m.thrust(0.04)

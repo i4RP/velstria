@@ -1421,7 +1421,7 @@ final class Kit_H033Tests: XCTestCase {
         throw XCTSkip("Release で実行する: swift test -c release --filter Kit_H033Tests")
         #else
         let ids = MasterData.shared.heroes.map(\.heroID)
-        let subjects = ["H033", "H006", "H012", "H018", "H024", "H028"]
+        let subjects = ["H033", "H006", "H012", "H018", "H024", "H028", "H027", "H032"]
         var rates: [String: [Int: Double]] = [:]
         var table = "round robin win rate (%) vs all heroes, draws = half\n"
         for subject in subjects {
@@ -1454,9 +1454,11 @@ final class Kit_H033Tests: XCTestCase {
         for level in SkillBalanceTests.levels {
             let generic = ["H006", "H012", "H018", "H024"].compactMap { rates[$0]?[level] }
             let vald = try XCTUnwrap(rates["H033"]?[level])
-            let saber = try XCTUnwrap(rates["H028"]?[level])
+            // 上限の基準（2026-10-16）: セイバー 1 体 → 同じ近接の MLBB 由来の 3 体（セイバー・子龍・ディアス）の最高 + 30pt 未満。
+            // セイバーの幾何を動画の値にしたら（剣の接触が輪の上だけ）Lv12 の勝率が 78 → 33% に下がり、基準が 1 体の動きに引きずられた
+            let peers = ["H028", "H027", "H032"].compactMap { rates[$0]?[level] }
             XCTAssertGreaterThan(vald, (generic.min() ?? 0) - 30, "Lv\(level) 弱すぎる")
-            XCTAssertLessThan(vald, saber + 30, "Lv\(level) 強すぎる")
+            XCTAssertLessThan(vald, (peers.max() ?? 0) + 30, "Lv\(level) 強すぎる")
         }
         #endif
     }
