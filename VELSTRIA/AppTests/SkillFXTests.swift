@@ -476,4 +476,220 @@ final class SkillFXTests: XCTestCase {
             XCTAssertNotNil(img.flatMap { FXTextureLibrary.luminance($0) }, "\(t) の輝度版が作れない")
         }
     }
+
+    // MARK: 予算の観測（打ち切り・破棄の集計。docs/SKILL_FX.md「予算の観測」）
+    // 容量は本番の値（低画質のプール）をそのまま使い、実際の取得の経路で超過させる。
+
+    private func budgetContext(_ heroID: String, follow: SkillFXPlayer.Follow? = nil) -> SkillFXPlayer.Context {
+        SkillFXPlayer.Context(palette: .from(RGB(1, 1, 1)), origin: .zero, caster: .zero, target: [0, 0, -1],
+                              forward: [0, 0, -1], follow: follow,
+                              source: SkillFXPlayer.Source(heroID: heroID, slot: .skill1, stage: 0))
+    }
+
+    /// 一斉放出（回収は寿命 × 1.2 + 0.1 秒後）を x の位置に置く。
+    private func burst(x: Float, life: Float = 0.5, at: Float = 0) -> FXCue {
+        .emit(FXEmit(count: 4, life: life), at: at, offset: [x, 0, 0])
+    }
+
+    private func disc(x: Float, life: Float = 2, at: Float = 0) -> FXCue {
+        .mesh(FXMesh(shape: .disc, life: life), at: at, offset: [x, 0, 0])
+    }
+
+    /// x の位置で使用中の粒子放出体・メッシュ。
+    private func emitter(_ p: SkillFXPlayer, x: Float) -> Entity? {
+        p.root.children.first {
+            $0.isEnabled && $0.components[ParticleEmitterComponent.self] != nil && abs($0.position.x - x) < 0.001
+        }
+    }
+
+    private func mesh(_ p: SkillFXPlayer, x: Float) -> Entity? {
+        p.root.children.first { $0.isEnabled && $0 is ModelEntity && abs($0.position.x - x) < 0.001 }
+    }
+
+    func testBudgetCountsNoCutWithinCapacity() {
+        let q = RenderQuality.preset(.low)
+        let player = SkillFXPlayer(quality: q)
+        player.prewarm(recipes: [])
+        let nE = SkillFXPlayer.emitterCapacity(q), nD = SkillFXPlayer.meshCapacity(.disc, q)
+        let cues = (0..<nE).map { burst(x: Float($0)) } + (0..<nD).map { disc(x: Float($0)) }
+        XCTAssertLessThanOrEqual(cues.count, BattleWorkBudget.cuesPerPlay)
+        player.play(cues, budgetContext("H900"))
+        let s = player.budgetSnapshot()
+        XCTAssertEqual(s.poolQuality, "low")
+        XCTAssertEqual(s.emitters.pooled, nE)
+        XCTAssertEqual(s.emitters.inUse, nE)
+        XCTAssertEqual(s.emitters.counts, SkillFXPlayer.PoolStats(requests: nE, peakInUse: nE))
+        XCTAssertEqual(s.meshShapes["disc"]?.pooled, nD)
+        XCTAssertEqual(s.meshShapes["disc"]?.counts, SkillFXPlayer.PoolStats(requests: nD, peakInUse: nD))
+        XCTAssertEqual(s.meshes.counts.cut + s.meshes.counts.rejected + s.meshes.counts.reclaimed, 0)
+        XCTAssertEqual(s.cues.overPerPlay, 0)
+        XCTAssertEqual(s.cues.overPending, 0)
+        XCTAssertTrue(s.bySource.isEmpty, "何も失っていない")
+        player.clear()
+    }
+
+    /// 空きが無いときは、従来どおり最も早く終わる一斉放出・同じ形の最も古いメッシュを打ち切り、打ち切った側に 1 回だけ数える。
+    func testPoolOverflowCutsInTheExistingOrderAndCountsEachCutOnce() {
+        let q = RenderQuality.preset(.low)
+        let player = SkillFXPlayer(quality: q)
+        player.prewarm(recipes: [])
+        let nE = SkillFXPlayer.emitterCapacity(q)
+        // x が大きいほど長生き: 最も早く終わるのは x = 0、次が x = 1
+        player.play((0..<nE).map { burst(x: Float($0), life: 1 + 0.1 * Float($0)) }, budgetContext("H900"))
+        let first = emitter(player, x: 0), second = emitter(player, x: 1)
+        XCTAssertNotNil(first)
+        XCTAssertNotNil(second)
+        // 新しい 2 つは長生き（2 つ目の要求が 1 つ目の新しい演出を打ち切らない）
+        player.play([burst(x: 100, life: 5), burst(x: 101, life: 5)], budgetContext("H901"))
+        XCTAssertEqual(first?.position.x, 100, "最も早く終わる一斉放出を打ち切る")
+        XCTAssertEqual(second?.position.x, 101)
+        let s = player.budgetSnapshot()
+        XCTAssertEqual(s.emitters.counts, SkillFXPlayer.PoolStats(requests: nE + 2, cut: 2, peakInUse: nE))
+        XCTAssertEqual(s.emitters.inUse, nE)
+        XCTAssertEqual(s.bySource["H900.skill1.0"]?.emitterCut, 2, "打ち切られた側の出所に数える")
+        XCTAssertNil(s.bySource["H901.skill1.0"], "受理された側は何も失っていない")
+        player.clear()
+
+        let meshes = SkillFXPlayer(quality: q)
+        meshes.prewarm(recipes: [])
+        let nD = SkillFXPlayer.meshCapacity(.disc, q)
+        for k in 0..<nD {
+            meshes.play([disc(x: Float(k))], budgetContext("H900"))
+            meshes.update(dt: 0.01)
+        }
+        let oldest = mesh(meshes, x: 0)
+        XCTAssertNotNil(oldest)
+        meshes.play([disc(x: 100)], budgetContext("H901"))
+        XCTAssertEqual(oldest?.position.x, 100, "同じ形の最も古いものを打ち切る")
+        let m = meshes.budgetSnapshot()
+        XCTAssertEqual(m.meshShapes["disc"]?.counts, SkillFXPlayer.PoolStats(requests: nD + 1, cut: 1, peakInUse: nD))
+        XCTAssertEqual(m.meshes.counts.cut, 1)
+        XCTAssertEqual(m.meshes.inUse, nD)
+        XCTAssertEqual(m.bySource["H900.skill1.0"]?.meshCut, 1)
+        XCTAssertEqual(meshes.stats.stolenMeshes, 1)
+        meshes.clear()
+    }
+
+    /// 打ち切れる一斉放出が無い（全て止まらない継続放出）ときは要求を捨て、打ち切りとは別に数える。
+    func testRequestIsRejectedWhenOnlyLoopingEmittersAreLive() {
+        let q = RenderQuality.preset(.low)
+        let player = SkillFXPlayer(quality: q)
+        player.prewarm(recipes: [])
+        let nE = SkillFXPlayer.emitterCapacity(q)
+        let loop = FXCue.emit(FXEmit(rate: 10, life: 0.5), .follow)
+        player.play(Array(repeating: loop, count: nE), budgetContext("H900", follow: .unit(1)))
+        player.play([burst(x: 0)], budgetContext("H901"))
+        let s = player.budgetSnapshot()
+        XCTAssertEqual(s.emitters.counts, SkillFXPlayer.PoolStats(requests: nE + 1, rejected: 1, peakInUse: nE))
+        XCTAssertEqual(s.bySource["H901.skill1.0"]?.emitterRejected, 1, "要求した側の出所に数える")
+        XCTAssertNil(s.bySource["H900.skill1.0"], "継続放出は打ち切っていない")
+        player.clear()
+    }
+
+    /// 寿命を終えた枠の再利用（空きに戻った後・回収待ちの引き取り）は打ち切りに数えない。
+    func testReusingFinishedSlotsIsNotCountedAsCut() {
+        let q = RenderQuality.preset(.low)
+        let player = SkillFXPlayer(quality: q)
+        player.prewarm(recipes: [])
+        let nE = SkillFXPlayer.emitterCapacity(q), nD = SkillFXPlayer.meshCapacity(.disc, q)
+        let full = (0..<nE).map { burst(x: Float($0), life: 0.2) } + (0..<nD).map { disc(x: Float($0), life: 0.2) }
+        player.play(full, budgetContext("H900"))
+        player.update(dt: 1)
+        XCTAssertEqual(player.activeCount, 0, "寿命を終えて空きに戻った")
+        player.play(full, budgetContext("H900"))
+        var s = player.budgetSnapshot()
+        XCTAssertEqual(s.emitters.counts, SkillFXPlayer.PoolStats(requests: 2 * nE, peakInUse: nE))
+        XCTAssertEqual(s.meshShapes["disc"]?.counts, SkillFXPlayer.PoolStats(requests: 2 * nD, peakInUse: nD))
+        player.update(dt: 1)
+        // 予定の合図は同じ update の回収より先に出るので、寿命を過ぎて回収待ちの枠を引き取る（正常終了。打ち切りではない）
+        player.play(full + [burst(x: 50, life: 0.2, at: 0.5), disc(x: 50, life: 0.2, at: 0.5)], budgetContext("H900"))
+        player.update(dt: 1)
+        s = player.budgetSnapshot()
+        XCTAssertEqual(s.emitters.counts.cut, 0)
+        XCTAssertEqual(s.emitters.counts.reclaimed, 1)
+        XCTAssertEqual(s.meshShapes["disc"]?.counts.cut, 0)
+        XCTAssertEqual(s.meshShapes["disc"]?.counts.reclaimed, 1)
+        XCTAssertTrue(s.bySource.isEmpty)
+        player.clear()
+    }
+
+    /// 1 回の再生の上限（64）と遅延予約の上限（512）の破棄を別々に数える。受け付ける順は従来どおり先頭から。
+    func testPerPlayAndPendingDropsAreCountedSeparately() {
+        let player = SkillFXPlayer(quality: .preset(.high))
+        let per = BattleWorkBudget.cuesPerPlay
+        var strengths: [Float] = []
+        player.onShake = { s, _ in strengths.append(s) }
+        player.play((0..<(per + 6)).map { FXCue.shake(Float($0) / 1000) }, budgetContext("H900"))
+        XCTAssertEqual(strengths, (0..<per).map { Float($0) / 1000 }, "先頭から 64 個を受け付ける")
+        // 繰り返しは 1 回ずつ数える。この画質で出さない合図は数えない
+        var repeated = FXCue.shake(0.5)
+        repeated.count = per + 10
+        var never = FXCue.shake(0.5)
+        never.minQuality = 3
+        player.play([repeated, never], budgetContext("H900"))
+        var s = player.budgetSnapshot()
+        XCTAssertEqual(s.cues.overPerPlay, 6 + 10)
+        XCTAssertEqual(s.cues.overPending, 0)
+        // 遅れのある合図で予約を埋めると、その先は予約の上限で捨てる（1 回の再生の上限には当たらない）
+        let delayed = (0..<per).map { _ in FXCue.shake(0.1, at: 1) }
+        let plays = BattleWorkBudget.pendingCues / per + 1
+        for _ in 0..<plays { player.play(delayed, budgetContext("H901")) }
+        s = player.budgetSnapshot()
+        XCTAssertEqual(s.cues.overPerPlay, 16)
+        XCTAssertEqual(s.cues.overPending, plays * per - BattleWorkBudget.pendingCues)
+        XCTAssertEqual(s.cues.pending, BattleWorkBudget.pendingCues)
+        XCTAssertEqual(s.cues.peakPending, BattleWorkBudget.pendingCues)
+        XCTAssertEqual(s.bySource["H900.skill1.0"], SkillFXPlayer.SourceStats(cuesOverPerPlay: 16))
+        XCTAssertEqual(s.bySource["H901.skill1.0"],
+                       SkillFXPlayer.SourceStats(cuesOverPending: plays * per - BattleWorkBudget.pendingCues))
+        player.update(dt: 2)
+        s = player.budgetSnapshot()
+        XCTAssertEqual(s.cues.pending, 0, "予約は出し切った")
+        XCTAssertEqual(s.cues.overPending, plays * per - BattleWorkBudget.pendingCues, "出し切っても破棄の数は残る")
+        player.clear()
+    }
+
+    /// 読み込み幕の裏の陳列は要求に数えない。clear（幕が上がる直前・シーク・破棄）と新しい試合の再生器で前の集計は残らない。
+    func testBudgetCountersExcludeWarmupAndResetOnClear() {
+        let q = RenderQuality.preset(.low)
+        let player = SkillFXPlayer(quality: q)
+        player.prewarm(recipes: [])
+        player.fireWarmup(around: .zero, spread: 4)
+        XCTAssertEqual(player.budgetSnapshot().emitters.counts.requests, 0)
+        XCTAssertEqual(player.budgetSnapshot().meshes.counts.requests, 0)
+        player.clear()
+        let nE = SkillFXPlayer.emitterCapacity(q)
+        player.play((0..<(nE + 3)).map { burst(x: Float($0)) }, budgetContext("H900"))
+        player.play((0..<(BattleWorkBudget.cuesPerPlay + 1)).map { _ in FXCue.shake(0.1) }, budgetContext("H900"))
+        player.play([FXCue.shake(0.1, at: 1)], budgetContext("H900"))
+        var s = player.budgetSnapshot()
+        XCTAssertEqual(s.emitters.counts.cut, 3)
+        XCTAssertEqual(s.cues.overPerPlay, 1)
+        XCTAssertEqual(s.cues.pending, 1)
+        player.clear()
+        s = player.budgetSnapshot()
+        XCTAssertEqual(s.plays, 0)
+        XCTAssertEqual(s.emitters.counts, SkillFXPlayer.PoolStats())
+        XCTAssertEqual(s.meshes.counts, SkillFXPlayer.PoolStats())
+        XCTAssertEqual(s.emitters.inUse, 0)
+        XCTAssertEqual(s.emitters.pooled, nE, "枠は残る（作り直さない）")
+        XCTAssertEqual(s.cues, SkillFXBudgetSnapshot.Cues(perPlayLimit: BattleWorkBudget.cuesPerPlay,
+                                                           pendingLimit: BattleWorkBudget.pendingCues,
+                                                           overPerPlay: 0, overPending: 0, pending: 0, peakPending: 0))
+        XCTAssertTrue(s.bySource.isEmpty)
+        let next = SkillFXPlayer(quality: q)
+        XCTAssertEqual(next.budgetSnapshot().emitters.counts, SkillFXPlayer.PoolStats(), "次の試合の再生器は 0 から")
+    }
+
+    /// 出所の無い合図は "unknown"。写しは JSON（性能記録）へ書き出して読み戻せる。
+    func testBudgetSnapshotNamesUnknownSourceAndRoundTripsJSON() throws {
+        let player = SkillFXPlayer(quality: .preset(.low))
+        let ctx = SkillFXPlayer.Context(palette: .from(RGB(1, 1, 1)), origin: .zero, caster: .zero, target: .zero,
+                                        forward: [0, 0, -1])
+        player.play((0..<(BattleWorkBudget.cuesPerPlay + 2)).map { _ in FXCue.shake(0.1) }, ctx)
+        let s = player.budgetSnapshot()
+        XCTAssertEqual(s.bySource["unknown"]?.cuesOverPerPlay, 2)
+        let data = try JSONEncoder().encode(s)
+        XCTAssertEqual(try JSONDecoder().decode(SkillFXBudgetSnapshot.self, from: data), s)
+    }
 }

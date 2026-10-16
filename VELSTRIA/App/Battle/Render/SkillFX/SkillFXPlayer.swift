@@ -9,6 +9,8 @@ import VelstriaCore
 // - 遅れ・繰り返しは予定表で順に発火し、追従（術者・被弾者・投射物）は毎フレーム位置を読み直す。
 // プレイ中は何も作らない: 画像・メッシュ・材質・放出体は prewarm（読み込み幕の裏）で作り切る。プールが尽きたら
 // 最も古いものを打ち切って使い回す（追従の継続放出は打ち切らない）。
+// 予算による打ち切り・破棄は stats に数え、budgetSnapshot() で性能記録（PerfReport.skillFXBudget）へ出す
+// （数え方は docs/SKILL_FX.md「予算の観測」）。数えるだけで、選ぶ順・捨てる動作は変えない。
 
 @MainActor
 final class SkillFXPlayer {
@@ -39,6 +41,17 @@ final class SkillFXPlayer {
         var follow: Follow?
         /// 同じ段の何回目か（連撃の 2 撃目など。向きの左右を変えるのに使う）。
         var variant = 0
+        /// 演出の出所（予算の集計だけに使う。nil = 不明）。
+        var source: Source?
+    }
+
+    /// 演出の出所（ヒーロー・スキル・再使用の段）。cast / impact などの段（phase）は持たない。
+    struct Source: Hashable, Sendable {
+        var heroID: String
+        var slot: SkillSlot
+        var stage: Int
+
+        var label: String { "\(heroID).\(slot).\(stage)" }
     }
 
     /// 追従の主体の位置（BattleWorld が設定）。nil = 消えた。
@@ -64,6 +77,7 @@ final class SkillFXPlayer {
         var start: Float = 0
         /// 追従の主体を一度でも見つけたか（投射物は発射の次のフレームに現れる）。
         var seen = false
+        var source: Source?
     }
 
     private struct MeshInst {
@@ -76,6 +90,7 @@ final class SkillFXPlayer {
         var follow: Follow?
         var offset: SIMD3<Float>
         var ground: Bool
+        var source: Source?
     }
 
     private struct Pending {
@@ -98,14 +113,71 @@ final class SkillFXPlayer {
         return ParticleEmitterComponent()
     }()
 
+    /// 1 種類の枠（粒子放出体・形ごとのメッシュ）の取得の集計。1 回の要求は受理（空き / 打ち切り / 回収待ちの引き取り /
+    /// 準備前の追加生成）か拒否のどれか 1 つに数える。
+    struct PoolStats: Codable, Equatable, Sendable {
+        /// 取得要求（spawn の回数）。
+        var requests = 0
+        /// 空きが無く、寿命の途中の演出を打ち切って受理した回数（打ち切った 1 回を取得側だけで数える）。
+        var cut = 0
+        /// 空きが無く、寿命を過ぎて回収待ちだった枠をそのまま使った回数（正常終了。打ち切りではない）。
+        var reclaimed = 0
+        /// 空きも打ち切れる演出も無く、要求を捨てた回数。
+        var rejected = 0
+        /// prewarm の前でプールに無く、新しく作った回数（試合中は 0。作れば AssetLedger の live にも出る）。
+        var grown = 0
+        /// 使用中の枠の数の最大（受理した直後に測る）。
+        var peakInUse = 0
+    }
+
+    /// 演出を失った側の出所ごとの集計（打ち切りは打ち切られた側、拒否・合図の破棄は要求した側）。
+    struct SourceStats: Codable, Equatable, Sendable {
+        var emitterCut = 0
+        var emitterRejected = 0
+        var meshCut = 0
+        var meshRejected = 0
+        var cuesOverPerPlay = 0
+        var cuesOverPending = 0
+    }
+
+    /// 再生の集計。clear() で 0 に戻る（幕が上がる直前の片付け・シークや再同期での作り直し・破棄）。
+    /// clear・stop・cut で消えた演出、寿命を終えて空きに戻った枠の再利用は、打ち切り・破棄に数えない。
     struct Stats {
         var plays = 0
-        var stolenEmitters = 0
-        var stolenMeshes = 0
-        var peakEmitters = 0
+        /// 粒子放出体（ParticleEmitterComponent 1 つの枠。生きている粒子の数ではない）。
+        var emitters = PoolStats()
+        /// 形ごとのメッシュ。
+        var meshShapes: [FXShape: PoolStats] = [:]
+        /// 使用中のメッシュの合計（形をまたいだ同時数）の最大。
         var peakMeshes = 0
+        /// 従来の合計（1 回の再生の上限と予約の上限の両方を粗く数える）。原因の切り分けは下の 2 つを使う。
         var droppedCues = 0
+        /// 1 回の再生の上限（BattleWorkBudget.cuesPerPlay）で受け付けなかった合図（繰り返しは 1 回ずつ。画質で出さない合図は含まない）。
+        var cuesOverPerPlay = 0
+        /// 遅延予約の上限（BattleWorkBudget.pendingCues）が埋まっていて捨てた合図。
+        var cuesOverPending = 0
         var peakPending = 0
+        /// 出所ごと（nil = 不明）。キーは試合のヒーローのスキルの数までしか増えない。
+        var bySource: [Source?: SourceStats] = [:]
+
+        /// 打ち切った回数（回収待ちの引き取りは含まない）。
+        var stolenEmitters: Int { emitters.cut }
+        var stolenMeshes: Int { meshShapes.values.reduce(0) { $0 + $1.cut } }
+        var peakEmitters: Int { emitters.peakInUse }
+
+        /// 形をまたいだメッシュの合計（peakInUse は同時数の最大）。
+        var meshes: PoolStats {
+            var t = PoolStats()
+            for s in meshShapes.values {
+                t.requests += s.requests
+                t.cut += s.cut
+                t.reclaimed += s.reclaimed
+                t.rejected += s.rejected
+                t.grown += s.grown
+            }
+            t.peakInUse = peakMeshes
+            return t
+        }
     }
     private(set) var stats = Stats()
 
@@ -124,6 +196,28 @@ final class SkillFXPlayer {
     var pendingCount: Int { pending.count }
 
     var activeCount: Int { emits.count + meshInsts.count }
+
+    /// 予算の集計の写し（性能記録 PerfReport.skillFXBudget。docs/SKILL_FX.md「予算の観測」）。呼んでも 0 には戻さない。
+    func budgetSnapshot() -> SkillFXBudgetSnapshot {
+        var shapes: [String: SkillFXBudgetSnapshot.Pool] = [:]
+        for s in FXShape.allCases {
+            let inUse = meshInsts.reduce(0) { $1.shape == s ? $0 + 1 : $0 }
+            shapes[s.rawValue] = SkillFXBudgetSnapshot.Pool(pooled: inUse + (freeMeshes[s]?.count ?? 0), inUse: inUse,
+                                                            counts: stats.meshShapes[s] ?? PoolStats())
+        }
+        var sources: [String: SourceStats] = [:]
+        for (k, v) in stats.bySource { sources[k?.label ?? "unknown"] = v }
+        let cues = SkillFXBudgetSnapshot.Cues(perPlayLimit: BattleWorkBudget.cuesPerPlay,
+                                              pendingLimit: BattleWorkBudget.pendingCues,
+                                              overPerPlay: stats.cuesOverPerPlay, overPending: stats.cuesOverPending,
+                                              pending: pending.count, peakPending: stats.peakPending)
+        return SkillFXBudgetSnapshot(
+            quality: "\(quality.level)", poolQuality: "\(poolQuality.level)", plays: stats.plays,
+            emitters: SkillFXBudgetSnapshot.Pool(pooled: emitterCount, inUse: emits.count, counts: stats.emitters),
+            meshes: SkillFXBudgetSnapshot.Pool(pooled: shapes.values.reduce(0) { $0 + $1.pooled }, inUse: meshInsts.count,
+                                               counts: stats.meshes),
+            meshShapes: shapes, cues: cues, bySource: sources)
+    }
 
     /// 放出体のプールの大きさ（粒子系 1 つ ≒ 1 MB を常に持つので画質で決める）。
     static func emitterCapacity(_ q: RenderQuality) -> Int {
@@ -211,12 +305,14 @@ final class SkillFXPlayer {
         let rank = SkillFXPlayer.qualityRank(quality)
         stats.droppedCues += max(0, cues.count - BattleWorkBudget.cuesPerPlay)
         var remaining = BattleWorkBudget.cuesPerPlay
+        var admittedTotal = 0
         for cue in cues.prefix(BattleWorkBudget.cuesPerPlay) where cue.minQuality <= rank {
             guard remaining > 0 else { stats.droppedCues += 1; break }
             let requested = max(1, cue.count)
             let admitted = min(requested, remaining)
             stats.droppedCues += requested - admitted
             remaining -= admitted
+            admittedTotal += admitted
             for k in 0..<admitted {
                 let t = cue.at + cue.every * Float(k)
                 if t <= 0.0001 {
@@ -226,8 +322,16 @@ final class SkillFXPlayer {
                     stats.peakPending = max(stats.peakPending, pending.count)
                 } else {
                     stats.droppedCues += 1
+                    stats.cuesOverPending += 1
+                    stats.bySource[ctx.source, default: SourceStats()].cuesOverPending += 1
                 }
             }
+        }
+        // 1 回の再生の上限で受け付けなかった合図 = この画質で出す合図（繰り返しは 1 回ずつ）のうち、受け付けなかった数
+        let wanted = cues.reduce(0) { $1.minQuality <= rank ? $0 + max(1, $1.count) : $0 }
+        if wanted > admittedTotal {
+            stats.cuesOverPerPlay += wanted - admittedTotal
+            stats.bySource[ctx.source, default: SourceStats()].cuesOverPerPlay += wanted - admittedTotal
         }
     }
 
@@ -327,17 +431,29 @@ final class SkillFXPlayer {
     }
 
     private func spawnEmit(_ e: FXEmit, at p: SIMD3<Float>, yaw: Float, follow: Follow?, offset: SIMD3<Float>, ctx: Context) {
+        stats.emitters.requests += 1
         let em: Emitter
         if let free = freeEmitters.popLast() {
             em = free
         } else if prewarmed {
             // 最も早く終わる一斉放出を打ち切る（継続放出は残す）
-            guard let k = emits.indices.filter({ !emits[$0].looping }).min(by: { emits[$0].until < emits[$1].until }) else { return }
+            guard let k = emits.indices.filter({ !emits[$0].looping }).min(by: { emits[$0].until < emits[$1].until }) else {
+                stats.emitters.rejected += 1
+                stats.bySource[ctx.source, default: SourceStats()].emitterRejected += 1
+                return
+            }
             em = emits[k].emitter
+            // 寿命を過ぎて回収（update）を待っていた枠は正常終了。寿命の途中なら打ち切り（打ち切られた側の出所に数える）
+            if emits[k].until <= time {
+                stats.emitters.reclaimed += 1
+            } else {
+                stats.emitters.cut += 1
+                stats.bySource[emits[k].source, default: SourceStats()].emitterCut += 1
+            }
             emits.swapAt(k, emits.count - 1)
             emits.removeLast()
-            stats.stolenEmitters += 1
         } else {
+            stats.emitters.grown += 1
             em = makeEmitter()
         }
         var c = em.entity.components[ParticleEmitterComponent.self] ?? blank
@@ -358,23 +474,36 @@ final class SkillFXPlayer {
         let span = e.span
         emits.append(EmitInst(emitter: em, until: span.isFinite ? time + span : .infinity, follow: follow, offset: offset,
                               yaw: yaw, looping: looping && e.duration <= 0,
-                              stopAt: looping && e.duration > 0 ? time + e.duration : .infinity, start: time))
-        stats.peakEmitters = max(stats.peakEmitters, emits.count)
+                              stopAt: looping && e.duration > 0 ? time + e.duration : .infinity, start: time,
+                              source: ctx.source))
+        stats.emitters.peakInUse = max(stats.emitters.peakInUse, emits.count)
     }
 
     private func spawnMesh(_ m: FXMesh, at p: SIMD3<Float>, yaw: Float, follow: Follow?, offset: SIMD3<Float>, ctx: Context,
                            groundLevel: Bool) {
+        stats.meshShapes[m.shape, default: PoolStats()].requests += 1
         let e: ModelEntity
         if let free = freeMeshes[m.shape]?.popLast() {
             e = free
         } else if prewarmed {
             guard let k = meshInsts.indices.filter({ meshInsts[$0].shape == m.shape })
-                .min(by: { meshInsts[$0].start < meshInsts[$1].start }) else { return }
+                .min(by: { meshInsts[$0].start < meshInsts[$1].start }) else {
+                stats.meshShapes[m.shape, default: PoolStats()].rejected += 1
+                stats.bySource[ctx.source, default: SourceStats()].meshRejected += 1
+                return
+            }
             e = meshInsts[k].entity
+            // 寿命を過ぎて回収（update）を待っていた枠は正常終了。寿命の途中なら打ち切り（打ち切られた側の出所に数える）
+            if time - meshInsts[k].start >= max(0.01, meshInsts[k].spec.life) {
+                stats.meshShapes[m.shape, default: PoolStats()].reclaimed += 1
+            } else {
+                stats.meshShapes[m.shape, default: PoolStats()].cut += 1
+                stats.bySource[meshInsts[k].source, default: SourceStats()].meshCut += 1
+            }
             meshInsts.swapAt(k, meshInsts.count - 1)
             meshInsts.removeLast()
-            stats.stolenMeshes += 1
         } else {
+            stats.meshShapes[m.shape, default: PoolStats()].grown += 1
             e = makeMesh(m.shape)
         }
         e.model?.materials = [materials.material(m.tex, ctx.palette.rgb(m.tint))]
@@ -387,11 +516,14 @@ final class SkillFXPlayer {
         var base = p
         if ground { base.y = GroundLayer.skillDecal }
         let inst = MeshInst(entity: e, shape: m.shape, spec: m, start: time, base: base, yaw: yaw, follow: follow,
-                            offset: offset, ground: ground)
+                            offset: offset, ground: ground, source: ctx.source)
         meshInsts.append(inst)
         apply(inst, t: 0)
         e.isEnabled = true
         stats.peakMeshes = max(stats.peakMeshes, meshInsts.count)
+        let sameShape = meshInsts.reduce(0) { $1.shape == m.shape ? $0 + 1 : $0 }
+        let peak = max(stats.meshShapes[m.shape]?.peakInUse ?? 0, sameShape)
+        stats.meshShapes[m.shape, default: PoolStats()].peakInUse = peak
     }
 
     // MARK: 更新
@@ -673,4 +805,37 @@ final class SkillFXPlayer {
         }
         p.mainEmitter = m
     }
+}
+
+/// SkillFXPlayer の予算の集計の写し（性能記録 PerfReport.skillFXBudget へ JSON で出す）。
+struct SkillFXBudgetSnapshot: Codable, Equatable, Sendable {
+    struct Pool: Codable, Equatable, Sendable {
+        /// 作ってある枠の数（使用中 + 空き）。
+        var pooled: Int
+        /// 写しを取った時点の使用中の枠の数。
+        var inUse: Int
+        var counts: SkillFXPlayer.PoolStats
+    }
+
+    struct Cues: Codable, Equatable, Sendable {
+        var perPlayLimit: Int
+        var pendingLimit: Int
+        var overPerPlay: Int
+        var overPending: Int
+        /// 写しを取った時点の遅延予約の数と、その最大。
+        var pending: Int
+        var peakPending: Int
+    }
+
+    /// いまの画質（自動調整の後）と、プールの大きさを決めた試合開始時の画質。
+    var quality: String
+    var poolQuality: String
+    var plays: Int
+    var emitters: Pool
+    var meshes: Pool
+    /// 形（FXShape の名前）ごと。
+    var meshShapes: [String: Pool]
+    var cues: Cues
+    /// 出所ごと（"H029.skill1.0" = ヒーロー.スキル.再使用の段。cast / impact などの段は含まない。"unknown" = 不明）。
+    var bySource: [String: SkillFXPlayer.SourceStats]
 }

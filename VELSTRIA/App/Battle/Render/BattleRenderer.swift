@@ -678,12 +678,14 @@ final class BattleRenderer {
         note(String(format: "quality at end: %@ (frame p95 %.1f ms, work p95 %.2f ms over the last window)",
                     governor.step.description, governor.lastFrameP95Ms, governor.lastWorkP95Ms))
         let notes = notes
+        let skillFXBudget = world?.skillDirector.player.budgetSnapshot()
         run.finish { thermal, footprint, entities in
             PerfReport(device: PerfRun.deviceModel, os: UIDevice.current.systemVersion, build: PerfRun.buildName,
                        quality: "\(settings.quality.level)", frameRate: settings.frameRate, speed: speed,
                        requestedSeconds: run.seconds, loadMs: loadMs, warmupMs: warmupMs, warmupFrames: frames,
                        frame: frameStats.summary(), ledger: AssetLedger.snapshot(), thermalStates: thermal,
-                       peakFootprintMB: footprint, peakEntities: entities, notes: notes, syncWork: world?.workStats.summary)
+                       peakFootprintMB: footprint, peakEntities: entities, notes: notes, syncWork: world?.workStats.summary,
+                       skillFXBudget: skillFXBudget)
         }
     }
     #endif
