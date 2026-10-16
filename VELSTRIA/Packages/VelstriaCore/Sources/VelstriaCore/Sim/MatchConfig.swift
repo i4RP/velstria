@@ -110,7 +110,8 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     ///     背後 144 へ放り投げる（以前は命中の瞬間から 0.7 秒で背後 170）、スキル2 = 突進を毎秒 2400 → 1520）。
     ///     docs/kits/Zilong.md「動画で測った値」。
     /// 32: ミッドの対向ブッシュを直線の Z 形に変更（隠蔽判定も同じ形）。
-    public static let currentSimVersion = 32
+    /// 33: Z 形を維持してミッド中央から両側のオブジェクト方向へ平行移動。
+    public static let currentSimVersion = 33
 
     public var simVersion: Int
     public var mode: MatchMode

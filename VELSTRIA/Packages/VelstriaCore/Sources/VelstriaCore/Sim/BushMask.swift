@@ -199,7 +199,9 @@ public struct BushMask: Sendable {
     func withMidZBrushes() -> BushMask {
         let extent = Double(cols) * cell
         let scale = extent / 9720
-        let path = [Vec2(4900, 4250), Vec2(5100, 4050), Vec2(5800, 4650), Vec2(6000, 4450)].map { $0 * scale }
+        // 形状は維持し、タートル方向へ平行移動。葉の広がりも壁のミッド側先端より奥に収める。
+        let offset = Vec2(250, -250)
+        let path = [Vec2(4900, 4250), Vec2(5100, 4050), Vec2(5800, 4650), Vec2(6000, 4450)].map { ($0 + offset) * scale }
         let halfWidth = 140.0 * scale
         func inside(_ p: Vec2) -> Bool {
             for (a, b) in zip(path, path.dropFirst()) {
@@ -218,8 +220,8 @@ public struct BushMask: Sendable {
         for row in 0..<rows {
             for col in 0..<cols {
                 let p = center(col: col, row: row)
-                guard p.x >= 4300 * scale, p.x <= 6400 * scale,
-                      p.y >= 3600 * scale, p.y <= 4900 * scale, inside(p) else { continue }
+                guard p.x >= (4300 + offset.x) * scale, p.x <= (6400 + offset.x) * scale,
+                      p.y >= (3600 + offset.y) * scale, p.y <= (4900 + offset.y) * scale, inside(p) else { continue }
                 out[row * cols + col] = 14
                 out[(rows - 1 - row) * cols + cols - 1 - col] = 38
             }
