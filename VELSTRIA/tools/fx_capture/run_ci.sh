@@ -41,7 +41,10 @@ for preset in $PRESETS; do
     if [[ -n "${PROBE:-}" ]]; then extra+=(-fxCaptureProbe); fi
     first=0
     echo "==> $preset $hero"
-    xcrun simctl launch "$UDID" "$BID" -uiTesting -skipOnboarding -grant -graphics high -battle practice -hero "$hero" \
+    mkdir -p "$OUT/$preset"
+    touch "$HS/start"
+    log="$PWD/$OUT/$preset/${hero}.log"
+    xcrun simctl launch --stdout="$log" --stderr="$log" "$UDID" "$BID" -uiTesting -skipOnboarding -grant -graphics high -battle practice -hero "$hero" \
       -practiceNoCD -practiceLevel "$LEVEL" -cameraPreset "$preset" -fxCapture all ${extra[@]+"${extra[@]}"} -fxCaptureExit >/dev/null
     # アプリは撮る時刻に止めて $HS/request（<ヒーロー>/<名前>）を書く → 画面を撮って $HS/done を置く（FXCapture.handshake）
     dest="$OUT/$preset/$hero"
@@ -75,6 +78,8 @@ for preset in $PRESETS; do
       [[ -d "$DATA/Documents/fxcapture/$hero" ]] && cp -R "$DATA/Documents/fxcapture/$hero/." "$dest/" || true
       xcrun simctl io "$UDID" screenshot "$OUT/$preset/${hero}_timeout.png" >/dev/null 2>&1 || true
     fi
+    # 落ちた時の記録（ホストの DiagnosticReports）
+    find "$HOME/Library/Logs/DiagnosticReports" -iname "VELSTRIA*" -newer "$HS/start" -exec cp {} "$dest/" \; 2>/dev/null || true
     xcrun simctl terminate "$UDID" "$BID" 2>/dev/null || true
   done
 done

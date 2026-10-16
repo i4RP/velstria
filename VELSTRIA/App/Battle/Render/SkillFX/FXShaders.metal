@@ -63,6 +63,14 @@ inline Shaded shade(realitykit::surface_parameters params) {
     params.surface().set_opacity(s.alpha);
 }
 
+/// 描画の切り分け用（撮影の probe だけ）: 計算をせず、材質の色をそのまま不透明で塗る。
+[[visible]] void fxDebugSurface(realitykit::surface_parameters params) {
+    auto mc = params.material_constants();
+    params.surface().set_base_color(half3(mc.base_color_tint().rgb));
+    params.surface().set_emissive_color(half3(mc.base_color_tint().rgb));
+    params.surface().set_opacity(1.0h);
+}
+
 [[visible]] void fxAlphaSurface(realitykit::surface_parameters params) {
     fx::Shaded s = fx::shade(params);
     params.surface().set_base_color(s.color);

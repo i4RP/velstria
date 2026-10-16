@@ -1,5 +1,6 @@
 #if DEBUG
 import Foundation
+import Metal
 import RealityKit
 import UIKit
 import VelstriaCore
@@ -192,18 +193,13 @@ final class FXCapture {
             }
         case .probe(let k, let until):
             guard s.time >= until else { return }
-            let cues = FXCapture.probeCues
-            guard k < cues.count, let id = controller.humanHeroID, let p = world.units.worldPositionOf(id) else {
+            guard let id = controller.humanHeroID, let p = world.units.worldPositionOf(id),
+                  let name = probeStep(k, world: world, at: p) else {
                 step = .finish
                 return
             }
-            let player = world.skillDirector.player
-            if k == 0 { player.sheets.prewarm([.fireBurst]) }
-            let ctx = SkillFXPlayer.Context(palette: .from(RGB(1, 0.6, 0.2)), origin: p, caster: p, target: p + [0, 0, -3],
-                                            forward: [0, 0, -1])
-            player.play([cues[k].cue], ctx)
             step = .probe(index: k + 1, until: s.time + 0.4)
-            shoot(world: world, name: "probe(k + 1)_(cues[k].name)", slot: "probe", cast: 0, requested: Double(k), actual: Double(k))
+            shoot(world: world, name: "probe\(k + 1)_\(name)", slot: "probe", cast: 0, requested: Double(k), actual: Double(k))
         case .finish:
             step = .done
         case .done:
@@ -254,21 +250,82 @@ final class FXCapture {
 
     private var ringsDone = false
 
-    /// 描画の切り分けの部品（寿命 4 秒。足しながら撮るので、どの種類を足した時に消えたかが分かる）。
-    static let probeCues: [(name: String, cue: FXCue)] = [
-        ("alphaDisc", .mesh(FXMesh(shape: .disc, tex: .ring, tint: .white, size: [2, 1, 2], sizeEnd: [2, 1, 2], life: 4, fadeIn: 0.01,
-                                   fadeOut: 0.95), offset: [-2.5, 0, 2.5])),
-        ("addDisc", .mesh(FXMesh(shape: .disc, tex: .glow, tint: .primary, size: [2, 1, 2], sizeEnd: [2, 1, 2], life: 4, fadeIn: 0.01,
-                                 fadeOut: 0.95).glowing(), offset: [0, 0, 2.5])),
-        ("flowDisc", .mesh(FXMesh(shape: .disc, tex: .glow, tint: .primary, size: [2, 1, 2], sizeEnd: [2, 1, 2], life: 4, fadeIn: 0.01,
-                                  fadeOut: 0.95).flowing(.noise, scroll: [0.2, 0.2], strength: 0.8, edge: .core), offset: [2.5, 0, 2.5])),
-        ("addSprite", .mesh(FXMesh(shape: .billboard, tex: .glowHard, tint: .core, size: [1.5, 1.5, 1.5], sizeEnd: [1.5, 1.5, 1.5],
-                                   life: 4, fadeIn: 0.01, fadeOut: 0.95).glowing(), offset: [-2.5, 1.5, 2.5])),
-        ("sheetFire", .emit(FXEmit.sheet(.fireBurst, 2, .primary, life: 3.5).with { $0.sheetFPS = 4 }, offset: [0, 1.5, 2.5])),
-        ("legacyFlare", .emit(FXEmit.flare(1.5, .primary, life: 3.5), offset: [2.5, 1.5, 2.5])),
-        ("alphaDiscAfter", .mesh(FXMesh(shape: .disc, tex: .ring, tint: .secondary, size: [2, 1, 2], sizeEnd: [2, 1, 2], life: 4,
-                                        fadeIn: 0.01, fadeOut: 0.95), offset: [0, 0, 5])),
-    ]
+    // MARK: 描画の切り分け（-fxCaptureProbe）
+
+    /// 部品の種類を 1 つずつ足す（寿命 6 秒。ヒーローの手前・横の石畳に並べ、足すたびに撮る）。局所の座標は 右・上・前（前 = 北）。
+    /// 従来の粒子・輪を先に、演出のシェーダー・単色のテスト用シェーダー（fxDebugSurface）・コマ送りの順。nil = 終わり。
+    private func probeStep(_ k: Int, world: BattleWorld, at p: SIMD3<Float>) -> String? {
+        let player = world.skillDirector.player
+        let palette = FXPalette.from(RGB(1, 0.6, 0.2))
+        let ctx = SkillFXPlayer.Context(palette: palette, origin: p, caster: p, target: p + [0, 0, -3], forward: [0, 0, -1])
+        func disc(_ tex: FXTex, _ tint: FXTint) -> FXMesh {
+            FXMesh(shape: .disc, tex: tex, tint: tint, size: [1.6, 1, 1.6], sizeEnd: [1.6, 1, 1.6], life: 6, fadeIn: 0.01, fadeOut: 0.97)
+        }
+        func worldPos(_ x: Float, _ y: Float, _ z: Float) -> SIMD3<Float> { SIMD3(p.x + x, y, p.z - z) }
+        func place(_ mesh: MeshResource?, _ material: (any Material)?, _ x: Float, _ z: Float, scale: Float = 1.6) {
+            guard let mesh, let material else { note("probe: 作れない（\(k)）"); return }
+            let e = ModelEntity(mesh: mesh, materials: [material])
+            e.position = worldPos(x, GroundLayer.skillDecal, z)
+            e.scale = SIMD3(repeating: scale)
+            OverlayOrder.apply(e, OverlayOrder.skillDecal)
+            root(world).addChild(e)
+        }
+        switch k {
+        case 0:
+            player.play([.emit(FXEmit.flare(1.6, .primary, life: 6).with { $0.fade = .constant }, offset: [-4.5, 1, -1.3])], ctx)
+            return "legacyParticle"
+        case 1:
+            player.play([.mesh(disc(.ring, .white), offset: [-1.5, 0, -1.3])], ctx)
+            return "legacyDisc"
+        case 2:
+            place(player.meshes.mesh(.disc), debugMaterial(), 1.5, -1.3)
+            return "debugShaderFXDisc"
+        case 3:
+            place(MeshResource.generatePlane(width: 1, depth: 1), debugMaterial(), 4.5, -1.3)
+            return "debugShaderPlane"
+        case 4:
+            player.play([.mesh(disc(.glow, .primary).flowing(.noise, scroll: [0.2, 0.2], strength: 0.8, edge: .core),
+                               offset: [-4.5, 0, -3.0])], ctx)
+            return "flowAlphaDisc"
+        case 5:
+            player.play([.mesh(disc(.glow, .primary).glowing(), offset: [-1.5, 0, -3.0])], ctx)
+            return "addDisc"
+        case 6:
+            place(MeshResource.generatePlane(width: 1, depth: 1),
+                  player.materials.material(for: disc(.glow, .primary).glowing(), palette: palette), 1.5, -3.0)
+            return "addOnPlane"
+        case 7:
+            player.sheets.prewarm([.fireBurst])
+            player.play([.emit(FXEmit.sheet(.fireBurst, 2, .primary, life: 6).with { $0.sheetFPS = 3; $0.fade = .constant },
+                               offset: [4.5, 1, -3.0])], ctx)
+            return "sheetParticle"
+        case 8:
+            player.play([.mesh(disc(.ring, .secondary), offset: [-6.5, 0, 0.5])], ctx)
+            return "legacyDiscAfter"
+        default:
+            return nil
+        }
+    }
+
+    private var debugCached: CustomMaterial?
+
+    /// 単色のテスト用シェーダーの材質（Program を使わない同期の作り方。fxDebugSurface・unlit・不透明・マゼンタ）。
+    private func debugMaterial() -> CustomMaterial? {
+        if let debugCached { return debugCached }
+        guard let lib = MTLCreateSystemDefaultDevice()?.makeDefaultLibrary() else { note("probe: default.metallib が無い"); return nil }
+        do {
+            var m = try CustomMaterial(surfaceShader: .init(named: "fxDebugSurface", in: lib), geometryModifier: nil, lightingModel: .unlit)
+            m.baseColor = .init(tint: UIColor(red: 1, green: 0, blue: 1, alpha: 1), texture: nil)
+            m.faceCulling = .none
+            debugCached = m
+            return m
+        } catch {
+            note("probe: fxDebugSurface を作れない: \(error)")
+            return nil
+        }
+    }
+
+    private func root(_ world: BattleWorld) -> Entity { world.skillDirector.player.root }
 
     static func slotName(_ s: SkillSlot) -> String {
         switch s {
