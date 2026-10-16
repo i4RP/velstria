@@ -180,10 +180,13 @@ struct RankOverviewView: View {
                 Text(RankService.displayName(r))
                     .font(Theme.title(22))
                     .foregroundStyle(Theme.textPrimary)
-                if r.tier == .starRingSovereign {
-                    Text("\(r.points) pt").font(Theme.mono(15)).foregroundStyle(Theme.gold)
+                if r.tier == .mythic {
+                    Text("★ \(r.stars)").font(Theme.mono(15)).foregroundStyle(Theme.gold)
                 } else {
-                    RankStarsView(stars: r.stars, size: 20)
+                    RankStarsView(stars: r.stars, maxStars: RankService.maxStars(r.tier), size: 20)
+                    Text(L("スターポイント \(r.starPoints)/\(RankService.bar) · 保護ポイント \(r.protectionPoints)/\(RankService.bar)",
+                           "Star pts \(r.starPoints)/\(RankService.bar) · Protection \(r.protectionPoints)/\(RankService.bar)"))
+                        .font(Theme.body(10)).foregroundStyle(Theme.textSecondary)
                 }
                 HStack(spacing: 6) {
                     FlowStatCell(title: L("勝利", "Wins"), value: "\(r.seasonWins)", tint: Theme.success)
@@ -269,7 +272,8 @@ struct RankOverviewView: View {
                         Text(RankService.tierName(t))
                             .font(Theme.heading(current ? 15 : 13))
                             .foregroundStyle(current ? Theme.gold : Theme.textPrimary)
-                        Text(t == .starRingSovereign ? L("ポイント制", "Point system") : L("3 段階 × 星 3", "3 divisions × 3 stars"))
+                        Text(t == .mythic ? L("星の累計（オナー 25・グローリー 50・イモータル 100）", "Cumulative stars (Honor 25 · Glory 50 · Immortal 100)")
+                             : L("\(RankService.divisions(t)) 段階 × 星 \(RankService.maxStars(t))", "\(RankService.divisions(t)) divisions × \(RankService.maxStars(t)) stars"))
                             .font(Theme.body(10))
                             .foregroundStyle(Theme.textSecondary)
                     }

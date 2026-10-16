@@ -799,10 +799,10 @@ private struct RewardsTab: View {
                 .transition(.scale.combined(with: .opacity))
             VStack(alignment: .leading, spacing: 3) {
                 Text(RankService.displayName(shown)).font(Theme.heading(14)).foregroundStyle(Theme.textPrimary)
-                if shown.tier == .starRingSovereign {
-                    Text("\(shown.points) pt").font(Theme.mono(12)).foregroundStyle(Theme.gold).contentTransition(.numericText())
+                if shown.tier == .mythic {
+                    Text("★ \(shown.stars)").font(Theme.mono(12)).foregroundStyle(Theme.gold).contentTransition(.numericText())
                 } else {
-                    RankStarsView(stars: shown.stars, size: 15)
+                    RankStarsView(stars: shown.stars, maxStars: RankService.maxStars(shown.tier), size: 15)
                 }
             }
             Spacer()
@@ -823,10 +823,6 @@ private struct RewardsTab: View {
         }
         if after.tier < before.tier || (after.tier == before.tier && after.division > before.division) {
             return (L("降格", "Demoted"), Theme.danger)
-        }
-        if after.tier == .starRingSovereign {
-            let d = after.points - before.points
-            return (d >= 0 ? "+\(d) pt" : "\(d) pt", d >= 0 ? Theme.success : Theme.danger)
         }
         let d = after.stars - before.stars
         if d > 0 { return ("★ +\(d)", Theme.success) }

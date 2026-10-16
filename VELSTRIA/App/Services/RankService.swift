@@ -2,16 +2,12 @@ import Foundation
 import VelstriaCore
 
 // 担当: app-services
-// ランク（対 AI ローカルラダー。DESIGN §12）
-// - 隕鉄〜星冠: 各ティア 段位 III → II → I、星 0〜3。
-//   勝利: 星 +1。星 3 の状態で勝つと次の段位（I の次は次ティアの III）へ昇格し、星 1 から始まる。
-//   敗北: 星 −1。星 0 で負けると 1 段位降格して星 2（ティアをまたぐ場合は下位ティアの I・星 2）。
-//   隕鉄は降格も星の減少による段位低下もしない（星は 0 で止まる）。
-// - 降格保護（ティア下限保護）: 各ティアへ「初めて」昇格した時に 1 回分付与される。
-//   そのティアの III・星 0 で負けてティア降格する場面で 1 回だけ降格を防ぐ（消費される）。
-//   契約の RankState に専用フィールドが無いため、星環王未満では `points` を保護の残り回数（0/1）として使う。
-//   （星環王ではポイントそのもの。rating() は星環王未満の points を無視する）
-// - 星環王: ポイント制。勝利 +20 / 敗北 −15（0 で下げ止まり）。0pt で負けると星冠 I・星 2 へ降格。
+// ランク（Mobile Legends と同じ規則。正はクラウドの relay/src/rank.ts。片方を変えたらもう片方も変える）
+// - ウォリアー III〜I（星 3）/ エリート III〜I（星 4）/ マスター IV〜I（星 4）/ グランドマスター V〜I（星 5）/
+//   エピック V〜I（星 5）/ レジェンド V〜I（星 5）/ ミシック（星の累計。オナー 25・グローリー 50・イモータル 100）
+// - 勝利 星 +1。満星で勝つと次の段位の星 1。敗北 星 −1、星 0 で負けると 1 段位下の「満星 −1」。
+// - ウォリアーは負けても星が減らない。ティアの最下段・星 0 では下のティアへ落ちない（ミシック星 0 の敗北だけレジェンド I へ）。
+// - スターポイント: 勝利でたまる（700 で星 +1）。保護ポイント: 敗北でたまる（700 になると次の敗北で星が減らない）。
 
 struct LadderEntry: Identifiable, Equatable {
     var id: String { name }
@@ -21,101 +17,137 @@ struct LadderEntry: Identifiable, Equatable {
     var isPlayer: Bool
 }
 
+/// 1 試合のランクの動き（リザルトの演出に使う）。
+struct RankMatchDelta: Equatable {
+    var starPointsGain = 0
+    var scoreBonus = 0
+    var activeBonus = 0
+    var protected = false
+}
+
 enum RankService {
-    static let maxStars = 3
-    static let sovereignWinPoints = 20
-    static let sovereignLossPoints = 15
+    static let bar = 700
     /// ラダーに並ぶライバル数。
     static let rivalCount = 50
 
+    static func divisions(_ t: RankTier) -> Int {
+        switch t {
+        case .warrior, .elite: return 3
+        case .master: return 4
+        case .grandmaster, .epic, .legend: return 5
+        case .mythic: return 1
+        }
+    }
+
+    static func maxStars(_ t: RankTier) -> Int {
+        switch t {
+        case .warrior: return 3
+        case .elite, .master: return 4
+        case .grandmaster, .epic, .legend: return 5
+        case .mythic: return 0
+        }
+    }
+
     /// 並べ替え用の通算ポイント。
     static func rating(_ r: RankState) -> Int {
-        let base = r.tier.rawValue * 1000 + (3 - r.division) * 300 + r.stars * 100
-        return r.tier == .starRingSovereign ? base + r.points : base
+        if r.tier == .mythic { return r.tier.rawValue * 1000 + r.stars * 10 }
+        return r.tier.rawValue * 1000 + (divisions(r.tier) - r.division) * 150 + r.stars * 25
+    }
+
+    /// MLBB の試合評価（0〜16）。チーム最高 MVP スコアを 16 近くに置いた相対値。
+    static func matchRating(_ p: PlayerSummary, in summary: MatchSummary) -> Double {
+        let best = summary.players.map(\.mvpScore).max() ?? 1
+        let v = 2 + 13.5 * max(0, p.mvpScore) / max(1, best)
+        return (min(16, max(1, v)) * 10).rounded() / 10
     }
 
     // MARK: - 試合結果の反映
 
-    /// 試合結果をランクへ反映。
-    static func apply(won: Bool, to r: inout RankState) {
+    /// 試合結果をランクへ反映（端末側の計算。クラウドに繋がれば後で正の値で上書きする）。
+    @discardableResult
+    static func apply(won: Bool, rating: Double = 6, mvp: Bool = false, to r: inout RankState) -> RankMatchDelta {
+        var d = RankMatchDelta()
+        let rt = min(16, max(0, rating))
         if won {
             r.seasonWins += 1
-            applyWin(&r)
+            addStar(&r)
+            if r.tier != .mythic {
+                d.starPointsGain = Int((20 + rt * 8 + (mvp ? 30 : 0)).rounded())
+                r.starPoints += d.starPointsGain
+                if r.starPoints >= bar {
+                    r.starPoints -= bar
+                    addStar(&r)
+                }
+            }
         } else {
             r.seasonLosses += 1
-            applyLoss(&r)
+            if r.tier != .mythic {
+                d.scoreBonus = Int((rt * 3).rounded())
+                d.activeBonus = 5
+            }
+            if r.protectionPoints >= bar {
+                r.protectionPoints = 0
+                d.protected = true
+            } else {
+                removeStar(&r)
+                r.protectionPoints = min(bar, r.protectionPoints + d.scoreBonus + d.activeBonus)
+            }
         }
         r.highestTier = max(r.highestTier, r.tier)
+        if r.tier == .mythic { r.highestMythicStars = max(r.highestMythicStars, r.stars) }
+        return d
     }
 
-    private static func applyWin(_ r: inout RankState) {
-        if r.tier == .starRingSovereign {
-            r.points += sovereignWinPoints
-            return
-        }
-        if r.stars < maxStars {
+    private static func addStar(_ r: inout RankState) {
+        if r.tier == .mythic {
             r.stars += 1
             return
         }
-        // 星 3 での勝利 → 昇格
+        if r.stars < maxStars(r.tier) {
+            r.stars += 1
+            return
+        }
         if r.division > 1 {
             r.division -= 1
             r.stars = 1
             return
         }
         guard let next = RankTier(rawValue: r.tier.rawValue + 1) else { return }
-        let firstTime = next > r.highestTier
         r.tier = next
-        if next == .starRingSovereign {
-            r.division = 1
-            r.stars = 0
-            r.points = 0
-        } else {
-            r.division = 3
-            r.stars = 1
-            r.points = firstTime ? 1 : 0
-        }
+        r.division = divisions(next)
+        r.stars = next == .mythic ? 0 : 1
     }
 
-    private static func applyLoss(_ r: inout RankState) {
+    private static func removeStar(_ r: inout RankState) {
         switch r.tier {
-        case .starRingSovereign:
-            if r.points > 0 {
-                r.points = max(0, r.points - sovereignLossPoints)
+        case .warrior:
+            return
+        case .mythic:
+            if r.stars > 0 {
+                r.stars -= 1
             } else {
-                r.tier = .starCrown
+                r.tier = .legend
                 r.division = 1
-                r.stars = 2
-                r.points = 0
+                r.stars = maxStars(.legend) - 1
             }
-        case .meteorite:
-            r.stars = max(0, r.stars - 1)
         default:
             if r.stars > 0 {
                 r.stars -= 1
-            } else if r.division < 3 {
+            } else if r.division < divisions(r.tier) {
                 r.division += 1
-                r.stars = 2
-            } else if r.points > 0 {
-                // 降格保護を消費してティアに留まる
-                r.points = 0
-            } else if let lower = RankTier(rawValue: r.tier.rawValue - 1) {
-                r.tier = lower
-                r.division = 1
-                r.stars = 2
-                r.points = 0
+                r.stars = maxStars(r.tier) - 1
             }
         }
     }
 
-    /// 降格保護が残っているか（星環王・隕鉄では常に false）。
+    /// 保護ポイントが満タン（次の敗北で星が減らない）か。
     static func hasFloorProtection(_ r: RankState) -> Bool {
-        r.tier != .starRingSovereign && r.tier != .meteorite && r.points > 0
+        r.tier != .mythic && r.protectionPoints >= bar
     }
 
     /// 次の勝利で昇格（段位・ティア）するか。
     static func isPromotionMatch(_ r: RankState) -> Bool {
-        r.tier != .starRingSovereign && r.stars >= maxStars
+        r.tier != .mythic && r.stars >= maxStars(r.tier)
     }
 
     // MARK: - ラダー
@@ -129,19 +161,19 @@ enum RankService {
         var entries: [LadderEntry] = []
         // ティアごとの人数（計 50）。中位が厚いピラミッド。
         let distribution: [(RankTier, Int)] = [
-            (.meteorite, 6), (.silverRing, 9), (.goldRing, 10), (.whiteStar, 9),
-            (.azureCrystal, 7), (.starCrown, 6), (.starRingSovereign, 3),
+            (.warrior, 4), (.elite, 6), (.master, 8), (.grandmaster, 10),
+            (.epic, 10), (.legend, 7), (.mythic, 5),
         ]
         for (tier, count) in distribution {
             for _ in 0..<count {
                 var r = RankState()
                 r.tier = tier
-                if tier == .starRingSovereign {
+                if tier == .mythic {
                     r.division = 1
-                    r.points = rng.nextInt(in: 0...48) * 5
+                    r.stars = rng.nextInt(in: 0...120)
                 } else {
-                    r.division = rng.nextInt(in: 1...3)
-                    r.stars = rng.nextInt(in: 0...maxStars)
+                    r.division = rng.nextInt(in: 1...divisions(tier))
+                    r.stars = rng.nextInt(in: 0...maxStars(tier))
                 }
                 let name = rivalName(&rng, used: &used)
                 entries.append(LadderEntry(name: name, rating: rating(r), tier: tier, isPlayer: false))
@@ -202,22 +234,22 @@ enum RankService {
     /// 到達報酬。
     static func tierRewards(_ tier: RankTier) -> [MailAttachment] {
         switch tier {
-        case .meteorite:
+        case .warrior:
             return [MailAttachment(kind: .coin, amount: 300)]
-        case .silverRing:
+        case .elite:
             return [MailAttachment(kind: .coin, amount: 800), MailAttachment(kind: .gem, amount: 20)]
-        case .goldRing:
+        case .master:
             return [MailAttachment(kind: .coin, amount: 1200), MailAttachment(kind: .gem, amount: 40)]
-        case .whiteStar:
+        case .grandmaster:
             return [MailAttachment(kind: .coin, amount: 1600), MailAttachment(kind: .gem, amount: 60),
                     LiveOpsService.cosmeticReward("CO035", fallbackGems: 120)]
-        case .azureCrystal:
+        case .epic:
             return [MailAttachment(kind: .coin, amount: 2000), MailAttachment(kind: .gem, amount: 80),
                     LiveOpsService.cosmeticReward("CO047", fallbackGems: 150)]
-        case .starCrown:
+        case .legend:
             return [MailAttachment(kind: .coin, amount: 3000), MailAttachment(kind: .gem, amount: 120),
                     LiveOpsService.cosmeticReward("CO059", fallbackGems: 200)]
-        case .starRingSovereign:
+        case .mythic:
             return [MailAttachment(kind: .coin, amount: 5000), MailAttachment(kind: .gem, amount: 200),
                     LiveOpsService.cosmeticReward("CO071", fallbackGems: 300)]
         }
@@ -248,27 +280,45 @@ enum RankService {
 
     static func tierName(_ t: RankTier) -> String {
         switch t {
-        case .meteorite: return L("隕鉄", "Meteorite")
-        case .silverRing: return L("銀環", "Silver Ring")
-        case .goldRing: return L("金環", "Gold Ring")
-        case .whiteStar: return L("白星", "White Star")
-        case .azureCrystal: return L("蒼晶", "Azure Crystal")
-        case .starCrown: return L("星冠", "Star Crown")
-        case .starRingSovereign: return L("星環王", "Star Sovereign")
+        case .warrior: return L("ウォリアー", "Warrior")
+        case .elite: return L("エリート", "Elite")
+        case .master: return L("マスター", "Master")
+        case .grandmaster: return L("グランドマスター", "Grandmaster")
+        case .epic: return L("エピック", "Epic")
+        case .legend: return L("レジェンド", "Legend")
+        case .mythic: return L("ミシック", "Mythic")
         }
     }
 
+    /// ミシックの段階名（星の累計で決まる）。
+    static func mythicName(stars: Int) -> String {
+        switch stars {
+        case 100...: return L("ミシックイモータル", "Mythical Immortal")
+        case 50...: return L("ミシックグローリー", "Mythical Glory")
+        case 25...: return L("ミシックオナー", "Mythical Honor")
+        default: return L("ミシック", "Mythic")
+        }
+    }
+
+    static func roman(_ division: Int) -> String {
+        ["I", "II", "III", "IV", "V"][max(0, min(4, division - 1))]
+    }
+
+    /// 段位名（ティア名 + ローマ数字。ミシックは段階名）。
+    static func shortName(_ r: RankState) -> String {
+        r.tier == .mythic ? mythicName(stars: r.stars) : tierName(r.tier)
+    }
+
     static func displayName(_ r: RankState) -> String {
-        if r.tier == .starRingSovereign { return "\(tierName(r.tier)) \(r.points)pt" }
-        let roman = ["I", "II", "III"]
-        return "\(tierName(r.tier)) \(roman[max(0, min(2, r.division - 1))])"
+        if r.tier == .mythic { return "\(mythicName(stars: r.stars)) ★\(r.stars)" }
+        return "\(tierName(r.tier)) \(roman(r.division))"
     }
 
     /// ランクに応じた AI 難易度（味方, 敵）。
     static func botDifficulty(for r: RankState) -> (ally: Difficulty, enemy: Difficulty) {
         switch r.tier {
-        case .meteorite, .silverRing: return (.normal, .easy)
-        case .goldRing, .whiteStar: return (.normal, .normal)
+        case .warrior, .elite: return (.normal, .easy)
+        case .master, .grandmaster, .epic: return (.normal, .normal)
         default: return (.hard, .hard)
         }
     }

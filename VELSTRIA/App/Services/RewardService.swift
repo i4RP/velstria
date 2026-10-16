@@ -27,6 +27,9 @@ struct RewardReport: Equatable {
     var accountLevelAfter = 1
     var rankBefore: RankState?
     var rankAfter: RankState?
+    /// ランク戦の動き（スターポイント・保護ポイントの内訳）と試合評価（0〜16）。
+    var rankDelta: RankMatchDelta?
+    var matchRating: Double = 0
     var passXP = 0
     /// マジックダスト（エンブレムの解放・強化）。
     var magicDust = 0
@@ -163,7 +166,9 @@ enum RewardService {
         // ランク（countsForRank が立っているか、モードがランク戦なら反映）
         if launch.countsForRank || launch.config.mode == .ranked {
             report.rankBefore = profile.rank
-            RankService.apply(won: won, to: &profile.rank)
+            if let human = summary.humanPlayer { report.matchRating = RankService.matchRating(human, in: summary) }
+            report.rankDelta = RankService.apply(won: won, rating: report.matchRating, mvp: summary.humanPlayer?.isMVP == true,
+                                                 to: &profile.rank)
             report.rankAfter = profile.rank
         }
 
@@ -226,7 +231,7 @@ enum RewardService {
 
         if launch.countsForRank || launch.config.mode == .ranked {
             report.rankBefore = profile.rank
-            RankService.apply(won: false, to: &profile.rank)
+            report.rankDelta = RankService.apply(won: false, rating: 0, to: &profile.rank)
             report.rankAfter = profile.rank
         }
 

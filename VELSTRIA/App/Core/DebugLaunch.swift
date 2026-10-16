@@ -26,6 +26,7 @@ import VelstriaCore
 //   -efkAuto <atk|s1|s2|ult>  -battle practice で、人形へ近づいて 2 秒ごとに通常攻撃 / スキルを撃ち続ける（Effekseer の確認用）
 //   -coreFinaleDemo <red|blue>  幕が上がって 2 秒後にその Core を数秒で壊させ、Star Core の終幕を流す（BattleRenderer。
 //                         -battle spectate、または -battle standard -botControl と併せる。sim の規則は変えず状態を置き換えるだけ）
+//   -autoAdvance          試合終了のバナーとランク戦のリザルトの各画面を数秒ごとに自動で進める（画面の確認用）
 //   -hero <heroID>        -battle で自分が使うヒーロー（省略時は最後に選んだヒーロー、無ければ H003）
 //   -language <ja|en>     表示言語
 //   -graphics <low|medium|high>  画質
@@ -55,6 +56,7 @@ enum DebugLaunch {
     static var args: [String] { [] }
     #endif
     static var isUITesting: Bool { args.contains("-uiTesting") }
+    static var autoAdvance: Bool { args.contains("-autoAdvance") }
 
     static func value(after flag: String) -> String? {
         guard let i = args.firstIndex(of: flag), i + 1 < args.count else { return nil }

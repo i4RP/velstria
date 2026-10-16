@@ -145,7 +145,7 @@ struct HomeShowcase: View {
 // MARK: - アート
 
 /// ヒーローの絵の合成（オーラ + 輪郭の発光 + 人物）。呼吸の拡縮は animated の間だけ。
-private struct HomeHeroArt: View {
+struct HomeHeroArt: View {
     let heroID: String
     let skinID: String?
     let size: CGSize

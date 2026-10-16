@@ -387,6 +387,8 @@ final class CreatureVisual {
     private var opacityApplied: Float = 1
     /// 生成 3D モデルで表示しているか（テスト用）。
     private(set) var isGenerated = false
+    /// 動く生成モデルの動作（中立モンスター。無ければ手続きの揺れだけ）。
+    private var animator: CreatureAnimator?
 
     init(key: CreatureKey, meshes: UnitMeshLibrary, materials: RenderMaterials, text: TextMeshCache) {
         self.key = key
@@ -398,6 +400,8 @@ final class CreatureVisual {
         var barStyle: OverheadBar.Style = .monster(boss: false)
         /// 生成 3D モデル（StructureAssets。読み込み済みのミニオンのみ）。部位を分けない 1 メッシュで、揺れ・傾き・突進で動かす。
         var generated: ModelEntity?
+        /// 動く生成モデル（CreatureAssets。中立モンスター）。
+        var creatureRoot: Entity?
         switch key {
         case .minion(let type, let team):
             if let model = StructureAssets.model(.minion(type)) {
@@ -411,8 +415,10 @@ final class CreatureVisual {
             barColor = materials.teams.main(team)
             barStyle = .minion
         case .monster(let kind):
-            if let gk = StructureAssets.Kind.monster(kind), let model = StructureAssets.model(gk) {
-                generated = model.makeEntity(team: .blue)
+            if let model = CreatureAssets.model(kind) {
+                let inst = model.makeInstance()
+                creatureRoot = inst.root
+                animator = CreatureAnimator(model: model, target: inst.animTarget)
                 pm = PartMeshes()
             } else {
                 pm = meshes.monster(kind)
@@ -429,7 +435,7 @@ final class CreatureVisual {
             }
             barStyle = .monster(boss: kind.isBoss)
             // 生成モデルは実寸（m）で作ってあるので拡大しない
-            scale = generated != nil ? 1 : ms
+            scale = creatureRoot != nil ? 1 : ms
         case .dummy:
             pm = meshes.dummy
             scale = 1
@@ -439,10 +445,11 @@ final class CreatureVisual {
         }
         body.scale = SIMD3(repeating: scale)
         if let generated { body.addChild(generated) }
-        isGenerated = generated != nil
+        if let creatureRoot { body.addChild(creatureRoot) }
+        isGenerated = generated != nil || creatureRoot != nil
         if let m = pm.body { body.addChild(ModelEntity(mesh: m, materials: [materials.lit])) }
         if let m = pm.bodyGlow { body.addChild(ModelEntity(mesh: m, materials: [materials.glow])) }
-        if case .monster(.astralWyrm) = key, generated == nil {
+        if case .monster(.astralWyrm) = key, creatureRoot == nil {
             // 頭（body メッシュ）を持ち上げ、胴の節を後ろへ並べる
             for child in body.children {
                 child.position = [0, 1.6, -0.8]
@@ -509,6 +516,7 @@ final class CreatureVisual {
     func activate(id: EntityID, at p: Vec2, facing: Double) {
         self.id = id
         dyingT = nil
+        animator?.reset()
         attackT = 1
         hitT = 1
         walkPhase = 0
@@ -547,8 +555,15 @@ final class CreatureVisual {
         applyOpacity(opacity)
     }
 
-    func beginAttack() { attackT = 0 }
-    func hit() { hitT = 0 }
+    func beginAttack() {
+        attackT = 0
+        animator?.trigger(.attack)
+    }
+
+    func hit() {
+        hitT = 0
+        animator?.trigger(.hit)
+    }
 
     func beginDying() {
         guard dyingT == nil else { return }
@@ -570,9 +585,10 @@ final class CreatureVisual {
         // Keep event anchors/camera tracking current even when presentation is culled.
         root.position = worldPosition(p)
         root.isEnabled = visibility > 0.01 && f.needsDetail(i)
-        guard root.isEnabled else { return }
         let speed = Float(u.pos.distance(to: u.prevPos) / Balance.dt)
         let moving = speed > 20
+        animator?.update(dt: dt, moving: moving, visible: root.isEnabled)
+        guard root.isEnabled else { return }
         yaw = approachAngle(yaw, yawForFacing(u.facing), rate: 9, dt: dt)
         yawNode.orientation = simd_quatf(angle: yaw, axis: [0, 1, 0])
         animate(time: f.time, dt: dt, speed: speed, moving: moving)
@@ -640,6 +656,12 @@ final class CreatureVisual {
                 }
                 part.orientation = partRest[k] * simd_quatf(angle: swing, axis: [1, 0, 0])
             }
+        }
+        if animator != nil {
+            // 動く生成モデルは骨の動作に任せる（手続きの揺れ・突進は重ねない）
+            offset = .zero
+            roll = 0
+            pitch = 0
         }
         body.position = offset
         body.orientation = simd_quatf(angle: roll, axis: [0, 0, 1]) * simd_quatf(angle: pitch, axis: [1, 0, 0])

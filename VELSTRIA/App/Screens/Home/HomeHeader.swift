@@ -175,10 +175,10 @@ private struct HomeRankChip: View {
                             .lineLimit(1)
                             .fixedSize()
                     }
-                    if rank.tier == .starRingSovereign {
-                        Text("\(rank.points) pt").font(HomeFont.tech(10)).foregroundStyle(Theme.gold)
+                    if rank.tier == .mythic {
+                        Text("★\(rank.stars)").font(HomeFont.tech(10)).foregroundStyle(Theme.gold)
                     } else {
-                        RankStarsView(stars: rank.stars, size: 9)
+                        RankStarsView(stars: rank.stars, maxStars: RankService.maxStars(rank.tier), size: 9)
                     }
                 }
             }

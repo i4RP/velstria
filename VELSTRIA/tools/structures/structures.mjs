@@ -20,6 +20,7 @@
 //   node tools/structures/structures.mjs parts <id...|all>              塔・Star Core の部品分け（tools/structures/tower_parts.py）:
 //                                                                       part_plinth〜part_crystal の子メッシュの USDZ・赤チームのテクスチャ、
 //                                                                       部品の範囲と三角形数を tools/structures/parts/<id>.json へ
+//   node tools/structures/structures.mjs creature <id...>               中立モンスターの動くモデル（先に creature_rig.mjs）
 //   node tools/structures/structures.mjs status
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -301,6 +302,20 @@ function bake(a) {
   return true;
 }
 
+// 中立モンスター: 動く Creature_<id>.usdz と動作の区間 Creature_<id>.json（tools/structures/creature_bake.py）
+function creature(a) {
+  if (!a.creature) { log(`${a.id}: creature の仕様がありません`); return false; }
+  fs.mkdirSync(RES, { recursive: true });
+  const size = { ...a.size, yaw: a.creature.yaw };
+  const r = spawnSync(BLENDER, ["-b", "--factory-startup", "-noaudio", "--python", path.join(ROOT, "tools", "structures", "creature_bake.py"), "--",
+    "--id", a.id, "--out", RES, "--work", dirOf(a.id), "--faces", String(a.faces), "--legs", String(a.creature.legs ?? 0),
+    "--size", JSON.stringify(size)], { encoding: "utf8", maxBuffer: 64 << 20 });
+  const out = (r.stdout || "") + (r.stderr || "");
+  for (const l of out.split("\n").filter((l) => l.startsWith("[creature]") || /Error|Traceback/.test(l))) log(l.slice(0, 400));
+  if (r.status !== 0) { log(out.slice(-3000)); return false; }
+  return true;
+}
+
 // 塔・Star Core: 部品（part_plinth / part_lower / part_upper / part_crown / part_crystal）に分けて書き出す
 function bakeParts(a) {
   const glb = path.join(dirOf(a.id), "model.glb");
@@ -351,6 +366,7 @@ async function main() {
       process.exitCode = errs.length ? 1 : 0;
       return;
     }
+    case "creature": { const ok = pick(s, ids).map(creature); process.exitCode = ok.every(Boolean) ? 0 : 1; return; }
     case "bake": { const ok = pick(s, ids).map(bake); process.exitCode = ok.every(Boolean) ? 0 : 1; return; }
     case "parts": { const ok = pick(s, ids).filter((a) => a.parts).map(bakeParts); process.exitCode = ok.length && ok.every(Boolean) ? 0 : 1; return; }
     case "status": {

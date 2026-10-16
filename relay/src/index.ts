@@ -7,11 +7,14 @@
 import { DurableObject } from "cloudflare:workers";
 import { FRIEND_CODE, FriendInbox, INBOX_CLOSE, INBOX_KEY, isSuspended, sha256Hex } from "./inbox";
 
-export { FriendInbox };
+import { RankAccount, type MatchInput, type RankCallResult } from "./rank";
+
+export { FriendInbox, RankAccount };
 
 export interface Env {
   RELAY_ROOM: DurableObjectNamespace<RelayRoom>;
   FRIEND_INBOX: DurableObjectNamespace<FriendInbox>;
+  RANK_ACCOUNT: DurableObjectNamespace<RankAccount>;
   /**
    * 運営が利用を止めたフレンドコード（空白・カンマ区切り）。通報を受けて規約違反を確かめた時に `wrangler secret put` で設定する
    * （公開リポジトリには書かない）。止めたコードは受信箱へ繋げず（4013 inbox_suspended）、申請・招待を送れない。
@@ -83,6 +86,8 @@ export default {
       if (request.method !== "GET" && request.method !== "HEAD") return plain(405, "method_not_allowed");
       return Response.json({ ok: true, relay: RELAY_VERSION }, { headers: { "cache-control": "no-store" } });
     }
+    const rank = RANK_PATH.exec(url.pathname);
+    if (rank) return rankCall(request, env, rank[1], rank[2]);
     const erase = INBOX_ERASE_PATH.exec(url.pathname);
     if (erase) return eraseInbox(request, env, erase[1]);
     const inbox = INBOX_PATH.exec(url.pathname);
@@ -115,6 +120,39 @@ export default {
     return env.RELAY_ROOM.getByName(code).fetch(request);
   },
 } satisfies ExportedHandler<Env>;
+
+/** ランク: `POST /v1/rank/<FRIENDCODE>/(get|seed|match|erase)`、本文 `{"key":"…", …}` */
+const RANK_PATH = /^\/v1\/rank\/([^/]*)\/(get|seed|match|erase)$/;
+const MAX_RANK_BODY_BYTES = 4 * 1024;
+
+async function rankCall(request: Request, env: Env, code: string, op: string): Promise<Response> {
+  if (request.method !== "POST") return plain(405, "method_not_allowed", { Allow: "POST" });
+  if (!FRIEND_CODE.test(code)) return plain(400, "bad_friend_code");
+  if (isSuspended(env, code)) return plain(403, "suspended");
+  const text = await request.text();
+  if (text.length > MAX_RANK_BODY_BYTES) return plain(400, "bad_request");
+  let body: { key?: unknown; state?: unknown; match?: MatchInput };
+  try {
+    body = JSON.parse(text) ?? {};
+  } catch {
+    return plain(400, "bad_request");
+  }
+  if (typeof body.key !== "string" || !INBOX_KEY.test(body.key)) return plain(400, "bad_key");
+  const hash = await sha256Hex(body.key);
+  const stub = env.RANK_ACCOUNT.getByName(code);
+  let res: RankCallResult;
+  switch (op) {
+    case "get": res = await stub.get(hash); break;
+    case "seed": res = await stub.seed(hash, body.state); break;
+    case "match":
+      if (!body.match || typeof body.match !== "object") return plain(400, "bad_request");
+      res = await stub.match(hash, body.match);
+      break;
+    default: res = await stub.erase(hash);
+  }
+  if (!res.ok) return plain(res.error === "forbidden" ? 403 : 400, res.error);
+  return Response.json(res, { headers: { "cache-control": "no-store" } });
+}
 
 /**
  * 受信箱の消去: `POST /v1/inbox/<FRIENDCODE>/erase`、本文 `{"key":"<KEY>"}`（鍵は URL に載せない）。

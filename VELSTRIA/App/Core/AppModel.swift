@@ -172,6 +172,27 @@ final class AppModel: FriendProfileAccess {
         LiveOpsService.onLaunch(profile: &profile, master: master, now: now)
         Task { await storeKit.start() }
         friends.start()
+        Task { await pullCloudRank() }
+    }
+
+    // MARK: ランク（クラウド）
+
+    /// 起動時: クラウドのランクを取り込む（初回は端末の記録を預ける）。
+    func pullCloudRank() async {
+        let code = profile.friendCode, key = profile.inboxKey
+        if let s = await RankCloud.seed(code: code, key: key, local: profile.rank) { profile.rank.adopt(s) }
+    }
+
+    /// ランク戦の結果をクラウドへ送り、正の値で端末の写しを上書きする。
+    private func syncRankedMatch(_ outcome: BattleOutcome, report: RewardReport) {
+        let code = profile.friendCode, key = profile.inboxKey
+        let matchID = "m_" + String(RankService.stableHash("\(profile.playerID)|\(outcome.summary.seed)|\(outcome.summary.duration)"), radix: 36)
+        let won = report.won, rating = report.matchRating, mvp = outcome.summary.humanPlayer?.isMVP == true
+        Task {
+            if let s = await RankCloud.match(code: code, key: key, matchID: matchID, won: won, rating: rating, mvp: mvp) {
+                profile.rank.adopt(s)
+            }
+        }
     }
 
     // MARK: 戦闘
@@ -520,6 +541,7 @@ final class AppModel: FriendProfileAccess {
         profile = p
         lastOutcome = outcome
         lastRewardReport = report
+        if report.rankAfter != nil { syncRankedMatch(outcome, report: report) }
         return report
     }
 
