@@ -17,6 +17,8 @@ public struct PlayerSlot: Codable, Hashable, Sendable {
     /// 人間が選んだバトルプランの添字（ItemSystem.heroPlans。nil = 「有効」のプラン。ボットは常に nil）。
     /// 後から足した任意の値なので、旧版の構成・リプレイは nil として読む。
     public var buildPlan: Int?
+    /// 国・地域（ISO 3166 の 2 文字。ロード画面の国旗の表示にだけ使う。nil = 不明・旧版の構成）。
+    public var countryCode: String?
 
     public init(team: Team, heroID: String, controller: Controller, position: LanePosition,
                 spells: [String] = ["BS01", "BS03"], emblem: EmblemLoadout? = nil, skinID: String? = nil,

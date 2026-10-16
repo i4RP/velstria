@@ -122,6 +122,8 @@ struct OnlinePeer: Codable, Hashable, Identifiable {
     /// 名乗ったアイコンのヒーロー（パーティの枠に出す）・フレンドコード（パーティからフレンド申請する）。自己申告なので表示にだけ使う。
     var avatar: String?
     var friendCode: String?
+    /// 国・地域（自己申告。ロード画面の国旗）。
+    var country: String?
 }
 
 enum OnlineRoomPhase: Int, Codable, Hashable {
@@ -194,7 +196,14 @@ struct OnlineRoom: Codable, Hashable {
                                    spells: s.loadout.spells, emblem: s.loadout.emblem, skinID: s.loadout.skinID,
                                    autoLevelSkills: s.loadout.autoLevelSkills, buildPlan: s.loadout.buildPlan)
         }
-        return MatchFactory.onlineMatch(humans: humans, botDifficulty: botDifficulty, seed: seed, master: master)
+        var config = MatchFactory.onlineMatch(humans: humans, botDifficulty: botDifficulty, seed: seed, master: master)
+        for i in config.players.indices {
+            let p = config.players[i]
+            guard let s = humanSeats.first(where: { $0.team == p.team && $0.position == p.position }),
+                  let id = s.peerID else { continue }
+            config.players[i].countryCode = peer(id)?.country
+        }
+        return config
     }
 }
 
@@ -208,6 +217,7 @@ struct OnlineHello: Codable, Hashable {
     /// アイコンのヒーロー・フレンドコード（任意。パーティの表示用）。
     var avatar: String?
     var friendCode: String?
+    var country: String?
 }
 
 /// 配線上のメッセージ。
