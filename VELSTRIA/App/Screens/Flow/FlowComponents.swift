@@ -469,7 +469,7 @@ private struct InsetHexagon: Shape {
     func path(in rect: CGRect) -> Path { HexagonShape().path(in: rect.insetBy(dx: amount, dy: amount)) }
 }
 
-/// ランクの星（最大 3）。
+/// ランクの星（ティアごとに 3〜5）。
 struct RankStarsView: View {
     let stars: Int
     var maxStars = 3
@@ -502,8 +502,8 @@ struct RankInlineView: View {
                 .foregroundStyle(Theme.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-            if rank.tier != .starRingSovereign {
-                RankStarsView(stars: rank.stars, size: emblemSize * 0.45)
+            if rank.tier != .mythic {
+                RankStarsView(stars: rank.stars, maxStars: RankService.maxStars(rank.tier), size: emblemSize * 0.45)
             }
         }
         .accessibilityElement(children: .combine)
@@ -936,25 +936,25 @@ enum FlowText {
 
     static func tierColors(_ t: RankTier) -> [Color] {
         switch t {
-        case .meteorite: return [Color(red: 0.62, green: 0.50, blue: 0.42), Color(red: 0.26, green: 0.20, blue: 0.20)]
-        case .silverRing: return [Color(red: 0.86, green: 0.89, blue: 0.94), Color(red: 0.42, green: 0.47, blue: 0.56)]
-        case .goldRing: return [Color(red: 1.0, green: 0.84, blue: 0.42), Color(red: 0.62, green: 0.40, blue: 0.10)]
-        case .whiteStar: return [Color(red: 0.95, green: 0.97, blue: 1.0), Color(red: 0.55, green: 0.66, blue: 0.88)]
-        case .azureCrystal: return [Color(red: 0.45, green: 0.90, blue: 1.0), Color(red: 0.10, green: 0.32, blue: 0.75)]
-        case .starCrown: return [Color(red: 0.84, green: 0.60, blue: 1.0), Color(red: 0.35, green: 0.15, blue: 0.62)]
-        case .starRingSovereign: return [Color(red: 1.0, green: 0.86, blue: 0.48), Color(red: 0.92, green: 0.30, blue: 0.55)]
+        case .warrior: return [Color(red: 0.62, green: 0.50, blue: 0.42), Color(red: 0.26, green: 0.20, blue: 0.20)]
+        case .elite: return [Color(red: 0.86, green: 0.89, blue: 0.94), Color(red: 0.42, green: 0.47, blue: 0.56)]
+        case .master: return [Color(red: 1.0, green: 0.84, blue: 0.42), Color(red: 0.62, green: 0.40, blue: 0.10)]
+        case .grandmaster: return [Color(red: 0.95, green: 0.97, blue: 1.0), Color(red: 0.55, green: 0.66, blue: 0.88)]
+        case .epic: return [Color(red: 0.45, green: 0.90, blue: 1.0), Color(red: 0.10, green: 0.32, blue: 0.75)]
+        case .legend: return [Color(red: 0.84, green: 0.60, blue: 1.0), Color(red: 0.35, green: 0.15, blue: 0.62)]
+        case .mythic: return [Color(red: 1.0, green: 0.86, blue: 0.48), Color(red: 0.92, green: 0.30, blue: 0.55)]
         }
     }
 
     static func tierSymbol(_ t: RankTier) -> String {
         switch t {
-        case .meteorite: return "shield.fill"
-        case .silverRing: return "circle.circle"
-        case .goldRing: return "circle.circle.fill"
-        case .whiteStar: return "star.fill"
-        case .azureCrystal: return "diamond.fill"
-        case .starCrown: return "crown.fill"
-        case .starRingSovereign: return "sun.max.fill"
+        case .warrior: return "shield.fill"
+        case .elite: return "circle.circle"
+        case .master: return "circle.circle.fill"
+        case .grandmaster: return "star.fill"
+        case .epic: return "diamond.fill"
+        case .legend: return "crown.fill"
+        case .mythic: return "sun.max.fill"
         }
     }
 

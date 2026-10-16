@@ -224,6 +224,8 @@ final class FriendHub {
         let base = baseURL(), transport = eraseTransport
         Task { @MainActor [weak self] in
             let result = await FriendInboxEraser.erase(base: base, code: code, key: key, transport: transport)
+            // クラウドのランク（同じコードと鍵の RankAccount）も消す
+            await RankCloud.erase(code: code, key: key)
             guard result == .erased else {
                 completion(false)
                 return

@@ -221,7 +221,11 @@ struct BattleSessionView: View {
                 phase = .result(outcome, report)
             }
         case .result(let outcome, let report):
-            MatchResultView(outcome: outcome, report: report) { app.dismissBattle() }
+            if outcome.launch.config.mode == .ranked, report.rankAfter != nil, outcome.launch.replay == nil {
+                RankedResultFlowView(outcome: outcome, report: report) { app.dismissBattle() }
+            } else {
+                MatchResultView(outcome: outcome, report: report) { app.dismissBattle() }
+            }
         }
     }
 }

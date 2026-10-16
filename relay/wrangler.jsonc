@@ -23,6 +23,11 @@
       {
         "name": "FRIEND_INBOX",
         "class_name": "FriendInbox"
+      },
+      // フレンドコード 1 つ = ランク 1 つ（idFromName(code)）。アカウントごとのランク戦の記録
+      {
+        "name": "RANK_ACCOUNT",
+        "class_name": "RankAccount"
       }
     ]
   },
@@ -36,6 +41,10 @@
     {
       "tag": "v2",
       "new_sqlite_classes": ["FriendInbox"]
+    },
+    {
+      "tag": "v3",
+      "new_sqlite_classes": ["RankAccount"]
     }
   ]
 }

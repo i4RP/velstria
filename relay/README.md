@@ -143,6 +143,19 @@
 - アプリ側の使い方（`m` の種類 `friendRequest` / `friendAccept` / `partyInvite` / `inviteReply`）は `FriendHub.swift`、
   ARCHITECTURE.md「フレンドとパーティ」。
 
+## ランク（アカウントごと）
+
+Durable Object `RankAccount`（フレンドコード 1 つ = 1 つ）。持ち主は受信箱と同じ鍵で縛る（最初に来た鍵の SHA-256 を保存）。
+規則は Mobile Legends と同じで `src/rank.ts` が正（アプリの `RankService.swift` は通信できない時の写し）。
+
+- `POST /v1/rank/<CODE>/get` 本文 `{"key":"…"}` → `{"ok":true,"state":{…}}`
+- `POST /v1/rank/<CODE>/seed` 本文 `{"key":"…","state":{…}}`（サーバーに記録が無い時だけ端末の値を取り込む）
+- `POST /v1/rank/<CODE>/match` 本文 `{"key":"…","match":{"matchId":"…","won":true,"rating":8.2,"mvp":false}}`
+  → `{"ok":true,"state":{…},"result":{"before","after","starPointsGain","scoreBonus","activeBonus","protected"}}`。
+  同じ matchId は最初の結果を返す（直近 50 試合）。
+- `POST /v1/rank/<CODE>/erase` 本文 `{"key":"…"}`（アプリの「サーバーのデータを削除」で受信箱と一緒に消す）
+- 鍵違いは 403 `forbidden`、形式の誤りは 400。
+
 ## 実装の要点
 
 - 接続ごとの状態（役割・`guestId`・ホストの識別子 `hostKey`）は `serializeAttachment` に置き、ハイバネーションをまたぐ。

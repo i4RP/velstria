@@ -2,7 +2,7 @@ import SwiftUI
 import VelstriaCore
 
 // 担当: battle-hud。試合終了の演出: VICTORY / DEFEAT（観戦はチーム勝利、引き分け）の大きなバナー（約 2.5 秒）、
-// その後「続ける」でリザルトへ（controller.makeOutcome(abandoned: false)）。
+// その後「タップして進める」（画面のどこでも）でリザルトへ（controller.makeOutcome(abandoned: false)）。
 // Star Core の終幕の後は、引きの構図（Core が右寄せ）の空いた左側へバナーを寄せ、暗幕も左を濃く右を薄くする（壊れた Core を見せたまま）。
 
 struct HUDEndOfMatchView: View {
@@ -37,13 +37,22 @@ struct HUDEndOfMatchView: View {
             }
         }
         .ignoresSafeArea()
+        // Mobile Legends と同じく、画面のどこをタップしても進む
+        .contentShape(Rectangle())
+        .onTapGesture { if case .prompt = phase { model.continueAfterEnd() } }
+        .accessibilityAction { if case .prompt = phase { model.continueAfterEnd() } }
         .animation(.spring(duration: 0.4), value: phase)
+        .task(id: phase) {
+            guard DebugLaunch.autoAdvance, case .prompt = phase else { return }
+            try? await Task.sleep(for: .seconds(3))
+            model.continueAfterEnd()
+        }
         .onAppear {
             withAnimation(.spring(duration: 0.9, bounce: 0.35)) { appeared = true }
             withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) { shine = true }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("hud_end")
+        .accessibilityIdentifier("result_continue")
     }
 
     /// 終幕の後のバナーの中心（画面の幅に対する割合。引きの構図で Core は 0.65 付近）。
@@ -86,12 +95,11 @@ struct HUDEndOfMatchView: View {
             }
             ZStack {
                 if case .prompt = phase {
-                    Button { model.continueAfterEnd() } label: {
-                        Label(L("続ける", "Continue"), systemImage: "chevron.right.2").frame(minWidth: 180)
-                    }
-                    .buttonStyle(PrimaryButtonStyle(color: style.color))
-                    .accessibilityIdentifier("result_continue")
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    Text(L("タップして進める", "Tap to continue"))
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .opacity(shine ? 1 : 0.55)
+                        .transition(.opacity)
                 }
             }
             .frame(height: 52)

@@ -187,7 +187,7 @@ final class FlowMatchModelTests: XCTestCase {
 
     func testRankedConfigUsesDraftAndRankDifficulty() throws {
         var p = profile()
-        p.rank.tier = .azureCrystal
+        p.rank.tier = .legend
         let m = MatchFlowModel(seed: 9)
         m.configure(profile: p, master: .shared)
         m.startRanked(profile: p)

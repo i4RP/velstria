@@ -112,11 +112,11 @@ struct HomeStartButton: View {
             VStack(alignment: .leading, spacing: 0) {
                 // 現在のランクの星（最上位ティアは星の代わりにポイント）
                 Group {
-                    if rank.tier == .starRingSovereign {
-                        Text("\(rank.points) pt").font(HomeFont.tech(9)).foregroundStyle(HomeStyle.onGold)
+                    if rank.tier == .mythic {
+                        Text("★\(rank.stars)").font(HomeFont.tech(9)).foregroundStyle(HomeStyle.onGold)
                     } else {
                         HStack(spacing: 2) {
-                            ForEach(0..<RankService.maxStars, id: \.self) { i in
+                            ForEach(0..<RankService.maxStars(rank.tier), id: \.self) { i in
                                 Image(systemName: "star.fill")
                                     .font(.system(size: 8, weight: .black))
                                     .foregroundStyle(i < rank.stars ? Color.white : HomeStyle.onGold.opacity(0.3))
