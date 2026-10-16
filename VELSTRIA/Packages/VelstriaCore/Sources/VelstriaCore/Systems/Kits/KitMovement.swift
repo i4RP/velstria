@@ -12,12 +12,19 @@ extension Kit {
                              speed: Double, payload: HitPayload, radius: Double, arriveCode: Int = 0,
                              interruptible: Bool = true) -> Vec2 {
         let landing = MovementSystem.dash(&s, ctx, unitIndex: i, to: target, speed: speed, kind: .dash)
-        guard s.units[i].hero?.kit != nil else { return landing }
+        armSweep(&s, caster: i, slot: slot, payload: payload, radius: radius, arriveCode: arriveCode,
+                 interruptible: interruptible)
+        return landing
+    }
+
+    /// 始めた突進に経路ヒット（KitSweep）を付ける（dashSweeping / dashSweepingOverTerrain の後半）。キットのヒーロー以外は何もしない。
+    static func armSweep(_ s: inout SimState, caster i: Int, slot: SkillSlot, payload: HitPayload, radius: Double,
+                         arriveCode: Int, interruptible: Bool) {
+        guard s.units[i].hero?.kit != nil else { return }
         var p = payload
         if p.originPos == nil { p.originPos = s.units[i].pos }
         s.units[i].hero!.kit!.sweep = KitSweep(slot: slot, payload: p, radius: radius, arriveCode: arriveCode,
                                                interruptible: interruptible)
-        return landing
     }
 
     /// 強制移動を受けられる相手か（生存・構造物以外・CC 無効/無敵でない）。

@@ -10,6 +10,8 @@ import Foundation
 //                                          デビルハンター: モンスターへのダメージは 110%（通常攻撃・スキルすべて。HitPayload.monsterMultiplier）。
 //   S1   裂地撃（グランドスプリッター） — 指定した地点（最大 420）へ毎秒 1250 で跳び込み、着地の周り 190 に大剣を叩きつける。
 //                                          270〜370（+85% 追加物理攻撃）+ 鈍足 40%（2 秒）。ボットはミニオン・ジャングルにも使う（botFarm）。
+//                                          跳躍は壁を越える（着地点が歩ける場所なら壁を素通り。Kit.dashSweepingOverTerrain）。
+//                                          ボットは撤退の向きに越えられる壁があるときだけ逃走にも使う（botEscape）。追撃の踏み込みは壁で止まる。
 //   S2   旋回斬（サークルスマッシュ）   — その場で大剣を回転させ、周囲 250 の敵に 345〜570（+120% 追加物理攻撃）（照準なし）。
 //   奥義 核分裂波（フィッションウェーブ） — 1 回目: 向きへ術者から 640・半幅 150 の帯の敵のエネルギーを吸収（鈍足 30%・混合防御 −10 / 15 / 20、6 秒）。
 //                                          敵ヒーロー 1 体につき自分に混合防御 +10 / 15 / 20、6 秒間 S1・S2 の CD が 50%。
@@ -122,6 +124,10 @@ struct Kit_H033: HeroKit {
         static let s1Speed = 1250.0
         /// 対象を指定したときに、対象の縁の手前で止まる余裕。
         static let s1Gap = 5.0
+        /// 照準の点が壁の中のとき、壁の向こう側へ降りてよい照準の点からの距離（公式・動画に無い選んだ値）。照準に出る着地の円
+        /// （半径 s1Radius）の中に向こう側の着地点があり、手前の縁より近いときだけ向こう側（Kit.leapLanding の farReach）。
+        /// 厚い壁に張り付いて射程の倍近くまで跳ぶことはない。
+        static var s1WallReach: Double { s1Radius }
         /// 公式: 移動速度を 2 秒間 40% 低下。動画: 的のパネルの移動速度 265 → 159（−40%）が 63〜64 コマ（2.1 秒）。
         static let s1Slow = 0.40
         static let s1SlowDuration = 2.0
@@ -341,6 +347,8 @@ struct Kit_H033: HeroKit {
 
     /// S1: 指定地点へ転がる。経路の敵には当たらず、転がり終えた tick に 1 度だけ範囲を叩く（onTimer）。
     /// 転がり（突進）はノックアップ・制圧でだけ止まる（スタンでは止まらず、着地で叩きつける。CrowdControlTier）。
+    /// 跳躍は壁を越える（MLBB のグランドスプリッター）: 着地点が歩ける場所なら途中の壁を素通りし、照準の点が壁の中なら
+    /// 照準の線の上の近い側の縁（向こう側は照準の円の中まで）へ降りる（Kit.leapLanding）。壁が無ければ以前と同じ。
     private func castGroundsplitter(_ s: inout SimState, _ ctx: SimContext, _ c: KitCast) {
         let i = c.caster
         let from = s.units[i].pos
@@ -355,8 +363,9 @@ struct Kit_H033: HeroKit {
         s.units[i].hero!.kit!.valdSlamDamage = c.numbers.damage
         // 経路上の敵には当たらない（affectsEnemies = false）。突進の中断と着地の通知だけを使う
         let carrier = HitPayload(damage: 0, damageType: .physical, source: .skill(.skill1), affectsEnemies: false)
-        let landing = Kit.dashSweeping(&s, ctx, caster: i, slot: .skill1, to: from + dir * travel,
-                                       speed: Tune.s1Speed, payload: carrier, radius: 0, arriveCode: Code.slam)
+        let landing = Kit.dashSweepingOverTerrain(&s, ctx, caster: i, slot: .skill1, to: from + dir * travel,
+                                                  speed: Tune.s1Speed, payload: carrier, radius: 0,
+                                                  farReach: Tune.s1WallReach, arriveCode: Code.slam)
         Kit.emitCast(&s, c, origin: from, target: landing, unit: c.aim.unit, shape: .circleAtPoint,
                      duration: from.distance(to: landing) / Tune.s1Speed, count: 1)
     }
@@ -482,6 +491,8 @@ struct Kit_H033: HeroKit {
     func onInterrupted(_ s: inout SimState, _ ctx: SimContext, owner: Int) {
         // 転がりが止められた（ノックアップ・制圧・ノックバック）: 着地の処理が呼ばれないので記録を捨てる
         s.units[owner].hero?.kit?.valdSlamDamage = 0
+        // 壁を越える途中で止められたら、壁の中に残さず最寄りの歩ける点へ降ろす（押し出しの最中は、その終わりに MovementSystem が直す）
+        Kit.settleOutOfTerrain(&s, ctx, unit: owner)
     }
 
     // MARK: - C. パッシブ（追撃・デビルハンター・混合吸収）
@@ -539,6 +550,19 @@ struct Kit_H033: HeroKit {
             if u.pos.distanceSquared(to: center) <= r * r { return false }
         }
         return true
+    }
+
+    /// 撤退（敵が 500 以内）: 逃げる向きに壁があり、裂地撃（S1）でその壁を越えられるときだけ、逃げる向きへ射程いっぱい跳ぶ
+    /// （壁を挟んで追っ手を回り道させる）。壁の無い所では撃たない（以前と同じ: 既定の逃走は突進・ブリンクの型だけで、跳躍は撃たない）。
+    /// 追うときは汎用の照準（敵の予測位置への地点指定）のまま、着地が壁を越える。S2・奥義は既定のまま（逃走に使わない）。
+    func botEscape(_ s: SimState, _ ctx: SimContext, bot: Int, slot: SkillSlot, targeting: SkillTargeting,
+                   flee: Vec2, enemyDistance: Double) -> BotKitDecision {
+        guard slot == .skill1 else { return .useDefault }
+        let pos = s.units[bot].pos
+        let goal = pos + flee * Tune.s1Range
+        let landing = Kit.leapLanding(ctx.nav, from: pos, to: goal, radius: s.units[bot].radius,
+                                      farReach: Tune.s1WallReach)
+        return landing.overTerrain ? .cast(.point(goal)) : .skip
     }
 
     // MARK: - 部品

@@ -135,7 +135,11 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     ///     致命の一撃 = 3 撃に等分（+0 / +4 / +6 tick。防御ダウンは 1 撃目と一緒）、敵にダメージを与えたときのレイジ = 通常攻撃 2・円撃 10・
     ///     スキル1 は敵ごとに 10・突進 15・致命の一撃 1 撃ごとに 5・奥義 敵ごとに 15）。ダメージ・係数・減衰率・倍率は変えていない。
     ///     docs/kits/Dyrroth.md「動画に合わせた仕組み（2026-10-16）」。
-    public static let currentSimVersion = 39
+    /// 40: H033（アルカード）のスキル1 の跳躍が壁を越える（着地点が歩ける場所なら壁を素通り、照準の点が壁の中なら照準の線の上の近い側の縁。
+    ///     向こう側は着地の円 190 の中まで）。途中で止められて壁の中に残ったら最寄りの歩ける点へ。ボットは撤退の向きに越えられる壁が
+    ///     あるときだけ逃走にも使う。距離・速さ・叩きつけ・鈍足・追撃は変えていない。docs/kits/Alucard.md「壁越え（2026-10-16）」。
+    ///     **番号はマージのときに付け直す**。
+    public static let currentSimVersion = 40
 
     public var simVersion: Int
     public var mode: MatchMode

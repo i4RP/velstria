@@ -148,6 +148,7 @@ public struct KitState: Codable, Hashable, Sendable {
 | 再使用の窓 `openRecast / closeRecast / window` | 最初の発動は **必ず** コストと CD を消費する（ボットの「当たった」判定が CD > 0 で見るため）。再使用は CD・コスト無視で同じ `castSkill` コマンド。窓が閉じたら `cooldownOnClose` を適用。 |
 | 遅延・連撃 `schedule / cancelScheduled / strikeSequence` | `KitState.scheduled` を挿入順に消化し `onTimer` を呼ぶ。remaining 0 は同 tick に発火。 |
 | 経路ヒット突進 `dashSweeping` | `MovementSystem.dash` + `KitSweep`。毎 tick `prevPos → pos` の線分上の敵を 1 度ずつ。着地で `arriveCode`。 |
+| 壁を越える跳躍 `dashSweepingOverTerrain` / `leapLanding`（`KitLeap.swift`） | `dashSweeping` と同じ掃引で、着地点が歩ける場所なら途中の壁を素通りして直線で跳ぶ（変位は `.dash` のまま）。照準の点が壁の中なら照準の線の上の近い側の縁（向こう側は `farReach` まで）、閉じた区画・マップの外には降りない。壁が無ければ `dashSweeping` と同じ。途中で止められて壁の中に残ったら `onInterrupted` で `settleOutOfTerrain`。H033 の S1。 |
 | 扇状の弾 `fan` | `ProjectileSystem.spawn` のループ（角度は均等、乱数なし）。 |
 | 対象指定突進 | `.targetedBlink` + `requiresTarget`。移動するなら `MovementSystem.dash` + 到着時に `strikeSequence`。 |
 | 打ち上げ `knockUp` | `.airborne` status（既存）。受けた側の進行中の突進・跳躍も止める（ノックアップ = 高レベルのコントロール）。 |
@@ -216,7 +217,7 @@ public struct KitState: Codable, Hashable, Sendable {
 ```
 Sim/KitState.swift
 Systems/Kits/HeroKit.swift  KitRegistry.swift  KitRuntime.swift  KitRecast.swift  KitTimers.swift
-Systems/Kits/KitMovement.swift  KitPull.swift  KitProjectiles.swift  KitStatus.swift  KitDamage.swift  KitBasicAttack.swift
+Systems/Kits/KitMovement.swift  KitPull.swift  KitLeap.swift  KitProjectiles.swift  KitStatus.swift  KitDamage.swift  KitBasicAttack.swift
 Systems/Kits/Kit_H025.swift ... Kit_H034.swift     （最初は isReady = false のスタブ）
 Tests/VelstriaCoreTests/Kits/KitTestSupport.swift  KitFrameworkTests.swift  Kit_H0xxTests.swift
 ```
