@@ -80,6 +80,7 @@ for preset in $PRESETS; do
     extra=()
     if [[ $first == 1 ]]; then extra=(-fxCaptureRings); fi
     if [[ -n "${PROBE:-}" ]]; then extra+=(-fxCaptureProbe); fi
+    if [[ -n "${MOVING:-}" ]]; then extra+=(-fxCaptureMovingParticles); fi
     first=0
     dest="$OUT/$preset/$hero"
     mkdir -p "$dest"

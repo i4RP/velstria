@@ -109,6 +109,8 @@ final class FXCapture {
 
     /// 撮影のために止めている（BattleRenderer は sim・描画の同期を進めず、tick だけ呼ぶ）。
     private(set) var isFrozen = false
+    /// 撮る間に粒子も止める（-fxCaptureMovingParticles で止めない。粒子が CI のシミュレータで映るかの切り分け）。
+    private let freezesParticles = !DebugLaunch.args.contains("-fxCaptureMovingParticles")
     private var frozenAt: Double = 0
     private var frozenName = ""
 
@@ -221,7 +223,7 @@ final class FXCapture {
         isFrozen = true
         frozenAt = CACurrentMediaTime()
         frozenName = "\(hero)/\(name)"
-        world.skillDirector.player.freezeParticles(true)
+        if freezesParticles { world.skillDirector.player.freezeParticles(true) }
         let fm = FileManager.default
         try? fm.createDirectory(atPath: FXCapture.handshake, withIntermediateDirectories: true)
         try? fm.removeItem(atPath: FXCapture.handshake + "/done")
@@ -244,7 +246,7 @@ final class FXCapture {
         } else {
             return
         }
-        world.skillDirector.player.freezeParticles(false)
+        if freezesParticles { world.skillDirector.player.freezeParticles(false) }
         isFrozen = false
     }
 
