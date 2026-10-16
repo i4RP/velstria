@@ -136,11 +136,21 @@ struct StageLayout {
     mutating func place(_ kind: StagePropKind, at p: SIMD2<Float>, y: Float, yaw: Float, scale s: SIMD3<Float>,
                         color: SIMD4<UInt8>? = nil) {
         guard let mesh = props[kind] else { return }
+        let m = transform(p, y: y, yaw: yaw, scale: s)
+        // 細い・凹んだ壁では中心だけでなく、木の低い部分も衝突の足跡に収める。
+        if kind == .treeRound || kind == .treeTall {
+            for vertex in mesh.positions {
+                let w = m * SIMD4(vertex, 1)
+                guard w.y < 1 else { continue }
+                let ground = SIMD2(w.x, -w.z)
+                if geo.outsideDistance(ground) > -0.4 { continue }
+                if geo.obstacleDistance(ground) > 0.38 { return }
+            }
+        }
         // Wall cores and brush silhouettes have independent construction paths.
         // Stop decoration before new meshes/density silently exceed the GPU budget.
         guard admitProp(mesh) else { return }
         out.counts[kind, default: 0] += 1
-        let m = transform(p, y: y, yaw: yaw, scale: s)
         out.placements.append(.init(kind: kind, center: p, radius: max(mesh.size.x * s.x, mesh.size.z * s.z) / 2, transform: m))
         let key = StageChunks.key(world(p))
         // 辞書から取り出してから足す（取り出さずに書き換えると配列全体が毎回複製される）
@@ -256,7 +266,7 @@ struct StageLayout {
             return
         }
         let slab = StageLayout.slopedSlab(outline: outline, seed: UInt64(index) &* 1733, tint: rockTint(),
-                                          fine: level != .low, refine: level == .high)
+                                          fine: level != .low, refine: level == .high && ruinsLook)
         let center = outline.reduce(SIMD2<Float>.zero, +) / Float(outline.count)
         appendRock(slab.mesh, at: center)
         // 上の茂みと木: 上面の輪の内側（縁から 0.45 m より内）。上面は頂点ごとに高さが違うので低い方に合わせて少し沈める

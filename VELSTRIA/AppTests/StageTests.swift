@@ -105,8 +105,14 @@ final class StageTests: XCTestCase {
             // Core の広場は石畳
             XCTAssertGreaterThan(try pixel(maps.control, [12.15, 12.15]).y, 0.9, set.rawValue)
             // ジャングルの開けた所は草地（土・石畳・川が無い）
-            let jungle = try pixel(maps.control, [29.16, 59.13])
+            // 設計図ベースの地形では旧座標 (29.16, 59.13) は川の中。
+            let jungle = try pixel(maps.control, [50, 15])
             XCTAssertLessThan(jungle.x + jungle.y + jungle.z, 0.1, set.rawValue)
+            if set == .ruins {
+                let mid = try pixel(maps.control, [48.6, 48.6])
+                XCTAssertGreaterThan(mid.y, 0.95, "ミッド中央は石床")
+                XCTAssertLessThan(mid.z, 0.05, "ミッド中央に水面を重ねない")
+            }
             // 地図の外は森の下草
             XCTAssertGreaterThan(try pixel(maps.control, [-10, 60]).w, 0.9, set.rawValue)
             // 祭壇（ボスの巣）の床では川が途切れる
