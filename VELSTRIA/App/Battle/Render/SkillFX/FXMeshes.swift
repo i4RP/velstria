@@ -97,9 +97,25 @@ final class FXMeshLibrary {
                 quad(a, a + 2, a + 3, a + 1)
             }
         }
+        // 法線: Unlit は使わないが、加算・模様の CustomMaterial（FXShaders.metal）の描画には要る
+        let normals: [SIMD3<Float>]
+        switch s {
+        case .disc, .arc, .band:
+            normals = Array(repeating: [0, 1, 0], count: pos.count)
+        case .wall, .billboard:
+            normals = Array(repeating: [0, 0, 1], count: pos.count)
+        case .cylinder, .funnel, .spire:
+            normals = pos.map { p in
+                let h = SIMD3<Float>(p.x, 0, p.z)
+                return simd_length(h) > 1e-5 ? simd_normalize(h) : [0, 1, 0]
+            }
+        case .dome, .sphere:
+            normals = pos.map { simd_length($0) > 1e-5 ? simd_normalize($0) : [0, 1, 0] }
+        }
         // 裏面は材質の faceCulling = .none で描く
         var d = MeshDescriptor(name: "fx_\(s.rawValue)")
         d.positions = MeshBuffers.Positions(pos)
+        d.normals = MeshBuffers.Normals(normals)
         d.textureCoordinates = MeshBuffers.TextureCoordinates(uv)
         d.primitives = .triangles(idx)
         return try? MeshResource.generate(from: [d])

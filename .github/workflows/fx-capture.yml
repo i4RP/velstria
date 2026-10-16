@@ -46,6 +46,8 @@ jobs:
           if [[ "$spec" == *"--"* ]]; then
             echo "HEROES=${spec##*--}" | tr '_' ' ' >> "$GITHUB_ENV"
           fi
+          # 名前に probe を含むタグは、スキルの代わりに部品の種類を 1 つずつ足して撮る（描画の切り分け）
+          if [[ "$TAG" == *probe* ]]; then echo "PROBE=1" >> "$GITHUB_ENV"; fi
           cat "$GITHUB_ENV" || true
 
       - name: ツール準備

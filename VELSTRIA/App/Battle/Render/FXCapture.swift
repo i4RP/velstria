@@ -71,6 +71,7 @@ final class FXCapture {
         case rings(phase: Int, until: Double)
         case cast(index: Int)
         case watch(index: Int, t0: Double, recastAt: Double?, recastT0: Double?, next: Int, nextRecast: Int)
+        case probe(index: Int, until: Double)
         case finish
         case done
     }
@@ -78,6 +79,8 @@ final class FXCapture {
     private let slots: [SkillSlot]
     private let times: [Double]
     private let wantsRings: Bool
+    /// -fxCaptureProbe: スキルの代わりに、部品の種類を 1 つずつ足して撮る（描画の切り分け用）。
+    private let wantsProbe: Bool
     private var step: Step = .waitLive
     private var liveFrames = 0
     private var manifest: Manifest?
@@ -93,6 +96,7 @@ final class FXCapture {
         times = DebugLaunch.value(after: "-fxCaptureTimes").map { $0.split(separator: ",").compactMap { Double($0) } }
             ?? FXCapture.defaultTimes
         wantsRings = DebugLaunch.args.contains("-fxCaptureRings")
+        wantsProbe = DebugLaunch.args.contains("-fxCaptureProbe")
         dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("fxcapture")
     }
 
@@ -100,7 +104,7 @@ final class FXCapture {
     /// CI（tools/fx_capture/run_ci.sh）が `simctl io screenshot` で画面を撮って done を置いたら再開する。
     static let handshake = "/tmp/velstria-fxcap"
     /// 合図が返らない（手元で CI の手順なしに動かした）時は ARView の画で代える。
-    static let handshakeTimeout: Double = 15
+    static let handshakeTimeout: Double = 40
 
     /// 撮影のために止めている（BattleRenderer は sim・描画の同期を進めず、tick だけ呼ぶ）。
     private(set) var isFrozen = false
@@ -131,7 +135,7 @@ final class FXCapture {
                 return
             }
             guard place(controller: controller) else { note("人形が見つからない"); step = .finish; return }
-            step = .settle(index: k, until: s.time + 1.6)
+            step = wantsProbe ? .probe(index: 0, until: s.time + 1.6) : .settle(index: k, until: s.time + 1.6)
         case .settle(let k, let until):
             guard s.time >= until else { return }
             if wantsRings, k == 0, !ringsDone {
@@ -186,6 +190,20 @@ final class FXCapture {
             if let shot {
                 shoot(world: world, name: shot.name, slot: name, cast: shot.cast, requested: shot.requested, actual: shot.actual)
             }
+        case .probe(let k, let until):
+            guard s.time >= until else { return }
+            let cues = FXCapture.probeCues
+            guard k < cues.count, let id = controller.humanHeroID, let p = world.units.worldPositionOf(id) else {
+                step = .finish
+                return
+            }
+            let player = world.skillDirector.player
+            if k == 0 { player.sheets.prewarm([.fireBurst]) }
+            let ctx = SkillFXPlayer.Context(palette: .from(RGB(1, 0.6, 0.2)), origin: p, caster: p, target: p + [0, 0, -3],
+                                            forward: [0, 0, -1])
+            player.play([cues[k].cue], ctx)
+            step = .probe(index: k + 1, until: s.time + 0.4)
+            shoot(world: world, name: "probe(k + 1)_(cues[k].name)", slot: "probe", cast: 0, requested: Double(k), actual: Double(k))
         case .finish:
             step = .done
         case .done:
@@ -206,7 +224,7 @@ final class FXCapture {
         manifest?.shots.append(Shot(file: "\(name).jpg", slot: slot, cast: cast, requested: requested, actual: actual))
         isFrozen = true
         frozenAt = CACurrentMediaTime()
-        frozenName = name
+        frozenName = "\(hero)/\(name)"
         world.skillDirector.player.freezeParticles(true)
         let fm = FileManager.default
         try? fm.createDirectory(atPath: FXCapture.handshake, withIntermediateDirectories: true)
@@ -219,11 +237,14 @@ final class FXCapture {
         let fm = FileManager.default
         let done = FXCapture.handshake + "/done"
         if fm.fileExists(atPath: done) {
+            // done には撮った画の名前が書いてある。前の画の遅れた done は捨てて待ち続ける
+            let token = (try? String(contentsOfFile: done, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines)
             try? fm.removeItem(atPath: done)
+            guard token == frozenName else { return }
         } else if CACurrentMediaTime() - frozenAt > FXCapture.handshakeTimeout {
             try? fm.removeItem(atPath: FXCapture.handshake + "/request")
             note("画面の撮影の合図が返らない: \(frozenName)（ARView の画で代えた）")
-            snapView(arView, name: frozenName)
+            snapView(arView, name: String(frozenName.split(separator: "/").last ?? ""))
         } else {
             return
         }
@@ -232,6 +253,22 @@ final class FXCapture {
     }
 
     private var ringsDone = false
+
+    /// 描画の切り分けの部品（寿命 4 秒。足しながら撮るので、どの種類を足した時に消えたかが分かる）。
+    static let probeCues: [(name: String, cue: FXCue)] = [
+        ("alphaDisc", .mesh(FXMesh(shape: .disc, tex: .ring, tint: .white, size: [2, 1, 2], sizeEnd: [2, 1, 2], life: 4, fadeIn: 0.01,
+                                   fadeOut: 0.95), offset: [-2.5, 0, 2.5])),
+        ("addDisc", .mesh(FXMesh(shape: .disc, tex: .glow, tint: .primary, size: [2, 1, 2], sizeEnd: [2, 1, 2], life: 4, fadeIn: 0.01,
+                                 fadeOut: 0.95).glowing(), offset: [0, 0, 2.5])),
+        ("flowDisc", .mesh(FXMesh(shape: .disc, tex: .glow, tint: .primary, size: [2, 1, 2], sizeEnd: [2, 1, 2], life: 4, fadeIn: 0.01,
+                                  fadeOut: 0.95).flowing(.noise, scroll: [0.2, 0.2], strength: 0.8, edge: .core), offset: [2.5, 0, 2.5])),
+        ("addSprite", .mesh(FXMesh(shape: .billboard, tex: .glowHard, tint: .core, size: [1.5, 1.5, 1.5], sizeEnd: [1.5, 1.5, 1.5],
+                                   life: 4, fadeIn: 0.01, fadeOut: 0.95).glowing(), offset: [-2.5, 1.5, 2.5])),
+        ("sheetFire", .emit(FXEmit.sheet(.fireBurst, 2, .primary, life: 3.5).with { $0.sheetFPS = 4 }, offset: [0, 1.5, 2.5])),
+        ("legacyFlare", .emit(FXEmit.flare(1.5, .primary, life: 3.5), offset: [2.5, 1.5, 2.5])),
+        ("alphaDiscAfter", .mesh(FXMesh(shape: .disc, tex: .ring, tint: .secondary, size: [2, 1, 2], sizeEnd: [2, 1, 2], life: 4,
+                                        fadeIn: 0.01, fadeOut: 0.95), offset: [0, 0, 5])),
+    ]
 
     static func slotName(_ s: SkillSlot) -> String {
         switch s {

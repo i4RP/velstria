@@ -38,6 +38,7 @@ for preset in $PRESETS; do
     mkdir -p "$HS"
     extra=()
     if [[ $first == 1 ]]; then extra=(-fxCaptureRings); fi
+    if [[ -n "${PROBE:-}" ]]; then extra+=(-fxCaptureProbe); fi
     first=0
     echo "==> $preset $hero"
     xcrun simctl launch "$UDID" "$BID" -uiTesting -skipOnboarding -grant -graphics high -battle practice -hero "$hero" \
@@ -61,7 +62,7 @@ for preset in $PRESETS; do
           if (( h > w )); then sips -r "$ROTATE" "$raw" --out "$HS/rot.png" >/dev/null 2>&1; else cp "$raw" "$HS/rot.png"; fi
           sips -s format jpeg -s formatOptions 88 -Z 1108 "$HS/rot.png" --out "$dest/$(basename "$name").jpg" >/dev/null 2>&1 || true
         fi
-        touch "$HS/done"
+        printf "%s" "$name" > "$HS/done"
       fi
       if [[ -f "$DATA/Documents/fxcapture/$hero/manifest.json" ]]; then ok=1; break; fi
       sleep 0.1
