@@ -8,8 +8,10 @@ import Foundation
 //                                      1 層あたり 3〜8（日本語クライアントは範囲だけ。レベル別の表は Fandom の現行: Lv1〜3 = 3、…、Lv15 = 8）。
 //   S1   環剣（Flying Sword）        — 5 本の剣が 4.8 秒間 術者から 385 の輪を回り、輪の帯（325〜445）に触れた敵に 75〜125（+25% 追加物理攻撃）の
 //                                      接触ダメージ（0.48 秒ごと。術者のすぐそばの敵には触れない）。
-//                                      周回中に通常攻撃/スキルでダメージを与えるたび、剣が対象へ飛んで「剣撃」200〜300（+50% 追加）
-//                                      （進路上の他の敵には 50%、ミニオンへは 50%）+ スキル1 のクールダウン −0.5 秒・スキル2 −1 秒。
+//                                      周回中に通常攻撃/スキルでダメージを与えるたび、輪の剣を 1 本使って対象へ飛ばす「剣撃」200〜300（+50% 追加）
+//                                      （進路上の他の敵には 50%、ミニオンへは 50%）。当たった剣撃 1 本ごとにスキル1 のクールダウン −0.5 秒・スキル2 −1 秒。
+//                                      飛ばした剣は輪に戻らない（その剣の接触も無くなる）。5 本を使い切ると効果はその場で終わる
+//                                      （2026-10-16 の画面収録で剣の本数をコマごとに数えた: docs/kits/Saber.md「剣の本数（2026-10-16）」）。
 //   S2   断空突進（Assault）         — 指定方向へ 300 を毎秒 1500 で突進して通り道の敵に 75〜150（+50% 追加）。次の通常攻撃が強化
 //                                      （75〜150 + 物理攻撃 120%、鈍足 60%・1 秒、射程 250）。
 //   奥義 三連断空（Triple Slash）     — 対象指定（敵ヒーロー、縁まで 545）。毎秒 1700 で突進して 1.2 秒打ち上げ（強靭 = CC 短縮の影響を受けない）、
@@ -28,6 +30,7 @@ import Foundation
 //   ints[0]  = 奥義の段（0 = なし / 1 = 突進中 / 2 = 三連撃中）  ints[1] = 剣撃を出さない間 1（3 撃目の最中のみ）
 //   ints[2]  = 剣撃を出した回数（累計。検証用）                  ints[3] = 奥義の三連撃が当たった回数（累計。検証用）
 //   ints[4]  = 直近に防御ダウンを積んだ敵の層の数（パッシブのバッジ用）  ids[1] = その敵
+//   ints[5]  = 輪に残っている剣の本数（0〜5。スキル1 のバッジ）     ints[6] = 使った剣の印（剣 j を使ったら bit j）
 //   timers[0] = 剣が周回している残り秒   timers[1] = 剣撃の最短間隔（同時に何本も飛ばさない）
 //   timers[2] = S2 の強化通常攻撃の残り秒   timers[3] = 防御ダウンの層が残っている秒（バッジ。命中のたびに 5 秒へ戻る）
 //   reals[0] = 接触ダメージ（1 回）  reals[1] = 剣撃ダメージ  reals[2] = 強化通常攻撃の基礎ダメージ  reals[3] = 奥義の 1・2 撃目
@@ -114,6 +117,18 @@ extension KitState {
         get { ids[1] }
         set { ids[1] = newValue }
     }
+
+    /// 輪に残っている剣の本数（剣撃 1 本ごとに 1 本減る。0 で効果が終わる）。
+    var zailSwordsLeft: Int {
+        get { ints[5] }
+        set { ints[5] = newValue }
+    }
+
+    /// 使った剣の印（剣 j（接触 i は剣 i % 5 が通った回）を使ったら bit j）。使った剣の接触は来ない。
+    var zailSpentSwords: Int {
+        get { ints[6] }
+        set { ints[6] = newValue }
+    }
 }
 
 struct Kit_H028: HeroKit {
@@ -150,6 +165,8 @@ struct Kit_H028: HeroKit {
         /// （剣の中心 3.85 + 手裏剣の半径 0.6）。剣の帯は orbitRadius ± swordHalfWidth（325〜445）で、対象の体がこの帯に掛かれば触れる。
         static let swordReach = 445.0
         static var swordHalfWidth: Double { swordReach - orbitRadius }
+        /// 剣の本数（公式「旋回する剣を5本放ち」）。剣撃 1 本ごとに 1 本使い、使った剣は輪に戻らない。動画（2026-10-16）: 剣撃のたびに
+        /// その剣の席が戻りまで空のまま（5 → 4 → 3、5 → 4 → 3 → 2 を 3 回とも）。使い切ったら効果が終わる（Saber.md「剣の本数」）。
         static let swordCount = 5
         /// 剣が出ている秒数。動画: 指を離してから 0.2 秒で剣が出て、0.47 秒で輪に着き、4.6 秒で戻り始め、4.83 秒で戻り終わる（2 回とも同じ）。
         static let swordsDuration = 4.8
@@ -168,7 +185,8 @@ struct Kit_H028: HeroKit {
         static let strikeAttackRatio = 0.5
         /// 命中から剣撃が当たるまで。動画: 奥義の 1・2 撃目 → 剣撃の数字が 3 コマ（2 回）、強化通常攻撃 → 2 コマ（以前の推測は 0.12 秒）。
         static let strikeDelay = 0.1
-        /// 剣撃どうしの最短間隔（多段ヒットのスキルで一度に何本も飛ばさない。公式に記載なし = 推測の値）。
+        /// 剣撃どうしの最短間隔（多段ヒットのスキルで一度に何本も剣を使わない。公式に記載なし = 推測の値。動画で剣が飛んだ間隔は
+        /// どれも 0.4 秒以上: 最も短いのは奥義の 1・2 撃目の 12 コマ）。
         static let strikeGap = 0.35
         /// 剣撃が届く最大距離（術者の中心から対象の縁まで）。
         static let strikeReach = 450.0
@@ -179,9 +197,9 @@ struct Kit_H028: HeroKit {
         /// 剣の攻撃のミニオンへの倍率（公式「ミニオンへのダメージは50%に低下」。主語は「剣の攻撃」なので主対象と進路上の敵の両方に掛ける
         /// = 進路上のミニオンは 25%。モンスター・練習場の人形・ヒーローは 100%。`HitPayload.minionMultiplier`）。
         static let strikeMinionRatio = 0.5
-        /// 剣撃 1 本あたりの S2 のクールダウン短縮（公式 1 秒）。
+        /// 当たった剣撃 1 本あたりの S2 のクールダウン短縮（公式 1 秒。動画: 剣撃 3 本で S2 の CD 7 → 4.03 秒）。
         static let chargeRefund = 1.0
-        /// 剣撃 1 本あたりの S1 自身のクールダウン短縮（公式 0.5 秒）。
+        /// 当たった剣撃 1 本あたりの S1 自身のクールダウン短縮（公式 0.5 秒。動画: 剣撃 3 本で S1 の CD 10 → 8.5 秒）。
         static let swordsRefund = 0.5
 
         // S2 突進
@@ -238,7 +256,7 @@ struct Kit_H028: HeroKit {
         static let botExecuteRatio = 0.6
 
         // クールダウン（公式の表の秒数。CD 短縮を掛ける: Kit.cooldown）。全 Lv 一定のものは 1 要素
-        /// S1 は全 Lv 10 秒（日本語クライアント。Fandom の 9 秒は誤り）。持続 5 秒、剣撃 1 本ごとに 0.5 秒縮む。
+        /// S1 は全 Lv 10 秒（日本語クライアント。Fandom の 9 秒は誤り）。持続 4.8 秒、当たった剣撃 1 本ごとに 0.5 秒縮む（5 本で 2.5 秒）。
         static let swordsCooldown: [Double] = [10]
         static let chargeCooldown: [Double] = [7]
         static let ultCooldown: [Double] = [44, 40, 36]
@@ -377,9 +395,11 @@ struct Kit_H028: HeroKit {
         case .skill1:
             return KitText(
                 ja: "自身の周囲を旋回する剣を5本放ち、命中した周囲の敵に{base}(+{atkPct}%追加物理攻撃)の物理ダメージを与える（\(every)秒ごと、最大{hits}回。剣は少し離れた輪を回り、すぐそばの敵には触れない）。効果時間（{duration}秒）終了後、剣は自身のもとへ戻る。\n\n"
-                    + "発動中、通常攻撃またはスキルでダメージを与えるたびに剣撃を放つ（\(gap)秒に1回まで）。剣撃は対象に{strikeBase}(+{strikePct}%追加物理攻撃)の物理ダメージを与え、進路上の敵に{passPercent}%のダメージを与える（ミニオンへのダメージは{minionPercent}%に低下）。剣撃ごとに、環剣のクールダウンが{selfRefund}秒、断空突進のクールダウンが{refund}秒短縮される。",
+                    + "発動中、通常攻撃またはスキルでダメージを与えるたびに、剣を1本対象へ飛ばして剣撃を放つ（\(gap)秒に1回まで）。剣撃は対象に{strikeBase}(+{strikePct}%追加物理攻撃)の物理ダメージを与え、進路上の敵に{passPercent}%のダメージを与える（ミニオンへのダメージは{minionPercent}%に低下）。剣撃ごとに、環剣のクールダウンが{selfRefund}秒、断空突進のクールダウンが{refund}秒短縮される。"
+                    + "飛ばした剣は戻らず（周囲の敵にも触れなくなる）、5本すべてを飛ばすと効果が終わる。",
                 en: "Release 5 swords that orbit around Zail, dealing {base} (+{atkPct}% Extra Physical Attack) physical damage to nearby enemies hit (every \(every)s, up to {hits} times; the swords circle a ring a short distance away and do not touch enemies right next to Zail). When the effect ends ({duration}s), the swords return to Zail.\n\n"
-                    + "While active, each time Zail deals damage with a basic attack or a skill, a sword strike flies at the target (at most once every \(gap)s), dealing {strikeBase} (+{strikePct}% Extra Physical Attack) physical damage to the target and {passPercent}% damage to enemies in its path (damage to minions is reduced to {minionPercent}%). Each sword strike reduces the cooldown of this skill by {selfRefund}s and of Charge by {refund}s.",
+                    + "While active, each time Zail deals damage with a basic attack or a skill, one sword flies at the target as a sword strike (at most once every \(gap)s), dealing {strikeBase} (+{strikePct}% Extra Physical Attack) physical damage to the target and {passPercent}% damage to enemies in its path (damage to minions is reduced to {minionPercent}%). Each sword strike reduces the cooldown of this skill by {selfRefund}s and of Charge by {refund}s. "
+                    + "A sword that flies does not come back (it no longer touches nearby enemies), and the effect ends once all 5 swords have flown.",
                 tags: [KitTag.aoe, KitTag.buff])
         case .skill2:
             return KitText(
@@ -408,8 +428,10 @@ struct Kit_H028: HeroKit {
             guard k.zailBaneWindow > 0, k.zailBaneStacks > 0 else { return nil }
             return KitBadge(kind: .stacks, value: min(Tune.baneMaxStacks, k.zailBaneStacks), maxValue: Tune.baneMaxStacks)
         case .skill1:
-            guard k.zailSwordsRemaining > 0 else { return nil }
-            return KitBadge(kind: .timer, remaining: k.zailSwordsRemaining, total: Tune.swordsDuration)
+            // 輪に残っている剣の本数（剣撃のたびに減る。演出の回る刃の数もこの値で減らす: FX_H028）。
+            // MLBB のボタンに本数の表示は無い（動画: CD の数字だけ）が、Velstria は剣が画面の外・UI の裏に回っても読めるよう数で出す
+            guard k.zailSwordsRemaining > 0, k.zailSwordsLeft > 0 else { return nil }
+            return KitBadge(kind: .stacks, value: min(Tune.swordCount, k.zailSwordsLeft), maxValue: Tune.swordCount)
         case .skill2:
             guard k.zailChargeWindow > 0 else { return nil }
             return KitBadge(kind: .timer, remaining: k.zailChargeWindow, total: Tune.enhanceWindow)
@@ -436,15 +458,18 @@ struct Kit_H028: HeroKit {
     }
 
     /// S1: 剣が術者から orbitRadius の輪を回る。輪に着く 0.47 秒から 0.48 秒ごとに輪の帯の敵へ接触ダメージ（CC では止まらない）。
+    /// 接触 i は剣 i % 5 が通った回（剣撃で使った剣の回は来ない: pulse）。
     private func castSwords(_ s: inout SimState, _ c: KitCast) {
         let i = c.caster
-        // 重ね掛け（クールダウンのリセットなど）は予約を作り直す
+        // 重ね掛け（クールダウンのリセットなど）は予約を作り直し、剣も 5 本に戻す
         Kit.cancelScheduled(&s, caster: i, slot: .skill1, code: Code.pulse)
         let n = c.numbers
         // 接触・剣撃のダメージ（公式の表 + 25% / 50% 追加物理攻撃。発動した時点の Lv・追加物理攻撃）
         let stats = s.units[i].stats
         let pulse = Self.contactDamage(rank: n.rank, stats: stats)
         s.units[i].hero!.kit!.zailSwordsRemaining = Tune.swordsDuration
+        s.units[i].hero!.kit!.zailSwordsLeft = Tune.swordCount
+        s.units[i].hero!.kit!.zailSpentSwords = 0
         s.units[i].hero!.kit!.zailPulseDamage = pulse
         s.units[i].hero!.kit!.zailStrikeDamage = Self.strikeDamage(rank: n.rank, stats: stats)
         Kit.emitCast(&s, c, origin: s.units[i].pos, target: s.units[i].pos, shape: .selfRing,
@@ -527,7 +552,10 @@ struct Kit_H028: HeroKit {
 
     /// S1 の接触ダメージ 1 回: 剣の輪の帯（術者から orbitRadius ± swordHalfWidth）に体が掛かる敵（構造物を除く）。
     /// 輪の内側（術者のすぐそば）・外側の敵には触れない（動画: 剣は術者から 3.85 を回り、隣の敵に接触の数字が出ない）。
+    /// 接触 i は剣 i % 5 が通った回。剣撃で使った剣はもう輪に居ないので、その剣の回は来ない（動画: 使った剣の席は戻りまで空のまま）。
     private func pulse(_ s: inout SimState, _ ctx: SimContext, owner: Int, timer: KitTimer) {
+        guard let k = s.units[owner].hero?.kit, k.zailSwordsLeft > 0,
+              !Self.isSpent(k.zailSpentSwords, sword: Self.sword(ofPulse: timer.index)) else { return }
         let p = HitPayload(damage: timer.param, damageType: .physical, source: .skill(.skill1),
                            skillID: Self.skillID(ctx, .skill1))
         let me = s.units[owner].pos
@@ -657,6 +685,11 @@ struct Kit_H028: HeroKit {
     }
 
     func update(_ s: inout SimState, _ ctx: SimContext, owner: Int) {
+        // 剣が戻った（効果時間の終わり。残っていた剣はここで術者のもとへ戻る）: 本数と使った剣の印を畳む
+        if let k = s.units[owner].hero?.kit, k.zailSwordsRemaining <= 0, k.zailSwordsLeft != 0 || k.zailSpentSwords != 0 {
+            s.units[owner].hero!.kit!.zailSwordsLeft = 0
+            s.units[owner].hero!.kit!.zailSpentSwords = 0
+        }
         // バッジの敵が倒れた・居なくなったら層の表示を消す
         if let b = s.units[owner].hero?.kit, b.zailBaneWindow > 0 {
             let alive = s.index(of: b.zailBaneTargetID).map { CombatSystem.isLiving(s, $0) } ?? false
@@ -706,16 +739,54 @@ struct Kit_H028: HeroKit {
         afterDamage(&s, ctx, owner: attacker, target: target, trigger: slot != .skill1)
     }
 
+    /// ダメージを与えた後: 防御ダウンを積み、剣が残っていれば 1 本使って剣撃を飛ばす。
+    /// 動画（2026-10-16）: 通常攻撃・強化通常攻撃・奥義の 1・2 撃目のたびに輪の剣が 1 本光って飛び、その剣の席は戻りまで空のまま
+    /// （剣撃の剣は対象を抜けて反対側の輪のあたりで消え、輪には戻らない）。5 本を使い切ったら効果はその場で終わる。
     private func afterDamage(_ s: inout SimState, _ ctx: SimContext, owner: Int, target t: Int, trigger: Bool) {
         applyBane(&s, ctx, owner: owner, target: t)
-        guard trigger, let k = s.units[owner].hero?.kit, k.zailSwordsRemaining > 0, k.zailSwordGap <= 0,
-              k.zailSwordLock == 0, s.units.indices.contains(t), !s.units[t].isStructure,
+        guard trigger, let k = s.units[owner].hero?.kit, k.zailSwordsRemaining > 0, k.zailSwordsLeft > 0,
+              k.zailSwordGap <= 0, k.zailSwordLock == 0, s.units.indices.contains(t), !s.units[t].isStructure,
               s.units[t].team != s.units[owner].team else { return }
         s.units[owner].hero!.kit!.zailSwordGap = Tune.strikeGap
         s.units[owner].hero!.kit!.zailSwordStrikes = k.zailSwordStrikes + 1
+        spendSword(&s, owner)
         Kit.schedule(&s, caster: owner, slot: .skill1, code: Code.swordStrike, after: Tune.strikeDelay,
                      targetID: s.units[t].id, param: k.zailStrikeDamage, interruptible: false)
     }
+
+    /// 輪の剣を 1 本使う。使うのは次の接触を受け持つ剣（いちばん早く来る、まだ使っていない剣の回）。予約の接触が残っていなければ
+    /// 番号の小さい剣。最後の 1 本なら効果を終える（残りの接触を取り消す。飛んでいる剣撃はそのまま当たる）。
+    private func spendSword(_ s: inout SimState, _ owner: Int) {
+        guard let k = s.units[owner].hero?.kit, k.zailSwordsLeft > 0 else { return }
+        var pick = -1
+        var soonest = Double.infinity
+        for timer in k.scheduled where timer.code == Code.pulse && timer.slot == .skill1 {
+            let sword = Self.sword(ofPulse: timer.index)
+            if !Self.isSpent(k.zailSpentSwords, sword: sword), timer.remaining < soonest {
+                soonest = timer.remaining
+                pick = sword
+            }
+        }
+        if pick < 0 {
+            for sword in 0..<Tune.swordCount where !Self.isSpent(k.zailSpentSwords, sword: sword) {
+                pick = sword
+                break
+            }
+        }
+        if pick >= 0 { s.units[owner].hero!.kit!.zailSpentSwords = k.zailSpentSwords | (1 << pick) }
+        let left = k.zailSwordsLeft - 1
+        s.units[owner].hero!.kit!.zailSwordsLeft = left
+        guard left <= 0 else { return }
+        // 5 本を使い切った: 剣の輪はもう無い（バッジも消える）
+        s.units[owner].hero!.kit!.zailSwordsLeft = 0
+        s.units[owner].hero!.kit!.zailSwordsRemaining = 0
+        Kit.cancelScheduled(&s, caster: owner, slot: .skill1, code: Code.pulse)
+    }
+
+    /// 接触 i を受け持つ剣の番号（5 本が 72° おきに回るので、輪の上の 1 点を通る剣は 0, 1, 2, 3, 4, 0, … の順）。
+    static func sword(ofPulse index: Int) -> Int { ((index % Tune.swordCount) + Tune.swordCount) % Tune.swordCount }
+
+    static func isSpent(_ mask: Int, sword: Int) -> Bool { mask & (1 << sword) != 0 }
 
     /// 空断の理: 防御ダウンの層を積む（最大 5 層・5 秒、命中のたびに持続が戻る）。ヒーロー・モンスター・人形が対象
     /// （ミニオンは対象外 = Fandom の注記・sim の負荷。構造物には効かない）。

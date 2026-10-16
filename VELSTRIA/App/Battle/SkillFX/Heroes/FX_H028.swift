@@ -11,6 +11,9 @@ import VelstriaCore
 //   スキル1 環剣（自己中心）— 0 秒: 剣を掲げて 5 本の光剣が放射状に飛び出す。0〜4.8 秒: 光剣が術者から 3.85m の輪を回る
 //                            （MLBB の画面収録で測った値: 5 本・毎秒 151° で時計回り・照準の円 4.45 = 剣の帯の外縁。弧の刃は帯 3.2〜4.45m に描く。
 //                            メッシュの寿命は 4 秒までなので 2.4 秒ずつ 2 組。毎秒 150° × 2.4 秒 = 1 周でちょうど元の位置に戻り、継ぎ目が消える）。
+//                            剣撃 1 本ごとに sim は輪の剣を 1 本使う（使った剣は戻らない）。スキル1 のバッジ（残りの本数）が減るたびに
+//                            SkillFXDirector が回る刃を 1 本ずつ消す（FXMesh.group 1〜5 = spentGroups。5 → 4 → 等間隔の 3 本 → 2 → 1）。
+//                            使い切ると効果がその場で終わり、刃も全部消える。
 //                            hit（接触 0.48 秒ごと / 剣撃 = 通常攻撃・スキルの命中から 0.1 秒）: 術者の側から光剣が飛び込んで刺さる（1 発ごと）
 //   スキル2 断空突進        — 3m を 0.2 秒（15m/s）で駆ける。通り道に光の筋、終点（照準点）で前方の一閃。
 //                            突進は impact を再生しない（ゾーンを作らない）ので、終点の演出は cast の .target に 0.2 秒遅れで置く。
@@ -51,20 +54,43 @@ enum FX_H028: HeroFXSet {
                life: life, fadeIn: fadeIn, fadeOut: fadeOut, spin: spin)
     }
 
-    /// 回る光剣の 1 組（同じ輪の 5 本 = 72° おき。3 本 + 2 本に分ける）。second = 2 組目（前の組の終わりと同じ角度から続ける）。
-    /// どれも 150°/秒の時計回り（2.4 秒で 1 周 = 元の位置に戻る）。
+    /// 回る光剣の 5 本の角度（前方から、72° おき）。並びは剣を使ったときに消える順（FXMesh.group 1〜5 = spentGroups）。
+    /// 先に消える 72° / 216° の 2 本は中画質以上（低画質は弧のプールが小さいので 0° / 144° / 288° の 3 本だけ = 残りが 3 本までは同じ見た目）。
+    /// 5 → 4 → 3 本で等間隔の 3 本（0° / 144° / 288°）、そこから 144° / 288° → 288° と減る。
+    private static let bladeAngles: [Float] = [72, 216, 0, 144, 288]
+    /// 低画質でも出す刃（bladeAngles の添字がこれ以上）。
+    private static let lowQualityFrom = 2
+
+    /// 回る光剣の 1 組（同じ輪の 5 本 = 72° おき。1 本ずつ別の合図にして FXMesh.group を付ける）。second = 2 組目（前の組の終わりと
+    /// 同じ角度から続ける）。どれも 150°/秒の時計回り（2.4 秒で 1 周 = 元の位置に戻る）。
+    /// sim は剣撃 1 本ごとに輪の剣を 1 本使う（使った剣は戻らない）。スキル1 のバッジ（残りの本数）が減るたびに SkillFXDirector が
+    /// その組の刃を消し、2 組目の予定の合図も取り消す（spentGroups）。使い切ると 5 本とも消える。
     private static func orbitSet(at t: Float, second: Bool) -> [FXCue] {
         let life: Float = second ? orbitTime - orbitHalf : orbitHalf + 0.05
         let fadeIn: Float = second ? 0.01 : 0.04
         let fadeOut: Float = second ? 0.9 : 0.97
-        return [
-            // 0° / 144° / 288° の 3 本
-            .mesh(orbitBlade(orbitReach, .core, life: life, spin: orbitSpin, alpha: 0.9, fadeIn: fadeIn, fadeOut: fadeOut), at: t,
-                  .follow, offset: [0, 0.95, 0]).repeated(3, yaw: 144),
-            // 72° / 216° の 2 本（中画質以上。低画質は弧のプールが小さいので 3 本だけ）
-            .mesh(orbitBlade(orbitReach, .primary, life: life, spin: orbitSpin, alpha: 0.85, fadeIn: fadeIn, fadeOut: fadeOut)
-                .with { $0.yaw = 72 }, at: t, .follow, offset: [0, 0.95, 0], quality: 1).repeated(2, yaw: 144),
-        ]
+        var cues: [FXCue] = []
+        for (i, angle) in bladeAngles.enumerated() {
+            let low = i >= lowQualityFrom
+            let blade = orbitBlade(orbitReach, low ? .core : .primary, life: life, spin: orbitSpin, alpha: low ? 0.9 : 0.85,
+                                   fadeIn: fadeIn, fadeOut: fadeOut).with {
+                $0.yaw = angle
+                $0.group = i + 1
+            }
+            cues.append(.mesh(blade, at: t, .follow, offset: [0, 0.95, 0], quality: low ? 0 : 1))
+        }
+        return cues
+    }
+
+    // MARK: - 残りの剣（スキル1 のバッジ = 輪に残っている剣の本数）
+
+    static var countedSlot: SkillSlot? { .skill1 }
+
+    /// 残りが remaining 本のときに消えている刃の組（使った本数ぶん、bladeAngles の順に 1〜）。
+    static func spentGroups(remaining: Int) -> [Int] {
+        let spent = min(bladeAngles.count, max(0, bladeAngles.count - remaining))
+        guard spent > 0 else { return [] }
+        return Array(1...spent)
     }
 
     /// 対象を断つ細く長い斬線（光の筋の帯。angle = 前方からの向き（度））。

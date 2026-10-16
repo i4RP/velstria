@@ -139,7 +139,10 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     ///     向こう側は着地の円 190 の中まで）。途中で止められて壁の中に残ったら最寄りの歩ける点へ。ボットは撤退の向きに越えられる壁が
     ///     あるときだけ逃走にも使う。距離・速さ・叩きつけ・鈍足・追撃は変えていない。docs/kits/Alucard.md「壁越え（2026-10-16）」。
     ///     **番号はマージのときに付け直す**。
-    public static let currentSimVersion = 40
+    /// 41: H028（セイバー）のスキル1 の剣を MLBB の画面収録に合わせた（剣撃 1 本ごとに輪の剣を 1 本使い、使った剣は戻らない・その剣の接触も
+    ///     無くなる・5 本を使い切ると効果がその場で終わる。スキル1 のバッジは残りの剣の本数）。ダメージ・係数・CD 短縮の秒数は変えていない。
+    ///     docs/kits/Saber.md「剣の本数（2026-10-16）」。**番号はマージのときに付け直す**。
+    public static let currentSimVersion = 41
 
     public var simVersion: Int
     public var mode: MatchMode

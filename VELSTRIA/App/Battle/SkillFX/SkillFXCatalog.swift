@@ -20,11 +20,18 @@ protocol HeroFXSet {
     /// released = 消費したスタック数。nil（既定）= 何も出さない（スタックが増えたときの演出は recipe(.passive, _).cast のまま）。
     /// s は passive スロットの寸法。ボルグの防御・ゴルムのスタック消費など、積む演出と区別したいヒーローだけが実装する。
     static func passiveRelease(_ s: FXSkillInfo, released: Int) -> [FXCue]?
+    /// 残りの数をバッジ（kind = .stacks。HeroKits.badge）で出すスキル。数が減ると、そのスキルの発動の演出のうち
+    /// spentGroups の組（FXMesh.group）を消す（H028 の環剣: 剣を 1 本使うたびに回る刃を 1 本消す）。nil（既定）= 無し。
+    static var countedSlot: SkillSlot? { get }
+    /// countedSlot の残りが remaining 本（バッジが消えたら 0）のときに消えているべき組。何度呼ばれてもよい（消えた組は何もしない）。
+    static func spentGroups(remaining: Int) -> [Int]
 }
 
 extension HeroFXSet {
     static func recipe(_ slot: SkillSlot, stage: Int, _ s: FXSkillInfo) -> SkillFXRecipe? { nil }
     static func passiveRelease(_ s: FXSkillInfo, released: Int) -> [FXCue]? { nil }
+    static var countedSlot: SkillSlot? { nil }
+    static func spentGroups(remaining: Int) -> [Int] { [] }
 }
 
 enum SkillFXCatalog {
@@ -89,6 +96,14 @@ enum SkillFXCatalog {
     static func passiveRelease(heroID: String, released: Int, master: MasterData) -> [FXCue]? {
         guard let set = sets[heroID] else { return nil }
         return set.passiveRelease(info(heroID: heroID, slot: .passive, master: master), released: released)
+    }
+
+    /// 残りの数をバッジで出すスキル（HeroFXSet.countedSlot。持たないヒーローは nil）。
+    static func countedSlot(heroID: String) -> SkillSlot? { sets[heroID]?.countedSlot }
+
+    /// countedSlot の残りが remaining のときに消えているべき演出の組（FXMesh.group）。
+    static func spentGroups(heroID: String, remaining: Int) -> [Int] {
+        sets[heroID]?.spentGroups(remaining: remaining) ?? []
     }
 
     /// 段の演出の空の段を共通の演出で補う。

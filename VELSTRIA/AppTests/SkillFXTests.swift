@@ -270,6 +270,78 @@ final class SkillFXTests: XCTestCase {
         XCTAssertFalse(SkillFXDirector.kitPassiveFires(last: (2, false), now: (0, false)))
     }
 
+    // MARK: 残りの数（H028 の環剣の剣）
+
+    /// ザイルの環剣: 回る刃は 1 本ずつ別の合図で FXMesh.group 1〜5（2.4 秒ずつ 2 組）。sim の剣の本数（スキル1 のバッジ）が減ると
+    /// 使った本数ぶんの組を消す（低画質でも出す 3 本は最後に消える）。
+    func testZailSwordBladesHaveOneGroupPerSwordAndDisappearInOrder() {
+        let r = SkillFXCatalog.recipe(heroID: "H028", slot: .skill1, master: master)
+        var groups: [Int: Int] = [:]
+        var lowQuality = Set<Int>()
+        for cue in r.cast {
+            guard case .mesh(let m) = cue.element, m.group != 0 else { continue }
+            XCTAssertEqual(m.shape, .arc)
+            XCTAssertEqual(cue.anchor, .follow)
+            XCTAssertEqual(cue.count, 1, "刃 1 本ずつ別の合図")
+            XCTAssertEqual(m.size, m.sizeEnd, "消すときに寿命を縮めるので大きさは変えない")
+            groups[m.group, default: 0] += 1
+            if cue.minQuality == 0 { lowQuality.insert(m.group) }
+        }
+        XCTAssertEqual(groups, [1: 2, 2: 2, 3: 2, 4: 2, 5: 2], "5 本 × 2 組")
+        XCTAssertEqual(lowQuality, [3, 4, 5], "低画質の 3 本は最後に消える")
+        XCTAssertTrue((r.impact + r.hit).allSatisfy { cue in
+            if case .mesh(let m) = cue.element { return m.group == 0 }
+            return true
+        }, "組は回る刃だけ")
+        XCTAssertEqual(SkillFXCatalog.countedSlot(heroID: "H028"), .skill1)
+        XCTAssertNil(SkillFXCatalog.countedSlot(heroID: "H001"))
+        XCTAssertEqual(SkillFXCatalog.spentGroups(heroID: "H028", remaining: 5), [])
+        XCTAssertEqual(SkillFXCatalog.spentGroups(heroID: "H028", remaining: 4), [1])
+        XCTAssertEqual(SkillFXCatalog.spentGroups(heroID: "H028", remaining: 2), [1, 2, 3])
+        XCTAssertEqual(SkillFXCatalog.spentGroups(heroID: "H028", remaining: 0), [1, 2, 3, 4, 5])
+        XCTAssertEqual(SkillFXCatalog.spentGroups(heroID: "H028", remaining: 9), [])
+        XCTAssertEqual(SkillFXCatalog.spentGroups(heroID: "H001", remaining: 0), [])
+        XCTAssertEqual(PlainSet.spentGroups(remaining: 0), [], "既定は消さない")
+        XCTAssertNil(PlainSet.countedSlot)
+        // 数の読み取り（.stacks の値だけ）と、減ったかの判定
+        XCTAssertEqual(SkillFXDirector.kitCountSample(nil), 0)
+        XCTAssertEqual(SkillFXDirector.kitCountSample(KitBadge(kind: .stacks, value: 3, maxValue: 5)), 3)
+        XCTAssertEqual(SkillFXDirector.kitCountSample(KitBadge(kind: .timer, remaining: 2, total: 4)), 0)
+        XCTAssertFalse(SkillFXDirector.kitCountDropped(last: nil, now: 4), "最初に見た値は基準だけ")
+        XCTAssertTrue(SkillFXDirector.kitCountDropped(last: 5, now: 4))
+        XCTAssertTrue(SkillFXDirector.kitCountDropped(last: 1, now: 0), "使い切った・戻った")
+        XCTAssertFalse(SkillFXDirector.kitCountDropped(last: 3, now: 5), "撃ち直しで増えた")
+        XCTAssertFalse(SkillFXDirector.kitCountDropped(last: 4, now: 4))
+        XCTAssertTrue(SkillFXDirector.kitCountDropped(last: Int.max, now: 5), "発動の直後の基準（消す組は無い）")
+    }
+
+    /// cut: 追従している主体の、その組のメッシュだけを短く消し、まだ出ていない同じ組の合図も取り消す。
+    func testCutRemovesOnlyThatGroupOfTheFollowedUnitAndItsPendingCues() {
+        let player = SkillFXPlayer(quality: .preset(.high))
+        player.prewarm(recipes: [])
+        player.resolve = { _ in SIMD3<Float>(0, 0, 0) }
+        let blade = FXMesh(shape: .arc, tex: .shard, tint: .core, alpha: 1, size: [4, 1, 4], sizeEnd: [4, 1, 4], ease: .linear,
+                           life: 2, fadeIn: 0.05, fadeOut: 0.9, spin: -150)
+        let ctx = SkillFXPlayer.Context(palette: .from(RGB(1, 1, 1)), origin: .zero, caster: .zero, target: [0, 0, -1],
+                                        forward: [0, 0, -1], follow: .unit(7))
+        player.play([.mesh(blade.with { $0.group = 1 }, .follow), .mesh(blade.with { $0.group = 2 }, .follow),
+                     .mesh(blade.with { $0.group = 1 }, at: 1, .follow)], ctx)
+        XCTAssertEqual(player.activeCount, 2)
+        XCTAssertEqual(player.pendingCount, 1)
+        player.cut(follow: .unit(8), group: 1)
+        player.update(dt: 0.2)
+        XCTAssertEqual(player.activeCount, 2, "ほかの主体の組は消さない")
+        XCTAssertEqual(player.pendingCount, 1)
+        player.cut(follow: .unit(7), group: 1)
+        XCTAssertEqual(player.pendingCount, 0, "まだ出ていない同じ組の合図も取り消す")
+        player.update(dt: 0.2)
+        XCTAssertEqual(player.activeCount, 1, "組 1 だけ消えた")
+        player.cut(follow: .unit(7), group: 0)
+        player.update(dt: 0.05)
+        XCTAssertEqual(player.activeCount, 1, "組 0 は消さない")
+        player.clear()
+    }
+
     /// 被弾演出の間隔: キットのヒーローは 0.9 秒、他は 0.15 秒。1 発ごとの演出（hitPerHit）は 0.15 秒のまま。
     func testHitReplayIntervalForKitHeroes() {
         XCTAssertEqual(SkillFXDirector.hitInterval(kitHero: false, perHit: false), SkillFXDirector.plainHitInterval)

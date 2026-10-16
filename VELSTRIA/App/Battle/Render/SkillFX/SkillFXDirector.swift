@@ -16,6 +16,8 @@ import VelstriaCore
 //   再使用の段        → skillCast.stage >= 1 は、ヒーローが段の演出（HeroFXSet.recipe(_:stage:_:)）を持てばそれを使う
 //   効果の長さ        → cast と発動と同時の impact のうち durationFromCast の合図（FXEmit の継続放出の duration・FXMesh の life）は
 //                      skillCast.duration を使う（0 なら書いた値。上限 FXCue.castDurationLimit）。count・shape はまだ読まない
+//   残りの数          → HeroFXSet.countedSlot のスキルのバッジ（.stacks = 残りの数）が減ったら、発動の演出のうち
+//                      HeroFXSet.spentGroups の組（FXMesh.group）を術者の追従から消す（H028 の環剣: 剣を使うたびに回る刃が 1 本減る）
 
 @MainActor
 final class SkillFXDirector {
@@ -58,6 +60,8 @@ final class SkillFXDirector {
     private var ambushReady: [EntityID: Bool] = [:]
     /// キットのパッシブのバッジの前回の値（スタックの増加・タイマーの開始でパッシブの演出、発動の直後のスタックの消費で解放の演出を出す）。
     private var kitPassive: [EntityID: (stacks: Int, timer: Bool)] = [:]
+    /// HeroFXSet.countedSlot のバッジの数の前回の値（減ったら発動の演出の組を消す）。
+    private var kitCounts: [EntityID: Int] = [:]
     private var time: Float = 0
 
     init(master: MasterData, quality: RenderQuality, units: UnitLayer, projectiles: ProjectileLayer) {
@@ -152,6 +156,14 @@ final class SkillFXDirector {
             return false
         }
         lastCast[c.casterID] = (c.slot, time)
+        // 数を出すスキルの撃ち直し（クールダウンのリセットなど）: 前の発動の組（回る刃）を消してから新しく出す
+        if SkillFXCatalog.countedSlot(heroID: c.heroID) == c.slot {
+            for g in SkillFXCatalog.spentGroups(heroID: c.heroID, remaining: 0) {
+                player.cut(follow: .unit(c.casterID), group: g)
+            }
+            // 次に見た数で消す組を決め直す（同じフレームに剣を使っていても、その数に合わせて消す）
+            kitCounts[c.casterID] = Int.max
+        }
         let caster = units.worldPositionOf(c.casterID) ?? SkillFXDirector.ground(c.origin)
         let origin = SkillFXDirector.ground(c.origin)
         let target = SkillFXDirector.ground(c.target)
@@ -359,7 +371,35 @@ final class SkillFXDirector {
             ambushReady[u.id] = h.passive.value >= 1
         }
         observeKitPassives(state: state)
+        observeKitCounts(state: state)
         player.update(dt: dt)
+    }
+
+    /// 残りの数をバッジで出すスキル（HeroFXSet.countedSlot）の数が減ったら、発動の演出のその組を消す（H028 の環剣の回る刃）。
+    /// バッジが消えた（使い切った・効果時間の終わり・死亡）ときは 0 として残りの組も消す。最初に見た値は基準にするだけ。
+    func observeKitCounts(state: SimState) {
+        for u in state.units where u.kind == .hero {
+            guard let h = u.hero, h.kit != nil, let slot = SkillFXCatalog.countedSlot(heroID: h.heroID) else { continue }
+            let now = Self.kitCountSample(HeroKits.badge(h, slot: slot))
+            let last = kitCounts[u.id]
+            kitCounts[u.id] = now
+            guard Self.kitCountDropped(last: last, now: now) else { continue }
+            for g in SkillFXCatalog.spentGroups(heroID: h.heroID, remaining: now) {
+                player.cut(follow: .unit(u.id), group: g)
+            }
+        }
+    }
+
+    /// 数を出すバッジ → 残りの数（.stacks の値。バッジが無い・ほかの種類は 0）。
+    static func kitCountSample(_ badge: KitBadge?) -> Int {
+        guard let badge, badge.kind == .stacks else { return 0 }
+        return max(0, badge.value)
+    }
+
+    /// 前回（nil = まだ見ていない）より数が減ったか。
+    static func kitCountDropped(last: Int?, now: Int) -> Bool {
+        guard let last else { return false }
+        return now < last
     }
 
     /// スタックの解放（消費）の演出を再生する。ヒーローが passiveRelease を持たなければ何もせず false。
@@ -424,6 +464,7 @@ final class SkillFXDirector {
         shots.removeAll()
         lastHit.removeAll()
         kitPassive.removeAll()
+        kitCounts.removeAll()
     }
 }
 
