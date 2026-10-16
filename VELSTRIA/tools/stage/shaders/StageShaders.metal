@@ -358,10 +358,14 @@ inline float caustics(float2 m, float t) {
     half3 tint = half3(params.geometry().color().rgb) * 2.0h;
     half tip = half(1.0 - uv.y);
     half rim = (1.0h - leaf.a) * tip;
-    params.surface().set_base_color(leaf.rgb * tint);
-    params.surface().set_emissive_color(leaf.rgb * (0.10h + rim * 0.35h));
-    params.surface().set_roughness(0.88h);
-    params.surface().set_specular(0.18h);
+    // 葉の濃淡は残し、黄緑の房を青緑のリードに統一。根元は暗く、先端は鈍い青緑。
+    half luminance = dot(leaf.rgb, half3(0.2126h, 0.7152h, 0.0722h));
+    half tone = clamp(luminance * 2.8h, 0.0h, 1.0h);
+    half3 reed = mix(half3(0.012h, 0.060h, 0.052h), half3(0.075h, 0.245h, 0.225h), tone);
+    params.surface().set_base_color(reed * tint);
+    params.surface().set_emissive_color(reed * (0.025h + rim * 0.08h));
+    params.surface().set_roughness(0.96h);
+    params.surface().set_specular(0.07h);
     params.surface().set_metallic(0.0h);
     params.surface().set_ambient_occlusion(0.72h + tip * 0.28h);
 }

@@ -109,7 +109,8 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     /// 31: H027（子龍）の幾何と時間を MLBB の画面収録で測った値に（スキル1 = 打ち上げ 0.8 → 1.0 秒・0.4 秒持ち上げてから 0.2 秒で
     ///     背後 144 へ放り投げる（以前は命中の瞬間から 0.7 秒で背後 170）、スキル2 = 突進を毎秒 2400 → 1520）。
     ///     docs/kits/Zilong.md「動画で測った値」。
-    public static let currentSimVersion = 31
+    /// 32: ミッドの対向ブッシュを直線の Z 形に変更（隠蔽判定も同じ形）。
+    public static let currentSimVersion = 32
 
     public var simVersion: Int
     public var mode: MatchMode

@@ -45,6 +45,30 @@ final class BushMaskTests: XCTestCase {
         XCTAssertEqual(m.bushes(overlappingCircle: Vec2(.nan, 0), radius: 100), [])
     }
 
+    func testMidZBrushesStayConnectedAndMirroredAfterWallCarving() throws {
+        let mask = try XCTUnwrap(MapDefinition.relayout.bushMask)
+        for id in [13, 37] {
+            let value = UInt8(id + 1)
+            let start = try XCTUnwrap(mask.cells.firstIndex(of: value))
+            var seen: Set<Int> = [start], queue = [start], cursor = 0
+            while cursor < queue.count {
+                let q = queue[cursor]; cursor += 1
+                let x = q % mask.cols, y = q / mask.cols
+                for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                    let nx = x + dx, ny = y + dy
+                    guard nx >= 0, nx < mask.cols, ny >= 0, ny < mask.rows else { continue }
+                    let next = ny * mask.cols + nx
+                    if mask.cells[next] == value, seen.insert(next).inserted { queue.append(next) }
+                }
+            }
+            XCTAssertEqual(seen.count, mask.cellCount(of: id), "Z の途中に切れ目がある")
+            for q in seen {
+                XCTAssertEqual(mask.cells[mask.cells.count - 1 - q], id == 13 ? 38 : 14)
+            }
+        }
+        XCTAssertNil(MapDefinition.relayout.brushIndex(at: Vec2(4860, 4860)), "ミッド中央は開けておく")
+    }
+
     func testRelayoutUsesGridBushes() {
         let map = MapDefinition.relayout
         let m = try! XCTUnwrap(map.bushMask)

@@ -808,7 +808,7 @@ struct StageLayout {
         let total = map.brushes.indices.reduce(Float(0)) { acc, k in
             acc + Float(map.brushArea(k) / (Balance.unitsPerMeter * Balance.unitsPerMeter))
         }
-        let step: Float = max(level == .low ? 0.55 : 0.45, (total / StageLayout.maxBrushClumps).squareRoot())
+        let step: Float = max(level == .low ? 0.43 : 0.35, (total / StageLayout.maxBrushClumps).squareRoot())
         for (k, b) in map.brushes.enumerated() {
             let lo = geo.m(Vec2(b.rect.minX, b.rect.minY)), hi = geo.m(Vec2(b.rect.maxX, b.rect.maxY))
             let center = (lo + hi) / 2
@@ -824,8 +824,8 @@ struct StageLayout {
             var placed = 0
             for ix in 0..<nx {
                 for iy in 0..<ny {
-                    let lx = (Float(ix) + 0.5) / Float(nx) * w - w / 2 + brng.range(-0.12, 0.12)
-                    let ly = (Float(iy) + 0.5) / Float(ny) * d - d / 2 + brng.range(-0.12, 0.12)
+                    let lx = (Float(ix) + 0.5) / Float(nx) * w - w / 2 + brng.range(-0.05, 0.05)
+                    let ly = (Float(iy) + 0.5) / Float(ny) * d - d / 2 + brng.range(-0.05, 0.05)
                     let root = SIMD2(min(max(lx, -w / 2 + 0.08), w / 2 - 0.08), min(max(ly, -d / 2 + 0.08), d / 2 - 0.08))
                     let seed = brng.next()
                     guard inside(root) else { continue }
@@ -858,9 +858,9 @@ struct StageLayout {
     func brushClump(_ buf: inout StageMeshBuffer, rng: inout RenderRNG, at p: SIMD2<Float>,
                     lean: SIMD2<Float>, distant: Bool = false) {
         let yaw = rng.range(0, .pi)
-        let h = rng.range(1.05, 1.35)
+        let h = rng.range(1.22, 1.48)
         let tile = Int(rng.range(0, 4))
-        let tint = rng.range(0.88, 1.08)
+        let tint = rng.range(0.94, 1.04)
         let count = distant ? 2 : 3
         let segments = distant ? 1 : 2
         for card in 0..<count {
@@ -871,10 +871,10 @@ struct StageLayout {
             for row in 0...segments {
                 let t = Float(row) / Float(segments)
                 let offset = SIMD3<Float>(lean.x, 0, -lean.y) * (0.12 * t * t)
-                let center = SIMD3<Float>(p.x, -0.03 + h * t, -p.y) + offset + face * (0.10 * t * t)
+                let center = SIMD3<Float>(p.x, -0.03 + h * t, -p.y) + offset + face * (0.065 * t * t)
                 for edge in 0...1 {
                     let u = Float(edge)
-                    let pos = center + side * ((u - 0.5) * 0.94)
+                    let pos = center + side * ((u - 0.5) * 1.06)
                     let uv = SIMD2<Float>((Float((tile + card) % 4) + 0.015 + u * 0.97) / 4, 0.015 + t * 0.97)
                     buf.addVertex(pos, simd_normalize(face + SIMD3<Float>(0, 0.65, 0)), uv,
                                   stageColor(tint * 0.5, tint * 0.5, tint * 0.5, t * t))
@@ -905,8 +905,8 @@ struct StageLayout {
             let nx = max(1, Int((w / step).rounded())), ny = max(1, Int((d / step).rounded()))
             for ix in 0..<nx {
                 for iy in 0..<ny {
-                    let lx = (Float(ix) + 0.5) / Float(nx) * w - w / 2 + brng.range(-0.12, 0.12)
-                    let ly = (Float(iy) + 0.5) / Float(ny) * d - d / 2 + brng.range(-0.12, 0.12)
+                    let lx = (Float(ix) + 0.5) / Float(nx) * w - w / 2 + brng.range(-0.05, 0.05)
+                    let ly = (Float(iy) + 0.5) / Float(ny) * d - d / 2 + brng.range(-0.05, 0.05)
                     // 縁の房は内側へ少し倒す（見た目の縁を判定の矩形に合わせる: はみ出しは 0.5 m 以内）
                     let edgeX = abs(lx) / (w / 2), edgeY = abs(ly) / (d / 2)
                     let inward = SIMD2<Float>(edgeX > 0.6 ? (lx > 0 ? -1 : 1) : 0, edgeY > 0.6 ? (ly > 0 ? -1 : 1) : 0)
