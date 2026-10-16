@@ -4,9 +4,11 @@ import Foundation
 // H034 鎖鉤のゴルム = Velstria 版の Franco（MLBB。調査: docs/kits/Franco.md、対応表: 同ファイル末尾）。
 // 数値の正は MLBB の日本語クライアントのスキル詳細（docs/kits/Franco.md の「公式（日本語クライアント）の数値」）。
 // 公式の表をそのまま使う（スキル1・2 = Lv1〜6、アルティメット = Lv1〜3。rank = 公式の Lv。換算・補間なし）。
-//   パッシブ 鉄鎖の執念    — 5 秒ダメージを受けないと 移動速度 +10%・毎秒 最大 HP の 1% 回復、闘気がたまる（最大 10）。
-//                           次に使うスキルが闘気をすべて消費し、そのスキルのダメージを最大 +150%。ダメージで解除。
-//                           たまる速さ（1 秒に 1 つ）と 1 つあたり（+15%）は推測（公式の文に無い）。
+//   パッシブ 鉄鎖の執念    — 5 秒ダメージを受けないと 移動速度 +10%・毎秒 最大 HP の 1% 回復、闘気がたまる（最大 10）。ダメージで解除。
+//                           次のスキルのダメージが当たった時に闘気をすべて消費し、そのスキルのダメージを 1 つにつき +5%（10 で +50% =
+//                           1.5 倍。公式の「最大150%」は 150% まで = 1.5 倍。動画で測った値）。外れたスキル（誰にも当たらない）は消費しない。
+//                           奥義は 1 撃ごとにその時の闘気を掛け、最後の 1 撃（途中で終われば、その時）で消費する。
+//                           たまる速さ（1 秒に 1 つ）は推測（公式の文に無い）。
 //                           ロール「サポート」の味方回復パッシブ・奥義の味方回復はキットが置き換える。
 //   スキル1 鎖鉤           — 0.33 秒の振りかぶりの後に飛ぶ非貫通の鉤（射程 823・半幅 35・毎秒 1515）。最初に当たった敵
 //                           （ミニオン・モンスター含む、タワーは除く）に 400〜650（+100% 物理攻撃）。当たった敵はその場でスタンし
@@ -27,11 +29,12 @@ import Foundation
 // 状態（KitState）:
 //   ints[0]   = 闘気（0..10）            ints[1] = 「5 秒の無被弾」状態に入っているか（0/1）
 //   ints[2]   = 奥義の段（0 = なし / 1 = 拘束中 / 2 = 掴みかかり中）   ints[3] = 拘束中に殴った回数
-//   ints[4]   = 命中した鉤の数（検証用）  ints[5] = 直前のスキルが消費した闘気の数（検証用）
+//   ints[4]   = 命中した鉤の数（検証用）  ints[5] = 直前に当たったスキルが消費した闘気の数（検証用）
 //   ints[6]   = 無被弾の間に闘気を消費した（1 = 次にダメージを受けるまで闘気はたまらない）
+//   ints[7]   = 飛んでいる鉤のダメージに掛けてある闘気の数（retuneHooks が今の闘気に合わせる）
 //   timers[0] = 最後のダメージからの待ち（5 秒）  timers[1] = 次の闘気まで   timers[2] = 次の回復まで
 //   timers[3] = 奥義の拘束の残り秒
-//   ids[0]    = 奥義の対象                reals[0] = 奥義の 1 撃のダメージ（闘気の補正込み）
+//   ids[0]    = 奥義の対象                reals[0] = 奥義の 1 撃の基礎ダメージ（闘気の補正なし。1 撃ごとにその時の闘気を掛ける）
 
 extension KitState {
     var gormStacks: Int {
@@ -68,6 +71,13 @@ extension KitState {
     var gormLastConsumed: Int {
         get { ints[5] }
         set { ints[5] = newValue }
+    }
+
+    /// 飛んでいる鉤（弾）のダメージに掛けてある闘気の数。鉤のダメージは命中の瞬間の闘気で決まるので、闘気が変わるたびに
+    /// 弾のダメージを掛け直す（Kit_H034.retuneHooks）。
+    var gormHookStacks: Int {
+        get { ints[7] }
+        set { ints[7] = newValue }
     }
 
     var gormCalm: Double {
@@ -113,7 +123,7 @@ struct Kit_H034: HeroKit {
     // MARK: - 数値（MLBB の値はそのまま。距離は Velstria 単位 ≈ MLBB × 100。資料に無い値は Franco.md の「推測の値」に理由）
 
     enum Tune {
-        // パッシブ 鉄鎖の執念（公式: 5 秒・+10%・毎秒 1%・最大 10 スタック・最大 150%）
+        // パッシブ 鉄鎖の執念（公式: 5 秒・+10%・毎秒 1%・最大 10 スタック・最大 150%（= 1.5 倍））
         /// 最後のダメージからこの秒数 ダメージを受けないと「無被弾」状態に入る。
         static let calmDelay = 5.0
         static let calmSpeed = 0.10
@@ -123,8 +133,10 @@ struct Kit_H034: HeroKit {
         static let maxStacks = 10
         /// 闘気は無被弾の間 1 秒に 1 つ（推測。公式の文に無い: 10 個で 15 秒 = 無被弾の 5 秒 + 10 秒）。
         static let stackInterval = 1.0
-        /// 1 つにつきスキルのダメージ +15%（推測: 公式の「最大 150%」÷ 最大 10 スタック）。
-        static let stackBonus = 0.15
+        /// 1 つにつきスキルのダメージ +5%（10 個で +50% = 1.5 倍）。動画で測った値: 闘気 10 の鉤が 1.5 倍、奥義の途中でたまった
+        /// 闘気 1 つで 5・6 撃目が 1.05 倍（docs/kits/Franco.md「ダメージの表示」）。Fandom の properties の「1 つあたり 5% … 10 で 50%」と同じ。
+        /// 公式の文の「最大150%増加」は「最大で 150% まで」（= 1.5 倍）と読む（以前の推測 +15% = 10 で 2.5 倍は外した）。
+        static let stackBonus = 0.05
         static let speedTag = KitTags.buff("H034", "calmSpeed")
         /// 「ダメージを受けるまで続く」加速のステータスに持たせる持続（実質無期限）。
         static let permanent = 1_000_000.0
@@ -201,13 +213,13 @@ struct Kit_H034: HeroKit {
 
     private enum Code {
         static let strike = 1
-        /// 鉤が飛び出す（振りかぶりの終わり。point = 向き、param = ダメージ）。
+        /// 鉤が飛び出す（振りかぶりの終わり。point = 向き、param = ダメージ（闘気の補正なし））。
         static let hookLaunch = 2
         /// 命中した相手を引き寄せ始める（targetID = 相手）。
         static let hookYank = 3
         /// 引き寄せの終わりの着地のスタン（targetID = 相手）。
         static let hookLand = 4
-        /// スキル2 の叩きつけ（point = 中心、param = ダメージ）。
+        /// スキル2 の叩きつけ（point = 中心、param = ダメージ（闘気の補正なし））。
         static let shockSlam = 5
         /// 奥義の掴み（掴みかかりの終わり。targetID = 相手）。
         static let ultGrab = 6
@@ -251,10 +263,14 @@ struct Kit_H034: HeroKit {
         switch slot {
         case .passive:
             n.hits = Tune.maxStacks
+            // maxAmp = 増加の上限（+50%）、stackPercent = 1 つあたり（+5%）、maxDamagePercent = 上限のときのダメージ
+            // （150% = 公式の文の「最大150%」）
             n.extras = [KitStat(key: "calmDelay", value: Tune.calmDelay),
                         KitStat(key: "speedPercent", value: Tune.calmSpeed * 100),
                         KitStat(key: "regenPercent", value: Tune.calmRegen * 100),
-                        KitStat(key: "maxAmp", value: Tune.stackBonus * Double(Tune.maxStacks) * 100)]
+                        KitStat(key: "maxAmp", value: Tune.stackBonus * Double(Tune.maxStacks) * 100),
+                        KitStat(key: "stackPercent", value: Tune.stackBonus * 100),
+                        KitStat(key: "maxDamagePercent", value: Self.amp(stacks: Tune.maxStacks) * 100)]
         case .skill1:
             n.damage = Self.hookDamage(rank: rank, stats: stats)
             n.cooldown = Kit.cooldown(Tune.hookCooldown, rank: rank, stats: stats)
@@ -311,16 +327,20 @@ struct Kit_H034: HeroKit {
 
     /// 説明文は公式（日本語クライアント）の文に合わせる（数値は {トークン} で sim から。{base}(+{atkPct}%物理攻撃) は公式の値そのもの）。
     /// 名前は master のもの（ワイルドフォース = 闘気、アイアンフック = 鎖鉤）。距離は近接攻撃の射程に対する倍率で括弧に足す。
-    /// 闘気のたまる速さ・1 つあたりの上乗せ（推測）は公式の文に無いので書かない（docs/kits/Franco.md）。
+    /// パッシブ: 公式の「そのスキルダメージを最大150%増加させる」は 1.5 倍のこと（動画で測った値）なので、日本語は「最大150%まで」と
+    /// 1 つあたり（+5%。動画・Fandom）を括弧に足して読み違えないようにする（英語は増加分で「by up to 50%」）。消費の時は動画で見た
+    /// 「ダメージが当たった時」（公式の文は「次のスキル発動時に」）。闘気のたまる速さ（推測）は公式の文に無いので書かない（docs/kits/Franco.md）。
     func text(slot: SkillSlot) -> KitText? {
         switch slot {
         case .passive:
             return KitText(
                 ja: "{calmDelay}秒間ダメージを受けなかった場合、移動速度が{speedPercent}%上昇し、1秒ごとに最大HPの{regenPercent}%を回復し、闘気が蓄積され始める（最大{hits}スタック）。\n\n"
-                    + "次のスキル発動時にすべての闘気を消費し、そのスキルダメージを最大{maxAmp}%増加させる。",
+                    + "次のスキルのダメージが当たった時にすべての闘気を消費し、そのスキルダメージを最大{maxDamagePercent}%まで増加させる（1スタックにつき+{stackPercent}%）。"
+                    + "外れたスキルは闘気を消費しない。",
                 en: "If no damage is taken for {calmDelay}s, Gorm's Movement Speed increases by {speedPercent}%, he recovers {regenPercent}% of his Max HP every second, "
                     + "and Resolve begins to accumulate (up to {hits} stacks).\n\n"
-                    + "His next skill cast consumes all Resolve to increase that skill's damage by up to {maxAmp}%.",
+                    + "When the damage of his next skill lands, it consumes all Resolve to increase that skill's damage by up to {maxAmp}% "
+                    + "(+{stackPercent}% per stack). A skill that misses does not consume Resolve.",
                 tags: [KitTag.buff])
         case .skill1:
             return KitText(
@@ -347,6 +367,8 @@ struct Kit_H034: HeroKit {
         }
     }
 
+    /// パッシブ = 闘気の数。闘気はスキルのダメージが当たった時に消費するので、鉤が飛んでいる間・S2 の振りかぶりの間・奥義の
+    /// 最後の 1 撃の前は残って見え、当たった tick に 0 になる（外れたら減らない）。App の解放の演出（passiveRelease）はこの減少を見る。
     func badge(slot: SkillSlot, hero: HeroData) -> KitBadge? {
         guard let k = hero.kit else { return nil }
         switch slot {
@@ -391,36 +413,61 @@ struct Kit_H034: HeroKit {
         return .done
     }
 
-    /// 闘気をすべて消費し、そのスキルのダメージ倍率（1 + 0.15 × 闘気）を返す。外れても消費する（公式: 次のスキルの発動で消費）。
-    private func consumeStacks(_ s: inout SimState, _ i: Int) -> Double {
-        guard let k = s.units[i].hero?.kit else { return 1 }
-        let n = k.gormStacks
-        s.units[i].hero!.kit!.gormStacks = 0
-        s.units[i].hero!.kit!.gormLastConsumed = n
-        // 無被弾の間に消費したら、次にダメージを受けるまで闘気はたまらない（加速・回復は続く）
-        if k.gormCalmActive { s.units[i].hero!.kit!.gormStackLock = true }
-        return 1 + Tune.stackBonus * Double(n)
+    /// 闘気の補正（1 + 0.05 × 闘気。10 で 1.5 倍）。
+    static func amp(stacks: Int) -> Double {
+        1 + Tune.stackBonus * Double(max(0, stacks))
     }
 
-    /// S1: 振りかぶり（hookDelay）の後に非貫通の鉤が飛ぶ（onTimer の hookLaunch）。闘気は発動の時に消費し、ダメージに掛けておく。
-    /// 振りかぶりの間にスタン以上を受けると鉤は出ない（予約は interruptible。コスト・CD は戻らない）。
+    /// スキルのダメージが当たった時に闘気をすべて消費する（動画: 鉤の命中のコマで闘気のアイコンが消えた）。呼ぶのは当たった時だけで、
+    /// 外れたスキル（鉤が何にも当たらない・S2 の範囲に敵が居ない・奥義を掴めない）は闘気を残す。補正は呼ぶ側がその時の闘気で掛け済み。
+    /// 闘気が 0 でも「消費した」扱い（無被弾の間なら闘気がたまらなくなる。以前の発動の時の消費と同じ）。
+    private func consumeStacks(_ s: inout SimState, _ i: Int) {
+        guard let k = s.units[i].hero?.kit else { return }
+        s.units[i].hero!.kit!.gormStacks = 0
+        s.units[i].hero!.kit!.gormLastConsumed = k.gormStacks
+        // 無被弾の間に消費したら、次にダメージを受けるまで闘気はたまらない（加速・回復は続く）
+        if k.gormCalmActive { s.units[i].hero!.kit!.gormStackLock = true }
+        // 飛んでいる別の鉤（練習の CD なし）の補正も外す
+        retuneHooks(&s, owner: i)
+    }
+
+    /// 飛んでいる鉤のダメージを今の闘気に合わせる（鉤のダメージは命中の瞬間の闘気で決まる。飛ぶ間に闘気がたまった・S2 の叩きつけが
+    /// 先に当たって消費した、も命中の時の値になる）。弾のダメージ = 基礎 × amp(gormHookStacks) なので、闘気が変わっていたら比で
+    /// 掛け直す（基礎は別に持たない）。発射の時・毎 tick の終わり（update）・消費の後に呼ぶ。闘気が変わっていなければ何もしない。
+    /// ゴルムが倒れると状態はリセットされ更新も止まるので、倒れた後に当たった鉤は倒れる前の補正のまま。
+    private func retuneHooks(_ s: inout SimState, owner i: Int) {
+        guard let k = s.units[i].hero?.kit, k.gormHookStacks != k.gormStacks else { return }
+        let ratio = Self.amp(stacks: k.gormStacks) / Self.amp(stacks: k.gormHookStacks)
+        let id = s.units[i].id
+        for j in s.projectiles.indices where s.projectiles[j].ownerID == id && !s.projectiles[j].done
+            && s.projectiles[j].payload.kitEvent == Event.hook {
+            s.projectiles[j].payload.damage *= ratio
+        }
+        s.units[i].hero!.kit!.gormHookStacks = k.gormStacks
+    }
+
+    /// S1: 振りかぶり（hookDelay）の後に非貫通の鉤が飛ぶ（onTimer の hookLaunch）。闘気は鉤が当たった時に消費する（onHit）。
+    /// 振りかぶりの間にスタン以上を受けると鉤は出ない（予約は interruptible。コスト・CD は戻らない。闘気は残る）。
     private func castHook(_ s: inout SimState, _ c: KitCast) {
         let i = c.caster
-        let amp = consumeStacks(&s, i)
         Kit.emitCast(&s, c, target: s.units[i].pos + c.aim.direction * Tune.hookRange, unit: c.aim.unit,
                      shape: .wideLine, duration: Tune.hookDelay + Tune.hookRange / Tune.hookSpeed, count: 1)
         Kit.schedule(&s, caster: i, slot: .skill1, code: Code.hookLaunch, after: Tune.hookDelay,
-                     param: c.numbers.damage * amp, point: c.aim.direction, interruptible: true)
+                     param: c.numbers.damage, point: c.aim.direction, interruptible: true)
     }
 
     /// S1 の鉤が飛び出す: 今の位置から、発動の時の向きへ。最初に当たった敵へダメージ + スタン（その場 + 引き寄せの間）、
-    /// 引き寄せと着地のスタンは onHit から予約する（hookYank → hookLand）。
+    /// 引き寄せと着地のスタンは onHit から予約する（hookYank → hookLand）。ダメージは今の闘気の補正で出し、飛ぶ間は retuneHooks が
+    /// 闘気の変化に合わせる（命中の瞬間の闘気が掛かる）。
     private func launchHook(_ s: inout SimState, _ ctx: SimContext, owner i: Int, timer: KitTimer) {
         let dir = timer.point.normalized
         guard dir != .zero else { return }
+        // 先に飛んでいる鉤を今の闘気に揃えてから、同じ補正で足す（gormHookStacks = 今の闘気）
+        retuneHooks(&s, owner: i)
+        let amp = Self.amp(stacks: s.units[i].hero?.kit?.gormHookStacks ?? 0)
         let stun = StatusEffect(kind: .stun, duration: Tune.hookStun, sourceID: s.units[i].id, tag: Tune.hookStunTag)
         let skill = ctx.master.skill(hero: heroID, slot: .skill1)
-        let p = HitPayload(damage: timer.param, damageType: .physical, source: .skill(.skill1),
+        let p = HitPayload(damage: timer.param * amp, damageType: .physical, source: .skill(.skill1),
                            statuses: [stun], skillID: skill?.skillID,
                            originPos: s.units[i].pos, kitEvent: Event.hook)
         ProjectileSystem.spawn(&s, ownerIndex: i, motion: .linear(direction: dir, maxDistance: Tune.hookRange),
@@ -428,35 +475,40 @@ struct Kit_H034: HeroKit {
                                visual: skill?.effectID ?? "")
     }
 
-    /// S2: 振りかぶり（shockDelay）の後に、発動の位置の周りへ叩きつける（onTimer の shockSlam）。闘気は発動の時に消費する。
+    /// S2: 振りかぶり（shockDelay）の後に、発動の位置の周りへ叩きつける（onTimer の shockSlam）。闘気は叩きつけが当たった時に消費する。
     private func castShock(_ s: inout SimState, _ ctx: SimContext, _ c: KitCast) {
         let i = c.caster
-        let amp = consumeStacks(&s, i)
         let origin = s.units[i].pos
         Kit.emitCast(&s, c, target: origin, shape: .selfRing, duration: Tune.shockDelay, count: 1)
         Kit.schedule(&s, caster: i, slot: .skill2, code: Code.shockSlam, after: Tune.shockDelay,
-                     param: c.numbers.damage * amp, point: origin, interruptible: true)
+                     param: c.numbers.damage, point: origin, interruptible: true)
     }
 
-    /// S2 の叩きつけ: 円（半径 shockRadius + 対象の半径）に公式の基礎 + 自分の最大 HP の 4%（numbers に含まれる）に闘気の補正、70% 減速。
+    /// S2 の叩きつけ: 円（半径 shockRadius + 対象の半径）に公式の基礎 + 自分の最大 HP の 4%（numbers に含まれる）× 叩きつけの時の
+    /// 闘気の補正、70% 減速。1 体でも当たれば（無敵でない敵が範囲に居れば）闘気を消費する。範囲に敵が居なければ闘気は残る。
+    /// 当て方は SkillArchetypes.hitArea と同じ（対象を先に確定し添字昇順に同じ payload）。
     private func slam(_ s: inout SimState, _ ctx: SimContext, owner i: Int, timer: KitTimer) {
         let slow = StatusEffect(kind: .slow, duration: Tune.shockSlowDuration, magnitude: Tune.shockSlow,
                                 sourceID: s.units[i].id, tag: Tune.shockSlowTag)
-        let p = HitPayload(damage: timer.param, damageType: .physical, source: .skill(.skill2),
+        let amp = Self.amp(stacks: s.units[i].hero?.kit?.gormStacks ?? 0)
+        let p = HitPayload(damage: timer.param * amp, damageType: .physical, source: .skill(.skill2),
                            statuses: [slow], skillID: Self.skillID(ctx, .skill2), originPos: timer.point)
-        SkillArchetypes.hitArea(&s, ctx, caster: i, center: timer.point, radius: Tune.shockRadius, shape: .circle,
-                                payload: p)
+        var landed = false
+        Kit.hitAreaEach(&s, ctx, caster: i, center: timer.point, radius: Tune.shockRadius, shape: .circle) { st, j in
+            if !CombatSystem.isInvulnerable(st, ctx, j) { landed = true }
+            return p
+        }
+        if landed { consumeStacks(&s, i) }
     }
 
     /// 奥義: 射程内の対象へ掴みかかり（ultDelay。その間ゴルムは動けない）、掴んだらその場で拘束して 6 回殴る（踏み込みは無い。
-    /// 照準 resolveAim が同じ tick に射程を確かめている）。
+    /// 照準 resolveAim が同じ tick に射程を確かめている）。闘気は発動では消費しない（1 撃ごとにその時の闘気を掛け、最後の 1 撃で消費。strike）。
     private func castHunt(_ s: inout SimState, _ ctx: SimContext, _ c: KitCast) {
         let i = c.caster
         guard let t = c.aim.unit else { return }
-        let amp = consumeStacks(&s, i)
         let id = s.units[i].id
         s.units[i].hero!.kit!.gormUltTarget = s.units[t].id
-        s.units[i].hero!.kit!.gormUltDamage = c.numbers.damage * amp
+        s.units[i].hero!.kit!.gormUltDamage = c.numbers.damage
         s.units[i].hero!.kit!.gormUltPhase = 2
         Kit.emitCast(&s, c, target: s.units[t].pos, unit: t, shape: .lockOn, duration: Tune.ultDelay + Tune.ultSuppress,
                      count: Tune.ultHits)
@@ -513,8 +565,11 @@ struct Kit_H034: HeroKit {
     }
 
     /// 奥義の終わり（自然終了・対象の消失・中断）。release なら相手の拘束も外す。
+    /// 拘束して 1 撃以上殴ったのに最後の 1 撃の前に終わった（相手が倒れた・ゴルムが CC を受けた）ときは、ここで闘気を消費する
+    /// （6 撃目まで入れば strike が消費済み。掴めなかった・掴む前に止められたときは消費しない）。
     private func endLock(_ s: inout SimState, owner i: Int, release: Bool) {
-        guard s.units[i].hero?.kit != nil else { return }
+        guard let k = s.units[i].hero?.kit else { return }
+        if k.gormUltPhase == 1, k.gormUltStrikes > 0, k.gormUltStrikes < Tune.ultHits { consumeStacks(&s, i) }
         if release { Kit.releaseSuppress(&s, bySource: s.units[i].id) }
         s.units[i].statuses.removeAll {
             ($0.kind == .root && $0.tag == Tune.lockRootTag) || ($0.kind == .channeling && $0.tag == Tune.lockTag)
@@ -550,25 +605,31 @@ struct Kit_H034: HeroKit {
 
     /// 拘束中の 1 撃。対象が倒れた・居なくなった・拘束が外れていたら、残りの連撃を取りやめて解放する。
     private func strike(_ s: inout SimState, _ ctx: SimContext, owner i: Int, timer: KitTimer) {
-        guard let t = s.index(of: timer.targetID), CombatSystem.isLiving(s, t), s.units[t].has(.suppress) else {
+        guard let t = s.index(of: timer.targetID), CombatSystem.isLiving(s, t), s.units[t].has(.suppress),
+              let k = s.units[i].hero?.kit else {
             endLock(&s, owner: i, release: true)
             return
         }
-        // 1 撃 = 公式の値（闘気の補正込み）。6 回の合計に上限は無い（MLBB に無い）
-        let p = HitPayload(damage: s.units[i].hero?.kit?.gormUltDamage ?? 0, damageType: .physical,
+        // 1 撃 = 公式の値 × その時の闘気の補正。奥義の途中でたまった闘気も後の撃に掛かる（動画: 闘気 0 で撃ち、5 撃目のコマで
+        // 闘気が 1 つたまると 5・6 撃目が 1.05 倍、6 撃目のコマで闘気が消えた）。6 回の合計に上限は無い（MLBB に無い）
+        let p = HitPayload(damage: k.gormUltDamage * Self.amp(stacks: k.gormStacks), damageType: .physical,
                            source: .skill(.ultimate), ccIsUltimate: true, skillID: Self.skillID(ctx, .ultimate),
                            originPos: s.units[i].pos)
         CombatSystem.applyHit(&s, ctx, sourceID: s.units[i].id, team: s.units[i].team, targetIndex: t, payload: p,
                               from: s.units[i].pos)
         s.units[i].hero?.kit?.gormUltStrikes += 1
+        // 闘気は最後の 1 撃で消費する（途中で終わったときは endLock）
+        if (s.units[i].hero?.kit?.gormUltStrikes ?? 0) >= Tune.ultHits { consumeStacks(&s, i) }
         if !CombatSystem.isLiving(s, t) { endLock(&s, owner: i, release: true) }
     }
 
     /// 鉤の命中: 相手はその場でスタンしたまま（payload のスタン hookStun）、hookHold 秒後に引き寄せが始まる（hookYank）。
+    /// 闘気はここで消費する（ダメージは命中の時の闘気で掛け済み。無敵の相手に当たったときは呼ばれず、闘気は残る）。
     /// 予約はゴルムが CC を受けても消えない（鉤はすでに掛かっている）。ゴルムが倒れたら消える（死亡でキットの状態は全部リセット）。
     func onHit(_ s: inout SimState, _ ctx: SimContext, owner: Int, target: Int, event: Int, dealt: Double) {
         guard event == Event.hook, s.units[owner].hero?.kit != nil else { return }
         s.units[owner].hero!.kit!.gormHooksLanded += 1
+        consumeStacks(&s, owner)
         Kit.schedule(&s, caster: owner, slot: .skill1, code: Code.hookYank, after: Tune.hookHold,
                      targetID: s.units[target].id, interruptible: false)
     }
@@ -603,6 +664,8 @@ struct Kit_H034: HeroKit {
 
     func update(_ s: inout SimState, _ ctx: SimContext, owner i: Int) {
         guard let k = s.units[i].hero?.kit else { return }
+        // この tick にたまった闘気を、飛んでいる鉤のダメージに反映する（消費は consumeStacks が反映済み）
+        defer { retuneHooks(&s, owner: i) }
         // カウントダウンは 0 まで減らすだけで厳密には 0 にならないことがある（浮動小数の端数）
         let eps = 1e-6
 

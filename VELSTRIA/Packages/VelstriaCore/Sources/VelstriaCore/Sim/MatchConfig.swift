@@ -93,7 +93,10 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     /// 26: 遊ぶ地図の壁を MLBB のミニマップ原本から起こした滑らかな多角形に（ed0f086。キャンプの位置・拠点の周りの規則も）、
     ///     矩形の角の衝突を丸い膨張に、経路探索の格子を 100 → 50（粗い格子で下見）。
     /// 27: 遊ぶ地図の壁・草むら・川（8 の字の水路）・キャンプをユーザーのマップ設計図（60×60 マス）から起こし直す。
-    public static let currentSimVersion = 27
+    /// 28: H034（フランコ）のパッシブ ワイルドフォースを MLBB の画面収録に合わせた（闘気 1 つ +15% → +5%・10 で 1.5 倍、
+    ///     消費はスキルの発動ではなくダメージが当たった時（外れたら残る）、奥義は 1 撃ごとにその時の闘気を掛けて最後の 1 撃で消費）。
+    ///     docs/kits/Franco.md「パッシブを動画に合わせた（2026-10-16）」。
+    public static let currentSimVersion = 28
 
     public var simVersion: Int
     public var mode: MatchMode

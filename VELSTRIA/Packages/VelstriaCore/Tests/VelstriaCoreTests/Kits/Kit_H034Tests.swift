@@ -378,14 +378,24 @@ final class Kit_H034Tests: XCTestCase {
             return try XCTUnwrap(HeroKits.text(heroID: "H034", slot: slot)).filled(english: true, numbers: n, targeting: t)
         }
         let passive = try ja(.passive)
-        // 公式の文: 5 秒・10%・毎秒 1%・最大 10 スタック・最大 150%
-        for token in ["5秒間ダメージを受けなかった場合", "10%上昇", "1秒ごとに最大HPの1%を回復", "最大10スタック", "最大150%増加"] {
+        // 公式の文: 5 秒・10%・毎秒 1%・最大 10 スタック・最大 150%。「最大150%」は 1.5 倍のこと（動画で測った値）なので
+        // 「最大150%まで」と 1 つあたり（+5%。動画・Fandom）を書く。消費は動画で見た「ダメージが当たった時」（外れたら残る）
+        for token in ["5秒間ダメージを受けなかった場合", "10%上昇", "1秒ごとに最大HPの1%を回復", "最大10スタック",
+                      "次のスキルのダメージが当たった時にすべての闘気を消費", "最大150%まで増加", "1スタックにつき+5%",
+                      "外れたスキルは闘気を消費しない"] {
             XCTAssertTrue(passive.contains(token), "\(token): \(passive)")
         }
-        // 推測の値（1 秒に 1 つ・1 つ +15%）は公式の文に無いので書かない
-        for token in ["1秒に1スタック", "+15%", "1スタックにつき"] {
+        // 推測の値（1 秒に 1 つ）・以前の推測（1 つ +15% = 10 で 2.5 倍）・発動の時の消費は書かない
+        for token in ["1秒に1スタック", "+15%", "次のスキル発動時に"] {
             XCTAssertFalse(passive.contains(token), "\(token): \(passive)")
         }
+        // 英語は増加分で書く（by up to 50% = 1.5 倍）
+        let passiveEN = try en(.passive)
+        for token in ["When the damage of his next skill lands", "by up to 50%", "+5% per stack",
+                      "A skill that misses does not consume Resolve"] {
+            XCTAssertTrue(passiveEN.contains(token), "\(token): \(passiveEN)")
+        }
+        XCTAssertFalse(passiveEN.contains("150"), passiveEN)
         // 単位の無い距離（823 / 257 / 188）は出さず、近接攻撃の射程（MLBB の 1.8 = 180）に対する倍率で書く
         // （823 ÷ 180 ≈ 4.6、257 ÷ 180 ≈ 1.4、188 ÷ 180 ≈ 1。動画で測った 8.23 / 2.57 / 1.88）
         let s1 = try ja(.skill1, rank: 2)
@@ -503,27 +513,64 @@ final class Kit_H034Tests: XCTestCase {
         XCTAssertEqual(kit(w, k).gormCalm, Tune.calmDelay, accuracy: 1e-9)
     }
 
-    func testNextSkillConsumesAllStacksAndAmplifiesDamage() {
-        // S2: 闘気 4 つ → +60%
+    /// 闘気 1 つ = +5%（10 で +50% = 1.5 倍）。動画で測った値（docs/kits/Franco.md「ダメージの表示」。A = 217、的の防御 0.825）:
+    /// 闘気 10 の鉤 828 = (450 + 217) × 0.825 × 1.5、奥義の途中でたまった闘気 1 つの 5・6 撃目 192 = 183 × 1.05。
+    /// 公式の文の「最大150%増加」は 1.5 倍のこと（以前の推測 +15% = 10 で 2.5 倍は外した）。Fandom の properties の 5% … 50% と同じ。
+    func testWildForceIsFivePercentPerStackUpToOnePointFiveTimes() {
+        XCTAssertEqual(Tune.stackBonus, 0.05)
+        XCTAssertEqual(Tune.maxStacks, 10)
+        XCTAssertEqual(Kit_H034.amp(stacks: 0), 1)
+        XCTAssertEqual(Kit_H034.amp(stacks: 1), 1.05, accuracy: 1e-12)
+        XCTAssertEqual(Kit_H034.amp(stacks: 4), 1.2, accuracy: 1e-12)
+        XCTAssertEqual(Kit_H034.amp(stacks: Tune.maxStacks), 1.5, accuracy: 1e-12)
+        // 動画の数字に合う（表示の丸め・防御の推定の誤差の内）
+        XCTAssertEqual((450 + 217) * (179.0 / 217) * Kit_H034.amp(stacks: 10), 828, accuracy: 828 * 0.005)
+        XCTAssertEqual(183 * Kit_H034.amp(stacks: 1), 192, accuracy: 0.5)
+        // KitStat: 増加の上限 50%・1 つあたり 5%・上限のときのダメージ 150%（公式の文の「最大150%」）
+        let (w, k) = world(level: 12)
+        let n = SkillCatalog.numbers(for: skill(.passive), hero: hero, rank: 1, stats: w.s.units[k].stats)
+        func stat(_ key: String) -> Double { n.extras.first { $0.key == key }?.value ?? -1 }
+        XCTAssertEqual(stat("maxAmp"), 50, accuracy: 1e-9)
+        XCTAssertEqual(stat("stackPercent"), 5, accuracy: 1e-9)
+        XCTAssertEqual(stat("maxDamagePercent"), 150, accuracy: 1e-9)
+        XCTAssertEqual(n.hits, Tune.maxStacks)
+    }
+
+    /// S2 は叩きつけが当たった時に闘気を消費する（振りかぶりの 0.27 秒の間は残る）。ダメージはその時の闘気の補正。
+    func testShockConsumesAllStacksWhenTheSlamLandsAndAmplifiesDamage() {
+        // S2: 闘気 4 つ → 1.2 倍
         var (w, k) = world(level: 12)
         let e = addEnemy(&w, dx: 150)
         let n = w.numbers(k, .skill2)
         w.s.units[k].hero!.kit!.gormStacks = 4
         XCTAssertTrue(w.cast(k, .skill2))
-        XCTAssertEqual(kit(w, k).gormStacks, 0, "発動の時に消費")
+        XCTAssertEqual(kit(w, k).gormStacks, 4, "発動では消費しない")
+        for t in 1...30 where w.damage(to: e) == 0 {
+            if t > 1 {
+                XCTAssertEqual(kit(w, k).gormStacks, 4, "叩きつけの前（tick \(t - 1)）は残る")
+                XCTAssertEqual(HeroKits.badge(w.s.units[k].hero!, slot: .passive)?.value, 4)
+            }
+            w.tick()
+        }
+        XCTAssertGreaterThan(w.damage(to: e), 0)
+        XCTAssertEqual(kit(w, k).gormStacks, 0, "叩きつけが当たった tick に消費")
         XCTAssertEqual(kit(w, k).gormLastConsumed, 4)
-        w.run(seconds: Tune.shockDelay + 0.1)
-        XCTAssertEqual(events(w, to: e, .skill(.skill2)).first?.amount ?? 0, w.mitigated(n.damage * 1.6, .physical, on: e),
+        XCTAssertEqual(HeroKits.badge(w.s.units[k].hero!, slot: .passive)?.value, 0)
+        XCTAssertEqual(events(w, to: e, .skill(.skill2)).first?.amount ?? 0, w.mitigated(n.damage * 1.2, .physical, on: e),
                        accuracy: 1e-6)
-        // 10 個 → +150%（調査: 最大 +150%）
+        // 10 個 → 1.5 倍（公式の「最大150%」）。範囲の全員に同じ補正（消費は 1 回）
         var (w2, k2) = world(level: 12)
         let e2 = addEnemy(&w2, dx: 150)
+        let e2b = addEnemy(&w2, dx: -150, hero: "H003")
         let n2 = w2.numbers(k2, .skill2)
         w2.s.units[k2].hero!.kit!.gormStacks = 10
         XCTAssertTrue(w2.cast(k2, .skill2))
         w2.run(seconds: Tune.shockDelay + 0.1)
-        XCTAssertEqual(events(w2, to: e2, .skill(.skill2)).first?.amount ?? 0,
-                       w2.mitigated(n2.damage * 2.5, .physical, on: e2), accuracy: 1e-6)
+        for t in [e2, e2b] {
+            XCTAssertEqual(events(w2, to: t, .skill(.skill2)).first?.amount ?? 0,
+                           w2.mitigated(n2.damage * 1.5, .physical, on: t), accuracy: 1e-6)
+        }
+        XCTAssertEqual(kit(w2, k2).gormLastConsumed, 10)
         // 闘気なしは補正なし
         var (w3, k3) = world(level: 12)
         let e3 = addEnemy(&w3, dx: 150)
@@ -535,14 +582,18 @@ final class Kit_H034Tests: XCTestCase {
     }
 
     /// 公式の注記: 無被弾の間に闘気を消費したら、次にダメージを受けるまで闘気はたまらない（加速・回復は続く）。
+    /// 消費はスキルのダメージが当たった時（ここでは S2 の叩きつけ）。
     func testStacksDoNotRefillAfterBeingSpentWhileCalmUntilDamageIsTaken() {
         var (w, k) = world(level: 12)
         let e = addEnemy(&w, dx: 900)
+        _ = addEnemy(&w, dx: 150, hero: "H003")    // S2 が当たる相手
         w.s.units[k].hero!.kit!.gormCalm = 0
         w.run(seconds: 3)
         XCTAssertTrue(kit(w, k).gormCalmActive)
         XCTAssertGreaterThan(kit(w, k).gormStacks, 0)
         XCTAssertTrue(w.cast(k, .skill2))
+        XCTAssertFalse(kit(w, k).gormStackLock, "発動では消費しない")
+        w.run(seconds: Tune.shockDelay + 0.05)
         XCTAssertEqual(kit(w, k).gormStacks, 0)
         XCTAssertTrue(kit(w, k).gormStackLock)
         w.run(seconds: 3)
@@ -555,35 +606,240 @@ final class Kit_H034Tests: XCTestCase {
         XCTAssertGreaterThan(kit(w, k).gormStacks, 0)
     }
 
-    func testStacksAreConsumedEvenWhenTheHookMissesAndByTheHookAndUltimate() {
-        // 外れても消費
+    /// 闘気は鉤が当たった時に消費する（動画: 闘気のアイコンは鉤の命中のコマで消えた。発動の時ではない）。外れた鉤・無敵の相手に
+    /// 当たった鉤・振りかぶりで止められた鉤は闘気を残し、次に当たったスキルが使う。ミニオンに当たっても消費する。
+    func testHookConsumesStacksOnlyWhenItHits() throws {
+        // 外れた鉤: 発動・振りかぶり・飛行・消滅のどこでも減らない
         var (w, k) = world(level: 12)
         w.s.units[k].hero!.kit!.gormStacks = 7
         XCTAssertTrue(w.cast(k, .skill1, .direction(Vec2(1, 0))))
+        XCTAssertEqual(kit(w, k).gormStacks, 7, "発動では消費しない")
+        w.run(seconds: 1.5)
+        XCTAssertTrue(w.s.projectiles.allSatisfy(\.done), "鉤は射程の端で消えた")
+        XCTAssertEqual(kit(w, k).gormStacks, 7, "外れた鉤は闘気を消費しない")
+        XCTAssertEqual(kit(w, k).gormLastConsumed, 0)
+        XCTAssertFalse(kit(w, k).gormStackLock)
+        // 残った闘気は次に当たったスキル（S2）が使う: 7 個 = 1.35 倍
+        let e = addEnemy(&w, dx: 150)
+        let n2 = w.numbers(k, .skill2)
+        XCTAssertTrue(w.cast(k, .skill2))
+        w.run(seconds: Tune.shockDelay + 0.1)
+        XCTAssertEqual(events(w, to: e, .skill(.skill2)).first?.amount ?? 0, w.mitigated(n2.damage * 1.35, .physical, on: e),
+                       accuracy: 1e-6)
         XCTAssertEqual(kit(w, k).gormStacks, 0)
         XCTAssertEqual(kit(w, k).gormLastConsumed, 7)
-        // 鉤: ダメージが補正される
+
+        // 当たった鉤: 発動・振りかぶり・飛行の間は残り（バッジも 10）、命中の tick に 0。ダメージは 1.5 倍
         var (w2, k2) = world(level: 12)
-        let e2 = addEnemy(&w2, dx: 400)
-        let n2 = w2.numbers(k2, .skill1)
+        let e2 = addEnemy(&w2, dx: 600)
+        let n1 = w2.numbers(k2, .skill1)
         w2.s.units[k2].hero!.kit!.gormStacks = 10
         XCTAssertTrue(w2.cast(k2, .skill1, .unit(w2.id(e2))))
-        XCTAssertEqual(kit(w2, k2).gormStacks, 0, "振りかぶりの前（発動の時）に消費")
-        w2.run(seconds: 0.8)
+        var hitTick: Int?
+        for t in 1...40 {
+            w2.tick()
+            if w2.damage(to: e2) > 0 {
+                hitTick = t
+                break
+            }
+            XCTAssertEqual(kit(w2, k2).gormStacks, 10, "命中の前（tick \(t)）は残る")
+            XCTAssertEqual(HeroKits.badge(w2.s.units[k2].hero!, slot: .passive)?.value, 10)
+        }
+        let h = try XCTUnwrap(hitTick)
+        XCTAssertGreaterThan(Double(h) / Balance.tickRate, Tune.hookDelay, "命中は鉤が飛び出した後")
+        XCTAssertEqual(kit(w2, k2).gormStacks, 0, "命中の tick に消費")
+        XCTAssertEqual(kit(w2, k2).gormLastConsumed, 10)
+        XCTAssertEqual(HeroKits.badge(w2.s.units[k2].hero!, slot: .passive)?.value, 0)
         XCTAssertEqual(events(w2, to: e2, .skill(.skill1)).first?.amount ?? 0,
-                       w2.mitigated(n2.damage * 2.5, .physical, on: e2), accuracy: 1e-6)
-        // 奥義: 6 回すべてに補正（発動時に闘気を消費）
+                       w2.mitigated(n1.damage * 1.5, .physical, on: e2), accuracy: 1e-6)
+
+        // ミニオンに当たった鉤も消費する（スキルのダメージが当たった）
+        var (w3, k3) = world(level: 12)
+        let minion = w3.addMinion(team: .red, at: skillArena + Vec2(300, 0))
+        CombatSystem.addShield(&w3.s, w3.ctx, sourceID: w3.id(minion), targetIndex: minion, amount: 1e6, duration: 10)
+        let n3 = w3.numbers(k3, .skill1)
+        w3.s.units[k3].hero!.kit!.gormStacks = 2
+        XCTAssertTrue(w3.cast(k3, .skill1, .direction(Vec2(1, 0))))
+        w3.run(seconds: 1.0)
+        XCTAssertEqual(events(w3, to: minion, .skill(.skill1)).first?.amount ?? 0,
+                       w3.mitigated(n3.damage * 1.1, .physical, on: minion), accuracy: 1e-6)
+        XCTAssertEqual(kit(w3, k3).gormStacks, 0)
+
+        // 無敵の相手に当たった鉤（何も起きない）は消費しない
+        var (w4, k4) = world(level: 12)
+        let e4 = addEnemy(&w4, dx: 400)
+        CombatSystem.addStatus(&w4.s, targetIndex: e4, StatusEffect(kind: .invulnerable, duration: 5))
+        w4.s.units[k4].hero!.kit!.gormStacks = 5
+        XCTAssertTrue(w4.cast(k4, .skill1, .direction(Vec2(1, 0))))
+        w4.run(seconds: 1.5)
+        XCTAssertEqual(w4.damage(to: e4), 0)
+        XCTAssertEqual(kit(w4, k4).gormStacks, 5)
+
+        // 振りかぶりの間にスタンされて鉤が出なかった: 残る
+        var (w5, k5) = world(level: 12)
+        let e5 = addEnemy(&w5, dx: 400)
+        w5.s.units[k5].hero!.kit!.gormStacks = 6
+        XCTAssertTrue(w5.cast(k5, .skill1, .unit(w5.id(e5))))
+        w5.tick(3)
+        CombatSystem.addStatus(&w5.s, targetIndex: k5, StatusEffect(kind: .stun, duration: 0.3, sourceID: w5.id(e5)))
+        w5.run(seconds: 1.5)
+        XCTAssertEqual(w5.damage(to: e5), 0)
+        XCTAssertEqual(kit(w5, k5).gormStacks, 6)
+    }
+
+    /// S2 の叩きつけが誰にも当たらなければ（範囲に敵が居ない・無敵の敵だけ）闘気は残る。
+    func testShockThatHitsNobodyKeepsTheStacks() {
+        var (w, k) = world(level: 12)
+        let far = addEnemy(&w, dx: 600)
+        let invulnerable = addEnemy(&w, dx: 150, hero: "H003")
+        CombatSystem.addStatus(&w.s, targetIndex: invulnerable, StatusEffect(kind: .invulnerable, duration: 5))
+        w.s.units[k].hero!.kit!.gormStacks = 6
+        XCTAssertTrue(w.cast(k, .skill2))
+        w.run(seconds: Tune.shockDelay + 0.2)
+        XCTAssertEqual(w.damage(to: far), 0)
+        XCTAssertEqual(w.damage(to: invulnerable), 0)
+        XCTAssertEqual(kit(w, k).gormStacks, 6, "誰にも当たらなければ残る")
+        XCTAssertEqual(kit(w, k).gormLastConsumed, 0)
+        // 振りかぶりの間にスタンされた叩きつけも残る
+        var (w2, k2) = world(level: 12)
+        let e2 = addEnemy(&w2, dx: 200)
+        w2.s.units[k2].hero!.kit!.gormStacks = 3
+        XCTAssertTrue(w2.cast(k2, .skill2))
+        w2.tick(3)
+        CombatSystem.addStatus(&w2.s, targetIndex: k2, StatusEffect(kind: .stun, duration: 0.5, sourceID: w2.id(e2)))
+        w2.run(seconds: 0.8)
+        XCTAssertEqual(w2.damage(to: e2), 0)
+        XCTAssertEqual(kit(w2, k2).gormStacks, 3)
+    }
+
+    /// 鉤のダメージは命中の瞬間の闘気で決まる: 飛んでいる間に増えた闘気も掛かり、S2 の叩きつけが先に当たって闘気を使ったら
+    /// 後から当たった鉤に補正は無い（同じ闘気を 2 回使わない）。
+    func testHookDamageUsesTheStacksAtTheMomentItLands() {
+        // 飛んでいる間に闘気が 2 → 3: 3 個 = 1.15 倍
+        var (w, k) = world(level: 12)
+        let e = addEnemy(&w, dx: 800)
+        let n = w.numbers(k, .skill1)
+        w.s.units[k].hero!.kit!.gormStacks = 2
+        XCTAssertTrue(w.cast(k, .skill1, .unit(w.id(e))))
+        w.run(seconds: Tune.hookDelay + 0.1)
+        XCTAssertFalse(w.s.projectiles.filter { !$0.done }.isEmpty, "鉤は飛んでいる")
+        XCTAssertEqual(w.damage(to: e), 0)
+        w.s.units[k].hero!.kit!.gormStacks = 3
+        w.run(seconds: 0.6)
+        XCTAssertEqual(events(w, to: e, .skill(.skill1)).first?.amount ?? 0, w.mitigated(n.damage * 1.15, .physical, on: e),
+                       accuracy: 1e-6)
+        XCTAssertEqual(kit(w, k).gormLastConsumed, 3)
+        XCTAssertEqual(kit(w, k).gormStacks, 0)
+
+        // 遠い鉤（中心間 800 = 命中は発動から約 0.8 秒）の後すぐ S2（叩きつけは 0.6 秒）: 闘気 10 は先に当たった S2 が使い（1.5 倍）、
+        // 後から当たった鉤は補正なし
+        var (w2, k2) = world(level: 12)
+        let far = addEnemy(&w2, dx: 800)
+        let near = addEnemy(&w2, dx: 0, dy: 200, hero: "H003")    // 鉤の線の外・S2 の範囲の内
+        let n1 = w2.numbers(k2, .skill1)
+        let n2 = w2.numbers(k2, .skill2)
+        w2.s.units[k2].hero!.kit!.gormStacks = 10
+        XCTAssertTrue(w2.cast(k2, .skill1, .unit(w2.id(far))))
+        w2.run(seconds: Tune.hookDelay)
+        XCTAssertTrue(w2.cast(k2, .skill2), "鉤が飛び出したら S2 を撃てる")
+        w2.run(seconds: 1.0)
+        XCTAssertEqual(events(w2, to: near, .skill(.skill2)).first?.amount ?? 0,
+                       w2.mitigated(n2.damage * 1.5, .physical, on: near), accuracy: 1e-6)
+        XCTAssertEqual(events(w2, to: far, .skill(.skill1)).first?.amount ?? 0,
+                       w2.mitigated(n1.damage, .physical, on: far), accuracy: 1e-6, "闘気は S2 が使った")
+        XCTAssertEqual(w2.damage(to: near, from: .skill(.skill1)), 0, "鉤は近くの相手に当たっていない")
+    }
+
+    /// 奥義は 1 撃ごとにその時の闘気を掛け、最後の 1 撃で消費する（動画: 闘気 0 で撃ち、拘束の途中で闘気が 1 つたまると
+    /// 1〜4 撃目 183・5・6 撃目 192 = 1.05 倍、6 撃目のコマで闘気のアイコンが消えた）。途中で終われば、その時に消費する。
+    /// 掴めなかった奥義（掴みかかりで止められた）は消費しない。
+    func testUltimateReadsTheCurrentStacksOnEveryHitAndConsumesThemOnTheLastHit() throws {
+        // 動画と同じ流れ: 闘気 0 で撃ち、無被弾の待ちが発動の 0.4 秒後に終わる → その 1 秒後（1.4 秒）に 1 つ目の闘気
+        // （4 撃目 = 発動から 1.21 秒と 5 撃目 = 1.53 秒の間）
+        var (w, k) = world(level: 12)
+        let e = addEnemy(&w, dx: 120)
+        let n = w.numbers(k, .ultimate)
+        w.s.units[k].hero!.kit!.gormCalm = 0.4
+        XCTAssertTrue(w.cast(k, .ultimate, .unit(w.id(e))))
+        var stacksBeforeHit: [Int] = []
+        var count = 0
+        var before = kit(w, k).gormStacks
+        for _ in 1...70 {
+            w.tick()
+            let c = events(w, to: e, .skill(.ultimate)).count
+            if c > count { stacksBeforeHit.append(before) }
+            count = c
+            before = kit(w, k).gormStacks
+        }
+        XCTAssertEqual(stacksBeforeHit, [0, 0, 0, 0, 1, 1], "5 撃目の前に 1 つたまる")
+        let hits = events(w, to: e, .skill(.ultimate))
+        XCTAssertEqual(hits.count, 6)
+        let plain = w.mitigated(n.damage, .physical, on: e)
+        for h in hits.prefix(4) { XCTAssertEqual(h.amount, plain, accuracy: 1e-6, "1〜4 撃目は補正なし") }
+        for h in hits.suffix(2) { XCTAssertEqual(h.amount, plain * 1.05, accuracy: 1e-6, "5・6 撃目は 1.05 倍") }
+        XCTAssertEqual(kit(w, k).gormStacks, 0, "6 撃目で消費")
+        XCTAssertEqual(kit(w, k).gormLastConsumed, 1)
+        XCTAssertTrue(kit(w, k).gormStackLock, "無被弾の間に消費した")
+
+        // 闘気 5 で撃つ: 6 回すべて 1.25 倍。5 撃目までは残り（バッジも 5）、6 撃目の tick に 0
+        var (w2, k2) = world(level: 12)
+        let e2 = addEnemy(&w2, dx: 120)
+        let n2 = w2.numbers(k2, .ultimate)
+        w2.s.units[k2].hero!.kit!.gormStacks = 5
+        XCTAssertTrue(w2.cast(k2, .ultimate, .unit(w2.id(e2))))
+        XCTAssertEqual(kit(w2, k2).gormStacks, 5, "発動では消費しない")
+        var count2 = 0
+        for _ in 1...70 {
+            w2.tick()
+            let c = events(w2, to: e2, .skill(.ultimate)).count
+            if c > count2 {
+                XCTAssertEqual(kit(w2, k2).gormStacks, c < Tune.ultHits ? 5 : 0, "\(c) 撃目の後")
+                XCTAssertEqual(HeroKits.badge(w2.s.units[k2].hero!, slot: .passive)?.value, c < Tune.ultHits ? 5 : 0)
+            }
+            count2 = c
+        }
+        let hits2 = events(w2, to: e2, .skill(.ultimate))
+        XCTAssertEqual(hits2.count, 6)
+        for h in hits2 { XCTAssertEqual(h.amount, w2.mitigated(n2.damage * 1.25, .physical, on: e2), accuracy: 1e-6) }
+        XCTAssertEqual(kit(w2, k2).gormLastConsumed, 5)
+
+        // 拘束の途中でゴルムがスタンされた: 残りの連撃は出ず、その時に消費する
         var (w3, k3) = world(level: 12)
         let e3 = addEnemy(&w3, dx: 120)
-        let n3 = w3.numbers(k3, .ultimate)
-        w3.s.units[k3].hero!.kit!.gormStacks = 5
-        XCTAssertTrue(w3.cast(k3, .ultimate))
-        XCTAssertEqual(kit(w3, k3).gormStacks, 0)
-        w3.run(seconds: 2.0)
-        let hits = events(w3, to: e3, .skill(.ultimate))
-        XCTAssertEqual(hits.count, 6)
-        // 闘気 5 個 = 1 撃 × 1.75（6 回の合計に上限は無い）
-        for h in hits { XCTAssertEqual(h.amount, w3.mitigated(n3.damage * 1.75, .physical, on: e3), accuracy: 1e-6) }
+        w3.s.units[k3].hero!.kit!.gormStacks = 4
+        XCTAssertTrue(w3.cast(k3, .ultimate, .unit(w3.id(e3))))
+        w3.run(seconds: 0.6)
+        let soFar = events(w3, to: e3, .skill(.ultimate)).count
+        XCTAssertGreaterThanOrEqual(soFar, 1)
+        XCTAssertLessThan(soFar, Tune.ultHits)
+        XCTAssertEqual(kit(w3, k3).gormStacks, 4)
+        CombatSystem.addStatus(&w3.s, targetIndex: k3, StatusEffect(kind: .stun, duration: 1.0))
+        w3.tick(2)
+        XCTAssertEqual(kit(w3, k3).gormUltPhase, 0)
+        XCTAssertEqual(kit(w3, k3).gormStacks, 0, "途中で終わったら、その時に消費")
+        XCTAssertEqual(kit(w3, k3).gormLastConsumed, 4)
+
+        // 1 撃目で相手が倒れた: 消費する
+        var (w4, k4) = world(level: 12)
+        let e4 = addEnemy(&w4, dx: 120)
+        w4.s.units[e4].hp = 1
+        w4.s.units[k4].hero!.kit!.gormStacks = 3
+        XCTAssertTrue(w4.cast(k4, .ultimate, .unit(w4.id(e4))))
+        w4.run(seconds: 2.0)
+        XCTAssertFalse(w4.s.units[e4].isAlive)
+        XCTAssertEqual(kit(w4, k4).gormStacks, 0)
+        XCTAssertEqual(kit(w4, k4).gormLastConsumed, 3)
+
+        // 掴みかかりの間にスタンされて掴めなかった: 消費しない
+        var (w5, k5) = world(level: 12)
+        let e5 = addEnemy(&w5, dx: 150)
+        w5.s.units[k5].hero!.kit!.gormStacks = 6
+        XCTAssertTrue(w5.cast(k5, .ultimate, .unit(w5.id(e5))))
+        w5.tick(3)
+        CombatSystem.addStatus(&w5.s, targetIndex: k5, StatusEffect(kind: .stun, duration: 0.5, sourceID: w5.id(e5)))
+        w5.run(seconds: 2.5)
+        XCTAssertEqual(w5.damage(to: e5, from: .skill(.ultimate)), 0)
+        XCTAssertEqual(kit(w5, k5).gormStacks, 6, "掴めなかった奥義は闘気を消費しない")
     }
 
     func testKitReplacesTheGenericSupportPassiveAndUltimateHeal() {
@@ -1524,15 +1780,15 @@ final class Kit_H034Tests: XCTestCase {
     }
 
     /// 6 回の合計に上限は無い（以前の「相手の最大 HP の 80% まで」`ultMaxHPFraction` は MLBB に無い独自の安全弁で、外した）。
-    /// 闘気 10 個（+150%）の奥義は、1 撃 × 2.5 がそのまま 6 回入る。
+    /// 闘気 10 個（+50% = 1.5 倍）の奥義は、1 撃 × 1.5 がそのまま 6 回入る。
     func testUltimateTotalHasNoMaxHealthCap() {
         // 物理攻撃が高い（装備を積んだ）ゴルム。6 回の合計（軽減前）が相手の最大 HP の 80% を超える
         var (w, k) = world(level: 12, ranks: [2, 2, 3])
         let e = addEnemy(&w, dx: 120)
-        w.s.units[k].stats.attack += 300
+        w.s.units[k].stats.attack += 600
         let n = w.numbers(k, .ultimate)
         let maxHP = w.s.units[e].stats.maxHP
-        let perHit = n.damage * 2.5
+        let perHit = n.damage * 1.5
         XCTAssertGreaterThan(perHit * Double(Tune.ultHits), maxHP * 0.8, "前提: 以前の上限を超える量")
         // 大きなシールドで倒れないようにして、6 回すべての量を見る（ダメージの記録はシールドの吸収分も含む）
         CombatSystem.addShield(&w.s, w.ctx, sourceID: w.id(e), targetIndex: e, amount: 1e6, duration: 10)
@@ -1547,7 +1803,7 @@ final class Kit_H034Tests: XCTestCase {
         var (w2, k2) = world(level: 15, ranks: [2, 2, 3])
         let e2 = addEnemy(&w2, dx: 120, hero: "H004", level: 1)
         w2.s.units[k2].stats.attack += 300
-        let per2 = w2.mitigated(w2.numbers(k2, .ultimate).damage * 2.5, .physical, on: e2)
+        let per2 = w2.mitigated(w2.numbers(k2, .ultimate).damage * 1.5, .physical, on: e2)
         XCTAssertGreaterThan(per2 * Double(Tune.ultHits), w2.s.units[e2].stats.maxHP, "前提: 合計が最大 HP を超える")
         w2.s.units[k2].hero!.kit!.gormStacks = Tune.maxStacks
         XCTAssertTrue(w2.cast(k2, .ultimate, .unit(w2.id(e2))))
