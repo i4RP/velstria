@@ -252,7 +252,7 @@ final class FXCapture {
 
     // MARK: 描画の切り分け（-fxCaptureProbe）
 
-    /// 部品の種類を 1 つずつ足す（寿命 6 秒。ヒーローの手前・横の石畳に並べ、足すたびに撮る）。局所の座標は 右・上・前（前 = 北）。
+    /// 部品の種類を 1 つずつ足す（寿命 6 秒。ヒーローの北（画面の中央の上。HUD・岩に隠れない）に並べ、足すたびに撮る）。局所の座標は 右・上・前（前 = 北）。
     /// 従来の粒子・輪を先に、演出のシェーダー・単色のテスト用シェーダー（fxDebugSurface）・コマ送りの順。nil = 終わり。
     private func probeStep(_ k: Int, world: BattleWorld, at p: SIMD3<Float>) -> String? {
         let player = world.skillDirector.player
@@ -272,35 +272,35 @@ final class FXCapture {
         }
         switch k {
         case 0:
-            player.play([.emit(FXEmit.flare(1.6, .primary, life: 6).with { $0.fade = .constant }, offset: [-4.5, 1, -1.3])], ctx)
+            player.play([.emit(FXEmit.flare(1.6, .primary, life: 6).with { $0.fade = .constant }, offset: [-3, 1, 1.4])], ctx)
             return "legacyParticle"
         case 1:
-            player.play([.mesh(disc(.ring, .white), offset: [-1.5, 0, -1.3])], ctx)
+            player.play([.mesh(disc(.ring, .white), offset: [-1, 0, 1.4])], ctx)
             return "legacyDisc"
         case 2:
-            place(player.meshes.mesh(.disc), debugMaterial(), 1.5, -1.3)
+            place(player.meshes.mesh(.disc), debugMaterial(), 1, 1.4)
             return "debugShaderFXDisc"
         case 3:
-            place(MeshResource.generatePlane(width: 1, depth: 1), debugMaterial(), 4.5, -1.3)
+            place(MeshResource.generatePlane(width: 1, depth: 1), debugMaterial(), 3, 1.4)
             return "debugShaderPlane"
         case 4:
             player.play([.mesh(disc(.glow, .primary).flowing(.noise, scroll: [0.2, 0.2], strength: 0.8, edge: .core),
-                               offset: [-4.5, 0, -3.0])], ctx)
+                               offset: [-3, 0, 3.0])], ctx)
             return "flowAlphaDisc"
         case 5:
-            player.play([.mesh(disc(.glow, .primary).glowing(), offset: [-1.5, 0, -3.0])], ctx)
+            player.play([.mesh(disc(.glow, .primary).glowing(), offset: [-1, 0, 3.0])], ctx)
             return "addDisc"
         case 6:
             place(MeshResource.generatePlane(width: 1, depth: 1),
-                  player.materials.material(for: disc(.glow, .primary).glowing(), palette: palette), 1.5, -3.0)
+                  player.materials.material(for: disc(.glow, .primary).glowing(), palette: palette), 1, 3.0)
             return "addOnPlane"
         case 7:
             player.sheets.prewarm([.fireBurst])
             player.play([.emit(FXEmit.sheet(.fireBurst, 2, .primary, life: 6).with { $0.sheetFPS = 3; $0.fade = .constant },
-                               offset: [4.5, 1, -3.0])], ctx)
+                               offset: [3, 1, 3.0])], ctx)
             return "sheetParticle"
         case 8:
-            player.play([.mesh(disc(.ring, .secondary), offset: [-6.5, 0, 0.5])], ctx)
+            player.play([.mesh(disc(.ring, .secondary), offset: [0, 0, 4.6])], ctx)
             return "legacyDiscAfter"
         default:
             return nil

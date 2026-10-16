@@ -8,6 +8,8 @@
 //   custom_parameter: x, y = 模様の流れる速さ（UV / 秒）、z = 模様の繰り返し、w = 縁の欠け（0〜1）
 //   metallic_scale = 模様の強さ（0 = 模様なし: 形 × 色だけ）、roughness_scale = 明るさ（加算の段階のフェード。1 = そのまま）
 // 加算（blendMode .add）はアルファを使わないので、色に形のアルファを掛けて出す。アルファ合成は色と不透明度を別に出す。
+// 注意: unlit の CustomMaterial は set_emissive_color の値だけで描く（base_color など他の出力は無視される。Apple の
+// CustomMaterial.LightingModel.unlit の説明）。色は必ず emissive に出す（2026-10-17 に base_color だけで出して何も映らなかった）。
 
 #include <metal_stdlib>
 #include <RealityKit/RealityKit.h>
@@ -59,6 +61,7 @@ inline Shaded shade(realitykit::surface_parameters params) {
 
 [[visible]] void fxAddSurface(realitykit::surface_parameters params) {
     fx::Shaded s = fx::shade(params);
+    params.surface().set_emissive_color(s.color * s.alpha);
     params.surface().set_base_color(s.color * s.alpha);
     params.surface().set_opacity(s.alpha);
 }
@@ -73,6 +76,7 @@ inline Shaded shade(realitykit::surface_parameters params) {
 
 [[visible]] void fxAlphaSurface(realitykit::surface_parameters params) {
     fx::Shaded s = fx::shade(params);
+    params.surface().set_emissive_color(s.color);
     params.surface().set_base_color(s.color);
     params.surface().set_opacity(s.alpha);
 }
