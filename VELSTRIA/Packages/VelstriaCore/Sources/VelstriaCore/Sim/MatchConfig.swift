@@ -142,7 +142,11 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     /// 41: H028（セイバー）のスキル1 の剣を MLBB の画面収録に合わせた（剣撃 1 本ごとに輪の剣を 1 本使い、使った剣は戻らない・その剣の接触も
     ///     無くなる・5 本を使い切ると効果がその場で終わる。スキル1 のバッジは残りの剣の本数）。ダメージ・係数・CD 短縮の秒数は変えていない。
     ///     docs/kits/Saber.md「剣の本数（2026-10-16）」。**番号はマージのときに付け直す**。
-    public static let currentSimVersion = 41
+    /// 42: H030（ライラ）のスキルを MLBB の画面収録に合わせた（スキル1・2 = 指を離してから 0.1 秒の溜めの後に撃つ（スタン以上で途切れる）、
+    ///     スキル2 = 照準の扇（半角 50°）の敵を捉えて追う光球・捉える敵が居なければ向きの射程の端へ弧を描いて落ちて爆発）。
+    ///     ダメージ・係数・距離の補正・会心・爆発の半径・刻印・スタンは変えていない。docs/kits/Layla.md「スキルの溜めと星爆弾の照準（2026-10-16）」。
+    ///     **番号はマージのときに付け直す**。
+    public static let currentSimVersion = 42
 
     public var simVersion: Int
     public var mode: MatchMode

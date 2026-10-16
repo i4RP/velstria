@@ -3,11 +3,12 @@ import Foundation
 // 担当: kit-H030（docs/SKILL_KITS.md / docs/NEW_HEROES.md / docs/kits/Layla.md）
 // H030 星砲のライナ = MLBB ライラの Velstria 版（レンジャー・遠隔 430（MLBB の 4.3）・マナ）。
 // 遠距離ほど火力が伸びる砲撃手。パッシブは距離補正（通常攻撃・スキル。タワーには効かない）、
-// スキル1（遠星弾）は会心のある直線弾（命中で射程延長と加速）、スキル2（星爆弾）は爆発する星環弾（誰にも当たらなくても射程の端で
-// 爆発し、刻印を付ける。刻印へ当てると弾けて周囲をスタン）、アルティメット（星砕の大砲）は短い溜めの後に画面を貫く貫通ビーム。
-// アルティメットの Lv ごとに通常攻撃と星環弾の射程が常に伸びる。
-// 幾何と時間（通常攻撃の弾の速さ、S1 の射程・半幅・速さ、S2 の射程・速さ、奥義の溜め・半幅）は MLBB の訓練場の画面収録で測った値
-// （docs/kits/Layla.md「動画で測った値（2026-10-16）」。距離 = MLBB × 100、時間はコマ（1/30 秒）を tick に合わせた値）。
+// スキル1（遠星弾）は短い溜めの後に撃つ会心のある直線弾（命中で射程延長と加速）、スキル2（星爆弾）は照準の扇の敵を捉えて追う
+// 爆発する星環弾（短い溜めの後に撃つ。捉える敵が居なければ射程の端へ落ちて爆発し、刻印を付ける。刻印へ当てると弾けて周囲をスタン）、
+// アルティメット（星砕の大砲）は溜めの後に画面を貫く貫通ビーム。アルティメットの Lv ごとに通常攻撃と星環弾の射程が常に伸びる。
+// 幾何と時間（通常攻撃の弾の速さ、S1 の射程・半幅・速さ・溜め、S2 の射程・速さ・扇・溜め、奥義の溜め・半幅）は MLBB の訓練場の画面収録で
+// 測った値（docs/kits/Layla.md「動画で測った値（2026-10-16）」と「スキルの溜めと星爆弾の照準（2026-10-16）」。距離 = MLBB × 100、
+// 時間はコマ（1/30 秒）を tick に合わせた値）。
 // 数値の正は MLBB の日本語クライアントのスキル詳細（docs/kits/Layla.md の「公式（日本語クライアント）の数値」。Fandom と違うところはこちらが優先）。
 // 公式の表（スキル1・2 = Lv1〜6、アルティメット = Lv1〜3。ランク = 公式の Lv）をそのまま引き（Kit.level。補間なし）、
 // ダメージは 公式の基礎 + 公式の係数 × 合計の物理攻撃（Kit.official。スロット倍率・物理係数の × 0.6・キットの換算は掛けない）。
@@ -60,6 +61,11 @@ enum RainaTuning {
     static let s1Width: Double = 60
     /// 砲弾の速さ（動画: 2 回の S1 で毎秒 19.5 / 19.3（画面の横の座標で測るので弾の高さに依らない）。以前は汎用の 1600）。
     static let s1Speed: Double = 1950
+    /// 指を離してから砲弾が出るまでの溜め（動画: 3 回の S1 で、砲弾の頭の進みを術者の中心（距離 0）まで戻すと指を離してから
+    /// 2.5 / 4.0 / 3 コマ。砲口に光が見えるのは 4〜7 コマ後だが、そのとき砲弾はもう 1.5〜2.2 先に居る）。sim の弾は術者の中心から出るので
+    /// 距離 0 の時刻に合わせて 0.1 秒（予約は発動の tick から数えて 3 tick 目に発火し、弾は次の tick から進む = 即時より 3 tick 遅い）。
+    /// 以前は即時。向きは発動時に固定し、溜めの間にスタン以上を受けると砲弾は出ない（コスト・CD は戻らない。奥義の溜めと同じ）。
+    static let s1Windup: Double = 0.1
     /// 命中時の加速（+60%、1.2 秒かけて 0 へ。敵ヒーローに当たると持続が倍）。動画（CPU のヒーローに 2 回・訓練場の的に 1 回）: 最大 +59〜62%、
     /// CPU への 1 回目は命中から 2.45 秒で普段の歩きに戻った（= 2.4 秒）。減り方は 3 回で揃わない（1 秒後に +60% のままの回と +40% の回）ので推測のまま。
     static let rushSpeed: Double = 0.6
@@ -77,13 +83,23 @@ enum RainaTuning {
     /// 5.64（2 回の照準・7 コマ）= 3.84 + 1.8。以前はマスターの 650（Lv3 で 830）。
     static let s2Range: Double = 384
     /// 光球の速さ（動画: 止まって撃った 2 回で、指を離してから的の中心（5.7・2.7 先）に着くまで毎秒 9.6〜11、コマごとの進み 10.5〜11.1。
-    /// 以前は推測の 1500）。光球は弧を描いて飛ぶが、sim は直線の弾。
+    /// 以前は推測の 1500）。光球は捉えた敵へ弧を描いて飛ぶ（sim は地面の上では敵を追う追尾弾。高さの弧は演出だけ）。
     static let s2Speed: Double = 1050
+    /// 指を離してから光球が出るまでの溜め（動画: 止まって撃った 3 回目で、光球の進み（画面の横の座標）を術者の中心まで戻すと
+    /// 指を離してから 3 コマ。歩きながらの 2 回目は約 2 コマ。砲口に光が見えるのは 5〜7 コマ後）。S1 と同じ 0.1 秒（3 tick 目）。
+    /// 以前は即時。溜めの間にスタン以上を受けると光球は出ない（コスト・CD は戻らない。S1・奥義と同じ）。
+    static let s2Windup: Double = 0.1
+    /// 照準の扇の半角。動画の照準は足元が中心の扇（内の弧 1.85・外の弧 = 射程）で、左右の辺は内の弧で軸から ±38°・外の弧で ±50°
+    /// （辺は術者を通らず外へ開く）。軸は指で引いた向き（的の向きではない: 2 回目は軸 32.8〜37.8°・捉えた的 28°）。
+    /// sim はこの半角の扇（向きの差 ≤ 半角、距離 ≤ 射程 + 対象の半径。内の弧より近い敵も捉える）の敵のうち、軸との向きの差が
+    /// 最も小さい敵（同じなら近い方）を捉える。HUD の扇（AimShape.fan）も同じ半角（内の弧は描けない）。
+    static let s2LockHalfAngle: Double = 50 * Double.pi / 180
     /// 弾の幅と爆発の半径（スキル定義の radius 190）は公式の文に無い（推測）。動画の爆発の球の見た目は半径 1.6〜1.85 で、
-    /// 2.0 離れた別の的には当たらなかった（決め切れないので 190 のまま）。
+    /// 2.0 離れた別の的には当たらなかった（決め切れないので 190 のまま）。光球は捉えた敵だけを追う（追尾弾）か、捉える敵が居なければ
+    /// 弧を描いて射程の端へ落ちる（途中の敵には当たらない）ので、幅は当たりの判定には使わない（照準の表示と弾の見た目だけ）。
     static let s2Width: Double = 60
     // 爆発の減速は無い（日本語クライアントの文・タグ「範囲技・妨害」に減速は無い。以前は Fandom のタグ「Slowed」から 30%・1 秒を足していた）。
-    /// 射程の端で消える瞬間に爆発させる予約の余裕（弾が消えた次の tick 以降に爆発させる）。
+    /// 射程の端へ落ちる光球の着弾を予約する余裕（弾が消えた次の tick 以降に爆発させる）。
     static let orbEndLag: Double = Balance.dt
     /// 爆発と刻印の弾けの半径は同じ（スキル定義の radius）。
     /// 刻印の持続 3 秒は動画で確かめられなかった（4 回とも 0.13〜1.13 秒で通常攻撃が弾けさせた）。弾けは通常攻撃の命中の 0〜1 コマ後、
@@ -136,8 +152,12 @@ enum RainaTuning {
     /// KitTimer.code
     enum Code {
         static let beam = 1
-        /// 星環弾が何にも当たらずに射程の端へ着いた: その場で爆発する（当たったら onHit が取り消す）。
+        /// 捉える敵が居ない星環弾が射程の端へ落ちた: その場で爆発する（中断しない）。
         static let orbEnd = 2
+        /// S1 の溜め（s1Windup）の終わり: 砲弾を撃つ（param = ダメージ、index = 会心なら 1、point = 発動時の向き）。
+        static let bombLaunch = 3
+        /// S2 の溜め（s2Windup）の終わり: 光球を撃つ（targetID = 捉えた敵（0 = 居ない）、point = 発動時の向き）。
+        static let orbLaunch = 4
     }
 }
 
@@ -224,9 +244,11 @@ struct Kit_H030: HeroKit {
             t.radius = T.s1Width
             return t
         case .skill2:
-            // 星環弾: 直線に飛んで最初の敵で爆発する。radius は弾の半幅（爆発の半径は numbers の extras）。
-            // range は基本の 384（実際の射程はアルティメットのパッシブと S1 の一時延長を足す: castOrb）
-            return SkillTargeting(archetype: .lineSkillshot, aim: .direction, range: T.s2Range, radius: T.s2Width)
+            // 星環弾: 向きの照準の扇（半角 s2LockHalfAngle）の敵を捉えて追い、当たって爆発する（resolveAim・castOrb）。
+            // radius は弾の半幅（爆発の半径は numbers の extras）。range は基本の 384（実際の射程はアルティメットのパッシブと
+            // S1 の一時延長を足す: resolveAim・castOrb）。HUD は扇を基本の射程で描く（動画の内の弧 1.85 は描けない）
+            return SkillTargeting(archetype: .lineSkillshot, aim: .direction, range: T.s2Range, radius: T.s2Width,
+                                  shape: .fan, halfAngle: T.s2LockHalfAngle)
         case .ultimate:
             // 射程は汎用の貫通線の 2000、半幅は動画で測った 100（スキル定義の 120 は使わない）
             var t = base
@@ -327,13 +349,15 @@ struct Kit_H030: HeroKit {
                 tags: [KitTag.burst, KitTag.buff])
         case .skill2:
             return KitText(
-                ja: "指定方向に星爆弾を放ち、命中すると爆発して範囲（半径{blastRadius}）の敵に{base}(+{atkPct}%物理攻撃)の物理ダメージを与え、"
-                    + "{markDuration}秒間「刻印」を付与する（何にも当たらなければ射程の端で爆発する）。\n\n"
+                ja: "指定方向の扇の範囲にいる敵を捉えて星爆弾を放ち、命中すると爆発して範囲（半径{blastRadius}）の敵に"
+                    + "{base}(+{atkPct}%物理攻撃)の物理ダメージを与え、{markDuration}秒間「刻印」を付与する"
+                    + "（捉える敵がいなければ指定方向の射程の端で爆発する）。\n\n"
                     + "刻印の付いた敵を攻撃すると（通常攻撃・遠星弾・アルティメット）、その敵と周囲に{detBase}(+{detPct}%物理攻撃)の"
                     + "物理ダメージを与え、{markStun}秒間スタンさせる。",
-                en: "Fires a Starburst Shell in the target direction that explodes on hit, dealing {base} (+{atkPct}% Physical Attack) "
-                    + "physical damage to enemies in the area (radius {blastRadius}) and applying a Mark for {markDuration}s "
-                    + "(it explodes at the end of its range if nothing is hit).\n\nAttacking a marked enemy (basic attack, Farstar Shot "
+                en: "Locks onto an enemy in the fan-shaped area in the target direction and fires a Starburst Shell at it that explodes "
+                    + "on hit, dealing {base} (+{atkPct}% Physical Attack) physical damage to enemies in the area (radius {blastRadius}) "
+                    + "and applying a Mark for {markDuration}s (with no enemy to lock onto, it explodes at the end of its range in the "
+                    + "target direction).\n\nAttacking a marked enemy (basic attack, Farstar Shot "
                     + "or the Ultimate) deals {detBase} (+{detPct}% Physical Attack) physical damage to that enemy and those around "
                     + "it and stuns them for {markStun}s.",
                 tags: [KitTag.aoe, KitTag.disrupt])
@@ -367,6 +391,22 @@ struct Kit_H030: HeroKit {
 
     // MARK: B. 実行
 
+    /// S2 の照準: 扇（半角 s2LockHalfAngle・射程 = 基本 + アルティメットのパッシブ + S1 の一時延長）の敵を捉える（lockTarget）。
+    /// 捉えた敵が居ればその敵へ向く照準、居なければ指定の向き（地点ならその向き、自動照準・対象なしなら今の向き）の射程いっぱい。
+    /// 対象が居なくても撃てる（拒否しない）。
+    func resolveAim(_ s: SimState, _ ctx: SimContext, caster i: Int, slot: SkillSlot, stage: Int,
+                    targeting: SkillTargeting, target: SkillTarget) -> SkillAim?? {
+        guard slot == .skill2 else { return nil }
+        let range = targeting.range + Self.rangeBonus(s, i)
+        let pos = s.units[i].pos
+        let facing = Vec2.fromAngle(s.units[i].facing)
+        if let u = Self.lockTarget(s, caster: i, range: range, target: target) {
+            return .some(SkillAiming.aim(at: u, s, caster: i, range: range, facing: facing))
+        }
+        let dir = Self.aimDirection(s, caster: i, target: target) ?? facing
+        return .some(SkillAim(direction: dir, point: pos + dir * range, unit: nil, distance: range))
+    }
+
     func cast(_ s: inout SimState, _ ctx: SimContext, _ c: KitCast) -> KitCastOutcome {
         let i = c.caster
         switch c.slot {
@@ -385,47 +425,75 @@ struct Kit_H030: HeroKit {
         return .done
     }
 
-    /// S1: 直線弾。最初に当たった敵へ（公式「クリティカル可能」・距離補正）。命中で射程延長と加速。
+    /// S1: 溜め（s1Windup。動画: 指を離してから 3 コマ）の後に直線弾。最初に当たった敵へ（公式「クリティカル可能」・距離補正）。
+    /// 命中で射程延長と加速。向きは発動時に固定し、溜めの間にスタン以上を受けると撃たない（予約は interruptible。コスト・CD は戻らない）。
     /// 会心は発動時に判定し、術者のクリティカルダメージ（既定 200% = Balance.critMultiplier）を掛ける
-    /// （発動時は対象が決まらないので、対象のクリティカルダメージ軽減は掛からない）。
+    /// （発動時は対象が決まらないので、対象のクリティカルダメージ軽減は掛からない）。ダメージは発動時の能力値で決める。
     private func castBomb(_ s: inout SimState, _ c: KitCast) {
         let i = c.caster
-        var p = HitPayload(damage: c.numbers.damage, damageType: c.check.skill.damageType, source: .skill(.skill1),
-                           skillID: c.check.skill.skillID, scaling: T.distanceScaling, originPos: s.units[i].pos,
-                           kitEvent: T.Event.bomb)
-        if Self.rollCrit(&s, i) {
-            p.isCrit = true
-            p.damage *= max(1, s.units[i].stats.critMultiplier)
-        }
-        // パッシブの合図の距離の起点
-        let castAt = s.units[i].pos
-        s.units[i].hero?.kit?.rainaBombOrigin = castAt
+        var damage = c.numbers.damage
+        let crit = Self.rollCrit(&s, i)
+        if crit { damage *= max(1, s.units[i].stats.critMultiplier) }
         Kit.emitCast(&s, c, target: s.units[i].pos + c.aim.direction * c.targeting.range, unit: c.aim.unit, count: 1)
-        ProjectileSystem.spawn(&s, ownerIndex: i, motion: .linear(direction: c.aim.direction, maxDistance: c.targeting.range),
-                               speed: T.s1Speed, width: c.targeting.radius, pierce: false,
-                               payload: p, visual: c.check.skill.effectID)
+        Kit.schedule(&s, caster: i, slot: .skill1, code: T.Code.bombLaunch, after: T.s1Windup, index: crit ? 1 : 0,
+                     param: damage, point: c.aim.direction, interruptible: true)
     }
 
-    /// S2: 星環弾。奥義ランクの常時延長と S1 の一時延長ぶん遠くへ届く。最初に当たった敵の位置で爆発する（onHit）。
-    /// 何にも当たらなければ射程の端で爆発する（予約タイマー。当たったら onHit が取り消すので 1 回だけ爆発する）。
+    /// S1 の溜めの終わり: 今の位置から発動時の向きへ砲弾を撃つ（距離補正とパッシブの合図の起点 = 撃った位置）。
+    private func fireBomb(_ s: inout SimState, _ ctx: SimContext, owner i: Int, timer: KitTimer) {
+        guard let skill = ctx.master.skill(hero: heroID, slot: .skill1) else { return }
+        let dir = timer.point.normalized == .zero ? Vec2.fromAngle(s.units[i].facing) : timer.point.normalized
+        let fireAt = s.units[i].pos
+        var p = HitPayload(damage: timer.param, damageType: skill.damageType, source: .skill(.skill1),
+                           skillID: skill.skillID, scaling: T.distanceScaling, originPos: fireAt, kitEvent: T.Event.bomb)
+        p.isCrit = timer.index == 1
+        s.units[i].hero?.kit?.rainaBombOrigin = fireAt
+        ProjectileSystem.spawn(&s, ownerIndex: i, motion: .linear(direction: dir, maxDistance: T.s1Range),
+                               speed: T.s1Speed, width: T.s1Width, pierce: false, payload: p, visual: skill.effectID)
+    }
+
+    /// S2: 星環弾。照準（resolveAim）が扇の敵を捉えていればその敵、居なければ発動時の向きへ、溜め（s2Windup）の後に撃つ（launchOrb）。
+    /// 奥義ランクの常時延長と S1 の一時延長ぶん遠くへ届く。溜めの間にスタン以上を受けると撃たない（予約は interruptible）。
     private func castOrb(_ s: inout SimState, _ ctx: SimContext, _ c: KitCast) {
         let i = c.caster
         let range = c.targeting.range + Self.rangeBonus(s, i)
-        let p = HitPayload(damage: 0, damageType: c.check.skill.damageType, source: .skill(.skill2),
-                           skillID: c.check.skill.skillID, kitEvent: T.Event.orb)
         let here = s.units[i].pos
-        s.units[i].hero?.kit?.rainaOrbOrigin = here
         var shown = c
         shown.targeting.range = range
-        Kit.emitCast(&s, shown, target: s.units[i].pos + c.aim.direction * range, unit: c.aim.unit,
-                     duration: range / T.s2Speed, count: 1)
-        let orb = ProjectileSystem.spawn(&s, ownerIndex: i, motion: .linear(direction: c.aim.direction, maxDistance: range),
-                                         speed: T.s2Speed, width: T.s2Width, pierce: false, payload: p,
-                                         visual: c.check.skill.effectID)
+        // 演出の目安: 捉えた敵（居なければ射程の端）まで
+        let landing = c.aim.unit.map { s.units[$0].pos } ?? here + c.aim.direction * range
+        Kit.emitCast(&s, shown, target: landing, unit: c.aim.unit,
+                     duration: T.s2Windup + here.distance(to: landing) / T.s2Speed, count: 1)
+        Kit.schedule(&s, caster: i, slot: .skill2, code: T.Code.orbLaunch, after: T.s2Windup,
+                     targetID: c.aim.unit.map { s.units[$0].id } ?? 0, point: c.aim.direction, interruptible: true)
+    }
+
+    /// S2 の溜めの終わり: 捉えた敵がまだ狙えれば（生存・視認・対象不可でない）その敵を追う光球（追尾弾。当たると onHit で爆発。
+    /// 敵が動いても追う。追う間に敵が倒れた・見えなくなったら消えた所で爆発する: update）。
+    /// 捉えた敵が居ない（溜めの間に見失った場合も）なら、発動時の向きへ弧を描いて射程の端（マップの端で止まるときはそこ）に落ちて爆発する
+    /// （途中の敵には当たらない光球 + 非中断の予約 orbEnd）。距離補正とパッシブの合図の起点 = 撃った位置。
+    private func launchOrb(_ s: inout SimState, _ ctx: SimContext, owner i: Int, timer: KitTimer) {
+        guard let skill = ctx.master.skill(hero: heroID, slot: .skill2), let def = ctx.master.hero(heroID) else { return }
+        let here = s.units[i].pos
+        s.units[i].hero?.kit?.rainaOrbOrigin = here
+        if timer.targetID != 0, let t = s.index(of: timer.targetID),
+           ProjectileSystem.isValidHomingTarget(s, t, team: s.units[i].team) {
+            let p = HitPayload(damage: 0, damageType: skill.damageType, source: .skill(.skill2), skillID: skill.skillID,
+                               kitEvent: T.Event.orb)
+            ProjectileSystem.spawn(&s, ownerIndex: i, motion: .homing(targetID: timer.targetID), speed: T.s2Speed,
+                                   width: T.s2Width, payload: p, visual: skill.effectID)
+            return
+        }
+        let range = HeroKits.targeting(for: skill, hero: def, stage: 0).range + Self.rangeBonus(s, i)
+        let dir = timer.point.normalized == .zero ? Vec2.fromAngle(s.units[i].facing) : timer.point.normalized
         // マップの端で止まるときはそこまでの距離で数える（弾が消える位置 = 爆発の位置）
-        let dir = c.aim.direction.normalized
         let edge = ProjectileSystem.distanceToMapEdge(from: here, direction: dir, size: ctx.map.size)
         let flight = min(range, edge)
+        let p = HitPayload(damage: 0, damageType: skill.damageType, source: .skill(.skill2), affectsEnemies: false,
+                           skillID: skill.skillID)
+        let orb = ProjectileSystem.spawn(&s, ownerIndex: i, motion: .linear(direction: dir, maxDistance: range),
+                                         speed: T.s2Speed, width: T.s2Width, pierce: false, payload: p,
+                                         visual: skill.effectID)
         Kit.schedule(&s, caster: i, slot: .skill2, code: T.Code.orbEnd, after: flight / T.s2Speed + T.orbEndLag,
                      targetID: orb, point: here + dir * flight, interruptible: false)
     }
@@ -434,8 +502,12 @@ struct Kit_H030: HeroKit {
         switch timer.code {
         case T.Code.beam:
             fireBeam(&s, ctx, owner: owner, direction: timer.point)
+        case T.Code.bombLaunch:
+            fireBomb(&s, ctx, owner: owner, timer: timer)
+        case T.Code.orbLaunch:
+            launchOrb(&s, ctx, owner: owner, timer: timer)
         case T.Code.orbEnd:
-            // 弾は何にも当たらず消えた（当たっていれば onHit が予約を取り消している）: 射程の端で爆発する
+            // 捉える敵の居ない光球が射程の端へ落ちた: その場で爆発する
             explode(&s, ctx, owner: owner, center: timer.point)
         default:
             break
@@ -464,8 +536,7 @@ struct Kit_H030: HeroKit {
             bombLanded(&s, owner: owner, target: target)
             detonate(&s, ctx, owner: owner, target: target)
         case T.Event.orb:
-            // 当たった: 射程の端の爆発の予約は要らない
-            Kit.cancelScheduled(&s, caster: owner, code: T.Code.orbEnd)
+            // 捉えた敵に当たった: その敵の位置で爆発する
             explode(&s, ctx, owner: owner, center: s.units[target].pos)
         case T.Event.blast:
             Self.noteFarHit(&s, owner: owner, target: target, origin: s.units[owner].hero?.kit?.rainaOrbOrigin)
@@ -550,6 +621,24 @@ struct Kit_H030: HeroKit {
             let left = max(0, s.units[i].statuses[k].remaining)
             s.units[i].statuses[k].magnitude = T.rushSpeed * min(1, left / T.rushDuration)
         }
+        // 捉えた敵を見失った光球（追う間に敵が倒れた・見えなくなった・対象不可になった）: この tick に消えた所で爆発する。
+        // 弾は tick の終わりに片付くので、ProjectileSystem.update（スキルより先）で消えた弾はここで 1 回だけ見える
+        // （片付けない試験の場でも 2 度爆発しないように、扱った弾は kitEvent を外す）
+        explodeLostOrbs(&s, ctx, owner: i)
+    }
+
+    /// 追う敵を見失って消えた（何にも当たらずに done）自分の追尾の光球を、消えた位置で爆発させる。
+    private func explodeLostOrbs(_ s: inout SimState, _ ctx: SimContext, owner i: Int) {
+        guard !s.projectiles.isEmpty else { return }
+        let me = s.units[i].id
+        var lost: [Vec2] = []
+        for j in s.projectiles.indices where s.projectiles[j].done && s.projectiles[j].ownerID == me
+            && s.projectiles[j].payload.kitEvent == T.Event.orb && s.projectiles[j].hitIDs.isEmpty {
+            guard case .homing = s.projectiles[j].motion else { continue }
+            s.projectiles[j].payload.kitEvent = 0
+            lost.append(s.projectiles[j].pos)
+        }
+        for center in lost { explode(&s, ctx, owner: i, center: center) }
     }
 
     // MARK: C. パッシブ（遠星の照準）
@@ -578,8 +667,9 @@ struct Kit_H030: HeroKit {
 
     /// アルティメットの狙い: 相手の動きを先読みする。ビームは発動の 0.55 秒後（溜め）に速さ 7000 で飛ぶので、
     /// 到達までの時間は 溜め + 距離 ÷ 速さ。汎用の見積もり（0.1 + 距離 ÷ 1600）はビームと違うので使わない。
-    /// スキル2 も同じ先読み（到達まで 距離 ÷ 1050）で、射程は延長込みの実際の射程で判断する。
     /// 先読みの強さは難易度の精度（乱数を引かない = botCast は状態を変えない）。奥義を撃つ判断は汎用の関門（倒せる / 2 体以上）のまま。
+    /// スキル2 は狙う相手を対象に撃つ（.unit。照準 resolveAim がその敵を捉え、光球は追うので先読みは要らない）。射程は延長込みの
+    /// 実際の射程（汎用の判断は基本の射程しか見ない）。S1 は汎用のまま（汎用の見積もりの 0.1 秒は S1 の溜めと同じ）。
     func botCast(_ s: SimState, _ ctx: SimContext, bot: Int, slot: SkillSlot, targeting: SkillTargeting, target: Int,
                  fighting: Bool) -> BotKitDecision {
         guard slot == .ultimate || slot == .skill2, s.units.indices.contains(target), s.units.indices.contains(bot) else {
@@ -588,11 +678,12 @@ struct Kit_H030: HeroKit {
         let me = s.units[bot].pos
         let foe = s.units[target]
         let dist = me.distance(to: foe.pos)
-        // 星環弾は照準の射程（基本の 384）にアルティメットの常時延長と S1 の一時延長を足した所まで届く（汎用の判断は基本の射程しか見ない）
+        // 星環弾は照準の射程（基本の 384）にアルティメットの常時延長と S1 の一時延長を足した所まで届く
         let reach = slot == .skill2 ? targeting.range + Self.rangeBonus(s, bot) : targeting.range
         guard dist <= reach + foe.radius else { return .skip }
+        if slot == .skill2 { return .cast(.unit(foe.id)) }
         let accuracy = BotProfile.of(s.units[bot].hero?.botDifficulty ?? .normal).accuracy
-        let travel = slot == .skill2 ? dist / T.s2Speed : T.ultWindup + dist / T.ultBeamSpeed
+        let travel = T.ultWindup + dist / T.ultBeamSpeed
         let velocity = Self.observedVelocity(s, bot: bot, target: target)
         let leadSeconds = travel * accuracy
         let lead = Vec2(velocity.x * leadSeconds, velocity.y * leadSeconds)
@@ -601,6 +692,58 @@ struct Kit_H030: HeroKit {
     }
 
     // MARK: ヘルパー
+
+    /// S2 が捉える敵（射程 = 延長込み。距離は術者の中心から対象の縁 = 射程 + 対象の半径。構造物は除く。ミニオン・モンスターも捉える）。
+    /// - 対象指定（ボット）: その敵が届けばその敵。届かなければその敵への向きの扇で選ぶ。
+    /// - 向き・地点: その向きの扇（半角 s2LockHalfAngle）の敵のうち、向きとの差が最も小さい敵（同じなら近い方、さらに同じなら添字の小さい方）。
+    /// - 対象なし（タップ・自動照準）: 汎用の自動照準と同じ（射程内の HP + シールドが最小の敵ヒーロー → 最寄りの敵）。
+    /// 動画（4 回の S2）ではどの決め方でも同じ的になり、決め方そのものは決め切れていない（docs/kits/Layla.md）。
+    static func lockTarget(_ s: SimState, caster i: Int, range: Double, target: SkillTarget) -> Int? {
+        let team = s.units[i].team
+        let pos = s.units[i].pos
+        func inReach(_ j: Int) -> Bool {
+            guard j != i, !s.units[j].isStructure, s.isTargetableEnemy(j, of: team) else { return false }
+            let r = range + s.units[j].radius
+            return s.units[j].pos.distanceSquared(to: pos) <= r * r
+        }
+        if case .unit(let id) = target, let j = s.index(of: id), inReach(j) { return j }
+        if case .none = target {
+            return SkillAiming.bestEnemyHero(s, caster: i, reach: range) ?? SkillAiming.nearestEnemy(s, caster: i, reach: range)
+        }
+        guard let axis = aimDirection(s, caster: i, target: target) else { return nil }
+        let minCos = cos(T.s2LockHalfAngle)
+        var best: Int?
+        var bestCos = -2.0
+        var bestDist = Double.infinity
+        for j in s.units.indices where inReach(j) {
+            let delta = s.units[j].pos - pos
+            let len = delta.length
+            // 足元に重なる敵は向きを問わず正面とみなす
+            let cosine = len > 1e-9 ? delta.dot(axis) / len : 1
+            guard cosine >= minCos - 1e-12 else { continue }
+            if cosine > bestCos + 1e-12 || (abs(cosine - bestCos) <= 1e-12 && len < bestDist) {
+                best = j
+                bestCos = cosine
+                bestDist = len
+            }
+        }
+        return best
+    }
+
+    /// 照準の向き（正規化）。向き・地点・対象（その敵への向き）から決める。決まらなければ nil（対象なし・術者の足元を指した）。
+    static func aimDirection(_ s: SimState, caster i: Int, target: SkillTarget) -> Vec2? {
+        let pos = s.units[i].pos
+        let d: Vec2
+        switch target {
+        case .direction(let v): d = v.normalized
+        case .point(let p): d = (p - pos).normalized
+        case .unit(let id):
+            guard let j = s.index(of: id) else { return nil }
+            d = (s.units[j].pos - pos).normalized
+        case .none: return nil
+        }
+        return d == .zero ? nil : d
+    }
 
     /// ボットのチームが観測している敵ヒーローの移動速度（ユニット/秒）。見えていない・観測できなければ 0。
     static func observedVelocity(_ s: SimState, bot: Int, target: Int) -> Vec2 {
