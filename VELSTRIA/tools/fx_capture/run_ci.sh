@@ -7,6 +7,7 @@
 # アプリは撮る時刻に止めて $HS/request（<ヒーロー>/<名前>）を書く → 画面を撮って $HS/done に同じ名前を書く（FXCapture.handshake）。
 # 起動直後にアプリが落ちる（CI のシミュレータで音声の初期化が固まる AURemoteIO の RPC timeout）ことがあるので、落ちたら 3 回まで起動し直す。
 set -euo pipefail
+export LC_ALL=en_US.UTF-8
 cd "$(dirname "$0")/../.."
 BID=com.bitcoinpay.velstria
 APP="${APP:-build/dd/Build/Products/Debug-iphonesimulator/VELSTRIA.app}"
@@ -84,20 +85,20 @@ for preset in $PRESETS; do
     mkdir -p "$dest"
     status=2
     for attempt in 1 2 3; do
-      echo "==> $preset $hero（$attempt 回目）"
+      echo "==> ${preset} ${hero}（${attempt} 回目）"
       log="$PWD/$OUT/$preset/${hero}.log"
       set +e
       capture_once "$preset" "$hero" "$dest" "$log" ${extra[@]+"${extra[@]}"}
       status=$?
       set -e
-      [[ $status == 1 ]] && { echo "    アプリが落ちた（記録は $dest）。起動し直す"; continue; }
+      [[ $status == 1 ]] && { echo "    アプリが落ちた（記録は ${dest}）。起動し直す"; continue; }
       break
     done
     if [[ $status == 0 ]]; then
       cp -R "$DATA/Documents/fxcapture/$hero/." "$dest/"
       echo "    $(ls "$dest" | wc -l | tr -d ' ') files"
     else
-      echo "    error: $hero の撮影が終わらない（status $status）" >&2
+      echo "    error: ${hero} の撮影が終わらない（status ${status}）" >&2
       [[ -d "$DATA/Documents/fxcapture/$hero" ]] && cp -R "$DATA/Documents/fxcapture/$hero/." "$dest/" || true
       xcrun simctl io "$UDID" screenshot "$OUT/$preset/${hero}_timeout.png" >/dev/null 2>&1 || true
     fi
