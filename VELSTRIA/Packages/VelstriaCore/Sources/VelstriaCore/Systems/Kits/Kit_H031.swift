@@ -3,17 +3,18 @@ import Foundation
 // 担当: kit-H031（docs/SKILL_KITS.md / docs/NEW_HEROES.md / docs/kits/Aurora.md）
 // H031 氷嵐のオーリア = MLBB オーロラの Velstria 版（アルカニスト・遠隔 470（MLBB の 4.7）・マナ）。
 // 氷の魔導士。パッシブは「致命傷を受けると無効にして 1.5 秒凍りつく（無敵・最大 HP の 30% を少しずつ回復、CD 150 秒）」、
-// S1 は地点に落ちる氷の隕石（鈍足）と続く 5 つの雹、S2 は扇状の霜風と扇の末端の凍結エリア（エリア内の敵を凍結）、
-// 奥義は前へ走る霜の道（大幅な鈍足）が氷河に育って砕け、範囲の敵を凍結する（魔力で凍結が延びる）。
+// S1 は地点に落ちる氷の隕石（鈍足）と、同じ円に続けて降る 5 つの雹、S2 は扇状の霜風と扇の先の半分の凍結エリア（エリア内の敵を凍結）、
+// 奥義は前へ伸びる霜の道（大幅な鈍足）が帯の氷河に育って砕け、範囲の敵を凍結する（魔力で凍結が延びる）。
 // 凍結エリア・砕けの凍結は敵のタワーにも効く（凍ったタワーは攻撃しない。ダメージは与えない。freezeTurret）。
-// 対応表は docs/kits/Aurora.md の「Velstria 実装対応表」と「日本語クライアントの画面」。
+// 対応表は docs/kits/Aurora.md の「Velstria 実装対応表」と「日本語クライアントの画面」。幾何と時間は「動画で測った値（2026-10-16）」。
 // 数値は公式の表をそのまま使う（スキル1・2 = Lv1〜6、アルティメット = Lv1〜3 の 6 / 6 / 3 段。rank = 公式の Lv。換算・補間なし）:
 //   ダメージ = 公式の基礎[段] + 公式の係数 × 魔法攻撃（Kit.official。物理攻撃では伸びない = 公式どおり）、
 //   CD = 公式の秒数 × (1 − CD 短縮)（Kit.cooldown）、マナ = 公式の表（HeroKit.cost）。
 // スキル吸収率・ミニオン / モンスターへの補正は公式の文に無いので既定（100%・等倍）。
 
 /// オーリアの数値（docs/kits/Aurora.md の「日本語クライアントの画面」の表そのまま）。
-/// 射程・半径・遅れ・持続・雹の位置など、公式の文に無い値は推測（docs の「まだ MLBB と違うところ」）。
+/// 射程・半径・遅れ・持続・雹の間隔など、公式の文に無い幾何と時間は MLBB の訓練場の画面収録で測った値
+/// （docs の「動画で測った値（2026-10-16）」。距離 = MLBB × 100、時間はコマ（1/30 秒）を tick に合わせた値）。
 enum OriaTuning {
     // MARK: パッシブ（プライド・オブ・アイス）
     /// 公式: 致命的なダメージで 1.5 秒間フリーズ（無敵）、最大 HP の 30% を徐々に回復（全レベル一定）、CD 150 秒。
@@ -28,20 +29,21 @@ enum OriaTuning {
     static let s1HailBase: [Double] = [40]
     static let s1HailPowerRatio: Double = 0.10
     static let s1Hails = 5
-    static let s1Range: Double = 650
-    /// 隕石の半径（スキル定義の radius 155 より少し広く。推測）。
-    static let s1Radius: Double = 170
-    /// 隕石が落ちるまで（地点 AoE の標準の予告。推測）。
-    static let s1Delay: Double = 0.5
+    /// 射程（動画: 照準の円の半径 5.56。2 回の照準で 5.557 / 5.565）。隕石の中心はこの距離まで。
+    static let s1Range: Double = 556
+    /// 隕石の半径（動画: 着弾点の照準の円 1.903〜1.913。縁 1.85 の的にも当たった）。
+    static let s1Radius: Double = 191
+    /// 指を離してから隕石が落ちるまで（動画: 16 / 18 コマ = 平均 17 コマ ≒ 0.57 秒。0.56 で 17 tick 目に落ちる）。
+    static let s1Delay: Double = 0.56
     static let s1Slow: Double = 0.40
+    /// 減速の長さ（公式 1 秒。動画: 的の移動速度の表示 159 が 33 コマ = 表示の遅れ込みで 1 秒と合う。雹では掛け直さない）。
     static let s1SlowDuration: Double = 1.0
-    /// 雹 1 つの半径と、隕石の着弾後に降り始めるまで・間隔（推測）。
-    static let hailRadius: Double = 85
-    static let hailGap: Double = 0.2
-    static let hailInterval: Double = 0.1
-    /// 雹の落ちる位置: 隕石の中心から隕石の半径の何割か（奇数番は外側。中心を外れた位置に降る。推測）。
-    static let hailRingInner: Double = 0.9
-    static let hailRingOuter: Double = 1.2
+    /// 雹: 隕石と同じ円（中心・半径 s1Radius）に降り、降るたびに円の中の敵全員に当たる（動画: 円の中心から 0.70 と縁の 1.85 に
+    /// 立つ 2 体が 5 発とも受けた。雹の氷が落ちる位置はばらばらだが、当たりは円全体）。
+    /// 隕石から最初の雹まで（動画: 14 / 15 コマ）と、雹の間隔（動画: 5 発が 17 コマに並ぶ = 0.15 秒おき）。
+    /// tick に合わせると隕石の後 0.47 / 0.63 / 0.77 / 0.93 / 1.07 秒（ゾーンの tickInterval 0.15 の積み上げ）。
+    static let hailGap: Double = 0.47
+    static let hailInterval: Double = 0.15
 
     // MARK: S2（氷花のそよ風: 霜風と凍結エリア）
     /// 公式: 扇の霜風 225 / 255 / 285 / 315 / 345 / 375（+75% 魔法攻撃）。範囲の末端に凍結エリアを作り、
@@ -50,21 +52,27 @@ enum OriaTuning {
     static let s2HitPowerRatio: Double = 0.75
     static let s2PatchBase: [Double] = [225, 255, 285, 315, 345, 375]
     static let s2PatchPowerRatio: Double = 0.75
-    static let s2Range: Double = 650
-    /// 扇の半角（約 37°。推測）。
-    static let s2HalfAngle: Double = 0.65
-    /// 霜風が広がるまでの遅れ（この間に避けられる。推測）。
-    static let s2Delay: Double = 0.3
+    /// 扇の半径（動画: 照準の扇の弧 6.02。弧の中心は術者）。
+    static let s2Range: Double = 602
+    /// 扇の半角（動画: 照準の左右の辺の開き 50.5° = 片側 25.3°。辺は術者の位置を通る）。
+    static let s2HalfAngle: Double = 0.441
+    /// 指を離してから霜風が当たるまで（動画: 17 コマ ≒ 0.57 秒。中心から 3.8 と 4.4 の 2 体に同じコマで当たった。0.56 で 17 tick 目）。
+    static let s2Delay: Double = 0.56
     /// 凍結 1 秒 + 魔法攻撃 100 ごとに 0.06 秒（公式。上限の記載なし）。凍結は凍結エリアでだけ（扇の霜風はダメージだけ）。
+    /// 動画: 霜風のダメージのコマでは凍らず、5 コマ後の凍結エリアの 1 回目で「凍結」の表示（32 コマ = 表示の遅れ込みで 1 秒）。
     static let s2Freeze: Double = 1.0
     static let s2FreezePerHundredAP: Double = 0.06
-    /// 凍結エリア: 扇の末端、中心は術者から range − patchBack の位置（半径はスキル定義の radius 190。推測）。
-    static let s2PatchBack: Double = 110
-    /// 凍結エリアの持続・ダメージの間隔（推測）。凍結はエリアができた瞬間（最初の適用）にエリア内にいる敵だけに 1 回。
-    static let s2PatchDuration: Double = 1.8
-    static let s2PatchInterval: Double = 0.5
-    /// 凍結エリアが当てる回数（発動 + 以降の間隔ごと = 4 回。合計が公式の凍結エリアの表）。
-    static let s2PatchTicks = 4
+    /// 凍結エリア = 扇の先の半分（動画: 霜風の後に残る氷の地面は術者から 2.9〜6.0、扇と同じ角度）。
+    /// 術者から s2AreaInner より内側（対象の半径を足しても届かない敵）は凍らない（霜風のダメージだけ）。
+    static let s2AreaInner: Double = 290
+    /// 指を離してから凍結エリアができるまで（動画: 23 コマ ≒ 0.77 秒 = 霜風の 0.2 秒後。0.76 で 23 tick 目）。
+    static let s2AreaDelay: Double = 0.76
+    /// 凍結エリアの持続・ダメージの間隔（動画: 的の合計ダメージの表示が 4 コマおきに 3 回増えた = 0.13 秒おきに 3 回）。
+    /// 凍結はエリアができた瞬間（最初の適用）にエリア内にいる敵だけに 1 回。氷の地面の見た目は 0.6 秒ほど残る（当たりは 0.26 秒）。
+    static let s2PatchDuration: Double = 0.26
+    static let s2PatchInterval: Double = 0.13
+    /// 凍結エリアが当てる回数（発動 + 以降の間隔ごと = 3 回。合計が公式の凍結エリアの表。動画: 1 回 = 霜風の 1/3）。
+    static let s2PatchTicks = 3
 
     // MARK: 奥義（凍てつく氷結: 霜の道と氷河）
     /// 公式: 霜の道 100 / 150 / 200（+40% 魔法攻撃）、氷河の砕け 600 / 900 / 1200（+150% 魔法攻撃）。
@@ -72,17 +80,22 @@ enum OriaTuning {
     static let ultPathPowerRatio: Double = 0.40
     static let ultShatterBase: [Double] = [600, 900, 1200]
     static let ultShatterPowerRatio: Double = 1.50
-    static let ultRange: Double = 770
-    static let ultPathSpeed: Double = 2200
-    /// 霜の道の半幅（当たり幅。推測）。
-    static let ultPathWidth: Double = 120
+    /// 霜の道の先端（術者から。動画: 照準の矢の先 6.8、道の氷は 7.1 まで）。
+    static let ultRange: Double = 680
+    /// 霜の道・氷河は術者の少し後ろから始まる（動画: 道の氷・氷河の後ろの端は術者の 0.7 後ろ）。
+    static let ultBack: Double = 70
+    /// 指を離してから霜の道ができるまで（動画: 8 コマ ≒ 0.27 秒。道は 1〜2 コマで先まで伸びる = ほぼ一度に当たる。0.26 で 8 tick 目）。
+    static let ultPathDelay: Double = 0.26
+    /// 霜の道の半幅（当たり幅。動画: 照準の内側の 2 本の線の間 0.95 = 半幅 0.48）。
+    static let ultPathWidth: Double = 48
     static let ultPathSlow: Double = 0.80
     static let ultPathSlowDuration: Double = 1.2
-    /// 氷河（Fandom の 7.5 × 7 マス ≒ 直径 720）の中心は術者から前へ、半径。霜の道（長さ 770）のほぼ全体を覆う。
-    static let ultGlacierCenter: Double = 450
-    static let ultGlacierRadius: Double = 360
-    /// 霜の道を撃ってから砕けるまで（氷河が育つ時間。推測）。
-    static let ultGlacierDelay: Double = 1.2
+    /// 氷河 = 道に沿った帯（長方形）。最大のときの前の端（術者から）と半幅（動画: 砕ける直前の氷河の外形 −0.7〜6.2 × ±2.45、
+    /// 照準の外側の 2 本の線 ±2.5）。Fandom の「7.5 × 7 マス」より細い。
+    static let ultGlacierLength: Double = 620
+    static let ultGlacierHalfWidth: Double = 245
+    /// 指を離してから砕けるまで（動画: 45 コマ ≒ 1.5 秒。氷河は道ができた 0.27 秒から育ち、1.45 秒ごろ最大。1.49 で 45 tick 目）。
+    static let ultGlacierDelay: Double = 1.49
     static let ultFreeze: Double = 1.0
     /// 魔法攻撃 100 ごとに凍結が延びる秒数（公式。上限の記載なし）。
     static let ultFreezePerHundredAP: Double = 0.2
@@ -101,6 +114,12 @@ enum OriaTuning {
     static let pathSlowTag = KitTags.buff("H031", "pathSlow")
     static let prideSuppressTag = KitTags.buff("H031", "prideFreeze")
     static let prideInvulnerableTag = KitTags.buff("H031", "prideGuard")
+
+    /// KitTimer.code
+    enum Code {
+        /// 霜の道（ultPathDelay の後に、撃った位置・向きの帯の敵へ当たる。スタンでは取り消さない）。
+        static let path = 1
+    }
 
     /// HitPayload.kitEvent
     enum Event {
@@ -152,6 +171,12 @@ extension KitState {
         get { reals[4] }
         set { reals[4] = newValue }
     }
+
+    /// 霜の道のダメージ（撃った時点の段と魔力。ultPathDelay の後のタイマーで当てる）。
+    var oriaPathDamage: Double {
+        get { reals[5] }
+        set { reals[5] = newValue }
+    }
 }
 
 struct Kit_H031: HeroKit {
@@ -178,8 +203,8 @@ struct Kit_H031: HeroKit {
             return SkillTargeting(archetype: .cone, aim: .direction, range: T.s2Range, radius: T.s2Range,
                                   shape: .fan, halfAngle: T.s2HalfAngle)
         case .ultimate:
-            // 照準の帯の半幅 = 氷河の半径（氷河が砕けて凍らせる範囲。霜の道そのものの当たり幅は T.ultPathWidth で別）
-            return SkillTargeting(archetype: .piercingLine, aim: .direction, range: T.ultRange, radius: T.ultGlacierRadius,
+            // 照準の帯の半幅 = 氷河の半幅（氷河が砕けて凍らせる範囲。霜の道そのものの当たり幅は T.ultPathWidth で別）
+            return SkillTargeting(archetype: .piercingLine, aim: .direction, range: T.ultRange, radius: T.ultGlacierHalfWidth,
                                   shape: .wideLine)
         case .passive:
             return base
@@ -271,9 +296,9 @@ struct Kit_H031: HeroKit {
         case .skill1:
             return KitText(
                 ja: "指定地点に氷の隕石を落とし、{meteorBase}(+{meteorPct}%魔法攻撃)の魔法ダメージを与えて、命中した敵の移動速度を{slowDuration}秒間{slow}%低下させる。"
-                    + "その後、{hails}個の雹が降り注ぎ、それぞれ{hailBase}(+{hailPct}%魔法攻撃)の魔法ダメージを与える（雹は隕石の中心を外れたまわりに降る）。",
+                    + "その後、{hails}個の雹が降り注ぎ、それぞれ{hailBase}(+{hailPct}%魔法攻撃)の魔法ダメージを与える（雹は隕石と同じ範囲に降る）。",
                 en: "Summon an icy meteorite to strike the target location, dealing {meteorBase} (+{meteorPct}% Magic Power) magic damage and slowing targets hit by {slow}% for {slowDuration}s. "
-                    + "Afterward, {hails} hailstones fall, each dealing {hailBase} (+{hailPct}% Magic Power) magic damage (they land around the meteorite, just off its center).",
+                    + "Afterward, {hails} hailstones fall, each dealing {hailBase} (+{hailPct}% Magic Power) magic damage (they fall over the same area as the meteorite).",
                 tags: [KitTag.aoe, KitTag.slow])
         case .skill2:
             return KitText(
@@ -320,7 +345,7 @@ struct Kit_H031: HeroKit {
         return .done
     }
 
-    /// S1: 氷の隕石（0.5 秒後に着弾、鈍足）→ 続けて雹 5 発（隕石の周りに決まった並びで降る）。
+    /// S1: 氷の隕石（0.56 秒後に着弾、鈍足）→ 0.47 秒後から 0.15 秒おきに雹 5 発（隕石と同じ円の敵全員に当たる）。
     private func castHail(_ s: inout SimState, _ ctx: SimContext, _ c: KitCast) {
         let i = c.caster
         let id = s.units[i].id
@@ -337,22 +362,16 @@ struct Kit_H031: HeroKit {
         ZoneSystem.spawn(&s, ownerIndex: i, center: center, radius: T.s1Radius, delay: T.s1Delay, payload: meteor,
                          visual: c.check.skill.effectID)
 
-        // 雹: 向きから決まる角度で 5 方向、内側・外側を交互に（乱数なし）
+        // 雹: 隕石と同じ円の持続ゾーン 1 つ。発動 + 0.15 秒おきの 4 回 = 5 発（雹は減速を掛け直さない）
         let hailPayload = HitPayload(damage: hail, damageType: c.numbers.damageType, source: .skill(.skill1),
                                      skillID: skillID)
-        let start = c.aim.direction.angle
-        let hailVisual = Self.passiveVisual(ctx)
-        for k in 0..<T.s1Hails {
-            let angle = start + 2 * Double.pi * Double(k) / Double(T.s1Hails)
-            let ring = T.s1Radius * (k % 2 == 0 ? T.hailRingInner : T.hailRingOuter)
-            ZoneSystem.spawn(&s, ownerIndex: i, center: center + Vec2.fromAngle(angle) * ring, radius: T.hailRadius,
-                             delay: T.s1Delay + T.hailGap + T.hailInterval * Double(k), payload: hailPayload,
-                             visual: hailVisual)
-        }
+        ZoneSystem.spawn(&s, ownerIndex: i, center: center, radius: T.s1Radius, delay: T.s1Delay + T.hailGap,
+                         duration: T.hailInterval * Double(T.s1Hails - 1), tickInterval: T.hailInterval,
+                         payload: hailPayload, visual: Self.passiveVisual(ctx))
     }
 
-    /// S2: 霜風（遅れて扇状に当たる。ダメージだけ）と、扇の末端の凍結エリア（できた瞬間にエリア内の敵を凍結し、
-    /// 持続の間に合計ダメージを 4 回に分けて与える）。
+    /// S2: 霜風（0.56 秒後に扇状に当たる。ダメージだけ）と、扇の先の半分の凍結エリア（0.76 秒後にでき、その瞬間に
+    /// エリア内の敵を凍結し、0.13 秒おきに合計ダメージを 3 回に分けて与える）。
     private func castBreeze(_ s: inout SimState, _ ctx: SimContext, _ c: KitCast) {
         let i = c.caster
         let origin = s.units[i].pos
@@ -368,16 +387,19 @@ struct Kit_H031: HeroKit {
                          shape: .cone(direction: dir, halfAngle: T.s2HalfAngle), delay: T.s2Delay, payload: wave,
                          visual: c.check.skill.effectID)
 
+        // 凍結エリア = 同じ扇の、術者から s2AreaInner より先（innerRadius）。
         // kitEvent: 凍結エリアの凍結（onHit。最初の適用だけ）。kitHitsStructures: エリアの凍結はタワーにも効く（freezeTurret）
         let tick = Self.patchTotal(rank: c.numbers.rank, stats: s.units[i].stats) / Double(T.s2PatchTicks)
         let patch = HitPayload(damage: tick, damageType: c.numbers.damageType, source: .skill(.skill2), skillID: skillID,
                                kitEvent: T.Event.frozenArea, kitHitsStructures: true)
-        ZoneSystem.spawn(&s, ownerIndex: i, center: origin + dir * (T.s2Range - T.s2PatchBack),
-                         radius: c.check.skill.radius, delay: T.s2Delay, duration: T.s2PatchDuration,
-                         tickInterval: T.s2PatchInterval, payload: patch, visual: c.check.skill.effectID)
+        ZoneSystem.spawn(&s, ownerIndex: i, center: origin, radius: T.s2Range,
+                         shape: .cone(direction: dir, halfAngle: T.s2HalfAngle), delay: T.s2AreaDelay,
+                         duration: T.s2PatchDuration, tickInterval: T.s2PatchInterval, innerRadius: T.s2AreaInner,
+                         payload: patch, visual: c.check.skill.effectID)
     }
 
-    /// 奥義: 霜の道（貫通する弾。鈍足）と、道を覆う氷河（遅れて砕け、範囲の敵を凍結）。
+    /// 奥義: 霜の道（0.26 秒後に、撃った位置・向きの細い帯の敵へ一度に当たる。鈍足）と、道に沿った帯の氷河
+    /// （1.49 秒後に砕け、範囲の敵を凍結）。
     private func castGlacier(_ s: inout SimState, _ ctx: SimContext, _ c: KitCast) {
         let i = c.caster
         let id = s.units[i].id
@@ -388,13 +410,11 @@ struct Kit_H031: HeroKit {
         Kit.emitCast(&s, c, origin: origin, target: origin + dir * T.ultRange, shape: .wideLine,
                      duration: T.ultGlacierDelay, count: 1)
 
-        let slow = StatusEffect(kind: .slow, duration: T.ultPathSlowDuration, magnitude: T.ultPathSlow, sourceID: id,
-                                tag: T.pathSlowTag)
-        let path = HitPayload(damage: c.numbers.damage, damageType: c.numbers.damageType, source: .skill(.ultimate),
-                              statuses: [slow], skillID: skillID)
-        ProjectileSystem.spawn(&s, ownerIndex: i, motion: .linear(direction: dir, maxDistance: T.ultRange),
-                               speed: T.ultPathSpeed, width: T.ultPathWidth, pierce: true, payload: path,
-                               visual: visual)
+        // 霜の道: 撃った時点の段・魔力のダメージを持ち、撃った位置と向き（param = 角度）で当てる。スタンでは取り消さない
+        // （隕石・霜風・氷河のゾーンと同じく、撃った後は止まらない。術者が倒れるとタイマーは消える）
+        s.units[i].hero!.kit!.oriaPathDamage = c.numbers.damage
+        Kit.schedule(&s, caster: i, slot: .ultimate, code: T.Code.path, after: T.ultPathDelay, param: dir.angle,
+                     point: origin, interruptible: false)
 
         // 凍結の長さは発動時の魔力で決める（砕けるまでに魔力が変わっても、撃った時点の値）
         let freeze = StatusEffect(kind: .stun, duration: Self.glacierFreeze(abilityPower: s.units[i].stats.abilityPower),
@@ -405,8 +425,48 @@ struct Kit_H031: HeroKit {
                                  damageType: c.numbers.damageType,
                                  source: .skill(.ultimate), statuses: [freeze], skillID: skillID,
                                  kitEvent: T.Event.shatter, kitHitsStructures: true)
-        ZoneSystem.spawn(&s, ownerIndex: i, center: origin + dir * T.ultGlacierCenter, radius: T.ultGlacierRadius,
-                         delay: T.ultGlacierDelay, payload: shatter, visual: visual)
+        // 氷河 = 術者の ultBack 後ろから前へ ultGlacierLength までの長方形（端の四角い線分のゾーン）。ゾーンの中心は前の端に置き、
+        // 後ろ向きに伸ばす（演出の向き = 術者 → ゾーンの中心が前を向く）
+        ZoneSystem.spawn(&s, ownerIndex: i, center: origin + dir * T.ultGlacierLength, radius: T.ultGlacierHalfWidth,
+                         shape: .line(direction: dir * -1, length: T.ultGlacierLength + T.ultBack),
+                         delay: T.ultGlacierDelay, squareEnds: true, payload: shatter, visual: visual)
+    }
+
+    func onTimer(_ s: inout SimState, _ ctx: SimContext, owner: Int, timer: KitTimer) {
+        guard timer.code == T.Code.path, let k = s.units[owner].hero?.kit else { return }
+        let id = s.units[owner].id
+        let p = Self.pathPayload(damage: k.oriaPathDamage, sourceID: id,
+                                 skillID: ctx.master.skill(hero: heroID, slot: .ultimate)?.skillID)
+        let dir = Vec2.fromAngle(timer.param)
+        let team = s.units[owner].team
+        for j in Self.pathTargets(s, team: team, origin: timer.point, direction: dir) {
+            CombatSystem.applyHit(&s, ctx, sourceID: id, team: team, targetIndex: j, payload: p, from: timer.point)
+        }
+    }
+
+    /// 霜の道の命中: 公式の表の魔法ダメージ + 80% の減速 1.2 秒（`slow`、他の減速と最大値で重なる）。
+    static func pathPayload(damage: Double, sourceID: EntityID, skillID: String?) -> HitPayload {
+        let slow = StatusEffect(kind: .slow, duration: T.ultPathSlowDuration, magnitude: T.ultPathSlow, sourceID: sourceID,
+                                tag: T.pathSlowTag)
+        return HitPayload(damage: damage, damageType: .magic, source: .skill(.ultimate), statuses: [slow], skillID: skillID)
+    }
+
+    /// 霜の道が当たる敵（構造物・死亡を除く。添字昇順）: origin の ultBack 後ろから direction へ ultRange まで、半幅 ultPathWidth の
+    /// 長方形（どの辺も対象の半径まで含む）。
+    static func pathTargets(_ s: SimState, team: Team, origin: Vec2, direction: Vec2) -> [Int] {
+        let dir = direction.normalized
+        guard dir != .zero else { return [] }
+        var out: [Int] = []
+        for j in s.units.indices where s.units[j].team != team && !s.units[j].isStructure {
+            guard CombatSystem.isLiving(s, j) else { continue }
+            let r = s.units[j].radius
+            let rel = s.units[j].pos - origin
+            let along = rel.dot(dir)
+            guard along >= -T.ultBack - r, along <= T.ultRange + r,
+                  abs(rel.x * dir.y - rel.y * dir.x) <= T.ultPathWidth + r else { continue }
+            out.append(j)
+        }
+        return out
     }
 
     /// 凍結エリアの命中: エリアができた瞬間（最初の適用）にエリア内にいる敵だけを凍結する
@@ -458,7 +518,7 @@ struct Kit_H031: HeroKit {
         return s.zones.contains { z in
             z.ownerID == ownerID && z.triggered && !z.done && z.payload.kitEvent == T.Event.frozenArea
                 && z.duration > T.s2PatchDuration - Balance.dt / 2
-                && ZoneSystem.contains(shape: z.shape, center: z.center, radius: z.radius, point: pos, pointRadius: r)
+                && ZoneSystem.contains(zone: z, point: pos, pointRadius: r)
         }
     }
 
@@ -517,10 +577,9 @@ struct Kit_H031: HeroKit {
         let dist = s.units[bot].pos.distance(to: s.units[target].pos)
         switch slot {
         case .skill2:
-            // 凍結は扇の末端の凍結エリアでだけ: 相手がエリアに入る距離のときだけ撃つ（扇の手前の敵はダメージだけになる）
-            let center = T.s2Range - T.s2PatchBack
-            let radius = ctx.master.skill(hero: heroID, slot: .skill2)?.radius ?? 190
-            guard dist >= center - radius, dist <= center + radius - 30 else { return .skip }
+            // 凍結は扇の先の半分の凍結エリアでだけ: 相手がエリアに入る距離（術者から s2AreaInner〜s2Range）のときだけ撃つ
+            // （扇の手前の敵はダメージだけになる）
+            guard dist >= T.s2AreaInner, dist <= T.s2Range else { return .skip }
             return .useDefault
         case .ultimate:
             guard fighting, dist <= T.ultRange - 60 else { return .skip }
@@ -586,10 +645,9 @@ struct Kit_H031: HeroKit {
 extension Kit_H031 {
     /// ZoneSystem.spawn と同じ形（描画の事前生成用。HeroKit.plannedZones）。
     func plannedZones(master: MasterData) -> [KitZoneShape] {
-        // S1 隕石 + 5 つの雹、S2 霜風の扇 + 凍結エリア、奥義の氷河
-        var out = [KitZoneShape(radius: T.s1Radius), KitZoneShape(radius: T.hailRadius, count: T.s1Hails),
-                   KitZoneShape(radius: T.s2Range, halfAngle: T.s2HalfAngle), KitZoneShape(radius: T.ultGlacierRadius)]
-        if let r = master.skill(hero: heroID, slot: .skill2)?.radius { out.append(KitZoneShape(radius: r)) }
-        return out
+        // S1 隕石 + 雹（同じ円の 2 つ）、S2 霜風の扇 + 凍結エリア（同じ扇の 2 つ）、奥義の氷河（帯 = 線のゾーン。線のメッシュは
+        // 共有なので、ここは見た目のプールの数の見積りに効く）
+        [KitZoneShape(radius: T.s1Radius, count: 2), KitZoneShape(radius: T.s2Range, halfAngle: T.s2HalfAngle, count: 2),
+         KitZoneShape(radius: T.ultGlacierHalfWidth)]
     }
 }

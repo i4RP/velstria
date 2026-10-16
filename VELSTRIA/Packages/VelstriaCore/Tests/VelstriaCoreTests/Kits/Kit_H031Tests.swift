@@ -22,8 +22,24 @@ final class Kit_H031Tests: XCTestCase {
     static let ultCooldownTable: [Double] = [50, 45, 40]
     static let ultManaTable: [Double] = [140, 160, 180]
 
-    /// 凍結エリアの中心（術者から。推測の幾何、Kit_H031.castBreeze と同じ）。半径はスキル定義の radius（190）。
-    static let areaCenter = T.s2Range - T.s2PatchBack
+    /// 動画で測った幾何と時間（docs/kits/Aurora.md「動画で測った値（2026-10-16）」の写し。実装の定数ではなくこれと比べる）。
+    /// 距離は MLBB × 100、時間は撃ってからの tick（1/30 秒。動画のコマに合わせた）。
+    static let measuredS1Range = 556.0          // 照準の円 5.56
+    static let measuredMeteorRadius = 191.0     // 着弾点の円 1.91
+    static let meteorTick = 17                  // 指を離してから 17 コマ
+    static let hailTicks = [31, 36, 40, 45, 49] // 隕石の 14 コマ後から 0.15 秒おき
+    static let measuredS2Range = 602.0          // 扇の弧 6.02
+    static let measuredS2HalfAngleDegrees = 25.3
+    static let breezeTick = 17
+    static let areaTicks = [23, 27, 31]         // 凍結エリア: 霜風の 0.2 秒後から 0.13 秒おきに 3 回
+    static let areaInner = 290.0                // 凍結エリア = 扇の 2.9〜6.0
+    static let pathTick = 8
+    static let shatterTick = 45
+    static let ultRange = 680.0                 // 照準の矢の先 6.8
+    static let ultBack = 70.0                   // 道・氷河は術者の 0.7 後ろから
+    static let glacierFront = 620.0             // 氷河の前の端 6.2
+    static let glacierHalfWidth = 245.0
+    static let pathHalfWidth = 48.0
 
     override func setUp() {
         super.setUp()
@@ -50,9 +66,6 @@ final class Kit_H031Tests: XCTestCase {
         SkillCatalog.numbers(for: skill(slot), hero: def, rank: rank, stats: stats)
     }
 
-    /// 凍結エリアの半径（スキル定義の radius）。
-    private var areaRadius: Double { skill(.skill2).radius }
-
     private func damageEvents(_ w: SkillWorld, to e: Int, _ source: DamageSource) -> [DamageEvent] {
         w.damageEvents.filter { $0.targetID == w.id(e) && $0.source == source }
     }
@@ -68,6 +81,17 @@ final class Kit_H031Tests: XCTestCase {
     /// 対象 e に出た凍結（ccApplied）の回数。
     private func freezeNotices(_ w: SkillWorld, _ e: Int) -> Int {
         w.log.filter { if case .ccApplied(let id, .stun, _) = $0 { return id == w.id(e) } else { return false } }.count
+    }
+
+    /// 1 tick ずつ進め、対象 e に source のダメージが入った tick（撃ってからの数）を返す。
+    private func hitTicks(_ w: inout SkillWorld, _ e: Int, _ source: DamageSource, ticks: Int) -> [Int] {
+        var out: [Int] = []
+        for t in 1...ticks {
+            let before = damageEvents(w, to: e, source).count
+            w.tick()
+            out += Array(repeating: t, count: damageEvents(w, to: e, source).count - before)
+        }
+        return out
     }
 
     /// 致命傷（HP・シールドを超える確定ダメージ）。
@@ -91,27 +115,28 @@ final class Kit_H031Tests: XCTestCase {
         let t1 = SkillCatalog.targeting(for: skill(.skill1), hero: def)
         XCTAssertEqual(t1.archetype, .groundAoE)
         XCTAssertEqual(t1.aim, .point)
-        XCTAssertEqual(t1.range, 650)
-        XCTAssertEqual(t1.radius, T.s1Radius)
+        XCTAssertEqual(t1.range, Self.measuredS1Range, "動画: 照準の円 5.56")
+        XCTAssertEqual(t1.radius, Self.measuredMeteorRadius, "動画: 着弾点の円 1.91")
         XCTAssertEqual(t1.shape, .circleAtPoint)
-        XCTAssertEqual(t1.reach, 650 + T.s1Radius)
+        XCTAssertEqual(t1.reach, Self.measuredS1Range + Self.measuredMeteorRadius)
 
         let t2 = SkillCatalog.targeting(for: skill(.skill2), hero: def)
         XCTAssertEqual(t2.archetype, .cone)
         XCTAssertEqual(t2.aim, .direction)
-        XCTAssertEqual(t2.range, 650)
-        XCTAssertEqual(t2.radius, 650)
+        XCTAssertEqual(t2.range, Self.measuredS2Range, "動画: 扇の弧 6.02")
+        XCTAssertEqual(t2.radius, Self.measuredS2Range)
         XCTAssertEqual(t2.shape, .fan)
         XCTAssertEqual(t2.halfAngle, T.s2HalfAngle, accuracy: 1e-12)
-        XCTAssertEqual(t2.reach, 650)
+        XCTAssertEqual(T.s2HalfAngle * 180 / .pi, Self.measuredS2HalfAngleDegrees, accuracy: 0.05, "動画: 扇の開き 50.5°")
+        XCTAssertEqual(t2.reach, Self.measuredS2Range)
 
         let t3 = SkillCatalog.targeting(for: skill(.ultimate), hero: def)
         XCTAssertEqual(t3.archetype, .piercingLine)
         XCTAssertEqual(t3.aim, .direction)
-        XCTAssertEqual(t3.range, 770, "遠隔の奥義の射程の目安（≈ 100 × MLBB の 7.7 マス）")
-        XCTAssertEqual(t3.radius, T.ultGlacierRadius, "照準の帯の半幅 = 氷河の半径（砕けて凍らせる範囲）")
+        XCTAssertEqual(t3.range, Self.ultRange, "動画: 照準の矢の先 6.8")
+        XCTAssertEqual(t3.radius, Self.glacierHalfWidth, "照準の帯の半幅 = 氷河の半幅（砕けて凍らせる範囲。動画 ±2.45）")
         XCTAssertEqual(t3.shape, .wideLine)
-        XCTAssertNotEqual(T.ultPathWidth, T.ultGlacierRadius, "霜の道の当たり幅は照準の帯とは別")
+        XCTAssertNotEqual(T.ultPathWidth, T.ultGlacierHalfWidth, "霜の道の当たり幅は照準の帯とは別")
 
         XCTAssertEqual(SkillCatalog.targeting(for: skill(.passive), hero: def).archetype, .passive)
 
@@ -137,6 +162,7 @@ final class Kit_H031Tests: XCTestCase {
         XCTAssertTrue(ja1.contains("400(+90%魔法攻撃)の魔法ダメージ"), ja1)
         XCTAssertTrue(ja1.contains("移動速度を1秒間40%低下させる"), ja1)
         XCTAssertTrue(ja1.contains("5個の雹が降り注ぎ、それぞれ40(+10%魔法攻撃)"), ja1)
+        XCTAssertTrue(ja1.contains("雹は隕石と同じ範囲に降る"), "動画: 雹は円の全員に当たる: \(ja1)")
         let n16 = numbers(.skill1, 6, stats)
         let en16 = HeroKits.text(heroID: "H031", slot: .skill1)!.filled(english: true, numbers: n16, targeting: t1)
         XCTAssertTrue(en16.contains("dealing 700 (+90% Magic Power)") && en16.contains("each dealing 40 (+10% Magic Power)"), en16)
@@ -323,7 +349,7 @@ final class Kit_H031Tests: XCTestCase {
         let e = w.addDummyEnemy(at: skillArena + Vec2(500, 0))
         w.s.units[k].stats.abilityPower = 250
         XCTAssertTrue(w.cast(k, .skill2, .direction(Self.east)))
-        w.run(seconds: 0.34)
+        w.tick(Self.areaTicks[0] + 1)
         let freeze = status(w, e, .stun, tag: T.freezeTag)
         XCTAssertGreaterThan(freeze?.remaining ?? 0, 1.05)
         XCTAssertLessThanOrEqual(freeze?.remaining ?? 0, 1.15 + 1e-9)
@@ -337,9 +363,12 @@ final class Kit_H031Tests: XCTestCase {
         XCTAssertTrue(w.cast(k, .skill1, .point(skillArena + Vec2(500, 0))))
         XCTAssertTrue(w.cast(k, .skill2, .direction(Self.east)))
         XCTAssertTrue(w.cast(k, .ultimate, .direction(Self.east)))
-        let payloads = w.s.zones.map(\.payload) + w.s.projectiles.map(\.payload)
-        XCTAssertEqual(w.s.zones.count, 1 + T.s1Hails + 2 + 1, "隕石・雹 5・霜風・凍結エリア・氷河")
-        XCTAssertEqual(w.s.projectiles.count, 1, "霜の道")
+        let path = Kit_H031.pathPayload(damage: w.numbers(k, .ultimate).damage, sourceID: w.id(k),
+                                        skillID: skill(.ultimate).skillID)
+        let payloads = w.s.zones.map(\.payload) + [path]
+        XCTAssertEqual(w.s.zones.count, 5, "隕石・雹（同じ円の持続ゾーン 1 つ）・霜風・凍結エリア・氷河")
+        XCTAssertTrue(w.s.projectiles.isEmpty, "霜の道は弾ではなく 0.26 秒後の帯の当たり（タイマー）")
+        XCTAssertEqual(w.kit(k).scheduled.map(\.code), [T.Code.path])
         for p in payloads {
             XCTAssertEqual(p.spellVampRatio, 1, "スキル吸収率は既定 100%")
             XCTAssertNil(p.attackEffect)
@@ -375,54 +404,43 @@ final class Kit_H031Tests: XCTestCase {
         XCTAssertEqual(w.castEvents.last?.shape, .circleAtPoint)
         XCTAssertEqual(w.castEvents.last?.count, T.s1Hails)
 
-        w.run(seconds: 0.4)
+        // 動画: 指を離してから 17 コマで隕石が落ちる（その前は無傷）
+        w.tick(Self.meteorTick - 1)
         XCTAssertTrue(w.damageEvents.isEmpty, "隕石の着弾前は無傷")
-        w.run(seconds: 0.2)   // 0.6 秒
+        w.tick()
         let meteor = damageEvents(w, to: e, .skill(.skill1))
         XCTAssertEqual(meteor.count, 1)
         XCTAssertEqual(meteor[0].amount, w.mitigated(n.damage, .magic, on: e), accuracy: 1e-6)
         let slow = try XCTUnwrap(status(w, e, .slow, tag: T.s1SlowTag))
         XCTAssertEqual(slow.magnitude, 0.40, accuracy: 1e-12)
-        XCTAssertGreaterThan(slow.remaining, 0.85)
-        XCTAssertLessThanOrEqual(slow.remaining, 1.0)
-        // 雹は隕石のあとに、中心のまわり（隕石の半径の 0.9 / 1.2 倍）へ降る: 中心に立つ相手には当たらない
-        w.run(seconds: 1.0)
+        XCTAssertGreaterThan(slow.remaining, 0.95)
+        XCTAssertLessThanOrEqual(slow.remaining, 1.0 + 1e-9)
+        // 雹は同じ円に 5 発: 隕石の中心に立つ相手にも全部当たる（動画: 中心から 0.70 の的が 5 発とも受けた）
+        w.run(seconds: 1.5)
         let all = damageEvents(w, to: e, .skill(.skill1))
-        XCTAssertEqual(all.count, 1, "隕石の中心に立つ相手には雹が当たらない（隕石だけ）")
-        XCTAssertEqual(w.damage(to: e), w.mitigated(n.damage, .magic, on: e), accuracy: 1e-5)
-
-        // 雹の落ちる位置に立つ相手: 隕石 + その雹（向き east から 72° ずつ、偶数番は内側 0.9、奇数番は外側 1.2）
-        var v = SkillWorld()
-        let k2 = addOria(&v)
-        let spot = center + Vec2(T.s1Radius * T.hailRingInner, 0)   // k = 0 の雹の中心
-        let e2 = v.addDummyEnemy(at: spot)
-        XCTAssertTrue(v.cast(k2, .skill1, .point(center)))
-        v.run(seconds: 2)
-        let hits = damageEvents(v, to: e2, .skill(.skill1))
-        XCTAssertEqual(hits.count, 2, "隕石 + 雹 1 発")
-        XCTAssertEqual(hits[1].amount, v.mitigated(hail, .magic, on: e2), accuracy: 1e-6)
-        XCTAssertEqual(v.damage(to: e2), v.mitigated(n.damage + hail, .magic, on: e2), accuracy: 1e-5)
+        XCTAssertEqual(all.count, 1 + T.s1Hails, "隕石 + 雹 5 発")
+        for d in all.dropFirst() { XCTAssertEqual(d.amount, w.mitigated(hail, .magic, on: e), accuracy: 1e-6) }
+        XCTAssertEqual(w.damage(to: e), w.mitigated(n.damage + hail * Double(T.s1Hails), .magic, on: e), accuracy: 1e-5)
+        XCTAssertTrue(w.s.zones.allSatisfy { $0.done })
     }
 
-    func testHailScatterGeometry() {
-        // 雹は隕石の半径の 0.9 / 1.2 倍の輪の上、5 つが 72° ずつ
-        XCTAssertEqual(T.hailRingInner, 0.9)
-        XCTAssertEqual(T.hailRingOuter, 1.2)
+    /// 動画: 隕石の 14〜15 コマ後に最初の雹、5 発が 17 コマに並ぶ（0.15 秒おき）。雹は隕石と同じ中心・半径の持続ゾーン 1 つ。
+    func testHailFallsOnTheMeteorCircleFiveTimesAtTheMeasuredTimes() {
         var w = SkillWorld()
         let k = addOria(&w)
         let center = skillArena + Vec2(500, 0)
+        let e = w.addDummyEnemy(at: center + Vec2(0, 120))
         XCTAssertTrue(w.cast(k, .skill1, .point(center)))
-        w.tick()
-        let hailZones = w.log.compactMap { e -> Vec2? in
-            if case .zoneCreated(_, _, _, let visual, let c, _, _, _, _) = e, visual == Kit_H031.passiveVisual(w.ctx) { return c }
-            return nil
-        }
-        XCTAssertEqual(hailZones.count, T.s1Hails)
-        for (idx, c) in hailZones.enumerated() {
-            let ring = T.s1Radius * (idx % 2 == 0 ? T.hailRingInner : T.hailRingOuter)
-            XCTAssertEqual(c.distance(to: center), ring, accuracy: 1e-6, "雹 \(idx)")
-            XCTAssertGreaterThan(c.distance(to: center), T.hailRadius, "中心は雹の半径の外 = 中心に立つ相手に当たらない")
-        }
+        let hailZones = w.s.zones.filter { $0.visual == Kit_H031.passiveVisual(w.ctx) }
+        XCTAssertEqual(hailZones.count, 1, "雹は 1 つのゾーンが 5 回当たる")
+        XCTAssertEqual(hailZones.first?.center, center)
+        XCTAssertEqual(hailZones.first?.radius, Self.measuredMeteorRadius)
+        let ticks = hitTicks(&w, e, .skill(.skill1), ticks: 60)
+        XCTAssertEqual(ticks, [Self.meteorTick] + Self.hailTicks, "隕石 17 tick、雹 31 / 36 / 40 / 45 / 49 tick")
+        // 雹は減速を掛け直さない（動画: 移動速度の表示は隕石から 1 秒 + 表示の遅れで戻った）
+        let ccs = w.log.filter { if case .ccApplied(let id, .slow, _) = $0 { return id == w.id(e) } else { return false } }
+        XCTAssertLessThanOrEqual(ccs.count, 1)
+        XCTAssertNil(status(w, e, .slow, tag: T.s1SlowTag), "隕石から 1 秒で解けたまま（49 tick > 17 + 30）")
     }
 
     func testHailSlowCutsMovementSpeedByForty() {
@@ -447,14 +465,17 @@ final class Kit_H031Tests: XCTestCase {
         let k = addOria(&w)
         let center = skillArena + Vec2(500, 0)
         let inside = w.addDummyEnemy(at: center + Vec2(0, 120))
-        let edge = w.addDummyEnemy(at: center + Vec2(215, 0), hero: "H004")
+        // 縁（中心から 191 + 55 = 246 まで届く）: 動画では縁の 1.85 の的も隕石と雹を全部受けた
+        let edge = w.addDummyEnemy(at: center + Vec2(240, 0), hero: "H004")
+        let justOut = w.addDummyEnemy(at: center + Vec2(-252, 0), hero: "H006")
         let outside = w.addDummyEnemy(at: center + Vec2(0, -400), hero: "H005")
         XCTAssertTrue(w.cast(k, .skill1, .point(center)))
         w.run(seconds: 2)
         XCTAssertEqual(damageEvents(w, to: inside, .skill(.skill1)).first.map { $0.amount },
                        w.mitigated(w.numbers(k, .skill1).damage, .magic, on: inside))
-        XCTAssertGreaterThanOrEqual(damageEvents(w, to: edge, .skill(.skill1)).count, 1, "縁にも隕石は届く")
-        XCTAssertLessThan(damageEvents(w, to: edge, .skill(.skill1)).count, 1 + T.s1Hails, "縁の相手は雹を全部は受けない")
+        XCTAssertEqual(damageEvents(w, to: inside, .skill(.skill1)).count, 1 + T.s1Hails)
+        XCTAssertEqual(damageEvents(w, to: edge, .skill(.skill1)).count, 1 + T.s1Hails, "縁の相手も隕石 + 雹 5 発")
+        XCTAssertEqual(w.damage(to: justOut), 0, "円の外は隕石も雹も無い")
         XCTAssertEqual(w.damage(to: outside), 0)
         XCTAssertNil(status(w, outside, .slow))
     }
@@ -464,10 +485,10 @@ final class Kit_H031Tests: XCTestCase {
         let k = addOria(&w)
         let far = w.addDummyEnemy(at: skillArena + Vec2(1100, 0))
         XCTAssertTrue(w.cast(k, .skill1, .point(skillArena + Vec2(2000, 0))))
-        // 射程 650 に丸められるので 1100 先は隕石の円（650 + 170 + 55 = 875）も、雹の輪（650 + 204 + 85 + 55 ≒ 995）も外
+        // 射程 556 に丸められるので 1100 先は隕石と雹の円（556 + 191 + 55 = 802）の外
         w.run(seconds: 2)
         XCTAssertEqual(w.damage(to: far), 0)
-        XCTAssertEqual(w.castEvents.last?.target.x ?? 0, skillArena.x + 650, accuracy: 1e-6)
+        XCTAssertEqual(w.castEvents.last?.target.x ?? 0, skillArena.x + Self.measuredS1Range, accuracy: 1e-6)
 
         var v = SkillWorld()
         let k2 = addOria(&v)
@@ -479,18 +500,17 @@ final class Kit_H031Tests: XCTestCase {
 
     // MARK: - S2 霜風と凍結エリア
 
-    /// 公式（原本）: 扇の霜風はダメージ、範囲の末端の凍結エリアの中の敵がフリーズ。扇の手前（凍結エリアの外）の敵はダメージだけ
-    /// （以前の「撃った位置から 200 未満は凍らない、200 以上は扇の霜風で凍る」は外した）。
+    /// 公式（原本）: 扇の霜風はダメージ、範囲の末端の凍結エリアの中の敵がフリーズ。扇の手前（凍結エリアの外）の敵はダメージだけ。
+    /// 動画: 霜風のダメージ（17 コマ）では凍らず、5 コマ後の凍結エリアの 1 回目（23 コマ）で「凍結」。凍結エリア = 扇の 2.9〜6.0。
     func testBreezeConeDamagesAndOnlyEnemiesInTheFrozenAreaFreeze() throws {
         var w = SkillWorld()
         let k = addOria(&w)
         let inArea = w.addDummyEnemy(at: skillArena + Vec2(500, 0))
         let near = w.addDummyEnemy(at: skillArena + Vec2(120, 0), hero: "H004")
-        // 扇の中（約 27°）だが凍結エリア（中心 540・半径 190 + 55）の外
-        let mid = w.addDummyEnemy(at: skillArena + Vec2(250, 130), hero: "H006")
+        // 扇の中（約 17°）だが凍結エリア（術者から 290 より先）の外（209 + 55 < 290）
+        let mid = w.addDummyEnemy(at: skillArena + Vec2(200, 60), hero: "H006")
         let side = w.addDummyEnemy(at: skillArena + Vec2(400, 420), hero: "H005")
-        let areaReach = areaRadius + Balance.heroRadius
-        XCTAssertGreaterThan(w.s.units[mid].pos.distance(to: skillArena + Vec2(Self.areaCenter, 0)), areaReach)
+        XCTAssertLessThan(w.s.units[mid].pos.distance(to: skillArena) + Balance.heroRadius, Self.areaInner)
         let n = w.numbers(k, .skill2)
         let tick = Kit_H031.patchTotal(rank: n.rank, stats: w.s.units[k].stats) / Double(T.s2PatchTicks)
         XCTAssertTrue(w.cast(k, .skill2, .direction(Self.east)))
@@ -498,17 +518,19 @@ final class Kit_H031Tests: XCTestCase {
         XCTAssertEqual(w.castEvents.last?.shape, .fan)
         XCTAssertEqual(w.castEvents.last?.halfAngle ?? 0, T.s2HalfAngle, accuracy: 1e-12)
 
-        w.run(seconds: 0.2)
-        XCTAssertTrue(w.damageEvents.isEmpty, "霜風が広がるまでの遅れがある")
-        XCTAssertNil(status(w, inArea, .stun))
-        w.run(seconds: 0.2)   // 0.4 秒
+        w.tick(Self.breezeTick - 1)
+        XCTAssertTrue(w.damageEvents.isEmpty, "霜風が当たるまでの遅れがある（17 コマ）")
+        w.tick()
+        XCTAssertEqual(damageEvents(w, to: inArea, .skill(.skill2)).count, 1, "霜風")
+        XCTAssertNil(status(w, inArea, .stun), "霜風では凍らない（動画: 霜風のコマでは凍結の表示が出ない）")
+        w.tick(Self.areaTicks[0] - Self.breezeTick)
         let hit = damageEvents(w, to: inArea, .skill(.skill2))
         XCTAssertEqual(hit.count, 2, "霜風 + 凍結エリアの 1 回目")
         XCTAssertEqual(hit[0].amount, w.mitigated(n.damage, .magic, on: inArea), accuracy: 1e-6)
         XCTAssertEqual(hit[1].amount, w.mitigated(tick, .magic, on: inArea), accuracy: 1e-6)
         let freeze = try XCTUnwrap(status(w, inArea, .stun, tag: T.freezeTag), "凍結エリアの中の敵は凍結")
-        XCTAssertGreaterThan(freeze.remaining, 0.85)
-        XCTAssertLessThanOrEqual(freeze.remaining, 1.0)
+        XCTAssertGreaterThan(freeze.remaining, 0.95)
+        XCTAssertLessThanOrEqual(freeze.remaining, 1.0 + 1e-9)
         XCTAssertFalse(w.s.units[inArea].canAct)
         // 扇の手前（凍結エリアの外）はダメージだけ
         for e in [near, mid] {
@@ -529,81 +551,75 @@ final class Kit_H031Tests: XCTestCase {
         XCTAssertEqual(freezeNotices(w, mid), 0)
     }
 
-    /// 凍結エリアの縁（中心 = 術者から 540、半径 190 + 対象の半径 55）で凍るかが決まる。
-    /// エリアは扇の端（650 + 55）より先まで届き、扇の外でもエリアの中なら凍る（霜風のダメージは無く、エリアのダメージだけ）。
+    /// 凍結エリア = 扇の先の半分（術者から 290〜602、扇と同じ角度）。内側の縁は「距離 + 対象の半径 55 が 290 以上」、外側・左右は扇と同じ。
+    /// 内側の欠けた所の敵は霜風だけ受けて凍らない。扇の外（先・横）は何も無い。
     func testFrozenAreaEdgesDecideWhoFreezes() {
         var w = SkillWorld()
         let k = addOria(&w)
-        let c = skillArena + Vec2(Self.areaCenter, 0)
-        let reach = areaRadius + Balance.heroRadius
-        let justIn = w.addDummyEnemy(at: c + Vec2(-200, 130))                         // 中心から 238.5
-        let justOut = w.addDummyEnemy(at: c + Vec2(-200, -150), hero: "H004")         // 中心から 250（扇の中）
-        let beyondCone = w.addDummyEnemy(at: skillArena + Vec2(780, 0), hero: "H005") // 扇の外、中心から 240
-        let outside = w.addDummyEnemy(at: skillArena + Vec2(790, 150), hero: "H006")  // どちらの外
-        XCTAssertLessThan(w.s.units[justIn].pos.distance(to: c), reach)
-        XCTAssertGreaterThan(w.s.units[justOut].pos.distance(to: c), reach)
-        XCTAssertLessThan(w.s.units[beyondCone].pos.distance(to: c), reach)
-        XCTAssertGreaterThan(w.s.units[beyondCone].pos.distance(to: skillArena), T.s2Range + Balance.heroRadius)
+        let o = skillArena
+        let justIn = w.addDummyEnemy(at: o + Vec2(240, 0))                          // 240 + 55 = 295 ≥ 290
+        let justOut = w.addDummyEnemy(at: o + Vec2(225, 0), hero: "H004")           // 225 + 55 = 280 < 290（扇の中）
+        let farEdge = w.addDummyEnemy(at: o + Vec2(650, 0), hero: "H005")           // 扇の端 602 + 55 の内
+        let sideIn = w.addDummyEnemy(at: o + Vec2.fromAngle(30 * .pi / 180) * 450, hero: "H006")   // 辺の外 37 < 55
+        let beyond = w.addDummyEnemy(at: o + Vec2(670, 0), hero: "H007")            // 扇の端の外
+        let sideOut = w.addDummyEnemy(at: o + Vec2.fromAngle(36 * .pi / 180) * 450, hero: "H008")  // 辺の外 84 > 55
+        XCTAssertGreaterThan(w.s.units[beyond].pos.distance(to: o), T.s2Range + Balance.heroRadius)
         let n = w.numbers(k, .skill2)
         let tick = Kit_H031.patchTotal(rank: n.rank, stats: w.s.units[k].stats) / Double(T.s2PatchTicks)
         XCTAssertTrue(w.cast(k, .skill2, .direction(Self.east)))
-        w.run(seconds: 0.4)
-        XCTAssertNotNil(status(w, justIn, .stun, tag: T.freezeTag))
-        XCTAssertGreaterThan(w.damage(to: justOut, from: .skill(.skill2)), 0, "扇の霜風は当たる")
+        w.tick(Self.areaTicks[0])
+        for e in [justIn, farEdge, sideIn] {
+            XCTAssertNotNil(status(w, e, .stun, tag: T.freezeTag), "凍結エリアの中は凍る: \(w.s.units[e].pos)")
+            XCTAssertEqual(w.damage(to: e, from: .skill(.skill2)), w.mitigated(n.damage + tick, .magic, on: e), accuracy: 1e-6,
+                           "霜風 + 凍結エリアの 1 回目")
+        }
+        XCTAssertEqual(w.damage(to: justOut, from: .skill(.skill2)), w.mitigated(n.damage, .magic, on: justOut), accuracy: 1e-6,
+                       "内側の欠けた所は霜風だけ")
         XCTAssertNil(status(w, justOut, .stun))
-        XCTAssertNotNil(status(w, beyondCone, .stun, tag: T.freezeTag), "扇の外でも凍結エリアの中なら凍る")
-        XCTAssertEqual(w.damage(to: beyondCone, from: .skill(.skill2)), w.mitigated(tick, .magic, on: beyondCone), accuracy: 1e-6,
-                       "霜風は届かず、凍結エリアの 1 回目だけ")
-        XCTAssertEqual(w.damage(to: outside), 0)
-        XCTAssertNil(status(w, outside, .stun))
+        for e in [beyond, sideOut] {
+            XCTAssertEqual(w.damage(to: e), 0, "扇の外: \(w.s.units[e].pos)")
+            XCTAssertNil(status(w, e, .stun))
+        }
     }
 
-    func testFrozenAreaAtTheFarEndDealsItsTotalInFourTicks() {
+    /// 動画: 凍結エリアは霜風の 0.2 秒後（23 コマ）にでき、的の合計ダメージの表示が 4 コマおきに 3 回増えた（1 回 = 霜風の 1/3）。
+    func testFrozenAreaDealsItsTotalInThreeTicksAtTheMeasuredTimes() {
         var w = SkillWorld()
         let k = addOria(&w)
-        // 扇の外（射程 650 + 55 の先）だが凍結エリア（中心 540・半径 190 + 55）には入る
-        let patchOnly = w.addDummyEnemy(at: skillArena + Vec2(730, 0))
+        let e = w.addDummyEnemy(at: skillArena + Vec2(450, 0))
         let n = w.numbers(k, .skill2)
         XCTAssertTrue(w.cast(k, .skill2, .direction(Self.east)))
-        w.run(seconds: 3)
-        let ticks = damageEvents(w, to: patchOnly, .skill(.skill2))
-        XCTAssertEqual(ticks.count, T.s2PatchTicks)
+        let ticks = hitTicks(&w, e, .skill(.skill2), ticks: 60)
+        XCTAssertEqual(ticks, [Self.breezeTick] + Self.areaTicks, "霜風 17 tick、凍結エリア 23 / 27 / 31 tick")
         let total = Kit_H031.patchTotal(rank: n.rank, stats: w.s.units[k].stats)
-        for d in ticks { XCTAssertEqual(d.amount, w.mitigated(total / Double(T.s2PatchTicks), .magic, on: patchOnly), accuracy: 1e-6) }
-        XCTAssertEqual(freezeNotices(w, patchOnly), 1, "凍結エリアの中なので凍る（1 回だけ）")
-        // 凍結エリアの持続は 1.8 秒（0.3 秒の遅れのあと）
-        XCTAssertTrue(w.s.zones.allSatisfy { $0.done })
-
-        // 扇の中・凍結エリアの中の敵は、霜風 + エリアの合計を受ける
-        var v = SkillWorld()
-        let k2 = addOria(&v)
-        let e = v.addDummyEnemy(at: skillArena + Vec2(450, 0))
-        let n2 = v.numbers(k2, .skill2)
-        XCTAssertTrue(v.cast(k2, .skill2, .direction(Self.east)))
-        v.run(seconds: 3)
-        let patch2 = Kit_H031.patchTotal(rank: n2.rank, stats: v.s.units[k2].stats)
-        XCTAssertEqual(patch2, n2.damage, accuracy: 1e-9, "公式: 霜風と凍結エリアの合計は同じ表（1 : 1）")
-        XCTAssertEqual(v.damage(to: e), v.mitigated(n2.damage + patch2, .magic, on: e), accuracy: 1e-5)
+        let hits = damageEvents(w, to: e, .skill(.skill2))
+        for d in hits.dropFirst() {
+            XCTAssertEqual(d.amount, w.mitigated(total / Double(T.s2PatchTicks), .magic, on: e), accuracy: 1e-6)
+        }
+        XCTAssertEqual(freezeNotices(w, e), 1, "凍結エリアの中なので凍る（1 回だけ）")
+        XCTAssertTrue(w.s.zones.allSatisfy { $0.done }, "凍結エリアの当たりは 0.26 秒で終わる")
+        XCTAssertEqual(total, n.damage, accuracy: 1e-9, "公式: 霜風と凍結エリアの合計は同じ表（1 : 1）")
+        XCTAssertEqual(w.damage(to: e), w.mitigated(n.damage + total, .magic, on: e), accuracy: 1e-5)
     }
 
-    /// 凍結はエリアができた瞬間にエリア内にいる敵だけに 1 回（推測。持続の間の 4 回の当たりで掛け直さない）。
+    /// 凍結はエリアができた瞬間にエリア内にいる敵だけに 1 回（持続の間の 3 回の当たりで掛け直さない）。
     /// 後から入ってきた敵はダメージだけ受ける。
     func testFrozenAreaFreezesOnceWhenItFormsAndLateEntrantsOnlyTakeDamage() {
         var w = SkillWorld()
         let k = addOria(&w)
-        let early = w.addDummyEnemy(at: skillArena + Vec2(Self.areaCenter, 0))
-        let late = w.addDummyEnemy(at: skillArena + Vec2(Self.areaCenter, 600), hero: "H004")
+        let early = w.addDummyEnemy(at: skillArena + Vec2(450, 0))
+        let late = w.addDummyEnemy(at: skillArena + Vec2(450, 600), hero: "H004")
         XCTAssertTrue(w.cast(k, .skill2, .direction(Self.east)))
-        w.run(seconds: 0.4)
+        w.tick(Self.areaTicks[0])
         XCTAssertNotNil(status(w, early, .stun, tag: T.freezeTag))
         XCTAssertEqual(w.damage(to: late), 0)
         // エリアができた後に入ってくる
-        w.s.units[late].pos = skillArena + Vec2(Self.areaCenter, 150)
+        w.s.units[late].pos = skillArena + Vec2(450, 100)
         w.run(seconds: 2.0)
-        XCTAssertEqual(damageEvents(w, to: late, .skill(.skill2)).count, T.s2PatchTicks - 1, "残りの 3 回のダメージは受ける")
+        XCTAssertEqual(damageEvents(w, to: late, .skill(.skill2)).count, T.s2PatchTicks - 1, "残りの 2 回のダメージは受ける")
         XCTAssertEqual(freezeNotices(w, late), 0, "後から入った敵は凍らない")
         XCTAssertNil(status(w, late, .stun))
-        XCTAssertEqual(damageEvents(w, to: early, .skill(.skill2)).count, 1 + T.s2PatchTicks, "霜風 + エリア 4 回")
+        XCTAssertEqual(damageEvents(w, to: early, .skill(.skill2)).count, 1 + T.s2PatchTicks, "霜風 + エリア 3 回")
         XCTAssertEqual(freezeNotices(w, early), 1, "エリアの 2 回目以降で凍結を掛け直さない")
         XCTAssertNil(status(w, early, .stun), "1 秒で解けたまま")
     }
@@ -613,7 +629,7 @@ final class Kit_H031Tests: XCTestCase {
         let k = addOria(&w)
         let e = w.addDummyEnemy(at: skillArena + Vec2(450, 0), hero: "H004")
         XCTAssertTrue(w.cast(k, .skill2, .direction(Self.east)))
-        w.run(seconds: 0.4)
+        w.run(seconds: 0.8)
         XCTAssertTrue(w.s.units[e].has(.stun))
         XCTAssertFalse(SkillSystem.canCast(w.s, w.ctx, heroIndex: e, slot: .skill1), "凍結中は撃てない")
     }
@@ -642,9 +658,9 @@ final class Kit_H031Tests: XCTestCase {
         for t in [tower, ally] { w.s.units[t].visibleMask = Team.blue.visionBit | Team.red.visionBit }
         let hp = w.s.units[tower].hp
         XCTAssertTrue(w.cast(k, .skill2, .direction(Self.east)))
-        runWithTowers(&w, seconds: 0.4)
+        runWithTowers(&w, seconds: 0.8)
         let freeze = try XCTUnwrap(status(w, tower, .stun, tag: T.freezeTag), "凍結エリアの凍結はタワーにも効く")
-        XCTAssertGreaterThan(freeze.remaining, 0.85)
+        XCTAssertGreaterThan(freeze.remaining, 0.9)
         XCTAssertLessThanOrEqual(freeze.remaining, 1.0)
         XCTAssertFalse(w.s.units[tower].canAct)
         XCTAssertNil(w.s.units[tower].windupRemaining)
@@ -670,27 +686,30 @@ final class Kit_H031Tests: XCTestCase {
         XCTAssertFalse(w.s.units[tower].has(.slow))
     }
 
-    /// 扇の手前（凍結エリアの外）のタワーは凍らない。扇の外でも凍結エリアの中のタワーは凍る（ヒーローと同じ規則）。
+    /// 扇の手前（凍結エリアの内側の欠け）と扇の先の外のタワーは凍らない。凍結エリアの中のタワーは凍る（ヒーローと同じ規則。
+    /// タワーの半径 110 を足して見る）。
     func testOnlyTurretsInsideTheFrozenAreaFreeze() {
         var w = SkillWorld()
         let k = addOria(&w)
-        let near = w.addTower(team: .red, at: skillArena + Vec2(180, 0))
-        XCTAssertGreaterThan(w.s.units[near].pos.distance(to: skillArena + Vec2(Self.areaCenter, 0)),
-                             areaRadius + w.s.units[near].radius)
+        let near = w.addTower(team: .red, at: skillArena + Vec2(150, 0))
+        let beyond = w.addTower(team: .red, at: skillArena + Vec2(750, 0))
+        XCTAssertLessThan(150 + w.s.units[near].radius, Self.areaInner, "凍結エリアの内側の欠け")
+        XCTAssertGreaterThan(750 - w.s.units[beyond].radius, Self.measuredS2Range, "扇の先の外")
         XCTAssertTrue(w.cast(k, .skill2, .direction(Self.east)))
-        w.run(seconds: 0.4)
+        w.run(seconds: 0.8)
         XCTAssertNil(status(w, near, .stun))
+        XCTAssertNil(status(w, beyond, .stun))
         XCTAssertEqual(w.damage(to: near), 0)
 
         var v = SkillWorld()
         let k2 = addOria(&v)
-        let beyond = v.addTower(team: .red, at: skillArena + Vec2(800, 0))
-        XCTAssertGreaterThan(v.s.units[beyond].pos.distance(to: skillArena), T.s2Range + v.s.units[beyond].radius,
-                             "扇の外")
+        let inArea = v.addTower(team: .red, at: skillArena + Vec2(500, 0))
         XCTAssertTrue(v.cast(k2, .skill2, .direction(Self.east)))
-        v.run(seconds: 0.4)
-        XCTAssertNotNil(status(v, beyond, .stun, tag: T.freezeTag), "凍結エリアの中のタワーは凍る")
-        XCTAssertEqual(v.damage(to: beyond), 0)
+        v.tick(Self.areaTicks[0] - 1)
+        XCTAssertNil(status(v, inArea, .stun), "凍結エリアができる前は凍らない")
+        v.tick()
+        XCTAssertNotNil(status(v, inArea, .stun, tag: T.freezeTag), "凍結エリアの中のタワーは凍る")
+        XCTAssertEqual(v.damage(to: inArea), 0)
     }
 
     /// 氷河の砕けもタワーを凍らせる（発動時の魔力の秒数）。無敵の構造物（前段が残る内側のタワー）は凍らない。ダメージは無い。
@@ -705,9 +724,9 @@ final class Kit_H031Tests: XCTestCase {
         XCTAssertTrue(TowerSystem.isInvulnerable(w.s, w.ctx, index: inner))
         let expected = Kit_H031.glacierFreeze(abilityPower: w.s.units[k].stats.abilityPower)
         XCTAssertTrue(w.cast(k, .ultimate, .direction(Self.east)))
-        w.run(seconds: 1.1)
+        w.tick(Self.shatterTick - 1)
         XCTAssertNil(status(w, outer, .stun), "砕ける前は凍らない")
-        w.run(seconds: 0.2)   // 1.3 秒
+        w.tick()   // 45 tick = 1.5 秒
         let freeze = try XCTUnwrap(status(w, outer, .stun, tag: T.freezeTag), "砕けの凍結はタワーにも効く")
         XCTAssertEqual(freeze.duration, expected, accuracy: 1e-9)
         XCTAssertFalse(w.s.units[outer].canAct)
@@ -722,9 +741,11 @@ final class Kit_H031Tests: XCTestCase {
         var w = SkillWorld()
         let k = addOria(&w)
         let onPath = w.addDummyEnemy(at: skillArena + Vec2(300, 0))
-        let sideInArea = w.addDummyEnemy(at: skillArena + Vec2(450, 250), hero: "H004")
-        let farSide = w.addDummyEnemy(at: skillArena + Vec2(450, 520), hero: "H005")
-        let behind = w.addDummyEnemy(at: skillArena + Vec2(-250, 0), hero: "H006")
+        let sideInArea = w.addDummyEnemy(at: skillArena + Vec2(450, 250), hero: "H004")    // 氷河の横の縁 245 + 55 の内
+        let farSide = w.addDummyEnemy(at: skillArena + Vec2(450, 320), hero: "H005")       // 氷河の横の外
+        let behind = w.addDummyEnemy(at: skillArena + Vec2(-250, 0), hero: "H006")         // 後ろの端 −70 − 55 の外
+        let justBehind = w.addDummyEnemy(at: skillArena + Vec2(-100, 0), hero: "H007")     // 後ろの端の内（道も氷河も当たる）
+        let pathTip = w.addDummyEnemy(at: skillArena + Vec2(710, 0), hero: "H008")         // 道の先 680 + 55 の内、氷河の先 620 + 55 の外
         let n = w.numbers(k, .ultimate)
         let shatter = Kit_H031.shatterDamage(rank: n.rank, stats: w.s.units[k].stats)
         XCTAssertTrue(w.cast(k, .ultimate, .direction(Self.east)))
@@ -732,31 +753,37 @@ final class Kit_H031Tests: XCTestCase {
         XCTAssertEqual(w.castEvents.last?.shape, .wideLine)
         XCTAssertEqual(w.castEvents.last?.duration ?? 0, T.ultGlacierDelay, accuracy: 1e-12)
 
-        // 霜の道: 小さなダメージと 80% の鈍足
-        w.run(seconds: 0.4)
-        let path = damageEvents(w, to: onPath, .skill(.ultimate))
-        XCTAssertEqual(path.count, 1)
-        XCTAssertEqual(path[0].amount, w.mitigated(n.damage, .magic, on: onPath), accuracy: 1e-6)
-        let slow = try XCTUnwrap(status(w, onPath, .slow, tag: T.pathSlowTag))
-        XCTAssertEqual(slow.magnitude, 0.8, accuracy: 1e-12)
-        XCTAssertGreaterThan(slow.remaining, 0.8)
-        XCTAssertEqual(w.damage(to: sideInArea), 0, "道の外（幅 120 + 55 の外）は鈍足も無い")
+        // 霜の道（動画: 指を離してから 8 コマで道ができ、ほぼ一度に先まで当たる）: 小さなダメージと 80% の鈍足
+        w.tick(Self.pathTick - 1)
+        XCTAssertTrue(w.damageEvents.isEmpty, "道ができる前は当たらない")
+        w.tick()
+        for e in [onPath, justBehind, pathTip] {
+            let path = damageEvents(w, to: e, .skill(.ultimate))
+            XCTAssertEqual(path.count, 1, "道の上: \(w.s.units[e].pos)")
+            XCTAssertEqual(path.first?.amount ?? 0, w.mitigated(n.damage, .magic, on: e), accuracy: 1e-6)
+            let slow = try XCTUnwrap(status(w, e, .slow, tag: T.pathSlowTag))
+            XCTAssertEqual(slow.magnitude, 0.8, accuracy: 1e-12)
+            XCTAssertGreaterThan(slow.remaining, 1.15)
+        }
+        XCTAssertEqual(w.damage(to: sideInArea), 0, "道の外（半幅 48 + 55 の外）は鈍足も無い")
         XCTAssertNil(status(w, sideInArea, .slow))
 
         // 砕ける前
-        w.run(seconds: 0.7)   // 1.1 秒
+        w.tick(Self.shatterTick - 1 - Self.pathTick)
         XCTAssertEqual(damageEvents(w, to: onPath, .skill(.ultimate)).count, 1)
         XCTAssertNil(status(w, onPath, .stun))
-        // 砕ける（1.2 秒）
-        w.run(seconds: 0.2)   // 1.3 秒
-        for e in [onPath, sideInArea] {
+        // 砕ける（動画: 指を離してから 45 コマ）
+        w.tick()
+        for e in [onPath, sideInArea, justBehind] {
             let hits = damageEvents(w, to: e, .skill(.ultimate))
             XCTAssertEqual(hits.last?.amount ?? 0, w.mitigated(shatter, .magic, on: e), accuracy: 1e-6)
             let freeze = try XCTUnwrap(status(w, e, .stun, tag: T.freezeTag))
-            XCTAssertGreaterThan(freeze.remaining, 0.85)
-            XCTAssertLessThanOrEqual(freeze.remaining, 1.0)
+            XCTAssertGreaterThan(freeze.remaining, 0.95)
+            XCTAssertLessThanOrEqual(freeze.remaining, 1.0 + 1e-9)
             XCTAssertFalse(w.s.units[e].canAct)
         }
+        XCTAssertEqual(damageEvents(w, to: pathTip, .skill(.ultimate)).count, 1, "氷河の先の外は道だけ")
+        XCTAssertNil(status(w, pathTip, .stun))
         XCTAssertEqual(w.damage(to: farSide), 0)
         XCTAssertEqual(w.damage(to: behind), 0)
         // 1 秒後に解ける
@@ -775,7 +802,7 @@ final class Kit_H031Tests: XCTestCase {
         w.s.units[k].stats.abilityPower = 250
         XCTAssertTrue(w.cast(k, .ultimate, .direction(Self.east)))
         w.s.units[k].stats.abilityPower = 0   // 砕けるまでに魔力が変わっても、撃った時点の値
-        w.run(seconds: 1.3)
+        w.tick(Self.shatterTick + 3)
         let freeze = try XCTUnwrap(status(w, e, .stun, tag: T.freezeTag))
         XCTAssertGreaterThan(freeze.remaining, 1.35)
         XCTAssertLessThanOrEqual(freeze.remaining, 1.5)
@@ -789,7 +816,7 @@ final class Kit_H031Tests: XCTestCase {
         CombatSystem.addStatus(&w.s, targetIndex: immune, StatusEffect(kind: .ccImmune, duration: 5))
         CombatSystem.addStatus(&w.s, targetIndex: guarded, StatusEffect(kind: .invulnerable, duration: 5))
         XCTAssertTrue(w.cast(k, .ultimate, .direction(Self.east)))
-        w.run(seconds: 1.4)
+        w.run(seconds: 1.7)
         XCTAssertNil(status(w, immune, .stun))
         XCTAssertNil(status(w, immune, .slow))
         XCTAssertGreaterThan(w.damage(to: immune), 0, "ダメージは入る")
@@ -803,7 +830,7 @@ final class Kit_H031Tests: XCTestCase {
         let ally = w.addHero("H004", team: .blue, at: skillArena + Vec2(300, 0))
         let e = w.addDummyEnemy(at: skillArena + Vec2(400, 0))
         XCTAssertTrue(w.cast(k, .ultimate, .direction(Self.east)))
-        w.run(seconds: 1.4)
+        w.run(seconds: 1.7)
         XCTAssertEqual(w.damage(to: ally), 0)
         XCTAssertGreaterThan(w.damage(to: e), 0)
     }
@@ -1047,30 +1074,30 @@ final class Kit_H031Tests: XCTestCase {
     func testOverlappingFrozenAreasInPracticeOnlyFreezeOnTheirOwnFormation() {
         var p = SkillWorld(noCooldowns: true)
         let pk = addOria(&p)
-        let e = p.addDummyEnemy(at: skillArena + Vec2(Self.areaCenter, 0))
-        // 凍結エリアは撃ってから 9 tick（0.3 秒）でできて、以降 15 tick（0.5 秒）ごとに当たる（9 / 24 / 39 / 54 tick）
+        let e = p.addDummyEnemy(at: skillArena + Vec2(450, 0))
+        // 凍結エリアは撃ってから 23 tick（0.77 秒）でできて、以降 4 tick（0.13 秒）ごとに当たる（23 / 27 / 31 tick）
         XCTAssertTrue(p.cast(pk, .skill2, .direction(Self.east)))
-        p.tick(12)
-        XCTAssertEqual(freezeNotices(p, e), 1)
-        p.tick(33)   // 45 tick: 1 つ目の凍結（30 tick）は解けた
-        XCTAssertNil(status(p, e, .stun))
-        // 北へ撃った 2 つ目のエリアはこの敵を含まない。1 つ目の 4 回目の当たり（54 tick）と同じ tick にできても凍らせない
+        // 8 tick 後に北へ撃った 2 つ目のエリアはこの敵を含まない。1 つ目の 3 回目の当たり（31 tick）と同じ tick にできても凍らせない
+        p.tick(8)
         XCTAssertTrue(p.cast(pk, .skill2, .direction(Vec2(0, 1))))
-        p.tick(30)
-        XCTAssertGreaterThanOrEqual(damageEvents(p, to: e, .skill(.skill2)).count, 1 + T.s2PatchTicks)
+        p.tick(17)   // 25 tick
+        XCTAssertEqual(freezeNotices(p, e), 1)
+        p.tick(35)   // 60 tick: 1 つ目の凍結（23〜53 tick）は解けた
+        XCTAssertNil(status(p, e, .stun))
+        XCTAssertEqual(damageEvents(p, to: e, .skill(.skill2)).count, 1 + T.s2PatchTicks)
         XCTAssertEqual(freezeNotices(p, e), 1, "先のエリアの 2 回目以降・別のエリアの発動では凍らない")
         // 東へもう一度撃てば、新しいエリアができた瞬間に凍る
         XCTAssertTrue(p.cast(pk, .skill2, .direction(Self.east)))
-        p.tick(12)
+        p.tick(Self.areaTicks[0])
         XCTAssertEqual(freezeNotices(p, e), 2)
     }
 
     func testStunAfterCastDoesNotCancelTheFallingIceAndFrostPatch() {
         var w = SkillWorld()
         let k = addOria(&w)
-        // 隕石の中心から雹の輪（0.9 倍）の位置 = k = 0 の雹が降る場所に立つ
+        // 隕石の円の中・凍結エリアの中・霜の道の上・氷河の中に立つ
         let center = skillArena + Vec2(450, 0)
-        let e = w.addDummyEnemy(at: center + Vec2(T.s1Radius * T.hailRingInner, 0))
+        let e = w.addDummyEnemy(at: center + Vec2(80, 0))
         XCTAssertTrue(w.cast(k, .skill1, .point(center)))
         XCTAssertTrue(w.cast(k, .skill2, .direction(Self.east)))
         XCTAssertTrue(w.cast(k, .ultimate, .direction(Self.east)))
@@ -1078,9 +1105,9 @@ final class Kit_H031Tests: XCTestCase {
         CombatSystem.addStatus(&w.s, targetIndex: k, StatusEffect(kind: .stun, duration: 1.5))
         w.run(seconds: 2.5)
         let s1 = damageEvents(w, to: e, .skill(.skill1))
-        XCTAssertEqual(s1.count, 2, "撃った隕石と雹はスタンでは消えない（隕石 + 立っている場所に降る雹 1 発）")
-        XCTAssertFalse(damageEvents(w, to: e, .skill(.skill2)).isEmpty)
-        XCTAssertFalse(damageEvents(w, to: e, .skill(.ultimate)).isEmpty)
+        XCTAssertEqual(s1.count, 1 + T.s1Hails, "撃った隕石と雹はスタンでは消えない")
+        XCTAssertEqual(damageEvents(w, to: e, .skill(.skill2)).count, 1 + T.s2PatchTicks)
+        XCTAssertEqual(damageEvents(w, to: e, .skill(.ultimate)).count, 2, "霜の道（スタンでは取り消さないタイマー）+ 氷河の砕け")
     }
 
     func testDeathAfterCastLetsTheFrozenAreaAndGlacierWorkButResetsTheKit() {
@@ -1099,13 +1126,14 @@ final class Kit_H031Tests: XCTestCase {
         XCTAssertEqual(w.kit(k).oriaSaves, 0)
         XCTAssertEqual(w.kit(k).oriaPrideCooldown, 40, "再発動までの残りは残る")
         XCTAssertEqual(w.kit(k).oriaAreaFreeze, areaFreeze, "遅れて働く凍結エリアの凍結秒は残る")
-        w.run(seconds: 0.3)   // 撃ってから約 0.37 秒: 凍結エリアができている
+        XCTAssertTrue(w.kit(k).scheduled.isEmpty, "霜の道のタイマーは死亡で消える（道は出ない）")
+        w.tick(Self.areaTicks[0] - 2)   // 撃ってから 23 tick: 凍結エリアができている
         XCTAssertFalse(damageEvents(w, to: e, .skill(.skill2)).isEmpty)
         XCTAssertNotNil(status(w, e, .stun, tag: T.freezeTag), "術者が倒れても凍結エリアは凍らせる")
         XCTAssertEqual(freezeNotices(w, e), 1)
-        w.run(seconds: 1.0)
+        w.tick(Self.shatterTick - Self.areaTicks[0])
         // 撃った後の氷は術者が倒れても残る（氷河の砕けも）
-        XCTAssertFalse(damageEvents(w, to: e, .skill(.ultimate)).isEmpty)
+        XCTAssertEqual(damageEvents(w, to: e, .skill(.ultimate)).count, 1, "氷河の砕けだけ")
         XCTAssertNotNil(status(w, e, .stun, tag: T.freezeTag), "氷河の凍結")
         XCTAssertFalse(SkillSystem.canCast(w.s, w.ctx, heroIndex: k, slot: .skill1))
         XCTAssertFalse(w.cast(k, .skill1, .direction(Self.east)), "死亡中は撃てない")
@@ -1148,11 +1176,11 @@ final class Kit_H031Tests: XCTestCase {
 
     // MARK: - ボット
 
-    /// ボットのスキル2 は相手が凍結エリアに入る距離（術者から 540 ± 190、遠い側は 30 の余裕）のときだけ撃つ。
+    /// ボットのスキル2 は相手が凍結エリアに入る距離（術者から 290〜602 = 扇の先の半分）のときだけ撃つ。
     func testBotCastsFrostyBreezeOnlyWhenTheTargetIsInTheFrozenAreaRange() {
         let kit = Kit_H031()
         let t2 = SkillCatalog.targeting(for: skill(.skill2), hero: def)
-        for (dx, expectCast) in [(200.0, false), (340, false), (360, true), (540, true), (690, true), (720, false)] {
+        for (dx, expectCast) in [(200.0, false), (280, false), (300, true), (450, true), (600, true), (620, false)] {
             var w = SkillWorld()
             let k = addOria(&w)
             let e = w.addDummyEnemy(at: skillArena + Vec2(dx, 0))
@@ -1219,7 +1247,7 @@ final class Kit_H031Tests: XCTestCase {
 
         var (b, kb) = makeScriptWorld()
         runScript(&b, k: kb, from: 0, to: 3)
-        // 途中（霜の道は飛翔中・氷河は育成中・凍結エリアも生きている）: 奥義を撃った直後
+        // 途中（氷河は育成中・凍結エリアも生きている）: 奥義を撃った直後
         script(&b, k: kb, step: 2)
         b.tick(4)
         XCTAssertTrue(b.s.zones.contains { !$0.done && !$0.triggered }, "氷河の予告中にシリアライズする")
@@ -1245,7 +1273,7 @@ final class Kit_H031Tests: XCTestCase {
         let kf = addOria(&f)
         let ef = f.addDummyEnemy(at: skillArena + Vec2(500, 0))
         XCTAssertTrue(f.cast(kf, .skill2, .direction(Self.east)))
-        f.tick(8)
+        f.tick(Self.areaTicks[0] - 1)
         var g = f
         g.s = try JSONDecoder().decode(SimState.self, from: try JSONEncoder().encode(f.s))
         f.run(seconds: 2.5)
@@ -1253,6 +1281,22 @@ final class Kit_H031Tests: XCTestCase {
         XCTAssertEqual(g.s.stateHash(), f.s.stateHash())
         XCTAssertEqual(freezeNotices(f, ef), 1)
         XCTAssertEqual(freezeNotices(g, ef), 1)
+
+        // 霜の道のタイマー待ち（撃ってから 8 tick より前）にシリアライズしても、道の当たりは同じ
+        var u = SkillWorld()
+        let ku = addOria(&u)
+        let eu = u.addDummyEnemy(at: skillArena + Vec2(400, 0))
+        XCTAssertTrue(u.cast(ku, .ultimate, .direction(Self.east)))
+        u.tick(4)
+        XCTAssertEqual(u.kit(ku).scheduled.map(\.code), [T.Code.path])
+        var uu = u
+        uu.s = try JSONDecoder().decode(SimState.self, from: try JSONEncoder().encode(u.s))
+        XCTAssertEqual(uu.s.stateHash(), u.s.stateHash())
+        u.run(seconds: 2)
+        uu.run(seconds: 2)
+        XCTAssertEqual(uu.s.stateHash(), u.s.stateHash())
+        XCTAssertEqual(damageEvents(u, to: eu, .skill(.ultimate)).count, 2, "道 + 砕け")
+        XCTAssertEqual(damageEvents(uu, to: eu, .skill(.ultimate)).count, 2)
 
         // 凍結中（回復の tick が残っている）でも同じ
         var c = SkillWorld()
@@ -1338,7 +1382,8 @@ final class Kit_H031Tests: XCTestCase {
                     XCTAssertTrue(k.timers.allSatisfy { $0 >= 0 && $0.isFinite })
                     XCTAssertTrue(k.reals.allSatisfy { $0.isFinite })
                     XCTAssertTrue(k.windows.allSatisfy { !$0.isOpen }, "再使用の窓は使わない")
-                    XCTAssertTrue(k.scheduled.isEmpty, "遅延タイマーは使わない")
+                    XCTAssertTrue(k.scheduled.allSatisfy { $0.code == T.Code.path && !$0.interruptible },
+                                  "遅延タイマーは霜の道（0.26 秒）だけ")
                     XCTAssertNil(k.sweep)
                     pride = max(pride, k.oriaSaves)
                 }

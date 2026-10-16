@@ -322,6 +322,11 @@ public struct AreaZone: Codable, Hashable, Sendable, Identifiable {
     public var visual: String
     /// 単発ヒット済みユニット（持続ゾーンでは毎 tick 再判定のため未使用）。
     public var hitIDs: [EntityID]
+    /// 0 より大きければ、中心からこの距離より内側（対象の半径を足しても届かない対象）には当たらない
+    /// （扇の先の帯など。キット層。nil = 内側も当たる）。
+    public var innerRadius: Double?
+    /// true なら線分（.line）の両端を丸めない長方形にする（center から direction へ length、半幅 radius。キット層。nil = 丸い端）。
+    public var squareEnds: Bool?
 
     public init(id: EntityID, ownerID: EntityID, team: Team, center: Vec2, radius: Double,
                 shape: ZoneShape = .circle, delay: Double, duration: Double = 0, tickInterval: Double = 0.5,

@@ -2,7 +2,8 @@ import Foundation
 
 // 担当: core-combat
 // 地面の範囲効果: 予告（delay）→ 発動 → 持続中は tickInterval 毎に再適用。
-// 形状は円 / 扇形 / 線分（いずれも対象の半径を含めて判定）。視界に関係なく当たり、構造物には当たらない
+// 形状は円 / 扇形 / 線分（いずれも対象の半径を含めて判定）。キット層は内側を欠いた形（innerRadius）と端の四角い線分（squareEnds）も使う
+// （contains(zone:)）。視界に関係なく当たり、構造物には当たらない
 // （例外: HitPayload.kitHitsStructures のゾーンは、範囲内の敵の構造物にキットの onHit だけを呼ぶ）。
 // 所有者が死亡・消滅しても発動・持続は続く（followsOwner は生存中のみ追従）。
 
@@ -12,12 +13,16 @@ public enum ZoneSystem {
     public static func spawn(_ s: inout SimState, ownerIndex i: Int, center: Vec2, radius: Double,
                              shape: ZoneShape = .circle, delay: Double, duration: Double = 0,
                              tickInterval: Double = 0.5, followsOwner: Bool = false,
-                             followsTargetID: EntityID? = nil, payload: HitPayload, visual: String) -> EntityID {
+                             followsTargetID: EntityID? = nil, innerRadius: Double? = nil, squareEnds: Bool = false,
+                             payload: HitPayload, visual: String) -> EntityID {
         let id = s.allocateID()
-        let z = AreaZone(id: id, ownerID: s.units[i].id, team: s.units[i].team, center: center, radius: radius,
+        var z = AreaZone(id: id, ownerID: s.units[i].id, team: s.units[i].team, center: center, radius: radius,
                          shape: shape, delay: delay, duration: duration, tickInterval: tickInterval,
                          followsOwner: followsOwner, followsTargetID: followsTargetID, payload: payload,
                          visual: visual)
+        // 指定の無いゾーンは nil のまま（JSON・状態の比較は以前と同じ）
+        if let innerRadius, innerRadius > 0 { z.innerRadius = innerRadius }
+        if squareEnds { z.squareEnds = true }
         s.zones.append(z)
         s.emit(.zoneCreated(zoneID: id, ownerID: s.units[i].id, team: s.units[i].team, visual: visual, center: center,
                             radius: radius, delay: delay, duration: duration,
@@ -81,7 +86,7 @@ public enum ZoneSystem {
             let r = s.units[i].radius
             let reach = bounds.radius + r
             guard pos.distanceSquared(to: bounds.center) <= reach * reach else { continue }
-            guard contains(shape: z.shape, center: z.center, radius: z.radius, point: pos, pointRadius: r) else { continue }
+            guard contains(zone: z, point: pos, pointRadius: r) else { continue }
             targets.append(i)
         }
         // キット層: 構造物にはキットの onHit だけを呼ぶ（HitPayload.kitHitsStructures。ダメージ・CC は与えない）
@@ -151,5 +156,21 @@ public enum ZoneSystem {
             let end = center + dir * max(0, length)
             return distancePointToSegment(point, center, end) <= radius + pointRadius
         }
+    }
+
+    /// 半径 pointRadius の円（ユニット）がゾーン z と重なるか。形状（contains(shape:)）に、キット層の 2 つを足す:
+    /// - innerRadius: 中心からの距離 + 対象の半径がこれ未満の対象は除く（扇の先の帯 = 内側の欠けた扇など）
+    /// - squareEnds: .line の両端を丸めない長方形（向きに沿って −対象の半径〜length + 対象の半径、横は radius + 対象の半径）
+    public static func contains(zone z: AreaZone, point: Vec2, pointRadius: Double) -> Bool {
+        if let inner = z.innerRadius, inner > 0, point.distance(to: z.center) + pointRadius < inner { return false }
+        if z.squareEnds == true, case .line(let direction, let length) = z.shape {
+            let dir = direction.normalized
+            guard dir != .zero else { return false }
+            let rel = point - z.center
+            let along = rel.dot(dir)
+            let lateral = abs(rel.x * dir.y - rel.y * dir.x)
+            return along >= -pointRadius && along <= max(0, length) + pointRadius && lateral <= z.radius + pointRadius
+        }
+        return contains(shape: z.shape, center: z.center, radius: z.radius, point: point, pointRadius: pointRadius)
     }
 }
