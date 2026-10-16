@@ -1088,7 +1088,12 @@ struct StageLayout {
         if fine {
             for j in 1...3 {
                 let t = Float(j) / 4
-                rings.append((0..<n).map { k in top[k] - normals[k] * (max(0, smoothHalf[k] - runs[k] - lips[k]) * 0.8 * t) })
+                let ring: [SIMD2<Float>] = (0..<n).map { k in
+                    let remaining: Float = max(0, smoothHalf[k] - runs[k] - lips[k])
+                    let inset: Float = remaining * 0.8 * t
+                    return top[k] - normals[k] * inset
+                }
+                rings.append(ring)
             }
         }
         var use = rings.count - 1
