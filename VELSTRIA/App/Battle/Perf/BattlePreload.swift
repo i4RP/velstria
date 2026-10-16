@@ -25,6 +25,8 @@ enum BattlePreload {
             GroundTextureCache.prefetch(map: map, size: render.quality.groundTextureSize, colorblind: render.colorblind)
         }
         if MaterialPrograms.prewarmsOnThisDevice { MaterialPrograms.prewarm() }
+        // スキル演出の加算・流れる模様のシェーダー（FXShaders.metal）
+        if FXPrograms.prewarmsOnThisDevice { FXPrograms.prewarm() }
         // タワー・Core・ミニオンの生成 3D モデル（USDZ の読み込みはメインスレッドの外。BattleRenderer が世界を作る前に待つ）
         StructureAssets.prefetch()
         if PostProcessSettings.preset(render.quality.level).enabled { PostProcessShaderCache.prewarm() }

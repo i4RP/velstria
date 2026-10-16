@@ -107,7 +107,14 @@ final class FXCapture {
             start(controller: controller, arView: arView, quality: quality)
             step = .place(index: 0)
         case .place(let k):
-            guard k < slots.count else { step = .finish; return }
+            guard k < slots.count else {
+                let player = world.skillDirector.player
+                note("FXPrograms ready=\(FXPrograms.isReady) failed=\(FXPrograms.failed) \(FXPrograms.failure ?? "")"
+                     + " buildMs=\(FXPrograms.buildMs.map { String(Int($0)) } ?? "-") fallbacks=\(player.materials.fallbacks)"
+                     + " sheetsMissing=\(player.sheets.missing.map(\.rawValue).sorted())")
+                step = .finish
+                return
+            }
             guard place(controller: controller) else { note("人形が見つからない"); step = .finish; return }
             step = .settle(index: k, until: s.time + 1.6)
         case .settle(let k, let until):
@@ -237,7 +244,7 @@ final class FXCapture {
         for r: Float in [3, 6] {
             var m = UnlitMaterial(applyPostProcessToneMap: false)
             m.color = .init(tint: UIColor(red: 0, green: 1, blue: 1, alpha: 1), texture: .init(tex))
-            m.blending = .transparent(opacity: 1)
+            m.blending = .transparent(opacity: .init(floatLiteral: 1))
             m.writesDepth = false
             // 画像の輪は一辺の 0.48 倍の半径に描くので、板の一辺を 2r / 0.96 にすると輪の半径がちょうど r になる
             let side = 2 * r / 0.96

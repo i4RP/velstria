@@ -328,6 +328,12 @@ final class BattleRenderer {
     /// 幕を上げる前に揃っていてほしいもの。
     private func warmupGates() -> [WarmupScheduler.Gate] {
         var gates = [WarmupScheduler.Gate("materialPrograms") { MaterialPrograms.isReadyForWarmup }]
+        if FXPrograms.prewarmsOnThisDevice {
+            // スキル演出の加算・模様の Program を待ち、出来たら幕の前に材質を作り切る（作れなければ従来の材質で代える）
+            gates.append(WarmupScheduler.Gate("fxPrograms") { [weak self] in
+                FXPrograms.isSettled && (self?.world?.skillDirector.player.prewarmShaded() ?? true)
+            })
+        }
         #if !targetEnvironment(simulator)
         // シミュレータでは renderCallbacks.postProcess が呼ばれないため待たない
         let post = post

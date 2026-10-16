@@ -692,4 +692,178 @@ final class SkillFXTests: XCTestCase {
         let data = try JSONEncoder().encode(s)
         XCTAssertEqual(try JSONDecoder().decode(SkillFXBudgetSnapshot.self, from: data), s)
     }
+
+    // MARK: 加算合成・流れる模様・コマ送り（FXPrograms・FXShaders.metal・FXSheet）
+
+    private func recipe(_ cues: [FXCue]) -> (palette: FXPalette, recipe: SkillFXRecipe) {
+        var r = SkillFXRecipe()
+        r.cast = cues
+        return (FXPalette.from(RGB(1, 0.6, 0.2)), r)
+    }
+
+    private func context(_ palette: FXPalette) -> SkillFXPlayer.Context {
+        SkillFXPlayer.Context(palette: palette, origin: .zero, caster: .zero, target: [0, 0, -1], forward: [0, 0, -1])
+    }
+
+    func testMeshDefaultsStayAlphaBlendedWithTheLegacyMaterial() {
+        let m = FXMesh(shape: .disc)
+        XCTAssertEqual(m.blend, .alpha)
+        XCTAssertNil(m.flow)
+        XCTAssertNil(FXMaterialLibrary.shadedKey(m, palette: .from(RGB(1, 1, 1)), level: 3), "既定は従来の Unlit")
+        let player = SkillFXPlayer(quality: .preset(.high))
+        let r = recipe([.mesh(FXMesh(shape: .disc, tex: .ring, life: 1), offset: [7, 0, 0])])
+        player.prewarm(recipes: [r])
+        player.play(r.recipe.cast, context(r.palette))
+        let e = mesh(player, x: 7) as? ModelEntity
+        XCTAssertTrue(e?.model?.materials.first is UnlitMaterial)
+        player.clear()
+    }
+
+    func testAddLevelsCoverTheFadeAndHideAtZero() {
+        XCTAssertEqual(FXMaterialLibrary.addLevel(0), 0)
+        XCTAssertEqual(FXMaterialLibrary.addLevel(1), FXMaterialLibrary.addLevels)
+        XCTAssertEqual(FXMaterialLibrary.addLevel(0.01), 1)
+        XCTAssertEqual(FXMaterialLibrary.addLevel(0.55), 6)
+        XCTAssertEqual(FXMaterialLibrary.addLevel(5), FXMaterialLibrary.addLevels)
+    }
+
+    /// 演出用シェーダーの Program がアプリの default.metallib から作れる（シミュレータでも）。
+    func testFXProgramsCompile() async {
+        await FXPrograms.waitUntilSettled()
+        XCTAssertTrue(FXPrograms.isReady, "FXShaders.metal の Program が作れない: \(FXPrograms.failure ?? "?")")
+    }
+
+    /// 加算のメッシュは明るさの段階の材質で落とし、枠を使い回した次のアルファ合成のメッシュには従来の材質と不透明度が戻る。
+    /// 加算・模様の材質も読み込み幕の裏で作り切る（プレイ中は何も作らない）。
+    func testAdditiveMeshFadesByLevelAndPoolReuseResetsTheMaterial() async {
+        await FXPrograms.waitUntilSettled()
+        guard FXPrograms.isReady else { return XCTFail("Program が無い: \(FXPrograms.failure ?? "?")") }
+        AssetLedger.beginLoading()
+        let player = SkillFXPlayer(quality: .preset(.low))
+        let glow = FXMesh(shape: .disc, tex: .shockwave, life: 1, fadeIn: 0.01, fadeOut: 0.3).with { $0.blend = .add }
+        let flowing = FXMesh(shape: .cylinder, tex: .beam, life: 1).with {
+            $0.flow = FXFlow(pattern: .streaks, scroll: [0, -1.5], tiling: 2, strength: 0.8, erosion: 0.3, edge: .core)
+        }
+        let plain = FXMesh(shape: .disc, tex: .ring, life: 1, fadeIn: 0.01, fadeOut: 0.3)
+        let r = recipe([.mesh(glow, offset: [3, 0, 0]), .mesh(flowing, offset: [4, 0, 0]), .mesh(plain, offset: [5, 0, 0])])
+        player.prewarm(recipes: [r])
+        AssetLedger.beginLive()
+        player.play([r.recipe.cast[0]], context(r.palette))
+        let e = mesh(player, x: 3) as? ModelEntity
+        XCTAssertTrue(e?.model?.materials.first is CustomMaterial, "加算は CustomMaterial")
+        let full = (e?.model?.materials.first as? CustomMaterial)?.roughness.scale
+        XCTAssertEqual(full ?? 0, 1, accuracy: 1e-4)
+        player.update(dt: 0.65)
+        let dim = (e?.model?.materials.first as? CustomMaterial)?.roughness.scale ?? 1
+        XCTAssertLessThan(dim, 1, "消え始めたら明るさの段階を落とす")
+        XCTAssertEqual(e?.components[OpacityComponent.self]?.opacity ?? 0, 1, accuracy: 1e-4, "加算は段階で落とし、不透明度は 1")
+        player.play([r.recipe.cast[1]], context(r.palette))
+        XCTAssertTrue((mesh(player, x: 4) as? ModelEntity)?.model?.materials.first is CustomMaterial, "模様は CustomMaterial")
+        player.update(dt: 1)
+        XCTAssertEqual(player.activeCount, 0)
+        // 加算に使った枠（円板）を次のアルファ合成の円板が使い回す
+        player.play([r.recipe.cast[2]], context(r.palette))
+        let reused = mesh(player, x: 5) as? ModelEntity
+        XCTAssertTrue(reused?.model?.materials.first is UnlitMaterial, "使い回しで従来の材質に戻る")
+        XCTAssertTrue(reused === e, "同じ枠を使い回している")
+        player.update(dt: 0.85)
+        let a = reused?.components[OpacityComponent.self]?.opacity ?? 1
+        XCTAssertLessThan(a, 1, "アルファ合成は不透明度で落とす")
+        XCTAssertGreaterThan(a, 0)
+        player.clear()
+        let snap = AssetLedger.snapshot()
+        XCTAssertEqual(snap.liveTotal, 0, "プレイ中の生成: \(snap.live)\n" + snap.liveSamples.joined(separator: "\n"))
+    }
+
+    func testEverySheetIsBundledAsA4x4Grid() {
+        for s in FXSheet.allCases {
+            guard let img = FXSheet.image(s) else { XCTFail("\(s.rawValue).png が無い"); continue }
+            XCTAssertEqual(img.width, 512, s.rawValue)
+            XCTAssertEqual(img.height, 512, s.rawValue)
+            XCTAssertEqual(s.frames, 16)
+        }
+    }
+
+    func testSheetFPSFollowsLifeForOneShotAndLoopRateForLoops() {
+        let once = FXEmit(life: 0.8).with { $0.sheet = .smokePuff }
+        XCTAssertEqual(SkillFXPlayer.sheetFPS(once, .smokePuff), 20, accuracy: 1e-4, "16 コマを寿命 0.8 秒で流す")
+        let loop = FXEmit(life: 0.8).with { $0.sheet = .flameLoop }
+        XCTAssertEqual(SkillFXPlayer.sheetFPS(loop, .flameLoop), FXSheet.flameLoop.loopFPS)
+        let fixed = FXEmit(life: 0.8).with { $0.sheet = .smokePuff; $0.sheetFPS = 12 }
+        XCTAssertEqual(SkillFXPlayer.sheetFPS(fixed, .smokePuff), 12)
+    }
+
+    /// コマ送りの粒子は imageSequence を付け、同じ放出体を使い回した次の 1 枚絵の粒子では外す。シートは読み込み幕の裏で作る。
+    func testSheetEmitterSetsImageSequenceAndReuseClearsIt() {
+        AssetLedger.beginLoading()
+        let player = SkillFXPlayer(quality: .preset(.low))
+        let smoke = FXEmit(count: 4, life: 0.8).with { $0.sheet = .smokePuff; $0.additive = false }
+        let r = recipe([.emit(smoke, offset: [6, 0, 0]), .emit(FXEmit(count: 4, life: 0.5), offset: [8, 0, 0])])
+        player.prewarm(recipes: [r])
+        XCTAssertFalse(player.sheets.missing.contains(.smokePuff), "シートが読めない")
+        AssetLedger.beginLive()
+        // 放出体を 1 つだけ空ける: 残りを全部使ってから、コマ送りの粒子を出す
+        let n = SkillFXPlayer.emitterCapacity(.preset(.low))
+        player.play((0..<(n - 1)).map { burst(x: 20 + Float($0), life: 5) }, context(r.palette))
+        player.play([r.recipe.cast[0]], context(r.palette))
+        let e = emitter(player, x: 6)
+        let seq = e?.components[ParticleEmitterComponent.self]?.mainEmitter.imageSequence
+        XCTAssertNotNil(seq)
+        XCTAssertEqual(seq?.rowCount, 4)
+        XCTAssertEqual(seq?.columnCount, 4)
+        XCTAssertEqual(seq?.animationMode, .playOnce)
+        XCTAssertEqual(seq?.frameRate ?? 0, 20, accuracy: 1e-4)
+        player.update(dt: 1.2)
+        // コマ送りの粒子の枠が空いた（ほかは寿命 5 秒）→ 次の 1 枚絵の粒子が同じ放出体を使う
+        player.play([r.recipe.cast[1]], context(r.palette))
+        let plain = emitter(player, x: 8)
+        XCTAssertTrue(plain === e, "同じ放出体を使い回している")
+        XCTAssertNil(plain?.components[ParticleEmitterComponent.self]?.mainEmitter.imageSequence, "使い回しでコマ送りを外す")
+        player.clear()
+        let snap = AssetLedger.snapshot()
+        XCTAssertEqual(snap.liveTotal, 0, "プレイ中の生成: \(snap.live)\n" + snap.liveSamples.joined(separator: "\n"))
+    }
+
+    func testFlowPatternsAreSeamlessTiles() {
+        for p in FXFlowTex.allCases {
+            guard let img = FXFlowTex.image(p) else { XCTFail("\(p) が作れない"); continue }
+            XCTAssertEqual(img.width, FXFlowTex.size)
+            XCTAssertEqual(img.height, FXFlowTex.size)
+        }
+    }
+
+    /// Program があっても無くても、全ヒーローの全レシピを準備してから再生してプレイ中に何も作らない（加算・模様・シートを含む）。
+    func testPlayingEveryRecipeWithShadersCreatesNothingWhileLive() async {
+        await FXPrograms.waitUntilSettled()
+        AssetLedger.beginLoading()
+        let player = SkillFXPlayer(quality: .preset(.high))
+        var all: [(palette: FXPalette, recipe: SkillFXRecipe)] = []
+        for id in heroIDs {
+            for slot in SkillSlot.allCases {
+                all.append((SkillFXCatalog.palette(id), SkillFXCatalog.recipe(heroID: id, slot: slot, master: master)))
+                for stage in 1...SkillFXCatalog.maxStage {
+                    if let sr = SkillFXCatalog.stageRecipe(heroID: id, slot: slot, stage: stage, master: master) {
+                        all.append((SkillFXCatalog.palette(id), sr))
+                    }
+                }
+            }
+        }
+        player.prewarm(recipes: all)
+        XCTAssertTrue(player.prewarmShaded())
+        player.resolve = { _ in SIMD3<Float>(1, 0, 1) }
+        AssetLedger.beginLive()
+        for (palette, r) in all {
+            let ctx = SkillFXPlayer.Context(palette: palette, origin: .zero, caster: .zero, target: [0, 0, -5], forward: [0, 0, -1],
+                                            follow: .unit(1))
+            for phase in [r.cast, r.telegraph, r.travel, r.impact, r.hit] { player.play(phase, ctx) }
+            for _ in 0..<3 { player.update(dt: 1.0 / 30) }
+        }
+        for _ in 0..<120 { player.update(dt: 1.0 / 30) }
+        player.stop(follow: .unit(1))
+        for _ in 0..<60 { player.update(dt: 1.0 / 30) }
+        let snap = AssetLedger.snapshot()
+        XCTAssertEqual(snap.liveTotal, 0, "プレイ中の生成: \(snap.live)\n" + snap.liveSamples.joined(separator: "\n"))
+        if FXPrograms.isReady { XCTAssertEqual(player.materials.fallbacks, 0, "Program があるのに従来の材質で代えた") }
+        XCTAssertTrue(player.sheets.missing.isEmpty, "読めないシート: \(player.sheets.missing)")
+    }
 }

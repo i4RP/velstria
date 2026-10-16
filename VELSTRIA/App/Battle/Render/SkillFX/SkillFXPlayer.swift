@@ -18,6 +18,7 @@ final class SkillFXPlayer {
     let textures = FXTextureLibrary()
     let meshes = FXMeshLibrary()
     let materials: FXMaterialLibrary
+    let sheets = FXSheetLibrary()
     private var quality: RenderQuality
     let poolQuality: RenderQuality
 
@@ -91,6 +92,10 @@ final class SkillFXPlayer {
         var offset: SIMD3<Float>
         var ground: Bool
         var source: Source?
+        /// 加算の明るさの段階の材質を選ぶための色（加算だけ）。
+        var palette: FXPalette?
+        /// いま付けている加算の明るさの段階（0 = 隠している、加算でなければ使わない）。
+        var level = 0
     }
 
     private struct Pending {
@@ -242,6 +247,12 @@ final class SkillFXPlayer {
         return q.level == .low ? max(2, base / 2) : base
     }
 
+    /// コマ送りの速さ（コマ / 秒）: 指定が無ければ、1 回の画像は粒子の寿命で 16 コマを流し、繰り返す画像は FXSheet.loopFPS。
+    nonisolated static func sheetFPS(_ e: FXEmit, _ sheet: FXSheet) -> Float {
+        if e.sheetFPS > 0 { return e.sheetFPS }
+        return sheet.loops ? sheet.loopFPS : Float(sheet.frames) / max(0.05, e.life)
+    }
+
     static func qualityRank(_ q: RenderQuality) -> Int {
         switch q.level {
         case .low: return 0
@@ -257,11 +268,23 @@ final class SkillFXPlayer {
         textures.prewarm(FXTex.allCases)
         meshes.prewarm()
         _ = blank
+        var sheetsUsed = Set<FXSheet>()
         for (palette, r) in recipes {
             for cue in r.all {
-                if case .mesh(let m) = cue.element { _ = materials.material(m.tex, palette.rgb(m.tint)) }
+                switch cue.element {
+                case .mesh(let m):
+                    // 従来の材質は必ず作る（加算・模様の Program が無い時の代わり）
+                    _ = materials.material(m.tex, palette.rgb(m.tint))
+                    if m.blend == .add || m.flow != nil { shadedPending.append((m, palette)) }
+                case .emit(let e):
+                    if let s = e.sheet { sheetsUsed.insert(s) }
+                case .shake:
+                    break
+                }
             }
         }
+        sheets.prewarm(sheetsUsed)
+        _ = prewarmShaded()
         let n = SkillFXPlayer.emitterCapacity(poolQuality)
         while emitterCount < n { freeEmitters.append(makeEmitter()) }
         for s in FXShape.allCases {
@@ -270,6 +293,22 @@ final class SkillFXPlayer {
             freeMeshes[s] = list
         }
         prewarmed = true
+    }
+
+    /// 加算・模様の材質（CustomMaterial）の作り残し。Program が出来るまで待つ（BattleRenderer の warmupGates が幕の前に呼ぶ）。
+    private var shadedPending: [(FXMesh, FXPalette)] = []
+
+    /// 加算・模様の材質を作る。Program が出来ていれば作り終えて true、作れないと決まった（failed）ときも true
+    /// （従来の材質で代える）。まだ作っている途中なら false。
+    @discardableResult
+    func prewarmShaded() -> Bool {
+        guard !shadedPending.isEmpty else { return true }
+        guard FXPrograms.isSettled else { return false }
+        if FXPrograms.isReady {
+            for (m, palette) in shadedPending { materials.prewarm(m, palette: palette) }
+        }
+        shadedPending.removeAll()
+        return true
     }
 
     private func makeEmitter() -> Emitter {
@@ -506,7 +545,9 @@ final class SkillFXPlayer {
             stats.meshShapes[m.shape, default: PoolStats()].grown += 1
             e = makeMesh(m.shape)
         }
-        e.model?.materials = [materials.material(m.tex, ctx.palette.rgb(m.tint))]
+        // 使い回す枠の前回の材質（加算の段階・模様）は全て書き換える。加算は明るさの段階 addLevels（最大）から始め、apply で落とす
+        let additive = m.blend == .add
+        e.model?.materials = [materials.material(for: m, palette: ctx.palette)]
         let ground = groundLevel && (m.shape == .disc || m.shape == .arc || m.shape == .band)
         if ground {
             OverlayOrder.apply(e, OverlayOrder.skillDecal)
@@ -516,9 +557,10 @@ final class SkillFXPlayer {
         var base = p
         if ground { base.y = GroundLayer.skillDecal }
         let inst = MeshInst(entity: e, shape: m.shape, spec: m, start: time, base: base, yaw: yaw, follow: follow,
-                            offset: offset, ground: ground, source: ctx.source)
+                            offset: offset, ground: ground, source: ctx.source, palette: additive ? ctx.palette : nil,
+                            level: additive ? FXMaterialLibrary.addLevels : 0)
         meshInsts.append(inst)
-        apply(inst, t: 0)
+        apply(meshInsts.count - 1, t: 0)
         e.isEnabled = true
         stats.peakMeshes = max(stats.peakMeshes, meshInsts.count)
         let sameShape = meshInsts.reduce(0) { $1.shape == m.shape ? $0 + 1 : $0 }
@@ -585,12 +627,13 @@ final class SkillFXPlayer {
                 if inst.ground { b.y = GroundLayer.skillDecal }
                 meshInsts[k].base = b
             }
-            apply(meshInsts[k], t: t)
+            apply(k, t: t)
             k += 1
         }
     }
 
-    private func apply(_ inst: MeshInst, t: Float) {
+    private func apply(_ index: Int, t: Float) {
+        let inst = meshInsts[index]
         let m = inst.spec
         let e = m.ease.apply(t)
         let age = t * m.life
@@ -612,7 +655,18 @@ final class SkillFXPlayer {
         var a: Float = 1
         if t < m.fadeIn { a = t / max(0.001, m.fadeIn) }
         if t > m.fadeOut { a = min(a, 1 - (t - m.fadeOut) / max(0.001, 1 - m.fadeOut)) }
-        inst.entity.components.set(OpacityComponent(opacity: max(0, min(1, a * m.alpha))))
+        let opacity = max(0, min(1, a * m.alpha))
+        if m.blend == .add, let palette = inst.palette {
+            // 加算: 明るさの段階の材質を差し替えて落とす（段階が変わった時だけ）。OpacityComponent は出す / 隠すだけ
+            let level = FXMaterialLibrary.addLevel(opacity)
+            if level != inst.level {
+                if level > 0 { inst.entity.model?.materials = [materials.material(for: m, palette: palette, level: level)] }
+                meshInsts[index].level = level
+            }
+            inst.entity.components.set(OpacityComponent(opacity: level > 0 ? 1 : 0))
+        } else {
+            inst.entity.components.set(OpacityComponent(opacity: opacity))
+        }
     }
 
     private func release(emitAt k: Int) {
@@ -741,8 +795,22 @@ final class SkillFXPlayer {
             p.emissionDirection = [n.x, n.y, -n.z]
         }
         var m = p.mainEmitter
-        m.image = e.additive ? textures.glowTexture(e.tex) : textures.texture(e.tex)
-        m.imageSequence = nil
+        // コマ送り: 使い回す放出体は前回の画像・コマ送りを必ず書き換える（シートが無い・読めなければ 1 枚絵）
+        if let sheet = e.sheet, let tex = sheets.texture(sheet, additive: e.additive) {
+            m.image = tex
+            var seq = ParticleEmitterComponent.ParticleEmitter.ImageSequence()
+            seq.rowCount = sheet.rows
+            seq.columnCount = sheet.columns
+            seq.frameRate = SkillFXPlayer.sheetFPS(e, sheet)
+            seq.frameRateVariation = 0
+            seq.initialFrame = 0
+            seq.initialFrameVariation = e.sheetRandomStart && sheet.loops ? sheet.frames - 1 : 0
+            seq.animationMode = sheet.loops ? .looping : .playOnce
+            m.imageSequence = seq
+        } else {
+            m.image = e.additive ? textures.glowTexture(e.tex) : textures.texture(e.tex)
+            m.imageSequence = nil
+        }
         m.blendMode = e.additive ? .additive : .alpha
         m.isLightingEnabled = false
         m.opacityCurve = e.fade
