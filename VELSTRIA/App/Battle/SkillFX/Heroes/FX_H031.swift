@@ -10,20 +10,23 @@ import VelstriaCore
 //   パッシブ 氷の誇り   — cast: 致命傷で凍りつく瞬間（パッシブのバッジのタイマーが始まる）に、外へ傾いた氷柱 3 本・凍った地面・冷気の渦・
 //                         回復の光（1.5 秒）→ 1.5 秒で氷が砕ける。再発動の準備ができた瞬間（バッジが 0 → 1）にも同じ合図が出る（結晶が咲く）。
 //                         氷の殻そのものは状態表示（UnitVisuals の iceShell）が描く。
-//                         telegraph / impact は S1 の雹 5 つのゾーンが借りる（雹のゾーンはパッシブの演出 ID）: 予告 = 落ちる場所の小さな霜の輪、
-//                         着弾（0.7〜1.1 秒）= 小さな氷粒が上から落ちて砕ける
-//   スキル1 氷塊と雹   — cast: 右手を天へ掲げて冷気を空へ放つ。telegraph（着弾点、0〜0.5 秒）: 縮む霜の輪と広がる影、空から下を向いた巨大な
-//                         氷塊が落ちてくる（0.5 秒でちょうど地面に刺さる）。impact（0.5 秒）: 氷の結晶 4 本が外へ傾いて咲き、氷のひび・冷気・
+//                         telegraph / impact は S1 の雹のゾーンが借りる（雹のゾーンはパッシブの演出 ID。隕石と同じ円の持続ゾーン 1 つが
+//                         5 回当たる）: 予告 = 隕石が落ちた後の円の霜の波紋、着弾（撃ってから 1.03 秒）= 円の中に小さな氷粒が 0.15 秒おきに
+//                         5 つ落ちて砕ける（ゾーンの発動は 1 回なので、5 発の見た目は着弾の合図の中で時間をずらす）
+//   スキル1 氷塊と雹   — cast: 右手を天へ掲げて冷気を空へ放つ。telegraph（着弾点、0〜0.57 秒）: 縮む霜の輪と広がる影、空から下を向いた巨大な
+//                         氷塊が落ちてくる（0.57 秒でちょうど地面に刺さる）。impact（0.57 秒）: 氷の結晶 4 本が外へ傾いて咲き、氷のひび・冷気・
 //                         氷片が散る。被弾は鈍足 40%（1 秒）の霜の枷
-//   スキル2 霜風       — cast（扇 ±37°、射程 6.5m）: 右手を横へ払い、0〜0.3 秒で霜風の前線（扇の弧）が扇の端まで走る。氷片・風の筋・白い冷気が
-//                         扇に吹き、0.22 秒で扇の中に結晶がきらめく。0.3〜2.1 秒: 扇の先（術者から 5.4m = 照準線の 0.83）に凍った地面
-//                         （氷の格子・ひび・外へ傾いた氷柱 4 本）。impact は発動時・霜風のゾーン（術者の位置、向き不定）・凍った地面の発動で
-//                         再生されるので、向きを持たない小さな霜のきらめきにした。telegraph（術者の足元と凍った地面の中心）も小さな冷気の波紋だけ
-//   アルティメット 氷河 — cast: 右手を地へ振り下ろし、0〜0.35 秒で照準線の上に霜の帯が伸びる（氷の道 22m/s × 7.7m に合わせて前へ伸びる）。
-//                         travel: 道の先頭の氷の結晶と、通り道に残る結晶（約 1 秒残る）。telegraph（氷河の中心 = 術者から 4.5m、発動時）:
-//                         0.05〜1.2 秒に氷の格子が半径 3.6m へ広がり、道に沿って氷柱 5 本が順に育ち、周りに結晶がきらめき、0.85 秒から冷気が
-//                         中心へ集まる → 1.2 秒（ゾーンの遅れ）で砕ける（閃光・細い衝撃の輪・ひび・飛び散る氷片と氷塊・跳ね上がる結晶・冷気）。
-//                         impact は道の最初の命中と氷河の発動で再生されるので小さな閃きだけ（砕けは telegraph の at: 1.2）
+//   スキル2 霜風       — cast（扇 ±25°、射程 6.0m）: 右手を横へ払い（0.2 秒）、0.2〜0.57 秒で霜風の前線（扇の弧）が扇の端まで走る。氷片・風の筋・
+//                         白い冷気が扇に吹き、0.45 秒で扇の中に結晶がきらめく。0.77〜1.4 秒: 扇の先の半分（術者から 2.9〜6.0m の中ほど = 照準線の
+//                         0.74）に凍った地面（氷の格子・ひび・外へ傾いた氷柱 4 本）。当たりは 0.26 秒で終わるが、氷の地面は 0.6 秒残る（動画）。
+//                         impact は発動時・霜風のゾーン・凍結エリアのゾーン（どちらも術者の位置、向き不定）の発動で再生されるので、向きを持たない
+//                         小さな霜のきらめきにした。telegraph（術者の足元）も小さな冷気の波紋だけ
+//   アルティメット 氷河 — cast: 右手を地へ振り下ろし、0.27 秒で照準線の上に霜の帯が術者の 0.7m 後ろから 6.8m 先まで一気に伸び（動画: 1〜2 コマ）、
+//                         道の先に氷の結晶が光る（霜の道は弾ではなく、0.27 秒の帯の当たり。travel は無い）。telegraph（氷河のゾーンの中心 =
+//                         帯の前の端 6.2m、発動時。位置は .along で帯の中ほど）: 0.27〜1.45 秒に氷の格子が道の幅から帯の幅 4.9m へ広がり、
+//                         道に沿って氷柱 5 本が順に育ち、周りに結晶がきらめき、1.15 秒から冷気が中心へ集まる → 1.5 秒（ゾーンの遅れ）で砕ける
+//                         （閃光・細い衝撃の輪・ひび・飛び散る氷片と氷塊・跳ね上がる結晶・冷気）。impact は氷河の発動で再生されるので小さな閃き
+//                         だけ（砕けは telegraph の at: 1.5）
 // 氷柱（.spire）のプールは高画質で 5 本（低画質 2 本）なので、1 つの段の氷柱は 5 本まで。
 
 enum FX_H031: HeroFXSet {
@@ -45,21 +48,31 @@ enum FX_H031: HeroFXSet {
 
     /// 氷の誇りで凍りつく秒数。
     private static let prideFreeze: Float = 1.5
-    /// スキル1: 氷塊が落ちるまで。
-    private static let meteorDelay: Float = 0.5
-    /// スキル2: 霜風が届くまで・凍った地面の持続・中心（照準線の比 = (650 − 110) / 650）・半径。
-    private static let breezeDelay: Float = 0.3
-    private static let patchDuration: Float = 1.8
-    private static let patchAlong: Float = 0.83
-    private static let patchRadius: Float = 1.9
-    /// 扇の半角（度。0.65 rad）。
-    private static let breezeHalf: Float = 37
-    /// アルティメット: 氷の道の長さ・所要（770 / 2200）、氷河の中心（術者から）・半径・砕けるまで。
-    private static let pathLength: Float = 7.7
-    private static let pathTime: Float = 0.35
-    private static let glacierCenter: Float = 4.5
-    private static let glacierRadius: Float = 3.6
-    private static let shatter: Float = 1.2
+    /// スキル1: 氷塊が落ちるまで（17 tick）、雹の円の半径、隕石から最初の雹まで（14 tick）・雹の間隔。
+    private static let meteorDelay: Float = 0.57
+    private static let hailArea: Float = 1.91
+    private static let hailFirst: Float = 0.47
+    private static let hailEvery: Float = 0.15
+    /// スキル2: 霜風が届くまで（17 tick）・払う手の振りかぶり・凍結エリアができるまで（23 tick）・凍った地面の見た目の長さ（当たりは 0.26 秒）・
+    /// 中心（照準線の比 = 扇の 2.9〜6.0m の中ほど 4.46 / 6.02）・半径。
+    private static let breezeDelay: Float = 0.57
+    private static let breezeSwing: Float = 0.2
+    private static let areaDelay: Float = 0.77
+    private static let patchDuration: Float = 0.6
+    private static let patchAlong: Float = 0.74
+    private static let patchRadius: Float = 1.75
+    /// 扇の半角（度。0.441 rad）。
+    private static let breezeHalf: Float = 25.3
+    /// アルティメット: 氷の道ができるまで（8 tick）・伸びきるまで・後ろの端（術者の後ろ）・長さ（−0.7〜6.8m）、
+    /// 氷河の前の端（術者から = 氷河のゾーンの中心）・長さ（−0.7〜6.2m）・半幅、砕けるまで（45 tick）。
+    private static let pathDelay: Float = 0.27
+    private static let pathGrow: Float = 0.07
+    private static let pathBack: Float = 0.7
+    private static let pathLength: Float = 7.5
+    private static let glacierFront: Float = 6.2
+    private static let glacierLength: Float = 6.9
+    private static let glacierHalf: Float = 2.45
+    private static let shatter: Float = 1.5
 
     // MARK: - 部品
 
@@ -142,20 +155,20 @@ enum FX_H031: HeroFXSet {
                   offset: [0, 1.0, 0]),
             .mesh(.shockRing(1.3, .secondary, life: 0.3, tex: .ring), at: t, .follow),
         ]
-        // 雹の予告（落ちる場所に小さな霜の輪。氷塊の 0.2〜0.6 秒後に落ちる）
+        // 雹の予告（隕石が落ちた後、円に霜の波紋。雹は隕石の 0.47 秒後から降る。ゾーンは撃った瞬間にできる）
         r.telegraph = [
-            .mesh(groundSheet(.ripple, .secondary, from: [0.5, 0.5], to: [1.7, 1.7], life: 1.0, alpha: 0.55,
-                              fadeIn: 0.3, fadeOut: 0.8, spin: 30)),
+            .mesh(groundSheet(.ripple, .secondary, from: [hailArea * 1.2, hailArea * 1.2], to: [hailArea * 2, hailArea * 2],
+                              life: hailFirst + 0.05, alpha: 0.5, fadeIn: 0.3, fadeOut: 0.8, spin: 30), at: meteorDelay),
         ]
-        // 雹の着弾: 小さな氷粒が上から落ちて（0.1 秒）砕ける
+        // 雹の着弾: 円の中（中心から 1m の輪）に小さな氷粒が 0.15 秒おきに 5 つ落ちて（0.1 秒）砕ける。
+        // 当たりは円全体（ゾーンの 5 回の適用）。ゾーンの発動の合図は 1 回だけなので、ここで時間をずらして 5 つ見せる
         r.impact = [
-            .mesh(fallingShard(0.55, from: 2.5, to: 0.25, time: 0.1), offset: [0, 2.5, 0]),
-            .emit(FXEmit(tex: .streak, tint: .core, tintEnd: .secondary, count: 3, life: 0.12, size: 0.16, shape: .sphere(0.15),
-                         dir: .down, speed: 20, stretch: 3, fade: .linearFadeOut), offset: [0, 2.6, 0]),
+            .mesh(fallingShard(0.55, from: 2.5, to: 0.25, time: 0.1), offset: [0, 2.5, 0])
+                .ringed(5, radius: hailArea * 0.5, every: hailEvery),
             .emit(.flutter(.shard, 8, radius: 0.2, .secondary, speed: 3.5, life: 0.5, size: 0.13), at: 0.08,
-                  offset: [0, 0.25, 0]),
-            .mesh(.shockRing(0.75, .secondary, life: 0.22, tex: .ring), at: 0.08),
-            .mesh(.decal(.crack, 1.3, .secondary, life: 0.8, spin: 0, grow: 1.0, alpha: 0.7), at: 0.08),
+                  offset: [0, 0.25, 0]).ringed(5, radius: hailArea * 0.5, every: hailEvery),
+            .mesh(.shockRing(0.75, .secondary, life: 0.22, tex: .ring), at: 0.08)
+                .ringed(5, radius: hailArea * 0.5, every: hailEvery),
         ]
         // パッシブのダメージは無い（雹の被弾はスキル1 の hit）。既定の被弾演出で補われないよう小さな合図だけ置く
         r.hit = [.mesh(.halo(0.4, .secondary, life: 0.3, spin: 120, tex: .ring), .follow, offset: [0, 0.2, 0])]
@@ -164,7 +177,7 @@ enum FX_H031: HeroFXSet {
 
     // MARK: - スキル1 氷塊と雹
 
-    /// 0.5 秒で巨大な氷塊が落ちて刺さり、結晶が咲く（R = 氷塊の半径 1.7m）。
+    /// 0.57 秒で巨大な氷塊が落ちて刺さり、結晶が咲く（R = 氷塊の半径 1.91m）。
     private static func hailstoneRecipe(_ s: FXSkillInfo) -> SkillFXRecipe {
         var r = SkillFXRecipe()
         let R = min(s.radius, 2.2)
@@ -176,7 +189,7 @@ enum FX_H031: HeroFXSet {
             .emit(FXEmit(tex: .streak, tint: .core, tintEnd: .secondary, count: 8, emit: 0.1, life: 0.3, size: 0.12,
                          shape: .sphere(0.2), dir: .up, speed: 14, stretch: 3, fade: .linearFadeOut), at: 0.08, offset: raisedTip),
         ]
-        // 着弾点: 縮む霜の輪と広がる影。空から下を向いた氷塊（+ 小さな氷粒 2 つ）が落ち、0.5 秒で地面に刺さる
+        // 着弾点: 縮む霜の輪と広がる影。空から下を向いた氷塊（+ 小さな氷粒 2 つ）が落ち、0.57 秒で地面に刺さる
         r.telegraph = [
             .mesh(groundSheet(.ripple, .secondary, from: [R * 2.7, R * 2.7], to: [R * 1.5, R * 1.5], life: t + 0.02,
                               alpha: 0.7, ease: .in, fadeIn: 0.2, fadeOut: 0.88, spin: 45)),
@@ -189,7 +202,7 @@ enum FX_H031: HeroFXSet {
                          shape: .disc(0.6), dir: .down, speed: 18, stretch: 3.5, fade: .linearFadeOut), offset: [0, 6.5, 0]),
             .emit(.gather(14, radius: R * 0.9, .secondary, life: 0.45), offset: [0, 0.2, 0]),
         ]
-        // 0.5 秒: 結晶が外へ傾いて咲き、地面が凍りつく
+        // 0.57 秒: 結晶が外へ傾いて咲き、地面が凍りつく
         r.impact = [
             .emit(.flare(2.0, .core, life: 0.2, tex: .flare6), offset: [0, 0.8, 0]),
             .mesh(crystal(2.2, width: 0.6, .core, life: 1.0, alpha: 0.9)),
@@ -214,47 +227,49 @@ enum FX_H031: HeroFXSet {
 
     // MARK: - スキル2 霜風
 
-    /// 扇（±37°・6.5m）へ霜風が 0.3 秒で届き、扇の先に凍った地面が 1.8 秒残る。
+    /// 扇（±25°・6.0m）へ霜風が 0.57 秒で届き（右手を払うのは 0.2 秒）、0.77 秒に扇の先の半分に凍った地面ができて 0.6 秒残る。
     private static func breezeRecipe(_ s: FXSkillInfo) -> SkillFXRecipe {
         var r = SkillFXRecipe()
         let L = min(s.range, 7.0)
         let t = breezeDelay
+        let w = breezeSwing
+        let a = areaDelay
         let patch = FXAnchor.along(patchAlong)
         let P = patchRadius
         r.cast = [
-            // 右手で払う閃き
-            .emit(.flare(1.1, .core, life: 0.14), offset: [0.4, 1.4, 0.5]),
-            // 霜風の前線（0〜0.3 秒で扇の端へ）と、少し遅れて追う白い芯
-            .mesh(breezeFront(from: 0.8, to: L * 1.05, .secondary, life: t + 0.04), at: 0.02),
-            .mesh(breezeFront(from: 0.5, to: L * 0.85, .core, life: t, alpha: 0.75), at: 0.06),
+            // 右手で払う閃き（0.2 秒）
+            .emit(.flare(1.1, .core, life: 0.14), at: w, offset: [0.4, 1.4, 0.5]),
+            // 霜風の前線（0.2〜0.57 秒で扇の端へ）と、少し遅れて追う白い芯
+            .mesh(breezeFront(from: 0.8, to: L * 1.05, .secondary, life: t - w + 0.04), at: w),
+            .mesh(breezeFront(from: 0.5, to: L * 0.85, .core, life: t - w, alpha: 0.75), at: w + 0.04),
             // 扇に吹く風の筋・氷片・白い冷気
-            .emit(.fan(26, .secondary, speed: 24, spread: 34, life: 0.32, tex: .streak, size: 0.14), at: 0.04,
+            .emit(.fan(26, .secondary, speed: 16, spread: 22, life: 0.4, tex: .streak, size: 0.14), at: w + 0.02,
                   offset: [0, 1.1, 0.5]),
-            .emit(FXEmit(tex: .shard, tint: .core, tintEnd: .primary, count: 22, emit: 0.12, life: 0.4, size: 0.2,
-                         sizeVar: 0.4, grow: 0.7, shape: .sphere(0.3), dir: .forward, speed: 18, speedVar: 0.35, spread: 32,
-                         drag: 1.2, angleVar: 180, spin: 500, spinVar: 300, fade: .linearFadeOut), at: 0.04,
+            .emit(FXEmit(tex: .shard, tint: .core, tintEnd: .primary, count: 22, emit: 0.2, life: 0.45, size: 0.2,
+                         sizeVar: 0.4, grow: 0.7, shape: .sphere(0.3), dir: .forward, speed: 13, speedVar: 0.35, spread: 22,
+                         drag: 1.2, angleVar: 180, spin: 500, spinVar: 300, fade: .linearFadeOut), at: w + 0.02,
                   offset: [0, 1.0, 0.5]),
-            .emit(FXEmit(tex: .smoke, tint: mist, count: 14, emit: 0.12, life: 0.55, size: 0.7, sizeVar: 0.4, grow: 3.0,
-                         shape: .sphere(0.3), dir: .forward, speed: 15, spread: 30, drag: 1.6, angleVar: 180, spin: 40,
-                         fade: .gradualFadeInOut, additive: false), at: 0.03, offset: [0, 0.6, 0.6], quality: 1),
+            .emit(FXEmit(tex: .smoke, tint: mist, count: 14, emit: 0.2, life: 0.6, size: 0.7, sizeVar: 0.4, grow: 3.0,
+                         shape: .sphere(0.3), dir: .forward, speed: 11, spread: 20, drag: 1.6, angleVar: 180, spin: 40,
+                         fade: .gradualFadeInOut, additive: false), at: w + 0.01, offset: [0, 0.6, 0.6], quality: 1),
             // 前線が過ぎた扇の中で結晶がきらめく
-            fanned(.mesh(.sprite(.shard, 0.8, .core, life: 0.4, grow: 1.3, alpha: 0.95), at: 0.2, offset: [0, 0.5, 0]),
-                   3, radius: L * 0.62, half: 22, every: 0.02),
-            // 0.3〜2.1 秒: 扇の先の凍った地面（氷の格子・ひび・外へ傾いた氷柱・立ちのぼる冷気）
+            fanned(.mesh(.sprite(.shard, 0.8, .core, life: 0.4, grow: 1.3, alpha: 0.95), at: 0.45, offset: [0, 0.5, 0]),
+                   3, radius: L * 0.62, half: 16, every: 0.02),
+            // 0.77〜1.4 秒: 扇の先の半分の凍った地面（氷の格子・ひび・外へ傾いた氷柱・立ちのぼる冷気）
             .mesh(groundSheet(.hexShield, .primary, from: [P * 1.3, P * 1.3], to: [P * 2.05, P * 2.05],
-                              life: patchDuration + 0.05, alpha: 0.45, fadeIn: 0.06, fadeOut: 0.78), at: t, patch),
-            .mesh(.decal(.crack, P * 2.0, .secondary, life: patchDuration + 0.05, spin: 0, grow: 1.0, alpha: 0.85), at: t, patch),
-            .mesh(crystal(1.0, width: 0.34, .secondary, life: patchDuration - 0.2, lean: 22), at: t, patch)
+                              life: patchDuration + 0.05, alpha: 0.45, fadeIn: 0.06, fadeOut: 0.78), at: a, patch),
+            .mesh(.decal(.crack, P * 2.0, .secondary, life: patchDuration + 0.05, spin: 0, grow: 1.0, alpha: 0.85), at: a, patch),
+            .mesh(crystal(1.0, width: 0.34, .secondary, life: patchDuration - 0.1, lean: 22), at: a, patch)
                 .ringed(4, radius: P * 0.55, every: 0.04),
-            .emit(.rising(12, radius: P * 0.8, .secondary, speed: 1.2, life: 1.0, tex: .shard).with { $0.emit = 1.3 },
-                  at: t + 0.02, patch, quality: 1),
+            .emit(.rising(12, radius: P * 0.8, .secondary, speed: 1.2, life: 0.8, tex: .shard).with { $0.emit = 0.5 },
+                  at: a + 0.02, patch, quality: 1),
         ]
-        // 霜風のゾーン（術者の足元、向き不定）と凍った地面の中心で、作られた瞬間に小さな冷気の波紋
+        // 霜風と凍結エリアのゾーン（どちらも術者の足元、向き不定）が作られた瞬間に小さな冷気の波紋
         r.telegraph = [
             .mesh(groundSheet(.ripple, .secondary, from: [0.6, 0.6], to: [2.2, 2.2], life: 0.4, alpha: 0.5, fadeIn: 0.1,
                               fadeOut: 0.5)),
         ]
-        // 発動時・霜風の発動（術者の位置）・凍った地面の発動で再生される: 向きを持たない小さな霜のきらめき
+        // 発動時・霜風の発動・凍結エリアの発動（どちらも術者の位置）で再生される: 向きを持たない小さな霜のきらめき
         r.impact = [
             .emit(.flare(1.0, .secondary, life: 0.16, tex: .flare4), offset: [0, 1.0, 0]),
             .emit(.flutter(.shard, 8, radius: 0.35, .secondary, speed: 2.5, life: 0.6, size: 0.12), offset: [0, 0.9, 0]),
@@ -271,64 +286,61 @@ enum FX_H031: HeroFXSet {
 
     // MARK: - アルティメット 氷河
 
-    /// 氷の道（0〜0.35 秒）→ 氷河が育つ（〜1.2 秒）→ 砕ける（1.2 秒）。G = 氷河の半径 3.6m。
+    /// 氷の道（0.27 秒に一気に伸びる）→ 帯の氷河が育つ（〜1.45 秒）→ 砕ける（1.5 秒）。G = 氷河の半幅 2.45m、帯は術者の 0.7m 後ろから 6.2m 先。
     private static func glacierRecipe(_ s: FXSkillInfo) -> SkillFXRecipe {
         var r = SkillFXRecipe()
-        let G = min(s.radius, 4.0)
+        let G = min(s.radius, glacierHalf)
         let len = pathLength
-        let z0 = -glacierCenter
+        let p = pathDelay
         let t = shatter
-        // 右手を地へ振り下ろす → 照準線の上に霜の帯が前へ伸び（氷の道の先頭に合わせる）、氷河が砕けるまで残る
+        // 氷河のゾーンの中心は帯の前の端（glacierFront）。帯の中ほど（術者から (6.2 − 0.7) / 2）を .along で指す
+        let mid = FXAnchor.along((glacierFront - glacierLength / 2) / glacierFront)
+        // 右手を地へ振り下ろす → 0.27 秒に照準線の上へ霜の帯が術者の後ろから一気に伸び（1〜2 コマ）、道の先に結晶が光る。帯は砕けるまで残る
         r.cast = [
             .emit(.gather(18, radius: 1.0, .secondary, life: 0.16), offset: [0.15, 1.8, 0.3]),
-            .emit(.flare(2.0, .core, life: 0.22, tex: .flare6), at: 0.06, offset: [0.2, 0.6, 0.7]),
-            .mesh(.decal(.crack, 2.2, .secondary, life: 0.8, spin: 0, grow: 1.0, alpha: 0.75), at: 0.06, offset: [0.2, 0, 0.7]),
+            .emit(.flare(2.0, .core, life: 0.22, tex: .flare6), at: p - 0.1, offset: [0.2, 0.6, 0.7]),
+            .mesh(.decal(.crack, 2.2, .secondary, life: 0.8, spin: 0, grow: 1.0, alpha: 0.75), at: p - 0.1, offset: [0.2, 0, 0.7]),
             .mesh(FXMesh(shape: .disc, tex: .streak, tint: .secondary, alpha: 0.8, size: [0.4, 1, 1.4], sizeEnd: [len, 1, 1.4],
-                         ease: .linear, life: pathTime, fadeIn: 0.05, fadeOut: 0.95, yaw: 90,
-                         advance: (len - 0.4) / 2 / pathTime), offset: [0, 0.02, 0.4]),
-            .mesh(.ray(.streak, length: len, width: 1.6, .secondary, life: t - pathTime + 0.1, alpha: 0.75).with {
+                         ease: .linear, life: pathGrow, fadeIn: 0.02, fadeOut: 0.95, yaw: 90,
+                         advance: (len - 0.4) / 2 / pathGrow), at: p, offset: [0, 0.02, 0.2 - pathBack]),
+            .mesh(.ray(.streak, length: len, width: 1.6, .secondary, life: t - p - pathGrow + 0.1, alpha: 0.75).with {
                 $0.fadeIn = 0.02; $0.fadeOut = 0.8; $0.size = $0.sizeEnd
-            }, at: pathTime - 0.02, offset: [0, 0.02, len / 2 + 0.2]),
+            }, at: p + pathGrow - 0.02, offset: [0, 0.02, len / 2 - pathBack]),
+            .mesh(.sprite(.shard, 1.0, .core, life: 0.4, grow: 1.0, alpha: 1).with { $0.fadeOut = 0.85 }, at: p + pathGrow,
+                  .target, offset: [0, 0.6, 0]),
         ]
-        // 道の先頭の氷の結晶と、通り道に残る結晶（約 1 秒）
-        r.travel = [
-            .mesh(.sprite(.shard, 1.0, .core, life: pathTime + 0.05, grow: 1.0, alpha: 1).with { $0.fadeOut = 0.85 }, .follow,
-                  offset: [0, 0.6, 0]),
-            .emit(.trail(.glow, .primary, rate: 70, life: 0.35, size: 0.9), .follow, offset: [0, 0.4, 0]),
-            .emit(FXEmit(tex: .shard, tint: .core, tintEnd: .secondary, rate: 70, life: 1.0, size: 0.38, sizeVar: 0.4,
-                         shape: .disc(0.7), dir: .up, speed: 0.4, angleVar: 25, fade: .gradualFadeInOut), .follow,
-                  offset: [0, 0.35, 0]),
-        ]
-        // 氷河（中心 = 術者から 4.5m）: 0.05〜1.2 秒に育ち、1.2 秒で砕ける
+        // 帯の氷河（中ほど = 術者から 2.75m）: 0.27〜1.45 秒に道の幅から帯の幅へ育ち、1.5 秒で砕ける
         r.telegraph = [
-            .mesh(groundSheet(.hexShield, .secondary, from: [G * 0.8, G * 1.0], to: [G * 1.95, G * 2.05], life: t + 0.05,
-                              alpha: 0.5, fadeIn: 0.25, fadeOut: 0.85), at: 0.05),
-            .mesh(.decal(.crack, G * 1.9, .primary, life: t - 0.1, spin: 0, grow: 1.0, alpha: 0.55), at: 0.15),
-            // 道に沿って氷柱が順に育つ（術者から 1.1 / 2.6 / 4.1 / 5.6 / 7.1m）
-            .mesh(crystal(2.2, width: 0.62, .secondary, life: 0.85, alpha: 0.85), at: 0.3, offset: [0, 0, z0 + 1.1])
-                .repeated(5, every: 0.06, step: [0, 0, 1.5]),
+            .mesh(groundSheet(.hexShield, .secondary, from: [1.0, glacierLength], to: [G * 2, glacierLength], life: t - p + 0.05,
+                              alpha: 0.5, fadeIn: 0.25, fadeOut: 0.85), at: p, mid),
+            .mesh(.decal(.crack, glacierLength * 0.75, .primary, life: t - p - 0.1, spin: 0, grow: 1.0, alpha: 0.55), at: p + 0.1,
+                  mid),
+            // 道に沿って氷柱が順に育つ（術者から 0.5 / 1.9 / 3.3 / 4.7 / 6.1m。ゾーンの中心 = 6.2m からの前後）
+            .mesh(crystal(2.2, width: 0.62, .secondary, life: 0.85, alpha: 0.85), at: p + 0.3,
+                  offset: [0, 0, 0.5 - glacierFront]).repeated(5, every: 0.08, step: [0, 0, 1.4]),
             // 氷河の縁にきらめく結晶
-            .mesh(.sprite(.shard, 0.9, .core, life: 0.7, grow: 1.15, alpha: 0.9), at: 0.5, offset: [0, 0.5, 0])
-                .ringed(6, radius: G * 0.62, every: 0.03),
-            .emit(.rising(20, radius: G * 0.8, .secondary, speed: 1.4, life: 0.9, tex: .shard).with { $0.emit = 0.7 }, at: 0.3,
-                  quality: 1),
-            .emit(.gather(24, radius: G * 0.9, .core, life: 0.35), at: t - 0.35, offset: [0, 0.6, 0]),
-            // 1.2 秒: 砕ける
-            .emit(.flare(3.4, .core, life: 0.3, tex: .flare6), at: t, offset: [0, 1.2, 0]),
-            .mesh(groundSheet(.glow, .core, from: [G * 1.4, G * 1.6], to: [G * 2.2, G * 2.4], life: 0.45, alpha: 0.6,
-                              fadeIn: 0.02, fadeOut: 0.3), at: t),
-            .mesh(.shockRing(G * 1.05, .core, life: 0.35, tex: .ring), at: t),
-            .mesh(.decal(.crack, G * 2.1, .primary, life: 1.3, spin: 0, grow: 1.0, alpha: 0.85), at: t),
+            .mesh(.sprite(.shard, 0.9, .core, life: 0.7, grow: 1.15, alpha: 0.9), at: p + 0.45, mid, offset: [0, 0.5, 0])
+                .ringed(6, radius: G * 0.8, every: 0.04),
+            .emit(.rising(20, radius: G * 0.9, .secondary, speed: 1.4, life: 0.9, tex: .shard).with { $0.emit = 0.9 }, at: p + 0.2,
+                  mid, quality: 1),
+            .emit(.gather(24, radius: G, .core, life: 0.35), at: t - 0.35, mid, offset: [0, 0.6, 0]),
+            // 1.5 秒: 砕ける
+            .emit(.flare(3.4, .core, life: 0.3, tex: .flare6), at: t, mid, offset: [0, 1.2, 0]),
+            .mesh(groundSheet(.glow, .core, from: [G * 1.6, glacierLength * 0.8], to: [G * 2.2, glacierLength * 1.05], life: 0.45,
+                              alpha: 0.6, fadeIn: 0.02, fadeOut: 0.3), at: t, mid),
+            .mesh(.shockRing(G * 1.3, .core, life: 0.35, tex: .ring), at: t, mid),
+            .mesh(.decal(.crack, glacierLength * 0.85, .primary, life: 1.3, spin: 0, grow: 1.0, alpha: 0.85), at: t, mid),
             .mesh(FXMesh(shape: .billboard, tex: .shard, tint: .core, alpha: 1, size: SIMD3(repeating: 1.2),
                          sizeEnd: SIMD3(repeating: 0.5), ease: .out, life: 0.45, fadeIn: 0.02, fadeOut: 0.5, rise: 5),
-                  at: t, offset: [0, 0.6, 0]).ringed(4, radius: G * 0.35),
-            .emit(.flutter(.shard, 34, radius: G * 0.6, .secondary, speed: 7, life: 1.0, size: 0.22), at: t, offset: [0, 0.8, 0]),
-            .emit(.debris(22, speed: 9, chunk, size: 0.2, tex: .shard).with { $0.shape = .disc(G * 0.7) }, at: t),
-            .emit(.sparks(28, speed: 11, .core, end: .secondary, life: 0.45), at: t, offset: [0, 0.8, 0]),
-            .emit(.smoke(12, radius: G * 0.6, mist, life: 1.4, size: 1.3).with { $0.speed = 3 }, at: t + 0.02, quality: 1),
+                  at: t, mid, offset: [0, 0.6, 0]).ringed(4, radius: G * 0.5),
+            .emit(.flutter(.shard, 34, radius: G * 0.8, .secondary, speed: 7, life: 1.0, size: 0.22), at: t, mid,
+                  offset: [0, 0.8, 0]),
+            .emit(.debris(22, speed: 9, chunk, size: 0.2, tex: .shard).with { $0.shape = .disc(G) }, at: t, mid),
+            .emit(.sparks(28, speed: 11, .core, end: .secondary, life: 0.45), at: t, mid, offset: [0, 0.8, 0]),
+            .emit(.smoke(12, radius: G * 0.8, mist, life: 1.4, size: 1.3).with { $0.speed = 3 }, at: t + 0.02, mid, quality: 1),
             .shake(0.5, at: t),
         ]
-        // 道の最初の命中・氷河の発動: 小さな閃き（砕けは telegraph）
+        // 氷河の発動: 小さな閃き（砕けは telegraph）
         r.impact = [
             .emit(.flare(1.4, .core, life: 0.18, tex: .flare4), offset: [0, 0.8, 0]),
             .emit(.flutter(.shard, 8, radius: 0.4, .secondary, speed: 3, life: 0.6, size: 0.14), offset: [0, 0.8, 0]),
@@ -349,24 +361,25 @@ enum FX_H031: HeroFXSet {
         case .passive:
             break
         case .skill1:
-            // 右手を天へ掲げて冷気を空へ放ち、着弾点へ振り下ろして指す（氷塊は 0.5 秒で落ちる）
-            m.command(0.1)
-            m.push(0.07, high: 0.2)
-            m.hold(0.15) { $0.glow = 1.8 }
+            // 右手を天へ掲げて冷気を空へ放ち、着弾点へ振り下ろして指す（氷塊は 0.57 秒で落ちる）。0.48 + 戻り 0.25 = 0.73 秒
+            m.command(0.14)
+            m.push(0.08, high: 0.2)
+            m.hold(0.26) { $0.glow = 1.8 }
         case .skill2:
-            // 右手を右から横へ払い、霜風を扇へ吹かせる（0.3 秒で届くまで右手に冷気を纏う）
-            m.windup(0.09, side: 1, power: 0.8)
+            // 右手を右へ振りかぶり、0.2 秒で横へ払って霜風を扇へ吹かせる（0.57 秒で届くまで右手に冷気を纏う）。0.66 + 0.25 = 0.91 秒
+            m.windup(0.18, side: 1, power: 0.8)
             m.slash(0.08, side: 1, power: 1.0)
-            m.hold(0.14) { $0.glow = 1.8 }
+            m.hold(0.3) { $0.glow = 1.8 }
             m.settle(0.1)
         case .ultimate:
-            // 右手を地へ振り下ろして氷の道を走らせ、氷河が育つ間は右手を天へ掲げて冷気を集め、1.2 秒の砕けへ向けて前へ突き出す
+            // 右手を地へ振り下ろし（0.27 秒で氷の道）、氷河が育つ間は右手を天へ掲げて冷気を集め、1.5 秒の砕けへ向けて前へ突き出す。
+            // 1.32 + 戻り 0.35 = 1.67 秒（上限 1.7 秒。突き出しは砕けの少し前）
             m.plant(0.08)
-            m.hold(0.25) { $0.glow = 2.0; $0.ring = 1.2 }
-            m.raise(0.22, glow: 2.4)
-            m.hold(0.5) { $0.ring = 1.6; $0.glow = 2.6 }
+            m.hold(0.18) { $0.glow = 2.0; $0.ring = 1.2 }
+            m.raise(0.24, glow: 2.4)
+            m.hold(0.7) { $0.ring = 1.6; $0.glow = 2.6 }
             m.push(0.08, high: 0.25)
-            m.hold(0.08)
+            m.hold(0.04)
         }
     }
 }

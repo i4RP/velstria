@@ -110,8 +110,7 @@ enum KitDamage {
         guard let owner = s.index(of: z.ownerID), let kit = HeroKits.kit(in: s, owner) else { return }
         for i in s.units.indices where s.units[i].isStructure {
             guard CombatSystem.isLiving(s, i), s.units[i].team != z.team, s.units[i].team != .neutral,
-                  ZoneSystem.contains(shape: z.shape, center: z.center, radius: z.radius, point: s.units[i].pos,
-                                      pointRadius: s.units[i].radius),
+                  ZoneSystem.contains(zone: z, point: s.units[i].pos, pointRadius: s.units[i].radius),
                   !CombatSystem.isInvulnerable(s, ctx, i) else { continue }
             kit.onHit(&s, ctx, owner: owner, target: i, event: z.payload.kitEvent, dealt: 0)
         }

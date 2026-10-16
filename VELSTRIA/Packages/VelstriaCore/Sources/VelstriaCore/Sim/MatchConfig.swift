@@ -92,7 +92,12 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     ///     奥義 = 縁まで 188・0.25 秒で掴んで 0.32 秒おきに 6 撃）。docs/kits/Franco.md「動画で測った値」。
     /// 26: 遊ぶ地図の壁を MLBB のミニマップ原本から起こした滑らかな多角形に（ed0f086。キャンプの位置・拠点の周りの規則も）、
     ///     矩形の角の衝突を丸い膨張に、経路探索の格子を 100 → 50（粗い格子で下見）。
-    public static let currentSimVersion = 26
+    /// 27・28 はフランコ・ミヤの作業（別のブランチ）が使うので飛ばす。
+    /// 29: H031（オーロラ）の幾何と時間を MLBB の画面収録で測った値に（スキル1 = 射程 556・半径 191・0.56 秒で着弾・雹 5 発は同じ円の
+    ///     全員に 0.47 秒後から 0.15 秒おき、スキル2 = 半径 602・半角 25.3°・0.56 秒で霜風・0.76 秒に扇の先の半分（290〜602）の
+    ///     凍結エリアで凍結・0.13 秒おきに 3 回、奥義 = 0.26 秒で道（−70〜680・半幅 48）・1.49 秒で帯の氷河（−70〜620・半幅 245）が
+    ///     砕けて凍結）。ゾーンに内側の欠け（innerRadius）と端の四角い線分（squareEnds）を足した。docs/kits/Aurora.md「動画で測った値」。
+    public static let currentSimVersion = 29
 
     public var simVersion: Int
     public var mode: MatchMode
