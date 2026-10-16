@@ -491,7 +491,8 @@ struct StageGeometry {
             }
             riverBank = bank
             riverField = (cell, n, d)
-            riverReach = bank.reduce(Float(0)) { max($0, abs($1.x + $1.y - mapMeters) * 0.70710678) }
+            let sum = mapMeters
+            riverReach = bank.reduce(Float(0)) { max($0, abs($1.x + $1.y - sum) * 0.70710678) }
         } else {
             riverBank = []
             riverField = nil
