@@ -266,7 +266,7 @@ struct StageLayout {
             return
         }
         let slab = StageLayout.slopedSlab(outline: outline, seed: UInt64(index) &* 1733, tint: rockTint(),
-                                          fine: level != .low, refine: level == .high)
+                                          fine: level != .low, refine: level == .high && ruinsLook)
         let center = outline.reduce(SIMD2<Float>.zero, +) / Float(outline.count)
         appendRock(slab.mesh, at: center)
         // 上の茂みと木: 上面の輪の内側（縁から 0.45 m より内）。上面は頂点ごとに高さが違うので低い方に合わせて少し沈める
