@@ -677,6 +677,17 @@ final class SkillFXPlayer {
         emits.removeLast()
     }
 
+    #if DEBUG
+    /// 比較撮影（FXCapture）で画面を撮る間だけ、生きている粒子の動きを止める / 戻す（メッシュは update が呼ばれないので止まる）。
+    func freezeParticles(_ frozen: Bool) {
+        for e in emits {
+            guard var c = e.emitter.entity.components[ParticleEmitterComponent.self] else { continue }
+            c.simulationState = frozen ? .pause : .play
+            e.emitter.entity.components.set(c)
+        }
+    }
+    #endif
+
     /// 全て止めてプールへ戻す。
     func clear() {
         pending.removeAll(keepingCapacity: true)

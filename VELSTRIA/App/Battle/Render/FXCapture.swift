@@ -5,8 +5,8 @@ import UIKit
 import VelstriaCore
 
 // 担当: battle-renderer（スキル演出の比較撮影）。起動引数 -fxCapture で、練習場の人形の南 4 m に自分のヒーローを北向きに置き、
-// スキルを決まった順に実際の入力（castSkill）で撃って、発動からの決まった時刻の戦闘画面（ARView。SwiftUI の HUD と
-// Effekseer の重ね描きは写らない）を画像に書き出す。CI のシミュレータ（.github/workflows/fx-capture.yml）で回し、
+// スキルを決まった順に実際の入力（castSkill）で撃って、発動からの決まった時刻に sim・演出・粒子を止め、CI がシミュレータの
+// 画面（HUD を含む）を撮る（/tmp/velstria-fxcap の合図。合図が無ければ ARView の画で代える）。CI のシミュレータ（.github/workflows/fx-capture.yml）で回し、
 // MLBB の画面収録と見比べる（docs/vfx/）。撮影の間だけ、置き直し（controller.restore）でユニットの位置を戻す。sim の規則は変えない。
 //
 //   -fxCapture <s1,s2,ult|all>  撃つスキル（all = S1・S2・奥義。再使用の段は recasts の表の遅れで 2 回目を撃つ）
@@ -96,8 +96,23 @@ final class FXCapture {
         dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("fxcapture")
     }
 
-    /// 毎フレーム（sim を進めて world.sync した後）。
+    /// 画面の撮影の合図（シミュレータのアプリはホストの /tmp を読み書きできる）。撮る時刻に止めて request に名前を書き、
+    /// CI（tools/fx_capture/run_ci.sh）が `simctl io screenshot` で画面を撮って done を置いたら再開する。
+    static let handshake = "/tmp/velstria-fxcap"
+    /// 合図が返らない（手元で CI の手順なしに動かした）時は ARView の画で代える。
+    static let handshakeTimeout: Double = 15
+
+    /// 撮影のために止めている（BattleRenderer は sim・描画の同期を進めず、tick だけ呼ぶ）。
+    private(set) var isFrozen = false
+    private var frozenAt: Double = 0
+    private var frozenName = ""
+
+    /// 毎フレーム（sim を進めて world.sync した後。止めている間も呼ばれる）。
     func tick(controller: BattleController, world: BattleWorld, arView: ARView, quality: RenderQuality) {
+        if isFrozen {
+            pollShot(world: world, arView: arView)
+            return
+        }
         let s = controller.state
         switch step {
         case .waitLive:
@@ -127,14 +142,17 @@ final class FXCapture {
             }
         case .rings(let phase, let until):
             guard s.time >= until else { return }
-            if phase == 0 {
-                snap(arView, name: "rings", slot: "rings", cast: 0, requested: 0, actual: 0)
+            switch phase {
+            case 0:
+                step = .rings(phase: 1, until: s.time)
+                shoot(world: world, name: "rings", slot: "rings", cast: 0, requested: 0, actual: 0)
+            case 1:
                 removeRings()
-                step = .rings(phase: 1, until: s.time + 0.3)
-            } else {
-                snap(arView, name: "norings", slot: "rings", cast: 0, requested: 0, actual: 0)
+                step = .rings(phase: 2, until: s.time + 0.3)
+            default:
                 ringsDone = true
                 step = .cast(index: 0)
+                shoot(world: world, name: "norings", slot: "rings", cast: 0, requested: 0, actual: 0)
             }
         case .cast(let k):
             guard let foe = dummyID(controller) else { step = .finish; return }
@@ -144,28 +162,29 @@ final class FXCapture {
             step = .watch(index: k, t0: s.time, recastAt: delay.map { s.time + $0 }, recastT0: nil, next: 0, nextRecast: 0)
         case .watch(let k, let t0, let recastAt, var recastT0, var next, var nextRecast):
             let name = FXCapture.slotName(slots[k])
-            while next < times.count, s.time - t0 >= times[next] {
-                snap(arView, name: "\(name)_\(Int((times[next] * 1000).rounded()))", slot: name, cast: 0,
-                     requested: times[next], actual: s.time - t0)
-                next += 1
-            }
             if let at = recastAt, recastT0 == nil, s.time >= at, let foe = dummyID(controller) {
                 controller.send(.castSkill(slot: slots[k], target: .unit(foe)))
                 recastT0 = s.time
             }
-            if let r0 = recastT0 {
-                while nextRecast < FXCapture.recastTimes.count, s.time - r0 >= FXCapture.recastTimes[nextRecast] {
-                    let t = FXCapture.recastTimes[nextRecast]
-                    snap(arView, name: "\(name)r_\(Int((t * 1000).rounded()))", slot: name, cast: 1, requested: t, actual: s.time - r0)
-                    nextRecast += 1
-                }
+            // 1 回の tick で撮るのは 1 枚（撮る間は止める）
+            var shot: (name: String, cast: Int, requested: Double, actual: Double)?
+            if next < times.count, s.time - t0 >= times[next] {
+                shot = ("\(name)_\(Int((times[next] * 1000).rounded()))", 0, times[next], s.time - t0)
+                next += 1
+            } else if let r0 = recastT0, nextRecast < FXCapture.recastTimes.count, s.time - r0 >= FXCapture.recastTimes[nextRecast] {
+                let t = FXCapture.recastTimes[nextRecast]
+                shot = ("\(name)r_\(Int((t * 1000).rounded()))", 1, t, s.time - r0)
+                nextRecast += 1
             }
             let recastDone = recastAt == nil || nextRecast >= FXCapture.recastTimes.count
-            if next >= times.count, recastDone {
+            if shot == nil, next >= times.count, recastDone {
                 manifest?.budget[name] = world.skillDirector.player.budgetSnapshot()
                 step = .place(index: k + 1)
             } else {
                 step = .watch(index: k, t0: t0, recastAt: recastAt, recastT0: recastT0, next: next, nextRecast: nextRecast)
+            }
+            if let shot {
+                shoot(world: world, name: shot.name, slot: name, cast: shot.cast, requested: shot.requested, actual: shot.actual)
             }
         case .finish:
             step = .done
@@ -179,6 +198,37 @@ final class FXCapture {
                 }
             }
         }
+    }
+
+    /// 撮る: 止めて（sim・演出の時刻・粒子）、CI に画面の撮影を頼む。
+    private func shoot(world: BattleWorld, name: String, slot: String, cast: Int, requested: Double, actual: Double) {
+        guard let hero = manifest?.hero else { return }
+        manifest?.shots.append(Shot(file: "\(name).jpg", slot: slot, cast: cast, requested: requested, actual: actual))
+        isFrozen = true
+        frozenAt = CACurrentMediaTime()
+        frozenName = name
+        world.skillDirector.player.freezeParticles(true)
+        let fm = FileManager.default
+        try? fm.createDirectory(atPath: FXCapture.handshake, withIntermediateDirectories: true)
+        try? fm.removeItem(atPath: FXCapture.handshake + "/done")
+        try? "\(hero)/\(name)".write(toFile: FXCapture.handshake + "/request", atomically: true, encoding: .utf8)
+    }
+
+    /// 止めている間: done が置かれたら再開する。時間切れなら ARView の画で代えて再開する。
+    private func pollShot(world: BattleWorld, arView: ARView) {
+        let fm = FileManager.default
+        let done = FXCapture.handshake + "/done"
+        if fm.fileExists(atPath: done) {
+            try? fm.removeItem(atPath: done)
+        } else if CACurrentMediaTime() - frozenAt > FXCapture.handshakeTimeout {
+            try? fm.removeItem(atPath: FXCapture.handshake + "/request")
+            note("画面の撮影の合図が返らない: \(frozenName)（ARView の画で代えた）")
+            snapView(arView, name: frozenName)
+        } else {
+            return
+        }
+        world.skillDirector.player.freezeParticles(false)
+        isFrozen = false
     }
 
     private var ringsDone = false
@@ -249,7 +299,8 @@ final class FXCapture {
             // 画像の輪は一辺の 0.48 倍の半径に描くので、板の一辺を 2r / 0.96 にすると輪の半径がちょうど r になる
             let side = 2 * r / 0.96
             let e = ModelEntity(mesh: .generatePlane(width: side, depth: side), materials: [m])
-            e.position = SIMD3(p.x, 0.04, p.z)
+            e.position = SIMD3(p.x, GroundLayer.aim, p.z)
+            OverlayOrder.apply(e, OverlayOrder.skillDecal)
             world.root.addChild(e)
             ringEntities.append(e)
         }
@@ -277,10 +328,11 @@ final class FXCapture {
 
     // MARK: 書き出し
 
-    private func snap(_ arView: ARView, name: String, slot: String, cast: Int, requested: Double, actual: Double) {
+    /// ARView の画（画面の撮影の代わり。HUD・Effekseer の重ね描きが写らない。撮影の CI ではスキルの粒子・半透明の部品も
+    /// 写らなかった（2026-10-17 の fxcap-h029v1）ので、画面の撮影が使えない時だけ）。
+    private func snapView(_ arView: ARView, name: String) {
         guard let hero = manifest?.hero else { return }
         let file = "\(name).jpg"
-        manifest?.shots.append(Shot(file: file, slot: slot, cast: cast, requested: requested, actual: actual))
         let url = dir.appendingPathComponent(hero).appendingPathComponent(file)
         let width = FXCapture.imageWidth
         pendingWrites += 1

@@ -394,6 +394,13 @@ final class BattleRenderer {
             updateCamera(world: world, dt: Float(dt))
             return
         }
+        #if DEBUG
+        // 比較撮影（FXCapture）が画面を撮る間は、sim・描画の同期・演出の時刻を止めたまま合図だけ待つ（一時停止の画面は出さない）
+        if let capture = fxCapture, capture.isFrozen {
+            capture.tick(controller: controller, world: world, arView: view.arView, quality: governed.settings.quality)
+            return
+        }
+        #endif
         if controller.isPaused {
             // 一時停止中はシミュレーション・同期を止め、カメラ（自由視点）だけ動かす
             if !wasPaused {
