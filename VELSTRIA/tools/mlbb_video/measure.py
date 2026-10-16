@@ -30,6 +30,17 @@ Franco（docs/kits/Franco.md）で足したもの（カメラは Tigreal の cam
   python measure.py bar    --frames F --tpl 178:570,146,640,170 --from 100 --to 160   # 的の体力バーの位置と CC の時間のバー（引き寄せ・CC の時刻）
   python measure.py walk   --frames F --from 500 --to 510   # 歩きの特徴点の変位の分布（床の塊 = 最も遅い山）
 
+Aurora（docs/kits/Aurora.md）で足したもの（カメラは Tigreal の c・q。足元 u0, v0 は場面ごとに cam.json を書き換える）:
+  python measure.py gshape  --frames F --ref 163 --at 159 --thr 20 --name s2   # 照準の扇・帯の形（歩きながらでも床のずれを打ち消す）
+  python measure.py pcircle --frames F --ref 28 --at 44 --guess 3.4,4.3,1.9 --exclude 810,55,905,150 --name meteor   # 地点の照準の円
+
+Zilong（docs/kits/Zilong.md）で足したもの:
+  python measure.py panel  --frames F --tpl 457:697,69,752,84 --from 609 --to 722   # 的の総ダメージの表示が変わるコマ（三連突きの間隔）
+
+Saber（docs/kits/Saber.md）で足したもの:
+  python measure.py ringhp --frames F --at 59 --r0 3.5 --r1 5.5      # 参照のコマ無しで照準の円（歩きながら・1 コマでも拾える）
+  python measure.py hpfill --frames F --tpl 340:770,143,875,178 --bar 26,21,112 --from 330 --to 490 --search 760,100,1108,300   # 的の体力バーの赤の長さ（最後の命中）
+
 依存: numpy, opencv-python-headless, scipy（pip install numpy opencv-python-headless scipy）。
 """
 from __future__ import annotations
@@ -751,6 +762,97 @@ def cmd_bar(args):
         prev = (px, py)
 
 
+def cmd_panel(args):
+    """的の情報パネル（訓練場の「総ダメージ」の行）が変わるコマ = ダメージが入ったコマ。ダメージの数字（出始めが重なって 1 コマ遅れて
+    見える）より正確で、体力が 1 で止まった的にも使える（Zilong の三連突きの間隔）。--tpl コマ:x0,y0,x1,y1 は「総ダメージ」の文字の箱、
+    --box dx0,dy0,dx1,dy1 はその左上から見た数字の箱。パネルは的に付いて動くので、パネルが動いたコマ（位置の列）の変化は無視する。"""
+    fr = Frames(args.frames, args.pattern)
+    tn, box = args.tpl.split(":")
+    x0, y0, x1, y1 = [int(v) for v in box.split(",")]
+    tpl = fr.bgr(int(tn))[y0:y1, x0:x1]
+    ox0, oy0, ox1, oy1 = [int(v) for v in args.box.split(",")]
+    prev = None
+    prev_at = None
+    for n in range(args.start, args.end + 1):
+        im = fr.bgr(n)
+        r = cv2.matchTemplate(im, tpl, cv2.TM_CCOEFF_NORMED)
+        _, mv, _, (px, py) = cv2.minMaxLoc(r)
+        digits = (im[py + oy0:py + oy1, px + ox0:px + ox1].astype(np.float32).mean(axis=2) > 170).astype(np.float32)
+        d = None if prev is None or prev.shape != digits.shape else float(np.abs(digits - prev).sum())
+        moved = prev_at is not None and (px, py) != prev_at
+        mark = "" if d is None or d <= args.min else ("  （パネルが動いた）" if moved else "  <== 変化")
+        print(f"{n} t={(n - 1) / args.fps:.3f} 一致 {mv:.2f} 位置 ({px},{py}) 変化 {d if d is not None else -1:5.0f}{mark}")
+        prev, prev_at = digits, (px, py)
+
+
+def cmd_ringhp(args):
+    """照準の円（水色の細い線）を参照のコマ無しで拾う（Saber の S1・S2・奥義の照準、通常攻撃・強化通常攻撃の足元の円）: 色の強さ
+    ((B+G)/2 − R) から 15 px の箱の平均を引いた高域の図（--at の数コマの中央値）で、足元から地面の放射ごとに [r0, r1] の山を拾う。
+    歩いている間でも使える（ring・arc は止まったコマの差分が要る）。体力バー・矢印の向きは --skip（度）・--exclude（箱）で除く。"""
+    fr = Frames(args.frames, args.pattern)
+    cam = load_cam(args)
+    if not cam.s:
+        raise SystemExit("縮尺 s が未定（先に speed を回す）")
+    acc = []
+    for n in [int(a) for a in args.at.split(",")]:
+        im = fr.f32(n)
+        sc = (im[..., 0] + im[..., 1]) / 2 - im[..., 2]
+        acc.append(sc - cv2.blur(sc, (15, 15)))
+    sc = cv2.GaussianBlur(np.median(np.array(acc), axis=0).astype(np.float32), (3, 3), 0)
+    H, W = sc.shape
+    boxes = parse_boxes(args.exclude) + list(DEFAULT_UI[:1]) + [(700, 230, 1108, 512), (530, 380, 720, 512), (100, 300, 320, 512)]
+    skips = [tuple(float(v) for v in s.split(":")) for s in (args.skip or [])]
+    out = []
+    for deg in np.arange(-180, 180, 2.0):
+        if any(a0 <= deg <= a1 for a0, a1 in skips):
+            continue
+        t = math.radians(deg)
+        rs = np.arange(args.r0, args.r1, 0.005) * cam.s
+        u, v = cam.project(rs * math.cos(t), rs * math.sin(t))
+        if ((u >= 1) & (u < W - 2) & (v >= 1) & (v < H - 2)).sum() < len(rs) * 0.95:
+            continue
+        vals = map_coordinates(sc, [v, u], order=1)
+        i = int(np.argmax(vals))
+        if vals[i] < args.min or in_boxes(u[i], v[i], boxes):
+            continue
+        out.append((deg, rs[i] / cam.s))
+    if not out:
+        raise SystemExit("縁が見つからない（--r0/--r1・--min を見直す）")
+    A = np.array(out)
+    for lo in range(-180, 180, 30):
+        m = (A[:, 0] >= lo) & (A[:, 0] < lo + 30)
+        if m.sum():
+            print(f"  {lo:+4d}°: {np.median(A[m, 1]):.3f}（{m.sum()} 本）")
+    med = np.median(A[:, 1])
+    good = np.abs(A[:, 1] - med) < 0.15
+    print(f"半径 {A[good, 1].mean():.3f} ± {A[good, 1].std():.3f} 単位（{good.sum()} / {len(A)} 本、中央値 {med:.3f}）")
+
+
+def cmd_hpfill(args):
+    """的の体力バーの赤い部分の長さ（画素）をコマごとに出す。赤が縮んだコマ = ダメージが入ったコマ（総ダメージの数字が UI に隠れても読める。
+    Saber の防御ダウンの最後の命中）。--tpl は名前の文字 + バッジ（同じ見た目のほかの的と取り違えないように名前を含める）、--bar は
+    テンプレートの左上から見たバーの左端・赤を数える行・右端。--search で探す範囲を絞る。"""
+    fr = Frames(args.frames, args.pattern)
+    tn, box = args.tpl.split(":")
+    x0, y0, x1, y1 = [int(v) for v in box.split(",")]
+    tpl = fr.bgr(int(tn))[y0:y1, x0:x1]
+    bx0, by, bx1 = [int(v) for v in args.bar.split(",")]
+    sx0, sy0, sx1, sy1 = [int(v) for v in args.search.split(",")]
+    prev = None
+    for n in range(args.start, args.end + 1):
+        im = fr.bgr(n)
+        r = cv2.matchTemplate(im[sy0:sy1, sx0:sx1], tpl, cv2.TM_CCOEFF_NORMED)
+        _, mv, _, (px, py) = cv2.minMaxLoc(r)
+        px, py = px + sx0, py + sy0
+        row = im[py + by - 1:py + by + 2, px + bx0:px + bx1].astype(int).mean(axis=0)
+        red = (row[:, 2] > 150) & (row[:, 1] < 90) & (row[:, 0] < 90)
+        rx = np.nonzero(red)[0]
+        rend = int(rx.max()) + 1 if len(rx) else 0
+        mark = "" if prev is None or prev == rend else f"  <== 赤 {prev} → {rend}"
+        print(f"{n} t={(n - 1) / args.fps:.3f} 一致 {mv:.2f} 位置 ({px},{py}) 赤 {rend:3d} px{mark}")
+        prev = rend
+
+
 def cmd_walk(args):
     """歩きの 1 コマの特徴点の変位（地面へ戻した、歩く向きの成分）の分布。床の点は最も遅い塊、岩・草など高い所の点は速い。
     --floor を決める前の見当に使う（Tigreal: 床 5.40、全部の点の中央値 5.75）。"""
@@ -776,6 +878,138 @@ def cmd_walk(args):
     h, e = np.histogram(A, bins=np.arange(np.percentile(A, 1) - 0.2, np.percentile(A, 99) + 0.2, 0.1))
     for c, lo in zip(h, e):
         print(f"{lo:5.2f} {'#' * int(60 * c / max(1, h.max()))} {c}")
+
+
+def ground_shift(fr: Frames, cam: GroundCam, a: int, b: int, ui, min_points: int = 40) -> np.ndarray:
+    """コマ a → b の地面の模様のずれ（ヒーロー px。1 コマずつの特徴点の変位を足す）。歩いている間に使う。
+    止まっているコマでは動く点がほとんど無く（演出・草の揺れだけ）、その変位を足すとずれがたまるので、
+    動いた点が min_points 未満のコマは 0 とする（歩いているコマは 200〜400 点）。"""
+    D = np.zeros(2)
+    step = 1 if b >= a else -1
+    for n in range(a, b, step):
+        d, _ = track_pair(fr.gray(n), fr.gray(n + step), ui, cam)
+        g, k = robust_mean(d)
+        if g is not None and k >= min_points:
+            D = D + g
+    return D
+
+
+def rectify_bgr(fr: Frames, n: int, cam: GroundCam, xr, zr, shift=(0.0, 0.0)):
+    """真上から見た図（色）。shift = 地面のずれ（ヒーロー px）を打ち消して、別のコマの地面に重ねる。"""
+    xs = np.arange(xr[0], xr[1], 1.0)
+    zs = np.arange(zr[1], zr[0], -1.0)
+    GX, GZ = np.meshgrid(xs, zs)
+    U, V = cam.project(GX.ravel() - shift[0], GZ.ravel() - shift[1])
+    im = fr.f32(n)
+    out = np.stack([map_coordinates(im[..., c], [V, U], order=1, cval=0).reshape(GX.shape) for c in range(3)], axis=2)
+    H, W = im.shape[:2]
+    ok = ((U >= 0) & (U < W - 1) & (V >= 0) & (V < H - 1)).reshape(GX.shape)
+    return out, ok, U.reshape(GX.shape), V.reshape(GX.shape)
+
+
+def cmd_gshape(args):
+    """歩きながら出した照準（扇・帯）の形: 照準の無いコマ（--ref）の地面を、照準のコマ（--at）の地面のずれだけ動かして重ね、
+    真上から見た図の上で照準（水色）の差分を取る（カメラはヒーローに固定なので、照準はヒーローに付いて動き、床は逆へ流れる）。
+    輪郭を地面（単位）で shape と同じ JSON に書く（trapezoid にそのまま渡せる）。高い所（岩・草）は床とずれるので残る。"""
+    fr = Frames(args.frames, args.pattern)
+    cam = load_cam(args)
+    shape = fr.bgr(args.ref).shape
+    ui = ui_mask(shape, DEFAULT_UI if not args.ui else parse_boxes(args.ui))
+    boxes = parse_boxes(args.exclude)
+    xr, zr = (-700, 700), (-250, 650)
+    scores = []
+    for n in [int(a) for a in args.at.split(",")]:
+        D = ground_shift(fr, cam, args.ref, n, ui)
+        A, oka, U, V = rectify_bgr(fr, n, cam, xr, zr)
+        R, okr, _, _ = rectify_bgr(fr, args.ref, cam, xr, zr, shift=D)
+        d = A - R
+        sc = (d[..., 0] + d[..., 1]) / 2 - np.maximum(d[..., 2], 0) * 0.5
+        bad = ~(oka & okr)
+        for x0, y0, x1, y1 in boxes:
+            bad |= (U >= x0) & (U <= x1) & (V >= y0) & (V <= y1)
+        sc[bad] = np.nan
+        scores.append(sc)
+        print(f"コマ {n}: 地面のずれ ({D[0]:+.1f}, {D[1]:+.1f}) ヒーロー px = {math.hypot(*D) / (cam.s or 1):.2f}"
+              + (" 単位" if cam.s else ""))
+    sc = np.nanmedian(np.array(scores), axis=0)
+    sc = np.nan_to_num(sc, nan=0.0).astype(np.float32)
+    sc = cv2.GaussianBlur(sc, (5, 5), 0)
+    m = (sc > args.thr).astype(np.uint8)
+    m = cv2.morphologyEx(m, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
+    m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8))
+    n_, lab, st, _ = cv2.connectedComponentsWithStats(m)
+    if n_ < 2:
+        raise SystemExit("照準が見つからない（--thr を下げる・--ref を確かめる）")
+    m = (lab == 1 + np.argmax(st[1:, cv2.CC_STAT_AREA])).astype(np.uint8)
+    cnts, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    c = max(cnts, key=cv2.contourArea).reshape(-1, 2).astype(float)
+    X, Z = cam.units(c[:, 0] + xr[0]), cam.units(zr[1] - c[:, 1])
+    d = out_dir(args)
+    with open(os.path.join(d, f"shape_{args.name}.json"), "w", encoding="utf-8") as f:
+        json.dump({"ground": np.c_[X, Z].tolist()}, f)
+    topdown_png(os.path.join(d, f"shape_{args.name}_top.png"), [np.c_[X, Z]], cam.s)
+    vis = np.clip(128 + sc * 2, 0, 255).astype(np.uint8)
+    vis = cv2.cvtColor(vis, cv2.COLOR_GRAY2BGR)
+    cv2.drawContours(vis, [c.astype(np.int32).reshape(-1, 1, 2)], -1, (0, 0, 255), 1)
+    cv2.circle(vis, (-xr[0], zr[1]), 4, (0, 255, 0), -1)
+    cv2.imwrite(os.path.join(d, f"gshape_{args.name}.png"), vis)
+    np.save(os.path.join(d, f"gshape_{args.name}.npy"), sc)
+    r = np.hypot(X, Z)
+    print(f"{args.name}: 輪郭 {len(c)} 点、術者からの距離 最小 {r.min():.2f} / 最大 {r.max():.2f} 単位 → {d}")
+
+
+def cmd_pcircle(args):
+    """地点の照準の円（Aurora の隕石の着弾点など、中心が術者でない地面の円）: カメラを固定して、地面の円（中心 cx,cz・半径 r。単位）を
+    画面へ写した円周の上の照準の差分の強さの平均が最大になる所を探す（格子で粗く → Nelder-Mead）。楕円の当てはめと違い、UI に隠れた
+    所（--exclude）を除いても形が崩れない。確かめに、角度 15° ごとの放射で縁の半径（差分の山）を出す。"""
+    from scipy.optimize import minimize
+    fr = Frames(args.frames, args.pattern)
+    cam = load_cam(args)
+    if not cam.s:
+        raise SystemExit("縮尺 s が未定（先に speed を回す）")
+    sc = cyan_score(fr, [int(a) for a in args.at.split(",")], args.ref)
+    H, W = sc.shape
+    boxes = parse_boxes(args.exclude) + [DEFAULT_UI[0]]
+    t = np.radians(np.arange(0, 360, 1.0))
+
+    def ring(cx, cz, r):
+        u, v = cam.project((cx + r * np.cos(t)) * cam.s, (cz + r * np.sin(t)) * cam.s)
+        ok = (u >= 1) & (u < W - 2) & (v >= 1) & (v < H - 2)
+        for x0, y0, x1, y1 in boxes:
+            ok &= ~((u >= x0) & (u <= x1) & (v >= y0) & (v <= y1))
+        return map_coordinates(sc, [v, u], order=1, cval=0), ok
+
+    def score(p):
+        vals, ok = ring(*p)
+        return 0.0 if ok.sum() < 60 else -float(np.mean(np.clip(vals[ok], -20, 60)))
+
+    cx0, cz0, r0 = [float(v) for v in args.guess.split(",")]
+    sp = args.span
+    best = None
+    for cx in np.arange(cx0 - sp, cx0 + sp + 1e-9, 0.05):
+        for cz in np.arange(cz0 - sp, cz0 + sp + 1e-9, 0.05):
+            for r in np.arange(max(0.3, r0 - sp), r0 + sp + 1e-9, 0.05):
+                v = score((cx, cz, r))
+                if best is None or v < best[0]:
+                    best = (v, cx, cz, r)
+    res = minimize(score, best[1:], method="Nelder-Mead", options=dict(xatol=1e-3, fatol=1e-3))
+    cx, cz, r = res.x
+    _, ok = ring(cx, cz, r)
+    rr = np.arange(r - 0.4, r + 0.4, 0.01)
+    peaks = []
+    for deg in range(0, 360, 15):
+        th = math.radians(deg)
+        u, v = cam.project((cx + rr * math.cos(th)) * cam.s, (cz + rr * math.sin(th)) * cam.s)
+        if not ((u >= 1) & (u < W - 2) & (v >= 1) & (v < H - 2)).all() or in_boxes(u.mean(), v.mean(), boxes):
+            continue
+        vv = map_coordinates(sc, [v, u], order=1, cval=0)
+        i = int(np.argmax(vv))
+        if vv[i] > args.min:
+            peaks.append(rr[i])
+    P = np.array(peaks)
+    print(f"{args.name}: 中心 ({cx:.3f}, {cz:.3f}) = 術者から {math.hypot(cx, cz):.3f}・向き {math.degrees(math.atan2(cz, cx)):.1f}°、"
+          f"半径 {r:.3f} 単位（円周の強さ {-res.fun:.1f}、使った点 {ok.sum()}）"
+          + (f"、放射ごとの縁 {np.median(P):.3f} ± {P.std():.3f}（{len(P)} 本）" if len(P) else ""))
 
 
 def main(argv=None):
@@ -926,6 +1160,55 @@ def main(argv=None):
     p.add_argument("--to", dest="end", type=int, required=True)
     p.add_argument("--ui", action="append")
     p.set_defaults(fn=cmd_walk)
+
+    p = sub.add_parser("gshape", help="歩きながらの照準の形（床のずれを打ち消して地面で差分）")
+    frames_arg(p)
+    p.add_argument("--ref", type=int, required=True, help="照準の無いコマ（照準のコマの近く）")
+    p.add_argument("--at", required=True, help="照準のコマ（カンマ区切り。それぞれ ref に重ねて中央値）")
+    p.add_argument("--thr", type=float, default=20.0)
+    p.add_argument("--exclude", action="append", help="除く画面の箱 x0,y0,x1,y1（体・体力バー・ボタン）")
+    p.add_argument("--ui", action="append", help="地面のずれを測るときに除く UI の箱（既定 DEFAULT_UI）")
+    p.add_argument("--name", required=True)
+    p.set_defaults(fn=cmd_gshape)
+
+    p = sub.add_parser("pcircle", help="地点の照準の円（中心が術者でない地面の円）の中心と半径")
+    frames_arg(p)
+    p.add_argument("--ref", type=int, required=True, help="照準の無いコマ")
+    p.add_argument("--at", required=True, help="照準のコマ（カンマ区切り。中央値）")
+    p.add_argument("--guess", required=True, help="中心 x,z と半径の見当（単位）")
+    p.add_argument("--span", type=float, default=0.6, help="格子で探す幅（単位）")
+    p.add_argument("--exclude", action="append", help="除く箱 x0,y0,x1,y1")
+    p.add_argument("--min", type=float, default=15.0)
+    p.add_argument("--name", required=True)
+    p.set_defaults(fn=cmd_pcircle)
+
+    p = sub.add_parser("panel", help="的の総ダメージの表示が変わるコマ（ダメージの時刻）")
+    frames_arg(p)
+    p.add_argument("--tpl", required=True, help="コマ:x0,y0,x1,y1（「総ダメージ」の文字）")
+    p.add_argument("--box", default="55,0,122,15", help="文字の箱の左上から見た数字の箱 dx0,dy0,dx1,dy1")
+    p.add_argument("--from", dest="start", type=int, required=True)
+    p.add_argument("--to", dest="end", type=int, required=True)
+    p.add_argument("--min", type=float, default=10.0, help="変化とみなす画素数（数字の変化で 13〜130、ちらつきは 7 前後）")
+    p.set_defaults(fn=cmd_panel)
+
+    p = sub.add_parser("ringhp", help="参照のコマ無しで照準の円の半径（歩きながらでも）")
+    frames_arg(p)
+    p.add_argument("--at", required=True, help="照準のコマ（カンマ区切り。中央値）")
+    p.add_argument("--r0", type=float, required=True, help="探す半径の下限（単位）")
+    p.add_argument("--r1", type=float, required=True, help="探す半径の上限（単位）")
+    p.add_argument("--skip", action="append", help="除く角度 a0:a1（度。矢印・体力バーの向き）")
+    p.add_argument("--exclude", action="append", help="除く箱 x0,y0,x1,y1")
+    p.add_argument("--min", type=float, default=12.0)
+    p.set_defaults(fn=cmd_ringhp)
+
+    p = sub.add_parser("hpfill", help="的の体力バーの赤の長さ（ダメージが入ったコマ）")
+    frames_arg(p)
+    p.add_argument("--tpl", required=True, help="コマ:x0,y0,x1,y1（名前の文字 + バッジ）")
+    p.add_argument("--bar", required=True, help="テンプレートの左上から見たバーの左端・行・右端 dx0,dy,dx1")
+    p.add_argument("--search", default="0,0,1108,512", help="探す範囲 x0,y0,x1,y1")
+    p.add_argument("--from", dest="start", type=int, required=True)
+    p.add_argument("--to", dest="end", type=int, required=True)
+    p.set_defaults(fn=cmd_hpfill)
 
     args = ap.parse_args(argv)
     args.fn(args)

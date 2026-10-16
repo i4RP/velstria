@@ -92,7 +92,11 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     ///     奥義 = 縁まで 188・0.25 秒で掴んで 0.32 秒おきに 6 撃）。docs/kits/Franco.md「動画で測った値」。
     /// 26: 遊ぶ地図の壁を MLBB のミニマップ原本から起こした滑らかな多角形に（ed0f086。キャンプの位置・拠点の周りの規則も）、
     ///     矩形の角の衝突を丸い膨張に、経路探索の格子を 100 → 50（粗い格子で下見）。
-    public static let currentSimVersion = 26
+    /// 33: H028（セイバー）の幾何と時間を MLBB の画面収録で測った値に（スキル1 = 剣は術者から 385 の輪を回り、帯 325〜445 の敵へ
+    ///     0.47 秒から 0.48 秒ごとに 9 回・持続 4.8 秒・剣撃の遅れ 0.1 秒、スキル2 = 300 を毎秒 1500、奥義 = 縁まで 545・毎秒 1700・
+    ///     到着 + 0 / 0.39 / 0.78 秒の 3 撃・到着から 1.0 秒の硬直）。docs/kits/Saber.md「動画で測った値」。
+    ///     27〜32 は並行するほかのヒーローの作業が使う（マージで振り直す）。
+    public static let currentSimVersion = 33
 
     public var simVersion: Int
     public var mode: MatchMode
