@@ -92,7 +92,11 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     ///     奥義 = 縁まで 188・0.25 秒で掴んで 0.32 秒おきに 6 撃）。docs/kits/Franco.md「動画で測った値」。
     /// 26: 遊ぶ地図の壁を MLBB のミニマップ原本から起こした滑らかな多角形に（ed0f086。キャンプの位置・拠点の周りの規則も）、
     ///     矩形の角の衝突を丸い膨張に、経路探索の格子を 100 → 50（粗い格子で下見）。
-    public static let currentSimVersion = 26
+    /// 32: H026（エウドラ）の幾何と時間を MLBB の画面収録で測った値に（スキル1 = 扇 576・半角 37.5°、鎖の継続ダメージ 0.12 秒から 0.27 秒おき 4 回、
+    ///     スキル2 = 射程 505・雷球 毎秒 1150、奥義 = 射程 615・0.45 秒・中心 115 / 外側 273、炸裂 = 0.83 秒後・半径 261）。
+    ///     docs/kits/Eudora.md「動画で測った値」。27〜31 は並行する他のヒーローの作業（フランコ・ミヤ・オーロラほか）が使うので 32 にした。
+    ///     **番号はマージのときに付け直す**（main に入る順で連番にする）。
+    public static let currentSimVersion = 32
 
     public var simVersion: Int
     public var mode: MatchMode
