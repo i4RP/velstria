@@ -393,7 +393,9 @@ final class BattleRenderer {
         let dt = min(max(deltaTime, 0), 0.1)
         defer {
             publishCameraViewport(dt: dt)
-            drawEffekseer(dt: controller.isPaused || scheduler != nil ? 0 : dt)
+            // ヒットストップの間は Effekseer の時間も止める（BattleFeel）
+            let held = feel.isHolding(now: CACurrentMediaTime())
+            drawEffekseer(dt: controller.isPaused || scheduler != nil || held ? 0 : dt)
         }
         if let scheduler {
             warmupFrame(world: world, view: view, scheduler: scheduler, frameDt: deltaTime, dt: dt)
@@ -451,7 +453,14 @@ final class BattleRenderer {
         // オンラインの再同期は frame の中で起きる（置き換え後に進めた分のイベントは receive が残している）
         syncPresentationEpoch(world: world)
         syncedTick = controller.state.tick
-        world.sync(events: pendingEvents, dt: Float(dt), rig: rig)
+        // 手応え（BattleFeel）: 自分が関わる重い命中で描画の時間だけ止める（位置・カメラ・sim は進める）。
+        // 自分が関わる奥義で画面の脈（後処理）とカメラの押し込み
+        let feelFrame = feel.frame(events: pendingEvents, controller: controller, now: CACurrentMediaTime(),
+                                   enabled: feelEnabled)
+        if let p = feelFrame.pulse { post.pulse(p) }
+        if let push = feelFrame.pushIn { rig.addPushIn(push) }
+        let presentDt = feelFrame.hold ? 0 : dt
+        world.sync(events: pendingEvents, dt: Float(presentDt), rig: rig)
         pendingEvents.removeAll(keepingCapacity: true)
         #if DEBUG
         fxCapture?.tick(controller: controller, world: world, arView: view.arView, quality: governed.settings.quality)
@@ -463,7 +472,7 @@ final class BattleRenderer {
         updateCamera(world: world, dt: Float(dt))
         probe.stop(.camera, tc)
         let t2 = CACurrentMediaTime()
-        world.updateOverlay(dt: Float(dt), rig: rig)
+        world.updateOverlay(dt: Float(presentDt), rig: rig)
         let t3 = CACurrentMediaTime()
         if probe.enabled { probe.stop(.overlay, t2) }
         frameStats.record(frameDt: deltaTime, sim: t1 - t0, sync: t2 - t1, overlay: t3 - t2)
@@ -747,6 +756,18 @@ final class BattleRenderer {
         } else {
             fx.render(camera: rig.camera, host: view, dt: dt)
         }
+    }
+
+    /// 戦闘の手応え（ヒットストップ・奥義の画面の脈・カメラの押し込み）。描画だけ。
+    private let feel = BattleFeel()
+
+    /// 手応えを出す場面か（観戦・リプレイ・シーク・一時停止では出さない。比較撮影は時刻を揃えるため出さない）。
+    private var feelEnabled: Bool {
+        guard !controller.isSpectating, controller.seekingToTick == nil, !controller.isPaused else { return false }
+        #if DEBUG
+        if fxCapture != nil { return false }
+        #endif
+        return true
     }
 
     #if DEBUG || TESTER_TOOLS

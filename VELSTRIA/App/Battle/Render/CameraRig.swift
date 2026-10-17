@@ -152,6 +152,10 @@ final class CameraRig {
     private(set) var focus = CriticallyDampedSpring(.zero)
     private var distance = CriticallyDampedScalar(value: baseDistance)
     private var trauma: Float = 0
+    /// 奥義の押し込み（視線の方向へ寄って戻る。m）。注視点・距離（distance）・gamePose は変えない
+    /// （頭上バーの大きさ・影の範囲・終幕の寄りの起点に効かない）。
+    private var pushPeak: Float = 0
+    private var pushAge: Float = 10
     private var time: Float = 0
     private var initialized = false
     private var glide: Glide?
@@ -308,6 +312,30 @@ final class CameraRig {
         return points
     }
 
+    /// 奥義の押し込みを足す（m。今の押し込みより強い時だけ置き換える）。BattleFeel が自分が関わる奥義で呼ぶ。
+    func addPushIn(_ meters: Float) {
+        guard meters > currentPushIn else { return }
+        pushPeak = meters
+        pushAge = 0
+    }
+
+    /// 今の押し込み（m）。
+    var currentPushIn: Float { pushPeak * CameraRig.pushEnvelope(pushAge) }
+
+    nonisolated static let pushRise: Float = 0.08
+    nonisolated static let pushFall: Float = 0.55
+
+    /// 押し込みの倍率（0〜1）。pushRise 秒で寄り（終わりほどゆっくり）、pushFall 秒で戻る（滑らかに）。
+    nonisolated static func pushEnvelope(_ age: Float) -> Float {
+        guard age >= 0, age < pushRise + pushFall else { return 0 }
+        if age < pushRise {
+            let u = age / pushRise
+            return u * (2 - u)
+        }
+        let u = (age - pushRise) / pushFall
+        return 1 - u * u * (3 - 2 * u)
+    }
+
     /// 揺れを加える（0〜1、重ねると加算で上限 1）。
     func addShake(_ amount: Float) {
         trauma = min(1, trauma + amount)
@@ -360,6 +388,10 @@ final class CameraRig {
 
         var pos = SIMD3(focus.value.x, 0, focus.value.y) + CameraRig.offset(distance: distance.value)
         gamePose.position = pos
+        // 奥義の押し込み: 視線の方向へ寄る（gamePose・distance は押し込む前のまま）
+        let push = currentPushIn
+        if push > 0.0001 { pos -= simd_normalize(CameraRig.offset(distance: distance.value)) * push }
+        pushAge += dt
         if isPresenting {
             camera.orientation = CameraRig.orientation
             isPresenting = false

@@ -55,6 +55,8 @@ final class SkillFXDirector {
     }
 
     private var lastHit: [HitKey: Float] = [:]
+    /// 被弾の閃きの最後の時刻（相手ごと。playHitFlash の間隔の管理。タイマーではなく時刻だけ）。
+    private var lastFlash: [EntityID: Float] = [:]
     private var lastPassive: [EntityID: Float] = [:]
     private var lastCast: [EntityID: (slot: SkillSlot, time: Float)] = [:]
     private var ambushReady: [EntityID: Bool] = [:]
@@ -105,6 +107,10 @@ final class SkillFXDirector {
                     list.append((palette, sr))
                 }
             }
+            // 被弾の閃き（全ヒーロー共通。このヒーローの色の加算の材質を先に作る）
+            var flash = SkillFXRecipe()
+            flash.cast = [SkillFXDirector.hitFlashCue(size: 1, height: 1)]
+            list.append((palette, flash))
             // パッシブのスタックの解放の演出（持つヒーローだけ。材質を先に作る）
             if let cues = SkillFXCatalog.passiveRelease(heroID: id, released: 1, master: master) {
                 var r = SkillFXRecipe()
@@ -134,6 +140,45 @@ final class SkillFXDirector {
     }
 
     private static func ground(_ v: Vec2) -> SIMD3<Float> { worldPosition(v) }
+
+    // MARK: 被弾の閃き（全ヒーロー共通）
+
+    /// 同じ相手へ閃きを重ねない最短の間隔（秒）。
+    static let hitFlashInterval: Float = 0.12
+
+    /// 被弾の閃きの合図: 体の中ほどに、白に近いスキルの色（パレットの core）の柔らかい光（加算の板 1 枚・追従・0.09 秒）。
+    static func hitFlashCue(size: Float, height: Float) -> FXCue {
+        .mesh(FXMesh.sprite(.glow, size, .core, life: 0.09, grow: 1.2, alpha: 0.8).glowing().with {
+            $0.fadeIn = 0.15
+            $0.fadeOut = 0.3
+        }, .follow, offset: [0, height, 0])
+    }
+
+    /// 被弾の閃き: ヒーローのスキル・会心の通常攻撃が当たったヒーロー・ミニオン・モンスター・人形を 0.09 秒光らせる。
+    /// 共通のプール（SkillFXPlayer）の板を使う（ユニットごとの材質・タイマーは足さない。同じ相手へは hitFlashInterval に 1 回）。
+    func playHitFlash(_ d: DamageEvent, state: SimState) {
+        let slot: SkillSlot
+        switch d.source {
+        case .skill(let s): slot = s
+        case .basicAttack where d.isCrit: slot = .passive
+        default: return
+        }
+        guard let src = d.sourceID, let hero = state.unit(src)?.hero, let target = state.unit(d.targetID),
+              let p = units.worldPositionOf(d.targetID) else { return }
+        let dims: (size: Float, height: Float)
+        switch target.kind {
+        case .hero, .dummy: dims = (1.7, 0.95)
+        case .minion: dims = (1.1, 0.55)
+        case .monster: dims = (2.2, 0.9)
+        default: return
+        }
+        if let last = lastFlash[d.targetID], time - last < SkillFXDirector.hitFlashInterval { return }
+        if lastFlash.count > 128 { lastFlash = lastFlash.filter { time - $0.value < 1 } }
+        lastFlash[d.targetID] = time
+        let key = SkillKey(heroID: hero.heroID, slot: slot)
+        player.play([SkillFXDirector.hitFlashCue(size: dims.size, height: dims.height)],
+                    context(key, origin: p, caster: p, target: p, forward: nil, follow: .unit(d.targetID)))
+    }
 
     /// 術者の向き（xz の単位ベクトル）。
     private func facing(_ id: EntityID, _ s: SimState) -> SIMD3<Float>? {
@@ -464,6 +509,7 @@ final class SkillFXDirector {
         zones.removeAll()
         shots.removeAll()
         lastHit.removeAll()
+        lastFlash.removeAll()
         kitPassive.removeAll()
         kitCounts.removeAll()
     }

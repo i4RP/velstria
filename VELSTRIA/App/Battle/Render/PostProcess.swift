@@ -1,4 +1,5 @@
 import Foundation
+import QuartzCore
 import Metal
 import RealityKit
 
@@ -231,6 +232,51 @@ final class PostProcessor: @unchecked Sendable {
         attachedView = arView
         arView.renderCallbacks.prepareWithDevice = PostProcessor.makePrepareCallback(self)
         updateCallback(arView)
+    }
+
+    /// 奥義の画面の脈（一瞬の閃光と放射状のぼかし）。BattleFeel が自分が関わる奥義で立てる。
+    /// process が開始時刻からの減衰を毎フレーム求める（main の更新の間隔に左右されない）。低画質は後処理ごと無いので出ない。
+    struct ScreenPulse: Equatable, Sendable {
+        /// 閃光の色（知覚空間 0〜1）。
+        var color: SIMD3<Float> = .one
+        /// 閃光の強さ（0〜1。スクリーン合成の量）。
+        var flash: Float = 0
+        /// 放射状のぼかしの強さ（0〜1。1 で中心へ 12% 縮めた像まで重ねる）。
+        var blur: Float = 0
+        /// ぼかしの中心（画面の UV。左上 0,0）。
+        var center: SIMD2<Float> = [0.5, 0.5]
+        /// 開始時刻（CACurrentMediaTime）。
+        var start: Double = -100
+
+        static let flashSeconds: Double = 0.22
+        static let blurSeconds: Double = 0.3
+
+        /// 開始から t 秒の倍率（0〜1）。0.03 秒で立ち上がり、残りで弱まる（終わりほどゆっくり）。
+        static func envelope(_ t: Double, length: Double) -> Float {
+            guard t >= 0, t < length, length > 0 else { return 0 }
+            let rise = 0.03
+            if t < rise { return Float(t / rise) }
+            let u = (t - rise) / max(0.001, length - rise)
+            return Float((1 - u) * (1 - u))
+        }
+
+        /// 時刻 now の閃光・ぼかしの強さ。
+        func amounts(at now: Double) -> (flash: Float, blur: Float) {
+            let t = now - start
+            return (flash * ScreenPulse.envelope(t, length: ScreenPulse.flashSeconds),
+                    blur * ScreenPulse.envelope(t, length: ScreenPulse.blurSeconds))
+        }
+    }
+
+    private var pulseState = ScreenPulse()
+
+    /// 脈を立てる（どのスレッドからでもよい）。今の脈の残りより強い時だけ置き換える（弱い脈で強い脈を消さない）。
+    func pulse(_ p: ScreenPulse) {
+        lock.lock()
+        defer { lock.unlock() }
+        let now = p.start
+        let left = pulseState.amounts(at: now)
+        if p.flash >= left.flash || p.blur >= left.blur { pulseState = p }
     }
 
     @MainActor
@@ -470,6 +516,18 @@ final class PostProcessor: @unchecked Sendable {
         renc.label = "velComposite"
         var cp = CompositeParams(bloomIntensity: bloomTexture == nil ? 0 : s.bloomIntensity, contrast: s.contrast,
                                  saturation: s.saturation, linearInput: linear ? 1 : 0)
+        let pulse = pulseState.amounts(at: CACurrentMediaTime())
+        if pulse.flash > 0.001 {
+            cp.flashR = pulseState.color.x
+            cp.flashG = pulseState.color.y
+            cp.flashB = pulseState.color.z
+            cp.flashAmount = pulse.flash
+        }
+        if pulse.blur > 0.001 {
+            cp.blurCX = pulseState.center.x
+            cp.blurCY = pulseState.center.y
+            cp.blurStrength = pulse.blur
+        }
         renc.setRenderPipelineState(composite)
         renc.setFragmentTexture(src, index: 0)
         renc.setFragmentTexture(bloomTexture ?? src, index: 1)
@@ -520,6 +578,15 @@ final class PostProcessor: @unchecked Sendable {
         var contrast: Float
         var saturation: Float
         var linearInput: Float
+        // 奥義の脈（ScreenPulse）。0 なら何もしない
+        var flashR: Float = 1
+        var flashG: Float = 1
+        var flashB: Float = 1
+        var flashAmount: Float = 0
+        var blurCX: Float = 0.5
+        var blurCY: Float = 0.5
+        var blurStrength: Float = 0
+        var pad: Float = 0
     }
 
     static let shaderSource = """
@@ -527,7 +594,9 @@ final class PostProcessor: @unchecked Sendable {
     using namespace metal;
 
     struct BloomParams { float threshold; float knee; float scatter; float linearInput; };
-    struct CompositeParams { float bloomIntensity; float contrast; float saturation; float linearInput; };
+    struct CompositeParams { float bloomIntensity; float contrast; float saturation; float linearInput;
+                             float flashR; float flashG; float flashB; float flashAmount;
+                             float blurCX; float blurCY; float blurStrength; float pad; };
 
     constexpr sampler velLinear(filter::linear, address::clamp_to_edge, coord::normalized);
 
@@ -634,7 +703,20 @@ final class PostProcessor: @unchecked Sendable {
                                          texture2d<float, access::sample> src [[texture(0)]],
                                          texture2d<float, access::sample> bloom [[texture(1)]],
                                          constant CompositeParams& p [[buffer(0)]]) {
-        float4 base = src.sample(velLinear, in.uv);
+        float4 base;
+        if (p.blurStrength > 0.0) {
+            // 奥義の放射状のぼかし: 中心へ縮めた像を 8 枚重ねる（強さ 1 で 12% まで）
+            float2 center = float2(p.blurCX, p.blurCY);
+            float2 d = in.uv - center;
+            float4 acc = float4(0.0);
+            for (int i = 0; i < 8; i++) {
+                float k = 1.0 - p.blurStrength * 0.12 * (float(i) / 7.0);
+                acc += src.sample(velLinear, center + d * k);
+            }
+            base = acc / 8.0;
+        } else {
+            base = src.sample(velLinear, in.uv);
+        }
         float3 c = velToPerceptual(base.rgb, p.linearInput);
         if (p.bloomIntensity > 0.0) {
             float3 b = bloom.sample(velLinear, in.uv).rgb;
@@ -648,6 +730,11 @@ final class PostProcessor: @unchecked Sendable {
         float shadow = 1.0 - smoothstep(0.0, 0.45, lum);
         float highlight = smoothstep(0.55, 1.0, lum);
         c += shadow * float3(-0.006, 0.0, 0.018) + highlight * float3(0.012, 0.006, -0.01);
+        if (p.flashAmount > 0.0) {
+            // 奥義の閃光（スクリーン合成。白飛びさせずに明るくする）
+            float3 f = float3(p.flashR, p.flashG, p.flashB) * p.flashAmount;
+            c = 1.0 - (1.0 - clamp(c, 0.0, 1.0)) * (1.0 - f);
+        }
         // 8bit 化の縞を消す微小ディザ（画素位置で固定。時間で変えないのでちらつかない）
         float2 px = in.position.xy;
         float n = fract(52.9829189 * fract(dot(px, float2(0.06711056, 0.00583715))));

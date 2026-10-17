@@ -501,6 +501,8 @@ final class BattleWorld {
             if isShown(d.targetID, f) {
                 effekseer?.onDamage(d, state: f.state)
                 if !fxHandlesSkill(d.sourceID, f) { skillDirector.onDamage(d, state: f.state) }
+                // 被弾の閃き（全ヒーロー共通。Effekseer の演出のヒーローも）
+                skillDirector.playHitFlash(d, state: f.state)
             }
         case .heal(let target, let source, let amount):
             onHeal(target: target, source: source, amount: amount, f)
