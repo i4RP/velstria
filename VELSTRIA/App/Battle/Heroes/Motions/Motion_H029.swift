@@ -3,7 +3,7 @@ import VelstriaCore
 
 // 担当: hero-models（モーション）。H029 聖槌のボルグ = MLBB のティグラルの全身のモーション（docs/vfx/H029.md「モーション（打撃の時刻）」）。
 // MLBB の画面収録（訓練場、30fps。コマの時刻は発動 = 指を離したコマから）を目で読んで、溜め・打撃・戻りの長さを測り、
-// 打撃のキーを sim の判定の時刻（KitMotionTimings.Borg = Kit_H029.Tune）に置いた。判定・数値は変えていない。
+// 打撃のキーを sim の判定の時刻（KitTimes = HeroKits.fxValues = Kit_H029.Tune）に置いた。判定・数値は変えていない。
 //   通常攻撃 — 槌を右肩の上へ振りかぶり、右上から左下へ斜めに振り抜く（体を左へひねり、左足を少し踏み込む）。MLBB は毎回同じ振り。
 //   スキル1 — 槌を右の後ろ下へ引いてから、後ろ → 頭上 → 前へ縦に大きく回し、左足を踏み込んで地へ叩きつけ（0.25 秒 = 1 回目の衝撃波）、
 //             深く沈んだ構えのまま衝撃波を見送ってから起き上がる。
@@ -16,7 +16,7 @@ import VelstriaCore
 // 腰の沈み hipsDrop は手続きの脚（0.56）に対する値で、スキンの脚へ伸ばす（ボルグは拡縮 1.32 の巨漢・脚 約 1 m）。
 
 enum Motion_H029: HeroMotionScript {
-    private typealias T = KitMotionTimings.Borg
+    private static let hero = "H029"
 
     // MARK: - 姿勢の部品
 
@@ -122,7 +122,7 @@ enum Motion_H029: HeroMotionScript {
     /// スキル1 聖槌波。MLBB（f196.5 = 0）: 0〜0.10 槌を右後ろの下へ引く・0.13〜0.20 後ろから頭上へ・0.25 前の地面へ叩きつけ
     /// （深い踏み込み）・0.7 秒まで沈んだまま・1.1 秒で起き上がる。sim: 衝撃波 0.25 / 0.58 / 0.92 秒。
     private static func attackWave(_ m: inout MotionBuilder) {
-        let strike = motionTime(T.waveFirstDelay)
+        let strike = KitTimes(hero, .skill1).seconds("waveFirstDelay")
         // 引き: 槌を右の後ろ下へ。体を右へひねり、腰を落とし始める
         m.planted(strike * 0.4, .out) { p in
             p.armR = ArmPose(pitch: -0.7, out: 0.45, yaw: -0.3, elbow: 0.35)
@@ -196,7 +196,8 @@ enum Motion_H029: HeroMotionScript {
     /// スキル2 聖槌突撃（1 回目）。MLBB: 指を離した次のコマから突進（21 コマ = 0.67 秒）。盾を前に突き出し、槌を後ろへ流して前傾。
     /// 突進の間は sim が術者を動かすので、脚は移動の走り（yieldsLowerWhenMoving）。終点で盾を押し込んで止まる。
     private static func charge(_ m: inout MotionBuilder) {
-        let dash = motionTime(T.dashDuration)
+        let k = KitTimes(hero, .skill2)
+        let dash = Float(k.distance("dashRange") / max(1, k.speed("dashSpeed")))
         m.shieldGuard = false
         // 盾を前へ突き出し、槌を右後ろへ（前傾）
         m.planted(0.08, .snap) { p in
@@ -241,7 +242,7 @@ enum Motion_H029: HeroMotionScript {
     /// スキル2 の再使用（打ち上げ）。MLBB（f426 = 0）: 0〜0.10 槌を右後ろの下へ引いて踏み込み・0.13〜0.2 下から前へ振り上げ
     /// （0.2 秒 = ノックアップ）・0.3 秒で頭上・0.6 秒まで掲げて 0.75 秒で肩へ。
     private static func uppercut(_ m: inout MotionBuilder) {
-        let strike = motionTime(T.smashDelay)
+        let strike = KitTimes(hero, .skill2, stage: 1).seconds("smashDelay")
         // 引き: 槌を右の後ろ下へ。腰を落とし、左足を踏み出す
         m.planted(strike * 0.5, .out) { p in
             p.armR = ArmPose(pitch: -0.6, out: 0.4, yaw: -0.15, elbow: 0.2)
@@ -300,7 +301,7 @@ enum Motion_H029: HeroMotionScript {
     /// アルティメット 崩落聖域。MLBB（f650 = 0）: 0〜0.13 槌を右肩へ上げて踏ん張る・0.17〜0.3 盾を頭上へ掲げる・0.83 まで掲げたまま
     /// （引き寄せ 0.67 秒）・0.86〜0.97 前へ踏み込んで盾と槌を地へ叩き落とす・1.0 崩落・0.6 秒ほど沈んだまま。
     private static func implosion(_ m: inout MotionBuilder) {
-        let slam = motionTime(T.ultDetonate)
+        let slam = KitTimes(hero, .ultimate).seconds("ultTotal")
         m.shieldGuard = false
         // 踏ん張り: 足を開き、槌を右肩へ
         m.planted(0.12, .out) { p in

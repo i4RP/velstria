@@ -3,7 +3,7 @@ import VelstriaCore
 
 // 担当: hero-models（モーション）。H034 鎖鉤のゴルム = MLBB のフランコの全身のモーション（docs/vfx/H034.md「モーション（打撃の時刻）」）。
 // MLBB の画面収録（訓練場、30fps。コマの時刻は発動 = 指を離したコマから）を目で読んで、溜め・打撃・戻りの長さを測り、
-// 打撃のキーを sim の判定の時刻（KitMotionTimings.Golm = Kit_H034.Tune）に置いた。判定・数値は変えていない。
+// 打撃のキーを sim の判定の時刻（KitTimes = HeroKits.fxValues = Kit_H034.Tune）に置いた。判定・数値は変えていない。
 //   通常攻撃 — 鎖鉤を右から左へ横に払う → 次は左から右へ返す（MLBB は左右交互の 2 拍）。
 //   スキル1 — 体を前へ倒して大きくひねり、鉤を右の後ろ下へ回してから、ほどきながら前へ投げ放つ（0.33 秒 = 鉤が飛ぶ）。
 //             腕を前へ伸ばしたまま待つ。当たれば（命中の後のモーション）鎖を張ったまま 0.45 秒待ち、肩の上へ引き寄せる
@@ -16,7 +16,7 @@ import VelstriaCore
 // 腰の沈み hipsDrop は手続きの脚（0.5）に対する値で、スキンの脚へ伸ばす（ゴルムは拡縮 1.36 の脚の短い巨漢）。
 
 enum Motion_H034: HeroMotionScript {
-    private typealias T = KitMotionTimings.Golm
+    private static let hero = "H034"
 
     // MARK: - 通常攻撃
 
@@ -134,7 +134,8 @@ enum Motion_H034: HeroMotionScript {
         var m = base
         m.yieldsLowerWhenMoving = true
         m.worldAngles = true
-        let hold = motionTime(T.hookHold), pull = motionTime(T.hookPull)
+        let k = KitTimes(hero, .skill1)
+        let hold = k.seconds("hookHold"), pull = k.seconds("hookPull")
         // 伸ばした腕で鎖を張る（投げ放った姿勢から少し引いて踏ん張る）
         m.planted(0.1, .out) { p in
             throwExtended(&p)
@@ -210,8 +211,9 @@ enum Motion_H034: HeroMotionScript {
     /// スキル1 鎖鉤（投げ）。MLBB（f96 = 0）: 0〜0.07 向き直る・0.07〜0.23 体を前へ倒して大きくひねり、鉤を右の後ろ下へ・
     /// 0.23〜0.33 ほどきながら前へ振り出す・0.33 投げ放つ（sim: 鉤が飛ぶ）・伸ばしたまま待つ。外れたら（最大 0.54 秒飛ぶ）鎖を手繰る。
     private static func hookThrow(_ m: inout MotionBuilder) {
-        let launch = motionTime(T.hookDelay)
-        let flight = motionTime(T.hookRange / T.hookSpeed)
+        let k = KitTimes(hero, .skill1)
+        let launch = k.seconds("hookDelay")
+        let flight = Float(k.distance("hookRange") / max(1, k.speed("hookSpeed")))
         // 構え: 少し沈んで向き直る
         m.planted(0.07, .out) { p in
             p.hipsDrop = 0.08
@@ -276,7 +278,7 @@ enum Motion_H034: HeroMotionScript {
     /// スキル2 鉄鎖旋。MLBB（f186 = 0）: 0〜0.1 沈む・0.13〜0.23 両腕を頭上へ振り上げて跳ぶ・0.27 着地と同時に鉤を前の地面へ
     /// 叩きつけ（sim の叩きつけ = ダメージ）・0.55 秒まで沈んだまま・0.85 秒で戻る。
     private static func stompSlam(_ m: inout MotionBuilder) {
-        let slam = motionTime(T.shockDelay)
+        let slam = KitTimes(hero, .skill2).seconds("shockDelay")
         // 沈む（跳ぶ前の溜め）
         m.planted(0.09, .out) { p in
             p.hipsDrop = 0.11
@@ -335,11 +337,12 @@ enum Motion_H034: HeroMotionScript {
     /// 2〜5 撃（0.57 / 0.89 / 1.21 / 1.53）は左右交互の振り（撃の 0.15 秒前から振りかぶる）・1.55〜1.68 頭上へ振り上げ・1.68 地を打つ・
     /// 1.85（6 撃目）最も深く・2.05 拘束の終わりまで沈む・2.35 秒で戻る。
     private static func bloodyHunt(_ m: inout MotionBuilder) {
-        let grab = motionTime(T.ultDelay + T.ultFirst)
-        let gap = motionTime(T.ultInterval)
-        let hits = T.ultHits
+        let k = KitTimes(hero, .ultimate)
+        let grab = k.seconds("ultDelay") + k.seconds("ultFirst")
+        let gap = k.seconds("ultInterval")
+        let hits = max(2, k.count("ultHits"))
         let last = grab + gap * Float(hits - 1)
-        let release = motionTime(T.ultDelay + T.ultSuppress)
+        let release = k.seconds("ultDelay") + k.seconds("ultSuppress")
         m.simLock = release
         // 溜め: 沈んで前を向く
         m.planted(0.1, .out) { p in

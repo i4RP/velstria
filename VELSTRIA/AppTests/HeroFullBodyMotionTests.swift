@@ -6,7 +6,7 @@ import VelstriaCore
 /// 全身のモーション（HeroSkillMotions: 詠唱・再使用の段・命中の後・通常攻撃。足の接地 HeroLegRig）の検査
 /// （docs/HERO_MOTION.md「全身のモーション」）。
 /// - 既定のヒーロー（スクリプトの無い 32 体）の詠唱モーションは変わらない（足の接地・移動中の下半身の戻し・段のモーションが無い）。
-/// - 打撃のキーが sim の判定の時刻（KitMotionTimings）にある。
+/// - 打撃のキーが sim の判定の時刻（HeroKits.fxValues = キットの Tune。照準・判定・演出と同じ読み取り口）にある。
 /// - 体の位置（描画だけのずれ）はクリップの終わりで 0 へ戻り、足首は地面より下へ入らない（同梱のスキンメッシュの骨で測る）。
 /// - 再使用の段は同じスロットの詠唱中でも始め直し、命中の後のモーションは 1 回の詠唱で 1 度だけ。
 /// - 全身の通常攻撃の打撃（武器の軌跡の振り）は playAttack の windup 秒後に来る。
@@ -76,30 +76,40 @@ final class HeroFullBodyMotionTests: XCTestCase {
     // MARK: 打撃の時刻 = sim の判定
 
     func testStrikeKeysSitOnSimTimes() throws {
-        typealias B = KitMotionTimings.Borg
-        typealias G = KitMotionTimings.Golm
+        // sim の時刻は判定と同じ 1 つの読み取り口（HeroKits.fxValues = Tune）から読む
+        func v(_ hero: String, _ slot: SkillSlot, _ key: String, stage: Int = 0) throws -> Double {
+            try XCTUnwrap(HeroKits.fxValues(heroID: hero, slot: slot, stage: stage).first { $0.key == key }?.value,
+                          "\(hero) \(slot) \(stage) の fxValues に \(key) が無い")
+        }
         func near(_ a: Float?, _ b: Double, _ label: String) {
             XCTAssertEqual(a ?? -1, Float(b), accuracy: 1e-3, label)
         }
+        KitTimes.misses = []
         let borg = profile("H029")
-        near(borg.casts[0].impact, B.waveFirstDelay, "ボルグ S1 の叩きつけ = 1 回目の衝撃波")
-        near(borg.casts[1].impact, B.dashDuration, "ボルグ S2 の盾の押し込み = 突進の終わり")
-        near(try XCTUnwrap(borg.recasts[1].first).impact, B.smashDelay, "ボルグ S2 の再使用の振り上げ = 打ち上げ")
-        near(borg.casts[2].impact, B.ultDetonate, "ボルグ 奥義の叩き落とし = 崩落")
+        near(borg.casts[0].impact, try v("H029", .skill1, "waveFirstDelay"), "ボルグ S1 の叩きつけ = 1 回目の衝撃波")
+        near(borg.casts[1].impact, try v("H029", .skill2, "dashRange") / v("H029", .skill2, "dashSpeed"),
+             "ボルグ S2 の盾の押し込み = 突進の終わり")
+        near(try XCTUnwrap(borg.recasts[1].first).impact, try v("H029", .skill2, "smashDelay", stage: 1),
+             "ボルグ S2 の再使用の振り上げ = 打ち上げ")
+        near(borg.casts[2].impact, try v("H029", .ultimate, "ultTotal"), "ボルグ 奥義の叩き落とし = 崩落")
         XCTAssertEqual(borg.attackMotions.count, 1)
 
         let golm = profile("H034")
-        near(golm.casts[0].impact, G.hookDelay, "ゴルム S1 の投げ放ち = 鉤が飛ぶ")
-        near(try XCTUnwrap(golm.hitFollowUps[0]).impact, G.hookHold, "ゴルム S1 の引き = 命中からの引き寄せ")
-        near(golm.casts[1].impact, G.shockDelay, "ゴルム S2 の叩きつけ")
+        near(golm.casts[0].impact, try v("H034", .skill1, "hookDelay"), "ゴルム S1 の投げ放ち = 鉤が飛ぶ")
+        near(try XCTUnwrap(golm.hitFollowUps[0]).impact, try v("H034", .skill1, "hookHold"), "ゴルム S1 の引き = 命中からの引き寄せ")
+        near(golm.casts[1].impact, try v("H034", .skill2, "shockDelay"), "ゴルム S2 の叩きつけ")
         let ult = golm.casts[2]
-        near(ult.impact, G.ultDelay + G.ultFirst + G.ultInterval * Double(G.ultHits - 1), "ゴルム 奥義の 6 撃目")
-        for k in 0..<G.ultHits {
-            let t = Float(G.ultDelay + G.ultFirst + G.ultInterval * Double(k))
+        let grab = try v("H034", .ultimate, "ultDelay") + v("H034", .ultimate, "ultFirst")
+        let gap = try v("H034", .ultimate, "ultInterval")
+        let hits = Int(try v("H034", .ultimate, "ultHits"))
+        near(ult.impact, grab + gap * Double(hits - 1), "ゴルム 奥義の 6 撃目")
+        for k in 0..<hits {
+            let t = Float(grab + gap * Double(k))
             XCTAssertTrue(ult.keys.contains { abs($0.time - t) < 1e-3 }, "ゴルム 奥義の \(k + 1) 撃目（\(t) 秒）にキーが無い")
         }
-        near(ult.simLock, G.ultDelay + G.ultSuppress, "ゴルム 奥義の拘束")
+        near(ult.simLock, try v("H034", .ultimate, "ultDelay") + v("H034", .ultimate, "ultSuppress"), "ゴルム 奥義の拘束")
         XCTAssertEqual(golm.attackMotions.count, 2, "フランコの通常攻撃は左右交互の 2 拍")
+        XCTAssertTrue(KitTimes.misses.isEmpty, "モーションが読むキットの値が fxValues に無い: \(KitTimes.misses.sorted())")
     }
 
     // MARK: 体の位置は 0 へ戻り、足は地面より下へ入らない（手続きの寸法）

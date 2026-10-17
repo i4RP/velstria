@@ -141,8 +141,10 @@
 H034 ゴルム。定義は App/Battle/Heroes/Motions/Motion_H0xx.swift）、それ以外のヒーローの動きは変わらない（演出の定義
 `FX_H0xx.motion` の詠唱とモーションクリップの通常攻撃のまま。AppTests/HeroFullBodyMotionTests が確かめる）。
 
-- **打撃の時刻 = sim の判定の時刻**: キーの時刻は `KitMotionTimings`（VelstriaCore。キットの Tune の読み取り専用の公開）から作る。
-  sim の時刻を変えるとモーションの打撃も一緒に動く。ヒーローごとの時刻の表は docs/vfx/H0xx.md「モーション（打撃の時刻）」。
+- **打撃の時刻 = sim の判定の時刻**: キーの時刻は `KitTimes`（HeroSkillMotions.swift）が `HeroKits.fxValues`（キットの Tune を名前・
+  単位つきで返す読み取り専用の口。照準・判定・演出の FXSkillInfo と同じ。docs/vfx/RANGES.md）から読んで作る。値を写さないので、
+  sim の時刻を変えるとモーションの打撃も一緒に動く。無い key は `KitTimes.misses` に残る（テストが空を確かめる）。
+  ヒーローごとの時刻の表は docs/vfx/H0xx.md「モーション（打撃の時刻）」。
 - **描画だけの体の位置**: `HeroPose.offset`（踏み込み・跳び。motion エンティティの位置）は sim の位置を動かさない。
   キーで書いたずれはクリップの終わり（`total`）で 0 に戻る（最後のキー → 待機の姿勢へ `recover` 秒で戻す）。水平のずれは 0.6 m 未満。
 - **足の接地**（`HeroLegIK.swift` の `HeroLegRig`）: `HeroPose.plant`（0〜1）が立つ間、足首を `footR` / `footL`
