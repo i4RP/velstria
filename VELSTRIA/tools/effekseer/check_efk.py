@@ -169,7 +169,7 @@ def check(path):
             raise ValueError("文字列の終端")
         r.skip(ln * 2)
         texs.append(s)
-        if not os.path.exists(os.path.join(OUT, s)):
+        if not os.path.exists(os.path.normpath(os.path.join(os.path.dirname(path), s))):
             raise ValueError(f"テクスチャが無い {s}")
     if r.i() != 0 or r.i() != 0:
         raise ValueError("法線・歪みテクスチャ")
@@ -192,8 +192,12 @@ def check(path):
 
 
 def main():
+    """引数 = 名前の頭（H025 など）。キットの段に重ねる効果（Kit/。テクスチャは ../Texture/）も同じく調べる。"""
     prefixes = sys.argv[1:]
-    files = sorted(f for f in os.listdir(OUT) if f.endswith(".efk") and (not prefixes or any(f.startswith(p) for p in prefixes)))
+    kit = os.path.join(OUT, "Kit")
+    names = [f for f in os.listdir(OUT) if f.endswith(".efk")]
+    names += [os.path.join("Kit", f) for f in (os.listdir(kit) if os.path.isdir(kit) else []) if f.endswith(".efk")]
+    files = sorted(f for f in names if not prefixes or any(os.path.basename(f).startswith(p) for p in prefixes))
     bad = 0
     total_bytes = 0
     for f in files:

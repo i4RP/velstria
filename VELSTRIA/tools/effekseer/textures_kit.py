@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """キットのヒーローの段に重ねる効果（Effects/Effekseer/Kit/）が使うテクスチャ。numpy・Pillow・scipy が要る。
 
-- 手続きの画（決まった乱数）: Fx_FlameRing（外向きの炎の舌が並ぶ輪。色を焼き込んだ画: 内縁の黄白 → 橙 → 赤の先）・
-  Fx_FlameRingCore（同じ舌の根元のまばらな芯。白 + アルファ。加算）・Fx_SoftDisc（平らに満ちた円）・Fx_ThinRing（細い線の輪）・
-  Fx_Burst（多数の棘の光芒）・Fx_Spike（立ちのぼる光の棘）
+- 手続きの画（決まった乱数）: Fx_SoftDisc（平らに満ちた円）・Fx_Burst（多数の棘の光芒）・Fx_Spike（立ちのぼる光の棘）
+- SkillFX の画（App/Resources/FX/Textures。範囲の縁を判定に合わせて測るので SkillFX の板で出す。FXTex.flameRing など）:
+  fx_flame_ring（外向きの炎の舌が並ぶ輪。色を焼き込んだ画: 内縁の黄白 → 橙 → 赤の先）・fx_flame_ring_core（舌の根元のまばらな芯。白 +
+  アルファ。加算）・fx_thin_ring（細い線の輪）
 - Blender の画（tools/vfx_assets が作った App/Resources/FX/Textures の白 + アルファ）の写し: Fx_CrackRadial・Fx_Scorch・Fx_Star4
 出力: Effects/Effekseer/Texture/Fx_*.png
 usage: python3 tools/effekseer/textures_kit.py
@@ -19,10 +20,11 @@ OUT = os.path.join(ROOT, "Effects", "Effekseer", "Texture")
 BLENDER = os.path.join(ROOT, "App", "Resources", "FX", "Textures")
 
 
-def save(name, rgba):
-    os.makedirs(OUT, exist_ok=True)
+def save(name, rgba, out=None):
+    out = out or OUT
+    os.makedirs(out, exist_ok=True)
     img = Image.fromarray((np.clip(rgba, 0, 1) * 255 + 0.5).astype(np.uint8), "RGBA")
-    img.save(os.path.join(OUT, name + ".png"), optimize=True)
+    img.save(os.path.join(out, name + ".png"), optimize=True)
     print(name, img.size)
 
 
@@ -67,7 +69,7 @@ def polar_noise(rng, r, th, cells_a, cells_r):
     return map_coordinates(g, [ri, ai], order=3, mode="nearest")
 
 
-def tongues(n=1024, seed=34, inner=0.70, valley=0.86, big=(26, 0.95, 1.0), small=(44, 0.90, 0.94)):
+def tongues(n=1024, seed=34, inner=0.74, valley=0.90, big=(26, 0.985, 1.0), small=(40, 0.95, 0.975), width=(0.62, 0.9)):
     """外向きの炎の舌の境界 b(θ)（大きい舌と、間の小さい舌）と、縦（半径の向き）の炎の筋のノイズ。"""
     rng = np.random.default_rng(seed)
     r, th = polar(n)
@@ -76,7 +78,7 @@ def tongues(n=1024, seed=34, inner=0.70, valley=0.86, big=(26, 0.95, 1.0), small
         slot = 2 * np.pi / count
         phase = rng.uniform(-0.3, 0.3, count) * slot
         tips = rng.uniform(lo, hi, count)
-        widths = rng.uniform(0.38, 0.62, count)
+        widths = rng.uniform(width[0], width[1], count)
         lean = rng.uniform(-0.35, 0.35, count)  # 舌の先の傾き（炎がなびく）
         for k in range(count):
             c = -np.pi + (k + 0.5) * slot + phase[k]
@@ -97,18 +99,18 @@ def flame_ring():
     a = smooth(edge - 0.035, edge + 0.02, r) * (1 - smooth(b - 0.02, b + 0.004, r))
     a *= np.clip(0.55 + 0.6 * streak, 0, 1) * (0.8 + 0.2 * blot)
     # 輪の内の橙の円（うっすら）
-    a = np.maximum(a, 0.2 * smooth(edge - 0.25, edge - 0.03, r) * (r < edge))
-    stops = [(0.0, (0.99, 0.94, 0.55)), (0.16, (0.98, 0.77, 0.40)), (0.38, (0.95, 0.55, 0.33)),
-             (0.68, (0.91, 0.36, 0.26)), (1.0, (0.74, 0.27, 0.22))]
+    a = np.maximum(a, 0.1 * smooth(edge - 0.2, edge - 0.03, r) * (r < edge))
+    stops = [(0.0, (0.99, 0.90, 0.50)), (0.16, (0.98, 0.72, 0.36)), (0.38, (0.94, 0.47, 0.29)),
+             (0.68, (0.91, 0.33, 0.24)), (1.0, (0.72, 0.24, 0.20))]
     rgb = np.zeros(r.shape + (3,))
     for c in range(3):
         rgb[..., c] = np.interp(t, [s[0] for s in stops], [s[1][c] for s in stops])
     # 明るい筋（舌の根元〜半ばの黄のハイライト）
-    hi = np.clip((streak - 0.55) * 2.2, 0, 1) * (1 - smooth(0.25, 0.65, t)) * (0.6 + 0.4 * blot)
+    hi = np.clip((streak - 0.55) * 2.2, 0, 1) * (1 - smooth(0.2, 0.5, t)) * (0.6 + 0.4 * blot)
     rgb = rgb * (1 - hi[..., None]) + np.array([0.99, 0.95, 0.57]) * hi[..., None]
     rgb[r < edge] = (0.91, 0.47, 0.28)
     rgb *= (0.88 + 0.22 * streak)[..., None]
-    save("Fx_FlameRing", np.dstack([np.clip(rgb, 0, 1), a]))
+    save("fx_flame_ring", np.dstack([np.clip(rgb, 0, 1), a]), BLENDER)
 
 
 def flame_ring_core():
@@ -117,7 +119,7 @@ def flame_ring_core():
     mid = edge + (b - edge) * 0.5
     a = smooth(edge - 0.02, edge + 0.015, r) * (1 - smooth(mid - 0.05, mid + 0.01, r))
     a *= np.clip((streak - 0.35) * 1.8, 0, 1) * np.clip((blot - 0.2) * 1.6, 0, 1)
-    save("Fx_FlameRingCore", np.dstack([np.ones(r.shape + (3,)), a]))
+    save("fx_flame_ring_core", np.dstack([np.ones(r.shape + (3,)), a]), BLENDER)
 
 
 def soft_disc(n=256):
@@ -128,18 +130,18 @@ def soft_disc(n=256):
 
 
 def thin_ring(n=1024):
-    """細い輪（半径 0.95・幅 0.8%。外の細い線）。"""
+    """細い輪（半径 0.95・幅 1%。外の細い線）。"""
     r, _ = polar(n)
-    a = np.exp(-((r - 0.95) / 0.008) ** 2) * (1 - smooth(0.985, 1.0, r))
-    save("Fx_ThinRing", np.dstack([np.ones(r.shape + (3,)), a]))
+    a = np.exp(-((r - 0.95) / 0.01) ** 2) * (1 - smooth(0.985, 1.0, r))
+    save("fx_thin_ring", np.dstack([np.ones(r.shape + (3,)), a]), BLENDER)
 
 
 def burst(n=512, seed=7):
     """多数の棘の光芒（中心の柔らかい光 + 長短 2 組の棘）。"""
     rng = np.random.default_rng(seed)
     r, th = polar(n)
-    a = np.exp(-(r / 0.14) ** 2)
-    for count, lo, hi, w in ((14, 0.62, 1.0, 0.075), (18, 0.3, 0.6, 0.05)):
+    a = np.exp(-(r / 0.2) ** 2)
+    for count, lo, hi, w in ((18, 0.6, 1.0, 0.13), (22, 0.3, 0.62, 0.09)):
         ang = np.sort(rng.uniform(-np.pi, np.pi, count))
         for k in range(count):
             d = np.angle(np.exp(1j * (th - ang[k])))

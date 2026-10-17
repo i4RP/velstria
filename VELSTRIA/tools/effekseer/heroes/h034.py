@@ -49,12 +49,30 @@ def heavy_swing(flip=False, size=1.0, delay=0):
             ground_pulse(S.accent, 0.3, 1.9 * size, 12, y=-0.85, delay=delay + 3, a=220), dust(2, delay=delay + 3, radius=0.8, size=(0.6, 1.4))]
 
 
+def atk_swing(c0, c1, size, life, rot):
+    """打撃の瞬間の振りの三日月（術者の前 1 m・高さ 1 m。前 = -Z）。芯の明るい細い三日月と、色の太い三日月。"""
+    return [Node("swing", tex="Fx_Crescent", blend="normal", life=life, billboard="fixed", rot=Rot.fixed(*rot), loc=Loc.fixed(0, 1.0, -1.0),
+                 scale=Scl.ease(size * 0.85, size, "out"), color=morph(c0, c1, 235, 0, "lin")),
+            Node("swing_core", tex="Fx_Crescent", blend="add", life=max(3, life - 2), billboard="fixed", rot=Rot.fixed(*rot),
+                 loc=Loc.fixed(0, 1.0, -0.95), scale=Scl.ease(size * 0.72, size * 0.84, "out"), color=fade((255, 248, 210), 150, 0, "lin"))]
+
+
+def atk_spark():
+    """通常攻撃の命中（被弾者の体の中ほど）: 白い芯（#FEFDF6）→ 淡い黄（#FDFEDA）の棘の光芒 1.5〜1.8 m、8 フレーム。"""
+    return [Node("spikes", tex="Fx_Burst", blend="normal", life=7, delay=1, scale=Scl.ease(2.3, 2.9, "out"),
+                 rot=Rot.pva(((0, 0, 0), (0, 0, 360))), color=morph((250, 236, 170), (253, 254, 218), 230, 0)),
+            Node("burst", tex="Fx_Burst", blend="add", life=8, scale=Scl.ease(1.9, 2.4, "out"), rot=Rot.pva(((0, 0, 0), (0, 0, 360))),
+                 color=morph((254, 253, 246), (253, 254, 218), 220, 0)),
+            Node("flash", tex="Fx_Core", blend="add", life=4, scale=Scl.ease(1.3, 1.6, "out"), color=fade((254, 253, 246), 255, 0, "lin"))]
+
+
 def build():
     E = []
-    # 通常攻撃: 拳と鎖の殴りつけ
-    E.append(make(P + "atk_cast", heavy_swing(False, 1.0), 26))
-    E.append(make(P + "atk_cast2", heavy_swing(True, 1.0), 26))
-    E.append(make(P + "atk_hit", hit_burst(S, 1.05, extra=[ground_pulse(S.main, 0.3, 2.0, 14, y=-0.8), sparks_iron(5), dust(2, radius=0.6, size=(0.6, 1.4), y=-0.5)]), 28))
+    # 通常攻撃（MLBB の画面収録 franco_sfx。2026-10-18）: 打撃の瞬間（attackReleased）に、振りの三日月（1 振り目は赤橙 #EF9271 / #D9373C、
+    # 2 振り目は黄橙の大きな振り抜き #FDF674 / #EDC956）。命中は白い芯 → 淡い黄の棘の光芒（1.5〜1.8 m）。3D の上に描く（旧来の段の効果）
+    E.append(make(P + "atk_cast", atk_swing((239, 146, 113), (217, 55, 60), 2.7, 6, rot=(-30, 0, 35)), 14))
+    E.append(make(P + "atk_cast2", atk_swing((253, 246, 116), (237, 201, 86), 3.3, 8, rot=(-25, 0, -40)), 16))
+    E.append(make(P + "atk_hit", atk_spark(), 14))
     # S1 鎖鉤を打ち出す（拘束）: 前へ鎖と鉤が伸びる → 鉤が食い込み、鎖が巻きつく
     E.append(make(P + "s1_cast", chain_shot(5.5, 14) + [glow_core("flare", S.core, 1.8, 9, z=-0.4), ground_pulse(S.main, 0.3, 2.0, 14, y=-0.85), sparks_iron(6, delay=2)], 30))
     E.append(make(P + "s1_impact", [glow_core("flare", S.core, 2.8, 10, z=-3.4), Node("star", tex="Fx_Star", life=14, loc=Loc.fixed(0, 0.3, -3.4), scale=Scl.ease(1.2, 3.6, "out"), color=fade(S.accent)),

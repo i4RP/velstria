@@ -851,7 +851,20 @@ final class SkillFXTests: XCTestCase {
             XCTAssertGreaterThan(covered, 0, "\(name) が空")
             XCTAssertLessThanOrEqual(maxDiff, 1, "\(name): 色がアルファと違う（透明な所に色が残ると四角い縁が出る）")
         }
-        for t in FXTex.allCases { check(t.rawValue, FXTextureLibrary.image(t)) }
+        for t in FXTex.allCases where !t.colored { check(t.rawValue, FXTextureLibrary.image(t)) }
+        // 色を焼き込んだ画像（H034 の炎の舌の輪）は色 × アルファ（乗算済みの色がアルファを超えない）
+        for t in FXTex.allCases where t.colored {
+            guard let img = FXTextureLibrary.image(t), let p = FXTextureLibrary.particleAlpha(img),
+                  let data = p.dataProvider?.data, let bytes = CFDataGetBytePtr(data) else { XCTFail(t.rawValue); continue }
+            var over = 0, covered = 0
+            for k in stride(from: 0, to: p.width * p.height * 4, by: 4) {
+                let a = Int(bytes[k + 3])
+                if a > 0 { covered += 1 }
+                over = max(over, Int(bytes[k]) - a, Int(bytes[k + 1]) - a, Int(bytes[k + 2]) - a)
+            }
+            XCTAssertGreaterThan(covered, 0, "\(t.rawValue) が空")
+            XCTAssertLessThanOrEqual(over, 1, "\(t.rawValue): 色がアルファを超える（乗算済みでない）")
+        }
         for s in FXSheet.allCases where !s.colored { check(s.rawValue, FXSheet.image(s)) }
         // 色付きのシート（Blender の爆炎・煙・岩）は色 × アルファ（乗算済みの色がアルファを超えない = 透明な所に色が残らない）
         for s in FXSheet.allCases where s.colored {

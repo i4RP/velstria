@@ -96,6 +96,13 @@ enum FXTex: String, CaseIterable, Hashable, Sendable {
     case swoosh
     /// 渦の刃（u = 尾 0 → 頭 1、v = 幅。頭が明るく丸い）。渦の刃の輪の模型に貼る。
     case blade
+    // 手続きの高解像度の画（tools/effekseer/textures_kit.py → App/Resources/FX/Textures/fx_<名前>.png）
+    /// 外向きの炎の舌が並ぶ輪（色を焼き込んだ画: 内縁の黄白 → 橙 → 赤の先。tint は白で使う）。1024 px。H034 の S2。
+    case flameRing
+    /// 炎の舌の根元のまばらな芯（白 + アルファ。加算）。flameRing と同じ舌。1024 px。
+    case flameRingCore
+    /// 細い線の輪（半径 0.95・幅 1%）。範囲の縁の細い線。1024 px。
+    case thinRing
 
     /// バンドルの画像の名前（Blender の模様）。nil = CoreGraphics で描く。
     var bundled: String? {
@@ -106,9 +113,15 @@ enum FXTex: String, CaseIterable, Hashable, Sendable {
         case .star4: return "fx_star4"
         case .swoosh: return "fx_swoosh"
         case .blade: return "fx_blade"
+        case .flameRing: return "fx_flame_ring"
+        case .flameRingCore: return "fx_flame_ring_core"
+        case .thinRing: return "fx_thin_ring"
         default: return nil
         }
     }
+
+    /// 色を焼き込んだ画像か（白 + アルファでない。tint は白で使う。アルファ合成の粒子の画像は色 × アルファになる）。
+    var colored: Bool { self == .flameRing }
 
     /// 横（+X）に長い模様か（FXMesh.ray が板を回して前方へ向ける）。
     var isLinear: Bool {
@@ -683,7 +696,7 @@ final class FXTextureLibrary {
             ctx.closePath()
             ctx.fillPath()
             radial(ctx, center: CGPoint(x: s * 0.82, y: c.y), radius: s * 0.16, stops: [(0, 0.7), (1, 0)])
-        case .crackS, .crackRadial, .scorch, .star4, .swoosh, .blade:
+        case .crackS, .crackRadial, .scorch, .star4, .swoosh, .blade, .flameRing, .flameRingCore, .thinRing:
             // バンドルの画像（image(_:) が読む）。ここへは来ない
             break
         case .note:
