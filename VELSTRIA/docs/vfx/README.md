@@ -127,3 +127,31 @@ overPending）は 30 のスキルすべてで 0。
 画質 medium（放出体 22）・low（10）は撮っていない。high で 22 を超えたのは H026 奥義（28）、10 を超えたのは 10 のスキル。
 低い画質では `minQuality` の合図が減るので、打ち切りが起きるかは未計測。数え方・上限は変えていない。1 体ずつの撮影なので、
 集団戦で重なったときの値ではない。
+
+### 2026-10-17 CI・配信
+
+- テスト（TestFlight の run_tests 付きの実行 #180、7b983ff。macOS 26 の CI、iPhone 17 シミュレータ）:
+  - コアのテスト（VelstriaCore 1159 件）: 失敗 0。
+  - アプリのテスト: main で前から落ちているもの（CoreFinaleTests.testShotsStayInsideTheMapClearOfStructuresAndFrameTheCore・
+    FriendTests.testErasedInboxIsReplacedWithANewCodeAndReconnects・HUDShopTests.testShopStateMarksCurrentBlessingAndProgress・
+    BattleHUDUITests.testRankedLeaveIsRecordedAsLoss・testTutorialMoveStepAdvancesWithJoystick（不安定）・
+    SpectatorHUDUITests.testSpectatorMenuPanelsSeekTacticalMapAndCinematic・ReplayLibraryUITests.testReplayListDetailAndPlayback（不安定））は
+    直していない。このブランチで新しく落ちた 2 件は直した（下）。SkillFXTests は 40 件のうちその 1 件のほかは通った（この作業で足した
+    加算・模様・コマ送り・空の段・幕の封じのテストを含む）。
+  - 直した 2 件: `SkillFXTests.testLuminaMoonArrowBuffFollowsCastDuration`（H025 の効果中の足元の三日月を外したのに 2 つを数えていた →
+    弓のきらめき 1 つ）、`SpectatorCameraTests.testFollowCentersEveryEdgeAtEveryZoom`（注視点の前ずれが 0 の前提だった → 同じファイルの
+    ほかのテストと同じく `focusLead` を足して比べる。端で丸めないことは変えずに確かめる）。
+- 配信: build 24973840（7b983ff、#179）が内部グループ In に届いた（テスター 2 人）。その前の 24971429（42d7868）には
+  ゴルムの直しと幕の封じが入っていない。
+- 撮影 #16（7b983ff、H029・H034、MLBB の組）: どちらも `sealed=false`（Program を待ってから幕を上げた）。H029 の回は Program の作成に
+  7.2 秒かかった。予算の打ち切り 0。H029 の放出体の最大は S1 15・S2 18・奥義 10（after1 は 12・12・7。同じレシピで回によって違う。
+  理由は調べていない）。
+
+### 実機で確かめること（TestFlight の build 24973840 以降。練習場で 10 体の S1・S2・奥義を撃って画面を録画）
+
+- 粒子の部品（コマ送りのスプライトシートの炎・煙・火花・雷など）が出ているか・大きさ・向き（CI では一度も写らない）。
+- 加算の部品の明るさ・白飛び・ブルームの掛かり方（シミュレータには後処理が無い）。暗い所・明るい所での見え方。
+- 読み込みの時間と、`fx programs built in … ms` / `fx shaded materials not ready at curtain` の記録（性能記録。幕に間に合わなかった試合は従来の材質）。
+- FPS・発熱（集団戦で演出が重なったとき。画質 medium・low で放出体の打ち切りが起きるか）。
+- カメラの操作感（mlbb の組: 見える範囲・指の操作・地図の端）。
+- 撮影で撃てなかったスキル（H027 S1・H028 奥義・H034 奥義。英雄にだけ撃てる）を対戦か Bot 相手で。

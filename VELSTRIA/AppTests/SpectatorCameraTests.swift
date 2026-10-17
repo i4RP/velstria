@@ -20,7 +20,8 @@ final class SpectatorCameraTests: XCTestCase {
                 let drive = CameraDrive(target: target, zoom: zoom, transition: .cut,
                                         zoomRange: CameraRig.spectatorZoomRange)
                 rig.update(drive, dt: 1 / 60, mapMeters: M)
-                XCTAssertEqual(rig.focus.value, target)
+                // 追従は地図の端でも丸めない（注視点は追従先から focusLead だけ北。2026-10-17 の MLBB のカメラで 0.91 m）
+                XCTAssertEqual(rig.focus.value, target + SIMD2(0, -CameraRig.focusLead))
                 let offset = CameraRig.groundOffsetPerDistance(ndc: .zero, aspectRatio: 2.16)!
                 XCTAssertLessThan(simd_length(offset), 0.00001)
                 let left = target.x - rig.currentDistance * tan(CameraRig.fovDegrees * .pi / 360) * 2.16

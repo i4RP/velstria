@@ -444,11 +444,13 @@ final class SkillFXTests: XCTestCase {
         XCTAssertEqual(ec.duration, FXCue.castDurationLimit)
     }
 
-    /// ルミナの S1（効果時間 4→9 秒）: 効果中の足元の三日月・弓のきらめきは発動の長さに合わせ、書いた値はランク 1 の 4 秒。
+    /// ルミナの S1（効果時間 4→9 秒）: 効果中の弓のきらめきは発動の長さに合わせ、書いた値はランク 1 の 4 秒。
+    /// （足元の三日月は MLBB の画面収録に無いので 2026-10-17 に外した。docs/vfx/H025.md）
     func testLuminaMoonArrowBuffFollowsCastDuration() {
         let r = SkillFXCatalog.recipe(heroID: "H025", slot: .skill1, master: master)
         let flagged = r.cast.filter(\.usesCastDuration)
-        XCTAssertEqual(flagged.count, 2, "足元の三日月（メッシュ）と弓のきらめき（継続放出）")
+        XCTAssertEqual(flagged.count, 1, "弓のきらめき（継続放出）")
+        XCTAssertTrue(flagged.allSatisfy { if case .emit = $0.element { return true } else { return false } })
         for cue in flagged {
             XCTAssertEqual(cue.anchor, .follow, "効果中の演出は術者に追従する")
             switch cue.element {
