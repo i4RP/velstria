@@ -192,7 +192,8 @@ enum FX_H029: HeroFXSet {
                 // 白金の芯から放射状に伸びる黄の光の棘（地面に寝かせたコマ送り）
                 .mesh(.groundFlipbook(.spikes, 3.4 * big, hot, life: 0.42, grow: 1.08).with { $0.yaw = yaw * 1.7 }, at: t,
                       offset: pos),
-                // S 字の地割れ: 黄に光る（〜0.3 秒）→ 橙の溶岩（模様が流れ、溶けて消える）→ 焦げた暗いひび（溶けて消える）
+                // S 字の地割れ: 黄に光る（〜0.3 秒）→ 橙の溶岩（模様が流れ、溶けて消える）→ 焦げた暗いひび（溶けて消える。
+                // 低画質では省く: 低画質の地面の板のプール 14 に 3 回の爆ぜが収まるように）
                 .mesh(crack(.crackS, 2.5 * big, hot, life: 0.34, yaw: yaw).glowing(), at: t, offset: pos),
                 .mesh(crack(.crackS, 2.5 * big, lava, life: 0.95, yaw: yaw).glowing()
                     .flowing(.lava, scroll: [0.04, 0.1], tiling: 1.3, strength: 0.75, edge: hot)
@@ -200,7 +201,7 @@ enum FX_H029: HeroFXSet {
                       at: t + 0.05, offset: pos),
                 .mesh(crack(.crackS, 2.55 * big, char, life: 1.5, yaw: yaw, alpha: 0.85)
                     .dissolving(from: 0.55, tiling: 2.5, edge: ember, width: 0.06).with { $0.fadeIn = 0.18; $0.fadeOut = 0.95 },
-                      at: t + 0.1, offset: pos),
+                      at: t + 0.1, offset: pos, quality: 1),
                 // 橙の爆炎（色付きのコマ送り。画像の白 → 黄 → 橙 → 暗い朱）
                 .mesh(.flipbook(.fireball, 2.6 * big, .white, life: 0.62, grow: 1.15), at: t + 0.04, offset: pos + [0, 0.85, 0]),
                 // 火花（上と外へ）・残り火・焦げた煙。2・3 回目は Effekseer の飛び散る光の筋と火花を重ねる（CI の撮影にも写る）
@@ -341,9 +342,13 @@ enum FX_H029: HeroFXSet {
                     $0.fadeOut = 0.35
                     $0.onTop = true
                 }, at: t, offset: [0.1, 0.95, smashReach * 0.3]),
-            // 打ち上げの爆ぜ（光の棘・爆炎）と、天へ立つ 2 重の金の光の柱（炎の筋が上へ流れる）
-            .mesh(.groundFlipbook(.spikes, 3.0, hot, life: 0.4), at: t, offset: mid),
-            .mesh(.flipbook(.fireball, 2.6, .white, life: 0.55), at: t + 0.03, offset: mid + [0, 1.2, 0]),
+            // 打ち上げの爆ぜ（MLBB は大きな爆炎ではなく、打ち上げた敵の所の淡い金の光ときらめき）: 小さめの光の棘と柔らかい金の光、
+            // 天へ立つ 2 重の金の光の柱（炎の筋が上へ流れる）
+            .mesh(.groundFlipbook(.spikes, 2.2, hot, life: 0.36), at: t, offset: mid),
+            .mesh(.sprite(.glow, 2.6, .primary, life: 0.5, grow: 1.3, alpha: 0.8).glowing().with {
+                $0.fadeIn = 0
+                $0.onTop = true
+            }, at: t + 0.02, offset: mid + [0, 1.2, 0]),
             .mesh(.model(.pillar2, nil, .primary, size: [0.6, 1.5, 0.6], sizeEnd: [0.38, 5.5, 0.38], life: 0.5).glowing()
                 .flowing(.flame, scroll: [0, -2.4], tiling: 1.6, strength: 0.7, erosion: 0.3, edge: .core).with { $0.onTop = true },
                   at: t, offset: mid),
