@@ -114,6 +114,9 @@ enum FXEdge {
             return [[-k * size.x, 0], [k * size.x, 0]]
         case .billboard:
             return nil
+        case .crescent, .ringLip, .twister, .pillar2, .bladeRing, .burstDome, .starCross, .shardRing:
+            // Blender の模型（roam-look-borg）。見える縁の表がまだ無いので範囲を示す部品に数えない（統合の時の仮）
+            return nil
         }
     }
 
