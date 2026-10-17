@@ -11,10 +11,26 @@ import UIKit
 //   3. 深度を遠い面へ戻し（velDepthReset）、「3D の上の層」（旧来の .efk・命中の閃き。EfkRuntime.setOnTop）を描く
 // ブルーム・合成は fxColor を元画像として読む（効果にもブルームが掛かる。奥義の脈の放射状のぼかしも効果ごと掛かる）。
 // 効果が 1 つも出ていない・Effekseer がこの経路で描かないフレームは何もしない（sourceColor をそのまま使う。追加の費用 0）。
-// パイプラインは 3D 画面の色の形式ごとに背景で作る（作る間は重ね描きのまま）。
+// 3D 画面が sRGB の形式（BGRA8Unorm_sRGB など）の時は、fxColor の sRGB でない見え方（テクスチャのビュー）へ sRGB に符号化して写し、
+// Effekseer もそこへ描く（Effekseer の Metal の描き手は sRGB の描画先で何も描かない。2026-10-18 の CI の自己診断。重ね描きと同じくガンマの空間で混ぜる）。
+// 安全装置: 後処理用の描き手ができたら、描画先の形式・深度の向きごとに 1 回、小さな確かめの効果（Zt_PostProbe）を画面外の小さな画へ
+// 描いて光った画素を数える（probe）。足りなければその試合は重ね描きのまま（実機で「Effekseer が何も出ない」を起こさない）。
 // メインスレッドは drawsEffekseer（直近にこの経路で描ける状態だった）を見て、重ね描きと後処理のどちらで描くかを毎フレーム決める。
 
 final class EffekseerPostPass: @unchecked Sendable {
+    /// 後処理の中で描く経路を使うか（全体の切り替え。false = 実機でも常に重ね描き）。
+    nonisolated(unsafe) static var isEnabled = true
+    /// 確かめの効果（Effects/Effekseer/Zt_PostProbe.efk。白い大きな光 1 枚。全試合で読む）。
+    static let probeEffect = "Zt_PostProbe"
+    /// 確かめで光るべき画素の数の下限（64 × 64 の画の中央に大きく映る）。
+    static let probeMinLit = 40
+    static let probeSize = 64
+
+    /// 後処理の中で描くか（純粋。単体テスト対象）: 切り替えが有効・描き手ができた・確かめで十分に光った時だけ。
+    static func usesPostPath(enabled: Bool, prepared: Bool, probeLit: Int?) -> Bool {
+        enabled && prepared && (probeLit ?? 0) >= probeMinLit
+    }
+
     /// 写すパスのシェーダー（PostProcessor.shaderSource の後ろへ繋いで 1 つのライブラリにする。VelVertexOut・velFullscreenVertex を使う）。
     static let shaderSource = """
 
@@ -31,6 +47,23 @@ final class EffekseerPostPass: @unchecked Sendable {
         return o;
     }
 
+    static float3 velLinearToSRGB(float3 c) {
+        c = max(c, 0.0);
+        return select(1.055 * pow(c, float3(1.0 / 2.4)) - 0.055, c * 12.92, c <= 0.0031308);
+    }
+
+    // sRGB の 3D 画面（読むと線形）を、sRGB でない見え方の描画先へ sRGB に符号化して写す（元の画素と同じ値になる）
+    fragment VelSceneCopyOut velSceneCopySRGBFragment(VelVertexOut in [[stage_in]],
+                                                      texture2d<float, access::read> color [[texture(0)]],
+                                                      depth2d<float, access::read> depth [[texture(1)]]) {
+        uint2 p = uint2(in.position.xy);
+        float4 c = color.read(p);
+        VelSceneCopyOut o;
+        o.color = float4(velLinearToSRGB(c.rgb), c.a);
+        o.depth = depth.read(p);
+        return o;
+    }
+
     // 深度を一様な値（遠い面）へ戻す（色は書かない）。3D に隠れる層の後、3D の上の層の前
     struct VelDepthResetOut { float4 position [[position]]; };
     vertex VelDepthResetOut velDepthResetVertex(uint vid [[vertex_id]], constant float &depth [[buffer(0)]]) {
@@ -42,27 +75,47 @@ final class EffekseerPostPass: @unchecked Sendable {
     fragment void velDepthResetFragment() {}
     """
 
+    /// 3D 画面の色の形式 → Effekseer が描く形式（sRGB は sRGB でない見え方へ。encodeSRGB = 写す時に符号化する）。
+    static func renderFormat(_ src: MTLPixelFormat) -> (format: MTLPixelFormat, encodeSRGB: Bool) {
+        switch src {
+        case .bgra8Unorm_srgb: return (.bgra8Unorm, true)
+        case .rgba8Unorm_srgb: return (.rgba8Unorm, true)
+        default: return (src, false)
+        }
+    }
+
     /// メインスレッドが「後処理で描ける」と見なす、最後に描ける状態だったフレームからの秒数。
     static let staleSeconds: Double = 0.3
 
     private let lock = NSLock()
     private weak var runtime: EfkRuntime?
     private var capableAt: Double = -100
+    /// 確かめの結果の報告（BattleRenderer が計測ログへ 1 回書く。lock で守る）。
+    private var reports: [String] = []
     /// 背景で作っている・作り終えた・作れなかった写すパスのパイプライン（lock で守る）。
     private var pendingFormats: Set<UInt> = []
     private var failedFormats: Set<UInt> = []
     private var readyPipelines: [UInt: Pipelines] = [:]
     /// 以下は描画スレッドだけが触る（PostProcessor の錠の中）。
     private var copyPipelines: [UInt: Pipelines] = [:]
+    private var depthState: MTLDepthStencilState?
+    /// 3D 画面と同じ形式の写し（ブルーム・合成が読む）と、Effekseer が描く見え方（sRGB は sRGB でない形式のビュー）。
+    private var color: MTLTexture?
+    private var colorTarget: MTLTexture?
+    private var depth: MTLTexture?
+    /// 確かめの結果（描画先の形式 × 深度の向き → 光った画素の数。-1 = 確かめられなかった）。
+    private var probes: [ProbeKey: Int] = [:]
 
-    /// 3D 画面の色の形式ごとのパイプライン（写す・深度を戻す）。
+    private struct ProbeKey: Hashable {
+        var format: UInt
+        var reversed: Bool
+    }
+
+    /// 形式ごとのパイプライン（写す・深度を戻す）。
     struct Pipelines {
         var copy: MTLRenderPipelineState
         var resetDepth: MTLRenderPipelineState
     }
-    private var depthState: MTLDepthStencilState?
-    private var color: MTLTexture?
-    private var depth: MTLTexture?
 
     /// 描く Effekseer（実機の後処理が使える時だけ BattleRenderer が渡す。nil で外す）。どのスレッドからでもよい。
     func attach(_ r: EfkRuntime?) {
@@ -79,9 +132,24 @@ final class EffekseerPostPass: @unchecked Sendable {
         return runtime != nil && now - capableAt < EffekseerPostPass.staleSeconds
     }
 
+    /// 確かめの結果の報告を取り出す（メインスレッド。計測ログ・Debug の出力へ）。
+    func takeReports() -> [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        let r = reports
+        reports.removeAll()
+        return r
+    }
+
     private func noteCapable(_ now: Double) {
         lock.lock()
         capableAt = now
+        lock.unlock()
+    }
+
+    private func report(_ s: String) {
+        lock.lock()
+        if reports.count < 8 { reports.append(s) }
         lock.unlock()
     }
 
@@ -94,21 +162,31 @@ final class EffekseerPostPass: @unchecked Sendable {
     /// 効果を描いた画（3D 画面の写し + 効果）を返す。この経路で描かないフレームは nil（呼び出し側は sourceColor をそのまま使う）。
     /// library は PostProcessor のライブラリ（shaderSource + EffekseerPostPass.shaderSource）。
     func encode(_ ctx: ARView.PostProcessContext, library: MTLLibrary, device: MTLDevice) -> MTLTexture? {
-        guard let runtime = attached else { return nil }
+        guard EffekseerPostPass.isEnabled, let runtime = attached else { return nil }
         let src = ctx.sourceColorTexture, srcDepth = ctx.sourceDepthTexture
         // 深度を写せる形（同じ大きさ・1 サンプル）でなければこの経路は使わない（重ね描きのまま）
         guard src.width == srcDepth.width, src.height == srcDepth.height, src.sampleCount == 1, srcDepth.sampleCount == 1
         else { return nil }
         let reversed = EfkRuntime.isReversedDepth(projection: ctx.projection)
-        let format = src.pixelFormat
-        guard runtime.isPrepared(postColorFormat: format, reversedDepth: reversed),
-              let pipelines = pipelines(format, library: library, device: device), let depthState = makeDepthState(device),
-              ensureTargets(device: device, like: src) else { return nil }
+        let rf = EffekseerPostPass.renderFormat(src.pixelFormat)
+        guard runtime.isPrepared(postColorFormat: rf.format, reversedDepth: reversed) else { return nil }
+        // 安全装置: この形式・深度の向きで本当に描けるかを 1 回だけ確かめる（描けなければこの試合は重ね描き）
+        let key = ProbeKey(format: rf.format.rawValue, reversed: reversed)
+        if probes[key] == nil {
+            let lit = runtime.probePost(effectNamed: EffekseerPostPass.probeEffect, colorFormat: rf.format, reversedDepth: reversed)
+            probes[key] = lit
+            let ok = EffekseerPostPass.usesPostPath(enabled: true, prepared: true, probeLit: lit)
+            report("effekseer post probe src=\(src.pixelFormat.rawValue) draw=\(rf.format.rawValue) reversed=\(reversed) "
+                   + "lit=\(lit) -> \(ok ? "post" : "overlay")")
+        }
+        guard EffekseerPostPass.usesPostPath(enabled: true, prepared: true, probeLit: probes[key]),
+              let pipelines = pipelines(rf.format, encodeSRGB: rf.encodeSRGB, library: library, device: device),
+              let depthState = makeDepthState(device), ensureTargets(device: device, like: src, target: rf) else { return nil }
         noteCapable(CACurrentMediaTime())
         // メインスレッドがこの経路で描くと決めていて、効果が出ている時だけ描く
-        guard runtime.drawsInPostProcess, runtime.activeCount > 0, let color, let depth else { return nil }
+        guard runtime.drawsInPostProcess, runtime.activeCount > 0, let color, let colorTarget, let depth else { return nil }
         let rp = MTLRenderPassDescriptor()
-        rp.colorAttachments[0].texture = color
+        rp.colorAttachments[0].texture = colorTarget
         rp.colorAttachments[0].loadAction = .dontCare
         rp.colorAttachments[0].storeAction = .store
         rp.depthAttachment.texture = depth
@@ -130,8 +208,9 @@ final class EffekseerPostPass: @unchecked Sendable {
 
     // MARK: 準備
 
-    private func pipelines(_ format: MTLPixelFormat, library: MTLLibrary, device: MTLDevice) -> Pipelines? {
-        let key = format.rawValue
+    private func pipelines(_ format: MTLPixelFormat, encodeSRGB: Bool, library: MTLLibrary,
+                           device: MTLDevice) -> Pipelines? {
+        let key = format.rawValue << 1 | (encodeSRGB ? 1 : 0)
         if let p = copyPipelines[key] { return p }
         lock.lock()
         if let p = readyPipelines.removeValue(forKey: key) {
@@ -145,7 +224,7 @@ final class EffekseerPostPass: @unchecked Sendable {
         guard !busy else { return nil }
         // 描画スレッドを止めないよう背景で作る（作り終えるまでは重ね描き）
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let p = EffekseerPostPass.makePipelines(format, library: library, device: device)
+            let p = EffekseerPostPass.makePipelines(format, encodeSRGB: encodeSRGB, library: library, device: device)
             guard let self else { return }
             self.lock.lock()
             self.pendingFormats.remove(key)
@@ -155,12 +234,13 @@ final class EffekseerPostPass: @unchecked Sendable {
         return nil
     }
 
-    /// 写す・深度を戻すパイプライン（色 = 3D 画面の形式、深度 = Depth32Float）。テストからも使う。
-    static func makePipelines(_ format: MTLPixelFormat, library: MTLLibrary, device: MTLDevice) -> Pipelines? {
+    /// 写す・深度を戻すパイプライン（色 = Effekseer が描く形式、深度 = Depth32Float）。テストからも使う。
+    static func makePipelines(_ format: MTLPixelFormat, encodeSRGB: Bool = false, library: MTLLibrary,
+                              device: MTLDevice) -> Pipelines? {
         let d = MTLRenderPipelineDescriptor()
         d.label = "velSceneCopy"
         d.vertexFunction = library.makeFunction(name: "velFullscreenVertex")
-        d.fragmentFunction = library.makeFunction(name: "velSceneCopyFragment")
+        d.fragmentFunction = library.makeFunction(name: encodeSRGB ? "velSceneCopySRGBFragment" : "velSceneCopyFragment")
         d.colorAttachments[0].pixelFormat = format
         d.depthAttachmentPixelFormat = .depth32Float
         let r = MTLRenderPipelineDescriptor()
@@ -203,33 +283,44 @@ final class EffekseerPostPass: @unchecked Sendable {
         return device.makeDepthStencilState(descriptor: d)
     }
 
-    /// 写し先（3D 画面と同じ大きさ・形式の色と、タイルの中だけの深度）。大きさ・形式が変わった時だけ作り直す。
-    private func ensureTargets(device: MTLDevice, like src: MTLTexture) -> Bool {
-        if let c = color, c.width == src.width, c.height == src.height, c.pixelFormat == src.pixelFormat, depth != nil {
+    /// 写し先（3D 画面と同じ大きさ・形式の色と、Effekseer が描く見え方、タイルの中だけの深度）。大きさ・形式が変わった時だけ作り直す。
+    private func ensureTargets(device: MTLDevice, like src: MTLTexture,
+                               target rf: (format: MTLPixelFormat, encodeSRGB: Bool)) -> Bool {
+        if let c = color, c.width == src.width, c.height == src.height, c.pixelFormat == src.pixelFormat,
+           colorTarget?.pixelFormat == rf.format, depth != nil {
             return true
         }
-        let cd = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: src.pixelFormat, width: src.width, height: src.height,
-                                                          mipmapped: false)
-        cd.usage = [.renderTarget, .shaderRead]
+        color = nil
+        colorTarget = nil
+        depth = nil
+        guard let made = EffekseerPostPass.makeTargets(device: device, format: src.pixelFormat, width: src.width,
+                                                       height: src.height) else { return false }
+        color = made.color
+        colorTarget = made.target
+        depth = made.depth
+        return true
+    }
+
+    /// 色（format）・Effekseer が描く見え方（renderFormat）・深度（Depth32Float。実機はタイルの中だけ）。テストからも使う。
+    static func makeTargets(device: MTLDevice, format: MTLPixelFormat, width: Int, height: Int,
+                            memorylessDepth: Bool = true) -> (color: MTLTexture, target: MTLTexture, depth: MTLTexture)? {
+        let rf = renderFormat(format)
+        let cd = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: format, width: width, height: height, mipmapped: false)
+        cd.usage = rf.encodeSRGB ? [.renderTarget, .shaderRead, .pixelFormatView] : [.renderTarget, .shaderRead]
         cd.storageMode = .private
-        let dd = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .depth32Float, width: src.width, height: src.height,
-                                                          mipmapped: false)
+        let dd = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .depth32Float, width: width, height: height, mipmapped: false)
         dd.usage = [.renderTarget]
         #if targetEnvironment(simulator)
         dd.storageMode = .private
         #else
-        dd.storageMode = .memoryless
+        dd.storageMode = memorylessDepth ? .memoryless : .private
         #endif
-        guard let c = device.makeTexture(descriptor: cd), let d = device.makeTexture(descriptor: dd) else {
-            color = nil
-            depth = nil
-            return false
-        }
+        guard let c = device.makeTexture(descriptor: cd), let d = device.makeTexture(descriptor: dd) else { return nil }
+        let view: MTLTexture? = rf.encodeSRGB ? c.makeTextureView(pixelFormat: rf.format) : c
+        guard let t = view else { return nil }
         c.label = "velEffekseerColor"
         d.label = "velEffekseerDepth"
-        color = c
-        depth = d
-        return true
+        return (c, t, d)
     }
 }
 
@@ -251,10 +342,12 @@ extension EffekseerPostPass {
         var litNear = 0
         /// 同じ近い深度で、効果を「3D の上の層」（setOnTop）にした時に映った画素の数（> 0 = 深度を戻して上に描く）。
         var litNearOnTop = 0
+        /// 安全装置の確かめ（probePost）で光った画素の数（後処理の組だけ）。
+        var probe = 0
 
         var summary: String {
             "efkPost[\(label)] prepared=\(prepared) drew=\(drew) instances=\(instances) litFar=\(litFar) litNear=\(litNear) "
-                + "litNearOnTop=\(litNearOnTop)"
+                + "litNearOnTop=\(litNearOnTop) probe=\(probe)"
         }
     }
 
@@ -271,7 +364,7 @@ extension EffekseerPostPass {
                                        SIMD4(0, 0, near * far / (near - far), 0)))
     }
 
-    /// 撮影の最後に試す組（後処理の色の形式・深度の向きと、比べるための重ね描きの描き手）。
+    /// 撮影の最後に試す組（3D 画面の色の形式・深度の向きと、比べるための重ね描きの描き手）。
     static let selfTestCases: [(label: String, format: MTLPixelFormat, reversed: Bool, overlay: Bool)] = [
         ("overlay", .bgra8Unorm, false, true),
         ("bgra8", .bgra8Unorm, false, false),
@@ -280,25 +373,31 @@ extension EffekseerPostPass {
     ]
 
     /// 後処理の中で描く経路を、黒い画と一様な深度（遠い / 近い）で試す（実機の 3D 画面が無くても、描き手の作成・描画・深度の向きを確かめる）。
-    /// overlay = 重ね描きの描き手で同じ画を描く（比べる基準。深度なし）。effects はバンドルの効果の名前（拡張子なし）。
+    /// format は 3D 画面の色の形式（sRGB は本番と同じく sRGB でない見え方へ描く）。overlay = 重ね描きの描き手で同じ画を描く（比べる基準。深度なし）。
+    /// effects はバンドルの効果の名前（拡張子なし）。確かめの効果（probeEffect）も読んで probePost を試す。
     /// saveTo を渡すと、遠い深度の画を PNG で書き出す。
     @MainActor
     static func selfTest(effects: [String], bundle: Bundle = .main, size: Int = 192, format: MTLPixelFormat = .bgra8Unorm_srgb,
                          reversed: Bool = true, overlay: Bool = false, label: String = "", timeout: Double = 8,
                          saveTo: URL? = nil) -> SelfTest {
         var r = SelfTest(label: label.isEmpty ? "\(format.rawValue)\(reversed ? "-rev" : "")" : label)
+        let rf = overlay ? (format: MTLPixelFormat.bgra8Unorm, encodeSRGB: false) : renderFormat(format)
         guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue(), let rt = EfkRuntime(),
               let dir = bundle.url(forResource: EffekseerOverlay.bundleFolder, withExtension: nil),
               let lib = try? device.makeLibrary(source: PostProcessor.librarySource, options: nil),
-              let pipelines = makePipelines(format, library: lib, device: device), let depthState = writeDepthState(device)
+              let pipelines = makePipelines(rf.format, encodeSRGB: rf.encodeSRGB, library: lib, device: device),
+              let depthState = writeDepthState(device)
         else { return r }
-        for n in effects { _ = rt.loadEffectNamed(n, path: dir.appendingPathComponent(n + ".efk").path, magnification: 1) }
+        for n in effects + [probeEffect] {
+            _ = rt.loadEffectNamed(n, path: dir.appendingPathComponent(n + ".efk").path, magnification: 1)
+        }
         if !overlay {
             let deadline = CFAbsoluteTimeGetCurrent() + timeout
-            while !rt.isPrepared(postColorFormat: format, reversedDepth: reversed) {
+            while !rt.isPrepared(postColorFormat: rf.format, reversedDepth: reversed) {
                 guard CFAbsoluteTimeGetCurrent() < deadline else { return r }
                 Thread.sleep(forTimeInterval: 0.02)
             }
+            r.probe = rt.probePost(effectNamed: probeEffect, colorFormat: rf.format, reversedDepth: reversed)
             rt.drawsInPostProcess = true
         }
         r.prepared = true
@@ -314,23 +413,18 @@ extension EffekseerPostPass {
         let farDepth: Double = reversed ? 0 : 1, nearDepth: Double = reversed ? 1 : 0
 
         func draw(clearDepth: Double) -> (lit: Int, drew: Bool, bytes: [UInt8]) {
-            let cd = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: format, width: size, height: size, mipmapped: false)
-            cd.usage = [.renderTarget, .shaderRead]
-            cd.storageMode = .private
-            let dd = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .depth32Float, width: size, height: size, mipmapped: false)
-            dd.usage = [.renderTarget]
-            dd.storageMode = .private
             let px = format == .rgba16Float ? 8 : 4
-            guard let color = device.makeTexture(descriptor: cd), let depth = device.makeTexture(descriptor: dd),
+            guard let made = makeTargets(device: device, format: overlay ? .bgra8Unorm : format, width: size, height: size,
+                                         memorylessDepth: false),
                   let buf = device.makeBuffer(length: size * size * px, options: .storageModeShared),
                   let cb = queue.makeCommandBuffer() else { return (0, false, []) }
             let rp = MTLRenderPassDescriptor()
-            rp.colorAttachments[0].texture = color
+            rp.colorAttachments[0].texture = made.target
             rp.colorAttachments[0].loadAction = .clear
             rp.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1)
             rp.colorAttachments[0].storeAction = .store
             if !overlay {
-                rp.depthAttachment.texture = depth
+                rp.depthAttachment.texture = made.depth
                 rp.depthAttachment.loadAction = .clear
                 rp.depthAttachment.clearDepth = clearDepth
                 rp.depthAttachment.storeAction = .dontCare
@@ -342,7 +436,7 @@ extension EffekseerPostPass {
                                 resetDepth: depthReset(pipelines.resetDepth, depthState, reversed: reversed))
             enc.endEncoding()
             guard let blit = cb.makeBlitCommandEncoder() else { return (0, drew, []) }
-            blit.copy(from: color, sourceSlice: 0, sourceLevel: 0, sourceOrigin: MTLOrigin(x: 0, y: 0, z: 0),
+            blit.copy(from: made.color, sourceSlice: 0, sourceLevel: 0, sourceOrigin: MTLOrigin(x: 0, y: 0, z: 0),
                       sourceSize: MTLSize(width: size, height: size, depth: 1), to: buf, destinationOffset: 0,
                       destinationBytesPerRow: size * px, destinationBytesPerImage: size * size * px)
             blit.endEncoding()

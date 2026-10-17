@@ -37,6 +37,15 @@ tools/effekseer/textures.py ──→ Effects/Effekseer/Texture/Fx_*.png（ア�
   （読み込み幕の裏。作る間は重ね描き）。3D 画面が sRGB・浮動小数の時は `SetMaintainGammaColorInLinearColorSpace` で効果の色をガンマのまま保つ。
 - スレッド: 再生・移動・進行（Update）はメインスレッド、後処理の中の描画（Draw）は RealityKit の描画スレッド。`EfkRuntime` の錠で Manager と描き手を守る。
   ヒットストップ（`BattleFeel`）は従来どおりメインスレッドの進行を dt = 0 にする。
+- sRGB の 3D 画面: Effekseer の Metal の描き手は sRGB の描画先（BGRA8Unorm_sRGB）では何も描かない（2026-10-18、CI の撮影の自己診断:
+  BGRA8Unorm・RGBA16Float は描けて深度も正しく、BGRA8Unorm_sRGB だけ 0 画素）。そこで写し先を 3D 画面と同じ sRGB の形式で作り、
+  sRGB でない見え方（テクスチャのビュー）へ sRGB に符号化して写し（`velSceneCopySRGBFragment`）、Effekseer もそこへ描く（重ね描きと同じくガンマの空間で混ぜる）。
+  ブルーム・合成は sRGB の形式のまま読む（`EffekseerPostPass.renderFormat`）。
+- 安全装置: 後処理用の描き手ができたら、描画先の形式・深度の向きごとに 1 回、確かめの効果（`Zt_PostProbe.efk`。白い大きな光 1 枚。`tools/effekseer/probe.py`）を
+  画面外の 64 × 64 の画へ描いて光った画素を数える（`EfkRuntime.probePost`。読み込み幕の裏、描画スレッドで GPU の終わりを待つ）。
+  `EffekseerPostPass.probeMinLit`（40）に届かない・確かめられない時は、その試合は重ね描きのまま（実機で「Effekseer が何も出ない」を起こさない）。
+  結果は計測ログ（`effekseer post probe src=… draw=… reversed=… lit=… -> post / overlay`）と Debug の出力。
+  全体の切り替えは `EffekseerPostPass.isEnabled`（false で実機でも常に重ね描き）。判断は `usesPostPath(enabled:prepared:probeLit:)`（純粋。`EffekseerPostTests`）。
 - 切り替え: メインスレッドが毎フレーム `PostProcessor.drawsEffekseer(now:)`（後処理が有効で、直近 0.3 秒に後処理で描ける状態だった）を見て決める。
   後処理へ切り替える時に重ねのレイヤーを空にして隠し、戻す時に見せる（`EfkRuntime.drawsInPostProcess`）。両方で描くフレームは無い。
 - 層（Manager のレイヤー）: **3D の上**（`EffekseerOverlay.play(onTop: true)`。既定）と **3D に隠れる**（`onTop: false`）。後処理の中では

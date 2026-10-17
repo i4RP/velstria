@@ -6,6 +6,7 @@
 #pragma clang diagnostic ignored "-Weverything"
 #include <Effekseer.h>
 #include <EffekseerRendererMetal.h>
+#include <algorithm>
 #include <atomic>
 #include <mutex>
 #include <string>
@@ -78,6 +79,8 @@ struct Painter {
 constexpr int32_t LayerOccluded = 0;
 constexpr int32_t LayerOnTop = 1;
 constexpr int32_t MaskAll = (1 << LayerOccluded) | (1 << LayerOnTop);
+/// 安全装置の確かめ専用の層（試合の描画の mask には入れない）。
+constexpr int32_t LayerProbe = 2;
 
 /// 錠の中で、今の Manager の状態のうち mask の層を描き手 p で encoder へ描く。newFrame = そのフレームの最初の描画（1 フレーム 1 回）。
 void DrawPass(Effekseer::ManagerRef &manager, Painter &p, id<MTLRenderCommandEncoder> enc, simd_float4x4 cameraWorld,
@@ -426,6 +429,84 @@ constexpr int BackgroundSlots = 3;
         DrawPass(_manager, _post, encoder, _postCamera, proj, (float)_time, 1 << LayerOnTop, false);
     }
     return YES;
+}
+
+- (NSInteger)probePostWithEffectNamed:(NSString *)name
+                          colorFormat:(MTLPixelFormat)format
+                        reversedDepth:(BOOL)reversed {
+    if (_postState.load() != PostReady || _postFormat.load() != (unsigned long)format || _postReversed.load() != (bool)reversed) {
+        return -1;
+    }
+    NSUInteger px = 0;
+    if (format == MTLPixelFormatBGRA8Unorm || format == MTLPixelFormatRGBA8Unorm) px = 4;
+    else if (format == MTLPixelFormatRGBA16Float) px = 8;
+    if (px == 0) return -1;
+    std::lock_guard<std::mutex> g(_mutex);
+    auto it = _effects.find(std::string(name.UTF8String));
+    if (it == _effects.end() || _post.renderer == nullptr) return -1;
+    const NSUInteger size = 64;
+    MTLTextureDescriptor *cd = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:format width:size height:size mipmapped:NO];
+    cd.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+    cd.storageMode = MTLStorageModePrivate;
+    MTLTextureDescriptor *dd = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatDepth32Float
+                                                                                  width:size height:size mipmapped:NO];
+    dd.usage = MTLTextureUsageRenderTarget;
+    dd.storageMode = MTLStorageModePrivate;
+    id<MTLTexture> color = [_device newTextureWithDescriptor:cd];
+    id<MTLTexture> depth = [_device newTextureWithDescriptor:dd];
+    id<MTLBuffer> buf = [_device newBufferWithLength:size * size * px options:MTLResourceStorageModeShared];
+    if (color == nil || depth == nil || buf == nil) return -1;
+    Effekseer::Handle h = _manager->Play(it->second, 0, 0, 0);
+    if (h < 0) return -1;
+    _manager->SetLayer(h, LayerProbe);
+    _manager->UpdateHandle(h, 4.0f);
+
+    id<MTLCommandBuffer> cb = [_queue commandBuffer];
+    MTLRenderPassDescriptor *pass = [MTLRenderPassDescriptor renderPassDescriptor];
+    pass.colorAttachments[0].texture = color;
+    pass.colorAttachments[0].loadAction = MTLLoadActionClear;
+    pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1);
+    pass.colorAttachments[0].storeAction = MTLStoreActionStore;
+    pass.depthAttachment.texture = depth;
+    pass.depthAttachment.loadAction = MTLLoadActionClear;
+    pass.depthAttachment.clearDepth = reversed ? 0.0 : 1.0;
+    pass.depthAttachment.storeAction = MTLStoreActionDontCare;
+    id<MTLRenderCommandEncoder> enc = [cb renderCommandEncoderWithDescriptor:pass];
+    [self bindLocked:2];
+    // カメラは原点の 4 m 手前（+Z）から -Z を向く。射影は深度の向きに合わせる（画角 60°）
+    simd_float4x4 cam = matrix_identity_float4x4;
+    cam.columns[3] = simd_make_float4(0, 0, 4, 1);
+    float f = 1.0f / tanf(30.0f * (float)M_PI / 180.0f), n = 0.5f, fz = 100.0f;
+    simd_float4x4 proj = reversed
+        ? simd_matrix(simd_make_float4(f, 0, 0, 0), simd_make_float4(0, f, 0, 0), simd_make_float4(0, 0, 0, -1),
+                      simd_make_float4(0, 0, n, 0))
+        : simd_matrix(simd_make_float4(f, 0, 0, 0), simd_make_float4(0, f, 0, 0), simd_make_float4(0, 0, fz / (n - fz), -1),
+                      simd_make_float4(0, 0, n * fz / (n - fz), 0));
+    DrawPass(_manager, _post, enc, cam, ToEfk(proj), (float)_time, 1 << LayerProbe, true);
+    [enc endEncoding];
+    id<MTLBlitCommandEncoder> blit = [cb blitCommandEncoder];
+    [blit copyFromTexture:color sourceSlice:0 sourceLevel:0 sourceOrigin:MTLOriginMake(0, 0, 0)
+               sourceSize:MTLSizeMake(size, size, 1) toBuffer:buf destinationOffset:0
+      destinationBytesPerRow:size * px destinationBytesPerImage:size * size * px];
+    [blit endEncoding];
+    [cb commit];
+    [cb waitUntilCompleted];
+    _manager->StopEffect(h);
+    if (cb.status != MTLCommandBufferStatusCompleted) return -1;
+    NSInteger lit = 0;
+    if (px == 4) {
+        const uint8_t *p = (const uint8_t *)buf.contents;
+        for (NSUInteger i = 0; i < size * size; i++) {
+            if (std::max(p[i * 4], std::max(p[i * 4 + 1], p[i * 4 + 2])) > 10) lit++;
+        }
+    } else {
+        const __fp16 *p = (const __fp16 *)buf.contents;
+        for (NSUInteger i = 0; i < size * size; i++) {
+            float m = std::max((float)p[i * 4], std::max((float)p[i * 4 + 1], (float)p[i * 4 + 2]));
+            if (m > 0.04f) lit++;
+        }
+    }
+    return lit;
 }
 
 - (BOOL)debugEncodeOverlayWithEncoder:(id<MTLRenderCommandEncoder>)encoder

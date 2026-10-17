@@ -78,6 +78,14 @@ typedef int32_t EfkHandle;
                    resetDepth:(void (^_Nullable)(id<MTLRenderCommandEncoder>))resetDepth
     NS_SWIFT_NAME(encodePost(encoder:projection:background:resetDepth:));
 
+/// 安全装置（描画スレッド）: 後処理用の描き手で、確かめの効果 name を画面外の小さな画（colorFormat・Depth32Float を遠い面で消す）へ描き、
+/// 光った画素の数を返す（確かめられない時は -1）。効果は確かめ専用の層に置いて描いた後すぐ止める（試合の効果・画面には出ない）。
+/// GPU の終わりを待つので、読み込み幕の裏で 1 回だけ使う。
+- (NSInteger)probePostWithEffectNamed:(NSString *)name
+                          colorFormat:(MTLPixelFormat)format
+                        reversedDepth:(BOOL)reversedDepth
+    NS_SWIFT_NAME(probePost(effectNamed:colorFormat:reversedDepth:));
+
 /// 確認用: 重ね描きの描き手で encoder（BGRA8Unorm・深度なし）へ描く（後処理の経路と比べる基準。進めない）。
 - (BOOL)debugEncodeOverlayWithEncoder:(id<MTLRenderCommandEncoder>)encoder
                           cameraWorld:(simd_float4x4)cameraWorld

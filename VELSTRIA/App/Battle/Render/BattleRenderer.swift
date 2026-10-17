@@ -792,6 +792,13 @@ final class BattleRenderer {
         #endif
         // 後処理の中で描けるなら進めるだけ（描くのは描画スレッドの後処理）。描けない間は重ね描き
         let inPost = post.drawsEffekseer(now: CACurrentMediaTime())
+        // 後処理の中で描く経路の安全装置の結果（確かめで光らなければその試合は重ね描き）を計測ログへ
+        for r in post.effekseerPass.takeReports() {
+            note(r)
+            #if DEBUG
+            NSLog("%@", "[Effekseer] \(r)")
+            #endif
+        }
         if let world {
             world.workStats.measure(.effekseer, live: controller.isPresentationReady && !controller.isPaused) {
                 fx.render(camera: rig.camera, host: view, dt: dt, inPostProcess: inPost)
