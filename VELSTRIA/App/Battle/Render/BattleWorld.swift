@@ -49,6 +49,10 @@ final class BattleWorld {
         return effekseer.handlesSkill(f.state.unit(id)?.hero?.heroID)
     }
     let aim: AimLayer
+    #if DEBUG || TESTER_TOOLS
+    /// 内部ビルドの判定の形の表示（設定・比較撮影で有効にした試合だけ。HitShapeOverlay）。
+    private(set) var hitShapes: HitShapeOverlay?
+    #endif
     /// 霧（プレイヤーは自チームの視界。観戦者は常に作り、視点チームを選んだ時だけ出す）。
     let fog: FogOfWar?
     let ambient: AmbientParticles
@@ -126,6 +130,14 @@ final class BattleWorld {
         root.addChild(skillDirector.player.root)
         aim = AimLayer(materials: materials, meshes: meshes)
         root.addChild(aim.root)
+        #if DEBUG || TESTER_TOOLS
+        if HitShapeOverlay.isRequested {
+            let overlay = HitShapeOverlay(controller: controller)
+            root.addChild(overlay.root)
+            overlay.attach()
+            hitShapes = overlay
+        }
+        #endif
         ambient = AmbientParticles(map: controller.ctx.map, teams: materials.teams, texture: vfx.starTexture,
                                    quality: settings.quality)
         root.addChild(ambient.root)
@@ -249,6 +261,9 @@ final class BattleWorld {
             effekseer?.update(dt: dt, state: frame.state)
             probe.stop(.effekseer, t)
         }
+        #if DEBUG || TESTER_TOOLS
+        hitShapes?.update(dt: dt)
+        #endif
         #if DEBUG
         if let demo = skillDirector.demo {
             let t = time
@@ -1142,6 +1157,9 @@ final class BattleWorld {
         projectiles.teardown()
         zones.teardown()
         zones.onTrigger = nil
+        #if DEBUG || TESTER_TOOLS
+        hitShapes?.detach()
+        #endif
         root.removeFromParent()
     }
 }

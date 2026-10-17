@@ -251,6 +251,27 @@ struct Kit_H034: HeroKit {
         }
     }
 
+    /// 演出が読む時刻・寸法（Tune そのもの。App の FX_H034 は値を写さずここから読む。docs/vfx/RANGES.md）。
+    func fxValues(slot: SkillSlot, stage: Int) -> [KitFXValue] {
+        switch slot {
+        case .skill1:
+            return [KitFXValue("hookDelay", Tune.hookDelay, .seconds), KitFXValue("hookSpeed", Tune.hookSpeed, .speed),
+                    KitFXValue("hookRange", Tune.hookRange, .distance), KitFXValue("hookWidth", Tune.hookWidth, .distance),
+                    KitFXValue("hookHold", Tune.hookHold, .seconds), KitFXValue("hookPull", Tune.hookPull, .seconds),
+                    KitFXValue("hookStun", Tune.hookStun, .seconds),
+                    KitFXValue("hookLandStun", Tune.hookLandStun, .seconds)]
+        case .skill2:
+            return [KitFXValue("shockDelay", Tune.shockDelay, .seconds),
+                    KitFXValue("shockRadius", Tune.shockRadius, .distance)]
+        case .ultimate:
+            return [KitFXValue("ultDelay", Tune.ultDelay, .seconds), KitFXValue("ultSuppress", Tune.ultSuppress, .seconds),
+                    KitFXValue("ultFirst", Tune.ultFirst, .seconds), KitFXValue("ultInterval", Tune.ultInterval, .seconds),
+                    KitFXValue("ultHits", Double(Tune.ultHits), .count), KitFXValue("ultReach", Tune.ultReach, .distance)]
+        case .passive:
+            return [KitFXValue("stackInterval", Tune.stackInterval, .seconds)]
+        }
+    }
+
     /// 奥義は照準の型が targetedBlink（対象指定）だが、ゴルムは動かない（MLBB の Bloody Hunt に踏み込み・ブリンクは無い）。
     /// バインド（移動・ブリンク・突進の封印）の間も撃てる。スキル1・2 は型のまま（どちらも術者を動かさない）。
     func movesCaster(slot: SkillSlot, stage: Int, base: Bool) -> Bool {
@@ -494,7 +515,8 @@ struct Kit_H034: HeroKit {
         let p = HitPayload(damage: timer.param * amp, damageType: .physical, source: .skill(.skill2),
                            statuses: [slow], skillID: Self.skillID(ctx, .skill2), originPos: timer.point)
         var landed = false
-        Kit.hitAreaEach(&s, ctx, caster: i, center: timer.point, radius: Tune.shockRadius, shape: .circle) { st, j in
+        Kit.hitAreaEach(&s, ctx, caster: i, center: timer.point, radius: Tune.shockRadius, shape: .circle,
+                        source: .skill(.skill2)) { st, j in
             if !CombatSystem.isInvulnerable(st, ctx, j) { landed = true }
             return p
         }
@@ -507,6 +529,9 @@ struct Kit_H034: HeroKit {
         let i = c.caster
         guard let t = c.aim.unit else { return }
         let id = s.units[i].id
+        // 検証用の観測: 掴める距離（術者の中心から対象の縁まで ultReach。照準 resolveAim がこの tick に確かめた円）
+        HitShapeProbe.emit(.kit(.circle(center: s.units[i].pos, radius: Tune.ultReach, inner: 0), s, caster: i,
+                                source: .skill(.ultimate)))
         s.units[i].hero!.kit!.gormUltTarget = s.units[t].id
         s.units[i].hero!.kit!.gormUltDamage = c.numbers.damage
         s.units[i].hero!.kit!.gormUltPhase = 2
@@ -615,6 +640,9 @@ struct Kit_H034: HeroKit {
         let p = HitPayload(damage: k.gormUltDamage * Self.amp(stacks: k.gormStacks), damageType: .physical,
                            source: .skill(.ultimate), ccIsUltimate: true, skillID: Self.skillID(ctx, .ultimate),
                            originPos: s.units[i].pos)
+        // 検証用の観測: 拘束した対象への 1 撃（受け口が無ければ何もしない。docs/vfx/RANGES.md）
+        HitShapeProbe.emit(.kit(.unit(at: s.units[t].pos, radius: s.units[t].radius), s, caster: i,
+                                source: .skill(.ultimate)))
         CombatSystem.applyHit(&s, ctx, sourceID: s.units[i].id, team: s.units[i].team, targetIndex: t, payload: p,
                               from: s.units[i].pos)
         s.units[i].hero?.kit?.gormUltStrikes += 1
