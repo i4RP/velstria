@@ -97,9 +97,25 @@ final class FXMeshLibrary {
                 quad(a, a + 2, a + 3, a + 1)
             }
         }
+        // 法線: Unlit は使わないが、加算・模様の CustomMaterial（FXShaders.metal）の描画には要る
+        let normals: [SIMD3<Float>]
+        switch s {
+        case .disc, .arc, .band:
+            normals = Array(repeating: [0, 1, 0], count: pos.count)
+        case .wall, .billboard:
+            normals = Array(repeating: [0, 0, 1], count: pos.count)
+        case .cylinder, .funnel, .spire:
+            normals = pos.map { p in
+                let h = SIMD3<Float>(p.x, 0, p.z)
+                return simd_length(h) > 1e-5 ? simd_normalize(h) : [0, 1, 0]
+            }
+        case .dome, .sphere:
+            normals = pos.map { simd_length($0) > 1e-5 ? simd_normalize($0) : [0, 1, 0] }
+        }
         // 裏面は材質の faceCulling = .none で描く
         var d = MeshDescriptor(name: "fx_\(s.rawValue)")
         d.positions = MeshBuffers.Positions(pos)
+        d.normals = MeshBuffers.Normals(normals)
         d.textureCoordinates = MeshBuffers.TextureCoordinates(uv)
         d.primitives = .triangles(idx)
         return try? MeshResource.generate(from: [d])
@@ -144,6 +160,116 @@ final class FXMaterialLibrary {
         return m
     }
 
-    var built: [UnlitMaterial] { cache.keys.sorted { "\($0)" < "\($1)" }.compactMap { cache[$0] } }
-    var count: Int { cache.count }
+    var built: [any Material] {
+        let plain: [any Material] = cache.keys.sorted { "\($0)" < "\($1)" }.compactMap { cache[$0] }
+        return plain + shaded.keys.sorted { "\($0)" < "\($1)" }.compactMap { shaded[$0] }
+    }
+    var count: Int { cache.count + shaded.count }
+
+    // MARK: 加算・流れる模様（FXShaders.metal の CustomMaterial）
+
+    /// 加算の明るさの段階。フェードは段階の材質を差し替えて落とす（OpacityComponent が加算に効くかに頼らない）。
+    nonisolated static let addLevels = 10
+
+    struct ShadedKey: Hashable {
+        var base: Key
+        var blend: FXBlend
+        var flow: FlowKey?
+        /// 加算の明るさの段階（1〜addLevels）。アルファ合成は addLevels（OpacityComponent で落とす）。
+        var level: Int
+    }
+
+    struct FlowKey: Hashable {
+        var pattern: FXFlowTex
+        var scroll: SIMD2<Int16>
+        var tiling: Int16
+        var strength: Int16
+        var erosion: Int16
+        var er: UInt8, eg: UInt8, eb: UInt8
+    }
+
+    private var shaded: [ShadedKey: CustomMaterial] = [:]
+    private var flowTextures: [FXFlowTex: TextureResource] = [:]
+    /// Program が無く、加算・模様のメッシュを従来のアルファ合成の材質で出した回数（材質を作るとき。計測・テスト用）。
+    private(set) var fallbacks = 0
+    /// false = 加算・模様の材質を新しく作らない（幕までに作り切れなかった試合。SkillFXPlayer.sealShadedMaterials）。
+    /// 作ってある材質はそのまま使い、無いものは従来の材質で代える。
+    var createsShaded = true
+
+    /// このメッシュに使う材質の鍵。従来の材質（アルファ合成・模様なし）は nil。
+    static func shadedKey(_ m: FXMesh, palette: FXPalette, level: Int) -> ShadedKey? {
+        guard m.blend == .add || m.flow != nil else { return nil }
+        let base = key(m.tex, palette.rgb(m.tint))
+        let flow = m.flow.map { f -> FlowKey in
+            func q(_ v: Float) -> Int16 { Int16(max(-30000, min(30000, (v * 100).rounded()))) }
+            let e = key(nil, palette.rgb(f.edge))
+            return FlowKey(pattern: f.pattern, scroll: SIMD2(q(f.scroll.x), q(f.scroll.y)), tiling: q(f.tiling),
+                           strength: q(f.strength), erosion: q(f.erosion), er: e.r, eg: e.g, eb: e.b)
+        }
+        let lv = m.blend == .add ? max(1, min(addLevels, level)) : addLevels
+        return ShadedKey(base: base, blend: m.blend, flow: flow, level: lv)
+    }
+
+    /// 加算の不透明度 a（0〜1）→ 明るさの段階（0 = 出さない）。
+    nonisolated static func addLevel(_ a: Float) -> Int {
+        guard a > 0.001 else { return 0 }
+        return max(1, min(addLevels, Int((a * Float(addLevels)).rounded(.up))))
+    }
+
+    /// メッシュの材質（加算・模様は CustomMaterial、それ以外は従来の Unlit）。Program が無ければ従来の材質で代える。
+    func material(for m: FXMesh, palette: FXPalette, level: Int = FXMaterialLibrary.addLevels) -> any Material {
+        guard let k = FXMaterialLibrary.shadedKey(m, palette: palette, level: level) else {
+            return material(m.tex, palette.rgb(m.tint))
+        }
+        if let c = shaded[k] { return c }
+        guard createsShaded, let program = k.blend == .add ? FXPrograms.add : FXPrograms.alpha else {
+            fallbacks += 1
+            return material(m.tex, palette.rgb(m.tint))
+        }
+        AssetLedger.record(.material, "fx \(k.blend.rawValue) \(m.tex?.rawValue ?? "solid")\(k.flow == nil ? "" : " flow") L\(k.level)")
+        var c = CustomMaterial(program: program)
+        let tint = UIColor(red: CGFloat(k.base.r) / 255, green: CGFloat(k.base.g) / 255, blue: CGFloat(k.base.b) / 255, alpha: 1)
+        let shape = textures.texture(m.tex ?? .glow)
+        if let shape {
+            c.baseColor = .init(tint: tint, texture: .init(shape))
+        } else {
+            c.baseColor = .init(tint: tint, texture: nil)
+        }
+        if let f = k.flow {
+            c.emissiveColor = .init(color: UIColor(red: CGFloat(f.er) / 255, green: CGFloat(f.eg) / 255, blue: CGFloat(f.eb) / 255,
+                                                   alpha: 1), texture: nil)
+            c.metallic = .init(floatLiteral: Float(f.strength) / 100)
+            c.custom.value = SIMD4(Float(f.scroll.x) / 100, Float(f.scroll.y) / 100, Float(f.tiling) / 100, Float(f.erosion) / 100)
+            if let t = flowTexture(f.pattern) { c.custom.texture = .init(t) }
+        } else {
+            c.emissiveColor = .init(color: tint, texture: nil)
+            c.metallic = .init(floatLiteral: 0)
+            c.custom.value = SIMD4(0, 0, 1, 0)
+            if let shape { c.custom.texture = .init(shape) }
+        }
+        c.roughness = .init(floatLiteral: Float(k.level) / Float(FXMaterialLibrary.addLevels))
+        if k.blend == .alpha { c.blending = .transparent(opacity: .init(floatLiteral: 1)) }
+        c.writesDepth = false
+        c.faceCulling = .none
+        shaded[k] = c
+        return c
+    }
+
+    /// 加算のメッシュは全ての明るさの段階、それ以外は 1 つを先に作る（読み込み幕の裏）。
+    func prewarm(_ m: FXMesh, palette: FXPalette) {
+        if m.blend == .add {
+            for lv in 1...FXMaterialLibrary.addLevels { _ = material(for: m, palette: palette, level: lv) }
+        } else {
+            _ = material(for: m, palette: palette)
+        }
+    }
+
+    private func flowTexture(_ p: FXFlowTex) -> TextureResource? {
+        if let t = flowTextures[p] { return t }
+        guard let img = FXFlowTex.image(p),
+              let t = try? TextureResource(image: img, options: .init(semantic: .raw)) else { return nil }
+        AssetLedger.record(.texture, "fx flow \(p.rawValue)")
+        flowTextures[p] = t
+        return t
+    }
 }

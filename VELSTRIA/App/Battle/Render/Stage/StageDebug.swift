@@ -9,7 +9,7 @@ import VelstriaCore
 //   -stageFull                   -uiTesting でもステージを間引かない（StagePrep.lite を参照）
 //   -stageSilent                 撮影中はオーディオエンジンを起動しない（シミュレータの音声 I/O に依存しない）
 //   -stageClean                  HUD を非表示（頭上バーは残す）
-//   -stagePitch <30...75>        比較撮影の俯角（既定のゲームカメラは 56 度）
+//   -stagePitch <30...75>        比較撮影の俯角（従来の 48°・10 m のまま角度だけ変える。既定のゲームカメラは MLBB の組 42.9°）
 //   -stagePitReference           カメラに近い巣にタートルとヒーローを描画だけ配置する
 //   -legacyStage                 2026-10-05 の旧ステージ素材で描く（StageArtSet.legacy。新旧の見比べ用）
 

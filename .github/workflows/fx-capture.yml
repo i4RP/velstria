@@ -1,0 +1,83 @@
+name: FX Capture
+
+# スキル演出の比較撮影（docs/vfx/）。fxcap-* のタグの push（または手動）で、シミュレータ用の Debug をビルドし、練習場で
+# 10 体のスキルを撃って戦闘画面を撮り、成果物に保存する（tools/fx_capture/run_ci.sh）。TestFlight への配信はしない。
+# タグの push はブランチの push ではないので、TestFlight のワークフロー（branches-ignore だけを書いている）は動かない。
+on:
+  push:
+    tags: ["fxcap-*"]
+  workflow_dispatch:
+    inputs:
+      heroes:
+        description: 撮るヒーロー（空白区切り）
+        default: "H025 H026 H027 H028 H029 H030 H031 H032 H033 H034"
+      presets:
+        description: カメラの組（legacy / mlbb、空白区切り）
+        default: "legacy mlbb"
+
+concurrency:
+  group: fx-capture-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    name: スキル演出の撮影
+    runs-on: macos-26
+    timeout-minutes: 150
+    env:
+      HEROES: ${{ inputs.heroes || 'H025 H026 H027 H028 H029 H030 H031 H032 H033 H034' }}
+      PRESETS: ${{ inputs.presets || 'legacy mlbb' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # タグの名前で絞れる: fxcap-<名前>--H029_H030@mlbb（-- の後 = ヒーロー、@ の後 = カメラの組。どちらも _ 区切り）
+      - name: 撮る範囲
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          spec="$TAG"
+          if [[ "$spec" == *"@"* ]]; then
+            echo "PRESETS=${spec##*@}" | tr '_' ' ' >> "$GITHUB_ENV"
+            spec="${spec%@*}"
+          fi
+          if [[ "$spec" == *"--"* ]]; then
+            echo "HEROES=${spec##*--}" | tr '_' ' ' >> "$GITHUB_ENV"
+          fi
+          # 名前に probe を含むタグは、スキルの代わりに部品の種類を 1 つずつ足して撮る（描画の切り分け）
+          if [[ "$TAG" == *probe* ]]; then echo "PROBE=1" >> "$GITHUB_ENV"; fi
+          # 名前に moving を含むタグは、撮る間も粒子を止めない（粒子が映るかの切り分け）
+          if [[ "$TAG" == *moving* ]]; then echo "MOVING=1" >> "$GITHUB_ENV"; fi
+          cat "$GITHUB_ENV" || true
+
+      - name: ツール準備
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -n 1)"
+          xcodebuild -version
+          brew install xcodegen
+
+      - name: シミュレータ用にビルド
+        working-directory: VELSTRIA
+        run: |
+          xcodegen generate --quiet
+          mkdir -p build
+          xcodebuild build -project VELSTRIA.xcodeproj -scheme VELSTRIA -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' -derivedDataPath build/dd \
+            CODE_SIGNING_ALLOWED=NO > build/xcodebuild.log 2>&1 || true
+          grep -E "error:|BUILD (SUCCEEDED|FAILED)" build/xcodebuild.log | head -80 || true
+          grep -q "BUILD SUCCEEDED" build/xcodebuild.log
+
+      - name: 撮影
+        working-directory: VELSTRIA
+        run: bash tools/fx_capture/run_ci.sh
+
+      - name: 撮影結果を保存
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fx-capture-${{ github.run_id }}-${{ github.run_attempt }}
+          path: VELSTRIA/build/fxcapture
+          if-no-files-found: warn
+          retention-days: 30

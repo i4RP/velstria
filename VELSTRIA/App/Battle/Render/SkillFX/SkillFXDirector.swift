@@ -129,7 +129,8 @@ final class SkillFXDirector {
         f.y = 0
         if simd_length(f) < 1e-3 { f = [0, 0, -1] }
         return SkillFXPlayer.Context(palette: palettes[key.heroID] ?? .from(RGB(1, 1, 1)), origin: origin, caster: caster,
-                                     target: target, forward: simd_normalize(f), follow: follow, variant: variant)
+                                     target: target, forward: simd_normalize(f), follow: follow, variant: variant,
+                                     source: SkillFXPlayer.Source(heroID: key.heroID, slot: key.slot, stage: key.stage))
     }
 
     private static func ground(_ v: Vec2) -> SIMD3<Float> { worldPosition(v) }

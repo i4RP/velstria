@@ -316,8 +316,17 @@ final class BattleRenderer {
         note(String(format: "world build %.0f ms", (CACurrentMediaTime() - buildStart) * 1000))
         // 幕の裏の準備を複数フレームに分けて実行し、描画が落ち着いてから幕を上げる（固定フレーム数では上げない）。
         // 影はユーザー設定で有効なら自動調整が切り替えうるので、両方の状態を描いておく
+        // 演出の撮影は、加算・模様の Program を待ってから幕を上げる（CI のシミュレータは作るのが遅いことがあり、
+        // 幕に間に合わないと試合中ずっと従来の材質になって比較にならない）
+        #if DEBUG
+        let waitsForFXPrograms = DebugLaunch.value(after: "-fxCapture") != nil
+        #else
+        let waitsForFXPrograms = false
+        #endif
+        var warmupConfig = WarmupScheduler.Config()
+        if waitsForFXPrograms { warmupConfig.hardCap = 60 }
         scheduler = WarmupScheduler(steps: w.makeWarmupPlan(), targetInterval: 1 / Double(max(1, governed.settings.frameRate)),
-                                    warmShadowVariants: settings.quality.shadows, gates: warmupGates())
+                                    warmShadowVariants: settings.quality.shadows, gates: warmupGates(), config: warmupConfig)
         warmupFrameIndex = 0
         view.setLoading(progress: 0.15, label: L("戦場を構築中", "Building battlefield"))
         // ウィンドウへ載った後に改めて指定する（載る前の指定は描画ループに反映されない）
@@ -328,6 +337,12 @@ final class BattleRenderer {
     /// 幕を上げる前に揃っていてほしいもの。
     private func warmupGates() -> [WarmupScheduler.Gate] {
         var gates = [WarmupScheduler.Gate("materialPrograms") { MaterialPrograms.isReadyForWarmup }]
+        if FXPrograms.prewarmsOnThisDevice {
+            // スキル演出の加算・模様の Program を待ち、出来たら幕の前に材質を作り切る（作れなければ従来の材質で代える）
+            gates.append(WarmupScheduler.Gate("fxPrograms") { [weak self] in
+                FXPrograms.isSettled && (self?.world?.skillDirector.player.prewarmShaded() ?? true)
+            })
+        }
         #if !targetEnvironment(simulator)
         // シミュレータでは renderCallbacks.postProcess が呼ばれないため待たない
         let post = post
@@ -388,6 +403,13 @@ final class BattleRenderer {
             updateCamera(world: world, dt: Float(dt))
             return
         }
+        #if DEBUG
+        // 比較撮影（FXCapture）が画面を撮る間は、sim・描画の同期・演出の時刻を止めたまま合図だけ待つ（一時停止の画面は出さない）
+        if let capture = fxCapture, capture.isFrozen {
+            capture.tick(controller: controller, world: world, arView: view.arView, quality: governed.settings.quality)
+            return
+        }
+        #endif
         if controller.isPaused {
             // 一時停止中はシミュレーション・同期を止め、カメラ（自由視点）だけ動かす
             if !wasPaused {
@@ -427,6 +449,9 @@ final class BattleRenderer {
         syncedTick = controller.state.tick
         world.sync(events: pendingEvents, dt: Float(dt), rig: rig)
         pendingEvents.removeAll(keepingCapacity: true)
+        #if DEBUG
+        fxCapture?.tick(controller: controller, world: world, arView: view.arView, quality: governed.settings.quality)
+        #endif
         let tc = probe.start()
         updateCamera(world: world, dt: Float(dt))
         probe.stop(.camera, tc)
@@ -628,6 +653,9 @@ final class BattleRenderer {
         for n in scheduler.notes { note(n) }
         if let ms = MaterialPrograms.buildMs { note(String(format: "material programs built in %.0f ms", ms)) }
         if let ms = PostProcessShaderCache.compileMs { note(String(format: "post-process pipelines compiled in %.0f ms", ms)) }
+        if let ms = FXPrograms.buildMs { note(String(format: "fx programs built in %.0f ms", ms)) }
+        // 演出の加算・模様の材質が幕に間に合わなければ、この試合は従来の材質で出す（プレイ中に作らない）
+        if !world.skillDirector.player.sealShadedMaterials() { note("fx shaded materials not ready at curtain: legacy materials") }
         world.finishWarmup()
         finaleSky?.isShown = false
         setSunShadow(governed.settings.quality.shadows)
@@ -678,12 +706,14 @@ final class BattleRenderer {
         note(String(format: "quality at end: %@ (frame p95 %.1f ms, work p95 %.2f ms over the last window)",
                     governor.step.description, governor.lastFrameP95Ms, governor.lastWorkP95Ms))
         let notes = notes
+        let skillFXBudget = world?.skillDirector.player.budgetSnapshot()
         run.finish { thermal, footprint, entities in
             PerfReport(device: PerfRun.deviceModel, os: UIDevice.current.systemVersion, build: PerfRun.buildName,
                        quality: "\(settings.quality.level)", frameRate: settings.frameRate, speed: speed,
                        requestedSeconds: run.seconds, loadMs: loadMs, warmupMs: warmupMs, warmupFrames: frames,
                        frame: frameStats.summary(), ledger: AssetLedger.snapshot(), thermalStates: thermal,
-                       peakFootprintMB: footprint, peakEntities: entities, notes: notes, syncWork: world?.workStats.summary)
+                       peakFootprintMB: footprint, peakEntities: entities, notes: notes, syncWork: world?.workStats.summary,
+                       skillFXBudget: skillFXBudget)
         }
     }
     #endif
@@ -713,6 +743,8 @@ final class BattleRenderer {
     }
 
     #if DEBUG
+    /// -fxCapture: スキル演出の比較撮影（FXCapture）。
+    private lazy var fxCapture: FXCapture? = FXCapture.isRequested ? FXCapture() : nil
     private var autoClock: Double = 0
     private var autoStep = 0
     /// -efkAuto <atk|s1|s2|ult>: 一番近い敵（人形）へ近づき、2 秒ごとに通常攻撃 / スキルを撃つ。

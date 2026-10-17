@@ -270,6 +270,23 @@ final class SkillFXTests: XCTestCase {
         XCTAssertFalse(SkillFXDirector.kitPassiveFires(last: (2, false), now: (0, false)))
     }
 
+    // MARK: 空の段の補い
+
+    /// 空の段は既定演出（FXGeneric）で補う。fillsEmptyPhases = false のレシピは空の段を空のまま残す
+    /// （ゴルムのスキル2・奥義の振りかぶりは MLBB で光らない。補うと魔法陣と光が出ていた）。
+    func testRecipeCanKeepAnEmptyPhaseWithoutTheGenericFill() {
+        for slot in [SkillSlot.skill2, .ultimate] {
+            let r = SkillFXCatalog.recipe(heroID: "H034", slot: slot, master: master)
+            XCTAssertFalse(r.fillsEmptyPhases)
+            XCTAssertTrue(r.cast.isEmpty, "H034 \(slot) の cast は空のまま")
+            XCTAssertFalse(r.impact.isEmpty)
+        }
+        let passive = SkillFXCatalog.recipe(heroID: "H028", slot: .passive, master: master)
+        XCTAssertTrue(passive.fillsEmptyPhases)
+        let s = SkillFXCatalog.info(heroID: "H028", slot: .passive, master: master)
+        XCTAssertEqual(passive.hit, FXGeneric.recipe(s).hit, "既定のレシピの空の段は今までどおり補う")
+    }
+
     // MARK: 残りの数（H028 の環剣の剣）
 
     /// ザイルの環剣: 回る刃は 1 本ずつ別の合図で FXMesh.group 1〜5（2.4 秒ずつ 2 組）。sim の剣の本数（スキル1 のバッジ）が減ると
@@ -427,11 +444,13 @@ final class SkillFXTests: XCTestCase {
         XCTAssertEqual(ec.duration, FXCue.castDurationLimit)
     }
 
-    /// ルミナの S1（効果時間 4→9 秒）: 効果中の足元の三日月・弓のきらめきは発動の長さに合わせ、書いた値はランク 1 の 4 秒。
+    /// ルミナの S1（効果時間 4→9 秒）: 効果中の弓のきらめきは発動の長さに合わせ、書いた値はランク 1 の 4 秒。
+    /// （足元の三日月は MLBB の画面収録に無いので 2026-10-17 に外した。docs/vfx/H025.md）
     func testLuminaMoonArrowBuffFollowsCastDuration() {
         let r = SkillFXCatalog.recipe(heroID: "H025", slot: .skill1, master: master)
         let flagged = r.cast.filter(\.usesCastDuration)
-        XCTAssertEqual(flagged.count, 2, "足元の三日月（メッシュ）と弓のきらめき（継続放出）")
+        XCTAssertEqual(flagged.count, 1, "弓のきらめき（継続放出）")
+        XCTAssertTrue(flagged.allSatisfy { if case .emit = $0.element { return true } else { return false } })
         for cue in flagged {
             XCTAssertEqual(cue.anchor, .follow, "効果中の演出は術者に追従する")
             switch cue.element {
@@ -475,5 +494,425 @@ final class SkillFXTests: XCTestCase {
             XCTAssertNotNil(img, "\(t) が描けない")
             XCTAssertNotNil(img.flatMap { FXTextureLibrary.luminance($0) }, "\(t) の輝度版が作れない")
         }
+    }
+
+    // MARK: 予算の観測（打ち切り・破棄の集計。docs/SKILL_FX.md「予算の観測」）
+    // 容量は本番の値（低画質のプール）をそのまま使い、実際の取得の経路で超過させる。
+
+    private func budgetContext(_ heroID: String, follow: SkillFXPlayer.Follow? = nil) -> SkillFXPlayer.Context {
+        SkillFXPlayer.Context(palette: .from(RGB(1, 1, 1)), origin: .zero, caster: .zero, target: [0, 0, -1],
+                              forward: [0, 0, -1], follow: follow,
+                              source: SkillFXPlayer.Source(heroID: heroID, slot: .skill1, stage: 0))
+    }
+
+    /// 一斉放出（回収は寿命 × 1.2 + 0.1 秒後）を x の位置に置く。
+    private func burst(x: Float, life: Float = 0.5, at: Float = 0) -> FXCue {
+        .emit(FXEmit(count: 4, life: life), at: at, offset: [x, 0, 0])
+    }
+
+    private func disc(x: Float, life: Float = 2, at: Float = 0) -> FXCue {
+        .mesh(FXMesh(shape: .disc, life: life), at: at, offset: [x, 0, 0])
+    }
+
+    /// x の位置で使用中の粒子放出体・メッシュ。
+    private func emitter(_ p: SkillFXPlayer, x: Float) -> Entity? {
+        p.root.children.first {
+            $0.isEnabled && $0.components[ParticleEmitterComponent.self] != nil && abs($0.position.x - x) < 0.001
+        }
+    }
+
+    private func mesh(_ p: SkillFXPlayer, x: Float) -> Entity? {
+        p.root.children.first { $0.isEnabled && $0 is ModelEntity && abs($0.position.x - x) < 0.001 }
+    }
+
+    func testBudgetCountsNoCutWithinCapacity() {
+        let q = RenderQuality.preset(.low)
+        let player = SkillFXPlayer(quality: q)
+        player.prewarm(recipes: [])
+        let nE = SkillFXPlayer.emitterCapacity(q), nD = SkillFXPlayer.meshCapacity(.disc, q)
+        let cues = (0..<nE).map { burst(x: Float($0)) } + (0..<nD).map { disc(x: Float($0)) }
+        XCTAssertLessThanOrEqual(cues.count, BattleWorkBudget.cuesPerPlay)
+        player.play(cues, budgetContext("H900"))
+        let s = player.budgetSnapshot()
+        XCTAssertEqual(s.poolQuality, "low")
+        XCTAssertEqual(s.emitters.pooled, nE)
+        XCTAssertEqual(s.emitters.inUse, nE)
+        XCTAssertEqual(s.emitters.counts, SkillFXPlayer.PoolStats(requests: nE, peakInUse: nE))
+        XCTAssertEqual(s.meshShapes["disc"]?.pooled, nD)
+        XCTAssertEqual(s.meshShapes["disc"]?.counts, SkillFXPlayer.PoolStats(requests: nD, peakInUse: nD))
+        XCTAssertEqual(s.meshes.counts.cut + s.meshes.counts.rejected + s.meshes.counts.reclaimed, 0)
+        XCTAssertEqual(s.cues.overPerPlay, 0)
+        XCTAssertEqual(s.cues.overPending, 0)
+        XCTAssertTrue(s.bySource.isEmpty, "何も失っていない")
+        player.clear()
+    }
+
+    /// 空きが無いときは、従来どおり最も早く終わる一斉放出・同じ形の最も古いメッシュを打ち切り、打ち切った側に 1 回だけ数える。
+    func testPoolOverflowCutsInTheExistingOrderAndCountsEachCutOnce() {
+        let q = RenderQuality.preset(.low)
+        let player = SkillFXPlayer(quality: q)
+        player.prewarm(recipes: [])
+        let nE = SkillFXPlayer.emitterCapacity(q)
+        // x が大きいほど長生き: 最も早く終わるのは x = 0、次が x = 1
+        player.play((0..<nE).map { burst(x: Float($0), life: 1 + 0.1 * Float($0)) }, budgetContext("H900"))
+        let first = emitter(player, x: 0), second = emitter(player, x: 1)
+        XCTAssertNotNil(first)
+        XCTAssertNotNil(second)
+        // 新しい 2 つは長生き（2 つ目の要求が 1 つ目の新しい演出を打ち切らない）
+        player.play([burst(x: 100, life: 5), burst(x: 101, life: 5)], budgetContext("H901"))
+        XCTAssertEqual(first?.position.x, 100, "最も早く終わる一斉放出を打ち切る")
+        XCTAssertEqual(second?.position.x, 101)
+        let s = player.budgetSnapshot()
+        XCTAssertEqual(s.emitters.counts, SkillFXPlayer.PoolStats(requests: nE + 2, cut: 2, peakInUse: nE))
+        XCTAssertEqual(s.emitters.inUse, nE)
+        XCTAssertEqual(s.bySource["H900.skill1.0"]?.emitterCut, 2, "打ち切られた側の出所に数える")
+        XCTAssertNil(s.bySource["H901.skill1.0"], "受理された側は何も失っていない")
+        player.clear()
+
+        let meshes = SkillFXPlayer(quality: q)
+        meshes.prewarm(recipes: [])
+        let nD = SkillFXPlayer.meshCapacity(.disc, q)
+        for k in 0..<nD {
+            meshes.play([disc(x: Float(k))], budgetContext("H900"))
+            meshes.update(dt: 0.01)
+        }
+        let oldest = mesh(meshes, x: 0)
+        XCTAssertNotNil(oldest)
+        meshes.play([disc(x: 100)], budgetContext("H901"))
+        XCTAssertEqual(oldest?.position.x, 100, "同じ形の最も古いものを打ち切る")
+        let m = meshes.budgetSnapshot()
+        XCTAssertEqual(m.meshShapes["disc"]?.counts, SkillFXPlayer.PoolStats(requests: nD + 1, cut: 1, peakInUse: nD))
+        XCTAssertEqual(m.meshes.counts.cut, 1)
+        XCTAssertEqual(m.meshes.inUse, nD)
+        XCTAssertEqual(m.bySource["H900.skill1.0"]?.meshCut, 1)
+        XCTAssertEqual(meshes.stats.stolenMeshes, 1)
+        meshes.clear()
+    }
+
+    /// 打ち切れる一斉放出が無い（全て止まらない継続放出）ときは要求を捨て、打ち切りとは別に数える。
+    func testRequestIsRejectedWhenOnlyLoopingEmittersAreLive() {
+        let q = RenderQuality.preset(.low)
+        let player = SkillFXPlayer(quality: q)
+        player.prewarm(recipes: [])
+        let nE = SkillFXPlayer.emitterCapacity(q)
+        let loop = FXCue.emit(FXEmit(rate: 10, life: 0.5), .follow)
+        player.play(Array(repeating: loop, count: nE), budgetContext("H900", follow: .unit(1)))
+        player.play([burst(x: 0)], budgetContext("H901"))
+        let s = player.budgetSnapshot()
+        XCTAssertEqual(s.emitters.counts, SkillFXPlayer.PoolStats(requests: nE + 1, rejected: 1, peakInUse: nE))
+        XCTAssertEqual(s.bySource["H901.skill1.0"]?.emitterRejected, 1, "要求した側の出所に数える")
+        XCTAssertNil(s.bySource["H900.skill1.0"], "継続放出は打ち切っていない")
+        player.clear()
+    }
+
+    /// 寿命を終えた枠の再利用（空きに戻った後・回収待ちの引き取り）は打ち切りに数えない。
+    func testReusingFinishedSlotsIsNotCountedAsCut() {
+        let q = RenderQuality.preset(.low)
+        let player = SkillFXPlayer(quality: q)
+        player.prewarm(recipes: [])
+        let nE = SkillFXPlayer.emitterCapacity(q), nD = SkillFXPlayer.meshCapacity(.disc, q)
+        let full = (0..<nE).map { burst(x: Float($0), life: 0.2) } + (0..<nD).map { disc(x: Float($0), life: 0.2) }
+        player.play(full, budgetContext("H900"))
+        player.update(dt: 1)
+        XCTAssertEqual(player.activeCount, 0, "寿命を終えて空きに戻った")
+        player.play(full, budgetContext("H900"))
+        var s = player.budgetSnapshot()
+        XCTAssertEqual(s.emitters.counts, SkillFXPlayer.PoolStats(requests: 2 * nE, peakInUse: nE))
+        XCTAssertEqual(s.meshShapes["disc"]?.counts, SkillFXPlayer.PoolStats(requests: 2 * nD, peakInUse: nD))
+        player.update(dt: 1)
+        // 予定の合図は同じ update の回収より先に出るので、寿命を過ぎて回収待ちの枠を引き取る（正常終了。打ち切りではない）
+        player.play(full + [burst(x: 50, life: 0.2, at: 0.5), disc(x: 50, life: 0.2, at: 0.5)], budgetContext("H900"))
+        player.update(dt: 1)
+        s = player.budgetSnapshot()
+        XCTAssertEqual(s.emitters.counts.cut, 0)
+        XCTAssertEqual(s.emitters.counts.reclaimed, 1)
+        XCTAssertEqual(s.meshShapes["disc"]?.counts.cut, 0)
+        XCTAssertEqual(s.meshShapes["disc"]?.counts.reclaimed, 1)
+        XCTAssertTrue(s.bySource.isEmpty)
+        player.clear()
+    }
+
+    /// 1 回の再生の上限（64）と遅延予約の上限（512）の破棄を別々に数える。受け付ける順は従来どおり先頭から。
+    func testPerPlayAndPendingDropsAreCountedSeparately() {
+        let player = SkillFXPlayer(quality: .preset(.high))
+        let per = BattleWorkBudget.cuesPerPlay
+        var strengths: [Float] = []
+        player.onShake = { s, _ in strengths.append(s) }
+        player.play((0..<(per + 6)).map { FXCue.shake(Float($0) / 1000) }, budgetContext("H900"))
+        XCTAssertEqual(strengths, (0..<per).map { Float($0) / 1000 }, "先頭から 64 個を受け付ける")
+        // 繰り返しは 1 回ずつ数える。この画質で出さない合図は数えない
+        var repeated = FXCue.shake(0.5)
+        repeated.count = per + 10
+        var never = FXCue.shake(0.5)
+        never.minQuality = 3
+        player.play([repeated, never], budgetContext("H900"))
+        var s = player.budgetSnapshot()
+        XCTAssertEqual(s.cues.overPerPlay, 6 + 10)
+        XCTAssertEqual(s.cues.overPending, 0)
+        // 遅れのある合図で予約を埋めると、その先は予約の上限で捨てる（1 回の再生の上限には当たらない）
+        let delayed = (0..<per).map { _ in FXCue.shake(0.1, at: 1) }
+        let plays = BattleWorkBudget.pendingCues / per + 1
+        for _ in 0..<plays { player.play(delayed, budgetContext("H901")) }
+        s = player.budgetSnapshot()
+        XCTAssertEqual(s.cues.overPerPlay, 16)
+        XCTAssertEqual(s.cues.overPending, plays * per - BattleWorkBudget.pendingCues)
+        XCTAssertEqual(s.cues.pending, BattleWorkBudget.pendingCues)
+        XCTAssertEqual(s.cues.peakPending, BattleWorkBudget.pendingCues)
+        XCTAssertEqual(s.bySource["H900.skill1.0"], SkillFXPlayer.SourceStats(cuesOverPerPlay: 16))
+        XCTAssertEqual(s.bySource["H901.skill1.0"],
+                       SkillFXPlayer.SourceStats(cuesOverPending: plays * per - BattleWorkBudget.pendingCues))
+        player.update(dt: 2)
+        s = player.budgetSnapshot()
+        XCTAssertEqual(s.cues.pending, 0, "予約は出し切った")
+        XCTAssertEqual(s.cues.overPending, plays * per - BattleWorkBudget.pendingCues, "出し切っても破棄の数は残る")
+        player.clear()
+    }
+
+    /// 読み込み幕の裏の陳列は要求に数えない。clear（幕が上がる直前・シーク・破棄）と新しい試合の再生器で前の集計は残らない。
+    func testBudgetCountersExcludeWarmupAndResetOnClear() {
+        let q = RenderQuality.preset(.low)
+        let player = SkillFXPlayer(quality: q)
+        player.prewarm(recipes: [])
+        player.fireWarmup(around: .zero, spread: 4)
+        XCTAssertEqual(player.budgetSnapshot().emitters.counts.requests, 0)
+        XCTAssertEqual(player.budgetSnapshot().meshes.counts.requests, 0)
+        player.clear()
+        let nE = SkillFXPlayer.emitterCapacity(q)
+        player.play((0..<(nE + 3)).map { burst(x: Float($0)) }, budgetContext("H900"))
+        player.play((0..<(BattleWorkBudget.cuesPerPlay + 1)).map { _ in FXCue.shake(0.1) }, budgetContext("H900"))
+        player.play([FXCue.shake(0.1, at: 1)], budgetContext("H900"))
+        var s = player.budgetSnapshot()
+        XCTAssertEqual(s.emitters.counts.cut, 3)
+        XCTAssertEqual(s.cues.overPerPlay, 1)
+        XCTAssertEqual(s.cues.pending, 1)
+        player.clear()
+        s = player.budgetSnapshot()
+        XCTAssertEqual(s.plays, 0)
+        XCTAssertEqual(s.emitters.counts, SkillFXPlayer.PoolStats())
+        XCTAssertEqual(s.meshes.counts, SkillFXPlayer.PoolStats())
+        XCTAssertEqual(s.emitters.inUse, 0)
+        XCTAssertEqual(s.emitters.pooled, nE, "枠は残る（作り直さない）")
+        XCTAssertEqual(s.cues, SkillFXBudgetSnapshot.Cues(perPlayLimit: BattleWorkBudget.cuesPerPlay,
+                                                           pendingLimit: BattleWorkBudget.pendingCues,
+                                                           overPerPlay: 0, overPending: 0, pending: 0, peakPending: 0))
+        XCTAssertTrue(s.bySource.isEmpty)
+        let next = SkillFXPlayer(quality: q)
+        XCTAssertEqual(next.budgetSnapshot().emitters.counts, SkillFXPlayer.PoolStats(), "次の試合の再生器は 0 から")
+    }
+
+    /// 出所の無い合図は "unknown"。写しは JSON（性能記録）へ書き出して読み戻せる。
+    func testBudgetSnapshotNamesUnknownSourceAndRoundTripsJSON() throws {
+        let player = SkillFXPlayer(quality: .preset(.low))
+        let ctx = SkillFXPlayer.Context(palette: .from(RGB(1, 1, 1)), origin: .zero, caster: .zero, target: .zero,
+                                        forward: [0, 0, -1])
+        player.play((0..<(BattleWorkBudget.cuesPerPlay + 2)).map { _ in FXCue.shake(0.1) }, ctx)
+        let s = player.budgetSnapshot()
+        XCTAssertEqual(s.bySource["unknown"]?.cuesOverPerPlay, 2)
+        let data = try JSONEncoder().encode(s)
+        XCTAssertEqual(try JSONDecoder().decode(SkillFXBudgetSnapshot.self, from: data), s)
+    }
+
+    // MARK: 加算合成・流れる模様・コマ送り（FXPrograms・FXShaders.metal・FXSheet）
+
+    private func recipe(_ cues: [FXCue]) -> (palette: FXPalette, recipe: SkillFXRecipe) {
+        var r = SkillFXRecipe()
+        r.cast = cues
+        return (FXPalette.from(RGB(1, 0.6, 0.2)), r)
+    }
+
+    private func context(_ palette: FXPalette) -> SkillFXPlayer.Context {
+        SkillFXPlayer.Context(palette: palette, origin: .zero, caster: .zero, target: [0, 0, -1], forward: [0, 0, -1])
+    }
+
+    func testMeshDefaultsStayAlphaBlendedWithTheLegacyMaterial() {
+        let m = FXMesh(shape: .disc)
+        XCTAssertEqual(m.blend, .alpha)
+        XCTAssertNil(m.flow)
+        XCTAssertNil(FXMaterialLibrary.shadedKey(m, palette: .from(RGB(1, 1, 1)), level: 3), "既定は従来の Unlit")
+        let player = SkillFXPlayer(quality: .preset(.high))
+        let r = recipe([.mesh(FXMesh(shape: .disc, tex: .ring, life: 1), offset: [7, 0, 0])])
+        player.prewarm(recipes: [r])
+        player.play(r.recipe.cast, context(r.palette))
+        let e = mesh(player, x: 7) as? ModelEntity
+        XCTAssertTrue(e?.model?.materials.first is UnlitMaterial)
+        player.clear()
+    }
+
+    func testAddLevelsCoverTheFadeAndHideAtZero() {
+        XCTAssertEqual(FXMaterialLibrary.addLevel(0), 0)
+        XCTAssertEqual(FXMaterialLibrary.addLevel(1), FXMaterialLibrary.addLevels)
+        XCTAssertEqual(FXMaterialLibrary.addLevel(0.01), 1)
+        XCTAssertEqual(FXMaterialLibrary.addLevel(0.55), 6)
+        XCTAssertEqual(FXMaterialLibrary.addLevel(5), FXMaterialLibrary.addLevels)
+    }
+
+    /// 演出用シェーダーの Program がアプリの default.metallib から作れる（シミュレータでも）。
+    func testFXProgramsCompile() async {
+        await FXPrograms.waitUntilSettled()
+        XCTAssertTrue(FXPrograms.isReady, "FXShaders.metal の Program が作れない: \(FXPrograms.failure ?? "?")")
+    }
+
+    /// 加算のメッシュは明るさの段階の材質で落とし、枠を使い回した次のアルファ合成のメッシュには従来の材質と不透明度が戻る。
+    /// 加算・模様の材質も読み込み幕の裏で作り切る（プレイ中は何も作らない）。
+    func testAdditiveMeshFadesByLevelAndPoolReuseResetsTheMaterial() async {
+        await FXPrograms.waitUntilSettled()
+        guard FXPrograms.isReady else { return XCTFail("Program が無い: \(FXPrograms.failure ?? "?")") }
+        AssetLedger.beginLoading()
+        let player = SkillFXPlayer(quality: .preset(.low))
+        let glow = FXMesh(shape: .disc, tex: .shockwave, life: 1, fadeIn: 0.01, fadeOut: 0.3).with { $0.blend = .add }
+        let flowing = FXMesh(shape: .cylinder, tex: .beam, life: 1).with {
+            $0.flow = FXFlow(pattern: .streaks, scroll: [0, -1.5], tiling: 2, strength: 0.8, erosion: 0.3, edge: .core)
+        }
+        let plain = FXMesh(shape: .disc, tex: .ring, life: 1, fadeIn: 0.01, fadeOut: 0.3)
+        let r = recipe([.mesh(glow, offset: [3, 0, 0]), .mesh(flowing, offset: [4, 0, 0]), .mesh(plain, offset: [5, 0, 0])])
+        player.prewarm(recipes: [r])
+        AssetLedger.beginLive()
+        player.play([r.recipe.cast[0]], context(r.palette))
+        let e = mesh(player, x: 3) as? ModelEntity
+        XCTAssertTrue(e?.model?.materials.first is CustomMaterial, "加算は CustomMaterial")
+        let full = (e?.model?.materials.first as? CustomMaterial)?.roughness.scale
+        XCTAssertEqual(full ?? 0, 1, accuracy: 1e-4)
+        player.update(dt: 0.65)
+        let dim = (e?.model?.materials.first as? CustomMaterial)?.roughness.scale ?? 1
+        XCTAssertLessThan(dim, 1, "消え始めたら明るさの段階を落とす")
+        XCTAssertEqual(e?.components[OpacityComponent.self]?.opacity ?? 0, 1, accuracy: 1e-4, "加算は段階で落とし、不透明度は 1")
+        player.play([r.recipe.cast[1]], context(r.palette))
+        XCTAssertTrue((mesh(player, x: 4) as? ModelEntity)?.model?.materials.first is CustomMaterial, "模様は CustomMaterial")
+        player.update(dt: 1)
+        XCTAssertEqual(player.activeCount, 0)
+        // 加算に使った枠（円板）を次のアルファ合成の円板が使い回す
+        player.play([r.recipe.cast[2]], context(r.palette))
+        let reused = mesh(player, x: 5) as? ModelEntity
+        XCTAssertTrue(reused?.model?.materials.first is UnlitMaterial, "使い回しで従来の材質に戻る")
+        XCTAssertTrue(reused === e, "同じ枠を使い回している")
+        player.update(dt: 0.85)
+        let a = reused?.components[OpacityComponent.self]?.opacity ?? 1
+        XCTAssertLessThan(a, 1, "アルファ合成は不透明度で落とす")
+        XCTAssertGreaterThan(a, 0)
+        player.clear()
+        let snap = AssetLedger.snapshot()
+        XCTAssertEqual(snap.liveTotal, 0, "プレイ中の生成: \(snap.live)\n" + snap.liveSamples.joined(separator: "\n"))
+    }
+
+    /// Program が幕に間に合わなかった試合（sealShadedMaterials → createsShaded = false）は、後で Program が出来ても
+    /// プレイ中に CustomMaterial を作らず従来の材質で出し、加算のメッシュも不透明度で落とす。間に合えば封じない。
+    func testLateProgramsKeepTheLegacyMaterialForTheMatch() async {
+        await FXPrograms.waitUntilSettled()
+        guard FXPrograms.isReady else { return XCTFail("Program が無い: \(FXPrograms.failure ?? "?")") }
+        let glow = FXMesh(shape: .disc, tex: .shockwave, life: 1, fadeIn: 0.01, fadeOut: 0.3).with { $0.blend = .add }
+        let r = recipe([.mesh(glow, offset: [3, 0, 0])])
+        let ready = SkillFXPlayer(quality: .preset(.low))
+        ready.prewarm(recipes: [r])
+        XCTAssertTrue(ready.sealShadedMaterials(), "作り切れていれば封じない")
+        XCTAssertTrue(ready.materials.createsShaded)
+
+        AssetLedger.beginLoading()
+        let player = SkillFXPlayer(quality: .preset(.low))
+        // 幕の時点で Program が無かった試合と同じ状態（この試合は加算・模様の材質を作らない）
+        player.materials.createsShaded = false
+        player.prewarm(recipes: [r])
+        AssetLedger.beginLive()
+        player.play(r.recipe.cast, context(r.palette))
+        let e = mesh(player, x: 3) as? ModelEntity
+        XCTAssertTrue(e?.model?.materials.first is UnlitMaterial, "従来の材質で代える")
+        player.update(dt: 0.65)
+        let a = e?.components[OpacityComponent.self]?.opacity ?? 1
+        XCTAssertLessThan(a, 1, "従来の材質の加算のメッシュは不透明度で落とす")
+        XCTAssertGreaterThan(a, 0)
+        player.clear()
+        let snap = AssetLedger.snapshot()
+        XCTAssertEqual(snap.liveTotal, 0, "プレイ中の生成: \(snap.live)\n" + snap.liveSamples.joined(separator: "\n"))
+    }
+
+    func testEverySheetIsBundledAsA4x4Grid() {
+        for s in FXSheet.allCases {
+            guard let img = FXSheet.image(s) else { XCTFail("\(s.rawValue).png が無い"); continue }
+            XCTAssertEqual(img.width, 512, s.rawValue)
+            XCTAssertEqual(img.height, 512, s.rawValue)
+            XCTAssertEqual(s.frames, 16)
+        }
+    }
+
+    func testSheetFPSFollowsLifeForOneShotAndLoopRateForLoops() {
+        let once = FXEmit(life: 0.8).with { $0.sheet = .smokePuff }
+        XCTAssertEqual(SkillFXPlayer.sheetFPS(once, .smokePuff), 20, accuracy: 1e-4, "16 コマを寿命 0.8 秒で流す")
+        let loop = FXEmit(life: 0.8).with { $0.sheet = .flameLoop }
+        XCTAssertEqual(SkillFXPlayer.sheetFPS(loop, .flameLoop), FXSheet.flameLoop.loopFPS)
+        let fixed = FXEmit(life: 0.8).with { $0.sheet = .smokePuff; $0.sheetFPS = 12 }
+        XCTAssertEqual(SkillFXPlayer.sheetFPS(fixed, .smokePuff), 12)
+    }
+
+    /// コマ送りの粒子は imageSequence を付け、同じ放出体を使い回した次の 1 枚絵の粒子では外す。シートは読み込み幕の裏で作る。
+    func testSheetEmitterSetsImageSequenceAndReuseClearsIt() {
+        AssetLedger.beginLoading()
+        let player = SkillFXPlayer(quality: .preset(.low))
+        let smoke = FXEmit(count: 4, life: 0.8).with { $0.sheet = .smokePuff; $0.additive = false }
+        let r = recipe([.emit(smoke, offset: [6, 0, 0]), .emit(FXEmit(count: 4, life: 0.5), offset: [8, 0, 0])])
+        player.prewarm(recipes: [r])
+        XCTAssertFalse(player.sheets.missing.contains(.smokePuff), "シートが読めない")
+        AssetLedger.beginLive()
+        // 放出体を 1 つだけ空ける: 残りを全部使ってから、コマ送りの粒子を出す
+        let n = SkillFXPlayer.emitterCapacity(.preset(.low))
+        player.play((0..<(n - 1)).map { burst(x: 20 + Float($0), life: 5) }, context(r.palette))
+        player.play([r.recipe.cast[0]], context(r.palette))
+        let e = emitter(player, x: 6)
+        let seq = e?.components[ParticleEmitterComponent.self]?.mainEmitter.imageSequence
+        XCTAssertNotNil(seq)
+        XCTAssertEqual(seq?.rowCount, 4)
+        XCTAssertEqual(seq?.columnCount, 4)
+        XCTAssertEqual(seq?.animationMode, .playOnce)
+        XCTAssertEqual(seq?.frameRate ?? 0, 20, accuracy: 1e-4)
+        player.update(dt: 1.2)
+        // コマ送りの粒子の枠が空いた（ほかは寿命 5 秒）→ 次の 1 枚絵の粒子が同じ放出体を使う
+        player.play([r.recipe.cast[1]], context(r.palette))
+        let plain = emitter(player, x: 8)
+        XCTAssertTrue(plain === e, "同じ放出体を使い回している")
+        XCTAssertNil(plain?.components[ParticleEmitterComponent.self]?.mainEmitter.imageSequence, "使い回しでコマ送りを外す")
+        player.clear()
+        let snap = AssetLedger.snapshot()
+        XCTAssertEqual(snap.liveTotal, 0, "プレイ中の生成: \(snap.live)\n" + snap.liveSamples.joined(separator: "\n"))
+    }
+
+    func testFlowPatternsAreSeamlessTiles() {
+        for p in FXFlowTex.allCases {
+            guard let img = FXFlowTex.image(p) else { XCTFail("\(p) が作れない"); continue }
+            XCTAssertEqual(img.width, FXFlowTex.size)
+            XCTAssertEqual(img.height, FXFlowTex.size)
+        }
+    }
+
+    /// Program があっても無くても、全ヒーローの全レシピを準備してから再生してプレイ中に何も作らない（加算・模様・シートを含む）。
+    func testPlayingEveryRecipeWithShadersCreatesNothingWhileLive() async {
+        await FXPrograms.waitUntilSettled()
+        AssetLedger.beginLoading()
+        let player = SkillFXPlayer(quality: .preset(.high))
+        var all: [(palette: FXPalette, recipe: SkillFXRecipe)] = []
+        for id in heroIDs {
+            for slot in SkillSlot.allCases {
+                all.append((SkillFXCatalog.palette(id), SkillFXCatalog.recipe(heroID: id, slot: slot, master: master)))
+                for stage in 1...SkillFXCatalog.maxStage {
+                    if let sr = SkillFXCatalog.stageRecipe(heroID: id, slot: slot, stage: stage, master: master) {
+                        all.append((SkillFXCatalog.palette(id), sr))
+                    }
+                }
+            }
+        }
+        player.prewarm(recipes: all)
+        XCTAssertTrue(player.prewarmShaded())
+        player.resolve = { _ in SIMD3<Float>(1, 0, 1) }
+        AssetLedger.beginLive()
+        for (palette, r) in all {
+            let ctx = SkillFXPlayer.Context(palette: palette, origin: .zero, caster: .zero, target: [0, 0, -5], forward: [0, 0, -1],
+                                            follow: .unit(1))
+            for phase in [r.cast, r.telegraph, r.travel, r.impact, r.hit] { player.play(phase, ctx) }
+            for _ in 0..<3 { player.update(dt: 1.0 / 30) }
+        }
+        for _ in 0..<120 { player.update(dt: 1.0 / 30) }
+        player.stop(follow: .unit(1))
+        for _ in 0..<60 { player.update(dt: 1.0 / 30) }
+        let snap = AssetLedger.snapshot()
+        XCTAssertEqual(snap.liveTotal, 0, "プレイ中の生成: \(snap.live)\n" + snap.liveSamples.joined(separator: "\n"))
+        if FXPrograms.isReady { XCTAssertEqual(player.materials.fallbacks, 0, "Program があるのに従来の材質で代えた") }
+        XCTAssertTrue(player.sheets.missing.isEmpty, "読めないシート: \(player.sheets.missing)")
     }
 }

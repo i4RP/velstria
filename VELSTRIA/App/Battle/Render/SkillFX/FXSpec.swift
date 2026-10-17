@@ -162,6 +162,12 @@ struct FXEmit: Hashable, Sendable {
     /// 継続放出の長さ（duration）を発動のイベントの長さ（SkillCastEvent.duration）から取る（rate > 0 のときだけ。
     /// イベントの長さが 0 なら書いた duration のまま。上限は FXCue.castDurationLimit）。cast・発動と同時の impact だけで効く。
     var durationFromCast = false
+    /// コマ送りの画像（nil = tex の 1 枚絵）。1 回で消える画像は粒子の寿命で全コマを流す（sheetFPS 0 のとき）。
+    var sheet: FXSheet?
+    /// コマ数 / 秒（0 = 1 回の画像は 16 コマ ÷ 寿命、繰り返す画像は FXSheet.loopFPS）。
+    var sheetFPS: Float = 0
+    /// 繰り返す画像の始まりのコマを粒子ごとにばらす。
+    var sheetRandomStart = false
 
     /// 回収までの秒数。
     var span: Float {
@@ -177,6 +183,29 @@ struct FXEmit: Hashable, Sendable {
 }
 
 // MARK: - メッシュ
+
+/// メッシュの合成。
+enum FXBlend: String, Hashable, Sendable {
+    /// 画像のアルファ × 色（煙・影・地割れ・盾面・予告の塗り）。
+    case alpha
+    /// 色を足す（光・閃光・光の柱・衝撃波の縁）。明るさは FXMaterialLibrary.addLevels 段階で落とす（フェード）。
+    case add
+}
+
+/// 形の中を流れる模様（FXShaders.metal の custom_parameter / metallic_scale / emissive_color）。
+struct FXFlow: Hashable, Sendable {
+    var pattern: FXFlowTex = .noise
+    /// 流れる速さ（UV / 秒。x = 横（弧・円周に沿う）、y = 縦（画像の下 → 上は負））。
+    var scroll: SIMD2<Float> = [0, -1]
+    /// 模様の繰り返しの数。
+    var tiling: Float = 2
+    /// 模様の強さ（0〜1。主の色 → 明るい所の色への混ぜ方と明るさの揺らぎ）。
+    var strength: Float = 0.7
+    /// 縁の欠け（0 = 無し、1 = 強い。形の薄い所ほど模様の暗い所から欠ける）。
+    var erosion: Float = 0
+    /// 模様の明るい所の色。
+    var edge: FXTint = .core
+}
 
 /// 演出用の単位メッシュ（UV 付き）。
 enum FXShape: String, CaseIterable, Hashable, Sendable {
@@ -261,6 +290,10 @@ struct FXMesh: Hashable, Sendable {
     /// 途中で消せる組の番号（0 = なし）。sim の数が減ったときに、追従しているこの組のメッシュと予定の合図を短く消す
     /// （SkillFXPlayer.cut。H028 の環剣の刃 1 本ごとに 1〜5）。消すときに寿命を縮めるので、大きさが変わらないメッシュに使う。
     var group = 0
+    /// 合成（既定はアルファ合成。加算は光る部品だけに使う: 重なるほど明るく、明るい地面では白く飛ぶ）。
+    var blend: FXBlend = .alpha
+    /// 形の中を流れる模様（nil = 模様なし）。
+    var flow: FXFlow?
 
     func with(_ f: (inout FXMesh) -> Void) -> FXMesh {
         var c = self
@@ -389,6 +422,9 @@ struct SkillFXRecipe: Sendable {
     /// hit を被弾 1 回ごとに再生するか。既定（false）では、キットのヒーローの多段ヒットのスキル（連続ダメージ・複数の波）は
     /// 同じ相手へ hit を 0.9 秒に 1 回だけ再生する（SkillFXDirector.hitInterval）。1 発ごとに出したい短い演出だけ true。
     var hitPerHit = false
+    /// 空の段を FXGeneric（アーキタイプ別の既定演出）で補うか。false = 空の段は何も出さない（MLBB で光らない振りかぶりなど）。
+    /// 再使用の段の演出が共通の演出（stage 0）で補われるのはこれと別（SkillFXCatalog.merged）。
+    var fillsEmptyPhases = true
 
     var all: [FXCue] { cast + telegraph + travel + impact + hit }
     var isEmpty: Bool { cast.isEmpty && telegraph.isEmpty && travel.isEmpty && impact.isEmpty && hit.isEmpty }

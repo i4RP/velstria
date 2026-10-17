@@ -24,6 +24,9 @@ import VelstriaCore
 //   -sampleReplays        リプレイ一覧の確認用に見本のリプレイを保存する（AI 観戦・自分の試合・乱闘・別バージョン）
 //   -practiceNoCD / -practiceLevel <n>  -battle practice の設定（クールダウン無し / 開始レベル）
 //   -efkAuto <atk|s1|s2|ult>  -battle practice で、人形へ近づいて 2 秒ごとに通常攻撃 / スキルを撃ち続ける（Effekseer の確認用）
+//   -fxCapture <s1,s2,ult|all>  -battle practice で、人形の前でスキルを順に撃ち、発動からの決まった時刻の戦闘画面を書き出す
+//                         （スキル演出の比較撮影。FXCapture・.github/workflows/fx-capture.yml）。-fxCaptureRings / -fxCaptureExit も読む
+//   -cameraPreset <legacy|mlbb>  戦闘カメラの組（CameraRig.Preset。比較の撮影用）
 //   -coreFinaleDemo <red|blue>  幕が上がって 2 秒後にその Core を数秒で壊させ、Star Core の終幕を流す（BattleRenderer。
 //                         -battle spectate、または -battle standard -botControl と併せる。sim の規則は変えず状態を置き換えるだけ）
 //   -autoAdvance          試合終了のバナーとランク戦のリザルトの各画面を数秒ごとに自動で進める（画面の確認用）
