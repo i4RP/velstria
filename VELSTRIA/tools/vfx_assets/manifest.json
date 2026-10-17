@@ -9,19 +9,19 @@
       "size": 256
     },
     "crack_radial": {
-      "bytes": 159045,
+      "bytes": 156775,
       "color": "white",
       "file": "Textures/fx_crack_radial.png",
       "kind": "image",
-      "sha256": "fe05954fe8e987b92f77efdaaa848d55a5d045acab9bcc9f51a31d007adac5fe",
+      "sha256": "29c65d0cc4b264ccbf4dece8f1781057f09d31989c0af9581df305b27e92e337",
       "size": 1024
     },
     "crack_s": {
-      "bytes": 69813,
+      "bytes": 63560,
       "color": "white",
       "file": "Textures/fx_crack_s.png",
       "kind": "image",
-      "sha256": "5f90fa68ceee2c3ac13ed433968b86bb4c403c1b62ce93d7525120eea7661f4a",
+      "sha256": "17d5c6ca9a18d455017496faca912ce844deb0711cb5c0072b53e5eae29e3cac",
       "size": 1024
     },
     "dust_ring": {

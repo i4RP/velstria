@@ -349,6 +349,9 @@ struct FXMesh: Hashable, Sendable {
     /// 画面の歪み（衝撃波の屈折。後処理）の強さ（画面の高さに対するずれの最大。0 = 無し、0.004〜0.015 が目安）。
     /// 輪の縁（disc は size の半分、輪・帯の模型は size）で背景を膨らませる。後処理の無い環境（シミュレータ・低画質）では出ない。
     var refract: Float = 0
+    /// 3D の上に描く（深度を読まない。爆炎・閃光など、体の前に出る大きな光。MLBB の爆発は英雄の体の上に描かれる）。
+    /// 地面の跡・範囲の輪は false（体・地形に隠れる）。
+    var onTop = false
 
     func with(_ f: (inout FXMesh) -> Void) -> FXMesh {
         var c = self
@@ -389,6 +392,8 @@ struct FXRibbon: Hashable, Sendable {
     var alpha: Float = 1
     var blend: FXBlend = .add
     var flow: FXFlow?
+    /// 3D の上に描く（深度を読まない。体の前を通る振りの軌跡）。
+    var onTop = false
 
     /// 回収までの秒数。
     var span: Float { duration + life + 0.05 }
@@ -404,6 +409,7 @@ struct FXRibbon: Hashable, Sendable {
         FXMesh(shape: .disc, tex: tex, tint: tint, alpha: alpha, life: max(0.05, span)).with {
             $0.blend = blend
             $0.flow = flow
+            $0.onTop = onTop
         }
     }
 }

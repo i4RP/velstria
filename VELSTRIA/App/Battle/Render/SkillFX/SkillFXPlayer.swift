@@ -354,11 +354,11 @@ final class SkillFXPlayer {
                 switch cue.element {
                 case .mesh(let m):
                     // 従来の材質は必ず作る（加算・模様の Program が無い時の代わり）
-                    _ = materials.material(m.tex, palette.rgb(m.tint))
+                    _ = materials.material(m.tex, palette.rgb(m.tint), onTop: m.onTop)
                     if SkillFXPlayer.usesShaded(m) { shadedPending.append((m, palette)) }
                 case .ribbon(let rb):
                     let look = rb.look
-                    _ = materials.material(look.tex, palette.rgb(look.tint))
+                    _ = materials.material(look.tex, palette.rgb(look.tint), onTop: look.onTop)
                     if SkillFXPlayer.usesShaded(look) { shadedPending.append((look, palette)) }
                 case .emit, .shake:
                     break

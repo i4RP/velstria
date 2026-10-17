@@ -90,11 +90,12 @@ enum FX_H029: HeroFXSet {
 
     // MARK: - 部品
 
-    /// 地面に寝かせた 1 枚の地割れ・焦げ跡（大きさは変えない。直径 size、向き yaw）。
+    /// 地面に寝かせた 1 枚の地割れ・焦げ跡（大きさは変えない。直径 size、向き yaw）。出た瞬間から全部の明るさ
+    /// （fadeIn 0。爆ぜの瞬間の手応えのヒットストップで演出の時間が止まっても見える）。
     private static func crack(_ tex: FXTex, _ size: Float, _ tint: FXTint, life: Float, yaw: Float = 0,
                               alpha: Float = 1) -> FXMesh {
         FXMesh(shape: .disc, tex: tex, tint: tint, alpha: alpha, size: [size, 1, size], sizeEnd: [size * 1.03, 1, size * 1.03],
-               ease: .out, life: life, fadeIn: 0.03, fadeOut: 0.5, yaw: yaw)
+               ease: .out, life: life, fadeIn: 0, fadeOut: 0.5, yaw: yaw)
     }
 
     /// 外から内へ縮む衝撃の輪（引き寄せ）。直径 from → to。
@@ -121,7 +122,7 @@ enum FX_H029: HeroFXSet {
     private static func edgeLip(_ r: Float, _ tint: FXTint, life: Float, spread: Float = 1.12, lift: Float = 1.3,
                                 refract: Float = 0) -> FXMesh {
         FXMesh.model(.ringLip, nil, tint, size: [r, lift, r], sizeEnd: [r * spread, lift * 0.5, r * spread], life: life).with {
-            $0.fadeIn = 0.02
+            $0.fadeIn = 0
             $0.fadeOut = edgeFade(spread)
             $0.refract = refract
         }.glowing()
@@ -177,7 +178,8 @@ enum FX_H029: HeroFXSet {
             let t = t0 + interval * Float(k)
             // 爆ぜは帯の中心（奥行きの 1/4・1/2・3/4。MLBB の測定 0.23 / 0.52 / 0.77）
             let pos = SIMD3<Float>(0, 0, band.center)
-            let big = 1 + 0.12 * Float(k)
+            // MLBB: 1 回目（槌の打点の近く）は小さく、2・3 回目が大きな光の棘と S 字の地割れ
+            let big: Float = k == 0 ? 0.65 : (k == 1 ? 1.0 : 1.12)
             let yaw = Float(k) * 41 - 20
             impact += [
                 // 白金の芯から放射状に伸びる黄の光の棘（地面に寝かせたコマ送り）
@@ -238,16 +240,21 @@ enum FX_H029: HeroFXSet {
                     $0.fadeIn = 0.1
                     $0.fadeOut = 0.75
                     $0.spin = 90
+                    $0.onTop = true
                 }, .follow, offset: [0, 0.05, 0.15]),
             .mesh(.model(.crescent, .swoosh, .primary, size: [1.25, 1.3, 1.25], life: dashTime).glowing().with {
                 $0.pitch = -14
                 $0.fadeIn = 0.06
                 $0.fadeOut = 0.7
+                $0.onTop = true
             }, .follow, offset: [0, 0.7, 0.25]),
             // 背に流れる炎の帯（縦の帯。炎の筋が後ろへ流れ、縁が欠ける）
             .ribbon(FXRibbon.trail(width: 1.5, life: 0.32, duration: dashTime, upright: true, flame)
                 .flowing(.flame, scroll: [-2.0, 0], tiling: 1.5, strength: 0.7, erosion: 0.45, edge: .core), .follow,
                     offset: [0, 0.85, -0.2]),
+            // 通った地面に残る淡い金の光（地面に寝かせた帯。MLBB の突進の後の淡い光）
+            .ribbon(FXRibbon.trail(width: 1.8, life: 0.55, duration: dashTime, upright: false, .primary).with { $0.alpha = 0.55 },
+                    .follow, offset: [0, 0.02, 0]),
             // 背の炎の粒（コマ送り）と金の光条、土煙（突進の間だけ）
             .emit(.trail(.glow, flame, rate: 30, life: 0.36, size: 1.0).with {
                 $0.duration = dashTime; $0.sheet = .flameLoop; $0.sheetRandomStart = true; $0.tintEnd = ember
@@ -267,10 +274,11 @@ enum FX_H029: HeroFXSet {
             // 終点: 押し運んだ敵ごと止まる炎の球（模型が膨らんで渦を巻き、溶けて消える）・爆炎・白熱の閃光・衝撃の輪・破片
             .mesh(.model(.burstDome, nil, flame, size: [0.9, 0.9, 0.9], sizeEnd: [1.8, 1.6, 1.8], life: 0.5).glowing()
                 .flowing(.flame, scroll: [0.15, -1.2], tiling: 1.4, strength: 0.85, edge: .core)
-                .dissolving(from: 0.35, edge: .core, width: 0.12).with { $0.spin = 160; $0.fadeOut = 0.9 },
+                .dissolving(from: 0.35, edge: .core, width: 0.12).with { $0.spin = 160; $0.fadeOut = 0.9; $0.fadeIn = 0; $0.onTop = true },
                   at: dashTime, .target, offset: [0, 0, 0.3]),
             .mesh(.flipbook(.fireball, 3.0, .white, life: 0.55), at: dashTime + 0.02, .target, offset: [0, 1.0, 0.3]),
-            .mesh(.sprite(.glowHard, 2.4, .core, life: 0.16, grow: 1.6).glowing(), at: dashTime, .target, offset: [0, 0.9, 0.3]),
+            .mesh(.sprite(.glowHard, 2.4, .core, life: 0.16, grow: 1.6).glowing().with { $0.fadeIn = 0; $0.onTop = true }, at: dashTime, .target,
+                  offset: [0, 0.9, 0.3]),
             // 終点の輪: 押し運んだ幅（半径 = 当たりの半幅）に出て、消えながら広がる
             .mesh(edgeLip(half, .accent, life: 0.4, spread: 1.5, refract: 0.008), at: dashTime, .target),
             .emit(.debris(10, speed: 5, dust), at: dashTime, .target, offset: [0, 0, 0.5]),
@@ -315,12 +323,14 @@ enum FX_H029: HeroFXSet {
                     $0.roll = 90
                     $0.fadeIn = 0.03
                     $0.fadeOut = 0.35
+                    $0.onTop = true
                 }, at: t, offset: [0.1, 0.95, smashReach * 0.3]),
             // 打ち上げの爆ぜ（光の棘・爆炎）と、天へ立つ 2 重の金の光の柱（炎の筋が上へ流れる）
             .mesh(.groundFlipbook(.spikes, 3.0, hot, life: 0.4), at: t, offset: mid),
             .mesh(.flipbook(.fireball, 2.6, .white, life: 0.55), at: t + 0.03, offset: mid + [0, 1.2, 0]),
             .mesh(.model(.pillar2, nil, .primary, size: [0.6, 1.5, 0.6], sizeEnd: [0.38, 5.5, 0.38], life: 0.5).glowing()
-                .flowing(.flame, scroll: [0, -2.4], tiling: 1.6, strength: 0.7, erosion: 0.3, edge: .core), at: t, offset: mid),
+                .flowing(.flame, scroll: [0, -2.4], tiling: 1.6, strength: 0.7, erosion: 0.3, edge: .core).with { $0.onTop = true },
+                  at: t, offset: mid),
             // 焦げた放射状のひび（溶けて消える）。扇の中ほどの衝撃の輪は扇の外へはみ出すので置かない（docs/vfx/RANGES.md）
             .mesh(crack(.crackRadial, 3.0, char, life: 1.1, alpha: 0.8).dissolving(from: 0.5, tiling: 2.5, edge: ember, width: 0.06),
                   at: t, offset: mid),
@@ -385,7 +395,7 @@ enum FX_H029: HeroFXSet {
                     $0.sizeEnd = [R * 0.98, 1, R * 0.98]
                 }, at: p),
             // 渦の刃: 輪の上の勾玉形の白金の刃が渦を巻きながら中心へ吸い込まれる（2 層。外は大きく遅く、内は速い）
-            .mesh(.model(.bladeRing, .blade, .core, size: [R, 1, R], sizeEnd: [R * 0.3, 1, R * 0.3], life: 0.92, ease: .in)
+            .mesh(.model(.bladeRing, .blade, hot, size: [R, 1, R], sizeEnd: [R * 0.3, 1, R * 0.3], life: 0.92, ease: .in)
                 .glowing().with {
                     $0.spin = -150
                     $0.fadeIn = 0.08
@@ -416,15 +426,19 @@ enum FX_H029: HeroFXSet {
             .shake(0.2, at: p),
             // 崩落の直前: 槌の上から天へ立つ細い光の筋（光る。筋が上へ流れる）
             .mesh(.pillar(0.16, height: 9, .core, life: 0.32, alpha: 1).glowing()
-                .flowing(.streaks, scroll: [0, -3], tiling: 2, strength: 0.6, edge: .primary), at: t - 0.24,
+                .flowing(.streaks, scroll: [0, -3], tiling: 2, strength: 0.6, edge: .primary).with { $0.onTop = true }, at: t - 0.24,
                   offset: [0.3, 1.2, 0.1]),
             // 1.0: 聖槌が落ちて崩落 — 範囲を覆う光の棘・白熱の閃光・爆炎
             .mesh(.groundFlipbook(.spikes, R * 2.3, hot, life: 0.5, grow: 1.1), at: t),
-            .mesh(.sprite(.glowHard, 4.2, .core, life: 0.22, grow: 1.5).glowing(), at: t, offset: [0, 1.0, 0.2]),
+            .mesh(.sprite(.glowHard, 4.2, .core, life: 0.22, grow: 1.5).glowing().with { $0.fadeIn = 0; $0.onTop = true }, at: t,
+                  offset: [0, 1.0, 0.2]),
             .mesh(.flipbook(.fireball, R * 1.9, .white, life: 0.72, grow: 1.12), at: t + 0.02, offset: [0, 1.2, 0]),
             // 四芒星の岩盤: 金に光って盛り上がる → 暗く焦げた盤に溶岩の網が光り、溶けて消える
             .mesh(.model(.starCross, nil, hot, size: [R * 0.85, 1.6, R * 0.85], sizeEnd: [R * 0.9, 1.0, R * 0.9], life: 0.5,
-                         ease: .outBack).glowing().with { $0.fadeOut = 0.35 }, at: t),
+                         ease: .outBack).glowing().with {
+                $0.fadeIn = 0
+                $0.fadeOut = 0.35
+            }, at: t),
             .mesh(.model(.starCross, nil, char, size: [R * 0.86, 1.2, R * 0.86], life: 1.6)
                 .flowing(.lava, scroll: [0.03, 0.08], tiling: 2, strength: 0.9, edge: lava)
                 .dissolving(from: 0.55, edge: lava, width: 0.08).with { $0.fadeIn = 0.15; $0.fadeOut = 0.95 }, at: t + 0.06),
@@ -453,7 +467,8 @@ enum FX_H029: HeroFXSet {
                 }, at: t),
             // 天へ立つ 2 重の光の柱（炎の筋が上へ流れる）
             .mesh(.model(.pillar2, nil, .core, size: [0.75, 3, 0.75], sizeEnd: [0.4, 8, 0.4], life: 0.38).glowing()
-                .flowing(.flame, scroll: [0, -3], tiling: 1.6, strength: 0.6, erosion: 0.25, edge: .primary), at: t - 0.02),
+                .flowing(.flame, scroll: [0, -3], tiling: 1.6, strength: 0.6, erosion: 0.25, edge: .primary).with { $0.onTop = true },
+                  at: t - 0.02),
             // 火花・白い岩片（回る岩のコマ送り）・土煙・残り火
             .emit(.sparks(30, speed: 11, .core, end: .primary, size: 0.12, life: 0.55), at: t, offset: [0, 0.6, 0]),
             .emit(.debris(16, speed: 8, .rgb(0.92, 0.9, 0.85), size: 0.3).with {

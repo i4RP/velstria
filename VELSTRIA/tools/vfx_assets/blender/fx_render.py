@@ -490,8 +490,12 @@ def crack_s(out, res, samples):
             k = (s - 0.5) / 0.5
             a = math.radians(0 + 240 * k)  # 左の円: 右（中央）→ 下 → 左 → 上
             x, y = -r + math.cos(a) * r, -math.sin(a) * r
-        pts.append((x * 1.25 + rng.uniform(-0.012, 0.012), y * 1.05 + rng.uniform(-0.015, 0.015)))
-    widths = [0.1 * (0.3 + 0.7 * math.sin(math.pi * i / 28) ** 0.45) for i in range(29)]
+        pts.append((x * 1.25 + rng.uniform(-0.03, 0.03), y * 1.05 + rng.uniform(-0.035, 0.035)))
+    # 外接の中心を画像の中心へ
+    cx = (min(p[0] for p in pts) + max(p[0] for p in pts)) / 2
+    cy = (min(p[1] for p in pts) + max(p[1] for p in pts)) / 2
+    pts = [(x - cx, y - cy) for (x, y) in pts]
+    widths = [0.19 * (0.3 + 0.7 * math.sin(math.pi * i / 28) ** 0.45) * rng.uniform(0.7, 1.25) for i in range(29)]
     parts.append(jagged_strip(pts, widths))
     # 枝
     for k in range(11):
@@ -499,12 +503,12 @@ def crack_s(out, res, samples):
         x, y = pts[i]
         a = rng.uniform(0, 2 * math.pi)
         br = crack_path(rng, (x, y), a, rng.uniform(0.18, 0.42), 6, 0.6)
-        parts.append(jagged_strip(br, taper(len(br), widths[i] * 0.55, 0.0, 0.8)))
+        parts.append(jagged_strip(br, taper(len(br), widths[i] * 0.45, 0.0, 0.8)))
         # 枝の先の細いひび
         if rng.random() < 0.6:
             j = rng.randint(2, len(br) - 1)
             tw = crack_path(rng, br[j], a + rng.uniform(-1.2, 1.2), rng.uniform(0.1, 0.22), 4, 0.7)
-            parts.append(jagged_strip(tw, taper(len(tw), 0.016, 0.0)))
+            parts.append(jagged_strip(tw, taper(len(tw), 0.03, 0.0)))
     emission_object("crack", parts, strength=1.0)
     render(scene, os.path.join(out, "0000.png"))
 
@@ -518,11 +522,11 @@ def crack_radial(out, res, samples):
     for k in range(n):
         a = 2 * math.pi * k / n + rng.uniform(-0.2, 0.2)
         main = crack_path(rng, (math.cos(a) * 0.08, math.sin(a) * 0.08), a, rng.uniform(0.7, 0.92), 9, 0.32)
-        parts.append(jagged_strip(main, taper(len(main), 0.05, 0.004, 0.8)))
+        parts.append(jagged_strip(main, taper(len(main), 0.1, 0.008, 0.8)))
         for _ in range(2):
             i = rng.randint(2, len(main) - 2)
             br = crack_path(rng, main[i], a + rng.choice([-1, 1]) * rng.uniform(0.5, 1.1), rng.uniform(0.12, 0.3), 5, 0.5)
-            parts.append(jagged_strip(br, taper(len(br), 0.022, 0.0)))
+            parts.append(jagged_strip(br, taper(len(br), 0.042, 0.0)))
     # 途切れた輪
     for k in range(7):
         a0 = 2 * math.pi * k / 7 + rng.uniform(0, 0.4)
@@ -531,7 +535,7 @@ def crack_radial(out, res, samples):
             a = a0 + 0.55 * i / 7
             r = 0.55 + rng.uniform(-0.03, 0.03)
             pts.append((math.cos(a) * r, math.sin(a) * r))
-        parts.append(jagged_strip(pts, [0.02 * math.sin(math.pi * i / 7) + 0.004 for i in range(8)]))
+        parts.append(jagged_strip(pts, [0.035 * math.sin(math.pi * i / 7) + 0.006 for i in range(8)]))
     emission_object("crackR", parts, strength=1.0)
     render(scene, os.path.join(out, "0000.png"))
 
