@@ -56,7 +56,8 @@ def main():
     captured = {}
 
     def fake_build(self, out_dir=None, keep_project=False):
-        captured[self.name] = self.xml()
+        # キットの段に重ねる効果は Kit/ の同名と比べる
+        captured[os.path.join("Kit", self.name) if getattr(self, "out_dir", None) else self.name] = self.xml()
         return self.name + ".efk"
 
     efkgen.Effect.build = fake_build

@@ -267,6 +267,7 @@ enum FXRangeAudit {
         case .cylinder, .funnel, .spire, .dome, .sphere: return offsetY <= 0.35
         case .wall: return offsetY <= 0.6
         case .billboard: return false
+        case .ringLip, .crescent, .twister, .pillar2, .bladeRing, .burstDome, .starCross, .shardRing: return offsetY <= 0.35
         }
     }
 
