@@ -459,7 +459,11 @@ constexpr int BackgroundSlots = 3;
     Effekseer::Handle h = _manager->Play(it->second, 0, 0, 0);
     if (h < 0) return -1;
     _manager->SetLayer(h, LayerProbe);
+    // この効果だけを 4 フレーム進め、描く組へ移す（Draw は前の Flip の組を描く。ほかの効果は進めない）
+    _manager->BeginUpdate();
     _manager->UpdateHandle(h, 4.0f);
+    _manager->EndUpdate();
+    _manager->Flip();
 
     id<MTLCommandBuffer> cb = [_queue commandBuffer];
     MTLRenderPassDescriptor *pass = [MTLRenderPassDescriptor renderPassDescriptor];
