@@ -49,6 +49,20 @@ git tag fxcap-<名前> <コミット> && git push origin fxcap-<名前>
     全シートの同梱・全レシピを準備してからの再生でプレイ中の生成 0。
 - 部品: `FXEmit.sheet / groundSheet`、`FXMesh.glowing() / flowing(...)`（`FXKit.swift` 末尾）。
 
+### 2026-10-17 撮影・描画の不具合と直したこと
+
+- 撮影の方式: 最初は ARView の画（`ARView.snapshot`）を書き出したが、HUD と Effekseer が写らないので、撮る時刻に sim・演出の時刻・
+  粒子（`simulationState = .pause`）を止め、`/tmp/velstria-fxcap` の合図で CI が `simctl io screenshot` を撮る方式にした（HUD を含む画面。
+  合図の done には画の名前を書き、遅れた done で次を撮らずに進まないようにした）。CI のシミュレータでは起動直後に音声の初期化が固まって
+  （`AudioService` → `AVAudioEngine` → AURemoteIO の RPC timeout）落ちることがあるので、落ちたら 3 回まで起動し直す。
+- 加算・模様の部品が何も映らなかった: unlit の CustomMaterial は `set_emissive_color` の値だけで描く（Apple の
+  `CustomMaterial.LightingModel.unlit` の説明: ほかの出力は無視）。`FXShaders.metal` が base_color だけに出していた。
+  切り分け（`-fxCaptureProbe`。部品の種類を 1 つずつ足して撮る）で、emissive にも出す単色のテスト用シェーダーだけが映ったことで分かった。
+  途中で、法線が無いことも疑って演出の単位メッシュに法線を足した（Unlit の見た目は変わらない。これだけでは直らなかった）。
+- カメラの確認（寸法が既知の地面の輪。fxcap-h029v2、MLBB の組）: 半径 3 m・6 m の輪を `measure.py` の写像で当てはめて
+  u0 = 553.4・v0 = 293.1・c = 0.7114・q = 6.2 × 10⁻⁴・縮尺 62.5 px/m（残差 1.3 px）。MLBB の画面収録は u0 = 556.7・v0 = 294.6・
+  c = 0.7107・q = 7.7 × 10⁻⁴・62.3 px/単位。c・縮尺・足元の高さは合う。q（遠近の強さ）は外側の輪が画面の一部しか拾えず精度が低い（推定）。
+
 ### 2026-10-17 工程 3（ボルグ）
 
 [H029.md](H029.md)。S1・S2・再使用・奥義を画面収録に寄せた（予算内）。撮影 `fxcap-h029v1--H029@mlbb`。

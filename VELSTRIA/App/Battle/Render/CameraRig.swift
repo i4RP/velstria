@@ -109,14 +109,14 @@ final class CameraRig {
 
     /// 2026-10-17 までのカメラ。
     nonisolated static let legacyPreset = Preset(pitch: 56, fov: 48, distance: 10.0, lead: 0)
-    /// MLBB の画面収録から解いた候補（docs/vfx/CAMERA.md。推定値で、確定ではない）。
+    /// MLBB の画面収録から解いた組（docs/vfx/CAMERA.md）。2026-10-17 から既定。寸法が既知の地面の輪で確かめた（c・縮尺は一致、遠近の q は推定）。
     nonisolated static let mlbbPreset = Preset(pitch: 42.9, fov: 30.1, distance: 15.9, lead: 0.91)
     /// 使う組。Debug の起動引数 -cameraPreset <legacy|mlbb> で切り替える（演出の比較の撮影用。出荷ビルドは引数を読まない）。
     nonisolated static let preset: Preset = {
         switch DebugLaunch.value(after: "-cameraPreset") {
         case "mlbb": return mlbbPreset
         case "legacy": return legacyPreset
-        default: return legacyPreset
+        default: return mlbbPreset
         }
     }()
 
