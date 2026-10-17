@@ -151,6 +151,10 @@ enum KitRuntime {
         let a = s.units[i].prevPos
         let b = s.units[i].pos
         let team = s.units[i].team
+        // 検証用の観測: この tick の経路（半幅 = 当たりの半径。受け口が無ければ何もしない。docs/vfx/RANGES.md）
+        HitShapeProbe.emit(HitShape(form: .line(from: a, to: b, halfWidth: sw.radius, squareEnds: false), kind: .sweep,
+                                    team: team, sourceID: s.units[i].id, source: sw.payload.source,
+                                    trackID: s.units[i].id, time: s.time))
         let ab = b - a
         let lenSq = ab.lengthSquared
         var hits: [(along: Double, index: Int)] = []

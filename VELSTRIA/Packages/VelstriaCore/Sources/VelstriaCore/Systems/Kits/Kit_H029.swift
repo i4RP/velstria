@@ -266,6 +266,35 @@ struct Kit_H029: HeroKit {
         }
     }
 
+    /// 演出が読む時刻・寸法（Tune そのもの。App の FX_H029 は値を写さずここから読む。docs/vfx/RANGES.md）。
+    func fxValues(slot: SkillSlot, stage: Int) -> [KitFXValue] {
+        switch slot {
+        case .skill1:
+            return [KitFXValue("waveFirstDelay", Tune.waveFirstDelay, .seconds),
+                    KitFXValue("waveInterval", Tune.waveInterval, .seconds),
+                    KitFXValue("waveCount", Double(Tune.waveCount), .count),
+                    KitFXValue("waveReach", Tune.waveReach, .distance),
+                    KitFXValue("waveNearHalfWidth", Tune.waveNearHalfWidth, .distance),
+                    KitFXValue("waveFarHalfWidth", Tune.waveFarHalfWidth, .distance),
+                    KitFXValue("waveBandStart", list: Tune.waveBandStart, .ratio),
+                    KitFXValue("waveBandLength", Tune.waveBandLength, .ratio)]
+        case .skill2 where stage >= 1:
+            return [KitFXValue("smashDelay", Tune.smashDelay, .seconds), KitFXValue("smashReach", Tune.smashReach, .distance),
+                    KitFXValue("smashHalfAngle", Tune.smashHalfAngle, .radians),
+                    KitFXValue("smashAirborne", Tune.smashAirborne, .seconds)]
+        case .skill2:
+            return [KitFXValue("dashRange", Tune.dashRange, .distance), KitFXValue("dashSpeed", Tune.dashSpeed, .speed),
+                    KitFXValue("dashWidth", Tune.dashWidth, .distance), KitFXValue("dashStun", Tune.dashStun, .seconds),
+                    KitFXValue("recastWindow", Tune.recastWindow, .seconds)]
+        case .ultimate:
+            return [KitFXValue("ultReach", Tune.ultReach, .distance), KitFXValue("ultGather", Tune.ultGather, .seconds),
+                    KitFXValue("ultTotal", Tune.ultTotal, .seconds), KitFXValue("ultPullTime", Tune.ultPullTime, .seconds),
+                    KitFXValue("ultStun", Tune.ultStun, .seconds)]
+        case .passive:
+            return [KitFXValue("blockFlash", Tune.blockFlash, .seconds)]
+        }
+    }
+
     func numbers(slot: SkillSlot, stage: Int, skill: SkillDef, hero: HeroDef, rank: Int, stats: Stats,
                  base: SkillNumbers) -> SkillNumbers {
         var n = base
@@ -503,6 +532,9 @@ struct Kit_H029: HeroKit {
                            effects: [.addMark(name: Tune.waveMark, stacks: 1, maxStacks: Tune.waveCount,
                                               duration: Tune.waveSlowDuration)],
                            kitEvent: Event.wave)
+        // 検証用の観測: この回の台形の帯（受け口が無ければ何もしない。docs/vfx/RANGES.md）
+        HitShapeProbe.emit(.kit(.polygon(Self.waveBand(origin: timer.point, direction: dir, eruption: timer.index)), s,
+                                caster: owner, source: .skill(.skill1)))
         let targets = Self.waveTargets(s, owner: owner, origin: timer.point, direction: dir, eruption: timer.index)
         guard !targets.isEmpty else { return }
         let casterID = s.units[owner].id
@@ -540,6 +572,23 @@ struct Kit_H029: HeroKit {
         return out
     }
 
+    /// スキル1 の k 回目の帯の形（waveTargets と同じ寸法。対象の半径は含まない）: 手前の左・奥の左・奥の右・手前の右。
+    /// 最初の帯の手前は台形の手前の辺（奥行き 0）、最後の帯の奥は台形の奥の辺（waveReach）。
+    static func waveBand(origin: Vec2, direction: Vec2, eruption k: Int) -> [Vec2] {
+        let dir = direction.normalized
+        guard dir != .zero else { return [] }
+        let last = Tune.waveBandStart.count - 1
+        let band = min(max(0, k), last)
+        let lo = band == 0 ? 0 : Tune.waveBandStart[band] * Tune.waveReach
+        let hi = band == last ? Tune.waveReach : (Tune.waveBandStart[band] + Tune.waveBandLength) * Tune.waveReach
+        let left = Vec2(-dir.y, dir.x)
+        func half(_ along: Double) -> Double {
+            Tune.waveNearHalfWidth + (Tune.waveFarHalfWidth - Tune.waveNearHalfWidth) * along / Tune.waveReach
+        }
+        return [origin + dir * lo + left * half(lo), origin + dir * hi + left * half(hi),
+                origin + dir * hi - left * half(hi), origin + dir * lo - left * half(lo)]
+    }
+
     /// S2 の再使用: 今の位置から前方の扇へダメージ + 打ち上げ。
     private func smash(_ s: inout SimState, _ ctx: SimContext, owner: Int, timer: KitTimer) {
         guard let dir = s.units[owner].hero?.kit?.borgSmashDir, dir != .zero else { return }
@@ -568,6 +617,9 @@ struct Kit_H029: HeroKit {
         let center = s.units[owner].pos
         let pullLeft = max(Balance.dt, Tune.ultPullTime - elapsed)
         let holdLeft = max(Balance.dt, Tune.ultTotal - elapsed)
+        // 検証用の観測: 捕まえる円（発動の瞬間と、瞬歩で集め直した位置）
+        HitShapeProbe.emit(.kit(.circle(center: center, radius: Tune.ultReach, inner: 0), s, caster: owner,
+                                source: .skill(.ultimate)))
         var caught = 0
         for j in s.units.indices where s.units[j].team != team && !s.units[j].isStructure {
             guard CombatSystem.isLiving(s, j) else { continue }

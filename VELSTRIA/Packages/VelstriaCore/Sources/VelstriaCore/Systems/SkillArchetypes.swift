@@ -115,6 +115,8 @@ enum SkillArchetypes {
             emitCast(&s, caster: i, check: c, targeting: t, origin: origin, target: s.units[u].pos, unit: u)
             let missing = max(0, s.units[u].stats.maxHP - max(0, s.units[u].hp))
             let p = payload(c, damage: n.damage + missing * n.missingHealthRatio, heroesOnly: true)
+            HitShapeProbe.emit(HitShape(form: .unit(at: s.units[u].pos, radius: s.units[u].radius), kind: .single,
+                                        team: s.units[i].team, sourceID: s.units[i].id, source: p.source, time: s.time))
             CombatSystem.applyHit(&s, ctx, sourceID: s.units[i].id, team: s.units[i].team, targetIndex: u,
                                   payload: p, from: s.units[i].pos)
         }
@@ -145,6 +147,9 @@ enum SkillArchetypes {
     static func hitArea(_ s: inout SimState, _ ctx: SimContext, caster i: Int, center: Vec2, radius: Double,
                         shape: ZoneShape, payload: HitPayload) {
         let team = s.units[i].team
+        // 検証用の観測（受け口が無ければ何もしない。docs/vfx/RANGES.md）
+        HitShapeProbe.emit(.area(shape, center: center, radius: radius, team: team, sourceID: s.units[i].id,
+                                 source: payload.source, time: s.time))
         var targets: [Int] = []
         for j in s.units.indices where s.units[j].team != team && !s.units[j].isStructure {
             guard CombatSystem.isLiving(s, j) else { continue }
@@ -168,6 +173,9 @@ enum SkillArchetypes {
         let center = s.units[i].pos
         let casterID = s.units[i].id
         let tag = "skill." + c.skill.skillID
+        // 検証用の観測: 味方の回復の範囲（敵への CC の範囲は hitArea が出す）
+        HitShapeProbe.emit(.area(.circle, center: center, radius: t.range, team: team, sourceID: casterID,
+                                 source: .skill(c.slot), time: s.time))
         for j in s.units.indices where s.units[j].kind == .hero && s.units[j].team == team {
             guard CombatSystem.isLiving(s, j) else { continue }
             let r = t.range + s.units[j].radius

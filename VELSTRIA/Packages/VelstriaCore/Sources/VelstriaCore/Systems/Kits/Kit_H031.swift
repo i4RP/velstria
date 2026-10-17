@@ -439,6 +439,10 @@ struct Kit_H031: HeroKit {
                                  skillID: ctx.master.skill(hero: heroID, slot: .ultimate)?.skillID)
         let dir = Vec2.fromAngle(timer.param)
         let team = s.units[owner].team
+        // 検証用の観測: 霜の道の長方形（pathTargets と同じ寸法。受け口が無ければ何もしない。docs/vfx/RANGES.md）
+        HitShapeProbe.emit(.kit(.line(from: timer.point - dir * T.ultBack, to: timer.point + dir * T.ultRange,
+                                      halfWidth: T.ultPathWidth, squareEnds: true), s, caster: owner,
+                                source: .skill(.ultimate)))
         for j in Self.pathTargets(s, team: team, origin: timer.point, direction: dir) {
             CombatSystem.applyHit(&s, ctx, sourceID: id, team: team, targetIndex: j, payload: p, from: timer.point)
         }

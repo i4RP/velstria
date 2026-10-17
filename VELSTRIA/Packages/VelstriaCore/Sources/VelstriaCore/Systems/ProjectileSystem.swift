@@ -50,6 +50,12 @@ public enum ProjectileSystem {
             p.hitIDs.append(targetID)
             p.done = true
             s.projectiles[k] = p
+            // 検証用の観測: 追尾弾のスキル・呪文の命中（通常攻撃は出さない）
+            if p.payload.source != .basicAttack {
+                HitShapeProbe.emit(HitShape(form: .unit(at: targetPos, radius: s.units[t].radius), kind: .single,
+                                            team: p.team, sourceID: p.ownerID, source: p.payload.source, trackID: p.id,
+                                            time: s.time))
+            }
             s.emit(.projectileHit(projectileID: p.id, targetID: targetID, pos: targetPos))
             CombatSystem.applyHit(&s, ctx, sourceID: p.ownerID, team: p.team, targetIndex: t, payload: p.payload,
                                   from: from)
@@ -99,6 +105,10 @@ public enum ProjectileSystem {
             reachedEdge = true
         }
 
+        // 検証用の観測: この tick に調べる区間（半幅 = 弾の幅。受け口が無ければ何もしない。docs/vfx/RANGES.md）
+        HitShapeProbe.emit(HitShape(form: .line(from: start, to: start + dir * length, halfWidth: p.width, squareEnds: false),
+                                    kind: .projectile, team: p.team, sourceID: p.ownerID, source: p.payload.source,
+                                    trackID: p.id, time: s.time))
         // 区間 start → start + dir × length に掛かる対象を、進行方向の手前から順に
         var hits: [(entry: Double, index: Int)] = []
         for i in s.units.indices {

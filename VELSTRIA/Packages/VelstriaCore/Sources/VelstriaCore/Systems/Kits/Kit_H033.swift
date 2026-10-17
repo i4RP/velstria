@@ -394,7 +394,8 @@ struct Kit_H033: HeroKit {
         let rank = c.numbers.rank
         let shred = Self.absorbDefense(rank: rank)
         let band = ZoneShape.line(direction: dir, length: Tune.absorbLength)
-        let hit = Kit.hitAreaEach(&s, ctx, caster: i, center: origin, radius: Tune.absorbHalfWidth, shape: band) { _, _ in
+        let hit = Kit.hitAreaEach(&s, ctx, caster: i, center: origin, radius: Tune.absorbHalfWidth, shape: band,
+                                  source: .skill(c.slot)) { _, _ in
             // 混合防御（物理防御と魔法防御）を固定値で下げる（公式 10 / 15 / 20）
             let statuses = [
                 StatusEffect(kind: .slow, duration: Tune.absorbDuration, magnitude: Tune.absorbSlow, sourceID: id,
