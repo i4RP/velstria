@@ -326,9 +326,12 @@ class Ring:
 
 
 class Effect:
-    def __init__(self, name, frames=60, loop=False, tex_dir="Texture/"):
-        """tex_dir: .efk から見たテクスチャの置き場（キットの段に重ねる効果は Kit/ に置くので "../Texture/"）。"""
-        self.name, self.frames, self.loop, self.tex_dir = name, frames, loop, tex_dir
+    def __init__(self, name, frames=60, loop=False, tex_dir="Texture/", kit=False):
+        """tex_dir: .efk から見たテクスチャの置き場。kit=True はキットのヒーローの段に重ねる効果（Effects/Effekseer/Kit/ へ書き出し、
+        テクスチャは ../Texture/ から読む。SkillFX の FXCue.efk で再生する。docs/EFFEKSEER.md）。"""
+        self.name, self.frames, self.loop = name, frames, loop
+        self.tex_dir = "../Texture/" if kit else tex_dir
+        self.out_dir = os.path.join(OUT, "Kit") if kit else None
         self.nodes = []
 
     def add(self, *nodes):
@@ -343,8 +346,9 @@ class Effect:
                 + tag("StartFrame", "0") + tag("EndFrame", num(self.frames)) + tag("IsLoop", "True" if self.loop else "False")
                 + "</EffekseerProject>")
 
-    def build(self, out_dir=OUT, keep_project=False):
-        """.efk を out_dir/<name>.efk へ書き出す（テクスチャは out_dir/Texture/ にある前提）。"""
+    def build(self, out_dir=None, keep_project=False):
+        """.efk を out_dir/<name>.efk へ書き出す（既定は Effects/Effekseer/、kit は Effects/Effekseer/Kit/）。"""
+        out_dir = out_dir or self.out_dir or OUT
         os.makedirs(out_dir, exist_ok=True)
         proj = os.path.join(out_dir, self.name + ".efkproj")
         with open(proj, "w", encoding="utf-8") as f:
