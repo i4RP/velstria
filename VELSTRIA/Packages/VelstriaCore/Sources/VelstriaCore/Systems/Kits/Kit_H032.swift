@@ -4,21 +4,31 @@ import Foundation
 // H032 赤拳のディアス = Velstria 版の Dyrroth（MLBB。調査: docs/kits/Dyrroth.md、対応表: 同ファイル末尾）。
 // デュエリスト（EXP）の近接。キットはロールの汎用パッシブ（通常攻撃の攻撃速度スタック）を置き換える。
 //   パッシブ 紅血の拳（Wrath of the Abyss）— レイジ（0〜100）が時間でたまる（毎秒 2〜5%、レベルで増える）。
+//                           敵にダメージを与えてもたまる（動画で測った量。1 回の命中ごとの決まった量で、ダメージの大きさ・レベルによらない）:
+//                           通常攻撃 2・円撃 10・S1 は敵ごとに 10（その発動で初めて当てたとき）・S2 の突進 15・致命の一撃 1 撃ごとに 5（3 撃で 15）・
+//                           奥義 敵ごとに 15。
 //                           50 以上でスキル1・スキル2 が「アビス強化」になり、使うと 50 を消費する。
 //                           HUD のバッジ = Int(レイジ / 50)（0〜2）。演出（SkillFXDirector）はバッジが増えた瞬間（50・100）だけ出す
-//                           通常攻撃 2 回に 1 回は円撃（Circle Strike）: 周囲の敵へ物理攻撃の 150〜180%（タワーには乗らない）、
-//                           最大 HP の 7〜10% 回復（当たったのがミニオン・タワーだけなら半分）。攻撃エフェクト（装備の命中時効果）は発動しない。
+//                           通常攻撃 2 回の後の 3 回目は円撃（Circle Strike。動画: 306 / 306 / 550 …）: 周囲の敵へ物理攻撃の 150〜180%
+//                           （タワーには乗らない）、最大 HP の 7〜10% 回復（当たったのがミニオン・タワーだけなら半分）。攻撃エフェクト（装備の命中時効果）は発動しない。
 //                           敵にダメージを与えるたびに S1・S2 の CD −1 秒（通常攻撃 1 回・スキルの発動 1 回につき 1 度。対象の種類は問わない）。
-//   S1   赤拳連斬（Burst Strike）— 前方の扇へ 3 連（アビス強化は 5 連）の衝撃。1 発 240〜520（+60% 物理攻撃）、2 発目以降は 30%、ミニオンへは 75%。
-//                           鈍足 25%（アビス強化 50%）1.5 秒。アビス強化は射程が伸び、1 発ごとに 140%（1 発目 140%・以降 42%）。
-//   S2   紅蓮の踏込（Spectre Step）— 1 回目: 指定方向へ突進し、最初に当たった敵ヒーロー・モンスターで止まって（ミニオンは通り抜ける）
-//                           その敵にダメージ + 軽く押し出す。3 秒以内の再使用（同じ castSkill）で 2 回目の致命の一撃:
-//                           敵ヒーロー・モンスターへ飛びかかり、ダメージ + 物理防御 −40%（アビス強化 −60% + 鈍足 90% 1 秒、射程と威力 150%）4 秒。
+//   S1   赤拳連斬（Burst Strike）— 照準の直線に沿って、半径 112 の衝撃の円を 3 つ（アビス強化は 5 つ）手前から順に。
+//                           0.26 秒後から 0.2 秒おき。1 発 240〜520（+60% 物理攻撃）、同じ敵への 2 回目以降の命中は 30%（敵ごとに数える。
+//                           途中の円で初めて当たった敵は 100%）、ミニオンへは 75%。
+//                           鈍足 25%（アビス強化 50%）1.5 秒。アビス強化は射程 472 → 644、1 発ごとに 140%（1 回目 140%・以降 42%）。
+//   S2   紅蓮の踏込（Spectre Step）— 1 回目: 指定方向へ 415 を 0.4 秒で突進し、最初に当たった敵ヒーロー・モンスターで止まって
+//                           （ミニオンは通り抜ける）その敵にダメージ + わずかに（20）押し出す。4 秒以内の再使用（同じ castSkill）で 2 回目の
+//                           致命の一撃: 振りかぶり（0.06 秒、アビス強化 0.19 秒）のあと毎秒 1200 で敵ヒーロー・モンスターへ飛びかかり、ダメージ +
+//                           物理防御 −40%（アビス強化 −60% + 鈍足 90% 0.6 秒、射程 283 → 354・威力 150%）4 秒。
+//                           ダメージは 3 撃に等分して、着いた tick・4 tick 後・6 tick 後に当てる（動画: +0 / +4 / +6 コマ、206 × 3）。
+//                           防御ダウンと鈍足は 1 撃目と一緒に付く（2・3 撃目は防御ダウンの後の防御で軽減する）。
+//                           アビス強化は 1 回目の発動の時に決まる（レイジ 50 以上ならそこで 50 消費し、その窓の再使用が強化される）。
 //                           ダメージは 230〜355（+60% 追加物理攻撃）/ 345〜570（+120% 追加物理攻撃）。
-//   奥義 奈落の一撃（Abysm Strike）— 0.5 秒の溜め（その場から動けない。CC では止まらず、制圧だけで中断）のあと、
-//                           前方 650 の直線上（半幅 140）の敵へ 650 / 950 / 1250（+250% 追加物理攻撃）+ 対象の失った HP の 25% + 鈍足 55% 0.8 秒
+//   奥義 奈落の一撃（Abysm Strike）— 0.76 秒の溜め（その場から動けない。CC では止まらず、制圧だけで中断）のあと、
+//                           前方 614 の直線上（半幅 137）の敵へ 650 / 950 / 1250（+250% 追加物理攻撃）+ 対象の失った HP の 25% + 鈍足 55% 0.8 秒
 //                           （ヒーロー以外へのダメージは最大 1500 / 2000 / 2500）。
 //                           ボットは溜めの間の敵の動きを読んで撃つ（botCast。敵ヒーローに届けば汎用の関門を待たない）。
+//   距離・時間は MLBB の訓練場の画面収録で測った値（docs/kits/Dyrroth.md「動画で測った値（2026-10-16）」。MLBB × 100）。
 // 数値は公式の表をそのまま使う（MLBB の日本語クライアントのスキル詳細。docs/kits/Dyrroth.md の「日本語クライアントの画面」）。
 //   スキル1・2 は Lv1〜6、アルティメットは Lv1〜3 の表を rank（= 公式の Lv）でそのまま引く（Kit.level。補間・換算なし）。
 //   ダメージ = 基礎[段] + 係数 × 能力値（Kit.official。(+N%) = 合計の物理攻撃、(+N%追加) = 追加物理攻撃 Stats.extraAttack）。
@@ -30,9 +40,12 @@ import Foundation
 //   reals[4] = 奥義の基礎ダメージ（発動時に確定）   reals[5] = 奥義のヒーロー以外へのダメージの上限（発動時に確定）
 //   ints[0]  = 通常攻撃の数（円撃までの数え）   ints[1] = 発動の通し番号
 //   ints[2]  = 今の発動で CD 短縮を渡し済みのスロット（ビット = 1 << SkillSlot.rawValue。発動ごとにそのスロットのビットを下ろす）
-//   ints[3]  = 突進がアビス強化か（1 = 強化。割り込みで返却する）   ints[4] = 奥義の溜め中（0/1）
+//   ints[3]  = 飛びかかり中の致命の一撃がアビス強化か（1 = 強化）   ints[4] = 奥義の溜め中（0/1）
 //   ints[5]  = アビス強化の累計回数（検証用）   ints[6] = 円撃の累計回数（検証用）
+//   ints[7]  = 開いている S2 の窓がアビス強化か（1 回目の発動でレイジを消費したら 1。再使用・窓が閉じると 0）
 //   timers[0] = 奥義の溜めの残り秒（HUD 用）   ids[0] = 突進の対象
+// 敵側の状態: S1 のその発動での命中の回数 = 敵に付ける内部の印（.mark、名前 `_burst<発動の通し番号>`、1 秒。HUD・頭上には出さない）。
+//   減衰の段とレイジ（初めての命中だけ）はこの回数で決める。S1 の予約（KitTimer）の index は発動の通し番号。
 
 extension KitState {
     var diasRage: Double {
@@ -100,6 +113,12 @@ extension KitState {
         set { ints[6] = newValue }
     }
 
+    /// 開いている S2 の窓がアビス強化か（1 回目の発動でレイジを消費したとき 1）。
+    var diasWindowAbyss: Int {
+        get { ints[7] }
+        set { ints[7] = newValue }
+    }
+
     var diasUltCharge: Double {
         get { timers[0] }
         set { timers[0] = newValue }
@@ -120,7 +139,8 @@ struct Kit_H032: HeroKit {
         self.isReady = isReady
     }
 
-    // MARK: - 数値（公式の表そのまま。距離・時間は画面に無いので Velstria 単位 ≈ MLBB × 100 で選んだ値）
+    // MARK: - 数値（ダメージ・係数・CD は公式の表そのまま。距離・時間は MLBB の画面収録で測った値 × 100。
+    //         docs/kits/Dyrroth.md「動画で測った値（2026-10-16）」。時間は「n tick 目」に当たるよう n/30 より少し短く入れる）
 
     enum Tune {
         // パッシブ: レイジ
@@ -129,15 +149,35 @@ struct Kit_H032: HeroKit {
         static let rageGain = (2.0, 5.0)
         /// アビス強化に要るレイジと、使ったときの消費量（公式: 50% で強化。消費量は Fandom の注記の 50）。
         static let abyssCost = 50.0
+        // パッシブ: 敵にダメージを与えたときのレイジ（日本語版・Liquipedia の文には無い。MLBB の画面収録 3 本（vid6・vid7 = Lv15、
+        // vid12 = Lv4）でレイジのバーの増え方を命中と毎秒の回復に分けて測った。docs/kits/Dyrroth.md「レイジの増え方」）。
+        // 1 回の命中ごとの決まった量で、ダメージの大きさ・レベルでは変わらない（円撃 224 でも 550 でも +10、致命の一撃 206 でも 309 でも +5）
+        /// 通常攻撃 1 回（動画: +1.4〜2.6、11 回の平均 1.9）。
+        static let rageOnBasic = 2.0
+        /// 円撃 1 回（動画: +9.6〜11.2、6 回の平均 10.4。周りの敵を巻き込んでも 1 回）。
+        static let rageOnCircle = 10.0
+        /// スキル1: その発動で初めて当てた敵ごと（動画: +9.5〜10.1、4 回。同じ敵への 2・3 回目の命中では増えない。
+        /// Fandom の注記「Dyrroth regens 10 Rage for each enemy hit of this skill」）。
+        static let rageOnBurst = 10.0
+        /// スキル2 の突進の命中（動画: +15.4・+15.8）。
+        static let rageOnDash = 15.0
+        /// 致命の一撃の 1 撃ごと（動画: +4.6〜5.1、9 撃の平均 4.9。3 撃で 15）。
+        static let rageOnFatalTick = 5.0
+        /// アルティメットの命中（敵ごと。動画: +14.7〜15.2、1 回）。
+        static let rageOnUlt = 15.0
 
         // パッシブ: 円撃（Circle Strike）
-        static let circleEvery = 2
+        /// 円撃になる通常攻撃の回数目（通常攻撃 2 回の後の 3 回目。動画 vid12 の 10 撃 = 3 周: 141 / 141 / 224 / 141 / 141 / 224 / 141 / 141 / 224 / 141、
+        /// vid6: 306 / 306 / 550 / 306）。公式の英語の文「After every 2 Basic Attacks」と同じ。日本語版の「通常攻撃2回ごとに」を
+        /// 2 回に 1 回と読んで 2 にしていた（2026-10-16 まで）
+        static let circleEvery = 3
         /// 公式: (150%)〜(180%) 物理攻撃（レベルに応じて増加）。
         static let circleRatio = (1.5, 1.8)
         /// 公式: 最大 HP の 7%〜10%（レベルに応じて増加。ミニオンやタワーに対しては半減）。
         static let circleHeal = (0.07, 0.10)
-        /// 円撃の半径（術者の中心から。対象の半径は別に足す）。通常攻撃の射程 150 より少し広い（MLBB 1.7 → 2.0 の比）。
-        static let circleRadius = 190.0
+        /// 円撃の半径（術者の中心から。対象の半径は別に足す）。動画: 円撃の紫の渦の外縁が術者から 2.0〜2.1（横の向き。
+        /// 前後は渦が浮いて見えて伸び縮みする）= Fandom の 2（通常攻撃の射程 1.7 = 170 と同じ MLBB × 100）。以前は 190
+        static let circleRadius = 200.0
         /// 当たったのがミニオン・タワーだけのときの回復の倍率（公式: 半減）。
         static let circleHealHalved = 0.5
 
@@ -148,18 +188,31 @@ struct Kit_H032: HeroKit {
         static let cooldownRefund = 1.0
 
         // S1 赤拳連斬
-        static let burstReach = 300.0
-        static let burstReachAbyss = 400.0
-        static let burstHalfAngle = 0.65
+        // 照準は術者から伸びる帯（半幅 1.11〜1.14）と射程の円。衝撃は帯の中心線に沿った円（地面の輪の半径 1.10〜1.13）が
+        // 手前から順に出る。動画（通常 3 回・強化 3 回の発動）: 射程の円 4.70〜4.74（灰 = レイジ 50 未満）/ 6.43〜6.45（赤 = 50 以上）、
+        // 輪の中心は術者から 1.05〜1.1 で始まり、通常は約 1.3、強化は約 1.1 おき。最後の輪の外縁が射程の円に届く、として並べる
+        /// 射程（最後の衝撃の円の外縁。通常 / アビス強化）。以前は扇の 300 / 400
+        static let burstReach = 472.0
+        static let burstReachAbyss = 644.0
+        /// 衝撃の円の半径（対象の半径は別に足す）= 照準の帯の半幅。以前は扇（半角 0.65 rad）
+        static let burstRadius = 112.0
+        /// 1 つ目の衝撃の円の中心（術者から）。2 つ目以降は最後の円の外縁が射程に届くよう等間隔（通常 127.5・強化 106.75 おき）
+        static let burstFirstCenter = 105.0
         static let burstCount = 3
         static let burstCountAbyss = 5
-        static let burstFirstDelay = 0.1
-        static let burstInterval = 0.14
-        static let burstIntervalAbyss = 0.11
+        /// 指を離してから 1 つ目まで（動画: 7〜10 コマ、6 回の平均 8 コマ ≒ 0.27 秒。0.26 で 8 tick 目）。以前は 0.1
+        static let burstFirstDelay = 0.26
+        /// 衝撃の間隔（動画: 通常も強化も 6 コマ = 0.2 秒おき。以前は 0.14 / 0.11）
+        static let burstInterval = 0.2
         /// 同じ敵への連続ヒットの減衰（1 発目に対する倍率。公式の画面は「減少する」とだけ。Fandom の表: 通常 {100%, 30%, 30%}、
-        /// 強化 {140%, 42% × 4} = 強化の倍率 1.4 × これ）。
+        /// 強化 {140%, 42% × 4} = 強化の倍率 1.4 × これ）。添字は「その発動でその敵に何回目の命中か」（敵ごとに数える。
+        /// 動画: 2.3 先の案山子は 1 つ目の輪に入らず、2 つ目で初めて当たって 703 = 100%、3 つ目で 211。2026-10-16 までは何つ目の円かで引いていた）
         static let burstDecay: [Double] = [1.0, 0.3, 0.3]
         static let burstDecayAbyss: [Double] = [1.0, 0.3, 0.3, 0.3, 0.3]
+        /// 命中の回数を数える敵側の印の名前（`_` で始まる印は内部の数え。App の頭上の印・状態アイコンに出さない）と持続
+        /// （1 回の命中から最後の円まで 0.8 秒に余裕を足す。命中のたびに戻る）。名前には発動の通し番号を足す（発動ごとに数え直す）
+        static let burstMarkPrefix = "_burst"
+        static let burstMarkDuration = 1.0
         /// ミニオンへのダメージ（公式「ミニオンに対しては75%になる」。HitPayload.minionMultiplier）。
         static let burstMinionMultiplier = 0.75
         static let burstSlow = 0.25
@@ -174,20 +227,37 @@ struct Kit_H032: HeroKit {
         static let burstCooldown: [Double] = [6.0, 5.6, 5.2, 4.8, 4.4, 4.0]
 
         // S2 紅蓮の踏込
-        static let dashRange = 400.0
-        /// 進路の当たり幅（半幅。対象の半径は別に足す）。
+        /// 突進の距離（動画: 敵の居ない突進 2 回で、止まったコマどうしの床のずれ 4.12（灰）/ 4.15〜4.18（赤）。照準の円は 3.75 で
+        /// どちらの状態も同じ = 突進は照準より 0.4 長い）。以前は 400
+        static let dashRange = 415.0
+        /// 進路の当たり幅（半幅。対象の半径は別に足す）。照準の矢の半幅は 0.9〜1.0 と読めたが縁が乱れて決め切れず、以前の値のまま
         static let dashWidth = 110.0
-        static let dashSpeed = 2400.0
-        /// 1 回目の命中で押し出す距離と時間（「わずかにノックバック」）。
-        static let pushDistance = 130.0
-        static let pushDuration = 0.18
+        /// 突進の速さ（動画: 12 コマ = 0.4 秒で 4.15、床の小片の追跡で 1 コマ 0.35 ずつ一定。以前は 2400 = 0.17 秒）
+        static let dashSpeed = 1040.0
+        /// 1 回目の命中で押し出す距離と時間（「わずかにノックバック」。動画: 的は 1 コマで 0.2 動き、「スタン」の表示が 3〜4 コマ。
+        /// 以前は 130 を 0.18 秒）
+        static let pushDistance = 20.0
+        static let pushDuration = 0.1
         /// 突進中に対象が離れすぎたら外れる余裕（半径の和に足す）。
         static let dashSlack = 140.0
-        static let fatalReach = 350.0
-        static let fatalReachAbyss = 500.0
-        static let fatalSpeed = 2600.0
+        /// 致命の一撃の射程（動画: 再使用の照準の円 2.83（通常の窓）/ 3.54（強化の窓、2 回とも同じ）。以前は 350 / 500）
+        static let fatalReach = 283.0
+        static let fatalReachAbyss = 354.0
+        /// 飛びかかりの速さ（動画: 2.0 を 5 コマ = 毎秒 12。以前は 2600）
+        static let fatalSpeed = 1200.0
+        /// 再使用から飛びかかるまでの振りかぶり（動画: 指を離してから隣の的へ 3 コマ（通常）、6 / 8 コマ（強化）で 1 撃目。2.0 先の的は
+        /// 3 コマ後に動き出し、着いたコマ（8 コマ目）で 1 撃目）。sim は飛びかかりに最低 1 tick かかるので、通常 2 tick 目・強化 6 tick 目に
+        /// 飛び出す（隣の敵へは 3 / 7 tick 目に当たる）。以前は 0（即時）
+        static let fatalWindup = 0.06
+        static let fatalWindupAbyss = 0.19
         static let fatalSlack = 220.0
-        static let recastWindow = 3.0
+        /// 致命の一撃の撃の数と、2・3 撃目の遅れ（動画: ダメージの数字が +0 / +4 / +6 コマに 3 回、どれも同じ量。206 × 3 = 618（通常）/
+        /// 309 × 3 = 927（強化）= 公式の 1 撃ぶん。到着の処理（突進の掃引）の後に同じ tick のタイマーの消化で 1 tick ぶん減るので、
+        /// 4・6 tick 後に当たるよう 4.5 / 6.5 tick ぶんを入れる）。2026-10-16 までは 1 撃
+        static let fatalTicks = 3
+        static let fatalTickAfter: [Double] = [0.15, 0.217]
+        /// 再使用の窓（動画: 1 回目の発動から再使用のボタンが 120 コマ = 4.0 秒出ていた。以前は 3 秒）
+        static let recastWindow = 4.0
         /// 公式の表: 1 回目の基礎ダメージ（+60% 追加物理攻撃）と、再発動（致命の一撃）の追加ダメージ（+120% 追加物理攻撃）。
         static let dashBase: [Double] = [230, 255, 280, 305, 330, 355]
         static let dashExtraRatio = 0.6
@@ -200,22 +270,23 @@ struct Kit_H032: HeroKit {
         static let shredAbyss = 0.60
         static let shredDuration = 4.0
         static let shredTag = KitTags.buff("H032", "shred")
-        /// アビス強化の致命の一撃の追加の鈍足（公式 90%。秒数は画面に無く Fandom の 1 秒）。
+        /// アビス強化の致命の一撃の追加の鈍足（公式 90%。秒数は画面に無い。動画: 的の移動速度の表示 265 → 26 が 18 / 20 コマ
+        /// = 0.6 秒（表示の遅れ込み）。以前は Fandom の 1 秒）。
         static let fatalSlowAbyss = 0.9
-        static let fatalSlowDuration = 1.0
+        static let fatalSlowDuration = 0.6
         static let fatalSlowTag = KitTags.buff("H032", "fatalSlow")
 
         // 奥義 奈落の一撃
-        /// 奥義の射程。0.5 秒の溜めで向きが固定されるので、MLBB の「画面の半分ほど届く長い直線」（約 7 m）に寄せて
-        /// 420 → 650 に伸ばした（溜めの間に避けられても、見てから撃てる距離。ボットは敵の動きを読んで撃つ）。
-        static let ultReach = 650.0
-        /// 直線の幅（半幅）。
-        static let ultHalfWidth = 140.0
+        /// 奥義の射程（動画: 照準の円 6.14、帯の先の矢もそこまで。以前は 650）。
+        static let ultReach = 614.0
+        /// 直線の幅（半幅。動画: 照準の帯の左右の線が中心線から −1.33 / +1.41。以前は 140）。
+        static let ultHalfWidth = 137.0
         /// ボットが奥義を「今撃つ」現在の距離の上限（射程いっぱいは外れやすいので少し手前まで）と、動きを読む秒数の上限。
-        static let ultBotReach = 540.0
-        /// 直線の長さ（線分の部分）。命中は線分から半幅 + 対象の半径までなので、丸い端を含めて射程 650 ちょうどに収まる。
+        static let ultBotReach = 500.0
+        /// 直線の長さ（線分の部分）。命中は線分から半幅 + 対象の半径までなので、丸い端を含めて射程 614 ちょうどに収まる。
         static let ultLineLength = ultReach - ultHalfWidth
-        static let ultCharge = 0.5
+        /// 溜め（動画: 指を離してから 23 コマ = 0.77 秒で命中。ディアスは動かない。0.76 で 23 tick 目。以前は 0.5）
+        static let ultCharge = 0.76
         /// 対象の失った HP の 25%（日本語クライアントの画面。Liquipedia・Fandom の 20% は古い）。
         static let ultLostHealth = 0.25
         static let ultSlow = 0.55
@@ -237,6 +308,21 @@ struct Kit_H032: HeroKit {
         static let dashArrive = 3
         static let fatalArrive = 4
         static let ultRelease = 5
+        /// 致命の一撃の振りかぶりが終わって飛びかかる。
+        static let fatalLeap = 6
+        /// 致命の一撃の 2・3 撃目。
+        static let fatalTick = 7
+    }
+
+    /// HitPayload.kitEvent（onHit でレイジを足す命中の種類）
+    private enum Event {
+        static let basic = 1
+        static let circle = 2
+        /// S1 のその発動でその敵に初めて当たった命中（2 回目以降は 0 = レイジなし）。
+        static let burstFirst = 3
+        static let dash = 4
+        static let fatal = 5
+        static let ult = 6
     }
 
     // MARK: - A. 記述
@@ -244,14 +330,15 @@ struct Kit_H032: HeroKit {
     func targeting(slot: SkillSlot, stage: Int, skill: SkillDef, hero: HeroDef, base: SkillTargeting) -> SkillTargeting {
         switch slot {
         case .skill1:
-            // 前方の扇（近接の cone）。アビス強化の射程の伸びは発動時に決まる（状態が要るので照準情報は通常の値）
+            // 前方の帯（判定は帯の中心線に並ぶ衝撃の円。MLBB の照準も帯）。アビス強化の射程の伸びは発動時に決まる
+            // （状態が要るので照準情報は通常の値）。即時に解決しない連撃なので投射物は無く、アーキタイプは近接の cone のまま
             var t = base
             t.archetype = .cone
             t.aim = .direction
             t.range = Tune.burstReach
-            t.radius = Tune.burstReach
-            t.shape = .fan
-            t.halfAngle = Tune.burstHalfAngle
+            t.radius = Tune.burstRadius
+            t.shape = .wideLine
+            t.halfAngle = 0
             return t
         case .skill2:
             if stage >= 1 {
@@ -263,7 +350,7 @@ struct Kit_H032: HeroKit {
             return SkillTargeting(archetype: .dashStrike, aim: .direction, range: Tune.dashRange,
                                   radius: Tune.dashWidth, shape: .dashToPoint, recastable: true)
         case .ultimate:
-            // 溜めのあとの直線（射程 650）。radius は線の半幅
+            // 溜めのあとの直線（射程 614）。radius は線の半幅
             return SkillTargeting(archetype: .piercingLine, aim: .direction, range: Tune.ultReach,
                                   radius: Tune.ultHalfWidth, shape: .wideLine)
         case .passive:
@@ -360,19 +447,29 @@ struct Kit_H032: HeroKit {
         let healEn = "\(String(format: "%g", Tune.circleHeal.0 * 100))% - \(String(format: "%g", Tune.circleHeal.1 * 100))%"
         let abyss = Int(Tune.abyssCost)
         let refund = String(format: "%g", Tune.cooldownRefund)
+        func g(_ v: Double) -> String { String(format: "%g", v) }
         switch slot {
         case .passive:
+            // 円撃の回数: 公式の文の構造（日本語版「通常攻撃2回ごとにサークルストライクを放ち、」）のまま、回数を動画の 3 回目に合わせた
+            // （日本語版の「2回ごとに」は 2 回に 1 回とも読めるが、MLBB は通常攻撃 2 回の後の 3 回目が円撃。英語版「After every 2 Basic Attacks」）。
+            // 命中で増えるレイジは公式の文に無い（動画で測った量。docs/kits/Dyrroth.md）ので、毎秒の回復の後に 1 文足した
             return KitText(
                 ja: "レイジが\(abyss)%に達すると、スキル1とスキル2を強化する（アビス強化。使うとレイジを\(abyss)消費する）。"
-                    + "\n\n通常攻撃を\(Tune.circleEvery)回行うごとに円撃を放ち、範囲内の敵に物理攻撃の{x2}% 〜 {x3}%（レベルに応じて増加）の物理ダメージを与え（タワーに対しては強化ダメージ無効）、"
+                    + "\n\n通常攻撃\(Tune.circleEvery)回ごとに円撃を放ち（\(Tune.circleEvery)回目の通常攻撃が円撃になる）、範囲内の敵に物理攻撃の{x2}% 〜 {x3}%（レベルに応じて増加）の物理ダメージを与え（タワーに対しては強化ダメージ無効）、"
                     + "最大HPの\(heal)を回復する（レベルに応じて増加、ミニオンやタワーに対しては半減）。この攻撃では攻撃エフェクトは発動しない。"
                     + "\n敵にダメージを与えるたびに、スキル1とスキル2のクールダウンが\(refund)秒短縮される。"
-                    + "\n\nレイジは毎秒{x0}% 〜 {x1}%（レベルに応じて増加）回復する。",
+                    + "\n\nレイジは毎秒{x0}% 〜 {x1}%（レベルに応じて増加）回復する。"
+                    + "敵にダメージを与えてもレイジが増える（通常攻撃\(g(Tune.rageOnBasic))%、円撃\(g(Tune.rageOnCircle))%、"
+                    + "スキル1は敵1体につき\(g(Tune.rageOnBurst))%、スキル2の突進\(g(Tune.rageOnDash))%、致命の一撃は1撃ごとに\(g(Tune.rageOnFatalTick))%、"
+                    + "アルティメットは敵1体につき\(g(Tune.rageOnUlt))%）。",
                 en: "When Rage reaches \(abyss)%, Skill 1 and Skill 2 become Abyss Enhanced (using one spends \(abyss) Rage). "
-                    + "\n\nAfter every \(Tune.circleEvery) basic attacks, release a Circle Strike, dealing {x2}% - {x3}% (scales with level) of Physical Attack as physical damage to enemies in the circle (enhanced damage does not apply to turrets) "
+                    + "\n\nEvery \(Self.ordinal(Tune.circleEvery)) basic attack releases a Circle Strike, dealing {x2}% - {x3}% (scales with level) of Physical Attack as physical damage to enemies in the circle (enhanced damage does not apply to turrets) "
                     + "and recovering \(healEn) Max HP (scales with level, halved against minions or turrets). This strike does not trigger Attack Effects. "
                     + "\nEach time he damages an enemy, the cooldowns of Skill 1 and Skill 2 are reduced by \(refund)s. "
-                    + "\n\nRage recovers by {x0}% - {x1}% per second (scales with level).",
+                    + "\n\nRage recovers by {x0}% - {x1}% per second (scales with level). "
+                    + "Dealing damage also builds Rage (basic attack \(g(Tune.rageOnBasic))%, Circle Strike \(g(Tune.rageOnCircle))%, "
+                    + "Skill 1 \(g(Tune.rageOnBurst))% per enemy hit, Skill 2 dash \(g(Tune.rageOnDash))%, Fatal Strike \(g(Tune.rageOnFatalTick))% per hit, "
+                    + "Ultimate \(g(Tune.rageOnUlt))% per enemy hit).",
                 tags: [KitTag.buff, KitTag.heal])
         case .skill1:
             return KitText(
@@ -404,6 +501,18 @@ struct Kit_H032: HeroKit {
         }
     }
 
+    /// 英語の序数（説明文の「Every 3rd basic attack」）。
+    private static func ordinal(_ n: Int) -> String {
+        let tens = n % 100
+        if (11...13).contains(tens) { return "\(n)th" }
+        switch n % 10 {
+        case 1: return "\(n)st"
+        case 2: return "\(n)nd"
+        case 3: return "\(n)rd"
+        default: return "\(n)th"
+        }
+    }
+
     func badge(slot: SkillSlot, hero: HeroData) -> KitBadge? {
         guard let k = hero.kit else { return nil }
         switch slot {
@@ -413,7 +522,10 @@ struct Kit_H032: HeroKit {
             let steps = Int(Tune.rageMax / Tune.abyssCost)
             return KitBadge(kind: .stacks, value: min(steps, Int(k.diasRage / Tune.abyssCost + 1e-9)), maxValue: steps)
         case .skill1, .skill2:
-            // アビス強化の準備ができている
+            // アビス強化の準備ができている。S2 の窓が開いている間は、その窓の再使用が強化されるか（1 回目の発動で決まる）
+            if slot == .skill2, k.windows[SkillSlot.skill2.rawValue].isOpen {
+                return k.diasWindowAbyss == 1 ? KitBadge(kind: .form, value: 1, maxValue: 1) : nil
+            }
             guard k.diasRage >= Tune.abyssCost else { return nil }
             return KitBadge(kind: .form, value: 1, maxValue: 1)
         case .ultimate:
@@ -430,7 +542,8 @@ struct Kit_H032: HeroKit {
         // 溜め中は飛びかかれない。敵のバインド（root）中は SkillSystem.validate が止める（致命の一撃は術者が動く = targetedBlink）。
         // 自分の root は奥義の溜めだけなので、上の溜めの判定で足りる
         if (s.units[caster].hero?.kit?.diasUltCharging ?? 0) != 0 { return .some(nil) }
-        let abyss = (s.units[caster].hero?.kit?.diasRage ?? 0) >= Tune.abyssCost
+        // 射程は窓を開いた 1 回目の発動で決まる（その時にレイジを使ったか）
+        let abyss = (s.units[caster].hero?.kit?.diasWindowAbyss ?? 0) == 1
         let reach = abyss ? Tune.fatalReachAbyss : Tune.fatalReach
         guard let u = Self.pickFatalTarget(s, caster: caster, reach: reach, target: target) else { return .some(nil) }
         return .some(SkillAiming.aim(at: u, s, caster: caster, range: reach,
@@ -438,8 +551,9 @@ struct Kit_H032: HeroKit {
     }
 
     func canStart(_ s: SimState, _ ctx: SimContext, caster: Int, slot: SkillSlot) -> Bool {
-        // 奥義の溜め中は、ほかのスキルを始められない
-        (s.units[caster].hero?.kit?.diasUltCharging ?? 0) == 0
+        // 奥義の溜め中・致命の一撃の振りかぶりの間は、ほかのスキルを始められない
+        guard let k = s.units[caster].hero?.kit else { return true }
+        return k.diasUltCharging == 0 && !k.scheduled.contains { $0.code == Code.fatalLeap }
     }
 
     func cast(_ s: inout SimState, _ ctx: SimContext, _ c: KitCast) -> KitCastOutcome {
@@ -453,36 +567,50 @@ struct Kit_H032: HeroKit {
         return .done
     }
 
-    /// S1: 発動の向きに、前方の扇の衝撃を 3 回（アビス強化は 5 回）。強化はレイジ 50 を消費して射程と威力が伸びる。
+    /// S1: 発動の向きの帯に沿って、手前から衝撃の円を 3 つ（アビス強化は 5 つ）。強化はレイジ 50 を消費して射程と威力が伸びる。
+    /// 円の位置は発動の時の位置・向きで決まる（動画: 撃った後に歩いても、輪は撃った位置からの直線に並ぶ）。
+    /// 減衰は敵ごと（その発動でその敵に何回目の命中か。burst）なので、予約には 1 回目の量と発動の通し番号（index）だけを持たせる。
     private func castBurst(_ s: inout SimState, _ c: KitCast) {
         let i = c.caster
         let abyss = Self.spendRage(&s, i)
         let count = abyss ? Tune.burstCountAbyss : Tune.burstCount
-        let decay = abyss ? Tune.burstDecayAbyss : Tune.burstDecay
-        let interval = abyss ? Tune.burstIntervalAbyss : Tune.burstInterval
         let reach = abyss ? Tune.burstReachAbyss : Tune.burstReach
-        // 1 発目のダメージ（damage は単体に 3 発当たったときの平均なので、合計 ÷ 減衰の和）。2 発目以降は 30%。
-        // アビス強化は 1 発ごとに 140%（= 1 発目 140%・以降 42%）
+        // 1 回目の命中のダメージ（damage は単体に 3 発当たったときの平均なので、合計 ÷ 減衰の和）。同じ敵への 2 回目以降は 30%。
+        // アビス強化は 1 発ごとに 140%（= 1 回目 140%・以降 42%）
         let first = c.numbers.damage * Double(Tune.burstCount) / Tune.burstDecay.reduce(0, +)
             * (abyss ? Tune.abyssBurstMultiplier : 1)
+        let serial = s.units[i].hero!.kit!.diasCastSerial
         let origin = s.units[i].pos
         let dir = c.aim.direction
         var shown = c
         shown.targeting.range = reach
-        Kit.emitCast(&s, shown, origin: origin, target: origin + dir * reach, unit: c.aim.unit, shape: .fan,
-                     halfAngle: Tune.burstHalfAngle,
-                     duration: Tune.burstFirstDelay + interval * Double(count - 1), count: count)
+        Kit.emitCast(&s, shown, origin: origin, target: origin + dir * reach, unit: c.aim.unit, shape: .wideLine,
+                     duration: Tune.burstFirstDelay + Tune.burstInterval * Double(count - 1), count: count)
         for k in 0..<count {
             Kit.schedule(&s, caster: i, slot: .skill1, code: abyss ? Code.burstAbyss : Code.burst,
-                         after: Tune.burstFirstDelay + interval * Double(k), index: k,
-                         param: first * decay[k], point: dir, interruptible: true)
+                         after: Tune.burstFirstDelay + Tune.burstInterval * Double(k), index: serial,
+                         param: first, point: origin + dir * Self.burstCenter(k, count: count, reach: reach),
+                         interruptible: true)
         }
+    }
+
+    /// S1 の命中の回数を数える印の名前（発動の通し番号ごと。`_` で始まる内部の印）。
+    static func burstMarkName(serial: Int) -> String { "\(Tune.burstMarkPrefix)\(serial)" }
+
+    /// S1 の k 番目（0 から）の衝撃の円の中心の、術者からの距離。1 つ目は burstFirstCenter、最後の円の外縁が射程に届くよう等間隔。
+    static func burstCenter(_ k: Int, count: Int, reach: Double) -> Double {
+        guard count > 1 else { return Tune.burstFirstCenter }
+        let last = reach - Tune.burstRadius
+        return Tune.burstFirstCenter + (last - Tune.burstFirstCenter) * Double(k) / Double(count - 1)
     }
 
     /// S2 の 1 回目: 最初に当たった敵ヒーロー・モンスターの手前まで（なければ最大距離まで）突進。ミニオンは止めずに通り抜ける。
     /// 到着した tick に止まった先の敵へ 1 度だけ当てる。再使用の窓を開く。
+    /// アビス強化はこの発動で決まる（動画: レイジは 1 回目の突進の瞬間に 50 減り、再使用では減らない。1 回目の時に 50 未満なら、
+    /// 窓の間にレイジが 50 を超えても再使用は通常版。突進そのものの距離と照準は強化されない）。
     private func castSpectre(_ s: inout SimState, _ ctx: SimContext, _ c: KitCast) {
         let i = c.caster
+        s.units[i].hero!.kit!.diasWindowAbyss = Self.spendRage(&s, i) ? 1 : 0
         let from = s.units[i].pos
         let dir = c.aim.direction
         let blocker = Kit.firstBlocker(s, caster: i, direction: dir, maxDistance: Tune.dashRange,
@@ -501,7 +629,8 @@ struct Kit_H032: HeroKit {
         Kit.openRecast(&s, caster: i, slot: .skill2, duration: Tune.recastWindow, stage: 1, charges: 1)
     }
 
-    /// S2 の 2 回目（致命の一撃）: 敵ヒーロー・モンスターへ飛びかかり、到着した tick にダメージ + 防御ダウン。
+    /// S2 の 2 回目（致命の一撃）: 振りかぶり（fatalWindup）のあと敵ヒーロー・モンスターへ飛びかかり、到着した tick にダメージ +
+    /// 防御ダウン。アビス強化かどうかは窓を開いた 1 回目の発動で決まっている（diasWindowAbyss。ここではレイジを使わない）。
     func recast(_ s: inout SimState, _ ctx: SimContext, _ c: KitCast, window: RecastWindow) {
         guard c.slot == .skill2, let t = c.aim.unit else {
             Kit.closeRecast(&s, ctx, caster: c.caster, slot: c.slot)
@@ -509,25 +638,41 @@ struct Kit_H032: HeroKit {
         }
         let i = c.caster
         Self.beginCast(&s, i, slot: c.slot)
-        let abyss = Self.spendRage(&s, i)
+        let abyss = s.units[i].hero!.kit!.diasWindowAbyss == 1
+        s.units[i].hero!.kit!.diasWindowAbyss = 0
         let from = s.units[i].pos
-        let toTarget = s.units[t].pos - from
-        let dir = toTarget.normalized == .zero ? Vec2.fromAngle(s.units[i].facing) : toTarget.normalized
         let reach = abyss ? Tune.fatalReachAbyss : Tune.fatalReach
+        let windup = abyss ? Tune.fatalWindupAbyss : Tune.fatalWindup
         let gap = s.units[i].radius + s.units[t].radius + 5
-        let travel = min(reach, max(0, toTarget.length - gap))
+        let travel = min(reach, max(0, (s.units[t].pos - from).length - gap))
         s.units[i].hero!.kit!.diasDashTargetID = s.units[t].id
         s.units[i].hero!.kit!.diasDashDamage = c.numbers.damage * (abyss ? Tune.abyssFatalMultiplier : 1)
         s.units[i].hero!.kit!.diasDashAbyss = abyss ? 1 : 0
-        let carrier = HitPayload(damage: 0, damageType: .physical, source: .skill(.skill2), affectsEnemies: false)
-        let landing = Kit.dashSweeping(&s, ctx, caster: i, slot: .skill2, to: from + dir * travel,
-                                       speed: Tune.fatalSpeed, payload: carrier, radius: 0,
-                                       arriveCode: Code.fatalArrive)
         var shown = c
         shown.targeting.range = reach
         Kit.emitCast(&s, shown, origin: from, target: s.units[t].pos, unit: t, shape: .lockOn,
-                     duration: from.distance(to: landing) / Tune.fatalSpeed, count: abyss ? 2 : 1)
+                     duration: windup + travel / Tune.fatalSpeed, count: abyss ? 2 : 1)
+        // 振りかぶりの間にスタン以上を受けると飛びかからない（予約は interruptible。窓は閉じたまま）
+        Kit.schedule(&s, caster: i, slot: .skill2, code: Code.fatalLeap, after: windup, targetID: s.units[t].id,
+                     param: reach, interruptible: true)
         Kit.advanceRecast(&s, ctx, caster: i, slot: .skill2)
+    }
+
+    /// 振りかぶりが終わった: 今の位置から対象（まだ生きていれば）へ、射程（param）までの飛びかかり。対象が居なければ不発。
+    private func fatalLeap(_ s: inout SimState, _ ctx: SimContext, owner i: Int, timer: KitTimer) {
+        guard let t = Self.liveEnemy(s, i, id: timer.targetID), Self.isFatalTarget(s.units[t]) else {
+            s.units[i].hero!.kit!.diasDashTargetID = 0
+            s.units[i].hero!.kit!.diasDashAbyss = 0
+            return
+        }
+        let from = s.units[i].pos
+        let toTarget = s.units[t].pos - from
+        let dir = toTarget.normalized == .zero ? Vec2.fromAngle(s.units[i].facing) : toTarget.normalized
+        let gap = s.units[i].radius + s.units[t].radius + 5
+        let travel = min(timer.param, max(0, toTarget.length - gap))
+        let carrier = HitPayload(damage: 0, damageType: .physical, source: .skill(.skill2), affectsEnemies: false)
+        Kit.dashSweeping(&s, ctx, caster: i, slot: .skill2, to: from + dir * travel, speed: Tune.fatalSpeed,
+                         payload: carrier, radius: 0, arriveCode: Code.fatalArrive)
     }
 
     /// 奥義: 溜めに入る（その場から動けない）。向きは発動時に固定。CC では止まらず、制圧だけで中断される。
@@ -561,23 +706,44 @@ struct Kit_H032: HeroKit {
         case Code.burst, Code.burstAbyss: burst(&s, ctx, owner: owner, timer: timer)
         case Code.dashArrive: dashLanded(&s, ctx, owner: owner)
         case Code.fatalArrive: fatalLanded(&s, ctx, owner: owner)
+        case Code.fatalLeap: fatalLeap(&s, ctx, owner: owner, timer: timer)
+        case Code.fatalTick: fatalTick(&s, ctx, owner: owner, timer: timer)
         case Code.ultRelease: release(&s, ctx, owner: owner)
         default: break
         }
     }
 
-    /// S1 の 1 発ぶん: 今の位置から固定の向きの扇へ。ミニオンへは 75%（HitPayload.minionMultiplier）、鈍足を付ける。
+    /// S2 の窓が閉じた（再使用・時間切れ）: 窓のアビス強化の印を下ろす（時間切れなら消費したレイジは戻らない。動画）。
+    func onWindowClosed(_ s: inout SimState, _ ctx: SimContext, owner: Int, slot: SkillSlot, expired: Bool) {
+        guard slot == .skill2, s.units[owner].hero?.kit != nil else { return }
+        s.units[owner].hero!.kit!.diasWindowAbyss = 0
+    }
+
+    /// S1 の 1 発ぶん: 発動の時に決めた中心（timer.point）の円へ。ミニオンへは 75%（HitPayload.minionMultiplier）、鈍足を付ける。
+    /// 減衰は敵ごと: その発動でその敵に何回目の命中かを敵側の印（`_burst<通し番号>`）で数え、1 回目 100%・2 回目以降 30%
+    /// （動画: 2 つ目の輪で初めて当たった案山子は 703 = 100%）。レイジ（+10）はその敵への 1 回目の命中だけ（同じ敵への 2・3 回目では増えない）。
     private func burst(_ s: inout SimState, _ ctx: SimContext, owner: Int, timer: KitTimer) {
         let abyss = timer.code == Code.burstAbyss
+        let decay = abyss ? Tune.burstDecayAbyss : Tune.burstDecay
+        let name = Self.burstMarkName(serial: timer.index)
+        let tag = KitTags.mark("H032", name, owner: s.units[owner].id)
         let slow = StatusEffect(kind: .slow, duration: Tune.burstSlowDuration,
                                 magnitude: abyss ? Tune.burstSlowAbyss : Tune.burstSlow, sourceID: s.units[owner].id,
                                 tag: Tune.burstSlowTag)
         var p = HitPayload(damage: timer.param, damageType: .physical, source: .skill(.skill1), statuses: [slow],
-                           skillID: Self.skillID(ctx, .skill1))
+                           skillID: Self.skillID(ctx, .skill1),
+                           effects: [.addMark(name: name, stacks: 1, maxStacks: Tune.burstCountAbyss,
+                                              duration: Tune.burstMarkDuration)])
         p.minionMultiplier = Tune.burstMinionMultiplier
-        let center = s.units[owner].pos
-        Kit.hitAreaEach(&s, ctx, caster: owner, center: center, radius: abyss ? Tune.burstReachAbyss : Tune.burstReach,
-                        shape: .cone(direction: timer.point, halfAngle: Tune.burstHalfAngle)) { _, _ in p }
+        let first = timer.param
+        Kit.hitAreaEach(&s, ctx, caster: owner, center: timer.point, radius: Tune.burstRadius, shape: .circle) { st, j in
+            // 対象を先に確定してから当てるので、同じ円の中の敵どうしで回数は混ざらない
+            let hits = Kit.markStacks(st, target: j, tag: tag)
+            var q = p
+            q.damage = first * decay[min(hits, decay.count - 1)]
+            q.kitEvent = hits == 0 ? Event.burstFirst : 0
+            return q
+        }
     }
 
     /// S2 の 1 回目の到着: 止まった先の敵（まだ近くに居れば）にダメージ + 押し出し。
@@ -590,11 +756,14 @@ struct Kit_H032: HeroKit {
                            skillID: Self.skillID(ctx, .skill2),
                            effects: [.pushAway(distance: Tune.pushDistance, duration: Tune.pushDuration)])
         p.originPos = s.units[owner].pos
+        p.kitEvent = Event.dash
         CombatSystem.applyHit(&s, ctx, sourceID: s.units[owner].id, team: s.units[owner].team, targetIndex: t,
                               payload: p, from: s.units[owner].pos)
     }
 
-    /// S2 の 2 回目の到着: 対象の敵ヒーロー・モンスターにダメージ + 防御ダウン（アビス強化は鈍足も）。
+    /// S2 の 2 回目の到着: 対象の敵ヒーロー・モンスターに 1 撃目（ダメージの 1/3）+ 防御ダウン（アビス強化は鈍足も）。
+    /// 2・3 撃目（残りの 2/3 を等分）は 4・6 tick 後（fatalTick）。防御ダウンは MLBB の多くのスキルと同じく命中と一緒に付けるので、
+    /// 2・3 撃目は下がった防御で軽減する（1 撃目には掛からない。動画の的は防御 0 なので見えない。docs/kits/Dyrroth.md）。
     private func fatalLanded(_ s: inout SimState, _ ctx: SimContext, owner: Int) {
         guard let kit = s.units[owner].hero?.kit else { return }
         let abyss = kit.diasDashAbyss == 1
@@ -609,11 +778,31 @@ struct Kit_H032: HeroKit {
             statuses.append(StatusEffect(kind: .slow, duration: Tune.fatalSlowDuration, magnitude: Tune.fatalSlowAbyss,
                                          sourceID: id, tag: Tune.fatalSlowTag))
         }
-        var p = HitPayload(damage: kit.diasDashDamage, damageType: .physical, source: .skill(.skill2),
+        let tick = kit.diasDashDamage / Double(Tune.fatalTicks)
+        var p = HitPayload(damage: tick, damageType: .physical, source: .skill(.skill2),
                            statuses: statuses, skillID: Self.skillID(ctx, .skill2))
         p.originPos = s.units[owner].pos
+        p.kitEvent = Event.fatal
         CombatSystem.applyHit(&s, ctx, sourceID: id, team: s.units[owner].team, targetIndex: t, payload: p,
                               from: s.units[owner].pos)
+        // 2・3 撃目: 当たった一撃の続きなので CC では取り消さない（合計を公式の 1 撃ぶんに保つ）。対象が倒れた・離れたら外れる
+        let targetID = s.units[t].id
+        for after in Tune.fatalTickAfter.prefix(Tune.fatalTicks - 1) {
+            Kit.schedule(&s, caster: owner, slot: .skill2, code: Code.fatalTick, after: after, targetID: targetID,
+                         param: tick, interruptible: false)
+        }
+    }
+
+    /// 致命の一撃の 2・3 撃目（param = 1 撃ぶんのダメージ）。防御ダウン・鈍足は 1 撃目で付けたので、ダメージだけ。
+    private func fatalTick(_ s: inout SimState, _ ctx: SimContext, owner: Int, timer: KitTimer) {
+        guard let t = Self.liveEnemy(s, owner, id: timer.targetID), Self.isFatalTarget(s.units[t]),
+              Self.isNear(s, owner, t, slack: Tune.fatalSlack) else { return }
+        var p = HitPayload(damage: timer.param, damageType: .physical, source: .skill(.skill2),
+                           skillID: Self.skillID(ctx, .skill2))
+        p.originPos = s.units[owner].pos
+        p.kitEvent = Event.fatal
+        CombatSystem.applyHit(&s, ctx, sourceID: s.units[owner].id, team: s.units[owner].team, targetIndex: t,
+                              payload: p, from: s.units[owner].pos)
     }
 
     /// 奥義の解放: 今の位置から固定の向きの直線上の敵へ、基礎ダメージ + 失った HP の 25%。ヒーロー以外へは合計に上限
@@ -636,13 +825,14 @@ struct Kit_H032: HeroKit {
             var p = HitPayload(damage: amount, damageType: .physical, source: .skill(.ultimate),
                                statuses: [slow], skillID: skillID)
             p.originPos = center
+            p.kitEvent = Event.ult
             return p
         }
     }
 
     func update(_ s: inout SimState, _ ctx: SimContext, owner: Int) {
         guard let k = s.units[owner].hero?.kit else { return }
-        // レイジは時間でたまる
+        // レイジは時間でたまる（命中でも増える: onHit）
         if k.diasRage < Tune.rageMax {
             let level = s.units[owner].hero?.level ?? 1
             let rate = Self.rageRate(level: level)
@@ -666,14 +856,10 @@ struct Kit_H032: HeroKit {
 
     func onInterrupted(_ s: inout SimState, _ ctx: SimContext, owner: Int) {
         guard let k = s.units[owner].hero?.kit else { return }
-        // 突進が止められた（ノックアップ・制圧・ほかのノックバック）: 到着の処理が呼ばれないので記録を捨てる。
-        // アビス強化の致命の一撃なら消費したレイジを返す。スタンは突進を止めない（S1 の連撃だけを取り消す）ので、
-        // 突進が続いている（sweep がある）ときは触らない
-        guard k.sweep == nil else { return }
-        if k.diasDashAbyss == 1 {
-            s.units[owner].hero!.kit!.diasRage = min(Tune.rageMax, k.diasRage + Tune.abyssCost)
-            s.units[owner].hero!.kit!.diasAbyssUses = max(0, k.diasAbyssUses - 1)
-        }
+        // 突進・飛びかかりが止められた（ノックアップ・制圧・ほかのノックバック）か、致命の一撃の振りかぶりがスタン以上で
+        // 取り消された: 到着の処理が呼ばれないので記録を捨てる。レイジは 1 回目の発動で使ったので戻さない。
+        // スタンは突進を止めない（S1 の連撃・振りかぶりだけを取り消す）ので、突進が続いている（sweep がある）ときは触らない
+        guard k.sweep == nil, !k.scheduled.contains(where: { $0.code == Code.fatalLeap }) else { return }
         s.units[owner].hero!.kit!.diasDashAbyss = 0
         s.units[owner].hero!.kit!.diasDashTargetID = 0
     }
@@ -683,13 +869,16 @@ struct Kit_H032: HeroKit {
     func shapeBasicAttack(_ s: inout SimState, _ ctx: SimContext, attacker: Int, target: Int,
                           plan: inout BasicAttackPlan) {
         guard let k = s.units[attacker].hero?.kit else { return }
+        // 通常攻撃 2 回の後の 3 回目が円撃（circleEvery 回目）。レイジは主対象への命中で足す（onHit。通常攻撃 2、円撃 10）
         let swings = k.diasSwings + 1
         guard swings >= Tune.circleEvery else {
             s.units[attacker].hero!.kit!.diasSwings = swings
+            plan.payload.kitEvent = Event.basic
             return
         }
         s.units[attacker].hero!.kit!.diasSwings = 0
         s.units[attacker].hero!.kit!.diasCircles += 1
+        plan.payload.kitEvent = Event.circle
         // 円撃: 主対象は plan（会心込みの攻撃力 × 倍率）、周りの敵には同じダメージを別に与える（通常攻撃吸収は主対象だけ）。
         // 強化ダメージはタワー（構造物）には乗らない（公式）: 主対象が構造物なら通常攻撃のダメージのまま、周りには倍率込み
         let level = s.units[attacker].hero?.level ?? 1
@@ -713,6 +902,24 @@ struct Kit_H032: HeroKit {
         plan.payload.effects.append(.healOwner(flat: heal, ratioOfDealt: 0))
     }
 
+    /// 敵にダメージを与えた命中（HitPayload.kitEvent）: レイジを足す。1 回の命中ごとの決まった量（ダメージの大きさ・レベルによらない。
+    /// 動画で測った量。Tune.rageOn*）。円撃は主対象への命中で 1 度（周りの敵を巻き込んでも 1 回）。S1 はその発動でその敵に初めて
+    /// 当てたときだけ（burstFirst）。相手の種類（ヒーロー・ミニオン・モンスター・タワー）は問わない（CD 短縮と同じ）。
+    func onHit(_ s: inout SimState, _ ctx: SimContext, owner: Int, target: Int, event: Int, dealt: Double) {
+        guard dealt > 0, s.units.indices.contains(target), s.units[target].team != s.units[owner].team else { return }
+        let gain: Double
+        switch event {
+        case Event.basic: gain = Tune.rageOnBasic
+        case Event.circle: gain = Tune.rageOnCircle
+        case Event.burstFirst: gain = Tune.rageOnBurst
+        case Event.dash: gain = Tune.rageOnDash
+        case Event.fatal: gain = Tune.rageOnFatalTick
+        case Event.ult: gain = Tune.rageOnUlt
+        default: return
+        }
+        Self.gainRage(&s, owner, gain)
+    }
+
     func onBasicAttackHit(_ s: inout SimState, _ ctx: SimContext, attacker: Int, target: Int, damage: Double) {
         // 「敵にダメージを与えるたびに」S1・S2 の CD −1 秒: 通常攻撃（円撃を含む）は 1 回の攻撃で 1 度（主対象への命中で数える。
         // 円撃が周りの敵を巻き込んでも 1 度）。対象の種類（ヒーロー・ミニオン・モンスター・タワー）は問わない
@@ -732,7 +939,7 @@ struct Kit_H032: HeroKit {
 
     // MARK: - D. ボット
 
-    /// 奥義（0.5 秒の溜めの間は動けず、向きは発動時に固定）: 交戦中の敵ヒーローが射程の手前に居れば、汎用の関門
+    /// 奥義（0.76 秒の溜めの間は動けず、向きは発動時に固定）: 交戦中の敵ヒーローが射程の手前に居れば、汎用の関門
     /// （倒せる・2 体以上）を待たずに、溜めのあいだの敵の動きを読んだ向きへ今撃つ。それ以外は従来どおり。
     func botCast(_ s: SimState, _ ctx: SimContext, bot: Int, slot: SkillSlot, targeting: SkillTargeting,
                  target: Int, fighting: Bool) -> BotKitDecision {
@@ -741,7 +948,7 @@ struct Kit_H032: HeroKit {
         guard foe.kind == .hero, (s.units[bot].hero?.kit?.diasUltCharging ?? 0) == 0 else { return .useDefault }
         let me = s.units[bot].pos
         guard me.distance(to: foe.pos) <= Tune.ultBotReach else { return .useDefault }
-        // 直前の tick の動き（prevPos → pos）が続くものとして、溜めの間に進む分を足す（敵の移動速度の 0.5 秒分まで）
+        // 直前の tick の動き（prevPos → pos）が続くものとして、溜めの間に進む分を足す（敵の移動速度の溜めの秒数分まで）
         let step = foe.pos - foe.prevPos
         let ahead = (step * (Tune.ultCharge / Balance.dt)).clamped(maxLength: max(0, foe.stats.moveSpeed) * Tune.ultCharge)
         let aim = foe.pos + ahead
@@ -781,6 +988,12 @@ struct Kit_H032: HeroKit {
         s.units[i].hero!.kit!.diasRage = max(0, rage - Tune.abyssCost)
         s.units[i].hero!.kit!.diasAbyssUses += 1
         return true
+    }
+
+    /// 命中で増えるレイジ（上限 100）。
+    private static func gainRage(_ s: inout SimState, _ i: Int, _ amount: Double) {
+        guard amount > 0, let rage = s.units[i].hero?.kit?.diasRage else { return }
+        s.units[i].hero!.kit!.diasRage = min(Tune.rageMax, rage + amount)
     }
 
     /// S1・S2 のクールダウンを縮める（練習場の noCooldowns は Kit.refundCooldown が尊重）。

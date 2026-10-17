@@ -85,22 +85,33 @@ final class Kit_H026Tests: XCTestCase {
         XCTAssertEqual(s1.aim, .direction)
         XCTAssertEqual(s1.shape, .fan)
         XCTAssertEqual(s1.halfAngle, T.s1HalfAngle)
-        XCTAssertEqual(s1.range, 650)
-        XCTAssertEqual(s1.reach, 650)
+        // 幾何は MLBB の画面収録で測った値（docs/kits/Eudora.md「動画で測った値（2026-10-16）」。マスターの 650 / 650 / 770 は使わない）
+        XCTAssertEqual(s1.range, 576)
+        XCTAssertEqual(s1.reach, 576)
+        XCTAssertEqual(T.s1HalfAngle * 180 / .pi, 37.5, accuracy: 1e-9, "扇の半角 37.5°（動画: 35.8〜38.0°）")
         XCTAssertFalse(s1.requiresTarget)
         let s2 = SkillCatalog.targeting(for: skill(.skill2), hero: def)
         XCTAssertEqual(s2.archetype, .lineSkillshot, "ブリンク強化ではなく対象指定の雷球")
         XCTAssertEqual(s2.aim, .unit)
         XCTAssertEqual(s2.shape, .lockOn)
-        XCTAssertEqual(s2.range, 650)
-        XCTAssertEqual(s2.reach, 650)
+        XCTAssertEqual(s2.range, 505)
+        XCTAssertEqual(s2.reach, 505)
         XCTAssertTrue(s2.requiresTarget)
         let ult = SkillCatalog.targeting(for: skill(.ultimate), hero: def)
         XCTAssertEqual(ult.archetype, .groundAoE)
         XCTAssertEqual(ult.aim, .point)
         XCTAssertEqual(ult.shape, .circleAtPoint)
-        XCTAssertEqual(ult.range, 770)
+        XCTAssertEqual(ult.range, 615)
         XCTAssertEqual(ult.radius, T.ultOuterRadius)
+        // 動画で測った寸法と時間（MLBB × 100・コマを tick に合わせた値）
+        XCTAssertEqual(T.ultOuterRadius, 273)
+        XCTAssertEqual(T.ultCenterRadius, 115)
+        XCTAssertEqual(T.ultDelay, 0.45)
+        XCTAssertEqual(T.burstRadius, 261)
+        XCTAssertEqual(T.burstDelay, 0.83)
+        XCTAssertEqual(T.s2Speed, 1150)
+        XCTAssertEqual(T.dotFirst, 0.12)
+        XCTAssertEqual(T.dotInterval, 0.27)
         XCTAssertEqual(SkillCatalog.targeting(for: skill(.passive), hero: def).archetype, .passive)
         // 再使用の段は無い
         for slot in SkillSlot.allCases {
@@ -155,8 +166,10 @@ final class Kit_H026Tests: XCTestCase {
         XCTAssertTrue(ja(.ultimate).contains("800(+160%魔法攻撃)"), "公式の奥義 Lv2: \(ja(.ultimate))")
         XCTAssertTrue(ja(.ultimate).contains("400(+100%魔法攻撃)"), ja(.ultimate))
         XCTAssertTrue(ja(.ultimate).contains("440(+110%魔法攻撃)"), ja(.ultimate))
-        XCTAssertTrue(ja(.ultimate).contains("0.8秒後"), ja(.ultimate))
-        XCTAssertTrue(ja(.ultimate).contains("770"), ja(.ultimate))
+        // 遅れ 0.45 秒は説明文の書式（小数 1 桁）で「0.5」と出る
+        XCTAssertTrue(ja(.ultimate).contains("0.5秒後"), ja(.ultimate))
+        XCTAssertTrue(ja(.ultimate).contains("射程615"), ja(.ultimate))
+        XCTAssertTrue(ja(.ultimate).contains("半径115"), ja(.ultimate))
         XCTAssertTrue(ja(.passive).contains("5秒間"), ja(.passive))
     }
 
@@ -340,11 +353,12 @@ final class Kit_H026Tests: XCTestCase {
 
     func testForkedLightningHitsAFanInFrontWithinRange() {
         var (w, k) = world()
+        // 扇 = 半径 576・半角 37.5°（動画で測った値）。対象の半径（55）だけ広く当たる
         let inside = addEnemy(&w, dx: 400)
-        let edge = addEnemy(&w, dx: 500, dy: 500 * tan(T.s1HalfAngle) - 20, hero: "H003")
-        let wide = addEnemy(&w, dx: 500, dy: 500 * tan(T.s1HalfAngle) + 120, hero: "H004")
-        let farEnd = addEnemy(&w, dx: 650 + 30, dy: 0, hero: "H005")
-        let tooFar = addEnemy(&w, dx: 650 + 80, dy: 0, hero: "H006")
+        let edge = addEnemy(&w, dx: 400, dy: 400 * tan(T.s1HalfAngle) - 20, hero: "H003")
+        let wide = addEnemy(&w, dx: 400, dy: 400 * tan(T.s1HalfAngle) + 120, hero: "H004")
+        let farEnd = addEnemy(&w, dx: T.s1Range + 30, dy: 0, hero: "H005")
+        let tooFar = addEnemy(&w, dx: T.s1Range + 80, dy: 0, hero: "H006")
         let behind = addEnemy(&w, dx: -300, hero: "H002")
         let n = numbers(w, k, .skill1)
         let mana = w.s.units[k].resource
@@ -445,6 +459,7 @@ final class Kit_H026Tests: XCTestCase {
         let n = numbers(w, k, .skill1)
         mark(&w, owner: k, on: e)
         let speed = w.s.units[k].stats.moveSpeed
+        let start = w.s.time
         XCTAssertTrue(w.cast(k, .skill1, .direction(Self.east)))
         XCTAssertEqual(kit(w, k).euriaChains, 1)
         XCTAssertEqual(kit(w, k).scheduled.count, T.dotCount + 1)
@@ -455,15 +470,25 @@ final class Kit_H026Tests: XCTestCase {
         XCTAssertEqual(w.damageEvents.count, 1, "初撃のみ")
         w.tick(1)
         XCTAssertEqual(w.s.units[k].stats.moveSpeed, speed * 1.4, accuracy: 1e-6, "鎖の間 +40%")
-        // 継続ダメージは 0.2 秒ごとに 4 回、1 秒で終わりの一撃
+        // 継続ダメージは 0.12 秒から 0.27 秒おきに 4 回（0.12 / 0.39 / 0.66 / 0.93 秒。動画: 初撃から +4 / +12 / +20 / +28 コマ）、
+        // 1 秒で終わりの一撃（動画: +29〜30 コマ）
         let dot = w.mitigated(Kit_H026.dotDamage(rank: n.rank, stats: w.s.units[k].stats), .magic, on: e)
-        w.run(seconds: 0.25)
+        func at(_ t: Double) { while w.s.time - start < t - 1e-9 { w.tick() } }
+        at(0.10)
+        XCTAssertEqual(events(w, to: e, .skill(.skill1)).count, 1, "0.10 秒: まだ継続ダメージは無い")
+        at(0.14)
+        XCTAssertEqual(events(w, to: e, .skill(.skill1)).count, 2, "0.12 秒に 1 回目")
+        at(0.36)
         XCTAssertEqual(events(w, to: e, .skill(.skill1)).count, 2)
-        w.run(seconds: 0.6)
-        XCTAssertEqual(events(w, to: e, .skill(.skill1)).count, 5)
+        at(0.40)
+        XCTAssertEqual(events(w, to: e, .skill(.skill1)).count, 3, "0.39 秒に 2 回目")
+        at(0.67)
+        XCTAssertEqual(events(w, to: e, .skill(.skill1)).count, 4, "0.66 秒に 3 回目")
+        at(0.94)
+        XCTAssertEqual(events(w, to: e, .skill(.skill1)).count, 5, "0.93 秒に 4 回目")
         XCTAssertEqual(kit(w, k).euriaChainEnds, 0)
         let cdBefore = w.s.units[k].hero!.cooldown(.skill1)
-        w.run(seconds: 0.2)
+        at(1.05)
         let hits = events(w, to: e, .skill(.skill1))
         XCTAssertEqual(hits.count, 6)
         XCTAssertEqual(hits[0].amount, w.mitigated(n.damage, .magic, on: e), accuracy: 1e-6)
@@ -473,7 +498,7 @@ final class Kit_H026Tests: XCTestCase {
         // 終わりの一撃が当たると S1 のクールダウンが縮む
         let cdAfter = w.s.units[k].hero!.cooldown(.skill1)
         XCTAssertLessThan(cdAfter, cdBefore - Kit_H026.chainRefund(cooldown: n.cooldown) + 0.01)
-        XCTAssertEqual(cdAfter, max(0, n.cooldown - 1.1 - n.cooldown * 0.5), accuracy: 0.04, "50% 短縮")
+        XCTAssertEqual(cdAfter, max(0, n.cooldown - (w.s.time - start) - n.cooldown * 0.5), accuracy: 0.04, "50% 短縮")
         // 鎖が終わると加速も終わる
         XCTAssertNil(status(w, k, .speedBoost))
         XCTAssertEqual(kit(w, k).euriaChainRemaining, 0)
@@ -508,7 +533,7 @@ final class Kit_H026Tests: XCTestCase {
         XCTAssertTrue(kit(w, k).scheduled.isEmpty)
         // 術者がスタンされた: 鎖は取り消し（それまでの継続ダメージは残る）
         (w, k, e) = chain { w, k, _ in CombatSystem.addStatus(&w.s, targetIndex: k, StatusEffect(kind: .stun, duration: 0.5)) }
-        XCTAssertEqual(events(w, to: e, .skill(.skill1)).count, 1, "スタンまでに継続ダメージは入っていない（0.2 秒前）")
+        XCTAssertEqual(events(w, to: e, .skill(.skill1)).count, 1, "スタン（0.1 秒）までに継続ダメージは入っていない（1 回目は 0.12 秒）")
         XCTAssertNil(status(w, k, .speedBoost), "加速も終わる")
         XCTAssertEqual(kit(w, k).euriaChainRemaining, 0)
         XCTAssertEqual(kit(w, k).euriaChainEnds, 0)
@@ -640,13 +665,20 @@ final class Kit_H026Tests: XCTestCase {
         XCTAssertEqual(ev.targetUnitID, w.id(a))
         XCTAssertEqual(w.damage(to: a), 0, "雷球が届くまでダメージは無い")
         XCTAssertEqual(w.s.projectiles.count, 1)
-        w.run(seconds: 0.4)
+        // 雷球は毎秒 1150（動画で測った値）: 中心間 500 の相手（縁まで 445）へ約 0.39 秒。0.3 秒ではまだ届かない
+        let start = w.s.time
+        w.run(seconds: 0.3)
+        XCTAssertEqual(w.damage(to: a), 0, "0.3 秒ではまだ飛んでいる")
+        while events(w, to: a, .skill(.skill2)).isEmpty && w.s.time - start < 1.0 { w.tick() }
+        let flight = w.s.time - start
+        XCTAssertEqual(flight, (500 - w.s.units[a].radius) / T.s2Speed, accuracy: 0.07, "雷球の飛ぶ時間")
+        w.tick()   // 能力値（魔防ダウン）は次の tick で計算し直される
         let hits = events(w, to: a, .skill(.skill2))
         XCTAssertEqual(hits.count, 1)
         XCTAssertEqual(hits[0].amount, before, accuracy: 1e-6)
         let stun = try XCTUnwrap(status(w, a, .stun))
         XCTAssertLessThanOrEqual(stun.remaining, 1.0)
-        XCTAssertGreaterThan(stun.remaining, 0.6)
+        XCTAssertGreaterThan(stun.remaining, 0.9)
         XCTAssertFalse(w.s.units[a].canAct)
         // 魔防ダウン（固定値 10）1.8 秒
         let shred = try XCTUnwrap(status(w, a, .magicShred))
@@ -654,10 +686,10 @@ final class Kit_H026Tests: XCTestCase {
         XCTAssertLessThanOrEqual(shred.remaining, 1.8)
         XCTAssertEqual(w.s.units[a].stats.magicResist, resist - 10, accuracy: 1e-9)
         // スタン 1 秒で解け、魔防ダウンは 1.8 秒で解ける
-        w.run(seconds: 0.9)
+        w.run(seconds: 1.05)
         XCTAssertTrue(w.s.units[a].canAct)
         XCTAssertNotNil(status(w, a, .magicShred))
-        w.run(seconds: 1.0)
+        w.run(seconds: 0.85)
         XCTAssertNil(status(w, a, .magicShred))
         XCTAssertEqual(w.s.units[a].stats.magicResist, resist, accuracy: 1e-9)
     }
@@ -679,7 +711,8 @@ final class Kit_H026Tests: XCTestCase {
         XCTAssertFalse(w.cast(k, .skill2, .direction(Self.east)), "敵が居なければ拒否")
         XCTAssertEqual(w.s.units[k].resource, mana, "コストを消費しない")
         XCTAssertEqual(w.s.units[k].hero!.cooldown(.skill2), 0)
-        let far = addEnemy(&w, dx: 650 + 80)
+        // 射程 505（動画で測った値）+ 対象の半径の外
+        let far = addEnemy(&w, dx: T.s2Range + 80)
         XCTAssertFalse(w.cast(k, .skill2, .unit(w.id(far))), "射程外")
         XCTAssertEqual(w.s.units[k].resource, mana)
         let weak = addEnemy(&w, dx: 500, dy: 60, hero: "H003")
@@ -745,7 +778,7 @@ final class Kit_H026Tests: XCTestCase {
 
     func testOrbFizzlesIfTheTargetBecomesUntargetableOrDiesInFlight() {
         var (w, k) = world()
-        let a = addEnemy(&w, dx: 600)
+        let a = addEnemy(&w, dx: 500)
         XCTAssertTrue(w.cast(k, .skill2, .unit(w.id(a))))
         w.tick(2)
         CombatSystem.addStatus(&w.s, targetIndex: a, StatusEffect(kind: .untargetable, duration: 5))
@@ -772,13 +805,13 @@ final class Kit_H026Tests: XCTestCase {
         XCTAssertEqual(ev.shape, .circleAtPoint)
         XCTAssertEqual(ev.duration, T.ultDelay)
         XCTAssertEqual(ev.target.x, impact.x, accuracy: 1e-6)
-        // 予告のゾーン（0.8 秒）
+        // 予告のゾーン（0.45 秒。動画: 指を離してから 13 / 14 コマ）
         let zone = try XCTUnwrap(zoneCreated(w).first)
         XCTAssertEqual(zone.delay, T.ultDelay, accuracy: 1e-9)
         XCTAssertEqual(zone.radius, T.ultOuterRadius)
         XCTAssertEqual(zone.center.x, impact.x, accuracy: 1e-6)
         XCTAssertEqual(zone.visual, skill(.ultimate).effectID)
-        w.run(seconds: 0.7)
+        w.run(seconds: T.ultDelay - 0.1)
         XCTAssertTrue(w.damageEvents.isEmpty, "予告の間はダメージ無し")
         w.run(seconds: 0.2)
         let c = events(w, to: center, .skill(.ultimate))
@@ -806,11 +839,11 @@ final class Kit_H026Tests: XCTestCase {
                        w.mitigated(n.damage, .magic, on: inner), accuracy: 1e-6)
         XCTAssertEqual(events(w, to: justOut, .skill(.ultimate)).first?.amount ?? 0,
                        w.mitigated(Kit_H026.outerDamage(rank: n.rank, stats: w.s.units[k].stats), .magic, on: justOut), accuracy: 1e-6)
-        // 射程 770 を超える地点は射程の端に丸められる
+        // 射程 615（動画で測った値）を超える地点は射程の端に丸められる
         var (w2, k2) = world()
         XCTAssertTrue(w2.cast(k2, .ultimate, .point(skillArena + Vec2(1500, 0))))
-        XCTAssertEqual(w2.castEvents.last!.target.x, skillArena.x + 770, accuracy: 1e-6)
-        XCTAssertEqual(zoneCreated(w2).first?.center.x ?? 0, skillArena.x + 770, accuracy: 1e-6, "敵が居なくても撃てる")
+        XCTAssertEqual(w2.castEvents.last!.target.x, skillArena.x + T.ultRange, accuracy: 1e-6)
+        XCTAssertEqual(zoneCreated(w2).first?.center.x ?? 0, skillArena.x + T.ultRange, accuracy: 1e-6, "敵が居なくても撃てる")
     }
 
     func testThunderburstTriggersOnMarkedTargetsOnlyAfterADelayAndHitsNearbyEnemies() throws {
@@ -818,7 +851,8 @@ final class Kit_H026Tests: XCTestCase {
         let impact = skillArena + Vec2(600, 0)
         let markedHero = addEnemy(&w, dx: 600 + 60)
         let neighbor = addEnemy(&w, dx: 600 + 60, dy: 150, hero: "H003")
-        let unmarkedFar = addEnemy(&w, dx: 600 + 60, dy: -300, hero: "H004")
+        // 外側の半径 273 + 対象の半径の外（大雷に当たらず印も付かない）。炸裂の半径 261 + 対象の半径からも外
+        let unmarkedFar = addEnemy(&w, dx: 600 + 60, dy: -360, hero: "H004")
         // 炸裂の範囲内のミニオン（超伝導が付かない）: 大雷には当たるが炸裂には当たらない
         let minion = w.addMinion(team: .red, at: skillArena + Vec2(600 + 60, -100))
         w.s.units[minion].stats.maxHP = 1e6
@@ -829,7 +863,7 @@ final class Kit_H026Tests: XCTestCase {
         XCTAssertTrue(w.cast(k, .ultimate, .point(impact)))
         w.run(seconds: 0.9)
         XCTAssertEqual(kit(w, k).euriaBursts, 1, "印済みの敵 1 体につき 1 回")
-        // 炸裂の予告（少し遅れる）
+        // 炸裂の予告（大雷の 0.83 秒後。動画: 25 コマ）
         let zones = zoneCreated(w)
         XCTAssertEqual(zones.count, 2)
         XCTAssertEqual(zones[1].delay, T.burstDelay, accuracy: 1e-9)
@@ -1114,7 +1148,7 @@ final class Kit_H026Tests: XCTestCase {
     }
 
     func testBotDoesNotWaitForForkedBoltWhenItCannotFireAtThisTarget() throws {
-        // 扇（射程 650）の外: S1 は撃てないので、アルティメット（770）を待たせない
+        // 扇（射程 576 + 対象の半径）の外: S1 は撃てないので、アルティメット（射程 615）を待たせない
         var (w, k) = world(level: 12, ranks: [2, 2, 2])
         let far = addEnemy(&w, dx: 730)
         w.tick()

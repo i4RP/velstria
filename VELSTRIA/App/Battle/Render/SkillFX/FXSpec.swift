@@ -258,6 +258,9 @@ struct FXMesh: Hashable, Sendable {
     /// 寿命（life）を発動のイベントの長さ（SkillCastEvent.duration）から取る（イベントの長さが 0 なら書いた life のまま。
     /// 上限は FXCue.castDurationLimit。fadeIn・fadeOut は寿命に対する比なので一緒に伸びる）。cast・発動と同時の impact だけで効く。
     var durationFromCast = false
+    /// 途中で消せる組の番号（0 = なし）。sim の数が減ったときに、追従しているこの組のメッシュと予定の合図を短く消す
+    /// （SkillFXPlayer.cut。H028 の環剣の刃 1 本ごとに 1〜5）。消すときに寿命を縮めるので、大きさが変わらないメッシュに使う。
+    var group = 0
 
     func with(_ f: (inout FXMesh) -> Void) -> FXMesh {
         var c = self

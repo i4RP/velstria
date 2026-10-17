@@ -148,6 +148,7 @@ public struct KitState: Codable, Hashable, Sendable {
 | 再使用の窓 `openRecast / closeRecast / window` | 最初の発動は **必ず** コストと CD を消費する（ボットの「当たった」判定が CD > 0 で見るため）。再使用は CD・コスト無視で同じ `castSkill` コマンド。窓が閉じたら `cooldownOnClose` を適用。 |
 | 遅延・連撃 `schedule / cancelScheduled / strikeSequence` | `KitState.scheduled` を挿入順に消化し `onTimer` を呼ぶ。remaining 0 は同 tick に発火。 |
 | 経路ヒット突進 `dashSweeping` | `MovementSystem.dash` + `KitSweep`。毎 tick `prevPos → pos` の線分上の敵を 1 度ずつ。着地で `arriveCode`。 |
+| 壁を越える跳躍 `dashSweepingOverTerrain` / `leapLanding`（`KitLeap.swift`） | `dashSweeping` と同じ掃引で、着地点が歩ける場所なら途中の壁を素通りして直線で跳ぶ（変位は `.dash` のまま）。照準の点が壁の中なら照準の線の上の近い側の縁（向こう側は `farReach` まで）、閉じた区画・マップの外には降りない。壁が無ければ `dashSweeping` と同じ。途中で止められて壁の中に残ったら `onInterrupted` で `settleOutOfTerrain`。H033 の S1。 |
 | 扇状の弾 `fan` | `ProjectileSystem.spawn` のループ（角度は均等、乱数なし）。 |
 | 対象指定突進 | `.targetedBlink` + `requiresTarget`。移動するなら `MovementSystem.dash` + 到着時に `strikeSequence`。 |
 | 打ち上げ `knockUp` | `.airborne` status（既存）。受けた側の進行中の突進・跳躍も止める（ノックアップ = 高レベルのコントロール）。 |
@@ -216,7 +217,7 @@ public struct KitState: Codable, Hashable, Sendable {
 ```
 Sim/KitState.swift
 Systems/Kits/HeroKit.swift  KitRegistry.swift  KitRuntime.swift  KitRecast.swift  KitTimers.swift
-Systems/Kits/KitMovement.swift  KitPull.swift  KitProjectiles.swift  KitStatus.swift  KitDamage.swift  KitBasicAttack.swift
+Systems/Kits/KitMovement.swift  KitPull.swift  KitLeap.swift  KitProjectiles.swift  KitStatus.swift  KitDamage.swift  KitBasicAttack.swift
 Systems/Kits/Kit_H025.swift ... Kit_H034.swift     （最初は isReady = false のスタブ）
 Tests/VelstriaCoreTests/Kits/KitTestSupport.swift  KitFrameworkTests.swift  Kit_H0xxTests.swift
 ```
@@ -312,6 +313,39 @@ Tests/VelstriaCoreTests/Kits/KitTestSupport.swift  KitFrameworkTests.swift  Kit_
   docs/kits/Zilong.md「動画で測った値」。Windows・`swift test -c release`）: `KitBalanceTests` のデュエリストの中央値との差 +15.4 / +23.0 / +21.6 →
   +15.4 / +24.0 / +23.6、ゲームに出す 10 体の総当たり 77.8 / 85.2 / 72.2 → 77.8 / 88.9 / 79.6%、ロール代表との TTK 7.3〜13.3 → 6.7〜14.1 秒（18 / 18 勝）。
   スキル1 の打ち上げが 0.8 → 1.0 秒（0.4 秒持ち上げてから 0.2 秒で背後 144）、スキル2 の突進が毎秒 2400 → 1520。射程・三連突きの間隔は測った値と合っていた。
+- エウドラの幾何と時間を MLBB の画面収録で測った値に変えた後（2026-10-16、`MatchConfig.currentSimVersion` 26 → 32。27〜31 は並行する他のヒーローの作業が使う。
+  番号はマージのときに付け直す。docs/kits/Eudora.md「動画で測った値」。Windows・`swift test -c release`）: `KitBalanceTests` のアルカニストの中央値との差
+  +41.2 / +76.8 / +76.8 → +41.2 / +75.3 / +74.2（Lv6・Lv12 は既知の外れ値のまま）、ゲームに出す 10 体の総当たり 18.5 / 40.7 / 35.2 → 18.5 / 37.0 / 31.5%、
+  開幕 3 秒のダメージ（KitBurst）290 / 1424 / 1896 → 同じ、`Kit_H026Tests` の総当たり 33.3 / 33.3% → 同じ、ロール代表との TTK 8.5〜20.4 → 10.0〜20.4 秒（16 / 18 勝のまま）。
+  奥義の射程 770 → 615・外側の半径 300 → 273、S2 の射程 650 → 505・雷球 1800 → 1150、扇 650 → 576 と短く・遅くなったぶん下がった
+  （扇の半角 30° → 37.5°・奥義の遅れ 0.8 → 0.45 秒で一部を戻す）。`BotMatchTests` の泉に立つ人間の通常戦のシード 5（7:27 で 8 分未満）を 6 にした。
+- セイバーの幾何と時間を MLBB の画面収録で測った値に変えた後（2026-10-16、`MatchConfig.currentSimVersion` 26 → 33（27〜32 はほかの作業）。
+  docs/kits/Saber.md「動画で測った値」。Windows・`swift test -c release`）: `KitBalanceTests` のアサシンの中央値との差 +31.8 / +63.4 / +64.5 →
+  **+79.0** / +59.3 / +54.9（Lv1 は新しい外れ値。理由を書いて `knownOutliers` に `H028:1`）、ゲームに出す 10 体の総当たり 48.1 / 81.5 / 85.2 →
+  77.8 / 66.7 / 50.0%、`Kit_H028Tests` の総当たり 33 / 78 / 78% → 78 / 67 / 44%、ロール代表との TTK 13 → 18 / 18 勝。S1 の届く距離が剣の帯の外縁
+  445（以前 230 = 近接の止まる距離 235 より短く、Lv1 の台本では S1 を撃てていなかった）になって Lv1 が上がり、接触が輪の帯（325〜445）だけに
+  なって隣の相手に当たらないぶん Lv6・12 が下がった。`Kit_H029Tests` のボットの煙テストのシード 31 → 32（ボルグの奥義が 0 回になった）。
+- ディアスの幾何と時間を MLBB の画面収録で測った値に変えた後（2026-10-16、`MatchConfig.currentSimVersion` 26 → 31（27〜30 はほかの作業が使う）。
+  docs/kits/Dyrroth.md「動画で測った値」。Windows・`swift test -c release`）: `KitBalanceTests` のデュエリストの中央値との差 +21.0 / +26.5 / +28.4（上の表の記録）→
+  +18.9 / +27.0 / +29.2、ゲームに出す 10 体の総当たり 100 / 100 / 100（同）→ 90.7 / 100 / 100%、`Kit_H032Tests` の総当たり 89 / 100 / 100%、
+  ロール代表との TTK 2.9〜16.1 秒（18 / 18 勝）。スキル1 は射程が 300 → 472 と伸びた代わりに止まった相手へ 2〜3 回しか当たらず、
+  突進と奥義の溜めが遅くなった（0.17 → 0.4 秒・0.5 → 0.76 秒）。ダメージ・係数・CD は変えていない。
+- アルカードの幾何と時間を MLBB の画面収録で測った値に変えた後（2026-10-16、`MatchConfig.currentSimVersion` 26 → 35（27〜34 はほかの作業）。
+  docs/kits/Alucard.md「動画で測った値」。Windows・`swift test -c release`）: `KitBalanceTests` のアサシンの中央値との差 +26.8 / +53.3 / +56.4 →
+  +24.7 / +51.3 / +55.9（Lv6・12 は既知の外れ値のまま）、ゲームに出す 10 体の総当たり 0.0 / 44.4 / 55.6 → 0.0 / 40.7 / 53.7%、`Kit_H033Tests` の総当たり
+  0 / 44 / 56% → 0 / 33 / 56%、ロール代表との TTK 7.9〜19.8 → 9.5〜19.9 秒（16 → 14 / 18 勝）。奥義の吸収が地点の円（縁まで 750）から術者から 640 の帯に、
+  衝撃波に 0.16 秒の振りかぶりと毎秒 2200 → 1000、S1 の跳躍が 0.19 → 0.34 秒になったぶん少し下がった。
+- ライラの幾何と時間を MLBB の画面収録で測った値に変えた後（2026-10-16、`MatchConfig.currentSimVersion` 26 → 34。27〜33 は並行する他のヒーローの作業が使う。
+  番号はマージのときに付け直す。docs/kits/Layla.md「動画で測った値」。Windows・`swift test -c release`）: `KitBalanceTests` のレンジャーの中央値との差
+  +16.2 / +30.1 / +31.9 → +16.2 / +19.9 / +29.7、ゲームに出す 10 体の総当たり 44.4 / 22.2 / 11.1 → 44.4 / 3.7 / 11.1%、開幕 3 秒のダメージ（KitBurst）
+  666 / 1930 / 2399 → 666 / 1719 / 2174、ロール代表との TTK 9.0〜16.6 → 10.2〜16.6 秒（16 → 15 / 18 勝）。`SkillBalanceTests` の総当たりの中央値は 13.3 / 9.7 / 9.8 秒のまま。
+  星環弾の射程（Lv3 で 830 → 564）・光球（1500 → 1050）・奥義の溜め（0.2 → 0.55 秒）で下がり、S1（射程 755・毎秒 1950）と通常攻撃の弾（1800）で一部を戻す。
+- ライラのスキルを画面収録に合わせた後（2026-10-16、`MatchConfig.currentSimVersion` 39 → 40。番号はマージのときに付け直す。docs/kits/Layla.md
+  「スキルの溜めと星爆弾の照準」。S1・S2 に 0.1 秒の溜め（スタン以上で途切れる）、S2 は照準の扇（半角 50°）の敵を捉えて追う光球・捉える敵が居なければ
+  射程の端へ落ちる。Windows・`swift test -c release`。変更前は 0952d34 を同じ手元で回した値）: `KitBalanceTests` のレンジャーの中央値との差
+  +15.7 / +20.2 / +29.7 → +14.6 / +10.6 / +22.6、ゲームに出す 10 体の総当たり 33.3 / 3.7 / 11.1% のまま、開幕 3 秒のダメージ 666 / 1719 / 2174 のまま、
+  ロール代表との TTK 10.2〜16.6 → 10.3〜16.6 秒（15 / 18 勝のまま）。`SkillBalanceTests` の総当たりの中央値は 11.9 / 9.9 / 9.9 秒のまま。ダメージの式は変えていない。
+  `BotMatchTests` の泉に立つ人間の通常戦のシード 6（7:23 で 8 分未満）を 7 にした。
 
 ## 進め方
 

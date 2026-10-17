@@ -316,6 +316,15 @@ final class HUDKitTests: XCTestCase {
         var u = bareUnit()
         u.statuses = [StatusEffect(kind: .mark, duration: 3, magnitude: 1, tag: "kit.H026.sc.4")]
         XCTAssertEqual(StatusIndicators.flags(of: u).mark?.heroID, "H026")
+        // キットの内部の数えの印（名前が `_`。ディアスのスキル1 のその敵への命中の回数）は頭上にも HUD の状態アイコンにも出さない
+        let counter = StatusEffect(kind: .mark, duration: 1, magnitude: 3, tag: "kit.H032._burst7.4")
+        XCTAssertTrue(KitStatusVisuals.isInternal(counter))
+        XCTAssertFalse(KitStatusVisuals.isInternal(list[0]))
+        XCTAssertNil(KitStatusVisuals.markGlyph(in: [counter]))
+        XCTAssertEqual(KitStatusVisuals.markGlyph(in: [counter, list[0]])?.heroID, "H030")
+        u.statuses = [counter]
+        XCTAssertNil(StatusIndicators.flags(of: u).mark)
+        XCTAssertTrue(HUDModel.statusIcons(u).isEmpty)
 
         XCTAssertEqual(KitStatusVisuals.markScale(stacks: 1), 1)
         XCTAssertGreaterThan(KitStatusVisuals.markScale(stacks: 3), KitStatusVisuals.markScale(stacks: 2))

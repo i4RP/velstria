@@ -6,15 +6,20 @@ import VelstriaCore
 // 「衝撃の輪をまとって飛ぶ砲弾」「稲光をまとう光球の破裂」「射程いっぱいを貫く極太の光の円柱」で形を見せる。
 // sim の実際の挙動（Systems/Kits/Kit_H030.swift の RainaTuning）に合わせたタイミング:
 //   パッシブ 遠星の照準    — 距離補正（バッジを持たないので試合中は合図が出ない。目視確認の実演用）: 足元に照準の陣、頭上に星
-//   スキル1 遠星弾         — 発動の tick に砲弾が出る（速度 16 m/s・射程 6.5m = 約 0.4 秒）。砲口の閃光と前を向く衝撃の輪、
+//   スキル1 遠星弾         — 0〜0.1 秒（s1Windup。動画: 指を離してから 3 コマ）: 砲口に光が集まる。0.1 秒に砲弾が出る
+//                            （速度 19.5 m/s・射程 7.55m = 約 0.39 秒。動画で測った値）。砲口の閃光と前を向く衝撃の輪、
 //                            砲弾は白い芯に桃の彗星の尾をひき、通った後ろに衝撃の輪が次々と広がる（travel）。
 //                            命中・射程の端で砕け（impact）、命中した敵には閃光、術者の足元に金の輪（命中で加速・射程延長）
-//   スキル2 星爆弾         — 光球（15 m/s）が紫の殻と回る輪・稲光をまとって飛び（travel）、最初の敵か射程の端で破裂（impact、半径 1.9m）:
+//   スキル2 星爆弾         — 0〜0.1 秒（s2Windup。動画: 指を離してから 3 コマ）: 砲口に虚空の光が集まる。0.1 秒に光球が出る。
+//                            光球（10.5 m/s。射程 3.84m + 延長、アルティメット Lv3 で 5.64m = 約 0.54 秒）は照準の扇で捉えた敵を
+//                            追って弧を描いて飛び（travel。上がる層と落ちる層を重ねる。捉える敵が居なければ射程の端へ落ちる）、
+//                            捉えた敵か射程の端で破裂（impact、半径 1.9m）:
 //                            紫の球が膨らんで弾け、地を這う 5 本の稲光・虚空の陣・星屑。爆発を受けた敵の足元に刻印の陣と減速の輪（hit）。
 //                            刻印の弾け（刻印した敵に通常攻撃・S1・奥義が当たる。遅れ 0 のゾーン）は telegraph（頭上の刻印が砕けて
 //                            縦の稲光が落ちる = 0.25 秒のスタン）と同じ破裂（impact）が同時に出る
-//   アルティメット 星砕の大砲 — 0〜0.2 秒（ultWindup）: 腰を落として砲を据え、砲口へ光が吸い込まれ、前を向く照準の陣が回る。
-//                            0.2 秒: 射程いっぱい（20m）の極太のビーム。光の円柱を砲口から前へ・終点から後ろへ 2 本重ねて全長を均一に、
+//   アルティメット 星砕の大砲 — 0〜0.55 秒（ultWindup。動画: 指を離してから 17 コマ）: 腰を落として砲を据え、砲口へ光が吸い込まれ、
+//                            前を向く照準の陣が回る。
+//                            0.55 秒: 射程いっぱい（20m・半幅 1.0m）の極太のビーム。光の円柱を砲口から前へ・終点から後ろへ 2 本重ねて全長を均一に、
 //                            芯に白い光条、地に焼け跡。ビームの先頭（70 m/s の貫通弾）に閃光と光の尾（travel）、最初の命中か終点で星の破裂、
 //                            貫かれた敵ごとに光条と星（hit）
 // SkillFXDirector は duration / count を読まない: 時刻は at（遅れ）で表す。
@@ -34,8 +39,18 @@ enum FX_H030: HeroFXSet {
 
     /// 星爆弾の爆発と刻印の弾けの半径（スキル定義の radius 190）。
     private static let blast: Float = 1.9
-    /// 奥義の溜め（ultWindup）。
-    private static let windup: Float = 0.2
+    /// 奥義の溜め（ultWindup。動画: 指を離してから 17 コマ = 0.57 秒）。
+    private static let windup: Float = 0.55
+    /// S1・S2 の溜め（s1Windup / s2Windup。動画: 弾の進みを術者の中心まで戻すと指を離してから 3 コマ）。弾はこの時刻に出る。
+    private static let shotWindup: Float = 0.1
+    /// 星環弾の光球の弧。travel は弾の地面の位置に付いて動き高さを持たないので、上がる層（0〜orbPeak 秒、毎秒 orbRise m）と
+    /// 落ちる層（orbPeak 秒から orbFallLife 秒、毎秒 orbFall m）を重ねて弧に見せる（動画: 砲口の高さ約 1.0 から上がり、
+    /// 後半に約 1.5 の頂きを越えて的の胸の高さへ落ちた）。射程いっぱい（5.64m ≒ 0.54 秒）で出た高さに戻り、それより長く追うと
+    /// さらに下がる。落ちる層は捉えた敵が逃げて長く追う場合（約 0.9 秒）まで続く。
+    private static let orbPeak: Float = 0.25
+    private static let orbRise: Float = 1.4
+    private static let orbFall: Float = 1.2
+    private static let orbFallLife: Float = 0.65
 
     /// 星の砲の砲口（局所座標）。
     private static let muzzle: SIMD3<Float> = [0.2, 1.2, 0.9]
@@ -88,22 +103,26 @@ enum FX_H030: HeroFXSet {
 
     // MARK: - スキル1 遠星弾
 
-    /// 衝撃の輪をまとって飛ぶ砲弾（発動の tick に出る）。
+    /// 衝撃の輪をまとって飛ぶ砲弾（溜め 0.1 秒の後に出る）。
     private static func maleficBomb() -> SkillFXRecipe {
         var r = SkillFXRecipe()
         let ahead = muzzle + SIMD3<Float>(0, 0, 1.3)
+        let t = shotWindup
         r.cast = [
-            .emit(.flare(1.9, .core, life: 0.16, tex: .flare6), offset: muzzle),
-            .emit(muzzleRing(0.5, .secondary, life: 0.24, grow: 2.6), offset: muzzle + SIMD3<Float>(0, 0, 0.2)),
-            .mesh(.ray(.streak, length: 2.6, width: 0.7, .accent, life: 0.16, alpha: 0.9), offset: ahead),
+            // 0〜0.1 秒（溜め）: 砲口に光が集まる
+            .mesh(.sprite(.flare4, 0.35, .primary, life: t + 0.04, grow: 1.8, alpha: 0.85), .follow, offset: muzzle),
+            // 0.1 秒: 発射（砲口の閃光・前を向く衝撃の輪・前へ走る光の筋）
+            .emit(.flare(1.9, .core, life: 0.16, tex: .flare6), at: t, offset: muzzle),
+            .emit(muzzleRing(0.5, .secondary, life: 0.24, grow: 2.6), at: t, offset: muzzle + SIMD3<Float>(0, 0, 0.2)),
+            .mesh(.ray(.streak, length: 2.6, width: 0.7, .accent, life: 0.16, alpha: 0.9), at: t, offset: ahead),
             .emit(.sparks(10, speed: 7, .core, end: .accent, size: 0.09, life: 0.25, gravity: 3).with {
                 $0.dir = .forward
                 $0.spread = 28
-            }, offset: muzzle),
+            }, at: t, offset: muzzle),
             .emit(.smoke(5, radius: 0.15, powder, life: 0.6, size: 0.45).with {
                 $0.dir = .forward
                 $0.speed = 2
-            }, offset: muzzle, quality: 1),
+            }, at: t, offset: muzzle, quality: 1),
         ]
         // 砲弾: 白い芯の光弾に桃の彗星の尾。通った後ろに前を向く衝撃の輪が次々と広がる
         r.travel = [
@@ -143,31 +162,61 @@ enum FX_H030: HeroFXSet {
 
     // MARK: - スキル2 星爆弾
 
-    /// 紫の殻と稲光をまとう光球 → 最初の敵か射程の端で破裂（半径 1.9m）。刻印の弾けは telegraph + 同じ破裂。
+    /// 紫の殻と稲光をまとう光球（溜め 0.1 秒の後に出て、捉えた敵へ弧を描いて飛ぶ）→ 捉えた敵か射程の端で破裂（半径 1.9m）。
+    /// 刻印の弾けは telegraph + 同じ破裂。
     private static func voidProjectile() -> SkillFXRecipe {
         var r = SkillFXRecipe()
         let E = blast
+        let t = shotWindup
         let orbAt: SIMD3<Float> = [0, 1.15, 0]
+        // 落ちる層は上がる層の頂き（+0.35 m）から始める
+        let peakAt = orbAt + SIMD3<Float>(0, orbRise * orbPeak, 0)
+        // 尾の放出は弧の中ほどの高さ（放出は高さを動かせない）
+        let trailAt = orbAt + SIMD3<Float>(0, 0.15, 0)
         r.cast = [
-            .emit(.flare(1.5, .core, life: 0.16, tex: .flare6), offset: muzzle),
-            .emit(muzzleRing(0.6, voidTint, life: 0.28, grow: 2.2, tex: .ringDouble), offset: muzzle + SIMD3<Float>(0, 0, 0.2)),
+            // 0〜0.1 秒（溜め）: 砲口に虚空の光が集まる
+            .mesh(.sprite(.flare4, 0.4, voidTint, life: t + 0.04, grow: 1.7, alpha: 0.85), .follow, offset: muzzle),
+            // 0.1 秒: 発射
+            .emit(.flare(1.5, .core, life: 0.16, tex: .flare6), at: t, offset: muzzle),
+            .emit(muzzleRing(0.6, voidTint, life: 0.28, grow: 2.2, tex: .ringDouble), at: t,
+                  offset: muzzle + SIMD3<Float>(0, 0, 0.2)),
             .emit(.sparks(8, speed: 6, .secondary, end: .primary, size: 0.09, life: 0.25, gravity: 2).with {
                 $0.dir = .forward
                 $0.spread = 30
-            }, offset: muzzle),
+            }, at: t, offset: muzzle),
         ]
+        // 光球の 3 層（白い芯・紫の殻・回る輪）を、上がる層と落ちる層の 2 組で重ねて弧にする
+        let core = FXMesh.orb(0.2, .core, life: orbPeak, grow: 1.0, alpha: 0.95)
+        let shell = FXMesh.orb(0.42, voidTint, life: orbPeak, grow: 1.0, alpha: 0.5)
+        let ring = FXMesh.halo(0.5, .primary, life: orbPeak, spin: 420, tex: .ringDouble).with { $0.size = [0.5, 1, 0.5] }
+        func rising(_ m: FXMesh) -> FXMesh {
+            m.with {
+                $0.life = orbPeak
+                $0.rise = orbRise
+                $0.fadeIn = 0.02
+                $0.fadeOut = 0.97
+            }
+        }
+        func falling(_ m: FXMesh) -> FXMesh {
+            m.with {
+                $0.life = orbFallLife
+                $0.rise = -orbFall
+                $0.fadeIn = 0.01
+                $0.fadeOut = 0.88
+            }
+        }
         r.travel = [
-            .mesh(.orb(0.2, .core, life: 0.6, grow: 1.0, alpha: 0.95).with { $0.fadeOut = 0.85 }, .follow, offset: orbAt),
-            .mesh(.orb(0.42, voidTint, life: 0.6, grow: 1.0, alpha: 0.5).with { $0.fadeOut = 0.85 }, .follow, offset: orbAt),
-            .mesh(.halo(0.5, .primary, life: 0.6, spin: 420, tex: .ringDouble).with {
-                $0.size = [0.5, 1, 0.5]
-                $0.fadeOut = 0.85
-            }, .follow, offset: orbAt),
+            .mesh(rising(core), .follow, offset: orbAt),
+            .mesh(rising(shell), .follow, offset: orbAt),
+            .mesh(rising(ring), .follow, offset: orbAt),
+            .mesh(falling(core), at: orbPeak, .follow, offset: peakAt),
+            .mesh(falling(shell), at: orbPeak, .follow, offset: peakAt),
+            .mesh(falling(ring), at: orbPeak, .follow, offset: peakAt),
             .emit(.trail(.bolt, .secondary, rate: 30, life: 0.12, size: 0.7).with {
                 $0.angleVar = 180
                 $0.tintEnd = voidTint
-            }, .follow, offset: orbAt),
-            .emit(.trail(.glow, voidTint, rate: 55, life: 0.3, size: 0.6), .follow, offset: orbAt),
+            }, .follow, offset: trailAt),
+            .emit(.trail(.glow, voidTint, rate: 55, life: 0.3, size: 0.6), .follow, offset: trailAt),
         ]
         // 破裂（光球の命中・射程の端・刻印の弾け）: 紫の球が膨らんで弾け、地を這う 5 本の稲光・虚空の陣・星屑
         r.impact = [
@@ -201,7 +250,7 @@ enum FX_H030: HeroFXSet {
 
     // MARK: - アルティメット 星砕の大砲
 
-    /// 0.2 秒溜めて、射程いっぱい（20m）を貫く極太のビーム。
+    /// 0.55 秒溜めて、射程いっぱい（20m）を貫く極太のビーム。
     private static func destructionRush(_ s: FXSkillInfo) -> SkillFXRecipe {
         var r = SkillFXRecipe()
         let L = s.range
@@ -213,12 +262,12 @@ enum FX_H030: HeroFXSet {
         let coreAxis: SIMD3<Float> = [muzzle.x, y + 0.05, 0]
         let sigil = muzzle + SIMD3<Float>(0, 0, 0.35)
         r.cast = [
-            // 0〜0.2: 砲を据えて溜める（砲口へ光が吸い込まれ、前を向く照準の陣が回り、足元に金の陣）
+            // 0〜0.55: 砲を据えて溜める（砲口へ光が吸い込まれ、前を向く照準の陣が回り、足元に金の陣）
             .emit(.gather(24, radius: 1.3, .primary, life: t), offset: muzzle),
             .emit(FXEmit(tex: .techCircle, tint: .accent, count: 1, life: t + 0.12, lifeVar: 0, size: 1.3, sizeVar: 0,
                          grow: 1.4, orient: .facing, spin: 260, fade: .easeFadeOut), offset: sigil),
             .mesh(.decal(.techCircle, 2.6, .accent, life: t + 0.5, spin: 140, alpha: 0.75)),
-            // 0.2: 発射。白い閃光・前を向く衝撃の輪・砲口から前へ流れる火花
+            // 0.55: 発射。白い閃光・前を向く衝撃の輪・砲口から前へ流れる火花
             .emit(.flare(3.2, .core, life: 0.26, tex: .flare6), at: t, offset: muzzle),
             .emit(muzzleRing(1.0, .secondary, life: 0.3, grow: 2.6), at: t, offset: sigil),
             .emit(.fan(26, .secondary, speed: 14, spread: 12, life: 0.35), at: t, offset: muzzle),
@@ -286,20 +335,21 @@ enum FX_H030: HeroFXSet {
         case .passive:
             break
         case .skill1:
-            // 砲を構えて撃ち（砲弾は発動と同時）、反動で上体が跳ねる
-            m.aim(0.05)
+            // 砲を構えて（0.1 秒の溜め = s1Windup）撃ち、反動で上体が跳ねる（全体 = 0.27 + 戻り 0.25 = 0.52 秒）
+            m.aim(shotWindup)
             m.recoil(0.05, power: 0.6)
             m.hold(0.12) { $0.glow = 1.4 }
         case .skill2:
-            // 光球を撃ち出し、重い反動を受け止める
-            m.aim(0.05, up: 0.04)
+            // 砲口を少し上げて構え（0.1 秒の溜め = s2Windup）、光球を撃ち出して重い反動を受け止める（全体 = 0.28 + 戻り 0.25 = 0.53 秒）
+            m.aim(shotWindup, up: 0.04)
             m.recoil(0.06, power: 0.85)
             m.settle(0.12)
         case .ultimate:
-            // 腰を落として砲を据え（0.2 秒の溜め）、撃った反動で上体が大きく跳ねて半歩下がり、ビームが消えるまで構え続ける
-            m.brace(0.06, depth: 0.2)
-            m.aim(0.08)
-            m.hold(0.06) { $0.glow = 2.6; $0.ring = 1.2 }
+            // 腰を落として砲を据え（0.55 秒の溜め = 0.12 + 0.2 + 0.23。動画: 指を離してから 17 コマ）、撃った反動で上体が大きく
+            // 跳ねて半歩下がり、ビームが消えるまで構え続ける（全体 = 1.06 + 戻り 0.35 = 1.41 秒）
+            m.brace(0.12, depth: 0.2)
+            m.aim(0.2)
+            m.hold(0.23) { $0.glow = 2.6; $0.ring = 1.2 }
             m.recoil(0.06, power: 1.2)
             m.hold(0.24) { $0.glow = 2.2 }
             m.settle(0.16)

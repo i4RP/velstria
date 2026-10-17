@@ -5,13 +5,15 @@ import Foundation
 // アルカニスト（遠隔 450（MLBB の 4.5）・マナ）。ロールの汎用パッシブ（スキル命中で他スキルの CD 短縮）を置き換える。
 //   パッシブ 超伝導        — スキルが命中した敵（ミニオンを除く）に「超伝導」の印を 5 秒付ける。
 //                            印の付いた敵に当たると各スキルに追加効果（印そのものはダメージを増やさない）。
-//   スキル1 分岐雷         — 前方の扇に雷（ミニオンには 200%。スキル吸収率 50%）。超伝導の敵に当たると 1 秒の「雷の鎖」: 移動速度 +40%・
+//   スキル1 分岐雷         — 前方の扇（半径 576・半角 37.5°）に雷（ミニオンには 200%。スキル吸収率 50%）。超伝導の敵に当たると 1 秒の「雷の鎖」: 移動速度 +40%・
 //                            継続ダメージ・終わりに追加ダメージ。追加ダメージが当たると S1 のクールダウンが 50% 縮む（1 回の詠唱につき 1 回）。
-//   スキル2 雷球           — 対象指定の雷球（スタン 1 秒・魔防ダウン 1.8 秒）。超伝導の敵に当たると周囲の敵にも同じダメージ・スタン・
-//                            魔防ダウンが広がる（ミニオンを含む全ての敵）。
-//   アルティメット 九天雷鳴 — 指定地点に遅れて落ちる大雷（中心に重く、外側に軽く）。超伝導の敵に当たると、その敵を中心に少し遅れて
-//                            雷が炸裂する（複数なら重なる）。
+//   スキル2 雷球           — 対象指定の雷球（射程 505・毎秒 1150。スタン 1 秒・魔防ダウン 1.8 秒）。超伝導の敵に当たると周囲の敵にも
+//                            同じダメージ・スタン・魔防ダウンが広がる（ミニオンを含む全ての敵）。
+//   アルティメット 九天雷鳴 — 指定地点（射程 615）に 0.45 秒遅れて落ちる大雷（中心 115 に重く、外側 273 に軽く）。超伝導の敵に当たると、
+//                            その敵を中心に 0.83 秒遅れて雷が炸裂する（半径 261。複数なら重なる）。
 // 再使用の窓は Eudora に無いので使わない。
+// 幾何と時間（扇の半径・半角、鎖の継続ダメージの時刻、S2 の射程・雷球の速さ、奥義の射程・遅れ・半径、炸裂の遅れ・半径）は MLBB の
+// 訓練場の画面収録で測った値（docs/kits/Eudora.md「動画で測った値（2026-10-16）」。距離 = MLBB × 100、時間はコマ（1/30 秒）を tick に合わせた値）。
 // 数値の正は日本語クライアントの表（docs/kits/Eudora.md の「公式（日本語クライアント）の数値」）。スキル1・2 は Lv1〜6、アルティメットは
 // Lv1〜3 の表をランクでそのまま引く（Kit.level。補間なし）。ダメージ = 公式の基礎 + 公式の係数 × 魔法攻撃（換算・スロット倍率なし。
 // 公式どおり魔法攻撃だけで伸び、物理攻撃の係数は持たない）。
@@ -66,31 +68,40 @@ extension KitState {
     }
 }
 
-/// エウリアの値（docs/kits/Eudora.md の「公式（日本語クライアント）の数値」の表そのまま。距離・時間の推測の値は同じ文書の「推測の値」）。
+/// エウリアの値（docs/kits/Eudora.md の「公式（日本語クライアント）の数値」の表そのまま）。公式の文に無い幾何と時間は
+/// MLBB の訓練場の画面収録で測った値（同じ文書の「動画で測った値（2026-10-16）」）。動画に映っていない値（鎖が切れる距離・S2 の広がり）は推測のまま。
 enum EuriaTuning {
     // MARK: パッシブ（超伝導）
     /// 印の持続。日本語クライアント（2026-10-10 受領の画面）の 5 秒（Liquipedia・mlbbhub の 3 秒は古い）。
+    /// 動画: 3.37 秒に付いた印が 8.40 秒に消えた（5.03 秒）。
     static let markDuration: Double = 5
     static let markName = "sc"
 
     // MARK: S1（フォークライトニング = 分岐雷）
-    /// 扇の半角（調査に角度は無い）。射程はスキル定義（650）。
-    static let s1HalfAngle: Double = Double.pi / 6
+    /// 扇の半径（動画: 照準の扇の弧の外側の線 5.75〜5.78。以前はマスターの 650）。扇の外に出る半径 6.15 の円は奥義の射程と同じ大きさで、当たりには使わない。
+    static let s1Range: Double = 576
+    /// 扇の半角（動画: 左右の辺の線の向きの差の半分 35.8〜37.5°、足元からの放射で 37.8〜38.0°。間の 37.5°。以前は推測の 30°）。
+    static let s1HalfAngle: Double = 37.5 * Double.pi / 180
     /// 1 撃（最初の一撃 = 鎖の終わりの一撃）。公式: 275 / 320 / 365 / 410 / 455 / 500（+100% 魔法攻撃）。
     static let s1Base: [Double] = [275, 320, 365, 410, 455, 500]
     static let s1PowerRatio: Double = 1.0
-    /// 継続ダメージ 1 回。公式: 10 / 12 / 14 / 16 / 18 / 20（+4% 魔法攻撃）。回数・間隔は公式に無い（推測）。
+    /// 継続ダメージ 1 回。公式: 10 / 12 / 14 / 16 / 18 / 20（+4% 魔法攻撃）。
     static let dotBase: [Double] = [10, 12, 14, 16, 18, 20]
     static let dotPowerRatio: Double = 0.04
+    /// 継続ダメージの回数と時刻（動画: 3 本の鎖で初撃から +3〜4・+11〜12・+19〜20・+27〜28 コマの 4 回 = 0.12 秒から 8 コマおき）。
+    /// tick に合わせると 0.12 / 0.39 / 0.66 / 0.93 秒（4 / 12 / 20 / 28 tick 目）。以前は推測の 0.2 秒おき（0.2〜0.8 秒）。
     static let dotCount = 4
-    static let dotInterval: Double = 0.2
+    static let dotFirst: Double = 0.12
+    static let dotInterval: Double = 0.27
+    /// 鎖の長さ = 終わりの一撃まで（公式 最大 1 秒。動画: 初撃から +29 / +29 / +30 コマ）。
     static let chainDuration: Double = 1.0
+    /// 鎖の間の移動速度（公式 +40%。動画: 鎖の間の歩き 7.25 px / コマ = 349 = 250 × 1.40。普段の歩き 5.31 の +36.5%）。
     static let chainSpeed: Double = 0.40
     /// スキル吸収率 50%（日本語クライアントの S1 の「スキル吸収率 50%」）。扇・鎖の継続ダメージ・終わりの一撃のすべて。
     static let s1SpellVampRatio: Double = 0.5
     /// ミニオンには 200%（公式。扇の一撃。鎖は超伝導の対象だけなのでミニオンには結ばれない）。
     static let s1MinionMultiplier: Double = 2.0
-    /// 鎖が切れる距離（調査に無い。S1 の射程 650 に余裕を足した値）。術者と対象の中心間。
+    /// 鎖が切れる距離（調査に無い。動画にも切れる場面は無く、中心間 約 5.3 までは保った。推測のまま）。術者と対象の中心間。
     static let chainLeash: Double = 800
     /// 鎖の終わりの一撃が当たったときの S1 のクールダウン短縮 = S1 のクールダウン（CD 短縮込み）の 50%（公式の説明文。
     /// 以前は mlbbhub の「1.5 秒」）。1 回の詠唱につき 1 回（複数の鎖の終わりの一撃が当たっても 50% のまま）。
@@ -101,12 +112,16 @@ enum EuriaTuning {
     /// 公式: 300 / 320 / 340 / 360 / 380 / 400（+50% 魔法攻撃）。
     static let s2Base: [Double] = [300, 320, 340, 360, 380, 400]
     static let s2PowerRatio: Double = 0.5
-    static let s2Speed: Double = 1800
+    /// 射程（動画: 足元の照準の円 5.05。以前はマスターの 650）。術者の中心から対象の縁まで。
+    static let s2Range: Double = 505
+    /// 雷球の速さ（動画: 3 回で毎秒 11.1〜12.4、平均 11.6。以前は推測の 1800）。
+    static let s2Speed: Double = 1150
+    /// スタン（公式 1 秒。動画: 「スタン」の表示 32 コマ = 表示の遅れ込みで 1 秒と合う）。
     static let s2Stun: Double = 1.0
-    /// 魔防ダウン（固定値。公式: 10 / 13 / 16 / 19 / 22 / 25）と持続（1.8 秒）。
+    /// 魔防ダウン（固定値。公式: 10 / 13 / 16 / 19 / 22 / 25）と持続（1.8 秒。動画: −25 の表示 57 コマ = 表示の遅れ込みで 1.8 秒と合う）。
     static let shred: [Double] = [10, 13, 16, 19, 22, 25]
     static let shredDuration: Double = 1.8
-    /// 超伝導の敵に当たったときの広がり（調査に半径は無い）。
+    /// 超伝導の敵に当たったときの広がり（調査に半径は無い。動画の S2 はどれも印の無い的に当たり、広がりは映っていない。推測のまま）。
     static let splashRadius: Double = 260
     static let shredTag = KitTags.buff("H026", "shred")
 
@@ -119,11 +134,17 @@ enum EuriaTuning {
     static let ultOuterPowerRatio: Double = 1.0
     static let burstBase: [Double] = [330, 440, 550]
     static let burstPowerRatio: Double = 1.1
-    static let ultCenterRadius: Double = 150
-    static let ultOuterRadius: Double = 300
-    static let ultDelay: Double = 0.8
-    static let burstRadius: Double = 190
-    static let burstDelay: Double = 0.5
+    /// 射程（動画: 足元の最大の円 6.10〜6.16。以前はマスターの 770）。
+    static let ultRange: Double = 615
+    /// 中心の半径・外側の半径（動画: 照準の内側の円 1.13〜1.14、外側の円 2.725〜2.737。以前は推測の 150 / 300）。
+    static let ultCenterRadius: Double = 115
+    static let ultOuterRadius: Double = 273
+    /// 指を離してから落ちるまで（動画: 14 / 13 コマ。0.45 で 14 tick 目。以前は推測の 0.8）。動画の外側の雷は中心の 0.13〜0.17 秒後だが、
+    /// 中心と外側は同じ tick の 1 回のヒット（距離で段差）のまま。
+    static let ultDelay: Double = 0.45
+    /// サンダーバーストの半径と遅れ（動画: 印のある的を中心に半径 2.61 の輪が出て、奥義の雷の 25 コマ後に炸裂。以前は推測の 190 / 0.5）。
+    static let burstRadius: Double = 261
+    static let burstDelay: Double = 0.83
 
     // MARK: クールダウン（公式の秒数の表。Kit.cooldown で CD 短縮を掛ける）
     /// 日本語クライアント: S1 は全 Lv 5.0 秒（Fandom の 7.0 → 5.0 は誤り）、S2 11.0 → 8.5、奥義 32 / 29 / 26。
@@ -172,16 +193,16 @@ struct Kit_H026: HeroKit {
     func targeting(slot: SkillSlot, stage: Int, skill: SkillDef, hero: HeroDef, base: SkillTargeting) -> SkillTargeting {
         switch slot {
         case .skill1:
-            // 前方の扇（範囲の半径 = 射程）
-            return SkillTargeting(archetype: .cone, aim: .direction, range: skill.range, radius: skill.range,
+            // 前方の扇（範囲の半径 = 射程。動画で測った 576。マスターの 650 は使わない）
+            return SkillTargeting(archetype: .cone, aim: .direction, range: T.s1Range, radius: T.s1Range,
                                   shape: .fan, halfAngle: T.s1HalfAngle)
         case .skill2:
-            // 対象指定の雷球（追尾する弾）。radius は表示用の弾の大きさ
-            return SkillTargeting(archetype: .lineSkillshot, aim: .unit, range: skill.range, radius: 60,
+            // 対象指定の雷球（追尾する弾。射程は動画で測った 505）。radius は表示用の弾の大きさ
+            return SkillTargeting(archetype: .lineSkillshot, aim: .unit, range: T.s2Range, radius: 60,
                                   shape: .lockOn, requiresTarget: true)
         case .ultimate:
-            // 地点指定（遅れて落ちる）。radius は外側の半径
-            return SkillTargeting(archetype: .groundAoE, aim: .point, range: skill.range, radius: T.ultOuterRadius,
+            // 地点指定（遅れて落ちる。射程は動画で測った 615）。radius は外側の半径
+            return SkillTargeting(archetype: .groundAoE, aim: .point, range: T.ultRange, radius: T.ultOuterRadius,
                                   shape: .circleAtPoint)
         case .passive:
             return base
@@ -428,7 +449,7 @@ struct Kit_H026: HeroKit {
 
     // MARK: S1: 雷の鎖
 
-    /// 鎖を結ぶ: 移動速度 +40%（鎖の間）、継続ダメージ 4 回、終わりに追加ダメージ（当たるとクールダウン短縮）。
+    /// 鎖を結ぶ: 移動速度 +40%（鎖の間）、継続ダメージ 4 回（0.12 秒から 0.27 秒おき）、1 秒で終わりに追加ダメージ（当たるとクールダウン短縮）。
     private func startChain(_ s: inout SimState, _ ctx: SimContext, owner i: Int, target t: Int) {
         guard let (_, n) = Self.numbersNow(s, ctx, i, .skill1) else { return }
         let tid = s.units[t].id
@@ -436,8 +457,8 @@ struct Kit_H026: HeroKit {
         s.units[i].hero?.kit?.scheduled.removeAll { $0.targetID == tid && ($0.code == T.Code.dot || $0.code == T.Code.end) }
         let dot = Self.dotDamage(rank: n.rank, stats: s.units[i].stats)
         for k in 1...T.dotCount {
-            Kit.schedule(&s, caster: i, slot: .skill1, code: T.Code.dot, after: T.dotInterval * Double(k), targetID: tid,
-                         index: k, param: dot, interruptible: true)
+            Kit.schedule(&s, caster: i, slot: .skill1, code: T.Code.dot, after: T.dotFirst + T.dotInterval * Double(k - 1),
+                         targetID: tid, index: k, param: dot, interruptible: true)
         }
         // index = この鎖を結んだ詠唱の通し番号（クールダウン短縮を詠唱ごとに 1 回にする）
         Kit.schedule(&s, caster: i, slot: .skill1, code: T.Code.end, after: T.chainDuration, targetID: tid,
@@ -609,22 +630,21 @@ struct Kit_H026: HeroKit {
         return near
     }
 
-    /// スキル2 が今この敵に撃てるか（クールダウン・マナ・行動可能・射程）。
+    /// スキル2 が今この敵に撃てるか（クールダウン・マナ・行動可能・射程 505）。
     static func orbReady(_ s: SimState, _ ctx: SimContext, bot: Int, target: Int) -> Bool {
-        guard SkillSystem.canCast(s, ctx, heroIndex: bot, slot: .skill2),
-              let skill = ctx.master.skill(hero: "H026", slot: .skill2) else { return false }
-        let reach = skill.range + s.units[target].radius
+        guard SkillSystem.canCast(s, ctx, heroIndex: bot, slot: .skill2) else { return false }
+        let reach = T.s2Range + s.units[target].radius
         return s.units[bot].pos.distanceSquared(to: s.units[target].pos) <= reach * reach
     }
 
-    /// スキル1 が今この敵に撃てるか（クールダウン・マナ・行動可能・射程）。
+    /// スキル1 が今この敵に撃てるか（クールダウン・マナ・行動可能・扇の射程 576）。
     static func fork1Ready(_ s: SimState, _ ctx: SimContext, bot: Int, target: Int) -> Bool {
         guard SkillSystem.canCast(s, ctx, heroIndex: bot, slot: .skill1),
               let skill = ctx.master.skill(hero: "H026", slot: .skill1), let h = s.units[bot].hero,
               let def = ctx.master.hero("H026"),
               s.units[bot].resource + 1e-6 >= SkillSystem.cost(for: skill, hero: def, rank: max(1, h.rank(.skill1)),
                                                                resource: h.resourceKind) else { return false }
-        let reach = skill.range + s.units[target].radius
+        let reach = T.s1Range + s.units[target].radius
         return s.units[bot].pos.distanceSquared(to: s.units[target].pos) <= reach * reach
     }
 

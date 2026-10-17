@@ -6,14 +6,20 @@ import Foundation
 // アサシン（近接 180・Mana。MLBB の値。2026-10-14 に 150・Energy から直した）。キットはロールの汎用パッシブ（奇襲ボーナス・キル/アシストの全 CD 短縮）を置き換える。
 //   パッシブ 空断の理（Enemy's Bane）— ダメージを与えるたび（通常攻撃・スキル）に相手の物理防御を固定値で下げる。5 層・5 秒、
 //                                      1 層あたり 3〜8（日本語クライアントは範囲だけ。レベル別の表は Fandom の現行: Lv1〜3 = 3、…、Lv15 = 8）。
-//   S1   環剣（Flying Sword）        — 5 本の剣が 5 秒間 周囲を回り、触れた敵に 75〜125（+25% 追加物理攻撃）の接触ダメージ（0.5 秒ごと）。
-//                                      周回中に通常攻撃/スキルでダメージを与えるたび、剣が対象へ飛んで「剣撃」200〜300（+50% 追加）
-//                                      （進路上の他の敵には 50%、ミニオンへは 50%）+ スキル1 のクールダウン −0.5 秒・スキル2 −1 秒。
-//   S2   断空突進（Assault）         — 指定方向へ突進して通り道の敵に 75〜150（+50% 追加）。次の通常攻撃が強化
+//   S1   環剣（Flying Sword）        — 5 本の剣が 4.8 秒間 術者から 385 の輪を回り、輪の帯（325〜445）に触れた敵に 75〜125（+25% 追加物理攻撃）の
+//                                      接触ダメージ（0.48 秒ごと。術者のすぐそばの敵には触れない）。
+//                                      周回中に通常攻撃/スキルでダメージを与えるたび、輪の剣を 1 本使って対象へ飛ばす「剣撃」200〜300（+50% 追加）
+//                                      （進路上の他の敵には 50%、ミニオンへは 50%）。当たった剣撃 1 本ごとにスキル1 のクールダウン −0.5 秒・スキル2 −1 秒。
+//                                      飛ばした剣は輪に戻らない（その剣の接触も無くなる）。5 本を使い切ると効果はその場で終わる
+//                                      （2026-10-16 の画面収録で剣の本数をコマごとに数えた: docs/kits/Saber.md「剣の本数（2026-10-16）」）。
+//   S2   断空突進（Assault）         — 指定方向へ 300 を毎秒 1500 で突進して通り道の敵に 75〜150（+50% 追加）。次の通常攻撃が強化
 //                                      （75〜150 + 物理攻撃 120%、鈍足 60%・1 秒、射程 250）。
-//   奥義 三連断空（Triple Slash）     — 対象指定（敵ヒーロー）。突進して 1.2 秒打ち上げ（強靭 = CC 短縮の影響を受けない）、その間に 3 連撃
-//                                      （120 / 170 / 220（+80% 追加）× 2 + 240 / 340 / 440（+160% 追加））。最初の 2 撃には S1 の剣撃が乗る
-//                                      （3 撃目は乗らない）。突進はノックアップ・制圧で止まり、打ち上げたあとの連撃は制圧（suppress）でのみ中断される。
+//   奥義 三連断空（Triple Slash）     — 対象指定（敵ヒーロー、縁まで 545）。毎秒 1700 で突進して 1.2 秒打ち上げ（強靭 = CC 短縮の影響を受けない）、
+//                                      到着の瞬間・0.39 秒・0.78 秒に 3 連撃（120 / 170 / 220（+80% 追加）× 2 + 240 / 340 / 440（+160% 追加））、
+//                                      術者は到着から 1.0 秒動けない。最初の 2 撃には S1 の剣撃が乗る（3 撃目は乗らない）。
+//                                      突進はノックアップ・制圧で止まり、打ち上げたあとの連撃は制圧（suppress）でのみ中断される。
+// 幾何と時間（剣の輪・回る速さ・剣が出ている秒数・剣撃の遅れ・S2 の射程と速さ・奥義の射程・速さ・3 撃の時刻・術者の硬直）は
+// 2026-10-16 に MLBB の訓練場の画面収録で測った値（docs/kits/Saber.md「動画で測った値（2026-10-16）」）。ダメージ・係数・CD・MP は公式の表のまま。
 // 数値: 公式の表をそのまま使う（スキル1・2 = Lv1〜6、奥義 = Lv1〜3。ランク = 公式の Lv。換算・補間・全体の倍率なし）。
 //   ダメージ = 基礎[Lv] + 係数 × 能力値（`Kit.official`）。「追加物理攻撃」の係数は Stats.extraAttack（装備・エンブレム・バフで増えた分）、
 //   強化通常攻撃の 120% だけは合計の物理攻撃（公式の「物理攻撃」）。追加物理攻撃は発動の時点の値。クールダウン・コストも公式の表
@@ -24,6 +30,7 @@ import Foundation
 //   ints[0]  = 奥義の段（0 = なし / 1 = 突進中 / 2 = 三連撃中）  ints[1] = 剣撃を出さない間 1（3 撃目の最中のみ）
 //   ints[2]  = 剣撃を出した回数（累計。検証用）                  ints[3] = 奥義の三連撃が当たった回数（累計。検証用）
 //   ints[4]  = 直近に防御ダウンを積んだ敵の層の数（パッシブのバッジ用）  ids[1] = その敵
+//   ints[5]  = 輪に残っている剣の本数（0〜5。スキル1 のバッジ）     ints[6] = 使った剣の印（剣 j を使ったら bit j）
 //   timers[0] = 剣が周回している残り秒   timers[1] = 剣撃の最短間隔（同時に何本も飛ばさない）
 //   timers[2] = S2 の強化通常攻撃の残り秒   timers[3] = 防御ダウンの層が残っている秒（バッジ。命中のたびに 5 秒へ戻る）
 //   reals[0] = 接触ダメージ（1 回）  reals[1] = 剣撃ダメージ  reals[2] = 強化通常攻撃の基礎ダメージ  reals[3] = 奥義の 1・2 撃目
@@ -110,6 +117,18 @@ extension KitState {
         get { ids[1] }
         set { ids[1] = newValue }
     }
+
+    /// 輪に残っている剣の本数（剣撃 1 本ごとに 1 本減る。0 で効果が終わる）。
+    var zailSwordsLeft: Int {
+        get { ints[5] }
+        set { ints[5] = newValue }
+    }
+
+    /// 使った剣の印（剣 j（接触 i は剣 i % 5 が通った回）を使ったら bit j）。使った剣の接触は来ない。
+    var zailSpentSwords: Int {
+        get { ints[6] }
+        set { ints[6] = newValue }
+    }
 }
 
 struct Kit_H028: HeroKit {
@@ -121,7 +140,7 @@ struct Kit_H028: HeroKit {
         self.isReady = isReady
     }
 
-    // MARK: - 数値（MLBB の公式の表そのまま。距離は Velstria 単位 ≈ MLBB × 100 を近接スキルの射程に合わせて調整）
+    // MARK: - 数値（MLBB の公式の表そのまま。距離は Velstria 単位 = MLBB × 100。公式に無い幾何と時間は 2026-10-16 の画面収録で測った値）
 
     enum Tune {
         // パッシブ 空断の理
@@ -138,13 +157,25 @@ struct Kit_H028: HeroKit {
         static let baneMark = "bane"
         static let baneTag = KitTags.buff("H028", "bane")
 
-        // S1 周回する剣
-        /// 剣の周回半径（術者の中心から対象の縁まで）。近接の通常攻撃（射程 150 + 半径）の外側まで届く。
-        static let orbitRadius = 230.0
+        // S1 周回する剣（幾何と時間は 2026-10-16 の画面収録で測った値。docs/kits/Saber.md「動画で測った値（2026-10-16）」）
+        /// 剣の周回の半径（術者の中心から剣の中心まで）。動画: 5 本の剣の中心が術者から 3.86〜3.88（剣の高さを 55 ヒーロー px として
+        /// 地面へ戻した中央値。高さの見当で ±0.15）。以前の推測は 230（対象の縁まで、円の中の全員）。
+        static let orbitRadius = 385.0
+        /// 剣が届く外縁（術者の中心から）。動画: S1 を押したままの照準の円 4.45（72 方向で ±0.02）= 剣の帯の外縁
+        /// （剣の中心 3.85 + 手裏剣の半径 0.6）。剣の帯は orbitRadius ± swordHalfWidth（325〜445）で、対象の体がこの帯に掛かれば触れる。
+        static let swordReach = 445.0
+        static var swordHalfWidth: Double { swordReach - orbitRadius }
+        /// 剣の本数（公式「旋回する剣を5本放ち」）。剣撃 1 本ごとに 1 本使い、使った剣は輪に戻らない。動画（2026-10-16）: 剣撃のたびに
+        /// その剣の席が戻りまで空のまま（5 → 4 → 3、5 → 4 → 3 → 2 を 3 回とも）。使い切ったら効果が終わる（Saber.md「剣の本数」）。
         static let swordCount = 5
-        static let swordsDuration = 5.0
-        /// 接触ダメージの間隔と回数（0.5 秒ごとに 9 回 = 4.5 秒。5 秒で剣が戻る）。
-        static let pulseInterval = 0.5
+        /// 剣が出ている秒数。動画: 指を離してから 0.2 秒で剣が出て、0.47 秒で輪に着き、4.6 秒で戻り始め、4.83 秒で戻り終わる（2 回とも同じ）。
+        static let swordsDuration = 4.8
+        /// 剣の回る速さ（度/秒、上から見て時計回り）。動画: 毎秒 151°（S1 の 1 回目、65 点）・154°（4 回目、38 点）。周期 2.4 秒。
+        static let orbitSpeed = 151.0
+        /// 接触ダメージの最初の時刻・間隔・回数。剣が輪に着く 0.47 秒から、5 本が 72° おきに毎秒 151° で回るので、輪の上の 1 点を
+        /// 0.48 秒ごとに剣が通る（72 / 151）。戻り始める 4.6 秒までに 9 回（0.47〜4.31 秒）。以前は 0.5 秒ごと 9 回（0.5〜4.5 秒）。
+        static let pulseFirst = 0.47
+        static let pulseInterval = 0.48
         static let pulseCount = 9
         /// 公式（日本語クライアント）の表: 接触（「基礎ダメージ」）75 / 85 / 95 / 105 / 115 / 125（+25% 追加物理攻撃）、
         /// 剣の攻撃 = 剣撃（「追加ダメージ」）200 / 220 / 240 / 260 / 280 / 300（+50% 追加物理攻撃）。追加物理攻撃は発動の時点の値。
@@ -152,8 +183,10 @@ struct Kit_H028: HeroKit {
         static let contactAttackRatio = 0.25
         static let strikeBase: [Double] = [200, 220, 240, 260, 280, 300]
         static let strikeAttackRatio = 0.5
-        static let strikeDelay = 0.12
-        /// 剣撃どうしの最短間隔（多段ヒットのスキルで一度に何本も飛ばさない。公式に記載なし = 推測の値）。
+        /// 命中から剣撃が当たるまで。動画: 奥義の 1・2 撃目 → 剣撃の数字が 3 コマ（2 回）、強化通常攻撃 → 2 コマ（以前の推測は 0.12 秒）。
+        static let strikeDelay = 0.1
+        /// 剣撃どうしの最短間隔（多段ヒットのスキルで一度に何本も剣を使わない。公式に記載なし = 推測の値。動画で剣が飛んだ間隔は
+        /// どれも 0.4 秒以上: 最も短いのは奥義の 1・2 撃目の 12 コマ）。
         static let strikeGap = 0.35
         /// 剣撃が届く最大距離（術者の中心から対象の縁まで）。
         static let strikeReach = 450.0
@@ -164,14 +197,16 @@ struct Kit_H028: HeroKit {
         /// 剣の攻撃のミニオンへの倍率（公式「ミニオンへのダメージは50%に低下」。主語は「剣の攻撃」なので主対象と進路上の敵の両方に掛ける
         /// = 進路上のミニオンは 25%。モンスター・練習場の人形・ヒーローは 100%。`HitPayload.minionMultiplier`）。
         static let strikeMinionRatio = 0.5
-        /// 剣撃 1 本あたりの S2 のクールダウン短縮（公式 1 秒）。
+        /// 当たった剣撃 1 本あたりの S2 のクールダウン短縮（公式 1 秒。動画: 剣撃 3 本で S2 の CD 7 → 4.03 秒）。
         static let chargeRefund = 1.0
-        /// 剣撃 1 本あたりの S1 自身のクールダウン短縮（公式 0.5 秒）。
+        /// 当たった剣撃 1 本あたりの S1 自身のクールダウン短縮（公式 0.5 秒。動画: 剣撃 3 本で S1 の CD 10 → 8.5 秒）。
         static let swordsRefund = 0.5
 
         // S2 突進
-        static let dashRange = 350.0
-        static let dashSpeed = 1800.0
+        /// 射程と速さ。動画: 照準の円 2.97（±0.01）、突進は 6.2 コマで 3.0〜3.1、止まった的の体力バーで 1 コマ 0.50 = 毎秒 15.0
+        /// （3 回とも同じ速さ）。以前の推測は 350・1800。
+        static let dashRange = 300.0
+        static let dashSpeed = 1500.0
         /// 経路の当たり半径（対象の半径は別に足す）。
         static let dashWidth = 70.0
         /// 公式（日本語クライアント）の表: 突撃（「基礎ダメージ」）75 / 90 / 105 / 120 / 135 / 150（+50% 追加物理攻撃）。
@@ -181,9 +216,11 @@ struct Kit_H028: HeroKit {
         static let dashAttackRatio = 0.5
         static let enhanceBase: [Double] = [75, 90, 105, 120, 135, 150]
         static let enhanceAttackRatio = 1.2
-        /// 強化通常攻撃を撃てる時間（公式に記載なし。汎用の強化通常攻撃（blinkEmpower）に合わせた）。
+        /// 強化通常攻撃を撃てる時間（公式に記載なし。汎用の強化通常攻撃（blinkEmpower）に合わせた）。動画の 3 回はどれも
+        /// 到着から 0.1〜0.7 秒で使ったので、上限は測れていない。
         static let enhanceWindow = Balance.Skills.empowerDuration
-        /// 強化通常攻撃の射程（公式 2.5 = 250。通常攻撃の射程 150 との差を、強化が残っている間だけ足す）。
+        /// 強化通常攻撃の射程（公式 2.5 = 250。通常攻撃の射程 180 との差を、強化が残っている間だけ足す）。動画: 強化の間の足元の円 2.47〜2.48
+        /// （通常攻撃の円 1.78〜1.80 と同じく公式の −1%）。
         static let enhanceRange = 250.0
         static let enhanceRangeTag = KitTags.buff("H028", "enhanceRange")
         static let slowAmount = 0.6
@@ -191,16 +228,23 @@ struct Kit_H028: HeroKit {
         static let slowTag = KitTags.buff("H028", "chargeSlow")
 
         // 奥義 三連断空
-        /// 突進の届く距離（術者の中心から対象の縁まで）。調査の 4.6（旧 5.9）に対し、マスターは 600。
-        static let ultReach = 500.0
-        static let ultSpeed = 2600.0
+        /// 突進の届く距離（術者の中心から対象の縁まで）。動画: 照準の円 5.44〜5.45（2 回）。以前の推測は 500（調査の 4.6・旧 5.9）。
+        static let ultReach = 545.0
+        /// 突進の速さ。動画: 止まった的の体力バーで 1 コマ 0.56〜0.60 = 毎秒 17.0〜17.4（2 回）。以前の推測は 2600。
+        static let ultSpeed = 1700.0
         static let ultGap = 10.0
         /// 到着時に対象がこれより離れていたら外れ（突進の追尾はしない）。
         static let ultSlack = 260.0
+        /// 打ち上げ（公式 1.2 秒）。動画: 対象の「ノックアップ」の表示が 37・38 コマ（1.23・1.27 秒）。
         static let airborne = 1.2
         static let strikeCount = 3
-        static let ultFirstDelay = 0.2
-        static let ultInterval = 0.4
+        /// 3 撃の時刻（到着から）。動画: 1 撃目は打ち上げの表示と同じコマ（到着の瞬間）、2 撃目は 12・13 コマ後、3 撃目は 23・24 コマ後
+        /// （2 回とも。3 撃目は 1 撃目のちょうど 2 倍の数字で見分けた）= 0 / 0.40 / 0.78 秒。以前の推測は 0.2 / 0.6 / 1.0 秒。
+        static let ultFirstDelay = 0.0
+        static let ultInterval = 0.39
+        /// 術者が動けない時間（到着から）。動画: 到着から 30 コマ（1.0 秒。3 撃目の 8 コマ後）で歩き出す（2 回とも）。
+        /// 以前は 3 撃目で解けた。
+        static let ultLock = 1.0
         /// 公式（日本語クライアント）の表: 1・2 撃目（「基礎ダメージ」）120 / 170 / 220（+80% 追加物理攻撃）、
         /// 3 撃目（「追加ダメージ」）240 / 340 / 440（+160% 追加物理攻撃）（Fandom の 120 / 150 / 180（+100%）は誤り）。
         static let ultStrikeBase: [Double] = [120, 170, 220]
@@ -212,7 +256,7 @@ struct Kit_H028: HeroKit {
         static let botExecuteRatio = 0.6
 
         // クールダウン（公式の表の秒数。CD 短縮を掛ける: Kit.cooldown）。全 Lv 一定のものは 1 要素
-        /// S1 は全 Lv 10 秒（日本語クライアント。Fandom の 9 秒は誤り）。持続 5 秒、剣撃 1 本ごとに 0.5 秒縮む。
+        /// S1 は全 Lv 10 秒（日本語クライアント。Fandom の 9 秒は誤り）。持続 4.8 秒、当たった剣撃 1 本ごとに 0.5 秒縮む（5 本で 2.5 秒）。
         static let swordsCooldown: [Double] = [10]
         static let chargeCooldown: [Double] = [7]
         static let ultCooldown: [Double] = [44, 40, 36]
@@ -231,6 +275,8 @@ struct Kit_H028: HeroKit {
         static let chargeArrive = 3
         static let ultArrive = 4
         static let ultStrike = 5
+        /// 奥義の硬直の終わり（到着から ultLock 秒）
+        static let ultEnd = 6
     }
 
     // MARK: - A. 記述
@@ -238,8 +284,8 @@ struct Kit_H028: HeroKit {
     func targeting(slot: SkillSlot, stage: Int, skill: SkillDef, hero: HeroDef, base: SkillTargeting) -> SkillTargeting {
         switch slot {
         case .skill1:
-            // 自己中心（剣が周囲を回る）。radius = 周回半径
-            return SkillTargeting(archetype: .selfAoE, aim: .none, range: 0, radius: Tune.orbitRadius, shape: .selfRing)
+            // 自己中心（剣が周囲を回る）。radius = 剣の帯の外縁（照準の円 4.45）。接触は輪の帯（orbitRadius ± swordHalfWidth）だけ
+            return SkillTargeting(archetype: .selfAoE, aim: .none, range: 0, radius: Tune.swordReach, shape: .selfRing)
         case .skill2:
             // 指定方向への突進（経路上の敵に当たる）。radius は経路の当たり半径
             return SkillTargeting(archetype: .dashStrike, aim: .direction, range: Tune.dashRange,
@@ -337,6 +383,7 @@ struct Kit_H028: HeroKit {
     /// 名前は master のもの（フライングソード = 環剣、アサルト = 断空突進、剣の攻撃 = 剣撃）。
     func text(slot: SkillSlot) -> KitText? {
         let gap = String(format: "%g", Tune.strikeGap)
+        let every = String(format: "%g", Tune.pulseInterval)
         switch slot {
         case .passive:
             return KitText(
@@ -347,10 +394,12 @@ struct Kit_H028: HeroKit {
                 tags: [KitTag.debuff])
         case .skill1:
             return KitText(
-                ja: "自身の周囲を旋回する剣を5本放ち、命中した周囲の敵に{base}(+{atkPct}%追加物理攻撃)の物理ダメージを与える（0.5秒ごと、最大{hits}回）。効果時間（{duration}秒）終了後、剣は自身のもとへ戻る。\n\n"
-                    + "発動中、通常攻撃またはスキルでダメージを与えるたびに剣撃を放つ（\(gap)秒に1回まで）。剣撃は対象に{strikeBase}(+{strikePct}%追加物理攻撃)の物理ダメージを与え、進路上の敵に{passPercent}%のダメージを与える（ミニオンへのダメージは{minionPercent}%に低下）。剣撃ごとに、環剣のクールダウンが{selfRefund}秒、断空突進のクールダウンが{refund}秒短縮される。",
-                en: "Release 5 swords that orbit around Zail, dealing {base} (+{atkPct}% Extra Physical Attack) physical damage to nearby enemies hit (every 0.5s, up to {hits} times). When the effect ends ({duration}s), the swords return to Zail.\n\n"
-                    + "While active, each time Zail deals damage with a basic attack or a skill, a sword strike flies at the target (at most once every \(gap)s), dealing {strikeBase} (+{strikePct}% Extra Physical Attack) physical damage to the target and {passPercent}% damage to enemies in its path (damage to minions is reduced to {minionPercent}%). Each sword strike reduces the cooldown of this skill by {selfRefund}s and of Charge by {refund}s.",
+                ja: "自身の周囲を旋回する剣を5本放ち、命中した周囲の敵に{base}(+{atkPct}%追加物理攻撃)の物理ダメージを与える（\(every)秒ごと、最大{hits}回。剣は少し離れた輪を回り、すぐそばの敵には触れない）。効果時間（{duration}秒）終了後、剣は自身のもとへ戻る。\n\n"
+                    + "発動中、通常攻撃またはスキルでダメージを与えるたびに、剣を1本対象へ飛ばして剣撃を放つ（\(gap)秒に1回まで）。剣撃は対象に{strikeBase}(+{strikePct}%追加物理攻撃)の物理ダメージを与え、進路上の敵に{passPercent}%のダメージを与える（ミニオンへのダメージは{minionPercent}%に低下）。剣撃ごとに、環剣のクールダウンが{selfRefund}秒、断空突進のクールダウンが{refund}秒短縮される。"
+                    + "飛ばした剣は戻らず（周囲の敵にも触れなくなる）、5本すべてを飛ばすと効果が終わる。",
+                en: "Release 5 swords that orbit around Zail, dealing {base} (+{atkPct}% Extra Physical Attack) physical damage to nearby enemies hit (every \(every)s, up to {hits} times; the swords circle a ring a short distance away and do not touch enemies right next to Zail). When the effect ends ({duration}s), the swords return to Zail.\n\n"
+                    + "While active, each time Zail deals damage with a basic attack or a skill, one sword flies at the target as a sword strike (at most once every \(gap)s), dealing {strikeBase} (+{strikePct}% Extra Physical Attack) physical damage to the target and {passPercent}% damage to enemies in its path (damage to minions is reduced to {minionPercent}%). Each sword strike reduces the cooldown of this skill by {selfRefund}s and of Charge by {refund}s. "
+                    + "A sword that flies does not come back (it no longer touches nearby enemies), and the effect ends once all 5 swords have flown.",
                 tags: [KitTag.aoe, KitTag.buff])
         case .skill2:
             return KitText(
@@ -379,8 +428,10 @@ struct Kit_H028: HeroKit {
             guard k.zailBaneWindow > 0, k.zailBaneStacks > 0 else { return nil }
             return KitBadge(kind: .stacks, value: min(Tune.baneMaxStacks, k.zailBaneStacks), maxValue: Tune.baneMaxStacks)
         case .skill1:
-            guard k.zailSwordsRemaining > 0 else { return nil }
-            return KitBadge(kind: .timer, remaining: k.zailSwordsRemaining, total: Tune.swordsDuration)
+            // 輪に残っている剣の本数（剣撃のたびに減る。演出の回る刃の数もこの値で減らす: FX_H028）。
+            // MLBB のボタンに本数の表示は無い（動画: CD の数字だけ）が、Velstria は剣が画面の外・UI の裏に回っても読めるよう数で出す
+            guard k.zailSwordsRemaining > 0, k.zailSwordsLeft > 0 else { return nil }
+            return KitBadge(kind: .stacks, value: min(Tune.swordCount, k.zailSwordsLeft), maxValue: Tune.swordCount)
         case .skill2:
             guard k.zailChargeWindow > 0 else { return nil }
             return KitBadge(kind: .timer, remaining: k.zailChargeWindow, total: Tune.enhanceWindow)
@@ -406,22 +457,25 @@ struct Kit_H028: HeroKit {
         return .done
     }
 
-    /// S1: 剣が周囲を回る。0.5 秒ごとに接触ダメージ（CC では止まらない）。
+    /// S1: 剣が術者から orbitRadius の輪を回る。輪に着く 0.47 秒から 0.48 秒ごとに輪の帯の敵へ接触ダメージ（CC では止まらない）。
+    /// 接触 i は剣 i % 5 が通った回（剣撃で使った剣の回は来ない: pulse）。
     private func castSwords(_ s: inout SimState, _ c: KitCast) {
         let i = c.caster
-        // 重ね掛け（クールダウンのリセットなど）は予約を作り直す
+        // 重ね掛け（クールダウンのリセットなど）は予約を作り直し、剣も 5 本に戻す
         Kit.cancelScheduled(&s, caster: i, slot: .skill1, code: Code.pulse)
         let n = c.numbers
         // 接触・剣撃のダメージ（公式の表 + 25% / 50% 追加物理攻撃。発動した時点の Lv・追加物理攻撃）
         let stats = s.units[i].stats
         let pulse = Self.contactDamage(rank: n.rank, stats: stats)
         s.units[i].hero!.kit!.zailSwordsRemaining = Tune.swordsDuration
+        s.units[i].hero!.kit!.zailSwordsLeft = Tune.swordCount
+        s.units[i].hero!.kit!.zailSpentSwords = 0
         s.units[i].hero!.kit!.zailPulseDamage = pulse
         s.units[i].hero!.kit!.zailStrikeDamage = Self.strikeDamage(rank: n.rank, stats: stats)
         Kit.emitCast(&s, c, origin: s.units[i].pos, target: s.units[i].pos, shape: .selfRing,
                      duration: Tune.swordsDuration, count: Tune.swordCount)
         Kit.strikeSequence(&s, caster: i, slot: .skill1, code: Code.pulse, count: Tune.pulseCount,
-                           interval: Tune.pulseInterval, firstDelay: Tune.pulseInterval, param: pulse,
+                           interval: Tune.pulseInterval, firstDelay: Tune.pulseFirst, param: pulse,
                            interruptible: false)
     }
 
@@ -470,9 +524,9 @@ struct Kit_H028: HeroKit {
         let landing = Kit.dashSweeping(&s, ctx, caster: i, slot: .ultimate, to: from + dir * travel,
                                        speed: Tune.ultSpeed, payload: carrier, radius: 0, arriveCode: Code.ultArrive)
         let dash = from.distance(to: landing) / Tune.ultSpeed
+        // 長さ = 突進 + 到着からの硬直（3 撃はその中: 到着 + 0 / 0.39 / 0.78 秒）
         Kit.emitCast(&s, c, origin: from, target: s.units[t].pos, unit: t, shape: .lockOn,
-                     duration: dash + Tune.ultFirstDelay + Tune.ultInterval * Double(Tune.strikeCount - 1),
-                     count: Tune.strikeCount)
+                     duration: dash + Tune.ultLock, count: Tune.strikeCount)
     }
 
     func onTimer(_ s: inout SimState, _ ctx: SimContext, owner: Int, timer: KitTimer) {
@@ -489,16 +543,35 @@ struct Kit_H028: HeroKit {
             }
         case Code.ultArrive: ultArrive(&s, ctx, owner: owner)
         case Code.ultStrike: ultStrike(&s, ctx, owner: owner, timer: timer)
+        case Code.ultEnd:
+            // 3 撃の後の硬直が明けた（到着から ultLock 秒）
+            if s.units[owner].hero?.kit?.zailUltPhase == 2 { endUlt(&s, owner) }
         default: break
         }
     }
 
-    /// S1 の接触ダメージ 1 回: 周回半径内の敵（構造物を除く）。
+    /// S1 の接触ダメージ 1 回: 剣の輪の帯（術者から orbitRadius ± swordHalfWidth）に体が掛かる敵（構造物を除く）。
+    /// 輪の内側（術者のすぐそば）・外側の敵には触れない（動画: 剣は術者から 3.85 を回り、隣の敵に接触の数字が出ない）。
+    /// 接触 i は剣 i % 5 が通った回。剣撃で使った剣はもう輪に居ないので、その剣の回は来ない（動画: 使った剣の席は戻りまで空のまま）。
     private func pulse(_ s: inout SimState, _ ctx: SimContext, owner: Int, timer: KitTimer) {
+        guard let k = s.units[owner].hero?.kit, k.zailSwordsLeft > 0,
+              !Self.isSpent(k.zailSpentSwords, sword: Self.sword(ofPulse: timer.index)) else { return }
         let p = HitPayload(damage: timer.param, damageType: .physical, source: .skill(.skill1),
                            skillID: Self.skillID(ctx, .skill1))
-        SkillArchetypes.hitArea(&s, ctx, caster: owner, center: s.units[owner].pos, radius: Tune.orbitRadius,
-                                shape: .circle, payload: p)
+        let me = s.units[owner].pos
+        let team = s.units[owner].team
+        var targets: [Int] = []
+        for j in s.units.indices where s.units[j].team != team && !s.units[j].isStructure {
+            guard CombatSystem.isLiving(s, j) else { continue }
+            if abs(me.distance(to: s.units[j].pos) - Tune.orbitRadius) <= Tune.swordHalfWidth + s.units[j].radius {
+                targets.append(j)
+            }
+        }
+        guard !targets.isEmpty else { return }
+        let ownerID = s.units[owner].id
+        for j in targets {
+            CombatSystem.applyHit(&s, ctx, sourceID: ownerID, team: team, targetIndex: j, payload: p, from: me)
+        }
     }
 
     /// 剣撃: 主対象にダメージ + S1・S2 のクールダウン短縮、軌道上の他の敵に 50%。ミニオンへは主対象・軌道上とも 50%（公式）。
@@ -557,8 +630,9 @@ struct Kit_H028: HeroKit {
         Kit.knockUp(&s, target: t, duration: Tune.airborne, sourceID: id, ignoresResilience: true)
         let face = (s.units[t].pos - s.units[owner].pos)
         if face != .zero { s.units[owner].facing = face.angle }
-        // 三連撃の間は動かない。打ち上げたあとは制圧（suppress）でのみ中断される（公式。スタンなどでは止まらない）
-        let span = Tune.ultFirstDelay + Tune.ultInterval * Double(Tune.strikeCount - 1) + 0.1
+        // 三連撃と、その後の硬直（到着から ultLock 秒。動画: 3 撃目の 8 コマ後に歩き出す）の間は動かない。
+        // 打ち上げたあとは制圧（suppress）でのみ中断される（公式。スタンなどでは止まらない）
+        let span = Tune.ultLock
         s.units[owner].attackTargetID = nil
         s.units[owner].windupRemaining = nil
         s.units[owner].moveIntent = .none
@@ -570,22 +644,29 @@ struct Kit_H028: HeroKit {
         Kit.strikeSequence(&s, caster: owner, slot: .ultimate, code: Code.ultStrike, count: Tune.strikeCount,
                            interval: Tune.ultInterval, firstDelay: Tune.ultFirstDelay, targetID: k.zailUltTargetID,
                            param: k.zailUltDamage, interruptible: false)
+        Kit.schedule(&s, caster: owner, slot: .ultimate, code: Code.ultEnd, after: span, interruptible: false)
+    }
+
+    /// 奥義の予約（3 撃と硬直の終わり）をすべて取り消して終える。
+    private func abortUlt(_ s: inout SimState, _ owner: Int) {
+        Kit.cancelScheduled(&s, caster: owner, slot: .ultimate, code: Code.ultStrike)
+        Kit.cancelScheduled(&s, caster: owner, slot: .ultimate, code: Code.ultEnd)
+        endUlt(&s, owner)
     }
 
     /// 奥義の 1 撃。対象が倒れた・離れすぎた・術者が制圧されたら残りを取り消して終える。3 撃目は剣撃を乗せない。
+    /// 3 撃目の後も硬直（到着から ultLock 秒）が明けるまで奥義は続く（Code.ultEnd で終える）。
     private func ultStrike(_ s: inout SimState, _ ctx: SimContext, owner: Int, timer: KitTimer) {
         guard s.units[owner].hero?.kit?.zailUltPhase == 2 else { return }
         guard let t = s.index(of: timer.targetID), CombatSystem.isLiving(s, t), s.units[t].team != s.units[owner].team,
               !s.units[owner].has(.suppress)
         else {
-            Kit.cancelScheduled(&s, caster: owner, slot: .ultimate, code: Code.ultStrike)
-            endUlt(&s, owner)
+            abortUlt(&s, owner)
             return
         }
         let reach = s.units[owner].radius + s.units[t].radius + Tune.ultSlack
         guard s.units[owner].pos.distanceSquared(to: s.units[t].pos) <= reach * reach else {
-            Kit.cancelScheduled(&s, caster: owner, slot: .ultimate, code: Code.ultStrike)
-            endUlt(&s, owner)
+            abortUlt(&s, owner)
             return
         }
         let last = timer.index >= Tune.strikeCount - 1
@@ -599,10 +680,16 @@ struct Kit_H028: HeroKit {
                               payload: p, from: s.units[owner].pos)
         s.units[owner].hero?.kit?.zailSwordLock = 0
         s.units[owner].hero?.kit?.zailUltStrikes += 1
-        if last { endUlt(&s, owner) }
+        // 3 撃目の後は硬直の終わり（Code.ultEnd）を待つ。予約が無ければ（念のため）ここで終える
+        if last, Kit.scheduledCount(s, caster: owner, code: Code.ultEnd) == 0 { endUlt(&s, owner) }
     }
 
     func update(_ s: inout SimState, _ ctx: SimContext, owner: Int) {
+        // 剣が戻った（効果時間の終わり。残っていた剣はここで術者のもとへ戻る）: 本数と使った剣の印を畳む
+        if let k = s.units[owner].hero?.kit, k.zailSwordsRemaining <= 0, k.zailSwordsLeft != 0 || k.zailSpentSwords != 0 {
+            s.units[owner].hero!.kit!.zailSwordsLeft = 0
+            s.units[owner].hero!.kit!.zailSpentSwords = 0
+        }
         // バッジの敵が倒れた・居なくなったら層の表示を消す
         if let b = s.units[owner].hero?.kit, b.zailBaneWindow > 0 {
             let alive = s.index(of: b.zailBaneTargetID).map { CombatSystem.isLiving(s, $0) } ?? false
@@ -615,8 +702,7 @@ struct Kit_H028: HeroKit {
         guard let k = s.units[owner].hero?.kit, k.zailUltPhase != 0 else { return }
         // 打ち上げたあとの三連撃は制圧（suppress）でのみ中断される（スタンなどは予約を消さない）
         if k.zailUltPhase == 2, s.units[owner].has(.suppress) {
-            Kit.cancelScheduled(&s, caster: owner, slot: .ultimate, code: Code.ultStrike)
-            endUlt(&s, owner)
+            abortUlt(&s, owner)
             return
         }
         // 奥義の突進・三連撃の間は、通常攻撃を始めない・動かない
@@ -626,7 +712,8 @@ struct Kit_H028: HeroKit {
         // 想定外に予約・突進が消えていたら終える（状態を残さない）
         if k.zailUltPhase == 1, k.sweep == nil {
             endUlt(&s, owner)
-        } else if k.zailUltPhase == 2, Kit.scheduledCount(s, caster: owner, code: Code.ultStrike) == 0 {
+        } else if k.zailUltPhase == 2, Kit.scheduledCount(s, caster: owner, code: Code.ultStrike) == 0,
+                  Kit.scheduledCount(s, caster: owner, code: Code.ultEnd) == 0 {
             endUlt(&s, owner)
         }
     }
@@ -635,8 +722,7 @@ struct Kit_H028: HeroKit {
         // 突進中のハード CC: 突進は取り消し済み。奥義の状態を畳む（クールダウンは戻らない）。
         // 三連撃（段 2）の予約は中断されない（interruptible: false）ので、ここでは畳まない（制圧だけが update で止める）
         guard s.units[owner].hero?.kit?.zailUltPhase == 1 else { return }
-        Kit.cancelScheduled(&s, caster: owner, slot: .ultimate, code: Code.ultStrike)
-        endUlt(&s, owner)
+        abortUlt(&s, owner)
     }
 
     // MARK: - C. パッシブ
@@ -653,16 +739,54 @@ struct Kit_H028: HeroKit {
         afterDamage(&s, ctx, owner: attacker, target: target, trigger: slot != .skill1)
     }
 
+    /// ダメージを与えた後: 防御ダウンを積み、剣が残っていれば 1 本使って剣撃を飛ばす。
+    /// 動画（2026-10-16）: 通常攻撃・強化通常攻撃・奥義の 1・2 撃目のたびに輪の剣が 1 本光って飛び、その剣の席は戻りまで空のまま
+    /// （剣撃の剣は対象を抜けて反対側の輪のあたりで消え、輪には戻らない）。5 本を使い切ったら効果はその場で終わる。
     private func afterDamage(_ s: inout SimState, _ ctx: SimContext, owner: Int, target t: Int, trigger: Bool) {
         applyBane(&s, ctx, owner: owner, target: t)
-        guard trigger, let k = s.units[owner].hero?.kit, k.zailSwordsRemaining > 0, k.zailSwordGap <= 0,
-              k.zailSwordLock == 0, s.units.indices.contains(t), !s.units[t].isStructure,
+        guard trigger, let k = s.units[owner].hero?.kit, k.zailSwordsRemaining > 0, k.zailSwordsLeft > 0,
+              k.zailSwordGap <= 0, k.zailSwordLock == 0, s.units.indices.contains(t), !s.units[t].isStructure,
               s.units[t].team != s.units[owner].team else { return }
         s.units[owner].hero!.kit!.zailSwordGap = Tune.strikeGap
         s.units[owner].hero!.kit!.zailSwordStrikes = k.zailSwordStrikes + 1
+        spendSword(&s, owner)
         Kit.schedule(&s, caster: owner, slot: .skill1, code: Code.swordStrike, after: Tune.strikeDelay,
                      targetID: s.units[t].id, param: k.zailStrikeDamage, interruptible: false)
     }
+
+    /// 輪の剣を 1 本使う。使うのは次の接触を受け持つ剣（いちばん早く来る、まだ使っていない剣の回）。予約の接触が残っていなければ
+    /// 番号の小さい剣。最後の 1 本なら効果を終える（残りの接触を取り消す。飛んでいる剣撃はそのまま当たる）。
+    private func spendSword(_ s: inout SimState, _ owner: Int) {
+        guard let k = s.units[owner].hero?.kit, k.zailSwordsLeft > 0 else { return }
+        var pick = -1
+        var soonest = Double.infinity
+        for timer in k.scheduled where timer.code == Code.pulse && timer.slot == .skill1 {
+            let sword = Self.sword(ofPulse: timer.index)
+            if !Self.isSpent(k.zailSpentSwords, sword: sword), timer.remaining < soonest {
+                soonest = timer.remaining
+                pick = sword
+            }
+        }
+        if pick < 0 {
+            for sword in 0..<Tune.swordCount where !Self.isSpent(k.zailSpentSwords, sword: sword) {
+                pick = sword
+                break
+            }
+        }
+        if pick >= 0 { s.units[owner].hero!.kit!.zailSpentSwords = k.zailSpentSwords | (1 << pick) }
+        let left = k.zailSwordsLeft - 1
+        s.units[owner].hero!.kit!.zailSwordsLeft = left
+        guard left <= 0 else { return }
+        // 5 本を使い切った: 剣の輪はもう無い（バッジも消える）
+        s.units[owner].hero!.kit!.zailSwordsLeft = 0
+        s.units[owner].hero!.kit!.zailSwordsRemaining = 0
+        Kit.cancelScheduled(&s, caster: owner, slot: .skill1, code: Code.pulse)
+    }
+
+    /// 接触 i を受け持つ剣の番号（5 本が 72° おきに回るので、輪の上の 1 点を通る剣は 0, 1, 2, 3, 4, 0, … の順）。
+    static func sword(ofPulse index: Int) -> Int { ((index % Tune.swordCount) + Tune.swordCount) % Tune.swordCount }
+
+    static func isSpent(_ mask: Int, sword: Int) -> Bool { mask & (1 << sword) != 0 }
 
     /// 空断の理: 防御ダウンの層を積む（最大 5 層・5 秒、命中のたびに持続が戻る）。ヒーロー・モンスター・人形が対象
     /// （ミニオンは対象外 = Fandom の注記・sim の負荷。構造物には効かない）。

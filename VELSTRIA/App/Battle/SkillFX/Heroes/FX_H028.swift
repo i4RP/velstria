@@ -8,16 +8,21 @@ import VelstriaCore
 // sim の実際の挙動（Systems/Kits/Kit_H028.swift の Tune）に合わせたタイミング:
 //   パッシブ 空断の理      — ダメージを与えるたびに相手の防御を削る（最大 5 層・5 秒）。層が増えるたび（バッジの数が増えるたび）に
 //                            visor が瞬き、胸の前に細い斬線が光る（頻繁に出るので小さく短く。層そのものは相手の頭上の .mark）
-//   スキル1 環剣（自己中心）— 0 秒: 剣を掲げて 5 本の光剣が放射状に飛び出す。0〜5 秒: 光剣が周りを回る（内側 3 本・外側 2 本、
-//                            メッシュの寿命は 4 秒までなので 2.5 秒ずつ 2 組。回る速さは 2.5 秒でちょうど周期が揃う値にして継ぎ目を消す）。
-//                            hit（接触 0.5 秒ごと / 剣撃 = 通常攻撃・スキルの命中から 0.12 秒）: 術者の側から光剣が飛び込んで刺さる（1 発ごと）
-//   スキル2 断空突進        — 3.5m を約 0.19 秒（18m/s）で駆ける。通り道に光の筋、終点（照準点）で前方の一閃。
-//                            突進は impact を再生しない（ゾーンを作らない）ので、終点の演出は cast の .target に 0.19 秒遅れで置く。
+//   スキル1 環剣（自己中心）— 0 秒: 剣を掲げて 5 本の光剣が放射状に飛び出す。0〜4.8 秒: 光剣が術者から 3.85m の輪を回る
+//                            （MLBB の画面収録で測った値: 5 本・毎秒 151° で時計回り・照準の円 4.45 = 剣の帯の外縁。弧の刃は帯 3.2〜4.45m に描く。
+//                            メッシュの寿命は 4 秒までなので 2.4 秒ずつ 2 組。毎秒 150° × 2.4 秒 = 1 周でちょうど元の位置に戻り、継ぎ目が消える）。
+//                            剣撃 1 本ごとに sim は輪の剣を 1 本使う（使った剣は戻らない）。スキル1 のバッジ（残りの本数）が減るたびに
+//                            SkillFXDirector が回る刃を 1 本ずつ消す（FXMesh.group 1〜5 = spentGroups。5 → 4 → 等間隔の 3 本 → 2 → 1）。
+//                            使い切ると効果がその場で終わり、刃も全部消える。
+//                            hit（接触 0.48 秒ごと / 剣撃 = 通常攻撃・スキルの命中から 0.1 秒）: 術者の側から光剣が飛び込んで刺さる（1 発ごと）
+//   スキル2 断空突進        — 3m を 0.2 秒（15m/s）で駆ける。通り道に光の筋、終点（照準点）で前方の一閃。
+//                            突進は impact を再生しない（ゾーンを作らない）ので、終点の演出は cast の .target に 0.2 秒遅れで置く。
 //                            着いたあと約 3 秒、刃のきらめきと光の粒（次の通常攻撃が強化される間）
-//   奥義 三連断空（対象指定）— 突進（≦0.19 秒）→ 到着で打ち上げ 1.2 秒 → 到着から 0.2 / 0.6 / 1.0 秒に 3 連撃（弱・弱・強）。
-//                            impact（対象の位置）は照準の陣が締まり → 光の柱と昇る輪（打ち上げ）→ 0.35 / 0.75 秒に交差する斬線 2 本と
-//                            三日月 → 1.15 秒に 4 本の放射の斬線・縦横の大きな十字・地面の X の傷。hit（1 撃ごと・正確な時刻）は短い閃光
-// SkillFXDirector は duration / count を読まない: 突進の長さで 3 連撃が最大 0.1 秒ほど前後する（hit は sim の時刻どおり）。
+//   奥義 三連断空（対象指定）— 突進（17m/s、縁まで最大 5.45m。動画の 2 回は 2.4〜3.2m で 0.14〜0.19 秒）→ 到着で打ち上げ 1.2 秒 →
+//                            到着の瞬間・0.39 秒・0.78 秒に 3 連撃（弱・弱・強）→ 到着から 1.0 秒で術者が動ける。
+//                            impact（対象の位置）は照準の陣が締まり → 光の柱と昇る輪（打ち上げ）→ 0.2 / 0.59 秒に交差する斬線 2 本と
+//                            三日月 → 0.98 秒に 4 本の放射の斬線・縦横の大きな十字・地面の X の傷。hit（1 撃ごと・正確な時刻）は短い閃光
+// SkillFXDirector は duration / count を読まない: 突進の長さで 3 連撃が最大 0.15 秒ほど前後する（hit は sim の時刻どおり）。
 
 enum FX_H028: HeroFXSet {
     static let palette = FXPalette(core: RGB(0.93, 1.0, 1.0), primary: RGB(0.2, 0.84, 1.0),
@@ -27,13 +32,17 @@ enum FX_H028: HeroFXSet {
     // MARK: - sim の時刻（Kit_H028.Tune と同じ値。sim の値を変えたらここも合わせる）
 
     /// スキル1: 剣が回る秒数（swordsDuration）。2 組に分けて継ぐ。
-    private static let orbitTime: Float = 5.0
-    private static let orbitHalf: Float = 2.5
-    /// スキル2: 突進の所要（dashRange 350 / dashSpeed 1800 ≈ 0.19 秒）。
-    private static let chargeTime: Float = 0.19
-    /// 奥義: 到着（≦0.19 秒）→ 3 連撃（到着 + 0.2 / 0.6 / 1.0 秒）。突進の平均の長さで置いた時刻。
-    private static let ultArrive: Float = 0.18
-    private static let ultStrikes: [Float] = [0.35, 0.75, 1.15]
+    private static let orbitTime: Float = 4.8
+    private static let orbitHalf: Float = 2.4
+    /// スキル1: 剣の帯の外縁（swordReach 445 = 4.45m。弧のメッシュは内径 0.72 なので帯 3.2〜4.45m に刃が寝る）と回る速さ
+    /// （orbitSpeed 151°/秒の時計回り。2.4 秒でちょうど 1 周する 150°/秒。spin は上から見て反時計回りが正なので負）。
+    private static let orbitReach: Float = 4.45
+    private static let orbitSpin: Float = -150
+    /// スキル2: 突進の所要（dashRange 300 / dashSpeed 1500 = 0.2 秒）。
+    private static let chargeTime: Float = 0.2
+    /// 奥義: 到着（動画の 2 回の突進 2.4〜3.2m / 17m/s ≈ 0.14〜0.19 秒）→ 3 連撃（到着 + 0 / 0.39 / 0.78 秒。sim は 1 撃目を到着の次の tick）。
+    private static let ultArrive: Float = 0.17
+    private static let ultStrikes: [Float] = [0.2, 0.59, 0.98]
 
     // MARK: - 部品
 
@@ -45,19 +54,43 @@ enum FX_H028: HeroFXSet {
                life: life, fadeIn: fadeIn, fadeOut: fadeOut, spin: spin)
     }
 
-    /// 回る光剣の 1 組（内側 3 本 + 外側 2 本）。second = 2 組目（前の組の終わりと同じ角度から続ける）。
-    /// 内側は 432°/秒（2.5 秒で 3 回転 = 3 回対称の位置に戻る）、外側は 288°/秒（2 回転）。
+    /// 回る光剣の 5 本の角度（前方から、72° おき）。並びは剣を使ったときに消える順（FXMesh.group 1〜5 = spentGroups）。
+    /// 先に消える 72° / 216° の 2 本は中画質以上（低画質は弧のプールが小さいので 0° / 144° / 288° の 3 本だけ = 残りが 3 本までは同じ見た目）。
+    /// 5 → 4 → 3 本で等間隔の 3 本（0° / 144° / 288°）、そこから 144° / 288° → 288° と減る。
+    private static let bladeAngles: [Float] = [72, 216, 0, 144, 288]
+    /// 低画質でも出す刃（bladeAngles の添字がこれ以上）。
+    private static let lowQualityFrom = 2
+
+    /// 回る光剣の 1 組（同じ輪の 5 本 = 72° おき。1 本ずつ別の合図にして FXMesh.group を付ける）。second = 2 組目（前の組の終わりと
+    /// 同じ角度から続ける）。どれも 150°/秒の時計回り（2.4 秒で 1 周 = 元の位置に戻る）。
+    /// sim は剣撃 1 本ごとに輪の剣を 1 本使う（使った剣は戻らない）。スキル1 のバッジ（残りの本数）が減るたびに SkillFXDirector が
+    /// その組の刃を消し、2 組目の予定の合図も取り消す（spentGroups）。使い切ると 5 本とも消える。
     private static func orbitSet(at t: Float, second: Bool) -> [FXCue] {
         let life: Float = second ? orbitTime - orbitHalf : orbitHalf + 0.05
         let fadeIn: Float = second ? 0.01 : 0.04
         let fadeOut: Float = second ? 0.9 : 0.97
-        return [
-            .mesh(orbitBlade(1.15, .core, life: life, spin: 432, alpha: 1, fadeIn: fadeIn, fadeOut: fadeOut), at: t,
-                  .follow, offset: [0, 0.95, 0]).repeated(3, yaw: 120),
-            // 外側の 2 本（中画質以上。低画質は弧のプールが小さいので内側の 3 本だけ）
-            .mesh(orbitBlade(1.65, .primary, life: life, spin: 288, alpha: 0.95, fadeIn: fadeIn, fadeOut: fadeOut)
-                .with { $0.yaw = 60 }, at: t, .follow, offset: [0, 1.25, 0], quality: 1).repeated(2, yaw: 180),
-        ]
+        var cues: [FXCue] = []
+        for (i, angle) in bladeAngles.enumerated() {
+            let low = i >= lowQualityFrom
+            let blade = orbitBlade(orbitReach, low ? .core : .primary, life: life, spin: orbitSpin, alpha: low ? 0.9 : 0.85,
+                                   fadeIn: fadeIn, fadeOut: fadeOut).with {
+                $0.yaw = angle
+                $0.group = i + 1
+            }
+            cues.append(.mesh(blade, at: t, .follow, offset: [0, 0.95, 0], quality: low ? 0 : 1))
+        }
+        return cues
+    }
+
+    // MARK: - 残りの剣（スキル1 のバッジ = 輪に残っている剣の本数）
+
+    static var countedSlot: SkillSlot? { .skill1 }
+
+    /// 残りが remaining 本のときに消えている刃の組（使った本数ぶん、bladeAngles の順に 1〜）。
+    static func spentGroups(remaining: Int) -> [Int] {
+        let spent = min(bladeAngles.count, max(0, bladeAngles.count - remaining))
+        guard spent > 0 else { return [] }
+        return Array(1...spent)
     }
 
     /// 対象を断つ細く長い斬線（光の筋の帯。angle = 前方からの向き（度））。
@@ -95,7 +128,7 @@ enum FX_H028: HeroFXSet {
 
     // MARK: - スキル1 環剣
 
-    /// 5 本の光剣が飛び出して 5 秒間 周りを回る。命中のたびに光剣が術者の側から飛び込む（hit）。
+    /// 5 本の光剣が飛び出して 4.8 秒間 術者から 3.85m の輪を回る。命中のたびに光剣が術者の側から飛び込む（hit）。
     private static func swordsRecipe(_ s: FXSkillInfo) -> SkillFXRecipe {
         var r = SkillFXRecipe()
         let R = min(s.radius, 2.6)
@@ -105,9 +138,9 @@ enum FX_H028: HeroFXSet {
             .emit(FXEmit(tex: .streak, tint: .core, tintEnd: .primary, count: 20, life: 0.28, size: 0.13, sizeVar: 0.3,
                          grow: 0.5, shape: .sphere(0.25), dir: .outward, speed: 7, speedVar: 0.25, drag: 2.0, stretch: 2.6,
                          fade: .linearFadeOut), offset: [0, 1.0, 0]),
-            // 回る光剣（2 組で 5 秒）と、内側の軌道に残るきらめき
+            // 回る光剣（2 組で 4.8 秒）と、剣の輪（3.85m）に残るきらめき
             .emit(.trail(.twinkle, .secondary, rate: 22, life: 0.45, size: 0.1).with {
-                $0.duration = orbitTime; $0.shape = .ring(1.1); $0.surface = true; $0.speed = 0.3; $0.tintEnd = .accent
+                $0.duration = orbitTime; $0.shape = .ring(3.85); $0.surface = true; $0.speed = 0.3; $0.tintEnd = .accent
             }, .follow, offset: [0, 0.95, 0], quality: 1),
         ]
         r.cast += orbitSet(at: 0, second: false)
@@ -133,10 +166,10 @@ enum FX_H028: HeroFXSet {
 
     // MARK: - スキル2 断空突進
 
-    /// 光の尾を引いて約 0.19 秒で駆け抜け、終点で前方へ一閃。着いたあと刃に光が宿る（強化通常攻撃の間）。
+    /// 光の尾を引いて 0.2 秒で駆け抜け、終点で前方へ一閃。着いたあと刃に光が宿る（強化通常攻撃の間）。
     private static func chargeRecipe(_ s: FXSkillInfo) -> SkillFXRecipe {
         var r = SkillFXRecipe()
-        let L = min(s.range, 3.5)
+        let L = min(s.range, 3.0)
         let T = chargeTime
         r.cast = [
             // 踏み出しの閃きと、後ろへ残る光の残像・蹴った土煙
@@ -189,9 +222,9 @@ enum FX_H028: HeroFXSet {
         r.cast = [
             .emit(.flare(1.6, .core, life: 0.18, tex: .flare6), offset: [0, 1.0, 0.2]),
             .emit(.sparks(12, speed: 5, .core, end: .accent, gravity: 0).with { $0.shape = .sphere(0.5) }, offset: [0, 1.0, 0]),
-            // 突進の光の尾（≦0.19 秒）と、術者 → 対象を断つ白い線（空間を断つ）
+            // 突進の光の尾（17m/s。動画の 2 回は 0.14〜0.19 秒）と、術者 → 対象を断つ白い線（空間を断つ）
             .emit(.trail(.streak, .primary, rate: 90, life: 0.25, size: 0.45).with {
-                $0.duration = 0.2; $0.stretch = 3; $0.dir = .backward; $0.speed = 4
+                $0.duration = ultArrive; $0.stretch = 3; $0.dir = .backward; $0.speed = 4
             }, .follow, offset: [0, 1.0, 0]),
             .mesh(.ray(.slashLine, length: 2.6, width: 0.55, .core, life: 0.3), at: 0.02, .along(0.5), offset: [0, 1.1, 0]),
         ]
@@ -201,13 +234,13 @@ enum FX_H028: HeroFXSet {
                          sizeEnd: [1.4, 1, 1.4], ease: .in, life: 0.3, fadeIn: 0.1, fadeOut: 0.7, spin: 300)),
             // 到着 → 打ち上げ（1.2 秒）: 光の柱・昇る輪 3 つ・地を這う白い輪・昇る光条・土煙
             .emit(.flare(2.0, .core, life: 0.2, tex: .flare6), at: ultArrive, offset: [0, 1.1, 0]),
-            .mesh(.pillar(0.55, height: 4.5, .primary, life: 0.55), at: 0.2),
-            .mesh(.shockRing(1.4, .core, life: 0.3, tex: .ring), at: 0.2),
-            .mesh(.halo(0.7, .accent, life: 0.6, spin: 300, tex: .ringDouble).with { $0.rise = 2.5 }, at: 0.2,
+            .mesh(.pillar(0.55, height: 4.5, .primary, life: 0.55), at: ultArrive),
+            .mesh(.shockRing(1.4, .core, life: 0.3, tex: .ring), at: ultArrive),
+            .mesh(.halo(0.7, .accent, life: 0.6, spin: 300, tex: .ringDouble).with { $0.rise = 2.5 }, at: ultArrive,
                   offset: [0, 0.2, 0]).repeated(3, every: 0.1),
-            .emit(.rising(16, radius: 0.6, .secondary, speed: 6, life: 0.6, size: 0.12, tex: .streak), at: 0.2),
-            .emit(.smoke(6, radius: 0.6, .rgb(0.55, 0.6, 0.7), life: 0.8, size: 0.7), at: 0.2, quality: 1),
-            // 1 撃目: 前方 ±30° の 2 本の斬線が対象で交差し、右肩下がりの三日月
+            .emit(.rising(16, radius: 0.6, .secondary, speed: 6, life: 0.6, size: 0.12, tex: .streak), at: ultArrive),
+            .emit(.smoke(6, radius: 0.6, .rgb(0.55, 0.6, 0.7), life: 0.8, size: 0.7), at: ultArrive, quality: 1),
+            // 1 撃目（到着の瞬間）: 前方 ±30° の 2 本の斬線が対象で交差し、右肩下がりの三日月
             .mesh(cutLine(3.6, width: 0.5, .core, angle: 30), at: t1, offset: [0, y, 0]).repeated(2, every: 0.03, yaw: -60),
             .mesh(.slash(1.3, .primary, from: 80, to: -80, tilt: 30, life: 0.26), at: t1, offset: [0, y, 0]),
             // 2 撃目: 向きを変えた 2 本（60° / 120°）と、逆に振る三日月
@@ -251,26 +284,26 @@ enum FX_H028: HeroFXSet {
             m.twirl(0.18, turns: 1)
             m.hold(0.12) { $0.glow = 1.8 }
         case .skill2:
-            // 前傾で駆け（0.19 秒）、着いて前方へ振り抜く
+            // 前傾で駆け（0.2 秒）、着いて前方へ振り抜く
             m.dash(0.04, lean: 0.55)
-            m.hold(0.14) { $0.glow = 1.4 }
+            m.hold(0.16) { $0.glow = 1.4 }
             m.slash(0.06, side: 1, power: 1.1)
             m.hold(0.08) { $0.glow = 1.8 }
             m.settle(0.08)
         case .ultimate:
-            // 低く構えて駆け込み → 右から（0.35 秒）・左から（0.75 秒）斬り返し → 頭上から縦に断つ（1.15 秒）
-            m.brace(0.04, depth: 0.12)
+            // 低く構えて駆け込み（0.17 秒）→ 着いた瞬間に右から（0.2 秒）・左から（0.59 秒）斬り返し → 頭上から縦に断つ（0.98 秒）
+            // → 到着から 1.0 秒の硬直の間は構えたまま（clip.total = 1.24 + 戻り 0.35 = 1.59 秒。奥義の範囲 0.45〜1.7 秒）
+            m.brace(0.03, depth: 0.12)
             m.dash(0.05, lean: 0.5)
-            m.hold(0.1)
-            m.windup(0.1, side: 1, power: 1.0)
+            m.windup(0.06, side: 1, power: 1.0)
             m.slash(0.06, side: 1, power: 1.2)
-            m.hold(0.24)
+            m.hold(0.23)
             m.windup(0.1, side: -1, power: 1.0)
             m.slash(0.06, side: -1, power: 1.2)
-            m.hold(0.22)
+            m.hold(0.23)
             m.overhead(0.1)
-            m.smash(0.08)
-            m.hold(0.12) { $0.glow = 2.2 }
+            m.smash(0.06)
+            m.hold(0.26) { $0.glow = 2.2 }
         }
     }
 }

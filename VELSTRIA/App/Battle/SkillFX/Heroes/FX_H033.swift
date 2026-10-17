@@ -8,16 +8,17 @@ import VelstriaCore
 // sim の実際の挙動（Systems/Kits/Kit_H033.swift の Tune）に合わせたタイミング:
 //   パッシブ 追撃          — スキルを発動するたび（バッジのタイマーが始まるたび）: 大剣に紅の光が走り、足元の輪・立ちのぼる紅の光条
 //                            （次の通常攻撃が踏み込みの追撃になる合図。追撃そのものは通常攻撃の演出）
-//   スキル1 裂地撃         — 指定地点へ 3.5m を約 0.19 秒（18m/s）で転がり、着いた tick に半径 1.9m を叩く（鈍足 40%・2 秒）。
-//                            転がりは impact を再生しない（ゾーンを作らない）ので、着地の叩きつけは cast の .target に 0.19 秒遅れで置く:
+//   スキル1 裂地撃         — 指定地点へ最大 4.2m を約 0.34 秒（12.5m/s）で跳び込み、着いた tick に半径 1.9m を叩く（鈍足 40%・2 秒）。
+//                            転がりは impact を再生しない（ゾーンを作らない）ので、着地の叩きつけは cast の .target に 0.34 秒遅れで置く:
 //                            縦に振り下ろす弧 → 閃光・二重の地割れ（暗い裂け目 + 紅く光る裂け目）・前方へ走る紅の裂け目・岩片・土煙
 //   スキル2 旋回斬         — その場で大剣を回す（即時・半径 2.5m）。白い細い弧と紅の太い三日月が左回りに 1 回転余り掃き、
-//                            地面に渦が残る（術者の spin と同じ向き・同じ 0.05〜0.35 秒）
-//   奥義 核分裂波          — 1 回目（吸収・即時）: 照準点の半径 3m に紅い月の陣、外から内へ縮む輪、吸い上げた紅の光が照準点から術者へ流れ込み、
-//                            術者は紅をまとう（クールダウン半減の 5 秒のうち 3 秒ほど）。1 回目は地点 AoE（impact は再生されない）なので cast に置く。
-//                            2 回目（stage 1、6 秒以内）: 前方へ大剣を振り抜く（段の演出 recipe(_:stage:_:)）→ 貫通する衝撃波（9m を約 0.41 秒）。
-//                            衝撃波の travel / impact / hit は共通の演出（投射物の visual はスキルの演出 ID = 段 0）: 前へ凸の巨大な紅の三日月と、
-//                            後ろに残る地割れの跡
+//                            地面に渦が残る（術者の spin と同じ向き。動画の回転は指を離して 2〜9 コマ = 0.07〜0.3 秒）
+//   奥義 核分裂波          — 1 回目（吸収・即時）: 向きの帯（術者から 6.4m・半幅 1.5m。MLBB の照準も帯）に紅い光の帯、帯の中で縮む輪、
+//                            吸い上げた紅の光が帯から術者へ流れ込み、術者は紅をまとう（クールダウン半減の 6 秒のうち 3 秒ほど）。
+//                            弾を出さない（impact は再生されない）ので cast に置く（.along で帯の上）。
+//                            2 回目（stage 1、6 秒以内）: 0.16 秒の振りかぶりの後に前方へ大剣を振り抜く（段の演出 recipe(_:stage:_:)）→
+//                            貫通する衝撃波（届く 6.4m・半幅 1.65m・10m/s で約 0.48 秒）。衝撃波の travel / impact / hit は共通の演出
+//                            （投射物の visual はスキルの演出 ID = 段 0）: 前へ凸の巨大な紅の三日月と、後ろに残る地割れの跡
 //   吸血（奥義を習得している間 常時）— 傷を負わせた相手から紅の光条が術者の方へ飛ぶ（各スキルの hit）
 // SkillFXDirector は duration / count を読まない。
 
@@ -33,11 +34,12 @@ enum FX_H033: HeroFXSet {
 
     // MARK: - sim の時刻・寸法（Kit_H033.Tune と同じ値。sim の値を変えたらここも合わせる）
 
-    /// スキル1: 転がりの所要（s1Range 350 / s1Speed 1800 ≈ 0.19 秒）。
-    private static let rollTime: Float = 0.19
-    /// 奥義の衝撃波: 長さ 9m・半幅 1.3m・22m/s（≈ 0.41 秒）。
-    private static let waveHalfWidth: Float = 1.3
+    /// スキル1: 跳び込みの所要（s1Range 420 / s1Speed 1250 ≈ 0.34 秒。動画 10.3〜10.7 コマ）。
+    private static let rollTime: Float = 0.34
+    /// 奥義の衝撃波: 届く 6.4m・半幅 1.65m・10m/s（弾の進む 4.75m ≈ 0.48 秒）。振りかぶり 0.16 秒の後に出る。
+    private static let waveHalfWidth: Float = 1.65
     private static let waveLife: Float = 0.5
+    private static let waveDelay: Float = 0.16
 
     // MARK: - 部品
 
@@ -190,24 +192,28 @@ enum FX_H033: HeroFXSet {
 
     // MARK: - 奥義 核分裂波
 
-    /// 1 回目（吸収）の cast と、衝撃波（2 回目の投射物）の travel / impact / hit。R = 吸収の半径（3m）。
+    /// 1 回目（吸収）の cast と、衝撃波（2 回目の投射物）の travel / impact / hit。
+    /// W = 吸収の帯の半幅（1.5m）、L = 帯の届く距離（6.4m。cast の照準点 = 帯の先端なので .along(0〜1) が帯の上）。
     private static func fissionRecipe(_ s: FXSkillInfo) -> SkillFXRecipe {
         var r = SkillFXRecipe()
-        let R = min(s.radius, 3.5)
+        let W = min(s.radius, 2.0)
+        let L = min(max(s.range, 1), 8.0)
         r.cast = [
             // 大剣を掲げた先の紅い閃き
             .emit(.flare(1.6, .secondary, life: 0.2, tex: .flare6), offset: [0.3, 2.2, 0.2]),
-            // 照準点: 紅い月の陣と三日月の紋（吸収の範囲）
-            .mesh(.decal(.runeCircle, R * 2, .primary, life: 1.0, spin: -60, grow: 1.0, alpha: 0.6), .target),
-            .mesh(.decal(.moon, R * 1.3, .secondary, life: 0.9, spin: 120, alpha: 0.6), at: 0.05, .target),
-            // 外から内へ縮む輪 2 つ（逆巻く渦）と、中心へ吸い込まれる紅の光
-            .mesh(implode(R * 2.1, to: 0.8, .primary, life: 0.45), at: 0.05, .target),
-            .mesh(implode(R * 1.8, to: 0.6, .secondary, life: 0.42, tex: .swirl, spin: -520, alpha: 0.7), at: 0.12, .target),
-            .emit(.gather(28, radius: R * 0.9, .secondary, life: 0.45), at: 0.05, .target, offset: [0, 0.8, 0]),
-            // 吸い上げた紅の光が照準点から術者へ流れ込む
-            .emit(FXEmit(tex: .streak, tint: .secondary, tintEnd: .core, count: 26, emit: 0.35, life: 0.45, lifeVar: 0.1,
-                         size: 0.12, sizeVar: 0.4, grow: 0.6, shape: .sphere(0.6), dir: .backward, speed: 10, speedVar: 0.15,
-                         spread: 10, stretch: 2.4, fade: .linearFadeOut), at: 0.15, .target, offset: [0, 1.0, 0]),
+            // 帯: 地面に広がる紅の光の帯（照準と同じ幅・長さ）と、帯の先の三日月の紋
+            .mesh(.ray(.glow, length: L, width: W * 2, .primary, life: 0.8, height: 0.03, alpha: 0.55), .along(0.5),
+                  offset: [0, 0.03, 0]),
+            .mesh(.decal(.moon, W * 2.0, .secondary, life: 0.9, spin: 0, alpha: 0.6), at: 0.05, .along(0.85)),
+            // 帯の中で縮む輪 2 つ（逆巻く渦）と、帯の中から吸い込まれる紅の光
+            .mesh(implode(W * 2.6, to: 0.6, .primary, life: 0.45), at: 0.03, .along(0.65)),
+            .mesh(implode(W * 2.2, to: 0.5, .secondary, life: 0.42, tex: .swirl, spin: -520, alpha: 0.7), at: 0.1, .along(0.35)),
+            .emit(.gather(28, radius: W, .secondary, life: 0.45), at: 0.03, .along(0.6), offset: [0, 0.8, 0]),
+            // 吸い上げた紅の光が帯から術者へ流れ込む（cast の前方 = 術者 → 帯の先なので後ろ向き = 術者の方）
+            .emit(FXEmit(tex: .streak, tint: .secondary, tintEnd: .core, count: 26, emit: 0.3, life: 0.45, lifeVar: 0.1,
+                         size: 0.12, sizeVar: 0.4, grow: 0.6, shape: .box([W * 1.6, 0.4, L * 0.5]), dir: .backward, speed: 10,
+                         speedVar: 0.15, spread: 10, stretch: 2.4, fade: .linearFadeOut), at: 0.08, .along(0.6),
+                  offset: [0, 1.0, 0]),
             // 術者: 紅をまとう（クールダウン半減の間）。頭上の血の月・膨らむ紅・足元の輪・立ちのぼる残り火
             .mesh(.sprite(.moon, 1.4, .primary, life: 1.2, grow: 1.2, alpha: 0.9), at: 0.3, .follow, offset: [0, 2.6, 0]),
             .emit(.bloom(1.8, .primary, life: 0.4), at: 0.35, .follow, offset: [0, 1.0, 0]),
@@ -218,8 +224,8 @@ enum FX_H033: HeroFXSet {
             }, at: 0.35, .follow),
             .shake(0.25, at: 0.05),
         ]
-        // 目視確認の実演（-skillDemo）だけが出す予告（地点 AoE の既定演出で補わない）
-        r.telegraph = [.mesh(.decal(.moon, R * 1.2, .primary, life: 0.5, spin: 60, alpha: 0.5))]
+        // 目視確認の実演（-skillDemo）だけが出す予告（既定演出で補わない）
+        r.telegraph = [.mesh(.decal(.moon, W * 2.4, .primary, life: 0.5, spin: 60, alpha: 0.5))]
         // 衝撃波（投射物に追従。前方 = 進行方向）: 前へ凸の巨大な紅の三日月・白い芯・明るい前縁の帯・後ろに残る地割れの跡
         let w = waveHalfWidth * 2.3
         r.travel = [
@@ -257,55 +263,57 @@ enum FX_H033: HeroFXSet {
         return r
     }
 
-    /// 奥義の 2 回目（stage 1）: 前方へ大剣を振り抜いて衝撃波を放つ（衝撃波そのものは共通の travel）。
+    /// 奥義の 2 回目（stage 1）: 振りかぶり（0.16 秒。大剣に紅が溜まる）の後に前方へ大剣を振り抜いて衝撃波を放つ
+    /// （衝撃波そのものは共通の travel。振り抜きは sim で波が出る時刻）。
     static func recipe(_ slot: SkillSlot, stage: Int, _ s: FXSkillInfo) -> SkillFXRecipe? {
         guard slot == .ultimate, stage == 1 else { return nil }
         var r = SkillFXRecipe()
+        let D = waveDelay
         r.cast = [
-            .emit(.flare(2.2, .core, life: 0.18, tex: .flare6), offset: [0, 1.1, 0.6]),
+            // 振りかぶり: 大剣に溜まる紅の光
+            .emit(.gather(12, radius: 0.6, .secondary, life: D + 0.02), offset: [0.35, 1.2, 0.1]),
+            .emit(.flare(2.2, .core, life: 0.18, tex: .flare6), at: D, offset: [0, 1.1, 0.6]),
             // 振り抜きの前方の三日月（白い芯 + 紅）と、足元から前へ割れる地面
-            .mesh(.slash(2.4, .core, from: 80, to: -80, life: 0.22, tex: .slashThin), offset: [0, 1.0, 0.3]),
-            .mesh(.slash(2.6, .primary, from: 85, to: -85, life: 0.3), at: 0.02, offset: [0, 0.95, 0.2]),
-            .mesh(.decal(.crack, 2.6, .dark, life: 1.2, spin: 0, grow: 1.0, alpha: 0.8), offset: [0, 0, 0.8]),
-            .mesh(.ray(.bolt, length: 3.2, width: 1.0, .secondary, life: 0.45), at: 0.03, offset: [0, 0.02, 1.8]),
-            // 前へ噴く紅の光条・土煙・羽
-            .emit(.fan(20, .secondary, speed: 11, spread: 30, life: 0.35), offset: [0, 1.0, 0.4]),
-            .emit(.smoke(8, radius: 0.6, dust, life: 0.9, size: 0.8).with { $0.dir = .forward; $0.speed = 4 },
-                  offset: [0, 0.2, 0.5], quality: 1),
-            .emit(bats(10, radius: 0.6, speed: 4, life: 0.8), offset: [0, 1.0, 0.6], quality: 1),
-            .shake(0.35),
+            .mesh(.slash(2.4, .core, from: 80, to: -80, life: 0.22, tex: .slashThin), at: D, offset: [0, 1.0, 0.3]),
+            .mesh(.slash(2.6, .primary, from: 85, to: -85, life: 0.3), at: D + 0.02, offset: [0, 0.95, 0.2]),
+            .mesh(.decal(.crack, 2.6, .dark, life: 1.2, spin: 0, grow: 1.0, alpha: 0.8), at: D, offset: [0, 0, 0.8]),
+            .mesh(.ray(.bolt, length: 3.2, width: 1.0, .secondary, life: 0.45), at: D + 0.03, offset: [0, 0.02, 1.8]),
+            // 前へ噴く紅の光条・羽（土煙は段の合図の上限 13 に収めるため省く。地面の割れ目で足元は見せる）
+            .emit(.fan(20, .secondary, speed: 11, spread: 30, life: 0.35), at: D, offset: [0, 1.0, 0.4]),
+            .emit(bats(10, radius: 0.6, speed: 4, life: 0.8), at: D, offset: [0, 1.0, 0.6], quality: 1),
+            .shake(0.35, at: D),
         ]
         return r
     }
 
     // MARK: - 詠唱モーション
 
-    /// 奥義は 2 回とも同じモーション（モーションは段で分けられない）: すぐに前へ振り抜き（衝撃波は発動の瞬間に出る）、
-    /// そのまま大剣を掲げて力を吸い上げる。
+    /// 奥義は 2 回とも同じモーション（モーションは段で分けられない）: 低く構えて 0.16 秒に前へ振り抜き（衝撃波が出る時刻。
+    /// 吸収は即時なので構えが少し長く見える）、そのまま大剣を掲げて力を吸い上げる。全長 0.6 + 戻り 0.35 = 0.95 秒。
     static func motion(_ slot: SkillSlot, _ m: inout MotionBuilder) {
         switch slot {
         case .passive:
             break
         case .skill1:
-            // 低く転がり出して跳び、頭上から大剣を叩きつける（着地 0.19 秒）
-            m.dash(0.05, lean: 0.6)
-            m.leap(0.08, height: 0.45, forward: 0.2)
+            // 低く転がり出して跳び、頭上から大剣を叩きつける（着地 0.34 秒）。全長 0.5 + 戻り 0.25 = 0.75 秒
+            m.dash(0.1, lean: 0.6)
+            m.leap(0.16, height: 0.55, forward: 0.2)
             m.overhead(0.04)
             m.smash(0.04)
             m.land(0.06, depth: 0.24)
             m.hold(0.1) { $0.glow = 1.8 }
         case .skill2:
-            // 大剣を振りかぶり、その場で左回りに一回転
-            m.windup(0.05, side: 1, power: 1.2)
-            m.spin(0.3, turns: 1)
+            // 大剣を振りかぶり、その場で左回りに一回転（動画の回転は 0.07〜0.3 秒）。全長 0.48 + 戻り 0.25 = 0.73 秒
+            m.windup(0.06, side: 1, power: 1.2)
+            m.spin(0.27, turns: 1)
             m.hold(0.05)
             m.settle(0.1)
         case .ultimate:
-            m.brace(0.04, depth: 0.12)
+            m.brace(0.1, depth: 0.12)
             m.slash(0.06, side: 1, power: 1.3)
             m.hold(0.1) { $0.glow = 1.8 }
             m.raise(0.14, glow: 2.0)
-            m.hold(0.12) { $0.ring = 1.2 }
+            m.hold(0.1) { $0.ring = 1.2 }
             m.settle(0.1)
         }
     }
