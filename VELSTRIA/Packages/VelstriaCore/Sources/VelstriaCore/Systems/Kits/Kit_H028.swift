@@ -560,6 +560,10 @@ struct Kit_H028: HeroKit {
                            skillID: Self.skillID(ctx, .skill1))
         let me = s.units[owner].pos
         let team = s.units[owner].team
+        // 検証用の観測: 剣の輪の帯（術者から orbitRadius ± swordHalfWidth。受け口が無ければ何もしない。docs/vfx/RANGES.md）
+        HitShapeProbe.emit(.kit(.circle(center: me, radius: Tune.orbitRadius + Tune.swordHalfWidth,
+                                        inner: max(0, Tune.orbitRadius - Tune.swordHalfWidth)), s, caster: owner,
+                                source: .skill(.skill1)))
         var targets: [Int] = []
         for j in s.units.indices where s.units[j].team != team && !s.units[j].isStructure {
             guard CombatSystem.isLiving(s, j) else { continue }
@@ -584,6 +588,9 @@ struct Kit_H028: HeroKit {
         guard me.distanceSquared(to: tp) <= reach * reach else { return }
         let dir = (tp - me).normalized == .zero ? Vec2.fromAngle(s.units[owner].facing) : (tp - me).normalized
         let end = tp + dir * Tune.strikePassOvershoot
+        // 検証用の観測: 剣の通り道（主対象の先まで。半幅 strikePassRadius）
+        HitShapeProbe.emit(.kit(.line(from: me, to: end, halfWidth: Tune.strikePassRadius, squareEnds: false), s,
+                                caster: owner, source: .skill(.skill1)))
         // 軌道上の敵は先に確定（命中中の死亡で判定が変わらないように）
         var others: [Int] = []
         for j in s.units.indices where j != t && s.units[j].team != s.units[owner].team && !s.units[j].isStructure {

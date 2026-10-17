@@ -81,6 +81,8 @@ for preset in $PRESETS; do
     if [[ $first == 1 ]]; then extra=(-fxCaptureRings); fi
     if [[ -n "${PROBE:-}" ]]; then extra+=(-fxCaptureProbe); fi
     if [[ -n "${MOVING:-}" ]]; then extra+=(-fxCaptureMovingParticles); fi
+    # 判定の形の線（HitShapeOverlay。撮影では既定で出す）を出さない
+    if [[ -n "${NOHITSHAPES:-}" ]]; then extra+=(-noHitShapes); fi
     first=0
     dest="$OUT/$preset/$hero"
     mkdir -p "$dest"

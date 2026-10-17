@@ -80,6 +80,7 @@ jobs:
             -only-testing:VELSTRIATests/HomeScreenTests \
             -only-testing:VELSTRIATests/RenderLogicTests \
             -only-testing:VELSTRIATests/SkillFXTests \
+            -only-testing:VELSTRIATests/SkillFXRangeTests \
             -only-testing:VELSTRIATests/BattleFeelTests \
             -only-testing:VELSTRIATests/FXCheckTests \
             -only-testing:VELSTRIATests/AudioFilesTests \
