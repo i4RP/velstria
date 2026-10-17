@@ -547,6 +547,9 @@ final class AppModel: FriendProfileAccess {
 
     func dismissBattle() {
         activeBattle = nil
+        #if DEBUG || TESTER_TOOLS
+        FXCheckSession.shared.battleDismissed(app: self)
+        #endif
         // 観戦席: 戦闘中に断った次の試合の観戦を、閉じた後に求め直す
         online?.battleClosed()
     }

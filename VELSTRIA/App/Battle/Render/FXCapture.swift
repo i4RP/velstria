@@ -23,16 +23,12 @@ final class FXCapture {
     static var isRequested: Bool { DebugLaunch.value(after: "-fxCapture") != nil }
 
     static let defaultTimes: [Double] = [0.0, 0.1, 0.2, 0.33, 0.5, 0.75, 1.0, 1.4, 2.0, 2.8]
-    /// 再使用の段（2 回目）を撃つ遅れ（秒。段の演出を持つスキル）。
-    static let recasts: [String: [SkillSlot: Double]] = [
-        "H029": [.skill2: 0.85],
-        "H032": [.skill2: 1.0],
-        "H033": [.ultimate: 1.0],
-    ]
+    /// 再使用の段（2 回目）を撃つ遅れ（秒。段の演出を持つスキル）。内部ビルドの演出チェックと共通。
+    static let recasts = FXCheckDriver.recasts
     static let recastTimes: [Double] = [0.0, 0.1, 0.2, 0.33, 0.5, 0.75, 1.0, 1.4]
     static let imageWidth: CGFloat = 1108
-    /// 人形からヒーローを置く距離（sim の単位）。
-    static let standoff: Double = 400
+    /// 人形からヒーローを置く距離（sim の単位）。内部ビルドの演出チェックと共通。
+    static let standoff = FXCheckDriver.standoff
 
     struct Shot: Codable {
         var file: String

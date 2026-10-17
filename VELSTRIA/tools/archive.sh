@@ -108,6 +108,10 @@ fi
 if [[ "${TESTER_TOOLS:-}" == "1" ]]; then
     ARCHIVE_ARGS+=('SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) TESTER_TOOLS')
 fi
+# ビルドの元（Info.plist の VELSTRIAGitBranch / VELSTRIAGitCommit。内部ビルドの戦闘画面の隅に出す）
+GIT_BRANCH="${GITHUB_REF_NAME:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo local)}"
+GIT_COMMIT="${GITHUB_SHA:-$(git rev-parse HEAD 2>/dev/null || echo unknown)}"
+ARCHIVE_ARGS+=("VELSTRIA_GIT_BRANCH=$GIT_BRANCH" "VELSTRIA_GIT_COMMIT=${GIT_COMMIT:0:7}")
 xcodebuild archive "${ARCHIVE_ARGS[@]}"
 
 # 4) 書き出し（Team ID を入れた一時コピーを使う。元の plist は編集しない）

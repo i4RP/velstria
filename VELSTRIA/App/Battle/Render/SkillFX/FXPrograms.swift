@@ -238,8 +238,10 @@ final class FXSheetLibrary {
 
     func prewarm(_ sheets: some Sequence<FXSheet>) {
         for s in sheets where alpha[s] == nil && !missing.contains(s) {
+            // アルファ合成は色にアルファを焼き込んだ版（FXTextureLibrary.particleAlpha。そのままだとコマの四角い縁が見える）
             guard let img = FXSheet.image(s), let lum = FXTextureLibrary.luminance(img),
-                  let a = try? TextureResource(image: img, options: .init(semantic: .color)),
+                  let shaped = FXTextureLibrary.particleAlpha(img),
+                  let a = try? TextureResource(image: shaped, options: .init(semantic: .color)),
                   let g = try? TextureResource(image: lum, options: .init(semantic: .color)) else {
                 missing.insert(s)
                 continue

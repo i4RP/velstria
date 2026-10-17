@@ -319,9 +319,13 @@ final class BattleRenderer {
         // 演出の撮影は、加算・模様の Program を待ってから幕を上げる（CI のシミュレータは作るのが遅いことがあり、
         // 幕に間に合わないと試合中ずっと従来の材質になって比較にならない）
         #if DEBUG
-        let waitsForFXPrograms = DebugLaunch.value(after: "-fxCapture") != nil
+        var waitsForFXPrograms = DebugLaunch.value(after: "-fxCapture") != nil
         #else
-        let waitsForFXPrograms = false
+        var waitsForFXPrograms = false
+        #endif
+        #if DEBUG || TESTER_TOOLS
+        // 内部ビルドの演出チェック（FXCheck）も同じ
+        if FXCheckSession.shared.currentHero != nil { waitsForFXPrograms = true }
         #endif
         var warmupConfig = WarmupScheduler.Config()
         if waitsForFXPrograms { warmupConfig.hardCap = 60 }
@@ -451,6 +455,9 @@ final class BattleRenderer {
         pendingEvents.removeAll(keepingCapacity: true)
         #if DEBUG
         fxCapture?.tick(controller: controller, world: world, arView: view.arView, quality: governed.settings.quality)
+        #endif
+        #if DEBUG || TESTER_TOOLS
+        fxCheck?.tick(controller: controller)
         #endif
         let tc = probe.start()
         updateCamera(world: world, dt: Float(dt))
@@ -743,6 +750,10 @@ final class BattleRenderer {
     }
 
     #if DEBUG
+    #if DEBUG || TESTER_TOOLS
+    /// 内部ビルドの演出チェック（設定 > テスター用。FXCheckSession が始めた試合だけ）。
+    private lazy var fxCheck: FXCheckDriver? = FXCheckSession.shared.driver(for: controller)
+    #endif
     /// -fxCapture: スキル演出の比較撮影（FXCapture）。
     private lazy var fxCapture: FXCapture? = FXCapture.isRequested ? FXCapture() : nil
     private var autoClock: Double = 0

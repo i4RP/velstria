@@ -831,7 +831,7 @@ final class SkillFXPlayer {
             seq.animationMode = sheet.loops ? .looping : .playOnce
             m.imageSequence = seq
         } else {
-            m.image = e.additive ? textures.glowTexture(e.tex) : textures.texture(e.tex)
+            m.image = e.additive ? textures.glowTexture(e.tex) : textures.particleTexture(e.tex)
             m.imageSequence = nil
         }
         m.blendMode = e.additive ? .additive : .alpha

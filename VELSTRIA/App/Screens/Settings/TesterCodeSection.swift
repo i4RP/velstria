@@ -46,6 +46,7 @@ struct TesterCodeSection: View {
             }
             .tint(Theme.cyan)
             .accessibilityIdentifier("tester_perf_probe")
+            FXCheckSettingsRow()
             if PerfProbe.lastReport != nil {
                 Button {
                     UIPasteboard.general.string = PerfProbe.lastReport

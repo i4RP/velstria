@@ -824,6 +824,31 @@ final class SkillFXTests: XCTestCase {
         XCTAssertEqual(snap.liveTotal, 0, "プレイ中の生成: \(snap.live)\n" + snap.liveSamples.joined(separator: "\n"))
     }
 
+    /// アルファ合成の粒子の画像は「色 = アルファ」の乗算していない画像（FXTextureLibrary.particleAlpha）。白 + アルファのままだと
+    /// RealityKit が色を乗算済みとして重ねて粒子の四角い縁が見える（2026-10-17 実機のボルグ S2 の土煙）。全ての画像・シートで作れる。
+    func testAlphaParticleImagesCarryTheAlphaInTheColour() {
+        func check(_ name: String, _ img: CGImage?) {
+            guard let img, let p = FXTextureLibrary.particleAlpha(img) else { return XCTFail("\(name) が作れない") }
+            XCTAssertEqual(p.alphaInfo, .last, name)
+            guard let data = p.dataProvider?.data, let bytes = CFDataGetBytePtr(data) else { return XCTFail(name) }
+            var maxDiff = 0, covered = 0
+            for k in stride(from: 0, to: p.width * p.height * 4, by: 4) {
+                let a = Int(bytes[k + 3])
+                if a > 0 { covered += 1 }
+                maxDiff = max(maxDiff, abs(Int(bytes[k]) - a), abs(Int(bytes[k + 1]) - a), abs(Int(bytes[k + 2]) - a))
+            }
+            XCTAssertGreaterThan(covered, 0, "\(name) が空")
+            XCTAssertLessThanOrEqual(maxDiff, 1, "\(name): 色がアルファと違う（透明な所に色が残ると四角い縁が出る）")
+        }
+        for t in FXTex.allCases { check(t.rawValue, FXTextureLibrary.image(t)) }
+        for s in FXSheet.allCases { check(s.rawValue, FXSheet.image(s)) }
+        let lib = FXTextureLibrary()
+        XCTAssertNotNil(lib.particleTexture(.smoke), "粒子の画像から TextureResource が作れる")
+        let sheets = FXSheetLibrary()
+        sheets.prewarm(FXSheet.allCases)
+        XCTAssertTrue(sheets.missing.isEmpty, "\(sheets.missing)")
+    }
+
     func testEverySheetIsBundledAsA4x4Grid() {
         for s in FXSheet.allCases {
             guard let img = FXSheet.image(s) else { XCTFail("\(s.rawValue).png が無い"); continue }
