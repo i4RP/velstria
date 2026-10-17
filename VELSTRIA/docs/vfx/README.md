@@ -4,6 +4,8 @@
 判定・数値（`Kit_H0xx.swift`・VelstriaCore）は変えない。見た目（`App/Battle/SkillFX`・`App/Battle/Render/SkillFX`）とカメラだけ。
 ブランチ `vfx/mlbb-parity`（main へのマージはこの作業の範囲外）。
 
+スキルの範囲（判定）と演出の範囲の合わせ方・判定の形の表示・食い違いの一覧は [RANGES.md](RANGES.md)。
+
 ## 進め方
 
 1. 比較の基準: 決まった条件でスキルを撃って戦闘画面を撮る（`FXCapture`・`.github/workflows/fx-capture.yml`）。

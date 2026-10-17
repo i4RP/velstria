@@ -165,6 +165,8 @@ final class FXCheckDriver {
             step = .cast(index: k)
         case .cast(let k):
             let slot = FXCheckDriver.slots[k]
+            // 英雄にだけ撃てるスキルは、敵の英雄を射程に入る前（HitShapeScenario と同じ 1.5 m）へ呼ぶ（掴み・対象指定の射程が短い）
+            if FXCheckDriver.heroOnly[heroID]?.contains(slot) == true { bringFoe(controller: controller) }
             guard let target = target(for: slot, controller: controller) else {
                 step = .place(index: k + 1)
                 return
@@ -213,6 +215,20 @@ final class FXCheckDriver {
         guard let me = controller.humanIndex else { return nil }
         let team = s.units[me].team
         return s.units.first { $0.kind == .hero && $0.team != team && $0.isAlive }?.id
+    }
+
+    /// 敵の英雄を自分のヒーローの前 HitShapeScenario.foeDistance に置き直す（英雄にだけ撃てるスキルの直前）。
+    private func bringFoe(controller: BattleController) {
+        guard let me = controller.humanIndex else { return }
+        var s = controller.state
+        let team = s.units[me].team
+        guard let hi = s.units.firstIndex(where: { $0.kind == .hero && $0.team != team }) else { return }
+        let at = s.units[me].pos + Vec2.fromAngle(s.units[me].facing) * HitShapeScenario.foeDistance
+        s.units[hi].pos = at
+        s.units[hi].prevPos = at
+        s.units[hi].path.removeAll()
+        s.units[hi].moveIntent = .none
+        controller.restore(s)
     }
 
     /// 自分のヒーローを人形の南 standoff に北向きで置き直し、体力・資源を満たす。人形の体力も戻す。

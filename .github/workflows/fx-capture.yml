@@ -50,6 +50,8 @@ jobs:
           if [[ "$TAG" == *probe* ]]; then echo "PROBE=1" >> "$GITHUB_ENV"; fi
           # 名前に moving を含むタグは、撮る間も粒子を止めない（粒子が映るかの切り分け）
           if [[ "$TAG" == *moving* ]]; then echo "MOVING=1" >> "$GITHUB_ENV"; fi
+          # 名前に clean を含むタグは、判定の形の線（docs/vfx/RANGES.md。撮影では既定で出す）を出さない
+          if [[ "$TAG" == *clean* ]]; then echo "NOHITSHAPES=1" >> "$GITHUB_ENV"; fi
           cat "$GITHUB_ENV" || true
 
       - name: ツール準備
@@ -68,6 +70,20 @@ jobs:
             CODE_SIGNING_ALLOWED=NO > build/xcodebuild.log 2>&1 || true
           grep -E "error:|BUILD (SUCCEEDED|FAILED)" build/xcodebuild.log | head -80 || true
           grep -q "BUILD SUCCEEDED" build/xcodebuild.log
+
+      # 名前に apptests を含むタグは、撮影の前に演出の範囲・スキル演出・演出チェックのアプリのテストも回す（docs/vfx/RANGES.md。
+      # 結果は成果物の apptests.log。落ちても撮影は続ける）
+      - name: 演出のアプリのテスト（apptests のタグだけ）
+        if: contains(github.ref_name, 'apptests')
+        working-directory: VELSTRIA
+        run: |
+          mkdir -p build/fxcapture
+          xcodebuild test -project VELSTRIA.xcodeproj -scheme VELSTRIA -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' -destination-timeout 120 \
+            -derivedDataPath build/dd CODE_SIGNING_ALLOWED=NO \
+            -only-testing:VELSTRIATests/SkillFXRangeTests -only-testing:VELSTRIATests/SkillFXTests \
+            -only-testing:VELSTRIATests/FXCheckTests > build/fxcapture/apptests.log 2>&1 || echo "アプリのテストが落ちた（apptests.log）"
+          grep -E "error:|Test Case .*(passed|failed)|Executed|TEST (SUCCEEDED|FAILED)" build/fxcapture/apptests.log | tail -120 || true
 
       - name: 撮影
         working-directory: VELSTRIA

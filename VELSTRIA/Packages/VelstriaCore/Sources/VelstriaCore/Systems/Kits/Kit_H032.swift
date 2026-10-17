@@ -736,7 +736,8 @@ struct Kit_H032: HeroKit {
                                               duration: Tune.burstMarkDuration)])
         p.minionMultiplier = Tune.burstMinionMultiplier
         let first = timer.param
-        Kit.hitAreaEach(&s, ctx, caster: owner, center: timer.point, radius: Tune.burstRadius, shape: .circle) { st, j in
+        Kit.hitAreaEach(&s, ctx, caster: owner, center: timer.point, radius: Tune.burstRadius, shape: .circle,
+                        source: .skill(.skill1)) { st, j in
             // 対象を先に確定してから当てるので、同じ円の中の敵どうしで回数は混ざらない
             let hits = Kit.markStacks(st, target: j, tag: tag)
             var q = p
@@ -819,7 +820,8 @@ struct Kit_H032: HeroKit {
         let cap = kit.diasUltCap
         let center = s.units[owner].pos
         Kit.hitAreaEach(&s, ctx, caster: owner, center: center, radius: Tune.ultHalfWidth,
-                        shape: .line(direction: kit.diasUltDirection, length: Tune.ultLineLength)) { st, j in
+                        shape: .line(direction: kit.diasUltDirection, length: Tune.ultLineLength),
+                        source: .skill(.ultimate)) { st, j in
             let amount = Self.ultHitDamage(flat: flat, lostHealth: Self.lostHealth(st.units[j]),
                                            isHero: st.units[j].kind == .hero, cap: cap)
             var p = HitPayload(damage: amount, damageType: .physical, source: .skill(.ultimate),
@@ -893,7 +895,7 @@ struct Kit_H032: HeroKit {
                                 isCrit: plan.payload.isCrit, appliesOnHit: false)
         let center = s.units[attacker].pos
         let hit = Kit.hitAreaEach(&s, ctx, caster: attacker, center: center, radius: Tune.circleRadius,
-                                  shape: .circle, excluding: target) { _, _ in around }
+                                  shape: .circle, excluding: target, source: .basicAttack) { _, _ in around }
         // 回復: 最大 HP の 7〜10%（1 回の円撃で 1 度）。当たったのがミニオン・タワーだけなら半分（公式。ヒーロー・モンスターが
         // 1 体でも含まれていれば全量）
         let halved = Self.halvesCircleHeal(s.units[target]) && hit.allSatisfy { Self.halvesCircleHeal(s.units[$0]) }

@@ -72,6 +72,10 @@ public enum ZoneSystem {
     /// ゾーン k の範囲内の対象に payload を適用する（添字昇順）。
     static func applyZone(_ s: inout SimState, _ ctx: SimContext, _ k: Int) {
         let z = s.zones[k]
+        // 検証用の観測（受け口が無ければ何もしない。docs/vfx/RANGES.md）。見た目だけのゾーン（誰にも当たらない）は判定ではないので出さない
+        if HitShapeProbe.isActive, z.payload.affectsEnemies || z.payload.affectsAllies || z.payload.kitHitsStructures {
+            HitShapeProbe.emit(.zone(z, time: s.time))
+        }
         let bounds = boundingCircle(shape: z.shape, center: z.center, radius: z.radius)
         var targets: [Int] = []
         for i in s.units.indices {

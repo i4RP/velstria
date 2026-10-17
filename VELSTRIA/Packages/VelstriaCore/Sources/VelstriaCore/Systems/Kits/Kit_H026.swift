@@ -533,6 +533,8 @@ struct Kit_H026: HeroKit {
         guard let (skill, n) = Self.numbersNow(s, ctx, i, .skill2) else { return }
         let team = s.units[i].team
         let c = s.units[t].pos
+        // 検証用の観測: 広がりの円（当たった敵は除く。受け口が無ければ何もしない。docs/vfx/RANGES.md）
+        HitShapeProbe.emit(.kit(.circle(center: c, radius: T.splashRadius, inner: 0), s, caster: i, source: .skill(.skill2)))
         var targets: [Int] = []
         for j in s.units.indices where j != t && s.units[j].team != team && !s.units[j].isStructure {
             guard CombatSystem.isLiving(s, j) else { continue }
@@ -570,6 +572,9 @@ struct Kit_H026: HeroKit {
         let center = s.units[t].pos
         let team = s.units[i].team
         let tag = Self.markTag(s, i)
+        // 検証用の観測: 炸裂の円（超伝導の敵にだけ当たる）
+        HitShapeProbe.emit(.kit(.circle(center: center, radius: T.burstRadius, inner: 0), s, caster: i,
+                                source: .skill(.ultimate)))
         var hits: [Int] = []
         for j in s.units.indices where s.units[j].team != team && !s.units[j].isStructure {
             guard CombatSystem.isLiving(s, j), Kit.markStacks(s, target: j, tag: tag) > 0 else { continue }
