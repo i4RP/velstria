@@ -192,3 +192,12 @@ overPending）は 30 のスキルすべてで 0。
   閃光・ぼかしは後処理の合成のパス（`PostProcessor.ScreenPulse`。低画質・後処理の自動の切り下げ・シミュレータでは出ない）。
   押し込みは視線の方向だけ（注視点・距離・頭上バーの大きさ・影の範囲は変えない）。「視差効果を減らす」ではぼかし・押し込みを出さない。
 
+
+### 2026-10-18 第 3 段（Effekseer を見せ場に。ロームのレーン: ゴルム）
+
+- Effekseer を RealityKit の後処理の中で描く（実機の中・高画質。3D に隠れる・ブルームが掛かる・歪みの背景）。シミュレータ・低画質・
+  確かめ（probe）で描けなかった試合は従来の重ね描き。仕組みと実機で確かめることは [EFFEKSEER.md](../EFFEKSEER.md)「描画の 2 つの経路」。
+- キットのヒーローの段に Effekseer の効果を重ねる合図（`FXCue.efk`。`Effects/Effekseer/Kit/`）。sim と連動する部品・範囲の縁は SkillFX のまま。
+- Mac の無い環境で `.efk` を実際のランタイムで描いてコマを撮る `tools/effekseer/webrender/render.mjs`（無頭の Chrome / Edge + EffekseerForWebGL 1.80.7）と、
+  Windows の公式ツールでの書き出し（`EFFEKSEER_CLI`）。
+- ゴルム（H034）: [H034.md](H034.md)。撮影 `fxcap-golm-*--H034@mlbb`。

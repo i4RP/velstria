@@ -140,7 +140,8 @@ enum PostProcessShaderCache {
         options.mathMode = .fast
         let lib: MTLLibrary
         do {
-            lib = try device.makeLibrary(source: PostProcessor.shaderSource, options: options)
+            // Effekseer を後処理の中で描くパス（3D 画面の色・深度を写す）のシェーダーも同じライブラリに入れる
+            lib = try device.makeLibrary(source: PostProcessor.librarySource, options: options)
         } catch {
             #if DEBUG
             NSLog("%@", "[PostProcess] shader compile failed: \(error)")
@@ -194,6 +195,24 @@ final class PostProcessor: @unchecked Sendable {
     /// ブルーム・合成まで通したフレームがある（パイプライン・縮小用テクスチャが揃い、以後の描画でシェーダーを作らない）。
     private var fullPassDone = false
     static let maxFailures = 3
+
+    /// Effekseer を後処理の中で描くパス（実機の中・高画質。BattleRenderer が attachEffekseer で渡す）。
+    let effekseerPass = EffekseerPostPass()
+
+    /// ライブラリのソース（ブルーム・合成 + Effekseer の写すパス）。
+    static var librarySource: String { shaderSource + EffekseerPostPass.shaderSource }
+
+    /// Effekseer を後処理の中で描く（nil で外す）。どのスレッドからでもよい。
+    func attachEffekseer(_ runtime: EfkRuntime?) { effekseerPass.attach(runtime) }
+
+    /// Effekseer を後処理の中で描ける状態か（メインスレッドが毎フレーム見て、false の間は重ね描き）。
+    /// 後処理が無効・断念済み・取り付け前、パイプラインの準備前、直近のフレームで後処理が呼ばれていない時は false。
+    func drawsEffekseer(now: Double) -> Bool {
+        lock.lock()
+        let on = settings.enabled && !gaveUp
+        lock.unlock()
+        return on && effekseerPass.drawsEffekseer(now: now)
+    }
 
     init(settings: PostProcessSettings) {
         self.settings = settings
@@ -491,6 +510,8 @@ final class PostProcessor: @unchecked Sendable {
             PostProcessor.copy(ctx)
             return
         }
+        // Effekseer を後処理の中で描く（効果が出ている時だけ。3D 画面の色・深度を写した画へ描き、以降はその画を元画像にする）
+        let scene = library.flatMap { effekseerPass.encode(ctx, library: $0, device: device) } ?? src
         let linear = PostProcessor.isLinear(src.pixelFormat)
         var bloomTexture: MTLTexture?
         let levels = max(0, min(6, s.bloomLevels))
@@ -502,7 +523,7 @@ final class PostProcessor: @unchecked Sendable {
                                  linearInput: linear ? 1 : 0)
             // 輝度抽出 + 1/2 縮小
             enc.setComputePipelineState(prefilter)
-            enc.setTexture(src, index: 0)
+            enc.setTexture(scene, index: 0)
             enc.setTexture(down[0], index: 1)
             enc.setBytes(&bp, length: MemoryLayout<BloomParams>.stride, index: 0)
             PostProcessor.dispatch(enc, prefilter, down[0])
@@ -562,8 +583,8 @@ final class PostProcessor: @unchecked Sendable {
             cp.rippleStrength[k] = r.strength
         }
         renc.setRenderPipelineState(composite)
-        renc.setFragmentTexture(src, index: 0)
-        renc.setFragmentTexture(bloomTexture ?? src, index: 1)
+        renc.setFragmentTexture(scene, index: 0)
+        renc.setFragmentTexture(bloomTexture ?? scene, index: 1)
         renc.setFragmentBytes(&cp, length: MemoryLayout<CompositeParams>.stride, index: 0)
         renc.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
         renc.endEncoding()

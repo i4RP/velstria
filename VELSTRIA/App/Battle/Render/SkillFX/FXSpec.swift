@@ -423,6 +423,23 @@ enum FXElement: Hashable, Sendable {
     case shake(Float)
     /// 動く点の後ろに伸びる帯（FXRibbon）。
     case ribbon(FXRibbon)
+    /// Effekseer の効果を重ねる（見せ場。sim と連動する部品は emit / mesh のまま）。
+    case efk(FXEfk)
+}
+
+/// 段の合図として重ねる Effekseer の効果（Effects/Effekseer/Kit/<name>.efk。試合のヒーローの分だけ読み込み幕の裏で読む）。
+/// 位置・時刻・追従は他の合図と同じ（at・anchor・offset）。向きは段の前方（効果は前 = -Z で作る）。
+/// 描くのは EffekseerDirector（実機の中・高画質は後処理の中、シミュレータ・低画質は重ね描き）。
+struct FXEfk: Hashable, Sendable {
+    /// 効果の名前（拡張子なし。<ヒーロー ID>_<名前>。例 H034_s2_slam）。
+    var name: String
+    /// 一様な倍率と再生速度。
+    var scale: Float = 1
+    var speed: Float = 1
+    /// 3D の上に描く（体に重ねる命中の閃きなど）。false = 3D に隠れる（地面の跡・柱・輪。後処理の中だけ効く）。
+    var onTop = false
+    /// anchor が follow の時に追う長さ（秒）。過ぎたら止める。
+    var followFor: Float = 3
 }
 
 struct FXCue: Hashable, Sendable {
@@ -454,6 +471,13 @@ struct FXCue: Hashable, Sendable {
 
     static func shake(_ k: Float, at: Float = 0) -> FXCue {
         FXCue(at: at, element: .shake(k))
+    }
+
+    /// Effekseer の効果を重ねる（FXEfk）。
+    static func efk(_ name: String, at: Float = 0, _ anchor: FXAnchor = .origin, offset: SIMD3<Float> = .zero,
+                    scale: Float = 1, speed: Float = 1, onTop: Bool = false, quality: Int = 0) -> FXCue {
+        FXCue(at: at, anchor: anchor, offset: offset,
+              element: .efk(FXEfk(name: name, scale: scale, speed: speed, onTop: onTop)), minQuality: quality)
     }
 
     static func ribbon(_ r: FXRibbon, at: Float = 0, _ anchor: FXAnchor = .origin, offset: SIMD3<Float> = .zero,
@@ -502,7 +526,7 @@ extension FXCue {
         switch element {
         case .emit(let e): return e.durationFromCast && e.rate > 0
         case .mesh(let m): return m.durationFromCast
-        case .shake, .ribbon: return false
+        case .shake, .ribbon, .efk: return false
         }
     }
 
@@ -517,7 +541,7 @@ extension FXCue {
         case .mesh(var m):
             m.life = d
             c.element = .mesh(m)
-        case .shake, .ribbon:
+        case .shake, .ribbon, .efk:
             break
         }
         return c

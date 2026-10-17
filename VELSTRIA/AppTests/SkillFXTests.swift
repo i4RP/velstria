@@ -72,7 +72,7 @@ final class SkillFXTests: XCTestCase {
             for slot in SkillSlot.allCases {
                 let r = SkillFXCatalog.recipe(heroID: id, slot: slot, master: master)
                 let ult = slot == .ultimate
-                var meshes = 0, emits = 0
+                var meshes = 0, emits = 0, efks = 0
                 for cue in r.all {
                     let n = max(1, cue.count)
                     switch cue.element {
@@ -92,6 +92,11 @@ final class SkillFXTests: XCTestCase {
                         }
                     case .shake(let s):
                         XCTAssertLessThanOrEqual(s, 1, "\(id) \(slot): 揺れが強すぎる")
+                    case .efk(let x):
+                        efks += n
+                        XCTAssertTrue(x.name.hasPrefix(id + "_"), "\(id) \(slot): 重ねる .efk はそのヒーローの名前（\(x.name)）")
+                        XCTAssertLessThanOrEqual(x.scale, 3, "\(id) \(slot): .efk の倍率が大きすぎる")
+                        XCTAssertLessThanOrEqual(x.followFor, 4, "\(id) \(slot): .efk の追従が長すぎる")
                     case .ribbon(let rb):
                         // 帯はメッシュの枠として数える（帯のプールは ribbonCapacity）
                         meshes += n
@@ -103,6 +108,7 @@ final class SkillFXTests: XCTestCase {
                 }
                 XCTAssertLessThanOrEqual(meshes, ult ? 28 : 20, "\(id) \(slot): メッシュの合図が多すぎる")
                 XCTAssertLessThanOrEqual(emits, ult ? 16 : 13, "\(id) \(slot): 粒子の合図が多すぎる")
+                XCTAssertLessThanOrEqual(efks, BattleWorkBudget.efkCuesPerRecipe, "\(id) \(slot): 重ねる .efk が多すぎる")
             }
         }
     }
@@ -461,14 +467,14 @@ final class SkillFXTests: XCTestCase {
             switch cue.element {
             case .mesh(let m): XCTAssertEqual(m.life, 4, accuracy: 1e-5)
             case .emit(let e): XCTAssertEqual(e.duration, 4, accuracy: 1e-5)
-            case .shake, .ribbon: XCTFail()
+            case .shake, .ribbon, .efk: XCTFail()
             }
         }
         for cue in FXCue.applyingCastDuration(r.cast, seconds: 9).filter(\.usesCastDuration) {
             switch cue.element {
             case .mesh(let m): XCTAssertEqual(m.life, 9, accuracy: 1e-5)
             case .emit(let e): XCTAssertEqual(e.duration, 9, accuracy: 1e-5)
-            case .shake, .ribbon: XCTFail()
+            case .shake, .ribbon, .efk: XCTFail()
             }
         }
         XCTAssertTrue(r.impact.allSatisfy { !$0.usesCastDuration }, "放つ矢は長さに関係しない")
@@ -486,7 +492,7 @@ final class SkillFXTests: XCTestCase {
                     switch cue.element {
                     case .mesh(let m): XCTAssertLessThanOrEqual(m.life, FXCue.castDurationLimit, "\(id) \(slot)")
                     case .emit(let e): XCTAssertLessThanOrEqual(e.duration, FXCue.castDurationLimit, "\(id) \(slot)")
-                    case .shake, .ribbon: break
+                    case .shake, .ribbon, .efk: break
                     }
                 }
             }
@@ -845,7 +851,20 @@ final class SkillFXTests: XCTestCase {
             XCTAssertGreaterThan(covered, 0, "\(name) が空")
             XCTAssertLessThanOrEqual(maxDiff, 1, "\(name): 色がアルファと違う（透明な所に色が残ると四角い縁が出る）")
         }
-        for t in FXTex.allCases { check(t.rawValue, FXTextureLibrary.image(t)) }
+        for t in FXTex.allCases where !t.colored { check(t.rawValue, FXTextureLibrary.image(t)) }
+        // 色を焼き込んだ画像（H034 の炎の舌の輪）は色 × アルファ（乗算済みの色がアルファを超えない）
+        for t in FXTex.allCases where t.colored {
+            guard let img = FXTextureLibrary.image(t), let p = FXTextureLibrary.particleAlpha(img),
+                  let data = p.dataProvider?.data, let bytes = CFDataGetBytePtr(data) else { XCTFail(t.rawValue); continue }
+            var over = 0, covered = 0
+            for k in stride(from: 0, to: p.width * p.height * 4, by: 4) {
+                let a = Int(bytes[k + 3])
+                if a > 0 { covered += 1 }
+                over = max(over, Int(bytes[k]) - a, Int(bytes[k + 1]) - a, Int(bytes[k + 2]) - a)
+            }
+            XCTAssertGreaterThan(covered, 0, "\(t.rawValue) が空")
+            XCTAssertLessThanOrEqual(over, 1, "\(t.rawValue): 色がアルファを超える（乗算済みでない）")
+        }
         for s in FXSheet.allCases where !s.colored { check(s.rawValue, FXSheet.image(s)) }
         // 色付きのシート（Blender の爆炎・煙・岩）は色 × アルファ（乗算済みの色がアルファを超えない = 透明な所に色が残らない）
         for s in FXSheet.allCases where s.colored {

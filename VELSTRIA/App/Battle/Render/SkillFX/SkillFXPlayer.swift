@@ -62,6 +62,8 @@ final class SkillFXPlayer {
     var resolve: (Follow) -> SIMD3<Float>? = { _ in nil }
     /// 画面の揺れの要求（強さ・位置）。
     var onShake: (Float, SIMD3<Float>) -> Void = { _, _ in }
+    /// Effekseer の効果の合図の中継（SkillFXPlayer+Efk.swift）。
+    let efk = FXEfkRelay()
 
     // MARK: プール
 
@@ -336,7 +338,7 @@ final class SkillFXPlayer {
                 case .ribbon(let rb):
                     usesRibbons = true
                     if let t = rb.tex, t.bundled != nil { bundledTex.insert(t) }
-                case .shake:
+                case .shake, .efk:
                     break
                 }
             }
@@ -360,6 +362,8 @@ final class SkillFXPlayer {
                     let look = rb.look
                     _ = materials.material(look.tex, palette.rgb(look.tint), onTop: look.onTop)
                     if SkillFXPlayer.usesShaded(look) { shadedPending.append((look, palette)) }
+                case .efk(let x):
+                    efk.note(x)
                 case .emit, .shake:
                     break
                 }
@@ -564,6 +568,8 @@ final class SkillFXPlayer {
         switch cue.element {
         case .shake(let s):
             onShake(s, anchor)
+        case .efk(let x):
+            efk.fire(x, at: anchor + worldOffset, yaw: yaw, follow: follow, offset: worldOffset)
         case .emit(let e):
             spawnEmit(e, at: anchor + worldOffset, yaw: yaw, follow: follow, offset: worldOffset, ctx: ctx)
         case .mesh(var m):

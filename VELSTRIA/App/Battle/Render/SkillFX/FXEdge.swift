@@ -13,6 +13,7 @@ import Foundation
 //     runeCircle 0.47 + 0.012 / 2 = 0.476         techCircle 0.46 + 0.016 / 2 = 0.468
 //     clockFace  0.46 + 0.018 / 2 = 0.469         hexShield  0.47 + 0.02 / 2 = 0.48
 //     bubble     0.42 + 0.04 / 2 = 0.44           ripple     最も外の 0.47（不透明度 0.4 ≧ 1/3）+ 0.02 / 2 = 0.48
+//     flameRing  tools/effekseer/textures_kit.py の画像を同じ測り方で測った 0.4785（舌の先 0.5）  thinRing 同じく 0.4805
 //   横長の模様の半幅（板の縦に対する比。ray・鎖のように板を 90° 回して横を前へ向けたときの横幅）:
 //     chain      輪の高さ 0.18 / 2 + 線 0.035 / 2 = 0.1075   streak 楕円の高さ 0.16 / 2 = 0.08
 //     arrow      矢じり 0.11                                 slashLine 中央の光 0.12 × (1 − 0.33 / 0.9) = 0.076
@@ -42,6 +43,10 @@ enum FXEdge {
         case .hexShield: return 0.48
         case .bubble: return 0.44
         case .ripple: return 0.48
+        // 炎の舌の輪（帯の外縁 0.45 から舌の先 0.5 まで。円周の平均が 1/3 になるのは 0.4785。舌の先はその 1.045 倍）
+        case .flameRing: return 0.4785
+        // 細い輪（線の中心 0.475・幅 0.005）
+        case .thinRing: return 0.4805
         default: return nil
         }
     }
