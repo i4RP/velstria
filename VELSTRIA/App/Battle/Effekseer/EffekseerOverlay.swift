@@ -2,7 +2,8 @@ import QuartzCore
 import RealityKit
 import UIKit
 
-// 担当: Effekseer の効果を戦闘画面（RealityKit の ARView）の上に重ねて描く。
+// 担当: Effekseer の効果を戦闘画面（RealityKit の ARView）に描く。実機の中・高画質は後処理の中（PostProcessor: 3D に隠れる・
+// ブルームが掛かる・歪み）、シミュレータ・低画質・後処理の準備前は ARView の上に重ねる（docs/EFFEKSEER.md「描画の 2 つの経路」）。
 // 効果ファイル（.efk）は VELSTRIA/Effects/Effekseer/ を「フォルダ参照」としてバンドルへ入れる（相対パスのテクスチャを読むため）。
 // 作り方は docs/EFFEKSEER.md、ゲーム内の再生は EffekseerDirector。
 
@@ -50,13 +51,23 @@ final class EffekseerOverlay {
         CATransaction.commit()
     }
 
+    /// 再生する。onTop = 3D の上に描く（後処理の中でも 3D に隠れない）。旧来の .efk（重ね描きの頃に作った。命中の閃きが体の中ほど）は
+    /// 既定の true のまま。3D に隠れてよい効果（地面の跡・3D の中に立つ柱）は false（docs/EFFEKSEER.md「描画の 2 つの経路」）。
     @discardableResult
-    func play(_ name: String, at p: SIMD3<Float>, yaw: Float = 0, scale: Float = 1, speed: Float = 1) -> Int32 {
-        runtime.playNamed(name, position: p, yaw: yaw, scale: scale, speed: speed)
+    func play(_ name: String, at p: SIMD3<Float>, yaw: Float = 0, scale: Float = 1, speed: Float = 1, onTop: Bool = true) -> Int32 {
+        let h = runtime.playNamed(name, position: p, yaw: yaw, scale: scale, speed: speed)
+        if h >= 0, onTop { runtime.setOnTop(true, handle: h) }
+        return h
     }
 
-    /// 1 フレーム進めて描く（dt = 0 で止める）。
-    func render(camera: Entity, host: UIView, dt: Double) {
+    /// 1 フレーム進めて描く（dt = 0 で止める）。inPostProcess = true の時は進めるだけで、描くのは後処理（PostProcessor）。
+    /// 重ねのレイヤーは後処理へ切り替えた時に空にして隠し、戻した時に見せる（EfkRuntime.drawsInPostProcess）。
+    func render(camera: Entity, host: UIView, dt: Double, inPostProcess: Bool = false) {
+        runtime.drawsInPostProcess = inPostProcess
+        if inPostProcess {
+            runtime.advance(cameraWorld: camera.transformMatrix(relativeTo: nil), deltaSeconds: dt)
+            return
+        }
         let scale = runtime.layer.contentsScale
         let size = CGSize(width: host.bounds.width * scale, height: host.bounds.height * scale)
         runtime.render(withCameraWorld: camera.transformMatrix(relativeTo: nil),

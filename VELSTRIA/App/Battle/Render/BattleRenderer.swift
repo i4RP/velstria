@@ -299,6 +299,9 @@ final class BattleRenderer {
             fx.loadBundledEffects(heroes: heroIDs)
             note(String(format: "effekseer load %d effects, %.0f ms", fx.effectNames.count, (CACurrentMediaTime() - t0) * 1000))
             w.attach(effekseer: EffekseerDirector(overlay: fx, units: w.units, projectiles: w.projectiles))
+            // 実機の後処理（中・高画質）が使える時は、後処理の中で描く（3D に隠れる・ブルーム・歪み）。準備ができるまでと
+            // 後処理が無い時（シミュレータ・低画質・自動の切り下げ）は重ね描き（drawEffekseer が毎フレーム決める）
+            if PostProcessor.isAvailable { post.attachEffekseer(fx.runtime) }
         }
         world = w
         // Star Core の終幕の空と撮り方の候補（地図の検査）は幕の裏で作っておく（決着の瞬間に作らない）
@@ -749,12 +752,14 @@ final class BattleRenderer {
         #if DEBUG
         if let world, dt > 0 { dt = debugEffekseerDemo(fx, world: world, dt: dt) }
         #endif
+        // 後処理の中で描けるなら進めるだけ（描くのは描画スレッドの後処理）。描けない間は重ね描き
+        let inPost = post.drawsEffekseer(now: CACurrentMediaTime())
         if let world {
             world.workStats.measure(.effekseer, live: controller.isPresentationReady && !controller.isPaused) {
-                fx.render(camera: rig.camera, host: view, dt: dt)
+                fx.render(camera: rig.camera, host: view, dt: dt, inPostProcess: inPost)
             }
         } else {
-            fx.render(camera: rig.camera, host: view, dt: dt)
+            fx.render(camera: rig.camera, host: view, dt: dt, inPostProcess: inPost)
         }
     }
 
@@ -963,6 +968,7 @@ final class BattleRenderer {
         world?.teardown()
         world = nil
         anchor.removeFromParent()
+        post.attachEffekseer(nil)
         post.detach()
         if let arView = view?.arView {
             arView.scene.anchors.removeAll()

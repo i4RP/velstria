@@ -14,11 +14,46 @@ tools/effekseer/textures.py ──→ Effects/Effekseer/Texture/Fx_*.png（ア�
 ```
 
 - ランタイム: Effekseer の C++（Metal）を静的ライブラリとして同梱（ThirdParty/Effekseer/。MIT）。`tools/build_effekseer.sh` で作り直す（cmake・ninja が要る。CI は使わない）。
-- 描画: `EfkRuntime`（Objective-C++。App/Battle/Effekseer/）が Metal のレイヤーを持ち、戦闘画面（ARView）の上に重ねて描く。カメラは RealityKit のカメラの行列をそのまま渡す。
+- 描画: `EfkRuntime`（Objective-C++。App/Battle/Effekseer/）。実機の中・高画質は RealityKit の後処理の中で、シミュレータ・低画質は
+  戦闘画面（ARView）の上に重ねて描く（下の「描画の 2 つの経路」）。カメラは RealityKit のカメラの行列をそのまま渡す。
   効果が何も出ていない間は描かない（GPU を使わない）。HUD・ダメージ数値・暗い縁取りより下。
 - 再生: `EffekseerDirector` が sim のイベントを効果へ対応づける。効果を持つヒーローは旧来の演出（SkillFX・通常攻撃の演出・弾の見た目）を止める。
   ただしキット（ヒーロー固有スキル。`docs/SKILL_KITS.md`）のヒーローは、スキルを SkillFX に任せる（下の「キットのヒーローの役割分担」）。
 - 効果は右手系・Y 上・1 単位 = 1 m。**前 = -Z** で作る（再生時に yaw で前を合わせる）。時間はフレーム（60fps）。速度は DSL では「毎秒」で書く（Effekseer の内部は毎フレーム）。
+
+## 描画の 2 つの経路（2026-10-18〜）
+
+| 経路 | いつ | 3D に隠れる | ブルーム | 歪み |
+|---|---|---|---|---|
+| 後処理の中（`EffekseerPostPass`） | 実機・画質 中 / 高（`PostProcessor` が有効で、後処理用の描き手とパイプラインができた後） | する（3D 画面の深度） | 掛かる（効果を描いた画を元画像にする） | 3D 画面を背景に使う |
+| 重ね描き（`CAMetalLayer`） | シミュレータ・低画質・自動の切り下げで後処理が無い時・準備前 | しない（3D の上） | 無い | 背景なし |
+
+- 後処理の中の流れ（`PostProcessor.process` → `EffekseerPostPass.encode`）: 1 つのレンダーパスで 3D 画面の色（`sourceColorTexture`）を自前の色へ、
+  深度（`sourceDepthTexture`）を自前の深度（Depth32Float・タイルの中だけ = memoryless）へ写し（`velSceneCopyFragment`）、同じパスで Effekseer を描く（下の「層」）。
+  射影は RealityKit の射影（`PostProcessContext.projection`。逆 Z を `EfkRuntime.isReversedDepth(projection:)` で見分けて描き手を作る）なので深度が一致する。
+  ブルーム・合成（奥義の脈の放射状のぼかしも）はその画を元画像にする。効果が出ていないフレームは写さない（追加の費用 0）。
+- 描き手は 2 つ（重ね描き = BGRA8Unorm・深度なし、後処理 = 3D 画面の色の形式・Depth32Float）でグラフィックスデバイスを共有する（テクスチャ・モデルは 1 回読む）。
+  Manager（効果の状態）は 1 つで、描く直前に経路の描き手を差す。後処理用の描き手と写すパスのパイプラインは、後処理が最初に色の形式を知った時に背景で作る
+  （読み込み幕の裏。作る間は重ね描き）。3D 画面が sRGB・浮動小数の時は `SetMaintainGammaColorInLinearColorSpace` で効果の色をガンマのまま保つ。
+- スレッド: 再生・移動・進行（Update）はメインスレッド、後処理の中の描画（Draw）は RealityKit の描画スレッド。`EfkRuntime` の錠で Manager と描き手を守る。
+  ヒットストップ（`BattleFeel`）は従来どおりメインスレッドの進行を dt = 0 にする。
+- 切り替え: メインスレッドが毎フレーム `PostProcessor.drawsEffekseer(now:)`（後処理が有効で、直近 0.3 秒に後処理で描ける状態だった）を見て決める。
+  後処理へ切り替える時に重ねのレイヤーを空にして隠し、戻す時に見せる（`EfkRuntime.drawsInPostProcess`）。両方で描くフレームは無い。
+- 層（Manager のレイヤー）: **3D の上**（`EffekseerOverlay.play(onTop: true)`。既定）と **3D に隠れる**（`onTop: false`）。後処理の中では
+  隠れる層を描いた後、同じパスで深度を遠い面へ戻して（`velDepthReset`）上の層を描く。重ね描きでは両方とも 3D の上。
+  旧来の `.efk`（`EffekseerDirector` の段の効果。重ね描きの頃に作り、命中の閃きを体の中ほどに置いている）は上の層のまま（見た目は従来どおり + ブルーム・歪み）。
+  キットのヒーローの段に重ねる `.efk`（`FXEfk`）は既定で隠れる層（地面の跡・柱・輪が体や壁の後ろで隠れる）、命中の閃きなど体に重ねたい物は `onTop`。
+  `.efk` の各ノードは ZTest = 有効・ZWrite = 無効（`efkexport.py` の既定）。
+- 確かめ方: シミュレータは RealityKit の後処理を呼ばないので、`AppTests/EffekseerPostTests`（黒い画と一様な深度で、描き手の作成・描画・深度の向き・上の層）と、
+  演出の撮影（`FXCapture`）の最後の自己診断（目録の notes の `efkPost ...` と `efkpost.png`）で確かめる。見た目は実機だけ（下）。
+
+### 実機で確かめること（後処理の中の Effekseer）
+
+- 効果が 3D に隠れるか（体・壁・塔の後ろ）。地面の跡（y = 0.03〜0.06 m）が地面に沈まないか・ちらつかないか。
+- 効果にブルームが掛かるか・明るさ（重ね描きの頃より明るい / 白飛びしすぎないか）。sRGB の画への合成で色が変わっていないか。
+- 歪みの効果（背景 = 効果を描く前の 3D 画面）の上下が反転していないか（`SetBackgroundTextureUVStyle`）。
+- 画質を低へ落とした時・自動の切り下げの時に重ね描きへ戻り、効果が消えたり二重に出たりしないか。
+- 後処理の中の描画の GPU 時間（Instruments の Metal。`velEffekseer` のパス）と、`sync.effekseer`（メインスレッドの進行だけになる）。
 
 ## 効果の名前（`<heroID>_<段>`）
 
