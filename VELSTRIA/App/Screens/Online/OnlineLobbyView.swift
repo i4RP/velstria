@@ -40,6 +40,11 @@ struct OnlineLobbyView: View {
         .sheet(isPresented: $showsFriends) {
             FriendsView().environment(app)
         }
+        .onAppear { app.audio.playMusic(.lobby) }
+        .onDisappear {
+            // 試合へ進まずに抜けたらホームの曲へ戻す
+            if app.activeBattle == nil { app.audio.playMusic(.menu) }
+        }
     }
 
     /// 座席の画面（ピック・試合中・切断）を出すか。ロビーのパーティの段階はパーティの画面。

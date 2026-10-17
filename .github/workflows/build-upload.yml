@@ -83,6 +83,11 @@ jobs:
             -only-testing:VELSTRIATests/SkillFXRangeTests \
             -only-testing:VELSTRIATests/BattleFeelTests \
             -only-testing:VELSTRIATests/FXCheckTests \
+            -only-testing:VELSTRIATests/EffekseerPostTests \
+            -only-testing:VELSTRIATests/EffekseerKitStackTests \
+            -only-testing:VELSTRIATests/AudioFilesTests \
+            -only-testing:VELSTRIATests/ServicesAudioSynthTests \
+            -only-testing:VELSTRIATests/ServicesAudioServiceTests \
             -only-testing:VELSTRIATests/RenderLayerTests/testPostProcessShadersCompile \
             -only-testing:VELSTRIATests/HeroModelTests/testAllHeroesBuildWithinBudget \
             -only-testing:VELSTRIATests/SkinnedHeroModelTests/testBundledHeroAssetsMeetContract \

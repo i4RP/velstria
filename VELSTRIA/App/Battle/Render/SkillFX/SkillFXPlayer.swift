@@ -5,7 +5,10 @@ import VelstriaCore
 
 // 担当: battle-renderer（スキル演出）。FXCue の再生器。
 // - 粒子: 汎用の放出体のプール（部品は付けたまま、再生のたびに FXEmit の全項目を書き戻して restart / burst）。
-// - メッシュ: 形ごとのエンティティのプール（材質は FXMaterialLibrary のキャッシュを差し替えるだけ）。
+// - メッシュ: 形ごとのエンティティのプール（材質は FXMaterialLibrary のキャッシュを差し替えるだけ）。枠ごとに LowLevelMesh を持ち
+//   （FXMeshSlot）、コマ送りのコマ・溶けの進み・模様の種を頂点の色へ書く（材質は作らない）。Blender の模型の形は、試合のレシピが
+//   使うものだけプールする。
+// - 帯（FXRibbon）: LowLevelMesh の帯のプール（ribbonCapacity）。毎フレーム頂点だけを書き換える（WeaponTrail と同じ作り）。
 // - 遅れ・繰り返しは予定表で順に発火し、追従（術者・被弾者・投射物）は毎フレーム位置を読み直す。
 // プレイ中は何も作らない: 画像・メッシュ・材質・放出体は prewarm（読み込み幕の裏）で作り切る。プールが尽きたら
 // 最も古いものを打ち切って使い回す（追従の継続放出は打ち切らない）。
@@ -59,6 +62,8 @@ final class SkillFXPlayer {
     var resolve: (Follow) -> SIMD3<Float>? = { _ in nil }
     /// 画面の揺れの要求（強さ・位置）。
     var onShake: (Float, SIMD3<Float>) -> Void = { _, _ in }
+    /// Effekseer の効果の合図の中継（SkillFXPlayer+Efk.swift）。
+    let efk = FXEfkRelay()
 
     // MARK: プール
 
@@ -96,6 +101,10 @@ final class SkillFXPlayer {
         var palette: FXPalette?
         /// いま付けている加算の明るさの段階（0 = 隠している、加算でなければ使わない）。
         var level = 0
+        /// 頂点の色を書く枠（コマ・溶け・種）。
+        var slot: FXMeshSlot?
+        /// 模様の種（溶けを使うメッシュだけ。ほかは 0 = 従来どおり）。
+        var seed: UInt8 = 0
     }
 
     private struct Pending {
@@ -110,6 +119,12 @@ final class SkillFXPlayer {
     private var emits: [EmitInst] = []
     private var freeMeshes: [FXShape: [ModelEntity]] = [:]
     private var meshInsts: [MeshInst] = []
+    /// プールのメッシュの枠（エンティティ → 頂点の色を書く LowLevelMesh）。
+    private var slotOf: [ObjectIdentifier: FXMeshSlot] = [:]
+    private var seedCounter: UInt8 = 0
+    private var freeRibbons: [RibbonSlot] = []
+    private var ribbons: [RibbonInst] = []
+    private var ribbonCount = 0
     private var pending: [Pending] = []
     private var time: Float = 0
     private var prewarmed = false
@@ -164,6 +179,8 @@ final class SkillFXPlayer {
         var peakPending = 0
         /// 出所ごと（nil = 不明）。キーは試合のヒーローのスキルの数までしか増えない。
         var bySource: [Source?: SourceStats] = [:]
+        /// 帯（FXRibbon）の枠。
+        var ribbons = PoolStats()
 
         /// 打ち切った回数（回収待ちの引き取りは含まない）。
         var stolenEmitters: Int { emitters.cut }
@@ -189,7 +206,7 @@ final class SkillFXPlayer {
     init(quality: RenderQuality) {
         self.quality = quality
         poolQuality = quality
-        materials = FXMaterialLibrary(textures: textures)
+        materials = FXMaterialLibrary(textures: textures, sheets: sheets)
         root.name = "skillfx"
         emits.reserveCapacity(64)
         meshInsts.reserveCapacity(128)
@@ -200,7 +217,7 @@ final class SkillFXPlayer {
 
     var pendingCount: Int { pending.count }
 
-    var activeCount: Int { emits.count + meshInsts.count }
+    var activeCount: Int { emits.count + meshInsts.count + ribbons.count }
 
     /// 予算の集計の写し（性能記録 PerfReport.skillFXBudget。docs/SKILL_FX.md「予算の観測」）。呼んでも 0 には戻さない。
     func budgetSnapshot() -> SkillFXBudgetSnapshot {
@@ -243,8 +260,35 @@ final class SkillFXPlayer {
         case .cylinder, .sphere: base = 10
         case .wall, .band: base = 8
         case .dome, .spire, .funnel: base = 5
+        // 模型（試合のレシピが使うものだけプールする）
+        case .crescent, .ringLip: base = 6
+        case .burstDome, .pillar2: base = 4
+        case .twister, .bladeRing, .starCross, .shardRing: base = 3
         }
         return q.level == .low ? max(2, base / 2) : base
+    }
+
+    /// 帯（FXRibbon）のプールの大きさ（レシピが帯を使う試合だけ作る）。
+    static func ribbonCapacity(_ q: RenderQuality) -> Int {
+        switch q.level {
+        case .low: return 2
+        case .medium: return 4
+        case .high: return 6
+        }
+    }
+
+    /// コマ送りのメッシュの今のコマ（0〜frames − 1）。1 回の画像は寿命で全コマ、繰り返す画像は sheetFPS か loopFPS で回す。
+    nonisolated static func sheetFrame(_ m: FXMesh, _ sheet: FXSheet, age: Float) -> Int {
+        let n = sheet.frames
+        let fps = m.sheetFPS > 0 ? m.sheetFPS : (sheet.loops ? sheet.loopFPS : Float(n) / max(0.05, m.life))
+        let f = Int((max(0, age) * fps).rounded(.down))
+        return sheet.loops ? ((f % n) + n) % n : min(n - 1, max(0, f))
+    }
+
+    /// 溶けの進み（0〜1。寿命の比 from から 1 へ）。
+    nonisolated static func dissolveAmount(_ d: FXDissolve, t: Float) -> Float {
+        guard t > d.from else { return 0 }
+        return min(1, (t - d.from) / max(0.001, 1 - d.from))
     }
 
     /// コマ送りの速さ（コマ / 秒）: 指定が無ければ、1 回の画像は粒子の寿命で 16 コマを流し、繰り返す画像は FXSheet.loopFPS。
@@ -263,34 +307,92 @@ final class SkillFXPlayer {
 
     // MARK: 事前生成（読み込み幕の裏）
 
-    /// 試合のヒーローのレシピが使う画像・材質と、全てのプールを作る。
+    /// シートの使い方（合成で版が違う。FXSheetLibrary）。
+    private struct SheetUse: Hashable {
+        var sheet: FXSheet
+        var additive: Bool
+    }
+
+    /// 加算・模様・コマ送り・溶けの材質（CustomMaterial）を使うか。
+    private static func usesShaded(_ m: FXMesh) -> Bool {
+        m.blend == .add || m.flow != nil || m.sheet != nil || m.dissolve != nil
+    }
+
+    /// 試合のヒーローのレシピが使う画像・材質と、全てのプールを作る（Blender の大きな画像・模型・帯はレシピが使うものだけ）。
     func prewarm(recipes: [(palette: FXPalette, recipe: SkillFXRecipe)]) {
-        textures.prewarm(FXTex.allCases)
+        // 使う画像・シート・模型を先に集める（材質が画像を引く前に作る）
+        var sheetUses = Set<SheetUse>()
+        // Blender の大きな画像は使う版だけ作る（メッシュ = 白 + アルファ、加算の粒子 = 輝度、アルファ合成の粒子 = 色にアルファ）
+        var bundledTex = Set<FXTex>()
+        var bundledGlow = Set<FXTex>()
+        var bundledParticle = Set<FXTex>()
+        var models = Set<FXShape>()
+        var usesRibbons = false
+        for (_, r) in recipes {
+            for cue in r.all {
+                switch cue.element {
+                case .mesh(let m):
+                    if let s = m.sheet { sheetUses.insert(SheetUse(sheet: s, additive: m.blend == .add)) }
+                    if let t = m.tex, t.bundled != nil { bundledTex.insert(t) }
+                    if m.shape.isModel { models.insert(m.shape) }
+                case .emit(let e):
+                    if let s = e.sheet { sheetUses.insert(SheetUse(sheet: s, additive: e.additive)) }
+                    if e.tex.bundled != nil {
+                        if e.additive { bundledGlow.insert(e.tex) } else { bundledParticle.insert(e.tex) }
+                    }
+                case .ribbon(let rb):
+                    usesRibbons = true
+                    if let t = rb.tex, t.bundled != nil { bundledTex.insert(t) }
+                case .shake, .efk:
+                    break
+                }
+            }
+        }
+        textures.prewarm(FXTex.allCases.filter { $0.bundled == nil })
+        for t in bundledTex.sorted(by: { $0.rawValue < $1.rawValue }) { _ = textures.texture(t) }
+        for t in bundledGlow.sorted(by: { $0.rawValue < $1.rawValue }) { _ = textures.glowTexture(t) }
+        for t in bundledParticle.sorted(by: { $0.rawValue < $1.rawValue }) { _ = textures.particleTexture(t) }
+        for u in sheetUses.sorted(by: { ($0.sheet.rawValue, $0.additive ? 1 : 0) < ($1.sheet.rawValue, $1.additive ? 1 : 0) }) {
+            sheets.prewarm(u.sheet, additive: u.additive)
+        }
         meshes.prewarm()
+        for s in models.sorted(by: { $0.rawValue < $1.rawValue }) { _ = meshes.mesh(s) }
         _ = blank
-        var sheetsUsed = Set<FXSheet>()
         for (palette, r) in recipes {
             for cue in r.all {
                 switch cue.element {
                 case .mesh(let m):
                     // 従来の材質は必ず作る（加算・模様の Program が無い時の代わり）
-                    _ = materials.material(m.tex, palette.rgb(m.tint))
-                    if m.blend == .add || m.flow != nil { shadedPending.append((m, palette)) }
-                case .emit(let e):
-                    if let s = e.sheet { sheetsUsed.insert(s) }
-                case .shake:
+                    _ = materials.material(m.tex, palette.rgb(m.tint), onTop: m.onTop)
+                    if SkillFXPlayer.usesShaded(m) { shadedPending.append((m, palette)) }
+                case .ribbon(let rb):
+                    let look = rb.look
+                    _ = materials.material(look.tex, palette.rgb(look.tint), onTop: look.onTop)
+                    if SkillFXPlayer.usesShaded(look) { shadedPending.append((look, palette)) }
+                case .efk(let x):
+                    efk.note(x)
+                case .emit, .shake:
                     break
                 }
             }
         }
-        sheets.prewarm(sheetsUsed)
         _ = prewarmShaded()
         let n = SkillFXPlayer.emitterCapacity(poolQuality)
         while emitterCount < n { freeEmitters.append(makeEmitter()) }
-        for s in FXShape.allCases {
+        for s in FXShape.allCases where !s.isModel || (models.contains(s) && meshes.geometry(s) != nil) {
             var list = freeMeshes[s] ?? []
             while list.count < SkillFXPlayer.meshCapacity(s, poolQuality) { list.append(makeMesh(s)) }
             freeMeshes[s] = list
+        }
+        if usesRibbons {
+            while ribbonCount < SkillFXPlayer.ribbonCapacity(poolQuality) {
+                guard let r = RibbonSlot.make() else { break }
+                AssetLedger.record(.mesh, "skillfx ribbon")
+                AssetLedger.record(.entity, "skillfx ribbon")
+                ribbonCount += 1
+                root.addChild(r.entity)
+                freeRibbons.append(r)
+            }
         }
         prewarmed = true
     }
@@ -337,7 +439,10 @@ final class SkillFXPlayer {
 
     private func makeMesh(_ s: FXShape) -> ModelEntity {
         AssetLedger.record(.entity, "skillfx \(s.rawValue)")
-        let m = ModelEntity(mesh: meshes.mesh(s) ?? MeshResource.generateBox(size: 0.01), materials: [])
+        // 枠ごとの LowLevelMesh（頂点の色を 1 体ごとに書く）。作れなければ共通のメッシュ（頂点の色は既定値）
+        let slot = meshes.makeSlot(s)
+        let m = ModelEntity(mesh: slot?.resource ?? meshes.mesh(s) ?? MeshResource.generateBox(size: 0.01), materials: [])
+        if let slot { slotOf[ObjectIdentifier(m)] = slot }
         if s == .billboard { m.components.set(BillboardComponent()) }
         m.components.set(DynamicLightShadowComponent(castsShadow: false))
         m.isEnabled = false
@@ -391,6 +496,11 @@ final class SkillFXPlayer {
         }
         for k in meshInsts.indices where meshInsts[k].follow == f {
             meshInsts[k].follow = nil
+        }
+        // 追従の帯は頭をそこで止める（通った所は寿命で尾から消える）
+        for k in ribbons.indices where ribbons[k].follow == f {
+            ribbons[k].follow = nil
+            ribbons[k].headEnd = min(ribbons[k].headEnd, time)
         }
         pending.removeAll { $0.ctx.follow == f && $0.cue.anchor == .follow }
     }
@@ -465,6 +575,8 @@ final class SkillFXPlayer {
         switch cue.element {
         case .shake(let s):
             onShake(s, anchor)
+        case .efk(let x):
+            efk.fire(x, at: anchor + worldOffset, yaw: yaw, follow: follow, offset: worldOffset)
         case .emit(let e):
             spawnEmit(e, at: anchor + worldOffset, yaw: yaw, follow: follow, offset: worldOffset, ctx: ctx)
         case .mesh(var m):
@@ -476,6 +588,12 @@ final class SkillFXPlayer {
             }
             spawnMesh(m, at: anchor + worldOffset, yaw: yaw, follow: follow, offset: worldOffset, ctx: ctx,
                       groundLevel: local.y < 0.05 && anchor.y < 0.3)
+        case .ribbon(var r):
+            // 連撃の偶数回は水平に近い弧を左右反転（縦の弧は上下が入れ替わるので反転しない）
+            if ctx.variant % 2 == 1, case .arc(let radius, let from, let to, let height, let roll) = r.path, abs(roll) < 45 {
+                r.path = .arc(radius: radius, from: -from, to: -to, height: height, roll: roll)
+            }
+            spawnRibbon(r, at: anchor + worldOffset, yaw: yaw, follow: follow, offset: worldOffset, ctx: ctx)
         }
     }
 
@@ -568,9 +686,15 @@ final class SkillFXPlayer {
         }
         var base = p
         if ground { base.y = GroundLayer.skillDecal }
+        // 溶けるメッシュは重ねても模様が揃わないよう種をずらす（ほかは 0 = 従来どおり）
+        var seed: UInt8 = 0
+        if m.dissolve != nil {
+            seedCounter = seedCounter &+ 89
+            seed = seedCounter
+        }
         let inst = MeshInst(entity: e, shape: m.shape, spec: m, start: time, base: base, yaw: yaw, follow: follow,
                             offset: offset, ground: ground, source: ctx.source, palette: additive ? ctx.palette : nil,
-                            level: additive ? FXMaterialLibrary.addLevels : 0)
+                            level: additive ? FXMaterialLibrary.addLevels : 0, slot: slotOf[ObjectIdentifier(e)], seed: seed)
         meshInsts.append(inst)
         apply(meshInsts.count - 1, t: 0)
         e.isEnabled = true
@@ -642,6 +766,8 @@ final class SkillFXPlayer {
             apply(k, t: t)
             k += 1
         }
+        // 帯
+        if !ribbons.isEmpty { updateRibbons() }
     }
 
     private func apply(_ index: Int, t: Float) {
@@ -655,11 +781,19 @@ final class SkillFXPlayer {
         if m.pitch != 0 { q = q * simd_quatf(angle: -m.pitch * .pi / 180, axis: [1, 0, 0]) }
         if m.roll != 0 { q = q * simd_quatf(angle: m.roll * .pi / 180, axis: [0, 0, 1]) }
         var p = inst.base
-        p.y += m.rise * age
+        p.y += m.rise * age - 0.5 * m.gravity * age * age
         if m.advance != 0 { p += SkillFXPlayer.rotate([0, 0, m.advance * age], yaw: inst.yaw) }
         inst.entity.position = p
         if m.shape != .billboard { inst.entity.orientation = q }
         inst.entity.scale = size
+        // 1 体ごとの値（頂点の色）: コマ送りのコマ・溶けの進み・模様の種（変わった時だけ書く）
+        if let slot = inst.slot {
+            var params = FXMeshSlot.rest
+            if let sheet = m.sheet { params.y = UInt8(SkillFXPlayer.sheetFrame(m, sheet, age: age)) }
+            if let d = m.dissolve { params.z = UInt8((SkillFXPlayer.dissolveAmount(d, t: t) * 255).rounded()) }
+            params.w = inst.seed
+            slot.set(params)
+        }
         // 不透明度: fadeIn まで立ち上がり、fadeOut から 0 へ
         let opacity = m.opacity(at: t)
         if m.blend == .add, let palette = inst.palette {
@@ -681,6 +815,33 @@ final class SkillFXPlayer {
         freeEmitters.append(e.emitter)
         emits.swapAt(k, emits.count - 1)
         emits.removeLast()
+    }
+
+    // MARK: 画面の歪み（後処理）
+
+    /// 画面の歪みの輪（FXMesh.refract を持つ使用中のメッシュ。world の中心・半径と今の強さ）。
+    struct Refraction: Equatable {
+        var center: SIMD3<Float>
+        var radius: Float
+        var strength: Float
+    }
+
+    private var refractionBuffer: [Refraction] = []
+
+    /// 今フレームの歪みの輪（強い順に最大 n）。BattleRenderer が画面へ投影して後処理（PostProcessor.ripples）へ渡す。
+    func refractions(max n: Int = PostProcessor.maxRipples) -> [Refraction] {
+        refractionBuffer.removeAll(keepingCapacity: true)
+        for inst in meshInsts where inst.spec.refract > 0 && inst.entity.isEnabled {
+            let m = inst.spec
+            let t = min(1, max(0, (time - inst.start) / max(0.01, m.life)))
+            let radius = inst.entity.scale.x * (inst.shape == .disc ? 0.5 : 1)
+            refractionBuffer.append(Refraction(center: inst.entity.position, radius: radius, strength: m.refract * m.opacity(at: t)))
+        }
+        if refractionBuffer.count > n {
+            refractionBuffer.sort { $0.strength > $1.strength }
+            refractionBuffer.removeLast(refractionBuffer.count - n)
+        }
+        return refractionBuffer
     }
 
     #if DEBUG
@@ -709,6 +870,13 @@ final class SkillFXPlayer {
             freeMeshes[inst.shape, default: []].append(inst.entity)
         }
         meshInsts.removeAll()
+        for r in ribbons {
+            r.slot.entity.isEnabled = false
+            freeRibbons.append(r.slot)
+        }
+        ribbons.removeAll()
+        // 陳列（fireWarmup）で出した空きの帯も隠す
+        for r in freeRibbons { r.entity.isEnabled = false }
         stats = Stats()
     }
 
@@ -738,11 +906,17 @@ final class SkillFXPlayer {
             list.removeAll()
             freeMeshes[s] = list
         }
+        // 帯の枠も一度描く（材質の全ては陳列の棚で描く）
+        for (k, r) in freeRibbons.enumerated() {
+            r.showForWarmup(at: slot(), material: mats.isEmpty ? nil : mats[k % mats.count])
+        }
         // 材質の全ては陳列の棚（BattleWorld.openGalleryShelf）で一度ずつ描く
         let palette = FXPalette.from(RGB(1, 1, 1))
+        // 手続きの画像だけを回す（Blender の大きな画像はレシピが使うものだけ作ってある。ここで作らない）
+        let warmTex = FXTex.allCases.filter { $0.bundled == nil }
         var texIndex = 0
         while let em = freeEmitters.popLast() {
-            let tex = FXTex.allCases[texIndex % FXTex.allCases.count]
+            let tex = warmTex[texIndex % warmTex.count]
             texIndex += 1
             var c = em.entity.components[ParticleEmitterComponent.self] ?? blank
             configure(&c, FXEmit(tex: tex, count: 4, life: 0.4, size: 0.2, speed: 1), palette: palette)
@@ -890,6 +1064,339 @@ final class SkillFXPlayer {
         }
         p.mainEmitter = m
     }
+}
+
+// MARK: - 帯（FXRibbon）
+
+extension SkillFXPlayer {
+    /// 帯を出す（空きの枠が無ければ最も古い帯を打ち切る。プレイ中に枠は作らない）。p = 弧の中心・追従の帯の頭の最初の位置。
+    fileprivate func spawnRibbon(_ r: FXRibbon, at p: SIMD3<Float>, yaw: Float, follow: Follow?, offset: SIMD3<Float>,
+                                 ctx: Context) {
+        stats.ribbons.requests += 1
+        let slot: RibbonSlot
+        if let free = freeRibbons.popLast() {
+            slot = free
+        } else if let k = ribbons.indices.min(by: { ribbons[$0].start < ribbons[$1].start }) {
+            slot = ribbons[k].slot
+            if time - ribbons[k].start >= ribbons[k].spec.span {
+                stats.ribbons.reclaimed += 1
+            } else {
+                stats.ribbons.cut += 1
+            }
+            ribbons.swapAt(k, ribbons.count - 1)
+            ribbons.removeLast()
+        } else {
+            stats.ribbons.rejected += 1
+            return
+        }
+        slot.reset()
+        let look = r.look
+        let material = materials.material(for: look, palette: ctx.palette)
+        let additive = look.blend == .add && material is CustomMaterial
+        slot.entity.model?.materials = [material]
+        let ground = !r.upright && p.y < 0.3
+        if ground {
+            OverlayOrder.apply(slot.entity, OverlayOrder.skillDecal)
+        } else {
+            slot.entity.components.remove(ModelSortGroupComponent.self)
+        }
+        slot.entity.components.set(OpacityComponent(opacity: additive ? 1 : max(0, min(1, r.alpha))))
+        ribbons.append(RibbonInst(slot: slot, spec: r, start: time, headEnd: time + max(0.01, r.duration), anchor: p, yaw: yaw,
+                                  follow: follow, offset: offset, source: ctx.source, palette: additive ? ctx.palette : nil,
+                                  level: additive ? FXMaterialLibrary.addLevels : 0, ground: ground))
+        stats.ribbons.peakInUse = max(stats.ribbons.peakInUse, ribbons.count)
+    }
+
+    /// 弧の帯の時刻 τ の頭（world）と、中心から頭への向き（world の単位ベクトル）。
+    fileprivate static func arcPoint(_ r: FXRibbon, anchor: SIMD3<Float>, yaw: Float, s: Float)
+        -> (point: SIMD3<Float>, radial: SIMD3<Float>) {
+        guard case .arc(let radius, let from, let to, let height, let roll) = r.path else { return (anchor, [0, 1, 0]) }
+        let e = r.ease.apply(s)
+        let theta = (from + (to - from) * e) * .pi / 180
+        let rho = roll * .pi / 180
+        let x = -sin(theta) * radius
+        // 弧の面を前の軸まわりに傾ける（roll 90 で「左」が上になる）
+        let dir = SIMD3<Float>(x * cos(rho), -x * sin(rho), cos(theta) * radius)
+        let local = dir + SIMD3<Float>(0, height, 0)
+        let radial = radius > 1e-4 ? dir / radius : SIMD3<Float>(0, 1, 0)
+        return (anchor + rotate(local, yaw: yaw), rotate(radial, yaw: yaw))
+    }
+
+    fileprivate func updateRibbons() {
+        var k = 0
+        while k < ribbons.count {
+            let r = ribbons[k]
+            let spec = r.spec
+            if time - r.start >= spec.span || time - r.headEnd >= spec.life {
+                r.slot.entity.isEnabled = false
+                freeRibbons.append(r.slot)
+                ribbons.swapAt(k, ribbons.count - 1)
+                ribbons.removeLast()
+                continue
+            }
+            // 基準（追従の主体 + 置いた時のずれ）。主体が消えたら頭を止める
+            var anchor = r.anchor
+            if let f = r.follow {
+                if let p = resolve(f) {
+                    anchor = p + r.offset
+                    ribbons[k].anchor = anchor
+                } else if time - r.start > 0.3 {
+                    ribbons[k].follow = nil
+                    ribbons[k].headEnd = min(r.headEnd, time)
+                }
+            }
+            let headEnd = ribbons[k].headEnd
+            if case .follow = spec.path, time <= headEnd { r.slot.push(time, anchor) }
+            // 見えている区間（τ0 = 尾、τ1 = 頭）
+            let tau1 = min(time, headEnd)
+            let tau0 = max(r.start, time - spec.life)
+            guard tau1 - tau0 > 1e-3 else {
+                if r.slot.entity.isEnabled { r.slot.entity.isEnabled = false }
+                k += 1
+                continue
+            }
+            let n = RibbonSlot.columns
+            let life = max(0.01, spec.life)
+            let dur = max(0.01, spec.duration)
+            var lo = SIMD3<Float>(repeating: .greatestFiniteMagnitude), hi = -lo
+            for c in 0..<n {
+                let f = Float(c) / Float(n - 1)
+                let tau = tau1 - (tau1 - tau0) * f
+                let u = min(1, max(0, (time - tau) / life))
+                let w = spec.width * (1 + (spec.tailWidth - 1) * u)
+                var inner: SIMD3<Float>, outer: SIMD3<Float>
+                switch spec.path {
+                case .arc:
+                    let a = SkillFXPlayer.arcPoint(spec, anchor: anchor, yaw: r.yaw, s: (tau - r.start) / dur)
+                    outer = a.point
+                    inner = a.point - a.radial * w
+                case .follow:
+                    let p = r.slot.sample(at: tau) ?? anchor
+                    let side: SIMD3<Float>
+                    if spec.upright {
+                        side = [0, 1, 0]
+                    } else {
+                        let ahead = r.slot.sample(at: tau + 0.02) ?? p
+                        let behind = r.slot.sample(at: tau - 0.02) ?? p
+                        var tangent = ahead - behind
+                        tangent.y = 0
+                        if simd_length(tangent) < 1e-4 { tangent = SkillFXPlayer.rotate([0, 0, 1], yaw: r.yaw) }
+                        let s = simd_cross(SIMD3<Float>(0, 1, 0), simd_normalize(tangent))
+                        side = simd_length(s) > 1e-4 ? simd_normalize(s) : [1, 0, 0]
+                    }
+                    inner = p - side * (w * 0.5)
+                    outer = p + side * (w * 0.5)
+                }
+                if r.ground {
+                    inner.y = GroundLayer.skillDecal
+                    outer.y = GroundLayer.skillDecal
+                }
+                r.slot.inner[c] = inner
+                r.slot.outer[c] = outer
+                r.slot.u[c] = u
+                lo = simd_min(lo, simd_min(inner, outer))
+                hi = simd_max(hi, simd_max(inner, outer))
+            }
+            r.slot.commit(lo: lo, hi: hi)
+            // 明るさ（加算は段階の材質、アルファ合成は不透明度）。尾が頭に追いつく最後の life 秒で全体も弱める
+            var a = max(0, min(1, spec.alpha))
+            if time > headEnd { a *= max(0, 1 - (time - headEnd) / life) }
+            if spec.blend == .add, let palette = r.palette {
+                let level = FXMaterialLibrary.addLevel(a)
+                if level != r.level {
+                    if level > 0 { r.slot.entity.model?.materials = [materials.material(for: spec.look, palette: palette, level: level)] }
+                    ribbons[k].level = level
+                }
+                r.slot.entity.components.set(OpacityComponent(opacity: level > 0 ? 1 : 0))
+            } else {
+                r.slot.entity.components.set(OpacityComponent(opacity: a))
+            }
+            if !r.slot.entity.isEnabled { r.slot.entity.isEnabled = true }
+            k += 1
+        }
+    }
+
+    #if DEBUG
+    /// テスト用: 使用中の帯の頂点（列 c の内端・外端）。
+    func ribbonVertices() -> [[(inner: SIMD3<Float>, outer: SIMD3<Float>, u: Float)]] {
+        ribbons.map { r in (0..<RibbonSlot.columns).map { (r.slot.inner[$0], r.slot.outer[$0], r.slot.u[$0]) } }
+    }
+    #endif
+
+    /// テスト用: プールのメッシュの枠の頂点の色（無ければ nil）。
+    func meshParams(_ e: Entity) -> SIMD4<UInt8>? { slotOf[ObjectIdentifier(e)]?.params }
+}
+
+/// 帯の 1 枠（LowLevelMesh の 2 × columns 頂点。並び 0 = 位置・法線・UV を毎フレーム書き、並び 1 = 頂点の色は既定値のまま）。
+@MainActor
+fileprivate final class RibbonSlot {
+    /// 帯の列の数（時刻で等間隔）。
+    static let columns = 24
+    /// 追従の帯の標本の数（120 fps で 0.8 秒）。
+    static let capacity = 96
+
+    let entity: ModelEntity
+    let mesh: LowLevelMesh
+    private var times = [Float](repeating: 0, count: RibbonSlot.capacity)
+    private var points = [SIMD3<Float>](repeating: .zero, count: RibbonSlot.capacity)
+    private var head = 0
+    private var count = 0
+    /// 今フレームの列（内端・外端・古さ）。update が書き、commit が頂点にする。
+    var inner = [SIMD3<Float>](repeating: .zero, count: RibbonSlot.columns)
+    var outer = [SIMD3<Float>](repeating: .zero, count: RibbonSlot.columns)
+    var u = [Float](repeating: 0, count: RibbonSlot.columns)
+
+    private init(entity: ModelEntity, mesh: LowLevelMesh) {
+        self.entity = entity
+        self.mesh = mesh
+    }
+
+    static func make() -> RibbonSlot? {
+        let n = columns
+        var d = LowLevelMesh.Descriptor()
+        d.vertexAttributes = [
+            .init(semantic: .position, format: .float3, offset: 0),
+            .init(semantic: .normal, format: .float3, offset: 12),
+            .init(semantic: .uv0, format: .float2, offset: 24),
+            .init(semantic: .color, format: .uchar4Normalized, layoutIndex: 1, offset: 0),
+        ]
+        d.vertexLayouts = [.init(bufferIndex: 0, bufferStride: FXMeshSlot.stride), .init(bufferIndex: 1, bufferStride: 4)]
+        d.vertexCapacity = n * 2
+        d.indexCapacity = (n - 1) * 6
+        d.indexType = .uint16
+        guard let ll = try? LowLevelMesh(descriptor: d) else { return nil }
+        ll.withUnsafeMutableIndices { raw in
+            let dst = raw.bindMemory(to: UInt16.self)
+            var k = 0
+            for c in 0..<(n - 1) {
+                let a = UInt16(c * 2), b = a + 1, c2 = a + 2, d2 = a + 3
+                for i in [a, b, d2, a, d2, c2] where k < dst.count {
+                    dst[k] = i
+                    k += 1
+                }
+            }
+        }
+        ll.withUnsafeMutableBytes(bufferIndex: 0) { raw in
+            _ = raw.initializeMemory(as: UInt8.self, repeating: 0)
+        }
+        ll.withUnsafeMutableBytes(bufferIndex: 1) { raw in
+            let dst = raw.bindMemory(to: SIMD4<UInt8>.self)
+            for k in 0..<min(n * 2, dst.count) { dst[k] = FXMeshSlot.rest }
+        }
+        ll.parts.replaceAll([LowLevelMesh.Part(indexCount: (n - 1) * 6, topology: .triangle,
+                                               bounds: BoundingBox(min: [-1, 0, -1], max: [1, 2, 1]))])
+        guard let resource = try? MeshResource(from: ll) else { return nil }
+        let e = ModelEntity(mesh: resource, materials: [])
+        e.name = "skillfx ribbon"
+        e.components.set(DynamicLightShadowComponent(castsShadow: false))
+        e.isEnabled = false
+        return RibbonSlot(entity: e, mesh: ll)
+    }
+
+    func reset() {
+        head = 0
+        count = 0
+    }
+
+    /// 追従の帯の標本を積む（同じ時刻は置き換え、満杯なら最も古いものを捨てる）。
+    func push(_ t: Float, _ p: SIMD3<Float>) {
+        let cap = RibbonSlot.capacity
+        if count > 0 {
+            let last = (head + count - 1) % cap
+            if t - times[last] < 1e-4 {
+                points[last] = p
+                return
+            }
+        }
+        if count == cap {
+            head = (head + 1) % cap
+            count -= 1
+        }
+        let i = (head + count) % cap
+        times[i] = t
+        points[i] = p
+        count += 1
+    }
+
+    /// 時刻 τ の位置（積んだ範囲に丸め、隣の標本の間を線形に補間）。標本が無ければ nil。
+    func sample(at tau: Float) -> SIMD3<Float>? {
+        guard count > 0 else { return nil }
+        let cap = RibbonSlot.capacity
+        let first = head % cap, last = (head + count - 1) % cap
+        if tau <= times[first] { return points[first] }
+        if tau >= times[last] { return points[last] }
+        var k = count - 2
+        while k > 0 && times[(head + k) % cap] > tau { k -= 1 }
+        let a = (head + k) % cap, b = (head + k + 1) % cap
+        let span = times[b] - times[a]
+        let s: Float = span > 1e-5 ? (tau - times[a]) / span : 0
+        return points[a] + (points[b] - points[a]) * s
+    }
+
+    /// inner / outer / u の列を頂点に書く（列 c の内端 = 2c、外端 = 2c + 1）。UV = (1 − 古さ, 内 0 / 外 1): 画像の u は
+    /// 尾 0 → 頭 1（三日月の模型・swoosh・blade の画像と同じ向き）。
+    func commit(lo: SIMD3<Float>, hi: SIMD3<Float>) {
+        let n = RibbonSlot.columns
+        mesh.replaceUnsafeMutableBytes(bufferIndex: 0) { raw in
+            guard let dst = raw.baseAddress else { return }
+            for c in 0..<n {
+                RibbonSlot.write(dst, c * 2, inner[c], uv: SIMD2(1 - u[c], 0))
+                RibbonSlot.write(dst, c * 2 + 1, outer[c], uv: SIMD2(1 - u[c], 1))
+            }
+        }
+        guard lo.x <= hi.x else { return }
+        mesh.parts[0].bounds = BoundingBox(min: lo - 0.05, max: hi + 0.05)
+    }
+
+    /// 陳列（読み込み幕の裏）: p のまわりに短い帯を出して描画の準備をさせる（clear で隠す）。
+    func showForWarmup(at p: SIMD3<Float>, material: (any Material)?) {
+        let n = RibbonSlot.columns
+        for c in 0..<n {
+            let f = Float(c) / Float(n - 1)
+            let a = -1.2 + 2.4 * f
+            let dir = SIMD3<Float>(sin(a), 0, -cos(a))
+            inner[c] = p + dir * 0.15
+            outer[c] = p + dir * 0.5 + SIMD3<Float>(0, 0.2, 0)
+            u[c] = f
+        }
+        commit(lo: p - 1, hi: p + 1)
+        if let material { entity.model?.materials = [material] }
+        entity.components.set(OpacityComponent(opacity: 0.5))
+        entity.isEnabled = true
+    }
+
+    @inline(__always)
+    private static func write(_ dst: UnsafeMutableRawPointer, _ index: Int, _ p: SIMD3<Float>, uv: SIMD2<Float>) {
+        let o = dst + index * FXMeshSlot.stride
+        o.storeBytes(of: p.x, toByteOffset: 0, as: Float.self)
+        o.storeBytes(of: p.y, toByteOffset: 4, as: Float.self)
+        o.storeBytes(of: p.z, toByteOffset: 8, as: Float.self)
+        o.storeBytes(of: Float(0), toByteOffset: 12, as: Float.self)
+        o.storeBytes(of: Float(1), toByteOffset: 16, as: Float.self)
+        o.storeBytes(of: Float(0), toByteOffset: 20, as: Float.self)
+        o.storeBytes(of: uv.x, toByteOffset: 24, as: Float.self)
+        o.storeBytes(of: uv.y, toByteOffset: 28, as: Float.self)
+    }
+}
+
+/// 使用中の帯。
+fileprivate struct RibbonInst {
+    var slot: RibbonSlot
+    var spec: FXRibbon
+    var start: Float
+    /// 頭が止まる時刻（start + duration。追従の主体が消えたら早まる）。
+    var headEnd: Float
+    /// 弧の中心・追従の帯の頭（world）。
+    var anchor: SIMD3<Float>
+    var yaw: Float
+    var follow: SkillFXPlayer.Follow?
+    var offset: SIMD3<Float>
+    var source: SkillFXPlayer.Source?
+    /// 加算の明るさの段階の材質を選ぶための色（加算だけ）。
+    var palette: FXPalette?
+    var level: Int
+    /// 地面に寝かせた帯（地面の模様の層に描く）。
+    var ground: Bool
 }
 
 /// SkillFXPlayer の予算の集計の写し（性能記録 PerfReport.skillFXBudget へ JSON で出す）。

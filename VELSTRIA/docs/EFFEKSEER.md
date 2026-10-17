@@ -14,11 +14,58 @@ tools/effekseer/textures.py ──→ Effects/Effekseer/Texture/Fx_*.png（ア�
 ```
 
 - ランタイム: Effekseer の C++（Metal）を静的ライブラリとして同梱（ThirdParty/Effekseer/。MIT）。`tools/build_effekseer.sh` で作り直す（cmake・ninja が要る。CI は使わない）。
-- 描画: `EfkRuntime`（Objective-C++。App/Battle/Effekseer/）が Metal のレイヤーを持ち、戦闘画面（ARView）の上に重ねて描く。カメラは RealityKit のカメラの行列をそのまま渡す。
+- 描画: `EfkRuntime`（Objective-C++。App/Battle/Effekseer/）。実機の中・高画質は RealityKit の後処理の中で、シミュレータ・低画質は
+  戦闘画面（ARView）の上に重ねて描く（下の「描画の 2 つの経路」）。カメラは RealityKit のカメラの行列をそのまま渡す。
   効果が何も出ていない間は描かない（GPU を使わない）。HUD・ダメージ数値・暗い縁取りより下。
 - 再生: `EffekseerDirector` が sim のイベントを効果へ対応づける。効果を持つヒーローは旧来の演出（SkillFX・通常攻撃の演出・弾の見た目）を止める。
   ただしキット（ヒーロー固有スキル。`docs/SKILL_KITS.md`）のヒーローは、スキルを SkillFX に任せる（下の「キットのヒーローの役割分担」）。
 - 効果は右手系・Y 上・1 単位 = 1 m。**前 = -Z** で作る（再生時に yaw で前を合わせる）。時間はフレーム（60fps）。速度は DSL では「毎秒」で書く（Effekseer の内部は毎フレーム）。
+
+## 描画の 2 つの経路（2026-10-18〜）
+
+| 経路 | いつ | 3D に隠れる | ブルーム | 歪み |
+|---|---|---|---|---|
+| 後処理の中（`EffekseerPostPass`） | 実機・画質 中 / 高（`PostProcessor` が有効で、後処理用の描き手とパイプラインができた後） | する（3D 画面の深度） | 掛かる（効果を描いた画を元画像にする） | 3D 画面を背景に使う |
+| 重ね描き（`CAMetalLayer`） | シミュレータ・低画質・自動の切り下げで後処理が無い時・準備前 | しない（3D の上） | 無い | 背景なし |
+
+- 後処理の中の流れ（`PostProcessor.process` → `EffekseerPostPass.encode`）: 1 つのレンダーパスで 3D 画面の色（`sourceColorTexture`）を自前の色へ、
+  深度（`sourceDepthTexture`）を自前の深度（Depth32Float・タイルの中だけ = memoryless）へ写し（`velSceneCopyFragment`）、同じパスで Effekseer を描く（下の「層」）。
+  射影は RealityKit の射影（`PostProcessContext.projection`。逆 Z を `EfkRuntime.isReversedDepth(projection:)` で見分けて描き手を作る）なので深度が一致する。
+  ブルーム・合成（奥義の脈の放射状のぼかしも）はその画を元画像にする。効果が出ていないフレームは写さない（追加の費用 0）。
+- 描き手は 2 つ（重ね描き = BGRA8Unorm・深度なし、後処理 = 3D 画面の色の形式・Depth32Float）でグラフィックスデバイスを共有する（テクスチャ・モデルは 1 回読む）。
+  Manager（効果の状態）は 1 つで、描く直前に経路の描き手を差す。後処理用の描き手と写すパスのパイプラインは、後処理が最初に色の形式を知った時に背景で作る
+  （読み込み幕の裏。作る間は重ね描き）。3D 画面が sRGB・浮動小数の時は `SetMaintainGammaColorInLinearColorSpace` で効果の色をガンマのまま保つ。
+- スレッド: 再生・移動・進行（Update）はメインスレッド、後処理の中の描画（Draw）は RealityKit の描画スレッド。`EfkRuntime` の錠で Manager と描き手を守る。
+  ヒットストップ（`BattleFeel`）は従来どおりメインスレッドの進行を dt = 0 にする。
+- sRGB の 3D 画面: Effekseer の Metal の描き手は sRGB の描画先（BGRA8Unorm_sRGB）では何も描かない（2026-10-18、CI の撮影の自己診断:
+  BGRA8Unorm・RGBA16Float は描けて深度も正しく、BGRA8Unorm_sRGB だけ 0 画素）。そこで写し先を 3D 画面と同じ sRGB の形式で作り、
+  sRGB でない見え方（テクスチャのビュー）へ sRGB に符号化して写し（`velSceneCopySRGBFragment`）、Effekseer もそこへ描く（重ね描きと同じくガンマの空間で混ぜる）。
+  ブルーム・合成は sRGB の形式のまま読む（`EffekseerPostPass.renderFormat`）。
+- 安全装置: 後処理用の描き手ができたら、描画先の形式・深度の向きごとに 1 回、確かめの効果（`Zt_PostProbe.efk`。白い大きな光 1 枚。`tools/effekseer/probe.py`）を
+  画面外の 64 × 64 の画へ描いて光った画素を数える（`EfkRuntime.probePost`。読み込み幕の裏、描画スレッドで GPU の終わりを待つ）。
+  `EffekseerPostPass.probeMinLit`（40）に届かない・確かめられない時は、その試合は重ね描きのまま（実機で「Effekseer が何も出ない」を起こさない）。
+  結果は計測ログ（`effekseer post probe src=… draw=… reversed=… lit=… -> post / overlay`）と Debug の出力。
+  全体の切り替えは `EffekseerPostPass.isEnabled`（false で実機でも常に重ね描き）。判断は `usesPostPath(enabled:prepared:probeLit:)`（純粋。`EffekseerPostTests`）。
+- 切り替え: メインスレッドが毎フレーム `PostProcessor.drawsEffekseer(now:)`（後処理が有効で、直近 0.3 秒に後処理で描ける状態だった）を見て決める。
+  後処理へ切り替える時に重ねのレイヤーを空にして隠し、戻す時に見せる（`EfkRuntime.drawsInPostProcess`）。両方で描くフレームは無い。
+- 層（Manager のレイヤー）: **3D の上**（`EffekseerOverlay.play(onTop: true)`。既定）と **3D に隠れる**（`onTop: false`）。後処理の中では
+  隠れる層を描いた後、同じパスで深度を遠い面へ戻して（`velDepthReset`）上の層を描く。重ね描きでは両方とも 3D の上。
+  旧来の `.efk`（`EffekseerDirector` の段の効果。重ね描きの頃に作り、命中の閃きを体の中ほどに置いている）は上の層のまま（見た目は従来どおり + ブルーム・歪み）。
+  キットのヒーローの段に重ねる `.efk`（`FXEfk`）は既定で隠れる層（地面の跡・柱・輪が体や壁の後ろで隠れる）、命中の閃きなど体に重ねたい物は `onTop`。
+  `.efk` の各ノードは ZTest = 有効・ZWrite = 無効（`efkexport.py` の既定）。
+- 確かめ方: シミュレータは RealityKit の後処理を呼ばないので、`AppTests/EffekseerPostTests`（黒い画と一様な深度で、描き手の作成・描画・深度の向き・上の層）と、
+  演出の撮影（`FXCapture`）の最後の自己診断（目録の notes の `efkPost ...` と `efkpost.png`）で確かめる。見た目は実機だけ（下）。
+
+### 実機で確かめること（後処理の中の Effekseer）
+
+- 効果が 3D に隠れるか（体・壁・塔の後ろ）。地面の跡（y = 0.03〜0.06 m）が地面に沈まないか・ちらつかないか。
+- 効果にブルームが掛かるか・明るさ（重ね描きの頃より明るい / 白飛びしすぎないか）。sRGB の画への合成で色が変わっていないか。
+- 歪みの効果（背景 = 効果を描く前の 3D 画面）の上下が反転していないか（`SetBackgroundTextureUVStyle`）。
+- 画質を低へ落とした時・自動の切り下げの時に重ね描きへ戻り、効果が消えたり二重に出たりしないか。
+- 後処理の中の描画の GPU 時間（Instruments の Metal。`velEffekseer` のパス）と、`sync.effekseer`（後処理で描く間はメインスレッドの進行だけ。
+  描画スレッドの Draw の CPU 時間はこの値に入らない。Time Profiler の RealityKit の描画スレッドで見る）。
+- 計測ログの `effekseer post probe … -> post`（確かめが通った）。`-> overlay` の試合は重ね描きのまま（形式・深度の向きと光った画素の数を見る）。
+- 写し先の色（画面と同じ大きさ。BGRA8 で約 12 MB、RGBA16F で約 24 MB）は最初に後処理で描ける状態になった時に 1 回作り、試合の間持つ。
 
 ## 効果の名前（`<heroID>_<段>`）
 
@@ -61,6 +108,24 @@ H025〜H034 は sim が固有スキル（キット）で動く。`.efk` は **�
 - SkillFX 側: 再使用の段は `SkillCastEvent.stage` で選べる（`HeroFXSet.recipe(_:stage:_:)` を実装した段だけ。既定は nil = 共通の演出。空の段は共通の演出で補う）。
   キットのパッシブの演出は、ロールの合図（クリティカル・攻撃速度のスタックなど）ではなく、パッシブのバッジ（スタックが増えた・タイマーが始まった）の変化で出す。
 
+## キットのヒーローの段に重ねる効果（`FXEfk`。2026-10-18〜）
+
+キットのヒーロー（H025〜H034）のスキルは SkillFX のレシピ（`FX_H0xx.swift`）が出す。その段（cast / telegraph / travel / impact / hit）に、
+見せ場の部品だけ Effekseer の効果を重ねられる（sim と連動する部品 = 伸びる鎖・縮む鎖・追従の長さ・数が減る組などは SkillFX のまま）。
+
+```swift
+r.impact += [.efk("H034_s2_slam", at: 0.27, .origin, scale: 1, onTop: false)]
+```
+
+- 合図は `FXCue.efk(名前, at:, anchor, offset:, scale:, speed:, onTop:, quality:)`。時刻・位置・追従・画質・1 回の再生の上限・予約の上限は他の合図と同じ
+  （`SkillFXPlayer` の予定表）。向きは段の前方（効果は前 = -Z で作る）。`SkillFXPlayer+Efk.swift` の `FXEfkRelay` が `EffekseerDirector.playStacked` へ渡す。
+- ファイル: `Effects/Effekseer/Kit/<ヒーロー ID>_<名前>.efk`（テクスチャは `../Texture/`）。試合のヒーローの分だけ読み込み幕の裏で読む
+  （`EffekseerOverlay.loadBundledEffects`。ランタイムでの名前は `Kit/<名前>`。段の効果の名前・数・役割分担には混ざらない）。
+- 層: 既定は 3D に隠れる（`onTop: false`）。体に重ねる命中の閃きは `onTop: true`。重ね描き（シミュレータ・低画質）では両方 3D の上で、CI の撮影にも写る。
+- 予算: 1 つのスキルのレシピに重ねる効果は `BattleWorkBudget.efkCuesPerRecipe`（6）まで（`SkillFXTests`）。追従は同時に `efkFollows`（32）まで
+  （超えたら追従せずにその場で再生）、Effekseer の粒子が `efkInstances`（3000）を超えている時は出さない（装飾。判定・予告ではない）。
+- テスト: `AppTests/EffekseerKitStackTests`（同梱の全ファイルが読める・レシピが使う名前が全部ある・試合のヒーローの分だけ読む・予定表どおりに発火する）。
+
 ## 作り方
 
 ```sh
@@ -74,10 +139,43 @@ tools/effekseer/hero_sheet.sh H019 s1_impact,ult_impact 10 4  # 1 体の何本�
 tools/effekseer/live.sh H003 atk 10 8                       # 練習戦で人形へ撃ち続けて録画 → /tmp/efk-live/H003_atk/
 ```
 
+### Mac が無い環境で実際のランタイムで描く（tools/effekseer/webrender/）
+
+`render.mjs`（Node 22）が無頭の Chrome / Edge で EffekseerForWebGL 1.80.7（アプリの C++ ランタイムと同じ 1.8 系。GitHub の公開版 zip を
+一時フォルダへ 1 回だけ落とす。リポジトリには入れない）を動かし、`.efk` を 1 フレームずつ進めて撮る。
+
+```sh
+node tools/effekseer/webrender/render.mjs H034_s2_impact Kit/H034_s2_slam:delay=16 H034_atk_hit@0,1,-4:top --frames 60 --every 4 --camera mlbb --bloom 1.5 --rings 2.57 --out /tmp/efk-render/h034_s2
+# → f000.png f004.png … と sheet.png（左上にフレームと秒）
+```
+
+- 場面: ヒーローは原点で北（-Z）を向き、練習場の人形は北 4 m（`FXCapture` と同じ）。地面・1 m の格子・照準の輪（`--rings`）・体の代わりの柱。
+  カメラは戦闘の組（`mlbb` / `legacy` / `close` / `top`、または `--camera 角度,画角,距離,前ずれ`）。画は 1108 × 512（MLBB の画面収録と同じ）。
+- 効果の指定: `名前[@x,y,z][:yaw=度][:scale=倍][:delay=フレーム][:speed=倍][:top]`。`top` = 3D の上の層（深度を消してから描く）、
+  無指定 = 柱・地面の深度で隠れる（アプリの後処理の中と同じ順）。乱数の種は `--seed`（既定 1）で固定。
+- `--bloom 1.5` はアプリの後処理（`PostProcess.swift`）に近いブルームと色調整を CPU で掛ける（目安。実機の値ではない）。
+- 環境変数: `EFK_WEBGL_DIR`（展開済みのランタイム）・`CHROME`（ブラウザの場所）。WebGL は SwiftShader（GPU が無くても動く）。
+
 DSL（tools/effekseer/efkgen.py）: `Node`（粒子の発生源。`tex` `blend` `life` `count` `loc` `rot` `scale` `color` `gen` `gravity` …）を `Effect` に積んで `build()` する。
 部品は tools/effekseer/fxlib.py（閃光・輪・火花・魔法陣…）。ヒーローごとの色は `fade` / `morph` で付ける。
 エディタ（Effekseer.app）で開き直したい時は `effekseer save` で .efkefc にできる。
-`effekseer` の CLI が無い環境（Windows など）では、`efkgen.Effect.build()` が自動で純 Python の書き出し器（`tools/effekseer/efkexport.py`、Effekseer 1.8 のバイナリ）に切り替わる。
+Windows では公式ツール（GitHub の Effekseer1.80.7Win.zip。展開して約 170 MB、リポジトリには入れない）の無画面の書き出し
+`Tool/bin/Effekseer.exe -cui -in <.efkproj> -e <.efk>` が使える。環境変数 `EFFEKSEER_CLI` にその `Effekseer.exe` を指すと `Effect.build()` が使う
+（2026-10-18 に H034 の段の効果で、同梱の .efk と角度の丸め 2 か所以外バイト一致を確かめた）。
+`EFFEKSEER_CLI` も `effekseer` の CLI も無い環境では、`efkgen.Effect.build()` が自動で純 Python の書き出し器（`tools/effekseer/efkexport.py`、Effekseer 1.8 のバイナリ）に切り替わる。
+
+DSL の追加（2026-10-18。公式の書き出し（`EFFEKSEER_CLI` / `effekseer`）が要る。純 Python の書き出し器は例外にする）:
+- `Effect(..., tex_dir="../Texture/")`: キットの段に重ねる効果（`Effects/Effekseer/Kit/`）のテクスチャの置き場。
+- `Node(depth_offset=m)`: カメラ側へずらす（体の中ほどの閃きを体の手前に）。`ztest=False`: 常に手前。`drawing_priority`: 同じ効果の中の描く順。
+- `Node(cutoff=(始め, 終わり))`: 溶け（アルファの切り捨ての閾値を寿命で 始め → 終わり）。
+- `Node(uv_scroll=(横, 縦))`: UV を流す（画像の何枚分 / 秒。書き出しでは画素 / フレームに直す）。
+- `Node(kind="ribbon")`: 同じノードの粒を生まれた順に繋ぐ帯（振りの軌跡）。回る・動く親（見えない点）の子にして、`count="inf", interval=1,
+  detach=True` で毎フレーム生まれた所に残る粒を出す。幅 = `ribbon_width` × 粒の大きさ X、`spline` = 繋ぎの分割。画像は帯の長さ = U、幅 = V
+  （横長の Fx_Streak は端が透けるので短く見える。柔らかい画像か帯用の画像を使う）。
+- `Node(kind="track", track=(前, 中, 後))`: 粒の通った跡の帯（幅 m）。ribbon と同じく動く親の子で毎フレーム粒を出す。
+  ribbon・track は WebGL の確認環境で描けることを確かめた（2026-10-18）。模型（Model）は .efkmodel の変換が要るので未対応。
+- `Node(distort=強さ)`: 歪み（Material = BackDistortion）。**未確認**: WebGL の確認環境では白い四角になる（背景の取り込みか歪みの画像の読み込み）。
+  実機で確かめるまで同梱の効果には使わない。
 参照ヒーロー 12 体の 150 効果は、全て CLI の出力とバイト一致（角度のラジアン変換だけ float32 で最大 2 ulp ずれる 89 本）。H025〜H034 の 128 効果は CLI の無い環境でこの書き出し器から作った（`check_export.py` の「完全一致」は書き出し器どうしの再現性）。DSL が出す範囲（Fixed / PVA / Easing・球と円の生成・スプライト・フェード・入れ子）だけ対応。範囲外は例外にする。
 
 ### 落とし穴

@@ -1,12 +1,14 @@
 import Foundation
 import AVFoundation
 import UIKit
+import VelstriaCore
 
 // 担当: app-services
-// AVAudioEngine による手続き生成の効果音・BGM（音源ファイルなし）。
-// - 効果音: 初期化時に全 SFX の PCM をバックグラウンドで合成（AudioLibrary.swift）し、起動を妨げない。
-//   8 個の AVAudioPlayerNode を使い回して重ねて鳴らす。合成完了前の再生要求は無視する。
-// - BGM: 曲ごとに一度だけバックグラウンドでレンダリングしてバッファを保持し、.loops でスケジュールする。
+// AVAudioEngine による効果音・BGM。音のファイル（App/Resources/Audio。AudioFiles）があればそれを、無ければ手続きの合成を鳴らす。
+// - 効果音: 初期化時に全 SFX の PCM をバックグラウンドで合成（AudioLibrary.swift）し、ファイルのある音はファイルで置き換える
+//   （画面の効果音は小さいので起動時に全部読む）。8 個の AVAudioPlayerNode を使い回して重ねて鳴らす。準備完了前の再生要求は無視する。
+// - BGM: ファイルの曲は AVAudioFile から流し読みする（全部をメモリに展開しない。読み終わりで頭から予約し直してループ）。
+//   合成の曲は一度だけバックグラウンドでレンダリングしてバッファを保持し、.loops でスケジュールする。
 //   曲の切替はクロスフェード。メモリ警告時は再生中以外の曲のバッファを解放する（次回再生時に作り直す）。
 // - AVAudioSession は .ambient（消音スイッチに従い、他のアプリの音と混ざる）。
 // - 割り込み・エンジン構成変更・フォアグラウンド復帰で再起動し、メディアサービスのリセット時はエンジンを作り直す。
@@ -20,27 +22,70 @@ enum SFX: String, CaseIterable {
     /// 塔・Star Core（描画側の StructureFXDirector が画面付近の構造物だけ鳴らす）: 立ち上がりの地鳴り・頂部のロック・
     /// 亀裂・倒壊・着地・結晶の消失。
     case towerRise, towerLock, towerCrack, towerCollapse, towerImpact, crystalFade
+    /// 試合の外: タブの切替・マッチ成立・ピックの確定・バン・試合開始の合図。
+    case uiTab, matchFound, lockIn, ban, matchStart
 }
 
 enum MusicTrack: String, CaseIterable {
     case menu, menuDream, menuAdventure, menuAurora, battle, victory, defeat
+    /// ファイルの曲（AudioFiles.music）: ホームの選べる曲 3 つ、ロビー・ヒーロー選択（通常と残りわずか）・ロード画面・結果画面。
+    case menuLegend, menuFantasia, menuJourney, lobby, draft, draftTense, loading, result
 
-    static var selectableMenuTracks: [MusicTrack] { [.menu, .menuDream, .menuAdventure, .menuAurora] }
+    static var selectableMenuTracks: [MusicTrack] {
+        [.menu, .menuDream, .menuAdventure, .menuAurora, .menuLegend, .menuFantasia, .menuJourney]
+    }
     var displayName: String {
         switch self {
         case .menu: return "静かな星明かり"
         case .menuDream: return "夢の水辺"
         case .menuAdventure: return "旅立ちの朝"
         case .menuAurora: return "オーロラの庭"
+        case .menuLegend: return "伝説の夜明け"
+        case .menuFantasia: return "幻想の序曲"
+        case .menuJourney: return "宝探しの旅"
         case .battle: return "戦闘"
         case .victory: return "勝利"
         case .defeat: return "敗北"
+        case .lobby: return "ロビー"
+        case .draft: return "ヒーロー選択"
+        case .draftTense: return "ヒーロー選択（残りわずか）"
+        case .loading: return "出陣"
+        case .result: return "戦いのあと"
         }
     }
     var isMenuTrack: Bool { Self.selectableMenuTracks.contains(self) }
 
     /// ループ再生する曲か（勝利・敗北は 1 回だけ鳴るスティンガー）。
-    var loops: Bool { isMenuTrack || self == .battle }
+    var loops: Bool { self != .victory && self != .defeat }
+}
+
+/// スキルの音の鍵（ファイル skill_<ヒーロー>_<s1|s2|ult>[_r<段>]_<cast|hit>.caf）。
+struct SkillSoundKey: Hashable, Sendable {
+    var heroID: String
+    var slot: SkillSlot
+    var stage: Int = 0
+    var hit = false
+
+    var fileName: String {
+        let s: String
+        switch slot {
+        case .skill1: s = "s1"
+        case .skill2: s = "s2"
+        case .ultimate: s = "ult"
+        case .passive: s = "passive"
+        }
+        return "skill_\(heroID)_\(s)" + (stage > 0 ? "_r\(stage)" : "") + (hit ? "_hit" : "_cast")
+    }
+
+    /// そのヒーローの全ての鍵（ファイルがあるかは読む時に見る）。
+    static func all(heroID: String) -> [SkillSoundKey] {
+        var out: [SkillSoundKey] = []
+        for slot in [SkillSlot.skill1, .skill2, .ultimate] {
+            out.append(SkillSoundKey(heroID: heroID, slot: slot, hit: true))
+            for stage in 0...3 { out.append(SkillSoundKey(heroID: heroID, slot: slot, stage: stage)) }
+        }
+        return out
+    }
 }
 
 @MainActor
@@ -78,6 +123,10 @@ final class AudioService {
     private var variantCursor: [SFX: Int] = [:]
     private var lastPlayed: [SFX: TimeInterval] = [:]
     private var musicBuffers: [MusicTrack: AVAudioPCMBuffer] = [:]
+    /// 開いたファイルの曲（流し読み）。
+    private var musicFiles: [MusicTrack: AVAudioFile] = [:]
+    /// 曲を始めるたびに増やす（ファイルのループの予約し直しを、切り替えた後の古い曲で続けないため）。
+    private var musicGeneration = 0
     private var renderingTracks: Set<MusicTrack> = []
     private var sfxWaiters: [CheckedContinuation<Void, Never>] = []
 
@@ -169,6 +218,12 @@ final class AudioService {
         Task.detached(priority: .userInitiated) { [weak self] in
             var rendered: [(SFX, [[Float]])] = []
             for sfx in SFX.allCases {
+                // 音のファイルがあればそれを使う（読めなければ合成）
+                if let name = AudioFiles.sfx(sfx), let url = AudioFiles.sfxURL(name),
+                   let samples = AudioFiles.readMono(url, sampleRate: SFXSynth.sampleRate) {
+                    rendered.append((sfx, [samples]))
+                    continue
+                }
                 rendered.append((sfx, (0..<SFXSynth.variantCount(sfx)).map { SFXSynth.render(sfx, variant: $0) }))
             }
             await self?.didSynthesize(rendered)
@@ -199,6 +254,74 @@ final class AudioService {
         return Double(b.frameLength) / b.format.sampleRate
     }
 
+    // MARK: - スキルの音（H025〜H034。試合に出るヒーローの分だけ、試合の始めに裏で読む）
+
+    /// 同じスキルの命中の音の最短間隔（多段・範囲の命中で重ねすぎない）。
+    static let skillHitInterval: TimeInterval = 0.1
+
+    private var skillBuffers: [SkillSoundKey: AVAudioPCMBuffer] = [:]
+    private var skillHeroes: Set<String> = []
+    private var lastSkillHit: [SkillSoundKey: TimeInterval] = [:]
+
+    /// 試合の始め（BattleAudioDirector.start）に呼ぶ。試合に出るヒーローのスキルの音を裏で読み、出ないヒーローの分は捨てる
+    /// （プレイ中にファイルを読まない。読み終わる前に撃ったスキルは汎用の発動の音で鳴る）。
+    func preloadSkillSounds(heroIDs: [String]) {
+        let want = Set(heroIDs)
+        skillBuffers = skillBuffers.filter { want.contains($0.key.heroID) }
+        let missing = want.subtracting(skillHeroes)
+        skillHeroes = want
+        guard !missing.isEmpty else { return }
+        Task.detached(priority: .userInitiated) { [weak self] in
+            var loaded: [(SkillSoundKey, [Float])] = []
+            for id in missing.sorted() {
+                for key in SkillSoundKey.all(heroID: id) {
+                    guard let url = AudioFiles.sfxURL(key.fileName),
+                          let samples = AudioFiles.readMono(url, sampleRate: SFXSynth.sampleRate) else { continue }
+                    loaded.append((key, samples))
+                }
+            }
+            await self?.didLoadSkills(loaded)
+        }
+    }
+
+    private func didLoadSkills(_ loaded: [(SkillSoundKey, [Float])]) {
+        guard let monoFormat else { return }
+        for (key, samples) in loaded where skillHeroes.contains(key.heroID) {
+            skillBuffers[key] = Self.makeBuffer(format: monoFormat, left: samples, right: nil)
+        }
+    }
+
+    /// 試合の終わり（BattleAudioDirector.stop）に呼ぶ。
+    func releaseSkillSounds() {
+        skillBuffers.removeAll()
+        skillHeroes.removeAll()
+        lastSkillHit.removeAll()
+    }
+
+    /// 読み込んだスキルの音か（テスト用）。
+    func hasSkillSound(_ key: SkillSoundKey) -> Bool { skillBuffers[key] != nil }
+
+    /// スキルの音を鳴らす。そのスキルの音が無ければ false（呼び出し側が汎用の音で代える）。
+    /// 音量 0・間隔の内で鳴らさなかった時も、音があれば true（汎用の音を重ねない）。
+    @discardableResult
+    func playSkill(_ key: SkillSoundKey, gain: Double) -> Bool {
+        guard let buffer = skillBuffers[key] else { return false }
+        guard graphReady, sfxVolume > 0.001, gain > 0.001 else { return true }
+        let now = ProcessInfo.processInfo.systemUptime
+        if key.hit {
+            if let last = lastSkillHit[key], now - last < Self.skillHitInterval { return true }
+            lastSkillHit[key] = now
+        }
+        guard ensureEngineRunning() else { return true }
+        let index = pickSFXPlayer(now: now)
+        let player = sfxPlayers[index]
+        player.volume = Float(min(1, gain))
+        player.scheduleBuffer(buffer, at: nil, options: .interrupts, completionHandler: nil)
+        if !player.isPlaying { player.play() }
+        sfxBusyUntil[index] = now + Double(buffer.frameLength) / buffer.format.sampleRate
+        return true
+    }
+
     // MARK: - BGM
 
     /// 曲を再生する。同じループ曲の再指定は無視し、スティンガー（勝利・敗北）は再指定で頭から鳴らし直す。
@@ -206,7 +329,9 @@ final class AudioService {
         let track = track == .menu ? selectedMenuTrack : track
         guard track != currentTrack || !track.loops else { return }
         currentTrack = track
-        if let buffer = musicBuffers[track] {
+        if let file = musicFile(track) {
+            startMusic(file: file, track: track)
+        } else if let buffer = musicBuffers[track] {
             startMusic(buffer, track: track)
         } else {
             prepareMusic(track)
@@ -215,6 +340,7 @@ final class AudioService {
 
     func stopMusic() {
         currentTrack = nil
+        musicGeneration += 1
         guard graphReady, musicPlayers.indices.contains(activeMusicPlayer) else { return }
         let outgoing = musicPlayers[activeMusicPlayer]
         fade(incoming: nil, outgoing: outgoing, duration: 0.6)
@@ -222,6 +348,8 @@ final class AudioService {
 
     /// 曲を先にレンダリングしておく（ロード画面などで呼ぶと切替が即座になる）。
     func prepareMusic(_ track: MusicTrack) {
+        // ファイルの曲は開くだけ（流し読みなので先に読むものは無い）
+        if musicFile(track) != nil { return }
         guard musicBuffers[track] == nil, !renderingTracks.contains(track) else { return }
         renderingTracks.insert(track)
         Task.detached(priority: .utility) { [weak self] in
@@ -231,7 +359,43 @@ final class AudioService {
     }
 
     /// レンダリング済みの曲か（テスト・デバッグ用）。
-    func isMusicPrepared(_ track: MusicTrack) -> Bool { musicBuffers[track] != nil }
+    func isMusicPrepared(_ track: MusicTrack) -> Bool { musicBuffers[track] != nil || musicFile(track) != nil }
+
+    /// ファイルの曲（開けて、BGM の形式 = 44.1 kHz ステレオの時だけ。違えば合成で鳴らす）。
+    private func musicFile(_ track: MusicTrack) -> AVAudioFile? {
+        if let f = musicFiles[track] { return f }
+        guard let name = AudioFiles.music(track), let url = AudioFiles.musicURL(name),
+              let file = try? AVAudioFile(forReading: url), let stereoFormat,
+              file.processingFormat.channelCount == stereoFormat.channelCount,
+              file.processingFormat.sampleRate == stereoFormat.sampleRate else { return nil }
+        musicFiles[track] = file
+        return file
+    }
+
+    private func startMusic(file: AVAudioFile, track: MusicTrack) {
+        guard graphReady, ensureEngineRunning() else { return }
+        let outgoing = musicPlayers[activeMusicPlayer]
+        activeMusicPlayer = 1 - activeMusicPlayer
+        let incoming = musicPlayers[activeMusicPlayer]
+        incoming.stop()
+        incoming.volume = 0
+        musicGeneration += 1
+        scheduleFile(file, on: incoming, loops: track.loops, generation: musicGeneration)
+        incoming.play()
+        fade(incoming: incoming, outgoing: outgoing, duration: Self.crossfadeDuration)
+    }
+
+    /// ファイルを予約する。ループの曲は読み終わったら（再生の終わりより前に）頭からもう一度予約する。
+    /// 曲を切り替えた・止めた後の古い予約は generation で見分けて続けない。
+    private func scheduleFile(_ file: AVAudioFile, on player: AVAudioPlayerNode, loops: Bool, generation: Int) {
+        player.scheduleFile(file, at: nil, completionCallbackType: .dataConsumed) { [weak self] _ in
+            guard loops else { return }
+            Task { @MainActor in
+                guard let self, self.musicGeneration == generation else { return }
+                self.scheduleFile(file, on: player, loops: true, generation: generation)
+            }
+        }
+    }
 
     private func didRender(_ track: MusicTrack, _ rendered: RenderedMusic) {
         renderingTracks.remove(track)
@@ -248,6 +412,7 @@ final class AudioService {
         let incoming = musicPlayers[activeMusicPlayer]
         incoming.stop()
         incoming.volume = 0
+        musicGeneration += 1
         incoming.scheduleBuffer(buffer, at: nil, options: track.loops ? [.loops] : [], completionHandler: nil)
         incoming.play()
         fade(incoming: incoming, outgoing: outgoing, duration: Self.crossfadeDuration)
@@ -363,6 +528,16 @@ final class AudioService {
         for p in sfxPlayers { p.stop() }
         for i in sfxBusyUntil.indices { sfxBusyUntil[i] = 0 }
         guard let track = currentTrack, track.loops else { return true }
+        if let file = musicFile(track) {
+            fadeTask?.cancel()
+            for p in musicPlayers { p.stop() }
+            let player = musicPlayers[activeMusicPlayer]
+            player.volume = 1
+            musicGeneration += 1
+            scheduleFile(file, on: player, loops: true, generation: musicGeneration)
+            player.play()
+            return true
+        }
         guard let buffer = musicBuffers[track] else {
             prepareMusic(track)
             return true
@@ -371,6 +546,7 @@ final class AudioService {
         for p in musicPlayers { p.stop() }
         let player = musicPlayers[activeMusicPlayer]
         player.volume = 1
+        musicGeneration += 1
         player.scheduleBuffer(buffer, at: nil, options: [.loops], completionHandler: nil)
         player.play()
         return true

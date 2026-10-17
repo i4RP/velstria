@@ -33,6 +33,26 @@ enum CreditsCatalog {
         ("Cinzel", "Copyright 2020 The Cinzel Project Authors (https://github.com/NDISCOVER/Cinzel)"),
     ]
 
+    /// 音楽・効果音の素材（すべて CC0 1.0。tools/audio/build_audio.py で加工。出典の表は docs/audio/SOURCES.md）。
+    /// CC0 は帰属表示が要らないが、作者と URL を載せる。素材を足したら build_audio.py の SOURCES と一緒に足す（AppTests の AudioFilesTests）。
+    static let audio: [(title: String, author: String, url: String)] = [
+        ("Interface Sounds", "Kenney", "https://kenney.nl/assets/interface-sounds"),
+        ("Impact Sounds", "Kenney", "https://kenney.nl/assets/impact-sounds"),
+        ("RPG Audio", "Kenney", "https://kenney.nl/assets/rpg-audio"),
+        ("Sci-Fi Sounds", "Kenney", "https://kenney.nl/assets/sci-fi-sounds"),
+        ("Digital Audio", "Kenney", "https://kenney.nl/assets/digital-audio"),
+        ("Music Jingles", "Kenney", "https://kenney.nl/assets/music-jingles"),
+        ("Casino Audio", "Kenney", "https://kenney.nl/assets/casino-audio"),
+        ("A Legend Will Rise", "CodeManu", "https://opengameart.org/content/a-legend-will-rise-orchestral"),
+        ("Fantasy Orchestral Theme", "Joth", "https://opengameart.org/content/fantasy-orchestral-theme"),
+        ("Treasure Hunter", "TAD", "https://opengameart.org/content/treasure-hunter"),
+        ("Once Upon a Time (loop)", "TAD", "https://opengameart.org/content/once-upon-a-time-loop"),
+        ("Battle Theme", "Wolfgang_", "https://opengameart.org/content/battle-theme-0"),
+        ("Final Stand", "iamoneabe", "https://opengameart.org/content/final-stand"),
+        ("Intro Cue", "Vehicle", "https://opengameart.org/content/intro-cue"),
+        ("At Home (orchestral)", "Wolfgang_", "https://opengameart.org/content/at-home-orchestral"),
+    ]
+
     /// 静的にリンクしているオープンソース（ThirdParty/。MIT License は著作権表示と許諾表示の掲載が条件）。
     /// Effekseer の静的ライブラリ（libEffekseerAll.a）には LLGI（zlib）と stb_image（MIT / パブリックドメインの選択制。MIT を選ぶ）が入っている。
     /// 本文は ThirdParty/Effekseer/LICENSE.txt・docs/legal/licenses/llgi.txt・stb-image.txt と一致させる（AppTests の OnlineSafetyTests で確認）。
@@ -211,6 +231,27 @@ struct CreditsView: View {
                             }
                             Text(L("SIL Open Font License, Version 1.1 のもとで使用しています。",
                                    "Licensed under the SIL Open Font License, Version 1.1."))
+                                .font(Theme.body(11))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+
+                    creditsBlock(L("音楽・効果音", "Music & Sound Effects")) {
+                        VStack(spacing: 6) {
+                            ForEach(CreditsCatalog.audio, id: \.title) { a in
+                                VStack(spacing: 1) {
+                                    Text("\(a.title) — \(a.author)")
+                                        .font(Theme.heading(13))
+                                        .foregroundStyle(Theme.textPrimary)
+                                    Text(a.url)
+                                        .font(Theme.body(10))
+                                        .foregroundStyle(Theme.textSecondary)
+                                        .multilineTextAlignment(.center)
+                                }
+                                .accessibilityElement(children: .combine)
+                            }
+                            Text(L("いずれも CC0 1.0（パブリックドメイン）の素材を加工して使っています。",
+                                   "All based on CC0 1.0 (public domain) assets, edited for this app."))
                                 .font(Theme.body(11))
                                 .foregroundStyle(Theme.textSecondary)
                         }

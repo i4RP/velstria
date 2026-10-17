@@ -30,6 +30,10 @@ final class BattleWorld {
     var effekseer: EffekseerDirector?
     func attach(effekseer director: EffekseerDirector) {
         effekseer = director
+        // キットのヒーローの段に重ねる Effekseer の効果（FXElement.efk）
+        skillDirector.player.efk.sink = { [weak director] x, p, yaw, follow, offset in
+            director?.playStacked(x, at: p, yaw: yaw, follow: follow, offset: offset)
+        }
         projectiles.suppressedHeroes = director.heroes
         projectiles.skillShotsKept = director.skillOptOutHeroes
         projectiles.attackShotsKept = director.attackOptOutHeroes

@@ -14,7 +14,7 @@ The iPhone game "VELSIA: Star Ring Arena" (the "App") uses the following third-p
 | Chakra Petch | On-screen text (font) | Copyright 2018 The Chakra Petch Project Authors | SIL Open Font License 1.1 |
 | Cinzel | On-screen text (font) | Copyright 2020 The Cinzel Project Authors / Copyright © 2012 Natanael Gama (Reserved Font Name "Cinzel Decorative") | SIL Open Font License 1.1 |
 
-The App's sound effects and music are synthesized by the App's own code. No third-party audio is used.
+Some of the App's music and sound effects are based on CC0 1.0 (public domain) assets by Kenney (kenney.nl) and creators on OpenGameArt.org, edited for the App (cutting, layering, pitch, volume, reverb and format conversion). The list of sources is in docs/audio/SOURCES.md and in the App under Credits > Music & Sound Effects. The other sounds are synthesized by the App's own code.
 
 ## License texts
 

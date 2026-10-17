@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
 import RealityKit
+import UIKit
 
 // 担当: battle-renderer（スキル演出）。スキル演出で使う手続きテクスチャ（白地 + アルファ。色は粒子・材質の色で付ける）。
 // どれも CoreGraphics で描き、読み込み幕の裏で一度だけ TextureResource にする（AssetLedger の .texture）。
@@ -82,6 +83,45 @@ enum FXTex: String, CaseIterable, Hashable, Sendable {
     case arrow
     /// 音符。
     case note
+    // Blender で描いた 1 枚の模様（tools/vfx_assets/blender/fx_render.py → App/Resources/FX/Textures/fx_<名前>.png。白 + アルファ）
+    /// 横に寝た S 字の太い地割れ（枝と細いひび付き。聖槌波の爆発の下）。1024 px。
+    case crackS
+    /// 放射状の地割れ（11 本の枝分かれするひび + 途切れた輪のひび）。1024 px。
+    case crackRadial
+    /// 焦げ跡（縁がノイズで崩れた柔らかい円。暗い色で敷く）。
+    case scorch
+    /// 四芒星（細く尖る 4 本の腕と間の短い 4 本、柔らかい光）。
+    case star4
+    /// 斬撃の帯（u = 尾 0 → 頭 1、v = 内縁 0 → 外縁 1。頭寄りが明るく外縁に白い刃線）。三日月の模型・帯（リボン）に貼る。
+    case swoosh
+    /// 渦の刃（u = 尾 0 → 頭 1、v = 幅。頭が明るく丸い）。渦の刃の輪の模型に貼る。
+    case blade
+    // 手続きの高解像度の画（tools/effekseer/textures_kit.py → App/Resources/FX/Textures/fx_<名前>.png）
+    /// 外向きの炎の舌が並ぶ輪（色を焼き込んだ画: 内縁の黄白 → 橙 → 赤の先。tint は白で使う）。1024 px。H034 の S2。
+    case flameRing
+    /// 炎の舌の根元のまばらな芯（白 + アルファ。加算）。flameRing と同じ舌。1024 px。
+    case flameRingCore
+    /// 細い線の輪（半径 0.95・幅 1%）。範囲の縁の細い線。1024 px。
+    case thinRing
+
+    /// バンドルの画像の名前（Blender の模様）。nil = CoreGraphics で描く。
+    var bundled: String? {
+        switch self {
+        case .crackS: return "fx_crack_s"
+        case .crackRadial: return "fx_crack_radial"
+        case .scorch: return "fx_scorch"
+        case .star4: return "fx_star4"
+        case .swoosh: return "fx_swoosh"
+        case .blade: return "fx_blade"
+        case .flameRing: return "fx_flame_ring"
+        case .flameRingCore: return "fx_flame_ring_core"
+        case .thinRing: return "fx_thin_ring"
+        default: return nil
+        }
+    }
+
+    /// 色を焼き込んだ画像か（白 + アルファでない。tint は白で使う。アルファ合成の粒子の画像は色 × アルファになる）。
+    var colored: Bool { self == .flameRing }
 
     /// 横（+X）に長い模様か（FXMesh.ray が板を回して前方へ向ける）。
     var isLinear: Bool {
@@ -152,25 +192,36 @@ final class FXTextureLibrary {
     /// RealityKit のアルファ合成の粒子は画像の色を乗算済みとして重ねる（色 + 背景 × (1 − α)）が、白 + アルファの画像は
     /// 読み込みで色が白に戻るので、α がわずかでもある所まで粒子の色が足され、粒子の板の四角い縁が見えていた
     /// （2026-10-17 の実機の録画: ボルグ S2 の土煙。板の中が縁まで一様に明るく、中心ほど背景が暗い = 乗算済みの重ね方）。
-    static func particleAlpha(_ img: CGImage) -> CGImage? {
+    nonisolated static func particleAlpha(_ img: CGImage) -> CGImage? {
         let w = img.width, h = img.height
         var buf = [UInt8](repeating: 0, count: w * h * 4)
         guard let ctx = CGContext(data: &buf, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
-                                  space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+                                  space: rgbSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
         ctx.draw(img, in: CGRect(x: 0, y: 0, width: w, height: h))
         // 乗算済みの白なので RGB はすでに α。この値のまま「乗算していない」画像にする（色 = α・α ではなく α）
         guard let provider = CGDataProvider(data: Data(buf) as CFData) else { return nil }
-        return CGImage(width: w, height: h, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: w * 4, space: space,
+        return CGImage(width: w, height: h, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: w * 4, space: rgbSpace,
                        bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue), provider: provider,
                        decode: nil, shouldInterpolate: true, intent: .defaultIntent)
     }
 
-    /// アルファを輝度へ焼き込んだ不透明の画像。
-    static func luminance(_ img: CGImage) -> CGImage? {
+    /// 乗算済みの色のまま不透明にした画像（色付きのシートの加算用。白の画像なら luminance と同じ）。
+    nonisolated static func opaquePremultiplied(_ img: CGImage) -> CGImage? {
         let w = img.width, h = img.height
         var buf = [UInt8](repeating: 0, count: w * h * 4)
         guard let ctx = CGContext(data: &buf, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
-                                  space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+                                  space: rgbSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        ctx.draw(img, in: CGRect(x: 0, y: 0, width: w, height: h))
+        for k in stride(from: 3, to: buf.count, by: 4) { buf[k] = 255 }
+        return ctx.makeImage()
+    }
+
+    /// アルファを輝度へ焼き込んだ不透明の画像。
+    nonisolated static func luminance(_ img: CGImage) -> CGImage? {
+        let w = img.width, h = img.height
+        var buf = [UInt8](repeating: 0, count: w * h * 4)
+        guard let ctx = CGContext(data: &buf, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                  space: rgbSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
         ctx.draw(img, in: CGRect(x: 0, y: 0, width: w, height: h))
         for k in stride(from: 0, to: buf.count, by: 4) {
             // 乗算済みの白なので RGB はすでにアルファ倍。アルファだけ不透明にする
@@ -181,9 +232,22 @@ final class FXTextureLibrary {
         return ctx.makeImage()
     }
 
+    /// 画像の変換（どの actor からでも呼べる）に使う色空間。
+    nonisolated private static var rgbSpace: CGColorSpace { CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB() }
+
     // MARK: 描画
 
     static func image(_ t: FXTex) -> CGImage? {
+        if let name = t.bundled {
+            // Blender の画像（白 + アルファ）。乗算済みの文脈へ描き直して、手続きの画像と同じ形式にそろえる
+            guard let url = Bundle.main.url(forResource: name, withExtension: "png"),
+                  let src = UIImage(contentsOfFile: url.path)?.cgImage,
+                  let ctx = CGContext(data: nil, width: src.width, height: src.height, bitsPerComponent: 8,
+                                      bytesPerRow: src.width * 4, space: space,
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+            ctx.draw(src, in: CGRect(x: 0, y: 0, width: src.width, height: src.height))
+            return ctx.makeImage()
+        }
         let n = t.size
         guard let ctx = CGContext(data: nil, width: n, height: n, bitsPerComponent: 8, bytesPerRow: n * 4,
                                   space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
@@ -632,6 +696,9 @@ final class FXTextureLibrary {
             ctx.closePath()
             ctx.fillPath()
             radial(ctx, center: CGPoint(x: s * 0.82, y: c.y), radius: s * 0.16, stops: [(0, 0.7), (1, 0)])
+        case .crackS, .crackRadial, .scorch, .star4, .swoosh, .blade, .flameRing, .flameRingCore, .thinRing:
+            // バンドルの画像（image(_:) が読む）。ここへは来ない
+            break
         case .note:
             ctx.setFillColor(white(1))
             ctx.fillEllipse(in: CGRect(x: s * 0.2, y: s * 0.12, width: s * 0.3, height: s * 0.22))

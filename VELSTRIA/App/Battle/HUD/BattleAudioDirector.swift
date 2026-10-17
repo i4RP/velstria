@@ -81,6 +81,8 @@ final class BattleAudioDirector {
             self?.handle(events)
         }
         app?.haptics.prepareAll()
+        // 試合に出るヒーローのスキルの音を裏で読む（プレイ中にファイルを読まない）
+        app?.audio.preloadSkillSounds(heroIDs: controller.ctx.config.players.map(\.heroID))
         // 塔・Star Core の立ち上がり・倒壊の音（描画側の時刻表で鳴る。StructureFX.swift）
         let audio = app?.audio
         StructureAudio.sink = { [weak audio] sfx, gain in audio?.play(sfx, gain: gain) }
@@ -90,6 +92,7 @@ final class BattleAudioDirector {
         if let token, let controller { controller.unsubscribe(token) }
         token = nil
         StructureAudio.sink = nil
+        app?.audio.releaseSkillSounds()
         resultTask?.cancel()
         resultTask = nil
     }
@@ -127,12 +130,40 @@ final class BattleAudioDirector {
                         guard now - lastOtherSkill > 0.18 else { continue }
                         lastOtherSkill = now
                     }
+                    // ヒーローのスキルの音（溜め・振り・着弾・余韻。無ければ汎用の発動の音）
+                    if case .skillCast(let c) = e, sfx == .skillCast || sfx == .ultimateCast,
+                       app.audio.playSkill(SkillSoundKey(heroID: c.heroID, slot: c.slot, stage: c.stage), gain: gain) {
+                        continue
+                    }
                     app.audio.play(sfx, gain: gain)
                 case .haptic(let h):
                     play(h, app: app, now: now)
                 }
             }
+            // スキルの命中の音（そのスキルの音があるヒーローだけ。自分が関わる命中と、聞こえる距離の命中）
+            if case .damage(let d) = e, case .skill(let slot) = d.source, let src = d.sourceID,
+               let heroID = s.unit(src)?.hero?.heroID {
+                let gain = Self.skillHitGain(d, context: ctx)
+                if gain > 0 { app.audio.playSkill(SkillSoundKey(heroID: heroID, slot: slot, hit: true), gain: gain) }
+            }
         }
+    }
+
+    /// スキルの命中の音の音量（0 = 鳴らさない）。自分（観戦者は追従中のユニット）が撃った・受けた命中は 0.8、
+    /// ほかは聞こえる距離（hearingRadius）で弱めて 0.5 まで。再生速度・シーク直後の抑制は cues と同じ。
+    nonisolated static func skillHitGain(_ d: DamageEvent, context c: Context) -> Double {
+        guard !c.suppressed, c.speed <= dropAboveSpeed else { return 0 }
+        let me = c.isSpectating ? c.focusID : c.humanID
+        var gain: Double
+        if let me, d.sourceID == me || d.targetID == me {
+            gain = 0.8
+        } else {
+            let dist = d.pos.distance(to: c.listener)
+            guard dist < hearingRadius else { return 0 }
+            gain = 0.5 * (1 - dist / hearingRadius)
+        }
+        if c.speed > dampenAboveSpeed { gain *= dampenedGain }
+        return gain
     }
 
     /// 勝敗の音を終幕の後（バナーの時刻）に鳴らす。巻き戻し・再同期（presentationEpoch の変化）・退出の後は鳴らさない。

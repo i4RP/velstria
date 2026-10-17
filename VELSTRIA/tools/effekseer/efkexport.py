@@ -211,8 +211,8 @@ def render_common(node, tex_index):
             out += i32(0)
     out += i32(0) * 3 + f32(0.0) + i32(0) + i32(-1) + i32(0) * 2 + f32(0.0)  # UV ×3 / 歪み強度 / UV3 / ブレンド種別 / UV4,5 / 歪み強度
     out += i32(0) + i32(0) + f32(1.0) + i32(0) + i32(0)  # 左右反転確率 / 色の親子 / 歪み強度 / CustomData ×2
-    if has(r, "UV") or has(r, "ZWrite"):
-        raise ValueError("UV / ZWrite は未対応")
+    if has(r, "UV") or has(r, "ZWrite") or has(r, "ZTest") or has(r, "Material"):
+        raise ValueError("UV / ZWrite / ZTest / 歪みは未対応（EFFEKSEER_CLI で公式の書き出しを使う）")
     return out
 
 
@@ -248,6 +248,9 @@ def count_nodes(node):
 
 def node_blob(node, tex_index, order):
     """1 ノード（と子）のバイト列。order は通し番号の [0] 参照。"""
+    for unsupported in ("DepthValues", "AdvancedRendererCommonValuesValues"):
+        if node.find(unsupported) is not None:
+            raise ValueError(f"{unsupported} は未対応（EFFEKSEER_CLI で公式の書き出しを使う）")
     draw = node.find("DrawingValues")
     ring = draw.find("Ring") is not None
     kids = node.find("Children").findall("Node")

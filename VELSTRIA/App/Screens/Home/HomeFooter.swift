@@ -29,7 +29,8 @@ struct HomeFooter: View {
         let badge = tab.badge(profile: app.profile, now: now)
         return Button {
             guard let route = tab.route else { return }
-            FlowFX.tap(app)
+            app.audio.play(.uiTab)
+            app.haptics.selection()
             app.router.push(route)
         } label: {
             VStack(spacing: 2) {
