@@ -133,6 +133,7 @@ final class FXCapture {
                 let player = world.skillDirector.player
                 note("FXPrograms ready=\(FXPrograms.isReady) failed=\(FXPrograms.failed) \(FXPrograms.failure ?? "")"
                      + " buildMs=\(FXPrograms.buildMs.map { String(Int($0)) } ?? "-") fallbacks=\(player.materials.fallbacks)"
+                     + " sealed=\(!player.materials.createsShaded)"
                      + " sheetsMissing=\(player.sheets.missing.map(\.rawValue).sorted())")
                 step = .finish
                 return

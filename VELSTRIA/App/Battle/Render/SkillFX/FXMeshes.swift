@@ -192,6 +192,9 @@ final class FXMaterialLibrary {
     private var flowTextures: [FXFlowTex: TextureResource] = [:]
     /// Program が無く、加算・模様のメッシュを従来のアルファ合成の材質で出した回数（材質を作るとき。計測・テスト用）。
     private(set) var fallbacks = 0
+    /// false = 加算・模様の材質を新しく作らない（幕までに作り切れなかった試合。SkillFXPlayer.sealShadedMaterials）。
+    /// 作ってある材質はそのまま使い、無いものは従来の材質で代える。
+    var createsShaded = true
 
     /// このメッシュに使う材質の鍵。従来の材質（アルファ合成・模様なし）は nil。
     static func shadedKey(_ m: FXMesh, palette: FXPalette, level: Int) -> ShadedKey? {
@@ -219,7 +222,7 @@ final class FXMaterialLibrary {
             return material(m.tex, palette.rgb(m.tint))
         }
         if let c = shaded[k] { return c }
-        guard let program = k.blend == .add ? FXPrograms.add : FXPrograms.alpha else {
+        guard createsShaded, let program = k.blend == .add ? FXPrograms.add : FXPrograms.alpha else {
             fallbacks += 1
             return material(m.tex, palette.rgb(m.tint))
         }

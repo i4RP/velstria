@@ -311,6 +311,16 @@ final class SkillFXPlayer {
         return true
     }
 
+    /// 幕を上げる時に呼ぶ。Program が幕に間に合わず加算・模様の材質を作り切れていなければ、この試合は従来の材質で出す
+    /// （幕の後に Program が出来ても、プレイ中に CustomMaterial を作らない）。作り切れていれば true。
+    @discardableResult
+    func sealShadedMaterials() -> Bool {
+        if prewarmShaded() { return true }
+        shadedPending.removeAll()
+        materials.createsShaded = false
+        return false
+    }
+
     private func makeEmitter() -> Emitter {
         AssetLedger.record(.entity, "skillfx emitter")
         AssetLedger.record(.emitter, "skillfx")
@@ -546,8 +556,10 @@ final class SkillFXPlayer {
             e = makeMesh(m.shape)
         }
         // 使い回す枠の前回の材質（加算の段階・模様）は全て書き換える。加算は明るさの段階 addLevels（最大）から始め、apply で落とす
-        let additive = m.blend == .add
-        e.model?.materials = [materials.material(for: m, palette: ctx.palette)]
+        // （加算の材質を作れず従来の材質で代えた時は、段階では明るさが変わらないので不透明度で落とす）
+        let material = materials.material(for: m, palette: ctx.palette)
+        let additive = m.blend == .add && material is CustomMaterial
+        e.model?.materials = [material]
         let ground = groundLevel && (m.shape == .disc || m.shape == .arc || m.shape == .band)
         if ground {
             OverlayOrder.apply(e, OverlayOrder.skillDecal)

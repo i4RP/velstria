@@ -792,6 +792,36 @@ final class SkillFXTests: XCTestCase {
         XCTAssertEqual(snap.liveTotal, 0, "プレイ中の生成: \(snap.live)\n" + snap.liveSamples.joined(separator: "\n"))
     }
 
+    /// Program が幕に間に合わなかった試合（sealShadedMaterials → createsShaded = false）は、後で Program が出来ても
+    /// プレイ中に CustomMaterial を作らず従来の材質で出し、加算のメッシュも不透明度で落とす。間に合えば封じない。
+    func testLateProgramsKeepTheLegacyMaterialForTheMatch() async {
+        await FXPrograms.waitUntilSettled()
+        guard FXPrograms.isReady else { return XCTFail("Program が無い: \(FXPrograms.failure ?? "?")") }
+        let glow = FXMesh(shape: .disc, tex: .shockwave, life: 1, fadeIn: 0.01, fadeOut: 0.3).with { $0.blend = .add }
+        let r = recipe([.mesh(glow, offset: [3, 0, 0])])
+        let ready = SkillFXPlayer(quality: .preset(.low))
+        ready.prewarm(recipes: [r])
+        XCTAssertTrue(ready.sealShadedMaterials(), "作り切れていれば封じない")
+        XCTAssertTrue(ready.materials.createsShaded)
+
+        AssetLedger.beginLoading()
+        let player = SkillFXPlayer(quality: .preset(.low))
+        // 幕の時点で Program が無かった試合と同じ状態（この試合は加算・模様の材質を作らない）
+        player.materials.createsShaded = false
+        player.prewarm(recipes: [r])
+        AssetLedger.beginLive()
+        player.play(r.recipe.cast, context(r.palette))
+        let e = mesh(player, x: 3) as? ModelEntity
+        XCTAssertTrue(e?.model?.materials.first is UnlitMaterial, "従来の材質で代える")
+        player.update(dt: 0.65)
+        let a = e?.components[OpacityComponent.self]?.opacity ?? 1
+        XCTAssertLessThan(a, 1, "従来の材質の加算のメッシュは不透明度で落とす")
+        XCTAssertGreaterThan(a, 0)
+        player.clear()
+        let snap = AssetLedger.snapshot()
+        XCTAssertEqual(snap.liveTotal, 0, "プレイ中の生成: \(snap.live)\n" + snap.liveSamples.joined(separator: "\n"))
+    }
+
     func testEverySheetIsBundledAsA4x4Grid() {
         for s in FXSheet.allCases {
             guard let img = FXSheet.image(s) else { XCTFail("\(s.rawValue).png が無い"); continue }
