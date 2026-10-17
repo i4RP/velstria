@@ -71,6 +71,9 @@ final class AimLayer {
     private var fanHalfAngle: Float = 0.79
     /// 射程リングのメッシュを作った半径（0.05 m 単位。単位円を拡大すると多角形が目立ち線幅も変わるため実寸で作る）。
     private var ringRadius: Float = -1
+    /// 幅つきの帯（.band）を台形にする手前・奥の半幅（m）。キットの fxValues の aimNearHalfWidth / aimFarHalfWidth で、
+    /// 判定が台形のスキル（H029 S1）の照準の縁を判定の縁に合わせる（docs/vfx/RANGES.md）。BattleWorld が照準のたびに渡す。
+    var taper: (near: Float, far: Float)?
 
     static let normalColor = RGB(0.86, 0.95, 1.0)
     static let allyColor = RGB(0.45, 1.0, 0.6)
@@ -184,6 +187,22 @@ final class AimLayer {
         arrow.scale = [0.75, 1, max(half * 2.4, 0.9)]
     }
 
+    /// 帯の縁の線を台形に（手前 near → 射程の奥 far の半幅。判定の台形の横の辺）。塗りは手前の半幅（判定の外へ出さない）。
+    private func taperEdges(origin o: SIMD3<Float>, rot: simd_quatf, taper: (near: Float, far: Float), len: Float) {
+        let side = rot.act(SIMD3<Float>(0, 0, 1))
+        let spread = taper.far - taper.near
+        let angle = atan2(spread, len)
+        let edge = (len * len + spread * spread).squareRoot()
+        strip.scale = [strip.scale.x, 1, taper.near * 2]
+        stripEdgeL.position = o + side * taper.near + SIMD3(0, 0.003, 0)
+        stripEdgeR.position = o - side * taper.near + SIMD3(0, 0.003, 0)
+        // 局所の +X（前）を、左の縁は +Z（side）へ・右の縁は −Z へ開く
+        stripEdgeL.orientation = rot * simd_quatf(angle: -angle, axis: [0, 1, 0])
+        stripEdgeR.orientation = rot * simd_quatf(angle: angle, axis: [0, 1, 0])
+        stripEdgeL.scale = [edge, 1, 0.06]
+        stripEdgeR.scale = [edge, 1, 0.06]
+    }
+
     /// キット層の形（AimShapePlan。.legacy 以外）を描く。部品は従来の照準と同じものを使う。
     private func applyShape(_ plan: AimShapePlan, origin o: SIMD3<Float>, target: Vec2, rot: simd_quatf,
                             range: Float, radius: Float, dirLen: Double) {
@@ -205,6 +224,7 @@ final class AimLayer {
         case .band(let half):
             useFan(.pi / 4)
             showBand(origin: o, rot: rot, half: half, len: max(0.5, range - 0.7))
+            if let taper { taperEdges(origin: o, rot: rot, taper: taper, len: max(0.5, range)) }
         case .dash(let half):
             useFan(.pi / 4)
             showBand(origin: o, rot: rot, half: half, len: max(0.5, range - 0.7))
