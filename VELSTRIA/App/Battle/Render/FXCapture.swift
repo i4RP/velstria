@@ -162,9 +162,13 @@ final class FXCapture {
                 shoot(world: world, name: "norings", slot: "rings", cast: 0, requested: 0, actual: 0)
             }
         case .cast(let k):
-            guard let foe = dummyID(controller) else { step = .finish; return }
-            controller.send(.castSkill(slot: slots[k], target: .unit(foe)))
             let hero = manifest?.hero ?? ""
+            // 英雄にだけ撃てるスキル（H027 S1・H028 奥義・H034 奥義）は、敵の英雄を前（HitShapeScenario.foeDistance）に呼んで撃つ
+            // （人形は的にならない。演出チェックの FXCheckDriver と同じ）
+            let heroOnly = FXCheckDriver.heroOnly[hero]?.contains(slots[k]) == true
+            if heroOnly { bringFoe(controller: controller) }
+            guard let foe = (heroOnly ? foeHeroID(controller) : nil) ?? dummyID(controller) else { step = .finish; return }
+            controller.send(.castSkill(slot: slots[k], target: .unit(foe)))
             let delay = FXCapture.recasts[hero]?[slots[k]]
             step = .watch(index: k, t0: s.time, recastAt: delay.map { s.time + $0 }, recastT0: nil, next: 0, nextRecast: 0)
         case .watch(let k, let t0, let recastAt, var recastT0, var next, var nextRecast):
@@ -392,8 +396,47 @@ final class FXCapture {
         s.units[me].hp = s.units[me].stats.maxHP
         s.units[me].resource = s.units[me].stats.maxResource
         s.units[fi].hp = s.units[fi].stats.maxHP
+        // 敵の英雄（英雄にだけ撃てるスキルの的）は、出た所（遠くの泉）に戻して人間の操作扱いにする（入力が無いので動かない。画に入らない）
+        let team = s.units[me].team
+        if let hi = s.units.firstIndex(where: { $0.kind == .hero && $0.team != team }) {
+            if foeHome == nil { foeHome = s.units[hi].pos }
+            let home = foeHome ?? s.units[hi].pos
+            s.units[hi].pos = home
+            s.units[hi].prevPos = home
+            s.units[hi].path.removeAll()
+            s.units[hi].moveIntent = .none
+            s.units[hi].hp = s.units[hi].stats.maxHP
+            s.units[hi].hero?.controller = .human
+        }
         controller.restore(s)
         return true
+    }
+
+    /// 敵の英雄を最初に置き直した時の位置（出た所）。
+    private var foeHome: Vec2?
+
+    private func foeHeroID(_ controller: BattleController) -> EntityID? {
+        let s = controller.state
+        guard let me = controller.humanIndex else { return nil }
+        let team = s.units[me].team
+        return s.units.first { $0.kind == .hero && $0.team != team && $0.isAlive }?.id
+    }
+
+    /// 敵の英雄を自分のヒーローの前 HitShapeScenario.foeDistance に、こちらを向かせて置く（英雄にだけ撃てるスキルの直前）。
+    private func bringFoe(controller: BattleController) {
+        guard let me = controller.humanIndex else { return }
+        var s = controller.state
+        let team = s.units[me].team
+        guard let hi = s.units.firstIndex(where: { $0.kind == .hero && $0.team != team }) else { return }
+        let at = s.units[me].pos + Vec2.fromAngle(s.units[me].facing) * HitShapeScenario.foeDistance
+        s.units[hi].pos = at
+        s.units[hi].prevPos = at
+        s.units[hi].path.removeAll()
+        s.units[hi].moveIntent = .none
+        s.units[hi].facing = s.units[me].facing + Double.pi
+        s.units[hi].hp = s.units[hi].stats.maxHP
+        s.units[hi].hero?.controller = .human
+        controller.restore(s)
     }
 
     // MARK: 寸法が既知の地面の輪
