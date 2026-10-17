@@ -281,6 +281,7 @@ def h029():
         (0.2, rise(sn("MAGIC AIR Large Whoosh", p=1.1, g=-2, hp=2500, start=0.2, length=0.8), 0.3)),
         (0.3, rise(sn("LFE Rumble 3", g=4, lp=120, length=0.72), 0.5)),
         (0.0, rise(B.db(suck, 8), 0.6)),
+        (0.85, sn("Justice B", p=0.9, g=-8, hit="peak", pre=0.12, length=0.2)),
         (1.0, sn("Smash B", g=2, hp=70, length=0.55, hit=True)),
         (1.0, sn("4 x Punch, Body", 1, p=0.68, g=0, hp=110, lp=1500, hit=True, length=0.11)),
         (1.0, sn("Haunted Metal Vol 1_02", g=-12, lp=400, length=0.8, hit=True)),
@@ -358,7 +359,7 @@ def h034():
 
     # S2 鉄鎖旋: 0〜0.27 の短い振り上げ → 0.27 で斧鉤を地に叩きつける（体の芯・低音・土・鉄）→ 低音が 0.5 秒 → 0.8 で消える
     s2 = mix([
-        (0.0, rise(sn("Swing 3 Large", p=0.8, g=-2, hp=1200, hit="peak", pre=0.15, length=0.3), 0.1)),
+        (0.0, rise(sn("Swing 3 Large", p=0.8, g=-2, hp=1200, hit="peak", pre=0.22, length=0.3), 0.12)),
         (0.27, sn("10 Hit Deep Thud", p=0.95, g=5, lp=600, hp=90, length=0.4, hit=True)),
         (0.27, sn("Explosive Hit 10", g=-12, length=0.4, hit=True)),
         (0.27, sn("RL_bodyfall_Dirt", p=0.8, g=-2, length=0.2, hit=True)),
@@ -382,6 +383,13 @@ def h034():
         (0.25, sn("Chains_Metal_Dropping", 0, p=0.85, g=-4, hp=400, length=0.4, hit=True)),
         (0.26, sn("Explosive Hit 10", g=-6, length=0.5, hit=True)),
         (0.3, sn("Choking, Tension", p=0.9, g=-4, hp=150, start=0.2, length=1.75)),
+        (0.42, sn("LowSwings31", p=1.0, g=-8, hp=300, hit="peak", pre=0.1, length=0.16)),
+        (0.74, sn("DesignedSwings12", p=0.95, g=-8, hp=300, hit="peak", pre=0.1, length=0.16)),
+        (1.06, sn("LowSwings31", p=1.05, g=-8, hp=300, hit="peak", pre=0.1, length=0.16)),
+        (1.38, sn("DesignedSwings12", p=1.0, g=-8, hp=300, hit="peak", pre=0.1, length=0.16)),
+        (1.5, sn("Swing 3 Large", p=0.7, g=-8, hp=300, hit="peak", pre=0.08, length=0.15)),
+        (1.68, sn("RL_bodyfall_Dirt", p=0.75, g=-6, length=0.25, hit=True)),
+        (1.68, sn("10 Hit Deep Thud", p=1.05, g=-10, lp=500, length=0.3, hit=True)),
         (0.3, sn("Heavy Body Crunch", 1, p=0.9, g=-6, hp=150, length=1.75)),
     ])
     write(f"skill_{hero}_ult_cast", tail(reverb(ult, 0.5, 0.1, 9), 1.75, 2.05), "ult", "掴みかかる一閃（鞭・鎖・掴み）→ 拘束の擦れと低いうなり",

@@ -121,6 +121,7 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材集だけ落
 | Metal Hits, Scrapes and Squeaks（GDC 2019） | Sound Spark LLC | Sonniss GDC | https://gdc.sonniss.com/ |
 | Trailer Instruments Designed（GDC 2020） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Metal Chains（GDC 2020） | Conor Bradley | Sonniss GDC | https://gdc.sonniss.com/ |
+| Weapon Sounds - Weapon Swings（GDC 2020） | David Dumais Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Lethal Blow（GDC 2020） | PMSFX | Sonniss GDC | https://gdc.sonniss.com/ |
 | Hit & Punch（GDC 2020） | Shapeforms | Sonniss GDC | https://gdc.sonniss.com/ |
 | Impacts, Hits & Whooshes（GDC 2020） | SmartSoundFX | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -157,7 +158,7 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材集だけ落
 | skill_H029_s2_hit_2.caf | 0.69 秒 | Justsoundeffects - Melee Weapons・344 Audio - Cinematic Fight Vol. 1 | 盾の打撃 + 体への衝撃 |
 | skill_H029_s2_hit_3.caf | 0.69 秒 | Justsoundeffects - Melee Weapons・344 Audio - Cinematic Fight Vol. 1 | 盾の打撃 + 体への衝撃 |
 | skill_H029_s2_r1_cast.caf | 1.16 秒 | Federico Soler Fernández - Effective Trailer Booms・Sound Spark LLC – Metal Hits, Scrapes and Squeaks・Pole Position - The Metal Hit Sweeteners Library・344 Audio - Cinematic Fight Vol. 1・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 振り上げの風 → 槌の金属 + 体の芯 + 低音（打ち上げ） |
-| skill_H029_ult_cast.caf | 1.78 秒 | 344 Audio - Low Frequency Elements・Articulated Sounds - Magic Elements vol.1・Federico Soler Fernández - Effective Trailer Hits & Impacts・344 Audio - Trailer Instruments Designed・Jake Fielding - Haunted Metal Vol.1 - Cinematic Hits & Impacts・Justsoundeffects - Melee Weapons・Pole Position - The Metal Hit Sweeteners Library・344 Audio - Cinematic Fight Vol. 1・344 Audio - Elemental Palette Designed Vol. 1・Alexander Kopeikin - Emotion and Magic | 掲げる一撃 → 吸い込み（地鳴り・渦・気・逆再生の打撃）→ 崩落（重い一撃・金属・岩） |
+| skill_H029_ult_cast.caf | 1.78 秒 | 344 Audio - Low Frequency Elements・Articulated Sounds - Magic Elements vol.1・Federico Soler Fernández - Effective Trailer Hits & Impacts・Federico Soler Fernández - Effective Trailer Whooshes・344 Audio - Trailer Instruments Designed・Jake Fielding - Haunted Metal Vol.1 - Cinematic Hits & Impacts・Justsoundeffects - Melee Weapons・Pole Position - The Metal Hit Sweeteners Library・344 Audio - Cinematic Fight Vol. 1・344 Audio - Elemental Palette Designed Vol. 1・Alexander Kopeikin - Emotion and Magic | 掲げる一撃 → 吸い込み（地鳴り・渦・気・逆再生の打撃）→ 崩落（重い一撃・金属・岩） |
 | skill_H029_ult_hit_1.caf | 0.70 秒 | BlueZone - Heavy Metal Impact Sound Effects・BluezoneCorp - Stone Impact | 重い金属の着弾 + 岩 |
 | skill_H029_ult_hit_2.caf | 0.70 秒 | BlueZone - Heavy Metal Impact Sound Effects・BluezoneCorp - Stone Impact | 重い金属の着弾 + 岩 |
 | skill_H029_ult_hit_3.caf | 0.70 秒 | BlueZone - Heavy Metal Impact Sound Effects・BluezoneCorp - Stone Impact | 重い金属の着弾 + 岩 |
@@ -177,7 +178,7 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材集だけ落
 | skill_H034_s2_hit_1.caf | 0.26 秒 | Red Libraries - Bodyfall・Shapeforms - Hit & Punch | 衝撃が体に当たる鈍い音 + 土 |
 | skill_H034_s2_hit_2.caf | 0.24 秒 | Red Libraries - Bodyfall・Shapeforms - Hit & Punch | 衝撃が体に当たる鈍い音 + 土 |
 | skill_H034_s2_hit_3.caf | 0.23 秒 | Red Libraries - Bodyfall・Shapeforms - Hit & Punch | 衝撃が体に当たる鈍い音 + 土 |
-| skill_H034_ult_cast.caf | 2.03 秒 | 344 Audio - Low Frequency Elements・Rock The Speakerbox - Melee・Conor Bradley - Metal Chains・PMSFX - Lethal Blow・344 Audio - Flesh, Bones & Gore・InspectorJ - Essentials 04 Chains・344 Audio - Cinematic Fight Vol. 1・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 掴みかかる一閃（鞭・鎖・掴み）→ 拘束の擦れと低いうなり |
+| skill_H034_ult_cast.caf | 2.03 秒 | 344 Audio - Low Frequency Elements・Baxter Audio - IMPACT・Red Libraries - Bodyfall・Rock The Speakerbox - Melee・Conor Bradley - Metal Chains・David Dumais Audio - Weapon Sounds - Weapon Swings・PMSFX - Lethal Blow・344 Audio - Flesh, Bones & Gore・David Dumais Audio - Melee Weapons Sound Effects Pack 1・InspectorJ - Essentials 04 Chains・344 Audio - Cinematic Fight Vol. 1・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 掴みかかる一閃（鞭・鎖・掴み）→ 拘束の擦れと低いうなり |
 | skill_H034_ult_hit_1.caf | 0.62 秒 | 344 Audio - Low Frequency Elements・Sound Spark LLC – Gore・Conor Bradley - Metal Chains・PMSFX - Lethal Blow・SmartSoundFX - Impacts, Hits & Whooshes・344 Audio - Flesh, Bones & Gore | 拳と斧鉤の重い打撃 + 砕け + 低音の芯 + 鎖の跳ね |
 | skill_H034_ult_hit_2.caf | 0.58 秒 | 344 Audio - Low Frequency Elements・Sound Spark LLC – Gore・Conor Bradley - Metal Chains・PMSFX - Lethal Blow・SmartSoundFX - Impacts, Hits & Whooshes・344 Audio - Flesh, Bones & Gore | 拳と斧鉤の重い打撃 + 砕け + 低音の芯 + 鎖の跳ね |
 | skill_H034_ult_hit_3.caf | 0.55 秒 | 344 Audio - Low Frequency Elements・Sound Spark LLC – Gore・Conor Bradley - Metal Chains・PMSFX - Lethal Blow・SmartSoundFX - Impacts, Hits & Whooshes・344 Audio - Flesh, Bones & Gore | 拳と斧鉤の重い打撃 + 砕け + 低音の芯 + 鎖の跳ね |
