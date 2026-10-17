@@ -24,7 +24,9 @@ extension HeroMotionScript {
 }
 
 enum HeroSkillMotions {
-    static let scripts: [String: HeroMotionScript.Type] = [:]
+    static let scripts: [String: HeroMotionScript.Type] = [
+        "H029": Motion_H029.self,
+    ]
 
     static func script(_ heroID: String) -> HeroMotionScript.Type? { scripts[heroID] }
 
