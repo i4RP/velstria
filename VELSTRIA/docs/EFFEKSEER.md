@@ -147,7 +147,18 @@ node tools/effekseer/webrender/render.mjs H034_s2_impact Kit/H034_s2_slam:delay=
 DSL（tools/effekseer/efkgen.py）: `Node`（粒子の発生源。`tex` `blend` `life` `count` `loc` `rot` `scale` `color` `gen` `gravity` …）を `Effect` に積んで `build()` する。
 部品は tools/effekseer/fxlib.py（閃光・輪・火花・魔法陣…）。ヒーローごとの色は `fade` / `morph` で付ける。
 エディタ（Effekseer.app）で開き直したい時は `effekseer save` で .efkefc にできる。
-`effekseer` の CLI が無い環境（Windows など）では、`efkgen.Effect.build()` が自動で純 Python の書き出し器（`tools/effekseer/efkexport.py`、Effekseer 1.8 のバイナリ）に切り替わる。
+Windows では公式ツール（GitHub の Effekseer1.80.7Win.zip。展開して約 170 MB、リポジトリには入れない）の無画面の書き出し
+`Tool/bin/Effekseer.exe -cui -in <.efkproj> -e <.efk>` が使える。環境変数 `EFFEKSEER_CLI` にその `Effekseer.exe` を指すと `Effect.build()` が使う
+（2026-10-18 に H034 の段の効果で、同梱の .efk と角度の丸め 2 か所以外バイト一致を確かめた）。
+`EFFEKSEER_CLI` も `effekseer` の CLI も無い環境では、`efkgen.Effect.build()` が自動で純 Python の書き出し器（`tools/effekseer/efkexport.py`、Effekseer 1.8 のバイナリ）に切り替わる。
+
+DSL の追加（2026-10-18。公式の書き出し（`EFFEKSEER_CLI` / `effekseer`）が要る。純 Python の書き出し器は例外にする）:
+- `Effect(..., tex_dir="../Texture/")`: キットの段に重ねる効果（`Effects/Effekseer/Kit/`）のテクスチャの置き場。
+- `Node(depth_offset=m)`: カメラ側へずらす（体の中ほどの閃きを体の手前に）。`ztest=False`: 常に手前。`drawing_priority`: 同じ効果の中の描く順。
+- `Node(cutoff=(始め, 終わり))`: 溶け（アルファの切り捨ての閾値を寿命で 始め → 終わり）。
+- `Node(uv_scroll=(横, 縦))`: UV を流す（画像の何枚分 / 秒。書き出しでは画素 / フレームに直す）。
+- `Node(distort=強さ)`: 歪み（Material = BackDistortion）。**未確認**: WebGL の確認環境では白い四角になる（背景の取り込みか歪みの画像の読み込み）。
+  実機で確かめるまで同梱の効果には使わない。
 参照ヒーロー 12 体の 150 効果は、全て CLI の出力とバイト一致（角度のラジアン変換だけ float32 で最大 2 ulp ずれる 89 本）。H025〜H034 の 128 効果は CLI の無い環境でこの書き出し器から作った（`check_export.py` の「完全一致」は書き出し器どうしの再現性）。DSL が出す範囲（Fixed / PVA / Easing・球と円の生成・スプライト・フェード・入れ子）だけ対応。範囲外は例外にする。
 
 ### 落とし穴

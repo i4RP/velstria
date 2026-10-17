@@ -117,6 +117,8 @@ function draw() {
   const gl = renderer.getContext();
   ctx.setProjectionMatrix(camera.projectionMatrix.elements);
   ctx.setCameraMatrix(camera.matrixWorldInverse.elements);
+  // 歪みの背景 = 効果を描く前の 3D 画面（アプリの後処理の中と同じ）
+  ctx.captureBackground(0, 0, spec.width, spec.height);
   // 3D に隠れる層 → 深度を消す → 3D の上の層（アプリの後処理の中と同じ順）
   ctx.beginDraw();
   for (const fx of spec.fx) if (fx.handle && !fx.top) ctx.drawHandle(fx.handle);

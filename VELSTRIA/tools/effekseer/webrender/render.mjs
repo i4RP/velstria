@@ -5,7 +5,7 @@
 // 使い方（VELSTRIA/ で）:
 //   node tools/effekseer/webrender/render.mjs <効果> [<効果> …] [--frames 60] [--every 4] [--out DIR] [--camera mlbb]
 //        [--size 1108x512] [--crop x,y,w,h] [--bloom 1.5] [--cols 6] [--sheet-scale 0.5] [--rings 2.57,8.23] [--no-bodies]
-//        [--ground '#5b6250'] [--seed 1]
+//        [--ground '#5b6250'] [--seed 1] [--fx-dir DIR（既定 Effects/Effekseer）]
 //   効果: <Effects/Effekseer からの名前（.efk なし）>[@x,y,z][:yaw=度][:scale=倍][:delay=フレーム][:speed=倍][:top]
 //         例 H034_s2_impact  Kit/H034_s2_slam@0,0,0:delay=16  Kit/H034_hit_flash@0,1,-4:top
 //         位置はヒーロー（原点・北 = -Z を向く）から。練習場の人形は (0, 0, -4)。top = 3D の上の層（深度を消してから描く）
@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..', '..');
-const FX_DIR = path.join(ROOT, 'Effects', 'Effekseer');
+let FX_DIR = path.join(ROOT, 'Effects', 'Effekseer');
 const RUNTIME_VERSION = '1.80.7';
 const RUNTIME_URL = `https://github.com/effekseer/Effekseer/releases/download/1807/EffekseerForWebGL${RUNTIME_VERSION}.zip`;
 
@@ -32,6 +32,7 @@ function parseArgs(argv) {
     fx: [], frames: 60, every: 4, out: null, camera: 'mlbb', width: 1108, height: 512, crop: null, bloom: 0, cols: 6,
     sheetScale: 0.5, rings: [], bodies: true, grid: true, ground: '#5b6250', sky: '#1d2733', seed: 1, focus: [0, 0, 0],
   };
+  for (let i = 0; i < argv.length; i++) if (argv[i] === '--fx-dir') FX_DIR = path.resolve(argv[i + 1]);
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => argv[++i];
@@ -56,6 +57,7 @@ function parseArgs(argv) {
     else if (a === '--sky') o.sky = next();
     else if (a === '--seed') o.seed = +next();
     else if (a === '--focus') o.focus = next().split(',').map(Number);
+    else if (a === '--fx-dir') FX_DIR = path.resolve(next());
     else if (a.startsWith('--')) throw new Error(`知らない指定: ${a}`);
     else o.fx.push(parseFx(a));
   }

@@ -70,6 +70,14 @@ def fixed_xml(v, names="XYZ"):
 FPS = 60.0
 
 
+def texture_size(tex):
+    """Effects/Effekseer/Texture/<tex>.png の画素の大きさ（PNG の頭だけ読む）。"""
+    import struct
+    with open(os.path.join(OUT, "Texture", tex + ".png"), "rb") as f:
+        head = f.read(24)
+    return struct.unpack(">II", head[16:24])
+
+
 def per_frame(v, order):
     """秒基準の値（m/s, 度/秒…）をフレーム基準へ。order=1: 速度（/60）、order=2: 加速度（/3600）。"""
     k = FPS ** order
@@ -206,7 +214,13 @@ class Node:
                  loc=None, rot=None, scale=None, color=None, gen=None, gravity=None,
                  billboard="billboard", fade_in=0, fade_out=0, kind="sprite", ring=None,
                  detach=False, children=None, loop=False, zwrite=False, distort=0, uv_scroll=None,
-                 bind_scale=True, bind_rot=True, remove_with_parent=True):
+                 bind_scale=True, bind_rot=True, remove_with_parent=True, depth_offset=0, cutoff=None, ztest=True,
+                 drawing_priority=0):
+        """distort > 0: 歪み（背景を歪ませる。Material = BackDistortion・強さ）。テクスチャの法線向きの絵（Fx_Distort）を使う。
+        depth_offset: カメラ側へずらす量（m。体の中ほどの閃きが体に隠れないように）。
+        cutoff: 溶け（アルファの切り捨て）の閾値 (始め, 終わり)（0 = 全部見える、1 = 全部消える。寿命で変わる）。
+        ztest: 深度で隠れるか（False = 常に手前。重ね描きでは違いが無い）。drawing_priority: 同じ効果の中の描く順（大きいほど後）。
+        uv_scroll: (横, 縦) の UV の流れる速さ（画像の何枚分 / 秒。画像は繰り返す）。"""
         self.__dict__.update(locals())
         del self.__dict__["self"]
         self.children = list(children or [])
@@ -215,7 +229,7 @@ class Node:
         self.children += nodes
         return self
 
-    def xml(self):
+    def xml(self, tex_dir="Texture/"):
         b = []
         count = "<Infinite>True</Infinite>" if self.count in ("inf", None) or self.loop else tag("Value", num(self.count))
         common = tag("MaxGeneration", count) + tag("Life", rng_xml(self.life))
@@ -236,17 +250,40 @@ class Node:
         if self.rot: b.append(tag("RotationValues", self.rot.xml()))
         if self.scale: b.append(tag("ScalingValues", self.scale.xml()))
         if self.gen: b.append(tag("GenerationLocationValues", self.gen.xml()))
-        rc = tag("ColorTexture", escape(f"Texture/{self.tex}.png")) + tag("AlphaBlend", num(BLEND[self.blend]))
+        rc = ""
+        if self.distort:
+            rc += tag("Material", "1") + tag("DistortionIntensity", num(self.distort))
+        rc += tag("ColorTexture", escape(f"{tex_dir}{self.tex}.png")) + tag("AlphaBlend", num(BLEND[self.blend]))
         if self.fade_in:
             rc += tag("FadeInType", "1") + tag("FadeIn", tag("Frame", num(self.fade_in)))
         if self.fade_out:
             rc += tag("FadeOutType", "1") + tag("FadeOut", tag("Frame", num(self.fade_out)))
         if self.uv_scroll:
+            # Effekseer の UV は画素で書く（大きさ = 画像の画素、速さ = 画素 / フレーム）。DSL は「画像の何枚分 / 秒」で受ける
             sx, sy = self.uv_scroll
-            rc += tag("UV", "3") + tag("UVScroll", tag("Start", tag("X", "0") + tag("Y", "0")) + tag("Size", tag("X", "1") + tag("Y", "1")) + tag("Speed", tag("X", num(sx)) + tag("Y", num(sy))))
+            w, h = texture_size(self.tex)
+
+            def v2(x, y):
+                return tag("X", rng_xml(x)) + tag("Y", rng_xml(y))
+            rc += tag("UV", "3") + tag("UVScroll", tag("Start", v2(0, 0)) + tag("Size", v2(w, h))
+                                       + tag("Speed", v2(sx * w / FPS, sy * h / FPS)))
         if self.zwrite:
             rc += tag("ZWrite", "True")
+        if not self.ztest:
+            rc += tag("ZTest", "False")
         b.append(tag("RendererCommonValues", rc))
+        if self.depth_offset or self.drawing_priority:
+            dv = ""
+            if self.depth_offset:
+                dv += tag("DepthOffset", num(self.depth_offset))
+            if self.drawing_priority:
+                dv += tag("DrawingPriority", num(self.drawing_priority))
+            b.append(tag("DepthValues", dv))
+        if self.cutoff:
+            c0, c1 = self.cutoff
+            ease = tag("Start", rng_xml(c0)) + tag("End", rng_xml(c1))
+            b.append(tag("AdvancedRendererCommonValuesValues", tag("AlphaCutoffParam",
+                     tag("Enabled", "True") + tag("Type", "2") + tag("Easing", ease))))
         col = self.color or Col.fixed()
         if self.kind == "sprite":
             sp = tag("Billboard", num(BILLBOARD[self.billboard])) + col.xml("ColorAll")
@@ -257,7 +294,7 @@ class Node:
         else:
             raise ValueError(self.kind)
         b.append(tag("Name", escape(self.name)))
-        b.append(tag("Children", "".join(c.xml() for c in self.children)))
+        b.append(tag("Children", "".join(c.xml(tex_dir) for c in self.children)))
         return tag("Node", "".join(b))
 
 
@@ -289,8 +326,9 @@ class Ring:
 
 
 class Effect:
-    def __init__(self, name, frames=60, loop=False):
-        self.name, self.frames, self.loop = name, frames, loop
+    def __init__(self, name, frames=60, loop=False, tex_dir="Texture/"):
+        """tex_dir: .efk から見たテクスチャの置き場（キットの段に重ねる効果は Kit/ に置くので "../Texture/"）。"""
+        self.name, self.frames, self.loop, self.tex_dir = name, frames, loop, tex_dir
         self.nodes = []
 
     def add(self, *nodes):
@@ -298,7 +336,7 @@ class Effect:
         return self
 
     def xml(self):
-        root = tag("Name", "Root") + tag("Children", "".join(n.xml() for n in self.nodes))
+        root = tag("Name", "Root") + tag("Children", "".join(n.xml(self.tex_dir) for n in self.nodes))
         # 注意: 項目名は旧形式（ColorAll_Easing など）で書く。ToolVersion を新しい値（1.80.7）にすると新形式として読まれ、旧形式の項目が無視される。ToolVersion は 1.53c（旧形式として読ませる）
         return ('<?xml version="1.0" encoding="utf-8"?>\n<EffekseerProject>' + tag("Root", root)
                 + tag("ToolVersion", "1.53c") + tag("Version", "3")
@@ -314,7 +352,11 @@ class Effect:
         dst = os.path.join(out_dir, self.name + ".efk")
         if os.path.exists(dst):
             os.remove(dst)
-        if shutil.which("effekseer"):
+        cli = os.environ.get("EFFEKSEER_CLI")
+        if cli:
+            # Windows の公式ツール（Effekseer1.80.7Win の Tool/bin/Effekseer.exe）の無画面の書き出し。全ての描画の種類・歪み・UV を書ける
+            subprocess.run([cli, "-cui", "-in", os.path.abspath(proj), "-e", os.path.abspath(dst)], check=True, capture_output=True)
+        elif shutil.which("effekseer"):
             subprocess.run(["effekseer", "export", proj, dst], check=True, capture_output=True)
         else:
             # CLI が無い環境（Windows など）は、純 Python の書き出し器で同じ .efk を作る（efkexport.py）
