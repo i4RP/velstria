@@ -52,6 +52,8 @@ jobs:
           if [[ "$TAG" == *moving* ]]; then echo "MOVING=1" >> "$GITHUB_ENV"; fi
           # 名前に clean を含むタグは、判定の形の線（docs/vfx/RANGES.md。撮影では既定で出す）を出さない
           if [[ "$TAG" == *clean* ]]; then echo "NOHITSHAPES=1" >> "$GITHUB_ENV"; fi
+          # 名前に angleNN を含むタグは、人形を北から NN 度東へ回した所に見て撃つ（MLBB の画面収録の右上へ撃つ場面に合わせる）
+          if [[ "$TAG" =~ angle([0-9]+) ]]; then echo "ANGLE=${BASH_REMATCH[1]}" >> "$GITHUB_ENV"; fi
           cat "$GITHUB_ENV" || true
 
       - name: ツール準備

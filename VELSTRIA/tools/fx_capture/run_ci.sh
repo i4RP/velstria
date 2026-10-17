@@ -83,6 +83,8 @@ for preset in $PRESETS; do
     if [[ -n "${MOVING:-}" ]]; then extra+=(-fxCaptureMovingParticles); fi
     # 判定の形の線（HitShapeOverlay。撮影では既定で出す）を出さない
     if [[ -n "${NOHITSHAPES:-}" ]]; then extra+=(-noHitShapes); fi
+    # 人形を見る向き（度。0 = 北、+ = 東。MLBB の画面収録の右上へ撃つ場面に合わせる）
+    if [[ -n "${ANGLE:-}" ]]; then extra+=(-fxCaptureAngle "$ANGLE"); fi
     first=0
     dest="$OUT/$preset/$hero"
     mkdir -p "$dest"

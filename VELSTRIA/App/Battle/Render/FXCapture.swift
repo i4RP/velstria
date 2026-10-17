@@ -29,6 +29,9 @@ final class FXCapture {
     static let imageWidth: CGFloat = 1108
     /// 人形からヒーローを置く距離（sim の単位）。内部ビルドの演出チェックと共通。
     static let standoff = FXCheckDriver.standoff
+    /// 人形を見る向き（度。0 = 北、+ = 東へ回す）。-fxCaptureAngle で変える（MLBB の画面収録は右上へ撃つ場面が多い: 45）。
+    /// 0 以外では自分のヒーローを人形からその向きの反対へ standoff 離して置き、人形を向かせる（撃つ向きも人形へ）。
+    static var angle: Double { DebugLaunch.value(after: "-fxCaptureAngle").flatMap { Double($0) } ?? 0 }
 
     struct Shot: Codable {
         var file: String
@@ -246,6 +249,15 @@ final class FXCapture {
         }
         if freezesParticles { world.skillDirector.player.freezeParticles(false) }
         isFrozen = false
+        resumed = true
+    }
+
+    /// 撮り終えて再開した（次のフレームは撮る間の待ち時間を sim・演出に流さない。BattleRenderer）。読んだら戻す。
+    private var resumed = false
+
+    func takeResumed() -> Bool {
+        defer { resumed = false }
+        return resumed
     }
 
     private var ringsDone = false
@@ -361,17 +373,19 @@ final class FXCapture {
             .min { $0.pos.distance(to: p) < $1.pos.distance(to: p) }?.id
     }
 
-    /// 自分のヒーローを人形の南 standoff に北向きで置き直し、体力・資源を満たし、人形の体力も戻す。
+    /// 自分のヒーローを人形の南 standoff に北向きで置き直し（-fxCaptureAngle なら人形がその向きに見える所）、体力・資源を満たし、
+    /// 人形の体力も戻す。
     private func place(controller: BattleController) -> Bool {
         guard let me = controller.humanIndex, let foe = dummyID(controller) else { return false }
         var s = controller.state
         guard let fi = s.index(of: foe) else { return false }
-        let spot = s.units[fi].pos + Vec2(0, -FXCapture.standoff)
+        let a = FXCapture.angle * .pi / 180
+        let spot = s.units[fi].pos + Vec2(-sin(a) * FXCapture.standoff, -cos(a) * FXCapture.standoff)
         s.units[me].pos = spot
         s.units[me].prevPos = spot
         s.units[me].path.removeAll()
         s.units[me].moveIntent = .none
-        s.units[me].facing = Double.pi / 2
+        s.units[me].facing = Double.pi / 2 - a
         s.units[me].hp = s.units[me].stats.maxHP
         s.units[me].resource = s.units[me].stats.maxResource
         s.units[fi].hp = s.units[fi].stats.maxHP
