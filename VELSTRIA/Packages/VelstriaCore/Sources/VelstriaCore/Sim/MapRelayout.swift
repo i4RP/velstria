@@ -25,6 +25,8 @@ extension MapDefinition {
         }
         // 岩壁上の苔は装飾。追加した巣の壁の内側にも隠蔽セルを作らない。
         copy.applySanctumBushes(scale: k)
+        // 2026-10-17: 添付画像の配置で上書き。ボスとその周辺は上の地形を保持。
+        copy.applyReferenceLayout()
         return copy
     }
 

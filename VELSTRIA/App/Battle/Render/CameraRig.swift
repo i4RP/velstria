@@ -101,12 +101,18 @@ final class CameraRig {
     nonisolated static let pitchDegrees: Float = {
         #if DEBUG
         let args = ProcessInfo.processInfo.arguments
+        if args.contains("-stageLayoutReference") { return 36.80944726 }
         if let i = args.firstIndex(of: "-stagePitch"), i + 1 < args.count,
            let pitch = Float(args[i + 1]), (30...75).contains(pitch) { return pitch }
         #endif
         return 56
     }()
-    nonisolated static let fovDegrees: Float = 48
+    nonisolated static let fovDegrees: Float = {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-stageLayoutReference") { return 13.86622334 }
+        #endif
+        return 48
+    }()
     /// cameraZoom = 1 のときの注視点までの距離（m）。
     nonisolated static let baseDistance: Float = 10.0
     /// 通常の追従はヒーローを画面中央に置く。
@@ -145,6 +151,9 @@ final class CameraRig {
         camera.name = "camera"
         camera.camera = PerspectiveCameraComponent(near: 1.0, far: 160, fieldOfViewInDegrees: CameraRig.fovDegrees,
                                                    fieldOfViewOrientation: .vertical)
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-stageLayoutReference") { camera.camera.far = 500 }
+        #endif
         camera.orientation = CameraRig.orientation
     }
 

@@ -925,7 +925,10 @@ final class BattleWorld {
         #if DEBUG
         if let z = StageDebug.cameraZoom {
             drive.zoom = z
-            drive.zoomRange = 0.7...2.5
+            drive.zoomRange = 0.7...20
+            // Reference photography must not be recentered by the gameplay edge clamp.
+            drive.free = false
+            drive.lead = 0
         }
         #endif
         drive.transition = cameraTransition(rig: rig, aim: aim, target: target, snap: snap)

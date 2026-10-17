@@ -3,6 +3,7 @@ import QuartzCore
 import VelstriaCore
 
 // 担当: battle-renderer（ステージ）。見た目確認用の起動引数（DEBUG のみ。出荷ビルドには含めない）。
+//   -stageLayoutReference        2026-10-17参照画像の俯角・画角・注視点で固定撮影
 //   -stageCam <x>,<y>[,<zoom>]   カメラを地図座標（m）の位置に固定する（例: -stageCam 37,83）
 //   -stageTour                   カメラを名所（拠点・レーン・川・ボスの巣・ジャングル）へ 6 秒ごとに順に動かす
 //   -stageFull                   -uiTesting でもステージを間引かない（StagePrep.lite を参照）
@@ -27,6 +28,7 @@ enum StageDebug {
 
     private static let fixedArgs: [Float]? = {
         let args = ProcessInfo.processInfo.arguments
+        if args.contains("-stageLayoutReference") { return [61.03907433, 64.19554158, 17.629678531] }
         guard let i = args.firstIndex(of: "-stageCam"), i + 1 < args.count else { return nil }
         let v = args[i + 1].split(separator: ",").compactMap { Float($0) }
         return v.count >= 2 ? v : nil
@@ -37,6 +39,7 @@ enum StageDebug {
     static var cameraZoom: Double? { fixedArgs.flatMap { $0.count >= 3 ? Double($0[2]) : nil } }
 
     static func applyLayoutReference(to frame: inout RenderFrame) {
+        if ProcessInfo.processInfo.arguments.contains("-stageLayoutReference") { frame.viewerTeam = nil }
     }
 
     static let tour = ProcessInfo.processInfo.arguments.contains("-stageTour")

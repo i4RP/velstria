@@ -12,18 +12,20 @@ final class MapRelayoutTests: XCTestCase {
         XCTAssertEqual(map.validationIssues(), [])
         XCTAssertEqual(old.towers.count, map.towers.count)
         XCTAssertEqual(old.camps.map(\.id), map.camps.map(\.id))
-        // 壁は MLBB のミニマップ原本から起こした滑らかな多角形（2026-10-16。旧: standard の矩形と円の寸法のまま中心だけ移した）。
-        // Blue 半面 + 点対称 + 中心の壁、どれも反時計回り
+        // 壁は2026-10-17の添付画像の輪郭。ボス周辺は別担当の既存地形を保持する。
+        // 参照半面 + 点対称 + ボス周辺の壁。通常の壁は反時計回り。
         XCTAssertEqual(map.obstacles.count,
-                       MapDefinition.sanctumBlueWallSplines.count * 2 + MapDefinition.sanctumCenterWallSplines.count + 2)
-        for o in map.obstacles where !map.camps.contains(where: { $0.kind.isBoss && $0.pos.distance(to: o.bounds.center) < 500 }) {
+                       StageReferenceLayout.walls.count * 2 + map.obstacles.filter {
+                           StageReferenceLayout.protected($0.bounds.center, map: map)
+                       }.count)
+        for o in map.obstacles where !StageReferenceLayout.protected(o.bounds.center, map: map) {
             guard case .polygon(let v) = o else { return XCTFail("壁が多角形でない: \(o)") }
             XCTAssertGreaterThan(Spline.signedArea(v), 0)
             // 1 mm の精度で細かく分けている（弦は 50 以下）
             for (a, b) in zip(v, v.dropFirst() + v.prefix(1)) { XCTAssertLessThanOrEqual(a.distance(to: b), 50.01) }
         }
         // 点対称（relayout の一辺で写す）
-        for o in map.obstacles where !map.camps.contains(where: { $0.kind.isBoss && $0.pos.distance(to: o.bounds.center) < 500 }) {
+        for o in map.obstacles where !StageReferenceLayout.protected(o.bounds.center, map: map) {
             let c = o.bounds.center, m = Vec2(map.size - c.x, map.size - c.y)
             XCTAssertTrue(map.obstacles.contains { $0.bounds.center.distance(to: m) < 1 }, "no mirror for wall at \(c)")
         }
@@ -39,7 +41,7 @@ final class MapRelayoutTests: XCTestCase {
             for camp in map.camps {
                 for member in SpawnSystem.campMembers(camp.kind) {
                     XCTAssertTrue(nav.isWalkable(camp.pos + member.offset * (camp.side == .red ? -1 : 1),
-                                                radius: UnitFactory.monsterProfile(member.kind).radius))
+                                                radius: UnitFactory.monsterProfile(member.kind).radius), "camp \(camp.id) member \(member.kind)")
                 }
                 let path = nav.findPath(from: map.fountain(team), to: camp.pos, radius: Balance.heroRadius)
                 XCTAssertLessThan(path.last?.distance(to: camp.pos) ?? .infinity, 1)

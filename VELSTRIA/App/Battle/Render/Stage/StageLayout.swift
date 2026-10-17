@@ -183,6 +183,7 @@ struct StageLayout {
     // MARK: 壁（崖）
 
     mutating func walls() {
+        referenceLowStones()
         for (oi, o) in map.obstacles.enumerated() {
             switch o {
             case .rect(let r):
@@ -271,6 +272,10 @@ struct StageLayout {
                (camp.kind == .astralWyrm || camp.kind == .ancientColossus)
                    && simd_distance(outline[0], geo.m(camp.pos)) < 4.2
            }) { return }
+        if isReferenceWall(outline) {
+            referenceWall(outline, index: index)
+            return
+        }
         let wallCenter = outline.reduce(SIMD2<Float>.zero, +) / Float(outline.count)
         if ruinsLook && isRiverRuin(wallCenter) {
             masonryWall(outline: StageLayout.signedArea(outline) < 0 ? Array(outline.reversed()) : outline, center: wallCenter)
@@ -564,9 +569,16 @@ struct StageLayout {
 
     mutating func pits() {
         if ruinsLook {
-            let c = SIMD2<Float>(repeating: geo.mapMeters / 2)
-            runeDisc(center: c, radius: 5.4, rotation: .pi / 4)
-            terraceRing(center: c, radius: 5.55)
+            if map.size == 9_720 {
+                let p = StageReferenceLayout.riverMark
+                for point in [p, Vec2(map.size - p.x, map.size - p.y)] {
+                    runeDisc(center: geo.m(point), radius: 1.9, rotation: .pi / 4)
+                }
+            } else {
+                let c = SIMD2<Float>(repeating: geo.mapMeters / 2)
+                runeDisc(center: c, radius: 5.4, rotation: .pi / 4)
+                terraceRing(center: c, radius: 5.55)
+            }
         }
         for camp in map.camps {
             let c = geo.m(camp.pos)

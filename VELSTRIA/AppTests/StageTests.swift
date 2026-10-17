@@ -110,8 +110,8 @@ final class StageTests: XCTestCase {
             XCTAssertLessThan(jungle.x + jungle.y + jungle.z, 0.1, set.rawValue)
             if set == .ruins {
                 let mid = try pixel(maps.control, [48.6, 48.6])
-                XCTAssertGreaterThan(mid.y, 0.95, "ミッド中央は石床")
-                XCTAssertLessThan(mid.z, 0.05, "ミッド中央に水面を重ねない")
+                XCTAssertLessThan(mid.y, 0.05, "参照画像の川に大きな石床を作らない")
+                XCTAssertGreaterThan(mid.z, 0.9, "参照画像のミッド交差点は浅い川")
             }
             // 地図の外は森の下草
             XCTAssertGreaterThan(try pixel(maps.control, [-10, 60]).w, 0.9, set.rawValue)

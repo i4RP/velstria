@@ -401,6 +401,10 @@ final class StructureVisual {
         AssetLedger.record(.entity, "structure nodes")
         root.addChild(plinthNode)
         root.addChild(body)
+        // Match the reference footprint while leaving gameplay ranges and hit radii intact.
+        let footprintScale: Float = isCore ? 0.68 : 0.78
+        plinthNode.scale = SIMD3(footprintScale, 0.9, footprintScale)
+        body.scale = SIMD3(footprintScale, 0.9, footprintScale)
         for n in [lowerNode, upperNode, crownNode, crystalNode] { body.addChild(n) }
         var generated = 0
         if let r = rigModel, rigGeometry != nil {

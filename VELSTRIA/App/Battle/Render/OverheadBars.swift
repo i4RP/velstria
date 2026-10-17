@@ -123,6 +123,11 @@ final class OverheadBar {
         self.text = text
         self.materials = materials
         root.name = "bar"
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-stageLayoutReference") {
+            root.components.set(OpacityComponent(opacity: 0))
+        }
+        #endif
         // 画面に平行なビルボード。カメラは回転しないので姿勢は一定（親は回転させない）。
         // BillboardComponent はワールド上方向を保つため、俯角 56° の画面端でバーが傾いて見える。
         root.orientation = CameraRig.orientation

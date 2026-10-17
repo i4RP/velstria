@@ -97,7 +97,7 @@ enum StageSplat {
             }
         }
         // ミッド交差点は水面ではなく、川底と同じ青緑の遺跡広場。
-        if ruins {
+        if ruins && map.size != 9_720 {
             let center = SIMD2<Float>(repeating: geo.mapMeters / 2)
             pave.stampDisc(center, inner: 6.8, outer: 8.1, wobble: 0.2, seed: 59)
             let along = SIMD2<Float>(repeating: 9.0)
