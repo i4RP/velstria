@@ -136,11 +136,12 @@ overPending）は 30 のスキルすべてで 0。
     FriendTests.testErasedInboxIsReplacedWithANewCodeAndReconnects・HUDShopTests.testShopStateMarksCurrentBlessingAndProgress・
     BattleHUDUITests.testRankedLeaveIsRecordedAsLoss・testTutorialMoveStepAdvancesWithJoystick（不安定）・
     SpectatorHUDUITests.testSpectatorMenuPanelsSeekTacticalMapAndCinematic・ReplayLibraryUITests.testReplayListDetailAndPlayback（不安定））は
-    直していない。このブランチで新しく落ちた 2 件は直した（下）。SkillFXTests は 40 件のうちその 1 件のほかは通った（この作業で足した
-    加算・模様・コマ送り・空の段・幕の封じのテストを含む）。
+    直していない。このブランチで新しく落ちた 2 件は直した（下）。
   - 直した 2 件: `SkillFXTests.testLuminaMoonArrowBuffFollowsCastDuration`（H025 の効果中の足元の三日月を外したのに 2 つを数えていた →
     弓のきらめき 1 つ）、`SpectatorCameraTests.testFollowCentersEveryEdgeAtEveryZoom`（注視点の前ずれが 0 の前提だった → 同じファイルの
     ほかのテストと同じく `focusLead` を足して比べる。端で丸めないことは変えずに確かめる）。
+  - 直した後（#181、37515f4）: SkillFXTests 38 件・SpectatorCameraTests 18 件が全て通った（この作業で足した加算・模様・コマ送り・
+    空の段・幕の封じのテストを含む）。コア 1159 件も失敗 0。落ちたのは上の前からの 5 件だけ（不安定な 2 件はこの回は通った）。
 - 配信: build 24973840（7b983ff、#179）が内部グループ In に届いた（テスター 2 人）。その前の 24971429（42d7868）には
   ゴルムの直しと幕の封じが入っていない。
 - 撮影 #16（7b983ff、H029・H034、MLBB の組）: どちらも `sealed=false`（Program を待ってから幕を上げた）。H029 の回は Program の作成に
