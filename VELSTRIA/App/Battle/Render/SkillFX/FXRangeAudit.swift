@@ -267,8 +267,7 @@ enum FXRangeAudit {
         case .cylinder, .funnel, .spire, .dome, .sphere: return offsetY <= 0.35
         case .wall: return offsetY <= 0.6
         case .billboard: return false
-        // Blender の模型（roam-look-borg）。縁の表がまだ無いので数えない（統合の時の仮。FXEdge.outline も nil）
-        case .crescent, .ringLip, .twister, .pillar2, .bladeRing, .burstDome, .starCross, .shardRing: return false
+        case .ringLip, .crescent, .twister, .pillar2, .bladeRing, .burstDome, .starCross, .shardRing: return offsetY <= 0.35
         }
     }
 

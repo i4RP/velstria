@@ -827,11 +827,8 @@ final class SkillFXPlayer {
         for inst in meshInsts where inst.spec.refract > 0 && inst.entity.isEnabled {
             let m = inst.spec
             let t = min(1, max(0, (time - inst.start) / max(0.01, m.life)))
-            var a: Float = 1
-            if t < m.fadeIn { a = t / max(0.001, m.fadeIn) }
-            if t > m.fadeOut { a = min(a, 1 - (t - m.fadeOut) / max(0.001, 1 - m.fadeOut)) }
             let radius = inst.entity.scale.x * (inst.shape == .disc ? 0.5 : 1)
-            refractionBuffer.append(Refraction(center: inst.entity.position, radius: radius, strength: m.refract * max(0, a)))
+            refractionBuffer.append(Refraction(center: inst.entity.position, radius: radius, strength: m.refract * m.opacity(at: t)))
         }
         if refractionBuffer.count > n {
             refractionBuffer.sort { $0.strength > $1.strength }

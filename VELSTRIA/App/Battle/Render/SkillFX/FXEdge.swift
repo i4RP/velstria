@@ -24,6 +24,8 @@ import Foundation
 //   帯（band・arc）の見える外縁: 形の外径 1（画像の下 v = 0 が外縁）。beam は下端が最も明るいので外径のまま。
 //   弧（arc）は前方 ±90° の形だが、beam の横の明るさ pow(sin πu, 0.6) は端の 5% が 1/3 に届かないので、見える開きは ±81°。
 //   円柱（cylinder・funnel・spire）・半球・球: 形の下端の半径（size.x）。
+//   Blender の模型: 衝撃の輪（ringLip）は外縁の半径（size.x）。ほかの模型（三日月・竜巻・光の柱・渦の刃・炎の球・四芒星の盤・
+//   岩板の輪）は範囲を示さない飾り。
 
 enum FXEdge {
     /// 縁の閾値（画像の最大の不透明度に対する比）。
@@ -114,8 +116,11 @@ enum FXEdge {
             return [[-k * size.x, 0], [k * size.x, 0]]
         case .billboard:
             return nil
-        case .crescent, .ringLip, .twister, .pillar2, .bladeRing, .burstDome, .starCross, .shardRing:
-            // Blender の模型（roam-look-borg）。見える縁の表がまだ無いので範囲を示す部品に数えない（統合の時の仮）
+        case .ringLip:
+            // Blender の衝撃の輪（外径 1 の外縁が見える縁。画像なしの単色）
+            return ellipse(rx: size.x, ry: size.z, from: -180, to: 180, n)
+        case .crescent, .twister, .pillar2, .bladeRing, .burstDome, .starCross, .shardRing:
+            // Blender の模型の飾り（斬撃の三日月・竜巻・光の柱・渦の刃・炎の球・四芒星の盤・岩板）。範囲を示さない
             return nil
         }
     }
