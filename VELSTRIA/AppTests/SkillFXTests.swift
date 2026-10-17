@@ -72,7 +72,7 @@ final class SkillFXTests: XCTestCase {
             for slot in SkillSlot.allCases {
                 let r = SkillFXCatalog.recipe(heroID: id, slot: slot, master: master)
                 let ult = slot == .ultimate
-                var meshes = 0, emits = 0
+                var meshes = 0, emits = 0, efks = 0
                 for cue in r.all {
                     let n = max(1, cue.count)
                     switch cue.element {
@@ -92,12 +92,18 @@ final class SkillFXTests: XCTestCase {
                         }
                     case .shake(let s):
                         XCTAssertLessThanOrEqual(s, 1, "\(id) \(slot): 揺れが強すぎる")
+                    case .efk(let x):
+                        efks += n
+                        XCTAssertTrue(x.name.hasPrefix(id + "_"), "\(id) \(slot): 重ねる .efk はそのヒーローの名前（\(x.name)）")
+                        XCTAssertLessThanOrEqual(x.scale, 3, "\(id) \(slot): .efk の倍率が大きすぎる")
+                        XCTAssertLessThanOrEqual(x.followFor, 4, "\(id) \(slot): .efk の追従が長すぎる")
                     }
                     XCTAssertLessThanOrEqual(cue.at + cue.every * Float(max(0, cue.count - 1)), 2.5,
                                              "\(id) \(slot): 遅れが長すぎる")
                 }
                 XCTAssertLessThanOrEqual(meshes, ult ? 28 : 20, "\(id) \(slot): メッシュの合図が多すぎる")
                 XCTAssertLessThanOrEqual(emits, ult ? 16 : 13, "\(id) \(slot): 粒子の合図が多すぎる")
+                XCTAssertLessThanOrEqual(efks, BattleWorkBudget.efkCuesPerRecipe, "\(id) \(slot): 重ねる .efk が多すぎる")
             }
         }
     }
@@ -456,14 +462,14 @@ final class SkillFXTests: XCTestCase {
             switch cue.element {
             case .mesh(let m): XCTAssertEqual(m.life, 4, accuracy: 1e-5)
             case .emit(let e): XCTAssertEqual(e.duration, 4, accuracy: 1e-5)
-            case .shake: XCTFail()
+            case .shake, .efk: XCTFail()
             }
         }
         for cue in FXCue.applyingCastDuration(r.cast, seconds: 9).filter(\.usesCastDuration) {
             switch cue.element {
             case .mesh(let m): XCTAssertEqual(m.life, 9, accuracy: 1e-5)
             case .emit(let e): XCTAssertEqual(e.duration, 9, accuracy: 1e-5)
-            case .shake: XCTFail()
+            case .shake, .efk: XCTFail()
             }
         }
         XCTAssertTrue(r.impact.allSatisfy { !$0.usesCastDuration }, "放つ矢は長さに関係しない")
@@ -481,7 +487,7 @@ final class SkillFXTests: XCTestCase {
                     switch cue.element {
                     case .mesh(let m): XCTAssertLessThanOrEqual(m.life, FXCue.castDurationLimit, "\(id) \(slot)")
                     case .emit(let e): XCTAssertLessThanOrEqual(e.duration, FXCue.castDurationLimit, "\(id) \(slot)")
-                    case .shake: break
+                    case .shake, .efk: break
                     }
                 }
             }

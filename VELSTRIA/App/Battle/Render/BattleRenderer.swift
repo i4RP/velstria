@@ -397,7 +397,11 @@ final class BattleRenderer {
         defer {
             publishCameraViewport(dt: dt)
             // ヒットストップの間は Effekseer の時間も止める（BattleFeel）
-            let held = feel.isHolding(now: CACurrentMediaTime())
+            var held = feel.isHolding(now: CACurrentMediaTime())
+            #if DEBUG
+            // 比較撮影（FXCapture）が止めている間は Effekseer も止める（撮る時刻の効果を写す）
+            if fxCapture?.isFrozen == true { held = true }
+            #endif
             drawEffekseer(dt: controller.isPaused || scheduler != nil || held ? 0 : dt)
         }
         if let scheduler {

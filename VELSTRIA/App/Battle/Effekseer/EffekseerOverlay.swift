@@ -11,8 +11,15 @@ final class EffekseerOverlay {
     let runtime: EfkRuntime
     /// 同梱のフォルダ名（バンドル直下）。
     static let bundleFolder = "Effekseer"
-    /// 読み込み済みの効果名（拡張子なしのファイル名）。
+    /// キットのヒーローの段に重ねる効果（FXEfk）のフォルダ（bundleFolder の中。テクスチャは ../Texture/）。
+    static let kitFolder = "Kit"
+    /// 読み込み済みの効果名（拡張子なしのファイル名）。段の効果（EffekseerDirector の名前の規則）だけ。
     private(set) var effectNames: Set<String> = []
+    /// 読み込み済みの重ねる効果の名前（FXEfk.name。ランタイムには kitKey(name) で登録する）。
+    private(set) var kitEffectNames: Set<String> = []
+
+    /// 重ねる効果のランタイムでの名前（段の効果と名前が重ならないように）。
+    static func kitKey(_ name: String) -> String { kitFolder + "/" + name }
     private(set) var isLoaded = false
 
     /// Metal が使えない環境では nil（効果は出さない。ゲームは普通に動く）。
@@ -33,6 +40,14 @@ final class EffekseerOverlay {
             let name = url.deletingPathExtension().lastPathComponent
             if let heroes, name.count > 5, name.hasPrefix("H"), !heroes.contains(String(name.prefix(4))) { continue }
             if runtime.loadEffectNamed(name, path: url.path, magnification: 1) { effectNames.insert(name) }
+        }
+        // キットのヒーローの段に重ねる効果（<ヒーロー ID>_*.efk。試合のヒーローの分だけ）
+        let kit = dir.appendingPathComponent(Self.kitFolder)
+        for url in (try? FileManager.default.contentsOfDirectory(at: kit, includingPropertiesForKeys: nil)) ?? []
+        where url.pathExtension == "efk" {
+            let name = url.deletingPathExtension().lastPathComponent
+            if let heroes, !heroes.contains(String(name.prefix(4))) { continue }
+            if runtime.loadEffectNamed(Self.kitKey(name), path: url.path, magnification: 1) { kitEffectNames.insert(name) }
         }
     }
 

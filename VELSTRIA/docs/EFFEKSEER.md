@@ -96,6 +96,24 @@ H025〜H034 は sim が固有スキル（キット）で動く。`.efk` は **�
 - SkillFX 側: 再使用の段は `SkillCastEvent.stage` で選べる（`HeroFXSet.recipe(_:stage:_:)` を実装した段だけ。既定は nil = 共通の演出。空の段は共通の演出で補う）。
   キットのパッシブの演出は、ロールの合図（クリティカル・攻撃速度のスタックなど）ではなく、パッシブのバッジ（スタックが増えた・タイマーが始まった）の変化で出す。
 
+## キットのヒーローの段に重ねる効果（`FXEfk`。2026-10-18〜）
+
+キットのヒーロー（H025〜H034）のスキルは SkillFX のレシピ（`FX_H0xx.swift`）が出す。その段（cast / telegraph / travel / impact / hit）に、
+見せ場の部品だけ Effekseer の効果を重ねられる（sim と連動する部品 = 伸びる鎖・縮む鎖・追従の長さ・数が減る組などは SkillFX のまま）。
+
+```swift
+r.impact += [.efk("H034_s2_slam", at: 0.27, .origin, scale: 1, onTop: false)]
+```
+
+- 合図は `FXCue.efk(名前, at:, anchor, offset:, scale:, speed:, onTop:, quality:)`。時刻・位置・追従・画質・1 回の再生の上限・予約の上限は他の合図と同じ
+  （`SkillFXPlayer` の予定表）。向きは段の前方（効果は前 = -Z で作る）。`SkillFXPlayer+Efk.swift` の `FXEfkRelay` が `EffekseerDirector.playStacked` へ渡す。
+- ファイル: `Effects/Effekseer/Kit/<ヒーロー ID>_<名前>.efk`（テクスチャは `../Texture/`）。試合のヒーローの分だけ読み込み幕の裏で読む
+  （`EffekseerOverlay.loadBundledEffects`。ランタイムでの名前は `Kit/<名前>`。段の効果の名前・数・役割分担には混ざらない）。
+- 層: 既定は 3D に隠れる（`onTop: false`）。体に重ねる命中の閃きは `onTop: true`。重ね描き（シミュレータ・低画質）では両方 3D の上で、CI の撮影にも写る。
+- 予算: 1 つのスキルのレシピに重ねる効果は `BattleWorkBudget.efkCuesPerRecipe`（6）まで（`SkillFXTests`）。追従は同時に `efkFollows`（32）まで
+  （超えたら追従せずにその場で再生）、Effekseer の粒子が `efkInstances`（3000）を超えている時は出さない（装飾。判定・予告ではない）。
+- テスト: `AppTests/EffekseerKitStackTests`（同梱の全ファイルが読める・レシピが使う名前が全部ある・試合のヒーローの分だけ読む・予定表どおりに発火する）。
+
 ## 作り方
 
 ```sh
