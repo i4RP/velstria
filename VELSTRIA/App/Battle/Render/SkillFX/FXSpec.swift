@@ -207,7 +207,22 @@ struct FXFlow: Hashable, Sendable {
     var edge: FXTint = .core
 }
 
-/// 演出用の単位メッシュ（UV 付き）。
+/// 溶けて消える（ディゾルブ）。寿命の比 from から 1 へ、模様（FXMesh.flow の模様、無ければ pattern）の暗い所から消え、
+/// 消える縁が edge の色で光る。進み具合は再生器がメッシュの頂点の色（1 体ごと）へ毎フレーム書く（材質は 1 つ）。
+struct FXDissolve: Hashable, Sendable {
+    /// 溶け始め（寿命に対する比）。
+    var from: Float = 0.45
+    /// 模様（flow が無いときだけ使う）と繰り返しの数。
+    var pattern: FXFlowTex = .noise
+    var tiling: Float = 2
+    /// 消える縁の光の色（flow があれば flow.edge が優先）。
+    var edge: FXTint = .core
+    /// 縁の光の幅（模様の値の幅。0 = 光らない）。
+    var width: Float = 0.1
+}
+
+/// 演出用の単位メッシュ（UV 付き）。前半は手続きで作る形、後半（isModel）は Blender で作った模型
+/// （tools/vfx_assets/blender/fx_meshes.py → App/Resources/FX/Meshes/fxm_<名前>.bin）。模型は試合のレシピが使うものだけプールする。
 enum FXShape: String, CaseIterable, Hashable, Sendable {
     /// 地面の板（1×1、画像の上 = 前）。
     case disc
@@ -229,6 +244,34 @@ enum FXShape: String, CaseIterable, Hashable, Sendable {
     case arc
     /// 水平の輪の帯（内径 0.8・外径 1、全周）。
     case band
+    // 模型（Blender。どれも単位の大きさ、前 = -Z。UV の約束は fx_meshes.py の冒頭）
+    /// 三日月の帯（前を中心に ±100°・外径 1）。u = 弧に沿う（0 = 右端 → 1 = 左端 = 振り終わり。頭が太い）、v = 内縁 0 → 外縁 1。
+    case crescent
+    /// 衝撃の輪（内径 0.55 → 外径 1、外縁が 0.1 持ち上がる）。u = 円周（4 周）、v = 内縁 0 → 外縁 1。
+    case ringLip
+    /// 竜巻（3 本の螺旋の帯。下の半径 0.25 → 上 1、高さ 1）。u = 帯に沿う（下 → 上）、v = 帯の幅。
+    case twister
+    /// 光の柱（入れ子の 2 枚の円柱。内: 半径 0.42・高さ 1、外: 半径 1・高さ 0.72、上へ細る）。v = 根元 0 → 先 1。
+    case pillar2
+    /// 渦の刃の輪（地面に寝かせた 16 枚の勾玉形の刃、半径 0.55〜1）。u = 刃に沿う（尾 0 → 頭 1）、v = 刃の幅。
+    case bladeRing
+    /// 爆ぜる炎の半球（半径 1。上と外へ炎の舌が尖る）。u = 経度、v = 赤道 0 → 頂 1。
+    case burstDome
+    /// 四芒星の盤（厚み 0.05 の 4 本の長い腕・長さ 1 と短い 4 本）。上面の UV = 平面の投影（中心 0.5、半径 1 = 0.5）。
+    case starCross
+    /// 割れて浮く岩板の輪（10 枚の角張った板、半径 0.35〜1、厚み 0.06）。上面の UV = 平面の投影。
+    case shardRing
+
+    /// Blender の模型（バンドルの fxm_<名前>.bin を読む）か。
+    var isModel: Bool {
+        switch self {
+        case .crescent, .ringLip, .twister, .pillar2, .bladeRing, .burstDome, .starCross, .shardRing: return true
+        default: return false
+        }
+    }
+
+    /// 模型のバンドルの名前（拡張子 .bin）。
+    var modelResource: String? { isModel ? "fxm_\(rawValue)" : nil }
 }
 
 /// イージング。
@@ -294,11 +337,74 @@ struct FXMesh: Hashable, Sendable {
     var blend: FXBlend = .alpha
     /// 形の中を流れる模様（nil = 模様なし）。
     var flow: FXFlow?
+    /// コマ送りの画像（nil = tex の 1 枚絵）。寿命の間に全コマを 1 回流す（繰り返す画像は sheetFPS か FXSheet.loopFPS で回す）。
+    /// コマは再生器が頂点の色へ書き、シェーダーが画像の格子から切り出す。加算・模様の材質（Program）が無いときは tex の 1 枚絵で出す。
+    var sheet: FXSheet?
+    /// コマ / 秒（0 = 1 回の画像は寿命で全コマ、繰り返す画像は FXSheet.loopFPS）。
+    var sheetFPS: Float = 0
+    /// 溶けて消える（nil = 無し。fadeOut の不透明度の落とし方とは別に効く）。
+    var dissolve: FXDissolve?
+    /// 上昇の重力（m/s²。rise の上向きの速さに下向きの加速度を掛ける = 放物線。破片・打ち上げ。0 = 等速）。
+    var gravity: Float = 0
+    /// 画面の歪み（衝撃波の屈折。後処理）の強さ（画面の高さに対するずれの最大。0 = 無し、0.004〜0.015 が目安）。
+    /// 輪の縁（disc は size の半分、輪・帯の模型は size）で背景を膨らませる。後処理の無い環境（シミュレータ・低画質）では出ない。
+    var refract: Float = 0
 
     func with(_ f: (inout FXMesh) -> Void) -> FXMesh {
         var c = self
         f(&c)
         return c
+    }
+}
+
+// MARK: - 帯（リボン・軌跡）
+
+/// 動く点の後ろに伸びる帯（突進の尾・武器の振りの軌跡）。頭が path に沿って duration 秒動き、通った所が life 秒で尾から消える。
+/// 帯の画像の UV: u = 尾 0 → 頭 1（古さの逆。三日月の模型・swoosh・blade の画像と同じ向き）、v = 幅（0 = 内側・下 → 1 = 外側・上）。帯は試合の読み込みで作った LowLevelMesh の
+/// プール（SkillFXPlayer.ribbonCapacity）で、毎フレーム頂点だけを書き換える。
+struct FXRibbon: Hashable, Sendable {
+    enum Path: Hashable, Sendable {
+        /// 合図の基準（.follow なら追従の主体、ほかは置いた位置）+ offset に付いて動く（突進の尾。幅は upright で上下、そうでなければ水平）。
+        case follow
+        /// 原点のまわりの弧を頭が掃く（振りの軌跡）。radius = 頭の半径（m）、from → to = 向き（度、前 = 0・+ = 左）、
+        /// height = 弧の中心の高さ（m）、roll = 弧の面の傾き（度。0 = 水平、90 = 前と上の縦の面で from → to は下 → 上）。
+        /// 幅は半径の向き（外縁 = radius、内縁 = radius − width）。
+        case arc(radius: Float, from: Float, to: Float, height: Float, roll: Float)
+    }
+
+    var path: Path = .follow
+    /// 頭が動く時間（秒）。
+    var duration: Float = 0.3
+    /// 通った所が消えるまでの秒数（帯の長さ）。
+    var life: Float = 0.25
+    /// 帯の幅（m）と、尾での幅の倍率。
+    var width: Float = 0.6
+    var tailWidth: Float = 0.4
+    /// follow の帯を縦に立てる（幅が上下）。false = 地面と平行（幅が進む向きの横）。
+    var upright = true
+    /// 頭の動き（arc の掃き方）。
+    var ease: FXEase = .out
+    var tex: FXTex? = .blade
+    var tint: FXTint = .primary
+    var alpha: Float = 1
+    var blend: FXBlend = .add
+    var flow: FXFlow?
+
+    /// 回収までの秒数。
+    var span: Float { duration + life + 0.05 }
+
+    func with(_ f: (inout FXRibbon) -> Void) -> FXRibbon {
+        var c = self
+        f(&c)
+        return c
+    }
+
+    /// 材質を引くための見た目（形は使わない）。
+    var look: FXMesh {
+        FXMesh(shape: .disc, tex: tex, tint: tint, alpha: alpha, life: max(0.05, span)).with {
+            $0.blend = blend
+            $0.flow = flow
+        }
     }
 }
 
@@ -309,6 +415,25 @@ enum FXElement: Hashable, Sendable {
     case mesh(FXMesh)
     /// 画面の揺れ（視点のヒーローが近い時だけ）。
     case shake(Float)
+    /// 動く点の後ろに伸びる帯（FXRibbon）。
+    case ribbon(FXRibbon)
+    /// Effekseer の効果を重ねる（見せ場。sim と連動する部品は emit / mesh のまま）。
+    case efk(FXEfk)
+}
+
+/// 段の合図として重ねる Effekseer の効果（Effects/Effekseer/Kit/<name>.efk。試合のヒーローの分だけ読み込み幕の裏で読む）。
+/// 位置・時刻・追従は他の合図と同じ（at・anchor・offset）。向きは段の前方（効果は前 = -Z で作る）。
+/// 描くのは EffekseerDirector（実機の中・高画質は後処理の中、シミュレータ・低画質は重ね描き）。
+struct FXEfk: Hashable, Sendable {
+    /// 効果の名前（拡張子なし。<ヒーロー ID>_<名前>。例 H034_s2_slam）。
+    var name: String
+    /// 一様な倍率と再生速度。
+    var scale: Float = 1
+    var speed: Float = 1
+    /// 3D の上に描く（体に重ねる命中の閃きなど）。false = 3D に隠れる（地面の跡・柱・輪。後処理の中だけ効く）。
+    var onTop = false
+    /// anchor が follow の時に追う長さ（秒）。過ぎたら止める。
+    var followFor: Float = 3
 }
 
 struct FXCue: Hashable, Sendable {
@@ -340,6 +465,18 @@ struct FXCue: Hashable, Sendable {
 
     static func shake(_ k: Float, at: Float = 0) -> FXCue {
         FXCue(at: at, element: .shake(k))
+    }
+
+    /// Effekseer の効果を重ねる（FXEfk）。
+    static func efk(_ name: String, at: Float = 0, _ anchor: FXAnchor = .origin, offset: SIMD3<Float> = .zero,
+                    scale: Float = 1, speed: Float = 1, onTop: Bool = false, quality: Int = 0) -> FXCue {
+        FXCue(at: at, anchor: anchor, offset: offset,
+              element: .efk(FXEfk(name: name, scale: scale, speed: speed, onTop: onTop)), minQuality: quality)
+    }
+
+    static func ribbon(_ r: FXRibbon, at: Float = 0, _ anchor: FXAnchor = .origin, offset: SIMD3<Float> = .zero,
+                       quality: Int = 0) -> FXCue {
+        FXCue(at: at, anchor: anchor, offset: offset, element: .ribbon(r), minQuality: quality)
     }
 
     /// n 回繰り返す（every 秒ごと、向きを yaw 度ずつ回し、位置を step ずつずらす）。
@@ -383,7 +520,7 @@ extension FXCue {
         switch element {
         case .emit(let e): return e.durationFromCast && e.rate > 0
         case .mesh(let m): return m.durationFromCast
-        case .shake: return false
+        case .shake, .ribbon, .efk: return false
         }
     }
 
@@ -398,7 +535,7 @@ extension FXCue {
         case .mesh(var m):
             m.life = d
             c.element = .mesh(m)
-        case .shake:
+        case .shake, .ribbon, .efk:
             break
         }
         return c

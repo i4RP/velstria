@@ -1,0 +1,181 @@
+{
+  "images": {
+    "blade": {
+      "bytes": 9215,
+      "color": "white",
+      "file": "Textures/fx_blade.png",
+      "kind": "image",
+      "sha256": "444c8c0c37e9cdb7ba9eaaa13db05f97c62ff5cfe142a1f174a9bde5cb632b9b",
+      "size": 256
+    },
+    "crack_radial": {
+      "bytes": 159045,
+      "color": "white",
+      "file": "Textures/fx_crack_radial.png",
+      "kind": "image",
+      "sha256": "fe05954fe8e987b92f77efdaaa848d55a5d045acab9bcc9f51a31d007adac5fe",
+      "size": 1024
+    },
+    "crack_s": {
+      "bytes": 69813,
+      "color": "white",
+      "file": "Textures/fx_crack_s.png",
+      "kind": "image",
+      "sha256": "5f90fa68ceee2c3ac13ed433968b86bb4c403c1b62ce93d7525120eea7661f4a",
+      "size": 1024
+    },
+    "dust_ring": {
+      "bytes": 903825,
+      "color": "colored",
+      "columns": 4,
+      "file": "Sheets/fx_dust_ring.png",
+      "frameSize": 256,
+      "frames": 16,
+      "kind": "sheet",
+      "rows": 4,
+      "sha256": "e57b2cf2a8904d03cfd1b32881200e53017bf061adb3b7210ca401c399d9e354"
+    },
+    "fireball": {
+      "bytes": 592030,
+      "color": "colored",
+      "columns": 5,
+      "file": "Sheets/fx_fireball.png",
+      "frameSize": 256,
+      "frames": 25,
+      "kind": "sheet",
+      "rows": 5,
+      "sha256": "2ad1b808214ee756568908e90fdadb4159b6b5bacbe2798cb77c3a73beca7c56"
+    },
+    "flame_noise": {
+      "bytes": 175513,
+      "color": "white",
+      "file": "Textures/fx_flame_noise.png",
+      "kind": "tile",
+      "sha256": "a2df4cc9ca0ec588d9f41e160d74755d46f9b81546c5752358f4e814db61ac46",
+      "size": 512
+    },
+    "lava": {
+      "bytes": 211062,
+      "color": "white",
+      "file": "Textures/fx_lava.png",
+      "kind": "tile",
+      "sha256": "ba94680b6e4a1934fc0970cd1b3aa54ebfd515ab4acb918585002ed8f64e977c",
+      "size": 512
+    },
+    "rock_tumble": {
+      "bytes": 63606,
+      "color": "colored",
+      "columns": 4,
+      "file": "Sheets/fx_rock_tumble.png",
+      "frameSize": 128,
+      "frames": 16,
+      "kind": "sheet",
+      "rows": 4,
+      "sha256": "a06ef862a5c066466590c0724b5f214329ef15c9bb4da9a60c64a50da2cf1d3a"
+    },
+    "scorch": {
+      "bytes": 91033,
+      "color": "white",
+      "file": "Textures/fx_scorch.png",
+      "kind": "image",
+      "sha256": "6d53a89d61c2030f574d5788a6f80718c249181f8786c74de876817bcc51f0fe",
+      "size": 512
+    },
+    "smoke_hd": {
+      "bytes": 1097431,
+      "color": "colored",
+      "columns": 5,
+      "file": "Sheets/fx_smoke_hd.png",
+      "frameSize": 256,
+      "frames": 25,
+      "kind": "sheet",
+      "rows": 5,
+      "sha256": "81ad33de656537090fa3edb8dd0fbe92638fb64a6c26163fccf93141a684da8f"
+    },
+    "spikes": {
+      "bytes": 148893,
+      "color": "white",
+      "columns": 4,
+      "file": "Sheets/fx_spikes.png",
+      "frameSize": 256,
+      "frames": 16,
+      "kind": "sheet",
+      "rows": 4,
+      "sha256": "6f119f0aa1431be03bb4279ca254eae8d3186995089c0ec4184e06ef150eef3c"
+    },
+    "star4": {
+      "bytes": 21689,
+      "color": "white",
+      "file": "Textures/fx_star4.png",
+      "kind": "image",
+      "sha256": "ee734f25251e6fd48be154fa22b5a77cda80de9a34d4e50666bcdba463373678",
+      "size": 512
+    },
+    "swoosh": {
+      "bytes": 43569,
+      "color": "white",
+      "file": "Textures/fx_swoosh.png",
+      "kind": "image",
+      "sha256": "2beb22d1a53ab5445e93b38870bb6b1421b9ff7963f7bb36e4e2da64417c7b33",
+      "size": 512
+    }
+  },
+  "meshes": {
+    "bladeRing": {
+      "bytes": 17960,
+      "file": "Meshes/fxm_bladeRing.bin",
+      "sha256": "b4a8cec0b71119d3a9d9f61ab0e3955d414665de76c9da8e0e7808e56466a829",
+      "triangles": 384,
+      "vertices": 416
+    },
+    "burstDome": {
+      "bytes": 39688,
+      "file": "Meshes/fxm_burstDome.bin",
+      "sha256": "bddb9512ff2b8fde0beab286c6ad8e793619f5e7d45b2be39cb4c7beb2bc579c",
+      "triangles": 1344,
+      "vertices": 735
+    },
+    "crescent": {
+      "bytes": 12488,
+      "file": "Meshes/fxm_crescent.bin",
+      "sha256": "6de5ddca4b8729c77e1c4eff999779455ce2f0b6e2608ee0b0f4f3c965b644af",
+      "triangles": 384,
+      "vertices": 245
+    },
+    "pillar2": {
+      "bytes": 16744,
+      "file": "Meshes/fxm_pillar2.bin",
+      "sha256": "6059c3cc76c60dc8158704e4bfdf2687242cffc370865413e5ce1d2b9b907445",
+      "triangles": 512,
+      "vertices": 330
+    },
+    "ringLip": {
+      "bytes": 12968,
+      "file": "Meshes/fxm_ringLip.bin",
+      "sha256": "15d6b9b251a6f064c8e0ef4e0e90b768ffed52d5ab28d16fd58533fa84152089",
+      "triangles": 384,
+      "vertices": 260
+    },
+    "shardRing": {
+      "bytes": 9344,
+      "file": "Meshes/fxm_shardRing.bin",
+      "sha256": "8fc523b5d222fa16c0e0d4a8423c5a659ce23ce965bbfff90cfb4b0566e95ad0",
+      "triangles": 130,
+      "vertices": 242
+    },
+    "starCross": {
+      "bytes": 11888,
+      "file": "Meshes/fxm_starCross.bin",
+      "sha256": "2ed18aebe0412cbee7575aede3388bac8d8184b6ea7b3cd30e6327c3cb4789e9",
+      "triangles": 198,
+      "vertices": 296
+    },
+    "twister": {
+      "bytes": 24520,
+      "file": "Meshes/fxm_twister.bin",
+      "sha256": "4b9519cfc80ab451ad64f1f52ec15b9ad44d69ac86be37f5b4b92d74c03b9d40",
+      "triangles": 672,
+      "vertices": 513
+    }
+  }
+}

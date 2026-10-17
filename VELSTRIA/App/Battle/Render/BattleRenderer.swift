@@ -299,6 +299,9 @@ final class BattleRenderer {
             fx.loadBundledEffects(heroes: heroIDs)
             note(String(format: "effekseer load %d effects, %.0f ms", fx.effectNames.count, (CACurrentMediaTime() - t0) * 1000))
             w.attach(effekseer: EffekseerDirector(overlay: fx, units: w.units, projectiles: w.projectiles))
+            // 実機の後処理（中・高画質）が使える時は、後処理の中で描く（3D に隠れる・ブルーム・歪み）。準備ができるまでと
+            // 後処理が無い時（シミュレータ・低画質・自動の切り下げ）は重ね描き（drawEffekseer が毎フレーム決める）
+            if PostProcessor.isAvailable { post.attachEffekseer(fx.runtime) }
         }
         world = w
         // Star Core の終幕の空と撮り方の候補（地図の検査）は幕の裏で作っておく（決着の瞬間に作らない）
@@ -399,7 +402,11 @@ final class BattleRenderer {
         defer {
             publishCameraViewport(dt: dt)
             // ヒットストップの間は Effekseer の時間も止める（BattleFeel）
-            let held = feel.isHolding(now: CACurrentMediaTime())
+            var held = feel.isHolding(now: CACurrentMediaTime())
+            #if DEBUG
+            // 比較撮影（FXCapture）が止めている間は Effekseer も止める（撮る時刻の効果を写す）
+            if fxCapture?.isFrozen == true { held = true }
+            #endif
             drawEffekseer(dt: controller.isPaused || scheduler != nil || held ? 0 : dt)
         }
         if let scheduler {
@@ -478,6 +485,7 @@ final class BattleRenderer {
         probe.stop(.camera, tc)
         let t2 = CACurrentMediaTime()
         world.updateOverlay(dt: Float(presentDt), rig: rig)
+        updateRipples(world: world)
         let t3 = CACurrentMediaTime()
         if probe.enabled { probe.stop(.overlay, t2) }
         frameStats.record(frameDt: deltaTime, sim: t1 - t0, sync: t2 - t1, overlay: t3 - t2)
@@ -624,6 +632,39 @@ final class BattleRenderer {
         finaleSky?.isShown = false
     }
 
+    /// 前のフレームに後処理へ渡した歪みの輪の数（輪が無くなったフレームに一度だけ空を渡す）。
+    private var rippleCount = 0
+
+    /// スキル演出の輪の画面の歪み（FXMesh.refract）: 輪の中心と半径を画面へ投影して後処理へ渡す。後処理が無い環境では何もしない。
+    /// 地面の輪は横（カメラの右）と奥（地面の上の前）の半径を別に投影して楕円にする。
+    private func updateRipples(world: BattleWorld) {
+        guard PostProcessor.isAvailable, let arView = view?.arView else { return }
+        let list = world.skillDirector.player.refractions()
+        guard !list.isEmpty || rippleCount > 0 else { return }
+        rippleCount = list.count
+        let size = arView.bounds.size
+        guard size.width > 0, size.height > 0 else { return }
+        let camera = rig.camera
+        let projection = CombatTextProjection(position: camera.position, orientation: camera.orientation,
+                                              viewport: size, verticalFOV: CameraRig.fovDegrees,
+                                              near: camera.camera.near, far: camera.camera.far)
+        let right = camera.orientation.act(SIMD3<Float>(1, 0, 0))
+        var flat = camera.orientation.act(SIMD3<Float>(0, 0, -1))
+        flat.y = 0
+        let ahead = simd_length(flat) > 1e-4 ? simd_normalize(flat) : SIMD3<Float>(0, 0, -1)
+        let w = Float(size.width), h = Float(size.height)
+        var out: [PostProcessor.Ripple] = []
+        out.reserveCapacity(list.count)
+        for r in list {
+            guard let c = projection.project(r.center), let ex = projection.project(r.center + right * r.radius),
+                  let ey = projection.project(r.center + ahead * r.radius) else { continue }
+            let center = SIMD2<Float>(Float(c.x) / w, Float(c.y) / h)
+            let radius = SIMD2<Float>(max(0.002, abs(Float(ex.x - c.x)) / w), max(0.002, abs(Float(ey.y - c.y)) / h))
+            out.append(PostProcessor.Ripple(center: center, radius: radius, strength: r.strength))
+        }
+        post.ripples(out)
+    }
+
     /// 描画中の画面の縦横比。
     private var viewAspect: Float {
         guard let size = view?.arView.bounds.size, size.width > 0, size.height > 0 else { return CameraRig.designAspect }
@@ -754,12 +795,21 @@ final class BattleRenderer {
         #if DEBUG
         if let world, dt > 0 { dt = debugEffekseerDemo(fx, world: world, dt: dt) }
         #endif
+        // 後処理の中で描けるなら進めるだけ（描くのは描画スレッドの後処理）。描けない間は重ね描き
+        let inPost = post.drawsEffekseer(now: CACurrentMediaTime())
+        // 後処理の中で描く経路の安全装置の結果（確かめで光らなければその試合は重ね描き）を計測ログへ
+        for r in post.effekseerPass.takeReports() {
+            note(r)
+            #if DEBUG
+            NSLog("%@", "[Effekseer] \(r)")
+            #endif
+        }
         if let world {
             world.workStats.measure(.effekseer, live: controller.isPresentationReady && !controller.isPaused) {
-                fx.render(camera: rig.camera, host: view, dt: dt)
+                fx.render(camera: rig.camera, host: view, dt: dt, inPostProcess: inPost)
             }
         } else {
-            fx.render(camera: rig.camera, host: view, dt: dt)
+            fx.render(camera: rig.camera, host: view, dt: dt, inPostProcess: inPost)
         }
     }
 
@@ -968,6 +1018,7 @@ final class BattleRenderer {
         world?.teardown()
         world = nil
         anchor.removeFromParent()
+        post.attachEffekseer(nil)
         post.detach()
         if let arView = view?.arView {
             arView.scene.anchors.removeAll()

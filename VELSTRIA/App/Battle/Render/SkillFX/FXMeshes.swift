@@ -5,24 +5,199 @@ import UIKit
 // 担当: battle-renderer（スキル演出）。演出用の単位メッシュ（UV 付き）と、画像 × 色の Unlit 材質のキャッシュ。
 // どちらも読み込み幕の裏で作り切る（AssetLedger の .mesh / .material）。
 // 材質は半透明（深度を書かない）・両面・トーンマップなし。色は画像（白 + アルファ）に掛ける。
+// メッシュは LowLevelMesh（頂点の並び 0 = 位置・法線・UV、並び 1 = 頂点の色）。プールの枠ごとに 1 つ持ち（FXMeshSlot）、
+// 頂点の色に 1 体ごとの値（g = コマ送りのコマ、b = 溶けの進み、a = 模様の種）を書く。材質は共有のまま、コマ・溶けは
+// シェーダー（FXShaders.metal）が頂点の色から読む。形は手続き（build）か Blender の模型（FXModelFile、fxm_<名前>.bin）。
+
+/// 演出のメッシュの形（頂点の位置・法線・UV と三角形の添字）。
+struct FXGeometry {
+    var positions: [SIMD3<Float>]
+    var normals: [SIMD3<Float>]
+    var uvs: [SIMD2<Float>]
+    var indices: [UInt32]
+    var boundsMin: SIMD3<Float>
+    var boundsMax: SIMD3<Float>
+
+    init(positions: [SIMD3<Float>], normals: [SIMD3<Float>], uvs: [SIMD2<Float>], indices: [UInt32]) {
+        self.positions = positions
+        self.normals = normals
+        self.uvs = uvs
+        self.indices = indices
+        var lo = SIMD3<Float>(repeating: .greatestFiniteMagnitude), hi = -lo
+        for p in positions {
+            lo = simd_min(lo, p)
+            hi = simd_max(hi, p)
+        }
+        if positions.isEmpty {
+            lo = .zero
+            hi = .zero
+        }
+        boundsMin = lo
+        boundsMax = hi
+    }
+}
+
+/// Blender の模型（tools/vfx_assets/blender/fx_common.py の write_fxm）。little endian:
+/// "FXM1"・頂点数 u32・添字数 u32・予約 u32・境界 min/max（f32 × 6）・頂点 × n（位置 3・法線 3・UV 2 の f32 = 32 バイト）・添字 u32 × m。
+enum FXModelFile {
+    static let headerBytes = 40
+    static let vertexBytes = 32
+
+    static func load(_ s: FXShape, bundle: Bundle = .main) -> FXGeometry? {
+        guard let name = s.modelResource, let url = bundle.url(forResource: name, withExtension: "bin"),
+              let data = try? Data(contentsOf: url) else { return nil }
+        return parse(data)
+    }
+
+    static func parse(_ data: Data) -> FXGeometry? {
+        guard data.count >= headerBytes else { return nil }
+        return data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) -> FXGeometry? in
+            guard raw.count >= headerBytes, raw[0] == 0x46, raw[1] == 0x58, raw[2] == 0x4D, raw[3] == 0x31 else { return nil }
+            func u32(_ o: Int) -> UInt32 { UInt32(littleEndian: raw.loadUnaligned(fromByteOffset: o, as: UInt32.self)) }
+            func f32(_ o: Int) -> Float { Float(bitPattern: u32(o)) }
+            let n = Int(u32(4)), ni = Int(u32(8))
+            guard n > 0, ni > 0, ni % 3 == 0, raw.count >= headerBytes + n * vertexBytes + ni * 4 else { return nil }
+            var pos: [SIMD3<Float>] = [], nor: [SIMD3<Float>] = [], uv: [SIMD2<Float>] = []
+            pos.reserveCapacity(n)
+            nor.reserveCapacity(n)
+            uv.reserveCapacity(n)
+            for k in 0..<n {
+                let o = headerBytes + k * vertexBytes
+                pos.append(SIMD3(f32(o), f32(o + 4), f32(o + 8)))
+                nor.append(SIMD3(f32(o + 12), f32(o + 16), f32(o + 20)))
+                uv.append(SIMD2(f32(o + 24), f32(o + 28)))
+            }
+            var idx: [UInt32] = []
+            idx.reserveCapacity(ni)
+            let base = headerBytes + n * vertexBytes
+            for k in 0..<ni {
+                let i = u32(base + k * 4)
+                guard Int(i) < n else { return nil }
+                idx.append(i)
+            }
+            return FXGeometry(positions: pos, normals: nor, uvs: uv, indices: idx)
+        }
+    }
+}
+
+/// プールの 1 枠のメッシュ（LowLevelMesh。頂点の色を 1 体ごとに書き換える）。
+@MainActor
+final class FXMeshSlot {
+    let mesh: LowLevelMesh
+    let resource: MeshResource
+    let vertexCount: Int
+    /// いま頂点の色に書いてある値（r = 予約 255、g = コマ、b = 溶けの進み、a = 模様の種）。
+    private(set) var params: SIMD4<UInt8>
+
+    /// 既定の頂点の色（コマ 0・溶け無し・種 0）。
+    nonisolated static let rest = SIMD4<UInt8>(255, 0, 0, 0)
+    /// 頂点の並び 0 の 1 頂点のバイト数（位置 float3・法線 float3・UV float2）。
+    nonisolated static let stride = 32
+
+    private init(mesh: LowLevelMesh, resource: MeshResource, vertexCount: Int) {
+        self.mesh = mesh
+        self.resource = resource
+        self.vertexCount = vertexCount
+        params = FXMeshSlot.rest
+    }
+
+    static func make(_ g: FXGeometry) -> FXMeshSlot? {
+        let n = g.positions.count
+        guard n > 0, g.normals.count == n, g.uvs.count == n, !g.indices.isEmpty else { return nil }
+        var d = LowLevelMesh.Descriptor()
+        d.vertexAttributes = [
+            .init(semantic: .position, format: .float3, offset: 0),
+            .init(semantic: .normal, format: .float3, offset: 12),
+            .init(semantic: .uv0, format: .float2, offset: 24),
+            .init(semantic: .color, format: .uchar4Normalized, layoutIndex: 1, offset: 0),
+        ]
+        d.vertexLayouts = [.init(bufferIndex: 0, bufferStride: stride), .init(bufferIndex: 1, bufferStride: 4)]
+        d.vertexCapacity = n
+        d.indexCapacity = g.indices.count
+        d.indexType = .uint32
+        guard let ll = try? LowLevelMesh(descriptor: d) else { return nil }
+        ll.withUnsafeMutableBytes(bufferIndex: 0) { raw in
+            guard let dst = raw.baseAddress else { return }
+            for k in 0..<n {
+                let o = dst + k * stride
+                let p = g.positions[k], q = g.normals[k], t = g.uvs[k]
+                o.storeBytes(of: p.x, toByteOffset: 0, as: Float.self)
+                o.storeBytes(of: p.y, toByteOffset: 4, as: Float.self)
+                o.storeBytes(of: p.z, toByteOffset: 8, as: Float.self)
+                o.storeBytes(of: q.x, toByteOffset: 12, as: Float.self)
+                o.storeBytes(of: q.y, toByteOffset: 16, as: Float.self)
+                o.storeBytes(of: q.z, toByteOffset: 20, as: Float.self)
+                o.storeBytes(of: t.x, toByteOffset: 24, as: Float.self)
+                o.storeBytes(of: t.y, toByteOffset: 28, as: Float.self)
+            }
+        }
+        ll.withUnsafeMutableBytes(bufferIndex: 1) { raw in
+            let dst = raw.bindMemory(to: SIMD4<UInt8>.self)
+            for k in 0..<min(n, dst.count) { dst[k] = FXMeshSlot.rest }
+        }
+        ll.withUnsafeMutableIndices { raw in
+            let dst = raw.bindMemory(to: UInt32.self)
+            for (k, i) in g.indices.enumerated() where k < dst.count { dst[k] = i }
+        }
+        ll.parts.replaceAll([LowLevelMesh.Part(indexCount: g.indices.count, topology: .triangle,
+                                               bounds: BoundingBox(min: g.boundsMin, max: g.boundsMax))])
+        guard let resource = try? MeshResource(from: ll) else { return nil }
+        return FXMeshSlot(mesh: ll, resource: resource, vertexCount: n)
+    }
+
+    /// 頂点の色を書き換える（変わった時だけ。頂点の並び 1 だけを書き直す）。
+    func set(_ p: SIMD4<UInt8>) {
+        guard p != params else { return }
+        params = p
+        let n = vertexCount
+        mesh.replaceUnsafeMutableBytes(bufferIndex: 1) { raw in
+            let dst = raw.bindMemory(to: SIMD4<UInt8>.self)
+            for k in 0..<min(n, dst.count) { dst[k] = p }
+        }
+    }
+}
 
 @MainActor
 final class FXMeshLibrary {
-    private var cache: [FXShape: MeshResource] = [:]
+    private var geometries: [FXShape: FXGeometry] = [:]
+    private var shared: [FXShape: FXMeshSlot] = [:]
+    /// 読めなかった模型（バンドルに無い・壊れている）。その形の合図は出さない。
+    private(set) var missing: Set<FXShape> = []
 
-    func mesh(_ s: FXShape) -> MeshResource? {
-        if let m = cache[s] { return m }
-        guard let m = FXMeshLibrary.build(s) else { return nil }
-        AssetLedger.record(.mesh, "fx \(s.rawValue)")
-        cache[s] = m
-        return m
+    /// 形の頂点（手続きの形は作り、模型はバンドルから読む）。
+    func geometry(_ s: FXShape) -> FXGeometry? {
+        if let g = geometries[s] { return g }
+        guard !missing.contains(s) else { return nil }
+        guard let g = s.isModel ? FXModelFile.load(s) : FXMeshLibrary.build(s) else {
+            missing.insert(s)
+            return nil
+        }
+        geometries[s] = g
+        return g
     }
 
-    var built: [MeshResource] { FXShape.allCases.compactMap { cache[$0] } }
+    /// 共通のメッシュ（読み込み幕の裏の陳列・撮影の確認用。頂点の色は既定値）。プールの枠は makeSlot。
+    func mesh(_ s: FXShape) -> MeshResource? {
+        if let m = shared[s] { return m.resource }
+        guard let g = geometry(s), let slot = FXMeshSlot.make(g) else { return nil }
+        AssetLedger.record(.mesh, "fx \(s.rawValue)")
+        shared[s] = slot
+        return slot.resource
+    }
 
-    func prewarm() { for s in FXShape.allCases { _ = mesh(s) } }
+    /// プールの 1 枠のメッシュ（頂点の色を 1 体ごとに書き換える）。
+    func makeSlot(_ s: FXShape) -> FXMeshSlot? {
+        guard let g = geometry(s), let slot = FXMeshSlot.make(g) else { return nil }
+        AssetLedger.record(.mesh, "fx slot \(s.rawValue)")
+        return slot
+    }
 
-    private static func build(_ s: FXShape) -> MeshResource? {
+    var built: [MeshResource] { FXShape.allCases.compactMap { shared[$0]?.resource } }
+
+    /// 手続きの形を全て作る。模型は試合のレシピが使うものだけ（SkillFXPlayer.prewarm が mesh(_:) を呼ぶ）。
+    func prewarm() { for s in FXShape.allCases where !s.isModel { _ = mesh(s) } }
+
+    private static func build(_ s: FXShape) -> FXGeometry? {
         var pos: [SIMD3<Float>] = []
         var uv: [SIMD2<Float>] = []
         var idx: [UInt32] = []
@@ -96,6 +271,9 @@ final class FXMeshLibrary {
                 let a = UInt32(i * 2)
                 quad(a, a + 2, a + 3, a + 1)
             }
+        case .crescent, .ringLip, .twister, .pillar2, .bladeRing, .burstDome, .starCross, .shardRing:
+            // 模型（FXModelFile が読む）
+            return nil
         }
         // 法線: Unlit は使わないが、加算・模様の CustomMaterial（FXShaders.metal）の描画には要る
         let normals: [SIMD3<Float>]
@@ -109,16 +287,11 @@ final class FXMeshLibrary {
                 let h = SIMD3<Float>(p.x, 0, p.z)
                 return simd_length(h) > 1e-5 ? simd_normalize(h) : [0, 1, 0]
             }
-        case .dome, .sphere:
+        default:
             normals = pos.map { simd_length($0) > 1e-5 ? simd_normalize($0) : [0, 1, 0] }
         }
         // 裏面は材質の faceCulling = .none で描く
-        var d = MeshDescriptor(name: "fx_\(s.rawValue)")
-        d.positions = MeshBuffers.Positions(pos)
-        d.normals = MeshBuffers.Normals(normals)
-        d.textureCoordinates = MeshBuffers.TextureCoordinates(uv)
-        d.primitives = .triangles(idx)
-        return try? MeshResource.generate(from: [d])
+        return FXGeometry(positions: pos, normals: normals, uvs: uv, indices: idx)
     }
 }
 
@@ -126,6 +299,7 @@ final class FXMeshLibrary {
 @MainActor
 final class FXMaterialLibrary {
     private let textures: FXTextureLibrary
+    private let sheets: FXSheetLibrary
     private var cache: [Key: UnlitMaterial] = [:]
 
     struct Key: Hashable {
@@ -133,8 +307,9 @@ final class FXMaterialLibrary {
         var r: UInt8, g: UInt8, b: UInt8
     }
 
-    init(textures: FXTextureLibrary) {
+    init(textures: FXTextureLibrary, sheets: FXSheetLibrary) {
         self.textures = textures
+        self.sheets = sheets
     }
 
     static func key(_ tex: FXTex?, _ c: RGB) -> Key {
@@ -166,7 +341,7 @@ final class FXMaterialLibrary {
     }
     var count: Int { cache.count + shaded.count }
 
-    // MARK: 加算・流れる模様（FXShaders.metal の CustomMaterial）
+    // MARK: 加算・流れる模様・コマ送り・溶け（FXShaders.metal の CustomMaterial）
 
     /// 加算の明るさの段階。フェードは段階の材質を差し替えて落とす（OpacityComponent が加算に効くかに頼らない）。
     nonisolated static let addLevels = 10
@@ -177,6 +352,10 @@ final class FXMaterialLibrary {
         var flow: FlowKey?
         /// 加算の明るさの段階（1〜addLevels）。アルファ合成は addLevels（OpacityComponent で落とす）。
         var level: Int
+        /// コマ送りの画像（nil = base.tex の 1 枚絵）。
+        var sheet: FXSheet? = nil
+        /// 溶け（nil = 無し）。
+        var dissolve: DissolveKey? = nil
     }
 
     struct FlowKey: Hashable {
@@ -188,6 +367,13 @@ final class FXMaterialLibrary {
         var er: UInt8, eg: UInt8, eb: UInt8
     }
 
+    struct DissolveKey: Hashable {
+        var pattern: FXFlowTex
+        var tiling: Int16
+        var width: Int16
+        var er: UInt8, eg: UInt8, eb: UInt8
+    }
+
     private var shaded: [ShadedKey: CustomMaterial] = [:]
     private var flowTextures: [FXFlowTex: TextureResource] = [:]
     /// Program が無く、加算・模様のメッシュを従来のアルファ合成の材質で出した回数（材質を作るとき。計測・テスト用）。
@@ -196,18 +382,22 @@ final class FXMaterialLibrary {
     /// 作ってある材質はそのまま使い、無いものは従来の材質で代える。
     var createsShaded = true
 
-    /// このメッシュに使う材質の鍵。従来の材質（アルファ合成・模様なし）は nil。
+    /// このメッシュに使う材質の鍵。従来の材質（アルファ合成・模様なし・コマ送りなし・溶けなし）は nil。
     static func shadedKey(_ m: FXMesh, palette: FXPalette, level: Int) -> ShadedKey? {
-        guard m.blend == .add || m.flow != nil else { return nil }
+        guard m.blend == .add || m.flow != nil || m.sheet != nil || m.dissolve != nil else { return nil }
+        func q(_ v: Float) -> Int16 { Int16(max(-30000, min(30000, (v * 100).rounded()))) }
         let base = key(m.tex, palette.rgb(m.tint))
         let flow = m.flow.map { f -> FlowKey in
-            func q(_ v: Float) -> Int16 { Int16(max(-30000, min(30000, (v * 100).rounded()))) }
             let e = key(nil, palette.rgb(f.edge))
             return FlowKey(pattern: f.pattern, scroll: SIMD2(q(f.scroll.x), q(f.scroll.y)), tiling: q(f.tiling),
                            strength: q(f.strength), erosion: q(f.erosion), er: e.r, eg: e.g, eb: e.b)
         }
+        let dissolve = m.dissolve.map { d -> DissolveKey in
+            let e = key(nil, palette.rgb(d.edge))
+            return DissolveKey(pattern: d.pattern, tiling: q(d.tiling), width: q(d.width), er: e.r, eg: e.g, eb: e.b)
+        }
         let lv = m.blend == .add ? max(1, min(addLevels, level)) : addLevels
-        return ShadedKey(base: base, blend: m.blend, flow: flow, level: lv)
+        return ShadedKey(base: base, blend: m.blend, flow: flow, level: lv, sheet: m.sheet, dissolve: dissolve)
     }
 
     /// 加算の不透明度 a（0〜1）→ 明るさの段階（0 = 出さない）。
@@ -216,7 +406,8 @@ final class FXMaterialLibrary {
         return max(1, min(addLevels, Int((a * Float(addLevels)).rounded(.up))))
     }
 
-    /// メッシュの材質（加算・模様は CustomMaterial、それ以外は従来の Unlit）。Program が無ければ従来の材質で代える。
+    /// メッシュの材質（加算・模様・コマ送り・溶けは CustomMaterial、それ以外は従来の Unlit）。Program が無ければ従来の材質で代える
+    /// （コマ送りは tex の 1 枚絵、溶けは不透明度だけ）。
     func material(for m: FXMesh, palette: FXPalette, level: Int = FXMaterialLibrary.addLevels) -> any Material {
         guard let k = FXMaterialLibrary.shadedKey(m, palette: palette, level: level) else {
             return material(m.tex, palette.rgb(m.tint))
@@ -226,21 +417,49 @@ final class FXMaterialLibrary {
             fallbacks += 1
             return material(m.tex, palette.rgb(m.tint))
         }
-        AssetLedger.record(.material, "fx \(k.blend.rawValue) \(m.tex?.rawValue ?? "solid")\(k.flow == nil ? "" : " flow") L\(k.level)")
+        let sheetTexture = m.sheet.flatMap { sheets.texture($0, additive: m.blend == .add) }
+        if m.sheet != nil && sheetTexture == nil {
+            // シートが読めない（作っていない）: 1 枚絵で出す
+            fallbacks += 1
+            return material(m.tex, palette.rgb(m.tint))
+        }
+        var label = "fx \(k.blend.rawValue) "
+        label += m.sheet?.rawValue ?? m.tex?.rawValue ?? "solid"
+        if k.flow != nil { label += " flow" }
+        if k.dissolve != nil { label += " dissolve" }
+        label += " L\(k.level)"
+        AssetLedger.record(.material, label)
         var c = CustomMaterial(program: program)
         let tint = UIColor(red: CGFloat(k.base.r) / 255, green: CGFloat(k.base.g) / 255, blue: CGFloat(k.base.b) / 255, alpha: 1)
-        let shape = textures.texture(m.tex ?? .glow)
+        let shape = sheetTexture ?? textures.texture(m.tex ?? .glow)
         if let shape {
             c.baseColor = .init(tint: tint, texture: .init(shape))
         } else {
             c.baseColor = .init(tint: tint, texture: nil)
         }
+        // コマ送りの格子（シェーダーは specular = 1 / 列、clearcoat = 1 / 行 が 0 より大きければコマを切り出す）
+        if let s = m.sheet {
+            c.specular = .init(floatLiteral: 1 / Float(s.columns))
+            c.clearcoat = .init(floatLiteral: 1 / Float(s.rows))
+        } else {
+            c.specular = .init(floatLiteral: 0)
+            c.clearcoat = .init(floatLiteral: 0)
+        }
+        // 溶けの縁の光の幅（clearcoatRoughness。0 = 光らない）
+        c.clearcoatRoughness = .init(floatLiteral: k.dissolve.map { Float($0.width) / 100 } ?? 0)
         if let f = k.flow {
             c.emissiveColor = .init(color: UIColor(red: CGFloat(f.er) / 255, green: CGFloat(f.eg) / 255, blue: CGFloat(f.eb) / 255,
                                                    alpha: 1), texture: nil)
             c.metallic = .init(floatLiteral: Float(f.strength) / 100)
             c.custom.value = SIMD4(Float(f.scroll.x) / 100, Float(f.scroll.y) / 100, Float(f.tiling) / 100, Float(f.erosion) / 100)
             if let t = flowTexture(f.pattern) { c.custom.texture = .init(t) }
+        } else if let d = k.dissolve {
+            // 模様なしの溶け: 模様の画像と繰り返しだけを渡す（強さ 0 = 色は変えない）
+            c.emissiveColor = .init(color: UIColor(red: CGFloat(d.er) / 255, green: CGFloat(d.eg) / 255, blue: CGFloat(d.eb) / 255,
+                                                   alpha: 1), texture: nil)
+            c.metallic = .init(floatLiteral: 0)
+            c.custom.value = SIMD4(0, 0, Float(d.tiling) / 100, 0)
+            if let t = flowTexture(d.pattern) { c.custom.texture = .init(t) }
         } else {
             c.emissiveColor = .init(color: tint, texture: nil)
             c.metallic = .init(floatLiteral: 0)
