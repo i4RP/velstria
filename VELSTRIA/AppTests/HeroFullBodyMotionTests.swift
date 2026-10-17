@@ -160,25 +160,38 @@ final class HeroFullBodyMotionTests: XCTestCase {
         XCTAssertEqual(r.legL.out, rest.legL.out, accuracy: 0.01)
         XCTAssertEqual(r.offset.y, 0, accuracy: 1e-4)
         var rng = SplitMix64(seed: 0xF00D)
-        for _ in 0..<200 {
+        let leg = rig.thigh + rig.shin
+        var checked = 0
+        for _ in 0..<400 {
             var p = rest
             p.plant = 1
             p.hipsDrop = Float.random(in: 0...0.12, using: &rng)
             p.hipsYaw = Float.random(in: -0.4...0.4, using: &rng)
+            p.hipsPitch = Float.random(in: 0...0.4, using: &rng)
             p.offset = SIMD3(Float.random(in: -0.1...0.1, using: &rng), 0, Float.random(in: -0.2...0.2, using: &rng))
             p.footR = SIMD3(Float.random(in: -0.05...0.1, using: &rng), Float.random(in: 0...0.1, using: &rng),
                             Float.random(in: -0.3...0.2, using: &rng))
             p.footL = SIMD3(Float.random(in: -0.1...0.05, using: &rng), 0, Float.random(in: -0.3...0.2, using: &rng))
+            // 腿の付け根（体の回転なし: 体の位置 + 待機の腰 - 腰の沈み + 腰の回転 · 付け根）から届く目標だけ、置けたかを確かめる
+            let hipsQ = ry(p.hipsYaw) * rx(-p.hipsPitch) * rz(p.hipsRoll)
+            let hip = p.offset + rig.hips - SIMD3(0, p.hipsDrop * rig.dropScale, 0)
+            let tR = rig.restAnkleR + p.footR, tL = rig.restAnkleL + p.footL
+            let reach = { (socket: SIMD3<Float>, t: SIMD3<Float>) -> Bool in
+                let d = simd_distance(hip + hipsQ.act(socket), t)
+                return d < 0.97 * leg && d > 0.3 * leg
+            }
+            let reachable = reach(rig.socketR, tR) && reach(rig.socketL, tL)
             rig.applyPlant(&p)
-            let aR = rig.ankle(p, right: true), aL = rig.ankle(p, right: false)
             let h = rig.ankleHeights(p)
-            XCTAssertGreaterThan(min(h.right, h.left), -0.001)
-            // 体を持ち上げなかった時は目標そのもの
-            if p.offset.y < 1e-4 {
-                XCTAssertLessThan(simd_distance(aR, rig.restAnkleR + p.footR), 0.001)
-                XCTAssertLessThan(simd_distance(aL, rig.restAnkleL + p.footL), 0.001)
+            XCTAssertGreaterThan(min(h.right, h.left), -0.001, "足首が地面より下")
+            // 届いて体を持ち上げなかった時は目標そのもの
+            if reachable && p.offset.y < 1e-4 {
+                checked += 1
+                XCTAssertLessThan(simd_distance(rig.ankle(p, right: true), tR), 0.001)
+                XCTAssertLessThan(simd_distance(rig.ankle(p, right: false), tL), 0.001)
             }
         }
+        XCTAssertGreaterThan(checked, 50, "届く目標が少なすぎて IK を確かめていない")
     }
 
     // MARK: アニメーター（段・命中の後・移動中の下半身・通常攻撃）
@@ -296,13 +309,18 @@ final class HeroFullBodyMotionTests: XCTestCase {
                 let total = m.castDuration(slot, stage: stage)
                 var t: Float = 0
                 var lowest: Float = 1
+                var lowestAt: Float = 0
                 while t < total {
                     m.update(dt: 1.0 / 60.0, moveSpeed: 0)
                     t += 1.0 / 60.0
+                    // 始めの 0.2 秒は待機のモーションクリップとの混ぜ（HeroClipLayer のフェード 0.15 秒。関節の角度を混ぜるので
+                    // 足が数 cm 沈むことがある = 従来からの全ヒーロー共通の混ぜ方）。足の接地はその後を測る
+                    guard t > 0.2 else { continue }
                     let h = try footHeights(m)
-                    lowest = min(lowest, h.0 - rest.0, h.1 - rest.1)
+                    let low = min(h.0 - rest.0, h.1 - rest.1)
+                    if low < lowest { lowest = low; lowestAt = t }
                 }
-                XCTAssertGreaterThan(lowest, -0.01, "\(id) \(slot) 段 \(stage): 足首の骨が地面より下 \(lowest) m")
+                XCTAssertGreaterThan(lowest, -0.01, "\(id) \(slot) 段 \(stage): 足首の骨が地面より下 \(lowest) m（\(lowestAt) 秒）")
                 XCTAssertLessThan(simd_length(m.currentPose.offset), 0.05, "\(id) \(slot) 段 \(stage): 終わりで体の位置が戻らない")
                 checked += 1
             }

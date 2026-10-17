@@ -230,12 +230,13 @@ enum Motion_H034: HeroMotionScript {
             p.armL = ArmPose(pitch: 1.5, out: 0.3, yaw: 0.5, elbow: 0.6)
             p.torsoYaw = -0.75
             p.hipsYaw = -0.3
-            p.hipsPitch = 0.25
-            p.torsoPitch = 0.3
+            // MLBB f98〜f102: 背がほぼ水平になるまで前へ倒し、顔は的へ残す
+            p.hipsPitch = 0.45
+            p.torsoPitch = 0.5
             p.torsoRoll = 0.15
             p.headYaw = 0.45
-            p.headPitch = -0.3
-            p.hipsDrop = 0.1
+            p.headPitch = -0.6
+            p.hipsDrop = 0.12
             p.footL = [-0.04, 0.04, -0.2]
             p.glow = 0.5
         }

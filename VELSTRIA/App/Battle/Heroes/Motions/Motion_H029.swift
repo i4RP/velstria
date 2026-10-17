@@ -67,16 +67,18 @@ enum Motion_H029: HeroMotionScript {
             p.footL = [-0.03, 0, -0.16]
         }
         // 打撃: 前で槌が当たる（左足を踏み込み、体を左へひねって前へ落とす）
+        // MLBB f256: 体ごと前へ沈み、槌は低く左へ払い抜ける
         m.planted(0.04, .snap) { p in
-            p.armR = ArmPose(pitch: 1.2, out: 0.2, yaw: 0.6, elbow: 0.08)
-            p.weaponR = -2.05
+            p.armR = ArmPose(pitch: 0.95, out: 0.3, yaw: 0.65, elbow: 0.08)
+            p.weaponR = -2.3
             p.torsoYaw = 0.45
             p.hipsYaw = 0.22
-            p.torsoPitch = 0.35
+            p.hipsPitch = 0.25
+            p.torsoPitch = 0.3
             p.torsoRoll = -0.1
-            p.headPitch = 0.15
+            p.headPitch = 0.0
             p.headYaw = -0.15
-            p.hipsDrop = 0.07
+            p.hipsDrop = 0.1
             p.footL = [-0.04, 0, -0.2]
             p.footR = [0.04, 0, 0.04]
             p.glow = 1.3
@@ -84,13 +86,14 @@ enum Motion_H029: HeroMotionScript {
         m.markImpact()
         // 振り抜き: 槌を左下へ流す
         m.planted(0.12, .out) { p in
-            p.armR = ArmPose(pitch: 0.75, out: 0.1, yaw: 0.95, elbow: 0.15)
-            p.weaponR = -2.5
+            p.armR = ArmPose(pitch: 0.55, out: 0.25, yaw: 1.0, elbow: 0.15)
+            p.weaponR = -2.6
             p.torsoYaw = 0.7
             p.hipsYaw = 0.3
-            p.torsoPitch = 0.4
+            p.hipsPitch = 0.25
+            p.torsoPitch = 0.32
             p.headYaw = -0.3
-            p.hipsDrop = 0.08
+            p.hipsDrop = 0.1
             p.glow = 0.9
         }
         m.hold(0.08) { $0.glow = 0.5 }
@@ -160,8 +163,8 @@ enum Motion_H029: HeroMotionScript {
         m.planted(strike * 0.24, .snap) { p in
             p.armR = ArmPose(pitch: 1.0, out: 0.12, yaw: 0.05, elbow: 0.05)
             p.weaponR = -2.05
-            p.armL = ArmPose(pitch: 0.15, out: 0.85, yaw: -0.1, elbow: 0.6)
-            p.weaponL = -0.5
+            p.armL = ArmPose(pitch: -0.4, out: 0.5, yaw: 0, elbow: 0.4)
+            p.weaponL = -0.6
             p.torsoYaw = 0.12
             p.hipsYaw = 0.05
             p.hipsPitch = 0.45
@@ -329,10 +332,10 @@ enum Motion_H029: HeroMotionScript {
             p.footR = [0.1, 0, 0.06]
             p.glow = 0.9
         }
-        // 盾を頭上の前へ掲げる（左腕を前の上へ伸ばす。盾の面を前の上へ向ける。真上だと頭上の表示に隠れる）
+        // 盾を顔の前の高さへ掲げる（MLBB: 盾が上半身を覆うように見える。頭上まで上げると頭上の体力の表示に隠れる）
         m.planted(0.16, .out) { p in
-            p.armL = ArmPose(pitch: 2.35, out: 0.3, yaw: 0.25, elbow: 0.25)
-            p.weaponL = -0.7
+            p.armL = ArmPose(pitch: 1.95, out: 0.25, yaw: 0.3, elbow: 0.45)
+            p.weaponL = -0.25
             p.armR = ArmPose(pitch: 0.9, out: 0.5, yaw: -0.2, elbow: 1.5)
             p.weaponR = 0.7
             p.torsoPitch = -0.15
@@ -346,14 +349,14 @@ enum Motion_H029: HeroMotionScript {
         m.hold(slam - 0.12 - 0.16 - 0.17 - 0.07) { p in
             p.torsoPitch = -0.2
             p.headPitch = -0.35
-            p.armL.pitch = 2.45
+            p.armL.pitch = 2.05
             p.glow = 2.4
             p.ring = 1.4
         }
         // 振りかぶりの頂点: 体を伸ばし、左足を踏み出し始める
         m.planted(0.17, .inOut) { p in
-            p.armL = ArmPose(pitch: 2.75, out: 0.2, yaw: 0.2, elbow: 0.15)
-            p.weaponL = -0.4
+            p.armL = ArmPose(pitch: 2.5, out: 0.2, yaw: 0.2, elbow: 0.2)
+            p.weaponL = -0.2
             p.armR = ArmPose(pitch: 2.6, out: 0.4, yaw: -0.2, elbow: 0.6)
             p.weaponR = 0.6
             p.torsoPitch = -0.25
