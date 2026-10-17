@@ -189,8 +189,9 @@ enum FX_H034: HeroFXSet {
         var r = SkillFXRecipe()
         let R = min(s.radius, 3.0)
         let S = slam
-        // 振りかぶり（0.27 秒）は MLBB では光らない（斧鉤を振り上げるだけ）
+        // 振りかぶり（0.27 秒）は MLBB では光らない（斧鉤を振り上げるだけ）。空の cast を既定演出（魔法陣と光）で補わせない
         r.cast = []
+        r.fillsEmptyPhases = false
         // 自己中心なので発動と同時に再生される（叩きつけは S 秒後）
         r.impact = [
             // 叩きつけの瞬間（f194）: 範囲の内側が淡い黄白に満ちる閃光（加算）。次のコマから内側が橙に（groundGlow の色の変化）
@@ -230,8 +231,9 @@ enum FX_H034: HeroFXSet {
         let gap = strikeGap
         let last = G + gap * 5
         let D = finaleRadius
-        // 掴みかかり（0.25 秒）は MLBB では光らない（1 撃目の閃きは hit）
+        // 掴みかかり（0.25 秒）は MLBB では光らない（1 撃目の閃きは hit）。空の cast を既定演出（光と粒）で補わせない
         r.cast = []
+        r.fillsEmptyPhases = false
         var impact: [FXCue] = []
         // 2〜5 撃の前（f316・f325・f333・f343）: 左右交互に振る金の三日月（加算。撃の 0.07 秒前から 0.2 秒）
         let swings: [(from: Float, to: Float, tilt: Float)] = [(80, -80, 55), (-80, 80, -55), (70, -90, 75), (-70, 90, -35)]

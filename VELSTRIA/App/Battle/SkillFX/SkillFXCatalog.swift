@@ -75,6 +75,7 @@ enum SkillFXCatalog {
         let generic = FXGeneric.recipe(s)
         guard let set = sets[heroID] else { return generic }
         var r = set.recipe(slot, s)
+        guard r.fillsEmptyPhases else { return r }
         if r.cast.isEmpty { r.cast = generic.cast }
         if r.impact.isEmpty { r.impact = generic.impact }
         if r.travel.isEmpty { r.travel = generic.travel }

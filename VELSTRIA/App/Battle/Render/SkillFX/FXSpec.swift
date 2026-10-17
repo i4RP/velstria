@@ -422,6 +422,9 @@ struct SkillFXRecipe: Sendable {
     /// hit を被弾 1 回ごとに再生するか。既定（false）では、キットのヒーローの多段ヒットのスキル（連続ダメージ・複数の波）は
     /// 同じ相手へ hit を 0.9 秒に 1 回だけ再生する（SkillFXDirector.hitInterval）。1 発ごとに出したい短い演出だけ true。
     var hitPerHit = false
+    /// 空の段を FXGeneric（アーキタイプ別の既定演出）で補うか。false = 空の段は何も出さない（MLBB で光らない振りかぶりなど）。
+    /// 再使用の段の演出が共通の演出（stage 0）で補われるのはこれと別（SkillFXCatalog.merged）。
+    var fillsEmptyPhases = true
 
     var all: [FXCue] { cast + telegraph + travel + impact + hit }
     var isEmpty: Bool { cast.isEmpty && telegraph.isEmpty && travel.isEmpty && impact.isEmpty && hit.isEmpty }

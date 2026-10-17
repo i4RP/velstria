@@ -270,6 +270,23 @@ final class SkillFXTests: XCTestCase {
         XCTAssertFalse(SkillFXDirector.kitPassiveFires(last: (2, false), now: (0, false)))
     }
 
+    // MARK: 空の段の補い
+
+    /// 空の段は既定演出（FXGeneric）で補う。fillsEmptyPhases = false のレシピは空の段を空のまま残す
+    /// （ゴルムのスキル2・奥義の振りかぶりは MLBB で光らない。補うと魔法陣と光が出ていた）。
+    func testRecipeCanKeepAnEmptyPhaseWithoutTheGenericFill() {
+        for slot in [SkillSlot.skill2, .ultimate] {
+            let r = SkillFXCatalog.recipe(heroID: "H034", slot: slot, master: master)
+            XCTAssertFalse(r.fillsEmptyPhases)
+            XCTAssertTrue(r.cast.isEmpty, "H034 \(slot) の cast は空のまま")
+            XCTAssertFalse(r.impact.isEmpty)
+        }
+        let passive = SkillFXCatalog.recipe(heroID: "H028", slot: .passive, master: master)
+        XCTAssertTrue(passive.fillsEmptyPhases)
+        let s = SkillFXCatalog.info(heroID: "H028", slot: .passive, master: master)
+        XCTAssertEqual(passive.hit, FXGeneric.recipe(s).hit, "既定のレシピの空の段は今までどおり補う")
+    }
+
     // MARK: 残りの数（H028 の環剣の剣）
 
     /// ザイルの環剣: 回る刃は 1 本ずつ別の合図で FXMesh.group 1〜5（2.4 秒ずつ 2 組）。sim の剣の本数（スキル1 のバッジ）が減ると
