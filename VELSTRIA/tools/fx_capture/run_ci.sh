@@ -47,7 +47,7 @@ capture_once() {
   xcrun simctl launch --stdout="$log" --stderr="$log" "$UDID" "$BID" -uiTesting -skipOnboarding -grant -graphics high \
     -battle practice -hero "$hero" -practiceNoCD -practiceLevel "$LEVEL" -cameraPreset "$preset" -fxCapture all \
     "$@" -fxCaptureExit >/dev/null
-  local deadline=$((SECONDS + 480)) tick=0
+  local deadline=$((SECONDS + ${CAPTURE_SECONDS:-480})) tick=0
   while (( SECONDS < deadline )); do
     if [[ -f "$HS/request" ]]; then
       local name raw="$HS/raw.png"
@@ -83,8 +83,9 @@ for preset in $PRESETS; do
     if [[ -n "${PROBE:-}" ]]; then extra+=(-fxCaptureProbe); fi
     if [[ -n "${MOVING:-}" ]]; then extra+=(-fxCaptureMovingParticles); fi
     if [[ -n "${MOTION:-}" ]]; then
-      extra+=(-fxCaptureTimes "0,0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.45,0.55,0.65,0.8,0.95,1.1,1.3,1.6,1.85,2.05,2.3"
-              -fxCaptureSide -fxCaptureAttack)
+      extra+=(-fxCaptureTimes "0,0.066,0.133,0.199,0.266,0.333,0.399,0.499,0.599,0.699,0.833,0.999,1.166,1.333,1.499,1.666,1.866,2.066,2.299"
+              -fxCaptureSide -fxCaptureAttack -fxCaptureLockstep)
+      CAPTURE_SECONDS=1500
     fi
     # 判定の形の線（HitShapeOverlay。撮影では既定で出す）を出さない
     if [[ -n "${NOHITSHAPES:-}" ]]; then extra+=(-noHitShapes); fi

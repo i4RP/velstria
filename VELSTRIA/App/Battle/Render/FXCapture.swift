@@ -15,6 +15,8 @@ import VelstriaCore
 //   -fxCaptureRings             スキルの前に、寸法が既知の地面の輪（半径 3 m・6 m の水色）を置いた画と置かない画を撮る（カメラの確認用）
 //   -fxCaptureSide              ヒーローを人形の西に東向きで置く（カメラから体の横が見える。全身のモーションの確認用）
 //   -fxCaptureAttack            スキルの後に通常攻撃を 2 回ほど撮る（最初の攻撃の始まりから attackTimes）
+//   -fxCaptureLockstep          描くたびに sim と描画の時刻を 1 tick ずつ進める（BattleRenderer。遅いシミュレータでも撮る時刻 =
+//                               sim の時刻 = モーション・演出の時刻。細かい時刻で撮るときに使う）
 // 英雄にだけ撃てるスキル（FXCheckDriver.heroOnly）は敵の英雄を人形の東に置いて撃つ（FXCheckDriver と同じ）。
 //   -fxCaptureExit              書き出したらアプリを終える
 // 出力: Documents/fxcapture/<hero>/<slot>[r]_<ms>.jpg（幅 1108 px。参考動画と同じ）と manifest.json（要求・実際の時刻、カメラ、
@@ -88,9 +90,11 @@ final class FXCapture {
     private let wantsSide: Bool
     /// -fxCaptureAttack: スキルの後に通常攻撃を撮る。
     private let wantsAttack: Bool
+    /// -fxCaptureLockstep: 1 tick 送り（BattleRenderer が読む）。
+    let lockstep: Bool
     /// 通常攻撃の撮影時刻（最初の攻撃の始まりから。2 回分）。
-    static let attackTimes: [Double] = [0.0, 0.06, 0.12, 0.18, 0.24, 0.3, 0.36, 0.45, 0.55, 0.7, 0.85, 1.0, 1.1, 1.2, 1.3,
-                                         1.45, 1.6]
+    static let attackTimes: [Double] = [0.0, 0.066, 0.133, 0.199, 0.266, 0.333, 0.399, 0.499, 0.599, 0.699, 0.833, 0.999,
+                                         1.099, 1.199, 1.333, 1.499, 1.666]
     private var step: Step = .waitLive
     private var liveFrames = 0
     private var manifest: Manifest?
@@ -109,6 +113,7 @@ final class FXCapture {
         wantsProbe = DebugLaunch.args.contains("-fxCaptureProbe")
         wantsSide = DebugLaunch.args.contains("-fxCaptureSide")
         wantsAttack = DebugLaunch.args.contains("-fxCaptureAttack")
+        lockstep = DebugLaunch.args.contains("-fxCaptureLockstep")
         dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("fxcapture")
     }
 

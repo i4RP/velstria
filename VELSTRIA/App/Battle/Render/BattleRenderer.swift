@@ -390,6 +390,11 @@ final class BattleRenderer {
             deltaTime = paceAccumulator
             paceAccumulator = 0
         }
+        #if DEBUG
+        // 比較撮影の 1 tick 送り（-fxCaptureLockstep）: 描くたびに sim を 1 tick、描画・演出・モーションの時刻も同じ 1 tick だけ進める
+        // （遅いシミュレータでも sim の時刻と画の時刻がずれない。撮影の時刻 = sim の時刻 = モーションの時刻）
+        if let capture = fxCapture, capture.lockstep, !capture.isFrozen { deltaTime = Balance.dt }
+        #endif
         let dt = min(max(deltaTime, 0), 0.1)
         defer {
             publishCameraViewport(dt: dt)
