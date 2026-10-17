@@ -346,6 +346,9 @@ struct FXMesh: Hashable, Sendable {
     var dissolve: FXDissolve?
     /// 上昇の重力（m/s²。rise の上向きの速さに下向きの加速度を掛ける = 放物線。破片・打ち上げ。0 = 等速）。
     var gravity: Float = 0
+    /// 画面の歪み（衝撃波の屈折。後処理）の強さ（画面の高さに対するずれの最大。0 = 無し、0.004〜0.015 が目安）。
+    /// 輪の縁（disc は size の半分、輪・帯の模型は size）で背景を膨らませる。後処理の無い環境（シミュレータ・低画質）では出ない。
+    var refract: Float = 0
 
     func with(_ f: (inout FXMesh) -> Void) -> FXMesh {
         var c = self

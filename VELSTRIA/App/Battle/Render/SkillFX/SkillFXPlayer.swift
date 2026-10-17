@@ -810,6 +810,36 @@ final class SkillFXPlayer {
         emits.removeLast()
     }
 
+    // MARK: 画面の歪み（後処理）
+
+    /// 画面の歪みの輪（FXMesh.refract を持つ使用中のメッシュ。world の中心・半径と今の強さ）。
+    struct Refraction: Equatable {
+        var center: SIMD3<Float>
+        var radius: Float
+        var strength: Float
+    }
+
+    private var refractionBuffer: [Refraction] = []
+
+    /// 今フレームの歪みの輪（強い順に最大 n）。BattleRenderer が画面へ投影して後処理（PostProcessor.ripples）へ渡す。
+    func refractions(max n: Int = PostProcessor.maxRipples) -> [Refraction] {
+        refractionBuffer.removeAll(keepingCapacity: true)
+        for inst in meshInsts where inst.spec.refract > 0 && inst.entity.isEnabled {
+            let m = inst.spec
+            let t = min(1, max(0, (time - inst.start) / max(0.01, m.life)))
+            var a: Float = 1
+            if t < m.fadeIn { a = t / max(0.001, m.fadeIn) }
+            if t > m.fadeOut { a = min(a, 1 - (t - m.fadeOut) / max(0.001, 1 - m.fadeOut)) }
+            let radius = inst.entity.scale.x * (inst.shape == .disc ? 0.5 : 1)
+            refractionBuffer.append(Refraction(center: inst.entity.position, radius: radius, strength: m.refract * max(0, a)))
+        }
+        if refractionBuffer.count > n {
+            refractionBuffer.sort { $0.strength > $1.strength }
+            refractionBuffer.removeLast(refractionBuffer.count - n)
+        }
+        return refractionBuffer
+    }
+
     #if DEBUG
     /// 比較撮影（FXCapture）で画面を撮る間だけ、生きている粒子の動きを止める / 戻す（メッシュは update が呼ばれないので止まる）。
     func freezeParticles(_ frozen: Bool) {

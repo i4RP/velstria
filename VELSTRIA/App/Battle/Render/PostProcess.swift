@@ -270,6 +270,27 @@ final class PostProcessor: @unchecked Sendable {
 
     private var pulseState = ScreenPulse()
 
+    /// 画面の歪み（衝撃波の屈折）。スキル演出の輪（FXMesh.refract）を BattleRenderer が画面へ投影して毎フレーム渡す。
+    /// 中心・半径は画面の UV（左上 0,0。半径の x = 画面の幅に対する比、y = 高さに対する比で地面の楕円）、
+    /// strength は画面の高さに対するずれの最大。
+    /// 低画質・後処理の自動の切り下げ・シミュレータでは出ない（輪のメッシュはそのまま見える）。
+    struct Ripple: Equatable, Sendable {
+        var center: SIMD2<Float>
+        var radius: SIMD2<Float>
+        var strength: Float
+    }
+
+    /// 一度に歪める輪の最大（合成のシェーダーの配列の大きさ）。
+    static let maxRipples = 4
+    private var rippleState: [Ripple] = []
+
+    /// 歪みの輪を置き換える（どのスレッドからでもよい。maxRipples を超える分は捨てる）。
+    func ripples(_ list: [Ripple]) {
+        lock.lock()
+        defer { lock.unlock() }
+        rippleState = Array(list.prefix(PostProcessor.maxRipples))
+    }
+
     /// 脈を立てる（どのスレッドからでもよい）。今の脈の残りより強い時だけ置き換える（弱い脈で強い脈を消さない）。
     func pulse(_ p: ScreenPulse) {
         lock.lock()
@@ -528,6 +549,18 @@ final class PostProcessor: @unchecked Sendable {
             cp.blurCY = pulseState.center.y
             cp.blurStrength = pulse.blur
         }
+        // 衝撃波の屈折（最大 4 つ。中心・半径は画面の UV）
+        cp.rippleAspect = Float(dst.width) / Float(max(1, dst.height))
+        for (k, r) in rippleState.prefix(PostProcessor.maxRipples).enumerated() {
+            let shape = SIMD4<Float>(r.center.x, r.center.y, max(0.001, r.radius.x), max(0.001, r.radius.y))
+            switch k {
+            case 0: cp.ripple0 = shape
+            case 1: cp.ripple1 = shape
+            case 2: cp.ripple2 = shape
+            default: cp.ripple3 = shape
+            }
+            cp.rippleStrength[k] = r.strength
+        }
         renc.setRenderPipelineState(composite)
         renc.setFragmentTexture(src, index: 0)
         renc.setFragmentTexture(bloomTexture ?? src, index: 1)
@@ -587,6 +620,16 @@ final class PostProcessor: @unchecked Sendable {
         var blurCY: Float = 0.5
         var blurStrength: Float = 0
         var pad: Float = 0
+        // 衝撃波の屈折（Ripple）。中心 xy・半径 zw（画面の UV）、強さ 0 なら何もしない
+        var ripple0 = SIMD4<Float>(0, 0, 1, 1)
+        var ripple1 = SIMD4<Float>(0, 0, 1, 1)
+        var ripple2 = SIMD4<Float>(0, 0, 1, 1)
+        var ripple3 = SIMD4<Float>(0, 0, 1, 1)
+        var rippleStrength = SIMD4<Float>(0, 0, 0, 0)
+        var rippleAspect: Float = 1
+        var ripplePad0: Float = 0
+        var ripplePad1: Float = 0
+        var ripplePad2: Float = 0
     }
 
     static let shaderSource = """
@@ -596,7 +639,22 @@ final class PostProcessor: @unchecked Sendable {
     struct BloomParams { float threshold; float knee; float scatter; float linearInput; };
     struct CompositeParams { float bloomIntensity; float contrast; float saturation; float linearInput;
                              float flashR; float flashG; float flashB; float flashAmount;
-                             float blurCX; float blurCY; float blurStrength; float pad; };
+                             float blurCX; float blurCY; float blurStrength; float pad;
+                             float4 ripple0; float4 ripple1; float4 ripple2; float4 ripple3; float4 rippleStrength;
+                             float rippleAspect; float ripplePad0; float ripplePad1; float ripplePad2; };
+
+    // 衝撃波の屈折: 輪（中心 r.xy・半径 r.zw）の縁の帯の画素を、中心から外へずらして引く（縁の内側は外へ、外側は内へ寄せる
+    // = 背景が輪の縁で膨らんで見える）。帯の幅は半径の 22%。
+    static float2 velRipple(float2 uv, float4 r, float strength, float aspect) {
+        if (strength <= 0.0) return float2(0.0);
+        float2 d = (uv - r.xy) / r.zw;
+        float dist = length(d);
+        if (dist < 1e-4) return float2(0.0);
+        float band = 1.0 - smoothstep(0.0, 0.22, abs(dist - 1.0));
+        float side = clamp((1.0 - dist) / 0.22, -1.0, 1.0);
+        float2 dir = (d / dist) * r.zw;
+        return -dir / max(length(dir), 1e-4) * strength * band * side * float2(1.0 / aspect, 1.0);
+    }
 
     constexpr sampler velLinear(filter::linear, address::clamp_to_edge, coord::normalized);
 
@@ -704,10 +762,15 @@ final class PostProcessor: @unchecked Sendable {
                                          texture2d<float, access::sample> bloom [[texture(1)]],
                                          constant CompositeParams& p [[buffer(0)]]) {
         float4 base;
+        float2 uv = in.uv;
+        uv += velRipple(in.uv, p.ripple0, p.rippleStrength.x, p.rippleAspect);
+        uv += velRipple(in.uv, p.ripple1, p.rippleStrength.y, p.rippleAspect);
+        uv += velRipple(in.uv, p.ripple2, p.rippleStrength.z, p.rippleAspect);
+        uv += velRipple(in.uv, p.ripple3, p.rippleStrength.w, p.rippleAspect);
         if (p.blurStrength > 0.0) {
             // 奥義の放射状のぼかし: 中心へ縮めた像を 8 枚重ねる（強さ 1 で 12% まで）
             float2 center = float2(p.blurCX, p.blurCY);
-            float2 d = in.uv - center;
+            float2 d = uv - center;
             float4 acc = float4(0.0);
             for (int i = 0; i < 8; i++) {
                 float k = 1.0 - p.blurStrength * 0.12 * (float(i) / 7.0);
@@ -715,7 +778,7 @@ final class PostProcessor: @unchecked Sendable {
             }
             base = acc / 8.0;
         } else {
-            base = src.sample(velLinear, in.uv);
+            base = src.sample(velLinear, uv);
         }
         float3 c = velToPerceptual(base.rgb, p.linearInput);
         if (p.bloomIntensity > 0.0) {

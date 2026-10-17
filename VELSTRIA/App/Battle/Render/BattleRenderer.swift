@@ -473,6 +473,7 @@ final class BattleRenderer {
         probe.stop(.camera, tc)
         let t2 = CACurrentMediaTime()
         world.updateOverlay(dt: Float(presentDt), rig: rig)
+        updateRipples(world: world)
         let t3 = CACurrentMediaTime()
         if probe.enabled { probe.stop(.overlay, t2) }
         frameStats.record(frameDt: deltaTime, sim: t1 - t0, sync: t2 - t1, overlay: t3 - t2)
@@ -617,6 +618,39 @@ final class BattleRenderer {
         finaleShadow = nil
         OverheadBar.cinematicHidden = false
         finaleSky?.isShown = false
+    }
+
+    /// 前のフレームに後処理へ渡した歪みの輪の数（輪が無くなったフレームに一度だけ空を渡す）。
+    private var rippleCount = 0
+
+    /// スキル演出の輪の画面の歪み（FXMesh.refract）: 輪の中心と半径を画面へ投影して後処理へ渡す。後処理が無い環境では何もしない。
+    /// 地面の輪は横（カメラの右）と奥（地面の上の前）の半径を別に投影して楕円にする。
+    private func updateRipples(world: BattleWorld) {
+        guard PostProcessor.isAvailable, let arView = view?.arView else { return }
+        let list = world.skillDirector.player.refractions()
+        guard !list.isEmpty || rippleCount > 0 else { return }
+        rippleCount = list.count
+        let size = arView.bounds.size
+        guard size.width > 0, size.height > 0 else { return }
+        let camera = rig.camera
+        let projection = CombatTextProjection(position: camera.position, orientation: camera.orientation,
+                                              viewport: size, verticalFOV: CameraRig.fovDegrees,
+                                              near: camera.camera.near, far: camera.camera.far)
+        let right = camera.orientation.act(SIMD3<Float>(1, 0, 0))
+        var flat = camera.orientation.act(SIMD3<Float>(0, 0, -1))
+        flat.y = 0
+        let ahead = simd_length(flat) > 1e-4 ? simd_normalize(flat) : SIMD3<Float>(0, 0, -1)
+        let w = Float(size.width), h = Float(size.height)
+        var out: [PostProcessor.Ripple] = []
+        out.reserveCapacity(list.count)
+        for r in list {
+            guard let c = projection.project(r.center), let ex = projection.project(r.center + right * r.radius),
+                  let ey = projection.project(r.center + ahead * r.radius) else { continue }
+            let center = SIMD2<Float>(Float(c.x) / w, Float(c.y) / h)
+            let radius = SIMD2<Float>(max(0.002, abs(Float(ex.x - c.x)) / w), max(0.002, abs(Float(ey.y - c.y)) / h))
+            out.append(PostProcessor.Ripple(center: center, radius: radius, strength: r.strength))
+        }
+        post.ripples(out)
     }
 
     /// 描画中の画面の縦横比。
