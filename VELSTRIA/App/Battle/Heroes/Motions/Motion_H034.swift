@@ -304,7 +304,7 @@ enum Motion_H034: HeroMotionScript {
         // 叩きつけ（0.27 秒）: 着地と同時に鉤を前の地面へ。深くしゃがむ
         m.planted(0.06, .snap) { p in
             p.armR = ArmPose(pitch: 1.0, out: 0.1, yaw: 0.35, elbow: 0.15)
-            p.weaponR = -2.6
+            p.weaponR = -2.4
             p.armL = ArmPose(pitch: 1.0, out: 0.1, yaw: 0.45, elbow: 0.3)
             p.torsoPitch = 0.7
             p.headPitch = 0.2
@@ -424,7 +424,7 @@ enum Motion_H034: HeroMotionScript {
         }
         m.planted(0.07, .snap) { p in
             p.armR = ArmPose(pitch: 1.0, out: 0.1, yaw: 0.3, elbow: 0.1)
-            p.weaponR = -2.6
+            p.weaponR = -2.4
             p.armL = ArmPose(pitch: 1.0, out: 0.15, yaw: 0.4, elbow: 0.3)
             p.torsoPitch = 0.75
             p.headPitch = 0.25
@@ -434,6 +434,7 @@ enum Motion_H034: HeroMotionScript {
             p.glow = 2.2
         }
         m.planted(last - m.now, .out) { p in
+            p.weaponR = -2.3
             p.torsoPitch = 0.82
             p.hipsDrop = 0.19
             p.glow = 2.0

@@ -153,10 +153,10 @@ enum Motion_H029: HeroMotionScript {
         }
         // 叩きつけ（0.25 秒 = 1 回目の衝撃波）: 槌を前の地面へ。左足を大きく踏み込み、体ごと前へ深く沈む
         m.planted(strike * 0.24, .snap) { p in
-            p.armR = ArmPose(pitch: 1.25, out: 0.12, yaw: 0.3, elbow: 0.05)
-            p.weaponR = -2.2
-            p.torsoYaw = 0.3
-            p.hipsYaw = 0.12
+            p.armR = ArmPose(pitch: 1.2, out: 0.12, yaw: 0.05, elbow: 0.05)
+            p.weaponR = -2.35
+            p.torsoYaw = 0.12
+            p.hipsYaw = 0.05
             p.torsoPitch = 0.6
             p.torsoRoll = -0.05
             p.headPitch = 0.25
@@ -172,8 +172,8 @@ enum Motion_H029: HeroMotionScript {
         m.planted(0.16, .out) { p in
             p.torsoPitch = 0.66
             p.hipsDrop = 0.15
-            p.armR.pitch = 1.2
-            p.weaponR = -2.25
+            p.armR.pitch = 1.15
+            p.weaponR = -2.3
             p.glow = 2.0
         }
         m.hold(0.23) { p in
@@ -245,7 +245,7 @@ enum Motion_H029: HeroMotionScript {
         // 引き: 槌を右の後ろ下へ。腰を落とし、左足を踏み出す
         m.planted(strike * 0.5, .out) { p in
             p.armR = ArmPose(pitch: -0.6, out: 0.4, yaw: -0.15, elbow: 0.2)
-            p.weaponR = 2.6
+            p.weaponR = 2.0
             p.torsoYaw = -0.45
             p.hipsYaw = -0.2
             p.torsoPitch = 0.28

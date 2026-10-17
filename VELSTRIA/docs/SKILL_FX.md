@@ -139,6 +139,9 @@ uppercut twirl shieldBash raise push gather throwCast plant command roar guardCr
   throwCast、双剣は crossSlash、盾持ち（`m.shield`）は左腕が自動で盾を構える。
 - 4 スロットとも **違う動き** にする。同じロール内でもヒーローごとに変える（踏み込みの深さ・回転数・溜めの長さ）。
 - `p.glow`（武器先の光）・`p.ring`（光輪）・`p.wings`（翼・外套）はモデルの発光演出を動かす。
+- 全身のモーションの目録（`HeroSkillMotions`、App/Battle/Heroes/Motions。2026-10-18: H029・H034）にあるヒーローは、ここの
+  `motion` を使わない（踏み込み・跳び・足の接地・再使用の段・命中の後・全身の通常攻撃。docs/HERO_MOTION.md「全身のモーション」）。
+  演出の `at:` はそのモーションの打撃の時刻（docs/vfx/H0xx.md「モーション（打撃の時刻）」）に合わせる。
 
 ## 確認のしかた
 

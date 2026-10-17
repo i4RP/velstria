@@ -722,7 +722,10 @@ struct HeroAnimator {
         }
         begin(s, blend: blend)
         switch s {
-        case .cast(let slot): beginCastMotion(profile.casts[HeroAnimator.castIndex(slot)])
+        case .cast(let slot):
+            // 詠唱は振りかけの通常攻撃を打ち切る（詠唱の後に戻りの続きを出さない）
+            motionAttack = -1
+            beginCastMotion(profile.casts[HeroAnimator.castIndex(slot)])
         case .attack, .idle, .run: break
         default: motionAttack = -1
         }
