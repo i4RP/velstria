@@ -9,7 +9,8 @@ import VelstriaCore
 //             腕を前へ伸ばしたまま待つ。当たれば（命中の後のモーション）鎖を張ったまま 0.45 秒待ち、肩の上へ引き寄せる
 //             （命中 + 0.45〜0.70 秒 = 引き寄せ）。外れたら鎖を手繰って戻る。
 //   スキル2 — 少し沈んでから両腕を頭上へ振り上げて小さく跳び、着地と同時に鉤を前の地面へ叩きつける（0.27 秒 = 叩きつけ）。
-//   アルティメット — 前へ低く踏み込んで掴みかかり（0.25 秒 = 掴み・1 撃目）、掴んだまま左右交互に 4 回振る（0.32 秒おき）。
+//   アルティメット — 前へ低く踏み込んで掴みかかり（0.25 秒 = 掴み・1 撃目）、掴んだまま 4 回振る（0.32 秒おき。演出の帯と同じ面・向き:
+//             2・4 撃 = 左の縦の振り、3 撃 = 前の低い振り 左 → 右、5 撃 = 右 → 左）。
 //             6 撃目は頭上へ振り上げて前の地面へ叩きつけ（1.68 秒に地を打ち、1.85 秒 = 6 撃目の判定で最も深く）、拘束の終わり（2.05 秒）まで沈む。
 // 角度は体の鉛直に対して書く（MotionBuilder.worldAngles。腕の pitch 0 = 真下・π/2 = 前・π = 真上、武器角 0 = 真上・-π/2 = 前・
 // ±π = 真下・+ = 後ろ。yaw + = 左回り）。足首の目標（footR / footL）は待機の足首からのずれ（m。-z = 前）。
@@ -17,6 +18,9 @@ import VelstriaCore
 
 enum Motion_H034: HeroMotionScript {
     private static let hero = "H034"
+
+    /// 奥義の 2〜5 撃の振りの面（FX_H034.huntRecipe の swings と同じ）。
+    private enum UltSwing { case overheadLeft, lowLeftToRight, lowRightToLeft }
 
     // MARK: - 通常攻撃
 
@@ -389,33 +393,81 @@ enum Motion_H034: HeroMotionScript {
             p.glow = 1.4
         }
         m.markImpact()
-        // 2〜5 撃: 左右交互（右から左 → 左から右 …）。撃の 0.15 秒前から振りかぶり、撃の時刻に振り抜く
+        // 2〜5 撃: 演出（FX_H034.huntRecipe の swings。帯の頭が撃の時刻に振りの終わりへ届く）と同じ面・向きで振る:
+        //   2・4 撃 = 左の縦の振り（頭上の後ろから前の下へ）、3 撃 = 前の低い振り（左 → 右）、5 撃 = 前の低い振り（右 → 左）。
+        // 撃の 0.14 秒前に振りかぶりの頂点、撃の時刻に振り終わり（帯の終わりの向き）。
         for k in 1..<(hits - 1) {
             let hitAt = grab + gap * Float(k)
-            let fromRight = k % 2 == 1
-            let side: Float = fromRight ? 1 : -1
-            // 振りかぶり（撃の 0.15 秒前に頂点）
-            m.planted(hitAt - 0.15 - m.now, .out) { p in
-                p.armR = fromRight ? ArmPose(pitch: 2.3, out: 0.7, yaw: -0.6, elbow: 0.8)
-                                   : ArmPose(pitch: 2.0, out: -0.05, yaw: 0.9, elbow: 1.2)
-                p.weaponR = fromRight ? 0.7 : 0.3
-                p.torsoYaw = -0.45 * side
-                p.hipsYaw = -0.18 * side
-                p.torsoPitch = 0.12
-                p.torsoRoll = 0.08 * side
+            let swing = k % 2 == 1 ? UltSwing.overheadLeft : (k == 2 ? UltSwing.lowLeftToRight : UltSwing.lowRightToLeft)
+            // 振りかぶり（撃の 0.14 秒前に頂点）
+            m.planted(hitAt - 0.14 - m.now, .out) { p in
+                switch swing {
+                case .overheadLeft:
+                    // 鉤を頭上の後ろへ（左寄り）。体を少し反らせて左へひねる
+                    // 振りの面は体の縦の面（yaw 0）で、手を頭の左へ寄せる（out -）
+                    p.armR = ArmPose(pitch: 3.15, out: -0.3, yaw: -0.1, elbow: 0.45)
+                    p.weaponR = 1.5
+                    p.torsoYaw = 0.1
+                    p.hipsYaw = 0.05
+                    p.hipsPitch = 0
+                    p.torsoPitch = -0.12
+                    p.torsoRoll = -0.06
+                case .lowLeftToRight:
+                    // 鉤を左の腰の高さへ引く（裏の構え）。体を左へひねる
+                    p.armR = ArmPose(pitch: 0.85, out: -0.1, yaw: 1.05, elbow: 1.0)
+                    p.weaponR = -1.85
+                    p.torsoYaw = 0.55
+                    p.hipsYaw = 0.22
+                    p.hipsPitch = 0.1
+                    p.torsoPitch = 0.12
+                    p.torsoRoll = 0.06
+                case .lowRightToLeft:
+                    // 鉤を右の腰の高さへ引く。体を右へひねる
+                    p.armR = ArmPose(pitch: 0.85, out: 0.8, yaw: -0.75, elbow: 0.5)
+                    p.weaponR = -1.85
+                    p.torsoYaw = -0.55
+                    p.hipsYaw = -0.22
+                    p.hipsPitch = 0.1
+                    p.torsoPitch = 0.12
+                    p.torsoRoll = -0.06
+                }
                 p.hipsDrop = 0.08
                 p.glow = 1.0
             }
-            // 撃（sim の k+1 撃目の時刻）
-            m.planted(0.15, .snap) { p in
-                p.armR = fromRight ? ArmPose(pitch: 1.3, out: 0.15, yaw: 0.6, elbow: 0.1)
-                                   : ArmPose(pitch: 1.35, out: 0.75, yaw: -0.6, elbow: 0.1)
-                p.weaponR = fromRight ? -2.0 : -1.8
-                p.torsoYaw = 0.45 * side
-                p.hipsYaw = 0.18 * side
-                p.torsoPitch = 0.38
-                p.torsoRoll = -0.06 * side
-                p.hipsDrop = 0.11
+            // 撃（sim の k+1 撃目の時刻 = 振り終わり）
+            m.planted(0.14, .snap) { p in
+                switch swing {
+                case .overheadLeft:
+                    // 左の縦の面で前の下へ振り下ろす（帯の終わり = 前 1.2 m・高さ 0.4 m）
+                    p.armR = ArmPose(pitch: 1.05, out: 0.05, yaw: 0.25, elbow: 0.1)
+                    p.weaponR = -2.2
+                    p.torsoYaw = 0.12
+                    p.hipsYaw = 0.05
+                    p.hipsPitch = 0.15
+                    p.torsoPitch = 0.3
+                    p.torsoRoll = 0
+                    p.hipsDrop = 0.12
+                case .lowLeftToRight:
+                    // 前を低く左 → 右へ払い抜け、右で振り終わる（高さ 0.9 m）
+                    p.armR = ArmPose(pitch: 0.9, out: 0.75, yaw: -0.8, elbow: 0.1)
+                    p.weaponR = -1.85
+                    p.torsoYaw = -0.45
+                    p.hipsYaw = -0.18
+                    p.hipsPitch = 0.1
+                    p.torsoPitch = 0.22
+                    p.torsoRoll = -0.05
+                    p.hipsDrop = 0.1
+                case .lowRightToLeft:
+                    // 前を低く右 → 左へ払い抜け、左で振り終わる
+                    p.armR = ArmPose(pitch: 0.9, out: -0.1, yaw: 1.05, elbow: 0.7)
+                    p.weaponR = -1.85
+                    p.torsoYaw = 0.5
+                    p.hipsYaw = 0.2
+                    p.hipsPitch = 0.1
+                    p.torsoPitch = 0.22
+                    p.torsoRoll = 0.05
+                    p.hipsDrop = 0.1
+                }
                 p.glow = 1.6
             }
         }
