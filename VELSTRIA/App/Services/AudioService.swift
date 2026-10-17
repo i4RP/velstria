@@ -1,6 +1,7 @@
 import Foundation
 import AVFoundation
 import UIKit
+import VelstriaCore
 
 // 担当: app-services
 // AVAudioEngine による効果音・BGM。音のファイル（App/Resources/Audio。AudioFiles）があればそれを、無ければ手続きの合成を鳴らす。
@@ -56,6 +57,35 @@ enum MusicTrack: String, CaseIterable {
 
     /// ループ再生する曲か（勝利・敗北は 1 回だけ鳴るスティンガー）。
     var loops: Bool { self != .victory && self != .defeat }
+}
+
+/// スキルの音の鍵（ファイル skill_<ヒーロー>_<s1|s2|ult>[_r<段>]_<cast|hit>.caf）。
+struct SkillSoundKey: Hashable, Sendable {
+    var heroID: String
+    var slot: SkillSlot
+    var stage: Int = 0
+    var hit = false
+
+    var fileName: String {
+        let s: String
+        switch slot {
+        case .skill1: s = "s1"
+        case .skill2: s = "s2"
+        case .ultimate: s = "ult"
+        case .passive: s = "passive"
+        }
+        return "skill_\(heroID)_\(s)" + (stage > 0 ? "_r\(stage)" : "") + (hit ? "_hit" : "_cast")
+    }
+
+    /// そのヒーローの全ての鍵（ファイルがあるかは読む時に見る）。
+    static func all(heroID: String) -> [SkillSoundKey] {
+        var out: [SkillSoundKey] = []
+        for slot in [SkillSlot.skill1, .skill2, .ultimate] {
+            out.append(SkillSoundKey(heroID: heroID, slot: slot, hit: true))
+            for stage in 0...3 { out.append(SkillSoundKey(heroID: heroID, slot: slot, stage: stage)) }
+        }
+        return out
+    }
 }
 
 @MainActor
@@ -222,6 +252,74 @@ final class AudioService {
     func sfxDuration(_ sfx: SFX) -> TimeInterval? {
         guard let b = sfxBuffers[sfx]?.first else { return nil }
         return Double(b.frameLength) / b.format.sampleRate
+    }
+
+    // MARK: - スキルの音（H025〜H034。試合に出るヒーローの分だけ、試合の始めに裏で読む）
+
+    /// 同じスキルの命中の音の最短間隔（多段・範囲の命中で重ねすぎない）。
+    static let skillHitInterval: TimeInterval = 0.1
+
+    private var skillBuffers: [SkillSoundKey: AVAudioPCMBuffer] = [:]
+    private var skillHeroes: Set<String> = []
+    private var lastSkillHit: [SkillSoundKey: TimeInterval] = [:]
+
+    /// 試合の始め（BattleAudioDirector.start）に呼ぶ。試合に出るヒーローのスキルの音を裏で読み、出ないヒーローの分は捨てる
+    /// （プレイ中にファイルを読まない。読み終わる前に撃ったスキルは汎用の発動の音で鳴る）。
+    func preloadSkillSounds(heroIDs: [String]) {
+        let want = Set(heroIDs)
+        skillBuffers = skillBuffers.filter { want.contains($0.key.heroID) }
+        let missing = want.subtracting(skillHeroes)
+        skillHeroes = want
+        guard !missing.isEmpty else { return }
+        Task.detached(priority: .userInitiated) { [weak self] in
+            var loaded: [(SkillSoundKey, [Float])] = []
+            for id in missing.sorted() {
+                for key in SkillSoundKey.all(heroID: id) {
+                    guard let url = AudioFiles.sfxURL(key.fileName),
+                          let samples = AudioFiles.readMono(url, sampleRate: SFXSynth.sampleRate) else { continue }
+                    loaded.append((key, samples))
+                }
+            }
+            await self?.didLoadSkills(loaded)
+        }
+    }
+
+    private func didLoadSkills(_ loaded: [(SkillSoundKey, [Float])]) {
+        guard let monoFormat else { return }
+        for (key, samples) in loaded where skillHeroes.contains(key.heroID) {
+            skillBuffers[key] = Self.makeBuffer(format: monoFormat, left: samples, right: nil)
+        }
+    }
+
+    /// 試合の終わり（BattleAudioDirector.stop）に呼ぶ。
+    func releaseSkillSounds() {
+        skillBuffers.removeAll()
+        skillHeroes.removeAll()
+        lastSkillHit.removeAll()
+    }
+
+    /// 読み込んだスキルの音か（テスト用）。
+    func hasSkillSound(_ key: SkillSoundKey) -> Bool { skillBuffers[key] != nil }
+
+    /// スキルの音を鳴らす。そのスキルの音が無ければ false（呼び出し側が汎用の音で代える）。
+    /// 音量 0・間隔の内で鳴らさなかった時も、音があれば true（汎用の音を重ねない）。
+    @discardableResult
+    func playSkill(_ key: SkillSoundKey, gain: Double) -> Bool {
+        guard let buffer = skillBuffers[key] else { return false }
+        guard graphReady, sfxVolume > 0.001, gain > 0.001 else { return true }
+        let now = ProcessInfo.processInfo.systemUptime
+        if key.hit {
+            if let last = lastSkillHit[key], now - last < Self.skillHitInterval { return true }
+            lastSkillHit[key] = now
+        }
+        guard ensureEngineRunning() else { return true }
+        let index = pickSFXPlayer(now: now)
+        let player = sfxPlayers[index]
+        player.volume = Float(min(1, gain))
+        player.scheduleBuffer(buffer, at: nil, options: .interrupts, completionHandler: nil)
+        if !player.isPlaying { player.play() }
+        sfxBusyUntil[index] = now + Double(buffer.frameLength) / buffer.format.sampleRate
+        return true
     }
 
     // MARK: - BGM

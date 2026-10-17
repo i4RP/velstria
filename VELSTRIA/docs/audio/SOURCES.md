@@ -50,3 +50,63 @@ MLBB の音は使っていない。素材の原本・素材集の形ではリポ
 | sfx_ui_tab.caf | 0.14 秒 | Interface Sounds | switch_002 |
 | sfx_ui_tap.caf | 0.04 秒 | Interface Sounds | select_002 |
 | sfx_victory.caf | 1.81 秒 | Music Jingles | jingles_HIT11 + jingles_PIZZI02、残響（勝利） |
+| skill_H025_s1_cast.caf | 0.66 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H025 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H025_s2_cast.caf | 1.69 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H025 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H025_s2_hit.caf | 0.54 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H025 s2 の命中 |
+| skill_H025_ult_cast.caf | 1.85 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H025 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H026_s1_cast.caf | 1.11 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H026 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H026_s1_hit.caf | 0.80 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H026 s1 の命中 |
+| skill_H026_s2_cast.caf | 1.28 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H026 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H026_s2_hit.caf | 0.79 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H026 s2 の命中 |
+| skill_H026_ult_cast.caf | 2.25 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H026 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H026_ult_hit.caf | 0.80 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H026 ult の命中 |
+| skill_H027_s1_cast.caf | 1.17 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H027 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H027_s1_hit.caf | 0.36 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H027 s1 の命中 |
+| skill_H027_s2_cast.caf | 0.64 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H027 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H027_s2_hit.caf | 0.40 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H027 s2 の命中 |
+| skill_H027_ult_cast.caf | 1.44 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H027 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H028_s1_cast.caf | 1.11 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H028 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H028_s1_hit.caf | 0.35 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H028 s1 の命中 |
+| skill_H028_s2_cast.caf | 0.88 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H028 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H028_s2_hit.caf | 0.42 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H028 s2 の命中 |
+| skill_H028_ult_cast.caf | 1.75 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H028 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H028_ult_hit.caf | 0.44 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H028 ult の命中 |
+| skill_H029_s1_cast.caf | 1.78 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H029 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H029_s1_hit.caf | 0.47 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H029 s1 の命中 |
+| skill_H029_s2_cast.caf | 1.42 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H029 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H029_s2_hit.caf | 0.47 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H029 s2 の命中 |
+| skill_H029_s2_r1_cast.caf | 0.97 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H029 s2 段1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H029_ult_cast.caf | 3.30 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H029 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H029_ult_hit.caf | 0.57 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H029 ult の命中 |
+| skill_H030_s1_cast.caf | 1.03 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H030 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H030_s1_hit.caf | 0.80 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H030 s1 の命中 |
+| skill_H030_s2_cast.caf | 0.64 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H030 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H030_s2_hit.caf | 0.79 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H030 s2 の命中 |
+| skill_H030_ult_cast.caf | 3.42 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H030 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H030_ult_hit.caf | 0.80 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H030 ult の命中 |
+| skill_H031_s1_cast.caf | 1.20 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H031 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H031_s1_hit.caf | 0.48 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H031 s1 の命中 |
+| skill_H031_s2_cast.caf | 0.97 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H031 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H031_s2_hit.caf | 0.20 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H031 s2 の命中 |
+| skill_H031_ult_cast.caf | 2.65 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H031 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H031_ult_hit.caf | 0.24 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H031 ult の命中 |
+| skill_H032_s1_cast.caf | 1.29 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H032 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H032_s1_hit.caf | 0.69 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H032 s1 の命中 |
+| skill_H032_s2_cast.caf | 1.56 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H032 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H032_s2_hit.caf | 0.61 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H032 s2 の命中 |
+| skill_H032_s2_r1_cast.caf | 0.84 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H032 s2 段1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H032_ult_cast.caf | 2.85 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H032 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H032_ult_hit.caf | 0.65 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H032 ult の命中 |
+| skill_H033_s1_cast.caf | 1.14 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H033 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H033_s1_hit.caf | 0.40 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H033 s1 の命中 |
+| skill_H033_s2_cast.caf | 0.65 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H033 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H033_s2_hit.caf | 0.44 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H033 s2 の命中 |
+| skill_H033_ult_cast.caf | 1.43 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H033 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H033_ult_hit.caf | 0.45 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H033 ult の命中 |
+| skill_H033_ult_r1_cast.caf | 1.23 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H033 ult 段1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H034_s1_cast.caf | 1.42 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H034 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H034_s1_hit.caf | 0.47 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H034 s1 の命中 |
+| skill_H034_s2_cast.caf | 2.49 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H034 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H034_s2_hit.caf | 0.49 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H034 s2 の命中 |
+| skill_H034_ult_cast.caf | 0.69 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H034 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
+| skill_H034_ult_hit.caf | 0.71 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H034 ult の命中 |
