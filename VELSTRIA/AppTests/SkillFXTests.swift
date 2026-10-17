@@ -92,6 +92,11 @@ final class SkillFXTests: XCTestCase {
                         }
                     case .shake(let s):
                         XCTAssertLessThanOrEqual(s, 1, "\(id) \(slot): 揺れが強すぎる")
+                    case .ribbon(let rb):
+                        // 帯はメッシュの枠として数える（帯のプールは ribbonCapacity）
+                        meshes += n
+                        XCTAssertLessThanOrEqual(rb.span, 4, "\(id) \(slot): 帯の寿命が長すぎる")
+                        XCTAssertLessThanOrEqual(rb.width, 6, "\(id) \(slot): 帯が太すぎる")
                     }
                     XCTAssertLessThanOrEqual(cue.at + cue.every * Float(max(0, cue.count - 1)), 2.5,
                                              "\(id) \(slot): 遅れが長すぎる")
@@ -456,14 +461,14 @@ final class SkillFXTests: XCTestCase {
             switch cue.element {
             case .mesh(let m): XCTAssertEqual(m.life, 4, accuracy: 1e-5)
             case .emit(let e): XCTAssertEqual(e.duration, 4, accuracy: 1e-5)
-            case .shake: XCTFail()
+            case .shake, .ribbon: XCTFail()
             }
         }
         for cue in FXCue.applyingCastDuration(r.cast, seconds: 9).filter(\.usesCastDuration) {
             switch cue.element {
             case .mesh(let m): XCTAssertEqual(m.life, 9, accuracy: 1e-5)
             case .emit(let e): XCTAssertEqual(e.duration, 9, accuracy: 1e-5)
-            case .shake: XCTFail()
+            case .shake, .ribbon: XCTFail()
             }
         }
         XCTAssertTrue(r.impact.allSatisfy { !$0.usesCastDuration }, "放つ矢は長さに関係しない")
@@ -481,7 +486,7 @@ final class SkillFXTests: XCTestCase {
                     switch cue.element {
                     case .mesh(let m): XCTAssertLessThanOrEqual(m.life, FXCue.castDurationLimit, "\(id) \(slot)")
                     case .emit(let e): XCTAssertLessThanOrEqual(e.duration, FXCue.castDurationLimit, "\(id) \(slot)")
-                    case .shake: break
+                    case .shake, .ribbon: break
                     }
                 }
             }
@@ -841,7 +846,20 @@ final class SkillFXTests: XCTestCase {
             XCTAssertLessThanOrEqual(maxDiff, 1, "\(name): 色がアルファと違う（透明な所に色が残ると四角い縁が出る）")
         }
         for t in FXTex.allCases { check(t.rawValue, FXTextureLibrary.image(t)) }
-        for s in FXSheet.allCases { check(s.rawValue, FXSheet.image(s)) }
+        for s in FXSheet.allCases where !s.colored { check(s.rawValue, FXSheet.image(s)) }
+        // 色付きのシート（Blender の爆炎・煙・岩）は色 × アルファ（乗算済みの色がアルファを超えない = 透明な所に色が残らない）
+        for s in FXSheet.allCases where s.colored {
+            guard let img = FXSheet.image(s), let p = FXTextureLibrary.particleAlpha(img),
+                  let data = p.dataProvider?.data, let bytes = CFDataGetBytePtr(data) else { XCTFail(s.rawValue); continue }
+            var over = 0, covered = 0
+            for k in stride(from: 0, to: p.width * p.height * 4, by: 4) {
+                let a = Int(bytes[k + 3])
+                if a > 0 { covered += 1 }
+                over = max(over, Int(bytes[k]) - a, Int(bytes[k + 1]) - a, Int(bytes[k + 2]) - a)
+            }
+            XCTAssertGreaterThan(covered, 0, "\(s.rawValue) が空")
+            XCTAssertLessThanOrEqual(over, 1, "\(s.rawValue): 色がアルファを超える（乗算済みでない）")
+        }
         let lib = FXTextureLibrary()
         XCTAssertNotNil(lib.particleTexture(.smoke), "粒子の画像から TextureResource が作れる")
         let sheets = FXSheetLibrary()
@@ -849,12 +867,15 @@ final class SkillFXTests: XCTestCase {
         XCTAssertTrue(sheets.missing.isEmpty, "\(sheets.missing)")
     }
 
-    func testEverySheetIsBundledAsA4x4Grid() {
+    /// シートの画像が宣言の格子（列 × 行 × 1 コマの画素）どおりに同梱されている（手続きは 4 × 4 × 128、Blender は 5 × 5・4 × 4 × 256 など）。
+    func testEverySheetIsBundledAsItsDeclaredGrid() {
         for s in FXSheet.allCases {
             guard let img = FXSheet.image(s) else { XCTFail("\(s.rawValue).png が無い"); continue }
-            XCTAssertEqual(img.width, 512, s.rawValue)
-            XCTAssertEqual(img.height, 512, s.rawValue)
-            XCTAssertEqual(s.frames, 16)
+            XCTAssertEqual(img.width, s.columns * s.frameSize, s.rawValue)
+            XCTAssertEqual(img.height, s.rows * s.frameSize, s.rawValue)
+            XCTAssertEqual(s.frames, s.rows * s.columns)
+            XCTAssertLessThanOrEqual(img.width, 2048, "\(s.rawValue): 2K を超える")
+            if !s.rawValue.hasPrefix("fx_") { XCTAssertEqual(s.frames, 16, "手続きのシートは従来の 4 × 4") }
         }
     }
 
@@ -901,8 +922,8 @@ final class SkillFXTests: XCTestCase {
     func testFlowPatternsAreSeamlessTiles() {
         for p in FXFlowTex.allCases {
             guard let img = FXFlowTex.image(p) else { XCTFail("\(p) が作れない"); continue }
-            XCTAssertEqual(img.width, FXFlowTex.size)
-            XCTAssertEqual(img.height, FXFlowTex.size)
+            XCTAssertEqual(img.width, p.imageSize, "\(p)")
+            XCTAssertEqual(img.height, p.imageSize, "\(p)")
         }
     }
 
@@ -939,5 +960,128 @@ final class SkillFXTests: XCTestCase {
         XCTAssertEqual(snap.liveTotal, 0, "プレイ中の生成: \(snap.live)\n" + snap.liveSamples.joined(separator: "\n"))
         if FXPrograms.isReady { XCTAssertEqual(player.materials.fallbacks, 0, "Program があるのに従来の材質で代えた") }
         XCTAssertTrue(player.sheets.missing.isEmpty, "読めないシート: \(player.sheets.missing)")
+    }
+
+    // MARK: Blender の素材（tools/vfx_assets）・模型・コマ送りのメッシュ・溶け・帯
+
+    /// Blender の模型（fxm_<名前>.bin）が全て同梱され、読めて、単位の大きさに収まる。壊れた中身は読まない。
+    func testBlenderModelsAreBundledAndParse() {
+        for s in FXShape.allCases where s.isModel {
+            guard let g = FXModelFile.load(s) else { XCTFail("\(s.rawValue) の模型が読めない"); continue }
+            XCTAssertGreaterThan(g.positions.count, 3, s.rawValue)
+            XCTAssertEqual(g.indices.count % 3, 0, s.rawValue)
+            XCTAssertLessThanOrEqual(g.indices.count / 3, 4000, "\(s.rawValue): 三角形が多すぎる")
+            XCTAssertTrue(g.indices.allSatisfy { Int($0) < g.positions.count }, s.rawValue)
+            for p in [g.boundsMin, g.boundsMax] {
+                XCTAssertLessThanOrEqual(simd_reduce_max(simd_abs(p)), 1.8, "\(s.rawValue): 単位の大きさを超える")
+            }
+        }
+        XCTAssertNil(FXModelFile.parse(Data([0x46, 0x58, 0x4D, 0x31, 1, 2, 3])), "短い中身は読まない")
+    }
+
+    /// 模型の形は、試合のレシピが使うものだけプールする（使わない模型は作らない）。
+    func testModelShapesArePooledOnlyWhenARecipeUsesThem() {
+        let q = RenderQuality.preset(.low)
+        let none = SkillFXPlayer(quality: q)
+        none.prewarm(recipes: [])
+        XCTAssertEqual(none.budgetSnapshot().meshShapes["crescent"]?.pooled, 0)
+        let used = SkillFXPlayer(quality: q)
+        used.prewarm(recipes: [recipe([.mesh(.model(.crescent, .swoosh, size: [2, 1, 2]))])])
+        XCTAssertEqual(used.budgetSnapshot().meshShapes["crescent"]?.pooled, SkillFXPlayer.meshCapacity(.crescent, q))
+        XCTAssertEqual(used.budgetSnapshot().meshShapes["twister"]?.pooled, 0)
+    }
+
+    /// コマ送り・溶けのメッシュは 1 体ごとの値を頂点の色へ書く（コマは寿命で進み、溶けは from から増える）。
+    /// 枠を使い回した次のメッシュでは既定値に戻る。材質は読み込み幕の裏で作り切る。
+    func testSheetAndDissolveMeshWriteVertexParams() async {
+        await FXPrograms.waitUntilSettled()
+        AssetLedger.beginLoading()
+        let player = SkillFXPlayer(quality: .preset(.low))
+        let flip = FXMesh.groundFlipbook(.fireball, 3, life: 1).dissolving(from: 0.5)
+        let plain = FXMesh(shape: .disc, tex: .ring, life: 1)
+        let r = recipe([.mesh(flip, offset: [3, 0, 0]), .mesh(plain, offset: [4, 0, 0])])
+        player.prewarm(recipes: [r])
+        XCTAssertTrue(player.prewarmShaded())
+        AssetLedger.beginLive()
+        player.play([r.recipe.cast[0]], context(r.palette))
+        guard let e = mesh(player, x: 3) else { return XCTFail("出ていない") }
+        player.update(dt: 0.02)
+        let early = player.meshParams(e)
+        XCTAssertEqual(early?.z, 0, "溶け始め（寿命の 0.5）の前は 0")
+        player.update(dt: 0.6)
+        let late = player.meshParams(e)
+        XCTAssertGreaterThan(late?.y ?? 0, early?.y ?? 0, "コマが進む")
+        XCTAssertLessThan(Int(late?.y ?? 99), FXSheet.fireball.frames)
+        XCTAssertGreaterThan(late?.z ?? 0, 0, "溶けが進む")
+        if FXPrograms.isReady {
+            XCTAssertTrue((e as? ModelEntity)?.model?.materials.first is CustomMaterial, "コマ送りは CustomMaterial")
+        }
+        player.update(dt: 1)
+        XCTAssertEqual(player.activeCount, 0)
+        player.play([r.recipe.cast[1]], context(r.palette))
+        guard let reused = mesh(player, x: 4) else { return XCTFail("出ていない") }
+        XCTAssertTrue(reused === e, "同じ枠を使い回す")
+        XCTAssertEqual(player.meshParams(reused), FXMeshSlot.rest, "使い回しでコマ・溶けを戻す")
+        player.clear()
+        let snap = AssetLedger.snapshot()
+        XCTAssertEqual(snap.liveTotal, 0, "プレイ中の生成: \(snap.live)\n" + snap.liveSamples.joined(separator: "\n"))
+    }
+
+    func testSheetFrameFollowsLifeAndLoops() {
+        let once = FXMesh.flipbook(.fireball, 2, life: 1)
+        XCTAssertEqual(SkillFXPlayer.sheetFrame(once, .fireball, age: 0), 0)
+        XCTAssertEqual(SkillFXPlayer.sheetFrame(once, .fireball, age: 0.5), 12)
+        XCTAssertEqual(SkillFXPlayer.sheetFrame(once, .fireball, age: 5), FXSheet.fireball.frames - 1, "1 回の画像は最後のコマで止まる")
+        let loop = FXMesh.flipbook(.rockTumble, 1, life: 3)
+        let n = FXSheet.rockTumble.frames
+        let f = SkillFXPlayer.sheetFrame(loop, .rockTumble, age: 2)
+        XCTAssertEqual(f, Int(2 * FXSheet.rockTumble.loopFPS) % n, "繰り返す画像は loopFPS で回る")
+        XCTAssertEqual(SkillFXPlayer.dissolveAmount(FXDissolve(from: 0.5), t: 0.25), 0)
+        XCTAssertEqual(SkillFXPlayer.dissolveAmount(FXDissolve(from: 0.5), t: 0.75), 0.5, accuracy: 1e-5)
+        XCTAssertEqual(SkillFXPlayer.dissolveAmount(FXDissolve(from: 0.5), t: 1), 1, accuracy: 1e-5)
+    }
+
+    /// 弧の帯は頭が弧を掃き、外縁が半径・高さの上に乗る。寿命の後はプールへ戻る（プレイ中に何も作らない）。
+    func testArcRibbonSweepsTheArcAndReturnsToThePool() {
+        AssetLedger.beginLoading()
+        let player = SkillFXPlayer(quality: .preset(.low))
+        let swing = FXRibbon.swing(radius: 2, from: 80, to: -80, height: 1, duration: 0.2, life: 0.2, width: 0.5)
+        let r = recipe([.ribbon(swing)])
+        player.prewarm(recipes: [r])
+        AssetLedger.beginLive()
+        player.play(r.recipe.cast, context(r.palette))
+        for _ in 0..<6 { player.update(dt: 1.0 / 30) }
+        let v = player.ribbonVertices()
+        XCTAssertEqual(v.count, 1)
+        for c in v.first ?? [] {
+            XCTAssertEqual(simd_length(SIMD2<Float>(c.outer.x, c.outer.z)), 2, accuracy: 0.02, "外縁は半径 2 の弧")
+            XCTAssertEqual(c.outer.y, 1, accuracy: 0.02, "高さ 1 の水平の弧")
+            XCTAssertLessThan(simd_length(SIMD2<Float>(c.inner.x, c.inner.z)), 1.95, "内縁は内側")
+        }
+        XCTAssertEqual(v.first?.first?.u ?? 1, 0, accuracy: 1e-3, "列 0 は頭（古さ 0）")
+        for _ in 0..<30 { player.update(dt: 1.0 / 30) }
+        XCTAssertEqual(player.activeCount, 0, "寿命の後はプールへ戻る")
+        player.clear()
+        let snap = AssetLedger.snapshot()
+        XCTAssertEqual(snap.liveTotal, 0, "プレイ中の生成: \(snap.live)\n" + snap.liveSamples.joined(separator: "\n"))
+    }
+
+    /// 帯を使うレシピが無い試合は帯の枠を作らない（要求は捨てる）。枠が尽きたら最も古い帯を打ち切る（作らない）。
+    func testRibbonPoolIsMadeOnlyForRecipesWithRibbonsAndNeverGrows() {
+        let q = RenderQuality.preset(.low)
+        let trail = FXRibbon.trail(width: 1, life: 0.3, duration: 0.5)
+        let none = SkillFXPlayer(quality: q)
+        none.prewarm(recipes: [])
+        none.play([.ribbon(trail)], context(.from(RGB(1, 1, 1))))
+        XCTAssertEqual(none.stats.ribbons.rejected, 1)
+        XCTAssertEqual(none.activeCount, 0)
+        let player = SkillFXPlayer(quality: q)
+        player.prewarm(recipes: [recipe([.ribbon(trail)])])
+        let n = SkillFXPlayer.ribbonCapacity(q)
+        player.play(Array(repeating: FXCue.ribbon(trail), count: n + 1), context(.from(RGB(1, 1, 1))))
+        XCTAssertEqual(player.stats.ribbons.cut, 1)
+        XCTAssertEqual(player.activeCount, n)
+        player.clear()
+        XCTAssertEqual(player.activeCount, 0)
     }
 }
