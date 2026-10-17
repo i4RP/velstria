@@ -62,7 +62,10 @@ tools/effekseer/textures.py ──→ Effects/Effekseer/Texture/Fx_*.png（ア�
 - 効果にブルームが掛かるか・明るさ（重ね描きの頃より明るい / 白飛びしすぎないか）。sRGB の画への合成で色が変わっていないか。
 - 歪みの効果（背景 = 効果を描く前の 3D 画面）の上下が反転していないか（`SetBackgroundTextureUVStyle`）。
 - 画質を低へ落とした時・自動の切り下げの時に重ね描きへ戻り、効果が消えたり二重に出たりしないか。
-- 後処理の中の描画の GPU 時間（Instruments の Metal。`velEffekseer` のパス）と、`sync.effekseer`（メインスレッドの進行だけになる）。
+- 後処理の中の描画の GPU 時間（Instruments の Metal。`velEffekseer` のパス）と、`sync.effekseer`（後処理で描く間はメインスレッドの進行だけ。
+  描画スレッドの Draw の CPU 時間はこの値に入らない。Time Profiler の RealityKit の描画スレッドで見る）。
+- 計測ログの `effekseer post probe … -> post`（確かめが通った）。`-> overlay` の試合は重ね描きのまま（形式・深度の向きと光った画素の数を見る）。
+- 写し先の色（画面と同じ大きさ。BGRA8 で約 12 MB、RGBA16F で約 24 MB）は最初に後処理で描ける状態になった時に 1 回作り、試合の間持つ。
 
 ## 効果の名前（`<heroID>_<段>`）
 
