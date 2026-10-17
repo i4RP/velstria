@@ -231,9 +231,12 @@ final class FXCapture {
     private func pollShot(world: BattleWorld, arView: ARView) {
         let fm = FileManager.default
         let done = FXCapture.handshake + "/done"
-        if fm.fileExists(atPath: done) {
-            // done には撮った画の名前が書いてある。前の画の遅れた done は捨てて待ち続ける
-            let token = (try? String(contentsOfFile: done, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines)
+        // done には撮った画の名前が書いてある。書きかけ（空）の done は消さずに次のフレームで読み直す（消すと CI の書いた合図が
+        // 失われ、40 秒待って ARView の画で代わっていた）
+        let token = fm.fileExists(atPath: done)
+            ? (try? String(contentsOfFile: done, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines) : nil
+        if let token, !token.isEmpty {
+            // 前の画の遅れた done は捨てて待ち続ける
             try? fm.removeItem(atPath: done)
             guard token == frozenName else { return }
         } else if CACurrentMediaTime() - frozenAt > FXCapture.handshakeTimeout {

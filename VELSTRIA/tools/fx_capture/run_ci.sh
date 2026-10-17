@@ -46,7 +46,9 @@ capture_once() {
   xcrun simctl launch --stdout="$log" --stderr="$log" "$UDID" "$BID" -uiTesting -skipOnboarding -grant -graphics high \
     -battle practice -hero "$hero" -practiceNoCD -practiceLevel "$LEVEL" -cameraPreset "$preset" -fxCapture all \
     "$@" -fxCaptureExit >/dev/null
-  local deadline=$((SECONDS + 480)) tick=0
+  # 1 体の撮影の時間切れ（秒）。最初のヒーローは初回の起動（シェーダーの準備）に 3 分近くかかり、再使用の段のあるヒーロー（H029）は
+  # 撮る枚数が 40 枚を越えるので、480 秒では S2 の途中で切れていた（2026-10-18）
+  local deadline=$((SECONDS + ${HERO_DEADLINE:-900})) tick=0
   while (( SECONDS < deadline )); do
     if [[ -f "$HS/request" ]]; then
       local name raw="$HS/raw.png"
@@ -61,7 +63,8 @@ capture_once() {
         if (( h > w )); then sips -r "$ROTATE" "$raw" --out "$HS/rot.png" >/dev/null 2>&1; else cp "$raw" "$HS/rot.png"; fi
         sips -s format jpeg -s formatOptions 88 -Z 1108 "$HS/rot.png" --out "$dest/$(basename "$name").jpg" >/dev/null 2>&1 || true
       fi
-      printf "%s" "$name" > "$HS/done"
+      # done は書き終えてから置く（書きかけの空の done をアプリが読んで捨てると、合図が 40 秒返らず ARView の画で代わっていた）
+      printf "%s" "$name" > "$HS/done.tmp" && mv -f "$HS/done.tmp" "$HS/done"
     fi
     if [[ -f "$DATA/Documents/fxcapture/$hero/manifest.json" ]]; then return 0; fi
     tick=$((tick + 1))
