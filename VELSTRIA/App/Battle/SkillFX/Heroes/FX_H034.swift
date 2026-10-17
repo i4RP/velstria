@@ -85,16 +85,16 @@ enum FX_H034: HeroFXSet {
         return .mesh(m, at: t0, .follow, offset: [0, y, 0.15 - l0 / 2])
     }
 
-    /// 鉤の頭（travel）: 暗い鉄の三日月（凸が前、2 本の返しが後ろ。録画 38 × 40 px ≈ 0.6 m）と、その下に少し大きく敷いた明るい鉄の縁。
-    /// 見える横幅（縁の板）= 判定の幅（半幅 hookWidth の 2 倍。三日月の画像の上下の端は板の ±0.4 = FXEdge.linearHalfWidth(.moon)）。
-    /// 板は横向き（yaw −90）なので、板の縦 = 横幅。暗い板は 0.86 倍で上に重ねる（縁が細く光って見える）。
+    /// 鉤の頭（travel）: 暗い鉄の三日月（凸が前、2 本の返しが後ろ。録画 38 × 40 px ≈ 0.6 m）と、その下に敷いた明るい鉄の縁。
+    /// 見える横幅 = 判定の幅（半幅 hookWidth の 2 倍。三日月の画像の上下の端は板の ±0.4 = FXEdge.linearHalfWidth(.moon)）。
+    /// 板は横向き（yaw −90）なので、板の縦 = 横幅。明るい板は同じ大きさで 4 cm 前へずらし、凸の縁だけを細く光らせる（横幅は変えない）。
     private static func hookHead(halfWidth: Float, life: Float) -> [FXCue] {
         let side = halfWidth / (FXEdge.linearHalfWidth(.moon) ?? 0.4)
-        func plate(_ s: Float, _ tint: FXTint, y: Float) -> FXCue {
-            .mesh(FXMesh(shape: .disc, tex: .moon, tint: tint, alpha: 1, size: [s, 1, s], sizeEnd: [s, 1, s], ease: .linear,
-                         life: life, fadeIn: 0.02, fadeOut: 0.85, yaw: -90), .follow, offset: [0, y, 0.12])
+        func plate(_ tint: FXTint, y: Float, z: Float) -> FXCue {
+            .mesh(FXMesh(shape: .disc, tex: .moon, tint: tint, alpha: 1, size: [side, 1, side], sizeEnd: [side, 1, side],
+                         ease: .linear, life: life, fadeIn: 0.02, fadeOut: 0.85, yaw: -90), .follow, offset: [0, y, z])
         }
-        return [plate(side, hookShine, y: 1.04), plate(side * 0.86, hookIron, y: 1.06)]
+        return [plate(hookShine, y: 1.04, z: 0.16), plate(hookIron, y: 1.06, z: 0.12)]
     }
 
     /// 命中からその場の hold 秒、術者と被弾者の間に張られた鎖（hit。線上の t の位置に piece の長さで置く。追従しない）。
