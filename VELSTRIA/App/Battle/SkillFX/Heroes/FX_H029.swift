@@ -76,12 +76,14 @@ enum FX_H029: HeroFXSet {
                life: life, fadeIn: 0.12, fadeOut: 0.8, spin: spin)
     }
 
-    /// 地面の衝撃の輪（外縁の持ち上がった輪の模型が radius まで広がる）。
-    private static func ring(_ radius: Float, _ tint: FXTint, life: Float, from: Float = 0.25, lift: Float = 1.2) -> FXMesh {
+    /// 地面の衝撃の輪（外縁の持ち上がった輪の模型が radius まで広がる）。refract = 輪の縁の画面の歪み（実機の後処理だけ）。
+    private static func ring(_ radius: Float, _ tint: FXTint, life: Float, from: Float = 0.25, lift: Float = 1.2,
+                             refract: Float = 0) -> FXMesh {
         FXMesh.model(.ringLip, nil, tint, size: [radius * from, lift, radius * from], sizeEnd: [radius, lift * 0.6, radius],
                      life: life).with {
             $0.fadeIn = 0.02
             $0.fadeOut = 0.35
+            $0.refract = refract
         }.glowing()
     }
 
@@ -121,7 +123,7 @@ enum FX_H029: HeroFXSet {
                            .primary), at: t0 - 0.19, offset: [0.32, 0, 0.1]),
             // 槌の頭が地を打つ点: 白金の閃光と小さな衝撃の輪
             .emit(.flare(1.6, .core, life: 0.14, tex: .flare6), at: t0 - 0.02, offset: [0.25, 0.4, 0.95]),
-            .mesh(ring(1.1, .accent, life: 0.28), at: t0 - 0.02, offset: [0.25, 0, 0.95]),
+            .mesh(ring(1.1, .accent, life: 0.28, refract: 0.004), at: t0 - 0.02, offset: [0.25, 0, 0.95]),
             // 地を前へ走る金のぎざぎざの筋（衝撃波の通り道。2 本を少し開いて）
             .mesh(FXMesh.ray(.bolt, length: R * 0.5, width: 0.55, hot, life: 0.34).glowing().with { $0.yaw = 90 + 5 }, at: t0 - 0.01,
                   offset: [0.15, 0.02, 0.95 + R * 0.25]),
@@ -223,7 +225,7 @@ enum FX_H029: HeroFXSet {
                   at: dashTime, .target, offset: [0, 0, 0.3]),
             .mesh(.flipbook(.fireball, 3.0, .white, life: 0.55), at: dashTime + 0.02, .target, offset: [0, 1.0, 0.3]),
             .mesh(.sprite(.glowHard, 2.4, .core, life: 0.16, grow: 1.6).glowing(), at: dashTime, .target, offset: [0, 0.9, 0.3]),
-            .mesh(ring(2.4, .accent, life: 0.4), at: dashTime, .target, offset: [0, 0, 0.4]),
+            .mesh(ring(2.4, .accent, life: 0.4, refract: 0.008), at: dashTime, .target, offset: [0, 0, 0.4]),
             .emit(.debris(10, speed: 5, dust), at: dashTime, .target, offset: [0, 0, 0.5]),
             .emit(.sparks(16, speed: 8, .core, end: .primary, life: 0.45), at: dashTime, .target, offset: [0, 0.9, 0.3]),
             .shake(0.22, at: dashTime),
@@ -274,7 +276,7 @@ enum FX_H029: HeroFXSet {
             // 焦げた放射状のひび（溶けて消える）・足元の衝撃の輪
             .mesh(crack(.crackRadial, 3.0, char, life: 1.1, alpha: 0.8).dissolving(from: 0.5, tiling: 2.5, edge: ember, width: 0.06),
                   at: t, offset: mid),
-            .mesh(ring(1.9, .accent, life: 0.35), at: t, offset: mid),
+            .mesh(ring(1.9, .accent, life: 0.35, refract: 0.006), at: t, offset: mid),
             // 打ち上げ: 地面から昇る輪が 3 つ続く（光る）
             .mesh(FXMesh.halo(0.9, .accent, life: 0.6, spin: 200, tex: .ringDouble).with { $0.rise = 3.5 }.glowing(), at: t,
                   offset: [0, 0.2, smashReach * 0.5]).repeated(3, every: 0.08),
@@ -391,8 +393,8 @@ enum FX_H029: HeroFXSet {
                     $0.fadeOut = 0.95
                 }, at: t + 0.05),
             // 2 重の衝撃の輪（白金 → 橙）
-            .mesh(ring(R * 1.05, .core, life: 0.35, from: 0.3, lift: 1.4), at: t),
-            .mesh(ring(R * 1.35, flame, life: 0.55, from: 0.4), at: t + 0.06),
+            .mesh(ring(R * 1.05, .core, life: 0.35, from: 0.3, lift: 1.4, refract: 0.012), at: t),
+            .mesh(ring(R * 1.35, flame, life: 0.55, from: 0.4, refract: 0.008), at: t + 0.06),
             // 白い岩板が跳ね上がって落ちる（岩板の輪の模型が広がりながら放物線を描く）
             .mesh(.model(.shardRing, nil, rock, size: [R * 0.45, 1, R * 0.45], sizeEnd: [R * 1.15, 1, R * 1.15], life: 0.75)
                 .with {
