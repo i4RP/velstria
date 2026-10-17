@@ -215,11 +215,14 @@ class Node:
                  billboard="billboard", fade_in=0, fade_out=0, kind="sprite", ring=None,
                  detach=False, children=None, loop=False, zwrite=False, distort=0, uv_scroll=None,
                  bind_scale=True, bind_rot=True, remove_with_parent=True, depth_offset=0, cutoff=None, ztest=True,
-                 drawing_priority=0):
+                 drawing_priority=0, ribbon_width=1.0, spline=4, track=None):
         """distort > 0: 歪み（背景を歪ませる。Material = BackDistortion・強さ）。テクスチャの法線向きの絵（Fx_Distort）を使う。
         depth_offset: カメラ側へずらす量（m。体の中ほどの閃きが体に隠れないように）。
         cutoff: 溶け（アルファの切り捨て）の閾値 (始め, 終わり)（0 = 全部見える、1 = 全部消える。寿命で変わる）。
         ztest: 深度で隠れるか（False = 常に手前。重ね描きでは違いが無い）。drawing_priority: 同じ効果の中の描く順（大きいほど後）。
+        kind="ribbon": 同じノードの粒を生まれた順に繋ぐ帯（振りの軌跡。粒の局所 X が幅の向き、幅 = ribbon_width × 粒の大きさ X）。
+          粒は detach=True（生まれた所に残る）で、親（回る・動く点）の子にする。spline = 繋ぎの分割。
+        kind="track": 粒の通った跡の帯（track = (前, 中, 後) の幅 m）。粒は動く点そのもの。
         uv_scroll: (横, 縦) の UV の流れる速さ（画像の何枚分 / 秒。画像は繰り返す）。"""
         self.__dict__.update(locals())
         del self.__dict__["self"]
@@ -288,6 +291,19 @@ class Node:
         if self.kind == "sprite":
             sp = tag("Billboard", num(BILLBOARD[self.billboard])) + col.xml("ColorAll")
             b.append(tag("DrawingValues", tag("Sprite", sp)))
+        elif self.kind == "ribbon":
+            w = self.ribbon_width / 2
+            rb = (tag("ViewpointDependent", "False") + col.xml("ColorAll") + tag("Position", "1")
+                  + tag("Position_Fixed_L", num(-w)) + tag("Position_Fixed_R", num(w)) + tag("SplineDivision", num(self.spline)))
+            b.append(tag("DrawingValues", tag("Type", "3") + tag("Ribbon", rb)))
+        elif self.kind == "track":
+            front, middle, back = self.track or (0.6, 0.4, 0.05)
+            tr = (tag("TrackSizeFor", "0") + tag("TrackSizeFor_Fixed", num(front))
+                  + tag("TrackSizeMiddle", "0") + tag("TrackSizeMiddle_Fixed", num(middle))
+                  + tag("TrackSizeBack", "0") + tag("TrackSizeBack_Fixed", num(back)) + tag("SplineDivision", num(self.spline)))
+            for part in ("ColorLeft", "ColorLeftMiddle", "ColorCenter", "ColorCenterMiddle", "ColorRight", "ColorRightMiddle"):
+                tr += col.xml(part)
+            b.append(tag("DrawingValues", tag("Type", "6") + tag("Track", tr)))
         elif self.kind == "ring":
             r = self.ring or Ring()
             b.append(tag("DrawingValues", tag("Type", "3") + tag("Ring", r.xml(col, BILLBOARD[self.billboard]))))

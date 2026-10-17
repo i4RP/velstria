@@ -169,6 +169,11 @@ DSL の追加（2026-10-18。公式の書き出し（`EFFEKSEER_CLI` / `effeksee
 - `Node(depth_offset=m)`: カメラ側へずらす（体の中ほどの閃きを体の手前に）。`ztest=False`: 常に手前。`drawing_priority`: 同じ効果の中の描く順。
 - `Node(cutoff=(始め, 終わり))`: 溶け（アルファの切り捨ての閾値を寿命で 始め → 終わり）。
 - `Node(uv_scroll=(横, 縦))`: UV を流す（画像の何枚分 / 秒。書き出しでは画素 / フレームに直す）。
+- `Node(kind="ribbon")`: 同じノードの粒を生まれた順に繋ぐ帯（振りの軌跡）。回る・動く親（見えない点）の子にして、`count="inf", interval=1,
+  detach=True` で毎フレーム生まれた所に残る粒を出す。幅 = `ribbon_width` × 粒の大きさ X、`spline` = 繋ぎの分割。画像は帯の長さ = U、幅 = V
+  （横長の Fx_Streak は端が透けるので短く見える。柔らかい画像か帯用の画像を使う）。
+- `Node(kind="track", track=(前, 中, 後))`: 粒の通った跡の帯（幅 m）。ribbon と同じく動く親の子で毎フレーム粒を出す。
+  ribbon・track は WebGL の確認環境で描けることを確かめた（2026-10-18）。模型（Model）は .efkmodel の変換が要るので未対応。
 - `Node(distort=強さ)`: 歪み（Material = BackDistortion）。**未確認**: WebGL の確認環境では白い四角になる（背景の取り込みか歪みの画像の読み込み）。
   実機で確かめるまで同梱の効果には使わない。
 参照ヒーロー 12 体の 150 効果は、全て CLI の出力とバイト一致（角度のラジアン変換だけ float32 で最大 2 ulp ずれる 89 本）。H025〜H034 の 128 効果は CLI の無い環境でこの書き出し器から作った（`check_export.py` の「完全一致」は書き出し器どうしの再現性）。DSL が出す範囲（Fixed / PVA / Easing・球と円の生成・スプライト・フェード・入れ子）だけ対応。範囲外は例外にする。
