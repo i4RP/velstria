@@ -667,7 +667,7 @@ def flame_noise(out, res, samples):
 # name → (関数, 種類, コマ数, 1 コマの画素)。種類: "sheet" = コマ送り、"image" = 1 枚、"tile" = 継ぎ目なし
 JOBS = {
     "fireball": (fireball, "sheet", 25, 256),
-    "smoke_hd": (smoke, "sheet", 25, 256),
+    "smoke_hd": (smoke, "sheet", 16, 192),
     "spikes": (spikes, "sheet", 16, 256),
     "rock_tumble": (rock, "sheet", 16, 128),
     "dust_ring": (dust_ring, "sheet", 16, 256),

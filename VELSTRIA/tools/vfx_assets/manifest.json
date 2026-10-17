@@ -82,15 +82,15 @@
       "size": 512
     },
     "smoke_hd": {
-      "bytes": 1097431,
+      "bytes": 400464,
       "color": "colored",
-      "columns": 5,
+      "columns": 4,
       "file": "Sheets/fx_smoke_hd.png",
-      "frameSize": 256,
-      "frames": 25,
+      "frameSize": 192,
+      "frames": 16,
       "kind": "sheet",
-      "rows": 5,
-      "sha256": "81ad33de656537090fa3edb8dd0fbe92638fb64a6c26163fccf93141a684da8f"
+      "rows": 4,
+      "sha256": "66304640d1950d95daaf48a498dac99b848c2d80dc1f6e624026f53929dfc8ae"
     },
     "spikes": {
       "bytes": 148893,
