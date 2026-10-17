@@ -50,6 +50,8 @@ jobs:
           if [[ "$TAG" == *probe* ]]; then echo "PROBE=1" >> "$GITHUB_ENV"; fi
           # 名前に moving を含むタグは、撮る間も粒子を止めない（粒子が映るかの切り分け）
           if [[ "$TAG" == *moving* ]]; then echo "MOVING=1" >> "$GITHUB_ENV"; fi
+          # 名前に motion を含むタグは、全身のモーションの確認（細かい時刻・体の横が見える向き・通常攻撃）
+          if [[ "$TAG" == *motion* ]]; then echo "MOTION=1" >> "$GITHUB_ENV"; fi
           cat "$GITHUB_ENV" || true
 
       - name: ツール準備

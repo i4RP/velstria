@@ -3,7 +3,8 @@
 # シミュレータを起動してアプリを入れ、カメラの組（PRESETS）× ヒーロー（HEROES）ごとに練習場を -fxCapture で起動し、
 # 書き出した画像と目録（manifest.json）を build/fxcapture/<組>/<ヒーロー>/ へ集める。
 #   環境変数: HEROES（空白区切り）・PRESETS（legacy / mlbb）・LEVEL（練習場の開始レベル、既定 4）・APP（.app の場所）・
-#            PROBE（1 なら -fxCaptureProbe）・ROTATE（縦長の画面の撮影を回す角度、既定 270）
+#            PROBE（1 なら -fxCaptureProbe）・ROTATE（縦長の画面の撮影を回す角度、既定 270）・
+#            MOTION（1 なら全身のモーションの確認: 細かい時刻・体の横が見える向き・通常攻撃も撮る）
 # アプリは撮る時刻に止めて $HS/request（<ヒーロー>/<名前>）を書く → 画面を撮って $HS/done に同じ名前を書く（FXCapture.handshake）。
 # 起動直後にアプリが落ちる（CI のシミュレータで音声の初期化が固まる AURemoteIO の RPC timeout）ことがあるので、落ちたら 3 回まで起動し直す。
 set -euo pipefail
@@ -81,6 +82,10 @@ for preset in $PRESETS; do
     if [[ $first == 1 ]]; then extra=(-fxCaptureRings); fi
     if [[ -n "${PROBE:-}" ]]; then extra+=(-fxCaptureProbe); fi
     if [[ -n "${MOVING:-}" ]]; then extra+=(-fxCaptureMovingParticles); fi
+    if [[ -n "${MOTION:-}" ]]; then
+      extra+=(-fxCaptureTimes "0,0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.45,0.55,0.65,0.8,0.95,1.1,1.3,1.6,1.85,2.05,2.3"
+              -fxCaptureSide -fxCaptureAttack)
+    fi
     first=0
     dest="$OUT/$preset/$hero"
     mkdir -p "$dest"
