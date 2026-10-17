@@ -345,8 +345,13 @@ final class UnitLayer {
         creatures[targetID]?.hit()
     }
 
-    func noteCast(heroID: EntityID, slot: SkillSlot, time: Float) {
-        heroes[heroID]?.noteCast(slot, time: time)
+    func noteCast(heroID: EntityID, slot: SkillSlot, stage: Int = 0, time: Float) {
+        heroes[heroID]?.noteCast(slot, stage: stage, time: time)
+    }
+
+    /// ヒーローのスキルのダメージ（命中の後のモーションの合図）。
+    func noteSkillHit(sourceID: EntityID, slot: SkillSlot, time: Float) {
+        heroes[sourceID]?.noteSkillHit(slot, time: time)
     }
 
     /// 現在の見た目の world 位置（未表示なら nil）。

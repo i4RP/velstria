@@ -23,23 +23,55 @@ struct MotionClip {
     var total: Float
     /// 下半身・全身の移動（跳躍・回転・踏み込み）も動かすか。false なら上半身だけ。
     var fullBody: Bool
+    /// 全身のモーションでも、移動している間（sim が動かしている間を含む）は下半身・体の位置を移動の姿勢へ戻す
+    /// （HeroAnimator が 0.12 秒で寄せる。足を滑らせない）。既定 false = 従来どおり（既存のヒーローの動きは変えない）。
+    var yieldsLowerWhenMoving = false
+    /// 打撃の時刻（クリップの秒）。通常攻撃のモーション（HeroMotionProfile.attackMotions）はこれを sim の命中の時刻へ合わせる。
+    var impact: Float?
+    /// 打つ手（武器の軌跡）。
+    var strikeHand: HeroStrikeHand = .right
+    /// sim が術者を止めておく長さ（秒。奥義の拘束など）。これがあるモーションは長さの上限を sim の時間に合わせてよい（SkillFXTests）。
+    var simLock: Float?
 
     /// base（現在の移動・待機の姿勢）から評価する。
     func evaluate(base: HeroPose, t: Float) -> HeroPose {
         guard let first = keys.first, t < total else { return base }
-        let target: HeroPose
+        var target: HeroPose
         if t < first.time {
-            target = HeroPose.mix(base, first.pose, first.ease.apply(t / max(0.001, first.time)))
+            let e = first.ease.apply(t / max(0.001, first.time))
+            target = HeroPose.mix(base, first.pose, e)
+            // 足の接地は始めから効かせる（base = 待機の立ち位置 = 目標 0 から踏み出す。重みを混ぜると上げた足が地面に残って滑る）
+            target.plant = max(target.plant, first.pose.plant)
+            Self.liftSteps(&target, from: base, to: first.pose, e)
         } else if let last = keys.last, t >= last.time {
-            let u = (t - last.time) / max(0.001, total - last.time)
-            target = HeroPose.mix(last.pose, base, smooth01(u))
+            let u = smooth01((t - last.time) / max(0.001, total - last.time))
+            target = HeroPose.mix(last.pose, base, u)
+            // 戻りも最後まで接地したまま待機の立ち位置へ踏み戻す（終わりの姿勢は目標 0 = 待機の脚と同じ）
+            target.plant = max(target.plant, last.pose.plant)
+            Self.liftSteps(&target, from: last.pose, to: base, u)
         } else {
             var k = 0
             while k + 1 < keys.count && keys[k + 1].time <= t { k += 1 }
             let a = keys[k], b = keys[k + 1]
-            target = HeroPose.mix(a.pose, b.pose, b.ease.apply((t - a.time) / max(0.001, b.time - a.time)))
+            let e = b.ease.apply((t - a.time) / max(0.001, b.time - a.time))
+            target = HeroPose.mix(a.pose, b.pose, e)
+            Self.liftSteps(&target, from: a.pose, to: b.pose, e)
         }
         return fullBody ? target : HeroPose.mixUpper(base, target, 1)
+    }
+
+    /// 足の接地のモーションで、キーの間に足首の目標が地面の上を動く足は弧を描いて上げる（踏み出し。滑らせない）。
+    /// 上げる高さ = 動く距離の 0.45 倍（最大 0.16 m）× sin(πu)。目標の y（キーに書いた高さ）に足す。
+    @inline(__always) static func liftSteps(_ p: inout HeroPose, from a: HeroPose, to b: HeroPose, _ u: Float) {
+        guard p.plant > 0.001 else { return }
+        let arc = sin(Float.pi * min(1, max(0, u)))
+        guard arc > 0 else { return }
+        func lift(_ x: SIMD3<Float>, _ y: SIMD3<Float>) -> Float {
+            let dx = y.x - x.x, dz = y.z - x.z
+            return min(0.16, 0.45 * (dx * dx + dz * dz).squareRoot()) * arc
+        }
+        p.footR.y += lift(a.footR, b.footR)
+        p.footL.y += lift(a.footL, b.footL)
     }
 
     /// 旧来の 3 段クリップから作る（上半身のみ）。
@@ -88,6 +120,20 @@ struct MotionBuilder {
     private(set) var time: Float = 0
     /// 全身を動かすか（leap・spin・lunge などの技を使うと true になる）。
     var fullBody = false
+    /// 盾持ちの左腕を胸の前に保つ（既定 true）。false の間に積んだキーは左腕・盾の角も書ける（盾を掲げる・叩きつける）。
+    var shieldGuard = true
+    /// 移動中は下半身を移動の姿勢へ戻す（MotionClip.yieldsLowerWhenMoving）。
+    var yieldsLowerWhenMoving = false
+    /// 打撃の時刻（markImpact で今の時刻を入れる）。
+    var impact: Float?
+    var strikeHand: HeroStrikeHand = .right
+    /// sim が術者を止めておく長さ（MotionClip.simLock）。
+    var simLock: Float?
+    /// 腕の前後（pitch）・武器角・頭の前後を、胴ではなく体の鉛直に対して書く（既定 false = 従来どおり胴に対して）。
+    /// 胴を大きく前へ倒す全身のモーションで、腕・武器が胴と一緒に後ろへ回らないようにする。true の間に積んだキーは、
+    /// 書いた値（authored）から torsoPitch の分を足し引きして胴の座標へ直して積む（authored は次のキーへ持ち越す）。
+    var worldAngles = false
+    private var authored: HeroPose
 
     init(rest: HeroPose, style: AttackStyle, shield: Bool, twoHanded: Bool, bow: Bool) {
         self.rest = rest
@@ -96,15 +142,34 @@ struct MotionBuilder {
         self.twoHanded = twoHanded
         self.bow = bow
         pose = rest
+        authored = rest
+    }
+
+    /// 体の鉛直に対して書いた腕・武器・頭の角度を、胴の座標へ直す（胴の前傾 tp: 腕・武器 + tp、頭 - tp）。
+    static func torsoRelative(_ a: HeroPose) -> HeroPose {
+        var p = a
+        let tp = a.torsoPitch
+        p.armR.pitch += tp
+        p.armL.pitch += tp
+        p.weaponR += tp
+        p.weaponL += tp
+        p.headPitch -= tp
+        return p
     }
 
     var isRanged: Bool { style == .bow || style == .gun || style == .staff || style == .spellThrow }
 
     /// dt 秒かけて、直前の姿勢を f で変えた姿勢へ動く。
     mutating func key(_ dt: Float, _ ease: MotionEase = .out, _ f: (inout HeroPose) -> Void) {
-        var p = pose
+        var p = worldAngles ? authored : pose
         f(&p)
-        if shield {
+        if worldAngles {
+            authored = p
+            p = Self.torsoRelative(p)
+        } else {
+            authored = p
+        }
+        if shield && shieldGuard {
             // 盾は胸の前に保つ（顔を隠さない）
             p.armL = ArmPose(pitch: 0.9, out: 0.35, yaw: 0.1, elbow: 0.7)
             p.weaponL = 0
@@ -132,8 +197,31 @@ struct MotionBuilder {
     }
 
     func build(recover: Float = 0.3) -> MotionClip {
-        MotionClip(keys: keys, total: time + max(0.08, recover), fullBody: fullBody)
+        var c = MotionClip(keys: keys, total: time + max(0.08, recover), fullBody: fullBody)
+        c.yieldsLowerWhenMoving = yieldsLowerWhenMoving
+        c.impact = impact
+        c.strikeHand = strikeHand
+        c.simLock = simLock
+        return c
     }
+
+    /// 足を接地したまま全身を動かすキー（plant = 1。f の中で足首の目標 footR / footL・体の位置・腰・上半身を書く）。
+    /// 足首の目標が動くキーの間は、その足を弧を描いて踏み出す（MotionClip.liftSteps）。全身のモーションになる。
+    mutating func planted(_ dt: Float, _ ease: MotionEase = .out, _ f: (inout HeroPose) -> Void) {
+        fullBody = true
+        key(dt, ease) { p in
+            p.plant = 1
+            f(&p)
+        }
+    }
+
+    /// 今の時刻（直前のキーの時刻）を打撃の時刻にする。
+    mutating func markImpact() {
+        impact = time
+    }
+
+    /// 今の時刻（直前に積んだキーの時刻）。
+    var now: Float { time }
 }
 
 // MARK: - 技（組み合わせて使う部品）
