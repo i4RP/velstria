@@ -71,7 +71,8 @@ jobs:
           grep -E "error:|BUILD (SUCCEEDED|FAILED)" build/xcodebuild.log | head -80 || true
           grep -q "BUILD SUCCEEDED" build/xcodebuild.log
 
-      # 名前に apptests を含むタグは、撮影の前に演出の範囲・スキル演出・演出チェックのアプリのテストも回す（docs/vfx/RANGES.md。
+      # 名前に apptests を含むタグは、撮影の前に演出の範囲・スキル演出・演出チェック・Effekseer（後処理の中・段に重ねる効果）の
+      # アプリのテストも回す（docs/vfx/RANGES.md・docs/EFFEKSEER.md。
       # 結果は成果物の apptests.log。落ちても撮影は続ける）
       - name: 演出のアプリのテスト（apptests のタグだけ）
         if: contains(github.ref_name, 'apptests')
@@ -82,7 +83,8 @@ jobs:
             -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' -destination-timeout 120 \
             -derivedDataPath build/dd CODE_SIGNING_ALLOWED=NO \
             -only-testing:VELSTRIATests/SkillFXRangeTests -only-testing:VELSTRIATests/SkillFXTests \
-            -only-testing:VELSTRIATests/FXCheckTests > build/fxcapture/apptests.log 2>&1 || echo "アプリのテストが落ちた（apptests.log）"
+            -only-testing:VELSTRIATests/FXCheckTests -only-testing:VELSTRIATests/EffekseerPostTests \
+            -only-testing:VELSTRIATests/EffekseerKitStackTests > build/fxcapture/apptests.log 2>&1 || echo "アプリのテストが落ちた（apptests.log）"
           grep -E "error:|Test Case .*(passed|failed)|Executed|TEST (SUCCEEDED|FAILED)" build/fxcapture/apptests.log | tail -120 || true
 
       - name: 撮影
