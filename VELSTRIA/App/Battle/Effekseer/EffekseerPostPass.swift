@@ -238,19 +238,23 @@ final class EffekseerPostPass: @unchecked Sendable {
 #if DEBUG
 extension EffekseerPostPass {
     struct SelfTest: Equatable {
-        /// 後処理用の描き手を作れた。
+        var label = ""
+        /// 描き手を作れた（後処理用。重ね描きの比較は常に true）。
         var prepared = false
-        /// encodePost が描いた。
+        /// 描いた（encodePost / 重ね描きの描画が呼べた）。
         var drew = false
-        /// 深度が遠い（逆 Z の 0）画で効果が映った画素の数。
+        /// 進めた後の Effekseer の粒子の数。
+        var instances = 0
+        /// 深度が遠い画で効果が映った画素の数。
         var litFar = 0
-        /// 深度が近い（逆 Z の 1。全面が効果の手前にある）画で効果が映った画素の数（0 = 3D に隠れる）。
+        /// 深度が近い（全面が効果の手前にある）画で効果が映った画素の数（0 = 3D に隠れる）。
         var litNear = 0
         /// 同じ近い深度で、効果を「3D の上の層」（setOnTop）にした時に映った画素の数（> 0 = 深度を戻して上に描く）。
         var litNearOnTop = 0
 
         var summary: String {
-            "efkPost prepared=\(prepared) drew=\(drew) litFar=\(litFar) litNear=\(litNear) litNearOnTop=\(litNearOnTop)"
+            "efkPost[\(label)] prepared=\(prepared) drew=\(drew) instances=\(instances) litFar=\(litFar) litNear=\(litNear) "
+                + "litNearOnTop=\(litNearOnTop)"
         }
     }
 
@@ -260,31 +264,54 @@ extension EffekseerPostPass {
         return simd_float4x4(columns: (SIMD4(f / aspect, 0, 0, 0), SIMD4(0, f, 0, 0), SIMD4(0, 0, 0, -1), SIMD4(0, 0, near, 0)))
     }
 
+    /// 通常の射影（深度 0 = 近い、1 = 遠い）。
+    static func perspective(fovY: Float, aspect: Float, near: Float, far: Float) -> simd_float4x4 {
+        let f = 1 / tan(fovY / 2)
+        return simd_float4x4(columns: (SIMD4(f / aspect, 0, 0, 0), SIMD4(0, f, 0, 0), SIMD4(0, 0, far / (near - far), -1),
+                                       SIMD4(0, 0, near * far / (near - far), 0)))
+    }
+
+    /// 撮影の最後に試す組（後処理の色の形式・深度の向きと、比べるための重ね描きの描き手）。
+    static let selfTestCases: [(label: String, format: MTLPixelFormat, reversed: Bool, overlay: Bool)] = [
+        ("overlay", .bgra8Unorm, false, true),
+        ("bgra8", .bgra8Unorm, false, false),
+        ("bgra8srgb-rev", .bgra8Unorm_srgb, true, false),
+        ("rgba16f-rev", .rgba16Float, true, false),
+    ]
+
     /// 後処理の中で描く経路を、黒い画と一様な深度（遠い / 近い）で試す（実機の 3D 画面が無くても、描き手の作成・描画・深度の向きを確かめる）。
-    /// effects はバンドルの効果の名前（拡張子なし）。saveTo を渡すと、遠い深度の画を PNG で書き出す。
+    /// overlay = 重ね描きの描き手で同じ画を描く（比べる基準。深度なし）。effects はバンドルの効果の名前（拡張子なし）。
+    /// saveTo を渡すと、遠い深度の画を PNG で書き出す。
     @MainActor
-    static func selfTest(effects: [String], bundle: Bundle = .main, size: Int = 192,
-                         format: MTLPixelFormat = .bgra8Unorm_srgb, timeout: Double = 8, saveTo: URL? = nil) -> SelfTest {
-        var r = SelfTest()
+    static func selfTest(effects: [String], bundle: Bundle = .main, size: Int = 192, format: MTLPixelFormat = .bgra8Unorm_srgb,
+                         reversed: Bool = true, overlay: Bool = false, label: String = "", timeout: Double = 8,
+                         saveTo: URL? = nil) -> SelfTest {
+        var r = SelfTest(label: label.isEmpty ? "\(format.rawValue)\(reversed ? "-rev" : "")" : label)
         guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue(), let rt = EfkRuntime(),
               let dir = bundle.url(forResource: EffekseerOverlay.bundleFolder, withExtension: nil),
               let lib = try? device.makeLibrary(source: PostProcessor.librarySource, options: nil),
               let pipelines = makePipelines(format, library: lib, device: device), let depthState = writeDepthState(device)
         else { return r }
         for n in effects { _ = rt.loadEffectNamed(n, path: dir.appendingPathComponent(n + ".efk").path, magnification: 1) }
-        let deadline = CFAbsoluteTimeGetCurrent() + timeout
-        while !rt.isPrepared(postColorFormat: format, reversedDepth: true) {
-            guard CFAbsoluteTimeGetCurrent() < deadline else { return r }
-            Thread.sleep(forTimeInterval: 0.02)
+        if !overlay {
+            let deadline = CFAbsoluteTimeGetCurrent() + timeout
+            while !rt.isPrepared(postColorFormat: format, reversedDepth: reversed) {
+                guard CFAbsoluteTimeGetCurrent() < deadline else { return r }
+                Thread.sleep(forTimeInterval: 0.02)
+            }
+            rt.drawsInPostProcess = true
         }
         r.prepared = true
-        rt.drawsInPostProcess = true
         let cam = Entity()
         cam.look(at: [0, 0.8, 0], from: [0, 8, 8.5], relativeTo: nil)
         let world = cam.transformMatrix(relativeTo: nil)
         let handles = effects.map { rt.playNamed($0, position: .zero, yaw: 0, scale: 1, speed: 1) }
         for _ in 0..<8 { rt.advance(cameraWorld: world, deltaSeconds: 1.0 / 60) }
-        let proj = reversedPerspective(fovY: 40 * .pi / 180, aspect: 1, near: 0.5)
+        r.instances = rt.activeCount
+        let fov: Float = 40 * .pi / 180
+        let proj = reversed ? reversedPerspective(fovY: fov, aspect: 1, near: 0.5)
+            : perspective(fovY: fov, aspect: 1, near: 0.5, far: 200)
+        let farDepth: Double = reversed ? 0 : 1, nearDepth: Double = reversed ? 1 : 0
 
         func draw(clearDepth: Double) -> (lit: Int, drew: Bool, bytes: [UInt8]) {
             let cd = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: format, width: size, height: size, mipmapped: false)
@@ -293,59 +320,76 @@ extension EffekseerPostPass {
             let dd = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .depth32Float, width: size, height: size, mipmapped: false)
             dd.usage = [.renderTarget]
             dd.storageMode = .private
+            let px = format == .rgba16Float ? 8 : 4
             guard let color = device.makeTexture(descriptor: cd), let depth = device.makeTexture(descriptor: dd),
-                  let buf = device.makeBuffer(length: size * size * 4, options: .storageModeShared),
+                  let buf = device.makeBuffer(length: size * size * px, options: .storageModeShared),
                   let cb = queue.makeCommandBuffer() else { return (0, false, []) }
             let rp = MTLRenderPassDescriptor()
             rp.colorAttachments[0].texture = color
             rp.colorAttachments[0].loadAction = .clear
             rp.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1)
             rp.colorAttachments[0].storeAction = .store
-            rp.depthAttachment.texture = depth
-            rp.depthAttachment.loadAction = .clear
-            rp.depthAttachment.clearDepth = clearDepth
-            rp.depthAttachment.storeAction = .dontCare
+            if !overlay {
+                rp.depthAttachment.texture = depth
+                rp.depthAttachment.loadAction = .clear
+                rp.depthAttachment.clearDepth = clearDepth
+                rp.depthAttachment.storeAction = .dontCare
+            }
             guard let enc = cb.makeRenderCommandEncoder(descriptor: rp) else { return (0, false, []) }
-            let drew = rt.encodePost(encoder: enc, projection: proj, background: nil,
-                                     resetDepth: depthReset(pipelines.resetDepth, depthState, reversed: true))
+            let drew = overlay
+                ? rt.debugEncodeOverlay(encoder: enc, cameraWorld: world, projection: proj)
+                : rt.encodePost(encoder: enc, projection: proj, background: nil,
+                                resetDepth: depthReset(pipelines.resetDepth, depthState, reversed: reversed))
             enc.endEncoding()
             guard let blit = cb.makeBlitCommandEncoder() else { return (0, drew, []) }
             blit.copy(from: color, sourceSlice: 0, sourceLevel: 0, sourceOrigin: MTLOrigin(x: 0, y: 0, z: 0),
                       sourceSize: MTLSize(width: size, height: size, depth: 1), to: buf, destinationOffset: 0,
-                      destinationBytesPerRow: size * 4, destinationBytesPerImage: size * size * 4)
+                      destinationBytesPerRow: size * px, destinationBytesPerImage: size * size * px)
             blit.endEncoding()
             cb.commit()
             cb.waitUntilCompleted()
-            let p = buf.contents().bindMemory(to: UInt8.self, capacity: size * size * 4)
-            let bytes = Array(UnsafeBufferPointer(start: p, count: size * size * 4))
+            var bytes = [UInt8](repeating: 0, count: size * size * 4)
             var lit = 0
-            for i in stride(from: 0, to: bytes.count, by: 4) where max(bytes[i], bytes[i + 1], bytes[i + 2]) > 10 { lit += 1 }
+            if px == 8 {
+                let p = buf.contents().bindMemory(to: Float16.self, capacity: size * size * 4)
+                for i in 0..<(size * size) {
+                    let v = (0..<3).map { Float(p[i * 4 + $0]) }
+                    if (v.max() ?? 0) > 0.04 { lit += 1 }
+                    for c in 0..<3 { bytes[i * 4 + (2 - c)] = UInt8(max(0, min(255, (v[c].squareRoot() * 255).rounded()))) }
+                    bytes[i * 4 + 3] = 255
+                }
+            } else {
+                let p = buf.contents().bindMemory(to: UInt8.self, capacity: size * size * 4)
+                bytes = Array(UnsafeBufferPointer(start: p, count: size * size * 4))
+                for i in stride(from: 0, to: bytes.count, by: 4) where max(bytes[i], bytes[i + 1], bytes[i + 2]) > 10 { lit += 1 }
+            }
             return (lit, drew, bytes)
         }
 
-        let far = draw(clearDepth: 0)
-        let near = draw(clearDepth: 1)
+        let far = draw(clearDepth: farDepth)
+        let near = draw(clearDepth: nearDepth)
         for h in handles where h >= 0 { rt.setOnTop(true, handle: h) }
-        let onTop = draw(clearDepth: 1)
+        let onTop = draw(clearDepth: nearDepth)
         r.drew = far.drew
         r.litFar = far.lit
         r.litNear = near.lit
         r.litNearOnTop = onTop.lit
-        if let saveTo, !far.bytes.isEmpty {
-            // BGRA → PNG（確認用）
-            let data = Data(far.bytes) as CFData
-            if let provider = CGDataProvider(data: data),
-               let image = CGImage(width: size, height: size, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: size * 4,
-                                   space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
-                                   bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipFirst.rawValue
-                                                            | CGBitmapInfo.byteOrder32Little.rawValue),
-                                   provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent),
-               let png = UIImage(cgImage: image).pngData() {
-                try? png.write(to: saveTo, options: .atomic)
-            }
-        }
+        if let saveTo, !far.bytes.isEmpty { savePNG(far.bytes, size: size, to: saveTo) }
         rt.stopAll()
         return r
+    }
+
+    /// BGRA の画素を PNG で書き出す（確認用）。
+    static func savePNG(_ bytes: [UInt8], size: Int, to url: URL) {
+        let data = Data(bytes) as CFData
+        guard let provider = CGDataProvider(data: data),
+              let image = CGImage(width: size, height: size, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: size * 4,
+                                  space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipFirst.rawValue
+                                                           | CGBitmapInfo.byteOrder32Little.rawValue),
+                                  provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent),
+              let png = UIImage(cgImage: image).pngData() else { return }
+        try? png.write(to: url, options: .atomic)
     }
 }
 #endif

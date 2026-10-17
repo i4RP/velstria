@@ -428,6 +428,16 @@ constexpr int BackgroundSlots = 3;
     return YES;
 }
 
+- (BOOL)debugEncodeOverlayWithEncoder:(id<MTLRenderCommandEncoder>)encoder
+                          cameraWorld:(simd_float4x4)cameraWorld
+                           projection:(simd_float4x4)projection {
+    std::lock_guard<std::mutex> g(_mutex);
+    if (_manager->GetTotalInstanceCount() == 0) return NO;
+    [self bindLocked:1];
+    DrawPass(_manager, _overlay, encoder, cameraWorld, ToEfk(projection), (float)_time, MaskAll, true);
+    return YES;
+}
+
 + (BOOL)isReversedDepthProjection:(simd_float4x4)p {
     // 視線の前（-Z）の近い点と遠い点の深度（z / w）を比べる
     simd_float4 nearP = simd_mul(p, simd_make_float4(0, 0, -1, 1));

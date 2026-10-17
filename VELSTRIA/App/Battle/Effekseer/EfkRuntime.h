@@ -78,6 +78,12 @@ typedef int32_t EfkHandle;
                    resetDepth:(void (^_Nullable)(id<MTLRenderCommandEncoder>))resetDepth
     NS_SWIFT_NAME(encodePost(encoder:projection:background:resetDepth:));
 
+/// 確認用: 重ね描きの描き手で encoder（BGRA8Unorm・深度なし）へ描く（後処理の経路と比べる基準。進めない）。
+- (BOOL)debugEncodeOverlayWithEncoder:(id<MTLRenderCommandEncoder>)encoder
+                          cameraWorld:(simd_float4x4)cameraWorld
+                           projection:(simd_float4x4)projection
+    NS_SWIFT_NAME(debugEncodeOverlay(encoder:cameraWorld:projection:));
+
 /// 射影行列が逆 Z（近いほど深度が大きい）か（純粋。単体テスト対象）。
 + (BOOL)isReversedDepthProjection:(simd_float4x4)projection NS_SWIFT_NAME(isReversedDepth(projection:));
 

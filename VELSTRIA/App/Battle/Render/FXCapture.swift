@@ -450,14 +450,18 @@ final class FXCapture {
     }
 
     /// Effekseer を後処理の中で描く経路の自己診断（シミュレータは RealityKit の後処理を呼ばないので、黒い画と一様な深度で試す）。
-    /// 結果は目録の notes と、遠い深度の画 efkpost.png（このヒーローの .efk を全部その場で再生した 8 コマ目）。
+    /// 結果は目録の notes と、遠い深度の画 efkpost_<組>.png（このヒーローの .efk を全部その場で再生した 8 コマ目）。
     private func selfTestEffekseerPost() {
         guard let hero = manifest?.hero, let folder = Bundle.main.url(forResource: EffekseerOverlay.bundleFolder, withExtension: nil),
               let files = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil) else { return }
         let names = files.filter { $0.pathExtension == "efk" && $0.lastPathComponent.hasPrefix(hero + "_") }
             .map { $0.deletingPathExtension().lastPathComponent }.sorted()
-        let r = EffekseerPostPass.selfTest(effects: names, saveTo: dir.appendingPathComponent(hero).appendingPathComponent("efkpost.png"))
-        note(r.summary + " effects=\(names.count)")
+        for c in EffekseerPostPass.selfTestCases {
+            let file = dir.appendingPathComponent(hero).appendingPathComponent("efkpost_\(c.label).png")
+            let r = EffekseerPostPass.selfTest(effects: names, format: c.format, reversed: c.reversed, overlay: c.overlay,
+                                               label: c.label, saveTo: file)
+            note(r.summary + " effects=\(names.count)")
+        }
     }
 
     private func writeManifest() {
