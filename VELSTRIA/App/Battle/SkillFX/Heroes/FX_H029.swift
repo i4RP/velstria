@@ -81,6 +81,13 @@ enum FX_H029: HeroFXSet {
         return [side, 1, side]
     }
 
+    /// Effekseer の重ねる効果（tools/effekseer/heroes/h029_kit.py → Effects/Effekseer/Kit/）。粒の細部（飛び散る光の筋・火花・
+    /// 白い岩の欠片・きらめき）だけ。形の主役は SkillFX の模型・コマ送り。崩落の効果は半径 slamDesignRadius で作ってある。
+    private static let efkWaveBurst = "H029_wave_burst"
+    private static let efkSlam = "H029_slam"
+    private static let efkDashHit = "H029_dash_hit"
+    private static let slamDesignRadius: Float = 2.78
+
     /// 縁 → 縁 × spread へ ease .out で広がる部品が 1.03 倍を越える寿命の比より少し前（消え始めの比）。
     private static func edgeFade(_ spread: Float) -> Float {
         guard spread > 1.03 else { return 0.4 }
@@ -196,7 +203,7 @@ enum FX_H029: HeroFXSet {
                       at: t + 0.1, offset: pos),
                 // 橙の爆炎（色付きのコマ送り。画像の白 → 黄 → 橙 → 暗い朱）
                 .mesh(.flipbook(.fireball, 2.6 * big, .white, life: 0.62, grow: 1.15), at: t + 0.04, offset: pos + [0, 0.85, 0]),
-                // 火花（上と外へ）・残り火・焦げた煙
+                // 火花（上と外へ）・残り火・焦げた煙。2・3 回目は Effekseer の飛び散る光の筋と火花を重ねる（CI の撮影にも写る）
                 .emit(.sparks(12, speed: 6 + Float(k) * 2, .core, end: .primary, gravity: 9).with {
                     $0.dir = .up
                     $0.spread = 35
@@ -209,6 +216,7 @@ enum FX_H029: HeroFXSet {
                 }, at: t + 0.16, offset: pos + [0, 0.4, 0], quality: 1),
                 .shake(0.16 + 0.06 * Float(k), at: t),
             ]
+            if k > 0 { impact.append(.efk(efkWaveBurst, at: t, .origin, offset: pos, scale: big, onTop: true)) }
         }
         r.impact = impact
         // 3 回の衝撃波が 1 発ごとに当たる: 小さな火花と、足元の青い鈍足の輪（命中ごとに深まる）
@@ -291,6 +299,8 @@ enum FX_H029: HeroFXSet {
         // 突進に巻き込まれた敵: ぶつかった瞬間の白金の閃光と押される向きへ散る火花、押し運ばれる間の土煙
         r.hit = [
             .emit(.sheet(.hitFlash, 1.8, .core, end: .primary, life: 0.22), offset: [0, 1.0, 0]),
+            // MLBB の衝突: 白い 4 本の光芒の星（Effekseer。3D の上）
+            .efk(efkDashHit, .origin, offset: [0, 1.0, 0], onTop: true),
             .emit(.sparks(10, speed: 6, .core, end: .primary).with { $0.dir = .forward; $0.spread = 35 },
                   offset: [0, 1.0, -0.2]),
             .emit(.trail(.smoke, dust, rate: 30, life: 0.5, size: 0.5).with {
@@ -481,6 +491,8 @@ enum FX_H029: HeroFXSet {
             .emit(.sheet(.smokeHD, 2.6, dust, count: 4, life: 1.3, additive: false, radius: R * 0.6), at: t + 0.08,
                   offset: [0, 0.6, 0], quality: 1),
             .emit(.embers(14, radius: R * 0.8, lava, life: 1.4), at: t + 0.1, quality: 1),
+            // 飛び散る金の光の筋・跳ねる白い岩の欠片・火花・縁のきらめき（Effekseer。3D の上）
+            .efk(efkSlam, at: t, .origin, scale: R / slamDesignRadius, onTop: true),
             .shake(0.65, at: t),
         ]
         // 崩落の瞬間の被弾（残りの気絶 0.8 秒。発動から合計 1.8 秒）: 白金の閃光・頭上を回る金の輪と星のきらめき
