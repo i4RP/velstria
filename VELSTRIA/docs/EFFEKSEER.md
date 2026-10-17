@@ -127,6 +127,23 @@ tools/effekseer/hero_sheet.sh H019 s1_impact,ult_impact 10 4  # 1 体の何本�
 tools/effekseer/live.sh H003 atk 10 8                       # 練習戦で人形へ撃ち続けて録画 → /tmp/efk-live/H003_atk/
 ```
 
+### Mac が無い環境で実際のランタイムで描く（tools/effekseer/webrender/）
+
+`render.mjs`（Node 22）が無頭の Chrome / Edge で EffekseerForWebGL 1.80.7（アプリの C++ ランタイムと同じ 1.8 系。GitHub の公開版 zip を
+一時フォルダへ 1 回だけ落とす。リポジトリには入れない）を動かし、`.efk` を 1 フレームずつ進めて撮る。
+
+```sh
+node tools/effekseer/webrender/render.mjs H034_s2_impact Kit/H034_s2_slam:delay=16 H034_atk_hit@0,1,-4:top --frames 60 --every 4 --camera mlbb --bloom 1.5 --rings 2.57 --out /tmp/efk-render/h034_s2
+# → f000.png f004.png … と sheet.png（左上にフレームと秒）
+```
+
+- 場面: ヒーローは原点で北（-Z）を向き、練習場の人形は北 4 m（`FXCapture` と同じ）。地面・1 m の格子・照準の輪（`--rings`）・体の代わりの柱。
+  カメラは戦闘の組（`mlbb` / `legacy` / `close` / `top`、または `--camera 角度,画角,距離,前ずれ`）。画は 1108 × 512（MLBB の画面収録と同じ）。
+- 効果の指定: `名前[@x,y,z][:yaw=度][:scale=倍][:delay=フレーム][:speed=倍][:top]`。`top` = 3D の上の層（深度を消してから描く）、
+  無指定 = 柱・地面の深度で隠れる（アプリの後処理の中と同じ順）。乱数の種は `--seed`（既定 1）で固定。
+- `--bloom 1.5` はアプリの後処理（`PostProcess.swift`）に近いブルームと色調整を CPU で掛ける（目安。実機の値ではない）。
+- 環境変数: `EFK_WEBGL_DIR`（展開済みのランタイム）・`CHROME`（ブラウザの場所）。WebGL は SwiftShader（GPU が無くても動く）。
+
 DSL（tools/effekseer/efkgen.py）: `Node`（粒子の発生源。`tex` `blend` `life` `count` `loc` `rot` `scale` `color` `gen` `gravity` …）を `Effect` に積んで `build()` する。
 部品は tools/effekseer/fxlib.py（閃光・輪・火花・魔法陣…）。ヒーローごとの色は `fade` / `morph` で付ける。
 エディタ（Effekseer.app）で開き直したい時は `effekseer save` で .efkefc にできる。
