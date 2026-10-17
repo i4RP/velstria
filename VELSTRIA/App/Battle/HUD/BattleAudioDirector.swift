@@ -67,6 +67,8 @@ final class BattleAudioDirector {
     /// 最後に見た presentationEpoch と、変化に気付いてから音を止める期限（systemUptime）。
     private var seenEpoch: Int?
     private var suppressUntil: TimeInterval = 0
+    /// パッシブの演出を最後に出した sim の時刻（ユニットごと。音を鳴らさなかった時も更新する）。
+    private var lastPassiveFire: [EntityID: Double] = [:]
     /// 終幕の後に鳴らす勝敗の音（バナーの時刻まで待つ）。
     private var resultTask: Task<Void, Never>?
 
@@ -86,12 +88,16 @@ final class BattleAudioDirector {
         // 塔・Star Core の立ち上がり・倒壊の音（描画側の時刻表で鳴る。StructureFX.swift）
         let audio = app?.audio
         StructureAudio.sink = { [weak audio] sfx, gain in audio?.play(sfx, gain: gain) }
+        // ヒーローのパッシブの音（自分・追従中は 0.6、ほかは聞こえる距離で弱める）
+        SkillFXAudio.passiveSink = { [weak self] unit, heroID in self?.playPassive(unit: unit, heroID: heroID) }
     }
 
     func stop() {
         if let token, let controller { controller.unsubscribe(token) }
         token = nil
         StructureAudio.sink = nil
+        SkillFXAudio.passiveSink = nil
+        lastPassiveFire = [:]
         app?.audio.releaseSkillSounds()
         resultTask?.cancel()
         resultTask = nil
@@ -130,9 +136,24 @@ final class BattleAudioDirector {
                         guard now - lastOtherSkill > 0.18 else { continue }
                         lastOtherSkill = now
                     }
-                    // ヒーローのスキルの音（溜め・振り・着弾・余韻。無ければ汎用の発動の音）
-                    if case .skillCast(let c) = e, sfx == .skillCast || sfx == .ultimateCast,
-                       app.audio.playSkill(SkillSoundKey(heroID: c.heroID, slot: c.slot, stage: c.stage), gain: gain) {
+                    // ヒーローのスキルの音（溜め・振り・着弾・余韻。無ければ汎用の発動の音）。奥義の時は他の音を少し下げる
+                    if case .skillCast(let c) = e, sfx == .skillCast || sfx == .ultimateCast {
+                        if c.slot == .ultimate { app.audio.duckForUltimate() }
+                        if app.audio.playSkill(SkillSoundKey(heroID: c.heroID, slot: c.slot, stage: c.stage), gain: gain,
+                                               pan: Self.pan(c.origin, listener: ctx.listener)) {
+                            continue
+                        }
+                    }
+                    // ヒーローの通常攻撃の振り・発射と命中（揺らぎ。無ければ汎用の音）
+                    if case .attackReleased(let source, _, _) = e, sfx == .attackMelee || sfx == .attackRanged,
+                       let u = s.unit(source), let heroID = u.hero?.heroID,
+                       app.audio.playSkill(SkillSoundKey(heroID: heroID, phase: .attack), gain: gain,
+                                           pan: Self.pan(u.pos, listener: ctx.listener)) {
+                        continue
+                    }
+                    if case .damage(let d) = e, sfx == .hit || sfx == .crit, let src = d.sourceID, let heroID = s.unit(src)?.hero?.heroID,
+                       app.audio.playSkill(SkillSoundKey(heroID: heroID, phase: .attackHit), gain: gain,
+                                           pan: Self.pan(d.pos, listener: ctx.listener)) {
                         continue
                     }
                     app.audio.play(sfx, gain: gain)
@@ -144,9 +165,53 @@ final class BattleAudioDirector {
             if case .damage(let d) = e, case .skill(let slot) = d.source, let src = d.sourceID,
                let heroID = s.unit(src)?.hero?.heroID {
                 let gain = Self.skillHitGain(d, context: ctx)
-                if gain > 0 { app.audio.playSkill(SkillSoundKey(heroID: heroID, slot: slot, hit: true), gain: gain) }
+                if gain > 0 {
+                    app.audio.playSkill(SkillSoundKey(heroID: heroID, slot: slot, hit: true), gain: gain,
+                                        pan: Self.pan(d.pos, listener: ctx.listener))
+                }
             }
         }
+    }
+
+    /// 画面の左右（-1〜1）。カメラは回らないので、聞き手（カメラの中心）からの横の距離で決める（画面の半分の幅 ≈ 9 m で端）。
+    nonisolated static func pan(_ pos: Vec2, listener: Vec2) -> Float {
+        Float(max(-1, min(1, (pos.x - listener.x) / panHalfWidth))) * 0.85
+    }
+
+    /// 左右の端とする横の距離（sim の単位）。
+    nonisolated static let panHalfWidth: Double = 900
+
+    /// パッシブの音（SkillFXAudio.passiveSink から）。自分・追従中のユニットは 0.6、ほかは聞こえる距離で 0.3 まで。
+    /// 演出が passiveQuiet 秒以上止んでいた時だけ鳴らす（ゴルムの闘気のように毎秒たまるパッシブは、たまり始めの 1 回だけ。
+    /// MLBB のフランコも回復が始まる時に 1 回）。シークの直後・速い再生では鳴らさない。
+    private func playPassive(unit: EntityID, heroID: String) {
+        guard let controller, let app, let u = controller.sim.state.unit(unit) else { return }
+        let t = controller.sim.state.time
+        defer { lastPassiveFire[unit] = t }
+        guard Self.passiveSounds(lastFire: lastPassiveFire[unit], now: t) else { return }
+        let speed = controller.isOnline ? 1 : controller.speed
+        guard ProcessInfo.processInfo.systemUptime >= suppressUntil, speed <= Self.dampenAboveSpeed else { return }
+        let me = controller.isSpectating ? controller.presentationFocusID : controller.humanHeroID
+        var listener = u.pos
+        if let i = controller.humanIndex { listener = controller.sim.state.units[i].pos }
+        let gain: Double
+        if unit == me {
+            gain = 0.6
+        } else {
+            let d = u.pos.distance(to: listener)
+            guard d < Self.hearingRadius else { return }
+            gain = 0.3 * (1 - d / Self.hearingRadius)
+        }
+        app.audio.playSkill(SkillSoundKey(heroID: heroID, phase: .passive), gain: gain, pan: Self.pan(u.pos, listener: listener))
+    }
+
+    /// パッシブの演出が止んでから音を鳴らせるまでの sim の秒数。
+    nonisolated static let passiveQuiet: Double = 3
+
+    /// パッシブの音を鳴らすか（前の演出から passiveQuiet 秒以上。巻き戻し（時刻が戻った）なら鳴らす）。
+    nonisolated static func passiveSounds(lastFire: Double?, now: Double) -> Bool {
+        guard let lastFire, now >= lastFire else { return true }
+        return now - lastFire >= passiveQuiet
     }
 
     /// スキルの命中の音の音量（0 = 鳴らさない）。自分（観戦者は追従中のユニット）が撃った・受けた命中は 0.8、

@@ -68,6 +68,12 @@ final class AudioFilesTests: XCTestCase {
             XCTAssertTrue(text.contains(a.author), a.title)
         }
         XCTAssertFalse(text.lowercased().contains("mobile legends"), "MLBB の音は使わない")
+        // Sonniss の素材集（ヒーロー固有の音）も同じ数・同じ題名と作者
+        let sonniss = text.split(separator: "\n").filter { $0.hasPrefix("| ") && $0.contains("| Sonniss GDC |") }
+        XCTAssertEqual(sonniss.count, CreditsCatalog.sonniss.count, "Sonniss の表とクレジットの数が違う")
+        for a in CreditsCatalog.sonniss {
+            XCTAssertTrue(sonniss.contains { $0.contains(a.title) && $0.contains(a.author) }, "\(a.title) が SOURCES.md に無い")
+        }
     }
 
     // MARK: スキルの音（H025〜H034）
@@ -86,6 +92,23 @@ final class AudioFilesTests: XCTestCase {
         }
         XCTAssertEqual(SkillSoundKey(heroID: "H029", slot: .skill2, stage: 1).fileName, "skill_H029_s2_r1_cast")
         XCTAssertEqual(SkillSoundKey(heroID: "H034", slot: .ultimate, hit: true).fileName, "skill_H034_ult_hit")
+        XCTAssertEqual(SkillSoundKey(heroID: "H029", phase: .attack).fileName, "skill_H029_atk")
+        XCTAssertEqual(SkillSoundKey(heroID: "H029", phase: .attackHit).fileName, "skill_H029_atkhit")
+        XCTAssertEqual(SkillSoundKey(heroID: "H029", phase: .passive).fileName, "skill_H029_passive")
+        XCTAssertTrue(SkillSoundKey(heroID: "H029", phase: .attackHit).hit)
+    }
+
+    /// 仕上げたヒーロー（skill_sounds_v2.py。ローム: H029・H034）は、通常攻撃・通常攻撃の命中・スキルの命中に揺らぎ（_1〜_3 以上）と
+    /// パッシブの音がある。揺らぎのある音は揺らぎの無い名前のファイルを置かない（v1 の命中の音は消した）。
+    func testFinishedHeroesHaveVariantsAndAPassive() {
+        for id in ["H029", "H034"] {
+            for base in ["atk", "atkhit", "s1_hit", "s2_hit", "ult_hit"].map({ "skill_\(id)_\($0)" }) {
+                for n in 1...3 { XCTAssertNotNil(AudioFiles.sfxURL("\(base)_\(n)"), "\(base)_\(n).caf が無い") }
+                XCTAssertNil(AudioFiles.sfxURL(base), "\(base).caf（揺らぎの無い古い音）が残っている")
+            }
+            XCTAssertNotNil(AudioFiles.sfxURL("skill_\(id)_atk_4"))
+            XCTAssertNotNil(AudioFiles.sfxURL("skill_\(id)_passive"))
+        }
     }
 
     /// 試合に出るヒーローの分だけ読み、試合が終われば捨てる。音の無いスキルは false（汎用の発動の音で代える）。
@@ -101,6 +124,29 @@ final class AudioFilesTests: XCTestCase {
         XCTAssertTrue(audio.playSkill(ult, gain: 1), "音量 0 でも音があれば汎用の音を重ねない")
         audio.releaseSkillSounds()
         XCTAssertFalse(audio.hasSkillSound(ult))
+    }
+
+    /// パッシブの音は演出が 3 秒止んでいた時だけ（毎秒たまるパッシブは、たまり始めの 1 回）。
+    func testPassiveSoundOnlyAfterAQuietSpell() {
+        XCTAssertTrue(BattleAudioDirector.passiveSounds(lastFire: nil, now: 10))
+        XCTAssertFalse(BattleAudioDirector.passiveSounds(lastFire: 9, now: 10))
+        XCTAssertTrue(BattleAudioDirector.passiveSounds(lastFire: 7, now: 10))
+        XCTAssertTrue(BattleAudioDirector.passiveSounds(lastFire: 12, now: 10), "巻き戻しの後は鳴らす")
+    }
+
+    /// 画面の左右: 聞き手から右は正、左は負、端（panHalfWidth）より外は ±0.85 で止まる。奥義の下げは呼ぶと始まる。
+    func testPanAndDuck() async throws {
+        XCTAssertEqual(BattleAudioDirector.pan(Vec2(100, 0), listener: Vec2(100, 500)), 0, accuracy: 1e-6)
+        XCTAssertGreaterThan(BattleAudioDirector.pan(Vec2(550, 0), listener: Vec2(100, 0)), 0.3)
+        XCTAssertLessThan(BattleAudioDirector.pan(Vec2(-350, 0), listener: Vec2(100, 0)), -0.3)
+        XCTAssertEqual(BattleAudioDirector.pan(Vec2(9000, 0), listener: .zero), 0.85, accuracy: 1e-6)
+        let audio = AudioService()
+        XCTAssertFalse(audio.isDucking)
+        audio.duckForUltimate(seconds: 0.2)
+        try await Task.sleep(for: .milliseconds(120))
+        XCTAssertTrue(audio.isDucking, "奥義の間は下げている")
+        try await Task.sleep(for: .milliseconds(1200))
+        XCTAssertFalse(audio.isDucking, "戻る")
     }
 
     /// スキルの命中の音の音量: 自分が撃った・受けた 0.8、ほかは距離で弱める。速い再生・シーク直後は鳴らさない。

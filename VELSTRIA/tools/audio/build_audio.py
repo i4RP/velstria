@@ -14,6 +14,7 @@
 import glob
 import io
 import os
+import re
 import subprocess
 import sys
 import json
@@ -195,9 +196,16 @@ def normalize(x, peak_db=-2.0):
 RECORDS = []
 
 
-def write_sfx(name, x, sources, note):
-    """効果音: 44.1 kHz モノラル 16 bit の .caf。"""
-    x = fade(normalize(trim(x, -60)), 0.0, 0.012)
+def write_sfx(name, x, sources, note, keep_head=False):
+    """効果音: 44.1 kHz モノラル 16 bit の .caf。keep_head: 頭の無音を切らない（0 秒 = 鳴らす時刻のスキルの音。溜めが
+    無音から始まっても、着弾の時刻を演出・sim の時刻からずらさない）。"""
+    if keep_head:
+        thr = 10 ** (-60 / 20) * max(1e-9, np.abs(x).max())
+        idx = np.nonzero(np.abs(x) > thr)[0]
+        x = x[:idx[-1] + 1] if len(idx) else x
+        x = fade(normalize(x), 0.0, 0.012)
+    else:
+        x = fade(normalize(trim(x, -60)), 0.0, 0.012)
     os.makedirs(OUT, exist_ok=True)
     path = os.path.join(OUT, name + ".caf")
     subprocess.run([FF, "-v", "quiet", "-y", "-f", "f32le", "-ar", str(SR), "-ac", "1", "-i", "-",
@@ -283,11 +291,31 @@ def build_music():
 RECORD_FILE = os.path.join(os.path.dirname(__file__), "outputs.json")
 
 
+RECORD_V2 = os.path.join(os.path.dirname(__file__), "outputs_v2.json")
+SONNISS_LICENSE = "https://sonniss.com/gdc-bundle-license/"
+SONNISS_PAGE = "https://gdc.sonniss.com/"
+
+
+def sonniss_packs(v2):
+    """v2 の音に使った Sonniss の素材集（(年, 素材集) の並び）。"""
+    packs = set()
+    for r in v2.values():
+        for s in r["sources"]:
+            year, pack = s.split(" / ", 1)
+            if year != "kenney":
+                packs.add((year, pack))
+    return sorted(packs)
+
+
 def write_doc():
-    """出力の記録（outputs.json。一部だけ作り直しても残りを保つ）から docs/audio/SOURCES.md を書く。"""
+    """出力の記録（outputs.json・outputs_v2.json。一部だけ作り直しても残りを保つ）から docs/audio/SOURCES.md を書く。"""
     rec = json.load(open(RECORD_FILE, encoding="utf-8")) if os.path.exists(RECORD_FILE) else {}
     for name, srcs, note, dur in RECORDS:
         rec[name] = {"sources": srcs, "note": note, "seconds": round(dur, 2)}
+    v2 = json.load(open(RECORD_V2, encoding="utf-8")) if os.path.exists(RECORD_V2) else {}
+    # v2（skill_sounds_v2.py）で作り直した音・消した音（v1 の命中の音）は v1 の記録から外す
+    rec = {k: v for k, v in rec.items() if k not in v2 and os.path.exists(os.path.join(OUT, k))}
+    v2 = {k: v for k, v in v2.items() if os.path.exists(os.path.join(OUT, k))}
     json.dump(rec, open(RECORD_FILE, "w", encoding="utf-8", newline="\n"), ensure_ascii=False, indent=1, sort_keys=True)
     os.makedirs(os.path.dirname(DOC), exist_ok=True)
     lines = ["# 音の素材の出典（自動生成: tools/audio/build_audio.py）", "",
@@ -301,6 +329,21 @@ def write_doc():
     for name in sorted(rec):
         r = rec[name]
         lines.append(f"| {name} | {r['seconds']:.2f} 秒 | {'・'.join(SOURCES[s]['title'] for s in r['sources'])} | {r['note']} |")
+    if v2:
+        lines += ["", "## Sonniss GDC Game Audio Bundle（ヒーロー固有の音: tools/audio/skill_sounds_v2.py）", "",
+                  "Sonniss の GDC Game Audio Bundle（無料・商用可・帰属表示は不要。素材のまま再配布・販売しない、AI の学習に使わない）の",
+                  "録音を、重ね・切り出し・音程・帯域・音量・残響で加工した完成品だけを置く（原本・素材集の形ではリポジトリに入れない）。",
+                  f"ライセンス: {SONNISS_LICENSE}　配布: {SONNISS_PAGE}（同じ素材を archive.org の写し",
+                  "sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材集だけ落とした。tools/audio/sonniss_fetch.py）。", "",
+                  "| 素材集 | 作者 | ライセンス | URL |", "|---|---|---|---|"]
+        for year, pack in sonniss_packs(v2):
+            author, title = (re.split(r" [-–] ", pack, maxsplit=1) + [""])[:2]
+            lines.append(f"| {title or pack}（GDC {year}） | {author.strip()} | Sonniss GDC | {SONNISS_PAGE} |")
+        lines += ["", "### 出力（App/Resources/Audio、48 kHz）", "", "| ファイル | 長さ | 素材 | 加工 |", "|---|---|---|---|"]
+        for name in sorted(v2):
+            r = v2[name]
+            src = "・".join(s.split(" / ", 1)[1] for s in r["sources"])
+            lines.append(f"| {name} | {r['seconds']:.2f} 秒 | {src} | {r['note']} |")
     open(DOC, "w", encoding="utf-8", newline="\n").write("\n".join(lines) + "\n")
 
 

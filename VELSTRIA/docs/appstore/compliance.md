@@ -33,7 +33,7 @@
 - オープンソースのライブラリ: Effekseer（MIT）を静的リンクしており、その中に LLGI（zlib）と stb_image（MIT / パブリックドメイン）を含む。
   著作権表示とライセンス本文は公開サイトの /licenses（docs/legal/licenses_*.md）と、アプリのクレジット画面（`CreditsCatalog.openSource`。
   Effekseer・stb_image は MIT、LLGI は zlib の本文。AppTests の OnlineSafetyTests で docs/legal/licenses/ と一致を確かめる）に載せた。
-- 音源: BGM と効果音の一部は CC0 1.0 の素材（Kenney・OpenGameArt.org）を加工したファイルを同梱（出典は docs/audio/SOURCES.md とクレジット画面「音楽・効果音」）。MLBB など他作品の音は使っていない。そのほかはコードで合成。
+- 音源: BGM と効果音の一部は CC0 1.0 の素材（Kenney・OpenGameArt.org）を加工したファイルを同梱。ヒーロー固有のスキルの音は Sonniss GDC Game Audio Bundle（ロイヤリティフリー・商用可・帰属不要）の録音を重ね・加工した完成品だけを同梱（原本は入れない）。出典は docs/audio/SOURCES.md とクレジット画面「音楽・効果音」。MLBB など他作品の音は使っていない。そのほかはコードで合成。
 - 3D モデルを Meshy・Tripo 等の生成 AI で作る場合: 商用利用が許諾されるプランで生成し、生成日・プロンプト・プラン・利用規約の版を
   `VELSTRIA_復元版パッケージ/meshy/` のプロンプト ID と紐付けて記録する。既存 IP・実在人物・他社キャラクターに似せるプロンプトは使わない。
   現状、ヒーロー・構造物（Tripo）、ステージの小物（Meshy）、ポートレート等の 2D（Codex CLI の画像生成）の生成時のプランと規約の版の記録は

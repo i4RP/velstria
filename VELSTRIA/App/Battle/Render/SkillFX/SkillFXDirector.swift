@@ -341,6 +341,7 @@ final class SkillFXDirector {
         let who = target ?? heroUnit
         guard let p = units.worldPositionOf(who) else { return }
         player.play(r.cast, context(key, origin: p, caster: p, target: p, forward: facing(heroUnit, state), follow: .unit(who)))
+        SkillFXAudio.passiveSink?(heroUnit, hero.heroID)
     }
 
     /// パッシブの発動の推定（ロール別の合図）。
@@ -457,6 +458,7 @@ final class SkillFXDirector {
         let key = SkillKey(heroID: hero.heroID, slot: .passive)
         player.play(cues, context(key, origin: p, caster: p, target: p, forward: facing(heroUnit, state),
                                   follow: .unit(heroUnit)))
+        SkillFXAudio.passiveSink?(heroUnit, hero.heroID)
         return true
     }
 

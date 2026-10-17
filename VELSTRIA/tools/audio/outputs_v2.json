@@ -1,0 +1,444 @@
+{
+ "skill_H029_atk_1.caf": {
+  "kind": "atk",
+  "note": "重い武器の振り → 鈍い着弾 + 槌の金属の鳴り",
+  "seconds": 0.44,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / BlueZone - Heavy Metal Impact Sound Effects",
+   "2024 / Pole Position - The Metal Hit Sweeteners Library",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "skill_H029_atk_2.caf": {
+  "kind": "atk",
+  "note": "重い武器の振り → 鈍い着弾 + 槌の金属の鳴り",
+  "seconds": 0.43,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / BlueZone - Heavy Metal Impact Sound Effects",
+   "2024 / Pole Position - The Metal Hit Sweeteners Library",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "skill_H029_atk_3.caf": {
+  "kind": "atk",
+  "note": "重い武器の振り → 鈍い着弾 + 槌の金属の鳴り",
+  "seconds": 0.43,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / BlueZone - Heavy Metal Impact Sound Effects",
+   "2024 / Pole Position - The Metal Hit Sweeteners Library",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "skill_H029_atk_4.caf": {
+  "kind": "atk",
+  "note": "重い武器の振り → 鈍い着弾 + 槌の金属の鳴り",
+  "seconds": 0.44,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / BlueZone - Heavy Metal Impact Sound Effects",
+   "2024 / Pole Position - The Metal Hit Sweeteners Library",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "skill_H029_atkhit_1.caf": {
+  "kind": "atkhit",
+  "note": "鎧に当たる金属",
+  "seconds": 0.4,
+  "sources": [
+   "2024 / Justsoundeffects - Melee Weapons"
+  ]
+ },
+ "skill_H029_atkhit_2.caf": {
+  "kind": "atkhit",
+  "note": "鎧に当たる金属",
+  "seconds": 0.4,
+  "sources": [
+   "2024 / Justsoundeffects - Melee Weapons"
+  ]
+ },
+ "skill_H029_atkhit_3.caf": {
+  "kind": "atkhit",
+  "note": "鎧に当たる金属",
+  "seconds": 0.4,
+  "sources": [
+   "2024 / Justsoundeffects - Melee Weapons"
+  ]
+ },
+ "skill_H029_passive.caf": {
+  "kind": "passive",
+  "note": "盾の加護（光の音 + 盾のきらめき）",
+  "seconds": 1.12,
+  "sources": [
+   "2019 / Sound Spark LLC – Magic Spells, Buffs and Attacks",
+   "2024 / Justsoundeffects - Melee Weapons"
+  ]
+ },
+ "skill_H029_s1_cast.caf": {
+  "kind": "cast",
+  "note": "叩きつけ（槌・岩・地響き）→ 低音のふくらみ → 3 波目の芯と地鳴り",
+  "seconds": 1.59,
+  "sources": [
+   "2019 / 344 Audio - Low Frequency Elements",
+   "2019 / Articulated Sounds - Magic Elements vol.1",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts",
+   "2019 / Federico Soler Fernández - Effective Trailer Whooshes",
+   "2019 / Sound Spark LLC – Magic Spells, Buffs and Attacks",
+   "2019 / Sound Spark LLC – Metal Hits, Scrapes and Squeaks",
+   "2024 / BluezoneCorp - Stone Impact",
+   "2024 / Jake Fielding - Haunted Metal Vol.1 - Cinematic Hits & Impacts",
+   "2026 / 344 Audio - Cinematic Fight Vol. 1"
+  ]
+ },
+ "skill_H029_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "岩の着弾 + 炎",
+  "seconds": 0.69,
+  "sources": [
+   "2019 / Sound Spark LLC – Magic Spells, Buffs and Attacks",
+   "2024 / BluezoneCorp - Stone Impact"
+  ]
+ },
+ "skill_H029_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "岩の着弾 + 炎",
+  "seconds": 0.7,
+  "sources": [
+   "2019 / Sound Spark LLC – Magic Spells, Buffs and Attacks",
+   "2024 / BluezoneCorp - Stone Impact"
+  ]
+ },
+ "skill_H029_s1_hit_3.caf": {
+  "kind": "hit",
+  "note": "岩の着弾 + 炎",
+  "seconds": 0.68,
+  "sources": [
+   "2019 / Sound Spark LLC – Magic Spells, Buffs and Attacks",
+   "2024 / BluezoneCorp - Stone Impact"
+  ]
+ },
+ "skill_H029_s2_cast.caf": {
+  "kind": "cast",
+  "note": "盾の金属 + 体の芯 + 突進の風 → 盾の擦れ・地響き → 小さな押し運びの打撃",
+  "seconds": 1.63,
+  "sources": [
+   "2019 / Federico Soler Fernández - Effective Trailer Whooshes",
+   "2019 / Sound Spark LLC – Magic Spells, Buffs and Attacks",
+   "2024 / Jake Fielding - Haunted Metal Vol.1 - Cinematic Hits & Impacts",
+   "2024 / Justsoundeffects - Melee Weapons",
+   "2026 / 344 Audio - Cinematic Fight Vol. 1",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "skill_H029_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "盾の打撃 + 体への衝撃",
+  "seconds": 0.69,
+  "sources": [
+   "2024 / Justsoundeffects - Melee Weapons",
+   "2026 / 344 Audio - Cinematic Fight Vol. 1"
+  ]
+ },
+ "skill_H029_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "盾の打撃 + 体への衝撃",
+  "seconds": 0.69,
+  "sources": [
+   "2024 / Justsoundeffects - Melee Weapons",
+   "2026 / 344 Audio - Cinematic Fight Vol. 1"
+  ]
+ },
+ "skill_H029_s2_hit_3.caf": {
+  "kind": "hit",
+  "note": "盾の打撃 + 体への衝撃",
+  "seconds": 0.69,
+  "sources": [
+   "2024 / Justsoundeffects - Melee Weapons",
+   "2026 / 344 Audio - Cinematic Fight Vol. 1"
+  ]
+ },
+ "skill_H029_s2_r1_cast.caf": {
+  "kind": "cast",
+  "note": "振り上げの風 → 槌の金属 + 体の芯 + 低音（打ち上げ）",
+  "seconds": 1.16,
+  "sources": [
+   "2019 / Federico Soler Fernández - Effective Trailer Booms",
+   "2019 / Sound Spark LLC – Metal Hits, Scrapes and Squeaks",
+   "2024 / Pole Position - The Metal Hit Sweeteners Library",
+   "2026 / 344 Audio - Cinematic Fight Vol. 1",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "skill_H029_ult_cast.caf": {
+  "kind": "ult",
+  "note": "掲げる一撃 → 吸い込み（地鳴り・渦・気・逆再生の打撃）→ 崩落（重い一撃・金属・岩）",
+  "seconds": 1.78,
+  "sources": [
+   "2019 / 344 Audio - Low Frequency Elements",
+   "2019 / Articulated Sounds - Magic Elements vol.1",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts",
+   "2020 / 344 Audio - Trailer Instruments Designed",
+   "2024 / Jake Fielding - Haunted Metal Vol.1 - Cinematic Hits & Impacts",
+   "2024 / Justsoundeffects - Melee Weapons",
+   "2024 / Pole Position - The Metal Hit Sweeteners Library",
+   "2026 / 344 Audio - Cinematic Fight Vol. 1",
+   "2026 / 344 Audio - Elemental Palette Designed Vol. 1",
+   "2026 / Alexander Kopeikin - Emotion and Magic"
+  ]
+ },
+ "skill_H029_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "重い金属の着弾 + 岩",
+  "seconds": 0.7,
+  "sources": [
+   "2019 / BlueZone - Heavy Metal Impact Sound Effects",
+   "2024 / BluezoneCorp - Stone Impact"
+  ]
+ },
+ "skill_H029_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "重い金属の着弾 + 岩",
+  "seconds": 0.7,
+  "sources": [
+   "2019 / BlueZone - Heavy Metal Impact Sound Effects",
+   "2024 / BluezoneCorp - Stone Impact"
+  ]
+ },
+ "skill_H029_ult_hit_3.caf": {
+  "kind": "hit",
+  "note": "重い金属の着弾 + 岩",
+  "seconds": 0.7,
+  "sources": [
+   "2019 / BlueZone - Heavy Metal Impact Sound Effects",
+   "2024 / BluezoneCorp - Stone Impact"
+  ]
+ },
+ "skill_H034_atk_1.caf": {
+  "kind": "atk",
+  "note": "斧鉤の打撃（肉と鉄）+ 低い芯 + 鎖の鳴り",
+  "seconds": 0.45,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2020 / Conor Bradley - Metal Chains",
+   "2024 / Justsoundeffects - Melee Weapons"
+  ]
+ },
+ "skill_H034_atk_2.caf": {
+  "kind": "atk",
+  "note": "斧鉤の打撃（肉と鉄）+ 低い芯 + 鎖の鳴り",
+  "seconds": 0.44,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2020 / Conor Bradley - Metal Chains",
+   "2024 / Justsoundeffects - Melee Weapons"
+  ]
+ },
+ "skill_H034_atk_3.caf": {
+  "kind": "atk",
+  "note": "斧鉤の打撃（肉と鉄）+ 低い芯 + 鎖の鳴り",
+  "seconds": 0.45,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2020 / Conor Bradley - Metal Chains",
+   "2024 / Justsoundeffects - Melee Weapons"
+  ]
+ },
+ "skill_H034_atk_4.caf": {
+  "kind": "atk",
+  "note": "斧鉤の打撃（肉と鉄）+ 低い芯 + 鎖の鳴り",
+  "seconds": 0.44,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2020 / Conor Bradley - Metal Chains",
+   "2024 / Justsoundeffects - Melee Weapons"
+  ]
+ },
+ "skill_H034_atkhit_1.caf": {
+  "kind": "atkhit",
+  "note": "肉を打つ鈍い音",
+  "seconds": 0.32,
+  "sources": [
+   "2020 / PMSFX - Lethal Blow",
+   "2020 / Shapeforms - Hit & Punch"
+  ]
+ },
+ "skill_H034_atkhit_2.caf": {
+  "kind": "atkhit",
+  "note": "肉を打つ鈍い音",
+  "seconds": 0.36,
+  "sources": [
+   "2019 / Rock The Speakerbox - Melee",
+   "2020 / Shapeforms - Hit & Punch"
+  ]
+ },
+ "skill_H034_atkhit_3.caf": {
+  "kind": "atkhit",
+  "note": "肉を打つ鈍い音",
+  "seconds": 0.2,
+  "sources": [
+   "2020 / Shapeforms - Hit & Punch"
+  ]
+ },
+ "skill_H034_passive.caf": {
+  "kind": "passive",
+  "note": "闘気（低音のふくらみ + 光のきらめき）",
+  "seconds": 1.14,
+  "sources": [
+   "2019 / 344 Audio - Low Frequency Elements",
+   "2019 / Sound Spark LLC – Magic Spells, Buffs and Attacks",
+   "2026 / Alexander Kopeikin - Emotion and Magic"
+  ]
+ },
+ "skill_H034_s1_cast.caf": {
+  "kind": "cast",
+  "note": "鎖を回す → 投げ（風切り・鎖の放り出し）→ 飛ぶ鎖の連なり",
+  "seconds": 1.02,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / Rock The Speakerbox - Melee",
+   "2020 / 344 Audio - Trailer Instruments Designed",
+   "2020 / Conor Bradley - Metal Chains",
+   "2023 / InspectorJ - Essentials 04 Chains",
+   "2026 / 344 Audio - Elemental Palette Designed Vol. 1"
+  ]
+ },
+ "skill_H034_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "鉤が刺さる重い打撃 + 鉄 → 0.45 秒後に鎖を引く",
+  "seconds": 0.88,
+  "sources": [
+   "2019 / 344 Audio - Low Frequency Elements",
+   "2020 / Conor Bradley - Metal Chains",
+   "2020 / PMSFX - Lethal Blow",
+   "2020 / SmartSoundFX - Impacts, Hits & Whooshes",
+   "2023 / 344 Audio - Flesh, Bones & Gore",
+   "2023 / InspectorJ - Essentials 04 Chains",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "skill_H034_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "鉤が刺さる重い打撃 + 鉄 → 0.45 秒後に鎖を引く",
+  "seconds": 0.94,
+  "sources": [
+   "2019 / 344 Audio - Low Frequency Elements",
+   "2020 / Conor Bradley - Metal Chains",
+   "2020 / PMSFX - Lethal Blow",
+   "2020 / SmartSoundFX - Impacts, Hits & Whooshes",
+   "2023 / 344 Audio - Flesh, Bones & Gore",
+   "2023 / InspectorJ - Essentials 04 Chains",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "skill_H034_s1_hit_3.caf": {
+  "kind": "hit",
+  "note": "鉤が刺さる重い打撃 + 鉄 → 0.45 秒後に鎖を引く",
+  "seconds": 0.88,
+  "sources": [
+   "2019 / 344 Audio - Low Frequency Elements",
+   "2020 / Conor Bradley - Metal Chains",
+   "2020 / PMSFX - Lethal Blow",
+   "2020 / SmartSoundFX - Impacts, Hits & Whooshes",
+   "2023 / 344 Audio - Flesh, Bones & Gore",
+   "2023 / InspectorJ - Essentials 04 Chains",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "skill_H034_s2_cast.caf": {
+  "kind": "cast",
+  "note": "短い振り上げ → 叩きつけ（体の芯・低音・土・鉄）→ 低音の尾",
+  "seconds": 0.9,
+  "sources": [
+   "2019 / 344 Audio - Low Frequency Elements",
+   "2019 / Articulated Sounds - Magic Elements vol.1",
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / Red Libraries - Bodyfall",
+   "2019 / Sound Spark LLC – Magic Spells, Buffs and Attacks",
+   "2020 / SmartSoundFX - Impacts, Hits & Whooshes",
+   "2023 / David Dumais Audio - Melee Weapons Sound Effects Pack 1"
+  ]
+ },
+ "skill_H034_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "衝撃が体に当たる鈍い音 + 土",
+  "seconds": 0.26,
+  "sources": [
+   "2019 / Red Libraries - Bodyfall",
+   "2020 / Shapeforms - Hit & Punch"
+  ]
+ },
+ "skill_H034_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "衝撃が体に当たる鈍い音 + 土",
+  "seconds": 0.24,
+  "sources": [
+   "2019 / Red Libraries - Bodyfall",
+   "2020 / Shapeforms - Hit & Punch"
+  ]
+ },
+ "skill_H034_s2_hit_3.caf": {
+  "kind": "hit",
+  "note": "衝撃が体に当たる鈍い音 + 土",
+  "seconds": 0.23,
+  "sources": [
+   "2019 / Red Libraries - Bodyfall",
+   "2020 / Shapeforms - Hit & Punch"
+  ]
+ },
+ "skill_H034_ult_cast.caf": {
+  "kind": "ult",
+  "note": "掴みかかる一閃（鞭・鎖・掴み）→ 拘束の擦れと低いうなり",
+  "seconds": 2.03,
+  "sources": [
+   "2019 / 344 Audio - Low Frequency Elements",
+   "2019 / Rock The Speakerbox - Melee",
+   "2020 / Conor Bradley - Metal Chains",
+   "2020 / PMSFX - Lethal Blow",
+   "2023 / 344 Audio - Flesh, Bones & Gore",
+   "2023 / InspectorJ - Essentials 04 Chains",
+   "2026 / 344 Audio - Cinematic Fight Vol. 1",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "skill_H034_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "拳と斧鉤の重い打撃 + 砕け + 低音の芯 + 鎖の跳ね",
+  "seconds": 0.62,
+  "sources": [
+   "2019 / 344 Audio - Low Frequency Elements",
+   "2019 / Sound Spark LLC – Gore",
+   "2020 / Conor Bradley - Metal Chains",
+   "2020 / PMSFX - Lethal Blow",
+   "2020 / SmartSoundFX - Impacts, Hits & Whooshes",
+   "2023 / 344 Audio - Flesh, Bones & Gore"
+  ]
+ },
+ "skill_H034_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "拳と斧鉤の重い打撃 + 砕け + 低音の芯 + 鎖の跳ね",
+  "seconds": 0.58,
+  "sources": [
+   "2019 / 344 Audio - Low Frequency Elements",
+   "2019 / Sound Spark LLC – Gore",
+   "2020 / Conor Bradley - Metal Chains",
+   "2020 / PMSFX - Lethal Blow",
+   "2020 / SmartSoundFX - Impacts, Hits & Whooshes",
+   "2023 / 344 Audio - Flesh, Bones & Gore"
+  ]
+ },
+ "skill_H034_ult_hit_3.caf": {
+  "kind": "hit",
+  "note": "拳と斧鉤の重い打撃 + 砕け + 低音の芯 + 鎖の跳ね",
+  "seconds": 0.55,
+  "sources": [
+   "2019 / 344 Audio - Low Frequency Elements",
+   "2019 / Sound Spark LLC – Gore",
+   "2020 / Conor Bradley - Metal Chains",
+   "2020 / PMSFX - Lethal Blow",
+   "2020 / SmartSoundFX - Impacts, Hits & Whooshes",
+   "2023 / 344 Audio - Flesh, Bones & Gore"
+  ]
+ }
+}

@@ -221,4 +221,4 @@ def build(module):
             x = B.fade(x[: int(limit * B.SR)], 0.0, 0.25)
         stem = f"skill_{h}_{slot}" + (f"_r{stage}" if stage else "") + f"_{phase}"
         B.write_sfx(stem, x, sorted(PACKS & set(B.SOURCES)), f"{h} {slot}{' 段' + str(stage) if stage else ''} の"
-                    + ("発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）" if phase == "cast" else "命中"))
+                    + ("発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）" if phase == "cast" else "命中"), keep_head=True)

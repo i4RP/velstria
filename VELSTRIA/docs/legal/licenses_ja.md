@@ -15,7 +15,7 @@ iPhone 向けゲームアプリ「VELSIA - 星環の戦場」（以下「本ア�
 | Chakra Petch | 画面の文字（フォント） | Copyright 2018 The Chakra Petch Project Authors | SIL Open Font License 1.1 |
 | Cinzel | 画面の文字（フォント） | Copyright 2020 The Cinzel Project Authors / Copyright © 2012 Natanael Gama（予約フォント名「Cinzel Decorative」） | SIL Open Font License 1.1 |
 
-本アプリの BGM と効果音の一部は、Kenney（kenney.nl）と OpenGameArt.org の作者による CC0 1.0（パブリックドメイン）の素材を、本アプリ用に加工（切り出し・重ね・音程・音量・残響・形式の変換）して使っています。出典の一覧は docs/audio/SOURCES.md と、アプリ内の「クレジット > 音楽・効果音」にあります。そのほかの音は本アプリのプログラムで合成しています。
+本アプリの BGM と効果音の一部は、Kenney（kenney.nl）と OpenGameArt.org の作者による CC0 1.0（パブリックドメイン）の素材を、本アプリ用に加工（切り出し・重ね・音程・音量・残響・形式の変換）して使っています。ヒーローのスキルの音の一部は、Sonniss GDC Game Audio Bundle（ロイヤリティフリー・商用利用可。https://sonniss.com/gdc-bundle-license/）の録音を重ね・加工したもので、加工した完成品だけを同梱しています（録音の原本は含みません）。出典の一覧は docs/audio/SOURCES.md と、アプリ内の「クレジット > 音楽・効果音」にあります。そのほかの音は本アプリのプログラムで合成しています。
 
 ## ライセンス本文
 
