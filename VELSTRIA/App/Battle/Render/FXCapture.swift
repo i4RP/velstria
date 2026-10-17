@@ -202,7 +202,12 @@ final class FXCapture {
             shoot(world: world, name: "atk_\(Int((times[next] * 1000).rounded()))", slot: "atk", cast: 0,
                   requested: times[next], actual: s.time - t0)
         case .cast(let k):
-            guard let foe = target(for: slots[k], controller: controller) else { step = .finish; return }
+            guard let foe = target(for: slots[k], controller: controller) else {
+                // 英雄にだけ撃てるスキルで敵の英雄が居ない（-practiceFoe なし）: 飛ばして次へ
+                note("\(FXCapture.slotName(slots[k])): 的が無い（英雄にだけ撃てるスキル。-practiceFoe で敵の英雄を足す）")
+                step = .place(index: k + 1)
+                return
+            }
             controller.send(.castSkill(slot: slots[k], target: .unit(foe)))
             let hero = manifest?.hero ?? ""
             let delay = FXCapture.recasts[hero]?[slots[k]]
@@ -291,6 +296,8 @@ final class FXCapture {
     }
 
     private var ringsDone = false
+    /// 置き直しの基準にした人形（撃つ的。-fxCaptureSide の向きを保つため、置き直した後に近い人形へ替えない）。
+    private var placedDummy: EntityID?
 
     // MARK: 描画の切り分け（-fxCaptureProbe）
 
@@ -397,6 +404,7 @@ final class FXCapture {
 
     private func dummyID(_ controller: BattleController) -> EntityID? {
         let s = controller.state
+        if let id = placedDummy, let i = s.index(of: id), s.units[i].isAlive { return id }
         guard let me = controller.humanIndex else { return nil }
         let p = s.units[me].pos
         return s.units.filter { $0.kind == .dummy && $0.isAlive }
@@ -408,6 +416,7 @@ final class FXCapture {
     /// （Bot の判断で動かない。FXCheckDriver.place と同じ）。
     private func place(controller: BattleController, slot: SkillSlot? = nil, attack: Bool = false) -> Bool {
         guard let me = controller.humanIndex, let foe = dummyID(controller) else { return false }
+        placedDummy = foe
         var s = controller.state
         guard let fi = s.index(of: foe) else { return false }
         let distance = attack ? max(60, s.units[me].stats.attackRange * 0.8) : FXCapture.standoff
@@ -422,12 +431,12 @@ final class FXCapture {
         s.units[me].resource = s.units[me].stats.maxResource
         s.units[fi].hp = s.units[fi].stats.maxHP
         let team = s.units[me].team
-        // 敵の英雄は、英雄にだけ撃てるスキルを持つヒーローのときだけ呼ぶ（ほかの撮影の画を変えない）。そのスキルを撮る間は
-        // 自分の前 1.5 m（短い射程の奥義もその場で撃てる。撃つ時刻が発動の時刻になる）、それ以外は人形の東
-        let heroOnly = FXCheckDriver.heroOnly[manifest?.hero ?? ""]
-        if let heroOnly, let hi = s.units.firstIndex(where: { $0.kind == .hero && $0.team != team }) {
+        // 敵の英雄（-practiceFoe で足した Bot）が居れば人間の操作扱いにして止める。英雄にだけ撃てるスキル（FXCheckDriver.heroOnly）を
+        // 撮る間は自分の前 1.5 m（短い射程の奥義もその場で撃てる。撃つ時刻が発動の時刻になる）、それ以外は人形の東 8 m（画の外）
+        let heroOnly = FXCheckDriver.heroOnly[manifest?.hero ?? ""] ?? []
+        if let hi = s.units.firstIndex(where: { $0.kind == .hero && $0.team != team }) {
             let near = slot.map { heroOnly.contains($0) } ?? false
-            let at = near ? spot - dir * 150 : s.units[fi].pos + FXCheckDriver.foeOffset
+            let at = near ? spot - dir * 150 : s.units[fi].pos + Vec2(800, -300)
             s.units[hi].pos = at
             s.units[hi].prevPos = at
             s.units[hi].path.removeAll()
@@ -459,6 +468,13 @@ final class FXCapture {
         func f(_ v: Float) -> String { String(format: "%.3f", v) }
         note("legRig hips=(\(f(r.hips.x)),\(f(r.hips.y)),\(f(r.hips.z))) socketR=(\(f(r.socketR.x)),\(f(r.socketR.y)),\(f(r.socketR.z)))"
              + " thigh=\(f(r.thigh)) shin=\(f(r.shin)) dropScale=\(f(r.dropScale)) ankleY=\(f(r.restAnkleR.y))")
+        // 腕・胴の寸法（待機の骨の位置。拡縮前のヒーロー空間）
+        let rig = m.rig
+        func p(_ role: HeroJointRole) -> SIMD3<Float>? { rig.index[role].map { rig.restPosition[$0] } }
+        if let sh = p(.armR), let el = p(.foreArmR), let wr = p(.handR), let hips = p(.hips), let head = p(.head) {
+            note("armRig shoulderR=(\(f(sh.x)),\(f(sh.y)),\(f(sh.z))) upperArm=\(f(simd_distance(sh, el))) foreArm=\(f(simd_distance(el, wr)))"
+                 + " hipsY=\(f(hips.y)) headY=\(f(head.y)) gripR=\(f(rig.gripR))")
+        }
     }
 
     // MARK: 寸法が既知の地面の輪

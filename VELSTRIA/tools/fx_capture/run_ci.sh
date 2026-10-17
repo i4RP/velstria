@@ -84,7 +84,7 @@ for preset in $PRESETS; do
     if [[ -n "${MOVING:-}" ]]; then extra+=(-fxCaptureMovingParticles); fi
     if [[ -n "${MOTION:-}" ]]; then
       extra+=(-fxCaptureTimes "0,0.066,0.133,0.199,0.266,0.333,0.399,0.499,0.599,0.699,0.833,0.999,1.166,1.333,1.499,1.666,1.866,2.066,2.299"
-              -fxCaptureSide -fxCaptureAttack -fxCaptureLockstep)
+              -fxCaptureSide -fxCaptureAttack -fxCaptureLockstep -practiceFoe H033)
       CAPTURE_SECONDS=1500
     fi
     # 判定の形の線（HitShapeOverlay。撮影では既定で出す）を出さない

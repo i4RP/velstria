@@ -9,7 +9,7 @@ import simd
 //
 // 座標（両モデル共通）: ヒーロー空間 = motion エンティティの親（body）のローカル。足元が原点・Y 上・正面 -Z・右 +X・m（拡縮込み）。
 //   体の位置 offset、全身の回転 Rb = ry(yaw)·rx(-pitch)·rz(roll)（足元を中心に回る）、腰の関節 = 待機の腰 - (0, hipsDrop·dropScale, 0)、
-//   腰の回転 Rh = ry(hipsYaw)·rz(hipsRoll)、腿の付け根 = 腰 + Rh·socket、腿の向き A·(0,-1,0)（A = Rh·rx(pitch)·rz(±out)）、
+//   腰の回転 Rh = ry(hipsYaw)·rx(-hipsPitch)·rz(hipsRoll)、腿の付け根 = 腰 + Rh·socket、腿の向き A·(0,-1,0)（A = Rh·rx(pitch)·rz(±out)）、
 //   脛の向き A·rx(-knee)·(0,-1,0)。足首 = offset + Rb·(付け根 + 腿·thigh + 脛·shin)。
 
 /// 脚の寸法（モデルごとに読み込み時に 1 度だけ作る。値型・確保なし）。
@@ -43,6 +43,7 @@ struct HeroLegRig {
         r.hipsDrop = 0
         r.hipsYaw = 0
         r.hipsRoll = 0
+        r.hipsPitch = 0
         restAnkleR = ankle(r, right: true)
         restAnkleL = ankle(r, right: false)
     }
@@ -54,7 +55,9 @@ struct HeroLegRig {
     }
 
     @inline(__always) private static func body(_ p: HeroPose) -> simd_quatf { ry(p.yaw) * rx(-p.pitch) * rz(p.roll) }
-    @inline(__always) private static func hipsRotation(_ p: HeroPose) -> simd_quatf { ry(p.hipsYaw) * rz(p.hipsRoll) }
+    @inline(__always) private static func hipsRotation(_ p: HeroPose) -> simd_quatf {
+        ry(p.hipsYaw) * rx(-p.hipsPitch) * rz(p.hipsRoll)
+    }
 
     /// 腿の付け根（motion のローカル = 体の回転の前。m）。
     @inline(__always) private func socket(_ p: HeroPose, right: Bool) -> V3 {

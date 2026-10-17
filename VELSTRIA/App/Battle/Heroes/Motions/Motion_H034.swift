@@ -182,7 +182,8 @@ enum Motion_H034: HeroMotionScript {
             p.armL = ArmPose(pitch: 0.8, out: 0.4, yaw: 0.2, elbow: 1.0)
             p.torsoYaw = 0.1
             p.hipsYaw = 0
-            p.torsoPitch = 0.45
+            p.hipsPitch = 0.15
+            p.torsoPitch = 0.3
             p.torsoRoll = 0
             p.headYaw = 0
             p.hipsDrop = 0.1
@@ -229,7 +230,8 @@ enum Motion_H034: HeroMotionScript {
             p.armL = ArmPose(pitch: 1.5, out: 0.3, yaw: 0.5, elbow: 0.6)
             p.torsoYaw = -0.75
             p.hipsYaw = -0.3
-            p.torsoPitch = 0.55
+            p.hipsPitch = 0.25
+            p.torsoPitch = 0.3
             p.torsoRoll = 0.15
             p.headYaw = 0.45
             p.headPitch = -0.3
@@ -244,6 +246,7 @@ enum Motion_H034: HeroMotionScript {
             p.armL = ArmPose(pitch: 0.8, out: 0.5, yaw: 0.1, elbow: 0.8)
             p.torsoYaw = 0
             p.hipsYaw = 0
+            p.hipsPitch = 0.05
             p.torsoPitch = 0.15
             p.torsoRoll = 0
             p.headYaw = 0
@@ -308,7 +311,8 @@ enum Motion_H034: HeroMotionScript {
             p.armR = ArmPose(pitch: 1.0, out: 0.1, yaw: 0.35, elbow: 0.15)
             p.weaponR = -2.4
             p.armL = ArmPose(pitch: 1.0, out: 0.1, yaw: 0.45, elbow: 0.3)
-            p.torsoPitch = 0.7
+            p.hipsPitch = 0.3
+            p.torsoPitch = 0.4
             p.headPitch = 0.2
             p.hipsDrop = 0.17
             p.offset = [0, 0, -0.1]
@@ -318,12 +322,14 @@ enum Motion_H034: HeroMotionScript {
         }
         m.markImpact()
         m.hold(0.26) { p in
-            p.torsoPitch = 0.66
+            p.hipsPitch = 0.28
+            p.torsoPitch = 0.38
             p.hipsDrop = 0.15
             p.glow = 1.2
         }
         m.planted(0.14, .inOut) { p in
-            p.torsoPitch = 0.25
+            p.hipsPitch = 0.08
+            p.torsoPitch = 0.2
             p.hipsDrop = 0.07
             p.offset = [0, 0, -0.04]
             p.armR = ArmPose(pitch: 0.7, out: 0.4, yaw: 0.1, elbow: 0.7)
@@ -358,7 +364,8 @@ enum Motion_H034: HeroMotionScript {
             p.armR = ArmPose(pitch: 1.75, out: 0.2, yaw: 0.3, elbow: 0.15)
             p.weaponR = -1.4
             p.armL = ArmPose(pitch: 1.7, out: 0.2, yaw: 0.3, elbow: 0.2)
-            p.torsoPitch = 0.65
+            p.hipsPitch = 0.3
+            p.torsoPitch = 0.35
             p.headPitch = -0.35
             p.hipsDrop = 0.14
             p.offset = [0, 0, -0.3]
@@ -372,7 +379,8 @@ enum Motion_H034: HeroMotionScript {
             p.weaponL = 0
             p.armR = ArmPose(pitch: 1.5, out: 0.3, yaw: 0.2, elbow: 0.5)
             p.weaponR = -1.5
-            p.torsoPitch = 0.35
+            p.hipsPitch = 0.1
+            p.torsoPitch = 0.3
             p.headPitch = 0
             p.hipsDrop = 0.1
             p.offset = [0, 0, -0.14]
@@ -418,6 +426,7 @@ enum Motion_H034: HeroMotionScript {
             p.armL = ArmPose(pitch: 2.4, out: 0.3, yaw: 0.3, elbow: 0.7)
             p.torsoYaw = 0.05
             p.hipsYaw = 0
+            p.hipsPitch = 0
             p.torsoPitch = -0.25
             p.torsoRoll = 0
             p.headPitch = -0.2
@@ -429,7 +438,8 @@ enum Motion_H034: HeroMotionScript {
             p.armR = ArmPose(pitch: 1.0, out: 0.1, yaw: 0.3, elbow: 0.1)
             p.weaponR = -2.4
             p.armL = ArmPose(pitch: 1.0, out: 0.15, yaw: 0.4, elbow: 0.3)
-            p.torsoPitch = 0.75
+            p.hipsPitch = 0.35
+            p.torsoPitch = 0.4
             p.headPitch = 0.25
             p.hipsDrop = 0.15
             p.offset = [0, 0, -0.18]
@@ -438,14 +448,16 @@ enum Motion_H034: HeroMotionScript {
         }
         m.planted(last - m.now, .out) { p in
             p.weaponR = -2.3
-            p.torsoPitch = 0.82
+            p.hipsPitch = 0.38
+            p.torsoPitch = 0.44
             p.hipsDrop = 0.19
             p.glow = 2.0
         }
         m.markImpact()
         // 拘束の終わり（2.05 秒）まで沈んだまま
         m.hold(max(0.05, release - m.now)) { p in
-            p.torsoPitch = 0.78
+            p.hipsPitch = 0.36
+            p.torsoPitch = 0.42
             p.hipsDrop = 0.17
             p.glow = 1.2
         }

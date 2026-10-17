@@ -427,7 +427,7 @@ final class HeroModel: HeroDisplayModel {
         motion.position = p.offset
         motion.orientation = ry(p.yaw) * rx(-p.pitch) * rz(p.roll)
         hips.position = V3(0, metrics.hipY - p.hipsDrop, 0)
-        hips.orientation = ry(p.hipsYaw) * rz(p.hipsRoll)
+        hips.orientation = ry(p.hipsYaw) * rx(-p.hipsPitch) * rz(p.hipsRoll)
         torso.orientation = ry(p.torsoYaw - p.hipsYaw) * rx(-p.torsoPitch) * rz(p.torsoRoll)
         head.orientation = ry(p.headYaw) * rx(-p.headPitch) * rz(p.headRoll)
         // 開き（out）は腕のローカルで先に回すので、腕を上げても外側へ開く

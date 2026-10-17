@@ -123,10 +123,14 @@ enum Motion_H029: HeroMotionScript {
     /// （深い踏み込み）・0.7 秒まで沈んだまま・1.1 秒で起き上がる。sim: 衝撃波 0.25 / 0.58 / 0.92 秒。
     private static func attackWave(_ m: inout MotionBuilder) {
         let strike = KitTimes(hero, .skill1).seconds("waveFirstDelay")
+        // 盾は左の脇から背へ回す（MLBB: 叩きつけの間、盾は左の脇・背の上にある）
+        m.shieldGuard = false
         // 引き: 槌を右の後ろ下へ。体を右へひねり、腰を落とし始める
         m.planted(strike * 0.4, .out) { p in
             p.armR = ArmPose(pitch: -0.7, out: 0.45, yaw: -0.3, elbow: 0.35)
             p.weaponR = 2.3
+            p.armL = ArmPose(pitch: 0.9, out: 0.45, yaw: 0.2, elbow: 0.8)
+            p.weaponL = 0
             p.torsoYaw = -0.55
             p.hipsYaw = -0.25
             p.torsoPitch = 0.15
@@ -152,42 +156,51 @@ enum Motion_H029: HeroMotionScript {
             p.glow = 1.0
         }
         // 叩きつけ（0.25 秒 = 1 回目の衝撃波）: 槌を前の地面へ。左足を大きく踏み込み、体ごと前へ深く沈む
+        // 背を平らに近いところまで倒す（腰ごと前へ 0.45 + 胴 0.65）。盾は左の脇から背の上へ
         m.planted(strike * 0.24, .snap) { p in
-            p.armR = ArmPose(pitch: 1.2, out: 0.12, yaw: 0.05, elbow: 0.05)
-            p.weaponR = -2.35
+            p.armR = ArmPose(pitch: 1.0, out: 0.12, yaw: 0.05, elbow: 0.05)
+            p.weaponR = -2.05
+            p.armL = ArmPose(pitch: 0.15, out: 0.85, yaw: -0.1, elbow: 0.6)
+            p.weaponL = -0.5
             p.torsoYaw = 0.12
             p.hipsYaw = 0.05
-            p.torsoPitch = 0.6
+            p.hipsPitch = 0.45
+            p.torsoPitch = 0.65
             p.torsoRoll = -0.05
-            p.headPitch = 0.25
+            p.headPitch = 0.0
             p.headYaw = -0.1
-            p.hipsDrop = 0.13
-            p.offset = [0, 0, -0.16]
-            p.footL = [-0.08, 0, -0.5]
-            p.footR = [0.08, 0, 0.12]
+            p.hipsDrop = 0.17
+            p.offset = [0, 0, -0.2]
+            p.footL = [-0.1, 0, -0.65]
+            p.footR = [0.1, 0, 0.2]
             p.glow = 1.8
         }
         m.markImpact()
         // 衝撃波を見送る（2 回目 0.58 秒・3 回目 0.92 秒）: 沈んだまま槌を地に押し付ける
         m.planted(0.16, .out) { p in
-            p.torsoPitch = 0.66
-            p.hipsDrop = 0.15
-            p.armR.pitch = 1.15
-            p.weaponR = -2.3
+            p.hipsPitch = 0.5
+            p.torsoPitch = 0.7
+            p.hipsDrop = 0.19
+            p.armR.pitch = 0.95
+            p.weaponR = -1.95
             p.glow = 2.0
         }
         m.hold(0.23) { p in
-            p.torsoPitch = 0.62
-            p.hipsDrop = 0.14
+            p.hipsPitch = 0.48
+            p.torsoPitch = 0.66
+            p.hipsDrop = 0.18
             p.glow = 2.2
         }
         // 起き上がり: 槌を肩へ戻しながら（戻りは build の recover で待機へ）
         m.planted(0.12, .inOut) { p in
-            p.torsoPitch = 0.25
+            p.hipsPitch = 0.15
+            p.torsoPitch = 0.2
             p.hipsDrop = 0.06
             p.offset = [0, 0, -0.08]
             p.armR = ArmPose(pitch: 1.4, out: 0.3, yaw: 0.2, elbow: 0.9)
             p.weaponR = -0.8
+            p.armL = shieldGuardArm
+            p.weaponL = 0
             p.headPitch = 0.05
             p.glow = 1.0
         }
@@ -259,7 +272,8 @@ enum Motion_H029: HeroMotionScript {
         // 振り上げの途中（0.2 秒 = 判定）: 槌が前の低い所を下から上へ抜ける
         m.planted(strike * 0.5, .in) { p in
             p.armR = ArmPose(pitch: 1.2, out: 0.2, yaw: 0.25, elbow: 0.1)
-            p.weaponR = -1.3
+            // 下（+π）を通って前へ振り上げる（-1.3 と同じ向き。+ の向きに回し続ける）
+            p.weaponR = -1.3 + 2 * .pi
             p.torsoYaw = 0.15
             p.hipsYaw = 0.1
             p.torsoPitch = 0.12
@@ -272,7 +286,7 @@ enum Motion_H029: HeroMotionScript {
         // 振り抜き: 槌を頭上へ（体を伸ばして少し反る）
         m.planted(0.1, .out) { p in
             p.armR = ArmPose(pitch: 2.95, out: 0.2, yaw: 0.1, elbow: 0.12)
-            p.weaponR = 0.25
+            p.weaponR = 0.25 + 2 * .pi
             p.torsoYaw = 0.3
             p.hipsYaw = 0.12
             p.torsoPitch = -0.18
@@ -286,9 +300,10 @@ enum Motion_H029: HeroMotionScript {
             p.offset = [0, 0.02, 0]
             p.glow = 1.5
         }
-        // 槌を肩へ戻す
+        // 槌を肩へ戻す（頭上から少し後ろへ倒す。待機へ戻る時は近い向きの角へ戻る = MotionClip.evaluate）
         m.planted(0.14, .inOut) { p in
             shoulderHammer(&p)
+            p.weaponR += 2 * .pi
             p.torsoYaw = 0.1
             p.torsoPitch = 0
             p.headPitch = 0
@@ -314,10 +329,10 @@ enum Motion_H029: HeroMotionScript {
             p.footR = [0.1, 0, 0.06]
             p.glow = 0.9
         }
-        // 盾を頭上へ掲げる（左腕を伸ばして上へ。盾の面を前へ向ける）
+        // 盾を頭上の前へ掲げる（左腕を前の上へ伸ばす。盾の面を前の上へ向ける。真上だと頭上の表示に隠れる）
         m.planted(0.16, .out) { p in
-            p.armL = ArmPose(pitch: 2.75, out: 0.35, yaw: 0.25, elbow: 0.3)
-            p.weaponL = -0.25
+            p.armL = ArmPose(pitch: 2.35, out: 0.3, yaw: 0.25, elbow: 0.25)
+            p.weaponL = -0.7
             p.armR = ArmPose(pitch: 0.9, out: 0.5, yaw: -0.2, elbow: 1.5)
             p.weaponR = 0.7
             p.torsoPitch = -0.15
@@ -331,13 +346,14 @@ enum Motion_H029: HeroMotionScript {
         m.hold(slam - 0.12 - 0.16 - 0.17 - 0.07) { p in
             p.torsoPitch = -0.2
             p.headPitch = -0.35
-            p.armL.pitch = 2.85
+            p.armL.pitch = 2.45
             p.glow = 2.4
             p.ring = 1.4
         }
         // 振りかぶりの頂点: 体を伸ばし、左足を踏み出し始める
         m.planted(0.17, .inOut) { p in
-            p.armL = ArmPose(pitch: 3.05, out: 0.2, yaw: 0.2, elbow: 0.15)
+            p.armL = ArmPose(pitch: 2.75, out: 0.2, yaw: 0.2, elbow: 0.15)
+            p.weaponL = -0.4
             p.armR = ArmPose(pitch: 2.6, out: 0.4, yaw: -0.2, elbow: 0.6)
             p.weaponR = 0.6
             p.torsoPitch = -0.25
@@ -347,32 +363,35 @@ enum Motion_H029: HeroMotionScript {
         }
         // 叩き落とし（1.0 秒 = 崩落）: 盾と槌を前の地面へ。左足を踏み込み、体ごと深く沈む
         m.planted(0.07, .snap) { p in
-            p.armL = ArmPose(pitch: 1.15, out: 0.15, yaw: 0.35, elbow: 0.3)
-            p.weaponL = -1.4
-            p.armR = ArmPose(pitch: 1.2, out: 0.25, yaw: 0.05, elbow: 0.15)
-            p.weaponR = -2.2
-            p.torsoPitch = 0.65
+            p.armL = ArmPose(pitch: 0.95, out: 0.15, yaw: 0.35, elbow: 0.3)
+            p.weaponL = -1.6
+            p.armR = ArmPose(pitch: 1.05, out: 0.25, yaw: 0.05, elbow: 0.15)
+            p.weaponR = -2.15
+            p.hipsPitch = 0.4
+            p.torsoPitch = 0.55
             p.torsoYaw = 0.05
-            p.headPitch = 0.3
-            p.hipsDrop = 0.16
-            p.offset = [0, 0, -0.14]
-            p.footL = [-0.12, 0, -0.45]
-            p.footR = [0.12, 0, 0.14]
+            p.headPitch = 0.05
+            p.hipsDrop = 0.17
+            p.offset = [0, 0, -0.16]
+            p.footL = [-0.12, 0, -0.55]
+            p.footR = [0.12, 0, 0.18]
             p.glow = 2.2
             p.ring = 1.2
         }
         m.markImpact()
         // 沈んだまま（MLBB は 0.6〜0.8 秒）
         m.hold(0.22) { p in
-            p.torsoPitch = 0.7
-            p.hipsDrop = 0.17
+            p.hipsPitch = 0.42
+            p.torsoPitch = 0.58
+            p.hipsDrop = 0.18
             p.glow = 1.6
         }
         m.planted(0.15, .inOut) { p in
             p.armL = shieldGuardArm
             p.weaponL = 0
             shoulderHammer(&p)
-            p.torsoPitch = 0.25
+            p.hipsPitch = 0.1
+            p.torsoPitch = 0.2
             p.headPitch = 0.1
             p.hipsDrop = 0.07
             p.offset = [0, 0, -0.06]

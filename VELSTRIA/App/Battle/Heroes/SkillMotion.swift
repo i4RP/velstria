@@ -45,10 +45,17 @@ struct MotionClip {
             Self.liftSteps(&target, from: base, to: first.pose, e)
         } else if let last = keys.last, t >= last.time {
             let u = smooth01((t - last.time) / max(0.001, total - last.time))
-            target = HeroPose.mix(last.pose, base, u)
+            var back = base
+            if last.pose.plant > 0 {
+                // 全身のモーションは武器を 1 回転以上回して書くことがある（下から振り上げる・頭上で回す）。待機へ戻る時は
+                // 最後のキーに近い向き（2π の倍数だけずらした待機の角）へ戻し、逆回りに回して戻さない
+                back.weaponR = last.pose.weaponR + remainder(base.weaponR - last.pose.weaponR, 2 * .pi)
+                back.weaponL = last.pose.weaponL + remainder(base.weaponL - last.pose.weaponL, 2 * .pi)
+            }
+            target = HeroPose.mix(last.pose, back, u)
             // 戻りも最後まで接地したまま待機の立ち位置へ踏み戻す（終わりの姿勢は目標 0 = 待機の脚と同じ）
             target.plant = max(target.plant, last.pose.plant)
-            Self.liftSteps(&target, from: last.pose, to: base, u)
+            Self.liftSteps(&target, from: last.pose, to: back, u)
         } else {
             var k = 0
             while k + 1 < keys.count && keys[k + 1].time <= t { k += 1 }
@@ -145,10 +152,11 @@ struct MotionBuilder {
         authored = rest
     }
 
-    /// 体の鉛直に対して書いた腕・武器・頭の角度を、胴の座標へ直す（胴の前傾 tp: 腕・武器 + tp、頭 - tp）。
+    /// 体の鉛直に対して書いた腕・武器・頭の角度を、胴の座標へ直す（胴の前傾 tp = 全身の傾き + 腰の前傾 + 腰に対する胴の前傾:
+    /// 腕・武器 + tp、頭 - tp）。
     static func torsoRelative(_ a: HeroPose) -> HeroPose {
         var p = a
-        let tp = a.torsoPitch
+        let tp = a.torsoPitch + a.hipsPitch + a.pitch
         p.armR.pitch += tp
         p.armL.pitch += tp
         p.weaponR += tp

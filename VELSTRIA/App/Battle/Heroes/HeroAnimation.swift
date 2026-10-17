@@ -37,6 +37,8 @@ struct HeroPose {
     var hipsDrop: Float = 0
     var hipsYaw: Float = 0
     var hipsRoll: Float = 0
+    /// 腰の前傾（rad、+ = 前へ倒す。骨盤ごと胴を前へ倒す深い踏み込み・叩きつけ用。既定 0。torsoPitch は腰に対する胴の前傾）。
+    var hipsPitch: Float = 0
     var torsoPitch: Float = 0
     var torsoYaw: Float = 0
     var torsoRoll: Float = 0
@@ -74,6 +76,7 @@ struct HeroPose {
         p.hipsDrop = f(a.hipsDrop, b.hipsDrop, t)
         p.hipsYaw = f(a.hipsYaw, b.hipsYaw, t)
         p.hipsRoll = f(a.hipsRoll, b.hipsRoll, t)
+        p.hipsPitch = f(a.hipsPitch, b.hipsPitch, t)
         p.legR = LegPose.mix(a.legR, b.legR, t)
         p.legL = LegPose.mix(a.legL, b.legL, t)
         p.cape = f(a.cape, b.cape, t)
@@ -95,6 +98,7 @@ struct HeroPose {
         p.hipsDrop = f(a.hipsDrop, b.hipsDrop, t)
         p.hipsYaw = f(a.hipsYaw, b.hipsYaw, t)
         p.hipsRoll = f(a.hipsRoll, b.hipsRoll, t)
+        p.hipsPitch = f(a.hipsPitch, b.hipsPitch, t)
         p.legR = LegPose.mix(a.legR, b.legR, t)
         p.legL = LegPose.mix(a.legL, b.legL, t)
         p.plant = f(a.plant, b.plant, t)
