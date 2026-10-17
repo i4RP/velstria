@@ -49,7 +49,7 @@ def wave_burst():
         lines,
         sparks,
         Node("glints", tex="Fx_Star4", blend="add", life=(10, 16), count=5, delay=3, gen=Gen.circle(1.3, division=5, rotate=False),
-             loc=Loc.fixed(0, 0.5, 0), scale=Scl.ease(0.8, 1.6, "out"), color=fade(WHITE, 230)),
+             loc=Loc.fixed(0, 0.5, 0), scale=Scl.ease(0.4, 0.8, "out"), color=fade(HOT, 230)),
     )
     return fx
 
@@ -67,7 +67,7 @@ def slam():
         shards,
         flecks(GOLD, n=28, speed=(4, 10), life=(18, 34), size=0.32, y=0.4, gravity=-9, c2=ORANGE),
         Node("glints", tex="Fx_Star4", blend="add", life=(12, 20), count=8, delay=4, gen=Gen.circle(2.6, division=8, rotate=False),
-             loc=Loc.fixed(0, 0.4, 0), scale=Scl.ease(1.0, 2.0, "out"), color=fade(WHITE, 230)),
+             loc=Loc.fixed(0, 0.4, 0), scale=Scl.ease(0.5, 1.0, "out"), color=fade(HOT, 230)),
     )
     return fx
 
@@ -76,7 +76,7 @@ def dash_hit():
     """突進の衝突（被弾者の体の中ほど）。MLBB の 5.5 秒: 白い 4 本の光芒の星が 2〜3 コマ。"""
     fx = Effect(P + "dash_hit", frames=20, kit=True)
     fx.add(
-        Node("star", tex="Fx_Star4", blend="add", life=8, scale=Scl.ease(3.0, 4.2, "out"), rot=Rot.pva(((0, 0, -8), (0, 0, 8))),
+        Node("star", tex="Fx_Star4", blend="add", life=8, scale=Scl.ease(2.2, 3.0, "out"), rot=Rot.pva(((0, 0, -8), (0, 0, 8))),
              color=fade(WHITE, 255)),
         Node("burst", tex="Fx_Burst", blend="add", life=7, scale=Scl.ease(1.6, 2.4, "out"), rot=Rot.pva(((0, 0, 0), (0, 0, 360))),
              color=morph(WHITE, HOT, 240, 0)),

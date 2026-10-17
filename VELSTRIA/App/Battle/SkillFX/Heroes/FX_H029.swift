@@ -190,20 +190,20 @@ enum FX_H029: HeroFXSet {
             let yaw = Float(k) * 41 - 20
             impact += [
                 // 白金の芯から放射状に伸びる黄の光の棘（地面に寝かせたコマ送り）
-                .mesh(.groundFlipbook(.spikes, 3.4 * big, hot, life: 0.42, grow: 1.08).with { $0.yaw = yaw * 1.7 }, at: t,
+                .mesh(.groundFlipbook(.spikes, 4.4 * big, hot, life: 0.36, grow: 1.08).with { $0.yaw = yaw * 1.7 }, at: t,
                       offset: pos),
                 // S 字の地割れ: 黄に光る（〜0.3 秒）→ 橙の溶岩（模様が流れ、溶けて消える）→ 焦げた暗いひび（溶けて消える。
                 // 低画質では省く: 低画質の地面の板のプール 14 に 3 回の爆ぜが収まるように）
-                .mesh(crack(.crackS, 2.5 * big, hot, life: 0.34, yaw: yaw).glowing(), at: t, offset: pos),
-                .mesh(crack(.crackS, 2.5 * big, lava, life: 0.95, yaw: yaw).glowing()
+                .mesh(crack(.crackS, 2.5 * big, hot, life: 0.22, yaw: yaw).glowing(), at: t, offset: pos),
+                .mesh(crack(.crackS, 2.5 * big, lava, life: 0.5, yaw: yaw).glowing()
                     .flowing(.lava, scroll: [0.04, 0.1], tiling: 1.3, strength: 0.75, edge: hot)
                     .dissolving(from: 0.45, edge: hot, width: 0.08).with { $0.fadeIn = 0.22; $0.fadeOut = 0.9 },
                       at: t + 0.05, offset: pos),
-                .mesh(crack(.crackS, 2.55 * big, char, life: 1.5, yaw: yaw, alpha: 0.85)
+                .mesh(crack(.crackS, 2.55 * big, char, life: 0.7, yaw: yaw, alpha: 0.85)
                     .dissolving(from: 0.55, tiling: 2.5, edge: ember, width: 0.06).with { $0.fadeIn = 0.18; $0.fadeOut = 0.95 },
                       at: t + 0.1, offset: pos, quality: 1),
                 // 橙の爆炎（色付きのコマ送り。画像の白 → 黄 → 橙 → 暗い朱）
-                .mesh(.flipbook(.fireball, 2.6 * big, .white, life: 0.62, grow: 1.15), at: t + 0.04, offset: pos + [0, 0.85, 0]),
+                .mesh(.flipbook(.fireball, 2.8 * big, .white, life: 0.4, grow: 1.15), at: t + 0.04, offset: pos + [0, 0.85, 0]),
                 // 火花（上と外へ）・残り火・焦げた煙。2・3 回目は Effekseer の飛び散る光の筋と火花を重ねる（CI の撮影にも写る）
                 .emit(.sparks(12, speed: 6 + Float(k) * 2, .core, end: .primary, gravity: 9).with {
                     $0.dir = .up
@@ -242,13 +242,10 @@ enum FX_H029: HeroFXSet {
         r.cast = [
             // 盾を構えて踏み出す閃き
             .emit(.flare(1.3, .core, life: 0.14), .follow, offset: [-0.3, 1.0, 0.7]),
-            // 体を包む炎（繰り返す炎のコマ送りの板。3D の上）と金と橙の炎の殻（炎の半球の模型・炎の筋が上へ流れて縁が欠ける）、
-            // 盾の前の金の三日月。MLBB: 突進の間、体が金〜橙の炎に包まれる
-            .mesh(FXMesh.flipbook(.flameLoop, 2.7, flame, life: dashTime + 0.05, grow: 1.0).with {
-                $0.sheetFPS = 22
-                $0.fadeIn = 0.08
-                $0.fadeOut = 0.8
-            }, .follow, offset: [0, 1.0, -0.1]),
+            // 体を包む炎: 爆炎のコマ送りを 0.15 秒おきに重ねて途切れない炎の塊にする（3D の上。体の少し後ろ）と、金と橙の炎の殻
+            // （炎の半球の模型・炎の筋が上へ流れて縁が欠ける）、盾の前の金の三日月。MLBB: 突進の間、体が金〜橙の炎に包まれる
+            .mesh(FXMesh.flipbook(.fireball, 2.5, .white, life: 0.38, grow: 1.15), .follow, offset: [0, 0.95, -0.35])
+                .repeated(max(1, Int((dashTime / 0.15).rounded())), every: 0.15),
             .mesh(.model(.burstDome, nil, flame, size: [0.85, 1.0, 0.85], sizeEnd: [1.0, 1.15, 1.0], life: dashTime + 0.06)
                 .glowing().flowing(.flame, scroll: [0.2, -1.6], tiling: 1.5, strength: 0.8, erosion: 0.3, edge: .core).with {
                     $0.alpha = 0.9
@@ -264,8 +261,8 @@ enum FX_H029: HeroFXSet {
                 $0.onTop = true
             }, .follow, offset: [0, 0.7, 0.25]),
             // 背に流れる炎の帯（縦の帯。炎の筋が後ろへ流れ、縁が欠ける）
-            .ribbon(FXRibbon.trail(width: 1.5, life: 0.32, duration: dashTime, upright: true, flame)
-                .flowing(.flame, scroll: [-2.0, 0], tiling: 1.5, strength: 0.7, erosion: 0.45, edge: .core), .follow,
+            .ribbon(FXRibbon.trail(width: 1.7, life: 0.34, duration: dashTime, upright: true, flame)
+                .flowing(.flame, scroll: [-2.0, 0], tiling: 1.5, strength: 0.7, erosion: 0.25, edge: hot), .follow,
                     offset: [0, 0.85, -0.2]),
             // 通った地面に残る淡い金の光（地面に寝かせた帯。MLBB の突進の後の淡い光）
             .ribbon(FXRibbon.trail(width: 1.8, life: 0.45, duration: dashTime, upright: false, .primary).with { $0.alpha = 0.4 },
@@ -454,16 +451,16 @@ enum FX_H029: HeroFXSet {
                 $0.fadeIn = 0
                 $0.fadeOut = 0.35
             }, at: t),
-            .mesh(.model(.starCross, nil, char, size: [R * 0.86, 1.2, R * 0.86], life: 1.6)
+            .mesh(.model(.starCross, nil, char, size: [R * 0.86, 1.2, R * 0.86], life: 0.8)
                 .flowing(.lava, scroll: [0.03, 0.08], tiling: 2, strength: 0.9, edge: lava)
                 .dissolving(from: 0.55, edge: lava, width: 0.08).with { $0.fadeIn = 0.15; $0.fadeOut = 0.95 }, at: t + 0.06),
             // 放射状のひび: 橙に光る → 暗い焦げたひびと焦げ跡（溶けて消える）
-            .mesh(crack(.crackRadial, R * 2.1, lava, life: 0.7).glowing()
+            .mesh(crack(.crackRadial, R * 2.1, lava, life: 0.5).glowing()
                 .flowing(.lava, scroll: [0.05, 0.1], tiling: 1.5, strength: 0.5, edge: hot), at: t + 0.02),
-            .mesh(crack(.crackRadial, R * 2.15, char, life: 1.8, alpha: 0.9)
+            .mesh(crack(.crackRadial, R * 2.15, char, life: 0.9, alpha: 0.9)
                 .dissolving(from: 0.6, tiling: 2.5, edge: ember, width: 0.05).with { $0.fadeIn = 0.15; $0.fadeOut = 0.95 },
                   at: t + 0.05),
-            .mesh(.decal(.scorch, R * 2.1, char, life: 1.8, spin: 0, grow: 1.0, alpha: 0.55)
+            .mesh(.decal(.scorch, R * 2.1, char, life: 0.9, spin: 0, grow: 1.0, alpha: 0.55)
                 .dissolving(from: 0.5, tiling: 2.5, edge: ember, width: 0.05).with {
                     $0.size = [R * 2.1, 1, R * 2.1]
                     $0.ease = .linear
