@@ -1,10 +1,15 @@
 import Foundation
 import QuartzCore
+import VelstriaCore
 
 // 担当: battle-renderer（ステージ）。見た目確認用の起動引数（DEBUG のみ。出荷ビルドには含めない）。
 //   -stageCam <x>,<y>[,<zoom>]   カメラを地図座標（m）の位置に固定する（例: -stageCam 37,83）
 //   -stageTour                   カメラを名所（拠点・レーン・川・ボスの巣・ジャングル）へ 6 秒ごとに順に動かす
 //   -stageFull                   -uiTesting でもステージを間引かない（StagePrep.lite を参照）
+//   -stageSilent                 撮影中はオーディオエンジンを起動しない（シミュレータの音声 I/O に依存しない）
+//   -stageClean                  HUD を非表示（頭上バーは残す）
+//   -stagePitch <30...75>        比較撮影の俯角（既定のゲームカメラは 56 度）
+//   -stagePitReference           カメラに近い巣にタートルとヒーローを描画だけ配置する
 //   -legacyStage                 2026-10-05 の旧ステージ素材で描く（StageArtSet.legacy。新旧の見比べ用）
 
 enum StageDebug {
@@ -31,7 +36,29 @@ enum StageDebug {
     /// -stageCam の 3 つ目の値（ズーム）。
     static var cameraZoom: Double? { fixedArgs.flatMap { $0.count >= 3 ? Double($0[2]) : nil } }
 
+    static func applyLayoutReference(to frame: inout RenderFrame) {
+    }
+
     static let tour = ProcessInfo.processInfo.arguments.contains("-stageTour")
+    /// Screenshot-only size comparison; the actual simulation is not modified.
+    static func applyPitReference(to frame: inout RenderFrame) {
+        guard ProcessInfo.processInfo.arguments.contains("-stagePitReference"), let fixed else { return }
+        let target = Vec2(Double(fixed.x) * 100, Double(fixed.y) * 100)
+        guard let camp = MapDefinition.relayout.camps.filter({ $0.kind.isBoss })
+            .min(by: { $0.pos.distance(to: target) < $1.pos.distance(to: target) }) else { return }
+        let c = camp.pos
+        var turtle = UnitFactory.makeMonster(kind: .astralWyrm, campID: -1, pos: c)
+        turtle.facing = -.pi / 4
+        frame.state.nextEntityID = 9_000_000 // Stable, disjoint ID; never reuse a live simulation unit's visual.
+        frame.state.addUnit(turtle)
+        if let hero = frame.state.units.indices.first(where: { frame.state.units[$0].kind == .hero }) {
+            let at = c + Vec2(240, -270)
+            frame.state.units[hero].pos = at
+            frame.state.units[hero].prevPos = at
+            frame.state.units[hero].facing = .pi / 2
+        }
+        frame.viewerTeam = nil
+    }
     private static let start = CACurrentMediaTime()
 
     /// カメラの注視点（world の x, z）。指定が無ければ nil。

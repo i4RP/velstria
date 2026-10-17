@@ -183,6 +183,8 @@ final class BattleWorld {
         #if DEBUG
         var frame = makeFrame(dt: dt)
         frame.camera = rig.camera.position
+        StageDebug.applyLayoutReference(to: &frame)
+        StageDebug.applyPitReference(to: &frame)
         if let showcase {
             var injected: [SimEvent] = []
             showcase.apply(&frame, events: &injected)
@@ -921,7 +923,10 @@ final class BattleWorld {
         drive.direct = aim.kind == .free && (cameraLink.isPanning || cameraLink.isPinching)
         drive.directZoom = cameraLink.isPinching
         #if DEBUG
-        if let z = StageDebug.cameraZoom { drive.zoom = z }
+        if let z = StageDebug.cameraZoom {
+            drive.zoom = z
+            drive.zoomRange = 0.7...2.5
+        }
         #endif
         drive.transition = cameraTransition(rig: rig, aim: aim, target: target, snap: snap)
         rig.update(drive, dt: dt, mapMeters: Float(controller.ctx.map.size / Balance.unitsPerMeter))

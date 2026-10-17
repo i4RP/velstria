@@ -47,8 +47,8 @@ public enum MinionSystem {
                           invulnerable: WorldTargeting.structureInvulnerability(s),
                           paths: Team.players.map { team in Lane.allCases.map { ctx.map.lanePath($0, for: team) } },
                           calls: helpCalls(s))
-        for i in s.units.indices where s.units[i].kind == .minion && s.units[i].isAlive {
-            updateEmpowerment(&s, ctx, i, blessed: blessed)
+        for i in s.units.indices where s.units[i].minion != nil && s.units[i].isAlive {
+            if s.units[i].kind == .minion { updateEmpowerment(&s, ctx, i, blessed: blessed) }
             think(&s, ctx, i, frame: frame)
         }
     }

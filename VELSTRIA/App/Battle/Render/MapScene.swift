@@ -481,6 +481,7 @@ final class MapScene {
         }
         // ボスの巣の紋章
         for camp in map.camps where camp.kind == .astralWyrm || camp.kind == .ancientColossus {
+            if map.size == MapDefinition.relayout.size { continue } // Sanctuary replaces the old glowing circles.
             let rune: Swatch = camp.kind == .astralWyrm ? .glowPurple : .glowGold
             let c = worldPosition(camp.pos)
             glow.annulus(inner: 4.55, outer: 4.85, segments: 64, y: GroundLayer.marking, color: .solid(rune), transform: MX.t(c))

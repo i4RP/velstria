@@ -311,6 +311,7 @@ public enum DeathSystem {
 
     static func monsterDeath(_ s: inout SimState, _ ctx: SimContext, victimIndex v: Int, killerID: EntityID?) {
         guard let md = s.units[v].monster else { return }
+        guard s.units[v].team == .neutral else { return } // A captured Lord cannot be captured again.
         let pos = s.units[v].pos
         // 止めを刺したユニットが既に除去されていれば、最後に攻撃したユニットのチームに帰属
         guard let k = s.index(of: killerID) ?? s.index(of: s.units[v].lastAttackerID) else { return }
@@ -392,6 +393,7 @@ public enum DeathSystem {
                                                        sourceID: s.units[v].id, tag: "colossus"))
             s.emit(.objectiveTaken(kind: md.kind, team: team, killerID: killerID))
             s.emit(.announcement(.colossusSlain(team: team)))
+            if s.world.riverObjective != nil { RiverObjectiveSystem.capture(&s, ctx, team: team) }
         }
     }
 

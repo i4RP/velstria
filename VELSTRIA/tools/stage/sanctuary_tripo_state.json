@@ -1,0 +1,19 @@
+{
+  "submitting": false,
+  "request": {
+    "type": "image_to_model",
+    "model_version": "v2.5-20250123",
+    "texture": true,
+    "pbr": true,
+    "texture_quality": "detailed",
+    "texture_alignment": "original_image",
+    "orientation": "align_image",
+    "face_limit": 30000,
+    "model_seed": 171026,
+    "texture_seed": 171026
+  },
+  "concept": "references/sanctuary_concept.png",
+  "task_id": "96479219-06ef-41e8-bdc4-c4ff82537e47",
+  "status": "success",
+  "progress": 100
+}

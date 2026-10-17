@@ -18,10 +18,13 @@ extension MapDefinition {
         copy.obstacles = sanctumObstacles(scale: k)
         copy.river = Obstacle.smoothPolygon(sanctumRiverSpline.map { $0 * k },
                                             tolerance: sanctumRiverTolerance, maxSegment: sanctumRiverMaxSegment)
-        // 草むら: 細かい格子を縮め、壁（上の多角形）に重なるセルを除く。壁を先に入れること
-        copy.applySanctumBushes(scale: k)
         precondition(copy.camps.count == sanctumRelayoutCampPositions.count, "キャンプの数が地形の生成と合わない")
         for i in copy.camps.indices { copy.camps[i].pos = sanctumRelayoutCampPositions[i] }
+        for camp in copy.camps where camp.kind == .astralWyrm || camp.kind == .ancientColossus {
+            copy.obstacles.append(.polygon(BossPitGeometry.wall(center: camp.pos, lower: camp.pos.y < copy.size / 2)))
+        }
+        // 岩壁上の苔は装飾。追加した巣の壁の内側にも隠蔽セルを作らない。
+        copy.applySanctumBushes(scale: k)
         return copy
     }
 

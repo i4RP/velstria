@@ -571,6 +571,16 @@ public enum CombatSystem {
     static func basicAttackLanded(_ s: inout SimState, _ ctx: SimContext, attacker a: Int, target t: Int,
                                   dealt: Double, isCrit: Bool = false, itemEffects: Bool = true,
                                   itemEffectRatio: Double = 1) {
+        if dealt > 0, let aura = s.units[a].statuses.first(where: { $0.tag == "lord.magic" }) {
+            _ = applyDamage(&s, ctx, sourceID: s.units[a].id, targetIndex: t,
+                            amount: aura.magnitude, type: .magic, source: .passive)
+        }
+        if dealt > 0, s.units[a].monster?.kind == .ancientColossus,
+           s.units[a].statuses.contains(where: { $0.tag == "lord.charge" }) {
+            s.units[a].statuses.removeAll { $0.tag == "lord.charge" }
+            _ = applyDamage(&s, ctx, sourceID: s.units[a].id, targetIndex: t,
+                            amount: 500, type: .physical, source: .passive)
+        }
         if s.units[a].hero != nil { s.units[a].hero!.basicAttackCount += 1 }
         if let mark = s.units[a].statuses.firstIndex(where: { $0.tag == "spell.BS12" && $0.kind == .mark }) {
             let stats = s.units[a].stats

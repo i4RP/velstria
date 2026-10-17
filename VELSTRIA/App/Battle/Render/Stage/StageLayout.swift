@@ -14,6 +14,8 @@ struct StageChunks: Sendable {
     var rocks: [Int: StageMeshBuffer] = [:]
     /// 頂点色だけの草花・小石。
     var flora: [Int: StageMeshBuffer] = [:]
+    /// The two objective walls share one bounded 1024px atlas, prepared before battle.
+    var sanctuaries: [Int: StageMeshBuffer] = [:]
 
     static let size: Float = 12
     static let origin: Float = -20
@@ -28,6 +30,7 @@ struct StageChunks: Sendable {
     var triangleCount: Int {
         props.values.reduce(0) { $0 + $1.triangleCount } + rocks.values.reduce(0) { $0 + $1.triangleCount }
             + flora.values.reduce(0) { $0 + $1.triangleCount }
+            + sanctuaries.values.reduce(0) { $0 + $1.triangleCount }
     }
 }
 
@@ -72,6 +75,7 @@ struct StageLayout {
     let ruinsLook: Bool
     var rng: RenderRNG
     var out = StageLayoutResult()
+    var sanctuaryMesh: StagePropMesh?
     private var propTriangles = 0
 
     init(map: MapDefinition, props: [StagePropKind: StagePropMesh], density: Float, level: GraphicsQuality) {
@@ -86,8 +90,9 @@ struct StageLayout {
 
     /// lite: UI テスト用（StagePrep.lite）。地図の外の崖と森を省き、描画の負荷を下げる。
     static func build(map: MapDefinition, props: [StagePropKind: StagePropMesh], density: Float,
-                      level: GraphicsQuality, lite: Bool = false) -> StageLayoutResult {
+                      level: GraphicsQuality, lite: Bool = false, sanctuary: StagePropMesh? = nil) -> StageLayoutResult {
         var l = StageLayout(map: map, props: props, density: density, level: level)
+        l.sanctuaryMesh = sanctuary
         // 泉の台座は試合の目印なので、装飾の三角形の予算で省かれないよう最初に置く
         l.fountains()
         l.walls()
@@ -260,6 +265,12 @@ struct StageLayout {
     /// 多角形の壁（2026-10-16、MLBB のミニマップ原本から起こした滑らかな輪郭）: 足跡いっぱいの一枚岩（slopedSlab）+ 上に茂みと木。
     mutating func polygonWall(_ outline: [SIMD2<Float>], index: Int) {
         guard outline.count >= 3 else { return }
+        // Sanctuary walls have a shared collision outline and a dedicated bevelled profile.
+        if outline.count == (BossPitGeometry.segments + 1) * 2,
+           map.camps.contains(where: { camp in
+               (camp.kind == .astralWyrm || camp.kind == .ancientColossus)
+                   && simd_distance(outline[0], geo.m(camp.pos)) < 4.2
+           }) { return }
         let wallCenter = outline.reduce(SIMD2<Float>.zero, +) / Float(outline.count)
         if ruinsLook && isRiverRuin(wallCenter) {
             masonryWall(outline: StageLayout.signedArea(outline) < 0 ? Array(outline.reversed()) : outline, center: wallCenter)
@@ -314,6 +325,36 @@ struct StageLayout {
     }
 
     mutating func masonryWall(outline: [SIMD2<Float>], center: SIMD2<Float>) {
+        if map.camps.contains(where: {
+            $0.kind.isBoss && simd_distance(center, geo.m($0.pos)) < 14
+        }) {
+            // River-bank rocks: sloping grey stone and short moss, not upright hiding grass.
+            let slab = StageLayout.slopedSlab(outline: outline, seed: 8317,
+                                              tint: tint(1.14, 1.17, 1.10),
+                                              fine: level != .low, refine: level == .high)
+            var rock = StageMeshBuffer()
+            for i in slab.mesh.positions.indices {
+                let p = slab.mesh.positions[i], n = slab.mesh.normals[i]
+                let moss = max(0, n.y - 0.65) * (0.5 + 0.5 * sin(p.x * 2 + p.z))
+                let band: Float = 0.87 + 0.13 * sin(p.y * 12 + p.x * 0.4)
+                let col = stageColor((0.24 - moss * 0.14) * band,
+                                     (0.29 - moss * 0.08) * band,
+                                     (0.25 - moss * 0.13) * band, 0)
+                rock.addVertex(p, n, .zero, col)
+            }
+            for i in stride(from: 0, to: slab.mesh.indices.count, by: 3) {
+                rock.addTriangle(slab.mesh.indices[i], slab.mesh.indices[i + 1], slab.mesh.indices[i + 2])
+            }
+            let key = StageChunks.key(world(center))
+            var chunk = out.chunks.flora.removeValue(forKey: key) ?? StageMeshBuffer()
+            chunk.append(rock)
+            out.chunks.flora[key] = chunk
+            for p in [center, center + SIMD2<Float>(0.9, 0.15), center - SIMD2<Float>(0.7, 0.2)]
+                where polygonDistance(p, slab.top) < -0.3 {
+                sanctuaryMoss(at: p, height: slab.minTopHeight - 0.1)
+            }
+            return
+        }
         stonePrism(outline, bottom: 0, top: 0.95, color: stageColor(0.27, 0.36, 0.34, 0))
         stonePrism(outline, bottom: 0.95, top: 1.1, color: stageColor(0.48, 0.51, 0.39, 0))
         // 控えめな金の笠石。壁の足跡の外には出さない。
@@ -347,6 +388,7 @@ struct StageLayout {
     /// 静的な石材を既存の頂点色チャンクへ結合する（Entity / 更新処理の追加なし）。
     mutating func stonePrism(_ outline: [SIMD2<Float>], bottom: Float, top: Float, color: SIMD4<UInt8>) {
         guard outline.count >= 3 else { return }
+        let outline = StageLayout.signedArea(outline) < 0 ? Array(outline.reversed()) : outline
         let center = outline.reduce(SIMD2<Float>.zero, +) / Float(outline.count)
         let key = StageChunks.key(world(center))
         var mesh = out.chunks.flora.removeValue(forKey: key) ?? StageMeshBuffer()
@@ -530,9 +572,12 @@ struct StageLayout {
             let c = geo.m(camp.pos)
             switch camp.kind {
             case .astralWyrm, .ancientColossus:
-                runeDisc(center: c, radius: 5.6, rotation: camp.kind == .astralWyrm ? 0.2 : 1.0)
-                if ruinsLook { terraceRing(center: c, radius: 5.85) }
-                pitRuins(center: c)
+                if map.size == MapDefinition.relayout.size {
+                    sanctuary(center: c, lower: c.y < geo.mapMeters / 2)
+                } else {
+                    runeDisc(center: c, radius: 3.4, rotation: 0.2)
+                    pitRuins(center: c)
+                }
             case .blueSentinel, .redSentinel:
                 runeDisc(center: c, radius: 2.5, rotation: Float(camp.id) * 0.7)
             case .small, .hornLizard, .emberBeetle, .magmaGolem, .treasureCrab, .mossWanderer:

@@ -9,6 +9,8 @@ public struct WorldState: Codable, Hashable, Sendable {
     public var nextWaveTime: Double = Balance.firstWaveTime
     /// campID → 次回出現時刻（nil = 出現中）。index = CampSpot.id
     public var campRespawnAt: [Double?] = []
+    /// Optional for older replay snapshots. The compact map shares one alternating river objective.
+    public var riverObjective: RiverObjectiveState?
     /// 練習用人形の定位置（index = 人形番号）。
     public var dummySpots: [Vec2] = []
     /// 人形の陣営（練習する人間の敵チーム）。
@@ -45,6 +47,7 @@ public enum SpawnSystem {
             }
         }
         s.world.campRespawnAt = ctx.map.camps.map { $0.firstSpawn }
+        RiverObjectiveSystem.setup(&s, ctx)
 
         if practice && (ctx.config.practice ?? PracticeOptions()).spawnDummies {
             s.world.dummyTeam = (ctx.config.humanSlot?.team ?? .blue).opponent
@@ -149,6 +152,7 @@ public enum SpawnSystem {
         if s.world.campRespawnAt.count != camps.count {
             s.world.campRespawnAt = camps.map { $0.firstSpawn }
         }
+        RiverObjectiveSystem.update(&s, ctx)
         var alive = [Int](repeating: 0, count: camps.count)
         for u in s.units where u.kind == .monster && u.isAlive {
             if let c = u.monster?.campID, c >= 0, c < alive.count { alive[c] += 1 }
@@ -167,6 +171,7 @@ public enum SpawnSystem {
             }
         }
         for (k, camp) in camps.enumerated() {
+            if s.world.riverObjective != nil && camp.kind.isBoss { continue }
             if let at = s.world.campRespawnAt[k] {
                 if s.time + timeEpsilon >= at {
                     spawnCamp(&s, ctx, camp: camp)

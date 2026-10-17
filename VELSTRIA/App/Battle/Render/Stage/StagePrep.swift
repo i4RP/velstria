@@ -110,7 +110,7 @@ enum StagePrep {
         let lite = lite
         let density = lite ? min(0.3, quality.decorationDensity) : quality.decorationDensity
         let layout = StageLayout.build(map: map, props: assets.props, density: density, level: lite ? .low : quality.level,
-                                       lite: lite)
+                                       lite: lite, sanctuary: assets.sanctuary)
         let t2 = CFAbsoluteTimeGetCurrent()
         guard let maps = StageSplat.make(map: map, shades: layout.shades, controlSize: lite ? 512 : 1024,
                                          auxSize: lite ? 256 : 512, set: set) else { return nil }

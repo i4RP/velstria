@@ -98,7 +98,14 @@ struct CameraDrive {
 
 @MainActor
 final class CameraRig {
-    nonisolated static let pitchDegrees: Float = 56
+    nonisolated static let pitchDegrees: Float = {
+        #if DEBUG
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-stagePitch"), i + 1 < args.count,
+           let pitch = Float(args[i + 1]), (30...75).contains(pitch) { return pitch }
+        #endif
+        return 56
+    }()
     nonisolated static let fovDegrees: Float = 48
     /// cameraZoom = 1 のときの注視点までの距離（m）。
     nonisolated static let baseDistance: Float = 10.0

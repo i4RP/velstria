@@ -59,7 +59,7 @@ enum BotMacro {
             plan = keep
         }
         // 2b. 終盤の古環の巨像: 押し切りの前に取る（強化ミニオンと 2 秒帰還で守りを崩す）
-        else if t >= Balance.Bot.lateSiege, t >= retryAt, let camp = bossCamp(ctx, .ancientColossus), campAlive(s, camp),
+        else if t >= Balance.Bot.lateSiege, t >= retryAt, let camp = bossCamp(s, ctx, .ancientColossus), campAlive(s, camp),
                 ourAlive >= enemyAlive, aliveBots.count >= 3, blessed(s, aliveBots, .colossusBlessing) == 0,
                 enemiesSeenNear(s, intel, camp.pos, radius: 2500, within: 5) == 0 {
             plan.kind = .colossus
@@ -90,7 +90,7 @@ enum BotMacro {
             plan.members = blessedDuo.map { s.units[$0].id }
         }
         // 4. 古環の巨像（敵が減っている時・集団が近い時）
-        else if t >= Balance.Bot.colossusStart, t >= retryAt, let camp = bossCamp(ctx, .ancientColossus),
+        else if t >= Balance.Bot.colossusStart, t >= retryAt, let camp = bossCamp(s, ctx, .ancientColossus),
                 campAlive(s, camp), enemyAway >= 2 || (ourAlive - enemyAlive >= 1 && center.distance(to: camp.pos) < 4500),
                 aliveBots.count >= 3,
                 enemiesSeenNear(s, intel, camp.pos, radius: 2200, within: 4) == 0 {
@@ -99,7 +99,7 @@ enum BotMacro {
             plan.members = aliveBots.map { s.units[$0].id }
         }
         // 5. 星喰竜（2:00 以降、近くに敵が見えない時。集団期は集団が近い時のみ）
-        else if t >= Balance.Bot.wyrmStart, t >= retryAt, let camp = bossCamp(ctx, .astralWyrm), campAlive(s, camp),
+        else if t >= Balance.Bot.wyrmStart, t >= retryAt, let camp = bossCamp(s, ctx, .astralWyrm), campAlive(s, camp),
                 !groupPhase || enemyDead >= 1 || center.distance(to: camp.pos) < 4500,
                 let members = wyrmTeam(s, aliveBots, pit: camp.pos, groupPhase: groupPhase, ourAlive: ourAlive,
                                        enemyAlive: enemyAlive),
@@ -120,7 +120,7 @@ enum BotMacro {
         }
         // オブジェクトを途中で諦めたら、しばらく再挑戦しない
         if (old.kind == .wyrm || old.kind == .colossus) && plan.kind != old.kind {
-            let camp = bossCamp(ctx, old.kind == .wyrm ? .astralWyrm : .ancientColossus)
+            let camp = bossCamp(s, ctx, old.kind == .wyrm ? .astralWyrm : .ancientColossus)
             if let c = camp, campAlive(s, c) { s.bots.teams[team.rawValue].objectiveRetryAt = t + 45 }
         }
         if plan.kind == old.kind && plan.targetID == old.targetID && plan.lane == old.lane && old.kind != .none {
@@ -321,7 +321,7 @@ enum BotMacro {
     static func continueObjective(_ s: SimState, _ ctx: SimContext, _ intel: BotTeamIntel, old: BotTeamPlan,
                                   team: Team) -> BotTeamPlan? {
         guard old.kind == .wyrm || old.kind == .colossus,
-              let camp = bossCamp(ctx, old.kind == .wyrm ? .astralWyrm : .ancientColossus), campAlive(s, camp),
+              let camp = bossCamp(s, ctx, old.kind == .wyrm ? .astralWyrm : .ancientColossus), campAlive(s, camp),
               s.time - old.since < Balance.Bot.objectiveTimeout else { return nil }
         var plan = old
         plan.members = old.members.filter { id in
@@ -343,8 +343,8 @@ enum BotMacro {
         return sorted.prefix(count).map { s.units[$0].id }
     }
 
-    static func bossCamp(_ ctx: SimContext, _ kind: CampKind) -> CampSpot? {
-        ctx.map.camps.first { $0.kind == kind }
+    static func bossCamp(_ s: SimState, _ ctx: SimContext, _ kind: CampKind) -> CampSpot? {
+        RiverObjectiveSystem.camp(s, ctx, kind: kind)
     }
 
     /// キャンプが出現中か（ボスの出現・撃破は全体告知されるため両チームが知っている）。

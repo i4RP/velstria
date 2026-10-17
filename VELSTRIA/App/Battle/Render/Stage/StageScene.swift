@@ -30,6 +30,7 @@ final class StageScene {
         var flora: CustomMaterial
         var brush: CustomMaterial
         var rune: PhysicallyBasedMaterial
+        var sanctuary: CustomMaterial?
     }
 
     init?(plan: StagePlan) {
@@ -55,6 +56,13 @@ final class StageScene {
             add(chunks.rocks[key], name: "stageRock_\(key)", material: materials.rock)
             add(chunks.props[key], name: "stageProp_\(key)", material: materials.prop)
             add(chunks.flora[key], name: "stageFlora_\(key)", material: materials.flora, castsShadow: false)
+        }
+        if let material = materials.sanctuary {
+            for key in chunks.sanctuaries.keys.sorted() {
+                AssetLedger.record(.mesh, "sanctuary chunk")
+                AssetLedger.record(.entity, "sanctuary chunk")
+                add(chunks.sanctuaries[key], name: "stageSanctuary_\(key)", material: material)
+            }
         }
         for (i, buf) in plan.layout.brushes.enumerated() {
             // 両LODをロード中に準備。失敗時はステージ全体を既存の手続き地形へ戻す。
@@ -195,7 +203,16 @@ final class StageScene {
             runeMat.roughness = .init(floatLiteral: 0.9)
             runeMat.metallic = .init(floatLiteral: 0)
             runeMat.specular = .init(floatLiteral: 0.2)
-            return Materials(ground: ground, rock: rock, prop: prop, flora: flora, brush: brush, rune: runeMat)
+            var sanctuary: CustomMaterial?
+            if let image = a.sanctuaryAtlas, let texture = color(image) {
+                var material = try CustomMaterial(surfaceShader: .init(named: "stagePropSurface", in: lib), lightingModel: .lit)
+                material.baseColor = .init(texture: .init(texture))
+                material.custom.value = SIMD4(0, ruins, 0, 0)
+                sanctuary = material
+                AssetLedger.record(.texture, "sanctuary atlas 1024x1024")
+                AssetLedger.record(.material, "sanctuary stone")
+            }
+            return Materials(ground: ground, rock: rock, prop: prop, flora: flora, brush: brush, rune: runeMat, sanctuary: sanctuary)
         } catch {
             return nil
         }

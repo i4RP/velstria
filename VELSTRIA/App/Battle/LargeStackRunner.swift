@@ -8,7 +8,7 @@ final class LargeStackRunner: @unchecked Sendable {
     private static let threadName = "velstria.sim-large-stack"
 
     private let condition = NSCondition()
-    private var jobs: [() -> Void] = []
+    private var jobs: [(work: () -> Void, done: DispatchSemaphore)] = []
 
     private init() {
         let t = Thread { [unowned self] in self.loop() }
@@ -22,9 +22,13 @@ final class LargeStackRunner: @unchecked Sendable {
         while true {
             condition.lock()
             while jobs.isEmpty { condition.wait() }
-            let job = jobs.removeFirst()
+            var job: (() -> Void)? = jobs[0].work
+            let done = jobs.removeFirst().done
             condition.unlock()
-            job()
+            job?()
+            // Release the nonescaping body before allowing withoutActuallyEscaping to return.
+            job = nil
+            done.signal()
         }
     }
 
@@ -35,10 +39,9 @@ final class LargeStackRunner: @unchecked Sendable {
             var result: T?
             let done = DispatchSemaphore(value: 0)
             condition.lock()
-            jobs.append {
+            jobs.append((work: {
                 result = escapable()
-                done.signal()
-            }
+            }, done: done))
             condition.signal()
             condition.unlock()
             done.wait()

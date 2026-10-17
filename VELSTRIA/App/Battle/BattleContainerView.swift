@@ -41,6 +41,7 @@ struct BattleContainerView: View {
                 BattleHUDView(controller: controller) { outcome in
                     finish(outcome)
                 }
+                .opacity(DebugLaunch.args.contains("-stageClean") ? 0 : 1)
                 if controller.isOnline {
                     OnlineBattleOverlay(controller: controller, session: app.online, layer: .overHUD) {
                         app.audio.stopMusic()
@@ -48,7 +49,7 @@ struct BattleContainerView: View {
                     }
                 }
                 #if DEBUG
-                if DebugLaunch.isUITesting && !DebugLaunch.args.contains("-hudCapture") { uiTestFastForwardButton(controller) }
+                if DebugLaunch.isUITesting && !DebugLaunch.args.contains("-hudCapture") && !DebugLaunch.args.contains("-stageClean") { uiTestFastForwardButton(controller) }
                 #endif
             }
         }

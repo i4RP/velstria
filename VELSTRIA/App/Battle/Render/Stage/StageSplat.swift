@@ -88,7 +88,10 @@ enum StageSplat {
         for c in map.camps {
             let p = geo.m(c.pos)
             switch c.kind {
-            case .astralWyrm, .ancientColossus: pave.stampDisc(p, inner: 7.0, outer: 8.2, wobble: 0.6, seed: 47)
+            case .astralWyrm, .ancientColossus:
+                if map.size != MapDefinition.relayout.size {
+                    pave.stampDisc(p, inner: 2.8, outer: 3.9, wobble: 0.3, seed: 47)
+                }
             case .blueSentinel, .redSentinel: pave.stampDisc(p, inner: 2.6, outer: 3.2, wobble: 0.3, seed: 53)
             case .small, .hornLizard, .emberBeetle, .magmaGolem, .treasureCrab, .mossWanderer: break
             }
@@ -106,7 +109,7 @@ enum StageSplat {
         river.fillDiagonalBand(sum: geo.mapMeters, halfWidth: max(halfWidth, geo.riverReach) + 1.2) { p in
             let d = geo.riverDistance(p) + (valueNoise(p * 0.35, seed: 61) - 0.5) * 0.9
             var w = 1 - smoothstep(halfWidth - 0.6, halfWidth + 0.5, d)
-            for c in pits { w *= smoothstep(7.4, 8.6, simd_distance(p, c)) }
+            for c in pits { w = max(w, 1 - smoothstep(3.0, 4.5, simd_distance(p, c))) }
             return w
         }
         // 森の下草: 壁際・草むらの下・地図の外・ジャングルの奥のまだら（なだらかなので 1/4 の解像度で求めて拡大）
@@ -156,7 +159,7 @@ enum StageSplat {
                 let rd = geo.riverDistance(p)
                 var depth = 1 - smoothstep(0, halfWidth, rd)
                 if depth > 0 {
-                    for c in pits { depth *= smoothstep(6.5, 9, simd_distance(p, c)) }
+                    for c in pits { depth *= 0.4 + 0.6 * smoothstep(3.0, 5, simd_distance(p, c)) }
                     // レーンが川を渡る所は浅瀬
                     depth *= 0.45 + 0.55 * smoothstep(2.5, 5.5, geo.laneDistance(p))
                 }

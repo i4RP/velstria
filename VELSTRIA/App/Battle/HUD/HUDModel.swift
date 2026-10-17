@@ -727,6 +727,7 @@ final class HUDModel {
         let camps = ctx.map.camps
         for (k, camp) in camps.enumerated() {
             let isBoss = camp.kind.isBoss
+            if isBoss, let cycle = s.world.riverObjective, cycle.campID != camp.id { continue }
             let observed = viewer.map { s.vision.isLit(camp.pos, for: $0) } ?? true
             var known = campObservations[k] ?? CampObservation(respawnAt: camp.firstSpawn)
             if isBoss || observed {
@@ -740,7 +741,9 @@ final class HUDModel {
             let alive = nextSpawn == nil
             minimap.camps.append(.init(pos: camp.pos, alive: alive,
                                        isBoss: isBoss,
-                                       kind: camp.kind, respawnRemaining: nextSpawn.map { max(0, $0 - s.time) }))
+                                       kind: isBoss && s.world.riverObjective != nil
+                                           ? (s.world.riverObjective!.lordEra ? .ancientColossus : .astralWyrm) : camp.kind,
+                                       respawnRemaining: nextSpawn.map { max(0, $0 - s.time) }))
         }
         refreshMinimapCamera()
         minimapVersion &+= 1

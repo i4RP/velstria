@@ -62,6 +62,7 @@ public enum MonsterSystem {
         }
         for i in s.units.indices where s.units[i].kind == .monster && s.units[i].isAlive {
             guard let m = s.units[i].monster else { continue }
+            if s.units[i].team != .neutral { continue } // Captured Lord follows the lane through MinionSystem.
             // 熾甲虫の幼体: 寿命が来たら報酬なしで消える（添字は tick 末尾まで維持）
             if let e = m.expiresAt, s.time + SpawnSystem.timeEpsilon >= e {
                 s.units[i].isAlive = false

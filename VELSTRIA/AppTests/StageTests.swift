@@ -115,8 +115,10 @@ final class StageTests: XCTestCase {
             }
             // 地図の外は森の下草
             XCTAssertGreaterThan(try pixel(maps.control, [-10, 60]).w, 0.9, set.rawValue)
-            // 祭壇（ボスの巣）の床では川が途切れる
-            XCTAssertLessThan(try pixel(maps.control, [67.23, 29.97]).z, 0.05, set.rawValue)
+            // ボスの巣は浅い川の中。旧来の大きな乾いた円盤を置かない。
+            let boss = try XCTUnwrap(MapDefinition.relayout.camps.first { $0.kind.isBoss })
+            let center = SIMD2<Float>(Float(boss.pos.x / 100), Float(boss.pos.y / 100))
+            XCTAssertGreaterThan(try pixel(maps.control, center).z, 0.9, set.rawValue)
         }
     }
 
@@ -160,7 +162,34 @@ final class StageTests: XCTestCase {
 
     private func layout(_ q: GraphicsQuality = .medium, set: StageArtSet = .ruins) throws -> StageLayoutResult {
         let preset = RenderQuality.preset(q)
-        return StageLayout.build(map: .relayout, props: try assets(set).props, density: preset.decorationDensity, level: q)
+        let a = try assets(set)
+        return StageLayout.build(map: .relayout, props: a.props, density: preset.decorationDensity, level: q,
+                                 sanctuary: a.sanctuary)
+    }
+
+    func testTripoSanctuaryBudgetAndReflection() throws {
+        let a = try assets()
+        let mesh = try XCTUnwrap(a.sanctuary)
+        let texture = try XCTUnwrap(a.sanctuaryAtlas)
+        XCTAssertLessThanOrEqual(mesh.indices.count / 3, 12000)
+        XCTAssertLessThanOrEqual(texture.width, 1024)
+        XCTAssertLessThanOrEqual(texture.height, 1024)
+        XCTAssertEqual(mesh.size.x, 8.2, accuracy: 0.25)
+        XCTAssertEqual(mesh.size.z, 8.2, accuracy: 0.25)
+        let l = try layout()
+        let chunks = Array(l.chunks.sanctuaries.values)
+        XCTAssertEqual(chunks.count, 2)
+        XCTAssertEqual(chunks.reduce(0) { $0 + $1.triangleCount }, mesh.indices.count / 3 * 2)
+        XCTAssertNil(try assets(.legacy).sanctuary)
+        for chunk in chunks {
+            for i in stride(from: 0, to: chunk.indices.count, by: 3) {
+                let ids = (0..<3).map { Int(chunk.indices[i + $0]) }
+                let face = simd_cross(chunk.positions[ids[1]] - chunk.positions[ids[0]],
+                                      chunk.positions[ids[2]] - chunk.positions[ids[0]])
+                let normal = ids.reduce(SIMD3<Float>.zero) { $0 + chunk.normals[$1] }
+                XCTAssertGreaterThanOrEqual(simd_dot(face, normal), -0.01)
+            }
+        }
     }
 
     /// 壁の足跡からのはみ出し（m）。矩形は L∞（角の立った足跡）、円・多角形はユークリッド距離。内側は 0。

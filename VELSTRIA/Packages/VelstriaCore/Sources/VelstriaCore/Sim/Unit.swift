@@ -197,6 +197,8 @@ public struct MonsterData: Codable, Hashable, Sendable {
     public var leashing: Bool = false
     /// この時刻に報酬なしで消える（熾甲虫の幼体）。nil = 消えない。
     public var expiresAt: Double?
+    public var lordTier: Int?
+    public var lordChargeAt: Double?
 
     public init(kind: MonsterKind, campID: Int, home: Vec2) {
         self.kind = kind

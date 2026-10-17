@@ -333,6 +333,9 @@ final class AudioService {
     /// エンジンを起動する。失敗しても例外は出さない。
     @discardableResult
     private func startEngine() -> Bool {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-stageSilent") { return false }
+        #endif
         guard graphReady else { return false }
         if engine.isRunning { return true }
         lastStartAttempt = ProcessInfo.processInfo.systemUptime

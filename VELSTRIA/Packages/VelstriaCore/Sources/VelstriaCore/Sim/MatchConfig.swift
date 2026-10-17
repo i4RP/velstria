@@ -111,7 +111,8 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     ///     docs/kits/Zilong.md「動画で測った値」。
     /// 32: ミッドの対向ブッシュを直線の Z 形に変更（隠蔽判定も同じ形）。
     /// 33: Z 形を維持してミッド中央から両側のオブジェクト方向へ平行移動。
-    public static let currentSimVersion = 33
+    /// 34: 巣の開口付き岩壁、上下交互のタートル／ロード、ロードの進軍・時間強化。
+    public static let currentSimVersion = 34
 
     public var simVersion: Int
     public var mode: MatchMode
