@@ -179,36 +179,36 @@ final class FXTextureLibrary {
     /// RealityKit のアルファ合成の粒子は画像の色を乗算済みとして重ねる（色 + 背景 × (1 − α)）が、白 + アルファの画像は
     /// 読み込みで色が白に戻るので、α がわずかでもある所まで粒子の色が足され、粒子の板の四角い縁が見えていた
     /// （2026-10-17 の実機の録画: ボルグ S2 の土煙。板の中が縁まで一様に明るく、中心ほど背景が暗い = 乗算済みの重ね方）。
-    static func particleAlpha(_ img: CGImage) -> CGImage? {
+    nonisolated static func particleAlpha(_ img: CGImage) -> CGImage? {
         let w = img.width, h = img.height
         var buf = [UInt8](repeating: 0, count: w * h * 4)
         guard let ctx = CGContext(data: &buf, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
-                                  space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+                                  space: rgbSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
         ctx.draw(img, in: CGRect(x: 0, y: 0, width: w, height: h))
         // 乗算済みの白なので RGB はすでに α。この値のまま「乗算していない」画像にする（色 = α・α ではなく α）
         guard let provider = CGDataProvider(data: Data(buf) as CFData) else { return nil }
-        return CGImage(width: w, height: h, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: w * 4, space: space,
+        return CGImage(width: w, height: h, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: w * 4, space: rgbSpace,
                        bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue), provider: provider,
                        decode: nil, shouldInterpolate: true, intent: .defaultIntent)
     }
 
     /// 乗算済みの色のまま不透明にした画像（色付きのシートの加算用。白の画像なら luminance と同じ）。
-    static func opaquePremultiplied(_ img: CGImage) -> CGImage? {
+    nonisolated static func opaquePremultiplied(_ img: CGImage) -> CGImage? {
         let w = img.width, h = img.height
         var buf = [UInt8](repeating: 0, count: w * h * 4)
         guard let ctx = CGContext(data: &buf, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
-                                  space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+                                  space: rgbSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
         ctx.draw(img, in: CGRect(x: 0, y: 0, width: w, height: h))
         for k in stride(from: 3, to: buf.count, by: 4) { buf[k] = 255 }
         return ctx.makeImage()
     }
 
     /// アルファを輝度へ焼き込んだ不透明の画像。
-    static func luminance(_ img: CGImage) -> CGImage? {
+    nonisolated static func luminance(_ img: CGImage) -> CGImage? {
         let w = img.width, h = img.height
         var buf = [UInt8](repeating: 0, count: w * h * 4)
         guard let ctx = CGContext(data: &buf, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
-                                  space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+                                  space: rgbSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
         ctx.draw(img, in: CGRect(x: 0, y: 0, width: w, height: h))
         for k in stride(from: 0, to: buf.count, by: 4) {
             // 乗算済みの白なので RGB はすでにアルファ倍。アルファだけ不透明にする
@@ -218,6 +218,9 @@ final class FXTextureLibrary {
         }
         return ctx.makeImage()
     }
+
+    /// 画像の変換（どの actor からでも呼べる）に使う色空間。
+    nonisolated private static var rgbSpace: CGColorSpace { CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB() }
 
     // MARK: 描画
 
