@@ -173,6 +173,20 @@ struct MatchFlowView: View {
         .preferredColorScheme(.dark)
         .statusBarHidden(true)
         .persistentSystemOverlays(.hidden)
+        .onChange(of: model.step, initial: true) { old, step in
+            switch step {
+            case .mode: app.audio.playMusic(.menu)
+            case .heroSelect: app.audio.playMusic(.lobby)
+            case .draft: app.audio.playMusic(.draft)
+            case .ready: break
+            }
+            // モードを選んで試合の相手が決まった（ヒーロー選択・ドラフトへ進んだ）時だけ
+            if old == .mode, step == .heroSelect || step == .draft { app.audio.play(.matchFound) }
+        }
+        .onDisappear {
+            // 試合へ進まずに閉じたらホームの曲へ戻す（試合へ進む時はロード画面が曲を変える）
+            if app.activeBattle == nil { app.audio.playMusic(.menu) }
+        }
         .onAppear {
             model.configure(profile: app.profile, master: app.master)
             switch MatchFlowIntent.consume() {

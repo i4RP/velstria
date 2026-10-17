@@ -66,7 +66,7 @@ struct LoadingScreenView: View {
         .persistentSystemOverlays(.hidden)
         .task { await load() }
         .onAppear {
-            app.audio.stopMusic()
+            app.audio.playMusic(.loading)
             withAnimation(.spring(duration: 0.7, bounce: 0.2)) { appeared = true }
         }
     }
@@ -297,7 +297,7 @@ struct LoadingScreenView: View {
             if t >= Self.minimumDuration && loaded == players.count && progress.allSatisfy({ $0 >= 1 }) { break }
         }
         if Task.isCancelled { return }
-        app.audio.play(.announcement)
+        app.audio.play(.matchStart)
         try? await Task.sleep(for: .milliseconds(250))
         if Task.isCancelled { return }
         onReady()

@@ -47,7 +47,10 @@ struct RankedResultFlowView: View {
         .fullScreenCover(isPresented: $showsDetail) {
             MatchResultView(outcome: outcome, report: report) { showsDetail = false }
         }
-        .onAppear { app.audio.playMusic(won ? .victory : .defeat) }
+        .onAppear {
+            app.audio.play(won ? .victory : .defeat)
+            app.audio.playMusic(.result)
+        }
         .task(id: step) {
             guard DebugLaunch.autoAdvance else { return }
             try? await Task.sleep(for: .seconds(5))

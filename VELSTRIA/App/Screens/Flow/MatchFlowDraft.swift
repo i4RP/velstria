@@ -8,6 +8,8 @@ struct DraftStep: View {
     @Bindable var model: MatchFlowModel
     @Environment(AppModel.self) private var app
     @State private var remaining = 0
+    /// 残りがこの秒数以下になったらヒーロー選択の曲を緊張の曲へ（MusicTrack.draftTense）。
+    static let tenseSeconds = 10
     @State private var turnLimit = 1
     @State private var aiHover: String?
     @State private var confirmLeave = false
@@ -198,6 +200,8 @@ struct DraftStep: View {
                 if Task.isCancelled { return }
                 remaining -= 1
                 if (1...5).contains(remaining) { app.audio.play(.countdown) }
+                // 残り時間が少なくなったら緊張を上げる（ドラフトの終わりまでそのまま）
+                if remaining <= Self.tenseSeconds { app.audio.playMusic(.draftTense) }
             }
             guard let current = model.draft, current.turnIndex == draft.turnIndex else { return }
             var choice = model.draftHover.flatMap { current.canPlayerSelect($0) ? $0 : nil }
@@ -248,7 +252,7 @@ struct DraftStep: View {
                 app.showToast(L("時間切れ: 自動でピックしました", "Time's up: auto-picked"))
             }
         }
-        app.audio.play(.skillCast)
+        app.audio.play(.lockIn, gain: turn.isPlayer ? 1 : 0.6)
         if d.isComplete { app.audio.play(.announcement) }
     }
 
