@@ -9,11 +9,14 @@ extension Kit {
     /// 範囲（扇・円・線）内の敵（構造物を除く）に、対象ごとに作った payload を適用する。
     /// 対象を先に確定し、payload も全員ぶん先に作ってから、添字昇順に適用する（命中中のノックバック・死亡で判定が変わらない）。
     /// excluding の対象は除く（主対象に別の内容を与える円の通常攻撃など）。戻り値 = 命中させた対象の添字（昇順）。
+    /// source は検証用の観測（HitShapeProbe）に載せる出どころだけ（判定・内容には使わない）。
     @discardableResult
     static func hitAreaEach(_ s: inout SimState, _ ctx: SimContext, caster i: Int, center: Vec2, radius: Double,
-                            shape: ZoneShape, excluding: Int? = nil, from: Vec2? = nil,
+                            shape: ZoneShape, excluding: Int? = nil, from: Vec2? = nil, source: DamageSource,
                             payload: (SimState, Int) -> HitPayload) -> [Int] {
         let team = s.units[i].team
+        HitShapeProbe.emit(.area(shape, center: center, radius: radius, team: team, sourceID: s.units[i].id,
+                                 source: source, time: s.time))
         var hits: [(index: Int, payload: HitPayload)] = []
         for j in s.units.indices where j != excluding && s.units[j].team != team && !s.units[j].isStructure {
             guard CombatSystem.isLiving(s, j) else { continue }

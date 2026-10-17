@@ -430,13 +430,49 @@ struct SkillFXRecipe: Sendable {
     var isEmpty: Bool { cast.isEmpty && telegraph.isEmpty && travel.isEmpty && impact.isEmpty && hit.isEmpty }
 }
 
-/// レシピを書く時に使えるスキルの寸法（マスターデータから。m）。
+/// レシピを書く時に使えるスキルの寸法（マスターデータ・照準の規則・キットの Tune から。m・秒）。
+/// 判定と同じ値（照準の表示・判定・演出の 3 つが同じ値を使う。docs/vfx/RANGES.md）。演出に Tune の値を手で写さず、ここから読む。
 struct FXSkillInfo: Sendable {
     var heroID: String
     var slot: SkillSlot
     var archetype: SkillArchetype
-    /// 効果半径（m）。
+    /// 効果半径（m。小さすぎる値は 0.6 m に揃えた見た目用の値。判定の寸法は hitRadius）。
     var radius: Float
     /// 射程（m）。
     var range: Float
+    /// 再使用の段（0 = 通常）。
+    var stage = 0
+    /// 判定の半径・弾の半幅（m。照準の radius そのまま、下限なし）。
+    var hitRadius: Float = 0
+    /// 扇の半角（度。照準の halfAngle。扇でなければ 0）。
+    var halfAngle: Float = 0
+    /// 照準の見せ方。
+    var shape: AimShape = .auto
+    /// キットの時刻・寸法（HeroKits.fxValues。key = Tune の名前）。
+    var kit: [String: KitFXValue] = [:]
+
+    /// 読もうとして無かったキーの記録（テストが全レシピを組んだ後に空であることを確かめる。本番は読み違いを 0 で返すだけ）。
+    nonisolated(unsafe) static var misses: Set<String> = []
+
+    private func read(_ key: String, _ unit: KitFXValue.Unit) -> KitFXValue? {
+        guard let v = kit[key], v.unit == unit else {
+            FXSkillInfo.misses.insert("\(heroID) \(slot) \(stage) \(key)")
+            return nil
+        }
+        return v
+    }
+
+    /// 秒（KitFXValue.Unit.seconds）。
+    func seconds(_ key: String) -> Float { Float(read(key, .seconds)?.value ?? 0) }
+    /// m（sim の距離 ÷ 100）。
+    func meters(_ key: String) -> Float { Float((read(key, .distance)?.value ?? 0) / Balance.unitsPerMeter) }
+    /// m/s（sim の速さ ÷ 100）。
+    func speed(_ key: String) -> Float { Float((read(key, .speed)?.value ?? 0) / Balance.unitsPerMeter) }
+    /// 度（rad → 度）。
+    func degrees(_ key: String) -> Float { Float((read(key, .radians)?.value ?? 0) * 180 / .pi) }
+    /// 数。
+    func count(_ key: String) -> Int { Int((read(key, .count)?.value ?? 0).rounded()) }
+    /// 比（表の値は順に）。
+    func ratios(_ key: String) -> [Float] { (read(key, .ratio)?.values ?? []).map { Float($0) } }
+    func ratio(_ key: String) -> Float { ratios(key).first ?? 0 }
 }

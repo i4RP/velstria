@@ -51,66 +51,69 @@ enum FX_H034: HeroFXSet {
     private static let hookHand: SIMD3<Float> = [0.5, 1.0, 0.25]
     private static let shieldHand: SIMD3<Float> = [-0.5, 1.1, 0.25]
 
-    // MARK: - sim の時刻・寸法（Kit_H034.Tune と同じ値。sim の値を変えたらここも合わせる）
-
-    /// スキル1: 振りかぶりの長さ（hookDelay。発動 → 鉤が飛び出す）、鉤の速さ（m/s）。
-    private static let launch: Float = 0.33
-    private static let hookSpeed: Float = 15.15
-    /// 命中から引き寄せが始まるまで（hookHold）、引き寄せの所要（hookPull）、命中から動けない時間の合計（hookStun + hookLandStun）。
-    private static let holdTime: Float = 0.45
-    private static let pullTime: Float = 0.25
-    private static let stunTotal: Float = 1.3
-    /// 鎖の 1 本の長さ（秒）と本数（4 本 = 0.56 秒 ≧ 最大の飛行 8.23m / 15.15m/s ≈ 0.54 秒）。
-    private static let chainPiece: Float = 0.14
-    /// スキル2: 叩きつけの時刻（shockDelay。モーションの振り下ろし = sim のダメージ）。
-    private static let slam: Float = 0.27
-    /// アルティメット: 掴みかかり（ultDelay）、拘束（ultSuppress）、連撃の間隔（ultInterval）。
-    private static let grab: Float = 0.25
-    private static let suppress: Float = 1.8
-    private static let strikeGap: Float = 0.32
+    // MARK: - sim の時刻・寸法
+    // Kit_H034.Tune の値は写さず、FXSkillInfo（HeroKits.fxValues）から読む（照準の表示・判定・演出が同じ値。docs/vfx/RANGES.md）:
+    //   S1 hookDelay（振りかぶり → 鉤が飛び出す）・hookSpeed・hookRange・hookWidth（鉤の当たりの半幅）・hookHold（命中 → 引き寄せ）・hookPull
+    //   S2 shockDelay（叩きつけ = ダメージ）・shockRadius   奥義 ultDelay（掴みかかり）・ultInterval（連撃の間隔）・ultHits
 
     // MARK: - 見た目の寸法（動画で測った値・推定。sim には無い）
 
-    /// 鎖の板の幅（m）。鎖の画像の輪は板の幅の 2 割 = 約 0.1m（動画の鎖は画面で 6 px ≈ 0.1m）。
+    /// 鎖の 1 本の長さ（秒）。本数は飛行の最大（hookRange / hookSpeed）を覆う数。
+    private static let chainPiece: Float = 0.14
+    /// 鎖の板の幅（m）。鎖の画像の輪は板の幅の 2 割 = 約 0.1m（動画の鎖は画面で 6 px ≈ 0.1m）。鎖は判定の幅を示さない
+    /// （判定の幅 = 鉤の頭の横幅。hookHead）。
     private static let chainWidth: Float = 0.5
-    /// その場の 0.45 秒に張る鎖の 1 本の長さ（線上の 4 か所に置く。4 本 × 2.1m で射程 8.23m の命中まで届く）。
-    private static let holdPiece: Float = 2.1
     /// 引き寄せの間に被弾者に付いて縮む鎖の初めの長さ（推定。命中の距離は演出から分からないので中くらいの値）。
     private static let pullLength: Float = 3.5
-    /// 奥義の 6 撃目の金の円の半径（動画 f350〜355 の幅 約 250 px ≈ 4.0m）。
+    /// 奥義の 6 撃目の金の円の半径（動画 f350〜355 の幅 約 250 px ≈ 4.0m。判定の範囲ではない飾り）。
     private static let finaleRadius: Float = 2.0
 
     // MARK: - 部品
 
-    /// 手元から鉤まで伸びる鎖の k 本目（travel。鉤に追従）。鉤は hookSpeed（m/s）なので、本の始まりの時刻 t0 の長さ 0.3 + v·t0 から
+    /// 手元から鉤まで伸びる鎖の k 本目（travel。鉤に追従）。鉤は v（m/s）なので、本の始まりの時刻 t0 の長さ 0.3 + v·t0 から
     /// chainPiece 秒で v·chainPiece だけ伸び、中心は毎秒 v/2 後ろへ退く = 前端は鉤（+0.15）、後端は手元に留まる。
-    private static func chain(_ k: Int, width: Float, _ tint: FXTint, tex: FXTex = .chain, alpha: Float = 1,
-                              y: Float) -> FXCue {
+    private static func chain(_ k: Int, speed v: Float, width: Float, _ tint: FXTint, tex: FXTex = .chain,
+                              alpha: Float = 1, y: Float) -> FXCue {
         let t0 = chainPiece * Float(k)
-        let l0 = 0.3 + hookSpeed * t0
-        let l1 = 0.3 + hookSpeed * (t0 + chainPiece)
+        let l0 = 0.3 + v * t0
+        let l1 = 0.3 + v * (t0 + chainPiece)
         let m = FXMesh(shape: .disc, tex: tex, tint: tint, alpha: alpha, size: [l0, 1, width], sizeEnd: [l1, 1, width],
-                       ease: .linear, life: chainPiece, fadeIn: 0.01, fadeOut: 0.99, yaw: 90, advance: -hookSpeed / 2)
+                       ease: .linear, life: chainPiece, fadeIn: 0.01, fadeOut: 0.99, yaw: 90, advance: -v / 2)
         return .mesh(m, at: t0, .follow, offset: [0, y, 0.15 - l0 / 2])
     }
 
-    /// 命中からその場の 0.45 秒、術者と被弾者の間に張られた鎖（hit。線上の t の位置に holdPiece の長さで置く。追従しない）。
+    /// 鉤の頭（travel。暗い赤茶の鉄の三日月、凸が前・爪が後ろ）。見える横幅 = 判定の幅（半幅 hookWidth の 2 倍。三日月の画像の
+    /// 上下の端は板の ±0.4 = FXEdge.linearHalfWidth(.moon)）。板は横向き（yaw −90）なので、板の縦 = 横幅。
+    private static func hookHead(halfWidth: Float, life: Float) -> FXCue {
+        let side = halfWidth / (FXEdge.linearHalfWidth(.moon) ?? 0.4)
+        return .mesh(FXMesh(shape: .disc, tex: .moon, tint: hookIron, alpha: 1, size: [side, 1, side], sizeEnd: [side, 1, side],
+                            ease: .linear, life: life, fadeIn: 0.02, fadeOut: 0.85, yaw: -90), .follow, offset: [0, 1.05, 0.12])
+    }
+
+    /// 命中からその場の hold 秒、術者と被弾者の間に張られた鎖（hit。線上の t の位置に piece の長さで置く。追従しない）。
     /// 引き寄せの始まりから 0.1 秒で消える（縮む鎖 pullChain と入れ替わる）。
-    private static func heldChain(at t: Float) -> FXCue {
-        let life = holdTime + 0.1
-        let m = FXMesh(shape: .disc, tex: .chain, tint: .accent, alpha: 1, size: [holdPiece, 1, chainWidth],
-                       sizeEnd: [holdPiece, 1, chainWidth], ease: .linear, life: life, fadeIn: 0.02,
-                       fadeOut: holdTime / life, yaw: 90)
+    private static func heldChain(at t: Float, piece: Float, hold: Float) -> FXCue {
+        let life = hold + 0.1
+        let m = FXMesh(shape: .disc, tex: .chain, tint: .accent, alpha: 1, size: [piece, 1, chainWidth],
+                       sizeEnd: [piece, 1, chainWidth], ease: .linear, life: life, fadeIn: 0.02,
+                       fadeOut: hold / life, yaw: 90)
         return .mesh(m, .along(t), offset: [0, 1.0, 0])
     }
 
-    /// 引き寄せ（pullTime）の間に被弾者に付いて縮む鎖（hit。被弾者に追従）。被弾者側の端を保ったまま pullLength → 0.6m。
-    private static func pullChain() -> FXCue {
-        let life = pullTime + 0.02
+    /// 引き寄せ（pull 秒。命中から hold 秒後に始まる）の間に被弾者に付いて縮む鎖（hit。被弾者に追従）。
+    /// 被弾者側の端を保ったまま pullLength → 0.6m。
+    private static func pullChain(hold: Float, pull: Float) -> FXCue {
+        let life = pull + 0.02
         let m = FXMesh(shape: .disc, tex: .chain, tint: .accent, alpha: 1, size: [pullLength, 1, chainWidth],
                        sizeEnd: [0.6, 1, chainWidth], ease: .linear, life: life, fadeIn: 0.08, fadeOut: 0.75, yaw: 90,
                        advance: (pullLength - 0.6) / 2 / life)
-        return .mesh(m, at: holdTime, .follow, offset: [0, 1.0, -pullLength / 2])
+        return .mesh(m, at: hold, .follow, offset: [0, 1.0, -pullLength / 2])
+    }
+
+    /// 輪の画像（ring）の板の大きさ: 見える輪の線の外側（板の FXEdge.radial(.ring) 倍）が半径 r になる一辺。
+    private static func ringSize(_ r: Float) -> SIMD3<Float> {
+        let side = r / (FXEdge.radial(.ring) ?? 0.4575)
+        return [side, 1, side]
     }
 
     /// 命中の閃き: 白い閃光（1 コマ）→ 淡い黄の放射の閃き（約 0.2 秒で欠けて消える）。
@@ -156,60 +159,68 @@ enum FX_H034: HeroFXSet {
 
     private static func hookRecipe(_ s: FXSkillInfo) -> SkillFXRecipe {
         var r = SkillFXRecipe()
-        // 振りかぶり（0.33 秒）: MLBB は体をひねって鉤を後ろへ回すだけで光らない。投げ放つ瞬間の鎖の振りの細い鋼の弧（アルファ）だけ
+        let launch = s.seconds("hookDelay")
+        let v = s.speed("hookSpeed")
+        let range = s.meters("hookRange")
+        let hold = s.seconds("hookHold")
+        // 鎖の本数: 飛行の最大（射程 / 速さ）を覆う（8.23m / 15.15m/s ≈ 0.54 秒 → 0.14 秒 × 4 本）
+        let flight = v > 0 ? range / v : 0.56
+        let pieces = max(1, Int((flight / chainPiece).rounded(.up)))
+        // 振りかぶり（hookDelay）: MLBB は体をひねって鉤を後ろへ回すだけで光らない。投げ放つ瞬間の鎖の振りの細い鋼の弧（アルファ）だけ
         r.cast = [
             .mesh(.slash(0.9, .accent, from: 110, to: -30, life: 0.16, tex: .slashThin).with { $0.alpha = 0.55 },
-                  at: launch - 0.07, offset: [0, 1.2, 0.2]),
+                  at: max(0, launch - 0.07), offset: [0, 1.2, 0.2]),
         ]
-        // 飛ぶ鉤（前方 = 進行方向）: 暗い赤茶の鉄の鉤（凸が前、爪が後ろ。光らない）・手元から伸びる鋼の鎖 4 本。光の尾は無い
-        r.travel = [
-            .mesh(FXMesh(shape: .disc, tex: .moon, tint: hookIron, alpha: 1, size: [0.6, 1, 0.6], sizeEnd: [0.6, 1, 0.6],
-                         ease: .linear, life: 0.6, fadeIn: 0.02, fadeOut: 0.85, yaw: -90), .follow, offset: [0, 1.05, 0.12]),
-            chain(0, width: chainWidth, .accent, y: 1.0),
-            chain(1, width: chainWidth, .accent, y: 1.0),
-            chain(2, width: chainWidth, .accent, y: 1.0),
-            chain(3, width: chainWidth, .accent, y: 1.0),
-        ]
+        // 飛ぶ鉤（前方 = 進行方向）: 暗い赤茶の鉄の鉤（凸が前、爪が後ろ。光らない。横幅 = 判定の幅）・手元から伸びる鋼の鎖。光の尾は無い
+        r.travel = [hookHead(halfWidth: s.meters("hookWidth"), life: flight + 0.06)]
+            + (0..<pieces).map { chain($0, speed: v, width: chainWidth, .accent, y: 1.0) }
         // 鉤が食い込む点（f119〜122）: 白い閃光 → 淡い黄の放射の閃き（約 2m）・橙〜赤の短い火花・小さな揺れ
         r.impact = hitBurst(2.1, y: 1.0) + [
             .emit(.sparks(10, speed: 6, flameTip, end: flameRed), at: 0.03, offset: [0, 1.0, 0]),
             .shake(0.15),
         ]
-        // 被弾者（その場 0.45 秒 → 引き寄せ 0.25 秒）: 術者との間に張られた鋼の鎖（線上の 4 か所）→ 被弾者に付いて縮む鎖。
-        // スタン（命中から 1.3 秒）は共通の状態の表示（MLBB も頭上の共通の印だけ）
-        r.hit = [heldChain(at: 0.125), heldChain(at: 0.375), heldChain(at: 0.625), heldChain(at: 0.875), pullChain(),
-                 .emit(.sparks(6, speed: 4, flameTip, end: flameRed), offset: [0, 1.0, 0])]
+        // 被弾者（その場 hookHold → 引き寄せ hookPull）: 術者との間に張られた鋼の鎖（線上の 4 か所。4 本で射程の命中まで届く長さ）→
+        // 被弾者に付いて縮む鎖。スタン（命中から hookStun + hookLandStun）は共通の状態の表示（MLBB も頭上の共通の印だけ）
+        let piece = range / 4 * 1.02
+        r.hit = [0.125, 0.375, 0.625, 0.875].map { heldChain(at: $0, piece: piece, hold: hold) }
+            + [pullChain(hold: hold, pull: s.seconds("hookPull")),
+               .emit(.sparks(6, speed: 4, flameTip, end: flameRed), offset: [0, 1.0, 0])]
         return r
     }
 
     // MARK: - スキル2 鉄鎖旋
 
-    /// 斧鉤を地に叩きつける（0.27 秒）。R = 範囲の半径（2.57m）。MLBB の炎の輪は照準より内側（2.1〜2.4m）。
+    /// 斧鉤を地に叩きつける（shockDelay = sim のダメージの時刻）。R = 判定の半径（shockRadius）。
+    /// 範囲を示す部品（炎の舌の帯の外縁・外の細い赤い線）は、叩きつけの瞬間に縁がちょうど R に出て、R の外へは消えながら少し広がるだけ
+    /// （docs/vfx/RANGES.md の縁の約束。MLBB の炎の輪は照準より少し内側 1.8〜2.4m だが、判定に合わせた）。
     private static func shockRecipe(_ s: FXSkillInfo) -> SkillFXRecipe {
         var r = SkillFXRecipe()
-        let R = min(s.radius, 3.0)
-        let S = slam
-        // 振りかぶり（0.27 秒）は MLBB では光らない（斧鉤を振り上げるだけ）。空の cast を既定演出（魔法陣と光）で補わせない
+        let R = s.meters("shockRadius")
+        let S = s.seconds("shockDelay")
+        /// 叩きつけの後に縁が広がる倍率（消えながら。広がり始めの 0.09 で 1.03R を越えるので、その前から消え始める）。
+        let spread: Float = 1.12
+        // 振りかぶり（shockDelay）は MLBB では光らない（斧鉤を振り上げるだけ）。空の cast を既定演出（魔法陣と光）で補わせない
         r.cast = []
         r.fillsEmptyPhases = false
         // 自己中心なので発動と同時に再生される（叩きつけは S 秒後）
         r.impact = [
-            // 叩きつけの瞬間（f194）: 範囲の内側が淡い黄白に満ちる閃光（加算）。次のコマから内側が橙に（groundGlow の色の変化）
+            // 叩きつけの瞬間（f194）: 範囲の内側が淡い黄白に満ちる閃光（加算・柔らかい光で縁を持たない）。次のコマから内側が橙に
             .mesh(FXMesh(shape: .disc, tex: .glow, tint: slamFlash, alpha: 1, size: [R * 1.5, 1, R * 1.5],
                          sizeEnd: [R * 1.9, 1, R * 1.9], ease: .out, life: 0.16, fadeIn: 0.02, fadeOut: 0.35).glowing(), at: S),
             .emit(.groundGlow(R * 0.85, slamFlash, life: 0.42).with { $0.tintEnd = .secondary }, at: S + 0.02,
                   offset: [0, 0.03, 0]),
-            // 内向きの炎の舌の輪（f196〜207）: 帯の外縁が明るく、筋の模様が内へ流れて欠ける（加算）。0.75R → 0.92R に広がって 0.5 秒で消える
-            .mesh(FXMesh(shape: .band, tex: .beam, tint: .secondary, alpha: 1, size: [R * 0.75, 1, R * 0.75],
-                         sizeEnd: [R * 0.92, 1, R * 0.92], ease: .out, life: 0.5, fadeIn: 0.06, fadeOut: 0.5).glowing()
-                .flowing(.streaks, scroll: [0.1, -1.4], tiling: 1, strength: 0.8, erosion: 0.55, edge: flameTip), at: S + 0.03),
-            // 外の細い赤い線（f195〜198。輪の画像の半径は板の 0.44 倍 → 0.77R → 0.95R）
-            .mesh(FXMesh(shape: .disc, tex: .ring, tint: flameRed, alpha: 0.9, size: [R * 1.75, 1, R * 1.75],
-                         sizeEnd: [R * 2.15, 1, R * 2.15], ease: .out, life: 0.32, fadeIn: 0.03, fadeOut: 0.4).glowing(),
-                  at: S + 0.03),
-            // 輪の上でちらつく小さな炎（コマ送り）
+            // 内向きの炎の舌の輪（f196〜207）: 帯の外縁が明るく、筋の模様が内へ流れて欠ける（加算）。叩きつけの瞬間に外縁 = R
+            // （帯の内径は 0.8R）、消えながら 1.12R へ広がって 0.5 秒で消える
+            .mesh(FXMesh(shape: .band, tex: .beam, tint: .secondary, alpha: 1, size: [R, 1, R],
+                         sizeEnd: [R * spread, 1, R * spread], ease: .out, life: 0.5, fadeIn: 0.02, fadeOut: 0.08).glowing()
+                .flowing(.streaks, scroll: [0.1, -1.4], tiling: 1, strength: 0.8, erosion: 0.55, edge: flameTip), at: S),
+            // 外の細い赤い線（f195〜198）: 輪の線の外側（板の 0.4575 倍）が叩きつけの瞬間に R
+            .mesh(FXMesh(shape: .disc, tex: .ring, tint: flameRed, alpha: 0.9, size: ringSize(R),
+                         sizeEnd: ringSize(R * spread), ease: .out, life: 0.32, fadeIn: 0.03, fadeOut: 0.08).glowing(),
+                  at: S),
+            // 輪の上でちらつく小さな炎（コマ送り。炎の大きさ 0.6m の外側が R に届く輪の上）
             .emit(.sheet(.flameLoop, 0.6, flameTip, end: flameRed, count: 16, life: 0.42, orient: .upright).with {
-                $0.shape = .ring(R * 0.84)
+                $0.shape = .ring(max(0.3, R - 0.3))
                 $0.surface = true
             }, at: S + 0.04, offset: [0, 0.2, 0]),
             // 中心の焦げた地割れ（f199〜207。アルファ）
@@ -223,13 +234,15 @@ enum FX_H034: HeroFXSet {
 
     // MARK: - アルティメット 狩猟鎖獄
 
-    /// 対象へ 0.25 秒で掴みかかり、1.8 秒の間に 6 回殴る（掴んだ瞬間から 0.32 秒おき = 0.25 / 0.57 / 0.89 / 1.21 / 1.53 / 1.85 秒）。
-    /// impact は対象の位置（発動時）で再生される = 時刻は発動から。.along は術者 → 対象の線上。
+    /// 対象へ ultDelay（0.25 秒）で掴みかかり、ultSuppress の間に ultHits 回殴る（掴んだ瞬間から ultInterval おき =
+    /// 0.25 / 0.57 / 0.89 / 1.21 / 1.53 / 1.85 秒）。impact は対象の位置（発動時）で再生される = 時刻は発動から。.along は術者 → 対象の線上。
+    /// 判定は対象 1 体への命中だけ（範囲を持たない）。6 撃目の金の円は MLBB の飾りで、範囲を示さない。
     private static func huntRecipe(_ s: FXSkillInfo) -> SkillFXRecipe {
         var r = SkillFXRecipe()
-        let G = grab
-        let gap = strikeGap
-        let last = G + gap * 5
+        let G = s.seconds("ultDelay") + s.seconds("ultFirst")
+        let gap = s.seconds("ultInterval")
+        let hits = max(2, s.count("ultHits"))
+        let last = G + gap * Float(hits - 1)
         let D = finaleRadius
         // 掴みかかり（0.25 秒）は MLBB では光らない（1 撃目の閃きは hit）。空の cast を既定演出（光と粒）で補わせない
         r.cast = []
@@ -237,7 +250,7 @@ enum FX_H034: HeroFXSet {
         var impact: [FXCue] = []
         // 2〜5 撃の前（f316・f325・f333・f343）: 左右交互に振る金の三日月（加算。撃の 0.07 秒前から 0.2 秒）
         let swings: [(from: Float, to: Float, tilt: Float)] = [(80, -80, 55), (-80, 80, -55), (70, -90, 75), (-70, 90, -35)]
-        for (n, w) in swings.enumerated() {
+        for (n, w) in swings.prefix(hits - 2).enumerated() {
             impact.append(.mesh(.slash(1.0, .primary, from: w.from, to: w.to, tilt: w.tilt, life: 0.2).glowing()
                 .flowing(.streaks, scroll: [-2.5, 0], tiling: 1.5, strength: 0.4, erosion: 0.3, edge: .core),
                                 at: G + gap * Float(n + 1) - 0.07, .along(0.7), offset: [0, 1.1, 0]))

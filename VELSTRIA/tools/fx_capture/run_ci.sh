@@ -86,6 +86,8 @@ for preset in $PRESETS; do
       extra+=(-fxCaptureTimes "0,0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.45,0.55,0.65,0.8,0.95,1.1,1.3,1.6,1.85,2.05,2.3"
               -fxCaptureSide -fxCaptureAttack)
     fi
+    # 判定の形の線（HitShapeOverlay。撮影では既定で出す）を出さない
+    if [[ -n "${NOHITSHAPES:-}" ]]; then extra+=(-noHitShapes); fi
     first=0
     dest="$OUT/$preset/$hero"
     mkdir -p "$dest"

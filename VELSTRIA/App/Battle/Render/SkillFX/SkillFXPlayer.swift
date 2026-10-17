@@ -647,13 +647,10 @@ final class SkillFXPlayer {
     private func apply(_ index: Int, t: Float) {
         let inst = meshInsts[index]
         let m = inst.spec
-        let e = m.ease.apply(t)
         let age = t * m.life
-        let size = m.size + (m.sizeEnd - m.size) * e
-        var yawDeg = m.yaw
-        if let end = m.yawEnd { yawDeg = m.yaw + (end - m.yaw) * e }
-        yawDeg += m.spin * age
-        let yaw = inst.yaw + yawDeg * .pi / 180
+        // 大きさ・向き・不透明度は範囲の検査（FXRangeAudit）と同じ式（FXEdge.swift の FXMesh の拡張）
+        let size = m.size(at: t)
+        let yaw = inst.yaw + m.yawDegrees(at: t) * .pi / 180
         var q = simd_quatf(angle: yaw, axis: [0, 1, 0])
         if m.pitch != 0 { q = q * simd_quatf(angle: -m.pitch * .pi / 180, axis: [1, 0, 0]) }
         if m.roll != 0 { q = q * simd_quatf(angle: m.roll * .pi / 180, axis: [0, 0, 1]) }
@@ -664,10 +661,7 @@ final class SkillFXPlayer {
         if m.shape != .billboard { inst.entity.orientation = q }
         inst.entity.scale = size
         // 不透明度: fadeIn まで立ち上がり、fadeOut から 0 へ
-        var a: Float = 1
-        if t < m.fadeIn { a = t / max(0.001, m.fadeIn) }
-        if t > m.fadeOut { a = min(a, 1 - (t - m.fadeOut) / max(0.001, 1 - m.fadeOut)) }
-        let opacity = max(0, min(1, a * m.alpha))
+        let opacity = m.opacity(at: t)
         if m.blend == .add, let palette = inst.palette {
             // 加算: 明るさの段階の材質を差し替えて落とす（段階が変わった時だけ）。OpacityComponent は出す / 隠すだけ
             let level = FXMaterialLibrary.addLevel(opacity)
