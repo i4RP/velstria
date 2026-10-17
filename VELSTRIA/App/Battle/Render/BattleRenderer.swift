@@ -749,11 +749,11 @@ final class BattleRenderer {
         }
     }
 
-    #if DEBUG
     #if DEBUG || TESTER_TOOLS
     /// 内部ビルドの演出チェック（設定 > テスター用。FXCheckSession が始めた試合だけ）。
     private lazy var fxCheck: FXCheckDriver? = FXCheckSession.shared.driver(for: controller)
     #endif
+    #if DEBUG
     /// -fxCapture: スキル演出の比較撮影（FXCapture）。
     private lazy var fxCapture: FXCapture? = FXCapture.isRequested ? FXCapture() : nil
     private var autoClock: Double = 0
