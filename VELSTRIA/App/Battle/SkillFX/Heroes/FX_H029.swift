@@ -37,21 +37,69 @@ enum FX_H029: HeroFXSet {
     /// 崩落で飛ぶ白い岩の破片。
     private static let rock = FXTint.rgb(0.86, 0.82, 0.74)
 
-    // MARK: - sim の時刻（Kit_H029.Tune と同じ値。sim の値を変えたらここも合わせる）
+    // MARK: - sim の時刻・寸法
+    // Kit_H029.Tune の値は写さず、FXSkillInfo（HeroKits.fxValues）から読む（照準の表示・判定・演出が同じ値。docs/vfx/RANGES.md）:
+    //   S1 waveFirstDelay・waveInterval・waveCount・waveReach・waveNear/FarHalfWidth・waveBandStart・waveBandLength（台形の帯）
+    //   S2 dashRange・dashSpeed・dashWidth（突進の当たりの半幅）  再使用 smashDelay・smashReach・smashHalfAngle
+    //   奥義 ultReach（捕まえる・崩落の半径）・ultTotal（崩落の時刻）
 
-    /// スキル1: 1 回目の衝撃波の遅れ・間隔・回ごとの帯の中心（奥行きに対する比。帯 = waveBandStart + waveBandLength / 2）。
-    private static let waveFirst: Float = 0.25
-    private static let waveInterval: Float = 1.0 / 3.0
-    private static let waveScale: [Float] = [0.25, 0.5, 0.75]
-    /// スキル2: 突進の所要（5.25m / 7.8m/s ≈ 0.67 秒）、再使用の振り上げまでの遅れと扇の奥行き（m）。
-    private static let dashTime: Float = 0.67
-    private static let smashDelay: Float = 0.2
-    private static let smashReach: Float = 2.15
-    /// アルティメット: 引き寄せの始まり（発動の瞬間）と崩落（ultTotal）。
-    private static let ultPull: Float = 0
-    private static let ultSlam: Float = 1.0
+    /// スキル1 の k 回目の帯（手前・奥の奥行き m と、奥行き d の台形の半幅 m）。Kit_H029.waveBand と同じ寸法。
+    private struct WaveBand {
+        var lo: Float
+        var hi: Float
+        var near: Float
+        var far: Float
+        var reach: Float
+
+        func half(_ d: Float) -> Float { near + (far - near) * min(max(d, 0), reach) / max(0.01, reach) }
+        var center: Float { (lo + hi) / 2 }
+    }
+
+    private static func waveBands(_ s: FXSkillInfo) -> [WaveBand] {
+        let reach = s.meters("waveReach")
+        let starts = s.ratios("waveBandStart")
+        let length = s.ratio("waveBandLength")
+        let n = min(starts.count, s.count("waveCount"))
+        return (0..<n).map { k in
+            WaveBand(lo: k == 0 ? 0 : starts[k] * reach, hi: k == n - 1 ? reach : (starts[k] + length) * reach,
+                     near: s.meters("waveNearHalfWidth"), far: s.meters("waveFarHalfWidth"), reach: reach)
+        }
+    }
 
     // MARK: - 部品
+
+    /// 弧（arc）の見える開き（FXEdge.arcHalfSpan = ±81°）の端の sin・cos（帯に合わせる弧の大きさの計算）。
+    private static let arcEdgeSin = sin(FXEdge.arcHalfSpan * .pi / 180)
+    private static let arcEdgeCos = cos(FXEdge.arcHalfSpan * .pi / 180)
+
+    /// 帯 b に合わせた衝撃の弧の大きさ（右・上・前）。弧の中心を帯の手前の辺に置くと、前の端 = 帯の奥の辺、見える開きの端
+    /// （±81°）= その奥行きでの台形の横の辺（docs/vfx/RANGES.md）。
+    private static func bandArcSize(_ b: WaveBand) -> SIMD3<Float> {
+        let depth = b.hi - b.lo
+        return [b.half(b.lo + depth * arcEdgeCos) / arcEdgeSin, 1, depth]
+    }
+
+    /// 円い模様の板の大きさ: 見える縁（板の FXEdge.radial 倍）が半径 r になる一辺。
+    private static func plate(_ tex: FXTex, radius r: Float) -> SIMD3<Float> {
+        let side = r / (FXEdge.radial(tex) ?? 0.49)
+        return [side, 1, side]
+    }
+
+    /// 縁 → 縁 × spread へ ease .out で広がる部品が 1.03 倍を越える寿命の比より少し前（消え始めの比）。
+    private static func edgeFade(_ spread: Float) -> Float {
+        guard spread > 1.03 else { return 0.4 }
+        let e: Float = 0.03 / (spread - 1)
+        return max(0.02, (1 - pow(1 - e, 1.0 / 3.0)) * 0.9)
+    }
+
+    /// 判定の縁に出る輪（tex の円い模様）: 判定の瞬間に見える縁がちょうど r、消えながら r × spread へ広がる
+    /// （外へは消えながらだけ。広がり始めの 1.03r を越える前に消え始める）。
+    private static func edgeRing(_ r: Float, _ tint: FXTint, life: Float, spread: Float = 1.08, tex: FXTex = .shockwave,
+                                 alpha: Float = 0.95) -> FXMesh {
+        FXMesh(shape: .disc, tex: tex, tint: tint, alpha: alpha, size: plate(tex, radius: r),
+               sizeEnd: plate(tex, radius: r * spread), ease: .out, life: life, fadeIn: 0.02,
+               fadeOut: edgeFade(spread))
+    }
 
     /// n 個を前方の扇の弧（半径 r、±half 度）に右から左へ並べる（every 秒ずつ遅らせて、はじける順に波打たせる）。
     private static func fanned(_ c: FXCue, _ n: Int, radius r: Float, half: Float, every: Float = 0) -> FXCue {
@@ -63,13 +111,6 @@ enum FX_H029: HeroFXSet {
         c.stepYaw = n > 1 ? 2 * half / Float(n - 1) : 0
         c.orbit = 0.0001
         return c
-    }
-
-    /// 前方へ走る衝撃の弧（水平の半円の帯。外縁が明るく、両端へ薄れる）。半径 from → to へ広がる。
-    /// 横を 0.85 倍に絞って、前方の扇に寄せる。
-    private static func waveArc(from r0: Float, to r1: Float, _ tint: FXTint, life: Float) -> FXMesh {
-        FXMesh(shape: .arc, tex: .beam, tint: tint, alpha: 1, size: [r0 * 0.85, 1, r0], sizeEnd: [r1 * 0.85, 1, r1],
-               ease: .out, life: life, fadeIn: 0.02, fadeOut: 0.4)
     }
 
     /// 外から内へ縮む衝撃の輪（引き寄せ）。直径 from → to。
@@ -102,25 +143,38 @@ enum FX_H029: HeroFXSet {
 
     // MARK: - スキル1 聖槌波
 
-    /// 0.25 秒で槌が地を打つ → 台形に 3 回、前へ進みながらはじける（R = 台形の奥行き 6.1m = 射程）。
+    /// waveFirstDelay で槌が地を打つ → 台形の帯に waveCount 回、前へ進みながらはじける（帯 = Kit の waveBand。奥行き waveReach）。
     /// MLBB の画面収録（docs/vfx/H029.md）: 回ごとに白金の芯の閃光 → 橙の炎と煙の塊、地を走る金のぎざぎざのひび、暗い焦げ跡。
+    /// 範囲を示す部品は回ごとの衝撃の弧: 帯の手前から走って、判定の時刻にちょうど帯の奥の辺・横の辺に着き、消えながら少し広がる。
     private static func waveRecipe(_ s: FXSkillInfo) -> SkillFXRecipe {
         var r = SkillFXRecipe()
-        let R = min(s.range, 6.5)
-        // 槌の頭が地を打つ点（右手の槌 = やや右前）: 白金の閃光と小さな衝撃の輪（光る）
+        let first = s.seconds("waveFirstDelay")
+        let interval = s.seconds("waveInterval")
+        // 槌の頭が地を打つ点（右手の槌 = やや右前）: 白金の閃光と小さな衝撃の輪（光る。範囲より小さい飾り）
         r.cast = [
-            .emit(.flare(1.4, .core, life: 0.14, tex: .flare6), at: waveFirst - 0.02, offset: [0.25, 0.4, 0.9]),
-            .mesh(.shockRing(0.9, .accent, life: 0.25).glowing(), at: waveFirst - 0.02, offset: [0.2, 0, 0.9]),
+            .emit(.flare(1.4, .core, life: 0.14, tex: .flare6), at: max(0, first - 0.02), offset: [0.25, 0.4, 0.9]),
+            .mesh(.shockRing(0.9, .accent, life: 0.25).glowing(), at: max(0, first - 0.02), offset: [0.2, 0, 0.9]),
         ]
         var impact: [FXCue] = []
-        for (k, scale) in waveScale.enumerated() {
-            let t = waveFirst + waveInterval * Float(k)
-            let rad = R * scale
+        for (k, band) in waveBands(s).enumerated() {
+            let t = first + interval * Float(k)
+            let rad = band.center
             let dist = rad * 0.8
             let strong = Float(k) * 0.2
-            // 前へ走る衝撃の弧（光る。筋の模様が前へ流れ、縁から欠けて消える）
-            impact.append(.mesh(waveArc(from: max(0.6, rad - 1.4), to: rad, k == 2 ? .core : .primary, life: 0.3).glowing()
-                .flowing(.streaks, scroll: [0, -2.4], tiling: 2, strength: 0.6, erosion: 0.35, edge: .core), at: t))
+            let size = bandArcSize(band)
+            let tint: FXTint = k == 2 ? .core : .primary
+            // 前へ走る衝撃の弧（光る。筋の模様が前へ流れる）: 帯の手前の辺から走って判定の時刻にちょうど帯の縁に着き（run）、
+            // そこから消えながら 1.05 倍へ
+            let run = min(0.12, interval * 0.4)
+            impact.append(.mesh(FXMesh(shape: .arc, tex: .beam, tint: tint, alpha: 1, size: size * SIMD3<Float>(0.35, 1, 0.35),
+                                       sizeEnd: size, ease: .out, life: run, fadeIn: 0.15, fadeOut: 0.85).glowing()
+                .flowing(.streaks, scroll: [0, -2.4], tiling: 2, strength: 0.6, erosion: 0.2, edge: .core),
+                                at: max(0, t - run), offset: [0, 0, band.lo]))
+            impact.append(.mesh(FXMesh(shape: .arc, tex: .beam, tint: tint, alpha: 1, size: size,
+                                       sizeEnd: size * SIMD3<Float>(1.05, 1, 1.05), ease: .out, life: 0.22, fadeIn: 0.02,
+                                       fadeOut: edgeFade(1.05)).glowing()
+                .flowing(.streaks, scroll: [0, -2.4], tiling: 2, strength: 0.6, erosion: 0.35, edge: .core),
+                                at: t, offset: [0, 0, band.lo]))
             // 爆発の芯の白金の閃光（一瞬）
             impact.append(.mesh(.sprite(.glowHard, 1.5 + strong, .core, life: 0.16, grow: 1.7).glowing(), at: t,
                                 offset: [0, 0.6, dist]))
@@ -153,14 +207,21 @@ enum FX_H029: HeroFXSet {
     // MARK: - スキル2 聖槌突撃
 
     /// 1 回目: 盾を前に突進して、通り道の敵を終点まで押し運ぶ。MLBB: 背に橙の炎の尾と金のきらめき、ぶつかった前で白金の閃光。
+    /// 範囲を示す部品: 先頭の盾面の横幅 = 突進の当たりの幅（半幅 dashWidth）、終点の輪の半径 = 同じ半幅（押し運ぶ幅）。
     private static func chargeRecipe(_ s: FXSkillInfo) -> SkillFXRecipe {
         var r = SkillFXRecipe()
-        let L = min(s.range, 6.0)
+        let L = s.meters("dashRange")
+        let speed = s.speed("dashSpeed")
+        let dashTime = speed > 0 ? L / speed : 0.67
+        let half = s.meters("dashWidth")
+        // 盾面（六角の盾の画像の縁 = 板の幅の 0.48 倍）の幅: 見える横の端が ±half
+        let shieldWidth = half / (FXEdge.radial(.hexShield) ?? 0.48)
         r.cast = [
-            // 盾を構えて踏み出す閃きと、先頭の青い盾面
+            // 盾を構えて踏み出す閃きと、先頭の青い盾面（突進の間、横幅 = 当たりの幅のまま）
             .emit(.flare(1.2, .core, life: 0.14), .follow, offset: [-0.3, 1.0, 0.7]),
-            .mesh(.wall(.hexShield, width: 1.3, height: 1.4, .secondary, life: 0.3, alpha: 0.75), .follow,
-                  offset: [0, 0.25, 0.75]),
+            .mesh(FXMesh(shape: .wall, tex: .hexShield, tint: .secondary, alpha: 0.75, size: [shieldWidth, 1.0, 1],
+                         sizeEnd: [shieldWidth, 1.4, 1], ease: .outBack, life: dashTime + 0.05, fadeIn: 0.08,
+                         fadeOut: 0.8), .follow, offset: [0, 0.25, 0.75]),
             // 背に流れる橙の炎の尾（コマ送り）と金の光条（突進の間だけ）
             .emit(.trail(.glow, flame, rate: 34, life: 0.38, size: 1.1).with {
                 $0.duration = dashTime; $0.sheet = .flameLoop; $0.sheetRandomStart = true; $0.tintEnd = ember
@@ -181,7 +242,8 @@ enum FX_H029: HeroFXSet {
             // 終点: 押し運んだ敵ごと止まる衝撃（白金の爆ぜ・前方の三日月・輪・破片）
             .emit(.sheet(.energyBurst, 2.6, .core, end: .primary, life: 0.32), at: dashTime, .target, offset: [0, 0.9, 0.3]),
             .mesh(.slash(1.6, .primary, from: 60, to: -60, life: 0.25).glowing(), at: dashTime, .target, offset: [0, 0.5, 0.1]),
-            .mesh(.shockRing(1.6, .accent, life: 0.35).glowing(), at: dashTime, .target, offset: [0, 0, 0.4]),
+            // 終点の輪: 押し運んだ幅（半径 = 当たりの半幅）に出て、消えながら少し広がる
+            .mesh(edgeRing(half, .accent, life: 0.35).glowing(), at: dashTime, .target),
             .emit(.debris(10, speed: 5, dust), at: dashTime, .target, offset: [0, 0, 0.5]),
             .shake(0.2, at: dashTime),
         ]
@@ -200,12 +262,14 @@ enum FX_H029: HeroFXSet {
         return r
     }
 
-    /// 再使用（stage 1）: 0.2 秒で聖槌を下から振り上げ、前方の扇（2.15m）の敵を打ち上げる（0.6 秒）。
+    /// 再使用（stage 1）: smashDelay で聖槌を下から振り上げ、前方の扇（半径 smashReach・±smashHalfAngle）の敵を打ち上げる（0.6 秒）。
     /// MLBB: 縦に振り上げる白金の三日月と、打ち上げた敵の上の金の爆ぜ。突進の尾（共通の cast）は出さない。
+    /// 扇の縁を示す部品は無い（MLBB も地面に扇を出さない）。以前の扇の中ほどの衝撃の輪（扇の外へ 0.7m はみ出す円）は外した。
     static func recipe(_ slot: SkillSlot, stage: Int, _ s: FXSkillInfo) -> SkillFXRecipe? {
         guard slot == .skill2, stage == 1 else { return nil }
         var r = SkillFXRecipe()
-        let t = smashDelay
+        let t = s.seconds("smashDelay")
+        let smashReach = s.meters("smashReach")
         let mid: SIMD3<Float> = [0, 0, smashReach * 0.5]
         // 槌を低く構えて金の光を溜め、地を擦る
         r.cast = [
@@ -228,9 +292,8 @@ enum FX_H029: HeroFXSet {
             .emit(.sheet(.energyBurst, 2.8, .core, end: .primary, life: 0.36), at: t + 0.03, offset: [0, 1.4, smashReach * 0.5]),
             .mesh(.pillar(0.7, height: 5, .primary, life: 0.5).glowing()
                 .flowing(.streaks, scroll: [0, -2.5], tiling: 2, strength: 0.7, erosion: 0.2, edge: .core), at: t, offset: mid),
-            // 地割れ・足元の輪
+            // 地割れ
             .mesh(.decal(.crack, 3.0, .dark, life: 1.1, spin: 0, grow: 1.0, alpha: 0.8), at: t, offset: mid),
-            .mesh(.shockRing(1.8, .accent, life: 0.35).glowing(), at: t, offset: mid),
             // 打ち上げ: 地面から昇る輪が 3 つ続く（光る）
             .mesh(FXMesh.halo(0.9, .accent, life: 0.6, spin: 200, tex: .ringDouble).with { $0.rise = 3.5 }.glowing(), at: t,
                   offset: [0, 0.2, smashReach * 0.5]).repeated(3, every: 0.08),
@@ -255,13 +318,16 @@ enum FX_H029: HeroFXSet {
 
     // MARK: - アルティメット 崩落聖域
 
-    /// 詠唱 1.0 秒: 発動の瞬間から吸い寄せ（0〜0.67）しながら掲げて集める → 崩落（1.0）。R = 引き寄せ・爆発の半径（2.78m）。
+    /// 詠唱 ultTotal（1.0 秒）: 発動の瞬間から吸い寄せ（0〜ultPullTime）しながら掲げて集める → 崩落（ultTotal）。
+    /// R = 捕まえる・崩落の半径（ultReach）。判定は発動の瞬間（捕まえる円）と崩落（爆発の円）の 2 回で、どちらも半径 R。
     /// MLBB: 範囲の円が淡い金に満ち、縁を金の光の筋が渦を巻いて内へ吸い込む → 崩落の直前に槌の上へ縦の光の筋 →
     /// 白熱の閃光 → 橙の炎の爆発と、橙に光るひびが広がる焦げ跡、白い岩の破片。
+    /// 範囲を示す部品: 詠唱の間ずっと縁 = R の渦の帯、発動の瞬間に縁 = R から内へ縮む衝撃の輪、崩落の瞬間に縁 = R に出て
+    /// 消えながら広がる輪 2 つと光の壁（内側の小さな輪は飾り）。
     private static func implosionRecipe(_ s: FXSkillInfo) -> SkillFXRecipe {
         var r = SkillFXRecipe()
-        let R = min(s.radius, 6.0)
-        let p = ultPull, t = ultSlam
+        let R = s.meters("ultReach")
+        let p: Float = 0, t = s.seconds("ultTotal")
         // 掲げた槌の頭（右手・頭上）に金の光が集まる（崩落の少し前まで）
         r.cast = [
             .emit(.gather(20, radius: 1.2, .primary, life: t - 0.2), .follow, offset: [0.3, 2.5, 0.1]),
@@ -271,7 +337,10 @@ enum FX_H029: HeroFXSet {
         r.impact = [
             // 0〜: 範囲が淡い金に満ち（光る柔らかい円）、縁を金の光の筋が渦を巻いて回る（模様が弧に沿って流れる）
             .mesh(.decal(.glow, R * 2.1, .primary, life: t + 0.05, spin: 0, grow: 1.0, alpha: 0.32).glowing(), at: p),
-            .mesh(.halo(R, .primary, life: t + 0.05, spin: -120, tex: .beam, alpha: 1).glowing()
+            .mesh(.halo(R, .primary, life: t + 0.05, spin: -120, tex: .beam, alpha: 1).with {
+                $0.size = [R, 1, R]
+                $0.ease = .linear
+            }.glowing()
                 .flowing(.streaks, scroll: [1.6, 0], tiling: 3, strength: 0.85, erosion: 0.45, edge: .core), at: p),
             // 外から内へ縮む衝撃の輪と逆巻く渦（光る）、吸い込まれる光の筋と土煙
             .mesh(implodeRing(from: R * 2, to: 1.2, .primary, life: 0.42).glowing(), at: p),
@@ -296,11 +365,15 @@ enum FX_H029: HeroFXSet {
                   offset: [0, 0.7, 0]),
             .mesh(.pillar(1.1, height: 6, .primary, life: 0.45).glowing()
                 .flowing(.streaks, scroll: [0, -2.2], tiling: 2, strength: 0.7, erosion: 0.3, edge: .core), at: t - 0.02),
-            .mesh(.burstWall(R * 0.75, height: 2.0, .primary, life: 0.45).glowing()
+            // 範囲の縁に立ちのぼる光の壁（崩落の瞬間に半径 R、消えながら少し広がって低くなる）
+            .mesh(FXMesh(shape: .cylinder, tex: .beam, tint: .primary, alpha: 0.8, size: [R, 2.0, R],
+                         sizeEnd: [R * 1.06, 0.6, R * 1.06], ease: .out, life: 0.45, fadeIn: 0.02,
+                         fadeOut: edgeFade(1.06)).glowing()
                 .flowing(.noise, scroll: [0.4, -1.5], tiling: 2, strength: 0.6, erosion: 0.5, edge: .core), at: t),
-            .mesh(.shockRing(R * 0.6, .core, life: 0.32).glowing(), at: t),
-            .mesh(.shockRing(R, .primary, life: 0.5).glowing(), at: t + 0.04),
-            .mesh(.shockRing(R * 1.2, flame, life: 0.7).glowing(), at: t + 0.1),
+            // 内側の白い衝撃の輪（範囲より小さい飾り）と、崩落の瞬間に縁 = R に出る金・橙の輪
+            .mesh(.shockRing(R * 0.45, .core, life: 0.32).glowing(), at: t),
+            .mesh(edgeRing(R, .primary, life: 0.5).glowing(), at: t),
+            .mesh(edgeRing(R, flame, life: 0.7, spread: 1.15).glowing(), at: t),
             // 焦げ跡（暗い）と、その上を広がる橙に光るひび（コマ送り）
             .mesh(.decal(.crack, R * 1.9, .dark, life: 2.0, spin: 0, grow: 1.0, alpha: 0.9), at: t),
             .mesh(.decal(.crack, R * 1.6, flame, life: 1.1, spin: 0, grow: 1.05, alpha: 1).glowing()
