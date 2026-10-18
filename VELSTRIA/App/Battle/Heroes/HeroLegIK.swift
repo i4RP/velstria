@@ -19,8 +19,14 @@ struct HeroLegRig {
     /// 腰の関節 → 腿の付け根（待機。m、拡縮込み）。
     let socketR: V3
     let socketL: V3
-    let thigh: Float
-    let shin: Float
+    /// 腿・脛の長さ（左右別。スキンメッシュの自動リグは左右で数 cm 違うことがある）。
+    let thighR: Float
+    let shinR: Float
+    let thighL: Float
+    let shinL: Float
+    /// 左右の平均（記録・テスト用）。
+    var thigh: Float { (thighR + thighL) / 2 }
+    var shin: Float { (shinR + shinL) / 2 }
     /// HeroPose.hipsDrop 1 あたりの腰の沈み（m）。
     let dropScale: Float
     /// 待機の足首（plant の目標の原点。ヒーロー空間・m）。足首の地面の高さはこの y。
@@ -28,11 +34,19 @@ struct HeroLegRig {
     private(set) var restAnkleL = V3.zero
 
     init(hips: V3, socketR: V3, socketL: V3, thigh: Float, shin: Float, dropScale: Float, rest: HeroPose) {
+        self.init(hips: hips, socketR: socketR, socketL: socketL, thighR: thigh, shinR: shin, thighL: thigh, shinL: shin,
+                  dropScale: dropScale, rest: rest)
+    }
+
+    init(hips: V3, socketR: V3, socketL: V3, thighR: Float, shinR: Float, thighL: Float, shinL: Float, dropScale: Float,
+         rest: HeroPose) {
         self.hips = hips
         self.socketR = socketR
         self.socketL = socketL
-        self.thigh = max(0.02, thigh)
-        self.shin = max(0.02, shin)
+        self.thighR = max(0.02, thighR)
+        self.shinR = max(0.02, shinR)
+        self.thighL = max(0.02, thighL)
+        self.shinL = max(0.02, shinL)
         self.dropScale = dropScale
         // 待機の立ち姿（体の位置・傾き・腰の沈みなし）の足首
         var r = rest
@@ -69,7 +83,8 @@ struct HeroLegRig {
         let leg = right ? p.legR : p.legL
         let a = Self.hipsRotation(p) * rx(leg.pitch) * rz(right ? leg.out : -leg.out)
         let down = V3(0, -1, 0)
-        let local = socket(p, right: right) + a.act(down) * thigh + (a * rx(-leg.knee)).act(down) * shin
+        let local = socket(p, right: right) + a.act(down) * (right ? thighR : thighL)
+            + (a * rx(-leg.knee)).act(down) * (right ? shinR : shinL)
         return p.offset + Self.body(p).act(local)
     }
 
@@ -77,7 +92,7 @@ struct HeroLegRig {
     func solve(_ p: HeroPose, target: V3, right: Bool) -> LegPose {
         let local = Self.body(p).inverse.act(target - p.offset)
         var v = Self.hipsRotation(p).inverse.act(local - socket(p, right: right))
-        let a = thigh, b = shin
+        let a = right ? thighR : thighL, b = right ? shinR : shinL
         let dMax = (a + b) * 0.999
         let dMin = abs(a - b) + 0.1 * (a + b)
         var d = simd_length(v)

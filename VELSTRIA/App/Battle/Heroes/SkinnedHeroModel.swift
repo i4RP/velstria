@@ -564,8 +564,8 @@ final class SkinnedHeroModel: HeroDisplayModel {
             let hipsRest = rp[rig.index[.hips]!]
             let s = bp.scale
             animator.legRig = HeroLegRig(hips: hipsRest * s, socketR: (uR - hipsRest) * s, socketL: (uL - hipsRest) * s,
-                                         thigh: 0.5 * (simd_distance(uR, kR) + simd_distance(uL, kL)) * s,
-                                         shin: 0.5 * (simd_distance(kR, fR) + simd_distance(kL, fL)) * s,
+                                         thighR: simd_distance(uR, kR) * s, shinR: simd_distance(kR, fR) * s,
+                                         thighL: simd_distance(uL, kL) * s, shinL: simd_distance(kL, fL) * s,
                                          dropScale: hipsDropScale * s, rest: animator.profile.rest)
         }
         entityCount = HeroEffects.countEntities(root)
