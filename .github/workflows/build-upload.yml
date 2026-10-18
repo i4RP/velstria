@@ -59,6 +59,7 @@ jobs:
         if: inputs.run_tests
         # GPU の無いランナーは描画が遅く、UI の問い合わせが時間切れになる不安定な失敗が起きる。
         # 落ちたテストだけを最大 3 回まで自動で再実行する（3 回とも落ちれば失敗。網羅は減らさない）
+        # FlowUITests の観戦・練習場のリザルトは試合を最後まで早送りする（CI のシミュレータでは 15 分を超える）ので外す
         run: |
           xcodegen generate --quiet
           mkdir -p build
@@ -127,6 +128,8 @@ jobs:
             -only-testing:VELSTRIAUITests/ReplayLibraryUITests \
             -only-testing:VELSTRIAUITests/OnlineSpectateLobbyUITests \
             -only-testing:VELSTRIAUITests/FlowUITests \
+            -skip-testing:VELSTRIAUITests/FlowUITests/testSpectateResult \
+            -skip-testing:VELSTRIAUITests/FlowUITests/testPracticeResult \
             -only-testing:VELSTRIAUITests/OutgameShotsUITests \
             -parallel-testing-enabled NO \
             -retry-tests-on-failure -test-iterations 3 \
