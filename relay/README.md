@@ -8,6 +8,7 @@
 - **対戦の中身は保存しない**。対戦データ（payload）は保存もログ出力もしない。Workers Logs も無効（`wrangler.jsonc` の `observability`）。
   部屋について保存するのは参加者番号の採番（数値 1 つ）だけで、ホストが去ってから 10 分で消す。
   フレンドの受信箱は、鍵のハッシュ・最後に繋いだ日時・預かった申請を保存する（下の「フレンドの受信箱」。本人が消せる、1 年繋がなければ自動で消える）。
+  ランクは、鍵のハッシュ・ランク・直近 50 試合の結果を保存する（下の「ランク」。本人が消せる）。
 - 部屋コード 1 つ = Durable Object（`RelayRoom`）1 つ。WebSocket Hibernation API で、通信の無い間は DO を眠らせる（課金・メモリを使わない）。
 - LAN（Bonjour / IP:ポート直結）は今まで通りアプリに残る。ホストは LAN の待ち受けと中継の両方で参加者を受け入れる。
 
@@ -18,7 +19,9 @@
 | パス | 内容 |
 |---|---|
 | `src/index.ts` | Worker（入口の検証）と Durable Object `RelayRoom`（中継の本体） |
-| `wrangler.jsonc` | Worker 名 `velstria-relay`、DO の束縛 `RELAY_ROOM`、SQLite バックエンドの移行 `v1` |
+| `src/inbox.ts` | Durable Object `FriendInbox`（フレンドの受信箱。下の「フレンドの受信箱」） |
+| `src/rank.ts` | Durable Object `RankAccount`（アカウントごとのランクと規則の計算。`POST /v1/rank/…`。下の「ランク」） |
+| `wrangler.jsonc` | Worker 名 `velstria-relay`、DO の束縛 `RELAY_ROOM` / `FRIEND_INBOX` / `RANK_ACCOUNT`、SQLite バックエンドの移行 `v1`〜`v3` |
 | `test/relay.test.mjs` | 結合テスト（Node の組み込みテストランナー + Node の WebSocket。本物の Worker を相手にする） |
 | `../.github/workflows/relay.yml` | `relay/**` が変わった時に CI（ubuntu）でテストを流す（配備はしない） |
 
@@ -32,6 +35,7 @@
 | `GET /v1/rooms/<CODE>?role=host\|guest&rv=1`（WebSocket Upgrade） | 101（下の close コードで断る時も、いったん受け入れてから閉じる） |
 | `GET /v1/inbox/<FRIENDCODE>?key=<KEY>&rv=1`（WebSocket Upgrade） | 101（下の「フレンドの受信箱」）。コードが規則に合わなければ 400 `bad_friend_code` |
 | `POST /v1/inbox/<FRIENDCODE>/erase`（本文 `{"key":"<KEY>"}`） | 200 `{"ok":true,"result":"erased"\|"none"}` / 403 `inbox_taken` / 400 / 405（下の「受信箱の消去」） |
+| `POST /v1/rank/<FRIENDCODE>/get\|seed\|match\|erase`（本文 `{"key":"<KEY>",…}`） | 200 `{"ok":true,"state":{…}}` / 400 / 403 / 405（下の「ランク」） |
 | 部屋コードが規則に合わない | 400 `bad_room_code` |
 | `role` が `host` / `guest` 以外 | 400 `bad_role` |
 | WebSocket Upgrade でない | 426 |
@@ -145,16 +149,22 @@
 
 ## ランク（アカウントごと）
 
-Durable Object `RankAccount`（フレンドコード 1 つ = 1 つ）。持ち主は受信箱と同じ鍵で縛る（最初に来た鍵の SHA-256 を保存）。
-規則は Mobile Legends と同じで `src/rank.ts` が正（アプリの `RankService.swift` は通信できない時の写し）。
+Durable Object `RankAccount`（`src/rank.ts`。フレンドコード 1 つ = 1 つ）。持ち主は受信箱と同じ鍵で縛る（最初に来た鍵の SHA-256 を保存。
+受信箱の持ち主とは別に確かめる）。規則は Mobile Legends と同じで `src/rank.ts` が正（アプリの `RankService.swift` は通信できない時の写し）。
 
-- `POST /v1/rank/<CODE>/get` 本文 `{"key":"…"}` → `{"ok":true,"state":{…}}`
-- `POST /v1/rank/<CODE>/seed` 本文 `{"key":"…","state":{…}}`（サーバーに記録が無い時だけ端末の値を取り込む）
+- `POST /v1/rank/<CODE>/get` 本文 `{"key":"…"}` → `{"ok":true,"state":{…}}`（記録が無ければ初期値を返し、記録は作らない）
+- `POST /v1/rank/<CODE>/seed` 本文 `{"key":"…","state":{…}}`（サーバーに記録が無い時だけ端末の値を取り込む。あれば今の記録を返す）。
+  `tier`・`division`・`stars` は必須で規則の範囲、ほかの数は 0 以上の整数（`starPoints` は 700 未満、`protectionPoints` は 700 まで）。
+  知らない項目と `season` は取り込まない。
 - `POST /v1/rank/<CODE>/match` 本文 `{"key":"…","match":{"matchId":"…","won":true,"rating":8.2,"mvp":false}}`
   → `{"ok":true,"state":{…},"result":{"before","after","starPointsGain","scoreBonus","activeBonus","protected"}}`。
-  同じ matchId は最初の結果を返す（直近 50 試合）。
-- `POST /v1/rank/<CODE>/erase` 本文 `{"key":"…"}`（アプリの「サーバーのデータを削除」で受信箱と一緒に消す）
-- 鍵違いは 403 `forbidden`、形式の誤りは 400。
+  `matchId` は 8〜64 文字の英数・`_`・`-`（`__proto__`・`toString` など Object.prototype の名前は不可）、`rating` は 0〜16 に収める。
+  同じ matchId は最初の結果を返す（直近 50 試合。`state` はその時の記録）。
+- `POST /v1/rank/<CODE>/erase` 本文 `{"key":"…"}` → `{"ok":true,"state":{初期値}}`。記録・持ち主の鍵・覚えている matchId をすべて消す
+  （アプリは受信箱の消去と一緒に呼ぶ: `FriendHub.eraseServerData`）。運営が利用を止めたコードでも消せる。
+- 誤りは平文: 400 `bad_friend_code` / `bad_key` / `bad_request`（JSON でない・本文 4 KiB 超・`state` / `match` の誤り）、
+  403 `forbidden`（鍵が持ち主のものでない）/ `suspended`（利用停止のコードの get・seed・match）、405（POST 以外）、404（知らない操作）。
+- `rv` は見ない（版は道の `/v1`）。期限による自動の消去は無い（受信箱と違い、本人の erase だけで消える）。
 
 ## 実装の要点
 
@@ -192,7 +202,7 @@ npx wrangler deploy     # → https://velstria-relay.<アカウントのサブ�
 cd relay
 npm ci
 npm run typecheck                    # 型検査（tsc）
-npm test                             # 手元で wrangler dev を空いているポートで起こし、結合テストを流す（約 10 秒）
+npm test                             # 手元で wrangler dev を空いているポートで起こし、結合テストを流す（約 20 秒）
 npm run test:deployed                # 配備済みの中継（wss://velstria-relay.shoei0205.workers.dev）に流す（約 1 分）
 RELAY_URL=wss://... npm test         # 任意の中継に流す
 ```
@@ -205,6 +215,10 @@ RELAY_URL=wss://... npm test         # 任意の中継に流す
 同じ鍵の再接続での入れ替え（4011）、自分宛て・不正な宛先の無視、不正なコード・鍵・`rv` の拒否、同じ申請の 1 通へのまとめ。
 受信箱の消去: 鍵の違いの 403、消去（繋いでいる接続の 4014、以後の接続の 4014、預けない、消し直し）、繋いだことのないコードの `none`、要求の誤りの 400 / 405、
 利用停止のコードの 4013（手元の Worker だけ。`wrangler dev --var SUSPENDED_FRIEND_CODES:…` で渡す）。
+ランク: seed → match → get の往復、get が記録を作らないこと・seed が最初の 1 回だけ取り込むこと、規則（昇格・降格・ティアの境目・ミシック・
+スターポイント・保護ポイント・評価の上限下限）、最高到達が下がらないこと、同じ matchId の二重送信（同時も）と直近 50 試合、持ち主の鍵の 403
+（同時の取り合いも 1 人だけ）、erase、コード・鍵・本文・`match`・`seed` の誤りの 400 / 405 / 404、利用停止のコードの 403（消去はできる）、`rv` を見ないこと。
+試したランクのアカウントは最後に erase する。
 部屋コードはテストごとに乱数で作るので、配備済みの中継に何度流しても互いに混ざらない。
 
 Node 22 以上（組み込みの `WebSocket` と `node:test` を使う）。CI（`.github/workflows/relay.yml`）は `relay/**` が変わった時に

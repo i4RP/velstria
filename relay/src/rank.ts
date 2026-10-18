@@ -7,7 +7,7 @@
 // - 勝利 星 +1。満星で勝つと次の段位の星 1。敗北 星 −1、星 0 で負けると 1 段位下の「満星 −1」。
 // - ウォリアーは負けても星が減らない。ティアの最下段・星 0 では下のティアへ落ちない（ミシック星 0 の敗北だけレジェンド I へ）。
 // - スターポイント: 勝利でたまる（700 で星 +1）。保護ポイント: 敗北でたまる（700 になると次の敗北で星が減らない）。
-// 同じ試合（matchId）の二重送信は、最初の結果を返す。
+// 同じ試合（matchId）の二重送信は、最初の結果を返す。端末の記録（seed）は規則の範囲の値だけ受け付ける。
 
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./index";
@@ -144,13 +144,51 @@ function removeStar(r: RankState) {
   // ティアの最下段・星 0: 下のティアへは落ちない
 }
 
-function validState(v: unknown): v is RankState {
-  const s = v as RankState;
-  return !!s && TIERS.includes(s.tier) && Number.isInteger(s.division) && Number.isInteger(s.stars);
+/** min 以上 max 以下の整数か */
+function intIn(v: unknown, min: number, max = Number.MAX_SAFE_INTEGER): v is number {
+  return Number.isSafeInteger(v) && (v as number) >= min && (v as number) <= max;
+}
+
+/**
+ * 端末から預かる記録（seed）を検め、RankState の項目だけを取り出す（合わなければ null）。
+ * ティア・段位・星は必須で規則の範囲（アプリの RankState の読み込みが収める範囲。ミシックは段位 1、星は累計）。
+ * ほかは省けば初期値、送るなら 0 以上の整数（スターポイントは 700 未満、保護ポイントは 700 まで）。知らない項目と season は取り込まない。
+ */
+function parseState(v: unknown): RankState | null {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return null;
+  const s = v as Partial<Record<keyof RankState, unknown>>;
+  const tier = s.tier as Tier;
+  if (!TIERS.includes(tier)) return null;
+  const base = initialState();
+  const r = {
+    ...base,
+    tier,
+    division: s.division,
+    stars: s.stars,
+    starPoints: s.starPoints ?? base.starPoints,
+    protectionPoints: s.protectionPoints ?? base.protectionPoints,
+    highestTier: s.highestTier ?? base.highestTier,
+    highestMythicStars: s.highestMythicStars ?? base.highestMythicStars,
+    wins: s.wins ?? base.wins,
+    losses: s.losses ?? base.losses,
+  };
+  const shape = SHAPE[tier];
+  const valid =
+    intIn(r.division, 1, shape.divisions) &&
+    intIn(r.stars, 0, tier === "mythic" ? undefined : shape.stars) &&
+    intIn(r.starPoints, 0, BAR - 1) &&
+    intIn(r.protectionPoints, 0, BAR) &&
+    TIERS.includes(r.highestTier as Tier) &&
+    intIn(r.highestMythicStars, 0) &&
+    intIn(r.wins, 0) &&
+    intIn(r.losses, 0);
+  return valid ? (r as RankState) : null;
 }
 
 const HEX64 = /^[0-9a-f]{64}$/;
 const MATCH_ID = /^[A-Za-z0-9_-]{8,64}$/;
+/** 試合 ID: 8〜64 文字の英数・_・-（文字列だけ）。Object.prototype の名前（__proto__・toString など）は recent の引き当てを誤るので断る */
+const isMatchId = (v: unknown): v is string => typeof v === "string" && MATCH_ID.test(v) && !(v in Object.prototype);
 const MAX_RECENT = 50;
 
 export type RankCallResult =
@@ -182,15 +220,15 @@ export class RankAccount extends DurableObject<Env> {
     if (!this.check(keyHash)) return { ok: false, error: "forbidden" };
     const cur = this.ctx.storage.kv.get<RankState>("rank");
     if (cur) return { ok: true, state: cur };
-    if (!validState(state)) return { ok: false, error: "bad_request" };
-    const s = { ...initialState(), ...state };
+    const s = parseState(state);
+    if (!s) return { ok: false, error: "bad_request" };
     this.ctx.storage.kv.put("rank", s);
     return { ok: true, state: s };
   }
 
   async match(keyHash: string, input: MatchInput): Promise<RankCallResult> {
     if (!this.check(keyHash)) return { ok: false, error: "forbidden" };
-    if (!MATCH_ID.test(input.matchId) || typeof input.won !== "boolean" || typeof input.rating !== "number") {
+    if (!isMatchId(input.matchId) || typeof input.won !== "boolean" || typeof input.rating !== "number") {
       return { ok: false, error: "bad_request" };
     }
     const recent = this.ctx.storage.kv.get<Record<string, MatchResult>>("recent") ?? {};
@@ -207,7 +245,7 @@ export class RankAccount extends DurableObject<Env> {
 
   async erase(keyHash: string): Promise<RankCallResult> {
     if (!this.check(keyHash)) return { ok: false, error: "forbidden" };
-    this.ctx.storage.deleteAll();
+    await this.ctx.storage.deleteAll();
     return { ok: true, state: initialState() };
   }
 }

@@ -86,7 +86,8 @@ after(async () => {
     await Promise.race([exited, delay(5_000)]);
     if (devServer.exitCode === null) devServer.kill("SIGKILL");
   }
-  if (persistDir) rmSync(persistDir, { recursive: true, force: true });
+  // Windows では wrangler が止まった直後も workerd が SQLite のファイルを掴んでいて消せない（EBUSY）ので、少し待って消し直す
+  if (persistDir) rmSync(persistDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
 // ---- 道具 ----
@@ -272,6 +273,26 @@ function upgradeStatus(url) {
 
 function closeAll() {
   for (const peer of peers.splice(0)) peer.close();
+}
+
+/** HTTP の要求（POST の時だけ本文を付ける。文字列はそのまま、ほかは JSON にする）。状態コード・見出し・本文を返す */
+async function httpCall(path, body, method = "POST") {
+  const init = { method };
+  if (method === "POST") init.body = typeof body === "string" ? body : JSON.stringify(body);
+  const response = await fetch(`${httpBase()}${path}`, init);
+  const text = await response.text();
+  let json = null;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    // 誤りの応答は平文
+  }
+  return { status: response.status, headers: response.headers, text: text.trim(), json };
+}
+
+/** 誤りの応答（平文の理由）を確かめる */
+function assertError(response, status, reason, what) {
+  assert.deepEqual([response.status, response.text], [status, reason], what);
 }
 
 // ---- テスト ----
@@ -589,18 +610,8 @@ async function nextJson(peer, ms) {
 }
 
 /** 受信箱の消去（POST /v1/inbox/<code>/erase）。状態コードと本文を返す */
-async function eraseInbox(code, body, method = "POST") {
-  const init = { method };
-  if (method === "POST") init.body = typeof body === "string" ? body : JSON.stringify(body);
-  const response = await fetch(`${httpBase()}/v1/inbox/${code}/erase`, init);
-  const text = await response.text();
-  let json = null;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    // 誤りの応答は平文
-  }
-  return { status: response.status, text: text.trim(), json };
+function eraseInbox(code, body, method = "POST") {
+  return httpCall(`/v1/inbox/${code}/erase`, body, method);
 }
 
 describe("フレンドの受信箱", () => {
@@ -735,5 +746,473 @@ describe("受信箱の消去と利用停止", () => {
   test("運営が利用を止めたコードは 4013 で断られる（消去はできる）", { skip: SUSPENDED_CODE === null && "配備済みの中継には止めたコードを渡せない" }, async () => {
     await expectRejected(inboxURL(SUSPENDED_CODE, randomKey()), 4013, "inbox_suspended");
     assert.deepEqual((await eraseInbox(SUSPENDED_CODE, { key: randomKey() })).json, { ok: true, result: "none" });
+  });
+});
+
+// ---- ランク（アカウントごと） ----
+
+/** ランクの初期値（rank.ts の initialState。ウォリアー III・星 0）。応答の state はいつもこの項目だけ */
+const RANK_INITIAL = Object.freeze({
+  tier: "warrior", division: 3, stars: 0, starPoints: 0, protectionPoints: 0,
+  highestTier: "warrior", highestMythicStars: 0, wins: 0, losses: 0, season: 1,
+});
+
+/** 初期値の一部を変えたランク */
+function rankState(overrides = {}) {
+  return { ...RANK_INITIAL, ...overrides };
+}
+
+/** アプリが seed で送る形（RankCloud の CloudRank。season は送らない） */
+function cloudRank(overrides = {}) {
+  const state = rankState(overrides);
+  delete state.season;
+  return state;
+}
+
+/** ランクの要求（POST /v1/rank/<code>/<op>） */
+function rankCall(code, op, body, method = "POST") {
+  return httpCall(`/v1/rank/${code}/${op}`, body, method);
+}
+
+/** 試したアカウント。最後に持ち主の鍵で消す（ランクには期限による自動の消去が無いので、配備済みの中継に流しても残さない） */
+const rankAccounts = [];
+
+/** 新しいアカウント（乱数のコードと鍵）を作り、アプリの起動時と同じく端末の記録を seed で預ける */
+async function newRankAccount(local = cloudRank()) {
+  const account = { code: randomFriendCode(), key: randomKey() };
+  rankAccounts.push(account);
+  const seeded = await rankCall(account.code, "seed", { key: account.key, state: local });
+  assert.deepEqual([seeded.status, seeded.json], [200, { ok: true, state: rankState(local) }], `seed: ${seeded.text}`);
+  return account;
+}
+
+function rankMatch({ code, key }, match) {
+  return rankCall(code, "match", { key, match });
+}
+
+async function rankGet({ code, key }) {
+  const got = await rankCall(code, "get", { key });
+  assert.equal(got.status, 200, got.text);
+  return got.json.state;
+}
+
+/** 試合 ID（アプリは "m_" + 36 進のハッシュ） */
+function newMatchId() {
+  return `m_${randomBytes(6).toString("hex")}`;
+}
+
+/**
+ * ランクの規則（rank.ts の applyMatch。アプリの RankService.swift と同じ計算）。seed した記録から 1 試合する。
+ * after は seed した記録から変わる項目（勝敗の数は試合から足す）、result は応答の result の before / after 以外。
+ */
+const RANK_RULES = [
+  {
+    name: "満星で勝つと次の段位の星 1（スターポイントの端数は四捨五入: 20 + 8.2 × 8 = 85.6 → 86）",
+    seed: { tier: "elite", division: 2, stars: 4, highestTier: "elite" },
+    match: { won: true, rating: 8.2, mvp: false },
+    after: { division: 1, stars: 1, starPoints: 86 },
+    result: { starPointsGain: 86, scoreBonus: 0, activeBonus: 0, protected: false },
+  },
+  {
+    name: "ティアの最上段の満星で勝つと次のティアの最下段・星 1（最高到達も上がる）",
+    seed: { tier: "elite", division: 1, stars: 4, highestTier: "elite" },
+    match: { won: true, rating: 5, mvp: false },
+    after: { tier: "master", division: 4, stars: 1, starPoints: 60, highestTier: "master" },
+    result: { starPointsGain: 60, scoreBonus: 0, activeBonus: 0, protected: false },
+  },
+  {
+    name: "星 0 で負けると 1 段位下の満星 −1（保護ポイントに 評価 × 3 + 5）",
+    seed: { tier: "master", division: 3, stars: 0, highestTier: "master" },
+    match: { won: false, rating: 8.2, mvp: false },
+    after: { division: 4, stars: 3, protectionPoints: 30 },
+    result: { starPointsGain: 0, scoreBonus: 25, activeBonus: 5, protected: false },
+  },
+  {
+    name: "ティアの最下段・星 0 で負けても下のティアへは落ちない",
+    seed: { tier: "grandmaster", division: 5, stars: 0, highestTier: "grandmaster" },
+    match: { won: false, rating: 0, mvp: false },
+    after: { protectionPoints: 5 },
+    result: { starPointsGain: 0, scoreBonus: 0, activeBonus: 5, protected: false },
+  },
+  {
+    name: "ウォリアーは負けても星が減らない（保護ポイントはたまる）",
+    seed: { tier: "warrior", division: 2, stars: 2 },
+    match: { won: false, rating: 10, mvp: false },
+    after: { protectionPoints: 35 },
+    result: { starPointsGain: 0, scoreBonus: 30, activeBonus: 5, protected: false },
+  },
+  {
+    name: "スターポイントが 700 に届くと星がもう 1 つ（MVP は +30: 690 + 178 → 星 +2・残り 168）",
+    seed: { tier: "epic", division: 5, stars: 0, starPoints: 690, highestTier: "epic" },
+    match: { won: true, rating: 16, mvp: true },
+    after: { stars: 2, starPoints: 168 },
+    result: { starPointsGain: 178, scoreBonus: 0, activeBonus: 0, protected: false },
+  },
+  {
+    name: "保護ポイント 700 で負けると星が減らず、保護ポイントは 0 に戻る",
+    seed: { tier: "legend", division: 2, stars: 3, protectionPoints: 700, highestTier: "legend" },
+    match: { won: false, rating: 10, mvp: false },
+    after: { protectionPoints: 0 },
+    result: { starPointsGain: 0, scoreBonus: 30, activeBonus: 5, protected: true },
+  },
+  {
+    name: "保護ポイントは 700 で止まる",
+    seed: { tier: "epic", division: 3, stars: 2, protectionPoints: 690, highestTier: "epic" },
+    match: { won: false, rating: 16, mvp: false },
+    after: { stars: 1, protectionPoints: 700 },
+    result: { starPointsGain: 0, scoreBonus: 48, activeBonus: 5, protected: false },
+  },
+  {
+    name: "レジェンド I の満星で勝つとミシック星 0（ミシックではスターポイントをためない）",
+    seed: { tier: "legend", division: 1, stars: 5, starPoints: 100, highestTier: "legend" },
+    match: { won: true, rating: 10, mvp: true },
+    after: { tier: "mythic", division: 1, stars: 0, highestTier: "mythic" },
+    result: { starPointsGain: 0, scoreBonus: 0, activeBonus: 0, protected: false },
+  },
+  {
+    name: "ミシックの勝ちは星の累計 +1 で、最高の星も上がる",
+    seed: { tier: "mythic", division: 1, stars: 24, highestTier: "mythic", highestMythicStars: 24 },
+    match: { won: true, rating: 16, mvp: true },
+    after: { stars: 25, highestMythicStars: 25 },
+    result: { starPointsGain: 0, scoreBonus: 0, activeBonus: 0, protected: false },
+  },
+  {
+    name: "ミシック星 0 で負けるとレジェンド I・星 4（ボーナス無し。最高到達はミシックのまま）",
+    seed: { tier: "mythic", division: 1, stars: 0, highestTier: "mythic", highestMythicStars: 7 },
+    match: { won: false, rating: 10, mvp: false },
+    after: { tier: "legend", division: 1, stars: 4 },
+    result: { starPointsGain: 0, scoreBonus: 0, activeBonus: 0, protected: false },
+  },
+  {
+    name: "評価は 16 までに収める（99 は 16 と同じ。mvp を省けば MVP でない）",
+    seed: { tier: "elite", division: 3, stars: 0, highestTier: "elite" },
+    match: { won: true, rating: 99 },
+    after: { stars: 1, starPoints: 148 },
+    result: { starPointsGain: 148, scoreBonus: 0, activeBonus: 0, protected: false },
+  },
+  {
+    name: "評価は 0 からに収める（-5 は 0 と同じ）",
+    seed: { tier: "elite", division: 3, stars: 2, highestTier: "elite" },
+    match: { won: false, rating: -5, mvp: false },
+    after: { stars: 1, protectionPoints: 5 },
+    result: { starPointsGain: 0, scoreBonus: 0, activeBonus: 5, protected: false },
+  },
+];
+
+describe("ランク", () => {
+  after(async () => {
+    for (const { code, key } of rankAccounts.splice(0)) await rankCall(code, "erase", { key }).catch(() => {});
+  });
+
+  test("seed で端末の記録を預け、match の結果が保存され、get で同じ値が読める（応答は JSON・no-store）", async () => {
+    const local = cloudRank({ tier: "elite", division: 2, stars: 1, starPoints: 300, highestTier: "elite", wins: 10, losses: 7 });
+    const account = await newRankAccount(local);
+    const start = rankState(local);
+
+    const won = await rankMatch(account, { matchId: "m_happy001", won: true, rating: 10, mvp: true });
+    assert.equal(won.status, 200);
+    assert.equal(won.headers.get("cache-control"), "no-store");
+    assert.match(won.headers.get("content-type") ?? "", /^application\/json/);
+    const afterWin = { ...start, stars: 2, starPoints: 430, wins: 11 };
+    assert.deepEqual(won.json, {
+      ok: true,
+      state: afterWin,
+      result: { before: start, after: afterWin, starPointsGain: 130, scoreBonus: 0, activeBonus: 0, protected: false },
+    });
+
+    const lost = await rankMatch(account, { matchId: "m_happy002", won: false, rating: 8.2, mvp: false });
+    const afterLoss = { ...afterWin, stars: 1, protectionPoints: 30, losses: 8 };
+    assert.deepEqual(lost.json, {
+      ok: true,
+      state: afterLoss,
+      result: { before: afterWin, after: afterLoss, starPointsGain: 0, scoreBonus: 25, activeBonus: 5, protected: false },
+    });
+
+    const got = await rankCall(account.code, "get", { key: account.key });
+    assert.equal(got.headers.get("cache-control"), "no-store");
+    assert.deepEqual(got.json, { ok: true, state: afterLoss });
+  });
+
+  test("get は記録を作らない。seed は記録が無い時だけ端末の値を取り込み（知らない項目・season は捨てる）、以後は今の記録を返す", async () => {
+    const code = randomFriendCode(), key = randomKey();
+    rankAccounts.push({ code, key });
+    assert.deepEqual((await rankCall(code, "get", { key })).json, { ok: true, state: RANK_INITIAL });
+
+    // 降格して最高到達より下にいる記録
+    const local = cloudRank({
+      tier: "grandmaster", division: 3, stars: 2, starPoints: 420, protectionPoints: 140,
+      highestTier: "epic", wins: 31, losses: 25,
+    });
+    const seeded = await rankCall(code, "seed", { key, state: { ...local, nickname: "x", season: 9 } });
+    assert.equal(seeded.status, 200);
+    assert.deepEqual(seeded.json, { ok: true, state: rankState(local) });
+
+    // 2 回目からは、送った値（正しくても誤っていても、無くても）を見ずに今の記録を返す
+    for (const state of [cloudRank({ tier: "mythic", division: 1, stars: 80 }), { tier: "bronze" }, undefined]) {
+      const again = await rankCall(code, "seed", state === undefined ? { key } : { key, state });
+      assert.deepEqual(again.json, { ok: true, state: rankState(local) }, `state: ${JSON.stringify(state)}`);
+    }
+    const played = await rankMatch({ code, key }, { matchId: "m_seed0001", won: true, rating: 8, mvp: false });
+    assert.deepEqual((await rankCall(code, "seed", { key, state: local })).json, { ok: true, state: played.json.state });
+  });
+
+  for (const rule of RANK_RULES) {
+    test(`規則: ${rule.name}`, async () => {
+      const account = await newRankAccount(cloudRank(rule.seed));
+      const response = await rankMatch(account, { matchId: newMatchId(), ...rule.match });
+      const before = rankState(rule.seed);
+      const after = {
+        ...before,
+        ...rule.after,
+        wins: before.wins + (rule.match.won ? 1 : 0),
+        losses: before.losses + (rule.match.won ? 0 : 1),
+      };
+      assert.equal(response.status, 200, response.text);
+      assert.deepEqual(response.json, { ok: true, state: after, result: { before, after, ...rule.result } });
+    });
+  }
+
+  test("最高到達（highestTier・highestMythicStars）は降格しても下がらず、勝敗は数え続ける", async () => {
+    const account = await newRankAccount(
+      cloudRank({ tier: "mythic", division: 1, stars: 1, highestTier: "mythic", highestMythicStars: 1, wins: 40, losses: 30 }),
+    );
+    const steps = [
+      [true, { tier: "mythic", stars: 2, highestTier: "mythic", highestMythicStars: 2 }],
+      [false, { tier: "mythic", stars: 1, highestTier: "mythic", highestMythicStars: 2 }],
+      [false, { tier: "mythic", stars: 0, highestTier: "mythic", highestMythicStars: 2 }],
+      [false, { tier: "legend", division: 1, stars: 4, highestTier: "mythic", highestMythicStars: 2 }],
+      [false, { tier: "legend", division: 1, stars: 3, highestTier: "mythic", highestMythicStars: 2 }],
+    ];
+    for (const [i, [won, expected]] of steps.entries()) {
+      const { json } = await rankMatch(account, { matchId: newMatchId(), won, rating: 10, mvp: false });
+      const got = Object.fromEntries(Object.keys(expected).map((k) => [k, json.state[k]]));
+      assert.deepEqual(got, expected, `${i + 1} 試合目`);
+    }
+    const state = await rankGet(account);
+    assert.deepEqual([state.wins, state.losses], [41, 34]);
+  });
+
+  test("同じ matchId の二重送信は最初の結果を返して数えない（中身が違っても）。state はその時の記録", async () => {
+    const account = await newRankAccount();
+    const first = await rankMatch(account, { matchId: "m_retry001", won: true, rating: 10, mvp: true });
+    assert.equal(first.status, 200);
+    const resent = await rankMatch(account, { matchId: "m_retry001", won: false, rating: 0, mvp: false });
+    assert.deepEqual(resent.json, first.json);
+
+    const other = await rankMatch(account, { matchId: "m_retry002", won: false, rating: 4, mvp: false });
+    assert.deepEqual(other.json.result.before, first.json.state);
+    const late = await rankMatch(account, { matchId: "m_retry001", won: true, rating: 10, mvp: true });
+    assert.deepEqual(late.json, { ok: true, state: other.json.state, result: first.json.result });
+    const state = await rankGet(account);
+    assert.deepEqual(state, other.json.state);
+    assert.deepEqual([state.wins, state.losses], [1, 1]);
+  });
+
+  test("同じ matchId を同時に送っても 1 回だけ数え、別々の試合を同時に送るとすべて 1 つずつ数える", async () => {
+    const account = await newRankAccount();
+    const same = await Promise.all(
+      Array.from({ length: 8 }, () => rankMatch(account, { matchId: "m_burst000", won: true, rating: 8, mvp: false })),
+    );
+    for (const response of same) assert.deepEqual(response.json, same[0].json);
+    assert.equal((await rankGet(account)).wins, 1);
+
+    const distinct = await Promise.all(
+      Array.from({ length: 8 }, (_, i) => rankMatch(account, { matchId: `m_burst${i + 1}00`, won: true, rating: 8, mvp: false })),
+    );
+    // 1 つずつ順に適用される（どの試合も、その前の試合の後の記録から数える）
+    assert.deepEqual(distinct.map((response) => response.json.result.before.wins).sort((a, b) => a - b), [1, 2, 3, 4, 5, 6, 7, 8]);
+    assert.equal((await rankGet(account)).wins, 9);
+  });
+
+  test("matchId を覚えるのは直近 50 試合まで（それより前の matchId は新しい試合として数える）", async () => {
+    const account = await newRankAccount();
+    const oldest = { matchId: "m_oldest01", won: true, rating: 8, mvp: false };
+    assert.equal((await rankMatch(account, oldest)).status, 200);
+    for (let i = 0; i < 49; i++) {
+      const filler = await rankMatch(account, { matchId: `m_fill${String(i).padStart(4, "0")}`, won: false, rating: 8, mvp: false });
+      assert.equal(filler.status, 200);
+    }
+    // 50 試合まではまだ覚えている
+    assert.equal((await rankMatch(account, oldest)).json.state.wins, 1);
+    // 51 試合目で最も古い matchId を忘れる
+    assert.equal((await rankMatch(account, { matchId: "m_fill0049", won: false, rating: 8, mvp: false })).status, 200);
+    const again = await rankMatch(account, oldest);
+    assert.deepEqual([again.json.result.before.wins, again.json.state.wins, again.json.state.losses], [1, 2, 50]);
+  });
+
+  test("持ち主は最初の鍵で決まり、別の鍵は get / seed / match / erase とも 403 forbidden（記録は変わらない）", async () => {
+    const account = await newRankAccount(cloudRank({ tier: "epic", division: 4, stars: 2, highestTier: "epic" }));
+    assert.equal((await rankMatch(account, { matchId: "m_owner001", won: true, rating: 8, mvp: false })).status, 200);
+    const state = await rankGet(account);
+    const other = randomKey();
+    const match = { matchId: "m_owner002", won: true, rating: 8, mvp: false };
+    assertError(await rankCall(account.code, "get", { key: other }), 403, "forbidden", "get");
+    assertError(await rankCall(account.code, "seed", { key: other, state: cloudRank() }), 403, "forbidden", "seed");
+    assertError(await rankCall(account.code, "match", { key: other, match }), 403, "forbidden", "match");
+    assertError(await rankCall(account.code, "erase", { key: other }), 403, "forbidden", "erase");
+    assert.deepEqual(await rankGet(account), state);
+    // 断られた matchId は覚えていないので、持ち主が送れば数える
+    assert.deepEqual((await rankMatch(account, match)).json.result.before, state);
+  });
+
+  test("使い始めのコードに別々の鍵が同時に来ても、持ち主は 1 人だけ", async () => {
+    const code = randomFriendCode();
+    const keys = Array.from({ length: 6 }, () => randomKey());
+    const responses = await Promise.all(keys.map((key) => rankCall(code, "get", { key })));
+    const owners = keys.filter((_, i) => responses[i].status === 200);
+    assert.equal(owners.length, 1, `200 は 1 つだけのはず: ${responses.map((r) => r.status)}`);
+    rankAccounts.push({ code, key: owners[0] });
+    for (const response of responses) if (response.status !== 200) assertError(response, 403, "forbidden");
+    assert.equal((await rankCall(code, "get", { key: owners[0] })).status, 200);
+  });
+
+  test("erase は持ち主の鍵で記録・持ち主・覚えている matchId を消す（以後は初期のランクで、seed し直せる）", async () => {
+    const local = cloudRank({ tier: "legend", division: 2, stars: 3, highestTier: "legend", wins: 50, losses: 40 });
+    const account = await newRankAccount(local);
+    const played = await rankMatch(account, { matchId: "m_erase001", won: true, rating: 8, mvp: false });
+    assert.equal(played.status, 200);
+
+    // 鍵が違えば消せない
+    assertError(await rankCall(account.code, "erase", { key: randomKey() }), 403, "forbidden");
+    assert.deepEqual(await rankGet(account), played.json.state);
+
+    const erased = await rankCall(account.code, "erase", { key: account.key });
+    assert.equal(erased.status, 200);
+    assert.equal(erased.headers.get("cache-control"), "no-store");
+    assert.deepEqual(erased.json, { ok: true, state: RANK_INITIAL });
+    assert.deepEqual(await rankGet(account), RANK_INITIAL);
+    // 記録が無いので seed で取り込み直せ、消す前の matchId も新しい試合として数える
+    assert.deepEqual((await rankCall(account.code, "seed", { key: account.key, state: local })).json, { ok: true, state: rankState(local) });
+    const again = await rankMatch(account, { matchId: "m_erase001", won: true, rating: 8, mvp: false });
+    assert.deepEqual([again.json.result.before, again.json.state.wins], [rankState(local), 51]);
+
+    // 持ち主の鍵も残らない: 消した後は別の鍵でも使い始められる（アプリは消した後に新しいフレンドコードを作る）
+    assert.equal((await rankCall(account.code, "erase", { key: account.key })).status, 200);
+    account.key = randomKey();
+    assert.deepEqual(await rankGet(account), RANK_INITIAL);
+  });
+
+  test("使ったことのないコードの erase と消し直しも 200（何も残さない）", async () => {
+    const code = randomFriendCode(), key = randomKey();
+    for (let i = 0; i < 2; i++) {
+      const erased = await rankCall(code, "erase", { key });
+      assert.deepEqual([erased.status, erased.json], [200, { ok: true, state: RANK_INITIAL }], `${i + 1} 回目`);
+    }
+    const next = { code, key: randomKey() };
+    rankAccounts.push(next);
+    assert.deepEqual(await rankGet(next), RANK_INITIAL);
+  });
+
+  test("コードの誤りは 400 bad_friend_code、鍵の誤りは 400 bad_key（鍵は 16〜64 文字の英数・_・-）", async () => {
+    const key = randomKey();
+    for (const code of ["ABC", "ABCDEFGHJ", "abcdefgh", "ABCDEFG0", "ABCDEFG1", "ABCDEFGI", "ABCDEFGL", "ABCDEFGO", "ABCD-FGH", ""]) {
+      assertError(await rankCall(code, "get", { key }), 400, "bad_friend_code", `コード "${code}"`);
+    }
+    const code = randomFriendCode();
+    const bodies = [
+      {}, null, [], JSON.stringify("key"), { key: null }, { key: 1234567890123456 },
+      { key: "short" }, { key: "k".repeat(15) }, { key: "k".repeat(65) }, { key: `${"k".repeat(15)}!` },
+    ];
+    for (const body of bodies) {
+      assertError(await rankCall(code, "get", body), 400, "bad_key", `本文 ${JSON.stringify(body)}`);
+    }
+    // 16 文字・64 文字の境目は受け付ける
+    for (const length of [16, 64]) {
+      const account = { code: randomFriendCode(), key: "k".repeat(length) };
+      rankAccounts.push(account);
+      assert.equal((await rankCall(account.code, "get", { key: account.key })).status, 200, `鍵 ${length} 文字`);
+    }
+  });
+
+  test("本文の誤り（JSON でない・4 KiB 超）は 400 bad_request、POST 以外は 405（Allow: POST）、知らない道は 404", async () => {
+    const account = { code: randomFriendCode(), key: randomKey() };
+    rankAccounts.push(account);
+    for (const body of ["{not json", "", "{\"key\":"]) {
+      assertError(await rankCall(account.code, "get", body), 400, "bad_request", `本文 ${JSON.stringify(body)}`);
+    }
+    // 本文は 4 KiB まで（ちょうど 4096 バイトは受け付ける）
+    const padded = (length) => {
+      const head = `{"key":"${account.key}","pad":"`;
+      return `${head}${"x".repeat(length - head.length - 2)}"}`;
+    };
+    assert.equal((await rankCall(account.code, "get", padded(4096))).status, 200);
+    assertError(await rankCall(account.code, "get", padded(4097)), 400, "bad_request");
+
+    for (const method of ["GET", "PUT", "DELETE"]) {
+      const response = await rankCall(account.code, "get", undefined, method);
+      assertError(response, 405, "method_not_allowed", method);
+      assert.equal(response.headers.get("allow"), "POST", method);
+    }
+    const base = `/v1/rank/${account.code}`;
+    for (const path of [`${base}/delete`, `${base}/GET`, `${base}/get/`, base, "/v1/rank"]) {
+      assertError(await httpCall(path, { key: account.key }), 404, "not_found", path);
+    }
+  });
+
+  test("match の誤りは 400 bad_request で数えない（matchId は 8〜64 文字の英数・_・- の文字列、won は真偽、rating は数）", async () => {
+    const account = await newRankAccount();
+    const ok = { matchId: "m_valid001", won: true, rating: 8, mvp: false };
+    const bad = [
+      undefined, null, "m_valid001", [],
+      { ...ok, matchId: undefined }, { ...ok, matchId: 12345678 }, { ...ok, matchId: ["m_valid001"] },
+      { ...ok, matchId: "m_short" }, { ...ok, matchId: `m_${"x".repeat(63)}` }, { ...ok, matchId: "m_bad id!" },
+      // Object.prototype の名前（覚えている matchId の引き当てを誤る）
+      ...["__proto__", "toString", "constructor", "hasOwnProperty"].map((matchId) => ({ ...ok, matchId })),
+      { ...ok, won: undefined }, { ...ok, won: "true" }, { ...ok, won: 1 },
+      { ...ok, rating: undefined }, { ...ok, rating: "8" }, { ...ok, rating: null },
+    ];
+    for (const match of bad) {
+      const body = match === undefined ? { key: account.key } : { key: account.key, match };
+      assertError(await rankCall(account.code, "match", body), 400, "bad_request", `match: ${JSON.stringify(match)}`);
+    }
+    assert.deepEqual(await rankGet(account), RANK_INITIAL);
+    // 8 文字・64 文字の境目は受け付ける
+    for (const matchId of ["m_8chars", `m_${"x".repeat(62)}`]) {
+      assert.equal((await rankMatch(account, { ...ok, matchId })).status, 200, matchId);
+    }
+    assert.equal((await rankGet(account)).wins, 2);
+  });
+
+  test("seed の誤りは 400 bad_request で取り込まない（ティア・段位・星は規則の範囲、ほかは 0 以上の整数）", async () => {
+    const ok = cloudRank({ tier: "master", division: 4, stars: 4, highestTier: "master" });
+    await newRankAccount(ok);
+    const code = randomFriendCode(), key = randomKey();
+    rankAccounts.push({ code, key });
+    const bad = [
+      undefined, null, "master", [],
+      { ...ok, tier: undefined }, { ...ok, tier: "bronze" }, { ...ok, highestTier: "bronze" },
+      { ...ok, division: undefined }, { ...ok, division: 0 }, { ...ok, division: 5 }, { ...ok, division: 2.5 }, { ...ok, division: "2" },
+      { ...ok, stars: undefined }, { ...ok, stars: -1 }, { ...ok, stars: 5 }, { ...ok, stars: 1.5 },
+      { ...ok, tier: "mythic", division: 2, stars: 30 },
+      { ...ok, starPoints: 700 }, { ...ok, starPoints: -1 }, { ...ok, starPoints: "abc" },
+      { ...ok, protectionPoints: 701 }, { ...ok, highestMythicStars: "3" }, { ...ok, wins: -1 }, { ...ok, losses: 1.5 },
+    ];
+    for (const state of bad) {
+      const body = state === undefined ? { key } : { key, state };
+      assertError(await rankCall(code, "seed", body), 400, "bad_request", `state: ${JSON.stringify(state)}`);
+    }
+    // 取り込んでいないので、正しい記録はまだ seed できる（ミシックの星は累計で上限なし）
+    const mythic = cloudRank({ tier: "mythic", division: 1, stars: 130, highestTier: "mythic", highestMythicStars: 130 });
+    assert.deepEqual((await rankCall(code, "seed", { key, state: mythic })).json, { ok: true, state: rankState(mythic) });
+  });
+
+  test("運営が利用を止めたコードは get / seed / match が 403 suspended（消去はできる）", { skip: SUSPENDED_CODE === null && "配備済みの中継には止めたコードを渡せない" }, async () => {
+    const key = randomKey();
+    assertError(await rankCall(SUSPENDED_CODE, "get", { key }), 403, "suspended", "get");
+    assertError(await rankCall(SUSPENDED_CODE, "seed", { key, state: cloudRank() }), 403, "suspended", "seed");
+    const match = { matchId: newMatchId(), won: true, rating: 8, mvp: false };
+    assertError(await rankCall(SUSPENDED_CODE, "match", { key, match }), 403, "suspended", "match");
+    const erased = await rankCall(SUSPENDED_CODE, "erase", { key });
+    assert.deepEqual([erased.status, erased.json], [200, { ok: true, state: RANK_INITIAL }]);
+  });
+
+  test("ランクの道は rv（中継の版数）を見ない。版は道の /v1 で、ほかの版の道は 404", async () => {
+    const account = await newRankAccount();
+    // アプリの RankCloud は rv を付けない（rv を見るのは WebSocket の接続だけ）
+    for (const query of ["", "?rv=1", "?rv=99"]) {
+      const got = await httpCall(`/v1/rank/${account.code}/get${query}`, { key: account.key });
+      assert.deepEqual([got.status, got.json], [200, { ok: true, state: RANK_INITIAL }], `"${query}"`);
+    }
+    assertError(await httpCall(`/v2/rank/${account.code}/get`, { key: account.key }), 404, "not_found");
   });
 });
