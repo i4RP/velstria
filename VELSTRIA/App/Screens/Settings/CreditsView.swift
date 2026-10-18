@@ -71,6 +71,7 @@ enum CreditsCatalog {
         ("Magic Spells, Buffs and Attacks（GDC 2019）", "Sound Spark LLC"),
         ("Metal Hits, Scrapes and Squeaks（GDC 2019）", "Sound Spark LLC"),
         ("Trailer Instruments Designed（GDC 2020）", "344 Audio"),
+        ("Weapon Sounds - Weapon Swings（GDC 2020）", "David Dumais Audio"),
         ("Metal Chains（GDC 2020）", "Conor Bradley"),
         ("Lethal Blow（GDC 2020）", "PMSFX"),
         ("Hit & Punch（GDC 2020）", "Shapeforms"),
