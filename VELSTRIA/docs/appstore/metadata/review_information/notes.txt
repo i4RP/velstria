@@ -34,7 +34,7 @@ Steps: Home > Store > Get Gems > tap a pack > confirm; the paid gem balance (inc
 Paid items are cosmetic only. There are no loot boxes. Every hero is available to every player and heroes are not sold.
 
 PRIVACY
-Our relay keeps only friend data: friend codes, names in requests held for absent players (14 days), and each inbox's key hash and last connection time. Delete Friend Server Data or Delete All Data (Settings > Privacy) erases it. Room traffic is forwarded in real time, not stored or logged. No analytics, ad or tracking SDKs; no ATT prompt. Relay traffic uses iOS TLS; same-Wi-Fi traffic is plain TCP. No proprietary encryption.
+Our relay keeps only friend codes, names in requests held for absent players (14 days), each inbox's key hash and last connection time, and opted-in players' ranks. Delete Friend Server Data or Delete All Data (Settings > Privacy) erases them. Room traffic is forwarded in real time, not stored or logged. No analytics, ad or tracking SDKs; no ATT prompt. Relay traffic uses iOS TLS; same-Wi-Fi traffic is plain TCP. No proprietary encryption.
 
 DEVICE
 iPhone only, landscape, iOS 18 or later.

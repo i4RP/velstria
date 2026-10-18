@@ -48,7 +48,7 @@ VELSIA - 星環の戦場 は iPhone 向けの 5 対 5 MOBA です。ひとりで
 有料アイテムは見た目のみ。ルートボックスは無い。ヒーローは全員が全員を使え、販売していない。
 
 **プライバシー**
-中継が保持するのはフレンドのデータだけ（フレンドコード、不在の相手宛てに預かる申請の表示名〈14 日〉、各受信箱の鍵のハッシュと最後に接続した日時）。
+中継が保持するのはフレンドのデータ（フレンドコード、不在の相手宛てに預かる申請の表示名〈14 日〉、各受信箱の鍵のハッシュと最後に接続した日時）と、オンラインのルールに同意した人のランクだけ。
 設定 > プライバシー の「フレンドサーバーのデータを削除」か「全データを削除」で消える。部屋の通信はリアルタイムに転送するだけで、保存・ログ出力しない。
 解析・広告・トラッキングの SDK は無く、ATT のダイアログも出さない。中継の通信は iOS の TLS、同じ Wi-Fi の通信は暗号化しない TCP。独自の暗号化は無い。
 
@@ -70,7 +70,7 @@ iPhone のみ、横画面、iOS 18 以降。
 | ヒーローは全員が使え、販売しない | fb7f05d（`AppModel.owns` / `EconomyService.isOwned`、ストアでヒーロー解放を売らない） |
 | 課金 7 商品 | DESIGN.md §13、`StoreKitService.gemProducts` / `premiumPassProductID`、[in_app_purchases.md](in_app_purchases.md) |
 | 見た目のみ・戦闘力なし | マスターの `competitive_power = 0`、game_rules `monetization` |
-| 中継の保存 | relay/src/index.ts（部屋: 採番だけ、10 分で削除）、relay/src/inbox.ts（鍵のハッシュ・最後に接続した日時、預かり最大 20 件・14 日、消去 `POST /v1/inbox/<コード>/erase`、1 年で自動の消去、利用停止 `SUSPENDED_FRIEND_CODES`）、wrangler.jsonc（observability 無効） |
+| 中継の保存 | relay/src/index.ts（部屋: 採番だけ、10 分で削除）、relay/src/inbox.ts（鍵のハッシュ・最後に接続した日時、預かり最大 20 件・14 日、消去 `POST /v1/inbox/<コード>/erase`、1 年で自動の消去、利用停止 `SUSPENDED_FRIEND_CODES`）、relay/src/rank.ts（同意した人のランク・直近 50 試合、消去 `POST /v1/rank/<コード>/erase`、自動の消去なし。送るのは `AppModel.syncsCloudRank` の時だけ）、wrangler.jsonc（observability 無効） |
 | 通報への対応 | /safety 第 4 節（受付から 2 営業日以内に確認を始める）、措置は relay/README.md「受信箱」の利用停止 |
 | 暗号 | `URLSessionWebSocketTask`（wss、OS の TLS）、LAN は `NWParameters(tls: nil)`、CryptoKit は TesterAccess の SHA-256 だけ（compliance.md） |
 

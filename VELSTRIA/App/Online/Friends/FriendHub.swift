@@ -7,8 +7,9 @@ import Observation
 // - フレンド申請: コードかリンクで相手へ申請 → 相手が承認すると相互にフレンドになる。お互いに申請した場合はすぐ成立する。
 //   相手が不在でも申請は中継が預かり（受け付けから 14 日）、繋いだ時に渡る。承認待ちの申請は繋ぐたびに送り直すが、
 //   申請から 14 日（outgoingRequestLifetime）を過ぎたら取り下げる。フレンドでない相手からの招待は無視する（迷惑対策）。
-// - 中継の受信箱の消去（ガイドライン 5.1.1(v)）: eraseServerData で中継に保存した受信箱（鍵のハッシュ・預かり）を消し、
-//   新しいフレンドコードを作る。別の端末で消された・1 年繋がず消えた受信箱（4014）も、新しいコードを作り直す。
+// - 中継の受信箱の消去（ガイドライン 5.1.1(v)）: eraseServerData で中継に保存した受信箱（鍵のハッシュ・預かり）と
+//   クラウドのランク（同じコードと鍵の RankAccount。RankCloud）を消し、新しいフレンドコードを作る。
+//   別の端末で消された・1 年繋がず消えた受信箱（4014）も、新しいコードを作り直す。
 // - パーティ: ホストの部屋（部屋コード）へフレンドを招待する。招待された側は 拒否 / 待って（30 秒後に参加）/ 同意 を選ぶ。
 //   同意すると部屋へ入り、ホストと同じチームの空席に自動で座る（OnlineSession.seatsWithHostTeam）。残りの席は AI。
 // - 在席: 繋がっている間 20 秒ごとにフレンドの在席を問い合わせる。
@@ -130,7 +131,8 @@ final class FriendHub {
     /// ブロックしたプレイヤー。
     var blockedPlayers: [BlockedPlayer] { host?.profile.blockedPlayers ?? [] }
     func isBlocked(_ code: String) -> Bool { blockedPlayers.contains { $0.code == code } }
-    /// 中継サーバーにこの端末のフレンドの情報（受信箱）があるかもしれない（繋いだことがある・フレンドや申請がある）。
+    /// 中継サーバーにこの端末の情報（フレンドの受信箱・クラウドのランク）があるかもしれない
+    /// （繋いだ・ランクを預けたことがある、フレンドや申請がある。Profile.inboxRegistered）。
     var hasServerData: Bool {
         guard let p = host?.profile else { return false }
         return p.inboxRegistered || !p.friends.isEmpty || !p.outgoingFriendRequests.isEmpty
@@ -211,8 +213,8 @@ final class FriendHub {
 
     // MARK: - 中継の受信箱の消去
 
-    /// 中継サーバーの受信箱を消し（鍵のハッシュ・最後に繋いだ日時・預かっている申請）、新しいフレンドコードを作る。
-    /// フレンド・送った申請も消える（古いコードに結び付いているため）。ブロックは残す。
+    /// 中継サーバーの受信箱（鍵のハッシュ・最後に繋いだ日時・預かっている申請）とクラウドのランクを消し、新しいフレンドコードを作る。
+    /// フレンド・送った申請も消える（古いコードに結び付いているため）。ブロックと端末のランクは残す。
     /// completion(false) は通信の失敗（端末の状態は変えない。受信箱は切ったまま）。
     func eraseServerData(completion: @escaping @MainActor (Bool) -> Void) {
         guard let host else {
@@ -223,9 +225,14 @@ final class FriendHub {
         reset()
         let base = baseURL(), transport = eraseTransport
         Task { @MainActor [weak self] in
+            // クラウドのランク（同じコードと鍵の RankAccount）を先に消す。消せなければ受信箱も残す
+            // （受信箱を消すとコードが作り直され、古いコードのランクを消せなくなるため。同じコードでもう一度試せる）
+            let rankErased = await RankCloud.erase(code: code, key: key, base: base, transport: transport)
+            guard rankErased else {
+                completion(false)
+                return
+            }
             let result = await FriendInboxEraser.erase(base: base, code: code, key: key, transport: transport)
-            // クラウドのランク（同じコードと鍵の RankAccount）も消す
-            await RankCloud.erase(code: code, key: key)
             guard result == .erased else {
                 completion(false)
                 return

@@ -144,6 +144,58 @@ final class OnlineSafetyTests: XCTestCase {
         XCTAssertNil(app.online)
     }
 
+    /// クラウドのランクの通信の代役（送った要求を覚え、初期のランクを返す）。
+    private final class RankRecorder: @unchecked Sendable {
+        var requests: [URLRequest] = []
+
+        var transport: RankCloud.Transport {
+            { [self] request in
+                self.requests.append(request)
+                let state = #"{"tier":"warrior","division":3,"stars":0,"starPoints":0,"protectionPoints":0,"highestTier":"warrior","highestMythicStars":0,"wins":0,"losses":0}"#
+                return (Data(#"{"ok":true,"state":\#(state)}"#.utf8),
+                        HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+            }
+        }
+    }
+
+    /// クラウドのランク: オンラインのルールに同意する前と 13 歳未満は、起動時もランク戦の後も中継サーバーへ送らない
+    /// （フレンドコード・鍵・勝敗。ランクは端末の計算だけで進む）。同意した 13 歳以上は預け、全データの削除で中継のランクも消す。
+    func testCloudRankIsNotSentWithoutOnlineConsent() async throws {
+        let persistence = ServicesFixtures.tempPersistence()
+        defer { try? FileManager.default.removeItem(at: persistence.directory) }
+        let app = AppModel(persistence: persistence)
+        let recorder = RankRecorder()
+        app.rankTransport = recorder.transport
+        app.friends.isEnabled = { true }
+        app.profile.onboardingCompleted = true
+        app.profile.ageBracket = .adult
+        let ranked = ServicesFixtures.outcome(mode: .ranked, won: true, countsForRank: true)
+
+        // 同意の前
+        XCTAssertFalse(app.syncsCloudRank)
+        await app.pullCloudRank()
+        let report = app.completeBattle(ranked, now: ServicesFixtures.weekday)
+        XCTAssertNotNil(report.rankAfter, "ランクは端末の計算で進む")
+        // 13 歳未満（同意の記録があっても）
+        app.profile.acceptedOnlineRulesVersion = FeatureFlags.currentOnlineRulesVersion
+        app.profile.ageBracket = .under13
+        XCTAssertFalse(app.syncsCloudRank)
+        await app.pullCloudRank()
+        app.completeBattle(ranked, now: ServicesFixtures.weekday)
+        await Task.yield()
+        XCTAssertTrue(recorder.requests.isEmpty, "同意の前・13 歳未満は中継サーバーへ何も送らない")
+        XCTAssertFalse(app.friends.hasServerData, "中継にランクが無いので、全データの削除でも中継へ繋がない")
+
+        // 同意した 13 歳以上は預ける
+        app.profile.ageBracket = .adult
+        XCTAssertTrue(app.syncsCloudRank)
+        await app.pullCloudRank()
+        XCTAssertEqual(recorder.requests.map { $0.url?.lastPathComponent }, ["seed"])
+        let sent = try XCTUnwrap(recorder.requests.first)
+        XCTAssertFalse(try XCTUnwrap(sent.url).absoluteString.contains(app.profile.inboxKey), "鍵は URL に載せない")
+        XCTAssertTrue(app.friends.hasServerData, "全データの削除で中継のランクも消す")
+    }
+
     // MARK: - 通報のメール
 
     func testPlayerReportMailCarriesTargetButNotReporterPlayerID() throws {
