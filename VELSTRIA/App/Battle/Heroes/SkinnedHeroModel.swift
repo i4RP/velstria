@@ -557,6 +557,17 @@ final class SkinnedHeroModel: HeroDisplayModel {
                                 defaultRunSpeed: defaultRunSpeed,
                                 motion: motionSet.flatMap { HeroMotionBinding(set: $0, library: HeroMotionClips.shared) })
         animator.legLength = skinLeg * bp.scale
+        // 足の接地（全身のモーション）: スキンの腰・腿の付け根・膝・足首の待機の位置から
+        if let uR = rig.index[.upLegR].map({ rp[$0] }), let uL = rig.index[.upLegL].map({ rp[$0] }),
+           let kR = rig.index[.legR].map({ rp[$0] }), let kL = rig.index[.legL].map({ rp[$0] }),
+           let fR = rig.index[.footR].map({ rp[$0] }), let fL = rig.index[.footL].map({ rp[$0] }) {
+            let hipsRest = rp[rig.index[.hips]!]
+            let s = bp.scale
+            animator.legRig = HeroLegRig(hips: hipsRest * s, socketR: (uR - hipsRest) * s, socketL: (uL - hipsRest) * s,
+                                         thighR: simd_distance(uR, kR) * s, shinR: simd_distance(kR, fR) * s,
+                                         thighL: simd_distance(uL, kL) * s, shinL: simd_distance(kL, fL) * s,
+                                         dropScale: hipsDropScale * s, rest: animator.profile.rest)
+        }
         entityCount = HeroEffects.countEntities(root)
         apply(animator.current, time: 0)
     }
@@ -595,6 +606,10 @@ final class SkinnedHeroModel: HeroDisplayModel {
     }
 
     func castDuration(_ slot: SkillSlot) -> Float { animator.castDuration(slot) }
+    func castDuration(_ slot: SkillSlot, stage: Int) -> Float { animator.castDuration(slot, stage: stage) }
+    func castRestarts(_ slot: SkillSlot, stage: Int) -> Bool { animator.castRestarts(slot, stage: stage) }
+    func playCast(_ slot: SkillSlot, stage: Int) { animator.playCast(slot, stage: stage) }
+    func playCastHit(_ slot: SkillSlot) -> Float? { animator.playCastHit(slot) }
 
     func update(dt: Double, moveSpeed: Double) {
         let pose = animator.advance(dt: Float(dt), moveSpeed: HeroModelLibrary.metersPerSecond(moveSpeed))
@@ -627,6 +642,10 @@ final class SkinnedHeroModel: HeroDisplayModel {
     var clipLayer: HeroClipLayer { animator.clips }
     /// 脚の長さの比（hipsDrop の伸び率）。
     var legScale: Float { hipsDropScale }
+    /// 足の接地の脚の寸法（テスト用）。
+    var legRig: HeroLegRig? { animator.legRig }
+    /// 今の手続きの姿勢（クリップを重ねる前。テスト用）。
+    var currentPose: HeroPose { animator.current }
 
     /// 任意の姿勢を適用する（テスト用）。手続きの姿勢そのものを見るため、再生中のクリップは重ねない。
     func applyPose(_ p: HeroPose, time: Float = 0) {

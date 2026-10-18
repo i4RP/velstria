@@ -128,6 +128,8 @@ enum SkillFXCatalog {
 
     /// スロットの詠唱モーション（無ければ nil = 既定の動き）。
     static func motion(heroID: String, slot: SkillSlot, builder: MotionBuilder) -> MotionClip? {
+        // ヒーロー固有の全身のモーション（HeroSkillMotions）があれば、そちらが先（演出の定義の motion は使わない）
+        if let clip = HeroSkillMotions.cast(heroID: heroID, slot: slot, stage: 0, builder: builder) { return clip }
         guard slot != .passive, let set = sets[heroID] else { return nil }
         var m = builder
         set.motion(slot, &m)

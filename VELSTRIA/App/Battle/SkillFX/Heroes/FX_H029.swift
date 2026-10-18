@@ -167,12 +167,14 @@ enum FX_H029: HeroFXSet {
         let t0 = s.seconds("waveFirstDelay")
         let interval = s.seconds("waveInterval")
         r.cast = [
-            // 槌を頭上から前の地面へ振り下ろす金の軌跡（前と上の縦の弧。右手の槌 = やや右）
-            .ribbon(.swing(radius: 1.45, from: 130, to: -38, height: 1.0, roll: 90, duration: 0.17, life: 0.16, width: 0.75,
-                           .primary), at: max(0, t0 - 0.19), offset: [0.32, 0, 0.1]),
-            // 槌の頭が地を打つ点: 白金の閃光と小さな衝撃の輪
-            .emit(.flare(1.6, .core, life: 0.14, tex: .flare6), at: max(0, t0 - 0.02), offset: [0.25, 0.4, 0.95]),
-            .mesh(ring(0.9, .accent, life: 0.28, refract: 0.004), at: max(0, t0 - 0.02), offset: [0.25, 0, 0.95]),
+            // 槌を頭上の後ろから前の地面へ振り下ろす金の軌跡（前と上の縦の弧）。モーション（docs/vfx/H029.md「モーション」）:
+            // 槌頭は 0.19 秒に後ろの上 [0, 3.0, -1.9]、t0（0.25）に前の地面 [0, 0.1, 2.8]。弧は中心 [0, 1.5, 0.5]・半径 2.75 で両方を通る
+            .ribbon(.swing(radius: 2.75, from: 148, to: -31, height: 1.5, roll: 90, duration: 0.08, life: 0.16, width: 0.8,
+                           .primary).with { $0.ease = .inOut }, at: max(0, t0 - 0.08), offset: [0, 0, 0.5]),
+            // 槌の頭が地を打つ点（前 2.75m）: 白金の閃光と小さな衝撃の輪・土煙
+            .emit(.flare(1.6, .core, life: 0.14, tex: .flare6), at: t0, offset: [0, 0.4, 2.75]),
+            .mesh(ring(0.9, .accent, life: 0.28, refract: 0.004), at: t0, offset: [0, 0, 2.75]),
+            .emit(.smoke(4, radius: 0.5, dust, life: 0.5, size: 0.8), at: t0, offset: [0, 0.1, 2.75], quality: 1),
             // 地を前へ走る金のぎざぎざの筋（衝撃波の通り道。2 本を少し開いて）
             // （範囲の飾り: 1 回目の帯の奥の辺より手前で止め、帯の奥行きの半分より短い）
             .mesh(FXMesh.ray(.bolt, length: R * 0.38, width: 0.55, hot, life: 0.34).glowing().with { $0.yaw = 90 + 5 },
@@ -322,12 +324,15 @@ enum FX_H029: HeroFXSet {
         let t = s.seconds("smashDelay")
         let smashReach = s.meters("smashReach")
         let mid: SIMD3<Float> = [0, 0, smashReach * 0.5]
-        // 槌を低く構えて金の光を溜め、下から振り上げる（前と上の縦の弧の軌跡。右手の槌）
+        // 槌を右後ろの下に引いて金の光を溜め、下から頭上へ振り上げる（前と上の縦の弧の軌跡）。モーション: 槌頭は 0〜0.10 秒に
+        // 後ろの下 [-0.3, 0.4, -1.6]、0.2 秒（打ち上げ）に前の低い所を抜けて [-0.4, 2.0, 2.2] へ、0.3 秒に頭上 [0.45, 4.2, -0.3]。
+        // 弧は中心 [-0.3, 2.1, 0.2]・半径 2.0（-140° = 後ろの下、-20° = 0.2 秒の前、100° = 頭上）を 0.1〜0.3 秒に等速で
         r.cast = [
-            .emit(.gather(16, radius: 0.9, .primary, life: t), .follow, offset: [0.35, 0.5, 0.6]),
-            .emit(.sparks(8, speed: 3, .primary, end: .accent, gravity: 4), at: 0.08, offset: [0.4, 0.15, 0.7]),
-            .ribbon(.swing(radius: 1.6, from: -55, to: 105, height: 0.95, roll: 90, duration: 0.16, life: 0.2, width: 0.95,
-                           .primary), at: max(0, t - 0.07), offset: [0.28, 0, 0.15]),
+            .emit(.gather(16, radius: 0.9, .primary, life: 0.12), .follow, offset: [-0.3, 0.4, -1.6]),
+            .emit(.sparks(8, speed: 3, .primary, end: .accent, gravity: 4).with { $0.dir = .up; $0.spread = 50 }, at: 0.14,
+                  offset: [-0.3, 0.15, 0.7]),
+            .ribbon(.swing(radius: 2.0, from: -140, to: 100, height: 2.1, roll: 90, duration: 0.2, life: 0.2, width: 0.95,
+                           .primary).with { $0.ease = .linear }, at: max(0, t - 0.1), offset: [-0.3, 0, 0.2]),
         ]
         // 扇のアーキタイプなので発動と同時に再生される。振り上げは smashDelay の後
         r.impact = [
@@ -384,14 +389,15 @@ enum FX_H029: HeroFXSet {
         var r = SkillFXRecipe()
         let R = s.meters("ultReach")
         let p: Float = 0, t = s.seconds("ultTotal")
-        // 掲げた槌の頭（右手・頭上）に金の光が集まり、後ろに金の光輪が立つ（崩落の少し前まで）
+        // 顔の前の高さへ掲げた盾（左手 [-0.25, 2.2, 0.5]・上端 [-0.2, 2.9, 0.6]、0.12〜0.93 秒。docs/vfx/H029.md「モーション」）に
+        // 金の光が集まり、盾が上がり切る 0.28 秒に閃光、盾の後ろに金の光輪が立つ（振りかぶりの頂点 0.93 秒まで）
         r.cast = [
-            .emit(.gather(20, radius: 1.2, .primary, life: t - 0.2), .follow, offset: [0.3, 2.5, 0.1]),
-            .emit(.flare(1.8, .core, life: 0.3, tex: .flare6), at: 0.14, .follow, offset: [0.3, 2.7, 0.1]),
+            .emit(.gather(20, radius: 1.2, .primary, life: 0.8), at: 0.12, .follow, offset: [-0.2, 2.6, 0.6]),
+            .emit(.flare(1.8, .core, life: 0.3, tex: .flare6), at: 0.28, .follow, offset: [-0.2, 2.8, 0.65]),
             .mesh(.sprite(.ringDouble, 2.2, .primary, life: 0.62, grow: 1.15, alpha: 0.85).glowing().with {
                 $0.fadeIn = 0.3
                 $0.fadeOut = 0.6
-            }, at: 0.3, .follow, offset: [0.1, 2.3, 0]),
+            }, at: 0.3, .follow, offset: [-0.2, 2.5, 0.35]),
         ]
         r.impact = [
             // 0〜: 範囲が淡い金に満ちる（縁ほど明るい輪の画像 + 柔らかい光）。縁は弧に沿って流れる金の筋
@@ -435,10 +441,10 @@ enum FX_H029: HeroFXSet {
                 $0.shape = .ring(R * 0.85); $0.surface = true; $0.speed = 0; $0.attract = 6
             }, at: p, quality: 1),
             .shake(0.2, at: p),
-            // 崩落の直前: 槌の上から天へ立つ細い光の筋（光る。筋が上へ流れる）
+            // 崩落の直前: 掲げた盾の上から天へ立つ細い光の筋（光る。筋が上へ流れる）
             .mesh(.pillar(0.16, height: 9, .core, life: 0.32, alpha: 1).glowing()
                 .flowing(.streaks, scroll: [0, -3], tiling: 2, strength: 0.6, edge: .primary).with { $0.onTop = true }, at: t - 0.24,
-                  offset: [0.3, 1.2, 0.1]),
+                  offset: [-0.2, 1.2, 0.6]),
             // 1.0: 聖槌が落ちて崩落 — 範囲を覆う光の棘・白熱の閃光・爆炎
             .mesh(.groundFlipbook(.spikes, R * 2.3, hot, life: 0.5, grow: 1.1), at: t),
             .mesh(.sprite(.glowHard, 4.2, .core, life: 0.22, grow: 1.5).glowing().with { $0.fadeIn = 0; $0.onTop = true }, at: t,
@@ -481,8 +487,10 @@ enum FX_H029: HeroFXSet {
             .mesh(.model(.pillar2, nil, .core, size: [0.75, 3, 0.75], sizeEnd: [0.4, 8, 0.4], life: 0.38).glowing()
                 .flowing(.flame, scroll: [0, -3], tiling: 1.6, strength: 0.6, erosion: 0.25, edge: .primary).with { $0.onTop = true },
                   at: t - 0.02),
-            // 火花・白い岩片（回る岩のコマ送り）・土煙・残り火
-            .emit(.sparks(30, speed: 11, .core, end: .primary, size: 0.12, life: 0.55), at: t, offset: [0, 0.6, 0]),
+            // 槌頭が地を打つ点（前 2.65m。モーションの 1.0 秒）の白金の閃光と火花。範囲を覆う部品は中心のまま
+            .emit(.flare(2.2, .core, life: 0.16, tex: .flare6), at: t, offset: [0.16, 0.3, 2.65]),
+            .emit(.sparks(30, speed: 11, .core, end: .primary, size: 0.12, life: 0.55), at: t, offset: [0.16, 0.4, 2.65]),
+            // 白い岩片（回る岩のコマ送り）・土煙・残り火
             .emit(.debris(16, speed: 8, .rgb(0.92, 0.9, 0.85), size: 0.3).with {
                 $0.sheet = .rockTumble
                 $0.sheetRandomStart = true

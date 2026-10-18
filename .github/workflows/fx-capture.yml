@@ -50,6 +50,8 @@ jobs:
           if [[ "$TAG" == *probe* ]]; then echo "PROBE=1" >> "$GITHUB_ENV"; fi
           # 名前に moving を含むタグは、撮る間も粒子を止めない（粒子が映るかの切り分け）
           if [[ "$TAG" == *moving* ]]; then echo "MOVING=1" >> "$GITHUB_ENV"; fi
+          # 名前に motion を含むタグは、全身のモーションの確認（細かい時刻・体の横が見える向き・通常攻撃）
+          if [[ "$TAG" == *motion* ]]; then echo "MOTION=1" >> "$GITHUB_ENV"; fi
           # 名前に clean を含むタグは、判定の形の線（docs/vfx/RANGES.md。撮影では既定で出す）を出さない
           if [[ "$TAG" == *clean* ]]; then echo "NOHITSHAPES=1" >> "$GITHUB_ENV"; fi
           # 名前に angleNN を含むタグは、人形を北から NN 度東へ回した所に見て撃つ（MLBB の画面収録の右上へ撃つ場面に合わせる）
@@ -73,8 +75,8 @@ jobs:
           grep -E "error:|BUILD (SUCCEEDED|FAILED)" build/xcodebuild.log | head -80 || true
           grep -q "BUILD SUCCEEDED" build/xcodebuild.log
 
-      # 名前に apptests を含むタグは、撮影の前に演出の範囲・スキル演出・演出チェック・Effekseer（後処理の中・段に重ねる効果）の
-      # アプリのテストも回す（docs/vfx/RANGES.md・docs/EFFEKSEER.md。
+      # 名前に apptests を含むタグは、撮影の前に演出の範囲・スキル演出・演出チェック・Effekseer（後処理の中・段に重ねる効果）・
+      # 全身のモーション（握り・クリップ・軌跡を含む）のアプリのテストも回す（docs/vfx/RANGES.md・docs/EFFEKSEER.md・docs/HERO_MOTION.md。
       # 結果は成果物の apptests.log。落ちても撮影は続ける）
       - name: 演出のアプリのテスト（apptests のタグだけ）
         if: contains(github.ref_name, 'apptests')
@@ -86,7 +88,9 @@ jobs:
             -derivedDataPath build/dd CODE_SIGNING_ALLOWED=NO \
             -only-testing:VELSTRIATests/SkillFXRangeTests -only-testing:VELSTRIATests/SkillFXTests \
             -only-testing:VELSTRIATests/FXCheckTests -only-testing:VELSTRIATests/EffekseerPostTests \
-            -only-testing:VELSTRIATests/EffekseerKitStackTests > build/fxcapture/apptests.log 2>&1 || echo "アプリのテストが落ちた（apptests.log）"
+            -only-testing:VELSTRIATests/EffekseerKitStackTests -only-testing:VELSTRIATests/HeroFullBodyMotionTests \
+            -only-testing:VELSTRIATests/HeroGripTests -only-testing:VELSTRIATests/HeroMotionClipTests \
+            -only-testing:VELSTRIATests/HeroWeaponTrailTests > build/fxcapture/apptests.log 2>&1 || echo "アプリのテストが落ちた（apptests.log）"
           grep -E "error:|Test Case .*(passed|failed)|Executed|TEST (SUCCEEDED|FAILED)" build/fxcapture/apptests.log | tail -120 || true
           # テストの後のシミュレータを止める（撮影は起動し直したシミュレータで。テストの残りで画面の撮影が遅くならないように）
           xcrun simctl shutdown all || true

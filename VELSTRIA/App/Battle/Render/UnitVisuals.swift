@@ -786,10 +786,23 @@ final class HeroVisual {
         !dead && f.focusID == id && f.humanID != id
     }
 
-    func noteCast(_ slot: SkillSlot, time: Float) {
+    func noteCast(_ slot: SkillSlot, stage: Int = 0, time: Float) {
         castSlot = slot
         // スキル固有の詠唱モーションの長さだけ詠唱状態を保つ（最短 0.4 秒）
-        castUntil = time + max(0.4, handle.castDuration(slot))
+        castUntil = time + max(0.4, handle.castDuration(slot, stage: stage))
+        // 段に固有のモーションがある再使用（HeroSkillMotions のヒーロー）は、同じスロットの詠唱中でも今すぐ始め直す。
+        // それ以外は従来どおり、次の update が詠唱状態へ移す（同じスロットの詠唱中なら続ける）
+        if stage > 0, animState != .dead, handle.castRestarts(slot, stage: stage) {
+            animState = .cast(slot)
+            handle.playCast(slot, stage: stage)
+        }
+    }
+
+    /// このヒーローのスキル（slot）が当たった（sim のダメージ）。詠唱中なら命中の後のモーション（鎖鉤の引き寄せなど）を始め、
+    /// 詠唱状態をその長さだけ延ばす。モーションの無いヒーロー・スロットは何もしない。
+    func noteSkillHit(_ slot: SkillSlot, time: Float) {
+        guard animState == .cast(slot), let d = handle.playCastHit(slot) else { return }
+        castUntil = max(castUntil, time + d)
     }
 
     func noteAttack(time: Float) { attackUntil = time + 0.32 }
