@@ -147,7 +147,7 @@ final class ReplayLibraryTests: XCTestCase {
         let ach = try XCTUnwrap(p.achievements["ACH_WATCH_1"])
         XCTAssertTrue(ach.claimed, "Gem の無い実績は解除と同時に受取済み")
         XCTAssertNil(LiveOpsService.claimAchievement(id: "ACH_WATCH_1", profile: &p, now: now))
-        XCTAssertEqual(LiveOpsService.claimableAchievementCount(profile: p), 0)
+        XCTAssertEqual(HomeBadges.claimableAchievements(p), 0)
         XCTAssertEqual(p.freeGem, 0)
         XCTAssertEqual(p.starlightCoin, 0)
         XCTAssertEqual(p.pass.xp, 0)

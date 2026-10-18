@@ -3,8 +3,8 @@ import SwiftUI
 @testable import VELSTRIA
 import VelstriaCore
 
-// 担当: home-chrome。ホーム画面の純粋ロジック（HomeLogic.swift）: 全対応端末で配置が収まること、
-// 項目と識別子、ショーケースの巡回、書式、同梱フォントの登録。
+// 担当: home-chrome。ホーム画面の純粋ロジック（HomeLogic.swift）: 参照デザインのロビーが全対応端末で
+// 縦横同じ倍率のままセーフエリアに収まること、識別子、ショーケースの巡回、書式、同梱フォントの登録。
 
 final class HomeScreenTests: XCTestCase {
     private var savedLanguage: AppLanguage = .ja
@@ -28,40 +28,47 @@ final class HomeScreenTests: XCTestCase {
         ("iPhone 17 Pro Max", CGSize(width: 956, height: 440), EdgeInsets(top: 0, leading: 62, bottom: 21, trailing: 62)),
     ]
 
-    func testLayoutFitsEverySupportedDevice() {
+    func testLobbyKeepsAspectAndFitsSafeArea() {
         for d in Self.devices {
-            let m = HomeMetrics(size: d.size, safeArea: d.inset)
+            let l = HomeLayout(size: d.size, safeArea: d.inset)
             let screen = CGRect(origin: .zero, size: d.size)
-            let content = CGRect(x: m.contentMinX, y: 0, width: m.contentMaxX - m.contentMinX, height: d.size.height)
-            for (label, r) in [("left", m.leftRailRect), ("right", m.rightRailRect), ("center", m.centerRect),
-                               ("tabs", m.tabsRect), ("start", m.startRect), ("handle", m.handleRect)] {
-                XCTAssertTrue(screen.contains(r), "\(d.name): \(label) が画面外 \(r)")
-                XCTAssertTrue(content.insetBy(dx: -0.5, dy: 0).contains(r), "\(d.name): \(label) がセーフエリアにはみ出す \(r)")
+            // 縦横同じ倍率（板の縦横比のまま）
+            XCTAssertEqual(l.boardRect.width / l.boardRect.height, HomeLayout.board.width / HomeLayout.board.height,
+                           accuracy: 0.001, d.name)
+            XCTAssertEqual(l.boardRect.width, HomeLayout.board.width * l.scale, accuracy: 0.01, d.name)
+            // 板はセーフエリアの内側（Dynamic Island・角丸・ホームインジケータを避ける）で、どちらかの辺に接する
+            XCTAssertTrue(l.safeRect.insetBy(dx: -0.5, dy: -0.5).contains(l.boardRect), "\(d.name): 板がはみ出す \(l.boardRect)")
+            XCTAssertTrue(abs(l.boardRect.width - l.safeRect.width) < 0.5 || abs(l.boardRect.height - l.safeRect.height) < 0.5,
+                          "\(d.name): 余白が大きすぎる")
+            for slot in HomeLobbySlot.all {
+                let r = l.screenRect(slot.rect)
+                XCTAssertTrue(screen.contains(r), "\(d.name): \(slot.name) が画面外 \(r)")
+                XCTAssertTrue(l.safeRect.insetBy(dx: -0.5, dy: -0.5).contains(r), "\(d.name): \(slot.name) がセーフエリアにはみ出す \(r)")
             }
-            XCTAssertGreaterThanOrEqual(m.leftRailRect.width, HomeMetrics.minLeftRailWidth, d.name)
-            XCTAssertGreaterThanOrEqual(m.rightRailRect.width, HomeMetrics.minRightRailWidth, d.name)
-            XCTAssertGreaterThanOrEqual(m.centerRect.width, HomeMetrics.minCenterWidth, d.name)
-            // 列どうしが重ならない（左 → 中央 → 取っ手 → 右）
-            XCTAssertLessThanOrEqual(m.leftRailRect.maxX, m.centerRect.minX, d.name)
-            XCTAssertLessThanOrEqual(m.centerRect.maxX, m.handleRect.minX, d.name)
-            XCTAssertLessThanOrEqual(m.handleRect.maxX, m.rightRailRect.minX + 0.5, d.name)
-            XCTAssertLessThanOrEqual(m.tabsRect.maxX, m.startRect.minX, d.name)
-            // 縦: ヘッダーの下にレール、レールの下にフッター・START
-            XCTAssertGreaterThanOrEqual(m.leftRailRect.minY, m.headerRect.maxY, d.name)
-            XCTAssertLessThanOrEqual(m.leftRailRect.maxY, m.footerRect.minY, d.name)
-            XCTAssertLessThanOrEqual(m.rightRailRect.maxY, m.firstWinChipRect.minY, d.name)
-            XCTAssertLessThanOrEqual(m.firstWinChipRect.maxY, m.startRect.minY, d.name)
-            // 左レールの中身（バナー 2 + リスト 3 + 間隔）が収まり、押せる大きさがある
-            let leftNeeded = 2 * m.bannerHeight + 3 * m.listItemHeight + 4 * m.spacing
-            XCTAssertLessThanOrEqual(leftNeeded, m.leftRailRect.height + 0.5, d.name)
-            XCTAssertGreaterThanOrEqual(m.listItemHeight, HomeMetrics.minTapSize, d.name)
-            XCTAssertGreaterThanOrEqual(m.modeSlotHeight - m.modeCardSpacing, HomeMetrics.minTapSize, d.name)
-            XCTAssertGreaterThanOrEqual(m.socialRowHeight, HomeMetrics.minTapSize, d.name)
-            XCTAssertGreaterThanOrEqual(m.footerBarHeight, HomeMetrics.minTapSize, d.name)
-            XCTAssertGreaterThanOrEqual(m.startRect.height, 60, d.name)
-            // 畳んだ右レールは画面外へ、取っ手は中身の右端に残る
-            XCTAssertGreaterThanOrEqual(m.rightRailRect.minX + m.railCollapseOffset, d.size.width, d.name)
-            XCTAssertEqual(m.handleRect.maxX + m.handleCollapseOffset, m.contentMaxX, accuracy: 0.5, d.name)
+            // フッターの帯は画面の左端と下端まで
+            XCTAssertEqual(l.footerBandRect.minX, 0, d.name)
+            XCTAssertEqual(l.footerBandRect.maxY, d.size.height, accuracy: 0.01, d.name)
+        }
+    }
+
+    func testPlayButtonClearsDynamicIslandOnProMax() {
+        // 以前は縦横別の倍率でセーフエリアを見ず、17 Pro Max で対戦開始ボタンが右へ約 38pt はみ出していた
+        let l = HomeLayout(size: CGSize(width: 956, height: 440), safeArea: EdgeInsets(top: 0, leading: 62, bottom: 21, trailing: 62))
+        XCTAssertLessThanOrEqual(l.screenRect(HomeLobbySlot.play).maxX, 956 - 62 + 0.5)
+        XCTAssertGreaterThanOrEqual(l.screenRect(HomeLobbySlot.profile).minX, 62 - 0.5)
+    }
+
+    func testSlotsStayOnBoardAndDoNotOverlap() {
+        let board = CGRect(origin: .zero, size: HomeLayout.board)
+        for slot in HomeLobbySlot.all {
+            XCTAssertTrue(board.contains(slot.rect), "\(slot.name) が板の外 \(slot.rect)")
+        }
+        // 下段の押せる部品どうし（タブ・エンブレム・ランク・対戦開始）は重ならない
+        let bottom = [HomeLobbySlot.footerTabs, HomeLobbySlot.emblems, HomeLobbySlot.rank, HomeLobbySlot.play]
+        for i in bottom.indices {
+            for j in bottom.indices where j > i {
+                XCTAssertFalse(bottom[i].intersects(bottom[j]), "下段の部品 \(i) と \(j) が重なる")
+            }
         }
     }
 
@@ -74,34 +81,13 @@ final class HomeScreenTests: XCTestCase {
         }
     }
 
-    func testModesKeepTheirDestinations() {
-        XCTAssertEqual(HomeMode.ranked.action(difficulty: .normal), .match(.ranked))
-        XCTAssertEqual(HomeMode.classic.action(difficulty: .hard), .match(.standard(.hard)))
-        XCTAssertEqual(HomeMode.brawl.action(difficulty: .easy), .match(.brawl(.easy)))
-        XCTAssertEqual(HomeMode.arcade.action(difficulty: .normal), .push(.arcade))
-        XCTAssertEqual(HomeMode.rising.action(difficulty: .normal), .push(.rising))
-        XCTAssertEqual(HomeMode.custom.action(difficulty: .normal), .push(.customSetup))
-        XCTAssertEqual(HomeMode.magicChess.action(difficulty: .normal), .push(.magicChess))
-        XCTAssertEqual(HomeMode.allCases.filter(\.startsMatch), [.ranked, .classic, .brawl])
-    }
-
-    func testSocialLinksFollowFeatureFlag() {
-        XCTAssertEqual(HomeSocialLink.visible(lanMatch: true), [.online, .spectate, .replays])
-        XCTAssertEqual(HomeSocialLink.visible(lanMatch: false), [.spectate, .replays])
-    }
-
-    func testEveryHomeEntryPointIsReachable() {
-        // 旧ホームから行けた先がすべて新しいホーム（レール・タブ・ドロワー）から行けること
-        var routes: [Route] = HomeQuickLink.allCases.map(\.route) + HomeSocialLink.allCases.map(\.route)
-            + HomeTab.allCases.compactMap(\.route) + HomeMenuItem.allCases.map(\.route)
-        routes += HomeMode.allCases.compactMap {
-            if case .push(let r) = $0.action(difficulty: .normal) { return r } else { return nil }
+    func testMenuDoesNotDuplicateLobbyEntries() {
+        // ロビーに入口がある画面と、モード選択（VS AI & カスタム）にある画面はドロワーに置かない
+        let routes = HomeMenuItem.allCases.map(\.route)
+        for r in [Route.achievements, .ranking, .support, .cosmetics, .practiceSetup, .tutorialMenu] {
+            XCTAssertFalse(routes.contains(r), "\(r) がドロワーとほかの入口で重複")
         }
-        routes += [.profile, .rankOverview, .currencyStore, .mail, .notices, .settings, .events, .starPass]
-        for r in [Route.heroes, .items, .emblems, .store, .records, .replays, .spectateSetup, .practiceSetup, .onlineLobby,
-                  .settings, .missions, .events, .starPass, .arcade, .rising, .customSetup, .magicChess] {
-            XCTAssertTrue(routes.contains(r), "\(r) へ行けない")
-        }
+        XCTAssertEqual(Set(routes).count, routes.count)
     }
 
     func testShowcaseCycling() {
@@ -143,12 +129,5 @@ final class HomeScreenTests: XCTestCase {
 
     func testBundledFontsAreRegistered() {
         XCTAssertEqual(HomeFont.unresolvedFaces, [], "Info.plist の UIAppFonts とフォントの同梱を確認")
-    }
-
-    func testBackdropAspectFill() {
-        let r = HomeBackdrop.aspectFillRect(image: CGSize(width: 1600, height: 900), in: CGSize(width: 874, height: 402))
-        XCTAssertEqual(r.width, 874, accuracy: 0.5)
-        XCTAssertGreaterThanOrEqual(r.height, 402)
-        XCTAssertEqual(r.midY, 201, accuracy: 0.5)
     }
 }

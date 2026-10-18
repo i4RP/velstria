@@ -274,9 +274,7 @@ final class EmblemEconomyTests: XCTestCase {
         EmblemService.refreshChest(profile: &p, now: t0)
         XCTAssertEqual(EmblemService.chestCharges(p, now: t0), 1, "新規は 1 回分")
         XCTAssertEqual(EmblemService.chestSecondsUntilNext(p, now: t0), 4 * 3600)
-        XCTAssertEqual(HomeBadges.emblemChest(p, now: t0), 1)
-        XCTAssertEqual(HomeTab.emblems.badge(profile: p, now: t0), 1, "フッターのエンブレムのタブ")
-        XCTAssertEqual(HomeTab.heroes.badge(profile: p, now: t0), 0)
+        XCTAssertEqual(HomeBadges.emblemChest(p, now: t0), 1, "ロビーのエンブレムの赤い点")
         let first = EmblemService.openChest(profile: &p, now: t0)
         XCTAssertEqual(first, [EmblemService.dustAttachment(EmblemEconomy.chestDust),
                                EmblemService.fragmentAttachment(EmblemEconomy.chestFragments, set: .tank)])
@@ -284,7 +282,7 @@ final class EmblemEconomyTests: XCTestCase {
         XCTAssertEqual(EmblemService.fragments(.tank, profile: p), EmblemEconomy.chestFragments)
         XCTAssertNil(EmblemService.openChest(profile: &p, now: t0.addingTimeInterval(60)), "4 時間待つ")
         XCTAssertEqual(EmblemService.chestSecondsUntilNext(p, now: t0.addingTimeInterval(60)).map(EmblemService.countdownText), "3:59:00")
-        XCTAssertEqual(HomeTab.emblems.badge(profile: p, now: t0.addingTimeInterval(60)), 0)
+        XCTAssertEqual(HomeBadges.emblemChest(p, now: t0.addingTimeInterval(60)), 0)
         // 9 時間たつと 2 回分（それ以上は貯まらない）。欠片のセットは巡回（タンク → アサシン → メイジ）
         let later = t0.addingTimeInterval(9 * 3600)
         XCTAssertEqual(EmblemService.chestCharges(p, now: later), 2)
@@ -335,7 +333,7 @@ final class EmblemEconomyTests: XCTestCase {
         XCTAssertEqual(LiveOpsService.missionDef(id: "D01")?.extraRewards, [EmblemService.dustAttachment(E.dailyParticipationDust)])
         XCTAssertEqual(LiveOpsService.missionDef(id: "D05")?.extraRewards, [EmblemService.dustAttachment(E.dailyCombatDust)])
         XCTAssertEqual(LiveOpsService.missionDef(id: "D09")?.extraRewards, [EmblemService.dustAttachment(E.dailyObjectiveDust)])
-        XCTAssertEqual(LiveOpsService.missionDef(id: "D10")?.extraRewards, [EmblemService.fragmentAttachment(E.dailyRoleFragments, set: .tank)])
+        XCTAssertEqual(LiveOpsService.missionDef(id: "D10")?.extraRewards, [EmblemService.fragmentAttachment(E.dailyRoleFragments, set: .fighter)])
         XCTAssertEqual(LiveOpsService.missionDef(id: "D11")?.extraRewards.first?.refID, EmblemSetID.marksman.rawValue)
         XCTAssertEqual(LiveOpsService.missionDef(id: "D12")?.extraRewards.first?.refID, EmblemSetID.support.rawValue)
         XCTAssertTrue(LiveOpsService.dailyMissionPool.allSatisfy { !$0.extraRewards.isEmpty })

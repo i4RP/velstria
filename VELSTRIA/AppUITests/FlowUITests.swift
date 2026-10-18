@@ -104,9 +104,11 @@ final class FlowUITests: XCTestCase {
         tap(app, "flow_hero_H027")
         snap("flow_02_hero")
         tap(app, "flow_spell_0")
-        XCTAssertTrue(element(app, "flow_spellpick_BS07").waitForExistence(timeout: 5))
+        // バトルスキルの選択（BattleSkillPicker）。新規のアカウント Lv1 で装備できるのは瞬歩（BS01）だけ
+        XCTAssertTrue(element(app, "spell_BS01").waitForExistence(timeout: 5))
         snap("flow_03_spells")
-        tap(app, "flow_spellpick_BS07")
+        tap(app, "spell_BS01")
+        tap(app, "battle_skill_confirm")
         tap(app, "flow_next")
 
         XCTAssertTrue(element(app, "flow_confirm").waitForExistence(timeout: 5))

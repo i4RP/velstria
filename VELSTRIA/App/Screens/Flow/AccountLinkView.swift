@@ -61,8 +61,11 @@ struct AccountLinkView: View {
             Label(L("データはこの端末に保存されています", "Your data lives on this device"), systemImage: "iphone")
                 .font(Theme.heading(16))
                 .foregroundStyle(Theme.textPrimary)
-            Text(L("VELSIA はオフラインで動作し、オンラインアカウントやサーバーを使いません。プレイデータ（プロフィール・所持品・戦績・購入履歴）はこの iPhone の中にだけ保存されます。",
-                   "VELSIA runs offline and doesn't use online accounts or servers. Your play data (profile, inventory, history and purchase records) is stored only on this iPhone."))
+            Text(FeatureFlags.lanMatch
+                 ? L("VELSIA にはアカウントの登録がなく、プレイデータ（プロフィール・所持品・戦績・購入履歴）はこの iPhone に保存されます。オンライン機能（フレンド・ランクなど）は、ルールに同意した後だけ当方の中継サーバーを使います。",
+                     "VELSIA has no accounts. Your play data (profile, inventory, history and purchase records) is stored on this iPhone. Online features (friends, rank and more) use our relay server only after you accept the online rules.")
+                 : L("VELSIA はオフラインで動作し、オンラインアカウントやサーバーを使いません。プレイデータ（プロフィール・所持品・戦績・購入履歴）はこの iPhone の中にだけ保存されます。",
+                     "VELSIA runs offline and doesn't use online accounts or servers. Your play data (profile, inventory, history and purchase records) is stored only on this iPhone."))
                 .font(Theme.body(12))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)

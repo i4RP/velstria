@@ -177,22 +177,42 @@ final class AppModel: FriendProfileAccess {
 
     // MARK: ランク（クラウド）
 
-    /// 起動時: クラウドのランクを取り込む（初回は端末の記録を預ける）。
+    /// クラウドのランクの通信の送り手（テストは差し替える）。
+    @ObservationIgnored var rankTransport: RankCloud.Transport = FriendInboxEraser.urlSession
+
+    /// クラウドのランクを使うか: オンライン機能のルールに同意した 13 歳以上だけ（フレンドの受信箱と同じ条件。OnlineAccess）。
+    /// 使わない間はフレンドコード・鍵・勝敗を中継サーバーへ送らず、ランクは端末の計算（RankService.apply）だけで進める。
+    /// フレンドサーバーを止めている間（friends.isEnabled。単体テスト）も送らない。
+    var syncsCloudRank: Bool { onlineAccess == .available && friends.isEnabled() }
+
+    /// 起動時・オンラインのルールに同意した時: クラウドのランクを取り込む（初回は端末の記録を預ける）。
     func pullCloudRank() async {
+        guard syncsCloudRank else { return }
         let code = profile.friendCode, key = profile.inboxKey
-        if let s = await RankCloud.seed(code: code, key: key, local: profile.rank) { profile.rank.adopt(s) }
+        if let s = await RankCloud.seed(code: code, key: key, local: profile.rank, transport: rankTransport) { adoptCloudRank(s, code: code) }
     }
 
-    /// ランク戦の結果をクラウドへ送り、正の値で端末の写しを上書きする。
+    /// ランク戦の結果をクラウドへ送り、正の値で端末の写しを上書きする（クラウドのランクを使わない間は送らない）。
     private func syncRankedMatch(_ outcome: BattleOutcome, report: RewardReport) {
-        let code = profile.friendCode, key = profile.inboxKey
+        guard syncsCloudRank else { return }
+        let code = profile.friendCode, key = profile.inboxKey, transport = rankTransport
         let matchID = "m_" + String(RankService.stableHash("\(profile.playerID)|\(outcome.summary.seed)|\(outcome.summary.duration)"), radix: 36)
         let won = report.won, rating = report.matchRating, mvp = outcome.summary.humanPlayer?.isMVP == true
         Task {
-            if let s = await RankCloud.match(code: code, key: key, matchID: matchID, won: won, rating: rating, mvp: mvp) {
-                profile.rank.adopt(s)
+            if let s = await RankCloud.match(code: code, key: key, matchID: matchID, won: won, rating: rating, mvp: mvp, transport: transport) {
+                adoptCloudRank(s, code: code)
             }
         }
+    }
+
+    /// クラウドの値で端末のランクを上書きし、中継にこのコードのデータがあると記録する（全データの削除で中継のランクも消す。
+    /// FriendHub.hasServerData）。待っている間にデータを削除した（コードが変わった）なら何もしない。
+    private func adoptCloudRank(_ s: CloudRank, code: String) {
+        guard profile.friendCode == code else { return }
+        var p = profile
+        p.rank.adopt(s)
+        p.inboxRegistered = true
+        profile = p
     }
 
     // MARK: 戦闘
@@ -443,18 +463,20 @@ final class AppModel: FriendProfileAccess {
         profile.displayName.isEmpty ? L("プレイヤー", "Player") : PlayerNameRules.outgoing(profile.displayName)
     }
 
-    /// オンラインのルール（コミュニティガイドライン・利用規約）に同意した: 受信箱へ繋ぎ、待たせていたリンクを開く。
+    /// オンラインのルール（コミュニティガイドライン・利用規約）に同意した: 受信箱へ繋ぎ、クラウドのランクを取り込み、待たせていたリンクを開く。
     func acceptOnlineRules() {
         guard onlineAccess == .needsConsent else { return }
         profile.acceptedOnlineRulesVersion = FeatureFlags.currentOnlineRulesVersion
         friends.start()
+        // ランク戦の結果を送る前に端末のランクを預ける（預けずに送ると、中継は初期のランクから数え始める）
+        Task { await pullCloudRank() }
         if let url = pendingOnlineLink {
             pendingOnlineLink = nil
             if !openFriendLink(url) { openOnlineJoinLink(url) }
         }
     }
 
-    /// オンライン機能をやめる（同意を取り消す）: 部屋を出て受信箱を切る。次にオンラインを開くと同意し直す。
+    /// オンライン機能をやめる（同意を取り消す）: 部屋を出て受信箱を切る（クラウドのランクも送らなくなる）。次にオンラインを開くと同意し直す。
     func revokeOnlineRules() {
         leaveOnlineRoom()
         friends.reset()

@@ -7,8 +7,8 @@ This Privacy Policy explains how {{PUBLISHER_NAME}} ("we", "us") handles informa
 
 ## 1. Summary
 
-- Information needed to play, including matches against AI, is stored on your device. We never store your game progress, items or in-game currency balances on our servers.
-- The App's online features (online matches, spectating, friends and party invitations) connect only after you accept the online rules (our Community Guidelines and Terms of Service). When you use them, the information described in sections 3 and 4 is sent to the devices of other players in the same room or to a relay server that we operate. The only information the relay server stores is the friend-feature data described in section 4 and the running numbers of room participants described in section 3.2 (deleted 10 minutes after the host closes the room).
+- Information needed to play, including matches against AI, is stored on your device. We never store your game progress (except your rank once you accept the online rules; see section 4.5), items or in-game currency balances on our servers.
+- The App's online features (online matches, spectating, friends, party invitations and rank storage) connect only after you accept the online rules (our Community Guidelines and Terms of Service). When you use them, the information described in sections 3 and 4 is sent to the devices of other players in the same room or to a relay server that we operate. The only information the relay server stores is the friend and rank data described in section 4 and the running numbers of room participants described in section 3.2 (deleted 10 minutes after the host closes the room).
 - The App does not show advertising, does not analyze your behavior and does not track you across other companies' apps or websites. It contains no analytics, advertising or tracking SDKs.
 - We do not sell your information.
 
@@ -22,7 +22,7 @@ The App stores the following information on your device. The items described in 
 | Age group | The age group you select (we do not ask for your date of birth) | Applying monthly purchase limits by age; checking whether you can use the online features (they are not available under 13) |
 | Purchase records | In-App Purchase transaction IDs, dates and the items granted | Delivering purchases, preventing duplicate grants, restoring purchases |
 | Match history and replays | Match results and input records. Replays of online matches include the other players' display names | Showing your match history, replay playback |
-| Online identifiers | Player ID (a random identifier created by the App), friend code (8 characters), inbox key (a secret string the App creates to prove you own your friend code) and whether you have ever connected to your inbox on the relay server | Joining and rejoining online matches, the friend feature, deleting your inbox on the relay server when you delete your data |
+| Online identifiers | Player ID (a random identifier created by the App), friend code (8 characters), inbox key (a secret string the App creates to prove you own your friend code) and whether you have ever connected to your inbox or stored your rank on the relay server | Joining and rejoining online matches, the friend feature and rank storage, deleting your inbox and rank on the relay server when you delete your data |
 | Friend data | Your friends' friend codes, display names and the dates they were added; friend codes of players you have sent requests to and when you sent them | The friend feature (including withdrawing requests after 14 days) |
 | Block list | Friend codes and display names of players you have blocked, and when you blocked them | Refusing requests, invitations and room entry from blocked players |
 | Online rules consent | The version of the online rules you accepted | Checking whether you can use the online features |
@@ -54,7 +54,7 @@ Other players' devices show your display name and other information, and automat
 
 If you share a room invitation, the room name, room code and a join link are sent to the app or person you choose. If you share your friend link, your friend code and display name are sent.
 
-## 4. Information sent and stored for the friend feature
+## 4. Information sent and stored for the friend feature and rank
 
 ### 4.1 Connecting to your inbox
 
@@ -81,11 +81,22 @@ To receive friend requests and party invitations, once you have accepted the onl
 - The relay does not check whether two players are friends when answering an online status check, so anyone who knows your friend code (including players you have blocked) can tell whether you currently have the App open. Only share your friend code with people you trust.
 - Friend requests, acceptances and invitations from players you have blocked are discarded on your device. Blocked players are not told that you blocked them.
 
+### 4.5 Rank
+
+To calculate and store your Ranked rank on the relay server, once you have accepted the online rules the App sends the following information to the relay. If you selected the under-13 age group, before you accept the rules, or after you choose Stop Using Online Features, nothing is sent and your rank is calculated only on your device.
+
+| When | Information sent |
+|---|---|
+| When the App starts and when you accept the rules | Friend code, inbox key, and the rank on your device (tier, division, stars, star points, protection points, highest rank reached, wins and losses) |
+| After each Ranked match | Friend code, inbox key, an identifier the App creates for each match (so that the same match is not counted twice), win or loss, match rating, and whether you were MVP |
+
+The relay stores the hash of your inbox key (to confirm who owns the rank), your rank and the results of your last 50 matches (the match identifiers and how your rank changed) until you delete them from the App (section 12). They are not deleted automatically.
+
 ## 5. Relay server operation and service providers
 
 - We operate the relay server on cloud services provided by Cloudflare, Inc. (United States): Cloudflare Workers and Durable Objects.
 - To carry the connection, Cloudflare receives information such as your IP address. Our code does not read IP addresses, and we do not record them. For how Cloudflare handles information, see Cloudflare's Privacy Policy (<https://www.cloudflare.com/privacypolicy/>).
-- The data in section 4.2 is stored in a Cloudflare data center chosen automatically near the place where that inbox was first accessed, so we cannot specify the country in advance. It may be stored outside Japan.
+- The data in sections 4.2 and 4.5 is stored in a Cloudflare data center chosen automatically near the place where that inbox or rank was first accessed, so we cannot specify the country in advance. It may be stored outside Japan.
 - We have reviewed the United States' personal information protection framework using the information published by Japan's Personal Information Protection Commission (<https://www.ppc.go.jp/personalinfo/legal/kaiseihogohou/>, Japanese) and take the security measures described in section 10.
 - The App's official website is served by Vercel Inc. (United States). The website contains no analytics or advertising, but Vercel receives information such as visitors' IP addresses in order to serve it.
 - Through our contracts with the service providers that handle information on our behalf (Cloudflare, Inc. and Vercel Inc.), including their data processing terms, we require them to protect information at a level equal to or higher than this policy, and we do not allow them to use it for any purpose other than the services they provide to us.
@@ -115,7 +126,7 @@ If you have turned on "Share With App Developers" in iOS, Apple may provide us w
 
 We use the information we obtain only to:
 
-1. provide online matches, spectating, friends and party invitations;
+1. provide online matches, spectating, friends, party invitations and rank storage;
 2. investigate connection problems and keep the service safe, including dealing with unauthorized connections and abusive behavior;
 3. respond to inquiries and reports, and act on violations of our Terms of Service and Community Guidelines; and
 4. comply with the law.
@@ -130,7 +141,7 @@ We do not share the information we obtain with third parties, except:
 We take the following measures to prevent the leakage, loss or damage of the information we handle:
 
 - Organizational and personnel measures: we have appointed a person responsible for handling information and limit who manages the relay server and handles support email.
-- Technical measures: the relay stores inbox keys only as hashes and does not store the content of traffic or access logs. An inbox is deleted only at the request of the device that holds its key. Connections between devices and the relay are encrypted with TLS. Checks for offensive words in display names and room names run on users' devices; the relay does not inspect the content of traffic.
+- Technical measures: the relay stores inbox keys only as hashes and does not store the content of traffic or access logs. An inbox or rank is deleted only at the request of the device that holds its key. Connections between devices and the relay are encrypted with TLS. Checks for offensive words in display names and room names run on users' devices; the relay does not inspect the content of traffic.
 - Physical measures: the relay runs in Cloudflare's data centers, and Cloudflare is responsible for the physical security of the facilities.
 - Understanding the foreign environment: see section 5.
 
@@ -142,15 +153,16 @@ We take the following measures to prevent the leakage, loss or damage of the inf
 | Running numbers of room participants | Relay server | 10 minutes after the host closes the room |
 | Hash of your inbox key and time of your last connection | Relay server | Until you delete it from the App; deleted automatically one year after your last connection |
 | Pending friend requests and acceptances | Relay server | Until delivered; at most 14 days after they were received |
+| Rank and the results of your last 50 matches (section 4.5) | Relay server | Until you delete them from the App (not deleted automatically) |
 | Deletion marker | Relay server | Kept without a time limit (shows only that the inbox was deleted) |
 | Suspended friend codes | Relay server (setting) | Until the suspension is lifted |
 | Support and report emails | Our email | Until no longer needed after we have finished handling them |
 
 ## 12. Deleting your information and your requests
 
-- **All of your information**: Settings > Privacy > Delete All Data in the App deletes your inbox on the relay server (the key hash, the time you last connected and any pending requests) and everything stored on your device. We cannot recover deleted data. Deleting creates a new player ID, friend code and inbox key.
-- **Only the relay server data**: Delete Friend Server Data in Settings > Privacy deletes your inbox on the relay server while keeping your game data on your device. No one, including you, can use the deleted friend code again, and a new friend code is created the next time you use the online features.
-- **Automatic deletion**: If you can't use the App, for example because you deleted the App or lost your device, your inbox on the relay server is deleted automatically one year after your last connection. Your inbox key exists only on your device, and we can't confirm from a friend code alone that you are the owner, so we do not delete inboxes in response to email requests. Friend requests you sent that are waiting in another player's inbox because they were away (your friend code and display name) are deleted 14 days after they were received. See [Data Deletion and Privacy Choices](/en/privacy-choices) for the steps.
+- **All of your information**: Settings > Privacy > Delete All Data in the App deletes your inbox on the relay server (the key hash, the time you last connected and any pending requests), your rank there, and everything stored on your device. We cannot recover deleted data. Deleting creates a new player ID, friend code and inbox key.
+- **Only the relay server data**: Delete Friend Server Data in Settings > Privacy deletes your inbox and rank on the relay server while keeping your game data on your device. No one, including you, can use the deleted friend code again, and a new friend code is created the next time you use the online features.
+- **Automatic deletion**: If you can't use the App, for example because you deleted the App or lost your device, your inbox on the relay server is deleted automatically one year after your last connection. Your inbox key exists only on your device, and we can't confirm from a friend code alone that you are the owner, so we do not delete inboxes or ranks in response to email requests. Your rank on the relay server is not deleted automatically, so delete it as described above before you delete the App. Friend requests you sent that are waiting in another player's inbox because they were away (your friend code and display name) are deleted 14 days after they were received. See [Data Deletion and Privacy Choices](/en/privacy-choices) for the steps.
 - **Other requests**: You may ask us to tell you how we use your information, disclose it, correct, add to or delete it, stop using or erase it, or stop sharing it with third parties. Email us at the address in section 17. To confirm that you are the person concerned, we may ask about information shown in the App. We do not charge a fee for these requests.
 - **Complaints**: You can send complaints or questions about how we handle information to the contact in section 17.
 
@@ -158,7 +170,7 @@ We take the following measures to prevent the leakage, loss or damage of the inf
 
 - Minors should use the App and make purchases only with the consent of a parent or guardian. The App applies monthly purchase limits based on the selected age group (15 and under: JPY 5,000; 16 to 19: JPY 10,000).
 - The age group is used only on your device and is never sent to our servers.
-- Players who select the under-13 age group cannot use the online features, and the App makes no connections for the online features for them.
+- Players who select the under-13 age group cannot use the online features, and the App makes no connections for the online features (including rank storage) for them.
 - If your child is 13 or older and uses the online features, please review them together and make sure your child does not use a real name or other identifying information as a display name. Your child's information can be deleted in Settings > Privacy on your child's device, and a parent or guardian may make the requests in section 12 for their child's information.
 
 ## 14. Users outside Japan

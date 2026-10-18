@@ -761,9 +761,11 @@ final class FriendTests: XCTestCase {
         XCTAssertEqual(rig.hub.status, .offline, "消す前に受信箱を切る")
         await fulfillment(of: [done], timeout: 5)
         XCTAssertEqual(ok, true)
-        let request = try XCTUnwrap(recorder.requests.first)
-        XCTAssertEqual(request.url?.path, "/v1/inbox/\(oldCode)/erase")
-        XCTAssertEqual(try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: String], ["key": oldKey])
+        // クラウドのランク（同じコードと鍵の RankAccount）を先に消し、続けて受信箱を消す。鍵は本文に入れる
+        XCTAssertEqual(recorder.requests.map { $0.url?.path }, ["/v1/rank/\(oldCode)/erase", "/v1/inbox/\(oldCode)/erase"])
+        for request in recorder.requests {
+            XCTAssertEqual(try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: String], ["key": oldKey])
+        }
         let p = rig.host.profile
         XCTAssertNotEqual(p.friendCode, oldCode, "消したコードは二度と使えないので、新しいコードにする")
         XCTAssertNotEqual(p.inboxKey, oldKey)
@@ -792,6 +794,36 @@ final class FriendTests: XCTestCase {
         XCTAssertEqual(ok, false)
         XCTAssertEqual(rig.host.profile.friendCode, oldCode, "通信に失敗したら端末の状態は変えない（もう一度試せる）")
         XCTAssertEqual(rig.host.profile.friends.map(\.code), [friendA])
+        XCTAssertEqual(recorder.requests.map { $0.url?.path }, ["/v1/rank/\(oldCode)/erase"],
+                       "ランクを消せなければ受信箱も消さない（受信箱を消すとコードが変わり、古いコードのランクを消せなくなる）")
+    }
+
+    /// クラウドのランクの消去: https・鍵は本文だけ。200 と 403 forbidden（ほかの鍵の持ち主のコード）は消えたもの、
+    /// 403 suspended・500・通信の失敗はもう一度試す。
+    func testRankEraseRequestAndResults() async throws {
+        let key = "k-0123456789abcdef"
+        let request = RankCloud.request(base: InMemoryRelay.baseURL, code: friendA, op: "erase", body: ["key": key])
+        XCTAssertEqual(request.url?.absoluteString, "https://relay.test/v1/rank/\(friendA)/erase")
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertFalse(request.url!.absoluteString.contains(key), "鍵は URL に載せない")
+        XCTAssertEqual(try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: String], ["key": key])
+
+        func erase(status: Int, body: String, fails: Bool = false) async -> Bool {
+            await RankCloud.erase(code: friendA, key: key, base: InMemoryRelay.baseURL) { r in
+                if fails { throw URLError(.notConnectedToInternet) }
+                return (Data(body.utf8), HTTPURLResponse(url: r.url!, statusCode: status, httpVersion: nil, headerFields: nil)!)
+            }
+        }
+        let erased = await erase(status: 200, body: #"{"ok":true,"state":{}}"#)
+        let otherOwner = await erase(status: 403, body: "forbidden\n")
+        let suspended = await erase(status: 403, body: "suspended\n")
+        let serverError = await erase(status: 500, body: "")
+        let offline = await erase(status: 200, body: "", fails: true)
+        XCTAssertTrue(erased)
+        XCTAssertTrue(otherOwner, "ほかの鍵の持ち主のコード = 自分のランクは無い")
+        XCTAssertFalse(suspended)
+        XCTAssertFalse(serverError)
+        XCTAssertFalse(offline)
     }
 
     func testClientStopsWhenSuspendedAndReportsAnErasedInbox() {

@@ -94,7 +94,8 @@ struct ProfileView: View {
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("profile_rank")
                 VStack(alignment: .leading, spacing: 4) {
-                    infoRow("person.text.rectangle", "ID", shortID(p.playerID))
+                    // ID はフレンドコード（フレンド申請・通報で使う番号と同じ。端末の UUID は見せない）
+                    infoRow("person.text.rectangle", "ID", FriendCode.display(p.friendCode))
                     infoRow("calendar", L("開始日", "Since"), FlowText.date(p.createdAt, time: false))
                     infoRow("sun.max", L("ログイン日数", "Login days"), "\(p.totalLoginDays)")
                     infoRow("person.3", L("所持ヒーロー", "Heroes owned"), "\(p.ownedHeroIDs.filter(HeroRoster.isActive).count) / \(app.master.heroes.count)")
@@ -104,11 +105,6 @@ struct ProfileView: View {
             }
             .padding(.vertical, 4)
         }
-    }
-
-    private func shortID(_ id: String) -> String {
-        let hex = id.replacingOccurrences(of: "-", with: "").uppercased()
-        return String(hex.prefix(4)) + "-" + String(hex.dropFirst(4).prefix(4))
     }
 
     private func infoRow(_ symbol: String, _ title: String, _ value: String) -> some View {
@@ -221,8 +217,6 @@ struct ProfileView: View {
             linkButton("list.bullet.rectangle.fill", L("戦績", "Records"), .records, "profile_records")
             linkButton("trophy.fill", L("実績", "Achievements"), .achievements, "profile_achievements",
                        badge: HomeBadges.claimableAchievements(app.profile))
-            linkButton("list.number", L("ランキング", "Ladder"), .ranking, "profile_ranking")
-            linkButton("externaldrive.fill.badge.person.crop", L("データ連携", "Account & Data"), .accountLink, "profile_accountLink")
         }
     }
 
@@ -346,10 +340,26 @@ struct RecordsView: View {
                     summaryStrip(list)
                     FlowTabBar(items: [
                         .init(tab: Filter.all, title: L("すべて", "All"), symbol: "square.grid.2x2", identifier: "records_filter_all"),
-                        .init(tab: Filter.standard, title: L("通常", "Standard"), symbol: "person.3.fill", identifier: "records_filter_standard"),
+                        .init(tab: Filter.standard, title: L("クラシック", "Classic"), symbol: "person.3.fill", identifier: "records_filter_standard"),
                         .init(tab: Filter.ranked, title: L("ランク", "Ranked"), symbol: "crown.fill", identifier: "records_filter_ranked"),
                         .init(tab: Filter.other, title: L("その他", "Other"), symbol: "ellipsis.circle", identifier: "records_filter_other"),
                     ], selection: $filter)
+                    // リプレイ一覧は戦績から開く（ホームには入口を置かない）
+                    Button {
+                        FlowFX.tap(app)
+                        app.router.push(.replays)
+                    } label: {
+                        Label(L("リプレイ", "Replays"), systemImage: "play.rectangle.fill")
+                            .font(Theme.heading(12))
+                            .foregroundStyle(Theme.textPrimary)
+                            .lineLimit(1)
+                            .padding(.horizontal, 10)
+                            .frame(minHeight: 44)
+                            .glass(cornerRadius: 12)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("records_replays")
                 }
                 if list.isEmpty {
                     FlowEmptyState(symbol: "list.bullet.rectangle", title: L("戦績はまだありません", "No matches yet"),
