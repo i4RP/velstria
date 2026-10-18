@@ -1046,6 +1046,22 @@ final class SkillFXTests: XCTestCase {
         XCTAssertEqual(snap.liveTotal, 0, "プレイ中の生成: \(snap.live)\n" + snap.liveSamples.joined(separator: "\n"))
     }
 
+    /// 3D の上に描く部品（FXMesh.onTop: 爆炎・閃光）は深度を読まない材質。既定の部品は深度を読む（体・地形に隠れる）。
+    func testOnTopMeshesSkipTheDepthTest() async {
+        await FXPrograms.waitUntilSettled()
+        let lib = FXMaterialLibrary(textures: FXTextureLibrary(), sheets: FXSheetLibrary())
+        let plain = FXMesh(shape: .disc, tex: .ring)
+        let top = plain.with { $0.onTop = true }
+        let palette = FXPalette.from(RGB(1, 0.6, 0.2))
+        XCTAssertEqual((lib.material(for: plain, palette: palette) as? UnlitMaterial)?.readsDepth, true)
+        XCTAssertEqual((lib.material(for: top, palette: palette) as? UnlitMaterial)?.readsDepth, false)
+        if FXPrograms.isReady {
+            let glow = top.with { $0.blend = .add }
+            XCTAssertEqual((lib.material(for: glow, palette: palette) as? CustomMaterial)?.readsDepth, false)
+            XCTAssertEqual((lib.material(for: plain.with { $0.blend = .add }, palette: palette) as? CustomMaterial)?.readsDepth, true)
+        }
+    }
+
     func testSheetFrameFollowsLifeAndLoops() {
         let once = FXMesh.flipbook(.fireball, 2, life: 1)
         XCTAssertEqual(SkillFXPlayer.sheetFrame(once, .fireball, age: 0), 0)

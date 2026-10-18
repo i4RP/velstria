@@ -312,22 +312,26 @@ extension FXMesh {
 
 extension FXMesh {
     /// カメラを向くコマ送りの板（size = 一辺の m）。色付きのシート（fireball など）は tint を白にすると画像の色のまま。
+    /// 出た瞬間から全部の明るさ（fadeIn 0。手応えのヒットストップで演出の時間が止まっても、最初のコマの閃光が見える）。
+    /// onTop = 3D の上に描く（既定。MLBB の爆炎は英雄の体の上に描かれる）。
     static func flipbook(_ s: FXSheet, _ size: Float, _ tint: FXTint = .white, life: Float = 0.6, grow: Float = 1.12,
-                         blend: FXBlend = .add, fallback: FXTex = .glow) -> FXMesh {
+                         blend: FXBlend = .add, fallback: FXTex = .glow, onTop: Bool = true) -> FXMesh {
         FXMesh(shape: .billboard, tex: fallback, tint: tint, alpha: 1, size: SIMD3(repeating: size),
-               sizeEnd: SIMD3(repeating: size * grow), ease: .out, life: life, fadeIn: 0.02, fadeOut: 0.85).with {
+               sizeEnd: SIMD3(repeating: size * grow), ease: .out, life: life, fadeIn: 0, fadeOut: 0.85).with {
             $0.sheet = s
             $0.blend = blend
+            $0.onTop = onTop
         }
     }
 
     /// 地面に寝かせたコマ送り（size = 直径）。
     static func groundFlipbook(_ s: FXSheet, _ size: Float, _ tint: FXTint = .white, life: Float = 0.6, grow: Float = 1.05,
-                               blend: FXBlend = .add, fallback: FXTex = .glow) -> FXMesh {
+                               blend: FXBlend = .add, fallback: FXTex = .glow, onTop: Bool = true) -> FXMesh {
         FXMesh(shape: .disc, tex: fallback, tint: tint, alpha: 1, size: [size, 1, size], sizeEnd: [size * grow, 1, size * grow],
-               ease: .out, life: life, fadeIn: 0.02, fadeOut: 0.85).with {
+               ease: .out, life: life, fadeIn: 0, fadeOut: 0.85).with {
             $0.sheet = s
             $0.blend = blend
+            $0.onTop = onTop
         }
     }
 
@@ -340,12 +344,13 @@ extension FXMesh {
 }
 
 extension FXRibbon {
-    /// 振りの軌跡: 頭が半径 radius の弧を from → to（度）へ duration 秒で掃き、通った所が life 秒で消える。
+    /// 振りの軌跡: 頭が半径 radius の弧を from → to（度）へ duration 秒で掃き、通った所が life 秒で消える（3D の上に描く）。
     /// roll = 弧の面の傾き（0 = 水平・+ = 左、90 = 前と上の縦の面・+ = 上）。width = 刃の幅（外縁から内へ）。
     static func swing(radius: Float, from: Float, to: Float, height: Float = 1, roll: Float = 0, duration: Float = 0.18,
                       life: Float = 0.22, width: Float = 0.6, _ tint: FXTint = .primary, tex: FXTex = .swoosh) -> FXRibbon {
         FXRibbon(path: .arc(radius: radius, from: from, to: to, height: height, roll: roll), duration: duration, life: life,
-                 width: width, tailWidth: 0.35, upright: true, ease: .out, tex: tex, tint: tint, alpha: 1, blend: .add, flow: nil)
+                 width: width, tailWidth: 0.35, upright: true, ease: .out, tex: tex, tint: tint, alpha: 1, blend: .add, flow: nil,
+                 onTop: true)
     }
 
     /// 追従の尾（突進・飛ぶ体の後ろ）: duration 秒の間、合図の基準に付いて伸び、life 秒で尾から消える。

@@ -209,7 +209,7 @@ enum FXFlowTex: String, CaseIterable, Hashable, Sendable {
 
 /// 粒子・メッシュのコマ送りの画像。
 /// 手続き（tools/vfx_sprites/gen_sheets.py）: 4 × 4 = 16 コマ、1 コマ 128 px、白 + アルファ。
-/// Blender（tools/vfx_assets、名前が fx_ で始まる）: 5 × 5 か 4 × 4、1 コマ 256 px（岩は 128 px）。colored のシートは色が画像にあり
+/// Blender（tools/vfx_assets、名前が fx_ で始まる）: 5 × 5 か 4 × 4、1 コマ 256 px（煙は 192 px、岩は 128 px）。colored のシートは色が画像にあり
 /// （爆炎の白 → 黄 → 橙、煙・岩の陰影）、色は tint に掛かる（tint を白にすると画像の色のまま）。
 enum FXSheet: String, CaseIterable, Hashable, Sendable {
     case smokePuff = "smoke_puff"
@@ -226,7 +226,7 @@ enum FXSheet: String, CaseIterable, Hashable, Sendable {
     case hitFlash = "hit_flash"
     /// 爆炎（色付き・加算）: 白い芯 → 黄 → 橙 → 暗い朱へ冷えながら膨らみ、炎の舌が上へ千切れる。25 コマ。
     case fireball = "fx_fireball"
-    /// 煙の一吹き（陰影付き・アルファ）: こぶ状に膨らんで昇り、縁から薄れる。25 コマ。
+    /// 煙の一吹き（陰影付き・アルファ）: こぶ状に膨らんで昇り、縁から薄れる。16 コマ・192 px（柔らかいので小さく）。
     case smokeHD = "fx_smoke_hd"
     /// 光の棘（白・加算）: 中心から放射状のぎざぎざの炎の舌が一瞬で伸び、細りながら消える。16 コマ。
     case spikes = "fx_spikes"
@@ -237,7 +237,7 @@ enum FXSheet: String, CaseIterable, Hashable, Sendable {
 
     var rows: Int {
         switch self {
-        case .fireball, .smokeHD: return 5
+        case .fireball: return 5
         default: return 4
         }
     }
@@ -247,7 +247,8 @@ enum FXSheet: String, CaseIterable, Hashable, Sendable {
     /// 1 コマの画素数。
     var frameSize: Int {
         switch self {
-        case .fireball, .smokeHD, .spikes, .dustRing: return 256
+        case .fireball, .spikes, .dustRing: return 256
+        case .smokeHD: return 192
         default: return 128
         }
     }

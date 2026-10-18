@@ -163,6 +163,9 @@ final class HitShapeProbeTests: XCTestCase {
         XCTAssertEqual(value("H029", .ultimate, "ultReach"), ult.radius)
         XCTAssertEqual(HeroKits.fxValues(heroID: "H029", slot: .skill1).first { $0.key == "waveBandStart" }?.values,
                        Kit_H029.Tune.waveBandStart)
+        // 照準の帯の縁（台形）は判定の手前・奥の半幅
+        XCTAssertEqual(value("H029", .skill1, "aimNearHalfWidth"), Kit_H029.Tune.waveNearHalfWidth)
+        XCTAssertEqual(value("H029", .skill1, "aimFarHalfWidth"), Kit_H029.Tune.waveFarHalfWidth)
         // キットの無いヒーローは空
         XCTAssertTrue(HeroKits.fxValues(heroID: "H001", slot: .skill1).isEmpty)
     }

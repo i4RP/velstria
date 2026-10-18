@@ -26,6 +26,13 @@ git tag fxcap-<名前> <コミット> && git push origin fxcap-<名前>
 成果物 `fx-capture-<run>` に `<カメラの組>/<ヒーロー>/<スキル>_<ms>.jpg`（幅 1108 px）と `manifest.json`
 （要求・実際の時刻、カメラ、画質、スキルごとの予算の観測）。シミュレータは後処理（ブルーム）が無い。
 
+- タグの名前で絞る・切り替える: `--H029_H034`（ヒーロー）・`@mlbb`（カメラの組）・`probe`・`moving`・`angleNN`（人形を北から NN° 東に）・
+  `clean`（判定の形の線を出さない。既定は出す。[RANGES.md](RANGES.md)）・`apptests`（撮影の前に演出のアプリのテストも回し `apptests.log` に残す）。
+- 英雄にだけ撃てるスキル（`FXCheckDriver.heroOnly`: H027 S1・H028 奥義・H034 奥義）は、練習場に足した敵の Bot の英雄（撮影の間は動かない）を
+  撃つ直前にヒーローの前 1.5 m に呼んで撃つ（人形は的にならない。2026-10-18 から）。
+- 1 体の撮影の上限は 900 秒（`HERO_DEADLINE`）。CI の合図（`done`）は書き終えてから置く（書きかけの合図の取りこぼしで 40 秒ずつ待ち、
+  最初のヒーローの H029 が S2 の途中で 480 秒の上限に達していた。2026-10-18 に直した）。
+
 ## 記録
 
 ### 2026-10-17 工程 1・2（比較の基準・共通の機能）
@@ -201,3 +208,16 @@ overPending）は 30 のスキルすべてで 0。
 - Mac の無い環境で `.efk` を実際のランタイムで描いてコマを撮る `tools/effekseer/webrender/render.mjs`（無頭の Chrome / Edge + EffekseerForWebGL 1.80.7）と、
   Windows の公式ツールでの書き出し（`EFFEKSEER_CLI`）。
 - ゴルム（H034）: [H034.md](H034.md)。撮影 `fxcap-golm-*--H034@mlbb`。
+
+### 2026-10-18 第 3 段（Blender の素材・記述の拡張。ロームのレーン: ボルグ）
+
+- 素材: `tools/vfx_assets`（Blender 4.5 LTS をヘッドレスで回す。zip 版を `%LOCALAPPDATA%\Programs\BlenderLTS` に展開。winget の MSI は
+  管理者の確認で止まった）。模型 8 種（.fxm）・Cycles の体積のコマ送り 5 種（最大 1280 px）・1 枚の模様 6 種・継ぎ目なしの模様 2 種、合計 約 3.7 MB。
+  どれも手続きの自前の素材。
+- 記述（[SKILL_FX.md](../SKILL_FX.md)「Blender の素材と拡張の部品」）: 模型（`FXShape` の 8 形、使う試合だけプール）・メッシュのコマ送り
+  （`FXMesh.sheet`。CI の撮影に写る）・溶け（`dissolve`）・UV スクロール（`flow` に Blender の模様）・帯（`FXRibbon`: 振りの軌跡・追従の尾）・
+  画面の歪み（`refract`、後処理の合成のパスで最大 4 つ）・3D の上（`onTop`）・放物線（`gravity`）。1 体ごとの値は枠ごとの LowLevelMesh の頂点の色
+  （コマ・溶け・種）で、材質は共有のまま。
+- 撮影の直し: 撮り終えて再開した最初のフレームの待ち時間で sim だけが先へ進み、演出が撮影の時刻より遅れて写っていた（奥義の崩落で約 0.4 秒。
+  それより前の撮影は全員この遅れを含む）。人形を右上に見て撃つ `angleNN`（タグ）を足した。
+- ボルグ（H029）: [H029.md](H029.md)。撮影 `fxcap-borg*--H029@mlbb`。通常攻撃の `.efk`（Effekseer）を金に、見せ場の粒の細部に Kit の `.efk` を重ねた。

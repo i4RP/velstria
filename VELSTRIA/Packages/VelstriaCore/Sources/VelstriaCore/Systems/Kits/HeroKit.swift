@@ -33,7 +33,8 @@ public struct KitZoneShape: Hashable, Sendable {
 /// 演出（App のスキル演出）が読む、キットの時刻・寸法の 1 つ（HeroKit.fxValues）。判定に使う Tune の値そのものを返し、
 /// 演出の側に値を手で写さない（照準の表示・判定・演出が同じ値を使う。docs/vfx/RANGES.md）。
 /// key は Tune の名前（例 "hookDelay"）。距離は sim 単位（100 = 1 m）、速さは sim 単位 / 秒、角度は rad のまま返し、
-/// m・秒・度への換算は App の FXSkillInfo がする。
+/// m・秒・度への換算は App の FXSkillInfo がする。照準の表示が読む共通の key: aimNearHalfWidth / aimFarHalfWidth
+/// （幅つきの帯の照準を、手前・奥の半幅の台形にする。判定が台形のスキル）。
 public struct KitFXValue: Hashable, Sendable {
     public enum Unit: String, Hashable, Sendable {
         case seconds, distance, speed, radians, count, ratio

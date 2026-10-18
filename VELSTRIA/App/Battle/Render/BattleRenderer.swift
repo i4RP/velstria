@@ -393,6 +393,11 @@ final class BattleRenderer {
             deltaTime = paceAccumulator
             paceAccumulator = 0
         }
+        #if DEBUG
+        // 比較撮影（FXCapture）が撮り終えて再開した最初のフレームは、撮る間の待ち時間を流さない（sim は 0.25 秒・演出は 0.1 秒で
+        // 丸めるので、撮るたびに sim だけが先へ進み、演出が撮影の時刻より遅れていた。奥義の崩落で約 0.4 秒）
+        if fxCapture?.takeResumed() == true { deltaTime = min(deltaTime, 1.0 / 60) }
+        #endif
         let dt = min(max(deltaTime, 0), 0.1)
         defer {
             publishCameraViewport(dt: dt)
