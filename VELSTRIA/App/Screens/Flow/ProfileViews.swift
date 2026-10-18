@@ -336,14 +336,13 @@ struct RecordsView: View {
         ScreenScaffold(title: L("戦績", "Match History")) {
             let list = records
             VStack(spacing: 10) {
-                HStack(spacing: 8) {
-                    summaryStrip(list)
-                    FlowTabBar(items: [
-                        .init(tab: Filter.all, title: L("すべて", "All"), symbol: "square.grid.2x2", identifier: "records_filter_all"),
-                        .init(tab: Filter.standard, title: L("クラシック", "Classic"), symbol: "person.3.fill", identifier: "records_filter_standard"),
-                        .init(tab: Filter.ranked, title: L("ランク", "Ranked"), symbol: "crown.fill", identifier: "records_filter_ranked"),
-                        .init(tab: Filter.other, title: L("その他", "Other"), symbol: "ellipsis.circle", identifier: "records_filter_other"),
-                    ], selection: $filter)
+                // SE では集計と絞り込みが 1 行に収まらないので、収まらない時は集計を省く
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) {
+                        summaryStrip(list).fixedSize()
+                        filterTabs
+                    }
+                    filterTabs
                 }
                 if list.isEmpty {
                     FlowEmptyState(symbol: "list.bullet.rectangle", title: L("戦績はまだありません", "No matches yet"),
@@ -407,6 +406,15 @@ struct RecordsView: View {
         guard let launch = pendingLaunch else { return }
         pendingLaunch = nil
         app.startBattle(launch)
+    }
+
+    private var filterTabs: some View {
+        FlowTabBar(items: [
+            .init(tab: Filter.all, title: L("すべて", "All"), symbol: "square.grid.2x2", identifier: "records_filter_all"),
+            .init(tab: Filter.standard, title: L("クラシック", "Classic"), symbol: "person.3.fill", identifier: "records_filter_standard"),
+            .init(tab: Filter.ranked, title: L("ランク", "Ranked"), symbol: "crown.fill", identifier: "records_filter_ranked"),
+            .init(tab: Filter.other, title: L("その他", "Other"), symbol: "ellipsis.circle", identifier: "records_filter_other"),
+        ], selection: $filter)
     }
 
     private func summaryStrip(_ list: [MatchRecord]) -> some View {
