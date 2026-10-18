@@ -8,7 +8,7 @@ import VelstriaCore
 // - ウィークリーミッション（4 件固定、ISO 週キーで更新）
 // - イベント（開幕祭 2026-10-01〜2026-12-31 とイベントミッション 3 件、毎週末の「週末スターブースト」）
 // - スターパス（30 段階 × 1000 XP、無料 / プレミアム）
-// - 実績（29 件、試合後などに評価）、お知らせ（4 件、静的）
+// - 実績（27 件、試合後などに評価）、お知らせ（4 件、静的）
 // - 観戦の記録（最後まで見た観戦・リプレイを 1 件につき 1 回数える）と観戦の実績・今週の観戦目標。
 //   観戦は報酬の対象外なので、観戦の実績は Gem なし（解除と同時に受取済み）、今週の目標も進捗の表示だけ（Coin・パス XP なし）。
 // 日付はすべて端末ローカルの暦で扱う。未受取のまま期限切れになったミッション報酬はメールで届ける。
@@ -157,9 +157,10 @@ enum LiveOpsService {
         MissionDef(id: "D09", titleJa: "チームでタワーを 3 本破壊する", titleEn: "Destroy 3 towers with your team",
                    kind: .destroyTowers, target: 3, rewardCoins: 200, rewardPassXP: 200,
                    extraRewards: dust(EE.dailyObjectiveDust)),
-        MissionDef(id: "D10", titleJa: "ヴァンガードで 1 回プレイする", titleEn: "Play 1 match as a Vanguard",
-                   kind: .useHeroRole, target: 1, rewardCoins: 150, rewardPassXP: 150, role: .vanguard,
-                   extraRewards: fragments(EmblemCatalog.setForRole(.vanguard), EE.dailyRoleFragments)),
+        // ゲームに出すヒーロー（HeroRoster）にヴァンガードはいないので、達成できるデュエリストにする（ID は進捗の保存のため据え置き）
+        MissionDef(id: "D10", titleJa: "デュエリストで 1 回プレイする", titleEn: "Play 1 match as a Duelist",
+                   kind: .useHeroRole, target: 1, rewardCoins: 150, rewardPassXP: 150, role: .duelist,
+                   extraRewards: fragments(EmblemCatalog.setForRole(.duelist), EE.dailyRoleFragments)),
         MissionDef(id: "D11", titleJa: "レンジャーで 1 回プレイする", titleEn: "Play 1 match as a Ranger",
                    kind: .useHeroRole, target: 1, rewardCoins: 150, rewardPassXP: 150, role: .ranger,
                    extraRewards: fragments(EmblemCatalog.setForRole(.ranger), EE.dailyRoleFragments)),
@@ -235,8 +236,7 @@ enum LiveOpsService {
         (AchievementDef(id: "ACH_DAMAGE_1M", titleJa: "百万の衝撃", titleEn: "Million Impact",
                         detailJa: "敵ヒーローへの与ダメージ通算 1,000,000", detailEn: "Deal 1,000,000 total damage to heroes",
                         target: 1_000_000, rewardGems: 60), .totalDamage),
-        (AchievementDef(id: "ACH_ROLE_VANGUARD", titleJa: "守護の誓い", titleEn: "Oath of the Vanguard",
-                        detailJa: "ヴァンガードでプレイする", detailEn: "Play a match as a Vanguard", target: 1, rewardGems: 10), .rolePlayed(.vanguard)),
+        // ゲームに出すヒーロー（HeroRoster の 10 体、2026-10-12）にヴァンガードはいないので、ヴァンガードの実績は外した（ロールは 5 つ）
         (AchievementDef(id: "ACH_ROLE_DUELIST", titleJa: "決闘者の矜持", titleEn: "Duelist's Pride",
                         detailJa: "デュエリストでプレイする", detailEn: "Play a match as a Duelist", target: 1, rewardGems: 10), .rolePlayed(.duelist)),
         (AchievementDef(id: "ACH_ROLE_RANGER", titleJa: "遠矢の射手", titleEn: "Far-Shot Archer",
@@ -247,19 +247,19 @@ enum LiveOpsService {
                         detailJa: "サポートでプレイする", detailEn: "Play a match as a Support", target: 1, rewardGems: 10), .rolePlayed(.support)),
         (AchievementDef(id: "ACH_ROLE_ASSASSIN", titleJa: "影の一閃", titleEn: "Shadow Strike",
                         detailJa: "アサシンでプレイする", detailEn: "Play a match as an Assassin", target: 1, rewardGems: 10), .rolePlayed(.assassin)),
-        (AchievementDef(id: "ACH_ALL_ROLES", titleJa: "六星の使い手", titleEn: "Master of Six Stars",
-                        detailJa: "6 ロールすべてでプレイする", detailEn: "Play a match with all 6 roles", target: 6, rewardGems: 40), .allRolesPlayed),
-        (AchievementDef(id: "ACH_RANK_GOLD", titleJa: "金環到達", titleEn: "Gold Ring Reached",
-                        detailJa: "ランク戦で金環に到達する", detailEn: "Reach Gold Ring in ranked", target: 1, rewardGems: 30), .rankReached(.master)),
-        (AchievementDef(id: "ACH_RANK_AZURE", titleJa: "蒼晶到達", titleEn: "Azure Crystal Reached",
-                        detailJa: "ランク戦で蒼晶に到達する", detailEn: "Reach Azure Crystal in ranked", target: 1, rewardGems: 60), .rankReached(.epic)),
-        (AchievementDef(id: "ACH_RANK_SOVEREIGN", titleJa: "星環王", titleEn: "Star Sovereign",
-                        detailJa: "ランク戦で星環王に到達する", detailEn: "Reach Star Sovereign in ranked", target: 1, rewardGems: 150),
+        (AchievementDef(id: "ACH_ALL_ROLES", titleJa: "全ロールの使い手", titleEn: "Master of All Roles",
+                        detailJa: "5 ロールすべてでプレイする", detailEn: "Play a match with all 5 roles", target: 5, rewardGems: 40), .allRolesPlayed),
+        // ランク到達: 名前は MLBB のティア名（RankService.tierName）。ID は旧ランク名のまま（進捗は ID で保存している）
+        (AchievementDef(id: "ACH_RANK_GOLD", titleJa: "マスター到達", titleEn: "Master Reached",
+                        detailJa: "ランク戦でマスターに到達する", detailEn: "Reach Master in ranked", target: 1, rewardGems: 30), .rankReached(.master)),
+        (AchievementDef(id: "ACH_RANK_AZURE", titleJa: "エピック到達", titleEn: "Epic Reached",
+                        detailJa: "ランク戦でエピックに到達する", detailEn: "Reach Epic in ranked", target: 1, rewardGems: 60), .rankReached(.epic)),
+        (AchievementDef(id: "ACH_RANK_SOVEREIGN", titleJa: "ミシック到達", titleEn: "Mythic Reached",
+                        detailJa: "ランク戦でミシックに到達する", detailEn: "Reach Mythic in ranked", target: 1, rewardGems: 150),
          .rankReached(.mythic)),
         (AchievementDef(id: "ACH_COLLECT_10", titleJa: "蒐集家", titleEn: "Collector",
                         detailJa: "コスメを 10 個所持する", detailEn: "Own 10 cosmetics", target: 10, rewardGems: 50), .cosmeticsOwned),
-        (AchievementDef(id: "ACH_HEROES_12", titleJa: "英雄の集い", titleEn: "Gathering of Heroes",
-                        detailJa: "ヒーローを 12 体所持する", detailEn: "Own 12 heroes", target: 12, rewardGems: 50), .heroesOwned),
+        // ヒーローの所持数の実績（12 体）は外した（全員がゲームに出す 10 体を最初から使える。解放・販売なし）
         (AchievementDef(id: "ACH_LEVEL_20", titleJa: "星を渡る者", titleEn: "Star Wanderer",
                         detailJa: "アカウントレベル 20 に到達する", detailEn: "Reach account level 20", target: 20, rewardGems: 50), .accountLevel),
         // 観戦（報酬の対象外なので Gem なしの記念の実績）
@@ -285,23 +285,26 @@ enum LiveOpsService {
                   titleJa: "『VELSIA - 星環の戦場』配信開始！",
                   titleEn: "VELSIA: Star Ring Arena is now live!",
                   bodyJa: "VELSIA へようこそ。5 対 5・3 レーンの戦場で、4 体の AI 味方と共に敵の Star Core を破壊しましょう。\n"
-                      + "オフラインでいつでも遊べます。まずはチュートリアルで操作を確認し、通常戦で腕を磨いてください。\n"
-                      + "ウェルカムメールに StarlightCoin・AstralGem・アバターフレームをお届けしています。",
+                      + "オフラインでいつでも遊べます。まずはチュートリアルで操作を確認し、クラシックで腕を磨いてください。\n"
+                      + "ウェルカムメールに StarlightCoin・AstralGem・マジックダスト・アバターフレームをお届けしています。",
                   bodyEn: "Welcome to VELSIA. Team up with four AI allies on a 5v5, three-lane battlefield and destroy the enemy Star Core.\n"
-                      + "Play offline anytime. Start with the tutorial, then sharpen your skills in standard matches.\n"
-                      + "A welcome gift of StarlightCoin, AstralGem and an avatar frame is waiting in your mailbox."),
+                      + "Play offline anytime. Start with the tutorial, then sharpen your skills in Classic matches.\n"
+                      + "A welcome gift of StarlightCoin, AstralGem, Magic Dust and an avatar frame is waiting in your mailbox."),
+        // 今のゲームの中身（HeroRoster の 10 体・BattleSpell.selectable の 12 種・エンブレム 7 セット・RankService のティア）に合わせる
         NoticeDef(id: "NT002", date: localDate(2026, 10, 1),
                   titleJa: "v1.0.0 パッチノート（概要）",
                   titleEn: "v1.0.0 Patch Notes (Summary)",
-                  bodyJa: "・ヒーロー 24 体（6 ロール）、アクティブスキル 96 種、装備 92 種（攻撃・魔法・防御・移動）と靴の祝福 7 種、バトルスペル 10 種、ルーン 30 種を実装\n"
-                      + "・モード: 通常戦（難易度 3 段階）、ランク戦（ドラフト）、練習場、チュートリアル、観戦、リプレイ\n"
-                      + "・ランク: 隕鉄〜星冠（各 3 段位・星 3）、星環王（ポイント制）。ティア初到達時に降格保護 1 回\n"
+                  bodyJa: "・ヒーロー 10 体（5 ロール）。どのヒーローもパッシブ・スキル 2 つ・アルティメットを持ち、全員を最初から使えます\n"
+                      + "・装備 92 種（攻撃・魔法・防御・移動）と靴の祝福 7 種、バトルスペル 12 種、エンブレム 7 セット\n"
+                      + "・モード: クラシック（難易度 3 段階）、ランク（ドラフト）、ブロウル、アーケード（ライジング・オートバトラー）、VS AI & カスタム（練習場・チュートリアル）、観戦、リプレイ、オンライン対戦\n"
+                      + "・ランク: ウォリアー〜レジェンド（ティアごとに 3〜5 段位・星 3〜5）、ミシック（星の累計）。勝利でスターポイント、敗北で保護ポイントがたまります\n"
                       + "・デイリー / ウィークリーミッション、スターパス シーズン 1（30 段階）、実績、ログインボーナス\n"
                       + "・年齢区分に応じた月間購入上限を設定しています",
-                  bodyEn: "- 24 heroes across 6 roles, 96 active skills, 92 items (Attack, Magic, Defense, Movement) plus 7 boot blessings, 10 battle spells and 30 runes\n"
-                      + "- Modes: Standard (3 difficulties), Ranked (draft), Practice, Tutorial, Spectate and Replays\n"
-                      + "- Ranks: Meteorite to Star Crown (3 divisions, 3 stars each) and Star Sovereign (points). "
-                      + "One demotion shield when you first reach a tier\n"
+                  bodyEn: "- 10 heroes across 5 roles, each with a Passive, two Skills and an Ultimate, all available from the start\n"
+                      + "- 92 items (Attack, Magic, Defense, Movement) plus 7 boot blessings, 12 battle spells and 7 emblem sets\n"
+                      + "- Modes: Classic (3 difficulties), Ranked (draft), Brawl, Arcade (Rising, Auto Battler), VS AI & Custom (Practice, Tutorial), Spectate, Replays and Online\n"
+                      + "- Ranks: Warrior to Legend (3–5 divisions and 3–5 stars by tier) and Mythic (cumulative stars). "
+                      + "Wins build Star Points and losses build Protection Points\n"
                       + "- Daily / weekly missions, Star Pass Season 1 (30 levels), achievements and login bonuses\n"
                       + "- Monthly purchase limits apply based on your age group"),
         NoticeDef(id: "NT003", date: localDate(2026, 10, 1),
@@ -315,9 +318,9 @@ enum LiveOpsService {
                   titleJa: "スターパス シーズン 1 開幕",
                   titleEn: "Star Pass Season 1 has begun",
                   bodyJa: "試合やミッションでパス XP を集めてスターパスを進めましょう。全 30 段階、1 段階 1,000 XP です。\n"
-                      + "無料トラックでは StarlightCoin・AstralGem・コスメを、プレミアムトラックではエピック・ミシックのコスメと追加の StarlightCoin・AstralGem を獲得できます。",
+                      + "無料トラックでは StarlightCoin・AstralGem・マジックダスト・コスメを、プレミアムトラックではエピック・ミシックのコスメと追加の StarlightCoin・AstralGem を獲得できます。",
                   bodyEn: "Earn Pass XP from matches and missions to advance the Star Pass: 30 levels, 1,000 XP each.\n"
-                      + "The free track offers StarlightCoin, AstralGem and cosmetics; the premium track adds Epic and Mythic cosmetics plus extra StarlightCoin and AstralGem."),
+                      + "The free track offers StarlightCoin, AstralGem, Magic Dust and cosmetics; the premium track adds Epic and Mythic cosmetics plus extra StarlightCoin and AstralGem."),
     ]
 
     // MARK: - 定義: イベント
@@ -342,8 +345,8 @@ enum LiveOpsService {
         let (start, end) = weekendWindow(containingOrAfter: now)
         return EventDef(id: weekendEventID,
                         titleJa: "週末スターブースト", titleEn: "Weekend Star Boost",
-                        detailJa: "毎週土曜・日曜は、通常戦・ランク戦で獲得する StarlightCoin が 50% 増加します。",
-                        detailEn: "Every Saturday and Sunday, StarlightCoin earned from standard and ranked matches is increased by 50%.",
+                        detailJa: "毎週土曜・日曜は、クラシック・ランクで獲得する StarlightCoin が 50% 増加します。",
+                        detailEn: "Every Saturday and Sunday, StarlightCoin earned from Classic and Ranked matches is increased by 50%.",
                         start: start, end: end, missionIDs: [])
     }
 
@@ -393,16 +396,16 @@ enum LiveOpsService {
         }
     }
 
-    /// プレミアムトラック: 5 の倍数でエピック / 10 の倍数でミシック級コスメ（30 はエピックのヒーロースキン）、
-    /// 3 の倍数で Gem 40、それ以外は Coin 400。
+    /// プレミアムトラック: 5 の倍数でエピック / 10 の倍数でミシックのコスメ、3 の倍数で Gem 40、それ以外は Coin 400。
+    /// ヒーロースキンはゲームに出すヒーロー（HeroRoster）の分が無いので配らない（25・30 は非表示のヒーローのスキンだった）。
     private static func premiumPassReward(_ level: Int) -> MailAttachment {
         switch level {
         case 5: return cosmeticReward("CO003", fallbackGems: 260)
         case 10: return cosmeticReward("CO008", fallbackGems: 440)
         case 15: return cosmeticReward("CO011", fallbackGems: 260)
         case 20: return cosmeticReward("CO012", fallbackGems: 440)
-        case 25: return cosmeticReward("CO019", fallbackGems: 260)
-        case 30: return cosmeticReward("CO031", fallbackGems: 440)
+        case 25: return cosmeticReward("CO079", fallbackGems: 260)
+        case 30: return cosmeticReward("CO084", fallbackGems: 440)
         case _ where level % 3 == 0: return MailAttachment(kind: .gem, amount: 40)
         default: return MailAttachment(kind: .coin, amount: 400)
         }
@@ -500,14 +503,6 @@ enum LiveOpsService {
         return isEventMission(id) ? MissionProgress(id: id) : nil
     }
 
-    /// 達成済みかつ未受取のミッション数（バッジ表示用。開催中イベントのミッションを含む）。
-    static func claimableMissionCount(profile: Profile, now: Date = Date()) -> Int {
-        (profile.missions.daily + profile.missions.weekly).filter { p in
-            guard !p.claimed, let def = missionDef(id: p.id), p.progress >= def.target else { return false }
-            return !isEventMission(p.id) || isEventMissionActive(p.id, now: now)
-        }.count
-    }
-
     /// 日付キーから今日のデイリー 3 件を決定論的に選ぶ（各グループから 1 件）。
     static func dailySelection(dayKey: String) -> [String] {
         var rng = SplitMix64(seed: RankService.stableHash("daily:" + dayKey))
@@ -564,33 +559,13 @@ enum LiveOpsService {
         passLevel(xp: xp) >= passMaxLevel ? 0 : max(0, xp) % passXPPerLevel
     }
 
-    /// 受取可能なパス報酬（無料 + プレミアム）の数。
-    static func claimablePassRewardCount(profile: Profile) -> Int {
-        let level = passLevel(xp: profile.pass.xp)
-        guard level > 0 else { return 0 }
-        var n = 0
-        for r in passRewardTable where r.level <= level {
-            if r.free != nil && !profile.pass.claimedFree.contains(r.level) { n += 1 }
-            if profile.pass.hasPremium && r.premium != nil && !profile.pass.claimedPremium.contains(r.level) { n += 1 }
-        }
-        return n
-    }
-
     static func addPassXP(_ amount: Int, to profile: inout Profile) {
         guard amount > 0 else { return }
         profile.pass.xp = min(passXPPerLevel * passMaxLevel, profile.pass.xp + amount)
     }
 
-    static func unreadNoticeCount(profile: Profile) -> Int {
-        noticeList.filter { !profile.readNoticeIDs.contains($0.id) }.count
-    }
-
     static func markNoticeRead(id: String, profile: inout Profile) {
         if !profile.readNoticeIDs.contains(id) { profile.readNoticeIDs.append(id) }
-    }
-
-    static func unreadMailCount(profile: Profile) -> Int {
-        profile.mail.filter { !$0.read || (!$0.claimed && !$0.attachments.isEmpty) }.count
     }
 
     static func achievementDef(id: String) -> AchievementDef? { achievementTable.first { $0.def.id == id }?.def }
@@ -598,15 +573,6 @@ enum LiveOpsService {
     /// 解除済みの実績数。
     static func unlockedAchievementCount(profile: Profile) -> Int {
         achievementTable.filter { profile.achievements[$0.def.id]?.unlockedAt != nil }.count
-    }
-
-    /// 解除済み・未受取の実績数。
-    static func claimableAchievementCount(profile: Profile) -> Int {
-        achievementTable.filter {
-            // 報酬の無い実績（観戦）は受け取る物が無いので数えない
-            guard $0.def.rewardGems > 0, let p = profile.achievements[$0.def.id] else { return false }
-            return p.unlockedAt != nil && !p.claimed
-        }.count
     }
 
     /// 添付の表示名（例: "StarlightCoin ×100"）。

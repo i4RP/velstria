@@ -224,19 +224,8 @@ struct RankOverviewView: View {
             .buttonStyle(PrimaryButtonStyle())
             .glowPulse(Theme.gold, radius: 10)
             .accessibilityIdentifier("rank_play")
+            // ランキングの入口はロビーのトロフィーだけ（入口を 1 つに）
             HStack(spacing: 8) {
-                Button {
-                    FlowFX.tap(app)
-                    app.router.push(.ranking)
-                } label: {
-                    Label(L("ランキング", "Ladder"), systemImage: "list.number")
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(SecondaryButtonStyle())
-                .frame(minHeight: 44)
-                .accessibilityIdentifier("rank_ladder")
                 Button {
                     FlowFX.tap(app)
                     app.router.push(.rankRewards)
@@ -304,8 +293,13 @@ struct RankOverviewView: View {
     private var rules: some View {
         VStack(alignment: .leading, spacing: 6) {
             FlowSectionTitle(title: L("ルール", "Rules"), symbol: "info.circle.fill")
-            ruleRow("arrow.up.circle.fill", Theme.success, L("勝利で星 +1。星 3 つの状態で勝利すると次の段階へ昇格します。", "Win: +1 star. Winning with three stars promotes you to the next division."))
-            ruleRow("arrow.down.circle.fill", Theme.danger, L("敗北で星 −1（隕鉄では降格しません）。", "Loss: −1 star (no demotion in Meteorite)."))
+            // RankService の規則（MLBB と同じ）。段位の数と星の数はティアごとに違うので上のランク一覧に出す
+            ruleRow("arrow.up.circle.fill", Theme.success, L("勝利で星 +1。星が満タンの状態で勝つと次の段位へ昇格します（I からは上のティアへ）。ミシックでは星を累計します。",
+                                                            "Win: +1 star. Winning with full stars promotes you to the next division (from I, to the next tier). In Mythic, stars add up."))
+            ruleRow("arrow.down.circle.fill", Theme.danger, L("敗北で星 −1。星 0 で負けると 1 つ下の段位へ下がります。ウォリアーでは星が減らず、ティアの最下段から下のティアへは落ちません（ミシックの星 0 からはレジェンド I へ）。",
+                                                              "Loss: −1 star; at 0 stars you drop a division. Warrior never loses stars, and you can't drop below a tier's lowest division (except Mythic at 0 stars, to Legend I)."))
+            ruleRow("star.circle.fill", Theme.gold, L("スターポイントは勝利でたまり、\(RankService.bar) で星 +1。保護ポイントは敗北でたまり、\(RankService.bar) になると次の敗北で星が減りません（ミシックではどちらもたまりません）。",
+                                                       "Star Points build up from wins: at \(RankService.bar) you gain a star. Protection Points build up from losses: at \(RankService.bar) your next loss costs no star (neither builds up in Mythic)."))
             ruleRow("cpu", Theme.cyan, L("ランクが上がるほど AI が強くなります。", "Higher ranks face stronger AI."))
             ruleRow("hand.raised.fill", Theme.gold, L("ランク戦ではドラフトで交互にピックします（同じヒーローは 1 人だけ）。", "In ranked, teams take turns picking (each hero once per match)."))
         }

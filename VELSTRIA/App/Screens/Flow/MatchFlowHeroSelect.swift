@@ -263,10 +263,7 @@ struct LoadoutPanel<Footer: View>: View {
                         if let item = app.master.item(id) { ItemIconView(item: item, size: 32) }
                     }
                 }
-                Button { app.router.push(.buildEditor(heroID)) } label: {
-                    Label(L("変更", "Change"), systemImage: "arrow.triangle.2.circlepath")
-                        .font(Theme.body(11)).foregroundStyle(Theme.cyan)
-                }.buttonStyle(.plain).frame(minHeight: 30)
+                // ビルドの変更は対戦フロー（全画面）の下の画面に開いて見えなかったので置かない。変更はヒーロー詳細のビルドから
             }
         }
     }

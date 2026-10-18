@@ -277,23 +277,90 @@ struct MatchFlowSteps: View {
 
 // MARK: - 1. モード選択（UI021）
 
+/// モード選択の並び（MLBB と同じく、遊べるモードはすべてここから入る）。
+enum MatchModeCategory: String, CaseIterable, Identifiable {
+    case classic, ranked, brawl, arcade, vsAI
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .classic: return L("クラシック", "Classic")
+        case .ranked: return L("ランク", "Ranked")
+        case .brawl: return L("ブロウル", "Brawl")
+        case .arcade: return L("アーケード", "Arcade")
+        case .vsAI: return L("VS AI & カスタム", "VS AI & Custom")
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .classic: return L("5v5 · 3 レーン", "5v5 · 3 lanes")
+        case .ranked: return L("ドラフト · 5v5", "Draft · 5v5")
+        case .brawl: return L("5v5 · 単レーン", "5v5 · 1 lane")
+        case .arcade: return L("期間限定・変則ルール", "Limited & variant rules")
+        case .vsAI: return L("カスタム・練習場", "Custom & practice")
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .classic: return "flag.2.crossed.fill"
+        case .ranked: return "crown.fill"
+        case .brawl: return "burst.fill"
+        case .arcade: return "gamecontroller.fill"
+        case .vsAI: return "cpu"
+        }
+    }
+
+    /// カードを押すと対戦フローを進めるモードの識別子（それ以外はカードの中のボタンで各画面へ）。
+    var identifier: String? {
+        switch self {
+        case .classic: return "flow_mode_standard"
+        case .ranked: return "flow_mode_ranked"
+        case .brawl: return "flow_mode_brawl"
+        case .arcade, .vsAI: return nil
+        }
+    }
+
+    /// カードの中のボタン（アーケードと VS AI & カスタム。押すとフローを閉じて各画面へ）。
+    var destinations: [MatchModeDestination] {
+        switch self {
+        case .classic, .ranked, .brawl: return []
+        case .arcade:
+            return [MatchModeDestination(route: .rising, title: L("ライジング", "Rising"), symbol: "chart.line.uptrend.xyaxis", id: "flow_mode_rising"),
+                    MatchModeDestination(route: .magicChess, title: L("オートバトラー", "Auto Battler"), symbol: "square.grid.3x3.fill", id: "flow_mode_magicChess")]
+        case .vsAI:
+            return [MatchModeDestination(route: .customSetup, title: L("カスタム", "Custom"), symbol: "slider.horizontal.3", id: "flow_mode_custom"),
+                    MatchModeDestination(route: .practiceSetup, title: L("練習場", "Practice"), symbol: "figure.run", id: "flow_mode_practice"),
+                    MatchModeDestination(route: .tutorialMenu, title: L("チュートリアル", "Tutorial"), symbol: "graduationcap.fill", id: "flow_mode_tutorial")]
+        }
+    }
+}
+
+/// モード選択のカードの中のボタン（id はアクセシビリティの識別子も兼ねる）。
+struct MatchModeDestination: Identifiable, Equatable {
+    let route: Route
+    let title: String
+    let symbol: String
+    let id: String
+}
+
 private struct MatchModeStep: View {
     @Bindable var model: MatchFlowModel
     @Environment(AppModel.self) private var app
 
     var body: some View {
-        VStack(spacing: 10) {
-            MatchFlowHeader(title: L("対戦モード", "Select Mode"), subtitle: L("オフライン · 5v5 対AI", "Offline · 5v5 vs AI"),
+        VStack(spacing: 8) {
+            MatchFlowHeader(title: L("対戦モード", "Select Mode"), subtitle: L("5v5 · 対AI", "5v5 · vs AI"),
                             backSymbol: "xmark", backID: "flow_close", onBack: close) {
                 MatchFlowSteps(current: 0)
             }
-            HStack(alignment: .top, spacing: 12) {
-                standardCard
-                rankedCard
-                shortcuts
-                    .frame(width: 150)
+            HStack(alignment: .top, spacing: 8) {
+                ForEach(MatchModeCategory.allCases) { card($0) }
             }
             .frame(maxHeight: .infinity)
+            difficultyRow
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 8)
@@ -304,67 +371,131 @@ private struct MatchModeStep: View {
         app.router.isMatchFlowPresented = false
     }
 
-    private var standardCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            cardHeader(symbol: "person.3.fill", tint: Theme.cyan, title: L("通常戦", "Standard"), subtitle: L("5v5 対AI", "5v5 vs AI"))
-            Text(L("AI の味方 4 人と協力して、AI チームのスターコアを破壊しよう。", "Team up with 4 AI allies and destroy the enemy AI team's Star Core."))
-                .font(Theme.body(12))
-                .foregroundStyle(Theme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+    private func modeTint(_ c: MatchModeCategory) -> Color {
+        switch c {
+        case .classic: return Theme.cyan
+        case .ranked: return Theme.gold
+        case .brawl: return Color(red: 1.0, green: 0.55, blue: 0.18)
+        case .arcade: return Theme.success
+        case .vsAI: return Color(red: 0.56, green: 0.70, blue: 1.0)
+        }
+    }
+
+    @ViewBuilder
+    private func card(_ c: MatchModeCategory) -> some View {
+        if c.destinations.isEmpty {
+            Button { start(c) } label: {
+                cardBody(c) { cardFooter(c) }
+            }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier(c.identifier ?? "")
+        } else {
+            cardBody(c) {
+                VStack(spacing: 6) {
+                    ForEach(c.destinations) { d in
+                        Button { openMode(d.route) } label: {
+                            Label(d.title, systemImage: d.symbol)
+                                .font(Theme.heading(12))
+                                .foregroundStyle(Theme.textPrimary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(modeTint(c).opacity(0.18)))
+                                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(modeTint(c).opacity(0.6)))
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier(d.id)
+                    }
+                }
+            }
+        }
+    }
+
+    private func cardBody<Footer: View>(_ c: MatchModeCategory, @ViewBuilder footer: () -> Footer) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Image(systemName: c.symbol)
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(modeTint(c))
+                .frame(width: 40, height: 40)
+                .background(HexagonShape().fill(modeTint(c).opacity(0.18)))
+                .overlay(HexagonShape().stroke(modeTint(c).opacity(0.6)))
+            Text(c.title)
+                .font(Theme.title(17))
+                .foregroundStyle(Theme.textPrimary)
+                .lineLimit(2)
+                .minimumScaleFactor(0.6)
+            Text(c.subtitle)
+                .font(Theme.body(11))
+                .foregroundStyle(modeTint(c))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            Spacer(minLength: 0)
+            footer()
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .glass(cornerRadius: 16, tint: modeTint(c).opacity(0.8))
+        .contentShape(Rectangle())
+    }
+
+    /// 対戦フローを進めるカードの下段（ランクは現在のランク、ほかは報酬）。
+    @ViewBuilder
+    private func cardFooter(_ c: MatchModeCategory) -> some View {
+        switch c {
+        case .ranked:
+            RankInlineView(rank: app.profile.rank, emblemSize: 22, font: Theme.heading(11))
+        case .classic:
+            Label(L("勝利 220 · 敗北 110", "Win 220 · Loss 110"), systemImage: "star.circle.fill")
+                .font(Theme.body(10))
+                .foregroundStyle(Theme.gold)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        default:
+            EmptyView()
+        }
+    }
+
+    /// 敵 AI の強さ（クラシック・ブロウル。ランクは自分のランクで決まる）。
+    private var difficultyRow: some View {
+        HStack(spacing: 8) {
             Text(L("敵 AI の強さ", "Enemy AI"))
                 .font(Theme.heading(12))
                 .foregroundStyle(Theme.textPrimary)
-            HStack(spacing: 6) {
-                ForEach(Difficulty.allCases, id: \.self) { d in
-                    let selected = model.difficulty == d
-                    Button {
-                        FlowFX.tap(app)
-                        withAnimation(.spring(duration: 0.25)) { model.difficulty = d }
-                    } label: {
-                        VStack(spacing: 2) {
-                            Image(systemName: FlowText.difficultySymbol(d)).font(.system(size: 14, weight: .bold))
-                            Text(FlowText.difficulty(d))
-                                .font(Theme.heading(12))
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.7)
-                        }
+                .lineLimit(1)
+                .fixedSize()
+            ForEach(Difficulty.allCases, id: \.self) { d in
+                let selected = model.difficulty == d
+                Button {
+                    FlowFX.tap(app)
+                    withAnimation(.spring(duration: 0.25)) { model.difficulty = d }
+                } label: {
+                    Label(FlowText.difficulty(d), systemImage: FlowText.difficultySymbol(d))
+                        .font(Theme.heading(12))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                         .foregroundStyle(selected ? Color.black.opacity(0.85) : Theme.textPrimary)
-                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .frame(maxWidth: 120, minHeight: 44)
                         .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .fill(selected ? AnyShapeStyle(Theme.cyan) : AnyShapeStyle(Color.white.opacity(0.08))))
                         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .stroke(selected ? Color.white.opacity(0.6) : Theme.panelStroke, lineWidth: 1))
                         .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(FlowText.difficulty(d))
-                    .accessibilityIdentifier("flow_difficulty_\(d.rawValue)")
-                    .accessibilityAddTraits(selected ? .isSelected : [])
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(FlowText.difficulty(d))
+                .accessibilityIdentifier("flow_difficulty_\(d.rawValue)")
+                .accessibilityAddTraits(selected ? .isSelected : [])
             }
             Text(Self.difficultyDetail(model.difficulty))
                 .font(Theme.body(11))
                 .foregroundStyle(Theme.cyan)
                 .lineLimit(2)
-                .minimumScaleFactor(0.8)
-                .fixedSize(horizontal: false, vertical: true)
+                .minimumScaleFactor(0.7)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .contentTransition(.opacity)
-            Label(L("勝利 220 コイン · 敗北 110 コイン", "Win 220 coins · Loss 110 coins"), systemImage: "star.circle.fill")
-                .font(Theme.body(11))
-                .foregroundStyle(Theme.gold)
-            Spacer(minLength: 0)
-            Button {
-                FlowFX.confirm(app)
-                model.startStandard()
-            } label: {
-                Label(L("ヒーロー選択へ", "Choose Hero"), systemImage: "chevron.right.2").frame(maxWidth: .infinity)
-            }
-            .buttonStyle(PrimaryButtonStyle(color: Theme.cyan))
-            .accessibilityIdentifier("flow_mode_standard")
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .glass(cornerRadius: 18, tint: Theme.cyan.opacity(0.8))
     }
 
     /// 難易度ごとの AI の特徴（DESIGN §10）。
@@ -376,85 +507,21 @@ private struct MatchModeStep: View {
         }
     }
 
-    private var rankedCard: some View {
-        let r = app.profile.rank
-        let diffs = RankService.botDifficulty(for: r)
-        return VStack(alignment: .leading, spacing: 8) {
-            cardHeader(symbol: "crown.fill", tint: Theme.gold, title: L("ランク戦", "Ranked"), subtitle: L("ドラフト · 対AI", "Draft · vs AI"))
-            Text(L("ピックのドラフトを経て対戦。勝敗でランクの星が増減します。", "Draft your picks, then battle. Wins and losses move your rank stars."))
-                .font(Theme.body(12))
-                .foregroundStyle(Theme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-            RankInlineView(rank: r, emblemSize: 26, font: Theme.heading(13))
-            Label(L("味方 AI \(FlowText.difficulty(diffs.ally)) · 敵 AI \(FlowText.difficulty(diffs.enemy))",
-                    "Allies \(FlowText.difficulty(diffs.ally)) · Enemies \(FlowText.difficulty(diffs.enemy))"), systemImage: "cpu")
-                .font(Theme.body(11))
-                .foregroundStyle(Theme.textSecondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Spacer(minLength: 0)
-            Button {
-                FlowFX.confirm(app)
-                model.startRanked(profile: app.profile)
-            } label: {
-                Label(L("ドラフトへ", "Start Draft"), systemImage: "chevron.right.2").frame(maxWidth: .infinity)
-            }
-            .buttonStyle(PrimaryButtonStyle())
-            .accessibilityIdentifier("flow_mode_ranked")
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .glass(cornerRadius: 18, tint: Theme.gold.opacity(0.9))
-        .glowPulse(Theme.gold.opacity(0.5), radius: 10)
-    }
-
-    private func cardHeader(symbol: String, tint: Color, title: String, subtitle: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: symbol)
-                .font(.system(size: 20, weight: .bold))
-                .foregroundStyle(tint)
-                .frame(width: 42, height: 42)
-                .background(HexagonShape().fill(tint.opacity(0.18)))
-                .overlay(HexagonShape().stroke(tint.opacity(0.6)))
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title).font(Theme.title(22)).foregroundStyle(Theme.textPrimary)
-                Text(subtitle).font(Theme.body(11)).foregroundStyle(tint)
-            }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isHeader)
-    }
-
-    private var shortcuts: some View {
-        VStack(spacing: 8) {
-            FlowSectionTitle(title: L("その他", "More"))
-            shortcut("figure.run", L("練習場", "Practice"), .practiceSetup, "flow_shortcut_practice")
-            shortcut("graduationcap.fill", L("チュートリアル", "Tutorial"), .tutorialMenu, "flow_shortcut_tutorial")
-            shortcut("eye.fill", L("観戦", "Spectate"), .spectateSetup, "flow_shortcut_spectate")
-            Spacer(minLength: 0)
+    private func start(_ c: MatchModeCategory) {
+        FlowFX.confirm(app)
+        switch c {
+        case .classic: model.startStandard()
+        case .ranked: model.startRanked(profile: app.profile)
+        case .brawl: model.startBrawl()
+        case .arcade, .vsAI: break
         }
     }
 
-    /// フローを閉じて該当画面へ遷移する。
-    private func shortcut(_ symbol: String, _ title: String, _ route: Route, _ id: String) -> some View {
-        Button {
-            FlowFX.tap(app)
-            app.router.isMatchFlowPresented = false
-            app.router.push(route)
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: symbol).font(.system(size: 16, weight: .bold)).foregroundStyle(Theme.cyan).frame(width: 24)
-                Text(title).font(Theme.heading(13)).foregroundStyle(Theme.textPrimary).lineLimit(1).minimumScaleFactor(0.7)
-                Spacer(minLength: 0)
-                Image(systemName: "arrow.up.right").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.textSecondary)
-            }
-            .padding(.horizontal, 10)
-            .frame(maxWidth: .infinity, minHeight: 50)
-            .glass(cornerRadius: 12)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier(id)
+    /// フローを閉じて各モードの画面へ。
+    private func openMode(_ route: Route) {
+        FlowFX.tap(app)
+        app.router.isMatchFlowPresented = false
+        app.router.push(route)
     }
 }
 
@@ -492,11 +559,11 @@ private struct ReadyStep: View {
     private var subtitle: String {
         switch model.kind {
         case .ranked:
-            return L("ランク戦", "Ranked") + " · " + RankService.displayName(app.profile.rank)
+            return FlowText.mode(.ranked) + " · " + RankService.displayName(app.profile.rank)
         case .brawl:
-            return L("乱闘", "Brawl") + " · " + L("敵 AI ", "Enemy AI ") + FlowText.difficulty(model.difficulty)
+            return FlowText.mode(.brawl) + " · " + L("敵 AI ", "Enemy AI ") + FlowText.difficulty(model.difficulty)
         case .standard:
-            return L("通常戦", "Standard") + " · " + L("敵 AI ", "Enemy AI ") + FlowText.difficulty(model.difficulty)
+            return FlowText.mode(.standard) + " · " + L("敵 AI ", "Enemy AI ") + FlowText.difficulty(model.difficulty)
         }
     }
 

@@ -115,11 +115,19 @@ jobs:
             -only-testing:VELSTRIATests/DeathSpectateTests \
             -only-testing:VELSTRIATests/ReplayLibraryTests \
             -only-testing:VELSTRIATests/SpectateSetupTests \
+            -only-testing:VELSTRIATests/FlowTests \
+            -only-testing:VELSTRIATests/ServicesRankTests \
+            -only-testing:VELSTRIATests/ServicesLiveOpsTests \
+            -only-testing:VELSTRIATests/OnlineSafetyTests \
+            -only-testing:VELSTRIATests/EmblemEconomyTests \
+            -only-testing:VELSTRIATests/CollectionLogicTests \
             -only-testing:VELSTRIAUITests/HUDTacticalMapUITests \
             -only-testing:VELSTRIAUITests/BattleHUDUITests \
             -only-testing:VELSTRIAUITests/SpectatorHUDUITests \
             -only-testing:VELSTRIAUITests/ReplayLibraryUITests \
             -only-testing:VELSTRIAUITests/OnlineSpectateLobbyUITests \
+            -only-testing:VELSTRIAUITests/FlowUITests \
+            -only-testing:VELSTRIAUITests/OutgameShotsUITests \
             -parallel-testing-enabled NO \
             -retry-tests-on-failure -test-iterations 3 \
             CODE_SIGNING_ALLOWED=NO

@@ -28,6 +28,13 @@ struct LoadingScreenView: View {
         launch.config.players.firstIndex(of: slot) ?? 0
     }
 
+    /// 国旗を見せるチーム（MLBB と同じく自分の味方だけ。観戦・リプレイでは誰の国旗も出さない）。
+    private var flagTeam: Team? {
+        guard !launch.isSpectating else { return nil }
+        if let seat = launch.onlineSeat, launch.config.players.indices.contains(seat) { return launch.config.players[seat].team }
+        return launch.config.players.first { $0.controller == .human }?.team
+    }
+
     var body: some View {
         ZStack {
             GeometryReader { geo in
@@ -189,7 +196,7 @@ struct LoadingScreenView: View {
                 // 「あなた」はオンラインなら自分の座席、それ以外は唯一の人間（リプレイは誰も強調しない）
                 LoadingPlayerCard(slot: slot, progress: progress.indices.contains(idx) ? progress[idx] : 0,
                                   highlight: !launch.isSpectating && (launch.onlineSeat.map { idx == $0 } ?? (slot.controller == .human)),
-                                  width: width, height: height)
+                                  showsFlag: slot.team == flagTeam, width: width, height: height)
                     .offset(y: appeared ? 0 : (team == .blue ? -30 : 30))
                     .opacity(appeared ? 1 : 0)
                     .animation(.spring(duration: 0.6, bounce: 0.2).delay(Double(i) * 0.05 + (team == .red ? 0.15 : 0)), value: appeared)
@@ -217,7 +224,7 @@ struct LoadingScreenView: View {
         let idx = index(of: slot)
         return LoadingPlayerCard(slot: slot, progress: progress.indices.contains(idx) ? progress[idx] : 0,
                                  highlight: !launch.isSpectating && (launch.onlineSeat.map { idx == $0 } ?? (slot.controller == .human)),
-                                 width: width, height: height)
+                                 showsFlag: slot.team == flagTeam, width: width, height: height)
     }
 
     /// 練習場・チュートリアル（1 人）。
@@ -309,6 +316,8 @@ private struct LoadingPlayerCard: View {
     let slot: PlayerSlot
     let progress: Double
     let highlight: Bool
+    /// 国旗を出すか（味方だけ。LoadingScreenView.flagTeam）。
+    var showsFlag = true
     let width: CGFloat
     let height: CGFloat
     @Environment(AppModel.self) private var app
@@ -360,9 +369,11 @@ private struct LoadingPlayerCard: View {
         .frame(width: width, height: height)
         .clipShape(shape)
         .overlay(alignment: .topLeading) {
-            CountryFlagBadge(code: country, size: max(14, height * 0.085))
-                .padding(.leading, width * Self.slant + 6)
-                .padding(.top, 6)
+            if showsFlag {
+                CountryFlagBadge(code: country, size: max(14, height * 0.085))
+                    .padding(.leading, width * Self.slant + 6)
+                    .padding(.top, 6)
+            }
         }
         .overlay(shape.stroke(LinearGradient(colors: [color.opacity(0.95), color.opacity(0.55)], startPoint: .top, endPoint: .bottom),
                               lineWidth: highlight ? 3 : 2))

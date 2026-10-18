@@ -8,9 +8,17 @@ import VelstriaCore
 struct NoticesView: View {
     @Environment(AppModel.self) private var app
     @State private var selectedID: String?
+    /// 開いた時点で既読だったお知らせ（並べ替えに使う。読んだ物が開いている間に下へ跳ばないように）。
+    @State private var readAtOpen: Set<String>?
 
+    /// 未読を上、既読を下（MLBB 2.2.16）。それぞれ新しい順。
     private var notices: [NoticeDef] {
-        LiveOpsService.notices.sorted { $0.date == $1.date ? $0.id > $1.id : $0.date > $1.date }
+        let read = readAtOpen ?? Set(app.profile.readNoticeIDs)
+        return LiveOpsService.notices.sorted { a, b in
+            let ra = read.contains(a.id), rb = read.contains(b.id)
+            if ra != rb { return !ra }
+            return a.date == b.date ? a.id > b.id : a.date > b.date
+        }
     }
 
     var body: some View {
@@ -50,6 +58,7 @@ struct NoticesView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 10)
                 .onAppear {
+                    if readAtOpen == nil { readAtOpen = Set(app.profile.readNoticeIDs) }
                     if selectedID == nil, let first = list.first { select(first.id, silent: true) }
                 }
             }

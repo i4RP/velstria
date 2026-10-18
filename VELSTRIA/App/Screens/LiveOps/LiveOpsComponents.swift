@@ -92,19 +92,8 @@ enum LiveOpsFormat {
         return f
     }
 
-    static func modeName(_ mode: MatchMode) -> String {
-        switch mode {
-        case .standard: return L("通常戦", "Standard")
-        case .ranked: return L("ランク戦", "Ranked")
-        case .practice: return L("練習場", "Practice")
-        case .tutorial: return L("チュートリアル", "Tutorial")
-        case .spectate: return L("観戦", "Spectate")
-        case .brawl: return L("乱闘", "Brawl")
-        case .custom: return L("カスタム", "Custom")
-        case .magicChess: return L("オートバトラー", "Auto Battler")
-        case .online: return L("オンライン対戦", "Online")
-        }
-    }
+    /// モードの名前（FlowText.mode と同じ。名前は 1 か所で決める）。
+    static func modeName(_ mode: MatchMode) -> String { FlowText.mode(mode) }
 
     static func modeSymbol(_ mode: MatchMode) -> String {
         switch mode {
