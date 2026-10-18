@@ -193,7 +193,7 @@ const MAX_RECENT = 50;
 
 export type RankCallResult =
   | { ok: true; state: RankState; result?: MatchResult }
-  | { ok: false; error: "forbidden" | "bad_request" };
+  | { ok: false; error: "forbidden" | "bad_request" | "not_seeded" };
 
 export class RankAccount extends DurableObject<Env> {
   private check(keyHash: string): boolean {
@@ -231,6 +231,9 @@ export class RankAccount extends DurableObject<Env> {
     if (!isMatchId(input.matchId) || typeof input.won !== "boolean" || typeof input.rating !== "number") {
       return { ok: false, error: "bad_request" };
     }
+    // 記録の無いアカウント（起動時の seed がまだ届いていない）には試合を足さない。ウォリアー III から数え直した値で
+    // 端末のランクを上書きしないため。端末は自分の計算のまま進み、次の起動の seed でその値が取り込まれる
+    if (!this.ctx.storage.kv.get<RankState>("rank")) return { ok: false, error: "not_seeded" };
     const recent = this.ctx.storage.kv.get<Record<string, MatchResult>>("recent") ?? {};
     const done = recent[input.matchId];
     if (done) return { ok: true, state: this.load(), result: done };

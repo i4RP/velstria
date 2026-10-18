@@ -163,7 +163,8 @@ Durable Object `RankAccount`（`src/rank.ts`。フレンドコード 1 つ = 1 �
 - `POST /v1/rank/<CODE>/erase` 本文 `{"key":"…"}` → `{"ok":true,"state":{初期値}}`。記録・持ち主の鍵・覚えている matchId をすべて消す
   （アプリは受信箱の消去と一緒に呼ぶ: `FriendHub.eraseServerData`）。運営が利用を止めたコードでも消せる。
 - 誤りは平文: 400 `bad_friend_code` / `bad_key` / `bad_request`（JSON でない・本文 4 KiB 超・`state` / `match` の誤り）、
-  403 `forbidden`（鍵が持ち主のものでない）/ `suspended`（利用停止のコードの get・seed・match）、405（POST 以外）、404（知らない操作）。
+  403 `forbidden`（鍵が持ち主のものでない）/ `suspended`（利用停止のコードの get・seed・match）、
+  409 `not_seeded`（seed の前の match。数えない。端末は自分の計算のまま進み、次の起動の seed で取り込まれる）、405（POST 以外）、404（知らない操作）。
 - `rv` は見ない（版は道の `/v1`）。期限による自動の消去は無い（受信箱と違い、本人の erase だけで消える）。
 
 ## 実装の要点

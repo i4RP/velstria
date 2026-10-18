@@ -151,7 +151,7 @@ async function rankCall(request: Request, env: Env, code: string, op: string): P
       break;
     default: res = await stub.erase(hash);
   }
-  if (!res.ok) return plain(res.error === "forbidden" ? 403 : 400, res.error);
+  if (!res.ok) return plain(res.error === "forbidden" ? 403 : res.error === "not_seeded" ? 409 : 400, res.error);
   return Response.json(res, { headers: { "cache-control": "no-store" } });
 }
 

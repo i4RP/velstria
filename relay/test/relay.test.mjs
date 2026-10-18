@@ -86,8 +86,15 @@ after(async () => {
     await Promise.race([exited, delay(5_000)]);
     if (devServer.exitCode === null) devServer.kill("SIGKILL");
   }
-  // Windows では wrangler が止まった直後も workerd が SQLite のファイルを掴んでいて消せない（EBUSY）ので、少し待って消し直す
-  if (persistDir) rmSync(persistDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  // Windows では wrangler が止まった直後も workerd が SQLite のファイルを掴んでいて消せない（EBUSY）ので、少し待って消し直す。
+  // それでも掴まれたままなら一時フォルダの片付けは諦める（テストの結果には関わらない）
+  if (persistDir) {
+    try {
+      rmSync(persistDir, { recursive: true, force: true, maxRetries: 30, retryDelay: 200 });
+    } catch (e) {
+      if (process.platform !== "win32" || e?.code !== "EBUSY") throw e;
+    }
+  }
 });
 
 // ---- 道具 ----
@@ -990,6 +997,20 @@ describe("ランク", () => {
     }
     const state = await rankGet(account);
     assert.deepEqual([state.wins, state.losses], [41, 34]);
+  });
+
+  test("seed の前の match は 409 not_seeded で数えない（ウォリアー III から数え直して端末のランクを上書きしない）", async () => {
+    const account = { code: randomFriendCode(), key: randomKey() };
+    rankAccounts.push(account);
+    const early = await rankMatch(account, { matchId: newMatchId(), won: true, rating: 8, mvp: false });
+    assert.deepEqual([early.status, early.text], [409, "not_seeded"]);
+    // 後から届いた seed（端末の記録）はそのまま取り込まれ、その後の試合は数える
+    const local = cloudRank({ tier: "epic", division: 3, stars: 2, highestTier: "epic" });
+    const seeded = await rankCall(account.code, "seed", { key: account.key, state: local });
+    assert.deepEqual([seeded.status, seeded.json], [200, { ok: true, state: rankState(local) }], seeded.text);
+    const later = await rankMatch(account, { matchId: newMatchId(), won: true, rating: 8, mvp: false });
+    assert.equal(later.status, 200, later.text);
+    assert.equal(later.json.state.stars, 3);
   });
 
   test("同じ matchId の二重送信は最初の結果を返して数えない（中身が違っても）。state はその時の記録", async () => {
