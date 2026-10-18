@@ -59,7 +59,7 @@ SHOTS=(
     "05_hero_detail|-grant -route heroDetail:H025 -heroTab skills|$WAIT_SCREEN"
     "06_build_editor|-grant -route buildEditor:H025|$WAIT_SCREEN"
     "07_ranked|-route rankOverview|$WAIT_SCREEN"
-    "08_skin_store|-route skinStore|$WAIT_SCREEN"
+    "08_store|-route store|$WAIT_SCREEN"
     "09_star_pass|-route starPass|$WAIT_SCREEN"
     "10_spectate|-battle spectate -spectateDirector on -spectateSpeed 4|$WAIT_BATTLE_LATE"
 )

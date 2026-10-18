@@ -22,7 +22,7 @@ WAIT_BATTLE_LATE=180 tools/screenshots.sh --skip-build --only 01_battle_teamfigh
 ```
 
 出力: `build/screenshots/<デバイス>/<言語>/NN_name.png`（`build/` は git 管理外）。
-公開版は `FeatureFlags.lanMatch = false`（ホームに「オンライン」が出ない）で撮る。true のビルドで撮った画像は、掲載文にない機能が写るので使わない。
+公開版は `FeatureFlags.lanMatch = true`（ホームに「オンライン」が出る。掲載文もオンライン対戦・フレンドを載せている）。撮影用ビルドも同じ設定のまま撮る。
 
 ASC の下書きへの登録は、審査に提出せずに行える（`node tools/asc.mjs upload-screenshots build/screenshots/iPhone-17-Pro-Max --dry-run` で
 計画を確認し、問題なければ `--dry-run` を外す。枠に既に画像があるときは `--replace`。`--display-type` の既定は `APP_IPHONE_67`、6.9 インチの画像もこの枠に入る）。
@@ -47,8 +47,8 @@ App 内課金の審査用スクリーンショット（Gem 購入画面・スタ
 | 4 | `04_battle_lanes` | `-grant -battle standard -botControl -battleSpeed 2`（60 秒後） | 3 レーンとミニオン、HUD | 3つのレーンとジャングルを制せ / Command three lanes and the jungle |
 | 5 | `05_hero_detail` | `-grant -route heroDetail:H025 -heroTab skills` | スキル詳細 | パッシブ＋2スキル＋アルティメット / Passive, 2 skills and an ultimate |
 | 6 | `06_build_editor` | `-grant -route buildEditor:H025` | 装備ビルド | 92種の装備で自分だけのビルドを / Craft your build from 92 items |
-| 7 | `07_ranked` | `-route rankOverview` | 対 AI ランク | 隕鉄から星環王へ、ランク戦 / Climb the ranked ladder |
-| 8 | `08_skin_store` | `-route skinStore` | 見た目のみの課金 | 課金は見た目が中心。ヒーローは全員が最初から使える / Mostly cosmetics. Every hero is free to play. |
+| 7 | `07_ranked` | `-route rankOverview` | 対 AI ランク | ウォリアーからミシックへ、ランク戦 / Climb the ranked ladder |
+| 8 | `08_store` | `-route store` | 見た目のみの課金（スキンは出しているヒーローの分が無く、スキンストアは空なので撮らない） | 課金は見た目が中心。ヒーローは全員が最初から使える / Mostly cosmetics. Every hero is free to play. |
 | 9 | `09_star_pass` | `-route starPass` | スターパス | ミッションとスターパスで報酬を / Earn rewards with missions and the Star Pass |
 | 10 | `10_spectate` | `-battle spectate -spectateDirector on -spectateSpeed 4`（120 秒後） | 観戦・オフライン | 通信不要。AI同士の対戦も観戦できる / No connection needed. Watch AI battles too. |
 
@@ -66,4 +66,4 @@ App 内課金の審査用スクリーンショット（Gem 購入画面・スタ
 - [ ] `-grant` で付与した大量の通貨がストア画面に写っていない（ストア系は `-grant` なしで撮影している）。
 - [ ] 英語版の画像に日本語が残っていない（`-language en` と `-AppleLanguages (en)` で撮影）。
 - [ ] 戦闘画面に流血・写実的な表現がない（年齢制限 9+ の前提）。
-- [ ] 実際のビルドに無い機能（オンライン対戦・チャット等）が写っていない。
+- [ ] 実際のビルドに無い機能（チャット・オンラインのランキング等）が写っていない。

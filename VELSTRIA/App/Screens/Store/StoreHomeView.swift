@@ -33,8 +33,10 @@ struct StoreHomeView: View {
     }
 
     private func categoryTiles(proxy: ScrollViewProxy) -> some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 6), spacing: 8) {
-            ForEach(StoreCategory.allCases.filter { $0 != .heroes }) { c in
+        // 商品の無いカテゴリ（今はスキン）は出さず、出すタイルで 1 行を埋める
+        let categories = StoreCatalog.homeCategories(master: app.master)
+        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: max(1, categories.count)), spacing: 8) {
+            ForEach(categories) { c in
                 StoreCategoryTile(category: c, selected: c == category && c != .skins && c != .gems,
                                   count: StoreCatalog.items(in: c, master: app.master).count) {
                     app.haptics.tap()
