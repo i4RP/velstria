@@ -344,22 +344,6 @@ struct RecordsView: View {
                         .init(tab: Filter.ranked, title: L("ランク", "Ranked"), symbol: "crown.fill", identifier: "records_filter_ranked"),
                         .init(tab: Filter.other, title: L("その他", "Other"), symbol: "ellipsis.circle", identifier: "records_filter_other"),
                     ], selection: $filter)
-                    // リプレイ一覧は戦績から開く（ホームには入口を置かない）
-                    Button {
-                        FlowFX.tap(app)
-                        app.router.push(.replays)
-                    } label: {
-                        Label(L("リプレイ", "Replays"), systemImage: "play.rectangle.fill")
-                            .font(Theme.heading(12))
-                            .foregroundStyle(Theme.textPrimary)
-                            .lineLimit(1)
-                            .padding(.horizontal, 10)
-                            .frame(minHeight: 44)
-                            .glass(cornerRadius: 12)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("records_replays")
                 }
                 if list.isEmpty {
                     FlowEmptyState(symbol: "list.bullet.rectangle", title: L("戦績はまだありません", "No matches yet"),
@@ -378,11 +362,31 @@ struct RecordsView: View {
                                 .accessibilityIdentifier("records_row_\(i)")
                             }
                         }
-                        .padding(.bottom, 10)
+                        .padding(.bottom, 60) // 右下のリプレイのボタンに最後の行が隠れないように
                     }
                 }
             }
             .padding(.horizontal, 20)
+            // リプレイ一覧は戦績から開く（ホームには入口を置かない）。上の列は SE で幅が足りないので右下に浮かせる
+            .overlay(alignment: .bottomTrailing) {
+                Button {
+                    FlowFX.tap(app)
+                    app.router.push(.replays)
+                } label: {
+                    Label(L("リプレイ", "Replays"), systemImage: "play.rectangle.fill")
+                        .font(Theme.heading(13))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 44)
+                        .glass(cornerRadius: 22, tint: Theme.cyan.opacity(0.8))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.trailing, 24)
+                .padding(.bottom, 8)
+                .accessibilityIdentifier("records_replays")
+            }
         }
         .sheet(item: $selected, onDismiss: startPendingReplay) { r in
             RecordDetailSheet(record: r, replay: replayMeta(for: r)) { launch in

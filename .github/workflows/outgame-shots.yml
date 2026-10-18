@@ -50,6 +50,8 @@ jobs:
           pm="$(xcrun simctl create 'Outgame Pro Max' "$pm_type" "$runtime")"
           echo "SE_ID=$se" >> "$GITHUB_ENV"
           echo "PM_ID=$pm" >> "$GITHUB_ENV"
+          # 作ったばかりのシミュレータは最初の起動が遅く、テストのホストが立ち上がる前に止まることがある。先に起動しきっておく
+          for id in $pm $se; do xcrun simctl bootstatus "$id" -b > /dev/null || true; done
 
       - name: テスト用にビルド
         id: build
@@ -67,9 +69,15 @@ jobs:
         run: |
           args=()
           for t in $TESTS; do args+=("-only-testing:$t"); done
-          xcodebuild test-without-building -project VELSTRIA.xcodeproj -scheme VELSTRIA -configuration Debug \
-            -destination "platform=iOS Simulator,id=$PM_ID" -derivedDataPath build/dd \
-            -resultBundlePath build/OutgameTests.xcresult "${args[@]}" CODE_SIGNING_ALLOWED=NO
+          run() {
+            rm -rf build/OutgameTests.xcresult
+            xcodebuild test-without-building -project VELSTRIA.xcodeproj -scheme VELSTRIA -configuration Debug \
+              -destination "platform=iOS Simulator,id=$PM_ID" -derivedDataPath build/dd \
+              -resultBundlePath build/OutgameTests.xcresult "${args[@]}" CODE_SIGNING_ALLOWED=NO 2>&1 | tee build/tests.log
+            return "${PIPESTATUS[0]}"
+          }
+          # テストのホストが立ち上がる前に落ちた時（シミュレータの不調。テストは 1 本も走っていない）だけ 1 回やり直す
+          run || { grep -q "never finished bootstrapping" build/tests.log && run; }
 
       - name: 撮影（SE と 17 Pro Max）
         if: always() && steps.build.outcome == 'success'

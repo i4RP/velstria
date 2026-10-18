@@ -445,7 +445,22 @@ private struct MatchModeStep: View {
     private func cardFooter(_ c: MatchModeCategory) -> some View {
         switch c {
         case .ranked:
-            RankInlineView(rank: app.profile.rank, emblemSize: 22, font: Theme.heading(11))
+            // カードが狭い（SE で約 100pt）ので、紋章とランク名・星を縦に並べる
+            let rank = app.profile.rank
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 5) {
+                    RankEmblemView(tier: rank.tier, size: 22)
+                    Text(RankService.displayName(rank))
+                        .font(Theme.heading(11))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                }
+                if rank.tier != .mythic {
+                    RankStarsView(stars: rank.stars, maxStars: RankService.maxStars(rank.tier), size: 10)
+                }
+            }
+            .accessibilityElement(children: .combine)
         case .classic:
             Label(L("勝利 220 · 敗北 110", "Win 220 · Loss 110"), systemImage: "star.circle.fill")
                 .font(Theme.body(10))
