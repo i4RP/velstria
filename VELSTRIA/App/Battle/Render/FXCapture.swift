@@ -34,6 +34,9 @@ final class FXCapture {
     static let imageWidth: CGFloat = 1108
     /// 人形からヒーローを置く距離（sim の単位）。内部ビルドの演出チェックと共通。
     static let standoff = FXCheckDriver.standoff
+    /// 人形を見る向き（度。0 = 北、+ = 東へ回す）。-fxCaptureAngle で変える（MLBB の画面収録は右上へ撃つ場面が多い: 45）。
+    /// 0 以外では自分のヒーローを人形からその向きの反対へ standoff 離して置き、人形を向かせる（撃つ向きも人形へ）。
+    static var angle: Double { DebugLaunch.value(after: "-fxCaptureAngle").flatMap { Double($0) } ?? 0 }
 
     struct Shot: Codable {
         var file: String
@@ -155,7 +158,7 @@ final class FXCapture {
                 step = wantsAttack ? .attackPlace : .finish
                 return
             }
-            guard place(controller: controller, slot: slots[k]) else { note("人形が見つからない"); step = .finish; return }
+            guard place(controller: controller) else { note("人形が見つからない"); step = .finish; return }
             step = wantsProbe ? .probe(index: 0, until: s.time + 1.6) : .settle(index: k, until: s.time + 1.6)
         case .settle(let k, let until):
             guard s.time >= until else { return }
@@ -202,19 +205,18 @@ final class FXCapture {
             shoot(world: world, name: "atk_\(Int((times[next] * 1000).rounded()))", slot: "atk", cast: 0,
                   requested: times[next], actual: s.time - t0)
         case .cast(let k):
-            guard let foe = target(for: slots[k], controller: controller) else {
-                // 英雄にだけ撃てるスキルで敵の英雄が居ない（-practiceFoe なし）: 飛ばして次へ
-                note("\(FXCapture.slotName(slots[k])): 的が無い（英雄にだけ撃てるスキル。-practiceFoe で敵の英雄を足す）")
-                step = .place(index: k + 1)
-                return
-            }
-            controller.send(.castSkill(slot: slots[k], target: .unit(foe)))
             let hero = manifest?.hero ?? ""
+            // 英雄にだけ撃てるスキル（H027 S1・H028 奥義・H034 奥義）は、敵の英雄を前（HitShapeScenario.foeDistance）に呼んで撃つ
+            // （人形は的にならない。演出チェックの FXCheckDriver と同じ）
+            let heroOnly = FXCheckDriver.heroOnly[hero]?.contains(slots[k]) == true
+            if heroOnly { bringFoe(controller: controller) }
+            guard let foe = (heroOnly ? foeHeroID(controller) : nil) ?? dummyID(controller) else { step = .finish; return }
+            controller.send(.castSkill(slot: slots[k], target: .unit(foe)))
             let delay = FXCapture.recasts[hero]?[slots[k]]
             step = .watch(index: k, t0: s.time, recastAt: delay.map { s.time + $0 }, recastT0: nil, next: 0, nextRecast: 0)
         case .watch(let k, let t0, let recastAt, var recastT0, var next, var nextRecast):
             let name = FXCapture.slotName(slots[k])
-            if let at = recastAt, recastT0 == nil, s.time >= at, let foe = target(for: slots[k], controller: controller) {
+            if let at = recastAt, recastT0 == nil, s.time >= at, let foe = dummyID(controller) {
                 controller.send(.castSkill(slot: slots[k], target: .unit(foe)))
                 recastT0 = s.time
             }
@@ -280,9 +282,12 @@ final class FXCapture {
     private func pollShot(world: BattleWorld, arView: ARView) {
         let fm = FileManager.default
         let done = FXCapture.handshake + "/done"
-        if fm.fileExists(atPath: done) {
-            // done には撮った画の名前が書いてある。前の画の遅れた done は捨てて待ち続ける
-            let token = (try? String(contentsOfFile: done, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines)
+        // done には撮った画の名前が書いてある。書きかけ（空）の done は消さずに次のフレームで読み直す（消すと CI の書いた合図が
+        // 失われ、40 秒待って ARView の画で代わっていた）
+        let token = fm.fileExists(atPath: done)
+            ? (try? String(contentsOfFile: done, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines) : nil
+        if let token, !token.isEmpty {
+            // 前の画の遅れた done は捨てて待ち続ける
             try? fm.removeItem(atPath: done)
             guard token == frozenName else { return }
         } else if CACurrentMediaTime() - frozenAt > FXCapture.handshakeTimeout {
@@ -294,6 +299,15 @@ final class FXCapture {
         }
         if freezesParticles { world.skillDirector.player.freezeParticles(false) }
         isFrozen = false
+        resumed = true
+    }
+
+    /// 撮り終えて再開した（次のフレームは撮る間の待ち時間を sim・演出に流さない。BattleRenderer）。読んだら戻す。
+    private var resumed = false
+
+    func takeResumed() -> Bool {
+        defer { resumed = false }
+        return resumed
     }
 
     private var ringsDone = false
@@ -412,37 +426,33 @@ final class FXCapture {
             .min { $0.pos.distance(to: p) < $1.pos.distance(to: p) }?.id
     }
 
-    /// 自分のヒーローを人形の南 standoff に北向きで置き直し（-fxCaptureSide は西に東向き）、体力・資源を満たし、人形の体力も戻す。
-    /// attack = 通常攻撃の射程の内側に置く。英雄にだけ撃てるスキルのため、敵の英雄を人形の東に置いて人間の操作扱いにする
-    /// （Bot の判断で動かない。FXCheckDriver.place と同じ）。
-    private func place(controller: BattleController, slot: SkillSlot? = nil, attack: Bool = false) -> Bool {
+    /// 自分のヒーローを人形から standoff の所に置き直し（-fxCaptureAngle なら人形がその向きに見える所、-fxCaptureSide は人形の西に
+    /// 東向き = 体の横が見える向き）、体力・資源を満たし、人形の体力も戻す。attack = 通常攻撃の射程の内側に置く。
+    private func place(controller: BattleController, attack: Bool = false) -> Bool {
         guard let me = controller.humanIndex, let foe = dummyID(controller) else { return false }
         placedDummy = foe
         var s = controller.state
         guard let fi = s.index(of: foe) else { return false }
+        let a = (wantsSide ? 90 : FXCapture.angle) * .pi / 180
         let distance = attack ? max(60, s.units[me].stats.attackRange * 0.8) : FXCapture.standoff
-        let dir = wantsSide ? Vec2(-1, 0) : Vec2(0, -1)
-        let spot = s.units[fi].pos + dir * distance
+        let spot = s.units[fi].pos + Vec2(-sin(a) * distance, -cos(a) * distance)
         s.units[me].pos = spot
         s.units[me].prevPos = spot
         s.units[me].path.removeAll()
         s.units[me].moveIntent = .none
-        s.units[me].facing = wantsSide ? 0 : Double.pi / 2
+        s.units[me].facing = Double.pi / 2 - a
         s.units[me].hp = s.units[me].stats.maxHP
         s.units[me].resource = s.units[me].stats.maxResource
         s.units[fi].hp = s.units[fi].stats.maxHP
+        // 敵の英雄（英雄にだけ撃てるスキルの的）は、出た所（遠くの泉）に戻して人間の操作扱いにする（入力が無いので動かない。画に入らない）
         let team = s.units[me].team
-        // 敵の英雄（-practiceFoe で足した Bot）が居れば人間の操作扱いにして止める。英雄にだけ撃てるスキル（FXCheckDriver.heroOnly）を
-        // 撮る間は自分の前 1.5 m（短い射程の奥義もその場で撃てる。撃つ時刻が発動の時刻になる）、それ以外は人形の東 8 m（画の外）
-        let heroOnly = FXCheckDriver.heroOnly[manifest?.hero ?? ""] ?? []
         if let hi = s.units.firstIndex(where: { $0.kind == .hero && $0.team != team }) {
-            let near = slot.map { heroOnly.contains($0) } ?? false
-            let at = near ? spot - dir * 150 : s.units[fi].pos + Vec2(800, -300)
-            s.units[hi].pos = at
-            s.units[hi].prevPos = at
+            if foeHome == nil { foeHome = s.units[hi].pos }
+            let home = foeHome ?? s.units[hi].pos
+            s.units[hi].pos = home
+            s.units[hi].prevPos = home
             s.units[hi].path.removeAll()
             s.units[hi].moveIntent = .none
-            s.units[hi].facing = -Double.pi / 2
             s.units[hi].hp = s.units[hi].stats.maxHP
             s.units[hi].hero?.controller = .human
         }
@@ -450,16 +460,31 @@ final class FXCapture {
         return true
     }
 
-    /// スキルの的: 英雄にだけ撃てるスキルは敵の英雄、それ以外は人形。
-    private func target(for slot: SkillSlot, controller: BattleController) -> EntityID? {
-        let hero = manifest?.hero ?? ""
-        if FXCheckDriver.heroOnly[hero]?.contains(slot) == true {
-            let s = controller.state
-            guard let me = controller.humanIndex else { return nil }
-            let team = s.units[me].team
-            return s.units.first { $0.kind == .hero && $0.team != team && $0.isAlive }?.id
-        }
-        return dummyID(controller)
+    /// 敵の英雄を最初に置き直した時の位置（出た所）。
+    private var foeHome: Vec2?
+
+    private func foeHeroID(_ controller: BattleController) -> EntityID? {
+        let s = controller.state
+        guard let me = controller.humanIndex else { return nil }
+        let team = s.units[me].team
+        return s.units.first { $0.kind == .hero && $0.team != team && $0.isAlive }?.id
+    }
+
+    /// 敵の英雄を自分のヒーローの前 HitShapeScenario.foeDistance に、こちらを向かせて置く（英雄にだけ撃てるスキルの直前）。
+    private func bringFoe(controller: BattleController) {
+        guard let me = controller.humanIndex else { return }
+        var s = controller.state
+        let team = s.units[me].team
+        guard let hi = s.units.firstIndex(where: { $0.kind == .hero && $0.team != team }) else { return }
+        let at = s.units[me].pos + Vec2.fromAngle(s.units[me].facing) * HitShapeScenario.foeDistance
+        s.units[hi].pos = at
+        s.units[hi].prevPos = at
+        s.units[hi].path.removeAll()
+        s.units[hi].moveIntent = .none
+        s.units[hi].facing = s.units[me].facing + Double.pi
+        s.units[hi].hp = s.units[hi].stats.maxHP
+        s.units[hi].hero?.controller = .human
+        controller.restore(s)
     }
 
     /// 全身のモーションの足の接地の寸法（スキンメッシュの脚）を目録に書く（docs/HERO_MOTION.md）。

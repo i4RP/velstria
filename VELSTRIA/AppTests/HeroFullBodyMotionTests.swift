@@ -315,7 +315,9 @@ final class HeroFullBodyMotionTests: XCTestCase {
                     t += 1.0 / 60.0
                     // 始めの 0.2 秒は待機のモーションクリップとの混ぜ（HeroClipLayer のフェード 0.15 秒。関節の角度を混ぜるので
                     // 足が数 cm 沈むことがある = 従来からの全ヒーロー共通の混ぜ方）。足の接地はその後を測る
-                    guard t > 0.2 else { continue }
+                    // 終わり（最後の 0.05 秒）は待機の手続きの姿勢（呼吸の腰の沈み）へ戻り切る所で、待機のモーションクリップが
+                    // まだ重なっていない（詠唱の状態のまま進めているため）。足の接地の範囲だけを測る
+                    guard t > 0.2, t < total - 0.05 else { continue }
                     let h = try footHeights(m)
                     let low = min(h.0 - rest.0, h.1 - rest.1)
                     if low < lowest { lowest = low; lowestAt = t }

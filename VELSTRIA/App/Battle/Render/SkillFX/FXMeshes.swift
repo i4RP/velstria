@@ -305,6 +305,8 @@ final class FXMaterialLibrary {
     struct Key: Hashable {
         var tex: FXTex?
         var r: UInt8, g: UInt8, b: UInt8
+        /// 深度を読まない（FXMesh.onTop）。
+        var onTop = false
     }
 
     init(textures: FXTextureLibrary, sheets: FXSheetLibrary) {
@@ -312,13 +314,13 @@ final class FXMaterialLibrary {
         self.sheets = sheets
     }
 
-    static func key(_ tex: FXTex?, _ c: RGB) -> Key {
+    static func key(_ tex: FXTex?, _ c: RGB, onTop: Bool = false) -> Key {
         func q(_ v: Double) -> UInt8 { UInt8(max(0, min(255, (v * 255).rounded()))) }
-        return Key(tex: tex, r: q(c.r), g: q(c.g), b: q(c.b))
+        return Key(tex: tex, r: q(c.r), g: q(c.g), b: q(c.b), onTop: onTop)
     }
 
-    func material(_ tex: FXTex?, _ c: RGB) -> UnlitMaterial {
-        let k = FXMaterialLibrary.key(tex, c)
+    func material(_ tex: FXTex?, _ c: RGB, onTop: Bool = false) -> UnlitMaterial {
+        let k = FXMaterialLibrary.key(tex, c, onTop: onTop)
         if let m = cache[k] { return m }
         AssetLedger.record(.material, "fx \(tex?.rawValue ?? "solid")")
         var m = UnlitMaterial(applyPostProcessToneMap: false)
@@ -330,6 +332,7 @@ final class FXMaterialLibrary {
         }
         m.blending = .transparent(opacity: .init(floatLiteral: 1))
         m.writesDepth = false
+        if onTop { m.readsDepth = false }
         m.faceCulling = .none
         cache[k] = m
         return m
@@ -386,7 +389,7 @@ final class FXMaterialLibrary {
     static func shadedKey(_ m: FXMesh, palette: FXPalette, level: Int) -> ShadedKey? {
         guard m.blend == .add || m.flow != nil || m.sheet != nil || m.dissolve != nil else { return nil }
         func q(_ v: Float) -> Int16 { Int16(max(-30000, min(30000, (v * 100).rounded()))) }
-        let base = key(m.tex, palette.rgb(m.tint))
+        let base = key(m.tex, palette.rgb(m.tint), onTop: m.onTop)
         let flow = m.flow.map { f -> FlowKey in
             let e = key(nil, palette.rgb(f.edge))
             return FlowKey(pattern: f.pattern, scroll: SIMD2(q(f.scroll.x), q(f.scroll.y)), tiling: q(f.tiling),
@@ -410,18 +413,18 @@ final class FXMaterialLibrary {
     /// （コマ送りは tex の 1 枚絵、溶けは不透明度だけ）。
     func material(for m: FXMesh, palette: FXPalette, level: Int = FXMaterialLibrary.addLevels) -> any Material {
         guard let k = FXMaterialLibrary.shadedKey(m, palette: palette, level: level) else {
-            return material(m.tex, palette.rgb(m.tint))
+            return material(m.tex, palette.rgb(m.tint), onTop: m.onTop)
         }
         if let c = shaded[k] { return c }
         guard createsShaded, let program = k.blend == .add ? FXPrograms.add : FXPrograms.alpha else {
             fallbacks += 1
-            return material(m.tex, palette.rgb(m.tint))
+            return material(m.tex, palette.rgb(m.tint), onTop: m.onTop)
         }
         let sheetTexture = m.sheet.flatMap { sheets.texture($0, additive: m.blend == .add) }
         if m.sheet != nil && sheetTexture == nil {
             // シートが読めない（作っていない）: 1 枚絵で出す
             fallbacks += 1
-            return material(m.tex, palette.rgb(m.tint))
+            return material(m.tex, palette.rgb(m.tint), onTop: m.onTop)
         }
         var label = "fx \(k.blend.rawValue) "
         label += m.sheet?.rawValue ?? m.tex?.rawValue ?? "solid"
@@ -469,6 +472,7 @@ final class FXMaterialLibrary {
         c.roughness = .init(floatLiteral: Float(k.level) / Float(FXMaterialLibrary.addLevels))
         if k.blend == .alpha { c.blending = .transparent(opacity: .init(floatLiteral: 1)) }
         c.writesDepth = false
+        if k.base.onTop { c.readsDepth = false }
         c.faceCulling = .none
         shaded[k] = c
         return c

@@ -283,6 +283,7 @@ final class BattleWorld {
         #else
         let aimShown = controller.aim
         #endif
+        aim.taper = aimTaper(aimShown)
         aim.update(aimShown, origin: aimOrigin, dt: dt)
         // 草むら: 表示中のスキル予告に重なる草むらを半透明に
         map.beginBrushMarks()
@@ -302,6 +303,30 @@ final class BattleWorld {
         t = probe.start()
         flushHealText(dt: dt, frame: frame)
         probe.stop(.text, t)
+    }
+
+    private struct AimTaperKey: Hashable {
+        var heroID: String
+        var slot: SkillSlot
+        var stage: Int
+    }
+
+    /// 照準の帯を台形にする値（キットの fxValues。ヒーロー × スロット × 段ごとに 1 回だけ引く）。
+    private var aimTapers: [AimTaperKey: (near: Float, far: Float)?] = [:]
+
+    private func aimTaper(_ aim: AimIndicator?) -> (near: Float, far: Float)? {
+        guard let aim, case .skill(let slot) = aim.kind, let id = controller.humanHeroID,
+              let hero = controller.state.unit(id)?.hero else { return nil }
+        let key = AimTaperKey(heroID: hero.heroID, slot: slot, stage: HeroKits.activeStage(hero, slot: slot))
+        if let cached = aimTapers[key] { return cached }
+        let values = HeroKits.fxValues(heroID: key.heroID, slot: slot, stage: key.stage)
+        var taper: (near: Float, far: Float)?
+        if let near = values.first(where: { $0.key == "aimNearHalfWidth" }),
+           let far = values.first(where: { $0.key == "aimFarHalfWidth" }) {
+            taper = (Float(near.value / Balance.unitsPerMeter), Float(far.value / Balance.unitsPerMeter))
+        }
+        aimTapers[key] = taper
+        return taper
     }
 
     func updateOverlay(dt: Float, rig: CameraRig) {

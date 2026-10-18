@@ -9,7 +9,10 @@
 | --- | --- |
 | `App/Battle/Render/SkillFX/FXSpec.swift` | 記述の型: FXCue（合図）・FXEmit（粒子）・FXMesh（メッシュ層）・FXTint・FXAnchor・SkillFXRecipe |
 | `App/Battle/Render/SkillFX/FXKit.swift` | 部品（flare / sparks / wave / slash / pillar / dome …）。まずここから選ぶ |
-| `App/Battle/Render/SkillFX/FXTextures.swift` | 手続きテクスチャ（FXTex の全 37 種。`docs` 下ではなくコードのコメント参照） |
+| `App/Battle/Render/SkillFX/FXTextures.swift` | 手続きテクスチャ（FXTex。Blender の 1 枚の模様は `bundled`。`docs` 下ではなくコードのコメント参照） |
+| `App/Battle/Render/SkillFX/FXMeshes.swift` | 単位メッシュ・Blender の模型（FXModelFile）・枠ごとの LowLevelMesh（FXMeshSlot）・材質（FXMaterialLibrary） |
+| `App/Battle/Render/SkillFX/FXPrograms.swift` / `FXShaders.metal` | 加算・模様・コマ送り・溶けの CustomMaterial、流れる模様（FXFlowTex）、コマ送りのシート（FXSheet） |
+| `tools/vfx_assets/` | Blender の素材づくり（模型・コマ送り・模様。下の「Blender の素材と拡張の部品」） |
 | `App/Battle/Render/SkillFX/SkillFXPlayer.swift` | 再生器（プール・予定表・追従）。プレイ中は何も作らない |
 | `App/Battle/Render/SkillFX/SkillFXDirector.swift` | sim イベント → 段の再生、パッシブ発動の推定、DEBUG の実演（-skillDemo） |
 | `App/Battle/Heroes/SkillMotion.swift` | 詠唱モーション（MotionClip・MotionBuilder・技の部品） |
@@ -74,6 +77,27 @@ Arcanist = スキルが敵ヒーローに当たった / Support = スキル後�
    常にアルファ合成（画像のアルファ × 色）。
 9. **ヒーロー間の差**: 同じロール（同じアーキタイプ）のヒーロー同士でも、形・色・時間の使い方を変える
    （例: 同じ leapSlam でも アルデン = 黄金の紋章と 7 本の光柱、ガルク = 溶岩の亀裂と岩の隆起、ブラム = 砦を砕く衝撃波と土煙）。
+
+## Blender の素材と拡張の部品（2026-10-18〜）
+
+素材は `tools/vfx_assets`（Blender 4.5 をヘッドレスで回す。README）。どれも手続きで作った自前の素材。
+
+| 部品 | 書き方 | 中身 |
+| --- | --- | --- |
+| 模型（Model） | `FXMesh.model(.crescent, .swoosh, size:)`・`FXShape` の `crescent` `ringLip` `twister` `pillar2` `bladeRing` `burstDome` `starCross` `shardRing` | Blender の UV 付きメッシュ（`App/Resources/FX/Meshes/fxm_<名前>.bin`、`FXModelFile`）。試合のレシピが使う形だけプールする。UV の約束は `FXShape` |
+| コマ送りのメッシュ | `FXMesh.flipbook(.fireball, 3)`・`.groundFlipbook(.spikes, 3.4)`・`.animated(sheet)` | 寿命で全コマ（繰り返す画像は loopFPS）。CI のシミュレータに写る（粒子のコマ送りは写らない）。Program が無い時は `tex` の 1 枚絵 |
+| 溶け（ディゾルブ） | `.dissolving(from: 0.45, edge: .core, width: 0.1)` | 寿命の比 from から模様の暗い所から消え、縁が光る。模様は flow があれば flow の模様 |
+| UV スクロール | `.flowing(.lava / .flame / .noise / .streaks / .cells, scroll:)` | 繰り返しの模様を UV で流す。`lava`・`flame` は Blender の継ぎ目なしの模様 |
+| 帯（Ribbon / Track） | `.ribbon(.swing(radius:from:to:height:roll:))`・`.ribbon(.trail(width:life:duration:), .follow)` | 振りの軌跡（弧を掃く頭）と追従の尾。LowLevelMesh の帯のプール（`ribbonCapacity`）。u = 尾 0 → 頭 1 |
+| 画面の歪み | `FXMesh.refract`（0.004〜0.015） | 後処理の合成のパスで輪の縁の背景を膨らませる（最大 4 つ。実機の中・高画質だけ） |
+| 3D の上 | `FXMesh.onTop`・`FXRibbon.onTop` | 深度を読まない（爆炎・閃光・振りの軌跡）。コマ送りの板と振りの軌跡は既定で上 |
+| 放物線 | `FXMesh.gravity` | rise に下向きの加速度（跳ねて落ちる岩板） |
+
+- 1 体ごとの値: メッシュのプールの枠ごとに LowLevelMesh（`FXMeshSlot`）を持ち、頂点の色の g = コマ、b = 溶けの進み、a = 模様の種を書く
+  （`FXShaders.metal` が読む）。材質は共有のまま、プレイ中に作るものは無い。加算の明るさは従来どおり段階の材質。
+- 大きな画像（Blender のシート・1024 px の模様）はレシピが使うもの・使う合成の版だけ作る。
+- 見せ場の粒の細部は Effekseer の `.efk` を段に重ねられる（`FXCue.efk`。docs/EFFEKSEER.md）。範囲を示す部品は docs/vfx/RANGES.md の規則に従う
+  （Blender の模型のうち範囲を示すのは `ringLip` だけ）。
 
 ## 予算（性能）
 

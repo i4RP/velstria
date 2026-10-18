@@ -33,7 +33,7 @@ BORDER = 2
 #   source: "lum"（黒地の発光 → 明るさ）か "alpha"（透過の地 → アルファ）
 JOBS = {
     "fireball": dict(kind="sheet", grid=(5, 5), color="colored", source="lum", level="peak", gain=1.15),
-    "smoke_hd": dict(kind="sheet", grid=(5, 5), color="colored", source="alpha", level=1.0),
+    "smoke_hd": dict(kind="sheet", grid=(4, 4), color="colored", source="alpha", level=1.0),
     "spikes": dict(kind="sheet", grid=(4, 4), color="white", source="lum", level="peak", gain=1.1),
     "rock_tumble": dict(kind="sheet", grid=(4, 4), color="colored", source="alpha", level=1.0),
     "dust_ring": dict(kind="sheet", grid=(4, 4), color="colored", source="alpha", level=1.0),

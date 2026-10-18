@@ -322,7 +322,10 @@ final class SkillFXPlayer {
     func prewarm(recipes: [(palette: FXPalette, recipe: SkillFXRecipe)]) {
         // 使う画像・シート・模型を先に集める（材質が画像を引く前に作る）
         var sheetUses = Set<SheetUse>()
+        // Blender の大きな画像は使う版だけ作る（メッシュ = 白 + アルファ、加算の粒子 = 輝度、アルファ合成の粒子 = 色にアルファ）
         var bundledTex = Set<FXTex>()
+        var bundledGlow = Set<FXTex>()
+        var bundledParticle = Set<FXTex>()
         var models = Set<FXShape>()
         var usesRibbons = false
         for (_, r) in recipes {
@@ -334,7 +337,9 @@ final class SkillFXPlayer {
                     if m.shape.isModel { models.insert(m.shape) }
                 case .emit(let e):
                     if let s = e.sheet { sheetUses.insert(SheetUse(sheet: s, additive: e.additive)) }
-                    if e.tex.bundled != nil { bundledTex.insert(e.tex) }
+                    if e.tex.bundled != nil {
+                        if e.additive { bundledGlow.insert(e.tex) } else { bundledParticle.insert(e.tex) }
+                    }
                 case .ribbon(let rb):
                     usesRibbons = true
                     if let t = rb.tex, t.bundled != nil { bundledTex.insert(t) }
@@ -344,7 +349,9 @@ final class SkillFXPlayer {
             }
         }
         textures.prewarm(FXTex.allCases.filter { $0.bundled == nil })
-        textures.prewarm(bundledTex.sorted { $0.rawValue < $1.rawValue })
+        for t in bundledTex.sorted(by: { $0.rawValue < $1.rawValue }) { _ = textures.texture(t) }
+        for t in bundledGlow.sorted(by: { $0.rawValue < $1.rawValue }) { _ = textures.glowTexture(t) }
+        for t in bundledParticle.sorted(by: { $0.rawValue < $1.rawValue }) { _ = textures.particleTexture(t) }
         for u in sheetUses.sorted(by: { ($0.sheet.rawValue, $0.additive ? 1 : 0) < ($1.sheet.rawValue, $1.additive ? 1 : 0) }) {
             sheets.prewarm(u.sheet, additive: u.additive)
         }
@@ -356,11 +363,11 @@ final class SkillFXPlayer {
                 switch cue.element {
                 case .mesh(let m):
                     // 従来の材質は必ず作る（加算・模様の Program が無い時の代わり）
-                    _ = materials.material(m.tex, palette.rgb(m.tint))
+                    _ = materials.material(m.tex, palette.rgb(m.tint), onTop: m.onTop)
                     if SkillFXPlayer.usesShaded(m) { shadedPending.append((m, palette)) }
                 case .ribbon(let rb):
                     let look = rb.look
-                    _ = materials.material(look.tex, palette.rgb(look.tint))
+                    _ = materials.material(look.tex, palette.rgb(look.tint), onTop: look.onTop)
                     if SkillFXPlayer.usesShaded(look) { shadedPending.append((look, palette)) }
                 case .efk(let x):
                     efk.note(x)

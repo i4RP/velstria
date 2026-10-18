@@ -277,7 +277,10 @@ struct Kit_H029: HeroKit {
                     KitFXValue("waveNearHalfWidth", Tune.waveNearHalfWidth, .distance),
                     KitFXValue("waveFarHalfWidth", Tune.waveFarHalfWidth, .distance),
                     KitFXValue("waveBandStart", list: Tune.waveBandStart, .ratio),
-                    KitFXValue("waveBandLength", Tune.waveBandLength, .ratio)]
+                    KitFXValue("waveBandLength", Tune.waveBandLength, .ratio),
+                    // 照準の帯の縁を判定の台形に（App の AimLayer.taper。照準の数値 waveAimHalfWidth は変えない）
+                    KitFXValue("aimNearHalfWidth", Tune.waveNearHalfWidth, .distance),
+                    KitFXValue("aimFarHalfWidth", Tune.waveFarHalfWidth, .distance)]
         case .skill2 where stage >= 1:
             return [KitFXValue("smashDelay", Tune.smashDelay, .seconds), KitFXValue("smashReach", Tune.smashReach, .distance),
                     KitFXValue("smashHalfAngle", Tune.smashHalfAngle, .radians),

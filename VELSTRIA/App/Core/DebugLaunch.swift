@@ -149,10 +149,11 @@ enum DebugLaunch {
                     humanHeroID: hero, humanName: name,
                     options: PracticeOptions(noCooldowns: args.contains("-practiceNoCD"), startLevel: value(after: "-practiceLevel").flatMap { Int($0) } ?? 1),
                     tutorial: mode == "tutorial", seed: seed)
-                // -practiceFoe <heroID>: 敵の英雄を 1 体（Bot）足す（演出の撮影で英雄にだけ撃てるスキルの的。FXCapture が置き直して止める）
-                if let foe = value(after: "-practiceFoe").flatMap({ app.master.hero($0)?.heroID }) {
-                    config.players.append(PlayerSlot(team: .red, heroID: foe, controller: .bot, position: .mid,
-                                                     displayName: "FX Foe", botDifficulty: .easy))
+                // 比較撮影（FXCapture）: 英雄にだけ撃てるスキル（FXCheckDriver.heroOnly）の的に、敵の Bot の英雄を 1 体足す
+                // （演出チェックの FXCheckSession.config と同じ。撮影の間は人間の操作扱いにして動かさない）
+                if mode == "practice", value(after: "-fxCapture") != nil {
+                    config.players.append(PlayerSlot(team: .red, heroID: hero == "H029" ? "H034" : "H029", controller: .bot,
+                                                     position: .mid, displayName: "FX Capture", botDifficulty: .easy))
                 }
                 app.startBattle(BattleLaunch(config: config))
             case "spectate":
