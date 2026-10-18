@@ -148,7 +148,7 @@ final class SpectateSetupTests: XCTestCase {
         XCTAssertEqual(replay.finalTick, 1800)
         XCTAssertTrue(replay.frames.isEmpty)
         XCTAssertTrue(replay.isPlayable)
-        XCTAssertEqual(DebugLaunch.parseRoute("arcade"), .arcade)
+        XCTAssertEqual(DebugLaunch.parseRoute("rising"), .rising)
         XCTAssertEqual(DebugLaunch.parseRoute("customSetup"), .customSetup)
         XCTAssertEqual(DebugLaunch.parseRoute("replays"), .replays)
         XCTAssertEqual(DebugLaunch.parseRoute("spectateSetup"), .spectateSetup)

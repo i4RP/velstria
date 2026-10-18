@@ -145,7 +145,9 @@ final class FlowMatchModelTests: XCTestCase {
     private func profile() -> Profile {
         var p = Profile()
         p.displayName = "Tester"
-        p.heroSpells["H003"] = ["BS07", "BS01"]
+        // 処刑（BS11）はアカウント Lv3 で解放（旧版の BS07 は選べなくなった）
+        p.accountLevel = 30
+        p.heroSpells["H003"] = ["BS11", "BS01"]
         return p
     }
 
@@ -154,12 +156,12 @@ final class FlowMatchModelTests: XCTestCase {
         m.spells = ["BS01", "BS03"]
         m.setSpell("BS03", slot: 0)
         XCTAssertEqual(m.spells, ["BS01", "BS03"])
-        m.setSpell("BS07", slot: 1)
+        m.setSpell("BS11", slot: 1)
         XCTAssertEqual(m.spells, ["BS01", "BS03"])
-        m.setSpell("BS07", slot: 0)
-        XCTAssertEqual(m.spells, ["BS07", "BS03"])
+        m.setSpell("BS11", slot: 0)
+        XCTAssertEqual(m.spells, ["BS11", "BS03"])
         XCTAssertEqual(MatchFlowModel.sanitizedSpells(["BS01", "BS01", "XX"], master: .shared), ["BS01", "BS03"])
-        XCTAssertEqual(MatchFlowModel.sanitizedSpells(["BS03", "BS07"], master: .shared), ["BS07", "BS03"])
+        XCTAssertEqual(MatchFlowModel.sanitizedSpells(["BS03", "BS11"], master: .shared), ["BS11", "BS03"])
         XCTAssertEqual(MatchFlowModel.sanitizedSpells([], master: .shared), ["BS01", "BS03"])
     }
 
@@ -171,7 +173,7 @@ final class FlowMatchModelTests: XCTestCase {
         m.startStandard()
         m.selectHero("H003", profile: p, master: .shared)
         XCTAssertEqual(m.position, .carry)
-        XCTAssertEqual(m.spells, ["BS07", "BS03"])
+        XCTAssertEqual(m.spells, ["BS11", "BS03"])
         m.setPosition(.mid)
         let config = try XCTUnwrap(m.buildConfig(profile: p, master: .shared))
         XCTAssertEqual(config.mode, .standard)
@@ -179,7 +181,7 @@ final class FlowMatchModelTests: XCTestCase {
         let human = try XCTUnwrap(config.humanSlot)
         XCTAssertEqual(human.heroID, "H003")
         XCTAssertEqual(human.position, .mid)
-        XCTAssertEqual(human.spells, ["BS07", "BS03"])
+        XCTAssertEqual(human.spells, ["BS11", "BS03"])
         XCTAssertEqual(human.displayName, "Tester")
         XCTAssertTrue(config.players.filter { $0.team == .red }.allSatisfy { $0.botDifficulty == .hard })
         XCTAssertTrue(config.players.filter { $0.team == .blue && $0.controller == .bot }.allSatisfy { $0.botDifficulty == .normal })
@@ -354,8 +356,19 @@ final class FlowResultTests: XCTestCase {
             MailItem(date: now, title: "c", body: "", attachments: [MailAttachment(kind: .gem, amount: 5)],
                      expiresAt: now.addingTimeInterval(-60)),
         ]
-        XCTAssertEqual(HomeBadges.unreadMail(p, now: now), 1)
+        // 赤い点は受け取っていない添付のあるメールだけ（未読でも添付が無ければ付かない。MLBB 2.2.16）
+        XCTAssertEqual(HomeBadges.mail(p, now: now), 1)
         XCTAssertEqual(HomeBadges.claimableMail(p, now: now), 1)
+        p.mail[0].read = true
+        XCTAssertEqual(HomeBadges.mail(p, now: now), 1, "既読でも受け取るまで付く")
+        p.mail[0].claimed = true
+        XCTAssertEqual(HomeBadges.mail(p, now: now), 0)
+        p.mail.append(MailItem(date: now, title: "d", body: ""))
+        XCTAssertEqual(HomeBadges.mail(p, now: now), 0, "添付の無い未読には付かない")
+        // スターパス: 到達した段の未受取の報酬
+        XCTAssertEqual(HomeBadges.starPass(p), 0)
+        LiveOpsService.addPassXP(LiveOpsService.passXPPerLevel * 2, to: &p)
+        XCTAssertGreaterThan(HomeBadges.starPass(p), 0)
         p.lastFirstWinDayKey = LiveOpsService.dayKey(now)
         XCTAssertFalse(HomeBadges.firstWinAvailable(p, now: now))
         XCTAssertTrue(HomeBadges.firstWinAvailable(p, now: now.addingTimeInterval(86_400)))

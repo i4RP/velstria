@@ -54,8 +54,7 @@ enum Route: Hashable {
     case credits                 // UI073
     case replays                 // UI035
     case spectateSetup           // UI036
-    // ゲームモード（モバイルレジェンド風の選択画面）
-    case arcade                  // アーケード（遊べる変種のハブ）
+    // ゲームモード（入口は対戦フローのモード選択。MatchModeCategory）
     case rising                  // ライジング（対 AI の勝ち上がりラダー）
     case customSetup             // AI 対戦とカスタム
     case magicChess              // マジックチェス（オートバトラー）
@@ -124,7 +123,6 @@ struct RouteDestination: View {
         case .credits: CreditsView()
         case .replays: ReplayListView()
         case .spectateSetup: SpectateSetupView()
-        case .arcade: ArcadeHubView()
         case .rising: RisingBracketView()
         case .customSetup: CustomSetupView()
         case .magicChess: MagicChessSetupView()
