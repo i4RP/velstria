@@ -48,7 +48,10 @@ final class SkillFXTests: XCTestCase {
                 let clip = SkillFXCatalog.motion(heroID: id, slot: slot, builder: builder)
                 XCTAssertNotNil(clip, "\(id) \(slot): 固有の詠唱モーションが無い")
                 guard let clip else { continue }
-                let limit: ClosedRange<Float> = slot == .ultimate ? 0.45...1.7 : 0.3...1.1
+                // sim が術者を止めておくスキル（奥義の拘束 = MotionClip.simLock。ゴルムの 2.05 秒）は、その間の動きを見せるため上限を
+                // 拘束 + 0.6 秒まで広げる（拘束の無いスキルは従来の上限のまま）
+                let ultLimit = max(1.7, (clip.simLock ?? 0) + 0.6)
+                let limit: ClosedRange<Float> = slot == .ultimate ? 0.45...ultLimit : 0.3...1.1
                 XCTAssertTrue(limit.contains(clip.total), "\(id) \(slot): モーションの長さ \(clip.total) 秒が範囲外 \(limit)")
                 XCTAssertEqual(profile.casts[k].total, clip.total, accuracy: 1e-5, "\(id) \(slot): 姿勢の設定に反映されていない")
                 // 打撃（最初の数キー）が早い: 最初のキーは 0.25 秒以内

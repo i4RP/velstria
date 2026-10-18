@@ -13,6 +13,11 @@ import VelstriaCore
 //   -fxCapture <s1,s2,ult|all>  撃つスキル（all = S1・S2・奥義。再使用の段は recasts の表の遅れで 2 回目を撃つ）
 //   -fxCaptureTimes <秒,...>    発動からの撮影時刻（既定 FXCapture.defaultTimes）
 //   -fxCaptureRings             スキルの前に、寸法が既知の地面の輪（半径 3 m・6 m の水色）を置いた画と置かない画を撮る（カメラの確認用）
+//   -fxCaptureSide              ヒーローを人形の西に東向きで置く（カメラから体の横が見える。全身のモーションの確認用）
+//   -fxCaptureAttack            スキルの後に通常攻撃を 2 回ほど撮る（最初の攻撃の始まりから attackTimes）
+//   -fxCaptureLockstep          描くたびに sim と描画の時刻を 1 tick ずつ進める（BattleRenderer。遅いシミュレータでも撮る時刻 =
+//                               sim の時刻 = モーション・演出の時刻。細かい時刻で撮るときに使う）
+// 英雄にだけ撃てるスキル（FXCheckDriver.heroOnly）は敵の英雄を人形の東に置いて撃つ（FXCheckDriver と同じ）。
 //   -fxCaptureExit              書き出したらアプリを終える
 // 出力: Documents/fxcapture/<hero>/<slot>[r]_<ms>.jpg（幅 1108 px。参考動画と同じ）と manifest.json（要求・実際の時刻、カメラ、
 // 画質、撃つごとの予算の観測 SkillFXPlayer.budgetSnapshot。置き直しで集計は 0 に戻るので 1 回ずつの値）。
@@ -66,6 +71,9 @@ final class FXCapture {
 
     private enum Step {
         case waitLive
+        case attackPlace
+        case attackWait(until: Double)
+        case attackWatch(t0: Double, next: Int)
         case place(index: Int)
         case settle(index: Int, until: Double)
         case rings(phase: Int, until: Double)
@@ -81,6 +89,15 @@ final class FXCapture {
     private let wantsRings: Bool
     /// -fxCaptureProbe: スキルの代わりに、部品の種類を 1 つずつ足して撮る（描画の切り分け用）。
     private let wantsProbe: Bool
+    /// -fxCaptureSide: 体の横が見える向きに置く。
+    private let wantsSide: Bool
+    /// -fxCaptureAttack: スキルの後に通常攻撃を撮る。
+    private let wantsAttack: Bool
+    /// -fxCaptureLockstep: 1 tick 送り（BattleRenderer が読む）。
+    let lockstep: Bool
+    /// 通常攻撃の撮影時刻（最初の攻撃の始まりから。2 回分）。
+    static let attackTimes: [Double] = [0.0, 0.066, 0.133, 0.199, 0.266, 0.333, 0.399, 0.499, 0.599, 0.699, 0.833, 0.999,
+                                         1.099, 1.199, 1.333, 1.499, 1.666]
     private var step: Step = .waitLive
     private var liveFrames = 0
     private var manifest: Manifest?
@@ -97,6 +114,9 @@ final class FXCapture {
             ?? FXCapture.defaultTimes
         wantsRings = DebugLaunch.args.contains("-fxCaptureRings")
         wantsProbe = DebugLaunch.args.contains("-fxCaptureProbe")
+        wantsSide = DebugLaunch.args.contains("-fxCaptureSide")
+        wantsAttack = DebugLaunch.args.contains("-fxCaptureAttack")
+        lockstep = DebugLaunch.args.contains("-fxCaptureLockstep")
         dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("fxcapture")
     }
 
@@ -134,10 +154,11 @@ final class FXCapture {
                      + " buildMs=\(FXPrograms.buildMs.map { String(Int($0)) } ?? "-") fallbacks=\(player.materials.fallbacks)"
                      + " sealed=\(!player.materials.createsShaded)"
                      + " sheetsMissing=\(player.sheets.missing.map(\.rawValue).sorted())")
-                step = .finish
+                noteLegRig(controller: controller, world: world)
+                step = wantsAttack ? .attackPlace : .finish
                 return
             }
-            guard place(controller: controller) else { note("人形が見つからない"); step = .finish; return }
+            guard place(controller: controller, slot: slots[k]) else { note("人形が見つからない"); step = .finish; return }
             step = wantsProbe ? .probe(index: 0, until: s.time + 1.6) : .settle(index: k, until: s.time + 1.6)
         case .settle(let k, let until):
             guard s.time >= until else { return }
@@ -161,15 +182,42 @@ final class FXCapture {
                 step = .cast(index: 0)
                 shoot(world: world, name: "norings", slot: "rings", cast: 0, requested: 0, actual: 0)
             }
+        case .attackPlace:
+            guard place(controller: controller, attack: true), let foe = dummyID(controller) else { step = .finish; return }
+            controller.send(.attack(targetID: foe))
+            step = .attackWait(until: s.time + 3)
+        case .attackWait(let until):
+            // 最初の通常攻撃の振り始め（sim の予備動作が始まった tick）から撮る
+            if let me = controller.humanIndex, s.units[me].windupRemaining != nil {
+                step = .attackWatch(t0: s.time, next: 0)
+            } else if s.time >= until {
+                note("通常攻撃が始まらない")
+                step = .finish
+            }
+        case .attackWatch(let t0, let next):
+            let times = FXCapture.attackTimes
+            guard next < times.count else {
+                step = .finish
+                return
+            }
+            guard s.time - t0 >= times[next] else { return }
+            step = .attackWatch(t0: t0, next: next + 1)
+            shoot(world: world, name: "atk_\(Int((times[next] * 1000).rounded()))", slot: "atk", cast: 0,
+                  requested: times[next], actual: s.time - t0)
         case .cast(let k):
-            guard let foe = dummyID(controller) else { step = .finish; return }
+            guard let foe = target(for: slots[k], controller: controller) else {
+                // 英雄にだけ撃てるスキルで敵の英雄が居ない（-practiceFoe なし）: 飛ばして次へ
+                note("\(FXCapture.slotName(slots[k])): 的が無い（英雄にだけ撃てるスキル。-practiceFoe で敵の英雄を足す）")
+                step = .place(index: k + 1)
+                return
+            }
             controller.send(.castSkill(slot: slots[k], target: .unit(foe)))
             let hero = manifest?.hero ?? ""
             let delay = FXCapture.recasts[hero]?[slots[k]]
             step = .watch(index: k, t0: s.time, recastAt: delay.map { s.time + $0 }, recastT0: nil, next: 0, nextRecast: 0)
         case .watch(let k, let t0, let recastAt, var recastT0, var next, var nextRecast):
             let name = FXCapture.slotName(slots[k])
-            if let at = recastAt, recastT0 == nil, s.time >= at, let foe = dummyID(controller) {
+            if let at = recastAt, recastT0 == nil, s.time >= at, let foe = target(for: slots[k], controller: controller) {
                 controller.send(.castSkill(slot: slots[k], target: .unit(foe)))
                 recastT0 = s.time
             }
@@ -261,6 +309,8 @@ final class FXCapture {
     }
 
     private var ringsDone = false
+    /// 置き直しの基準にした人形（撃つ的。-fxCaptureSide の向きを保つため、置き直した後に近い人形へ替えない）。
+    private var placedDummy: EntityID?
 
     // MARK: 描画の切り分け（-fxCaptureProbe）
 
@@ -367,20 +417,26 @@ final class FXCapture {
 
     private func dummyID(_ controller: BattleController) -> EntityID? {
         let s = controller.state
+        if let id = placedDummy, let i = s.index(of: id), s.units[i].isAlive { return id }
         guard let me = controller.humanIndex else { return nil }
         let p = s.units[me].pos
         return s.units.filter { $0.kind == .dummy && $0.isAlive }
             .min { $0.pos.distance(to: p) < $1.pos.distance(to: p) }?.id
     }
 
-    /// 自分のヒーローを人形の南 standoff に北向きで置き直し（-fxCaptureAngle なら人形がその向きに見える所）、体力・資源を満たし、
-    /// 人形の体力も戻す。
-    private func place(controller: BattleController) -> Bool {
+    /// 自分のヒーローを人形の南 standoff に北向きで置き直し（-fxCaptureSide は西に東向き、-fxCaptureAngle は人形がその向きに
+    /// 見える所）、体力・資源を満たし、人形の体力も戻す。
+    /// attack = 通常攻撃の射程の内側に置く。英雄にだけ撃てるスキルのため、敵の英雄を人形の東に置いて人間の操作扱いにする
+    /// （Bot の判断で動かない。FXCheckDriver.place と同じ）。
+    private func place(controller: BattleController, slot: SkillSlot? = nil, attack: Bool = false) -> Bool {
         guard let me = controller.humanIndex, let foe = dummyID(controller) else { return false }
+        placedDummy = foe
         var s = controller.state
         guard let fi = s.index(of: foe) else { return false }
-        let a = FXCapture.angle * .pi / 180
-        let spot = s.units[fi].pos + Vec2(-sin(a) * FXCapture.standoff, -cos(a) * FXCapture.standoff)
+        let distance = attack ? max(60, s.units[me].stats.attackRange * 0.8) : FXCapture.standoff
+        let a = wantsSide ? -Double.pi / 2 : FXCapture.angle * .pi / 180
+        let dir = Vec2(-sin(a), -cos(a))
+        let spot = s.units[fi].pos + dir * distance
         s.units[me].pos = spot
         s.units[me].prevPos = spot
         s.units[me].path.removeAll()
@@ -389,8 +445,51 @@ final class FXCapture {
         s.units[me].hp = s.units[me].stats.maxHP
         s.units[me].resource = s.units[me].stats.maxResource
         s.units[fi].hp = s.units[fi].stats.maxHP
+        let team = s.units[me].team
+        // 敵の英雄（-practiceFoe で足した Bot）が居れば人間の操作扱いにして止める。英雄にだけ撃てるスキル（FXCheckDriver.heroOnly）を
+        // 撮る間は自分の前 1.5 m（短い射程の奥義もその場で撃てる。撃つ時刻が発動の時刻になる）、それ以外は人形の東 8 m（画の外）
+        let heroOnly = FXCheckDriver.heroOnly[manifest?.hero ?? ""] ?? []
+        if let hi = s.units.firstIndex(where: { $0.kind == .hero && $0.team != team }) {
+            let near = slot.map { heroOnly.contains($0) } ?? false
+            let at = near ? spot - dir * 150 : s.units[fi].pos + Vec2(800, -300)
+            s.units[hi].pos = at
+            s.units[hi].prevPos = at
+            s.units[hi].path.removeAll()
+            s.units[hi].moveIntent = .none
+            s.units[hi].facing = -Double.pi / 2
+            s.units[hi].hp = s.units[hi].stats.maxHP
+            s.units[hi].hero?.controller = .human
+        }
         controller.restore(s)
         return true
+    }
+
+    /// スキルの的: 英雄にだけ撃てるスキルは敵の英雄、それ以外は人形。
+    private func target(for slot: SkillSlot, controller: BattleController) -> EntityID? {
+        let hero = manifest?.hero ?? ""
+        if FXCheckDriver.heroOnly[hero]?.contains(slot) == true {
+            let s = controller.state
+            guard let me = controller.humanIndex else { return nil }
+            let team = s.units[me].team
+            return s.units.first { $0.kind == .hero && $0.team != team && $0.isAlive }?.id
+        }
+        return dummyID(controller)
+    }
+
+    /// 全身のモーションの足の接地の寸法（スキンメッシュの脚）を目録に書く（docs/HERO_MOTION.md）。
+    private func noteLegRig(controller: BattleController, world: BattleWorld) {
+        guard let id = controller.humanHeroID, let m = world.units.hero(id)?.handle as? SkinnedHeroModel,
+              let r = m.legRig else { return }
+        func f(_ v: Float) -> String { String(format: "%.3f", v) }
+        note("legRig hips=(\(f(r.hips.x)),\(f(r.hips.y)),\(f(r.hips.z))) socketR=(\(f(r.socketR.x)),\(f(r.socketR.y)),\(f(r.socketR.z)))"
+             + " thigh=\(f(r.thigh)) shin=\(f(r.shin)) dropScale=\(f(r.dropScale)) ankleY=\(f(r.restAnkleR.y))")
+        // 腕・胴の寸法（待機の骨の位置。拡縮前のヒーロー空間）
+        let rig = m.rig
+        func p(_ role: HeroJointRole) -> SIMD3<Float>? { rig.index[role].map { rig.restPosition[$0] } }
+        if let sh = p(.armR), let el = p(.foreArmR), let wr = p(.handR), let hips = p(.hips), let head = p(.head) {
+            note("armRig shoulderR=(\(f(sh.x)),\(f(sh.y)),\(f(sh.z))) upperArm=\(f(simd_distance(sh, el))) foreArm=\(f(simd_distance(el, wr)))"
+                 + " hipsY=\(f(hips.y)) headY=\(f(head.y)) gripR=\(f(rig.gripR))")
+        }
     }
 
     // MARK: 寸法が既知の地面の輪

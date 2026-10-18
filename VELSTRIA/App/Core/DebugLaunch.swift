@@ -145,10 +145,16 @@ enum DebugLaunch {
             let name = p.displayName.isEmpty ? "Tester" : p.displayName
             switch mode {
             case "practice", "tutorial":
-                app.startBattle(BattleLaunch(config: MatchFactory.practiceMatch(
+                var config = MatchFactory.practiceMatch(
                     humanHeroID: hero, humanName: name,
                     options: PracticeOptions(noCooldowns: args.contains("-practiceNoCD"), startLevel: value(after: "-practiceLevel").flatMap { Int($0) } ?? 1),
-                    tutorial: mode == "tutorial", seed: seed)))
+                    tutorial: mode == "tutorial", seed: seed)
+                // -practiceFoe <heroID>: 敵の英雄を 1 体（Bot）足す（演出の撮影で英雄にだけ撃てるスキルの的。FXCapture が置き直して止める）
+                if let foe = value(after: "-practiceFoe").flatMap({ app.master.hero($0)?.heroID }) {
+                    config.players.append(PlayerSlot(team: .red, heroID: foe, controller: .bot, position: .mid,
+                                                     displayName: "FX Foe", botDifficulty: .easy))
+                }
+                app.startBattle(BattleLaunch(config: config))
             case "spectate":
                 let config = value(after: "-spectateMap") == "brawl"
                     ? MatchFactory.spectateMatch(options: SpectateMatchOptions(map: .brawl), seed: seed)

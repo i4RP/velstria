@@ -37,6 +37,8 @@ struct HeroPose {
     var hipsDrop: Float = 0
     var hipsYaw: Float = 0
     var hipsRoll: Float = 0
+    /// 腰の前傾（rad、+ = 前へ倒す。骨盤ごと胴を前へ倒す深い踏み込み・叩きつけ用。既定 0。torsoPitch は腰に対する胴の前傾）。
+    var hipsPitch: Float = 0
     var torsoPitch: Float = 0
     var torsoYaw: Float = 0
     var torsoRoll: Float = 0
@@ -54,6 +56,13 @@ struct HeroPose {
     var glow: Float = 0
     var ring: Float = 0
     var opacity: Float = 1
+    /// 足の接地の重み（0〜1。全身のモーションだけが使う。既定 0 = 脚の角度 legR / legL のまま）。
+    /// 0 より大きいと、足首を footR / footL の目標へ置く脚の角度を HeroLegRig が解き、この重みで混ぜる（HeroLegIK.swift）。
+    var plant: Float = 0
+    /// 足首の目標 = 待機の立ち位置の足首からのずれ（ヒーロー空間・m。x = 右、y = 上 = 足を上げる、z = 後ろ = 正面は -z）。
+    /// plant が 0 の間は使わない。
+    var footR = SIMD3<Float>(0, 0, 0)
+    var footL = SIMD3<Float>(0, 0, 0)
 
     @inline(__always) private static func f(_ a: Float, _ b: Float, _ t: Float) -> Float { a + (b - a) * t }
 
@@ -67,10 +76,34 @@ struct HeroPose {
         p.hipsDrop = f(a.hipsDrop, b.hipsDrop, t)
         p.hipsYaw = f(a.hipsYaw, b.hipsYaw, t)
         p.hipsRoll = f(a.hipsRoll, b.hipsRoll, t)
+        p.hipsPitch = f(a.hipsPitch, b.hipsPitch, t)
         p.legR = LegPose.mix(a.legR, b.legR, t)
         p.legL = LegPose.mix(a.legL, b.legL, t)
         p.cape = f(a.cape, b.cape, t)
         p.opacity = f(a.opacity, b.opacity, t)
+        p.plant = f(a.plant, b.plant, t)
+        p.footR = a.footR + (b.footR - a.footR) * t
+        p.footL = a.footL + (b.footL - a.footL) * t
+        return p
+    }
+
+    /// 下半身（体の位置・全身の傾き・腰・脚・足の接地）だけ補間し、上半身は b を使う。
+    /// 全身のモーション（b）を移動中は下半身だけ移動の姿勢（a）へ戻す（足を滑らせない）のに使う。
+    static func mixLower(_ a: HeroPose, _ b: HeroPose, _ t: Float) -> HeroPose {
+        var p = b
+        p.offset = a.offset + (b.offset - a.offset) * t
+        p.pitch = f(a.pitch, b.pitch, t)
+        p.roll = f(a.roll, b.roll, t)
+        p.yaw = f(a.yaw, b.yaw, t)
+        p.hipsDrop = f(a.hipsDrop, b.hipsDrop, t)
+        p.hipsYaw = f(a.hipsYaw, b.hipsYaw, t)
+        p.hipsRoll = f(a.hipsRoll, b.hipsRoll, t)
+        p.hipsPitch = f(a.hipsPitch, b.hipsPitch, t)
+        p.legR = LegPose.mix(a.legR, b.legR, t)
+        p.legL = LegPose.mix(a.legL, b.legL, t)
+        p.plant = f(a.plant, b.plant, t)
+        p.footR = a.footR + (b.footR - a.footR) * t
+        p.footL = a.footL + (b.footL - a.footL) * t
         return p
     }
 
@@ -136,6 +169,13 @@ struct HeroMotionProfile {
     var attackAlt: ActionClip?
     /// スキル詠唱（Skill1 / Skill2 / Ultimate）。スキル固有のモーション（SkillFXCatalog）が無ければ既定の 3 段。
     var casts: [MotionClip]
+    /// 再使用の段（キット層の stage >= 1）の詠唱モーション: recasts[スロット][stage - 1]。無い段は casts と同じ扱い
+    /// （同じスロットの詠唱中なら続ける = 従来どおり）。HeroSkillMotions のヒーローだけ。
+    var recasts: [[MotionClip]] = [[], [], []]
+    /// 詠唱の後、そのスキルが最初に当たった時（sim のダメージ）に続けて再生するモーション（鎖鉤の引き寄せなど）。
+    var hitFollowUps: [MotionClip?] = [nil, nil, nil]
+    /// 全身の通常攻撃（打撃の時刻 impact を sim の命中へ合わせる。順に繰り返す）。空なら従来（ActionClip とモーションクリップ）。
+    var attackMotions: [MotionClip] = []
     var twoHanded: Bool
     var bowHold: Bool
     /// 盾持ち（詠唱・勝利でも盾を胸の前に保つ）。
@@ -254,6 +294,31 @@ struct HeroMotionProfile {
             }
             return MotionClip(action: clip)
         }
+        if let heroID, let script = HeroSkillMotions.script(heroID) {
+            recasts = slots.map { slot in
+                // 段 1 から続く分だけ（途中の段が無ければそこまで）
+                var list: [MotionClip] = []
+                for stage in 1...SkillFXCatalog.maxStage {
+                    guard let c = script.cast(slot, stage: stage, builder) else { break }
+                    list.append(c)
+                }
+                return list
+            }
+            hitFollowUps = slots.map { script.onHit($0, builder) }
+            attackMotions = script.attacks(builder)
+        }
+    }
+
+    /// スロットの段の詠唱モーション（stage 0 と、モーションの無い段は casts）。
+    func cast(_ slot: SkillSlot, stage: Int) -> MotionClip {
+        let k = HeroAnimator.castIndex(slot)
+        if stage >= 1, stage - 1 < recasts[k].count { return recasts[k][stage - 1] }
+        return casts[k]
+    }
+
+    /// 段に固有のモーションがあるか（再使用の段で詠唱を始め直すか）。
+    func hasStageCast(_ slot: SkillSlot, stage: Int) -> Bool {
+        stage >= 1 && stage - 1 < recasts[HeroAnimator.castIndex(slot)].count
     }
 
     // MARK: 通常攻撃
@@ -550,6 +615,26 @@ struct HeroAnimator {
     /// setState(.attack) が自動の拍で始めたばかり（まだ進めていない）の振り。直後の playAttack は同じ振りを
     /// シムの拍で始め直す（setState → playAttack の順に呼ばれても割り当ての順を 1 つ飛ばさない）。
     private var autoAttackPending = false
+    /// 脚の寸法（全身のモーションの足の接地 HeroPose.plant を解く。モデルが読み込み時に入れる。nil = 解かない）。
+    var legRig: HeroLegRig?
+    /// 再生中の詠唱モーション（再使用の段・命中の後のモーションを含む。nil = profile.casts のスロットのもの）。
+    private var activeCast: MotionClip?
+    /// この詠唱で命中の後のモーション（profile.hitFollowUps）を始めた。
+    private var castHitPlayed = false
+    /// 全身のモーション（yieldsLowerWhenMoving の詠唱・全身の通常攻撃）の下半身の重み。立ち止まっていれば 1、移動中は 0 へ
+    /// actionLowerFade 秒で寄せる（sim が動かしている突進の間も移動の脚で走る）。
+    private var actionLower: Float = 1
+    static let actionLowerFade: Float = 0.12
+    /// 全身の通常攻撃（profile.attackMotions）: 再生中の添字（-1 = 無し）・クリップの時刻（負 = 先頭で待つ）・打撃まで / 後の再生速度。
+    /// 攻撃状態が終わっても戻りの終わりまで再生する（待機・移動の姿勢へ重ねる）。
+    private var motionAttack = -1
+    private var motionAttackTime: Float = 0
+    private var motionAttackPre: Float = 1
+    private var motionAttackPost: Float = 1
+    private var motionAttackCursor = 0
+    /// 状態だけ（setState(.attack)）で回している（プレビュー）。playAttack が来たら false（シムの拍）。
+    private var motionAttackAuto = true
+    private var motionAttackPending = false
 
     init(profile: HeroMotionProfile, defaultRunSpeed: Float, motion: HeroMotionBinding? = nil) {
         self.profile = profile
@@ -577,6 +662,20 @@ struct HeroAnimator {
     /// 通常攻撃を 1 回振る（シムの攻撃開始時に呼ぶ）。クリップの打撃の瞬間が windup 秒後に来るよう再生速度を決め、
     /// 戻りは interval - windup 秒に収める。攻撃状態でなければ攻撃状態へ移る。クリップが無ければ手続きの振りだけ。
     mutating func playAttack(windup: Float, interval: Float) {
+        if !profile.attackMotions.isEmpty {
+            // 全身の通常攻撃（手続き）: 打撃を windup 秒後に合わせる。前の振りの姿勢からつなぐ
+            if state == .attack {
+                begin(.attack, blend: 0.06)
+            } else {
+                transition(.attack, autoAttack: false)
+            }
+            let n = profile.attackMotions.count
+            if motionAttackPending { motionAttackCursor = (motionAttackCursor + n - 1) % n }
+            motionAttackPending = false
+            motionAttackAuto = false
+            startMotionAttack(windup: windup, interval: interval)
+            return
+        }
         if state == .attack {
             // 手続きの振りも、打撃を過ぎていれば次の振りへ（setState(.attack) の再指定と同じ）
             if stateTime >= profile.attack.windupTime + profile.attack.strikeTime {
@@ -596,6 +695,8 @@ struct HeroAnimator {
 
     private mutating func transition(_ s: HeroAnimState, autoAttack: Bool) {
         if s == state {
+            // 全身の通常攻撃は自分の時計で振り続ける（状態の再指定では始め直さない）
+            if s == .attack && !profile.attackMotions.isEmpty { return }
             // 攻撃中に再度 attack が来たら、打撃を過ぎていれば次の振りを始める
             if s == .attack && stateTime >= profile.attack.windupTime + profile.attack.strikeTime {
                 attackCount += 1
@@ -604,9 +705,10 @@ struct HeroAnimator {
                 if autoAttack && attackAuto && (clips.role != .attack || !clips.isActive || clips.clipTime >= clips.impactTime) {
                     startAutoAttackClip()
                 }
-            } else if case .cast(let slot) = s, stateTime >= profile.casts[HeroAnimator.castIndex(slot)].total {
+            } else if case .cast(let slot) = s, stateTime >= currentCast(slot).total {
                 // 詠唱が終わった後の同じスロットの再詠唱
                 begin(s, blend: 0.08)
+                beginCastMotion(profile.casts[HeroAnimator.castIndex(slot)])
                 startCastClip(slot)
             }
             return
@@ -623,11 +725,58 @@ struct HeroAnimator {
         case .idle, .run: blend = state == .dead ? 0 : 0.2
         }
         begin(s, blend: blend)
+        switch s {
+        case .cast(let slot):
+            // 詠唱は振りかけの通常攻撃を打ち切る（詠唱の後に戻りの続きを出さない）
+            motionAttack = -1
+            beginCastMotion(profile.casts[HeroAnimator.castIndex(slot)])
+        case .attack, .idle, .run: break
+        default: motionAttack = -1
+        }
         enterClips(s, from: prev, autoAttack: autoAttack)
     }
 
     /// スロットの詠唱モーションの長さ（秒）。
     func castDuration(_ slot: SkillSlot) -> Float { profile.casts[HeroAnimator.castIndex(slot)].total }
+
+    /// 段の詠唱モーションの長さ（秒）。段に固有のモーションが無ければ castDuration(slot)。
+    func castDuration(_ slot: SkillSlot, stage: Int) -> Float { profile.cast(slot, stage: stage).total }
+
+    /// 段に固有のモーションがあり、同じスロットの詠唱中でも始め直す段か（HeroSkillMotions のヒーローの再使用）。
+    func castRestarts(_ slot: SkillSlot, stage: Int) -> Bool { profile.hasStageCast(slot, stage: stage) }
+
+    /// 詠唱を段のモーションで始める。段に固有のモーションがあれば同じスロットの詠唱中でも始め直す。
+    /// 無ければ setState(.cast(slot)) と同じ（同じスロットの詠唱中なら続ける = 従来どおり）。
+    mutating func playCast(_ slot: SkillSlot, stage: Int) {
+        guard profile.hasStageCast(slot, stage: stage) else { return transition(.cast(slot), autoAttack: true) }
+        let prev = state
+        if state == .attack { attackCount += 1 }
+        begin(.cast(slot), blend: 0.08)
+        motionAttack = -1
+        beginCastMotion(profile.cast(slot, stage: stage))
+        enterClips(.cast(slot), from: prev, autoAttack: true)
+    }
+
+    /// 詠唱中のスロットのスキルが最初に当たった時（sim のダメージ）: 命中の後のモーション（profile.hitFollowUps）があれば
+    /// 今の姿勢からつないで始め、その長さ（秒）を返す。1 回の詠唱で 1 度だけ。無ければ nil（何もしない）。
+    mutating func playCastHit(_ slot: SkillSlot) -> Float? {
+        guard state == .cast(slot), !castHitPlayed,
+              let clip = profile.hitFollowUps[HeroAnimator.castIndex(slot)] else { return nil }
+        begin(.cast(slot), blend: 0.06)
+        beginCastMotion(clip)
+        castHitPlayed = true
+        return clip.total
+    }
+
+    /// 再生中（または次に始める）スロットの詠唱モーション。
+    private func currentCast(_ slot: SkillSlot) -> MotionClip {
+        activeCast ?? profile.casts[HeroAnimator.castIndex(slot)]
+    }
+
+    private mutating func beginCastMotion(_ clip: MotionClip) {
+        activeCast = clip
+        castHitPlayed = false
+    }
 
     static func castIndex(_ slot: SkillSlot) -> Int {
         switch slot {
@@ -661,13 +810,21 @@ struct HeroAnimator {
         if speed > 0.01 { runPhase += dt * .pi * speed / (2 * max(0.2, legLength) * max(0.1, sweep)) }
         if runPhase > 1000 { runPhase -= 2 * .pi * 150 }
 
+        // 全身のモーションの下半身: 移動中は移動の姿勢へ（足を滑らせない）
+        let fade = dt / HeroAnimator.actionLowerFade
+        actionLower = speed >= HeroClipLayer.stationarySpeed ? max(0, actionLower - fade) : min(1, actionLower + fade)
+        advanceMotionAttack(dt)
+
         let pose = evaluate()
         if blendTime < blendDuration && blendDuration > 0 {
             current = HeroPose.mix(snapshot, pose, smooth01(blendTime / blendDuration))
         } else {
             current = pose
         }
+        // 足の接地（全身のモーションが plant を立てた間だけ。既定の動きは plant = 0 で何もしない）
+        if current.plant > 0.001, let rig = legRig { rig.applyPlant(&current) }
         autoAttackPending = false
+        motionAttackPending = false
         if clips.isActive {
             clips.advance(dt: dt, speed: speed)
             if clips.finished && !clips.fadingOut && !clips.holdAtEnd { clipFinished() }
@@ -696,6 +853,16 @@ struct HeroAnimator {
 
     /// 状態が変わった時のクリップ。割り当てが無い動作は今のクリップを消して手続きへ戻す。
     private mutating func enterClips(_ s: HeroAnimState, from prev: HeroAnimState, autoAttack: Bool) {
+        if s == .attack && !profile.attackMotions.isEmpty {
+            // 全身の通常攻撃（手続き）: 重ねているクリップ（待機など）は消す。状態だけで回す時は既定の拍で振り始める
+            clips.stop()
+            motionAttackAuto = true
+            if autoAttack {
+                startMotionAttack(windup: HeroAnimator.autoWindup, interval: HeroAnimator.autoInterval)
+                motionAttackPending = true
+            }
+            return
+        }
         guard let b = clips.binding else { return }
         switch s {
         case .attack:
@@ -716,6 +883,8 @@ struct HeroAnimator {
             if prev == .dead { clips.cut() }
             // 攻撃・詠唱のクリップは戻りまで再生してから（シムの攻撃状態は戻りの途中で終わる）
             if clips.isActive && !clips.fadingOut && !clips.finished && (clips.role == .attack || clips.role == .cast) { return }
+            // 全身の通常攻撃（手続き）も戻りの終わりまで（終わったら advanceMotionAttack が状態のクリップを始める）
+            if activeMotionAttack != nil { return }
             startStateClip(s)
         }
     }
@@ -804,12 +973,15 @@ struct HeroAnimator {
         let loco = locomotion()
         switch state {
         case .idle, .run:
-            return loco
+            return motionAttackPose(loco) ?? loco
         case .attack:
+            if !profile.attackMotions.isEmpty { return motionAttackPose(loco) ?? loco }
             let (clip, t, _) = proceduralAttack
             return clip.evaluate(base: loco, t: t)
         case .cast(let slot):
-            var p = profile.casts[HeroAnimator.castIndex(slot)].evaluate(base: loco, t: stateTime)
+            let clip = currentCast(slot)
+            var p = clip.evaluate(base: loco, t: stateTime)
+            if clip.fullBody && clip.yieldsLowerWhenMoving { p = HeroPose.mixLower(loco, p, actionLower) }
             p.glow *= 1 + 0.15 * sin(time * 18)
             return p
         case .channel:
@@ -844,6 +1016,12 @@ struct HeroAnimator {
     /// （クリップ時刻）の間だけ、クリップの打つ手。拍待ちで最後の姿勢に止まっている間は振っていない（手続きへ落とさない）。
     /// クリップが無ければ手続きの通常攻撃（近接の型だけ）の打撃区間（予備動作の終わり〜打撃の終わり + swingTail 秒）。
     var weaponSwing: (right: Bool, left: Bool) {
+        if let a = activeMotionAttack {
+            let clip = a.clip, t = a.time
+            let impact = clip.impact ?? clip.total * 0.4
+            guard t >= impact - HeroMotionClip.swingLead, t <= impact + HeroMotionClip.swingTail else { return (false, false) }
+            return (clip.strikeHand != .left, clip.strikeHand != .right)
+        }
         if let c = actionClip {
             let t = clips.clipTime
             guard c.melee, t >= clips.impactTime - HeroMotionClip.swingLead,
@@ -858,8 +1036,72 @@ struct HeroAnimator {
 
     /// 今の振りで打つ手（発射位置の左右）。クリップはその strikeHand、無ければ手続きの左右交互（既定は右）。
     var strikeHand: HeroStrikeHand {
+        if let a = activeMotionAttack { return a.clip.strikeHand }
         if let c = actionClip { return c.strikeHand }
         return state == .attack && proceduralAttack.left ? .left : .right
+    }
+
+    // MARK: 全身の通常攻撃（手続き）
+
+    /// 再生中の全身の通常攻撃とクリップの時刻（打撃の前に待っている間も含む。終わっていれば nil）。
+    private var activeMotionAttack: (clip: MotionClip, time: Float)? {
+        guard motionAttack >= 0, motionAttack < profile.attackMotions.count else { return nil }
+        let clip = profile.attackMotions[motionAttack]
+        return motionAttackTime < clip.total ? (clip, motionAttackTime) : nil
+    }
+
+    /// 全身の通常攻撃の姿勢（移動中は下半身を移動の姿勢へ戻す）。再生していなければ nil。
+    private func motionAttackPose(_ loco: HeroPose) -> HeroPose? {
+        guard let a = activeMotionAttack else { return nil }
+        let clip = a.clip
+        var p = clip.evaluate(base: loco, t: max(0, a.time))
+        if clip.fullBody { p = HeroPose.mixLower(loco, p, actionLower) }
+        return p
+    }
+
+    /// 全身の通常攻撃を始める（割り当ての順に繰り返す）。打撃の瞬間が windup 秒後に来るよう、打撃までを 0.5〜4 倍速で再生し
+    /// （範囲外なら開始位置をずらす。負なら先頭で待つ）、打撃の後は戻りが max(0.2, interval - windup) 秒に収まる速さ（1 倍以上）。
+    /// モーションクリップの通常攻撃（startAttackClip）と同じ規則。
+    private mutating func startMotionAttack(windup: Float, interval: Float) {
+        let list = profile.attackMotions
+        guard !list.isEmpty else { return }
+        let k = motionAttackCursor % list.count
+        motionAttackCursor = (motionAttackCursor + 1) % list.count
+        let clip = list[k]
+        let w = max(0.02, windup.isFinite ? windup : HeroAnimator.autoWindup)
+        let impact = clip.impact ?? clip.total * 0.4
+        let pre = min(4, max(0.5, impact / w))
+        motionAttack = k
+        motionAttackPre = pre
+        motionAttackTime = impact - pre * w
+        let available = max(0.2, (interval.isFinite ? interval : HeroAnimator.autoInterval) - w)
+        motionAttackPost = max(1, (clip.total - impact) / available)
+    }
+
+    /// 全身の通常攻撃の時計を進める。終わったら、状態だけで回している攻撃状態なら次の振り、待機・移動なら状態のクリップへ。
+    private mutating func advanceMotionAttack(_ dt: Float) {
+        guard motionAttack >= 0, motionAttack < profile.attackMotions.count else { return }
+        let clip = profile.attackMotions[motionAttack]
+        let impact = clip.impact ?? clip.total * 0.4
+        var rest = dt
+        if motionAttackTime < impact {
+            let toImpact = (impact - motionAttackTime) / motionAttackPre
+            if rest < toImpact {
+                motionAttackTime += rest * motionAttackPre
+                rest = 0
+            } else {
+                motionAttackTime = impact
+                rest -= toImpact
+            }
+        }
+        if rest > 0 { motionAttackTime += rest * motionAttackPost }
+        guard motionAttackTime >= clip.total else { return }
+        if state == .attack && motionAttackAuto {
+            startMotionAttack(windup: HeroAnimator.autoWindup, interval: HeroAnimator.autoInterval)
+        } else {
+            motionAttack = -1
+            if state == .idle || state == .run { startStateClip(state) }
+        }
     }
 
     // MARK: 移動

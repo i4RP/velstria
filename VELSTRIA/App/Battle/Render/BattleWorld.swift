@@ -515,6 +515,7 @@ final class BattleWorld {
             if isRanged, !fxDone, units.hero(src) != nil { pendingMuzzles.append((src, target)) }
         case .damage(let d):
             units.noteHit(targetID: d.targetID)
+            if case .skill(let slot) = d.source, let src = d.sourceID { units.noteSkillHit(sourceID: src, slot: slot, time: time) }
             onDamage(d, f)
             structureHit(d, f)
             if isShown(d.targetID, f) {
@@ -555,7 +556,7 @@ final class BattleWorld {
                 }
             }
         case .skillCast(let c):
-            units.noteCast(heroID: c.casterID, slot: c.slot, time: time)
+            units.noteCast(heroID: c.casterID, slot: c.slot, stage: c.stage, time: time)
             if isShown(c.casterID, f) {
                 let fxDone = effekseer?.onCast(c, state: f.state) ?? false
                 if !fxDone, !skillDirector.onCast(c, state: f.state) { skillFX(c, f) }

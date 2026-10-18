@@ -397,6 +397,9 @@ final class BattleRenderer {
         // 比較撮影（FXCapture）が撮り終えて再開した最初のフレームは、撮る間の待ち時間を流さない（sim は 0.25 秒・演出は 0.1 秒で
         // 丸めるので、撮るたびに sim だけが先へ進み、演出が撮影の時刻より遅れていた。奥義の崩落で約 0.4 秒）
         if fxCapture?.takeResumed() == true { deltaTime = min(deltaTime, 1.0 / 60) }
+        // 比較撮影の 1 tick 送り（-fxCaptureLockstep）: 描くたびに sim を 1 tick、描画・演出・モーションの時刻も同じ 1 tick だけ進める
+        // （遅いシミュレータでも sim の時刻と画の時刻がずれない。撮影の時刻 = sim の時刻 = モーションの時刻）
+        if let capture = fxCapture, capture.lockstep, !capture.isFrozen { deltaTime = Balance.dt }
         #endif
         let dt = min(max(deltaTime, 0), 0.1)
         defer {

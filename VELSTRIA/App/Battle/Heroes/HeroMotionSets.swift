@@ -180,7 +180,8 @@ enum HeroMotionSets {
         "H027": make(["thrust", "sword_slash_r", "sword_upward"], idle: "ready_idle", death: "death_forward", weaponGrip: held),
         // 光刃の長剣（Assassin・近接の連斬り）
         "H028": make(["sword_slash_r", "sword_combo_2", "sword_combo2_b"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer"),
-        // 聖槌 + 円盾（Support・近接の片手振り。盾は左手に構えたまま）
+        // 聖槌 + 円盾（Support・近接の片手振り。盾は左手に構えたまま）。通常攻撃は全身のモーション（HeroSkillMotions の
+        // Motion_H029.attacks）が先なので、ここの攻撃のクリップは使わない（待機・死亡・勝利だけ使う）
         "H029": make(["sword_combo_1", "axe_chop"], idle: "combat_idle"),
         // 星砲（Ranger・遠隔の両手持ち）
         "H030": make(["gun_fire"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer", weaponGrip: held),
@@ -192,7 +193,7 @@ enum HeroMotionSets {
         // 魔狩りの大剣（Assassin・近接の片手の連斬り。アルーカードは巨大な剣を片手で振る）。左手を柄へ添える両手の振り
         // （overhead_2h・sword_upward）や左手も大きく動く溜め斬り（sword_charged）ではなく、右手で振る剣のクリップ
         "H033": make(["sword_slash_r", "sword_combo_3", "sword_slash_l2"], idle: "combat_idle", death: "death_forward"),
-        // 鎖鉤（Support・近接の振り回し）
+        // 鎖鉤（Support・近接の振り回し）。通常攻撃は全身のモーション（Motion_H034.attacks）が先なので、ここの攻撃のクリップは使わない
         "H034": make(["axe_chop", "sword_slash_r", "sword_combo_1"], idle: "combat_idle"),
     ]
 }
