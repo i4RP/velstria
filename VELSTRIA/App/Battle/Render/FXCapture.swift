@@ -447,7 +447,12 @@ final class FXCapture {
         // 敵の英雄（英雄にだけ撃てるスキルの的）は、出た所（遠くの泉）に戻して人間の操作扱いにする（入力が無いので動かない。画に入らない）
         let team = s.units[me].team
         if let hi = s.units.firstIndex(where: { $0.kind == .hero && $0.team != team }) {
-            if foeHome == nil { foeHome = s.units[hi].pos }
+            if foeHome == nil {
+                // 出た所が撮る場所から 6 m 以内（練習場では自分の近くに出る）なら、人形から 8 m ほど離して画と鉤の通り道から外す
+                let p = s.units[hi].pos
+                let near = p.distance(to: s.units[me].pos) < 600 || p.distance(to: s.units[fi].pos) < 600
+                foeHome = near ? s.units[fi].pos + Vec2(900, -400) : p
+            }
             let home = foeHome ?? s.units[hi].pos
             s.units[hi].pos = home
             s.units[hi].prevPos = home
