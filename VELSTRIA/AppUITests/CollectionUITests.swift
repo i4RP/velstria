@@ -265,14 +265,17 @@ final class CollectionUITests: XCTestCase {
 
     func testSpellLoadoutAssignment() {
         let app = launch(route: "spells")
-        let ignite = element(app, "spell_BS07")
-        XCTAssertTrue(ignite.waitForExistence(timeout: 10))
-        element(app, "spell_slot_0").tap()
-        ignite.tap()
-        element(app, "spells_scope_H006").tap()
+        // バトルスキルは 1 枠（BattleSkillPicker）。新規のアカウント Lv1 では瞬歩（BS01）だけ装備できる
+        let blink = element(app, "spell_BS01")
+        XCTAssertTrue(blink.waitForExistence(timeout: 10))
         element(app, "spell_BS05").tap()
-        XCTAssertTrue(element(app, "spells_reset_hero").waitForExistence(timeout: 5))
-        snapshot(app, "spells_hero_override")
+        XCTAssertFalse(element(app, "battle_skill_confirm").isEnabled, "未解放のスキルは装備できない")
+        snapshot(app, "spells_locked")
+        blink.tap()
+        let confirm = element(app, "battle_skill_confirm")
+        XCTAssertTrue(confirm.isEnabled)
+        confirm.tap()
+        snapshot(app, "spells_equipped")
     }
 
     func testStoreScreensOpen() {
@@ -318,8 +321,10 @@ final class CollectionUITests: XCTestCase {
     func testEnglishInventoryAndCosmetics() {
         let app = launch(route: "inventory", language: "en")
         XCTAssertTrue(element(app, "inventory_tab_emote").waitForExistence(timeout: 10))
-        element(app, "inventory_tab_heroSkin").tap()
-        snapshot(app, "inventory_skins_empty_en")
+        // スキンは出しているヒーローの分が無い間はタブを出さない（空のスキンストアへ案内しない）
+        XCTAssertFalse(element(app, "inventory_tab_heroSkin").exists)
+        element(app, "inventory_tab_recall").tap()
+        snapshot(app, "inventory_recall_empty_en")
         element(app, "inventory_customize").tap()
         XCTAssertTrue(element(app, "cosmetics_type_Recall").waitForExistence(timeout: 5))
         element(app, "cosmetics_type_Recall").tap()

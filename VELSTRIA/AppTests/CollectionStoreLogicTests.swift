@@ -22,6 +22,8 @@ final class CollectionStoreLogicTests: XCTestCase {
         XCTAssertEqual(StoreCatalog.items(in: .heroes, master: master).count, 0, "全員が全ヒーローを使えるので解放は売らない")
         XCTAssertTrue(StoreCatalog.items(in: .gems, master: master).isEmpty)
         XCTAssertEqual(StoreCatalog.bundles(master: master).count, 18)
+        // 商品の無いスキン（とヒーロー解放）はストアのホームに出さない
+        XCTAssertEqual(StoreCatalog.homeCategories(master: master), [.effects, .emotes, .frames, .gems])
         for c in StoreCategory.allCases {
             XCTAssertFalse(c.title.isEmpty)
             XCTAssertFalse(c.subtitle.isEmpty)

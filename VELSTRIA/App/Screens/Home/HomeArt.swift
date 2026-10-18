@@ -1,9 +1,9 @@
 import SwiftUI
 import UIKit
 
-// 担当: home-showcase。ホーム画面のラスターアートの読み込み（Assets.xcassets の HeroSplash / HeroSplashMatte / HomeBackdrop）。
-// 生成元は tools/portraits/splash.py（ヒーローアートと人物マスク）と tools/portraits/home_backdrop.md（背景）。
-// どれも無ければ nil を返し、呼び出し側は描き下ろしのポートレート（PortraitArt）や手続きの背景で代用する。
+// 担当: home-showcase。ホーム中央のヒーローアートの読み込み（Assets.xcassets の HeroSplash / HeroSplashMatte）。
+// 生成元は tools/portraits/splash.py（ヒーローアートと人物マスク）。背景の HomeBackdrop は HomeView が Image で直接読む
+// （生成の手順は tools/portraits/home_backdrop.md）。無ければ nil を返し、呼び出し側は描き下ろしのポートレート（PortraitArt）で代用する。
 
 enum HomeArt {
     @MainActor private static var cache: [String: UIImage?] = [:]
@@ -21,18 +21,6 @@ enum HomeArt {
             return image("HeroSplashMatte/\(skinID)")
         }
         return image("HeroSplashMatte/\(heroID)")
-    }
-
-    /// 戦場の背景。
-    @MainActor static var backdrop: UIImage? { image("HomeBackdrop") }
-
-    /// 手続きの背景で闘技場の床に使う石畳（ステージの素材を流用）。
-    @MainActor static var floorTile: UIImage? {
-        let key = "StageTile_paving"
-        if let hit = cache[key] { return hit }
-        let img = Bundle.main.url(forResource: key, withExtension: "jpg").flatMap { UIImage(contentsOfFile: $0.path) }
-        cache[key] = img
-        return img
     }
 
     @MainActor private static func image(_ name: String) -> UIImage? {

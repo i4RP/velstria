@@ -346,10 +346,26 @@ struct RecordsView: View {
                     summaryStrip(list)
                     FlowTabBar(items: [
                         .init(tab: Filter.all, title: L("すべて", "All"), symbol: "square.grid.2x2", identifier: "records_filter_all"),
-                        .init(tab: Filter.standard, title: L("通常", "Standard"), symbol: "person.3.fill", identifier: "records_filter_standard"),
+                        .init(tab: Filter.standard, title: L("クラシック", "Classic"), symbol: "person.3.fill", identifier: "records_filter_standard"),
                         .init(tab: Filter.ranked, title: L("ランク", "Ranked"), symbol: "crown.fill", identifier: "records_filter_ranked"),
                         .init(tab: Filter.other, title: L("その他", "Other"), symbol: "ellipsis.circle", identifier: "records_filter_other"),
                     ], selection: $filter)
+                    // リプレイ一覧は戦績から開く（ホームには入口を置かない）
+                    Button {
+                        FlowFX.tap(app)
+                        app.router.push(.replays)
+                    } label: {
+                        Label(L("リプレイ", "Replays"), systemImage: "play.rectangle.fill")
+                            .font(Theme.heading(12))
+                            .foregroundStyle(Theme.textPrimary)
+                            .lineLimit(1)
+                            .padding(.horizontal, 10)
+                            .frame(minHeight: 44)
+                            .glass(cornerRadius: 12)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("records_replays")
                 }
                 if list.isEmpty {
                     FlowEmptyState(symbol: "list.bullet.rectangle", title: L("戦績はまだありません", "No matches yet"),
