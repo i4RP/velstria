@@ -3,9 +3,8 @@ import Foundation
 extension MapDefinition {
     /// Player timings: spawn→mid 22→18 s, mid→side wall 20→16 s.
     /// 0.81 is the compromise between 18/22 and 16/20; keep gameplay stats fixed.
-    /// 2026-10-16: 壁（岩）・川・キャンプ・草むらはユーザーのマップ設計図（60×60 マス）から起こした形
-    /// （MapSanctumTerrain.swift・MapSanctumBushGrid.swift、tools/map_proto/blueprint_terrain.mjs）。旧: MLBB のミニマップ原本。
-    /// 草むらは細かい格子（BushMask.sanctum）を地図と同じ倍率で縮めて入れる（docs/DESIGN.md §2.1）。
+    /// 2026-10-19: 添付26画面から起こした壁・川・キャンプ・草むらを既定にする。
+    /// 反対側は180度回転。草むらの描画・隠蔽判定は共通の16.2cm格子。
     static func makeCompactRelayout() -> MapDefinition {
         var copy = standard
         let k = 0.81
@@ -15,17 +14,8 @@ extension MapDefinition {
         copy.lanePaths = copy.lanePaths.map { $0.map { $0 * k } }
         for i in copy.towers.indices { copy.towers[i].pos *= k }
         copy.riverWidth *= k
-        copy.obstacles = sanctumObstacles(scale: k)
-        copy.river = Obstacle.smoothPolygon(sanctumRiverSpline.map { $0 * k },
-                                            tolerance: sanctumRiverTolerance, maxSegment: sanctumRiverMaxSegment)
-        precondition(copy.camps.count == sanctumRelayoutCampPositions.count, "キャンプの数が地形の生成と合わない")
-        for i in copy.camps.indices { copy.camps[i].pos = sanctumRelayoutCampPositions[i] }
-        for camp in copy.camps where camp.kind == .astralWyrm || camp.kind == .ancientColossus {
-            copy.obstacles.append(.polygon(BossPitGeometry.wall(center: camp.pos, lower: camp.pos.y < copy.size / 2)))
-        }
-        // 岩壁上の苔は装飾。追加した巣の壁の内側にも隠蔽セルを作らない。
-        copy.applySanctumBushes(scale: k)
-        // 2026-10-17: 添付画像の配置で上書き。ボスとその周辺は上の地形を保持。
+        for i in copy.camps.indices { copy.camps[i].pos *= k }
+        // All October 19 views define the default terrain, including boss surroundings.
         copy.applyReferenceLayout()
         return copy
     }

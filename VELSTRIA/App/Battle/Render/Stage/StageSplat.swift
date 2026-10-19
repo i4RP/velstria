@@ -92,7 +92,8 @@ enum StageSplat {
                 if map.size != MapDefinition.relayout.size {
                     pave.stampDisc(p, inner: 2.8, outer: 3.9, wobble: 0.3, seed: 47)
                 }
-            case .blueSentinel, .redSentinel: pave.stampDisc(p, inner: 2.6, outer: 3.2, wobble: 0.3, seed: 53)
+            case .blueSentinel, .redSentinel:
+                if map.size != 9_720 { pave.stampDisc(p, inner: 2.6, outer: 3.2, wobble: 0.3, seed: 53) }
             case .small, .hornLizard, .emberBeetle, .magmaGolem, .treasureCrab, .mossWanderer: break
             }
         }
@@ -113,9 +114,10 @@ enum StageSplat {
             return w
         }
         // 森の下草: 壁際・草むらの下・地図の外・ジャングルの奥のまだら（なだらかなので 1/4 の解像度で求めて拡大）
+        let obstacleGrid = ObstacleGrid(geo: geo)
         forest.fillCoarse(factor: 4) { p in
             var w: Float = 0
-            let dObs = geo.obstacleDistance(p) + (valueNoise(p * 0.45, seed: 67) - 0.5) * 1.4
+            let dObs = obstacleGrid.distance(p, limit: 3.5) + (valueNoise(p * 0.45, seed: 67) - 0.5) * 1.4
             w = max(w, 1 - smoothstep(0.4, 2.8, dObs))
             let out = geo.outsideDistance(p)
             w = max(w, smoothstep(-1.5, 2.5, out))
@@ -127,7 +129,7 @@ enum StageSplat {
                 let patch = smoothstep(0.54, 0.72, fbm(p * 0.06, seed: 71)) * smoothstep(8, 13, dl)
                 w = max(w, patch * 0.55)
             }
-            return w
+            return ruins && map.size == 9_720 && out < -1.5 ? w * 0.22 : w
         }
         var control = [UInt8](repeating: 0, count: n * n * 4)
         for i in 0..<(n * n) {
@@ -143,7 +145,6 @@ enum StageSplat {
         // MARK: 補助マップ
         var aux = [UInt8](repeating: 0, count: na * na * 4)
         let shadeGrid = ShadeGrid(shades: shades)
-        let obstacleGrid = ObstacleGrid(geo: geo)
         for row in 0..<na {
             for col in 0..<na {
                 let p = Field.point(col, row, na)
@@ -152,6 +153,7 @@ enum StageSplat {
                 let dObs = obstacleGrid.distance(ps, limit: 3.5)
                 var ao: Float = (1 - smoothstep(0, 1.6, dObs)) * 0.75 + (1 - smoothstep(0, 3.4, dObs)) * 0.25
                 ao = max(ao, shadeGrid.shade(at: p))
+                if ruins && map.size == 9_720 { ao *= 0.65 }
                 if obstacleGrid.inBrush(p, margin: 0.2) { ao = max(ao, 0.32) }
                 // 地図の外は崖の帯（縁から 1〜7 m）へ向かって暗く（その外は StageLayout.edgeSkirt の暗がり）
                 ao = max(ao, smoothstep(0, 7, geo.outsideDistance(p)))

@@ -148,7 +148,7 @@ inline float caustics(float2 m, float t) {
     if (wGrass > 0.004) {
         cGrass = sampleTile(tex.base_color(), m, kPeriodGrass, dmx, dmy, variation, 0.0, aniso);
         if (ruins) {
-            cGrass *= half3(1.0, 1.05, 0.96);
+            cGrass = saturateColor(cGrass, 0.76h) * half3(0.74, 0.89, 0.94);
         } else {
             cGrass *= half3(0.93, 0.98, 0.86);
             cGrass = saturateColor(cGrass, 0.86h);

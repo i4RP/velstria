@@ -16,6 +16,7 @@ struct StageChunks: Sendable {
     var flora: [Int: StageMeshBuffer] = [:]
     /// The two objective walls share one bounded 1024px atlas, prepared before battle.
     var sanctuaries: [Int: StageMeshBuffer] = [:]
+    var fieldProps: [Int: StageMeshBuffer] = [:]
 
     static let size: Float = 12
     static let origin: Float = -20
@@ -31,6 +32,7 @@ struct StageChunks: Sendable {
         props.values.reduce(0) { $0 + $1.triangleCount } + rocks.values.reduce(0) { $0 + $1.triangleCount }
             + flora.values.reduce(0) { $0 + $1.triangleCount }
             + sanctuaries.values.reduce(0) { $0 + $1.triangleCount }
+            + fieldProps.values.reduce(0) { $0 + $1.triangleCount }
     }
 }
 
@@ -76,6 +78,7 @@ struct StageLayout {
     var rng: RenderRNG
     var out = StageLayoutResult()
     var sanctuaryMesh: StagePropMesh?
+    var fieldProps: [StagePropKind: StagePropMesh] = [:]
     private var propTriangles = 0
 
     init(map: MapDefinition, props: [StagePropKind: StagePropMesh], density: Float, level: GraphicsQuality) {
@@ -90,9 +93,11 @@ struct StageLayout {
 
     /// lite: UI テスト用（StagePrep.lite）。地図の外の崖と森を省き、描画の負荷を下げる。
     static func build(map: MapDefinition, props: [StagePropKind: StagePropMesh], density: Float,
-                      level: GraphicsQuality, lite: Bool = false, sanctuary: StagePropMesh? = nil) -> StageLayoutResult {
+                      level: GraphicsQuality, lite: Bool = false, sanctuary: StagePropMesh? = nil,
+                      fieldProps: [StagePropKind: StagePropMesh] = [:]) -> StageLayoutResult {
         var l = StageLayout(map: map, props: props, density: density, level: level)
         l.sanctuaryMesh = sanctuary
+        l.fieldProps = fieldProps
         // 泉の台座は試合の目印なので、装飾の三角形の予算で省かれないよう最初に置く
         l.fountains()
         l.walls()
@@ -130,7 +135,7 @@ struct StageLayout {
 
     // MARK: 小物の配置
 
-    private mutating func admitProp(_ mesh: StagePropMesh) -> Bool {
+    mutating func admitProp(_ mesh: StagePropMesh) -> Bool {
         let triangles = mesh.indices.count / 3
         guard triangles <= BattleWorkBudget.stagePropTriangles(level) - propTriangles else { return false }
         propTriangles += triangles
@@ -591,7 +596,7 @@ struct StageLayout {
                     pitRuins(center: c)
                 }
             case .blueSentinel, .redSentinel:
-                runeDisc(center: c, radius: 2.5, rotation: Float(camp.id) * 0.7)
+                if map.size != 9_720 { runeDisc(center: c, radius: 2.5, rotation: Float(camp.id) * 0.7) }
             case .small, .hornLizard, .emberBeetle, .magmaGolem, .treasureCrab, .mossWanderer:
                 break
             }
@@ -915,7 +920,7 @@ struct StageLayout {
     func brushClump(_ buf: inout StageMeshBuffer, rng: inout RenderRNG, at p: SIMD2<Float>,
                     lean: SIMD2<Float>, distant: Bool = false) {
         let yaw = rng.range(0, .pi)
-        let h = rng.range(1.22, 1.48)
+        let h = rng.range(1.02, 1.22)
         let tile = Int(rng.range(0, 4))
         let tint = rng.range(0.94, 1.04)
         let count = distant ? 2 : 3

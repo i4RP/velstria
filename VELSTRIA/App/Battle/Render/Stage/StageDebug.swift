@@ -15,6 +15,26 @@ import VelstriaCore
 
 enum StageDebug {
     #if DEBUG
+    /// Review views use the shipping lens, with a stable hero for scale comparison.
+    private static let initialReferenceView: StageReferenceLayout.View? = {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-stageShot"), i + 1 < args.count else { return nil }
+        return StageReferenceLayout.views.first { $0.name == args[i + 1] }
+    }()
+    private nonisolated(unsafe) static var reviewName = ""
+    private nonisolated(unsafe) static var reviewReadAt: CFTimeInterval = 0
+    static var referenceView: StageReferenceLayout.View? {
+        guard ProcessInfo.processInfo.arguments.contains("-stageReview") else { return initialReferenceView }
+        let now = CACurrentMediaTime()
+        if now - reviewReadAt > 0.25 {
+            reviewReadAt = now
+            let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("stage-review.txt")
+            reviewName = ((try? String(contentsOf: url, encoding: .utf8)) ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return StageReferenceLayout.views.first { $0.name == reviewName } ?? initialReferenceView
+    }
     static let spots: [SIMD2<Float>] = [
         [16, 18],   // 青の拠点
         [14, 60],   // 上レーン
@@ -28,6 +48,7 @@ enum StageDebug {
 
     private static let fixedArgs: [Float]? = {
         let args = ProcessInfo.processInfo.arguments
+        if let view = referenceView { return [Float(view.focus.x / 100), Float(view.focus.y / 100), 1] }
         if args.contains("-stageLayoutReference") { return [61.03907433, 64.19554158, 17.629678531] }
         guard let i = args.firstIndex(of: "-stageCam"), i + 1 < args.count else { return nil }
         let v = args[i + 1].split(separator: ",").compactMap { Float($0) }
@@ -40,6 +61,14 @@ enum StageDebug {
 
     static func applyLayoutReference(to frame: inout RenderFrame) {
         if ProcessInfo.processInfo.arguments.contains("-stageLayoutReference") { frame.viewerTeam = nil }
+        if let view = referenceView {
+            frame.viewerTeam = nil
+            if let hero = frame.state.units.indices.first(where: { frame.state.units[$0].kind == .hero }) {
+                frame.state.units[hero].pos = view.hero
+                frame.state.units[hero].prevPos = view.hero
+                frame.state.units[hero].facing = .pi / 2
+            }
+        }
     }
 
     static let tour = ProcessInfo.processInfo.arguments.contains("-stageTour")
@@ -66,6 +95,7 @@ enum StageDebug {
 
     /// カメラの注視点（world の x, z）。指定が無ければ nil。
     static var cameraTarget: SIMD2<Float>? {
+        if let view = referenceView { return SIMD2(Float(view.focus.x / 100), -Float(view.focus.y / 100)) }
         if let fixed { return SIMD2(fixed.x, -fixed.y) }
         guard tour else { return nil }
         let k = Int((CACurrentMediaTime() - start) / 6) % spots.count

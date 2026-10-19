@@ -105,18 +105,18 @@ final class CameraRig {
         if let i = args.firstIndex(of: "-stagePitch"), i + 1 < args.count,
            let pitch = Float(args[i + 1]), (30...75).contains(pitch) { return pitch }
         #endif
-        return 56
+        return StageReferenceLayout.pitchDegrees
     }()
     nonisolated static let fovDegrees: Float = {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-stageLayoutReference") { return 13.86622334 }
         #endif
-        return 48
+        return StageReferenceLayout.verticalFOV
     }()
     /// cameraZoom = 1 のときの注視点までの距離（m）。
-    nonisolated static let baseDistance: Float = 10.0
+    nonisolated static let baseDistance: Float = StageReferenceLayout.cameraDistance
     /// 通常の追従はヒーローを画面中央に置く。
-    nonisolated static let focusLead: Float = 0
+    nonisolated static let focusLead: Float = StageReferenceLayout.cameraLead
     /// プレイヤーの倍率（設定 0.8〜1.3 + 余裕）。
     nonisolated static let playerZoomRange: ClosedRange<Double> = 0.7...1.4
     /// 観戦者の倍率（ピンチ・自動カメラの framing）。2.5 で地図のおよそ半分が映る。

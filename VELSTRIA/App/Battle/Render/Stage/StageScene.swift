@@ -31,6 +31,7 @@ final class StageScene {
         var brush: CustomMaterial
         var rune: PhysicallyBasedMaterial
         var sanctuary: CustomMaterial?
+        var field: CustomMaterial?
     }
 
     init?(plan: StagePlan) {
@@ -62,6 +63,13 @@ final class StageScene {
                 AssetLedger.record(.mesh, "sanctuary chunk")
                 AssetLedger.record(.entity, "sanctuary chunk")
                 add(chunks.sanctuaries[key], name: "stageSanctuary_\(key)", material: material)
+            }
+        }
+        if let material = materials.field {
+            for key in chunks.fieldProps.keys.sorted() {
+                AssetLedger.record(.mesh, "field prop chunk")
+                AssetLedger.record(.entity, "field prop chunk")
+                add(chunks.fieldProps[key], name: "stageField_\(key)", material: material)
             }
         }
         for (i, buf) in plan.layout.brushes.enumerated() {
@@ -212,7 +220,17 @@ final class StageScene {
                 AssetLedger.record(.texture, "sanctuary atlas 1024x1024")
                 AssetLedger.record(.material, "sanctuary stone")
             }
-            return Materials(ground: ground, rock: rock, prop: prop, flora: flora, brush: brush, rune: runeMat, sanctuary: sanctuary)
+            var field: CustomMaterial?
+            if let image = a.fieldAtlas, let texture = color(image) {
+                var material = try CustomMaterial(surfaceShader: .init(named: "stagePropSurface", in: lib), lightingModel: .lit)
+                material.baseColor = .init(texture: .init(texture))
+                material.custom.value = SIMD4(0, ruins, 0, 0)
+                field = material
+                AssetLedger.record(.texture, "field atlas 2048x1024")
+                AssetLedger.record(.material, "field stone and roots")
+            }
+            return Materials(ground: ground, rock: rock, prop: prop, flora: flora, brush: brush, rune: runeMat,
+                             sanctuary: sanctuary, field: field)
         } catch {
             return nil
         }

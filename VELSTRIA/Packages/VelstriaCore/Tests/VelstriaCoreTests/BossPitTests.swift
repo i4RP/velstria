@@ -85,9 +85,9 @@ final class BossPitTests: XCTestCase {
             XCTAssertFalse(map.brushes.contains { map.brush($0.id, contains: back) })
         }
         let upper = BossPitGeometry.wall(center: .zero, lower: false)
-        let lower = BossPitGeometry.wall(center: .zero, lower: true).reversed()
+        let lower = BossPitGeometry.wall(center: .zero, lower: true)
         for (a, b) in zip(upper, lower) {
-            XCTAssertEqual(a.x, b.x, accuracy: 0.001)
+            XCTAssertEqual(a.x, -b.x, accuracy: 0.001)
             XCTAssertEqual(a.y, -b.y, accuracy: 0.001)
         }
     }

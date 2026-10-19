@@ -12,20 +12,16 @@ final class MapRelayoutTests: XCTestCase {
         XCTAssertEqual(map.validationIssues(), [])
         XCTAssertEqual(old.towers.count, map.towers.count)
         XCTAssertEqual(old.camps.map(\.id), map.camps.map(\.id))
-        // 壁は2026-10-17の添付画像の輪郭。ボス周辺は別担当の既存地形を保持する。
-        // 参照半面 + 点対称 + ボス周辺の壁。通常の壁は反時計回り。
-        XCTAssertEqual(map.obstacles.count,
-                       StageReferenceLayout.walls.count * 2 + map.obstacles.filter {
-                           StageReferenceLayout.protected($0.bounds.center, map: map)
-                       }.count)
-        for o in map.obstacles where !StageReferenceLayout.protected(o.bounds.center, map: map) {
+        // Surveyed half, its rotation, and the two sanctuaries.
+        XCTAssertEqual(map.obstacles.count, StageReferenceLayout.walls.count * 2 + 2)
+        for o in map.obstacles.prefix(StageReferenceLayout.walls.count * 2) {
             guard case .polygon(let v) = o else { return XCTFail("壁が多角形でない: \(o)") }
             XCTAssertGreaterThan(Spline.signedArea(v), 0)
             // 1 mm の精度で細かく分けている（弦は 50 以下）
             for (a, b) in zip(v, v.dropFirst() + v.prefix(1)) { XCTAssertLessThanOrEqual(a.distance(to: b), 50.01) }
         }
         // 点対称（relayout の一辺で写す）
-        for o in map.obstacles where !StageReferenceLayout.protected(o.bounds.center, map: map) {
+        for o in map.obstacles.prefix(StageReferenceLayout.walls.count * 2) {
             let c = o.bounds.center, m = Vec2(map.size - c.x, map.size - c.y)
             XCTAssertTrue(map.obstacles.contains { $0.bounds.center.distance(to: m) < 1 }, "no mirror for wall at \(c)")
         }

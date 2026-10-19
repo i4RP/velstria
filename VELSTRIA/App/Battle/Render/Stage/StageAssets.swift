@@ -33,6 +33,12 @@ enum StagePropKind: String, CaseIterable, Sendable {
     /// 新セットだけ: 泉（出撃地点）の遺跡の台座。歩ける所に置く飾りなので、硬い物の配置（placements）には入れない。
     case spawnDais = "spawn_dais"
     case sanctuary
+    case rootWall = "root_wall"
+    case campCrescent = "camp_crescent"
+    case campGate = "camp_gate"
+    case riverWall = "river_wall"
+
+    static let fieldKinds: [StagePropKind] = [.rootWall, .campCrescent, .campGate, .riverWall]
 
     /// 風で揺れるか（木・茂み）。
     var isFoliage: Bool { self == .treeRound || self == .treeTall || self == .bush }
@@ -76,6 +82,8 @@ final class StageAssets: @unchecked Sendable {
     let shaderURL: URL
     var sanctuary: StagePropMesh?
     var sanctuaryAtlas: CGImage?
+    var fieldProps: [StagePropKind: StagePropMesh] = [:]
+    var fieldAtlas: CGImage?
 
     private init(set: StageArtSet, props: [StagePropKind: StagePropMesh], atlas: CGImage, tiles: [StageTile: CGImage],
                  rune: CGImage, shaderURL: URL) {
@@ -125,6 +133,16 @@ final class StageAssets: @unchecked Sendable {
             tiles[t] = img
         }
         let assets = StageAssets(set: set, props: props, atlas: atlas, tiles: tiles, rune: rune, shaderURL: shaderURL)
+        if set == .ruins,
+           let url = bundle.url(forResource: "StageFieldProps", withExtension: "bin"),
+           let data = try? Data(contentsOf: url),
+           let meshes = parseProps(data, kinds: StagePropKind.fieldKinds),
+           meshes.values.allSatisfy({ $0.indices.count / 3 <= 6000 }),
+           let texture = image(bundle, "StageFieldAtlas", "jpg"),
+           texture.width <= 2048, texture.height <= 1024 {
+            assets.fieldProps = meshes
+            assets.fieldAtlas = texture
+        }
         if set == .ruins,
            let url = bundle.url(forResource: "StageSanctuary", withExtension: "bin"),
            let data = try? Data(contentsOf: url),

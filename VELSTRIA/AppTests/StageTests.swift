@@ -164,7 +164,7 @@ final class StageTests: XCTestCase {
         let preset = RenderQuality.preset(q)
         let a = try assets(set)
         return StageLayout.build(map: .relayout, props: a.props, density: preset.decorationDensity, level: q,
-                                 sanctuary: a.sanctuary)
+                                 sanctuary: a.sanctuary, fieldProps: a.fieldProps)
     }
 
     func testTripoSanctuaryBudgetAndReflection() throws {
@@ -190,6 +190,24 @@ final class StageTests: XCTestCase {
                 XCTAssertGreaterThanOrEqual(simd_dot(face, normal), -0.01)
             }
         }
+    }
+
+    func testReferenceFieldAssetsFitExistingBudgets() throws {
+        let a = try assets()
+        XCTAssertEqual(Set(a.fieldProps.keys), Set(StagePropKind.fieldKinds))
+        let texture = try XCTUnwrap(a.fieldAtlas)
+        XCTAssertLessThanOrEqual(texture.width, 2048)
+        XCTAssertLessThanOrEqual(texture.height, 1024)
+        for mesh in a.fieldProps.values {
+            XCTAssertLessThanOrEqual(mesh.indices.count / 3, 6000)
+            XCTAssertEqual(mesh.boundsMin.y, 0, accuracy: 0.001)
+            XCTAssertTrue(mesh.indices.allSatisfy { Int($0) < mesh.positions.count })
+            XCTAssertTrue(mesh.positions.allSatisfy { $0.x.isFinite && $0.y.isFinite && $0.z.isFinite })
+        }
+        let result = try layout(.low)
+        XCTAssertFalse(result.chunks.fieldProps.isEmpty)
+        XCTAssertLessThanOrEqual(result.chunks.triangleCount, 900_000)
+        XCTAssertTrue(try assets(.legacy).fieldProps.isEmpty)
     }
 
     /// 壁の足跡からのはみ出し（m）。矩形は L∞（角の立った足跡）、円・多角形はユークリッド距離。内側は 0。

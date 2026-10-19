@@ -11,12 +11,12 @@ extension StageLayout {
             let flip: Float = lower ? -1 : 1
             for i in source.positions.indices {
                 let p = source.positions[i], n = source.normals[i]
-                _ = mesh.addVertex([c.x + p.x, p.y, -c.y + p.z * flip],
-                                   [n.x, n.y, n.z * flip], source.uvs[i], stageColor(0.36, 0.43, 0.43, 0))
+                _ = mesh.addVertex([c.x + p.x * flip, p.y, -c.y + p.z * flip],
+                                   [n.x * flip, n.y, n.z * flip], source.uvs[i], stageColor(0.36, 0.43, 0.43, 0))
             }
             for i in stride(from: 0, to: source.indices.count, by: 3) {
                 let a = source.indices[i], b = source.indices[i + 1], d = source.indices[i + 2]
-                mesh.addTriangle(a, lower ? d : b, lower ? b : d)
+                mesh.addTriangle(a, b, d)
             }
             let key = StageChunks.key(world(c))
             var chunk = out.chunks.sanctuaries[key] ?? StageMeshBuffer()
@@ -27,7 +27,7 @@ extension StageLayout {
         let n = BossPitGeometry.segments
         let start = Float(BossPitGeometry.startAngle), sweep = Float(BossPitGeometry.sweep)
         let flip: Float = lower ? -1 : 1
-        func p(_ a: Float, _ r: Float) -> SIMD2<Float> { c + SIMD2(cos(a), sin(a) * flip) * r }
+        func p(_ a: Float, _ r: Float) -> SIMD2<Float> { c + SIMD2(cos(a), sin(a)) * (r * flip) }
         func height(_ a: Float) -> Float {
             0.62 + 1.1 * smoothstep(-0.7, 0.8, sin(a))
         }
@@ -44,17 +44,13 @@ extension StageLayout {
                 let vertices = [world(p(a, r0), height(a) * h0), world(p(b, r0), height(b) * h0),
                                 world(p(b, r1), height(b) * h1), world(p(a, r1), height(a) * h1)]
                 var normal = simd_normalize(simd_cross(vertices[1] - vertices[0], vertices[2] - vertices[0]))
-                if lower { normal = -normal }
+                
                 let brightness: Float = j >= 4 && j <= 6 ? 1.25 : (j == 1 ? 0.7 : 1)
                 let variation: Float = 1 + sin(Float(k * 7)) * 0.035
                 let stone = stageColor(0.14 * brightness * variation, 0.22 * brightness * variation,
                                        0.20 * brightness * variation, 0)
                 let ids = vertices.map { mesh.addVertex($0, normal, .zero, stone) }
-                if lower {
-                    mesh.addTriangle(ids[0], ids[2], ids[1]); mesh.addTriangle(ids[0], ids[3], ids[2])
-                } else {
-                    mesh.addTriangle(ids[0], ids[1], ids[2]); mesh.addTriangle(ids[0], ids[2], ids[3])
-                }
+                mesh.addTriangle(ids[0], ids[1], ids[2]); mesh.addTriangle(ids[0], ids[2], ids[3])
             }
             // Thin aged bronze coping, not a complete floor circle.
             let top = (height(a) + height(b)) * 0.5
@@ -88,8 +84,8 @@ extension StageLayout {
         // Rear fountain crest and narrow blue water channel.
         let crest: Float = 2.10
         let at = p(crest, 3.75)
-        let tangent = SIMD2<Float>(-sin(crest), cos(crest) * flip)
-        let radial = SIMD2<Float>(cos(crest), sin(crest) * flip)
+        let tangent = SIMD2<Float>(-sin(crest), cos(crest)) * flip
+        let radial = SIMD2<Float>(cos(crest), sin(crest)) * flip
         let front = at - radial * Float(0.25)
         let rear = at + radial * Float(0.25)
         let wide = tangent * Float(0.61), narrow = tangent * Float(0.48)
