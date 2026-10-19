@@ -113,9 +113,11 @@
         172.13664596273293
       ],
       "hero": [
-        30.88456844720497,
-        14.609471552795032
-      ]
+        31.34793964,
+        19.92525237
+      ],
+      "zoom": 1.3244902941,
+      "note": "Airborne reference: separate distance fitted against 11 shared features in IMG_6723; median residual 0.0302m."
     },
     "IMG_6699": {
       "minimap": [

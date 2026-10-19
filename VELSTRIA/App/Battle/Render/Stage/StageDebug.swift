@@ -4,12 +4,14 @@ import VelstriaCore
 
 // 担当: battle-renderer（ステージ）。見た目確認用の起動引数（DEBUG のみ。出荷ビルドには含めない）。
 //   -stageLayoutReference        2026-10-17参照画像の俯角・画角・注視点で固定撮影
+//   -stageShot IMG_6713          2026-10-19の各画像を通常のレンズで比較撮影
+//   -stageReview                Documents/stage-review.txtの画像名で撮影地点を切り替える
 //   -stageCam <x>,<y>[,<zoom>]   カメラを地図座標（m）の位置に固定する（例: -stageCam 37,83）
 //   -stageTour                   カメラを名所（拠点・レーン・川・ボスの巣・ジャングル）へ 6 秒ごとに順に動かす
 //   -stageFull                   -uiTesting でもステージを間引かない（StagePrep.lite を参照）
 //   -stageSilent                 撮影中はオーディオエンジンを起動しない（シミュレータの音声 I/O に依存しない）
 //   -stageClean                  HUD を非表示（頭上バーは残す）
-//   -stagePitch <30...75>        比較撮影の俯角（従来の 48°・10 m のまま角度だけ変える。既定のゲームカメラは MLBB の組 42.9°）
+//   -stagePitch <30...75>        比較撮影の俯角（旧48°画角・距離10mの角度だけ変える。通常プレイは参照ステージの組）
 //   -stagePitReference           カメラに近い巣にタートルとヒーローを描画だけ配置する
 //   -legacyStage                 2026-10-05 の旧ステージ素材で描く（StageArtSet.legacy。新旧の見比べ用）
 
@@ -57,7 +59,10 @@ enum StageDebug {
     private static var fixed: SIMD2<Float>? { fixedArgs.map { SIMD2($0[0], $0[1]) } }
 
     /// -stageCam の 3 つ目の値（ズーム）。
-    static var cameraZoom: Double? { fixedArgs.flatMap { $0.count >= 3 ? Double($0[2]) : nil } }
+    static var cameraZoom: Double? {
+        if let view = referenceView { return Double(view.zoom) }
+        return fixedArgs.flatMap { $0.count >= 3 ? Double($0[2]) : nil }
+    }
 
     static func applyLayoutReference(to frame: inout RenderFrame) {
         if ProcessInfo.processInfo.arguments.contains("-stageLayoutReference") { frame.viewerTeam = nil }

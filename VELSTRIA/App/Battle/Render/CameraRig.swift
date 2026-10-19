@@ -3,7 +3,7 @@ import RealityKit
 import simd
 import VelstriaCore
 
-// 担当: battle-renderer。見下ろしカメラ（透視 ~48°、俯角 56°、回転なし）。
+// 担当: battle-renderer。参照ステージ共通の透視カメラ（俯角46.12°、縦画角32.37°、回転なし）。
 // 注視点を臨界減衰バネで追従（自由視点だけ地図内にクランプ）。大きな出来事で小さく揺らす（トラウマ方式）。
 // 観戦（BattleWorld が CameraDrive で指示する）:
 // - 倍率の範囲が広い（spectatorZoomRange。地図の余白は広げた分だけ内側へ寄せ、地図の外の虚空を見せない）
@@ -109,7 +109,7 @@ final class CameraRig {
 
     /// 2026-10-17 までのカメラ。
     nonisolated static let legacyPreset = Preset(pitch: 56, fov: 48, distance: 10.0, lead: 0)
-    /// MLBB の画面収録から解いた組（docs/vfx/CAMERA.md）。2026-10-17 から既定。寸法が既知の地面の輪で確かめた（c・縮尺は一致、遠近の q は推定）。
+    /// 2026-10-17の画面収録から解いた比較用の組（docs/vfx/CAMERA.md）。
     nonisolated static let mlbbPreset = Preset(pitch: 42.9, fov: 30.1, distance: 15.9, lead: 0.91)
     /// 2026-10-19の全26画面に共通する既定のレンズ。
     nonisolated static let fieldPreset = Preset(pitch: StageReferenceLayout.pitchDegrees,

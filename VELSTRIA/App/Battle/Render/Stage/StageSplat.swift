@@ -93,7 +93,9 @@ enum StageSplat {
                     pave.stampDisc(p, inner: 2.8, outer: 3.9, wobble: 0.3, seed: 47)
                 }
             case .blueSentinel, .redSentinel:
-                if map.size != 9_720 { pave.stampDisc(p, inner: 2.6, outer: 3.2, wobble: 0.3, seed: 53) }
+                if map.size != 9_720 || c.kind == .blueSentinel {
+                    pave.stampDisc(p, inner: 2.6, outer: 3.2, wobble: 0.5, seed: 53)
+                }
             case .small, .hornLizard, .emberBeetle, .magmaGolem, .treasureCrab, .mossWanderer: break
             }
         }
@@ -107,9 +109,28 @@ enum StageSplat {
         // 川（祭壇の床では途切れる）
         let pits = map.camps.filter { $0.kind == .astralWyrm || $0.kind == .ancientColossus }.map { geo.m($0.pos) }
         let halfWidth = Float(map.riverWidth / 100) / 2
+        // Outer riverbank traced in IMG_6720. A capsule leaves an erroneous strip
+        // of water between the crab approach and the east lane; clip the whole bank.
+        let crabBank: [SIMD2<Float>] = [
+            [60,20.5],[63.78,20.535],[67.222,20.120],[70.430,20.418],
+            [73.670,21.532],[75.975,23.833],[77.871,27.516],[78.978,29.945],[82,34],[97.2,34]
+        ]
+        func outerRiverWeight(_ p: SIMD2<Float>) -> Float {
+            let q = p.x < 37.2 ? SIMD2<Float>(97.2-p.x,97.2-p.y) : p
+            guard q.x > crabBank[0].x else { return 1 }
+            for i in 1..<crabBank.count where q.x <= crabBank[i].x {
+                let a=crabBank[i-1],b=crabBank[i]
+                let y=a.y+(b.y-a.y)*(q.x-a.x)/(b.x-a.x)
+                return smoothstep(y-0.4,y+0.4,q.y)
+            }
+            return 0
+        }
         river.fillDiagonalBand(sum: geo.mapMeters, halfWidth: max(halfWidth, geo.riverReach) + 1.2) { p in
             let d = geo.riverDistance(p) + (valueNoise(p * 0.35, seed: 61) - 0.5) * 0.9
             var w = 1 - smoothstep(halfWidth - 0.6, halfWidth + 0.5, d)
+            if ruins && map.size == 9_720 {
+                w *= outerRiverWeight(p)
+            }
             for c in pits { w = max(w, 1 - smoothstep(3.0, 4.5, simd_distance(p, c))) }
             return w
         }

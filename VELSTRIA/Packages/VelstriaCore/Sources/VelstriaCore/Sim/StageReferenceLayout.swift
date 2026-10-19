@@ -22,9 +22,11 @@ public enum StageReferenceLayout {
         [Vec2(5595.113, 1924.299), Vec2(5603.668, 2050.823), Vec2(5664.812, 2149.526), Vec2(5769.539, 2201.650), Vec2(5901.749, 2212.873), Vec2(6035.089, 2160.339), Vec2(6154.821, 2063.408), Vec2(6231.790, 1968.261), Vec2(6262.040, 1915.232), Vec2(6235.133, 1866.492), Vec2(6161.279, 1912.975), Vec2(6064.878, 1989.618), Vec2(5966.157, 2011.327), Vec2(5870.179, 1982.460), Vec2(5816.365, 1890.627), Vec2(5744.903, 1840.684), Vec2(5664.304, 1840.684)],
         [Vec2(6688.672, 1503.716), Vec2(6801.198, 1565.121), Vec2(6914.173, 1623.789), Vec2(6982.734, 1733.374), Vec2(7029.356, 1832.888), Vec2(7108.705, 1903.520), Vec2(7216.454, 1903.520), Vec2(7325.955, 1860.646), Vec2(7411.801, 1790.542), Vec2(7499.987, 1729.782), Vec2(7566.602, 1667.009), Vec2(7578.152, 1585.368), Vec2(7508.959, 1519.836), Vec2(7415.884, 1483.560), Vec2(7276.757, 1456.833), Vec2(7074.436, 1454.060), Vec2(6880.273, 1455.445), Vec2(6738.978, 1468.000)],
         [Vec2(4702.380, 4122.676), Vec2(4731.841, 4164.542), Vec2(4791.776, 4120.102), Vec2(4890.139, 4011.450), Vec2(4975.144, 3915.537), Vec2(5044.306, 3859.614), Vec2(5128.787, 3780.242), Vec2(5199.698, 3702.142), Vec2(5244.914, 3671.242), Vec2(5310.557, 3667.661), Vec2(5357.646, 3623.834), Vec2(5381.265, 3573.428), Vec2(5353.155, 3545.866), Vec2(5309.278, 3558.749), Vec2(5243.029, 3610.166), Vec2(5194.417, 3669.450), Vec2(5138.984, 3730.113), Vec2(5059.901, 3790.130), Vec2(4977.957, 3840.831), Vec2(4891.599, 3915.537), Vec2(4797.099, 4004.357)],
-        [Vec2(5343.114, 4648.433), Vec2(5389.626, 4674.316), Vec2(5474.587, 4612.159), Vec2(5566.033, 4498.000), Vec2(5654.513, 4429.484), Vec2(5733.880, 4370.054), Vec2(5809.687, 4327.734), Vec2(5909.911, 4277.940), Vec2(5983.501, 4196.796), Vec2(6016.515, 4109.852), Vec2(5979.675, 4064.669), Vec2(5931.867, 4087.070), Vec2(5870.201, 4175.210), Vec2(5787.965, 4207.715), Vec2(5689.633, 4283.710), Vec2(5583.807, 4354.800), Vec2(5483.436, 4471.536), Vec2(5391.453, 4548.868)]
+        [Vec2(5343.114, 4648.433), Vec2(5389.626, 4674.316), Vec2(5474.587, 4612.159), Vec2(5566.033, 4498.000), Vec2(5654.513, 4429.484), Vec2(5733.880, 4370.054), Vec2(5809.687, 4327.734), Vec2(5909.911, 4277.940), Vec2(5983.501, 4196.796), Vec2(6016.515, 4109.852), Vec2(5979.675, 4064.669), Vec2(5931.867, 4087.070), Vec2(5870.201, 4175.210), Vec2(5787.965, 4207.715), Vec2(5689.633, 4283.710), Vec2(5583.807, 4354.800), Vec2(5483.436, 4471.536), Vec2(5391.453, 4548.868)],
+        [Vec2(3219.362, 1678.932), Vec2(3185.343, 1789.893), Vec2(3202.011, 1905.934), Vec2(3307.723, 1947.190), Vec2(3456.129, 1918.816), Vec2(3574.231, 1825.346), Vec2(3630.702, 1702.080), Vec2(3635.223, 1597.395), Vec2(3595.975, 1526.142), Vec2(3512.248, 1494.467), Vec2(3407.699, 1506.420), Vec2(3304.752, 1560.382)],
+        [Vec2(2485.624, 1999.172), Vec2(2535.654, 2032.944), Vec2(2609.493, 1941.709), Vec2(2680.672, 1793.043), Vec2(2776.155, 1650.897), Vec2(2885.128, 1533.627), Vec2(2957.979, 1429.232), Vec2(2974.538, 1382.651), Vec2(2903.688, 1382.651), Vec2(2854.720, 1448.327), Vec2(2768.234, 1527.502), Vec2(2686.326, 1631.038), Vec2(2608.767, 1747.301), Vec2(2547.675, 1868.172)]
     ]
-    public static let wallKinds: [String] = ["camp_crescent", "root_wall", "root_wall", "root_wall", "root_wall", "root_wall", "root_wall", "root_wall", "camp_gate", "root_wall", "root_wall", "camp_crescent", "root_wall", "river_wall", "river_wall"]
+    public static let wallKinds: [String] = ["camp_crescent", "root_wall", "root_wall", "root_wall", "root_wall", "root_wall", "root_wall", "root_wall", "camp_gate", "root_wall", "root_wall", "camp_crescent", "root_wall", "river_wall", "river_wall", "root_wall", "river_wall"]
     public static let bushNames = ["azure_front", "azure_east", "west_inner", "lizard_front", "north_river_entry", "north_river_lip", "north_river_island", "golem_river", "east_lane_curve", "beetle_east", "ember_front", "south_inner", "mid_river_crossing"]
     public static let bushOutlines: [[Vec2]] = [
         [Vec2(2483.085, 4173.412), Vec2(2515.824, 4220.938), Vec2(2591.709, 4235.965), Vec2(2674.364, 4215.353), Vec2(2739.736, 4160.948), Vec2(2737.468, 4092.271), Vec2(2669.255, 4051.431), Vec2(2578.162, 4041.855), Vec2(2510.505, 4072.476)],
@@ -46,6 +48,8 @@ public enum StageReferenceLayout {
     public static let walkableSamples: [Vec2] = [Vec2(4860, 4860), Vec2(4400, 3800)]
     static let river = [Vec2(300.000, 8600.000), Vec2(1000.000, 8100.000), Vec2(1700.000, 7300.000), Vec2(2200.000, 6500.000), Vec2(2700.000, 5900.000), Vec2(3400.000, 5500.000), Vec2(4200.000, 4800.000), Vec2(4900.000, 4300.000), Vec2(5400.000, 3600.000), Vec2(5900.000, 3000.000), Vec2(6500.000, 2500.000), Vec2(7300.000, 2000.000), Vec2(8100.000, 1100.000), Vec2(8600.000, 300.000), Vec2(9420.000, 1120.000), Vec2(8720.000, 1620.000), Vec2(8020.000, 2420.000), Vec2(7520.000, 3220.000), Vec2(7020.000, 3820.000), Vec2(6320.000, 4220.000), Vec2(5520.000, 4920.000), Vec2(4820.000, 5420.000), Vec2(4320.000, 6120.000), Vec2(3820.000, 6720.000), Vec2(3220.000, 7220.000), Vec2(2420.000, 7720.000), Vec2(1620.000, 8620.000), Vec2(1120.000, 9420.000)]
     static let northBoss = Vec2(3000.000, 6680.000)
+    static let blueCore = Vec2(1012.500, 1012.500)
+    static let blueMidApproach: [Vec2] = [Vec2(1800.000, 1840.000), Vec2(3800.000, 3840.000)]
     static let blueCamps: [(CampKind, Vec2)] = [
         (.blueSentinel, Vec2(2726.274, 4312.101)),
         (.redSentinel, Vec2(4423.780, 1941.613)),
@@ -67,35 +71,36 @@ public enum StageReferenceLayout {
     public struct View: Sendable {
         public let name: String
         public let hero: Vec2
+        public let zoom: Float
         public var focus: Vec2 { hero + Vec2(0, Double(StageReferenceLayout.cameraLead) * 100) }
     }
     public static let views: [View] = [
-        View(name: "IMG_6685", hero: Vec2(3067.952, 4562.478)),
-        View(name: "IMG_6686", hero: Vec2(2758.302, 4206.917)),
-        View(name: "IMG_6687", hero: Vec2(3909.660, 1851.218)),
-        View(name: "IMG_6688", hero: Vec2(4564.774, 2843.379)),
-        View(name: "IMG_6689", hero: Vec2(5542.289, 3823.972)),
-        View(name: "IMG_6693", hero: Vec2(5650.664, 1610.486)),
-        View(name: "IMG_6694", hero: Vec2(1968.150, 5596.040)),
-        View(name: "IMG_6695", hero: Vec2(5449.445, 1722.233)),
-        View(name: "IMG_6696", hero: Vec2(4599.914, 2803.944)),
-        View(name: "IMG_6697", hero: Vec2(7280.892, 2343.912)),
-        View(name: "IMG_6698", hero: Vec2(3088.457, 1460.947)),
-        View(name: "IMG_6699", hero: Vec2(4382.823, 2339.694)),
-        View(name: "IMG_6700", hero: Vec2(4717.360, 2592.913)),
-        View(name: "IMG_6701", hero: Vec2(4476.043, 2224.142)),
-        View(name: "IMG_6712", hero: Vec2(2946.616, 6376.356)),
-        View(name: "IMG_6713", hero: Vec2(2757.035, 4327.934)),
-        View(name: "IMG_6714", hero: Vec2(1836.372, 3543.552)),
-        View(name: "IMG_6715", hero: Vec2(1513.392, 5020.032)),
-        View(name: "IMG_6716", hero: Vec2(2030.713, 6141.474)),
-        View(name: "IMG_6717", hero: Vec2(2759.172, 5665.992)),
-        View(name: "IMG_6718", hero: Vec2(3543.552, 6173.532)),
-        View(name: "IMG_6719", hero: Vec2(5211.813, 2959.673)),
-        View(name: "IMG_6720", hero: Vec2(7511.592, 1882.512)),
-        View(name: "IMG_6721", hero: Vec2(6358.092, 1790.232)),
-        View(name: "IMG_6722", hero: Vec2(4459.224, 1722.947)),
-        View(name: "IMG_6723", hero: Vec2(3666.343, 2403.235))
+        View(name: "IMG_6685", hero: Vec2(3067.952, 4562.478), zoom: 1),
+        View(name: "IMG_6686", hero: Vec2(2758.302, 4206.917), zoom: 1),
+        View(name: "IMG_6687", hero: Vec2(3909.660, 1851.218), zoom: 1),
+        View(name: "IMG_6688", hero: Vec2(4564.774, 2843.379), zoom: 1),
+        View(name: "IMG_6689", hero: Vec2(5542.289, 3823.972), zoom: 1),
+        View(name: "IMG_6693", hero: Vec2(5650.664, 1610.486), zoom: 1),
+        View(name: "IMG_6694", hero: Vec2(1968.150, 5596.040), zoom: 1),
+        View(name: "IMG_6695", hero: Vec2(5449.445, 1722.233), zoom: 1),
+        View(name: "IMG_6696", hero: Vec2(4599.914, 2803.944), zoom: 1),
+        View(name: "IMG_6697", hero: Vec2(7280.892, 2343.912), zoom: 1),
+        View(name: "IMG_6698", hero: Vec2(3134.794, 1992.525), zoom: 1.3244902941),
+        View(name: "IMG_6699", hero: Vec2(4382.823, 2339.694), zoom: 1),
+        View(name: "IMG_6700", hero: Vec2(4717.360, 2592.913), zoom: 1),
+        View(name: "IMG_6701", hero: Vec2(4476.043, 2224.142), zoom: 1),
+        View(name: "IMG_6712", hero: Vec2(2946.616, 6376.356), zoom: 1),
+        View(name: "IMG_6713", hero: Vec2(2757.035, 4327.934), zoom: 1),
+        View(name: "IMG_6714", hero: Vec2(1836.372, 3543.552), zoom: 1),
+        View(name: "IMG_6715", hero: Vec2(1513.392, 5020.032), zoom: 1),
+        View(name: "IMG_6716", hero: Vec2(2030.713, 6141.474), zoom: 1),
+        View(name: "IMG_6717", hero: Vec2(2759.172, 5665.992), zoom: 1),
+        View(name: "IMG_6718", hero: Vec2(3543.552, 6173.532), zoom: 1),
+        View(name: "IMG_6719", hero: Vec2(5211.813, 2959.673), zoom: 1),
+        View(name: "IMG_6720", hero: Vec2(7511.592, 1882.512), zoom: 1),
+        View(name: "IMG_6721", hero: Vec2(6358.092, 1790.232), zoom: 1),
+        View(name: "IMG_6722", hero: Vec2(4459.224, 1722.947), zoom: 1),
+        View(name: "IMG_6723", hero: Vec2(3666.343, 2403.235), zoom: 1)
     ]
     static let mask = BushMask(cell: 16.2, cols: 600, rows: 600, runLengthBase64: """
         AJ/SAwsIAM0ECxEAxAQLFgDBBAsYAL4ECxwAuwQLHwC4BAsjALUECyQAswQLJQCzBAsmAFcKAQDbAwslAFYKBwDWAwsmAFMKCgBGCQEAjwMLCwAHCxIAVAoM
@@ -135,6 +140,15 @@ extension MapDefinition {
     mutating func applyReferenceLayout() {
         let edge = size
         let mirror: (Vec2) -> Vec2 = { Vec2(edge - $0.x, edge - $0.y) }
+        cores = [StageReferenceLayout.blueCore, mirror(StageReferenceLayout.blueCore)]
+        for i in towers.indices where towers[i].isCore { towers[i].pos = core(towers[i].team) }
+        for i in lanePaths.indices {
+            lanePaths[i][0] = cores[0]
+            lanePaths[i][lanePaths[i].count - 1] = cores[1]
+        }
+        let approach = StageReferenceLayout.blueMidApproach
+        lanePaths[Lane.mid.rawValue] = [cores[0]] + approach + [Vec2(edge/2,edge/2)]
+            + approach.reversed().map(mirror) + [cores[1]]
         let outlines = StageReferenceLayout.walls + StageReferenceLayout.walls.map { $0.map(mirror) }
         obstacles = outlines.map { Obstacle.smoothPolygon($0, tolerance: 0.1, maxSegment: 50) }
         river = Obstacle.smoothPolygon(StageReferenceLayout.river, tolerance: 2, maxSegment: 120)

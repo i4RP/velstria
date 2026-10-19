@@ -596,7 +596,9 @@ struct StageLayout {
                     pitRuins(center: c)
                 }
             case .blueSentinel, .redSentinel:
-                if map.size != 9_720 { runeDisc(center: c, radius: 2.5, rotation: Float(camp.id) * 0.7) }
+                if map.size != 9_720 || !ruinsLook {
+                    runeDisc(center: c, radius: 2.5, rotation: Float(camp.id) * 0.7)
+                }
             case .small, .hornLizard, .emberBeetle, .magmaGolem, .treasureCrab, .mossWanderer:
                 break
             }
@@ -920,7 +922,7 @@ struct StageLayout {
     func brushClump(_ buf: inout StageMeshBuffer, rng: inout RenderRNG, at p: SIMD2<Float>,
                     lean: SIMD2<Float>, distant: Bool = false) {
         let yaw = rng.range(0, .pi)
-        let h = rng.range(1.02, 1.22)
+        let h = rng.range(1.18, 1.40)
         let tile = Int(rng.range(0, 4))
         let tint = rng.range(0.94, 1.04)
         let count = distant ? 2 : 3
@@ -936,7 +938,7 @@ struct StageLayout {
                 let center = SIMD3<Float>(p.x, -0.03 + h * t, -p.y) + offset + face * (0.065 * t * t)
                 for edge in 0...1 {
                     let u = Float(edge)
-                    let pos = center + side * ((u - 0.5) * 1.06)
+                    let pos = center + side * ((u - 0.5) * 0.82)
                     let uv = SIMD2<Float>((Float((tile + card) % 4) + 0.015 + u * 0.97) / 4, 0.015 + t * 0.97)
                     buf.addVertex(pos, simd_normalize(face + SIMD3<Float>(0, 0.65, 0)), uv,
                                   stageColor(tint * 0.5, tint * 0.5, tint * 0.5, t * t))

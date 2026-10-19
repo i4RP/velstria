@@ -231,12 +231,13 @@ inline float caustics(float2 m, float t) {
     if (wRiver > 0.004) {
         float d = float(aux.b);                      // 0 = 岸、1 = 中央
         float wet = smoothstep(0.15, 0.55, wRiver);  // 水に覆われている度合い
-        // 色は線形値（sRGB で浅瀬 (60,150,150)、深み (25,85,105) 相当）
-        half3 shallow = ruins ? half3(0.025, 0.095, 0.09) : half3(0.03, 0.20, 0.22);
-        half3 deep = ruins ? half3(0.012, 0.045, 0.052) : half3(0.008, 0.07, 0.12);
+        // 参照の川は青灰色の浅瀬。中央でも川底の石を残す（色は線形値）。
+        half3 shallow = ruins ? half3(0.055, 0.13, 0.13) : half3(0.03, 0.20, 0.22);
+        half3 deep = ruins ? half3(0.03, 0.08, 0.10) : half3(0.008, 0.07, 0.12);
         half3 water = mix(shallow, deep, half(smoothstep(0.0, 1.0, d)));
-        half3 under = color * half3(0.40, 0.62, 0.68) * half(mix(0.85, 0.3, d));
-        half3 surf = mix(under, water, half(0.55 + 0.4 * d));
+        half3 under = color * (ruins ? half3(0.50, 0.72, 0.78) : half3(0.40, 0.62, 0.68))
+            * half(ruins ? mix(1.0, 0.8, d) : mix(0.85, 0.3, d));
+        half3 surf = mix(under, water, half(ruins ? 0.52 + 0.18 * d : 0.55 + 0.4 * d));
         // 浅瀬のコースティクス
         float caus = caustics(m, t * cp.y) * (1.0 - d) * (ruins ? 0.012 : 0.10);
         surf += half3(0.55, 0.85, 0.8) * half(caus);

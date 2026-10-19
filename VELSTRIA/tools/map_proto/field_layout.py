@@ -11,8 +11,9 @@ poses=json.loads((HERE/'field_camera.json').read_text())['frames']; cam=data['ca
 p=math.radians(cam['pitch']);f=315/math.tan(math.radians(cam['verticalFOV'])/2);d=cam['distance']
 def world(view, pixel):
     x,y=poses['IMG_'+view]['hero'];y+=cam['lead'];u,v=pixel
-    dy=(315-v)*d/(f*math.sin(p)-(315-v)*math.cos(p))
-    return [x+(u-684)*(d+dy*math.cos(p))/f,y+dy]
+    distance=d*poses['IMG_'+view].get('zoom',1)
+    dy=(315-v)*distance/(f*math.sin(p)-(315-v)*math.cos(p))
+    return [x+(u-684)*(distance+dy*math.cos(p))/f,y+dy]
 def vec(pt): return 'Vec2(%.3f, %.3f)'%(pt[0]*100,pt[1]*100)
 def polygon(points): return '['+', '.join(map(vec,points))+']'
 def mini(pt):
@@ -58,6 +59,8 @@ public enum StageReferenceLayout {
     public static let walkableSamples: [Vec2] = [Vec2(4860, 4860), Vec2(4400, 3800)]
     static let river = '''+polygon(river)+'''
     static let northBoss = '''+vec(data['bossCenter'])+'''
+    static let blueCore = '''+vec(data['blueCore'])+'''
+    static let blueMidApproach: [Vec2] = '''+polygon(data['blueMidApproach'])+'''
     static let blueCamps: [(CampKind, Vec2)] = [
 '''+',\n'.join(campRows)+'''
     ]
@@ -67,10 +70,11 @@ public enum StageReferenceLayout {
     public struct View: Sendable {
         public let name: String
         public let hero: Vec2
+        public let zoom: Float
         public var focus: Vec2 { hero + Vec2(0, Double(StageReferenceLayout.cameraLead) * 100) }
     }
     public static let views: [View] = [
-'''+',\n'.join('        View(name: "'+name+'", hero: '+vec(v['hero'])+')' for name,v in poses.items())+'''
+'''+',\n'.join('        View(name: "'+name+'", hero: '+vec(v['hero'])+', zoom: '+str(v.get('zoom',1))+')' for name,v in poses.items())+'''
     ]
     static let mask = BushMask(cell: 16.2, cols: 600, rows: 600, runLengthBase64: """
 '''+ '\n'.join('        '+rle[i:i+120] for i in range(0,len(rle),120))+'''
@@ -81,6 +85,15 @@ extension MapDefinition {
     mutating func applyReferenceLayout() {
         let edge = size
         let mirror: (Vec2) -> Vec2 = { Vec2(edge - $0.x, edge - $0.y) }
+        cores = [StageReferenceLayout.blueCore, mirror(StageReferenceLayout.blueCore)]
+        for i in towers.indices where towers[i].isCore { towers[i].pos = core(towers[i].team) }
+        for i in lanePaths.indices {
+            lanePaths[i][0] = cores[0]
+            lanePaths[i][lanePaths[i].count - 1] = cores[1]
+        }
+        let approach = StageReferenceLayout.blueMidApproach
+        lanePaths[Lane.mid.rawValue] = [cores[0]] + approach + [Vec2(edge/2,edge/2)]
+            + approach.reversed().map(mirror) + [cores[1]]
         let outlines = StageReferenceLayout.walls + StageReferenceLayout.walls.map { $0.map(mirror) }
         obstacles = outlines.map { Obstacle.smoothPolygon($0, tolerance: 0.1, maxSegment: 50) }
         river = Obstacle.smoothPolygon(StageReferenceLayout.river, tolerance: 2, maxSegment: 120)

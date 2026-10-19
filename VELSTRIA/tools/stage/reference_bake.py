@@ -32,6 +32,13 @@ for tile,(name,budget,dimensions) in enumerate(SPECS):
     source=np.load(folder/'mesh.npz'); loops=source['tri_loops'].reshape(-1)
     pos=source['co'][source['corner_vert'][loops]].copy();norm=source['corner_normal'][loops].copy()
     uv=source['corner_uv'][loops].copy()
+    # Tripo's long ground axis is not guaranteed to be X (these exports use ~Y).
+    # Orient the footprint before fitting dimensions; otherwise a thin parapet is
+    # stretched across its thickness and becomes a row of spikes in the game.
+    _,axes=np.linalg.eigh(np.cov(pos[:,:2].T));axis=axes[:,-1]
+    if axis[0]<0:axis=-axis
+    rotation=np.column_stack([axis,[-axis[1],axis[0]]])
+    pos[:,:2]=pos[:,:2]@rotation;norm[:,:2]=norm[:,:2]@rotation
     lo,hi=pos.min(0),pos.max(0);pos[:,:2]-=(lo[:2]+hi[:2])/2;pos[:,2]-=lo[2]
     # GLB->Blender conversion gives Z up, with the image-facing side at -Y.
     # Normalize only once; placement rotations are explicit in the shared layout.

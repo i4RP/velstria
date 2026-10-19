@@ -53,6 +53,74 @@ extension StageLayout {
         }
         let span = hi-lo, mid = (lo+hi)/2
         let sx = span.x / source.size.x, sz = span.y / source.size.z
+        let camp = kind == .campCrescent || kind == .campGate
+        let pivot = (controls.reduce(SIMD2<Float>(repeating: .greatestFiniteMagnitude), simd_min)
+                   + controls.reduce(SIMD2<Float>(repeating: -.greatestFiniteMagnitude), simd_max)) / 2
+        func cross(_ a: SIMD2<Float>, _ b: SIMD2<Float>) -> Float { a.x*b.y-a.y*b.x }
+        func arc(_ angles: [Float]) -> (Float, Float) {
+            let a = angles.map { $0 < 0 ? $0 + 2 * .pi : $0 }.sorted()
+            var start = a[0], length: Float = 2 * .pi, gap: Float = -1
+            for i in a.indices {
+                let next = i+1 < a.count ? a[i+1] : a[0]+2 * .pi
+                if next-a[i] > gap { gap=next-a[i];start=next;length=2 * .pi-gap }
+            }
+            return (start,length)
+        }
+        let sourceArc = arc(source.positions.filter { $0.y < source.size.y * 0.65 }.map { atan2(-$0.z,$0.x) })
+        let targetArc = arc(controls.map { atan2($0.y-pivot.y,$0.x-pivot.x) })
+        func progress(_ angle: Float, _ range: (Float, Float)) -> Float {
+            var a = angle
+            while a < range.0 { a += 2 * .pi }
+            while a >= range.0 + 2 * .pi { a -= 2 * .pi }
+            if a > range.0 + range.1 && a-range.0 > (range.1+2 * .pi)/2 { a -= 2 * .pi }
+            return min(0.995,max(0.005,(a-range.0)/max(0.01,range.1)))
+        }
+        var radii = [(Float,Float)](repeating:(.greatestFiniteMagnitude,0),count:64)
+        if camp {
+            for p in source.positions {
+                let bin = min(63,Int(progress(atan2(-p.z,p.x),sourceArc)*64))
+                let r = hypot(p.x,p.z)
+                radii[bin].0=min(radii[bin].0,r);radii[bin].1=max(radii[bin].1,r)
+            }
+        }
+        let oriented = outline.map { q -> SIMD2<Float> in
+            let d=q-center;return SIMD2(simd_dot(d,axis),simd_dot(d,side))
+        }
+        func fitted(_ p: SIMD3<Float>) -> (SIMD2<Float>,Float) {
+            if camp {
+                let sa=atan2(-p.z,p.x),u=progress(sa,sourceArc)
+                let ta=targetArc.0+targetArc.1*u,dir=SIMD2<Float>(cos(ta),sin(ta))
+                var hits: [Float] = []
+                for j in outline.indices {
+                    let a=outline[j]-pivot,ab=outline[(j+1)%outline.count]-outline[j]
+                    let den=cross(dir,ab)
+                    if abs(den)<0.000001 { continue }
+                    let r=cross(a,ab)/den,t=cross(a,dir)/den
+                    if r>=0 && t>=0 && t<=1 { hits.append(r) }
+                }
+                if let far=hits.max() {
+                    let near=hits.count>1 ? hits.min()! : 0
+                    let bin=min(63,Int(u*64));var rlo=Float.greatestFiniteMagnitude,rhi:Float=0
+                    for k in max(0,bin-2)...min(63,bin+2) { rlo=min(rlo,radii[k].0);rhi=max(rhi,radii[k].1) }
+                    let v=min(1,max(0,(hypot(p.x,p.z)-rlo)/max(0.05,rhi-rlo)))
+                    return (pivot+dir*(near+(far-near)*v),ta-sa)
+                }
+            } else {
+                // Follow the measured bank curve without collapsing a straight model onto its edges.
+                let x=min(hi.x-0.002,max(lo.x+0.002,p.x*sx+mid.x))
+                var cuts: [Float] = []
+                for j in oriented.indices {
+                    let a=oriented[j],b=oriented[(j+1)%oriented.count]
+                    guard (a.x<=x && b.x>x) || (b.x<=x && a.x>x) else { continue }
+                    cuts.append(a.y+(b.y-a.y)*(x-a.x)/(b.x-a.x))
+                }
+                if let lower=cuts.min(),let upper=cuts.max() {
+                    let v=min(1,max(0,0.5-p.z/source.size.z))
+                    return (center+axis*x+side*(lower+(upper-lower)*v),angle)
+                }
+            }
+            return (center+axis*(p.x*sx+mid.x)+side*(-p.z*sz+mid.y),angle)
+        }
         func constrain(_ q: SIMD2<Float>) -> SIMD2<Float> {
             guard polygonDistance(q, outline) > 0 else { return q }
             var nearest = q, best = Float.greatestFiniteMagnitude
@@ -66,12 +134,13 @@ extension StageLayout {
         }
         var mesh = StageMeshBuffer()
         var ground: [SIMD2<Float>] = []
-        let heightScale: Float = kind == .campCrescent ? 1.42 : (kind == .rootWall ? 1.25 : 1)
+        let heightScale: Float = kind == .campCrescent ? 1.6 : (kind == .rootWall ? 1.6 : (kind == .riverWall ? 1.25 : 1.1))
         for i in source.positions.indices {
             let p = source.positions[i], n = source.normals[i]
-            let q = constrain(center + axis * (p.x*sx+mid.x) + side * (-p.z*sz+mid.y))
-            let normal = simd_normalize(SIMD3<Float>(axis.x*n.x/sx-side.x*n.z/sz,n.y/heightScale,
-                                                    -axis.y*n.x/sx+side.y*n.z/sz))
+            let (fit,yaw) = fitted(p), q = constrain(fit)
+            let ax=SIMD2<Float>(cos(yaw),sin(yaw)),sy=SIMD2<Float>(-sin(yaw),cos(yaw))
+            let normal = simd_normalize(SIMD3<Float>(ax.x*n.x/sx-sy.x*n.z/sz,n.y/heightScale,
+                                                    -ax.y*n.x/sx+sy.y*n.z/sz))
             ground.append(q)
             mesh.addVertex(world(q,p.y * heightScale),normal,source.uvs[i],stageColor(0.43,0.47,0.46,0))
         }

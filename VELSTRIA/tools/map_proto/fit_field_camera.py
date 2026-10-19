@@ -39,4 +39,18 @@ par=fit.x;error=np.linalg.norm(offsets(ma,par)+par[3:].reshape(-1,2)[ii]-offsets
 print('camera pitch,fov,distance',par[:3], 'ground median error(m)',np.median(error), 'samples',len(ma))
 result=dict(camera=par[:3].tolist(),groundResidualMedianMeters=float(np.median(error)),groundCorrespondences=len(ma),
             frames={name:{'minimap':m.tolist(),'hero':c.tolist()} for name,m,c in zip(data['files'],mini,par[3:].reshape(-1,2))})
+# IMG_6698 is airborne and visibly zoomed out. Fit its distance from the same
+# stones in IMG_6723; the minimap marks the flying hero, not the ground focus.
+outlier=data['files'].index('IMG_6698');anchor=data['files'].index('IMG_6723')
+for match in data['matches']:
+    if {match['i'],match['j']}!={outlier,anchor}:continue
+    a=match['a'] if match['i']==outlier else match['b']
+    b=match['b'] if match['i']==outlier else match['a']
+    target=offsets(b,par)+result['frames']['IMG_6723']['hero']
+    def outlier_error(v):return (offsets(a,[par[0],par[1],v[2]])+v[:2]-target).ravel()
+    lens=least_squares(outlier_error,[33,22,23],loss='soft_l1',f_scale=.15,
+                       bounds=([20,5,10],[50,35,40])).x
+    result['frames']['IMG_6698']['hero']=lens[:2].tolist()
+    result['frames']['IMG_6698']['zoom']=float(lens[2]/par[2])
+    result['frames']['IMG_6698']['note']='Airborne reference; distance fitted from shared stones in IMG_6723.'
 (work/'camera-fit.json').write_text(json.dumps(result,indent=2)+'\n')

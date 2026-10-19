@@ -45,9 +45,10 @@ final class BushMaskTests: XCTestCase {
         XCTAssertEqual(m.bushes(overlappingCircle: Vec2(.nan, 0), radius: 100), [])
     }
 
-    func testMidZBrushesStayConnectedAndMirroredAfterWallCarving() throws {
+    func testReferenceBrushesStayConnectedAndMirroredAfterWallCarving() throws {
         let mask = try XCTUnwrap(MapDefinition.relayout.bushMask)
-        for id in [13, 37] {
+        let half = mask.bushCount / 2
+        for id in 0..<mask.bushCount {
             let value = UInt8(id + 1)
             let start = try XCTUnwrap(mask.cells.firstIndex(of: value))
             var seen: Set<Int> = [start], queue = [start], cursor = 0
@@ -61,9 +62,9 @@ final class BushMaskTests: XCTestCase {
                     if mask.cells[next] == value, seen.insert(next).inserted { queue.append(next) }
                 }
             }
-            XCTAssertEqual(seen.count, mask.cellCount(of: id), "Z の途中に切れ目がある")
+            XCTAssertEqual(seen.count, mask.cellCount(of: id), "bush \(id) の途中に切れ目がある")
             for q in seen {
-                XCTAssertEqual(mask.cells[mask.cells.count - 1 - q], id == 13 ? 38 : 14)
+                XCTAssertEqual(Int(mask.cells[mask.cells.count - 1 - q]), id < half ? id + half + 1 : id - half + 1)
             }
         }
         XCTAssertNil(MapDefinition.relayout.brushIndex(at: Vec2(4860, 4860)), "ミッド中央は開けておく")
@@ -73,9 +74,10 @@ final class BushMaskTests: XCTestCase {
         let map = MapDefinition.relayout
         let m = try! XCTUnwrap(map.bushMask)
         XCTAssertEqual(m.cell, 20 * 0.81, accuracy: 1e-9)
-        XCTAssertEqual(map.brushes.count, 48)
-        XCTAssertEqual(map.brushes.map(\.id), Array(0..<48))
-        XCTAssertEqual(map.brushes.map(\.bush), Array(0..<48))
+        let count = StageReferenceLayout.bushOutlines.count * 2
+        XCTAssertEqual(map.brushes.count, count)
+        XCTAssertEqual(map.brushes.map(\.id), Array(0..<count))
+        XCTAssertEqual(map.brushes.map(\.bush), Array(0..<count))
         XCTAssertEqual(map.validationIssues(), [])
         for k in map.brushes.indices {
             XCTAssertGreaterThan(m.cellCount(of: k), 0, "bush \(k) が壁で消えた")
@@ -109,8 +111,7 @@ final class BushMaskTests: XCTestCase {
     func testDistanceFieldIsZeroInsideAndGrowsOutside() {
         let m = BushMask.sanctum
         let d = m.distanceField()
-        let p = MapDefinition.relayout.brushInteriorPoint(6) / 0.81
-        let q = try! XCTUnwrap(m.index(at: p))
+        let q = try! XCTUnwrap(m.cells.firstIndex(of: 7))
         XCTAssertEqual(d[q], 0)
         // 草むらの外接矩形から 10 セル外は 10 セル前後
         let r = try! XCTUnwrap(m.bounds(of: 6))
@@ -125,7 +126,7 @@ final class BushMaskTests: XCTestCase {
         Kit.setTime(&s, 60)
         Kit.suppressWaves(&s)
         // 構造物から遠いジャングルの草むら（熾甲虫の右）
-        let k = 6
+        let k = StageReferenceLayout.bushNames.firstIndex(of: "beetle_east")!
         let inside = map.brushInteriorPoint(k)
         // 600 離れた草むらの外（方向は草むらの形に合わせて選ぶ）
         let outside = [Vec2(-600, 0), Vec2(600, 0), Vec2(0, -600), Vec2(0, 600)].map { inside + $0 }
