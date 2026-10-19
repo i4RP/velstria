@@ -238,3 +238,132 @@ extension FXMesh {
                sizeEnd: [radius, 1, radius], ease: .outBack, life: life, fadeIn: 0.1, fadeOut: 0.55, spin: spin)
     }
 }
+
+// MARK: - コマ送り・加算・流れる模様（FXSheet / FXBlend / FXFlow）
+// MLBB のスキルの「芯の白い閃光 → 炎・煙の塊 → 欠けながら消える」は、手続きの 1 枚絵の重ねではなくコマ送りの画像で出す。
+// 加算は光る部品（閃光・光の柱・衝撃波の縁・光るひび）だけ。煙・地割れの影・盾面はアルファ合成のまま（暗い・明るい地面で読める）。
+
+extension FXEmit {
+    /// コマ送りの 1 枚もの（爆発・閃光・煙の塊）。count 枚を radius の円盤の中に出す（0 = 一点）。size は m。
+    /// 1 回で消える画像は寿命で 16 コマを流す（最後のコマはほぼ空）。
+    static func sheet(_ s: FXSheet, _ size: Float, _ tint: FXTint = .primary, end: FXTint? = nil, count: Int = 1,
+                      life: Float = 0.5, additive: Bool = true, orient: FXOrient = .billboard, radius: Float = 0) -> FXEmit {
+        FXEmit().with {
+            $0.sheet = s
+            $0.tex = .glow
+            $0.tint = tint
+            $0.tintEnd = end
+            $0.count = count
+            $0.life = life
+            $0.lifeVar = 0.08
+            $0.size = size
+            $0.sizeVar = 0.15
+            $0.grow = 1.12
+            $0.shape = radius > 0 ? .disc(radius) : .point
+            $0.dir = .up
+            $0.speed = 0
+            $0.speedVar = 0
+            $0.orient = orient
+            $0.angleVar = 180
+            $0.fade = s.loops ? .quickFadeInOut : .easeFadeOut
+            $0.additive = additive
+            $0.sheetRandomStart = s.loops
+        }
+    }
+
+    /// 地面に寝かせたコマ送り（衝撃の輪・地割れの広がり・光るひび）。
+    static func groundSheet(_ s: FXSheet, _ size: Float, _ tint: FXTint = .primary, life: Float = 0.6,
+                            additive: Bool = true) -> FXEmit {
+        sheet(s, size, tint, life: life, additive: additive, orient: .ground).with {
+            $0.grow = 1.04
+            $0.sizeVar = 0.05
+        }
+    }
+}
+
+extension FXMesh {
+    /// 加算にする（光る部品だけ。重なるほど明るい）。
+    func glowing() -> FXMesh { with { $0.blend = .add } }
+
+    /// 形の中に流れる模様を付ける（scroll は UV / 秒。弧・帯は x が弧に沿う、柱は y が縦）。
+    func flowing(_ pattern: FXFlowTex = .noise, scroll: SIMD2<Float> = [0, -1], tiling: Float = 2, strength: Float = 0.7,
+                 erosion: Float = 0, edge: FXTint = .core) -> FXMesh {
+        with { $0.flow = FXFlow(pattern: pattern, scroll: scroll, tiling: tiling, strength: strength, erosion: erosion, edge: edge) }
+    }
+
+    /// 寿命の比 from から溶けて消える（模様の暗い所から欠け、縁が edge の色で光る）。
+    func dissolving(from: Float = 0.45, pattern: FXFlowTex = .noise, tiling: Float = 2, edge: FXTint = .core,
+                    width: Float = 0.1) -> FXMesh {
+        with { $0.dissolve = FXDissolve(from: from, pattern: pattern, tiling: tiling, edge: edge, width: width) }
+    }
+
+    /// 画像をコマ送りにする（寿命で全コマ。fps > 0 で一定の速さ）。tex は Program が無い時の 1 枚絵のまま。
+    func animated(_ s: FXSheet, fps: Float = 0) -> FXMesh {
+        with {
+            $0.sheet = s
+            $0.sheetFPS = fps
+        }
+    }
+}
+
+// MARK: - Blender の素材（コマ送りのメッシュ・模型・帯）
+// 粒子のコマ送りは CI のシミュレータに写らない。形の主役（爆炎・閃光・地割れ）はメッシュのコマ送りにして撮影で確かめ、
+// 粒子は火花・残り火・破片の飛び散りに使う。
+
+extension FXMesh {
+    /// カメラを向くコマ送りの板（size = 一辺の m）。色付きのシート（fireball など）は tint を白にすると画像の色のまま。
+    /// 出た瞬間から全部の明るさ（fadeIn 0。手応えのヒットストップで演出の時間が止まっても、最初のコマの閃光が見える）。
+    /// onTop = 3D の上に描く（既定。MLBB の爆炎は英雄の体の上に描かれる）。
+    static func flipbook(_ s: FXSheet, _ size: Float, _ tint: FXTint = .white, life: Float = 0.6, grow: Float = 1.12,
+                         blend: FXBlend = .add, fallback: FXTex = .glow, onTop: Bool = true) -> FXMesh {
+        FXMesh(shape: .billboard, tex: fallback, tint: tint, alpha: 1, size: SIMD3(repeating: size),
+               sizeEnd: SIMD3(repeating: size * grow), ease: .out, life: life, fadeIn: 0, fadeOut: 0.85).with {
+            $0.sheet = s
+            $0.blend = blend
+            $0.onTop = onTop
+        }
+    }
+
+    /// 地面に寝かせたコマ送り（size = 直径）。
+    static func groundFlipbook(_ s: FXSheet, _ size: Float, _ tint: FXTint = .white, life: Float = 0.6, grow: Float = 1.05,
+                               blend: FXBlend = .add, fallback: FXTex = .glow, onTop: Bool = true) -> FXMesh {
+        FXMesh(shape: .disc, tex: fallback, tint: tint, alpha: 1, size: [size, 1, size], sizeEnd: [size * grow, 1, size * grow],
+               ease: .out, life: life, fadeIn: 0, fadeOut: 0.85).with {
+            $0.sheet = s
+            $0.blend = blend
+            $0.onTop = onTop
+        }
+    }
+
+    /// Blender の模型の層（size = 単位の模型の倍率。模型の UV の約束は FXShape）。
+    static func model(_ shape: FXShape, _ tex: FXTex?, _ tint: FXTint = .primary, size: SIMD3<Float>, sizeEnd: SIMD3<Float>? = nil,
+                      life: Float = 0.5, alpha: Float = 1, ease: FXEase = .out) -> FXMesh {
+        FXMesh(shape: shape, tex: tex, tint: tint, alpha: alpha, size: size, sizeEnd: sizeEnd ?? size, ease: ease, life: life,
+               fadeIn: 0.04, fadeOut: 0.45)
+    }
+}
+
+extension FXRibbon {
+    /// 振りの軌跡: 頭が半径 radius の弧を from → to（度）へ duration 秒で掃き、通った所が life 秒で消える（3D の上に描く）。
+    /// roll = 弧の面の傾き（0 = 水平・+ = 左、90 = 前と上の縦の面・+ = 上）。width = 刃の幅（外縁から内へ）。
+    static func swing(radius: Float, from: Float, to: Float, height: Float = 1, roll: Float = 0, duration: Float = 0.18,
+                      life: Float = 0.22, width: Float = 0.6, _ tint: FXTint = .primary, tex: FXTex = .swoosh) -> FXRibbon {
+        FXRibbon(path: .arc(radius: radius, from: from, to: to, height: height, roll: roll), duration: duration, life: life,
+                 width: width, tailWidth: 0.35, upright: true, ease: .out, tex: tex, tint: tint, alpha: 1, blend: .add, flow: nil,
+                 onTop: true)
+    }
+
+    /// 追従の尾（突進・飛ぶ体の後ろ）: duration 秒の間、合図の基準に付いて伸び、life 秒で尾から消える。
+    static func trail(width: Float, life: Float, duration: Float, upright: Bool = true, _ tint: FXTint = .primary,
+                      tex: FXTex = .blade) -> FXRibbon {
+        FXRibbon(path: .follow, duration: duration, life: life, width: width, tailWidth: 0.25, upright: upright, ease: .linear,
+                 tex: tex, tint: tint, alpha: 1, blend: .add, flow: nil)
+    }
+
+    func glowing(_ on: Bool = true) -> FXRibbon { with { $0.blend = on ? .add : .alpha } }
+
+    func flowing(_ pattern: FXFlowTex = .noise, scroll: SIMD2<Float> = [-1.5, 0], tiling: Float = 2, strength: Float = 0.6,
+                 erosion: Float = 0, edge: FXTint = .core) -> FXRibbon {
+        with { $0.flow = FXFlow(pattern: pattern, scroll: scroll, tiling: tiling, strength: strength, erosion: erosion, edge: edge) }
+    }
+}

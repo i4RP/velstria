@@ -33,6 +33,62 @@ enum CreditsCatalog {
         ("Cinzel", "Copyright 2020 The Cinzel Project Authors (https://github.com/NDISCOVER/Cinzel)"),
     ]
 
+    /// 音楽・効果音の素材（すべて CC0 1.0。tools/audio/build_audio.py で加工。出典の表は docs/audio/SOURCES.md）。
+    /// CC0 は帰属表示が要らないが、作者と URL を載せる。素材を足したら build_audio.py の SOURCES と一緒に足す（AppTests の AudioFilesTests）。
+    static let audio: [(title: String, author: String, url: String)] = [
+        ("Interface Sounds", "Kenney", "https://kenney.nl/assets/interface-sounds"),
+        ("Impact Sounds", "Kenney", "https://kenney.nl/assets/impact-sounds"),
+        ("RPG Audio", "Kenney", "https://kenney.nl/assets/rpg-audio"),
+        ("Sci-Fi Sounds", "Kenney", "https://kenney.nl/assets/sci-fi-sounds"),
+        ("Digital Audio", "Kenney", "https://kenney.nl/assets/digital-audio"),
+        ("Music Jingles", "Kenney", "https://kenney.nl/assets/music-jingles"),
+        ("Casino Audio", "Kenney", "https://kenney.nl/assets/casino-audio"),
+        ("A Legend Will Rise", "CodeManu", "https://opengameart.org/content/a-legend-will-rise-orchestral"),
+        ("Fantasy Orchestral Theme", "Joth", "https://opengameart.org/content/fantasy-orchestral-theme"),
+        ("Treasure Hunter", "TAD", "https://opengameart.org/content/treasure-hunter"),
+        ("Once Upon a Time (loop)", "TAD", "https://opengameart.org/content/once-upon-a-time-loop"),
+        ("Battle Theme", "Wolfgang_", "https://opengameart.org/content/battle-theme-0"),
+        ("Final Stand", "iamoneabe", "https://opengameart.org/content/final-stand"),
+        ("Intro Cue", "Vehicle", "https://opengameart.org/content/intro-cue"),
+        ("At Home (orchestral)", "Wolfgang_", "https://opengameart.org/content/at-home-orchestral"),
+    ]
+
+    /// ヒーロー固有の音（tools/audio/skill_sounds_v2.py）に使った Sonniss GDC Game Audio Bundle の素材集（題名（年）・作者）。
+    /// ロイヤリティフリー・商用可・帰属表示は不要（https://sonniss.com/gdc-bundle-license/）。加工した完成品だけを入れる。
+    /// docs/audio/SOURCES.md の「Sonniss GDC」の表と同じ（AppTests の AudioFilesTests で確認）。素材集を足したら一緒に足す。
+    static let sonnissPage = "https://gdc.sonniss.com/"
+    static let sonniss: [(title: String, author: String)] = [
+        ("Low Frequency Elements（GDC 2019）", "344 Audio"),
+        ("Magic Elements vol.1（GDC 2019）", "Articulated Sounds"),
+        ("IMPACT（GDC 2019）", "Baxter Audio"),
+        ("Heavy Metal Impact Sound Effects（GDC 2019）", "BlueZone"),
+        ("Effective Trailer Booms（GDC 2019）", "Federico Soler Fernández"),
+        ("Effective Trailer Hits & Impacts（GDC 2019）", "Federico Soler Fernández"),
+        ("Effective Trailer Whooshes（GDC 2019）", "Federico Soler Fernández"),
+        ("Bodyfall（GDC 2019）", "Red Libraries"),
+        ("Melee（GDC 2019）", "Rock The Speakerbox"),
+        ("Gore（GDC 2019）", "Sound Spark LLC"),
+        ("Magic Spells, Buffs and Attacks（GDC 2019）", "Sound Spark LLC"),
+        ("Metal Hits, Scrapes and Squeaks（GDC 2019）", "Sound Spark LLC"),
+        ("Trailer Instruments Designed（GDC 2020）", "344 Audio"),
+        ("Weapon Sounds - Weapon Swings（GDC 2020）", "David Dumais Audio"),
+        ("Metal Chains（GDC 2020）", "Conor Bradley"),
+        ("Lethal Blow（GDC 2020）", "PMSFX"),
+        ("Hit & Punch（GDC 2020）", "Shapeforms"),
+        ("Impacts, Hits & Whooshes（GDC 2020）", "SmartSoundFX"),
+        ("Flesh, Bones & Gore（GDC 2023）", "344 Audio"),
+        ("Melee Weapons Sound Effects Pack 1（GDC 2023）", "David Dumais Audio"),
+        ("Essentials 04 Chains（GDC 2023）", "InspectorJ"),
+        ("Stone Impact（GDC 2024）", "BluezoneCorp"),
+        ("Haunted Metal Vol.1 - Cinematic Hits & Impacts（GDC 2024）", "Jake Fielding"),
+        ("Melee Weapons（GDC 2024）", "Justsoundeffects"),
+        ("The Metal Hit Sweeteners Library（GDC 2024）", "Pole Position"),
+        ("Cinematic Fight Vol. 1（GDC 2026）", "344 Audio"),
+        ("Elemental Palette Designed Vol. 1（GDC 2026）", "344 Audio"),
+        ("Emotion and Magic（GDC 2026）", "Alexander Kopeikin"),
+        ("Melee Weapons Sound Effects Pack 2（GDC 2026）", "David Dumais Audio"),
+    ]
+
     /// 静的にリンクしているオープンソース（ThirdParty/。MIT License は著作権表示と許諾表示の掲載が条件）。
     /// Effekseer の静的ライブラリ（libEffekseerAll.a）には LLGI（zlib）と stb_image（MIT / パブリックドメインの選択制。MIT を選ぶ）が入っている。
     /// 本文は ThirdParty/Effekseer/LICENSE.txt・docs/legal/licenses/llgi.txt・stb-image.txt と一致させる（AppTests の OnlineSafetyTests で確認）。
@@ -213,6 +269,45 @@ struct CreditsView: View {
                                    "Licensed under the SIL Open Font License, Version 1.1."))
                                 .font(Theme.body(11))
                                 .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+
+                    creditsBlock(L("音楽・効果音", "Music & Sound Effects")) {
+                        VStack(spacing: 6) {
+                            ForEach(CreditsCatalog.audio, id: \.title) { a in
+                                VStack(spacing: 1) {
+                                    Text("\(a.title) — \(a.author)")
+                                        .font(Theme.heading(13))
+                                        .foregroundStyle(Theme.textPrimary)
+                                    Text(a.url)
+                                        .font(Theme.body(10))
+                                        .foregroundStyle(Theme.textSecondary)
+                                        .multilineTextAlignment(.center)
+                                }
+                                .accessibilityElement(children: .combine)
+                            }
+                            Text(L("上の素材は CC0 1.0（パブリックドメイン）のものを加工して使っています。",
+                                   "The assets above are CC0 1.0 (public domain), edited for this app."))
+                                .font(Theme.body(11))
+                                .foregroundStyle(Theme.textSecondary)
+                            Text("Sonniss GDC Game Audio Bundle")
+                                .font(Theme.heading(13))
+                                .foregroundStyle(Theme.textPrimary)
+                                .padding(.top, 6)
+                            ForEach(CreditsCatalog.sonniss, id: \.title) { a in
+                                Text("\(a.title) — \(a.author)")
+                                    .font(Theme.body(11))
+                                    .foregroundStyle(Theme.textPrimary)
+                                    .multilineTextAlignment(.center)
+                            }
+                            Text(CreditsCatalog.sonnissPage)
+                                .font(Theme.body(10))
+                                .foregroundStyle(Theme.textSecondary)
+                            Text(L("ヒーローのスキルの音は、Sonniss GDC Game Audio Bundle（ロイヤリティフリー・商用可）の録音を重ね・加工して作っています。",
+                                   "Hero skill sounds are layered and edited from recordings in the Sonniss GDC Game Audio Bundle (royalty-free)."))
+                                .font(Theme.body(11))
+                                .foregroundStyle(Theme.textSecondary)
+                                .multilineTextAlignment(.center)
                         }
                     }
 

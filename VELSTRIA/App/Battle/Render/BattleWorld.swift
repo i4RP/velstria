@@ -30,6 +30,10 @@ final class BattleWorld {
     var effekseer: EffekseerDirector?
     func attach(effekseer director: EffekseerDirector) {
         effekseer = director
+        // キットのヒーローの段に重ねる Effekseer の効果（FXElement.efk）
+        skillDirector.player.efk.sink = { [weak director] x, p, yaw, follow, offset in
+            director?.playStacked(x, at: p, yaw: yaw, follow: follow, offset: offset)
+        }
         projectiles.suppressedHeroes = director.heroes
         projectiles.skillShotsKept = director.skillOptOutHeroes
         projectiles.attackShotsKept = director.attackOptOutHeroes
@@ -45,6 +49,10 @@ final class BattleWorld {
         return effekseer.handlesSkill(f.state.unit(id)?.hero?.heroID)
     }
     let aim: AimLayer
+    #if DEBUG || TESTER_TOOLS
+    /// 内部ビルドの判定の形の表示（設定・比較撮影で有効にした試合だけ。HitShapeOverlay）。
+    private(set) var hitShapes: HitShapeOverlay?
+    #endif
     /// 霧（プレイヤーは自チームの視界。観戦者は常に作り、視点チームを選んだ時だけ出す）。
     let fog: FogOfWar?
     let ambient: AmbientParticles
@@ -122,6 +130,14 @@ final class BattleWorld {
         root.addChild(skillDirector.player.root)
         aim = AimLayer(materials: materials, meshes: meshes)
         root.addChild(aim.root)
+        #if DEBUG || TESTER_TOOLS
+        if HitShapeOverlay.isRequested {
+            let overlay = HitShapeOverlay(controller: controller)
+            root.addChild(overlay.root)
+            overlay.attach()
+            hitShapes = overlay
+        }
+        #endif
         ambient = AmbientParticles(map: controller.ctx.map, teams: materials.teams, texture: vfx.starTexture,
                                    quality: settings.quality)
         root.addChild(ambient.root)
@@ -245,6 +261,9 @@ final class BattleWorld {
             effekseer?.update(dt: dt, state: frame.state)
             probe.stop(.effekseer, t)
         }
+        #if DEBUG || TESTER_TOOLS
+        hitShapes?.update(dt: dt)
+        #endif
         #if DEBUG
         if let demo = skillDirector.demo {
             let t = time
@@ -264,6 +283,7 @@ final class BattleWorld {
         #else
         let aimShown = controller.aim
         #endif
+        aim.taper = aimTaper(aimShown)
         aim.update(aimShown, origin: aimOrigin, dt: dt)
         // 草むら: 表示中のスキル予告に重なる草むらを半透明に
         map.beginBrushMarks()
@@ -283,6 +303,30 @@ final class BattleWorld {
         t = probe.start()
         flushHealText(dt: dt, frame: frame)
         probe.stop(.text, t)
+    }
+
+    private struct AimTaperKey: Hashable {
+        var heroID: String
+        var slot: SkillSlot
+        var stage: Int
+    }
+
+    /// 照準の帯を台形にする値（キットの fxValues。ヒーロー × スロット × 段ごとに 1 回だけ引く）。
+    private var aimTapers: [AimTaperKey: (near: Float, far: Float)?] = [:]
+
+    private func aimTaper(_ aim: AimIndicator?) -> (near: Float, far: Float)? {
+        guard let aim, case .skill(let slot) = aim.kind, let id = controller.humanHeroID,
+              let hero = controller.state.unit(id)?.hero else { return nil }
+        let key = AimTaperKey(heroID: hero.heroID, slot: slot, stage: HeroKits.activeStage(hero, slot: slot))
+        if let cached = aimTapers[key] { return cached }
+        let values = HeroKits.fxValues(heroID: key.heroID, slot: slot, stage: key.stage)
+        var taper: (near: Float, far: Float)?
+        if let near = values.first(where: { $0.key == "aimNearHalfWidth" }),
+           let far = values.first(where: { $0.key == "aimFarHalfWidth" }) {
+            taper = (Float(near.value / Balance.unitsPerMeter), Float(far.value / Balance.unitsPerMeter))
+        }
+        aimTapers[key] = taper
+        return taper
     }
 
     func updateOverlay(dt: Float, rig: CameraRig) {
@@ -496,11 +540,14 @@ final class BattleWorld {
             if isRanged, !fxDone, units.hero(src) != nil { pendingMuzzles.append((src, target)) }
         case .damage(let d):
             units.noteHit(targetID: d.targetID)
+            if case .skill(let slot) = d.source, let src = d.sourceID { units.noteSkillHit(sourceID: src, slot: slot, time: time) }
             onDamage(d, f)
             structureHit(d, f)
             if isShown(d.targetID, f) {
                 effekseer?.onDamage(d, state: f.state)
                 if !fxHandlesSkill(d.sourceID, f) { skillDirector.onDamage(d, state: f.state) }
+                // 被弾の閃き（全ヒーロー共通。Effekseer の演出のヒーローも）
+                skillDirector.playHitFlash(d, state: f.state)
             }
         case .heal(let target, let source, let amount):
             onHeal(target: target, source: source, amount: amount, f)
@@ -534,7 +581,7 @@ final class BattleWorld {
                 }
             }
         case .skillCast(let c):
-            units.noteCast(heroID: c.casterID, slot: c.slot, time: time)
+            units.noteCast(heroID: c.casterID, slot: c.slot, stage: c.stage, time: time)
             if isShown(c.casterID, f) {
                 let fxDone = effekseer?.onCast(c, state: f.state) ?? false
                 if !fxDone, !skillDirector.onCast(c, state: f.state) { skillFX(c, f) }
@@ -1136,6 +1183,9 @@ final class BattleWorld {
         projectiles.teardown()
         zones.teardown()
         zones.onTrigger = nil
+        #if DEBUG || TESTER_TOOLS
+        hitShapes?.detach()
+        #endif
         root.removeFromParent()
     }
 }

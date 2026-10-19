@@ -299,6 +299,9 @@ final class BattleRenderer {
             fx.loadBundledEffects(heroes: heroIDs)
             note(String(format: "effekseer load %d effects, %.0f ms", fx.effectNames.count, (CACurrentMediaTime() - t0) * 1000))
             w.attach(effekseer: EffekseerDirector(overlay: fx, units: w.units, projectiles: w.projectiles))
+            // 実機の後処理（中・高画質）が使える時は、後処理の中で描く（3D に隠れる・ブルーム・歪み）。準備ができるまでと
+            // 後処理が無い時（シミュレータ・低画質・自動の切り下げ）は重ね描き（drawEffekseer が毎フレーム決める）
+            if PostProcessor.isAvailable { post.attachEffekseer(fx.runtime) }
         }
         world = w
         // Star Core の終幕の空と撮り方の候補（地図の検査）は幕の裏で作っておく（決着の瞬間に作らない）
@@ -316,8 +319,21 @@ final class BattleRenderer {
         note(String(format: "world build %.0f ms", (CACurrentMediaTime() - buildStart) * 1000))
         // 幕の裏の準備を複数フレームに分けて実行し、描画が落ち着いてから幕を上げる（固定フレーム数では上げない）。
         // 影はユーザー設定で有効なら自動調整が切り替えうるので、両方の状態を描いておく
+        // 演出の撮影は、加算・模様の Program を待ってから幕を上げる（CI のシミュレータは作るのが遅いことがあり、
+        // 幕に間に合わないと試合中ずっと従来の材質になって比較にならない）
+        #if DEBUG
+        var waitsForFXPrograms = DebugLaunch.value(after: "-fxCapture") != nil
+        #else
+        var waitsForFXPrograms = false
+        #endif
+        #if DEBUG || TESTER_TOOLS
+        // 内部ビルドの演出チェック（FXCheck）も同じ
+        if FXCheckSession.shared.currentHero != nil { waitsForFXPrograms = true }
+        #endif
+        var warmupConfig = WarmupScheduler.Config()
+        if waitsForFXPrograms { warmupConfig.hardCap = 60 }
         scheduler = WarmupScheduler(steps: w.makeWarmupPlan(), targetInterval: 1 / Double(max(1, governed.settings.frameRate)),
-                                    warmShadowVariants: settings.quality.shadows, gates: warmupGates())
+                                    warmShadowVariants: settings.quality.shadows, gates: warmupGates(), config: warmupConfig)
         warmupFrameIndex = 0
         view.setLoading(progress: 0.15, label: L("戦場を構築中", "Building battlefield"))
         // ウィンドウへ載った後に改めて指定する（載る前の指定は描画ループに反映されない）
@@ -328,6 +344,12 @@ final class BattleRenderer {
     /// 幕を上げる前に揃っていてほしいもの。
     private func warmupGates() -> [WarmupScheduler.Gate] {
         var gates = [WarmupScheduler.Gate("materialPrograms") { MaterialPrograms.isReadyForWarmup }]
+        if FXPrograms.prewarmsOnThisDevice {
+            // スキル演出の加算・模様の Program を待ち、出来たら幕の前に材質を作り切る（作れなければ従来の材質で代える）
+            gates.append(WarmupScheduler.Gate("fxPrograms") { [weak self] in
+                FXPrograms.isSettled && (self?.world?.skillDirector.player.prewarmShaded() ?? true)
+            })
+        }
         #if !targetEnvironment(simulator)
         // シミュレータでは renderCallbacks.postProcess が呼ばれないため待たない
         let post = post
@@ -371,10 +393,24 @@ final class BattleRenderer {
             deltaTime = paceAccumulator
             paceAccumulator = 0
         }
+        #if DEBUG
+        // 比較撮影（FXCapture）が撮り終えて再開した最初のフレームは、撮る間の待ち時間を流さない（sim は 0.25 秒・演出は 0.1 秒で
+        // 丸めるので、撮るたびに sim だけが先へ進み、演出が撮影の時刻より遅れていた。奥義の崩落で約 0.4 秒）
+        if fxCapture?.takeResumed() == true { deltaTime = min(deltaTime, 1.0 / 60) }
+        // 比較撮影の 1 tick 送り（-fxCaptureLockstep）: 描くたびに sim を 1 tick、描画・演出・モーションの時刻も同じ 1 tick だけ進める
+        // （遅いシミュレータでも sim の時刻と画の時刻がずれない。撮影の時刻 = sim の時刻 = モーションの時刻）
+        if let capture = fxCapture, capture.lockstep, !capture.isFrozen { deltaTime = Balance.dt }
+        #endif
         let dt = min(max(deltaTime, 0), 0.1)
         defer {
             publishCameraViewport(dt: dt)
-            drawEffekseer(dt: controller.isPaused || scheduler != nil ? 0 : dt)
+            // ヒットストップの間は Effekseer の時間も止める（BattleFeel）
+            var held = feel.isHolding(now: CACurrentMediaTime())
+            #if DEBUG
+            // 比較撮影（FXCapture）が止めている間は Effekseer も止める（撮る時刻の効果を写す）
+            if fxCapture?.isFrozen == true { held = true }
+            #endif
+            drawEffekseer(dt: controller.isPaused || scheduler != nil || held ? 0 : dt)
         }
         if let scheduler {
             warmupFrame(world: world, view: view, scheduler: scheduler, frameDt: deltaTime, dt: dt)
@@ -388,6 +424,13 @@ final class BattleRenderer {
             updateCamera(world: world, dt: Float(dt))
             return
         }
+        #if DEBUG
+        // 比較撮影（FXCapture）が画面を撮る間は、sim・描画の同期・演出の時刻を止めたまま合図だけ待つ（一時停止の画面は出さない）
+        if let capture = fxCapture, capture.isFrozen {
+            capture.tick(controller: controller, world: world, arView: view.arView, quality: governed.settings.quality)
+            return
+        }
+        #endif
         if controller.isPaused {
             // 一時停止中はシミュレーション・同期を止め、カメラ（自由視点）だけ動かす
             if !wasPaused {
@@ -425,13 +468,27 @@ final class BattleRenderer {
         // オンラインの再同期は frame の中で起きる（置き換え後に進めた分のイベントは receive が残している）
         syncPresentationEpoch(world: world)
         syncedTick = controller.state.tick
-        world.sync(events: pendingEvents, dt: Float(dt), rig: rig)
+        // 手応え（BattleFeel）: 自分が関わる重い命中で描画の時間だけ止める（位置・カメラ・sim は進める）。
+        // 自分が関わる奥義で画面の脈（後処理）とカメラの押し込み
+        let feelFrame = feel.frame(events: pendingEvents, controller: controller, now: CACurrentMediaTime(),
+                                   enabled: feelEnabled)
+        if let p = feelFrame.pulse { post.pulse(p) }
+        if let push = feelFrame.pushIn { rig.addPushIn(push) }
+        let presentDt = feelFrame.hold ? 0 : dt
+        world.sync(events: pendingEvents, dt: Float(presentDt), rig: rig)
         pendingEvents.removeAll(keepingCapacity: true)
+        #if DEBUG
+        fxCapture?.tick(controller: controller, world: world, arView: view.arView, quality: governed.settings.quality)
+        #endif
+        #if DEBUG || TESTER_TOOLS
+        fxCheck?.tick(controller: controller)
+        #endif
         let tc = probe.start()
         updateCamera(world: world, dt: Float(dt))
         probe.stop(.camera, tc)
         let t2 = CACurrentMediaTime()
-        world.updateOverlay(dt: Float(dt), rig: rig)
+        world.updateOverlay(dt: Float(presentDt), rig: rig)
+        updateRipples(world: world)
         let t3 = CACurrentMediaTime()
         if probe.enabled { probe.stop(.overlay, t2) }
         frameStats.record(frameDt: deltaTime, sim: t1 - t0, sync: t2 - t1, overlay: t3 - t2)
@@ -578,6 +635,39 @@ final class BattleRenderer {
         finaleSky?.isShown = false
     }
 
+    /// 前のフレームに後処理へ渡した歪みの輪の数（輪が無くなったフレームに一度だけ空を渡す）。
+    private var rippleCount = 0
+
+    /// スキル演出の輪の画面の歪み（FXMesh.refract）: 輪の中心と半径を画面へ投影して後処理へ渡す。後処理が無い環境では何もしない。
+    /// 地面の輪は横（カメラの右）と奥（地面の上の前）の半径を別に投影して楕円にする。
+    private func updateRipples(world: BattleWorld) {
+        guard PostProcessor.isAvailable, let arView = view?.arView else { return }
+        let list = world.skillDirector.player.refractions()
+        guard !list.isEmpty || rippleCount > 0 else { return }
+        rippleCount = list.count
+        let size = arView.bounds.size
+        guard size.width > 0, size.height > 0 else { return }
+        let camera = rig.camera
+        let projection = CombatTextProjection(position: camera.position, orientation: camera.orientation,
+                                              viewport: size, verticalFOV: CameraRig.fovDegrees,
+                                              near: camera.camera.near, far: camera.camera.far)
+        let right = camera.orientation.act(SIMD3<Float>(1, 0, 0))
+        var flat = camera.orientation.act(SIMD3<Float>(0, 0, -1))
+        flat.y = 0
+        let ahead = simd_length(flat) > 1e-4 ? simd_normalize(flat) : SIMD3<Float>(0, 0, -1)
+        let w = Float(size.width), h = Float(size.height)
+        var out: [PostProcessor.Ripple] = []
+        out.reserveCapacity(list.count)
+        for r in list {
+            guard let c = projection.project(r.center), let ex = projection.project(r.center + right * r.radius),
+                  let ey = projection.project(r.center + ahead * r.radius) else { continue }
+            let center = SIMD2<Float>(Float(c.x) / w, Float(c.y) / h)
+            let radius = SIMD2<Float>(max(0.002, abs(Float(ex.x - c.x)) / w), max(0.002, abs(Float(ey.y - c.y)) / h))
+            out.append(PostProcessor.Ripple(center: center, radius: radius, strength: r.strength))
+        }
+        post.ripples(out)
+    }
+
     /// 描画中の画面の縦横比。
     private var viewAspect: Float {
         guard let size = view?.arView.bounds.size, size.width > 0, size.height > 0 else { return CameraRig.designAspect }
@@ -628,6 +718,9 @@ final class BattleRenderer {
         for n in scheduler.notes { note(n) }
         if let ms = MaterialPrograms.buildMs { note(String(format: "material programs built in %.0f ms", ms)) }
         if let ms = PostProcessShaderCache.compileMs { note(String(format: "post-process pipelines compiled in %.0f ms", ms)) }
+        if let ms = FXPrograms.buildMs { note(String(format: "fx programs built in %.0f ms", ms)) }
+        // 演出の加算・模様の材質が幕に間に合わなければ、この試合は従来の材質で出す（プレイ中に作らない）
+        if !world.skillDirector.player.sealShadedMaterials() { note("fx shaded materials not ready at curtain: legacy materials") }
         world.finishWarmup()
         finaleSky?.isShown = false
         setSunShadow(governed.settings.quality.shadows)
@@ -678,12 +771,14 @@ final class BattleRenderer {
         note(String(format: "quality at end: %@ (frame p95 %.1f ms, work p95 %.2f ms over the last window)",
                     governor.step.description, governor.lastFrameP95Ms, governor.lastWorkP95Ms))
         let notes = notes
+        let skillFXBudget = world?.skillDirector.player.budgetSnapshot()
         run.finish { thermal, footprint, entities in
             PerfReport(device: PerfRun.deviceModel, os: UIDevice.current.systemVersion, build: PerfRun.buildName,
                        quality: "\(settings.quality.level)", frameRate: settings.frameRate, speed: speed,
                        requestedSeconds: run.seconds, loadMs: loadMs, warmupMs: warmupMs, warmupFrames: frames,
                        frame: frameStats.summary(), ledger: AssetLedger.snapshot(), thermalStates: thermal,
-                       peakFootprintMB: footprint, peakEntities: entities, notes: notes, syncWork: world?.workStats.summary)
+                       peakFootprintMB: footprint, peakEntities: entities, notes: notes, syncWork: world?.workStats.summary,
+                       skillFXBudget: skillFXBudget)
         }
     }
     #endif
@@ -703,16 +798,43 @@ final class BattleRenderer {
         #if DEBUG
         if let world, dt > 0 { dt = debugEffekseerDemo(fx, world: world, dt: dt) }
         #endif
+        // 後処理の中で描けるなら進めるだけ（描くのは描画スレッドの後処理）。描けない間は重ね描き
+        let inPost = post.drawsEffekseer(now: CACurrentMediaTime())
+        // 後処理の中で描く経路の安全装置の結果（確かめで光らなければその試合は重ね描き）を計測ログへ
+        for r in post.effekseerPass.takeReports() {
+            note(r)
+            #if DEBUG
+            NSLog("%@", "[Effekseer] \(r)")
+            #endif
+        }
         if let world {
             world.workStats.measure(.effekseer, live: controller.isPresentationReady && !controller.isPaused) {
-                fx.render(camera: rig.camera, host: view, dt: dt)
+                fx.render(camera: rig.camera, host: view, dt: dt, inPostProcess: inPost)
             }
         } else {
-            fx.render(camera: rig.camera, host: view, dt: dt)
+            fx.render(camera: rig.camera, host: view, dt: dt, inPostProcess: inPost)
         }
     }
 
+    /// 戦闘の手応え（ヒットストップ・奥義の画面の脈・カメラの押し込み）。描画だけ。
+    private let feel = BattleFeel()
+
+    /// 手応えを出す場面か（観戦・リプレイ・シーク・一時停止では出さない。比較撮影は時刻を揃えるため出さない）。
+    private var feelEnabled: Bool {
+        guard !controller.isSpectating, controller.seekingToTick == nil, !controller.isPaused else { return false }
+        #if DEBUG
+        if fxCapture != nil { return false }
+        #endif
+        return true
+    }
+
+    #if DEBUG || TESTER_TOOLS
+    /// 内部ビルドの演出チェック（設定 > テスター用。FXCheckSession が始めた試合だけ）。
+    private lazy var fxCheck: FXCheckDriver? = FXCheckSession.shared.driver(for: controller)
+    #endif
     #if DEBUG
+    /// -fxCapture: スキル演出の比較撮影（FXCapture）。
+    private lazy var fxCapture: FXCapture? = FXCapture.isRequested ? FXCapture() : nil
     private var autoClock: Double = 0
     private var autoStep = 0
     /// -efkAuto <atk|s1|s2|ult>: 一番近い敵（人形）へ近づき、2 秒ごとに通常攻撃 / スキルを撃つ。
@@ -899,6 +1021,7 @@ final class BattleRenderer {
         world?.teardown()
         world = nil
         anchor.removeFromParent()
+        post.attachEffekseer(nil)
         post.detach()
         if let arView = view?.arView {
             arView.scene.anchors.removeAll()

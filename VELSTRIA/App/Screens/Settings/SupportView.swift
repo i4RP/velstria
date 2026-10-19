@@ -116,8 +116,6 @@ struct SupportView: View {
                                         symbol: "questionmark.bubble.fill", identifier: "support_faq") { push(.faq) }
                         SettingsHubTile(title: L("お問い合わせ", "Contact Us"), summary: L("メールで相談", "Email support"),
                                         symbol: "envelope.fill", identifier: "support_contact") { push(.contact) }
-                        SettingsHubTile(title: L("パッチノート", "Patch Notes"), summary: "v\(AppVersionInfo.version)",
-                                        symbol: "doc.text.fill", identifier: "support_patch_notes") { push(.patchNotes) }
                         SettingsHubTile(title: L("利用規約", "Terms of Service"), summary: L("ブラウザで開く", "Opens in browser"),
                                         symbol: "doc.plaintext.fill", external: true, identifier: "support_terms") {
                             openURL(FeatureFlags.termsURL)

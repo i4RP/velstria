@@ -105,7 +105,8 @@ struct InventoryView: View {
         HStack(spacing: 6) {
             ScrollView(.horizontal) {
                 HStack(spacing: 6) {
-                    ForEach(InventoryTab.allCases) { t in
+                    // スキンは出しているヒーローの分が無い間はタブごと出さない（空のスキンストアへ案内しない。ストアのホームと同じ）
+                    ForEach(InventoryTab.allCases.filter { $0 != .heroSkin || counts($0).total > 0 }) { t in
                         let c = counts(t)
                         CollectionFilterChip(title: "\(t.title) \(c.owned)/\(c.total)", symbol: t.symbol, color: Theme.cyan,
                                              isSelected: tab == t) { tab = t }

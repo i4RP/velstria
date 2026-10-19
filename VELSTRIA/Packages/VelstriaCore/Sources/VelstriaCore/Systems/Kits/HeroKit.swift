@@ -30,6 +30,36 @@ public struct KitZoneShape: Hashable, Sendable {
     }
 }
 
+/// 演出（App のスキル演出）が読む、キットの時刻・寸法の 1 つ（HeroKit.fxValues）。判定に使う Tune の値そのものを返し、
+/// 演出の側に値を手で写さない（照準の表示・判定・演出が同じ値を使う。docs/vfx/RANGES.md）。
+/// key は Tune の名前（例 "hookDelay"）。距離は sim 単位（100 = 1 m）、速さは sim 単位 / 秒、角度は rad のまま返し、
+/// m・秒・度への換算は App の FXSkillInfo がする。照準の表示が読む共通の key: aimNearHalfWidth / aimFarHalfWidth
+/// （幅つきの帯の照準を、手前・奥の半幅の台形にする。判定が台形のスキル）。
+public struct KitFXValue: Hashable, Sendable {
+    public enum Unit: String, Hashable, Sendable {
+        case seconds, distance, speed, radians, count, ratio
+    }
+
+    public var key: String
+    /// 値（表の値は順に。1 つの値なら 1 要素）。
+    public var values: [Double]
+    public var unit: Unit
+
+    public var value: Double { values.first ?? 0 }
+
+    public init(_ key: String, _ value: Double, _ unit: Unit) {
+        self.key = key
+        values = [value]
+        self.unit = unit
+    }
+
+    public init(_ key: String, list: [Double], _ unit: Unit) {
+        self.key = key
+        values = list
+        self.unit = unit
+    }
+}
+
 /// キットのスキル発動に渡す文脈（初回も再使用も同じ形）。
 struct KitCast {
     var caster: Int
@@ -79,6 +109,8 @@ protocol HeroKit: Sendable {
     func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double
     /// ZoneSystem.spawn で作るゾーンの形（描画が読み込み中にゾーンの見た目とメッシュを作り切るため。汎用の型のゾーンは除く）。
     func plannedZones(master: MasterData) -> [KitZoneShape]
+    /// 演出が読む時刻・寸法（判定に使う Tune の値そのもの。KitFXValue）。既定は空（演出は照準の寸法だけを使う）。
+    func fxValues(slot: SkillSlot, stage: Int) -> [KitFXValue]
     /// このスキル（段）が術者を動かすか（ブリンク・突進・跳躍。バインド中は撃てない）。base は照準の型からの既定
     /// （SkillCatalog.movesCaster: dashStrike / leapSlam / targetedBlink / blinkEmpower）。型と実際の動きが違うキットだけ上書きする。
     func movesCaster(slot: SkillSlot, stage: Int, base: Bool) -> Bool
@@ -154,6 +186,7 @@ extension HeroKit {
     func badge(slot: SkillSlot, hero: HeroData) -> KitBadge? { nil }
     func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double { base }
     func plannedZones(master: MasterData) -> [KitZoneShape] { [] }
+    func fxValues(slot: SkillSlot, stage: Int) -> [KitFXValue] { [] }
     func movesCaster(slot: SkillSlot, stage: Int, base: Bool) -> Bool { base }
 
     func resolveAim(_ s: SimState, _ ctx: SimContext, caster: Int, slot: SkillSlot, stage: Int,

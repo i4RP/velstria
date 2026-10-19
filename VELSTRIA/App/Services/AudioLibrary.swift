@@ -2,7 +2,8 @@ import Foundation
 import VelstriaCore
 
 // 担当: app-services
-// 効果音と BGM の「楽譜」。すべて SynthCanvas への書き込みで作る（音源ファイルなし）。
+// 効果音と BGM の「楽譜」。すべて SynthCanvas への書き込みで作る。音のファイル（AudioFiles）がある音は、ファイルが無い時・
+// 読めない時の代わりとして使う。
 // 効果音: サイン・三角波中心の柔らかい音色、短いアタックと指数減衰、最長 0.8 秒。
 // BGM: メニュー（D マイナーの穏やかなパッド + アルペジオ、84 BPM・16 小節ループ）、
 //      バトル（D マイナー 128 BPM の 4 つ打ち・8 分ベース・後半にリード、16 小節ループ）、
@@ -248,6 +249,35 @@ enum SFXSynth {
             }
             c.add(SynthNote(start: 0.32, duration: 0.48, frequency: m(50), amplitude: 0.3, attack: 0.01, decay: 0.25, release: 0.08))
             peak = 0.5
+        // 試合の外（ファイルが無い時の代わり）
+        case .uiTab:
+            c = canvas(0.09)
+            c.add(SynthNote(start: 0, duration: 0.08, frequency: 1100, endFrequency: 1320, sweepTime: 0.03,
+                            amplitude: 0.5, attack: 0.002, decay: 0.03, release: 0.01))
+            peak = 0.3
+        case .matchFound:
+            c = canvas(0.7)
+            c.addBell(start: 0, frequency: m(76), amplitude: 0.35, decay: 0.16)
+            c.addBell(start: 0.12, frequency: m(81), amplitude: 0.35, decay: 0.18)
+            c.addBell(start: 0.24, frequency: m(88), amplitude: 0.4, decay: 0.25)
+            peak = 0.5
+        case .lockIn:
+            c = canvas(0.36)
+            c.add(SynthNote(start: 0, duration: 0.3, frequency: m(52), wave: .triangle, amplitude: 0.5,
+                            attack: 0.003, decay: 0.12, release: 0.05, lowpass: 1800))
+            c.addBell(start: 0.01, frequency: m(84), amplitude: 0.3, decay: 0.15)
+            peak = 0.5
+        case .ban:
+            c = canvas(0.4)
+            c.add(SynthNote(start: 0, duration: 0.36, frequency: 220, endFrequency: 110, sweepTime: 0.25, wave: .softSquare,
+                            amplitude: 0.5, attack: 0.004, decay: 0.2, release: 0.08, lowpass: 1200))
+            peak = 0.45
+        case .matchStart:
+            c = canvas(0.8)
+            for note in [74.0, 78, 81] { c.addBell(start: 0, frequency: m(note), amplitude: 0.3, decay: 0.2) }
+            c.addBell(start: 0.2, frequency: m(86), amplitude: 0.4, decay: 0.3)
+            c.add(SynthNote(start: 0, duration: 0.7, frequency: m(50), amplitude: 0.3, attack: 0.01, decay: 0.3, release: 0.1))
+            peak = 0.55
         case .announcement:
             c = canvas(0.6)
             c.addBell(start: 0, frequency: m(79), amplitude: 0.4, decay: 0.18)
@@ -358,6 +388,12 @@ enum MusicComposer {
         case .battle: canvas = renderBattle()
         case .victory: canvas = renderVictory()
         case .defeat: canvas = renderDefeat()
+        // ファイルの曲（AudioFiles.music）が無い時の代わり
+        case .menuLegend: canvas = renderMenu(style: 2)
+        case .menuFantasia: canvas = renderMenu(style: 3)
+        case .menuJourney: canvas = renderMenu(style: 1)
+        case .lobby, .result: canvas = renderMenu(style: 0)
+        case .draft, .draftTense, .loading: canvas = renderBattle()
         }
         return RenderedMusic(left: canvas.left, right: canvas.right, sampleRate: canvas.sampleRate, loops: canvas.loop)
     }

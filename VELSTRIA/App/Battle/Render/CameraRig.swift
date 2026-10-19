@@ -98,25 +98,49 @@ struct CameraDrive {
 
 @MainActor
 final class CameraRig {
-    nonisolated static let pitchDegrees: Float = {
+    /// カメラの組: 見下ろし角・縦の画角（度）、cameraZoom = 1 のときの注視点までの距離（m）、追従の注視点をヒーローより前（北）へ
+    /// ずらす量（m。ずらすとヒーローは画面の中央より下に映る）。
+    struct Preset: Equatable, Sendable {
+        var pitch: Float
+        var fov: Float
+        var distance: Float
+        var lead: Float
+    }
+
+    /// 2026-10-17 までのカメラ。
+    nonisolated static let legacyPreset = Preset(pitch: 56, fov: 48, distance: 10.0, lead: 0)
+    /// MLBB の画面収録から解いた組（docs/vfx/CAMERA.md）。2026-10-17 から既定。寸法が既知の地面の輪で確かめた（c・縮尺は一致、遠近の q は推定）。
+    nonisolated static let mlbbPreset = Preset(pitch: 42.9, fov: 30.1, distance: 15.9, lead: 0.91)
+    /// 2026-10-19の全26画面に共通する既定のレンズ。
+    nonisolated static let fieldPreset = Preset(pitch: StageReferenceLayout.pitchDegrees,
+        fov: StageReferenceLayout.verticalFOV, distance: StageReferenceLayout.cameraDistance,
+        lead: StageReferenceLayout.cameraLead)
+    /// 使う組。Debug の起動引数 -cameraPreset <legacy|mlbb> で切り替える（演出の比較の撮影用。出荷ビルドは引数を読まない）。
+    /// ステージの配置を参照画像に合わせる道具（Debug の -stageLayoutReference / -stagePitch）は従来の距離・前ずれのまま角度だけ変える。
+    nonisolated static let preset: Preset = {
         #if DEBUG
         let args = ProcessInfo.processInfo.arguments
-        if args.contains("-stageLayoutReference") { return 36.80944726 }
+        if args.contains("-stageLayoutReference") { return Preset(pitch: 36.80944726, fov: 13.86622334, distance: 10.0, lead: 0) }
         if let i = args.firstIndex(of: "-stagePitch"), i + 1 < args.count,
-           let pitch = Float(args[i + 1]), (30...75).contains(pitch) { return pitch }
+           let pitch = Float(args[i + 1]), (30...75).contains(pitch) {
+            var p = legacyPreset
+            p.pitch = pitch
+            return p
+        }
         #endif
-        return StageReferenceLayout.pitchDegrees
+        switch DebugLaunch.value(after: "-cameraPreset") {
+        case "mlbb": return mlbbPreset
+        case "legacy": return legacyPreset
+        default: return fieldPreset
+        }
     }()
-    nonisolated static let fovDegrees: Float = {
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-stageLayoutReference") { return 13.86622334 }
-        #endif
-        return StageReferenceLayout.verticalFOV
-    }()
+
+    nonisolated static let pitchDegrees: Float = preset.pitch
+    nonisolated static let fovDegrees: Float = preset.fov
     /// cameraZoom = 1 のときの注視点までの距離（m）。
-    nonisolated static let baseDistance: Float = StageReferenceLayout.cameraDistance
-    /// 通常の追従はヒーローを画面中央に置く。
-    nonisolated static let focusLead: Float = StageReferenceLayout.cameraLead
+    nonisolated static let baseDistance: Float = preset.distance
+    /// 追従の注視点のずれ（legacy は 0 = ヒーローを画面中央に置く）。
+    nonisolated static let focusLead: Float = preset.lead
     /// プレイヤーの倍率（設定 0.8〜1.3 + 余裕）。
     nonisolated static let playerZoomRange: ClosedRange<Double> = 0.7...1.4
     /// 観戦者の倍率（ピンチ・自動カメラの framing）。2.5 で地図のおよそ半分が映る。
@@ -132,6 +156,10 @@ final class CameraRig {
     private(set) var focus = CriticallyDampedSpring(.zero)
     private var distance = CriticallyDampedScalar(value: baseDistance)
     private var trauma: Float = 0
+    /// 奥義の押し込み（視線の方向へ寄って戻る。m）。注視点・距離（distance）・gamePose は変えない
+    /// （頭上バーの大きさ・影の範囲・終幕の寄りの起点に効かない）。
+    private var pushPeak: Float = 0
+    private var pushAge: Float = 10
     private var time: Float = 0
     private var initialized = false
     private var glide: Glide?
@@ -288,6 +316,30 @@ final class CameraRig {
         return points
     }
 
+    /// 奥義の押し込みを足す（m。今の押し込みより強い時だけ置き換える）。BattleFeel が自分が関わる奥義で呼ぶ。
+    func addPushIn(_ meters: Float) {
+        guard meters > currentPushIn else { return }
+        pushPeak = meters
+        pushAge = 0
+    }
+
+    /// 今の押し込み（m）。
+    var currentPushIn: Float { pushPeak * CameraRig.pushEnvelope(pushAge) }
+
+    nonisolated static let pushRise: Float = 0.08
+    nonisolated static let pushFall: Float = 0.55
+
+    /// 押し込みの倍率（0〜1）。pushRise 秒で寄り（終わりほどゆっくり）、pushFall 秒で戻る（滑らかに）。
+    nonisolated static func pushEnvelope(_ age: Float) -> Float {
+        guard age >= 0, age < pushRise + pushFall else { return 0 }
+        if age < pushRise {
+            let u = age / pushRise
+            return u * (2 - u)
+        }
+        let u = (age - pushRise) / pushFall
+        return 1 - u * u * (3 - 2 * u)
+    }
+
     /// 揺れを加える（0〜1、重ねると加算で上限 1）。
     func addShake(_ amount: Float) {
         trauma = min(1, trauma + amount)
@@ -340,6 +392,10 @@ final class CameraRig {
 
         var pos = SIMD3(focus.value.x, 0, focus.value.y) + CameraRig.offset(distance: distance.value)
         gamePose.position = pos
+        // 奥義の押し込み: 視線の方向へ寄る（gamePose・distance は押し込む前のまま）
+        let push = currentPushIn
+        if push > 0.0001 { pos -= simd_normalize(CameraRig.offset(distance: distance.value)) * push }
+        pushAge += dt
         if isPresenting {
             camera.orientation = CameraRig.orientation
             isPresenting = false

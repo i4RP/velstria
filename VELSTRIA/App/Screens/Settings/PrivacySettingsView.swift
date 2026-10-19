@@ -2,8 +2,8 @@ import SwiftUI
 import VelstriaCore
 
 // 担当: ui-liveops。UI066 プライバシー（保存データの説明・ポリシー・全データ削除）。
-// オンライン機能（FeatureFlags.lanMatch）: 同意の状態と取り消し、中継サーバーの受信箱の削除、ブロックしたプレイヤーの一覧と解除
-// （ガイドライン 1.2 / 5.1.1(v)）。全データの削除では、中継サーバーの受信箱も先に消す（通信できなければ、端末だけ消すかを選べる）。
+// オンライン機能（FeatureFlags.lanMatch）: 同意の状態と取り消し、中継サーバーの受信箱とクラウドのランクの削除、ブロックしたプレイヤーの一覧と解除
+// （ガイドライン 1.2 / 5.1.1(v)）。全データの削除では、中継サーバーの受信箱とランクも先に消す（通信できなければ、端末だけ消すかを選べる）。
 
 struct PrivacySettingsView: View {
     @Environment(AppModel.self) private var app
@@ -62,16 +62,16 @@ struct PrivacySettingsView: View {
             Button(L("端末のデータだけ削除", "Delete Device Data Only"), role: .destructive) { finishDeleteAll() }
             Button(L("キャンセル", "Cancel"), role: .cancel) { armed = false }
         } message: {
-            Text(L("通信できる場所で、もう一度お試しください。端末のデータだけを削除した場合、フレンドサーバーの受信箱は最後の接続から 1 年で自動的に削除されます。",
-                   "Please try again with a connection. If you delete only device data, your inbox on the friend server is deleted automatically one year after your last connection."))
+            Text(L("通信できる場所で、もう一度お試しください。端末のデータだけを削除した場合、フレンドサーバーの受信箱は最後の接続から 1 年で自動的に削除されます。預けたランクは残ることがあります。",
+                   "Please try again with a connection. If you delete only device data, your inbox on the friend server is deleted automatically one year after your last connection. Your rank stored there may remain."))
         }
         .confirmationDialog(L("フレンドサーバーのデータを削除しますか？", "Delete your data on the friend server?"), isPresented: $confirmsErase,
                             titleVisibility: .visible) {
             Button(L("削除する", "Delete"), role: .destructive) { eraseServerData() }
             Button(L("キャンセル", "Cancel"), role: .cancel) {}
         } message: {
-            Text(L("フレンドサーバーからあなたの受信箱（鍵のハッシュ・最後に接続した日時・預かり中のフレンド申請）を削除し、オンライン機能をやめます。フレンドの一覧と送った申請も消え、次にオンラインを使うときは新しいフレンドコードになります。",
-                   "This deletes your inbox on the friend server (hashed key, last connection time and held friend requests) and turns off online features. Your friends list and sent requests are also cleared, and you get a new friend code next time you go online."))
+            Text(L("フレンドサーバーからあなたの受信箱（鍵のハッシュ・最後に接続した日時・預かり中のフレンド申請）と預けたランクを削除し、オンライン機能をやめます。フレンドの一覧と送った申請も消え、次にオンラインを使うときは新しいフレンドコードになります。",
+                   "This deletes your inbox on the friend server (hashed key, last connection time and held friend requests) and the rank stored there, and turns off online features. Your friends list and sent requests are also cleared, and you get a new friend code next time you go online."))
         }
         .confirmationDialog(L("オンライン機能をやめますか？", "Stop using online features?"), isPresented: $confirmsRevoke,
                             titleVisibility: .visible) {
@@ -110,7 +110,8 @@ struct PrivacySettingsView: View {
                                              : L("。", ".")))
             item("wifi.slash", L("アカウント登録なし", "No sign-up"),
                  L("アカウント登録なしで遊べます。ひとりで遊ぶモードはサーバーと通信しません", "Play without signing up. Single-player modes never talk to a server")
-                    + (FeatureFlags.lanMatch ? L("（オンライン機能は、ルールに同意して使い始めた時だけ通信します）。課金は Apple が処理します。", " (online features connect only after you accept the online rules). Purchases are processed by Apple.")
+                    + (FeatureFlags.lanMatch ? L("（オンライン機能は、ルールに同意して使い始めた時だけ通信します。同意した後は、ランク戦の結果も中継サーバーへ送ります）。課金は Apple が処理します。",
+                                                 " (online features connect only after you accept the online rules; after that, ranked results are also sent to the relay server). Purchases are processed by Apple.")
                                              : L("。課金は Apple が処理します。", ". Purchases are processed by Apple.")))
             if FeatureFlags.lanMatch {
                 item("globe.asia.australia.fill", L("オンライン機能（同意した場合のみ）", "Online features (only after you agree)"), OnlineRelayConfig.privacyNote)
@@ -173,8 +174,8 @@ struct PrivacySettingsView: View {
             switch app.onlineAccess {
             case .available:
                 item("checkmark.seal.fill", L("利用中", "On"),
-                     L("オンラインのルールに同意済みです。アプリを開いている間、フレンドの申請・招待を受け取るためにフレンドサーバーへ接続します。",
-                       "You accepted the online rules. While the app is open, it connects to the friend server to receive friend requests and invites."))
+                     L("オンラインのルールに同意済みです。アプリを開いている間、フレンドの申請・招待を受け取るためにフレンドサーバーへ接続します。ランクもフレンドサーバーに預けます。",
+                       "You accepted the online rules. While the app is open, it connects to the friend server to receive friend requests and invites. Your rank is also stored on the friend server."))
                 Button {
                     app.audio.play(.uiTap)
                     confirmsRevoke = true
@@ -194,8 +195,8 @@ struct PrivacySettingsView: View {
             if app.friends.hasServerData {
                 SettingsDivider()
                 item("externaldrive.badge.xmark", L("フレンドサーバーのデータ", "Friend Server Data"),
-                     L("フレンドサーバーには、あなたのフレンドコードの受信箱（鍵のハッシュ・最後に接続した日時）と、預かり中のフレンド申請（受け付けから 14 日）があります。最後の接続から 1 年で自動的に削除されます。",
-                       "The friend server holds your friend code's inbox (a hashed key and your last connection time) and friend requests held for you (up to 14 days). It is deleted automatically one year after your last connection."))
+                     L("フレンドサーバーには、あなたのフレンドコードの受信箱（鍵のハッシュ・最後に接続した日時）と、預かり中のフレンド申請（受け付けから 14 日）、ランク（段位・星・勝敗数）があります。受信箱は最後の接続から 1 年で自動的に削除されます。",
+                       "The friend server holds your friend code's inbox (a hashed key and your last connection time), friend requests held for you (up to 14 days) and your rank (tier, stars, wins and losses). The inbox is deleted automatically one year after your last connection."))
                 Button {
                     app.audio.play(.uiTap)
                     confirmsErase = true
@@ -269,8 +270,8 @@ struct PrivacySettingsView: View {
                     .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                 if FeatureFlags.lanMatch, app.friends.hasServerData {
-                    Text(L("フレンドサーバーにあるあなたの受信箱（鍵のハッシュ・最後に接続した日時・預かり中のフレンド申請）も、先に削除します（通信が必要です）。ほかのプレイヤーの受信箱に預かられているあなたのフレンド申請は、受け付けから 14 日で自動的に削除されます。",
-                           "Your inbox on the friend server (hashed key, last connection time and held friend requests) is deleted first (requires a connection). Friend requests you sent that are held in other players' inboxes are deleted automatically 14 days after they were sent."))
+                    Text(L("フレンドサーバーにあるあなたの受信箱（鍵のハッシュ・最後に接続した日時・預かり中のフレンド申請）とランクも、先に削除します（通信が必要です）。ほかのプレイヤーの受信箱に預かられているあなたのフレンド申請は、受け付けから 14 日で自動的に削除されます。",
+                           "Your inbox on the friend server (hashed key, last connection time and held friend requests) and your rank stored there are deleted first (requires a connection). Friend requests you sent that are held in other players' inboxes are deleted automatically 14 days after they were sent."))
                         .font(Theme.body(11))
                         .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -339,7 +340,7 @@ struct PrivacySettingsView: View {
         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.danger.opacity(0.4), lineWidth: 1))
     }
 
-    /// 全データの削除: 中継サーバーの受信箱を先に消してから（繋いだことがある時だけ）、端末のデータを消す。
+    /// 全データの削除: 中継サーバーの受信箱とクラウドのランクを先に消してから（繋いだ・預けたことがある時だけ）、端末のデータを消す。
     private func deleteAll() {
         app.prepareForDataDeletion()
         guard FeatureFlags.lanMatch, app.friends.hasServerData else {

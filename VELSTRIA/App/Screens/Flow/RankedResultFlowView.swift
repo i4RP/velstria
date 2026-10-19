@@ -4,7 +4,7 @@ import VelstriaCore
 // 担当: ui-flow。ランク戦の試合後の流れ（Mobile Legends と同じ順番）:
 // 1. 勝敗バナー（VICTORY / DEFEAT。タップして進める）は試合内の HUDEndOfMatchView
 // 2. ランク: 左にスターポイント、中央に紋章・星・ティア名・段位、右に保護ポイント（星の増減を演出）→「続ける」
-// 3. 評価: 試合評価（0〜16）とメダル、上回ったプレイヤーの割合、6 軸のレーダー（タップで進む）
+// 3. 評価: 試合評価（0〜16）とメダル、6 軸のレーダー（タップで進む）
 // 4. スコアボード: 両チーム 5 人の KDA・アイテム・ゴールド・評価。「データ」で従来の詳しいリザルト
 // 5. 「終了」→「チームを離れてロビーに戻りますか？」→ OK でホーム。「ルームに戻る」はランク戦の準備へ。
 
@@ -47,7 +47,10 @@ struct RankedResultFlowView: View {
         .fullScreenCover(isPresented: $showsDetail) {
             MatchResultView(outcome: outcome, report: report) { showsDetail = false }
         }
-        .onAppear { app.audio.playMusic(won ? .victory : .defeat) }
+        .onAppear {
+            app.audio.play(won ? .victory : .defeat)
+            app.audio.playMusic(.result)
+        }
         .task(id: step) {
             guard DebugLaunch.autoAdvance else { return }
             try? await Task.sleep(for: .seconds(5))
@@ -251,7 +254,6 @@ private struct RankedStarsStep: View {
             }
             if done {
                 HStack(spacing: 14) {
-                    MLButton(title: L("シェア", "Share"), symbol: "square.and.arrow.up", style: .dark, width: 120) {}
                     MLButton(title: L("続ける", "Continue"), style: .gold, width: 120, action: onNext)
                         .accessibilityIdentifier("ranked_continue")
                 }
@@ -370,8 +372,6 @@ private struct RankedEvaluationStep: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal, 30)
                             .background(Color(red: 0.12, green: 0.18, blue: 0.40).opacity(0.7))
-                        Text(L("\(String(format: "%.1f", percentile))%のプレイヤーを上回った", "Better than \(String(format: "%.1f", percentile))% of players"))
-                            .font(Theme.body(12)).foregroundStyle(.white)
                     }
                     .offset(y: -30)
                 }
@@ -398,17 +398,6 @@ private struct RankedEvaluationStep: View {
                         }
                         .padding(10)
                         .background(Color(red: 0.10, green: 0.16, blue: 0.38).opacity(0.55))
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text(L("1試合プレイする。", "Play 1 match.")).font(Theme.body(12)).foregroundStyle(.white.opacity(0.8))
-                            HStack {
-                                ProgressView(value: 1).tint(Theme.cyan)
-                                Text("1/1").font(Theme.mono(10)).foregroundStyle(.white)
-                            }
-                            Spacer()
-                        }
-                        .padding(10)
-                        .frame(width: 180, height: 250)
-                        .background(Color(red: 0.10, green: 0.16, blue: 0.38).opacity(0.55))
                     }
                 }
                 .opacity(shown ? 1 : 0)
@@ -420,8 +409,6 @@ private struct RankedEvaluationStep: View {
         .onAppear { withAnimation(.easeOut(duration: 0.5)) { shown = true } }
         .accessibilityIdentifier("ranked_evaluation")
     }
-
-    private var percentile: Double { min(99.9, pow(rating / 16, 1.6) * 100) }
 
     private var medal: some View {
         let colors: [Color]
@@ -661,7 +648,6 @@ private struct RankedScoreboardStep: View {
         HStack(spacing: 10) {
             MLButton(title: L("データ", "Data"), symbol: "list.bullet", style: .blue, width: 130, action: onData)
                 .accessibilityIdentifier("ranked_data")
-            MLButton(title: L("クイックチャット", "Quick Chat"), symbol: "bubble.left.fill", style: .dark, width: 140) {}
             MLButton(title: L("一括いいね", "Like All"), symbol: "hand.thumbsup.fill", style: .dark, width: 150) {
                 FlowFX.tap(app)
                 liked = Set(summary.players.filter { !$0.isHuman }.map(\.entityID))

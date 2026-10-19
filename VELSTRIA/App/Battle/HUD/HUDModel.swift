@@ -378,6 +378,10 @@ final class HUDModel {
         expireFeed(time: t, held: killFeedReservesSignals && killFeedYieldsToCenter)
         signals.refresh(model: self, now: t)
         if aimSession?.aiming == true { updateAimIndicator() }
+        #if DEBUG || TESTER_TOOLS
+        // 内部ビルドの演出チェック: 撃ち終えたら試合を抜ける（次のヒーローは AppModel.dismissBattle から）
+        if !finished, FXCheckSession.shared.consumeLeave() { leave() }
+        #endif
         if controller.isEnded && endPhase == nil && !finished, let reason = s.endReason, reason != .aborted {
             // 通知を受けずに終わった状態になった（シーク・再同期・途中から観戦）: 終幕は流さない（描画側も引きの構図から）
             beginEnd(winner: s.winner, reason: reason, finale: nil)

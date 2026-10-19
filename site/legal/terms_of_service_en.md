@@ -34,7 +34,7 @@ We grant you a non-exclusive, non-transferable license to use the App for person
 2. When you spend Astral Gems, Free Gems are used first, and Paid Gems are used only for the remaining amount.
 3. Paid Gems do not expire. The information required under Japan's Payment Services Act is set out separately in our [Payment Services Act notice](/en/payment-services).
 4. Paid Items change appearance and similar content only; they never increase in-match combat power.
-5. Your game progress, items, currency balances and other game data are stored on your device, not on our servers. We cannot restore data lost because a device is lost, broken or reset, or because the App was deleted. Use the App's backup feature as needed.
+5. Your game progress (except the rank stored on the relay server when you use the online features), items, currency balances and other game data are stored on your device, not on our servers. We cannot restore data lost because a device is lost, broken or reset, or because the App was deleted. Use the App's backup feature as needed.
 
 ## 6. Purchases
 1. Purchases are processed by Apple through the App Store and are subject to Apple's terms.

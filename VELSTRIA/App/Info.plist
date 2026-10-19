@@ -139,5 +139,9 @@
 			</dict>
 		</dict>
 	</array>
+	<key>VELSTRIAGitBranch</key>
+	<string>$(VELSTRIA_GIT_BRANCH)</string>
+	<key>VELSTRIAGitCommit</key>
+	<string>$(VELSTRIA_GIT_COMMIT)</string>
 </dict>
 </plist>
