@@ -298,50 +298,76 @@ private struct HomeReferenceLobby: View {
     }
 
     private var footer: some View {
-        Group {
+        ZStack(alignment: .topLeading) {
             LinearGradient(colors: [Color(red: 0.91, green: 0.80, blue: 0.98), .white, cyan], startPoint: .leading, endPoint: .trailing)
                 .overlay(alignment: .top) { Rectangle().fill(cyan).frame(height: 1) }
-                .homePlaced(in: CGRect(x: 0, y: 419, width: 755, height: 52.5))
-            Button { app.router.push(.profile) } label: {
-                referenceAvatar(width: 112, height: 53)
-                    .frame(width: 112, height: 53).background(purple.opacity(0.9))
-                    .overlay(Rectangle().stroke(cyan, lineWidth: 2))
-            }.homePlaced(in: CGRect(x: 49, y: 411, width: 112, height: 53))
-            HStack(spacing: 0) {
-                footerLink("shield.lefthalf.filled", "戦闘準備", .items)
-                footerLink("person.fill", "ヒーロー", .heroes)
-                footerLink("diamond", "コレクション", .cosmetics)
-                footerLink("bag.fill", "バッグ", .inventory)
-            }.homePlaced(in: CGRect(x: 188, y: 420, width: 508, height: 49))
-            Button { app.router.push(.emblems) } label: {
-                Image(systemName: "shield.checkered").font(.system(size: 30)).foregroundStyle(.yellow).frame(width: 52, height: 48).background(purple)
-            }.accessibilityLabel("エンブレム").position(x: 724, y: 444)
-            Button { app.router.push(.rankOverview) } label: {
-                VStack(spacing: 0) {
-                    RankEmblemView(tier: app.profile.rank.tier, size: 57)
-                    Text(RankService.displayName(app.profile.rank)).font(.system(size: 11)).foregroundStyle(.white)
-                }.frame(width: 69, height: 77).background(purple.opacity(0.8))
-            }.accessibilityLabel("ランク").position(x: 787, y: 426)
-            Button { FlowFX.confirm(app); MatchFlowIntent.present(nil, app: app) } label: {
-                VStack(spacing: 0) {
-                    RankStarsView(stars: app.profile.rank.stars, size: 16)
-                    Text(L("対戦開始", "BATTLE")).font(.system(size: 28, weight: .black)).foregroundStyle(Color(red: 0.22, green: 0.16, blue: 0.09))
-                }.frame(width: 190, height: 66)
-                    .background(LinearGradient(colors: [.yellow, Color(red: 1, green: 0.95, blue: 0.44), .yellow], startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .clipShape(HomeChamfer(cut: 15, corners: .antiDiagonal))
-                    .overlay(HomeChamfer(cut: 15, corners: .antiDiagonal).stroke(HomeStyle.goldGradient, lineWidth: 3))
-                    .shadow(color: .pink.opacity(0.8), radius: 5)
-            }.accessibilityIdentifier("home_play").position(x: 903, y: 432)
+                .homePlaced(in: CGRect(x: 0, y: 379, width: 1024, height: 92.5))
+
+            // 一列で幅を分配し、ランク表示と開始ボタンの重なりを防ぐ。
+            // 下端にはホームインジケータ用の余白を残す。
+            HStack(spacing: 10) {
+                Button { app.router.push(.profile) } label: {
+                    referenceAvatar(width: 64, height: 48)
+                        .overlay(Rectangle().stroke(cyan, lineWidth: 1))
+                }.accessibilityLabel(L("プロフィール", "Profile"))
+
+                HStack(spacing: 0) {
+                    footerLink("shield.lefthalf.filled", L("戦闘準備", "Prepare"), .items)
+                    footerLink("person.fill", L("ヒーロー", "Heroes"), .heroes)
+                    footerLink("diamond", L("コレクション", "Collection"), .cosmetics)
+                    footerLink("bag.fill", L("バッグ", "Bag"), .inventory)
+                }.frame(maxWidth: .infinity)
+
+                Button { app.router.push(.emblems) } label: {
+                    Image(systemName: "shield.checkered")
+                        .font(.system(size: 25))
+                        .foregroundStyle(purple)
+                        .frame(width: 44, height: 52)
+                        .background(purple.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                }.accessibilityLabel(L("エンブレム", "Emblems"))
+
+                Button { app.router.push(.rankOverview) } label: {
+                    VStack(spacing: 2) {
+                        RankEmblemView(tier: app.profile.rank.tier, size: 36)
+                        Text(RankService.displayName(app.profile.rank))
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(purple)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }.frame(width: 76, height: 60)
+                }.accessibilityLabel(L("ランク", "Rank"))
+
+                Button { FlowFX.confirm(app); MatchFlowIntent.present(nil, app: app) } label: {
+                    VStack(spacing: 2) {
+                        RankStarsView(stars: app.profile.rank.stars, size: 12)
+                        Text(L("対戦開始", "BATTLE"))
+                            .font(.system(size: 25, weight: .black))
+                            .foregroundStyle(Color(red: 0.22, green: 0.16, blue: 0.09))
+                    }.frame(width: 180, height: 60)
+                        .background(LinearGradient(colors: [HomeStyle.goldLight, .yellow, Theme.gold], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .clipShape(HomeChamfer(cut: 12, corners: .antiDiagonal))
+                        .overlay(HomeChamfer(cut: 12, corners: .antiDiagonal).strokeBorder(HomeStyle.goldGradient, lineWidth: 2))
+                        .shadow(color: Theme.gold.opacity(0.3), radius: 4, y: 2)
+                }.accessibilityIdentifier("home_play")
+            }
+            .homePlaced(in: CGRect(x: 61, y: 387, width: 910, height: 60))
         }
     }
 
     private func footerLink(_ symbol: String, _ title: String, _ route: Route) -> some View {
-        Button { app.router.push(route) } label: {
-            HStack(spacing: 5) {
-                Image(systemName: symbol).font(.system(size: 20, weight: .semibold))
-                Text(title).font(.system(size: 15, weight: .medium))
+        Button { FlowFX.tap(app); app.router.push(route) } label: {
+            HStack(spacing: 6) {
+                Image(systemName: symbol)
+                    .font(.system(size: 18, weight: .semibold))
+                    .frame(width: 22)
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }.foregroundStyle(purple)
-                .frame(maxWidth: .infinity).frame(height: 49)
+                .frame(maxWidth: .infinity)
+                .frame(height: 60)
+                .contentShape(Rectangle())
         }.accessibilityLabel(title)
     }
 
