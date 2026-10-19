@@ -358,6 +358,42 @@ struct HomePressStyle: ButtonStyle {
     }
 }
 
+/// ホーム専用の常時演出。前面以外では phaseAnimator を外し、更新を止める。
+/// レイアウト寸法は変えず、描画だけを小さく動かす。
+struct HomeAmbientMotion: ViewModifier {
+    let animated: Bool
+    var travel: CGFloat = 1.2
+    var duration: Double = 3.2
+
+    func body(content: Content) -> some View {
+        if animated {
+            content.phaseAnimator([-1.0, 1.0]) { view, phase in
+                view
+                    .offset(y: CGFloat(phase) * travel)
+                    .brightness((phase + 1) * 0.018)
+            } animation: { _ in
+                .easeInOut(duration: duration)
+            }
+        } else {
+            content
+        }
+    }
+}
+
+/// 各ボタンに呼吸するような浮遊を加え、タップ領域は元の位置に保つ。
+struct HomeAmbientButtonStyle: ButtonStyle {
+    let animated: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .modifier(HomeAmbientMotion(animated: animated))
+            .brightness(configuration.isPressed ? 0.16 : 0)
+            .scaleEffect(configuration.isPressed ? 0.95 : 1)
+            .animation(.spring(duration: 0.18), value: configuration.isPressed)
+            .contentShape(Rectangle())
+    }
+}
+
 /// 記号を載せた面取りタイル（リスト項目・ドロワー項目のアイコン）。
 struct HomeGlyphTile: View {
     let symbol: String
