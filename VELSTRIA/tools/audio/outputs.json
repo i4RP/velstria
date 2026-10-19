@@ -1,0 +1,680 @@
+{
+ "bgm_draft.m4a": {
+  "note": "ヒーロー選択（ピック）",
+  "seconds": 116.11,
+  "sources": [
+   "battle"
+  ]
+ },
+ "bgm_draft_tense.m4a": {
+  "note": "ヒーロー選択の残り時間が少ない時",
+  "seconds": 64.0,
+  "sources": [
+   "finalstand"
+  ]
+ },
+ "bgm_home_fantasia.m4a": {
+  "note": "ホームの選べる曲「幻想の序曲」",
+  "seconds": 191.69,
+  "sources": [
+   "fantasia"
+  ]
+ },
+ "bgm_home_journey.m4a": {
+  "note": "ホームの選べる曲「宝探しの旅」",
+  "seconds": 65.07,
+  "sources": [
+   "treasure"
+  ]
+ },
+ "bgm_home_legend.m4a": {
+  "note": "ホームの選べる曲「伝説の夜明け」",
+  "seconds": 69.64,
+  "sources": [
+   "legend"
+  ]
+ },
+ "bgm_loading.m4a": {
+  "note": "ロード画面（試合開始へつなぐ）",
+  "seconds": 43.26,
+  "sources": [
+   "introcue"
+  ]
+ },
+ "bgm_lobby.m4a": {
+  "note": "ロビー・パーティ・ヒーロー選択（通常）",
+  "seconds": 57.6,
+  "sources": [
+   "onceupon"
+  ]
+ },
+ "bgm_result.m4a": {
+  "note": "結果画面",
+  "seconds": 74.32,
+  "sources": [
+   "athome"
+  ]
+ },
+ "sfx_ban.caf": {
+  "note": "jingles_HIT13 + impactPunch_heavy_000（低く）+ lowDown（バン）",
+  "seconds": 0.68,
+  "sources": [
+   "jingles",
+   "impact",
+   "digital"
+  ]
+ },
+ "sfx_countdown.caf": {
+  "note": "tick_004 + bong_001 を重ねた（残り秒の秒読み）",
+  "seconds": 0.12,
+  "sources": [
+   "interface"
+  ]
+ },
+ "sfx_defeat.caf": {
+  "note": "jingles_HIT09（こもらせた）+ jingles_PIZZI01、残響（敗北）",
+  "seconds": 1.74,
+  "sources": [
+   "jingles"
+  ]
+ },
+ "sfx_lock_in.caf": {
+  "note": "jingles_HIT07 + impactMetal_heavy_000 + confirmation_002（ピック確定）",
+  "seconds": 0.56,
+  "sources": [
+   "jingles",
+   "impact",
+   "interface"
+  ]
+ },
+ "sfx_match_found.caf": {
+  "note": "jingles_HIT10 + jingles_PIZZI15、残響（マッチ成立）",
+  "seconds": 1.38,
+  "sources": [
+   "jingles"
+  ]
+ },
+ "sfx_match_start.caf": {
+  "note": "jingles_HIT03 + impactPlate_heavy_000（低く）+ jingles_HIT15、残響（試合開始の合図）",
+  "seconds": 2.09,
+  "sources": [
+   "jingles",
+   "impact"
+  ]
+ },
+ "sfx_purchase.caf": {
+  "note": "chips-stack-1 + confirmation_003 を重ねた",
+  "seconds": 0.37,
+  "sources": [
+   "casino",
+   "interface"
+  ]
+ },
+ "sfx_reward.caf": {
+  "note": "jingles_PIZZI10 + glass_001、残響",
+  "seconds": 1.1,
+  "sources": [
+   "jingles",
+   "interface"
+  ]
+ },
+ "sfx_ui_back.caf": {
+  "note": "back_002",
+  "seconds": 0.07,
+  "sources": [
+   "interface"
+  ]
+ },
+ "sfx_ui_confirm.caf": {
+  "note": "confirmation_001",
+  "seconds": 0.29,
+  "sources": [
+   "interface"
+  ]
+ },
+ "sfx_ui_error.caf": {
+  "note": "error_004",
+  "seconds": 0.1,
+  "sources": [
+   "interface"
+  ]
+ },
+ "sfx_ui_tab.caf": {
+  "note": "switch_002",
+  "seconds": 0.14,
+  "sources": [
+   "interface"
+  ]
+ },
+ "sfx_ui_tap.caf": {
+  "note": "select_002",
+  "seconds": 0.04,
+  "sources": [
+   "interface"
+  ]
+ },
+ "sfx_victory.caf": {
+  "note": "jingles_HIT11 + jingles_PIZZI02、残響（勝利）",
+  "seconds": 1.81,
+  "sources": [
+   "jingles"
+  ]
+ },
+ "skill_H025_s1_cast.caf": {
+  "note": "H025 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 0.7,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H025_s2_cast.caf": {
+  "note": "H025 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 1.69,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H025_s2_hit.caf": {
+  "note": "H025 s2 の命中",
+  "seconds": 0.54,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H025_ult_cast.caf": {
+  "note": "H025 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 1.85,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H026_s1_cast.caf": {
+  "note": "H026 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 1.14,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H026_s1_hit.caf": {
+  "note": "H026 s1 の命中",
+  "seconds": 0.8,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H026_s2_cast.caf": {
+  "note": "H026 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 1.29,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H026_s2_hit.caf": {
+  "note": "H026 s2 の命中",
+  "seconds": 0.79,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H026_ult_cast.caf": {
+  "note": "H026 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 2.25,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H026_ult_hit.caf": {
+  "note": "H026 ult の命中",
+  "seconds": 0.8,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H027_s1_cast.caf": {
+  "note": "H027 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 1.2,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H027_s1_hit.caf": {
+  "note": "H027 s1 の命中",
+  "seconds": 0.36,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H027_s2_cast.caf": {
+  "note": "H027 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 0.64,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H027_s2_hit.caf": {
+  "note": "H027 s2 の命中",
+  "seconds": 0.4,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H027_ult_cast.caf": {
+  "note": "H027 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 1.44,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H028_s1_cast.caf": {
+  "note": "H028 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 1.12,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H028_s1_hit.caf": {
+  "note": "H028 s1 の命中",
+  "seconds": 0.35,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H028_s2_cast.caf": {
+  "note": "H028 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 0.88,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H028_s2_hit.caf": {
+  "note": "H028 s2 の命中",
+  "seconds": 0.42,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H028_ult_cast.caf": {
+  "note": "H028 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 1.75,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H028_ult_hit.caf": {
+  "note": "H028 ult の命中",
+  "seconds": 0.44,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H030_s1_cast.caf": {
+  "note": "H030 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 1.13,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H030_s1_hit.caf": {
+  "note": "H030 s1 の命中",
+  "seconds": 0.8,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H030_s2_cast.caf": {
+  "note": "H030 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 0.69,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H030_s2_hit.caf": {
+  "note": "H030 s2 の命中",
+  "seconds": 0.79,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H030_ult_cast.caf": {
+  "note": "H030 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 3.5,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H030_ult_hit.caf": {
+  "note": "H030 ult の命中",
+  "seconds": 0.8,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H031_s1_cast.caf": {
+  "note": "H031 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 1.2,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H031_s1_hit.caf": {
+  "note": "H031 s1 の命中",
+  "seconds": 0.48,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H031_s2_cast.caf": {
+  "note": "H031 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 1.17,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H031_s2_hit.caf": {
+  "note": "H031 s2 の命中",
+  "seconds": 0.2,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H031_ult_cast.caf": {
+  "note": "H031 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 2.65,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H031_ult_hit.caf": {
+  "note": "H031 ult の命中",
+  "seconds": 0.24,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H032_s1_cast.caf": {
+  "note": "H032 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 1.29,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H032_s1_hit.caf": {
+  "note": "H032 s1 の命中",
+  "seconds": 0.69,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H032_s2_cast.caf": {
+  "note": "H032 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 1.56,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H032_s2_hit.caf": {
+  "note": "H032 s2 の命中",
+  "seconds": 0.61,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H032_s2_r1_cast.caf": {
+  "note": "H032 s2 段1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 0.84,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H032_ult_cast.caf": {
+  "note": "H032 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 2.85,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H032_ult_hit.caf": {
+  "note": "H032 ult の命中",
+  "seconds": 0.65,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H033_s1_cast.caf": {
+  "note": "H033 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 1.14,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H033_s1_hit.caf": {
+  "note": "H033 s1 の命中",
+  "seconds": 0.4,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H033_s2_cast.caf": {
+  "note": "H033 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 0.71,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H033_s2_hit.caf": {
+  "note": "H033 s2 の命中",
+  "seconds": 0.44,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H033_ult_cast.caf": {
+  "note": "H033 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 1.43,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H033_ult_hit.caf": {
+  "note": "H033 ult の命中",
+  "seconds": 0.45,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ },
+ "skill_H033_ult_r1_cast.caf": {
+  "note": "H033 ult 段1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
+  "seconds": 1.23,
+  "sources": [
+   "digital",
+   "impact",
+   "interface",
+   "rpg",
+   "scifi"
+  ]
+ }
+}

@@ -196,11 +196,11 @@ struct MatchResultView: View {
             switch bannerKind {
             case .victory:
                 app.audio.play(.victory)
-                app.audio.playMusic(.victory)
+                app.audio.playMusic(.result)
                 app.haptics.success()
             case .defeat:
                 app.audio.play(.defeat)
-                app.audio.playMusic(.defeat)
+                app.audio.playMusic(.result)
             case .ended, .spectate, .spectateOnline, .replay, .replayStopped:
                 app.audio.playMusic(.menu)
             }

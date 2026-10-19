@@ -64,6 +64,14 @@ protocol HeroModelHandle: AnyObject {
     func setState(_ state: HeroAnimState)
     /// スキルの詠唱モーションの長さ（秒。詠唱状態をこの間保つ）。
     func castDuration(_ slot: SkillSlot) -> Float
+    /// 再使用の段（キット層の stage）の詠唱モーションの長さ（秒）。段に固有のモーションが無ければ castDuration(slot)。
+    func castDuration(_ slot: SkillSlot, stage: Int) -> Float
+    /// 段に固有のモーションがあり、同じスロットの詠唱中でも始め直す段か（docs/HERO_MOTION.md「全身のモーション」）。
+    func castRestarts(_ slot: SkillSlot, stage: Int) -> Bool
+    /// 段の詠唱モーションを今すぐ始める（castRestarts が真の段だけ描画側が呼ぶ）。
+    func playCast(_ slot: SkillSlot, stage: Int)
+    /// 詠唱中のスロットのスキルが最初に当たった時（sim のダメージ）。命中の後のモーションを始めたらその長さ（秒）、無ければ nil。
+    func playCastHit(_ slot: SkillSlot) -> Float?
     /// 手続きアニメーションを進める（毎フレーム）。
     func update(dt: Double, moveSpeed: Double)
     /// 通常攻撃を 1 回振る（シムの攻撃開始時に呼ぶ。windup = 発射・命中までの秒、interval = 次の攻撃までの秒）。
@@ -80,6 +88,11 @@ protocol HeroModelHandle: AnyObject {
 extension HeroModelHandle {
     /// 既定は何もしない（手続きモデルは setState(.attack) の手続きの振りのまま）。
     func playAttack(windup: Double, interval: Double) {}
+    /// 既定: 段のモーションは無い（従来どおり setState(.cast) だけ）。
+    func castDuration(_ slot: SkillSlot, stage: Int) -> Float { castDuration(slot) }
+    func castRestarts(_ slot: SkillSlot, stage: Int) -> Bool { false }
+    func playCast(_ slot: SkillSlot, stage: Int) { setState(.cast(slot)) }
+    func playCastHit(_ slot: SkillSlot) -> Float? { nil }
     /// 既定は無し（描画側は従来どおり頭上の高さなどから出す）。
     func attackLaunchPoint() -> SIMD3<Float>? { nil }
     func weaponTrailSample() -> HeroWeaponTrailSample? { nil }

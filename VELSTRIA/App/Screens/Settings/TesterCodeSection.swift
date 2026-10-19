@@ -9,6 +9,9 @@ struct TesterCodeSection: View {
     @State private var code = ""
     @State private var unlocked = TesterAccess.isUnlocked()
     @AppStorage(PerfProbe.enabledKey) private var perfProbe = false
+    #if DEBUG || TESTER_TOOLS
+    @AppStorage(HitShapeOverlay.enabledKey) private var hitShapes = false
+    #endif
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -46,6 +49,20 @@ struct TesterCodeSection: View {
             }
             .tint(Theme.cyan)
             .accessibilityIdentifier("tester_perf_probe")
+            #if DEBUG || TESTER_TOOLS
+            Toggle(isOn: $hitShapes) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L("判定の形を表示", "Show hit shapes")).font(Theme.body(13))
+                    Text(L("スキルが当たりを調べた形（円・扇・線の幅・着地点）を、その瞬間に地面へ細い線で 0.5 秒出します（次の試合から。演出チェックの録画にも写ります）",
+                           "Draws the exact shape each skill checked for hits (circle, fan, line width, landing) as thin ground lines for 0.5 s (from the next battle; also in FX check recordings)"))
+                        .font(Theme.body(11))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+            }
+            .tint(Theme.cyan)
+            .accessibilityIdentifier("tester_hit_shapes")
+            #endif
+            FXCheckSettingsRow()
             if PerfProbe.lastReport != nil {
                 Button {
                     UIPasteboard.general.string = PerfProbe.lastReport

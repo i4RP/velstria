@@ -2,7 +2,7 @@ import SwiftUI
 import VelstriaCore
 
 // UI007 ホーム。参照デザインの比率で配置するロビーと、既存のメニュードロワー。
-// ドロワーのセーフエリア計算は HomeMetrics を引き続き使用する。
+// ドロワーのセーフエリア計算は HomeLayout を引き続き使用する。
 
 struct HomeView: View {
     @Environment(AppModel.self) private var app
@@ -28,7 +28,7 @@ struct HomeView: View {
         GeometryReader { outer in
             let insets = outer.safeAreaInsets
             GeometryReader { geo in
-                content(HomeMetrics(size: geo.size, safeArea: insets))
+                content(HomeLayout(size: geo.size, safeArea: insets))
             }
             .ignoresSafeArea()
         }
@@ -52,12 +52,12 @@ struct HomeView: View {
         }
     }
 
-    private func content(_ m: HomeMetrics) -> some View {
+    private func content(_ m: HomeLayout) -> some View {
         ZStack(alignment: .topLeading) {
             HomeReferenceLobby(safeArea: m.safeArea, heroID: showcaseHeroID, animated: animates, now: now, onMenu: openMenu, onPick: { pickedHeroID = $0 })
                 .frame(width: m.size.width, height: m.size.height)
             if menuOpen {
-                HomeMenuDrawer(metrics: m) { route in
+                HomeMenuDrawer(layout: m) { route in
                     closeMenu()
                     if let route { app.router.push(route) }
                 }
@@ -99,10 +99,9 @@ struct HomeView: View {
 
 /// 検証用の起動引数（DebugLaunch.swift 冒頭の一覧を参照。出荷ビルドでは DebugLaunch.args が空なので常に既定値）。
 enum HomeDebug {
-    static var startsRailCollapsed: Bool { DebugLaunch.value(after: "-homeRail") == "collapsed" }
+    static var startsFriendsCollapsed: Bool { DebugLaunch.value(after: "-homeRail") == "collapsed" }
     static var startsMenuOpen: Bool { DebugLaunch.args.contains("-homeMenu") }
     static var initialHeroID: String? { DebugLaunch.value(after: "-homeHero") }
-    static var starts3D: Bool { DebugLaunch.args.contains("-home3D") }
 }
 
 /// 採用コンセプトの 1774 × 887 を 1024 × 512 の座標に正規化。
@@ -115,7 +114,7 @@ private struct HomeReferenceLobby: View {
     let onMenu: () -> Void
     let onPick: (String) -> Void
     @Environment(AppModel.self) private var app
-    @State private var friendsCollapsed = HomeDebug.startsRailCollapsed
+    @State private var friendsCollapsed = HomeDebug.startsFriendsCollapsed
     private let ice = Color(red: 0.65, green: 0.84, blue: 1)
     private let ink = Color(red: 0.015, green: 0.045, blue: 0.09)
 
@@ -187,9 +186,9 @@ private struct HomeReferenceLobby: View {
             HStack(spacing: 10) {
                 currency("dollarsign.circle.fill", HomeFormat.currency(app.profile.starlightCoin, compact: false), gold: true)
                 currency("diamond.fill", "\(app.profile.totalGem)", gold: false)
-                utility("envelope.fill", L("メール", "Mail"), .mail, id: "home_mail", badge: HomeBadges.unreadMail(app.profile, now: now))
+                utility("envelope.fill", L("メール", "Mail"), .mail, id: "home_mail", badge: HomeBadges.mail(app.profile, now: now))
                 Button { friendsCollapsed.toggle() } label: { Image(systemName: "person.2.fill").font(.system(size: 23)).frame(width: 32, height: 38) }
-                    .accessibilityLabel(L("フレンド欄を切り替え", "Toggle friends"))
+                    .accessibilityLabel(L("フレンド欄を切り替え", "Toggle friends")).accessibilityIdentifier("home_friends_toggle")
                 utility("gearshape.fill", L("設定", "Settings"), .settings, id: "home_settings")
                 Button(action: onMenu) { Image(systemName: "line.3.horizontal").font(.system(size: 21)).frame(width: 32, height: 38) }
                     .accessibilityLabel(L("メニュー", "Menu")).accessibilityIdentifier("home_menu")
@@ -257,7 +256,7 @@ private struct HomeReferenceLobby: View {
                 Image(systemName: "chevron.right").foregroundStyle(ice).padding(9).frame(maxWidth: .infinity, alignment: .trailing)
             }.clipShape(HomeChamfer(cut: 7))
                 .overlay(HomeChamfer(cut: 7).stroke(ice.opacity(0.75), lineWidth: 0.6))
-        }.accessibilityLabel(title)
+        }.accessibilityLabel(title).accessibilityIdentifier("home_\(String(describing: route))")
     }
 
     private func rail(_ symbol: String, _ title: String, _ route: Route) -> some View {
@@ -268,7 +267,7 @@ private struct HomeReferenceLobby: View {
                     .frame(width: 30, height: 28)
                 Text(title).font(.system(size: 12, design: .serif)).lineLimit(1).minimumScaleFactor(0.7)
             }.frame(width: 53, height: 49)
-        }.accessibilityLabel(title)
+        }.accessibilityLabel(title).accessibilityIdentifier("home_\(String(describing: route))")
     }
 
     private func railSource(_ symbol: String) -> CGRect {
@@ -341,7 +340,7 @@ private struct HomeReferenceLobby: View {
             }.homePlaced(in: CGRect(x: 17, y: 420, width: 487, height: 70))
             Button { app.router.push(.emblems) } label: {
                 Image(systemName: "sparkle").font(.system(size: 19, weight: .ultraLight)).foregroundStyle(ice).frame(width: 27, height: 60)
-            }.accessibilityLabel(L("エンブレム", "Emblems")).homePlaced(in: CGRect(x: 502, y: 427, width: 27, height: 60))
+            }.accessibilityLabel(L("エンブレム", "Emblems")).accessibilityIdentifier("home_emblems").homePlaced(in: CGRect(x: 502, y: 427, width: 27, height: 60))
             Button { app.router.push(.rankOverview) } label: {
                 HStack(spacing: 9) {
                     RankEmblemView(tier: app.profile.rank.tier, size: 46)
@@ -369,7 +368,7 @@ private struct HomeReferenceLobby: View {
                         .frame(width: 0.5, height: 37)
                 }
                 .contentShape(Rectangle())
-        }.accessibilityLabel(title)
+        }.accessibilityLabel(title).accessibilityIdentifier("home_\(String(describing: route))")
     }
 
     private var battleButton: some View {

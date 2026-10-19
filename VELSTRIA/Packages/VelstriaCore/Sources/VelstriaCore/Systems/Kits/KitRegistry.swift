@@ -172,6 +172,11 @@ public enum HeroKits {
         kit(for: heroID)?.plannedZones(master: master) ?? []
     }
 
+    /// 演出が読むキットの時刻・寸法（判定と同じ Tune の値。キットが無ければ空。docs/vfx/RANGES.md）。
+    public static func fxValues(heroID: String, slot: SkillSlot, stage: Int = 0) -> [KitFXValue] {
+        kit(for: heroID)?.fxValues(slot: slot, stage: stage) ?? []
+    }
+
     /// 汎用の結果を土台にしたキットの照準情報（キットが無ければ汎用）。
     public static func targeting(for skill: SkillDef, hero: HeroDef, stage: Int) -> SkillTargeting {
         let base = SkillCatalog.genericTargeting(for: skill, hero: hero)

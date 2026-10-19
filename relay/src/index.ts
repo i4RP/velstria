@@ -121,14 +121,15 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
-/** ランク: `POST /v1/rank/<FRIENDCODE>/(get|seed|match|erase)`、本文 `{"key":"…", …}` */
+/** ランク: `POST /v1/rank/<FRIENDCODE>/(get|seed|match|erase)`、本文 `{"key":"…", …}`（README.md「ランク」） */
 const RANK_PATH = /^\/v1\/rank\/([^/]*)\/(get|seed|match|erase)$/;
 const MAX_RANK_BODY_BYTES = 4 * 1024;
 
 async function rankCall(request: Request, env: Env, code: string, op: string): Promise<Response> {
   if (request.method !== "POST") return plain(405, "method_not_allowed", { Allow: "POST" });
   if (!FRIEND_CODE.test(code)) return plain(400, "bad_friend_code");
-  if (isSuspended(env, code)) return plain(403, "suspended");
+  // 運営が利用を止めたコードでも消去はできる（本人の削除の求めには応じる。受信箱の消去と同じ）
+  if (op !== "erase" && isSuspended(env, code)) return plain(403, "suspended");
   const text = await request.text();
   if (text.length > MAX_RANK_BODY_BYTES) return plain(400, "bad_request");
   let body: { key?: unknown; state?: unknown; match?: MatchInput };
@@ -150,7 +151,7 @@ async function rankCall(request: Request, env: Env, code: string, op: string): P
       break;
     default: res = await stub.erase(hash);
   }
-  if (!res.ok) return plain(res.error === "forbidden" ? 403 : 400, res.error);
+  if (!res.ok) return plain(res.error === "forbidden" ? 403 : res.error === "not_seeded" ? 409 : 400, res.error);
   return Response.json(res, { headers: { "cache-control": "no-store" } });
 }
 

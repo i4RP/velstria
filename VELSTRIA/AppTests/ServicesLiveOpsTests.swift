@@ -89,10 +89,10 @@ final class ServicesLiveOpsTests: XCTestCase {
         XCTAssertEqual(LiveOpsService.missionProgress(id: "W01", profile: p)?.progress, 15, "目標で頭打ち")
         XCTAssertEqual(LiveOpsService.missionProgress(id: "W03", profile: p)?.progress, 40)
         XCTAssertEqual(LiveOpsService.missionProgress(id: "W04", profile: p)?.progress, 12)
-        XCTAssertEqual(LiveOpsService.claimableMissionCount(profile: p, now: now) >= 4, true)
+        XCTAssertEqual(HomeBadges.claimableMissions(p) + HomeBadges.eventMissions(p, now: now) >= 4, true)
         let all = LiveOpsService.claimAllMissions(profile: &p, now: now)
         XCTAssertFalse(all.isEmpty)
-        XCTAssertEqual(LiveOpsService.claimableMissionCount(profile: p, now: now), 0)
+        XCTAssertEqual(HomeBadges.claimableMissions(p) + HomeBadges.eventMissions(p, now: now), 0)
         // 受取済みは進捗しない
         let progressed = LiveOpsService.recordMatch(input(), profile: &p, now: now)
         XCTAssertFalse(progressed.contains("W01"))
@@ -178,7 +178,7 @@ final class ServicesLiveOpsTests: XCTestCase {
         LiveOpsService.recordMatch(input(won: true, kills: 5), profile: &p, now: week2)
         XCTAssertEqual(p.missions.weekly.first { $0.id == "EV02" }?.progress, 5)
         XCTAssertEqual(p.missions.weekly.first { $0.id == "EV03" }?.progress, 30)
-        let claimable = LiveOpsService.claimableMissionCount(profile: p, now: week2)
+        let claimable = HomeBadges.eventMissions(p, now: week2)
         XCTAssertGreaterThanOrEqual(claimable, 2)
     }
 
@@ -209,7 +209,9 @@ final class ServicesLiveOpsTests: XCTestCase {
         let cosmetics = rewards.flatMap { [$0.free, $0.premium] }.compactMap { $0 }.filter { $0.kind == .cosmetic }
         XCTAssertEqual(cosmetics.count, 9)
         XCTAssertEqual(Set(cosmetics.compactMap(\.refID)).count, 9)
-        XCTAssertTrue(cosmetics.allSatisfy { master.cosmetic($0.refID ?? "") != nil })
+        // ゲームに出すコスメだけ（非表示のヒーローのスキンは一覧に出ないので配らない。MasterData.cosmetics）
+        let shown = Set(master.cosmetics.map(\.cosmeticID))
+        XCTAssertTrue(cosmetics.allSatisfy { shown.contains($0.refID ?? "") })
         XCTAssertEqual(LiveOpsService.passLevel(xp: 999), 0)
         XCTAssertEqual(LiveOpsService.passLevel(xp: 1000), 1)
         XCTAssertEqual(LiveOpsService.passLevel(xp: 99_999), 30)
@@ -220,7 +222,7 @@ final class ServicesLiveOpsTests: XCTestCase {
         var p = Profile()
         XCTAssertNil(LiveOpsService.claimPass(level: 1, premium: false, profile: &p), "未到達")
         LiveOpsService.addPassXP(5000, to: &p)
-        XCTAssertEqual(LiveOpsService.claimablePassRewardCount(profile: p), 5)
+        XCTAssertEqual(HomeBadges.starPass(p), 5)
         XCTAssertNil(LiveOpsService.claimPass(level: 6, premium: false, profile: &p))
         XCTAssertNil(LiveOpsService.claimPass(level: 0, premium: false, profile: &p))
         XCTAssertNil(LiveOpsService.claimPass(level: 31, premium: false, profile: &p))
@@ -230,7 +232,7 @@ final class ServicesLiveOpsTests: XCTestCase {
         XCTAssertNil(LiveOpsService.claimPass(level: 1, premium: false, profile: &p), "二重受取なし")
         XCTAssertNil(LiveOpsService.claimPass(level: 1, premium: true, profile: &p), "プレミアム未購入")
         p.pass.hasPremium = true
-        XCTAssertEqual(LiveOpsService.claimablePassRewardCount(profile: p), 4 + 5)
+        XCTAssertEqual(HomeBadges.starPass(p), 4 + 5)
         XCTAssertNotNil(LiveOpsService.claimPass(level: 1, premium: true, profile: &p))
         XCTAssertNil(LiveOpsService.claimPass(level: 1, premium: true, profile: &p))
         let rest = LiveOpsService.claimAllPass(profile: &p)
@@ -387,10 +389,10 @@ final class ServicesLiveOpsTests: XCTestCase {
             XCTAssertFalse(n.bodyEn.isEmpty)
         }
         var p = Profile()
-        XCTAssertEqual(LiveOpsService.unreadNoticeCount(profile: p), 4)
+        XCTAssertEqual(HomeBadges.unreadNotices(p), 4)
         LiveOpsService.markNoticeRead(id: "NT001", profile: &p)
         LiveOpsService.markNoticeRead(id: "NT001", profile: &p)
-        XCTAssertEqual(LiveOpsService.unreadNoticeCount(profile: p), 3)
+        XCTAssertEqual(HomeBadges.unreadNotices(p), 3)
         for m in LiveOpsService.dailyMissionPool + LiveOpsService.weeklyMissionPool + LiveOpsService.eventMissionPool {
             XCTAssertFalse(m.titleJa.isEmpty)
             XCTAssertFalse(m.titleEn.isEmpty)

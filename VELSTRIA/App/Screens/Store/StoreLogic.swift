@@ -84,6 +84,18 @@ enum StoreCatalog {
         }
     }
 
+    /// ストアのホームに並べるカテゴリ。ヒーロー解放は売らない。スキンは商品が無い間は出さない
+    /// （ゲームに出すヒーローのスキンが無い。2026-10-12 の名簿の変更。スキンストアの画面と経路は残してある）。
+    static func homeCategories(master: MasterData) -> [StoreCategory] {
+        StoreCategory.allCases.filter { c in
+            switch c {
+            case .heroes: return false
+            case .skins: return !items(in: .skins, master: master).isEmpty
+            default: return true
+            }
+        }
+    }
+
     static func bundles(master: MasterData) -> [StoreItemDef] {
         master.store.filter { $0.type == .bundle }
     }

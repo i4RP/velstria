@@ -9,7 +9,10 @@
 | --- | --- |
 | `App/Battle/Render/SkillFX/FXSpec.swift` | 記述の型: FXCue（合図）・FXEmit（粒子）・FXMesh（メッシュ層）・FXTint・FXAnchor・SkillFXRecipe |
 | `App/Battle/Render/SkillFX/FXKit.swift` | 部品（flare / sparks / wave / slash / pillar / dome …）。まずここから選ぶ |
-| `App/Battle/Render/SkillFX/FXTextures.swift` | 手続きテクスチャ（FXTex の全 37 種。`docs` 下ではなくコードのコメント参照） |
+| `App/Battle/Render/SkillFX/FXTextures.swift` | 手続きテクスチャ（FXTex。Blender の 1 枚の模様は `bundled`。`docs` 下ではなくコードのコメント参照） |
+| `App/Battle/Render/SkillFX/FXMeshes.swift` | 単位メッシュ・Blender の模型（FXModelFile）・枠ごとの LowLevelMesh（FXMeshSlot）・材質（FXMaterialLibrary） |
+| `App/Battle/Render/SkillFX/FXPrograms.swift` / `FXShaders.metal` | 加算・模様・コマ送り・溶けの CustomMaterial、流れる模様（FXFlowTex）、コマ送りのシート（FXSheet） |
+| `tools/vfx_assets/` | Blender の素材づくり（模型・コマ送り・模様。下の「Blender の素材と拡張の部品」） |
 | `App/Battle/Render/SkillFX/SkillFXPlayer.swift` | 再生器（プール・予定表・追従）。プレイ中は何も作らない |
 | `App/Battle/Render/SkillFX/SkillFXDirector.swift` | sim イベント → 段の再生、パッシブ発動の推定、DEBUG の実演（-skillDemo） |
 | `App/Battle/Heroes/SkillMotion.swift` | 詠唱モーション（MotionClip・MotionBuilder・技の部品） |
@@ -75,13 +78,78 @@ Arcanist = スキルが敵ヒーローに当たった / Support = スキル後�
 9. **ヒーロー間の差**: 同じロール（同じアーキタイプ）のヒーロー同士でも、形・色・時間の使い方を変える
    （例: 同じ leapSlam でも アルデン = 黄金の紋章と 7 本の光柱、ガルク = 溶岩の亀裂と岩の隆起、ブラム = 砦を砕く衝撃波と土煙）。
 
+## Blender の素材と拡張の部品（2026-10-18〜）
+
+素材は `tools/vfx_assets`（Blender 4.5 をヘッドレスで回す。README）。どれも手続きで作った自前の素材。
+
+| 部品 | 書き方 | 中身 |
+| --- | --- | --- |
+| 模型（Model） | `FXMesh.model(.crescent, .swoosh, size:)`・`FXShape` の `crescent` `ringLip` `twister` `pillar2` `bladeRing` `burstDome` `starCross` `shardRing` | Blender の UV 付きメッシュ（`App/Resources/FX/Meshes/fxm_<名前>.bin`、`FXModelFile`）。試合のレシピが使う形だけプールする。UV の約束は `FXShape` |
+| コマ送りのメッシュ | `FXMesh.flipbook(.fireball, 3)`・`.groundFlipbook(.spikes, 3.4)`・`.animated(sheet)` | 寿命で全コマ（繰り返す画像は loopFPS）。CI のシミュレータに写る（粒子のコマ送りは写らない）。Program が無い時は `tex` の 1 枚絵 |
+| 溶け（ディゾルブ） | `.dissolving(from: 0.45, edge: .core, width: 0.1)` | 寿命の比 from から模様の暗い所から消え、縁が光る。模様は flow があれば flow の模様 |
+| UV スクロール | `.flowing(.lava / .flame / .noise / .streaks / .cells, scroll:)` | 繰り返しの模様を UV で流す。`lava`・`flame` は Blender の継ぎ目なしの模様 |
+| 帯（Ribbon / Track） | `.ribbon(.swing(radius:from:to:height:roll:))`・`.ribbon(.trail(width:life:duration:), .follow)` | 振りの軌跡（弧を掃く頭）と追従の尾。LowLevelMesh の帯のプール（`ribbonCapacity`）。u = 尾 0 → 頭 1 |
+| 画面の歪み | `FXMesh.refract`（0.004〜0.015） | 後処理の合成のパスで輪の縁の背景を膨らませる（最大 4 つ。実機の中・高画質だけ） |
+| 3D の上 | `FXMesh.onTop`・`FXRibbon.onTop` | 深度を読まない（爆炎・閃光・振りの軌跡）。コマ送りの板と振りの軌跡は既定で上 |
+| 放物線 | `FXMesh.gravity` | rise に下向きの加速度（跳ねて落ちる岩板） |
+
+- 1 体ごとの値: メッシュのプールの枠ごとに LowLevelMesh（`FXMeshSlot`）を持ち、頂点の色の g = コマ、b = 溶けの進み、a = 模様の種を書く
+  （`FXShaders.metal` が読む）。材質は共有のまま、プレイ中に作るものは無い。加算の明るさは従来どおり段階の材質。
+- 大きな画像（Blender のシート・1024 px の模様）はレシピが使うもの・使う合成の版だけ作る。
+- 見せ場の粒の細部は Effekseer の `.efk` を段に重ねられる（`FXCue.efk`。docs/EFFEKSEER.md）。範囲を示す部品は docs/vfx/RANGES.md の規則に従う
+  （Blender の模型のうち範囲を示すのは `ringLip` だけ）。
+
 ## 予算（性能）
 
-- 1 スキルの全段で メッシュの合図 ≤ 16（`repeated`/`ringed` の数を含む）、粒子の合図 ≤ 10。奥義は メッシュ ≤ 24・粒子 ≤ 12。
+- 1 スキルの全段で メッシュの合図 ≤ 20（`repeated`/`ringed` の数を含む）、粒子の合図 ≤ 13。奥義は メッシュ ≤ 28・粒子 ≤ 16
+  （`SkillFXTests.testRecipesRespectBudgets` が正。2026-10-17 に本文の古い値 16 / 10・24 / 12 を直した）。
 - 1 つの粒子の数 ≤ 60（画質で自動的に減る）。継続放出（`rate`）は `duration` を付けるか travel だけで使う。
 - 低画質で省いてよい余韻には `quality: 1`（中以上）/ `quality: 2`（高のみ）を付ける。
 - 新しいテクスチャ・形を足すときは FXTex / FXShape に足す（プレイ中に作らない規律: AssetLedger の live = 0、
   RenderWarmupTests が検査する）。
+
+### 予算の観測（打ち切り・破棄の集計）
+
+再生器（`SkillFXPlayer`）は全員で共有する枠と合図の上限を持ち、超えると演出を打ち切る・捨てる。どれだけ起きたかを
+`SkillFXPlayer.stats` に数え、`budgetSnapshot()` の写しを性能記録 `perf-report.json` の `skillFXBudget` に出す
+（`-perfRun <秒>` で書き出す時点の値。`tools/perf_run.sh --out <file>` で保存した JSON に入る。スクリプトの画面の要約には出さない）。
+数えるだけで、選ぶ順・捨てる動作・容量は変えない。
+
+| 経路 | 容量（2026-10-17 のコード） | 集計 |
+|---|---|---|
+| 粒子放出体 | 低 10・中 22・高 34（`emitterCapacity`、試合開始時の画質。全員で共有） | `emitters` |
+| メッシュ（形ごと） | 円板 28・弧 12・板 12・円柱 10・球 10・壁 8・帯 8・ドーム 5・尖塔 5・漏斗 5 = 103（低はそれぞれ半分・最低 2 = 50） | `meshShapes`・合計 `meshes` |
+| 1 回の再生の合図 | 64（`BattleWorkBudget.cuesPerPlay`） | `cues.overPerPlay` |
+| 遅延予約（全員の合計） | 512（`BattleWorkBudget.pendingCues`） | `cues.overPending`・`pending`・`peakPending` |
+
+枠の集計（`emitters` / `meshShapes`）の `counts`。1 回の要求は次のどれか 1 つ:
+
+- `requests`: 取得要求（spawn の回数。読み込み幕の裏の準備 `prewarm`・陳列 `fireWarmup` は含まない）。
+- 空き（寿命を終えて update で戻った枠）からの受理: 数えない（`requests` だけ増える）。
+- `cut`: 空きが無く、**寿命の途中の**演出を打ち切って受理（粒子は最も早く終わる一斉放出、メッシュは同じ形の最も古いもの）。
+  打ち切った 1 回を取得の側だけで数える（返却の側では数えない）。
+- `reclaimed`: 空きが無く、寿命を過ぎて回収（update）を待っていた枠をそのまま使った（予定の合図は同じ update の回収より先に出るため）。
+  正常終了なので打ち切りではない。
+- `rejected`: 空きも打ち切れる演出も無く、要求を捨てた（粒子: 使用中が全て止まらない継続放出のとき）。
+  メッシュは容量 ≥ 2 で空きが無ければ同じ形の使用中が必ずあるため、今のコードでは起きない（経路として数えるだけ）。
+- `grown`: `prewarm` の前でプールに無く、新しく作った（試合中は 0。作れば AssetLedger の live にも出る）。
+- `peakInUse`: 使用中の枠の数の最大（受理の直後に測る）。`pooled` = 作ってある枠（使用中 + 空き）、`inUse` = 写しの時点の使用中。
+  粒子放出体は ParticleEmitterComponent 1 つの枠で、**生きている粒子の数ではない**（止めた継続放出の消えるまでの余韻も枠を使う）。
+
+合図の集計（`cues`）: `overPerPlay` = この画質で出す合図（`repeated` の繰り返しは 1 回ずつ。`quality:` で出さない合図は含まない）のうち、
+1 回の再生の上限で受け付けなかった数。`overPending` = 遅延予約が埋まっていて捨てた数。即時（`at` 0）の合図は予約を使わない。
+`stats.droppedCues` は従来の粗い合計（両方の上限を混ぜて数える）で、原因の切り分けには使わない。
+
+`bySource`: 演出を失った側の出所ごと（`ヒーロー.スキル.再使用の段`、例 `H029.skill1.0`）。打ち切りは打ち切られた側、
+拒否・合図の破棄は要求した側に数える。出所は `SkillFXDirector.context` が渡す。cast / impact などの段（phase）は再生器に渡らないので持たない。
+出所の無い再生は `unknown`（推定で割り当てない）。
+
+数えないもの: `clear()`（幕が上がる直前・シーク / 再同期の作り直し・破棄）・`stop(follow:)`（投射物の着弾・術者の死亡）・
+`cut(follow:group:)`（sim の数が減った刃）で消えた演出と予約。
+
+集計の始まりと終わり: 全て `clear()` で 0 に戻る。幕が上がる直前（`finishWarmup`）に clear されるので、読み込み中の準備・陳列は入らない。
+シーク・オンラインの再同期（`resetForPresentationEpoch`）でも 0 に戻る（その後の分だけになる）。試合ごとに `BattleWorld` と再生器を作り直すので、
+前の試合の値は残らない。画質は `quality`（自動調整後のいまの画質）と `poolQuality`（枠の数を決めた試合開始時の画質）を添える。
 
 ## 詠唱モーション
 
@@ -95,6 +163,9 @@ uppercut twirl shieldBash raise push gather throwCast plant command roar guardCr
   throwCast、双剣は crossSlash、盾持ち（`m.shield`）は左腕が自動で盾を構える。
 - 4 スロットとも **違う動き** にする。同じロール内でもヒーローごとに変える（踏み込みの深さ・回転数・溜めの長さ）。
 - `p.glow`（武器先の光）・`p.ring`（光輪）・`p.wings`（翼・外套）はモデルの発光演出を動かす。
+- 全身のモーションの目録（`HeroSkillMotions`、App/Battle/Heroes/Motions。2026-10-18: H029・H034）にあるヒーローは、ここの
+  `motion` を使わない（踏み込み・跳び・足の接地・再使用の段・命中の後・全身の通常攻撃。docs/HERO_MOTION.md「全身のモーション」）。
+  演出の `at:` はそのモーションの打撃の時刻（docs/vfx/H0xx.md「モーション（打撃の時刻）」）に合わせる。
 
 ## 確認のしかた
 

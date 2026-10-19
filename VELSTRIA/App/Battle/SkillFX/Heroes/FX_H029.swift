@@ -2,23 +2,26 @@ import Foundation
 import VelstriaCore
 
 // スキル演出: H029 聖槌のボルグ（Support / 巨大な聖槌・円盾・青と金の重装。MLBB の Tigreal の Velstria 版）。
-// 主題: 金の聖槌が大地を打つ。白金の芯 × 金（主）× 鋼の青（副）× 温かい白（差し色）× 土煙。
-// 上から見下ろすカメラで「扇へ 3 回はじける」「突進して押し運ぶ」「振り上げて打ち上げる」「吸い寄せて叩き潰す」が読めるよう、
-// 円い輪を主役にせず、前方の弧・扇に並ぶ爆発・地割れ・内へ縮む輪で形を見せる。
+// 主題: 金の聖槌が大地を打つ。白金の芯 × 金（主）× 鋼の青（副）× 温かい白（差し色）× 炎の橙・焦げた暗い朱。
+// 上から見下ろすカメラで「前へ 3 回はじける」「突進して押し運ぶ」「振り上げて打ち上げる」「吸い寄せて叩き潰す」が読めるよう、
+// 円い輪を主役にせず、前方の爆ぜ・S 字の地割れ・炎の球・渦の刃・四芒星の岩盤で形を見せる。
 // sim の実際の挙動（Systems/Kits/Kit_H029.swift の Tune）に合わせたタイミング:
 //   パッシブ 聖鎚の誓い       — 誓いが積まれる / 防御が発動する（バッジのタイマー）たびに、左腕の盾に小さな金のきらめき。
 //                              スキルの発動の直後（0.6 秒以内）の防御は passiveRelease: 青い六角の盾の殻と金の盾面が弾ける
 //   スキル1 聖槌波           — 0.25 秒で槌が地を打ち、前方の台形（奥行き 6.1m）に衝撃波が手前 → 中 → 奥へ 3 回はじける
 //                              （0.25 / 0.58 / 0.92 秒 = waveFirstDelay + waveInterval × n、帯の中心は奥行きの 1/4・1/2・3/4）。
-//                              回ごとに金の弧が前の位置から次の位置へ走り、弧の上の 3 点で金の爆発・土の破片・地割れが起きる
-//   スキル2 聖槌突撃         — 1 回目: 盾を前に突進（5.25m を約 0.67 秒）。通り道に金の筋と土煙、終点（照準点）で押し運んだ衝撃。
+//                              回ごとに光の棘の爆ぜ → 黄に光る S 字の地割れ → 橙の溶岩のひび → 焦げた暗いひび、爆炎、火花・残り火・焦げた煙
+//   スキル2 聖槌突撃         — 1 回目: 盾を前に突進（5.25m を約 0.67 秒）。体を包む炎の殻と前の金の三日月、背に炎の帯。
 //                              突進は impact を再生しない（ゾーンを作らない）ので、終点の演出は cast の .target に 0.67 秒遅れで置く。
-//                              再使用（stage 1、4 秒以内）: 0.2 秒（smashDelay）で槌を振り上げ、前方の扇（2.15m）に金の光の柱・
-//                              昇る輪・上へ噴く火花 = 打ち上げ（0.6 秒）。段の演出は recipe(_:stage:_:)
-//   アルティメット 崩落聖域    — 詠唱 1.0 秒。0 秒: 半径 2.78m の金の陣が範囲を示し、引き寄せ（0.67 秒で集める）= 外から内へ縮む
-//                              衝撃の輪・逆巻く渦・吸い込まれる光の筋と土煙。掲げた槌に金の光が集まり続ける。
-//                              1.0 秒: 槌が落ちて崩落 = 金の柱・広がる三重の衝撃波・地割れ・円陣に噴く光の柱 + 気絶（発動から 1.8 秒）の星
-// 時刻と寸法は MLBB の画面収録で測った値（docs/kits/Tigreal.md「動画で測った値」）。
+//                              再使用（stage 1、4 秒以内）: 0.2 秒（smashDelay）で槌を下から振り上げ（縦の弧の軌跡と三日月）、
+//                              前方の扇（2.15m）に光の棘・爆炎・2 重の光の柱・昇る輪 = 打ち上げ（0.6 秒）。段の演出は recipe(_:stage:_:)
+//   アルティメット 崩落聖域    — 詠唱 1.0 秒。0 秒: 半径 2.78m の範囲が淡い金に満ち、輪の上の勾玉形の金の刃が渦を巻いて中心へ
+//                              吸い込まれる（引き寄せ 0.67 秒）。足元に四芒星、掲げた槌の後ろに金の光輪。
+//                              1.0 秒: 槌が落ちて崩落 = 範囲を覆う光の棘と爆炎・白熱の閃光・金に光って盛り上がる四芒星の岩盤 →
+//                              溶岩の網が光る焦げた盤・放射状のひび・2 重の衝撃の輪・跳ね上がる白い岩板 + 気絶（発動から 1.8 秒）の星
+// 時刻と寸法は MLBB の画面収録で測った値（docs/kits/Tigreal.md「動画で測った値」）。見た目の対応は docs/vfx/H029.md。
+// 光る部品（閃光・光の柱・衝撃波・光るひび・爆炎）は加算（glowing）、煙・焦げ跡・岩はアルファ合成。
+// 形の主役はメッシュ（Blender の模型・コマ送りのメッシュ。CI の撮影で写る）、火花・残り火・岩片・煙は粒子（実機だけ）。
 // SkillFXDirector は duration / count を読まない: 波の回数・段は at（遅れ）と recipe(_:stage:_:) で表す。
 // 扇・自身中心のアーキタイプ（S1・S2 の再使用・奥義）は発動と同時に cast と impact を再生する（impact の at が sim の時刻）。
 
@@ -29,40 +32,77 @@ enum FX_H029: HeroFXSet {
 
     /// 土煙・土の破片（明るい土色のアルファ合成。草地・石畳・水の上でも見える）。
     private static let dust = FXTint.rgb(0.58, 0.48, 0.34)
+    /// MLBB の聖槌の爆発の炎（橙）と、その消え際（暗い朱）。
+    private static let flame = FXTint.rgb(1.0, 0.64, 0.22)
+    private static let ember = FXTint.rgb(0.45, 0.2, 0.1)
+    /// 崩落で飛ぶ白い岩の破片。
+    private static let rock = FXTint.rgb(0.86, 0.82, 0.74)
+    /// 爆ぜの光の棘・光る地割れの黄（MLBB の爆発の芯 #F8EE6E・地を走る線 #D7D485 の間）。
+    private static let hot = FXTint.rgb(1.0, 0.9, 0.42)
+    /// 冷えてゆく溶岩のひびの橙（MLBB の 3.3 秒の焦げたひびの縁の光）。
+    private static let lava = FXTint.rgb(1.0, 0.42, 0.1)
+    /// 焦げた暗いひび・焦げ跡（MLBB の #614832 より暗い朱。アルファ合成）。
+    private static let char = FXTint.rgb(0.2, 0.09, 0.05)
+    /// 焦げた煙（MLBB の #40322E）。
+    private static let soot = FXTint.rgb(0.32, 0.25, 0.22)
 
-    // MARK: - sim の時刻（Kit_H029.Tune と同じ値。sim の値を変えたらここも合わせる）
+    // MARK: - sim の時刻・寸法
+    // Kit_H029.Tune の値は写さず、FXSkillInfo（HeroKits.fxValues）から読む（照準の表示・判定・演出が同じ値。docs/vfx/RANGES.md）:
+    //   S1 waveFirstDelay・waveInterval・waveCount・waveReach・waveNear/FarHalfWidth・waveBandStart・waveBandLength（台形の帯）
+    //   S2 dashRange・dashSpeed・dashWidth（突進の当たりの半幅）  再使用 smashDelay・smashReach・smashHalfAngle
+    //   奥義 ultReach（捕まえる・崩落の半径）・ultTotal（崩落の時刻）
 
-    /// スキル1: 1 回目の衝撃波の遅れ・間隔・回ごとの帯の中心（奥行きに対する比。帯 = waveBandStart + waveBandLength / 2）。
-    private static let waveFirst: Float = 0.25
-    private static let waveInterval: Float = 1.0 / 3.0
-    private static let waveScale: [Float] = [0.25, 0.5, 0.75]
-    /// スキル2: 突進の所要（5.25m / 7.8m/s ≈ 0.67 秒）、再使用の振り上げまでの遅れと扇の奥行き（m）。
-    private static let dashTime: Float = 0.67
-    private static let smashDelay: Float = 0.2
-    private static let smashReach: Float = 2.15
-    /// アルティメット: 引き寄せの始まり（発動の瞬間）と崩落（ultTotal）。
-    private static let ultPull: Float = 0
-    private static let ultSlam: Float = 1.0
+    /// スキル1 の k 回目の帯（手前・奥の奥行き m と、奥行き d の台形の半幅 m）。Kit_H029.waveBand と同じ寸法。
+    private struct WaveBand {
+        var lo: Float
+        var hi: Float
+        var near: Float
+        var far: Float
+        var reach: Float
+
+        func half(_ d: Float) -> Float { near + (far - near) * min(max(d, 0), reach) / max(0.01, reach) }
+        var center: Float { (lo + hi) / 2 }
+    }
+
+    private static func waveBands(_ s: FXSkillInfo) -> [WaveBand] {
+        let reach = s.meters("waveReach")
+        let starts = s.ratios("waveBandStart")
+        let length = s.ratio("waveBandLength")
+        let n = min(starts.count, s.count("waveCount"))
+        return (0..<n).map { k in
+            WaveBand(lo: k == 0 ? 0 : starts[k] * reach, hi: k == n - 1 ? reach : (starts[k] + length) * reach,
+                     near: s.meters("waveNearHalfWidth"), far: s.meters("waveFarHalfWidth"), reach: reach)
+        }
+    }
+
+    /// 円い模様の板の大きさ: 見える縁（板の FXEdge.radial 倍）が半径 r になる一辺。
+    private static func plate(_ tex: FXTex, radius r: Float) -> SIMD3<Float> {
+        let side = r / (FXEdge.radial(tex) ?? 0.49)
+        return [side, 1, side]
+    }
+
+    /// Effekseer の重ねる効果（tools/effekseer/heroes/h029_kit.py → Effects/Effekseer/Kit/）。粒の細部（飛び散る光の筋・火花・
+    /// 白い岩の欠片・きらめき）だけ。形の主役は SkillFX の模型・コマ送り。崩落の効果は半径 slamDesignRadius で作ってある。
+    private static let efkWaveBurst = "H029_wave_burst"
+    private static let efkSlam = "H029_slam"
+    private static let efkDashHit = "H029_dash_hit"
+    private static let slamDesignRadius: Float = 2.78
+
+    /// 縁 → 縁 × spread へ ease .out で広がる部品が 1.03 倍を越える寿命の比より少し前（消え始めの比）。
+    private static func edgeFade(_ spread: Float) -> Float {
+        guard spread > 1.03 else { return 0.4 }
+        let e: Float = 0.03 / (spread - 1)
+        return max(0.02, (1 - pow(1 - e, 1.0 / 3.0)) * 0.9)
+    }
 
     // MARK: - 部品
 
-    /// n 個を前方の扇の弧（半径 r、±half 度）に右から左へ並べる（every 秒ずつ遅らせて、はじける順に波打たせる）。
-    private static func fanned(_ c: FXCue, _ n: Int, radius r: Float, half: Float, every: Float = 0) -> FXCue {
-        var c = c
-        let a = half * .pi / 180
-        c.offset += SIMD3<Float>(r * sin(a), 0, r * cos(a))
-        c.count = n
-        c.every = every
-        c.stepYaw = n > 1 ? 2 * half / Float(n - 1) : 0
-        c.orbit = 0.0001
-        return c
-    }
-
-    /// 前方へ走る衝撃の弧（水平の半円の帯。外縁が明るく、両端へ薄れる）。半径 from → to へ広がる。
-    /// 横を 0.85 倍に絞って、前方の扇に寄せる。
-    private static func waveArc(from r0: Float, to r1: Float, _ tint: FXTint, life: Float) -> FXMesh {
-        FXMesh(shape: .arc, tex: .beam, tint: tint, alpha: 1, size: [r0 * 0.85, 1, r0], sizeEnd: [r1 * 0.85, 1, r1],
-               ease: .out, life: life, fadeIn: 0.02, fadeOut: 0.4)
+    /// 地面に寝かせた 1 枚の地割れ・焦げ跡（大きさは変えない。直径 size、向き yaw）。出た瞬間から全部の明るさ
+    /// （fadeIn 0。爆ぜの瞬間の手応えのヒットストップで演出の時間が止まっても見える）。
+    private static func crack(_ tex: FXTex, _ size: Float, _ tint: FXTint, life: Float, yaw: Float = 0,
+                              alpha: Float = 1) -> FXMesh {
+        FXMesh(shape: .disc, tex: tex, tint: tint, alpha: alpha, size: [size, 1, size], sizeEnd: [size * 1.03, 1, size * 1.03],
+               ease: .out, life: life, fadeIn: 0, fadeOut: 0.5, yaw: yaw)
     }
 
     /// 外から内へ縮む衝撃の輪（引き寄せ）。直径 from → to。
@@ -70,6 +110,29 @@ enum FX_H029: HeroFXSet {
                                     tex: FXTex = .shockwave, spin: Float = 0, alpha: Float = 0.9) -> FXMesh {
         FXMesh(shape: .disc, tex: tex, tint: tint, alpha: alpha, size: [d0, 1, d0], sizeEnd: [d1, 1, d1], ease: .in,
                life: life, fadeIn: 0.12, fadeOut: 0.8, spin: spin)
+    }
+
+    /// 飾りの衝撃の輪（外縁の持ち上がった輪の模型が radius まで広がる。判定の大きさの半分より小さい所だけに使う）。
+    /// refract = 輪の縁の画面の歪み（実機の後処理だけ）。
+    private static func ring(_ radius: Float, _ tint: FXTint, life: Float, from: Float = 0.25, lift: Float = 1.2,
+                             refract: Float = 0) -> FXMesh {
+        FXMesh.model(.ringLip, nil, tint, size: [radius * from, lift, radius * from], sizeEnd: [radius, lift * 0.6, radius],
+                     life: life).with {
+            $0.fadeIn = 0.02
+            $0.fadeOut = 0.35
+            $0.refract = refract
+        }.glowing()
+    }
+
+    /// 判定の縁に出る衝撃の輪（外縁の持ち上がった輪の模型）: 判定の瞬間に見える縁がちょうど r、消えながら r × spread へ
+    /// （外へは消えながらだけ。広がり始めの 1.03r を越える前に消え始める。docs/vfx/RANGES.md）。
+    private static func edgeLip(_ r: Float, _ tint: FXTint, life: Float, spread: Float = 1.12, lift: Float = 1.3,
+                                refract: Float = 0) -> FXMesh {
+        FXMesh.model(.ringLip, nil, tint, size: [r, lift, r], sizeEnd: [r * spread, lift * 0.5, r * spread], life: life).with {
+            $0.fadeIn = 0
+            $0.fadeOut = edgeFade(spread)
+            $0.refract = refract
+        }.glowing()
     }
 
     static func recipe(_ slot: SkillSlot, _ s: FXSkillInfo) -> SkillFXRecipe {
@@ -95,42 +158,68 @@ enum FX_H029: HeroFXSet {
 
     // MARK: - スキル1 聖槌波
 
-    /// 0.25 秒で槌が地を打つ → 台形に 3 回、前へ進みながらはじける（R = 台形の奥行き 6.1m = 射程。s.radius は照準の帯の半幅）。
+    /// 0.25 秒で槌が地を打つ → 台形に 3 回、前へ進みながらはじける（R = 台形の奥行き 6.1m = 射程）。
+    /// MLBB の画面収録（docs/vfx/H029.md）: 振り下ろす金の軌跡と地を前へ走るぎざぎざの金の筋 → 回ごとに白金の芯から放射状の
+    /// 黄の光の棘（約 3.5m）、黄に光る S 字の太い地割れ（約 2.4m）→ 0.13 秒で橙の雲 → 0.2 秒で暗い朱のひびに橙の縁 → 焦げて消える。
     private static func waveRecipe(_ s: FXSkillInfo) -> SkillFXRecipe {
         var r = SkillFXRecipe()
-        let R = min(s.range, 6.5)
-        // 槌の頭が地を打つ点（右手の槌 = やや右前）
+        let R = s.meters("waveReach")
+        let t0 = s.seconds("waveFirstDelay")
+        let interval = s.seconds("waveInterval")
         r.cast = [
-            .emit(.flare(1.4, .core, life: 0.14, tex: .flare6), at: waveFirst - 0.02, offset: [0.25, 0.4, 0.9]),
-            .mesh(.shockRing(0.9, .accent, life: 0.25), at: waveFirst - 0.02, offset: [0.2, 0, 0.9]),
-            .emit(.smoke(8, radius: 0.5, dust, life: 1.0, size: 0.8).with {
-                $0.dir = .forward; $0.speed = R * 1.3; $0.spread = 40; $0.shape = .sphere(0.4)
-            }, at: waveFirst, offset: [0, 0.2, 0.8], quality: 1),
+            // 槌を頭上の後ろから前の地面へ振り下ろす金の軌跡（前と上の縦の弧）。モーション（docs/vfx/H029.md「モーション」）:
+            // 槌頭は 0.19 秒に後ろの上 [0, 3.0, -1.9]、t0（0.25）に前の地面 [0, 0.1, 2.8]。弧は中心 [0, 1.5, 0.5]・半径 2.75 で両方を通る
+            .ribbon(.swing(radius: 2.75, from: 148, to: -31, height: 1.5, roll: 90, duration: 0.08, life: 0.16, width: 0.8,
+                           .primary).with { $0.ease = .inOut }, at: max(0, t0 - 0.08), offset: [0, 0, 0.5]),
+            // 槌の頭が地を打つ点（前 2.75m）: 白金の閃光と小さな衝撃の輪・土煙
+            .emit(.flare(1.6, .core, life: 0.14, tex: .flare6), at: t0, offset: [0, 0.4, 2.75]),
+            .mesh(ring(0.9, .accent, life: 0.28, refract: 0.004), at: t0, offset: [0, 0, 2.75]),
+            .emit(.smoke(4, radius: 0.5, dust, life: 0.5, size: 0.8), at: t0, offset: [0, 0.1, 2.75], quality: 1),
+            // 地を前へ走る金のぎざぎざの筋（衝撃波の通り道。2 本を少し開いて）
+            // （範囲の飾り: 1 回目の帯の奥の辺より手前で止め、帯の奥行きの半分より短い）
+            .mesh(FXMesh.ray(.bolt, length: R * 0.38, width: 0.55, hot, life: 0.34).glowing().with { $0.yaw = 90 + 5 },
+                  at: max(0, t0 - 0.01), offset: [0.15, 0.02, 0.95 + R * 0.19]),
+            .mesh(FXMesh.ray(.bolt, length: R * 0.3, width: 0.45, .primary, life: 0.3).glowing().with { $0.yaw = 90 - 6 },
+                  at: t0 + 0.02, offset: [-0.1, 0.02, 0.95 + R * 0.15]),
         ]
         var impact: [FXCue] = []
-        var prev: Float = 0.6
-        for (k, scale) in waveScale.enumerated() {
-            let t = waveFirst + waveInterval * Float(k)
-            let rad = R * scale
-            let dist = rad * 0.8
-            let strong = Float(k) * 0.2
-            // 金の衝撃の弧: 前の波の半径から、この波の半径へ走る（3 回目は白金で最も明るい）
-            impact.append(.mesh(waveArc(from: prev, to: rad, k == 2 ? .core : .primary, life: 0.32), at: t))
-            // 弧の上の 3 点ではじける金の爆発（右 → 左へ少しずつ）
-            impact.append(fanned(.mesh(.sprite(.flare6, 1.1 + strong, .primary, life: 0.26, grow: 1.5), at: t,
-                                       offset: [0, 0.45, 0]), 3, radius: dist, half: 26, every: 0.015))
-            // 地割れ（暗い土の裂け目）
-            impact.append(.mesh(.decal(.crack, rad * 0.75, .dark, life: 1.1, spin: 0, grow: 1.0, alpha: 0.8), at: t,
-                                offset: [0, 0, dist]))
-            // 扇の幅に広がって飛ぶ土の破片と、上へ噴く金の火花
-            impact.append(.emit(.debris(10, speed: 5 + strong * 4, dust, size: 0.16).with {
-                $0.shape = .box([rad * 1.1, 0.1, 0.7])
-            }, at: t, offset: [0, 0.1, dist]))
-            impact.append(.emit(.sparks(10, speed: 6 + strong * 4, .core, end: .primary, gravity: 9).with {
-                $0.dir = .up; $0.spread = 25; $0.shape = .box([rad * 1.0, 0.1, 0.6])
-            }, at: t, offset: [0, 0.2, dist]))
-            impact.append(.shake(0.16 + 0.06 * Float(k), at: t))
-            prev = rad
+        for (k, band) in waveBands(s).enumerated() {
+            let t = t0 + interval * Float(k)
+            // 爆ぜは帯の中心（奥行きの 1/4・1/2・3/4。MLBB の測定 0.23 / 0.52 / 0.77）
+            let pos = SIMD3<Float>(0, 0, band.center)
+            // MLBB: 1 回目（槌の打点の近く）は小さく、2・3 回目が大きな光の棘と S 字の地割れ
+            let big: Float = k == 0 ? 0.65 : (k == 1 ? 1.0 : 1.12)
+            let yaw = Float(k) * 41 - 20
+            impact += [
+                // 白金の芯から放射状に伸びる黄の光の棘（地面に寝かせたコマ送り）
+                .mesh(.groundFlipbook(.spikes, 4.4 * big, hot, life: 0.36, grow: 1.08).with { $0.yaw = yaw * 1.7 }, at: t,
+                      offset: pos),
+                // S 字の地割れ: 黄に光る（〜0.3 秒）→ 橙の溶岩（模様が流れ、溶けて消える）→ 焦げた暗いひび（溶けて消える。
+                // 低画質では省く: 低画質の地面の板のプール 14 に 3 回の爆ぜが収まるように）
+                .mesh(crack(.crackS, 2.5 * big, hot, life: 0.22, yaw: yaw).glowing(), at: t, offset: pos),
+                .mesh(crack(.crackS, 2.5 * big, lava, life: 0.5, yaw: yaw).glowing()
+                    .flowing(.lava, scroll: [0.04, 0.1], tiling: 1.3, strength: 0.75, edge: hot)
+                    .dissolving(from: 0.45, edge: hot, width: 0.08).with { $0.fadeIn = 0.22; $0.fadeOut = 0.9 },
+                      at: t + 0.05, offset: pos),
+                .mesh(crack(.crackS, 2.55 * big, char, life: 0.7, yaw: yaw, alpha: 0.85)
+                    .dissolving(from: 0.55, tiling: 2.5, edge: ember, width: 0.06).with { $0.fadeIn = 0.18; $0.fadeOut = 0.95 },
+                      at: t + 0.1, offset: pos, quality: 1),
+                // 橙の爆炎（色付きのコマ送り。画像の白 → 黄 → 橙 → 暗い朱）
+                .mesh(.flipbook(.fireball, 2.8 * big, .white, life: 0.4, grow: 1.15), at: t + 0.04, offset: pos + [0, 0.85, 0]),
+                // 火花（上と外へ）・残り火・焦げた煙。2・3 回目は Effekseer の飛び散る光の筋と火花を重ねる（CI の撮影にも写る）
+                .emit(.sparks(12, speed: 6 + Float(k) * 2, .core, end: .primary, gravity: 9).with {
+                    $0.dir = .up
+                    $0.spread = 35
+                    $0.shape = .disc(0.9)
+                }, at: t, offset: pos + [0, 0.2, 0]),
+                .emit(.embers(10, radius: 1.0, flame, life: 1.0), at: t + 0.08, offset: pos, quality: 1),
+                .emit(.sheet(.smokeHD, 1.9, soot, count: 2, life: 1.0, additive: false, radius: 0.7).with {
+                    $0.speed = 0.6
+                    $0.dir = .up
+                }, at: t + 0.16, offset: pos + [0, 0.4, 0], quality: 1),
+                .shake(0.16 + 0.06 * Float(k), at: t),
+            ]
+            if k > 0 { impact.append(.efk(efkWaveBurst, at: t, .origin, offset: pos, scale: big, onTop: true)) }
         }
         r.impact = impact
         // 3 回の衝撃波が 1 発ごとに当たる: 小さな火花と、足元の青い鈍足の輪（命中ごとに深まる）
@@ -144,44 +233,83 @@ enum FX_H029: HeroFXSet {
 
     // MARK: - スキル2 聖槌突撃
 
-    /// 1 回目: 盾を前に突進して、通り道の敵を終点まで押し運ぶ。
+    /// 1 回目: 盾を前に突進して、通り道の敵を終点まで押し運ぶ。MLBB: 体を包む金〜橙の炎の殻、前で弧を描く金の光、背に炎の尾、
+    /// ぶつかった所で白熱の芯の炎の球（半径 1.3〜1.5m）が渦を巻いて弾ける。
     private static func chargeRecipe(_ s: FXSkillInfo) -> SkillFXRecipe {
         var r = SkillFXRecipe()
-        let L = min(s.range, 6.0)
+        let L = s.meters("dashRange")
+        let speed = s.speed("dashSpeed")
+        let dashTime = speed > 0 ? L / speed : 0.67
+        let half = s.meters("dashWidth")
         r.cast = [
-            // 盾を構えて踏み出す閃きと、先頭の青い盾面
-            .emit(.flare(1.2, .core, life: 0.14), .follow, offset: [-0.3, 1.0, 0.7]),
-            .mesh(.wall(.hexShield, width: 1.3, height: 1.4, .secondary, life: 0.3, alpha: 0.75), .follow,
-                  offset: [0, 0.25, 0.75]),
-            // 金の尾・後ろへ流れる光条・土煙（突進の間だけ）
-            .emit(.trail(.glow, .primary, rate: 70, life: 0.32, size: 0.55).with { $0.duration = dashTime }, .follow,
-                  offset: [0, 0.9, 0]),
+            // 盾を構えて踏み出す閃き
+            .emit(.flare(1.3, .core, life: 0.14), .follow, offset: [-0.3, 1.0, 0.7]),
+            // 体を包む炎: 爆炎のコマ送りを 0.15 秒おきに重ねて途切れない炎の塊にする（3D の上。体の少し後ろ）と、金と橙の炎の殻
+            // （炎の半球の模型・炎の筋が上へ流れて縁が欠ける）、盾の前の金の三日月。MLBB: 突進の間、体が金〜橙の炎に包まれる
+            .mesh(FXMesh.flipbook(.fireball, 2.5, .white, life: 0.38, grow: 1.15), .follow, offset: [0, 0.95, -0.35])
+                .repeated(max(1, Int((dashTime / 0.15).rounded())), every: 0.15),
+            .mesh(.model(.burstDome, nil, flame, size: [0.85, 1.0, 0.85], sizeEnd: [1.0, 1.15, 1.0], life: dashTime + 0.06)
+                .glowing().flowing(.flame, scroll: [0.2, -1.6], tiling: 1.5, strength: 0.8, erosion: 0.3, edge: .core).with {
+                    $0.alpha = 0.9
+                    $0.fadeIn = 0.1
+                    $0.fadeOut = 0.75
+                    $0.spin = 90
+                    $0.onTop = true
+                }, .follow, offset: [0, 0.05, 0.15]),
+            .mesh(.model(.crescent, .swoosh, .primary, size: [1.25, 1.3, 1.25], life: dashTime).glowing().with {
+                $0.pitch = -14
+                $0.fadeIn = 0.06
+                $0.fadeOut = 0.7
+                $0.onTop = true
+            }, .follow, offset: [0, 0.7, 0.25]),
+            // 背に流れる炎の帯（縦の帯。炎の筋が後ろへ流れ、縁が欠ける）
+            .ribbon(FXRibbon.trail(width: 1.7, life: 0.34, duration: dashTime, upright: true, flame)
+                .flowing(.flame, scroll: [-2.0, 0], tiling: 1.5, strength: 0.7, erosion: 0.25, edge: hot), .follow,
+                    offset: [0, 0.85, -0.2]),
+            // 通った地面に残る淡い金の光（地面に寝かせた帯。MLBB の突進の後の淡い光）
+            .ribbon(FXRibbon.trail(width: 1.8, life: 0.45, duration: dashTime, upright: false, .primary).with { $0.alpha = 0.4 },
+                    .follow, offset: [0, 0.02, 0]),
+            // 背の炎の粒（コマ送り）と金の光条、土煙（突進の間だけ）
+            .emit(.trail(.glow, flame, rate: 30, life: 0.36, size: 1.0).with {
+                $0.duration = dashTime; $0.sheet = .flameLoop; $0.sheetRandomStart = true; $0.tintEnd = ember
+                $0.dir = .backward; $0.speed = 2.5; $0.grow = 0.6
+            }, .follow, offset: [0, 0.8, -0.3]),
             .emit(.trail(.streak, .core, rate: 50, life: 0.25, size: 0.2).with {
                 $0.duration = dashTime; $0.stretch = 2.4; $0.dir = .backward; $0.speed = 4; $0.tintEnd = .primary
             }, .follow, offset: [0, 1.0, 0]),
-            .emit(.trail(.smoke, dust, rate: 45, life: 0.7, size: 0.7).with {
-                $0.duration = dashTime + 0.03; $0.additive = false; $0.grow = 2; $0.fade = .gradualFadeInOut; $0.tintEnd = nil
-            }, .follow, offset: [0, 0.2, 0], quality: 1),
-            // 通り道に焼き付く金の筋と、舞い上がる光の粒（術者 → 終点の中間に置く）
-            .mesh(.ray(.streak, length: L, width: 1.2, .primary, life: 0.45), at: 0.02, .along(0.5)),
-            .emit(.lineBurst(L, count: 16, .primary, life: 0.5, size: 0.26), at: 0.05, .along(0.5), offset: [0, 0.1, 0]),
-            // 終点: 押し運んだ敵ごと止まる衝撃（前方の三日月・輪・破片・土煙）
-            .emit(.flare(1.8, .core, life: 0.18, tex: .flare6), at: dashTime, .target, offset: [0, 0.9, 0.3]),
-            .mesh(.slash(1.6, .primary, from: 60, to: -60, life: 0.25), at: dashTime, .target, offset: [0, 0.5, 0.1]),
-            .mesh(.shockRing(1.6, .accent, life: 0.35), at: dashTime, .target, offset: [0, 0, 0.4]),
+            .emit(.trail(.smoke, dust, rate: 18, life: 0.7, size: 0.9).with {
+                $0.duration = dashTime + 0.03; $0.additive = false; $0.grow = 1.6; $0.fade = .gradualFadeInOut; $0.tintEnd = nil
+                $0.sheet = .smokePuff
+            }, .follow, offset: [0, 0.3, 0], quality: 1),
+            // 通り道に焼き付く金の筋（光る。前へ流れる）
+            .mesh(.ray(.streak, length: L, width: 1.1, .primary, life: 0.45).glowing()
+                .flowing(.streaks, scroll: [-2.0, 0], tiling: 2, strength: 0.5, erosion: 0.3, edge: .core),
+                  at: 0.02, .along(0.5)),
+            // 終点: 押し運んだ敵ごと止まる炎の球（模型が膨らんで渦を巻き、溶けて消える）・爆炎・白熱の閃光・衝撃の輪・破片
+            .mesh(.model(.burstDome, nil, flame, size: [0.9, 0.9, 0.9], sizeEnd: [1.8, 1.6, 1.8], life: 0.5).glowing()
+                .flowing(.flame, scroll: [0.15, -1.2], tiling: 1.4, strength: 0.85, edge: .core)
+                .dissolving(from: 0.35, edge: .core, width: 0.12).with { $0.spin = 160; $0.fadeOut = 0.9; $0.fadeIn = 0; $0.onTop = true },
+                  at: dashTime, .target, offset: [0, 0, 0.3]),
+            .mesh(.flipbook(.fireball, 3.0, .white, life: 0.55), at: dashTime + 0.02, .target, offset: [0, 1.0, 0.3]),
+            .mesh(.sprite(.glowHard, 2.4, .core, life: 0.16, grow: 1.6).glowing().with { $0.fadeIn = 0; $0.onTop = true }, at: dashTime, .target,
+                  offset: [0, 0.9, 0.3]),
+            // 終点の輪: 押し運んだ幅（半径 = 当たりの半幅）に出て、消えながら広がる
+            .mesh(edgeLip(half, .accent, life: 0.4, spread: 1.5, refract: 0.008), at: dashTime, .target),
             .emit(.debris(10, speed: 5, dust), at: dashTime, .target, offset: [0, 0, 0.5]),
-            .emit(.smoke(8, radius: 0.6, dust, life: 0.9, size: 0.8), at: dashTime, .target, offset: [0, 0, 0.4], quality: 1),
-            .shake(0.2, at: dashTime),
+            .emit(.sparks(16, speed: 8, .core, end: .primary, life: 0.45), at: dashTime, .target, offset: [0, 0.9, 0.3]),
+            .shake(0.22, at: dashTime),
         ]
         // 突進（dashStrike）は impact を再生しない（終点の演出は cast の .target）。目視確認の実演（-skillDemo）だけが
         // impact を出すので、既定演出で補われないよう小さな揺れだけ置く
         r.impact = [.shake(0.1)]
-        // 突進に巻き込まれた敵: 押される向きへ散る火花と、押し運ばれる間の土煙
+        // 突進に巻き込まれた敵: ぶつかった瞬間の白金の閃光と押される向きへ散る火花、押し運ばれる間の土煙
         r.hit = [
-            .emit(.flare(1.0, .core, life: 0.14), offset: [0, 1.0, 0]),
+            .emit(.sheet(.hitFlash, 1.8, .core, end: .primary, life: 0.22), offset: [0, 1.0, 0]),
+            // MLBB の衝突: 白い 4 本の光芒の星（Effekseer。3D の上）
+            .efk(efkDashHit, .origin, offset: [0, 1.0, 0], onTop: true),
             .emit(.sparks(10, speed: 6, .core, end: .primary).with { $0.dir = .forward; $0.spread = 35 },
                   offset: [0, 1.0, -0.2]),
-            .emit(.trail(.smoke, dust, rate: 40, life: 0.5, size: 0.5).with {
+            .emit(.trail(.smoke, dust, rate: 30, life: 0.5, size: 0.5).with {
                 $0.duration = dashTime; $0.additive = false; $0.grow = 1.8; $0.fade = .gradualFadeInOut; $0.tintEnd = nil
             }, .follow, offset: [0, 0.2, 0], quality: 1),
         ]
@@ -189,29 +317,48 @@ enum FX_H029: HeroFXSet {
     }
 
     /// 再使用（stage 1）: 0.2 秒で聖槌を下から振り上げ、前方の扇（2.15m）の敵を打ち上げる（0.6 秒）。
-    /// 突進の尾（共通の cast）は出さない。被弾演出は昇る輪つき（共通の hit は突進の火花）。
+    /// MLBB: 下から上へ振り上げる金の弧の軌跡と縦の白金の三日月、打ち上げた敵の所で黄の爆ぜ。突進の尾（共通の cast）は出さない。
     static func recipe(_ slot: SkillSlot, stage: Int, _ s: FXSkillInfo) -> SkillFXRecipe? {
         guard slot == .skill2, stage == 1 else { return nil }
         var r = SkillFXRecipe()
-        let t = smashDelay
+        let t = s.seconds("smashDelay")
+        let smashReach = s.meters("smashReach")
         let mid: SIMD3<Float> = [0, 0, smashReach * 0.5]
-        // 槌を低く構えて金の光を溜め、地を擦る
+        // 槌を右後ろの下に引いて金の光を溜め、下から頭上へ振り上げる（前と上の縦の弧の軌跡）。モーション: 槌頭は 0〜0.10 秒に
+        // 後ろの下 [-0.3, 0.4, -1.6]、0.2 秒（打ち上げ）に前の低い所を抜けて [-0.4, 2.0, 2.2] へ、0.3 秒に頭上 [0.45, 4.2, -0.3]。
+        // 弧は中心 [-0.3, 2.1, 0.2]・半径 2.0（-140° = 後ろの下、-20° = 0.2 秒の前、100° = 頭上）を 0.1〜0.3 秒に等速で
         r.cast = [
-            .emit(.gather(16, radius: 0.9, .primary, life: t), .follow, offset: [0.35, 0.5, 0.6]),
-            .emit(.sparks(8, speed: 3, .primary, end: .accent, gravity: 4), at: 0.08, offset: [0.4, 0.15, 0.7]),
+            .emit(.gather(16, radius: 0.9, .primary, life: 0.12), .follow, offset: [-0.3, 0.4, -1.6]),
+            .emit(.sparks(8, speed: 3, .primary, end: .accent, gravity: 4).with { $0.dir = .up; $0.spread = 50 }, at: 0.14,
+                  offset: [-0.3, 0.15, 0.7]),
+            .ribbon(.swing(radius: 2.0, from: -140, to: 100, height: 2.1, roll: 90, duration: 0.2, life: 0.2, width: 0.95,
+                           .primary).with { $0.ease = .linear }, at: max(0, t - 0.1), offset: [-0.3, 0, 0.2]),
         ]
         // 扇のアーキタイプなので発動と同時に再生される。振り上げは smashDelay の後
         r.impact = [
-            .emit(.flare(2.2, .core, life: 0.2, tex: .flare6), at: t, offset: [0, 1.2, smashReach * 0.45]),
-            // 天へ立つ金の光の柱（外側の金 + 芯の白金）
-            .mesh(.pillar(0.9, height: 5, .primary, life: 0.55), at: t, offset: mid),
-            .mesh(.pillar(0.45, height: 6, .core, life: 0.35), at: t, offset: mid),
-            // 振り上げの前方の三日月（扇の奥行き）と地割れ・足元の輪
-            .mesh(.slash(smashReach * 0.95, .primary, from: 50, to: -50, life: 0.3), at: t, offset: [0, 0.3, 0]),
-            .mesh(.decal(.crack, 3.0, .dark, life: 1.1, spin: 0, grow: 1.0, alpha: 0.8), at: t, offset: mid),
-            .mesh(.shockRing(1.8, .accent, life: 0.35), at: t, offset: mid),
-            // 打ち上げ: 地面から昇る輪が 3 つ続く
-            .mesh(.halo(0.9, .accent, life: 0.6, spin: 200, tex: .ringDouble).with { $0.rise = 3.5 }, at: t,
+            // 縦に振り上げる白金の三日月（三日月の模型を前と上の縦の面に立てる）
+            .mesh(.model(.crescent, .swoosh, .core, size: [1.5, 1.5, 1.5], sizeEnd: [1.85, 1.85, 1.85], life: 0.26).glowing()
+                .with {
+                    $0.roll = 90
+                    $0.fadeIn = 0.03
+                    $0.fadeOut = 0.35
+                    $0.onTop = true
+                }, at: t, offset: [0.1, 0.95, smashReach * 0.3]),
+            // 打ち上げの爆ぜ（MLBB は大きな爆炎ではなく、打ち上げた敵の所の淡い金の光ときらめき）: 小さめの光の棘と柔らかい金の光、
+            // 天へ立つ 2 重の金の光の柱（炎の筋が上へ流れる）
+            .mesh(.groundFlipbook(.spikes, 2.2, hot, life: 0.36), at: t, offset: mid),
+            .mesh(.sprite(.glow, 2.6, .primary, life: 0.5, grow: 1.3, alpha: 0.8).glowing().with {
+                $0.fadeIn = 0
+                $0.onTop = true
+            }, at: t + 0.02, offset: mid + [0, 1.2, 0]),
+            .mesh(.model(.pillar2, nil, .primary, size: [0.6, 1.5, 0.6], sizeEnd: [0.38, 5.5, 0.38], life: 0.5).glowing()
+                .flowing(.flame, scroll: [0, -2.4], tiling: 1.6, strength: 0.7, erosion: 0.3, edge: .core).with { $0.onTop = true },
+                  at: t, offset: mid),
+            // 焦げた放射状のひび（溶けて消える）。扇の中ほどの衝撃の輪は扇の外へはみ出すので置かない（docs/vfx/RANGES.md）
+            .mesh(crack(.crackRadial, 3.0, char, life: 1.1, alpha: 0.8).dissolving(from: 0.5, tiling: 2.5, edge: ember, width: 0.06),
+                  at: t, offset: mid),
+            // 打ち上げ: 地面から昇る輪が 3 つ続く（光る）
+            .mesh(FXMesh.halo(0.9, .accent, life: 0.6, spin: 200, tex: .ringDouble).with { $0.rise = 3.5 }.glowing(), at: t,
                   offset: [0, 0.2, smashReach * 0.5]).repeated(3, every: 0.08),
             // 扇の幅から上へ噴く火花・昇る光の筋・跳ね上がる土の破片
             .emit(.sparks(22, speed: 10, .core, end: .primary, size: 0.12, life: 0.55, gravity: 7).with {
@@ -223,9 +370,9 @@ enum FX_H029: HeroFXSet {
         ]
         // 打ち上げ（0.6 秒）: 被弾者の足元から昇る金の輪と光の粒
         r.hit = [
-            .emit(.flare(1.0, .core, life: 0.14), offset: [0, 1.0, 0]),
+            .emit(.sheet(.hitFlash, 1.6, .core, end: .primary, life: 0.2), offset: [0, 1.0, 0]),
             .emit(.sparks(8, speed: 6, .core, end: .primary).with { $0.dir = .up; $0.spread = 30 }, offset: [0, 0.8, 0]),
-            .mesh(.halo(0.55, .primary, life: 0.6, spin: 300, tex: .ringDouble).with { $0.rise = 2.0 }, .follow,
+            .mesh(FXMesh.halo(0.55, .primary, life: 0.6, spin: 300, tex: .ringDouble).with { $0.rise = 2.0 }.glowing(), .follow,
                   offset: [0, 0.3, 0]),
             .emit(.rising(8, radius: 0.4, .accent, speed: 4, life: 0.5), .follow),
         ]
@@ -235,28 +382,57 @@ enum FX_H029: HeroFXSet {
     // MARK: - アルティメット 崩落聖域
 
     /// 詠唱 1.0 秒: 発動の瞬間から吸い寄せ（0〜0.67）しながら掲げて集める → 崩落（1.0）。R = 引き寄せ・爆発の半径（2.78m）。
+    /// MLBB: 範囲の円が淡い金に満ち、輪の上の勾玉形の白金の刃（約 0.9m）が渦を巻いて中心へ寄り、足元に四芒星、
+    /// 掲げた槌の後ろに金の光輪 → 崩落の直前に縦の細い光の筋 → 範囲を覆う白熱の爆ぜ（約 6m）→ 金に光って盛り上がる
+    /// 四芒星の岩盤 → 暗い朱の焦げた盤に橙のひび、白い岩板が跳ねて落ちる。
     private static func implosionRecipe(_ s: FXSkillInfo) -> SkillFXRecipe {
         var r = SkillFXRecipe()
-        let R = min(s.radius, 6.0)
-        let p = ultPull, t = ultSlam
-        // 掲げた槌の頭（右手・頭上）に金の光が集まる（崩落の少し前まで）
+        let R = s.meters("ultReach")
+        let p: Float = 0, t = s.seconds("ultTotal")
+        // 顔の前の高さへ掲げた盾（左手 [-0.25, 2.2, 0.5]・上端 [-0.2, 2.9, 0.6]、0.12〜0.93 秒。docs/vfx/H029.md「モーション」）に
+        // 金の光が集まり、盾が上がり切る 0.28 秒に閃光、盾の後ろに金の光輪が立つ（振りかぶりの頂点 0.93 秒まで）
         r.cast = [
-            .emit(.gather(20, radius: 1.2, .primary, life: t - 0.2), .follow, offset: [0.3, 2.5, 0.1]),
-            .emit(.flare(1.8, .core, life: 0.3, tex: .flare6), at: 0.14, .follow, offset: [0.3, 2.7, 0.1]),
-            .mesh(.halo(1.2, .primary, life: t, spin: 200, tex: .ringDouble), .follow, offset: [0, 0.2, 0]),
+            .emit(.gather(20, radius: 1.2, .primary, life: 0.8), at: 0.12, .follow, offset: [-0.2, 2.6, 0.6]),
+            .emit(.flare(1.8, .core, life: 0.3, tex: .flare6), at: 0.28, .follow, offset: [-0.2, 2.8, 0.65]),
+            .mesh(.sprite(.ringDouble, 2.2, .primary, life: 0.62, grow: 1.15, alpha: 0.85).glowing().with {
+                $0.fadeIn = 0.3
+                $0.fadeOut = 0.6
+            }, at: 0.3, .follow, offset: [-0.2, 2.5, 0.35]),
         ]
         r.impact = [
-            // 0〜: 範囲を示す金の陣と青い縁（崩落まで残る）
-            .mesh(.decal(.runeCircle, R * 2, .primary, life: t + 0.05, spin: 40, grow: 1.0, alpha: 0.55)),
-            .mesh(.halo(R, .secondary, life: t + 0.05, spin: -60, tex: .beam, alpha: 0.5)),
-            // 0（発動の瞬間）: 引き寄せ。外から内へ縮む衝撃の輪 2 つ・逆巻く渦 2 枚・吸い込まれる光の筋と土煙
-            .emit(.flare(2.0, .primary, life: 0.2), at: p, offset: [0.3, 2.6, 0.1]),
-            .mesh(implodeRing(from: R * 2, to: 1.2, .primary, life: 0.42), at: p),
-            .mesh(implodeRing(from: R * 1.7, to: 1.0, .secondary, life: 0.38), at: p + 0.1),
-            .mesh(implodeRing(from: R * 1.9, to: R * 0.5, .primary, life: 0.5, tex: .swirl, spin: -420, alpha: 0.75),
-                  at: p),
-            .mesh(implodeRing(from: R * 1.4, to: R * 0.3, .secondary, life: 0.45, tex: .swirl, spin: -600, alpha: 0.6),
-                  at: p + 0.03),
+            // 0〜: 範囲が淡い金に満ちる（縁ほど明るい輪の画像 + 柔らかい光）。縁は弧に沿って流れる金の筋
+            .mesh(.decal(.shockwave, R * 2, .primary, life: t - 0.02, spin: 0, grow: 1.0, alpha: 0.42).glowing().with {
+                $0.size = plate(.shockwave, radius: R)
+                $0.sizeEnd = plate(.shockwave, radius: R)
+                $0.ease = .linear
+                $0.fadeIn = 0.06
+                $0.fadeOut = 0.85
+            }, at: p),
+            .mesh(.decal(.glow, R * 2.3, .accent, life: t - 0.05, spin: 0, grow: 1.0, alpha: 0.2).glowing().with {
+                $0.size = [R * 2.3, 1, R * 2.3]
+                $0.ease = .linear
+                $0.fadeOut = 0.8
+            }, at: p),
+            .mesh(.halo(R, .primary, life: t - 0.02, spin: -120, tex: .beam, alpha: 1).glowing()
+                .flowing(.streaks, scroll: [1.6, 0], tiling: 3, strength: 0.85, erosion: 0.45, edge: .core).with {
+                    $0.size = [R, 1, R]
+                    $0.sizeEnd = [R * 0.98, 1, R * 0.98]
+                }, at: p),
+            // 渦の刃: 輪の上の勾玉形の白金の刃（16 枚。MLBB は 14〜16 本）が渦を巻きながら中心へ吸い込まれる
+            .mesh(.model(.bladeRing, .blade, hot, size: [R, 1, R], sizeEnd: [R * 0.3, 1, R * 0.3], life: 0.92, ease: .in)
+                .glowing().with {
+                    $0.spin = -150
+                    $0.fadeIn = 0.08
+                    $0.fadeOut = 0.8
+                }, at: p, offset: [0, 0.05, 0]),
+            // 足元の四芒星（白金。ゆっくり回る）
+            .mesh(.decal(.star4, 1.9, .core, life: 0.88, spin: 25, grow: 1.05, alpha: 1).glowing().with {
+                $0.fadeIn = 0.12
+                $0.fadeOut = 0.7
+                $0.ease = .out
+            }, at: p),
+            // 外から内へ縮む衝撃の輪、吸い込まれる光の筋と土煙
+            .mesh(implodeRing(from: plate(.shockwave, radius: R).x, to: 1.2, .primary, life: 0.42).glowing(), at: p),
             .emit(FXEmit(tex: .streak, tint: .primary, tintEnd: .core, count: 48, emit: 0.18, life: 0.42, lifeVar: 0.1,
                          size: 0.14, sizeVar: 0.4, grow: 0.5, shape: .ring(R * 0.9), surface: true, dir: .outward,
                          speed: 0, stretch: 2.4, fade: .easeFadeIn, vortex: 4, attract: 14),
@@ -265,31 +441,75 @@ enum FX_H029: HeroFXSet {
                 $0.shape = .ring(R * 0.85); $0.surface = true; $0.speed = 0; $0.attract = 6
             }, at: p, quality: 1),
             .shake(0.2, at: p),
-            // 1.0: 聖槌が落ちて崩落（白金の閃光・金の柱・広がる三重の衝撃波・地割れ・円陣に噴く光の柱）
-            .emit(.flare(3.2, .core, life: 0.3, tex: .flare6), at: t, offset: [0, 1.0, 0.4]),
-            .mesh(.orb(1.0, .core, life: 0.25, grow: 2.4, alpha: 0.7), at: t, offset: [0, 0.3, 0.5]),
-            .mesh(.pillar(1.2, height: 7, .primary, life: 0.5), at: t - 0.02),
-            .mesh(.burstWall(R * 0.75, height: 2.2, .primary, life: 0.5), at: t),
-            .mesh(.shockRing(R * 0.6, .core, life: 0.35), at: t),
-            .mesh(.shockRing(R, .primary, life: 0.55), at: t + 0.04),
-            .mesh(.shockRing(R * 1.2, .secondary, life: 0.75), at: t + 0.1),
-            .mesh(.decal(.crack, R * 1.9, .dark, life: 2.0, spin: 0, grow: 1.0, alpha: 0.9), at: t),
-            .mesh(.decal(.crack, R * 1.5, .primary, life: 1.2, spin: 0, grow: 1.05, alpha: 0.85), at: t),
-            .mesh(.decal(.runeCircle, R * 1.7, .primary, life: 1.3, spin: -40, alpha: 0.6), at: t + 0.02),
-            .mesh(.pillar(0.3, height: 2.6, .primary, life: 0.45, alpha: 0.8), at: t + 0.02, quality: 1)
-                .ringed(6, radius: R * 0.6, every: 0.012),
-            .emit(.wave(R, .primary, life: 0.6), at: t, offset: [0, 0.1, 0]),
-            .emit(.sparks(36, speed: 11, .core, end: .primary, size: 0.12, life: 0.55), at: t, offset: [0, 0.6, 0]),
-            .emit(.debris(24, speed: 8, dust), at: t),
-            .emit(.smoke(14, radius: R * 0.6, dust, life: 1.5, size: 1.2).with { $0.speed = 3 }, at: t + 0.02, quality: 1),
-            .emit(.embers(20, radius: R * 0.8, .primary, life: 1.3), at: t + 0.1, quality: 1),
+            // 崩落の直前: 掲げた盾の上から天へ立つ細い光の筋（光る。筋が上へ流れる）
+            .mesh(.pillar(0.16, height: 9, .core, life: 0.32, alpha: 1).glowing()
+                .flowing(.streaks, scroll: [0, -3], tiling: 2, strength: 0.6, edge: .primary).with { $0.onTop = true }, at: t - 0.24,
+                  offset: [-0.2, 1.2, 0.6]),
+            // 1.0: 聖槌が落ちて崩落 — 範囲を覆う光の棘・白熱の閃光・爆炎
+            .mesh(.groundFlipbook(.spikes, R * 2.3, hot, life: 0.5, grow: 1.1), at: t),
+            .mesh(.sprite(.glowHard, 4.2, .core, life: 0.22, grow: 1.5).glowing().with { $0.fadeIn = 0; $0.onTop = true }, at: t,
+                  offset: [0, 1.0, 0.2]),
+            // 爆炎（MLBB は崩落の 0.15 秒ほどで橙の炎が引き、焦げたひびが残る）
+            .mesh(.flipbook(.fireball, R * 1.75, .white, life: 0.42, grow: 1.12), at: t + 0.02, offset: [0, 1.1, 0]),
+            // 四芒星の岩盤: 金に光って盛り上がる → 暗く焦げた盤に溶岩の網が光り、溶けて消える
+            .mesh(.model(.starCross, nil, hot, size: [R * 0.85, 1.6, R * 0.85], sizeEnd: [R * 0.9, 1.0, R * 0.9], life: 0.5,
+                         ease: .outBack).glowing().with {
+                $0.fadeIn = 0
+                $0.fadeOut = 0.35
+            }, at: t),
+            .mesh(.model(.starCross, nil, char, size: [R * 0.86, 1.2, R * 0.86], life: 0.8)
+                .flowing(.lava, scroll: [0.03, 0.08], tiling: 2, strength: 0.9, edge: lava)
+                .dissolving(from: 0.55, edge: lava, width: 0.08).with { $0.fadeIn = 0.15; $0.fadeOut = 0.95 }, at: t + 0.06),
+            // 放射状のひび: 橙に光る → 暗い焦げたひびと焦げ跡（溶けて消える）
+            .mesh(crack(.crackRadial, R * 2.1, lava, life: 0.5).glowing()
+                .flowing(.lava, scroll: [0.05, 0.1], tiling: 1.5, strength: 0.5, edge: hot), at: t + 0.02),
+            .mesh(crack(.crackRadial, R * 2.15, char, life: 0.9, alpha: 0.9)
+                .dissolving(from: 0.6, tiling: 2.5, edge: ember, width: 0.05).with { $0.fadeIn = 0.15; $0.fadeOut = 0.95 },
+                  at: t + 0.05),
+            .mesh(.decal(.scorch, R * 2.1, char, life: 0.9, spin: 0, grow: 1.0, alpha: 0.55)
+                .dissolving(from: 0.5, tiling: 2.5, edge: ember, width: 0.05).with {
+                    $0.size = [R * 2.1, 1, R * 2.1]
+                    $0.ease = .linear
+                    $0.fadeOut = 0.95
+                }, at: t + 0.05),
+            // 2 重の衝撃の輪（白金 → 橙）: 崩落の瞬間に見える縁 = 判定の半径 R、消えながら外へ
+            .mesh(edgeLip(R, .core, life: 0.35, spread: 1.12, lift: 1.4, refract: 0.012), at: t),
+            .mesh(edgeLip(R, flame, life: 0.6, spread: 1.3, refract: 0.008), at: t),
+            // 白い岩板が跳ね上がって落ちる（岩板の輪の模型が広がりながら放物線を描く）
+            .mesh(.model(.shardRing, nil, rock, size: [R * 0.45, 1, R * 0.45], sizeEnd: [R * 1.15, 1, R * 1.15], life: 0.75)
+                .with {
+                    $0.rise = 4.5
+                    $0.gravity = 12
+                    $0.spin = 40
+                    $0.fadeOut = 0.7
+                }, at: t),
+            // 天へ立つ 2 重の光の柱（炎の筋が上へ流れる）
+            .mesh(.model(.pillar2, nil, .core, size: [0.75, 3, 0.75], sizeEnd: [0.4, 8, 0.4], life: 0.38).glowing()
+                .flowing(.flame, scroll: [0, -3], tiling: 1.6, strength: 0.6, erosion: 0.25, edge: .primary).with { $0.onTop = true },
+                  at: t - 0.02),
+            // 槌頭が地を打つ点（前 2.65m。モーションの 1.0 秒）の白金の閃光と火花。範囲を覆う部品は中心のまま
+            .emit(.flare(2.2, .core, life: 0.16, tex: .flare6), at: t, offset: [0.16, 0.3, 2.65]),
+            .emit(.sparks(30, speed: 11, .core, end: .primary, size: 0.12, life: 0.55), at: t, offset: [0.16, 0.4, 2.65]),
+            // 白い岩片（回る岩のコマ送り）・土煙・残り火
+            .emit(.debris(16, speed: 8, .rgb(0.92, 0.9, 0.85), size: 0.3).with {
+                $0.sheet = .rockTumble
+                $0.sheetRandomStart = true
+                $0.shape = .disc(R * 0.5)
+                $0.life = 1.0
+                $0.gravity = 14
+            }, at: t),
+            .emit(.sheet(.smokeHD, 2.6, dust, count: 4, life: 1.3, additive: false, radius: R * 0.6), at: t + 0.08,
+                  offset: [0, 0.6, 0], quality: 1),
+            .emit(.embers(14, radius: R * 0.8, lava, life: 1.4), at: t + 0.1, quality: 1),
+            // 飛び散る金の光の筋・跳ねる白い岩の欠片・火花・縁のきらめき（Effekseer。3D の上）
+            .efk(efkSlam, at: t, .origin, scale: R / slamDesignRadius, onTop: true),
             .shake(0.65, at: t),
         ]
         // 崩落の瞬間の被弾（残りの気絶 0.8 秒。発動から合計 1.8 秒）: 白金の閃光・頭上を回る金の輪と星のきらめき
         r.hit = [
             .emit(.flare(1.2, .core, life: 0.15), offset: [0, 1.0, 0]),
             .emit(.sparks(8, speed: 4, .primary, end: .accent), offset: [0, 1.0, 0]),
-            .mesh(.halo(0.5, .primary, life: 0.8, spin: 300, tex: .ringDouble), .follow, offset: [0, 2.0, 0]),
+            .mesh(FXMesh.halo(0.5, .primary, life: 0.8, spin: 300, tex: .ringDouble).glowing(), .follow, offset: [0, 2.0, 0]),
             .emit(.flutter(.star, 6, radius: 0.35, .primary, speed: 0.5, life: 1.2, size: 0.16).with {
                 $0.gravity = 0; $0.vortex = 5
             }, .follow, offset: [0, 2.0, 0], quality: 1),

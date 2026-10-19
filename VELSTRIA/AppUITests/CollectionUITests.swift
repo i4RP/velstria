@@ -50,7 +50,7 @@ final class CollectionUITests: XCTestCase {
         skillsTab.tap()
         snapshot(app, "hero_detail_skills")
         // 左のスキルアイコン列（ヒーロー詳細の左パネル）を押すと、右にそのスキルの詳細（説明・レベル表）が出る
-        let ult = element(app, "skill_SK007_5")
+        let ult = element(app, "skill_SK029_5")
         XCTAssertTrue(ult.waitForExistence(timeout: 5))
         ult.tap()
         XCTAssertTrue(element(app, "skilldetail_description").waitForExistence(timeout: 5))
@@ -99,30 +99,6 @@ final class CollectionUITests: XCTestCase {
         XCTAssertTrue(previewIsAnimating(preview), "スキルを選んだ後に 3D プレビューが止まっている")
     }
 
-    func testSkillDetailShowsSimulationHealForTeamHeal() {
-        // SK005_5 ヴォスの Ult（味方全体回復）: 実戦の回復量 205 × 2.4 × 1.2 = 590 を表と説明に出す
-        let app = launch(route: "skillDetail:SK005_5", language: "en")
-        let description = element(app, "skilldetail_description")
-        XCTAssertTrue(description.waitForExistence(timeout: 10))
-        XCTAssertTrue(description.label.contains("590 HP"), description.label)
-        // ランク 1 の回復量（表）
-        XCTAssertTrue(app.staticTexts["590"].exists)
-        app.scrollViews.containing(.any, identifier: "skilldetail_description").firstMatch.swipeUp(velocity: .slow)
-        snapshot(app, "skill_detail_team_heal_scaling")
-    }
-
-    func testLockedHeroUnlockFlowShowsConfirmation() {
-        // -grant なしは Coin 0 → 確認シートで残高不足を表示
-        let app = launch(route: "heroDetail:H007", grant: false)
-        let unlock = element(app, "herodetail_unlock")
-        XCTAssertTrue(unlock.waitForExistence(timeout: 10))
-        unlock.tap()
-        XCTAssertTrue(element(app, "purchase_cancel").waitForExistence(timeout: 5))
-        XCTAssertFalse(element(app, "purchase_confirm").exists)
-        snapshot(app, "hero_unlock_insufficient")
-        element(app, "purchase_cancel").tap()
-        XCTAssertTrue(unlock.waitForExistence(timeout: 5))
-    }
 
     func testPurchaseCosmeticAndEquip() {
         let app = launch(route: "productDetail:SKU002")
@@ -265,14 +241,17 @@ final class CollectionUITests: XCTestCase {
 
     func testSpellLoadoutAssignment() {
         let app = launch(route: "spells")
-        let ignite = element(app, "spell_BS07")
-        XCTAssertTrue(ignite.waitForExistence(timeout: 10))
-        element(app, "spell_slot_0").tap()
-        ignite.tap()
-        element(app, "spells_scope_H006").tap()
+        // バトルスキルは 1 枠（BattleSkillPicker）。新規のアカウント Lv1 では瞬歩（BS01）だけ装備できる
+        let blink = element(app, "spell_BS01")
+        XCTAssertTrue(blink.waitForExistence(timeout: 10))
         element(app, "spell_BS05").tap()
-        XCTAssertTrue(element(app, "spells_reset_hero").waitForExistence(timeout: 5))
-        snapshot(app, "spells_hero_override")
+        XCTAssertFalse(element(app, "battle_skill_confirm").isEnabled, "未解放のスキルは装備できない")
+        snapshot(app, "spells_locked")
+        blink.tap()
+        let confirm = element(app, "battle_skill_confirm")
+        XCTAssertTrue(confirm.isEnabled)
+        confirm.tap()
+        snapshot(app, "spells_equipped")
     }
 
     func testStoreScreensOpen() {
@@ -318,8 +297,10 @@ final class CollectionUITests: XCTestCase {
     func testEnglishInventoryAndCosmetics() {
         let app = launch(route: "inventory", language: "en")
         XCTAssertTrue(element(app, "inventory_tab_emote").waitForExistence(timeout: 10))
-        element(app, "inventory_tab_heroSkin").tap()
-        snapshot(app, "inventory_skins_empty_en")
+        // スキンは出しているヒーローの分が無い間はタブを出さない（空のスキンストアへ案内しない）
+        XCTAssertFalse(element(app, "inventory_tab_heroSkin").exists)
+        element(app, "inventory_tab_recall").tap()
+        snapshot(app, "inventory_recall_empty_en")
         element(app, "inventory_customize").tap()
         XCTAssertTrue(element(app, "cosmetics_type_Recall").waitForExistence(timeout: 5))
         element(app, "cosmetics_type_Recall").tap()

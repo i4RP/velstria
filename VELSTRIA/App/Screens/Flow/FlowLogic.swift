@@ -125,14 +125,16 @@ enum FlowWarmUp {
 
 // MARK: - ホームのバッジ
 
+/// 赤い点（数字は出さない）の数え方。ホーム・各画面の点はすべてここで数える（MLBB 2.2.16 と同じく、受け取れる物があるときだけ）。
 enum HomeBadges {
     static func isExpired(_ mail: MailItem, now: Date) -> Bool {
         if let e = mail.expiresAt { return e <= now }
         return false
     }
 
-    static func unreadMail(_ p: Profile, now: Date) -> Int {
-        p.mail.filter { !$0.read && !isExpired($0, now: now) }.count
+    /// メールの点: 受け取っていない添付のあるメール（MLBB 2.2.16: 添付つきか重要な未読だけ。重要なメールは今は無い）。
+    static func mail(_ p: Profile, now: Date) -> Int {
+        claimableMail(p, now: now)
     }
 
     static func claimableMail(_ p: Profile, now: Date) -> Int {
@@ -143,7 +145,7 @@ enum HomeBadges {
         LiveOpsService.notices.filter { !p.readNoticeIDs.contains($0.id) }.count
     }
 
-    /// 受け取り可能なミッション数（デイリー + ウィークリー）。
+    /// 受け取り可能なミッション数（デイリー + ウィークリー。イベントのミッションは eventMissions）。
     static func claimableMissions(_ p: Profile) -> Int {
         let defs = LiveOpsService.dailyMissions(profile: p) + LiveOpsService.weeklyMissions(profile: p)
         let progress = p.missions.daily + p.missions.weekly
@@ -153,11 +155,38 @@ enum HomeBadges {
         }.count
     }
 
+    /// 受け取り可能なイベントのミッション数（開催中のイベントだけ。進捗は profile.missions.weekly にある）。
+    static func eventMissions(_ p: Profile, now: Date) -> Int {
+        p.missions.weekly.filter { prog in
+            guard LiveOpsService.isEventMission(prog.id), LiveOpsService.isEventMissionActive(prog.id, now: now),
+                  !prog.claimed, let def = LiveOpsService.missionDef(id: prog.id) else { return false }
+            return prog.progress >= def.target
+        }.count
+    }
+
+    /// 受け取り可能なスターパスの報酬（無料 + 購入済みならプレミアム）。
+    static func starPass(_ p: Profile) -> Int {
+        let level = LiveOpsService.passLevel(xp: p.pass.xp)
+        var n = 0
+        for r in LiveOpsService.passRewards() where r.level <= level {
+            if r.free != nil && !p.pass.claimedFree.contains(r.level) { n += 1 }
+            if p.pass.hasPremium && r.premium != nil && !p.pass.claimedPremium.contains(r.level) { n += 1 }
+        }
+        return n
+    }
+
+    /// 受け取り可能な実績（報酬の無い実績は解除と同時に受取済みになるので数えない）。
     static func claimableAchievements(_ p: Profile) -> Int {
         LiveOpsService.achievements.filter { def in
-            guard let prog = p.achievements[def.id] else { return false }
-            return !prog.claimed && (prog.unlockedAt != nil || prog.progress >= def.target)
+            guard def.rewardGems > 0, let prog = p.achievements[def.id] else { return false }
+            return !prog.claimed && prog.unlockedAt != nil
         }.count
+    }
+
+    /// 届いているフレンド申請。
+    @MainActor
+    static func friendRequests(_ friends: FriendHub) -> Int {
+        friends.incomingRequests.count
     }
 
     static func claimableRankRewards(_ p: Profile) -> Int {

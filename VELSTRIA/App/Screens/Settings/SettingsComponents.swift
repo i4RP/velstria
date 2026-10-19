@@ -142,6 +142,14 @@ enum AppVersionInfo {
     static var version: String { Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0" }
     static var build: String { Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1" }
     static var display: String { "\(version) (\(build))" }
+    /// 配信ビルドの元のブランチとコミット（CI が Info.plist に入れる。手元のビルドは空）。
+    static var branch: String { Bundle.main.infoDictionary?["VELSTRIAGitBranch"] as? String ?? "" }
+    static var commit: String { Bundle.main.infoDictionary?["VELSTRIAGitCommit"] as? String ?? "" }
+    /// 内部ビルドの戦闘画面の隅に出す 1 行（例: 25003066 main@a31b190）。ブランチ・コミットが無ければビルド番号だけ。
+    static var buildTag: String {
+        let b = branch.isEmpty ? "local" : branch
+        return commit.isEmpty ? "\(build) \(b)" : "\(build) \(b)@\(commit)"
+    }
 
     /// 機種識別子（例: iPhone17,3）。シミュレータでは模擬している機種。
     static var deviceModel: String {

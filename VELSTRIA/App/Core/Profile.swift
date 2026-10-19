@@ -650,7 +650,8 @@ struct Profile: Codable, Equatable {
     /// 申請した日時（outgoingFriendRequests のコード → 日時）。申請から 14 日を過ぎたら送り直さずに取り下げる
     /// （中継の預かりの期限と同じ。FriendHub.outgoingRequestLifetime）。
     var outgoingFriendRequestDates: [String: Date] = [:]
-    /// フレンドの受信箱（中継サーバー）に繋いだことがあるか。「全データを削除」などで中継の受信箱も消すかの判断に使う。
+    /// このフレンドコードで中継サーバーに登録したことがあるか（フレンドの受信箱に繋いだ・クラウドのランクを預けた）。
+    /// 「全データを削除」などで中継の受信箱とランクも消すかの判断に使う（FriendHub.hasServerData）。
     var inboxRegistered = false
     /// ブロックしたプレイヤー（フレンドコード単位。申請・招待を受け取らず、自分の部屋に入れない。設定 > プライバシーで解除）。
     var blockedPlayers: [BlockedPlayer] = []

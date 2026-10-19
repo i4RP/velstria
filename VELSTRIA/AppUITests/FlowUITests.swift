@@ -104,9 +104,11 @@ final class FlowUITests: XCTestCase {
         tap(app, "flow_hero_H027")
         snap("flow_02_hero")
         tap(app, "flow_spell_0")
-        XCTAssertTrue(element(app, "flow_spellpick_BS07").waitForExistence(timeout: 5))
+        // バトルスキルの選択（BattleSkillPicker）。新規のアカウント Lv1 で装備できるのは瞬歩（BS01）だけ
+        XCTAssertTrue(element(app, "spell_BS01").waitForExistence(timeout: 5))
         snap("flow_03_spells")
-        tap(app, "flow_spellpick_BS07")
+        tap(app, "spell_BS01")
+        tap(app, "battle_skill_confirm")
         tap(app, "flow_next")
 
         XCTAssertTrue(element(app, "flow_confirm").waitForExistence(timeout: 5))
@@ -116,8 +118,12 @@ final class FlowUITests: XCTestCase {
         XCTAssertTrue(element(app, "loading_progress").waitForExistence(timeout: 10))
         snap("flow_05_loading")
 
-        tap(app, "battle_stub_simulate", timeout: 20)
-        XCTAssertTrue(element(app, "result_close").waitForExistence(timeout: 900))
+        // 試合を最後まで早送りすると CI のシミュレータでは 15 分を超えるので、一時停止 → 退出（敗北）でリザルトへ進む
+        sleep(15)
+        tap(app, "hud_pause", timeout: 120)
+        tap(app, "pause_leave")
+        tap(app, "leave_confirm")
+        XCTAssertTrue(element(app, "result_close").waitForExistence(timeout: 60))
         sleep(2)
         snap("result_01_table")
         tap(app, "result_tab_eval")

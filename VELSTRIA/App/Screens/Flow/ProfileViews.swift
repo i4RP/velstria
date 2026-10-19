@@ -94,7 +94,8 @@ struct ProfileView: View {
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("profile_rank")
                 VStack(alignment: .leading, spacing: 4) {
-                    infoRow("person.text.rectangle", "ID", shortID(p.playerID))
+                    // ID はフレンドコード（フレンド申請・通報で使う番号と同じ。端末の UUID は見せない）
+                    infoRow("person.text.rectangle", "ID", FriendCode.display(p.friendCode))
                     infoRow("calendar", L("開始日", "Since"), FlowText.date(p.createdAt, time: false))
                     infoRow("sun.max", L("ログイン日数", "Login days"), "\(p.totalLoginDays)")
                     infoRow("person.3", L("所持ヒーロー", "Heroes owned"), "\(p.ownedHeroIDs.filter(HeroRoster.isActive).count) / \(app.master.heroes.count)")
@@ -104,11 +105,6 @@ struct ProfileView: View {
             }
             .padding(.vertical, 4)
         }
-    }
-
-    private func shortID(_ id: String) -> String {
-        let hex = id.replacingOccurrences(of: "-", with: "").uppercased()
-        return String(hex.prefix(4)) + "-" + String(hex.dropFirst(4).prefix(4))
     }
 
     private func infoRow(_ symbol: String, _ title: String, _ value: String) -> some View {
@@ -221,8 +217,6 @@ struct ProfileView: View {
             linkButton("list.bullet.rectangle.fill", L("戦績", "Records"), .records, "profile_records")
             linkButton("trophy.fill", L("実績", "Achievements"), .achievements, "profile_achievements",
                        badge: HomeBadges.claimableAchievements(app.profile))
-            linkButton("list.number", L("ランキング", "Ladder"), .ranking, "profile_ranking")
-            linkButton("externaldrive.fill.badge.person.crop", L("データ連携", "Account & Data"), .accountLink, "profile_accountLink")
         }
     }
 
@@ -342,14 +336,13 @@ struct RecordsView: View {
         ScreenScaffold(title: L("戦績", "Match History")) {
             let list = records
             VStack(spacing: 10) {
-                HStack(spacing: 8) {
-                    summaryStrip(list)
-                    FlowTabBar(items: [
-                        .init(tab: Filter.all, title: L("すべて", "All"), symbol: "square.grid.2x2", identifier: "records_filter_all"),
-                        .init(tab: Filter.standard, title: L("通常", "Standard"), symbol: "person.3.fill", identifier: "records_filter_standard"),
-                        .init(tab: Filter.ranked, title: L("ランク", "Ranked"), symbol: "crown.fill", identifier: "records_filter_ranked"),
-                        .init(tab: Filter.other, title: L("その他", "Other"), symbol: "ellipsis.circle", identifier: "records_filter_other"),
-                    ], selection: $filter)
+                // SE では集計と絞り込みが 1 行に収まらないので、収まらない時は集計を省く
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) {
+                        summaryStrip(list).fixedSize()
+                        filterTabs
+                    }
+                    filterTabs
                 }
                 if list.isEmpty {
                     FlowEmptyState(symbol: "list.bullet.rectangle", title: L("戦績はまだありません", "No matches yet"),
@@ -368,11 +361,31 @@ struct RecordsView: View {
                                 .accessibilityIdentifier("records_row_\(i)")
                             }
                         }
-                        .padding(.bottom, 10)
+                        .padding(.bottom, 60) // 右下のリプレイのボタンに最後の行が隠れないように
                     }
                 }
             }
             .padding(.horizontal, 20)
+            // リプレイ一覧は戦績から開く（ホームには入口を置かない）。上の列は SE で幅が足りないので右下に浮かせる
+            .overlay(alignment: .bottomTrailing) {
+                Button {
+                    FlowFX.tap(app)
+                    app.router.push(.replays)
+                } label: {
+                    Label(L("リプレイ", "Replays"), systemImage: "play.rectangle.fill")
+                        .font(Theme.heading(13))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 44)
+                        .glass(cornerRadius: 22, tint: Theme.cyan.opacity(0.8))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.trailing, 24)
+                .padding(.bottom, 8)
+                .accessibilityIdentifier("records_replays")
+            }
         }
         .sheet(item: $selected, onDismiss: startPendingReplay) { r in
             RecordDetailSheet(record: r, replay: replayMeta(for: r)) { launch in
@@ -393,6 +406,15 @@ struct RecordsView: View {
         guard let launch = pendingLaunch else { return }
         pendingLaunch = nil
         app.startBattle(launch)
+    }
+
+    private var filterTabs: some View {
+        FlowTabBar(items: [
+            .init(tab: Filter.all, title: L("すべて", "All"), symbol: "square.grid.2x2", identifier: "records_filter_all"),
+            .init(tab: Filter.standard, title: L("クラシック", "Classic"), symbol: "person.3.fill", identifier: "records_filter_standard"),
+            .init(tab: Filter.ranked, title: L("ランク", "Ranked"), symbol: "crown.fill", identifier: "records_filter_ranked"),
+            .init(tab: Filter.other, title: L("その他", "Other"), symbol: "ellipsis.circle", identifier: "records_filter_other"),
+        ], selection: $filter)
     }
 
     private func summaryStrip(_ list: [MatchRecord]) -> some View {

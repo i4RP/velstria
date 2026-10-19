@@ -24,6 +24,9 @@ import VelstriaCore
 //   -sampleReplays        リプレイ一覧の確認用に見本のリプレイを保存する（AI 観戦・自分の試合・乱闘・別バージョン）
 //   -practiceNoCD / -practiceLevel <n>  -battle practice の設定（クールダウン無し / 開始レベル）
 //   -efkAuto <atk|s1|s2|ult>  -battle practice で、人形へ近づいて 2 秒ごとに通常攻撃 / スキルを撃ち続ける（Effekseer の確認用）
+//   -fxCapture <s1,s2,ult|all>  -battle practice で、人形の前でスキルを順に撃ち、発動からの決まった時刻の戦闘画面を書き出す
+//                         （スキル演出の比較撮影。FXCapture・.github/workflows/fx-capture.yml）。-fxCaptureRings / -fxCaptureExit も読む
+//   -cameraPreset <legacy|mlbb>  戦闘カメラの組（CameraRig.Preset。比較の撮影用）
 //   -coreFinaleDemo <red|blue>  幕が上がって 2 秒後にその Core を数秒で壊させ、Star Core の終幕を流す（BattleRenderer。
 //                         -battle spectate、または -battle standard -botControl と併せる。sim の規則は変えず状態を置き換えるだけ）
 //   -autoAdvance          試合終了のバナーとランク戦のリザルトの各画面を数秒ごとに自動で進める（画面の確認用）
@@ -31,10 +34,9 @@ import VelstriaCore
 //   -language <ja|en>     表示言語
 //   -graphics <low|medium|high>  画質
 //   -heroGallery          ヒーロー 3D モデル一覧（hero-models の目視確認用）
-//   -homeRail collapsed   ホームの右レール（モード一覧）を畳んだ状態で開く
+//   -homeRail collapsed   ホームのフレンド欄を畳んだ状態で開く
 //   -homeMenu             ホームのメニュードロワーを開いた状態で開く
 //   -homeHero <heroID>    ホーム中央のショーケースに最初に出すヒーロー
-//   -home3D               ホーム中央のショーケースを 3D 表示で開く
 //   -onlineHost [port]    起動後にオンライン対戦の部屋を作る（待ち受けポート省略時は既定）。LAN の待ち受けと中継（部屋コード）の両方を開く
 //   -relayCode <CODE>     -onlineHost の部屋コードを決める（自動検証用。使われていても作り直さない）
 //   -relayURL <ws(s)://…> 中継サーバーの URL を差し替える（既定は OnlineRelayConfig.defaultBaseURL。例 ws://127.0.0.1:8787）
@@ -142,10 +144,17 @@ enum DebugLaunch {
             let name = p.displayName.isEmpty ? "Tester" : p.displayName
             switch mode {
             case "practice", "tutorial":
-                app.startBattle(BattleLaunch(config: MatchFactory.practiceMatch(
+                var config = MatchFactory.practiceMatch(
                     humanHeroID: hero, humanName: name,
                     options: PracticeOptions(noCooldowns: args.contains("-practiceNoCD"), startLevel: value(after: "-practiceLevel").flatMap { Int($0) } ?? 1),
-                    tutorial: mode == "tutorial", seed: seed)))
+                    tutorial: mode == "tutorial", seed: seed)
+                // 比較撮影（FXCapture）: 英雄にだけ撃てるスキル（FXCheckDriver.heroOnly）の的に、敵の Bot の英雄を 1 体足す
+                // （演出チェックの FXCheckSession.config と同じ。撮影の間は人間の操作扱いにして動かさない）
+                if mode == "practice", value(after: "-fxCapture") != nil {
+                    config.players.append(PlayerSlot(team: .red, heroID: hero == "H029" ? "H034" : "H029", controller: .bot,
+                                                     position: .mid, displayName: "FX Capture", botDifficulty: .easy))
+                }
+                app.startBattle(BattleLaunch(config: config))
             case "spectate":
                 let config = value(after: "-spectateMap") == "brawl"
                     ? MatchFactory.spectateMatch(options: SpectateMatchOptions(map: .brawl), seed: seed)
@@ -294,7 +303,6 @@ enum DebugLaunch {
         case "credits": return .credits
         case "replays": return .replays
         case "spectateSetup": return .spectateSetup
-        case "arcade": return .arcade
         case "rising": return .rising
         case "customSetup": return .customSetup
         case "magicChess": return .magicChess

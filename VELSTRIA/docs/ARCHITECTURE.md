@@ -86,7 +86,7 @@ VELSTRIA/
 - 通常プレイはネットワーク通信なし（オフライン完結）。外部リンクは `Link` / `openURL`。
   例外はオンライン対戦（下記。同一 LAN の端末間通信と、部屋コードで遊ぶ時だけ中継サーバー（Cloudflare Workers）経由の通信）。
 
-## オンライン対戦（リッスンサーバー方式、開発期間用）
+## オンライン対戦（リッスンサーバー方式）
 `FeatureFlags.lanMatch` で有効。参加者の 1 台が **ホスト**（権威シミュレーション）になり、他は **クライアント**として入力を送る。
 同一 LAN の部屋を Bonjour（`_velstria._tcp`）で探すか、ホストの IP:ポート（既定 47814）を入力して TCP で繋ぐ。
 違う場所・違う Wi-Fi / モバイル回線の相手とは **部屋コード**（中継サーバー経由。下の「インターネット対戦（中継）」）で繋ぐ。
@@ -159,8 +159,9 @@ WebSocket Hibernation）で、**中身を解釈しない土管**。ゲームの�
   15 秒毎にテキスト `ping`（中継が `pong` を自動応答。携帯回線の NAT 対策）、50 秒何も届かなければ繋ぎ直す。
 - 名乗らない接続: 部屋コードだけで誰でも繋げるので、受け入れてから 10 秒（`OnlineProtocol.handshakeTimeout`）名乗り（hello）が無い接続は切る。
   ホスト側で参加者から受け取る 1 メッセージは 1 MiB まで（`guestToHostMaxMessageBytes`。名乗る前に 32 MiB を持たされないため）。
-- 信頼の範囲（開発期間）: 部屋コードを知っている人は信頼する。名乗りの peerID は認証されず（部屋の状態で全員に見える UUID）、悪意のある参加者が他人の peerID で
-  名乗ると席を奪える。ホストが参加者を追い出す操作も無い。公開の対戦に広げる時は、再入室の秘密（hello に載せる乱数）とホストの追放を足すこと。
+- 信頼の範囲: 部屋コードを知っている人は信頼する。名乗りの peerID は認証されず（部屋の状態で全員に見える UUID）、悪意のある参加者が他人の peerID で
+  名乗ると席を奪える（再入室の秘密 = hello に載せる乱数はまだ無い）。ホストは参加者を部屋から外せる（`OnlineSession.kick`。その部屋には同じ peerID・
+  フレンドコードで入り直せず、試合中ならそのヒーローは AI が引き継ぐ）。ブロックした相手（フレンドコード）はホストの部屋に入れない。
 - 参加者: `RelayGuestConnection`（`OnlineConnection` 準拠）。切れた後は同じコードで「もう一度参加」（同じ playerID なので試合中なら席に戻る）。
   中継の close コード（4001 host_left / 4002 closed_by_host / 4004 no_room / 4008 room_full / 4009 room_taken / 4010 relay_version）は利用者向けの文言にする。
 - 招待: 部屋の上の帯に部屋コード（タップで詳細）・コピー・共有（文面 + `velstria://join?code=XXXXXX`）。リンクを開くと `AppModel.openOnlineJoinLink` が参加する
@@ -171,7 +172,7 @@ WebSocket Hibernation）で、**中身を解釈しない土管**。ゲームの�
 
 ### フレンドとパーティ
 友達と一緒にチームを組んで遊ぶ（モバレジェ型: フレンドをパーティへ招待 → 招待された側が 拒否 / 待って / 同意）。`FeatureFlags.lanMatch` が有効な時だけ動く
-（公開版では受信箱へ繋がず、画面・リンクも出ない）。アカウントは作らない。
+（無効なら受信箱へ繋がず、画面・リンクも出ない。有効でもオンラインのルールに同意するまでは繋がない = `OnlineAccess`）。アカウントは作らない。
 
 - 識別: 端末ごとに **フレンドコード**（8 文字。公開の ID）と **受信箱の鍵**（本人だけの秘密）を `Profile.friendCode` / `inboxKey` に持つ。
   中継（`relay/src/inbox.ts` の `FriendInbox`。仕様は relay/README.md「フレンドの受信箱」）は、コードごとに最初に繋いだ鍵で持ち主を決める。
@@ -194,7 +195,9 @@ WebSocket Hibernation）で、**中身を解釈しない土管**。ゲームの�
   `-onlineHost` の検証用の部屋はピックから始まる（`-onlineParty` でパーティから。`-partyTeams` でチーム分けを開く）。
 - 保存: `Profile.friends` / `outgoingFriendRequests`（`PersistenceService` の elementTemplates と sanitize に対応）。
 - テスト: `FriendTests`（コード・リンク・符号化・受信箱への接続・申請/承認/招待の手順・パーティの席・保存の互換）、中継は `relay/test/relay.test.mjs`。
-- 公開前の課題: ブロック・通報、表示名の不適切語対策、プライバシーの文言（フレンドコードと表示名が中継を通ること）、年齢区分。
+- 安全対策（`OnlineSafety.swift` / `Screens/Online/OnlineSafetyViews.swift`）: 同意と年齢区分（`OnlineAccess`。13 歳未満は使えない）、表示名・部屋名の
+  不適切語フィルタ（`ContentFilter`）、通報（`PlayerReportMail`。運営宛てのメールの下書き）、ブロック（`FriendHub.block`。`Profile.blockedPlayers`）、
+  ホストの「部屋から外す」（`OnlineSession.kick`）。
 
 ## 観戦（AI 同士の観戦・リプレイ・オンラインの観戦席・死亡中の味方追従）
 観戦者 = 操作を送らず、霧は観戦者が選んだ視点で見る人。`BattleLaunch.isSpectating` は次のどれか:

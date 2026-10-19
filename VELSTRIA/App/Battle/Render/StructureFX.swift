@@ -17,6 +17,13 @@ enum StructureAudio {
     static var sink: ((SFX, Double) -> Void)?
 }
 
+/// ヒーローのパッシブの音の出口（SkillFXDirector がパッシブの演出を出す時に呼ぶ。BattleAudioDirector が開始時に繋ぐ）。
+/// 引数: ヒーローのユニット・ヒーロー ID。音量と左右は BattleAudioDirector が聞き手の位置から決める。
+@MainActor
+enum SkillFXAudio {
+    static var passiveSink: ((EntityID, String) -> Void)?
+}
+
 @MainActor
 final class StructureFXDirector {
     private let vfx: VFXSystem

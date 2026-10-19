@@ -58,15 +58,18 @@ enum SkillFXCatalog {
         sets[heroID]?.palette ?? FXPalette.from(RGB(0.6, 0.85, 1))
     }
 
-    /// スキルの寸法（マスターデータ + 照準の規則から。m）。
-    static func info(heroID: String, slot: SkillSlot, master: MasterData) -> FXSkillInfo {
+    /// スキルの寸法（マスターデータ + 照準の規則 + キットの Tune から。m・秒）。stage = 再使用の段（照準・キットの値も段のもの）。
+    static func info(heroID: String, slot: SkillSlot, stage: Int = 0, master: MasterData) -> FXSkillInfo {
         guard let hero = master.hero(heroID), let skill = master.skill(hero: heroID, slot: slot) else {
-            return FXSkillInfo(heroID: heroID, slot: slot, archetype: .passive, radius: 1.5, range: 6)
+            return FXSkillInfo(heroID: heroID, slot: slot, archetype: .passive, radius: 1.5, range: 6, stage: stage)
         }
-        let t = SkillCatalog.targeting(for: skill, hero: hero)
+        let t = HeroKits.targeting(for: skill, hero: hero, stage: stage)
         let k = Float(Balance.unitsPerMeter)
+        var kit: [String: KitFXValue] = [:]
+        for v in HeroKits.fxValues(heroID: heroID, slot: slot, stage: stage) { kit[v.key] = v }
         return FXSkillInfo(heroID: heroID, slot: slot, archetype: t.archetype, radius: max(0.6, Float(t.radius) / k),
-                           range: max(1, Float(t.range) / k))
+                           range: max(1, Float(t.range) / k), stage: stage, hitRadius: Float(t.radius) / k,
+                           halfAngle: Float(t.halfAngle * 180 / .pi), shape: t.shape, kit: kit)
     }
 
     /// スロットの演出（ヒーローの定義 → 空の段は既定演出で補う）。
@@ -75,6 +78,7 @@ enum SkillFXCatalog {
         let generic = FXGeneric.recipe(s)
         guard let set = sets[heroID] else { return generic }
         var r = set.recipe(slot, s)
+        guard r.fillsEmptyPhases else { return r }
         if r.cast.isEmpty { r.cast = generic.cast }
         if r.impact.isEmpty { r.impact = generic.impact }
         if r.travel.isEmpty { r.travel = generic.travel }
@@ -87,7 +91,7 @@ enum SkillFXCatalog {
     /// 空の段は共通の演出（stage 0）で補う。
     static func stageRecipe(heroID: String, slot: SkillSlot, stage: Int, master: MasterData) -> SkillFXRecipe? {
         guard stage > 0, let set = sets[heroID] else { return nil }
-        let s = info(heroID: heroID, slot: slot, master: master)
+        let s = info(heroID: heroID, slot: slot, stage: stage, master: master)
         guard let r = set.recipe(slot, stage: stage, s) else { return nil }
         return merged(r, over: recipe(heroID: heroID, slot: slot, master: master))
     }
@@ -124,6 +128,8 @@ enum SkillFXCatalog {
 
     /// スロットの詠唱モーション（無ければ nil = 既定の動き）。
     static func motion(heroID: String, slot: SkillSlot, builder: MotionBuilder) -> MotionClip? {
+        // ヒーロー固有の全身のモーション（HeroSkillMotions）があれば、そちらが先（演出の定義の motion は使わない）
+        if let clip = HeroSkillMotions.cast(heroID: heroID, slot: slot, stage: 0, builder: builder) { return clip }
         guard slot != .passive, let set = sets[heroID] else { return nil }
         var m = builder
         set.motion(slot, &m)

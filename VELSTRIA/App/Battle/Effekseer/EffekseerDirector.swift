@@ -85,6 +85,8 @@ final class EffekseerDirector {
         var target: Target
         var offset: SIMD3<Float>
         var until: Float
+        /// 重ねる効果（FXEfk）の追従か（stackedFollows の数え直し用）。
+        var stacked = false
     }
     private var follows: [Follow] = []
     private var shots: [EntityID: Int32] = [:]
@@ -208,6 +210,26 @@ final class EffekseerDirector {
 
     func isEffekseerZone(_ id: EntityID) -> Bool { zones[id] != nil }
 
+    // MARK: キットのヒーローの段に重ねる効果（FXEfk。SkillFXPlayer の合図から）
+
+    /// 追従している重ねる効果の数（BattleWorkBudget.efkFollows まで）。
+    private var stackedFollows = 0
+
+    /// 段の合図として重ねる効果を再生する（位置・向き・追従は SkillFXPlayer が決めた値）。読み込んでいない効果・
+    /// 効果の粒子が多すぎる時（BattleWorkBudget.efkInstances）は出さない（装飾。判定や予告ではない）。
+    func playStacked(_ x: FXEfk, at p: SIMD3<Float>, yaw: Float, follow: SkillFXPlayer.Follow?, offset: SIMD3<Float>) {
+        guard overlay.kitEffectNames.contains(x.name), overlay.runtime.activeCount < BattleWorkBudget.efkInstances else { return }
+        let h = overlay.play(EffekseerOverlay.kitKey(x.name), at: p, yaw: yaw, scale: x.scale, speed: x.speed, onTop: x.onTop)
+        guard h >= 0, let follow, stackedFollows < BattleWorkBudget.efkFollows else { return }
+        let target: Target
+        switch follow {
+        case .unit(let id): target = .unit(id)
+        case .projectile(let id): target = .projectile(id)
+        }
+        stackedFollows += 1
+        follows.append(Follow(handle: h, target: target, offset: offset, until: time + x.followFor, stacked: true))
+    }
+
     // MARK: 投射物
 
     func onProjectileLaunched(projectileID: EntityID, ownerID: EntityID, visual: String, state: SimState) {
@@ -312,7 +334,12 @@ final class EffekseerDirector {
                 pos = units.worldPositionOf(id)
                 forward = nil
             case .projectile(let id):
-                if let info = projectiles.info(id) { pos = info.pos; forward = info.forward }
+                if let info = projectiles.info(id) {
+                    pos = info.pos
+                    forward = info.forward
+                    // 重ねる効果のずれ（SkillFXPlayer の合図）は地面からの高さを含む（SkillFX の追従と同じく投射物の地面の位置から）
+                    if f.stacked { pos?.y = 0 }
+                }
             }
             if let pos, time < f.until {
                 if let forward {
@@ -323,6 +350,7 @@ final class EffekseerDirector {
                 i += 1
             } else {
                 if case .projectile(let id) = f.target { shots[id] = nil }
+                if f.stacked { stackedFollows -= 1 }
                 overlay.runtime.stopHandle(f.handle)
                 follows.remove(at: i)
             }
@@ -331,6 +359,7 @@ final class EffekseerDirector {
 
     func clear() {
         follows.removeAll()
+        stackedFollows = 0
         shots.removeAll()
         zones.removeAll()
         overlay.runtime.stopAll()
