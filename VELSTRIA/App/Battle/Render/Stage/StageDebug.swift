@@ -6,6 +6,7 @@ import VelstriaCore
 //   -stageLayoutReference        2026-10-17参照画像の俯角・画角・注視点で固定撮影
 //   -stageShot IMG_6713          2026-10-19の各画像を通常のレンズで比較撮影
 //   -stageReview                Documents/stage-review.txtの画像名で撮影地点を切り替える
+//   -stageUnits                 unit-reference.json の姿勢・出現段階でユニットの寸法を比較（描画のみ）
 //   -stageCam <x>,<y>[,<zoom>]   カメラを地図座標（m）の位置に固定する（例: -stageCam 37,83）
 //   -stageTour                   カメラを名所（拠点・レーン・川・ボスの巣・ジャングル）へ 6 秒ごとに順に動かす
 //   -stageFull                   -uiTesting でもステージを間引かない（StagePrep.lite を参照）
@@ -25,6 +26,12 @@ enum StageDebug {
     }()
     private nonisolated(unsafe) static var reviewName = ""
     private nonisolated(unsafe) static var reviewReadAt: CFTimeInterval = 0
+    private struct UnitReference: Decodable {
+        let kind: Int
+        let ground: [Double]
+        let facing: Double
+    }
+    private nonisolated(unsafe) static var unitReferences: [String: [UnitReference]] = [:]
     static var referenceView: StageReferenceLayout.View? {
         guard ProcessInfo.processInfo.arguments.contains("-stageReview") else { return initialReferenceView }
         let now = CACurrentMediaTime()
@@ -34,6 +41,11 @@ enum StageDebug {
                 .appendingPathComponent("stage-review.txt")
             reviewName = ((try? String(contentsOf: url, encoding: .utf8)) ?? "")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
+            if ProcessInfo.processInfo.arguments.contains("-stageUnits"),
+               let data = try? Data(contentsOf: url.deletingLastPathComponent().appendingPathComponent("unit-reference.json")),
+               let references = try? JSONDecoder().decode([String: [UnitReference]].self, from: data) {
+                unitReferences = references
+            }
         }
         return StageReferenceLayout.views.first { $0.name == reviewName } ?? initialReferenceView
     }
@@ -73,6 +85,48 @@ enum StageDebug {
                 frame.state.units[hero].prevPos = view.hero
                 frame.state.units[hero].facing = .pi / 2
             }
+            if ProcessInfo.processInfo.arguments.contains("-stageUnits") {
+                applyUnitReference(to: &frame, view: view)
+            }
+        }
+    }
+
+    private static func groundPoint(_ pixel: [Double], view: StageReferenceLayout.View) -> Vec2 {
+        let pitch = Double(StageReferenceLayout.pitchDegrees) * .pi / 180
+        let focal = 315 / tan(Double(StageReferenceLayout.verticalFOV) * .pi / 360)
+        let distance = Double(StageReferenceLayout.cameraDistance * view.zoom)
+        let dy = (315 - pixel[1]) * distance / (focal * sin(pitch) - (315 - pixel[1]) * cos(pitch))
+        return view.hero + Vec2((pixel[0] - 684) * (distance + dy * cos(pitch)) / focal * 100,
+                               (Double(StageReferenceLayout.cameraLead) + dy) * 100)
+    }
+
+    /// Source creatures can be fighting, wandering, or already evolved. Only pose/type is staged;
+    /// the shipping CreatureVisual / OverheadBar determines every rendered dimension.
+    private static func applyUnitReference(to frame: inout RenderFrame, view: StageReferenceLayout.View) {
+        if reviewName == "UNIT_TEAMS", let original = frame.state.units.first(where: { $0.kind == .hero }) {
+            frame.state.nextEntityID = 9_100_000
+            for (team, x) in [(Team.blue, 410.0), (.red, 950.0)] {
+                var copy = original
+                copy.team = team
+                copy.pos = groundPoint([x, 385], view: view)
+                copy.prevPos = copy.pos
+                frame.state.addUnit(copy)
+            }
+        }
+        guard let references = unitReferences[view.name] else { return }
+        // Hide the original neutral population in this render snapshot. It remains alive in SimState.
+        for i in frame.state.units.indices where frame.state.units[i].kind == .monster {
+            frame.state.units[i].pos = Vec2(-100_000, -100_000)
+            frame.state.units[i].prevPos = frame.state.units[i].pos
+        }
+        frame.state.nextEntityID = 9_000_000
+        for (i, reference) in references.prefix(12).enumerated() {
+            guard let kind = MonsterKind(rawValue: reference.kind), reference.ground.count == 2 else { continue }
+            var unit = UnitFactory.makeMonster(kind: kind, campID: -1, pos: groundPoint(reference.ground, view: view))
+            unit.facing = reference.facing * .pi / 180
+            // Stable per-kind IDs prevent a pooled visual being reused for a different model.
+            frame.state.nextEntityID = 9_000_000 + EntityID(kind.rawValue * 100 + i)
+            frame.state.addUnit(unit)
         }
     }
 

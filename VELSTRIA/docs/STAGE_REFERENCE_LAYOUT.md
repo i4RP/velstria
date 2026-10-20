@@ -83,3 +83,5 @@ uv run --with pillow python tools/stage/compare_field.py
 
 添付動画も5地点で確認した（最後の1地点はiOSのコントロールセンター）。
 比較データ、元画像・撮影画像のSHA256、ログは `build/stage/reference-20261019/` に保存。
+
+2026-10-20の体力ゲージ・モンスター寸法の追補は [REFERENCE_UNIT_SCALE.md](REFERENCE_UNIT_SCALE.md)。

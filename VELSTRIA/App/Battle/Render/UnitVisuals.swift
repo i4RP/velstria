@@ -361,6 +361,22 @@ enum CreatureKey: Hashable {
 
 @MainActor
 final class CreatureVisual {
+    /// 参照画面の見かけ寸法。描画だけに適用し、当たり判定・射程・移動は変更しない。
+    static func referenceScale(_ kind: MonsterKind) -> SIMD3<Float> {
+        switch kind {
+        case .blueSentinel: return [1.58, 1.45, 1.58]
+        case .redSentinel: return SIMD3(repeating: 1.65)
+        case .azureWhelp: return [1.45, 1.15, 1.45]
+        case .hornLizard: return [1.10, 2.0, 1.10]
+        case .magmaGolem: return [1.00, 0.80, 0.80]
+        case .emberBeetle: return [0.62, 0.53, 0.62]
+        case .treasureCrab: return SIMD3(repeating: 0.80)
+        case .mossWanderer: return [0.80, 1.0, 0.80]
+        case .ancientColossus: return [1.55, 1, 1]
+        default: return SIMD3(repeating: 1)
+        }
+    }
+
     let key: CreatureKey
     let root = Entity()
     /// アニメーションで動かす胴体（root 直下）。
@@ -373,7 +389,7 @@ final class CreatureVisual {
     let bar: OverheadBar
     let status: StatusIndicators
     let headHeight: Float
-    let scale: Float
+    let scale: SIMD3<Float>
 
     var id: EntityID = 0
     var lastSeen = 0
@@ -410,7 +426,7 @@ final class CreatureVisual {
             } else {
                 pm = meshes.minion(type, team: team)
             }
-            scale = 1
+            scale = SIMD3(repeating: 1)
             headHeight = type == .siege ? 1.45 : 1.25
             barColor = materials.teams.main(team)
             barStyle = .minion
@@ -424,26 +440,35 @@ final class CreatureVisual {
                 pm = meshes.monster(kind)
             }
             var ms: Float = 1
+            var hh: Float
             switch kind {
-            case .campSmall, .emberGrub, .crablet: ms = 0.62; headHeight = 0.95
-            case .azureWhelp: ms = 0.75; headHeight = 1.1
-            case .campLarge, .hornLizard, .emberBeetle, .treasureCrab, .mossWanderer: ms = 1.05; headHeight = 1.5
-            case .magmaGolem: ms = 0.95; headHeight = 2.4
-            case .blueSentinel, .redSentinel: ms = 1.2; headHeight = 2.95
-            case .astralWyrm: ms = 1.2; headHeight = 2.9
-            case .ancientColossus: ms = 2.05; headHeight = 5.0
+            case .campSmall, .emberGrub, .crablet: ms = 0.62; hh = 0.95
+            case .azureWhelp: ms = 0.75; hh = 1.1
+            case .campLarge, .hornLizard, .emberBeetle, .treasureCrab, .mossWanderer: ms = 1.05; hh = 1.5
+            case .magmaGolem: ms = 0.95; hh = 2.4
+            case .blueSentinel, .redSentinel: ms = 1.2; hh = 2.95
+            case .astralWyrm: ms = 1.2; hh = 2.9
+            case .ancientColossus: ms = 2.05; hh = 5.0
             }
-            barStyle = .monster(boss: kind.isBoss)
-            // 生成モデルは実寸（m）で作ってあるので拡大しない
-            scale = creatureRoot != nil ? 1 : ms
+            barStyle = .monster(boss: kind.isBoss, sentinel: kind.isSentinel)
+            let fit = Self.referenceScale(kind)
+            scale = (creatureRoot != nil ? 1 : ms) * fit
+            // Wings, tails and weapons do not define the HP anchor. Keep it over the torso/head.
+            headHeight = switch kind {
+            case .blueSentinel, .redSentinel: 2.7
+            case .azureWhelp: 1.65
+            case .hornLizard: 1.9
+            case .ancientColossus: 4.4
+            default: hh * fit.y
+            }
         case .dummy:
             pm = meshes.dummy
-            scale = 1
+            scale = SIMD3(repeating: 1)
             headHeight = 2.0
             barColor = OverheadBar.dummyFill
             barStyle = .minion
         }
-        body.scale = SIMD3(repeating: scale)
+        body.scale = scale
         if let generated { body.addChild(generated) }
         if let creatureRoot { body.addChild(creatureRoot) }
         isGenerated = generated != nil || creatureRoot != nil
@@ -486,7 +511,7 @@ final class CreatureVisual {
         bar = OverheadBar(style: barStyle, fillColor: barColor, materials: materials, meshes: meshes, text: text)
         bar.root.position.y = headHeight + 0.25
         root.addChild(bar.root)
-        let footprint: Float
+        var footprint: Float
         switch key {
         case .minion(let t, _): footprint = t == .siege ? 0.9 : 0.6
         case .monster(let k):
@@ -497,6 +522,10 @@ final class CreatureVisual {
             default: footprint = 1.2
             }
         case .dummy: footprint = 0.7
+        }
+        if case .monster(let kind) = key {
+            let fit = Self.referenceScale(kind)
+            footprint *= max(fit.x, fit.z)
         }
         status = StatusIndicators(meshes: meshes, materials: materials, headHeight: headHeight, size: footprint)
         root.addChild(status.root)
@@ -666,7 +695,7 @@ final class CreatureVisual {
         body.position = offset
         body.orientation = simd_quatf(angle: roll, axis: [0, 0, 1]) * simd_quatf(angle: pitch, axis: [1, 0, 0])
         let hitScale: Float = hitT < 1 ? 1 + sin(hitT * .pi) * 0.07 : 1
-        body.scale = SIMD3(repeating: scale * hitScale)
+        body.scale = scale * hitScale
     }
 
     /// 死亡演出（沈み込み + 傾き + フェード）。終了で true。
@@ -767,7 +796,7 @@ final class HeroVisual {
         let resColor = h?.resourceKind == .energy ? RGB(1.0, 0.84, 0.3) : RGB(0.35, 0.62, 1.0)
         bar = OverheadBar(style: .hero(isSelf: isSelf, showResource: isSelf), fillColor: fill, materials: materials,
                           meshes: meshes, text: text, name: h.map { PlayerNameRules.shown($0.displayName) }, resourceColor: resColor)
-        bar.root.position.y = handle.overheadHeight + 0.45
+        bar.root.position.y = handle.overheadHeight + 0.60
         root.addChild(bar.root)
         status = StatusIndicators(meshes: meshes, materials: materials, headHeight: handle.overheadHeight, size: 0.85,
                                   recallTeam: u.team, iceReady: h?.heroID == KitStatusVisuals.freezeHeroID)

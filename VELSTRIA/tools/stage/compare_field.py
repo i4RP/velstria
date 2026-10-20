@@ -6,6 +6,7 @@ Reference art stays under ignored build/. The HTML shows every pair and overlay.
 import json, sys, hashlib, math
 from pathlib import Path
 from PIL import Image, ImageOps, ImageChops, ImageDraw
+from capture_orientation import landscape_capture
 
 ROOT=Path(__file__).resolve().parents[2]
 work=Path(sys.argv[1]) if len(sys.argv)>1 else ROOT/'build/stage/reference-20261019'
@@ -28,8 +29,8 @@ for name,pose in poses.items():
     original=sorted((work/'resource_compressed').glob(name+'*.jpg'))
     source=original[0] if original else work/(name+'.png');capture=work/'captures'/(name+'.png')
     if not capture.exists(): raise SystemExit(f'Missing actual capture: {name}')
-    ref=Image.open(source).convert('RGB');actual=Image.open(capture).convert('RGB')
-    if actual.height>actual.width:actual=actual.transpose(Image.Transpose.ROTATE_90)
+    ref=Image.open(source).convert('RGB');actual=landscape_capture(Image.open(capture).convert('RGB'))
+    rotation=actual.info['reviewRotation']
     actual=ImageOps.fit(actual,ref.size,method=Image.Resampling.LANCZOS)
     ref.save(out/(name+'-reference.jpg'),quality=92);actual.save(out/(name+'-actual.jpg'),quality=92)
     overlay=Image.blend(ref,actual,.5);overlay.save(out/(name+'-overlay.jpg'),quality=94)
@@ -52,7 +53,7 @@ for name,pose in poses.items():
     cards.append(f'<article><h2>{name}</h2><div class="compare"><img src="{name}-reference.jpg"><img class="actual" src="{name}-actual.jpg"></div><input type="range" min="0" max="100" value="50" oninput="this.previousElementSibling.lastElementChild.style.opacity=this.value/100"><p><a href="{name}-pair.jpg">並列</a> · <a href="{name}-overlay.jpg">50%重ね合わせ</a> · <a href="{name}-difference.png">差分</a> · <a href="{name}-footprints.jpg">接地輪郭（水色=ブッシュ・金=岩）</a></p></article>')
     manifest.append(dict(name=name,referenceSHA256=hashlib.sha256(source.read_bytes()).hexdigest(),
                          captureSHA256=hashlib.sha256(capture.read_bytes()).hexdigest(),referenceSize=ref.size,
-                         heroMeters=pose['hero'],zoom=pose.get('zoom',1)))
+                         heroMeters=pose['hero'],zoom=pose.get('zoom',1),captureRotationDegrees=rotation))
 for page in range(0,len(thumbs),6):
     sheet=Image.new('RGB',(912,6*236),'#152226');draw=ImageDraw.Draw(sheet)
     for i,(name,im) in enumerate(thumbs[page:page+6]):

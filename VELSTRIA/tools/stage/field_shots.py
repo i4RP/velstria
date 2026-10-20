@@ -2,13 +2,19 @@
 """Capture every reference pose using the shipping lens (DEBUG -stageShot).
 python tools/stage/field_shots.py UDID APP [IMG_6713 ...]
 """
-import json,subprocess,sys,time
+import argparse,json,shutil,subprocess,time
 from pathlib import Path
 from PIL import Image, ImageStat
 ROOT=Path(__file__).resolve().parents[2]
-device,app=sys.argv[1:3];work=ROOT/'build/stage/reference-20261019/captures';work.mkdir(parents=True,exist_ok=True)
-reuse='--reuse' in sys.argv
-names=[n for n in sys.argv[3:] if n!='--reuse'] or list(json.loads((ROOT/'tools/map_proto/field_camera.json').read_text())['frames'])
+parser=argparse.ArgumentParser(description=__doc__)
+parser.add_argument('device');parser.add_argument('app');parser.add_argument('names',nargs='*')
+parser.add_argument('--reuse',action='store_true')
+parser.add_argument('--unit-reference',action='store_true')
+parser.add_argument('--out',type=Path,default=ROOT/'build/stage/reference-20261019/captures')
+args=parser.parse_args();device,app,reuse=args.device,args.app,args.reuse
+work=args.out;work.mkdir(parents=True,exist_ok=True)
+names=args.names or list(json.loads((ROOT/'tools/map_proto/field_camera.json').read_text())['frames'])
+if args.unit_reference and not args.names:names.append('UNIT_TEAMS')
 def run(*args,check=True):return subprocess.run(['xcrun','simctl',*args],check=check,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
 if not reuse:
     run('install',device,app)
@@ -16,9 +22,11 @@ if not reuse:
 container=Path(subprocess.check_output(['xcrun','simctl','get_app_container',device,'com.bitcoinpay.velstria','data'],text=True).strip())
 control=container/'Documents/stage-review.txt';control.parent.mkdir(parents=True,exist_ok=True)
 control.write_text(names[0])
+if args.unit_reference:shutil.copyfile(ROOT/'tools/stage/unit_reference.json',control.parent/'unit-reference.json')
 if not reuse:
     run('launch',device,'com.bitcoinpay.velstria','-uiTesting','-skipOnboarding','-battle','practice','-hero','H028',
-        '-stageFull','-stageSilent','-stageClean','-graphics','high','-stageShot',names[0],'-stageReview')
+        '-stageFull','-stageSilent','-stageClean','-graphics','high','-stageShot',names[0],'-stageReview',
+        *(['-stageUnits'] if args.unit_reference else []))
 # Wait for actual terrain, never accept the loading screen as a comparison.
 deadline=time.monotonic()+240
 if not reuse:time.sleep(20) # iOS can briefly show the previous launch snapshot.

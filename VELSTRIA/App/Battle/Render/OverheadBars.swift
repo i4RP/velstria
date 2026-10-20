@@ -5,7 +5,7 @@ import VelstriaCore
 
 // 担当: battle-renderer。頭上の HP バー（画面に平行なビルボード）。
 // 深度テストなしで常に最前面に描き、描画順は ModelSortGroup で固定する（背景 → 遅延 → HP → シールド → 文字）。
-// 1 m ≒ 36pt（cameraZoom = 1、iPhone 横画面）を目安に寸法を決める。
+// 参照画像1368×630上でヒーローHP約104×9px。敵味方・距離・画面端で同じ寸法を保つ。
 
 enum OverlayOrder {
     /// 地面デカール・頭上 UI の描画順グループ。半透明で深度を書かない地面の表示は全てこのグループに入れ、
@@ -87,7 +87,7 @@ final class OverheadBar {
     enum Style {
         case hero(isSelf: Bool, showResource: Bool)
         case minion
-        case monster(boss: Bool)
+        case monster(boss: Bool, sentinel: Bool = false)
         case structure(core: Bool)
     }
 
@@ -108,6 +108,8 @@ final class OverheadBar {
     private var tickMaxHP: Float = -1
     private let width: Float
     private let height: Float
+    /// 左のレベル章を含む全体をキャラの上に寄せる（HP部分の中心は少し右）。
+    private let horizontalOffset: Float
     private var shownHP: Float = -1
     private var lagHP: Float = 1
     private var lagHold: Float = 0
@@ -122,7 +124,9 @@ final class OverheadBar {
          name: String? = nil, resourceColor: RGB? = nil) {
         self.text = text
         self.materials = materials
+        if case .hero = style { horizontalOffset = 0.2 } else { horizontalOffset = 0 }
         root.name = "bar"
+        root.position.x = horizontalOffset
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-stageLayoutReference") {
             root.components.set(OpacityComponent(opacity: 0))
@@ -133,9 +137,11 @@ final class OverheadBar {
         root.orientation = CameraRig.orientation
         var w: Float, h: Float
         switch style {
-        case .hero: w = 1.9; h = 0.22
-        case .minion: w = 0.95; h = 0.11
-        case .monster(let boss): w = boss ? 2.4 : 1.25; h = boss ? 0.2 : 0.13
+        case .hero: w = 1.9; h = 0.16
+        case .minion: w = 0.95; h = 0.09
+        case .monster(let boss, let sentinel):
+            w = boss ? 3.1 : (sentinel ? 2.2 : 1.8)
+            h = boss ? 0.18 : (sentinel ? 0.12 : 0.09)
         case .structure(let core): w = core ? 2.2 : 1.7; h = core ? 0.2 : 0.17
         }
         width = w
@@ -235,7 +241,7 @@ final class OverheadBar {
                                                                              alpha: 1, depthTest: false)])
                 let scale: Float = e.width > w + 0.3 ? (w + 0.3) / e.width : 1
                 nt.scale = [scale, scale, 1]
-                nt.position = [e.offsetX * scale - 0.2, h / 2 + 0.2 + e.offsetY * scale, 0.001]
+                nt.position = [e.offsetX * scale, h / 2 + 0.2 + e.offsetY * scale, 0.001]
                 OverlayOrder.apply(nt, OverlayOrder.barText)
                 root.addChild(nt)
                 nameText = nt
@@ -289,11 +295,11 @@ final class OverheadBar {
     static let levelTextSize: Float = 0.26
     static let nameTextSize: Float = 0.24
     /// バーの色（マテリアルの事前生成に使う）。
-    static let monsterFill = RGB(0.95, 0.62, 0.28)
+    static let monsterFill = RGB(0.96, 0.18, 0.14)
     static let dummyFill = RGB(0.95, 0.4, 0.4)
 
     /// この距離（m）で設計寸法どおりの大きさに見える。
-    static let referenceDistance: Float = 11
+    static let referenceDistance: Float = 19.8
     /// 拡縮の上限（プレイヤーの倍率範囲。画面上端の遠いバーはこれ以上大きくしない）。
     static let maxScreenScale: Float = 1.8
     /// 観戦者が大きく引いた時に上限を広げる倍率（BattleWorld がカメラの実際の倍率から毎フレーム設定する。
@@ -316,14 +322,20 @@ final class OverheadBar {
         max(0.5, min(maxScreenScale * max(1, k), distance / referenceDistance))
     }
 
-    /// 画面上の大きさを一定に保つ（カメラからの距離に比例して拡縮。手前の構造物のバーが巨大化しない）。
+    /// 透視投影の深度。直線距離を使うと画面端のバーだけ大きくなる。
+    static func viewDepth(world: SIMD3<Float>, camera: SIMD3<Float>) -> Float {
+        simd_dot(world - camera, CameraRig.orientation.act(SIMD3(0, 0, -1)))
+    }
+
+    /// 光軸方向の深度に比例して拡縮し、画面上の大きさを一定に保つ。
     func keepScreenSize(camera: SIMD3<Float>) {
         let world = (root.parent?.position ?? .zero) + root.position
         let s = OverheadBar.cinematicHidden ? 0.0001
-            : OverheadBar.screenScale(distance: simd_distance(world, camera), zoomScale: OverheadBar.zoomScale)
+            : OverheadBar.screenScale(distance: Self.viewDepth(world: world, camera: camera), zoomScale: OverheadBar.zoomScale)
         guard abs(s - screenScale) > 0.01 else { return }
         screenScale = s
         root.scale = SIMD3(repeating: s)
+        root.position.x = horizontalOffset * s
     }
 
     /// 表示中の値（テスト・デバッグ用）。
