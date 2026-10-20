@@ -4,6 +4,7 @@
 
 extension CreditsCatalog {
     static let sonniss: [(title: String, author: String)] = [
+        ("Vaeyan II（GDC 2015）", "Eiravaein Works"),
         ("Twisted Zither（GDC 2015）", "RDGSFX009"),
         ("Blades（GDC 2015）", "Soundopolis"),
         ("Gore Toolkit HD（GDC 2015）", "Soundopolis"),
@@ -16,8 +17,11 @@ extension CreditsCatalog {
         ("Thin Ice（GDC 2017）", "Articulated Sounds"),
         ("Unsettling Creaks and Squeaks（GDC 2017）", "SoundBits"),
         ("Unsettling Creaks and Squeaks – Extension I（GDC 2017）", "SoundBits"),
+        ("Halloween 101（GDC 2017）", "Soundopolis"),
         ("Bones & Blood - Gore Elements（GDC 2018）", "Articulated Sounds"),
+        ("Punch and Combat Sounds（GDC 2018）", "Gamemaster Audio"),
         ("High Voltage Electricity - The Essential Collection（GDC 2018）", "Hear and Now Sound"),
+        ("Transitions 001（GDC 2018）", "L.A. Sounds"),
         ("Foley Elements Ice and Snow（GDC 2018）", "Soundrangers"),
         ("Thunder（GDC 2018）", "Soundrangers"),
         ("Hand-to-Hand Combat - Body Hits & Vocal Excursions（GDC 2018）", "The Chris Alan"),
@@ -43,6 +47,7 @@ extension CreditsCatalog {
         ("Gore（GDC 2019）", "Sound Spark LLC"),
         ("Magic Spells, Buffs and Attacks（GDC 2019）", "Sound Spark LLC"),
         ("Metal Hits, Scrapes and Squeaks（GDC 2019）", "Sound Spark LLC"),
+        ("Medieval Battle（GDC 2020）", "344 Audio"),
         ("Trailer Instruments Designed（GDC 2020）", "344 Audio"),
         ("Metal Chains（GDC 2020）", "Conor Bradley"),
         ("Weapon Sounds - Weapon Swings（GDC 2020）", "David Dumais Audio"),
