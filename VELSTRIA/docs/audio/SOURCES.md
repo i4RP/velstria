@@ -50,10 +50,6 @@ MLBB の音は使っていない。素材の原本・素材集の形ではリポ
 | sfx_ui_tab.caf | 0.14 秒 | Interface Sounds | switch_002 |
 | sfx_ui_tap.caf | 0.04 秒 | Interface Sounds | select_002 |
 | sfx_victory.caf | 1.81 秒 | Music Jingles | jingles_HIT11 + jingles_PIZZI02、残響（勝利） |
-| skill_H025_s1_cast.caf | 0.70 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H025 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
-| skill_H025_s2_cast.caf | 1.69 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H025 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
-| skill_H025_s2_hit.caf | 0.54 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H025 s2 の命中 |
-| skill_H025_ult_cast.caf | 1.85 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H025 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
 | skill_H026_s1_cast.caf | 1.14 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H026 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
 | skill_H026_s1_hit.caf | 0.80 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H026 s1 の命中 |
 | skill_H026_s2_cast.caf | 1.29 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H026 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
@@ -107,13 +103,27 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 
 | 素材集 | 作者 | ライセンス | URL |
 |---|---|---|---|
+| Twisted Zither（GDC 2015） | RDGSFX009 | Sonniss GDC | https://gdc.sonniss.com/ |
+| The Source Collection SFX Pack（GDC 2016） | George Karagioules | Sonniss GDC | https://gdc.sonniss.com/ |
+| Ice SFX（GDC 2016） | Stuart Duffield | Sonniss GDC | https://gdc.sonniss.com/ |
+| Thin Ice（GDC 2017） | Articulated Sounds | Sonniss GDC | https://gdc.sonniss.com/ |
+| Unsettling Creaks and Squeaks（GDC 2017） | SoundBits | Sonniss GDC | https://gdc.sonniss.com/ |
+| Unsettling Creaks and Squeaks – Extension I（GDC 2017） | SoundBits | Sonniss GDC | https://gdc.sonniss.com/ |
+| Foley Elements Ice and Snow（GDC 2018） | Soundrangers | Sonniss GDC | https://gdc.sonniss.com/ |
+| Super Heroes Sound Design（GDC 2019） | 2496SoundEffects | Sonniss GDC | https://gdc.sonniss.com/ |
 | Low Frequency Elements（GDC 2019） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| IMPACTUS（GDC 2019） | 3maze | Sonniss GDC | https://gdc.sonniss.com/ |
+| Organic Whooshes（GDC 2019） | Airborne Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 | Magic Elements vol.1（GDC 2019） | Articulated Sounds | Sonniss GDC | https://gdc.sonniss.com/ |
 | IMPACT（GDC 2019） | Baxter Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Heavy Metal Impact Sound Effects（GDC 2019） | BlueZone | Sonniss GDC | https://gdc.sonniss.com/ |
+| Wood Sound Effects（GDC 2019） | BlueZone | Sonniss GDC | https://gdc.sonniss.com/ |
+| Helina（GDC 2019） | Eiravaein Works | Sonniss GDC | https://gdc.sonniss.com/ |
+| Nocked（GDC 2019） | Eiravaein Works | Sonniss GDC | https://gdc.sonniss.com/ |
 | Effective Trailer Booms（GDC 2019） | Federico Soler Fernández | Sonniss GDC | https://gdc.sonniss.com/ |
 | Effective Trailer Hits & Impacts（GDC 2019） | Federico Soler Fernández | Sonniss GDC | https://gdc.sonniss.com/ |
 | Effective Trailer Whooshes（GDC 2019） | Federico Soler Fernández | Sonniss GDC | https://gdc.sonniss.com/ |
+| Singing Bowls（GDC 2019） | Prismo Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 | Bodyfall（GDC 2019） | Red Libraries | Sonniss GDC | https://gdc.sonniss.com/ |
 | Melee（GDC 2019） | Rock The Speakerbox | Sonniss GDC | https://gdc.sonniss.com/ |
 | Gore（GDC 2019） | Sound Spark LLC | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -125,6 +135,7 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Lethal Blow（GDC 2020） | PMSFX | Sonniss GDC | https://gdc.sonniss.com/ |
 | Hit & Punch（GDC 2020） | Shapeforms | Sonniss GDC | https://gdc.sonniss.com/ |
 | Impacts, Hits & Whooshes（GDC 2020） | SmartSoundFX | Sonniss GDC | https://gdc.sonniss.com/ |
+| Medieval（GDC 2020） | SmartSoundFX | Sonniss GDC | https://gdc.sonniss.com/ |
 | Flesh, Bones & Gore（GDC 2023） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Melee Weapons Sound Effects Pack 1（GDC 2023） | David Dumais Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Essentials 04 Chains（GDC 2023） | InspectorJ | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -132,15 +143,24 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Haunted Metal Vol.1 - Cinematic Hits & Impacts（GDC 2024） | Jake Fielding | Sonniss GDC | https://gdc.sonniss.com/ |
 | Melee Weapons（GDC 2024） | Justsoundeffects | Sonniss GDC | https://gdc.sonniss.com/ |
 | The Metal Hit Sweeteners Library（GDC 2024） | Pole Position | Sonniss GDC | https://gdc.sonniss.com/ |
+| Distinct Whooshes（GDC 2024） | Rescopic Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 | Cinematic Fight Vol. 1（GDC 2026） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Elemental Palette Designed Vol. 1（GDC 2026） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Emotion and Magic（GDC 2026） | Alexander Kopeikin | Sonniss GDC | https://gdc.sonniss.com/ |
 | Melee Weapons Sound Effects Pack 2（GDC 2026） | David Dumais Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| Elemental Mutation Whooshes and Impacts（GDC 2026） | Epic Stock Media | Sonniss GDC | https://gdc.sonniss.com/ |
 
 ### 出力（App/Resources/Audio、48 kHz）
 
 | ファイル | 長さ | 素材 | 加工 |
 |---|---|---|---|
+| skill_H025_passive.caf | 0.43 秒 | RDGSFX009 - Twisted Zither・George Karagioules - The Source Collection SFX Pack・Eiravaein Works - Helina | 弓の先の閃き（弦の小さな鳴り + ガラスの一打 + 風鈴） |
+| skill_H025_s1_cast.caf | 0.98 秒 | George Karagioules - The Source Collection SFX Pack・SoundBits - Unsettling Creaks and Squeaks – Extension I・Airborne Sound - Organic Whooshes・Eiravaein Works - Helina・Eiravaein Works - Nocked・Prismo Sound - Singing Bowls | 矢をつがえる弦と革のきしみ → ガラスの一打と風鈴（月光）+ 布の風 + 低いボウルの響き |
+| skill_H025_s2_cast.caf | 1.44 秒 | George Karagioules - The Source Collection SFX Pack・SoundBits - Unsettling Creaks and Squeaks・Soundrangers - Foley Elements Ice and Snow・2496SoundEffects - Super Heroes Sound Design・Baxter Audio - IMPACT・BlueZone - Wood Sound Effects・Eiravaein Works - Nocked・SmartSoundFX – Medieval・Epic Stock Media - Elemental Mutation Whooshes and Impacts | 弓を引き絞る（弦・木・革）→ 弦の弾けと天へ抜ける矢 → 0.65 着弾（矢が地に刺さる・氷のひび・低い芯）→ 0.98 小さな矢が散る |
+| skill_H025_s2_hit_1.caf | 0.45 秒 | Stuart Duffield - Ice SFX・Articulated Sounds - Thin Ice・Soundrangers - Foley Elements Ice and Snow・Baxter Audio - IMPACT・SmartSoundFX – Medieval | 矢が刺さる + 氷の檻のひび・砕け + 霜 + 低い芯 |
+| skill_H025_s2_hit_2.caf | 0.45 秒 | Stuart Duffield - Ice SFX・Articulated Sounds - Thin Ice・Soundrangers - Foley Elements Ice and Snow・Baxter Audio - IMPACT・SmartSoundFX – Medieval | 矢が刺さる + 氷の檻のひび・砕け + 霜 + 低い芯 |
+| skill_H025_s2_hit_3.caf | 0.45 秒 | Articulated Sounds - Thin Ice・Soundrangers - Foley Elements Ice and Snow・3maze - IMPACTUS・Baxter Audio - IMPACT・SmartSoundFX – Medieval | 矢が刺さる + 氷の檻のひび・砕け + 霜 + 低い芯 |
+| skill_H025_ult_cast.caf | 1.63 秒 | George Karagioules - The Source Collection SFX Pack・Airborne Sound - Organic Whooshes・Eiravaein Works - Helina・Prismo Sound - Singing Bowls・Rescopic Sound - Distinct Whooshes・Epic Stock Media - Elemental Mutation Whooshes and Impacts | 身を翻す布の風 → 三日月と光の柱（ボウル・ガラス・風鈴・ガラス片の流れ）→ 加速の風 + 低いボウルのうねり |
 | skill_H029_atk_1.caf | 0.44 秒 | Baxter Audio - IMPACT・BlueZone - Heavy Metal Impact Sound Effects・Pole Position - The Metal Hit Sweeteners Library・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 重い武器の振り → 鈍い着弾 + 槌の金属の鳴り |
 | skill_H029_atk_2.caf | 0.43 秒 | Baxter Audio - IMPACT・BlueZone - Heavy Metal Impact Sound Effects・Pole Position - The Metal Hit Sweeteners Library・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 重い武器の振り → 鈍い着弾 + 槌の金属の鳴り |
 | skill_H029_atk_3.caf | 0.43 秒 | Baxter Audio - IMPACT・BlueZone - Heavy Metal Impact Sound Effects・Pole Position - The Metal Hit Sweeteners Library・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 重い武器の振り → 鈍い着弾 + 槌の金属の鳴り |
