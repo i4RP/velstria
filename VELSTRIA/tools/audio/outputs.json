@@ -160,61 +160,6 @@
    "jingles"
   ]
  },
- "skill_H027_s1_cast.caf": {
-  "note": "H027 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
-  "seconds": 1.2,
-  "sources": [
-   "digital",
-   "impact",
-   "interface",
-   "rpg",
-   "scifi"
-  ]
- },
- "skill_H027_s1_hit.caf": {
-  "note": "H027 s1 の命中",
-  "seconds": 0.36,
-  "sources": [
-   "digital",
-   "impact",
-   "interface",
-   "rpg",
-   "scifi"
-  ]
- },
- "skill_H027_s2_cast.caf": {
-  "note": "H027 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
-  "seconds": 0.64,
-  "sources": [
-   "digital",
-   "impact",
-   "interface",
-   "rpg",
-   "scifi"
-  ]
- },
- "skill_H027_s2_hit.caf": {
-  "note": "H027 s2 の命中",
-  "seconds": 0.4,
-  "sources": [
-   "digital",
-   "impact",
-   "interface",
-   "rpg",
-   "scifi"
-  ]
- },
- "skill_H027_ult_cast.caf": {
-  "note": "H027 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
-  "seconds": 1.44,
-  "sources": [
-   "digital",
-   "impact",
-   "interface",
-   "rpg",
-   "scifi"
-  ]
- },
  "skill_H028_s1_cast.caf": {
   "note": "H028 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
   "seconds": 1.12,
