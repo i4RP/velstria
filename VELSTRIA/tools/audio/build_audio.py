@@ -27,7 +27,8 @@ import numpy as np
 from scipy import signal
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-CACHE = os.path.join(os.path.dirname(__file__), ".cache")
+# 素材の置き場所（環境変数 AUDIO_CACHE で worktree どうし共有できる。Sonniss は SONNISS_CACHE）
+CACHE = os.environ.get("AUDIO_CACHE") or os.path.join(os.path.dirname(__file__), ".cache")
 OUT = os.path.join(ROOT, "App", "Resources", "Audio")
 DOC = os.path.join(ROOT, "docs", "audio", "SOURCES.md")
 FF = imageio_ffmpeg.get_ffmpeg_exe()
@@ -291,7 +292,8 @@ def build_music():
 RECORD_FILE = os.path.join(os.path.dirname(__file__), "outputs.json")
 
 
-RECORD_V2 = os.path.join(os.path.dirname(__file__), "outputs_v2.json")
+RECORDS_DIR = os.path.join(os.path.dirname(__file__), "records")
+CREDITS_SWIFT = os.path.join(ROOT, "App", "Screens", "Settings", "AudioCredits.swift")
 SONNISS_LICENSE = "https://sonniss.com/gdc-bundle-license/"
 SONNISS_PAGE = "https://gdc.sonniss.com/"
 
@@ -308,12 +310,18 @@ def sonniss_packs(v2):
 
 
 def write_doc():
-    """出力の記録（outputs.json・outputs_v2.json。一部だけ作り直しても残りを保つ）から docs/audio/SOURCES.md を書く。"""
+    """出力の記録（outputs.json と records/*.json。一部だけ作り直しても残りを保つ）から docs/audio/SOURCES.md と
+    クレジットの Sonniss の素材集（App/Screens/Settings/AudioCredits.swift）を書く。"""
     rec = json.load(open(RECORD_FILE, encoding="utf-8")) if os.path.exists(RECORD_FILE) else {}
     for name, srcs, note, dur in RECORDS:
         rec[name] = {"sources": srcs, "note": note, "seconds": round(dur, 2)}
-    v2 = json.load(open(RECORD_V2, encoding="utf-8")) if os.path.exists(RECORD_V2) else {}
-    # v2（skill_sounds_v2.py）で作り直した音・消した音（v1 の命中の音）は v1 の記録から外す
+    # 録音の音（tools/audio/make_sounds.py の各モジュール）の記録をまとめる
+    v2 = {}
+    if os.path.isdir(RECORDS_DIR):
+        for fn in sorted(os.listdir(RECORDS_DIR)):
+            if fn.endswith(".json"):
+                v2.update(json.load(open(os.path.join(RECORDS_DIR, fn), encoding="utf-8")))
+    # 録音で作り直した音・消した音（v1 の命中の音）は v1 の記録から外す
     rec = {k: v for k, v in rec.items() if k not in v2 and os.path.exists(os.path.join(OUT, k))}
     v2 = {k: v for k, v in v2.items() if os.path.exists(os.path.join(OUT, k))}
     json.dump(rec, open(RECORD_FILE, "w", encoding="utf-8", newline="\n"), ensure_ascii=False, indent=1, sort_keys=True)
@@ -330,11 +338,11 @@ def write_doc():
         r = rec[name]
         lines.append(f"| {name} | {r['seconds']:.2f} 秒 | {'・'.join(SOURCES[s]['title'] for s in r['sources'])} | {r['note']} |")
     if v2:
-        lines += ["", "## Sonniss GDC Game Audio Bundle（ヒーロー固有の音: tools/audio/skill_sounds_v2.py）", "",
+        lines += ["", "## Sonniss GDC Game Audio Bundle（録音の音: tools/audio/make_sounds.py）", "",
                   "Sonniss の GDC Game Audio Bundle（無料・商用可・帰属表示は不要。素材のまま再配布・販売しない、AI の学習に使わない）の",
                   "録音を、重ね・切り出し・音程・帯域・音量・残響で加工した完成品だけを置く（原本・素材集の形ではリポジトリに入れない）。",
                   f"ライセンス: {SONNISS_LICENSE}　配布: {SONNISS_PAGE}（同じ素材を archive.org の写し",
-                  "sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材集だけ落とした。tools/audio/sonniss_fetch.py）。", "",
+                  "sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落とした。tools/audio/sonniss_lib.py）。", "",
                   "| 素材集 | 作者 | ライセンス | URL |", "|---|---|---|---|"]
         for year, pack in sonniss_packs(v2):
             author, title = (re.split(r" [-–] ", pack, maxsplit=1) + [""])[:2]
@@ -345,6 +353,22 @@ def write_doc():
             src = "・".join(s.split(" / ", 1)[1] for s in r["sources"])
             lines.append(f"| {name} | {r['seconds']:.2f} 秒 | {src} | {r['note']} |")
     open(DOC, "w", encoding="utf-8", newline="\n").write("\n".join(lines) + "\n")
+    write_credits(sonniss_packs(v2) if v2 else [])
+
+
+def write_credits(packs):
+    """クレジット画面の Sonniss の素材集（SOURCES.md の表と同じ。AppTests の AudioFilesTests が一致を確かめる）。"""
+    rows = []
+    for year, pack in packs:
+        author, title = (re.split(r" [-–] ", pack, maxsplit=1) + [""])[:2]
+        title = (title or pack).replace('"', "'")
+        rows.append(f'        ("{title}（GDC {year}）", "{author.strip()}"),')
+    head = ["// 自動生成: tools/audio/build_audio.py の write_doc（docs/audio/SOURCES.md の「Sonniss GDC」の表と同じ）。手で直さない。",
+            "// 録音の音（tools/audio/make_sounds.py）に使った Sonniss GDC Game Audio Bundle の素材集（題名（年）・作者）。",
+            "// ロイヤリティフリー・商用可・帰属表示は不要（https://sonniss.com/gdc-bundle-license/）。加工した完成品だけを入れる。",
+            "", "extension CreditsCatalog {", "    static let sonniss: [(title: String, author: String)] = ["]
+    with open(CREDITS_SWIFT, "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(head + rows + ["    ]", "}"]) + "\n")
 
 
 if __name__ == "__main__":

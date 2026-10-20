@@ -98,12 +98,12 @@ MLBB の音は使っていない。素材の原本・素材集の形ではリポ
 | skill_H033_ult_hit.caf | 0.45 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H033 ult の命中 |
 | skill_H033_ult_r1_cast.caf | 1.23 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H033 ult 段1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
 
-## Sonniss GDC Game Audio Bundle（ヒーロー固有の音: tools/audio/skill_sounds_v2.py）
+## Sonniss GDC Game Audio Bundle（録音の音: tools/audio/make_sounds.py）
 
 Sonniss の GDC Game Audio Bundle（無料・商用可・帰属表示は不要。素材のまま再配布・販売しない、AI の学習に使わない）の
 録音を、重ね・切り出し・音程・帯域・音量・残響で加工した完成品だけを置く（原本・素材集の形ではリポジトリに入れない）。
 ライセンス: https://sonniss.com/gdc-bundle-license/　配布: https://gdc.sonniss.com/（同じ素材を archive.org の写し
-sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材集だけ落とした。tools/audio/sonniss_fetch.py）。
+sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落とした。tools/audio/sonniss_lib.py）。
 
 | 素材集 | 作者 | ライセンス | URL |
 |---|---|---|---|

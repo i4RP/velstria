@@ -45,10 +45,10 @@
 
 ## ヒーロー固有の音 v2（ローム: H029 ボルグ・H034 ゴルム。2026-10-18）
 
-レーンごとに仕上げる（ローム → ゴールド → ミッド → EXP → ジャングル）。仕上げたヒーローは `tools/audio/skill_sounds_v2.py` の音に置き換わる。
+レーンごとに仕上げる（ローム → ゴールド → ミッド → EXP → ジャングル）。仕上げたヒーローは `tools/audio/make_sounds.py（heroes/h0xx.py）` の音に置き換わる。
 v1（`skill_sounds.py`）のヒーローはそのまま。
 
-- 作り方: `python tools/audio/skill_sounds_v2.py H029 H034`。素材は Sonniss GDC Game Audio Bundle の録音（`tools/audio/sonniss_fetch.py` が
+- 作り方: `python tools/audio/make_sounds.py（heroes/h0xx.py） H029 H034`。素材は Sonniss GDC Game Audio Bundle の録音（`tools/audio/sonniss_fetch.py` が
   archive.org の写しから使う素材集だけを `.cache/sonniss` へ落とす）を、材質ごとに 3〜5 層（溜め・振り/発射・命中の芯・材質の余韻・低音）
   に重ねる。打撃の素材は立ち上がり（振り → 着弾の素材は最大）を置いた時刻に揃える（`hit=True` / `hit="peak"`）。
   48 kHz モノラル、種類ごとの音量（LUFS）は MLBB の測定の値（`target`）に揃え、山は打撃の立ち上がりだけ抑える（-1 dBFS、6 dB まで）。
