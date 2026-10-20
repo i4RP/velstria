@@ -1,0 +1,160 @@
+{
+ "skill_H033_passive.caf": {
+  "kind": "passive",
+  "note": "大剣の小さな刃の鳴り",
+  "seconds": 0.34,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2019 / L.A. Sounds - Transition Movement Pack 002"
+  ]
+ },
+ "skill_H033_s1_cast.caf": {
+  "kind": "cast",
+  "note": "跳ぶ風 → 大剣の振り下ろし → 0.34 秒の叩きつけ（刃が岩を打つ・土と岩の砕け・刃の金属・地響き）",
+  "seconds": 1.17,
+  "sources": [
+   "2015 / Mechanical Wave - Rock Brick and Dirt",
+   "2015 / Soundopolis - Natures Fury_Thunder",
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2019 / Articulated Sounds - Magic Elements vol.1",
+   "2019 / Red Libraries - Bodyfall",
+   "2020 / Shapeforms - Hit & Punch",
+   "2020 / SmartSoundFX – Medieval",
+   "2024 / BluezoneCorp - Stone Impact",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "skill_H033_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "大剣が肉を斬る + 血しぶき + 体の芯",
+  "seconds": 0.4,
+  "sources": [
+   "2015 / Soundopolis - Gore Toolkit HD",
+   "2019 / Red Libraries - Bodyfall",
+   "2023 / 344 Audio - Flesh, Bones & Gore",
+   "2023 / David Dumais Audio - Melee Weapons Sound Effects Pack 1"
+  ]
+ },
+ "skill_H033_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "大剣が肉を斬る + 血しぶき + 体の芯",
+  "seconds": 0.42,
+  "sources": [
+   "2015 / Soundopolis - Gore Toolkit HD",
+   "2019 / Red Libraries - Bodyfall",
+   "2019 / Sound Spark LLC – Gore",
+   "2023 / David Dumais Audio - Melee Weapons Sound Effects Pack 1"
+  ]
+ },
+ "skill_H033_s1_hit_3.caf": {
+  "kind": "hit",
+  "note": "大剣が肉を斬る + 血しぶき + 体の芯",
+  "seconds": 0.38,
+  "sources": [
+   "2015 / Soundopolis - Gore Toolkit HD",
+   "2019 / Red Libraries - Bodyfall",
+   "2019 / Sound Spark LLC – Gore",
+   "2023 / David Dumais Audio - Melee Weapons Sound Effects Pack 1"
+  ]
+ },
+ "skill_H033_s2_cast.caf": {
+  "kind": "cast",
+  "note": "大剣の回転（低い風切り ×2・刃の擦れ・刃の鳴り）",
+  "seconds": 0.57,
+  "sources": [
+   "2019 / L.A. Sounds - Transition Movement Pack 002",
+   "2020 / David Dumais Audio - Weapon Sounds - Weapon Swings",
+   "2023 / David Dumais Audio - Melee Weapons Sound Effects Pack 1",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "skill_H033_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "回転する大剣が肉を斬る + 深い傷 + 体の芯",
+  "seconds": 0.37,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2019 / Red Libraries - Bodyfall",
+   "2019 / Sound Spark LLC – Gore"
+  ]
+ },
+ "skill_H033_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "回転する大剣が肉を斬る + 深い傷 + 体の芯",
+  "seconds": 0.4,
+  "sources": [
+   "2017 / Soundopolis - Halloween 101",
+   "2019 / Red Libraries - Bodyfall",
+   "2019 / Sound Spark LLC – Gore"
+  ]
+ },
+ "skill_H033_s2_hit_3.caf": {
+  "kind": "hit",
+  "note": "回転する大剣が肉を斬る + 深い傷 + 体の芯",
+  "seconds": 0.36,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2019 / Red Libraries - Bodyfall",
+   "2019 / Sound Spark LLC – Gore"
+  ]
+ },
+ "skill_H033_ult_cast.caf": {
+  "kind": "ult",
+  "note": "吸い込み（重い風の逆再生）+ 大剣の鳴り + 血を吸う音 + 地鳴り → 体に収まる",
+  "seconds": 0.94,
+  "sources": [
+   "2015 / Soundopolis - Natures Fury_Thunder",
+   "2016 / SoundBits -  Just Gore _ Add On",
+   "2018 / The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions",
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2019 / L.A. Sounds - Transition Movement Pack 002"
+  ]
+ },
+ "skill_H033_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "大剣の斬撃が肉を裂く + 血しぶき + 体の芯 → 吸血の吸い込み",
+  "seconds": 0.42,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2019 / Red Libraries - Bodyfall",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "skill_H033_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "大剣の斬撃が肉を裂く + 血しぶき + 体の芯 → 吸血の吸い込み",
+  "seconds": 0.39,
+  "sources": [
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2019 / Red Libraries - Bodyfall",
+   "2023 / 344 Audio - Flesh, Bones & Gore",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "skill_H033_ult_hit_3.caf": {
+  "kind": "hit",
+  "note": "大剣の斬撃が肉を裂く + 血しぶき + 体の芯 → 吸血の吸い込み",
+  "seconds": 0.4,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2019 / Red Libraries - Bodyfall",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "skill_H033_ult_r1_cast.caf": {
+  "kind": "ult",
+  "note": "大剣の振りかぶり → 0.16 秒の振り抜き（刃の擦れ・低い打ち）→ 走る衝撃波の風と地鳴り",
+  "seconds": 1.14,
+  "sources": [
+   "2015 / Soundopolis - Natures Fury_Thunder",
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2019 / L.A. Sounds - Transition Movement Pack 002",
+   "2019 / Red Libraries - Bodyfall",
+   "2023 / David Dumais Audio - Melee Weapons Sound Effects Pack 1",
+   "2024 / Rescopic Sound - Distinct Whooshes",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ }
+}
