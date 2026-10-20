@@ -36,19 +36,6 @@ MLBB の音は使っていない。素材の原本・素材集の形ではリポ
 | bgm_loading.m4a | 43.26 秒 | Intro Cue | ロード画面（試合開始へつなぐ） |
 | bgm_lobby.m4a | 57.60 秒 | Once Upon a Time (loop) | ロビー・パーティ・ヒーロー選択（通常） |
 | bgm_result.m4a | 74.32 秒 | At Home (orchestral) | 結果画面 |
-| skill_H031_s1_cast.caf | 1.20 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H031 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
-| skill_H031_s1_hit.caf | 0.48 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H031 s1 の命中 |
-| skill_H031_s2_cast.caf | 1.17 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H031 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
-| skill_H031_s2_hit.caf | 0.20 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H031 s2 の命中 |
-| skill_H031_ult_cast.caf | 2.65 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H031 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
-| skill_H031_ult_hit.caf | 0.24 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H031 ult の命中 |
-| skill_H032_s1_cast.caf | 1.29 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H032 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
-| skill_H032_s1_hit.caf | 0.69 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H032 s1 の命中 |
-| skill_H032_s2_cast.caf | 1.56 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H032 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
-| skill_H032_s2_hit.caf | 0.61 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H032 s2 の命中 |
-| skill_H032_s2_r1_cast.caf | 0.84 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H032 s2 段1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
-| skill_H032_ult_cast.caf | 2.85 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H032 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
-| skill_H032_ult_hit.caf | 0.65 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H032 ult の命中 |
 | skill_H033_s1_cast.caf | 1.14 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H033 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
 | skill_H033_s1_hit.caf | 0.40 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H033 s1 の命中 |
 | skill_H033_s2_cast.caf | 0.71 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H033 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
@@ -79,6 +66,7 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Percussion 01（GDC 2015） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
 | Gorification [HD]（GDC 2015） | Timothy McHugh | Sonniss GDC | https://gdc.sonniss.com/ |
 | High Impact（GDC 2016） | 3maze | Sonniss GDC | https://gdc.sonniss.com/ |
+| Black Metal（GDC 2016） | Alexander Kopeikin | Sonniss GDC | https://gdc.sonniss.com/ |
 | Impact Collection（GDC 2016） | Bottle Rocket Fx | Sonniss GDC | https://gdc.sonniss.com/ |
 | Colinized Cuckoo Clock Library（GDC 2016） | Colin Lechner | Sonniss GDC | https://gdc.sonniss.com/ |
 | The Gun Locker SFX Pack（GDC 2016） | Fascinated Sound | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -109,11 +97,13 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Unsettling Creaks and Squeaks（GDC 2017） | SoundBits | Sonniss GDC | https://gdc.sonniss.com/ |
 | Unsettling Creaks and Squeaks – Extension I（GDC 2017） | SoundBits | Sonniss GDC | https://gdc.sonniss.com/ |
 | Halloween 101（GDC 2017） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
+| Heavy Metal!（GDC 2017） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
 | Paperlife（GDC 2017） | The Soundcatcher | Sonniss GDC | https://gdc.sonniss.com/ |
 | Variety 1 Sound Effects（GDC 2018） | Airborne Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 | The Dry Ice Library（GDC 2018） | Alexander Kopeikin | Sonniss GDC | https://gdc.sonniss.com/ |
 | Bones & Blood - Gore Elements（GDC 2018） | Articulated Sounds | Sonniss GDC | https://gdc.sonniss.com/ |
 | COINAGE（GDC 2018） | Effectsworks | Sonniss GDC | https://gdc.sonniss.com/ |
+| Ice Fury（GDC 2018） | FLYSOUND | Sonniss GDC | https://gdc.sonniss.com/ |
 | Magic and Spell Sounds（GDC 2018） | Gamemaster Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Punch and Combat Sounds（GDC 2018） | Gamemaster Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Designed Fire（GDC 2018） | Gregor Quendel | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -155,6 +145,7 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Magic Spells, Buffs and Attacks（GDC 2019） | Sound Spark LLC | Sonniss GDC | https://gdc.sonniss.com/ |
 | Metal Hits, Scrapes and Squeaks（GDC 2019） | Sound Spark LLC | Sonniss GDC | https://gdc.sonniss.com/ |
 | Antiques（GDC 2019） | SoundBits | Sonniss GDC | https://gdc.sonniss.com/ |
+| Icy Snow 2 HD（GDC 2019） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
 | Medieval Battle（GDC 2020） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Trailer Instruments Designed（GDC 2020） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Magic Elements vol.2（GDC 2020） | Articulated Sounds | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -172,6 +163,7 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Bowed Cymbal 2 HD（GDC 2020） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
 | Flesh, Bones & Gore（GDC 2023） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Building Collapse（GDC 2023） | BluezoneCorp | Sonniss GDC | https://gdc.sonniss.com/ |
+| Ice Cracking（GDC 2023） | BluezoneCorp | Sonniss GDC | https://gdc.sonniss.com/ |
 | Melee Weapons Sound Effects Pack 1（GDC 2023） | David Dumais Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Potato Gun – Pipe-based Cannon（GDC 2023） | Dramatic Cat | Sonniss GDC | https://gdc.sonniss.com/ |
 | Debris & Rubble（GDC 2023） | Eneas Mentzel | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -186,6 +178,7 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Haunted Metal Vol.1 - Cinematic Hits & Impacts（GDC 2024） | Jake Fielding | Sonniss GDC | https://gdc.sonniss.com/ |
 | Melee Weapons（GDC 2024） | Justsoundeffects | Sonniss GDC | https://gdc.sonniss.com/ |
 | Glass（GDC 2024） | Mechanical Wave | Sonniss GDC | https://gdc.sonniss.com/ |
+| Sound Effects Collection（GDC 2024） | Mechanical Wave | Sonniss GDC | https://gdc.sonniss.com/ |
 | Cinematic Transitions for Editors Volume 2（GDC 2024） | Orbital Emitter | Sonniss GDC | https://gdc.sonniss.com/ |
 | The Metal Hit Sweeteners Library（GDC 2024） | Pole Position | Sonniss GDC | https://gdc.sonniss.com/ |
 | Distinct Whooshes（GDC 2024） | Rescopic Sound | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -541,6 +534,33 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | skill_H030_ult_hit_1.caf | 0.51 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・PMSFX - Bullet Bys &Impacts・Gladestock Studios - Naval Warfare・BluezoneCorp - High Voltage | 放電の弾け + 体の打撃 + 着弾の低音 + 放電の尾 |
 | skill_H030_ult_hit_2.caf | 0.49 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・PMSFX - Bullet Bys &Impacts・Gladestock Studios - Naval Warfare・BluezoneCorp - High Voltage | 放電の弾け + 体の打撃 + 着弾の低音 + 放電の尾 |
 | skill_H030_ult_hit_3.caf | 0.46 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・PMSFX - Bullet Bys &Impacts・Gladestock Studios - Naval Warfare・BluezoneCorp - High Voltage | 放電の弾け + 体の打撃 + 着弾の低音 + 放電の尾 |
+| skill_H031_passive.caf | 0.89 秒 | Mindful Audio - Elements - Ice・Alexander Kopeikin - The Dry Ice Library・Soundrangers - Foley Elements Ice and Snow | 凍りつくひび + 霜 + 氷のきしみ |
+| skill_H031_s1_cast.caf | 1.89 秒 | Stuart Duffield - Ice SFX・Mattia Cellotto - Glacier Ice・Mindful Audio - Elements - Ice・Alexander Kopeikin - The Dry Ice Library・FLYSOUND – Ice Fury・Articulated Sounds - Magic Elements vol.1・BluezoneCorp - Ice Cracking・Mechanical Wave - Sound Effects Collection | 霜が集まる → 落ちる氷塊の風 → 0.56 秒の着弾（氷塊・砕け・ひび・低音）→ 雹 5 つの砕け → 霜の床 |
+| skill_H031_s1_hit_1.caf | 0.48 秒 | Stuart Duffield - Ice SFX・Gamemaster Audio -  Punch Sound Pack・Soundrangers - Foley Elements Ice and Snow | 氷の塊が体に当たって砕ける + 体の芯 + 凍りつくひび |
+| skill_H031_s1_hit_2.caf | 0.51 秒 | Gamemaster Audio -  Punch Sound Pack・Soundrangers - Foley Elements Ice and Snow・Soundopolis - Icy Snow 2 HD | 氷の塊が体に当たって砕ける + 体の芯 + 凍りつくひび |
+| skill_H031_s1_hit_3.caf | 0.47 秒 | Gamemaster Audio -  Punch Sound Pack・FLYSOUND – Ice Fury・Soundrangers - Foley Elements Ice and Snow | 氷の塊が体に当たって砕ける + 体の芯 + 凍りつくひび |
+| skill_H031_s2_cast.caf | 1.42 秒 | Mindful Audio - Elements - Ice・Alexander Kopeikin - The Dry Ice Library・Soundrangers - Foley Elements Ice and Snow・Articulated Sounds - Magic Elements vol.1・BluezoneCorp - Ice Cracking・Mechanical Wave - Sound Effects Collection・Rescopic Sound - Distinct Whooshes・Alexander Kopeikin - 100 kHz Designed Ice | 払う霜 → 冷たい突風 → 0.56 秒に凍りつくひび → 0.76 秒に地面が凍る割れ |
+| skill_H031_s2_hit_1.caf | 0.42 秒 | Stuart Duffield - Ice SFX・Gamemaster Audio -  Punch Sound Pack・Soundrangers - Foley Elements Ice and Snow | 体が凍りつく（凍るひび・氷の砕け・体の芯） |
+| skill_H031_s2_hit_2.caf | 0.45 秒 | Stuart Duffield - Ice SFX・Gamemaster Audio -  Punch Sound Pack・Soundrangers - Foley Elements Ice and Snow | 体が凍りつく（凍るひび・氷の砕け・体の芯） |
+| skill_H031_s2_hit_3.caf | 0.46 秒 | Stuart Duffield - Ice SFX・Gamemaster Audio -  Punch Sound Pack・Soundrangers - Foley Elements Ice and Snow | 体が凍りつく（凍るひび・氷の砕け・体の芯） |
+| skill_H031_ult_cast.caf | 2.53 秒 | Stuart Duffield - Ice SFX・Mattia Cellotto - Glacier Ice・Mindful Audio - Elements - Ice・Alexander Kopeikin - The Dry Ice Library・FLYSOUND – Ice Fury・Soundrangers - Foley Elements Ice and Snow・BluezoneCorp - Ice Cracking・Mechanical Wave - Sound Effects Collection・Alexander Kopeikin - 100 kHz Designed Ice | 霜が集まる → 0.26 秒の霜の道のひび → 氷河が育つきしみ → 1.49 秒に氷河が砕ける（氷山・氷塊・砕け） |
+| skill_H031_ult_hit_1.caf | 0.57 秒 | Gamemaster Audio -  Punch Sound Pack・Mattia Cellotto - Glacier Ice・Soundrangers - Foley Elements Ice and Snow・Soundopolis - Icy Snow 2 HD | 大きな氷の塊が体を打つ + 氷の割れ + 体の芯 |
+| skill_H031_ult_hit_2.caf | 0.57 秒 | Gamemaster Audio -  Punch Sound Pack・Mattia Cellotto - Glacier Ice・FLYSOUND – Ice Fury・Soundrangers - Foley Elements Ice and Snow | 大きな氷の塊が体を打つ + 氷の割れ + 体の芯 |
+| skill_H031_ult_hit_3.caf | 0.57 秒 | Stuart Duffield - Ice SFX・Gamemaster Audio -  Punch Sound Pack・Mattia Cellotto - Glacier Ice・Soundrangers - Foley Elements Ice and Snow | 大きな氷の塊が体を打つ + 氷の割れ + 体の芯 |
+| skill_H032_passive.caf | 0.68 秒 | Soundopolis - Blades・Alexander Kopeikin - Black Metal・L.A. Sounds - Transition Movement Pack 002 | 両手の刃が鳴る + 鉄板の低いうなり |
+| skill_H032_s1_cast.caf | 1.20 秒 | Soundopolis - Blades・Soundopolis - Natures Fury_Thunder・Alexander Kopeikin - Black Metal・Soundopolis - Heavy Metal!・David Dumais Audio - Weapon Sounds - Weapon Swings・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 刃の振り ×3（0.26・0.46・0.66 秒の輪）+ 刃の鳴り + 鉄の打撃 + 鉄板のうなり・地鳴り |
+| skill_H032_s1_hit_1.caf | 0.43 秒 | Alexander Kopeikin - Black Metal・344 Audio - Flesh, Bones & Gore・David Dumais Audio - Melee Weapons Sound Effects Pack 1・Justsoundeffects - Melee Weapons | 刃が肉と鎧を斬る + 体の砕け + 鉄板の低い芯 |
+| skill_H032_s1_hit_2.caf | 0.47 秒 | Alexander Kopeikin - Black Metal・Sound Spark LLC – Gore・344 Audio - Flesh, Bones & Gore・Justsoundeffects - Melee Weapons | 刃が肉と鎧を斬る + 体の砕け + 鉄板の低い芯 |
+| skill_H032_s1_hit_3.caf | 0.42 秒 | Timothy McHugh - Gorification [HD]・Alexander Kopeikin - Black Metal・344 Audio - Flesh, Bones & Gore・Justsoundeffects - Melee Weapons | 刃が肉と鎧を斬る + 体の砕け + 鉄板の低い芯 |
+| skill_H032_s2_cast.caf | 0.76 秒 | Soundopolis - Natures Fury_Thunder・Alexander Kopeikin - Black Metal・L.A. Sounds - Transition Movement Pack 002・David Dumais Audio - Weapon Sounds - Weapon Swings・SmartSoundFX – Medieval | 踏み込む重い振り + 鎧と鎖 → 突進の風 + 刃の擦れ → 鉄板のうねり |
+| skill_H032_s2_hit_1.caf | 0.35 秒 | Timothy McHugh - Gorification [HD]・Alexander Kopeikin - Black Metal・Soundopolis - Heavy Metal!・Justsoundeffects - Melee Weapons | 刃と鎧のぶつかり（斧と鎖・盾の金属）+ 肉を斬る + 低い芯 |
+| skill_H032_s2_hit_2.caf | 0.37 秒 | Timothy McHugh - Gorification [HD]・Alexander Kopeikin - Black Metal・Soundopolis - Heavy Metal!・Justsoundeffects - Melee Weapons | 刃と鎧のぶつかり（斧と鎖・盾の金属）+ 肉を斬る + 低い芯 |
+| skill_H032_s2_hit_3.caf | 0.35 秒 | Timothy McHugh - Gorification [HD]・Alexander Kopeikin - Black Metal・Soundopolis - Heavy Metal!・Justsoundeffects - Melee Weapons | 刃と鎧のぶつかり（斧と鎖・盾の金属）+ 肉を斬る + 低い芯 |
+| skill_H032_s2_r1_cast.caf | 0.88 秒 | Alexander Kopeikin - Black Metal・Soundopolis - Heavy Metal!・L.A. Sounds - Transition Movement Pack 002・David Dumais Audio - Weapon Sounds - Weapon Swings・David Dumais Audio - Melee Weapons Sound Effects Pack 1・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 跳ぶ風 → 回る刃の擦れ ×3 → 三日月の払い → 鉄板の低音 |
+| skill_H032_ult_cast.caf | 1.63 秒 | Soundopolis - Natures Fury_Thunder・Timothy McHugh - Gorification [HD]・Alexander Kopeikin - Black Metal・Soundopolis - Heavy Metal!・344 Audio - Medieval Battle・David Dumais Audio - Weapon Sounds - Weapon Swings・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 鎌の振り ×4 と闇のうねりの溜め → 槍が伸びる刃の擦れ → 0.76 秒に放つ（刃の振り抜き・斧と鎖の打撃・地鳴り） |
+| skill_H032_ult_hit_1.caf | 0.48 秒 | Timothy McHugh - Gorification [HD]・Alexander Kopeikin - Black Metal・Soundopolis - Heavy Metal!・344 Audio - Flesh, Bones & Gore | 刃の槍が体を貫く + 斧と鎖の打撃 + 体の砕け + 鉄板の低音 |
+| skill_H032_ult_hit_2.caf | 0.47 秒 | Timothy McHugh - Gorification [HD]・Alexander Kopeikin - Black Metal・Soundopolis - Heavy Metal!・344 Audio - Flesh, Bones & Gore | 刃の槍が体を貫く + 斧と鎖の打撃 + 体の砕け + 鉄板の低音 |
+| skill_H032_ult_hit_3.caf | 0.48 秒 | Timothy McHugh - Gorification [HD]・Alexander Kopeikin - Black Metal・Soundopolis - Heavy Metal!・344 Audio - Flesh, Bones & Gore | 刃の槍が体を貫く + 斧と鎖の打撃 + 体の砕け + 鉄板の低音 |
 | skill_H034_atk_1.caf | 0.45 秒 | Baxter Audio - IMPACT・Conor Bradley - Metal Chains・Justsoundeffects - Melee Weapons | 斧鉤の打撃（肉と鉄）+ 低い芯 + 鎖の鳴り |
 | skill_H034_atk_2.caf | 0.44 秒 | Baxter Audio - IMPACT・Conor Bradley - Metal Chains・Justsoundeffects - Melee Weapons | 斧鉤の打撃（肉と鉄）+ 低い芯 + 鎖の鳴り |
 | skill_H034_atk_3.caf | 0.45 秒 | Baxter Audio - IMPACT・Conor Bradley - Metal Chains・Justsoundeffects - Melee Weapons | 斧鉤の打撃（肉と鉄）+ 低い芯 + 鎖の鳴り |
