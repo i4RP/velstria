@@ -4,11 +4,14 @@
 
 extension CreditsCatalog {
     static let sonniss: [(title: String, author: String)] = [
+        ("Rock Brick and Dirt（GDC 2015）", "Mechanical Wave"),
         ("Blades（GDC 2015）", "Soundopolis"),
+        ("Gore Toolkit HD（GDC 2015）", "Soundopolis"),
         ("Natures Fury_Thunder（GDC 2015）", "Soundopolis"),
         ("Gorification [HD]（GDC 2015）", "Timothy McHugh"),
         ("Black Metal（GDC 2016）", "Alexander Kopeikin"),
         ("The Gun Locker SFX Pack（GDC 2016）", "Fascinated Sound"),
+        (" Just Gore _ Add On（GDC 2016）", "SoundBits"),
         ("Ice SFX（GDC 2016）", "Stuart Duffield"),
         ("12 Gauge Shotgun（GDC 2016）", "TS Sound"),
         ("Tanks and Jet（GDC 2017）", "Double Trouble Audio"),
@@ -17,6 +20,7 @@ extension CreditsCatalog {
         ("Glacier Ice（GDC 2017）", "Mattia Cellotto"),
         ("Elements - Ice（GDC 2017）", "Mindful Audio"),
         ("Hums Light Machines（GDC 2017）", "RedSonic"),
+        ("Halloween 101（GDC 2017）", "Soundopolis"),
         ("Heavy Metal!（GDC 2017）", "Soundopolis"),
         ("The Dry Ice Library（GDC 2018）", "Alexander Kopeikin"),
         ("Ice Fury（GDC 2018）", "FLYSOUND"),
@@ -25,6 +29,7 @@ extension CreditsCatalog {
         ("Hand-to-Hand Combat - Body Hits & Vocal Excursions（GDC 2018）", "The Chris Alan"),
         ("Electric Deluxe（GDC 2018）", "Wakerone"),
         ("Low Frequency Elements（GDC 2019）", "344 Audio"),
+        ("Airy Whooshes（GDC 2019）", "Airborne Sound"),
         ("Battlefield Howitzers（GDC 2019）", "Airborne Sound"),
         ("Magic Elements vol.1（GDC 2019）", "Articulated Sounds"),
         ("IMPACT（GDC 2019）", "Baxter Audio"),

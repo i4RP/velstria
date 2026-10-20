@@ -71,13 +71,6 @@ MLBB の音は使っていない。素材の原本・素材集の形ではリポ
 | skill_H028_s2_hit.caf | 0.42 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H028 s2 の命中 |
 | skill_H028_ult_cast.caf | 1.75 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H028 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
 | skill_H028_ult_hit.caf | 0.44 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H028 ult の命中 |
-| skill_H033_s1_cast.caf | 1.14 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H033 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
-| skill_H033_s1_hit.caf | 0.40 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H033 s1 の命中 |
-| skill_H033_s2_cast.caf | 0.71 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H033 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
-| skill_H033_s2_hit.caf | 0.44 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H033 s2 の命中 |
-| skill_H033_ult_cast.caf | 1.43 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H033 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
-| skill_H033_ult_hit.caf | 0.45 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H033 ult の命中 |
-| skill_H033_ult_r1_cast.caf | 1.23 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H033 ult 段1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
 
 ## Sonniss GDC Game Audio Bundle（録音の音: tools/audio/make_sounds.py）
 
@@ -88,11 +81,14 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 
 | 素材集 | 作者 | ライセンス | URL |
 |---|---|---|---|
+| Rock Brick and Dirt（GDC 2015） | Mechanical Wave | Sonniss GDC | https://gdc.sonniss.com/ |
 | Blades（GDC 2015） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
+| Gore Toolkit HD（GDC 2015） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
 | Natures Fury_Thunder（GDC 2015） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
 | Gorification [HD]（GDC 2015） | Timothy McHugh | Sonniss GDC | https://gdc.sonniss.com/ |
 | Black Metal（GDC 2016） | Alexander Kopeikin | Sonniss GDC | https://gdc.sonniss.com/ |
 | The Gun Locker SFX Pack（GDC 2016） | Fascinated Sound | Sonniss GDC | https://gdc.sonniss.com/ |
+|  Just Gore _ Add On（GDC 2016） | SoundBits | Sonniss GDC | https://gdc.sonniss.com/ |
 | Ice SFX（GDC 2016） | Stuart Duffield | Sonniss GDC | https://gdc.sonniss.com/ |
 | 12 Gauge Shotgun（GDC 2016） | TS Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 | Tanks and Jet（GDC 2017） | Double Trouble Audio | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -101,6 +97,7 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Glacier Ice（GDC 2017） | Mattia Cellotto | Sonniss GDC | https://gdc.sonniss.com/ |
 | Elements - Ice（GDC 2017） | Mindful Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Hums Light Machines（GDC 2017） | RedSonic | Sonniss GDC | https://gdc.sonniss.com/ |
+| Halloween 101（GDC 2017） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
 | Heavy Metal!（GDC 2017） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
 | The Dry Ice Library（GDC 2018） | Alexander Kopeikin | Sonniss GDC | https://gdc.sonniss.com/ |
 | Ice Fury（GDC 2018） | FLYSOUND | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -109,6 +106,7 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Hand-to-Hand Combat - Body Hits & Vocal Excursions（GDC 2018） | The Chris Alan | Sonniss GDC | https://gdc.sonniss.com/ |
 | Electric Deluxe（GDC 2018） | Wakerone | Sonniss GDC | https://gdc.sonniss.com/ |
 | Low Frequency Elements（GDC 2019） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| Airy Whooshes（GDC 2019） | Airborne Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 | Battlefield Howitzers（GDC 2019） | Airborne Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 | Magic Elements vol.1（GDC 2019） | Articulated Sounds | Sonniss GDC | https://gdc.sonniss.com/ |
 | IMPACT（GDC 2019） | Baxter Audio | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -217,6 +215,20 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | skill_H032_ult_hit_1.caf | 0.48 秒 | Timothy McHugh - Gorification [HD]・Alexander Kopeikin - Black Metal・Soundopolis - Heavy Metal!・344 Audio - Flesh, Bones & Gore | 刃の槍が体を貫く + 斧と鎖の打撃 + 体の砕け + 鉄板の低音 |
 | skill_H032_ult_hit_2.caf | 0.47 秒 | Timothy McHugh - Gorification [HD]・Alexander Kopeikin - Black Metal・Soundopolis - Heavy Metal!・344 Audio - Flesh, Bones & Gore | 刃の槍が体を貫く + 斧と鎖の打撃 + 体の砕け + 鉄板の低音 |
 | skill_H032_ult_hit_3.caf | 0.48 秒 | Timothy McHugh - Gorification [HD]・Alexander Kopeikin - Black Metal・Soundopolis - Heavy Metal!・344 Audio - Flesh, Bones & Gore | 刃の槍が体を貫く + 斧と鎖の打撃 + 体の砕け + 鉄板の低音 |
+| skill_H033_passive.caf | 0.34 秒 | Soundopolis - Blades・L.A. Sounds - Transition Movement Pack 002 | 大剣の小さな刃の鳴り |
+| skill_H033_s1_cast.caf | 1.17 秒 | Mechanical Wave - Rock Brick and Dirt・Soundopolis - Natures Fury_Thunder・Airborne Sound - Airy Whooshes・Articulated Sounds - Magic Elements vol.1・Red Libraries - Bodyfall・Shapeforms - Hit & Punch・SmartSoundFX – Medieval・BluezoneCorp - Stone Impact・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 跳ぶ風 → 大剣の振り下ろし → 0.34 秒の叩きつけ（刃が岩を打つ・土と岩の砕け・刃の金属・地響き） |
+| skill_H033_s1_hit_1.caf | 0.40 秒 | Soundopolis - Gore Toolkit HD・Red Libraries - Bodyfall・344 Audio - Flesh, Bones & Gore・David Dumais Audio - Melee Weapons Sound Effects Pack 1 | 大剣が肉を斬る + 血しぶき + 体の芯 |
+| skill_H033_s1_hit_2.caf | 0.42 秒 | Soundopolis - Gore Toolkit HD・Red Libraries - Bodyfall・Sound Spark LLC – Gore・David Dumais Audio - Melee Weapons Sound Effects Pack 1 | 大剣が肉を斬る + 血しぶき + 体の芯 |
+| skill_H033_s1_hit_3.caf | 0.38 秒 | Soundopolis - Gore Toolkit HD・Red Libraries - Bodyfall・Sound Spark LLC – Gore・David Dumais Audio - Melee Weapons Sound Effects Pack 1 | 大剣が肉を斬る + 血しぶき + 体の芯 |
+| skill_H033_s2_cast.caf | 0.57 秒 | L.A. Sounds - Transition Movement Pack 002・David Dumais Audio - Weapon Sounds - Weapon Swings・David Dumais Audio - Melee Weapons Sound Effects Pack 1・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 大剣の回転（低い風切り ×2・刃の擦れ・刃の鳴り） |
+| skill_H033_s2_hit_1.caf | 0.37 秒 | Timothy McHugh - Gorification [HD]・Red Libraries - Bodyfall・Sound Spark LLC – Gore | 回転する大剣が肉を斬る + 深い傷 + 体の芯 |
+| skill_H033_s2_hit_2.caf | 0.40 秒 | Soundopolis - Halloween 101・Red Libraries - Bodyfall・Sound Spark LLC – Gore | 回転する大剣が肉を斬る + 深い傷 + 体の芯 |
+| skill_H033_s2_hit_3.caf | 0.36 秒 | Timothy McHugh - Gorification [HD]・Red Libraries - Bodyfall・Sound Spark LLC – Gore | 回転する大剣が肉を斬る + 深い傷 + 体の芯 |
+| skill_H033_ult_cast.caf | 0.94 秒 | Soundopolis - Natures Fury_Thunder・SoundBits -  Just Gore _ Add On・The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions・Airborne Sound - Airy Whooshes・L.A. Sounds - Transition Movement Pack 002 | 吸い込み（重い風の逆再生）+ 大剣の鳴り + 血を吸う音 + 地鳴り → 体に収まる |
+| skill_H033_ult_hit_1.caf | 0.42 秒 | Timothy McHugh - Gorification [HD]・Airborne Sound - Airy Whooshes・Red Libraries - Bodyfall・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 大剣の斬撃が肉を裂く + 血しぶき + 体の芯 → 吸血の吸い込み |
+| skill_H033_ult_hit_2.caf | 0.39 秒 | Airborne Sound - Airy Whooshes・Red Libraries - Bodyfall・344 Audio - Flesh, Bones & Gore・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 大剣の斬撃が肉を裂く + 血しぶき + 体の芯 → 吸血の吸い込み |
+| skill_H033_ult_hit_3.caf | 0.40 秒 | Timothy McHugh - Gorification [HD]・Airborne Sound - Airy Whooshes・Red Libraries - Bodyfall・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 大剣の斬撃が肉を裂く + 血しぶき + 体の芯 → 吸血の吸い込み |
+| skill_H033_ult_r1_cast.caf | 1.14 秒 | Soundopolis - Natures Fury_Thunder・Airborne Sound - Airy Whooshes・L.A. Sounds - Transition Movement Pack 002・Red Libraries - Bodyfall・David Dumais Audio - Melee Weapons Sound Effects Pack 1・Rescopic Sound - Distinct Whooshes・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 大剣の振りかぶり → 0.16 秒の振り抜き（刃の擦れ・低い打ち）→ 走る衝撃波の風と地鳴り |
 | skill_H034_atk_1.caf | 0.45 秒 | Baxter Audio - IMPACT・Conor Bradley - Metal Chains・Justsoundeffects - Melee Weapons | 斧鉤の打撃（肉と鉄）+ 低い芯 + 鎖の鳴り |
 | skill_H034_atk_2.caf | 0.44 秒 | Baxter Audio - IMPACT・Conor Bradley - Metal Chains・Justsoundeffects - Melee Weapons | 斧鉤の打撃（肉と鉄）+ 低い芯 + 鎖の鳴り |
 | skill_H034_atk_3.caf | 0.45 秒 | Baxter Audio - IMPACT・Conor Bradley - Metal Chains・Justsoundeffects - Melee Weapons | 斧鉤の打撃（肉と鉄）+ 低い芯 + 鎖の鳴り |
