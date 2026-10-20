@@ -1,5 +1,11 @@
 # 音（BGM・効果音）
 
+**2026-10-20 から効果音はすべて実音の録音**（合成の効果音 SFXSynth と、Kenney の電子音・SF の音は外した。ファイルが無い効果音は鳴らさない）。
+作り方は `python tools/audio/make_sounds.py <名前…>`（`sets/weapons.py` 武器ごとの通常攻撃の組・`sets/common.py` 戦闘の共通の音・
+`sets/ui.py` 試合の外の画面の音・`sets/legacy.py` 旧 24 体のスキル・`heroes/h0xx.py` H025〜H034 のスキル）。表は [WEAPONS.md](WEAPONS.md)・
+[LEGACY.md](LEGACY.md)・ヒーローごとの `H0xx.md`、どの録音を使ったかは [SOURCES.md](SOURCES.md)。BGM（ファイルの曲と合成の曲）は今までどおり。
+以下は 2026-10-18 までの記録（合成の扱いの記述は古い）。
+
 - 仕組み: `App/Services/AudioService.swift`（AVAudioEngine）。音のファイル（`App/Services/AudioFiles.swift` の対応表、
   `App/Resources/Audio`）がある音はファイルで、無い・読めない音は `AudioLibrary.swift` の合成で鳴らす。
   - 効果音: 44.1 kHz モノラル 16 bit の `.caf`。起動時の効果音の合成と同じ裏の作業でバッファへ読む（プレイ中にファイルを読まない）。
