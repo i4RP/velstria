@@ -1,0 +1,151 @@
+{
+ "skill_H026_passive.caf": {
+  "kind": "passive",
+  "note": "超伝導の印（小さな放電の弾け + ぱちぱち）",
+  "seconds": 0.33,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2023 / Rogue Waves - Druid Magic",
+   "2024 / BluezoneCorp - High Voltage"
+  ]
+ },
+ "skill_H026_s1_cast.caf": {
+  "kind": "cast",
+  "note": "杖の火花 → 0.05 稲妻が裂ける（間近の雷鳴・放電の弾け・低い雷の芯）→ 電弧のぱちぱち → 雷鳴の尾",
+  "seconds": 0.86,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2018 / Soundrangers – Thunder",
+   "2023 / InspectorJ - Essentials 01 Thunder",
+   "2024 / BluezoneCorp - High Voltage"
+  ]
+ },
+ "skill_H026_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "体に走る放電の弾け + ぱちぱち + 短い雷の裂け + 低い芯",
+  "seconds": 0.29,
+  "sources": [
+   "2015 / Soundopolis - Natures Fury_Thunder",
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2019 / Baxter Audio - IMPACT",
+   "2023 / Rogue Waves - Druid Magic",
+   "2024 / BluezoneCorp - High Voltage"
+  ]
+ },
+ "skill_H026_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "体に走る放電の弾け + ぱちぱち + 短い雷の裂け + 低い芯",
+  "seconds": 0.3,
+  "sources": [
+   "2015 / Soundopolis - Natures Fury_Thunder",
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2019 / Baxter Audio - IMPACT",
+   "2023 / Rogue Waves - Druid Magic",
+   "2024 / BluezoneCorp - High Voltage"
+  ]
+ },
+ "skill_H026_s1_hit_3.caf": {
+  "kind": "hit",
+  "note": "体に走る放電の弾け + ぱちぱち + 短い雷の裂け + 低い芯",
+  "seconds": 0.3,
+  "sources": [
+   "2015 / Soundopolis - Natures Fury_Thunder",
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2019 / Baxter Audio - IMPACT",
+   "2023 / Rogue Waves - Druid Magic",
+   "2024 / BluezoneCorp - High Voltage"
+  ]
+ },
+ "skill_H026_s2_cast.caf": {
+  "kind": "cast",
+  "note": "放電が集まる → 投げる（袖の風・放電の弾け）→ 飛ぶ球のアークとうなり",
+  "seconds": 0.64,
+  "sources": [
+   "2016 / SoundBits -  Just Whoosh 3 _ Whoosh Essentials",
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2024 / BluezoneCorp - High Voltage"
+  ]
+ },
+ "skill_H026_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "雷球が弾ける（放電・雷の裂け）+ スタンのぱちぱち + 低い雷の芯",
+  "seconds": 0.49,
+  "sources": [
+   "2015 / Soundopolis - Natures Fury_Thunder",
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2018 / Soundrangers – Thunder",
+   "2024 / BluezoneCorp - High Voltage"
+  ]
+ },
+ "skill_H026_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "雷球が弾ける（放電・雷の裂け）+ スタンのぱちぱち + 低い雷の芯",
+  "seconds": 0.49,
+  "sources": [
+   "2015 / Soundopolis - Natures Fury_Thunder",
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2018 / Soundrangers – Thunder",
+   "2024 / BluezoneCorp - High Voltage"
+  ]
+ },
+ "skill_H026_s2_hit_3.caf": {
+  "kind": "hit",
+  "note": "雷球が弾ける（放電・雷の裂け）+ スタンのぱちぱち + 低い雷の芯",
+  "seconds": 0.48,
+  "sources": [
+   "2015 / Soundopolis - Natures Fury_Thunder",
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2018 / Soundrangers – Thunder",
+   "2024 / BluezoneCorp - High Voltage"
+  ]
+ },
+ "skill_H026_ult_cast.caf": {
+  "kind": "ult",
+  "note": "電弧が巡る・遠い雷鳴が吸い込まれる → 0.45 落雷（間近の雷鳴・放電・深い雷の低音）→ 0.59 外側の雷 → 転がる雷鳴",
+  "seconds": 1.87,
+  "sources": [
+   "2015 / Soundopolis - Natures Fury_Thunder",
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2018 / Soundrangers – Thunder",
+   "2018 / Wakerone - Electric Deluxe",
+   "2023 / InspectorJ - Essentials 01 Thunder",
+   "2024 / BluezoneCorp - High Voltage"
+  ]
+ },
+ "skill_H026_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "体を打つ雷（裂け・放電）+ ぱちぱち + 低い雷の芯",
+  "seconds": 0.46,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2018 / Soundrangers – Thunder",
+   "2023 / InspectorJ - Essentials 01 Thunder",
+   "2023 / Rogue Waves - Druid Magic",
+   "2024 / BluezoneCorp - High Voltage"
+  ]
+ },
+ "skill_H026_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "体を打つ雷（裂け・放電）+ ぱちぱち + 低い雷の芯",
+  "seconds": 0.46,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2018 / Soundrangers – Thunder",
+   "2023 / InspectorJ - Essentials 01 Thunder",
+   "2023 / Rogue Waves - Druid Magic",
+   "2024 / BluezoneCorp - High Voltage"
+  ]
+ },
+ "skill_H026_ult_hit_3.caf": {
+  "kind": "hit",
+  "note": "体を打つ雷（裂け・放電）+ ぱちぱち + 低い雷の芯",
+  "seconds": 0.46,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2018 / Soundrangers – Thunder",
+   "2023 / InspectorJ - Essentials 01 Thunder",
+   "2023 / Rogue Waves - Druid Magic",
+   "2024 / BluezoneCorp - High Voltage"
+  ]
+ }
+}

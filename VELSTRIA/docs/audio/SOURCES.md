@@ -50,12 +50,6 @@ MLBB の音は使っていない。素材の原本・素材集の形ではリポ
 | sfx_ui_tab.caf | 0.14 秒 | Interface Sounds | switch_002 |
 | sfx_ui_tap.caf | 0.04 秒 | Interface Sounds | select_002 |
 | sfx_victory.caf | 1.81 秒 | Music Jingles | jingles_HIT11 + jingles_PIZZI02、残響（勝利） |
-| skill_H026_s1_cast.caf | 1.14 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H026 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
-| skill_H026_s1_hit.caf | 0.80 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H026 s1 の命中 |
-| skill_H026_s2_cast.caf | 1.29 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H026 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
-| skill_H026_s2_hit.caf | 0.79 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H026 s2 の命中 |
-| skill_H026_ult_cast.caf | 2.25 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H026 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
-| skill_H026_ult_hit.caf | 0.80 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H026 ult の命中 |
 | skill_H027_s1_cast.caf | 1.20 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H027 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
 | skill_H027_s1_hit.caf | 0.36 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H027 s1 の命中 |
 | skill_H027_s2_cast.caf | 0.64 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H027 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
@@ -104,12 +98,17 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | 素材集 | 作者 | ライセンス | URL |
 |---|---|---|---|
 | Twisted Zither（GDC 2015） | RDGSFX009 | Sonniss GDC | https://gdc.sonniss.com/ |
+| Natures Fury_Thunder（GDC 2015） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
 | The Source Collection SFX Pack（GDC 2016） | George Karagioules | Sonniss GDC | https://gdc.sonniss.com/ |
+|  Just Whoosh 3 _ Whoosh Essentials（GDC 2016） | SoundBits | Sonniss GDC | https://gdc.sonniss.com/ |
 | Ice SFX（GDC 2016） | Stuart Duffield | Sonniss GDC | https://gdc.sonniss.com/ |
 | Thin Ice（GDC 2017） | Articulated Sounds | Sonniss GDC | https://gdc.sonniss.com/ |
 | Unsettling Creaks and Squeaks（GDC 2017） | SoundBits | Sonniss GDC | https://gdc.sonniss.com/ |
 | Unsettling Creaks and Squeaks – Extension I（GDC 2017） | SoundBits | Sonniss GDC | https://gdc.sonniss.com/ |
+| High Voltage Electricity - The Essential Collection（GDC 2018） | Hear and Now Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 | Foley Elements Ice and Snow（GDC 2018） | Soundrangers | Sonniss GDC | https://gdc.sonniss.com/ |
+| Thunder（GDC 2018） | Soundrangers | Sonniss GDC | https://gdc.sonniss.com/ |
+| Electric Deluxe（GDC 2018） | Wakerone | Sonniss GDC | https://gdc.sonniss.com/ |
 | Super Heroes Sound Design（GDC 2019） | 2496SoundEffects | Sonniss GDC | https://gdc.sonniss.com/ |
 | Low Frequency Elements（GDC 2019） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | IMPACTUS（GDC 2019） | 3maze | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -138,7 +137,10 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Medieval（GDC 2020） | SmartSoundFX | Sonniss GDC | https://gdc.sonniss.com/ |
 | Flesh, Bones & Gore（GDC 2023） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Melee Weapons Sound Effects Pack 1（GDC 2023） | David Dumais Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| Essentials 01 Thunder（GDC 2023） | InspectorJ | Sonniss GDC | https://gdc.sonniss.com/ |
 | Essentials 04 Chains（GDC 2023） | InspectorJ | Sonniss GDC | https://gdc.sonniss.com/ |
+| Druid Magic（GDC 2023） | Rogue Waves | Sonniss GDC | https://gdc.sonniss.com/ |
+| High Voltage（GDC 2024） | BluezoneCorp | Sonniss GDC | https://gdc.sonniss.com/ |
 | Stone Impact（GDC 2024） | BluezoneCorp | Sonniss GDC | https://gdc.sonniss.com/ |
 | Haunted Metal Vol.1 - Cinematic Hits & Impacts（GDC 2024） | Jake Fielding | Sonniss GDC | https://gdc.sonniss.com/ |
 | Melee Weapons（GDC 2024） | Justsoundeffects | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -161,6 +163,19 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | skill_H025_s2_hit_2.caf | 0.45 秒 | Stuart Duffield - Ice SFX・Articulated Sounds - Thin Ice・Soundrangers - Foley Elements Ice and Snow・Baxter Audio - IMPACT・SmartSoundFX – Medieval | 矢が刺さる + 氷の檻のひび・砕け + 霜 + 低い芯 |
 | skill_H025_s2_hit_3.caf | 0.45 秒 | Articulated Sounds - Thin Ice・Soundrangers - Foley Elements Ice and Snow・3maze - IMPACTUS・Baxter Audio - IMPACT・SmartSoundFX – Medieval | 矢が刺さる + 氷の檻のひび・砕け + 霜 + 低い芯 |
 | skill_H025_ult_cast.caf | 1.63 秒 | George Karagioules - The Source Collection SFX Pack・Airborne Sound - Organic Whooshes・Eiravaein Works - Helina・Prismo Sound - Singing Bowls・Rescopic Sound - Distinct Whooshes・Epic Stock Media - Elemental Mutation Whooshes and Impacts | 身を翻す布の風 → 三日月と光の柱（ボウル・ガラス・風鈴・ガラス片の流れ）→ 加速の風 + 低いボウルのうねり |
+| skill_H026_passive.caf | 0.33 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・Rogue Waves - Druid Magic・BluezoneCorp - High Voltage | 超伝導の印（小さな放電の弾け + ぱちぱち） |
+| skill_H026_s1_cast.caf | 0.86 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・Soundrangers – Thunder・InspectorJ - Essentials 01 Thunder・BluezoneCorp - High Voltage | 杖の火花 → 0.05 稲妻が裂ける（間近の雷鳴・放電の弾け・低い雷の芯）→ 電弧のぱちぱち → 雷鳴の尾 |
+| skill_H026_s1_hit_1.caf | 0.29 秒 | Soundopolis - Natures Fury_Thunder・Hear and Now Sound - High Voltage Electricity - The Essential Collection・Baxter Audio - IMPACT・Rogue Waves - Druid Magic・BluezoneCorp - High Voltage | 体に走る放電の弾け + ぱちぱち + 短い雷の裂け + 低い芯 |
+| skill_H026_s1_hit_2.caf | 0.30 秒 | Soundopolis - Natures Fury_Thunder・Hear and Now Sound - High Voltage Electricity - The Essential Collection・Baxter Audio - IMPACT・Rogue Waves - Druid Magic・BluezoneCorp - High Voltage | 体に走る放電の弾け + ぱちぱち + 短い雷の裂け + 低い芯 |
+| skill_H026_s1_hit_3.caf | 0.30 秒 | Soundopolis - Natures Fury_Thunder・Hear and Now Sound - High Voltage Electricity - The Essential Collection・Baxter Audio - IMPACT・Rogue Waves - Druid Magic・BluezoneCorp - High Voltage | 体に走る放電の弾け + ぱちぱち + 短い雷の裂け + 低い芯 |
+| skill_H026_s2_cast.caf | 0.64 秒 | SoundBits -  Just Whoosh 3 _ Whoosh Essentials・Hear and Now Sound - High Voltage Electricity - The Essential Collection・BluezoneCorp - High Voltage | 放電が集まる → 投げる（袖の風・放電の弾け）→ 飛ぶ球のアークとうなり |
+| skill_H026_s2_hit_1.caf | 0.49 秒 | Soundopolis - Natures Fury_Thunder・Hear and Now Sound - High Voltage Electricity - The Essential Collection・Soundrangers – Thunder・BluezoneCorp - High Voltage | 雷球が弾ける（放電・雷の裂け）+ スタンのぱちぱち + 低い雷の芯 |
+| skill_H026_s2_hit_2.caf | 0.49 秒 | Soundopolis - Natures Fury_Thunder・Hear and Now Sound - High Voltage Electricity - The Essential Collection・Soundrangers – Thunder・BluezoneCorp - High Voltage | 雷球が弾ける（放電・雷の裂け）+ スタンのぱちぱち + 低い雷の芯 |
+| skill_H026_s2_hit_3.caf | 0.48 秒 | Soundopolis - Natures Fury_Thunder・Hear and Now Sound - High Voltage Electricity - The Essential Collection・Soundrangers – Thunder・BluezoneCorp - High Voltage | 雷球が弾ける（放電・雷の裂け）+ スタンのぱちぱち + 低い雷の芯 |
+| skill_H026_ult_cast.caf | 1.87 秒 | Soundopolis - Natures Fury_Thunder・Hear and Now Sound - High Voltage Electricity - The Essential Collection・Soundrangers – Thunder・Wakerone - Electric Deluxe・InspectorJ - Essentials 01 Thunder・BluezoneCorp - High Voltage | 電弧が巡る・遠い雷鳴が吸い込まれる → 0.45 落雷（間近の雷鳴・放電・深い雷の低音）→ 0.59 外側の雷 → 転がる雷鳴 |
+| skill_H026_ult_hit_1.caf | 0.46 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・Soundrangers – Thunder・InspectorJ - Essentials 01 Thunder・Rogue Waves - Druid Magic・BluezoneCorp - High Voltage | 体を打つ雷（裂け・放電）+ ぱちぱち + 低い雷の芯 |
+| skill_H026_ult_hit_2.caf | 0.46 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・Soundrangers – Thunder・InspectorJ - Essentials 01 Thunder・Rogue Waves - Druid Magic・BluezoneCorp - High Voltage | 体を打つ雷（裂け・放電）+ ぱちぱち + 低い雷の芯 |
+| skill_H026_ult_hit_3.caf | 0.46 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・Soundrangers – Thunder・InspectorJ - Essentials 01 Thunder・Rogue Waves - Druid Magic・BluezoneCorp - High Voltage | 体を打つ雷（裂け・放電）+ ぱちぱち + 低い雷の芯 |
 | skill_H029_atk_1.caf | 0.44 秒 | Baxter Audio - IMPACT・BlueZone - Heavy Metal Impact Sound Effects・Pole Position - The Metal Hit Sweeteners Library・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 重い武器の振り → 鈍い着弾 + 槌の金属の鳴り |
 | skill_H029_atk_2.caf | 0.43 秒 | Baxter Audio - IMPACT・BlueZone - Heavy Metal Impact Sound Effects・Pole Position - The Metal Hit Sweeteners Library・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 重い武器の振り → 鈍い着弾 + 槌の金属の鳴り |
 | skill_H029_atk_3.caf | 0.43 秒 | Baxter Audio - IMPACT・BlueZone - Heavy Metal Impact Sound Effects・Pole Position - The Metal Hit Sweeteners Library・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 重い武器の振り → 鈍い着弾 + 槌の金属の鳴り |
