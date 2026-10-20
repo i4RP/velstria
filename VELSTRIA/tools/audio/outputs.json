@@ -160,50 +160,6 @@
    "jingles"
   ]
  },
- "skill_H025_s1_cast.caf": {
-  "note": "H025 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
-  "seconds": 0.7,
-  "sources": [
-   "digital",
-   "impact",
-   "interface",
-   "rpg",
-   "scifi"
-  ]
- },
- "skill_H025_s2_cast.caf": {
-  "note": "H025 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
-  "seconds": 1.69,
-  "sources": [
-   "digital",
-   "impact",
-   "interface",
-   "rpg",
-   "scifi"
-  ]
- },
- "skill_H025_s2_hit.caf": {
-  "note": "H025 s2 の命中",
-  "seconds": 0.54,
-  "sources": [
-   "digital",
-   "impact",
-   "interface",
-   "rpg",
-   "scifi"
-  ]
- },
- "skill_H025_ult_cast.caf": {
-  "note": "H025 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
-  "seconds": 1.85,
-  "sources": [
-   "digital",
-   "impact",
-   "interface",
-   "rpg",
-   "scifi"
-  ]
- },
  "skill_H026_s1_cast.caf": {
   "note": "H026 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた）",
   "seconds": 1.14,

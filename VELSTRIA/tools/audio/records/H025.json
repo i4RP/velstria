@@ -1,0 +1,90 @@
+{
+ "skill_H025_passive.caf": {
+  "kind": "passive",
+  "note": "弓の先の閃き（弦の小さな鳴り + ガラスの一打 + 風鈴）",
+  "seconds": 0.43,
+  "sources": [
+   "2015 / RDGSFX009 - Twisted Zither",
+   "2016 / George Karagioules - The Source Collection SFX Pack",
+   "2019 / Eiravaein Works - Helina"
+  ]
+ },
+ "skill_H025_s1_cast.caf": {
+  "kind": "cast",
+  "note": "矢をつがえる弦と革のきしみ → ガラスの一打と風鈴（月光）+ 布の風 + 低いボウルの響き",
+  "seconds": 0.98,
+  "sources": [
+   "2016 / George Karagioules - The Source Collection SFX Pack",
+   "2017 / SoundBits - Unsettling Creaks and Squeaks – Extension I",
+   "2019 / Airborne Sound - Organic Whooshes",
+   "2019 / Eiravaein Works - Helina",
+   "2019 / Eiravaein Works - Nocked",
+   "2019 / Prismo Sound - Singing Bowls"
+  ]
+ },
+ "skill_H025_s2_cast.caf": {
+  "kind": "cast",
+  "note": "弓を引き絞る（弦・木・革）→ 弦の弾けと天へ抜ける矢 → 0.65 着弾（矢が地に刺さる・氷のひび・低い芯）→ 0.98 小さな矢が散る",
+  "seconds": 1.44,
+  "sources": [
+   "2016 / George Karagioules - The Source Collection SFX Pack",
+   "2017 / SoundBits - Unsettling Creaks and Squeaks",
+   "2018 / Soundrangers - Foley Elements Ice and Snow",
+   "2019 / 2496SoundEffects - Super Heroes Sound Design",
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / BlueZone - Wood Sound Effects",
+   "2019 / Eiravaein Works - Nocked",
+   "2020 / SmartSoundFX – Medieval",
+   "2026 / Epic Stock Media - Elemental Mutation Whooshes and Impacts"
+  ]
+ },
+ "skill_H025_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "矢が刺さる + 氷の檻のひび・砕け + 霜 + 低い芯",
+  "seconds": 0.45,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX",
+   "2017 / Articulated Sounds - Thin Ice",
+   "2018 / Soundrangers - Foley Elements Ice and Snow",
+   "2019 / Baxter Audio - IMPACT",
+   "2020 / SmartSoundFX – Medieval"
+  ]
+ },
+ "skill_H025_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "矢が刺さる + 氷の檻のひび・砕け + 霜 + 低い芯",
+  "seconds": 0.45,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX",
+   "2017 / Articulated Sounds - Thin Ice",
+   "2018 / Soundrangers - Foley Elements Ice and Snow",
+   "2019 / Baxter Audio - IMPACT",
+   "2020 / SmartSoundFX – Medieval"
+  ]
+ },
+ "skill_H025_s2_hit_3.caf": {
+  "kind": "hit",
+  "note": "矢が刺さる + 氷の檻のひび・砕け + 霜 + 低い芯",
+  "seconds": 0.45,
+  "sources": [
+   "2017 / Articulated Sounds - Thin Ice",
+   "2018 / Soundrangers - Foley Elements Ice and Snow",
+   "2019 / 3maze - IMPACTUS",
+   "2019 / Baxter Audio - IMPACT",
+   "2020 / SmartSoundFX – Medieval"
+  ]
+ },
+ "skill_H025_ult_cast.caf": {
+  "kind": "ult",
+  "note": "身を翻す布の風 → 三日月と光の柱（ボウル・ガラス・風鈴・ガラス片の流れ）→ 加速の風 + 低いボウルのうねり",
+  "seconds": 1.63,
+  "sources": [
+   "2016 / George Karagioules - The Source Collection SFX Pack",
+   "2019 / Airborne Sound - Organic Whooshes",
+   "2019 / Eiravaein Works - Helina",
+   "2019 / Prismo Sound - Singing Bowls",
+   "2024 / Rescopic Sound - Distinct Whooshes",
+   "2026 / Epic Stock Media - Elemental Mutation Whooshes and Impacts"
+  ]
+ }
+}
