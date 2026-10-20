@@ -36,20 +36,6 @@ MLBB の音は使っていない。素材の原本・素材集の形ではリポ
 | bgm_loading.m4a | 43.26 秒 | Intro Cue | ロード画面（試合開始へつなぐ） |
 | bgm_lobby.m4a | 57.60 秒 | Once Upon a Time (loop) | ロビー・パーティ・ヒーロー選択（通常） |
 | bgm_result.m4a | 74.32 秒 | At Home (orchestral) | 結果画面 |
-| sfx_ban.caf | 0.68 秒 | Music Jingles・Impact Sounds・Digital Audio | jingles_HIT13 + impactPunch_heavy_000（低く）+ lowDown（バン） |
-| sfx_countdown.caf | 0.12 秒 | Interface Sounds | tick_004 + bong_001 を重ねた（残り秒の秒読み） |
-| sfx_defeat.caf | 1.74 秒 | Music Jingles | jingles_HIT09（こもらせた）+ jingles_PIZZI01、残響（敗北） |
-| sfx_lock_in.caf | 0.56 秒 | Music Jingles・Impact Sounds・Interface Sounds | jingles_HIT07 + impactMetal_heavy_000 + confirmation_002（ピック確定） |
-| sfx_match_found.caf | 1.38 秒 | Music Jingles | jingles_HIT10 + jingles_PIZZI15、残響（マッチ成立） |
-| sfx_match_start.caf | 2.09 秒 | Music Jingles・Impact Sounds | jingles_HIT03 + impactPlate_heavy_000（低く）+ jingles_HIT15、残響（試合開始の合図） |
-| sfx_purchase.caf | 0.37 秒 | Casino Audio・Interface Sounds | chips-stack-1 + confirmation_003 を重ねた |
-| sfx_reward.caf | 1.10 秒 | Music Jingles・Interface Sounds | jingles_PIZZI10 + glass_001、残響 |
-| sfx_ui_back.caf | 0.07 秒 | Interface Sounds | back_002 |
-| sfx_ui_confirm.caf | 0.29 秒 | Interface Sounds | confirmation_001 |
-| sfx_ui_error.caf | 0.10 秒 | Interface Sounds | error_004 |
-| sfx_ui_tab.caf | 0.14 秒 | Interface Sounds | switch_002 |
-| sfx_ui_tap.caf | 0.04 秒 | Interface Sounds | select_002 |
-| sfx_victory.caf | 1.81 秒 | Music Jingles | jingles_HIT11 + jingles_PIZZI02、残響（勝利） |
 | skill_H026_s1_cast.caf | 1.14 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H026 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
 | skill_H026_s1_hit.caf | 0.80 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H026 s1 の命中 |
 | skill_H026_s2_cast.caf | 1.29 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H026 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
@@ -107,6 +93,7 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Percussion 01（GDC 2015） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
 | Gorification [HD]（GDC 2015） | Timothy McHugh | Sonniss GDC | https://gdc.sonniss.com/ |
 | High Impact（GDC 2016） | 3maze | Sonniss GDC | https://gdc.sonniss.com/ |
+| Impact Collection（GDC 2016） | Bottle Rocket Fx | Sonniss GDC | https://gdc.sonniss.com/ |
 | The Gun Locker SFX Pack（GDC 2016） | Fascinated Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 | GAFSFX01 - Dark Materials（GDC 2016） | Game Audio Factory | Sonniss GDC | https://gdc.sonniss.com/ |
 | The Source Collection SFX Pack（GDC 2016） | George Karagioules | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -114,6 +101,7 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Ice SFX（GDC 2016） | Stuart Duffield | Sonniss GDC | https://gdc.sonniss.com/ |
 | 12 Gauge Shotgun（GDC 2016） | TS Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 | Wooden Staffs and Sword Fight（GDC 2016） | The AudioVille | Sonniss GDC | https://gdc.sonniss.com/ |
+| Playing Cards & Betting Chips（GDC 2016） | Timothy McHugh | Sonniss GDC | https://gdc.sonniss.com/ |
 | Thin Ice（GDC 2017） | Articulated Sounds | Sonniss GDC | https://gdc.sonniss.com/ |
 | Medieval Armor and Impacts（GDC 2017） | Double Trouble Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Tanks and Jet（GDC 2017） | Double Trouble Audio | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -128,6 +116,7 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Unsettling Creaks and Squeaks（GDC 2017） | SoundBits | Sonniss GDC | https://gdc.sonniss.com/ |
 | Unsettling Creaks and Squeaks – Extension I（GDC 2017） | SoundBits | Sonniss GDC | https://gdc.sonniss.com/ |
 | Halloween 101（GDC 2017） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
+| Paperlife（GDC 2017） | The Soundcatcher | Sonniss GDC | https://gdc.sonniss.com/ |
 | The Dry Ice Library（GDC 2018） | Alexander Kopeikin | Sonniss GDC | https://gdc.sonniss.com/ |
 | COINAGE（GDC 2018） | Effectsworks | Sonniss GDC | https://gdc.sonniss.com/ |
 | Magic and Spell Sounds（GDC 2018） | Gamemaster Audio | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -163,6 +152,7 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Gore（GDC 2019） | Sound Spark LLC | Sonniss GDC | https://gdc.sonniss.com/ |
 | Magic Spells, Buffs and Attacks（GDC 2019） | Sound Spark LLC | Sonniss GDC | https://gdc.sonniss.com/ |
 | Metal Hits, Scrapes and Squeaks（GDC 2019） | Sound Spark LLC | Sonniss GDC | https://gdc.sonniss.com/ |
+| Antiques（GDC 2019） | SoundBits | Sonniss GDC | https://gdc.sonniss.com/ |
 | Trailer Instruments Designed（GDC 2020） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Magic Elements vol.2（GDC 2020） | Articulated Sounds | Sonniss GDC | https://gdc.sonniss.com/ |
 | Splash（GDC 2020） | Bluezone | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -193,6 +183,7 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Cinematic Transitions for Editors Volume 2（GDC 2024） | Orbital Emitter | Sonniss GDC | https://gdc.sonniss.com/ |
 | The Metal Hit Sweeteners Library（GDC 2024） | Pole Position | Sonniss GDC | https://gdc.sonniss.com/ |
 | Distinct Whooshes（GDC 2024） | Rescopic Sound | Sonniss GDC | https://gdc.sonniss.com/ |
+| Antique Typewriter（GDC 2026） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Cinematic Fight Vol. 1（GDC 2026） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Elemental Palette Designed Vol. 1（GDC 2026） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Historical Weapons Vol. 2（GDC 2026） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -210,10 +201,13 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | sfx_attack_melee_2.caf | 0.44 秒 | Gamemaster Audio - Punch and Combat Sounds・David Dumais Audio - Melee Weapons Sound Effects Pack 1 | 汎用の近接攻撃: 刃の風切り → 斬り |
 | sfx_attack_ranged_1.caf | 0.28 秒 | Eiravaein Works - Nocked・SoundFxwizard - PARTICLES An Organic & Granular Journey | 汎用の遠隔攻撃: 弦の鳴り → 矢の風切り |
 | sfx_attack_ranged_2.caf | 0.29 秒 | Eiravaein Works - Nocked・SoundFxwizard - PARTICLES An Organic & Granular Journey | 汎用の遠隔攻撃: 弦の鳴り → 矢の風切り |
+| sfx_ban.caf | 0.90 秒 | Bottle Rocket Fx - Impact Collection・Game Audio Factory - GAFSFX01 - Dark Materials | バン: 重い打撃 + 太鼓の低音 |
+| sfx_countdown.caf | 0.12 秒 | The AudioVille - Wooden Staffs and Sword Fight | 秒読み: 木の短い打音 |
 | sfx_crit_1.caf | 0.54 秒 | Soundopolis - Blades・Baxter Audio - IMPACT | 汎用の会心: 刃の鋭い鳴り + 低い芯 |
 | sfx_crit_2.caf | 0.56 秒 | Soundopolis - Blades・Baxter Audio - IMPACT | 汎用の会心: 刃の鋭い鳴り + 低い芯 |
 | sfx_crystal_fade.caf | 1.79 秒 | Raconteur Sound - Crystal Glasses- Tones and Drones_・Mechanical Wave - Glass | 結晶の消失: 水晶のグラスの鳴り + ガラスの逆再生 |
 | sfx_death.caf | 1.42 秒 | Federico Soler Fernández - Effective Trailer Booms・Red Libraries - Bodyfall・Jake Fielding - Haunted Metal Vol.1 - Cinematic Hits & Impacts | 死亡: 体が倒れる音 + 低いブーム + 暗い金属の尾 |
+| sfx_defeat.caf | 2.86 秒 | Soundopolis - Percussion 01・Jake Fielding - Cinematic Horn Braams | 敗北: 低い角笛のブラーム + 低いティンパニ |
 | sfx_gold_1.caf | 0.16 秒 | Effectsworks - COINAGE | ゴールド: 硬貨の鳴り |
 | sfx_gold_2.caf | 0.12 秒 | Effectsworks - COINAGE | ゴールド: 硬貨の鳴り |
 | sfx_gold_3.caf | 0.29 秒 | Hzandbits - Money | ゴールド: 硬貨の鳴り |
@@ -223,10 +217,15 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | sfx_hit_3.caf | 0.33 秒 | Timothy McHugh - Gorification [HD]・Gamemaster Audio -  Punch Sound Pack | 汎用の命中: 体への衝撃 |
 | sfx_kill.caf | 0.85 秒 | Soundopolis - Blades・Federico Soler Fernández - Effective Trailer Hits & Impacts・Rock The Speakerbox - Hero | キル: 刃の鋭い鳴り + 一撃 + 抜き身の刃 |
 | sfx_level_up.caf | 1.19 秒 | The Chris Alan - Musical Oddities - Bells, Whistles, Horns, Percussion and More・Prismo Sound - Singing Bowls | レベルアップ: ベルツリー + 鉢 |
+| sfx_lock_in.caf | 0.58 秒 | Soundopolis - Blades・Sound Spark LLC – Metal Hits, Scrapes and Squeaks | ピックの確定: 金属の留め金 + 刃の鳴り |
+| sfx_match_found.caf | 1.33 秒 | Soundopolis - Percussion 01・Prismo Sound - Singing Bowls | マッチ成立: 鉢の一打 + 卓上ベル |
+| sfx_match_start.caf | 2.19 秒 | Soundopolis - Percussion 01・Eiravaein Works - 48Kilos・Jake Fielding - Cinematic Horn Braams | 試合開始: 銅鑼 + ティンパニ + 角笛 |
 | sfx_multi_kill.caf | 1.64 秒 | Soundopolis - Blades・Federico Soler Fernández - Effective Trailer Hits & Impacts・Orbital Emitter - Cinematic Transitions for Editors Volume 2 | 連続キル: 銅鑼 + 重い一撃 + 刃の鳴り |
 | sfx_objective.caf | 2.19 秒 | Eiravaein Works - 48Kilos・Jake Fielding - Cinematic Horn Braams | 目標: 角笛のブラーム + 銅鑼 |
+| sfx_purchase.caf | 0.72 秒 | Effectsworks - COINAGE・SoundBits - Antiques | 購入: 硬貨が革袋に落ちる + 古いレジ |
 | sfx_recall.caf | 1.57 秒 | Airborne Sound - Airy Whooshes・Eiravaein Works - Helina | リコール: 柔らかい風 + 風鈴 |
 | sfx_respawn.caf | 1.50 秒 | Airborne Sound - Airy Whooshes・Prismo Sound - Singing Bowls | 復活: 鉢の一打 + 風 |
+| sfx_reward.caf | 0.86 秒 | Effectsworks - COINAGE・Eiravaein Works - Helina | 報酬: 硬貨の鳴り + 磁器の風鈴 |
 | sfx_shield.caf | 0.56 秒 | Justsoundeffects - Melee Weapons・344 Audio - Historical Weapons Vol. 2 | シールド: 盾の受けの金属 + 盾の響き |
 | sfx_skill_cast.caf | 0.71 秒 | Articulated Sounds - Magic Elements vol.1・Federico Soler Fernández - Effective Trailer Hits & Impacts | 汎用のスキル: 渦の風 → 衝撃 |
 | sfx_tower_collapse.caf | 2.76 秒 | Federico Soler Fernández - Effective Trailer Booms・BluezoneCorp - Building Collapse | 塔の倒壊: 石の崩落 + 低いブーム |
@@ -235,7 +234,13 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | sfx_tower_impact.caf | 1.41 秒 | 344 Audio - Low Frequency Elements・Articulated Sounds - Magic Elements vol.1 | 塔の着地: 地面への重い衝撃 + 低音 |
 | sfx_tower_lock.caf | 0.62 秒 | Sound Spark LLC – Metal Hits, Scrapes and Squeaks・Pole Position - The Metal Hit Sweeteners Library | 塔のロック: 重い鉄の打撃 + ボルトの音 |
 | sfx_tower_rise.caf | 1.99 秒 | BluezoneCorp - Building Collapse・BluezoneCorp - Alien Tripod | 塔の立ち上がり: 地鳴り + 石の擦れ |
+| sfx_ui_back.caf | 0.27 秒 | The Soundcatcher - Paperlife | 戻る: 羊皮紙をめくる音 |
+| sfx_ui_confirm.caf | 0.37 秒 | Soundopolis - Percussion 01・344 Audio - Antique Typewriter | 決定: 鍵の打鍵 + 卓上ベルの鳴り |
+| sfx_ui_error.caf | 0.33 秒 | The AudioVille - Wooden Staffs and Sword Fight | 失敗: 木の鈍い打音を 2 つ |
+| sfx_ui_tab.caf | 0.21 秒 | Timothy McHugh - Playing Cards & Betting Chips | タブ: カードをフェルトに置く音 |
+| sfx_ui_tap.caf | 0.10 秒 | 344 Audio - Antique Typewriter | タップ: タイプライターの鍵の軽い打鍵 |
 | sfx_ultimate_cast.caf | 1.35 秒 | Federico Soler Fernández - Effective Trailer Hits & Impacts・Federico Soler Fernández - Effective Trailer Whooshes・Jake Fielding - Haunted Metal Vol.1 - Cinematic Hits & Impacts | 汎用の奥義: 大きな溜めの風 → 重い一撃 + 金属の低音 |
+| sfx_victory.caf | 2.58 秒 | Soundopolis - Percussion 01・The Chris Alan - Musical Oddities - Bells, Whistles, Horns, Percussion and More・Orbital Emitter - Cinematic Transitions for Editors Volume 2 | 勝利: ティンパニ + 銅鑼 + ベルツリー |
 | skill_H025_passive.caf | 0.43 秒 | RDGSFX009 - Twisted Zither・George Karagioules - The Source Collection SFX Pack・Eiravaein Works - Helina | 弓の先の閃き（弦の小さな鳴り + ガラスの一打 + 風鈴） |
 | skill_H025_s1_cast.caf | 0.98 秒 | George Karagioules - The Source Collection SFX Pack・SoundBits - Unsettling Creaks and Squeaks – Extension I・Airborne Sound - Organic Whooshes・Eiravaein Works - Helina・Eiravaein Works - Nocked・Prismo Sound - Singing Bowls | 矢をつがえる弦と革のきしみ → ガラスの一打と風鈴（月光）+ 布の風 + 低いボウルの響き |
 | skill_H025_s2_cast.caf | 1.44 秒 | George Karagioules - The Source Collection SFX Pack・SoundBits - Unsettling Creaks and Squeaks・Soundrangers - Foley Elements Ice and Snow・2496SoundEffects - Super Heroes Sound Design・Baxter Audio - IMPACT・BlueZone - Wood Sound Effects・Eiravaein Works - Nocked・SmartSoundFX – Medieval・Epic Stock Media - Elemental Mutation Whooshes and Impacts | 弓を引き絞る（弦・木・革）→ 弦の弾けと天へ抜ける矢 → 0.65 着弾（矢が地に刺さる・氷のひび・低い芯）→ 0.98 小さな矢が散る |

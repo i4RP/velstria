@@ -372,9 +372,11 @@ def write_credits(packs):
 
 
 if __name__ == "__main__":
-    parts = sys.argv[1:] or ["ui", "music", "skills"]
+    # 画面の音（ui）とスキルの音（skills）は 2026-10-20 から録音の音（make_sounds.py の sets/ui.py・heroes/）に置き換えた。
+    # ここで作り直すと録音の音を上書きするので、既定は BGM だけ。ui は明示しても作らない
+    parts = sys.argv[1:] or ["music"]
     if "ui" in parts:
-        build_ui()
+        print("ui: 画面の音は tools/audio/make_sounds.py ui（sets/ui.py）で作る。build_audio.py では作らない")
     if "music" in parts:
         build_music()
     if "skills" in parts:

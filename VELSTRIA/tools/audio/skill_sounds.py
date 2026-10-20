@@ -8,6 +8,7 @@
 時刻（秒）は FX_H0xx.swift と docs/vfx/H0xx.md の表から。MLBB の音は使わない（画面収録の時刻だけ参照）。
 """
 
+import os
 import zlib
 
 B = None
@@ -211,7 +212,11 @@ def build(module):
     global B
     B = module
     print("skills")
+    done = {f[:4].upper() for f in os.listdir(os.path.join(os.path.dirname(__file__), "heroes")) if f.startswith("h0")}
     for (h, slot, stage, phase), (layers, rev, mix) in sorted(spec().items()):
+        # 録音の音（heroes/h0xx.py）で作り直したヒーローは v1 で上書きしない
+        if h in done:
+            continue
         x = B.mix(layers)
         if rev > 0:
             x = B.reverb(x, rev, mix, seed=zlib.crc32(f"{h}{slot}{stage}{phase}".encode()) % 1000)
