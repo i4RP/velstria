@@ -53,7 +53,7 @@ enum CreditsCatalog {
         ("At Home (orchestral)", "Wolfgang_", "https://opengameart.org/content/at-home-orchestral"),
     ]
 
-    /// ヒーロー固有の音（tools/audio/skill_sounds_v2.py）に使った Sonniss GDC Game Audio Bundle の素材集（題名（年）・作者）。
+    /// 録音の音（tools/audio/make_sounds.py）に使った Sonniss GDC Game Audio Bundle の配布の頁。
     /// ロイヤリティフリー・商用可・帰属表示は不要（https://sonniss.com/gdc-bundle-license/）。加工した完成品だけを入れる。
     /// 素材集の一覧 `sonniss` は AudioCredits.swift（tools/audio/build_audio.py が SOURCES.md と一緒に書く）。
     static let sonnissPage = "https://gdc.sonniss.com/"

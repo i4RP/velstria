@@ -42,7 +42,9 @@ def index_rows():
 
 def fetch(year, name):
     """写しの 1 ファイルを置き場所へ落とす（あれば何もしない）。戻り値はパス。"""
-    dst = os.path.join(ROOT, year, *name.split("/"))
+    # Windows で使えない文字（写しの名前にタブ・コロンなどが混ざる）は手元のパスだけ置き換える（URL は元の名前）
+    parts = [re.sub(r'[	:*?"<>|]', "_", c).rstrip(" .") for c in name.split("/")]
+    dst = os.path.join(ROOT, year, *parts)
     if not os.path.exists(dst):
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         url = f"https://archive.org/download/{item(year)}/" + urllib.parse.quote(name)

@@ -1,0 +1,1420 @@
+{
+ "wpn_bow_atk_1.caf": {
+  "kind": "atk",
+  "note": "弓: 弦の鳴り → 矢の風切り",
+  "seconds": 0.45,
+  "sources": [
+   "2019 / 2496SoundEffects - Super Heroes Sound Design",
+   "2019 / Eiravaein Works - Nocked",
+   "2020 / SoundFxwizard - PARTICLES An Organic & Granular Journey"
+  ]
+ },
+ "wpn_bow_atk_2.caf": {
+  "kind": "atk",
+  "note": "弓: 弦の鳴り → 矢の風切り",
+  "seconds": 0.44,
+  "sources": [
+   "2019 / 2496SoundEffects - Super Heroes Sound Design",
+   "2019 / Eiravaein Works - Nocked",
+   "2020 / SoundFxwizard - PARTICLES An Organic & Granular Journey"
+  ]
+ },
+ "wpn_bow_atk_3.caf": {
+  "kind": "atk",
+  "note": "弓: 弦の鳴り → 矢の風切り",
+  "seconds": 0.43,
+  "sources": [
+   "2019 / 2496SoundEffects - Super Heroes Sound Design",
+   "2019 / Eiravaein Works - Nocked",
+   "2020 / SoundFxwizard - PARTICLES An Organic & Granular Journey"
+  ]
+ },
+ "wpn_bow_atk_4.caf": {
+  "kind": "atk",
+  "note": "弓: 弦の鳴り → 矢の風切り",
+  "seconds": 0.44,
+  "sources": [
+   "2019 / 2496SoundEffects - Super Heroes Sound Design",
+   "2019 / Eiravaein Works - Nocked",
+   "2020 / SoundFxwizard - PARTICLES An Organic & Granular Journey"
+  ]
+ },
+ "wpn_bow_crit_1.caf": {
+  "kind": "crit",
+  "note": "弓の会心: 深い刺さり + 鏃の鳴り",
+  "seconds": 0.5,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2020 / SmartSoundFX – Medieval"
+  ]
+ },
+ "wpn_bow_crit_2.caf": {
+  "kind": "crit",
+  "note": "弓の会心: 深い刺さり + 鏃の鳴り",
+  "seconds": 0.53,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2020 / SmartSoundFX – Medieval"
+  ]
+ },
+ "wpn_bow_hit_1.caf": {
+  "kind": "atkhit",
+  "note": "弓の命中: 矢の刺さり + 肉の鈍い音",
+  "seconds": 0.38,
+  "sources": [
+   "2016 / SoundBits -  Just Gore _ Add On",
+   "2020 / SmartSoundFX – Medieval"
+  ]
+ },
+ "wpn_bow_hit_2.caf": {
+  "kind": "atkhit",
+  "note": "弓の命中: 矢の刺さり + 肉の鈍い音",
+  "seconds": 0.39,
+  "sources": [
+   "2016 / SoundBits -  Just Gore _ Add On",
+   "2020 / SmartSoundFX – Medieval"
+  ]
+ },
+ "wpn_bow_hit_3.caf": {
+  "kind": "atkhit",
+  "note": "弓の命中: 矢の刺さり + 肉の鈍い音",
+  "seconds": 0.36,
+  "sources": [
+   "2016 / SoundBits -  Just Gore _ Add On",
+   "2020 / SmartSoundFX – Medieval"
+  ]
+ },
+ "wpn_cannon_atk_1.caf": {
+  "kind": "atk",
+  "note": "砲: 砲の発射と残響 + 電気の弾け（星の砲）",
+  "seconds": 0.45,
+  "sources": [
+   "2016 / Fascinated Sound - The Gun Locker SFX Pack",
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2020 / Bluezone - Tank - Explosion Sound Effects"
+  ]
+ },
+ "wpn_cannon_atk_2.caf": {
+  "kind": "atk",
+  "note": "砲: 砲の発射と残響 + 電気の弾け（星の砲）",
+  "seconds": 0.45,
+  "sources": [
+   "2016 / Fascinated Sound - The Gun Locker SFX Pack",
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2020 / Bluezone - Tank - Explosion Sound Effects"
+  ]
+ },
+ "wpn_cannon_atk_3.caf": {
+  "kind": "atk",
+  "note": "砲: 砲の発射と残響 + 電気の弾け（星の砲）",
+  "seconds": 0.45,
+  "sources": [
+   "2016 / Fascinated Sound - The Gun Locker SFX Pack",
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2020 / Bluezone - Tank - Explosion Sound Effects"
+  ]
+ },
+ "wpn_cannon_atk_4.caf": {
+  "kind": "atk",
+  "note": "砲: 砲の発射と残響 + 電気の弾け（星の砲）",
+  "seconds": 0.45,
+  "sources": [
+   "2016 / Fascinated Sound - The Gun Locker SFX Pack",
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2020 / Bluezone - Tank - Explosion Sound Effects"
+  ]
+ },
+ "wpn_cannon_crit_1.caf": {
+  "kind": "crit",
+  "note": "砲の会心: 大きな着弾 + 低音 + 放電",
+  "seconds": 0.6,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2019 / 344 Audio - Low Frequency Elements",
+   "2023 / Gladestock Studios - Naval Warfare"
+  ]
+ },
+ "wpn_cannon_crit_2.caf": {
+  "kind": "crit",
+  "note": "砲の会心: 大きな着弾 + 低音 + 放電",
+  "seconds": 0.6,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2019 / 344 Audio - Low Frequency Elements",
+   "2023 / Gladestock Studios - Naval Warfare"
+  ]
+ },
+ "wpn_cannon_hit_1.caf": {
+  "kind": "atkhit",
+  "note": "砲の命中: 砲弾の着弾 + 電気の弾け",
+  "seconds": 0.4,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2023 / Gladestock Studios - Naval Warfare"
+  ]
+ },
+ "wpn_cannon_hit_2.caf": {
+  "kind": "atkhit",
+  "note": "砲の命中: 砲弾の着弾 + 電気の弾け",
+  "seconds": 0.4,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2023 / Gladestock Studios - Naval Warfare"
+  ]
+ },
+ "wpn_cannon_hit_3.caf": {
+  "kind": "atkhit",
+  "note": "砲の命中: 砲弾の着弾 + 電気の弾け",
+  "seconds": 0.39,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2023 / Gladestock Studios - Naval Warfare"
+  ]
+ },
+ "wpn_chain_atk_1.caf": {
+  "kind": "atk",
+  "note": "鎖鉤: 鎖の風切り → 鉤の打撃 → 鎖の鳴り",
+  "seconds": 0.37,
+  "sources": [
+   "2019 / Rock The Speakerbox - Melee",
+   "2020 / Conor Bradley - Metal Chains",
+   "2024 / Justsoundeffects - Melee Weapons"
+  ]
+ },
+ "wpn_chain_atk_2.caf": {
+  "kind": "atk",
+  "note": "鎖鉤: 鎖の風切り → 鉤の打撃 → 鎖の鳴り",
+  "seconds": 0.38,
+  "sources": [
+   "2019 / Rock The Speakerbox - Melee",
+   "2020 / Conor Bradley - Metal Chains",
+   "2024 / Justsoundeffects - Melee Weapons"
+  ]
+ },
+ "wpn_chain_atk_3.caf": {
+  "kind": "atk",
+  "note": "鎖鉤: 鎖の風切り → 鉤の打撃 → 鎖の鳴り",
+  "seconds": 0.37,
+  "sources": [
+   "2019 / Rock The Speakerbox - Melee",
+   "2020 / Conor Bradley - Metal Chains",
+   "2024 / Justsoundeffects - Melee Weapons"
+  ]
+ },
+ "wpn_chain_atk_4.caf": {
+  "kind": "atk",
+  "note": "鎖鉤: 鎖の風切り → 鉤の打撃 → 鎖の鳴り",
+  "seconds": 0.38,
+  "sources": [
+   "2019 / Rock The Speakerbox - Melee",
+   "2020 / Conor Bradley - Metal Chains",
+   "2024 / Justsoundeffects - Melee Weapons"
+  ]
+ },
+ "wpn_chain_crit_1.caf": {
+  "kind": "crit",
+  "note": "鎖鉤の会心: 鎖の重い打撃 + 深い鉤",
+  "seconds": 0.5,
+  "sources": [
+   "2017 / SoundBits - The Blacksmith",
+   "2024 / Justsoundeffects - Melee Weapons"
+  ]
+ },
+ "wpn_chain_crit_2.caf": {
+  "kind": "crit",
+  "note": "鎖鉤の会心: 鎖の重い打撃 + 深い鉤",
+  "seconds": 0.53,
+  "sources": [
+   "2017 / SoundBits - The Blacksmith",
+   "2024 / Justsoundeffects - Melee Weapons"
+  ]
+ },
+ "wpn_chain_hit_1.caf": {
+  "kind": "atkhit",
+  "note": "鎖鉤の命中: 鎧に当たる鎖 + 体への衝撃",
+  "seconds": 0.29,
+  "sources": [
+   "2017 / Double Trouble Audio - Medieval Armor and Impacts",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "wpn_chain_hit_2.caf": {
+  "kind": "atkhit",
+  "note": "鎖鉤の命中: 鎧に当たる鎖 + 体への衝撃",
+  "seconds": 0.32,
+  "sources": [
+   "2017 / Double Trouble Audio - Medieval Armor and Impacts",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "wpn_chain_hit_3.caf": {
+  "kind": "atkhit",
+  "note": "鎖鉤の命中: 鎧に当たる鎖 + 体への衝撃",
+  "seconds": 0.28,
+  "sources": [
+   "2017 / Double Trouble Audio - Medieval Armor and Impacts",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "wpn_crossbow_atk_1.caf": {
+  "kind": "atk",
+  "note": "弩: 弦の弾け + 機構の金属音 → 矢の風切り",
+  "seconds": 0.22,
+  "sources": [
+   "2017 / Gamemaster Audio -  Gun Sound Pack",
+   "2019 / Eiravaein Works - Nocked",
+   "2020 / SoundFxwizard - PARTICLES An Organic & Granular Journey"
+  ]
+ },
+ "wpn_crossbow_atk_2.caf": {
+  "kind": "atk",
+  "note": "弩: 弦の弾け + 機構の金属音 → 矢の風切り",
+  "seconds": 0.23,
+  "sources": [
+   "2017 / Gamemaster Audio -  Gun Sound Pack",
+   "2019 / Eiravaein Works - Nocked",
+   "2020 / SoundFxwizard - PARTICLES An Organic & Granular Journey"
+  ]
+ },
+ "wpn_crossbow_atk_3.caf": {
+  "kind": "atk",
+  "note": "弩: 弦の弾け + 機構の金属音 → 矢の風切り",
+  "seconds": 0.21,
+  "sources": [
+   "2017 / Gamemaster Audio -  Gun Sound Pack",
+   "2019 / Eiravaein Works - Nocked",
+   "2020 / SoundFxwizard - PARTICLES An Organic & Granular Journey"
+  ]
+ },
+ "wpn_crossbow_atk_4.caf": {
+  "kind": "atk",
+  "note": "弩: 弦の弾け + 機構の金属音 → 矢の風切り",
+  "seconds": 0.22,
+  "sources": [
+   "2017 / Gamemaster Audio -  Gun Sound Pack",
+   "2019 / Eiravaein Works - Nocked",
+   "2020 / SoundFxwizard - PARTICLES An Organic & Granular Journey"
+  ]
+ },
+ "wpn_crossbow_crit_1.caf": {
+  "kind": "crit",
+  "note": "弩の会心: 深い刺さり + 鏃の鳴り",
+  "seconds": 0.41,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2016 / SoundBits -  Just Gore _ Add On",
+   "2020 / SmartSoundFX – Medieval"
+  ]
+ },
+ "wpn_crossbow_crit_2.caf": {
+  "kind": "crit",
+  "note": "弩の会心: 深い刺さり + 鏃の鳴り",
+  "seconds": 0.44,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2016 / SoundBits -  Just Gore _ Add On",
+   "2020 / SmartSoundFX – Medieval"
+  ]
+ },
+ "wpn_crossbow_hit_1.caf": {
+  "kind": "atkhit",
+  "note": "弩の命中: 太矢の刺さり + 金属の跳ね",
+  "seconds": 0.3,
+  "sources": [
+   "2015 / Mechanical Wave - Undoing-Computer",
+   "2020 / SmartSoundFX – Medieval"
+  ]
+ },
+ "wpn_crossbow_hit_2.caf": {
+  "kind": "atkhit",
+  "note": "弩の命中: 太矢の刺さり + 金属の跳ね",
+  "seconds": 0.32,
+  "sources": [
+   "2015 / Mechanical Wave - Undoing-Computer",
+   "2020 / SmartSoundFX – Medieval"
+  ]
+ },
+ "wpn_crossbow_hit_3.caf": {
+  "kind": "atkhit",
+  "note": "弩の命中: 太矢の刺さり + 金属の跳ね",
+  "seconds": 0.29,
+  "sources": [
+   "2015 / Mechanical Wave - Undoing-Computer",
+   "2020 / SmartSoundFX – Medieval"
+  ]
+ },
+ "wpn_dual_atk_1.caf": {
+  "kind": "atk",
+  "note": "双剣: 短い刃の風切り → 軽い斬り → 刃の鳴り",
+  "seconds": 0.22,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]"
+  ]
+ },
+ "wpn_dual_atk_2.caf": {
+  "kind": "atk",
+  "note": "双剣: 短い刃の風切り → 軽い斬り → 刃の鳴り",
+  "seconds": 0.23,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]"
+  ]
+ },
+ "wpn_dual_atk_3.caf": {
+  "kind": "atk",
+  "note": "双剣: 短い刃の風切り → 軽い斬り → 刃の鳴り",
+  "seconds": 0.22,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]"
+  ]
+ },
+ "wpn_dual_atk_4.caf": {
+  "kind": "atk",
+  "note": "双剣: 短い刃の風切り → 軽い斬り → 刃の鳴り",
+  "seconds": 0.23,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]"
+  ]
+ },
+ "wpn_dual_crit_1.caf": {
+  "kind": "crit",
+  "note": "双剣の会心: 二連の斬り + 深い刃 + 鳴り",
+  "seconds": 0.43,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]"
+  ]
+ },
+ "wpn_dual_crit_2.caf": {
+  "kind": "crit",
+  "note": "双剣の会心: 二連の斬り + 深い刃 + 鳴り",
+  "seconds": 0.45,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]"
+  ]
+ },
+ "wpn_dual_hit_1.caf": {
+  "kind": "atkhit",
+  "note": "双剣の命中: 刃が肉を裂く短い音",
+  "seconds": 0.18,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2020 / Shapeforms - Hit & Punch"
+  ]
+ },
+ "wpn_dual_hit_2.caf": {
+  "kind": "atkhit",
+  "note": "双剣の命中: 刃が肉を裂く短い音",
+  "seconds": 0.19,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2020 / Shapeforms - Hit & Punch"
+  ]
+ },
+ "wpn_dual_hit_3.caf": {
+  "kind": "atkhit",
+  "note": "双剣の命中: 刃が肉を裂く短い音",
+  "seconds": 0.17,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2020 / Shapeforms - Hit & Punch"
+  ]
+ },
+ "wpn_fist_atk_1.caf": {
+  "kind": "atk",
+  "note": "拳: 拳の風切り → 拳の打撃 → 体への衝撃（岩の拳の小さな擦れ）",
+  "seconds": 0.31,
+  "sources": [
+   "2015 / Mechanical Wave - Rock Brick and Dirt",
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2018 / The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions",
+   "2019 / Airborne Sound - Organic Whooshes"
+  ]
+ },
+ "wpn_fist_atk_2.caf": {
+  "kind": "atk",
+  "note": "拳: 拳の風切り → 拳の打撃 → 体への衝撃（岩の拳の小さな擦れ）",
+  "seconds": 0.32,
+  "sources": [
+   "2015 / Mechanical Wave - Rock Brick and Dirt",
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2018 / The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions",
+   "2019 / Airborne Sound - Organic Whooshes"
+  ]
+ },
+ "wpn_fist_atk_3.caf": {
+  "kind": "atk",
+  "note": "拳: 拳の風切り → 拳の打撃 → 体への衝撃（岩の拳の小さな擦れ）",
+  "seconds": 0.32,
+  "sources": [
+   "2015 / Mechanical Wave - Rock Brick and Dirt",
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2018 / The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions",
+   "2019 / Airborne Sound - Organic Whooshes"
+  ]
+ },
+ "wpn_fist_atk_4.caf": {
+  "kind": "atk",
+  "note": "拳: 拳の風切り → 拳の打撃 → 体への衝撃（岩の拳の小さな擦れ）",
+  "seconds": 0.32,
+  "sources": [
+   "2015 / Mechanical Wave - Rock Brick and Dirt",
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2018 / The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions",
+   "2019 / Airborne Sound - Organic Whooshes"
+  ]
+ },
+ "wpn_fist_crit_1.caf": {
+  "kind": "crit",
+  "note": "拳の会心: 重い打撃 + 骨の砕け",
+  "seconds": 0.42,
+  "sources": [
+   "2020 / SmartSoundFX - Impacts, Hits & Whooshes",
+   "2023 / 344 Audio - Flesh, Bones & Gore"
+  ]
+ },
+ "wpn_fist_crit_2.caf": {
+  "kind": "crit",
+  "note": "拳の会心: 重い打撃 + 骨の砕け",
+  "seconds": 0.45,
+  "sources": [
+   "2020 / SmartSoundFX - Impacts, Hits & Whooshes",
+   "2023 / 344 Audio - Flesh, Bones & Gore"
+  ]
+ },
+ "wpn_fist_hit_1.caf": {
+  "kind": "atkhit",
+  "note": "拳の命中: 体を打つ鈍い音",
+  "seconds": 0.19,
+  "sources": [
+   "2020 / Shapeforms - Hit & Punch"
+  ]
+ },
+ "wpn_fist_hit_2.caf": {
+  "kind": "atkhit",
+  "note": "拳の命中: 体を打つ鈍い音",
+  "seconds": 0.21,
+  "sources": [
+   "2020 / Shapeforms - Hit & Punch"
+  ]
+ },
+ "wpn_fist_hit_3.caf": {
+  "kind": "atkhit",
+  "note": "拳の命中: 体を打つ鈍い音",
+  "seconds": 0.32,
+  "sources": [
+   "2020 / PMSFX - Lethal Blow"
+  ]
+ },
+ "wpn_greatsword_atk_1.caf": {
+  "kind": "atk",
+  "note": "大剣: 重い刃の振り → 鈍い斬りの芯 → 低い芯",
+  "seconds": 0.44,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2024 / Justsoundeffects - Melee Weapons",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "wpn_greatsword_atk_2.caf": {
+  "kind": "atk",
+  "note": "大剣: 重い刃の振り → 鈍い斬りの芯 → 低い芯",
+  "seconds": 0.43,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2024 / Justsoundeffects - Melee Weapons",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "wpn_greatsword_atk_3.caf": {
+  "kind": "atk",
+  "note": "大剣: 重い刃の振り → 鈍い斬りの芯 → 低い芯",
+  "seconds": 0.43,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2024 / Justsoundeffects - Melee Weapons",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "wpn_greatsword_atk_4.caf": {
+  "kind": "atk",
+  "note": "大剣: 重い刃の振り → 鈍い斬りの芯 → 低い芯",
+  "seconds": 0.42,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2024 / Justsoundeffects - Melee Weapons",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "wpn_greatsword_crit_1.caf": {
+  "kind": "crit",
+  "note": "大剣の会心: 深い斬り + 低い刃の鳴り + 低音",
+  "seconds": 0.57,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2019 / 344 Audio - Low Frequency Elements",
+   "2024 / Justsoundeffects - Melee Weapons"
+  ]
+ },
+ "wpn_greatsword_crit_2.caf": {
+  "kind": "crit",
+  "note": "大剣の会心: 深い斬り + 低い刃の鳴り + 低音",
+  "seconds": 0.58,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2019 / 344 Audio - Low Frequency Elements",
+   "2024 / Justsoundeffects - Melee Weapons"
+  ]
+ },
+ "wpn_greatsword_hit_1.caf": {
+  "kind": "atkhit",
+  "note": "大剣の命中: 重い刃が肉に入る音 + 骨の砕け",
+  "seconds": 0.35,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2023 / 344 Audio - Flesh, Bones & Gore"
+  ]
+ },
+ "wpn_greatsword_hit_2.caf": {
+  "kind": "atkhit",
+  "note": "大剣の命中: 重い刃が肉に入る音 + 骨の砕け",
+  "seconds": 0.37,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2023 / 344 Audio - Flesh, Bones & Gore"
+  ]
+ },
+ "wpn_greatsword_hit_3.caf": {
+  "kind": "atkhit",
+  "note": "大剣の命中: 重い刃が肉に入る音 + 骨の砕け",
+  "seconds": 0.33,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2023 / 344 Audio - Flesh, Bones & Gore"
+  ]
+ },
+ "wpn_gun_atk_1.caf": {
+  "kind": "atk",
+  "note": "銃: 実銃の発射と残響（狙撃銃・回転式・散弾）",
+  "seconds": 0.45,
+  "sources": [
+   "2017 / Gamemaster Audio -  Gun Sound Pack"
+  ]
+ },
+ "wpn_gun_atk_2.caf": {
+  "kind": "atk",
+  "note": "銃: 実銃の発射と残響（狙撃銃・回転式・散弾）",
+  "seconds": 0.45,
+  "sources": [
+   "2017 / Gamemaster Audio -  Gun Sound Pack"
+  ]
+ },
+ "wpn_gun_atk_3.caf": {
+  "kind": "atk",
+  "note": "銃: 実銃の発射と残響（狙撃銃・回転式・散弾）",
+  "seconds": 0.45,
+  "sources": [
+   "2016 / TS Sound - 12 Gauge Shotgun",
+   "2017 / Gamemaster Audio -  Gun Sound Pack"
+  ]
+ },
+ "wpn_gun_atk_4.caf": {
+  "kind": "atk",
+  "note": "銃: 実銃の発射と残響（狙撃銃・回転式・散弾）",
+  "seconds": 0.45,
+  "sources": [
+   "2017 / Gamemaster Audio -  Gun Sound Pack"
+  ]
+ },
+ "wpn_gun_crit_1.caf": {
+  "kind": "crit",
+  "note": "銃の会心: 重い着弾 + 衝撃",
+  "seconds": 0.39,
+  "sources": [
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts",
+   "2020 / PMSFX - Bullet Bys &Impacts"
+  ]
+ },
+ "wpn_gun_crit_2.caf": {
+  "kind": "crit",
+  "note": "銃の会心: 重い着弾 + 衝撃",
+  "seconds": 0.41,
+  "sources": [
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts",
+   "2020 / PMSFX - Bullet Bys &Impacts"
+  ]
+ },
+ "wpn_gun_hit_1.caf": {
+  "kind": "atkhit",
+  "note": "銃の命中: 弾が肉に当たる音 + 金属の跳ね",
+  "seconds": 0.29,
+  "sources": [
+   "2015 / Mechanical Wave - Undoing-Computer",
+   "2020 / PMSFX - Bullet Bys &Impacts"
+  ]
+ },
+ "wpn_gun_hit_2.caf": {
+  "kind": "atkhit",
+  "note": "銃の命中: 弾が肉に当たる音 + 金属の跳ね",
+  "seconds": 0.32,
+  "sources": [
+   "2015 / Mechanical Wave - Undoing-Computer",
+   "2020 / PMSFX - Bullet Bys &Impacts"
+  ]
+ },
+ "wpn_gun_hit_3.caf": {
+  "kind": "atkhit",
+  "note": "銃の命中: 弾が肉に当たる音 + 金属の跳ね",
+  "seconds": 0.27,
+  "sources": [
+   "2015 / Mechanical Wave - Undoing-Computer",
+   "2020 / PMSFX - Bullet Bys &Impacts"
+  ]
+ },
+ "wpn_hammer_atk_1.caf": {
+  "kind": "atk",
+  "note": "鎚: 重い振り → 鈍い打撃（鉄・石）→ 低い芯",
+  "seconds": 0.44,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2024 / BluezoneCorp - Stone Impact",
+   "2024 / Pole Position - The Metal Hit Sweeteners Library",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "wpn_hammer_atk_2.caf": {
+  "kind": "atk",
+  "note": "鎚: 重い振り → 鈍い打撃（鉄・石）→ 低い芯",
+  "seconds": 0.44,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2024 / BluezoneCorp - Stone Impact",
+   "2024 / Pole Position - The Metal Hit Sweeteners Library",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "wpn_hammer_atk_3.caf": {
+  "kind": "atk",
+  "note": "鎚: 重い振り → 鈍い打撃（鉄・石）→ 低い芯",
+  "seconds": 0.44,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2024 / BluezoneCorp - Stone Impact",
+   "2024 / Pole Position - The Metal Hit Sweeteners Library",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "wpn_hammer_atk_4.caf": {
+  "kind": "atk",
+  "note": "鎚: 重い振り → 鈍い打撃（鉄・石）→ 低い芯",
+  "seconds": 0.45,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2024 / BluezoneCorp - Stone Impact",
+   "2024 / Pole Position - The Metal Hit Sweeteners Library",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "wpn_hammer_crit_1.caf": {
+  "kind": "crit",
+  "note": "鎚の会心: 巨大な打撃 + 重い一撃の残響",
+  "seconds": 0.55,
+  "sources": [
+   "2016 / Game Audio Factory - GAFSFX01 - Dark Materials",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts"
+  ]
+ },
+ "wpn_hammer_crit_2.caf": {
+  "kind": "crit",
+  "note": "鎚の会心: 巨大な打撃 + 重い一撃の残響",
+  "seconds": 0.59,
+  "sources": [
+   "2016 / Game Audio Factory - GAFSFX01 - Dark Materials",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts"
+  ]
+ },
+ "wpn_hammer_hit_1.caf": {
+  "kind": "atkhit",
+  "note": "鎚の命中: 体への重い衝撃 + 砕け",
+  "seconds": 0.33,
+  "sources": [
+   "2015 / Mechanical Wave - Rock Brick and Dirt",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "wpn_hammer_hit_2.caf": {
+  "kind": "atkhit",
+  "note": "鎚の命中: 体への重い衝撃 + 砕け",
+  "seconds": 0.32,
+  "sources": [
+   "2015 / Mechanical Wave - Rock Brick and Dirt",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "wpn_hammer_hit_3.caf": {
+  "kind": "atkhit",
+  "note": "鎚の命中: 体への重い衝撃 + 砕け",
+  "seconds": 0.36,
+  "sources": [
+   "2015 / Mechanical Wave - Rock Brick and Dirt",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "wpn_magic_dark_atk_1.caf": {
+  "kind": "atk",
+  "note": "闇の魔法: 暗い気の放ち + 低いうねりの風",
+  "seconds": 0.45,
+  "sources": [
+   "2018 / Gamemaster Audio - Magic and Spell Sounds",
+   "2023 / Rogue Waves - Druid Magic"
+  ]
+ },
+ "wpn_magic_dark_atk_2.caf": {
+  "kind": "atk",
+  "note": "闇の魔法: 暗い気の放ち + 低いうねりの風",
+  "seconds": 0.44,
+  "sources": [
+   "2018 / Gamemaster Audio - Magic and Spell Sounds",
+   "2023 / Rogue Waves - Druid Magic"
+  ]
+ },
+ "wpn_magic_dark_atk_3.caf": {
+  "kind": "atk",
+  "note": "闇の魔法: 暗い気の放ち + 低いうねりの風",
+  "seconds": 0.43,
+  "sources": [
+   "2018 / Gamemaster Audio - Magic and Spell Sounds",
+   "2023 / Rogue Waves - Druid Magic"
+  ]
+ },
+ "wpn_magic_dark_atk_4.caf": {
+  "kind": "atk",
+  "note": "闇の魔法: 暗い気の放ち + 低いうねりの風",
+  "seconds": 0.44,
+  "sources": [
+   "2018 / Gamemaster Audio - Magic and Spell Sounds",
+   "2023 / Rogue Waves - Druid Magic"
+  ]
+ },
+ "wpn_magic_dark_crit_1.caf": {
+  "kind": "crit",
+  "note": "闇の魔法の会心: 暗い金属の衝撃 + 低いうねり",
+  "seconds": 0.6,
+  "sources": [
+   "2019 / BlueZone - Cinematic Dark Sound Effects",
+   "2024 / Jake Fielding - Haunted Metal Vol.1 - Cinematic Hits & Impacts"
+  ]
+ },
+ "wpn_magic_dark_crit_2.caf": {
+  "kind": "crit",
+  "note": "闇の魔法の会心: 暗い金属の衝撃 + 低いうねり",
+  "seconds": 0.6,
+  "sources": [
+   "2019 / BlueZone - Cinematic Dark Sound Effects",
+   "2024 / Jake Fielding - Haunted Metal Vol.1 - Cinematic Hits & Impacts"
+  ]
+ },
+ "wpn_magic_dark_hit_1.caf": {
+  "kind": "atkhit",
+  "note": "闇の魔法の命中: 低く重い衝撃",
+  "seconds": 0.4,
+  "sources": [
+   "2016 / 3maze - High Impact",
+   "2020 / SmartSoundFX - Impacts, Hits & Whooshes"
+  ]
+ },
+ "wpn_magic_dark_hit_2.caf": {
+  "kind": "atkhit",
+  "note": "闇の魔法の命中: 低く重い衝撃",
+  "seconds": 0.4,
+  "sources": [
+   "2016 / 3maze - High Impact",
+   "2020 / SmartSoundFX - Impacts, Hits & Whooshes"
+  ]
+ },
+ "wpn_magic_dark_hit_3.caf": {
+  "kind": "atkhit",
+  "note": "闇の魔法の命中: 低く重い衝撃",
+  "seconds": 0.4,
+  "sources": [
+   "2016 / 3maze - High Impact",
+   "2020 / SmartSoundFX - Impacts, Hits & Whooshes"
+  ]
+ },
+ "wpn_magic_fire_atk_1.caf": {
+  "kind": "atk",
+  "note": "炎の魔法: 松明の炎の風切り + 炎の弾け",
+  "seconds": 0.38,
+  "sources": [
+   "2018 / Soundrangers - Whooshes And Transitions",
+   "2019 / Sound Spark LLC – Magic Spells, Buffs and Attacks"
+  ]
+ },
+ "wpn_magic_fire_atk_2.caf": {
+  "kind": "atk",
+  "note": "炎の魔法: 松明の炎の風切り + 炎の弾け",
+  "seconds": 0.4,
+  "sources": [
+   "2018 / Soundrangers - Whooshes And Transitions",
+   "2019 / Sound Spark LLC – Magic Spells, Buffs and Attacks"
+  ]
+ },
+ "wpn_magic_fire_atk_3.caf": {
+  "kind": "atk",
+  "note": "炎の魔法: 松明の炎の風切り + 炎の弾け",
+  "seconds": 0.37,
+  "sources": [
+   "2018 / Soundrangers - Whooshes And Transitions",
+   "2019 / Sound Spark LLC – Magic Spells, Buffs and Attacks"
+  ]
+ },
+ "wpn_magic_fire_atk_4.caf": {
+  "kind": "atk",
+  "note": "炎の魔法: 松明の炎の風切り + 炎の弾け",
+  "seconds": 0.39,
+  "sources": [
+   "2018 / Soundrangers - Whooshes And Transitions",
+   "2019 / Sound Spark LLC – Magic Spells, Buffs and Attacks"
+  ]
+ },
+ "wpn_magic_fire_crit_1.caf": {
+  "kind": "crit",
+  "note": "炎の魔法の会心: 大きな火の弾け + 低音",
+  "seconds": 0.6,
+  "sources": [
+   "2018 / Gregor Quendel – Designed Fire",
+   "2019 / 344 Audio - Low Frequency Elements"
+  ]
+ },
+ "wpn_magic_fire_crit_2.caf": {
+  "kind": "crit",
+  "note": "炎の魔法の会心: 大きな火の弾け + 低音",
+  "seconds": 0.6,
+  "sources": [
+   "2018 / Gregor Quendel – Designed Fire",
+   "2019 / 344 Audio - Low Frequency Elements"
+  ]
+ },
+ "wpn_magic_fire_hit_1.caf": {
+  "kind": "atkhit",
+  "note": "炎の魔法の命中: 火の着火の弾け",
+  "seconds": 0.4,
+  "sources": [
+   "2015 / Membrans - Firecrackers Sound Pack 01",
+   "2018 / Gregor Quendel – Designed Fire"
+  ]
+ },
+ "wpn_magic_fire_hit_2.caf": {
+  "kind": "atkhit",
+  "note": "炎の魔法の命中: 火の着火の弾け",
+  "seconds": 0.4,
+  "sources": [
+   "2015 / Membrans - Firecrackers Sound Pack 01",
+   "2018 / Gregor Quendel – Designed Fire"
+  ]
+ },
+ "wpn_magic_fire_hit_3.caf": {
+  "kind": "atkhit",
+  "note": "炎の魔法の命中: 火の着火の弾け",
+  "seconds": 0.4,
+  "sources": [
+   "2015 / Membrans - Firecrackers Sound Pack 01",
+   "2018 / Gregor Quendel – Designed Fire"
+  ]
+ },
+ "wpn_magic_ice_atk_1.caf": {
+  "kind": "atk",
+  "note": "氷の魔法: 氷の澄んだ打音 + 冷気の擦れ",
+  "seconds": 0.3,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX",
+   "2018 / Alexander Kopeikin - The Dry Ice Library"
+  ]
+ },
+ "wpn_magic_ice_atk_2.caf": {
+  "kind": "atk",
+  "note": "氷の魔法: 氷の澄んだ打音 + 冷気の擦れ",
+  "seconds": 0.31,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX",
+   "2018 / Alexander Kopeikin - The Dry Ice Library"
+  ]
+ },
+ "wpn_magic_ice_atk_3.caf": {
+  "kind": "atk",
+  "note": "氷の魔法: 氷の澄んだ打音 + 冷気の擦れ",
+  "seconds": 0.29,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX",
+   "2018 / Alexander Kopeikin - The Dry Ice Library"
+  ]
+ },
+ "wpn_magic_ice_atk_4.caf": {
+  "kind": "atk",
+  "note": "氷の魔法: 氷の澄んだ打音 + 冷気の擦れ",
+  "seconds": 0.29,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX",
+   "2018 / Alexander Kopeikin - The Dry Ice Library"
+  ]
+ },
+ "wpn_magic_ice_crit_1.caf": {
+  "kind": "crit",
+  "note": "氷の魔法の会心: 大きな氷の割れと砕け",
+  "seconds": 0.6,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX",
+   "2017 / Mattia Cellotto - Glacier Ice"
+  ]
+ },
+ "wpn_magic_ice_crit_2.caf": {
+  "kind": "crit",
+  "note": "氷の魔法の会心: 大きな氷の割れと砕け",
+  "seconds": 0.6,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX",
+   "2017 / Mattia Cellotto - Glacier Ice"
+  ]
+ },
+ "wpn_magic_ice_hit_1.caf": {
+  "kind": "atkhit",
+  "note": "氷の魔法の命中: 氷が砕ける音",
+  "seconds": 0.4,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX"
+  ]
+ },
+ "wpn_magic_ice_hit_2.caf": {
+  "kind": "atkhit",
+  "note": "氷の魔法の命中: 氷が砕ける音",
+  "seconds": 0.38,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX"
+  ]
+ },
+ "wpn_magic_ice_hit_3.caf": {
+  "kind": "atkhit",
+  "note": "氷の魔法の命中: 氷が砕ける音",
+  "seconds": 0.38,
+  "sources": [
+   "2017 / Mindful Audio - Elements - Ice"
+  ]
+ },
+ "wpn_magic_light_atk_1.caf": {
+  "kind": "atk",
+  "note": "聖の魔法: 鐘の澄んだ鳴り + 柔らかい風切り",
+  "seconds": 0.44,
+  "sources": [
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2019 / Airborne Sound - Crisis Accents"
+  ]
+ },
+ "wpn_magic_light_atk_2.caf": {
+  "kind": "atk",
+  "note": "聖の魔法: 鐘の澄んだ鳴り + 柔らかい風切り",
+  "seconds": 0.45,
+  "sources": [
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2019 / Airborne Sound - Crisis Accents"
+  ]
+ },
+ "wpn_magic_light_atk_3.caf": {
+  "kind": "atk",
+  "note": "聖の魔法: 鐘の澄んだ鳴り + 柔らかい風切り",
+  "seconds": 0.44,
+  "sources": [
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2019 / Airborne Sound - Crisis Accents"
+  ]
+ },
+ "wpn_magic_light_atk_4.caf": {
+  "kind": "atk",
+  "note": "聖の魔法: 鐘の澄んだ鳴り + 柔らかい風切り",
+  "seconds": 0.45,
+  "sources": [
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2019 / Airborne Sound - Crisis Accents"
+  ]
+ },
+ "wpn_magic_light_crit_1.caf": {
+  "kind": "crit",
+  "note": "聖の魔法の会心: 銅鑼の一撃 + 重い衝撃",
+  "seconds": 0.6,
+  "sources": [
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts",
+   "2024 / Orbital Emitter - Cinematic Transitions for Editors Volume 2"
+  ]
+ },
+ "wpn_magic_light_crit_2.caf": {
+  "kind": "crit",
+  "note": "聖の魔法の会心: 銅鑼の一撃 + 重い衝撃",
+  "seconds": 0.6,
+  "sources": [
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts",
+   "2024 / Orbital Emitter - Cinematic Transitions for Editors Volume 2"
+  ]
+ },
+ "wpn_magic_light_hit_1.caf": {
+  "kind": "atkhit",
+  "note": "聖の魔法の命中: 鐘の打音 + 鈍い衝撃",
+  "seconds": 0.4,
+  "sources": [
+   "2015 / Soundopolis - Percussion 01",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "wpn_magic_light_hit_2.caf": {
+  "kind": "atkhit",
+  "note": "聖の魔法の命中: 鐘の打音 + 鈍い衝撃",
+  "seconds": 0.4,
+  "sources": [
+   "2015 / Soundopolis - Percussion 01",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "wpn_magic_light_hit_3.caf": {
+  "kind": "atkhit",
+  "note": "聖の魔法の命中: 鐘の打音 + 鈍い衝撃",
+  "seconds": 0.4,
+  "sources": [
+   "2015 / Soundopolis - Percussion 01",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "wpn_magic_lightning_atk_1.caf": {
+  "kind": "atk",
+  "note": "雷の魔法: 放電の弾け + 火花",
+  "seconds": 0.29,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2023 / Rogue Waves - Druid Magic"
+  ]
+ },
+ "wpn_magic_lightning_atk_2.caf": {
+  "kind": "atk",
+  "note": "雷の魔法: 放電の弾け + 火花",
+  "seconds": 0.31,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2023 / Rogue Waves - Druid Magic"
+  ]
+ },
+ "wpn_magic_lightning_atk_3.caf": {
+  "kind": "atk",
+  "note": "雷の魔法: 放電の弾け + 火花",
+  "seconds": 0.29,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2023 / Rogue Waves - Druid Magic"
+  ]
+ },
+ "wpn_magic_lightning_atk_4.caf": {
+  "kind": "atk",
+  "note": "雷の魔法: 放電の弾け + 火花",
+  "seconds": 0.31,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2023 / Rogue Waves - Druid Magic"
+  ]
+ },
+ "wpn_magic_lightning_crit_1.caf": {
+  "kind": "crit",
+  "note": "雷の魔法の会心: 本物の雷鳴の割れ + 放電",
+  "seconds": 0.6,
+  "sources": [
+   "2015 / Soundopolis - Natures Fury_Thunder",
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection"
+  ]
+ },
+ "wpn_magic_lightning_crit_2.caf": {
+  "kind": "crit",
+  "note": "雷の魔法の会心: 本物の雷鳴の割れ + 放電",
+  "seconds": 0.6,
+  "sources": [
+   "2015 / Soundopolis - Natures Fury_Thunder",
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection"
+  ]
+ },
+ "wpn_magic_lightning_hit_1.caf": {
+  "kind": "atkhit",
+  "note": "雷の魔法の命中: 高電圧の放電",
+  "seconds": 0.3,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection"
+  ]
+ },
+ "wpn_magic_lightning_hit_2.caf": {
+  "kind": "atkhit",
+  "note": "雷の魔法の命中: 高電圧の放電",
+  "seconds": 0.32,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection"
+  ]
+ },
+ "wpn_magic_lightning_hit_3.caf": {
+  "kind": "atkhit",
+  "note": "雷の魔法の命中: 高電圧の放電",
+  "seconds": 0.28,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection"
+  ]
+ },
+ "wpn_magic_water_atk_1.caf": {
+  "kind": "atk",
+  "note": "水の魔法: 水の弾け + 柔らかい風切り",
+  "seconds": 0.32,
+  "sources": [
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2020 / Bluezone - Splash"
+  ]
+ },
+ "wpn_magic_water_atk_2.caf": {
+  "kind": "atk",
+  "note": "水の魔法: 水の弾け + 柔らかい風切り",
+  "seconds": 0.33,
+  "sources": [
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2020 / Bluezone - Splash"
+  ]
+ },
+ "wpn_magic_water_atk_3.caf": {
+  "kind": "atk",
+  "note": "水の魔法: 水の弾け + 柔らかい風切り",
+  "seconds": 0.31,
+  "sources": [
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2020 / Bluezone - Splash"
+  ]
+ },
+ "wpn_magic_water_atk_4.caf": {
+  "kind": "atk",
+  "note": "水の魔法: 水の弾け + 柔らかい風切り",
+  "seconds": 0.32,
+  "sources": [
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2020 / Bluezone - Splash"
+  ]
+ },
+ "wpn_magic_water_crit_1.caf": {
+  "kind": "crit",
+  "note": "水の魔法の会心: 大きな水しぶき + 低い芯",
+  "seconds": 0.57,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2020 / Bluezone - Splash"
+  ]
+ },
+ "wpn_magic_water_crit_2.caf": {
+  "kind": "crit",
+  "note": "水の魔法の会心: 大きな水しぶき + 低い芯",
+  "seconds": 0.59,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2020 / Bluezone - Splash"
+  ]
+ },
+ "wpn_magic_water_hit_1.caf": {
+  "kind": "atkhit",
+  "note": "水の魔法の命中: 水の当たり",
+  "seconds": 0.4,
+  "sources": [
+   "2020 / Bluezone - Splash"
+  ]
+ },
+ "wpn_magic_water_hit_2.caf": {
+  "kind": "atkhit",
+  "note": "水の魔法の命中: 水の当たり",
+  "seconds": 0.4,
+  "sources": [
+   "2020 / Articulated Sounds - Magic Elements vol.2"
+  ]
+ },
+ "wpn_magic_water_hit_3.caf": {
+  "kind": "atkhit",
+  "note": "水の魔法の命中: 水の当たり",
+  "seconds": 0.38,
+  "sources": [
+   "2020 / Bluezone - Splash"
+  ]
+ },
+ "wpn_spear_atk_1.caf": {
+  "kind": "atk",
+  "note": "槍: 柄のうなる突きの風切り → 穂先の刺さり → 柄の木の鳴り",
+  "seconds": 0.23,
+  "sources": [
+   "2015 / Soundopolis - Gore Toolkit HD",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2016 / The AudioVille - Wooden Staffs and Sword Fight"
+  ]
+ },
+ "wpn_spear_atk_2.caf": {
+  "kind": "atk",
+  "note": "槍: 柄のうなる突きの風切り → 穂先の刺さり → 柄の木の鳴り",
+  "seconds": 0.24,
+  "sources": [
+   "2015 / Soundopolis - Gore Toolkit HD",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2016 / The AudioVille - Wooden Staffs and Sword Fight"
+  ]
+ },
+ "wpn_spear_atk_3.caf": {
+  "kind": "atk",
+  "note": "槍: 柄のうなる突きの風切り → 穂先の刺さり → 柄の木の鳴り",
+  "seconds": 0.23,
+  "sources": [
+   "2015 / Soundopolis - Gore Toolkit HD",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2016 / The AudioVille - Wooden Staffs and Sword Fight"
+  ]
+ },
+ "wpn_spear_atk_4.caf": {
+  "kind": "atk",
+  "note": "槍: 柄のうなる突きの風切り → 穂先の刺さり → 柄の木の鳴り",
+  "seconds": 0.23,
+  "sources": [
+   "2015 / Soundopolis - Gore Toolkit HD",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2016 / The AudioVille - Wooden Staffs and Sword Fight"
+  ]
+ },
+ "wpn_spear_crit_1.caf": {
+  "kind": "crit",
+  "note": "槍の会心: 深い刺突 + 穂先の鳴り + 低い芯",
+  "seconds": 0.42,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "wpn_spear_crit_2.caf": {
+  "kind": "crit",
+  "note": "槍の会心: 深い刺突 + 穂先の鳴り + 低い芯",
+  "seconds": 0.44,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "wpn_spear_hit_1.caf": {
+  "kind": "atkhit",
+  "note": "槍の命中: 刺さる音 + 体への衝撃",
+  "seconds": 0.37,
+  "sources": [
+   "2016 / SoundBits -  Just Gore _ Add On",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "wpn_spear_hit_2.caf": {
+  "kind": "atkhit",
+  "note": "槍の命中: 刺さる音 + 体への衝撃",
+  "seconds": 0.37,
+  "sources": [
+   "2016 / SoundBits -  Just Gore _ Add On",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "wpn_spear_hit_3.caf": {
+  "kind": "atkhit",
+  "note": "槍の命中: 刺さる音 + 体への衝撃",
+  "seconds": 0.35,
+  "sources": [
+   "2016 / SoundBits -  Just Gore _ Add On",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "wpn_sword_atk_1.caf": {
+  "kind": "atk",
+  "note": "剣: 刃の風切り → 斬りの芯（鋼）→ 刃の鳴り",
+  "seconds": 0.45,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2018 / Gamemaster Audio - Punch and Combat Sounds",
+   "2023 / David Dumais Audio - Melee Weapons Sound Effects Pack 1"
+  ]
+ },
+ "wpn_sword_atk_2.caf": {
+  "kind": "atk",
+  "note": "剣: 刃の風切り → 斬りの芯（鋼）→ 刃の鳴り",
+  "seconds": 0.45,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2018 / Gamemaster Audio - Punch and Combat Sounds",
+   "2019 / Sound Spark LLC – Gore"
+  ]
+ },
+ "wpn_sword_atk_3.caf": {
+  "kind": "atk",
+  "note": "剣: 刃の風切り → 斬りの芯（鋼）→ 刃の鳴り",
+  "seconds": 0.42,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2017 / Soundopolis - Halloween 101",
+   "2018 / Gamemaster Audio - Punch and Combat Sounds"
+  ]
+ },
+ "wpn_sword_atk_4.caf": {
+  "kind": "atk",
+  "note": "剣: 刃の風切り → 斬りの芯（鋼）→ 刃の鳴り",
+  "seconds": 0.44,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2018 / Gamemaster Audio - Punch and Combat Sounds",
+   "2020 / SmartSoundFX – Medieval"
+  ]
+ },
+ "wpn_sword_crit_1.caf": {
+  "kind": "crit",
+  "note": "剣の会心: 刃の鋭い鳴り + 深い斬り + 低い芯",
+  "seconds": 0.54,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "wpn_sword_crit_2.caf": {
+  "kind": "crit",
+  "note": "剣の会心: 刃の鋭い鳴り + 深い斬り + 低い芯",
+  "seconds": 0.57,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "wpn_sword_hit_1.caf": {
+  "kind": "atkhit",
+  "note": "剣の命中: 刃が肉に入る音 + 体への鈍い衝撃",
+  "seconds": 0.28,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "wpn_sword_hit_2.caf": {
+  "kind": "atkhit",
+  "note": "剣の命中: 刃が肉に入る音 + 体への鈍い衝撃",
+  "seconds": 0.32,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "wpn_sword_hit_3.caf": {
+  "kind": "atkhit",
+  "note": "剣の命中: 刃が肉に入る音 + 体への鈍い衝撃",
+  "seconds": 0.33,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ }
+}

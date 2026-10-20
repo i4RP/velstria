@@ -64,6 +64,9 @@ final class BattleAudioDirector {
     private var token: UUID?
     private var lastOtherSkill: TimeInterval = 0
     private var lastHardHit: TimeInterval = 0
+    /// ほかのヒーローの通常攻撃・その命中を最後に鳴らした時刻（間引き）。
+    private var lastOtherAttack: TimeInterval = 0
+    private var lastOtherHit: TimeInterval = 0
     /// 最後に見た presentationEpoch と、変化に気付いてから音を止める期限（systemUptime）。
     private var seenEpoch: Int?
     private var suppressUntil: TimeInterval = 0
@@ -151,16 +154,19 @@ final class BattleAudioDirector {
                                            pan: Self.pan(u.pos, listener: ctx.listener)) {
                         continue
                     }
-                    if case .damage(let d) = e, sfx == .hit || sfx == .crit, let src = d.sourceID, let heroID = s.unit(src)?.hero?.heroID,
-                       app.audio.playSkill(SkillSoundKey(heroID: heroID, phase: .attackHit), gain: gain,
-                                           pan: Self.pan(d.pos, listener: ctx.listener)) {
-                        continue
+                    // 会心は会心の音（武器の組の重い打撃 + 鳴り）、無ければ命中の音
+                    if case .damage(let d) = e, sfx == .hit || sfx == .crit, let src = d.sourceID, let heroID = s.unit(src)?.hero?.heroID {
+                        let pan = Self.pan(d.pos, listener: ctx.listener)
+                        if d.isCrit, app.audio.playSkill(SkillSoundKey(heroID: heroID, phase: .crit), gain: gain, pan: pan) { continue }
+                        if app.audio.playSkill(SkillSoundKey(heroID: heroID, phase: .attackHit), gain: gain, pan: pan) { continue }
                     }
                     app.audio.play(sfx, gain: gain)
                 case .haptic(let h):
                     play(h, app: app, now: now)
                 }
             }
+            // ほかのヒーローの通常攻撃と、自分が受けた通常攻撃（武器の組の音。聞こえる距離で弱める）
+            otherHeroAttack(e, state: s, context: ctx, now: now, app: app)
             // スキルの命中の音（そのスキルの音があるヒーローだけ。自分が関わる命中と、聞こえる距離の命中）
             if case .damage(let d) = e, case .skill(let slot) = d.source, let src = d.sourceID,
                let heroID = s.unit(src)?.hero?.heroID {
@@ -172,6 +178,43 @@ final class BattleAudioDirector {
             }
         }
     }
+
+    /// ほかのヒーローの通常攻撃の振り・発射（聞こえる距離の 6 割まで）と、その命中（自分が受けた命中は大きく）。
+    /// 自分・観戦の追従中のユニットの通常攻撃は cues で鳴らす。速い再生・シークの直後は鳴らさない。同時に多い時は間引く。
+    private func otherHeroAttack(_ e: SimEvent, state s: SimState, context c: Context, now: TimeInterval, app: AppModel) {
+        guard !c.suppressed, c.speed <= Self.dampenAboveSpeed else { return }
+        let me = c.isSpectating ? c.focusID : c.humanID
+        switch e {
+        case .attackReleased(let source, _, _):
+            guard source != me, let u = s.unit(source), let heroID = u.hero?.heroID,
+                  now - lastOtherAttack >= Self.otherAttackGap else { return }
+            let gain = Self.otherCombatGain(u.pos, listener: c.listener, scale: 0.32)
+            guard gain > 0.03 else { return }
+            lastOtherAttack = now
+            app.audio.playSkill(SkillSoundKey(heroID: heroID, phase: .attack), gain: gain, pan: Self.pan(u.pos, listener: c.listener))
+        case .damage(let d):
+            guard d.source == .basicAttack, let src = d.sourceID, src != me, let heroID = s.unit(src)?.hero?.heroID,
+                  now - lastOtherHit >= Self.otherAttackGap else { return }
+            let gain = d.targetID == me && me != nil ? 0.55 : Self.otherCombatGain(d.pos, listener: c.listener, scale: 0.26)
+            guard gain > 0.03 else { return }
+            lastOtherHit = now
+            let pan = Self.pan(d.pos, listener: c.listener)
+            if d.isCrit, app.audio.playSkill(SkillSoundKey(heroID: heroID, phase: .crit), gain: gain, pan: pan) { return }
+            app.audio.playSkill(SkillSoundKey(heroID: heroID, phase: .attackHit), gain: gain, pan: pan)
+        default:
+            return
+        }
+    }
+
+    /// ほかのヒーローの通常攻撃の音量（聞き手からの距離で、聞こえる距離の 6 割で 0）。
+    nonisolated static func otherCombatGain(_ pos: Vec2, listener: Vec2, scale: Double) -> Double {
+        let r = hearingRadius * 0.6
+        let d = pos.distance(to: listener)
+        return d >= r ? 0 : scale * (1 - d / r)
+    }
+
+    /// ほかのヒーローの通常攻撃の音の最短間隔（大勢の乱戦で鳴りすぎない）。
+    nonisolated static let otherAttackGap: TimeInterval = 0.07
 
     /// 画面の左右（-1〜1）。カメラは回らないので、聞き手（カメラの中心）からの横の距離で決める（画面の半分の幅 ≈ 9 m で端）。
     nonisolated static func pan(_ pos: Vec2, listener: Vec2) -> Float {

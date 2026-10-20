@@ -107,40 +107,129 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 
 | 素材集 | 作者 | ライセンス | URL |
 |---|---|---|---|
+| Rock Brick and Dirt（GDC 2015） | Mechanical Wave | Sonniss GDC | https://gdc.sonniss.com/ |
+| Undoing-Computer（GDC 2015） | Mechanical Wave | Sonniss GDC | https://gdc.sonniss.com/ |
+| Firecrackers Sound Pack 01（GDC 2015） | Membrans | Sonniss GDC | https://gdc.sonniss.com/ |
+| Blades（GDC 2015） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
+| Gore Toolkit HD（GDC 2015） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
+| Natures Fury_Thunder（GDC 2015） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
+| Percussion 01（GDC 2015） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
+| Gorification [HD]（GDC 2015） | Timothy McHugh | Sonniss GDC | https://gdc.sonniss.com/ |
+| High Impact（GDC 2016） | 3maze | Sonniss GDC | https://gdc.sonniss.com/ |
+| The Gun Locker SFX Pack（GDC 2016） | Fascinated Sound | Sonniss GDC | https://gdc.sonniss.com/ |
+| GAFSFX01 - Dark Materials（GDC 2016） | Game Audio Factory | Sonniss GDC | https://gdc.sonniss.com/ |
+|  Just Gore _ Add On（GDC 2016） | SoundBits | Sonniss GDC | https://gdc.sonniss.com/ |
+| Ice SFX（GDC 2016） | Stuart Duffield | Sonniss GDC | https://gdc.sonniss.com/ |
+| 12 Gauge Shotgun（GDC 2016） | TS Sound | Sonniss GDC | https://gdc.sonniss.com/ |
+| Wooden Staffs and Sword Fight（GDC 2016） | The AudioVille | Sonniss GDC | https://gdc.sonniss.com/ |
+| Medieval Armor and Impacts（GDC 2017） | Double Trouble Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+|  Gun Sound Pack（GDC 2017） | Gamemaster Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+|  Punch Sound Pack（GDC 2017） | Gamemaster Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| Money（GDC 2017） | Hzandbits | Sonniss GDC | https://gdc.sonniss.com/ |
+| Glacier Ice（GDC 2017） | Mattia Cellotto | Sonniss GDC | https://gdc.sonniss.com/ |
+| Elements - Ice（GDC 2017） | Mindful Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| Crystal Glasses- Tones and Drones_（GDC 2017） | Raconteur Sound | Sonniss GDC | https://gdc.sonniss.com/ |
+| The Blacksmith（GDC 2017） | SoundBits | Sonniss GDC | https://gdc.sonniss.com/ |
+| Halloween 101（GDC 2017） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
+| The Dry Ice Library（GDC 2018） | Alexander Kopeikin | Sonniss GDC | https://gdc.sonniss.com/ |
+| COINAGE（GDC 2018） | Effectsworks | Sonniss GDC | https://gdc.sonniss.com/ |
+| Magic and Spell Sounds（GDC 2018） | Gamemaster Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| Punch and Combat Sounds（GDC 2018） | Gamemaster Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| Designed Fire（GDC 2018） | Gregor Quendel | Sonniss GDC | https://gdc.sonniss.com/ |
+| High Voltage Electricity - The Essential Collection（GDC 2018） | Hear and Now Sound | Sonniss GDC | https://gdc.sonniss.com/ |
+| Whooshes And Transitions（GDC 2018） | Soundrangers | Sonniss GDC | https://gdc.sonniss.com/ |
+| Hand-to-Hand Combat - Body Hits & Vocal Excursions（GDC 2018） | The Chris Alan | Sonniss GDC | https://gdc.sonniss.com/ |
+| Musical Oddities - Bells, Whistles, Horns, Percussion and More（GDC 2018） | The Chris Alan | Sonniss GDC | https://gdc.sonniss.com/ |
+| Super Heroes Sound Design（GDC 2019） | 2496SoundEffects | Sonniss GDC | https://gdc.sonniss.com/ |
 | Low Frequency Elements（GDC 2019） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| Airy Whooshes（GDC 2019） | Airborne Sound | Sonniss GDC | https://gdc.sonniss.com/ |
+| Crisis Accents（GDC 2019） | Airborne Sound | Sonniss GDC | https://gdc.sonniss.com/ |
+| Organic Whooshes（GDC 2019） | Airborne Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 | Magic Elements vol.1（GDC 2019） | Articulated Sounds | Sonniss GDC | https://gdc.sonniss.com/ |
 | IMPACT（GDC 2019） | Baxter Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| Cinematic Dark Sound Effects（GDC 2019） | BlueZone | Sonniss GDC | https://gdc.sonniss.com/ |
 | Heavy Metal Impact Sound Effects（GDC 2019） | BlueZone | Sonniss GDC | https://gdc.sonniss.com/ |
+| Helina（GDC 2019） | Eiravaein Works | Sonniss GDC | https://gdc.sonniss.com/ |
+| Nocked（GDC 2019） | Eiravaein Works | Sonniss GDC | https://gdc.sonniss.com/ |
 | Effective Trailer Booms（GDC 2019） | Federico Soler Fernández | Sonniss GDC | https://gdc.sonniss.com/ |
 | Effective Trailer Hits & Impacts（GDC 2019） | Federico Soler Fernández | Sonniss GDC | https://gdc.sonniss.com/ |
 | Effective Trailer Whooshes（GDC 2019） | Federico Soler Fernández | Sonniss GDC | https://gdc.sonniss.com/ |
+| Singing Bowls（GDC 2019） | Prismo Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 | Bodyfall（GDC 2019） | Red Libraries | Sonniss GDC | https://gdc.sonniss.com/ |
+| Hero（GDC 2019） | Rock The Speakerbox | Sonniss GDC | https://gdc.sonniss.com/ |
 | Melee（GDC 2019） | Rock The Speakerbox | Sonniss GDC | https://gdc.sonniss.com/ |
 | Gore（GDC 2019） | Sound Spark LLC | Sonniss GDC | https://gdc.sonniss.com/ |
 | Magic Spells, Buffs and Attacks（GDC 2019） | Sound Spark LLC | Sonniss GDC | https://gdc.sonniss.com/ |
 | Metal Hits, Scrapes and Squeaks（GDC 2019） | Sound Spark LLC | Sonniss GDC | https://gdc.sonniss.com/ |
 | Trailer Instruments Designed（GDC 2020） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| Magic Elements vol.2（GDC 2020） | Articulated Sounds | Sonniss GDC | https://gdc.sonniss.com/ |
+| Splash（GDC 2020） | Bluezone | Sonniss GDC | https://gdc.sonniss.com/ |
+| Tank - Explosion Sound Effects（GDC 2020） | Bluezone | Sonniss GDC | https://gdc.sonniss.com/ |
 | Metal Chains（GDC 2020） | Conor Bradley | Sonniss GDC | https://gdc.sonniss.com/ |
 | Weapon Sounds - Weapon Swings（GDC 2020） | David Dumais Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| 48Kilos（GDC 2020） | Eiravaein Works | Sonniss GDC | https://gdc.sonniss.com/ |
+| Bullet Bys &Impacts（GDC 2020） | PMSFX | Sonniss GDC | https://gdc.sonniss.com/ |
 | Lethal Blow（GDC 2020） | PMSFX | Sonniss GDC | https://gdc.sonniss.com/ |
 | Hit & Punch（GDC 2020） | Shapeforms | Sonniss GDC | https://gdc.sonniss.com/ |
 | Impacts, Hits & Whooshes（GDC 2020） | SmartSoundFX | Sonniss GDC | https://gdc.sonniss.com/ |
+| Medieval（GDC 2020） | SmartSoundFX | Sonniss GDC | https://gdc.sonniss.com/ |
+| PARTICLES An Organic & Granular Journey（GDC 2020） | SoundFxwizard | Sonniss GDC | https://gdc.sonniss.com/ |
 | Flesh, Bones & Gore（GDC 2023） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| Building Collapse（GDC 2023） | BluezoneCorp | Sonniss GDC | https://gdc.sonniss.com/ |
 | Melee Weapons Sound Effects Pack 1（GDC 2023） | David Dumais Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| Naval Warfare（GDC 2023） | Gladestock Studios | Sonniss GDC | https://gdc.sonniss.com/ |
 | Essentials 04 Chains（GDC 2023） | InspectorJ | Sonniss GDC | https://gdc.sonniss.com/ |
+| Druid Magic（GDC 2023） | Rogue Waves | Sonniss GDC | https://gdc.sonniss.com/ |
+| Alien Tripod（GDC 2024） | BluezoneCorp | Sonniss GDC | https://gdc.sonniss.com/ |
 | Stone Impact（GDC 2024） | BluezoneCorp | Sonniss GDC | https://gdc.sonniss.com/ |
+| Explosion SFX Pack（GDC 2024） | DavidDumais | Sonniss GDC | https://gdc.sonniss.com/ |
 | Haunted Metal Vol.1 - Cinematic Hits & Impacts（GDC 2024） | Jake Fielding | Sonniss GDC | https://gdc.sonniss.com/ |
 | Melee Weapons（GDC 2024） | Justsoundeffects | Sonniss GDC | https://gdc.sonniss.com/ |
+| Glass（GDC 2024） | Mechanical Wave | Sonniss GDC | https://gdc.sonniss.com/ |
+| Cinematic Transitions for Editors Volume 2（GDC 2024） | Orbital Emitter | Sonniss GDC | https://gdc.sonniss.com/ |
 | The Metal Hit Sweeteners Library（GDC 2024） | Pole Position | Sonniss GDC | https://gdc.sonniss.com/ |
 | Cinematic Fight Vol. 1（GDC 2026） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Elemental Palette Designed Vol. 1（GDC 2026） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| Historical Weapons Vol. 2（GDC 2026） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Emotion and Magic（GDC 2026） | Alexander Kopeikin | Sonniss GDC | https://gdc.sonniss.com/ |
 | Melee Weapons Sound Effects Pack 2（GDC 2026） | David Dumais Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| Cinematic Horn Braams（GDC 2026） | Jake Fielding | Sonniss GDC | https://gdc.sonniss.com/ |
 
 ### 出力（App/Resources/Audio、48 kHz）
 
 | ファイル | 長さ | 素材 | 加工 |
 |---|---|---|---|
+| sfx_announcement.caf | 1.43 秒 | Eiravaein Works - 48Kilos | 告知: 銅鑼の一打 |
+| sfx_attack_melee_1.caf | 0.45 秒 | Gamemaster Audio - Punch and Combat Sounds・David Dumais Audio - Melee Weapons Sound Effects Pack 1 | 汎用の近接攻撃: 刃の風切り → 斬り |
+| sfx_attack_melee_2.caf | 0.44 秒 | Gamemaster Audio - Punch and Combat Sounds・David Dumais Audio - Melee Weapons Sound Effects Pack 1 | 汎用の近接攻撃: 刃の風切り → 斬り |
+| sfx_attack_ranged_1.caf | 0.28 秒 | Eiravaein Works - Nocked・SoundFxwizard - PARTICLES An Organic & Granular Journey | 汎用の遠隔攻撃: 弦の鳴り → 矢の風切り |
+| sfx_attack_ranged_2.caf | 0.29 秒 | Eiravaein Works - Nocked・SoundFxwizard - PARTICLES An Organic & Granular Journey | 汎用の遠隔攻撃: 弦の鳴り → 矢の風切り |
+| sfx_crit_1.caf | 0.54 秒 | Soundopolis - Blades・Baxter Audio - IMPACT | 汎用の会心: 刃の鋭い鳴り + 低い芯 |
+| sfx_crit_2.caf | 0.56 秒 | Soundopolis - Blades・Baxter Audio - IMPACT | 汎用の会心: 刃の鋭い鳴り + 低い芯 |
+| sfx_crystal_fade.caf | 1.79 秒 | Raconteur Sound - Crystal Glasses- Tones and Drones_・Mechanical Wave - Glass | 結晶の消失: 水晶のグラスの鳴り + ガラスの逆再生 |
+| sfx_death.caf | 1.42 秒 | Federico Soler Fernández - Effective Trailer Booms・Red Libraries - Bodyfall・Jake Fielding - Haunted Metal Vol.1 - Cinematic Hits & Impacts | 死亡: 体が倒れる音 + 低いブーム + 暗い金属の尾 |
+| sfx_gold_1.caf | 0.16 秒 | Effectsworks - COINAGE | ゴールド: 硬貨の鳴り |
+| sfx_gold_2.caf | 0.12 秒 | Effectsworks - COINAGE | ゴールド: 硬貨の鳴り |
+| sfx_gold_3.caf | 0.29 秒 | Hzandbits - Money | ゴールド: 硬貨の鳴り |
+| sfx_heal.caf | 1.00 秒 | Airborne Sound - Airy Whooshes・Eiravaein Works - Helina | 回復: 磁器の風鈴 + 柔らかい風 |
+| sfx_hit_1.caf | 0.34 秒 | Timothy McHugh - Gorification [HD]・Gamemaster Audio -  Punch Sound Pack | 汎用の命中: 体への衝撃 |
+| sfx_hit_2.caf | 0.32 秒 | Timothy McHugh - Gorification [HD]・Gamemaster Audio -  Punch Sound Pack | 汎用の命中: 体への衝撃 |
+| sfx_hit_3.caf | 0.33 秒 | Timothy McHugh - Gorification [HD]・Gamemaster Audio -  Punch Sound Pack | 汎用の命中: 体への衝撃 |
+| sfx_kill.caf | 0.85 秒 | Soundopolis - Blades・Federico Soler Fernández - Effective Trailer Hits & Impacts・Rock The Speakerbox - Hero | キル: 刃の鋭い鳴り + 一撃 + 抜き身の刃 |
+| sfx_level_up.caf | 1.19 秒 | The Chris Alan - Musical Oddities - Bells, Whistles, Horns, Percussion and More・Prismo Sound - Singing Bowls | レベルアップ: ベルツリー + 鉢 |
+| sfx_multi_kill.caf | 1.64 秒 | Soundopolis - Blades・Federico Soler Fernández - Effective Trailer Hits & Impacts・Orbital Emitter - Cinematic Transitions for Editors Volume 2 | 連続キル: 銅鑼 + 重い一撃 + 刃の鳴り |
+| sfx_objective.caf | 2.19 秒 | Eiravaein Works - 48Kilos・Jake Fielding - Cinematic Horn Braams | 目標: 角笛のブラーム + 銅鑼 |
+| sfx_recall.caf | 1.57 秒 | Airborne Sound - Airy Whooshes・Eiravaein Works - Helina | リコール: 柔らかい風 + 風鈴 |
+| sfx_respawn.caf | 1.50 秒 | Airborne Sound - Airy Whooshes・Prismo Sound - Singing Bowls | 復活: 鉢の一打 + 風 |
+| sfx_shield.caf | 0.56 秒 | Justsoundeffects - Melee Weapons・344 Audio - Historical Weapons Vol. 2 | シールド: 盾の受けの金属 + 盾の響き |
+| sfx_skill_cast.caf | 0.71 秒 | Articulated Sounds - Magic Elements vol.1・Federico Soler Fernández - Effective Trailer Hits & Impacts | 汎用のスキル: 渦の風 → 衝撃 |
+| sfx_tower_collapse.caf | 2.76 秒 | Federico Soler Fernández - Effective Trailer Booms・BluezoneCorp - Building Collapse | 塔の倒壊: 石の崩落 + 低いブーム |
+| sfx_tower_crack.caf | 1.00 秒 | Mattia Cellotto - Glacier Ice・BluezoneCorp - Stone Impact | 塔の亀裂: 石の打撃 + 割れ |
+| sfx_tower_destroyed.caf | 2.13 秒 | Federico Soler Fernández - Effective Trailer Booms・BluezoneCorp - Building Collapse・DavidDumais - Explosion SFX Pack | 塔の破壊: 爆発 + 石の崩落 + 低いブーム |
+| sfx_tower_impact.caf | 1.41 秒 | 344 Audio - Low Frequency Elements・Articulated Sounds - Magic Elements vol.1 | 塔の着地: 地面への重い衝撃 + 低音 |
+| sfx_tower_lock.caf | 0.62 秒 | Sound Spark LLC – Metal Hits, Scrapes and Squeaks・Pole Position - The Metal Hit Sweeteners Library | 塔のロック: 重い鉄の打撃 + ボルトの音 |
+| sfx_tower_rise.caf | 1.99 秒 | BluezoneCorp - Building Collapse・BluezoneCorp - Alien Tripod | 塔の立ち上がり: 地鳴り + 石の擦れ |
+| sfx_ultimate_cast.caf | 1.35 秒 | Federico Soler Fernández - Effective Trailer Hits & Impacts・Federico Soler Fernández - Effective Trailer Whooshes・Jake Fielding - Haunted Metal Vol.1 - Cinematic Hits & Impacts | 汎用の奥義: 大きな溜めの風 → 重い一撃 + 金属の低音 |
 | skill_H029_atk_1.caf | 0.44 秒 | Baxter Audio - IMPACT・BlueZone - Heavy Metal Impact Sound Effects・Pole Position - The Metal Hit Sweeteners Library・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 重い武器の振り → 鈍い着弾 + 槌の金属の鳴り |
 | skill_H029_atk_2.caf | 0.43 秒 | Baxter Audio - IMPACT・BlueZone - Heavy Metal Impact Sound Effects・Pole Position - The Metal Hit Sweeteners Library・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 重い武器の振り → 鈍い着弾 + 槌の金属の鳴り |
 | skill_H029_atk_3.caf | 0.43 秒 | Baxter Audio - IMPACT・BlueZone - Heavy Metal Impact Sound Effects・Pole Position - The Metal Hit Sweeteners Library・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 重い武器の振り → 鈍い着弾 + 槌の金属の鳴り |
@@ -182,3 +271,156 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | skill_H034_ult_hit_1.caf | 0.62 秒 | 344 Audio - Low Frequency Elements・Sound Spark LLC – Gore・Conor Bradley - Metal Chains・PMSFX - Lethal Blow・SmartSoundFX - Impacts, Hits & Whooshes・344 Audio - Flesh, Bones & Gore | 拳と斧鉤の重い打撃 + 砕け + 低音の芯 + 鎖の跳ね |
 | skill_H034_ult_hit_2.caf | 0.58 秒 | 344 Audio - Low Frequency Elements・Sound Spark LLC – Gore・Conor Bradley - Metal Chains・PMSFX - Lethal Blow・SmartSoundFX - Impacts, Hits & Whooshes・344 Audio - Flesh, Bones & Gore | 拳と斧鉤の重い打撃 + 砕け + 低音の芯 + 鎖の跳ね |
 | skill_H034_ult_hit_3.caf | 0.55 秒 | 344 Audio - Low Frequency Elements・Sound Spark LLC – Gore・Conor Bradley - Metal Chains・PMSFX - Lethal Blow・SmartSoundFX - Impacts, Hits & Whooshes・344 Audio - Flesh, Bones & Gore | 拳と斧鉤の重い打撃 + 砕け + 低音の芯 + 鎖の跳ね |
+| wpn_bow_atk_1.caf | 0.45 秒 | 2496SoundEffects - Super Heroes Sound Design・Eiravaein Works - Nocked・SoundFxwizard - PARTICLES An Organic & Granular Journey | 弓: 弦の鳴り → 矢の風切り |
+| wpn_bow_atk_2.caf | 0.44 秒 | 2496SoundEffects - Super Heroes Sound Design・Eiravaein Works - Nocked・SoundFxwizard - PARTICLES An Organic & Granular Journey | 弓: 弦の鳴り → 矢の風切り |
+| wpn_bow_atk_3.caf | 0.43 秒 | 2496SoundEffects - Super Heroes Sound Design・Eiravaein Works - Nocked・SoundFxwizard - PARTICLES An Organic & Granular Journey | 弓: 弦の鳴り → 矢の風切り |
+| wpn_bow_atk_4.caf | 0.44 秒 | 2496SoundEffects - Super Heroes Sound Design・Eiravaein Works - Nocked・SoundFxwizard - PARTICLES An Organic & Granular Journey | 弓: 弦の鳴り → 矢の風切り |
+| wpn_bow_crit_1.caf | 0.50 秒 | Soundopolis - Blades・Timothy McHugh - Gorification [HD]・SmartSoundFX – Medieval | 弓の会心: 深い刺さり + 鏃の鳴り |
+| wpn_bow_crit_2.caf | 0.53 秒 | Soundopolis - Blades・Timothy McHugh - Gorification [HD]・SmartSoundFX – Medieval | 弓の会心: 深い刺さり + 鏃の鳴り |
+| wpn_bow_hit_1.caf | 0.38 秒 | SoundBits -  Just Gore _ Add On・SmartSoundFX – Medieval | 弓の命中: 矢の刺さり + 肉の鈍い音 |
+| wpn_bow_hit_2.caf | 0.39 秒 | SoundBits -  Just Gore _ Add On・SmartSoundFX – Medieval | 弓の命中: 矢の刺さり + 肉の鈍い音 |
+| wpn_bow_hit_3.caf | 0.36 秒 | SoundBits -  Just Gore _ Add On・SmartSoundFX – Medieval | 弓の命中: 矢の刺さり + 肉の鈍い音 |
+| wpn_cannon_atk_1.caf | 0.45 秒 | Fascinated Sound - The Gun Locker SFX Pack・Hear and Now Sound - High Voltage Electricity - The Essential Collection・Bluezone - Tank - Explosion Sound Effects | 砲: 砲の発射と残響 + 電気の弾け（星の砲） |
+| wpn_cannon_atk_2.caf | 0.45 秒 | Fascinated Sound - The Gun Locker SFX Pack・Hear and Now Sound - High Voltage Electricity - The Essential Collection・Bluezone - Tank - Explosion Sound Effects | 砲: 砲の発射と残響 + 電気の弾け（星の砲） |
+| wpn_cannon_atk_3.caf | 0.45 秒 | Fascinated Sound - The Gun Locker SFX Pack・Hear and Now Sound - High Voltage Electricity - The Essential Collection・Bluezone - Tank - Explosion Sound Effects | 砲: 砲の発射と残響 + 電気の弾け（星の砲） |
+| wpn_cannon_atk_4.caf | 0.45 秒 | Fascinated Sound - The Gun Locker SFX Pack・Hear and Now Sound - High Voltage Electricity - The Essential Collection・Bluezone - Tank - Explosion Sound Effects | 砲: 砲の発射と残響 + 電気の弾け（星の砲） |
+| wpn_cannon_crit_1.caf | 0.60 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・344 Audio - Low Frequency Elements・Gladestock Studios - Naval Warfare | 砲の会心: 大きな着弾 + 低音 + 放電 |
+| wpn_cannon_crit_2.caf | 0.60 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・344 Audio - Low Frequency Elements・Gladestock Studios - Naval Warfare | 砲の会心: 大きな着弾 + 低音 + 放電 |
+| wpn_cannon_hit_1.caf | 0.40 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・Gladestock Studios - Naval Warfare | 砲の命中: 砲弾の着弾 + 電気の弾け |
+| wpn_cannon_hit_2.caf | 0.40 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・Gladestock Studios - Naval Warfare | 砲の命中: 砲弾の着弾 + 電気の弾け |
+| wpn_cannon_hit_3.caf | 0.39 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・Gladestock Studios - Naval Warfare | 砲の命中: 砲弾の着弾 + 電気の弾け |
+| wpn_chain_atk_1.caf | 0.37 秒 | Rock The Speakerbox - Melee・Conor Bradley - Metal Chains・Justsoundeffects - Melee Weapons | 鎖鉤: 鎖の風切り → 鉤の打撃 → 鎖の鳴り |
+| wpn_chain_atk_2.caf | 0.38 秒 | Rock The Speakerbox - Melee・Conor Bradley - Metal Chains・Justsoundeffects - Melee Weapons | 鎖鉤: 鎖の風切り → 鉤の打撃 → 鎖の鳴り |
+| wpn_chain_atk_3.caf | 0.37 秒 | Rock The Speakerbox - Melee・Conor Bradley - Metal Chains・Justsoundeffects - Melee Weapons | 鎖鉤: 鎖の風切り → 鉤の打撃 → 鎖の鳴り |
+| wpn_chain_atk_4.caf | 0.38 秒 | Rock The Speakerbox - Melee・Conor Bradley - Metal Chains・Justsoundeffects - Melee Weapons | 鎖鉤: 鎖の風切り → 鉤の打撃 → 鎖の鳴り |
+| wpn_chain_crit_1.caf | 0.50 秒 | SoundBits - The Blacksmith・Justsoundeffects - Melee Weapons | 鎖鉤の会心: 鎖の重い打撃 + 深い鉤 |
+| wpn_chain_crit_2.caf | 0.53 秒 | SoundBits - The Blacksmith・Justsoundeffects - Melee Weapons | 鎖鉤の会心: 鎖の重い打撃 + 深い鉤 |
+| wpn_chain_hit_1.caf | 0.29 秒 | Double Trouble Audio - Medieval Armor and Impacts・Gamemaster Audio -  Punch Sound Pack | 鎖鉤の命中: 鎧に当たる鎖 + 体への衝撃 |
+| wpn_chain_hit_2.caf | 0.32 秒 | Double Trouble Audio - Medieval Armor and Impacts・Gamemaster Audio -  Punch Sound Pack | 鎖鉤の命中: 鎧に当たる鎖 + 体への衝撃 |
+| wpn_chain_hit_3.caf | 0.28 秒 | Double Trouble Audio - Medieval Armor and Impacts・Gamemaster Audio -  Punch Sound Pack | 鎖鉤の命中: 鎧に当たる鎖 + 体への衝撃 |
+| wpn_crossbow_atk_1.caf | 0.22 秒 | Gamemaster Audio -  Gun Sound Pack・Eiravaein Works - Nocked・SoundFxwizard - PARTICLES An Organic & Granular Journey | 弩: 弦の弾け + 機構の金属音 → 矢の風切り |
+| wpn_crossbow_atk_2.caf | 0.23 秒 | Gamemaster Audio -  Gun Sound Pack・Eiravaein Works - Nocked・SoundFxwizard - PARTICLES An Organic & Granular Journey | 弩: 弦の弾け + 機構の金属音 → 矢の風切り |
+| wpn_crossbow_atk_3.caf | 0.21 秒 | Gamemaster Audio -  Gun Sound Pack・Eiravaein Works - Nocked・SoundFxwizard - PARTICLES An Organic & Granular Journey | 弩: 弦の弾け + 機構の金属音 → 矢の風切り |
+| wpn_crossbow_atk_4.caf | 0.22 秒 | Gamemaster Audio -  Gun Sound Pack・Eiravaein Works - Nocked・SoundFxwizard - PARTICLES An Organic & Granular Journey | 弩: 弦の弾け + 機構の金属音 → 矢の風切り |
+| wpn_crossbow_crit_1.caf | 0.41 秒 | Soundopolis - Blades・SoundBits -  Just Gore _ Add On・SmartSoundFX – Medieval | 弩の会心: 深い刺さり + 鏃の鳴り |
+| wpn_crossbow_crit_2.caf | 0.44 秒 | Soundopolis - Blades・SoundBits -  Just Gore _ Add On・SmartSoundFX – Medieval | 弩の会心: 深い刺さり + 鏃の鳴り |
+| wpn_crossbow_hit_1.caf | 0.30 秒 | Mechanical Wave - Undoing-Computer・SmartSoundFX – Medieval | 弩の命中: 太矢の刺さり + 金属の跳ね |
+| wpn_crossbow_hit_2.caf | 0.32 秒 | Mechanical Wave - Undoing-Computer・SmartSoundFX – Medieval | 弩の命中: 太矢の刺さり + 金属の跳ね |
+| wpn_crossbow_hit_3.caf | 0.29 秒 | Mechanical Wave - Undoing-Computer・SmartSoundFX – Medieval | 弩の命中: 太矢の刺さり + 金属の跳ね |
+| wpn_dual_atk_1.caf | 0.22 秒 | Soundopolis - Blades・Timothy McHugh - Gorification [HD] | 双剣: 短い刃の風切り → 軽い斬り → 刃の鳴り |
+| wpn_dual_atk_2.caf | 0.23 秒 | Soundopolis - Blades・Timothy McHugh - Gorification [HD] | 双剣: 短い刃の風切り → 軽い斬り → 刃の鳴り |
+| wpn_dual_atk_3.caf | 0.22 秒 | Soundopolis - Blades・Timothy McHugh - Gorification [HD] | 双剣: 短い刃の風切り → 軽い斬り → 刃の鳴り |
+| wpn_dual_atk_4.caf | 0.23 秒 | Soundopolis - Blades・Timothy McHugh - Gorification [HD] | 双剣: 短い刃の風切り → 軽い斬り → 刃の鳴り |
+| wpn_dual_crit_1.caf | 0.43 秒 | Soundopolis - Blades・Timothy McHugh - Gorification [HD] | 双剣の会心: 二連の斬り + 深い刃 + 鳴り |
+| wpn_dual_crit_2.caf | 0.45 秒 | Soundopolis - Blades・Timothy McHugh - Gorification [HD] | 双剣の会心: 二連の斬り + 深い刃 + 鳴り |
+| wpn_dual_hit_1.caf | 0.18 秒 | Timothy McHugh - Gorification [HD]・Shapeforms - Hit & Punch | 双剣の命中: 刃が肉を裂く短い音 |
+| wpn_dual_hit_2.caf | 0.19 秒 | Timothy McHugh - Gorification [HD]・Shapeforms - Hit & Punch | 双剣の命中: 刃が肉を裂く短い音 |
+| wpn_dual_hit_3.caf | 0.17 秒 | Timothy McHugh - Gorification [HD]・Shapeforms - Hit & Punch | 双剣の命中: 刃が肉を裂く短い音 |
+| wpn_fist_atk_1.caf | 0.31 秒 | Mechanical Wave - Rock Brick and Dirt・Gamemaster Audio -  Punch Sound Pack・The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions・Airborne Sound - Organic Whooshes | 拳: 拳の風切り → 拳の打撃 → 体への衝撃（岩の拳の小さな擦れ） |
+| wpn_fist_atk_2.caf | 0.32 秒 | Mechanical Wave - Rock Brick and Dirt・Gamemaster Audio -  Punch Sound Pack・The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions・Airborne Sound - Organic Whooshes | 拳: 拳の風切り → 拳の打撃 → 体への衝撃（岩の拳の小さな擦れ） |
+| wpn_fist_atk_3.caf | 0.32 秒 | Mechanical Wave - Rock Brick and Dirt・Gamemaster Audio -  Punch Sound Pack・The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions・Airborne Sound - Organic Whooshes | 拳: 拳の風切り → 拳の打撃 → 体への衝撃（岩の拳の小さな擦れ） |
+| wpn_fist_atk_4.caf | 0.32 秒 | Mechanical Wave - Rock Brick and Dirt・Gamemaster Audio -  Punch Sound Pack・The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions・Airborne Sound - Organic Whooshes | 拳: 拳の風切り → 拳の打撃 → 体への衝撃（岩の拳の小さな擦れ） |
+| wpn_fist_crit_1.caf | 0.42 秒 | SmartSoundFX - Impacts, Hits & Whooshes・344 Audio - Flesh, Bones & Gore | 拳の会心: 重い打撃 + 骨の砕け |
+| wpn_fist_crit_2.caf | 0.45 秒 | SmartSoundFX - Impacts, Hits & Whooshes・344 Audio - Flesh, Bones & Gore | 拳の会心: 重い打撃 + 骨の砕け |
+| wpn_fist_hit_1.caf | 0.19 秒 | Shapeforms - Hit & Punch | 拳の命中: 体を打つ鈍い音 |
+| wpn_fist_hit_2.caf | 0.21 秒 | Shapeforms - Hit & Punch | 拳の命中: 体を打つ鈍い音 |
+| wpn_fist_hit_3.caf | 0.32 秒 | PMSFX - Lethal Blow | 拳の命中: 体を打つ鈍い音 |
+| wpn_greatsword_atk_1.caf | 0.44 秒 | Baxter Audio - IMPACT・Justsoundeffects - Melee Weapons・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 大剣: 重い刃の振り → 鈍い斬りの芯 → 低い芯 |
+| wpn_greatsword_atk_2.caf | 0.43 秒 | Baxter Audio - IMPACT・Justsoundeffects - Melee Weapons・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 大剣: 重い刃の振り → 鈍い斬りの芯 → 低い芯 |
+| wpn_greatsword_atk_3.caf | 0.43 秒 | Baxter Audio - IMPACT・Justsoundeffects - Melee Weapons・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 大剣: 重い刃の振り → 鈍い斬りの芯 → 低い芯 |
+| wpn_greatsword_atk_4.caf | 0.42 秒 | Baxter Audio - IMPACT・Justsoundeffects - Melee Weapons・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 大剣: 重い刃の振り → 鈍い斬りの芯 → 低い芯 |
+| wpn_greatsword_crit_1.caf | 0.57 秒 | Soundopolis - Blades・344 Audio - Low Frequency Elements・Justsoundeffects - Melee Weapons | 大剣の会心: 深い斬り + 低い刃の鳴り + 低音 |
+| wpn_greatsword_crit_2.caf | 0.58 秒 | Soundopolis - Blades・344 Audio - Low Frequency Elements・Justsoundeffects - Melee Weapons | 大剣の会心: 深い斬り + 低い刃の鳴り + 低音 |
+| wpn_greatsword_hit_1.caf | 0.35 秒 | Timothy McHugh - Gorification [HD]・344 Audio - Flesh, Bones & Gore | 大剣の命中: 重い刃が肉に入る音 + 骨の砕け |
+| wpn_greatsword_hit_2.caf | 0.37 秒 | Timothy McHugh - Gorification [HD]・344 Audio - Flesh, Bones & Gore | 大剣の命中: 重い刃が肉に入る音 + 骨の砕け |
+| wpn_greatsword_hit_3.caf | 0.33 秒 | Timothy McHugh - Gorification [HD]・344 Audio - Flesh, Bones & Gore | 大剣の命中: 重い刃が肉に入る音 + 骨の砕け |
+| wpn_gun_atk_1.caf | 0.45 秒 | Gamemaster Audio -  Gun Sound Pack | 銃: 実銃の発射と残響（狙撃銃・回転式・散弾） |
+| wpn_gun_atk_2.caf | 0.45 秒 | Gamemaster Audio -  Gun Sound Pack | 銃: 実銃の発射と残響（狙撃銃・回転式・散弾） |
+| wpn_gun_atk_3.caf | 0.45 秒 | TS Sound - 12 Gauge Shotgun・Gamemaster Audio -  Gun Sound Pack | 銃: 実銃の発射と残響（狙撃銃・回転式・散弾） |
+| wpn_gun_atk_4.caf | 0.45 秒 | Gamemaster Audio -  Gun Sound Pack | 銃: 実銃の発射と残響（狙撃銃・回転式・散弾） |
+| wpn_gun_crit_1.caf | 0.39 秒 | Federico Soler Fernández - Effective Trailer Hits & Impacts・PMSFX - Bullet Bys &Impacts | 銃の会心: 重い着弾 + 衝撃 |
+| wpn_gun_crit_2.caf | 0.41 秒 | Federico Soler Fernández - Effective Trailer Hits & Impacts・PMSFX - Bullet Bys &Impacts | 銃の会心: 重い着弾 + 衝撃 |
+| wpn_gun_hit_1.caf | 0.29 秒 | Mechanical Wave - Undoing-Computer・PMSFX - Bullet Bys &Impacts | 銃の命中: 弾が肉に当たる音 + 金属の跳ね |
+| wpn_gun_hit_2.caf | 0.32 秒 | Mechanical Wave - Undoing-Computer・PMSFX - Bullet Bys &Impacts | 銃の命中: 弾が肉に当たる音 + 金属の跳ね |
+| wpn_gun_hit_3.caf | 0.27 秒 | Mechanical Wave - Undoing-Computer・PMSFX - Bullet Bys &Impacts | 銃の命中: 弾が肉に当たる音 + 金属の跳ね |
+| wpn_hammer_atk_1.caf | 0.44 秒 | Baxter Audio - IMPACT・BluezoneCorp - Stone Impact・Pole Position - The Metal Hit Sweeteners Library・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 鎚: 重い振り → 鈍い打撃（鉄・石）→ 低い芯 |
+| wpn_hammer_atk_2.caf | 0.44 秒 | Baxter Audio - IMPACT・BluezoneCorp - Stone Impact・Pole Position - The Metal Hit Sweeteners Library・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 鎚: 重い振り → 鈍い打撃（鉄・石）→ 低い芯 |
+| wpn_hammer_atk_3.caf | 0.44 秒 | Baxter Audio - IMPACT・BluezoneCorp - Stone Impact・Pole Position - The Metal Hit Sweeteners Library・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 鎚: 重い振り → 鈍い打撃（鉄・石）→ 低い芯 |
+| wpn_hammer_atk_4.caf | 0.45 秒 | Baxter Audio - IMPACT・BluezoneCorp - Stone Impact・Pole Position - The Metal Hit Sweeteners Library・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 鎚: 重い振り → 鈍い打撃（鉄・石）→ 低い芯 |
+| wpn_hammer_crit_1.caf | 0.55 秒 | Game Audio Factory - GAFSFX01 - Dark Materials・Federico Soler Fernández - Effective Trailer Hits & Impacts | 鎚の会心: 巨大な打撃 + 重い一撃の残響 |
+| wpn_hammer_crit_2.caf | 0.59 秒 | Game Audio Factory - GAFSFX01 - Dark Materials・Federico Soler Fernández - Effective Trailer Hits & Impacts | 鎚の会心: 巨大な打撃 + 重い一撃の残響 |
+| wpn_hammer_hit_1.caf | 0.33 秒 | Mechanical Wave - Rock Brick and Dirt・Gamemaster Audio -  Punch Sound Pack | 鎚の命中: 体への重い衝撃 + 砕け |
+| wpn_hammer_hit_2.caf | 0.32 秒 | Mechanical Wave - Rock Brick and Dirt・Gamemaster Audio -  Punch Sound Pack | 鎚の命中: 体への重い衝撃 + 砕け |
+| wpn_hammer_hit_3.caf | 0.36 秒 | Mechanical Wave - Rock Brick and Dirt・Gamemaster Audio -  Punch Sound Pack | 鎚の命中: 体への重い衝撃 + 砕け |
+| wpn_magic_dark_atk_1.caf | 0.45 秒 | Gamemaster Audio - Magic and Spell Sounds・Rogue Waves - Druid Magic | 闇の魔法: 暗い気の放ち + 低いうねりの風 |
+| wpn_magic_dark_atk_2.caf | 0.44 秒 | Gamemaster Audio - Magic and Spell Sounds・Rogue Waves - Druid Magic | 闇の魔法: 暗い気の放ち + 低いうねりの風 |
+| wpn_magic_dark_atk_3.caf | 0.43 秒 | Gamemaster Audio - Magic and Spell Sounds・Rogue Waves - Druid Magic | 闇の魔法: 暗い気の放ち + 低いうねりの風 |
+| wpn_magic_dark_atk_4.caf | 0.44 秒 | Gamemaster Audio - Magic and Spell Sounds・Rogue Waves - Druid Magic | 闇の魔法: 暗い気の放ち + 低いうねりの風 |
+| wpn_magic_dark_crit_1.caf | 0.60 秒 | BlueZone - Cinematic Dark Sound Effects・Jake Fielding - Haunted Metal Vol.1 - Cinematic Hits & Impacts | 闇の魔法の会心: 暗い金属の衝撃 + 低いうねり |
+| wpn_magic_dark_crit_2.caf | 0.60 秒 | BlueZone - Cinematic Dark Sound Effects・Jake Fielding - Haunted Metal Vol.1 - Cinematic Hits & Impacts | 闇の魔法の会心: 暗い金属の衝撃 + 低いうねり |
+| wpn_magic_dark_hit_1.caf | 0.40 秒 | 3maze - High Impact・SmartSoundFX - Impacts, Hits & Whooshes | 闇の魔法の命中: 低く重い衝撃 |
+| wpn_magic_dark_hit_2.caf | 0.40 秒 | 3maze - High Impact・SmartSoundFX - Impacts, Hits & Whooshes | 闇の魔法の命中: 低く重い衝撃 |
+| wpn_magic_dark_hit_3.caf | 0.40 秒 | 3maze - High Impact・SmartSoundFX - Impacts, Hits & Whooshes | 闇の魔法の命中: 低く重い衝撃 |
+| wpn_magic_fire_atk_1.caf | 0.38 秒 | Soundrangers - Whooshes And Transitions・Sound Spark LLC – Magic Spells, Buffs and Attacks | 炎の魔法: 松明の炎の風切り + 炎の弾け |
+| wpn_magic_fire_atk_2.caf | 0.40 秒 | Soundrangers - Whooshes And Transitions・Sound Spark LLC – Magic Spells, Buffs and Attacks | 炎の魔法: 松明の炎の風切り + 炎の弾け |
+| wpn_magic_fire_atk_3.caf | 0.37 秒 | Soundrangers - Whooshes And Transitions・Sound Spark LLC – Magic Spells, Buffs and Attacks | 炎の魔法: 松明の炎の風切り + 炎の弾け |
+| wpn_magic_fire_atk_4.caf | 0.39 秒 | Soundrangers - Whooshes And Transitions・Sound Spark LLC – Magic Spells, Buffs and Attacks | 炎の魔法: 松明の炎の風切り + 炎の弾け |
+| wpn_magic_fire_crit_1.caf | 0.60 秒 | Gregor Quendel – Designed Fire・344 Audio - Low Frequency Elements | 炎の魔法の会心: 大きな火の弾け + 低音 |
+| wpn_magic_fire_crit_2.caf | 0.60 秒 | Gregor Quendel – Designed Fire・344 Audio - Low Frequency Elements | 炎の魔法の会心: 大きな火の弾け + 低音 |
+| wpn_magic_fire_hit_1.caf | 0.40 秒 | Membrans - Firecrackers Sound Pack 01・Gregor Quendel – Designed Fire | 炎の魔法の命中: 火の着火の弾け |
+| wpn_magic_fire_hit_2.caf | 0.40 秒 | Membrans - Firecrackers Sound Pack 01・Gregor Quendel – Designed Fire | 炎の魔法の命中: 火の着火の弾け |
+| wpn_magic_fire_hit_3.caf | 0.40 秒 | Membrans - Firecrackers Sound Pack 01・Gregor Quendel – Designed Fire | 炎の魔法の命中: 火の着火の弾け |
+| wpn_magic_ice_atk_1.caf | 0.30 秒 | Stuart Duffield - Ice SFX・Alexander Kopeikin - The Dry Ice Library | 氷の魔法: 氷の澄んだ打音 + 冷気の擦れ |
+| wpn_magic_ice_atk_2.caf | 0.31 秒 | Stuart Duffield - Ice SFX・Alexander Kopeikin - The Dry Ice Library | 氷の魔法: 氷の澄んだ打音 + 冷気の擦れ |
+| wpn_magic_ice_atk_3.caf | 0.29 秒 | Stuart Duffield - Ice SFX・Alexander Kopeikin - The Dry Ice Library | 氷の魔法: 氷の澄んだ打音 + 冷気の擦れ |
+| wpn_magic_ice_atk_4.caf | 0.29 秒 | Stuart Duffield - Ice SFX・Alexander Kopeikin - The Dry Ice Library | 氷の魔法: 氷の澄んだ打音 + 冷気の擦れ |
+| wpn_magic_ice_crit_1.caf | 0.60 秒 | Stuart Duffield - Ice SFX・Mattia Cellotto - Glacier Ice | 氷の魔法の会心: 大きな氷の割れと砕け |
+| wpn_magic_ice_crit_2.caf | 0.60 秒 | Stuart Duffield - Ice SFX・Mattia Cellotto - Glacier Ice | 氷の魔法の会心: 大きな氷の割れと砕け |
+| wpn_magic_ice_hit_1.caf | 0.40 秒 | Stuart Duffield - Ice SFX | 氷の魔法の命中: 氷が砕ける音 |
+| wpn_magic_ice_hit_2.caf | 0.38 秒 | Stuart Duffield - Ice SFX | 氷の魔法の命中: 氷が砕ける音 |
+| wpn_magic_ice_hit_3.caf | 0.38 秒 | Mindful Audio - Elements - Ice | 氷の魔法の命中: 氷が砕ける音 |
+| wpn_magic_light_atk_1.caf | 0.44 秒 | Airborne Sound - Airy Whooshes・Airborne Sound - Crisis Accents | 聖の魔法: 鐘の澄んだ鳴り + 柔らかい風切り |
+| wpn_magic_light_atk_2.caf | 0.45 秒 | Airborne Sound - Airy Whooshes・Airborne Sound - Crisis Accents | 聖の魔法: 鐘の澄んだ鳴り + 柔らかい風切り |
+| wpn_magic_light_atk_3.caf | 0.44 秒 | Airborne Sound - Airy Whooshes・Airborne Sound - Crisis Accents | 聖の魔法: 鐘の澄んだ鳴り + 柔らかい風切り |
+| wpn_magic_light_atk_4.caf | 0.45 秒 | Airborne Sound - Airy Whooshes・Airborne Sound - Crisis Accents | 聖の魔法: 鐘の澄んだ鳴り + 柔らかい風切り |
+| wpn_magic_light_crit_1.caf | 0.60 秒 | Federico Soler Fernández - Effective Trailer Hits & Impacts・Orbital Emitter - Cinematic Transitions for Editors Volume 2 | 聖の魔法の会心: 銅鑼の一撃 + 重い衝撃 |
+| wpn_magic_light_crit_2.caf | 0.60 秒 | Federico Soler Fernández - Effective Trailer Hits & Impacts・Orbital Emitter - Cinematic Transitions for Editors Volume 2 | 聖の魔法の会心: 銅鑼の一撃 + 重い衝撃 |
+| wpn_magic_light_hit_1.caf | 0.40 秒 | Soundopolis - Percussion 01・Gamemaster Audio -  Punch Sound Pack | 聖の魔法の命中: 鐘の打音 + 鈍い衝撃 |
+| wpn_magic_light_hit_2.caf | 0.40 秒 | Soundopolis - Percussion 01・Gamemaster Audio -  Punch Sound Pack | 聖の魔法の命中: 鐘の打音 + 鈍い衝撃 |
+| wpn_magic_light_hit_3.caf | 0.40 秒 | Soundopolis - Percussion 01・Gamemaster Audio -  Punch Sound Pack | 聖の魔法の命中: 鐘の打音 + 鈍い衝撃 |
+| wpn_magic_lightning_atk_1.caf | 0.29 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・Rogue Waves - Druid Magic | 雷の魔法: 放電の弾け + 火花 |
+| wpn_magic_lightning_atk_2.caf | 0.31 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・Rogue Waves - Druid Magic | 雷の魔法: 放電の弾け + 火花 |
+| wpn_magic_lightning_atk_3.caf | 0.29 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・Rogue Waves - Druid Magic | 雷の魔法: 放電の弾け + 火花 |
+| wpn_magic_lightning_atk_4.caf | 0.31 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・Rogue Waves - Druid Magic | 雷の魔法: 放電の弾け + 火花 |
+| wpn_magic_lightning_crit_1.caf | 0.60 秒 | Soundopolis - Natures Fury_Thunder・Hear and Now Sound - High Voltage Electricity - The Essential Collection | 雷の魔法の会心: 本物の雷鳴の割れ + 放電 |
+| wpn_magic_lightning_crit_2.caf | 0.60 秒 | Soundopolis - Natures Fury_Thunder・Hear and Now Sound - High Voltage Electricity - The Essential Collection | 雷の魔法の会心: 本物の雷鳴の割れ + 放電 |
+| wpn_magic_lightning_hit_1.caf | 0.30 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection | 雷の魔法の命中: 高電圧の放電 |
+| wpn_magic_lightning_hit_2.caf | 0.32 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection | 雷の魔法の命中: 高電圧の放電 |
+| wpn_magic_lightning_hit_3.caf | 0.28 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection | 雷の魔法の命中: 高電圧の放電 |
+| wpn_magic_water_atk_1.caf | 0.32 秒 | Airborne Sound - Airy Whooshes・Bluezone - Splash | 水の魔法: 水の弾け + 柔らかい風切り |
+| wpn_magic_water_atk_2.caf | 0.33 秒 | Airborne Sound - Airy Whooshes・Bluezone - Splash | 水の魔法: 水の弾け + 柔らかい風切り |
+| wpn_magic_water_atk_3.caf | 0.31 秒 | Airborne Sound - Airy Whooshes・Bluezone - Splash | 水の魔法: 水の弾け + 柔らかい風切り |
+| wpn_magic_water_atk_4.caf | 0.32 秒 | Airborne Sound - Airy Whooshes・Bluezone - Splash | 水の魔法: 水の弾け + 柔らかい風切り |
+| wpn_magic_water_crit_1.caf | 0.57 秒 | Baxter Audio - IMPACT・Bluezone - Splash | 水の魔法の会心: 大きな水しぶき + 低い芯 |
+| wpn_magic_water_crit_2.caf | 0.59 秒 | Baxter Audio - IMPACT・Bluezone - Splash | 水の魔法の会心: 大きな水しぶき + 低い芯 |
+| wpn_magic_water_hit_1.caf | 0.40 秒 | Bluezone - Splash | 水の魔法の命中: 水の当たり |
+| wpn_magic_water_hit_2.caf | 0.40 秒 | Articulated Sounds - Magic Elements vol.2 | 水の魔法の命中: 水の当たり |
+| wpn_magic_water_hit_3.caf | 0.38 秒 | Bluezone - Splash | 水の魔法の命中: 水の当たり |
+| wpn_spear_atk_1.caf | 0.23 秒 | Soundopolis - Gore Toolkit HD・Timothy McHugh - Gorification [HD]・The AudioVille - Wooden Staffs and Sword Fight | 槍: 柄のうなる突きの風切り → 穂先の刺さり → 柄の木の鳴り |
+| wpn_spear_atk_2.caf | 0.24 秒 | Soundopolis - Gore Toolkit HD・Timothy McHugh - Gorification [HD]・The AudioVille - Wooden Staffs and Sword Fight | 槍: 柄のうなる突きの風切り → 穂先の刺さり → 柄の木の鳴り |
+| wpn_spear_atk_3.caf | 0.23 秒 | Soundopolis - Gore Toolkit HD・Timothy McHugh - Gorification [HD]・The AudioVille - Wooden Staffs and Sword Fight | 槍: 柄のうなる突きの風切り → 穂先の刺さり → 柄の木の鳴り |
+| wpn_spear_atk_4.caf | 0.23 秒 | Soundopolis - Gore Toolkit HD・Timothy McHugh - Gorification [HD]・The AudioVille - Wooden Staffs and Sword Fight | 槍: 柄のうなる突きの風切り → 穂先の刺さり → 柄の木の鳴り |
+| wpn_spear_crit_1.caf | 0.42 秒 | Soundopolis - Blades・Timothy McHugh - Gorification [HD]・Baxter Audio - IMPACT | 槍の会心: 深い刺突 + 穂先の鳴り + 低い芯 |
+| wpn_spear_crit_2.caf | 0.44 秒 | Soundopolis - Blades・Timothy McHugh - Gorification [HD]・Baxter Audio - IMPACT | 槍の会心: 深い刺突 + 穂先の鳴り + 低い芯 |
+| wpn_spear_hit_1.caf | 0.37 秒 | SoundBits -  Just Gore _ Add On・Gamemaster Audio -  Punch Sound Pack | 槍の命中: 刺さる音 + 体への衝撃 |
+| wpn_spear_hit_2.caf | 0.37 秒 | SoundBits -  Just Gore _ Add On・Gamemaster Audio -  Punch Sound Pack | 槍の命中: 刺さる音 + 体への衝撃 |
+| wpn_spear_hit_3.caf | 0.35 秒 | SoundBits -  Just Gore _ Add On・Gamemaster Audio -  Punch Sound Pack | 槍の命中: 刺さる音 + 体への衝撃 |
+| wpn_sword_atk_1.caf | 0.45 秒 | Soundopolis - Blades・Gamemaster Audio - Punch and Combat Sounds・David Dumais Audio - Melee Weapons Sound Effects Pack 1 | 剣: 刃の風切り → 斬りの芯（鋼）→ 刃の鳴り |
+| wpn_sword_atk_2.caf | 0.45 秒 | Soundopolis - Blades・Gamemaster Audio - Punch and Combat Sounds・Sound Spark LLC – Gore | 剣: 刃の風切り → 斬りの芯（鋼）→ 刃の鳴り |
+| wpn_sword_atk_3.caf | 0.42 秒 | Soundopolis - Blades・Soundopolis - Halloween 101・Gamemaster Audio - Punch and Combat Sounds | 剣: 刃の風切り → 斬りの芯（鋼）→ 刃の鳴り |
+| wpn_sword_atk_4.caf | 0.44 秒 | Soundopolis - Blades・Gamemaster Audio - Punch and Combat Sounds・SmartSoundFX – Medieval | 剣: 刃の風切り → 斬りの芯（鋼）→ 刃の鳴り |
+| wpn_sword_crit_1.caf | 0.54 秒 | Soundopolis - Blades・Timothy McHugh - Gorification [HD]・Baxter Audio - IMPACT | 剣の会心: 刃の鋭い鳴り + 深い斬り + 低い芯 |
+| wpn_sword_crit_2.caf | 0.57 秒 | Soundopolis - Blades・Timothy McHugh - Gorification [HD]・Baxter Audio - IMPACT | 剣の会心: 刃の鋭い鳴り + 深い斬り + 低い芯 |
+| wpn_sword_hit_1.caf | 0.28 秒 | Timothy McHugh - Gorification [HD]・Gamemaster Audio -  Punch Sound Pack | 剣の命中: 刃が肉に入る音 + 体への鈍い衝撃 |
+| wpn_sword_hit_2.caf | 0.32 秒 | Timothy McHugh - Gorification [HD]・Gamemaster Audio -  Punch Sound Pack | 剣の命中: 刃が肉に入る音 + 体への鈍い衝撃 |
+| wpn_sword_hit_3.caf | 0.33 秒 | Timothy McHugh - Gorification [HD]・Gamemaster Audio -  Punch Sound Pack | 剣の命中: 刃が肉に入る音 + 体への鈍い衝撃 |
