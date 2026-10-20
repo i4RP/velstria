@@ -81,7 +81,8 @@ final class AudioFilesTests: XCTestCase {
 
     /// 10 体の S1・S2・奥義の発動の音と、再使用の段（H029 S2・H032 S2・H033 奥義）の音がある。
     func testSkillSoundFilesExistForTheTenHeroes() {
-        for n in 25...34 {
+        // 34 体すべて（旧 24 体は tools/audio/sets/legacy.py の属性と武器の録音、H025〜H034 は heroes/h0xx.py）
+        for n in 1...34 {
             let id = String(format: "H%03d", n)
             for slot in [SkillSlot.skill1, .skill2, .ultimate] {
                 let key = SkillSoundKey(heroID: id, slot: slot)
@@ -146,13 +147,13 @@ final class AudioFilesTests: XCTestCase {
     /// 試合に出るヒーローの分だけ読み、試合が終われば捨てる。音の無いスキルは false（汎用の発動の音で代える）。
     func testSkillSoundsLoadOnlyForTheMatchHeroes() async throws {
         let audio = AudioService()
-        audio.preloadSkillSounds(heroIDs: ["H029", "H001"])
+        audio.preloadSkillSounds(heroIDs: ["H029", "H999"])
         let ult = SkillSoundKey(heroID: "H029", slot: .ultimate)
         for _ in 0..<200 where !audio.hasSkillSound(ult) { try await Task.sleep(for: .milliseconds(20)) }
         XCTAssertTrue(audio.hasSkillSound(ult))
         XCTAssertTrue(audio.hasSkillSound(SkillSoundKey(heroID: "H029", slot: .skill2, stage: 1)))
         XCTAssertFalse(audio.hasSkillSound(SkillSoundKey(heroID: "H030", slot: .ultimate)), "試合に出ないヒーローは読まない")
-        XCTAssertFalse(audio.playSkill(SkillSoundKey(heroID: "H001", slot: .skill1), gain: 1), "音の無いスキル")
+        XCTAssertFalse(audio.playSkill(SkillSoundKey(heroID: "H999", slot: .skill1), gain: 1), "音の無いスキル")
         XCTAssertTrue(audio.playSkill(ult, gain: 1), "音量 0 でも音があれば汎用の音を重ねない")
         audio.releaseSkillSounds()
         XCTAssertFalse(audio.hasSkillSound(ult))

@@ -83,17 +83,20 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 
 | 素材集 | 作者 | ライセンス | URL |
 |---|---|---|---|
+| Dog（GDC 2015） | Coll Anderson | Sonniss GDC | https://gdc.sonniss.com/ |
 | Rock Brick and Dirt（GDC 2015） | Mechanical Wave | Sonniss GDC | https://gdc.sonniss.com/ |
 | Undoing-Computer（GDC 2015） | Mechanical Wave | Sonniss GDC | https://gdc.sonniss.com/ |
 | Firecrackers Sound Pack 01（GDC 2015） | Membrans | Sonniss GDC | https://gdc.sonniss.com/ |
 | Twisted Zither（GDC 2015） | RDGSFX009 | Sonniss GDC | https://gdc.sonniss.com/ |
 | Blades（GDC 2015） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
+| Glass Smash Full（GDC 2015） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
 | Gore Toolkit HD（GDC 2015） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
 | Natures Fury_Thunder（GDC 2015） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
 | Percussion 01（GDC 2015） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
 | Gorification [HD]（GDC 2015） | Timothy McHugh | Sonniss GDC | https://gdc.sonniss.com/ |
 | High Impact（GDC 2016） | 3maze | Sonniss GDC | https://gdc.sonniss.com/ |
 | Impact Collection（GDC 2016） | Bottle Rocket Fx | Sonniss GDC | https://gdc.sonniss.com/ |
+| Colinized Cuckoo Clock Library（GDC 2016） | Colin Lechner | Sonniss GDC | https://gdc.sonniss.com/ |
 | The Gun Locker SFX Pack（GDC 2016） | Fascinated Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 | GAFSFX01 - Dark Materials（GDC 2016） | Game Audio Factory | Sonniss GDC | https://gdc.sonniss.com/ |
 | The Source Collection SFX Pack（GDC 2016） | George Karagioules | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -103,12 +106,17 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Wooden Staffs and Sword Fight（GDC 2016） | The AudioVille | Sonniss GDC | https://gdc.sonniss.com/ |
 | Playing Cards & Betting Chips（GDC 2016） | Timothy McHugh | Sonniss GDC | https://gdc.sonniss.com/ |
 | Thin Ice（GDC 2017） | Articulated Sounds | Sonniss GDC | https://gdc.sonniss.com/ |
+| The Black Sea（GDC 2017） | Chris Skyes | Sonniss GDC | https://gdc.sonniss.com/ |
 | Medieval Armor and Impacts（GDC 2017） | Double Trouble Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| Shards（GDC 2017） | Double Trouble Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Tanks and Jet（GDC 2017） | Double Trouble Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| Scene Shop Tool Box（GDC 2017） | Fascinated Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 |  Gun Sound Pack（GDC 2017） | Gamemaster Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 |  Punch Sound Pack（GDC 2017） | Gamemaster Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| Elegant Machines（GDC 2017） | Hzandbits | Sonniss GDC | https://gdc.sonniss.com/ |
 | Money（GDC 2017） | Hzandbits | Sonniss GDC | https://gdc.sonniss.com/ |
 | Glacier Ice（GDC 2017） | Mattia Cellotto | Sonniss GDC | https://gdc.sonniss.com/ |
+| Rock,Brick and Dirt - Part 02（GDC 2017） | Mechanical Wave | Sonniss GDC | https://gdc.sonniss.com/ |
 | Elements - Ice（GDC 2017） | Mindful Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Crystal Glasses- Tones and Drones_（GDC 2017） | Raconteur Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 | Hums Light Machines（GDC 2017） | RedSonic | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -117,12 +125,14 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Unsettling Creaks and Squeaks – Extension I（GDC 2017） | SoundBits | Sonniss GDC | https://gdc.sonniss.com/ |
 | Halloween 101（GDC 2017） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
 | Paperlife（GDC 2017） | The Soundcatcher | Sonniss GDC | https://gdc.sonniss.com/ |
+| Variety 1 Sound Effects（GDC 2018） | Airborne Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 | The Dry Ice Library（GDC 2018） | Alexander Kopeikin | Sonniss GDC | https://gdc.sonniss.com/ |
 | COINAGE（GDC 2018） | Effectsworks | Sonniss GDC | https://gdc.sonniss.com/ |
 | Magic and Spell Sounds（GDC 2018） | Gamemaster Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Punch and Combat Sounds（GDC 2018） | Gamemaster Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Designed Fire（GDC 2018） | Gregor Quendel | Sonniss GDC | https://gdc.sonniss.com/ |
 | High Voltage Electricity - The Essential Collection（GDC 2018） | Hear and Now Sound | Sonniss GDC | https://gdc.sonniss.com/ |
+| Foley Elements Foliage（GDC 2018） | Soundrangers | Sonniss GDC | https://gdc.sonniss.com/ |
 | Foley Elements Ice and Snow（GDC 2018） | Soundrangers | Sonniss GDC | https://gdc.sonniss.com/ |
 | Whooshes And Transitions（GDC 2018） | Soundrangers | Sonniss GDC | https://gdc.sonniss.com/ |
 | Hand-to-Hand Combat - Body Hits & Vocal Excursions（GDC 2018） | The Chris Alan | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -134,6 +144,7 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Airy Whooshes（GDC 2019） | Airborne Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 | Battlefield Howitzers（GDC 2019） | Airborne Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 | Crisis Accents（GDC 2019） | Airborne Sound | Sonniss GDC | https://gdc.sonniss.com/ |
+| Elements Metal（GDC 2019） | Airborne Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 | Organic Whooshes（GDC 2019） | Airborne Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 | Magic Elements vol.1（GDC 2019） | Articulated Sounds | Sonniss GDC | https://gdc.sonniss.com/ |
 | IMPACT（GDC 2019） | Baxter Audio | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -145,6 +156,7 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Effective Trailer Booms（GDC 2019） | Federico Soler Fernández | Sonniss GDC | https://gdc.sonniss.com/ |
 | Effective Trailer Hits & Impacts（GDC 2019） | Federico Soler Fernández | Sonniss GDC | https://gdc.sonniss.com/ |
 | Effective Trailer Whooshes（GDC 2019） | Federico Soler Fernández | Sonniss GDC | https://gdc.sonniss.com/ |
+| You Me & Debris（GDC 2019） | Matt Script | Sonniss GDC | https://gdc.sonniss.com/ |
 | Singing Bowls（GDC 2019） | Prismo Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 | Bodyfall（GDC 2019） | Red Libraries | Sonniss GDC | https://gdc.sonniss.com/ |
 | Hero（GDC 2019） | Rock The Speakerbox | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -166,10 +178,12 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Impacts, Hits & Whooshes（GDC 2020） | SmartSoundFX | Sonniss GDC | https://gdc.sonniss.com/ |
 | Medieval（GDC 2020） | SmartSoundFX | Sonniss GDC | https://gdc.sonniss.com/ |
 | PARTICLES An Organic & Granular Journey（GDC 2020） | SoundFxwizard | Sonniss GDC | https://gdc.sonniss.com/ |
+| Bowed Cymbal 2 HD（GDC 2020） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
 | Flesh, Bones & Gore（GDC 2023） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Building Collapse（GDC 2023） | BluezoneCorp | Sonniss GDC | https://gdc.sonniss.com/ |
 | Melee Weapons Sound Effects Pack 1（GDC 2023） | David Dumais Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Potato Gun – Pipe-based Cannon（GDC 2023） | Dramatic Cat | Sonniss GDC | https://gdc.sonniss.com/ |
+| Debris & Rubble（GDC 2023） | Eneas Mentzel | Sonniss GDC | https://gdc.sonniss.com/ |
 | Naval Warfare（GDC 2023） | Gladestock Studios | Sonniss GDC | https://gdc.sonniss.com/ |
 | Essentials 04 Chains（GDC 2023） | InspectorJ | Sonniss GDC | https://gdc.sonniss.com/ |
 | Druid Magic（GDC 2023） | Rogue Waves | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -187,6 +201,7 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Cinematic Fight Vol. 1（GDC 2026） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Elemental Palette Designed Vol. 1（GDC 2026） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Historical Weapons Vol. 2（GDC 2026） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| 100 kHz Designed Ice（GDC 2026） | Alexander Kopeikin | Sonniss GDC | https://gdc.sonniss.com/ |
 | Emotion and Magic（GDC 2026） | Alexander Kopeikin | Sonniss GDC | https://gdc.sonniss.com/ |
 | Melee Weapons Sound Effects Pack 2（GDC 2026） | David Dumais Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Elemental Mutation Whooshes and Impacts（GDC 2026） | Epic Stock Media | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -241,6 +256,222 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | sfx_ui_tap.caf | 0.10 秒 | 344 Audio - Antique Typewriter | タップ: タイプライターの鍵の軽い打鍵 |
 | sfx_ultimate_cast.caf | 1.35 秒 | Federico Soler Fernández - Effective Trailer Hits & Impacts・Federico Soler Fernández - Effective Trailer Whooshes・Jake Fielding - Haunted Metal Vol.1 - Cinematic Hits & Impacts | 汎用の奥義: 大きな溜めの風 → 重い一撃 + 金属の低音 |
 | sfx_victory.caf | 2.58 秒 | Soundopolis - Percussion 01・The Chris Alan - Musical Oddities - Bells, Whistles, Horns, Percussion and More・Orbital Emitter - Cinematic Transitions for Editors Volume 2 | 勝利: ティンパニ + 銅鑼 + ベルツリー |
+| skill_H001_s1_cast.caf | 0.74 秒 | Soundopolis - Percussion 01・Airborne Sound - Airy Whooshes | H001 城門の誓衛アルデン（holy・sword） S1: 武器の振り・発射 + 属性の放ち |
+| skill_H001_s1_hit_1.caf | 0.63 秒 | Gamemaster Audio -  Punch Sound Pack・Airborne Sound - Crisis Accents | H001 城門の誓衛アルデン（holy・sword） S1 の命中: 属性の当たり |
+| skill_H001_s1_hit_2.caf | 0.63 秒 | Gamemaster Audio -  Punch Sound Pack・Airborne Sound - Crisis Accents | H001 城門の誓衛アルデン（holy・sword） S1 の命中: 属性の当たり |
+| skill_H001_s2_cast.caf | 0.62 秒 | Soundopolis - Percussion 01・Airborne Sound - Airy Whooshes | H001 城門の誓衛アルデン（holy・sword） S2: 属性の放ち + 風切り |
+| skill_H001_s2_hit_1.caf | 0.67 秒 | Gamemaster Audio -  Punch Sound Pack・Airborne Sound - Crisis Accents | H001 城門の誓衛アルデン（holy・sword） S2 の命中: 属性の当たり |
+| skill_H001_s2_hit_2.caf | 0.67 秒 | Gamemaster Audio -  Punch Sound Pack・Airborne Sound - Crisis Accents | H001 城門の誓衛アルデン（holy・sword） S2 の命中: 属性の当たり |
+| skill_H001_ult_cast.caf | 1.53 秒 | Federico Soler Fernández - Effective Trailer Hits & Impacts・Soundopolis - Bowed Cymbal 2 HD・Orbital Emitter - Cinematic Transitions for Editors Volume 2 | H001 城門の誓衛アルデン（holy・sword） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂 |
+| skill_H001_ult_hit_1.caf | 0.70 秒 | Baxter Audio - IMPACT・Federico Soler Fernández - Effective Trailer Hits & Impacts・Orbital Emitter - Cinematic Transitions for Editors Volume 2 | H001 城門の誓衛アルデン（holy・sword） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H001_ult_hit_2.caf | 0.70 秒 | Baxter Audio - IMPACT・Federico Soler Fernández - Effective Trailer Hits & Impacts・Orbital Emitter - Cinematic Transitions for Editors Volume 2 | H001 城門の誓衛アルデン（holy・sword） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H002_s1_cast.caf | 0.44 秒 | George Karagioules - The Source Collection SFX Pack・Mechanical Wave - Glass | H002 星弦のリラ（crystal・sword） S1: 武器の振り・発射 + 属性の放ち |
+| skill_H002_s1_hit_1.caf | 0.46 秒 | Double Trouble Audio - Shards | H002 星弦のリラ（crystal・sword） S1 の命中: 属性の当たり |
+| skill_H002_s1_hit_2.caf | 0.40 秒 | Double Trouble Audio - Shards | H002 星弦のリラ（crystal・sword） S1 の命中: 属性の当たり |
+| skill_H002_s2_cast.caf | 0.44 秒 | George Karagioules - The Source Collection SFX Pack・Airborne Sound - Airy Whooshes・Mechanical Wave - Glass | H002 星弦のリラ（crystal・sword） S2: 属性の放ち + 風切り |
+| skill_H002_s2_hit_1.caf | 0.49 秒 | Double Trouble Audio - Shards | H002 星弦のリラ（crystal・sword） S2 の命中: 属性の当たり |
+| skill_H002_s2_hit_2.caf | 0.43 秒 | Double Trouble Audio - Shards | H002 星弦のリラ（crystal・sword） S2 の命中: 属性の当たり |
+| skill_H002_ult_cast.caf | 1.37 秒 | Soundopolis - Glass Smash Full・Raconteur Sound - Crystal Glasses- Tones and Drones_・Federico Soler Fernández - Effective Trailer Hits & Impacts | H002 星弦のリラ（crystal・sword） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂 |
+| skill_H002_ult_hit_1.caf | 0.69 秒 | Soundopolis - Glass Smash Full・Baxter Audio - IMPACT・Federico Soler Fernández - Effective Trailer Hits & Impacts | H002 星弦のリラ（crystal・sword） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H002_ult_hit_2.caf | 0.70 秒 | Soundopolis - Glass Smash Full・Baxter Audio - IMPACT・Federico Soler Fernández - Effective Trailer Hits & Impacts | H002 星弦のリラ（crystal・sword） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H003_s1_cast.caf | 0.73 秒 | Airborne Sound - Airy Whooshes・Mechanical Wave - Glass | H003 月弓のフィリエル（moon・bow） S1: 武器の振り・発射 + 属性の放ち |
+| skill_H003_s1_hit_1.caf | 0.48 秒 | George Karagioules - The Source Collection SFX Pack・Gamemaster Audio -  Punch Sound Pack | H003 月弓のフィリエル（moon・bow） S1 の命中: 属性の当たり |
+| skill_H003_s1_hit_2.caf | 0.58 秒 | George Karagioules - The Source Collection SFX Pack・Gamemaster Audio -  Punch Sound Pack | H003 月弓のフィリエル（moon・bow） S1 の命中: 属性の当たり |
+| skill_H003_s2_cast.caf | 0.66 秒 | Airborne Sound - Airy Whooshes・Mechanical Wave - Glass | H003 月弓のフィリエル（moon・bow） S2: 属性の放ち + 風切り |
+| skill_H003_s2_hit_1.caf | 0.51 秒 | George Karagioules - The Source Collection SFX Pack・Gamemaster Audio -  Punch Sound Pack | H003 月弓のフィリエル（moon・bow） S2 の命中: 属性の当たり |
+| skill_H003_s2_hit_2.caf | 0.61 秒 | George Karagioules - The Source Collection SFX Pack・Gamemaster Audio -  Punch Sound Pack | H003 月弓のフィリエル（moon・bow） S2 の命中: 属性の当たり |
+| skill_H003_ult_cast.caf | 1.49 秒 | Soundopolis - Glass Smash Full・Raconteur Sound - Crystal Glasses- Tones and Drones_・Prismo Sound - Singing Bowls | H003 月弓のフィリエル（moon・bow） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂 |
+| skill_H003_ult_hit_1.caf | 0.70 秒 | Soundopolis - Glass Smash Full・Baxter Audio - IMPACT・Prismo Sound - Singing Bowls | H003 月弓のフィリエル（moon・bow） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H003_ult_hit_2.caf | 0.70 秒 | Soundopolis - Glass Smash Full・Baxter Audio - IMPACT・Prismo Sound - Singing Bowls | H003 月弓のフィリエル（moon・bow） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H004_s1_cast.caf | 0.52 秒 | Airborne Sound - Airy Whooshes・Bluezone - Splash | H004 潮祈のミレア（water・magic_water） S1: 武器の振り・発射 + 属性の放ち |
+| skill_H004_s1_hit_1.caf | 0.50 秒 | Articulated Sounds - Magic Elements vol.2 | H004 潮祈のミレア（water・magic_water） S1 の命中: 属性の当たり |
+| skill_H004_s1_hit_2.caf | 0.50 秒 | Bluezone - Splash | H004 潮祈のミレア（water・magic_water） S1 の命中: 属性の当たり |
+| skill_H004_s2_cast.caf | 0.53 秒 | Airborne Sound - Airy Whooshes・Bluezone - Splash | H004 潮祈のミレア（water・magic_water） S2: 属性の放ち + 風切り |
+| skill_H004_s2_hit_1.caf | 0.53 秒 | Articulated Sounds - Magic Elements vol.2 | H004 潮祈のミレア（water・magic_water） S2 の命中: 属性の当たり |
+| skill_H004_s2_hit_2.caf | 0.53 秒 | Bluezone - Splash | H004 潮祈のミレア（water・magic_water） S2 の命中: 属性の当たり |
+| skill_H004_ult_cast.caf | 1.59 秒 | Chris Skyes - The Black Sea・Baxter Audio - IMPACT・Bluezone - Splash | H004 潮祈のミレア（water・magic_water） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂 |
+| skill_H004_ult_hit_1.caf | 0.70 秒 | Baxter Audio - IMPACT・Bluezone - Splash | H004 潮祈のミレア（water・magic_water） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H004_ult_hit_2.caf | 0.70 秒 | Baxter Audio - IMPACT・Bluezone - Splash | H004 潮祈のミレア（water・magic_water） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H005_s1_cast.caf | 0.46 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・Rogue Waves - Druid Magic | H005 黒雷のヴォス（lightning・magic_lightning） S1: 武器の振り・発射 + 属性の放ち |
+| skill_H005_s1_hit_1.caf | 0.39 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection | H005 黒雷のヴォス（lightning・magic_lightning） S1 の命中: 属性の当たり |
+| skill_H005_s1_hit_2.caf | 0.39 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection | H005 黒雷のヴォス（lightning・magic_lightning） S1 の命中: 属性の当たり |
+| skill_H005_s2_cast.caf | 0.52 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・Airborne Sound - Airy Whooshes・Rogue Waves - Druid Magic | H005 黒雷のヴォス（lightning・magic_lightning） S2: 属性の放ち + 風切り |
+| skill_H005_s2_hit_1.caf | 0.41 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection | H005 黒雷のヴォス（lightning・magic_lightning） S2 の命中: 属性の当たり |
+| skill_H005_s2_hit_2.caf | 0.41 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection | H005 黒雷のヴォス（lightning・magic_lightning） S2 の命中: 属性の当たり |
+| skill_H005_ult_cast.caf | 1.75 秒 | Soundopolis - Natures Fury_Thunder・RedSonic - Hums Light Machines・Hear and Now Sound - High Voltage Electricity - The Essential Collection | H005 黒雷のヴォス（lightning・magic_lightning） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂 |
+| skill_H005_ult_hit_1.caf | 0.70 秒 | Soundopolis - Natures Fury_Thunder・Hear and Now Sound - High Voltage Electricity - The Essential Collection・Baxter Audio - IMPACT | H005 黒雷のヴォス（lightning・magic_lightning） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H005_ult_hit_2.caf | 0.70 秒 | Soundopolis - Natures Fury_Thunder・Hear and Now Sound - High Voltage Electricity - The Essential Collection・Baxter Audio - IMPACT | H005 黒雷のヴォス（lightning・magic_lightning） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H006_s1_cast.caf | 0.66 秒 | Airborne Sound - Airy Whooshes・Mechanical Wave - Glass | H006 月灯のセレン（moon・dual） S1: 武器の振り・発射 + 属性の放ち |
+| skill_H006_s1_hit_1.caf | 0.52 秒 | George Karagioules - The Source Collection SFX Pack・Gamemaster Audio -  Punch Sound Pack | H006 月灯のセレン（moon・dual） S1 の命中: 属性の当たり |
+| skill_H006_s1_hit_2.caf | 0.52 秒 | George Karagioules - The Source Collection SFX Pack・Gamemaster Audio -  Punch Sound Pack | H006 月灯のセレン（moon・dual） S1 の命中: 属性の当たり |
+| skill_H006_s2_cast.caf | 0.60 秒 | Airborne Sound - Airy Whooshes・Mechanical Wave - Glass | H006 月灯のセレン（moon・dual） S2: 属性の放ち + 風切り |
+| skill_H006_s2_hit_1.caf | 0.56 秒 | George Karagioules - The Source Collection SFX Pack・Gamemaster Audio -  Punch Sound Pack | H006 月灯のセレン（moon・dual） S2 の命中: 属性の当たり |
+| skill_H006_s2_hit_2.caf | 0.56 秒 | George Karagioules - The Source Collection SFX Pack・Gamemaster Audio -  Punch Sound Pack | H006 月灯のセレン（moon・dual） S2 の命中: 属性の当たり |
+| skill_H006_ult_cast.caf | 1.41 秒 | Soundopolis - Glass Smash Full・Raconteur Sound - Crystal Glasses- Tones and Drones_・Prismo Sound - Singing Bowls | H006 月灯のセレン（moon・dual） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂 |
+| skill_H006_ult_hit_1.caf | 0.70 秒 | Soundopolis - Glass Smash Full・Baxter Audio - IMPACT・Prismo Sound - Singing Bowls | H006 月灯のセレン（moon・dual） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H006_ult_hit_2.caf | 0.70 秒 | Soundopolis - Glass Smash Full・Baxter Audio - IMPACT・Prismo Sound - Singing Bowls | H006 月灯のセレン（moon・dual） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H007_s1_cast.caf | 0.57 秒 | Mechanical Wave - Rock,Brick and Dirt - Part 02・Baxter Audio - IMPACT | H007 岩脈のガルク（earth・fist） S1: 武器の振り・発射 + 属性の放ち |
+| skill_H007_s1_hit_1.caf | 0.55 秒 | Mechanical Wave - Rock Brick and Dirt | H007 岩脈のガルク（earth・fist） S1 の命中: 属性の当たり |
+| skill_H007_s1_hit_2.caf | 0.55 秒 | Mechanical Wave - Rock Brick and Dirt | H007 岩脈のガルク（earth・fist） S1 の命中: 属性の当たり |
+| skill_H007_s2_cast.caf | 0.64 秒 | Mechanical Wave - Rock,Brick and Dirt - Part 02・Airborne Sound - Airy Whooshes・Baxter Audio - IMPACT | H007 岩脈のガルク（earth・fist） S2: 属性の放ち + 風切り |
+| skill_H007_s2_hit_1.caf | 0.59 秒 | Mechanical Wave - Rock Brick and Dirt | H007 岩脈のガルク（earth・fist） S2 の命中: 属性の当たり |
+| skill_H007_s2_hit_2.caf | 0.59 秒 | Mechanical Wave - Rock Brick and Dirt | H007 岩脈のガルク（earth・fist） S2 の命中: 属性の当たり |
+| skill_H007_ult_cast.caf | 1.76 秒 | 344 Audio - Low Frequency Elements・Articulated Sounds - Magic Elements vol.1・BluezoneCorp - Alien Tripod | H007 岩脈のガルク（earth・fist） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂 |
+| skill_H007_ult_hit_1.caf | 0.70 秒 | 344 Audio - Low Frequency Elements・Articulated Sounds - Magic Elements vol.1・Baxter Audio - IMPACT | H007 岩脈のガルク（earth・fist） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H007_ult_hit_2.caf | 0.70 秒 | 344 Audio - Low Frequency Elements・Articulated Sounds - Magic Elements vol.1・Baxter Audio - IMPACT | H007 岩脈のガルク（earth・fist） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H008_s1_cast.caf | 0.50 秒 | Rescopic Sound - Distinct Whooshes | H008 風標のニア（wind・spear） S1: 武器の振り・発射 + 属性の放ち |
+| skill_H008_s1_hit_1.caf | 0.39 秒 | Gamemaster Audio -  Punch Sound Pack・Airborne Sound - Organic Whooshes | H008 風標のニア（wind・spear） S1 の命中: 属性の当たり |
+| skill_H008_s1_hit_2.caf | 0.37 秒 | Gamemaster Audio -  Punch Sound Pack・Airborne Sound - Organic Whooshes | H008 風標のニア（wind・spear） S1 の命中: 属性の当たり |
+| skill_H008_s2_cast.caf | 0.50 秒 | Airborne Sound - Airy Whooshes・Articulated Sounds - Magic Elements vol.1 | H008 風標のニア（wind・spear） S2: 属性の放ち + 風切り |
+| skill_H008_s2_hit_1.caf | 0.52 秒 | Gamemaster Audio -  Punch Sound Pack・Airborne Sound - Organic Whooshes | H008 風標のニア（wind・spear） S2 の命中: 属性の当たり |
+| skill_H008_s2_hit_2.caf | 0.52 秒 | Gamemaster Audio -  Punch Sound Pack・Airborne Sound - Organic Whooshes | H008 風標のニア（wind・spear） S2 の命中: 属性の当たり |
+| skill_H008_ult_cast.caf | 1.38 秒 | Federico Soler Fernández - Effective Trailer Hits & Impacts・Rescopic Sound - Distinct Whooshes・344 Audio - Elemental Palette Designed Vol. 1 | H008 風標のニア（wind・spear） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂 |
+| skill_H008_ult_hit_1.caf | 0.70 秒 | Baxter Audio - IMPACT・Federico Soler Fernández - Effective Trailer Hits & Impacts・Rescopic Sound - Distinct Whooshes | H008 風標のニア（wind・spear） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H008_ult_hit_2.caf | 0.70 秒 | Baxter Audio - IMPACT・Federico Soler Fernández - Effective Trailer Hits & Impacts・Rescopic Sound - Distinct Whooshes | H008 風標のニア（wind・spear） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H009_s1_cast.caf | 0.47 秒 | Fascinated Sound - Scene Shop Tool Box・Gamemaster Audio -  Gun Sound Pack | H009 機巧士オリン（mech・crossbow） S1: 武器の振り・発射 + 属性の放ち |
+| skill_H009_s1_hit_1.caf | 0.45 秒 | Mechanical Wave - Undoing-Computer | H009 機巧士オリン（mech・crossbow） S1 の命中: 属性の当たり |
+| skill_H009_s1_hit_2.caf | 0.44 秒 | Pole Position - The Metal Hit Sweeteners Library | H009 機巧士オリン（mech・crossbow） S1 の命中: 属性の当たり |
+| skill_H009_s2_cast.caf | 0.47 秒 | Fascinated Sound - Scene Shop Tool Box・Gamemaster Audio -  Gun Sound Pack・Airborne Sound - Airy Whooshes | H009 機巧士オリン（mech・crossbow） S2: 属性の放ち + 風切り |
+| skill_H009_s2_hit_1.caf | 0.48 秒 | Mechanical Wave - Undoing-Computer | H009 機巧士オリン（mech・crossbow） S2 の命中: 属性の当たり |
+| skill_H009_s2_hit_2.caf | 0.47 秒 | Pole Position - The Metal Hit Sweeteners Library | H009 機巧士オリン（mech・crossbow） S2 の命中: 属性の当たり |
+| skill_H009_ult_cast.caf | 1.45 秒 | Hzandbits - Elegant Machines・Airborne Sound - Variety 1 Sound Effects・Pole Position - The Metal Hit Sweeteners Library | H009 機巧士オリン（mech・crossbow） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂 |
+| skill_H009_ult_hit_1.caf | 0.70 秒 | Airborne Sound - Variety 1 Sound Effects・Baxter Audio - IMPACT・Pole Position - The Metal Hit Sweeteners Library | H009 機巧士オリン（mech・crossbow） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H009_ult_hit_2.caf | 0.70 秒 | Airborne Sound - Variety 1 Sound Effects・Baxter Audio - IMPACT・Pole Position - The Metal Hit Sweeteners Library | H009 機巧士オリン（mech・crossbow） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H010_s1_cast.caf | 0.57 秒 | Soundrangers - Whooshes And Transitions・Sound Spark LLC – Magic Spells, Buffs and Attacks | H010 焔冠のテッサ（fire・magic_fire） S1: 武器の振り・発射 + 属性の放ち |
+| skill_H010_s1_hit_1.caf | 0.57 秒 | Gregor Quendel – Designed Fire | H010 焔冠のテッサ（fire・magic_fire） S1 の命中: 属性の当たり |
+| skill_H010_s1_hit_2.caf | 0.63 秒 | Gregor Quendel – Designed Fire | H010 焔冠のテッサ（fire・magic_fire） S1 の命中: 属性の当たり |
+| skill_H010_s2_cast.caf | 0.62 秒 | Soundrangers - Whooshes And Transitions・Airborne Sound - Airy Whooshes・Sound Spark LLC – Magic Spells, Buffs and Attacks | H010 焔冠のテッサ（fire・magic_fire） S2: 属性の放ち + 風切り |
+| skill_H010_s2_hit_1.caf | 0.61 秒 | Gregor Quendel – Designed Fire | H010 焔冠のテッサ（fire・magic_fire） S2 の命中: 属性の当たり |
+| skill_H010_s2_hit_2.caf | 0.67 秒 | Gregor Quendel – Designed Fire | H010 焔冠のテッサ（fire・magic_fire） S2 の命中: 属性の当たり |
+| skill_H010_ult_cast.caf | 1.54 秒 | Gregor Quendel – Designed Fire・DavidDumais - Explosion SFX Pack | H010 焔冠のテッサ（fire・magic_fire） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂 |
+| skill_H010_ult_hit_1.caf | 0.70 秒 | Gregor Quendel – Designed Fire・Baxter Audio - IMPACT・DavidDumais - Explosion SFX Pack | H010 焔冠のテッサ（fire・magic_fire） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H010_ult_hit_2.caf | 0.70 秒 | Gregor Quendel – Designed Fire・Baxter Audio - IMPACT・DavidDumais - Explosion SFX Pack | H010 焔冠のテッサ（fire・magic_fire） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H011_s1_cast.caf | 0.55 秒 | David Dumais Audio - Melee Weapons Sound Effects Pack 2 | H011 鉄翼のルーク（metal・magic_light） S1: 武器の振り・発射 + 属性の放ち |
+| skill_H011_s1_hit_1.caf | 0.42 秒 | Pole Position - The Metal Hit Sweeteners Library | H011 鉄翼のルーク（metal・magic_light） S1 の命中: 属性の当たり |
+| skill_H011_s1_hit_2.caf | 0.53 秒 | BlueZone - Heavy Metal Impact Sound Effects | H011 鉄翼のルーク（metal・magic_light） S1 の命中: 属性の当たり |
+| skill_H011_s2_cast.caf | 0.62 秒 | Airborne Sound - Airy Whooshes・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | H011 鉄翼のルーク（metal・magic_light） S2: 属性の放ち + 風切り |
+| skill_H011_s2_hit_1.caf | 0.44 秒 | Pole Position - The Metal Hit Sweeteners Library | H011 鉄翼のルーク（metal・magic_light） S2 の命中: 属性の当たり |
+| skill_H011_s2_hit_2.caf | 0.56 秒 | BlueZone - Heavy Metal Impact Sound Effects | H011 鉄翼のルーク（metal・magic_light） S2 の命中: 属性の当たり |
+| skill_H011_ult_cast.caf | 1.58 秒 | Airborne Sound - Elements Metal・Federico Soler Fernández - Effective Trailer Hits & Impacts・Jake Fielding - Haunted Metal Vol.1 - Cinematic Hits & Impacts | H011 鉄翼のルーク（metal・magic_light） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂 |
+| skill_H011_ult_hit_1.caf | 0.69 秒 | Airborne Sound - Elements Metal・Baxter Audio - IMPACT・Federico Soler Fernández - Effective Trailer Hits & Impacts | H011 鉄翼のルーク（metal・magic_light） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H011_ult_hit_2.caf | 0.69 秒 | Airborne Sound - Elements Metal・Baxter Audio - IMPACT・Federico Soler Fernández - Effective Trailer Hits & Impacts | H011 鉄翼のルーク（metal・magic_light） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H012_s1_cast.caf | 0.41 秒 | George Karagioules - The Source Collection SFX Pack・Mechanical Wave - Glass | H012 玻璃歌のエリネ（crystal・dual） S1: 武器の振り・発射 + 属性の放ち |
+| skill_H012_s1_hit_1.caf | 0.43 秒 | Double Trouble Audio - Shards | H012 玻璃歌のエリネ（crystal・dual） S1 の命中: 属性の当たり |
+| skill_H012_s1_hit_2.caf | 0.38 秒 | Double Trouble Audio - Shards | H012 玻璃歌のエリネ（crystal・dual） S1 の命中: 属性の当たり |
+| skill_H012_s2_cast.caf | 0.42 秒 | George Karagioules - The Source Collection SFX Pack・Airborne Sound - Airy Whooshes・Mechanical Wave - Glass | H012 玻璃歌のエリネ（crystal・dual） S2: 属性の放ち + 風切り |
+| skill_H012_s2_hit_1.caf | 0.46 秒 | Double Trouble Audio - Shards | H012 玻璃歌のエリネ（crystal・dual） S2 の命中: 属性の当たり |
+| skill_H012_s2_hit_2.caf | 0.40 秒 | Double Trouble Audio - Shards | H012 玻璃歌のエリネ（crystal・dual） S2 の命中: 属性の当たり |
+| skill_H012_ult_cast.caf | 1.33 秒 | Soundopolis - Glass Smash Full・Raconteur Sound - Crystal Glasses- Tones and Drones_・Federico Soler Fernández - Effective Trailer Hits & Impacts | H012 玻璃歌のエリネ（crystal・dual） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂 |
+| skill_H012_ult_hit_1.caf | 0.68 秒 | Soundopolis - Glass Smash Full・Baxter Audio - IMPACT・Federico Soler Fernández - Effective Trailer Hits & Impacts | H012 玻璃歌のエリネ（crystal・dual） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H012_ult_hit_2.caf | 0.69 秒 | Soundopolis - Glass Smash Full・Baxter Audio - IMPACT・Federico Soler Fernández - Effective Trailer Hits & Impacts | H012 玻璃歌のエリネ（crystal・dual） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H013_s1_cast.caf | 0.75 秒 | Coll Anderson - Dog・Gamemaster Audio -  Punch Sound Pack | H013 獣刻のダガン（beast・hammer） S1: 武器の振り・発射 + 属性の放ち |
+| skill_H013_s1_hit_1.caf | 0.50 秒 | Gamemaster Audio -  Punch Sound Pack | H013 獣刻のダガン（beast・hammer） S1 の命中: 属性の当たり |
+| skill_H013_s1_hit_2.caf | 0.50 秒 | 344 Audio - Flesh, Bones & Gore | H013 獣刻のダガン（beast・hammer） S1 の命中: 属性の当たり |
+| skill_H013_s2_cast.caf | 0.86 秒 | Coll Anderson - Dog・Gamemaster Audio -  Punch Sound Pack・Airborne Sound - Airy Whooshes | H013 獣刻のダガン（beast・hammer） S2: 属性の放ち + 風切り |
+| skill_H013_s2_hit_1.caf | 0.53 秒 | Gamemaster Audio -  Punch Sound Pack | H013 獣刻のダガン（beast・hammer） S2 の命中: 属性の当たり |
+| skill_H013_s2_hit_2.caf | 0.53 秒 | 344 Audio - Flesh, Bones & Gore | H013 獣刻のダガン（beast・hammer） S2 の命中: 属性の当たり |
+| skill_H013_ult_cast.caf | 1.65 秒 | Coll Anderson - Dog・Articulated Sounds - Magic Elements vol.1・344 Audio - Flesh, Bones & Gore | H013 獣刻のダガン（beast・hammer） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂 |
+| skill_H013_ult_hit_1.caf | 0.70 秒 | Articulated Sounds - Magic Elements vol.1・Baxter Audio - IMPACT・344 Audio - Flesh, Bones & Gore | H013 獣刻のダガン（beast・hammer） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H013_ult_hit_2.caf | 0.70 秒 | Articulated Sounds - Magic Elements vol.1・Baxter Audio - IMPACT・344 Audio - Flesh, Bones & Gore | H013 獣刻のダガン（beast・hammer） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H014_s1_cast.caf | 0.33 秒 | Fascinated Sound - Scene Shop Tool Box・Airborne Sound - Airy Whooshes | H014 霧歩のシオ（mist・dual） S1: 武器の振り・発射 + 属性の放ち |
+| skill_H014_s1_hit_1.caf | 0.27 秒 | Timothy McHugh - Gorification [HD]・Airborne Sound - Organic Whooshes | H014 霧歩のシオ（mist・dual） S1 の命中: 属性の当たり |
+| skill_H014_s1_hit_2.caf | 0.28 秒 | Timothy McHugh - Gorification [HD]・Airborne Sound - Organic Whooshes | H014 霧歩のシオ（mist・dual） S1 の命中: 属性の当たり |
+| skill_H014_s2_cast.caf | 0.36 秒 | Fascinated Sound - Scene Shop Tool Box・Airborne Sound - Airy Whooshes | H014 霧歩のシオ（mist・dual） S2: 属性の放ち + 風切り |
+| skill_H014_s2_hit_1.caf | 0.29 秒 | Timothy McHugh - Gorification [HD]・Airborne Sound - Organic Whooshes | H014 霧歩のシオ（mist・dual） S2 の命中: 属性の当たり |
+| skill_H014_s2_hit_2.caf | 0.32 秒 | Timothy McHugh - Gorification [HD]・Airborne Sound - Organic Whooshes | H014 霧歩のシオ（mist・dual） S2 の命中: 属性の当たり |
+| skill_H014_ult_cast.caf | 1.35 秒 | Soundopolis - Blades・Airborne Sound - Airy Whooshes | H014 霧歩のシオ（mist・dual） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂 |
+| skill_H014_ult_hit_1.caf | 0.64 秒 | Soundopolis - Blades・Baxter Audio - IMPACT | H014 霧歩のシオ（mist・dual） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H014_ult_hit_2.caf | 0.65 秒 | Soundopolis - Blades・Baxter Audio - IMPACT | H014 霧歩のシオ（mist・dual） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H015_s1_cast.caf | 0.99 秒 | Soundopolis - Percussion 01 | H015 戦鐘のヴァルカ（bell・gun） S1: 武器の振り・発射 + 属性の放ち |
+| skill_H015_s1_hit_1.caf | 0.70 秒 | Soundopolis - Percussion 01・Gamemaster Audio -  Punch Sound Pack | H015 戦鐘のヴァルカ（bell・gun） S1 の命中: 属性の当たり |
+| skill_H015_s1_hit_2.caf | 0.70 秒 | Soundopolis - Percussion 01・Gamemaster Audio -  Punch Sound Pack | H015 戦鐘のヴァルカ（bell・gun） S1 の命中: 属性の当たり |
+| skill_H015_s2_cast.caf | 1.00 秒 | Soundopolis - Percussion 01・Airborne Sound - Airy Whooshes | H015 戦鐘のヴァルカ（bell・gun） S2: 属性の放ち + 風切り |
+| skill_H015_s2_hit_1.caf | 0.70 秒 | Soundopolis - Percussion 01・Gamemaster Audio -  Punch Sound Pack | H015 戦鐘のヴァルカ（bell・gun） S2 の命中: 属性の当たり |
+| skill_H015_s2_hit_2.caf | 0.70 秒 | Soundopolis - Percussion 01・Gamemaster Audio -  Punch Sound Pack | H015 戦鐘のヴァルカ（bell・gun） S2 の命中: 属性の当たり |
+| skill_H015_ult_cast.caf | 1.85 秒 | Fascinated Sound - The Gun Locker SFX Pack・Eiravaein Works - 48Kilos | H015 戦鐘のヴァルカ（bell・gun） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂 |
+| skill_H015_ult_hit_1.caf | 0.70 秒 | Fascinated Sound - The Gun Locker SFX Pack・Baxter Audio - IMPACT・Eiravaein Works - 48Kilos | H015 戦鐘のヴァルカ（bell・gun） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H015_ult_hit_2.caf | 0.70 秒 | Fascinated Sound - The Gun Locker SFX Pack・Baxter Audio - IMPACT・Eiravaein Works - 48Kilos | H015 戦鐘のヴァルカ（bell・gun） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H016_s1_cast.caf | 0.64 秒 | Soundopolis - Percussion 01・Airborne Sound - Airy Whooshes | H016 白環のイリス（holy・magic_light） S1: 武器の振り・発射 + 属性の放ち |
+| skill_H016_s1_hit_1.caf | 0.46 秒 | Gamemaster Audio -  Punch Sound Pack・Airborne Sound - Crisis Accents | H016 白環のイリス（holy・magic_light） S1 の命中: 属性の当たり |
+| skill_H016_s1_hit_2.caf | 0.39 秒 | Gamemaster Audio -  Punch Sound Pack・Airborne Sound - Crisis Accents | H016 白環のイリス（holy・magic_light） S1 の命中: 属性の当たり |
+| skill_H016_s2_cast.caf | 0.53 秒 | Soundopolis - Percussion 01・Airborne Sound - Airy Whooshes | H016 白環のイリス（holy・magic_light） S2: 属性の放ち + 風切り |
+| skill_H016_s2_hit_1.caf | 0.57 秒 | Gamemaster Audio -  Punch Sound Pack・Airborne Sound - Crisis Accents | H016 白環のイリス（holy・magic_light） S2 の命中: 属性の当たり |
+| skill_H016_s2_hit_2.caf | 0.57 秒 | Gamemaster Audio -  Punch Sound Pack・Airborne Sound - Crisis Accents | H016 白環のイリス（holy・magic_light） S2 の命中: 属性の当たり |
+| skill_H016_ult_cast.caf | 1.39 秒 | Federico Soler Fernández - Effective Trailer Hits & Impacts・Soundopolis - Bowed Cymbal 2 HD・Orbital Emitter - Cinematic Transitions for Editors Volume 2 | H016 白環のイリス（holy・magic_light） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂 |
+| skill_H016_ult_hit_1.caf | 0.70 秒 | Baxter Audio - IMPACT・Federico Soler Fernández - Effective Trailer Hits & Impacts・Orbital Emitter - Cinematic Transitions for Editors Volume 2 | H016 白環のイリス（holy・magic_light） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H016_ult_hit_2.caf | 0.70 秒 | Baxter Audio - IMPACT・Federico Soler Fernández - Effective Trailer Hits & Impacts・Orbital Emitter - Cinematic Transitions for Editors Volume 2 | H016 白環のイリス（holy・magic_light） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H017_s1_cast.caf | 0.67 秒 | Conor Bradley - Metal Chains・Rogue Waves - Druid Magic | H017 深淵鎖のモルド（dark・magic_dark） S1: 武器の振り・発射 + 属性の放ち |
+| skill_H017_s1_hit_1.caf | 0.54 秒 | 3maze - High Impact | H017 深淵鎖のモルド（dark・magic_dark） S1 の命中: 属性の当たり |
+| skill_H017_s1_hit_2.caf | 0.54 秒 | SmartSoundFX - Impacts, Hits & Whooshes | H017 深淵鎖のモルド（dark・magic_dark） S1 の命中: 属性の当たり |
+| skill_H017_s2_cast.caf | 0.81 秒 | Airborne Sound - Airy Whooshes・Conor Bradley - Metal Chains・Rogue Waves - Druid Magic | H017 深淵鎖のモルド（dark・magic_dark） S2: 属性の放ち + 風切り |
+| skill_H017_s2_hit_1.caf | 0.58 秒 | 3maze - High Impact | H017 深淵鎖のモルド（dark・magic_dark） S2 の命中: 属性の当たり |
+| skill_H017_s2_hit_2.caf | 0.58 秒 | SmartSoundFX - Impacts, Hits & Whooshes | H017 深淵鎖のモルド（dark・magic_dark） S2 の命中: 属性の当たり |
+| skill_H017_ult_cast.caf | 1.63 秒 | BlueZone - Cinematic Dark Sound Effects・InspectorJ - Essentials 04 Chains・Jake Fielding - Haunted Metal Vol.1 - Cinematic Hits & Impacts | H017 深淵鎖のモルド（dark・magic_dark） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂 |
+| skill_H017_ult_hit_1.caf | 0.70 秒 | Baxter Audio - IMPACT・BlueZone - Cinematic Dark Sound Effects・InspectorJ - Essentials 04 Chains | H017 深淵鎖のモルド（dark・magic_dark） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H017_ult_hit_2.caf | 0.70 秒 | Baxter Audio - IMPACT・BlueZone - Cinematic Dark Sound Effects・InspectorJ - Essentials 04 Chains | H017 深淵鎖のモルド（dark・magic_dark） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H018_s1_cast.caf | 0.52 秒 | Soundrangers - Foley Elements Foliage・Eiravaein Works - Helina | H018 花星のセリア（nature・dual） S1: 武器の振り・発射 + 属性の放ち |
+| skill_H018_s1_hit_1.caf | 0.33 秒 | Soundrangers - Foley Elements Foliage | H018 花星のセリア（nature・dual） S1 の命中: 属性の当たり |
+| skill_H018_s1_hit_2.caf | 0.36 秒 | Soundrangers - Foley Elements Foliage | H018 花星のセリア（nature・dual） S1 の命中: 属性の当たり |
+| skill_H018_s2_cast.caf | 0.53 秒 | Soundrangers - Foley Elements Foliage・Airborne Sound - Airy Whooshes・Eiravaein Works - Helina | H018 花星のセリア（nature・dual） S2: 属性の放ち + 風切り |
+| skill_H018_s2_hit_1.caf | 0.35 秒 | Soundrangers - Foley Elements Foliage | H018 花星のセリア（nature・dual） S2 の命中: 属性の当たり |
+| skill_H018_s2_hit_2.caf | 0.38 秒 | Soundrangers - Foley Elements Foliage | H018 花星のセリア（nature・dual） S2 の命中: 属性の当たり |
+| skill_H018_ult_cast.caf | 1.10 秒 | Soundrangers - Foley Elements Foliage・Eiravaein Works - Helina・Federico Soler Fernández - Effective Trailer Hits & Impacts | H018 花星のセリア（nature・dual） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂 |
+| skill_H018_ult_hit_1.caf | 0.55 秒 | Soundrangers - Foley Elements Foliage・Baxter Audio - IMPACT・Federico Soler Fernández - Effective Trailer Hits & Impacts | H018 花星のセリア（nature・dual） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H018_ult_hit_2.caf | 0.59 秒 | Soundrangers - Foley Elements Foliage・Baxter Audio - IMPACT・Federico Soler Fernández - Effective Trailer Hits & Impacts | H018 花星のセリア（nature・dual） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H019_s1_cast.caf | 0.60 秒 | Mechanical Wave - Rock,Brick and Dirt - Part 02・Baxter Audio - IMPACT | H019 砦砕のブラム（earth・hammer） S1: 武器の振り・発射 + 属性の放ち |
+| skill_H019_s1_hit_1.caf | 0.59 秒 | Mechanical Wave - Rock Brick and Dirt | H019 砦砕のブラム（earth・hammer） S1 の命中: 属性の当たり |
+| skill_H019_s1_hit_2.caf | 0.59 秒 | Mechanical Wave - Rock Brick and Dirt | H019 砦砕のブラム（earth・hammer） S1 の命中: 属性の当たり |
+| skill_H019_s2_cast.caf | 0.68 秒 | Mechanical Wave - Rock,Brick and Dirt - Part 02・Airborne Sound - Airy Whooshes・Baxter Audio - IMPACT | H019 砦砕のブラム（earth・hammer） S2: 属性の放ち + 風切り |
+| skill_H019_s2_hit_1.caf | 0.62 秒 | Mechanical Wave - Rock Brick and Dirt | H019 砦砕のブラム（earth・hammer） S2 の命中: 属性の当たり |
+| skill_H019_s2_hit_2.caf | 0.62 秒 | Mechanical Wave - Rock Brick and Dirt | H019 砦砕のブラム（earth・hammer） S2 の命中: 属性の当たり |
+| skill_H019_ult_cast.caf | 1.83 秒 | 344 Audio - Low Frequency Elements・Articulated Sounds - Magic Elements vol.1・BluezoneCorp - Alien Tripod | H019 砦砕のブラム（earth・hammer） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂 |
+| skill_H019_ult_hit_1.caf | 0.70 秒 | 344 Audio - Low Frequency Elements・Articulated Sounds - Magic Elements vol.1・Baxter Audio - IMPACT | H019 砦砕のブラム（earth・hammer） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H019_ult_hit_2.caf | 0.70 秒 | 344 Audio - Low Frequency Elements・Articulated Sounds - Magic Elements vol.1・Baxter Audio - IMPACT | H019 砦砕のブラム（earth・hammer） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H020_s1_cast.caf | 0.60 秒 | Soundopolis - Percussion 01・Airborne Sound - Airy Whooshes | H020 光矢のユナ（holy・sword） S1: 武器の振り・発射 + 属性の放ち |
+| skill_H020_s1_hit_1.caf | 0.43 秒 | Gamemaster Audio -  Punch Sound Pack・Airborne Sound - Crisis Accents | H020 光矢のユナ（holy・sword） S1 の命中: 属性の当たり |
+| skill_H020_s1_hit_2.caf | 0.36 秒 | Gamemaster Audio -  Punch Sound Pack・Airborne Sound - Crisis Accents | H020 光矢のユナ（holy・sword） S1 の命中: 属性の当たり |
+| skill_H020_s2_cast.caf | 0.50 秒 | Soundopolis - Percussion 01・Airborne Sound - Airy Whooshes | H020 光矢のユナ（holy・sword） S2: 属性の放ち + 風切り |
+| skill_H020_s2_hit_1.caf | 0.46 秒 | Gamemaster Audio -  Punch Sound Pack・Airborne Sound - Crisis Accents | H020 光矢のユナ（holy・sword） S2 の命中: 属性の当たり |
+| skill_H020_s2_hit_2.caf | 0.39 秒 | Gamemaster Audio -  Punch Sound Pack・Airborne Sound - Crisis Accents | H020 光矢のユナ（holy・sword） S2 の命中: 属性の当たり |
+| skill_H020_ult_cast.caf | 1.34 秒 | Federico Soler Fernández - Effective Trailer Hits & Impacts・Soundopolis - Bowed Cymbal 2 HD・Orbital Emitter - Cinematic Transitions for Editors Volume 2 | H020 光矢のユナ（holy・sword） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂 |
+| skill_H020_ult_hit_1.caf | 0.70 秒 | Baxter Audio - IMPACT・Federico Soler Fernández - Effective Trailer Hits & Impacts・Orbital Emitter - Cinematic Transitions for Editors Volume 2 | H020 光矢のユナ（holy・sword） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H020_ult_hit_2.caf | 0.70 秒 | Baxter Audio - IMPACT・Federico Soler Fernández - Effective Trailer Hits & Impacts・Orbital Emitter - Cinematic Transitions for Editors Volume 2 | H020 光矢のユナ（holy・sword） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H021_s1_cast.caf | 0.52 秒 | Colin Lechner - Colinized Cuckoo Clock Library・Matt Script - You Me & Debris | H021 時砂のキロス（sand・gun） S1: 武器の振り・発射 + 属性の放ち |
+| skill_H021_s1_hit_1.caf | 0.42 秒 | Mechanical Wave - Rock,Brick and Dirt - Part 02 | H021 時砂のキロス（sand・gun） S1 の命中: 属性の当たり |
+| skill_H021_s1_hit_2.caf | 0.43 秒 | Matt Script - You Me & Debris | H021 時砂のキロス（sand・gun） S1 の命中: 属性の当たり |
+| skill_H021_s2_cast.caf | 0.58 秒 | Colin Lechner - Colinized Cuckoo Clock Library・Airborne Sound - Airy Whooshes・Matt Script - You Me & Debris | H021 時砂のキロス（sand・gun） S2: 属性の放ち + 風切り |
+| skill_H021_s2_hit_1.caf | 0.45 秒 | Mechanical Wave - Rock,Brick and Dirt - Part 02 | H021 時砂のキロス（sand・gun） S2 の命中: 属性の当たり |
+| skill_H021_s2_hit_2.caf | 0.45 秒 | Matt Script - You Me & Debris | H021 時砂のキロス（sand・gun） S2 の命中: 属性の当たり |
+| skill_H021_ult_cast.caf | 1.26 秒 | Gamemaster Audio -  Gun Sound Pack・Mechanical Wave - Rock,Brick and Dirt - Part 02・Eneas Mentzel - Debris & Rubble | H021 時砂のキロス（sand・gun） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂 |
+| skill_H021_ult_hit_1.caf | 0.66 秒 | Gamemaster Audio -  Gun Sound Pack・Mechanical Wave - Rock,Brick and Dirt - Part 02・Baxter Audio - IMPACT | H021 時砂のキロス（sand・gun） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H021_ult_hit_2.caf | 0.68 秒 | Gamemaster Audio -  Gun Sound Pack・Mechanical Wave - Rock,Brick and Dirt - Part 02・Baxter Audio - IMPACT | H021 時砂のキロス（sand・gun） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H022_s1_cast.caf | 0.42 秒 | Stuart Duffield - Ice SFX・Alexander Kopeikin - The Dry Ice Library | H022 蒼爪のレア（frost・dual） S1: 武器の振り・発射 + 属性の放ち |
+| skill_H022_s1_hit_1.caf | 0.43 秒 | Stuart Duffield - Ice SFX | H022 蒼爪のレア（frost・dual） S1 の命中: 属性の当たり |
+| skill_H022_s1_hit_2.caf | 0.42 秒 | Stuart Duffield - Ice SFX | H022 蒼爪のレア（frost・dual） S1 の命中: 属性の当たり |
+| skill_H022_s2_cast.caf | 0.41 秒 | Stuart Duffield - Ice SFX・Alexander Kopeikin - The Dry Ice Library・Airborne Sound - Airy Whooshes | H022 蒼爪のレア（frost・dual） S2: 属性の放ち + 風切り |
+| skill_H022_s2_hit_1.caf | 0.46 秒 | Stuart Duffield - Ice SFX | H022 蒼爪のレア（frost・dual） S2 の命中: 属性の当たり |
+| skill_H022_s2_hit_2.caf | 0.45 秒 | Stuart Duffield - Ice SFX | H022 蒼爪のレア（frost・dual） S2 の命中: 属性の当たり |
+| skill_H022_ult_cast.caf | 1.50 秒 | Stuart Duffield - Ice SFX・Mattia Cellotto - Glacier Ice・Alexander Kopeikin - 100 kHz Designed Ice | H022 蒼爪のレア（frost・dual） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂 |
+| skill_H022_ult_hit_1.caf | 0.69 秒 | Stuart Duffield - Ice SFX・Mattia Cellotto - Glacier Ice・Baxter Audio - IMPACT | H022 蒼爪のレア（frost・dual） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H022_ult_hit_2.caf | 0.70 秒 | Stuart Duffield - Ice SFX・Mattia Cellotto - Glacier Ice・Baxter Audio - IMPACT | H022 蒼爪のレア（frost・dual） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H023_s1_cast.caf | 0.41 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・Rogue Waves - Druid Magic | H023 雷槍のトレン（lightning・spear） S1: 武器の振り・発射 + 属性の放ち |
+| skill_H023_s1_hit_1.caf | 0.35 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection | H023 雷槍のトレン（lightning・spear） S1 の命中: 属性の当たり |
+| skill_H023_s1_hit_2.caf | 0.35 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection | H023 雷槍のトレン（lightning・spear） S1 の命中: 属性の当たり |
+| skill_H023_s2_cast.caf | 0.47 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・Airborne Sound - Airy Whooshes・Rogue Waves - Druid Magic | H023 雷槍のトレン（lightning・spear） S2: 属性の放ち + 風切り |
+| skill_H023_s2_hit_1.caf | 0.37 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection | H023 雷槍のトレン（lightning・spear） S2 の命中: 属性の当たり |
+| skill_H023_s2_hit_2.caf | 0.37 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection | H023 雷槍のトレン（lightning・spear） S2 の命中: 属性の当たり |
+| skill_H023_ult_cast.caf | 1.64 秒 | Soundopolis - Natures Fury_Thunder・RedSonic - Hums Light Machines・Hear and Now Sound - High Voltage Electricity - The Essential Collection | H023 雷槍のトレン（lightning・spear） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂 |
+| skill_H023_ult_hit_1.caf | 0.70 秒 | Soundopolis - Natures Fury_Thunder・Hear and Now Sound - High Voltage Electricity - The Essential Collection・Baxter Audio - IMPACT | H023 雷槍のトレン（lightning・spear） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H023_ult_hit_2.caf | 0.70 秒 | Soundopolis - Natures Fury_Thunder・Hear and Now Sound - High Voltage Electricity - The Essential Collection・Baxter Audio - IMPACT | H023 雷槍のトレン（lightning・spear） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H024_s1_cast.caf | 0.40 秒 | Eiravaein Works - Helina・Mechanical Wave - Glass | H024 夢織のノア（dream・dual） S1: 武器の振り・発射 + 属性の放ち |
+| skill_H024_s1_hit_1.caf | 0.25 秒 | Timothy McHugh - Gorification [HD]・George Karagioules - The Source Collection SFX Pack | H024 夢織のノア（dream・dual） S1 の命中: 属性の当たり |
+| skill_H024_s1_hit_2.caf | 0.22 秒 | Timothy McHugh - Gorification [HD]・George Karagioules - The Source Collection SFX Pack | H024 夢織のノア（dream・dual） S1 の命中: 属性の当たり |
+| skill_H024_s2_cast.caf | 0.47 秒 | Airborne Sound - Airy Whooshes・Eiravaein Works - Helina・Mechanical Wave - Glass | H024 夢織のノア（dream・dual） S2: 属性の放ち + 風切り |
+| skill_H024_s2_hit_1.caf | 0.27 秒 | Timothy McHugh - Gorification [HD]・George Karagioules - The Source Collection SFX Pack | H024 夢織のノア（dream・dual） S2 の命中: 属性の当たり |
+| skill_H024_s2_hit_2.caf | 0.24 秒 | Timothy McHugh - Gorification [HD]・George Karagioules - The Source Collection SFX Pack | H024 夢織のノア（dream・dual） S2 の命中: 属性の当たり |
+| skill_H024_ult_cast.caf | 1.19 秒 | Soundopolis - Glass Smash Full・Raconteur Sound - Crystal Glasses- Tones and Drones_・Prismo Sound - Singing Bowls | H024 夢織のノア（dream・dual） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂 |
+| skill_H024_ult_hit_1.caf | 0.63 秒 | Soundopolis - Glass Smash Full・Baxter Audio - IMPACT・Prismo Sound - Singing Bowls | H024 夢織のノア（dream・dual） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
+| skill_H024_ult_hit_2.caf | 0.69 秒 | Soundopolis - Glass Smash Full・Baxter Audio - IMPACT・Prismo Sound - Singing Bowls | H024 夢織のノア（dream・dual） 奥義の命中: 属性の炸裂（短く）+ 低い芯 |
 | skill_H025_passive.caf | 0.43 秒 | RDGSFX009 - Twisted Zither・George Karagioules - The Source Collection SFX Pack・Eiravaein Works - Helina | 弓の先の閃き（弦の小さな鳴り + ガラスの一打 + 風鈴） |
 | skill_H025_s1_cast.caf | 0.98 秒 | George Karagioules - The Source Collection SFX Pack・SoundBits - Unsettling Creaks and Squeaks – Extension I・Airborne Sound - Organic Whooshes・Eiravaein Works - Helina・Eiravaein Works - Nocked・Prismo Sound - Singing Bowls | 矢をつがえる弦と革のきしみ → ガラスの一打と風鈴（月光）+ 布の風 + 低いボウルの響き |
 | skill_H025_s2_cast.caf | 1.44 秒 | George Karagioules - The Source Collection SFX Pack・SoundBits - Unsettling Creaks and Squeaks・Soundrangers - Foley Elements Ice and Snow・2496SoundEffects - Super Heroes Sound Design・Baxter Audio - IMPACT・BlueZone - Wood Sound Effects・Eiravaein Works - Nocked・SmartSoundFX – Medieval・Epic Stock Media - Elemental Mutation Whooshes and Impacts | 弓を引き絞る（弦・木・革）→ 弦の弾けと天へ抜ける矢 → 0.65 着弾（矢が地に刺さる・氷のひび・低い芯）→ 0.98 小さな矢が散る |

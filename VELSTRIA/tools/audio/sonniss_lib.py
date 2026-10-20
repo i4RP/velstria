@@ -49,7 +49,15 @@ def fetch(year, name):
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         url = f"https://archive.org/download/{item(year)}/" + urllib.parse.quote(name)
         tmp = f"{dst}.{os.getpid()}.part"  # 同時に落とす担当どうしでぶつからない
-        urllib.request.urlretrieve(url, tmp)
+        for attempt in range(4):  # archive.org はときどき 500・接続切れを返す
+            try:
+                urllib.request.urlretrieve(url, tmp)
+                break
+            except Exception:
+                if attempt == 3:
+                    raise
+                import time
+                time.sleep(3 * (attempt + 1))
         os.replace(tmp, dst)
     return dst
 
