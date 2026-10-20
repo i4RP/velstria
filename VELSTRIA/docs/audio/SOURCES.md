@@ -71,12 +71,6 @@ MLBB の音は使っていない。素材の原本・素材集の形ではリポ
 | skill_H028_s2_hit.caf | 0.42 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H028 s2 の命中 |
 | skill_H028_ult_cast.caf | 1.75 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H028 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
 | skill_H028_ult_hit.caf | 0.44 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H028 ult の命中 |
-| skill_H030_s1_cast.caf | 1.13 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H030 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
-| skill_H030_s1_hit.caf | 0.80 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H030 s1 の命中 |
-| skill_H030_s2_cast.caf | 0.69 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H030 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
-| skill_H030_s2_hit.caf | 0.79 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H030 s2 の命中 |
-| skill_H030_ult_cast.caf | 3.50 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H030 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
-| skill_H030_ult_hit.caf | 0.80 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H030 ult の命中 |
 | skill_H031_s1_cast.caf | 1.20 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H031 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
 | skill_H031_s1_hit.caf | 0.48 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H031 s1 の命中 |
 | skill_H031_s2_cast.caf | 1.17 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H031 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
@@ -107,7 +101,16 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 
 | 素材集 | 作者 | ライセンス | URL |
 |---|---|---|---|
+| The Gun Locker SFX Pack（GDC 2016） | Fascinated Sound | Sonniss GDC | https://gdc.sonniss.com/ |
+| 12 Gauge Shotgun（GDC 2016） | TS Sound | Sonniss GDC | https://gdc.sonniss.com/ |
+| Tanks and Jet（GDC 2017） | Double Trouble Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+|  Gun Sound Pack（GDC 2017） | Gamemaster Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| Hums Light Machines（GDC 2017） | RedSonic | Sonniss GDC | https://gdc.sonniss.com/ |
+| High Voltage Electricity - The Essential Collection（GDC 2018） | Hear and Now Sound | Sonniss GDC | https://gdc.sonniss.com/ |
+| Hand-to-Hand Combat - Body Hits & Vocal Excursions（GDC 2018） | The Chris Alan | Sonniss GDC | https://gdc.sonniss.com/ |
+| Electric Deluxe（GDC 2018） | Wakerone | Sonniss GDC | https://gdc.sonniss.com/ |
 | Low Frequency Elements（GDC 2019） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| Battlefield Howitzers（GDC 2019） | Airborne Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 | Magic Elements vol.1（GDC 2019） | Articulated Sounds | Sonniss GDC | https://gdc.sonniss.com/ |
 | IMPACT（GDC 2019） | Baxter Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Heavy Metal Impact Sound Effects（GDC 2019） | BlueZone | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -122,13 +125,18 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Trailer Instruments Designed（GDC 2020） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Metal Chains（GDC 2020） | Conor Bradley | Sonniss GDC | https://gdc.sonniss.com/ |
 | Weapon Sounds - Weapon Swings（GDC 2020） | David Dumais Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| Bullet Bys &Impacts（GDC 2020） | PMSFX | Sonniss GDC | https://gdc.sonniss.com/ |
 | Lethal Blow（GDC 2020） | PMSFX | Sonniss GDC | https://gdc.sonniss.com/ |
 | Hit & Punch（GDC 2020） | Shapeforms | Sonniss GDC | https://gdc.sonniss.com/ |
 | Impacts, Hits & Whooshes（GDC 2020） | SmartSoundFX | Sonniss GDC | https://gdc.sonniss.com/ |
 | Flesh, Bones & Gore（GDC 2023） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Melee Weapons Sound Effects Pack 1（GDC 2023） | David Dumais Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| Potato Gun – Pipe-based Cannon（GDC 2023） | Dramatic Cat | Sonniss GDC | https://gdc.sonniss.com/ |
+| Naval Warfare（GDC 2023） | Gladestock Studios | Sonniss GDC | https://gdc.sonniss.com/ |
 | Essentials 04 Chains（GDC 2023） | InspectorJ | Sonniss GDC | https://gdc.sonniss.com/ |
+| High Voltage（GDC 2024） | BluezoneCorp | Sonniss GDC | https://gdc.sonniss.com/ |
 | Stone Impact（GDC 2024） | BluezoneCorp | Sonniss GDC | https://gdc.sonniss.com/ |
+| Explosion SFX Pack（GDC 2024） | DavidDumais | Sonniss GDC | https://gdc.sonniss.com/ |
 | Haunted Metal Vol.1 - Cinematic Hits & Impacts（GDC 2024） | Jake Fielding | Sonniss GDC | https://gdc.sonniss.com/ |
 | Melee Weapons（GDC 2024） | Justsoundeffects | Sonniss GDC | https://gdc.sonniss.com/ |
 | The Metal Hit Sweeteners Library（GDC 2024） | Pole Position | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -162,6 +170,19 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | skill_H029_ult_hit_1.caf | 0.70 秒 | BlueZone - Heavy Metal Impact Sound Effects・BluezoneCorp - Stone Impact | 重い金属の着弾 + 岩 |
 | skill_H029_ult_hit_2.caf | 0.70 秒 | BlueZone - Heavy Metal Impact Sound Effects・BluezoneCorp - Stone Impact | 重い金属の着弾 + 岩 |
 | skill_H029_ult_hit_3.caf | 0.70 秒 | BlueZone - Heavy Metal Impact Sound Effects・BluezoneCorp - Stone Impact | 重い金属の着弾 + 岩 |
+| skill_H030_passive.caf | 0.30 秒 | Gamemaster Audio -  Gun Sound Pack・Hear and Now Sound - High Voltage Electricity - The Essential Collection・BluezoneCorp - High Voltage | 砲口の小さな火花 + 細かい放電 + 撃鉄の金属音 |
+| skill_H030_s1_cast.caf | 0.70 秒 | Fascinated Sound - The Gun Locker SFX Pack・Double Trouble Audio - Tanks and Jet・Gamemaster Audio -  Gun Sound Pack・Hear and Now Sound - High Voltage Electricity - The Essential Collection・BluezoneCorp - High Voltage | 撃鉄と放電の溜め → 0.1 秒の発射（機関砲・放電の弾け・戦車砲の低音）→ 飛ぶ弾の放電 |
+| skill_H030_s1_hit_1.caf | 0.46 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions・PMSFX - Bullet Bys &Impacts・BluezoneCorp - High Voltage | 放電の弾け + 弾が体に当たる音 + 低い芯 + 火花 |
+| skill_H030_s1_hit_2.caf | 0.57 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions・PMSFX - Bullet Bys &Impacts・BluezoneCorp - High Voltage | 放電の弾け + 弾が体に当たる音 + 低い芯 + 火花 |
+| skill_H030_s1_hit_3.caf | 0.44 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions・PMSFX - Bullet Bys &Impacts・BluezoneCorp - High Voltage | 放電の弾け + 弾が体に当たる音 + 低い芯 + 火花 |
+| skill_H030_s2_cast.caf | 0.66 秒 | TS Sound - 12 Gauge Shotgun・RedSonic - Hums Light Machines・Wakerone - Electric Deluxe・Airborne Sound - Battlefield Howitzers・Dramatic Cat - Potato Gun – Pipe-based Cannon | 装填 → 0.1 秒の発射（空気砲・榴弾砲の低音）→ 飛ぶ球の電気のうなり |
+| skill_H030_s2_hit_1.caf | 0.57 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・Airborne Sound - Battlefield Howitzers・Gladestock Studios - Naval Warfare・BluezoneCorp - High Voltage・DavidDumais - Explosion SFX Pack | 放電の大きな弾け + 爆発 + 砲弾の着弾 + 放電の尾 + 低音 |
+| skill_H030_s2_hit_2.caf | 0.60 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・Airborne Sound - Battlefield Howitzers・Gladestock Studios - Naval Warfare・BluezoneCorp - High Voltage・DavidDumais - Explosion SFX Pack | 放電の大きな弾け + 爆発 + 砲弾の着弾 + 放電の尾 + 低音 |
+| skill_H030_s2_hit_3.caf | 0.54 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・Airborne Sound - Battlefield Howitzers・Gladestock Studios - Naval Warfare・BluezoneCorp - High Voltage・DavidDumais - Explosion SFX Pack | 放電の大きな弾け + 爆発 + 砲弾の着弾 + 放電の尾 + 低音 |
+| skill_H030_ult_cast.caf | 1.80 秒 | TS Sound - 12 Gauge Shotgun・Double Trouble Audio - Tanks and Jet・Hear and Now Sound - High Voltage Electricity - The Essential Collection・Wakerone - Electric Deluxe・Airborne Sound - Battlefield Howitzers・BluezoneCorp - High Voltage | 砲身を引く → 変圧器のうなりと放電の溜め → 0.55 秒の発射（戦車砲・放電・榴弾砲）→ ビームの放電 → 砲の尾 |
+| skill_H030_ult_hit_1.caf | 0.51 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・PMSFX - Bullet Bys &Impacts・Gladestock Studios - Naval Warfare・BluezoneCorp - High Voltage | 放電の弾け + 体の打撃 + 着弾の低音 + 放電の尾 |
+| skill_H030_ult_hit_2.caf | 0.49 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・PMSFX - Bullet Bys &Impacts・Gladestock Studios - Naval Warfare・BluezoneCorp - High Voltage | 放電の弾け + 体の打撃 + 着弾の低音 + 放電の尾 |
+| skill_H030_ult_hit_3.caf | 0.46 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・PMSFX - Bullet Bys &Impacts・Gladestock Studios - Naval Warfare・BluezoneCorp - High Voltage | 放電の弾け + 体の打撃 + 着弾の低音 + 放電の尾 |
 | skill_H034_atk_1.caf | 0.45 秒 | Baxter Audio - IMPACT・Conor Bradley - Metal Chains・Justsoundeffects - Melee Weapons | 斧鉤の打撃（肉と鉄）+ 低い芯 + 鎖の鳴り |
 | skill_H034_atk_2.caf | 0.44 秒 | Baxter Audio - IMPACT・Conor Bradley - Metal Chains・Justsoundeffects - Melee Weapons | 斧鉤の打撃（肉と鉄）+ 低い芯 + 鎖の鳴り |
 | skill_H034_atk_3.caf | 0.45 秒 | Baxter Audio - IMPACT・Conor Bradley - Metal Chains・Justsoundeffects - Melee Weapons | 斧鉤の打撃（肉と鉄）+ 低い芯 + 鎖の鳴り |
