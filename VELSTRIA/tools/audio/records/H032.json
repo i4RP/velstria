@@ -1,0 +1,163 @@
+{
+ "skill_H032_passive.caf": {
+  "kind": "passive",
+  "note": "両手の刃が鳴る + 鉄板の低いうなり",
+  "seconds": 0.68,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2016 / Alexander Kopeikin - Black Metal",
+   "2019 / L.A. Sounds - Transition Movement Pack 002"
+  ]
+ },
+ "skill_H032_s1_cast.caf": {
+  "kind": "cast",
+  "note": "刃の振り ×3（0.26・0.46・0.66 秒の輪）+ 刃の鳴り + 鉄の打撃 + 鉄板のうなり・地鳴り",
+  "seconds": 1.2,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Soundopolis - Natures Fury_Thunder",
+   "2016 / Alexander Kopeikin - Black Metal",
+   "2017 / Soundopolis - Heavy Metal!",
+   "2020 / David Dumais Audio - Weapon Sounds - Weapon Swings",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "skill_H032_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "刃が肉と鎧を斬る + 体の砕け + 鉄板の低い芯",
+  "seconds": 0.43,
+  "sources": [
+   "2016 / Alexander Kopeikin - Black Metal",
+   "2023 / 344 Audio - Flesh, Bones & Gore",
+   "2023 / David Dumais Audio - Melee Weapons Sound Effects Pack 1",
+   "2024 / Justsoundeffects - Melee Weapons"
+  ]
+ },
+ "skill_H032_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "刃が肉と鎧を斬る + 体の砕け + 鉄板の低い芯",
+  "seconds": 0.47,
+  "sources": [
+   "2016 / Alexander Kopeikin - Black Metal",
+   "2019 / Sound Spark LLC – Gore",
+   "2023 / 344 Audio - Flesh, Bones & Gore",
+   "2024 / Justsoundeffects - Melee Weapons"
+  ]
+ },
+ "skill_H032_s1_hit_3.caf": {
+  "kind": "hit",
+  "note": "刃が肉と鎧を斬る + 体の砕け + 鉄板の低い芯",
+  "seconds": 0.42,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2016 / Alexander Kopeikin - Black Metal",
+   "2023 / 344 Audio - Flesh, Bones & Gore",
+   "2024 / Justsoundeffects - Melee Weapons"
+  ]
+ },
+ "skill_H032_s2_cast.caf": {
+  "kind": "cast",
+  "note": "踏み込む重い振り + 鎧と鎖 → 突進の風 + 刃の擦れ → 鉄板のうねり",
+  "seconds": 0.76,
+  "sources": [
+   "2015 / Soundopolis - Natures Fury_Thunder",
+   "2016 / Alexander Kopeikin - Black Metal",
+   "2019 / L.A. Sounds - Transition Movement Pack 002",
+   "2020 / David Dumais Audio - Weapon Sounds - Weapon Swings",
+   "2020 / SmartSoundFX – Medieval"
+  ]
+ },
+ "skill_H032_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "刃と鎧のぶつかり（斧と鎖・盾の金属）+ 肉を斬る + 低い芯",
+  "seconds": 0.35,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2016 / Alexander Kopeikin - Black Metal",
+   "2017 / Soundopolis - Heavy Metal!",
+   "2024 / Justsoundeffects - Melee Weapons"
+  ]
+ },
+ "skill_H032_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "刃と鎧のぶつかり（斧と鎖・盾の金属）+ 肉を斬る + 低い芯",
+  "seconds": 0.37,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2016 / Alexander Kopeikin - Black Metal",
+   "2017 / Soundopolis - Heavy Metal!",
+   "2024 / Justsoundeffects - Melee Weapons"
+  ]
+ },
+ "skill_H032_s2_hit_3.caf": {
+  "kind": "hit",
+  "note": "刃と鎧のぶつかり（斧と鎖・盾の金属）+ 肉を斬る + 低い芯",
+  "seconds": 0.35,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2016 / Alexander Kopeikin - Black Metal",
+   "2017 / Soundopolis - Heavy Metal!",
+   "2024 / Justsoundeffects - Melee Weapons"
+  ]
+ },
+ "skill_H032_s2_r1_cast.caf": {
+  "kind": "cast",
+  "note": "跳ぶ風 → 回る刃の擦れ ×3 → 三日月の払い → 鉄板の低音",
+  "seconds": 0.88,
+  "sources": [
+   "2016 / Alexander Kopeikin - Black Metal",
+   "2017 / Soundopolis - Heavy Metal!",
+   "2019 / L.A. Sounds - Transition Movement Pack 002",
+   "2020 / David Dumais Audio - Weapon Sounds - Weapon Swings",
+   "2023 / David Dumais Audio - Melee Weapons Sound Effects Pack 1",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "skill_H032_ult_cast.caf": {
+  "kind": "ult",
+  "note": "鎌の振り ×4 と闇のうねりの溜め → 槍が伸びる刃の擦れ → 0.76 秒に放つ（刃の振り抜き・斧と鎖の打撃・地鳴り）",
+  "seconds": 1.63,
+  "sources": [
+   "2015 / Soundopolis - Natures Fury_Thunder",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2016 / Alexander Kopeikin - Black Metal",
+   "2017 / Soundopolis - Heavy Metal!",
+   "2020 / 344 Audio - Medieval Battle",
+   "2020 / David Dumais Audio - Weapon Sounds - Weapon Swings",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "skill_H032_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "刃の槍が体を貫く + 斧と鎖の打撃 + 体の砕け + 鉄板の低音",
+  "seconds": 0.48,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2016 / Alexander Kopeikin - Black Metal",
+   "2017 / Soundopolis - Heavy Metal!",
+   "2023 / 344 Audio - Flesh, Bones & Gore"
+  ]
+ },
+ "skill_H032_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "刃の槍が体を貫く + 斧と鎖の打撃 + 体の砕け + 鉄板の低音",
+  "seconds": 0.47,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2016 / Alexander Kopeikin - Black Metal",
+   "2017 / Soundopolis - Heavy Metal!",
+   "2023 / 344 Audio - Flesh, Bones & Gore"
+  ]
+ },
+ "skill_H032_ult_hit_3.caf": {
+  "kind": "hit",
+  "note": "刃の槍が体を貫く + 斧と鎖の打撃 + 体の砕け + 鉄板の低音",
+  "seconds": 0.48,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2016 / Alexander Kopeikin - Black Metal",
+   "2017 / Soundopolis - Heavy Metal!",
+   "2023 / 344 Audio - Flesh, Bones & Gore"
+  ]
+ }
+}
