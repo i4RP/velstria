@@ -1,0 +1,124 @@
+{
+ "skill_H027_passive.caf": {
+  "kind": "passive",
+  "note": "穂先の閃き（鋼の小さな鳴り + 短い風）",
+  "seconds": 0.33,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2019 / L.A. Sounds - Transition Movement Pack 002",
+   "2020 / David Dumais Audio - Weapon Sounds - Weapon Swings"
+  ]
+ },
+ "skill_H027_s1_cast.caf": {
+  "kind": "cast",
+  "note": "槍が足元を掬う（柄の風・穂先の鋼）→ 掲げる（柄の擦れ・鎧）→ 0.4 頭上を越える大きな振り → 0.6 背後へ叩きつける（体の落下・鎧・土・低音）",
+  "seconds": 0.98,
+  "sources": [
+   "2015 / Soundopolis - Gore Toolkit HD",
+   "2016 / SoundBits -  Just Whoosh 3 _ Whoosh Essentials",
+   "2016 / The AudioVille - Wooden Staffs and Sword Fight",
+   "2019 / Airborne Sound - Organic Whooshes",
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / L.A. Sounds - Transition Movement Pack 002",
+   "2019 / Red Libraries - Bodyfall",
+   "2020 / David Dumais Audio - Weapon Sounds - Weapon Swings",
+   "2020 / SmartSoundFX – Medieval"
+  ]
+ },
+ "skill_H027_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "穂先が肉に食い込む + 柄の木の打撃 + 鋼の鳴り + 体への打撃 + 低い芯",
+  "seconds": 0.35,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2018 / The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions",
+   "2019 / Baxter Audio - IMPACT",
+   "2026 / 344 Audio - Historical Weapons Vol. 2"
+  ]
+ },
+ "skill_H027_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "穂先が肉に食い込む + 柄の木の打撃 + 鋼の鳴り + 体への打撃 + 低い芯",
+  "seconds": 0.32,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2018 / The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions",
+   "2019 / Baxter Audio - IMPACT",
+   "2026 / 344 Audio - Historical Weapons Vol. 2"
+  ]
+ },
+ "skill_H027_s1_hit_3.caf": {
+  "kind": "hit",
+  "note": "穂先が肉に食い込む + 柄の木の打撃 + 鋼の鳴り + 体への打撃 + 低い芯",
+  "seconds": 0.31,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2018 / The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions",
+   "2019 / Baxter Audio - IMPACT",
+   "2026 / 344 Audio - Historical Weapons Vol. 2"
+  ]
+ },
+ "skill_H027_s2_cast.caf": {
+  "kind": "cast",
+  "note": "地を蹴る（土・鎧）→ 駆ける突きの風（速い振り・柄の風）+ 穂先の鋼のきらめき",
+  "seconds": 0.57,
+  "sources": [
+   "2016 / SoundBits -  Just Whoosh 3 _ Whoosh Essentials",
+   "2019 / L.A. Sounds - Transition Movement Pack 002",
+   "2019 / PMSFX - STEPS Dirt & Gravel",
+   "2020 / David Dumais Audio - Weapon Sounds - Weapon Swings",
+   "2020 / SmartSoundFX – Medieval"
+  ]
+ },
+ "skill_H027_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "槍が肉と鎧を貫く（深い刺し・鋼の鳴り・柄）+ 体への打撃・低い芯",
+  "seconds": 0.43,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2018 / Articulated Sounds - Bones & Blood - Gore Elements",
+   "2018 / The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions",
+   "2026 / 344 Audio - Historical Weapons Vol. 2"
+  ]
+ },
+ "skill_H027_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "槍が肉と鎧を貫く（深い刺し・鋼の鳴り・柄）+ 体への打撃・低い芯",
+  "seconds": 0.4,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2018 / Articulated Sounds - Bones & Blood - Gore Elements",
+   "2018 / The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions",
+   "2026 / 344 Audio - Historical Weapons Vol. 2"
+  ]
+ },
+ "skill_H027_s2_hit_3.caf": {
+  "kind": "hit",
+  "note": "槍が肉と鎧を貫く（深い刺し・鋼の鳴り・柄）+ 体への打撃・低い芯",
+  "seconds": 0.38,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2018 / Articulated Sounds - Bones & Blood - Gore Elements",
+   "2018 / The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions",
+   "2026 / 344 Audio - Historical Weapons Vol. 2"
+  ]
+ },
+ "skill_H027_ult_cast.caf": {
+  "kind": "ult",
+  "note": "太鼓の一打 + 白い風の渦 → 槍を頭上で回す柄の風 → 気が膨らむ突風 + 穂先の鋼の鳴り",
+  "seconds": 1.54,
+  "sources": [
+   "2016 / SoundBits -  Just Whoosh 3 _ Whoosh Essentials",
+   "2019 / Articulated Sounds - Magic Elements vol.1",
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / L.A. Sounds - Transition Movement Pack 002",
+   "2026 / 344 Audio - Elemental Palette Designed Vol. 1"
+  ]
+ }
+}

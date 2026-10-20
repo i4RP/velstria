@@ -6,21 +6,22 @@ import VelstriaCore
 /// 音のファイル（AudioFiles。CC0 の素材を tools/audio/build_audio.py で加工したもの）: 同梱・形式・AudioService が使うこと・出典の表記。
 @MainActor
 final class AudioFilesTests: XCTestCase {
-    /// 効果音は 44.1 kHz モノラル、BGM は 44.1 kHz ステレオ（AudioService のプレイヤーの形式そのまま）で同梱している。
+    /// 効果音はすべて録音のファイル（合成の効果音は無い）: どの SFX にもファイル（揺らぎ込み）があり、モノラル・無音でない。
+    /// ファイルは 44.1 kHz（試合の外の画面の音）か 48 kHz（tools/audio/make_sounds.py の録音の音）。BGM は 44.1 kHz ステレオ。
     func testEveryMappedFileIsBundledInThePlayerFormat() throws {
-        var sfxCount = 0
         for s in SFX.allCases {
-            guard let name = AudioFiles.sfx(s) else { continue }
-            sfxCount += 1
-            let url = try XCTUnwrap(AudioFiles.sfxURL(name), "\(name).caf が無い")
-            let f = try AVAudioFile(forReading: url)
-            XCTAssertEqual(f.processingFormat.sampleRate, SFXSynth.sampleRate, name)
-            XCTAssertEqual(f.processingFormat.channelCount, 1, name)
-            let samples = try XCTUnwrap(AudioFiles.readMono(url, sampleRate: SFXSynth.sampleRate), name)
-            XCTAssertGreaterThan(samples.count, Int(SFXSynth.sampleRate * 0.02), name)
-            XCTAssertGreaterThan(samples.map(abs).max() ?? 0, 0.1, "\(name) が無音")
+            let names = AudioFiles.sfxNames(s)
+            XCTAssertFalse(names.isEmpty, "\(AudioFiles.sfx(s)).caf（または _1 …）が無い。合成の効果音は使わない")
+            for name in names {
+                let url = try XCTUnwrap(AudioFiles.sfxURL(name), "\(name).caf が無い")
+                let f = try AVAudioFile(forReading: url)
+                XCTAssertTrue([44_100.0, 48_000.0].contains(f.processingFormat.sampleRate), name)
+                XCTAssertEqual(f.processingFormat.channelCount, 1, name)
+                let samples = try XCTUnwrap(AudioFiles.readMono(url, sampleRate: AudioService.sfxSampleRate), name)
+                XCTAssertGreaterThan(samples.count, Int(AudioService.sfxSampleRate * 0.02), name)
+                XCTAssertGreaterThan(samples.map(abs).max() ?? 0, 0.05, "\(name) が無音")
+            }
         }
-        XCTAssertGreaterThanOrEqual(sfxCount, 14)
         var musicCount = 0
         for t in MusicTrack.allCases {
             guard let name = AudioFiles.music(t) else { continue }
@@ -34,7 +35,7 @@ final class AudioFilesTests: XCTestCase {
         XCTAssertEqual(musicCount, 8)
     }
 
-    /// AudioService はファイルのある効果音をファイルで鳴らし（合成は 0.8 秒まで。試合開始の合図のファイルは 2 秒ある）、
+    /// AudioService は効果音をファイルで鳴らし（試合開始の合図のファイルは 2 秒ある）、
     /// ファイルの曲を用意済みとして扱う。ホームの選べる曲にファイルの 3 曲が入っている。
     func testServiceUsesTheFiles() async {
         let audio = AudioService()
@@ -80,7 +81,8 @@ final class AudioFilesTests: XCTestCase {
 
     /// 10 体の S1・S2・奥義の発動の音と、再使用の段（H029 S2・H032 S2・H033 奥義）の音がある。
     func testSkillSoundFilesExistForTheTenHeroes() {
-        for n in 25...34 {
+        // 34 体すべて（旧 24 体は tools/audio/sets/legacy.py の属性と武器の録音、H025〜H034 は heroes/h0xx.py）
+        for n in 1...34 {
             let id = String(format: "H%03d", n)
             for slot in [SkillSlot.skill1, .skill2, .ultimate] {
                 let key = SkillSoundKey(heroID: id, slot: slot)
@@ -98,7 +100,7 @@ final class AudioFilesTests: XCTestCase {
         XCTAssertTrue(SkillSoundKey(heroID: "H029", phase: .attackHit).hit)
     }
 
-    /// 仕上げたヒーロー（skill_sounds_v2.py。ローム: H029・H034）は、通常攻撃・通常攻撃の命中・スキルの命中に揺らぎ（_1〜_3 以上）と
+    /// 仕上げたヒーロー（tools/audio/make_sounds.py の heroes/。ローム: H029・H034）は、通常攻撃・通常攻撃の命中・スキルの命中に揺らぎ（_1〜_3 以上）と
     /// パッシブの音がある。揺らぎのある音は揺らぎの無い名前のファイルを置かない（v1 の命中の音は消した）。
     func testFinishedHeroesHaveVariantsAndAPassive() {
         for id in ["H029", "H034"] {
@@ -111,16 +113,47 @@ final class AudioFilesTests: XCTestCase {
         }
     }
 
+    /// 34 体すべてに武器の音の組があり、組のファイル（通常攻撃 4・命中 3・会心 2）がそろっている。
+    /// 固有の通常攻撃の音が無いヒーローは、試合の始めに組の音を自分の鍵で読む（SkillSoundKey.fallbackFileName）。
+    func testEveryHeroHasAWeaponSoundSet() async throws {
+        for n in 1...34 {
+            let id = String(format: "H%03d", n)
+            let set = try XCTUnwrap(WeaponSoundSet.of(heroID: id), id)
+            for (phase, count) in [(SkillSoundKey.Phase.attack, 4), (.attackHit, 3), (.crit, 2)] {
+                let base = try XCTUnwrap(set.fileName(phase))
+                for k in 1...count { XCTAssertNotNil(AudioFiles.sfxURL("\(base)_\(k)"), "\(base)_\(k).caf が無い（\(id)）") }
+            }
+        }
+        let audio = AudioService()
+        audio.preloadSkillSounds(heroIDs: ["H001", "H030"])
+        let key = SkillSoundKey(heroID: "H001", phase: .attack)
+        for _ in 0..<200 where audio.skillVariantCount(SkillSoundKey(heroID: "H030", phase: .crit)) == 0 {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertEqual(audio.skillVariantCount(key), 4, "固有の音の無い H001 は剣の組の 4 種")
+        XCTAssertEqual(audio.skillVariantCount(SkillSoundKey(heroID: "H001", phase: .crit)), 2)
+        XCTAssertEqual(audio.skillVariantCount(SkillSoundKey(heroID: "H030", phase: .attackHit)), 3, "砲の組の命中 3 種")
+        audio.releaseSkillSounds()
+    }
+
+    /// ほかのヒーローの通常攻撃は聞こえる距離の 6 割まで、近いほど大きい。
+    func testOtherHeroAttackGainFallsWithDistance() {
+        XCTAssertEqual(BattleAudioDirector.otherCombatGain(.zero, listener: .zero, scale: 0.32), 0.32, accuracy: 1e-9)
+        let r = BattleAudioDirector.hearingRadius * 0.6
+        XCTAssertEqual(BattleAudioDirector.otherCombatGain(Vec2(r / 2, 0), listener: .zero, scale: 0.32), 0.16, accuracy: 1e-9)
+        XCTAssertEqual(BattleAudioDirector.otherCombatGain(Vec2(r + 1, 0), listener: .zero, scale: 0.32), 0)
+    }
+
     /// 試合に出るヒーローの分だけ読み、試合が終われば捨てる。音の無いスキルは false（汎用の発動の音で代える）。
     func testSkillSoundsLoadOnlyForTheMatchHeroes() async throws {
         let audio = AudioService()
-        audio.preloadSkillSounds(heroIDs: ["H029", "H001"])
+        audio.preloadSkillSounds(heroIDs: ["H029", "H999"])
         let ult = SkillSoundKey(heroID: "H029", slot: .ultimate)
         for _ in 0..<200 where !audio.hasSkillSound(ult) { try await Task.sleep(for: .milliseconds(20)) }
         XCTAssertTrue(audio.hasSkillSound(ult))
         XCTAssertTrue(audio.hasSkillSound(SkillSoundKey(heroID: "H029", slot: .skill2, stage: 1)))
         XCTAssertFalse(audio.hasSkillSound(SkillSoundKey(heroID: "H030", slot: .ultimate)), "試合に出ないヒーローは読まない")
-        XCTAssertFalse(audio.playSkill(SkillSoundKey(heroID: "H001", slot: .skill1), gain: 1), "音の無いスキル")
+        XCTAssertFalse(audio.playSkill(SkillSoundKey(heroID: "H999", slot: .skill1), gain: 1), "音の無いスキル")
         XCTAssertTrue(audio.playSkill(ult, gain: 1), "音量 0 でも音があれば汎用の音を重ねない")
         audio.releaseSkillSounds()
         XCTAssertFalse(audio.hasSkillSound(ult))

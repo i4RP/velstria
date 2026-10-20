@@ -4,9 +4,10 @@ import UIKit
 import VelstriaCore
 
 // 担当: app-services
-// AVAudioEngine による効果音・BGM。音のファイル（App/Resources/Audio。AudioFiles）があればそれを、無ければ手続きの合成を鳴らす。
-// - 効果音: 初期化時に全 SFX の PCM をバックグラウンドで合成（AudioLibrary.swift）し、ファイルのある音はファイルで置き換える
-//   （画面の効果音は小さいので起動時に全部読む）。8 個の AVAudioPlayerNode を使い回して重ねて鳴らす。準備完了前の再生要求は無視する。
+// AVAudioEngine による効果音・BGM。効果音はすべて録音の音のファイル（App/Resources/Audio。AudioFiles）。合成の効果音は使わない
+// （ファイルが無い音は鳴らさない。2026-10-20 ユーザー指示: 合成は保険にも使わない）。
+// - 効果音: 初期化時に全 SFX のファイル（揺らぎ _1 … を含む）をバックグラウンドで読む（画面の効果音は小さいので起動時に全部読む）。
+//   8 個の AVAudioPlayerNode を使い回して重ねて鳴らす。準備完了前の再生要求は無視する。
 // - BGM: ファイルの曲は AVAudioFile から流し読みする（全部をメモリに展開しない。読み終わりで頭から予約し直してループ）。
 //   合成の曲は一度だけバックグラウンドでレンダリングしてバッファを保持し、.loops でスケジュールする。
 //   曲の切替はクロスフェード。メモリ警告時は再生中以外の曲のバッファを解放する（次回再生時に作り直す）。
@@ -71,6 +72,8 @@ struct SkillSoundKey: Hashable, Sendable {
         case attackHit = "atkhit"
         /// パッシブの発動・スタックの解放。
         case passive
+        /// 通常攻撃の会心（damage(.basicAttack) の isCrit。命中の代わりに鳴らす）。
+        case crit
     }
 
     var heroID: String
@@ -92,12 +95,12 @@ struct SkillSoundKey: Hashable, Sendable {
         self.phase = phase
     }
 
-    var hit: Bool { phase == .hit || phase == .attackHit }
+    var hit: Bool { phase == .hit || phase == .attackHit || phase == .crit }
 
     /// ファイル名（揺らぎの番号なし）。揺らぎは fileName_1 … fileName_4（AudioService が全部読んで順に鳴らす）。
     var fileName: String {
         switch phase {
-        case .attack, .attackHit, .passive:
+        case .attack, .attackHit, .passive, .crit:
             return "skill_\(heroID)_\(phase.rawValue)"
         case .cast, .hit:
             let s: String
@@ -111,6 +114,9 @@ struct SkillSoundKey: Hashable, Sendable {
         }
     }
 
+    /// ヒーロー固有の音が無い時に読む武器の組の音（通常攻撃・命中・会心だけ。HeroWeaponSounds）。
+    var fallbackFileName: String? { WeaponSoundSet.of(heroID: heroID)?.fileName(phase) }
+
     /// 揺らぎの番号の上限。
     static let maxVariants = 4
 
@@ -121,7 +127,7 @@ struct SkillSoundKey: Hashable, Sendable {
             out.append(SkillSoundKey(heroID: heroID, slot: slot, hit: true))
             for stage in 0...3 { out.append(SkillSoundKey(heroID: heroID, slot: slot, stage: stage)) }
         }
-        for phase in [Phase.attack, .attackHit, .passive] { out.append(SkillSoundKey(heroID: heroID, phase: phase)) }
+        for phase in [Phase.attack, .attackHit, .crit, .passive] { out.append(SkillSoundKey(heroID: heroID, phase: phase)) }
         return out
     }
 }
@@ -152,7 +158,9 @@ final class AudioService {
     private var sfxBusyUntil: [TimeInterval] = []
     private var musicPlayers: [AVAudioPlayerNode] = []
     private var activeMusicPlayer = 0
-    private let monoFormat = AVAudioFormat(standardFormatWithSampleRate: SFXSynth.sampleRate, channels: 1)
+    /// 画面の効果音の組の標本化周波数（ファイルは読む時にこの形へ変換する）。
+    nonisolated static let sfxSampleRate: Double = 44_100
+    private let monoFormat = AVAudioFormat(standardFormatWithSampleRate: AudioService.sfxSampleRate, channels: 1)
     private let stereoFormat = AVAudioFormat(standardFormatWithSampleRate: MusicComposer.sampleRate, channels: 2)
     private var graphReady = false
 
@@ -178,7 +186,7 @@ final class AudioService {
         buildGraph()
         registerObservers()
         _ = startEngine()
-        synthesizeSFX()
+        loadSFX()
         prepareMusic(.menu)
     }
 
@@ -254,24 +262,22 @@ final class AudioService {
         return best
     }
 
-    /// 全 SFX をバックグラウンドで合成する（起動処理をメインスレッドで待たせない）。
-    private func synthesizeSFX() {
+    /// 全 SFX のファイルをバックグラウンドで読む（起動処理をメインスレッドで待たせない）。ファイルが無い音は鳴らさない。
+    private func loadSFX() {
         Task.detached(priority: .userInitiated) { [weak self] in
             var rendered: [(SFX, [[Float]])] = []
             for sfx in SFX.allCases {
-                // 音のファイルがあればそれを使う（読めなければ合成）
-                if let name = AudioFiles.sfx(sfx), let url = AudioFiles.sfxURL(name),
-                   let samples = AudioFiles.readMono(url, sampleRate: SFXSynth.sampleRate) {
-                    rendered.append((sfx, [samples]))
-                    continue
+                let variants = AudioFiles.sfxNames(sfx).compactMap { name -> [Float]? in
+                    guard let url = AudioFiles.sfxURL(name) else { return nil }
+                    return AudioFiles.readMono(url, sampleRate: AudioService.sfxSampleRate)
                 }
-                rendered.append((sfx, (0..<SFXSynth.variantCount(sfx)).map { SFXSynth.render(sfx, variant: $0) }))
+                if !variants.isEmpty { rendered.append((sfx, variants)) }
             }
-            await self?.didSynthesize(rendered)
+            await self?.didLoadSFX(rendered)
         }
     }
 
-    private func didSynthesize(_ rendered: [(SFX, [[Float]])]) {
+    private func didLoadSFX(_ rendered: [(SFX, [[Float]])]) {
         if let monoFormat {
             for (sfx, variants) in rendered {
                 sfxBuffers[sfx] = variants.compactMap { Self.makeBuffer(format: monoFormat, left: $0, right: nil) }
@@ -333,17 +339,20 @@ final class AudioService {
             var loaded: [(SkillSoundKey, [[Float]])] = []
             for id in missing.sorted() {
                 for key in SkillSoundKey.all(heroID: id) {
-                    var variants: [[Float]] = []
-                    let names = [key.fileName] + (1...SkillSoundKey.maxVariants).map { "\(key.fileName)_\($0)" }
-                    for name in names {
-                        guard let url = AudioFiles.sfxURL(name),
-                              let samples = AudioFiles.readMono(url, sampleRate: AudioService.skillSampleRate) else { continue }
-                        variants.append(samples)
-                    }
+                    // ヒーロー固有の音（揺らぎ込み）。無ければ武器の組の音（通常攻撃・命中・会心）
+                    var variants = Self.readVariants(key.fileName)
+                    if variants.isEmpty, let fallback = key.fallbackFileName { variants = Self.readVariants(fallback) }
                     if !variants.isEmpty { loaded.append((key, variants)) }
                 }
             }
             await self?.didLoadSkills(loaded)
+        }
+    }
+
+    /// 名前のファイルと揺らぎ（名前_1 … 名前_maxVariants）を 48 kHz モノラルで読む。
+    nonisolated static func readVariants(_ name: String) -> [[Float]] {
+        ([name] + (1...SkillSoundKey.maxVariants).map { "\(name)_\($0)" }).compactMap { n in
+            AudioFiles.sfxURL(n).flatMap { AudioFiles.readMono($0, sampleRate: AudioService.skillSampleRate) }
         }
     }
 

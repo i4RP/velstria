@@ -1,5 +1,11 @@
 # 音（BGM・効果音）
 
+**2026-10-20 から効果音はすべて実音の録音**（合成の効果音 SFXSynth と、Kenney の電子音・SF の音は外した。ファイルが無い効果音は鳴らさない）。
+作り方は `python tools/audio/make_sounds.py <名前…>`（`sets/weapons.py` 武器ごとの通常攻撃の組・`sets/common.py` 戦闘の共通の音・
+`sets/ui.py` 試合の外の画面の音・`sets/legacy.py` 旧 24 体のスキル・`heroes/h0xx.py` H025〜H034 のスキル）。表は [WEAPONS.md](WEAPONS.md)・
+[LEGACY.md](LEGACY.md)・ヒーローごとの `H0xx.md`、どの録音を使ったかは [SOURCES.md](SOURCES.md)。BGM（ファイルの曲と合成の曲）は今までどおり。
+以下は 2026-10-18 までの記録（合成の扱いの記述は古い）。
+
 - 仕組み: `App/Services/AudioService.swift`（AVAudioEngine）。音のファイル（`App/Services/AudioFiles.swift` の対応表、
   `App/Resources/Audio`）がある音はファイルで、無い・読めない音は `AudioLibrary.swift` の合成で鳴らす。
   - 効果音: 44.1 kHz モノラル 16 bit の `.caf`。起動時の効果音の合成と同じ裏の作業でバッファへ読む（プレイ中にファイルを読まない）。
@@ -45,10 +51,10 @@
 
 ## ヒーロー固有の音 v2（ローム: H029 ボルグ・H034 ゴルム。2026-10-18）
 
-レーンごとに仕上げる（ローム → ゴールド → ミッド → EXP → ジャングル）。仕上げたヒーローは `tools/audio/skill_sounds_v2.py` の音に置き換わる。
+レーンごとに仕上げる（ローム → ゴールド → ミッド → EXP → ジャングル）。仕上げたヒーローは `tools/audio/make_sounds.py（heroes/h0xx.py）` の音に置き換わる。
 v1（`skill_sounds.py`）のヒーローはそのまま。
 
-- 作り方: `python tools/audio/skill_sounds_v2.py H029 H034`。素材は Sonniss GDC Game Audio Bundle の録音（`tools/audio/sonniss_fetch.py` が
+- 作り方: `python tools/audio/make_sounds.py（heroes/h0xx.py） H029 H034`。素材は Sonniss GDC Game Audio Bundle の録音（`tools/audio/sonniss_fetch.py` が
   archive.org の写しから使う素材集だけを `.cache/sonniss` へ落とす）を、材質ごとに 3〜5 層（溜め・振り/発射・命中の芯・材質の余韻・低音）
   に重ねる。打撃の素材は立ち上がり（振り → 着弾の素材は最大）を置いた時刻に揃える（`hit=True` / `hit="peak"`）。
   48 kHz モノラル、種類ごとの音量（LUFS）は MLBB の測定の値（`target`）に揃え、山は打撃の立ち上がりだけ抑える（-1 dBFS、6 dB まで）。

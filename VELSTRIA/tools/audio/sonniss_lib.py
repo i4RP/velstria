@@ -1,26 +1,87 @@
-"""Sonniss の素材（tools/audio/.cache/sonniss）を読む・テイクに切り分ける（skill_sounds_v2 から使う。単体で実行すると中身を見る）。
+"""Sonniss の素材を読む・テイクに切り分ける（sfxlib から使う。単体で実行すると中身を見る・探す）。
 
-python tools/audio/sonniss_lib.py "Metal Shield Block" "Iron - Thick"   # 名前の一部で探し、テイクの区切りを出す
+python tools/audio/sonniss_lib.py "Metal Shield Block" "Iron - Thick"   # 名前の一部で探し（無ければ落とし）、テイクの区切りを出す
+python tools/audio/sonniss_lib.py --search "thunder|lightning"          # 写しの全ファイルの目録から探す（落とさない）
+
+置き場所: 環境変数 SONNISS_CACHE（既定は tools/audio/.cache/sonniss。worktree どうしで同じ所を指せば共有できる）。
+手元に無い素材は、写しの目録（sonniss_index.py が作る <置き場所>/index_all.tsv）から 1 つに決まれば、その 1 ファイルだけ
+archive.org の sonniss-gdc-<年>-game-audio-bundle-normalized から落とす。原本はリポジトリに入れない。
 """
 import glob
 import os
+import re
 import subprocess
 import sys
+import urllib.parse
+import urllib.request
 
 import imageio_ffmpeg
 import numpy as np
 
 FF = imageio_ffmpeg.get_ffmpeg_exe()
 SR = 48000
-ROOT = os.path.join(os.path.dirname(__file__), ".cache", "sonniss")
+ROOT = os.environ.get("SONNISS_CACHE") or os.path.join(os.path.dirname(__file__), ".cache", "sonniss")
+INDEX = os.path.join(ROOT, "index_all.tsv")
+
+
+def item(year):
+    return f"sonniss-gdc-{year}-game-audio-bundle-normalized"
+
+
+def index_rows():
+    """写しの目録の行（年, 大きさ, 年の下の相対パス）。"""
+    if not os.path.exists(INDEX):
+        return []
+    rows = []
+    for line in open(INDEX, encoding="utf-8"):
+        parts = line.rstrip("\n").split("\t", 2)
+        if len(parts) == 3:
+            rows.append((parts[0], int(parts[1]), parts[2]))
+    return rows
+
+
+def fetch(year, name):
+    """写しの 1 ファイルを置き場所へ落とす（あれば何もしない）。戻り値はパス。"""
+    # Windows で使えない文字（写しの名前にタブ・コロンなどが混ざる）は手元のパスだけ置き換える（URL は元の名前）
+    parts = [re.sub(r'[	:*?"<>|]', "_", c).rstrip(" .") for c in name.split("/")]
+    dst = os.path.join(ROOT, year, *parts)
+    if not os.path.exists(dst):
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        url = f"https://archive.org/download/{item(year)}/" + urllib.parse.quote(name)
+        tmp = f"{dst}.{os.getpid()}.part"  # 同時に落とす担当どうしでぶつからない
+        for attempt in range(4):  # archive.org はときどき 500・接続切れを返す
+            try:
+                urllib.request.urlretrieve(url, tmp)
+                break
+            except Exception:
+                if attempt == 3:
+                    raise
+                import time
+                time.sleep(3 * (attempt + 1))
+        os.replace(tmp, dst)
+    return dst
 
 
 def find(part):
-    """ファイル名・素材集の名前の一部で探す（1 つに決まらなければ例外）。"""
-    hits = [p for p in glob.glob(os.path.join(ROOT, "*", "*", "*")) if part.lower() in p.lower() and p.lower().endswith((".flac", ".wav"))]
-    if len(hits) != 1:
-        raise LookupError(f"{part}: {len(hits)} 件 {[os.path.basename(h) for h in hits][:5]}")
-    return hits[0]
+    """ファイル名・素材集の名前の一部で探す。手元に 1 つならそれ、無ければ目録で 1 つに決まる物を落とす（それ以外は例外）。
+    「年/素材集/名前」の形で渡せば、目録でその通りの 1 ファイルを選べる。"""
+    low = part.lower()
+    local = [p for p in glob.glob(os.path.join(ROOT, "*", "*", "*"))
+             if low in p.replace("\\", "/").lower() and p.lower().endswith((".flac", ".wav"))]
+    if len(local) == 1:
+        return local[0]
+    if len(local) > 1:
+        raise LookupError(f"{part}: 手元に {len(local)} 件 {[os.path.basename(h) for h in local][:5]}")
+    rows = [r for r in index_rows() if low in f"{r[0]}/{r[2]}".lower()]
+    if len(rows) != 1:
+        raise LookupError(f"{part}: 目録に {len(rows)} 件 {[r[2][:80] for r in rows][:5]}")
+    return fetch(rows[0][0], rows[0][2])
+
+
+def search(pattern, cap_mb=25):
+    """目録を正規表現で探す（落とさない）。"""
+    pat = re.compile(pattern, re.I)
+    return [(y, sz, nm) for y, sz, nm in index_rows() if pat.search(nm) and sz / 1e6 <= cap_mb]
 
 
 def pack_of(path):
@@ -75,6 +136,10 @@ def take(part, index=0, pre=0.005, post=0.25, thr_db=-32.0):
 
 
 if __name__ == "__main__":
+    if sys.argv[1:2] == ["--search"]:
+        for y, sz, nm in search(sys.argv[2], float(sys.argv[3]) if len(sys.argv) > 3 else 25):
+            print(f"{y} {sz / 1e6:5.1f}MB {nm}")
+        sys.exit(0)
     for part in sys.argv[1:]:
         try:
             x, path = load(part)

@@ -4,30 +4,6 @@ import UIKit
 @testable import VELSTRIA
 
 final class ServicesAudioSynthTests: XCTestCase {
-    func testEverySFXIsShortAudibleAndClean() {
-        for sfx in SFX.allCases {
-            for v in 0..<SFXSynth.variantCount(sfx) {
-                let samples = SFXSynth.render(sfx, variant: v)
-                let seconds = Double(samples.count) / SFXSynth.sampleRate
-                XCTAssertLessThanOrEqual(seconds, 0.8 + 0.001, "\(sfx) は 0.8 秒以内")
-                XCTAssertGreaterThan(seconds, 0.03, "\(sfx)")
-                XCTAssertTrue(samples.allSatisfy { $0.isFinite }, "\(sfx) に NaN")
-                let peak = samples.map(abs).max() ?? 0
-                XCTAssertGreaterThan(peak, 0.2, "\(sfx) が無音")
-                XCTAssertLessThanOrEqual(peak, 0.8, "\(sfx) がクリップ")
-                // 終端はフェードアウト済み（クリックしない）
-                XCTAssertLessThan(abs(samples.last ?? 1), 0.01, "\(sfx)")
-            }
-        }
-    }
-
-    func testSFXVariantsDiffer() {
-        let a = SFXSynth.render(.hit, variant: 0)
-        let b = SFXSynth.render(.hit, variant: 1)
-        XCTAssertNotEqual(a, b)
-        XCTAssertEqual(SFXSynth.render(.uiTap), SFXSynth.render(.uiTap), "決定論的に同じ音")
-    }
-
     func testMusicLoopLengthsAndStingers() {
         let battle = MusicComposer.render(.battle)
         XCTAssertTrue(battle.loops)
