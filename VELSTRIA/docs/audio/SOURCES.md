@@ -71,12 +71,6 @@ MLBB の音は使っていない。素材の原本・素材集の形ではリポ
 | skill_H028_s2_hit.caf | 0.42 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H028 s2 の命中 |
 | skill_H028_ult_cast.caf | 1.75 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H028 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
 | skill_H028_ult_hit.caf | 0.44 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H028 ult の命中 |
-| skill_H031_s1_cast.caf | 1.20 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H031 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
-| skill_H031_s1_hit.caf | 0.48 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H031 s1 の命中 |
-| skill_H031_s2_cast.caf | 1.17 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H031 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
-| skill_H031_s2_hit.caf | 0.20 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H031 s2 の命中 |
-| skill_H031_ult_cast.caf | 2.65 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H031 ult の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
-| skill_H031_ult_hit.caf | 0.24 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H031 ult の命中 |
 | skill_H032_s1_cast.caf | 1.29 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H032 s1 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
 | skill_H032_s1_hit.caf | 0.69 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H032 s1 の命中 |
 | skill_H032_s2_cast.caf | 1.56 秒 | Digital Audio・Impact Sounds・Interface Sounds・RPG Audio・Sci-Fi Sounds | H032 s2 の発動（溜め・振り・着弾・余韻を演出の時刻に重ねた） |
@@ -102,11 +96,18 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | 素材集 | 作者 | ライセンス | URL |
 |---|---|---|---|
 | The Gun Locker SFX Pack（GDC 2016） | Fascinated Sound | Sonniss GDC | https://gdc.sonniss.com/ |
+| Ice SFX（GDC 2016） | Stuart Duffield | Sonniss GDC | https://gdc.sonniss.com/ |
 | 12 Gauge Shotgun（GDC 2016） | TS Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 | Tanks and Jet（GDC 2017） | Double Trouble Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 |  Gun Sound Pack（GDC 2017） | Gamemaster Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+|  Punch Sound Pack（GDC 2017） | Gamemaster Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| Glacier Ice（GDC 2017） | Mattia Cellotto | Sonniss GDC | https://gdc.sonniss.com/ |
+| Elements - Ice（GDC 2017） | Mindful Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Hums Light Machines（GDC 2017） | RedSonic | Sonniss GDC | https://gdc.sonniss.com/ |
+| The Dry Ice Library（GDC 2018） | Alexander Kopeikin | Sonniss GDC | https://gdc.sonniss.com/ |
+| Ice Fury（GDC 2018） | FLYSOUND | Sonniss GDC | https://gdc.sonniss.com/ |
 | High Voltage Electricity - The Essential Collection（GDC 2018） | Hear and Now Sound | Sonniss GDC | https://gdc.sonniss.com/ |
+| Foley Elements Ice and Snow（GDC 2018） | Soundrangers | Sonniss GDC | https://gdc.sonniss.com/ |
 | Hand-to-Hand Combat - Body Hits & Vocal Excursions（GDC 2018） | The Chris Alan | Sonniss GDC | https://gdc.sonniss.com/ |
 | Electric Deluxe（GDC 2018） | Wakerone | Sonniss GDC | https://gdc.sonniss.com/ |
 | Low Frequency Elements（GDC 2019） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -122,6 +123,7 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Gore（GDC 2019） | Sound Spark LLC | Sonniss GDC | https://gdc.sonniss.com/ |
 | Magic Spells, Buffs and Attacks（GDC 2019） | Sound Spark LLC | Sonniss GDC | https://gdc.sonniss.com/ |
 | Metal Hits, Scrapes and Squeaks（GDC 2019） | Sound Spark LLC | Sonniss GDC | https://gdc.sonniss.com/ |
+| Icy Snow 2 HD（GDC 2019） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
 | Trailer Instruments Designed（GDC 2020） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Metal Chains（GDC 2020） | Conor Bradley | Sonniss GDC | https://gdc.sonniss.com/ |
 | Weapon Sounds - Weapon Swings（GDC 2020） | David Dumais Audio | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -130,6 +132,7 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Hit & Punch（GDC 2020） | Shapeforms | Sonniss GDC | https://gdc.sonniss.com/ |
 | Impacts, Hits & Whooshes（GDC 2020） | SmartSoundFX | Sonniss GDC | https://gdc.sonniss.com/ |
 | Flesh, Bones & Gore（GDC 2023） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| Ice Cracking（GDC 2023） | BluezoneCorp | Sonniss GDC | https://gdc.sonniss.com/ |
 | Melee Weapons Sound Effects Pack 1（GDC 2023） | David Dumais Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Potato Gun – Pipe-based Cannon（GDC 2023） | Dramatic Cat | Sonniss GDC | https://gdc.sonniss.com/ |
 | Naval Warfare（GDC 2023） | Gladestock Studios | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -139,9 +142,12 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Explosion SFX Pack（GDC 2024） | DavidDumais | Sonniss GDC | https://gdc.sonniss.com/ |
 | Haunted Metal Vol.1 - Cinematic Hits & Impacts（GDC 2024） | Jake Fielding | Sonniss GDC | https://gdc.sonniss.com/ |
 | Melee Weapons（GDC 2024） | Justsoundeffects | Sonniss GDC | https://gdc.sonniss.com/ |
+| Sound Effects Collection（GDC 2024） | Mechanical Wave | Sonniss GDC | https://gdc.sonniss.com/ |
 | The Metal Hit Sweeteners Library（GDC 2024） | Pole Position | Sonniss GDC | https://gdc.sonniss.com/ |
+| Distinct Whooshes（GDC 2024） | Rescopic Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 | Cinematic Fight Vol. 1（GDC 2026） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Elemental Palette Designed Vol. 1（GDC 2026） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
+| 100 kHz Designed Ice（GDC 2026） | Alexander Kopeikin | Sonniss GDC | https://gdc.sonniss.com/ |
 | Emotion and Magic（GDC 2026） | Alexander Kopeikin | Sonniss GDC | https://gdc.sonniss.com/ |
 | Melee Weapons Sound Effects Pack 2（GDC 2026） | David Dumais Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 
@@ -183,6 +189,19 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | skill_H030_ult_hit_1.caf | 0.51 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・PMSFX - Bullet Bys &Impacts・Gladestock Studios - Naval Warfare・BluezoneCorp - High Voltage | 放電の弾け + 体の打撃 + 着弾の低音 + 放電の尾 |
 | skill_H030_ult_hit_2.caf | 0.49 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・PMSFX - Bullet Bys &Impacts・Gladestock Studios - Naval Warfare・BluezoneCorp - High Voltage | 放電の弾け + 体の打撃 + 着弾の低音 + 放電の尾 |
 | skill_H030_ult_hit_3.caf | 0.46 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・PMSFX - Bullet Bys &Impacts・Gladestock Studios - Naval Warfare・BluezoneCorp - High Voltage | 放電の弾け + 体の打撃 + 着弾の低音 + 放電の尾 |
+| skill_H031_passive.caf | 0.89 秒 | Mindful Audio - Elements - Ice・Alexander Kopeikin - The Dry Ice Library・Soundrangers - Foley Elements Ice and Snow | 凍りつくひび + 霜 + 氷のきしみ |
+| skill_H031_s1_cast.caf | 1.89 秒 | Stuart Duffield - Ice SFX・Mattia Cellotto - Glacier Ice・Mindful Audio - Elements - Ice・Alexander Kopeikin - The Dry Ice Library・FLYSOUND – Ice Fury・Articulated Sounds - Magic Elements vol.1・BluezoneCorp - Ice Cracking・Mechanical Wave - Sound Effects Collection | 霜が集まる → 落ちる氷塊の風 → 0.56 秒の着弾（氷塊・砕け・ひび・低音）→ 雹 5 つの砕け → 霜の床 |
+| skill_H031_s1_hit_1.caf | 0.48 秒 | Stuart Duffield - Ice SFX・Gamemaster Audio -  Punch Sound Pack・Soundrangers - Foley Elements Ice and Snow | 氷の塊が体に当たって砕ける + 体の芯 + 凍りつくひび |
+| skill_H031_s1_hit_2.caf | 0.51 秒 | Gamemaster Audio -  Punch Sound Pack・Soundrangers - Foley Elements Ice and Snow・Soundopolis - Icy Snow 2 HD | 氷の塊が体に当たって砕ける + 体の芯 + 凍りつくひび |
+| skill_H031_s1_hit_3.caf | 0.47 秒 | Gamemaster Audio -  Punch Sound Pack・FLYSOUND – Ice Fury・Soundrangers - Foley Elements Ice and Snow | 氷の塊が体に当たって砕ける + 体の芯 + 凍りつくひび |
+| skill_H031_s2_cast.caf | 1.42 秒 | Mindful Audio - Elements - Ice・Alexander Kopeikin - The Dry Ice Library・Soundrangers - Foley Elements Ice and Snow・Articulated Sounds - Magic Elements vol.1・BluezoneCorp - Ice Cracking・Mechanical Wave - Sound Effects Collection・Rescopic Sound - Distinct Whooshes・Alexander Kopeikin - 100 kHz Designed Ice | 払う霜 → 冷たい突風 → 0.56 秒に凍りつくひび → 0.76 秒に地面が凍る割れ |
+| skill_H031_s2_hit_1.caf | 0.42 秒 | Stuart Duffield - Ice SFX・Gamemaster Audio -  Punch Sound Pack・Soundrangers - Foley Elements Ice and Snow | 体が凍りつく（凍るひび・氷の砕け・体の芯） |
+| skill_H031_s2_hit_2.caf | 0.45 秒 | Stuart Duffield - Ice SFX・Gamemaster Audio -  Punch Sound Pack・Soundrangers - Foley Elements Ice and Snow | 体が凍りつく（凍るひび・氷の砕け・体の芯） |
+| skill_H031_s2_hit_3.caf | 0.46 秒 | Stuart Duffield - Ice SFX・Gamemaster Audio -  Punch Sound Pack・Soundrangers - Foley Elements Ice and Snow | 体が凍りつく（凍るひび・氷の砕け・体の芯） |
+| skill_H031_ult_cast.caf | 2.53 秒 | Stuart Duffield - Ice SFX・Mattia Cellotto - Glacier Ice・Mindful Audio - Elements - Ice・Alexander Kopeikin - The Dry Ice Library・FLYSOUND – Ice Fury・Soundrangers - Foley Elements Ice and Snow・BluezoneCorp - Ice Cracking・Mechanical Wave - Sound Effects Collection・Alexander Kopeikin - 100 kHz Designed Ice | 霜が集まる → 0.26 秒の霜の道のひび → 氷河が育つきしみ → 1.49 秒に氷河が砕ける（氷山・氷塊・砕け） |
+| skill_H031_ult_hit_1.caf | 0.57 秒 | Gamemaster Audio -  Punch Sound Pack・Mattia Cellotto - Glacier Ice・Soundrangers - Foley Elements Ice and Snow・Soundopolis - Icy Snow 2 HD | 大きな氷の塊が体を打つ + 氷の割れ + 体の芯 |
+| skill_H031_ult_hit_2.caf | 0.57 秒 | Gamemaster Audio -  Punch Sound Pack・Mattia Cellotto - Glacier Ice・FLYSOUND – Ice Fury・Soundrangers - Foley Elements Ice and Snow | 大きな氷の塊が体を打つ + 氷の割れ + 体の芯 |
+| skill_H031_ult_hit_3.caf | 0.57 秒 | Stuart Duffield - Ice SFX・Gamemaster Audio -  Punch Sound Pack・Mattia Cellotto - Glacier Ice・Soundrangers - Foley Elements Ice and Snow | 大きな氷の塊が体を打つ + 氷の割れ + 体の芯 |
 | skill_H034_atk_1.caf | 0.45 秒 | Baxter Audio - IMPACT・Conor Bradley - Metal Chains・Justsoundeffects - Melee Weapons | 斧鉤の打撃（肉と鉄）+ 低い芯 + 鎖の鳴り |
 | skill_H034_atk_2.caf | 0.44 秒 | Baxter Audio - IMPACT・Conor Bradley - Metal Chains・Justsoundeffects - Melee Weapons | 斧鉤の打撃（肉と鉄）+ 低い芯 + 鎖の鳴り |
 | skill_H034_atk_3.caf | 0.45 秒 | Baxter Audio - IMPACT・Conor Bradley - Metal Chains・Justsoundeffects - Melee Weapons | 斧鉤の打撃（肉と鉄）+ 低い芯 + 鎖の鳴り |
