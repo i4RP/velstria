@@ -243,10 +243,20 @@ struct MatchFlowView: View {
             case .heroSelect: app.audio.playMusic(.lobby)
             case .draft: app.audio.playMusic(.draft)
             }
+            // フレンドに今の状態を知らせる（MLBB: ランキングルーム中・マッチング中）
+            let mode = FriendActivityMode.code(model.kind == .ranked ? .ranked : (model.kind == .brawl ? .brawl : .standard))
+            switch step {
+            case .mode: app.friends.setMyActivity(app.idleActivity)
+            case .matching: app.friends.setMyActivity(FriendActivity(.matching, mode: mode))
+            case .lane, .heroSelect, .draft: app.friends.setMyActivity(FriendActivity(.room, mode: mode))
+            }
         }
         .onDisappear {
             // 試合へ進まずに閉じたらホームの曲へ戻す（試合へ進む時はロード画面が曲を変える）
-            if app.activeBattle == nil { app.audio.playMusic(.menu) }
+            if app.activeBattle == nil {
+                app.audio.playMusic(.menu)
+                app.friends.setMyActivity(app.idleActivity)
+            }
         }
         .onAppear {
             model.configure(profile: app.profile, master: app.master)

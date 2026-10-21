@@ -115,6 +115,39 @@ final class HomeScreenTests: XCTestCase {
         XCTAssertEqual(HomeFriendStatus.practicing.title, "練習中")
     }
 
+    /// MLBB のフレンドの状態: ランキングルーム中・マッチング中・試合中（「ランキング1分」）・集計中・ライブ観戦・Offline。
+    func testFriendActivityBecomesMLBBStatus() {
+        let saved = Loc.current
+        defer { Loc.current = saved }
+        Loc.current = .ja
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        func status(_ a: FriendActivity?, online: Bool = true) -> HomeFriendStatus {
+            HomeFriendStatus.of(online: online, inMyTeam: false, activity: a, now: now)
+        }
+        XCTAssertEqual(status(nil).title, "オンライン")
+        XCTAssertEqual(status(FriendActivity(.room, mode: "ranked")).title, "ランキングルーム中")
+        XCTAssertEqual(status(FriendActivity(.matching, mode: "ranked")).title, "マッチング中")
+        XCTAssertEqual(status(FriendActivity(.match, mode: "ranked", since: now.addingTimeInterval(-90))).title, "ランキング1分")
+        XCTAssertEqual(status(FriendActivity(.match, mode: "classic", since: now.addingTimeInterval(-600))).title, "マッチング10分")
+        XCTAssertEqual(status(FriendActivity(.tally)).title, "集計中")
+        XCTAssertEqual(status(FriendActivity(.watch)).title, "ライブ観戦")
+        XCTAssertEqual(status(FriendActivity(.watch)).tone, .watching)
+        XCTAssertEqual(status(FriendActivity(.match, mode: "ranked")).tone, .busy)
+        XCTAssertEqual(status(FriendActivity(.room, mode: "ranked"), online: false), .offline, "オフラインなら状態は見ない")
+        XCTAssertEqual(HomeFriendStatus.offline.title, "Offline")
+        XCTAssertFalse(status(FriendActivity(.matching)).canInvite, "マッチング中は招待できない")
+        XCTAssertEqual(FriendActivityMode.mode(FriendActivityMode.code(.magicChess)), .magicChess)
+        // 中継の応答（status は在席の相手だけ）・自分の状態の送り方
+        XCTAssertEqual(InboxServerMessage.decode(#"{"t":"presence","online":["ABCDEFGH"],"status":{"ABCDEFGH":{"s":"match","m":"ranked","at":5},"WXYZ6789":{"s":"room"}}}"#),
+                       .presence(online: ["ABCDEFGH"], activity: ["ABCDEFGH": FriendActivity(.match, mode: "ranked", since: Date(timeIntervalSince1970: 0.005))]))
+        let sent = InboxClientMessage.status(FriendActivity(.room, mode: "ranked")).flatMap { $0.data(using: .utf8) }
+        let json = sent.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
+        XCTAssertEqual(json["t"] as? String, "status")
+        XCTAssertEqual(json["s"] as? String, "room")
+        XCTAssertEqual(json["m"] as? String, "ranked")
+        XCTAssertNil(json["at"])
+    }
+
     func testCurrencyFormat() {
         XCTAssertEqual(HomeFormat.currency(0), "0")
         XCTAssertEqual(HomeFormat.currency(-5), "0")
