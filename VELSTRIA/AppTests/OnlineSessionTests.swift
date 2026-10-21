@@ -735,8 +735,8 @@ final class OnlineSessionTests: XCTestCase {
 
         // エモート: エモートの ID だけ出す（ほかのコスメは捨てる）
         guard let emote = MasterData.shared.cosmetics.first(where: { $0.type == .emote }),
-              let skin = MasterData.shared.cosmetics.first(where: { $0.type == .heroSkin }) else {
-            return XCTFail("エモートとスキンがマスターにある")
+              let skin = MasterData.shared.cosmetics.first(where: { $0.type != .emote }) else {
+            return XCTFail("エモートとエモート以外のコスメがマスターにある")
         }
         t += 2
         enemy.sendEmote(skin.cosmeticID)
