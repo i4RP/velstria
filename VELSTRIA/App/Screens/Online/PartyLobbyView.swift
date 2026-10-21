@@ -1006,7 +1006,7 @@ struct PartyRequestsTab: View {
                 .font(Theme.body(11))
                 .foregroundStyle(Theme.textSecondary)
             HStack(spacing: 2) {
-                Text(FriendCode.display(hub.myCode))
+                Text(hub.shareableCode.map(FriendCode.display) ?? L("登録中…", "Registering…"))
                     .font(.system(size: 22, weight: .heavy, design: .monospaced))
                     .foregroundStyle(Theme.gold)
                     .minimumScaleFactor(0.6)
@@ -1026,6 +1026,7 @@ struct PartyRequestsTab: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .disabled(hub.shareableCode == nil)
                 .accessibilityLabel(L("フレンドコードをコピー", "Copy friend code"))
                 ShareLink(item: FriendLink.shareText(code: hub.myCode, name: hub.myName)) {
                     Image(systemName: "square.and.arrow.up")
@@ -1034,6 +1035,7 @@ struct PartyRequestsTab: View {
                         .frame(width: 40, height: 44)
                         .contentShape(Rectangle())
                 }
+                .disabled(hub.shareableCode == nil)
                 .accessibilityLabel(L("フレンドコードを共有", "Share friend code"))
             }
         }

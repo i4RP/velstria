@@ -117,6 +117,11 @@ final class FriendHub {
 
     var friends: [Friend] { host?.profile.friends ?? [] }
     var myCode: String { host?.profile.friendCode ?? "" }
+    /// 人に見せてよい自分のコード（中継に登録を済ませた後だけ。登録の前に見せると、知った他人に先に使われるおそれがある）。
+    var shareableCode: String? {
+        guard let p = host?.profile, p.inboxRegistered, FriendCode.isValid(p.friendCode) else { return nil }
+        return p.friendCode
+    }
     var myName: String {
         let name = PlayerNameRules.normalized(host?.profile.displayName ?? "")
         return name.isEmpty ? L("プレイヤー", "Player") : PlayerNameRules.outgoing(name)
