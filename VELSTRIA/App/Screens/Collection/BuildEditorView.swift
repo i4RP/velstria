@@ -34,7 +34,7 @@ struct BuildEditorView: View {
                     Button(L("キャンセル", "Cancel"), role: .cancel) {}
                 }
             } else {
-                CollectionEmptyState(symbol: "questionmark.circle", title: L("ヒーローが見つかりません", "Hero not found"))
+                EmptyStateView(symbol: "questionmark.circle", title: L("ヒーローが見つかりません", "Hero not found"))
             }
         }
     }

@@ -162,7 +162,7 @@ struct NotificationSettingsView: View {
         let text = DailyReminder.content(language: Loc.current)
         return Panel(padding: 12) {
             VStack(alignment: .leading, spacing: 10) {
-                LiveOpsSectionHeader(title: L("通知のプレビュー", "Preview"), symbol: "iphone.gen3")
+                SectionTitle(title: L("通知のプレビュー", "Preview"), symbol: "iphone.gen3")
                 HStack(alignment: .top, spacing: 10) {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .fill(LinearGradient(colors: [Theme.cyan, Color(red: 0.35, green: 0.25, blue: 0.85)], startPoint: .topLeading, endPoint: .bottomTrailing))

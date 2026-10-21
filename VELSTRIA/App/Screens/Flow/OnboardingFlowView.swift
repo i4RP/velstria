@@ -10,7 +10,7 @@ struct OnboardingFlowView: View {
 
     var body: some View {
         ZStack {
-            StarfieldBackground()
+            CelestialBackdrop()
             content
                 .id(step)
                 .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity),
@@ -396,7 +396,7 @@ struct TermsUpdateView: View {
 
     var body: some View {
         ZStack {
-            StarfieldBackground()
+            CelestialBackdrop()
             TermsAgreementView(isUpdate: true) {
                 FlowFX.confirm(app)
             }
@@ -559,7 +559,7 @@ private struct OnboardingPrepareStep: View {
                         .foregroundStyle(Theme.gold)
                         .monospacedDigit()
                 }
-                FlowProgressBar(value: progress, tint: Theme.gold, height: 10)
+                CelestialProgressBar(value: progress, tint: Theme.gold, height: 10)
             }
             .frame(maxWidth: 520)
             .accessibilityElement(children: .combine)
@@ -681,7 +681,7 @@ private struct OnboardingTutorialStep: View {
             .frame(maxWidth: 360)
 
             VStack(alignment: .leading, spacing: 8) {
-                FlowSectionTitle(title: L("使用するヒーロー", "Choose a Hero"), symbol: "person.fill")
+                SectionTitle(title: L("使用するヒーロー", "Choose a Hero"), symbol: "person.fill")
                 LazyVGrid(columns: Array(repeating: GridItem(.fixed(78), spacing: 8), count: 3), spacing: 8) {
                     ForEach(candidates) { h in
                         Button {

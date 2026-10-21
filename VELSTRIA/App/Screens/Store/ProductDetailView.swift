@@ -22,7 +22,7 @@ struct ProductDetailView: View {
                 }
                 .padding(.horizontal, 20)
             } else {
-                CollectionEmptyState(symbol: "questionmark.circle", title: L("商品が見つかりません", "Product not found"))
+                EmptyStateView(symbol: "questionmark.circle", title: L("商品が見つかりません", "Product not found"))
             }
         }
         .storePurchaseFlow(sku: $pendingSKU)
@@ -144,7 +144,7 @@ struct ProductDetailView: View {
         let contents = EconomyService.bundleContents(item.grantID, master: app.master).compactMap { app.master.cosmetic($0) }
         if !contents.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
-                CollectionSectionTitle(title: L("セット内容", "Includes"), symbol: "gift.fill", trailing: L("\(contents.count) 点", "\(contents.count) items"))
+                SectionTitle(title: L("セット内容", "Includes"), symbol: "gift.fill", trailing: L("\(contents.count) 点", "\(contents.count) items"))
                 ScrollView(.horizontal) {
                     HStack(spacing: 8) {
                         ForEach(contents) { c in

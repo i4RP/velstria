@@ -19,7 +19,7 @@ struct FriendsView: View {
 
     var body: some View {
         ZStack {
-            StarfieldBackground()
+            CelestialBackdrop()
             VStack(spacing: 8) {
                 header
                 HStack(alignment: .top, spacing: 12) {

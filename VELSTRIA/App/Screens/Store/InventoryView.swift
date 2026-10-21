@@ -140,7 +140,7 @@ struct InventoryView: View {
             let owned = CosmeticInfo.owned(type, profile: app.profile, master: app.master)
             if owned.isEmpty {
                 VStack(spacing: 8) {
-                    CollectionEmptyState(symbol: CollectionStyle.cosmeticTypeSymbol(type),
+                    EmptyStateView(symbol: CollectionStyle.cosmeticTypeSymbol(type),
                                          title: L("\(CollectionStyle.cosmeticTypeName(type))をまだ所持していません",
                                                   "You don't own any \(CollectionStyle.cosmeticTypeName(type)) yet"),
                                          message: L("ストアやイベント報酬で入手できます。", "Get them from the store or event rewards."))

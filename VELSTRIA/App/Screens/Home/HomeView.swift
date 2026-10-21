@@ -164,7 +164,7 @@ private struct HomeReferenceLobby: View {
                             .font(.system(size: 14, design: .serif)).lineLimit(1)
                         HStack(spacing: 5) {
                             Text("Lv.\(app.profile.accountLevel)").font(.system(size: 12, design: .serif))
-                            HomeBar(value: Double(app.profile.accountXP) / Double(max(1, FlowAccountXP.required(forLevel: app.profile.accountLevel))), tint: .cyan).frame(width: 54, height: 5)
+                            CelestialProgressBar(value: Double(app.profile.accountXP) / Double(max(1, FlowAccountXP.required(forLevel: app.profile.accountLevel))), tint: .cyan, height: 5).frame(width: 54)
                         }
                     }
                 }
@@ -256,7 +256,7 @@ private struct HomeReferenceLobby: View {
                     Text(title).font(.system(size: 15, weight: .semibold, design: .serif)).lineLimit(1).minimumScaleFactor(0.7)
                     HStack(spacing: 6) {
                         Text(subtitle).font(.system(size: 10)).lineLimit(1).minimumScaleFactor(0.8)
-                        if let progress { HomeBar(value: progress, tint: .cyan).frame(width: 64, height: 4) }
+                        if let progress { CelestialProgressBar(value: progress, tint: .cyan, height: 4).frame(width: 64) }
                     }
                 }.padding(8).padding(.trailing, 22)
                 Image(systemName: "chevron.right").foregroundStyle(ice).padding(9).frame(maxWidth: .infinity, alignment: .trailing)

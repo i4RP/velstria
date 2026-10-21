@@ -39,7 +39,7 @@ struct SkinStoreView: View {
                 }
                 ScrollView {
                     if items.isEmpty {
-                        CollectionEmptyState(symbol: "paintpalette", title: L("表示できるスキンがありません", "No skins to show"),
+                        EmptyStateView(symbol: "paintpalette", title: L("表示できるスキンがありません", "No skins to show"),
                                              message: hideOwned ? L("すべて所持しています", "You own them all") : nil)
                     } else {
                         LazyVGrid(columns: columns, spacing: 10) {

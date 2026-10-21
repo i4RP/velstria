@@ -424,7 +424,7 @@ struct EmblemView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 8) {
-                        CollectionSectionTitle(title: L("ステータス", "Stats"), symbol: "chart.bar.fill")
+                        SectionTitle(title: L("ステータス", "Stats"), symbol: "chart.bar.fill")
                         walletBadges(set: set)
                     }
                     ForEach(Array(def.attributes.enumerated()), id: \.offset) { _, a in
@@ -439,7 +439,7 @@ struct EmblemView: View {
                             .minimumScaleFactor(0.7)
                             .accessibilityIdentifier("emblem_next_key")
                     }
-                    CollectionSectionTitle(title: L("天賦", "Talents"), symbol: "sparkles")
+                    SectionTitle(title: L("天賦", "Talents"), symbol: "sparkles")
                     ForEach(EmblemTier.allCases, id: \.self) { tier in
                         talentRow(tier, page: page)
                     }
@@ -685,7 +685,7 @@ struct EmblemBulkApplySheet: View {
         let heroes = EmblemMath.bulkCandidates(filter: filter, profile: app.profile, master: app.master)
         let columns = [GridItem(.adaptive(minimum: 72, maximum: 90), spacing: 10)]
         return ZStack {
-            StarfieldBackground()
+            CelestialBackdrop()
             VStack(spacing: 8) {
                 HStack {
                     Spacer()
@@ -802,7 +802,7 @@ struct EmblemDetailSheet: View {
         let def = EmblemCatalog.set(page.set)
         let color = EmblemStyle.color(page.set)
         return ZStack {
-            StarfieldBackground()
+            CelestialBackdrop()
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Image(systemName: EmblemStyle.setSymbol(page.set)).foregroundStyle(color)
