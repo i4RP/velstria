@@ -238,21 +238,22 @@ public enum MinionSystem {
         return path[k] + dir.perpendicular * lateral
     }
 
-    // MARK: - 巨像の加護
+    // MARK: - 味方のロードによる強化
 
-    /// 巨像の加護を持つ生存ヒーローの位置（index = Team.rawValue、blue/red）。
+    /// 味方になったロード（倒されて味方として出撃した古環の巨像）の位置（index = Team.rawValue、blue/red）。
+    /// MLBB のロードはミニオンを強化する（量は非公表なので旧来の ×1.5）。
     static func blessedHeroPositions(_ s: SimState) -> [[Vec2]] {
         var out: [[Vec2]] = [[], []]
-        for i in s.units.indices where s.units[i].kind == .hero && s.units[i].isAlive {
+        for i in s.units.indices where s.units[i].kind == .monster && s.units[i].isAlive
+            && s.units[i].monster?.kind == .ancientColossus {
             let team = s.units[i].team
-            guard team == .blue || team == .red, s.units[i].hero?.isDead != true,
-                  s.units[i].statuses.contains(where: { $0.kind == .colossusBlessing }) else { continue }
+            guard team == .blue || team == .red else { continue }
             out[team.rawValue].append(s.units[i].pos)
         }
         return out
     }
 
-    /// 加護を持つ味方ヒーローの近くでは HP・攻撃 ×1.5（baseStats を 1 度だけ拡大し、離れたら戻す）。
+    /// 味方のロードの近くでは HP・攻撃 ×1.5（baseStats を 1 度だけ拡大し、離れたら戻す）。
     static func updateEmpowerment(_ s: inout SimState, _ ctx: SimContext, _ i: Int, blessed: [[Vec2]]) {
         guard let m = s.units[i].minion, s.units[i].team == .blue || s.units[i].team == .red else { return }
         let sources = blessed[s.units[i].team.rawValue]

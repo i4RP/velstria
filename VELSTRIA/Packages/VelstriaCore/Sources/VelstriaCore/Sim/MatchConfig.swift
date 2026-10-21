@@ -148,7 +148,10 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     ///     **番号はマージのときに付け直す**。
     /// 43: ステージ更新を統合。ミッドの対向ブッシュの Z 形・位置と参照画像の地形配置、
     ///     巣の開口付き岩壁、上下交互のタートル／ロード、ロードの進軍・時間強化。
-    public static let currentSimVersion = 43
+    /// 44: ジャングルとローム装備を MLBB 2.2.16 に（モンスターの HP = 初期値 + 毎分・狩猟印 750 + 150×Lv・ボスに −40% 無し・
+    ///     祝福の進みにアシスト・2 段目 HP +100・序盤の規則・ロードの 18 分の進化と 150 秒・報酬 50 + 10/分・塔への突進・
+    ///     ロード後の蟹なし・川の流れ・ロームの最初の 8 分 30%・隠蔽の解除・プランの靴の祝福）。docs/JUNGLE_ROAM_MLBB.md。
+    public static let currentSimVersion = 44
 
     public var simVersion: Int
     public var mode: MatchMode

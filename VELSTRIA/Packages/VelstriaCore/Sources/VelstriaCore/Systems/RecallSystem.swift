@@ -40,7 +40,8 @@ public enum RecallSystem {
         var bestD = Double.infinity
         for k in s.units.indices {
             let u = s.units[k]
-            guard (u.kind == .tower || u.kind == .minion), u.team == team, u.isAlive else { continue }
+            // 味方のタワー・ベース（Core）・ミニオン（MLBB の降臨。トラップを置くヒーローはまだ居ない）
+            guard (u.kind == .tower || u.kind == .core || u.kind == .minion), u.team == team, u.isAlive else { continue }
             let d = u.pos.distanceSquared(to: requested)
             if d <= r * r, d < bestD {
                 bestD = d

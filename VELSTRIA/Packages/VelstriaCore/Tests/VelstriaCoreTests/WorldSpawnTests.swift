@@ -172,9 +172,11 @@ final class WorldSpawnTests: XCTestCase {
         }
         XCTAssertTrue(monsters.allSatisfy { $0.team == .neutral })
         let sentinel = monsters.first { $0.monster!.kind == .redSentinel }!
-        XCTAssertEqual(sentinel.stats.maxHP, 2200)
+        // Fandom の紅焔の番人 × Patch 1.9.90（HP +30%）。0 分の値
+        XCTAssertEqual(sentinel.stats.maxHP, UnitFactory.monsterProfile(.redSentinel).maxHP(at: 0), accuracy: 1e-9)
+        XCTAssertEqual(sentinel.stats.maxHP, 4941 * 1.3, accuracy: 1e-9)
         XCTAssertEqual(sentinel.radius, 110)
-        XCTAssertEqual(sentinel.stats.armor, 25)
+        XCTAssertEqual(sentinel.stats.armor, 37)
         XCTAssertEqual(sentinel.stats.attackSpeed, 1 / 1.2, accuracy: 1e-9)
         // ボスの初回出現（時刻を直前まで飛ばして確認）
         var st = sim.state
@@ -198,11 +200,12 @@ final class WorldSpawnTests: XCTestCase {
         }
         XCTAssertEqual(colossusAnnounce ?? 0, 480, accuracy: 0.05)
         let wyrm = later.state.units.first { $0.monster?.kind == .astralWyrm }!
-        XCTAssertEqual(wyrm.stats.maxHP, 5500)
+        // 2:00 に出て、生きている間も毎分伸びる（8:00 の値）
+        XCTAssertEqual(wyrm.stats.maxHP, UnitFactory.monsterProfile(.astralWyrm).maxHP(at: 480), accuracy: 1e-9)
         XCTAssertEqual(wyrm.radius, 180)
         XCTAssertEqual(later.state.units.filter { $0.monster?.kind == .astralWyrm }.count, 1)
         let colossus = later.state.units.first { $0.monster?.kind == .ancientColossus }!
-        XCTAssertEqual(colossus.stats.maxHP, 9000)
+        XCTAssertEqual(colossus.stats.maxHP, UnitFactory.monsterProfile(.ancientColossus).maxHP(at: 480), accuracy: 1e-9)
         XCTAssertEqual(colossus.radius, 220)
         XCTAssertEqual(colossus.pos, Vec2(3740, 8410))
     }

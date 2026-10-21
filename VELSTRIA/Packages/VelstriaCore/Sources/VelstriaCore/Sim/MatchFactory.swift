@@ -36,6 +36,15 @@ public enum MatchFactory {
         }
     }
 
+    /// 人間が選んだスペルをポジションで検める。狩猟（BS05）はジャングル担当だけが持てる（MLBB の日本語版の選択画面で、
+    /// ジャングル以外は狩猟に鍵が掛かる）。ジャングル以外が狩猟を選んでいたら、そのポジションの既定の 1 枠目に替える。
+    public static func allowedSpells(_ spells: [String], position: LanePosition) -> [String] {
+        let smite = Balance.Economy.smiteSpellID
+        guard position != .jungle, spells.contains(smite) else { return spells }
+        let fallback = defaultSpells(for: position).first { $0 != smite && !spells.contains($0) } ?? "BS01"
+        return spells.map { $0 == smite ? fallback : $0 }
+    }
+
     /// 人間 1 人 + AI 9 人の 5v5 を作る。人間のヒーローは AI が選ばない。
     /// AI のピックは DraftAI（ポジション適性・編成の補完・相性）で、両チーム交互に行う。
     /// humanBuildPlan = 人間が選んだバトルプランの添字（ItemSystem.heroPlans。nil なら「有効」のプラン。AI は常に「有効」）。
@@ -60,7 +69,7 @@ public enum MatchFactory {
             for pos in LanePosition.allCases {
                 if team == humanTeam && pos == humanPos {
                     players.append(PlayerSlot(team: team, heroID: humanHeroID, controller: .human, position: pos,
-                                              spells: humanSpells ?? defaultSpells(for: pos),
+                                              spells: allowedSpells(humanSpells ?? defaultSpells(for: pos), position: pos),
                                               emblem: humanEmblem ?? humanDefaultEmblem(humanHeroID, plan: humanBuildPlan, master: master),
                                               skinID: humanSkin, displayName: humanName, buildPlan: humanBuildPlan))
                     continue

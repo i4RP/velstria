@@ -60,7 +60,7 @@ enum BotMacro {
         }
         // 2b. 終盤の古環の巨像: 押し切りの前に取る（強化ミニオンと 2 秒帰還で守りを崩す）
         else if t >= Balance.Bot.lateSiege, t >= retryAt, let camp = bossCamp(s, ctx, .ancientColossus), campAlive(s, camp),
-                ourAlive >= enemyAlive, aliveBots.count >= 3, blessed(s, aliveBots, .colossusBlessing) == 0,
+                ourAlive >= enemyAlive, aliveBots.count >= 3, !alliedLordAlive(s, team: team),
                 enemiesSeenNear(s, intel, camp.pos, radius: 2500, within: 5) == 0 {
             plan.kind = .colossus
             plan.point = camp.pos
@@ -69,7 +69,7 @@ enum BotMacro {
         // 3. 押し切り: 人数有利（敵が死亡・帰還で戦線に居ない）・巨像の加護・Core が露出・終盤
         else if ourAlive >= 3 || ourAlive > enemyAlive,
                 enemyAway >= 3 || (enemyAway >= 2 && groupPhase)
-                    || (blessed(s, aliveBots, .colossusBlessing) >= 3 && ourAlive >= enemyAlive)
+                    || (alliedLordAlive(s, team: team) && ourAlive >= enemyAlive)
                     || (groupPhase && enemyAway >= 1 && w.core(of: team.opponent)?.invulnerable == false)
                     || (t >= Balance.Bot.lateSiege && ourAlive >= enemyAlive),
                 let st = siegeTarget(s, w, team: team, preferred: old.lane) {
@@ -192,6 +192,11 @@ enum BotMacro {
     /// kind のバフを持つ生存ボットの数。
     static func blessed(_ s: SimState, _ bots: [Int], _ kind: StatusKind) -> Int {
         bots.filter { s.units[$0].has(kind) }.count
+    }
+
+    /// 味方として出撃したロード（古環の巨像）が生きているか（押し切りの合図）。
+    static func alliedLordAlive(_ s: SimState, team: Team) -> Bool {
+        s.units.contains { $0.isAlive && $0.team == team && $0.kind == .monster && $0.monster?.kind == .ancientColossus }
     }
 
     /// 生存ボットの重心。

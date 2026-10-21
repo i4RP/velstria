@@ -105,6 +105,8 @@ public enum VisionSystem {
             }
             s.units[i].visibleMask = mask
         }
+        // ロームの祝福の暴き（見えた直後に判定する）
+        GearSystem.rewardReveals(&s, ctx)
     }
 
     /// 可視判定に必要なユニットの要約。

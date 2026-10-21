@@ -460,7 +460,7 @@ export const ITEMS = [
     passives: [['堅牢', '買うとすぐに使われ、120 秒間 最大 HP +500、ダメージ軽減 +5%。所持枠を使わない。ポーションの効果は 1 つだけ。',
       'Increase Power', 'Used on purchase: +500 max HP and +5% damage reduction for 120s. Takes no slot; only one potion effect at a time.']] },
 
-  // ───────────────────────────── 移動（靴は 1 足まで。Tier 2 の靴にジャングル・ロームの祝福を付けられる） ─────────────────────────────
+  // ───────────────────────────── 移動（靴は 1 足まで。ジャングル・ロームの祝福はスピードブーツ（Tier 1）から付けられ、上位の靴に引き継ぐ） ─────────────────────────────
   { id: 'EQ401', cat: 'Movement', tier: 2, price: 720, name: 'デモンブーツ', ne: 'Demon Shoes', src: 'Demon Shoes',
     tag: 'MP高速回復', tage: 'Mana regen', from: ['EQ408', 'EQ222', 'EQ222'],
     stats: { move_speed: 40, resource_regen: 10 },

@@ -124,6 +124,8 @@ public struct HeroData: Codable, Hashable, Sendable {
 
     /// アシスト判定用: 自分にダメージ/CC を与えた敵ヒーロー（time 昇順）。
     public var recentDamagers: [DamageRecord] = []
+    /// 最後に敵チームから見えていた時刻（ロームの祝福の暴き。nil は試合開始から見えていない）。
+    public var lastSeenByEnemyAt: Double?
     /// アシスト判定用: 自分を回復/シールドした味方ヒーロー（time 昇順）。
     public var recentSupporters: [DamageRecord] = []
 
@@ -199,6 +201,14 @@ public struct MonsterData: Codable, Hashable, Sendable {
     public var expiresAt: Double?
     public var lordTier: Int?
     public var lordChargeAt: Double?
+    /// 味方になったロードが突進で叩いた塔（塔ごとに 1 回）。
+    public var lordChargedTowers: [EntityID]?
+    /// 中立のロード: 戦闘中に溜まる物理貫通の回数と次に溜まる時刻、次の雷撃の時刻。
+    public var lordPenStacks: Int?
+    public var lordPenNextAt: Double?
+    public var lordStrikeAt: Double?
+    /// 各チーム（Team.rawValue）の狩猟持ちが最後にダメージを与えた時刻（序盤のバフの受け取り。MLBB Patch 2.1.18）。
+    public var smiteHitAt: [Double]?
 
     public init(kind: MonsterKind, campID: Int, home: Vec2) {
         self.kind = kind

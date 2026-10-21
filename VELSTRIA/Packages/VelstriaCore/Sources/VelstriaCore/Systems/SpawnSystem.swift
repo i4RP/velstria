@@ -132,18 +132,14 @@ public enum SpawnSystem {
         }
     }
 
-    /// 出現時刻での構成（宝殻蟹は 3:00 より前なら子）。
+    /// 出現時刻での構成（宝殻蟹の子は現行の MLBB に無いので、いつも親）。
     static func campMembers(_ kind: CampKind, time: Double) -> [(kind: MonsterKind, offset: Vec2)] {
-        if kind == .treasureCrab, time + timeEpsilon < Balance.Jungle.crabUpgradeTime { return [(.crablet, .zero)] }
-        return campMembers(kind)
+        campMembers(kind)
     }
 
-    /// 全滅後の再出現時刻。宝殻蟹は 3:00 まで子が 20 秒ごと（3:00 を越える分は 3:00 に親が出る）、以後は親の周期。
+    /// 全滅後の再出現時刻。
     static func nextSpawn(_ camp: CampSpot, now: Double) -> Double {
-        guard camp.kind == .treasureCrab else { return now + camp.respawn }
-        let upgrade = Balance.Jungle.crabUpgradeTime
-        if now + timeEpsilon < upgrade { return min(now + Balance.Jungle.crabletRespawn, upgrade) }
-        return now + camp.respawn
+        now + camp.respawn
     }
 
     /// 全滅したキャンプに再出現時刻を設定し、時刻が来たキャンプを出現させる。
@@ -157,21 +153,14 @@ public enum SpawnSystem {
         for u in s.units where u.kind == .monster && u.isAlive {
             if let c = u.monster?.campID, c >= 0, c < alive.count { alive[c] += 1 }
         }
-        // 3:00: 生き残っている宝殻蟹の子を親に替える（子は報酬なしで消す）
-        let upgrade = Balance.Jungle.crabUpgradeTime
-        if s.time + timeEpsilon >= upgrade, s.time - Balance.dt + timeEpsilon < upgrade {
-            for i in s.units.indices where s.units[i].kind == .monster && s.units[i].isAlive
-                && s.units[i].monster?.kind == .crablet {
-                s.units[i].isAlive = false
-                s.units[i].hp = 0
-                if let c = s.units[i].monster?.campID, c >= 0, c < alive.count {
-                    alive[c] -= 1
-                    if alive[c] == 0 { s.world.campRespawnAt[c] = s.time }
-                }
-            }
-        }
+        // 宝殻蟹はロードが出た後は湧かない（MLBB Patch 1.8.56。生きている蟹は残る）
+        let crabsClosed = s.world.riverObjective.map { $0.lordEra } ?? (s.time + timeEpsilon >= RiverObjectiveSystem.lordStart)
         for (k, camp) in camps.enumerated() {
             if s.world.riverObjective != nil && camp.kind.isBoss { continue }
+            if crabsClosed, camp.kind == .treasureCrab, alive[k] == 0 {
+                s.world.campRespawnAt[k] = Double.greatestFiniteMagnitude
+                continue
+            }
             if let at = s.world.campRespawnAt[k] {
                 if s.time + timeEpsilon >= at {
                     spawnCamp(&s, ctx, camp: camp)
@@ -191,7 +180,7 @@ public enum SpawnSystem {
         for member in campMembers(camp.kind, time: s.time) {
             let pos = ctx.nav.nearestWalkable(camp.pos + member.offset * flip,
                                               radius: UnitFactory.monsterProfile(member.kind).radius)
-            var u = UnitFactory.makeMonster(kind: member.kind, campID: camp.id, pos: pos)
+            var u = UnitFactory.makeMonster(kind: member.kind, campID: camp.id, pos: pos, time: s.time)
             u.facing = (Vec2(ctx.map.size / 2, ctx.map.size / 2) - camp.pos).angle
             s.addUnit(u)
         }
@@ -276,9 +265,34 @@ public struct MonsterProfile: Hashable, Sendable {
     public var attackRange: Double
     public var moveSpeed: Double
     public var isBoss: Bool
+    /// 毎分の HP の伸び（MLBB の「HP +x/分」）。maxHP は試合開始時（0:00）の値。
+    public var hpPerMinute: Double = 0
+    /// 毎分の物理攻撃の伸び。
+    public var attackPerMinute: Double = 0
+    /// 毎分の物理防御・魔法防御の伸び。
+    public var armorPerMinute: Double = 0
+    public var magicResistPerMinute: Double = 0
+    /// 伸びが止まる分（ロードは 18 分）。nil は止まらない。
+    public var growthCapMinutes: Double?
 
     /// リーシュ半径（巣からこれ以上離れたら帰還）。
     public var leashRadius: Double { isBoss ? Balance.bossLeashRadius : Balance.leashRadius }
+
+    /// 伸びに数える分（試合時間の分を切り捨て、上限あり）。
+    public func growthMinutes(at time: Double) -> Double {
+        let m = (max(0, time) / 60 + 1e-9).rounded(.down)
+        return growthCapMinutes.map { min($0, m) } ?? m
+    }
+
+    /// time の時点の最大 HP（初期値 + 毎分の伸び）。
+    public func maxHP(at time: Double) -> Double { maxHP + hpPerMinute * growthMinutes(at: time) }
+
+    /// time の時点の物理攻撃（初期値 + 毎分の伸び）。
+    public func attack(at time: Double) -> Double { attack + attackPerMinute * growthMinutes(at: time) }
+
+    /// time の時点の物理防御・魔法防御（初期値 + 毎分の伸び）。
+    public func armor(at time: Double) -> Double { armor + armorPerMinute * growthMinutes(at: time) }
+    public func magicResist(at time: Double) -> Double { magicResist + magicResistPerMinute * growthMinutes(at: time) }
 }
 
 /// ユニット生成（DESIGN §4 の基礎値）。
@@ -352,6 +366,7 @@ public enum UnitFactory {
 
     /// 中立モンスターの基礎値。
     public static func monsterProfile(_ kind: MonsterKind) -> MonsterProfile {
+        typealias J = Balance.Jungle
         switch kind {
         case .campLarge:
             return MonsterProfile(maxHP: 900, attack: 40, attackInterval: 1.2, armor: 15, magicResist: 15,
@@ -359,60 +374,73 @@ public enum UnitFactory {
         case .campSmall:
             return MonsterProfile(maxHP: 400, attack: 20, attackInterval: 1.2, armor: 15, magicResist: 15,
                                   radius: 50, attackRange: 110, moveSpeed: 260, isBoss: false)
-        // ジャングル: MLBB の各モンスターの HP・攻撃を、紅焔の番人（MLBB 4941 HP / 攻撃 214）との比で
-        // こちらの番人（2200 / 65）へ換算した（DESIGN §4）。
+        // ジャングル: Fandom の表（初期値 / 毎分）に、その後の公式の変更率を掛けた値（docs/JUNGLE_ROAM_MLBB.md）。
+        // バフ 2 体と小キャンプ 3 種は Patch 1.9.90 の HP +30%・攻撃 −15%。攻撃間隔・半径・射程・速さは旧来の値。
         case .redSentinel:
-            return MonsterProfile(maxHP: 2200, attack: 65, attackInterval: 1.2, armor: 25, magicResist: 25,
-                                  radius: 110, attackRange: 150, moveSpeed: 250, isBoss: false)
+            return MonsterProfile(maxHP: 4941 * J.campHPScale1990, attack: 214 * J.campAttackScale1990, attackInterval: 1.2,
+                                  armor: 37, magicResist: 37, radius: 110, attackRange: 150, moveSpeed: 250, isBoss: false,
+                                  hpPerMinute: 158.22 * J.campHPScale1990, attackPerMinute: 3.84 * J.campAttackScale1990,
+                                  armorPerMinute: 2, magicResistPerMinute: 2)
         case .blueSentinel:
-            // MLBB の雷狼（親 4090 HP）。仔と合わせて紅焔の番人と同じくらいの手間
-            return MonsterProfile(maxHP: 1800, attack: 65, attackInterval: 1.2, armor: 25, magicResist: 15,
-                                  radius: 110, attackRange: 150, moveSpeed: 250, isBoss: false)
+            return MonsterProfile(maxHP: 4090 * J.campHPScale1990, attack: 226 * J.campAttackScale1990, attackInterval: 1.2,
+                                  armor: 60, magicResist: 0, radius: 110, attackRange: 150, moveSpeed: 250, isBoss: false,
+                                  hpPerMinute: 230.22 * J.campHPScale1990, attackPerMinute: 3.84 * J.campAttackScale1990,
+                                  armorPerMinute: 2)
         case .azureWhelp:
             // 仔: HP は低いが攻撃が速い
             return MonsterProfile(maxHP: 450, attack: 30, attackInterval: 0.8, armor: 15, magicResist: 0,
                                   radius: 60, attackRange: 120, moveSpeed: 270, isBoss: false)
         case .hornLizard:
-            // 遠隔（舌の攻撃）。HP が半分を切ると硬くなる（MonsterSystem）
-            return MonsterProfile(maxHP: 1350, attack: 34, attackInterval: 1.0, armor: 15, magicResist: 15,
-                                  radius: 80, attackRange: 400, moveSpeed: 250, isBoss: false)
+            // 遠隔（舌の攻撃）。HP が半分を切ると防御 +70（MonsterSystem）
+            return MonsterProfile(maxHP: 3019 * J.campHPScale1990, attack: 110 * J.campAttackScale1990, attackInterval: 1.0,
+                                  armor: 37, magicResist: 37, radius: 80, attackRange: 400, moveSpeed: 250, isBoss: false,
+                                  hpPerMinute: 156.69 * J.campHPScale1990, attackPerMinute: 2.30 * J.campAttackScale1990)
         case .emberBeetle:
-            return MonsterProfile(maxHP: 1100, attack: 35, attackInterval: 1.0, armor: 15, magicResist: 15,
-                                  radius: 80, attackRange: 130, moveSpeed: 260, isBoss: false)
+            return MonsterProfile(maxHP: 2501 * J.campHPScale1990, attack: 113 * J.campAttackScale1990, attackInterval: 1.0,
+                                  armor: 37, magicResist: 37, radius: 80, attackRange: 130, moveSpeed: 260, isBoss: false,
+                                  hpPerMinute: 126.69 * J.campHPScale1990, attackPerMinute: 2.30 * J.campAttackScale1990)
         case .emberGrub:
             return MonsterProfile(maxHP: 300, attack: 18, attackInterval: 1.0, armor: 10, magicResist: 10,
                                   radius: 50, attackRange: 110, moveSpeed: 270, isBoss: false)
         case .magmaGolem:
-            return MonsterProfile(maxHP: 1350, attack: 47, attackInterval: 1.0, armor: 15, magicResist: 15,
-                                  radius: 95, attackRange: 140, moveSpeed: 240, isBoss: false)
+            return MonsterProfile(maxHP: 3000 * J.campHPScale1990, attack: 156 * J.campAttackScale1990, attackInterval: 1.0,
+                                  armor: 37, magicResist: 37, radius: 95, attackRange: 140, moveSpeed: 240, isBoss: false,
+                                  hpPerMinute: 81.50 * J.campHPScale1990, attackPerMinute: 2.30 * J.campAttackScale1990)
         case .treasureCrab:
-            return MonsterProfile(maxHP: 1600, attack: 17, attackInterval: 1.0, armor: 15, magicResist: 15,
-                                  radius: 85, attackRange: 130, moveSpeed: 250, isBoss: false)
+            // 防御 0（Patch 1.9.90）
+            return MonsterProfile(maxHP: 3640, attack: 55, attackInterval: 1.0, armor: 0, magicResist: 0,
+                                  radius: 85, attackRange: 130, moveSpeed: 250, isBoss: false, hpPerMinute: 384.30,
+                                  attackPerMinute: 1.15)
         case .crablet:
             return MonsterProfile(maxHP: 650, attack: 10, attackInterval: 1.0, armor: 10, magicResist: 10,
                                   radius: 55, attackRange: 110, moveSpeed: 260, isBoss: false)
         case .mossWanderer:
             // 反撃しない（攻撃 0）。物理に硬く魔法に弱い（MLBB: 物防 60・魔防 0）
-            return MonsterProfile(maxHP: 1000, attack: 0, attackInterval: 1.0, armor: 40, magicResist: 0,
-                                  radius: 75, attackRange: 100, moveSpeed: 220, isBoss: false)
+            return MonsterProfile(maxHP: 2251, attack: 0, attackInterval: 1.0, armor: 60, magicResist: 0,
+                                  radius: 75, attackRange: 100, moveSpeed: 220, isBoss: false, hpPerMinute: 345.90)
         case .astralWyrm:
-            return MonsterProfile(maxHP: 5500, attack: 120, attackInterval: 1.5, armor: 40, magicResist: 40,
-                                  radius: 180, attackRange: 175, moveSpeed: 230, isBoss: true)
+            // MLBB のタートル（攻撃間隔 1 秒は Fandom）
+            return MonsterProfile(maxHP: 10367, attack: 260, attackInterval: 1.0, armor: 15, magicResist: 15,
+                                  radius: 180, attackRange: 175, moveSpeed: 230, isBoss: true, hpPerMinute: 1067.15,
+                                  attackPerMinute: 21.72, armorPerMinute: 10, magicResistPerMinute: 10)
         case .ancientColossus:
-            return MonsterProfile(maxHP: 9000, attack: 180, attackInterval: 1.5, armor: 60, magicResist: 60,
-                                  radius: 220, attackRange: 175, moveSpeed: 220, isBoss: true)
+            // MLBB のロード（能力値は 18 分で伸びが止まる。攻撃間隔 1 秒は Fandom）
+            return MonsterProfile(maxHP: 31743, attack: 428, attackInterval: 1.0, armor: 37, magicResist: 37,
+                                  radius: 220, attackRange: 175, moveSpeed: 220, isBoss: true, hpPerMinute: 2242,
+                                  attackPerMinute: 20.15, growthCapMinutes: J.lordGrowthCapMinutes)
         }
     }
 
-    /// 中立モンスター（team = neutral、巣 = 出現位置）。
-    public static func makeMonster(kind: MonsterKind, campID: Int, pos: Vec2) -> Unit {
+    /// 中立モンスター（team = neutral、巣 = 出現位置）。HP・攻撃は出現した時刻（time）の値で、その後も毎分伸びる
+    /// （MonsterSystem.grow）。
+    public static func makeMonster(kind: MonsterKind, campID: Int, pos: Vec2, time: Double = 0) -> Unit {
         let p = monsterProfile(kind)
         var st = Stats()
-        st.maxHP = p.maxHP
-        st.attack = p.attack
+        st.maxHP = p.maxHP(at: time)
+        st.attack = p.attack(at: time)
         st.attackSpeed = 1 / p.attackInterval
-        st.armor = p.armor
-        st.magicResist = p.magicResist
+        st.armor = p.armor(at: time)
+        st.magicResist = p.magicResist(at: time)
         st.attackRange = p.attackRange
         st.moveSpeed = p.moveSpeed
         var u = Unit(id: 0, kind: .monster, team: .neutral, pos: pos, radius: p.radius, stats: st)

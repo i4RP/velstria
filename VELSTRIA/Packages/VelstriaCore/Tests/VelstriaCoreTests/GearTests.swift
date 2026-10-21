@@ -203,33 +203,46 @@ final class GearTests: XCTestCase {
         f.s.units[a].hero!.score.kills = 1
         XCTAssertEqual(GearEffects.jungleProgress(f.hero(a)), 4)
         XCTAssertFalse(GearEffects.jungleBlessingActive(f.hero(a), master: f.master))
-        f.s.units[a].hero!.score.kills = 2
+        f.s.units[a].hero!.score.assists = 1
+        XCTAssertEqual(GearEffects.jungleProgress(f.hero(a)), 5, "アシストも数える")
         XCTAssertTrue(GearEffects.jungleBlessingActive(f.hero(a), master: f.master), "合計 5 で狩猟印をヒーローに使える")
         f.s.units[a].hero!.score.monsterKills = 12
         StatCalculator.recompute(&f.s, a, f.ctx)
         XCTAssertEqual(f.s.units[a].stats.attack, before.attack, accuracy: 1e-9, "合計 14")
         f.s.units[a].hero!.score.monsterKills = 13
         StatCalculator.recompute(&f.s, a, f.ctx)
-        XCTAssertEqual(f.s.units[a].stats.attack, before.attack + 15, accuracy: 1e-9, "合計 15")
-        XCTAssertEqual(f.s.units[a].stats.abilityPower, before.abilityPower + 15, accuracy: 1e-9)
-        XCTAssertEqual(f.s.units[a].stats.maxHP, before.maxHP, accuracy: 1e-9)
+        let k = Balance.Gear.self
+        XCTAssertEqual(f.s.units[a].stats.attack, before.attack + k.jungleSecondAttack, accuracy: 1e-9, "合計 15")
+        XCTAssertEqual(f.s.units[a].stats.abilityPower, before.abilityPower + k.jungleSecondAttack, accuracy: 1e-9)
+        XCTAssertEqual(f.s.units[a].stats.maxHP, before.maxHP + k.jungleSecondHP, accuracy: 1e-9, "最大 HP +100")
         // ロームの祝福には付かない
         var (g, b) = blessed(.encourage)
         g.s.units[b].hero!.score.monsterKills = 20
         XCTAssertFalse(GearEffects.jungleBlessingActive(g.hero(b), master: g.master))
     }
 
-    func testHuntingReducesMinionRewardsBySeventyPercent() {
-        for (time, factor) in [(100.0, 0.3), (200.0, 0.3)] {
+    func testHuntingDoesNotShareMinionRewardsForTheFirstTwoMinutes() {
+        // 日本語の説明「試合開始後の2分間、味方とミニオンボーナスを共有しなくなる」: 分け前を受けず、分ける人数にも入らない
+        for (time, shares) in [(100.0, false), (Balance.Gear.jungleMinionShareEnd, true)] {
             var (f, a) = blessed(.flame, time: time)
+            let mate = ally(f, a)
+            f.place(mate, at: spot + Vec2(200, 0))
             let m = f.addMinion(.melee, team: .red, at: spot)
-            let gold = f.hero(a).gold, xp = f.hero(a).xp
+            let gold = f.hero(a).gold, xa = f.hero(a).xp, xm = f.hero(mate).xp
             f.kill(m, by: f.id(a))
             let bonus = DeathSystem.laneBonus(f.s, f.ctx, lane: .mid)
-            XCTAssertEqual(f.hero(a).gold - gold, Balance.Economy.minionGold(.melee, at: f.s.time) * factor * bonus.gold,
+            let xp = Balance.Economy.minionXP(.melee) * bonus.xp
+            // 止めの Gold は分け前ではないので入る
+            XCTAssertEqual(f.hero(a).gold - gold, Balance.Economy.minionGold(.melee, at: f.s.time) * bonus.gold,
                            accuracy: 1e-9, "t=\(time)")
-            XCTAssertEqual(f.hero(a).xp - xp, Balance.Economy.minionXP(.melee) * factor * bonus.xp, accuracy: 1e-9,
-                           "t=\(time)")
+            if shares {
+                let each = xp * Balance.Economy.groupXPMultiplier / 2
+                XCTAssertEqual(f.hero(a).xp - xa, each, accuracy: 1e-9, "t=\(time)")
+                XCTAssertEqual(f.hero(mate).xp - xm, each, accuracy: 1e-9, "t=\(time)")
+            } else {
+                XCTAssertEqual(f.hero(a).xp - xa, 0, accuracy: 1e-9, "t=\(time)")
+                XCTAssertEqual(f.hero(mate).xp - xm, xp, accuracy: 1e-9, "味方の取り分は減らない t=\(time)")
+            }
         }
     }
 
@@ -429,16 +442,65 @@ final class GearTests: XCTestCase {
         XCTAssertEqual(f.hero(a).gold, gold, accuracy: 1e-9)
     }
 
-    func testRoamBlessingDoesNotReduceOwnFarm() {
+    func testRoamBlessingCutsOwnFarmForTheFirstEightMinutes() {
+        // MLBB Patch 2.1.88: 最初の 8 分は自分で倒した報酬が 30%
+        for (time, factor) in [(100.0, 0.3), (Balance.Gear.roamPhaseEnd, 1.0)] {
+            var (f, a) = blessed(.encourage, time: time)
+            var gold = f.hero(a).gold
+            let xp = f.hero(a).xp
+            f.kill(f.addMinion(.melee, team: .red, at: spot), by: f.id(a))
+            let bonus = DeathSystem.laneBonus(f.s, f.ctx, lane: .mid)
+            XCTAssertEqual(f.hero(a).gold - gold, Balance.Economy.minionGold(.melee, at: f.s.time) * bonus.gold * factor,
+                           accuracy: 1e-9, "t=\(time)")
+            XCTAssertEqual(f.hero(a).xp - xp, Balance.Economy.minionXP(.melee) * bonus.xp * factor, accuracy: 1e-9, "t=\(time)")
+            gold = f.hero(a).gold
+            f.kill(f.addMonster(.campLarge, at: spot), by: f.id(a))
+            XCTAssertEqual(f.hero(a).gold - gold, (Balance.Economy.monsterGold(.campLarge) * factor).rounded(), accuracy: 1e-9,
+                           "t=\(time)")
+        }
+        // 「単独」は周り 1400 に味方ヒーローが居ない時だけ（居れば減らない）
         var (f, a) = blessed(.encourage, time: 100)
-        var gold = f.hero(a).gold
+        f.place(ally(f, a), at: spot + Vec2(1000, 0))
+        let gold = f.hero(a).gold
         f.kill(f.addMinion(.melee, team: .red, at: spot), by: f.id(a))
         XCTAssertEqual(f.hero(a).gold - gold,
                        Balance.Economy.minionGold(.melee, at: f.s.time) * DeathSystem.laneBonus(f.s, f.ctx, lane: .mid).gold,
                        accuracy: 1e-9)
+    }
+
+    func testRevealingAHiddenEnemyRewardsTheRoamer() {
+        var (f, a) = blessed(.encourage, time: 300)
+        let v = f.heroes(.red)[0]
+        f.place(v, at: spot + Vec2(400, 0))
+        let k = Balance.Gear.self
+        func see(_ visible: Bool) {
+            f.s.units[v].visibleMask = Team.red.visionBit | (visible ? Team.blue.visionBit : 0)
+            GearSystem.rewardReveals(&f.s, f.ctx)
+        }
+        let level = Double(f.hero(a).level)
+        // 5 秒以上消えていた敵がローム持ちの視界で見えた
+        f.s.units[v].hero!.lastSeenByEnemyAt = f.s.time - 6
+        var gold = f.hero(a).gold
+        let xp = f.hero(a).xp
+        see(true)
+        XCTAssertEqual(f.hero(a).gold - gold, k.revealGoldBase + k.revealGoldPerLevel * level, accuracy: 1e-9)
+        XCTAssertEqual(f.hero(a).xp - xp, k.revealXPBase + k.revealXPPerLevel * level, accuracy: 1e-9)
+        XCTAssertEqual(f.hero(a).gear?.devotionGold ?? 0, k.revealGoldBase + k.revealGoldPerLevel * level, accuracy: 1e-9,
+                       "無私の上限に数える")
+        // 見え続けている間・消えていたのが 5 秒未満なら入らない
         gold = f.hero(a).gold
-        f.kill(f.addMonster(.campLarge, at: spot), by: f.id(a))
-        XCTAssertEqual(f.hero(a).gold - gold, Balance.Economy.monsterGold(.campLarge).rounded(), accuracy: 1e-9)
+        f.s.time += 1
+        see(true)
+        see(false)
+        f.s.time += 4
+        see(true)
+        XCTAssertEqual(f.hero(a).gold, gold, accuracy: 1e-9)
+        // ローム持ちの視界の外（味方が見つけた）なら入らない
+        see(false)
+        f.s.time += 6
+        f.place(v, at: spot + Vec2(5000, 0))
+        see(true)
+        XCTAssertEqual(f.hero(a).gold, gold, accuracy: 1e-9)
     }
 
     // MARK: - ローム: 祝福の能力（共栄ゴールド 1000 で解放）
@@ -473,9 +535,10 @@ final class GearTests: XCTestCase {
 
     func testConcealHidesNearbyAlliesUntilTheyFight() {
         var (f, a) = blessed(.conceal, time: 300, roamGold: 999)
-        let near = ally(f, a, 0), far = ally(f, a, 1)
+        let near = ally(f, a, 0), far = ally(f, a, 1), near2 = ally(f, a, 2)
         f.place(near, at: spot + Vec2(300, 0))
         f.place(far, at: spot + Vec2(1500, 0))
+        f.place(near2, at: spot + Vec2(0, 300))
         let v = enemy(&f, at: spot + Vec2(400, 0))
         let use = HeroCommand(heroID: f.id(a), command: .useGearActive)
         XCTAssertNil(GearSystem.activeCooldown(f.hero(a), time: f.s.time, master: f.master), "解放前は使えない")
@@ -484,7 +547,7 @@ final class GearTests: XCTestCase {
         f.s.units[a].hero!.gear!.roamGold = 1000
         XCTAssertEqual(GearSystem.activeCooldown(f.hero(a), time: f.s.time, master: f.master) ?? -1, 0, accuracy: 1e-9)
         CommandSystem.apply([use], &f.s, f.ctx)
-        for i in [a, near] {
+        for i in [a, near, near2] {
             XCTAssertEqual(gearStatus(f, i, "gear_conceal").first { $0.kind == .stealth }?.remaining ?? 0, 5, accuracy: 1e-9)
             XCTAssertEqual(gearStatus(f, i, "gear_conceal").first { $0.kind == .speedBoost }?.magnitude ?? 0, 0.4,
                            accuracy: 1e-9)
@@ -496,6 +559,11 @@ final class GearTests: XCTestCase {
                                 source: .skill(.skill1), isCrit: false, appliesOnHit: false)
         XCTAssertTrue(gearStatus(f, a, "gear_conceal").isEmpty)
         XCTAssertFalse(gearStatus(f, near, "gear_conceal").isEmpty)
+        // 祝福を持たない味方も、攻撃すると隠れた状態も加速も解ける
+        CombatSystem.dealDamage(&f.s, f.ctx, sourceID: f.id(near2), targetIndex: v, amount: 10, type: .physical,
+                                source: .basicAttack, isCrit: false, appliesOnHit: false)
+        XCTAssertTrue(gearStatus(f, near2, "gear_conceal").isEmpty)
+        XCTAssertFalse(gearStatus(f, near, "gear_conceal").isEmpty)
         // 敵ヒーローからダメージを受けると解ける
         CombatSystem.dealDamage(&f.s, f.ctx, sourceID: f.id(v), targetIndex: near, amount: 10, type: .physical,
                                 source: .skill(.skill1), isCrit: false, appliesOnHit: false)
@@ -503,6 +571,26 @@ final class GearTests: XCTestCase {
         // CD 中は使えない
         CommandSystem.apply([use], &f.s, f.ctx)
         XCTAssertFalse(f.s.units[a].has(.stealth))
+    }
+
+    func testFavorPicksTheLowestHPInAbsoluteTermsAndOnlyFromSkills() {
+        var (f, a) = blessed(.favor, time: 300, roamGold: 1000)
+        let big = ally(f, a, 0), small = ally(f, a, 1), mate = ally(f, a, 2)
+        for (i, p) in [(big, Vec2(200, 0)), (small, Vec2(0, 200)), (mate, Vec2(-200, 0))] { f.place(i, at: spot + p) }
+        // 割合は big が低いが、実数は small が少ない
+        f.s.units[big].stats.maxHP = 5000
+        f.s.units[big].hp = 1000
+        f.s.units[small].stats.maxHP = 1000
+        f.s.units[small].hp = 800
+        f.s.units[mate].hp = f.s.units[mate].stats.maxHP - 500
+        let before = (big: f.s.units[big].hp, small: f.s.units[small].hp)
+        // バトルスペル・装備の回復では働かない
+        CombatSystem.heal(&f.s, f.ctx, sourceID: f.id(a), targetIndex: mate, amount: 100, bySkill: false)
+        XCTAssertEqual(f.s.units[small].hp, before.small, accuracy: 1e-9)
+        XCTAssertEqual(f.hero(a).gear?.abilityReadyAt ?? 0, 0, accuracy: 1e-9)
+        CombatSystem.heal(&f.s, f.ctx, sourceID: f.id(a), targetIndex: mate, amount: 100)
+        XCTAssertEqual(f.s.units[small].hp, min(1000, before.small + 400), accuracy: 1e-6, "HP の実数が最も少ない味方")
+        XCTAssertEqual(f.s.units[big].hp, before.big, accuracy: 1e-9)
     }
 
     func testFavorHealsTheLowestAllyWhenHealingAnAlly() {
@@ -555,6 +643,11 @@ final class GearTests: XCTestCase {
                                 source: .skill(.skill1), isCrit: false, appliesOnHit: false)
         XCTAssertEqual(hp - f.s.units[v].hp, 10 + 40 * 7.5, accuracy: 1e-6)
         XCTAssertEqual(f.hero(a).gear?.force ?? -1, 0, accuracy: 1e-9)
+        // バトルスペルのダメージでは使わない
+        f.s.units[a].hero!.gear!.force = 30
+        CombatSystem.dealDamage(&f.s, f.ctx, sourceID: f.id(a), targetIndex: v, amount: 10, type: .trueDamage,
+                                source: .spell, isCrit: false, appliesOnHit: false)
+        XCTAssertEqual(f.hero(a).gear?.force ?? -1, 30, accuracy: 1e-9)
         // 20 未満では使わない
         f.s.units[a].hero!.gear!.force = 19
         hp = f.s.units[v].hp

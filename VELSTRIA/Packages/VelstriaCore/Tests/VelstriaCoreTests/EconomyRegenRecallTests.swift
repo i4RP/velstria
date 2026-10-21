@@ -191,6 +191,9 @@ final class EconomyRegenRecallTests: XCTestCase {
         let d = onTop.distance(to: tpos)
         XCTAssertGreaterThanOrEqual(d, f.s.units[tower].radius + f.s.units[a].radius)
         XCTAssertLessThanOrEqual(d, Balance.Economy.teleportTowerRadius)
+        // ベース（Core）の近くも可（MLBB の降臨: タワー・ベース・ミニオン・トラップ）
+        let base = f.s.units[f.core(.blue)].pos + Vec2(0, f.s.units[f.core(.blue)].radius + 150)
+        XCTAssertNotNil(RecallSystem.teleportDestination(f.s, f.ctx, heroIndex: a, requested: base))
         // 泉は可
         let fountain = f.ctx.map.fountain(.blue) + Vec2(100, 100)
         XCTAssertEqual(RecallSystem.teleportDestination(f.s, f.ctx, heroIndex: a, requested: fountain), fountain)

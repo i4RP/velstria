@@ -286,8 +286,8 @@ public enum DeathSystem {
         // Gold はヒーローのラストヒットのみ
         if let k = s.index(of: killerID), isHero(s, k), s.units[k].team != s.units[v].team {
             s.units[k].hero?.score.minionKills += 1
-            // ジャングルの祝福は 2:00 まで自分の収入が半減
-            let mult = s.units[k].hero.map { GearEffects.minionRewardMultiplier($0, time: s.time, master: ctx.master) } ?? 1
+            // ロームの祝福は最初の 8 分、単独で倒すと 30%
+            let mult = GearEffects.roamSoloRewardMultiplier(s, heroIndex: k, master: ctx.master)
             let gold = Balance.Economy.minionGold(m.type, at: s.time) * mult * laneBonus(s, ctx, lane: m.lane).gold
             EconomyRewards.grantGold(&s, heroIndex: k, amount: gold, at: pos)
             // ロームの祝福（無私）: 近くのローム持ちが 30% を別に得る。デモンブーツ: MP 回復
@@ -314,18 +314,24 @@ public enum DeathSystem {
         guard s.units[v].team == .neutral else { return } // A captured Lord cannot be captured again.
         let pos = s.units[v].pos
         // 止めを刺したユニットが既に除去されていれば、最後に攻撃したユニットのチームに帰属
-        guard let k = s.index(of: killerID) ?? s.index(of: s.units[v].lastAttackerID) else { return }
+        guard let finisher = s.index(of: killerID) ?? s.index(of: s.units[v].lastAttackerID) else { return }
+        // 序盤（2:00 まで）は陣地のジャングルのモンスターの Gold・EXP が、その陣地の近くの狩猟持ちに入る（MLBB Patch 1.9.06）
+        let k = homeJungler(s, ctx, monsterIndex: v) ?? finisher
+        let killerID: EntityID? = s.units[k].id
         let team = s.units[k].team
         guard team != .neutral else { return }
         let killerHero: Int? = isHero(s, k) ? k : nil
 
-        // ラストヒット Gold（Jungle 装備で +20%）
+        // ラストヒット Gold（狩猟持ちは +60%、ロームの単独は最初の 8 分 30%）
+        // 宝殻蟹: EXP レーン側は EXP、Gold レーン側は Gold（MLBB Patch 1.8.78）
+        let crabGivesXP = md.kind == .treasureCrab && crabIsOnEXPSide(ctx, campID: md.campID)
         if let kh = killerHero {
             s.units[kh].hero?.score.monsterKills += 1
-            let gold = Balance.Economy.monsterGold(md.kind)
+            let gold = crabGivesXP ? 0 : Balance.Economy.monsterGold(md.kind)
             if gold > 0 {
                 let bonus = max(0, s.units[kh].stats.monsterGoldBonus)
-                let mult = s.units[kh].hero.map { GearEffects.monsterRewardMultiplier($0, time: s.time, master: ctx.master) } ?? 1
+                let mult = (s.units[kh].hero.map { GearEffects.monsterRewardMultiplier($0, time: s.time, master: ctx.master) } ?? 1)
+                    * GearEffects.roamSoloRewardMultiplier(s, heroIndex: kh, master: ctx.master)
                 let amount = (gold * (1 + bonus) * mult).rounded()
                 EconomyRewards.grantGold(&s, heroIndex: kh, amount: amount, at: pos)
                 GearSystem.devotion(&s, ctx, earner: kh, gold: amount, xp: 0)
@@ -346,7 +352,7 @@ public enum DeathSystem {
             if let kh = killerHero { JungleBuffs.grantHealingBuff(&s, ctx, heroIndex: kh) }
             // 熾甲虫は倒すと幼体になって少しの間残る（同じキャンプ扱い。幼体が消えるまで再出現の待ちに入らない）
             if md.kind == .emberBeetle {
-                var grub = UnitFactory.makeMonster(kind: .emberGrub, campID: md.campID, pos: pos)
+                var grub = UnitFactory.makeMonster(kind: .emberGrub, campID: md.campID, pos: pos, time: s.time)
                 grub.monster?.home = md.home
                 grub.monster?.expiresAt = s.time + Balance.Jungle.grubLifetime
                 grub.facing = s.units[v].facing
@@ -354,24 +360,18 @@ public enum DeathSystem {
             }
         case .blueSentinel, .redSentinel:
             shareXP(&s)
-            if let kh = killerHero {
-                s.units[kh].hero?.score.objectivesTaken += 1
+            if let kh = killerHero { s.units[kh].hero?.score.objectivesTaken += 1 }
+            if let b = buffReceiver(s, ctx, monsterIndex: v, finisher: finisher) {
                 let buff = md.kind == .blueSentinel
                     ? StatusEffect(kind: .blueBuff, duration: Balance.Economy.sentinelBuffDuration, sourceID: monsterID,
                                    tag: "sentinel")
-                    : JungleBuffs.redBuff(for: s.units[kh], sourceID: monsterID)
-                CombatSystem.addStatus(&s, targetIndex: kh, buff)
+                    : JungleBuffs.redBuff(for: s.units[b], sourceID: monsterID)
+                CombatSystem.addStatus(&s, targetIndex: b, buff)
             }
             s.emit(.objectiveTaken(kind: md.kind, team: team, killerID: killerID))
         case .treasureCrab, .crablet:
-            shareXP(&s)
-            if let kh = killerHero {
-                let crab = md.kind == .treasureCrab
-                JungleBuffs.grantGoldBuff(&s, heroIndex: kh,
-                                          total: crab ? Balance.Jungle.crabGoldBuffTotal : Balance.Jungle.crabletGoldBuffTotal,
-                                          duration: crab ? Balance.Jungle.crabGoldBuffDuration : Balance.Jungle.crabletGoldBuffDuration,
-                                          sourceID: monsterID)
-            }
+            // 報酬は倒した瞬間に全額（時間で入る Gold のバフは MLBB Patch 1.8.44 で削除）
+            if crabGivesXP { shareXP(&s) }
         case .mossWanderer:
             shareXP(&s)
             JungleBuffs.wandererReward(&s, ctx, killer: killerHero, team: team, at: pos, sourceID: monsterID)
@@ -385,28 +385,66 @@ public enum DeathSystem {
         case .ancientColossus:
             s.teams[team.rawValue].colossusKills += 1
             if let kh = killerHero { s.units[kh].hero?.score.objectivesTaken += 1 }
-            teamObjectiveReward(&s, ctx, team: team, gold: Balance.Economy.colossusTeamGold,
-                                xp: Balance.Economy.colossusTeamXP,
-                                blessing: StatusEffect(kind: .colossusBlessing,
-                                                       duration: Balance.Economy.colossusBlessingDuration,
-                                                       magnitude: Balance.Economy.colossusBlessingDamageBonus,
-                                                       sourceID: s.units[v].id, tag: "colossus"))
+            // 巨像の加護（与ダメ +15%・帰還 2 秒）は MLBB の資料に無いので付けない。報酬は全員に 50 + 10×分（1 人あたり）
+            teamObjectiveReward(&s, ctx, team: team, gold: Balance.Economy.colossusTeamGold(at: s.time),
+                                xp: Balance.Economy.colossusTeamXP, blessing: nil)
             s.emit(.objectiveTaken(kind: md.kind, team: team, killerID: killerID))
             s.emit(.announcement(.colossusSlain(team: team)))
             if s.world.riverObjective != nil { RiverObjectiveSystem.capture(&s, ctx, team: team) }
         }
     }
 
-    /// ボス報酬: チーム全員に Gold/XP、生存者に加護。
+    /// 序盤（2:00 まで）に陣地のジャングルのモンスターが倒れたとき、報酬を受け取るその陣地の狩猟印持ち（近い順。
+    /// 居なければ nil = 止めを刺したヒーロー）。MLBB Patch 1.9.06。
+    static func homeJungler(_ s: SimState, _ ctx: SimContext, monsterIndex v: Int) -> Int? {
+        typealias J = Balance.Jungle
+        guard s.time < J.earlyJungleRuleEnd, ctx.earlyJungleRules, let md = s.units[v].monster,
+              ctx.map.camps.indices.contains(md.campID) else { return nil }
+        let side = ctx.map.camps[md.campID].side
+        guard side != .neutral else { return nil }
+        let pos = s.units[v].pos
+        var best: Int?
+        var bestD = J.homeJungleRewardRadius * J.homeJungleRewardRadius
+        for i in s.heroIndices(team: side) where s.units[i].isAlive && s.units[i].hero?.isDead == false
+            && s.units[i].hero?.spells.contains(Balance.Economy.smiteSpellID) == true {
+            let d = s.units[i].pos.distanceSquared(to: pos)
+            if d <= bestD {
+                bestD = d
+                best = i
+            }
+        }
+        return best
+    }
+
+    /// ボス報酬: チーム全員に Gold/XP、生存者に加護（あれば）。
     static func teamObjectiveReward(_ s: inout SimState, _ ctx: SimContext, team: Team, gold: Double, xp: Double,
-                                    blessing: StatusEffect) {
+                                    blessing: StatusEffect?) {
         for i in s.heroIndices(team: team) {
             EconomyRewards.grantGold(&s, heroIndex: i, amount: gold)
             HeroGrowth.grantXP(&s, ctx, heroIndex: i, amount: xp)
-            if s.units[i].isAlive, s.units[i].hero?.isDead == false {
+            if let blessing, s.units[i].isAlive, s.units[i].hero?.isDead == false {
                 CombatSystem.addStatus(&s, targetIndex: i, blessing)
             }
         }
+    }
+
+    /// 宝殻蟹が EXP レーン側か（EXP レーン側は EXP、Gold レーン側は Gold。MLBB Patch 1.8.78）。
+    static func crabIsOnEXPSide(_ ctx: SimContext, campID: Int) -> Bool {
+        guard ctx.map.camps.indices.contains(campID), let exp = ctx.map.expLane else { return false }
+        return ctx.map.nearestLane(to: ctx.map.camps[campID].pos).lane == exp
+    }
+
+    /// バフ（紫・赤）を受け取るヒーロー: 止めを刺したヒーロー。序盤（2:00 まで）は、直前にダメージを与えたその陣地の狩猟持ちが
+    /// 近くに居れば、最も近い狩猟持ち（MLBB Patch 2.1.18）。
+    static func buffReceiver(_ s: SimState, _ ctx: SimContext, monsterIndex v: Int, finisher: Int) -> Int? {
+        if let owner = homeJungler(s, ctx, monsterIndex: v), let md = s.units[v].monster {
+            let side = s.units[owner].team
+            if let hit = md.smiteHitAt, hit.indices.contains(side.rawValue),
+               s.time - hit[side.rawValue] <= Balance.Jungle.homeBuffHitWindow {
+                return owner
+            }
+        }
+        return isHero(s, finisher) && s.units[finisher].isAlive ? finisher : nil
     }
 
     // MARK: - 構造物

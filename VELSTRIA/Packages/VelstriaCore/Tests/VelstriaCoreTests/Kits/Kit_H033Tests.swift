@@ -670,7 +670,7 @@ final class Kit_H033Tests: XCTestCase {
         w.run(seconds: 0.6)
         let slam = try XCTUnwrap(skillHits(w, on: mon, .skill1).first).amount
         XCTAssertEqual(slam, w.mitigated(n1.damage * 1.10, .physical, on: mon), accuracy: 1e-6)
-        // 衝撃波（懲罰の後のモンスターへの与ダメ +30%（加算の与ダメ補正）を持つ状態）: 1.1 × 1.3 = 1.43（足し算の 1.4 ではない）
+        // 衝撃波（加算の与ダメ補正 +30% を持つ状態）: 1.1 × 1.3 = 1.43（足し算の 1.4 ではない）
         var (v, j) = world()
         // HP の多いモンスター（小さいキャンプは 1 発で倒れ、ダメージの記録が残り HP で頭打ちになる）
         let mon2 = v.addMonster(.magmaGolem, at: skillArena + Vec2(300, 0))
@@ -678,8 +678,8 @@ final class Kit_H033Tests: XCTestCase {
         let wave = HeroKits.numbers(for: try XCTUnwrap(MasterData.shared.skill(hero: "H033", slot: .ultimate)),
                                     hero: try XCTUnwrap(MasterData.shared.hero("H033")), rank: 1, stats: v.s.units[j].stats,
                                     stage: 1)
-        CombatSystem.addStatus(&v.s, targetIndex: j, StatusEffect(kind: .mark, duration: 3, magnitude: 0.3,
-                                                                  sourceID: v.id(j), tag: "spell.huntingBoost"))
+        CombatSystem.addStatus(&v.s, targetIndex: j, StatusEffect(kind: .damageBoost, duration: 3, magnitude: 0.3,
+                                                                  sourceID: v.id(j), tag: "test.damageBoost"))
         v.log.removeAll()
         XCTAssertTrue(v.cast(j, .ultimate, east))
         v.run(seconds: 0.5)

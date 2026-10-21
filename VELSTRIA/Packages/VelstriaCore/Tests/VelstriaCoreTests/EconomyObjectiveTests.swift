@@ -75,8 +75,9 @@ final class EconomyObjectiveTests: XCTestCase {
         let gold = f.hero(a).gold
         let m = f.addMonster(.blueSentinel, at: spot)
         let ev = f.kill(m, by: f.id(a))
-        // 蒼晶の番人 90（仔 20 と合わせて 110）、XP は Patch 2.1.88 に合わせて小さい（小キャンプの主が多い）
-        XCTAssertEqual(f.hero(a).gold - gold, 90)
+        // 蒼晶の番人 100 × 0.925（2.1.18）× 1.2（2.1.90）= 111、XP は Patch 2.1.88 に合わせて小さい（小キャンプの主が多い）
+        let blueGold = Balance.Economy.monsterGold(.blueSentinel).rounded()
+        XCTAssertEqual(f.hero(a).gold - gold, blueGold)
         XCTAssertEqual(f.hero(a).xp, 35, accuracy: 1e-9)
         XCTAssertEqual(f.hero(a).score.monsterKills, 1)
         XCTAssertEqual(f.hero(a).score.objectivesTaken, 1)
@@ -87,7 +88,7 @@ final class EconomyObjectiveTests: XCTestCase {
 
         let r = f.addMonster(.redSentinel, at: spot)
         f.kill(r, by: f.id(a))
-        XCTAssertEqual(f.hero(a).gold - gold, 90 + 110)
+        XCTAssertEqual(f.hero(a).gold - gold, blueGold + Balance.Economy.monsterGold(.redSentinel).rounded())
         // 赤バフの貫通はロールで決まる（後衛 10% / 前衛 5%）
         let pen = JungleBuffs.isFrontline(f.hero(a).role) ? Balance.Jungle.redFrontPenetration : Balance.Jungle.redBackPenetration
         XCTAssertEqual(f.s.units[a].status(.redBuff)?.magnitude ?? 0, pen, accuracy: 1e-9)
@@ -165,13 +166,14 @@ final class EconomyObjectiveTests: XCTestCase {
         let c = f.addMonster(.ancientColossus, at: Vec2(3700, 8300))
         let ev = f.kill(c, by: f.id(red[2]))
         for (n, i) in red.enumerated() {
-            XCTAssertEqual(f.hero(i).gold - golds[n], 300)
+            // 全員に 50 + 10×分（MLBB Patch 2.1.40a。5:00 なら 100）
+            XCTAssertEqual(f.hero(i).gold - golds[n], Balance.Economy.colossusTeamGold(at: f.s.time))
             XCTAssertEqual(f.hero(i).level, 2)   // 300 XP → Lv2 + 40
-            XCTAssertEqual(f.s.units[i].status(.colossusBlessing)?.remaining ?? 0, 180, accuracy: 1e-9)
+            XCTAssertNil(f.s.units[i].status(.colossusBlessing), "巨像の加護（与ダメ +15%・帰還 2 秒）は MLBB に無い")
         }
         XCTAssertEqual(f.s.teams[Team.red.rawValue].colossusKills, 1)
         XCTAssertTrue(ev.announcements.contains(.colossusSlain(team: .red)))
-        XCTAssertEqual(RecallSystem.recallDuration(f.s.units[red[0]]), Balance.empoweredRecallChannel)
+        XCTAssertEqual(RecallSystem.recallDuration(f.s.units[red[0]]), Balance.recallChannel)
         XCTAssertEqual(RecallSystem.recallDuration(f.s.units[f.heroes(.blue)[0]]), Balance.recallChannel)
     }
 

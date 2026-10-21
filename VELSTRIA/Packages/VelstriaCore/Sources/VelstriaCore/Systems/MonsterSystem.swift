@@ -41,20 +41,42 @@ public enum MonsterSystem {
         }
     }
 
-    /// 棘角トカゲ: HP が半分を切ると硬くなる（被ダメ軽減）。全回復で解ける。
+    /// 棘角トカゲ: HP が半分を切ると物理防御・魔法防御 +70。全回復で解ける。
     static func updateLizardHarden(_ s: inout SimState, _ i: Int) {
         let low = s.units[i].hp < s.units[i].stats.maxHP * Balance.Jungle.lizardHardenThreshold
         let tag = JungleBuffs.lizardHardenTag
         let has = s.units[i].statuses.contains { $0.tag == tag }
         if low && !has {
-            s.units[i].statuses.append(StatusEffect(kind: .damageReduction, duration: 600,
-                                                    magnitude: Balance.Jungle.lizardHardenReduction, tag: tag))
+            s.units[i].statuses.append(StatusEffect(kind: .flatDefenseMod, duration: 600,
+                                                    magnitude: Balance.Jungle.lizardHardenDefense, tag: tag))
         } else if !low && has {
             s.units[i].statuses.removeAll { $0.tag == tag }
         }
     }
 
+    /// MLBB のモンスターは試合時間で強くなる（HP・攻撃・防御 = 初期値 + 毎分の伸び）。分の変わり目に生きているモンスターを伸ばす
+    /// （HP の割合は保つ）。味方になったロードも同じ。
+    static func grow(_ s: inout SimState, _ ctx: SimContext, _ i: Int) {
+        guard let kind = s.units[i].monster?.kind else { return }
+        let p = UnitFactory.monsterProfile(kind)
+        guard p.hpPerMinute > 0 || p.attackPerMinute > 0 || p.armorPerMinute > 0 || p.magicResistPerMinute > 0 else { return }
+        let maxHP = p.maxHP(at: s.time), attack = p.attack(at: s.time)
+        let armor = p.armor(at: s.time), resist = p.magicResist(at: s.time)
+        let b = s.units[i].baseStats
+        guard abs(maxHP - b.maxHP) > 1e-6 || abs(attack - b.attack) > 1e-6 || abs(armor - b.armor) > 1e-6
+                || abs(resist - b.magicResist) > 1e-6 else { return }
+        s.units[i].baseStats.maxHP = maxHP
+        s.units[i].baseStats.attack = attack
+        s.units[i].baseStats.armor = armor
+        s.units[i].baseStats.magicResist = resist
+        StatCalculator.recompute(&s, i, ctx)
+    }
+
     public static func update(_ s: inout SimState, _ ctx: SimContext) {
+        let ticksPerMinute = max(1, Int((60 * Balance.tickRate).rounded()))
+        if s.tick % ticksPerMinute == 0 {
+            for i in s.units.indices where s.units[i].kind == .monster && s.units[i].isAlive { grow(&s, ctx, i) }
+        }
         // キャンプ毎の生存メンバー（添字昇順）
         var members = [[Int]](repeating: [], count: ctx.map.camps.count)
         for i in s.units.indices where s.units[i].kind == .monster && s.units[i].isAlive {

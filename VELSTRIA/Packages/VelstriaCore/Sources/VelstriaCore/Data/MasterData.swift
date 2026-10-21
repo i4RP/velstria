@@ -153,7 +153,7 @@ public struct ItemDef: Codable, Hashable, Sendable, Identifiable {
     /// 最初の固有効果の種類（無ければ空）。
     public var effectID: String { effects.first?.id ?? "" }
     public var isConsumable: Bool { consumableSec > 0 }
-    /// 靴（移動カテゴリの装備。祝福を付けられるのは Tier 2 以上の靴）。
+    /// 靴（移動カテゴリの装備。祝福はスピードブーツ（Tier 1）から付けられ、上位の靴に引き継ぐ）。
     public var isBoots: Bool { category == .movement }
 
     /// passive_text 中の「N%」の N（見つからなければ 0）。

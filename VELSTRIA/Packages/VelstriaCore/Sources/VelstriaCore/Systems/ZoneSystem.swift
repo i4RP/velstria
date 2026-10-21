@@ -108,7 +108,8 @@ public enum ZoneSystem {
                 }
                 if !overlaps {
                     CombatSystem.heal(&s, ctx, sourceID: z.ownerID, targetIndex: t,
-                                      amount: s.units[t].stats.maxHP * 0.025 / SpellSystem.fountainMultiplier(s, target: t))
+                                      amount: s.units[t].stats.maxHP * 0.025 / SpellSystem.fountainMultiplier(s, target: t),
+                                      bySkill: false)
                 }
                 continue
             }

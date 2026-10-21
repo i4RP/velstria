@@ -357,6 +357,12 @@ public struct MapDefinition: Codable, Hashable, Sendable {
 
     /// 山野の主の「レーンの通り道」の半幅（障害物はレーンの中心線から laneObstacleClearance 以上離れている）。
     public static let wildernessLaneHalfWidth: Double = 400
+
+    /// p がどちらの陣地のジャングルか（川・レーン・基地は nil）。陣地は泉に近い方（地図は点対称なので川の帯の両岸に分かれる）。
+    public func jungleSide(of p: Vec2) -> Team? {
+        guard !isInRiver(p), isInWilderness(p) else { return nil }
+        return p.distanceSquared(to: fountain(.blue)) <= p.distanceSquared(to: fountain(.red)) ? .blue : .red
+    }
 }
 
 // MARK: - レーン幾何（ミニオン・ボット・HUD が使う）

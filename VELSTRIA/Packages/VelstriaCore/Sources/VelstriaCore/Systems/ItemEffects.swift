@@ -771,9 +771,10 @@ public enum ItemEffects {
     }
 
     /// 味方（自分以外のヒーロー）を回復・シールドした時（オアシスのフラスコ・恩恵）。CombatSystem から呼ばれる。
-    static func onSupport(_ s: inout SimState, _ ctx: SimContext, source src: Int, target t: Int) {
+    /// bySkill = ヒーローのスキルの回復・シールドか（恩恵はスキルだけがきっかけ）。
+    static func onSupport(_ s: inout SimState, _ ctx: SimContext, source src: Int, target t: Int, bySkill: Bool = true) {
         guard src != t, s.units[src].kind == .hero, s.units[t].kind == .hero, s.units[t].team == s.units[src].team else { return }
-        GearSystem.onSupport(&s, ctx, source: src, target: t)
+        if bySkill { GearSystem.onSupport(&s, ctx, source: src, target: t) }
         guard let v = values(.oasisBlessing, of: s.units[src], ctx.master), v.count >= 5,
               CombatSystem.isLiving(s, t), s.units[t].hpRatio < v[0] else { return }
         let now = s.time
@@ -786,7 +787,7 @@ public enum ItemEffects {
         s.units[src].hero!.itemRuntime.marks = marks
         let level = Double(s.units[src].hero?.level ?? 1)
         CombatSystem.addShield(&s, ctx, sourceID: s.units[src].id, targetIndex: t, amount: v[1] * level, duration: v[2],
-                               tag: "item.oasisBlessing")
+                               tag: "item.oasisBlessing", bySkill: false)
         reduceSkillCooldowns(&s, src, by: v[3])
     }
 

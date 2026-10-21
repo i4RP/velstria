@@ -21,6 +21,18 @@ struct HUDCompactEconomy: View {
             HUDShopButton(model: model, gold: model.hero.gold, width: frame.width,
                           beckon: model.hero.isDead, highlighted: model.tutorial?.highlight == .shop)
                 .position(x: frame.midX, y: frame.midY)
+            if let badge = model.blessingBadge {
+                // 祝福の進み（ジャングル: 狩りとキル、ローム: 共栄ゴールド）
+                Text(badge)
+                    .font(.system(size: 9, weight: .semibold))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .foregroundStyle(HUDStyle.shopGold)
+                    .shadow(color: .black.opacity(0.7), radius: 1, y: 1)
+                    .position(x: frame.midX, y: frame.midY + 22)
+                    .allowsHitTesting(false)
+                    .accessibilityIdentifier("hud_blessing_progress")
+            }
             if let itemID = model.quickBuyItemID {
                 HUDQuickBuyButton(model: model, itemID: itemID, size: 28 * min(layout.scale, 1.1),
                                   highlighted: model.tutorial?.step == .buyItem)

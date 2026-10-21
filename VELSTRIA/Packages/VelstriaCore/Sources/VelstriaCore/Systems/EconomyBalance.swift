@@ -46,23 +46,26 @@ extension Balance {
         }
 
         /// ラストヒット Gold（撃破者の monsterGoldBonus で増加）。ボスはチーム報酬のみ。
-        /// MLBB の値（棘角トカゲ 92・熾甲虫 85・熔岩の岩人 81・紅焔 120・蒼晶 100 + 仔 22）に近づけ、
-        /// 1 陣地を一巡したときの合計が旧マップ（番人 2 + 小キャンプ 5）と同じ程度になるよう丸めた。
-        /// 宝殻蟹は撃破時の Gold に加えて Gold バフ（Balance.Jungle）。
+        /// Fandom の撃破 Gold（蒼晶 100 + 仔 22・紅焔 120・棘角トカゲ 92・熔岩の岩人 81・苔甲の徘徊者 92）に、その後の公式の
+        /// 変更率を掛けた値（丸めない。docs/JUNGLE_ROAM_MLBB.md）: 2.1.18 全モンスター −7.5%、2.1.90 バフ +20%・小キャンプ +15%、
+        /// 2.2.16 小キャンプ −13%。熾甲虫・幼体は資料に無いので旧来の値。宝殻蟹は Gold レーン側だけ（DeathSystem）。
         public static func monsterGold(_ kind: MonsterKind) -> Double {
+            typealias J = Balance.Jungle
+            let buff = J.goldScale2118 * J.buffGoldScale2190
+            let camp = J.goldScale2118 * J.campGoldScale2190 * J.campGoldScale2216
             switch kind {
             case .campLarge: return 40
             case .campSmall: return 15
-            case .blueSentinel: return 90
-            case .azureWhelp: return 20
-            case .redSentinel: return 110
-            case .hornLizard: return 95
+            case .blueSentinel: return 100 * buff
+            case .azureWhelp: return 22 * buff
+            case .redSentinel: return 120 * buff
+            case .hornLizard: return 92 * camp
             case .emberBeetle: return 75
             case .emberGrub: return 15
-            case .magmaGolem: return 85
+            case .magmaGolem: return 81 * camp
             case .treasureCrab: return 40
             case .crablet: return 15
-            case .mossWanderer: return 90
+            case .mossWanderer: return 92 * J.goldScale2118
             case .astralWyrm, .ancientColossus: return 0
             }
         }
@@ -79,7 +82,8 @@ extension Balance {
             case .redSentinel: return 45
             case .hornLizard, .emberBeetle, .magmaGolem: return 240
             case .emberGrub: return 20
-            case .treasureCrab: return 60
+            // 宝殻蟹: EXP レーン側だけ。Gold レーン側の Gold 40 と同じ値（MLBB Patch 1.8.78。額は非公表）
+            case .treasureCrab: return 40
             case .crablet: return 30
             case .mossWanderer: return 100
             case .astralWyrm, .ancientColossus: return 0
@@ -98,10 +102,13 @@ extension Balance {
         // MARK: オブジェクト
         /// 星喰竜のチーム XP（Gold・加護・シールドは Balance.Jungle）。
         public static let wyrmTeamXP: Double = 200
-        public static let colossusTeamGold: Double = 300
+        /// ロードのチーム全員への Gold = 50 + 10 × 試合時間（分）（MLBB Patch 2.1.40a）。
+        public static let colossusTeamGoldBase: Double = 50
+        public static let colossusTeamGoldPerMinute: Double = 10
+        public static func colossusTeamGold(at time: Double) -> Double {
+            colossusTeamGoldBase + colossusTeamGoldPerMinute * (max(0, time) / 60 + 1e-9).rounded(.down)
+        }
         public static let colossusTeamXP: Double = 300
-        public static let colossusBlessingDuration: Double = 180
-        public static let colossusBlessingDamageBonus: Double = 0.15
         /// 蒼晶/紅焔バフの持続。
         public static let sentinelBuffDuration: Double = 75
         /// Jungle 装備のモンスター Gold 補正。

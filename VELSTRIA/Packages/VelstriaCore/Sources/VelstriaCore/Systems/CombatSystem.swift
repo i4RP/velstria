@@ -61,10 +61,7 @@ public enum CombatSystem {
             case .skill: bonus += st.skillDamageBonus
             default: break
             }
-            if s.units[t].kind == .monster {
-                bonus += st.monsterDamageBonus
-                if source != .spell, s.units[a].statuses.contains(where: { $0.tag == "spell.huntingBoost" }) { bonus += 0.3 }
-            }
+            if s.units[t].kind == .monster { bonus += st.monsterDamageBonus }
             bonus += PassiveHooks.outgoingDamageBonus(&s, ctx, attacker: a, target: t, source: source)
             bonus += ItemEffects.outgoingDamageBonus(&s, ctx, attacker: a, target: t, type: type)
             bonus += EmblemEffects.outgoingDamageBonus(s, ctx, attacker: a, target: t, source: source)
@@ -78,13 +75,22 @@ public enum CombatSystem {
         if s.units[t].kind == .monster, source != .spell {
             amount *= MonsterSystem.gangReductionMultiplier(s, monsterIndex: t)
         }
-        if let a, s.units[t].hero?.spells.contains("BS05") == true, s.units[a].kind == .monster {
-            amount *= 0.6
+        // 中立のロード: 被ダメ軽減 40%（周りのヒーロー 1 人ごとに −5%、下限 15%）
+        if s.units[t].monster?.kind == .ancientColossus, !environmental {
+            amount *= RiverObjectiveSystem.neutralLordDamageTakenMultiplier(s, t)
         }
-        if s.time < 120, s.units[t].hero?.spells.contains("BS05") == true,
-           ctx.map.camps.contains(where: { $0.side == s.units[t].team && $0.pos.distance(to: s.units[t].pos) <= 1000 }) {
-            amount *= 0.85
+        // 狩猟印: モンスターから受けるダメージ −40%（タートル・ロードは対象外）
+        if let a, s.units[a].kind == .monster, s.units[a].monster?.kind.isBoss != true,
+           s.units[t].hero?.spells.contains(Balance.Economy.smiteSpellID) == true {
+            amount *= Balance.Spells.smiteMonsterDamageTaken
         }
+        // 序盤（2:00 まで）は敵のジャングルにいるヒーローの被ダメ +20%
+        if !environmental, s.units[t].kind == .hero, s.time < Balance.Jungle.earlyJungleRuleEnd, ctx.earlyJungleRules,
+           ctx.map.jungleSide(of: s.units[t].pos) == s.units[t].team.opponent {
+            amount *= Balance.Jungle.invaderDamageTaken
+        }
+        // 報復（BS15）の反射の元（受けたダメージの軽減前の値）
+        let preMitigation = amount
         // 4. 防御軽減（確定ダメージは無視）。ヒーローの貫通（装備）は、構造物以外の防御・魔防を割合で無視してから固定値を引く
         var armor = s.units[t].stats.armor, resist = s.units[t].stats.magicResist
         if let a, !environmental, !s.units[t].isStructure, s.units[a].kind == .hero {
@@ -94,6 +100,10 @@ public enum CombatSystem {
                                flat: st.armorPenFlat)
             resist = penetrated(resist, pct: st.magicPenPct + ItemEffects.extraPenetration(s, ctx, attacker: a, target: t, magic: true),
                                 flat: st.magicPenFlat)
+        }
+        // 中立のロード: 戦闘中に溜まる物理貫通（毎秒 +10%、最大 10 回）
+        if let a, let stacks = s.units[a].monster?.lordPenStacks, stacks > 0, !s.units[t].isStructure {
+            armor = penetrated(armor, pct: Balance.Jungle.lordPenPerStack * Double(stacks), flat: 0)
         }
         if source == .basicAttack, let a,
            s.units[a].statuses.contains(where: { $0.tag == "spell.BS12" && $0.kind == .mark }) {
@@ -155,6 +165,14 @@ public enum CombatSystem {
                 s.units[a].lastCombatTime = s.time
                 s.units[t].lastCombatTime = s.time
             }
+            // 狩猟持ちがモンスターにダメージを与えた時刻（序盤のバフの受け取り）
+            if attackerKind == .hero, victimKind == .monster, s.units[t].team == .neutral,
+               s.units[a].hero?.spells.contains(Balance.Economy.smiteSpellID) == true, s.units[a].team != .neutral {
+                // JSON（スナップショット）に書けるよう、無限大ではなく十分に昔の時刻で初期化する
+                var hit = s.units[t].monster?.smiteHitAt ?? [-1e9, -1e9]
+                if hit.indices.contains(s.units[a].team.rawValue) { hit[s.units[a].team.rawValue] = s.time }
+                s.units[t].monster?.smiteHitAt = hit
+            }
             if attackerKind == .hero {
                 // 攻撃すると 3 秒は草むらで隠れない（MLBB: 敵ヒーローへのダメージ、敵ミニオン・構造物への通常攻撃。
                 // スキルでミニオンだけを削るのは隠れたまま）
@@ -179,10 +197,10 @@ public enum CombatSystem {
             RecallSystem.cancelChannel(&s, t)
         }
 
-        // 報復（BS15）: 受けたダメージの一部を攻撃者へ魔法ダメージで反射する（反射ダメージは .passive で、再反射しない）
+        // 報復（BS15）: 受けたダメージ（軽減前）の 25% を攻撃者へ魔法ダメージで与える（反射ダメージは .passive で、再反射しない）
         if dealt > 0, hostile, let a, a != t, !s.units[a].isStructure, reflectsDamage(source),
            s.units[t].statuses.contains(where: { $0.kind == .damageReduction && $0.tag == Balance.Spells.vengeanceTag }) {
-            dealDamage(&s, ctx, sourceID: s.units[t].id, targetIndex: a, amount: dealt * Balance.Spells.vengeanceReflect,
+            dealDamage(&s, ctx, sourceID: s.units[t].id, targetIndex: a, amount: preMitigation * Balance.Spells.vengeanceReflect,
                        type: .magic, source: .passive, isCrit: false, appliesOnHit: false)
         }
 
@@ -305,15 +323,16 @@ public enum CombatSystem {
 
     /// 回復。戻り値 = 実回復量。
     @discardableResult
+    /// bySkill = ヒーローのスキル（キット）の回復か（ロームの祝福「恩恵」のきっかけ。バトルスペル・装備・祝福の回復は false）。
     public static func heal(_ s: inout SimState, _ ctx: SimContext, sourceID: EntityID?, targetIndex t: Int,
-                            amount: Double) -> Double {
-        restoreHealth(&s, ctx, sourceID: sourceID, targetIndex: t, amount: amount, isVamp: false)
+                            amount: Double, bySkill: Bool = true) -> Double {
+        restoreHealth(&s, ctx, sourceID: sourceID, targetIndex: t, amount: amount, isVamp: false, bySkill: bySkill)
     }
 
     /// 回復の本体。isVamp = ライフスティール/スペルヴァンプ（回復強化・回復量スコア・アシスト記録の対象外）。
     @discardableResult
     static func restoreHealth(_ s: inout SimState, _ ctx: SimContext, sourceID: EntityID?, targetIndex t: Int,
-                              amount: Double, isVamp: Bool) -> Double {
+                              amount: Double, isVamp: Bool, bySkill: Bool = true) -> Double {
         guard s.units.indices.contains(t), isLiving(s, t), amount > 0, amount.isFinite else { return 0 }
         let src = s.index(of: sourceID)
         var value = amount * SpellSystem.fountainMultiplier(s, target: t)
@@ -324,7 +343,7 @@ public enum CombatSystem {
         let healed = after - before
         guard healed > 0 else { return 0 }
         s.units[t].hp = after
-        if !isVamp, let src { ItemEffects.onSupport(&s, ctx, source: src, target: t) }
+        if !isVamp, let src { ItemEffects.onSupport(&s, ctx, source: src, target: t, bySkill: bySkill) }
         s.emit(.heal(targetID: s.units[t].id, sourceID: sourceID, amount: healed))
         if !isVamp, let src, s.units[src].kind == .hero {
             s.units[src].hero?.score.healingDone += healed
@@ -336,7 +355,7 @@ public enum CombatSystem {
     /// シールド付与（残り時間の短いものから消費される）。tag が空でなければ同じ tag のシールドを置き換える。
     /// 量 = 元 × 与える側の回復効果 × 受ける側のシールド＆HP回復（MLBB の日本語クライアント: どちらも回復とシールドの両方に効く）。
     public static func addShield(_ s: inout SimState, _ ctx: SimContext, sourceID: EntityID?, targetIndex t: Int,
-                                 amount: Double, duration: Double, tag: String = "") {
+                                 amount: Double, duration: Double, tag: String = "", bySkill: Bool = true) {
         guard s.units.indices.contains(t), isLiving(s, t), amount > 0, amount.isFinite else { return }
         let src = s.index(of: sourceID)
         var value = amount * SpellSystem.fountainMultiplier(s, target: t)
@@ -347,7 +366,7 @@ public enum CombatSystem {
         if !tag.isEmpty { s.units[t].shields.removeAll { $0.tag == tag } }
         s.units[t].shields.append(Shield(amount: value, duration: d, sourceID: sourceID, tag: tag))
         s.emit(.shieldGained(targetID: s.units[t].id, sourceID: sourceID, amount: value))
-        if let src { ItemEffects.onSupport(&s, ctx, source: src, target: t) }
+        if let src { ItemEffects.onSupport(&s, ctx, source: src, target: t, bySkill: bySkill) }
         if let src, s.units[src].kind == .hero {
             s.units[src].hero?.score.shieldingDone += value
             recordSupporter(&s, supporter: src, target: t)
@@ -546,6 +565,8 @@ public enum CombatSystem {
         guard let a = s.index(of: sourceID) else { return }
         // 紅焔バフ: 敵ヒーローに通常攻撃・スキルが当たると溶岩の魂が追撃（3 秒毎）
         if dealt > 0 { JungleBuffs.redBuffStrike(&s, ctx, attacker: a, target: t, source: payload.source) }
+        // 味方のロードの加護: 敵ヒーローへの攻撃で追加の魔法ダメージ（2 秒毎）
+        if dealt > 0 { JungleBuffs.lordAuraStrike(&s, ctx, attacker: a, target: t, source: payload.source) }
         if payload.source == .basicAttack && payload.appliesOnHit {
             basicAttackLanded(&s, ctx, attacker: a, target: t, dealt: dealt, isCrit: payload.isCrit,
                               itemEffects: !payload.skipsItemOnHit, itemEffectRatio: effect)
@@ -571,10 +592,6 @@ public enum CombatSystem {
     static func basicAttackLanded(_ s: inout SimState, _ ctx: SimContext, attacker a: Int, target t: Int,
                                   dealt: Double, isCrit: Bool = false, itemEffects: Bool = true,
                                   itemEffectRatio: Double = 1) {
-        if dealt > 0, let aura = s.units[a].statuses.first(where: { $0.tag == "lord.magic" }) {
-            _ = applyDamage(&s, ctx, sourceID: s.units[a].id, targetIndex: t,
-                            amount: aura.magnitude, type: .magic, source: .passive)
-        }
         if dealt > 0, s.units[a].monster?.kind == .ancientColossus,
            s.units[a].statuses.contains(where: { $0.tag == "lord.charge" }) {
             s.units[a].statuses.removeAll { $0.tag == "lord.charge" }
@@ -769,7 +786,13 @@ public enum CombatSystem {
         case .minion:
             payload = HitPayload(damage: s.units[i].stats.attack, damageType: .physical, source: .minion)
         case .monster:
-            payload = HitPayload(damage: s.units[i].stats.attack, damageType: .physical, source: .monster)
+            var damage = s.units[i].stats.attack
+            // 中立のロード: 攻撃の 20% + 対象の最大 HP の 10%（MLBB Patch 1.8.30）
+            if s.units[i].team == .neutral, s.units[i].monster?.kind == .ancientColossus {
+                damage = s.units[i].stats.attack * Balance.Jungle.lordAttackRatio
+                    + s.units[t].stats.maxHP * Balance.Jungle.lordAttackTargetHPRatio
+            }
+            payload = HitPayload(damage: damage, damageType: .physical, source: .monster)
         default:
             // 練習用の人形などは攻撃しない
             return

@@ -372,17 +372,18 @@ public enum SpellSystem {
             var targets = [i]
             if let ally = lowestAlly(s, caster: i, radius: k.healAllyRadius) { targets.append(ally) }
             for t in targets {
-                CombatSystem.heal(&s, ctx, sourceID: casterID, targetIndex: t, amount: s.units[t].stats.maxHP * k.healPct)
+                CombatSystem.heal(&s, ctx, sourceID: casterID, targetIndex: t, amount: s.units[t].stats.maxHP * k.healPct,
+                                  bySkill: false)
                 CombatSystem.addStatus(&s, targetIndex: t, StatusEffect(kind: .speedBoost, duration: k.healSpeedDuration,
                                                                         magnitude: k.healSpeedBoost, sourceID: casterID,
                                                                         tag: tag))
             }
         case .barrier:
             CombatSystem.addShield(&s, ctx, sourceID: casterID, targetIndex: i,
-                                   amount: 750 + 50 * level, duration: k.barrierDuration, tag: tag)
+                                   amount: 750 + 50 * level, duration: k.barrierDuration, tag: tag, bySkill: false)
             if let ally = lowestAlly(s, caster: i, radius: k.healAllyRadius) {
                 CombatSystem.addShield(&s, ctx, sourceID: casterID, targetIndex: ally,
-                    amount: (750 + 50 * level) * 0.7, duration: k.barrierDuration, tag: tag)
+                    amount: (750 + 50 * level) * 0.7, duration: k.barrierDuration, tag: tag, bySkill: false)
             }
         case .smite:
             guard let u = plan.unit else { return }
@@ -390,10 +391,8 @@ public enum SpellSystem {
                 GearSystem.applySmiteOnHero(&s, ctx, caster: i, target: u)
                 return
             }
-            CombatSystem.addStatus(&s, targetIndex: i, StatusEffect(kind: .mark, duration: 3,
-                magnitude: 0.3, sourceID: casterID, tag: "spell.huntingBoost"))
             CombatSystem.applyDamage(&s, ctx, sourceID: casterID, targetIndex: u,
-                                     amount: k.smiteBase + k.smitePerLevel * level, type: .trueDamage, source: .spell)
+                                     amount: k.smiteDamage(level: Int(level)), type: .trueDamage, source: .spell)
         case .ghost:
             CombatSystem.addStatus(&s, targetIndex: i, StatusEffect(kind: .speedBoost, duration: k.ghostDuration,
                                                                     magnitude: k.ghostSpeedBoost, sourceID: casterID,

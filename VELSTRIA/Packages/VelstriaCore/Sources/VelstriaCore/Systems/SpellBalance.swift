@@ -18,10 +18,17 @@ extension Balance {
         /// BS04 — battle skill tuning; cooldowns are in the master data.
         public static let barrierPct: Double = 0.20
         public static let barrierDuration: Double = 5
-        /// BS05 — battle skill tuning; cooldowns are in the master data.
+        /// BS05（MLBB の Retribution）— 確定ダメージ 750 + 150×Lv（MLBB Patch 2.1.88。強化の前後で同じ）。
         public static let smiteRange: Double = 500
-        public static let smiteBase: Double = 520
-        public static let smitePerLevel: Double = 80
+        public static let smiteBase: Double = 750
+        public static let smitePerLevel: Double = 150
+        /// 狩猟印を持つヒーローがモンスターから受けるダメージの倍率（−40%）。タートル・ロードには効かない（MLBB Patch 1.8.30）。
+        public static let smiteMonsterDamageTaken: Double = 0.6
+
+        /// 狩猟印の確定ダメージ（モンスター・ミニオン）。ボットの撃つ判定も同じ式を使う。
+        public static func smiteDamage(level: Int) -> Double {
+            smiteBase + smitePerLevel * Double(level)
+        }
         /// BS06 — battle skill tuning; cooldowns are in the master data.
         public static let ghostSpeedBoost: Double = 0.50
         public static let ghostDuration: Double = 6
@@ -60,10 +67,11 @@ extension Balance {
         public static let flameshotSpeed: Double = 2000
         public static let flameshotBase: Double = 100
         public static let flameshotPerLevel: Double = 20
-        /// BS15 — battle skill tuning; cooldowns are in the master data.
+        /// BS15（報復。MLBB の Vengeance）— 3 秒間 ダメージ軽減 35%、受けたダメージ（軽減前）の 25% を魔法ダメージで攻撃者へ
+        /// （日本語版の説明、2026-10-21 のスクショ）。
         public static let vengeanceDuration: Double = 3
         public static let vengeanceReduction: Double = 0.35
-        public static let vengeanceReflect: Double = 0.40
+        public static let vengeanceReflect: Double = 0.25
 
         /// ステータスのタグ（"spell." + スペル ID）。
         public static func tag(_ spell: BattleSpell) -> String { "spell." + spell.rawValue }

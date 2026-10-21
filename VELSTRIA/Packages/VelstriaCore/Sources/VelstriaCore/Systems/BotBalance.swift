@@ -67,9 +67,7 @@ extension Balance {
         public static let gankMaxPath: Double = 4200
         /// ガンクを諦める秒数。
         public static let gankTimeout: Double = 24
-        /// 狩猟印（BS05）のダメージ = base + perLevel × Lv（DESIGN §7）。
-        public static let smiteBase: Double = 600
-        public static let smitePerLevel: Double = 40
+        /// 狩猟印（BS05）を撃つ距離。ダメージは実際の式（Balance.Spells.smiteDamage）で見積もる。
         public static let smiteRange: Double = 500
         /// キャンプ中心から「キャンプに居る」とみなす距離。
         public static let campEngageRadius: Double = 900
