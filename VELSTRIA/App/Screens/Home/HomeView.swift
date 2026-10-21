@@ -416,17 +416,25 @@ private struct HomeReferenceLobby: View {
                     .padding(.horizontal, 12).padding(.vertical, 6)
                 CelestialAtlasTile(source: CGRect(x: 1284, y: 704, width: 470, height: 135))
                     .mask(CelestialAtlasTile(source: CGRect(x: 1284, y: 704, width: 470, height: 135)).luminanceToAlpha())
-                if Loc.isEnglish {
-                    Text("BATTLE")
+                // 文字: 最後に選んだモード（MLBB と同じく「ランキング」など）。まだ選んでいなければ絵の「対戦開始」（英語版は BATTLE）
+                if let title = playTitle {
+                    Text(title)
                         .font(.system(size: 23, weight: .semibold, design: .serif))
                         .foregroundStyle(HomeStyle.goldLight)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                         .frame(width: 132, height: 42)
                         .background(Color(red: 0.13, green: 0.09, blue: 0.035))
                         .offset(x: 28)
                 }
                 if animated { HomeSheen(period: 4).clipShape(HomeChamfer(cut: 25)) }
             }.shadow(color: Theme.gold.opacity(0.45), radius: 4)
-        }.accessibilityLabel(L("対戦開始", "Battle")).accessibilityIdentifier("home_play")
+        }.accessibilityLabel(playTitle ?? L("対戦開始", "Battle")).accessibilityIdentifier("home_play")
+    }
+
+    /// 大ボタンの文字（最後に選んだモード。無ければ nil = 絵の文字のまま。英語版は BATTLE）。
+    private var playTitle: String? {
+        MatchModeCategory.playTitle(app.profile.lastMatchMode) ?? (Loc.isEnglish ? "BATTLE" : nil)
     }
 }
 

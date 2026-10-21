@@ -116,7 +116,12 @@ jobs:
             -only-testing:VELSTRIATests/DeathSpectateTests \
             -only-testing:VELSTRIATests/ReplayLibraryTests \
             -only-testing:VELSTRIATests/SpectateSetupTests \
-            -only-testing:VELSTRIATests/FlowTests \
+            -only-testing:VELSTRIATests/FlowNameAndOnboardingTests \
+            -only-testing:VELSTRIATests/FlowDraftTests \
+            -only-testing:VELSTRIATests/FlowMatchModelTests \
+            -only-testing:VELSTRIATests/FlowResultTests \
+            -only-testing:VELSTRIATests/FlowReviewFixTests \
+            -only-testing:VELSTRIATests/FlowLaneAndModeTests \
             -only-testing:VELSTRIATests/ServicesRankTests \
             -only-testing:VELSTRIATests/ServicesLiveOpsTests \
             -only-testing:VELSTRIATests/OnlineSafetyTests \

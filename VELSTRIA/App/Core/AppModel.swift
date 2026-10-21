@@ -112,6 +112,9 @@ final class AppModel: FriendProfileAccess {
     let haptics: HapticsService
     /// フレンド（申請・在席・パーティの招待）。FeatureFlags.lanMatch が有効な時だけ受信箱へ繋ぐ。
     let friends = FriendHub()
+    /// 公開の名刺（relay の Directory）とランキング（第3段）。
+    let publicProfiles = PublicProfileService()
+    let ranking = RankingService()
 
     var profile: Profile {
         didSet {

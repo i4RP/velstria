@@ -624,6 +624,8 @@ struct Profile: Codable, Equatable {
     /// heroID → 選んだバトルプランの添字（ItemSystem.heroPlans。未設定は「有効」のプラン）。試合では PlayerSlot.buildPlan になる。
     var heroBuildPlans: [String: Int] = [:]
     var lastPickedHeroID: String?
+    /// モード選択で最後に選んだモード（MatchModeCategory.rawValue）。ロビーの大ボタンの文字になる（MLBB と同じ）。
+    var lastMatchMode: String?
     var preferredDifficulty: Difficulty = .normal
 
     // 競技・記録

@@ -564,6 +564,53 @@ final class FlowReviewFixTests: XCTestCase {
     }
 }
 
+/// レーン選択（MLBB 2.2.16: 2〜5 本。必要なレーンは 1 本で確定。フレックスプロ）とモード選択のタイル。
+final class FlowLaneAndModeTests: XCTestCase {
+    func testLaneSelectionNeedsTwoLanesUnlessNeededOrFlex() {
+        let needed = LanePosition.support
+        XCTAssertTrue(LaneSelectRules.canConfirm(lanes: [], flex: true, needed: needed), "フレックスプロ")
+        XCTAssertFalse(LaneSelectRules.canConfirm(lanes: [], flex: false, needed: needed))
+        XCTAssertFalse(LaneSelectRules.canConfirm(lanes: [.mid], flex: false, needed: needed))
+        XCTAssertTrue(LaneSelectRules.canConfirm(lanes: [.support], flex: false, needed: needed), "必要なレーンは 1 本で確定")
+        XCTAssertTrue(LaneSelectRules.canConfirm(lanes: [.mid, .top], flex: false, needed: needed))
+        XCTAssertEqual(LaneSelectRules.order, [.top, .jungle, .mid, .support, .carry], "MLBB の並び（Exp・ジャングル・ミドル・ローム・ゴールド）")
+        XCTAssertTrue(LaneSelectRules.order.contains(LaneSelectRules.neededLane(seed: 12_345)))
+    }
+
+    func testLaneChoicesRoundTripAndFallBackToFlex() {
+        XCTAssertEqual(LaneSelectRules.encode(lanes: [.mid, .top], flex: false), "2,0")
+        XCTAssertEqual(LaneSelectRules.decode("2,0").lanes, [.mid, .top])
+        XCTAssertFalse(LaneSelectRules.decode("2,0").flex)
+        XCTAssertTrue(LaneSelectRules.decode("flex").flex)
+        XCTAssertTrue(LaneSelectRules.decode("").flex)
+        XCTAssertTrue(LaneSelectRules.decode("x,9").flex, "読めない値はフレックスプロ")
+        XCTAssertEqual(LaneSelectRules.decode("1,1,3").lanes, [.jungle, .carry], "重複は 1 つに")
+    }
+
+    func testModeTilesFollowTheJapaneseClient() {
+        let saved = Loc.current
+        defer { Loc.current = saved }
+        Loc.current = .ja
+        XCTAssertEqual(MatchModeCategory.allCases.map(\.title),
+                       ["ランキング", "マッチング", "乱闘", "アーケード", "マジックチェス", "ライジング", "AI対戦とカスタム"])
+        XCTAssertEqual(MatchModeCategory.playTitle("ranked"), "ランキング")
+        XCTAssertNil(MatchModeCategory.playTitle(nil))
+        XCTAssertNil(MatchModeCategory.playTitle("bogus"))
+        XCTAssertEqual(Set(MatchModeCategory.allCases.map(\.identifier)).count, MatchModeCategory.allCases.count)
+        XCTAssertEqual(ModeTileLayout.mythicNext(36), 50)
+        XCTAssertEqual(ModeTileLayout.mythicNext(0), 25)
+        XCTAssertNil(ModeTileLayout.mythicNext(100))
+        // 菱形は重ならない（中心の L1 距離 ≥ 半径の和）
+        let tiles = MatchModeCategory.allCases
+        for (i, a) in tiles.enumerated() {
+            for b in tiles[(i + 1)...] {
+                let d = abs(a.spot.center.x - b.spot.center.x) + abs(a.spot.center.y - b.spot.center.y)
+                XCTAssertGreaterThanOrEqual(d, a.spot.radius + b.spot.radius, "\(a) と \(b) が重なる")
+            }
+        }
+    }
+}
+
 /// UI テストと共有するシード（UI テストのターゲットはアプリ本体を import できないため文字列で持つ）。
 enum FlowUITestsSeed {
     static let draft = "20261001"

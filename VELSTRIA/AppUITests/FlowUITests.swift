@@ -107,12 +107,14 @@ final class FlowUITests: XCTestCase {
 
         // レーン選択 → マッチング →「マッチ成立」で入場（MLBB の手順。AI 戦なので待ちは数秒）
         XCTAssertTrue(element(app, "flow_lane_start").waitForExistence(timeout: 5))
+        // MLBB と同じく 2 本以上（必要なレーンだけなら 1 本）
         tap(app, "flow_lane_3")
+        tap(app, "flow_lane_1")
         snap("flow_01b_lane")
         tap(app, "flow_lane_start")
         tap(app, "flow_match_accept", timeout: 15)
 
-        tap(app, "flow_hero_H027", timeout: 10)
+        tap(app, "flow_hero_H027", timeout: 20)
         snap("flow_02_hero")
         tap(app, "flow_spell_0")
         // バトルスキルの選択（BattleSkillPicker）。新規のアカウント Lv1 で装備できるのは瞬歩（BS01）だけ
@@ -166,12 +168,13 @@ final class FlowUITests: XCTestCase {
         tap(app, "home_play", timeout: 15)
         tap(app, "flow_mode_ranked")
         tap(app, "flow_lane_2", timeout: 5)
+        tap(app, "flow_lane_4")
         snap("draft_00_lane")
         tap(app, "flow_lane_start")
         tap(app, "flow_match_accept", timeout: 15)
 
         // BAN は無く、最初からプレイヤーのピック（B1）
-        XCTAssertTrue(element(app, "flow_lock").waitForExistence(timeout: 10))
+        XCTAssertTrue(element(app, "flow_lock").waitForExistence(timeout: 20))
         tap(app, "flow_hero_H027")
         snap("draft_02_pick")
         tap(app, "flow_lock")
