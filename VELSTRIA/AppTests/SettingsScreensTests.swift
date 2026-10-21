@@ -40,25 +40,24 @@ final class SettingsScreensTests: XCTestCase {
         XCTAssertEqual(reset.bottomAttackPriority, .minionsFirst)
     }
 
-    /// 音は既定でミュート（BGM・効果音とも 0）。初期値に戻す・旧版からの移行でも 0 になる。
-    /// TestFlight へ上げる前の CI でこのテストを回し、古い既定（効果音 80%・BGM 70%）への逆戻りを止める。
-    func testAudioDefaultsAreMuted() {
-        XCTAssertEqual(GameSettings().bgmVolume, 0)
-        XCTAssertEqual(GameSettings().sfxVolume, 0)
+    /// 音は最初から鳴る（効果音 70%・BGM 50%。MLBB と同じ）。初期値に戻すと既定へ。10-05〜10-20 のミュートの既定で保存された
+    /// プロフィール（v1〜v4 の 0）も移行で既定になる。TestFlight へ上げる前の CI でこのテストを回し、ミュートへの逆戻りを止める。
+    func testAudioDefaultsPlayFromTheStart() {
+        XCTAssertEqual(GameSettings().bgmVolume, 0.5)
+        XCTAssertEqual(GameSettings().sfxVolume, 0.7)
         var s = GameSettings()
-        s.bgmVolume = 0.7
-        s.sfxVolume = 0.8
+        s.bgmVolume = 0.2
+        s.sfxVolume = 0.1
         let reset = SettingsDefaults.reset(s)
-        XCTAssertEqual(reset.bgmVolume, 0)
-        XCTAssertEqual(reset.sfxVolume, 0)
-        // 旧版（v1: BGM 70%・効果音 80% / v2: 効果音 80%）の保存データも 0 になる
-        for version in [1, 2] {
+        XCTAssertEqual(reset.bgmVolume, 0.5)
+        XCTAssertEqual(reset.sfxVolume, 0.7)
+        for version in [1, 2, 3, 4] {
             var object: [String: Any] = ["schemaVersion": version,
-                                         "settings": ["bgmVolume": 0.7, "sfxVolume": 0.8, "voiceVolume": 0.8]]
+                                         "settings": ["bgmVolume": 0.0, "sfxVolume": 0.0, "voiceVolume": 0.8]]
             ProfileMigrator.migrate(&object, from: version)
             let settings = object["settings"] as? [String: Any]
-            XCTAssertEqual((settings?["sfxVolume"] as? NSNumber)?.doubleValue, 0, "v\(version) の効果音")
-            if version == 1 { XCTAssertEqual((settings?["bgmVolume"] as? NSNumber)?.doubleValue, 0, "v1 の BGM") }
+            XCTAssertEqual((settings?["sfxVolume"] as? NSNumber)?.doubleValue, 0.7, "v\(version) の効果音")
+            XCTAssertEqual((settings?["bgmVolume"] as? NSNumber)?.doubleValue, 0.5, "v\(version) の BGM")
         }
     }
 

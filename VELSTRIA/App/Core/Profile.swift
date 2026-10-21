@@ -55,12 +55,16 @@ enum AgeBracket: Int, Codable, CaseIterable, Identifiable {
 }
 
 struct GameSettings: Codable, Equatable {
+    /// 音量の既定（MLBB と同じく最初から鳴る）。
+    static let defaultBGMVolume: Double = 0.5
+    static let defaultSFXVolume: Double = 0.7
+
     var language: AppLanguage = .system
-    /// 開発中は同じ曲を繰り返し聴かないよう既定 0（ミュート）。
-    var bgmVolume: Double = 0
+    /// BGM は既定 50%（MLBB と同じく最初から鳴る）。2026-10-05〜10-20 は開発中のため既定 0（ミュート）だった（移行 v4 → v5 で戻す）。
+    var bgmVolume: Double = GameSettings.defaultBGMVolume
     var bgmTrack: String = "menu"
-    /// 効果音も既定 0（ミュート）。設定画面・一時停止メニューで上げられる。
-    var sfxVolume: Double = 0
+    /// 効果音は既定 70%（2026-10-20 に全部の効果音を録音の音にしたので戻した）。設定画面・一時停止メニューで変えられる。
+    var sfxVolume: Double = GameSettings.defaultSFXVolume
     var voiceVolume: Double = 0.8
     var hapticsEnabled = true
     var graphicsQuality: GraphicsQuality = .medium
@@ -536,7 +540,7 @@ struct StorePurchaseCount: Codable, Equatable {
 
 struct Profile: Codable, Equatable {
     /// 4: エンブレムの解放・レベル（v3 までのプレイヤーは全セット解放済みの Lv60 のまま。ProfileMigrator）。
-    var schemaVersion = 4
+    var schemaVersion = 5
     var playerID: String = UUID().uuidString
     var displayName: String = ""
     var createdAt = Date()

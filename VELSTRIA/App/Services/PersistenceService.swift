@@ -791,6 +791,15 @@ enum ProfileMigrator {
         (from: 3, apply: { obj in
             ProfileMigrator.grandfatherEmblems(&obj)
         }),
+        // v4 → v5: 効果音を全部録音の音にしたので、音量の既定を効果音 70%・BGM 50% に戻した（2026-10-21）。
+        // 10-05 の移行（v1 → v3）で 0 にされた人・0 のままの人も新しい既定にする（ユーザーが上げた音量はそのまま）
+        (from: 4, apply: { obj in
+            var settings = obj["settings"] as? [String: Any] ?? [:]
+            func isSilent(_ key: String) -> Bool { ((settings[key] as? NSNumber)?.doubleValue ?? 0) <= 0.001 }
+            if isSilent("bgmVolume") { settings["bgmVolume"] = GameSettings.defaultBGMVolume }
+            if isSilent("sfxVolume") { settings["sfxVolume"] = GameSettings.defaultSFXVolume }
+            obj["settings"] = settings
+        }),
     ]
 
     /// 旧版のプレイヤーのエンブレム: 全セットを解放済みにし、保存されていたレベル（無ければ 60）を残す。

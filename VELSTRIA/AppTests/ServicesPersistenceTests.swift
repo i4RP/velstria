@@ -148,7 +148,8 @@ final class ServicesPersistenceTests: XCTestCase {
         XCTAssertEqual(decoded.playerID, p.playerID)
     }
 
-    func testMigrationV1MutesBGMAndSFX() throws {
+    /// v1（10-05 より前）の保存: 10-05 の移行で 0 にした後、v4 → v5 で新しい既定（効果音 70%・BGM 50%）になる。声はそのまま。
+    func testMigrationV1EndsAtTheNewAudioDefaults() throws {
         let s = make()
         var p = profile(coins: 7)
         p.settings.bgmVolume = 0.7
@@ -157,8 +158,8 @@ final class ServicesPersistenceTests: XCTestCase {
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(p)) as? [String: Any])
         object["schemaVersion"] = 1
         let decoded = try s.decodeProfile(JSONSerialization.data(withJSONObject: object))
-        XCTAssertEqual(decoded.settings.bgmVolume, 0)
-        XCTAssertEqual(decoded.settings.sfxVolume, 0)
+        XCTAssertEqual(decoded.settings.bgmVolume, GameSettings.defaultBGMVolume)
+        XCTAssertEqual(decoded.settings.sfxVolume, GameSettings.defaultSFXVolume)
         XCTAssertEqual(decoded.settings.voiceVolume, 0.6)
         XCTAssertEqual(decoded.starlightCoin, 7)
         XCTAssertEqual(decoded.schemaVersion, PersistenceService.currentSchemaVersion)
@@ -171,8 +172,8 @@ final class ServicesPersistenceTests: XCTestCase {
         XCTAssertEqual(current.settings.sfxVolume, 0.4)
     }
 
-    /// v2（BGM だけミュート済み）からは効果音だけを 0 にし、ユーザーが上げた BGM 音量は保つ。
-    func testMigrationV2MutesSFXOnly() throws {
+    /// v2（BGM だけミュート済み）: ユーザーが上げた BGM 音量は保ち、効果音は 0 にされた後 v4 → v5 で既定の 70% になる。
+    func testMigrationV2KeepsRaisedBGMAndRestoresSFX() throws {
         let s = make()
         var p = profile(coins: 3)
         p.settings.bgmVolume = 0.5
@@ -181,8 +182,29 @@ final class ServicesPersistenceTests: XCTestCase {
         object["schemaVersion"] = 2
         let decoded = try s.decodeProfile(JSONSerialization.data(withJSONObject: object))
         XCTAssertEqual(decoded.settings.bgmVolume, 0.5)
-        XCTAssertEqual(decoded.settings.sfxVolume, 0)
+        XCTAssertEqual(decoded.settings.sfxVolume, GameSettings.defaultSFXVolume)
         XCTAssertEqual(decoded.schemaVersion, PersistenceService.currentSchemaVersion)
+    }
+
+    /// v4（10-05〜10-20 の既定 0 のまま）: 0 の音量は新しい既定に上げ、ユーザーが自分で上げた音量はそのまま。
+    func testMigrationV4RaisesSilentVolumesOnly() throws {
+        let s = make()
+        var p = profile(coins: 1)
+        p.settings.bgmVolume = 0
+        p.settings.sfxVolume = 0
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(p)) as? [String: Any])
+        object["schemaVersion"] = 4
+        let raised = try s.decodeProfile(JSONSerialization.data(withJSONObject: object))
+        XCTAssertEqual(raised.settings.bgmVolume, GameSettings.defaultBGMVolume)
+        XCTAssertEqual(raised.settings.sfxVolume, GameSettings.defaultSFXVolume)
+        p.settings.bgmVolume = 0.3
+        p.settings.sfxVolume = 0.2
+        object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(p)) as? [String: Any])
+        object["schemaVersion"] = 4
+        let kept = try s.decodeProfile(JSONSerialization.data(withJSONObject: object))
+        XCTAssertEqual(kept.settings.bgmVolume, 0.3)
+        XCTAssertEqual(kept.settings.sfxVolume, 0.2)
+        XCTAssertEqual(kept.schemaVersion, PersistenceService.currentSchemaVersion)
     }
 
     /// 配列の要素・辞書の値に欠けたキー（旧版の MailItem などにフィールドが追加された場合）も既定値で補い、
