@@ -298,13 +298,13 @@ enum LiveOpsService {
                   titleEn: "v1.0.0 Patch Notes (Summary)",
                   bodyJa: "・ヒーロー 10 体（5 ロール）。どのヒーローもパッシブ・スキル 2 つ・アルティメットを持ち、全員を最初から使えます\n"
                       + "・装備 92 種（攻撃・魔法・防御・移動）と靴の祝福 7 種、バトルスペル 12 種、エンブレム 7 セット\n"
-                      + "・モード: クラシック（難易度 3 段階）、ランク（ドラフト）、ブロウル、アーケード（ライジング・オートバトラー）、VS AI & カスタム（練習場・チュートリアル）、観戦、リプレイ、オンライン対戦\n"
+                      + "・モード: クラシック（難易度 3 段階）、ランク（ドラフト）、ブロウル、マジックチェス、アーケード（ライジング）、VS AI & カスタム（練習場・チュートリアル）、観戦、リプレイ、オンライン対戦\n"
                       + "・ランク: ウォリアー〜レジェンド（ティアごとに 3〜5 段位・星 3〜5）、ミシック（星の累計）。勝利でスターポイント、敗北で保護ポイントがたまります\n"
                       + "・デイリー / ウィークリーミッション、スターパス シーズン 1（30 段階）、実績、ログインボーナス\n"
                       + "・年齢区分に応じた月間購入上限を設定しています",
                   bodyEn: "- 10 heroes across 5 roles, each with a Passive, two Skills and an Ultimate, all available from the start\n"
                       + "- 92 items (Attack, Magic, Defense, Movement) plus 7 boot blessings, 12 battle spells and 7 emblem sets\n"
-                      + "- Modes: Classic (3 difficulties), Ranked (draft), Brawl, Arcade (Rising, Auto Battler), VS AI & Custom (Practice, Tutorial), Spectate, Replays and Online\n"
+                      + "- Modes: Classic (3 difficulties), Ranked (draft), Brawl, Magic Chess, Arcade (Rising), VS AI & Custom (Practice, Tutorial), Spectate, Replays and Online\n"
                       + "- Ranks: Warrior to Legend (3–5 divisions and 3–5 stars by tier) and Mythic (cumulative stars). "
                       + "Wins build Star Points and losses build Protection Points\n"
                       + "- Daily / weekly missions, Star Pass Season 1 (30 levels), achievements and login bonuses\n"

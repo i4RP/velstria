@@ -57,7 +57,7 @@ enum Route: Hashable {
     // ゲームモード（入口は対戦フローのモード選択。MatchModeCategory）
     case rising                  // ライジング（対 AI の勝ち上がりラダー）
     case customSetup             // AI 対戦とカスタム
-    case magicChess              // マジックチェス（オートバトラー）
+    case magicChess              // マジックチェス
     // online
     case onlineLobby
 }

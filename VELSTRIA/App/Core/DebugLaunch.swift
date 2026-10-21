@@ -35,6 +35,8 @@ import VelstriaCore
 //   -graphics <low|medium|high>  画質
 //   -heroGallery          ヒーロー 3D モデル一覧（hero-models の目視確認用）
 //   -homeRail collapsed   ホームのフレンド欄を畳んだ状態で開く
+//   -flowSeed <n>         対戦フローのシードを固定する（ドラフトの AI の選択を再現する）
+//   -draftSlot <1〜5>      ランクのドラフトの自分の手番を固定する（既定は試合ごとに変わる）
 //   -homeMenu             ホームのメニュードロワーを開いた状態で開く
 //   -onlineHost [port]    起動後にオンライン対戦の部屋を作る（待ち受けポート省略時は既定）。LAN の待ち受けと中継（部屋コード）の両方を開く
 //   -relayCode <CODE>     -onlineHost の部屋コードを決める（自動検証用。使われていても作り直さない）

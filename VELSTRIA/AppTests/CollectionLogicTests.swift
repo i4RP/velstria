@@ -650,6 +650,21 @@ final class CollectionLogicTests: XCTestCase {
         XCTAssertEqual(SpellLoadoutRules.normalized(["", "BS02"]), ["BS02", "BS03"])
     }
 
+    func testSmiteOnlyForJungleLane() {
+        // MLBB のドラフト: 狩猟はジャングル担当だけ（ほかのレーンでは鍵）
+        XCTAssertTrue(SpellLoadoutRules.isAllowed("BS05", lane: .jungle))
+        for lane in [LanePosition.top, .mid, .carry, .support] {
+            XCTAssertFalse(SpellLoadoutRules.isAllowed("BS05", lane: lane), "\(lane)")
+            XCTAssertTrue(SpellLoadoutRules.isAllowed("BS01", lane: lane))
+            XCTAssertEqual(SpellLoadoutRules.forLane(["BS05", "BS03"], lane: lane), ["BS01", "BS03"], "ジャングル以外の狩猟は瞬歩へ")
+        }
+        XCTAssertEqual(SpellLoadoutRules.forLane(["BS05", "BS03"], lane: .jungle), ["BS05", "BS03"])
+        XCTAssertEqual(SpellLoadoutRules.forLane(["BS11", "BS03"], lane: .mid), ["BS11", "BS03"])
+        // 並びは MLBB の「バトルスキル」の画面と同じ 4 × 3、選べる 12 個がすべて副題を持つ
+        XCTAssertEqual(Set(BattleSkillPicker.order), Set(BattleSpell.selectable.map(\.rawValue)))
+        for id in BattleSkillPicker.order { XCTAssertFalse(SpellInfo.subtitle(id).isEmpty, id) }
+    }
+
     func testSmiteNameFollowsMasterSpellName() {
         XCTAssertEqual(BuildRules.smiteName(master: master), "狩猟")
         XCTAssertEqual(BuildRules.smiteName(master: master), master.spell(BuildRules.smiteSpellID).map { MasterText.spell($0) })

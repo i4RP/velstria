@@ -63,6 +63,50 @@ final class OutgameShotsUITests: XCTestCase {
         snap("mode_select")
     }
 
+    /// クラシック: レーン選択 → マッチング → マッチ成立 → ヒーロー選択（バトルスキルのポップアップ）→ 最終調整。
+    func testClassicFlowScreens() {
+        let app = launch()
+        tap(app, "home_play", timeout: 20)
+        tap(app, "flow_mode_standard")
+        XCTAssertTrue(element(app, "flow_lane_start").waitForExistence(timeout: 10))
+        tap(app, "flow_lane_4")
+        Thread.sleep(forTimeInterval: 0.5)
+        snap("lane_select")
+        tap(app, "flow_lane_start")
+        XCTAssertTrue(element(app, "flow_match_elapsed").waitForExistence(timeout: 5))
+        snap("matching")
+        XCTAssertTrue(element(app, "flow_match_accept").waitForExistence(timeout: 15))
+        snap("match_found")
+        tap(app, "flow_match_accept")
+        XCTAssertTrue(element(app, "flow_next").waitForExistence(timeout: 10))
+        Thread.sleep(forTimeInterval: 0.8)
+        snap("hero_select")
+        tap(app, "flow_spell_0")
+        XCTAssertTrue(element(app, "battle_skill_confirm").waitForExistence(timeout: 5))
+        Thread.sleep(forTimeInterval: 0.5)
+        snap("battle_skill")
+        tap(app, "flow_spell_close")
+        tap(app, "flow_next")
+        XCTAssertTrue(element(app, "flow_confirm").waitForExistence(timeout: 5))
+        Thread.sleep(forTimeInterval: 0.8)
+        snap("final_adjust")
+    }
+
+    /// ランクのドラフト（自分の手番を 3 番目にして、味方の AI が先に選ぶ所も写す）。
+    func testRankedDraftScreens() {
+        let app = launch(["-flowSeed", "20261001", "-draftSlot", "3"])
+        tap(app, "home_play", timeout: 20)
+        tap(app, "flow_mode_ranked")
+        tap(app, "flow_lane_start", timeout: 10)
+        tap(app, "flow_match_accept", timeout: 15)
+        XCTAssertTrue(element(app, "flow_lock").waitForExistence(timeout: 10))
+        Thread.sleep(forTimeInterval: 1.0)
+        snap("draft_waiting")
+        XCTAssertTrue(element(app, "flow_confirm").waitForExistence(timeout: 90))
+        Thread.sleep(forTimeInterval: 0.8)
+        snap("draft_adjust")
+    }
+
     /// ランクの紋章（7 ティア）と通貨のアイコン（ベクターの自作。Common/CelestialArt.swift）。
     func testRankAndStoreArt() {
         let app = launch()

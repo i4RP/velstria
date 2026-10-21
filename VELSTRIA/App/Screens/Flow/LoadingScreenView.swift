@@ -13,6 +13,8 @@ struct LoadingScreenView: View {
     @State private var overall: Double = 0
     @State private var tipIndex = 0
     @State private var appeared = false
+    /// 自分が出したエモート（自分のカードの上に数秒。MLBB のロード画面と同じ）。
+    @State private var myEmote: String?
 
     /// 最低表示時間（秒）。
     static let minimumDuration = 2.0
@@ -69,6 +71,12 @@ struct LoadingScreenView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
+            if !launch.isSpectating {
+                EmoteMenuButton { id in EmoteTiming.show(id, in: $myEmote) }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .padding(.trailing, 16)
+                    .padding(.bottom, 10)
+            }
         }
         .persistentSystemOverlays(.hidden)
         .task { await load() }
@@ -196,7 +204,7 @@ struct LoadingScreenView: View {
                 // 「あなた」はオンラインなら自分の座席、それ以外は唯一の人間（リプレイは誰も強調しない）
                 LoadingPlayerCard(slot: slot, progress: progress.indices.contains(idx) ? progress[idx] : 0,
                                   highlight: !launch.isSpectating && (launch.onlineSeat.map { idx == $0 } ?? (slot.controller == .human)),
-                                  showsFlag: slot.team == flagTeam, width: width, height: height)
+                                  showsFlag: slot.team == flagTeam, emote: myEmote, width: width, height: height)
                     .offset(y: appeared ? 0 : (team == .blue ? -30 : 30))
                     .opacity(appeared ? 1 : 0)
                     .animation(.spring(duration: 0.6, bounce: 0.2).delay(Double(i) * 0.05 + (team == .red ? 0.15 : 0)), value: appeared)
@@ -224,7 +232,7 @@ struct LoadingScreenView: View {
         let idx = index(of: slot)
         return LoadingPlayerCard(slot: slot, progress: progress.indices.contains(idx) ? progress[idx] : 0,
                                  highlight: !launch.isSpectating && (launch.onlineSeat.map { idx == $0 } ?? (slot.controller == .human)),
-                                 showsFlag: slot.team == flagTeam, width: width, height: height)
+                                 showsFlag: slot.team == flagTeam, emote: myEmote, width: width, height: height)
     }
 
     /// 練習場・チュートリアル（1 人）。
@@ -318,6 +326,8 @@ private struct LoadingPlayerCard: View {
     let highlight: Bool
     /// 国旗を出すか（味方だけ。LoadingScreenView.flagTeam）。
     var showsFlag = true
+    /// 出したエモート（自分のカードだけに出す）。
+    var emote: String? = nil
     let width: CGFloat
     let height: CGFloat
     @Environment(AppModel.self) private var app
@@ -377,6 +387,25 @@ private struct LoadingPlayerCard: View {
         }
         .overlay(shape.stroke(LinearGradient(colors: [color.opacity(0.95), color.opacity(0.55)], startPoint: .top, endPoint: .bottom),
                               lineWidth: highlight ? 3 : 2))
+        // 自分のカード: 装備しているアバターのフレーム（レアリティの色の内側の縁）とランクの紋章（MLBB のロード画面と同じ）。
+        // 称号のバッジはヒーローパワー（第3段の後回し）ができてから。AI・ほかのプレイヤーのランクは分からないので出さない
+        .overlay {
+            if highlight, let frame = app.profile.equippedAvatarFrame.flatMap({ app.master.cosmetic($0) }) {
+                shape.stroke(Theme.rarityColor(frame.rarity), style: StrokeStyle(lineWidth: 1.5, dash: [7, 3]))
+                    .padding(4)
+                    .allowsHitTesting(false)
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            if highlight {
+                RankCrest(tier: app.profile.rank.tier, size: max(20, height * 0.13))
+                    .padding(.top, 4)
+                    .padding(.trailing, 6)
+            }
+        }
+        .overlay(alignment: .top) {
+            if highlight, let emote { EmoteBubble(cosmeticID: emote, size: min(56, width * 0.5)).offset(y: -14) }
+        }
         .shadow(color: color.opacity(highlight ? 0.7 : 0.35), radius: highlight ? 10 : 5)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(human ? slot.displayName : "CPU") \(hero.map { MasterText.hero($0) } ?? "") \(Int((progress * 100).rounded()))%")
