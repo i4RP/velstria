@@ -5,6 +5,7 @@ MLBB の画面収録（vid10。訓練場、1108×512・30fps・55 px/m 前後）
 奥義の金 #FDDC82 / #F8F2BE・刻印の桃 #A64CC3・灰色の石 #5A6F88・藍の靄 #3556B3）。
   H030_muzzle     S1・S2 の砲口の発射（砲口に置く。前 = 照準）: 白い芯 1 コマ → 前へ伸びる白い閃光（約 1.5 m）と青い光だまり、
                    前を向いた水色の輪、前へ散る水色のきらめき、紺の電光。3D の上の層
+  H030_muzzle_up  S2 の掲げた砲口（前の上 55°）の発射: 同じ部品を 55° 上へ傾け、水色の白の星形の閃光を足す。3D の上の層
   H030_shot_hit   S1 の命中・奥義の被弾: 白い閃き（体を覆う）と、前へ散る水色の火花。3D の上の層
   H030_s2_burst   S2 の爆発（胸の高さ。半径 1.9 m で作る。倍率 = 半径 / 1.9）: 白い芯の閃き → 球の中の水色の電光 ×4・外へ飛ぶ光の欠片・
                    球の縁の淡い光の輪（ガラスの縁）→ ラベンダーの残り光。球そのもの（白 → 青 → 藍）と範囲の縁の輪は SkillFX
@@ -70,10 +71,8 @@ def forward_streak(name, length, width, life, color, yaw=0, delay=0, z=None, y=0
 
 # ---- S1・S2 の砲口 --------------------------------------------------------------------------
 
-def muzzle():
-    """砲口の発射（録画 f1047〜f1052: 砲口の水色の光 → 前へ伸びる白い閃光 → 青い光だまりと紺の電光）。"""
-    fx = Effect(P + "muzzle", frames=24, kit=True)
-    fx.add(
+def muzzle_parts():
+    return [
         Node("flash", tex="Fx_Core", life=5, scale=Scl.ease(1.4, 2.4, "out"), color=fade(CORE, 255, 0, "lin")),
         forward_streak("blast", 2.2, 3.2, 7, fade(CORE, 255)),
         forward_streak("blast_l", 1.6, 1.8, 6, fade(CYAN, 230), yaw=-12),
@@ -85,7 +84,24 @@ def muzzle():
              scale=Scl.ease(0.16, 0.03), color=morph(CYAN, BLUE, 255, 0)),
         Node("bolt", tex="Fx_Bolt", life=6, count=2, delay=2, interval=2, loc=Loc.fixed(0, 0, -0.6),
              rot=Rot.pva(((0, 0, -40), (0, 0, 40))), scale=Scl.fixed(1.0, 0.32, 1), color=morph(NAVY_BOLT, CYAN, 255, 0, "lin")),
-    )
+    ]
+
+
+def muzzle():
+    """砲口の発射（録画 f1047〜f1052: 砲口の水色の光 → 前へ伸びる白い閃光 → 青い光だまりと紺の電光）。S1（水平の砲口）。"""
+    fx = Effect(P + "muzzle", frames=24, kit=True)
+    fx.add(*muzzle_parts())
+    return fx
+
+
+def muzzle_up():
+    """S2 の掲げた砲口（前の上 55°）の発射。同じ部品を、前を 55° 上へ傾けた見えない親の子にする（録画 f971: 水色の白の星形の閃光）。"""
+    fx = Effect(P + "muzzle_up", frames=24, kit=True)
+    tilt = Node("tilt", tex="Fx_Glow", life=24, rot=Rot.fixed(55, 0, 0), scale=Scl.fixed(1), color=Col.fixed(255, 255, 255, 0))
+    tilt.add(*muzzle_parts())
+    tilt.add(Node("star", tex="Fx_Star4", life=7, rot=Rot.pva(((0, 0, -15), (0, 0, 15))), scale=Scl.ease(1.2, 2.0, "out"),
+                  color=fade(CYAN, 240)))
+    fx.add(tilt)
     return fx
 
 
@@ -194,7 +210,7 @@ def ult_root():
 
 
 def build():
-    return [muzzle(), shot_hit(), s2_burst(), mark_pop(), ult_charge(), ult_flash(), ult_root()]
+    return [muzzle(), muzzle_up(), shot_hit(), s2_burst(), mark_pop(), ult_charge(), ult_flash(), ult_root()]
 
 
 if __name__ == "__main__":

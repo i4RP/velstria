@@ -17,7 +17,7 @@ import VelstriaCore
 //   スキル1 遠星弾         — 溜め（s1Windup）: 砲口に水色の光と紺の電光。発射: 砲口の白い閃光・青い光だまり（H030_muzzle）・砲口から
 //                            砲弾へ走る電光。砲弾は白い頭に青い山形の筋の彗星（約 2m）を柔らかい青い光（横幅 = 当たりの幅）が包む。
 //                            命中で小さな白い閃き（H030_shot_hit）、敵の体が白く光り、術者の足元に加速の水色の筋と電光
-//   スキル2 星爆弾         — 溜め（s2Windup）: 前の上へ掲げた砲口に水色の光。発射: 砲口の閃光（H030_muzzle）。光球は砲口の高さから
+//   スキル2 星爆弾         — 溜め（s2Windup）: 前の上へ掲げた砲口に水色の光。発射: 上へ傾けた砲口の閃光（H030_muzzle_up）。光球は砲口の高さから
 //                            放物線を描いて落ちる（白い芯 + 細胞の模様が流れる青い殻）。破裂（爆発の半径）: 白い閃き → 白く膨らむ球 →
 //                            青いガラスの球（欠けて消える）→ 藍の靄・足元の水色の輪（範囲の縁）・球の中の電光（H030_s2_burst）。
 //                            刻印の弾け（遅れ 0 のゾーン）は同じ破裂に桃の泡・灰色の石の輪・桃の電光・藍の靄（H030_mark_pop）を重ねる
@@ -49,6 +49,7 @@ enum FX_H030: HeroFXSet {
 
     /// Effekseer の効果（Effects/Effekseer/Kit/）。s2_burst は爆発の半径 1.9 m で作った（倍率 = 半径 / 1.9）。
     private static let efkMuzzle = "H030_muzzle"
+    private static let efkMuzzleUp = "H030_muzzle_up"
     private static let efkShotHit = "H030_shot_hit"
     private static let efkBurst = "H030_s2_burst"
     private static let efkMark = "H030_mark_pop"
@@ -258,8 +259,8 @@ enum FX_H030: HeroFXSet {
         r.cast = [
             // 溜め: 掲げた砲口に水色の光
             .mesh(.sprite(.flare4, 0.4, .secondary, life: t + 0.04, grow: 1.6, alpha: 0.85).glowing(), .follow, offset: m),
-            // 発射: 砲口の閃光・光だまり・輪（Effekseer）と、水色の白の星
-            .efk(efkMuzzle, at: t, .origin, offset: m, scale: 0.85, onTop: true),
+            // 発射: 前の上 55° へ傾けた砲口の閃光・光だまり・輪・水色の白の星形の閃光（Effekseer）と、水色の白の星
+            .efk(efkMuzzleUp, at: t, .origin, offset: m, scale: 0.9, onTop: true),
             .emit(.flare(1.2, .secondary, life: 0.12, tex: .flare4), at: t, offset: m),
         ]
         // 光球（直径約 0.55m）: 白い芯と、細胞の模様が流れる青い殻（加算）。放物線（砲口の高さから orbApex 秒で頂き、重力 orbGravity）を
