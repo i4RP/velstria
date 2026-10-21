@@ -8,6 +8,22 @@
       "sha256": "444c8c0c37e9cdb7ba9eaaa13db05f97c62ff5cfe142a1f174a9bde5cb632b9b",
       "size": 256
     },
+    "comet": {
+      "bytes": 27905,
+      "color": "white",
+      "file": "Textures/fx_comet.png",
+      "kind": "image",
+      "sha256": "d4bd8f07c9cdb7186a0a902aea081cc203eb7c9899dd7b14c0bc1991a7bb06cf",
+      "size": 512
+    },
+    "comet_glow": {
+      "bytes": 9289,
+      "color": "white",
+      "file": "Textures/fx_comet_glow.png",
+      "kind": "image",
+      "sha256": "d15491ef610ad0dc8b3a4186a3e220acf9ef8a375680733052f83b3a97a5590c",
+      "size": 256
+    },
     "crack_radial": {
       "bytes": 156775,
       "color": "white",

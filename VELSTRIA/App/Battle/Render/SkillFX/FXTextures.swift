@@ -103,6 +103,11 @@ enum FXTex: String, CaseIterable, Hashable, Sendable {
     case flameRingCore
     /// 細い線の輪（半径 0.95・幅 1%）。範囲の縁の細い線。1024 px。
     case thinRing
+    // Blender の模様（H030 ライナの星砲。tools/vfx_assets/blender/fx_render.py の comet / comet_glow）
+    /// 星砲の彗星（横長: 尾 → 頭 = +X）。頭の楕円の芯と、尾へ細る体の前を向いた山形の筋。512 px。
+    case comet
+    /// 彗星・ビームの先頭を包む柔らかい光（横長）。見える半幅（FXEdge）= 弾の当たりの半幅に合わせる範囲の縁。256 px。
+    case cometGlow
 
     /// バンドルの画像の名前（Blender の模様）。nil = CoreGraphics で描く。
     var bundled: String? {
@@ -116,6 +121,8 @@ enum FXTex: String, CaseIterable, Hashable, Sendable {
         case .flameRing: return "fx_flame_ring"
         case .flameRingCore: return "fx_flame_ring_core"
         case .thinRing: return "fx_thin_ring"
+        case .comet: return "fx_comet"
+        case .cometGlow: return "fx_comet_glow"
         default: return nil
         }
     }
@@ -126,7 +133,7 @@ enum FXTex: String, CaseIterable, Hashable, Sendable {
     /// 横（+X）に長い模様か（FXMesh.ray が板を回して前方へ向ける）。
     var isLinear: Bool {
         switch self {
-        case .streak, .bolt, .chain, .arrow, .slashLine, .thread, .soundWave: return true
+        case .streak, .bolt, .chain, .arrow, .slashLine, .thread, .soundWave, .comet, .cometGlow: return true
         default: return false
         }
     }
@@ -696,7 +703,7 @@ final class FXTextureLibrary {
             ctx.closePath()
             ctx.fillPath()
             radial(ctx, center: CGPoint(x: s * 0.82, y: c.y), radius: s * 0.16, stops: [(0, 0.7), (1, 0)])
-        case .crackS, .crackRadial, .scorch, .star4, .swoosh, .blade, .flameRing, .flameRingCore, .thinRing:
+        case .crackS, .crackRadial, .scorch, .star4, .swoosh, .blade, .flameRing, .flameRingCore, .thinRing, .comet, .cometGlow:
             // バンドルの画像（image(_:) が読む）。ここへは来ない
             break
         case .note:

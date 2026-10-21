@@ -617,6 +617,67 @@ def blade(out, res, samples):
     render(scene, os.path.join(out, "0000.png"))
 
 
+def _comet_coords(g):
+    uv = g.coords("Generated")
+    sep = g.node("ShaderNodeSeparateXYZ")
+    g.link(uv, sep.inputs[0])
+    u, v = sep.outputs["X"], sep.outputs["Y"]
+    d = g.math("ABSOLUTE", g.math("SUBTRACT", v, 0.5))
+
+    def ellipse(cu, ru, rv):
+        du = g.math("DIVIDE", g.math("SUBTRACT", u, cu), ru)
+        dv = g.math("DIVIDE", d, rv)
+        return g.math("ADD", g.math("MULTIPLY", du, du), g.math("MULTIPLY", dv, dv))
+
+    return u, d, ellipse
+
+
+def comet(out, res, samples):
+    """星砲の彗星（白・アルファ。横長: u = 尾 0 → 頭 1、v = 横幅で中心 0.5）。H030 の遠星弾の砲弾・奥義のビームの先頭。
+    頭の楕円の芯（u 0.84・横の半径 0.26）と、尾へ細る体（半幅 0.05 → 0.3）に前を向いた山形の筋（》》》）。柔らかい光は
+    comet_glow（範囲の縁）。"""
+    scene = setup(res, samples, "add", ortho=2.0, view="top")
+    mat = bpy.data.materials.new("comet")
+    g = G(mat)
+    u, d, ellipse = _comet_coords(g)
+    w = g.math("ADD", 0.05, g.math("MULTIPLY", g.smooth(u, 0.04, 0.8), 0.25))
+    across = g.math("POWER", g.math("SUBTRACT", 1.0, g.smooth(d, g.math("MULTIPLY", w, 0.2), w)), 0.8)
+    along = g.math("MULTIPLY", g.smooth(u, 0.02, 0.7), g.math("SUBTRACT", 1.0, g.smooth(u, 0.8, 0.92)))
+    # 前を向いた山形の筋（u に沿って 6 本、縁ほど後ろへ。芯の線は消さない）
+    phase = g.math("MULTIPLY", g.math("SUBTRACT", g.math("MULTIPLY", u, 6.0), g.math("MULTIPLY", d, 4.0)), 2 * math.pi)
+    chevron = g.math("ADD", 0.7, g.math("MULTIPLY", g.math("SINE", phase), 0.3))
+    body = g.math("MULTIPLY", g.math("MULTIPLY", across, along), g.math("MULTIPLY", chevron, 0.8))
+    head = g.math("SUBTRACT", 1.0, g.smooth(ellipse(0.84, 0.11, 0.26), 0.25, 1.0))
+    a = g.math("MAXIMUM", head, body)
+    g.output(surface=g.emission((1, 1, 1, 1), g.math("MINIMUM", a, 1.0)))
+    o = plane(2.0)
+    assign(o, mat)
+    render(scene, os.path.join(out, "0000.png"))
+
+
+def comet_glow(out, res, samples):
+    """彗星を包む柔らかい光（白・アルファ。横長: u = 尾 0 → 頭 1）。横は (1 − (d / w)²)^1.07 で中心 1 → 半幅 0.4 で 1/3 → w で 0
+    （w = 頭寄りで 0.5、尾へ 0.27 に細る）。前後は u 0.6〜0.8 が最も明るく、尾へ長く・頭の先へ短く薄れる。行ごとの最大が 1/3 になる半幅（0.4）が見える横幅
+    （FXEdge.linearHalfWidth(.cometGlow)。弾・ビームの当たりの半幅に合わせる範囲の縁）。"""
+    scene = setup(res, samples, "add", ortho=2.0, view="top")
+    mat = bpy.data.materials.new("comet_glow")
+    g = G(mat)
+    u, d, _ = _comet_coords(g)
+    # 横の半径: 頭寄り（u 0.62 から前）で 0.5、尾（u 0.1）で 0.27 へ細る
+    w = g.math("MULTIPLY", 0.5, g.math("ADD", 0.55, g.math("MULTIPLY", g.smooth(u, 0.1, 0.62), 0.45)))
+    r = g.math("DIVIDE", d, w)
+    q = g.math("MAXIMUM", g.math("SUBTRACT", 1.0, g.math("MULTIPLY", r, r)), 0.0)
+    across = g.math("POWER", q, 1.07)
+    along = g.math("MULTIPLY", g.smooth(u, 0.04, 0.6), g.math("SUBTRACT", 1.0, g.smooth(u, 0.8, 0.97)))
+    a = g.math("MULTIPLY", across, along)
+    # 描画の Standard（sRGB）で明るさが持ち上がるので、2.2 乗して画像のアルファを式の値にそろえる（縁の 1/3 の位置を保つ）
+    lin = g.math("POWER", g.math("MINIMUM", a, 1.0), 2.2)
+    g.output(surface=g.emission((1, 1, 1, 1), lin))
+    o = plane(2.0)
+    assign(o, mat)
+    render(scene, os.path.join(out, "0000.png"))
+
+
 # --- 継ぎ目の無い流れる模様（UV のトーラスで 4D のノイズを引く） ---------------------------------------------
 
 def torus_coords(g, ku=1.0, kv=1.0):
@@ -677,6 +738,8 @@ JOBS = {
     "star4": (star4, "image", 1, 512),
     "swoosh": (swoosh, "image", 1, 512),
     "blade": (blade, "image", 1, 256),
+    "comet": (comet, "image", 1, 512),
+    "comet_glow": (comet_glow, "image", 1, 256),
     "lava": (lava, "tile", 1, 512),
     "flame_noise": (flame_noise, "tile", 1, 512),
 }
