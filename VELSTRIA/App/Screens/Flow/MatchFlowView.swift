@@ -574,10 +574,19 @@ private struct TeamLineup: View {
                 Text(FlowText.team(team)).font(Theme.body(10)).foregroundStyle(color)
             }
             ForEach(Array(slots.enumerated()), id: \.offset) { i, slot in
-                LineupRow(slot: slot, color: color)
-                    .offset(x: appeared ? 0 : (team == .blue ? -40 : 40))
-                    .opacity(appeared ? 1 : 0)
-                    .animation(.spring(duration: 0.5, bounce: 0.2).delay(Double(i) * 0.06), value: appeared)
+                Group {
+                    if team == .red {
+                        EnemyHeroPreviewButton(heroID: slot.heroID) {
+                            LineupRow(slot: slot, color: color)
+                        }
+                        .accessibilityIdentifier("flow_enemy_ready_\(i)")
+                    } else {
+                        LineupRow(slot: slot, color: color)
+                    }
+                }
+                .offset(x: appeared ? 0 : (team == .blue ? -40 : 40))
+                .opacity(appeared ? 1 : 0)
+                .animation(.spring(duration: 0.5, bounce: 0.2).delay(Double(i) * 0.06), value: appeared)
             }
         }
         .padding(8)

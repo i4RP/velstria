@@ -362,9 +362,21 @@ private struct DraftTeamColumn: View {
 
     @ViewBuilder private func pickSlot(_ i: Int, color: Color) -> some View {
         let picks = draft.picks(for: team)
+        if team == .red, i < picks.count {
+            EnemyHeroPreviewButton(heroID: picks[i].heroID) {
+                pickSlotContent(i, color: color)
+            }
+            .accessibilityIdentifier("flow_enemy_draft_\(i)")
+        } else {
+            pickSlotContent(i, color: color)
+        }
+    }
+
+    private func pickSlotContent(_ i: Int, color: Color) -> some View {
+        let picks = draft.picks(for: team)
         let label = (team == .blue ? "B" : "R") + "\(i + 1)"
         let active = isActivePick(i)
-        HStack(spacing: 6) {
+        return HStack(spacing: 6) {
             Text(label)
                 .font(.system(size: 10, weight: .black, design: .rounded))
                 .foregroundStyle(color)
