@@ -782,6 +782,33 @@ struct Kit_H030: HeroKit {
 }
 
 extension Kit_H030 {
+    /// 演出・モーションが読む時刻・寸法（Tune そのもの。App の FX_H030 / Motion_H030 は値を写さずここから読む。docs/vfx/RANGES.md）。
+    /// blastRadius（S2 の爆発と刻印の弾けの半径）は Tune ではなくスキル定義の radius（explode・detonate・plannedZones と同じ値）。
+    /// fxValues は master を受け取らないので、アプリ・テストと同じ同梱の MasterData.shared から読む（読むだけ）。
+    func fxValues(slot: SkillSlot, stage: Int) -> [KitFXValue] {
+        switch slot {
+        case .skill1:
+            return [KitFXValue("s1Windup", T.s1Windup, .seconds), KitFXValue("s1Speed", T.s1Speed, .speed),
+                    KitFXValue("s1Range", T.s1Range, .distance), KitFXValue("s1Width", T.s1Width, .distance),
+                    KitFXValue("rushDuration", T.rushDuration, .seconds),
+                    KitFXValue("rushHeroDuration", T.rushHeroDuration, .seconds),
+                    KitFXValue("s1RangeBuffDuration", T.s1RangeBuffDuration, .seconds)]
+        case .skill2:
+            let blast = MasterData.shared.skill(hero: heroID, slot: .skill2)?.radius ?? 0
+            return [KitFXValue("s2Windup", T.s2Windup, .seconds), KitFXValue("s2Speed", T.s2Speed, .speed),
+                    KitFXValue("s2Range", T.s2Range, .distance), KitFXValue("s2Width", T.s2Width, .distance),
+                    KitFXValue("s2LockHalfAngle", T.s2LockHalfAngle, .radians),
+                    KitFXValue("ultRange", list: T.ultRange, .distance),
+                    KitFXValue("blastRadius", blast, .distance),
+                    KitFXValue("markDuration", T.markDuration, .seconds), KitFXValue("markStun", T.markStun, .seconds)]
+        case .ultimate:
+            return [KitFXValue("ultWindup", T.ultWindup, .seconds), KitFXValue("ultBeamSpeed", T.ultBeamSpeed, .speed),
+                    KitFXValue("ultWidth", T.ultWidth, .distance)]
+        case .passive:
+            return [KitFXValue("farHitFlash", T.farHitFlash, .seconds)]
+        }
+    }
+
     /// ZoneSystem.spawn と同じ形（描画の事前生成用。HeroKit.plannedZones）。
     func plannedZones(master: MasterData) -> [KitZoneShape] {
         // S2 の印の起爆（印の付いた敵ごと。最大 5 体）
