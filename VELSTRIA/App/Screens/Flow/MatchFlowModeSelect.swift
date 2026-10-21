@@ -228,42 +228,48 @@ struct MatchModeStep: View {
         switch c {
         case .ranked: rankedContent
         case .classic:
-            VStack(spacing: 10) {
-                Image(systemName: c.symbol).font(.system(size: 92, weight: .light)).foregroundStyle(.white.opacity(0.9))
+            VStack(spacing: 8) {
+                Image(systemName: c.symbol).font(.system(size: 78, weight: .light)).foregroundStyle(.white.opacity(0.9))
                     .shadow(color: Celestial.ice, radius: 14)
-                Text(c.title).font(Celestial.title(56)).foregroundStyle(.white).shadow(color: .black.opacity(0.6), radius: 4)
+                Text(c.title).font(Celestial.title(44)).foregroundStyle(.white).shadow(color: .black.opacity(0.6), radius: 4)
+                    .lineLimit(1).minimumScaleFactor(0.6)
             }
-            .offset(y: 20)
+            // 菱形の幅の広い中ほどに収める（上下の角に寄ると文字がはみ出す）
+            .frame(width: 280)
+            .offset(y: 14)
         case .magicChess:
             VStack(spacing: 2) {
-                Text("GO!").font(.system(size: 64, weight: .black, design: .rounded)).italic()
+                Text("GO!").font(.system(size: 54, weight: .black, design: .rounded)).italic()
                     .foregroundStyle(LinearGradient(colors: [HomeStyle.goldLight, Theme.gold], startPoint: .top, endPoint: .bottom))
                     .shadow(color: .black.opacity(0.6), radius: 3)
-                Text(c.title).font(Celestial.heading(26)).foregroundStyle(.white)
+                Text(c.title).font(Celestial.heading(20)).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.6)
             }
-            .offset(y: 16)
+            .frame(width: 150)
+            .offset(y: 4)
         case .rising, .vsAI:
             Image(systemName: c.symbol).font(.system(size: 52, weight: .regular)).foregroundStyle(.white)
                 .shadow(color: Celestial.ice.opacity(0.8), radius: 6)
         default:
-            VStack(spacing: 8) {
-                Image(systemName: c.symbol).font(.system(size: 60, weight: .light)).foregroundStyle(.white.opacity(0.9))
+            VStack(spacing: 6) {
+                Image(systemName: c.symbol).font(.system(size: 52, weight: .light)).foregroundStyle(.white.opacity(0.9))
                     .shadow(color: Celestial.ice.opacity(0.8), radius: 8)
-                Text(c.title).font(Celestial.title(40)).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.5)
+                Text(c.title).font(Celestial.title(30)).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.5)
                     .shadow(color: .black.opacity(0.6), radius: 3)
             }
-            .frame(width: 210)
-            .offset(y: 24)
+            .frame(width: 160)
+            .offset(y: 8)
         }
     }
 
     /// ランキング: 題名・段位名の帯・大きな段位章・星（ミシックは紫の星と「36/50」）。
     private var rankedContent: some View {
         let rank = app.profile.rank
-        return VStack(spacing: 10) {
+        return VStack(spacing: 8) {
             Text(MatchModeCategory.ranked.title)
-                .font(Celestial.title(64))
+                .font(Celestial.title(50))
                 .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
                 .shadow(color: .black.opacity(0.55), radius: 4)
             Text(RankService.shortName(rank) + (rank.tier == .mythic ? "" : " " + RankService.roman(rank.division)))
                 .font(Celestial.heading(34))
@@ -271,7 +277,7 @@ struct MatchModeStep: View {
                 .padding(.horizontal, 36)
                 .padding(.vertical, 4)
                 .background(Capsule().fill(Color.black.opacity(0.32)))
-            RankCrest(tier: rank.tier, size: 170)
+            RankCrest(tier: rank.tier, size: 150)
             if rank.tier == .mythic {
                 HStack(spacing: 6) {
                     Image(systemName: "star.fill").foregroundStyle(Color(red: 0.86, green: 0.55, blue: 1))
@@ -280,10 +286,12 @@ struct MatchModeStep: View {
                 }
                 .font(.system(size: 36, weight: .bold, design: .rounded))
             } else {
-                RankStarsView(stars: rank.stars, maxStars: RankService.maxStars(rank.tier), size: 30)
+                RankStarsView(stars: rank.stars, maxStars: RankService.maxStars(rank.tier), size: 28)
             }
         }
-        .offset(y: -10)
+        // 菱形の幅の広い中ほどに収める（題名が上の角へ寄ると隣のタイルへはみ出す）
+        .frame(width: 330)
+        .offset(y: 24)
     }
 
     private func label(_ text: String, at point: CGPoint, size: CGFloat) -> some View {

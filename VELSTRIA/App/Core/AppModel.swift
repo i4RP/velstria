@@ -161,6 +161,39 @@ final class AppModel: FriendProfileAccess {
         haptics.enabled = loaded.settings.hapticsEnabled
         storeKit.attach(to: self)
         wireFriends()
+        wirePublicServices()
+    }
+
+    /// 公開の名刺・ランキング（第3段）: 送る・読むのはクラウドのランクと同じ条件（オンラインに同意した 13 歳以上）。
+    private func wirePublicServices() {
+        publicProfiles.isAllowed = { [weak self] in self?.syncsCloudRank ?? false }
+        publicProfiles.own = { [weak self] in self?.ownPublicCard() }
+        ranking.isAllowed = { [weak self] in self?.syncsCloudRank ?? false }
+        ranking.myCode = { [weak self] in self?.profile.friendCode }
+        ranking.friendCodes = { [weak self] in self?.profile.friends.map(\.code) ?? [] }
+    }
+
+    /// 自分の名刺の中身（名前は外に見せる形。得意ヒーロー 3 体は使った試合の多い順）。
+    func ownPublicCard() -> (code: String, key: String, card: PublicCardPayload)? {
+        let p = profile
+        guard FriendCode.isValid(p.friendCode), FriendInboxKey.isValid(p.inboxKey) else { return nil }
+        let heroes = DraftShowcase.favorites(p, roster: master.heroes.map(\.heroID), limit: 3).map { id -> PublicHeroStat in
+            let c = p.career.perHero[id] ?? HeroCareer()
+            return PublicHeroStat(heroID: id, matches: c.matches, wins: min(c.wins, c.matches))
+        }
+        let avatar: String? = master.hero(p.avatarHeroID) != nil ? p.avatarHeroID : nil
+        let card = PublicCardPayload(name: String(onlineName.prefix(12)), avatar: avatar, frame: p.equippedAvatarFrame,
+                                     level: max(1, p.accountLevel), country: p.countryCode.flatMap(CountryFlag.normalized),
+                                     heroes: heroes, matches: p.career.matches, wins: min(p.career.wins, p.career.matches))
+        return (p.friendCode, p.inboxKey, card)
+    }
+
+    /// 運営のメールを取りに行き、まだ入れていない物をメールに入れる（起動時・前面に戻った時。オンラインに同意した時だけ通信する）。
+    func refreshOpsMail() async {
+        guard syncsCloudRank, let mail = await OpsMailService.fetch(base: OnlineRelayConfig.baseURL, transport: rankTransport) else { return }
+        var p = profile
+        OpsMailService.merge(mail, into: &p)
+        if p != profile { profile = p }
     }
 
     private func wireFriends() {
@@ -177,7 +210,11 @@ final class AppModel: FriendProfileAccess {
         SeasonService.refresh(profile: &profile, now: now)
         Task { await storeKit.start() }
         friends.start()
-        Task { await pullCloudRank() }
+        Task {
+            await pullCloudRank()
+            await publicProfiles.publishOwn()
+            await refreshOpsMail()
+        }
     }
 
     // MARK: ランク（クラウド）
@@ -194,6 +231,13 @@ final class AppModel: FriendProfileAccess {
     func pullCloudRank() async {
         guard syncsCloudRank else { return }
         let code = profile.friendCode, key = profile.inboxKey
+        // 同意を取り消した後に端末で進めた: 中継の古いランクを消してから、端末のランクを預け直す（消せなければ今回は預けない。
+        // 残したまま預けると、中継は記録のあるアカウントの seed を受け取らず、古いランクに戻してしまう）
+        if profile.cloudRankStale {
+            guard await RankCloud.erase(code: code, key: key, transport: rankTransport), profile.friendCode == code else { return }
+            profile.cloudRankStale = false
+            publicProfiles.forgetPublished()
+        }
         if let s = await RankCloud.seed(code: code, key: key, local: profile.rank, transport: rankTransport) { adoptCloudRank(s, code: code) }
     }
 
@@ -473,8 +517,12 @@ final class AppModel: FriendProfileAccess {
         guard onlineAccess == .needsConsent else { return }
         profile.acceptedOnlineRulesVersion = FeatureFlags.currentOnlineRulesVersion
         friends.start()
-        // ランク戦の結果を送る前に端末のランクを預ける（預けずに送ると、中継は初期のランクから数え始める）
-        Task { await pullCloudRank() }
+        // ランク戦の結果を送る前に端末のランクを預ける（預けずに送ると、中継は初期のランクから数え始める）。名刺も送る
+        Task {
+            await pullCloudRank()
+            await publicProfiles.publishOwn()
+            await refreshOpsMail()
+        }
         if let url = pendingOnlineLink {
             pendingOnlineLink = nil
             if !openFriendLink(url) { openOnlineJoinLink(url) }
@@ -487,6 +535,16 @@ final class AppModel: FriendProfileAccess {
         friends.reset()
         pendingOnlineLink = nil
         profile.acceptedOnlineRulesVersion = 0
+        // 中継のランクと名刺（ランクの消去で名刺も消える）を消す。消せなければ、次に同意した時に預け直す前に消す（cloudRankStale）
+        publicProfiles.forgetPublished()
+        guard profile.inboxRegistered else { return }
+        profile.cloudRankStale = true
+        let code = profile.friendCode, key = profile.inboxKey, transport = rankTransport
+        Task {
+            if await RankCloud.erase(code: code, key: key, transport: transport), profile.friendCode == code {
+                profile.cloudRankStale = false
+            }
+        }
     }
 
     /// オンラインを使えない時のリンク: 同意がまだなら同意の画面を出し、同意したら開き直す。年齢で使えなければ知らせる。
@@ -569,6 +627,8 @@ final class AppModel: FriendProfileAccess {
         lastOutcome = outcome
         lastRewardReport = report
         if report.rankAfter != nil { syncRankedMatch(outcome, report: report) }
+        // 名刺の通算の成績が変わった（送ってよい時だけ。変わっていなければ送らない）
+        Task { await publicProfiles.publishOwn() }
         return report
     }
 

@@ -21,7 +21,8 @@
 | `src/index.ts` | Worker（入口の検証）と Durable Object `RelayRoom`（中継の本体） |
 | `src/inbox.ts` | Durable Object `FriendInbox`（フレンドの受信箱。下の「フレンドの受信箱」） |
 | `src/rank.ts` | Durable Object `RankAccount`（アカウントごとのランクと規則の計算。`POST /v1/rank/…`。下の「ランク」） |
-| `wrangler.jsonc` | Worker 名 `velstria-relay`、DO の束縛 `RELAY_ROOM` / `FRIEND_INBOX` / `RANK_ACCOUNT`、SQLite バックエンドの移行 `v1`〜`v3` |
+| `src/directory.ts` | Durable Object `Directory`（全体で 1 つ。公開の名刺・ランキングの表・運営からのメール。下の「名刺・ランキング・メール」） |
+| `wrangler.jsonc` | Worker 名 `velstria-relay`、DO の束縛 `RELAY_ROOM` / `FRIEND_INBOX` / `RANK_ACCOUNT` / `DIRECTORY`、SQLite バックエンドの移行 `v1`〜`v4` |
 | `test/relay.test.mjs` | 結合テスト（Node の組み込みテストランナー + Node の WebSocket。本物の Worker を相手にする）と、ランクの規則・シーズンの単体テスト |
 | `../.github/workflows/relay.yml` | `relay/**` が変わった時に CI（ubuntu）でテストを流す（配備はしない） |
 
@@ -178,6 +179,40 @@ Durable Object `RankAccount`（`src/rank.ts`。フレンドコード 1 つ = 1 �
   403 `forbidden`（鍵が持ち主のものでない）/ `suspended`（利用停止のコードの get・seed・match）、
   409 `not_seeded`（seed の前の match。数えない。端末は自分の計算のまま進み、次の起動の seed で取り込まれる）、405（POST 以外）、404（知らない操作）。
 - `rv` は見ない（版は道の `/v1`）。期限による自動の消去は無い（受信箱と違い、本人の erase だけで消える）。
+
+## 名刺・ランキング・メール
+
+全体で 1 つの Durable Object `Directory`（`getByName("global")`。SQLite）。アプリはオンラインに同意した 13 歳以上の時だけ使う。
+
+| 要求 | 応答 |
+|---|---|
+| `POST /v1/profile/<FRIENDCODE>/put`（本文 `{"key":…,"profile":{…}}`） | 200 `{"ok":true,"profile":{…}}` / 400 `bad_profile` `bad_key` / 403 `forbidden` `erased` `suspended` |
+| `POST /v1/profile/<FRIENDCODE>/erase`（本文 `{"key":…}`） | 200 `{"ok":true,"result":"erased"\|"none"}` / 403 `forbidden` |
+| `POST /v1/profiles`（本文 `{"codes":[…]}`。最大 100） | 200 `{"ok":true,"profiles":[…]}`（名刺のあるコードだけ。`lastSeen` = 受信箱に最後に繋いだ日時） |
+| `POST /v1/ranking`（本文 `{"scope":"global"\|"country"\|"friends","country":"JP","codes":[…],"me":…}`） | 200 `{"ok":true,"entries":[{"position":…,"profile":{…}}],"me":{…}\|null}` |
+| `GET /v1/mail` | 200 `{"ok":true,"mail":[…]}`（今公開中の運営のメール。新しい順・最大 50） |
+| `POST /v1/mail/publish`・`/v1/mail/delete`（本文 `{"key":"<OPS_MAIL_KEY>","mail":{…}}` / `{"key":…,"id":…}`） | 200 / 400 `bad_mail` / 403 `forbidden` |
+
+- **名刺**（本人が送る表示用の自己申告）: 名前（1〜12 文字）・アイコンのヒーロー・アバターの枠・レベル・国・得意ヒーロー 3 体（試合数・勝ち数）・
+  通算の試合数と勝ち数。**ランクは送らせない**: ランク戦の結果（`/v1/rank/…/seed|match|get`）のたびに、今のランク・今シーズンの最高ランク・
+  今シーズンの勝敗を中継が書く。ランクの消去（`/v1/rank/…/erase`。アプリの「全データを削除」・同意の取り消し）で名刺も消える。
+- **コードの持ち主**: ランク・名刺・受信箱で 1 つ。先に使った鍵（のハッシュ）が持ち主になり、以後は同じ鍵でしか書けない（`FriendInbox.claimOrMatch`）。
+  ランクを消してもコードは他の鍵に渡らない。**残る危険**: 持ち主が一度も使う前のコードは、そのコードを知った他人が先に使える。
+  アプリは同意の直後に受信箱とランクを登録し、登録を済ませるまで自分のコードを見せない（コードは端末の乱数で 8 文字。推測は難しい）。
+- **ランキング**: 名刺のある人だけを、今シーズンの最高ランクの順（ティア → 段位 → 星。ミシックは星の累計。同じなら先に到達した人）に上位 100 人。
+  範囲は世界・国（名刺の国。MLBB のサーバーの代わり）・フレンド（アプリが渡すコード）。`me` の行は範囲の中に居なければ `null`（ランク外）。
+- **運営からのメール**: 運営だけが秘密の鍵で登録・削除する（`npx wrangler secret put OPS_MAIL_KEY`。鍵は公開リポジトリに書かない）。
+  公開の期間は省けば登録から 60 日（MLBB の保存期間）。アプリは起動時と前面に戻った時に取りに来て、ID で重複を除き、添付は端末で受け取る。
+  種類（`category`）は `important`・`system`・`report`・`inbox`・`gift`（MLBB のメールのタブ）。例（鍵はプレースホルダー）:
+
+```sh
+curl -X POST https://velstria-relay.<sub>.workers.dev/v1/mail/publish -H 'content-type: application/json' -d '{
+  "key": "<OPS_MAIL_KEY>",
+  "mail": {"id": "maint_20261101", "titleJa": "メンテナンスのお知らせ", "titleEn": "Maintenance",
+           "bodyJa": "…", "bodyEn": "…", "important": true,
+           "attachments": [{"kind": "coin", "amount": 500}]}
+}'
+```
 
 ## 実装の要点
 

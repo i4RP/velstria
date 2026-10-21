@@ -38,6 +38,8 @@ struct HomeView: View {
         // イベントの残り時間などを前面にいる間だけ更新する
         .task(id: isFrontmost) {
             guard isFrontmost else { return }
+            // 前面に戻った: 運営からのメールを取りに行く（オンラインに同意している時だけ通信する）
+            await app.refreshOpsMail()
             now = Date()
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(30))

@@ -530,6 +530,11 @@ struct MailAttachment: Codable, Equatable {
     var refID: String?
 }
 
+/// メールの種類（MLBB のメールの左のタブ: 重要なお知らせ・システム・通報の結果・受信箱・ギフト）。
+enum MailCategory: String, Codable, CaseIterable {
+    case important, system, report, inbox, gift
+}
+
 struct MailItem: Codable, Equatable, Identifiable {
     var id: UUID = UUID()
     var date: Date
@@ -539,6 +544,12 @@ struct MailItem: Codable, Equatable, Identifiable {
     var read = false
     var claimed = false
     var expiresAt: Date?
+    /// 重要（MLBB 2.2.16 の印。赤い点は未読の重要メールにも付く）。運営のメールだけ。古い保存データには無い。
+    var important: Bool?
+    /// 運営のメールの ID（重複を除く。端末で作ったメールは nil）。
+    var opsID: String?
+    /// 種類（nil = 端末で作ったメール。画面は添付があればギフト、無ければシステムとして扱う）。
+    var category: MailCategory?
 }
 
 /// 課金の付与台帳（Transaction.id で冪等化）。
@@ -657,6 +668,8 @@ struct Profile: Codable, Equatable {
     var totalLoginDays = 0
     var mail: [MailItem] = []
     var readNoticeIDs: [String] = []
+    /// 受け取った運営のメールの ID（OpsMailService。消したメールをもう一度入れない）。
+    var seenOpsMailIDs: [String] = []
 
     // 課金
     var purchaseLedger: [PurchaseRecord] = []
@@ -681,6 +694,9 @@ struct Profile: Codable, Equatable {
     var inboxRegistered = false
     /// ブロックしたプレイヤー（フレンドコード単位。申請・招待を受け取らず、自分の部屋に入れない。設定 > プライバシーで解除）。
     var blockedPlayers: [BlockedPlayer] = []
+    /// クラウドのランクが古い（同意を取り消した後に端末で進めた）。次に同意した時、預け直す前にクラウドのランクを消す
+    /// （残したままだと、預け直しで中継の古いランクに戻ってしまう。AppModel.pullCloudRank）。
+    var cloudRankStale = false
     /// 同意したオンライン機能のルール（コミュニティガイドライン・利用規約のオンラインの条項）の版。
     /// FeatureFlags.currentOnlineRulesVersion 未満の間はオンライン機能を使えず、フレンドの受信箱へも繋がない（OnlineAccess）。
     var acceptedOnlineRulesVersion = 0
