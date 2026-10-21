@@ -685,7 +685,7 @@ private struct RankedScoreboardStep: View {
         }
         .padding(.horizontal, 20)
         // 定型文のメニューは行全体に付ける（ViewThatFits の候補ごとに付けると、同じ状態で重ねて開こうとする）
-        .resultQuickChatMenu(isPresented: $choosesChat, idPrefix: "ranked_quickchat") { phrase in
+        .resultQuickChatMenu(isPresented: $choosesChat, idPrefix: "ranked_quickchat", onEmote: { chat.showEmote($0) }) { phrase in
             FlowFX.tap(app)
             chat.send(phrase, in: summary)
         }

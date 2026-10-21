@@ -299,7 +299,7 @@ struct MatchResultView: View {
             Button(L("キャンセル", "Cancel"), role: .cancel) {}
         }
         // 定型文のメニューは行全体に付ける（ViewThatFits の候補ごとに付けると、同じ状態で重ねて開こうとする）
-        .resultQuickChatMenu(isPresented: $choosesChat, idPrefix: "result_quickchat") { phrase in
+        .resultQuickChatMenu(isPresented: $choosesChat, idPrefix: "result_quickchat", onEmote: { chat.showEmote($0) }) { phrase in
             FlowFX.tap(app)
             chat.send(phrase, in: summary)
         }
@@ -1110,6 +1110,8 @@ final class ResultChatLog {
 
     /// 出ている吹き出し（古い順。最大 4 つ）。
     private(set) var lines: [Line] = []
+    /// 出ているエモート（数秒で消える）。
+    private(set) var emote: String?
     @ObservationIgnored private var nextID = 0
     /// 送った回数（返事をする味方を順に回す）。
     @ObservationIgnored private var sent = 0
@@ -1148,6 +1150,16 @@ final class ResultChatLog {
             lines.removeAll { $0.id == id }
         }
     }
+
+    /// エモートを出す（吹き出しの上。数秒で消える）。
+    func showEmote(_ id: String) {
+        withAnimation(.spring(duration: 0.3, bounce: 0.4)) { emote = id }
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(EmoteTiming.seconds))
+            guard let self, self.emote == id else { return }
+            withAnimation(.easeOut(duration: 0.25)) { self.emote = nil }
+        }
+    }
 }
 
 /// クイックチャットの吹き出しの列（画面の左下。押せない）。
@@ -1156,6 +1168,9 @@ struct ResultChatFeed: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
+            if let emote = log.emote {
+                EmoteBubble(cosmeticID: emote, size: 52)
+            }
             ForEach(log.lines) { line in
                 HStack(spacing: 6) {
                     Text(line.sender)
@@ -1183,7 +1198,10 @@ struct ResultChatFeed: View {
 struct ResultQuickChatMenu: View {
     /// 各定型文のボタンの accessibilityIdentifier の頭（"<idPrefix>_<rawValue>"）。
     let idPrefix: String
+    /// エモートを出す（nil なら列を出さない）。
+    var onEmote: ((String) -> Void)?
     let onSelect: (ResultQuickChat) -> Void
+    @Environment(AppModel.self) private var app
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -1215,6 +1233,25 @@ struct ResultQuickChatMenu: View {
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("\(idPrefix)_\(phrase.rawValue)")
             }
+            let emotes = app.profile.equippedEmotes.compactMap { app.master.cosmetic($0) }
+            if let onEmote, !emotes.isEmpty {
+                Rectangle().fill(Celestial.ice.opacity(0.3)).frame(height: 0.7).padding(.horizontal, 14).padding(.vertical, 4)
+                HStack(spacing: 6) {
+                    ForEach(emotes) { c in
+                        Button {
+                            onEmote(c.cosmeticID)
+                        } label: {
+                            CosmeticPreviewView(cosmetic: c, size: 36)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(MasterText.cosmetic(c))
+                        .accessibilityIdentifier("\(idPrefix)_emote_\(c.cosmeticID)")
+                    }
+                }
+                .padding(.horizontal, 14)
+            }
         }
         .padding(.bottom, 6)
         .presentationBackground(Celestial.ink)
@@ -1223,10 +1260,13 @@ struct ResultQuickChatMenu: View {
 
 extension View {
     /// クイックチャットの定型文のメニュー（ポップオーバー）。選ぶと閉じて onSend。
-    func resultQuickChatMenu(isPresented: Binding<Bool>, idPrefix: String,
+    func resultQuickChatMenu(isPresented: Binding<Bool>, idPrefix: String, onEmote: ((String) -> Void)? = nil,
                              onSend: @escaping (ResultQuickChat) -> Void) -> some View {
         popover(isPresented: isPresented) {
-            ResultQuickChatMenu(idPrefix: idPrefix) { phrase in
+            ResultQuickChatMenu(idPrefix: idPrefix, onEmote: onEmote == nil ? nil : { id in
+                isPresented.wrappedValue = false
+                onEmote?(id)
+            }) { phrase in
                 isPresented.wrappedValue = false
                 onSend(phrase)
             }
