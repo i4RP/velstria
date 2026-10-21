@@ -22,7 +22,7 @@
 | `src/inbox.ts` | Durable Object `FriendInbox`（フレンドの受信箱。下の「フレンドの受信箱」） |
 | `src/rank.ts` | Durable Object `RankAccount`（アカウントごとのランクと規則の計算。`POST /v1/rank/…`。下の「ランク」） |
 | `wrangler.jsonc` | Worker 名 `velstria-relay`、DO の束縛 `RELAY_ROOM` / `FRIEND_INBOX` / `RANK_ACCOUNT`、SQLite バックエンドの移行 `v1`〜`v3` |
-| `test/relay.test.mjs` | 結合テスト（Node の組み込みテストランナー + Node の WebSocket。本物の Worker を相手にする） |
+| `test/relay.test.mjs` | 結合テスト（Node の組み込みテストランナー + Node の WebSocket。本物の Worker を相手にする）と、ランクの規則・シーズンの単体テスト |
 | `../.github/workflows/relay.yml` | `relay/**` が変わった時に CI（ubuntu）でテストを流す（配備はしない） |
 
 ## 手順（プロトコル v1）
@@ -150,16 +150,28 @@
 ## ランク（アカウントごと）
 
 Durable Object `RankAccount`（`src/rank.ts`。フレンドコード 1 つ = 1 つ）。持ち主は受信箱と同じ鍵で縛る（最初に来た鍵の SHA-256 を保存。
-受信箱の持ち主とは別に確かめる）。規則は Mobile Legends と同じで `src/rank.ts` が正（アプリの `RankService.swift` は通信できない時の写し）。
+受信箱の持ち主とは別に確かめる）。規則は Mobile Legends と同じで `src/rank.ts` が正（アプリの `RankService.swift`・`SeasonService.swift`
+は通信できない時の写し）。
 
-- `POST /v1/rank/<CODE>/get` 本文 `{"key":"…"}` → `{"ok":true,"state":{…}}`（記録が無ければ初期値を返し、記録は作らない）
+- **ポイントの満タン**（ティアごと。Fandom「Ranked」）: スターポイント ウォリアー 100・エリート 200・マスター 300・グランドマスター 500・
+  エピック 700・レジェンド 1000（満タンで星 +1。1 試合で 1 つまで。ミシックには無く、上がると 0）。保護ポイントは同じ値でミシック 1500
+  （満タンで負けると星が減らず 0 に戻る。ミシックでもたまる）。ティアが変わったら新しいティアの満タンに収める。
+- **シーズン**: 番号は MLBB と同じ。S42 は 2026-09-16 08:00 UTC から、1 シーズン 91 日（S43 は 2026-12-16 08:00 UTC から）。
+  新しいシーズンの最初の get・seed・match で、前のシーズンの最終ランクから 1 回だけ下げて保存する（何シーズン空いても 1 回）。
+  星・両ポイント・勝敗（`wins`・`losses`）は 0、最高到達（`highestTier`・`highestMythicStars`）はそのまま。下げ方（`SEASON_RESET`）:
+  ウォリアー・エリートは同じ段位、マスター IV・III → エリート I、マスター II → IV、I → III、グランドマスター V → マスター II、IV → マスター I、
+  III → V、II → IV、I → III、エピック V → グランドマスター II、IV → グランドマスター I、III・II → V、I → IV、レジェンド V → エピック IV、
+  IV〜I → エピック III、ミシック 0〜24 → エピック II、オナー → エピック I、グローリー以上 → レジェンド V。シーズン報酬はアプリがメールで送る。
+- `POST /v1/rank/<CODE>/get` 本文 `{"key":"…"}` → `{"ok":true,"state":{…}}`（記録が無ければ今のシーズンの初期値を返し、記録は作らない）
 - `POST /v1/rank/<CODE>/seed` 本文 `{"key":"…","state":{…}}`（サーバーに記録が無い時だけ端末の値を取り込む。あれば今の記録を返す）。
-  `tier`・`division`・`stars` は必須で規則の範囲、ほかの数は 0 以上の整数（`starPoints` は 700 未満、`protectionPoints` は 700 まで）。
-  知らない項目と `season` は取り込まない。
+  `tier`・`division`・`stars` は必須で規則の範囲、ほかの数は 0 以上の整数（`starPoints` は 999 まで、`protectionPoints` は 1500 まで。
+  旧版の全ティア 700 共通の値も受け付け、ティアの満タンに収める）。`season` は省けば今のシーズン（旧版のアプリは送らない）、42 より前は 42、
+  先のシーズンは次のシーズンまで（端末の時計が進んでいて、もう下げてある記録）。前のシーズンの記録は下げてから取り込む。知らない項目は取り込まない。
 - `POST /v1/rank/<CODE>/match` 本文 `{"key":"…","match":{"matchId":"…","won":true,"rating":8.2,"mvp":false}}`
   → `{"ok":true,"state":{…},"result":{"before","after","starPointsGain","scoreBonus","activeBonus","protected"}}`。
   `matchId` は 8〜64 文字の英数・`_`・`-`（`__proto__`・`toString` など Object.prototype の名前は不可）、`rating` は 0〜16 に収める。
-  同じ matchId は最初の結果を返す（直近 50 試合。`state` はその時の記録）。
+  同じ matchId は最初の結果を返す（直近 50 試合。`state` はその時の記録）。新しいシーズンの最初の match は、下げてから数える
+  （`result.before` は下げた記録）。
 - `POST /v1/rank/<CODE>/erase` 本文 `{"key":"…"}` → `{"ok":true,"state":{初期値}}`。記録・持ち主の鍵・覚えている matchId をすべて消す
   （アプリは受信箱の消去と一緒に呼ぶ: `FriendHub.eraseServerData`）。運営が利用を止めたコードでも消せる。
 - 誤りは平文: 400 `bad_friend_code` / `bad_key` / `bad_request`（JSON でない・本文 4 KiB 超・`state` / `match` の誤り）、
@@ -217,9 +229,13 @@ RELAY_URL=wss://... npm test         # 任意の中継に流す
 受信箱の消去: 鍵の違いの 403、消去（繋いでいる接続の 4014、以後の接続の 4014、預けない、消し直し）、繋いだことのないコードの `none`、要求の誤りの 400 / 405、
 利用停止のコードの 4013（手元の Worker だけ。`wrangler dev --var SUSPENDED_FRIEND_CODES:…` で渡す）。
 ランク: seed → match → get の往復、get が記録を作らないこと・seed が最初の 1 回だけ取り込むこと、規則（昇格・降格・ティアの境目・ミシック・
-スターポイント・保護ポイント・評価の上限下限）、最高到達が下がらないこと、同じ matchId の二重送信（同時も）と直近 50 試合、持ち主の鍵の 403
-（同時の取り合いも 1 人だけ）、erase、コード・鍵・本文・`match`・`seed` の誤りの 400 / 405 / 404、利用停止のコードの 403（消去はできる）、`rv` を見ないこと。
+ティアごとのスターポイント・保護ポイントの満タン・評価の上限下限）、最高到達が下がらないこと、同じ matchId の二重送信（同時も）と直近 50 試合、持ち主の鍵の 403
+（同時の取り合いも 1 人だけ）、erase、コード・鍵・本文・`match`・`seed` の誤りの 400 / 405 / 404、利用停止のコードの 403（消去はできる）、`rv` を見ないこと、
+応答の `season`、旧版のアプリの seed（`season` なし・全ティア 700 の頃のポイント）を受け付けること。
 試したランクのアカウントは最後に erase する。
+ランクの規則とシーズン（Worker を起こさない）: `src/rank.ts` を wrangler の esbuild で 1 つにまとめて読み込み（`cloudflare:workers` は代役）、
+同じ規則の表を `applyMatch` に流し、時計と保存先を差し替えた `RankAccount` でシーズンの境目・下げ方の表・新しいシーズンの最初の
+get / seed / match で 1 回だけ下げること（二度下げない・先のシーズンを戻さない・旧版の番号）を確かめる。
 部屋コードはテストごとに乱数で作るので、配備済みの中継に何度流しても互いに混ざらない。
 
 Node 22 以上（組み込みの `WebSocket` と `node:test` を使う）。CI（`.github/workflows/relay.yml`）は `relay/**` が変わった時に

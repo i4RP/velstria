@@ -3,10 +3,12 @@ import VelstriaCore
 
 // 担当: ui-flow。ランク戦の試合後の流れ（Mobile Legends と同じ順番）:
 // 1. 勝敗バナー（VICTORY / DEFEAT。タップして進める）は試合内の HUDEndOfMatchView
-// 2. ランク: 左にスターポイント、中央に紋章・星・ティア名・段位、右に保護ポイント（星の増減を演出）→「続ける」
-// 3. 評価: 試合評価（0〜16）とメダル、6 軸のレーダー（タップで進む）
-// 4. スコアボード: 両チーム 5 人の KDA・アイテム・ゴールド・評価。「データ」で従来の詳しいリザルト
+// 2. ランク: 左にスターポイント、中央に紋章・星・ティア名・段位、右に保護ポイント（星の増減を演出）→「シェア」「続ける」
+// 3. 評価: 試合評価（0〜16）とメダル（MatchMedal。MLBB の条件）、6 軸のレーダー（タップで進む）
+// 4. スコアボード: 両チーム 5 人の KDA・アイテム・ゴールド・メダルと評価点。顔を押すと簡単なプレイヤーカード。
+//    「データ」で従来の詳しいリザルト、「クイックチャット」は定型文だけ（味方の AI が返す。通信はしない）
 // 5. 「終了」→「チームを離れてロビーに戻りますか？」→ OK でホーム。「ルームに戻る」はランク戦の準備へ。
+// 「シェア」は今の画面を画像にして共有シートへ（ResultShare。MatchResultView.swift に共用の部品）。
 
 struct RankedResultFlowView: View {
     let outcome: BattleOutcome
@@ -42,6 +44,8 @@ struct RankedResultFlowView: View {
                     .transition(.opacity)
             }
             if confirmsLeave { leaveDialog }
+            // 戦闘の全画面表示ではルートのトーストが隠れるため、ここにも重ねる
+            ToastOverlay()
         }
         .animation(.easeInOut(duration: 0.35), value: step)
         .fullScreenCover(isPresented: $showsDetail) {
@@ -156,7 +160,7 @@ private struct Crystal: View {
     }
 }
 
-/// MLBB 風の平たいボタン。
+/// MLBB 風の平たいボタン。title が空なら記号だけ（呼ぶ側で accessibilityLabel を付ける）。
 struct MLButton: View {
     enum Style { case blue, gold, dark }
     let title: String
@@ -169,7 +173,9 @@ struct MLButton: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 if let symbol { Image(systemName: symbol) }
-                Text(title)
+                if !title.isEmpty {
+                    Text(title).lineLimit(1).minimumScaleFactor(0.7)
+                }
             }
             .font(Theme.heading(14))
             .foregroundStyle(style == .gold ? Color(red: 0.28, green: 0.16, blue: 0.02) : .white)
@@ -202,6 +208,7 @@ private struct RankedStarsStep: View {
     let delta: RankMatchDelta
     let won: Bool
     let onNext: () -> Void
+    @Environment(AppModel.self) private var app
     @State private var shown: RankState?
     @State private var protShown = 0
     @State private var done = false
@@ -235,13 +242,16 @@ private struct RankedStarsStep: View {
                     }
                     .position(x: geo.size.width / 2, y: h * 0.48)
                     HStack {
+                        // 満タンはティアごと（RankService.starPointCap / protectionCap。ミシックにスターポイントは無い）
                         pointsPanel(symbol: "star.fill", tint: Theme.gold, title: L("スターポイント", "Star Points"),
                                     value: r.tier == .mythic ? 0 : (shown == nil ? before.starPoints : after.starPoints),
+                                    cap: RankService.starPointCap(r.tier),
                                     gain: won ? delta.starPointsGain : 0,
                                     lines: [(L("100%達成でスター+1", "100% grants +1 star"), nil)])
                         Spacer()
                         pointsPanel(symbol: "shield.fill", tint: Color(red: 0.95, green: 0.78, blue: 0.35), title: L("保護ポイント", "Protection Points"),
                                     value: protShown,
+                                    cap: RankService.protectionCap(r.tier),
                                     gain: won ? 0 : delta.scoreBonus + delta.activeBonus,
                                     lines: [(L("100%になると、次回敗北時にスター保護が発生する", "At 100%, your next loss won't cost a star"), nil)]
                                         + (won ? [] : [(L("今回のスコアボーナス", "Score bonus"), "+\(delta.scoreBonus)"),
@@ -254,6 +264,14 @@ private struct RankedStarsStep: View {
             }
             if done {
                 HStack(spacing: 14) {
+                    // 今の画面（ランクの星）を画像にして共有シートへ
+                    MLButton(title: L("シェア", "Share"), symbol: "square.and.arrow.up", style: .dark, width: 120) {
+                        FlowFX.tap(app)
+                        if !ResultShare.shareScreen() {
+                            app.showToast(L("共有できませんでした", "Couldn't share"))
+                        }
+                    }
+                    .accessibilityIdentifier("ranked_share")
                     MLButton(title: L("続ける", "Continue"), style: .gold, width: 120, action: onNext)
                         .accessibilityIdentifier("ranked_continue")
                 }
@@ -288,9 +306,12 @@ private struct RankedStarsStep: View {
         .animation(.spring(response: 0.4, dampingFraction: 0.5), value: r.stars)
     }
 
-    private func pointsPanel(symbol: String, tint: Color, title: String, value: Int, gain: Int,
+    /// cap はこのティアの満タン（0 = 無い。ミシックのスターポイント）。
+    private func pointsPanel(symbol: String, tint: Color, title: String, value: Int, cap: Int, gain: Int,
                              lines: [(String, String?)]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let ratio = RankService.progress(value, cap: cap)
+        let amount = cap > 0 ? "\(value)/\(cap)" : "—"
+        return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
                 Image(systemName: symbol)
                     .font(.system(size: 30, weight: .black))
@@ -298,17 +319,17 @@ private struct RankedStarsStep: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title).font(Theme.heading(15)).foregroundStyle(.white)
                     HStack(spacing: 0) {
-                        Text("\(value)/\(RankService.bar)").foregroundStyle(.white)
+                        Text(amount).foregroundStyle(.white)
                         if gain > 0 { Text("+\(gain)").foregroundStyle(Theme.gold) }
                         Spacer()
-                        Text("\(value * 100 / RankService.bar)%").foregroundStyle(.white)
+                        Text("\(Int(ratio * 100))%").foregroundStyle(.white)
                     }
                     .font(Theme.mono(11))
                     GeometryReader { g in
                         ZStack(alignment: .leading) {
                             Rectangle().fill(Color.black.opacity(0.4))
                             Rectangle().fill(Color(red: 1, green: 0.92, blue: 0.45))
-                                .frame(width: g.size.width * CGFloat(min(1, Double(value) / Double(RankService.bar))))
+                                .frame(width: g.size.width * CGFloat(ratio))
                         }
                     }
                     .frame(height: 4)
@@ -354,8 +375,13 @@ private struct RankedEvaluationStep: View {
     @State private var shown = false
 
     private var me: PlayerSummary? { summary.humanPlayer }
+    /// 自分のメダル（評価点・勝敗・チーム内の順位から。MatchMedal）。
+    private var myResult: MatchMedalResult {
+        me.map { MatchMedal.result(for: $0, in: summary) } ?? MatchMedalResult()
+    }
 
     var body: some View {
+        let result = myResult
         ZStack {
             SkyBackdrop()
             HStack(spacing: 18) {
@@ -366,7 +392,15 @@ private struct RankedEvaluationStep: View {
                         Text(titleWord(won))
                             .font(.system(size: 34, weight: .black, design: .serif))
                             .foregroundStyle(LinearGradient(colors: [.white, Color(white: 0.7)], startPoint: .top, endPoint: .bottom))
-                        medal.frame(width: 110, height: 110).padding(.vertical, 6)
+                        MatchMedalView(medal: result.medal, size: 110)
+                            .padding(.vertical, 4)
+                            .accessibilityIdentifier("ranked_medal")
+                        if let medal = result.medal {
+                            Text(medal.name)
+                                .font(Theme.heading(13))
+                                .foregroundStyle(medal.tint)
+                                .shadow(color: .black.opacity(0.5), radius: 2)
+                        }
                         Text(String(format: "%.1f", rating))
                             .font(.system(size: 40, weight: .heavy, design: .rounded))
                             .foregroundStyle(.white)
@@ -389,8 +423,7 @@ private struct RankedEvaluationStep: View {
                                 HStack(spacing: 10) {
                                     HeroPortraitView(heroID: me.heroID, size: 40, showsRole: false, face: true)
                                         .clipShape(Circle())
-                                    GradeBadge(grade: me.grade, size: 24)
-                                    if me.isMVP { MVPBadge(compact: true) }
+                                    MatchMedalView(medal: result.medal, size: 30)
                                     Text(FlowText.kda(me.score.kills, me.score.deaths, me.score.assists))
                                         .font(Theme.mono(13)).foregroundStyle(.white)
                                 }
@@ -408,23 +441,6 @@ private struct RankedEvaluationStep: View {
         .onTapGesture(perform: onNext)
         .onAppear { withAnimation(.easeOut(duration: 0.5)) { shown = true } }
         .accessibilityIdentifier("ranked_evaluation")
-    }
-
-    private var medal: some View {
-        let colors: [Color]
-        switch me?.grade ?? "C" {
-        case "S": colors = [Color(red: 1, green: 0.9, blue: 0.5), Color(red: 0.75, green: 0.5, blue: 0.1)]
-        case "A": colors = [Color(white: 0.95), Color(white: 0.55)]
-        default: colors = [Color(red: 0.95, green: 0.65, blue: 0.45), Color(red: 0.55, green: 0.28, blue: 0.15)]
-        }
-        return ZStack {
-            Circle().fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))
-            Circle().stroke(Color.white.opacity(0.6), lineWidth: 2).padding(6)
-            Image(systemName: me?.isMVP == true ? "crown.fill" : "shield.lefthalf.filled")
-                .font(.system(size: 42, weight: .black))
-                .foregroundStyle(.white.opacity(0.9))
-        }
-        .shadow(color: colors[0].opacity(0.6), radius: 10)
     }
 
     private var profileLine: some View {
@@ -515,25 +531,39 @@ private struct RankedScoreboardStep: View {
     let onRoom: () -> Void
     @Environment(AppModel.self) private var app
     @State private var liked: Set<EntityID> = []
+    /// 顔を押したプレイヤー（簡単なプレイヤーカード）。
+    @State private var cardPlayer: PlayerSummary?
+    /// クイックチャットの定型文のメニューを開いている。
+    @State private var choosesChat = false
+    @State private var chat = ResultChatLog()
 
     private var myTeam: Team { summary.humanTeam ?? .blue }
     private var enemyTeam: Team { myTeam == .blue ? .red : .blue }
 
     var body: some View {
+        let medals = MatchMedal.results(in: summary)
         ZStack {
             SkyBackdrop()
             Color(red: 0.04, green: 0.10, blue: 0.28).opacity(0.6).ignoresSafeArea()
             VStack(spacing: 0) {
                 header
                 HStack(spacing: 4) {
-                    column(myTeam, mirrored: false)
-                    column(enemyTeam, mirrored: true)
+                    column(myTeam, mirrored: false, medals: medals)
+                    column(enemyTeam, mirrored: true, medals: medals)
                 }
                 .padding(.horizontal, 6)
                 Spacer(minLength: 4)
                 footer
             }
             .padding(.vertical, 6)
+            // クイックチャットの吹き出し（下のボタン列の上）
+            ResultChatFeed(log: chat)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                .padding(.leading, 24)
+                .padding(.bottom, 50)
+        }
+        .sheet(item: $cardPlayer) { p in
+            ResultPlayerCard(player: p, summary: summary, showsLocalProfile: p.isHuman).environment(app)
         }
     }
 
@@ -556,7 +586,7 @@ private struct RankedScoreboardStep: View {
         }
     }
 
-    private func column(_ team: Team, mirrored: Bool) -> some View {
+    private func column(_ team: Team, mirrored: Bool, medals: [EntityID: MatchMedalResult]) -> some View {
         let tint = team == myTeam ? Color(red: 0.20, green: 0.50, blue: 0.95) : Color(red: 0.90, green: 0.25, blue: 0.35)
         return VStack(spacing: 2) {
             HStack(spacing: 14) {
@@ -573,14 +603,14 @@ private struct RankedScoreboardStep: View {
             .background(LinearGradient(colors: [tint.opacity(0.9), tint.opacity(0.3)], startPoint: mirrored ? .trailing : .leading,
                                        endPoint: mirrored ? .leading : .trailing))
             ForEach(summary.players.filter { $0.team == team }.sorted { $0.mvpScore > $1.mvpScore }) { p in
-                row(p, mirrored: mirrored)
+                row(p, mirrored: mirrored, result: medals[p.entityID] ?? MatchMedalResult())
             }
         }
     }
 
-    private func row(_ p: PlayerSummary, mirrored: Bool) -> some View {
-        let rating = RankService.matchRating(p, in: summary)
+    private func row(_ p: PlayerSummary, mirrored: Bool, result: MatchMedalResult) -> some View {
         let s = p.score
+        let name = PlayerNameRules.shown(p.displayName)
         let likeButtons = HStack(spacing: 6) {
             if !p.isHuman {
                 Button { liked.insert(p.entityID); FlowFX.tap(app) } label: {
@@ -595,7 +625,7 @@ private struct RankedScoreboardStep: View {
         }
         let info = VStack(alignment: mirrored ? .trailing : .leading, spacing: 3) {
             HStack(spacing: 8) {
-                Text(PlayerNameRules.shown(p.displayName)).font(Theme.heading(12))
+                Text(name).font(Theme.heading(12))
                     .foregroundStyle(p.isHuman ? Theme.gold : .white).lineLimit(1)
                 Spacer(minLength: 2)
                 Text("\(s.kills)  \(s.deaths)  \(s.assists)").font(Theme.mono(11)).foregroundStyle(.white)
@@ -608,20 +638,24 @@ private struct RankedScoreboardStep: View {
             }
         }
         let medal = VStack(spacing: 0) {
-            if p.isMVP {
-                Text("MVP").font(.system(size: 10, weight: .black)).foregroundStyle(Color(red: 0.4, green: 0.2, blue: 0))
-                    .padding(.horizontal, 5).background(Theme.gold)
-            } else {
-                GradeBadge(grade: p.grade, size: 20)
-            }
-            Text(String(format: "%.1f", rating)).font(Theme.mono(12)).foregroundStyle(.white)
+            MatchMedalView(medal: result.medal, size: 22)
+            Text(result.ratingText).font(Theme.mono(11)).foregroundStyle(.white)
         }
         .frame(width: 40)
-        let face = HeroPortraitView(heroID: p.heroID, size: 36, showsRole: false, face: true)
-            .clipShape(Circle())
-            .overlay(alignment: .bottomTrailing) {
-                Text("\(p.level)").font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
-            }
+        // 顔を押すと簡単なプレイヤーカード（第3段で名刺に置き換える）
+        let face = Button {
+            FlowFX.tap(app)
+            cardPlayer = p
+        } label: {
+            HeroPortraitView(heroID: p.heroID, size: 36, showsRole: false, face: true)
+                .clipShape(Circle())
+                .overlay(alignment: .bottomTrailing) {
+                    Text("\(p.level)").font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(L("\(name) のプレイヤー情報", "Player info: \(name)"))
+        .accessibilityIdentifier("ranked_player_\(p.entityID)")
         return HStack(spacing: 6) {
             if mirrored {
                 medal; info; face; likeButtons
@@ -645,19 +679,39 @@ private struct RankedScoreboardStep: View {
     }
 
     private var footer: some View {
+        ViewThatFits(in: .horizontal) {
+            footerRow(compact: false)
+            footerRow(compact: true)
+        }
+        .padding(.horizontal, 20)
+        // 定型文のメニューは行全体に付ける（ViewThatFits の候補ごとに付けると、同じ状態で重ねて開こうとする）
+        .resultQuickChatMenu(isPresented: $choosesChat, idPrefix: "ranked_quickchat") { phrase in
+            FlowFX.tap(app)
+            chat.send(phrase, in: summary)
+        }
+    }
+
+    /// 下のボタン列。compact は SE などの狭い画面向け（クイックチャットを記号だけにして幅を詰める）。
+    private func footerRow(compact: Bool) -> some View {
         HStack(spacing: 10) {
-            MLButton(title: L("データ", "Data"), symbol: "list.bullet", style: .blue, width: 130, action: onData)
+            MLButton(title: L("データ", "Data"), symbol: "list.bullet", style: .blue, width: compact ? 110 : 130, action: onData)
                 .accessibilityIdentifier("ranked_data")
-            MLButton(title: L("一括いいね", "Like All"), symbol: "hand.thumbsup.fill", style: .dark, width: 150) {
+            MLButton(title: compact ? "" : L("クイックチャット", "Quick Chat"), symbol: "bubble.left.fill", style: .dark,
+                     width: compact ? 48 : 150) {
+                FlowFX.tap(app)
+                choosesChat = true
+            }
+            .accessibilityLabel(L("クイックチャット", "Quick Chat"))
+            .accessibilityIdentifier("ranked_quickchat")
+            MLButton(title: L("一括いいね", "Like All"), symbol: "hand.thumbsup.fill", style: .dark, width: compact ? 130 : 150) {
                 FlowFX.tap(app)
                 liked = Set(summary.players.filter { !$0.isHuman }.map(\.entityID))
             }
             Spacer()
-            MLButton(title: L("終了", "Exit"), style: .blue, width: 140, action: onLeave)
+            MLButton(title: L("終了", "Exit"), style: .blue, width: compact ? 120 : 140, action: onLeave)
                 .accessibilityIdentifier("ranked_exit")
-            MLButton(title: L("ルームに戻る", "Back to Room"), style: .gold, width: 150, action: onRoom)
+            MLButton(title: L("ルームに戻る", "Back to Room"), style: .gold, width: compact ? 140 : 150, action: onRoom)
                 .accessibilityIdentifier("ranked_room")
         }
-        .padding(.horizontal, 20)
     }
 }

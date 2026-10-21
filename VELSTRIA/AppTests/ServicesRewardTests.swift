@@ -218,11 +218,11 @@ final class ServicesRewardTests: XCTestCase {
         var p = Profile()
         let r = apply(ServicesFixtures.outcome(mode: .ranked, won: true, countsForRank: true), &p)
         XCTAssertEqual(r.rankBefore?.stars, 0)
-        XCTAssertEqual(r.rankAfter?.stars, 1)
+        XCTAssertEqual(r.rankAfter?.stars, 2)
         XCTAssertEqual(p.rank.seasonWins, 1)
         let loss = apply(ServicesFixtures.outcome(mode: .ranked, won: false, countsForRank: true), &p)
         // ウォリアーは負けても星が減らない（Mobile Legends と同じ）
-        XCTAssertEqual(loss.rankAfter?.stars, 1)
+        XCTAssertEqual(loss.rankAfter?.stars, 2)
         XCTAssertEqual(p.rank.seasonLosses, 1)
         // 通常戦はランクに影響しない
         _ = apply(ServicesFixtures.outcome(mode: .standard, won: true), &p)

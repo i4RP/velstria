@@ -172,7 +172,7 @@ enum RankTier: Int, Codable, CaseIterable, Comparable, Identifiable {
     static func < (a: RankTier, b: RankTier) -> Bool { a.rawValue < b.rawValue }
 }
 
-/// ランク（Mobile Legends と同じ規則。RankService）。正はクラウド（relay の RankAccount）で、これは端末の写し。
+/// ランク（Mobile Legends と同じ規則。RankService・SeasonService）。正はクラウド（relay の RankAccount）で、これは端末の写し。
 struct RankState: Codable, Equatable {
     var tier: RankTier = .warrior
     /// 段位（大きいほど下。ウォリアー/エリートは 3〜1、マスターは 4〜1、それ以上は 5〜1）。ミシックは常に 1。
@@ -181,16 +181,26 @@ struct RankState: Codable, Equatable {
     var stars: Int = 0
     /// 旧版の名残（使わない）。
     var points: Int = 0
+    /// 最高到達のティア（シーズンをまたいで下がらない。到達報酬・実績の基準）。
     var highestTier: RankTier = .warrior
+    /// このシーズンの勝ち数・負け数（新しいシーズンで 0）。
     var seasonWins: Int = 0
     var seasonLosses: Int = 0
     /// 受け取り済みのランク報酬（tier rawValue）。
     var claimedTierRewards: [Int] = []
-    /// スターポイント（勝利でたまる。700 で星 +1）。
+    /// スターポイント（勝利でたまる。ティアの満タン RankService.starPointCap で星 +1。ミシックには無い）。
     var starPoints: Int = 0
-    /// 保護ポイント（敗北でたまる。700 で次の敗北の星を守る）。
+    /// 保護ポイント（敗北でたまる。ティアの満タン RankService.protectionCap で次の敗北の星を守る）。
     var protectionPoints: Int = 0
     var highestMythicStars: Int = 0
+    /// シーズン（MLBB と同じ番号。SeasonService）。新しい記録は今のシーズン、旧版のデータ（項目なし）は最初のシーズン（S42）。
+    var season: Int = SeasonService.season(at: Date())
+    /// このシーズンの最高ティア（シーズン報酬の基準。新しいシーズンで下げた後のティアから）。
+    var seasonHighestTier: RankTier = .warrior
+    /// シーズン報酬のメールを送った最後のシーズン（同じシーズンを二度送らない）。
+    var rewardedSeason: Int = 0
+    /// 終わったシーズンで、報酬のメールをまだ送っていないもの（SeasonService.deliverRewards が送って消す）。
+    var endedSeasons: [SeasonRecord] = []
 
     init(tier: RankTier = .warrior, division: Int = 3, stars: Int = 0, points: Int = 0) {
         self.tier = tier
@@ -198,11 +208,13 @@ struct RankState: Codable, Equatable {
         self.stars = stars
         self.points = points
         self.highestTier = tier
+        self.seasonHighestTier = tier
     }
 
     private enum CodingKeys: String, CodingKey {
         case tier, division, stars, points, highestTier, seasonWins, seasonLosses, claimedTierRewards
         case starPoints, protectionPoints, highestMythicStars
+        case season, seasonHighestTier, rewardedSeason, endedSeasons
     }
 
     init(from decoder: Decoder) throws {
@@ -218,9 +230,17 @@ struct RankState: Codable, Equatable {
         starPoints = try c.decodeIfPresent(Int.self, forKey: .starPoints) ?? 0
         protectionPoints = try c.decodeIfPresent(Int.self, forKey: .protectionPoints) ?? 0
         highestMythicStars = try c.decodeIfPresent(Int.self, forKey: .highestMythicStars) ?? 0
+        // シーズン制の前のデータは S42（最初のシーズン。それまでの最高到達がこのシーズンの最高）
+        let savedSeason = try c.decodeIfPresent(Int.self, forKey: .season) ?? SeasonService.firstSeason
+        season = max(SeasonService.firstSeason, savedSeason)
+        seasonHighestTier = try c.decodeIfPresent(RankTier.self, forKey: .seasonHighestTier) ?? highestTier
+        rewardedSeason = try c.decodeIfPresent(Int.self, forKey: .rewardedSeason) ?? 0
+        endedSeasons = try c.decodeIfPresent([SeasonRecord].self, forKey: .endedSeasons) ?? []
         // 旧規則（全ティア III〜I・星 3）からの読み替え: 段位・星を新しい形の範囲に収める
         division = min(max(1, division), RankService.divisions(tier))
         if tier != .mythic { stars = min(max(0, stars), RankService.maxStars(tier)) }
+        // 旧規則（ポイントの満タンが全ティア 700）からの読み替え: ティアの満タンに収める
+        RankService.fitPoints(&self)
     }
 }
 

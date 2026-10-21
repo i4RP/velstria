@@ -6,6 +6,10 @@ import VelstriaCore
 // - 「リプレイを見る」: この試合の記録（outcome.replay）をメモリからそのまま再生（保存の有無に関係なく見られる）。
 // - リプレイの再生後は「もう一度再生」。AI 同士の観戦の後は「同じシードで観戦」「次の観戦」（同じマップ・難易度・新しいシード）。
 // - 報酬タブ: 観戦・リプレイは報酬なし。リプレイの保存・観戦の記録・観戦の実績（Gem なし）だけを出す。
+// 評価は MLBB のメダル（MatchMedal。評価点から決まる）。文字の評価（S/A/B/C）は出さない。
+// 「シェア」は今の画面を画像にして共有シートへ（ResultShare）。「クイックチャット」は定型文だけ（自由入力なし）で、
+// オフラインの AI 戦では吹き出しを出し、味方の AI が返す（通信はしない。オンラインは別の担当）。
+// 成績表の顔を押すと簡単なプレイヤーカード（ResultPlayerCard。第3段で名刺に置き換える）。
 
 /// UI032 リザルト（+ UI033 評価 / UI034 通報シート）。閉じるで onClose。
 struct MatchResultView: View {
@@ -23,8 +27,16 @@ struct MatchResultView: View {
     /// オンライン対戦: 通報の種類（不具合 / プレイヤー）を選ぶ。
     @State private var choosesReport = false
     @State private var moderation = ModerationPrompt()
+    /// 成績表で顔を押したプレイヤー（簡単なプレイヤーカード）。
+    @State private var cardPlayer: PlayerSummary?
+    /// クイックチャットの定型文のメニューを開いている。
+    @State private var choosesChat = false
+    @State private var chat = ResultChatLog()
 
     private var summary: MatchSummary { outcome.summary }
+
+    /// 全員の評価点とメダル。
+    private var medals: [EntityID: MatchMedalResult] { MatchMedal.results(in: summary) }
 
     /// オンライン対戦の相手（自分以外の人間）。通報・ブロックの対象（ガイドライン 1.2）。
     /// プレイヤー ID・フレンドコードは、試合を始めた時に控えた座席の参加者（BattleLaunch.onlineSeatPlayers）から座席で引く。
@@ -46,9 +58,27 @@ struct MatchResultView: View {
         }
     }
 
-    /// 左パネルに出す選手（人間。観戦では試合 MVP）。
+    /// 左パネルに出す選手（人間。観戦では勝ったチームの MVP のメダル、勝敗が無ければ試合 MVP）。
     private var focus: PlayerSummary? {
-        summary.humanPlayer ?? summary.players.first { $0.isMVP } ?? summary.players.max { $0.mvpScore < $1.mvpScore }
+        if let human = summary.humanPlayer { return human }
+        let results = medals
+        return summary.players.first { results[$0.entityID]?.medal?.isWinnerMVP == true }
+            ?? summary.players.first { $0.isMVP } ?? summary.players.max { $0.mvpScore < $1.mvpScore }
+    }
+
+    /// クイックチャット: オフラインの AI 戦に自分が出た試合だけ（観戦・リプレイ・練習場は相手がいない。オンラインは別の担当）。
+    private var canQuickChat: Bool {
+        let launch = outcome.launch
+        guard launch.replay == nil, !launch.isOnline, !launch.isSpectating, summary.humanPlayer != nil else { return false }
+        switch launch.config.mode {
+        case .practice, .tutorial, .magicChess: return false
+        default: return true
+        }
+    }
+
+    /// プレイヤーカードにランクを出すか（この端末の人。オンライン・リプレイは座席と人が結び付かないので出さない）。
+    private func isLocalPlayer(_ p: PlayerSummary) -> Bool {
+        p.isHuman && !outcome.launch.isOnline && outcome.launch.replay == nil
     }
 
     private var bannerKind: ResultBanner.Kind {
@@ -148,7 +178,8 @@ struct MatchResultView: View {
                 HStack(alignment: .top, spacing: 12) {
                     if let focus {
                         // 「試合 MVP」の見出しは人間がいない観戦（MVP を表示している時）だけ。リプレイは人間の成績を出す
-                        FocusPanel(player: focus, showsMatchMVPCaption: summary.humanPlayer == nil, appeared: bannerIn)
+                        FocusPanel(player: focus, result: medals[focus.entityID] ?? MatchMedalResult(),
+                                   showsMatchMVPCaption: summary.humanPlayer == nil, appeared: bannerIn)
                             .frame(width: 204)
                     }
                     VStack(spacing: 6) {
@@ -164,7 +195,11 @@ struct MatchResultView: View {
                         ScrollView {
                             Group {
                                 switch tab {
-                                case .result: MatchScoreTable(summary: summary)
+                                case .result:
+                                    MatchScoreTable(summary: summary) { p in
+                                        FlowFX.tap(app)
+                                        cardPlayer = p
+                                    }
                                 case .evaluation: EvaluationTab(player: focus, summary: summary)
                                 case .rewards: RewardsTab(report: report, outcome: outcome)
                                 }
@@ -181,12 +216,20 @@ struct MatchResultView: View {
             .moderationPrompts(moderation)
             .padding(.horizontal, 16)
             .padding(.vertical, 6)
+            // クイックチャットの吹き出し（下のボタン列の上）
+            ResultChatFeed(log: chat)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                .padding(.leading, 20)
+                .padding(.bottom, 60)
             // 戦闘の全画面表示ではルートのトーストが隠れるため、ここにも重ねる
             ToastOverlay()
         }
         .persistentSystemOverlays(.hidden)
         .sheet(isPresented: $showReport) {
             MatchReportSheet(outcome: outcome).environment(app)
+        }
+        .sheet(item: $cardPlayer) { p in
+            ResultPlayerCard(player: p, summary: summary, showsLocalProfile: isLocalPlayer(p)).environment(app)
         }
         .onAppear {
             if outcome.launch.config.mode == .tutorial && outcome.launch.replay == nil && !app.profile.tutorialCompleted {
@@ -237,12 +280,13 @@ struct MatchResultView: View {
 
     private var dot: some View { Text("·").foregroundStyle(Theme.textSecondary.opacity(0.6)) }
 
-    /// 下段のボタン。幅が足りなければ通報 → 続きの操作の順にアイコンだけにする（SE でも 1 行に収める）。
+    /// 下段のボタン。幅が足りなければ通報・シェア → クイックチャット → 続きの操作の順にアイコンだけにする（SE でも 1 行に収める）。
     private var buttons: some View {
         ViewThatFits(in: .horizontal) {
-            buttonRow(compactReport: false, compact: false)
-            buttonRow(compactReport: true, compact: false)
-            buttonRow(compactReport: true, compact: true)
+            buttonRow(compactTools: false, compactChat: false, compact: false)
+            buttonRow(compactTools: true, compactChat: false, compact: false)
+            buttonRow(compactTools: true, compactChat: true, compact: false)
+            buttonRow(compactTools: true, compactChat: true, compact: true)
         }
         // オンライン対戦: 不具合の報告か、相手プレイヤーの通報（ブロックも）を選ぶ
         .confirmationDialog(L("通報・不具合報告", "Report"), isPresented: $choosesReport, titleVisibility: .visible) {
@@ -254,9 +298,14 @@ struct MatchResultView: View {
             }
             Button(L("キャンセル", "Cancel"), role: .cancel) {}
         }
+        // 定型文のメニューは行全体に付ける（ViewThatFits の候補ごとに付けると、同じ状態で重ねて開こうとする）
+        .resultQuickChatMenu(isPresented: $choosesChat, idPrefix: "result_quickchat") { phrase in
+            FlowFX.tap(app)
+            chat.send(phrase, in: summary)
+        }
     }
 
-    private func buttonRow(compactReport: Bool, compact: Bool) -> some View {
+    private func buttonRow(compactTools: Bool, compactChat: Bool, compact: Bool) -> some View {
         HStack(spacing: compact ? 8 : 10) {
             Button {
                 FlowFX.tap(app)
@@ -266,7 +315,7 @@ struct MatchResultView: View {
                     choosesReport = true
                 }
             } label: {
-                if compactReport {
+                if compactTools {
                     Image(systemName: "exclamationmark.bubble.fill").frame(minWidth: 20)
                 } else {
                     Label(L("通報・不具合報告", "Report"), systemImage: "exclamationmark.bubble.fill")
@@ -276,6 +325,35 @@ struct MatchResultView: View {
             .frame(minHeight: 44)
             .accessibilityLabel(L("通報・不具合報告", "Report"))
             .accessibilityIdentifier("result_report")
+            Button(action: share) {
+                if compactTools {
+                    Image(systemName: "square.and.arrow.up").frame(minWidth: 20)
+                } else {
+                    Label(L("シェア", "Share"), systemImage: "square.and.arrow.up")
+                }
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .frame(minHeight: 44)
+            .disabled(closing)
+            .accessibilityLabel(L("シェア", "Share"))
+            .accessibilityIdentifier("result_share")
+            if canQuickChat {
+                Button {
+                    FlowFX.tap(app)
+                    choosesChat = true
+                } label: {
+                    if compactChat {
+                        Image(systemName: "bubble.left.fill").frame(minWidth: 20)
+                    } else {
+                        Label(L("クイックチャット", "Quick Chat"), systemImage: "bubble.left.fill").lineLimit(1)
+                    }
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .frame(minHeight: 44)
+                .disabled(closing)
+                .accessibilityLabel(L("クイックチャット", "Quick Chat"))
+                .accessibilityIdentifier("result_quickchat")
+            }
             Spacer(minLength: 4)
             ForEach(followUps, id: \.self) { action in
                 let label = followUpLabel(action)
@@ -318,6 +396,14 @@ struct MatchResultView: View {
         FlowFX.confirm(app)
         app.audio.playMusic(.menu)
         onClose()
+    }
+
+    /// 今の画面を画像にして共有シートを開く。
+    private func share() {
+        FlowFX.tap(app)
+        if !ResultShare.shareScreen() {
+            app.showToast(L("共有できませんでした", "Couldn't share"))
+        }
     }
 
     /// 閉じた後、少し待ってから次の戦闘（リプレイ・観戦）を開く（全画面表示が閉じ終わってから。playAgain と同じ流れ）。
@@ -439,6 +525,8 @@ struct ResultBanner: View {
 
 private struct FocusPanel: View {
     let player: PlayerSummary
+    /// 評価点とメダル。
+    let result: MatchMedalResult
     /// 人間のいない観戦で MVP を表示している（「試合 MVP」の見出しを出す）。
     let showsMatchMVPCaption: Bool
     let appeared: Bool
@@ -451,12 +539,16 @@ private struct FocusPanel: View {
                 HStack(spacing: 10) {
                     ZStack(alignment: .bottomTrailing) {
                         HeroPortraitView(heroID: player.heroID, size: 62, showsRole: false)
-                            .glowPulse(Theme.gold.opacity(player.isMVP ? 1 : 0.4), radius: 12)
-                        GradeBadge(grade: player.grade, size: 30)
-                            .offset(x: 10, y: 8)
-                            .scaleEffect(appeared ? 1 : 2.5)
-                            .opacity(appeared ? 1 : 0)
-                            .animation(.spring(duration: 0.6, bounce: 0.45).delay(0.5), value: appeared)
+                            .glowPulse(Theme.gold.opacity(result.medal?.isMVP == true ? 1 : 0.4), radius: 12)
+                        // メダルを出さないモード（練習場など。評価点も無い）では何も重ねない
+                        if result.rating != nil {
+                            MatchMedalView(medal: result.medal, size: 36)
+                                .offset(x: 12, y: 10)
+                                .scaleEffect(appeared ? 1 : 2.5)
+                                .opacity(appeared ? 1 : 0)
+                                .animation(.spring(duration: 0.6, bounce: 0.45).delay(0.5), value: appeared)
+                                .accessibilityIdentifier("result_medal")
+                        }
                     }
                     VStack(alignment: .leading, spacing: 3) {
                         if showsMatchMVPCaption {
@@ -472,7 +564,13 @@ private struct FocusPanel: View {
                             .foregroundStyle(Theme.textSecondary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
-                        if player.isMVP { MVPBadge() }
+                        if let medal = result.medal {
+                            Text(medal.name)
+                                .font(Theme.heading(11))
+                                .foregroundStyle(medal.tint)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                        }
                     }
                     Spacer(minLength: 0)
                 }
@@ -491,6 +589,7 @@ private struct FocusPanel: View {
                 }
                 .accessibilityElement(children: .combine)
                 VStack(spacing: 4) {
+                    statRow(L("評価", "Rating"), result.ratingText)
                     statRow("Lv", "\(player.level)")
                     statRow("CS", "\(s.creepScore)")
                     statRow(L("ゴールド", "Gold"), FlowText.compactNumber(s.goldEarned))
@@ -566,7 +665,7 @@ private struct EvaluationTab: View {
 
                 VStack(alignment: .leading, spacing: 10) {
                     teamRanking(player)
-                    gradeLegend(player)
+                    medalLegend
                     advice(player)
                 }
                 .frame(maxWidth: .infinity)
@@ -576,12 +675,14 @@ private struct EvaluationTab: View {
         }
     }
 
+    /// チーム内の順位（MVP スコア順。同点は ID 順）と評価点・メダル。
     private func teamRanking(_ player: PlayerSummary) -> some View {
-        let team = summary.players.filter { $0.team == player.team }.sorted { $0.mvpScore == $1.mvpScore ? $0.entityID < $1.entityID : $0.mvpScore > $1.mvpScore }
-        let maxScore = max(1, team.map(\.mvpScore).max() ?? 1)
+        let team = summary.players(of: player.team)
+        let results = MatchMedal.results(in: summary)
         return VStack(alignment: .leading, spacing: 5) {
             SectionTitle(title: L("チーム内順位", "Team Ranking"), symbol: "list.number")
             ForEach(Array(team.enumerated()), id: \.element.id) { i, p in
+                let r = results[p.entityID] ?? MatchMedalResult()
                 HStack(spacing: 6) {
                     Text("\(i + 1)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary).frame(width: 14)
                     HeroPortraitView(heroID: p.heroID, size: 22, showsRole: false)
@@ -590,44 +691,56 @@ private struct EvaluationTab: View {
                             Capsule().fill(Color.white.opacity(0.08))
                             Capsule()
                                 .fill(p.id == player.id ? Theme.gold : Theme.cyan.opacity(0.7))
-                                .frame(width: max(4, geo.size.width * CGFloat(max(0, p.mvpScore) / maxScore)))
+                                .frame(width: max(4, geo.size.width * CGFloat(min(1, max(0, (r.rating ?? 0) / 16)))))
                         }
                     }
                     .frame(height: 8)
-                    Text(String(format: "%.1f", p.mvpScore)).font(Theme.mono(10)).foregroundStyle(Theme.textPrimary).frame(width: 36, alignment: .trailing)
-                    GradeBadge(grade: p.grade, size: 18)
+                    Text(r.ratingText).font(Theme.mono(10)).foregroundStyle(Theme.textPrimary).frame(width: 36, alignment: .trailing)
+                    if r.rating != nil {
+                        MatchMedalView(medal: r.medal, size: 22)
+                    } else {
+                        Color.clear.frame(width: 22, height: 22)
+                    }
                 }
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(i + 1). \(PlayerNameRules.shown(p.displayName)) \(String(format: "%.1f", p.mvpScore)) \(p.grade)")
+                .accessibilityLabel("\(i + 1). \(PlayerNameRules.shown(p.displayName)) \(L("評価", "rating")) \(r.ratingText) \(r.medal?.name ?? "")")
             }
         }
         .padding(10)
         .glass(cornerRadius: 14)
     }
 
-    private func gradeLegend(_ player: PlayerSummary) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            SectionTitle(title: L("評価の決まり方", "How Grades Work"), symbol: "questionmark.circle")
-            Text(L("評価はチーム内の MVP スコア順位と KDA から決まります。", "Grades come from your MVP score rank within your team and your KDA."))
+    /// メダルの決まり方（MLBB の条件）。
+    private var medalLegend: some View {
+        let loss = MatchMedal.text(MatchMedal.Threshold.mvpLoss)
+        return VStack(alignment: .leading, spacing: 5) {
+            SectionTitle(title: L("メダルの決まり方", "How Medals Work"), symbol: "questionmark.circle")
+            Text(L("試合の評価点（0〜16）でメダルが決まります。チームで評価点がいちばん高いプレイヤーは MVP（負けたチームは \(loss) 以上で敗北 MVP）です。",
+                   "Your match rating (0–16) decides the medal. The top-rated player on the winning team is MVP; on the losing team, MVP Loss needs \(loss)+."))
                 .font(Theme.body(11))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 8) {
-                legend("S", L("最高の活躍", "Outstanding"))
-                legend("A", L("優秀", "Great"))
-                legend("B", L("標準", "Solid"))
-                legend("C", L("伸びしろ", "Room to grow"))
+            ForEach(MatchMedal.allCases, id: \.self) { m in
+                HStack(spacing: 6) {
+                    MatchMedalView(medal: m, size: 22)
+                    Text(m.name)
+                        .font(Theme.heading(11))
+                        .foregroundStyle(m.tint)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(width: 96, alignment: .leading)
+                    Text(m.condition)
+                        .font(Theme.body(10))
+                        .foregroundStyle(Theme.textSecondary)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.7)
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(m.name)、\(m.condition)")
             }
         }
         .padding(10)
         .glass(cornerRadius: 14)
-    }
-
-    private func legend(_ g: String, _ text: String) -> some View {
-        HStack(spacing: 3) {
-            GradeBadge(grade: g, size: 18)
-            Text(text).font(Theme.body(10)).foregroundStyle(Theme.textSecondary).lineLimit(1).minimumScaleFactor(0.7)
-        }
     }
 
     private func advice(_ player: PlayerSummary) -> some View {
@@ -924,6 +1037,283 @@ private struct RewardsTab: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - シェア・クイックチャット・プレイヤーカード（ランク戦のリザルトと共用）
+
+/// 「シェア」: 今の画面をそのまま画像にして共有シート（UIActivityViewController）を開く（MLBB のリザルトのシェア）。
+@MainActor
+enum ResultShare {
+    /// 共有シートを開けたか（画面の窓が見つからなければ false）。
+    static func shareScreen() -> Bool {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        guard let window = scenes.flatMap(\.windows).first(where: \.isKeyWindow),
+              var top = window.rootViewController else { return false }
+        let bounds = window.bounds
+        let image = UIGraphicsImageRenderer(bounds: bounds).image { _ in
+            _ = window.drawHierarchy(in: bounds, afterScreenUpdates: false)
+        }
+        while let presented = top.presentedViewController, !presented.isBeingDismissed { top = presented }
+        let sheet = UIActivityViewController(activityItems: [image], applicationActivities: nil)
+        sheet.popoverPresentationController?.sourceView = top.view
+        sheet.popoverPresentationController?.sourceRect = CGRect(x: top.view.bounds.midX, y: top.view.bounds.midY, width: 1, height: 1)
+        top.present(sheet, animated: true)
+        return true
+    }
+}
+
+/// リザルトのクイックチャットの定型文（自由入力は無い。MLBB 日本語版の文言は未確認）。
+enum ResultQuickChat: String, CaseIterable, Identifiable {
+    case niceGame, wellPlayed, thanks, oneMore
+
+    var id: String { rawValue }
+
+    var text: String {
+        switch self {
+        case .niceGame: return L("ナイスゲーム！", "Nice game!")
+        case .wellPlayed: return L("よくやった！", "Well played!")
+        case .thanks: return L("ありがとう！", "Thank you!")
+        case .oneMore: return L("もう一戦やろう！", "One more game!")
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .niceGame: return "hand.thumbsup.fill"
+        case .wellPlayed: return "star.fill"
+        case .thanks: return "heart.fill"
+        case .oneMore: return "arrow.counterclockwise"
+        }
+    }
+
+    /// オフラインの AI 戦で味方の AI が返す定型文。
+    var reply: String {
+        switch self {
+        case .niceGame, .thanks: return "GG!"
+        case .wellPlayed: return L("ありがとう！", "Thanks!")
+        case .oneMore: return L("いいね！", "Sure!")
+        }
+    }
+}
+
+/// クイックチャットの吹き出し（自分の定型文と、味方の AI の返事）。数秒で消える。端末の中だけで、通信はしない。
+@Observable
+@MainActor
+final class ResultChatLog {
+    struct Line: Identifiable, Equatable {
+        let id: Int
+        let sender: String
+        let text: String
+        let mine: Bool
+    }
+
+    /// 出ている吹き出し（古い順。最大 4 つ）。
+    private(set) var lines: [Line] = []
+    @ObservationIgnored private var nextID = 0
+    /// 送った回数（返事をする味方を順に回す）。
+    @ObservationIgnored private var sent = 0
+
+    /// 定型文を送る。自分の吹き出しを出し、味方に AI がいれば少し後にその AI の返事を出す。
+    func send(_ phrase: ResultQuickChat, in summary: MatchSummary) {
+        let me = summary.humanPlayer
+        post(sender: me.map { PlayerNameRules.shown($0.displayName) } ?? L("あなた", "You"), text: phrase.text, mine: true)
+        let mates = summary.players.filter { $0.team == me?.team && !$0.isHuman }.sorted { $0.entityID < $1.entityID }
+        guard !mates.isEmpty else { return }
+        let replier = PlayerNameRules.shown(mates[sent % mates.count].displayName)
+        sent += 1
+        let reply = phrase.reply
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(900))
+            self?.post(sender: replier, text: reply, mine: false)
+        }
+    }
+
+    private func post(sender: String, text: String, mine: Bool) {
+        nextID += 1
+        let line = Line(id: nextID, sender: sender, text: text, mine: mine)
+        withAnimation(.spring(duration: 0.3)) {
+            lines.append(line)
+            if lines.count > 4 { lines.removeFirst(lines.count - 4) }
+        }
+        let id = line.id
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(5))
+            self?.remove(id)
+        }
+    }
+
+    private func remove(_ id: Int) {
+        withAnimation(.easeOut(duration: 0.3)) {
+            lines.removeAll { $0.id == id }
+        }
+    }
+}
+
+/// クイックチャットの吹き出しの列（画面の左下。押せない）。
+struct ResultChatFeed: View {
+    let log: ResultChatLog
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(log.lines) { line in
+                HStack(spacing: 6) {
+                    Text(line.sender)
+                        .font(Theme.heading(11))
+                        .foregroundStyle(line.mine ? Theme.gold : Celestial.ice)
+                        .lineLimit(1)
+                    Text(line.text)
+                        .font(Theme.body(12))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(HomeChamfer(cut: 5).fill(Celestial.ink.opacity(0.88)))
+                .overlay(HomeChamfer(cut: 5).stroke((line.mine ? Theme.gold : Celestial.ice).opacity(0.55), lineWidth: 0.7))
+                .transition(.move(edge: .leading).combined(with: .opacity))
+                .accessibilityElement(children: .combine)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// クイックチャットの定型文のメニュー（小さなポップオーバーの中身）。
+struct ResultQuickChatMenu: View {
+    /// 各定型文のボタンの accessibilityIdentifier の頭（"<idPrefix>_<rawValue>"）。
+    let idPrefix: String
+    let onSelect: (ResultQuickChat) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(L("クイックチャット", "Quick Chat"))
+                .font(Celestial.heading(13))
+                .foregroundStyle(Theme.textSecondary)
+                .padding(.horizontal, 14)
+                .padding(.top, 10)
+                .accessibilityAddTraits(.isHeader)
+            ForEach(ResultQuickChat.allCases) { phrase in
+                Button {
+                    onSelect(phrase)
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: phrase.symbol)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Celestial.ice)
+                            .frame(width: 18)
+                        Text(phrase.text)
+                            .font(Theme.heading(14))
+                            .foregroundStyle(Theme.textPrimary)
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(minWidth: 210, minHeight: 44)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("\(idPrefix)_\(phrase.rawValue)")
+            }
+        }
+        .padding(.bottom, 6)
+        .presentationBackground(Celestial.ink)
+    }
+}
+
+extension View {
+    /// クイックチャットの定型文のメニュー（ポップオーバー）。選ぶと閉じて onSend。
+    func resultQuickChatMenu(isPresented: Binding<Bool>, idPrefix: String,
+                             onSend: @escaping (ResultQuickChat) -> Void) -> some View {
+        popover(isPresented: isPresented) {
+            ResultQuickChatMenu(idPrefix: idPrefix) { phrase in
+                isPresented.wrappedValue = false
+                onSend(phrase)
+            }
+            .presentationCompactAdaptation(.popover)
+        }
+    }
+}
+
+/// 成績表の顔を押すと開く、簡単なプレイヤーカード（名前・ヒーロー・K/D/A・メダル。この端末の人はランクも）。
+/// 第3段で名刺（docs/OUTGAME_GAP.md 12-1）に置き換える。
+struct ResultPlayerCard: View {
+    let player: PlayerSummary
+    let summary: MatchSummary
+    /// この端末の人（アカウントレベルとランクを出す）。AI・ほかの人は基本の情報だけ。
+    var showsLocalProfile = false
+    @Environment(AppModel.self) private var app
+    @Environment(\.dismiss) private var dismiss
+
+    private var heroName: String {
+        app.master.hero(player.heroID).map { MasterText.hero($0) } ?? player.heroID
+    }
+
+    var body: some View {
+        let result = MatchMedal.result(for: player, in: summary)
+        let s = player.score
+        ZStack {
+            CelestialBackdrop()
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 10) {
+                    SectionTitle(title: L("プレイヤー情報", "Player Info"), symbol: "person.text.rectangle")
+                    FlowCloseButton(identifier: "result_card_close") { dismiss() }
+                }
+                HStack(alignment: .top, spacing: 18) {
+                    VStack(spacing: 6) {
+                        HeroPortraitView(heroID: player.heroID, size: 96, showsRole: false)
+                        Text(heroName)
+                            .font(Theme.body(12))
+                            .foregroundStyle(Theme.textSecondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+                    .frame(width: 112)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(PlayerNameRules.shown(player.displayName))
+                            .font(Celestial.title(22))
+                            .foregroundStyle(Theme.textPrimary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                            .accessibilityIdentifier("result_card_name")
+                        if showsLocalProfile {
+                            HStack(spacing: 10) {
+                                Text("Lv.\(app.profile.accountLevel)")
+                                    .font(.system(size: 13, weight: .heavy, design: .rounded))
+                                    .foregroundStyle(Theme.gold)
+                                RankInlineView(rank: app.profile.rank, emblemSize: 24)
+                            }
+                        }
+                        // メダルを出さないモード（練習場など）では出さない
+                        if result.rating != nil {
+                            HStack(spacing: 10) {
+                                MatchMedalView(medal: result.medal, size: 48)
+                                    .accessibilityHidden(true)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(result.medal?.name ?? L("メダルなし", "No medal"))
+                                        .font(Theme.heading(14))
+                                        .foregroundStyle(result.medal?.tint ?? Theme.textSecondary)
+                                    Text(L("評価 \(result.ratingText)", "Rating \(result.ratingText)"))
+                                        .font(Theme.mono(12))
+                                        .foregroundStyle(Theme.textSecondary)
+                                }
+                            }
+                            .accessibilityElement(children: .combine)
+                        }
+                        HStack(spacing: 8) {
+                            FlowStatCell(title: "K / D / A", value: FlowText.kda(s.kills, s.deaths, s.assists))
+                            FlowStatCell(title: "Lv", value: "\(player.level)")
+                            FlowStatCell(title: L("ゴールド", "Gold"), value: FlowText.compactNumber(s.goldEarned))
+                            FlowStatCell(title: L("与ダメージ", "Damage"), value: FlowText.compactNumber(s.damageToHeroes))
+                        }
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 14)
+        }
+        .preferredColorScheme(.dark)
     }
 }
 

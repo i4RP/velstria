@@ -161,14 +161,37 @@ struct RankOverviewView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 8)
         }
+        .onAppear(perform: refreshSeason)
+    }
+
+    /// 開いた時: 起動したまま新しいシーズンになっていれば下げ、前のシーズンの報酬をメールで送る（SeasonService）。
+    private func refreshSeason() {
+        var p = app.profile
+        let sent = SeasonService.refresh(profile: &p, now: Date())
+        guard p != app.profile else { return }
+        app.profile = p
+        if let last = sent.last {
+            app.showToast(L("シーズン \(last.season) の報酬がメールに届きました", "Season \(last.season) rewards arrived in your mail"))
+        }
     }
 
     private var currentPanel: some View {
         let r = app.profile.rank
         let games = r.seasonWins + r.seasonLosses
         let diff = RankService.botDifficulty(for: r)
+        let now = Date()
+        let season = SeasonService.season(at: now)
+        let days = SeasonService.daysLeft(at: now)
         return ScrollView {
             VStack(spacing: 10) {
+                // シーズン（MLBB と同じ番号）と残り日数
+                Label(L("シーズン \(season) · 残り \(days) 日", "Season \(season) · \(days) \(days == 1 ? "day" : "days") left"),
+                      systemImage: "calendar")
+                    .font(Theme.heading(12))
+                    .foregroundStyle(Theme.cyan)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .accessibilityIdentifier("rank_season")
                 ZStack {
                     StarRingView(tint: FlowText.tierColors(r.tier)[0], accent: Theme.gold, speed: 0.07, starCount: 22, showsCore: false)
                         .frame(width: 240, height: 64)
@@ -182,10 +205,14 @@ struct RankOverviewView: View {
                     .foregroundStyle(Theme.textPrimary)
                 if r.tier == .mythic {
                     Text("★ \(r.stars)").font(Theme.mono(15)).foregroundStyle(Theme.gold)
+                    // ミシックにはスターポイントが無い（保護ポイントだけ）
+                    Text(L("保護ポイント \(r.protectionPoints)/\(RankService.protectionCap(r.tier))",
+                           "Protection \(r.protectionPoints)/\(RankService.protectionCap(r.tier))"))
+                        .font(Theme.body(10)).foregroundStyle(Theme.textSecondary)
                 } else {
                     RankStarsView(stars: r.stars, maxStars: RankService.maxStars(r.tier), size: 20)
-                    Text(L("スターポイント \(r.starPoints)/\(RankService.bar) · 保護ポイント \(r.protectionPoints)/\(RankService.bar)",
-                           "Star pts \(r.starPoints)/\(RankService.bar) · Protection \(r.protectionPoints)/\(RankService.bar)"))
+                    Text(L("スターポイント \(r.starPoints)/\(RankService.starPointCap(r.tier)) · 保護ポイント \(r.protectionPoints)/\(RankService.protectionCap(r.tier))",
+                           "Star pts \(r.starPoints)/\(RankService.starPointCap(r.tier)) · Protection \(r.protectionPoints)/\(RankService.protectionCap(r.tier))"))
                         .font(Theme.body(10)).foregroundStyle(Theme.textSecondary)
                 }
                 HStack(spacing: 6) {
@@ -298,13 +325,32 @@ struct RankOverviewView: View {
                                                             "Win: +1 star. Winning with full stars promotes you to the next division (from I, to the next tier). In Mythic, stars add up."))
             ruleRow("arrow.down.circle.fill", Theme.danger, L("敗北で星 −1。星 0 で負けると 1 つ下の段位へ下がります。ウォリアーでは星が減らず、ティアの最下段から下のティアへは落ちません（ミシックの星 0 からはレジェンド I へ）。",
                                                               "Loss: −1 star; at 0 stars you drop a division. Warrior never loses stars, and you can't drop below a tier's lowest division (except Mythic at 0 stars, to Legend I)."))
-            ruleRow("star.circle.fill", Theme.gold, L("スターポイントは勝利でたまり、\(RankService.bar) で星 +1。保護ポイントは敗北でたまり、\(RankService.bar) になると次の敗北で星が減りません（ミシックではどちらもたまりません）。",
-                                                       "Star Points build up from wins: at \(RankService.bar) you gain a star. Protection Points build up from losses: at \(RankService.bar) your next loss costs no star (neither builds up in Mythic)."))
+            ruleRow("star.circle.fill", Theme.gold, pointsRule)
+            ruleRow("calendar", Theme.cyan, seasonRule)
             ruleRow("cpu", Theme.cyan, L("ランクが上がるほど AI が強くなります。", "Higher ranks face stronger AI."))
             ruleRow("hand.raised.fill", Theme.gold, L("ランク戦ではドラフトで交互にピックします（同じヒーローは 1 人だけ）。", "In ranked, teams take turns picking (each hero once per match)."))
         }
         .padding(12)
         .glass(cornerRadius: 14)
+    }
+
+    /// ポイントの満タン（ティアごと。RankService.starPointCap / protectionCap から作る）。
+    private var pointsRule: String {
+        let caps = RankTier.allCases.filter { $0 != .mythic }
+            .map { "\(RankService.tierName($0)) \(RankService.starPointCap($0))" }
+            .joined(separator: L("・", ", "))
+        let mythic = RankService.protectionCap(.mythic)
+        return L("スターポイントは勝利でたまり、満タン（\(caps)）で星 +1。ミシックにはありません。保護ポイントは敗北でたまり、満タン（同じ値。ミシック \(mythic)）になると次の敗北で星が減りません。",
+                 "Star Points build up from wins; when full (\(caps)) you gain a star. Mythic has none. Protection Points build up from losses; when full (same values, Mythic \(mythic)) your next loss costs no star.")
+    }
+
+    /// シーズン（SeasonService: 13 週。新しいシーズンの下げ方の例と、前のシーズンの報酬）。
+    private var seasonRule: String {
+        let weeks = Int(SeasonService.seasonLength / (7 * 86_400))
+        let low = SeasonService.rewards(for: .warrior).first?.amount ?? 0
+        let high = SeasonService.rewards(for: .mythic).first?.amount ?? 0
+        return L("シーズンは \(weeks) 週（約 3 か月）。新しいシーズンの最初にランクが下がり、星 0 から再開します（例: ミシック → エピック II、ミシックグローリー以上 → レジェンド V）。前のシーズンの最高ランクに応じて \(low)〜\(high) コインがメールで届きます。",
+                 "A season lasts \(weeks) weeks (about 3 months). When a new season starts, your rank drops and restarts at 0 stars (e.g. Mythic → Epic II, Mythical Glory and above → Legend V). Rewards of \(low)–\(high) coins for your highest rank last season arrive by mail.")
     }
 
     private func ruleRow(_ symbol: String, _ tint: Color, _ text: String) -> some View {
@@ -326,7 +372,8 @@ struct RankRewardsView: View {
             VStack(spacing: 8) {
                 HStack(spacing: 8) {
                     Image(systemName: "info.circle").foregroundStyle(Theme.cyan)
-                    Text(L("シーズン中に到達したランクの報酬を 1 回ずつ受け取れます。", "Claim a one-time reward for each tier you reach this season."))
+                    Text(L("到達したランクの報酬を 1 回ずつ受け取れます。シーズン報酬は、シーズンの終わりに最高ランクに応じてメールで届きます。",
+                           "Claim a one-time reward for each tier you reach. Season rewards for your highest tier arrive by mail when the season ends."))
                         .font(Theme.body(12))
                         .foregroundStyle(Theme.textSecondary)
                     Spacer()

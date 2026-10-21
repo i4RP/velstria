@@ -122,6 +122,7 @@ jobs:
             -only-testing:VELSTRIATests/OnlineSafetyTests \
             -only-testing:VELSTRIATests/EmblemEconomyTests \
             -only-testing:VELSTRIATests/CollectionLogicTests \
+            -only-testing:VELSTRIATests/MatchMedalTests \
             -only-testing:VELSTRIAUITests/HUDTacticalMapUITests \
             -only-testing:VELSTRIAUITests/BattleHUDUITests \
             -only-testing:VELSTRIAUITests/SpectatorHUDUITests \
