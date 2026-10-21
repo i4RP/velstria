@@ -44,6 +44,10 @@ struct PartyMember: Identifiable, Equatable {
     var rtt: Double?
     /// ブロックした相手（名前を出さない）。
     var isBlocked = false
+    /// 段位（自分はプロフィール、他の人は公開の名刺。分からなければ nil）。
+    var rank: PublicRank?
+    /// 希望レーン（自分だけ。レーン選択で前回選んだ最初のレーン）。
+    var lane: LanePosition?
 }
 
 struct PartyLobbyView: View {
@@ -210,11 +214,23 @@ struct PartyLobbyView: View {
 
     // MARK: メンバーの枠
 
+    /// 自分の段位（旗に出す）。
+    private var myRank: PublicRank {
+        let r = app.profile.rank
+        return PublicRank(tier: r.tier.rawValue, division: r.division, stars: r.stars)
+    }
+
+    /// 自分の希望レーン（レーン選択で前回選んだ最初のレーン。フレックスプロなら nil）。
+    private var myLane: LanePosition? {
+        LaneSelectRules.decode(UserDefaults.standard.string(forKey: "outgame.laneChoices") ?? "flex").lanes.first
+    }
+
     private var members: [PartyMember] {
         guard let session, !session.room.hostPeerID.isEmpty else {
             let name = app.profile.displayName.isEmpty ? L("プレイヤー", "Player") : app.profile.displayName
             return [PartyMember(id: app.profile.playerID, name: name, avatar: app.profile.avatarHeroID,
-                                friendCode: app.profile.friendCode, isHost: true, isMe: true, rtt: nil)]
+                                friendCode: app.profile.friendCode, isHost: true, isMe: true, rtt: nil,
+                                rank: myRank, lane: myLane)]
         }
         let room = session.room
         let players = room.players
@@ -225,7 +241,9 @@ struct PartyLobbyView: View {
             return PartyMember(id: p.id, name: blocked ? PlayerReportTarget.blockedName : p.name,
                                avatar: me ? app.profile.avatarHeroID : p.avatar,
                                friendCode: p.friendCode, isHost: p.id == room.hostPeerID, isMe: me,
-                               rtt: me && !session.isHost ? session.rtt : p.rtt, isBlocked: blocked)
+                               rtt: me && !session.isHost ? session.rtt : p.rtt, isBlocked: blocked,
+                               rank: me ? myRank : p.friendCode.flatMap { app.publicProfiles.profiles[$0]?.rank },
+                               lane: me ? myLane : nil)
         }
     }
 
@@ -470,6 +488,24 @@ struct PartySlotCard: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .padding(.horizontal, 4)
+            // 段位章と星・希望レーン（MLBB のルームの旗）
+            HStack(spacing: 4) {
+                if let rank = m.rank, let tier = RankTier(rawValue: rank.tier) {
+                    RankCrest(tier: tier, size: compact ? 14 : 20)
+                    Image(systemName: "star.fill")
+                        .font(.system(size: compact ? 7 : 9))
+                        .foregroundStyle(tier == .mythic ? Color(red: 0.86, green: 0.55, blue: 1) : Theme.gold)
+                    Text("\(rank.stars)")
+                        .font(.system(size: compact ? 9 : 11, weight: .bold, design: .rounded))
+                        .foregroundStyle(Theme.textPrimary)
+                }
+                if let lane = m.lane {
+                    Image(systemName: FlowText.positionSymbol(lane))
+                        .font(.system(size: compact ? 10 : 13))
+                        .foregroundStyle(Celestial.ice)
+                        .accessibilityLabel(FlowText.position(lane))
+                }
+            }
             tag(m)
             Spacer(minLength: 0)
         }
