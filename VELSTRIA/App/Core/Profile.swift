@@ -684,6 +684,8 @@ struct Profile: Codable, Equatable {
     /// フレンド受信箱の鍵（本人だけの秘密。中継は最初に繋いだ鍵でコードの持ち主を決める）。
     var inboxKey: String = FriendInboxKey.generate()
     var friends: [Friend] = []
+    /// 届いて、まだ答えていないフレンド申請（FriendHub.incomingRequests。最大 20）。
+    var incomingFriendRequests: [FriendRequest] = []
     /// 自分から申請して、承認を待っている相手のコード。
     var outgoingFriendRequests: [String] = []
     /// 申請した日時（outgoingFriendRequests のコード → 日時）。申請から 14 日を過ぎたら送り直さずに取り下げる

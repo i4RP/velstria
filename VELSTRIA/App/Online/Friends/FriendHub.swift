@@ -23,8 +23,8 @@ protocol FriendProfileAccess: AnyObject {
     var profile: Profile { get set }
 }
 
-/// 承認待ちの申請（相手から届いた）。
-struct FriendRequest: Equatable, Identifiable {
+/// 承認待ちの申請（相手から届いた）。Profile.incomingFriendRequests に保存する（アプリを閉じても消えない）。
+struct FriendRequest: Codable, Equatable, Identifiable {
     var code: String
     var name: String
     var id: String { code }
@@ -61,7 +61,13 @@ final class FriendHub {
     /// 自分の今の状態（繋ぐたび・変わるたびに知らせる。AppModel が試合・ルーム・マッチングで変える）。
     @ObservationIgnored private var myActivity = FriendActivity(.online)
     /// 承認待ちの申請。
-    private(set) var incomingRequests: [FriendRequest] = []
+    private(set) var incomingRequests: [FriendRequest] = [] {
+        didSet {
+            // 保存する（前は記憶にしか無く、アプリを閉じると消えていた）
+            guard incomingRequests != oldValue, host?.profile.incomingFriendRequests != incomingRequests else { return }
+            mutate { $0.incomingFriendRequests = incomingRequests }
+        }
+    }
     /// 画面に出している招待（返事を待っている）。
     private(set) var pendingInvite: PartyInvite?
     /// 送った招待（フレンドコード → 状態）。返事が来ると更新する。
@@ -152,6 +158,8 @@ final class FriendHub {
     /// 受信箱へ繋ぐ（アプリが前面に来た時・オンボーディングを終えた時・オンラインのルールに同意した時）。
     /// 機能が無効・未設定・ルールに未同意（13 歳未満を含む）なら何もしない。
     func start() {
+        // 保存した申請を戻す（届いた申請の一覧はアプリを閉じても残る）
+        if incomingRequests.isEmpty, let saved = host?.profile.incomingFriendRequests, !saved.isEmpty { incomingRequests = saved }
         guard isEnabled(), let host, host.profile.onboardingCompleted,
               OnlineAccess.status(for: host.profile, enabled: true) == .available,
               FriendCode.isValid(host.profile.friendCode), FriendInboxKey.isValid(host.profile.inboxKey) else { return }
