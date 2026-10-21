@@ -139,29 +139,215 @@ struct RankingView: View {
     }
 }
 
-// MARK: - UI019 ランク概要
+// MARK: - UI019 ランク概要（MLBB 2.2.16 の作り: 左上にシーズン名と残り日数、中央に段位章と星、右上に前シーズンのメダル、
+// 右下に勝率・総試合数・最高ランク・保護ポイント、下のタブ（シーズン情報／シーズンの道のり／ミシックへの道））
 
 struct RankOverviewView: View {
     @Environment(AppModel.self) private var app
+    @State private var panel: Panel?
+
+    enum Panel: String, Identifiable, CaseIterable {
+        case season, road, mythic
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .season: return L("シーズン情報", "Season Info")
+            case .road: return L("シーズンの道のり", "Season Journey")
+            case .mythic: return L("ミシックへの道", "Road to Mythic")
+            }
+        }
+
+        var symbol: String {
+            switch self {
+            case .season: return "info.circle.fill"
+            case .road: return "flag.checkered"
+            case .mythic: return "stairs"
+            }
+        }
+    }
+
+    /// シーズンの道のりの試合数（MLBB は 20 試合でシーズンの報酬）。
+    static let journeyMatches = 20
 
     var body: some View {
         ScreenScaffold(title: L("ランク", "Rank")) {
-            HStack(alignment: .top, spacing: 14) {
-                currentPanel
-                    .frame(width: 270)
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        actions
-                        tierLadder
-                        rules
-                    }
-                    .padding(.bottom, 10)
+            VStack(spacing: 6) {
+                ZStack {
+                    crestBlock
+                    seasonBadge
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    previousSeason
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    actions
+                        .frame(width: 190)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                    statsGrid
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
+                .frame(maxHeight: .infinity)
+                tabsRow
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 8)
         }
+        .sheet(item: $panel) { p in
+            NavigationStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        switch p {
+                        case .season: rules
+                        case .road: journey
+                        case .mythic: tierLadder
+                        }
+                    }
+                    .padding(16)
+                }
+                .background(Celestial.ink)
+                .navigationTitle(p.title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(L("閉じる", "Close")) { panel = nil }
+                    }
+                }
+            }
+            .preferredColorScheme(.dark)
+            .environment(app)
+        }
         .onAppear(perform: refreshSeason)
+    }
+
+    // MARK: 中央・四隅
+
+    /// 中央: 段位章・星（ミシックは紫の星と「★14/25」）・段位名の帯・スターポイント。
+    private var crestBlock: some View {
+        let r = app.profile.rank
+        return VStack(spacing: 6) {
+            RankCrest(tier: r.tier, size: 112)
+                .glowPulse(FlowText.tierColors(r.tier)[0], radius: 16)
+            if r.tier == .mythic {
+                HStack(spacing: 4) {
+                    Image(systemName: "star.fill").foregroundStyle(Color(red: 0.86, green: 0.55, blue: 1))
+                    Text(ModeTileLayout.mythicNext(r.stars).map { "\(r.stars)/\($0)" } ?? "\(r.stars)")
+                        .foregroundStyle(.white)
+                }
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+            } else {
+                RankStarsView(stars: r.stars, maxStars: RankService.maxStars(r.tier), size: 20)
+            }
+            Text(RankService.shortName(r) + (r.tier == .mythic ? "" : " " + RankService.roman(r.division)))
+                .font(Celestial.title(20))
+                .foregroundStyle(Theme.textPrimary)
+                .padding(.horizontal, 30)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(Color.black.opacity(0.35)))
+            if r.tier != .mythic {
+                HStack(spacing: 6) {
+                    Text(L("スターポイント", "Star Points")).font(Theme.body(10)).foregroundStyle(Theme.textSecondary)
+                    CelestialProgressBar(value: RankService.progress(r.starPoints, cap: RankService.starPointCap(r.tier)), tint: Theme.gold, height: 4)
+                        .frame(width: 110)
+                    Text("\(r.starPoints)/\(RankService.starPointCap(r.tier))").font(Theme.mono(10)).foregroundStyle(Theme.textSecondary)
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// 左上: シーズン名と残り日数（MLBB: 「⌛90d」）。
+    private var seasonBadge: some View {
+        let now = Date()
+        let season = SeasonService.season(at: now)
+        let days = SeasonService.daysLeft(at: now)
+        return VStack(alignment: .leading, spacing: 2) {
+            Text(L("シーズン \(season)", "Season \(season)"))
+                .font(Celestial.title(17))
+                .foregroundStyle(Theme.textPrimary)
+            Label("\(days)d", systemImage: "hourglass")
+                .font(Theme.mono(12))
+                .foregroundStyle(Celestial.ice)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(L("シーズン \(season) · 残り \(days) 日", "Season \(season) · \(days) \(days == 1 ? "day" : "days") left"))
+        .accessibilityIdentifier("rank_season")
+    }
+
+    /// 右上: 前シーズンのメダル（そのシーズンの最高ランクの段位章）。
+    @ViewBuilder private var previousSeason: some View {
+        if let last = app.profile.rank.endedSeasons.last {
+            VStack(spacing: 2) {
+                RankCrest(tier: last.highestTier, size: 40)
+                Text(L("S\(last.season) 最高", "S\(last.season) best"))
+                    .font(Theme.body(10))
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("rank_previous_season")
+        }
+    }
+
+    /// 右下: 勝率・総試合数・最高ランク・保護ポイント（今シーズン）。
+    private var statsGrid: some View {
+        let r = app.profile.rank
+        let games = r.seasonWins + r.seasonLosses
+        let highest = r.highestTier == .mythic ? RankService.mythicName(stars: r.highestMythicStars) : RankService.tierName(r.highestTier)
+        return VStack(alignment: .trailing, spacing: 4) {
+            HStack(spacing: 6) {
+                FlowStatCell(title: L("勝率", "Win%"), value: games > 0 ? "\(r.seasonWins * 100 / games)%" : "—")
+                FlowStatCell(title: L("総試合数", "Matches"), value: "\(games)")
+            }
+            HStack(spacing: 6) {
+                FlowStatCell(title: L("最高ランク", "Highest"), value: highest)
+                FlowStatCell(title: L("保護ポイント", "Protection"), value: "\(r.protectionPoints)/\(RankService.protectionCap(r.tier))")
+            }
+        }
+        .frame(width: 230)
+    }
+
+    /// 下のタブ（押すとその中身を開く）。
+    private var tabsRow: some View {
+        HStack(spacing: 8) {
+            ForEach(Panel.allCases) { p in
+                Button {
+                    FlowFX.tap(app)
+                    panel = p
+                } label: {
+                    Label(p.title, systemImage: p.symbol)
+                        .font(Celestial.heading(13))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(maxWidth: .infinity, minHeight: 40)
+                        .background(HomeChamfer(cut: 7).fill(Celestial.ink.opacity(0.8)))
+                        .overlay(HomeChamfer(cut: 7).stroke(Celestial.ice.opacity(0.45), lineWidth: 0.6))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("rank_tab_\(p.rawValue)")
+            }
+        }
+    }
+
+    /// シーズンの道のり: 今シーズンのランク戦の数（20 試合まで）と、シーズン報酬（前のシーズンの最高ランクのコイン）。
+    private var journey: some View {
+        let r = app.profile.rank
+        let games = r.seasonWins + r.seasonLosses
+        return VStack(alignment: .leading, spacing: 10) {
+            SectionTitle(title: L("今シーズンのランク戦", "Ranked matches this season"), symbol: "flag.checkered",
+                         trailing: "\(min(games, Self.journeyMatches))/\(Self.journeyMatches)")
+            CelestialProgressBar(value: Double(min(games, Self.journeyMatches)) / Double(Self.journeyMatches), tint: Theme.gold, height: 8)
+            SectionTitle(title: L("シーズン報酬（今シーズンの最高ランク）", "Season rewards (highest rank this season)"), symbol: "gift.fill")
+            ForEach(RankTier.allCases.reversed()) { t in
+                HStack(spacing: 10) {
+                    RankCrest(tier: t, size: 28)
+                    Text(RankService.tierName(t)).font(Theme.heading(13)).foregroundStyle(Theme.textPrimary)
+                    Spacer()
+                    ForEach(Array(SeasonService.rewards(for: t).enumerated()), id: \.offset) { _, a in
+                        RewardChip(attachment: a)
+                    }
+                }
+            }
+        }
     }
 
     /// 開いた時: 起動したまま新しいシーズンになっていれば下げ、前のシーズンの報酬をメールで送る（SeasonService）。
@@ -173,69 +359,6 @@ struct RankOverviewView: View {
         if let last = sent.last {
             app.showToast(L("シーズン \(last.season) の報酬がメールに届きました", "Season \(last.season) rewards arrived in your mail"))
         }
-    }
-
-    private var currentPanel: some View {
-        let r = app.profile.rank
-        let games = r.seasonWins + r.seasonLosses
-        let diff = RankService.botDifficulty(for: r)
-        let now = Date()
-        let season = SeasonService.season(at: now)
-        let days = SeasonService.daysLeft(at: now)
-        return ScrollView {
-            VStack(spacing: 10) {
-                // シーズン（MLBB と同じ番号）と残り日数
-                Label(L("シーズン \(season) · 残り \(days) 日", "Season \(season) · \(days) \(days == 1 ? "day" : "days") left"),
-                      systemImage: "calendar")
-                    .font(Theme.heading(12))
-                    .foregroundStyle(Theme.cyan)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .accessibilityIdentifier("rank_season")
-                ZStack {
-                    StarRingView(tint: FlowText.tierColors(r.tier)[0], accent: Theme.gold, speed: 0.07, starCount: 22, showsCore: false)
-                        .frame(width: 240, height: 64)
-                        .offset(y: 30)
-                    RankEmblemView(tier: r.tier, size: 88)
-                        .glowPulse(FlowText.tierColors(r.tier)[0], radius: 16)
-                }
-                .frame(height: 104)
-                Text(RankService.displayName(r))
-                    .font(Theme.title(22))
-                    .foregroundStyle(Theme.textPrimary)
-                if r.tier == .mythic {
-                    Text("★ \(r.stars)").font(Theme.mono(15)).foregroundStyle(Theme.gold)
-                    // ミシックにはスターポイントが無い（保護ポイントだけ）
-                    Text(L("保護ポイント \(r.protectionPoints)/\(RankService.protectionCap(r.tier))",
-                           "Protection \(r.protectionPoints)/\(RankService.protectionCap(r.tier))"))
-                        .font(Theme.body(10)).foregroundStyle(Theme.textSecondary)
-                } else {
-                    RankStarsView(stars: r.stars, maxStars: RankService.maxStars(r.tier), size: 20)
-                    Text(L("スターポイント \(r.starPoints)/\(RankService.starPointCap(r.tier)) · 保護ポイント \(r.protectionPoints)/\(RankService.protectionCap(r.tier))",
-                           "Star pts \(r.starPoints)/\(RankService.starPointCap(r.tier)) · Protection \(r.protectionPoints)/\(RankService.protectionCap(r.tier))"))
-                        .font(Theme.body(10)).foregroundStyle(Theme.textSecondary)
-                }
-                HStack(spacing: 6) {
-                    FlowStatCell(title: L("勝利", "Wins"), value: "\(r.seasonWins)", tint: Theme.success)
-                    FlowStatCell(title: L("敗北", "Losses"), value: "\(r.seasonLosses)", tint: Theme.danger)
-                    FlowStatCell(title: L("勝率", "Win%"), value: games > 0 ? "\(r.seasonWins * 100 / games)%" : "—")
-                }
-                HStack(spacing: 6) {
-                    Image(systemName: "cpu").foregroundStyle(Theme.cyan)
-                    Text(L("AI 難易度: 味方 \(FlowText.difficulty(diff.ally)) / 敵 \(FlowText.difficulty(diff.enemy))",
-                           "AI: allies \(FlowText.difficulty(diff.ally)) / enemies \(FlowText.difficulty(diff.enemy))"))
-                        .font(Theme.body(11))
-                        .foregroundStyle(Theme.textSecondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                }
-                Text(L("最高ランク: \(RankService.tierName(r.highestTier))", "Highest: \(RankService.tierName(r.highestTier))"))
-                    .font(Theme.body(11))
-                    .foregroundStyle(Theme.textSecondary)
-            }
-            .padding(14)
-        }
-        .glass(cornerRadius: 16)
     }
 
     private var actions: some View {
