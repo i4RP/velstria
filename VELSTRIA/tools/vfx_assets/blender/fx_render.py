@@ -617,6 +617,65 @@ def blade(out, res, samples):
     render(scene, os.path.join(out, "0000.png"))
 
 
+def moon_crest(out, res, samples):
+    """月の紋章（白・アルファ）: 右下が太く、上と左の先が細く尖る三日月（開きは左上）。外縁に明るい線、内縁に沿う細い線、
+    帯の中は外ほど明るい淡い光、右下に波頭のように内へ巻く渦の飾り 2 つ（尾は内縁の線へ流れる）。
+    奥義（隠れ月光）の頭上の三日月に貼る（ビルボード）。重なる板は高さ（z）で分け、上の板の明るさだけが写る。"""
+    scene = setup(res, samples, "add", ortho=2.0, view="top")
+    cx, cy, rc = 0.04, -0.04, 0.64
+    a0, a1, n = math.radians(100), math.radians(-190), 120
+
+    def width(u):
+        return 0.32 * math.sin(math.pi * u) ** 0.8 + 0.006
+
+    def at(u, off):
+        a = a0 + (a1 - a0) * u
+        r = rc + off
+        return (cx + r * math.cos(a), cy + r * math.sin(a))
+
+    def arc(off, wfun, z, k0=0.0, k1=1.0):
+        us = [k0 + (k1 - k0) * i / n for i in range(n + 1)]
+        return jagged_strip([at(u, off(u)) for u in us], [wfun(u) for u in us], z=z)
+
+    # 帯の中の淡い光（内 → 外へ 4 段で明るく。重ならない帯）
+    for j in range(4):
+        lo, hi = j / 4.0, (j + 1) / 4.0
+        emission_object("body%d" % j, [arc(lambda u, lo=lo, hi=hi: width(u) * ((lo + hi) / 2 - 0.5),
+                                           lambda u, lo=lo, hi=hi: width(u) * (hi - lo) + 0.002, 0.0)],
+                        strength=0.1 + 0.09 * j)
+    # 外縁の明るい線・内縁に沿う細い線
+    emission_object("rim", [arc(lambda u: width(u) * 0.5 - 0.012, lambda u: 0.034 * math.sin(math.pi * u) ** 0.3 + 0.004, 0.02)],
+                    strength=1.0)
+    emission_object("inner", [arc(lambda u: -width(u) * 0.5 + 0.045, lambda u: 0.016 * math.sin(math.pi * u) ** 0.5 + 0.002,
+                                  0.02, 0.1, 0.9)], strength=0.75)
+    # 波頭の渦（内へ 1.7 回巻く）と、渦の外の端から内縁の線へ流れる尾
+    parts = []
+    for (uc, size, turn) in ((0.45, 0.125, -1.0), (0.64, 0.1, -1.0)):
+        a = a0 + (a1 - a0) * uc
+        mid = -width(uc) * 0.12
+        px, py = at(uc, mid)
+        pts, ws = [], []
+        m = 56
+        for i in range(m + 1):
+            t = i / m
+            rho = size * (1 - 0.86 * t)
+            phi = a + turn * 2.0 * math.pi * 0.85 * t
+            pts.append((px + rho * math.cos(phi), py + rho * math.sin(phi)))
+            ws.append(0.026 * (1 - 0.65 * t) + 0.003)
+        parts.append(jagged_strip(pts, ws, z=0.04))
+        # 尾: 渦の外の端（t = 0、外向き）から弧に沿って a0 の側へ、内縁へ寄りながら細る
+        tail, tw = [], []
+        for i in range(25):
+            t = i / 24
+            u = uc - 0.11 * t
+            off = mid + size * (1 - t) - (width(u) * 0.5 - 0.045) * t
+            tail.append(at(u, off))
+            tw.append(0.022 * (1 - 0.8 * t) + 0.002)
+        parts.append(jagged_strip(tail, tw, z=0.04))
+    emission_object("curls", parts, strength=0.95)
+    render(scene, os.path.join(out, "0000.png"))
+
+
 # --- 継ぎ目の無い流れる模様（UV のトーラスで 4D のノイズを引く） ---------------------------------------------
 
 def torus_coords(g, ku=1.0, kv=1.0):
@@ -677,6 +736,7 @@ JOBS = {
     "star4": (star4, "image", 1, 512),
     "swoosh": (swoosh, "image", 1, 512),
     "blade": (blade, "image", 1, 256),
+    "moon_crest": (moon_crest, "image", 1, 512),
     "lava": (lava, "tile", 1, 512),
     "flame_noise": (flame_noise, "tile", 1, 512),
 }
