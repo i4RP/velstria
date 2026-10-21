@@ -1,7 +1,25 @@
 """Geometry regression checks; run with import_canyon.py's uv dependencies."""
 import unittest
 import numpy as np
-from import_canyon import ground_heights, SCALE
+from shapely.geometry import Point
+from import_canyon import ground_heights, structure_anchor, bush_footprint, sim, SCALE
+
+class CanyonPlacementTests(unittest.TestCase):
+    def test_structure_uses_authored_origin_not_asymmetric_bounds(self):
+        row=dict(origin=[46.07438659667969,30.687740325927734,-.089],
+                 lo=[41.5,26.1,-1.3],hi=[51.7,36.2,20.6])
+        np.testing.assert_array_equal(structure_anchor(row),sim(row['origin']))
+        self.assertGreater(np.linalg.norm(sim((np.array(row['lo'])+row['hi'])/2)-structure_anchor(row)),10)
+
+    def test_grass_keeps_concavity_and_separate_clumps(self):
+        def quad(x0,y0,x1,y1):
+            return [[x0,y0,0],[x1,y0,0],[x1,y1,1], [x0,y0,0],[x1,y1,1],[x0,y1,1]]
+        p=np.array(quad(0,0,2,10)+quad(2,0,10,2)+quad(15,0,17,2))
+        shape=bush_footprint(p)
+        self.assertTrue(shape.contains(Point(1,5)))
+        self.assertTrue(shape.contains(Point(16,1)))
+        self.assertFalse(shape.contains(Point(5,5)), 'The empty inside corner is not concealment')
+        self.assertFalse(shape.contains(Point(12,1)), 'Separate clumps must not fill their gap')
 
 class CanyonGroundTests(unittest.TestCase):
     def test_depressed_surfaces_keep_their_depth_order(self):

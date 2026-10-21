@@ -30,6 +30,16 @@ def footprint(p,z=None):
  shapes=[p for p in shapes if p.area>1e-5]
  return unary_union(shapes).buffer(.12).buffer(-.12).simplify(.18,preserve_topology=True)
 
+def structure_anchor(row):
+ # The authored placement origin is independent of asymmetric crowns/banners.
+ # Do not fall back to a bounds center: old extracts must be regenerated.
+ return sim(row['origin']).tolist()
+
+def bush_footprint(p):
+ # Preserve concave edges and gaps between grass clumps. A group-wide convex hull
+ # grants concealment to bare paving/water that has no grass in the source scene.
+ return footprint(p)
+
 def ground_heights(z, texture):
  # A clamp folds every depressed bank/road onto the same plane and creates Z-fighting.
  # Keep near-ground offsets at full precision; compress only deep banks below 6cm.
@@ -77,11 +87,12 @@ def main():
   if key in seen:continue
   seen.add(key)
   if 'Tower' in tex or 'Station' in tex or tex.startswith(('PVPMonster','Mst_')):
-   markers.append(dict(name=name,texture=tex,point=((p.min(0)+p.max(0))/2).tolist()));continue
+   markers.append(dict(name=name,texture=tex,point=structure_anchor(row)));continue
   if 'RockGroup' in name or 'RockWall' in name:
    walls.extend(polygons(footprint(p,z=.6)))
   if 'JungleGrassGroup' in name:
-   bushes.extend(polygons(footprint(p).convex_hull));continue # shared gameplay grass renders these areas
+   row=dict(row,brushIndex=len(bushes))
+   bushes.append(bush_footprint(p)) # keep the original mesh and this same group's gameplay mask
   if 'TerrainRiver_01_D' in tex:rivers.extend(polygons(footprint(p)))
   if 'Terrain' in name or 'BaseGround' in tex or 'BaseBlueGround' in name or 'BaseRedGround' in name:
    ground.extend(polygons(footprint(p)))
@@ -111,16 +122,16 @@ def main():
   finalWalls.extend(simple_parts(poly))
  # Source cores/towers are omitted from the baked scene; VELSTRIA supplies living/destructible entities.
  def marker(team,token):return [m for m in markers if team in m['texture'] and token in m['texture']]
- core=[sim(marker(team,'Station')[0]['point']).tolist() for team in ['Blue','Red']]
+ core=[marker(team,'Station')[0]['point'] for team in ['Blue','Red']]
  towers=[]
  for team in ['Blue','Red']:
-  ts=marker(team,'Tower');pts=[sim(m['point']) for m in ts]
+  ts=marker(team,'Tower');pts=[np.array(m['point']) for m in ts]
   base=core[0 if team=='Blue' else 1]
   mid=sorted(range(9),key=lambda i:abs(pts[i][0]-pts[i][1]))[:3]
   sides=[[i for i in range(9) if i not in mid and pts[i][0]<pts[i][1]], [i for i in range(9) if i not in mid and pts[i][0]>=pts[i][1]]]
   for lane,indices in [('mid',mid),('top',sides[0]),('bot',sides[1])]:
    assert len(indices)==3,(team,lane,indices)
-   for tier,i in enumerate(sorted(indices,key=lambda i:-np.linalg.norm(pts[i]-base))):towers.append(dict(team=team.lower(),lane=lane,tier=tier,point=pts[i].tolist()))
+   for tier,i in enumerate(sorted(indices,key=lambda i:-np.linalg.norm(pts[i]-base))):towers.append(dict(team=team.lower(),lane=lane,tier=tier,point=pts[i].tolist(),sourceName=ts[i]['name']))
  # Actual circular river arenas: northwest blue sigil, southeast violet sigil.
  camps=[]
  blueCamps=[('blueSentinel',[100,29]),('redSentinel',[13,94]),('hornLizard',[110,-9]),('emberBeetle',[-39,112]),('magmaGolem',[28,62])]
@@ -151,8 +162,8 @@ def main():
  N=600;cell=9720/N;cells=np.zeros((N,N),dtype=np.uint8);yy,xx=np.mgrid[0:N,0:N];px=ORIGIN[0]-(xx+.5)*cell/(100*SCALE);py=ORIGIN[1]-(yy+.5)*cell/(100*SCALE)
  allwalls=unary_union(finalWalls)
  for i,b in enumerate(bushes):cells[contains_xy(b,px,py)&~contains_xy(allwalls,px,py)]=i+1
- # Compact ids after carving.
- for new,old in enumerate(sorted(set(cells.ravel())-{0}),1):cells[cells==old]=new
+ # Mesh IDs and concealment IDs must stay aligned; never silently drop a source group.
+ assert set(cells.ravel())-{0}==set(range(1,len(bushes)+1))
  encoded=bytearray();flat=cells.ravel();i=0
  while i<len(flat):
   j=i+1
@@ -197,12 +208,13 @@ def main():
     t[:,6]=((tid%4)*512+pad+t[:,6]*content)/2048
     t[:,7]=1-(((tid%8)//4)*512+pad+(1-t[:,7])*content)/1024
     center=t[:,:3].mean(0);cx=int(math.floor((center[0]+20)/12));cy=int(math.floor((-center[2]+20)/12))
-    chunks[(tid//8,cx,cy)].append(t)
+    brush=row.get('brushIndex',-1)
+    chunks[(brush,tid//8,0 if brush>=0 else cx,0 if brush>=0 else cy)].append(t)
  headers=[];payload=[];offset=0;total=0
- for (atlas,x,y),tris in sorted(chunks.items()):
+ for (brush,atlas,x,y),tris in sorted(chunks.items()):
   vert=np.concatenate(tris).astype('<f4');vert,idx=np.unique(vert,axis=0,return_inverse=True);idx=idx.astype('<u4')
   vb=vert.tobytes();ib=idx.tobytes();total+=len(idx)//3
-  headers.append(dict(atlas=atlas,vertexCount=len(vert),indexCount=len(idx),vertexOffset=offset,indexOffset=offset+len(vb)))
+  headers.append(dict(atlas=atlas,brushIndex=brush if brush>=0 else None,vertexCount=len(vert),indexCount=len(idx),vertexOffset=offset,indexOffset=offset+len(vb)))
   payload.extend([vb,ib]);offset+=len(vb)+len(ib)
  assert total<=600000,total
  header=json.dumps(dict(atlasCount=len(atlases),chunks=headers),separators=(',',':')).encode();prefix=b'VCM1'+struct.pack('<II',1,len(header))+header;prefix+=b'\0'*(-len(prefix)%16)

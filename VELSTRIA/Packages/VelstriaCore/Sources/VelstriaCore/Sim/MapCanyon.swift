@@ -24,9 +24,10 @@ extension MapDefinition {
         for i in map.towers.indices {
             let t = map.towers[i]
             if t.isCore { map.towers[i].pos = map.core(t.team); continue }
-            if let spot = layout.towers.first(where: {
+            guard let spot = layout.towers.first(where: {
                 $0.team == (t.team == .blue ? "blue" : "red") && $0.lane == String(describing: t.lane!) && $0.tier == t.tier.rawValue
-            }) { map.towers[i].pos = point(spot.point) }
+            }) else { preconditionFailure("Canyon is missing an authored tower placement") }
+            map.towers[i].pos = point(spot.point)
         }
         var available = layout.camps
         for i in map.camps.indices {

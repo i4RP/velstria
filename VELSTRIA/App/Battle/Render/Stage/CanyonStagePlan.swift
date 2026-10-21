@@ -7,13 +7,13 @@ struct CanyonStagePlan: @unchecked Sendable {
     struct Chunk: Sendable { let atlas: Int; let mesh: StageMeshBuffer }
     let chunks: [Chunk]
     let atlases: [CGImage]
-    let brushAtlas: CGImage
-    let brushes: StageLayoutResult
+    let brushes: [Chunk]
     let shaderURL: URL
 
     private struct Header: Decodable {
         struct Chunk: Decodable {
             let atlas: Int
+            let brushIndex: Int?
             let vertexCount: Int
             let indexCount: Int
             let vertexOffset: Int
@@ -27,21 +27,19 @@ struct CanyonStagePlan: @unchecked Sendable {
         guard let url = bundle.url(forResource: "StageCanyon", withExtension: "bin"),
               let data = try? Data(contentsOf: url, options: .mappedIfSafe),
               let parsed = parse(data, triangleBudget: BattleWorkBudget.stagePropTriangles(quality.level)),
-              let shader = bundle.url(forResource: StageAssets.shaderResourceName, withExtension: "metallib"),
-              let brushAtlas = StageAssets.image(bundle, "StageBrushAtlas", "png") else { return nil }
+              parsed.brushes.count == map.brushes.count,
+              let shader = bundle.url(forResource: StageAssets.shaderResourceName, withExtension: "metallib") else { return nil }
         var atlases: [CGImage] = []
         for i in 0..<parsed.atlasCount {
             guard let image = StageAssets.image(bundle, "StageCanyonAtlas\(i)", "png"),
                   image.width <= 2048, image.height <= 1024 else { return nil }
             atlases.append(image)
         }
-        var layout = StageLayout(map: map, props: [:], density: quality.decorationDensity, level: quality.level)
-        layout.brushFields()
-        return CanyonStagePlan(chunks: parsed.chunks, atlases: atlases, brushAtlas: brushAtlas,
-                               brushes: layout.out, shaderURL: shader)
+        return CanyonStagePlan(chunks: parsed.chunks, atlases: atlases,
+                               brushes: parsed.brushes, shaderURL: shader)
     }
 
-    static func parse(_ data: Data, triangleBudget: Int) -> (chunks: [Chunk], atlasCount: Int)? {
+    static func parse(_ data: Data, triangleBudget: Int) -> (chunks: [Chunk], brushes: [Chunk], atlasCount: Int)? {
         guard data.count >= 12, data.prefix(4) == Data("VCM1".utf8) else { return nil }
         func u32(_ offset: Int) -> Int {
             data.withUnsafeBytes { Int($0.loadUnaligned(fromByteOffset: offset, as: UInt32.self).littleEndian) }
@@ -54,6 +52,7 @@ struct CanyonStagePlan: @unchecked Sendable {
         let start = (12 + length + 15) / 16 * 16
         guard start <= data.count else { return nil }
         var chunks: [Chunk] = []
+        var brushes: [Int: Chunk] = [:]
         var remaining = triangleBudget
         for chunk in header.chunks {
             guard (0..<header.atlasCount).contains(chunk.atlas), chunk.vertexCount > 0,
@@ -84,8 +83,15 @@ struct CanyonStagePlan: @unchecked Sendable {
                 return true
             }
             guard valid else { return nil }
-            chunks.append(Chunk(atlas: chunk.atlas, mesh: mesh))
+            let prepared = Chunk(atlas: chunk.atlas, mesh: mesh)
+            if let index = chunk.brushIndex {
+                guard (0..<255).contains(index), brushes[index] == nil else { return nil }
+                brushes[index] = prepared
+            } else {
+                chunks.append(prepared)
+            }
         }
-        return (chunks, header.atlasCount)
+        guard brushes.keys.sorted() == Array(0..<brushes.count) else { return nil }
+        return (chunks, (0..<brushes.count).compactMap { brushes[$0] }, header.atlasCount)
     }
 }

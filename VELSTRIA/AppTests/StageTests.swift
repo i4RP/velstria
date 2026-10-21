@@ -17,11 +17,19 @@ final class StageTests: XCTestCase {
     func testCanyonStageFitsExistingBudgets() throws {
         for quality in GraphicsQuality.allCases {
             let plan = try XCTUnwrap(CanyonStagePlan.load(map: .canyon, quality: .preset(quality)))
-            let triangles = plan.chunks.reduce(0) { $0 + $1.mesh.triangleCount }
+            let triangles = (plan.chunks + plan.brushes).reduce(0) { $0 + $1.mesh.triangleCount }
             XCTAssertGreaterThan(triangles, 50_000)
             XCTAssertLessThanOrEqual(triangles, BattleWorkBudget.stagePropTriangles(quality))
-            XCTAssertLessThan(plan.brushes.brushes.reduce(0) { $0 + $1.triangleCount }, 90_000)
-            XCTAssertEqual(plan.brushes.brushes.count, MapDefinition.canyon.brushes.count)
+            XCTAssertLessThan(plan.brushes.reduce(0) { $0 + $1.mesh.triangleCount }, 90_000)
+            XCTAssertEqual(plan.brushes.count, MapDefinition.canyon.brushes.count)
+            for (i, brush) in plan.brushes.enumerated() {
+                let bounds = try XCTUnwrap(MapDefinition.canyon.bushMask?.bounds(of: i))
+                // Quantized concealment cells may extend one cell past the original leaves.
+                XCTAssertGreaterThanOrEqual(bounds.minX / 100, Double(brush.mesh.boundsMin.x) - 0.162)
+                XCTAssertLessThanOrEqual(bounds.maxX / 100, Double(brush.mesh.boundsMax.x) + 0.162)
+                XCTAssertGreaterThanOrEqual(bounds.minY / 100, Double(-brush.mesh.boundsMax.z) - 0.162)
+                XCTAssertLessThanOrEqual(bounds.maxY / 100, Double(-brush.mesh.boundsMin.z) + 0.162)
+            }
             XCTAssertEqual(plan.atlases.count, 3)
             XCTAssertTrue(plan.atlases.allSatisfy { $0.width <= 2048 && $0.height <= 1024 })
         }
@@ -29,6 +37,8 @@ final class StageTests: XCTestCase {
         let stage = try XCTUnwrap(scene.stage)
         XCTAssertNotNil(stage.root.findEntity(named: "canyon_0"))
         XCTAssertEqual(scene.brushEntities.count, MapDefinition.canyon.brushes.count)
+        scene.setTranslucentBrush(0)
+        XCTAssertNotNil(scene.brushEntities[0].components[OpacityComponent.self])
         XCTAssertNil(stage.root.findEntity(named: "stageRunes"))
         XCTAssertEqual(scene.fountainSpires.count, 0)
     }

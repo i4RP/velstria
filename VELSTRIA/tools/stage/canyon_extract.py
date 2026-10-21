@@ -20,6 +20,6 @@ for o in bpy.data.objects:
  norm=np.array([n.vector[:] for n in mesh.corner_normals]);norm=norm@np.linalg.inv(mat[:3,:3]);norm/=np.maximum(np.linalg.norm(norm,axis=1,keepdims=True),1e-8)
  uv=np.array([u.uv[:] for u in mesh.uv_layers.active.data]) if mesh.uv_layers.active else np.zeros((len(mesh.loops),2))
  idx=len(meta);np.savez(root/'meshes'/f'{idx}.npz',p=co[corners[tri]],n=norm[tri],uv=uv[tri])
- meta.append(dict(id=idx,name=o.name,texture=tex,material=m.name,lo=co.min(0).tolist(),hi=co.max(0).tolist(),uvlo=uv.min(0).tolist(),uvhi=uv.max(0).tolist()))
+ meta.append(dict(id=idx,name=o.name,texture=tex,material=m.name,origin=mat[:3,3].tolist(),lo=co.min(0).tolist(),hi=co.max(0).tolist(),uvlo=uv.min(0).tolist(),uvhi=uv.max(0).tolist()))
 (root/'meshes.json').write_text(json.dumps(meta,indent=2))
 print('EXTRACTED',len(meta))
