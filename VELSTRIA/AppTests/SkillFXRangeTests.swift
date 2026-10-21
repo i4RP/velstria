@@ -125,11 +125,11 @@ final class SkillFXRangeTests: XCTestCase {
         "H010 skill1", "H010 ultimate", "H012 skill1", "H012 skill2", "H013 skill2", "H013 ultimate",
         "H014 skill2", "H016 ultimate", "H017 ultimate", "H018 skill2", "H019 skill2", "H019 ultimate",
         "H020 skill1", "H020 skill2", "H022 ultimate", "H024 skill1", "H024 skill2",
-        "H025 skill2", "H026 ultimate", "H031 skill1", "H031 ultimate", "H033 ultimate",
+        "H026 ultimate", "H031 skill1", "H031 ultimate", "H033 ultimate",
     ]
 
     /// 直し済み（食い違い 0 でなければならない）。
-    static let fixedHeroes: Set<String> = ["H029", "H034"]
+    static let fixedHeroes: Set<String> = ["H025", "H029", "H034"]
 
     func testRangePartsMatchTheJudgmentEdges() {
         var unexpected: [String] = []

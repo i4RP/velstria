@@ -48,6 +48,7 @@ python pack.py --frames "$W/frames" --preview "$W/preview"      # 確認用の�
 | `crack_s` | 1 枚（白） | 1024² | 横に寝た S 字の太い地割れ + 枝 + 細いひび |
 | `crack_radial` | 1 枚（白） | 1024² | 放射状の 11 本の枝分かれするひび + 途切れた輪のひび |
 | `scorch` / `star4` / `swoosh` / `blade` | 1 枚（白） | 512² / 256² | 焦げ跡・四芒星・斬撃の帯（u = 尾 → 頭）・渦の刃 |
+| `moon_crest` | 1 枚（白） | 512² | 月の紋章: 右下が太い三日月の外縁の明るい線・内縁の細い線・波頭の渦の飾り 2 つ（H025 の奥義の頭上の三日月） |
 | `lava` / `flame_noise` | 継ぎ目なし（白黒） | 512² | 溶岩の網・炎の筋 |
 | `crescent` `ringLip` `twister` `pillar2` `bladeRing` `burstDome` `starCross` `shardRing` | .fxm | 130〜1344 三角形 | 三日月の帯・衝撃の輪・竜巻・2 重の光の柱・渦の刃の輪・炎の半球・四芒星の盤・岩板の輪 |
 

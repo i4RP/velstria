@@ -35,7 +35,7 @@ final class BattleWorld {
             director?.playStacked(x, at: p, yaw: yaw, follow: follow, offset: offset)
         }
         projectiles.suppressedHeroes = director.heroes
-        projectiles.skillShotsKept = director.skillOptOutHeroes
+        projectiles.skillShotsKept = director.skillOptOutHeroes.subtracting(ProjectileLayer.skillShotsDrawnBySkillFX)
         projectiles.attackShotsKept = director.attackOptOutHeroes
     }
     /// Effekseer が通常攻撃の演出を出すヒーローか（旧来の通常攻撃の演出・被弾を止める）。

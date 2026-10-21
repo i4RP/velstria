@@ -43,6 +43,7 @@ JOBS = {
     "star4": dict(kind="image", color="white", source="lum", level="peak", halo=0.45),
     "swoosh": dict(kind="image", color="white", source="lum", level="peak"),
     "blade": dict(kind="image", color="white", source="lum", level="peak"),
+    "moon_crest": dict(kind="image", color="white", source="lum", level="peak", halo=0.3),
     "lava": dict(kind="tile", color="white", source="lum", level="peak"),
     "flame_noise": dict(kind="tile", color="white", source="lum", level="peak"),
 }

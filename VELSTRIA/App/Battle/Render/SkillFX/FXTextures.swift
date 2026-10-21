@@ -103,6 +103,8 @@ enum FXTex: String, CaseIterable, Hashable, Sendable {
     case flameRingCore
     /// 細い線の輪（半径 0.95・幅 1%）。範囲の縁の細い線。1024 px。
     case thinRing
+    /// 月の紋章（三日月の外縁の明るい線・内縁の細い線・波頭の渦の飾り。Blender の模様 fx_moon_crest）。H025 の奥義の頭上の三日月。512 px。
+    case moonCrest
 
     /// バンドルの画像の名前（Blender の模様）。nil = CoreGraphics で描く。
     var bundled: String? {
@@ -116,6 +118,7 @@ enum FXTex: String, CaseIterable, Hashable, Sendable {
         case .flameRing: return "fx_flame_ring"
         case .flameRingCore: return "fx_flame_ring_core"
         case .thinRing: return "fx_thin_ring"
+        case .moonCrest: return "fx_moon_crest"
         default: return nil
         }
     }
@@ -696,7 +699,7 @@ final class FXTextureLibrary {
             ctx.closePath()
             ctx.fillPath()
             radial(ctx, center: CGPoint(x: s * 0.82, y: c.y), radius: s * 0.16, stops: [(0, 0.7), (1, 0)])
-        case .crackS, .crackRadial, .scorch, .star4, .swoosh, .blade, .flameRing, .flameRingCore, .thinRing:
+        case .crackS, .crackRadial, .scorch, .star4, .swoosh, .blade, .flameRing, .flameRingCore, .thinRing, .moonCrest:
             // バンドルの画像（image(_:) が読む）。ここへは来ない
             break
         case .note:

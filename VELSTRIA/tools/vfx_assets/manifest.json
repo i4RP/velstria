@@ -62,6 +62,14 @@
       "sha256": "ba94680b6e4a1934fc0970cd1b3aa54ebfd515ab4acb918585002ed8f64e977c",
       "size": 512
     },
+    "moon_crest": {
+      "bytes": 38176,
+      "color": "white",
+      "file": "Textures/fx_moon_crest.png",
+      "kind": "image",
+      "sha256": "6b369246f4825947b1bf5ab30f6f258670b7d1329edccccb06a0c5e0f1743bba",
+      "size": 512
+    },
     "rock_tumble": {
       "bytes": 63606,
       "color": "colored",

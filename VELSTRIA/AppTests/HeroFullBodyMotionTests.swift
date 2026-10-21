@@ -13,7 +13,7 @@ import VelstriaCore
 @MainActor
 final class HeroFullBodyMotionTests: XCTestCase {
     private let master = MasterData.shared
-    private static let scripted = ["H029", "H034"]
+    private static let scripted = ["H025", "H029", "H034"]
 
     private func profile(_ id: String) -> HeroMotionProfile {
         let bp = HeroBlueprints.blueprint(heroID: id, role: master.hero(id)?.role)
@@ -109,6 +109,15 @@ final class HeroFullBodyMotionTests: XCTestCase {
         }
         near(ult.simLock, try v("H034", .ultimate, "ultDelay") + v("H034", .ultimate, "ultSuppress"), "ゴルム 奥義の拘束")
         XCTAssertEqual(golm.attackMotions.count, 2, "フランコの通常攻撃は左右交互の 2 拍")
+
+        // ルミナ: S2 は着弾（s2Land）の skyFall 秒前に天へ放ち、着弾の 0.1 秒後まで弓を掲げて見上げる
+        let lumina = profile("H025")
+        let land = try v("H025", .skill2, "s2Land")
+        near(lumina.casts[1].impact, land - Double(Motion_H025.skyFall), "ルミナ S2 の天へ放つ = 着弾の skyFall 秒前")
+        XCTAssertTrue(lumina.casts[1].keys.contains { abs($0.time - Float(land + 0.1)) < 1e-3 }, "ルミナ S2 の見上げの終わりにキーが無い")
+        XCTAssertEqual(lumina.attackMotions.count, 1, "ミヤの通常攻撃は毎回同じ引き")
+        XCTAssertLessThanOrEqual(lumina.casts[0].impact ?? 1, 0.1, "ルミナ S1 の気が灯る（発動の直後）")
+        XCTAssertLessThanOrEqual(lumina.casts[2].impact ?? 1, 0.1, "ルミナ 奥義のかがみ（発動の直後に隠れる）")
         XCTAssertTrue(KitTimes.misses.isEmpty, "モーションが読むキットの値が fxValues に無い: \(KitTimes.misses.sorted())")
     }
 

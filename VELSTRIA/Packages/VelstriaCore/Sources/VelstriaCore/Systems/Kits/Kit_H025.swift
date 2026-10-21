@@ -661,4 +661,30 @@ extension Kit_H025 {
         // S2 月蝕: 照準の半径の円（castEclipse）
         [KitZoneShape(radius: T.s2Radius)]
     }
+
+    /// 演出・モーションが読む時刻・寸法（Tune そのもの。App の FX_H025・Motion_H025 は値を写さずここから読む。docs/vfx/RANGES.md）。
+    /// s2Land / s2Split は sim が実際に着弾・分裂を出す時刻（予約・ゾーンの遅れは撃った tick を 1 回目に数えて tick に丸まる =
+    /// Kit.firesAfter。0.65 秒の遅れは 0.633 秒、0.98 秒は 0.967 秒）。
+    func fxValues(slot: SkillSlot, stage: Int) -> [KitFXValue] {
+        switch slot {
+        case .passive:
+            return [KitFXValue("maxStacks", Double(T.maxStacks), .count),
+                    KitFXValue("stackDuration", T.stackDuration, .seconds)]
+        case .skill1:
+            return [KitFXValue("s1Duration", list: T.s1Duration, .seconds)]
+        case .skill2:
+            return [KitFXValue("s2Delay", T.s2Delay, .seconds), KitFXValue("s2SplitDelay", T.s2SplitDelay, .seconds),
+                    KitFXValue("s2Land", Kit.firesAfter(T.s2Delay), .seconds),
+                    KitFXValue("s2Split", Kit.firesAfter(T.s2Delay + T.s2SplitDelay), .seconds),
+                    KitFXValue("s2Range", T.s2Range, .distance), KitFXValue("s2Radius", T.s2Radius, .distance),
+                    KitFXValue("s2Root", T.s2Root, .seconds), KitFXValue("s2SlowDuration", T.s2SlowDuration, .seconds),
+                    KitFXValue("s2Arrows", Double(T.s2Arrows), .count),
+                    KitFXValue("s2ArrowSpeed", T.s2ArrowSpeed, .speed), KitFXValue("s2ArrowRange", T.s2ArrowRange, .distance),
+                    KitFXValue("s2ArrowWidth", T.s2ArrowWidth, .distance),
+                    KitFXValue("s2ScatterHalfAngle", T.s2ScatterHalfAngle, .radians),
+                    KitFXValue("s2ScatterTurn", T.s2ScatterTurn, .radians)]
+        case .ultimate:
+            return [KitFXValue("ultDuration", T.ultDuration, .seconds), KitFXValue("ultSpeed", T.ultSpeed, .ratio)]
+        }
+    }
 }
