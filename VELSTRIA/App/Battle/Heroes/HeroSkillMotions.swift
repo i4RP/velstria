@@ -33,6 +33,7 @@ enum HeroSkillMotions {
     static let scripts: [String: HeroMotionScript.Type] = [
         "H027": Motion_H027.self,
         "H029": Motion_H029.self,
+        "H030": Motion_H030.self,
         "H032": Motion_H032.self,
         "H034": Motion_H034.self,
     ]

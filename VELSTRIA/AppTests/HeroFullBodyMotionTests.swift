@@ -13,7 +13,7 @@ import VelstriaCore
 @MainActor
 final class HeroFullBodyMotionTests: XCTestCase {
     private let master = MasterData.shared
-    private static let scripted = ["H029", "H034"]
+    private static let scripted = ["H029", "H030", "H034"]
 
     private func profile(_ id: String) -> HeroMotionProfile {
         let bp = HeroBlueprints.blueprint(heroID: id, role: master.hero(id)?.role)
@@ -109,6 +109,15 @@ final class HeroFullBodyMotionTests: XCTestCase {
         }
         near(ult.simLock, try v("H034", .ultimate, "ultDelay") + v("H034", .ultimate, "ultSuppress"), "ゴルム 奥義の拘束")
         XCTAssertEqual(golm.attackMotions.count, 2, "フランコの通常攻撃は左右交互の 2 拍")
+
+        // ライナ: 撃つキー = 砲弾・光球・ビームが出る時刻（溜めの終わり）。通常攻撃はモーションクリップのまま
+        let raina = profile("H030")
+        near(raina.casts[0].impact, try v("H030", .skill1, "s1Windup"), "ライナ S1 の発射 = 砲弾が出る")
+        near(raina.casts[1].impact, try v("H030", .skill2, "s2Windup"), "ライナ S2 の発射 = 光球が出る")
+        near(raina.casts[2].impact, try v("H030", .ultimate, "ultWindup"), "ライナ 奥義の発射 = ビーム")
+        XCTAssertTrue(raina.attackMotions.isEmpty, "ライナの通常攻撃は全身にしない（gun_fire のクリップ）")
+        XCTAssertLessThanOrEqual(raina.casts[2].total, 1.7, "奥義のモーションの上限")
+        for k in 0..<2 { XCTAssertLessThanOrEqual(raina.casts[k].total, 1.1, "スキル \(k + 1) のモーションの上限") }
         XCTAssertTrue(KitTimes.misses.isEmpty, "モーションが読むキットの値が fxValues に無い: \(KitTimes.misses.sorted())")
     }
 
@@ -257,7 +266,8 @@ final class HeroFullBodyMotionTests: XCTestCase {
 
     /// 全身の通常攻撃: 武器の振り（軌跡）は playAttack の windup 秒後の前後だけ。戻りは攻撃状態の後も続き、待機へつながる。
     func testAttackMotionStrikesAtWindup() {
-        for id in Self.scripted {
+        // 全身の通常攻撃を持つヒーローだけ（ライナは通常攻撃をモーションクリップのまま）
+        for id in Self.scripted where !profile(id).attackMotions.isEmpty {
             for windup: Float in [0.18, 0.25, 0.4] {
                 var a = animator(id)
                 a.setState(.attack)
@@ -288,7 +298,7 @@ final class HeroFullBodyMotionTests: XCTestCase {
 
     // MARK: 同梱のスキンメッシュ（骨で測る）
 
-    /// 同梱の H029 / H034 で、全てのモーションの間、足首の骨が地面（待機の足首の高さ）より下へ入らず、体の位置が戻る。
+    /// 同梱の H029 / H030 / H034 で、全てのモーションの間、足首の骨が地面（待機の足首の高さ）より下へ入らず、体の位置が戻る。
     func testBundledSkinnedFeetStayOnGround() throws {
         var checked = 0
         for id in Self.scripted {
@@ -327,7 +337,7 @@ final class HeroFullBodyMotionTests: XCTestCase {
                 checked += 1
             }
         }
-        if checked == 0 { throw XCTSkip("Hero_H029 / Hero_H034 が同梱されていない") }
+        if checked == 0 { throw XCTSkip("Hero_H029 / Hero_H030 / Hero_H034 が同梱されていない") }
     }
 
     /// 足首の骨の高さ（右・左。ヒーローの root 空間 = 地面が 0）。
