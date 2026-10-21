@@ -58,6 +58,14 @@ struct MatchResultView: View {
         }
     }
 
+    /// 結果の選手のフレンドコード（オンラインの人間だけ。試合を始めた時に控えた座席の参加者から、チームとレーンで座席を引く）。
+    private func friendCode(of p: PlayerSummary) -> String? {
+        guard outcome.launch.isOnline, outcome.launch.replay == nil, p.isHuman,
+              let seat = outcome.launch.config.players.firstIndex(where: { $0.team == p.team && $0.position == p.position }),
+              seat != outcome.launch.onlineSeat else { return nil }
+        return outcome.launch.onlineSeatPlayers[seat]?.friendCode
+    }
+
     /// 左パネルに出す選手（人間。観戦では勝ったチームの MVP のメダル、勝敗が無ければ試合 MVP）。
     private var focus: PlayerSummary? {
         if let human = summary.humanPlayer { return human }
@@ -229,7 +237,7 @@ struct MatchResultView: View {
             MatchReportSheet(outcome: outcome).environment(app)
         }
         .sheet(item: $cardPlayer) { p in
-            ResultPlayerCard(player: p, summary: summary, showsLocalProfile: isLocalPlayer(p)).environment(app)
+            ResultPlayerCard(player: p, summary: summary, showsLocalProfile: isLocalPlayer(p), friendCode: friendCode(of: p)).environment(app)
         }
         .onAppear {
             if outcome.launch.config.mode == .tutorial && outcome.launch.replay == nil && !app.profile.tutorialCompleted {
@@ -1281,8 +1289,11 @@ struct ResultPlayerCard: View {
     let summary: MatchSummary
     /// この端末の人（アカウントレベルとランクを出す）。AI・ほかの人は基本の情報だけ。
     var showsLocalProfile = false
+    /// オンラインの人間のフレンドコード（フレンド申請・名刺。AI・この端末の人は nil）。
+    var friendCode: String?
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
+    @State private var card: PublicProfile?
 
     private var heroName: String {
         app.master.hero(player.heroID).map { MasterText.hero($0) } ?? player.heroID
@@ -1345,6 +1356,7 @@ struct ResultPlayerCard: View {
                             FlowStatCell(title: L("ゴールド", "Gold"), value: FlowText.compactNumber(s.goldEarned))
                             FlowStatCell(title: L("与ダメージ", "Damage"), value: FlowText.compactNumber(s.damageToHeroes))
                         }
+                        if let code = friendCode { onlineActions(code) }
                     }
                 }
                 Spacer(minLength: 0)
@@ -1353,6 +1365,40 @@ struct ResultPlayerCard: View {
             .padding(.vertical, 14)
         }
         .preferredColorScheme(.dark)
+        .sheet(item: $card) { p in PublicNameCardView(profile: p).environment(app) }
+    }
+
+    /// オンラインの人: フレンド申請と名刺（MLBB: リザルトから申請・名刺を開ける）。
+    private func onlineActions(_ code: String) -> some View {
+        let isFriend = app.friends.friend(code: code) != nil
+        let requested = app.friends.hasOutgoingRequest(to: code)
+        let blocked = app.friends.isBlocked(code)
+        return HStack(spacing: 8) {
+            Button {
+                FlowFX.confirm(app)
+                _ = app.friends.requestFriend(code: code)
+            } label: {
+                Label(isFriend ? L("フレンド", "Friend") : (requested ? L("申請中", "Requested") : L("フレンド申請", "Add Friend")),
+                      systemImage: "person.badge.plus")
+                    .frame(minWidth: 140)
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .disabled(isFriend || requested || blocked || code == app.profile.friendCode)
+            .accessibilityIdentifier("result_card_add_friend")
+            Button {
+                FlowFX.tap(app)
+                Task {
+                    await app.publicProfiles.load([code])
+                    if let p = app.publicProfiles.profiles[code] { card = p } else {
+                        app.showToast(L("名刺を読み込めませんでした", "Couldn't load the name card"))
+                    }
+                }
+            } label: {
+                Label(L("名刺", "Name Card"), systemImage: "person.text.rectangle").frame(minWidth: 110)
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .accessibilityIdentifier("result_card_namecard")
+        }
     }
 }
 
