@@ -131,16 +131,17 @@ enum FX_H027: HeroFXSet {
         let fan = flurryFan * 0.6
         let plate = thrustPlate(s)
         return [
-            // 突きの筋（水色の外層・光る・筋の模様が前へ流れる）と白い芯。術者に追従（突きの間に少し動いても穂先から出る）
-            .mesh(.ray(.streak, length: plate.length, width: 0.55, .primary, life: 0.13).glowing()
+            // 突きの筋（水色の外層・光る・筋の模様が前へ流れる）と白い芯。術者に追従（突きの間に少し動いても穂先から出る）。
+            // streak の見える幅は板の縦の 0.16 倍なので、外層 0.26m・芯 0.1m（2026-10-21 の撮影で 0.55 / 0.18 は細すぎて読めなかった）
+            .mesh(.ray(.streak, length: plate.length, width: 1.6, .primary, life: 0.13).glowing()
                 .flowing(.streaks, scroll: [-3.5, 0], tiling: 1.5, strength: 0.5, erosion: 0.3, edge: .core)
                 .with { $0.yaw = 90 - fan; $0.fadeIn = 0 }, .follow, offset: [0.05, 1.05, plate.center])
                 .repeated(n, every: g, yaw: fan),
-            .mesh(.ray(.streak, length: plate.length * 0.96, width: 0.18, .core, life: 0.1).glowing()
+            .mesh(.ray(.streak, length: plate.length * 0.96, width: 0.6, .core, life: 0.1).glowing()
                 .with { $0.yaw = 90 - fan; $0.fadeIn = 0 }, .follow, offset: [0.05, 1.07, plate.center])
                 .repeated(n, every: g, yaw: fan),
             // 足元を走る青緑の細い筋（地面に届く距離を示す。上から見て突きの筋と重なる）
-            .mesh(.ray(.streak, length: plate.length, width: 0.22, .secondary, life: 0.22, height: 0, alpha: 0.7).glowing()
+            .mesh(.ray(.streak, length: plate.length, width: 1.1, .secondary, life: 0.22, height: 0, alpha: 0.75).glowing()
                 .with { $0.fadeIn = 0 }, .follow, offset: [0, 0.05, plate.center]),
             // 突くたびに穂先の閃きと、対象の白い閃き・水色の輪
             .mesh(.sprite(.flare4, 0.9, .core, life: 0.09, grow: 1.2).glowing(), .follow, offset: [0.05, 1.05, thrustNear + 0.6])

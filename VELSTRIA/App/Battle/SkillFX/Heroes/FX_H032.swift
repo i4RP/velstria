@@ -211,9 +211,9 @@ enum FX_H032: HeroFXSet {
                          sizeEnd: [r * 1.85, 1, r * 1.85], ease: .out, life: 0.32, fadeIn: 0.02, fadeOut: 0.4, spin: 900).glowing()
                 .flowing(.streaks, scroll: [2.5, 0], tiling: 1.5, strength: 0.5, erosion: 0.35, edge: flash),
                   offset: [0, 0.06, 0]),
-            // 両腕の刃の 1 回転の振りの軌跡（体の高さ。右の刃は紫、左の刃は紅）と、体の高さを薙ぐ白い弧
-            .ribbon(.swing(radius: 1.45, from: 0, to: 360, height: 1.0, duration: 0.2, life: 0.18, width: 0.7, .primary), .follow),
-            .ribbon(.swing(radius: 1.3, from: 180, to: 540, height: 0.9, duration: 0.2, life: 0.16, width: 0.55, .secondary),
+            // 両腕の刃の 1 回転の振りの軌跡（体の高さ。右の刃は紫、左の刃はマゼンタ）と、体の高さを薙ぐ白い弧
+            .ribbon(.swing(radius: 1.45, from: 0, to: 360, height: 1.0, duration: 0.2, life: 0.18, width: 0.6, .primary), .follow),
+            .ribbon(.swing(radius: 1.3, from: 180, to: 540, height: 0.9, duration: 0.2, life: 0.16, width: 0.45, hookTint),
                     .follow),
             .mesh(FXMesh.sweep(1.6, .core, from: 0, to: 360, life: 0.22).glowing(), .follow, offset: [0, 1.0, 0]),
             // 主対象に桃白の閃き（周りの敵は共通の被弾の閃き）
