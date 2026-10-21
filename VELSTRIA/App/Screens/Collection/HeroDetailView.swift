@@ -33,6 +33,7 @@ struct HeroDetailView: View {
     @Environment(AppModel.self) private var app
     // 出荷ビルドでは DebugLaunch.args が空なので常に .overview。-heroTab <skills 等> はストア用スクリーンショットの撮影用。
     @State private var tab: HeroDetailTab = DebugLaunch.value(after: "-heroTab").flatMap(HeroDetailTab.init(rawValue:)) ?? .overview
+    @State private var showsDetails = DebugLaunch.value(after: "-heroTab") != nil
     @State private var pendingSKU: String?
     @State private var showsBattleSkills = false
     /// スキルタブで開いているスキル（nil = スキル 1）。
@@ -42,66 +43,234 @@ struct HeroDetailView: View {
         if let hero = app.master.hero(heroID) {
             let skills = app.master.skills(forHero: hero.heroID)
             let current = HeroSkillSelection.resolved(selectedID: selectedSkillID, skills: skills)
-            ScreenScaffold(title: L("ヒーロー詳細", "Hero Details")) {
-                // 左 = ヒーロー情報（名前・ロール・評価バー・スキルアイコン列）、右 = タブの内容（スキルタブはスキル詳細）
-                HStack(alignment: .top, spacing: 12) {
-                    HeroInfoPanel(hero: hero, selectedSkillID: tab == .skills ? current?.skillID : nil,
-                                  skillIDPrefix: "skill_", pendingSKU: $pendingSKU,
-                                  onSelectSkill: { skill in
-                                      withAnimation(.easeInOut(duration: 0.22)) {
-                                          selectedSkillID = skill.skillID
-                                          tab = .skills
-                                      }
-                                  },
-                                  onQuickTab: { t in
-                                      withAnimation(.easeInOut(duration: 0.22)) { tab = t }
-                                  })
-                    VStack(spacing: 6) {
-                        tabBar
-                        Group {
-                            if tab == .skills {
-                                if let skill = current {
-                                    SkillShowcasePanel(skill: skill, hero: hero)
-                                        .id(skill.skillID)
-                                        .transition(.opacity)
+            GeometryReader { geometry in
+                ZStack {
+                    LinearGradient(colors: [.black.opacity(0.35), .clear, .black.opacity(0.4)],
+                                   startPoint: .leading, endPoint: .trailing).ignoresSafeArea()
+                    VStack(spacing: 0) {
+                        showcaseHeader
+                        HStack(spacing: 0) {
+                            showcaseInfo(hero, skills: skills)
+                                .frame(width: geometry.size.width * 0.28)
+                            HeroPreview3DView(heroID: hero.heroID, skinID: app.profile.equippedSkins[hero.heroID])
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .overlay(alignment: .bottom) {
+                                    Text(L("ドラッグして回転", "Drag to rotate"))
+                                        .font(Theme.body(10)).foregroundStyle(.white.opacity(0.65))
+                                        .padding(.bottom, 8).allowsHitTesting(false)
                                 }
-                            } else {
-                                ScrollView {
-                                    tabContent(hero)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .padding(.bottom, 12)
-                                }
-                                .scrollIndicators(.hidden)
-                            }
+                            skinRail(hero, height: geometry.size.height)
+                                .frame(width: geometry.size.width * 0.23)
                         }
-                        .id(tab)
-                        .transition(.opacity.combined(with: .move(edge: .trailing)))
-                        .animation(.easeInOut(duration: 0.2), value: current?.skillID)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 8)
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 2)
-                .padding(.bottom, 6)
+            }
+            .background {
+                GeometryReader { background in
+                    Image("HomeBackdrop").resizable().scaledToFill()
+                        .frame(width: background.size.width, height: background.size.height).clipped()
+                }.ignoresSafeArea()
+            }
+            .toolbar(.hidden, for: .navigationBar)
+            .sheet(isPresented: $showsDetails) {
+                VStack(spacing: 8) {
+                    HStack {
+                        Text(MasterText.hero(hero)).font(Theme.heading(18))
+                        Spacer()
+                        Button(L("閉じる", "Close")) { showsDetails = false }
+                    }
+                    tabBar
+                    if tab == .skills, let skill = current {
+                        SkillShowcasePanel(skill: skill, hero: hero).id(skill.skillID)
+                        HStack {
+                            ForEach(skills) { skill in
+                                SkillIconButton(skill: skill, hero: hero, isSelected: current?.skillID == skill.skillID,
+                                                identifier: "detail_skill_" + skill.skillID) {
+                                    selectedSkillID = skill.skillID
+                                }
+                            }
+                        }
+                    } else {
+                        ScrollView { tabContent(hero) }
+                    }
+                }
+                .padding(16)
+                .background(Theme.panel)
+                .foregroundStyle(Theme.textPrimary)
+                .sheet(isPresented: $showsBattleSkills) {
+                    VStack(spacing: 10) {
+                        HStack {
+                            Text(L("バトルスキル", "Battle Skills")).font(Theme.heading(20))
+                            Spacer()
+                            Button(L("閉じる", "Close")) { showsBattleSkills = false }
+                        }
+                        BattleSkillPicker(current: SpellLoadoutRules.effective(heroID: heroID, profile: app.profile)[0]) { id in
+                            app.profile.heroSpells[heroID] = [id, SpellLoadoutRules.fixedSpellID]
+                            showsBattleSkills = false
+                        }
+                    }.padding(16).background(Theme.panel).foregroundStyle(Theme.textPrimary)
+                }
             }
             .storePurchaseFlow(sku: $pendingSKU)
-            .sheet(isPresented: $showsBattleSkills) {
-                VStack(spacing: 10) {
-                    HStack {
-                        Text(L("バトルスキル", "Battle Skills")).font(Theme.heading(20))
-                        Spacer()
-                        Button(L("閉じる", "Close")) { showsBattleSkills = false }
-                    }
-                    BattleSkillPicker(current: SpellLoadoutRules.effective(heroID: heroID, profile: app.profile)[0]) { id in
-                        app.profile.heroSpells[heroID] = [id, SpellLoadoutRules.fixedSpellID]
-                        showsBattleSkills = false
-                    }
-                }.padding(16).background(Theme.panel).foregroundStyle(Theme.textPrimary)
-            }
+            .onChange(of: app.router.path.count) { _, _ in showsDetails = false }
+
         } else {
             ScreenScaffold(title: L("ヒーロー詳細", "Hero Details")) {
                 CollectionEmptyState(symbol: "questionmark.circle", title: L("ヒーローが見つかりません", "Hero not found"))
             }
         }
+    }
+
+    private var showcaseHeader: some View {
+        HStack {
+            Button { app.router.pop() } label: {
+                Image(systemName: "arrow.uturn.backward")
+                    .font(.system(size: 28, weight: .medium))
+                    .foregroundStyle(Theme.cyan)
+                    .shadow(color: Theme.cyan.opacity(0.7), radius: 6)
+                    .frame(width: 60, height: 44)
+            }
+            .accessibilityLabel(L("戻る", "Back"))
+            .accessibilityIdentifier("nav_back")
+            Spacer()
+            CurrencyBadge(kind: .coin, amount: app.profile.starlightCoin)
+            CurrencyBadge(kind: .gem, amount: app.profile.totalGem)
+        }
+        .padding(.horizontal, 20).padding(.top, 4)
+    }
+
+    private func openDetails(_ selection: HeroDetailTab) {
+        tab = selection
+        showsDetails = true
+        app.haptics.tap()
+    }
+
+    private func showcaseInfo(_ hero: HeroDef, skills: [SkillDef]) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 4) {
+                Label(MasterText.hero(hero), systemImage: Theme.roleSymbol(hero.role))
+                    .font(.system(size: 21, weight: .semibold, design: .serif))
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                Rectangle().fill(Theme.cyan.opacity(0.4)).frame(height: 1)
+                Text(MasterText.role(hero.role)).font(Theme.body(14))
+                Text(SkillTags.featureTags(hero: hero, master: app.master).map { SkillTags.name(for: $0) }.joined(separator: " / "))
+                    .font(Theme.body(11)).foregroundStyle(Theme.textSecondary)
+                if !app.owns(heroID: hero.heroID), let item = StoreCatalog.unlockItem(heroID: hero.heroID, master: app.master) {
+                    Button { pendingSKU = item.sku } label: {
+                        HStack {
+                            Text(L("解放", "Unlock"))
+                            PriceTag(currency: item.currency, amount: EconomyService.price(of: item), size: 12)
+                        }
+                    }.buttonStyle(SecondaryButtonStyle()).accessibilityIdentifier("herodetail_unlock")
+                }
+                HeroRatingBars(ratings: HeroRatingMath.ratings(for: hero, master: app.master))
+                    .frame(maxWidth: 210)
+                Button {
+                    let name = app.profile.displayName.isEmpty ? "Player" : app.profile.displayName
+                    let config = MatchFactory.practiceMatch(humanHeroID: hero.heroID, humanName: name,
+                                                            options: PracticeOptions(), seed: UInt64.random(in: 1...UInt64.max))
+                    app.startBattle(BattleLaunch(config: config))
+                } label: {
+                    Label(L("練習場で試す", "Try in Practice"), systemImage: "figure.fencing")
+                        .font(Theme.body(12)).frame(minHeight: 32)
+                }
+                .buttonStyle(SecondaryButtonStyle()).accessibilityIdentifier("herodetail_practice")
+                HStack(spacing: 2) {
+                    ForEach(skills) { skill in
+                        SkillIconButton(skill: skill, hero: hero, isSelected: false,
+                                        identifier: "skill_" + skill.skillID) {
+                            selectedSkillID = skill.skillID
+                            openDetails(.skills)
+                        }.frame(maxWidth: .infinity)
+                    }
+                }
+                HStack(spacing: 16) {
+                    showcaseShortcut(.stats)
+                    showcaseShortcut(.build)
+                    showcaseShortcut(.overview)
+                }
+            }
+            .padding(.top, 8).padding(.bottom, 4)
+        }
+        .scrollIndicators(.hidden)
+        .foregroundStyle(Theme.textPrimary)
+    }
+
+    private func showcaseShortcut(_ selection: HeroDetailTab) -> some View {
+        Button { openDetails(selection) } label: {
+            VStack(spacing: 3) {
+                Image(systemName: selection.symbol)
+                    .font(.system(size: 17)).frame(width: 32, height: 32)
+                    .overlay(Circle().stroke(Theme.cyan.opacity(0.35)))
+                Text(selection == .overview ? L("伝記", "Lore") : selection.title).font(Theme.body(10))
+            }.frame(minHeight: 44)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("herodetail_quick_\(selection.rawValue)")
+    }
+
+    private func skinRail(_ hero: HeroDef, height: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(L("スキン", "Skins"))
+                .font(Theme.heading(16)).foregroundStyle(Theme.textPrimary)
+                .frame(maxWidth: .infinity).padding(.bottom, 8)
+                .background(alignment: .bottom) { Rectangle().fill(Theme.cyan.opacity(0.6)).frame(height: 1) }
+            ScrollView(.horizontal) {
+                LazyHStack(spacing: 10) {
+                    showcaseSkinCard(hero: hero, skin: nil, height: height)
+                    ForEach(CosmeticInfo.skins(heroID: hero.heroID, master: app.master)) { skin in
+                        showcaseSkinCard(hero: hero, skin: skin, height: height)
+                    }
+                }
+                .padding(3)
+            }
+            .scrollIndicators(.hidden)
+            .frame(height: max(150, height * 0.59))
+            Spacer(minLength: 0)
+        }.padding(.top, 24)
+    }
+
+    private func showcaseSkinCard(hero: HeroDef, skin: CosmeticDef?, height: CGFloat) -> some View {
+        let equipped = app.profile.equippedSkins[hero.heroID] == skin?.cosmeticID
+        let cardHeight = max(140, height * 0.56)
+        return Button {
+            app.haptics.tap()
+            var profile = app.profile
+            if let skin {
+                if app.owns(cosmeticID: skin.cosmeticID) {
+                    if CosmeticInfo.equip(skin, profile: &profile) { app.profile = profile }
+                } else if let item = StoreCatalog.storeItem(forCosmetic: skin.cosmeticID, master: app.master) {
+                    app.router.push(.productDetail(item.sku))
+                }
+            } else {
+                CosmeticInfo.unequip(.heroSkin, heroID: hero.heroID, profile: &profile)
+                app.profile = profile
+            }
+        } label: {
+            ZStack(alignment: .bottom) {
+                if let art = skin.flatMap({ PortraitArt.skin($0.cosmeticID) }) ?? PortraitArt.card(hero.heroID) ?? PortraitArt.hero(hero.heroID) {
+                    Image(uiImage: art).resizable().scaledToFill()
+                        .frame(width: cardHeight * 0.6, height: cardHeight).clipped()
+                }
+                LinearGradient(colors: [.clear, .black.opacity(0.9)], startPoint: .center, endPoint: .bottom)
+                VStack(spacing: 4) {
+                    Text(skin.map { MasterText.cosmetic($0) } ?? L("デフォルト", "Default"))
+                        .font(Theme.body(12)).lineLimit(2)
+                    if equipped {
+                        Label(L("使用中", "Equipped"), systemImage: "checkmark.circle.fill")
+                            .font(Theme.body(10)).foregroundStyle(Theme.cyan)
+                    }
+                }.foregroundStyle(.white).padding(10)
+            }
+            .frame(width: cardHeight * 0.6, height: cardHeight)
+            .background(Theme.panel)
+            .clipShape(RoundedRectangle(cornerRadius: 5))
+            .overlay(RoundedRectangle(cornerRadius: 5).stroke(equipped ? Theme.cyan : .white.opacity(0.25), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("herodetail_skin_\(skin?.cosmeticID ?? "default")")
     }
 
     private var tabBar: some View {
