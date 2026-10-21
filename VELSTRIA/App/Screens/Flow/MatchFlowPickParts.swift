@@ -60,11 +60,15 @@ struct LaneFilterBar: View {
     static let order: [LanePosition] = [.top, .carry, .mid, .support, .jungle]
 
     var body: some View {
-        CelestialTabs(options: [CelestialTab<LanePosition?>(value: nil, title: L("すべてのレーン", "All Lanes"), symbol: nil, identifier: "flow_lanetab_all")]
-                        + Self.order.filter { only == nil || $0 == only }.map {
-                            CelestialTab<LanePosition?>(value: $0, title: FlowText.position($0), symbol: nil, identifier: "flow_lanetab_\($0.rawValue)")
-                        },
-                      selection: $selection, fills: false, onChange: { _ in app.audio.play(.uiTab) })
+        // SE では 6 つのタブが横に収まらない。横にスクロールさせて、画面の幅を押し広げない
+        ScrollView(.horizontal, showsIndicators: false) {
+            CelestialTabs(options: [CelestialTab<LanePosition?>(value: nil, title: L("すべてのレーン", "All Lanes"), symbol: nil, identifier: "flow_lanetab_all")]
+                            + Self.order.filter { only == nil || $0 == only }.map {
+                                CelestialTab<LanePosition?>(value: $0, title: FlowText.position($0), symbol: nil, identifier: "flow_lanetab_\($0.rawValue)")
+                            },
+                          selection: $selection, fills: false, onChange: { _ in app.audio.play(.uiTab) })
+        }
+        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
     }
 
     /// タブの絞り込み。

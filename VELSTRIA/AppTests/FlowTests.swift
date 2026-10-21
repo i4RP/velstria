@@ -656,10 +656,15 @@ final class FlowDraftHelpTests: XCTestCase {
         let hero = try XCTUnwrap(MasterData.shared.heroes.first)
         Loc.current = .ja
         let ja = MasterText.heroPickName(hero)
-        XCTAssertTrue(ja.hasPrefix(hero.displayNameJa + "("), ja)
         XCTAssertTrue(ja.hasSuffix(")"), ja)
+        XCTAssertTrue(hero.displayNameJa.hasSuffix(String(ja.prefix { $0 != "(" })), "二つ名を除いた名前: \(ja)")
+        XCTAssertFalse(ja.contains(","), "英語の二つ名は付けない: \(ja)")
+        for h in MasterData.shared.heroes {
+            XCTAssertLessThanOrEqual(MasterText.heroPickName(h).count, 16, "選択画面の名前が長すぎる: \(MasterText.heroPickName(h))")
+        }
         Loc.current = .en
         XCTAssertFalse(MasterText.heroPickName(hero).contains("("))
+        XCTAssertFalse(MasterText.heroPickName(hero).contains(","))
         XCTAssertEqual(LaneFilterBar.order, [.top, .carry, .mid, .support, .jungle], "MLBB のドラフトのタブの並び")
     }
 }

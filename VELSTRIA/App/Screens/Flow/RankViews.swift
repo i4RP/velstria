@@ -460,11 +460,14 @@ struct RankOverviewView: View {
                 .padding(.vertical, 2)
                 .background(Capsule().fill(Color.black.opacity(0.35)))
             if r.tier != .mythic {
-                HStack(spacing: 6) {
-                    Text(L("スターポイント", "Star Points")).font(Theme.body(10)).foregroundStyle(Theme.textSecondary)
+                // 文字は棒の上に（横に並べると SE で右下の戦績のカードに隠れる）
+                VStack(spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(L("スターポイント", "Star Points")).font(Theme.body(10)).foregroundStyle(Theme.textSecondary)
+                        Text("\(r.starPoints)/\(RankService.starPointCap(r.tier))").font(Theme.mono(10)).foregroundStyle(Theme.textSecondary)
+                    }
                     CelestialProgressBar(value: RankService.progress(r.starPoints, cap: RankService.starPointCap(r.tier)), tint: Theme.gold, height: 4)
-                        .frame(width: 110)
-                    Text("\(r.starPoints)/\(RankService.starPointCap(r.tier))").font(Theme.mono(10)).foregroundStyle(Theme.textSecondary)
+                        .frame(width: 130)
                 }
             }
         }

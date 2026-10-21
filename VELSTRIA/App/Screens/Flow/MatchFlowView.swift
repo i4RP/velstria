@@ -221,6 +221,8 @@ struct MatchFlowView: View {
                 case .draft: DraftStep(model: model)
                 }
             }
+            // 段の画面が画面より広くなっても、重ねる物（バトルスキルの選択・トースト）は画面の中に置く
+            .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
             .id(model.step)
             .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity),
                                     removal: .move(edge: .leading).combined(with: .opacity)))
