@@ -162,7 +162,7 @@ struct DraftStep: View {
                     .font(Celestial.heading(13))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                    .minimumScaleFactor(0.5)
                     .accessibilityIdentifier("flow_draft_picking")
             } else {
                 Text(L("ヒーローを選んでください", "Select a hero"))
