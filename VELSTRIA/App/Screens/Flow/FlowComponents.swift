@@ -432,41 +432,14 @@ struct RoleLabel: View {
 }
 
 /// ランク紋章（形 + 記号で識別できる）。
+/// ランクの紋章（絵は Common/CelestialArt.swift の RankCrest。採用案の画風のベクター）。
 struct RankEmblemView: View {
     let tier: RankTier
     var size: CGFloat = 40
 
     var body: some View {
-        let colors = FlowText.tierColors(tier)
-        ZStack {
-            HexagonShape()
-                .fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))
-            HexagonShape()
-                .stroke(LinearGradient(colors: [.white.opacity(0.9), colors[0].opacity(0.4)], startPoint: .top, endPoint: .bottom),
-                        lineWidth: max(1, size * 0.05))
-            HexagonShape()
-                .insetHex(by: size * 0.12)
-                .stroke(Color.white.opacity(0.35), lineWidth: max(0.5, size * 0.02))
-            Image(systemName: FlowText.tierSymbol(tier))
-                .font(.system(size: size * 0.36, weight: .black))
-                .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.5), radius: 2)
-        }
-        .frame(width: size, height: size)
-        .shadow(color: colors[0].opacity(0.55), radius: size * 0.18)
-        .accessibilityLabel(RankService.tierName(tier))
+        RankCrest(tier: tier, size: size)
     }
-}
-
-private extension HexagonShape {
-    func insetHex(by amount: CGFloat) -> some Shape {
-        InsetHexagon(amount: amount)
-    }
-}
-
-private struct InsetHexagon: Shape {
-    var amount: CGFloat
-    func path(in rect: CGRect) -> Path { HexagonShape().path(in: rect.insetBy(dx: amount, dy: amount)) }
 }
 
 /// ランクの星（ティアごとに 3〜5）。
@@ -518,9 +491,14 @@ struct AttachmentChip: View {
 
     var body: some View {
         HStack(spacing: 5) {
-            Image(systemName: symbol)
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(tint)
+            switch attachment.kind {
+            case .coin: CurrencyIcon(kind: .coin, size: 14)
+            case .gem: CurrencyIcon(kind: .gem, size: 14)
+            default:
+                Image(systemName: symbol)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(tint)
+            }
             Text(title)
                 .font(Theme.body(12))
                 .foregroundStyle(Theme.textPrimary)
@@ -943,18 +921,6 @@ enum FlowText {
         case .epic: return [Color(red: 0.45, green: 0.90, blue: 1.0), Color(red: 0.10, green: 0.32, blue: 0.75)]
         case .legend: return [Color(red: 0.84, green: 0.60, blue: 1.0), Color(red: 0.35, green: 0.15, blue: 0.62)]
         case .mythic: return [Color(red: 1.0, green: 0.86, blue: 0.48), Color(red: 0.92, green: 0.30, blue: 0.55)]
-        }
-    }
-
-    static func tierSymbol(_ t: RankTier) -> String {
-        switch t {
-        case .warrior: return "shield.fill"
-        case .elite: return "circle.circle"
-        case .master: return "circle.circle.fill"
-        case .grandmaster: return "star.fill"
-        case .epic: return "diamond.fill"
-        case .legend: return "crown.fill"
-        case .mythic: return "sun.max.fill"
         }
     }
 

@@ -160,8 +160,7 @@ struct CurrencyBadge: View {
 
     var body: some View {
         HStack(spacing: 5) {
-            Image(systemName: kind == .coin ? "star.circle.fill" : "diamond.fill")
-                .foregroundStyle(kind == .coin ? Theme.gold : Theme.cyan)
+            CurrencyIcon(kind: kind == .coin ? .coin : .gem, size: 16)
             Text(amount.formatted())
                 .font(Theme.mono(14))
                 .foregroundStyle(Theme.textPrimary)

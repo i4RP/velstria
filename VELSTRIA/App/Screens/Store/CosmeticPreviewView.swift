@@ -504,9 +504,7 @@ struct PriceTag: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: CollectionStyle.currencySymbol(currency))
-                .font(.system(size: size * 0.9, weight: .bold))
-                .foregroundStyle(CollectionStyle.currencyColor(currency))
+            CurrencyIcon(kind: currency == .astralGem ? .gem : .coin, size: size * 1.05)
             Text(amount.formatted())
                 .font(.system(size: size, weight: .bold, design: .monospaced))
                 .monospacedDigit()
