@@ -270,6 +270,20 @@ final class AppModel: FriendProfileAccess {
         router.isMatchFlowPresented = false
         friends.declineAllAsBusy()
         activeBattle = launch
+        // フレンドに今の状態を知らせる（試合中「ランキング1分」・練習中・ライブ観戦）
+        let mode = launch.config.mode
+        if launch.isSpectating || launch.replay != nil {
+            friends.setMyActivity(FriendActivity(.watch, mode: FriendActivityMode.code(mode)))
+        } else if mode == .practice || mode == .tutorial {
+            friends.setMyActivity(FriendActivity(.practice))
+        } else {
+            friends.setMyActivity(FriendActivity(.match, mode: FriendActivityMode.code(mode), since: Date()))
+        }
+    }
+
+    /// 戦闘の外の状態（オンラインのパーティにいればルーム中、いなければオンライン）。
+    var idleActivity: FriendActivity {
+        online != nil ? FriendActivity(.room, mode: FriendActivityMode.code(.custom)) : FriendActivity(.online)
     }
 
     // MARK: オンライン対戦
@@ -288,6 +302,7 @@ final class AppModel: FriendProfileAccess {
         session.startListening(preferredPort: port)
         if relay { session.startRelay(baseURL: OnlineRelayConfig.baseURL, code: relayCode) }
         online = session
+        friends.setMyActivity(idleActivity)
     }
 
     /// 部屋コードで入る（中継経由。違う場所・違う Wi-Fi のホストへ）。code は正規化済み（RelayRoomCode.parse）。
@@ -448,6 +463,7 @@ final class AppModel: FriendProfileAccess {
                                          avatar: profile.avatarHeroID, friendCode: profile.friendCode)
         wire(session)
         online = session
+        friends.setMyActivity(idleActivity)
     }
 
     private func wire(_ session: OnlineSession) {
@@ -614,6 +630,7 @@ final class AppModel: FriendProfileAccess {
     func leaveOnlineRoom() {
         online?.leave()
         online = nil
+        if activeBattle == nil { friends.setMyActivity(idleActivity) }
     }
 
     /// 戦闘終了時に BattleSessionView から呼ばれる。報酬を適用しリザルト用に保持する。
@@ -629,11 +646,14 @@ final class AppModel: FriendProfileAccess {
         if report.rankAfter != nil { syncRankedMatch(outcome, report: report) }
         // 名刺の通算の成績が変わった（送ってよい時だけ。変わっていなければ送らない）
         Task { await publicProfiles.publishOwn() }
+        // リザルトを見ている間は「集計中」
+        friends.setMyActivity(FriendActivity(.tally))
         return report
     }
 
     func dismissBattle() {
         activeBattle = nil
+        friends.setMyActivity(idleActivity)
         #if DEBUG || TESTER_TOOLS
         FXCheckSession.shared.battleDismissed(app: self)
         #endif

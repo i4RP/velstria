@@ -56,6 +56,10 @@ final class FriendHub {
     private(set) var status: FriendInboxClient.Status = .offline
     /// いま繋がっているフレンドのコード。
     private(set) var onlineCodes: Set<String> = []
+    /// フレンドの今の状態（在席の問い合わせの応答。知らせていない相手は入らない = オンライン）。
+    private(set) var activities: [String: FriendActivity] = [:]
+    /// 自分の今の状態（繋ぐたび・変わるたびに知らせる。AppModel が試合・ルーム・マッチングで変える）。
+    @ObservationIgnored private var myActivity = FriendActivity(.online)
     /// 承認待ちの申請。
     private(set) var incomingRequests: [FriendRequest] = []
     /// 画面に出している招待（返事を待っている）。
@@ -160,6 +164,7 @@ final class FriendHub {
         presenceToken += 1
         client?.stop()
         onlineCodes = []
+        activities = [:]
     }
 
     /// 切って、画面の状態（届いた申請・招待）も捨てる（全データの削除・オンラインの同意の取り消し）。
@@ -180,6 +185,7 @@ final class FriendHub {
         c.onStatus = { [weak self] status in self?.statusChanged(status) }
         c.onMessage = { [weak self] from, payload in self?.handle(from: from, payload: payload) }
         c.onPresence = { [weak self] online in self?.onlineCodes = Set(online) }
+        c.onActivity = { [weak self] activity in self?.activities = activity }
         c.onErased = { [weak self] in self?.inboxWasErased() }
         return c
     }
@@ -188,12 +194,20 @@ final class FriendHub {
         status = new
         if new == .online {
             if host?.profile.inboxRegistered == false { mutate { $0.inboxRegistered = true } }
+            if myActivity.kind != .online { client?.sendStatus(myActivity) }
             resendOutgoingRequests()
             refreshPresence()
             presenceLoop()
         } else {
             onlineCodes = []
         }
+    }
+
+    /// 自分の今の状態を変える（同じなら送らない）。繋いでいなければ、次に繋いだ時に送る。
+    func setMyActivity(_ a: FriendActivity) {
+        guard a != myActivity else { return }
+        myActivity = a
+        client?.sendStatus(a)
     }
 
     /// フレンドの在席を今すぐ問い合わせる。

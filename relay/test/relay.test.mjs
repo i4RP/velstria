@@ -662,6 +662,25 @@ describe("フレンドの受信箱", () => {
     assert.deepEqual(await nextJson(a), { t: "presence", online: [bCode] });
   });
 
+  test("在席の問い合わせに、相手が知らせた今の状態（ルーム中・試合中など）が載る（知らせていなければ載らない・知らない種類は捨てる）", async () => {
+    const aCode = randomFriendCode(), bCode = randomFriendCode(), cCode = randomFriendCode();
+    const a = await openInbox(aCode, randomKey(), "A");
+    const b = await openInbox(bCode, randomKey(), "B");
+    await openInbox(cCode, randomKey(), "C");
+    b.send(JSON.stringify({ t: "status", s: "match", m: "ranked", at: 1_800_000_000_000 }));
+    b.send(JSON.stringify({ t: "status", s: "bogus" }));
+    await delay(200);
+    a.send(JSON.stringify({ t: "presence", codes: [bCode, cCode] }));
+    assert.deepEqual(await nextJson(a), {
+      t: "presence", online: [bCode, cCode], status: { [bCode]: { s: "match", m: "ranked", at: 1_800_000_000_000 } },
+    });
+    // オンラインに戻ると status から外れる
+    b.send(JSON.stringify({ t: "status", s: "online" }));
+    await delay(200);
+    a.send(JSON.stringify({ t: "presence", codes: [bCode] }));
+    assert.deepEqual(await nextJson(a), { t: "presence", online: [bCode] });
+  });
+
   test("コードの持ち主は最初の鍵で決まり、別の鍵は 4012 で断られる", async () => {
     const code = randomFriendCode();
     const first = await openInbox(code, randomKey(), "first");

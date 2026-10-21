@@ -186,11 +186,35 @@ struct InboxPayload: Codable, Equatable {
 }
 
 /// 中継 → アプリ。
+/// フレンドが知らせる今の状態（MLBB のフレンド一覧: オンライン・ランキングルーム中・マッチング中・試合中・集計中・ライブ観戦）。
+/// relay の在席の問い合わせの status に載る（知らせていない相手・古いアプリは載らない = オンライン）。
+struct FriendActivity: Codable, Equatable {
+    enum Kind: String, Codable {
+        case online, room, matching, match, tally, watch, practice
+    }
+
+    /// 種類（Kind.rawValue。知らない値は online として読む）。
+    var s: String
+    /// モード（MatchMode.rawValue など。ルーム・試合の「ランキング」）。
+    var m: String?
+    /// 始まった時刻（ミリ秒。試合の「1分」）。
+    var at: Double?
+
+    var kind: Kind { Kind(rawValue: s) ?? .online }
+
+    init(_ kind: Kind, mode: String? = nil, since: Date? = nil) {
+        s = kind.rawValue
+        m = mode
+        at = since.map { ($0.timeIntervalSince1970 * 1000).rounded() }
+    }
+}
+
 enum InboxServerMessage: Equatable {
     case hello(code: String)
     case message(from: String, payload: InboxPayload)
     case ack(id: Int, result: InboxSendResult)
-    case presence(online: [String])
+    /// 在席（オンラインのコード）と、状態を知らせている相手の今の状態。
+    case presence(online: [String], activity: [String: FriendActivity] = [:])
 
     private struct Wire: Decodable {
         var t: String
@@ -200,6 +224,7 @@ enum InboxServerMessage: Equatable {
         var id: Int?
         var result: String?
         var online: [String]?
+        var status: [String: FriendActivity]?
     }
 
     /// テキストのメッセージを読む（形式が違う・知らない種類は nil）。
@@ -216,7 +241,8 @@ enum InboxServerMessage: Equatable {
             guard let id = w.id, let r = w.result.flatMap(InboxSendResult.init(rawValue:)) else { return nil }
             return .ack(id: id, result: r)
         case "presence":
-            return .presence(online: (w.online ?? []).filter(FriendCode.isValid))
+            let online = (w.online ?? []).filter(FriendCode.isValid)
+            return .presence(online: online, activity: (w.status ?? [:]).filter { online.contains($0.key) })
         default:
             return nil
         }
@@ -254,6 +280,17 @@ enum InboxClientMessage {
             var codes: [String]
         }
         return encode(Wire(codes: codes))
+    }
+
+    /// 自分の今の状態を知らせる（フレンドの在席の問い合わせに載る）。
+    static func status(_ a: FriendActivity) -> String? {
+        struct Wire: Encodable {
+            var t = "status"
+            var s: String
+            var m: String?
+            var at: Double?
+        }
+        return encode(Wire(s: a.s, m: a.m, at: a.at))
     }
 
     private static func encode<T: Encodable>(_ value: T) -> String? {

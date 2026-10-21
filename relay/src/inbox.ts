@@ -44,7 +44,13 @@ export type DeliverResult = "delivered" | "queued" | "offline";
 /** erase の結果: erased = 消した（消し済みを含む）/ none = 受信箱が無かった / forbidden = 鍵が持ち主のものでない */
 export type EraseResult = "erased" | "none" | "forbidden";
 
-type Attachment = { code: string; closed?: true };
+/** 本人が知らせる今の状態（フレンドの一覧の「ランキングルーム中」「試合中」など）。在席の問い合わせの応答にだけ載せる */
+export type Activity = { s: string; m?: string; at?: number };
+/** 状態の種類（アプリの FriendActivity.Kind と同じ） */
+const ACTIVITY_KINDS = new Set(["online", "room", "matching", "match", "tally", "watch", "practice"]);
+const ACTIVITY_MODE = /^[a-z]{1,16}$/;
+
+type Attachment = { code: string; closed?: true; act?: Activity };
 
 export class FriendInbox extends DurableObject<Env> {
   /** 送信の数え（ハイバネーションで消えるが、歯止めなので構わない） */
@@ -126,8 +132,22 @@ export class FriendInbox extends DurableObject<Env> {
         0,
         MAX_PRESENCE_CODES,
       );
-      const states = await Promise.all(valid.map((c) => this.env.FRIEND_INBOX.getByName(c).isOnline()));
-      sendJson(ws, { t: "presence", online: valid.filter((_, i) => states[i]) });
+      const states = await Promise.all(valid.map((c) => this.env.FRIEND_INBOX.getByName(c).activity()));
+      const online = valid.filter((_, i) => states[i] !== null);
+      // 状態を知らせている相手だけ status に載せる（古いアプリの応答の形は変えない）
+      const status: Record<string, Activity> = {};
+      valid.forEach((c, i) => {
+        const a = states[i];
+        if (a && a.s !== "online") status[c] = a;
+      });
+      sendJson(ws, Object.keys(status).length > 0 ? { t: "presence", online, status } : { t: "presence", online });
+    } else if (req.t === "status") {
+      // 今の状態（ルーム中・マッチング中・試合中など）。接続の記録に置き、フレンドの在席の問い合わせに答える
+      if (typeof req.s !== "string" || !ACTIVITY_KINDS.has(req.s)) return;
+      const act: Activity = { s: req.s };
+      if (typeof req.m === "string" && ACTIVITY_MODE.test(req.m)) act.m = req.m;
+      if (Number.isSafeInteger(req.at) && (req.at as number) > 0) act.at = req.at as number;
+      ws.serializeAttachment({ ...attachment, act } satisfies Attachment);
     }
   }
 
@@ -235,6 +255,14 @@ export class FriendInbox extends DurableObject<Env> {
     sql.exec("INSERT INTO queue (at, sender, body) VALUES (?, ?, ?)", Date.now(), from, body);
     await this.scheduleAlarm();
     return "queued";
+  }
+
+  /** 在席と今の状態（繋いでいなければ null。状態を知らせていなければ online）。在席の問い合わせから呼ばれる */
+  async activity(): Promise<Activity | null> {
+    const ws = this.openSocket();
+    if (!ws) return null;
+    const a = readAttachment(ws);
+    return a?.act ?? { s: "online" };
   }
 
   async isOnline(): Promise<boolean> {
