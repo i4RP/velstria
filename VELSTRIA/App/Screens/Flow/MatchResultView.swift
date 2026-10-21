@@ -683,7 +683,7 @@ private struct RewardsTab: View {
         } else {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
-                    rewardCell(symbol: "star.circle.fill", tint: Theme.gold, title: L("試合報酬", "Match reward"), value: "+\(shownCoins)")
+                    rewardCell(symbol: "star.circle.fill", currency: .coin, tint: Theme.gold, title: L("試合報酬", "Match reward"), value: "+\(shownCoins)")
                     if report.firstWinBonus > 0 {
                         rewardCell(symbol: "sun.max.fill", tint: Theme.gold, title: L("初勝利ボーナス", "First win bonus"), value: "+\(shownBonus)")
                     }
@@ -742,9 +742,13 @@ private struct RewardsTab: View {
         .accessibilityIdentifier("result_watch_record")
     }
 
-    private func rewardCell(symbol: String, tint: Color, title: String, value: String) -> some View {
+    private func rewardCell(symbol: String, currency: CurrencyIcon.Kind? = nil, tint: Color, title: String, value: String) -> some View {
         VStack(spacing: 3) {
-            Image(systemName: symbol).font(.system(size: 18, weight: .bold)).foregroundStyle(tint)
+            if let currency {
+                CurrencyIcon(kind: currency, size: 21)
+            } else {
+                Image(systemName: symbol).font(.system(size: 18, weight: .bold)).foregroundStyle(tint)
+            }
             Text(value)
                 .font(.system(size: 20, weight: .heavy, design: .rounded))
                 .foregroundStyle(Theme.textPrimary)

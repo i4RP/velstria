@@ -128,9 +128,9 @@ struct RewardClaimIcon: View {
                 let tint = def.map { Theme.rarityColor($0.rarity) } ?? Theme.cyan
                 symbolTile(def.map { RewardClaimText.symbol(for: $0.type) } ?? "sparkles", tint: tint)
             case .coin:
-                symbolTile("star.circle.fill", tint: Theme.gold)
+                currencyTile(.coin, tint: Theme.gold)
             case .gem:
-                symbolTile("diamond.fill", tint: Theme.cyan)
+                currencyTile(.gem, tint: Theme.cyan)
             case .passXP:
                 symbolTile("bolt.fill", tint: RewardClaimText.passXPColor)
             case .magicDust:
@@ -143,6 +143,15 @@ struct RewardClaimIcon: View {
         }
         .frame(width: size, height: size)
         .accessibilityLabel(RewardClaimText.name(attachment))
+    }
+
+    private func currencyTile(_ kind: CurrencyIcon.Kind, tint: Color) -> some View {
+        ZStack {
+            Circle()
+                .fill(RadialGradient(colors: [tint.opacity(0.45), tint.opacity(0.08)], center: .center,
+                                     startRadius: 1, endRadius: size * 0.6))
+            CurrencyIcon(kind: kind, size: size * 0.56)
+        }
     }
 
     private func symbolTile(_ symbol: String, tint: Color) -> some View {

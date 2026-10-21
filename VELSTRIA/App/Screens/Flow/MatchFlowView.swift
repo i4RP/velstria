@@ -462,11 +462,14 @@ private struct MatchModeStep: View {
             }
             .accessibilityElement(children: .combine)
         case .classic:
-            Label(L("勝利 220 · 敗北 110", "Win 220 · Loss 110"), systemImage: "star.circle.fill")
-                .font(Theme.body(10))
-                .foregroundStyle(Theme.gold)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+            HStack(spacing: 4) {
+                CurrencyIcon(kind: .coin, size: 12)
+                Text(L("勝利 220 · 敗北 110", "Win 220 · Loss 110"))
+                    .font(Theme.body(10))
+                    .foregroundStyle(Theme.gold)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
         default:
             EmptyView()
         }

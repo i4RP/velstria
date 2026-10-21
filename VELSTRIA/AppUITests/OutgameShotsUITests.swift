@@ -63,6 +63,20 @@ final class OutgameShotsUITests: XCTestCase {
         snap("mode_select")
     }
 
+    /// ランクの紋章（7 ティア）と通貨のアイコン（ベクターの自作。Common/CelestialArt.swift）。
+    func testRankAndStoreArt() {
+        let app = launch()
+        tap(app, "home_rank", timeout: 20)
+        XCTAssertTrue(element(app, "nav_back").waitForExistence(timeout: 10))
+        Thread.sleep(forTimeInterval: 0.8)
+        snap("rank_overview")
+        tap(app, "nav_back")
+        tap(app, "home_currency_coin")
+        XCTAssertTrue(element(app, "nav_back").waitForExistence(timeout: 10))
+        Thread.sleep(forTimeInterval: 0.8)
+        snap("currency_store")
+    }
+
     func testRecordsOpenReplays() {
         let app = launch()
         // 戦績はプロフィールから開く（採用案のロビーには入口を置かない）

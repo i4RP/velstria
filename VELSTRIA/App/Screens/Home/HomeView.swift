@@ -170,8 +170,8 @@ private struct HomeReferenceLobby: View {
                 }
             }.accessibilityIdentifier("home_profile").homePlaced(in: HomeLobbySlot.profile)
             HStack(spacing: 10) {
-                currency("dollarsign.circle.fill", HomeFormat.currency(app.profile.starlightCoin, compact: false), gold: true, id: "home_currency_coin")
-                currency("diamond.fill", "\(app.profile.totalGem)", gold: false, id: "home_currency_gem")
+                currency(.coin, HomeFormat.currency(app.profile.starlightCoin, compact: false), id: "home_currency_coin")
+                currency(.gem, HomeFormat.currency(app.profile.totalGem, compact: false), id: "home_currency_gem")
                 utility("envelope.fill", L("メール", "Mail"), .mail, id: "home_mail", badge: HomeBadges.mail(app.profile, now: now))
                 Button { friendsCollapsed.toggle() } label: {
                     Image(systemName: "person.2.fill").font(.system(size: 23)).frame(width: 32, height: 38)
@@ -196,10 +196,10 @@ private struct HomeReferenceLobby: View {
         .shadow(color: ice.opacity(0.4), radius: 4)
     }
 
-    private func currency(_ symbol: String, _ value: String, gold: Bool, id: String) -> some View {
+    private func currency(_ kind: CurrencyIcon.Kind, _ value: String, id: String) -> some View {
         Button { app.router.push(.currencyStore) } label: {
             HStack(spacing: 5) {
-                Image(systemName: symbol).foregroundStyle(gold ? Theme.gold : ice)
+                CurrencyIcon(kind: kind, size: 17)
                 Text(value).font(.system(size: 13, design: .serif)).lineLimit(1).minimumScaleFactor(0.65)
                 Image(systemName: "plus").font(.system(size: 12, weight: .light))
             }.padding(.horizontal, 6).frame(width: 99, height: 27)
