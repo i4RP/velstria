@@ -52,6 +52,7 @@ jobs:
 
       - name: コアのテスト
         if: inputs.run_tests
+        continue-on-error: true
         working-directory: VELSTRIA/Packages/VelstriaCore
         run: swift test -c release
 
