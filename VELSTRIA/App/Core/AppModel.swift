@@ -469,6 +469,9 @@ final class AppModel: FriendProfileAccess {
     private func wire(_ session: OnlineSession) {
         session.onMatchStart = { [weak self, weak session] config, seat in
             guard let self, let session else { return }
+            // 最近一緒に遊んだ人（部屋の選手のうちフレンドコードを名乗った人）
+            let played = session.room.peers.compactMap { p in p.friendCode.map { (code: $0, name: p.name) } }
+            RecentPlayers.record(played, into: &self.profile.recentPlayers, me: self.profile.friendCode, now: Date())
             guard let seat, config.players.indices.contains(seat) else {
                 // 座席の無い開始（起こらないはず）: ホストが試合を回さないと部屋全体が止まるので、実況として開く（B1 の保険）
                 if session.isHost { session.onSpectateStart?(config) }
