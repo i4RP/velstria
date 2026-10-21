@@ -170,6 +170,8 @@ final class AppModel: FriendProfileAccess {
     /// 起動時処理（ログインボーナス・デイリー更新・未処理トランザクション）。
     func onLaunch(now: Date = Date()) {
         LiveOpsService.onLaunch(profile: &profile, master: master, now: now)
+        // ランクのシーズン: 新しいシーズンの最初の起動でランクを下げ、前のシーズンの報酬をメールで送る（クラウドへ預ける前に）
+        SeasonService.refresh(profile: &profile, now: now)
         Task { await storeKit.start() }
         friends.start()
         Task { await pullCloudRank() }

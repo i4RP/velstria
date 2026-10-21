@@ -7,7 +7,12 @@ import VelstriaCore
 //   エピック V〜I（星 5）/ レジェンド V〜I（星 5）/ ミシック（星の累計。オナー 25・グローリー 50・イモータル 100）
 // - 勝利 星 +1。満星で勝つと次の段位の星 1。敗北 星 −1、星 0 で負けると 1 段位下の「満星 −1」。
 // - ウォリアーは負けても星が減らない。ティアの最下段・星 0 では下のティアへ落ちない（ミシック星 0 の敗北だけレジェンド I へ）。
-// - スターポイント: 勝利でたまる（700 で星 +1）。保護ポイント: 敗北でたまる（700 になると次の敗北で星が減らない）。
+// - スターポイント: 勝利でたまり、満タンで星 +1（1 試合で 1 つまで）。満タンはティアごと（starPointCap: ウォリアー 100・エリート 200・
+//   マスター 300・グランドマスター 500・エピック 700・レジェンド 1000。Fandom「Ranked」）。ミシックには無い（上がると 0）。
+// - 保護ポイント: 敗北でたまり、満タンで次の敗北の星が減らない（protectionCap: スターポイントと同じ値、ミシック 1500。ミシックでもたまる）。
+//   ティアが変わったら新しいティアの満タンに収める（fitPoints）。1 試合の加点（勝ち 20 + 評価 × 8、MVP +30。負け 評価 × 3 + 5）は
+//   Velstria の式のまま（MLBB のメダル別の今の値が分かったら合わせる。docs/OUTGAME_GAP.md 7-4）。
+// - シーズン: SeasonService（新しいシーズンの最初の試合の前に下げる）。
 
 struct LadderEntry: Identifiable, Equatable {
     var id: String { name }
@@ -23,12 +28,43 @@ struct RankMatchDelta: Equatable {
     var scoreBonus = 0
     var activeBonus = 0
     var protected = false
+    /// この試合の前に新しいシーズンへ進めて、ランクを下げた（SeasonService.advance）。
+    var seasonReset = false
 }
 
 enum RankService {
-    static let bar = 700
     /// ラダーに並ぶライバル数。
     static let rivalCount = 50
+
+    /// スターポイントの満タン（Fandom「Ranked」: ウォリアー 100・エリート 200・マスター 300・グランドマスター 500・エピック 700・
+    /// レジェンド 1000）。ミシックは 0（星上げポイントが無い）。割合は progress(_:cap:) で出す（0 で割らない）。relay の STAR_POINT_CAP。
+    static func starPointCap(_ t: RankTier) -> Int {
+        switch t {
+        case .warrior: return 100
+        case .elite: return 200
+        case .master: return 300
+        case .grandmaster: return 500
+        case .epic: return 700
+        case .legend: return 1000
+        case .mythic: return 0
+        }
+    }
+
+    /// 保護ポイントの満タン（Fandom「Ranked」: スターポイントと同じ値、ミシック 1500）。relay の PROTECTION_CAP。
+    static func protectionCap(_ t: RankTier) -> Int {
+        t == .mythic ? 1500 : starPointCap(t)
+    }
+
+    /// 満タンに対する割合（0〜1）。満タンが 0（ミシックのスターポイント）なら 0。
+    static func progress(_ value: Int, cap: Int) -> Double {
+        cap > 0 ? min(1, max(0, Double(value) / Double(cap))) : 0
+    }
+
+    /// ポイントを今のティアの満タンに収める（スターポイントは満タン未満でミシックは 0、保護ポイントは満タンまで）。relay の fitPoints。
+    static func fitPoints(_ r: inout RankState) {
+        r.starPoints = max(0, min(r.starPoints, starPointCap(r.tier) - 1))
+        r.protectionPoints = max(0, min(r.protectionPoints, protectionCap(r.tier)))
+    }
 
     static func divisions(_ t: RankTier) -> Int {
         switch t {
@@ -64,9 +100,11 @@ enum RankService {
     // MARK: - 試合結果の反映
 
     /// 試合結果をランクへ反映（端末側の計算。クラウドに繋がれば後で正の値で上書きする）。
+    /// 新しいシーズンの最初の試合なら、先にシーズンを進めて下げる（relay の match と同じ順。報酬のメールは次の起動かランク画面で送る）。
     @discardableResult
-    static func apply(won: Bool, rating: Double = 6, mvp: Bool = false, to r: inout RankState) -> RankMatchDelta {
+    static func apply(won: Bool, rating: Double = 6, mvp: Bool = false, to r: inout RankState, now: Date = Date()) -> RankMatchDelta {
         var d = RankMatchDelta()
+        d.seasonReset = SeasonService.advance(&r, to: SeasonService.season(at: now))
         let rt = min(16, max(0, rating))
         if won {
             r.seasonWins += 1
@@ -74,26 +112,28 @@ enum RankService {
             if r.tier != .mythic {
                 d.starPointsGain = Int((20 + rt * 8 + (mvp ? 30 : 0)).rounded())
                 r.starPoints += d.starPointsGain
-                if r.starPoints >= bar {
-                    r.starPoints -= bar
+                let cap = starPointCap(r.tier)
+                if r.starPoints >= cap {
+                    r.starPoints -= cap
                     addStar(&r)
                 }
             }
         } else {
             r.seasonLosses += 1
-            if r.tier != .mythic {
-                d.scoreBonus = Int((rt * 3).rounded())
-                d.activeBonus = 5
-            }
-            if r.protectionPoints >= bar {
+            // 保護ポイントはミシックでもたまる（満タン 1500）
+            d.scoreBonus = Int((rt * 3).rounded())
+            d.activeBonus = 5
+            if r.protectionPoints >= protectionCap(r.tier) {
                 r.protectionPoints = 0
                 d.protected = true
             } else {
                 removeStar(&r)
-                r.protectionPoints = min(bar, r.protectionPoints + d.scoreBonus + d.activeBonus)
+                r.protectionPoints += d.scoreBonus + d.activeBonus
             }
         }
+        fitPoints(&r)
         r.highestTier = max(r.highestTier, r.tier)
+        r.seasonHighestTier = max(r.seasonHighestTier, r.tier)
         if r.tier == .mythic { r.highestMythicStars = max(r.highestMythicStars, r.stars) }
         return d
     }
@@ -142,7 +182,7 @@ enum RankService {
 
     /// 保護ポイントが満タン（次の敗北で星が減らない）か。
     static func hasFloorProtection(_ r: RankState) -> Bool {
-        r.tier != .mythic && r.protectionPoints >= bar
+        r.protectionPoints >= protectionCap(r.tier)
     }
 
     /// 次の勝利で昇格（段位・ティア）するか。

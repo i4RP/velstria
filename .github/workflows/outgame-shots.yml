@@ -29,7 +29,7 @@ jobs:
       run:
         working-directory: VELSTRIA
     env:
-      TESTS: ${{ github.event_name == 'workflow_dispatch' && inputs.tests || 'VELSTRIATests/HomeScreenTests VELSTRIATests/FlowTests VELSTRIATests/ServicesRankTests VELSTRIATests/ServicesLiveOpsTests VELSTRIATests/OnlineSafetyTests VELSTRIATests/EmblemEconomyTests VELSTRIATests/CollectionLogicTests VELSTRIATests/ReplayLibraryTests VELSTRIATests/SpectateSetupTests VELSTRIATests/SettingsScreensTests' }}
+      TESTS: ${{ github.event_name == 'workflow_dispatch' && inputs.tests || 'VELSTRIATests/HomeScreenTests VELSTRIATests/FlowTests VELSTRIATests/ServicesRankTests VELSTRIATests/ServicesLiveOpsTests VELSTRIATests/OnlineSafetyTests VELSTRIATests/EmblemEconomyTests VELSTRIATests/CollectionLogicTests VELSTRIATests/ReplayLibraryTests VELSTRIATests/SpectateSetupTests VELSTRIATests/SettingsScreensTests VELSTRIATests/MatchMedalTests' }}
     steps:
       - uses: actions/checkout@v4
 

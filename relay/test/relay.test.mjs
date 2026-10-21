@@ -758,11 +758,28 @@ describe("受信箱の消去と利用停止", () => {
 
 // ---- ランク（アカウントごと） ----
 
-/** ランクの初期値（rank.ts の initialState。ウォリアー III・星 0）。応答の state はいつもこの項目だけ */
+/** シーズン（rank.ts の seasonAt と同じ定義: S42 は 2026-09-16 08:00 UTC から、91 日ごと。README.md「ランク」） */
+const FIRST_SEASON = 42;
+const SEASON_EPOCH_MS = Date.UTC(2026, 8, 16, 8);
+const DAY_MS = 24 * 60 * 60 * 1000;
+const SEASON_MS = 91 * DAY_MS;
+function seasonAt(ms) {
+  return ms >= SEASON_EPOCH_MS ? FIRST_SEASON + Math.floor((ms - SEASON_EPOCH_MS) / SEASON_MS) : FIRST_SEASON;
+}
+/** テストを流している今のシーズン（中継の応答の season） */
+const SEASON_NOW = seasonAt(Date.now());
+
+/** ランクの初期値（rank.ts の initialState。ウォリアー III・星 0・今のシーズン）。応答の state はいつもこの項目だけ */
 const RANK_INITIAL = Object.freeze({
   tier: "warrior", division: 3, stars: 0, starPoints: 0, protectionPoints: 0,
-  highestTier: "warrior", highestMythicStars: 0, wins: 0, losses: 0, season: 1,
+  highestTier: "warrior", highestMythicStars: 0, wins: 0, losses: 0, season: SEASON_NOW,
 });
+
+/** ティアごとの満タン（rank.ts の STAR_POINT_CAP・PROTECTION_CAP。Fandom「Ranked」。ミシックには星上げポイントが無い） */
+const STAR_POINT_CAP = { warrior: 100, elite: 200, master: 300, grandmaster: 500, epic: 700, legend: 1000, mythic: 0 };
+const PROTECTION_CAP = { warrior: 100, elite: 200, master: 300, grandmaster: 500, epic: 700, legend: 1000, mythic: 1500 };
+/** ティアの段位の数（最下段の番号） */
+const DIVISIONS = { warrior: 3, elite: 3, master: 4, grandmaster: 5, epic: 5, legend: 5, mythic: 1 };
 
 /** 初期値の一部を変えたランク */
 function rankState(overrides = {}) {
@@ -808,9 +825,17 @@ function newMatchId() {
   return `m_${randomBytes(6).toString("hex")}`;
 }
 
+/** ティアの名前（表の見出し用） */
+const TIER_NAME = {
+  warrior: "ウォリアー", elite: "エリート", master: "マスター", grandmaster: "グランドマスター",
+  epic: "エピック", legend: "レジェンド", mythic: "ミシック",
+};
+const NON_MYTHIC = Object.keys(STAR_POINT_CAP).filter((tier) => tier !== "mythic");
+
 /**
  * ランクの規則（rank.ts の applyMatch。アプリの RankService.swift と同じ計算）。seed した記録から 1 試合する。
  * after は seed した記録から変わる項目（勝敗の数は試合から足す）、result は応答の result の before / after 以外。
+ * 同じ表を中継（wrangler dev）と rank.ts の applyMatch の両方に流す。
  */
 const RANK_RULES = [
   {
@@ -849,31 +874,45 @@ const RANK_RULES = [
     result: { starPointsGain: 0, scoreBonus: 30, activeBonus: 5, protected: false },
   },
   {
-    name: "スターポイントが 700 に届くと星がもう 1 つ（MVP は +30: 690 + 178 → 星 +2・残り 168）",
+    name: "エピックのスターポイントは 700 で星がもう 1 つ（MVP は +30: 690 + 178 → 星 +2・残り 168）",
     seed: { tier: "epic", division: 5, stars: 0, starPoints: 690, highestTier: "epic" },
     match: { won: true, rating: 16, mvp: true },
     after: { stars: 2, starPoints: 168 },
     result: { starPointsGain: 178, scoreBonus: 0, activeBonus: 0, protected: false },
   },
   {
-    name: "保護ポイント 700 で負けると星が減らず、保護ポイントは 0 に戻る",
-    seed: { tier: "legend", division: 2, stars: 3, protectionPoints: 700, highestTier: "legend" },
+    name: "満タンを 1 試合で 2 回越えても星のおまけは 1 つ（ウォリアー: 99 + 178 → 星 +2・残りは満タン未満の 99）",
+    seed: { tier: "warrior", division: 3, stars: 0, starPoints: 99 },
+    match: { won: true, rating: 16, mvp: true },
+    after: { stars: 2, starPoints: 99 },
+    result: { starPointsGain: 178, scoreBonus: 0, activeBonus: 0, protected: false },
+  },
+  {
+    name: "レジェンドの保護ポイント 1000 で負けると星が減らず、保護ポイントは 0 に戻る",
+    seed: { tier: "legend", division: 2, stars: 3, protectionPoints: 1000, highestTier: "legend" },
     match: { won: false, rating: 10, mvp: false },
     after: { protectionPoints: 0 },
     result: { starPointsGain: 0, scoreBonus: 30, activeBonus: 5, protected: true },
   },
   {
-    name: "保護ポイントは 700 で止まる",
+    name: "レジェンドは保護ポイント 700 では守らない（満タンは 1000。旧規則の全ティア 700 ではない）",
+    seed: { tier: "legend", division: 2, stars: 3, protectionPoints: 700, highestTier: "legend" },
+    match: { won: false, rating: 10, mvp: false },
+    after: { stars: 2, protectionPoints: 735 },
+    result: { starPointsGain: 0, scoreBonus: 30, activeBonus: 5, protected: false },
+  },
+  {
+    name: "エピックの保護ポイントは満タンの 700 で止まる",
     seed: { tier: "epic", division: 3, stars: 2, protectionPoints: 690, highestTier: "epic" },
     match: { won: false, rating: 16, mvp: false },
     after: { stars: 1, protectionPoints: 700 },
     result: { starPointsGain: 0, scoreBonus: 48, activeBonus: 5, protected: false },
   },
   {
-    name: "レジェンド I の満星で勝つとミシック星 0（ミシックではスターポイントをためない）",
+    name: "レジェンド I の満星で勝つとミシック星 0（ミシックにはスターポイントが無いので 0 にする）",
     seed: { tier: "legend", division: 1, stars: 5, starPoints: 100, highestTier: "legend" },
     match: { won: true, rating: 10, mvp: true },
-    after: { tier: "mythic", division: 1, stars: 0, highestTier: "mythic" },
+    after: { tier: "mythic", division: 1, stars: 0, starPoints: 0, highestTier: "mythic" },
     result: { starPointsGain: 0, scoreBonus: 0, activeBonus: 0, protected: false },
   },
   {
@@ -884,11 +923,18 @@ const RANK_RULES = [
     result: { starPointsGain: 0, scoreBonus: 0, activeBonus: 0, protected: false },
   },
   {
-    name: "ミシック星 0 で負けるとレジェンド I・星 4（ボーナス無し。最高到達はミシックのまま）",
+    name: "ミシック星 0 で負けるとレジェンド I・星 4（ミシックでも保護ポイントはたまる。最高到達はミシックのまま）",
     seed: { tier: "mythic", division: 1, stars: 0, highestTier: "mythic", highestMythicStars: 7 },
     match: { won: false, rating: 10, mvp: false },
-    after: { tier: "legend", division: 1, stars: 4 },
-    result: { starPointsGain: 0, scoreBonus: 0, activeBonus: 0, protected: false },
+    after: { tier: "legend", division: 1, stars: 4, protectionPoints: 35 },
+    result: { starPointsGain: 0, scoreBonus: 30, activeBonus: 5, protected: false },
+  },
+  {
+    name: "ミシックからレジェンドへ落ちたら、保護ポイントはレジェンドの満タン 1000 に収める",
+    seed: { tier: "mythic", division: 1, stars: 0, protectionPoints: 1400, highestTier: "mythic" },
+    match: { won: false, rating: 16, mvp: false },
+    after: { tier: "legend", division: 1, stars: 4, protectionPoints: 1000 },
+    result: { starPointsGain: 0, scoreBonus: 48, activeBonus: 5, protected: false },
   },
   {
     name: "評価は 16 までに収める（99 は 16 と同じ。mvp を省けば MVP でない）",
@@ -904,7 +950,57 @@ const RANK_RULES = [
     after: { stars: 1, protectionPoints: 5 },
     result: { starPointsGain: 0, scoreBonus: 0, activeBonus: 5, protected: false },
   },
+  // ティアごとの満タン（スターポイント: 満タン − 1 から評価 0 の勝ち（+20）で星 +2・残り 19、満タン − 21 からなら星 +1 だけ）
+  ...NON_MYTHIC.flatMap((tier) => {
+    const cap = STAR_POINT_CAP[tier];
+    const seed = { tier, division: DIVISIONS[tier], stars: 0, highestTier: tier };
+    const match = { won: true, rating: 0, mvp: false };
+    const result = { starPointsGain: 20, scoreBonus: 0, activeBonus: 0, protected: false };
+    return [
+      {
+        name: `${TIER_NAME[tier]}のスターポイントの満タンは ${cap}（${cap - 1} + 20 → 星 +2・残り 19）`,
+        seed: { ...seed, starPoints: cap - 1 }, match, after: { stars: 2, starPoints: 19 }, result,
+      },
+      {
+        name: `${TIER_NAME[tier]}のスターポイントは ${cap} 未満では星が増えない（${cap - 21} + 20 = ${cap - 1}）`,
+        seed: { ...seed, starPoints: cap - 21 }, match, after: { stars: 1, starPoints: cap - 1 }, result,
+      },
+    ];
+  }),
+  // ティアごとの満タン（保護ポイント: 満タンで負けると星が減らずに 0 へ、満タン − 1 なら星が減って満タンで止まる）
+  ...Object.keys(PROTECTION_CAP).flatMap((tier) => {
+    const cap = PROTECTION_CAP[tier];
+    const stars = tier === "mythic" ? 10 : 2;
+    const seed = { tier, division: 1, stars, highestTier: tier, highestMythicStars: tier === "mythic" ? stars : 0 };
+    const match = { won: false, rating: 0, mvp: false };
+    return [
+      {
+        name: `${TIER_NAME[tier]}の保護ポイントの満タンは ${cap}（満タンで負けると星が減らない）`,
+        seed: { ...seed, protectionPoints: cap }, match, after: { protectionPoints: 0 },
+        result: { starPointsGain: 0, scoreBonus: 0, activeBonus: 5, protected: true },
+      },
+      {
+        name: `${TIER_NAME[tier]}の保護ポイントが ${cap - 1} なら守らず、${cap} で止まる`,
+        seed: { ...seed, protectionPoints: cap - 1 }, match,
+        // ウォリアーはもともと星が減らない
+        after: { stars: tier === "warrior" ? stars : stars - 1, protectionPoints: cap },
+        result: { starPointsGain: 0, scoreBonus: 0, activeBonus: 5, protected: false },
+      },
+    ];
+  }),
 ];
+
+/** 規則の表の 1 行: seed した記録・試合の後の記録 */
+function ruleStates(rule) {
+  const before = rankState(rule.seed);
+  const after = {
+    ...before,
+    ...rule.after,
+    wins: before.wins + (rule.match.won ? 1 : 0),
+    losses: before.losses + (rule.match.won ? 0 : 1),
+  };
+  return { before, after };
+}
 
 describe("ランク", () => {
   after(async () => {
@@ -912,7 +1008,7 @@ describe("ランク", () => {
   });
 
   test("seed で端末の記録を預け、match の結果が保存され、get で同じ値が読める（応答は JSON・no-store）", async () => {
-    const local = cloudRank({ tier: "elite", division: 2, stars: 1, starPoints: 300, highestTier: "elite", wins: 10, losses: 7 });
+    const local = cloudRank({ tier: "epic", division: 2, stars: 1, starPoints: 300, highestTier: "epic", wins: 10, losses: 7 });
     const account = await newRankAccount(local);
     const start = rankState(local);
 
@@ -940,7 +1036,7 @@ describe("ランク", () => {
     assert.deepEqual(got.json, { ok: true, state: afterLoss });
   });
 
-  test("get は記録を作らない。seed は記録が無い時だけ端末の値を取り込み（知らない項目・season は捨てる）、以後は今の記録を返す", async () => {
+  test("get は記録を作らない。seed は記録が無い時だけ端末の値を取り込み（知らない項目は捨てる）、以後は今の記録を返す", async () => {
     const code = randomFriendCode(), key = randomKey();
     rankAccounts.push({ code, key });
     assert.deepEqual((await rankCall(code, "get", { key })).json, { ok: true, state: RANK_INITIAL });
@@ -950,7 +1046,7 @@ describe("ランク", () => {
       tier: "grandmaster", division: 3, stars: 2, starPoints: 420, protectionPoints: 140,
       highestTier: "epic", wins: 31, losses: 25,
     });
-    const seeded = await rankCall(code, "seed", { key, state: { ...local, nickname: "x", season: 9 } });
+    const seeded = await rankCall(code, "seed", { key, state: { ...local, nickname: "x" } });
     assert.equal(seeded.status, 200);
     assert.deepEqual(seeded.json, { ok: true, state: rankState(local) });
 
@@ -963,17 +1059,54 @@ describe("ランク", () => {
     assert.deepEqual((await rankCall(code, "seed", { key, state: local })).json, { ok: true, state: played.json.state });
   });
 
+  test("応答の season は今のシーズン（S42 = 2026-09-16 08:00 UTC から 91 日ごと）。seed の season は省けば今のシーズン（旧版のアプリ）", async () => {
+    assert.ok(SEASON_NOW >= FIRST_SEASON);
+    const fresh = { code: randomFriendCode(), key: randomKey() };
+    rankAccounts.push(fresh);
+    assert.equal((await rankGet(fresh)).season, SEASON_NOW);
+    // 旧版のアプリは season を送らない: 今のシーズンの記録として、下げずに取り込む
+    const local = cloudRank({ tier: "legend", division: 3, stars: 4, starPoints: 950, protectionPoints: 1000, highestTier: "legend" });
+    const account = await newRankAccount(local);
+    assert.deepEqual(await rankGet(account), { ...local, season: SEASON_NOW });
+    // 今のシーズンを送っても同じ
+    const same = { code: randomFriendCode(), key: randomKey() };
+    rankAccounts.push(same);
+    const seeded = await rankCall(same.code, "seed", { key: same.key, state: { ...local, season: SEASON_NOW } });
+    assert.deepEqual(seeded.json, { ok: true, state: { ...local, season: SEASON_NOW } });
+  });
+
+  test("seed の先のシーズンは次のシーズンまで（端末の時計が進んでいて、もう下げてある記録）。中継はシーズンを戻さない", async () => {
+    const local = cloudRank({ tier: "epic", division: 3, stars: 0, highestTier: "mythic", wins: 2, losses: 1 });
+    const account = { code: randomFriendCode(), key: randomKey() };
+    rankAccounts.push(account);
+    const seeded = await rankCall(account.code, "seed", { key: account.key, state: { ...local, season: SEASON_NOW + 7 } });
+    assert.deepEqual(seeded.json, { ok: true, state: { ...local, season: SEASON_NOW + 1 } });
+    const played = await rankMatch(account, { matchId: newMatchId(), won: true, rating: 8, mvp: false });
+    assert.deepEqual(played.json.state, { ...local, stars: 1, starPoints: 84, wins: 3, season: SEASON_NOW + 1 });
+  });
+
+  test("旧版のアプリの値（全ティア 700 共通の頃のポイント）も seed で受け付け、ティアの満タンに収める", async () => {
+    const cases = [
+      [{ tier: "master", division: 4, stars: 1, starPoints: 699, protectionPoints: 700, highestTier: "master" },
+        { starPoints: 299, protectionPoints: 300 }],
+      [{ tier: "warrior", division: 2, stars: 1, starPoints: 650, protectionPoints: 120 }, { starPoints: 99, protectionPoints: 100 }],
+      // ミシックにはスターポイントが無い（0 にする）。保護ポイントの満タンは 1500
+      [{ tier: "mythic", division: 1, stars: 3, starPoints: 650, protectionPoints: 700, highestTier: "mythic", highestMythicStars: 3 },
+        { starPoints: 0, protectionPoints: 700 }],
+    ];
+    for (const [old, fitted] of cases) {
+      const account = { code: randomFriendCode(), key: randomKey() };
+      rankAccounts.push(account);
+      const seeded = await rankCall(account.code, "seed", { key: account.key, state: cloudRank(old) });
+      assert.deepEqual([seeded.status, seeded.json], [200, { ok: true, state: rankState({ ...old, ...fitted }) }], JSON.stringify(old));
+    }
+  });
+
   for (const rule of RANK_RULES) {
     test(`規則: ${rule.name}`, async () => {
       const account = await newRankAccount(cloudRank(rule.seed));
       const response = await rankMatch(account, { matchId: newMatchId(), ...rule.match });
-      const before = rankState(rule.seed);
-      const after = {
-        ...before,
-        ...rule.after,
-        wins: before.wins + (rule.match.won ? 1 : 0),
-        losses: before.losses + (rule.match.won ? 0 : 1),
-      };
+      const { before, after } = ruleStates(rule);
       assert.equal(response.status, 200, response.text);
       assert.deepEqual(response.json, { ok: true, state: after, result: { before, after, ...rule.result } });
     });
@@ -1205,8 +1338,11 @@ describe("ランク", () => {
       { ...ok, division: undefined }, { ...ok, division: 0 }, { ...ok, division: 5 }, { ...ok, division: 2.5 }, { ...ok, division: "2" },
       { ...ok, stars: undefined }, { ...ok, stars: -1 }, { ...ok, stars: 5 }, { ...ok, stars: 1.5 },
       { ...ok, tier: "mythic", division: 2, stars: 30 },
-      { ...ok, starPoints: 700 }, { ...ok, starPoints: -1 }, { ...ok, starPoints: "abc" },
-      { ...ok, protectionPoints: 701 }, { ...ok, highestMythicStars: "3" }, { ...ok, wins: -1 }, { ...ok, losses: 1.5 },
+      // ポイントはどのティアでもスターポイント 999・保護ポイント 1500 まで（ティアの満タンを越える分は取り込む時に収める）
+      { ...ok, starPoints: 1000 }, { ...ok, starPoints: -1 }, { ...ok, starPoints: "abc" },
+      { ...ok, protectionPoints: 1501 }, { ...ok, protectionPoints: -1 },
+      { ...ok, highestMythicStars: "3" }, { ...ok, wins: -1 }, { ...ok, losses: 1.5 },
+      { ...ok, season: -1 }, { ...ok, season: 42.5 }, { ...ok, season: "42" },
     ];
     for (const state of bad) {
       const body = state === undefined ? { key } : { key, state };
@@ -1235,5 +1371,206 @@ describe("ランク", () => {
       assert.deepEqual([got.status, got.json], [200, { ok: true, state: RANK_INITIAL }], `"${query}"`);
     }
     assertError(await httpCall(`/v2/rank/${account.code}/get`, { key: account.key }), 404, "not_found");
+  });
+});
+
+// ---- ランクの規則とシーズンの切り替え（rank.ts を直接。時計と保存先を差し替える） ----
+
+/**
+ * rank.ts を wrangler と同じ esbuild で 1 つの ES モジュールにまとめて読み込む。cloudflare:workers は Node に無いので、
+ * DurableObject を ctx・env を持つだけの代役に替える（本物の Worker の結合テストは上の「ランク」）。
+ */
+async function importRankModule() {
+  const { build } = await import("esbuild");
+  const bundled = await build({
+    entryPoints: [join(RELAY_DIR, "src", "rank.ts")],
+    bundle: true,
+    format: "esm",
+    platform: "neutral",
+    target: "es2022",
+    write: false,
+    logLevel: "silent",
+    plugins: [{
+      name: "cloudflare-workers-stand-in",
+      setup(b) {
+        b.onResolve({ filter: /^cloudflare:workers$/ }, (args) => ({ path: args.path, namespace: "stand-in" }));
+        b.onLoad({ filter: /.*/, namespace: "stand-in" }, () => ({
+          contents: "export class DurableObject { constructor(ctx, env) { this.ctx = ctx; this.env = env; } }",
+          loader: "js",
+        }));
+      },
+    }],
+  });
+  return import(`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString("base64")}`);
+}
+
+/** 持ち主の鍵のハッシュ（64 桁の 16 進） */
+const OWNER_HASH = "a".repeat(64);
+
+/** 時計（clock.ms）と保存先（Map。Durable Object と同じく値を複製して出し入れする）を差し替えた RankAccount */
+function clockedRankAccount(rank, clock) {
+  const kv = new Map();
+  const ctx = {
+    storage: {
+      kv: {
+        get: (key) => (kv.has(key) ? structuredClone(kv.get(key)) : undefined),
+        put: (key, value) => void kv.set(key, structuredClone(value)),
+      },
+      deleteAll: async () => kv.clear(),
+    },
+  };
+  class ClockedRankAccount extends rank.RankAccount {
+    now() {
+      return clock.ms;
+    }
+  }
+  return { account: new ClockedRankAccount(ctx, {}), kv };
+}
+
+describe("ランクの規則とシーズン（rank.ts を直接）", () => {
+  let rank;
+  before(async () => {
+    rank = await importRankModule();
+  });
+
+  test("満タンはティアごと（スター 100/200/300/500/700/1000・ミシック無し、保護は同じ値・ミシック 1500）", () => {
+    assert.deepEqual({ ...rank.STAR_POINT_CAP }, STAR_POINT_CAP);
+    assert.deepEqual({ ...rank.PROTECTION_CAP }, PROTECTION_CAP);
+  });
+
+  for (const rule of RANK_RULES) {
+    test(`規則（applyMatch）: ${rule.name}`, () => {
+      const { before, after } = ruleStates(rule);
+      const result = rank.applyMatch(before, { matchId: "m_unit0001", ...rule.match });
+      assert.deepEqual(result, { before, after, ...rule.result });
+    });
+  }
+
+  test("シーズンの境目: S42 は 2026-09-16 08:00 UTC から 91 日ごと（S43 は 2026-12-16、S44 は 2027-03-17 の 08:00 UTC）", () => {
+    assert.equal(rank.FIRST_SEASON, FIRST_SEASON);
+    assert.equal(new Date(rank.SEASON_EPOCH_MS).toISOString(), "2026-09-16T08:00:00.000Z");
+    assert.equal(rank.SEASON_MS, 91 * DAY_MS);
+    const cases = [
+      ["2026-01-01T00:00:00.000Z", 42], // シーズン制の前は S42
+      ["2026-09-16T07:59:59.999Z", 42],
+      ["2026-09-16T08:00:00.000Z", 42],
+      ["2026-10-21T00:00:00.000Z", 42],
+      ["2026-12-16T07:59:59.999Z", 42],
+      ["2026-12-16T08:00:00.000Z", 43],
+      ["2027-03-17T07:59:59.999Z", 43],
+      ["2027-03-17T08:00:00.000Z", 44],
+      ["2027-06-16T08:00:00.000Z", 45],
+    ];
+    for (const [iso, season] of cases) {
+      assert.equal(rank.seasonAt(Date.parse(iso)), season, iso);
+      assert.equal(seasonAt(Date.parse(iso)), season, `テスト側の計算 ${iso}`);
+    }
+    assert.equal(new Date(rank.seasonStartMs(43)).toISOString(), "2026-12-16T08:00:00.000Z");
+    assert.equal(new Date(rank.seasonStartMs(44)).toISOString(), "2027-03-17T08:00:00.000Z");
+    assert.equal(rank.seasonStartMs(1), rank.SEASON_EPOCH_MS, "S42 より前の番号は S42");
+  });
+
+  test("新しいシーズンの開始位置（前のシーズンの最終ランクから。ミシックは星の累計で決まる）", () => {
+    const table = [
+      // [ティア, 段位, 星] → [ティア, 段位]（星は 0 から）
+      [["warrior", 3, 2], ["warrior", 3]], [["warrior", 2, 1], ["warrior", 2]], [["warrior", 1, 3], ["warrior", 1]],
+      [["elite", 3, 4], ["elite", 3]], [["elite", 2, 0], ["elite", 2]], [["elite", 1, 4], ["elite", 1]],
+      [["master", 4, 0], ["elite", 1]], [["master", 3, 4], ["elite", 1]], [["master", 2, 1], ["master", 4]], [["master", 1, 4], ["master", 3]],
+      [["grandmaster", 5, 0], ["master", 2]], [["grandmaster", 4, 5], ["master", 1]], [["grandmaster", 3, 0], ["grandmaster", 5]],
+      [["grandmaster", 2, 3], ["grandmaster", 4]], [["grandmaster", 1, 5], ["grandmaster", 3]],
+      [["epic", 5, 0], ["grandmaster", 2]], [["epic", 4, 2], ["grandmaster", 1]], [["epic", 3, 5], ["epic", 5]],
+      [["epic", 2, 0], ["epic", 5]], [["epic", 1, 5], ["epic", 4]],
+      [["legend", 5, 0], ["epic", 4]], [["legend", 4, 1], ["epic", 3]], [["legend", 3, 2], ["epic", 3]],
+      [["legend", 2, 3], ["epic", 3]], [["legend", 1, 5], ["epic", 3]],
+      [["mythic", 1, 0], ["epic", 2]], [["mythic", 1, 24], ["epic", 2]],
+      [["mythic", 1, 25], ["epic", 1]], [["mythic", 1, 49], ["epic", 1]],
+      [["mythic", 1, 50], ["legend", 5]], [["mythic", 1, 99], ["legend", 5]],
+      [["mythic", 1, 100], ["legend", 5]], [["mythic", 1, 800], ["legend", 5]],
+    ];
+    for (const [[tier, division, stars], expected] of table) {
+      assert.deepEqual(rank.seasonResetPlace({ tier, division, stars }), expected, `${tier} ${division} ★${stars}`);
+    }
+  });
+
+  test("rollover: 前のシーズンの記録を 1 回だけ下げ、星・ポイント・勝敗を 0 に（最高到達はそのまま）。二度目・先のシーズンは何もしない", () => {
+    const s42 = {
+      tier: "mythic", division: 1, stars: 37, starPoints: 0, protectionPoints: 900,
+      highestTier: "mythic", highestMythicStars: 61, wins: 80, losses: 52, season: 42,
+    };
+    const s43 = rank.rollover(s42, 43);
+    assert.deepEqual(s43, { ...s42, tier: "epic", division: 1, stars: 0, protectionPoints: 0, wins: 0, losses: 0, season: 43 });
+    assert.equal(rank.rollover(s43, 43), s43, "同じシーズンへは同じ記録（二度下げない）");
+    assert.deepEqual(rank.rollover(s42, 47), { ...s43, season: 47 }, "何シーズン空いても下げるのは 1 回");
+    assert.equal(rank.rollover(s43, 42), s43, "先のシーズンの記録は戻さない");
+    // シーズン制の前の記録（season 1）は S42 として読む
+    const legacy = { ...s42, season: 1 };
+    assert.deepEqual(rank.rollover(legacy, 42), s42);
+    assert.deepEqual(rank.rollover(legacy, 43), s43);
+    const { season: _season, ...noSeason } = s42;
+    assert.deepEqual(rank.rollover(noSeason, 43), s43, "season の無い記録も S42 として読む");
+  });
+
+  test("新しいシーズンの最初の get で下げて保存し、新しい番号を返す（二度目からは同じ記録。seed も今の記録を返す）", async () => {
+    const clock = { ms: Date.parse("2026-12-01T00:00:00Z") }; // S42
+    const { account, kv } = clockedRankAccount(rank, clock);
+    const local = cloudRank({
+      tier: "legend", division: 2, stars: 3, starPoints: 640, protectionPoints: 120,
+      highestTier: "mythic", highestMythicStars: 12, wins: 44, losses: 30,
+    });
+    assert.deepEqual(await account.seed(OWNER_HASH, local), { ok: true, state: { ...local, season: 42 } });
+    clock.ms = Date.parse("2026-12-16T08:00:00Z"); // S43 の始まり
+    const reset = { ...local, tier: "epic", division: 3, stars: 0, starPoints: 0, protectionPoints: 0, wins: 0, losses: 0, season: 43 };
+    assert.deepEqual(await account.get(OWNER_HASH), { ok: true, state: reset });
+    assert.deepEqual(kv.get("rank"), reset, "下げた記録を保存する");
+    assert.deepEqual(await account.get(OWNER_HASH), { ok: true, state: reset }, "二度目は下げない");
+    assert.deepEqual(await account.seed(OWNER_HASH, local), { ok: true, state: reset }, "記録があれば seed は今の記録を返す");
+  });
+
+  test("新しいシーズンの最初の match は、下げてから試合を数える（result.before は下げた記録。同じ matchId は数え直さない）", async () => {
+    const clock = { ms: Date.parse("2027-03-17T07:00:00Z") }; // S43 の終わり
+    const { account } = clockedRankAccount(rank, clock);
+    await account.seed(OWNER_HASH, cloudRank({ tier: "mythic", division: 1, stars: 55, highestTier: "mythic", highestMythicStars: 60, wins: 70, losses: 40 }));
+    clock.ms = Date.parse("2027-03-17T08:00:00Z"); // S44
+    const match = { matchId: "m_season01", won: true, rating: 8, mvp: false };
+    const played = await account.match(OWNER_HASH, match);
+    const reset = rankState({ tier: "legend", division: 5, stars: 0, highestTier: "mythic", highestMythicStars: 60, season: 44 });
+    const after = { ...reset, stars: 1, starPoints: 84, wins: 1 };
+    assert.deepEqual(played, {
+      ok: true, state: after, result: { before: reset, after, starPointsGain: 84, scoreBonus: 0, activeBonus: 0, protected: false },
+    });
+    assert.deepEqual(await account.match(OWNER_HASH, match), played);
+  });
+
+  test("seed: 前のシーズンの端末の記録は下げてから取り込む。season を省けば今のシーズン、先のシーズンは次のシーズンまで", async () => {
+    const clock = { ms: Date.parse("2026-12-20T00:00:00Z") }; // S43
+    const legend = cloudRank({ tier: "legend", division: 5, stars: 2, starPoints: 300, highestTier: "legend", wins: 9, losses: 8 });
+    const lowered = { ...legend, tier: "epic", division: 4, stars: 0, starPoints: 0, wins: 0, losses: 0, season: 43 };
+    const fromS42 = clockedRankAccount(rank, clock).account;
+    assert.deepEqual(await fromS42.seed(OWNER_HASH, { ...legend, season: 42 }), { ok: true, state: lowered });
+    const legacy = clockedRankAccount(rank, clock).account; // シーズン制の前の番号は S42
+    assert.deepEqual(await legacy.seed(OWNER_HASH, { ...legend, season: 1 }), { ok: true, state: lowered });
+    const oldApp = clockedRankAccount(rank, clock).account; // 旧版のアプリは season を送らない: 今のシーズンの記録
+    assert.deepEqual(await oldApp.seed(OWNER_HASH, legend), { ok: true, state: { ...legend, season: 43 } });
+
+    // 端末の時計が進んでいて、もう S44 へ下げてある記録: S44 になっても下げない（二度下げない）。S45 で下げる
+    const ahead = clockedRankAccount(rank, clock).account;
+    assert.deepEqual(await ahead.seed(OWNER_HASH, { ...legend, season: 50 }), { ok: true, state: { ...legend, season: 44 } });
+    clock.ms = Date.parse("2027-03-17T08:00:00Z"); // S44
+    assert.deepEqual(await ahead.get(OWNER_HASH), { ok: true, state: { ...legend, season: 44 } });
+    clock.ms = Date.parse("2027-06-16T08:00:00Z"); // S45
+    assert.deepEqual(await ahead.get(OWNER_HASH), { ok: true, state: { ...lowered, season: 45 } });
+  });
+
+  test("記録の無い get は今のシーズンの初期値（記録は作らない）。seed の前の match は数えず、erase の後も今のシーズン", async () => {
+    const clock = { ms: Date.parse("2027-01-05T00:00:00Z") }; // S43
+    const { account, kv } = clockedRankAccount(rank, clock);
+    const initial = { ...RANK_INITIAL, season: 43 };
+    assert.deepEqual(await account.get(OWNER_HASH), { ok: true, state: initial });
+    assert.equal(kv.has("rank"), false);
+    assert.deepEqual(await account.match(OWNER_HASH, { matchId: "m_season02", won: true, rating: 8, mvp: false }),
+      { ok: false, error: "not_seeded" });
+    assert.deepEqual(await account.seed(OWNER_HASH, cloudRank()), { ok: true, state: initial });
+    assert.deepEqual(await account.erase(OWNER_HASH), { ok: true, state: initial });
+    assert.equal(kv.size, 0);
   });
 });

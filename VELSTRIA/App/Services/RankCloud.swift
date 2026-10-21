@@ -17,6 +17,8 @@ struct CloudRank: Codable, Equatable {
     var highestMythicStars: Int
     var wins: Int
     var losses: Int
+    /// シーズンの番号（relay が今のシーズンを返す。古い relay は返さないので任意）。
+    var season: Int?
 
     static let tierNames = ["warrior", "elite", "master", "grandmaster", "epic", "legend", "mythic"]
 
@@ -30,6 +32,7 @@ struct CloudRank: Codable, Equatable {
         highestMythicStars = r.highestMythicStars
         wins = r.seasonWins
         losses = r.seasonLosses
+        season = r.season
     }
 }
 
@@ -37,6 +40,8 @@ extension RankState {
     /// クラウドの値で上書きする（報酬の受け取り記録は端末のもの）。
     mutating func adopt(_ c: CloudRank) {
         guard let t = CloudRank.tierNames.firstIndex(of: c.tier).flatMap(RankTier.init(rawValue:)) else { return }
+        // relay が先のシーズンにいる（端末の時計が遅れている）: 先に端末も進めて、終わったシーズンを記録する（報酬のメールの元）
+        if let s = c.season, s > season { SeasonService.advance(&self, to: s) }
         tier = t
         division = c.division
         stars = c.stars
@@ -46,6 +51,7 @@ extension RankState {
         highestMythicStars = c.highestMythicStars
         seasonWins = c.wins
         seasonLosses = c.losses
+        seasonHighestTier = max(seasonHighestTier, tier)
     }
 }
 
