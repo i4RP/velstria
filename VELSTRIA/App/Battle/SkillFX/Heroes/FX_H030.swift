@@ -63,15 +63,15 @@ enum FX_H030: HeroFXSet {
     //   S2 s2Windup・s2Speed・s2Range・ultRange（奥義の Lv の射程の延長）・blastRadius（爆発と刻印の弾けの半径）
     //   奥義 ultWindup（溜め → ビーム）・ultBeamSpeed（貫通弾の速さ）・ultWidth（ビームの半幅）。射程は s.range（照準の range）
 
-    // MARK: - 砲口（Motion_H030 の撃つキーの星砲の先。術者の足元から x = 右・y = 上・z = 前、m。棒人形の寸法で ±0.15 m）
+    // MARK: - 砲口（Motion_H030 の撃つキーの星砲の先。術者の足元から x = 右・y = 上・z = 前、m。同梱のスキンの腕・脚の寸法で測った棒人形。±0.1 m）
 
     /// 砲は少し内へ向けて構え、砲口は体の中心の線（sim の弾・ビームの通り道）の上に来る（x = 0）。
     /// S1: 腰だめに水平に構えた砲口。
-    private static let muzzleS1: SIMD3<Float> = [0, 1.27, 1.5]
+    private static let muzzleS1: SIMD3<Float> = [0, 1.28, 1.4]
     /// S2: 前の上 55° へ掲げた砲口。
-    private static let muzzleS2: SIMD3<Float> = [0, 2.35, 0.96]
+    private static let muzzleS2: SIMD3<Float> = [0, 2.3, 0.88]
     /// 奥義: 腰を落として胸の高さで前へ据えた砲口。
-    private static let muzzleUlt: SIMD3<Float> = [0, 1.2, 1.62]
+    private static let muzzleUlt: SIMD3<Float> = [0, 1.28, 1.5]
     /// パッシブ: 待機の砲口（腰だめで前の下）。
     private static let muzzleIdle: SIMD3<Float> = [0.2, 1.0, 1.1]
 

@@ -41,8 +41,8 @@ enum Motion_H030: HeroMotionScript {
     /// 腰だめで星砲を前へ水平に構える（両手で砲身を支え、右手は台尻の後ろの握り、左手は砲身の下）。lift = 砲口を上げる角（rad）。
     private static func levelAim(_ p: inout HeroPose, lift: Float = 0) {
         // 武器の向き = 胴の yaw + 右腕の yaw（0 で真っすぐ前、+ = 左）。右手は右の腰の前、左手は体の前を渡って砲身の下を支える。
-        // 砲口が体の中心の線（sim の弾・ビームの通り道）の上に来るよう、砲は少し内へ向ける（胴 0.12 + 腕 0.05 = 0.17 rad）
-        p.armR = ArmPose(pitch: 0.6 + lift * 0.5, out: 0.22, yaw: 0.05, elbow: 1.45)
+        // 砲口が体の中心の線（sim の弾・ビームの通り道）の上に来るよう、砲は少し内へ向ける（胴 0.12 + 腕 0 = 0.12 rad。同梱のスキンの腕の長さで測った）
+        p.armR = ArmPose(pitch: 0.6 + lift * 0.5, out: 0.22, yaw: 0, elbow: 1.45)
         p.armL = ArmPose(pitch: 1.0 + lift * 0.6, out: -0.05, yaw: 0.95, elbow: 1.3)
         p.weaponR = -1.57 + lift
         p.torsoYaw = 0.12
@@ -102,7 +102,7 @@ enum Motion_H030: HeroMotionScript {
         let fire = KitTimes(hero, .skill2).seconds("s2Windup")
         // 振り上げ: 両腕で星砲を前の上へ（砲口 55°）。少し反って見上げ、左足を前へ出して支える
         m.planted(max(0.05, fire - 0.02), .out) { p in
-            p.armR = ArmPose(pitch: 1.35, out: 0.2, yaw: 0.05, elbow: 1.35)
+            p.armR = ArmPose(pitch: 1.35, out: 0.2, yaw: 0, elbow: 1.35)
             p.armL = ArmPose(pitch: 2.0, out: -0.05, yaw: 0.95, elbow: 0.9)
             p.weaponR = -0.62
             p.torsoYaw = 0.12
@@ -164,7 +164,7 @@ enum Motion_H030: HeroMotionScript {
             p.armR.pitch = 0.85
             p.armL.pitch = 1.2
             p.torsoPitch = 0.1
-            p.hipsDrop = 0.08
+            p.hipsDrop = 0.06
             p.footL = [-0.05, 0, -0.24]
             p.footR = [0.04, 0, 0.12]
             p.glow = 1.2
@@ -177,7 +177,7 @@ enum Motion_H030: HeroMotionScript {
             p.armL.elbow = 1.1
             p.torsoPitch = 0.16
             p.hipsPitch = 0.06
-            p.hipsDrop = 0.15
+            p.hipsDrop = 0.1
             p.offset = [0, 0, -0.04]
             p.footL = [-0.06, 0, -0.34]
             p.footR = [0.06, 0, 0.18]
@@ -187,7 +187,7 @@ enum Motion_H030: HeroMotionScript {
         // 溜める（ビームまで構えたまま。わずかに沈み込む）
         m.planted(max(0.05, fire - m.now), .linear) { p in
             p.torsoPitch = 0.2
-            p.hipsDrop = 0.17
+            p.hipsDrop = 0.11
             p.glow = 2.6
             p.ring = 1.3
         }
@@ -200,7 +200,7 @@ enum Motion_H030: HeroMotionScript {
             p.torsoPitch = -0.22
             p.hipsPitch = -0.05
             p.headPitch = -0.15
-            p.hipsDrop = 0.26
+            p.hipsDrop = 0.17
             p.offset = [0, 0, 0.2]
             p.glow = 2.6
         }
@@ -211,7 +211,7 @@ enum Motion_H030: HeroMotionScript {
             p.torsoPitch = -0.12
             p.hipsPitch = 0
             p.headPitch = -0.08
-            p.hipsDrop = 0.24
+            p.hipsDrop = 0.16
             p.offset = [0, 0, 0.16]
             p.glow = 1.8
             p.ring = 0.6
