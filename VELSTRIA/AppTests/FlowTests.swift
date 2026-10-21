@@ -611,6 +611,53 @@ final class FlowLaneAndModeTests: XCTestCase {
     }
 }
 
+/// ドラフトのピック順の交換（「ピックを手伝うよ」）と事前選択（MLBB 2.2.16）。
+final class FlowDraftHelpTests: XCTestCase {
+    func testPickHelpSwapsPickOrderWithTheAllyPickingNow() {
+        var d = DraftEngine(seed: 7, playerSlot: 2, playerLane: .mid)
+        XCTAssertEqual(d.currentTurn?.team, .blue)
+        XCTAssertEqual(d.currentTurn?.isPlayer, false)
+        XCTAssertTrue(d.canOfferPickHelp, "味方 AI の番で、プレイヤーはまだ後の番")
+        let allyLane = d.plannedLane(blueIndex: 0)
+        XCTAssertTrue(d.swapPickOrderWithCurrent())
+        XCTAssertEqual(d.playerSlot, 0)
+        XCTAssertEqual(d.currentTurn?.isPlayer, true, "今の番がプレイヤーになる")
+        XCTAssertEqual(d.plannedLane(blueIndex: 0), .mid, "レーンはプレイヤーに付いていく")
+        XCTAssertEqual(d.plannedLane(blueIndex: 2), allyLane)
+        XCTAssertFalse(d.canOfferPickHelp, "自分の番では出せない")
+        let first = d.autoChoiceForPlayer(preferred: [])
+        XCTAssertTrue(d.commit(first))
+        XCTAssertEqual(d.playerPick?.heroID, first)
+        XCTAssertEqual(d.playerPick?.position, .mid)
+        XCTAssertFalse(d.canOfferPickHelp, "選んだ後は出せない")
+        XCTAssertFalse(d.swapPickOrderWithCurrent())
+    }
+
+    func testPreselectIsOnlyForFreeHeroesBeforeYouPick() {
+        var d = DraftEngine(seed: 3, playerSlot: 1)
+        let h = d.heroIDs[0]
+        XCTAssertTrue(d.canPlayerPreselect(h))
+        XCTAssertFalse(d.canPlayerSelect(h), "B1 は味方 AI の番")
+        let ai = d.aiChoice()
+        XCTAssertTrue(d.commit(ai))
+        if let ai { XCTAssertFalse(d.canPlayerPreselect(ai), "取られたヒーローは事前選択できない") }
+        XCTAssertFalse(d.canPlayerPreselect("H999"))
+    }
+
+    func testPickNamesFollowTheJapaneseClient() throws {
+        let saved = Loc.current
+        defer { Loc.current = saved }
+        let hero = try XCTUnwrap(MasterData.shared.heroes.first)
+        Loc.current = .ja
+        let ja = MasterText.heroPickName(hero)
+        XCTAssertTrue(ja.hasPrefix(hero.displayNameJa + "("), ja)
+        XCTAssertTrue(ja.hasSuffix(")"), ja)
+        Loc.current = .en
+        XCTAssertFalse(MasterText.heroPickName(hero).contains("("))
+        XCTAssertEqual(LaneFilterBar.order, [.top, .carry, .mid, .support, .jungle], "MLBB のドラフトのタブの並び")
+    }
+}
+
 /// UI テストと共有するシード（UI テストのターゲットはアプリ本体を import できないため文字列で持つ）。
 enum FlowUITestsSeed {
     static let draft = "20261001"

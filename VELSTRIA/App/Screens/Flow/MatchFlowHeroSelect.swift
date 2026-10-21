@@ -78,7 +78,7 @@ struct HeroSelectStep: View {
     }
 
     private func cell(for h: HeroDef) -> HeroGridCell {
-        HeroGridCell(hero: h, selected: model.heroID == h.heroID)
+        HeroGridCell(hero: h, selected: model.heroID == h.heroID, name: MasterText.heroPickName(h))
     }
 
     private func tap(_ h: HeroDef) {
@@ -148,28 +148,41 @@ struct RoleFilterBar: View {
     }
 }
 
+/// ヒーローの一覧（MLBB の選択画面と同じく 7 列。幅に合わせて顔の大きさを決める）。
 struct HeroPickerGrid: View {
     let heroes: [HeroDef]
     let cell: (HeroDef) -> HeroGridCell
     let onTap: (HeroDef) -> Void
+    static let columns = 7
 
     var body: some View {
-        ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 70, maximum: 84), spacing: 6)], spacing: 8) {
-                ForEach(heroes) { h in
-                    Button {
-                        onTap(h)
-                    } label: {
-                        cell(h)
+        GeometryReader { geo in
+            let spacing: CGFloat = 4
+            let width = (geo.size.width - 8 - spacing * CGFloat(Self.columns - 1)) / CGFloat(Self.columns)
+            let size = max(28, min(58, width - 6))
+            ScrollView {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: spacing), count: Self.columns), spacing: 6) {
+                    ForEach(heroes) { h in
+                        Button {
+                            onTap(h)
+                        } label: {
+                            sized(cell(h), size: size)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("flow_hero_\(h.heroID)")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("flow_hero_\(h.heroID)")
                 }
+                .padding(.vertical, 6)
+                .padding(.horizontal, 4)
             }
-            .padding(.vertical, 6)
-            .padding(.horizontal, 4)
         }
         .glass(cornerRadius: 16)
+    }
+
+    private func sized(_ c: HeroGridCell, size: CGFloat) -> HeroGridCell {
+        var c = c
+        c.size = size
+        return c
     }
 }
 
@@ -225,6 +238,15 @@ struct LoadoutPanel<Footer: View>: View {
                     .accessibilityLabel(L("難度 \(h.difficulty) / 5", "Difficulty \(h.difficulty) of 5"))
                 }
                 Spacer(minLength: 0)
+                // このヒーローの通算（MLBB: 「267 試合数 59% 勝率」）
+                let career = app.profile.career.perHero[id] ?? HeroCareer()
+                HStack(spacing: 12) {
+                    statColumn("\(career.matches)", L("試合数", "Matches"))
+                    statColumn(career.matches > 0 ? "\(Int((Double(career.wins) / Double(career.matches) * 100).rounded()))%" : "—",
+                               L("勝率", "Win rate"))
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("flow_hero_stats")
             }
             .id(id)
             .transition(.opacity.combined(with: .scale(scale: 0.95)))
@@ -233,6 +255,16 @@ struct LoadoutPanel<Footer: View>: View {
                 .font(Theme.heading(14))
                 .foregroundStyle(Theme.textSecondary)
                 .frame(maxWidth: .infinity, minHeight: 58)
+        }
+    }
+
+    private func statColumn(_ value: String, _ title: String) -> some View {
+        VStack(spacing: 0) {
+            Text(value)
+                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(HomeStyle.goldLight)
+            Text(title).font(Theme.body(10)).foregroundStyle(Theme.textSecondary)
         }
     }
 

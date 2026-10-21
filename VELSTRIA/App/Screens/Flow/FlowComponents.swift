@@ -504,6 +504,8 @@ struct HeroGridCell: View {
     var unavailableLabel: String?
     var price: Int?
     var size: CGFloat = 58
+    /// 名前（nil = MasterText.hero。選択画面は「アルゴス(Argus)」の形）。
+    var name: String?
 
     var body: some View {
         VStack(spacing: 3) {
@@ -532,7 +534,7 @@ struct HeroGridCell: View {
                     .shadow(color: Theme.gold.opacity(selected ? 0.9 : 0), radius: 6)
             )
             .scaleEffect(selected ? 1.06 : 1)
-            Text(MasterText.hero(hero))
+            Text(name ?? MasterText.hero(hero))
                 .font(.system(size: 10, weight: .semibold, design: .rounded))
                 .foregroundStyle(selected ? Theme.gold : Theme.textPrimary)
                 .lineLimit(1)
