@@ -125,9 +125,9 @@ enum FX_H030: HeroFXSet {
 
     /// 前を向いて寝かせた横長の板（彗星の体・柔らかい光）。大きさは変えない。advance = 前への移動（m/s、負 = 後ろへ）。
     private static func plate(_ tex: FXTex, length: Float, height: Float, _ tint: FXTint, life: Float, alpha: Float,
-                              advance: Float = 0) -> FXMesh {
+                              advance: Float = 0, fadeIn: Float = 0.05) -> FXMesh {
         FXMesh(shape: .disc, tex: tex, tint: tint, alpha: alpha, size: [length, 1, height], sizeEnd: [length, 1, height],
-               ease: .linear, life: life, fadeIn: 0.05, fadeOut: 0.8, yaw: 90, advance: advance).glowing()
+               ease: .linear, life: life, fadeIn: fadeIn, fadeOut: 0.8, yaw: 90, advance: advance).glowing()
     }
 
     // MARK: - レシピ
@@ -194,10 +194,11 @@ enum FX_H030: HeroFXSet {
             let (z0, adv) = seg(k)
             let at = Float(k) * segment
             let head: SIMD3<Float> = [m.x, m.y, z0]
+            // 1 回目は砲口の前で光が術者に重ならないよう、柔らかい光をゆっくり立ち上げる
             travel += [
-                .mesh(plate(.cometGlow, length: 2.6, height: glowHeight, .primary, life: segmentLife, alpha: 0.55, advance: adv),
-                      at: at, .follow, offset: head - fwd * 0.75),
-                .mesh(plate(.comet, length: cometLength, height: cometHeight, .secondary, life: segmentLife, alpha: 1,
+                .mesh(plate(.cometGlow, length: 2.2, height: glowHeight, .primary, life: segmentLife, alpha: 0.35, advance: adv,
+                            fadeIn: k == 0 ? 0.6 : 0.05), at: at, .follow, offset: head - fwd * 0.55),
+                .mesh(plate(.comet, length: cometLength, height: cometHeight, .primary, life: segmentLife, alpha: 1,
                             advance: adv), at: at, .follow, offset: head - fwd * (cometLength * 0.34)),
                 .mesh(FXMesh.orb(0.13, .core, life: segmentLife, grow: 1.0, alpha: 1).with {
                     $0.fadeIn = 0.05
@@ -380,16 +381,16 @@ enum FX_H030: HeroFXSet {
         let axis: SIMD3<Float> = [0, m.y, 0]
         let start = m + SIMD3<Float>(0, 0, beamGap)
         let Lb = max(1, L - start.z)
-        let orbPos = m + SIMD3<Float>(0, 0.05, 0.75)
+        let orbPos = m + SIMD3<Float>(0, 0.05, 0.6)
         let sightLength: Float = 10
         let sightAt = start + SIMD3<Float>(0, 0, sightLength * 0.5)
         var cast: [FXCue] = [
             // 0.08〜: 紺の照準線（黒に近い芯・青い縁）が前へ伸びる
-            .mesh(.ray(.streak, length: sightLength, width: 0.5, sightDark, life: t - 0.13, alpha: 0.85).with {
+            .mesh(.ray(.streak, length: sightLength, width: 2.2, sightDark, life: t - 0.13, alpha: 0.85).with {
                 $0.fadeIn = 0.15
                 $0.fadeOut = 0.7
             }, at: 0.08, offset: sightAt),
-            .mesh(.ray(.streak, length: sightLength, width: 0.9, .primary, life: t - 0.13, alpha: 0.7).with {
+            .mesh(.ray(.streak, length: sightLength, width: 3.4, .primary, life: t - 0.13, alpha: 0.7).with {
                 $0.fadeIn = 0.15
                 $0.fadeOut = 0.7
             }.glowing(), at: 0.08, offset: sightAt - SIMD3<Float>(0, 0.02, 0)),

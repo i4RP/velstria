@@ -79,7 +79,7 @@ def muzzle_parts():
         forward_streak("blast_r", 1.6, 1.8, 6, fade(CYAN, 230), yaw=12),
         Node("bloom", tex="Fx_Glow", life=14, delay=1, loc=Loc.fixed(0, 0, -0.35), scale=Scl.ease(1.6, 2.6, "out"),
              color=fade(BLUE, 210)),
-        facing("ring", "Fx_RingSoft", 0.35, 1.3, 9, fade(CYAN, 220), z=-0.25),
+        facing("ring", "Fx_RingSoft", 0.3, 0.9, 8, fade(CYAN, 150), z=-0.25),
         Node("glints", tex="Fx_Glow", life=(10, 18), count=8, delay=1, loc=Loc.pva(pos=0, vel=((-2.0, -1.0, -10.0), (2.0, 2.0, -4.0))),
              scale=Scl.ease(0.16, 0.03), color=morph(CYAN, BLUE, 255, 0)),
         Node("bolt", tex="Fx_Bolt", life=6, count=2, delay=2, interval=2, loc=Loc.fixed(0, 0, -0.6),
@@ -189,8 +189,8 @@ def ult_flash():
         Node("gold", tex="Fx_Core", life=6, scale=Scl.ease(1.6, 3.2, "out"), color=morph(GOLD_PALE, GOLD, 255, 0, "lin")),
         Node("lens", tex="Fx_Streak", life=9, delay=1, scale=Scl.ease((5.0, 1.0, 1), (7.5, 0.4, 1), "out"),
              color=morph(GOLD_PALE, CORE, 255, 0)),
-        Node("white", tex="Fx_Core", life=6, delay=5, scale=Scl.ease(2.4, 3.8, "out"), color=fade(CORE, 255, 0, "lin")),
-        Node("star", tex="Fx_Star4", life=7, delay=5, rot=Rot.pva(((0, 0, -10), (0, 0, 10))), scale=Scl.ease(2.4, 3.6, "out"),
+        Node("white", tex="Fx_Core", life=6, delay=5, scale=Scl.ease(2.0, 3.2, "out"), color=fade(CORE, 255, 0, "lin")),
+        Node("star", tex="Fx_Star4", life=7, delay=5, rot=Rot.pva(((0, 0, -10), (0, 0, 10))), scale=Scl.ease(1.6, 2.6, "out"),
              color=fade(CORE, 230)),
     )
     return fx
