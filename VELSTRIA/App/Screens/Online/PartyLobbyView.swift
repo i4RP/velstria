@@ -845,6 +845,8 @@ struct PartyFriendsTab: View {
         }
         .scrollBounceBehavior(.basedOnSize)
         .refreshable { hub.refreshPresence() }
+        // フレンドの名刺（Lv・段位・最終ログイン。同意していなければ何もしない）
+        .task { await app.publicProfiles.load(hub.friends.map(\.code)) }
         .confirmationDialog(removing.map { L("\(FriendNames.display($0.name)) をフレンドから外しますか？", "Remove \(FriendNames.display($0.name)) from your friends?") } ?? "",
                             isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
                             titleVisibility: .visible) {
@@ -928,9 +930,18 @@ struct PartyFriendsTab: View {
                     .font(Theme.heading(14))
                     .foregroundStyle(online ? Theme.textPrimary : Theme.textSecondary)
                     .lineLimit(1)
-                Text(FriendCode.display(friend.code))
-                    .font(Theme.mono(9))
-                    .foregroundStyle(Theme.textSecondary.opacity(0.8))
+                // MLBB の一覧: Lv・段位（名刺から）と ID
+                HStack(spacing: 4) {
+                    if let card = app.publicProfiles.profiles[friend.code] {
+                        Text("Lv\(card.level)").font(.system(size: 9, weight: .bold, design: .rounded)).foregroundStyle(HomeStyle.goldLight)
+                        RankCrest(tier: PublicRankText.tier(card.rank), size: 12)
+                        Text(PublicRankText.name(card.rank)).font(Theme.body(9)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                    } else {
+                        Text(FriendCode.display(friend.code))
+                            .font(Theme.mono(9))
+                            .foregroundStyle(Theme.textSecondary.opacity(0.8))
+                    }
+                }
                 Label(status.text, systemImage: status.symbol)
                     .font(Theme.body(11))
                     .foregroundStyle(status.color)
@@ -976,8 +987,14 @@ struct PartyFriendsTab: View {
             case .busy: return (L("試合中", "In a match"), "gamecontroller.fill", Theme.gold)
             }
         }
-        return online ? (L("オンライン", "Online"), "circle.fill", Theme.success)
-                      : (L("オフライン", "Offline"), "xmark.square", Theme.textSecondary)
+        if online {
+            // 今の状態（ランキングルーム中・マッチング中・試合中など。HomeFriendStatus と同じ文）
+            let s = HomeFriendStatus.of(online: true, inMyTeam: false, activity: hub.activities[friend.code], now: Date())
+            return (s.title, s.symbol, s.tone == .available ? Theme.success : (s.tone == .watching ? Theme.cyan : Color.orange))
+        }
+        // オフライン: 最終ログイン（名刺から。MLBB の「最終ログイン 5 時間前」）
+        let seen = app.publicProfiles.profiles[friend.code].flatMap { LastSeenText.text($0.lastSeen) }
+        return (seen ?? "Offline", "xmark.square", Theme.textSecondary)
     }
 
     @ViewBuilder
