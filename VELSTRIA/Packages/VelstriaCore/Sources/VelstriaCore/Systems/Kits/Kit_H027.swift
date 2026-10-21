@@ -312,6 +312,30 @@ struct Kit_H027: HeroKit {
         }
     }
 
+    /// 次の通常攻撃が三連突き（竜気が必要数 = 3、奥義中 2 たまっている）。shapeBasicAttack の分かれ目と同じ条件。
+    func empoweredAttackReady(hero: HeroData) -> Bool {
+        guard let k = hero.kit else { return false }
+        return k.jarldCharge >= (k.jarldUltRemaining > 0 ? Tune.chargeUlt : Tune.chargeNormal)
+    }
+
+    /// 竜気を必要数まで満たす（演出の撮影用）。
+    func primeEmpoweredAttack(hero: inout HeroData) {
+        guard let k = hero.kit else { return }
+        hero.kit!.jarldCharge = k.jarldUltRemaining > 0 ? Tune.chargeUlt : Tune.chargeNormal
+    }
+
+    /// 演出・モーション・音が読む三連突きの時刻と寸法（Tune そのもの。docs/vfx/RANGES.md）。
+    /// flurryGap は予約の秒（実際の間隔は Kit.firesAfter で tick に丸めた flurryInterval）。
+    func fxValues(slot: SkillSlot, stage: Int) -> [KitFXValue] {
+        guard slot == .passive else { return [] }
+        return [KitFXValue("flurryHits", Double(Tune.flurryHits), .count),
+                KitFXValue("flurryGap", Tune.flurryGap, .seconds),
+                KitFXValue("flurryInterval", Kit.firesAfter(Tune.flurryGap), .seconds),
+                KitFXValue("flurryRangeBonus", Tune.flurryRangeBonus, .distance),
+                KitFXValue("chargeNormal", Double(Tune.chargeNormal), .count),
+                KitFXValue("chargeUlt", Double(Tune.chargeUlt), .count)]
+    }
+
     // MARK: - B. 実行
 
     func resolveAim(_ s: SimState, _ ctx: SimContext, caster: Int, slot: SkillSlot, stage: Int,
@@ -522,6 +546,10 @@ struct Kit_H027: HeroKit {
                          targetID: targetID, index: n, param: crit, point: Vec2(plan.payload.isCrit ? 1 : 0, 0),
                          interruptible: true)
         }
+        // 描画・音への合図（判定・数値は変えない）。2・3 発目は flurryGap の予約が発火する tick（4 / 8 tick 後）に当たる。
+        // 届く距離は伸びた射程（範囲の伸びを外す前に出す）
+        Kit.emitEmpoweredAttack(&s, attacker: attacker, target: target, hits: Tune.flurryHits,
+                                interval: Kit.firesAfter(Tune.flurryGap))
         s.units[attacker].hero!.kit!.jarldCharge = 0
         s.units[attacker].statuses.removeAll { $0.kind == .attackRangeBoost && $0.tag == Tune.rangeTag }
     }

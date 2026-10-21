@@ -104,6 +104,11 @@ protocol HeroKit: Sendable {
                  base: SkillNumbers) -> SkillNumbers
     func text(slot: SkillSlot) -> KitText?
     func badge(slot: SkillSlot, hero: HeroData) -> KitBadge?
+    /// 次の通常攻撃がキットの強い通常攻撃（三連突き・円撃など。SimEvent.empoweredAttack を出す攻撃）になるか。
+    /// 描画（足元の円・武器の光）とモーションの選択だけが読む。状態だけで決める（既定 false）。
+    func empoweredAttackReady(hero: HeroData) -> Bool
+    /// 次の通常攻撃を強い通常攻撃にする（演出の撮影・確認用。試合の進行では呼ばない）。既定は何もしない。
+    func primeEmpoweredAttack(hero: inout HeroData)
     /// ランクごとのコスト（発動の検証・消費・numbers の cost・ボット・HUD が同じ値を使う）。base は汎用の実効コスト
     /// （リソースが Energy なら energyCostMultiplier 込み）。キットが固定の値を返すときは `HeroKits.resourceCost` を通す。
     func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double
@@ -184,6 +189,8 @@ extension HeroKit {
 
     func text(slot: SkillSlot) -> KitText? { nil }
     func badge(slot: SkillSlot, hero: HeroData) -> KitBadge? { nil }
+    func empoweredAttackReady(hero: HeroData) -> Bool { false }
+    func primeEmpoweredAttack(hero: inout HeroData) {}
     func cost(slot: SkillSlot, rank: Int, skill: SkillDef, hero: HeroDef, base: Double) -> Double { base }
     func plannedZones(master: MasterData) -> [KitZoneShape] { [] }
     func fxValues(slot: SkillSlot, stage: Int) -> [KitFXValue] { [] }

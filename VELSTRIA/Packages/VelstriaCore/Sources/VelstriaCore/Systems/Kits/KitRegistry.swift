@@ -248,6 +248,18 @@ public enum HeroKits {
         return kit.badge(slot: slot, hero: hero)
     }
 
+    /// 次の通常攻撃がキットの強い通常攻撃（SimEvent.empoweredAttack を出す攻撃）になるか（描画・モーションの選択用）。
+    public static func empoweredAttackReady(_ hero: HeroData) -> Bool {
+        guard hero.kit != nil, !hero.isDead, let kit = kit(for: hero.heroID) else { return false }
+        return kit.empoweredAttackReady(hero: hero)
+    }
+
+    /// 次の通常攻撃を強い通常攻撃にする（演出の撮影・確認用。試合の進行では呼ばない）。キットが無ければ何もしない。
+    public static func primeEmpoweredAttack(_ s: inout SimState, unit i: Int) {
+        guard s.units.indices.contains(i), let h = s.units[i].hero, h.kit != nil, let kit = kit(for: h.heroID) else { return }
+        kit.primeEmpoweredAttack(hero: &s.units[i].hero!)
+    }
+
     public static func text(heroID: String, slot: SkillSlot) -> KitText? {
         kit(for: heroID)?.text(slot: slot)
     }
