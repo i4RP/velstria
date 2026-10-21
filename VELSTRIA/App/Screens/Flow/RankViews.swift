@@ -1,29 +1,255 @@
 import SwiftUI
 import VelstriaCore
 
-// 担当: ui-flow。UI018 対AIランキング / UI019 ランク概要 / UI020 ランク報酬。
+// 担当: ui-flow。UI018 リーダーボード（ランキング・AI ラダー）/ UI019 ランク概要 / UI020 ランク報酬。
 
-// MARK: - UI018 対AIランキング
+// MARK: - UI018 リーダーボード（MLBB: 左のメニュー・上の範囲のタブ（世界／サーバー／フレンド）・「シーズン残り時間」・1〜3 位の月桂冠・
+// 下に自分の行。Velstria のサーバーは国。左のメニューは中身のある物だけ: ランキングと、架空の AI 50 人の AI ラダー）
 
 struct RankingView: View {
     @Environment(AppModel.self) private var app
+    @State private var menu: Menu = .ranking
+    @State private var scope: Scope = .global
+    @State private var card: PublicProfile?
+
+    enum Menu: Hashable { case ranking, aiLadder }
+    enum Scope: Hashable, CaseIterable { case global, country, friends }
 
     var body: some View {
-        ScreenScaffold(title: L("対AIランキング", "Ladder vs AI")) {
-            let ladder = RankService.ladder(for: app.profile)
-            HStack(alignment: .top, spacing: 14) {
-                sidePanel(ladder)
-                    .frame(width: 230)
-                if ladder.isEmpty {
-                    EmptyStateView(symbol: "list.number", title: L("ランキングを準備中です", "The ladder is being prepared"),
-                                   message: L("ランク戦をプレイすると、AI ライバルとの順位が表示されます。", "Play ranked matches to see where you stand against AI rivals."))
-                        .glass(cornerRadius: 16)
-                } else {
-                    ladderList(ladder)
+        ScreenScaffold(title: L("リーダーボード", "Leaderboard")) {
+            HStack(alignment: .top, spacing: 12) {
+                leftMenu.frame(width: 136)
+                Group {
+                    switch menu {
+                    case .ranking: rankingPane
+                    case .aiLadder: aiLadderPane
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .padding(.horizontal, 20)
-            .padding(.bottom, 10)
+            .padding(.bottom, 8)
+        }
+        .sheet(item: $card) { p in
+            PublicNameCardView(profile: p).environment(app)
+        }
+    }
+
+    // MARK: 左のメニュー
+
+    private var leftMenu: some View {
+        VStack(spacing: 6) {
+            menuButton(.ranking, L("ランキング", "Ranking"), "trophy.fill", id: "ranking_menu_ranking")
+            menuButton(.aiLadder, L("AI ラダー", "AI Ladder"), "cpu", id: "ranking_menu_ai")
+            Spacer(minLength: 0)
+            Button {
+                FlowFX.tap(app)
+                app.router.push(.rankOverview)
+            } label: {
+                Label(L("ランク概要", "Rank"), systemImage: "crown.fill")
+                    .font(Celestial.heading(12))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .frame(maxWidth: .infinity, minHeight: 40)
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .accessibilityIdentifier("ranking_overview")
+        }
+    }
+
+    private func menuButton(_ m: Menu, _ title: String, _ symbol: String, id: String) -> some View {
+        let selected = menu == m
+        return Button {
+            guard menu != m else { return }
+            app.audio.play(.uiTab)
+            withAnimation(.easeInOut(duration: 0.2)) { menu = m }
+        } label: {
+            Label(title, systemImage: symbol)
+                .font(Celestial.heading(13))
+                .foregroundStyle(selected ? Color(red: 0.16, green: 0.10, blue: 0.03) : Theme.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .padding(.horizontal, 10)
+                .background(HomeChamfer(cut: 7).fill(selected ? AnyShapeStyle(LinearGradient(colors: [HomeStyle.goldLight, Theme.gold], startPoint: .top, endPoint: .bottom))
+                                                              : AnyShapeStyle(Celestial.ink.opacity(0.8))))
+                .overlay(HomeChamfer(cut: 7).stroke(selected ? HomeStyle.goldLight : Celestial.ice.opacity(0.4), lineWidth: selected ? 1 : 0.6))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(id)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    // MARK: ランキング（relay の集計）
+
+    private var countryCode: String? { app.profile.countryCode.flatMap(CountryFlag.normalized) }
+
+    private func rankingScope(_ s: Scope) -> RankingScope? {
+        switch s {
+        case .global: return .global
+        case .country: return countryCode.map { .country($0) }
+        case .friends: return .friends
+        }
+    }
+
+    private var rankingPane: some View {
+        let days = SeasonService.daysLeft(at: Date())
+        return VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                CelestialTabs(options: [
+                    CelestialTab(value: Scope.global, title: L("世界", "World"), symbol: nil, identifier: "ranking_scope_global"),
+                    CelestialTab(value: Scope.country, title: L("国・地域", "Country"), symbol: nil, identifier: "ranking_scope_country"),
+                    CelestialTab(value: Scope.friends, title: L("フレンド", "Friends"), symbol: nil, identifier: "ranking_scope_friends"),
+                ], selection: $scope, fills: false, onChange: { _ in app.audio.play(.uiTab) })
+                Spacer(minLength: 4)
+                Text(L("シーズン残り時間：\(days)日", "Season ends in \(days)d"))
+                    .font(Theme.body(11))
+                    .foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            rankingContent
+        }
+        .task(id: scope) {
+            if let s = rankingScope(scope) { await app.ranking.load(s) }
+        }
+    }
+
+    @ViewBuilder private var rankingContent: some View {
+        if !app.syncsCloudRank {
+            EmptyStateView(symbol: "globe", title: L("オンライン機能に同意すると見られます", "Agree to the online rules to see the ranking"),
+                           message: L("ランキングには、オンラインに同意したプレイヤーの今シーズンの最高ランクが並びます。架空の AI との順位は「AI ラダー」で見られます。",
+                                      "The ranking lists the best rank this season of players who agreed to the online rules. See the AI Ladder for your place among AI rivals."))
+                .glass(cornerRadius: 14)
+        } else if let s = rankingScope(scope) {
+            let page = app.ranking.pages[s]
+            VStack(spacing: 6) {
+                if let page, !page.entries.isEmpty {
+                    ScrollView {
+                        LazyVStack(spacing: 4) {
+                            ForEach(page.entries) { e in
+                                rankingRow(e.position, e.profile, isMe: e.profile.code == app.profile.friendCode)
+                            }
+                        }
+                    }
+                } else if app.ranking.loading.contains(s) {
+                    ProgressView().tint(Celestial.ice).frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    EmptyStateView(symbol: "trophy", title: app.ranking.lastError ?? L("まだ誰もいません", "No one here yet"),
+                                   message: L("ランク戦をして名刺を公開すると、ここに並びます。", "Play ranked to appear here."))
+                }
+                myRow(page)
+            }
+        } else {
+            EmptyStateView(symbol: "flag.slash", title: L("国・地域が設定されていません", "No country set"),
+                           message: L("プロフィールで国・地域を選ぶと、同じ国のランキングが見られます。", "Choose your country in your profile to see its ranking."))
+        }
+    }
+
+    /// いちばん下に固定する自分の行（範囲の外なら「ランク外」）。
+    private func myRow(_ page: RankingPage?) -> some View {
+        let r = app.profile.rank
+        let mine = PublicRank(tier: r.tier.rawValue, division: r.division, stars: r.stars)
+        return HStack(spacing: 10) {
+            Text(page?.me.map { "\($0.position)" } ?? L("ランク外", "Unranked"))
+                .font(Theme.heading(13))
+                .foregroundStyle(Theme.textSecondary)
+                .frame(width: 64)
+            HeroPortraitView(heroID: app.profile.avatarHeroID, size: 34, showsRole: false)
+                .clipShape(RoundedRectangle(cornerRadius: 5))
+                .overlay(alignment: .topLeading) { CountryFlagBadge(code: countryCode, size: 12).offset(x: -3, y: -3) }
+            Text(app.onlineName).font(Celestial.heading(13)).foregroundStyle(HomeStyle.goldLight).lineLimit(1)
+            Spacer(minLength: 4)
+            rankLabel(page?.me?.profile.seasonBest ?? mine)
+        }
+        .padding(.horizontal, 10)
+        .frame(minHeight: 46)
+        .background(HomeChamfer(cut: 8).fill(Color(red: 0.20, green: 0.40, blue: 0.70).opacity(0.45)))
+        .overlay(HomeChamfer(cut: 8).stroke(HomeStyle.goldLight.opacity(0.6), lineWidth: 0.8))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("ranking_my_row")
+    }
+
+    private func rankingRow(_ position: Int, _ p: PublicProfile, isMe: Bool) -> some View {
+        Button {
+            FlowFX.tap(app)
+            card = p
+        } label: {
+            HStack(spacing: 10) {
+                positionBadge(position)
+                    .frame(width: 64)
+                HeroPortraitView(heroID: p.avatar ?? HeroRoster.defaultHeroID, size: 36, showsRole: false)
+                    .clipShape(RoundedRectangle(cornerRadius: 5))
+                    .overlay(alignment: .topLeading) { CountryFlagBadge(code: p.country, size: 12).offset(x: -3, y: -3) }
+                Text(PlayerNameRules.shown(p.name))
+                    .font(Celestial.heading(13))
+                    .foregroundStyle(isMe ? HomeStyle.goldLight : Theme.textPrimary)
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                rankLabel(p.seasonBest)
+            }
+            .padding(.horizontal, 10)
+            .frame(minHeight: 48)
+            .background(HomeChamfer(cut: 8).fill(position <= 3 ? AnyShapeStyle(LinearGradient(colors: [laurelColor(position).opacity(0.25), Celestial.ink.opacity(0.7)], startPoint: .leading, endPoint: .trailing))
+                                                               : AnyShapeStyle(Celestial.ink.opacity(0.7))))
+            .overlay(HomeChamfer(cut: 8).stroke(position <= 3 ? laurelColor(position).opacity(0.6) : Celestial.ice.opacity(0.25), lineWidth: 0.7))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("ranking_row_\(position)")
+    }
+
+    /// 順位（1〜3 位は金・銀・銅の月桂冠）。
+    @ViewBuilder private func positionBadge(_ position: Int) -> some View {
+        if position <= 3 {
+            HStack(spacing: 0) {
+                Image(systemName: "laurel.leading")
+                Text("\(position)").font(.system(size: 17, weight: .black, design: .serif))
+                Image(systemName: "laurel.trailing")
+            }
+            .font(.system(size: 15, weight: .bold))
+            .foregroundStyle(laurelColor(position))
+        } else {
+            Text("\(position)").font(.system(size: 16, weight: .bold, design: .rounded)).foregroundStyle(Theme.textPrimary)
+        }
+    }
+
+    private func laurelColor(_ position: Int) -> Color {
+        switch position {
+        case 1: return Theme.gold
+        case 2: return Color(white: 0.82)
+        default: return Color(red: 0.80, green: 0.52, blue: 0.32)
+        }
+    }
+
+    /// 段位章・段位名・星（ミシックは紫の星と累計。MLBB の「Iミシック ★1886」）。
+    private func rankLabel(_ r: PublicRank) -> some View {
+        let tier = PublicRankText.tier(r)
+        return HStack(spacing: 4) {
+            RankCrest(tier: tier, size: 22)
+            Text(PublicRankText.name(r)).font(Celestial.heading(12)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+            Image(systemName: "star.fill").font(.system(size: 11))
+                .foregroundStyle(tier == .mythic ? Color(red: 0.86, green: 0.55, blue: 1) : Theme.gold)
+            Text("\(r.stars)").font(Theme.mono(12)).foregroundStyle(HomeStyle.goldLight).monospacedDigit()
+        }
+    }
+
+    // MARK: AI ラダー（端末の中の架空の 50 人）
+
+    private var aiLadderPane: some View {
+        let ladder = RankService.ladder(for: app.profile)
+        return HStack(alignment: .top, spacing: 12) {
+            sidePanel(ladder)
+                .frame(width: 210)
+            if ladder.isEmpty {
+                EmptyStateView(symbol: "list.number", title: L("ランキングを準備中です", "The ladder is being prepared"),
+                               message: L("ランク戦をプレイすると、AI ライバルとの順位が表示されます。", "Play ranked matches to see where you stand against AI rivals."))
+                    .glass(cornerRadius: 16)
+            } else {
+                ladderList(ladder)
+            }
         }
     }
 
@@ -54,15 +280,6 @@ struct RankingView: View {
                     .foregroundStyle(Theme.gold)
             }
             Spacer(minLength: 0)
-            Button {
-                FlowFX.tap(app)
-                app.router.push(.rankOverview)
-            } label: {
-                Label(L("ランク概要", "Rank Overview"), systemImage: "crown.fill").frame(maxWidth: .infinity)
-            }
-            .buttonStyle(SecondaryButtonStyle())
-            .frame(minHeight: 44)
-            .accessibilityIdentifier("ranking_overview")
         }
         .padding(14)
         .frame(maxHeight: .infinity, alignment: .top)
@@ -135,7 +352,7 @@ struct RankingView: View {
         .frame(minHeight: 50)
         .glass(cornerRadius: 12, tint: entry.isPlayer ? Theme.gold : Theme.panelStroke, highlighted: entry.isPlayer)
         .accessibilityElement(children: .combine)
-        .accessibilityIdentifier(entry.isPlayer ? "ranking_player_row" : "ranking_row_\(position)")
+        .accessibilityIdentifier(entry.isPlayer ? "ranking_player_row" : "ranking_ai_row_\(position)")
     }
 }
 

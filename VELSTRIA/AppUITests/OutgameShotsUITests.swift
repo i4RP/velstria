@@ -129,6 +129,19 @@ final class OutgameShotsUITests: XCTestCase {
         snap("currency_store")
     }
 
+    /// リーダーボード（第3段）: 左のメニュー・範囲のタブ・自分の行（同意前は案内）と AI ラダー。
+    func testLeaderboard() {
+        let app = launch()
+        tap(app, "home_menu", timeout: 20)
+        tap(app, "home_menu_ranking")
+        XCTAssertTrue(element(app, "ranking_menu_ranking").waitForExistence(timeout: 10))
+        Thread.sleep(forTimeInterval: 1.0)
+        snap("leaderboard")
+        tap(app, "ranking_menu_ai")
+        Thread.sleep(forTimeInterval: 0.8)
+        snap("leaderboard_ai")
+    }
+
     func testRecordsOpenReplays() {
         let app = launch()
         // 戦績はプロフィールから開く（採用案のロビーには入口を置かない）
