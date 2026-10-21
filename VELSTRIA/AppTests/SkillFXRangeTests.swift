@@ -199,7 +199,9 @@ final class SkillFXRangeTests: XCTestCase {
         let R = s2.meters("blastRadius")
         XCTAssertEqual(R, 1.9, accuracy: 1e-4, "爆発の半径（スキル定義の radius 190）")
         let rings = SkillFXCatalog.recipe(heroID: "H030", slot: .skill2, master: master).impact.filter { cue in
-            guard case .mesh(let m) = cue.element, let o = FXEdge.outline(m, size: m.size(at: 0)) else { return false }
+            // 地面の部品だけ（胸の高さの球は範囲を示さない。FXRangeAudit と同じ見分け方）
+            guard case .mesh(let m) = cue.element, FXRangeAudit.isGroundPart(m, offsetY: cue.offset.y),
+                  let o = FXEdge.outline(m, size: m.size(at: 0)) else { return false }
             let far = o.map { ($0 * $0).sum().squareRoot() }.max() ?? 0
             guard far > R * 0.5 else { return false }
             XCTAssertEqual(cue.at, 0, accuracy: 1e-5, "範囲の輪は破裂の瞬間に出る")
