@@ -1,4 +1,71 @@
 {
+ "skill_H027_atkx_1.caf": {
+  "kind": "atkx",
+  "note": "三連突きの風 ×3（0・0.133・0.267 秒。柄の風・速い突きの風切り・穂先の鋼のきらめき、だんだん強く）+ 構えた体と鎧 → 鋼の鳴りの尾",
+  "seconds": 0.55,
+  "sources": [
+   "2015 / NoizBoy - Hong Kong Action Kit - Hit Kit #1",
+   "2015 / NoizBoy - Hong Kong Action Kit - Hit Kit #2",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2016 / SoundBits -  Just Whoosh 3 _ Whoosh Essentials",
+   "2019 / Airborne Sound - Organic Whooshes",
+   "2019 / L.A. Sounds - Transition Movement Pack 002",
+   "2020 / SmartSoundFX – Medieval"
+  ]
+ },
+ "skill_H027_atkx_2.caf": {
+  "kind": "atkx",
+  "note": "三連突きの風 ×3（0・0.133・0.267 秒。柄の風・速い突きの風切り・穂先の鋼のきらめき、だんだん強く）+ 構えた体と鎧 → 鋼の鳴りの尾",
+  "seconds": 0.57,
+  "sources": [
+   "2015 / NoizBoy - Hong Kong Action Kit - Hit Kit #1",
+   "2015 / NoizBoy - Hong Kong Action Kit - Hit Kit #2",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2019 / Airborne Sound - Organic Whooshes",
+   "2019 / L.A. Sounds - Transition Movement Pack 002",
+   "2019 / Soundholder - Swipes And Whooshes",
+   "2020 / SmartSoundFX – Medieval"
+  ]
+ },
+ "skill_H027_atkxhit_1.caf": {
+  "kind": "atkxhit",
+  "note": "穂先が鋭く刺さる + 刃先の点 + 体を打つ短い打撃 + 鋼の明るい鳴り + 鎧の鎖 + 小さな低い芯",
+  "seconds": 0.22,
+  "sources": [
+   "2015 / NoizBoy - Hong Kong Action Kit - Hit Kit #1",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2017 / Double Trouble Audio - Medieval Armor and Impacts",
+   "2018 / Articulated Sounds - Bones & Blood - Gore Elements",
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / PMSFX - BLOODBATH"
+  ]
+ },
+ "skill_H027_atkxhit_2.caf": {
+  "kind": "atkxhit",
+  "note": "穂先が鋭く刺さる + 刃先の点 + 体を打つ短い打撃 + 鋼の明るい鳴り + 鎧の鎖 + 小さな低い芯",
+  "seconds": 0.22,
+  "sources": [
+   "2015 / NoizBoy - Hong Kong Action Kit - Hit Kit #1",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2016 / Game Audio Factory - GAFSFX01 - Dark Materials",
+   "2017 / Double Trouble Audio - Medieval Armor and Impacts",
+   "2018 / Articulated Sounds - Bones & Blood - Gore Elements",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "skill_H027_atkxhit_3.caf": {
+  "kind": "atkxhit",
+  "note": "穂先が鋭く刺さる + 刃先の点 + 体を打つ短い打撃 + 鋼の明るい鳴り + 鎧の鎖 + 小さな低い芯",
+  "seconds": 0.22,
+  "sources": [
+   "2015 / NoizBoy - Hong Kong Action Kit - Hit Kit #1",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2017 / Double Trouble Audio - Medieval Armor and Impacts",
+   "2018 / Articulated Sounds - Bones & Blood - Gore Elements",
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / PMSFX - BLOODBATH"
+  ]
+ },
  "skill_H027_passive.caf": {
   "kind": "passive",
   "note": "穂先の閃き（鋼の小さな鳴り + 短い風）",

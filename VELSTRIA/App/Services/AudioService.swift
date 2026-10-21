@@ -74,6 +74,10 @@ struct SkillSoundKey: Hashable, Sendable {
         case passive
         /// 通常攻撃の会心（damage(.basicAttack) の isCrit。命中の代わりに鳴らす）。
         case crit
+        /// キットの強い通常攻撃（三連突き・円撃。SimEvent.empoweredAttack）の振り。その攻撃の通常攻撃の振りの代わりに鳴らす。
+        case empowered = "atkx"
+        /// 強い通常攻撃の命中（三連突きは 1 撃ごと、円撃は 1 回）。その攻撃の通常攻撃の命中・会心の代わりに鳴らす。
+        case empoweredHit = "atkxhit"
     }
 
     var heroID: String
@@ -95,12 +99,12 @@ struct SkillSoundKey: Hashable, Sendable {
         self.phase = phase
     }
 
-    var hit: Bool { phase == .hit || phase == .attackHit || phase == .crit }
+    var hit: Bool { phase == .hit || phase == .attackHit || phase == .crit || phase == .empoweredHit }
 
     /// ファイル名（揺らぎの番号なし）。揺らぎは fileName_1 … fileName_4（AudioService が全部読んで順に鳴らす）。
     var fileName: String {
         switch phase {
-        case .attack, .attackHit, .passive, .crit:
+        case .attack, .attackHit, .passive, .crit, .empowered, .empoweredHit:
             return "skill_\(heroID)_\(phase.rawValue)"
         case .cast, .hit:
             let s: String
@@ -127,7 +131,9 @@ struct SkillSoundKey: Hashable, Sendable {
             out.append(SkillSoundKey(heroID: heroID, slot: slot, hit: true))
             for stage in 0...3 { out.append(SkillSoundKey(heroID: heroID, slot: slot, stage: stage)) }
         }
-        for phase in [Phase.attack, .attackHit, .crit, .passive] { out.append(SkillSoundKey(heroID: heroID, phase: phase)) }
+        for phase in [Phase.attack, .attackHit, .crit, .passive, .empowered, .empoweredHit] {
+            out.append(SkillSoundKey(heroID: heroID, phase: phase))
+        }
         return out
     }
 }
