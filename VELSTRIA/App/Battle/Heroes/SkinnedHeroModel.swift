@@ -396,6 +396,8 @@ final class SkinnedHeroModel: HeroDisplayModel {
     private let flag: ModelEntity?
     let float: ModelEntity?
     private var effects: HeroEffects
+    /// 次の通常攻撃が強い間の武器の先の光（setEmpoweredReady。0 = 消す）。
+    private var empoweredGlow: Float = 0
 
     private var poser: HeroSkeletonPoser
     private let handR: Int
@@ -622,6 +624,14 @@ final class SkinnedHeroModel: HeroDisplayModel {
         if wasDead { effects.setOpacity(1, body: body) }
     }
 
+    func playAttack(windup: Double, interval: Double, empowered: Bool) {
+        let wasDead = animator.state == .dead
+        animator.playAttack(windup: Float(windup), interval: Float(interval), empowered: empowered)
+        if wasDead { effects.setOpacity(1, body: body) }
+    }
+
+    func setEmpoweredReady(_ ready: Bool) { empoweredGlow = ready ? HeroEffects.empoweredGlow : 0 }
+
     func attackLaunchPoint() -> SIMD3<Float>? {
         weaponPoints.launchPosition(weapon: weapon, offhand: offhand, strikeHand: animator.strikeHand)
     }
@@ -732,6 +742,9 @@ final class SkinnedHeroModel: HeroDisplayModel {
                 float.position = floatAnchor + V3(0, 0.06 * sin(t * 1.4), 0)
             }
         }
-        effects.apply(p, time: t, dead: animator.state == .dead, body: body)
+        // 次の通常攻撃が強い間は武器の先の光を灯す（姿勢の光を下から支える。詠唱・打撃の光はそのまま上に乗る）
+        var lit = p
+        if empoweredGlow > 0, animator.state != .dead { lit.glow = max(lit.glow, empoweredGlow) }
+        effects.apply(lit, time: t, dead: animator.state == .dead, body: body)
     }
 }

@@ -4,7 +4,9 @@
 # S2 は 1040/秒で最大 415（0.4 秒）の突進、当たった所で命中。再使用（致命の一撃）は 0.06 秒の溜め（強化 0.19）→ 1200/秒で最大 283 跳び、
 # 当たってから +0.15・+0.217 秒に 2・3 撃目（どれも S2 の命中）。奥義は 0.76 秒溜めて直線へ放つ（命中は放った時）。
 # 演出（FX_H032）: S1 は輪の 0.08 秒前に斬撃、0.02 秒前に渦。奥義の鎌の軌跡 0・0.1・0.24・0.4、槍 0.45、放つ 0.76。
-"""H032 ディアス（MLBB: ディロス）のスキル・パッシブの音。"""
+# 強化通常攻撃（円撃）: 3 回目の通常攻撃。命中と同時に周り 2 m の敵をまとめて斬る。命中の瞬間に atkx（回転の払い）を 1 回、
+# 主な相手への命中に atkxhit（重い叩き斬り）を 1 回鳴らす。音量は atkx -21、atkxhit -24 LUFS（通常攻撃 -23 / 命中 -26 より大きく）。
+"""H032 ディアス（MLBB: ディロス）のスキル・パッシブ・強化通常攻撃（円撃）の音。"""
 import os
 import sys
 
@@ -104,4 +106,40 @@ def build():
                (0, sn("Knife_Sword_Shing", 1, p=0.75, g=0, hp=1500, length=0.35, hit=True, pre=0.005)),
                (0.0, rise(sn(GROAN, g=-16, lp=300, start=3.0, length=0.7), 0.15))])
     write(f"skill_{hero}_passive", tail(pas, 0.5, 0.75), "passive", "両手の刃が鳴る + 鉄板の低いうなり")
+
+    # 強化通常攻撃 円撃（atkx、2 種）: 0 秒 = 命中（周り 2 m の敵を同時に斬る）。両腕の刃で体ごと一回転する重い払い。
+    # 0 で重い刃の振り（低い風切り、山を 0.03 秒に）+ 長い刃の金属の擦れ + 回る風（回転の風切りを音程を下げて重く。2 つ目の山が
+    # 0.25 秒 = 回り切る）→ 0.2 秒に 2 つ目の払い（弱め）→ 刃の鳴り（擦れのきらめき・低いナイフの鳴り）+ 斧と鎖の重い金属・低い芯 →
+    # 鉄板のうなり・地鳴りの尾 → 0.85 秒で消える。打撃の芯は命中の音（atkxhit）に任せて、ここは振り・刃・闇を主に
+    for v, (lp_, sweep, sp, ai, shing, gs, rs) in enumerate([(0.8, "DesignedSwings12", 0.8, 2, 1, 1.2, 3.0),
+                                                              (0.74, "Swing 3 Large", 0.75, 4, 0, 2.0, 5.0)], start=1):
+        x = mix([
+            (0.0, sn("LowSwings31", 0, p=lp_, g=-6, hp=120, hit="peak", pre=0.03 * lp_, length=0.45)),
+            (0.0, B.fade(sn("HKAP2 Spin Whoosh 2a", p=0.72, g=-10, hp=150, start=0.06), 0.005, 0.0)),
+            (0.0, sn(SCRAPE, p=0.75, g=-6, hp=500, hit="peak", pre=0.02, length=0.5)),
+            (0.2 - 0.1 / sp, sn(sweep, p=sp, g=-9, hp=200, hit="peak", pre=0.1, length=0.4)),
+            (0.02, sn(RING, g=-8, hp=2000, start=0.1, length=0.55)),
+            (0.0, sn("Knife_Sword_Shing", shing, p=0.65, g=-11, hp=800, hit=True, pre=0.005, length=0.45)),
+            (0.0, sn(AXE, ai, p=0.7, g=-14, lp=2500, hit=True, pre=0.005, length=0.4)),
+            (0.0, sn("10 Hit Deep Thud", p=0.9, g=-12, lp=200, hit=True, length=0.4)),
+            (0.05, rise(sn(GROAN, g=-17, lp=350, start=gs, length=0.8), 0.05)),
+            (0.05, sn(RUMBLE, g=-15, lp=150, start=rs, length=0.8)),
+        ])
+        write(f"skill_{hero}_atkx_{v}", tail(reverb(x, 0.5, 0.1, 55 + v), 0.6, 0.86), "atkx",
+              "重い刃の払い（低い風切り・刃の金属の擦れ・回る風）→ 0.2 秒に回り切る 2 つ目の払い → 刃の鳴り + 斧と鎖の金属・低い芯 → 鉄板のうなり・地鳴りの尾")
+
+    # 強化通常攻撃の命中（atkxhit、3 種）: 円撃 1 回に主な相手へ 1 回。重い刃の叩き斬り（映画的な重い斬り）+ 斧と鎖の深い金属 +
+    # 両手斧が肉に入る + 骨の砕け + 低い芯（深い打撃・鉄板のうなり）。S1・S2・奥義の命中とは芯の録音を替えた。0.4 秒で消える
+    for k, (core, cp, ai, fi, crunch, ci, cg) in enumerate([("PM_BB_DESIGNED_CINEMATIC_CHOPS_19", 0.85, 0, 3, "flesh and bone crunch - hard - 5", 0, -4),
+                                                             ("PM_BB_DESIGNED_CINEMATIC_CHOPS_25", 0.85, 2, 4, "Heavy Body Crunch", 2, -8),
+                                                             ("PM_BB_DESIGNED_CINEMATIC_CHOPS_19", 0.78, 4, 3, "flesh and bone crunch - hard - 5", 0, -4)],
+                                                            start=1):
+        # 斬りと斧の録音は鳴りが 0.15 秒ほど平らに続くので、0.05 秒から薄くして頭の打撃を立てる
+        x = mix([(0, tail(sn(core, p=cp, g=-10, hit=True, pre=0.005, length=0.25), 0.05, 0.25)),
+                 (0, tail(sn(AXE, ai, p=0.7, g=-8, lp=3000, hit=True, pre=0.005, length=0.35), 0.05, 0.35)),
+                 (0, sn("Two-Handed Axe Flesh Hit", fi, p=0.8, g=-12, hit=True, pre=0.005, length=0.3)),
+                 (0, sn(crunch, ci, p=0.9, g=cg - 2, hit=True, pre=0.005, length=0.3)),
+                 (0, sn("10 Hit Deep Thud", p=0.95, g=-9, lp=180, hit=True, length=0.3)),
+                 (0, sn(GROAN, g=-18, lp=200, start=2.0, length=0.35))])
+        write(f"skill_{hero}_atkxhit_{k}", tail(x, 0.28, 0.4), "atkxhit", "重い刃の叩き斬り + 斧と鎖の深い金属 + 両手斧が肉に入る + 骨の砕け + 低い芯")
     return hero

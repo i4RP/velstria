@@ -534,6 +534,25 @@ struct Kit_H032: HeroKit {
         }
     }
 
+    /// 次の通常攻撃が円撃（通常攻撃 2 回の後）。shapeBasicAttack の分かれ目と同じ条件。
+    func empoweredAttackReady(hero: HeroData) -> Bool {
+        guard let k = hero.kit else { return false }
+        return k.diasSwings + 1 >= Tune.circleEvery
+    }
+
+    /// 通常攻撃 2 回の後にする（演出の撮影用）。
+    func primeEmpoweredAttack(hero: inout HeroData) {
+        guard hero.kit != nil else { return }
+        hero.kit!.diasSwings = Tune.circleEvery - 1
+    }
+
+    /// 演出・モーション・音が読む円撃の寸法（Tune そのもの。docs/vfx/RANGES.md）。
+    func fxValues(slot: SkillSlot, stage: Int) -> [KitFXValue] {
+        guard slot == .passive else { return [] }
+        return [KitFXValue("circleEvery", Double(Tune.circleEvery), .count),
+                KitFXValue("circleRadius", Tune.circleRadius, .distance)]
+    }
+
     // MARK: - B. 実行
 
     func resolveAim(_ s: SimState, _ ctx: SimContext, caster: Int, slot: SkillSlot, stage: Int,
@@ -894,6 +913,9 @@ struct Kit_H032: HeroKit {
         let around = HitPayload(damage: circle, damageType: .physical, source: .basicAttack,
                                 isCrit: plan.payload.isCrit, appliesOnHit: false)
         let center = s.units[attacker].pos
+        // 描画・音への合図（判定・数値は変えない）: 術者の位置を中心に半径 circleRadius の円撃が今の tick に当たる。
+        // 周りの敵への命中（下）より前に出す（音・演出が周りの命中も円撃の命中として扱えるように）
+        Kit.emitEmpoweredAttack(&s, attacker: attacker, target: target, hits: 1, radius: Tune.circleRadius)
         let hit = Kit.hitAreaEach(&s, ctx, caster: attacker, center: center, radius: Tune.circleRadius,
                                   shape: .circle, excluding: target, source: .basicAttack) { _, _ in around }
         // 回復: 最大 HP の 7〜10%（1 回の円撃で 1 度）。当たったのがミニオン・タワーだけなら半分（公式。ヒーロー・モンスターが

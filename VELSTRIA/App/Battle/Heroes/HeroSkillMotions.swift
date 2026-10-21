@@ -15,17 +15,25 @@ protocol HeroMotionScript {
     static func onHit(_ slot: SkillSlot, _ m: MotionBuilder) -> MotionClip?
     /// 全身の通常攻撃（順に繰り返す。impact を sim の命中へ合わせる）。
     static func attacks(_ m: MotionBuilder) -> [MotionClip]
+    /// キットの強い通常攻撃（SimEvent.empoweredAttack を出す攻撃: 三連突き・円撃）だけの全身のモーション。impact = 1 発目の命中
+    /// （sim の attackReleased）。次の通常攻撃が強いとき（HeroKits.empoweredAttackReady）に、通常攻撃の代わりに 1 回だけ振る。
+    /// nil = 強い通常攻撃も普段の通常攻撃のまま。
+    static func empoweredAttack(_ m: MotionBuilder) -> MotionClip?
 }
 
 extension HeroMotionScript {
     static func cast(_ slot: SkillSlot, stage: Int, _ m: MotionBuilder) -> MotionClip? { nil }
     static func onHit(_ slot: SkillSlot, _ m: MotionBuilder) -> MotionClip? { nil }
     static func attacks(_ m: MotionBuilder) -> [MotionClip] { [] }
+    static func empoweredAttack(_ m: MotionBuilder) -> MotionClip? { nil }
 }
 
 enum HeroSkillMotions {
+    /// H027・H032 は強い通常攻撃（三連突き・円撃）のモーションだけ（詠唱・普段の通常攻撃は従来どおり）。
     static let scripts: [String: HeroMotionScript.Type] = [
+        "H027": Motion_H027.self,
         "H029": Motion_H029.self,
+        "H032": Motion_H032.self,
         "H034": Motion_H034.self,
     ]
 

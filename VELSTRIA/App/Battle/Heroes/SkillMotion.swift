@@ -32,6 +32,9 @@ struct MotionClip {
     var strikeHand: HeroStrikeHand = .right
     /// sim が術者を止めておく長さ（秒。奥義の拘束など）。これがあるモーションは長さの上限を sim の時間に合わせてよい（SkillFXTests）。
     var simLock: Float?
+    /// 体の向き（yaw）を 1 回転以上回すモーション（円撃の回転）。戻りは最後のキーに近い向き（2π の倍数だけずらした待機の向き）へ
+    /// 戻し、逆回りに巻き戻さない。既定 false = 従来どおり（既存のヒーローの動きは変えない）。
+    var wrapsYaw = false
 
     /// base（現在の移動・待機の姿勢）から評価する。
     func evaluate(base: HeroPose, t: Float) -> HeroPose {
@@ -52,6 +55,7 @@ struct MotionClip {
                 back.weaponR = last.pose.weaponR + remainder(base.weaponR - last.pose.weaponR, 2 * .pi)
                 back.weaponL = last.pose.weaponL + remainder(base.weaponL - last.pose.weaponL, 2 * .pi)
             }
+            if wrapsYaw { back.yaw = last.pose.yaw + remainder(base.yaw - last.pose.yaw, 2 * .pi) }
             target = HeroPose.mix(last.pose, back, u)
             // 戻りも最後まで接地したまま待機の立ち位置へ踏み戻す（終わりの姿勢は目標 0 = 待機の脚と同じ）
             target.plant = max(target.plant, last.pose.plant)

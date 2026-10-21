@@ -746,6 +746,8 @@ final class HeroVisual {
     private var castUntil: Float = -1
     private var castSlot: SkillSlot = .skill1
     private var attackUntil: Float = -1
+    /// 次の通常攻撃がキットの強い通常攻撃か（前のフレームの値。変わった時だけ武器の光を切り替える）。
+    private var empoweredReady = false
     private var deadTime: Float = 0
     private var ringPulse: Float = 0
     private var focusPulse: Float = 0
@@ -837,14 +839,19 @@ final class HeroVisual {
     func noteAttack(time: Float) { attackUntil = time + 0.32 }
 
     /// 通常攻撃の振り始め。状態を先に攻撃へ移してから振る（HeroAnimator は setState → playAttack の順を前提に巡回する）。
-    func beginAttack(windup: Double, interval: Double, time: Float) {
+    /// empowered = この攻撃がキットの強い通常攻撃（三連突き・円撃）。全身のモーションがあればそれを振る。
+    func beginAttack(windup: Double, interval: Double, time: Float, empowered: Bool = false) {
         attackUntil = max(attackUntil, time + Float(windup) + 0.12)
         if animState != .attack && !(castUntil > time) && animState != .dead {
             animState = .attack
             handle.setState(.attack)
         }
         guard animState == .attack else { return }
-        handle.playAttack(windup: windup, interval: interval)
+        if empowered {
+            handle.playAttack(windup: windup, interval: interval, empowered: true)
+        } else {
+            handle.playAttack(windup: windup, interval: interval)
+        }
     }
 
     func update(_ f: RenderFrame, index i: Int, visible: Bool) {
@@ -884,6 +891,12 @@ final class HeroVisual {
         if !dead {
             yaw = approachAngle(yaw, yawForFacing(u.facing), rate: 13, dt: dt)
             modelRoot.orientation = simd_quatf(angle: yaw, axis: [0, 1, 0])
+        }
+        // 次の通常攻撃が強い間は武器の先を光らせる（キットのヒーローだけ。変わった時だけ切り替える）
+        let ready = !dead && u.hero.map { $0.kit != nil && HeroKits.empoweredAttackReady($0) } == true
+        if ready != empoweredReady {
+            empoweredReady = ready
+            handle.setEmpoweredReady(ready)
         }
         // アニメーション状態
         let state = Self.animState(unit: u, time: f.time, castUntil: castUntil, castSlot: castSlot,

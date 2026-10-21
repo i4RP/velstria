@@ -123,6 +123,38 @@ public struct DamageEvent: Codable, Hashable, Sendable {
     }
 }
 
+/// キットの強い通常攻撃（H027 の三連突き・H032 の円撃）が出た合図。描画・音・手応えだけが読む（判定・数値は変えない）。
+/// 1 発目の命中（= attackReleased と同じ tick）で、その tick の attackReleased・その攻撃の命中（円撃の周りの命中も）より前に出す。
+/// 2 発目以降はキットの予約で interval 秒ごとに当たる（対象が倒れた・射程の外へ出たら出ない）。SimState の events は tick の終わりに空になるので、スナップショット・状態ハッシュ・
+/// リプレイ（入力だけを記録）には入らない。
+public struct EmpoweredAttackEvent: Codable, Hashable, Sendable {
+    public var sourceID: EntityID
+    public var targetID: EntityID
+    public var heroID: String
+    /// 命中の回数（三連突き = 3、円撃 = 1）。
+    public var hits: Int
+    /// 2 発目以降の間隔（秒。tick に丸めた実際の間隔。1 発なら 0）。
+    public var interval: Double
+    /// 周りを巻き込む円の半径（術者の中心から。対象の半径は含まない。0 = 単体）。
+    public var radius: Double
+    /// 届く距離（伸びを含む今の通常攻撃の射程。sim の通常攻撃は術者の縁から対象の縁までの距離がこれ以下で当たる）。
+    public var reach: Double
+    /// 術者の位置（円の中心）。
+    public var origin: Vec2
+
+    public init(sourceID: EntityID, targetID: EntityID, heroID: String, hits: Int, interval: Double, radius: Double,
+                reach: Double, origin: Vec2) {
+        self.sourceID = sourceID
+        self.targetID = targetID
+        self.heroID = heroID
+        self.hits = hits
+        self.interval = interval
+        self.radius = radius
+        self.reach = reach
+        self.origin = origin
+    }
+}
+
 public struct HeroKillEvent: Codable, Hashable, Sendable {
     public var victimID: EntityID
     public var killerID: EntityID?
@@ -184,6 +216,8 @@ public enum SimEvent: Codable, Hashable, Sendable {
     case attackStarted(sourceID: EntityID, targetID: EntityID)
     /// 近接通常攻撃の命中、または遠隔の発射。
     case attackReleased(sourceID: EntityID, targetID: EntityID, isRanged: Bool)
+    /// キットの強い通常攻撃（三連突き・円撃）。同じ tick の attackReleased・その攻撃の命中より前に出る。
+    case empoweredAttack(EmpoweredAttackEvent)
     case projectileLaunched(projectileID: EntityID, ownerID: EntityID, visual: String)
     case projectileHit(projectileID: EntityID, targetID: EntityID?, pos: Vec2)
     case skillCast(SkillCastEvent)

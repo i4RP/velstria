@@ -51,6 +51,8 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Rock Brick and Dirt（GDC 2015） | Mechanical Wave | Sonniss GDC | https://gdc.sonniss.com/ |
 | Undoing-Computer（GDC 2015） | Mechanical Wave | Sonniss GDC | https://gdc.sonniss.com/ |
 | Firecrackers Sound Pack 01（GDC 2015） | Membrans | Sonniss GDC | https://gdc.sonniss.com/ |
+| Hong Kong Action Kit - Hit Kit #1（GDC 2015） | NoizBoy | Sonniss GDC | https://gdc.sonniss.com/ |
+| Hong Kong Action Kit - Hit Kit #2（GDC 2015） | NoizBoy | Sonniss GDC | https://gdc.sonniss.com/ |
 | Twisted Zither（GDC 2015） | RDGSFX009 | Sonniss GDC | https://gdc.sonniss.com/ |
 | Blades（GDC 2015） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
 | Glass Smash Full（GDC 2015） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -129,6 +131,7 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Effective Trailer Whooshes（GDC 2019） | Federico Soler Fernández | Sonniss GDC | https://gdc.sonniss.com/ |
 | Transition Movement Pack 002（GDC 2019） | L.A. Sounds | Sonniss GDC | https://gdc.sonniss.com/ |
 | You Me & Debris（GDC 2019） | Matt Script | Sonniss GDC | https://gdc.sonniss.com/ |
+| BLOODBATH（GDC 2019） | PMSFX | Sonniss GDC | https://gdc.sonniss.com/ |
 | STEPS Dirt & Gravel（GDC 2019） | PMSFX | Sonniss GDC | https://gdc.sonniss.com/ |
 | Singing Bowls（GDC 2019） | Prismo Sound | Sonniss GDC | https://gdc.sonniss.com/ |
 | Bodyfall（GDC 2019） | Red Libraries | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -138,6 +141,7 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | Magic Spells, Buffs and Attacks（GDC 2019） | Sound Spark LLC | Sonniss GDC | https://gdc.sonniss.com/ |
 | Metal Hits, Scrapes and Squeaks（GDC 2019） | Sound Spark LLC | Sonniss GDC | https://gdc.sonniss.com/ |
 | Antiques（GDC 2019） | SoundBits | Sonniss GDC | https://gdc.sonniss.com/ |
+| Swipes And Whooshes（GDC 2019） | Soundholder | Sonniss GDC | https://gdc.sonniss.com/ |
 | Icy Snow 2 HD（GDC 2019） | Soundopolis | Sonniss GDC | https://gdc.sonniss.com/ |
 | Medieval Battle（GDC 2020） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
 | Trailer Instruments Designed（GDC 2020） | 344 Audio | Sonniss GDC | https://gdc.sonniss.com/ |
@@ -470,6 +474,11 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | skill_H026_ult_hit_1.caf | 0.46 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・Soundrangers – Thunder・InspectorJ - Essentials 01 Thunder・Rogue Waves - Druid Magic・BluezoneCorp - High Voltage | 体を打つ雷（裂け・放電）+ ぱちぱち + 低い雷の芯 |
 | skill_H026_ult_hit_2.caf | 0.46 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・Soundrangers – Thunder・InspectorJ - Essentials 01 Thunder・Rogue Waves - Druid Magic・BluezoneCorp - High Voltage | 体を打つ雷（裂け・放電）+ ぱちぱち + 低い雷の芯 |
 | skill_H026_ult_hit_3.caf | 0.46 秒 | Hear and Now Sound - High Voltage Electricity - The Essential Collection・Soundrangers – Thunder・InspectorJ - Essentials 01 Thunder・Rogue Waves - Druid Magic・BluezoneCorp - High Voltage | 体を打つ雷（裂け・放電）+ ぱちぱち + 低い雷の芯 |
+| skill_H027_atkx_1.caf | 0.55 秒 | NoizBoy - Hong Kong Action Kit - Hit Kit #1・NoizBoy - Hong Kong Action Kit - Hit Kit #2・Timothy McHugh - Gorification [HD]・SoundBits -  Just Whoosh 3 _ Whoosh Essentials・Airborne Sound - Organic Whooshes・L.A. Sounds - Transition Movement Pack 002・SmartSoundFX – Medieval | 三連突きの風 ×3（0・0.133・0.267 秒。柄の風・速い突きの風切り・穂先の鋼のきらめき、だんだん強く）+ 構えた体と鎧 → 鋼の鳴りの尾 |
+| skill_H027_atkx_2.caf | 0.57 秒 | NoizBoy - Hong Kong Action Kit - Hit Kit #1・NoizBoy - Hong Kong Action Kit - Hit Kit #2・Timothy McHugh - Gorification [HD]・Airborne Sound - Organic Whooshes・L.A. Sounds - Transition Movement Pack 002・Soundholder - Swipes And Whooshes・SmartSoundFX – Medieval | 三連突きの風 ×3（0・0.133・0.267 秒。柄の風・速い突きの風切り・穂先の鋼のきらめき、だんだん強く）+ 構えた体と鎧 → 鋼の鳴りの尾 |
+| skill_H027_atkxhit_1.caf | 0.22 秒 | NoizBoy - Hong Kong Action Kit - Hit Kit #1・Timothy McHugh - Gorification [HD]・Double Trouble Audio - Medieval Armor and Impacts・Articulated Sounds - Bones & Blood - Gore Elements・Baxter Audio - IMPACT・PMSFX - BLOODBATH | 穂先が鋭く刺さる + 刃先の点 + 体を打つ短い打撃 + 鋼の明るい鳴り + 鎧の鎖 + 小さな低い芯 |
+| skill_H027_atkxhit_2.caf | 0.22 秒 | NoizBoy - Hong Kong Action Kit - Hit Kit #1・Timothy McHugh - Gorification [HD]・Game Audio Factory - GAFSFX01 - Dark Materials・Double Trouble Audio - Medieval Armor and Impacts・Articulated Sounds - Bones & Blood - Gore Elements・Baxter Audio - IMPACT | 穂先が鋭く刺さる + 刃先の点 + 体を打つ短い打撃 + 鋼の明るい鳴り + 鎧の鎖 + 小さな低い芯 |
+| skill_H027_atkxhit_3.caf | 0.22 秒 | NoizBoy - Hong Kong Action Kit - Hit Kit #1・Timothy McHugh - Gorification [HD]・Double Trouble Audio - Medieval Armor and Impacts・Articulated Sounds - Bones & Blood - Gore Elements・Baxter Audio - IMPACT・PMSFX - BLOODBATH | 穂先が鋭く刺さる + 刃先の点 + 体を打つ短い打撃 + 鋼の明るい鳴り + 鎧の鎖 + 小さな低い芯 |
 | skill_H027_passive.caf | 0.33 秒 | Soundopolis - Blades・L.A. Sounds - Transition Movement Pack 002・David Dumais Audio - Weapon Sounds - Weapon Swings | 穂先の閃き（鋼の小さな鳴り + 短い風） |
 | skill_H027_s1_cast.caf | 0.98 秒 | Soundopolis - Gore Toolkit HD・SoundBits -  Just Whoosh 3 _ Whoosh Essentials・The AudioVille - Wooden Staffs and Sword Fight・Airborne Sound - Organic Whooshes・Baxter Audio - IMPACT・L.A. Sounds - Transition Movement Pack 002・Red Libraries - Bodyfall・David Dumais Audio - Weapon Sounds - Weapon Swings・SmartSoundFX – Medieval | 槍が足元を掬う（柄の風・穂先の鋼）→ 掲げる（柄の擦れ・鎧）→ 0.4 頭上を越える大きな振り → 0.6 背後へ叩きつける（体の落下・鎧・土・低音） |
 | skill_H027_s1_hit_1.caf | 0.35 秒 | Soundopolis - Blades・Timothy McHugh - Gorification [HD]・The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions・Baxter Audio - IMPACT・344 Audio - Historical Weapons Vol. 2 | 穂先が肉に食い込む + 柄の木の打撃 + 鋼の鳴り + 体への打撃 + 低い芯 |
@@ -540,6 +549,11 @@ sonniss-gdc-<年>-game-audio-bundle-normalized から、使う素材だけ落と
 | skill_H031_ult_hit_1.caf | 0.57 秒 | Gamemaster Audio -  Punch Sound Pack・Mattia Cellotto - Glacier Ice・Soundrangers - Foley Elements Ice and Snow・Soundopolis - Icy Snow 2 HD | 大きな氷の塊が体を打つ + 氷の割れ + 体の芯 |
 | skill_H031_ult_hit_2.caf | 0.57 秒 | Gamemaster Audio -  Punch Sound Pack・Mattia Cellotto - Glacier Ice・FLYSOUND – Ice Fury・Soundrangers - Foley Elements Ice and Snow | 大きな氷の塊が体を打つ + 氷の割れ + 体の芯 |
 | skill_H031_ult_hit_3.caf | 0.57 秒 | Stuart Duffield - Ice SFX・Gamemaster Audio -  Punch Sound Pack・Mattia Cellotto - Glacier Ice・Soundrangers - Foley Elements Ice and Snow | 大きな氷の塊が体を打つ + 氷の割れ + 体の芯 |
+| skill_H032_atkx_1.caf | 0.83 秒 | NoizBoy - Hong Kong Action Kit - Hit Kit #2・Soundopolis - Blades・Soundopolis - Natures Fury_Thunder・Alexander Kopeikin - Black Metal・Soundopolis - Heavy Metal!・Baxter Audio - IMPACT・L.A. Sounds - Transition Movement Pack 002・David Dumais Audio - Weapon Sounds - Weapon Swings・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 重い刃の払い（低い風切り・刃の金属の擦れ・回る風）→ 0.2 秒に回り切る 2 つ目の払い → 刃の鳴り + 斧と鎖の金属・低い芯 → 鉄板のうなり・地鳴りの尾 |
+| skill_H032_atkx_2.caf | 0.83 秒 | NoizBoy - Hong Kong Action Kit - Hit Kit #2・Soundopolis - Blades・Soundopolis - Natures Fury_Thunder・Alexander Kopeikin - Black Metal・Soundopolis - Heavy Metal!・Baxter Audio - IMPACT・L.A. Sounds - Transition Movement Pack 002・David Dumais Audio - Weapon Sounds - Weapon Swings・David Dumais Audio - Melee Weapons Sound Effects Pack 1・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 重い刃の払い（低い風切り・刃の金属の擦れ・回る風）→ 0.2 秒に回り切る 2 つ目の払い → 刃の鳴り + 斧と鎖の金属・低い芯 → 鉄板のうなり・地鳴りの尾 |
+| skill_H032_atkxhit_1.caf | 0.35 秒 | Timothy McHugh - Gorification [HD]・Alexander Kopeikin - Black Metal・Soundopolis - Heavy Metal!・Baxter Audio - IMPACT・PMSFX - BLOODBATH・Justsoundeffects - Melee Weapons | 重い刃の叩き斬り + 斧と鎖の深い金属 + 両手斧が肉に入る + 骨の砕け + 低い芯 |
+| skill_H032_atkxhit_2.caf | 0.35 秒 | Alexander Kopeikin - Black Metal・Soundopolis - Heavy Metal!・Baxter Audio - IMPACT・PMSFX - BLOODBATH・344 Audio - Flesh, Bones & Gore・Justsoundeffects - Melee Weapons | 重い刃の叩き斬り + 斧と鎖の深い金属 + 両手斧が肉に入る + 骨の砕け + 低い芯 |
+| skill_H032_atkxhit_3.caf | 0.35 秒 | Timothy McHugh - Gorification [HD]・Alexander Kopeikin - Black Metal・Soundopolis - Heavy Metal!・Baxter Audio - IMPACT・PMSFX - BLOODBATH・Justsoundeffects - Melee Weapons | 重い刃の叩き斬り + 斧と鎖の深い金属 + 両手斧が肉に入る + 骨の砕け + 低い芯 |
 | skill_H032_passive.caf | 0.68 秒 | Soundopolis - Blades・Alexander Kopeikin - Black Metal・L.A. Sounds - Transition Movement Pack 002 | 両手の刃が鳴る + 鉄板の低いうなり |
 | skill_H032_s1_cast.caf | 1.20 秒 | Soundopolis - Blades・Soundopolis - Natures Fury_Thunder・Alexander Kopeikin - Black Metal・Soundopolis - Heavy Metal!・David Dumais Audio - Weapon Sounds - Weapon Swings・David Dumais Audio - Melee Weapons Sound Effects Pack 2 | 刃の振り ×3（0.26・0.46・0.66 秒の輪）+ 刃の鳴り + 鉄の打撃 + 鉄板のうなり・地鳴り |
 | skill_H032_s1_hit_1.caf | 0.43 秒 | Alexander Kopeikin - Black Metal・344 Audio - Flesh, Bones & Gore・David Dumais Audio - Melee Weapons Sound Effects Pack 1・Justsoundeffects - Melee Weapons | 刃が肉と鎧を斬る + 体の砕け + 鉄板の低い芯 |

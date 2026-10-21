@@ -21,9 +21,10 @@ OUT = B.OUT
 RECORDS_DIR = os.path.join(os.path.dirname(__file__), "records")
 # 種類ごとの音量（LUFS。MLBB の測定: 通常攻撃 -20〜-26、スキル -19〜-22、奥義 -20 で山が高い。ゲームの中の比をそのまま、全体は少し大きめ）
 # MLBB の測定（ティグラル）: 通常攻撃 -20〜-26（平均 -23）、スキル -19.7〜-22、奥義 -20（山は一番高い）。スキルは通常攻撃とほぼ同じ大きさ
-TARGET = {"atk": -23.0, "atkhit": -27.0, "cast": -20.5, "ult": -19.0, "hit": -23.0, "passive": -25.0,
-          "crit": -22.0, "event": -20.0, "world": -22.0, "ui": -27.0, "stinger": -18.0}
-TAIL = {"atk": 0.45, "atkhit": 0.4, "cast": 2.0, "ult": 1.9, "hit": 0.7, "passive": 1.2,
+# 強化通常攻撃（atkx = 子龍の三連突き・ディロスの円撃など）は通常攻撃（-23 / 命中 -27）より大きく、スキルの山（-20.5〜）より小さい
+TARGET = {"atk": -23.0, "atkhit": -27.0, "atkx": -21.0, "atkxhit": -24.0, "cast": -20.5, "ult": -19.0, "hit": -23.0,
+          "passive": -25.0, "crit": -22.0, "event": -20.0, "world": -22.0, "ui": -27.0, "stinger": -18.0}
+TAIL = {"atk": 0.45, "atkhit": 0.4, "atkx": 0.9, "atkxhit": 0.4, "cast": 2.0, "ult": 1.9, "hit": 0.7, "passive": 1.2,
         "crit": 0.6, "event": 2.5, "world": 3.0, "ui": 0.6, "stinger": 3.0}
 
 

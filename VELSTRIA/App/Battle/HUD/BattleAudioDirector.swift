@@ -72,6 +72,8 @@ final class BattleAudioDirector {
     private var suppressUntil: TimeInterval = 0
     /// パッシブの演出を最後に出した sim の時刻（ユニットごと。音を鳴らさなかった時も更新する）。
     private var lastPassiveFire: [EntityID: Double] = [:]
+    /// キットの強い通常攻撃の命中の音に替える間（源ごと。sim の秒。三連突きの 3 発目まで）。
+    private var empoweredUntil: [EntityID: Double] = [:]
     /// 終幕の後に鳴らす勝敗の音（バナーの時刻まで待つ）。
     private var resultTask: Task<Void, Never>?
 
@@ -101,6 +103,7 @@ final class BattleAudioDirector {
         StructureAudio.sink = nil
         SkillFXAudio.passiveSink = nil
         lastPassiveFire = [:]
+        empoweredUntil = [:]
         app?.audio.releaseSkillSounds()
         resultTask?.cancel()
         resultTask = nil
@@ -124,7 +127,18 @@ final class BattleAudioDirector {
         if controller.isSpectating { ctx.focusID = controller.presentationFocusID }
         ctx.speed = controller.isOnline ? 1 : controller.speed
         ctx.suppressed = noteDiscontinuity(epoch: controller.presentationEpoch, now: now)
+        // この呼び出しで強い通常攻撃の振りを鳴らした源（その攻撃の普段の振りの音は鳴らさない）
+        var empoweredSwings: Set<EntityID> = []
         for e in events {
+            // キットの強い通常攻撃（三連突き・円撃）: 専用の振り。命中は窓の間だけ専用の命中の音に替える
+            if case .empoweredAttack(let x) = e {
+                if playEmpowered(x, state: s, context: ctx, app: app) { empoweredSwings.insert(x.sourceID) }
+                continue
+            }
+            if case .attackReleased(let source, _, _) = e, empoweredSwings.contains(source) { continue }
+            // 強い通常攻撃の命中は専用の音（普段の命中・会心の音は重ねない。触覚はそのまま）
+            var empoweredHit = false
+            if case .damage(let d) = e { empoweredHit = playEmpoweredHit(d, state: s, context: ctx, app: app) }
             if CoreFinale.isTrigger(e), let delay = CoreFinale.remainingUntilResult(s), delay > 0 {
                 // 終幕: 今は Core の崩壊の音、勝敗の音はバナーと一緒に
                 app.audio.play(.towerDestroyed, gain: 1)
@@ -135,6 +149,7 @@ final class BattleAudioDirector {
             for cue in Self.cues(for: e, context: ctx) {
                 switch cue {
                 case .sound(let sfx, let gain):
+                    if empoweredHit, sfx == .hit || sfx == .crit { continue }
                     if case .skillCast(let c) = e, c.casterID != ctx.humanID, c.casterID != ctx.focusID {
                         guard now - lastOtherSkill > 0.18 else { continue }
                         lastOtherSkill = now
@@ -166,7 +181,7 @@ final class BattleAudioDirector {
                 }
             }
             // ほかのヒーローの通常攻撃と、自分が受けた通常攻撃（武器の組の音。聞こえる距離で弱める）
-            otherHeroAttack(e, state: s, context: ctx, now: now, app: app)
+            if !empoweredHit { otherHeroAttack(e, state: s, context: ctx, now: now, app: app) }
             // スキルの命中の音（そのスキルの音があるヒーローだけ。自分が関わる命中と、聞こえる距離の命中）
             if case .damage(let d) = e, case .skill(let slot) = d.source, let src = d.sourceID,
                let heroID = s.unit(src)?.hero?.heroID {
@@ -204,6 +219,49 @@ final class BattleAudioDirector {
         default:
             return
         }
+    }
+
+    /// キットの強い通常攻撃の振りを鳴らす（ヒーローの専用の音があれば true）。自分・追従中のユニットが撃った・受けたものは大きく、
+    /// ほかは聞こえる距離で弱める。音の有無によらず、命中を専用の音に替える窓（三連突きの 3 発目まで）を開く。
+    private func playEmpowered(_ x: EmpoweredAttackEvent, state s: SimState, context c: Context, app: AppModel) -> Bool {
+        if empoweredUntil.count > 32 { empoweredUntil = empoweredUntil.filter { $0.value >= s.time } }
+        empoweredUntil[x.sourceID] = s.time + Self.empoweredHitWindow(x)
+        guard !c.suppressed, c.speed <= Self.dropAboveSpeed, let u = s.unit(x.sourceID) else { return false }
+        let gain = Self.empoweredGain(x, sourcePos: u.pos, context: c)
+        guard gain > 0.03 else { return false }
+        return app.audio.playSkill(SkillSoundKey(heroID: x.heroID, phase: .empowered), gain: gain,
+                                   pan: Self.pan(u.pos, listener: c.listener))
+    }
+
+    /// 強い通常攻撃の窓の中の、その源の通常攻撃の命中（周りの命中も）を専用の命中の音で鳴らす。鳴らしたら true（普段の命中の音は重ねない）。
+    private func playEmpoweredHit(_ d: DamageEvent, state s: SimState, context c: Context, app: AppModel) -> Bool {
+        guard d.source == .basicAttack, let src = d.sourceID, let until = empoweredUntil[src], s.time <= until,
+              let heroID = s.unit(src)?.hero?.heroID else { return false }
+        guard !c.suppressed, c.speed <= Self.dropAboveSpeed else { return true }
+        let me = c.isSpectating ? c.focusID : c.humanID
+        let gain: Double
+        if src == me || (d.targetID == me && me != nil) {
+            gain = 0.7
+        } else {
+            gain = Self.otherCombatGain(d.pos, listener: c.listener, scale: 0.35)
+        }
+        guard gain > 0.03 else { return true }
+        return app.audio.playSkill(SkillSoundKey(heroID: heroID, phase: .empoweredHit), gain: gain,
+                                   pan: Self.pan(d.pos, listener: c.listener))
+    }
+
+    /// 強い通常攻撃の命中を専用の音にする窓（sim の秒）: 最後の命中（interval × (hits − 1)）+ 1 tick の余裕。
+    nonisolated static func empoweredHitWindow(_ x: EmpoweredAttackEvent) -> Double {
+        x.interval * Double(max(0, x.hits - 1)) + Balance.dt * 1.5
+    }
+
+    /// 強い通常攻撃の振りの音量: 自分（観戦は追従中）が撃った 0.8・受けた（主対象、円撃は円の中）0.6、ほかは聞こえる距離で 0.4 まで。
+    nonisolated static func empoweredGain(_ x: EmpoweredAttackEvent, sourcePos: Vec2, context c: Context) -> Double {
+        let me = c.isSpectating ? c.focusID : c.humanID
+        if x.sourceID == me { return 0.8 }
+        if let me, x.targetID == me { return 0.6 }
+        if let me, c.humanID == me, x.radius > 0, c.listener.distance(to: x.origin) <= x.radius + Balance.heroRadius { return 0.6 }
+        return otherCombatGain(sourcePos, listener: c.listener, scale: 0.4)
     }
 
     /// ほかのヒーローの通常攻撃の音量（聞き手からの距離で、聞こえる距離の 6 割で 0）。

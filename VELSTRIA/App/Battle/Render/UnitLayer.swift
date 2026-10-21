@@ -337,8 +337,9 @@ final class UnitLayer {
     }
 
     /// ヒーローの通常攻撃の開始（windup = 命中・発射までの秒、interval = 攻撃間隔の秒）。
-    func noteAttackStart(sourceID: EntityID, windup: Double, interval: Double, time: Float) {
-        heroes[sourceID]?.beginAttack(windup: windup, interval: interval, time: time)
+    /// empowered = その攻撃がキットの強い通常攻撃（三連突き・円撃。HeroKits.empoweredAttackReady）。
+    func noteAttackStart(sourceID: EntityID, windup: Double, interval: Double, time: Float, empowered: Bool = false) {
+        heroes[sourceID]?.beginAttack(windup: windup, interval: interval, time: time, empowered: empowered)
     }
 
     func noteHit(targetID: EntityID) {

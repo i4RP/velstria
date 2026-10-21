@@ -77,6 +77,11 @@ protocol HeroModelHandle: AnyObject {
     /// 通常攻撃を 1 回振る（シムの攻撃開始時に呼ぶ。windup = 発射・命中までの秒、interval = 次の攻撃までの秒）。
     /// モーションクリップのあるスキンメッシュは打撃の瞬間を windup 秒後に合わせる。攻撃状態でなければ攻撃状態へ移る。
     func playAttack(windup: Double, interval: Double)
+    /// 通常攻撃を 1 回振る。empowered = その攻撃がキットの強い通常攻撃（三連突き・円撃。HeroKits.empoweredAttackReady）。
+    /// 強い通常攻撃の全身のモーション（HeroSkillMotions）を持つモデルはそれを振り、無ければ playAttack(windup:interval:) と同じ。
+    func playAttack(windup: Double, interval: Double, empowered: Bool)
+    /// 次の通常攻撃が強い（キットの強い通常攻撃の準備ができている）間、武器の先の光（詠唱の光）を灯す。描画だけ。
+    func setEmpoweredReady(_ ready: Bool)
     /// 遠隔の通常攻撃の発射位置（ワールド座標・m、最後の update 時点の姿勢 = クリップが動かす手・武器）。
     /// 武器の先端（杖・槍・銃口・掌の炎）。素手で副手に弓を持つヒーロー（H003）は弓の握り、体に付ける籠手・爪は手のひら。
     /// 左右に同じ武器（爪・拳・二刀）を持ち、再生中のクリップが左手で打つ時（hook_l 等）は左手の側。nil = 対応していない。
@@ -88,6 +93,8 @@ protocol HeroModelHandle: AnyObject {
 extension HeroModelHandle {
     /// 既定は何もしない（手続きモデルは setState(.attack) の手続きの振りのまま）。
     func playAttack(windup: Double, interval: Double) {}
+    func playAttack(windup: Double, interval: Double, empowered: Bool) { playAttack(windup: windup, interval: interval) }
+    func setEmpoweredReady(_ ready: Bool) {}
     /// 既定: 段のモーションは無い（従来どおり setState(.cast) だけ）。
     func castDuration(_ slot: SkillSlot, stage: Int) -> Float { castDuration(slot) }
     func castRestarts(_ slot: SkillSlot, stage: Int) -> Bool { false }

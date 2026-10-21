@@ -256,6 +256,7 @@ final class BattleWorld {
             probe.stop(.vfx, t)
             t = probe.start()
             skillDirector.update(dt: dt, state: frame.state)
+            skillDirector.observeEmpoweredReady(state: frame.state, viewer: frame.humanID ?? frame.focusID)
             probe.stop(.skillFX, t)
             t = probe.start()
             effekseer?.update(dt: dt, state: frame.state)
@@ -531,9 +532,14 @@ final class BattleWorld {
             if let i = f.state.index(of: src) {
                 let u = f.state.units[i]
                 let interval = CombatSystem.attackInterval(u.stats)
+                // 次の通常攻撃がキットの強い通常攻撃（三連突き・円撃）なら、その全身のモーションで振る（描画だけ）
+                let empowered = u.hero.map { HeroKits.empoweredAttackReady($0) } ?? false
                 units.noteAttackStart(sourceID: src, windup: u.windupRemaining ?? interval * Balance.attackWindupRatio,
-                                      interval: interval, time: time)
+                                      interval: interval, time: time, empowered: empowered)
             }
+        case .empoweredAttack(let e):
+            // キットの強い通常攻撃（三連突き・円撃）: 普段の通常攻撃の演出（Effekseer）に重ねて、その技の演出を出す
+            if isShown(e.sourceID, f) { skillDirector.onEmpoweredAttack(e, state: f.state) }
         case .attackReleased(let src, let target, let isRanged):
             units.noteAttack(sourceID: src, time: time)
             let fxDone = effekseer?.onAttackReleased(src: src, target: target, isRanged: isRanged, state: f.state) ?? false

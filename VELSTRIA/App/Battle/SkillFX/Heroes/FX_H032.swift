@@ -22,7 +22,10 @@ import VelstriaCore
 //                              体に演出が無く、HUD のバーが赤くなるだけなので小さく）。
 //                              passiveRelease: アビス強化を放ってバッジの段が 1 → 0 に戻った瞬間（スキルの発動の直後）: 拳の
 //                              赤橙の光と、体を包む紅の光（強化の突進の紅い亡霊・強化のスキル1 の拳の赤橙。MLBB vid6 f621・f282）。
-//                              円撃（通常攻撃 2 回の後の 3 回目）は専用のイベントが無いので通常攻撃の演出（Effekseer）のまま
+//                              empoweredAttack（SimEvent.empoweredAttack = 円撃。通常攻撃 2 回の後の 3 回目の命中）: 判定の瞬間に、
+//                              術者の周りの紫の渦と、縁がちょうど判定の半径（circleRadius 2.0m）の輪（外へは消えながら 1.1 倍）、
+//                              両腕の刃の 1 回転の振りの軌跡、主対象の桃白の閃き。普段の通常攻撃の演出（Effekseer）の上に重ねる。
+//                              empoweredReady: 次が円撃の間、自分だけに足元の判定の半径の細い輪（武器の光は全員に見える）
 //   スキル1 赤拳連斬（帯）     — 近接の cone のアーキタイプなので発動と同時に cast と impact。0.26 / 0.46 / 0.66 秒（burstFirstDelay + 0.2 × n）に、
 //                              照準の帯の上の衝撃の円（半径 1.12m）で: 0.08 秒前に術者の前の黒い振りの影 → 渦と閃光 → 縁の鉤刃 3 枚と
 //                              暗い藍の地（通常版だけ青紫の光の地）。被弾は 1 発ごと（hitPerHit）に桃白の命中の閃き
@@ -168,6 +171,70 @@ enum FX_H032: HeroFXSet {
             .mesh(.sprite(.glow, 1.8, .secondary, life: 0.32, grow: 1.2, alpha: 0.7).glowing(), .follow, offset: [0, 1.0, 0.2]),
             .mesh(FXMesh.halo(0.3, .secondary, life: 0.4, spin: -600, tex: .ringDouble).glowing(), .follow, offset: [0.38, 1.0, 0.3]),
             .emit(.sparks(8, speed: 5, .core, end: .secondary), .follow, offset: fist),
+        ]
+    }
+
+    // MARK: - パッシブ 円撃（強い通常攻撃。SimEvent.empoweredAttack）
+
+    /// 円撃の判定の半径（m。Kit の circleRadius = 判定の円そのもの。術者の中心から。対象の半径は含まない）。
+    static func circleRadius(_ s: FXSkillInfo) -> Float { s.meters("circleRadius") }
+
+    /// 縁 → 縁 × spread へ ease .out で広がる部品が 1.03 倍を越える寿命の比より少し前（消え始めの比。docs/vfx/RANGES.md）。
+    static func edgeFade(_ spread: Float) -> Float {
+        guard spread > 1.03 else { return 0.4 }
+        let e: Float = 0.03 / (spread - 1)
+        return max(0.02, (1 - pow(1 - e, 1.0 / 3.0)) * 0.9)
+    }
+
+    /// 円撃の縁の広がり（判定の瞬間に縁 = 半径、消えながらこの倍率へ）。
+    static let circleSpread: Float = 1.1
+
+    /// 円撃: 判定の瞬間（1 発目の命中 = 0 秒）に、術者の周り（sim の術者の位置 = 判定の円の中心）に紫の渦と、縁がちょうど判定の半径の
+    /// 輪（外縁の持ち上がった輪の模型 + 輪の模様の板。外へは消えながら 1.1 倍まで）、両腕の刃が体の高さで 1 回転する紫・紅の振りの
+    /// 軌跡、主対象に桃白の閃き。MLBB（docs/kits/Dyrroth.md）: 紫の渦の外縁が術者から 2.0〜2.1。
+    static func empoweredAttack(_ s: FXSkillInfo) -> [FXCue]? {
+        let r = circleRadius(s)
+        let spread = circleSpread
+        let side = r / (FXEdge.radial(.ring) ?? 0.4575)
+        return [
+            // 判定の縁の輪（判定の瞬間に見える縁 = r。外へは消えながら）
+            .mesh(FXMesh.model(.ringLip, nil, .primary, size: [r, 1.2, r], sizeEnd: [r * spread, 0.6, r * spread], life: 0.34)
+                .with { $0.fadeIn = 0; $0.fadeOut = edgeFade(spread) }.glowing(), offset: [0, 0.02, 0]),
+            .mesh(FXMesh(shape: .disc, tex: .ring, tint: hookTint, alpha: 0.95, size: [side, 1, side],
+                         sizeEnd: [side * spread, 1, side * spread], ease: .out, life: 0.3, fadeIn: 0,
+                         fadeOut: edgeFade(spread)).glowing(), offset: [0, 0.04, 0]),
+            // 渦（範囲を示さない模様。縁の内側だけ）: 暗い藍の地（アルファ合成）と、紫に光る渦が回りながら広がる
+            .mesh(FXMesh(shape: .disc, tex: .swirl, tint: ringFill, alpha: 0.8, size: [r * 1.1, 1, r * 1.1],
+                         sizeEnd: [r * 1.8, 1, r * 1.8], ease: .out, life: 0.42, fadeIn: 0.02, fadeOut: 0.45, spin: 540),
+                  offset: [0, 0.03, 0]),
+            .mesh(FXMesh(shape: .disc, tex: .swirl, tint: .primary, alpha: 0.9, size: [r * 1.0, 1, r * 1.0],
+                         sizeEnd: [r * 1.85, 1, r * 1.85], ease: .out, life: 0.32, fadeIn: 0.02, fadeOut: 0.4, spin: 900).glowing()
+                .flowing(.streaks, scroll: [2.5, 0], tiling: 1.5, strength: 0.5, erosion: 0.35, edge: flash),
+                  offset: [0, 0.06, 0]),
+            // 両腕の刃の 1 回転の振りの軌跡（体の高さ。右の刃は紫、左の刃はマゼンタ）と、体の高さを薙ぐ白い弧
+            .ribbon(.swing(radius: 1.45, from: 0, to: 360, height: 1.0, duration: 0.2, life: 0.18, width: 0.6, .primary), .follow),
+            .ribbon(.swing(radius: 1.3, from: 180, to: 540, height: 0.9, duration: 0.2, life: 0.16, width: 0.45, hookTint),
+                    .follow),
+            .mesh(FXMesh.sweep(1.6, .core, from: 0, to: 360, life: 0.22).glowing(), .follow, offset: [0, 1.0, 0]),
+            // 主対象に桃白の閃き（周りの敵は共通の被弾の閃き）
+            .mesh(.sprite(.flare4, 1.5, flash, life: 0.12, grow: 1.3).glowing(), .target, offset: [0, 1.0, 0]),
+            .emit(.sheet(.darkWisp, 3.2, .primary, end: smokeViolet, life: 0.4), offset: [0, 0.9, 0]),
+            .emit(.sparks(16, speed: 7, .core, end: .primary).with { $0.dir = .outward; $0.spread = 15 }, offset: [0, 0.9, 0]),
+            .shake(0.12),
+        ]
+    }
+
+    /// 次の通常攻撃が円撃の間（通常攻撃 2 回の後）: 足元に円撃の届く半径（判定の円）の紫の細い輪。自分だけに出す
+    /// （SkillFXDirector.observeEmpoweredReady。武器の光は全員に見える HeroModelHandle.setEmpoweredReady）。
+    static func empoweredReady(_ s: FXSkillInfo) -> [FXCue]? {
+        let r = circleRadius(s)
+        let side = r / (FXEdge.radial(.thinRing) ?? 0.48)
+        return [
+            .mesh(FXMesh(shape: .disc, tex: .thinRing, tint: flash, alpha: 0.7, size: [side, 1, side], sizeEnd: [side, 1, side],
+                         ease: .linear, life: 2.0, fadeIn: 0.1, fadeOut: 0.85).glowing(), .follow, offset: [0, 0.03, 0]),
+            .mesh(FXMesh(shape: .disc, tex: .swirl, tint: .primary, alpha: 0.16, size: [r * 1.6, 1, r * 1.6],
+                         sizeEnd: [r * 1.6, 1, r * 1.6], ease: .linear, life: 2.0, fadeIn: 0.1, fadeOut: 0.85, spin: -60).glowing(),
+                  .follow, offset: [0, 0.02, 0]),
         ]
     }
 

@@ -10,10 +10,13 @@ import VelstriaCore
 // sim の実際の挙動（Systems/Kits/Kit_H027.swift の Tune。幾何と時間は MLBB の画面収録で測った値: docs/kits/Zilong.md
 // 「動画で測った値（2026-10-16）」）に合わせたタイミング:
 //   パッシブ 竜の三連突き — cast: 竜気が 1 つたまるたび（0.4 秒に 1 回まで）に、槍の穂先に小さな水色の閃き（MLBB は数を足元の射程の円で
-//                          示すだけで、たまる瞬間の演出は見えない。小さく短く）。三連突き自体は通常攻撃（Effekseer）の 3 連続ヒット。
-//                          passiveRelease: スキルの発動の直後（0.6 秒以内）に竜気を使い切った = スキル2 の踏み込みからそのまま
-//                          三連突き、のときだけ、前方へ 3 本の白水色の長い突き（0 / 0.135 / 0.27 秒。1 本ごとに向きが 12° ずれる）と
-//                          命中の白い閃き、腕の後ろへ流れる水色の羽根
+//                          示すだけで、たまる瞬間の演出は見えない。小さく短く）。
+//                          empoweredAttack（SimEvent.empoweredAttack = 三連突きの 1 発目の命中）: sim の 3 発の命中の時刻
+//                          （0 / flurryInterval / 2 × flurryInterval = 4 tick おき）に、穂先から伸びた射程の端まで届く白水色の長い突き
+//                          （1 本ごとに向きが少しずれる）・対象の白い閃きと水色の輪・腕の後ろへ流れる水色の羽根・足元の青緑の筋。
+//                          普段の通常攻撃の演出（Effekseer）の上に重ねる。
+//                          empoweredReady: 竜気が満タン（次の通常攻撃が三連突き）の間、自分だけに足元の届く距離の水色の細い輪
+//                          （MLBB の足元の射程の円 1.78 → 2.48 と同じ見せ方）。武器の先の光は HeroModelHandle.setEmpoweredReady
 //   スキル1 跳槍撃       — 扇（近接）のアーキタイプなので発動と同時に cast と impact（術者の位置、前方 = 対象）。0 秒: 低い水色の弧で
 //                          対象の足元を掬い、被弾者に白い閃きと灰色の土煙。0〜0.4 秒（持ち上げ）は被弾者の腰の下に穂先の水色の光。
 //                          0.4 秒（放り投げ）: 対象が頭上を越える軌跡 = 水色の大きな縦の三日月（芯の白・残る細い線。0.6 秒で細い線だけ）。
@@ -55,8 +58,6 @@ enum FX_H027: HeroFXSet {
     private static let flipLanding: Float = 1.44
     /// スキル2: 突進の所要の目安（画面収録の 3.4〜3.7m を毎秒 15.2m ≈ 0.22〜0.24 秒。最長 450 / 1520 ≈ 0.30 秒）。
     private static let strikeTime: Float = 0.24
-    /// パッシブ: 三連突きの間隔（4 tick ≈ 0.133 秒。MLBB の画面収録の 4 コマおきと同じ）。
-    private static let flurryGap: Float = 0.135
     /// アルティメット: 強化の秒数。
     private static let ultDuration: Float = 7.5
 
@@ -66,7 +67,7 @@ enum FX_H027: HeroFXSet {
     private static let flipFront: Float = 2.1
     /// スキル2: 対象へ伸びる光の槍の長さ（画面収録の 1 コマ目 f130 で術者から対象の手前まで ≈ 3.4m。推定）。
     private static let lanceLength: Float = 3.4
-    /// パッシブの解放: 1 本ごとの突きの向きの差（度。画面収録 f484 / f488 / f492 で突きの向きが少しずつ変わる。推定）。
+    /// 三連突き: 1 本ごとの突きの向きの差（度。画面収録 f484 / f488 / f492 で突きの向きが少しずつ変わる。推定）。
     private static let flurryFan: Float = 12
 
     // MARK: - 部品
@@ -105,27 +106,74 @@ enum FX_H027: HeroFXSet {
         return r
     }
 
-    /// スキル2 の踏み込みからそのまま三連突き（竜気を使い切った）: 前方へ 3 本の白水色の長い突き（対象を貫いて奥まで）と命中の閃き。
-    /// MLBB（f484 / f488 / f492）: 白い芯に水色の縁の細長い光の帯が、穂先から対象を貫いて 1.5m ほど先まで伸び、1 本ごとに向きが変わる。
-    static func passiveRelease(_ s: FXSkillInfo, released: Int) -> [FXCue]? {
-        let g = flurryGap
-        let fan = flurryFan
+    // MARK: - パッシブ 三連突き（強い通常攻撃。SimEvent.empoweredAttack）
+
+    /// 三連突きが届く距離（m。術者の中心から対象の縁まで = 通常攻撃の射程 1.8 + 三連突きの伸び 0.7 + 術者の半径。
+    /// sim の通常攻撃は「縁と縁の距離 ≤ 射程」で当たるので、対象の縁がこの円の中なら届く）。
+    static func flurryReach(_ s: FXSkillInfo) -> Float {
+        s.attackRange + s.meters("flurryRangeBonus") + Float(Balance.heroRadius / Balance.unitsPerMeter)
+    }
+
+    /// 突きの筋の手前の端（術者の中心から m。構えた穂先の位置）。
+    static let thrustNear: Float = 0.45
+    /// 筋の板の横（横長の模様の見える長さは板の横の 2 × linearHalfLength）。手前の端から届く距離までちょうど見える。
+    private static func thrustPlate(_ s: FXSkillInfo) -> (length: Float, center: Float) {
+        let far = flurryReach(s)
+        return ((far - thrustNear) / (2 * FXEdge.linearHalfLength), (far + thrustNear) / 2)
+    }
+
+    /// 三連突き: 1 発目の命中の瞬間から、sim の命中の時刻（0 / flurryInterval / 2 × flurryInterval）ごとに、
+    /// 穂先から伸びた射程の端（flurryReach）まで届く白水色の長い突きの筋（1 本ごとに向きが少し変わる）・対象の白い閃き・水色の輪・
+    /// 腕の後ろへ流れる水色の羽根。MLBB（f484 / f488 / f492）: 白い芯に水色の縁の細長い光の帯が、穂先から対象を貫いて伸びる。
+    static func empoweredAttack(_ s: FXSkillInfo) -> [FXCue]? {
+        let g = s.seconds("flurryInterval")
+        let n = max(1, s.count("flurryHits"))
+        let fan = flurryFan * 0.6
+        let plate = thrustPlate(s)
         return [
-            .mesh(.ray(.streak, length: 3.2, width: 0.5, .primary, life: 0.14).glowing()
-                .flowing(.streaks, scroll: [-3, 0], tiling: 1.5, strength: 0.5, erosion: 0.3, edge: .core)
-                .with { $0.yaw = 90 - fan }, .follow, offset: [-0.1, 1.05, 2.0])
-                .repeated(3, every: g, yaw: fan),
-            .mesh(.ray(.streak, length: 2.6, width: 0.18, .core, life: 0.11).glowing().with { $0.yaw = 90 - fan }, .follow,
-                  offset: [-0.1, 1.07, 2.1])
-                .repeated(3, every: g, yaw: fan),
-            .emit(.sheet(.hitFlash, 1.3, .core, end: .primary, life: 0.18), .follow, offset: [0, 1.05, 1.9])
-                .repeated(3, every: g),
-            // 槍を振る腕の後ろへ流れる水色の羽根（槍の鰭の残像）
-            .emit(FXEmit(tex: .feather, tint: .primary, tintEnd: .secondary, count: 8, emit: 2 * g, life: 0.28, size: 0.3,
+            // 突きの筋（水色の外層・光る・筋の模様が前へ流れる）と白い芯。術者に追従（突きの間に少し動いても穂先から出る）。
+            // streak の見える幅は板の縦の 0.16 倍なので、外層 0.26m・芯 0.1m（2026-10-21 の撮影で 0.55 / 0.18 は細すぎて読めなかった）
+            .mesh(.ray(.streak, length: plate.length, width: 1.6, .primary, life: 0.13).glowing()
+                .flowing(.streaks, scroll: [-3.5, 0], tiling: 1.5, strength: 0.5, erosion: 0.3, edge: .core)
+                .with { $0.yaw = 90 - fan; $0.fadeIn = 0 }, .follow, offset: [0.05, 1.05, plate.center])
+                .repeated(n, every: g, yaw: fan),
+            .mesh(.ray(.streak, length: plate.length * 0.96, width: 0.6, .core, life: 0.1).glowing()
+                .with { $0.yaw = 90 - fan; $0.fadeIn = 0 }, .follow, offset: [0.05, 1.07, plate.center])
+                .repeated(n, every: g, yaw: fan),
+            // 足元を走る青緑の細い筋（地面に届く距離を示す。上から見て突きの筋と重なる）
+            .mesh(.ray(.streak, length: plate.length, width: 1.1, .secondary, life: 0.22, height: 0, alpha: 0.75).glowing()
+                .with { $0.fadeIn = 0 }, .follow, offset: [0, 0.05, plate.center]),
+            // 突くたびに穂先の閃きと、対象の白い閃き・水色の輪
+            .mesh(.sprite(.flare4, 0.9, .core, life: 0.09, grow: 1.2).glowing(), .follow, offset: [0.05, 1.05, thrustNear + 0.6])
+                .repeated(n, every: g),
+            .mesh(.sprite(.flare4, 1.3, .core, life: 0.11, grow: 1.3).glowing(), .target, offset: [0, 1.0, 0])
+                .repeated(n, every: g),
+            .mesh(FXMesh.halo(0.55, .primary, life: 0.16, spin: 480, tex: .ringDouble).glowing()
+                .with { $0.size = [0.4, 1, 0.4]; $0.fadeIn = 0 }, .target, offset: [0, 1.0, 0])
+                .repeated(n, every: g),
+            .emit(.sheet(.hitFlash, 1.2, .core, end: .primary, life: 0.16), .target, offset: [0, 1.0, 0])
+                .repeated(n, every: g),
+            // 槍を振る腕の後ろへ流れる水色の羽根（槍の鰭の残像）と、3 発目の火花
+            .emit(FXEmit(tex: .feather, tint: .primary, tintEnd: .secondary, count: 9, emit: Float(n) * g, life: 0.3, size: 0.3,
                          sizeVar: 0.4, grow: 0.6, shape: .box([0.3, 0.2, 1.2]), dir: .backward, speed: 1.2, spread: 20,
                          angleVar: 40, fade: .gradualFadeInOut), .follow, offset: [0.1, 1.05, 0.9]),
-            .emit(.sparks(10, speed: 7, .core, end: .primary).with { $0.dir = .forward; $0.spread = 25 }, at: 2 * g, .follow,
-                  offset: [0, 1.05, 2.2]),
+            .emit(.sparks(12, speed: 7, .core, end: .primary).with { $0.dir = .forward; $0.spread = 25 }, at: g * Float(n - 1),
+                  .target, offset: [0, 1.0, 0]),
+            .shake(0.1),
+        ]
+    }
+
+    /// 次の通常攻撃が三連突きの間（竜気が満タン）: 足元に三連突きの届く距離の水色の細い輪（MLBB は足元の射程の円が 1.78 → 2.48 に
+    /// 広がって示す）と、内側の淡い光の輪。自分だけに出す（SkillFXDirector.observeEmpoweredReady）。
+    static func empoweredReady(_ s: FXSkillInfo) -> [FXCue]? {
+        let r = flurryReach(s)
+        let side = r / (FXEdge.radial(.thinRing) ?? 0.48)
+        return [
+            .mesh(FXMesh(shape: .disc, tex: .thinRing, tint: glowCyan, alpha: 0.75, size: [side, 1, side], sizeEnd: [side, 1, side],
+                         ease: .linear, life: 2.0, fadeIn: 0.1, fadeOut: 0.85).glowing(), .follow, offset: [0, 0.03, 0]),
+            .mesh(FXMesh(shape: .disc, tex: .glow, tint: .primary, alpha: 0.18, size: [r * 0.7, 1, r * 0.7],
+                         sizeEnd: [r * 0.7, 1, r * 0.7], ease: .linear, life: 2.0, fadeIn: 0.1, fadeOut: 0.85, spin: 40).glowing(),
+                  .follow, offset: [0, 0.02, 0]),
         ]
     }
 

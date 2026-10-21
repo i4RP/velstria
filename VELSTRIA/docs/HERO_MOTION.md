@@ -147,6 +147,12 @@ H034 ゴルム。定義は App/Battle/Heroes/Motions/Motion_H0xx.swift）、そ�
   ヒーローごとの時刻の表は docs/vfx/H0xx.md「モーション（打撃の時刻）」。
 - **描画だけの体の位置**: `HeroPose.offset`（踏み込み・跳び。motion エンティティの位置）は sim の位置を動かさない。
   キーで書いたずれはクリップの終わり（`total`）で 0 に戻る（最後のキー → 待機の姿勢へ `recover` 秒で戻す）。水平のずれは 0.6 m 未満。
+- **強い通常攻撃だけのモーション**（2026-10-21: H027 子龍の三連突き・H032 ディアスの円撃。`HeroMotionScript.empoweredAttack`）:
+  sim の `attackStarted` で次の通常攻撃が強い（`HeroKits.empoweredAttackReady`）とき、描画が `playAttack(windup:interval:empowered: true)`
+  を呼び、普段の通常攻撃（モーションクリップ）の代わりに全身のモーションを 1 回振る。打撃（impact）= windup 秒後 = 1 発目の命中。
+  打撃の後は等速（三連突きの 2・3 発目のキーが sim の命中の時刻 = `flurryInterval` おきに来る。攻撃速度で縮めない）。普段の通常攻撃が
+  来たら打ち切る。円撃は体の向き（yaw）を 1 回転させ、戻りで巻き戻さない（`MotionClip.wrapsYaw`）。普段の通常攻撃・詠唱は変わらない。
+  次の通常攻撃が強い間は武器の先の光（`HeroModelHandle.setEmpoweredReady` → 詠唱の光の下限 0.7）を灯す。
 - **足の接地**（`HeroLegIK.swift` の `HeroLegRig`）: `HeroPose.plant`（0〜1）が立つ間、足首を `footR` / `footL`
   （待機の足首からのずれ、ヒーロー空間・m、-z = 前）へ置く腿・脛の角度を 2 関節の IK で解き、作者の脚の角度と plant の重みで混ぜる。
   足首が地面（待機の足首の高さ）より下なら体ごと持ち上げる。寸法は読み込み時に 1 度だけ（手続きモデル = BodyMetrics、

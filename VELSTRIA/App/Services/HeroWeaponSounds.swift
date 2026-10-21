@@ -57,7 +57,7 @@ enum WeaponSoundSet: String, CaseIterable, Sendable {
         case .attack: return "wpn_\(rawValue)_atk"
         case .attackHit: return "wpn_\(rawValue)_hit"
         case .crit: return "wpn_\(rawValue)_crit"
-        case .cast, .hit, .passive: return nil
+        case .cast, .hit, .passive, .empowered, .empoweredHit: return nil
         }
     }
 }
