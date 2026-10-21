@@ -113,8 +113,8 @@ struct Panel<Content: View>: View {
     var body: some View {
         content()
             .padding(padding)
-            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.panel))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.panelStroke, lineWidth: 1))
+            .background(HomeChamfer(cut: 9).fill(Celestial.ink.opacity(0.88)))
+            .overlay(HomeChamfer(cut: 9).stroke(Celestial.ice.opacity(0.5), lineWidth: 0.7))
     }
 }
 
@@ -162,13 +162,14 @@ struct CurrencyBadge: View {
         HStack(spacing: 5) {
             CurrencyIcon(kind: kind == .coin ? .coin : .gem, size: 16)
             Text(amount.formatted())
-                .font(Theme.mono(14))
+                .font(.system(size: 13, design: .serif))
                 .foregroundStyle(Theme.textPrimary)
                 .monospacedDigit()
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .background(Capsule().fill(Color.black.opacity(0.35)))
+        .background(HomeChamfer(cut: 7).fill(Celestial.ink.opacity(0.85)))
+        .overlay(HomeChamfer(cut: 7).stroke(Celestial.ice.opacity(0.45), lineWidth: 0.6))
         .accessibilityElement(children: .combine)
     }
 }
@@ -182,23 +183,27 @@ struct ScreenScaffold<Content: View>: View {
 
     var body: some View {
         ZStack {
-            StarfieldBackground()
+            // ホーム（採用案 Celestial Saber）と同じ質感: ぼかしたキービジュアルの地・面取りの戻る・明朝の題名・細い区切り
+            CelestialBackdrop()
             VStack(spacing: 0) {
                 HStack(spacing: 12) {
                     Button {
                         app.router.pop()
                     } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.system(size: 17, weight: .semibold))
                             .frame(width: 40, height: 40)
-                            .background(Circle().fill(Color.white.opacity(0.1)))
+                            .background(HomeChamfer(cut: 9).fill(Celestial.ink.opacity(0.85)))
+                            .overlay(HomeChamfer(cut: 9).stroke(Celestial.ice.opacity(0.6), lineWidth: 0.7))
                     }
-                    .foregroundStyle(Theme.textPrimary)
+                    .foregroundStyle(Celestial.ice)
                     .accessibilityLabel(L("戻る", "Back"))
                     .accessibilityIdentifier("nav_back")
                     Text(title)
-                        .font(Theme.title(22))
+                        .font(Celestial.title(22))
                         .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                     Spacer()
                     if showsCurrencies {
                         CurrencyBadge(kind: .coin, amount: app.profile.starlightCoin)
@@ -208,6 +213,12 @@ struct ScreenScaffold<Content: View>: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
                 .padding(.bottom, 6)
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(LinearGradient(colors: [.clear, Celestial.ice.opacity(0.55), .clear], startPoint: .leading, endPoint: .trailing))
+                        .frame(height: 0.7)
+                        .padding(.horizontal, 20)
+                }
                 // 中身が画面より高くても「戻る」の行を画面外へ押し出さない（中身の枠は空いた高さで止め、はみ出しは行の下に描く）
                 .zIndex(1)
                 content()

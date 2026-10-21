@@ -128,7 +128,7 @@ private struct BrandLaunchView: View {
                                 .font(Theme.heading(12))
                                 .tracking(2)
                                 .foregroundStyle(.white.opacity(0.9))
-                            FlowProgressBar(value: progress, tint: Theme.gold, height: 5)
+                            CelestialProgressBar(value: progress, tint: Theme.gold, height: 5)
                                 .frame(maxWidth: min(760, geo.size.width * 0.72))
                         }
                         .padding(.bottom, 30)

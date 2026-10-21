@@ -18,10 +18,10 @@ struct EmoteLoadoutView: View {
                 wheel(slots)
                     .frame(width: 250)
                 VStack(alignment: .leading, spacing: 6) {
-                    CollectionSectionTitle(title: L("所持エモート", "Owned Emotes"), symbol: "bubble.left.fill",
+                    SectionTitle(title: L("所持エモート", "Owned Emotes"), symbol: "bubble.left.fill",
                                            trailing: "\(owned.count)")
                     if owned.isEmpty {
-                        CollectionEmptyState(symbol: "bubble.left",
+                        EmptyStateView(symbol: "bubble.left",
                                              title: L("エモートを所持していません", "You don't own any emotes"),
                                              message: L("ストアで入手すると、戦闘中に仲間へ気持ちを伝えられます。",
                                                         "Get emotes in the store to express yourself during matches."))

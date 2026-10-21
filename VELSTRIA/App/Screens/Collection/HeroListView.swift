@@ -44,7 +44,7 @@ struct HeroListView: View {
                 filterBar(ownedCount: app.master.heroes.filter { owned.contains($0.heroID) }.count)
                 ScrollView {
                     if heroes.isEmpty {
-                        CollectionEmptyState(symbol: "person.2.fill",
+                        EmptyStateView(symbol: "person.2.fill",
                                              title: L("該当するヒーローがいません", "No heroes match"),
                                              message: L("フィルターを変更してください", "Try another filter"))
                     } else {

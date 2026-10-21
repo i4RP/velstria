@@ -144,10 +144,10 @@ struct FAQView: View {
             HStack(alignment: .top, spacing: 14) {
                 ScrollView(.vertical, showsIndicators: false) {
                     Panel(padding: 10) {
-                        LiveOpsSegmented(options: [LiveOpsSegmentOption<FAQEntry.Category?>(value: nil, title: L("すべて", "All"),
+                        CelestialTabs(options: [CelestialTab<FAQEntry.Category?>(value: nil, title: L("すべて", "All"),
                                                                                                symbol: "square.grid.2x2.fill", identifier: "faq_category_all")]
                                          + FAQEntry.Category.allCases.map {
-                                             LiveOpsSegmentOption(value: Optional($0), title: $0.title, symbol: $0.symbol, identifier: "faq_category_\($0.rawValue)")
+                                             CelestialTab(value: Optional($0), title: $0.title, symbol: $0.symbol, identifier: "faq_category_\($0.rawValue)")
                                          },
                                          selection: $category, axis: .vertical, onChange: { _ in app.audio.play(.uiTap) })
                     }

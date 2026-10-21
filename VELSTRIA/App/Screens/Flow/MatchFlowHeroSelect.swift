@@ -227,7 +227,7 @@ struct LoadoutPanel<Footer: View>: View {
 
     private var positionSection: some View {
         VStack(alignment: .leading, spacing: 5) {
-            FlowSectionTitle(title: L("ポジション", "Position"), symbol: "map.fill",
+            SectionTitle(title: L("ポジション", "Position"), symbol: "map.fill",
                              trailing: model.kind == .ranked ? L("味方と入れ替え", "Swaps with ally") : L("ロールから自動", "Auto from role"))
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 5), spacing: 4) {
                 ForEach(LanePosition.allCases, id: \.self) { p in
@@ -256,7 +256,7 @@ struct LoadoutPanel<Footer: View>: View {
 
     private var buildSection: some View {
         VStack(alignment: .leading, spacing: 5) {
-            FlowSectionTitle(title: L("ビルド", "Build"), symbol: "shield.fill")
+            SectionTitle(title: L("ビルド", "Build"), symbol: "shield.fill")
             if let heroID = model.heroID {
                 HStack(spacing: 3) {
                     ForEach(Array(BuildRules.current(for: heroID, profile: app.profile, master: app.master).enumerated()), id: \.offset) { _, id in
@@ -271,7 +271,7 @@ struct LoadoutPanel<Footer: View>: View {
     private var spellSection: some View {
         let id = model.spells.first ?? "BS01"
         return VStack(alignment: .leading, spacing: 6) {
-            FlowSectionTitle(title: L("バトルスキル", "Battle Skill"), symbol: "wand.and.stars")
+            SectionTitle(title: L("バトルスキル", "Battle Skill"), symbol: "wand.and.stars")
             HStack(spacing: 12) {
                 SpellIconView(spellID: id, size: 48)
                 VStack(alignment: .leading, spacing: 3) {
@@ -293,7 +293,7 @@ struct LoadoutPanel<Footer: View>: View {
         let emblem = model.emblem(profile: app.profile, master: app.master)
         let custom = model.heroID.map { EmblemMath.custom(for: $0, profile: app.profile) != nil } ?? false
         return VStack(alignment: .leading, spacing: 5) {
-            FlowSectionTitle(title: L("エンブレム", "Emblem"), symbol: "shield.checkered",
+            SectionTitle(title: L("エンブレム", "Emblem"), symbol: "shield.checkered",
                              trailing: custom ? L("一括設定", "Custom") : L("バトルプラン", "Battle plan"))
             if let emblem {
                 VStack(alignment: .leading, spacing: 4) {
@@ -322,7 +322,7 @@ struct LoadoutPanel<Footer: View>: View {
             app.master.cosmetics.filter { $0.type == .heroSkin && $0.heroID == id && app.owns(cosmeticID: $0.cosmeticID) }
         } ?? []
         return VStack(alignment: .leading, spacing: 5) {
-            FlowSectionTitle(title: L("スキン", "Skin"), symbol: "sparkles")
+            SectionTitle(title: L("スキン", "Skin"), symbol: "sparkles")
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
                     skinChip(nil, title: L("デフォルト", "Default"), color: Theme.textSecondary)

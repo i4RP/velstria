@@ -149,12 +149,12 @@ struct CustomSetupView: View {
             VStack(alignment: .leading, spacing: 12) {
                 labeledSegment(L("あなたの陣営", "Your Side"),
                                options: [Team.blue, .red].map {
-                                   LiveOpsSegmentOption(value: $0, title: LiveOpsFormat.teamName($0),
+                                   CelestialTab(value: $0, title: LiveOpsFormat.teamName($0),
                                                         identifier: "custom_side_\($0.rawValue)")
                                }, selection: $side)
                 labeledSegment(L("マップ", "Map"),
                                options: CustomSetup.MapKind.allCases.map {
-                                   LiveOpsSegmentOption(value: $0, title: $0 == .brawl ? L("乱闘", "Brawl") : L("標準", "Standard"),
+                                   CelestialTab(value: $0, title: $0 == .brawl ? L("乱闘", "Brawl") : L("標準", "Standard"),
                                                         identifier: "custom_map_\($0.rawValue)")
                                }, selection: $mapKind)
                 Text(CustomSetup.mapName(mapKind))
@@ -162,12 +162,12 @@ struct CustomSetupView: View {
                     .foregroundStyle(Theme.cyan)
                 labeledSegment(L("味方 AI", "Allied AI"),
                                options: Difficulty.allCases.map {
-                                   LiveOpsSegmentOption(value: $0, title: LiveOpsFormat.difficultyName($0),
+                                   CelestialTab(value: $0, title: LiveOpsFormat.difficultyName($0),
                                                         identifier: "custom_ally_\($0.rawValue)")
                                }, selection: $allyDifficulty)
                 labeledSegment(L("敵 AI", "Enemy AI"),
                                options: Difficulty.allCases.map {
-                                   LiveOpsSegmentOption(value: $0, title: LiveOpsFormat.difficultyName($0),
+                                   CelestialTab(value: $0, title: LiveOpsFormat.difficultyName($0),
                                                         identifier: "custom_enemy_\($0.rawValue)")
                                }, selection: $enemyDifficulty)
                 Spacer(minLength: 0)
@@ -184,11 +184,11 @@ struct CustomSetupView: View {
         }
     }
 
-    private func labeledSegment<Value: Hashable>(_ title: String, options: [LiveOpsSegmentOption<Value>],
+    private func labeledSegment<Value: Hashable>(_ title: String, options: [CelestialTab<Value>],
                                                  selection: Binding<Value>) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title).font(Theme.heading(13)).foregroundStyle(Theme.textPrimary)
-            LiveOpsSegmented(options: options, selection: selection, onChange: { _ in app.audio.play(.uiTap) })
+            CelestialTabs(options: options, selection: selection, onChange: { _ in app.audio.play(.uiTap) })
         }
     }
 

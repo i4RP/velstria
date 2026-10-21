@@ -122,7 +122,7 @@ struct ProfileView: View {
     private var avatarPicker: some View {
         let owned = app.master.heroes.filter { app.owns(heroID: $0.heroID) }
         return VStack(alignment: .leading, spacing: 8) {
-            FlowSectionTitle(title: L("アイコン", "Avatar"), symbol: "person.crop.square",
+            SectionTitle(title: L("アイコン", "Avatar"), symbol: "person.crop.square",
                              trailing: L("所持ヒーローから選択", "Choose from your heroes"))
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -150,7 +150,7 @@ struct ProfileView: View {
         let winRate = c.matches > 0 ? Double(c.wins) / Double(c.matches) : 0
         let kda = Double(c.kills + c.assists) / Double(max(1, c.deaths))
         return VStack(alignment: .leading, spacing: 8) {
-            FlowSectionTitle(title: L("通算成績", "Career"), symbol: "chart.bar.fill")
+            SectionTitle(title: L("通算成績", "Career"), symbol: "chart.bar.fill")
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
                 FlowStatCell(title: L("試合", "Matches"), value: "\(c.matches)")
                 FlowStatCell(title: L("勝率", "Win rate"), value: c.matches > 0 ? "\(Int((winRate * 100).rounded()))%" : "—",
@@ -173,7 +173,7 @@ struct ProfileView: View {
         }
         .prefix(3)
         return VStack(alignment: .leading, spacing: 8) {
-            FlowSectionTitle(title: L("よく使うヒーロー", "Most Played"), symbol: "flame.fill")
+            SectionTitle(title: L("よく使うヒーロー", "Most Played"), symbol: "flame.fill")
             if top.isEmpty {
                 Text(L("まだ試合の記録がありません。対戦してみましょう！", "No matches yet — jump into a battle!"))
                     .font(Theme.body(12))
@@ -345,7 +345,7 @@ struct RecordsView: View {
                     filterTabs
                 }
                 if list.isEmpty {
-                    FlowEmptyState(symbol: "list.bullet.rectangle", title: L("戦績はまだありません", "No matches yet"),
+                    EmptyStateView(symbol: "list.bullet.rectangle", title: L("戦績はまだありません", "No matches yet"),
                                    message: L("対戦を終えると、直近 50 試合の記録がここに残ります。", "Your 50 most recent matches will be listed here."))
                 } else {
                     ScrollView {
@@ -409,12 +409,12 @@ struct RecordsView: View {
     }
 
     private var filterTabs: some View {
-        FlowTabBar(items: [
-            .init(tab: Filter.all, title: L("すべて", "All"), symbol: "square.grid.2x2", identifier: "records_filter_all"),
-            .init(tab: Filter.standard, title: L("クラシック", "Classic"), symbol: "person.3.fill", identifier: "records_filter_standard"),
-            .init(tab: Filter.ranked, title: L("ランク", "Ranked"), symbol: "crown.fill", identifier: "records_filter_ranked"),
-            .init(tab: Filter.other, title: L("その他", "Other"), symbol: "ellipsis.circle", identifier: "records_filter_other"),
-        ], selection: $filter)
+        CelestialTabs(options: [
+            .init(value: Filter.all, title: L("すべて", "All"), symbol: "square.grid.2x2", identifier: "records_filter_all"),
+            .init(value: Filter.standard, title: L("クラシック", "Classic"), symbol: "person.3.fill", identifier: "records_filter_standard"),
+            .init(value: Filter.ranked, title: L("ランク", "Ranked"), symbol: "crown.fill", identifier: "records_filter_ranked"),
+            .init(value: Filter.other, title: L("その他", "Other"), symbol: "ellipsis.circle", identifier: "records_filter_other"),
+        ], selection: $filter, fills: false)
     }
 
     private func summaryStrip(_ list: [MatchRecord]) -> some View {
@@ -522,7 +522,7 @@ private struct RecordDetailSheet: View {
 
     var body: some View {
         ZStack {
-            StarfieldBackground()
+            CelestialBackdrop()
             VStack(spacing: 10) {
                 HStack(spacing: 10) {
                     Text(record.won == true ? L("勝利", "Victory") : (record.won == false ? L("敗北", "Defeat") : L("試合終了", "Match Ended")))
@@ -633,7 +633,7 @@ struct AchievementsView: View {
         ScreenScaffold(title: L("実績", "Achievements")) {
             let defs = LiveOpsService.achievements
             if defs.isEmpty {
-                FlowEmptyState(symbol: "trophy", title: L("実績はまだありません", "No achievements yet"),
+                EmptyStateView(symbol: "trophy", title: L("実績はまだありません", "No achievements yet"),
                                message: L("対戦や育成で条件を満たすと実績が解除されます。", "Play matches to unlock achievements."))
             } else {
                 let unlocked = defs.filter { isUnlocked($0) }.count
@@ -649,17 +649,17 @@ struct AchievementsView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "trophy.fill").foregroundStyle(Theme.gold)
                             Text("\(unlocked) / \(defs.count)").font(Theme.mono(15)).foregroundStyle(Theme.textPrimary)
-                            FlowProgressBar(value: Double(unlocked) / Double(max(1, defs.count)), tint: Theme.gold, height: 6)
+                            CelestialProgressBar(value: Double(unlocked) / Double(max(1, defs.count)), tint: Theme.gold, height: 6)
                                 .frame(width: 120)
                         }
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel(L("達成 \(unlocked) / \(defs.count)", "\(unlocked) of \(defs.count) unlocked"))
                         Spacer()
-                        FlowTabBar(items: [
-                            .init(tab: Filter.all, title: L("すべて", "All"), symbol: "square.grid.2x2", identifier: "achv_filter_all"),
-                            .init(tab: Filter.unlocked, title: L("達成", "Unlocked"), symbol: "checkmark.seal.fill", identifier: "achv_filter_unlocked"),
-                            .init(tab: Filter.inProgress, title: L("挑戦中", "In progress"), symbol: "hourglass", identifier: "achv_filter_progress"),
-                        ], selection: $filter)
+                        CelestialTabs(options: [
+                            .init(value: Filter.all, title: L("すべて", "All"), symbol: "square.grid.2x2", identifier: "achv_filter_all"),
+                            .init(value: Filter.unlocked, title: L("達成", "Unlocked"), symbol: "checkmark.seal.fill", identifier: "achv_filter_unlocked"),
+                            .init(value: Filter.inProgress, title: L("挑戦中", "In progress"), symbol: "hourglass", identifier: "achv_filter_progress"),
+                        ], selection: $filter, fills: false)
                     }
                     ScrollView {
                         LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
@@ -696,7 +696,7 @@ struct AchievementsView: View {
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 6) {
-                    FlowProgressBar(value: ratio, tint: unlocked ? Theme.gold : Theme.cyan, height: 5)
+                    CelestialProgressBar(value: ratio, tint: unlocked ? Theme.gold : Theme.cyan, height: 5)
                     Text("\(formatValue(min(p.progress, def.target)))/\(formatValue(def.target))")
                         .font(Theme.mono(10))
                         .foregroundStyle(Theme.textSecondary)
@@ -705,7 +705,7 @@ struct AchievementsView: View {
             }
             VStack(spacing: 4) {
                 if def.rewardGems > 0 {
-                    AttachmentChip(attachment: MailAttachment(kind: .gem, amount: def.rewardGems), claimed: p.claimed)
+                    RewardChip(attachment: MailAttachment(kind: .gem, amount: def.rewardGems), claimed: p.claimed)
                 }
                 if p.claimed {
                     // 報酬の無い実績（観戦）は受け取る物が無いので「達成」と出す

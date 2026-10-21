@@ -15,7 +15,7 @@ struct SkillDetailView: View {
             if let skill = app.master.skill(id), let hero = app.master.hero(skill.heroID) {
                 content(skill: skill, hero: hero)
             } else {
-                CollectionEmptyState(symbol: "questionmark.circle", title: L("スキルが見つかりません", "Skill not found"))
+                EmptyStateView(symbol: "questionmark.circle", title: L("スキルが見つかりません", "Skill not found"))
             }
         }
     }

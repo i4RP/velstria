@@ -26,7 +26,7 @@ struct NoticesView: View {
             let list = notices
             if list.isEmpty {
                 VStack(spacing: 0) {
-                    FlowEmptyState(symbol: "megaphone", title: L("お知らせはありません", "No notices"),
+                    EmptyStateView(symbol: "megaphone", title: L("お知らせはありません", "No notices"),
                                    message: L("新しいお知らせが届くとここに表示されます。", "New announcements will appear here."))
                     patchNotesButton
                         .frame(maxWidth: 280)
@@ -154,7 +154,7 @@ struct MailView: View {
         ScreenScaffold(title: L("メール", "Mail")) {
             let list = mails
             if list.isEmpty {
-                FlowEmptyState(symbol: "envelope.open", title: L("メールはありません", "Your mailbox is empty"),
+                EmptyStateView(symbol: "envelope.open", title: L("メールはありません", "Your mailbox is empty"),
                                message: L("運営からの報酬やお知らせが届くとここに表示されます。", "Rewards and messages will arrive here."))
             } else {
                 HStack(alignment: .top, spacing: 12) {
@@ -296,11 +296,11 @@ struct MailView: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .textSelection(.enabled)
                     if !m.attachments.isEmpty {
-                        FlowSectionTitle(title: L("添付", "Attachments"), symbol: "paperclip")
+                        SectionTitle(title: L("添付", "Attachments"), symbol: "paperclip")
                             .padding(.top, 6)
                         FlowWrapLayout(spacing: 6) {
                             ForEach(m.attachments.indices, id: \.self) { i in
-                                AttachmentChip(attachment: m.attachments[i], claimed: m.claimed)
+                                RewardChip(attachment: m.attachments[i], claimed: m.claimed)
                             }
                         }
                     }

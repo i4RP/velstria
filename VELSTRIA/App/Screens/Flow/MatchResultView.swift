@@ -140,7 +140,7 @@ struct MatchResultView: View {
 
     var body: some View {
         ZStack {
-            StarfieldBackground()
+            CelestialBackdrop()
             RadialGradient(colors: [bannerKind.color.opacity(0.22), .clear], center: .init(x: 0.5, y: 0.1), startRadius: 10, endRadius: 420)
                 .ignoresSafeArea()
             VStack(spacing: 6) {
@@ -155,11 +155,11 @@ struct MatchResultView: View {
                         HStack(spacing: 10) {
                             subheader
                             Spacer(minLength: 6)
-                            FlowTabBar(items: [
-                                .init(tab: ResultTab.result, title: L("結果", "Results"), symbol: "tablecells", identifier: "result_tab_result"),
-                                .init(tab: ResultTab.evaluation, title: L("評価", "Rating"), symbol: "star.leadinghalf.filled", identifier: "result_tab_eval"),
-                                .init(tab: ResultTab.rewards, title: L("報酬", "Rewards"), symbol: "gift.fill", identifier: "result_tab_rewards"),
-                            ], selection: $tab)
+                            CelestialTabs(options: [
+                                .init(value: ResultTab.result, title: L("結果", "Results"), symbol: "tablecells", identifier: "result_tab_result"),
+                                .init(value: ResultTab.evaluation, title: L("評価", "Rating"), symbol: "star.leadinghalf.filled", identifier: "result_tab_eval"),
+                                .init(value: ResultTab.rewards, title: L("報酬", "Rewards"), symbol: "gift.fill", identifier: "result_tab_rewards"),
+                            ], selection: $tab, fills: false)
                         }
                         ScrollView {
                             Group {
@@ -529,7 +529,7 @@ private struct EvaluationTab: View {
             let breakdown = MVPBreakdown.make(player, won: won)
             HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 6) {
-                    FlowSectionTitle(title: L("MVP スコア内訳", "MVP Score Breakdown"), symbol: "function")
+                    SectionTitle(title: L("MVP スコア内訳", "MVP Score Breakdown"), symbol: "function")
                     ForEach(breakdown.lines.indices, id: \.self) { i in
                         let line = breakdown.lines[i]
                         HStack(spacing: 6) {
@@ -572,7 +572,7 @@ private struct EvaluationTab: View {
                 .frame(maxWidth: .infinity)
             }
         } else {
-            FlowEmptyState(symbol: "star.slash", title: L("評価データがありません", "No rating data"))
+            EmptyStateView(symbol: "star.slash", title: L("評価データがありません", "No rating data"))
         }
     }
 
@@ -580,7 +580,7 @@ private struct EvaluationTab: View {
         let team = summary.players.filter { $0.team == player.team }.sorted { $0.mvpScore == $1.mvpScore ? $0.entityID < $1.entityID : $0.mvpScore > $1.mvpScore }
         let maxScore = max(1, team.map(\.mvpScore).max() ?? 1)
         return VStack(alignment: .leading, spacing: 5) {
-            FlowSectionTitle(title: L("チーム内順位", "Team Ranking"), symbol: "list.number")
+            SectionTitle(title: L("チーム内順位", "Team Ranking"), symbol: "list.number")
             ForEach(Array(team.enumerated()), id: \.element.id) { i, p in
                 HStack(spacing: 6) {
                     Text("\(i + 1)").font(Theme.mono(11)).foregroundStyle(Theme.textSecondary).frame(width: 14)
@@ -607,7 +607,7 @@ private struct EvaluationTab: View {
 
     private func gradeLegend(_ player: PlayerSummary) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            FlowSectionTitle(title: L("評価の決まり方", "How Grades Work"), symbol: "questionmark.circle")
+            SectionTitle(title: L("評価の決まり方", "How Grades Work"), symbol: "questionmark.circle")
             Text(L("評価はチーム内の MVP スコア順位と KDA から決まります。", "Grades come from your MVP score rank within your team and your KDA."))
                 .font(Theme.body(11))
                 .foregroundStyle(Theme.textSecondary)
@@ -632,7 +632,7 @@ private struct EvaluationTab: View {
 
     private func advice(_ player: PlayerSummary) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            FlowSectionTitle(title: L("次の試合へのヒント", "Tips for Next Time"), symbol: "lightbulb.fill")
+            SectionTitle(title: L("次の試合へのヒント", "Tips for Next Time"), symbol: "lightbulb.fill")
             ForEach(MVPBreakdown.advice(player, durationMinutes: summary.duration / 60), id: \.self) { a in
                 Label {
                     Text(a).font(Theme.body(11)).foregroundStyle(Theme.textPrimary).fixedSize(horizontal: false, vertical: true)
@@ -663,7 +663,7 @@ private struct RewardsTab: View {
     var body: some View {
         if report.abandonedLoss {
             VStack(alignment: .leading, spacing: 10) {
-                FlowEmptyState(symbol: "flag.slash", title: L("途中退出のため報酬はありません", "No rewards for leaving early"),
+                EmptyStateView(symbol: "flag.slash", title: L("途中退出のため報酬はありません", "No rewards for leaving early"),
                                message: L("試合を途中で退出したため、敗北として記録されました。", "You left the match, so it was recorded as a loss."))
                     .frame(minHeight: 150)
                 if let before = report.rankBefore, let after = report.rankAfter {
@@ -673,7 +673,7 @@ private struct RewardsTab: View {
             .onAppear { shownRank = report.rankAfter }
         } else if report.noRewards {
             VStack(alignment: .leading, spacing: 10) {
-                FlowEmptyState(symbol: "gift", title: L("この試合は報酬の対象外です", "No rewards for this match"),
+                EmptyStateView(symbol: "gift", title: L("この試合は報酬の対象外です", "No rewards for this match"),
                                message: L("練習場・チュートリアル・観戦・リプレイでは報酬を獲得できません。", "Practice, tutorial, spectating and replays don't grant rewards."))
                     .frame(minHeight: report.replaySaved || report.watchCounted ? 120 : 180)
                 if report.watchCounted { watchSection }
@@ -764,7 +764,7 @@ private struct RewardsTab: View {
     private var accountSection: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack {
-                FlowSectionTitle(title: L("アカウント経験値", "Account XP"), symbol: "person.fill.badge.plus")
+                SectionTitle(title: L("アカウント経験値", "Account XP"), symbol: "person.fill.badge.plus")
                 Text("+\(report.accountXP) XP").font(Theme.mono(12)).foregroundStyle(Theme.cyan)
             }
             HStack(spacing: 8) {
@@ -772,7 +772,7 @@ private struct RewardsTab: View {
                     .font(.system(size: 16, weight: .heavy, design: .rounded))
                     .foregroundStyle(Theme.gold)
                     .contentTransition(.numericText())
-                FlowProgressBar(value: xpValue, tint: Theme.cyan, height: 8)
+                CelestialProgressBar(value: xpValue, tint: Theme.cyan, height: 8)
                 if levelUp {
                     Text("LEVEL UP!")
                         .font(.system(size: 12, weight: .black, design: .rounded))
@@ -796,7 +796,7 @@ private struct RewardsTab: View {
         let shown = shownRank ?? before
         let change = rankChangeText(before: before, after: after)
         return HStack(spacing: 12) {
-            FlowSectionTitle(title: L("ランク", "Rank"), symbol: "crown.fill")
+            SectionTitle(title: L("ランク", "Rank"), symbol: "crown.fill")
                 .fixedSize()
             RankEmblemView(tier: shown.tier, size: 40)
                 .id(shown.tier)
@@ -837,7 +837,7 @@ private struct RewardsTab: View {
     private var missionsSection: some View {
         let p = app.profile
         return VStack(alignment: .leading, spacing: 5) {
-            FlowSectionTitle(title: L("ミッション進行", "Mission Progress"), symbol: "checklist")
+            SectionTitle(title: L("ミッション進行", "Mission Progress"), symbol: "checklist")
             ForEach(report.missionsProgressed, id: \.self) { id in
                 let def = LiveOpsService.missionDef(id: id)
                 let prog = (p.missions.daily + p.missions.weekly).first { $0.id == id }
@@ -862,7 +862,7 @@ private struct RewardsTab: View {
 
     private var achievementsSection: some View {
         VStack(alignment: .leading, spacing: 5) {
-            FlowSectionTitle(title: L("実績解除", "Achievements Unlocked"), symbol: "trophy.fill")
+            SectionTitle(title: L("実績解除", "Achievements Unlocked"), symbol: "trophy.fill")
             ForEach(report.achievementsUnlocked, id: \.self) { id in
                 let def = LiveOpsService.achievements.first { $0.id == id }
                 HStack(spacing: 8) {
@@ -872,7 +872,7 @@ private struct RewardsTab: View {
                         .foregroundStyle(Theme.textPrimary)
                     Spacer()
                     if let def, def.rewardGems > 0 {
-                        AttachmentChip(attachment: MailAttachment(kind: .gem, amount: def.rewardGems))
+                        RewardChip(attachment: MailAttachment(kind: .gem, amount: def.rewardGems))
                     }
                 }
                 .accessibilityElement(children: .combine)
@@ -947,7 +947,7 @@ struct MatchReportSheet: View {
 
     var body: some View {
         ZStack {
-            StarfieldBackground()
+            CelestialBackdrop()
             VStack(spacing: 10) {
                 HStack {
                     Label(L("通報・不具合報告", "Report a Problem"), systemImage: "exclamationmark.bubble.fill")
@@ -958,7 +958,7 @@ struct MatchReportSheet: View {
                 }
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 6) {
-                        FlowSectionTitle(title: L("種類", "Category"))
+                        SectionTitle(title: L("種類", "Category"))
                         ScrollView {
                             VStack(spacing: 6) {
                                 ForEach(SupportReportCategory.allCases) { c in
@@ -989,7 +989,7 @@ struct MatchReportSheet: View {
                     .frame(width: 190)
 
                     VStack(alignment: .leading, spacing: 8) {
-                        FlowSectionTitle(title: L("内容", "Details"), trailing: "\(message.count)/\(Self.maxLength)")
+                        SectionTitle(title: L("内容", "Details"), trailing: "\(message.count)/\(Self.maxLength)")
                         TextEditor(text: $message)
                             .font(Theme.body(14))
                             .foregroundStyle(Theme.textPrimary)

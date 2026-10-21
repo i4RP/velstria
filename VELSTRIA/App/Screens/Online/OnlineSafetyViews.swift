@@ -341,7 +341,7 @@ struct PlayerReportSheet: View {
 
     var body: some View {
         ZStack {
-            StarfieldBackground()
+            CelestialBackdrop()
             VStack(spacing: 10) {
                 HStack(spacing: 10) {
                     Label(L("プレイヤーを通報", "Report a Player"), systemImage: "exclamationmark.bubble.fill")
@@ -358,7 +358,7 @@ struct PlayerReportSheet: View {
                 }
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 6) {
-                        FlowSectionTitle(title: L("理由", "Reason"))
+                        SectionTitle(title: L("理由", "Reason"))
                         ScrollView {
                             VStack(spacing: 6) {
                                 ForEach(PlayerReportReason.allCases) { r in reasonButton(r) }
@@ -368,7 +368,7 @@ struct PlayerReportSheet: View {
                     .frame(width: 210)
 
                     VStack(alignment: .leading, spacing: 8) {
-                        FlowSectionTitle(title: L("内容（任意）", "Details (optional)"), trailing: "\(message.count)/\(PlayerReportMail.maxLength)")
+                        SectionTitle(title: L("内容（任意）", "Details (optional)"), trailing: "\(message.count)/\(PlayerReportMail.maxLength)")
                         TextEditor(text: $message)
                             .font(Theme.body(14))
                             .foregroundStyle(Theme.textPrimary)
