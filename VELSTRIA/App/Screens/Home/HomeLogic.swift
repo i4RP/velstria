@@ -1,19 +1,19 @@
 import SwiftUI
 import VelstriaCore
 
-// 担当: home-chrome。ホーム画面の純粋ロジック（ロビーの配置・ドロワーの項目・ショーケースの巡回・表示用の書式）。
+// 担当: home-chrome。ホーム画面の純粋ロジック（ロビーの配置・ドロワーの項目・表示用の書式）。
 // ビューには依存しない。テストは AppTests/HomeScreenTests.swift。
 
 // MARK: - 配置
 
-/// ホームのロビー（HomeView の HomeReferenceLobby）の配置。参照デザインの板（1024×471.5）を
-/// セーフエリアの内側に縦横同じ倍率で収め、余った所は背景で埋める。
+/// ホームのロビー（採用案 Celestial Saber。docs/design/CELESTIAL_HOME.md）の配置。原画 1774 × 887 を 1024 × 512 の板に
+/// 正規化し、セーフエリアの内側に縦横同じ倍率で収める（余った所はぼかした背景で埋める）。
 ///
 /// 対応端末は iPhone の横画面のみ: SE 第 3 世代（667×375、インセットなし）〜 17 Pro Max（956×440、左右 62・下 21）。
 /// 左右のインセットで Dynamic Island と角丸を、下のインセットでホームインジケータを避ける。
 struct HomeLayout: Equatable {
-    /// 参照デザインの板の大きさ（部品はこの座標で置く。HomeLobbySlot）。
-    static let board = CGSize(width: 1024, height: 471.5)
+    /// 板の大きさ（部品はこの座標で置く。HomeLobbySlot）。
+    static let board = CGSize(width: 1024, height: 512)
 
     /// 画面全体（セーフエリアを含む）。
     let size: CGSize
@@ -47,72 +47,69 @@ struct HomeLayout: Equatable {
         CGRect(x: boardRect.minX + r.minX * scale, y: boardRect.minY + r.minY * scale,
                width: r.width * scale, height: r.height * scale)
     }
-
-    /// フッターの帯。板の外の余白まで、画面の左端と下端へ伸ばす。
-    var footerBandRect: CGRect {
-        let r = screenRect(HomeLobbySlot.footerBand)
-        return CGRect(x: 0, y: r.minY, width: r.maxX, height: size.height - r.minY)
-    }
 }
 
-/// ロビーの部品の位置（板の座標）。ビューはこの矩形に置き、テストは全端末のセーフエリアに収まることを確かめる。
+/// ロビーの部品の位置（板の座標。採用案の原画から測った値）。ビューはこの矩形に置き、テストは全端末のセーフエリアに収まることを確かめる。
 enum HomeLobbySlot {
-    static let profile = CGRect(x: 61, y: 10, width: 140, height: 36)
-    static let support = CGRect(x: 205, y: 3, width: 38, height: 44)
-    static let achievements = CGRect(x: 245, y: 3, width: 38, height: 44)
-    static let menu = CGRect(x: 283, y: 3, width: 44, height: 44)
-    static let currency = CGRect(x: 560, y: 12.5, width: 180, height: 25)
-    /// 右上のアイコン列（ランキング・戦績・観戦・メール・設定）。
-    static let headerIcons = CGRect(x: 747, y: 3, width: 190, height: 44)
-    static let events = CGRect(x: 61, y: 63, width: 104, height: 38)
-    static let starPass = CGRect(x: 61, y: 111, width: 104, height: 38)
-    static let notices = CGRect(x: 181, y: 61, width: 38, height: 44)
-    /// 左の縦の列（ストア・ミッション）。
-    static let rail = CGRect(x: 57, y: 157, width: 48, height: 96)
-    static let friends = CGRect(x: 825, y: 70, width: 146, height: 265)
-    static let firstWin = CGRect(x: 623, y: 309, width: 195, height: 29)
-    static let footerBand = CGRect(x: 0, y: 419, width: 755, height: 52.5)
+    static let profile = CGRect(x: 26, y: 27, width: 168, height: 49)
+    /// 右上の列（コイン・ジェム・メール・フレンド欄の開閉・設定・≡）。
+    static let headerIcons = CGRect(x: 615, y: 25, width: 382, height: 38)
+    /// 中央のキービジュアル（押すとヒーロー一覧）。
+    static let keyVisual = CGRect(x: 228, y: 75, width: 525, height: 330)
+    static let events = CGRect(x: 24, y: 98, width: 198, height: 91)
+    static let starPass = CGRect(x: 24, y: 198, width: 198, height: 91)
+    /// 左の列（ストア・ミッション・イベント）。
+    static let rail = CGRect(x: 28, y: 306, width: 192, height: 49)
+    static let friends = CGRect(x: 773, y: 79, width: 226, height: 274)
+    static let footerBand = CGRect(x: 10, y: 419, width: 1004, height: 81)
     /// フッターのタブ（戦闘準備・ヒーロー・コレクション・バッグ）。
-    static let footerTabs = CGRect(x: 188, y: 420, width: 508, height: 49)
-    static let emblems = CGRect(x: 698, y: 420, width: 52, height: 48)
-    static let rank = CGRect(x: 751, y: 387.5, width: 56, height: 77)
-    static let play = CGRect(x: 808, y: 399, width: 190, height: 66)
+    static let footerTabs = CGRect(x: 17, y: 420, width: 484, height: 70)
+    static let emblems = CGRect(x: 502, y: 427, width: 27, height: 60)
+    static let rank = CGRect(x: 535, y: 424, width: 199, height: 66)
+    static let play = CGRect(x: 746, y: 414, width: 263, height: 69)
 
     /// 押せる部品の一覧（テスト用）。
     static let all: [(name: String, rect: CGRect)] = [
-        ("profile", profile), ("support", support), ("achievements", achievements), ("menu", menu),
-        ("currency", currency), ("headerIcons", headerIcons), ("events", events), ("starPass", starPass),
-        ("notices", notices), ("rail", rail), ("friends", friends), ("firstWin", firstWin),
-        ("footerTabs", footerTabs), ("emblems", emblems), ("rank", rank), ("play", play),
+        ("profile", profile), ("headerIcons", headerIcons), ("keyVisual", keyVisual), ("events", events),
+        ("starPass", starPass), ("rail", rail), ("friends", friends), ("footerTabs", footerTabs),
+        ("emblems", emblems), ("rank", rank), ("play", play),
     ]
 }
 
 // MARK: - メニュードロワー
 
 /// ドロワーの項目（定義順 = 表示順）。識別子は `home_menu_<遷移先の名前>`。
-/// ほかに入口がある画面は置かない（同じ入口を二つ作らない）: 実績・ランキング・サポート（FAQ・クレジット）はロビーの上段、
-/// コレクション（エモート）は下段、練習場・チュートリアルはモード選択の「VS AI & カスタム」、アカウント連携とクレジットは設定、
-/// パッチノートはお知らせ。残りの置き場は第1段で MLBB に合わせて決める（docs/OUTGAME_GAP.md 1-10）。
+/// ロビー（採用案）に入口の無い画面だけを置く（同じ入口を二つ作らない）: 実績・戦績はプロフィール、サポートは設定、
+/// コレクション（エモート）は下段、練習場・チュートリアルはモード選択の「VS AI & カスタム」、パッチノートはお知らせの中。
 enum HomeMenuItem: String, CaseIterable, Identifiable {
-    case spells
+    case notices, ranking, spectateSetup, spells
 
     var id: String { rawValue }
     var identifier: String { "home_menu_\(rawValue)" }
 
     var route: Route {
         switch self {
+        case .notices: return .notices
+        case .ranking: return .ranking
+        case .spectateSetup: return .spectateSetup
         case .spells: return .spells
         }
     }
 
     var title: String {
         switch self {
+        case .notices: return L("お知らせ", "News")
+        case .ranking: return L("ランキング", "Leaderboard")
+        case .spectateSetup: return L("観戦", "Spectate")
         case .spells: return L("バトルスキル", "Battle Skills")
         }
     }
 
     var symbol: String {
         switch self {
+        case .notices: return "megaphone.fill"
+        case .ranking: return "trophy.fill"
+        case .spectateSetup: return "eye.fill"
         case .spells: return "bolt.fill"
         }
     }
@@ -121,46 +118,60 @@ enum HomeMenuItem: String, CaseIterable, Identifiable {
 // MARK: - 識別子の一覧
 
 enum HomeIdentifiers {
-    /// ロビーの固定の識別子（アイコンは home_<遷移先の名前>）。
+    /// ロビーの固定の識別子（アイコンは home_<遷移先の名前>。左の列は home_rail_<遷移先の名前>）。
     static let fixed = [
-        "home_profile", "home_support", "home_achievements", "home_menu", "home_currency",
-        "home_ranking", "home_records", "home_spectateSetup", "home_mail", "home_settings",
-        "home_events", "home_starPass", "home_notices", "home_store", "home_missions",
-        "home_onlineLobby", "home_friends_toggle", "home_first_win", "home_hero",
-        "home_items", "home_heroes", "home_cosmetics", "home_inventory",
+        "home_profile", "home_currency_coin", "home_currency_gem", "home_mail", "home_friends_toggle", "home_settings", "home_menu",
+        "home_heroes_visual", "home_events", "home_starPass", "home_rail_store", "home_rail_missions", "home_rail_events",
+        "home_friend_find", "home_items", "home_heroes", "home_cosmetics", "home_inventory",
         "home_emblems", "home_rank", "home_play", "home_menu_close",
     ]
 
-    /// ホーム画面が使う全ての識別子（重複が無いことをテストで確かめる）。
+    /// ホーム画面が使う全ての識別子（重複が無いことをテストで確かめる）。フレンドの行は home_friend_<コード>・home_friend_invite_<コード>。
     static var all: [String] { fixed + HomeMenuItem.allCases.map(\.identifier) }
 }
 
-// MARK: - ショーケースの巡回
+// MARK: - 左のカード: スターパス
 
-/// 中央ショーケースに出すヒーローの選び方（画面内の状態だけ。プロフィールには保存しない）。
-enum HomeShowcaseLogic {
-    /// 巡回する順番: 所持ヒーローをマスターの並び順で。
-    static func roster(owned: [String], masterOrder: [String]) -> [String] {
-        let ownedSet = Set(owned)
-        return masterOrder.filter(ownedSet.contains)
+/// スターパスのカードに出す進み具合（「Lv.12/30」と、今の段の中の割合）。
+struct HomePassProgress: Equatable {
+    let level: Int
+    let fraction: Double
+
+    init(xp: Int) {
+        level = LiveOpsService.passLevel(xp: xp)
+        fraction = level >= LiveOpsService.passMaxLevel
+            ? 1 : Double(LiveOpsService.passXPInLevel(xp: xp)) / Double(LiveOpsService.passXPPerLevel)
     }
 
-    /// 最初に出すヒーロー: 最後に選んだヒーロー（マスターに無ければアバターのヒーロー）。
-    static func initialHero(lastPicked: String?, avatar: String, isKnown: (String) -> Bool) -> String {
-        if let id = lastPicked, isKnown(id) { return id }
-        return avatar
+    var label: String { "Lv.\(level)/\(LiveOpsService.passMaxLevel)" }
+}
+
+// MARK: - フレンド欄: 状態
+
+/// フレンドの状態（MLBB のフレンド一覧と同じ並び）。試合中・練習中は在席の情報に状態が載ってから（第3段）。
+enum HomeFriendStatus: Equatable {
+    case offline, online, inTeam, inMatch, practicing
+
+    static func of(online: Bool, inMyTeam: Bool) -> HomeFriendStatus {
+        guard online else { return .offline }
+        return inMyTeam ? .inTeam : .online
     }
 
-    /// 隣のヒーロー（step > 0 = 次、step < 0 = 前）。端では反対側へ回り込む。
-    /// 現在のヒーローが巡回対象に無いとき（未所持など）は、次なら先頭・前なら末尾へ入る。巡回対象が空ならそのまま。
-    static func neighbor(of current: String, in roster: [String], step: Int) -> String {
-        guard !roster.isEmpty, step != 0 else { return current }
-        guard let index = roster.firstIndex(of: current) else {
-            return step > 0 ? roster[0] : roster[roster.count - 1]
+    var title: String {
+        switch self {
+        case .offline: return L("オフライン", "Offline")
+        case .online: return L("オンライン", "Online")
+        case .inTeam: return L("チーム中", "In team")
+        case .inMatch: return L("試合中", "In match")
+        case .practicing: return L("練習中", "Practicing")
         }
-        let count = roster.count
-        return roster[((index + step) % count + count) % count]
     }
+
+    /// 緑の印にする（遊べる状態か、遊んでいる）。
+    var isActive: Bool { self != .offline }
+
+    /// 招待できるか（オンラインで、まだ自分のチームにいない）。
+    var canInvite: Bool { self == .online }
 }
 
 // MARK: - 書式

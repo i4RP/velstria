@@ -1,8 +1,8 @@
 import SwiftUI
 import VelstriaCore
 
-// UI007 ホーム。参照デザインの比率で配置するロビーと、既存のメニュードロワー。
-// ドロワーのセーフエリア計算は HomeLayout を引き続き使用する。
+// UI007 ホーム。採用案 Celestial Saber（docs/design/CELESTIAL_HOME.md）のロビーと、メニュードロワー。
+// 部品の位置は HomeLogic.swift の HomeLobbySlot（板 1024 × 512 の座標）、倍率と置き場所は HomeLayout。
 
 struct HomeView: View {
     @Environment(AppModel.self) private var app
@@ -10,11 +10,9 @@ struct HomeView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var now = Date()
     @State private var menuOpen = HomeDebug.startsMenuOpen
-    /// ショーケースで選んでいるヒーロー（nil = 既定の選び方。画面内の状態だけでプロフィールには保存しない）。
-    @State private var pickedHeroID: String? = HomeDebug.initialHeroID
 
     /// ホームが前面に見えているか。対戦・マジックチェスは fullScreenCover で開くのでホームは onDisappear にならない。
-    /// 演出（TimelineView・繰り返しアニメ・3D）はこれが真の間だけ動かす。
+    /// 演出（TimelineView・繰り返しアニメ）はこれが真の間だけ動かす。
     private var isFrontmost: Bool {
         app.router.path.isEmpty && !app.router.isMatchFlowPresented && app.activeBattle == nil
             && app.activeMagicChess == nil && scenePhase == .active
@@ -36,7 +34,6 @@ struct HomeView: View {
         .onAppear {
             now = Date()
             app.audio.playMusic(.menu)
-
         }
         // イベントの残り時間などを前面にいる間だけ更新する
         .task(id: isFrontmost) {
@@ -54,7 +51,7 @@ struct HomeView: View {
 
     private func content(_ m: HomeLayout) -> some View {
         ZStack(alignment: .topLeading) {
-            HomeReferenceLobby(safeArea: m.safeArea, heroID: showcaseHeroID, animated: animates, now: now, onMenu: openMenu, onPick: { pickedHeroID = $0 })
+            HomeReferenceLobby(layout: m, animated: animates, now: now, onMenu: openMenu)
                 .frame(width: m.size.width, height: m.size.height)
             if menuOpen {
                 HomeMenuDrawer(layout: m) { route in
@@ -66,13 +63,6 @@ struct HomeView: View {
             }
         }
         .frame(width: m.size.width, height: m.size.height)
-    }
-
-    /// ショーケースに出すヒーロー。
-    private var showcaseHeroID: String {
-        if let id = pickedHeroID, app.master.hero(id) != nil { return id }
-        return HomeShowcaseLogic.initialHero(lastPicked: app.profile.lastPickedHeroID, avatar: app.profile.avatarHeroID,
-                                             isKnown: { app.master.hero($0) != nil })
     }
 
     private func openMenu() {
@@ -101,18 +91,15 @@ struct HomeView: View {
 enum HomeDebug {
     static var startsFriendsCollapsed: Bool { DebugLaunch.value(after: "-homeRail") == "collapsed" }
     static var startsMenuOpen: Bool { DebugLaunch.args.contains("-homeMenu") }
-    static var initialHeroID: String? { DebugLaunch.value(after: "-homeHero") }
 }
 
 /// 採用コンセプトの 1774 × 887 を 1024 × 512 の座標に正規化。
 /// 装飾アトラスと実データを分離し、ナビゲーションはすべて実ボタンにする。
 private struct HomeReferenceLobby: View {
-    let safeArea: EdgeInsets
-    let heroID: String
+    let layout: HomeLayout
     let animated: Bool
     let now: Date
     let onMenu: () -> Void
-    let onPick: (String) -> Void
     @Environment(AppModel.self) private var app
     @State private var friendsCollapsed = HomeDebug.startsFriendsCollapsed
     private let ice = Color(red: 0.65, green: 0.84, blue: 1)
@@ -120,17 +107,13 @@ private struct HomeReferenceLobby: View {
 
     var body: some View {
         GeometryReader { geo in
-            let usableWidth = geo.size.width - safeArea.leading - safeArea.trailing
-            let usableHeight = geo.size.height - safeArea.top - safeArea.bottom
-            let scale = min(usableWidth / 1024, usableHeight / 512)
             Image("CelestialLobby").resizable().scaledToFill()
                 .frame(width: geo.size.width, height: geo.size.height).clipped()
                 .blur(radius: 20).overlay(Color.black.opacity(0.7))
             canvas
-                .frame(width: 1024, height: 512)
-                .scaleEffect(scale, anchor: .topLeading)
-                .offset(x: safeArea.leading + (usableWidth - 1024 * scale) / 2,
-                        y: safeArea.top + (usableHeight - 512 * scale) / 2)
+                .frame(width: HomeLayout.board.width, height: HomeLayout.board.height)
+                .scaleEffect(layout.scale, anchor: .topLeading)
+                .offset(x: layout.boardRect.minX, y: layout.boardRect.minY)
         }
         .clipped()
         .task { app.friends.start(); app.friends.refreshPresence() }
@@ -138,7 +121,7 @@ private struct HomeReferenceLobby: View {
 
     private var canvas: some View {
         ZStack(alignment: .topLeading) {
-            Image("CelestialLobby").resizable().frame(width: 1024, height: 512)
+            Image("CelestialLobby").resizable().frame(width: HomeLayout.board.width, height: HomeLayout.board.height)
                 .scaleEffect(1.008)
                 .modifier(HomeAmbientMotion(animated: animated, travel: 1, duration: 6))
                 .overlay {
@@ -146,14 +129,15 @@ private struct HomeReferenceLobby: View {
                         CelestialAtmosphere().allowsHitTesting(false).accessibilityHidden(true)
                     }
                 }
-            // 背景はコンセプトのキービジュアル。ヒーロー一覧への入口として扱う。
+            // 背景はその季節のキービジュアル（MLBB の看板ヒーローに当たる。3D にはしない）。ヒーロー一覧への入口として扱う。
             Button { app.router.push(.heroes) } label: { Color.clear.contentShape(Rectangle()) }
                 .buttonStyle(.plain)
                 .accessibilityLabel(L("ヒーローを見る", "Explore heroes"))
-                .homePlaced(in: CGRect(x: 228, y: 75, width: 525, height: 330))
+                .accessibilityIdentifier("home_heroes_visual")
+                .homePlaced(in: HomeLobbySlot.keyVisual)
             header
             promotions
-            if !friendsCollapsed { friendPanel.homePlaced(in: CGRect(x: 773, y: 79, width: 226, height: 274)) }
+            if !friendsCollapsed { friendPanel.homePlaced(in: HomeLobbySlot.friends) }
             footer
             CelestialFrame(animated: animated).padding(7)
                 .allowsHitTesting(false).accessibilityHidden(true)
@@ -172,7 +156,9 @@ private struct HomeReferenceLobby: View {
             }.foregroundStyle(ice).position(x: 509, y: 16)
             Button { app.router.push(.profile) } label: {
                 HStack(spacing: 9) {
+                    // 受け取れる実績はプロフィール（の実績）から受け取る
                     avatar(app.profile.avatarHeroID, size: 49)
+                        .overlay(alignment: .topTrailing) { CelestialDot(shown: HomeBadges.claimableAchievements(app.profile) > 0).offset(x: -2, y: 2) }
                     VStack(alignment: .leading, spacing: 3) {
                         Text(app.profile.displayName.isEmpty ? "Player" : app.profile.displayName)
                             .font(.system(size: 14, design: .serif)).lineLimit(1)
@@ -182,17 +168,20 @@ private struct HomeReferenceLobby: View {
                         }
                     }
                 }
-            }.accessibilityIdentifier("home_profile").homePlaced(in: CGRect(x: 26, y: 27, width: 168, height: 49))
+            }.accessibilityIdentifier("home_profile").homePlaced(in: HomeLobbySlot.profile)
             HStack(spacing: 10) {
-                currency("dollarsign.circle.fill", HomeFormat.currency(app.profile.starlightCoin, compact: false), gold: true)
-                currency("diamond.fill", "\(app.profile.totalGem)", gold: false)
+                currency("dollarsign.circle.fill", HomeFormat.currency(app.profile.starlightCoin, compact: false), gold: true, id: "home_currency_coin")
+                currency("diamond.fill", "\(app.profile.totalGem)", gold: false, id: "home_currency_gem")
                 utility("envelope.fill", L("メール", "Mail"), .mail, id: "home_mail", badge: HomeBadges.mail(app.profile, now: now))
-                Button { friendsCollapsed.toggle() } label: { Image(systemName: "person.2.fill").font(.system(size: 23)).frame(width: 32, height: 38) }
-                    .accessibilityLabel(L("フレンド欄を切り替え", "Toggle friends")).accessibilityIdentifier("home_friends_toggle")
+                Button { friendsCollapsed.toggle() } label: {
+                    Image(systemName: "person.2.fill").font(.system(size: 23)).frame(width: 32, height: 38)
+                        .overlay(alignment: .topTrailing) { CelestialDot(shown: HomeBadges.friendRequests(app.friends) > 0) }
+                }
+                .accessibilityLabel(L("フレンド欄を切り替え", "Toggle friends")).accessibilityIdentifier("home_friends_toggle")
                 utility("gearshape.fill", L("設定", "Settings"), .settings, id: "home_settings")
                 Button(action: onMenu) { Image(systemName: "line.3.horizontal").font(.system(size: 21)).frame(width: 32, height: 38) }
                     .accessibilityLabel(L("メニュー", "Menu")).accessibilityIdentifier("home_menu")
-            }.foregroundStyle(ice).homePlaced(in: CGRect(x: 615, y: 25, width: 382, height: 38))
+            }.foregroundStyle(ice).homePlaced(in: HomeLobbySlot.headerIcons)
         }
     }
 
@@ -207,7 +196,7 @@ private struct HomeReferenceLobby: View {
         .shadow(color: ice.opacity(0.4), radius: 4)
     }
 
-    private func currency(_ symbol: String, _ value: String, gold: Bool) -> some View {
+    private func currency(_ symbol: String, _ value: String, gold: Bool, id: String) -> some View {
         Button { app.router.push(.currencyStore) } label: {
             HStack(spacing: 5) {
                 Image(systemName: symbol).foregroundStyle(gold ? Theme.gold : ice)
@@ -216,33 +205,47 @@ private struct HomeReferenceLobby: View {
             }.padding(.horizontal, 6).frame(width: 99, height: 27)
                 .background(ink.opacity(0.85), in: HomeChamfer(cut: 7))
                 .overlay(HomeChamfer(cut: 7).stroke(ice.opacity(0.45), lineWidth: 0.6))
-        }.accessibilityLabel(L("通貨ストア", "Currency store") + " " + value)
+        }.accessibilityLabel(L("通貨ストア", "Currency store") + " " + value).accessibilityIdentifier(id)
     }
 
     private func utility(_ symbol: String, _ title: String, _ route: Route, id: String, badge: Int = 0) -> some View {
         Button { FlowFX.tap(app); app.router.push(route) } label: {
             Image(systemName: symbol).font(.system(size: 22)).frame(width: 32, height: 38)
-                .overlay(alignment: .topTrailing) {
-                    if badge > 0 { Circle().fill(.red).frame(width: 5, height: 5).overlay(Circle().stroke(.white, lineWidth: 0.5)) }
-                }
+                .overlay(alignment: .topTrailing) { CelestialDot(shown: badge > 0) }
         }.accessibilityLabel(title).accessibilityIdentifier(id)
     }
 
+    // MARK: 左のカード
+
+    /// 左上のカードに出すイベント（ミッションのある開催中のイベント、無ければ開催中の最初のイベント）。
+    private var featuredEvent: EventDef? {
+        let active = LiveOpsService.activeEvents(now: now)
+        return active.first { !$0.missionIDs.isEmpty } ?? active.first
+    }
+
     private var promotions: some View {
-        Group {
-            promo(CGRect(x: 41, y: 170, width: 344, height: 159), title: L("星海の呼び声", "Call of the Stars"), subtitle: L("イベント", "EVENTS"), route: .events)
-                .homePlaced(in: CGRect(x: 24, y: 98, width: 198, height: 91))
-            promo(CGRect(x: 41, y: 343, width: 344, height: 159), title: L("月影の誓い", "Moonlit Oath"), subtitle: "STAR PASS", route: .starPass)
-                .homePlaced(in: CGRect(x: 24, y: 198, width: 198, height: 91))
+        let pass = HomePassProgress(xp: app.profile.pass.xp)
+        return Group {
+            promo(CGRect(x: 41, y: 170, width: 344, height: 159),
+                  title: featuredEvent?.title ?? L("イベント", "Events"),
+                  subtitle: featuredEvent.map { HomeFormat.remaining($0.end.timeIntervalSince(now)) } ?? L("イベント", "EVENTS"),
+                  route: .events, id: "home_events", badge: HomeBadges.eventMissions(app.profile, now: now))
+                .homePlaced(in: HomeLobbySlot.events)
+            promo(CGRect(x: 41, y: 343, width: 344, height: 159),
+                  title: LiveOpsService.passTitle, subtitle: pass.label, progress: pass.fraction,
+                  route: .starPass, id: "home_starPass", badge: HomeBadges.starPass(app.profile))
+                .homePlaced(in: HomeLobbySlot.starPass)
             HStack(spacing: 16) {
                 rail("cart.fill", L("ストア", "Store"), .store)
-                rail("scroll.fill", L("ミッション", "Missions"), .missions)
+                rail("scroll.fill", L("ミッション", "Missions"), .missions, badge: HomeBadges.claimableMissions(app.profile))
                 rail("gift.fill", L("イベント", "Events"), .events)
-            }.homePlaced(in: CGRect(x: 28, y: 306, width: 192, height: 49))
+            }.homePlaced(in: HomeLobbySlot.rail)
         }
     }
 
-    private func promo(_ source: CGRect, title: String, subtitle: String, route: Route) -> some View {
+    /// イベント・スターパスのカード（MLBB のバナーと同じく、名前と残り時間・レベルの進み具合を小さく出す）。
+    private func promo(_ source: CGRect, title: String, subtitle: String, progress: Double? = nil,
+                       route: Route, id: String, badge: Int) -> some View {
         Button { app.router.push(route) } label: {
             ZStack(alignment: .bottomLeading) {
                 ink
@@ -250,24 +253,29 @@ private struct HomeReferenceLobby: View {
                     .mask(LinearGradient(stops: [.init(color: .white, location: 0), .init(color: .white, location: 0.48), .init(color: .clear, location: 0.59)], startPoint: .top, endPoint: .bottom))
                 LinearGradient(colors: [.clear, ink.opacity(0.98)], startPoint: .top, endPoint: .bottom)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(title).font(.system(size: 15, weight: .semibold, design: .serif))
-                    Text(subtitle).font(.system(size: 10))
-                }.padding(8)
+                    Text(title).font(.system(size: 15, weight: .semibold, design: .serif)).lineLimit(1).minimumScaleFactor(0.7)
+                    HStack(spacing: 6) {
+                        Text(subtitle).font(.system(size: 10)).lineLimit(1).minimumScaleFactor(0.8)
+                        if let progress { HomeBar(value: progress, tint: .cyan).frame(width: 64, height: 4) }
+                    }
+                }.padding(8).padding(.trailing, 22)
                 Image(systemName: "chevron.right").foregroundStyle(ice).padding(9).frame(maxWidth: .infinity, alignment: .trailing)
             }.clipShape(HomeChamfer(cut: 7))
                 .overlay(HomeChamfer(cut: 7).stroke(ice.opacity(0.75), lineWidth: 0.6))
-        }.accessibilityLabel(title).accessibilityIdentifier("home_\(String(describing: route))")
+                .overlay(alignment: .topTrailing) { CelestialDot(shown: badge > 0).offset(x: -6, y: 6) }
+        }.accessibilityLabel(title + " " + subtitle).accessibilityIdentifier(id)
     }
 
-    private func rail(_ symbol: String, _ title: String, _ route: Route) -> some View {
+    private func rail(_ symbol: String, _ title: String, _ route: Route, badge: Int = 0) -> some View {
         Button { app.router.push(route) } label: {
             VStack(spacing: 5) {
                 CelestialAtlasTile(source: railSource(symbol))
                     .mask(CelestialAtlasTile(source: railSource(symbol)).luminanceToAlpha())
                     .frame(width: 30, height: 28)
+                    .overlay(alignment: .topTrailing) { CelestialDot(shown: badge > 0).offset(x: 4, y: -2) }
                 Text(title).font(.system(size: 12, design: .serif)).lineLimit(1).minimumScaleFactor(0.7)
             }.frame(width: 53, height: 49)
-        }.accessibilityLabel(title).accessibilityIdentifier("home_\(String(describing: route))")
+        }.accessibilityLabel(title).accessibilityIdentifier("home_rail_\(String(describing: route))")
     }
 
     private func railSource(_ symbol: String) -> CGRect {
@@ -277,6 +285,8 @@ private struct HomeReferenceLobby: View {
         default: CGRect(x: 297, y: 527, width: 54, height: 49)
         }
     }
+
+    // MARK: フレンド欄
 
     private var friendPanel: some View {
         VStack(spacing: 0) {
@@ -297,61 +307,89 @@ private struct HomeReferenceLobby: View {
                             .modifier(HomeAmbientMotion(animated: animated, travel: 1, duration: 4))
                     }
                     ForEach(app.friends.friends) { friend in
-                        Button { app.router.push(.onlineLobby) } label: {
-                            HStack(spacing: 9) {
-                                Image(systemName: "person.crop.circle").font(.system(size: 37, weight: .ultraLight))
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Text(FriendNames.display(friend.name)).font(.system(size: 13, design: .serif)).lineLimit(1)
-                                    Label(app.friends.isFriendOnline(friend.code) ? L("オンライン", "Online") : L("オフライン", "Offline"), systemImage: "circle.fill")
-                                        .font(.system(size: 9)).foregroundStyle(app.friends.isFriendOnline(friend.code) ? .mint : ice)
-                                }
-                                Spacer(minLength: 0)
-                                Image(systemName: "plus").font(.system(size: 20, weight: .ultraLight))
-                            }.padding(.horizontal, 12).frame(height: 64)
-                                .overlay(alignment: .bottom) { Rectangle().fill(ice.opacity(0.25)).frame(height: 0.5) }
-                        }
+                        friendRow(friend)
                     }
                 }
             }
             Button { app.router.push(.onlineLobby) } label: {
                 HStack(spacing: 9) {
                     Image(systemName: "person.badge.plus").font(.system(size: 20))
+                        .overlay(alignment: .topTrailing) { CelestialDot(shown: HomeBadges.friendRequests(app.friends) > 0).offset(x: 3, y: -2) }
                     Text(L("フレンドを探す", "Find friends")).font(.system(size: 12, design: .serif))
                     Spacer()
                     Image(systemName: "chevron.right")
                 }.padding(.horizontal, 14).frame(height: 36).background(ice.opacity(0.07))
-            }
+            }.accessibilityIdentifier("home_friend_find")
         }
         .background(ink.opacity(0.88))
         .clipShape(HomeChamfer(cut: 8))
         .overlay(HomeChamfer(cut: 8).stroke(ice.opacity(0.6), lineWidth: 0.6))
     }
 
+    /// フレンドの行: 名前と状態（オンライン / チーム中 / 試合中 / 練習中 / オフライン）、右端に招待のボタン。
+    private func friendRow(_ friend: Friend) -> some View {
+        let inMyTeam = app.online?.room.players.contains { $0.friendCode == friend.code } == true
+        let status = HomeFriendStatus.of(online: app.friends.isFriendOnline(friend.code), inMyTeam: inMyTeam)
+        return HStack(spacing: 9) {
+            Button { app.router.push(.onlineLobby) } label: {
+                HStack(spacing: 9) {
+                    Image(systemName: "person.crop.circle").font(.system(size: 37, weight: .ultraLight))
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(FriendNames.display(friend.name)).font(.system(size: 13, design: .serif)).lineLimit(1)
+                        Label(status.title, systemImage: "circle.fill")
+                            .font(.system(size: 9)).foregroundStyle(status.isActive ? Color.mint : ice)
+                    }
+                    Spacer(minLength: 0)
+                }.contentShape(Rectangle())
+            }.accessibilityIdentifier("home_friend_\(friend.code)")
+            Button { invite(friend) } label: {
+                Image(systemName: "plus").font(.system(size: 20, weight: .ultraLight)).frame(width: 30, height: 40)
+            }
+            .disabled(!status.canInvite)
+            .opacity(status.canInvite ? 1 : 0.3)
+            .accessibilityLabel(L("パーティに招待", "Invite to party"))
+            .accessibilityIdentifier("home_friend_invite_\(friend.code)")
+        }.padding(.horizontal, 12).frame(height: 64)
+            .overlay(alignment: .bottom) { Rectangle().fill(ice.opacity(0.25)).frame(height: 0.5) }
+    }
+
+    /// 招待: パーティ（部屋）が無ければ作って招待を送り、パーティの画面を開く（MLBB と同じくチームのルームへ）。
+    /// オンラインの同意がまだなら、同意の画面を兼ねるオンラインの画面だけを開く。
+    private func invite(_ friend: Friend) {
+        FlowFX.tap(app)
+        if app.onlineAccess == .available { app.inviteToParty(friend) }
+        app.router.push(.onlineLobby)
+    }
+
+    // MARK: 下段
+
     private var footer: some View {
         Group {
             HomeChamfer(cut: 15).fill(LinearGradient(colors: [ink.opacity(0.98), ink.opacity(0.96)], startPoint: .bottom, endPoint: .top))
                 .overlay(HomeChamfer(cut: 15).stroke(HomeStyle.goldGradient.opacity(0.65), lineWidth: 0.6))
-                .homePlaced(in: CGRect(x: 10, y: 419, width: 1004, height: 81))
+                .homePlaced(in: HomeLobbySlot.footerBand)
             HStack(spacing: 0) {
                 footerLink(CGRect(x: 101, y: 739, width: 63, height: 66), L("戦闘準備", "Prepare"), .items)
                 footerLink(CGRect(x: 295, y: 739, width: 66, height: 66), L("ヒーロー", "Heroes"), .heroes)
                 footerLink(CGRect(x: 512, y: 739, width: 66, height: 66), L("コレクション", "Collection"), .cosmetics)
                 footerLink(CGRect(x: 730, y: 739, width: 66, height: 66), L("バッグ", "Bag"), .inventory)
-            }.homePlaced(in: CGRect(x: 17, y: 420, width: 487, height: 70))
+            }.homePlaced(in: HomeLobbySlot.footerTabs)
             Button { app.router.push(.emblems) } label: {
                 Image(systemName: "sparkle").font(.system(size: 19, weight: .ultraLight)).foregroundStyle(ice).frame(width: 27, height: 60)
-            }.accessibilityLabel(L("エンブレム", "Emblems")).accessibilityIdentifier("home_emblems").homePlaced(in: CGRect(x: 502, y: 427, width: 27, height: 60))
+                    .overlay(alignment: .top) { CelestialDot(shown: HomeBadges.emblemChest(app.profile, now: now) > 0).offset(x: 8, y: 8) }
+            }.accessibilityLabel(L("エンブレム", "Emblems")).accessibilityIdentifier("home_emblems").homePlaced(in: HomeLobbySlot.emblems)
             Button { app.router.push(.rankOverview) } label: {
                 HStack(spacing: 9) {
                     RankEmblemView(tier: app.profile.rank.tier, size: 46)
+                        .overlay(alignment: .topTrailing) { CelestialDot(shown: HomeBadges.claimableRankRewards(app.profile) > 0) }
                     VStack(alignment: .leading, spacing: 6) {
                         Text(RankService.displayName(app.profile.rank)).font(.system(size: 12, design: .serif)).lineLimit(1).minimumScaleFactor(0.7)
                         RankStarsView(stars: app.profile.rank.stars, maxStars: RankService.maxStars(app.profile.rank.tier), size: 12)
                     }
                     Image(systemName: "chevron.right").font(.system(size: 13, weight: .ultraLight))
                 }.frame(width: 199, height: 66)
-            }.accessibilityIdentifier("home_rank").homePlaced(in: CGRect(x: 535, y: 424, width: 199, height: 66))
-            battleButton.homePlaced(in: CGRect(x: 746, y: 414, width: 263, height: 69))
+            }.accessibilityIdentifier("home_rank").homePlaced(in: HomeLobbySlot.rank)
+            battleButton.homePlaced(in: HomeLobbySlot.play)
         }
     }
 
@@ -389,6 +427,19 @@ private struct HomeReferenceLobby: View {
                 if animated { HomeSheen(period: 4).clipShape(HomeChamfer(cut: 25)) }
             }.shadow(color: Theme.gold.opacity(0.45), radius: 4)
         }.accessibilityLabel(L("対戦開始", "Battle")).accessibilityIdentifier("home_play")
+    }
+}
+
+/// 赤い点（数字は出さない。MLBB 2.2.16 と同じく受け取れる物・届いた申請があるときだけ）。採用案の線の細さに合わせた小さな点。
+private struct CelestialDot: View {
+    let shown: Bool
+
+    var body: some View {
+        if shown {
+            Circle().fill(Color.red).frame(width: 7, height: 7)
+                .overlay(Circle().stroke(.white, lineWidth: 0.6))
+                .accessibilityHidden(true)
+        }
     }
 }
 

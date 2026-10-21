@@ -110,7 +110,7 @@
 | 通常攻撃の軌跡・命中・弾 | `App/Battle/Render/HeroFXProfiles.swift` の `specs[heroID]` |
 | スキル演出（RealityKit） | `App/Battle/SkillFX/Heroes/FX_H0xx.swift` と `SkillFXCatalog.swift` への登録 |
 | Effekseer | `tools/effekseer/heroes/h0xx.py` → `Effects/Effekseer/<heroID>_<stage>.efk`（`docs/EFFEKSEER.md`） |
-| 立ち絵 | `tools/portraits/portraits.json`（生成は `portraits.py`）→ `Assets.xcassets/HeroPortraits|HeroSplash|HeroSplashMatte` |
+| 立ち絵 | `tools/portraits/portraits.json`（生成は `portraits.py`）→ `Assets.xcassets/HeroPortraits`（ホームの大判アート HeroSplash は 2026-10 に廃止。ホームの中央は季節のキービジュアル） |
 | 件数を数えるテスト | 第 1 段階でヒーロー 24 → 29、スキル 96 → 116、コスメ 72 → 87、商品 114 → 134、演出 100 → 120。第 2 段階で 34 / 136 / 102 / 154 / 140 |
 
 ## おすすめ装備

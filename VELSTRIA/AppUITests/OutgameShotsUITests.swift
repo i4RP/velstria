@@ -65,7 +65,9 @@ final class OutgameShotsUITests: XCTestCase {
 
     func testRecordsOpenReplays() {
         let app = launch()
-        tap(app, "home_records", timeout: 20)
+        // 戦績はプロフィールから開く（採用案のロビーには入口を置かない）
+        tap(app, "home_profile", timeout: 20)
+        tap(app, "profile_records")
         XCTAssertTrue(element(app, "records_replays").waitForExistence(timeout: 10))
         snap("records")
         tap(app, "records_replays")
