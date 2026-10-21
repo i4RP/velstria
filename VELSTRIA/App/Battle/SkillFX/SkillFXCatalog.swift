@@ -25,6 +25,14 @@ protocol HeroFXSet {
     static var countedSlot: SkillSlot? { get }
     /// countedSlot の残りが remaining 本（バッジが消えたら 0）のときに消えているべき組。何度呼ばれてもよい（消えた組は何もしない）。
     static func spentGroups(remaining: Int) -> [Int]
+    /// キットの強い通常攻撃（SimEvent.empoweredAttack: H027 の三連突き・H032 の円撃）の演出。1 発目の命中の瞬間に、sim の術者の位置を
+    /// 原点（.origin）・対象の位置を照準点（.target）・前方 = 術者 → 対象、追従 = 術者（.follow）で再生する。2 発目以降は
+    /// キットの間隔（fxValues）に合わせて at をずらして書く。s は passive スロットの寸法（キットの fxValues と通常攻撃の射程 attackRange）。
+    /// nil（既定）= 無し（普段の通常攻撃の演出のまま）。
+    static func empoweredAttack(_ s: FXSkillInfo) -> [FXCue]?
+    /// 次の通常攻撃が強い間の目印（MLBB の見せ方: 足元の円など）。自分（観戦は追っているヒーロー）だけに、術者に追従して
+    /// SkillFXCatalog.empoweredReadyPeriod 秒ごとに出し直し、準備が外れたら消す（メッシュだけ。group = empoweredReadyGroup）。nil = 無し。
+    static func empoweredReady(_ s: FXSkillInfo) -> [FXCue]?
 }
 
 extension HeroFXSet {
@@ -32,6 +40,8 @@ extension HeroFXSet {
     static func passiveRelease(_ s: FXSkillInfo, released: Int) -> [FXCue]? { nil }
     static var countedSlot: SkillSlot? { nil }
     static func spentGroups(remaining: Int) -> [Int] { [] }
+    static func empoweredAttack(_ s: FXSkillInfo) -> [FXCue]? { nil }
+    static func empoweredReady(_ s: FXSkillInfo) -> [FXCue]? { nil }
 }
 
 enum SkillFXCatalog {
@@ -69,7 +79,8 @@ enum SkillFXCatalog {
         for v in HeroKits.fxValues(heroID: heroID, slot: slot, stage: stage) { kit[v.key] = v }
         return FXSkillInfo(heroID: heroID, slot: slot, archetype: t.archetype, radius: max(0.6, Float(t.radius) / k),
                            range: max(1, Float(t.range) / k), stage: stage, hitRadius: Float(t.radius) / k,
-                           halfAngle: Float(t.halfAngle * 180 / .pi), shape: t.shape, kit: kit)
+                           halfAngle: Float(t.halfAngle * 180 / .pi), shape: t.shape, kit: kit,
+                           attackRange: Float(hero.attackRange) / k)
     }
 
     /// スロットの演出（ヒーローの定義 → 空の段は既定演出で補う）。
@@ -122,6 +133,30 @@ enum SkillFXCatalog {
         if r.telegraph.isEmpty { r.telegraph = base.telegraph }
         return r
     }
+
+    /// キットの強い通常攻撃の演出（ヒーローが持つときだけ。無ければ nil）。
+    static func empoweredAttack(heroID: String, master: MasterData) -> [FXCue]? {
+        guard let set = sets[heroID], let cues = set.empoweredAttack(info(heroID: heroID, slot: .passive, master: master)),
+              !cues.isEmpty else { return nil }
+        return cues
+    }
+
+    /// 次の通常攻撃が強い間の目印（ヒーローが持つときだけ。無ければ nil）。メッシュの組を empoweredReadyGroup にそろえて返す。
+    static func empoweredReady(heroID: String, master: MasterData) -> [FXCue]? {
+        guard let set = sets[heroID], let cues = set.empoweredReady(info(heroID: heroID, slot: .passive, master: master)),
+              !cues.isEmpty else { return nil }
+        return cues.map { cue in
+            guard case .mesh(let m) = cue.element else { return cue }
+            var c = cue
+            c.element = .mesh(m.with { $0.group = empoweredReadyGroup })
+            return c
+        }
+    }
+
+    /// 強い通常攻撃の目印のメッシュの組（準備が外れたら SkillFXPlayer.cut で消す）。
+    static let empoweredReadyGroup = 9
+    /// 目印を出し直す間隔（秒）。目印のメッシュの寿命はこれより長く書き、重ねて途切れないようにする。
+    static let empoweredReadyPeriod: Float = 1.5
 
     /// 段の演出を探す最大の段（キットの再使用は 3 段まで）。
     static let maxStage = 3

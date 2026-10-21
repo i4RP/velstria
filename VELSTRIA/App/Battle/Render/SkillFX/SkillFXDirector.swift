@@ -16,6 +16,9 @@ import VelstriaCore
 //   再使用の段        → skillCast.stage >= 1 は、ヒーローが段の演出（HeroFXSet.recipe(_:stage:_:)）を持てばそれを使う
 //   効果の長さ        → cast と発動と同時の impact のうち durationFromCast の合図（FXEmit の継続放出の duration・FXMesh の life）は
 //                      skillCast.duration を使う（0 なら書いた値。上限 FXCue.castDurationLimit）。count・shape はまだ読まない
+//   empoweredAttack  → キットの強い通常攻撃（三連突き・円撃）の演出 HeroFXSet.empoweredAttack（sim の術者の位置 → 対象。1 発目の命中で）
+//   強い通常攻撃の準備 → 自分（観戦は追っているヒーロー）の次の通常攻撃が強い間、HeroFXSet.empoweredReady（足元の円）を術者に追従して
+//                      出し直し続け、外れたら消す（HeroKits.empoweredAttackReady。observeEmpoweredReady）
 //   残りの数          → HeroFXSet.countedSlot のスキルのバッジ（.stacks = 残りの数）が減ったら、発動の演出のうち
 //                      HeroFXSet.spentGroups の組（FXMesh.group）を術者の追従から消す（H028 の環剣: 剣を使うたびに回る刃が 1 本減る）
 
@@ -64,6 +67,11 @@ final class SkillFXDirector {
     private var kitPassive: [EntityID: (stacks: Int, timer: Bool)] = [:]
     /// HeroFXSet.countedSlot のバッジの数の前回の値（減ったら発動の演出の組を消す）。
     private var kitCounts: [EntityID: Int] = [:]
+    /// キットの強い通常攻撃の演出・準備の目印（試合のヒーローの分。prewarm で組む）。
+    private var empowered: [String: [FXCue]] = [:]
+    private var empoweredReadyCues: [String: [FXCue]] = [:]
+    /// 準備の目印を出しているヒーローと、最後に出した時刻（1 体だけ。ユニットごとのタイマーは持たない）。
+    private var readyShown: (id: EntityID, at: Float)?
     private var time: Float = 0
 
     init(master: MasterData, quality: RenderQuality, units: UnitLayer, projectiles: ProjectileLayer) {
@@ -113,6 +121,15 @@ final class SkillFXDirector {
             list.append((palette, flash))
             // パッシブのスタックの解放の演出（持つヒーローだけ。材質を先に作る）
             if let cues = SkillFXCatalog.passiveRelease(heroID: id, released: 1, master: master) {
+                var r = SkillFXRecipe()
+                r.cast = cues
+                list.append((palette, r))
+            }
+            // キットの強い通常攻撃の演出と準備の目印（持つヒーローだけ。材質を先に作る）
+            for (cues, store) in [(SkillFXCatalog.empoweredAttack(heroID: id, master: master), true),
+                                  (SkillFXCatalog.empoweredReady(heroID: id, master: master), false)] {
+                guard let cues else { continue }
+                if store { empowered[id] = cues } else { empoweredReadyCues[id] = cues }
                 var r = SkillFXRecipe()
                 r.cast = cues
                 list.append((palette, r))
@@ -187,6 +204,43 @@ final class SkillFXDirector {
     }
 
     // MARK: イベント
+
+    /// キットの強い通常攻撃（三連突き・円撃）。sim の術者の位置（判定の円の中心）を原点に、対象の sim の位置へ向けて再生する。
+    /// 演出を再生したら true。
+    @discardableResult
+    func onEmpoweredAttack(_ e: EmpoweredAttackEvent, state: SimState) -> Bool {
+        guard let cues = empowered[e.heroID] else { return false }
+        let origin = SkillFXDirector.ground(e.origin)
+        let target = state.unit(e.targetID).map { SkillFXDirector.ground($0.pos) } ?? origin
+        var dir = target - origin
+        dir.y = 0
+        let forward: SIMD3<Float>? = simd_length(dir) > 0.05 ? dir : facing(e.sourceID, state)
+        let key = SkillKey(heroID: e.heroID, slot: .passive)
+        player.play(cues, context(key, origin: origin, caster: origin, target: target, forward: forward,
+                                  follow: .unit(e.sourceID)))
+        return true
+    }
+
+    /// 次の通常攻撃が強い間の目印（足元の円）。viewer（自分・観戦の追従）のヒーローだけ、準備ができている間
+    /// empoweredReadyPeriod 秒ごとに出し直し（寿命はそれより長いので途切れない）、外れた・倒れた・追う相手が変わったら消す。
+    func observeEmpoweredReady(state: SimState, viewer: EntityID?) {
+        var want: (id: EntityID, cues: [FXCue])?
+        if let viewer, let u = state.unit(viewer), u.isAlive, let h = u.hero, !h.isDead,
+           let cues = empoweredReadyCues[h.heroID], HeroKits.empoweredAttackReady(h) {
+            want = (viewer, cues)
+        }
+        if let shown = readyShown, shown.id != want?.id {
+            player.cut(follow: .unit(shown.id), group: SkillFXCatalog.empoweredReadyGroup)
+            readyShown = nil
+        }
+        guard let want else { return }
+        if let shown = readyShown, time - shown.at < SkillFXCatalog.empoweredReadyPeriod { return }
+        guard let p = units.worldPositionOf(want.id), let heroID = state.unit(want.id)?.hero?.heroID else { return }
+        let key = SkillKey(heroID: heroID, slot: .passive)
+        player.play(want.cues, context(key, origin: p, caster: p, target: p, forward: facing(want.id, state),
+                                       follow: .unit(want.id)))
+        readyShown = (want.id, time)
+    }
 
     /// スキル発動。演出を再生したら true（呼び出し側は既定の演出を出さない）。
     @discardableResult
@@ -514,6 +568,7 @@ final class SkillFXDirector {
         lastFlash.removeAll()
         kitPassive.removeAll()
         kitCounts.removeAll()
+        readyShown = nil
     }
 }
 

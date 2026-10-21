@@ -593,6 +593,8 @@ struct FXSkillInfo: Sendable {
     var shape: AimShape = .auto
     /// キットの時刻・寸法（HeroKits.fxValues。key = Tune の名前）。
     var kit: [String: KitFXValue] = [:]
+    /// ヒーローの通常攻撃の射程（m。マスターデータの attack_range ÷ 100。術者の縁から対象の縁まで）。
+    var attackRange: Float = 0
 
     /// 読もうとして無かったキーの記録（テストが全レシピを組んだ後に空であることを確かめる。本番は読み違いを 0 で返すだけ）。
     nonisolated(unsafe) static var misses: Set<String> = []

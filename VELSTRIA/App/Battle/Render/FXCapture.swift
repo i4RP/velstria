@@ -184,6 +184,12 @@ final class FXCapture {
             }
         case .attackPlace:
             guard place(controller: controller, attack: true), let foe = dummyID(controller) else { step = .finish; return }
+            // 1 回目を強い通常攻撃（三連突き・円撃）にして、強い通常攻撃 → 普段の通常攻撃の順に撮る（キットに無ければ何もしない）
+            if let me = controller.humanIndex {
+                var primed = controller.state
+                HeroKits.primeEmpoweredAttack(&primed, unit: me)
+                controller.restore(primed)
+            }
             controller.send(.attack(targetID: foe))
             step = .attackWait(until: s.time + 3)
         case .attackWait(let until):
