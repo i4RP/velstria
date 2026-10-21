@@ -137,6 +137,19 @@ final class HitShapeProbeTests: XCTestCase {
         XCTAssertEqual(blast.2, Kit_H029.Tune.ultReach, accuracy: 1e-9)
     }
 
+    func testLuminaEclipseLandsAtTheFXLandTime() throws {
+        let t = try XCTUnwrap(HitShapeScenario.run(heroID: "H025", slot: .skill2))
+        let cast = try XCTUnwrap(t.casts.first)
+        let land = try XCTUnwrap(HeroKits.fxValues(heroID: "H025", slot: .skill2).first { $0.key == "s2Land" }?.value)
+        let circles = t.shapes.compactMap { s -> (Double, Double)? in
+            if case .circle(_, let r, _) = s.form, s.kind == .zone { return (s.time - cast.time, r) }
+            return nil
+        }
+        let first = try XCTUnwrap(circles.first, "着弾の円が無い")
+        XCTAssertEqual(first.0, land, accuracy: 1e-6, "演出の着弾の時刻 = sim のゾーンの発動")
+        XCTAssertEqual(first.1, LuminaTuning.s2Radius, accuracy: 1e-9)
+    }
+
     // MARK: - 演出が読む値
 
     /// 演出が読む値（KitFXValue）は判定と照準の値と同じ。
@@ -166,6 +179,15 @@ final class HitShapeProbeTests: XCTestCase {
         // 照準の帯の縁（台形）は判定の手前・奥の半幅
         XCTAssertEqual(value("H029", .skill1, "aimNearHalfWidth"), Kit_H029.Tune.waveNearHalfWidth)
         XCTAssertEqual(value("H029", .skill1, "aimFarHalfWidth"), Kit_H029.Tune.waveFarHalfWidth)
+        // ルミナ（H025）の S2: 半径・射程は照準、着弾・分裂は予約の tick に丸めた時刻
+        let lumina = try XCTUnwrap(master.hero("H025"))
+        let eclipse = HeroKits.targeting(for: try XCTUnwrap(master.skill(hero: "H025", slot: .skill2)), hero: lumina, stage: 0)
+        XCTAssertEqual(value("H025", .skill2, "s2Radius"), eclipse.radius)
+        XCTAssertEqual(value("H025", .skill2, "s2Range"), eclipse.range)
+        XCTAssertEqual(value("H025", .skill2, "s2Land"), Kit.firesAfter(LuminaTuning.s2Delay))
+        XCTAssertEqual(value("H025", .skill2, "s2ArrowWidth"), LuminaTuning.s2ArrowWidth)
+        XCTAssertEqual(HeroKits.fxValues(heroID: "H025", slot: .skill1).first { $0.key == "s1Duration" }?.values,
+                       LuminaTuning.s1Duration)
         // キットの無いヒーローは空
         XCTAssertTrue(HeroKits.fxValues(heroID: "H001", slot: .skill1).isEmpty)
     }
