@@ -133,14 +133,14 @@ enum FX_H025: HeroFXSet {
             .emit(.flare(1.0, periwinkle, life: 0.12, tex: .flare4), at: 0.04, .follow, offset: [0, 1.45, 0.05]),
             // 主: 0.05〜0.35 全身を包む濃い青の気 — 柔らかい光が膨らみ、炎の殻（burstDome の模型。炎の筋が上へ流れて縁から欠ける）が
             // 体を覆う（加算の青。体の上に描く = MLBB も体が青く染まる）
-            .mesh(FXMesh.sprite(.glow, 2.1, aura, life: 0.3, grow: 1.12, alpha: 0.95).glowing().with {
+            .mesh(FXMesh.sprite(.glow, 2.1, aura, life: 0.27, grow: 1.12, alpha: 0.95).glowing().with {
                 $0.fadeIn = 0.3
-                $0.fadeOut = 0.5
+                $0.fadeOut = 0.45
             }, at: 0.04, .follow, offset: [0, 1.0, 0]),
-            .mesh(FXMesh.model(.burstDome, nil, aura, size: [0.75, 1.6, 0.75], sizeEnd: [0.95, 2.0, 0.95], life: 0.3, alpha: 1)
+            .mesh(FXMesh.model(.burstDome, nil, aura, size: [0.75, 1.6, 0.75], sizeEnd: [0.95, 2.0, 0.95], life: 0.26, alpha: 0.9)
                 .glowing().flowing(.flame, scroll: [0.15, -1.8], tiling: 1.6, strength: 0.85, erosion: 0.4, edge: periwinkle).with {
                     $0.fadeIn = 0.22
-                    $0.fadeOut = 0.5
+                    $0.fadeOut = 0.4
                     $0.spin = 60
                     $0.onTop = true
                 }, at: 0.05, .follow),

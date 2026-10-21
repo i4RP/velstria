@@ -107,15 +107,16 @@ def s2_sky():
     """弓の先から天へ抜ける青い矢 3 本（f329〜331）。向きは真上から少し前へ。"""
     fx = Effect(P + "s2_sky", frames=16, kit=True)
     fx.add(
-        # 縦に立てた矢の画（頭が上）が向きを保ったまま天へ抜ける（Y 軸固定のビルボードを 90° 回す）
-        Node("arrows", tex="Fx_Arrow", blend="add", life=10, count=3, interval=0.8, billboard="yfixed", rot=Rot.fixed(0, 0, 90),
+        # 縦の光の槍（Fx_Spike は縦の画。Y 軸固定のビルボードは回転を当てない: アプリの Effekseer は Y 軸固定の板の Z の回転で
+        # 横向きになった（2026-10-21 の撮影 #3。WebGL の確認環境では縦）。縦の画をそのまま縦に伸ばす）
+        Node("arrows", tex="Fx_Spike", blend="add", life=10, count=3, interval=0.8, billboard="yfixed",
              gen=Gen.circle((0.05, 0.18), division=3, rotate=False),
              loc=Loc.pva(pos=((0, 0.2, 0), (0, 0.5, 0)), vel=((-0.4, 20, -1.5), (0.4, 24, -0.5))),
-             scale=Scl.ease((1.5, 0.34, 1), (1.9, 0.22, 1)), color=morph(CORE, SKYBLUE, 255, 0)),
-        Node("streaks", tex="Fx_Streak", blend="add", life=8, count=4, interval=0.5, billboard="yfixed", rot=Rot.fixed(0, 0, 90),
+             scale=Scl.ease((0.32, 1.5, 1), (0.22, 1.9, 1)), color=morph(CORE, SKYBLUE, 255, 0)),
+        Node("streaks", tex="Fx_Spike", blend="add", life=8, count=4, interval=0.5, billboard="yfixed",
              gen=Gen.circle((0.05, 0.2), division=4, rotate=False),
              loc=Loc.pva(pos=((0, -0.4, 0), (0, -0.1, 0)), vel=((-0.3, 18, -1.2), (0.3, 22, -0.4))),
-             scale=Scl.ease((2.2, 0.16, 1), (2.8, 0.06, 1)), color=fade(SKYBLUE, 220)),
+             scale=Scl.ease((0.14, 2.2, 1), (0.06, 2.8, 1)), color=fade(SKYBLUE, 220)),
     )
     return fx
 
@@ -133,11 +134,11 @@ def s2_land():
              color=fade(WHITE, 230, 0, "lin")),
         Node("burst", tex="Fx_Burst", blend="add", life=10, loc=Loc.fixed(0, 0.6, 0), scale=Scl.ease(2.8, 4.0, "out"),
              rot=Rot.pva(((0, 0, 0), (0, 0, 360))), color=morph(PALE, CYAN, 220, 0)),
-        # 立ちのぼる光の矢（矢じりが上。縦に立てた矢の画が向きを保ったままゆっくり昇る）
-        Node("arrows", tex="Fx_Arrow", blend="add", life=(16, 22), count=14, interval=0.8, delay=2, billboard="yfixed",
-             rot=Rot.fixed(0, 0, 90), gen=Gen.circle((0.25, R * 0.86), division=14, rotate=False),
+        # 立ちのぼる光の矢（先が上に尖る縦の光の槍。縦の画 Fx_Spike を回転なしで縦に伸ばし、ゆっくり昇らせる）
+        Node("arrows", tex="Fx_Spike", blend="add", life=(16, 22), count=14, interval=0.8, delay=2, billboard="yfixed",
+             gen=Gen.circle((0.25, R * 0.86), division=14, rotate=False),
              loc=Loc.pva(pos=((0, 0.55, 0), (0, 0.95, 0)), vel=((0, 1.0, 0), (0, 2.2, 0))),
-             scale=Scl.ease((1.7, 0.42, 1), (2.1, 0.3, 1), "out"), color=morph(WHITE, ARROW, 255, 0)),
+             scale=Scl.ease((0.34, 1.7, 1), (0.24, 2.1, 1), "out"), color=morph(WHITE, ARROW, 255, 0)),
         # 縁のきらめき
         Node("glints", tex="Fx_Star4", blend="add", life=(10, 18), count=10, interval=0.8, delay=4,
              gen=Gen.circle((R * 0.85, R * 1.0), division=10, rotate=False), loc=Loc.pva(pos=((0, 0.2, 0), (0, 0.6, 0)), vel=(0, 0.8, 0)),
@@ -152,8 +153,8 @@ def s2_split():
     fx = Effect(P + "s2_split", frames=24, kit=True)
     fx.add(
         flat("fill", "Fx_SoftDisc", 2 * R * 0.95, 2 * R * 1.0, 9, y=0.06, color=fade(WHITE, 220, 0, "in")),
-        Node("column", tex="Fx_Beam", blend="add", life=9, billboard="yfixed", rot=Rot.fixed(0, 0, 90), loc=Loc.fixed(0, 1.0, 0),
-             scale=Scl.ease((2.4, 1.0, 1), (2.8, 1.2, 1), "out"), color=fade(WHITE, 190, 0, "in")),
+        Node("column", tex="Fx_Glow", blend="add", life=9, billboard="yfixed", loc=Loc.fixed(0, 1.1, 0),
+             scale=Scl.ease((1.1, 2.4, 1), (1.3, 2.9, 1), "out"), color=fade(WHITE, 190, 0, "in")),
         Node("flash", tex="Fx_Core", blend="add", life=6, loc=Loc.fixed(0, 0.7, 0), scale=Scl.ease(2.6, 3.4, "out"),
              color=fade(WHITE, 220, 0, "lin")),
         # 外へ走る短い光の筋（地面すれすれ。6 本の矢の向きとは別の飾り）
