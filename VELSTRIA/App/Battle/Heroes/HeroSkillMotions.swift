@@ -31,6 +31,7 @@ extension HeroMotionScript {
 enum HeroSkillMotions {
     /// H027・H032 は強い通常攻撃（三連突き・円撃）のモーションだけ（詠唱・普段の通常攻撃は従来どおり）。
     static let scripts: [String: HeroMotionScript.Type] = [
+        "H025": Motion_H025.self,
         "H027": Motion_H027.self,
         "H029": Motion_H029.self,
         "H032": Motion_H032.self,
