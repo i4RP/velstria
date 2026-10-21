@@ -613,6 +613,164 @@ final class OnlineSessionTests: XCTestCase {
         XCTAssertFalse(p.client.room.isPicking)
     }
 
+    // MARK: ピックの手番・時計（v3）
+
+    func testPickTurnsFollowTheDraftOrderAndLockOnlyOnYourTurn() {
+        let p = makePair()
+        p.host.arrangeTeams(blue: ["host"], red: ["guest"])
+        let hostSeat = p.host.room.seatIndex(of: "host")
+        let guestSeat = p.host.room.seatIndex(of: "guest")
+        // 青1（ホスト）→ 赤1（参加者）。手番と時計は参加者にも届く
+        XCTAssertEqual(p.host.room.pickOrder, [hostSeat!, guestSeat!])
+        XCTAssertEqual(p.client.room.pickTurnSeat, hostSeat)
+        XCTAssertEqual(p.client.room.pickClock?.seat, hostSeat)
+        XCTAssertNotNil(p.client.pickDeadline)
+        // 手番の前に選ぶ（予約）ことはできるが、確定はできない
+        p.client.setLoadout(OnlineLoadout(heroID: "H002"))
+        p.client.setReady(true)
+        XCTAssertEqual(p.host.room.seat(of: "guest")?.loadout.heroID, "H002")
+        XCTAssertEqual(p.host.room.seat(of: "guest")?.ready, false)
+        // 予約は手番の人を邪魔しない。手番の人が同じヒーローで確定すると予約は外れる
+        p.host.setLoadout(OnlineLoadout(heroID: "H002"))
+        XCTAssertEqual(p.host.room.seat(of: "host")?.loadout.heroID, "H002")
+        p.host.setReady(true)
+        XCTAssertEqual(p.host.room.seat(of: "host")?.ready, true)
+        XCTAssertNil(p.client.room.seat(of: "guest")?.loadout.heroID)
+        XCTAssertEqual(p.client.room.pickTurnSeat, guestSeat)
+        // 確定した後は、ヒーローの変更も取り消しもできない
+        p.host.setLoadout(OnlineLoadout(heroID: "H003"))
+        p.host.setReady(false)
+        XCTAssertEqual(p.host.room.seat(of: "host")?.loadout.heroID, "H002")
+        XCTAssertEqual(p.host.room.seat(of: "host")?.ready, true)
+        // 確定済みのヒーローは選べない
+        p.client.setLoadout(OnlineLoadout(heroID: "H002"))
+        XCTAssertNil(p.host.room.seat(of: "guest")?.loadout.heroID)
+        p.client.setLoadout(OnlineLoadout(heroID: "H004"))
+        p.client.setReady(true)
+        // 全員が確定: 最終調整（時計は残るが手番の座席は無い）。スキンなどは変えられる
+        XCTAssertTrue(p.client.room.isAdjustingPicks)
+        XCTAssertNil(p.client.room.pickTurnSeat)
+        XCTAssertNotNil(p.client.room.pickClock)
+        XCTAssertNil(p.client.room.pickClock?.seat)
+        p.client.setLoadout(OnlineLoadout(heroID: "H004", spells: ["BS02", "BS03"]))
+        XCTAssertEqual(p.host.room.seat(of: "guest")?.loadout.spells.first, "BS02")
+        XCTAssertEqual(p.host.room.seat(of: "guest")?.ready, true)
+        XCTAssertTrue(p.host.room.canStart)
+    }
+
+    func testPickTimeoutLocksAHeroAndTheAdjustTimeoutStartsTheMatch() {
+        let p = makePair()
+        var clock = Date(timeIntervalSince1970: 1_000_000)
+        p.host.now = { clock }
+        p.host.arrangeTeams(blue: ["host"], red: ["guest"])
+        // 時間切れ: 選んでいたヒーローで確定する（締め切りの前は何もしない）
+        p.host.setLoadout(OnlineLoadout(heroID: "H001"))
+        clock += TimeInterval(FlowTiming.pickSeconds) - 1
+        p.host.checkPickClock()
+        XCTAssertEqual(p.host.room.seat(of: "host")?.ready, false)
+        clock += 2
+        p.host.checkPickClock()
+        XCTAssertEqual(p.host.room.seat(of: "host")?.ready, true)
+        XCTAssertEqual(p.host.room.seat(of: "host")?.loadout.heroID, "H001")
+        // 何も選ばずに時間切れ: 空いているヒーローを自動で確定する
+        clock += TimeInterval(FlowTiming.pickSeconds) + 1
+        p.host.checkPickClock()
+        let auto = p.client.room.seat(of: "guest")?.loadout.heroID
+        XCTAssertNotNil(auto)
+        XCTAssertNotEqual(auto, "H001")
+        XCTAssertEqual(p.client.room.seat(of: "guest")?.ready, true)
+        // 最終調整の時間切れ: 試合が始まる
+        var started = false
+        p.client.onMatchStart = { _, _ in started = true }
+        clock += TimeInterval(FlowTiming.adjustSeconds) + 1
+        p.host.checkPickClock()
+        XCTAssertEqual(p.host.room.phase, .loading)
+        XCTAssertTrue(started)
+        XCTAssertNil(p.host.room.pickClock, "試合が始まったら手番の時計は消える")
+    }
+
+    func testFreePickRoomsKeepTheOldReadyToggle() {
+        // パーティを経ない部屋（ピックの段階でない）は今までどおり: 誰でも選べて、準備完了を外せる
+        let p = makePair()
+        p.host.takeSeat(blueMid)
+        p.client.takeSeat(redMid)
+        p.client.setLoadout(OnlineLoadout(heroID: "H002"))
+        p.client.setReady(true)
+        XCTAssertEqual(p.host.room.seat(of: "guest")?.ready, true)
+        p.client.setReady(false)
+        XCTAssertEqual(p.host.room.seat(of: "guest")?.ready, false)
+        XCTAssertNil(p.host.room.pickClock)
+        XCTAssertNil(p.client.pickDeadline)
+    }
+
+    // MARK: 定型文のチャット・エモート（v3）
+
+    func testQuickChatAndEmotesReachOnlyTeammatesDuringThePick() {
+        let host = OnlineSession.host(peerID: "host", name: "Host", roomName: "Room")
+        var t: TimeInterval = 100
+        host.uptime = { t }
+        let (a, b) = LoopbackConnection.pair()
+        host.accept(a)
+        let ally = OnlineSession.join(peerID: "ally", name: "Ally", connection: b)
+        let (c, d) = LoopbackConnection.pair()
+        host.accept(c)
+        let enemy = OnlineSession.join(peerID: "enemy", name: "Enemy", connection: d)
+        host.arrangeTeams(blue: ["host", "ally"], red: ["enemy"])
+
+        ally.sendQuickChat(0)
+        XCTAssertEqual(host.chat.last?.text, QuickChat.text(0))
+        XCTAssertEqual(host.chat.last?.speaker, "Ally")
+        XCTAssertEqual(host.chat.last?.isMine, false)
+        XCTAssertEqual(ally.chat.last?.isMine, true)
+        XCTAssertTrue(enemy.chat.isEmpty, "ピックでは相手のチームに届かない")
+        // 連投は間引く・範囲外の番号は捨てる
+        ally.sendQuickChat(7)
+        XCTAssertEqual(host.chat.count, 1)
+        t += 2
+        ally.sendQuickChat(7)
+        XCTAssertEqual(host.chat.count, 2)
+        t += 2
+        enemy.sendQuickChat(QuickChat.phrases.count)
+        XCTAssertTrue(enemy.chat.isEmpty)
+
+        // エモート: エモートの ID だけ出す（ほかのコスメは捨てる）
+        guard let emote = MasterData.shared.cosmetics.first(where: { $0.type == .emote }),
+              let skin = MasterData.shared.cosmetics.first(where: { $0.type == .heroSkin }) else {
+            return XCTFail("エモートとスキンがマスターにある")
+        }
+        t += 2
+        enemy.sendEmote(skin.cosmeticID)
+        XCTAssertNil(enemy.emotes["enemy"])
+        t += 2
+        enemy.sendEmote(emote.cosmeticID)
+        XCTAssertEqual(enemy.emotes["enemy"], emote.cosmeticID)
+        XCTAssertNil(host.emotes["enemy"], "相手のチームのエモートは届かない")
+        XCTAssertNil(ally.emotes["enemy"])
+    }
+
+    func testPartyChatReachesEveryPlayerAndBlockedSendersAreHidden() {
+        let host = OnlineSession.host(peerID: "host", name: "Host", roomName: "Room", friendCode: "ABCD2345")
+        var t: TimeInterval = 100
+        host.uptime = { t }
+        let (a, b) = LoopbackConnection.pair()
+        host.accept(a)
+        let client = OnlineSession.join(peerID: "guest", name: "Guest", connection: b, friendCode: "WXYZ6789")
+        // パーティの段階（チーム分けの前）は選手全員に届く
+        host.sendQuickChat(0)
+        XCTAssertEqual(client.chat.last?.speaker, "Host")
+        XCTAssertEqual(host.chat.last?.isMine, true)
+        // 入った後にブロックした相手の発言は出さない（ホスト・参加者のどちらでも）。自分の発言は自分に出る
+        host.blockedFriendCodes = { ["WXYZ6789"] }
+        client.sendQuickChat(8)
+        XCTAssertEqual(host.chat.count, 1)
+        XCTAssertEqual(client.chat.last?.text, QuickChat.text(8))
+        client.blockedFriendCodes = { ["ABCD2345"] }
+        t += 2
+        host.sendQuickChat(7)
+        XCTAssertEqual(host.chat.last?.text, QuickChat.text(7))
+        XCTAssertEqual(client.chat.last?.text, QuickChat.text(8))
+    }
+
     // MARK: 安全（ガイドライン 1.2）
 
     func testHostCleansNamesFromHello() {
