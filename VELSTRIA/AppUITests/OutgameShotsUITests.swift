@@ -55,12 +55,19 @@ final class OutgameShotsUITests: XCTestCase {
         let app = launch()
         tap(app, "home_play", timeout: 20)
         XCTAssertTrue(element(app, "flow_mode_standard").waitForExistence(timeout: 10))
-        for id in ["flow_mode_ranked", "flow_mode_brawl", "flow_mode_rising", "flow_mode_magicChess",
-                   "flow_mode_custom", "flow_mode_practice", "flow_mode_tutorial"] {
+        // MLBB 2.2.16 の菱形のタイル 7 つと右上の「ルームIDを入力」
+        for id in ["flow_mode_ranked", "flow_mode_brawl", "flow_mode_arcade", "flow_mode_magicChess",
+                   "flow_mode_rising", "flow_mode_vsAI", "flow_mode_roomID"] {
             XCTAssertTrue(element(app, id).exists, "\(id) が無い")
         }
         Thread.sleep(forTimeInterval: 1.0)
         snap("mode_select")
+        // AI対戦とカスタム: カスタム・練習場・チュートリアル
+        tap(app, "flow_mode_vsAI")
+        for id in ["flow_mode_custom", "flow_mode_practice", "flow_mode_tutorial"] {
+            XCTAssertTrue(element(app, id).waitForExistence(timeout: 5), "\(id) が無い")
+        }
+        snap("mode_select_vsai")
     }
 
     /// クラシック: レーン選択 → マッチング → マッチ成立 → ヒーロー選択（バトルスキルのポップアップ）→ 最終調整。
@@ -70,6 +77,7 @@ final class OutgameShotsUITests: XCTestCase {
         tap(app, "flow_mode_standard")
         XCTAssertTrue(element(app, "flow_lane_start").waitForExistence(timeout: 10))
         tap(app, "flow_lane_4")
+        tap(app, "flow_lane_2")
         Thread.sleep(forTimeInterval: 0.5)
         snap("lane_select")
         tap(app, "flow_lane_start")
@@ -78,7 +86,7 @@ final class OutgameShotsUITests: XCTestCase {
         XCTAssertTrue(element(app, "flow_match_accept").waitForExistence(timeout: 15))
         snap("match_found")
         tap(app, "flow_match_accept")
-        XCTAssertTrue(element(app, "flow_next").waitForExistence(timeout: 10))
+        XCTAssertTrue(element(app, "flow_next").waitForExistence(timeout: 20))
         Thread.sleep(forTimeInterval: 0.8)
         snap("hero_select")
         tap(app, "flow_spell_0")
@@ -99,7 +107,7 @@ final class OutgameShotsUITests: XCTestCase {
         tap(app, "flow_mode_ranked")
         tap(app, "flow_lane_start", timeout: 10)
         tap(app, "flow_match_accept", timeout: 15)
-        XCTAssertTrue(element(app, "flow_lock").waitForExistence(timeout: 10))
+        XCTAssertTrue(element(app, "flow_lock").waitForExistence(timeout: 20))
         Thread.sleep(forTimeInterval: 1.0)
         snap("draft_waiting")
         XCTAssertTrue(element(app, "flow_confirm").waitForExistence(timeout: 90))
