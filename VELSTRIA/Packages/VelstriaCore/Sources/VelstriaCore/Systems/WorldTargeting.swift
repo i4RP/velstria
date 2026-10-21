@@ -128,6 +128,9 @@ enum WorldTargeting {
             guard team == .blue || team == .red, let td = s.units[i].tower else { continue }
             if s.units[i].kind == .core {
                 out[i] = !baseDown[team.rawValue]
+            } else if TowerSystem.isAsleep(s, index: i) {
+                // アウタータワーは最初のミニオンが出てから 15 秒は無敵（Balance.Tower.outerWakeDelay）
+                out[i] = true
             } else if let lane = td.lane {
                 var blocked = false
                 for tier in 0..<td.tier.rawValue where aliveTier[team.rawValue][lane.rawValue][tier] { blocked = true }

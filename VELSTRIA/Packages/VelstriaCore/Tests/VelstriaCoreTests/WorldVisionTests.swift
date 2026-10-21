@@ -26,8 +26,8 @@ final class WorldVisionTests: XCTestCase {
         XCTAssertTrue(s.vision.isLit(Vec2(600 + 1200, 600), for: .blue))
         XCTAssertFalse(s.vision.isLit(Vec2(600, 600), for: .red))
         XCTAssertTrue(s.vision.isLit(Vec2(11400, 11400), for: .red))
-        // タワー視界 1100
-        XCTAssertTrue(s.vision.isLit(Vec2(4656 + 1000, 4991), for: .blue))
+        // タワー視界 800（MLBB の 8 × 100）
+        XCTAssertTrue(s.vision.isLit(Vec2(4656 + 600, 4991), for: .blue))
         XCTAssertFalse(s.vision.isLit(Vec2(6000, 6000), for: .blue))
         XCTAssertFalse(s.vision.isLit(Vec2(6000, 6000), for: .red))
     }
@@ -173,7 +173,9 @@ final class WorldVisionTests: XCTestCase {
         s.units[sneak].pos = Vec2(4656 + 600, 4991)
         VisionSystem.update(&s, ctx)
         XCTAssertTrue(s.isVisible(sneak, to: .blue))
+        // 真視界の外（塔の視界 800 より外なので、偵察が照らす。偵察の看破 250 の外）
         s.units[sneak].pos = Vec2(4656 + 900, 4991)
+        s.units[scout].pos = Vec2(4656 + 300, 4991)
         VisionSystem.update(&s, ctx)
         XCTAssertTrue(s.vision.isLit(s.units[sneak].pos, for: .blue))
         XCTAssertFalse(s.isVisible(sneak, to: .blue))

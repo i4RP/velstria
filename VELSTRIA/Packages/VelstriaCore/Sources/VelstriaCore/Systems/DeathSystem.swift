@@ -89,6 +89,22 @@ public enum DeathSystem {
         return max(Balance.minBounty, b).rounded()
     }
 
+    /// チーム賞金（MLBB の Team Bounty）の 1 人あたりの Gold。倒した側のチームの Gold（獲得の合計）が倒された側より
+    /// 1500 以上少なく（2.2.16）、倒されたヒーローの Gold が倒した側の平均より多いとき、その差 × 25% を倒した側の全員で等分する。
+    /// 発動の条件（金差 1500）だけが公表値で、額の式は資料に無い仮の式（docs/TOWER_BASE_MLBB.md）。
+    public static func teamBounty(_ s: SimState, victimIndex v: Int, killerTeam: Team) -> Double {
+        typealias E = Balance.Economy
+        guard killerTeam != .neutral, s.units[v].team == killerTeam.opponent, let vh = s.units[v].hero else { return 0 }
+        let ours = EconomyRewards.teamGoldEarned(s, team: killerTeam)
+        let theirs = EconomyRewards.teamGoldEarned(s, team: killerTeam.opponent)
+        guard theirs - ours >= E.teamBountyDeficit else { return 0 }
+        let members = s.heroIndices(team: killerTeam).count
+        guard members > 0 else { return 0 }
+        let lead = Balance.startingGold + vh.score.goldEarned - ours / Double(members)
+        guard lead > 0 else { return 0 }
+        return (lead * E.teamBountyShare / Double(members)).rounded()
+    }
+
     /// アシスト 1 人あたりの Gold（バウンティの 50% を等分、最低 40）。
     public static func assistGold(bounty: Double, assisters n: Int) -> Double {
         guard n > 0 else { return 0 }
@@ -223,8 +239,15 @@ public enum DeathSystem {
                                          killerStreak: kh.killStreak, isShutdown: isShutdown)))
 
         // Gold
+        // チーム賞金（MLBB）: Gold で 1500 以上負けている側がリードしている敵を倒すと、全員に追加 Gold（式は仮。teamBounty）
+        let comeback = teamBounty(s, victimIndex: v, killerTeam: killerTeam)
         EconomyRewards.grantGold(&s, heroIndex: k, amount: base + (isFirstBlood ? Balance.firstBloodBonus : 0),
                                  at: victimPos)
+        if comeback > 0 {
+            for h in s.heroIndices(team: killerTeam) {
+                EconomyRewards.grantGold(&s, heroIndex: h, amount: comeback, at: victimPos)
+            }
+        }
         let perAssist = assistGold(bounty: base, assisters: assistIdx.count)
         for a in assistIdx {
             s.units[a].hero!.score.assists += 1
@@ -288,7 +311,7 @@ public enum DeathSystem {
             s.units[k].hero?.score.minionKills += 1
             // ロームの祝福は最初の 8 分、単独で倒すと 30%
             let mult = GearEffects.roamSoloRewardMultiplier(s, heroIndex: k, master: ctx.master)
-            let gold = Balance.Economy.minionGold(m.type, at: s.time) * mult * laneBonus(s, ctx, lane: m.lane).gold
+            let gold = Balance.Economy.minionGold(m.type, at: s.time) * mult * laneBonus(ctx, m).gold
             EconomyRewards.grantGold(&s, heroIndex: k, amount: gold, at: pos)
             // ロームの祝福（無私）: 近くのローム持ちが 30% を別に得る。デモンブーツ: MP 回復
             GearSystem.devotion(&s, ctx, earner: k, gold: gold, xp: 0)
@@ -296,14 +319,14 @@ public enum DeathSystem {
         }
         // XP は周囲の敵ヒーローで分配（止めを刺したのがミニオンでも入る）
         HeroGrowth.shareXP(&s, ctx, team: s.units[v].team.opponent, around: pos,
-                           amount: Balance.Economy.minionXP(m.type) * laneBonus(s, ctx, lane: m.lane).xp)
+                           amount: Balance.Economy.minionXP(m.type) * laneBonus(ctx, m).xp)
     }
 
-    /// 序盤の Gold/EXP レーン補正（Gold レーンのミニオンは Gold、EXP レーンのミニオンは XP が増える）。
-    static func laneBonus(_ s: SimState, _ ctx: SimContext, lane: Lane) -> (gold: Double, xp: Double) {
-        guard s.time < Balance.Economy.laneBonusEnd else { return (1, 1) }
-        if lane == ctx.map.goldLane { return (1 + Balance.Economy.goldLaneGoldBonus, 1) }
-        if lane == ctx.map.expLane { return (1, 1 + Balance.Economy.expLaneXPBonus) }
+    /// 序盤の Gold/EXP レーン補正: 最初の 10 ウェーブの攻城ミニオンだけ、Gold レーンでは Gold、EXP レーンでは XP が増える（MLBB）。
+    static func laneBonus(_ ctx: SimContext, _ m: MinionData) -> (gold: Double, xp: Double) {
+        guard m.type == .siege, m.wave < Balance.earlyWaveCount else { return (1, 1) }
+        if m.lane == ctx.map.goldLane { return (1 + Balance.Economy.goldLaneGoldBonus, 1) }
+        if m.lane == ctx.map.expLane { return (1, 1 + Balance.Economy.expLaneXPBonus) }
         return (1, 1)
     }
 
@@ -461,11 +484,22 @@ public enum DeathSystem {
 
         if let k = s.index(of: killerID), isHero(s, k), s.units[k].team == destroyer {
             s.units[k].hero?.score.towersDestroyed += 1
-            EconomyRewards.grantGold(&s, heroIndex: k, amount: Balance.towerLastHitGold, at: victim.pos)
         }
-        EconomyRewards.grantTeamGold(&s, team: destroyer, amount: Balance.towerTeamGold)
-
         let tier = victim.tower?.tier ?? .outer
+        // Gold（MLBB）: チーム全員にアウター 60・インナー 80・ベースタワー 100。近くにいたヒーローは 50 を分け合う
+        // （1 人なら 110 / 130 / 150）。ラストヒットのボーナスは無い
+        EconomyRewards.grantTeamGold(&s, team: destroyer, amount: Balance.Tower.teamGold(tier: tier))
+        let r2 = Balance.Tower.nearbyRadius * Balance.Tower.nearbyRadius
+        let nearby = s.heroIndices(team: destroyer).filter {
+            s.units[$0].isAlive && s.units[$0].hero?.isDead == false && s.units[$0].pos.distanceSquared(to: victim.pos) <= r2
+        }
+        for h in nearby {
+            EconomyRewards.grantGold(&s, heroIndex: h, amount: Balance.Tower.nearbyBonusGold / Double(nearby.count),
+                                     at: victim.pos)
+        }
+        // 次の塔の保護（インナーの被ダメ −50%・ベースタワーの聖なる防御）
+        TowerSystem.onTowerDestroyed(&s, victimIndex: v)
+
         s.emit(.announcement(.towerDestroyed(team: victim.team, lane: victim.tower?.lane, tier: tier)))
         if tier == .base, !coreExposed[victim.team.rawValue] {
             coreExposed[victim.team.rawValue] = true

@@ -5,16 +5,20 @@ import XCTest
 final class EconomyObjectiveTests: XCTestCase {
     private let spot = Vec2(6000, 6000)
 
+    /// MLBB: 塔を壊すとチーム全員にアウター 60・インナー 80・ベースタワー 100。近くにいたヒーローは 50 を分け合う
+    /// （1 人なら 110 / 130 / 150）。ラストヒットのボーナスは無い。
     func testTowerGoldForLastHitterAndTeam() {
         var f = EconomyFixture.standard()
+        f.parkHeroesAtFountains()
         let blue = f.heroes(.blue)
-        let a = blue[0]
+        let a = blue[0], b = blue[1]
         let t = f.tower(team: .red, lane: .mid, tier: .outer)
+        f.place(a, at: f.s.units[t].pos + Vec2(-300, -300))
         let golds = blue.map { f.hero($0).gold }
         let ev = f.kill(t, by: f.id(a))
-        XCTAssertEqual(f.hero(a).gold - golds[0], 270)
+        XCTAssertEqual(f.hero(a).gold - golds[0], 110)
         for (n, i) in blue.enumerated().dropFirst() {
-            XCTAssertEqual(f.hero(i).gold - golds[n], 120)
+            XCTAssertEqual(f.hero(i).gold - golds[n], 60)
         }
         XCTAssertEqual(f.hero(a).score.towersDestroyed, 1)
         XCTAssertEqual(f.s.teams[Team.blue.rawValue].towersDestroyed, 1)
@@ -22,16 +26,36 @@ final class EconomyObjectiveTests: XCTestCase {
         XCTAssertEqual(ev.announcements, [.towerDestroyed(team: .red, lane: .mid, tier: .outer)])
         XCTAssertTrue(ev.contains { if case .structureDestroyed(_, .tower, .red, .mid, .outer, _) = $0 { return true }
             return false })
+        // インナー: 近くの 2 人で 50 を分ける（80 + 25）
+        let inner = f.tower(team: .red, lane: .mid, tier: .inner)
+        f.place(a, at: f.s.units[inner].pos + Vec2(-300, -300))
+        f.place(b, at: f.s.units[inner].pos + Vec2(-400, -200))
+        let golds2 = blue.map { f.hero($0).gold }
+        f.kill(inner, by: nil)
+        XCTAssertEqual(f.hero(a).gold - golds2[0], 105)
+        XCTAssertEqual(f.hero(b).gold - golds2[1], 105)
+        XCTAssertEqual(f.hero(blue[2]).gold - golds2[2], 80)
+        // ベースタワー: 1 人なら 150
+        let base = f.tower(team: .red, lane: .mid, tier: .base)
+        f.place(b, at: f.ctx.map.fountain(.blue))
+        f.place(a, at: f.s.units[base].pos + Vec2(-300, -300))
+        let golds3 = blue.map { f.hero($0).gold }
+        f.kill(base, by: f.id(a))
+        XCTAssertEqual(f.hero(a).gold - golds3[0], 150)
+        XCTAssertEqual(f.hero(b).gold - golds3[1], 100)
+        XCTAssertEqual(f.hero(a).score.towersDestroyed, 2)
+        XCTAssertEqual(f.s.teams[Team.blue.rawValue].towersDestroyed, 3)
     }
 
     func testTowerKilledByMinionGivesTeamGoldOnly() {
         var f = EconomyFixture.standard()
+        f.parkHeroesAtFountains()
         let blue = f.heroes(.blue)
         let m = f.addMinion(.siege, team: .blue, at: spot)
         let t = f.tower(team: .red, lane: .top, tier: .outer)
         let golds = blue.map { f.hero($0).gold }
         f.kill(t, by: f.id(m))
-        for (n, i) in blue.enumerated() { XCTAssertEqual(f.hero(i).gold - golds[n], 120) }
+        for (n, i) in blue.enumerated() { XCTAssertEqual(f.hero(i).gold - golds[n], 60) }
         XCTAssertEqual(blue.reduce(0) { $0 + f.hero($1).score.towersDestroyed }, 0)
     }
 

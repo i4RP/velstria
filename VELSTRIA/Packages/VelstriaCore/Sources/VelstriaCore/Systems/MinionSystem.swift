@@ -113,11 +113,10 @@ public enum MinionSystem {
         if case .follow = s.units[i].moveIntent { s.units[i].moveIntent = .none }
     }
 
-    /// ミニオンが攻撃しうる種別か（中立モンスターは無視）。
+    /// ミニオンが攻撃しうる種別か（中立モンスターは無視。召喚されたロード = チームに付いたモンスターは狙う）。
     static func isAttackableKind(_ kind: UnitKind, team: Team) -> Bool {
         switch kind {
-        case .minion, .hero, .tower, .core, .dummy: return team != .neutral
-        case .monster: return false
+        case .minion, .hero, .tower, .core, .dummy, .monster: return team != .neutral
         }
     }
 
@@ -145,7 +144,8 @@ public enum MinionSystem {
             guard d <= r * r, c.isVisible(to: team) else { return }
             let tier: Int
             switch c.kind {
-            case .hero: tier = 0
+            // 召喚されたロードは MLBB では味方ヒーロー扱い
+            case .hero, .monster: tier = 0
             case .minion: tier = 1
             default: tier = 2
             }

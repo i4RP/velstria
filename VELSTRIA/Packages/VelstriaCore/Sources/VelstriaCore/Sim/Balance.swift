@@ -20,11 +20,15 @@ public enum Balance {
     public static let surrenderUnlockTime: Double = 8 * 60
     public static let surrenderCooldown: Double = 60
 
-    // MARK: ミニオン
-    public static let firstWaveTime: Double = 20
+    // MARK: ミニオン（MLBB: 0:11 に初回、以後 30 秒毎。構成は SpawnSystem.waveComposition）
+    /// MLBB の試合の時計で毎分 :11 と :41（2026-10-10 の実機のスクリーンショット。キャンプ 0:25・亀 2:00 と同じ時計）。
+    public static let firstWaveTime: Double = 11
     public static let waveInterval: Double = 30
-    public static let siegeEveryNWaves = 3
-    public static let extraMeleeAfter: Double = 10 * 60
+    /// 序盤のウェーブ数（0:11〜4:41 の 10 波）。この間は中央レーンが 近接 1 + 遠隔 3 になり、
+    /// 側レーンの攻城ミニオンに Gold/EXP レーンの補正が付く（MLBB の「最初の 10 ウェーブ（5:10）」）。
+    public static let earlyWaveCount = 10
+    /// 出た時刻の HP・攻撃の伸び（×(1 + 0.03 × 分)）。MLBB の 5v5 にも伸びはある（1.5.78「近接・遠隔ミニオンの HP の伸びを増やした」）が、
+    /// 値は資料に無いので Velstria の旧来の値のまま（docs/TOWER_BASE_MLBB.md）。
     public static let minionScalingPerMinute: Double = 0.03
 
     // MARK: ヒーロー
@@ -101,24 +105,24 @@ public enum Balance {
     public static let minBounty: Double = 100
     public static let assistBountyShare: Double = 0.5
     public static let minAssistGold: Double = 40
-    public static let towerLastHitGold: Double = 150
-    public static let towerTeamGold: Double = 120
     public static let itemSlots = 6
     public static let sellRatio: Double = 0.6
     /// 合成の最低支払い（価格に対する割合）。MLBB は素材の合計を引いた差額だけを払うので 0。
     public static let minCombineCostRatio: Double = 0
 
     // MARK: リスポーン・帰還・泉
-    public static let respawnBase: Double = 4
-    public static let respawnPerLevel: Double = 2
-    public static let respawnLateGameTime: Double = 12 * 60
-    public static let respawnLateGameMultiplier: Double = 1.25
-    public static let respawnMax: Double = 40
+    /// 復活までの秒数 = 3.2 + 2.1 × Lv + 試合時間（分）（MLBB 1.4.86 の式。最後に公開された式）。上限 90 秒。
+    /// 18:00 から大きく伸びる（MLBB の試合の区切り。量は資料に無い → 18:00 からは「試合時間（分）」の項を 2 倍にした。RespawnSystem）。
+    public static let respawnBase: Double = 3.2
+    public static let respawnPerLevel: Double = 2.1
+    public static let respawnPerMinute: Double = 1
+    public static let respawnLateGameTime: Double = 18 * 60
+    public static let respawnLateGamePerMinute: Double = 2
+    public static let respawnMax: Double = 90
     public static let recallChannel: Double = 6
     public static let empoweredRecallChannel: Double = 2
     public static let fountainRadius: Double = 800
     public static let fountainHealPct: Double = 0.10
-    public static let fountainDamagePerSecond: Double = 1000
 
     // MARK: 視界
     public static let visionCellSize: Double = 200
@@ -132,16 +136,7 @@ public enum Balance {
     public static let stealthRevealRadius: Double = 250
     public static let towerTrueSightRadius: Double = 750
 
-    // MARK: 構造物
-    /// 外塔のエネルギーシールド（参照仕様 §5.4）: 開始時に付き、5:00 で消える。シールドがある間は被ダメ −30%（遠近とも）。
-    /// シールドに与えたダメージ 10 につき 0.8 Gold を攻撃したヒーローが得る（参照 §3.1）。
-    public static let outerTowerShield: Double = 5000
-    public static let outerTowerShieldDuration: Double = 5 * 60
-    public static let outerTowerShieldReduction: Double = 0.30
-    public static let outerTowerShieldGoldPer10: Double = 0.8
-    public static let backdoorReduction: Double = 0.50
-    public static let towerRampPerHit: Double = 0.30
-    public static let towerRampMax: Double = 1.20
+    // MARK: 構造物（塔とベースの数値は Balance.Tower。TowerBalance.swift）
     public static let leashRadius: Double = 900
     /// バフ番人の多人数軽減: 近くのヒーロー（敵味方を問わない）1 人につき被ダメ −15%、最大 −60%（参照仕様 §3.3）。
     public static let sentinelGangRadius: Double = 900
@@ -149,6 +144,4 @@ public enum Balance {
     public static let sentinelGangMaxReduction: Double = 0.60
     /// 序盤ボスはこの試合時間（秒）以降に倒されると再出現しない（参照仕様 §5.1）。
     public static let wyrmNoRespawnAfter: Double = 6 * 60
-    /// タワー・Core の最大 HP 倍率（AI 対戦の試合時間を 10〜18 分へ寄せる調整値。DESIGN §4 の表に掛ける）。
-    public static let structureHPScale: Double = 0.65
 }

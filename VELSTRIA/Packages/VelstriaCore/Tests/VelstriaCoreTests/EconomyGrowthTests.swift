@@ -50,7 +50,7 @@ final class EconomyGrowthTests: XCTestCase {
         let killer = f.addMinion(.melee, team: .blue, at: spot)
         let m = f.addMinion(.ranged, team: .red, at: spot + Vec2(100, 0))
         f.kill(m, by: f.id(killer))
-        XCTAssertEqual(f.hero(a).xp, 32, accuracy: 1e-9)
+        XCTAssertEqual(f.hero(a).xp, Balance.Economy.minionXP(.ranged), accuracy: 1e-9)
         XCTAssertEqual(f.hero(a).gold, gold0)
         XCTAssertEqual(f.hero(a).score.minionKills, 0)
     }

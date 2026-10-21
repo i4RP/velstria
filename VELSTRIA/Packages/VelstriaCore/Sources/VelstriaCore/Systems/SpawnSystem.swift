@@ -70,14 +70,33 @@ public enum SpawnSystem {
 
     // MARK: - ミニオン
 
-    /// このウェーブの構成（前列から順: 近接 → 攻城 → 遠隔）。DESIGN §3。
-    public static func waveComposition(waveIndex: Int, time: Double) -> [MinionType] {
-        var melee = 3
-        if time + timeEpsilon >= Balance.extraMeleeAfter { melee += 1 }
-        var types = [MinionType](repeating: .melee, count: melee)
-        if (waveIndex + 1) % Balance.siegeEveryNWaves == 0 { types.append(.siege) }
-        types += [MinionType](repeating: .ranged, count: 3)
-        return types
+    /// このウェーブの構成（前列から順: 近接 → 遠隔 → 攻城）。DESIGN §3。
+    /// MLBB: 側レーンは毎ウェーブ 近接・遠隔・攻城を 1 体ずつ。中央レーンは最初の 10 ウェーブが 近接 1 + 遠隔 3 で、以後は側レーンと同じ
+    /// （2026-10-10 の実機のスクリーンショット。中央 11 波目以降の遠隔の数は未確認）。
+    public static func waveComposition(waveIndex: Int, lane: Lane) -> [MinionType] {
+        if lane == .mid && waveIndex < Balance.earlyWaveCount { return [.melee, .ranged, .ranged, .ranged] }
+        return [.melee, .ranged, .siege]
+    }
+
+    /// team のミニオンが lane で精鋭兵（スーパーミニオン）になるか（そのレーンの相手のベースタワーが壊れている）。
+    static func spawnsSuperMinions(_ s: SimState, team: Team, lane: Lane) -> Bool {
+        s.units.contains {
+            $0.kind == .tower && $0.team == team.opponent && !$0.isAlive && $0.tower?.lane == lane && $0.tower?.tier == .base
+        }
+    }
+
+    /// standard の地図（ミニオンの速さ・出る位置を測った地図）に対するレーンの長さの比。
+    /// ほかの地図では速さと出る位置にこれを掛けて、ウェーブが MLBB と同じ時刻に出会うようにする（canyon は中央 0.72・側 0.74 前後）。
+    public static func minionLaneScale(_ map: MapDefinition, _ lane: Lane) -> Double {
+        let standard = laneLength(MapDefinition.standard.lanePaths[lane.rawValue])
+        let here = laneLength(map.lanePaths[lane.rawValue])
+        return standard > 1 && here > 1 ? here / standard : 1
+    }
+
+    static func laneLength(_ path: [Vec2]) -> Double {
+        var total = 0.0
+        for k in path.indices.dropFirst() { total += path[k - 1].distance(to: path[k]) }
+        return total
     }
 
     static func updateWaves(_ s: inout SimState, _ ctx: SimContext) {
@@ -90,18 +109,22 @@ public enum SpawnSystem {
     }
 
     static func spawnWave(_ s: inout SimState, _ ctx: SimContext) {
-        let types = waveComposition(waveIndex: s.world.waveIndex, time: s.time)
+        let wave = s.world.waveIndex
         for team in Team.players {
             for lane in ctx.map.lanes {
+                let types = waveComposition(waveIndex: wave, lane: lane)
+                let isSuper = spawnsSuperMinions(s, team: team, lane: lane)
+                let scale = minionLaneScale(ctx.map, lane)
                 let path = ctx.map.lanePath(lane, for: team)
                 let start = path[0]
                 let dir = (path[1] - path[0]).normalized
                 for (k, type) in types.enumerated() {
                     // 前列（近接）ほど Core から遠い。左右に少しずらして縦列の重なりを減らす
-                    let along = Balance.minionSpawnDistance - Double(k) * Balance.minionSpawnSpacing
+                    let along = (Balance.minionSpawnDistance - Double(k) * Balance.minionSpawnSpacing) * scale
                     let side = Double((k % 2) * 2 - 1) * 30
                     let pos = ctx.nav.nearestWalkable(start + dir * along + dir.perpendicular * side, radius: 50)
-                    var u = UnitFactory.makeMinion(type: type, team: team, lane: lane, pos: pos, time: s.time)
+                    var u = UnitFactory.makeMinion(type: type, team: team, lane: lane, pos: pos, time: s.time,
+                                                   wave: wave, isSuper: isSuper, laneScale: scale)
                     u.facing = dir.angle
                     s.addUnit(u)
                 }
@@ -315,53 +338,65 @@ public enum UnitFactory {
         return u
     }
 
+    /// 塔とベース（MLBB 2.2.16 の値。Balance.Tower）。
     public static func makeStructure(_ spot: TowerSpot, mapSize: Double = Balance.mapSize) -> Unit {
+        typealias T = Balance.Tower
         var st = Stats()
-        if spot.isCore {
-            st.maxHP = 7000; st.attack = 360; st.armor = 110; st.magicResist = 110; st.attackRange = Balance.coreRange
-        } else {
-            switch spot.tier {
-            case .outer: st.maxHP = 4200; st.attack = 260; st.armor = 80; st.magicResist = 80
-            case .inner: st.maxHP = 4600; st.attack = 290; st.armor = 90; st.magicResist = 90
-            case .base: st.maxHP = 5000; st.attack = 320; st.armor = 100; st.magicResist = 100
-            }
-            st.attackRange = Balance.towerRange
-        }
-        st.maxHP *= Balance.structureHPScale
-        st.attackSpeed = 1
+        st.maxHP = T.maxHP(tier: spot.tier, isCore: spot.isCore)
+        st.attack = T.attack(tier: spot.tier, isCore: spot.isCore)
+        st.armor = T.defense(tier: spot.tier, isCore: spot.isCore)
+        st.magicResist = st.armor
+        st.attackRange = spot.isCore ? Balance.coreRange : Balance.towerRange
+        st.attackSpeed = T.attacksPerSecond
         st.sightRange = Balance.towerSight
         var u = Unit(id: 0, kind: spot.isCore ? .core : .tower, team: spot.team, pos: spot.pos,
                      radius: spot.isCore ? Balance.coreRadius : Balance.towerRadius, stats: st)
         u.facing = (Vec2(mapSize / 2, mapSize / 2) - spot.pos).angle
         u.tower = TowerData(lane: spot.lane, tier: spot.tier)
-        // 外塔にはエネルギーシールド（開始〜5:00）。参照仕様 §5.4
+        // アウタータワーにはエネルギーシールド（開始〜5:00）
         if !spot.isCore, spot.tier == .outer {
-            u.shields.append(Shield(amount: Balance.outerTowerShield, duration: Balance.outerTowerShieldDuration,
-                                    tag: TowerSystem.shieldTag))
+            u.shields.append(Shield(amount: T.shieldAmount, duration: T.shieldDuration, tag: TowerSystem.shieldTag))
         }
         return u
     }
 
-    public static func makeMinion(type: MinionType, team: Team, lane: Lane, pos: Vec2, time: Double) -> Unit {
+    /// laneScale = レーンの長さの比（SpawnSystem.minionLaneScale。速さに掛ける）。
+    public static func makeMinion(type: MinionType, team: Team, lane: Lane, pos: Vec2, time: Double,
+                                  wave: Int = 0, isSuper: Bool = false, laneScale: Double = 1) -> Unit {
         let scale = 1 + Balance.minionScalingPerMinute * (time / 60)
         var st = Stats()
-        let radius: Double
+        var radius: Double
         switch type {
         case .melee:
-            st.maxHP = 520; st.attack = 22; st.attackRange = 120; st.attackSpeed = 1 / 1.2; st.moveSpeed = 240; radius = 36
+            st.maxHP = 520; st.attack = 22; st.attackRange = 120; st.attackSpeed = 1 / 1.2; radius = 36
         case .ranged:
-            st.maxHP = 330; st.attack = 32; st.attackRange = 500; st.attackSpeed = 1 / 1.5; st.moveSpeed = 240; radius = 32
+            st.maxHP = 330; st.attack = 32; st.attackRange = 500; st.attackSpeed = 1 / 1.5; radius = 32
         case .siege:
-            st.maxHP = 950; st.attack = 55; st.attackRange = 550; st.attackSpeed = 1 / 2.0; st.moveSpeed = 230; radius = 48
+            st.maxHP = 950; st.attack = 55; st.attackRange = 550; st.attackSpeed = 1 / 2.0; radius = 48
             st.armor = 40; st.magicResist = 40
         }
-        if lane != .mid { st.moveSpeed *= Balance.sideLaneMinionSpeedMultiplier }
+        st.moveSpeed = minionMoveSpeed(lane: lane, time: time) * laneScale
         st.maxHP *= scale
         st.attack *= scale
+        if isSuper {
+            st.maxHP *= Balance.superMinionHPMultiplier
+            st.attack *= Balance.superMinionAttackMultiplier
+            st.armor += Balance.superMinionDefenseBonus
+            st.magicResist += Balance.superMinionDefenseBonus
+            radius *= Balance.superMinionRadiusMultiplier
+        }
         st.sightRange = Balance.minionSight
         var u = Unit(id: 0, kind: .minion, team: team, pos: pos, radius: radius, stats: st)
-        u.minion = MinionData(type: type, lane: lane, spawnTime: time)
+        u.minion = MinionData(type: type, lane: lane, spawnTime: time, wave: wave, isSuper: isSuper)
         return u
+    }
+
+    /// 出現時刻 time のミニオンの移動速度（standard の地図の値。側レーンは遅い。12:00 から伸びる）。
+    public static func minionMoveSpeed(lane: Lane, time: Double) -> Double {
+        let laneFactor = lane == .mid ? 1 : Balance.sideLaneMinionSpeedMultiplier
+        let growth = min(Balance.minionSpeedGrowthMax,
+                         max(0, time - Balance.minionSpeedGrowthStart) / 60 * Balance.minionSpeedGrowthPerMinute)
+        return Balance.minionMoveSpeed * laneFactor + growth
     }
 
     /// 中立モンスターの基礎値。

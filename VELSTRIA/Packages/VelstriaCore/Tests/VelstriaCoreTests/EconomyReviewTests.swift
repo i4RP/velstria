@@ -218,7 +218,8 @@ final class EconomyReviewTests: XCTestCase {
         let t = f.tower(team: .red, lane: .bot, tier: .outer)
         let golds = blue.map { f.hero($0).gold }
         f.kill(t, by: bogusID)
-        for (n, i) in blue.enumerated() { XCTAssertEqual(f.hero(i).gold - golds[n], 120) }
+        // MLBB: アウターはチーム全員に 60（近くに居ないのでおまけの 50 は無い）
+        for (n, i) in blue.enumerated() { XCTAssertEqual(f.hero(i).gold - golds[n], 60) }
         f.kill(f.addMonster(.campLarge, at: Vec2(6000, 6000)), by: bogusID)
     }
 

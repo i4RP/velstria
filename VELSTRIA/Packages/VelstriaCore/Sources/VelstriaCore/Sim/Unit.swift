@@ -168,13 +168,23 @@ public struct MinionData: Codable, Hashable, Sendable {
     public var waypointIndex: Int
     public var empowered: Bool
     public var spawnTime: Double
+    /// 何番目のウェーブで出たか（0 始まり。nil は 0 扱い）。最初の 10 ウェーブの攻城は Gold/EXP レーンの補正が付く。
+    public var waveIndex: Int?
+    /// 精鋭兵（スーパーミニオン。相手のベースタワーが壊れたレーンに出る）か。nil は false 扱い。
+    public var superMinion: Bool?
 
-    public init(type: MinionType, lane: Lane, waypointIndex: Int = 1, empowered: Bool = false, spawnTime: Double) {
+    public var wave: Int { waveIndex ?? 0 }
+    public var isSuper: Bool { superMinion ?? false }
+
+    public init(type: MinionType, lane: Lane, waypointIndex: Int = 1, empowered: Bool = false, spawnTime: Double,
+                wave: Int = 0, isSuper: Bool = false) {
         self.type = type
         self.lane = lane
         self.waypointIndex = waypointIndex
         self.empowered = empowered
         self.spawnTime = spawnTime
+        self.waveIndex = wave
+        self.superMinion = isSuper ? true : nil
     }
 }
 
@@ -185,6 +195,16 @@ public struct TowerData: Codable, Hashable, Sendable {
     /// 連続命中ボーナスの対象。
     public var rampTargetID: EntityID?
     public var rampHits: Int = 0
+    /// 連続命中の最後の命中時刻（2 秒当てなければ戻る）。
+    public var rampLastAt: Double?
+    /// インナーの保護（同じレーンのアウターが 8:00 までに壊れた）が切れる時刻。
+    public var guardUntil: Double?
+    /// ベースタワーの聖なる防御が待機中か（同じレーンのインナーが 12:00 までに壊れた。発動すると nil）。
+    public var holyDefenseArmed: Bool?
+    /// ベースの次の回復の時刻。
+    public var regenAt: Double?
+    /// エネルギーシールドを削ったヒーローへ払った Gold の合計（1 本 360 まで）。
+    public var shieldGoldPaid: Double?
 
     public init(lane: Lane?, tier: TowerTier) {
         self.lane = lane

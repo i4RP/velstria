@@ -652,6 +652,9 @@ final class Kit_H031Tests: XCTestCase {
     /// エリアの 2 回目以降で掛け直さない。タワーへのダメージは無く、味方のタワーは凍らない。他の弱体はこれまでどおり構造物に付かない。
     func testFrozenAreaFreezesAnEnemyTurretSoItStopsAttackingWithoutDamage() throws {
         var w = SkillWorld()
+        // アウタータワーは最初のミニオンから 15 秒（0:26）まで無敵で、凍結も付かない（Balance.Tower.outerWakeTime）
+        w.s.tick = 900
+        w.s.time = 30
         let k = addOria(&w)
         let tower = w.addTower(team: .red, at: skillArena + Vec2(450, 0))
         let ally = w.addTower(team: .blue, at: skillArena + Vec2(400, 150))
@@ -690,6 +693,8 @@ final class Kit_H031Tests: XCTestCase {
     /// タワーの半径 110 を足して見る）。
     func testOnlyTurretsInsideTheFrozenAreaFreeze() {
         var w = SkillWorld()
+        w.s.tick = 900   // 0:26 まではアウタータワーが無敵
+        w.s.time = 30
         let k = addOria(&w)
         let near = w.addTower(team: .red, at: skillArena + Vec2(150, 0))
         let beyond = w.addTower(team: .red, at: skillArena + Vec2(750, 0))
@@ -702,6 +707,8 @@ final class Kit_H031Tests: XCTestCase {
         XCTAssertEqual(w.damage(to: near), 0)
 
         var v = SkillWorld()
+        v.s.tick = 900
+        v.s.time = 30
         let k2 = addOria(&v)
         let inArea = v.addTower(team: .red, at: skillArena + Vec2(500, 0))
         XCTAssertTrue(v.cast(k2, .skill2, .direction(Self.east)))
@@ -715,6 +722,8 @@ final class Kit_H031Tests: XCTestCase {
     /// 氷河の砕けもタワーを凍らせる（発動時の魔力の秒数）。無敵の構造物（前段が残る内側のタワー）は凍らない。ダメージは無い。
     func testGlacierShatterFreezesEnemyTurretsButNotInvulnerableOnes() throws {
         var w = SkillWorld()
+        w.s.tick = 900   // 0:26 まではアウタータワーが無敵
+        w.s.time = 30
         let k = addOria(&w)
         let outer = w.addTower(team: .red, at: skillArena + Vec2(600, 0))
         let innerUnit = UnitFactory.makeStructure(TowerSpot(team: .red, lane: .mid, tier: .inner,

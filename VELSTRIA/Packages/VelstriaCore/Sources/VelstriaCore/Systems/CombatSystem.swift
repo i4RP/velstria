@@ -112,6 +112,11 @@ public enum CombatSystem {
         amount *= mitigationMultiplier(type, armor: armor, magicResist: resist)
         // 5. 被ダメ軽減（防御の後の最終ダメージを割合で減らす。上限なし、確定ダメージには効かない。MLBB の用語注釈「ダメージ軽減」）
         if !environmental, type != .trueDamage { amount *= damageReductionMultiplier(s.units[t].stats.damageReduction) }
+        // アウタータワーのエネルギーシールドがある間、近くの味方ヒーローは被ダメ −15%（MLBB 1.5.38。確定ダメージには効かない）
+        if !environmental, type != .trueDamage, s.units[t].kind == .hero, s.time < Balance.Tower.shieldDuration,
+           TowerSystem.shieldGuardsHero(s, heroIndex: t) {
+            amount *= 1 - Balance.Tower.shieldAllyReduction
+        }
         guard amount > 0, amount.isFinite else { return 0 }
         // （ミニオンへのスキルダメージの全体の倍率 × 0.2 は 2026-10-14 に外した。MLBB はスキルごとの「ミニオンには ○%」だけ:
         //  HitPayload.minionMultiplier）
@@ -124,6 +129,11 @@ public enum CombatSystem {
         if s.units[t].hero?.kit != nil {
             amount = PassiveHooks.modifyIncomingDamage(&s, ctx, victim: t, attacker: a, source: source, amount: amount)
             guard amount > 0, amount.isFinite else { return 0 }
+        }
+
+        // ミニオンがアウタータワーのエネルギーシールドに与えるダメージは 1 発 75 で固定（MLBB 1.5.16）
+        if let a, s.units[a].kind == .minion, s.units[t].kind == .tower, TowerSystem.hasTurretShield(s.units[t]) {
+            amount = Balance.Tower.shieldMinionDamage
         }
 
         // 6. シールド（残り時間の短いものから。同じなら量の少ないもの → 古いもの）→ HP
@@ -141,11 +151,14 @@ public enum CombatSystem {
             }
             s.units[t].shields.removeAll { $0.amount <= deathEpsilon }
         }
-        // 外塔のシールドを削ったヒーローは、削ったダメージ 10 につき 0.8 Gold を得る（参照仕様 §3.1）
+        // アウタータワーのシールドを削ったヒーローは、削ったダメージ 10 につき 1 Gold（1 本 360 Gold まで。Balance.Tower）
         if turretShieldAbsorbed > 0, let a, s.units[a].kind == .hero, s.units[a].team != s.units[t].team {
-            EconomyRewards.grantGold(&s, heroIndex: a,
-                                     amount: turretShieldAbsorbed / 10 * Balance.outerTowerShieldGoldPer10,
-                                     at: s.units[t].pos, visible: false)
+            let paid = s.units[t].tower?.shieldGoldPaid ?? 0
+            let gold = min(turretShieldAbsorbed / 10 * Balance.Tower.shieldGoldPer10, max(0, Balance.Tower.shieldGoldCap - paid))
+            if gold > 0 {
+                s.units[t].tower?.shieldGoldPaid = paid + gold
+                EconomyRewards.grantGold(&s, heroIndex: a, amount: gold, at: s.units[t].pos, visible: false)
+            }
         }
         let hpBefore = max(0, s.units[t].hp)
         let hpLoss = min(hpBefore, remaining)
@@ -769,7 +782,9 @@ public enum CombatSystem {
             // MLBB: 元 × (200% + クリティカルダメージ増加 − 減少)。対象のクリティカルダメージ軽減（ブレイドアーマー）を引く
             let multiplier = isCrit ? critMultiplier(attacker: s.units[i].stats, target: s.units[t].stats) : 1
             if isCrit { ItemEffects.onCrit(&s, ctx, attacker: i) }
-            payload = HitPayload(damage: s.units[i].stats.attack * multiplier, damageType: .physical,
+            // 塔・ベースへの通常攻撃は 物攻 100% + 魔攻 100%（MLBB 1.8.08）
+            let towerMagic = s.units[t].isStructure ? s.units[i].stats.abilityPower * Balance.Tower.heroMagicPowerRatio : 0
+            payload = HitPayload(damage: s.units[i].stats.attack * multiplier + towerMagic, damageType: .physical,
                                  source: .basicAttack, isCrit: isCrit, appliesOnHit: true)
             // 強化攻撃: 追加ダメージ（自身の種別）と CC を別インスタンスで与えて消費
             if let emp = s.units[i].hero?.empoweredAttack {
@@ -780,9 +795,8 @@ public enum CombatSystem {
             }
         case .tower, .core:
             let damage = TowerSystem.attackDamage(&s, ctx, towerIndex: i, targetIndex: t)
-            // 対ミニオンは最大 HP 割合（DESIGN §4）をそのまま削るため確定ダメージ
-            let type: DamageType = s.units[t].kind == .minion ? .trueDamage : .physical
-            payload = HitPayload(damage: damage, damageType: type, source: .tower)
+            // MLBB: 塔・ベースの攻撃は確定ダメージ（軽減できない）。対ミニオンは最大 HP 割合をそのまま削る
+            payload = HitPayload(damage: damage, damageType: .trueDamage, source: .tower)
         case .minion:
             payload = HitPayload(damage: s.units[i].stats.attack, damageType: .physical, source: .minion)
         case .monster:
@@ -990,6 +1004,7 @@ public enum CombatSystem {
         if s.units[t].kind == .monster { bonus += st.monsterDamageBonus }
         var damage = st.attack * max(0, 1 + bonus)
         if s.units[t].isStructure {
+            if s.units[i].kind == .hero { damage += st.abilityPower * Balance.Tower.heroMagicPowerRatio * max(0, 1 + bonus) }
             damage *= max(0, TowerSystem.damageTakenMultiplier(s, ctx, structureIndex: t, sourceIndex: i))
         }
         damage *= mitigationMultiplier(.physical, armor: s.units[t].stats.armor, magicResist: 0)

@@ -230,7 +230,7 @@ final class GearTests: XCTestCase {
             let m = f.addMinion(.melee, team: .red, at: spot)
             let gold = f.hero(a).gold, xa = f.hero(a).xp, xm = f.hero(mate).xp
             f.kill(m, by: f.id(a))
-            let bonus = DeathSystem.laneBonus(f.s, f.ctx, lane: .mid)
+            let bonus = DeathSystem.laneBonus(f.ctx, MinionData(type: .melee, lane: .mid, spawnTime: 0))
             let xp = Balance.Economy.minionXP(.melee) * bonus.xp
             // 止めの Gold は分け前ではないので入る
             XCTAssertEqual(f.hero(a).gold - gold, Balance.Economy.minionGold(.melee, at: f.s.time) * bonus.gold,
@@ -385,7 +385,7 @@ final class GearTests: XCTestCase {
         let ga = f.hero(a).gold, gb = f.hero(b).gold
         let xa = f.hero(a).xp, xb = f.hero(b).xp
         f.kill(f.addMinion(.melee, team: .red, at: spot + Vec2(700, 0)), by: f.id(b))
-        let bonus = DeathSystem.laneBonus(f.s, f.ctx, lane: .mid)
+        let bonus = DeathSystem.laneBonus(f.ctx, MinionData(type: .melee, lane: .mid, spawnTime: 0))
         let earned = Balance.Economy.minionGold(.melee, at: f.s.time) * bonus.gold
         XCTAssertEqual(f.hero(b).gold - gb, earned, accuracy: 1e-9, "味方の取り分は減らない")
         XCTAssertEqual(f.hero(a).gold - ga, earned * 0.3, accuracy: 1e-9)
@@ -449,7 +449,7 @@ final class GearTests: XCTestCase {
             var gold = f.hero(a).gold
             let xp = f.hero(a).xp
             f.kill(f.addMinion(.melee, team: .red, at: spot), by: f.id(a))
-            let bonus = DeathSystem.laneBonus(f.s, f.ctx, lane: .mid)
+            let bonus = DeathSystem.laneBonus(f.ctx, MinionData(type: .melee, lane: .mid, spawnTime: 0))
             XCTAssertEqual(f.hero(a).gold - gold, Balance.Economy.minionGold(.melee, at: f.s.time) * bonus.gold * factor,
                            accuracy: 1e-9, "t=\(time)")
             XCTAssertEqual(f.hero(a).xp - xp, Balance.Economy.minionXP(.melee) * bonus.xp * factor, accuracy: 1e-9, "t=\(time)")
@@ -464,7 +464,7 @@ final class GearTests: XCTestCase {
         let gold = f.hero(a).gold
         f.kill(f.addMinion(.melee, team: .red, at: spot), by: f.id(a))
         XCTAssertEqual(f.hero(a).gold - gold,
-                       Balance.Economy.minionGold(.melee, at: f.s.time) * DeathSystem.laneBonus(f.s, f.ctx, lane: .mid).gold,
+                       Balance.Economy.minionGold(.melee, at: f.s.time) * DeathSystem.laneBonus(f.ctx, MinionData(type: .melee, lane: .mid, spawnTime: 0)).gold,
                        accuracy: 1e-9)
     }
 
