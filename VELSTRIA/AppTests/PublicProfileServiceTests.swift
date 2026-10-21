@@ -162,6 +162,30 @@ final class PublicProfileServiceTests: XCTestCase {
         XCTAssertEqual(p.mail.first { $0.opsID == "ops_c" }?.category, .important)
     }
 
+    /// メールのタブ（端末のメールは添付があればギフト、無ければシステム）・重要な未読を先に・残り時間の「59d 9h」。
+    func testMailTabsSortingAndRemainingTime() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        var gift = MailItem(date: now, title: "g", body: "", attachments: [MailAttachment(kind: .coin, amount: 1)])
+        gift.expiresAt = now.addingTimeInterval(59 * 86_400 + 9 * 3600 + 120)
+        let system = MailItem(date: now.addingTimeInterval(10), title: "s", body: "")
+        var important = MailItem(date: now.addingTimeInterval(-100), title: "i", body: "")
+        important.important = true
+        var report = MailItem(date: now, title: "r", body: "")
+        report.category = .report
+        XCTAssertEqual(MailBox.category(gift), .gift)
+        XCTAssertEqual(MailBox.category(system), .system)
+        XCTAssertEqual(MailBox.category(important), .important)
+        XCTAssertEqual(MailBox.category(report), .report)
+        XCTAssertEqual(MailBox.sorted([system, important]).map(\.title), ["i", "s"], "重要な未読が先")
+        XCTAssertEqual(MailBox.remaining(gift, now: now), "59d 9h")
+        XCTAssertNil(MailBox.remaining(system, now: now))
+        var read = gift
+        read.read = true
+        XCTAssertFalse(MailBox.isRemovable(read, now: now), "受け取っていない添付が残っている")
+        read.claimed = true
+        XCTAssertTrue(MailBox.isRemovable(read, now: now))
+    }
+
     func testOldMailWithoutTheNewFieldsStillDecodes() throws {
         let old = #"{"id":"6B9E1D3C-1B1B-4F5A-9C7E-1234567890AB","date":0,"title":"t","body":"b","attachments":[],"read":false,"claimed":false}"#
         let m = try JSONDecoder().decode(MailItem.self, from: Data(old.utf8))

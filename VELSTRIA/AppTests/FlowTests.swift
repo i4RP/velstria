@@ -429,15 +429,21 @@ final class FlowResultTests: XCTestCase {
             MailItem(date: now, title: "c", body: "", attachments: [MailAttachment(kind: .gem, amount: 5)],
                      expiresAt: now.addingTimeInterval(-60)),
         ]
-        // 赤い点は受け取っていない添付のあるメールだけ（未読でも添付が無ければ付かない。MLBB 2.2.16）
+        // 赤い点は未読の重要メールと、未読で受け取れる添付つきのメールだけ（MLBB 2.2.16。委員会の調べ 2026-10-21）
         XCTAssertEqual(HomeBadges.mail(p, now: now), 1)
         XCTAssertEqual(HomeBadges.claimableMail(p, now: now), 1)
         p.mail[0].read = true
-        XCTAssertEqual(HomeBadges.mail(p, now: now), 1, "既読でも受け取るまで付く")
-        p.mail[0].claimed = true
-        XCTAssertEqual(HomeBadges.mail(p, now: now), 0)
+        XCTAssertEqual(HomeBadges.mail(p, now: now), 0, "既読にすると消える（受け取りの数は残る）")
+        XCTAssertEqual(HomeBadges.claimableMail(p, now: now), 1)
         p.mail.append(MailItem(date: now, title: "d", body: ""))
         XCTAssertEqual(HomeBadges.mail(p, now: now), 0, "添付の無い未読には付かない")
+        var important = MailItem(date: now, title: "e", body: "")
+        important.important = true
+        p.mail.append(important)
+        XCTAssertEqual(HomeBadges.mail(p, now: now), 1, "重要な未読には付く")
+        p.mail[p.mail.count - 1].read = true
+        p.mail[0].claimed = true
+        XCTAssertEqual(HomeBadges.mail(p, now: now), 0)
         // スターパス: 到達した段の未受取の報酬
         XCTAssertEqual(HomeBadges.starPass(p), 0)
         LiveOpsService.addPassXP(LiveOpsService.passXPPerLevel * 2, to: &p)
