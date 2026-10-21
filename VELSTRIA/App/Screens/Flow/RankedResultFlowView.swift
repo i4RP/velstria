@@ -4,7 +4,8 @@ import VelstriaCore
 // 担当: ui-flow。ランク戦の試合後の流れ（Mobile Legends と同じ順番）:
 // 1. 勝敗バナー（VICTORY / DEFEAT。タップして進める）は試合内の HUDEndOfMatchView
 // 2. ランク: 左にスターポイント、中央に紋章・星・ティア名・段位、右に保護ポイント（星の増減を演出）→「シェア」「続ける」
-// 3. 評価: 試合評価（0〜16）とメダル（MatchMedal。MLBB の条件）、6 軸のレーダー（タップで進む）
+// 3. チームの栄誉（2.2.16）: 味方 4 人のカードを V 字に（K/D/A・称号・いいね）、中央に自分。「一括いいね」「シェア」「続ける」
+// 4. 評価: 試合評価（0〜16）と勲章（MatchMedal。MLBB の条件）、6 軸のレーダー（レーニング／DPS／被ダメージ／生存／集団戦／ゴールド。タップで進む）
 // 4. スコアボード: 両チーム 5 人の KDA・アイテム・ゴールド・メダルと評価点。顔を押すと簡単なプレイヤーカード。
 //    「データ」で従来の詳しいリザルト、「クイックチャット」は定型文だけ（味方の AI が返す。通信はしない）
 // 5. 「終了」→「チームを離れてロビーに戻りますか？」→ OK でホーム。「ルームに戻る」はランク戦の準備へ。
@@ -15,7 +16,7 @@ struct RankedResultFlowView: View {
     let report: RewardReport
     let onClose: () -> Void
 
-    private enum Step { case rank, evaluation, scoreboard }
+    private enum Step { case rank, honor, evaluation, scoreboard }
 
     @Environment(AppModel.self) private var app
     @State private var step: Step = .rank
@@ -31,7 +32,11 @@ struct RankedResultFlowView: View {
             switch step {
             case .rank:
                 RankedStarsStep(before: report.rankBefore ?? app.profile.rank, after: report.rankAfter ?? app.profile.rank,
-                                delta: report.rankDelta ?? RankMatchDelta(), won: won) { advance(.evaluation) }
+                                delta: report.rankDelta ?? RankMatchDelta(), won: won,
+                                mvp: summary.humanPlayer?.isMVP ?? false) { advance(.honor) }
+                    .transition(.opacity)
+            case .honor:
+                RankedTeamHonorStep(summary: summary, won: won) { advance(.evaluation) }
                     .transition(.opacity)
             case .evaluation:
                 RankedEvaluationStep(summary: summary, rating: report.matchRating, won: won) { advance(.scoreboard) }
@@ -59,7 +64,8 @@ struct RankedResultFlowView: View {
             guard DebugLaunch.autoAdvance else { return }
             try? await Task.sleep(for: .seconds(5))
             switch step {
-            case .rank: step = .evaluation
+            case .rank: step = .honor
+            case .honor: step = .evaluation
             case .evaluation: step = .scoreboard
             case .scoreboard: confirmsLeave = true
             }
@@ -207,6 +213,8 @@ private struct RankedStarsStep: View {
     let after: RankState
     let delta: RankMatchDelta
     let won: Bool
+    /// MVP だった（スターポイントの内訳の「MVP ボーナス」）。
+    var mvp = false
     let onNext: () -> Void
     @Environment(AppModel.self) private var app
     @State private var shown: RankState?
@@ -247,7 +255,7 @@ private struct RankedStarsStep: View {
                                     value: r.tier == .mythic ? 0 : (shown == nil ? before.starPoints : after.starPoints),
                                     cap: RankService.starPointCap(r.tier),
                                     gain: won ? delta.starPointsGain : 0,
-                                    lines: [(L("100%達成でスター+1", "100% grants +1 star"), nil)])
+                                    lines: [(L("100%達成でスター+1", "100% grants +1 star"), nil)] + winLines)
                         Spacer()
                         pointsPanel(symbol: "shield.fill", tint: Color(red: 0.95, green: 0.78, blue: 0.35), title: L("保護ポイント", "Protection Points"),
                                     value: protShown,
@@ -284,12 +292,25 @@ private struct RankedStarsStep: View {
         .onAppear(perform: play)
     }
 
+    /// 勝った時のスターポイントの内訳（RankService.apply の式: 基本 20 + 評価 × 8 + MVP 30）。
+    private var winLines: [(String, String?)] {
+        guard won, delta.starPointsGain > 0 else { return [] }
+        let mvpBonus = mvp ? 30 : 0
+        let ratingBonus = max(0, delta.starPointsGain - 20 - mvpBonus)
+        var lines: [(String, String?)] = [(L("基本勝利時ポイント", "Base win points"), "+20"),
+                                          (L("評価ボーナス", "Rating bonus"), "+\(ratingBonus)")]
+        if mvp { lines.append((L("MVP ボーナス", "MVP bonus"), "+\(mvpBonus)")) }
+        return lines
+    }
+
     private func starsRow(_ r: RankState) -> some View {
         Group {
             if r.tier == .mythic {
+                // ミシックは紫の星と「★14/25」（次の段階までの星の数）
                 HStack(spacing: 4) {
-                    Image(systemName: "star.fill").foregroundStyle(Theme.gold)
-                    Text("× \(r.stars)").font(Theme.heading(20)).foregroundStyle(.white)
+                    Image(systemName: "star.fill").foregroundStyle(Color(red: 0.86, green: 0.55, blue: 1))
+                    Text(ModeTileLayout.mythicNext(r.stars).map { "\(r.stars)/\($0)" } ?? "\(r.stars)")
+                        .font(Theme.heading(20)).foregroundStyle(.white)
                 }
             } else {
                 HStack(spacing: 6) {
@@ -457,8 +478,9 @@ private struct RankedEvaluationStep: View {
         }
     }
 
-    private let radarLabels = [L("レーニング", "Laning"), L("撃破", "Kills"), L("生存", "Survival"),
-                               L("集団戦", "Teamfight"), L("ゴールド", "Gold"), "DPS"]
+    /// MLBB の評価の六角（レーニング／DPS／被ダメージ／生存／集団戦／ゴールド）。
+    private let radarLabels = [L("レーニング", "Laning"), "DPS", L("被ダメージ", "Damage Taken"), L("生存", "Survival"),
+                               L("集団戦", "Teamfight"), L("ゴールド", "Gold")]
 
     /// 0〜1。試合内の最大値に対する割合。
     private var radarValues: [Double] {
@@ -471,11 +493,11 @@ private struct RankedEvaluationStep: View {
         let teamKills = Double(max(1, summary.teamKills[me.team.rawValue]))
         return [
             rel { Double($0.score.creepScore) },
-            rel { Double($0.score.kills) },
+            rel { $0.score.damageToHeroes },
+            rel { $0.score.damageTaken },
             rel { 1 / Double(1 + $0.score.deaths) },
             max(0.08, min(1, Double(me.score.kills + me.score.assists) / teamKills)),
             rel { $0.score.goldEarned },
-            rel { $0.score.damageToHeroes },
         ]
     }
 }
@@ -518,6 +540,164 @@ private struct RadarChart: View {
         }
         p.closeSubpath()
         return p
+    }
+}
+
+// MARK: - チームの栄誉（2.2.16）
+
+/// 味方の称号（チームの中でいちばんの成績から 1 つずつ。MLBB の「川の支配者」「優れたダメージ」「優秀タンク」「即キル」など）。
+/// MLBB の称号の決まり方は公開されていないので、Velstria では次の順に、まだ称号の無い人のうちその成績がいちばんの人へ配る。
+enum TeamHonor {
+    struct Title: Equatable {
+        let text: String
+        let symbol: String
+    }
+
+    private static var categories: [(Title, (HeroScore) -> Double)] { [
+        (Title(text: L("川の支配者", "River Ruler"), symbol: "drop.fill"), { Double($0.objectivesTaken) }),
+        (Title(text: L("優れたダメージ", "Great Damage"), symbol: "flame.fill"), { $0.damageToHeroes }),
+        (Title(text: L("優秀タンク", "Great Tank"), symbol: "shield.fill"), { $0.damageTaken }),
+        (Title(text: L("即キル", "Swift Kills"), symbol: "bolt.fill"), { Double($0.kills) }),
+        (Title(text: L("優れた封鎖", "Great Lockdown"), symbol: "hand.raised.fill"), { Double($0.assists) }),
+        (Title(text: L("優れた支援", "Great Support"), symbol: "cross.fill"), { $0.healingDone + $0.shieldingDone }),
+        (Title(text: L("タワー破壊者", "Tower Breaker"), symbol: "building.columns.fill"), { $0.towerDamage }),
+        (Title(text: L("ゴールドの支配者", "Gold Ruler"), symbol: "dollarsign.circle.fill"), { $0.goldEarned }),
+    ] }
+
+    /// チームの全員の称号（成績が 0 の分野では配らない。残った人は「チームの力」）。
+    static func titles(team: Team, in summary: MatchSummary) -> [EntityID: Title] {
+        let players = summary.players(of: team)
+        var out: [EntityID: Title] = [:]
+        for (title, value) in categories {
+            let free = players.filter { out[$0.entityID] == nil }
+            guard let best = free.max(by: { a, b in
+                let va = value(a.score), vb = value(b.score)
+                return va == vb ? a.entityID > b.entityID : va < vb
+            }), value(best.score) > 0 else { continue }
+            out[best.entityID] = title
+        }
+        for p in players where out[p.entityID] == nil {
+            out[p.entityID] = Title(text: L("チームの力", "Team Player"), symbol: "person.3.fill")
+        }
+        return out
+    }
+}
+
+private struct RankedTeamHonorStep: View {
+    let summary: MatchSummary
+    let won: Bool
+    let onNext: () -> Void
+    @Environment(AppModel.self) private var app
+    @State private var liked: Set<EntityID> = []
+    @State private var shown = false
+
+    private var me: PlayerSummary? { summary.humanPlayer }
+
+    /// 味方 4 人（自分を除く。MVP スコアの順）。
+    private var allies: [PlayerSummary] {
+        guard let me else { return [] }
+        return Array(summary.players(of: me.team).filter { $0.entityID != me.entityID }.prefix(4))
+    }
+
+    var body: some View {
+        let titles = TeamHonor.titles(team: me?.team ?? .blue, in: summary)
+        ZStack {
+            SkyBackdrop()
+            GeometryReader { geo in
+                let w = geo.size.width, h = geo.size.height
+                let cardW = min(124, w * 0.15)
+                let cardH = min(h * 0.62, cardW * 1.5)
+                // V 字: 外側の 2 枚は高く、内側の 2 枚は低く、中央に自分
+                let xs: [CGFloat] = [0.13, 0.30, 0.70, 0.87]
+                let ys: [CGFloat] = [0.38, 0.50, 0.50, 0.38]
+                ZStack {
+                    if let me {
+                        honorCard(me, title: titles[me.entityID], isMe: true)
+                            .frame(width: cardW * 1.25, height: cardH * 1.18)
+                            .position(x: w * 0.5, y: h * 0.44)
+                    }
+                    ForEach(Array(allies.enumerated()), id: \.element.entityID) { i, p in
+                        honorCard(p, title: titles[p.entityID], isMe: false)
+                            .frame(width: cardW, height: cardH)
+                            .position(x: w * xs[min(i, 3)], y: h * ys[min(i, 3)])
+                            .opacity(shown ? 1 : 0)
+                            .offset(y: shown ? 0 : 30)
+                            .animation(.spring(duration: 0.5, bounce: 0.25).delay(Double(i) * 0.08), value: shown)
+                    }
+                }
+            }
+            HStack(spacing: 12) {
+                MLButton(title: L("一括いいね", "Like All"), symbol: "hand.thumbsup.fill", style: .dark, width: 130) {
+                    FlowFX.tap(app)
+                    liked = Set(allies.map(\.entityID))
+                }
+                .accessibilityIdentifier("ranked_honor_likeall")
+                Spacer()
+                MLButton(title: L("シェア", "Share"), symbol: "square.and.arrow.up", style: .dark, width: 110) {
+                    FlowFX.tap(app)
+                    if !ResultShare.shareScreen() { app.showToast(L("共有できませんでした", "Couldn't share")) }
+                }
+                MLButton(title: L("続ける", "Continue"), style: .gold, width: 120, action: onNext)
+                    .accessibilityIdentifier("ranked_honor_continue")
+            }
+            .frame(maxHeight: .infinity, alignment: .bottom)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 14)
+        }
+        .onAppear { withAnimation { shown = true } }
+        .accessibilityIdentifier("ranked_honor")
+    }
+
+    /// 水晶のカード（ヒーローの絵・名前・K/D/A・称号・いいね）。
+    private func honorCard(_ p: PlayerSummary, title: TeamHonor.Title?, isMe: Bool) -> some View {
+        let s = p.score
+        return VStack(spacing: 4) {
+            ZStack {
+                CrystalShape()
+                    .fill(LinearGradient(colors: [Color(red: 0.45, green: 0.75, blue: 1.0).opacity(0.45), Color(red: 0.15, green: 0.30, blue: 0.70).opacity(0.25)],
+                                         startPoint: .top, endPoint: .bottom))
+                Group {
+                    if let art = PortraitArt.card(p.heroID) {
+                        Image(uiImage: art).resizable().scaledToFill()
+                    } else {
+                        HeroPortraitView(heroID: p.heroID, size: 80, showsRole: false)
+                    }
+                }
+                .clipShape(CrystalShape())
+                CrystalShape().stroke(isMe ? HomeStyle.goldLight : Color.white.opacity(0.7), lineWidth: isMe ? 2 : 1.2)
+            }
+            .shadow(color: (isMe ? Theme.gold : Color.cyan).opacity(0.45), radius: 10)
+            Text(PlayerNameRules.shown(p.displayName))
+                .font(Theme.heading(11))
+                .foregroundStyle(isMe ? Theme.gold : .white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            Text("\(s.kills) / \(s.deaths) / \(s.assists)")
+                .font(Theme.mono(11))
+                .foregroundStyle(.white)
+            if let title {
+                Label(title.text, systemImage: title.symbol)
+                    .font(Theme.heading(11))
+                    .foregroundStyle(HomeStyle.goldLight)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            if !isMe {
+                Button {
+                    FlowFX.tap(app)
+                    liked.insert(p.entityID)
+                } label: {
+                    Image(systemName: liked.contains(p.entityID) ? "hand.thumbsup.fill" : "hand.thumbsup")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.white)
+                        .frame(width: 34, height: 34)
+                        .background(Circle().fill(Color(red: 0.15, green: 0.40, blue: 0.80).opacity(0.8)))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L("いいね", "Like"))
+                .accessibilityIdentifier("ranked_honor_like_\(p.entityID)")
+            }
+        }
     }
 }
 
