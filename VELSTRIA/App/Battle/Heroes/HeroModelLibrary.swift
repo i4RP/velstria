@@ -479,6 +479,9 @@ final class HeroModel: HeroDisplayModel {
 struct HeroEffects {
     let castGlow: Entity
     let groundRing: ModelEntity
+    /// 次の通常攻撃がキットの強い通常攻撃の間に、武器の先の光（castGlow）を灯す強さ（HeroPose.glow の下限。
+    /// 詠唱の光より控えめ: 0.03 で灯り、0.6 + 0.6 × 0.7 の大きさ）。
+    static let empoweredGlow: Float = 0.7
     let teamRing: ModelEntity?
     let aura: Entity?
     private var appliedOpacity: Float = 1

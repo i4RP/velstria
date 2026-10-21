@@ -176,6 +176,8 @@ struct HeroMotionProfile {
     var hitFollowUps: [MotionClip?] = [nil, nil, nil]
     /// 全身の通常攻撃（打撃の時刻 impact を sim の命中へ合わせる。順に繰り返す）。空なら従来（ActionClip とモーションクリップ）。
     var attackMotions: [MotionClip] = []
+    /// キットの強い通常攻撃（三連突き・円撃）の全身のモーション（HeroMotionScript.empoweredAttack）。nil = 普段の通常攻撃のまま。
+    var empoweredAttack: MotionClip?
     var twoHanded: Bool
     var bowHold: Bool
     /// 盾持ち（詠唱・勝利でも盾を胸の前に保つ）。
@@ -306,6 +308,7 @@ struct HeroMotionProfile {
             }
             hitFollowUps = slots.map { script.onHit($0, builder) }
             attackMotions = script.attacks(builder)
+            empoweredAttack = script.empoweredAttack(builder)
         }
     }
 
@@ -635,6 +638,8 @@ struct HeroAnimator {
     /// 状態だけ（setState(.attack)）で回している（プレビュー）。playAttack が来たら false（シムの拍）。
     private var motionAttackAuto = true
     private var motionAttackPending = false
+    /// motionAttack がこの値の間は強い通常攻撃（profile.empoweredAttack）を再生している。
+    private static let empoweredMotion = -2
 
     init(profile: HeroMotionProfile, defaultRunSpeed: Float, motion: HeroMotionBinding? = nil) {
         self.profile = profile
@@ -662,6 +667,8 @@ struct HeroAnimator {
     /// 通常攻撃を 1 回振る（シムの攻撃開始時に呼ぶ）。クリップの打撃の瞬間が windup 秒後に来るよう再生速度を決め、
     /// 戻りは interval - windup 秒に収める。攻撃状態でなければ攻撃状態へ移る。クリップが無ければ手続きの振りだけ。
     mutating func playAttack(windup: Float, interval: Float) {
+        // 普段の通常攻撃が来たら、振りかけの強い通常攻撃は打ち切る
+        if motionAttack == HeroAnimator.empoweredMotion { motionAttack = -1 }
         if !profile.attackMotions.isEmpty {
             // 全身の通常攻撃（手続き）: 打撃を windup 秒後に合わせる。前の振りの姿勢からつなぐ
             if state == .attack {
@@ -691,6 +698,31 @@ struct HeroAnimator {
         autoAttackPending = false
         attackAuto = false
         startAttackClip(windup: windup, interval: interval)
+    }
+
+    /// 通常攻撃を 1 回振る。empowered = 次の通常攻撃がキットの強い通常攻撃（HeroKits.empoweredAttackReady）で、
+    /// 強い通常攻撃の全身のモーション（profile.empoweredAttack）があれば、普段の通常攻撃の代わりにそれを 1 回振る
+    /// （打撃 = windup 秒後 = sim の 1 発目の命中。打撃の後は等速: 2・3 発目のキーが sim の命中の時刻に来る）。無ければ playAttack と同じ。
+    mutating func playAttack(windup: Float, interval: Float, empowered: Bool) {
+        guard empowered, let clip = profile.empoweredAttack else { return playAttack(windup: windup, interval: interval) }
+        if state == .attack {
+            begin(.attack, blend: 0.06)
+        } else {
+            transition(.attack, autoAttack: false)
+        }
+        // 重ねている通常攻撃のクリップは止め、全身のモーションだけで振る（次の普段の通常攻撃でクリップに戻る）
+        clips.stop()
+        attackAuto = false
+        autoAttackPending = false
+        motionAttackAuto = false
+        motionAttackPending = false
+        let w = max(0.02, windup.isFinite ? windup : HeroAnimator.autoWindup)
+        let impact = clip.impact ?? clip.total * 0.4
+        let pre = min(4, max(0.5, impact / w))
+        motionAttack = HeroAnimator.empoweredMotion
+        motionAttackPre = pre
+        motionAttackTime = impact - pre * w
+        motionAttackPost = 1
     }
 
     private mutating func transition(_ s: HeroAnimState, autoAttack: Bool) {
@@ -976,6 +1008,8 @@ struct HeroAnimator {
             return motionAttackPose(loco) ?? loco
         case .attack:
             if !profile.attackMotions.isEmpty { return motionAttackPose(loco) ?? loco }
+            // 強い通常攻撃の全身のモーション（普段の通常攻撃はクリップ・手続きの振りのまま）
+            if let p = motionAttackPose(loco) { return p }
             let (clip, t, _) = proceduralAttack
             return clip.evaluate(base: loco, t: t)
         case .cast(let slot):
@@ -1045,10 +1079,19 @@ struct HeroAnimator {
 
     /// 再生中の全身の通常攻撃とクリップの時刻（打撃の前に待っている間も含む。終わっていれば nil）。
     private var activeMotionAttack: (clip: MotionClip, time: Float)? {
-        guard motionAttack >= 0, motionAttack < profile.attackMotions.count else { return nil }
-        let clip = profile.attackMotions[motionAttack]
+        guard let clip = motionAttackClip else { return nil }
         return motionAttackTime < clip.total ? (clip, motionAttackTime) : nil
     }
+
+    /// 再生中の全身の通常攻撃のクリップ（普段の通常攻撃の順番のもの、または強い通常攻撃）。
+    private var motionAttackClip: MotionClip? {
+        if motionAttack == HeroAnimator.empoweredMotion { return profile.empoweredAttack }
+        guard motionAttack >= 0, motionAttack < profile.attackMotions.count else { return nil }
+        return profile.attackMotions[motionAttack]
+    }
+
+    /// 強い通常攻撃の全身のモーションを再生中か（検査用）。
+    var playsEmpoweredAttack: Bool { motionAttack == HeroAnimator.empoweredMotion && activeMotionAttack != nil }
 
     /// 全身の通常攻撃の姿勢（移動中は下半身を移動の姿勢へ戻す）。再生していなければ nil。
     private func motionAttackPose(_ loco: HeroPose) -> HeroPose? {
@@ -1056,6 +1099,8 @@ struct HeroAnimator {
         let clip = a.clip
         var p = clip.evaluate(base: loco, t: max(0, a.time))
         if clip.fullBody { p = HeroPose.mixLower(loco, p, actionLower) }
+        // 1 回転するモーション（円撃）は向きを (-π, π] に畳む（次の振り・状態の切り替えの混ぜで巻き戻さない）
+        if clip.wrapsYaw { p.yaw = remainder(p.yaw, 2 * .pi) }
         return p
     }
 
@@ -1080,8 +1125,7 @@ struct HeroAnimator {
 
     /// 全身の通常攻撃の時計を進める。終わったら、状態だけで回している攻撃状態なら次の振り、待機・移動なら状態のクリップへ。
     private mutating func advanceMotionAttack(_ dt: Float) {
-        guard motionAttack >= 0, motionAttack < profile.attackMotions.count else { return }
-        let clip = profile.attackMotions[motionAttack]
+        guard let clip = motionAttackClip else { return }
         let impact = clip.impact ?? clip.total * 0.4
         var rest = dt
         if motionAttackTime < impact {
@@ -1096,7 +1140,7 @@ struct HeroAnimator {
         }
         if rest > 0 { motionAttackTime += rest * motionAttackPost }
         guard motionAttackTime >= clip.total else { return }
-        if state == .attack && motionAttackAuto {
+        if state == .attack && motionAttackAuto && motionAttack != HeroAnimator.empoweredMotion {
             startMotionAttack(windup: HeroAnimator.autoWindup, interval: HeroAnimator.autoInterval)
         } else {
             motionAttack = -1
