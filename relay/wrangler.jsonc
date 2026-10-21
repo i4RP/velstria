@@ -28,6 +28,11 @@
       {
         "name": "RANK_ACCOUNT",
         "class_name": "RankAccount"
+      },
+      // 全体で 1 つ（getByName("global")）。公開の名刺・ランキングの表・運営からのメール
+      {
+        "name": "DIRECTORY",
+        "class_name": "Directory"
       }
     ]
   },
@@ -45,6 +50,10 @@
     {
       "tag": "v3",
       "new_sqlite_classes": ["RankAccount"]
+    },
+    {
+      "tag": "v4",
+      "new_sqlite_classes": ["Directory"]
     }
   ]
 }

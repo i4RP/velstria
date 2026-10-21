@@ -18,7 +18,7 @@ import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./index";
 
 export type Tier = "warrior" | "elite" | "master" | "grandmaster" | "epic" | "legend" | "mythic";
-const TIERS: Tier[] = ["warrior", "elite", "master", "grandmaster", "epic", "legend", "mythic"];
+export const TIERS: Tier[] = ["warrior", "elite", "master", "grandmaster", "epic", "legend", "mythic"];
 /** 段位の数と 1 段位の星の数（ミシックは段位なし） */
 const SHAPE: Record<Tier, { divisions: number; stars: number }> = {
   warrior: { divisions: 3, stars: 3 },
