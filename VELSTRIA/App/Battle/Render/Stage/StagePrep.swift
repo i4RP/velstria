@@ -8,7 +8,12 @@ import VelstriaCore
 // MapScene.init が take で取り出す（無ければその場で作る）。
 
 /// 1 試合分のステージの CPU 側データ。
-struct StagePlan: @unchecked Sendable {
+enum StagePlan: @unchecked Sendable {
+    case procedural(ProceduralStagePlan)
+    case canyon(CanyonStagePlan)
+}
+
+struct ProceduralStagePlan: @unchecked Sendable {
     let assets: StageAssets
     let maps: StageSplat.Maps
     let layout: StageLayoutResult
@@ -21,7 +26,7 @@ enum StagePrep {
     nonisolated(unsafe) private static var ready: (key: String, plan: StagePlan)?
 
     private static func key(_ map: MapDefinition, _ q: RenderQuality, _ set: StageArtSet) -> String {
-        "\(map.size)-\(map.obstacles.count)-\(map.brushes.count)-\(q.level.rawValue)-\(q.decorationDensity)-\(lite)-\(set.rawValue)"
+        "\(map.stageID ?? "procedural")-\(map.hashValue)-\(map.size)-\(map.obstacles.count)-\(map.brushes.count)-\(q.level.rawValue)-\(q.decorationDensity)-\(lite)-\(set.rawValue)"
     }
 
     /// 計画を作って取っておく（背景スレッドから呼ぶ）。作れたら true（素材やシェーダーが欠けていれば false）。
@@ -101,6 +106,9 @@ enum StagePrep {
     }
 
     static func make(map: MapDefinition, quality: RenderQuality, set: StageArtSet = .current) -> StagePlan? {
+        if map.stageID == "canyon" {
+            return CanyonStagePlan.load(map: map, quality: quality).map(StagePlan.canyon)
+        }
         let t0 = CFAbsoluteTimeGetCurrent()
         guard let assets = StageAssets.load(set: set) else {
             log.error("stage assets unavailable; falling back to procedural terrain")
@@ -121,6 +129,6 @@ enum StagePrep {
             tris chunks \(layout.chunks.triangleCount) brushes \(brushTris) \
             props \(layout.counts.map { "\($0.key.rawValue)=\($0.value)" }.sorted().joined(separator: " "))
             """)
-        return StagePlan(assets: assets, maps: maps, layout: layout, quality: quality)
+        return .procedural(ProceduralStagePlan(assets: assets, maps: maps, layout: layout, quality: quality))
     }
 }
