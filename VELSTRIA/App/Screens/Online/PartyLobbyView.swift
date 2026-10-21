@@ -10,7 +10,7 @@ import VelstriaCore
 
 /// パーティの右パネルのタブ。
 enum PartySideTab: String, CaseIterable, Identifiable {
-    case friends, requests, nearby, code
+    case friends, requests, recent, nearby, code
 
     var id: String { rawValue }
 
@@ -18,6 +18,7 @@ enum PartySideTab: String, CaseIterable, Identifiable {
         switch self {
         case .friends: return "person.2.fill"
         case .requests: return "person.badge.plus"
+        case .recent: return "clock.arrow.circlepath"
         case .nearby: return "wifi"
         case .code: return "number"
         }
@@ -27,6 +28,7 @@ enum PartySideTab: String, CaseIterable, Identifiable {
         switch self {
         case .friends: return L("フレンド", "Friends")
         case .requests: return L("フレンド申請", "Friend Requests")
+        case .recent: return L("最近一緒に遊んだ人", "Recently Played")
         case .nearby: return L("近くの部屋（同じ Wi-Fi）", "Nearby (Same Wi-Fi)")
         case .code: return L("部屋コードで参加", "Join by Room Code")
         }
@@ -715,6 +717,8 @@ struct PartySidePanel: View {
             PartyFriendsTab(onAddFriend: { tab = .requests })
         case .requests:
             PartyRequestsTab()
+        case .recent:
+            PartyRecentTab()
         case .nearby:
             ScrollView {
                 OnlineLANSection().padding(.vertical, 10)
@@ -726,6 +730,78 @@ struct PartySidePanel: View {
             }
             .scrollBounceBehavior(.basedOnSize)
         }
+    }
+}
+
+// MARK: 最近一緒に遊んだ人（フレンド申請・名刺）
+
+struct PartyRecentTab: View {
+    @Environment(AppModel.self) private var app
+    @State private var card: PublicProfile?
+
+    var body: some View {
+        let list = app.profile.recentPlayers.filter { !app.friends.isBlocked($0.code) }
+        Group {
+            if list.isEmpty {
+                EmptyStateView(symbol: "clock.arrow.circlepath", title: L("まだいません", "No one yet"),
+                               message: L("オンラインの試合で一緒に遊んだ人がここに並びます。", "People you play online matches with appear here."))
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(list) { p in row(p) }
+                    }
+                }
+            }
+        }
+        .task { await app.publicProfiles.load(list.map(\.code)) }
+        .sheet(item: $card) { p in PublicNameCardView(profile: p).environment(app) }
+    }
+
+    private func row(_ p: RecentPlayer) -> some View {
+        let isFriend = app.friends.friend(code: p.code) != nil
+        let requested = app.friends.hasOutgoingRequest(to: p.code)
+        let profile = app.publicProfiles.profiles[p.code]
+        return HStack(spacing: 10) {
+            Button {
+                guard let profile else { return }
+                FlowFX.tap(app)
+                card = profile
+            } label: {
+                HStack(spacing: 10) {
+                    HeroPortraitView(heroID: profile?.avatar ?? HeroRoster.defaultHeroID, size: 36, showsRole: false)
+                        .clipShape(RoundedRectangle(cornerRadius: 5))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(FriendNames.display(p.name)).font(Theme.heading(13)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                        Text(FlowText.date(p.at)).font(Theme.mono(9)).foregroundStyle(Theme.textSecondary)
+                    }
+                    Spacer(minLength: 4)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            if isFriend {
+                Text(L("フレンド", "Friend")).font(Theme.body(10)).foregroundStyle(Theme.success)
+            } else if requested {
+                Text(L("申請中", "Requested")).font(Theme.body(10)).foregroundStyle(Theme.textSecondary)
+            } else {
+                Button {
+                    FlowFX.confirm(app)
+                    _ = app.friends.requestFriend(code: p.code)
+                } label: {
+                    Image(systemName: "person.badge.plus")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Color.mint)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L("フレンド申請", "Send friend request"))
+                .accessibilityIdentifier("recent_add_\(p.code)")
+            }
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 4)
+        .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1) }
     }
 }
 

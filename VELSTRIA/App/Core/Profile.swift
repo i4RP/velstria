@@ -530,6 +530,27 @@ struct MailAttachment: Codable, Equatable {
     var refID: String?
 }
 
+/// 最近一緒に遊んだ人（MLBB のフレンドの「最近」。フレンド申請・名刺の入口）。
+struct RecentPlayer: Codable, Equatable, Identifiable {
+    var code: String
+    var name: String
+    var at: Date
+    var id: String { code }
+}
+
+enum RecentPlayers {
+    static let limit = 50
+
+    /// 一緒に遊んだ人を足す（自分・不正なコードは除く。同じ人は新しい日時と名前で先頭へ）。
+    static func record(_ players: [(code: String, name: String)], into list: inout [RecentPlayer], me: String, now: Date) {
+        for p in players where p.code != me && FriendCode.isValid(p.code) {
+            list.removeAll { $0.code == p.code }
+            list.insert(RecentPlayer(code: p.code, name: p.name, at: now), at: 0)
+        }
+        if list.count > limit { list.removeLast(list.count - limit) }
+    }
+}
+
 /// メールの種類（MLBB のメールの左のタブ: 重要なお知らせ・システム・通報の結果・受信箱・ギフト）。
 enum MailCategory: String, Codable, CaseIterable {
     case important, system, report, inbox, gift
@@ -686,6 +707,8 @@ struct Profile: Codable, Equatable {
     var friends: [Friend] = []
     /// 届いて、まだ答えていないフレンド申請（FriendHub.incomingRequests。最大 20）。
     var incomingFriendRequests: [FriendRequest] = []
+    /// 最近一緒に遊んだ人（オンラインの試合の相手と味方。新しい順に最大 50。RecentPlayers）。
+    var recentPlayers: [RecentPlayer] = []
     /// 自分から申請して、承認を待っている相手のコード。
     var outgoingFriendRequests: [String] = []
     /// 申請した日時（outgoingFriendRequests のコード → 日時）。申請から 14 日を過ぎたら送り直さずに取り下げる
