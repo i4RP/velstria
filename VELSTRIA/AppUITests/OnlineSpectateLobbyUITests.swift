@@ -32,11 +32,13 @@ final class OnlineSpectateLobbyUITests: XCTestCase {
         // 座っていないホスト: 実況（座らずに観戦）に切り替えられる
         let cast = element(app, "online_caster")
         XCTAssertTrue(cast.waitForExistence(timeout: 20))
-        XCTAssertTrue(app.staticTexts["左の座席をタップして着席してください"].exists)
+        XCTAssertTrue(app.staticTexts["左右の空席をタップして着席してください"].exists)
         cast.tap()
         XCTAssertTrue(app.staticTexts["実況（キャスター）として観戦します"].waitForExistence(timeout: 5))
         // 選手が誰も座っていないので、実況でもまだ開始できない
         XCTAssertFalse(element(app, "online_start").isEnabled)
+
+        element(app, "online_room_controls").tap()
 
         // 観戦の設定: 遅延を 15 秒にする
         let settings = element(app, "online_spectate_settings")
@@ -64,8 +66,10 @@ final class OnlineSpectateLobbyUITests: XCTestCase {
         dismissPopover(app)
         XCTAssertTrue(members.waitForNonExistence(timeout: 5))
 
+        element(app, "online_room_controls_close").tap()
+
         // 実況をやめると選手に戻る（着席の案内に戻る）
         cast.tap()
-        XCTAssertTrue(app.staticTexts["左の座席をタップして着席してください"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["左右の空席をタップして着席してください"].waitForExistence(timeout: 5))
     }
 }

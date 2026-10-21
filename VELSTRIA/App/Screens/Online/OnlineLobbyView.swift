@@ -29,9 +29,7 @@ struct OnlineLobbyView: View {
     private var lobby: some View {
         Group {
             if let session = app.online, Self.showsRoom(session) {
-                ScreenScaffold(title: L("オンライン対戦", "Online Match"), showsCurrencies: false) {
-                    OnlineRoomView(session: session, onShowFriends: { showsFriends = true })
-                }
+                OnlineRoomView(session: session, onShowFriends: { showsFriends = true })
             } else {
                 // パーティ（メンバー集め）: 部屋に入っていなければ自分のパーティを作る
                 PartyLobbyView()
@@ -323,35 +321,103 @@ struct OnlineRoomView: View {
     @State private var showsMembers = false
     /// 部屋の画面の幅（iPhone SE の横 667pt では中央の列が細くなりすぎるので座席の列を詰める）。
     @State private var roomWidth: CGFloat = 0
+    @State private var showsSkins = false
+    @State private var showsPlans = false
+    @State private var showsRoomControls = false
+    @State private var inviteAfterControls = false
+    @State private var showsSpells = false
 
     private var room: OnlineRoom { session.room }
     private var mySeat: OnlineSeat? { session.localSeat }
     private var connected: Bool { session.isConnected }
 
     var body: some View {
-        VStack(spacing: 8) {
-            statusBar
-            if case .disconnected(let reason) = session.status {
-                disconnectedView(reason)
-            } else if session.isSittingOutMatch {
-                inProgressView
-            } else {
-                HStack(alignment: .top, spacing: 10) {
-                    seatsPanel.frame(width: seatsPanelWidth)
-                    pickPanel.frame(maxWidth: .infinity)
-                    sidePanel.frame(width: 210)
+        GeometryReader { geometry in
+            ZStack {
+                VStack(spacing: 6) {
+                    draftHeader
+                    if case .disconnected(let reason) = session.status {
+                        disconnectedView(reason)
+                    } else if session.isSittingOutMatch {
+                        inProgressView
+                    } else {
+                        HStack(spacing: 12) {
+                            draftTeam(mySeat?.team ?? .blue)
+                                .frame(width: geometry.size.width * 0.18)
+                            VStack(spacing: 6) {
+                                if mySeat == nil {
+                                    unseatedPanel
+                                } else if showsSkins, let heroID = mySeat?.loadout.heroID {
+                                    draftSkins(heroID)
+                                } else {
+                                    draftHeroes
+                                }
+                                draftFooter
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            draftTeam(mySeat?.team == .red ? .blue : .red)
+                                .frame(width: geometry.size.width * 0.18)
+                        }
+                    }
+                }
+                .padding(.horizontal, 12).padding(.vertical, 6)
+                if showsPlans, let heroID = mySeat?.loadout.heroID {
+                    Color.black.opacity(0.65).ignoresSafeArea()
+                        .onTapGesture { showsPlans = false }
+                    draftPlans(heroID)
+                        .frame(width: geometry.size.width * 0.76, height: geometry.size.height * 0.88)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .padding(.horizontal, 20)
-        .padding(.bottom, 10)
+        .background {
+            GeometryReader { geometry in
+                Image("HomeBackdrop").resizable().scaledToFill()
+                    .frame(width: geometry.size.width, height: geometry.size.height).clipped()
+                    .overlay(Color(red: 0.01, green: 0.04, blue: 0.12).opacity(0.55))
+            }.ignoresSafeArea()
+        }
+        .foregroundStyle(Theme.textPrimary)
+        .toolbar(.hidden, for: .navigationBar)
+        .sheet(isPresented: $showsRoomControls, onDismiss: {
+            if inviteAfterControls {
+                inviteAfterControls = false
+                onShowFriends?()
+            }
+        }) {
+            VStack {
+                HStack {
+                    Text(L("ルーム", "Room")).font(Theme.heading(18))
+                    Spacer()
+                    Button(L("閉じる", "Close")) { showsRoomControls = false }
+                        .accessibilityIdentifier("online_room_controls_close")
+                }
+                ScrollView(.horizontal) { statusBar }
+                sidePanel
+            }.padding(16).background(Theme.panel)
+        }
+        .sheet(isPresented: $showsSpells) {
+            VStack {
+                HStack {
+                    Text(L("バトルスキル", "Battle Skill"))
+                    Spacer()
+                    Button(L("閉じる", "Close")) { showsSpells = false }
+                }
+                BattleSkillPicker(current: mySeat?.loadout.spells.first ?? "BS01") { spell in
+                    guard var loadout = mySeat?.loadout else { return }
+                    loadout.spells = [spell, SpellLoadoutRules.fixedSpellID]
+                    session.setLoadout(loadout)
+                    showsSpells = false
+                }
+            }.padding(16).background(Theme.panel).foregroundStyle(Theme.textPrimary)
+        }
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { roomWidth = $0 }
-        .onChange(of: room) { _, _ in autoPilot() }
+        .onChange(of: room) { _, _ in
+            if room.phase != .lobby || mySeat == nil { showsPlans = false; showsSpells = false }
+            autoPilot()
+        }
         .onAppear { autoPilot() }
     }
-
-    /// 座席の列の幅。狭い画面（iPhone SE）では「ジャングル」が切れない範囲で詰め、中央（ピック・観戦席の案内）に回す。
-    private var seatsPanelWidth: CGFloat { roomWidth > 0 && roomWidth < 700 ? 276 : 300 }
 
     // MARK: 状態
 
@@ -396,7 +462,12 @@ struct OnlineRoomView: View {
             if let onShowFriends, room.phase == .lobby {
                 Button {
                     FlowFX.tap(app)
-                    onShowFriends()
+                    if showsRoomControls {
+                        inviteAfterControls = true
+                        showsRoomControls = false
+                    } else {
+                        onShowFriends()
+                    }
                 } label: {
                     Image(systemName: "person.badge.plus")
                         .font(.system(size: 16, weight: .bold))
@@ -569,107 +640,6 @@ struct OnlineRoomView: View {
         return lines.joined(separator: "\n")
     }
 
-    // MARK: 座席
-
-    private var seatsPanel: some View {
-        Panel(padding: 10) {
-            HStack(alignment: .top, spacing: 8) {
-                teamColumn(.blue)
-                teamColumn(.red)
-            }
-        }
-    }
-
-    private func teamColumn(_ team: Team) -> some View {
-        let color = Theme.teamColor(team, colorblind: app.profile.settings.colorblindMode)
-        return VStack(spacing: 6) {
-            HStack(spacing: 4) {
-                Image(systemName: FlowText.teamSymbol(team))
-                Text(FlowText.team(team))
-            }
-            .font(Theme.heading(12))
-            .foregroundStyle(color)
-            ForEach(room.seats.filter { $0.team == team }) { seat in
-                seatCell(seat, color: color)
-            }
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private func seatCell(_ seat: OnlineSeat, color: Color) -> some View {
-        let mine = seat.peerID == session.localPeerID
-        let free = seat.peerID == nil
-        let canSit = room.phase == .lobby && free
-        return Button {
-            guard canSit else { return }
-            FlowFX.tap(app)
-            session.takeSeat(seat.index)
-        } label: {
-            HStack(spacing: 6) {
-                if let hero = seat.loadout.heroID, seat.isHuman {
-                    HeroPortraitView(heroID: hero, size: 30)
-                } else {
-                    Image(systemName: seat.isHuman ? "person.fill" : "cpu")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(seat.isHuman ? Theme.textPrimary : Theme.textSecondary)
-                        .frame(width: 30, height: 30)
-                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.08)))
-                }
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(seat.isHuman ? seat.name : L("AI", "AI"))
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundStyle(mine ? Theme.gold : Theme.textPrimary)
-                        .lineLimit(1)
-                    HStack(spacing: 3) {
-                        Image(systemName: FlowText.positionSymbol(seat.position)).font(.system(size: 8))
-                        Text(FlowText.position(seat.position)).font(.system(size: 9, weight: .semibold, design: .rounded))
-                    }
-                    .foregroundStyle(Theme.textSecondary)
-                }
-                Spacer(minLength: 0)
-                if seat.isHuman {
-                    Image(systemName: seat.ready ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(seat.ready ? Theme.success : Theme.textSecondary)
-                }
-            }
-            .padding(.horizontal, 6)
-            .frame(minHeight: 44)
-            .background(RoundedRectangle(cornerRadius: 8).fill(mine ? Theme.gold.opacity(0.14) : Color.white.opacity(0.06)))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(mine ? Theme.gold : color.opacity(0.4), lineWidth: mine ? 1.5 : 1))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .disabled(!canSit)
-        .accessibilityLabel("\(FlowText.team(seat.team)) \(FlowText.position(seat.position)) \(seat.isHuman ? seat.name : "AI")")
-        .accessibilityIdentifier("online_seat_\(seat.index)")
-    }
-
-    // MARK: ピック
-
-    private var pickPanel: some View {
-        let seated = mySeat != nil
-        let heroes = app.master.heroes.filter { roleFilter == nil || $0.role == roleFilter }
-        let taken = room.seats.filter { $0.peerID != nil && $0.peerID != session.localPeerID }.compactMap(\.loadout.heroID)
-        return Panel(padding: 10) {
-            VStack(spacing: 8) {
-                if seated {
-                    RoleFilterBar(selection: $roleFilter)
-                    HeroPickerGrid(heroes: heroes, cell: { h in
-                        HeroGridCell(hero: h, selected: mySeat?.loadout.heroID == h.heroID,
-                                     unavailable: taken.contains(h.heroID), unavailableLabel: L("選択済", "Taken"))
-                    }, onTap: { h in
-                        guard !taken.contains(h.heroID), room.phase == .lobby else { return }
-                        FlowFX.tap(app)
-                        session.setLoadout(loadout(for: h.heroID))
-                    })
-                } else {
-                    unseatedPanel
-                }
-            }
-        }
-    }
-
     /// 座っていない時: 着席の案内か観戦席（実況）の説明と、観戦席の一覧・切り替え。
     private var unseatedPanel: some View {
         let isSpectator = session.localRole == .spectator
@@ -749,7 +719,7 @@ struct OnlineRoomView: View {
             return isHost ? L("実況（キャスター）として観戦します", "You will cast this match")
                           : L("観戦席にいます", "You are a spectator")
         }
-        return L("左の座席をタップして着席してください", "Tap a seat on the left to sit down")
+        return L("左右の空席をタップして着席してください", "Tap an open seat on either side to sit down")
     }
 
     private func unseatedDetail(isSpectator: Bool, isHost: Bool) -> String {
@@ -962,6 +932,300 @@ struct OnlineRoomView: View {
         if session.role == .host, room.canStart, room.peers.count >= 2, everyoneReady {
             autoStarted = true
             session.startMatch(master: app.master)
+        }
+    }
+}
+
+// MARK: - オンラインの選択ステージ
+
+private extension OnlineRoomView {
+    var draftHeader: some View {
+        HStack {
+            Button { showsRoomControls = true } label: {
+                Label(L("ルーム", "Room"), systemImage: "slider.horizontal.3")
+                    .font(Theme.body(12)).frame(minWidth: 72, minHeight: 44)
+            }.accessibilityIdentifier("online_room_controls")
+            Spacer()
+            VStack(spacing: 1) {
+                Text(L("ヒーロー PICK", "HERO PICK")).font(Theme.heading(17))
+                Text(room.phase == .lobby
+                     ? L("準備完了 \(room.seats.filter { $0.isHuman && $0.ready }.count) / \(room.seats.filter { $0.isHuman }.count)",
+                         "Ready \(room.seats.filter { $0.isHuman && $0.ready }.count) / \(room.seats.filter { $0.isHuman }.count)")
+                     : L("試合を準備しています…", "Preparing match…"))
+                    .font(Theme.body(11)).foregroundStyle(Theme.gold)
+            }
+            Spacer()
+            Button { app.leaveOnlineRoom() } label: {
+                Label(L("退出", "Leave"), systemImage: "rectangle.portrait.and.arrow.right")
+                    .font(Theme.body(12)).frame(minWidth: 72, minHeight: 44)
+            }.accessibilityIdentifier("online_leave")
+        }
+        .foregroundStyle(Theme.cyan)
+    }
+
+    func draftTeam(_ team: Team) -> some View {
+        let ally = team == (mySeat?.team ?? .blue)
+        let color = Theme.teamColor(team, colorblind: app.profile.settings.colorblindMode)
+        return VStack(spacing: 3) {
+            Text(ally ? L("味方", "ALLIES") : L("敵", "ENEMIES"))
+                .font(Theme.heading(11)).foregroundStyle(color)
+            ForEach(room.seats.filter { $0.team == team }) { seat in
+                GeometryReader { geometry in
+                    Button {
+                        guard seat.peerID == nil, room.phase == .lobby else { return }
+                        session.takeSeat(seat.index)
+                    } label: {
+                        ZStack(alignment: .bottomLeading) {
+                            if let heroID = seat.loadout.heroID, seat.isHuman,
+                               let art = PortraitArt.hero(heroID) {
+                                Image(uiImage: art).resizable().scaledToFill()
+                                    .frame(width: geometry.size.width, height: geometry.size.height).clipped()
+                            } else {
+                                color.opacity(0.12)
+                                Image(systemName: seat.isHuman ? "person.fill" : "cpu")
+                                    .font(.system(size: 24)).foregroundStyle(color.opacity(0.5))
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            }
+                            LinearGradient(colors: [.clear, color.opacity(0.25), .black.opacity(0.85)], startPoint: .top, endPoint: .bottom)
+                            VStack(alignment: .leading, spacing: 1) {
+                                HStack(spacing: 3) {
+                                    Image(systemName: FlowText.positionSymbol(seat.position))
+                                    Text(FlowText.position(seat.position))
+                                    Spacer(minLength: 0)
+                                    if seat.ready { Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.success) }
+                                }.font(Theme.body(9))
+                                Text(seat.isHuman ? seat.name : L("AI / 空席", "AI / Open"))
+                                    .font(Theme.heading(11)).lineLimit(1)
+                                    .foregroundStyle(seat.peerID == session.localPeerID ? Theme.gold : .white)
+                            }.padding(5)
+                        }
+                        .overlay(Rectangle().stroke(seat.peerID == session.localPeerID ? Theme.gold : color.opacity(0.3), lineWidth: 1))
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(seat.peerID != nil || room.phase != .lobby)
+                    .accessibilityLabel("\(FlowText.team(team)) \(FlowText.position(seat.position)) \(seat.isHuman ? seat.name : "AI")")
+                    .accessibilityIdentifier("online_seat_\(seat.index)")
+                }
+            }
+        }
+    }
+
+    var draftHeroes: some View {
+        let heroes = app.master.heroes.filter { roleFilter == nil || $0.role == roleFilter }
+        let taken = room.seats.filter { $0.peerID != nil && $0.peerID != session.localPeerID }.compactMap(\.loadout.heroID)
+        return VStack(spacing: 4) {
+            RoleFilterBar(selection: $roleFilter)
+            GeometryReader { geometry in
+                let columns = geometry.size.width > 480 ? 7 : 5
+                let size = min(54.0, max(32.0, (geometry.size.width - CGFloat(columns - 1) * 8) / CGFloat(columns)))
+                ScrollView {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: columns), spacing: 10) {
+                        ForEach(heroes) { hero in
+                            let selected = mySeat?.loadout.heroID == hero.heroID
+                            Button {
+                                guard room.phase == .lobby, !taken.contains(hero.heroID) else { return }
+                                FlowFX.tap(app)
+                                session.setLoadout(loadout(for: hero.heroID))
+                            } label: {
+                                VStack(spacing: 3) {
+                                    HeroPortraitView(heroID: hero.heroID, size: size, showsRole: false, face: true)
+                                        .clipShape(Circle())
+                                        .overlay(Circle().stroke(selected ? Theme.gold : Theme.cyan.opacity(0.4), lineWidth: selected ? 2 : 1))
+                                    Text(MasterText.hero(hero)).font(Theme.body(9)).lineLimit(1)
+                                }
+                                .opacity(taken.contains(hero.heroID) ? 0.3 : 1)
+                            }.buttonStyle(.plain)
+                                .disabled(taken.contains(hero.heroID) || room.phase != .lobby)
+                                .accessibilityAddTraits(selected ? .isSelected : [])
+                                .accessibilityIdentifier("online_pick_\(hero.heroID)")
+                        }
+                    }.padding(3)
+                }.scrollIndicators(.hidden)
+            }
+        }
+    }
+
+    var draftFooter: some View {
+        VStack(spacing: 4) {
+            if let heroID = mySeat?.loadout.heroID {
+                HStack(spacing: 8) {
+                    Button { showsPlans = true } label: {
+                        Label(L("バトルプラン", "Battle Plan"), systemImage: "list.bullet.rectangle")
+                            .font(Theme.body(12)).frame(maxWidth: .infinity, minHeight: 44)
+                    }.background(Theme.cyan.opacity(0.12))
+                        .overlay(Rectangle().stroke(Theme.cyan.opacity(0.6)))
+                        .accessibilityIdentifier("online_battle_plan")
+                    Button { showsSpells = true } label: {
+                        SpellIconView(spellID: mySeat?.loadout.spells.first ?? "BS01", size: 34)
+                            .frame(width: 44, height: 44)
+                    }.accessibilityLabel(L("バトルスキルを変更", "Change battle skill"))
+                    if let emblem = mySeat?.loadout.emblem {
+                        EmblemLoadoutBadge(emblem: emblem, compact: true)
+                    }
+                }.disabled(room.phase != .lobby)
+                .id(heroID)
+            }
+            HStack(spacing: 8) {
+                Button { showsSkins = false } label: {
+                    Text(L("ヒーロー", "Heroes")).foregroundStyle(!showsSkins ? Theme.cyan : Theme.textSecondary)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                Button { showsSkins = true } label: {
+                    Text(L("スキン", "Skins")).foregroundStyle(showsSkins ? Theme.cyan : Theme.textSecondary)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }.disabled(mySeat?.loadout.heroID == nil)
+                if let seat = mySeat {
+                    Button { session.setReady(!seat.ready) } label: {
+                        Text(seat.ready ? L("解除", "Unready") : L("準備完了", "Ready"))
+                            .font(Theme.heading(12)).frame(minHeight: 36)
+                    }.buttonStyle(SecondaryButtonStyle())
+                        .disabled(seat.loadout.heroID == nil || room.phase != .lobby)
+                        .accessibilityIdentifier("online_ready")
+                }
+                if session.isHost {
+                    Button { session.startMatch(master: app.master) } label: {
+                        Text(L("出撃", "Start")).font(Theme.heading(12)).frame(minHeight: 36)
+                    }.buttonStyle(PrimaryButtonStyle())
+                        .disabled(!room.canStart || room.phase != .lobby)
+                        .accessibilityIdentifier("online_start")
+                }
+            }.font(Theme.body(12)).buttonStyle(.plain)
+        }
+    }
+
+    func draftSkins(_ heroID: String) -> some View {
+        GeometryReader { geometry in
+            ScrollView(.horizontal) {
+                HStack(alignment: .center, spacing: 12) {
+                    draftSkin(heroID, skin: nil, height: max(100, geometry.size.height - 12))
+                    ForEach(CosmeticInfo.skins(heroID: heroID, master: app.master)) { skin in
+                        draftSkin(heroID, skin: skin, height: max(100, geometry.size.height - 12))
+                    }
+                }.padding(6).frame(minWidth: geometry.size.width)
+            }.scrollIndicators(.hidden)
+        }
+    }
+
+    func draftSkin(_ heroID: String, skin: CosmeticDef?, height: CGFloat) -> some View {
+        let owned = skin.map { app.owns(cosmeticID: $0.cosmeticID) } ?? true
+        let selected = mySeat?.loadout.skinID == skin?.cosmeticID
+        return Button {
+            guard owned, var loadout = mySeat?.loadout, loadout.heroID == heroID else { return }
+            loadout.skinID = skin?.cosmeticID
+            session.setLoadout(loadout)
+        } label: {
+            ZStack(alignment: .bottom) {
+                if let art = skin.flatMap({ PortraitArt.skin($0.cosmeticID) }) ?? PortraitArt.card(heroID) ?? PortraitArt.hero(heroID) {
+                    Image(uiImage: art).resizable().scaledToFill()
+                        .frame(width: height * 0.64, height: height).clipped()
+                }
+                LinearGradient(colors: [.clear, .black.opacity(0.9)], startPoint: .center, endPoint: .bottom)
+                VStack(spacing: 4) {
+                    Text(skin.map { MasterText.cosmetic($0) } ?? L("デフォルト", "Default"))
+                        .font(Theme.heading(12)).lineLimit(2)
+                    Label(selected ? L("使用中", "Equipped") : (owned ? L("使う", "Use") : L("未所持", "Locked")),
+                          systemImage: selected ? "checkmark.circle.fill" : (owned ? "paintpalette" : "lock.fill"))
+                        .font(Theme.body(10)).foregroundStyle(selected ? Theme.gold : .white)
+                }.padding(10)
+            }
+            .frame(width: height * 0.64, height: height)
+            .background(Theme.panel)
+            .overlay(Rectangle().stroke(selected ? Theme.gold : Theme.cyan.opacity(0.3), lineWidth: selected ? 2 : 1))
+            .opacity(owned ? 1 : 0.55)
+        }.buttonStyle(.plain).disabled(!owned || room.phase != .lobby)
+            .accessibilityIdentifier("online_skin_\(skin?.cosmeticID ?? "default")")
+    }
+
+    func draftPlans(_ heroID: String) -> some View {
+        VStack(spacing: 10) {
+            HStack {
+                Text(L("バトルプラン", "Battle Plan")).font(Theme.heading(20))
+                Spacer()
+                Button { showsPlans = false } label: {
+                    Image(systemName: "xmark").frame(width: 44, height: 44)
+                }.accessibilityLabel(L("閉じる", "Close"))
+            }
+            Rectangle().fill(Theme.cyan.opacity(0.4)).frame(height: 1)
+            ScrollView {
+                VStack(spacing: 10) {
+                    ForEach(Array(BuildRules.plans(for: heroID).enumerated()), id: \.offset) { index, plan in
+                        draftPlanRow(heroID, index: index, plan: plan)
+                    }
+                    if BuildRules.plans(for: heroID).isEmpty {
+                        Text(L("このヒーローのプランはありません", "No plans for this hero"))
+                    }
+                }
+            }.scrollIndicators(.hidden)
+        }
+        .padding(16)
+        .background(Color(red: 0.10, green: 0.20, blue: 0.36))
+        .overlay(Rectangle().stroke(Theme.cyan.opacity(0.6), lineWidth: 1))
+        .accessibilityIdentifier("online_battle_plans")
+    }
+
+    func draftPlanRow(_ heroID: String, index: Int, plan: BuildPlan) -> some View {
+        let active = ItemSystem.planIndex(heroID: heroID, chosen: mySeat?.loadout.buildPlan) == index
+            && (mySeat?.loadout.emblem == nil || mySeat?.loadout.emblem == plan.emblem)
+            && (plan.spellHint == nil || mySeat?.loadout.spells.first == plan.spellHint)
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(BuildRules.planName(plan)).font(Theme.heading(13))
+                Spacer()
+                if active {
+                    Label(L("有効", "Active"), systemImage: "checkmark.circle.fill").foregroundStyle(Theme.success)
+                } else {
+                    Button {
+                        guard var loadout = mySeat?.loadout, loadout.heroID == heroID else { return }
+                        loadout.buildPlan = index
+                        loadout.emblem = plan.emblem
+                        if let spell = plan.spellHint { loadout.spells = [spell, SpellLoadoutRules.fixedSpellID] }
+                        session.setLoadout(loadout)
+                    } label: {
+                        Text(L("使う", "Use")).frame(minWidth: 60)
+                    }.buttonStyle(PrimaryButtonStyle()).disabled(room.phase != .lobby)
+                        .accessibilityIdentifier("online_plan_\(index)_use")
+                }
+            }.font(Theme.body(12))
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 18) {
+                    draftPlanItems(plan)
+                    draftPlanEmblem(plan)
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    draftPlanItems(plan)
+                    draftPlanEmblem(plan)
+                }
+            }
+        }
+        .padding(10)
+        .background(active ? Theme.success.opacity(0.13) : Color.white.opacity(0.04))
+        .overlay(Rectangle().stroke(active ? Theme.success.opacity(0.55) : Theme.cyan.opacity(0.2)))
+    }
+
+    func draftPlanItems(_ plan: BuildPlan) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(L("ビルド", "Build")).font(Theme.body(11)).foregroundStyle(Theme.textSecondary)
+            HStack(spacing: 4) {
+                ForEach(Array(plan.items.enumerated()), id: \.offset) { _, itemID in
+                    if let item = app.master.item(itemID) { ItemIconView(item: item, size: 32) }
+                }
+            }
+        }
+    }
+
+    func draftPlanEmblem(_ plan: BuildPlan) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(L("エンブレム", "Emblems")).font(Theme.body(11)).foregroundStyle(Theme.textSecondary)
+                EmblemLoadoutBadge(emblem: plan.emblem, compact: true)
+            }
+            if let spell = plan.spellHint {
+                VStack(spacing: 6) {
+                    Text(L("バトルスキル", "Spell")).font(Theme.body(11)).foregroundStyle(Theme.textSecondary)
+                    SpellIconView(spellID: spell, size: 32)
+                }
+            }
         }
     }
 }
