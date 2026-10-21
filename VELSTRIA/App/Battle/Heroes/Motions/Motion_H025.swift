@@ -4,7 +4,7 @@ import VelstriaCore
 // 担当: hero-models（モーション）。H025 月弦のルミナ = MLBB のミヤの全身のモーション（docs/vfx/H025.md「モーション（打撃の時刻）」）。
 // MLBB の画面収録 vid3（2026-10-16、訓練場 Lv4、30fps。コマの時刻は発動 = 指を離したコマから）を目で読んで、構え・放ち・戻りの長さを測り、
 // 放ちのキーを sim の判定の時刻（KitTimes = HeroKits.fxValues = LuminaTuning）から置いた。判定・数値は変えていない。
-//   通常攻撃 — 的へ半身に足を開き、弓手（左）を的へ伸ばして引き手（右）を顔の横まで満引き（MLBB: 止まってから 4〜5 コマ）→ 放つ
+//   通常攻撃 — 的へ半身に足を開き（胸を射線の横へ）、弓手（左）を的へ伸ばして引き手（右）を顔の横まで満引き（MLBB: 止まってから 4〜5 コマ）→ 放つ
 //             （打撃 = sim の矢の発射）→ 引き手が後ろへ弾け、上体が少し反って戻る。
 //   スキル1 — MLBB に詠唱の動きは無い（歩いたまま青い気をまとう）。気が灯る 0.06 秒に弓を胸の前へ引き寄せて少し沈み、
 //             気が全身を包む間に胸を開いて弓を前へ伸ばす（移動中は上半身だけ）。
@@ -14,7 +14,9 @@ import VelstriaCore
 //   アルティメット — 発動の瞬間に外套で身を包むように低くかがみ（0.07 秒 = 隠密。MLBB はその場で 2 コマ止まる）、
 //             前へ倒れ込むように走り出す（MLBB f402〜404 の疾走の前傾。脚は移動の走り）。
 // 角度は体の鉛直に対して書く（MotionBuilder.worldAngles。腕の pitch 0 = 真下・π/2 = 前・π = 真上、yaw + = 左回り）。
-// 弓の半身の構えは手続きの弓の通常攻撃（HeroMotionProfile.attackClip の .bow: 胴 +0.58・頭 −0.5・引き手の yaw 0.55）と同じ向き。
+// 弓の半身の構え: 胴を右へ約 1 rad ひねって胸を射線の横へ向け（MLBB はカメラに胸を見せて的へ弓手を伸ばす）、頭を的へ戻し、
+// 弓手は外（左）へ振って的へ伸ばす（armL の yaw − = 外）、引き手は胸の前を横切って顔の横へ（armR の yaw + = 内）。
+// 手続きの弓の通常攻撃（attackClip の .bow、胴 +0.58）は胸が的の側を向いて読みにくかった（2026-10-21 の撮影）ので逆へひねる。
 // 足首の目標（footR / footL）は待機の足首からのずれ（m。-z = 前）。弓の握り = 左手（副手の三日月の長弓。発射位置は弓の握り）。
 
 enum Motion_H025: HeroMotionScript {
@@ -40,7 +42,7 @@ enum Motion_H025: HeroMotionScript {
     private static func stance(_ p: inout HeroPose, depth: Float, wide: Float = 1) {
         p.footL = [-0.05 * wide, 0, -0.15 * wide]
         p.footR = [0.06 * wide, 0, 0.11 * wide]
-        p.hipsYaw = 0.22
+        p.hipsYaw = -0.45
         p.hipsDrop = depth
     }
 
@@ -52,33 +54,33 @@ enum Motion_H025: HeroMotionScript {
         let out = base.rest.armL.out
         // 構え: 弓手を的へ上げ、引き手を弦へ掛ける。足を開く
         m.planted(0.1, .out) { p in
-            p.armL = ArmPose(pitch: 1.5, out: out - 0.12, yaw: 0.12, elbow: 0.2)
+            p.armL = ArmPose(pitch: 1.5, out: out - 0.12, yaw: -0.85, elbow: 0.2)
             p.weaponL = 0
-            p.armR = ArmPose(pitch: 1.45, out: out + 0.1, yaw: 0.5, elbow: 1.6)
-            p.torsoYaw = 0.48
+            p.armR = ArmPose(pitch: 1.45, out: out + 0.1, yaw: 0.85, elbow: 1.6)
+            p.torsoYaw = -0.85
             p.torsoPitch = 0.02
-            p.headYaw = -0.42
+            p.headYaw = 0.7
             stance(&p, depth: 0.03, wide: 0.7)
             p.glow = 0.6
         }
         // 満引き（引き手が顔の横へ）
         m.planted(0.07, .inOut) { p in
-            p.armL = ArmPose(pitch: 1.52, out: out - 0.14, yaw: 0.12, elbow: 0.05)
-            p.armR = ArmPose(pitch: 1.52, out: out + 0.14, yaw: 0.58, elbow: 2.25)
-            p.torsoYaw = 0.58
+            p.armL = ArmPose(pitch: 1.52, out: out - 0.14, yaw: -1.05, elbow: 0.05)
+            p.armR = ArmPose(pitch: 1.52, out: out + 0.14, yaw: 1.05, elbow: 2.25)
+            p.torsoYaw = -1.05
             p.torsoPitch = -0.03
-            p.headYaw = -0.5
+            p.headYaw = 0.85
             p.hipsDrop = 0.04
             p.glow = 1.0
         }
         m.markImpact()
         // 放つ: 引き手が後ろへ弾け、弓手がわずかに戻り、上体が少し反る
         m.planted(0.05, .snap) { p in
-            p.armL = ArmPose(pitch: 1.47, out: out - 0.12, yaw: 0.1, elbow: 0.12)
-            p.armR = ArmPose(pitch: 1.28, out: out + 0.45, yaw: -0.35, elbow: 1.1)
-            p.torsoYaw = 0.5
+            p.armL = ArmPose(pitch: 1.47, out: out - 0.12, yaw: -1.0, elbow: 0.12)
+            p.armR = ArmPose(pitch: 1.3, out: out + 0.45, yaw: 0.15, elbow: 1.1)
+            p.torsoYaw = -0.98
             p.torsoPitch = -0.08
-            p.headYaw = -0.44
+            p.headYaw = 0.8
             p.offset = [0, 0, 0.03]
             p.glow = 1.5
         }
@@ -132,7 +134,7 @@ enum Motion_H025: HeroMotionScript {
             p.weaponL = 0
             p.armR = ArmPose(pitch: 0.9, out: out + 0.5, yaw: -0.1, elbow: 0.6)
             p.torsoPitch = -0.12
-            p.torsoYaw = 0.2
+            p.torsoYaw = -0.2
             p.headPitch = -0.12
             p.hipsDrop = 0.02
             p.glow = 2.0
@@ -152,33 +154,33 @@ enum Motion_H025: HeroMotionScript {
         let out = m.rest.armL.out
         // 向き直って足を開き、弓を斜め上へ上げ始める。引き手を弦へ
         m.planted(shot * 0.36, .out) { p in
-            p.armL = ArmPose(pitch: 2.0, out: out - 0.1, yaw: 0.12, elbow: 0.25)
+            p.armL = ArmPose(pitch: 2.0, out: out - 0.1, yaw: -0.75, elbow: 0.25)
             p.weaponL = -0.1
-            p.armR = ArmPose(pitch: 1.95, out: out + 0.1, yaw: 0.5, elbow: 1.6)
-            p.torsoYaw = 0.45
+            p.armR = ArmPose(pitch: 1.95, out: out + 0.1, yaw: 0.8, elbow: 1.6)
+            p.torsoYaw = -0.75
             p.torsoPitch = -0.08
             p.headPitch = -0.25
-            p.headYaw = -0.35
-            stance(&p, depth: 0.05)
+            p.headYaw = 0.6
+            stance(&p, depth: 0.07, wide: 1.4)
             p.glow = 0.8
         }
         // 天へ満引き（約 45° 上。体を少し反らし、空を見上げる）。放つ時刻に引き切る
         m.planted(shot * 0.64, .inOut) { p in
-            p.armL = ArmPose(pitch: 2.35, out: out - 0.14, yaw: 0.12, elbow: 0.05)
+            p.armL = ArmPose(pitch: 2.35, out: out - 0.14, yaw: -0.95, elbow: 0.05)
             p.weaponL = 0
-            p.armR = ArmPose(pitch: 2.3, out: out + 0.14, yaw: 0.6, elbow: 2.25)
-            p.torsoYaw = 0.55
+            p.armR = ArmPose(pitch: 2.3, out: out + 0.14, yaw: 1.0, elbow: 2.25)
+            p.torsoYaw = -0.95
             p.torsoPitch = -0.22
             p.headPitch = -0.5
-            p.headYaw = -0.45
-            p.hipsDrop = 0.07
+            p.headYaw = 0.75
+            p.hipsDrop = 0.1
             p.glow = 1.3
         }
         m.markImpact()
         // 天へ放つ: 引き手が後ろへ弾け、弓が少し跳ねる
         m.planted(0.05, .snap) { p in
-            p.armL = ArmPose(pitch: 2.42, out: out - 0.12, yaw: 0.1, elbow: 0.1)
-            p.armR = ArmPose(pitch: 2.0, out: out + 0.5, yaw: -0.3, elbow: 1.0)
+            p.armL = ArmPose(pitch: 2.42, out: out - 0.12, yaw: -0.92, elbow: 0.1)
+            p.armR = ArmPose(pitch: 2.0, out: out + 0.5, yaw: 0.1, elbow: 1.0)
             p.torsoPitch = -0.27
             p.offset = [0, 0, 0.03]
             p.glow = 1.9
@@ -192,13 +194,13 @@ enum Motion_H025: HeroMotionScript {
         }
         // 弓を下ろし始める（戻りは build の recover で待機へ）
         m.planted(0.12, .inOut) { p in
-            p.armL = ArmPose(pitch: 1.3, out: out, yaw: 0.1, elbow: 0.6)
+            p.armL = ArmPose(pitch: 1.3, out: out, yaw: -0.3, elbow: 0.6)
             p.weaponL = -0.15
             p.armR = ArmPose(pitch: 0.8, out: out + 0.15, yaw: 0.4, elbow: 1.2)
-            p.torsoYaw = 0.25
+            p.torsoYaw = -0.3
             p.torsoPitch = -0.05
             p.headPitch = -0.1
-            p.headYaw = -0.15
+            p.headYaw = 0.2
             p.offset = .zero
             p.hipsDrop = 0.03
             p.glow = 0.7

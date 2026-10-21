@@ -73,12 +73,13 @@ def s1_aura():
         Node("flash", tex="Fx_Star", blend="add", life=7, loc=Loc.fixed(0, 1.45, 0), scale=Scl.ease(0.9, 1.5, "out"),
              color=fade(PERI, 230)),
         # 全身を包む青の膨らみ（加算の青。芯は白へ飛ばさない）
-        Node("swell", tex="Fx_Glow", blend="add", life=18, delay=1, loc=Loc.fixed(0, 1.0, 0), scale=Scl.ease((1.4, 1.8, 1), (2.0, 2.4, 1), "out"),
-             color=morph(AURA, AURA, 190, 0, "in"), fade_in=4),
+        Node("swell", tex="Fx_Glow", blend="add", life=18, delay=1, loc=Loc.fixed(0, 1.0, 0), scale=Scl.ease((1.6, 2.0, 1), (2.2, 2.6, 1), "out"),
+             color=morph(AURA, AURA, 235, 0, "in"), fade_in=4),
         # 上へ揺れる青い炎の舌（体の縁。下が明るい棘の画を縦に立てて昇らせる）
-        Node("tongues", tex="Fx_Spike", blend="add", life=(10, 15), count=12, interval=0.7, delay=2, billboard="yfixed",
-             gen=Gen.circle((0.22, 0.42), division=12, rotate=False), loc=Loc.pva(pos=((0, 0.15, 0), (0, 0.55, 0)), vel=((0, 1.6, 0), (0, 3.0, 0))),
-             scale=Scl.ease((0.32, 0.7, 1), (0.16, 1.35, 1), "out"), color=morph(PERI, AURA, 220, 0)),
+        # 炎の舌は柔らかく（白い芯にしない）: 青の加算を薄く重ね、0.3 秒で出し終える
+        Node("tongues", tex="Fx_Spike", blend="add", life=(8, 12), count=10, interval=0.5, delay=2, billboard="yfixed",
+             gen=Gen.circle((0.25, 0.45), division=10, rotate=False), loc=Loc.pva(pos=((0, 0.1, 0), (0, 0.5, 0)), vel=((0, 1.4, 0), (0, 2.6, 0))),
+             scale=Scl.ease((0.42, 0.7, 1), (0.22, 1.25, 1), "out"), color=morph(AURA, AURA, 150, 0)),
         # 昇る水色の粒（余韻）
         Node("motes", tex="Fx_Glow", blend="add", life=(12, 20), count=8, interval=1, delay=4,
              gen=Gen.circle((0.15, 0.45), division=8, rotate=False), loc=Loc.pva(pos=((0, 0.4, 0), (0, 1.4, 0)), vel=((0, 1.2, 0), (0, 2.2, 0))),
@@ -133,10 +134,10 @@ def s2_land():
         Node("burst", tex="Fx_Burst", blend="add", life=10, loc=Loc.fixed(0, 0.6, 0), scale=Scl.ease(2.8, 4.0, "out"),
              rot=Rot.pva(((0, 0, 0), (0, 0, 360))), color=morph(PALE, CYAN, 220, 0)),
         # 立ちのぼる光の矢（矢じりが上。縦に立てた矢の画が向きを保ったままゆっくり昇る）
-        Node("arrows", tex="Fx_Arrow", blend="add", life=(14, 20), count=12, interval=1.0, delay=2, billboard="yfixed",
-             rot=Rot.fixed(0, 0, 90), gen=Gen.circle((0.25, R * 0.86), division=12, rotate=False),
-             loc=Loc.pva(pos=((0, 0.35, 0), (0, 0.75, 0)), vel=((0, 1.2, 0), (0, 2.6, 0))),
-             scale=Scl.ease((1.15, 0.3, 1), (1.45, 0.2, 1), "out"), color=morph(WHITE, ARROW, 255, 0)),
+        Node("arrows", tex="Fx_Arrow", blend="add", life=(16, 22), count=14, interval=0.8, delay=2, billboard="yfixed",
+             rot=Rot.fixed(0, 0, 90), gen=Gen.circle((0.25, R * 0.86), division=14, rotate=False),
+             loc=Loc.pva(pos=((0, 0.55, 0), (0, 0.95, 0)), vel=((0, 1.0, 0), (0, 2.2, 0))),
+             scale=Scl.ease((1.7, 0.42, 1), (2.1, 0.3, 1), "out"), color=morph(WHITE, ARROW, 255, 0)),
         # 縁のきらめき
         Node("glints", tex="Fx_Star4", blend="add", life=(10, 18), count=10, interval=0.8, delay=4,
              gen=Gen.circle((R * 0.85, R * 1.0), division=10, rotate=False), loc=Loc.pva(pos=((0, 0.2, 0), (0, 0.6, 0)), vel=(0, 0.8, 0)),
@@ -152,7 +153,7 @@ def s2_split():
     fx.add(
         flat("fill", "Fx_SoftDisc", 2 * R * 0.95, 2 * R * 1.0, 9, y=0.06, color=fade(WHITE, 220, 0, "in")),
         Node("column", tex="Fx_Beam", blend="add", life=9, billboard="yfixed", rot=Rot.fixed(0, 0, 90), loc=Loc.fixed(0, 1.0, 0),
-             scale=Scl.ease((2.0, 2 * R * 0.8, 1), (2.4, 2 * R * 0.9, 1), "out"), color=fade(WHITE, 200, 0, "in")),
+             scale=Scl.ease((2.4, 1.0, 1), (2.8, 1.2, 1), "out"), color=fade(WHITE, 190, 0, "in")),
         Node("flash", tex="Fx_Core", blend="add", life=6, loc=Loc.fixed(0, 0.7, 0), scale=Scl.ease(2.6, 3.4, "out"),
              color=fade(WHITE, 220, 0, "lin")),
         # 外へ走る短い光の筋（地面すれすれ。6 本の矢の向きとは別の飾り）

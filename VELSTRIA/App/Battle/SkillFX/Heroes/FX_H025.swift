@@ -70,9 +70,9 @@ enum FX_H025: HeroFXSet {
     // MARK: - 見た目の寸法（動画で測った値・推定。sim には無い）
 
     /// 弓を構えた左手の先（局所座標）。
-    private static let bow: SIMD3<Float> = [-0.1, 1.35, 0.6]
-    /// 天へ向けて引いた弓の先（スキル2。Motion_H025.eclipse の約 45° 上の満引き）。
-    private static let bowHigh: SIMD3<Float> = [-0.12, 1.9, 0.45]
+    private static let bow: SIMD3<Float> = [-0.08, 1.35, 0.65]
+    /// 天へ向けて引いた弓の先（スキル2。Motion_H025.eclipse の約 45° 上の満引き = 左肩から前と上へ 0.55 m）。
+    private static let bowHigh: SIMD3<Float> = [-0.08, 1.8, 0.55]
     /// 奥義の三日月の中心（頭上。画面の位置から逆算した推定）。
     private static let crown: SIMD3<Float> = [0, 3.5, 0]
 
@@ -133,11 +133,11 @@ enum FX_H025: HeroFXSet {
             .emit(.flare(1.0, periwinkle, life: 0.12, tex: .flare4), at: 0.04, .follow, offset: [0, 1.45, 0.05]),
             // 主: 0.05〜0.35 全身を包む濃い青の気 — 柔らかい光が膨らみ、炎の殻（burstDome の模型。炎の筋が上へ流れて縁から欠ける）が
             // 体を覆う（加算の青。体の上に描く = MLBB も体が青く染まる）
-            .mesh(FXMesh.sprite(.glow, 2.0, aura, life: 0.3, grow: 1.12, alpha: 0.8).glowing().with {
+            .mesh(FXMesh.sprite(.glow, 2.1, aura, life: 0.3, grow: 1.12, alpha: 0.95).glowing().with {
                 $0.fadeIn = 0.3
                 $0.fadeOut = 0.5
             }, at: 0.04, .follow, offset: [0, 1.0, 0]),
-            .mesh(FXMesh.model(.burstDome, nil, aura, size: [0.6, 1.65, 0.6], sizeEnd: [0.78, 2.05, 0.78], life: 0.3, alpha: 0.85)
+            .mesh(FXMesh.model(.burstDome, nil, aura, size: [0.62, 1.65, 0.62], sizeEnd: [0.8, 2.05, 0.8], life: 0.3, alpha: 1)
                 .glowing().flowing(.flame, scroll: [0.15, -1.8], tiling: 1.6, strength: 0.85, erosion: 0.4, edge: periwinkle).with {
                     $0.fadeIn = 0.22
                     $0.fadeOut = 0.5
@@ -238,16 +238,21 @@ enum FX_H025: HeroFXSet {
             .emit(FXEmit(tex: .streak, tint: .core, tintEnd: arrowBlue, count: 16, emit: 0.26, life: 0.3, lifeVar: 0.15,
                          size: 0.13, sizeVar: 0.3, grow: 0.8, shape: .disc(R * 0.85), dir: .up, speed: 3.5, speedVar: 0.3,
                          stretch: 3.6, fade: .gradualFadeInOut), at: land + 0.03, offset: [0, 0.2, 0]),
-            // 分裂（s2Split）: 範囲に満ちる白い光（f349〜350 #F6FBFD。円柱の下端は範囲の内側）と閃光・Effekseer の白い光の柱と放射の筋
-            .mesh(FXMesh(shape: .cylinder, tex: .beam, tint: .core, alpha: 0.85, size: [R * 0.85, 0.6, R * 0.85],
-                         sizeEnd: [R * 0.92, 2.4, R * 0.92], ease: .out, life: 0.2, fadeIn: 0.05, fadeOut: 0.35).glowing(),
+            // 分裂（s2Split）: 範囲に満ちる白い光（f349〜350 #F6FBFD。地面の光 + 低い光の円柱、円柱の下端は範囲の内側）と閃光・
+            // Effekseer の白い光の柱と放射の筋（以前の高さ 2.4 m の円柱は上から見ると青い泡に見えた。2026-10-21 の撮影）
+            .mesh(FXMesh.decal(.glow, R * 2.0, .core, life: 0.2, spin: 0, grow: 1.05, alpha: 0.75).glowing().with {
+                $0.fadeIn = 0.05
+                $0.fadeOut = 0.4
+            }, at: split),
+            .mesh(FXMesh(shape: .cylinder, tex: .beam, tint: .core, alpha: 0.5, size: [R * 0.8, 0.3, R * 0.8],
+                         sizeEnd: [R * 0.88, 1.2, R * 0.88], ease: .out, life: 0.18, fadeIn: 0.05, fadeOut: 0.35).glowing(),
                   at: split),
             .efk(efkSplit, at: split, scale: k, onTop: true),
             .emit(.flare(2.6, .core, life: 0.14, tex: .flare6), at: split, offset: [0, 0.7, 0]),
             .shake(0.12, at: land),
         ]
-        // 矢じりの見える光の矢 2 本（直交する 2 枚の板。着弾から 0.06 秒ずつ遅れて、ゆっくり昇りながら消える。CI の撮影にも写る）
-        let standing: [SIMD3<Float>] = [[0.62, 0.65, 0.3], [-0.5, 0.65, -0.48]]
+        // 矢じりの見える光の矢 1 本（直交する 2 枚の板。着弾の直後にゆっくり昇りながら消える。CI の撮影にも写る。残りの矢は Effekseer）
+        let standing: [SIMD3<Float>] = [[0.62, 0.65, 0.3]]
         for (n, p) in standing.enumerated() {
             tele.append(.mesh(uprightArrow(length: 1.25, width: 0.4, .core, life: 0.3, up: true).with { $0.rise = 1.6 }.glowing(),
                               at: land + 0.03 + 0.06 * Float(n), offset: p * (R / landDesignRadius)).repeated(2, yaw: 90))
@@ -301,13 +306,21 @@ enum FX_H025: HeroFXSet {
                 $0.fadeIn = 0.15
                 $0.fadeOut = 0.55
             }, at: 0.03, offset: crown),
-            .mesh(FXMesh.sprite(.moonCrest, 1.9, moonBlue, life: 0.45, grow: 1.06, alpha: 1).glowing().with {
+            // 紋章の下に同じ形の濃い青（アルファ合成）を敷いて、明るい地面・壁の前でも縁が読めるようにする
+            .mesh(FXMesh.sprite(.moonCrest, 2.2, .rgb(0.16, 0.3, 0.85), life: 0.45, grow: 1.06, alpha: 0.5).with {
+                $0.fadeIn = 0.1
+                $0.fadeOut = 0.7
+            }, at: 0.03, offset: crown + SIMD3<Float>(0, 0, -0.02)),
+            .mesh(FXMesh.sprite(.moonCrest, 2.1, moonBlue, life: 0.45, grow: 1.06, alpha: 1).glowing().with {
                 $0.fadeIn = 0.1
                 $0.fadeOut = 0.75
             }.dissolving(from: 0.6, edge: wisp, width: 0.12), at: 0.03, offset: crown),
             .efk(efkUltMoon, at: 0.03, offset: crown, onTop: true),
             // 0.05〜0.53 三日月から地へ降りる青紫の光の柱（半径 1.0。円柱を逆さに吊るして下へ伸ばす。加算・筋が流れ、終わりに溶ける）
-            .mesh(FXMesh(shape: .cylinder, tex: .beam, tint: veil, alpha: 0.85, size: [0.85, 0.5, 0.85],
+            // カメラを向く柔らかい光の柱（幅 2 m。MLBB の柱は上から見ても一様な帯）を重ねる
+            .mesh(FXMesh(shape: .billboard, tex: .glow, tint: veil, alpha: 0.5, size: [1.9, 2.4, 1], sizeEnd: [2.1, 3.4, 1],
+                         ease: .out, life: 0.46, fadeIn: 0.15, fadeOut: 0.55).glowing(), at: 0.05, offset: [0, 1.8, 0]),
+            .mesh(FXMesh(shape: .cylinder, tex: .beam, tint: veil, alpha: 0.55, size: [0.85, 0.5, 0.85],
                          sizeEnd: [1.0, 3.4, 1.0], ease: .out, life: 0.48, fadeIn: 0.12, fadeOut: 0.6, roll: 180).glowing()
                 .flowing(.streaks, scroll: [0, -0.8], tiling: 3, strength: 0.4, edge: .accent)
                 .dissolving(from: 0.55, edge: wisp, width: 0.1), at: 0.05, offset: crown),
