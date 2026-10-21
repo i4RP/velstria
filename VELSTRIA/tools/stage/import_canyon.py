@@ -30,6 +30,17 @@ def footprint(p,z=None):
  shapes=[p for p in shapes if p.area>1e-5]
  return unary_union(shapes).buffer(.12).buffer(-.12).simplify(.18,preserve_topology=True)
 
+def ground_heights(z, texture):
+ # A clamp folds every depressed bank/road onto the same plane and creates Z-fighting.
+ # Keep near-ground offsets at full precision; compress only deep banks below 6cm.
+ # This keeps the authored 4mm+ plaza/road separation instead of shrinking it away.
+ height=np.where(z<-.2,-.2+(z+.2)*.05,z)
+ # The source border and rock submeshes also contain genuinely coplanar patches.
+ # Put that authored border underlay 16mm below the rock (GroundLayer's >=4mm rule).
+ if texture=='PGD_M_20TerrainBorder_01_D.png':height=height-.016/SCALE
+ return height
+
+
 def clip(v,axis,value,greater):
  out=[]
  for a,b in zip(v,v[1:]+v[:1]):
@@ -74,7 +85,7 @@ def main():
   if 'TerrainRiver_01_D' in tex:rivers.extend(polygons(footprint(p)))
   if 'Terrain' in name or 'BaseGround' in tex or 'BaseBlueGround' in name or 'BaseRedGround' in name:
    ground.extend(polygons(footprint(p)))
-   p=p.copy();p[:,2]=np.maximum(p[:,2],-.04) # river/road floor shares the game's flat movement plane
+   p=p.copy();p[:,2]=ground_heights(p[:,2],tex)
   objects.append((row,p,n,uv))
  print('Unique static objects',len(objects),'source triangles',sum(len(p)//3 for _,p,_,_ in objects),flush=True)
  # Ground coverage prevents movement into the unmodelled exterior, but preserves the two fountain plazas.
@@ -165,12 +176,14 @@ def main():
  (WORK/'layout.json').write_text(json.dumps(layout,indent=2))
  if '--layout-only' in sys.argv:
   print('Updated layout',len(finalWalls),'walls',flush=True);return
- # Three 2048x1024 atlases: eight 512px tiles per atlas, with extrusion against mip bleeding.
+ # Sixteen extruded texels keep neighbouring atlas tiles apart through the useful mip levels.
+ pad=16;content=512-pad*2
+ # Three 2048x1024 atlases: eight 512px tiles per atlas.
  textures=sorted(set(row['texture'] for row,_,_,_ in objects));assert len(textures)<=24
  atlases=[Image.new('RGBA',(2048,1024)) for _ in range(math.ceil(len(textures)/8))]
  for i,tex in enumerate(textures):
-  im=Image.open(WORK/'source/textures'/tex).convert('RGBA').resize((504,504),Image.Resampling.LANCZOS)
-  tile=Image.fromarray(np.pad(np.array(im),((4,4),(4,4),(0,0)),mode='edge'))
+  im=Image.open(WORK/'source/textures'/tex).convert('RGBA').resize((content,content),Image.Resampling.LANCZOS)
+  tile=Image.fromarray(np.pad(np.array(im),((pad,pad),(pad,pad),(0,0)),mode='edge'))
   atlases[i//8].paste(tile,((i%4)*512,((i%8)//4)*512))
  for i,a in enumerate(atlases):a.save(OUT/f'StageCanyonAtlas{i}.png')
  chunks=defaultdict(list)
@@ -181,8 +194,8 @@ def main():
   v=np.column_stack([pos,normal,uv])
   for tri in v.reshape(-1,3,8):
    for t in tiled_triangles(tri):
-    t[:,6]=((tid%4)*512+4+t[:,6]*504)/2048
-    t[:,7]=1-(((tid%8)//4)*512+4+(1-t[:,7])*504)/1024
+    t[:,6]=((tid%4)*512+pad+t[:,6]*content)/2048
+    t[:,7]=1-(((tid%8)//4)*512+pad+(1-t[:,7])*content)/1024
     center=t[:,:3].mean(0);cx=int(math.floor((center[0]+20)/12));cy=int(math.floor((-center[2]+20)/12))
     chunks[(tid//8,cx,cy)].append(t)
  headers=[];payload=[];offset=0;total=0

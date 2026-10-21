@@ -402,10 +402,13 @@ inline float caustics(float2 m, float t) {
 
 // Authored 5v5 stage: its diffuse maps already contain lighting. Alpha cutout retains
 // opaque depth writes for foliage; no sorted transparent object per leaf/card.
+// Trilinear mip filtering with a small positive bias suppresses fine paving/leaf shimmer.
+constexpr sampler canyonSampler(coord::normalized, address::clamp_to_edge, filter::linear,
+                                 mip_filter::linear, max_anisotropy(4));
 [[visible]] void stageCanyonSurface(realitykit::surface_parameters params) {
     float2 uv = params.geometry().uv0();
     uv.y = 1.0 - uv.y;
-    half4 color = params.textures().base_color().sample(stage::atlasSampler, uv);
+    half4 color = params.textures().base_color().sample(canyonSampler, uv, bias(0.35));
     if (color.a < 0.45h) { discard_fragment(); }
     // Unlit custom materials consume emissive only (RealityKit ignores base_color).
     params.surface().set_emissive_color(color.rgb);

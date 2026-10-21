@@ -96,7 +96,8 @@ final class BattleRenderer {
         governed = governor.output
         // 後処理のシェーダーはユーザー設定の段で作る（自動調整で一時的に切っていても、戻すときにコンパイルを待たない）
         // シミュレータでは後処理を使わない（renderCallbacks.postProcess が呼ばれず、コンパイルの CPU だけを食う）
-        post = PostProcessor(settings: PostProcessor.isAvailable ? .preset(settings.quality.level) : .preset(.low))
+        post = PostProcessor(settings: PostProcessor.isAvailable ? .preset(settings.quality.level) : .preset(.low),
+                             antialiasing: controller.ctx.map.stageID == "canyon")
         post.apply(BattleRenderer.availablePost(governed.post))
         frameStats = FrameStats(frameRate: governed.settings.frameRate)
         pendingEvents.reserveCapacity(256)
