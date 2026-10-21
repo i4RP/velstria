@@ -3,8 +3,8 @@ import SwiftUI
 @testable import VELSTRIA
 import VelstriaCore
 
-// 担当: home-chrome。ホーム画面の純粋ロジック（HomeLogic.swift）: 参照デザインのロビーが全対応端末で
-// 縦横同じ倍率のままセーフエリアに収まること、識別子、ショーケースの巡回、書式、同梱フォントの登録。
+// 担当: home-chrome。ホーム画面の純粋ロジック（HomeLogic.swift）: 採用案（Celestial Saber）のロビーが全対応端末で
+// 縦横同じ倍率のままセーフエリアに収まること、ドロワーと識別子、左のカード・フレンド欄の表示、書式、同梱フォントの登録。
 
 final class HomeScreenTests: XCTestCase {
     private var savedLanguage: AppLanguage = .ja
@@ -45,14 +45,10 @@ final class HomeScreenTests: XCTestCase {
                 XCTAssertTrue(screen.contains(r), "\(d.name): \(slot.name) が画面外 \(r)")
                 XCTAssertTrue(l.safeRect.insetBy(dx: -0.5, dy: -0.5).contains(r), "\(d.name): \(slot.name) がセーフエリアにはみ出す \(r)")
             }
-            // フッターの帯は画面の左端と下端まで
-            XCTAssertEqual(l.footerBandRect.minX, 0, d.name)
-            XCTAssertEqual(l.footerBandRect.maxY, d.size.height, accuracy: 0.01, d.name)
         }
     }
 
     func testPlayButtonClearsDynamicIslandOnProMax() {
-        // 以前は縦横別の倍率でセーフエリアを見ず、17 Pro Max で対戦開始ボタンが右へ約 38pt はみ出していた
         let l = HomeLayout(size: CGSize(width: 956, height: 440), safeArea: EdgeInsets(top: 0, leading: 62, bottom: 21, trailing: 62))
         XCTAssertLessThanOrEqual(l.screenRect(HomeLobbySlot.play).maxX, 956 - 62 + 0.5)
         XCTAssertGreaterThanOrEqual(l.screenRect(HomeLobbySlot.profile).minX, 62 - 0.5)
@@ -63,11 +59,11 @@ final class HomeScreenTests: XCTestCase {
         for slot in HomeLobbySlot.all {
             XCTAssertTrue(board.contains(slot.rect), "\(slot.name) が板の外 \(slot.rect)")
         }
-        // 下段の押せる部品どうし（タブ・エンブレム・ランク・対戦開始）は重ならない
-        let bottom = [HomeLobbySlot.footerTabs, HomeLobbySlot.emblems, HomeLobbySlot.rank, HomeLobbySlot.play]
-        for i in bottom.indices {
-            for j in bottom.indices where j > i {
-                XCTAssertFalse(bottom[i].intersects(bottom[j]), "下段の部品 \(i) と \(j) が重なる")
+        // 押せる部品どうしは重ならない（中央のキービジュアルは背景の扱いなので除く）
+        let parts = HomeLobbySlot.all.filter { $0.name != "keyVisual" }
+        for i in parts.indices {
+            for j in parts.indices where j > i {
+                XCTAssertFalse(parts[i].rect.intersects(parts[j].rect), "\(parts[i].name) と \(parts[j].name) が重なる")
             }
         }
     }
@@ -76,33 +72,47 @@ final class HomeScreenTests: XCTestCase {
         let all = HomeIdentifiers.all
         XCTAssertEqual(all.count, Set(all).count, "識別子が重複している")
         // 既存の UI テストが使う識別子
-        for id in ["home_play", "home_profile", "home_mail", "home_notices", "home_records", "home_rank"] {
+        for id in ["home_play", "home_profile", "home_mail", "home_rank", "home_menu", "home_menu_notices"] {
             XCTAssertTrue(all.contains(id), id)
         }
     }
 
-    func testMenuDoesNotDuplicateLobbyEntries() {
-        // ロビーに入口がある画面と、モード選択（VS AI & カスタム）にある画面はドロワーに置かない
+    func testEveryScreenHasOneEntryAndMenuHoldsOnlyTheRest() {
+        // 採用案のロビーに入口の無い画面（お知らせ・ランキング・観戦・バトルスキル）はドロワーから
         let routes = HomeMenuItem.allCases.map(\.route)
-        for r in [Route.achievements, .ranking, .support, .cosmetics, .practiceSetup, .tutorialMenu] {
+        for r in [Route.notices, .ranking, .spectateSetup, .spells] {
+            XCTAssertTrue(routes.contains(r), "\(r) へ行けない")
+        }
+        // ほかに入口がある画面はドロワーに置かない
+        for r in [Route.achievements, .records, .support, .cosmetics, .practiceSetup, .tutorialMenu, .patchNotes] {
             XCTAssertFalse(routes.contains(r), "\(r) がドロワーとほかの入口で重複")
         }
         XCTAssertEqual(Set(routes).count, routes.count)
     }
 
-    func testShowcaseCycling() {
-        let master = ["H001", "H002", "H003", "H004"]
-        let roster = HomeShowcaseLogic.roster(owned: ["H004", "H002", "H009"], masterOrder: master)
-        XCTAssertEqual(roster, ["H002", "H004"], "所持ヒーローをマスター順に（マスターに無い ID は除く）")
-        XCTAssertEqual(HomeShowcaseLogic.neighbor(of: "H002", in: roster, step: 1), "H004")
-        XCTAssertEqual(HomeShowcaseLogic.neighbor(of: "H004", in: roster, step: 1), "H002", "末尾の次は先頭")
-        XCTAssertEqual(HomeShowcaseLogic.neighbor(of: "H002", in: roster, step: -1), "H004", "先頭の前は末尾")
-        XCTAssertEqual(HomeShowcaseLogic.neighbor(of: "H001", in: roster, step: 1), "H002", "巡回対象外からは先頭へ")
-        XCTAssertEqual(HomeShowcaseLogic.neighbor(of: "H001", in: roster, step: -1), "H004", "巡回対象外からは末尾へ")
-        XCTAssertEqual(HomeShowcaseLogic.neighbor(of: "H001", in: [], step: 1), "H001")
-        XCTAssertEqual(HomeShowcaseLogic.initialHero(lastPicked: "H003", avatar: "H001", isKnown: { $0 == "H003" }), "H003")
-        XCTAssertEqual(HomeShowcaseLogic.initialHero(lastPicked: "H099", avatar: "H001", isKnown: { $0 == "H003" }), "H001")
-        XCTAssertEqual(HomeShowcaseLogic.initialHero(lastPicked: nil, avatar: "H001", isKnown: { _ in true }), "H001")
+    func testPassCardProgress() {
+        let start = HomePassProgress(xp: 0)
+        XCTAssertEqual(start.label, "Lv.0/\(LiveOpsService.passMaxLevel)")
+        XCTAssertEqual(start.fraction, 0)
+        let mid = HomePassProgress(xp: LiveOpsService.passXPPerLevel * 3 + LiveOpsService.passXPPerLevel / 4)
+        XCTAssertEqual(mid.level, 3)
+        XCTAssertEqual(mid.fraction, 0.25, accuracy: 0.001)
+        let max = HomePassProgress(xp: LiveOpsService.passXPPerLevel * (LiveOpsService.passMaxLevel + 5))
+        XCTAssertEqual(max.level, LiveOpsService.passMaxLevel)
+        XCTAssertEqual(max.fraction, 1)
+    }
+
+    func testFriendStatusAndInvite() {
+        XCTAssertEqual(HomeFriendStatus.of(online: false, inMyTeam: false), .offline)
+        XCTAssertEqual(HomeFriendStatus.of(online: false, inMyTeam: true), .offline)
+        XCTAssertEqual(HomeFriendStatus.of(online: true, inMyTeam: false), .online)
+        XCTAssertEqual(HomeFriendStatus.of(online: true, inMyTeam: true), .inTeam)
+        XCTAssertTrue(HomeFriendStatus.online.canInvite)
+        for s in [HomeFriendStatus.offline, .inTeam, .inMatch, .practicing] {
+            XCTAssertFalse(s.canInvite, "\(s) は招待できない")
+        }
+        XCTAssertEqual(HomeFriendStatus.inTeam.title, "チーム中")
+        XCTAssertEqual(HomeFriendStatus.practicing.title, "練習中")
     }
 
     func testCurrencyFormat() {

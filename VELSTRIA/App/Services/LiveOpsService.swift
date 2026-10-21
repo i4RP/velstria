@@ -99,6 +99,8 @@ struct MatchProgressInput: Equatable {
 enum LiveOpsService {
     static let passXPPerLevel = 1000
     static let passMaxLevel = 30
+    /// 今のスターパスの名前（ホームのカード・パスの画面の見出し）。
+    static var passTitle: String { L("スターパス シーズン 1", "Star Pass Season 1") }
     /// メール箱の上限（超えたら受取済み・添付なしの古いものから削除）。
     static let maxMailCount = 100
     /// ログインボーナスメールの受取期限（日）。
