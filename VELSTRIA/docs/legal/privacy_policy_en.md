@@ -92,6 +92,19 @@ To calculate and store your Ranked rank on the relay server, once you have accep
 
 The relay stores the hash of your inbox key (to confirm who owns the rank), your rank and the results of your last 50 matches (the match identifiers and how your rank changed) until you delete them from the App (section 12). They are not deleted automatically.
 
+### 4.6 Name card, leaderboard, friend status and mail from us
+
+Once you have accepted the online rules, the App sends the following information to the relay server (nothing is sent if you selected the under-13 age group, before you accept the rules, or after you choose Stop Using Online Features).
+
+| When | Information sent | Purpose |
+|---|---|---|
+| When the App starts, when you accept the rules, and after a match (only when something changed) | Friend code, inbox key, and your name card (display name, avatar hero, avatar frame, account level, country or region, matches and wins for your 3 most-played heroes, total matches and wins) | Showing your name card to other players and building the leaderboard |
+| When you open the leaderboard, your friend list and similar screens | The friend codes whose name cards are shown (up to 100), the leaderboard scope (world, country, friends), country or region, your friends' friend codes, and your friend code | Showing name cards and the leaderboard |
+| While connected to your inbox, when your status changes | Your current status (in a room, matchmaking, in a match with its mode and start time, viewing results, watching) | Showing your status in your friends' lists |
+| When the App starts and when it comes back to the foreground | (Nothing is sent; the App only downloads our mail) | Delivering announcements and rewards from us by mail |
+
+**Your name card and leaderboard entry are public.** Your name card is shown to people who know your friend code (friends, players in the same match and similar) and to anyone viewing the leaderboard. The leaderboard lists the best rank this season of players who sent a name card, up to the top 100 in each scope (world, country, friends). The rank on your name card is not sent by you; the relay writes it from your Ranked results (section 4.5). The relay stores your name card and, for the leaderboard, your current rank, your best rank this season and this season's wins and losses until you delete them from the App. They are deleted when you choose Stop Using Online Features, Delete Friend Server Data or Delete All Data (together with your rank). Your status is not stored and disappears when you disconnect from your inbox. Mail from us is registered on the relay by us and only downloaded by the App; no information about you is sent for it.
+
 ## 5. Relay server operation and service providers
 
 - We operate the relay server on cloud services provided by Cloudflare, Inc. (United States): Cloudflare Workers and Durable Objects.
@@ -154,6 +167,8 @@ We take the following measures to prevent the leakage, loss or damage of the inf
 | Hash of your inbox key and time of your last connection | Relay server | Until you delete it from the App; deleted automatically one year after your last connection |
 | Pending friend requests and acceptances | Relay server | Until delivered; at most 14 days after they were received |
 | Rank and the results of your last 50 matches (section 4.5) | Relay server | Until you delete them from the App (not deleted automatically) |
+| Name card and leaderboard information (section 4.6) | Relay server | Until you delete them from the App or choose Stop Using Online Features |
+| Mail from us (the same for everyone) | Relay server | Until its publishing period ends (60 days by default) |
 | Deletion marker | Relay server | Kept without a time limit (shows only that the inbox was deleted) |
 | Suspended friend codes | Relay server (setting) | Until the suspension is lifted |
 | Support and report emails | Our email | Until no longer needed after we have finished handling them |
