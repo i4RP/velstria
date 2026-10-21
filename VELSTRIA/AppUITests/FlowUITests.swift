@@ -83,12 +83,16 @@ final class FlowUITests: XCTestCase {
     func testHomeMetaScreens() {
         let app = launch(["-skipOnboarding", "-grant", "-language", "ja"])
         XCTAssertTrue(element(app, "home_play").waitForExistence(timeout: 15))
-        for (id, name) in [("home_profile", "profile"), ("home_mail", "mail"), ("home_notices", "notices"),
-                           ("home_records", "records"), ("home_rank", "rank")] {
-            tap(app, id)
+        // 採用案のロビー: お知らせは ≡ のメニュー、戦績はプロフィールから（2 段で開いた画面は 2 回戻る）
+        let paths: [(ids: [String], name: String, backs: Int)] = [
+            (["home_profile"], "profile", 1), (["home_mail"], "mail", 1), (["home_menu", "home_menu_notices"], "notices", 1),
+            (["home_profile", "profile_records"], "records", 2), (["home_rank"], "rank", 1),
+        ]
+        for (ids, name, backs) in paths {
+            for id in ids { tap(app, id) }
             XCTAssertTrue(element(app, "nav_back").waitForExistence(timeout: 5), "\(name) に戻るボタンがない")
             snap("meta_\(name)")
-            tap(app, "nav_back")
+            for _ in 0..<backs { tap(app, "nav_back") }
             XCTAssertTrue(element(app, "home_play").waitForExistence(timeout: 5))
         }
     }

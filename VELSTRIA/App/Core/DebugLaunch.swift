@@ -36,7 +36,6 @@ import VelstriaCore
 //   -heroGallery          ヒーロー 3D モデル一覧（hero-models の目視確認用）
 //   -homeRail collapsed   ホームのフレンド欄を畳んだ状態で開く
 //   -homeMenu             ホームのメニュードロワーを開いた状態で開く
-//   -homeHero <heroID>    ホーム中央のショーケースに最初に出すヒーロー
 //   -onlineHost [port]    起動後にオンライン対戦の部屋を作る（待ち受けポート省略時は既定）。LAN の待ち受けと中継（部屋コード）の両方を開く
 //   -relayCode <CODE>     -onlineHost の部屋コードを決める（自動検証用。使われていても作り直さない）
 //   -relayURL <ws(s)://…> 中継サーバーの URL を差し替える（既定は OnlineRelayConfig.defaultBaseURL。例 ws://127.0.0.1:8787）
