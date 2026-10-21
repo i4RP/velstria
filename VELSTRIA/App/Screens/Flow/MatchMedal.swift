@@ -1,12 +1,12 @@
 import SwiftUI
 import VelstriaCore
 
-// 担当: ui-flow。試合のメダル（MLBB の試合後のメダル）。評価点（0〜16。RankService.matchRating）・勝敗・チーム内で評価点が最高か から決める。
-// MLBB の条件（docs/OUTGAME_GAP.md 6-2。出典: Fandom「Medals」2025-11-12 版・players.com.ua 2026-09-21・Fandom「Patch Notes 2.2.16」）:
-// - 銅 3.0〜4.0 / 銀 4.1〜7.0 / 金 7.1〜10.0 / シュプリーム 10.1 以上（2.2.16 で追加。紫に光るメダル）
-// - MVP = 勝ったチームで評価点が最高（評価点を問わない。10.1 以上ならシュプリーム MVP）
-// - 敗北 MVP = 負けたチームで評価点が最高かつ 6.6 以上
-// - 未確認: 3.0 未満（メダルなしとする）・負けたチームの最高が 10.1 以上の時のシュプリーム版（敗北 MVP とする）・日本語の名前
+// 担当: ui-flow。試合の勲章（MLBB の試合後の勲章）。評価点（0〜16。RankService.matchRating）・勝敗・チーム内で評価点が最高か から決める。
+// MLBB 2.2.16 の条件（docs/OUTGAME_GAP.md 6-2。委員会 2026-10-21: 日本語 UI の配信 YouTube kp3LaYXxMfI・esports.gg の勲章の解説）:
+// - 銅 3.0〜3.4 / 銀 3.5〜7.0 / 金 7.1〜10.0 / ウルトラ勲章 10.1 以上（英語版の Supreme。紫に光る）
+// - MVP = 勝ったチームで評価点が最高（評価点を問わない。10.1 以上ならウルトラ MVP）
+// - 敗北MVP = 負けたチームで評価点が最高
+// - 未確認: 3.0 未満（勲章なしとする）
 // 評価点は 0.1 刻みで表示するので、表示と同じ桁（10 倍の整数）で比べる。絵は画像を同梱せずベクターで描く（MatchMedalView）。
 
 /// 試合のメダル。
@@ -16,19 +16,16 @@ enum MatchMedal: String, CaseIterable, Hashable, Sendable {
     /// しきい値（評価点 × 10）。
     enum Threshold {
         static let bronze = 30
-        static let silver = 41
+        static let silver = 35
         static let gold = 71
         static let supreme = 101
-        /// 敗北 MVP の下限。
-        static let mvpLoss = 66
     }
 
     /// 評価点・勝敗・チーム内で評価点が最高か（同点は MVP スコアの並びで先の 1 人）からメダルを決める。3.0 未満は nil。
     static func award(rating: Double, won: Bool, isTeamBest: Bool) -> MatchMedal? {
         guard rating.isFinite else { return nil }
         let tenths = Int((min(max(rating, 0), 100) * 10).rounded())
-        if isTeamBest && won { return tenths >= Threshold.supreme ? .supremeMVP : .mvp }
-        if isTeamBest && tenths >= Threshold.mvpLoss { return .mvpLoss }
+        if isTeamBest { return won ? (tenths >= Threshold.supreme ? .supremeMVP : .mvp) : .mvpLoss }
         if tenths >= Threshold.supreme { return .supreme }
         if tenths >= Threshold.gold { return .gold }
         if tenths >= Threshold.silver { return .silver }
@@ -70,23 +67,23 @@ enum MatchMedal: String, CaseIterable, Hashable, Sendable {
 
     // MARK: 表示
 
-    /// 名前（日本語版の呼び名は未確認）。
+    /// 名前（日本語版の呼び名。リザルトの「ウルトラ勲章ボーナス」「敗北チームのMVP」と同じ）。
     var name: String {
         switch self {
-        case .bronze: return L("銅メダル", "Bronze Medal")
-        case .silver: return L("銀メダル", "Silver Medal")
-        case .gold: return L("金メダル", "Gold Medal")
-        case .supreme: return L("シュプリームメダル", "Supreme Medal")
+        case .bronze: return L("銅勲章", "Bronze Medal")
+        case .silver: return L("銀勲章", "Silver Medal")
+        case .gold: return L("金勲章", "Gold Medal")
+        case .supreme: return L("ウルトラ勲章", "Supreme Medal")
         case .mvp: return "MVP"
-        case .supremeMVP: return L("シュプリーム MVP", "Supreme MVP")
-        case .mvpLoss: return L("敗北 MVP", "MVP Loss")
+        case .supremeMVP: return L("ウルトラMVP", "Supreme MVP")
+        case .mvpLoss: return L("敗北MVP", "MVP Loss")
         }
     }
 
     /// 取る条件（リザルトの凡例）。
     var condition: String {
         let bronze = Self.text(Threshold.bronze), silver = Self.text(Threshold.silver), gold = Self.text(Threshold.gold)
-        let supreme = Self.text(Threshold.supreme), loss = Self.text(Threshold.mvpLoss)
+        let supreme = Self.text(Threshold.supreme)
         let bronzeTop = Self.text(Threshold.silver - 1), silverTop = Self.text(Threshold.gold - 1), goldTop = Self.text(Threshold.supreme - 1)
         switch self {
         case .bronze: return L("評価 \(bronze)〜\(bronzeTop)", "Rating \(bronze)–\(bronzeTop)")
@@ -95,7 +92,7 @@ enum MatchMedal: String, CaseIterable, Hashable, Sendable {
         case .supreme: return L("評価 \(supreme) 以上", "Rating \(supreme)+")
         case .mvp: return L("勝利チームで評価が最高", "Top rating on the winning team")
         case .supremeMVP: return L("勝利チームで評価が最高かつ \(supreme) 以上", "Top rating on the winning team, \(supreme)+")
-        case .mvpLoss: return L("敗北チームで評価が最高かつ \(loss) 以上", "Top rating on the losing team, \(loss)+")
+        case .mvpLoss: return L("敗北チームで評価が最高", "Top rating on the losing team")
         }
     }
 
@@ -148,7 +145,7 @@ struct MatchMedalView: View {
         }
         .frame(width: size, height: size)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(medal?.name ?? L("メダルなし", "No medal"))
+        .accessibilityLabel(medal?.name ?? L("勲章なし", "No medal"))
     }
 }
 

@@ -287,7 +287,7 @@ enum LiveOpsService {
                   titleJa: "『VELSIA - 星環の戦場』配信開始！",
                   titleEn: "VELSIA: Star Ring Arena is now live!",
                   bodyJa: "VELSIA へようこそ。5 対 5・3 レーンの戦場で、4 体の AI 味方と共に敵の Star Core を破壊しましょう。\n"
-                      + "オフラインでいつでも遊べます。まずはチュートリアルで操作を確認し、クラシックで腕を磨いてください。\n"
+                      + "オフラインでいつでも遊べます。まずはチュートリアルで操作を確認し、マッチングで腕を磨いてください。\n"
                       + "ウェルカムメールに StarlightCoin・AstralGem・マジックダスト・アバターフレームをお届けしています。",
                   bodyEn: "Welcome to VELSIA. Team up with four AI allies on a 5v5, three-lane battlefield and destroy the enemy Star Core.\n"
                       + "Play offline anytime. Start with the tutorial, then sharpen your skills in Classic matches.\n"
@@ -298,7 +298,7 @@ enum LiveOpsService {
                   titleEn: "v1.0.0 Patch Notes (Summary)",
                   bodyJa: "・ヒーロー 10 体（5 ロール）。どのヒーローもパッシブ・スキル 2 つ・アルティメットを持ち、全員を最初から使えます\n"
                       + "・装備 92 種（攻撃・魔法・防御・移動）と靴の祝福 7 種、バトルスペル 12 種、エンブレム 7 セット\n"
-                      + "・モード: クラシック（難易度 3 段階）、ランク（ドラフト）、ブロウル、マジックチェス、アーケード（ライジング）、VS AI & カスタム（練習場・チュートリアル）、観戦、リプレイ、オンライン対戦\n"
+                      + "・モード: マッチング（難易度 3 段階）、ランキング（ドラフト）、乱闘、マジックチェス、アーケード、ライジング、AI対戦とカスタム（練習場・チュートリアル）、観戦、リプレイ、オンライン対戦\n"
                       + "・ランク: ウォリアー〜レジェンド（ティアごとに 3〜5 段位・星 3〜5）、ミシック（星の累計）。勝利でスターポイント、敗北で保護ポイントがたまります\n"
                       + "・デイリー / ウィークリーミッション、スターパス シーズン 1（30 段階）、実績、ログインボーナス\n"
                       + "・年齢区分に応じた月間購入上限を設定しています",
@@ -347,7 +347,7 @@ enum LiveOpsService {
         let (start, end) = weekendWindow(containingOrAfter: now)
         return EventDef(id: weekendEventID,
                         titleJa: "週末スターブースト", titleEn: "Weekend Star Boost",
-                        detailJa: "毎週土曜・日曜は、クラシック・ランクで獲得する StarlightCoin が 50% 増加します。",
+                        detailJa: "毎週土曜・日曜は、マッチング・ランキングで獲得する StarlightCoin が 50% 増加します。",
                         detailEn: "Every Saturday and Sunday, StarlightCoin earned from Classic and Ranked matches is increased by 50%.",
                         start: start, end: end, missionIDs: [])
     }

@@ -125,15 +125,8 @@ enum LiveOpsFormat {
         }
     }
 
-    static func positionName(_ p: LanePosition) -> String {
-        switch p {
-        case .top: return L("トップ", "Top")
-        case .jungle: return L("ジャングル", "Jungle")
-        case .mid: return L("ミッド", "Mid")
-        case .carry: return L("キャリー", "Carry")
-        case .support: return L("サポート", "Support")
-        }
-    }
+    /// レーンの名前（試合の外の表記を 1 つにする: FlowText.position）。
+    static func positionName(_ p: LanePosition) -> String { FlowText.position(p) }
 
     static func teamName(_ t: Team) -> String {
         switch t {

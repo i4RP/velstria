@@ -777,7 +777,7 @@ const RANK_INITIAL = Object.freeze({
 
 /** ティアごとの満タン（rank.ts の STAR_POINT_CAP・PROTECTION_CAP。Fandom「Ranked」。ミシックには星上げポイントが無い） */
 const STAR_POINT_CAP = { warrior: 100, elite: 200, master: 300, grandmaster: 500, epic: 700, legend: 1000, mythic: 0 };
-const PROTECTION_CAP = { warrior: 100, elite: 200, master: 300, grandmaster: 500, epic: 700, legend: 1000, mythic: 1500 };
+const PROTECTION_CAP = { warrior: 100, elite: 200, master: 300, grandmaster: 500, epic: 700, legend: 1000, mythic: 1100 };
 /** ティアの段位の数（最下段の番号） */
 const DIVISIONS = { warrior: 3, elite: 3, master: 4, grandmaster: 5, epic: 5, legend: 5, mythic: 1 };
 
@@ -931,7 +931,7 @@ const RANK_RULES = [
   },
   {
     name: "ミシックからレジェンドへ落ちたら、保護ポイントはレジェンドの満タン 1000 に収める",
-    seed: { tier: "mythic", division: 1, stars: 0, protectionPoints: 1400, highestTier: "mythic" },
+    seed: { tier: "mythic", division: 1, stars: 0, protectionPoints: 1000, highestTier: "mythic" },
     match: { won: false, rating: 16, mvp: false },
     after: { tier: "legend", division: 1, stars: 4, protectionPoints: 1000 },
     result: { starPointsGain: 0, scoreBonus: 48, activeBonus: 5, protected: false },
@@ -1090,7 +1090,7 @@ describe("ランク", () => {
       [{ tier: "master", division: 4, stars: 1, starPoints: 699, protectionPoints: 700, highestTier: "master" },
         { starPoints: 299, protectionPoints: 300 }],
       [{ tier: "warrior", division: 2, stars: 1, starPoints: 650, protectionPoints: 120 }, { starPoints: 99, protectionPoints: 100 }],
-      // ミシックにはスターポイントが無い（0 にする）。保護ポイントの満タンは 1500
+      // ミシックにはスターポイントが無い（0 にする）。保護ポイントの満タンは 1100
       [{ tier: "mythic", division: 1, stars: 3, starPoints: 650, protectionPoints: 700, highestTier: "mythic", highestMythicStars: 3 },
         { starPoints: 0, protectionPoints: 700 }],
     ];
@@ -1433,7 +1433,7 @@ describe("ランクの規則とシーズン（rank.ts を直接）", () => {
     rank = await importRankModule();
   });
 
-  test("満タンはティアごと（スター 100/200/300/500/700/1000・ミシック無し、保護は同じ値・ミシック 1500）", () => {
+  test("満タンはティアごと（スター 100/200/300/500/700/1000・ミシック無し、保護は同じ値・ミシック 1100）", () => {
     assert.deepEqual({ ...rank.STAR_POINT_CAP }, STAR_POINT_CAP);
     assert.deepEqual({ ...rank.PROTECTION_CAP }, PROTECTION_CAP);
   });
@@ -1472,20 +1472,20 @@ describe("ランクの規則とシーズン（rank.ts を直接）", () => {
 
   test("新しいシーズンの開始位置（前のシーズンの最終ランクから。ミシックは星の累計で決まる）", () => {
     const table = [
-      // [ティア, 段位, 星] → [ティア, 段位]（星は 0 から）
-      [["warrior", 3, 2], ["warrior", 3]], [["warrior", 2, 1], ["warrior", 2]], [["warrior", 1, 3], ["warrior", 1]],
-      [["elite", 3, 4], ["elite", 3]], [["elite", 2, 0], ["elite", 2]], [["elite", 1, 4], ["elite", 1]],
-      [["master", 4, 0], ["elite", 1]], [["master", 3, 4], ["elite", 1]], [["master", 2, 1], ["master", 4]], [["master", 1, 4], ["master", 3]],
-      [["grandmaster", 5, 0], ["master", 2]], [["grandmaster", 4, 5], ["master", 1]], [["grandmaster", 3, 0], ["grandmaster", 5]],
-      [["grandmaster", 2, 3], ["grandmaster", 4]], [["grandmaster", 1, 5], ["grandmaster", 3]],
-      [["epic", 5, 0], ["grandmaster", 2]], [["epic", 4, 2], ["grandmaster", 1]], [["epic", 3, 5], ["epic", 5]],
-      [["epic", 2, 0], ["epic", 5]], [["epic", 1, 5], ["epic", 4]],
-      [["legend", 5, 0], ["epic", 4]], [["legend", 4, 1], ["epic", 3]], [["legend", 3, 2], ["epic", 3]],
-      [["legend", 2, 3], ["epic", 3]], [["legend", 1, 5], ["epic", 3]],
-      [["mythic", 1, 0], ["epic", 2]], [["mythic", 1, 24], ["epic", 2]],
-      [["mythic", 1, 25], ["epic", 1]], [["mythic", 1, 49], ["epic", 1]],
-      [["mythic", 1, 50], ["legend", 5]], [["mythic", 1, 99], ["legend", 5]],
-      [["mythic", 1, 100], ["legend", 5]], [["mythic", 1, 800], ["legend", 5]],
+      // [ティア, 段位, 星] → [ティア, 段位, 星]（星は I ミシックだけ 1、ほかは 0 から）
+      [["warrior", 3, 2], ["warrior", 3, 0]], [["warrior", 2, 1], ["warrior", 2, 0]], [["warrior", 1, 3], ["warrior", 1, 0]],
+      [["elite", 3, 4], ["elite", 3, 0]], [["elite", 2, 0], ["elite", 2, 0]], [["elite", 1, 4], ["elite", 1, 0]],
+      [["master", 4, 0], ["elite", 1, 0]], [["master", 3, 4], ["elite", 1, 0]], [["master", 2, 1], ["master", 4, 0]], [["master", 1, 4], ["master", 3, 0]],
+      [["grandmaster", 5, 0], ["master", 2, 0]], [["grandmaster", 4, 5], ["master", 1, 0]], [["grandmaster", 3, 0], ["grandmaster", 5, 0]],
+      [["grandmaster", 2, 3], ["grandmaster", 4, 0]], [["grandmaster", 1, 5], ["grandmaster", 3, 0]],
+      [["epic", 5, 0], ["grandmaster", 2, 0]], [["epic", 4, 2], ["grandmaster", 1, 0]], [["epic", 3, 5], ["epic", 5, 0]],
+      [["epic", 2, 0], ["epic", 5, 0]], [["epic", 1, 5], ["epic", 4, 0]],
+      [["legend", 5, 0], ["epic", 4, 0]], [["legend", 4, 1], ["epic", 3, 0]], [["legend", 3, 2], ["epic", 3, 0]],
+      [["legend", 2, 3], ["epic", 3, 0]], [["legend", 1, 5], ["epic", 3, 0]],
+      [["mythic", 1, 0], ["epic", 2, 0]], [["mythic", 1, 24], ["epic", 2, 0]],
+      [["mythic", 1, 25], ["epic", 2, 0]], [["mythic", 1, 49], ["epic", 2, 0]],
+      [["mythic", 1, 50], ["epic", 2, 0]], [["mythic", 1, 99], ["epic", 2, 0]],
+      [["mythic", 1, 100], ["epic", 1, 1]], [["mythic", 1, 800], ["epic", 1, 1]],
     ];
     for (const [[tier, division, stars], expected] of table) {
       assert.deepEqual(rank.seasonResetPlace({ tier, division, stars }), expected, `${tier} ${division} ★${stars}`);
@@ -1498,7 +1498,7 @@ describe("ランクの規則とシーズン（rank.ts を直接）", () => {
       highestTier: "mythic", highestMythicStars: 61, wins: 80, losses: 52, season: 42,
     };
     const s43 = rank.rollover(s42, 43);
-    assert.deepEqual(s43, { ...s42, tier: "epic", division: 1, stars: 0, protectionPoints: 0, wins: 0, losses: 0, season: 43 });
+    assert.deepEqual(s43, { ...s42, tier: "epic", division: 2, stars: 0, protectionPoints: 0, wins: 0, losses: 0, season: 43 });
     assert.equal(rank.rollover(s43, 43), s43, "同じシーズンへは同じ記録（二度下げない）");
     assert.deepEqual(rank.rollover(s42, 47), { ...s43, season: 47 }, "何シーズン空いても下げるのは 1 回");
     assert.equal(rank.rollover(s43, 42), s43, "先のシーズンの記録は戻さない");
@@ -1533,7 +1533,7 @@ describe("ランクの規則とシーズン（rank.ts を直接）", () => {
     clock.ms = Date.parse("2027-03-17T08:00:00Z"); // S44
     const match = { matchId: "m_season01", won: true, rating: 8, mvp: false };
     const played = await account.match(OWNER_HASH, match);
-    const reset = rankState({ tier: "legend", division: 5, stars: 0, highestTier: "mythic", highestMythicStars: 60, season: 44 });
+    const reset = rankState({ tier: "epic", division: 2, stars: 0, highestTier: "mythic", highestMythicStars: 60, season: 44 });
     const after = { ...reset, stars: 1, starPoints: 84, wins: 1 };
     assert.deepEqual(played, {
       ok: true, state: after, result: { before: reset, after, starPointsGain: 84, scoreBonus: 0, activeBonus: 0, protected: false },

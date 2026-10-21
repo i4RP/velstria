@@ -288,7 +288,7 @@ struct RankOverviewView: View {
                         Text(RankService.tierName(t))
                             .font(Theme.heading(current ? 15 : 13))
                             .foregroundStyle(current ? Theme.gold : Theme.textPrimary)
-                        Text(t == .mythic ? L("星の累計（オナー 25・グローリー 50・イモータル 100）", "Cumulative stars (Honor 25 · Glory 50 · Immortal 100)")
+                        Text(t == .mythic ? L("星の累計（Hミシック 25・Gミシック 50・Iミシック 100）", "Cumulative stars (Honor 25 · Glory 50 · Immortal 100)")
                              : L("\(RankService.divisions(t)) 段階 × 星 \(RankService.maxStars(t))", "\(RankService.divisions(t)) divisions × \(RankService.maxStars(t)) stars"))
                             .font(Theme.body(10))
                             .foregroundStyle(Theme.textSecondary)
@@ -349,8 +349,8 @@ struct RankOverviewView: View {
         let weeks = Int(SeasonService.seasonLength / (7 * 86_400))
         let low = SeasonService.rewards(for: .warrior).first?.amount ?? 0
         let high = SeasonService.rewards(for: .mythic).first?.amount ?? 0
-        return L("シーズンは \(weeks) 週（約 3 か月）。新しいシーズンの最初にランクが下がり、星 0 から再開します（例: ミシック → エピック II、ミシックグローリー以上 → レジェンド V）。前のシーズンの最高ランクに応じて \(low)〜\(high) コインがメールで届きます。",
-                 "A season lasts \(weeks) weeks (about 3 months). When a new season starts, your rank drops and restarts at 0 stars (e.g. Mythic → Epic II, Mythical Glory and above → Legend V). Rewards of \(low)–\(high) coins for your highest rank last season arrive by mail.")
+        return L("シーズンは \(weeks) 週（約 3 か月）。新しいシーズンの最初にランクが下がります（例: ミシック〜Gミシック → エピック II、Iミシック → エピック I・星 1）。前のシーズンの最高ランクに応じて \(low)〜\(high) コインがメールで届きます。",
+                 "A season lasts \(weeks) weeks (about 3 months). When a new season starts, your rank drops (e.g. Mythic to Mythical Glory → Epic II, Mythical Immortal → Epic I with 1 star). Rewards of \(low)–\(high) coins for your highest rank last season arrive by mail.")
     }
 
     private func ruleRow(_ symbol: String, _ tint: Color, _ text: String) -> some View {

@@ -55,7 +55,7 @@ struct LaneFilterBar: View {
     @Environment(AppModel.self) private var app
 
     var body: some View {
-        CelestialTabs(options: [CelestialTab<LanePosition?>(value: nil, title: L("全部", "All"), symbol: nil, identifier: "flow_lanetab_all")]
+        CelestialTabs(options: [CelestialTab<LanePosition?>(value: nil, title: L("すべてのレーン", "All Lanes"), symbol: nil, identifier: "flow_lanetab_all")]
                         + LanePosition.allCases.map {
                             CelestialTab<LanePosition?>(value: $0, title: FlowText.position($0), symbol: nil, identifier: "flow_lanetab_\($0.rawValue)")
                         },

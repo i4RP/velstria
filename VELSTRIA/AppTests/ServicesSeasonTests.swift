@@ -57,7 +57,7 @@ final class ServicesSeasonTests: XCTestCase {
 
     // MARK: - 下げ方
 
-    /// relay の SEASON_RESET と同じ表（前のシーズンの最終ランク → 新しいシーズンのティアと段位）。
+    /// relay の seasonResetPlace と同じ表（前のシーズンの最終ランク → 新しいシーズンのティアと段位。星は Iミシックだけ 1）。
     func testResetTable() {
         let table: [((RankTier, Int, Int), (RankTier, Int))] = [
             ((.warrior, 3, 2), (.warrior, 3)), ((.warrior, 2, 1), (.warrior, 2)), ((.warrior, 1, 3), (.warrior, 1)),
@@ -70,14 +70,15 @@ final class ServicesSeasonTests: XCTestCase {
             ((.legend, 5, 0), (.epic, 4)), ((.legend, 4, 1), (.epic, 3)), ((.legend, 3, 2), (.epic, 3)),
             ((.legend, 2, 3), (.epic, 3)), ((.legend, 1, 5), (.epic, 3)),
             ((.mythic, 1, 0), (.epic, 2)), ((.mythic, 1, 24), (.epic, 2)),
-            ((.mythic, 1, 25), (.epic, 1)), ((.mythic, 1, 49), (.epic, 1)),
-            ((.mythic, 1, 50), (.legend, 5)), ((.mythic, 1, 99), (.legend, 5)),
-            ((.mythic, 1, 100), (.legend, 5)), ((.mythic, 1, 800), (.legend, 5)),
+            ((.mythic, 1, 25), (.epic, 2)), ((.mythic, 1, 49), (.epic, 2)),
+            ((.mythic, 1, 50), (.epic, 2)), ((.mythic, 1, 99), (.epic, 2)),
+            ((.mythic, 1, 100), (.epic, 1)), ((.mythic, 1, 800), (.epic, 1)),
         ]
         for ((tier, division, stars), (newTier, newDivision)) in table {
             let place = SeasonService.resetPlace(RankState(tier: tier, division: division, stars: stars))
             XCTAssertEqual(place.tier, newTier, "\(tier) \(division) ★\(stars)")
             XCTAssertEqual(place.division, newDivision, "\(tier) \(division) ★\(stars)")
+            XCTAssertEqual(place.stars, tier == .mythic && stars >= 100 ? 1 : 0, "\(tier) \(division) ★\(stars)")
         }
     }
 
@@ -196,7 +197,7 @@ final class ServicesSeasonTests: XCTestCase {
         let d = RankService.apply(won: true, rating: 8, to: &r, now: utc("2027-03-17T08:00:00Z"))
         XCTAssertTrue(d.seasonReset)
         XCTAssertEqual(d.starPointsGain, 84)
-        XCTAssertEqual([r.tier.rawValue, r.division, r.stars, r.starPoints], [RankTier.legend.rawValue, 5, 1, 84])
+        XCTAssertEqual([r.tier.rawValue, r.division, r.stars, r.starPoints], [RankTier.epic.rawValue, 2, 1, 84])
         XCTAssertEqual([r.seasonWins, r.seasonLosses, r.season], [1, 0, 44])
         XCTAssertEqual(r.endedSeasons, [SeasonRecord(season: 43, highestTier: .mythic, tier: .mythic, division: 1, stars: 55, wins: 70, losses: 40)])
         let next = RankService.apply(won: false, rating: 8, to: &r, now: utc("2027-03-18T00:00:00Z"))

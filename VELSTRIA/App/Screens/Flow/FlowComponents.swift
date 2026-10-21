@@ -567,10 +567,10 @@ struct HeroGridCell: View {
 enum FlowText {
     static func position(_ p: LanePosition) -> String {
         switch p {
-        // MLBB のレーンの名前（日本語版のドラフトの「進む：ローム」と同じ）
-        case .top: return L("EXPレーン", "EXP Lane")
+        // MLBB のレーンの名前（日本語版のレーン選択・ドラフトのタブ・「進む：ローム」と同じ表記）
+        case .top: return L("Expレーン", "EXP Lane")
         case .jungle: return L("ジャングル", "Jungle")
-        case .mid: return L("ミッドレーン", "Mid Lane")
+        case .mid: return L("ミドルレーン", "Mid Lane")
         case .carry: return L("ゴールドレーン", "Gold Lane")
         case .support: return L("ローム", "Roam")
         }
@@ -604,12 +604,12 @@ enum FlowText {
 
     static func mode(_ m: MatchMode) -> String {
         switch m {
-        case .standard: return L("クラシック", "Classic")
-        case .ranked: return L("ランク", "Ranked")
+        case .standard: return L("マッチング", "Classic")
+        case .ranked: return L("ランキング", "Ranked")
         case .practice: return L("練習場", "Practice")
         case .tutorial: return L("チュートリアル", "Tutorial")
         case .spectate: return L("観戦", "Spectate")
-        case .brawl: return L("ブロウル", "Brawl")
+        case .brawl: return L("乱闘", "Brawl")
         case .custom: return L("カスタム", "Custom")
         case .magicChess: return L("マジックチェス", "Magic Chess")
         case .online: return L("オンライン対戦", "Online")

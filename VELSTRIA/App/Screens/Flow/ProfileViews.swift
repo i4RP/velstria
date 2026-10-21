@@ -411,8 +411,8 @@ struct RecordsView: View {
     private var filterTabs: some View {
         CelestialTabs(options: [
             .init(value: Filter.all, title: L("すべて", "All"), symbol: "square.grid.2x2", identifier: "records_filter_all"),
-            .init(value: Filter.standard, title: L("クラシック", "Classic"), symbol: "person.3.fill", identifier: "records_filter_standard"),
-            .init(value: Filter.ranked, title: L("ランク", "Ranked"), symbol: "crown.fill", identifier: "records_filter_ranked"),
+            .init(value: Filter.standard, title: L("マッチング", "Classic"), symbol: "person.3.fill", identifier: "records_filter_standard"),
+            .init(value: Filter.ranked, title: L("ランキング", "Ranked"), symbol: "crown.fill", identifier: "records_filter_ranked"),
             .init(value: Filter.other, title: L("その他", "Other"), symbol: "ellipsis.circle", identifier: "records_filter_other"),
         ], selection: $filter, fills: false)
     }

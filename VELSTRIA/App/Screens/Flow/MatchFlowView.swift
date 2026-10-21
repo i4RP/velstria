@@ -319,12 +319,12 @@ enum MatchModeCategory: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .classic: return L("クラシック", "Classic")
-        case .ranked: return L("ランク", "Ranked")
-        case .brawl: return L("ブロウル", "Brawl")
+        case .classic: return L("マッチング", "Classic")
+        case .ranked: return L("ランキング", "Ranked")
+        case .brawl: return L("乱闘", "Brawl")
         case .magicChess: return L("マジックチェス", "Magic Chess")
         case .arcade: return L("アーケード", "Arcade")
-        case .vsAI: return L("VS AI & カスタム", "VS AI & Custom")
+        case .vsAI: return L("AI対戦とカスタム", "VS AI & Custom")
         }
     }
 

@@ -451,9 +451,9 @@ enum QuickChat {
     static let phrases: [(ja: String, en: String)] = [
         ("よろしく！", "Good luck, have fun!"),
         ("ジャングルをやりたい", "I want to jungle"),
-        ("ミッドレーンをやりたい", "I want Mid Lane"),
+        ("ミドルレーンをやりたい", "I want Mid Lane"),
         ("ゴールドレーンをやりたい", "I want Gold Lane"),
-        ("EXPレーンをやりたい", "I want EXP Lane"),
+        ("Expレーンをやりたい", "I want EXP Lane"),
         ("ロームをやりたい", "I want to roam"),
         ("タンクがほしい", "We need a tank"),
         ("了解！", "Got it!"),

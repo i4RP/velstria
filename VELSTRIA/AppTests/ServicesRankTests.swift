@@ -16,10 +16,10 @@ final class ServicesRankTests: XCTestCase {
         XCTAssertEqual(RankTier.allCases.map(RankService.maxStars), [3, 4, 4, 5, 5, 5, 0])
     }
 
-    /// 満タンはティアごと（Fandom「Ranked」）。ミシックにはスターポイントが無く、保護ポイントは 1500。
+    /// 満タンはティアごと（Fandom「Ranked」）。ミシックにはスターポイントが無く、保護ポイントは 1100（2.2.16 の映像）。
     func testPointCapsPerTier() {
         XCTAssertEqual(RankTier.allCases.map(RankService.starPointCap), [100, 200, 300, 500, 700, 1000, 0])
-        XCTAssertEqual(RankTier.allCases.map(RankService.protectionCap), [100, 200, 300, 500, 700, 1000, 1500])
+        XCTAssertEqual(RankTier.allCases.map(RankService.protectionCap), [100, 200, 300, 500, 700, 1000, 1100])
         XCTAssertEqual(RankService.progress(350, cap: 700), 0.5)
         XCTAssertEqual(RankService.progress(5, cap: 0), 0, "ミシックのスターポイントは 0 で割らない")
         XCTAssertEqual(RankService.progress(2000, cap: 1500), 1)
@@ -73,8 +73,10 @@ final class ServicesRankTests: XCTestCase {
         RankService.apply(won: false, to: &r)
         XCTAssertEqual(r.tier, .legend)
         XCTAssertEqual(r.stars, 4)
-        XCTAssertEqual(RankService.mythicName(stars: 25), L("ミシックオナー", "Mythical Honor"))
-        XCTAssertEqual(RankService.mythicName(stars: 100), L("ミシックイモータル", "Mythical Immortal"))
+        XCTAssertEqual(RankService.mythicName(stars: 24), L("ミシック", "Mythic"))
+        XCTAssertEqual(RankService.mythicName(stars: 25), L("Hミシック", "Mythical Honor"))
+        XCTAssertEqual(RankService.mythicName(stars: 50), L("Gミシック", "Mythical Glory"))
+        XCTAssertEqual(RankService.mythicName(stars: 100), L("Iミシック", "Mythical Immortal"))
     }
 
     func testProtectionPointsSaveAStar() {
@@ -138,7 +140,7 @@ final class ServicesRankTests: XCTestCase {
         let loss = RankService.apply(won: false, rating: 10, to: &r)
         XCTAssertEqual([loss.scoreBonus, loss.activeBonus], [30, 5])
         XCTAssertEqual(r.protectionPoints, 35)
-        var fall = state(.mythic, 1, 0, protection: 1400)
+        var fall = state(.mythic, 1, 0, protection: 1000)
         RankService.apply(won: false, rating: 16, to: &fall)
         XCTAssertEqual(fall.tier, .legend)
         XCTAssertEqual(fall.protectionPoints, RankService.protectionCap(.legend))
@@ -202,7 +204,7 @@ final class ServicesRankTests: XCTestCase {
         mythic0.highestMythicStars = 7
         check("ミシック星 0 で負けるとレジェンド I・星 4（保護ポイントはたまる）", mythic0, won: false, rating: 10,
               { $0.tier = .legend; $0.division = 1; $0.stars = 4; $0.protectionPoints = 35 }, RankMatchDelta(scoreBonus: 30, activeBonus: 5))
-        check("ミシックからレジェンドへ落ちたら保護ポイントは 1000 に収める", state(.mythic, 1, 0, protection: 1400), won: false, rating: 16,
+        check("ミシックからレジェンドへ落ちたら保護ポイントは 1000 に収める", state(.mythic, 1, 0, protection: 1000), won: false, rating: 16,
               { $0.tier = .legend; $0.division = 1; $0.stars = 4; $0.protectionPoints = 1000 }, RankMatchDelta(scoreBonus: 48, activeBonus: 5))
         check("評価は 16 までに収める", state(.elite, 3, 0), won: true, rating: 99,
               { $0.stars = 1; $0.starPoints = 148 }, RankMatchDelta(starPointsGain: 148))
