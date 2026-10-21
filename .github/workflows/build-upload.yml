@@ -124,6 +124,7 @@ jobs:
             -only-testing:VELSTRIATests/FlowReviewFixTests \
             -only-testing:VELSTRIATests/FlowLaneAndModeTests \
             -only-testing:VELSTRIATests/FlowDraftHelpTests \
+            -only-testing:VELSTRIATests/PublicProfileServiceTests \
             -only-testing:VELSTRIATests/ServicesRankTests \
             -only-testing:VELSTRIATests/ServicesLiveOpsTests \
             -only-testing:VELSTRIATests/OnlineSafetyTests \

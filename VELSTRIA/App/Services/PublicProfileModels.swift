@@ -48,8 +48,22 @@ struct PublicProfile: Codable, Equatable, Identifiable, Sendable {
     var seasonLosses: Int
     /// relay が受け取った日時。
     var updatedAt: Date
+    /// 最終ログイン（受信箱に最後に繋いだ日時。繋いでいる間は今。読み出しの時だけ付く）。
+    var lastSeen: Date?
 
     var id: String { code }
+}
+
+/// 本人が送る名刺の中身（relay の PublicCard。ランクは送らない: relay の RankAccount が書く）。
+struct PublicCardPayload: Codable, Equatable, Sendable {
+    var name: String
+    var avatar: String?
+    var frame: String?
+    var level: Int
+    var country: String?
+    var heroes: [PublicHeroStat]
+    var matches: Int
+    var wins: Int
 }
 
 /// ランキングの範囲（MLBB と同じ: グローバル・国・フレンド）。
