@@ -1240,9 +1240,9 @@ describe("ランク", () => {
     const again = await rankMatch(account, { matchId: "m_erase001", won: true, rating: 8, mvp: false });
     assert.deepEqual([again.json.result.before, again.json.state.wins], [rankState(local), 51]);
 
-    // 持ち主の鍵も残らない: 消した後は別の鍵でも使い始められる（アプリは消した後に新しいフレンドコードを作る）
+    // コードの持ち主（受信箱と同じ鍵）は残る: ランクを消しても別の鍵では使えない（他人にコードを渡さない）。同じ鍵ならまた使える
     assert.equal((await rankCall(account.code, "erase", { key: account.key })).status, 200);
-    account.key = randomKey();
+    assertError(await rankCall(account.code, "get", { key: randomKey() }), 403, "forbidden");
     assert.deepEqual(await rankGet(account), RANK_INITIAL);
   });
 

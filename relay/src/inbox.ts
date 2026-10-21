@@ -167,6 +167,33 @@ export class FriendInbox extends DurableObject<Env> {
     await this.scheduleAlarm();
   }
 
+  // MARK: 名刺・ランク（index.ts）から呼ばれる
+
+  /**
+   * 書き込みの鍵の照合（受信箱の持ち主と同じ鍵か）。持ち主がまだいなければ、この鍵を持ち主にする（コード 1 つに持ち主は 1 人:
+   * 受信箱・ランク・名刺のどれを先に使っても同じ鍵に縛る。アプリは登録を済ませてからコードを見せる）。消したコードは使えない。
+   */
+  async claimOrMatch(keyHash: string): Promise<"ok" | "forbidden" | "erased"> {
+    const sql = this.schema();
+    if (this.isErased()) return "erased";
+    const row = sql.exec<{ key_hash: string }>("SELECT key_hash FROM owner WHERE k = 1").toArray()[0];
+    if (!row) {
+      sql.exec("INSERT INTO owner (k, key_hash) VALUES (1, ?)", keyHash);
+      this.touch();
+      await this.scheduleAlarm();
+      return "ok";
+    }
+    return row.key_hash === keyHash ? "ok" : "forbidden";
+  }
+
+  /** 最後に繋いだ日時（ミリ秒。繋いでいる間は今。名刺の「最終ログイン」）。持ち主がいなければ null */
+  async lastSeenAt(): Promise<number | null> {
+    this.schema();
+    if (this.isErased() || !this.hasOwner()) return null;
+    if (this.openSocket()) return Date.now();
+    return this.lastSeen() ?? null;
+  }
+
   // MARK: Worker（index.ts の消去の要求）から呼ばれる
 
   /**
