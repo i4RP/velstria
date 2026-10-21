@@ -4,12 +4,12 @@ import VelstriaCore
 // 担当: app-services
 // ランク（Mobile Legends と同じ規則。正はクラウドの relay/src/rank.ts。片方を変えたらもう片方も変える）
 // - ウォリアー III〜I（星 3）/ エリート III〜I（星 4）/ マスター IV〜I（星 4）/ グランドマスター V〜I（星 5）/
-//   エピック V〜I（星 5）/ レジェンド V〜I（星 5）/ ミシック（星の累計。オナー 25・グローリー 50・イモータル 100）
+//   エピック V〜I（星 5）/ レジェンド V〜I（星 5）/ ミシック（星の累計。H ミシック 25・G ミシック 50・I ミシック 100）
 // - 勝利 星 +1。満星で勝つと次の段位の星 1。敗北 星 −1、星 0 で負けると 1 段位下の「満星 −1」。
 // - ウォリアーは負けても星が減らない。ティアの最下段・星 0 では下のティアへ落ちない（ミシック星 0 の敗北だけレジェンド I へ）。
 // - スターポイント: 勝利でたまり、満タンで星 +1（1 試合で 1 つまで）。満タンはティアごと（starPointCap: ウォリアー 100・エリート 200・
 //   マスター 300・グランドマスター 500・エピック 700・レジェンド 1000。Fandom「Ranked」）。ミシックには無い（上がると 0）。
-// - 保護ポイント: 敗北でたまり、満タンで次の敗北の星が減らない（protectionCap: スターポイントと同じ値、ミシック 1500。ミシックでもたまる）。
+// - 保護ポイント: 敗北でたまり、満タンで次の敗北の星が減らない（protectionCap: スターポイントと同じ値、ミシック 1100。ミシックでもたまる）。
 //   ティアが変わったら新しいティアの満タンに収める（fitPoints）。1 試合の加点（勝ち 20 + 評価 × 8、MVP +30。負け 評価 × 3 + 5）は
 //   Velstria の式のまま（MLBB のメダル別の今の値が分かったら合わせる。docs/OUTGAME_GAP.md 7-4）。
 // - シーズン: SeasonService（新しいシーズンの最初の試合の前に下げる）。
@@ -50,9 +50,9 @@ enum RankService {
         }
     }
 
-    /// 保護ポイントの満タン（Fandom「Ranked」: スターポイントと同じ値、ミシック 1500）。relay の PROTECTION_CAP。
+    /// 保護ポイントの満タン（スターポイントと同じ値。ミシックは 1100: 2.2.16 の日本語 UI の映像。Fandom の 1500 は古い）。relay の PROTECTION_CAP。
     static func protectionCap(_ t: RankTier) -> Int {
-        t == .mythic ? 1500 : starPointCap(t)
+        t == .mythic ? 1100 : starPointCap(t)
     }
 
     /// 満タンに対する割合（0〜1）。満タンが 0（ミシックのスターポイント）なら 0。
@@ -120,7 +120,7 @@ enum RankService {
             }
         } else {
             r.seasonLosses += 1
-            // 保護ポイントはミシックでもたまる（満タン 1500）
+            // 保護ポイントはミシックでもたまる（満タン 1100）
             d.scoreBonus = Int((rt * 3).rounded())
             d.activeBonus = 5
             if r.protectionPoints >= protectionCap(r.tier) {
@@ -330,12 +330,12 @@ enum RankService {
         }
     }
 
-    /// ミシックの段階名（星の累計で決まる）。
+    /// ミシックの段階名（星の累計で決まる。日本語版の表記: ミシック 0〜24・Hミシック 25〜49・Gミシック 50〜99・Iミシック 100〜）。
     static func mythicName(stars: Int) -> String {
         switch stars {
-        case 100...: return L("ミシックイモータル", "Mythical Immortal")
-        case 50...: return L("ミシックグローリー", "Mythical Glory")
-        case 25...: return L("ミシックオナー", "Mythical Honor")
+        case 100...: return L("Iミシック", "Mythical Immortal")
+        case 50...: return L("Gミシック", "Mythical Glory")
+        case 25...: return L("Hミシック", "Mythical Honor")
         default: return L("ミシック", "Mythic")
         }
     }

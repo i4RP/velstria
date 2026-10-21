@@ -710,13 +710,12 @@ private struct EvaluationTab: View {
         .glass(cornerRadius: 14)
     }
 
-    /// メダルの決まり方（MLBB の条件）。
+    /// 勲章の決まり方（MLBB の条件）。
     private var medalLegend: some View {
-        let loss = MatchMedal.text(MatchMedal.Threshold.mvpLoss)
-        return VStack(alignment: .leading, spacing: 5) {
-            SectionTitle(title: L("メダルの決まり方", "How Medals Work"), symbol: "questionmark.circle")
-            Text(L("試合の評価点（0〜16）でメダルが決まります。チームで評価点がいちばん高いプレイヤーは MVP（負けたチームは \(loss) 以上で敗北 MVP）です。",
-                   "Your match rating (0–16) decides the medal. The top-rated player on the winning team is MVP; on the losing team, MVP Loss needs \(loss)+."))
+        VStack(alignment: .leading, spacing: 5) {
+            SectionTitle(title: L("勲章の決まり方", "How Medals Work"), symbol: "questionmark.circle")
+            Text(L("試合の評価点（0〜16）で勲章が決まります。勝ったチームで評価点がいちばん高いプレイヤーは MVP、負けたチームでいちばん高いプレイヤーは敗北MVP です。",
+                   "Your match rating (0–16) decides the medal. The top-rated player on the winning team is MVP; on the losing team, MVP Loss."))
                 .font(Theme.body(11))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1330,7 +1329,7 @@ struct ResultPlayerCard: View {
                                 MatchMedalView(medal: result.medal, size: 48)
                                     .accessibilityHidden(true)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(result.medal?.name ?? L("メダルなし", "No medal"))
+                                    Text(result.medal?.name ?? L("勲章なし", "No medal"))
                                         .font(Theme.heading(14))
                                         .foregroundStyle(result.medal?.tint ?? Theme.textSecondary)
                                     Text(L("評価 \(result.ratingText)", "Rating \(result.ratingText)"))

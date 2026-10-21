@@ -8,7 +8,7 @@
 // - ウォリアーは負けても星が減らない。ティアの最下段・星 0 では下のティアへ落ちない（ミシック星 0 の敗北だけレジェンド I へ）。
 // - スターポイント: 勝利でたまり、満タンで星 +1（1 試合で 1 つまで）。満タンはティアごと（STAR_POINT_CAP: ウォリアー 100・
 //   エリート 200・マスター 300・グランドマスター 500・エピック 700・レジェンド 1000）。ミシックには無い（上がると 0）。
-// - 保護ポイント: 敗北でたまり、満タンで次の敗北の星が減らない（PROTECTION_CAP: スターポイントと同じ値、ミシック 1500。ミシックでもたまる）。
+// - 保護ポイント: 敗北でたまり、満タンで次の敗北の星が減らない（PROTECTION_CAP: スターポイントと同じ値、ミシック 1100。ミシックでもたまる）。
 //   ティアが変わったら新しいティアの満タンに収める。1 試合の加点（勝ち 20 + 評価 × 8、MVP +30。負け 評価 × 3 + 5）は Velstria の式のまま。
 // - シーズン: MLBB と同じ番号。S42 は 2026-09-16 08:00 UTC（SEASON_EPOCH_MS）から、1 シーズン 91 日（13 週）。新しいシーズンの
 //   最初の get / seed / match で、前のシーズンの最終ランクから 1 回だけ下げる（SEASON_RESET。星・両ポイント・勝敗は 0、最高到達はそのまま）。
@@ -35,11 +35,12 @@ export const STAR_POINT_CAP: Readonly<Record<Tier, number>> = {
 };
 /** 保護ポイントの満タン（Fandom「Ranked」） */
 export const PROTECTION_CAP: Readonly<Record<Tier, number>> = {
-  warrior: 100, elite: 200, master: 300, grandmaster: 500, epic: 700, legend: 1000, mythic: 1500,
+  warrior: 100, elite: 200, master: 300, grandmaster: 500, epic: 700, legend: 1000, mythic: 1100,
 };
 /** seed で受け付けるポイントの上限（ティアを問わない。旧版の全ティア 700 の値も入る。取り込む時にティアの満タンに収める） */
 const MAX_SEED_STAR_POINTS = Math.max(...Object.values(STAR_POINT_CAP)) - 1;
-const MAX_SEED_PROTECTION_POINTS = Math.max(...Object.values(PROTECTION_CAP));
+/** seed で受け付ける保護ポイントの上限（ミシックの満タンが 1500 だった頃の記録も受け付け、取り込む時に満タンに収める） */
+const MAX_SEED_PROTECTION_POINTS = 1500;
 
 // ---- シーズン ----
 
@@ -74,12 +75,15 @@ const SEASON_RESET: Readonly<Record<Exclude<Tier, "mythic">, readonly (readonly 
   legend: [["epic", 3], ["epic", 3], ["epic", 3], ["epic", 3], ["epic", 4]],
 };
 
-/** 新しいシーズンの開始位置。ミシックは星の累計で決まる（0〜24 エピック II・オナー エピック I・グローリー以上 レジェンド V） */
-export function seasonResetPlace(r: Pick<RankState, "tier" | "division" | "stars">): [Tier, number] {
-  if (r.tier === "mythic") return r.stars >= 50 ? ["legend", 5] : r.stars >= 25 ? ["epic", 1] : ["epic", 2];
+/**
+ * 新しいシーズンの開始位置 [ティア, 段位, 星]。ミシックは星の累計で決まる（2.2.16 の映像: H・G ミシック → エピック II、
+ * I ミシック（100〜）→ エピック I・星 1。ミシック 0〜24 は見つからないのでエピック II とする）
+ */
+export function seasonResetPlace(r: Pick<RankState, "tier" | "division" | "stars">): [Tier, number, number] {
+  if (r.tier === "mythic") return r.stars >= 100 ? ["epic", 1, 1] : ["epic", 2, 0];
   const row = SEASON_RESET[r.tier];
   const [tier, division] = row[Math.min(row.length, Math.max(1, r.division)) - 1];
-  return [tier, division];
+  return [tier, division, 0];
 }
 
 /**
@@ -90,8 +94,8 @@ export function seasonResetPlace(r: Pick<RankState, "tier" | "division" | "stars
 export function rollover(prev: RankState, season: number): RankState {
   const from = Number.isSafeInteger(prev.season) ? Math.max(FIRST_SEASON, prev.season) : FIRST_SEASON;
   if (from >= season) return from === prev.season ? prev : { ...prev, season: from };
-  const [tier, division] = seasonResetPlace(prev);
-  return { ...prev, tier, division, stars: 0, starPoints: 0, protectionPoints: 0, wins: 0, losses: 0, season };
+  const [tier, division, stars] = seasonResetPlace(prev);
+  return { ...prev, tier, division, stars, starPoints: 0, protectionPoints: 0, wins: 0, losses: 0, season };
 }
 
 // ---- 試合 ----

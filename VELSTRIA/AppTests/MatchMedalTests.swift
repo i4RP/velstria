@@ -19,9 +19,9 @@ final class MatchMedalTests: XCTestCase {
     }
 
     func testRatingBandsFollowMLBB() {
-        // 銅 3.0〜4.0 / 銀 4.1〜7.0 / 金 7.1〜10.0 / シュプリーム 10.1〜（3.0 未満はメダルなし）
+        // 銅 3.0〜3.4 / 銀 3.5〜7.0 / 金 7.1〜10.0 / ウルトラ 10.1〜（3.0 未満は勲章なし）
         let cases: [(Double, MatchMedal?)] = [
-            (0, nil), (2.9, nil), (3.0, .bronze), (4.0, .bronze), (4.1, .silver), (7.0, .silver),
+            (0, nil), (2.9, nil), (3.0, .bronze), (3.4, .bronze), (3.5, .silver), (7.0, .silver),
             (7.1, .gold), (10.0, .gold), (10.1, .supreme), (16, .supreme),
         ]
         for (rating, medal) in cases {
@@ -37,11 +37,11 @@ final class MatchMedalTests: XCTestCase {
         XCTAssertEqual(MatchMedal.award(rating: 15.5, won: true, isTeamBest: true), .supremeMVP)
     }
 
-    func testLosingTeamBestNeedsSixPointSix() {
-        XCTAssertEqual(MatchMedal.award(rating: 6.5, won: false, isTeamBest: true), .silver)
-        XCTAssertEqual(MatchMedal.award(rating: 6.6, won: false, isTeamBest: true), .mvpLoss)
+    func testLosingTeamBestIsMVPLossAtAnyRating() {
+        // 2.2.16: 負けたチームの最高点が敗北MVP（下限は無い）
+        XCTAssertEqual(MatchMedal.award(rating: 2.5, won: false, isTeamBest: true), .mvpLoss)
+        XCTAssertEqual(MatchMedal.award(rating: 6.5, won: false, isTeamBest: true), .mvpLoss)
         XCTAssertEqual(MatchMedal.award(rating: 12, won: false, isTeamBest: true), .mvpLoss)
-        XCTAssertNil(MatchMedal.award(rating: 2.5, won: false, isTeamBest: true))
     }
 
     func testRatingIsComparedAtTheShownPrecision() {
@@ -57,12 +57,12 @@ final class MatchMedalTests: XCTestCase {
         let results = MatchMedal.results(in: s)
         XCTAssertEqual(results.count, 10)
         let blue = s.players(of: .blue), red = s.players(of: .red)
-        // 勝ったチームは最高の 1 人だけが MVP（10.1 以上ならシュプリーム MVP）
+        // 勝ったチームは最高の 1 人だけが MVP（10.1 以上ならウルトラ MVP）
         XCTAssertEqual(blue.filter { results[$0.entityID]?.medal?.isWinnerMVP == true }.map(\.entityID), [blue[0].entityID])
         XCTAssertFalse(red.contains { results[$0.entityID]?.medal?.isWinnerMVP == true })
-        // 負けたチームは最高の 1 人が 6.6 以上なら敗北 MVP
+        // 負けたチームは最高の 1 人が敗北MVP
         let redTop = try XCTUnwrap(results[red[0].entityID])
-        XCTAssertEqual(redTop.medal == .mvpLoss, (redTop.rating ?? 0) >= 6.6)
+        XCTAssertEqual(redTop.medal, .mvpLoss)
         XCTAssertFalse(red.dropFirst().contains { results[$0.entityID]?.medal == .mvpLoss })
         XCTAssertFalse(blue.contains { results[$0.entityID]?.medal == .mvpLoss })
         // ほかの人は評価点だけで決まる（評価点は RankService.matchRating）
@@ -81,6 +81,7 @@ final class MatchMedalTests: XCTestCase {
         let results = MatchMedal.results(in: s)
         XCTAssertEqual(results[11]?.medal?.isWinnerMVP, true)
         XCTAssertEqual(results[12]?.medal?.isMVP, false)
+        XCTAssertEqual(results[1]?.medal, .mvpLoss)
         XCTAssertNotEqual(results[2]?.medal, .mvpLoss)
     }
 
@@ -109,7 +110,9 @@ final class MatchMedalTests: XCTestCase {
         let names = MatchMedal.allCases.map(\.name)
         XCTAssertEqual(Set(names).count, names.count)
         XCTAssertTrue(MatchMedal.allCases.allSatisfy { !$0.condition.isEmpty })
-        XCTAssertEqual(MatchMedal.bronze.condition, L("評価 3.0〜4.0", "Rating 3.0–4.0"))
+        XCTAssertEqual(MatchMedal.bronze.condition, L("評価 3.0〜3.4", "Rating 3.0–3.4"))
+        XCTAssertEqual(MatchMedal.silver.condition, L("評価 3.5〜7.0", "Rating 3.5–7.0"))
+        XCTAssertEqual(MatchMedal.supreme.name, L("ウルトラ勲章", "Supreme Medal"))
         XCTAssertEqual(MatchMedal.gold.condition, L("評価 7.1〜10.0", "Rating 7.1–10.0"))
         XCTAssertEqual(MatchMedal.supreme.condition, L("評価 10.1 以上", "Rating 10.1+"))
         XCTAssertEqual(MatchMedal.allCases.filter(\.isMVP), [.mvp, .supremeMVP, .mvpLoss])

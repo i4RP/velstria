@@ -77,41 +77,41 @@ enum SeasonService {
 
     // MARK: - 下げ方
 
-    /// 新しいシーズンの開始位置（前のシーズンの最終ランク → ティアと段位。星は 0）。relay の SEASON_RESET と同じ。
+    /// 新しいシーズンの開始位置（前のシーズンの最終ランク → ティア・段位・星）。relay の seasonResetPlace と同じ。
     /// MLBB は公式の表を出しておらず、紹介ページどうしで食い違う。マスター〜エピックは 2017 年の公式（Patch Notes 1.2.18 の S5→S6）の形、
-    /// ウォリアー・エリート（星だけ 0）とレジェンド・ミシックは 2026 年の各ページで一致する行（docs/OUTGAME_GAP.md 7-12）。
-    static func resetPlace(_ r: RankState) -> (tier: RankTier, division: Int) {
+    /// ウォリアー・エリート（星だけ 0）とレジェンドは 2026 年の各ページで一致する行、ミシックは 2.2.16 の映像（docs/OUTGAME_GAP.md 7-12）。
+    static func resetPlace(_ r: RankState) -> (tier: RankTier, division: Int, stars: Int) {
         switch r.tier {
         case .warrior, .elite:
-            return (r.tier, min(max(1, r.division), RankService.divisions(r.tier)))
+            return (r.tier, min(max(1, r.division), RankService.divisions(r.tier)), 0)
         case .master:
             switch r.division {
-            case ...1: return (.master, 3)
-            case 2: return (.master, 4)
-            default: return (.elite, 1)
+            case ...1: return (.master, 3, 0)
+            case 2: return (.master, 4, 0)
+            default: return (.elite, 1, 0)
             }
         case .grandmaster:
             switch r.division {
-            case ...1: return (.grandmaster, 3)
-            case 2: return (.grandmaster, 4)
-            case 3: return (.grandmaster, 5)
-            case 4: return (.master, 1)
-            default: return (.master, 2)
+            case ...1: return (.grandmaster, 3, 0)
+            case 2: return (.grandmaster, 4, 0)
+            case 3: return (.grandmaster, 5, 0)
+            case 4: return (.master, 1, 0)
+            default: return (.master, 2, 0)
             }
         case .epic:
             switch r.division {
-            case ...1: return (.epic, 4)
-            case 2, 3: return (.epic, 5)
-            case 4: return (.grandmaster, 1)
-            default: return (.grandmaster, 2)
+            case ...1: return (.epic, 4, 0)
+            case 2, 3: return (.epic, 5, 0)
+            case 4: return (.grandmaster, 1, 0)
+            default: return (.grandmaster, 2, 0)
             }
         case .legend:
-            return r.division >= 5 ? (.epic, 4) : (.epic, 3)
+            return r.division >= 5 ? (.epic, 4, 0) : (.epic, 3, 0)
         case .mythic:
-            // 星の累計: 0〜24 → エピック II、オナー（25〜）→ エピック I、グローリー（50〜）・イモータル → レジェンド V
-            if r.stars >= 50 { return (.legend, 5) }
-            if r.stars >= 25 { return (.epic, 1) }
-            return (.epic, 2)
+            // 星の累計: Iミシック（100〜）→ エピック I・星 1、Hミシック・Gミシック（25〜99）→ エピック II（映像で確認）。
+            // ミシック（0〜24）は見つからないのでエピック II とする（未確認）
+            if r.stars >= 100 { return (.epic, 1, 1) }
+            return (.epic, 2, 0)
         }
     }
 
@@ -134,7 +134,7 @@ enum SeasonService {
         let place = resetPlace(r)
         r.tier = place.tier
         r.division = place.division
-        r.stars = 0
+        r.stars = place.stars
         r.starPoints = 0
         r.protectionPoints = 0
         r.seasonWins = 0

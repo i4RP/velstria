@@ -186,7 +186,7 @@ private struct ScoreRow: View {
 
     private var accessibilityText: String {
         let s = player.score
-        let medal = result.medal?.name ?? L("メダルなし", "no medal")
+        let medal = result.medal?.name ?? L("勲章なし", "no medal")
         var t = "\(PlayerNameRules.shown(player.displayName))、\(heroName)、Lv \(player.level)、"
         t += L("キル \(s.kills) デス \(s.deaths) アシスト \(s.assists)、CS \(s.creepScore)、評価 \(result.ratingText)、\(medal)",
                "\(s.kills) kills \(s.deaths) deaths \(s.assists) assists, CS \(s.creepScore), rating \(result.ratingText), \(medal)")

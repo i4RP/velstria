@@ -181,7 +181,7 @@ struct RankState: Codable, Equatable {
     var tier: RankTier = .warrior
     /// 段位（大きいほど下。ウォリアー/エリートは 3〜1、マスターは 4〜1、それ以上は 5〜1）。ミシックは常に 1。
     var division: Int = 3
-    /// 段位内の星。ミシックでは累計の星（25 でオナー・50 でグローリー・100 でイモータル）。
+    /// 段位内の星。ミシックでは累計の星（25 で Hミシック・50 で Gミシック・100 で Iミシック）。
     var stars: Int = 0
     /// 旧版の名残（使わない）。
     var points: Int = 0
