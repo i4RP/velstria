@@ -210,9 +210,9 @@ struct StoreWalletPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            walletRow(symbol: "star.circle.fill", color: Theme.gold, label: L("コイン", "Coin"), amount: app.profile.starlightCoin)
-            walletRow(symbol: "diamond.fill", color: Theme.cyan, label: L("無償 Gem", "Free Gem"), amount: app.profile.freeGem)
-            walletRow(symbol: "diamond.fill", color: Color(red: 0.72, green: 0.52, blue: 1.0), label: L("有償 Gem", "Paid Gem"),
+            walletRow(.coin, label: L("コイン", "Coin"), amount: app.profile.starlightCoin)
+            walletRow(.gem, label: L("無償 Gem", "Free Gem"), amount: app.profile.freeGem)
+            walletRow(.paidGem, label: L("有償 Gem", "Paid Gem"),
                       amount: app.profile.paidGem)
             Spacer(minLength: 0)
             Button {
@@ -235,9 +235,9 @@ struct StoreWalletPanel: View {
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Theme.panelStroke, lineWidth: 1))
     }
 
-    private func walletRow(symbol: String, color: Color, label: String, amount: Int) -> some View {
+    private func walletRow(_ kind: CurrencyIcon.Kind, label: String, amount: Int) -> some View {
         HStack(spacing: 6) {
-            Image(systemName: symbol).font(.system(size: 12, weight: .bold)).foregroundStyle(color).frame(width: 16)
+            CurrencyIcon(kind: kind, size: 14).frame(width: 16)
             Text(label).font(Theme.body(12)).foregroundStyle(Theme.textSecondary)
             Spacer()
             Text(amount.formatted()).font(Theme.mono(13)).foregroundStyle(Theme.textPrimary).monospacedDigit()

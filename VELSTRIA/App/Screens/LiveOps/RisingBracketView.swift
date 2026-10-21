@@ -69,10 +69,10 @@ struct RisingBracketView: View {
                 .font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.textSecondary)
                 .labelStyle(.titleAndIcon).lineLimit(1).fixedSize()
             HStack(spacing: 3) {
-                Image(systemName: "star.circle.fill").foregroundStyle(Theme.gold)
+                CurrencyIcon(kind: .coin, size: 13)
                 Text("\(stage.rewardCoins)")
                 if stage.rewardGems > 0 {
-                    Image(systemName: "diamond.fill").foregroundStyle(Theme.cyan)
+                    CurrencyIcon(kind: .gem, size: 13)
                     Text("\(stage.rewardGems)")
                 }
             }
