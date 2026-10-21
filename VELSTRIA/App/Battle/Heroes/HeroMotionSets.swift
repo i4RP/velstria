@@ -84,7 +84,15 @@ struct HeroMotionBinding {
 
 enum HeroMotionSets {
     /// heroID の割り当て（未知の ID は nil = 手続きのみ）。
-    static func set(heroID: String) -> HeroMotionSet? { table[heroID] }
+    static func set(heroID: String) -> HeroMotionSet? {
+        guard var set = table[heroID] else { return nil }
+        if HeroIdle.authored(for: heroID) != nil {
+            set.idle = nil
+            set.idleWeaponR = nil
+            set.idleWeaponL = nil
+        }
+        return set
+    }
 
     private static func make(_ attacks: [String], idle: String? = nil, death: String = "death_back",
                              victory: String = "victory_pump", mask: HeroClipMask = .full,

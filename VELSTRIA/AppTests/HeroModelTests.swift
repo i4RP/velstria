@@ -67,7 +67,8 @@ final class HeroModelTests: XCTestCase {
             }
             animator.setState(.idle)
             for _ in 0..<180 { _ = animator.advance(dt: 1 / 60, moveSpeed: 0) }
-            XCTAssertEqual(animator.current.legR.pitch, profile.rest.legR.pitch, accuracy: 0.001, id)
+            let stopped = profile.idle?.pose(rest: profile.rest, time: animator.idleTime) ?? profile.rest
+            XCTAssertEqual(animator.current.legR.pitch, stopped.legR.pitch, accuracy: 0.001, id)
         }
     }
 
