@@ -222,18 +222,29 @@ struct DraftPick: Equatable, Identifiable {
     var isPlayer: Bool
 }
 
-/// スネークピック（B1 R1 R2 B2 B3 R3 R4 B4 B5 R5）。プレイヤーは B1。BAN は無い（2026-10-12 に廃止）。
+/// スネークピック（青1 → 赤2 → 青2 → 赤2 → 青2 → 赤1 = B1 R1 R2 B2 B3 R3 R4 B4 B5 R5。MLBB と同じ）。BAN は無い（2026-10-12 に廃止）。
+/// プレイヤーの手番は青の playerSlot 番目（MLBB と同じく試合ごとに変わる。既定は B1）。味方の AI は自分の番に選ぶ。
+/// playerLane を渡すと（マッチング前のレーン選択）、青の各手番が受け持つレーンを先に決める（プレイヤーは希望のレーン）。
 /// 全員が全ヒーローを使える（所持の制限なし）。同じ試合で同じヒーローは 1 人だけ。
 /// AI の選択は SplitMix64 で決定的（同じシード・同じ入力なら同じ結果）。
 struct DraftEngine: Equatable {
-    static let turns: [DraftTurn] = {
+    /// 既定（プレイヤーが B1）の手番。
+    static let turns: [DraftTurn] = turns(playerSlot: 0)
+
+    static func turns(playerSlot: Int) -> [DraftTurn] {
         let snake: [(Team, Int)] = [(.blue, 1), (.red, 1), (.red, 2), (.blue, 2), (.blue, 3),
                                     (.red, 3), (.red, 4), (.blue, 4), (.blue, 5), (.red, 5)]
         return snake.map { team, n in
-            DraftTurn(team: team, isPlayer: team == .blue && n == 1, slotLabel: (team == .blue ? "B" : "R") + "\(n)")
+            DraftTurn(team: team, isPlayer: team == .blue && n == playerSlot + 1, slotLabel: (team == .blue ? "B" : "R") + "\(n)")
         }
-    }()
+    }
 
+    /// この試合の手番。
+    let turns: [DraftTurn]
+    /// プレイヤーの手番が青の何番目か（0〜4）。
+    let playerSlot: Int
+    /// 青の各手番が受け持つレーン（レーンを選んだ時。nil = ロールに合う空きへ）。
+    private(set) var bluePlan: [LanePosition]?
     /// 選べるヒーロー ID（ID 昇順）。
     let heroIDs: [String]
     private let roles: [Role]
@@ -243,15 +254,41 @@ struct DraftEngine: Equatable {
     private(set) var redPicks: [DraftPick] = []
 
     /// roster: 名簿（既定はゲームに出すヒーロー master.heroes）。
-    init(seed: UInt64, master: MasterData = .shared, roster: [HeroDef]? = nil) {
+    init(seed: UInt64, master: MasterData = .shared, roster: [HeroDef]? = nil,
+         playerSlot: Int = 0, playerLane: LanePosition? = nil) {
         let heroes = roster ?? master.heroes
         heroIDs = heroes.map(\.heroID)
         roles = heroes.map(\.role)
         rng = SplitMix64(seed: seed ^ 0xD8AF_7B4E_11C3_9A05)
+        let slot = min(4, max(0, playerSlot))
+        self.playerSlot = slot
+        turns = Self.turns(playerSlot: slot)
+        if let lane = playerLane {
+            let rest = LanePosition.allCases.filter { $0 != lane }
+            var plan: [LanePosition] = []
+            var next = 0
+            for i in 0..<5 {
+                if i == slot {
+                    plan.append(lane)
+                } else {
+                    plan.append(rest[next])
+                    next += 1
+                }
+            }
+            bluePlan = plan
+        } else {
+            bluePlan = nil
+        }
     }
 
-    var currentTurn: DraftTurn? { turnIndex < Self.turns.count ? Self.turns[turnIndex] : nil }
-    var isComplete: Bool { turnIndex >= Self.turns.count }
+    /// 試合ごとに変わるプレイヤーの手番（シードから。UI テストは -draftSlot で固定できる）。
+    static func playerSlot(seed: UInt64) -> Int {
+        var r = SplitMix64(seed: seed ^ 0x51A7_0C2B_9E44_6D13)
+        return Int(r.next() % 5)
+    }
+
+    var currentTurn: DraftTurn? { turnIndex < turns.count ? turns[turnIndex] : nil }
+    var isComplete: Bool { turnIndex >= turns.count }
     var pickedHeroIDs: [String] { (bluePicks + redPicks).map(\.heroID) }
     var playerPick: DraftPick? { bluePicks.first { $0.isPlayer } }
 
@@ -284,21 +321,34 @@ struct DraftEngine: Equatable {
         return open.first ?? preferred
     }
 
+    /// 今の手番が受け持つレーン（青でレーンを決めてある時。それ以外は nil）。
+    private var plannedPosition: LanePosition? {
+        guard let turn = currentTurn, turn.team == .blue, let plan = bluePlan else { return nil }
+        return plan[min(4, bluePicks.count)]
+    }
+
+    /// 青の i 番目の手番のレーン（決めてある時）。
+    func plannedLane(blueIndex i: Int) -> LanePosition? {
+        guard let plan = bluePlan, plan.indices.contains(i) else { return nil }
+        return plan[i]
+    }
+
     /// 現在の手番を確定する。成功で true。
     @discardableResult
     mutating func commit(_ heroID: String?) -> Bool {
         guard let turn = currentTurn, let id = heroID, let role = role(of: id), !isTaken(id) else { return false }
-        let pick = DraftPick(heroID: id, position: bestOpenPosition(for: role, team: turn.team), isPlayer: turn.isPlayer)
+        let position = plannedPosition ?? bestOpenPosition(for: role, team: turn.team)
+        let pick = DraftPick(heroID: id, position: position, isPlayer: turn.isPlayer)
         if turn.team == .blue { bluePicks.append(pick) } else { redPicks.append(pick) }
         turnIndex += 1
         return true
     }
 
-    /// AI 手番の選択（プレイヤー手番・完了後は nil）。
+    /// AI 手番の選択（プレイヤー手番・完了後は nil）。受け持つレーンに合うロールから選ぶ。
     mutating func aiChoice() -> String? {
         guard let turn = currentTurn, !turn.isPlayer else { return nil }
         let available = heroIDs.filter { !isTaken($0) }
-        let target = openPositions(for: turn.team).first ?? .mid
+        let target = plannedPosition ?? openPositions(for: turn.team).first ?? .mid
         for role in MatchFactory.preferredRoles(for: target) {
             let pool = available.filter { self.role(of: $0) == role }
             if let h = rng.pick(pool) { return h }
@@ -306,10 +356,14 @@ struct DraftEngine: Equatable {
         return rng.pick(available)
     }
 
-    /// プレイヤーの持ち時間切れ時の自動選択（希望順 → 空いている先頭）。
+    /// プレイヤーの持ち時間切れ時の自動選択（よく使うヒーローなど希望順 → 受け持つレーンに合うロール → 空いている先頭）。
     func autoChoiceForPlayer(preferred: [String]) -> String? {
         guard let turn = currentTurn, turn.isPlayer else { return nil }
         if let h = preferred.first(where: { canPlayerSelect($0) }) { return h }
+        if let lane = plannedPosition {
+            let fits = MatchFactory.preferredRoles(for: lane)
+            if let h = heroIDs.first(where: { id in canPlayerSelect(id) && (role(of: id).map { fits.contains($0) } ?? false) }) { return h }
+        }
         return heroIDs.first { canPlayerSelect($0) }
     }
 
@@ -320,8 +374,48 @@ struct DraftEngine: Equatable {
         guard old != position else { return }
         if let other = bluePicks.firstIndex(where: { $0.position == position }) {
             bluePicks[other].position = old
+            if var plan = bluePlan, plan.indices.contains(other) { plan[other] = old; bluePlan = plan }
         }
         bluePicks[pi].position = position
+        if var plan = bluePlan, plan.indices.contains(pi) { plan[pi] = position; bluePlan = plan }
+    }
+
+    // MARK: 交換の申請（MLBB: レーン交換は味方に申請、ヒーロー交換は双方が承諾したときだけ）
+
+    /// 味方 AI がレーン交換に応じるか: まだ選んでいなければ応じる。選んだ後は、自分のヒーローのロールが相手（プレイヤー）のレーンに合えば応じる。
+    func allyAcceptsLaneSwap(blueIndex j: Int) -> Bool {
+        guard let plan = bluePlan, plan.indices.contains(j), j != playerSlot else { return false }
+        guard j < bluePicks.count else { return true }
+        guard let r = role(of: bluePicks[j].heroID) else { return false }
+        return MatchFactory.preferredRoles(for: plan[playerSlot]).contains(r)
+    }
+
+    /// レーン交換を申請する。味方が応じれば受け持つレーン（選んだ後ならポジションも）を入れ替えて true。
+    @discardableResult
+    mutating func requestLaneSwap(blueIndex j: Int) -> Bool {
+        guard allyAcceptsLaneSwap(blueIndex: j), var plan = bluePlan else { return false }
+        plan.swapAt(playerSlot, j)
+        bluePlan = plan
+        if playerSlot < bluePicks.count { bluePicks[playerSlot].position = plan[playerSlot] }
+        if j < bluePicks.count { bluePicks[j].position = plan[j] }
+        return true
+    }
+
+    /// 味方 AI がヒーロー交換に応じるか: 両方が選び終えていて、プレイヤーのヒーローのロールが味方のレーンに合えば応じる。
+    func allyAcceptsHeroSwap(blueIndex j: Int) -> Bool {
+        guard j != playerSlot, playerSlot < bluePicks.count, j < bluePicks.count,
+              let r = role(of: bluePicks[playerSlot].heroID) else { return false }
+        return MatchFactory.preferredRoles(for: bluePicks[j].position).contains(r)
+    }
+
+    /// ヒーロー交換を申請する。味方が応じればヒーローを入れ替えて true（レーンはそのまま）。
+    @discardableResult
+    mutating func requestHeroSwap(blueIndex j: Int) -> Bool {
+        guard allyAcceptsHeroSwap(blueIndex: j) else { return false }
+        let mine = bluePicks[playerSlot].heroID
+        bluePicks[playerSlot].heroID = bluePicks[j].heroID
+        bluePicks[j].heroID = mine
+        return true
     }
 
     func heroID(team: Team, position: LanePosition) -> String? {
@@ -339,6 +433,78 @@ struct DraftEngine: Equatable {
             // ボットのエンブレムも差し替えたヒーローの既定（「有効」のバトルプラン、無ければロール別）にする
             config.players[i].emblem = EmblemCatalog.botLoadout(heroID: h, master: master)
         }
+    }
+}
+
+// MARK: - クイックチャット（定型文だけ。自由入力は無い）
+
+/// チャット欄の 1 行。
+struct FlowChatLine: Identifiable, Equatable {
+    let id = UUID()
+    let speaker: String
+    let text: String
+    let isMine: Bool
+}
+
+/// ドラフト・ヒーロー選択の定型文。オンラインでは番号だけを送るので、並びを変えない（足すときは末尾へ）。
+enum QuickChat {
+    static let phrases: [(ja: String, en: String)] = [
+        ("よろしく！", "Good luck, have fun!"),
+        ("ジャングルをやりたい", "I want to jungle"),
+        ("ミッドレーンをやりたい", "I want Mid Lane"),
+        ("ゴールドレーンをやりたい", "I want Gold Lane"),
+        ("EXPレーンをやりたい", "I want EXP Lane"),
+        ("ロームをやりたい", "I want to roam"),
+        ("タンクがほしい", "We need a tank"),
+        ("了解！", "Got it!"),
+        ("ありがとう！", "Thanks!"),
+    ]
+
+    static func text(_ index: Int) -> String {
+        guard phrases.indices.contains(index) else { return "" }
+        return L(phrases[index].ja, phrases[index].en)
+    }
+
+    /// 味方 AI の返事（あいさつにはあいさつ、レーン・ロールの希望には了解、お礼には「どういたしまして」）。
+    static func aiReply(to index: Int) -> String? {
+        switch index {
+        case 0: return L("よろしく！", "Good luck!")
+        case 1...6: return L("了解！", "Got it!")
+        case 8: return L("どういたしまして", "You're welcome")
+        default: return nil
+        }
+    }
+}
+
+// MARK: - ドラフトの各自の表示（得意ヒーロー 3 体）
+
+enum DraftShowcase {
+    /// プレイヤーの得意ヒーロー（使った試合数の多い順に最大 limit 体。同じなら勝ち数、名簿の順）。
+    /// 持ち時間切れの自動選択もこの順で選ぶ（MLBB と同じく、よく使うヒーローを優先）。
+    static func favorites(_ p: Profile, roster: [String], limit: Int = 3) -> [String] {
+        let usage = p.career.perHero
+        let used = roster.filter { (usage[$0]?.matches ?? 0) > 0 }
+        let sorted = used.enumerated().sorted { a, b in
+            let ua = usage[a.element] ?? HeroCareer(), ub = usage[b.element] ?? HeroCareer()
+            if ua.matches != ub.matches { return ua.matches > ub.matches }
+            if ua.wins != ub.wins { return ua.wins > ub.wins }
+            return a.offset < b.offset
+        }
+        return Array(sorted.prefix(limit).map(\.element))
+    }
+
+    /// AI の得意ヒーロー（受け持つレーンに合うロールから、シードで決まる 3 体）。
+    static func aiFavorites(seed: UInt64, index: Int, lane: LanePosition, master: MasterData = .shared) -> [String] {
+        let fits = MatchFactory.preferredRoles(for: lane)
+        var pool = master.heroes.filter { fits.contains($0.role) }.map(\.heroID)
+        if pool.count < 3 { pool += master.heroes.map(\.heroID).filter { !pool.contains($0) } }
+        var rng = SplitMix64(seed: seed &+ UInt64(index + 1) &* 0x9E37_79B9_7F4A_7C15)
+        var out: [String] = []
+        while out.count < 3, !pool.isEmpty {
+            let i = Int(rng.next() % UInt64(pool.count))
+            out.append(pool.remove(at: i))
+        }
+        return out
     }
 }
 

@@ -707,6 +707,19 @@ enum SpellLoadoutRules {
         BattleSpell(rawValue: spellID)?.isUnlocked(accountLevel: level) == true
     }
 
+    /// 狩猟（BS05）はジャングル担当だけ（MLBB のドラフトでは、ほかのレーンの人の狩猟に鍵が付く）。
+    static let jungleOnlySpellID = "BS05"
+    static func isAllowed(_ spellID: String, lane: LanePosition) -> Bool {
+        spellID != jungleOnlySpellID || lane == .jungle
+    }
+
+    /// 担当レーンで使えない選べる枠のスキル（ジャングル以外の狩猟）を瞬歩に戻す。
+    static func forLane(_ spells: [String], lane: LanePosition) -> [String] {
+        var s = normalized(spells)
+        if !isAllowed(s[selectableSlot], lane: lane) { s[selectableSlot] = "BS01" }
+        return s
+    }
+
     /// 選べる枠に spellID を入れる。固定枠・固定スペルは変更しない。
     static func assigning(_ spellID: String, slot: Int, in current: [String]) -> [String] {
         var s = normalized(current)

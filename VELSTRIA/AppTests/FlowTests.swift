@@ -106,6 +106,79 @@ final class FlowDraftTests: XCTestCase {
         XCTAssertEqual(d.autoChoiceForPlayer(preferred: ["H001"]), nil)
     }
 
+    /// MLBB と同じく自分の手番は試合ごとに変わり、レーンを選んでいれば青の各手番のレーンを先に決める。
+    func testPlayerSlotAndLanePlan() {
+        let slots = Set((0..<40).map { DraftEngine.playerSlot(seed: UInt64($0) &* 7919) })
+        XCTAssertTrue(slots.isSubset(of: Set(0...4)))
+        XCTAssertGreaterThan(slots.count, 1, "シードで手番が変わる")
+        var d = DraftEngine(seed: 5, roster: roster, playerSlot: 2, playerLane: .jungle)
+        XCTAssertEqual(d.turns.indices.filter { d.turns[$0].isPlayer }, [4], "B3 は全体の 5 番目の手番")
+        XCTAssertEqual(d.plannedLane(blueIndex: 2), .jungle)
+        XCTAssertEqual(Set((0..<5).compactMap { d.plannedLane(blueIndex: $0) }), Set(LanePosition.allCases))
+        while let turn = d.currentTurn {
+            let choice = turn.isPlayer ? d.autoChoiceForPlayer(preferred: []) : d.aiChoice()
+            XCTAssertTrue(d.commit(choice))
+        }
+        XCTAssertEqual(d.playerPick?.position, .jungle, "希望のレーン")
+        // 味方の AI は受け持つレーンに合うロールを選ぶ
+        for (i, pick) in d.picks(for: .blue).enumerated() where i != 2 {
+            XCTAssertEqual(pick.position, d.plannedLane(blueIndex: i))
+            let role = try? XCTUnwrap(d.role(of: pick.heroID))
+            XCTAssertTrue(MatchFactory.preferredRoles(for: pick.position).contains(role!), "\(pick.heroID) が \(pick.position) に合わない")
+        }
+        XCTAssertEqual(Set(d.picks(for: .red).map(\.position)), Set(LanePosition.allCases))
+    }
+
+    /// レーン交換: 味方がまだ選んでいなければ応じる。ヒーロー交換: 両方が選んだ後、自分のヒーローが味方のレーンに合えば応じる。
+    func testSwapRequests() {
+        var d = DraftEngine(seed: 11, roster: roster, playerSlot: 0, playerLane: .mid)
+        XCTAssertTrue(d.allyAcceptsLaneSwap(blueIndex: 3), "選ぶ前の味方は応じる")
+        let theirs = d.plannedLane(blueIndex: 3)
+        XCTAssertTrue(d.requestLaneSwap(blueIndex: 3))
+        XCTAssertEqual(d.plannedLane(blueIndex: 0), theirs)
+        XCTAssertEqual(d.plannedLane(blueIndex: 3), .mid)
+        XCTAssertFalse(d.requestLaneSwap(blueIndex: 0), "自分とは交換しない")
+        while let turn = d.currentTurn {
+            let choice = turn.isPlayer ? d.autoChoiceForPlayer(preferred: []) : d.aiChoice()
+            XCTAssertTrue(d.commit(choice))
+        }
+        let blue = d.picks(for: .blue)
+        for j in 1..<5 {
+            let before = d
+            if d.allyAcceptsHeroSwap(blueIndex: j) {
+                XCTAssertTrue(d.requestHeroSwap(blueIndex: j))
+                XCTAssertEqual(d.picks(for: .blue)[0].heroID, blue[j].heroID)
+                XCTAssertEqual(d.picks(for: .blue)[j].heroID, blue[0].heroID)
+                XCTAssertEqual(d.picks(for: .blue).map(\.position), blue.map(\.position), "レーンはそのまま")
+                break
+            } else {
+                XCTAssertFalse(d.requestHeroSwap(blueIndex: j))
+                XCTAssertEqual(d, before, "断られたら何も変わらない")
+            }
+        }
+    }
+
+    /// 時間切れの自動選択は、よく使うヒーローを優先する（得意ヒーロー 3 体の並び）。
+    func testFavoritesForAutoPick() {
+        var p = Profile()
+        p.career.perHero = ["H027": HeroCareer(matches: 5, wins: 1), "H025": HeroCareer(matches: 9, wins: 3),
+                            "H030": HeroCareer(matches: 5, wins: 4), "H099": HeroCareer(matches: 50, wins: 50)]
+        let roster = MasterData.shared.heroes.map(\.heroID)
+        XCTAssertEqual(DraftShowcase.favorites(p, roster: roster), ["H025", "H030", "H027"], "試合数 → 勝ち数の順、名簿外は除く")
+        let ai = DraftShowcase.aiFavorites(seed: 3, index: 1, lane: .carry)
+        XCTAssertEqual(ai.count, 3)
+        XCTAssertEqual(Set(ai).count, 3)
+        XCTAssertEqual(ai, DraftShowcase.aiFavorites(seed: 3, index: 1, lane: .carry), "決定的")
+    }
+
+    func testQuickChatPhrasesAreStable() {
+        // オンラインでは番号だけを送るので、並びを変えない（足すときは末尾へ）
+        XCTAssertEqual(QuickChat.phrases.first?.ja, "よろしく！")
+        XCTAssertEqual(QuickChat.text(99), "")
+        XCTAssertNotNil(QuickChat.aiReply(to: 1))
+        XCTAssertNil(QuickChat.aiReply(to: 7), "了解には返事をしない")
+    }
+
     func testPositionSwapWithAlly() {
         var d = Self.runDraft(seed: 99, playerPick: "H003")
         XCTAssertEqual(d.playerPick?.position, .carry)

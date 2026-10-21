@@ -105,7 +105,14 @@ final class FlowUITests: XCTestCase {
         snap("flow_01_mode")
         tap(app, "flow_mode_standard")
 
-        tap(app, "flow_hero_H027")
+        // レーン選択 → マッチング →「マッチ成立」で入場（MLBB の手順。AI 戦なので待ちは数秒）
+        XCTAssertTrue(element(app, "flow_lane_start").waitForExistence(timeout: 5))
+        tap(app, "flow_lane_3")
+        snap("flow_01b_lane")
+        tap(app, "flow_lane_start")
+        tap(app, "flow_match_accept", timeout: 15)
+
+        tap(app, "flow_hero_H027", timeout: 10)
         snap("flow_02_hero")
         tap(app, "flow_spell_0")
         // バトルスキルの選択（BattleSkillPicker）。新規のアカウント Lv1 で装備できるのは瞬歩（BS01）だけ
@@ -115,8 +122,9 @@ final class FlowUITests: XCTestCase {
         tap(app, "battle_skill_confirm")
         tap(app, "flow_next")
 
+        // 決定の後は 25 秒の最終調整（準備完了ですぐ始める）
         XCTAssertTrue(element(app, "flow_confirm").waitForExistence(timeout: 5))
-        snap("flow_04_ready")
+        snap("flow_04_adjust")
         tap(app, "flow_confirm")
 
         XCTAssertTrue(element(app, "loading_progress").waitForExistence(timeout: 10))
@@ -140,9 +148,9 @@ final class FlowUITests: XCTestCase {
         snap("result_04_report")
         tap(app, "report_close")
 
-        // もう一度: リザルトを閉じた後、同じ難易度でヒーロー選択から再開する
+        // もう一度: リザルトを閉じた後、同じモードのレーン選択から（MLBB と同じくマッチングからやり直す）
         tap(app, "result_again", timeout: 5)
-        XCTAssertTrue(element(app, "flow_next").waitForExistence(timeout: 10), "対戦フローが開き直されない")
+        XCTAssertTrue(element(app, "flow_lane_start").waitForExistence(timeout: 10), "対戦フローが開き直されない")
         snap("result_05_again")
         tap(app, "flow_back")
         tap(app, "flow_close")
@@ -153,22 +161,24 @@ final class FlowUITests: XCTestCase {
     static let draftSeed = "20261001"
 
     func testRankedDraft() {
-        let app = launch(["-skipOnboarding", "-language", "ja", "-flowSeed", Self.draftSeed])
+        // 自分の手番は試合ごとに変わる。テストは -draftSlot 1 で B1（最初の手番）に固定する
+        let app = launch(["-skipOnboarding", "-language", "ja", "-flowSeed", Self.draftSeed, "-draftSlot", "1"])
         tap(app, "home_play", timeout: 15)
         tap(app, "flow_mode_ranked")
+        tap(app, "flow_lane_2", timeout: 5)
+        snap("draft_00_lane")
+        tap(app, "flow_lane_start")
+        tap(app, "flow_match_accept", timeout: 15)
 
         // BAN は無く、最初からプレイヤーのピック（B1）
-        XCTAssertTrue(element(app, "flow_draft_timer").waitForExistence(timeout: 10))
+        XCTAssertTrue(element(app, "flow_lock").waitForExistence(timeout: 10))
         tap(app, "flow_hero_H027")
         snap("draft_02_pick")
         tap(app, "flow_lock")
 
-        XCTAssertTrue(element(app, "flow_next").waitForExistence(timeout: 40))
-        snap("draft_03_done")
-        tap(app, "flow_position_2")
-        tap(app, "flow_next")
-        XCTAssertTrue(element(app, "flow_confirm").waitForExistence(timeout: 5))
-        snap("draft_04_ready")
+        // 全員のピックの後は 25 秒の最終調整（戦闘準備のタブ）
+        XCTAssertTrue(element(app, "flow_confirm").waitForExistence(timeout: 40))
+        snap("draft_03_adjust")
     }
 
     /// 観戦（AI 同士）のリザルト: 観戦用の見出しで、報酬なし・「もう一度」なし。
@@ -210,12 +220,8 @@ final class FlowUITests: XCTestCase {
         XCTAssertTrue(element(app, "flow_mode_standard").waitForExistence(timeout: 5))
         snap("en_mode")
         tap(app, "flow_mode_standard")
-        tap(app, "flow_hero_H025")
-        snap("en_hero")
-        tap(app, "flow_next")
-        XCTAssertTrue(element(app, "flow_confirm").waitForExistence(timeout: 5))
-        snap("en_ready")
-        tap(app, "flow_back")
+        XCTAssertTrue(element(app, "flow_lane_start").waitForExistence(timeout: 5))
+        snap("en_lane")
         tap(app, "flow_back")
         tap(app, "flow_close")
         tap(app, "home_profile", timeout: 5)

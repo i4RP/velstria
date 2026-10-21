@@ -1,110 +1,120 @@
 import SwiftUI
 import VelstriaCore
 
-// 担当: ui-flow。UI025 ヒーロー選択（通常戦）とロードアウト（ポジション・スキン・スペル・エンブレム）。
+// 担当: ui-flow。UI025 ヒーロー選択（クラシック・ブロウル）とロードアウト（ポジション・スキン・スペル・エンブレム・バトルプラン）。
+// MLBB と同じく持ち時間があり（切れたらよく使うヒーローを優先して自動で選ぶ）、決めた後に 25 秒の最終調整。
 
 // MARK: - 2a. ヒーロー選択
 
 struct HeroSelectStep: View {
     @Bindable var model: MatchFlowModel
     @Environment(AppModel.self) private var app
+    @State private var remaining = FlowTiming.pickSeconds
+    @State private var lane: LanePosition?
+    @State private var confirmLeave = false
 
     var body: some View {
-        VStack(spacing: 8) {
-            MatchFlowHeader(title: L("ヒーロー選択", "Choose Your Hero"),
-                            subtitle: L("通常戦 · 敵 AI ", "Standard · Enemy AI ") + FlowText.difficulty(model.difficulty),
-                            backSymbol: "chevron.left", backID: "flow_back", onBack: back) {
-                MatchFlowSteps(current: 1)
-            }
-            HStack(alignment: .top, spacing: 12) {
-                VStack(spacing: 8) {
-                    RoleFilterBar(selection: $model.roleFilter)
-                    HeroPickerGrid(heroes: heroes, cell: cell(for:), onTap: tap(_:))
-                }
-                LoadoutPanel(model: model) {
-                    Button(action: next) {
-                        Label(L("決定", "Confirm"), systemImage: "checkmark").frame(maxWidth: .infinity)
+        VStack(spacing: 6) {
+            PickPhaseHeader(phase: phaseText, seconds: remaining, urgent: remaining <= 5) {
+                FlowCloseButton(identifier: "flow_close") { confirmLeave = true }
+            } trailing: {
+                if model.adjusting {
+                    Button { FlowFX.confirm(app); model.launch(app: app) } label: {
+                        Label(L("準備完了", "Ready"), systemImage: "checkmark").fixedSize()
                     }
                     .buttonStyle(PrimaryButtonStyle())
-                    .disabled(model.heroID == nil)
-                    .opacity(model.heroID == nil ? 0.5 : 1)
-                    .accessibilityIdentifier("flow_next")
+                    .accessibilityIdentifier("flow_confirm")
                 }
-                .frame(width: 292)
             }
+            HStack(alignment: .top, spacing: 12) {
+                if !model.adjusting {
+                    VStack(spacing: 6) {
+                        LaneFilterBar(selection: $lane)
+                        HeroPickerGrid(heroes: heroes, cell: cell(for:), onTap: tap(_:))
+                    }
+                }
+                LoadoutPanel(model: model) {
+                    if !model.adjusting {
+                        Button(action: lockIn) {
+                            Label(L("決定", "Confirm"), systemImage: "checkmark").frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .disabled(model.heroID == nil)
+                        .opacity(model.heroID == nil ? 0.5 : 1)
+                        .accessibilityIdentifier("flow_next")
+                    }
+                }
+                .frame(width: model.adjusting ? nil : 292)
+                .frame(maxWidth: model.adjusting ? 520 : nil)
+                .overlay(alignment: .topTrailing) {
+                    if let emote = model.myEmote { EmoteBubble(cosmeticID: emote, size: 48).offset(x: 6, y: -6) }
+                }
+            }
+            QuickChatBar(model: model)
         }
         .padding(.horizontal, 18)
-        .padding(.vertical, 8)
-        .alert(L("ヒーローを解放", "Unlock Hero"), isPresented: Binding(
-            get: { model.unlockCandidate != nil }, set: { if !$0 { model.unlockCandidate = nil } }),
-               presenting: model.unlockCandidate) { hero in
-            if let item = unlockItem(hero) {
-                Button(L("\(EconomyService.price(of: item).formatted()) コインで解放", "Unlock for \(EconomyService.price(of: item).formatted()) coins")) {
-                    unlock(hero, item: item)
-                }
+        .padding(.vertical, 6)
+        .task(id: model.adjusting) { await runClock() }
+        .alert(L("ヒーロー選択を抜けますか？", "Leave hero selection?"), isPresented: $confirmLeave) {
+            Button(L("抜ける", "Leave"), role: .destructive) {
+                FlowFX.back(app)
+                app.router.isMatchFlowPresented = false
             }
-            Button(L("キャンセル", "Cancel"), role: .cancel) {}
-        } message: { hero in
-            Text(L("\(MasterText.hero(hero)) はまだ所持していません。所持コイン: \(app.profile.starlightCoin.formatted())",
-                   "You don't own \(MasterText.hero(hero)) yet. Coins: \(app.profile.starlightCoin.formatted())"))
+            Button(L("続ける", "Stay"), role: .cancel) {}
         }
     }
 
-    /// 所持ヒーローを先頭に、ID 順。
+    private var phaseText: String {
+        if model.adjusting {
+            return L("試合はまもなく始まります。進む：", "The match is about to begin. Go: ") + FlowText.position(model.position)
+        }
+        let mode = model.kind == .brawl ? FlowText.mode(.brawl) : FlowText.mode(.standard)
+        return mode + " · " + L("ヒーローを選んでください", "Choose your hero")
+    }
+
+    /// ゲームに出すヒーロー（タブのレーンに合うロールだけ）。全員が使える（ヒーローは売らない）。
     private var heroes: [HeroDef] {
-        let all = app.master.heroes.filter { model.roleFilter == nil || $0.role == model.roleFilter }
-        return all.filter { app.owns(heroID: $0.heroID) } + all.filter { !app.owns(heroID: $0.heroID) }
+        app.master.heroes.filter { LaneFilterBar.matches($0, lane: lane) }
     }
 
     private func cell(for h: HeroDef) -> HeroGridCell {
-        let owned = app.owns(heroID: h.heroID)
-        return HeroGridCell(hero: h, selected: model.heroID == h.heroID, locked: !owned,
-                            price: owned ? nil : unlockItem(h).map { EconomyService.price(of: $0) })
-    }
-
-    private func unlockItem(_ h: HeroDef) -> StoreItemDef? {
-        app.master.store.first { $0.type == .heroUnlock && $0.grantID == h.heroID }
+        HeroGridCell(hero: h, selected: model.heroID == h.heroID)
     }
 
     private func tap(_ h: HeroDef) {
-        if app.owns(heroID: h.heroID) {
-            FlowFX.tap(app)
-            withAnimation(.spring(duration: 0.3)) { model.selectHero(h.heroID, profile: app.profile, master: app.master) }
+        FlowFX.tap(app)
+        withAnimation(.spring(duration: 0.3)) { model.selectHero(h.heroID, profile: app.profile, master: app.master) }
+    }
+
+    /// 持ち時間（ピック）→ 最終調整の 25 秒（0 で試合を始める）。
+    private func runClock() async {
+        remaining = model.adjusting ? FlowTiming.adjustSeconds : FlowTiming.pickSeconds
+        while remaining > 0 {
+            try? await Task.sleep(for: .seconds(1))
+            if Task.isCancelled { return }
+            remaining -= 1
+            if (1...3).contains(remaining) { app.audio.play(.countdown) }
+        }
+        if model.adjusting {
+            model.launch(app: app)
         } else {
-            FlowFX.tap(app)
-            model.unlockCandidate = h
+            // 時間切れ: 選んでいなければ、よく使うヒーローを優先して自動で選んで決める
+            if model.heroID == nil {
+                let roster = app.master.heroes.map(\.heroID)
+                let id = DraftShowcase.favorites(app.profile, roster: roster).first ?? roster.first
+                if let id { model.selectHero(id, profile: app.profile, master: app.master) }
+                app.showToast(L("時間切れ: 自動で選びました", "Time's up: auto-picked"))
+            }
+            lockIn()
         }
     }
 
-    private func unlock(_ hero: HeroDef, item: StoreItemDef) {
-        var p = app.profile
-        switch EconomyService.purchase(sku: item.sku, profile: &p, master: app.master) {
-        case .success:
-            app.profile = p
-            FlowFX.reward(app)
-            app.showToast(L("\(MasterText.hero(hero)) を解放しました", "Unlocked \(MasterText.hero(hero))"))
-            model.selectHero(hero.heroID, profile: app.profile, master: app.master)
-        case .insufficientFunds:
-            FlowFX.error(app)
-            app.showToast(L("コインが足りません", "Not enough coins"))
-        case .alreadyOwned:
-            model.selectHero(hero.heroID, profile: app.profile, master: app.master)
-        case .limitReached, .invalid:
-            FlowFX.error(app)
-            app.showToast(L("購入できませんでした", "Purchase failed"))
-        }
-    }
-
-    private func back() {
-        FlowFX.back(app)
-        model.step = .mode
-    }
-
-    private func next() {
-        guard model.heroID != nil else { return }
+    private func lockIn() {
+        guard model.heroID != nil, !model.adjusting else { return }
         FlowFX.confirm(app)
-        model.config = model.buildConfig(profile: app.profile, master: app.master)
-        model.step = .ready
+        app.audio.play(.lockIn)
+        app.haptics.impact(.heavy)
+        withAnimation(.spring(duration: 0.35)) { model.beginAdjusting() }
     }
 }
 
@@ -176,7 +186,8 @@ struct LoadoutPanel<Footer: View>: View {
                 VStack(alignment: .leading, spacing: 10) {
                     heroHeader
                     if model.heroID != nil {
-                        positionSection
+                        // ランクのレーンはドラフトのレーン交換で変える（MLBB と同じ）。クラシック・ブロウルだけここで変えられる
+                        if model.kind != .ranked { positionSection }
                         buildSection
                         spellSection
                         emblemSection
@@ -263,7 +274,25 @@ struct LoadoutPanel<Footer: View>: View {
                         if let item = app.master.item(id) { ItemIconView(item: item, size: 32) }
                     }
                 }
-                // ビルドの変更は対戦フロー（全画面）の下の画面に開いて見えなかったので置かない。変更はヒーロー詳細のビルドから
+                // バトルプランの切り替え（MLBB の最終調整と同じく、ここで変えられる。装備とエンブレムの既定が変わる）
+                let plans = BuildRules.plans(for: heroID)
+                if !plans.isEmpty {
+                    let active = BuildRules.activePlanIndex(for: heroID, profile: app.profile)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(plans.indices, id: \.self) { i in
+                                Button {
+                                    FlowFX.tap(app)
+                                    BuildRules.choosePlan(i, for: heroID, profile: &app.profile)
+                                } label: {
+                                    FlowChip(title: BuildRules.planName(plans[i]), symbol: "list.bullet.rectangle", selected: active == i, tint: Theme.gold)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityIdentifier("flow_plan_\(i)")
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -310,7 +339,34 @@ struct LoadoutPanel<Footer: View>: View {
                 .glass(cornerRadius: 10)
                 .accessibilityIdentifier("flow_emblem")
             }
-            Text(L("ホームの「エンブレム」で天賦の変更と一括設定ができます。", "Change talents and apply emblems to heroes from Emblems on the home screen."))
+            // エンブレムのセットの切り替え（MLBB の最終調整と同じ。セットの今の天賦をこのヒーローに付ける。「プラン」はバトルプランのもの）
+            if let heroID = model.heroID {
+                let customSet = EmblemMath.custom(for: heroID, profile: app.profile)?.set
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        Button {
+                            FlowFX.tap(app)
+                            EmblemMath.clearCustom(heroID: heroID, profile: &app.profile)
+                        } label: {
+                            FlowChip(title: L("プラン", "Plan"), symbol: "list.bullet.rectangle", selected: customSet == nil, tint: Theme.gold)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("flow_emblem_plan")
+                        ForEach(EmblemSetID.allCases.filter { EmblemMath.isUnlocked($0, profile: app.profile) }, id: \.self) { set in
+                            Button {
+                                FlowFX.tap(app)
+                                EmblemMath.apply(set: set, to: [heroID], profile: &app.profile)
+                            } label: {
+                                FlowChip(title: EmblemMath.setName(set), symbol: EmblemStyle.setSymbol(set), selected: customSet == set,
+                                         tint: EmblemStyle.color(set))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("flow_emblem_\(set.rawValue)")
+                        }
+                    }
+                }
+            }
+            Text(L("天賦の変更はホームの「エンブレム」から。", "Change talents from Emblems on the home screen."))
                 .font(Theme.body(10))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -364,13 +420,19 @@ struct SpellPickerOverlay: View {
                 .ignoresSafeArea()
                 .onTapGesture { model.spellPickerSlot = nil }
                 .accessibilityHidden(true)
-            VStack(spacing: 12) {
-                HStack {
-                    Text(L("バトルスキル", "Battle Skills")).font(Theme.heading(21)).foregroundStyle(Theme.textPrimary)
-                    Spacer()
-                    FlowCloseButton(identifier: "flow_spell_close") { model.spellPickerSlot = nil }
+            // MLBB の「バトルスキル」のポップアップ: 中央の見出しと右上の ×
+            VStack(spacing: 10) {
+                ZStack {
+                    Text(L("バトルスキル", "Battle Skills")).font(Celestial.title(20)).foregroundStyle(Theme.textPrimary)
+                    HStack {
+                        Spacer()
+                        FlowCloseButton(identifier: "flow_spell_close") { model.spellPickerSlot = nil }
+                    }
                 }
-                BattleSkillPicker(current: model.spells[0]) { id in
+                Rectangle()
+                    .fill(LinearGradient(colors: [.clear, Celestial.ice.opacity(0.55), .clear], startPoint: .leading, endPoint: .trailing))
+                    .frame(height: 0.7)
+                BattleSkillPicker(current: model.spells[0], lane: model.position) { id in
                     model.setSpell(id, slot: SpellLoadoutRules.selectableSlot)
                     if let heroID = model.heroID { app.profile.heroSpells[heroID] = model.spells }
                     model.spellPickerSlot = nil
@@ -378,8 +440,8 @@ struct SpellPickerOverlay: View {
             }
             .padding(14)
             .frame(maxWidth: 900, maxHeight: 440)
-            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Theme.panel))
-            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Theme.panelStroke))
+            .background(HomeChamfer(cut: 12).fill(Celestial.ink.opacity(0.96)))
+            .overlay(HomeChamfer(cut: 12).stroke(Celestial.ice.opacity(0.6), lineWidth: 0.8))
             .padding(.vertical, 12)
             .padding(.horizontal, 24)
         }

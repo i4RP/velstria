@@ -1,15 +1,17 @@
 import SwiftUI
 import VelstriaCore
 
-// 担当: ui-flow。UI021〜025 対戦前フロー（全画面）。
-// 1. モード選択 → 2a. ヒーロー選択（通常戦） / 2b. ピックのドラフト（ランク戦） → 3. 出撃準備（両チーム確認）→ 戦闘。
+// 担当: ui-flow。UI021〜025 対戦前フロー（全画面。MLBB の手順）。
+// 1. モード選択 → 2. レーン選択（クラシック・ランク）→ 3. マッチング →「マッチ成立」で入場 →
+// 4a. ヒーロー選択（クラシック・ブロウル） / 4b. ドラフト（ランク）→ 5. 最終調整（25 秒）→ 戦闘。相手は今のところ AI。
 
 /// 対戦フローの状態（画面間で共有）。
 @Observable
 @MainActor
 final class MatchFlowModel {
     enum Kind: Equatable { case standard, ranked, brawl }
-    enum Step: Int, Equatable { case mode, heroSelect, draft, ready }
+    /// ピックの後の最終調整（MLBB の 25 秒）は heroSelect・draft の中の段（adjusting）。
+    enum Step: Int, Equatable { case mode, lane, matching, heroSelect, draft }
 
     var step: Step = .mode
     var kind: Kind = .standard
@@ -23,6 +25,14 @@ final class MatchFlowModel {
     var skinID: String?
     var spells: [String] = ["BS01", "BS03"]
 
+    /// マッチングの前に選ぶレーン（MLBB 2025-06 から。主と副。主が nil = 全部）。ドラフトのポジションの割り当てに使う。
+    var lanePrimary: LanePosition?
+    var laneSecondary: LanePosition?
+    /// ドラフト・ヒーロー選択のチャット欄（定型文だけ）。
+    var chat: [FlowChatLine] = []
+    /// 自分が出したエモート（数秒で消える。EmoteTiming）。
+    var myEmote: String?
+
     var draft: DraftEngine?
     /// ドラフトでプレイヤーが仮選択しているヒーロー。
     var draftHover: String?
@@ -31,8 +41,11 @@ final class MatchFlowModel {
     /// 出撃準備で表示・起動する構成。
     var config: MatchConfig?
 
+    /// ピックの後の最終調整（MLBB の 25 秒。スキン・エンブレム・スペル・バトルプランを変えられる）。
+    var adjusting = false
+    private var launched = false
+
     var spellPickerSlot: Int?
-    var unlockCandidate: HeroDef?
     var configured = false
 
     init(seed: UInt64) {
@@ -66,9 +79,11 @@ final class MatchFlowModel {
         if kind == .ranked, let pick = draft?.playerPick, pick.heroID == id {
             position = pick.position
         } else {
-            position = MatchFactory.defaultPosition(for: role)
+            // マッチングの前に選んだレーン（全部なら、ヒーローのロールに合うレーン）
+            position = lanePrimary ?? MatchFactory.defaultPosition(for: role)
         }
-        spells = SpellLoadoutRules.effective(heroID: id, profile: profile)
+        // 担当レーンで使えないスキル（ジャングル以外の狩猟）は瞬歩に戻す
+        spells = SpellLoadoutRules.forLane(SpellLoadoutRules.effective(heroID: id, profile: profile), lane: position)
         skinID = profile.equippedSkins[id].flatMap { profile.ownedCosmeticIDs.contains($0) ? $0 : nil }
     }
 
@@ -84,6 +99,7 @@ final class MatchFlowModel {
 
     func setPosition(_ p: LanePosition) {
         position = p
+        spells = SpellLoadoutRules.forLane(spells, lane: p)
         if kind == .ranked { draft?.setPlayerPosition(p) }
     }
 
@@ -93,9 +109,33 @@ final class MatchFlowModel {
         return EmblemMath.loadout(for: heroID, profile: profile, master: master)
     }
 
+    /// モードを選んだ: クラシック・ランクはレーン選択へ、ブロウル（単レーン）はそのままマッチングへ。
+    func chooseMode(_ k: Kind) {
+        kind = k
+        draft = nil
+        config = nil
+        chat = []
+        step = k == .brawl ? .matching : .lane
+    }
+
+    /// マッチ成立で入場した: ランクはドラフト、ほかはヒーロー選択へ。
+    func beginPicking(profile: Profile) {
+        switch kind {
+        case .ranked: startRanked(profile: profile)
+        case .standard: startStandard()
+        case .brawl: startBrawl()
+        }
+    }
+
+    /// ドラフトの自分の手番（試合ごとに変わる。UI テストに限り -draftSlot <1〜5> で固定できる）。
+    var draftSlot: Int {
+        if DebugLaunch.isUITesting, let s = DebugLaunch.value(after: "-draftSlot").flatMap({ Int($0) }) { return min(4, max(0, s - 1)) }
+        return DraftEngine.playerSlot(seed: seed)
+    }
+
     func startRanked(profile: Profile) {
         kind = .ranked
-        draft = DraftEngine(seed: seed)
+        draft = DraftEngine(seed: seed, playerSlot: draftSlot, playerLane: lanePrimary)
         draftHover = nil
         aiPending = nil
         config = nil
@@ -114,6 +154,29 @@ final class MatchFlowModel {
         draft = nil
         config = nil
         step = .heroSelect
+    }
+
+    /// ピックが決まった: 最終調整（25 秒）へ。
+    func beginAdjusting() {
+        adjusting = true
+    }
+
+    /// 最終調整を終えて試合を始める（ロードアウトを保存して戦闘へ。構成は最終調整の変更を入れて作り直す）。
+    func launch(app: AppModel) {
+        guard !launched, let heroID, let config = buildConfig(profile: app.profile, master: app.master) else { return }
+        launched = true
+        self.config = config
+        var p = app.profile
+        p.lastPickedHeroID = heroID
+        if kind == .standard { p.preferredDifficulty = difficulty }
+        p.heroSpells[heroID] = spells
+        if let skin = skinID {
+            p.equippedSkins[heroID] = skin
+        } else {
+            p.equippedSkins.removeValue(forKey: heroID)
+        }
+        app.profile = p
+        app.startBattle(BattleLaunch(config: config, countsForRank: kind == .ranked))
     }
 
     /// 構成を作る（ランク戦はドラフトの結果を AI 枠に反映）。
@@ -152,9 +215,10 @@ struct MatchFlowView: View {
             Group {
                 switch model.step {
                 case .mode: MatchModeStep(model: model)
+                case .lane: LaneSelectStep(model: model)
+                case .matching: MatchingStep(model: model)
                 case .heroSelect: HeroSelectStep(model: model)
                 case .draft: DraftStep(model: model)
-                case .ready: ReadyStep(model: model)
                 }
             }
             .id(model.step)
@@ -175,13 +239,10 @@ struct MatchFlowView: View {
         .persistentSystemOverlays(.hidden)
         .onChange(of: model.step, initial: true) { old, step in
             switch step {
-            case .mode: app.audio.playMusic(.menu)
+            case .mode, .lane, .matching: app.audio.playMusic(.menu)
             case .heroSelect: app.audio.playMusic(.lobby)
             case .draft: app.audio.playMusic(.draft)
-            case .ready: break
             }
-            // モードを選んで試合の相手が決まった（ヒーロー選択・ドラフトへ進んだ）時だけ
-            if old == .mode, step == .heroSelect || step == .draft { app.audio.play(.matchFound) }
         }
         .onDisappear {
             // 試合へ進まずに閉じたらホームの曲へ戻す（試合へ進む時はロード画面が曲を変える）
@@ -189,15 +250,16 @@ struct MatchFlowView: View {
         }
         .onAppear {
             model.configure(profile: app.profile, master: app.master)
+            // もう一度・ランクの画面から: MLBB と同じくレーン選択（ブロウルはマッチング）から
             switch MatchFlowIntent.consume() {
             case .standard(let d)?:
                 model.difficulty = d
-                model.startStandard()
+                model.chooseMode(.standard)
             case .ranked?:
-                model.startRanked(profile: app.profile)
+                model.chooseMode(.ranked)
             case .brawl(let d)?:
                 model.difficulty = d
-                model.startBrawl()
+                model.chooseMode(.brawl)
             case nil:
                 break
             }
@@ -247,39 +309,11 @@ struct MatchFlowHeader<Trailing: View>: View {
     }
 }
 
-/// 手順表示（1 モード → 2 ヒーロー → 3 出撃）。
-struct MatchFlowSteps: View {
-    let current: Int
-
-    var body: some View {
-        let titles = [L("モード", "Mode"), L("ヒーロー", "Hero"), L("出撃", "Ready")]
-        HStack(spacing: 6) {
-            ForEach(titles.indices, id: \.self) { i in
-                HStack(spacing: 4) {
-                    Text("\(i + 1)")
-                        .font(.system(size: 11, weight: .heavy, design: .rounded))
-                        .foregroundStyle(i <= current ? Color.black.opacity(0.85) : Theme.textSecondary)
-                        .frame(width: 20, height: 20)
-                        .background(Circle().fill(i <= current ? Theme.gold : Color.white.opacity(0.1)))
-                    Text(titles[i])
-                        .font(Theme.body(11))
-                        .foregroundStyle(i == current ? Theme.textPrimary : Theme.textSecondary)
-                }
-                if i < titles.count - 1 {
-                    Rectangle().fill(i < current ? Theme.gold : Color.white.opacity(0.15)).frame(width: 14, height: 1.5)
-                }
-            }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(L("手順 \(current + 1) / 3", "Step \(current + 1) of 3"))
-    }
-}
-
-// MARK: - 1. モード選択（UI021）
+// MARK: - 1. モード選択（UI021。MLBB の大きなカード）
 
 /// モード選択の並び（MLBB と同じく、遊べるモードはすべてここから入る）。
 enum MatchModeCategory: String, CaseIterable, Identifiable {
-    case classic, ranked, brawl, arcade, vsAI
+    case classic, ranked, brawl, magicChess, arcade, vsAI
 
     var id: String { rawValue }
 
@@ -288,6 +322,7 @@ enum MatchModeCategory: String, CaseIterable, Identifiable {
         case .classic: return L("クラシック", "Classic")
         case .ranked: return L("ランク", "Ranked")
         case .brawl: return L("ブロウル", "Brawl")
+        case .magicChess: return L("マジックチェス", "Magic Chess")
         case .arcade: return L("アーケード", "Arcade")
         case .vsAI: return L("VS AI & カスタム", "VS AI & Custom")
         }
@@ -298,6 +333,7 @@ enum MatchModeCategory: String, CaseIterable, Identifiable {
         case .classic: return L("5v5 · 3 レーン", "5v5 · 3 lanes")
         case .ranked: return L("ドラフト · 5v5", "Draft · 5v5")
         case .brawl: return L("5v5 · 単レーン", "5v5 · 1 lane")
+        case .magicChess: return L("8 人のオートバトル", "8-player auto battle")
         case .arcade: return L("期間限定・変則ルール", "Limited & variant rules")
         case .vsAI: return L("カスタム・練習場", "Custom & practice")
         }
@@ -308,28 +344,32 @@ enum MatchModeCategory: String, CaseIterable, Identifiable {
         case .classic: return "flag.2.crossed.fill"
         case .ranked: return "crown.fill"
         case .brawl: return "burst.fill"
+        case .magicChess: return "square.grid.3x3.fill"
         case .arcade: return "gamecontroller.fill"
         case .vsAI: return "cpu"
         }
     }
 
-    /// カードを押すと対戦フローを進めるモードの識別子（それ以外はカードの中のボタンで各画面へ）。
+    /// 大きなカード（押すと対戦へ進む・画面を開く）か、右の小さなカード（中のボタンで各画面へ）か。
+    var isLarge: Bool { self != .arcade && self != .vsAI }
+
+    /// カードの識別子。
     var identifier: String? {
         switch self {
         case .classic: return "flow_mode_standard"
         case .ranked: return "flow_mode_ranked"
         case .brawl: return "flow_mode_brawl"
+        case .magicChess: return "flow_mode_magicChess"
         case .arcade, .vsAI: return nil
         }
     }
 
-    /// カードの中のボタン（アーケードと VS AI & カスタム。押すとフローを閉じて各画面へ）。
+    /// 小さなカードの中のボタン（押すとフローを閉じて各画面へ）。
     var destinations: [MatchModeDestination] {
         switch self {
-        case .classic, .ranked, .brawl: return []
+        case .classic, .ranked, .brawl, .magicChess: return []
         case .arcade:
-            return [MatchModeDestination(route: .rising, title: L("ライジング", "Rising"), symbol: "chart.line.uptrend.xyaxis", id: "flow_mode_rising"),
-                    MatchModeDestination(route: .magicChess, title: L("オートバトラー", "Auto Battler"), symbol: "square.grid.3x3.fill", id: "flow_mode_magicChess")]
+            return [MatchModeDestination(route: .rising, title: L("ライジング", "Rising"), symbol: "chart.line.uptrend.xyaxis", id: "flow_mode_rising")]
         case .vsAI:
             return [MatchModeDestination(route: .customSetup, title: L("カスタム", "Custom"), symbol: "slider.horizontal.3", id: "flow_mode_custom"),
                     MatchModeDestination(route: .practiceSetup, title: L("練習場", "Practice"), symbol: "figure.run", id: "flow_mode_practice"),
@@ -352,12 +392,14 @@ private struct MatchModeStep: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            MatchFlowHeader(title: L("対戦モード", "Select Mode"), subtitle: L("5v5 · 対AI", "5v5 · vs AI"),
-                            backSymbol: "xmark", backID: "flow_close", onBack: close) {
-                MatchFlowSteps(current: 0)
-            }
+            MatchFlowHeader(title: L("対戦モード", "Select Mode"), subtitle: nil,
+                            backSymbol: "xmark", backID: "flow_close", onBack: close) { EmptyView() }
             HStack(alignment: .top, spacing: 8) {
-                ForEach(MatchModeCategory.allCases) { card($0) }
+                ForEach(MatchModeCategory.allCases.filter(\.isLarge)) { largeCard($0) }
+                VStack(spacing: 8) {
+                    ForEach(MatchModeCategory.allCases.filter { !$0.isLarge }) { smallCard($0) }
+                }
+                .frame(width: 150)
             }
             .frame(maxHeight: .infinity)
             difficultyRow
@@ -373,113 +415,105 @@ private struct MatchModeStep: View {
 
     private func modeTint(_ c: MatchModeCategory) -> Color {
         switch c {
-        case .classic: return Theme.cyan
+        case .classic: return Celestial.ice
         case .ranked: return Theme.gold
         case .brawl: return Color(red: 1.0, green: 0.55, blue: 0.18)
+        case .magicChess: return Color(red: 0.72, green: 0.52, blue: 1.0)
         case .arcade: return Theme.success
         case .vsAI: return Color(red: 0.56, green: 0.70, blue: 1.0)
         }
     }
 
-    @ViewBuilder
-    private func card(_ c: MatchModeCategory) -> some View {
-        if c.destinations.isEmpty {
-            Button { start(c) } label: {
-                cardBody(c) { cardFooter(c) }
-            }
-            .buttonStyle(.plain)
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier(c.identifier ?? "")
-        } else {
-            cardBody(c) {
-                VStack(spacing: 6) {
-                    ForEach(c.destinations) { d in
-                        Button { openMode(d.route) } label: {
-                            Label(d.title, systemImage: d.symbol)
-                                .font(Theme.heading(12))
-                                .foregroundStyle(Theme.textPrimary)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.6)
-                                .frame(maxWidth: .infinity, minHeight: 44)
-                                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(modeTint(c).opacity(0.18)))
-                                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(modeTint(c).opacity(0.6)))
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier(d.id)
+    /// 大きなカード（MLBB のモードの絵札）。ランクは今のティアの紋章と星。
+    private func largeCard(_ c: MatchModeCategory) -> some View {
+        let tint = modeTint(c)
+        let featured = c == .ranked
+        return Button { start(c) } label: {
+            VStack(spacing: 8) {
+                ZStack {
+                    Circle().fill(RadialGradient(colors: [tint.opacity(0.45), .clear], center: .center, startRadius: 2, endRadius: 60))
+                    if featured {
+                        RankCrest(tier: app.profile.rank.tier, size: 76)
+                    } else {
+                        Image(systemName: c.symbol)
+                            .font(.system(size: 34, weight: .light))
+                            .foregroundStyle(tint)
+                            .shadow(color: tint.opacity(0.7), radius: 8)
+                    }
+                }
+                .frame(height: 96)
+                Text(c.title)
+                    .font(Celestial.title(featured ? 22 : 19))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                if featured {
+                    let rank = app.profile.rank
+                    Text(RankService.displayName(rank)).font(Celestial.heading(12)).foregroundStyle(Theme.gold)
+                        .lineLimit(1).minimumScaleFactor(0.6)
+                    if rank.tier == .mythic {
+                        Label("\(rank.stars)", systemImage: "star.fill").font(Theme.body(11)).foregroundStyle(Theme.gold)
+                    } else {
+                        RankStarsView(stars: rank.stars, maxStars: RankService.maxStars(rank.tier), size: 11)
+                    }
+                } else {
+                    Text(c.subtitle).font(Theme.body(11)).foregroundStyle(tint).lineLimit(1).minimumScaleFactor(0.6)
+                }
+                Spacer(minLength: 0)
+                if c == .classic {
+                    HStack(spacing: 4) {
+                        CurrencyIcon(kind: .coin, size: 12)
+                        Text(L("勝利 220 · 敗北 110", "Win 220 · Loss 110"))
+                            .font(Theme.body(10)).foregroundStyle(Theme.gold).lineLimit(1).minimumScaleFactor(0.6)
                     }
                 }
             }
+            .padding(10)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .glass(cornerRadius: 16, tint: tint.opacity(0.85), highlighted: featured)
+            .shadow(color: featured ? Theme.gold.opacity(0.35) : .clear, radius: 10)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(c.title)
+        .accessibilityIdentifier(c.identifier ?? c.rawValue)
     }
 
-    private func cardBody<Footer: View>(_ c: MatchModeCategory, @ViewBuilder footer: () -> Footer) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Image(systemName: c.symbol)
-                .font(.system(size: 20, weight: .bold))
-                .foregroundStyle(modeTint(c))
-                .frame(width: 40, height: 40)
-                .background(HexagonShape().fill(modeTint(c).opacity(0.18)))
-                .overlay(HexagonShape().stroke(modeTint(c).opacity(0.6)))
-            Text(c.title)
-                .font(Theme.title(17))
-                .foregroundStyle(Theme.textPrimary)
-                .lineLimit(2)
-                .minimumScaleFactor(0.6)
-            Text(c.subtitle)
-                .font(Theme.body(11))
-                .foregroundStyle(modeTint(c))
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            Spacer(minLength: 0)
-            footer()
-        }
-        .padding(10)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .glass(cornerRadius: 16, tint: modeTint(c).opacity(0.8))
-        .contentShape(Rectangle())
-    }
-
-    /// 対戦フローを進めるカードの下段（ランクは現在のランク、ほかは報酬）。
-    @ViewBuilder
-    private func cardFooter(_ c: MatchModeCategory) -> some View {
-        switch c {
-        case .ranked:
-            // カードが狭い（SE で約 100pt）ので、紋章とランク名・星を縦に並べる
-            let rank = app.profile.rank
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 5) {
-                    RankEmblemView(tier: rank.tier, size: 22)
-                    Text(RankService.displayName(rank))
-                        .font(Theme.heading(11))
+    /// 右の小さなカード（アーケード・VS AI & カスタム）。
+    private func smallCard(_ c: MatchModeCategory) -> some View {
+        let tint = modeTint(c)
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: c.symbol).font(.system(size: 14, weight: .semibold)).foregroundStyle(tint)
+                Text(c.title).font(Celestial.heading(13)).foregroundStyle(Theme.textPrimary).lineLimit(1).minimumScaleFactor(0.6)
+            }
+            ForEach(c.destinations) { d in
+                Button { openMode(d.route) } label: {
+                    Label(d.title, systemImage: d.symbol)
+                        .font(Theme.body(12))
                         .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.5)
+                        .minimumScaleFactor(0.6)
+                        .frame(maxWidth: .infinity, minHeight: 40)
+                        .background(HomeChamfer(cut: 6).fill(tint.opacity(0.16)))
+                        .overlay(HomeChamfer(cut: 6).stroke(tint.opacity(0.55), lineWidth: 0.6))
+                        .contentShape(Rectangle())
                 }
-                if rank.tier != .mythic {
-                    RankStarsView(stars: rank.stars, maxStars: RankService.maxStars(rank.tier), size: 10)
-                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier(d.id)
             }
-            .accessibilityElement(children: .combine)
-        case .classic:
-            HStack(spacing: 4) {
-                CurrencyIcon(kind: .coin, size: 12)
-                Text(L("勝利 220 · 敗北 110", "Win 220 · Loss 110"))
-                    .font(Theme.body(10))
-                    .foregroundStyle(Theme.gold)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
-        default:
-            EmptyView()
         }
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .glass(cornerRadius: 14, tint: tint.opacity(0.8))
     }
 
     /// 敵 AI の強さ（クラシック・ブロウル。ランクは自分のランクで決まる）。
     private var difficultyRow: some View {
         HStack(spacing: 8) {
             Text(L("敵 AI の強さ", "Enemy AI"))
-                .font(Theme.heading(12))
+                .font(Celestial.heading(12))
                 .foregroundStyle(Theme.textPrimary)
                 .lineLimit(1)
                 .fixedSize()
@@ -490,15 +524,14 @@ private struct MatchModeStep: View {
                     withAnimation(.spring(duration: 0.25)) { model.difficulty = d }
                 } label: {
                     Label(FlowText.difficulty(d), systemImage: FlowText.difficultySymbol(d))
-                        .font(Theme.heading(12))
+                        .font(Celestial.heading(12))
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
-                        .foregroundStyle(selected ? Color.black.opacity(0.85) : Theme.textPrimary)
+                        .foregroundStyle(selected ? Color(red: 0.16, green: 0.10, blue: 0.03) : Theme.textPrimary)
                         .frame(maxWidth: 120, minHeight: 44)
-                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(selected ? AnyShapeStyle(Theme.cyan) : AnyShapeStyle(Color.white.opacity(0.08))))
-                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(selected ? Color.white.opacity(0.6) : Theme.panelStroke, lineWidth: 1))
+                        .background(HomeChamfer(cut: 7).fill(selected ? AnyShapeStyle(LinearGradient(colors: [HomeStyle.goldLight, Theme.gold], startPoint: .top, endPoint: .bottom))
+                                                                       : AnyShapeStyle(Celestial.ink.opacity(0.8))))
+                        .overlay(HomeChamfer(cut: 7).stroke(selected ? HomeStyle.goldLight : Celestial.ice.opacity(0.4), lineWidth: selected ? 1 : 0.6))
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -508,7 +541,7 @@ private struct MatchModeStep: View {
             }
             Text(Self.difficultyDetail(model.difficulty))
                 .font(Theme.body(11))
-                .foregroundStyle(Theme.cyan)
+                .foregroundStyle(Celestial.ice)
                 .lineLimit(2)
                 .minimumScaleFactor(0.7)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -526,11 +559,11 @@ private struct MatchModeStep: View {
     }
 
     private func start(_ c: MatchModeCategory) {
-        FlowFX.confirm(app)
         switch c {
-        case .classic: model.startStandard()
-        case .ranked: model.startRanked(profile: app.profile)
-        case .brawl: model.startBrawl()
+        case .classic: FlowFX.confirm(app); model.chooseMode(.standard)
+        case .ranked: FlowFX.confirm(app); model.chooseMode(.ranked)
+        case .brawl: FlowFX.confirm(app); model.chooseMode(.brawl)
+        case .magicChess: openMode(.magicChess)
         case .arcade, .vsAI: break
         }
     }
@@ -540,194 +573,5 @@ private struct MatchModeStep: View {
         FlowFX.tap(app)
         app.router.isMatchFlowPresented = false
         app.router.push(route)
-    }
-}
-
-// MARK: - 3. 出撃準備（UI023 相当。実際の構成をそのまま表示する）
-
-private struct ReadyStep: View {
-    @Bindable var model: MatchFlowModel
-    @Environment(AppModel.self) private var app
-    @State private var appeared = false
-    @State private var launching = false
-
-    var body: some View {
-        VStack(spacing: 8) {
-            MatchFlowHeader(title: L("出撃準備", "Ready"), subtitle: subtitle, backSymbol: "chevron.left", backID: "flow_back", onBack: back) {
-                MatchFlowSteps(current: 2)
-            }
-            if let config = model.config {
-                HStack(alignment: .center, spacing: 10) {
-                    TeamLineup(team: .blue, config: config, appeared: appeared)
-                    centerColumn(config)
-                        .frame(width: 176)
-                    TeamLineup(team: .red, config: config, appeared: appeared)
-                }
-                .frame(maxHeight: .infinity)
-            }
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 8)
-        .onAppear {
-            if model.config == nil { model.config = model.buildConfig(profile: app.profile, master: app.master) }
-            withAnimation(.spring(duration: 0.6, bounce: 0.2).delay(0.1)) { appeared = true }
-        }
-    }
-
-    private var subtitle: String {
-        switch model.kind {
-        case .ranked:
-            return FlowText.mode(.ranked) + " · " + RankService.displayName(app.profile.rank)
-        case .brawl:
-            return FlowText.mode(.brawl) + " · " + L("敵 AI ", "Enemy AI ") + FlowText.difficulty(model.difficulty)
-        case .standard:
-            return FlowText.mode(.standard) + " · " + L("敵 AI ", "Enemy AI ") + FlowText.difficulty(model.difficulty)
-        }
-    }
-
-    private func back() {
-        FlowFX.back(app)
-        model.config = nil
-        model.step = model.kind == .ranked ? .draft : .heroSelect
-    }
-
-    private func centerColumn(_ config: MatchConfig) -> some View {
-        VStack(spacing: 10) {
-            ZStack {
-                StarRingView(speed: 0.12, starCount: 18)
-                    .frame(width: 170, height: 70)
-                Text("VS")
-                    .font(.system(size: 34, weight: .black, design: .serif))
-                    .foregroundStyle(LinearGradient(colors: [.white, Theme.gold], startPoint: .top, endPoint: .bottom))
-                    .shadow(color: Theme.gold.opacity(0.7), radius: 10)
-                    .scaleEffect(appeared ? 1 : 2.2)
-                    .opacity(appeared ? 1 : 0)
-            }
-            VStack(spacing: 3) {
-                Text(model.kind == .brawl ? L("乱闘の回廊", "Brawl Corridor") : L("星環の戦場", "Star Ring Battlefield"))
-                    .font(Theme.heading(13))
-                    .foregroundStyle(Theme.textPrimary)
-                Text(model.kind == .brawl ? L("単レーン · 加速", "Single lane · Accelerated")
-                                          : L("3 レーン · ジャングル", "3 lanes · Jungle"))
-                    .font(Theme.body(11))
-                    .foregroundStyle(Theme.textSecondary)
-                if model.kind == .ranked {
-                    Label(L("結果がランクに反映", "Counts for rank"), systemImage: "crown.fill")
-                        .font(Theme.body(11))
-                        .foregroundStyle(Theme.gold)
-                }
-            }
-            Button(action: launch) {
-                VStack(spacing: 0) {
-                    Text(L("出撃", "DEPLOY")).font(.system(size: 22, weight: .black, design: .rounded))
-                    Text("START").font(.system(size: 9, weight: .heavy, design: .rounded)).tracking(2).opacity(0.6)
-                }
-                .frame(maxWidth: .infinity, minHeight: 50)
-            }
-            .buttonStyle(PrimaryButtonStyle())
-            .glowPulse(Theme.gold, radius: 14)
-            .disabled(launching)
-            .accessibilityLabel(L("出撃", "Deploy"))
-            .accessibilityIdentifier("flow_confirm")
-        }
-    }
-
-    /// ロードアウトを保存して戦闘を開始する。
-    private func launch() {
-        guard !launching, let config = model.config, let heroID = model.heroID else { return }
-        launching = true
-        var p = app.profile
-        p.lastPickedHeroID = heroID
-        if model.kind == .standard { p.preferredDifficulty = model.difficulty }
-        p.heroSpells[heroID] = model.spells
-        if let skin = model.skinID {
-            p.equippedSkins[heroID] = skin
-        } else {
-            p.equippedSkins.removeValue(forKey: heroID)
-        }
-        app.profile = p
-        FlowFX.confirm(app)
-        app.startBattle(BattleLaunch(config: config, countsForRank: model.kind == .ranked))
-    }
-}
-
-/// 出撃準備の片チーム一覧。
-private struct TeamLineup: View {
-    let team: Team
-    let config: MatchConfig
-    let appeared: Bool
-    @Environment(AppModel.self) private var app
-
-    var body: some View {
-        let color = Theme.teamColor(team, colorblind: app.profile.settings.colorblindMode)
-        let slots = config.players.filter { $0.team == team }.sorted { $0.position.rawValue < $1.position.rawValue }
-        VStack(spacing: 5) {
-            HStack(spacing: 6) {
-                Image(systemName: FlowText.teamSymbol(team)).foregroundStyle(color)
-                Text(team == .blue ? L("味方チーム", "Your Team") : L("敵チーム", "Enemy Team"))
-                    .font(Theme.heading(13))
-                    .foregroundStyle(Theme.textPrimary)
-                Spacer()
-                Text(FlowText.team(team)).font(Theme.body(10)).foregroundStyle(color)
-            }
-            ForEach(Array(slots.enumerated()), id: \.offset) { i, slot in
-                LineupRow(slot: slot, color: color)
-                    .offset(x: appeared ? 0 : (team == .blue ? -40 : 40))
-                    .opacity(appeared ? 1 : 0)
-                    .animation(.spring(duration: 0.5, bounce: 0.2).delay(Double(i) * 0.06), value: appeared)
-            }
-        }
-        .padding(8)
-        .frame(maxWidth: .infinity)
-        .glass(cornerRadius: 14, tint: color.opacity(0.7))
-    }
-}
-
-private struct LineupRow: View {
-    let slot: PlayerSlot
-    let color: Color
-    @Environment(AppModel.self) private var app
-
-    var body: some View {
-        let human = slot.controller == .human
-        HStack(spacing: 7) {
-            HeroPortraitView(heroID: slot.heroID, size: 36)
-            VStack(alignment: .leading, spacing: 1) {
-                HStack(spacing: 4) {
-                    Text(human ? PlayerNameRules.shown(slot.displayName) : (app.master.hero(slot.heroID).map { MasterText.hero($0) } ?? slot.heroID))
-                        .font(Theme.heading(12))
-                        .foregroundStyle(human ? Theme.gold : Theme.textPrimary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                    if human {
-                        Text(L("あなた", "YOU"))
-                            .font(.system(size: 9, weight: .heavy, design: .rounded))
-                            .foregroundStyle(.black)
-                            .padding(.horizontal, 4)
-                            .background(Capsule().fill(Theme.gold))
-                    }
-                }
-                HStack(spacing: 3) {
-                    Image(systemName: FlowText.positionSymbol(slot.position)).font(.system(size: 9))
-                    Text(FlowText.position(slot.position))
-                    if !human {
-                        Text("· AI \(FlowText.difficulty(slot.botDifficulty))")
-                    }
-                }
-                .font(Theme.body(10))
-                .foregroundStyle(Theme.textSecondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            }
-            Spacer(minLength: 2)
-            HStack(spacing: 2) {
-                ForEach(slot.spells, id: \.self) { SpellIconView(spellID: $0, size: 18) }
-            }
-        }
-        .padding(.horizontal, 6)
-        .frame(minHeight: 44)
-        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(human ? Theme.gold.opacity(0.14) : Color.white.opacity(0.04)))
-        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(human ? Theme.gold.opacity(0.8) : .clear, lineWidth: 1))
-        .accessibilityElement(children: .combine)
     }
 }

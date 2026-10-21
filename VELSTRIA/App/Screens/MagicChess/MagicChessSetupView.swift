@@ -9,11 +9,11 @@ struct MagicChessSetupView: View {
     @State private var seed: UInt64 = UInt64.random(in: 1...UInt64(UInt32.max))
 
     var body: some View {
-        ScreenScaffold(title: L("オートバトラー", "Auto Battler")) {
+        ScreenScaffold(title: L("マジックチェス", "Magic Chess")) {
             VStack(spacing: 14) {
                 Panel(padding: 14) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Label(L("オートバトラー", "Auto Battler"), systemImage: "square.grid.3x3.fill")
+                        Label(L("マジックチェス", "Magic Chess"), systemImage: "square.grid.3x3.fill")
                             .font(Theme.heading(15)).foregroundStyle(Theme.cyan)
                         Text(L("8 人で対戦。ゴールドでチビ英雄を買い、盤面に並べると自動で戦います。ロールのシナジーを揃え、最後まで生き残りましょう。",
                                "Face 8 players. Buy chibi heroes with gold, place them on the board and they fight automatically. Stack role synergies and be the last standing."))
