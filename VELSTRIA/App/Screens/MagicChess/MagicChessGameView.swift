@@ -16,7 +16,7 @@ struct MagicChessGameView: View {
 
     var body: some View {
         ZStack {
-            StarfieldBackground().ignoresSafeArea()
+            CelestialBackdrop().ignoresSafeArea()
             if let controller {
                 content(controller)
                     .padding(.horizontal, 14)

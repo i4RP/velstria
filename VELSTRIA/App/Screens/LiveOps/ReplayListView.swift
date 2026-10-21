@@ -330,7 +330,7 @@ struct ReplayListView: View {
         return ScrollView(.vertical, showsIndicators: false) {
             Panel(padding: 12) {
                 VStack(alignment: .leading, spacing: 9) {
-                    LiveOpsSectionHeader(title: L("保存数", "Saved"), symbol: "film.stack")
+                    SectionTitle(title: L("保存数", "Saved"), symbol: "film.stack")
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                         Text("\(regular)")
                             .font(.system(size: 28, weight: .heavy, design: .rounded))
@@ -346,7 +346,7 @@ struct ReplayListView: View {
                     }
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(L("保存数 \(regular) / \(cap)、お気に入り \(favorites)", "\(regular) of \(cap) saved, \(favorites) favorites"))
-                    LiveOpsProgressBar(fraction: Double(regular) / Double(cap), tint: regular >= cap ? Theme.gold : Theme.cyan)
+                    CelestialProgressBar(value: Double(regular) / Double(cap), tint: regular >= cap ? Theme.gold : Theme.cyan)
                     if let storageBytes {
                         Label(L("使用容量 \(ReplayLibrary.storageText(storageBytes))", "Storage \(ReplayLibrary.storageText(storageBytes))"),
                               systemImage: "internaldrive")
@@ -462,12 +462,12 @@ struct ReplayListView: View {
     @ViewBuilder
     private func emptyState(_ all: [ReplayMeta]) -> some View {
         if all.isEmpty {
-            LiveOpsEmptyState(symbol: "film.stack",
+            EmptyStateView(symbol: "film.stack",
                               title: L("保存されたリプレイはありません", "No saved replays"),
                               message: L("対戦や AI 同士の観戦を最後まで終えると、自動でリプレイが保存されます。共有された .vreplay ファイルも取り込めます。",
                                          "Replays are saved automatically when a match or AI spectate finishes. You can also import shared .vreplay files."))
         } else {
-            LiveOpsEmptyState(symbol: "line.3.horizontal.decrease.circle",
+            EmptyStateView(symbol: "line.3.horizontal.decrease.circle",
                               title: L("該当するリプレイはありません", "No matching replays"),
                               message: L("絞り込みを変えてください。", "Try a different filter."))
         }
@@ -791,7 +791,7 @@ struct ReplayDetailSheet: View {
 
     var body: some View {
         ZStack {
-            StarfieldBackground()
+            CelestialBackdrop()
             if let meta {
                 VStack(spacing: 10) {
                     header(meta)
@@ -801,13 +801,13 @@ struct ReplayDetailSheet: View {
                             if let summary = ReplayLibrary.record(for: meta, in: app.profile)?.summary ?? loaded?.summary {
                                 MatchScoreTable(summary: summary)
                             } else if loadFailed {
-                                FlowEmptyState(symbol: "exclamationmark.triangle",
+                                EmptyStateView(symbol: "exclamationmark.triangle",
                                                title: L("リプレイを読み込めません", "Can't load replay"),
                                                message: L("ファイルが見つからないか破損しています。", "The file is missing or damaged."))
                             } else if loaded == nil {
                                 ProgressView().tint(Theme.gold).frame(maxWidth: .infinity, minHeight: 120)
                             } else {
-                                FlowEmptyState(symbol: "tablecells", title: L("成績の記録はありません", "No score data"),
+                                EmptyStateView(symbol: "tablecells", title: L("成績の記録はありません", "No score data"),
                                                message: L("このリプレイには結果が記録されていません。", "This replay has no recorded result."))
                             }
                         }

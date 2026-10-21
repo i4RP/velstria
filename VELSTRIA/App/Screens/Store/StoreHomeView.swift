@@ -62,7 +62,7 @@ struct StoreHomeView: View {
             return app.master.cosmetic(item.grantID)?.type == effectFilter
         }
         return VStack(alignment: .leading, spacing: 8) {
-            CollectionSectionTitle(title: category.title, symbol: category.symbol,
+            SectionTitle(title: category.title, symbol: category.symbol,
                                    trailing: L("\(items.count) 件", "\(items.count) items"))
             if category == .effects {
                 HStack(spacing: 6) {

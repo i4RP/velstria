@@ -15,7 +15,7 @@ struct RankingView: View {
                 sidePanel(ladder)
                     .frame(width: 230)
                 if ladder.isEmpty {
-                    FlowEmptyState(symbol: "list.number", title: L("ランキングを準備中です", "The ladder is being prepared"),
+                    EmptyStateView(symbol: "list.number", title: L("ランキングを準備中です", "The ladder is being prepared"),
                                    message: L("ランク戦をプレイすると、AI ライバルとの順位が表示されます。", "Play ranked matches to see where you stand against AI rivals."))
                         .glass(cornerRadius: 16)
                 } else {
@@ -248,7 +248,7 @@ struct RankOverviewView: View {
     private var tierLadder: some View {
         let r = app.profile.rank
         return VStack(alignment: .leading, spacing: 8) {
-            FlowSectionTitle(title: L("ランク一覧", "Tiers"), symbol: "stairs")
+            SectionTitle(title: L("ランク一覧", "Tiers"), symbol: "stairs")
             ForEach(RankTier.allCases.reversed()) { t in
                 let current = t == r.tier
                 let reached = t <= r.highestTier
@@ -292,7 +292,7 @@ struct RankOverviewView: View {
 
     private var rules: some View {
         VStack(alignment: .leading, spacing: 6) {
-            FlowSectionTitle(title: L("ルール", "Rules"), symbol: "info.circle.fill")
+            SectionTitle(title: L("ルール", "Rules"), symbol: "info.circle.fill")
             // RankService の規則（MLBB と同じ）。段位の数と星の数はティアごとに違うので上のランク一覧に出す
             ruleRow("arrow.up.circle.fill", Theme.success, L("勝利で星 +1。星が満タンの状態で勝つと次の段位へ昇格します（I からは上のティアへ）。ミシックでは星を累計します。",
                                                             "Win: +1 star. Winning with full stars promotes you to the next division (from I, to the next tier). In Mythic, stars add up."))
@@ -364,7 +364,7 @@ struct RankRewardsView: View {
                 } else {
                     FlowWrapLayout(spacing: 6) {
                         ForEach(rewards.indices, id: \.self) { i in
-                            AttachmentChip(attachment: rewards[i], claimed: claimed)
+                            RewardChip(attachment: rewards[i], claimed: claimed)
                         }
                     }
                 }

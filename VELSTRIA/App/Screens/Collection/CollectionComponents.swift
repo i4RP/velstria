@@ -43,36 +43,6 @@ struct CollectionFilterChip: View {
     }
 }
 
-/// セクション見出し。
-struct CollectionSectionTitle: View {
-    let title: String
-    var symbol: String?
-    var trailing: String?
-
-    var body: some View {
-        HStack(spacing: 6) {
-            if let symbol {
-                Image(systemName: symbol)
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Theme.gold)
-            }
-            Text(title)
-                .font(Theme.heading(15))
-                .foregroundStyle(Theme.textPrimary)
-            Rectangle()
-                .fill(LinearGradient(colors: [Theme.panelStroke, .clear], startPoint: .leading, endPoint: .trailing))
-                .frame(height: 1)
-            if let trailing {
-                Text(trailing)
-                    .font(Theme.body(12))
-                    .foregroundStyle(Theme.textSecondary)
-            }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isHeader)
-    }
-}
-
 /// 難易度（★1〜5）。
 struct CollectionDifficultyStars: View {
     let value: Int
@@ -154,34 +124,6 @@ struct CollectionSkillSlotBadge: View {
                     .fill(LinearGradient(colors: [c, c.opacity(0.7)], startPoint: .top, endPoint: .bottom))
             )
             .accessibilityLabel(CollectionStyle.slotName(slot))
-    }
-}
-
-/// 空状態。
-struct CollectionEmptyState: View {
-    let symbol: String
-    let title: String
-    var message: String?
-
-    var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: symbol)
-                .font(.system(size: 30, weight: .semibold))
-                .foregroundStyle(Theme.textSecondary)
-            Text(title)
-                .font(Theme.heading(15))
-                .foregroundStyle(Theme.textPrimary)
-                .multilineTextAlignment(.center)
-            if let message {
-                Text(message)
-                    .font(Theme.body(12))
-                    .foregroundStyle(Theme.textSecondary)
-                    .multilineTextAlignment(.center)
-            }
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .combine)
     }
 }
 

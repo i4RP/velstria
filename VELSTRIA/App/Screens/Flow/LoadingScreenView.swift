@@ -174,7 +174,7 @@ struct LoadingScreenView: View {
                     .font(Theme.mono(14))
                     .foregroundStyle(Theme.gold)
                     .monospacedDigit()
-                FlowProgressBar(value: overall, tint: Theme.gold, height: 6)
+                CelestialProgressBar(value: overall, tint: Theme.gold, height: 6)
                     .frame(width: 150)
             }
             .accessibilityElement(children: .combine)

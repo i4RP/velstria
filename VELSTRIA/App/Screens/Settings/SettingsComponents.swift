@@ -180,7 +180,7 @@ struct SettingsSection<Content: View>: View {
     var body: some View {
         Panel(padding: 12) {
             VStack(alignment: .leading, spacing: 6) {
-                LiveOpsSectionHeader(title: title, symbol: symbol)
+                SectionTitle(title: title, symbol: symbol)
                 content()
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -246,8 +246,8 @@ struct SettingsChoiceRow<Value: Hashable>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             SettingsRowLabel(title: title, detail: detail, symbol: symbol)
-            LiveOpsSegmented(options: options.enumerated().map { i, o in
-                LiveOpsSegmentOption(value: o.value, title: o.title, identifier: "\(identifier)_\(i)")
+            CelestialTabs(options: options.enumerated().map { i, o in
+                CelestialTab(value: o.value, title: o.title, identifier: "\(identifier)_\(i)")
             }, selection: $selection, onChange: { _ in app.audio.play(.uiTap) })
         }
         .padding(.vertical, 4)

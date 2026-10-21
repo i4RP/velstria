@@ -196,7 +196,7 @@ struct TutorialMenuView: View {
         Panel(padding: 12) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    LiveOpsSectionHeader(title: L("チュートリアルの内容", "What You'll Learn"), symbol: "graduationcap.fill")
+                    SectionTitle(title: L("チュートリアルの内容", "What You'll Learn"), symbol: "graduationcap.fill")
                     Spacer(minLength: 0)
                     if app.profile.tutorialCompleted {
                         LiveOpsTag(text: L("クリア済み", "Completed"), symbol: "checkmark", color: Theme.success)
@@ -285,7 +285,7 @@ struct TutorialMenuView: View {
     private var tipsPanel: some View {
         Panel(padding: 12) {
             VStack(alignment: .leading, spacing: 10) {
-                LiveOpsSectionHeader(title: L("ヒント集", "Tips Library"), symbol: "lightbulb.fill")
+                SectionTitle(title: L("ヒント集", "Tips Library"), symbol: "lightbulb.fill")
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         ForEach(TutorialTip.Category.allCases) { c in

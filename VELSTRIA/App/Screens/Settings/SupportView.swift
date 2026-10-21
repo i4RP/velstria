@@ -212,9 +212,9 @@ struct ContactView: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     Panel(padding: 10) {
                         VStack(alignment: .leading, spacing: 8) {
-                            LiveOpsSectionHeader(title: L("カテゴリ", "Category"), symbol: "tag.fill")
-                            LiveOpsSegmented(options: SupportCategory.allCases.map {
-                                LiveOpsSegmentOption(value: $0, title: $0.title, symbol: $0.symbol, identifier: "contact_category_\($0.rawValue)")
+                            SectionTitle(title: L("カテゴリ", "Category"), symbol: "tag.fill")
+                            CelestialTabs(options: SupportCategory.allCases.map {
+                                CelestialTab(value: $0, title: $0.title, symbol: $0.symbol, identifier: "contact_category_\($0.rawValue)")
                             }, selection: $category, axis: .vertical, onChange: { _ in app.audio.play(.uiTap) })
                         }
                     }
@@ -238,7 +238,7 @@ struct ContactView: View {
         Panel(padding: 12) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    LiveOpsSectionHeader(title: L("お問い合わせ内容", "Message"), symbol: "square.and.pencil")
+                    SectionTitle(title: L("お問い合わせ内容", "Message"), symbol: "square.and.pencil")
                     Spacer()
                     Text("\(message.count) / \(SupportMail.maxLength)")
                         .font(Theme.mono(11))

@@ -89,7 +89,7 @@ struct AccountLinkView: View {
     private var dataSummary: some View {
         let p = app.profile
         return VStack(alignment: .leading, spacing: 8) {
-            FlowSectionTitle(title: L("現在のデータ", "Current Data"), symbol: "person.crop.square.fill")
+            SectionTitle(title: L("現在のデータ", "Current Data"), symbol: "person.crop.square.fill")
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
                 FlowStatCell(title: L("名前", "Name"), value: p.displayName.isEmpty ? "—" : p.displayName)
                 FlowStatCell(title: L("レベル", "Level"), value: "\(p.accountLevel)")

@@ -25,7 +25,7 @@ struct ItemDetailView: View {
                 }
                 .padding(.horizontal, 20)
             } else {
-                CollectionEmptyState(symbol: "questionmark.circle", title: L("装備が見つかりません", "Item not found"))
+                EmptyStateView(symbol: "questionmark.circle", title: L("装備が見つかりません", "Item not found"))
             }
         }
     }
@@ -159,7 +159,7 @@ private struct ItemBuildTreePanel: View {
         let parents = ItemMath.buildsInto(item.itemID, master: app.master)
         Panel(padding: 12) {
             VStack(spacing: 8) {
-                CollectionSectionTitle(title: L("合成ツリー", "Build Path"), symbol: "point.3.connected.trianglepath.dotted")
+                SectionTitle(title: L("合成ツリー", "Build Path"), symbol: "point.3.connected.trianglepath.dotted")
                 // 上位装備
                 VStack(alignment: .leading, spacing: 4) {
                     Text(L("この装備から作れる装備（\(parents.count)）", "Builds into (\(parents.count))"))

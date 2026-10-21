@@ -118,7 +118,7 @@ struct HeroDetailView: View {
 
         } else {
             ScreenScaffold(title: L("ヒーロー詳細", "Hero Details")) {
-                CollectionEmptyState(symbol: "questionmark.circle", title: L("ヒーローが見つかりません", "Hero not found"))
+                EmptyStateView(symbol: "questionmark.circle", title: L("ヒーローが見つかりません", "Hero not found"))
             }
         }
     }
@@ -342,7 +342,7 @@ private struct HeroOverviewSection: View {
             .minimumScaleFactor(0.8)
             Panel(padding: 12) {
                 VStack(alignment: .leading, spacing: 6) {
-                    CollectionSectionTitle(title: L("ストーリー", "Lore"), symbol: "quote.opening")
+                    SectionTitle(title: L("ストーリー", "Lore"), symbol: "quote.opening")
                     Text(MasterText.name(id: "\(hero.heroID).lore", ja: hero.lore))
                         .font(Theme.body(13))
                         .foregroundStyle(Theme.textPrimary.opacity(0.92))
@@ -393,7 +393,7 @@ private struct HeroStatsSection: View {
         let color = Theme.roleColor(hero.role)
         Panel(padding: 12) {
             VStack(alignment: .leading, spacing: 9) {
-                CollectionSectionTitle(title: L("基本能力値", "Base Stats"), symbol: "chart.bar.fill",
+                SectionTitle(title: L("基本能力値", "Base Stats"), symbol: "chart.bar.fill",
                                        trailing: "Lv1 → Lv\(Balance.maxLevel)")
                 ForEach(HeroStatKind.allCases) { kind in
                     let growth = kind.growth(hero).map { "+\(CollectionStyle.number($0, digits: kind.digits == 0 ? 2 : 3))/Lv" }
@@ -434,7 +434,7 @@ private struct HeroSkinsSection: View {
         let skins = CosmeticInfo.skins(heroID: hero.heroID, master: app.master)
         let equipped = app.profile.equippedSkins[hero.heroID]
         VStack(alignment: .leading, spacing: 8) {
-            CollectionSectionTitle(title: L("スキン", "Skins"), symbol: "paintpalette.fill",
+            SectionTitle(title: L("スキン", "Skins"), symbol: "paintpalette.fill",
                                    trailing: L("\(skins.count + 1) 種", "\(skins.count + 1) total"))
             LazyVGrid(columns: columns, spacing: 10) {
                 defaultSkinCard(equipped: equipped == nil)
@@ -651,7 +651,7 @@ private struct HeroBattlePlanSection: View {
         let isCustom = BuildRules.custom(for: hero.heroID, profile: app.profile, master: app.master) != nil
         Panel(padding: 12) {
             VStack(alignment: .leading, spacing: 8) {
-                CollectionSectionTitle(title: L("バトルプラン", "Battle Plans"), symbol: "list.bullet.rectangle.fill",
+                SectionTitle(title: L("バトルプラン", "Battle Plans"), symbol: "list.bullet.rectangle.fill",
                                        trailing: L("\(plans.count) 件", "\(plans.count) plans"))
                 if isCustom {
                     Text(L("カスタムビルドを保存している間は、試合のおすすめ購入にカスタムビルドを使います。",

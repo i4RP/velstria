@@ -25,8 +25,8 @@ struct MagicChessSetupView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(L("AI 難易度", "AI Level")).font(Theme.heading(13)).foregroundStyle(Theme.textPrimary)
-                            LiveOpsSegmented(options: Difficulty.allCases.map {
-                                LiveOpsSegmentOption(value: $0, title: LiveOpsFormat.difficultyName($0),
+                            CelestialTabs(options: Difficulty.allCases.map {
+                                CelestialTab(value: $0, title: LiveOpsFormat.difficultyName($0),
                                                      identifier: "mc_difficulty_\($0.rawValue)")
                             }, selection: $difficulty, onChange: { _ in app.audio.play(.uiTap) })
                         }

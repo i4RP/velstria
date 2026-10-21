@@ -54,7 +54,7 @@ struct TeamColorPreview: View {
         Panel(padding: 12) {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 10) {
-                    LiveOpsSectionHeader(title: L("チームカラー", "Team Colors"), symbol: "paintpalette.fill")
+                    SectionTitle(title: L("チームカラー", "Team Colors"), symbol: "paintpalette.fill")
                     teamRow(.blue, label: L("味方", "Ally"), hp: 0.72)
                     teamRow(.red, label: L("敵", "Enemy"), hp: 0.41)
                     ZStack {
@@ -98,7 +98,7 @@ struct TeamColorPreview: View {
                 .font(Theme.heading(13))
                 .foregroundStyle(Theme.textPrimary)
                 .frame(width: 44, alignment: .leading)
-            LiveOpsProgressBar(fraction: hp, tint: color, height: 10)
+            CelestialProgressBar(value: hp, tint: color, height: 10)
         }
     }
 

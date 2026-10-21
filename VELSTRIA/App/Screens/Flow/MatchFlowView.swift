@@ -148,7 +148,7 @@ struct MatchFlowView: View {
 
     var body: some View {
         ZStack {
-            StarfieldBackground()
+            CelestialBackdrop()
             Group {
                 switch model.step {
                 case .mode: MatchModeStep(model: model)

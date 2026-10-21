@@ -183,18 +183,19 @@ struct GlassBackground: ViewModifier {
     var tint: Color = Theme.panelStroke
     var highlighted = false
 
+    // ホーム（採用案 Celestial Saber）の面: 藍の地・面取りの角・細い縁（既定の縁は氷青。tint を渡せばその色）
     func body(content: Content) -> some View {
+        let shape = HomeChamfer(cut: min(10, max(4, cornerRadius * 0.6)))
+        let edge = tint == Theme.panelStroke ? Celestial.ice.opacity(0.55) : tint
         content
             .background(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(LinearGradient(colors: [Color.white.opacity(highlighted ? 0.16 : 0.09), Theme.panel.opacity(0.75)],
-                                         startPoint: .top, endPoint: .bottom))
+                shape.fill(LinearGradient(colors: [Celestial.inkRaised.opacity(highlighted ? 0.95 : 0.84), Celestial.ink.opacity(0.9)],
+                                          startPoint: .top, endPoint: .bottom))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(LinearGradient(colors: [tint.opacity(highlighted ? 1 : 0.8), tint.opacity(0.15)],
-                                           startPoint: .topLeading, endPoint: .bottomTrailing),
-                            lineWidth: highlighted ? 1.6 : 1)
+                shape.stroke(LinearGradient(colors: [edge.opacity(highlighted ? 1 : 0.85), edge.opacity(0.2)],
+                                            startPoint: .topLeading, endPoint: .bottomTrailing),
+                             lineWidth: highlighted ? 1.3 : 0.7)
             )
     }
 }
@@ -250,29 +251,6 @@ struct FlowIconButton: View {
     }
 }
 
-/// 進捗バー。
-struct FlowProgressBar: View {
-    var value: Double
-    var tint: Color = Theme.cyan
-    var height: CGFloat = 6
-    var track: Color = Color.white.opacity(0.12)
-
-    var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Capsule().fill(track)
-                Capsule()
-                    .fill(LinearGradient(colors: [tint.opacity(0.7), tint], startPoint: .leading, endPoint: .trailing))
-                    .frame(width: max(0, min(1, value.isFinite ? value : 0)) * geo.size.width)
-                    .shadow(color: tint.opacity(0.6), radius: 4)
-            }
-        }
-        .frame(height: height)
-        .accessibilityElement()
-        .accessibilityValue("\(Int((max(0, min(1, value.isFinite ? value : 0)) * 100).rounded()))%")
-    }
-}
-
 /// 選択チップ（フィルタ・難易度など）。
 struct FlowChip: View {
     let title: String
@@ -291,58 +269,6 @@ struct FlowChip: View {
         .background(Capsule().fill(selected ? AnyShapeStyle(tint) : AnyShapeStyle(Color.white.opacity(0.08))))
         .overlay(Capsule().stroke(selected ? Color.white.opacity(0.6) : Theme.panelStroke, lineWidth: 1))
         .contentShape(Capsule())
-    }
-}
-
-/// 空状態の表示。
-struct FlowEmptyState: View {
-    let symbol: String
-    let title: String
-    var message: String?
-
-    var body: some View {
-        VStack(spacing: 10) {
-            Image(systemName: symbol)
-                .font(.system(size: 40, weight: .light))
-                .foregroundStyle(Theme.cyan.opacity(0.8))
-                .glowPulse(Theme.cyan, radius: 10)
-            Text(title)
-                .font(Theme.heading(17))
-                .foregroundStyle(Theme.textPrimary)
-                .multilineTextAlignment(.center)
-            if let message {
-                Text(message)
-                    .font(Theme.body(13))
-                    .foregroundStyle(Theme.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 380)
-            }
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityElement(children: .combine)
-    }
-}
-
-/// セクション見出し。
-struct FlowSectionTitle: View {
-    let title: String
-    var symbol: String?
-    var trailing: String?
-
-    var body: some View {
-        HStack(spacing: 6) {
-            if let symbol {
-                Image(systemName: symbol).font(.system(size: 13, weight: .bold)).foregroundStyle(Theme.gold)
-            }
-            Text(title).font(Theme.heading(15)).foregroundStyle(Theme.textPrimary)
-            Spacer(minLength: 4)
-            if let trailing {
-                Text(trailing).font(Theme.body(12)).foregroundStyle(Theme.textSecondary)
-            }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isHeader)
     }
 }
 
@@ -483,72 +409,6 @@ struct RankInlineView: View {
     }
 }
 
-/// メール・報酬の添付チップ。
-struct AttachmentChip: View {
-    let attachment: MailAttachment
-    var claimed = false
-    @Environment(AppModel.self) private var app
-
-    var body: some View {
-        HStack(spacing: 5) {
-            switch attachment.kind {
-            case .coin: CurrencyIcon(kind: .coin, size: 14)
-            case .gem: CurrencyIcon(kind: .gem, size: 14)
-            default:
-                Image(systemName: symbol)
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(tint)
-            }
-            Text(title)
-                .font(Theme.body(12))
-                .foregroundStyle(Theme.textPrimary)
-                .lineLimit(1)
-            if claimed {
-                Image(systemName: "checkmark").font(.system(size: 10, weight: .heavy)).foregroundStyle(Theme.success)
-            }
-        }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 5)
-        .background(Capsule().fill(Color.black.opacity(0.35)))
-        .overlay(Capsule().stroke(tint.opacity(0.5), lineWidth: 1))
-        .opacity(claimed ? 0.6 : 1)
-        .accessibilityElement(children: .combine)
-    }
-
-    private var symbol: String {
-        switch attachment.kind {
-        case .coin: return "star.circle.fill"
-        case .gem: return "diamond.fill"
-        case .cosmetic: return "sparkles"
-        case .hero: return "person.crop.circle.badge.plus"
-        case .passXP: return "bolt.fill"
-        case .magicDust: return EmblemStyle.dustSymbol
-        case .emblemFragment: return EmblemStyle.setSymbol(fragmentSet)
-        }
-    }
-
-    private var tint: Color {
-        switch attachment.kind {
-        case .coin: return Theme.gold
-        case .gem: return Theme.cyan
-        case .cosmetic: return Color(red: 0.8, green: 0.55, blue: 1.0)
-        case .hero: return Theme.success
-        case .passXP: return Color(red: 1.0, green: 0.62, blue: 0.3)
-        case .magicDust: return EmblemStyle.dustColor
-        case .emblemFragment: return EmblemStyle.color(fragmentSet)
-        }
-    }
-
-    /// 欠片のセット（知らない ID は通常共通）。
-    private var fragmentSet: EmblemSetID {
-        attachment.refID.flatMap(EmblemSetID.init(rawValue:)) ?? .common
-    }
-
-    private var title: String {
-        FlowText.attachmentTitle(attachment, master: app.master)
-    }
-}
-
 /// 自動折り返しの横並び（チップ用）。
 struct FlowWrapLayout: Layout {
     var spacing: CGFloat = 6
@@ -592,54 +452,6 @@ struct FlowWrapLayout: Layout {
     }
 }
 
-/// カプセル型のタブ切替（各タブ 44pt 以上）。
-struct FlowTabBar<Tab: Hashable>: View {
-    struct Item {
-        let tab: Tab
-        let title: String
-        let symbol: String
-        let identifier: String
-    }
-
-    let items: [Item]
-    @Binding var selection: Tab
-    @Namespace private var ns
-
-    var body: some View {
-        HStack(spacing: 4) {
-            ForEach(items.indices, id: \.self) { i in
-                let item = items[i]
-                let selected = item.tab == selection
-                Button {
-                    withAnimation(.spring(duration: 0.3)) { selection = item.tab }
-                } label: {
-                    Label(item.title, systemImage: item.symbol)
-                        .font(Theme.heading(14))
-                        .lineLimit(1)
-                        .fixedSize()
-                        .padding(.horizontal, 14)
-                        .frame(minHeight: 44)
-                        .foregroundStyle(selected ? Color.black.opacity(0.85) : Theme.textPrimary)
-                        .background {
-                            if selected {
-                                Capsule().fill(LinearGradient(colors: [Theme.gold, Theme.gold.opacity(0.75)], startPoint: .top, endPoint: .bottom))
-                                    .matchedGeometryEffect(id: "flowTab", in: ns)
-                            }
-                        }
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier(item.identifier)
-                .accessibilityAddTraits(selected ? .isSelected : [])
-            }
-        }
-        .padding(3)
-        .background(Capsule().fill(Color.black.opacity(0.35)))
-        .overlay(Capsule().stroke(Theme.panelStroke, lineWidth: 1))
-        .fixedSize()
-    }
-}
-
 /// 閉じる（×）ボタン。
 struct FlowCloseButton: View {
     var identifier: String
@@ -673,7 +485,7 @@ struct AccountLevelBar: View {
                 .font(.system(size: 12, weight: .heavy, design: .rounded))
                 .foregroundStyle(Theme.gold)
                 .monospacedDigit()
-            FlowProgressBar(value: Double(xp) / Double(max(1, required)), tint: Theme.cyan, height: 5)
+            CelestialProgressBar(value: Double(xp) / Double(max(1, required)), tint: Theme.cyan, height: 5)
                 .frame(width: width)
         }
         .accessibilityElement(children: .ignore)

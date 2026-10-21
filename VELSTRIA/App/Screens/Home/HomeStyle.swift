@@ -242,26 +242,6 @@ extension View {
     }
 }
 
-/// 細い進捗バー（光る先端つき）。
-struct HomeBar: View {
-    var value: Double
-    var tint: Color = Theme.cyan
-
-    var body: some View {
-        GeometryReader { geo in
-            let v = min(1, max(0, value.isFinite ? value : 0))
-            ZStack(alignment: .leading) {
-                Capsule().fill(Color.white.opacity(0.14))
-                Capsule()
-                    .fill(LinearGradient(colors: [tint.opacity(0.65), tint], startPoint: .leading, endPoint: .trailing))
-                    .frame(width: max(geo.size.height, geo.size.width * v))
-                    .shadow(color: tint.opacity(0.8), radius: 3)
-            }
-        }
-        .accessibilityHidden(true)
-    }
-}
-
 /// メニュードロワーの縁の線（両端へ消えるシアン + 中央の金）。
 struct HomeEdgeLine: View {
     var body: some View {

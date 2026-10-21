@@ -71,7 +71,7 @@ struct HeroListView: View {
                         .frame(width: sidebarWidth)
                         ScrollView {
                             if heroes.isEmpty {
-                                CollectionEmptyState(symbol: "person.2.fill",
+                                EmptyStateView(symbol: "person.2.fill",
                                                      title: L("該当するヒーローがいません", "No heroes match"),
                                                      message: L("フィルターを変更してください", "Try another filter"))
                             } else {
