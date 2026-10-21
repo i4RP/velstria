@@ -195,6 +195,10 @@ enum FXRangeAudit {
             let start = meters(HitShapeTrace.position(trace.caster, at: launch.time) ?? first.pos)
             var forward = castForward
             if path.count >= 2 { forward = normalized(meters(path[1].pos) - meters(path[0].pos), min: 1e-4, fallback: castForward) }
+            // 最初の tick で当たって消えた弾（標本が 1 つ）は、その tick の区間の向き（H025 S2 の小さな矢: 着弾点の的へ 6 方向から）
+            else if case .line(let a, let b, _, _) = j.form {
+                forward = normalized(meters(b) - meters(a), min: 1e-4, fallback: castForward)
+            }
             return [Context(phase: .travel, stage: c.stage, t0: launch.time, origin: start, caster: start,
                             target: start + forward * 6, forward: forward, follow: path, cues: r.travel)]
         case .sweep:
