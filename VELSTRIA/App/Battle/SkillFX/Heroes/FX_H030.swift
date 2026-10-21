@@ -258,19 +258,20 @@ enum FX_H030: HeroFXSet {
         let flight = speed > 0 ? reach / speed : 0.7
         let m = muzzleS2
         r.cast = [
-            // 溜め: 掲げた砲口に水色の光
-            .mesh(.sprite(.flare4, 0.4, .secondary, life: t + 0.04, grow: 1.6, alpha: 0.85).glowing(), .follow, offset: m),
+            // 溜め: 掲げた砲口に水色の光（粒子。メッシュの枠は光球の弧と破裂に使う）
+            .emit(.flare(0.5, .secondary, life: t + 0.04, tex: .flare4), .follow, offset: m),
             // 発射: 前の上 55° へ傾けた砲口の閃光・光だまり・輪・水色の白の星形の閃光（Effekseer）と、水色の白の星
             .efk(efkMuzzleUp, at: t, .origin, offset: m, scale: 0.9, onTop: true),
             .emit(.flare(1.2, .secondary, life: 0.12, tex: .flare4), at: t, offset: m),
         ]
-        // 光球（直径約 0.55m）: 白い芯と、細胞の模様が流れる青い殻（加算）。放物線（砲口の高さから orbApex 秒で頂き、重力 orbGravity）を
+        // 光球（直径約 0.55〜0.65m）: 白い芯と尾（彗星の模様）と、細胞の模様が流れる青い殻（加算）。放物線（砲口の高さから orbApex 秒で頂き、重力 orbGravity）を
         // orbStep 秒の区間に分けて出し直す（区間の始めの高さ・上向きの速さ・重力）。前へのずれは leadTime 秒で 0 へ
         let v0 = orbGravity * orbApex
         let back = advanceBack(lead: m.z, time: leadTime)
         let n = max(1, Int((flight / orbStep).rounded(.up)))
-        let core = FXMesh.orb(0.13, .core, life: orbStep, grow: 1.0, alpha: 1).glowing()
-        let shell = FXMesh.orb(0.28, .primary, life: orbStep, grow: 1.0, alpha: 0.85).glowing()
+        // 白い芯と尾は彗星の模様の板（頭の楕円 = 光球の芯、体 = 細りながら消える尾 2 m）。殻は細胞の模様が流れる青い球
+        let tail = plate(.comet, length: 2.4, height: 0.95, .secondary, life: orbStep, alpha: 1)
+        let shell = FXMesh.orb(0.32, .primary, life: orbStep, grow: 1.0, alpha: 0.9).glowing()
             .flowing(.cells, scroll: [0.8, -0.6], tiling: 1.5, strength: 0.6, edge: .secondary)
         var travel: [FXCue] = []
         for k in 0..<n {
@@ -292,7 +293,7 @@ enum FX_H030: HeroFXSet {
             let z = max(0, m.z - back * t0)
             let adv: Float = t0 < leadTime - 1e-4 ? -back : 0
             let last = k == n - 1
-            for part in [core, shell] {
+            for (part, back) in [(tail, Float(2.4 * 0.34)), (shell, Float(0))] {
                 travel.append(.mesh(part.with {
                     $0.life = orbStep + (last ? 0.05 : 0.02)
                     $0.rise = rise
@@ -300,7 +301,7 @@ enum FX_H030: HeroFXSet {
                     $0.advance = adv
                     $0.fadeIn = k == 0 ? 0.15 : 0.02
                     $0.fadeOut = 0.92
-                }, at: t0, .follow, offset: [m.x, y, z]))
+                }, at: t0, .follow, offset: [m.x, y, z - back]))
             }
         }
         // 長い青い尾（細りながら消える）と、光球のすぐ後ろの水色の白の芯の尾（粒子。高さは弧の中ほど）
@@ -314,10 +315,13 @@ enum FX_H030: HeroFXSet {
         // 破裂（光球の命中・射程の端・刻印の弾け）: 白い閃き（Effekseer）→ 白く膨らむ球 → 青いガラスの球（模様が欠けて消える）→ 藍の靄。
         // 足元の水色の輪は判定の瞬間に縁 = 爆発の半径 R、消えながら 1.06R へ（範囲の縁）
         r.impact = [
+            // 破裂の瞬間の白飛びの手前の芯（3D の上）
+            .mesh(.sprite(.glowHard, R * 1.4, .core, life: 0.12, grow: 1.5).glowing().with { $0.fadeIn = 0; $0.onTop = true },
+                  offset: [0, 0.9, 0]),
             .mesh(FXMesh.orb(0.5, .core, life: 0.16, grow: 3.2, alpha: 0.95).with { $0.fadeOut = 0.45 }.glowing(), at: 0.03,
                   offset: [0, 0.9, 0]),
-            .mesh(FXMesh.orb(R * 0.53, .primary, life: 0.24, grow: 1.6, alpha: 0.85).with { $0.fadeOut = 0.35 }.glowing()
-                .flowing(.cells, scroll: [0.4, -0.8], tiling: 2, strength: 0.6, erosion: 0.45, edge: .secondary),
+            .mesh(FXMesh.orb(R * 0.53, .primary, life: 0.26, grow: 1.6, alpha: 0.95).with { $0.fadeOut = 0.4 }.glowing()
+                .flowing(.cells, scroll: [0.4, -0.8], tiling: 2, strength: 0.6, erosion: 0.25, edge: .secondary),
                   at: 0.05, offset: [0, 0.9, 0]),
             .mesh(FXMesh.orb(R * 0.82, indigo, life: 0.26, grow: 1.08, alpha: 0.35).with {
                 $0.fadeIn = 0.25

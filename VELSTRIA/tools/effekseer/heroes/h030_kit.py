@@ -200,8 +200,8 @@ def ult_root():
     """奥義のビームの根元（ビームの始まりに置く。前 = ビーム。録画 f388〜f396）。"""
     fx = Effect(P + "ult_root", frames=34, kit=True)
     fx.add(
-        facing("ring_a", "Fx_RingSoft", 1.6, 3.8, 10, fade(CYAN, 220), z=-0.2),
-        facing("ring_b", "Fx_RingSoft", 1.2, 3.0, 10, fade(CORE, 180), delay=4, z=-0.6),
+        facing("ring_a", "Fx_RingSoft", 1.4, 2.8, 10, fade(CYAN, 200), z=-0.2),
+        facing("ring_b", "Fx_RingSoft", 1.0, 2.2, 10, fade(CORE, 160), delay=4, z=-0.6),
         Node("spray", tex="Fx_Glow", life=(12, 20), count=14, delay=1, loc=Loc.pva(pos=0, vel=((-6.0, -1.5, 0.5), (6.0, 3.0, 4.0)), acc=(0, -4, 0)),
              scale=Scl.ease(0.16, 0.03), color=morph(CYAN, BLUE, 255, 0)),
         Node("dot", tex="Fx_Glow", life=20, delay=10, scale=Scl.ease(1.1, 0.6, "in"), color=fade(CYAN, 230)),
