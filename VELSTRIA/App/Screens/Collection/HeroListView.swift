@@ -207,7 +207,7 @@ struct CollectionHeroCard: View {
                 .frame(width: width, height: width / 0.58)
                 .overlay {
                     GeometryReader { geometry in
-                        if let art = PortraitArt.card(hero.heroID) ?? HomeArt.splash(heroID: hero.heroID, skinID: nil) {
+                        if let art = PortraitArt.card(hero.heroID) ?? PortraitArt.hero(hero.heroID) {
                             Image(uiImage: art)
                                 .resizable()
                                 .scaledToFill()
