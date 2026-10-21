@@ -10,6 +10,67 @@ final class HeroModelTests: XCTestCase {
     private static var battle: HeroModelOptions { HeroModelOptions.battle.with(mesh: .procedural) }
     private static let showcase = HeroModelOptions.showcase.with(mesh: .procedural)
 
+    func testPlayableGaitsHaveDistinctLowerBodyAndContinuousContacts() throws {
+        var signatures = Set<String>()
+        for n in 25...34 {
+            let gait = try XCTUnwrap(HeroGait.authored(for: String(format: "H%03d", n)))
+            var signature = ""
+            for sample in 0..<24 {
+                let p = gait.pose(rest: HeroPose(), phase: Float(sample) / 24, speed: 3.3,
+                                  legLength: 0.56, thighRatio: 0.5, swingR: 1, swingL: 1)
+                signature += String(format: "%.3f,%.3f;", p.legR.pitch, p.legR.knee)
+            }
+            XCTAssertTrue(signatures.insert(signature).inserted, gait.name)
+            for seam in [Float(0), gait.contact, Float(1)] {
+                let a = gait.leg(phase: seam - 0.00001, speed: 3.3, height: 0.8, thighRatio: 0.5)
+                let b = gait.leg(phase: seam + 0.00001, speed: 3.3, height: 0.8, thighRatio: 0.5)
+                XCTAssertEqual(a.pitch, b.pitch, accuracy: 0.001, gait.name)
+                XCTAssertEqual(a.knee, b.knee, accuracy: 0.001, gait.name)
+                XCTAssertEqual(a.ankle, b.ankle, accuracy: 0.001, gait.name)
+            }
+        }
+        XCTAssertEqual(signatures.count, 10)
+    }
+
+    func testGaitSupportFootTracksGroundAndCadenceScalesWithLegLength() throws {
+        for n in 25...34 {
+            let gait = try XCTUnwrap(HeroGait.authored(for: String(format: "H%03d", n)))
+            for speed in [Float(0.5), 1.5, 3.3, 6] {
+                let rate = gait.cyclesPerSecond(speed: speed, legLength: 0.56)
+                XCTAssertEqual(gait.cyclesPerSecond(speed: speed, legLength: 1.12), rate / 2, accuracy: 0.0001)
+                let dt: Float = 0.0001
+                let phase = gait.contact * 0.5
+                func forward(_ t: Float) -> Float {
+                    let p = gait.leg(phase: t, speed: speed, height: 0.8, thighRatio: 0.5)
+                    return 0.28 * (sin(p.pitch) + sin(p.pitch - p.knee))
+                }
+                XCTAssertEqual((forward(phase + dt * rate) - forward(phase)) / dt,
+                               -speed, accuracy: 0.015, gait.name)
+            }
+        }
+    }
+
+    func testPlayableGaitsRemainFiniteAcross65SecondsAndStop() {
+        for n in 25...34 {
+            let id = String(format: "H%03d", n)
+            let bp = HeroBlueprints.blueprint(heroID: id, role: nil)
+            let metrics = BodyMetrics.make(bp.build)
+            let profile = HeroMotionProfile(blueprint: bp, metrics: metrics, heroID: id)
+            var animator = HeroAnimator(profile: profile, defaultRunSpeed: 3.3)
+            animator.legLength = (metrics.thigh + metrics.shin) * bp.scale
+            animator.setState(.run)
+            for frame in 0..<3900 {
+                let p = animator.advance(dt: 1 / 60, moveSpeed: frame < 1800 ? 1.2 : 5)
+                XCTAssertTrue([p.legR.pitch, p.legL.pitch, p.legR.knee, p.legL.knee,
+                               p.legR.ankle, p.hipsDrop, p.offset.x].allSatisfy(\.isFinite), id)
+                XCTAssertTrue((0...Float.pi).contains(p.legR.knee), id)
+            }
+            animator.setState(.idle)
+            for _ in 0..<180 { _ = animator.advance(dt: 1 / 60, moveSpeed: 0) }
+            XCTAssertEqual(animator.current.legR.pitch, profile.rest.legR.pitch, accuracy: 0.001, id)
+        }
+    }
+
     func testAllHeroesBuildWithinBudget() {
         let start = CFAbsoluteTimeGetCurrent()
         for def in master.allHeroes {
