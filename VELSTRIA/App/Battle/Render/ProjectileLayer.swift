@@ -345,6 +345,9 @@ final class ProjectileLayer {
     /// suppressedHeroes のうち、スキルの弾（.skill・.empowered）の見た目を残すヒーロー（スキルを SkillFX に任せるキットのヒーロー。
     /// 通常攻撃の弾は Effekseer の効果があるので隠す）。
     var skillShotsKept: Set<String> = []
+    /// スキルの弾の見た目を SkillFX のレシピ（travel）が全部描くキットのヒーロー（skillShotsKept から外し、旧来の弾の核・光・軌跡を
+    /// 出さない）。H030 ライナ: 彗星・光球・ビームの先頭を描くので、旧来の大きな光の球（径 1.4 m 前後）が重なっていた。
+    static let skillShotsDrawnBySkillFX: Set<String> = ["H030"]
     /// suppressedHeroes のうち、通常攻撃の弾（.heroShot・.heroBolt）の見た目を残すヒーロー（通常攻撃を旧来の演出に任せる
     /// EffekseerRouting.attackOptOut。atk_travel の効果を出さないので隠すと何も見えない）。
     var attackShotsKept: Set<String> = []
