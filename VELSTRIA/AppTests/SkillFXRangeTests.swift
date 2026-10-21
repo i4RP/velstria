@@ -129,7 +129,7 @@ final class SkillFXRangeTests: XCTestCase {
     ]
 
     /// 直し済み（食い違い 0 でなければならない）。
-    static let fixedHeroes: Set<String> = ["H029", "H034"]
+    static let fixedHeroes: Set<String> = ["H029", "H030", "H034"]
 
     func testRangePartsMatchTheJudgmentEdges() {
         var unexpected: [String] = []
@@ -174,6 +174,78 @@ final class SkillFXRangeTests: XCTestCase {
             return o.map { abs(abs(m.yaw) == 90 ? $0.y : $0.x) }.max()
         }
         XCTAssertEqual(widths.max() ?? 0, 0.35, accuracy: 0.35 * 0.03, "鉤の頭の見える半幅 = 判定の半幅 0.35m")
+    }
+
+    /// ライナ: S1 の彗星を包む柔らかい光の横幅 = 砲弾の当たりの幅（彗星の全ての回）。S2 の足元の輪は破裂の瞬間に縁 = 爆発の半径。
+    /// 奥義のビームの外層は、貫通弾の毎 tick の判定の瞬間に、その区間の半径 = ビームの半幅（細るのは弾が通り過ぎてから）。
+    func testRainaRangePartsSitOnTheJudgmentEdge() throws {
+        for slot in [SkillSlot.skill1, .skill2, .ultimate] {
+            let trace = try XCTUnwrap(HitShapeScenario.run(heroID: "H030", slot: slot, master: master))
+            XCTAssertEqual(FXRangeAudit.audit(trace: trace, master: master).map(\.description), [], "\(slot)")
+        }
+        // S1: 彗星の柔らかい光（横向きの板 yaw 90: 輪郭の y = 横幅）
+        let s1 = SkillFXCatalog.info(heroID: "H030", slot: .skill1, master: master)
+        let half = s1.meters("s1Width")
+        let glows = SkillFXCatalog.recipe(heroID: "H030", slot: .skill1, master: master).travel.compactMap { cue -> Float? in
+            guard case .mesh(let m) = cue.element, m.tex == .cometGlow, let o = FXEdge.outline(m, size: m.size(at: 0)) else { return nil }
+            XCTAssertEqual(m.size, m.sizeEnd, "彗星の光は大きさを変えない")
+            return o.map { abs($0.y) }.max()
+        }
+        let flight = s1.meters("s1Range") / s1.speed("s1Speed")
+        XCTAssertGreaterThanOrEqual(Float(glows.count) * 0.1, flight - 1e-4, "射程いっぱいまで彗星の光がある")
+        for w in glows { XCTAssertEqual(w, half, accuracy: half * 0.03, "彗星の光の見える半幅 = 砲弾の当たりの半幅") }
+        // S2: 足元の輪（破裂の瞬間）
+        let s2 = SkillFXCatalog.info(heroID: "H030", slot: .skill2, master: master)
+        let R = s2.meters("blastRadius")
+        XCTAssertEqual(R, 1.9, accuracy: 1e-4, "爆発の半径（スキル定義の radius 190）")
+        let rings = SkillFXCatalog.recipe(heroID: "H030", slot: .skill2, master: master).impact.filter { cue in
+            guard case .mesh(let m) = cue.element, let o = FXEdge.outline(m, size: m.size(at: 0)) else { return false }
+            let far = o.map { ($0 * $0).sum().squareRoot() }.max() ?? 0
+            guard far > R * 0.5 else { return false }
+            XCTAssertEqual(cue.at, 0, accuracy: 1e-5, "範囲の輪は破裂の瞬間に出る")
+            XCTAssertEqual(far, R, accuracy: R * 0.03)
+            return true
+        }
+        XCTAssertEqual(rings.count, 1, "足元の輪")
+        // 奥義: ビームの外層（寝かせた円柱・画像なし）
+        let ult = SkillFXCatalog.info(heroID: "H030", slot: .ultimate, master: master)
+        let W = ult.meters("ultWidth")
+        let beams = SkillFXCatalog.recipe(heroID: "H030", slot: .ultimate, master: master).cast.compactMap {
+            cue -> (at: Float, z0: Float, z1: Float, mesh: FXMesh)? in
+            guard case .mesh(let m) = cue.element, m.shape == .cylinder, m.pitch == 90, m.tex == nil, m.size.x > W * 0.9 else { return nil }
+            XCTAssertEqual(cue.offset.x, 0, accuracy: 1e-5, "ビームの軸は判定の線（術者の中心）の上")
+            return (cue.at, cue.offset.z, cue.offset.z + m.size.y, m)
+        }
+        XCTAssertGreaterThanOrEqual(beams.count, 2)
+        let lo = beams.map(\.z0).min() ?? 0, hi = beams.map(\.z1).max() ?? 0
+        XCTAssertEqual(hi, ult.range, accuracy: 0.05, "ビームは射程の端まで")
+        let trace = try XCTUnwrap(HitShapeScenario.run(heroID: "H030", slot: .ultimate, master: master))
+        let mark = try XCTUnwrap(trace.casts.first)
+        guard case .skillCast(let c) = mark.event else { return XCTFail("発動が無い") }
+        let origin = FXRangeAudit.meters(HitShapeTrace.position(trace.caster, at: mark.time) ?? c.origin)
+        var fwd = FXRangeAudit.meters(c.target) - origin
+        fwd /= max(1e-4, (fwd * fwd).sum().squareRoot())
+        var checked = 0
+        for j in trace.shapes where j.kind == .projectile {
+            guard case .line(let a, let b, let hw, _) = j.form else { continue }
+            XCTAssertEqual(Float(hw / Balance.unitsPerMeter), W, accuracy: 1e-4)
+            let t = Float(j.time - mark.time)
+            let za = ((FXRangeAudit.meters(a) - origin) * fwd).sum(), zb = ((FXRangeAudit.meters(b) - origin) * fwd).sum()
+            var z = max(lo, min(za, zb))
+            while z <= min(hi, max(za, zb)) {
+                let radii = beams.compactMap { bm -> Float? in
+                    guard z >= bm.z0 - 1e-3, z <= bm.z1 + 1e-3 else { return nil }
+                    let age = t - bm.at
+                    guard age >= -1e-4, age <= bm.mesh.life + 1e-4 else { return nil }
+                    return bm.mesh.size(at: min(1, max(0, age / max(0.01, bm.mesh.life)))).x
+                }
+                XCTAssertTrue(radii.contains { abs($0 - W) <= W * 0.03 },
+                              String(format: "奥義の判定 %.2f 秒・前 %.1f m でビームの半径 %@ / 判定 %.2f m", t, z, "\(radii)", W))
+                checked += 1
+                z += 0.5
+            }
+        }
+        XCTAssertGreaterThan(checked, 20, "ビームの判定を確かめていない")
     }
 
     // MARK: - 判定の形の表示
