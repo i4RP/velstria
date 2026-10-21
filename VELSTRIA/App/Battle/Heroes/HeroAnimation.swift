@@ -23,9 +23,11 @@ struct LegPose {
     var pitch: Float = 0
     var out: Float = 0
     var knee: Float = 0
+    var ankle: Float = 0
 
     static func mix(_ a: LegPose, _ b: LegPose, _ t: Float) -> LegPose {
-        LegPose(pitch: a.pitch + (b.pitch - a.pitch) * t, out: a.out + (b.out - a.out) * t, knee: a.knee + (b.knee - a.knee) * t)
+        LegPose(pitch: a.pitch + (b.pitch - a.pitch) * t, out: a.out + (b.out - a.out) * t,
+                knee: a.knee + (b.knee - a.knee) * t, ankle: a.ankle + (b.ankle - a.ankle) * t)
     }
 }
 
@@ -128,6 +130,9 @@ struct ActionClip {
 /// ヒーロー固有の姿勢パラメータ（設計図から一度だけ作る）。
 struct HeroMotionProfile {
     var rest = HeroPose()
+    let gait: HeroGait?
+    let gaitLegLength: Float
+    let thighRatio: Float
     var runSwingR: Float = 1
     var runSwingL: Float = 1
     var legSwing: Float = 1
@@ -146,6 +151,9 @@ struct HeroMotionProfile {
     var meleeAttack: Bool
 
     init(blueprint bp: HeroBlueprint, metrics m: BodyMetrics, heroID: String? = nil) {
+        gait = HeroGait.authored(for: heroID)
+        gaitLegLength = m.thigh + m.shin
+        thighRatio = m.thigh / max(0.001, m.thigh + m.shin)
         var r = HeroPose()
         r.armR = ArmPose(pitch: 0.12, out: m.armRestOut, yaw: 0, elbow: 0.3)
         r.armL = ArmPose(pitch: 0.12, out: m.armRestOut, yaw: 0, elbow: 0.3)
@@ -524,6 +532,7 @@ struct HeroAnimator {
     let defaultRunSpeed: Float
     /// 腰から足首までの長さ（m、モデルの拡縮込み）。歩幅と足の運びを地面の動きへ合わせるのに使う。
     var legLength: Float = 0.56
+    var gaitThighRatio: Float
 
     private(set) var state: HeroAnimState = .idle
     private(set) var stateTime: Float = 0
@@ -546,6 +555,7 @@ struct HeroAnimator {
 
     init(profile: HeroMotionProfile, defaultRunSpeed: Float, motion: HeroMotionBinding? = nil) {
         self.profile = profile
+        gaitThighRatio = profile.thighRatio
         self.defaultRunSpeed = defaultRunSpeed
         current = profile.rest
         snapshot = profile.rest
@@ -648,11 +658,16 @@ struct HeroAnimator {
         if state == .run && target < 0.2 { target = defaultRunSpeed }
         if state == .dead || state == .channel || state == .stunned || state == .victory { target = 0 }
         // 急な速度変化を平滑化
-        speed += (target - speed) * min(1, dt * 10)
+        speed += (max(0, target) - speed) * (1 - exp(-dt * 10))
         // 1 歩（半周期）で足が進む距離 = 2·L·sin(A) が、その間に体が進む距離と一致するように位相を進める
-        let sweep = sin(legSwingAngle(speed: speed))
-        if speed > 0.01 { runPhase += dt * .pi * speed / (2 * max(0.2, legLength) * max(0.1, sweep)) }
-        if runPhase > 1000 { runPhase -= 2 * .pi * 150 }
+        if let gait = profile.gait {
+            runPhase += dt * gait.cyclesPerSecond(speed: speed, legLength: legLength)
+            runPhase -= floor(runPhase)
+        } else {
+            let sweep = sin(legSwingAngle(speed: speed))
+            if speed > 0.01 { runPhase += dt * .pi * speed / (2 * max(0.2, legLength) * max(0.1, sweep)) }
+            if runPhase > 1000 { runPhase -= 2 * .pi * 150 }
+        }
 
         let pose = evaluate()
         if blendTime < blendDuration && blendDuration > 0 {
@@ -882,6 +897,12 @@ struct HeroAnimator {
 
         let w = smooth01((speed - 0.15) / 0.8)
         guard w > 0.001 else { return p }
+        if let gait = profile.gait {
+            let run = gait.pose(rest: r, phase: runPhase, speed: speed,
+                                legLength: profile.gaitLegLength, thighRatio: gaitThighRatio,
+                                swingR: profile.runSwingR, swingL: profile.runSwingL)
+            return HeroPose.mix(p, run, w)
+        }
         let k = min(1.35, max(0.45, speed / 3.3))
         let ph = runPhase
         let s = sin(ph), c = cos(ph)

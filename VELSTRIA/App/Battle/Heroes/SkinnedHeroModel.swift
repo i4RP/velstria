@@ -533,6 +533,11 @@ final class SkinnedHeroModel: HeroDisplayModel {
                                 defaultRunSpeed: defaultRunSpeed,
                                 motion: motionSet.flatMap { HeroMotionBinding(set: $0, library: HeroMotionClips.shared) })
         animator.legLength = skinLeg * bp.scale
+        if let hip = rig.index[.upLegL], let knee = rig.index[.legL], let foot = rig.index[.footL] {
+            let thigh = simd_length(rp[hip] - rp[knee])
+            let shin = simd_length(rp[knee] - rp[foot])
+            animator.gaitThighRatio = thigh / max(0.001, thigh + shin)
+        }
         entityCount = HeroEffects.countEntities(root)
         apply(animator.current, time: 0)
     }

@@ -77,11 +77,11 @@ struct HeroSegmentRotations {
         shinR = thighR * rx(-p.legR.knee)
         thighL = hips * rx(p.legL.pitch) * rz(-p.legL.out)
         shinL = thighL * rx(-p.legL.knee)
-        // 手続きは手首・足首を曲げない（C_手 = C_前腕 なので、従来の「親に追従」と同じ姿勢になる）
+        // 手首は前腕に追従。足首は歩容の接地・蹴り出し角を反映する。
         handR = foreArmR
         handL = foreArmL
-        footR = shinR
-        footL = shinL
+        footR = shinR * rx(p.legR.ankle)
+        footL = shinL * rx(p.legL.ankle)
     }
 
     /// 添字（0..<count、names の順）で読み書きする。クリップの補間・重ね合わせ用。
