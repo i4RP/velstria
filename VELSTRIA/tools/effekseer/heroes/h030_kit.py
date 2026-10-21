@@ -154,14 +154,14 @@ def ult_charge():
     fx.add(
         # 外（半径 1.2 m）から球へ吸い込まれる水色の光の粒（局所 +Y = 外向き。内向きの速さで寄る）
         Node("gather", tex="Fx_Glow", life=(10, 14), count=18, interval=0.8, gen=Gen.sphere((1.0, 1.3)),
-             loc=Loc.pva(pos=0, vel=((0, -5.5, 0), (0, -7.0, 0))), scale=Scl.ease(0.06, 0.2, "in"), color=morph(CYAN, CORE, 0, 255, "in")),
+             loc=Loc.pva(pos=0, vel=((0, -5.5, 0), (0, -7.0, 0))), scale=Scl.ease(0.1, 0.3, "in"), color=morph(CYAN, CORE, 0, 255, "in")),
         # 球のまわりを回る紺の三日月の渦（2 枚）
         Node("swirl_a", tex="Fx_Crescent", blend="normal", life=22, rot=Rot.pva((0, 0, 0), (0, 0, 600)), scale=Scl.ease(0.7, 1.0, "out"),
              color=Col.ease(rgba(NAVY, 0), rgba(NAVY, 220), "out")),
         Node("swirl_b", tex="Fx_Crescent", blend="normal", life=22, delay=2, rot=Rot.pva((0, 0, 180), (0, 0, 600)),
              scale=Scl.ease(0.6, 0.9, "out"), color=Col.ease(rgba(DEEP, 0), rgba(DEEP, 200), "out")),
         # 青い芯の脈（溜まるほど明るく）
-        Node("pulse", tex="Fx_Glow", life=20, scale=Scl.ease(0.4, 0.9, "in"), color=Col.ease(rgba(BLUE, 80), rgba(CYAN, 230), "in")),
+        Node("pulse", tex="Fx_Glow", life=20, scale=Scl.ease(0.6, 1.2, "in"), color=Col.ease(rgba(BLUE, 80), rgba(CYAN, 230), "in")),
     )
     return fx
 
@@ -171,7 +171,7 @@ def ult_flash():
     fx = Effect(P + "ult_flash", frames=20, kit=True)
     fx.add(
         Node("gold", tex="Fx_Core", life=6, scale=Scl.ease(1.6, 3.2, "out"), color=morph(GOLD_PALE, GOLD, 255, 0, "lin")),
-        Node("lens", tex="Fx_Streak", life=9, delay=1, scale=Scl.ease((5.0, 0.4, 1), (7.5, 0.16, 1), "out"),
+        Node("lens", tex="Fx_Streak", life=9, delay=1, scale=Scl.ease((5.0, 1.0, 1), (7.5, 0.4, 1), "out"),
              color=morph(GOLD_PALE, CORE, 255, 0)),
         Node("white", tex="Fx_Core", life=6, delay=5, scale=Scl.ease(2.4, 3.8, "out"), color=fade(CORE, 255, 0, "lin")),
         Node("star", tex="Fx_Star4", life=7, delay=5, rot=Rot.pva(((0, 0, -10), (0, 0, 10))), scale=Scl.ease(2.4, 3.6, "out"),
