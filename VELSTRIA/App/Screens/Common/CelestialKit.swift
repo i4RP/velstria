@@ -22,12 +22,19 @@ enum Celestial {
 /// 試合の外の画面の背景: 季節のキービジュアルをぼかして暗くした上に、上下の藍の帯（ホームの外側と同じ）。
 struct CelestialBackdrop: View {
     var body: some View {
-        ZStack {
-            Celestial.ink
-            Image("CelestialLobby").resizable().scaledToFill()
-                .blur(radius: 22)
-                .overlay(Color.black.opacity(0.66))
-            LinearGradient(colors: [Celestial.ink.opacity(0.85), .clear, Celestial.ink.opacity(0.9)], startPoint: .top, endPoint: .bottom)
+        // 絵は画面の大きさで切り抜く（scaledToFill の絵は縦横比で画面より大きくなり、そのままだと親を押し広げて中身がずれる。
+        // SE では横に約 80pt 広がり「戻る」が画面の外へ出ていた）
+        GeometryReader { geo in
+            ZStack {
+                Celestial.ink
+                Image("CelestialLobby").resizable().scaledToFill()
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .clipped()
+                    .blur(radius: 22)
+                    .overlay(Color.black.opacity(0.66))
+                LinearGradient(colors: [Celestial.ink.opacity(0.85), .clear, Celestial.ink.opacity(0.9)], startPoint: .top, endPoint: .bottom)
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
         }
         .ignoresSafeArea()
         .accessibilityHidden(true)
