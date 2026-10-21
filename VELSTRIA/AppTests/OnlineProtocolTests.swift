@@ -11,6 +11,9 @@ final class OnlineProtocolTests: XCTestCase {
         room.seats[2].name = "Host"
         room.seats[2].loadout = OnlineLoadout(heroID: "H001", spells: ["BS01", "BS03"], emblem: EmblemCatalog.defaultLoadout(set: .tank), skinID: nil, autoLevelSkills: false)
         room.peers = [OnlinePeer(id: "host", name: "Host", loaded: true, rtt: 0.012)]
+        var pickingRoom = room
+        pickingRoom.stage = .pick
+        pickingRoom.pickClock = OnlinePickClock(serial: 4, seat: 2, remaining: 17.5)
         let config = MatchFactory.onlineMatch(humans: [OnlineHumanSlot(team: .blue, position: .mid, heroID: "H001", displayName: "Host")], seed: 9)
         let state = Simulation(config: config).state
         return [
@@ -42,6 +45,10 @@ final class OnlineProtocolTests: XCTestCase {
             .matchFinished(finalTick: 4321),
             .spectateDenied(reason: "観戦席が満員です"),
             .matchAborted(reason: "ホストが試合を終了しました"),
+            // ピックの手番・定型文・エモート（v3）
+            .room(pickingRoom),
+            .quickChat(peer: "guest", phrase: 3),
+            .emote(peer: "guest", cosmeticID: "E001"),
         ]
     }
 
@@ -97,6 +104,23 @@ final class OnlineProtocolTests: XCTestCase {
         XCTAssertEqual(back.players.map(\.id), ["p"])
         XCTAssertEqual(back.spectatorDelaySeconds, 15, accuracy: 1e-9)
         XCTAssertEqual(back.peer("p")?.leftMatch, true)
+    }
+
+    func testPickOrderFollowsTheDraftSnakeForHumanSeats() {
+        var room = OnlineRoom(name: "部屋", hostPeerID: "p0")
+        let blue = room.seats.filter { $0.team == .blue }.map(\.index)
+        let red = room.seats.filter { $0.team == .red }.map(\.index)
+        for (i, s) in [blue[0], blue[1], blue[2], red[0], red[1]].enumerated() { room.seats[s].peerID = "p\(i)" }
+        // 青1 → 赤1・赤2 → 青2・青3（人のいない枠は飛ばす）
+        XCTAssertEqual(room.pickOrder, [blue[0], red[0], red[1], blue[1], blue[2]])
+        XCTAssertNil(room.pickTurnSeat, "ピックの段階でなければ手番は無い")
+        room.stage = .pick
+        XCTAssertEqual(room.pickTurnSeat, blue[0])
+        room.seats[blue[0]].ready = true
+        XCTAssertEqual(room.pickTurnSeat, red[0])
+        XCTAssertFalse(room.isAdjustingPicks)
+        for s in [red[0], red[1], blue[1], blue[2]] { room.seats[s].ready = true }
+        XCTAssertTrue(room.isAdjustingPicks)
     }
 
     func testHelloFromOlderAppStillDecodes() throws {

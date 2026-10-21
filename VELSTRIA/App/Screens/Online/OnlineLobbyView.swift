@@ -412,6 +412,13 @@ struct OnlineRoomView: View {
             }.padding(16).background(Theme.panel).foregroundStyle(Theme.textPrimary)
         }
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { roomWidth = $0 }
+        // 全員が確定した（最終調整）: スキンのタブへ。自分の番が来た: 合図の音
+        .onChange(of: room.isAdjustingPicks) { _, adjusting in
+            if adjusting, mySeat?.loadout.heroID != nil { showsSkins = true }
+        }
+        .onChange(of: room.pickTurnSeat) { _, turn in
+            if let turn, turn == mySeat?.index { app.audio.play(.announcement) }
+        }
         .onChange(of: room) { _, _ in
             if room.phase != .lobby || mySeat == nil { showsPlans = false; showsSpells = false }
             autoPilot()
@@ -762,16 +769,14 @@ struct OnlineRoomView: View {
             VStack(alignment: .leading, spacing: 8) {
                 if let seat = mySeat {
                     Button {
-                        FlowFX.confirm(app)
-                        session.setReady(!seat.ready)
+                        pressReady(seat)
                     } label: {
-                        Label(seat.ready ? L("準備完了を解除", "Not Ready") : L("準備完了", "Ready"),
-                              systemImage: seat.ready ? "xmark.circle" : "checkmark.circle.fill")
+                        Label(readyTitle(seat), systemImage: seat.ready ? "checkmark.seal.fill" : "checkmark.circle.fill")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(SecondaryButtonStyle())
-                    .disabled(seat.loadout.heroID == nil || room.phase != .lobby)
-                    .opacity(seat.loadout.heroID == nil ? 0.5 : 1)
+                    .disabled(!canPressReady(seat))
+                    .opacity(canPressReady(seat) ? 1 : 0.5)
                     .accessibilityIdentifier("online_ready")
                     Button {
                         FlowFX.tap(app)
@@ -946,13 +951,19 @@ private extension OnlineRoomView {
                     .font(Theme.body(12)).frame(minWidth: 72, minHeight: 44)
             }.accessibilityIdentifier("online_room_controls")
             Spacer()
-            VStack(spacing: 1) {
-                Text(L("ヒーロー PICK", "HERO PICK")).font(Theme.heading(17))
-                Text(room.phase == .lobby
-                     ? L("準備完了 \(room.seats.filter { $0.isHuman && $0.ready }.count) / \(room.seats.filter { $0.isHuman }.count)",
-                         "Ready \(room.seats.filter { $0.isHuman && $0.ready }.count) / \(room.seats.filter { $0.isHuman }.count)")
-                     : L("試合を準備しています…", "Preparing match…"))
-                    .font(Theme.body(11)).foregroundStyle(Theme.gold)
+            VStack(spacing: 0) {
+                Text(pickPhaseText)
+                    .font(Theme.heading(15)).lineLimit(1).minimumScaleFactor(0.6)
+                    .accessibilityIdentifier("online_pick_phase")
+                if room.phase == .lobby, let deadline = session.pickDeadline {
+                    OnlinePickCountdown(deadline: deadline)
+                } else {
+                    Text(room.phase == .lobby
+                         ? L("準備完了 \(room.seats.filter { $0.isHuman && $0.ready }.count) / \(room.seats.filter { $0.isHuman }.count)",
+                             "Ready \(room.seats.filter { $0.isHuman && $0.ready }.count) / \(room.seats.filter { $0.isHuman }.count)")
+                         : L("試合を準備しています…", "Preparing match…"))
+                        .font(Theme.body(11)).foregroundStyle(Theme.gold)
+                }
             }
             Spacer()
             Button { app.leaveOnlineRoom() } label: {
@@ -976,10 +987,12 @@ private extension OnlineRoomView {
                         session.takeSeat(seat.index)
                     } label: {
                         ZStack(alignment: .bottomLeading) {
-                            if let heroID = seat.loadout.heroID, seat.isHuman,
+                            if let heroID = seat.loadout.heroID, seat.isHuman, showsHero(of: seat, ally: ally),
                                let art = PortraitArt.hero(heroID) {
                                 Image(uiImage: art).resizable().scaledToFill()
                                     .frame(width: geometry.size.width, height: geometry.size.height).clipped()
+                                    // 確定前（予約・手番の人が選んでいるところ）は薄く
+                                    .opacity(room.usesPickTurns && !seat.ready ? 0.55 : 1)
                             } else {
                                 color.opacity(0.12)
                                 Image(systemName: seat.isHuman ? "person.fill" : "cpu")
@@ -992,14 +1005,25 @@ private extension OnlineRoomView {
                                     Image(systemName: FlowText.positionSymbol(seat.position))
                                     Text(FlowText.position(seat.position))
                                     Spacer(minLength: 0)
-                                    if seat.ready { Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.success) }
+                                    if seat.ready {
+                                        Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.success)
+                                    } else if seat.index == room.pickTurnSeat {
+                                        Image(systemName: "hourglass").foregroundStyle(HomeStyle.goldLight)
+                                    }
                                 }.font(Theme.body(9))
                                 Text(seat.isHuman ? seat.name : L("AI / 空席", "AI / Open"))
                                     .font(Theme.heading(11)).lineLimit(1)
                                     .foregroundStyle(seat.peerID == session.localPeerID ? Theme.gold : .white)
                             }.padding(5)
                         }
-                        .overlay(Rectangle().stroke(seat.peerID == session.localPeerID ? Theme.gold : color.opacity(0.3), lineWidth: 1))
+                        .overlay(Rectangle().stroke(seat.index == room.pickTurnSeat ? HomeStyle.goldLight
+                                                    : (seat.peerID == session.localPeerID ? Theme.gold : color.opacity(0.3)),
+                                                    lineWidth: seat.index == room.pickTurnSeat ? 2.5 : 1))
+                        .overlay(alignment: .topTrailing) {
+                            if let id = seat.peerID, let emote = session.emotes[id] {
+                                EmoteBubble(cosmeticID: emote, size: 30).padding(2)
+                            }
+                        }
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -1013,7 +1037,8 @@ private extension OnlineRoomView {
 
     var draftHeroes: some View {
         let heroes = app.master.heroes.filter { roleFilter == nil || $0.role == roleFilter }
-        let taken = room.seats.filter { $0.peerID != nil && $0.peerID != session.localPeerID }.compactMap(\.loadout.heroID)
+        let taken = room.heldHeroIDs(excluding: session.localPeerID)
+        let locked = room.usesPickTurns && mySeat?.ready == true
         return VStack(spacing: 4) {
             RoleFilterBar(selection: $roleFilter)
             GeometryReader { geometry in
@@ -1036,7 +1061,7 @@ private extension OnlineRoomView {
                                 }
                                 .opacity(taken.contains(hero.heroID) ? 0.3 : 1)
                             }.buttonStyle(.plain)
-                                .disabled(taken.contains(hero.heroID) || room.phase != .lobby)
+                                .disabled(taken.contains(hero.heroID) || locked || room.phase != .lobby)
                                 .accessibilityAddTraits(selected ? .isSelected : [])
                                 .accessibilityIdentifier("online_pick_\(hero.heroID)")
                         }
@@ -1048,6 +1073,14 @@ private extension OnlineRoomView {
 
     var draftFooter: some View {
         VStack(spacing: 4) {
+            // 定型文とエモート（ピックでは同じチームに届く。番号と ID だけを送る）
+            HStack(spacing: 8) {
+                QuickChatMenu(identifier: "online_quickchat") { session.sendQuickChat($0) }
+                EmoteMenuButton { session.sendEmote($0) }
+                QuickChatLines(lines: session.chat)
+            }
+            .frame(height: 38)
+            .disabled(mySeat == nil || room.phase != .lobby)
             if let heroID = mySeat?.loadout.heroID {
                 HStack(spacing: 8) {
                     Button { showsPlans = true } label: {
@@ -1076,11 +1109,11 @@ private extension OnlineRoomView {
                         .frame(maxWidth: .infinity, minHeight: 44)
                 }.disabled(mySeat?.loadout.heroID == nil)
                 if let seat = mySeat {
-                    Button { session.setReady(!seat.ready) } label: {
-                        Text(seat.ready ? L("解除", "Unready") : L("準備完了", "Ready"))
+                    Button { pressReady(seat) } label: {
+                        Text(readyTitle(seat))
                             .font(Theme.heading(12)).frame(minHeight: 36)
                     }.buttonStyle(SecondaryButtonStyle())
-                        .disabled(seat.loadout.heroID == nil || room.phase != .lobby)
+                        .disabled(!canPressReady(seat))
                         .accessibilityIdentifier("online_ready")
                 }
                 if session.isHost {
@@ -1091,6 +1124,47 @@ private extension OnlineRoomView {
                         .accessibilityIdentifier("online_start")
                 }
             }.font(Theme.body(12)).buttonStyle(.plain)
+        }
+    }
+
+    /// 上の中央の段階の文（MLBB: 「ヒーローPICK（敵）」「試合はまもなく始まります。進む：ローム」）。
+    var pickPhaseText: String {
+        guard room.phase == .lobby else { return L("ヒーロー PICK", "HERO PICK") }
+        if room.isAdjustingPicks {
+            guard let seat = mySeat else { return L("試合はまもなく始まります", "The match starts soon") }
+            return L("試合はまもなく始まります。進む：\(FlowText.position(seat.position))",
+                     "The match starts soon. Lane: \(FlowText.position(seat.position))")
+        }
+        guard let turn = room.pickTurnSeat else { return L("ヒーロー PICK", "HERO PICK") }
+        if turn == mySeat?.index { return L("あなたの番です。ヒーローを選んでください", "Your turn: pick a hero") }
+        return room.seats[turn].team == (mySeat?.team ?? .blue) ? L("ヒーローPICK（味方）", "HERO PICK (Ally)")
+                                                                 : L("ヒーローPICK（敵）", "HERO PICK (Enemy)")
+    }
+
+    /// 座席にヒーローを出すか: 味方は予約も出す。敵は確定したものと、手番で選んでいるものだけ。
+    func showsHero(of seat: OnlineSeat, ally: Bool) -> Bool {
+        !room.usesPickTurns || ally || seat.ready || seat.index == room.pickTurnSeat
+    }
+
+    /// 準備完了のボタンの文（手番のある部屋では「確定」: 手番の時だけ押せて、取り消せない）。
+    func readyTitle(_ seat: OnlineSeat) -> String {
+        guard room.usesPickTurns else { return seat.ready ? L("解除", "Unready") : L("準備完了", "Ready") }
+        return seat.ready ? L("確定済み", "Locked") : L("確定", "Lock In")
+    }
+
+    func canPressReady(_ seat: OnlineSeat) -> Bool {
+        guard room.phase == .lobby, seat.loadout.heroID != nil else { return false }
+        guard room.usesPickTurns else { return true }
+        return !seat.ready && room.pickTurnSeat == seat.index
+    }
+
+    func pressReady(_ seat: OnlineSeat) {
+        if room.usesPickTurns {
+            app.audio.play(.lockIn)
+            session.setReady(true)
+        } else {
+            FlowFX.confirm(app)
+            session.setReady(!seat.ready)
         }
     }
 
@@ -1226,6 +1300,23 @@ private extension OnlineRoomView {
                     SpellIconView(spellID: spell, size: 32)
                 }
             }
+        }
+    }
+}
+
+/// オンラインのピックの残り秒数（ホストの時計に合わせた締め切りから数える）。
+struct OnlinePickCountdown: View {
+    let deadline: Date
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.5)) { context in
+            let seconds = max(0, Int(deadline.timeIntervalSince(context.date).rounded(.up)))
+            Text("\(seconds)")
+                .font(.system(size: 26, weight: .semibold, design: .serif))
+                .monospacedDigit()
+                .foregroundStyle(seconds <= 5 ? Theme.danger : HomeStyle.goldLight)
+                .accessibilityLabel(L("残り \(seconds) 秒", "\(seconds) seconds left"))
+                .accessibilityIdentifier("online_pick_timer")
         }
     }
 }

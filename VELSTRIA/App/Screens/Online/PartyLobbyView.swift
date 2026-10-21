@@ -98,6 +98,9 @@ struct PartyLobbyView: View {
             header
             slots
                 .frame(maxHeight: .infinity)
+            if let session, session.room.players.count > 1 {
+                partyChat(session)
+            }
             bottomBar
         }
         .padding(.vertical, 8)
@@ -271,6 +274,22 @@ struct PartyLobbyView: View {
                           FlowFX.confirm(app)
                           _ = app.friends.requestFriend(code: code)
                       })
+        .overlay(alignment: .top) {
+            if let id = member?.id, let emote = session?.emotes[id] {
+                EmoteBubble(cosmeticID: emote, size: compact ? 34 : 52)
+                    .offset(y: compact ? 4 : 12)
+            }
+        }
+    }
+
+    /// 定型文とエモート（パーティの全員に届く。自由入力は無い）。
+    private func partyChat(_ session: OnlineSession) -> some View {
+        HStack(spacing: 8) {
+            QuickChatMenu(identifier: "party_quickchat") { session.sendQuickChat($0) }
+            EmoteMenuButton { session.sendEmote($0) }
+            QuickChatLines(lines: session.chat)
+        }
+        .frame(height: 38)
     }
 
     /// 通報・ブロックの対象（自分は対象外。名前は部屋の正本のもの）。

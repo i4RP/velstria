@@ -124,6 +124,7 @@ jobs:
             -only-testing:VELSTRIATests/EmblemEconomyTests \
             -only-testing:VELSTRIATests/CollectionLogicTests \
             -only-testing:VELSTRIATests/MatchMedalTests \
+            -only-testing:VELSTRIATests/ServicesSeasonTests \
             -only-testing:VELSTRIAUITests/HUDTacticalMapUITests \
             -only-testing:VELSTRIAUITests/BattleHUDUITests \
             -only-testing:VELSTRIAUITests/SpectatorHUDUITests \

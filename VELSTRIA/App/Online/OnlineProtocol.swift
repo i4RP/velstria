@@ -21,7 +21,8 @@ typealias OnlinePeerID = String
 enum OnlineProtocol {
     /// 配線上のメッセージ形式の版数。互換性のない変更で上げる（ホストと一致しないと接続を拒否する）。
     /// 2: 観戦（役割・観戦メッセージ・遅延配信）。名乗り（OnlineHello）は版数の照合より先に復号するので、追加項目は任意にする。
-    static let version = 2
+    /// 3: ピックの手番と時計（OnlineRoom.pickClock）・定型文のチャットとエモート（番号と ID だけを送る）。
+    static let version = 3
     /// Bonjour のサービス種別（Info.plist の NSBonjourServices と一致させる）。
     static let bonjourType = "_velstria._tcp"
     /// 既定の待ち受けポート（空いていなければ OS 任せ）。
@@ -135,6 +136,16 @@ enum OnlineRoomStage: Int, Codable, Hashable {
     case party, pick
 }
 
+/// ピックの手番の時計（ホストが手番の始まりに書く。手番の間は変えない: 変えると部屋の値が毎回変わり、見ている画面が動き続ける）。
+struct OnlinePickClock: Codable, Hashable {
+    /// 手番の通し番号（変わったら時計を合わせ直す）。
+    var serial: Int
+    /// 手番の座席（nil = 全員が確定して最終調整中）。
+    var seat: Int?
+    /// 残り秒数（手番の始まりの値。途中から入った人への welcome だけ、その時点の残り）。
+    var remaining: Double
+}
+
 /// 部屋の全状態。ホストが正本を持ち、変化するたびに全員へ配る（差分管理をしないので取りこぼしに強い）。
 struct OnlineRoom: Codable, Hashable {
     var name: String
@@ -151,6 +162,8 @@ struct OnlineRoom: Codable, Hashable {
     var spectatorDelayTicks = OnlineProtocol.ticks(seconds: OnlineProtocol.defaultSpectatorDelaySeconds)
     /// ロビーの段階（nil = パーティ）。ホストがチーム分けを決めるとピックへ進み、試合が終わるとパーティへ戻る。
     var stage: OnlineRoomStage?
+    /// ピックの手番の時計（nil = 手番なし）。
+    var pickClock: OnlinePickClock?
 
     init(name: String, hostPeerID: OnlinePeerID) {
         self.name = name
@@ -178,6 +191,48 @@ struct OnlineRoom: Codable, Hashable {
     var spectatorDelaySeconds: Double { Double(spectatorDelayTicks) * Balance.dt }
     /// 人間が選んだヒーロー（重複ピックの判定用）。
     var pickedHeroIDs: Set<String> { Set(humanSeats.compactMap(\.loadout.heroID)) }
+
+    // MARK: ピックの手番（MLBB のドラフトと同じ形。BAN は無い）
+
+    /// 10 枠の手番のチーム（青1 → 赤1・赤2 → 青2・青3 → 赤3・赤4 → 青4・青5 → 赤5）。
+    static let pickTeams: [Team] = [.blue, .red, .red, .blue, .blue, .red, .red, .blue, .blue, .red]
+
+    /// 手番の順（人間の座席の番号）。チームごとに座席の順で並べ、10 枠の手番に当てはめる（AI の枠は試合の開始時に決まるので飛ばす）。
+    var pickOrder: [Int] {
+        var queues: [Team: [Int]] = [:]
+        for team in Team.players { queues[team] = seats.filter { $0.team == team && $0.isHuman }.map(\.index) }
+        var order: [Int] = []
+        for team in Self.pickTeams {
+            guard var q = queues[team], !q.isEmpty else { continue }
+            order.append(q.removeFirst())
+            queues[team] = q
+        }
+        return order
+    }
+
+    /// 手番があるか（ピックの段階のロビー）。
+    var usesPickTurns: Bool { isPicking && phase == .lobby }
+
+    /// いまの手番の座席（まだ確定していない最初の人）。nil = 手番なし（ピックの段階でない・全員が確定した）。
+    var pickTurnSeat: Int? {
+        guard usesPickTurns else { return nil }
+        return pickOrder.first { !seats[$0].ready }
+    }
+
+    /// 全員が確定して最終調整（スキン・エンブレム・スペル・バトルプラン）の時間。
+    var isAdjustingPicks: Bool {
+        usesPickTurns && !humanSeats.isEmpty && humanSeats.allSatisfy(\.ready)
+    }
+
+    /// ほかの人が押さえているヒーロー。手番のある部屋では、確定したものと手番の人が選んでいるものだけ
+    /// （手番の前の予約では押さえない: 先に選んで他の人の手番を邪魔できないように）。
+    func heldHeroIDs(excluding peer: OnlinePeerID?) -> Set<String> {
+        let turn = pickTurnSeat
+        return Set(seats.filter { s in
+            guard let id = s.peerID, id != peer else { return false }
+            return !usesPickTurns || s.ready || s.index == turn
+        }.compactMap(\.loadout.heroID))
+    }
 
     /// 開始できるか: ホストが座るか実況（キャスター）になっていて、座っている人間が 1 人以上、全員ヒーローを選んで準備完了。
     /// （権威シミュレーションはホストの端末が回す。座らずに観戦もしないホストでは、回す端末が無く部屋全体が止まる）
@@ -277,6 +332,11 @@ enum OnlineMessage: Codable {
     case matchFinished(finalTick: Int)
     /// ホスト → クライアント: 観戦の求めを断った（理由を表示する）。
     case spectateDenied(reason: String)
+    // 定型文のチャットとエモート（v3。自由入力は無い）
+    /// 定型文（QuickChat.phrases の番号）。クライアント → ホストの peer は無視し、ホストが送り主を入れて同じチームへ配る。
+    case quickChat(peer: OnlinePeerID, phrase: Int)
+    /// エモート（装備したエモートのコスメ ID）。配り方は quickChat と同じ。
+    case emote(peer: OnlinePeerID, cosmeticID: String)
 }
 
 /// SimState は Equatable でないので、スナップショットは tick と状態ハッシュで比べる（テスト・重複判定用）。
@@ -303,6 +363,8 @@ extension OnlineMessage: Equatable {
         case (.spectateMatch(let c1, let d1, let b1), .spectateMatch(let c2, let d2, let b2)): return c1 == c2 && d1 == d2 && b1 == b2
         case (.matchFinished(let x), .matchFinished(let y)): return x == y
         case (.spectateDenied(let x), .spectateDenied(let y)): return x == y
+        case (.quickChat(let p1, let n1), .quickChat(let p2, let n2)): return p1 == p2 && n1 == n2
+        case (.emote(let p1, let c1), .emote(let p2, let c2)): return p1 == p2 && c1 == c2
         default: return false
         }
     }

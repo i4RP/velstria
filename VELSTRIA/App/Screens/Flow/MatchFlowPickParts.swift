@@ -69,6 +69,47 @@ struct LaneFilterBar: View {
     }
 }
 
+/// 定型文のボタン（押すと一覧。自由入力は無い）。オンラインでは番号だけを送る。
+struct QuickChatMenu: View {
+    var identifier = "flow_quickchat"
+    let onSend: (Int) -> Void
+
+    var body: some View {
+        Menu {
+            ForEach(QuickChat.phrases.indices, id: \.self) { i in
+                Button(QuickChat.text(i)) { onSend(i) }
+            }
+        } label: {
+            Image(systemName: "text.bubble.fill")
+                .font(.system(size: 18))
+                .foregroundStyle(Celestial.ice)
+                .frame(width: 44, height: 36)
+                .background(HomeChamfer(cut: 6).fill(Celestial.ink.opacity(0.85)))
+                .overlay(HomeChamfer(cut: 6).stroke(Celestial.ice.opacity(0.5), lineWidth: 0.6))
+        }
+        .accessibilityLabel(L("クイックチャット", "Quick chat"))
+        .accessibilityIdentifier(identifier)
+    }
+}
+
+/// 最新の発言 2 行（自分は金、味方は緑）。
+struct QuickChatLines: View {
+    let lines: [FlowChatLine]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            ForEach(lines.suffix(2)) { line in
+                (Text(line.speaker + "：").foregroundStyle(line.isMine ? Theme.gold : Theme.success)
+                    + Text(line.text).foregroundStyle(Theme.textPrimary))
+                    .font(Theme.body(12))
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .animation(.easeOut(duration: 0.2), value: lines.count)
+    }
+}
+
 /// 下のチャット欄: 最新の発言と、定型文を送るボタン（自由入力は無い）。味方の AI が返事をする。
 struct QuickChatBar: View {
     @Bindable var model: MatchFlowModel
@@ -76,31 +117,9 @@ struct QuickChatBar: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Menu {
-                ForEach(QuickChat.phrases.indices, id: \.self) { i in
-                    Button(QuickChat.text(i)) { send(i) }
-                }
-            } label: {
-                Image(systemName: "text.bubble.fill")
-                    .font(.system(size: 18))
-                    .foregroundStyle(Celestial.ice)
-                    .frame(width: 44, height: 36)
-                    .background(HomeChamfer(cut: 6).fill(Celestial.ink.opacity(0.85)))
-                    .overlay(HomeChamfer(cut: 6).stroke(Celestial.ice.opacity(0.5), lineWidth: 0.6))
-            }
-            .accessibilityLabel(L("クイックチャット", "Quick chat"))
-            .accessibilityIdentifier("flow_quickchat")
+            QuickChatMenu { send($0) }
             EmoteMenuButton { id in EmoteTiming.show(id, in: $model.myEmote) }
-            VStack(alignment: .leading, spacing: 1) {
-                ForEach(model.chat.suffix(2)) { line in
-                    (Text(line.speaker + "：").foregroundStyle(line.isMine ? Theme.gold : Theme.success)
-                        + Text(line.text).foregroundStyle(Theme.textPrimary))
-                        .font(Theme.body(12))
-                        .lineLimit(1)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .animation(.easeOut(duration: 0.2), value: model.chat.count)
+            QuickChatLines(lines: model.chat)
         }
         .frame(height: 38)
     }
