@@ -301,7 +301,8 @@ final class HUDModel {
     /// 消音ボタンの表示上の消音（一時消音中、または設定の BGM・効果音がどちらも 0 で実際に無音）。
     var soundSilenced: Bool { soundMuted || Self.volumesSilent(settings) }
 
-    /// 設定の BGM・効果音がどちらも 0（既定値）か。この間は一時消音を切り替えても出音は変わらない。
+    /// 設定の BGM・効果音がどちらも 0 か（既定は効果音 70%・BGM 50%。ユーザーが両方 0 にした時）。この間は一時消音を切り替えても
+    /// 出音は変わらない。
     static func volumesSilent(_ s: GameSettings) -> Bool {
         s.sfxVolume <= 0.001 && s.bgmVolume <= 0.001
     }

@@ -12,7 +12,7 @@
   - BGM: 44.1 kHz ステレオ AAC の `.m4a`。`AVAudioFile` から流し読み（全部をメモリに展開しない）。読み終わりで頭から予約し直してループ、
     切替はクロスフェード。曲を始めるたびに増やす番号（`musicGeneration`）で、切り替えた後の古い曲の予約し直しを止める。
   - `AVAudioSession` は今までどおり `.ambient`（消音スイッチに従い、他のアプリの音と混ざる）。音量の設定（BGM・効果音・ボイス、
-    既定はどちらも 0）と HUD の一時消音もそのまま。
+    既定は 2026-10-21 から効果音 70%・BGM 50%。10-05〜10-20 は 0）と HUD の一時消音もそのまま。
 - 素材: `tools/audio/build_audio.py` が CC0 の素材（Kenney の素材集・OpenGameArt の CC0 の曲）を `tools/audio/.cache` に落とし、
   切り出し・重ね・音程・音量・残響・形式の変換をして書き出す（素材の原本はリポジトリに入れない）。出典・ライセンス・URL は
   [SOURCES.md](SOURCES.md)（自動生成）とアプリ内の「クレジット > 音楽・効果音」（`CreditsCatalog.audio`。`AudioFilesTests` が一致を確かめる）。

@@ -35,7 +35,7 @@ final class ServicesAudioSynthTests: XCTestCase {
 final class ServicesAudioServiceTests: XCTestCase {
     func testAudioServiceNeverCrashes() async {
         let audio = AudioService()
-        // 既定の効果音量は 0（ミュート）なので、再生経路を通すために音量を上げてから鳴らす
+        // 再生経路を通すために効果音の音量をはっきり上げてから鳴らす（既定は 70%）
         var loud = GameSettings()
         loud.sfxVolume = 0.8
         audio.apply(settings: loud)

@@ -287,7 +287,7 @@ final class HUDTopBarTests: XCTestCase {
 
         XCTAssertTrue(HUDModel.volumesSilent(m.settings))
         XCTAssertFalse(m.soundMuted)
-        XCTAssertTrue(m.soundSilenced, "既定の設定では実際に無音なので消音の表示")
+        XCTAssertTrue(m.soundSilenced, "BGM・効果音がどちらも 0 なら実際に無音なので消音の表示")
         m.toggleSound()
         XCTAssertFalse(m.soundMuted, "音量 0 の間は一時消音を切り替えない")
         XCTAssertFalse(app.audio.isTemporarilyMuted)
