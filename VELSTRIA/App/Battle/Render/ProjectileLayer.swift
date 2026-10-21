@@ -351,7 +351,8 @@ final class ProjectileLayer {
     /// キットのヒーローのうち、スキルの弾を SkillFX の travel（弾に追従する板）で描き切るヒーロー。skillShotsKept から外し、旧来の弾の
     /// 核・光暈（演出の大きさ scale_m に比例する球）を出さない。H025: S2 の小さな矢は着弾の演出の大きさ 2.05 で光暈が半径 0.74 m の球になり、
     /// 6 本が着弾点で重なって青い泡に見えた（2026-10-21 の撮影。FX_H025 の travel が白い光の矢と青い尾を描く）。
-    static let skillShotsDrawnBySkillFX: Set<String> = ["H025"]
+    /// H030 ライナ: 彗星・光球・ビームの先頭を描くので、旧来の大きな光の球（径 1.4 m 前後）が重なっていた。
+    static let skillShotsDrawnBySkillFX: Set<String> = ["H025", "H030"]
 
     /// 弾の旧来の見た目を隠すか。
     private func isSuppressed(_ style: Style, hero: String) -> Bool {

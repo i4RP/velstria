@@ -34,6 +34,7 @@ enum HeroSkillMotions {
         "H025": Motion_H025.self,
         "H027": Motion_H027.self,
         "H029": Motion_H029.self,
+        "H030": Motion_H030.self,
         "H032": Motion_H032.self,
         "H034": Motion_H034.self,
     ]

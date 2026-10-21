@@ -8,7 +8,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "heroes"))
 
-HEROES = ["h001", "h003", "h007", "h008", "h009", "h011", "h012", "h013", "h016", "h019", "h020", "h024", "h029_kit", "h034_kit", "h025_kit",
+HEROES = ["h001", "h003", "h007", "h008", "h009", "h011", "h012", "h013", "h016", "h019", "h020", "h024", "h029_kit", "h034_kit", "h025_kit", "h030_kit",
           "h025", "h026", "h027", "h028", "h029", "h030", "h031", "h032", "h033", "h034", "probe"]
 
 

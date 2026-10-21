@@ -1662,6 +1662,33 @@ final class Kit_H030Tests: XCTestCase {
         }
         XCTAssertTrue(failures.isEmpty, "\(failures)")
     }
+
+    // MARK: - 演出が読む値
+
+    /// 演出・モーションが読む値（fxValues）は判定・照準の値そのもの（App の FX_H030 / Motion_H030 は値を写さない）。
+    func testFXValuesAreTheTuneAndAgreeWithTargeting() throws {
+        func value(_ slot: SkillSlot, _ key: String) -> Double? {
+            HeroKits.fxValues(heroID: "H030", slot: slot).first { $0.key == key }?.value
+        }
+        let s1 = HeroKits.targeting(for: skill(.skill1), hero: def, stage: 0)
+        XCTAssertEqual(value(.skill1, "s1Range"), s1.range)
+        XCTAssertEqual(value(.skill1, "s1Width"), s1.radius)
+        XCTAssertEqual(value(.skill1, "s1Windup"), T.s1Windup)
+        XCTAssertEqual(value(.skill1, "s1Speed"), T.s1Speed)
+        let s2 = HeroKits.targeting(for: skill(.skill2), hero: def, stage: 0)
+        XCTAssertEqual(value(.skill2, "s2Range"), s2.range)
+        XCTAssertEqual(value(.skill2, "s2Width"), s2.radius)
+        XCTAssertEqual(value(.skill2, "s2LockHalfAngle"), s2.halfAngle)
+        XCTAssertEqual(value(.skill2, "s2Windup"), T.s2Windup)
+        // 爆発・刻印の弾けの半径 = スキル定義の radius（explode・detonate と同じ）
+        XCTAssertEqual(value(.skill2, "blastRadius"), skill(.skill2).radius)
+        XCTAssertEqual(HeroKits.fxValues(heroID: "H030", slot: .skill2).first { $0.key == "ultRange" }?.values, T.ultRange)
+        let ult = HeroKits.targeting(for: skill(.ultimate), hero: def, stage: 0)
+        XCTAssertEqual(value(.ultimate, "ultWidth"), ult.radius)
+        XCTAssertEqual(value(.ultimate, "ultWindup"), T.ultWindup)
+        XCTAssertEqual(value(.ultimate, "ultBeamSpeed"), T.ultBeamSpeed)
+        XCTAssertEqual(value(.passive, "farHitFlash"), T.farHitFlash)
+    }
 }
 
 private extension SkillWorld {

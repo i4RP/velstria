@@ -44,6 +44,8 @@ JOBS = {
     "swoosh": dict(kind="image", color="white", source="lum", level="peak"),
     "blade": dict(kind="image", color="white", source="lum", level="peak"),
     "moon_crest": dict(kind="image", color="white", source="lum", level="peak", halo=0.3),
+    "comet": dict(kind="image", color="white", source="lum", level="peak"),
+    "comet_glow": dict(kind="image", color="white", source="lum", level=1.0),
     "lava": dict(kind="tile", color="white", source="lum", level="peak"),
     "flame_noise": dict(kind="tile", color="white", source="lum", level="peak"),
 }

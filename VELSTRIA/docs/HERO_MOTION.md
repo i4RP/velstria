@@ -184,6 +184,7 @@ Entity・クリップ・タイマー・装飾の追加なし。`HeroIdleTests` �
 スキルの詠唱・再使用の段・命中の後・通常攻撃を、上半身だけでなく踏み込み・腰のひねり・跳びまで全身で書く仕組み。
 目録 `HeroSkillMotions.scripts`（App/Battle/Heroes/HeroSkillMotions.swift）にあるヒーローだけが使い（2026-10-18: H029 ボルグ・
 H034 ゴルム、2026-10-21: H025 ルミナ。定義は App/Battle/Heroes/Motions/Motion_H0xx.swift）、それ以外のヒーローの動きは変わらない（演出の定義
+H034 ゴルム、2026-10-21: H030 ライナ（スキルだけ。通常攻撃はモーションクリップのまま）。定義は App/Battle/Heroes/Motions/Motion_H0xx.swift）、それ以外のヒーローの動きは変わらない（演出の定義
 `FX_H0xx.motion` の詠唱とモーションクリップの通常攻撃のまま。AppTests/HeroFullBodyMotionTests が確かめる）。
 
 - **打撃の時刻 = sim の判定の時刻**: キーの時刻は `KitTimes`（HeroSkillMotions.swift）が `HeroKits.fxValues`（キットの Tune を名前・

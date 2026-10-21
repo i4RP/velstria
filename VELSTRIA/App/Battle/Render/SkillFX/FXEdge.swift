@@ -62,6 +62,8 @@ enum FXEdge {
         case .bolt: return 0.231
         case .soundWave: return 0.318
         case .moon: return 0.4
+        // 彗星の柔らかい光（Blender の fx_comet_glow。横は (1 − (d / 0.5)²)^1.07 の 1/3 = 0.402。256 px の画像を同じ測り方で測った値）
+        case .cometGlow: return 0.402
         default: return nil
         }
     }
