@@ -173,6 +173,7 @@ final class PostProcessor: @unchecked Sendable {
 
     private let lock = NSLock()
     private var settings: PostProcessSettings
+    private let antialiasing: Bool
     private var device: MTLDevice?
     private var prefilter: MTLComputePipelineState?
     private var downsample: MTLComputePipelineState?
@@ -214,7 +215,8 @@ final class PostProcessor: @unchecked Sendable {
         return on && effekseerPass.drawsEffekseer(now: now)
     }
 
-    init(settings: PostProcessSettings) {
+    init(settings: PostProcessSettings, antialiasing: Bool = false) {
+        self.antialiasing = antialiasing
         self.settings = settings
         // 読み込み中（地面テクスチャ生成の裏）にコンパイルを済ませ、幕が上がった最初のフレームから効かせる。
         // ロード画面で PostProcessShaderCache.prewarm 済みなら出来上がったものを受け取るだけ。
@@ -558,6 +560,7 @@ final class PostProcessor: @unchecked Sendable {
         renc.label = "velComposite"
         var cp = CompositeParams(bloomIntensity: bloomTexture == nil ? 0 : s.bloomIntensity, contrast: s.contrast,
                                  saturation: s.saturation, linearInput: linear ? 1 : 0)
+        cp.antialiasing = antialiasing ? 1 : 0
         let pulse = pulseState.amounts(at: CACurrentMediaTime())
         if pulse.flash > 0.001 {
             cp.flashR = pulseState.color.x
@@ -640,7 +643,7 @@ final class PostProcessor: @unchecked Sendable {
         var blurCX: Float = 0.5
         var blurCY: Float = 0.5
         var blurStrength: Float = 0
-        var pad: Float = 0
+        var antialiasing: Float = 0
         // 衝撃波の屈折（Ripple）。中心 xy・半径 zw（画面の UV）、強さ 0 なら何もしない
         var ripple0 = SIMD4<Float>(0, 0, 1, 1)
         var ripple1 = SIMD4<Float>(0, 0, 1, 1)
@@ -660,7 +663,7 @@ final class PostProcessor: @unchecked Sendable {
     struct BloomParams { float threshold; float knee; float scatter; float linearInput; };
     struct CompositeParams { float bloomIntensity; float contrast; float saturation; float linearInput;
                              float flashR; float flashG; float flashB; float flashAmount;
-                             float blurCX; float blurCY; float blurStrength; float pad;
+                             float blurCX; float blurCY; float blurStrength; float antialiasing;
                              float4 ripple0; float4 ripple1; float4 ripple2; float4 ripple3; float4 rippleStrength;
                              float rippleAspect; float ripplePad0; float ripplePad1; float ripplePad2; };
 
@@ -778,6 +781,36 @@ final class PostProcessor: @unchecked Sendable {
         return o;
     }
 
+    // Edge-directed antialiasing inside the existing composite: no extra pass or render texture.
+    // Flat/low-contrast regions return unchanged, keeping the ground texture sharp.
+    static float4 velAntialias(texture2d<float, access::sample> src, float2 uv, float linearInput) {
+        float2 pixel = 1.0 / float2(src.get_width(), src.get_height());
+        float4 center = src.sample(velLinear, uv);
+        float3 nw = src.sample(velLinear, uv + pixel * float2(-1, -1)).rgb;
+        float3 ne = src.sample(velLinear, uv + pixel * float2(1, -1)).rgb;
+        float3 sw = src.sample(velLinear, uv + pixel * float2(-1, 1)).rgb;
+        float3 se = src.sample(velLinear, uv + pixel * float2(1, 1)).rgb;
+        const float3 weights = float3(0.299, 0.587, 0.114);
+        float m = dot(velToPerceptual(center.rgb, linearInput), weights);
+        float a = dot(velToPerceptual(nw, linearInput), weights);
+        float b = dot(velToPerceptual(ne, linearInput), weights);
+        float c = dot(velToPerceptual(sw, linearInput), weights);
+        float d = dot(velToPerceptual(se, linearInput), weights);
+        float lo = min(m, min(min(a, b), min(c, d)));
+        float hi = max(m, max(max(a, b), max(c, d)));
+        if (hi - lo < max(0.04, hi * 0.125)) return center;
+        float2 direction = float2(-((a + b) - (c + d)), (a + c) - (b + d));
+        float reduce = max((a + b + c + d) * (0.25 * 0.125), 1.0 / 128.0);
+        float inverse = 1.0 / (min(abs(direction.x), abs(direction.y)) + reduce);
+        direction = clamp(direction * inverse, -8.0, 8.0) * pixel;
+        float3 inner = 0.5 * (src.sample(velLinear, uv - direction / 6.0).rgb
+                                  + src.sample(velLinear, uv + direction / 6.0).rgb);
+        float3 outer = inner * 0.5 + 0.25 * (src.sample(velLinear, uv - direction * 0.5).rgb
+                                               + src.sample(velLinear, uv + direction * 0.5).rgb);
+        float luma = dot(velToPerceptual(outer, linearInput), weights);
+        return float4((luma < lo || luma > hi) ? inner : outer, center.a);
+    }
+
     fragment float4 velCompositeFragment(VelVertexOut in [[stage_in]],
                                          texture2d<float, access::sample> src [[texture(0)]],
                                          texture2d<float, access::sample> bloom [[texture(1)]],
@@ -798,6 +831,8 @@ final class PostProcessor: @unchecked Sendable {
                 acc += src.sample(velLinear, center + d * k);
             }
             base = acc / 8.0;
+        } else if (p.antialiasing > 0.5) {
+            base = velAntialias(src, uv, p.linearInput);
         } else {
             base = src.sample(velLinear, uv);
         }

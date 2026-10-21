@@ -304,6 +304,8 @@ public struct MapDefinition: Codable, Hashable, Sendable {
     /// 川の形（2026-10-16〜、設計図の 8 の字の水路: 左上と右下の池を中央の細い水路がつなぐ）。nil なら x + y = size の
     /// 幅 riverWidth の帯（standard・乱闘）。
     public var river: Obstacle? = nil
+    /// Authored stage identity; nil preserves older/procedural map fixtures and decoding.
+    public var stageID: String? = nil
 
     /// team のミニオンが進む経路。Red は Blue 経路の逆順。
     public func lanePath(_ lane: Lane, for team: Team) -> [Vec2] {
@@ -568,7 +570,7 @@ extension MapDefinition {
     /// モードに応じたマップ（`config.mode` から決定論的に導出する。リプレイはマップを保存しないため、
     /// `Simulation` を組む全箇所でこれを使うこと）。マジックチェスは専用の `magicChessBoard` を直接使う。
     public static func map(for mode: MatchMode) -> MapDefinition {
-        mode == .brawl ? .brawl : .relayout
+        mode == .brawl ? .brawl : .canyon
     }
 
     /// 乱闘マップ（単レーン・ジャングル無し）。mid の対角 1 本だけを使う 5v5。

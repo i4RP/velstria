@@ -14,6 +14,32 @@ final class StageTests: XCTestCase {
         try XCTUnwrap(StageAssets.load(set: set), "App/Resources/Stage の素材（\(set.rawValue)）が読めない")
     }
 
+    func testCanyonStageFitsExistingBudgets() throws {
+        for quality in GraphicsQuality.allCases {
+            let plan = try XCTUnwrap(CanyonStagePlan.load(map: .canyon, quality: .preset(quality)))
+            let triangles = plan.chunks.reduce(0) { $0 + $1.mesh.triangleCount }
+            XCTAssertGreaterThan(triangles, 50_000)
+            XCTAssertLessThanOrEqual(triangles, BattleWorkBudget.stagePropTriangles(quality))
+            XCTAssertLessThan(plan.brushes.brushes.reduce(0) { $0 + $1.triangleCount }, 90_000)
+            XCTAssertEqual(plan.brushes.brushes.count, MapDefinition.canyon.brushes.count)
+            XCTAssertEqual(plan.atlases.count, 3)
+            XCTAssertTrue(plan.atlases.allSatisfy { $0.width <= 2048 && $0.height <= 1024 })
+        }
+        let scene = MapScene(map: .canyon, materials: RenderMaterials(colorblind: false), quality: .preset(.medium), groundImage: nil)
+        let stage = try XCTUnwrap(scene.stage)
+        XCTAssertNotNil(stage.root.findEntity(named: "canyon_0"))
+        XCTAssertEqual(scene.brushEntities.count, MapDefinition.canyon.brushes.count)
+        XCTAssertNil(stage.root.findEntity(named: "stageRunes"))
+        XCTAssertEqual(scene.fountainSpires.count, 0)
+    }
+
+    func testCanyonRejectsCorruptOrOverBudgetChunks() throws {
+        let url = try XCTUnwrap(Bundle.main.url(forResource: "StageCanyon", withExtension: "bin"))
+        let data = try Data(contentsOf: url)
+        XCTAssertNil(CanyonStagePlan.parse(Data(data.prefix(20)), triangleBudget: 600_000))
+        XCTAssertNil(CanyonStagePlan.parse(data, triangleBudget: 1))
+    }
+
     /// 新旧どちらのセットも読める（-legacyStage で旧セットに切り替えられる）。
     func testAssetsLoad() throws {
         for set in StageArtSet.allCases {
@@ -78,7 +104,7 @@ final class StageTests: XCTestCase {
 
     func testShaderLibraryHasStageFunctions() throws {
         let lib = try XCTUnwrap(StageScene.shaderLibrary(try assets().shaderURL))
-        for name in ["stageGroundSurface", "stageRockSurface", "stagePropSurface", "stageVertexColorSurface", "stageWindGeometry", "stageBrushSurface"] {
+        for name in ["stageGroundSurface", "stageRockSurface", "stagePropSurface", "stageVertexColorSurface", "stageWindGeometry", "stageBrushSurface", "stageCanyonSurface"] {
             XCTAssertTrue(lib.functionNames.contains(name), name)
         }
     }

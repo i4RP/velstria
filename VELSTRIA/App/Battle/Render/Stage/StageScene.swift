@@ -36,6 +36,16 @@ final class StageScene {
 
     init?(plan: StagePlan) {
         root.name = "stage"
+        let procedural: ProceduralStagePlan
+        switch plan {
+        case .canyon(let imported):
+            artSet = .ruins
+            fountainSockets = []
+            guard buildCanyon(imported) else { return nil }
+            return
+        case .procedural(let value): procedural = value
+        }
+        let plan = procedural
         artSet = plan.assets.set
         fountainSockets = plan.layout.fountainSockets
         let t0 = CFAbsoluteTimeGetCurrent()
@@ -97,6 +107,49 @@ final class StageScene {
         }
     }
 
+    private func buildCanyon(_ plan: CanyonStagePlan) -> Bool {
+        guard let lib = Self.shaderLibrary(plan.shaderURL) else { return false }
+        do {
+            var materials: [CustomMaterial] = []
+            for image in plan.atlases {
+                AssetLedger.record(.texture, "canyon atlas 2048x1024")
+                let texture = try TextureResource(image: image, options: .init(semantic: .color, mipmapsMode: .allocateAndGenerateAll))
+                AssetLedger.record(.material, "canyon cutout")
+                var material = try CustomMaterial(surfaceShader: .init(named: "stageCanyonSurface", in: lib), lightingModel: .unlit)
+                material.baseColor = .init(texture: .init(texture))
+                material.faceCulling = .none
+                materials.append(material)
+            }
+            for (i, chunk) in plan.chunks.enumerated() {
+                AssetLedger.record(.mesh, "canyon chunk")
+                AssetLedger.record(.entity, "canyon chunk")
+                guard add(chunk.mesh, name: "canyon_\(i)", material: materials[chunk.atlas], castsShadow: false) != nil else { return false }
+            }
+            AssetLedger.record(.texture, "canyon brush atlas")
+            let texture = try TextureResource(image: plan.brushAtlas, options: .init(semantic: .color, mipmapsMode: .allocateAndGenerateAll))
+            AssetLedger.record(.material, "canyon brush")
+            var material = try CustomMaterial(surfaceShader: .init(named: "stageBrushSurface", in: lib), lightingModel: .lit)
+            material.baseColor = .init(texture: .init(texture))
+            material.faceCulling = .none
+            for i in plan.brushes.brushes.indices {
+                AssetLedger.record(.mesh, "canyon brush near")
+                AssetLedger.record(.mesh, "canyon brush far")
+                guard let near = plan.brushes.brushes[i].makeMesh(), let far = plan.brushes.brushCards[i].makeMesh() else { return false }
+                AssetLedger.record(.entity, "canyon brush")
+                let e = ModelEntity(mesh: near, materials: [material])
+                e.name = "brush_\(i)"
+                e.position = plan.brushes.brushCenters[i]
+                e.components.set(DynamicLightShadowComponent(castsShadow: false))
+                root.addChild(e)
+                brushEntities.append(e)
+                brushLODs.append((near, far))
+                brushIsFar.append(false)
+                triangleCount += plan.brushes.brushes[i].triangleCount
+            }
+            return true
+        } catch { return false }
+    }
+
     /// Distance from camera to nearest brush edge, with hysteresis. Only swaps cached meshes.
     func updateBrushLOD(camera: SIMD3<Float>, dt: Float) {
         lodElapsed += dt
@@ -151,7 +204,7 @@ final class StageScene {
         return try? device.makeLibrary(URL: url)
     }
 
-    static func makeMaterials(plan: StagePlan) -> Materials? {
+    static func makeMaterials(plan: ProceduralStagePlan) -> Materials? {
         guard let lib = shaderLibrary(plan.assets.shaderURL) else { return nil }
         let a = plan.assets
         func color(_ img: CGImage) -> TextureResource? {
