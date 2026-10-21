@@ -174,6 +174,18 @@ final class EffekseerTests: XCTestCase {
         XCTAssertTrue(hidden(.heroShot(heroID: "H003", team: .blue), "H003"))
         XCTAssertTrue(hidden(skill, "H003"), "スキルも Effekseer")
         XCTAssertFalse(hidden(.heroShot(heroID: "H001", team: .blue), "H001"), "効果を持たないヒーロー")
+        // スキルの弾を SkillFX の travel で描き切るヒーローは、旧来の弾の球を出さない（travel に弾に追従するメッシュがある）
+        let master = MasterData.shared
+        for hero in ProjectileLayer.skillShotsDrawnBySkillFX {
+            XCTAssertTrue(HeroKits.hasKit(hero), hero)
+            let drawn = SkillSlot.allCases.contains { slot in
+                SkillFXCatalog.recipe(heroID: hero, slot: slot, master: master).travel.contains {
+                    if case .mesh = $0.element { return $0.anchor == .follow }
+                    return false
+                }
+            }
+            XCTAssertTrue(drawn, "\(hero): スキルの弾を描く travel のメッシュが無い")
+        }
     }
 
     /// 追加ヒーロー（第 1 段階 H025〜H029・第 2 段階 H030〜H034）の効果が、役割ごとの段の組をそろえていること。

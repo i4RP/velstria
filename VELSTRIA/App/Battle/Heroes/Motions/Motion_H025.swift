@@ -155,7 +155,7 @@ enum Motion_H025: HeroMotionScript {
         // 向き直って足を開き、弓を斜め上へ上げ始める。引き手を弦へ
         m.planted(shot * 0.36, .out) { p in
             p.armL = ArmPose(pitch: 2.0, out: out - 0.1, yaw: -0.75, elbow: 0.25)
-            p.weaponL = -0.1
+            p.weaponL = 0.4
             p.armR = ArmPose(pitch: 1.95, out: out + 0.1, yaw: 0.8, elbow: 1.6)
             p.torsoYaw = -0.75
             p.torsoPitch = -0.08
@@ -167,7 +167,8 @@ enum Motion_H025: HeroMotionScript {
         // 天へ満引き（約 45° 上。体を少し反らし、空を見上げる）。放つ時刻に引き切る
         m.planted(shot * 0.64, .inOut) { p in
             p.armL = ArmPose(pitch: 2.35, out: out - 0.14, yaw: -0.95, elbow: 0.05)
-            p.weaponL = 0
+            // 弓を射線（約 45° 上）に直角へ傾ける（上の弓先を体の側へ。MLBB f328 の傾いた弓）。武器角の軸は弓手の向き（yaw）で回る
+            p.weaponL = 0.75
             p.armR = ArmPose(pitch: 2.3, out: out + 0.14, yaw: 1.0, elbow: 2.25)
             p.torsoYaw = -0.95
             p.torsoPitch = -0.22
@@ -180,6 +181,7 @@ enum Motion_H025: HeroMotionScript {
         // 天へ放つ: 引き手が後ろへ弾け、弓が少し跳ねる
         m.planted(0.05, .snap) { p in
             p.armL = ArmPose(pitch: 2.42, out: out - 0.12, yaw: -0.92, elbow: 0.1)
+            p.weaponL = 0.82
             p.armR = ArmPose(pitch: 2.0, out: out + 0.5, yaw: 0.1, elbow: 1.0)
             p.torsoPitch = -0.27
             p.offset = [0, 0, 0.03]

@@ -72,7 +72,7 @@ enum FX_H025: HeroFXSet {
     /// 弓を構えた左手の先（局所座標）。
     private static let bow: SIMD3<Float> = [-0.08, 1.35, 0.65]
     /// 天へ向けて引いた弓の先（スキル2。Motion_H025.eclipse の約 45° 上の満引き = 左肩から前と上へ 0.55 m）。
-    private static let bowHigh: SIMD3<Float> = [-0.08, 1.8, 0.55]
+    private static let bowHigh: SIMD3<Float> = [-0.06, 1.75, 0.42]
     /// 奥義の三日月の中心（頭上。画面の位置から逆算した推定）。
     private static let crown: SIMD3<Float> = [0, 3.5, 0]
 
@@ -137,7 +137,7 @@ enum FX_H025: HeroFXSet {
                 $0.fadeIn = 0.3
                 $0.fadeOut = 0.5
             }, at: 0.04, .follow, offset: [0, 1.0, 0]),
-            .mesh(FXMesh.model(.burstDome, nil, aura, size: [0.62, 1.65, 0.62], sizeEnd: [0.8, 2.05, 0.8], life: 0.3, alpha: 1)
+            .mesh(FXMesh.model(.burstDome, nil, aura, size: [0.75, 1.6, 0.75], sizeEnd: [0.95, 2.0, 0.95], life: 0.3, alpha: 1)
                 .glowing().flowing(.flame, scroll: [0.15, -1.8], tiling: 1.6, strength: 0.85, erosion: 0.4, edge: periwinkle).with {
                     $0.fadeIn = 0.22
                     $0.fadeOut = 0.5
@@ -186,8 +186,8 @@ enum FX_H025: HeroFXSet {
         let k = R / landDesignRadius
         r.cast = [
             // 0.30: 天へ放つ瞬間、弓の先で水色の星が閃く（f329 #7BDBFD / #9EFAFE）。コマ送りのメッシュ + Effekseer
-            .mesh(FXMesh.flipbook(.hitFlash, 1.3, .secondary, life: 0.16, grow: 1.1), at: shoot, offset: bowHigh),
-            .efk(efkBowStar, at: shoot, offset: bowHigh, onTop: true),
+            .mesh(FXMesh.flipbook(.hitFlash, 1.0, .secondary, life: 0.16, grow: 1.1), at: shoot, offset: bowHigh),
+            .efk(efkBowStar, at: shoot, offset: bowHigh, scale: 0.7, onTop: true),
             // 天へ抜ける青い矢（f329〜331: 3 本の青い筋）: Effekseer の矢と、矢じりの見える主矢（直交する 2 枚の板）・速さに沿って伸びる光の筋
             .efk(efkSky, at: shoot, offset: bowHigh, onTop: true),
             .mesh(uprightArrow(length: 1.5, width: 0.45, arrowBlue, life: 0.16, up: true).with { $0.rise = 20 }.glowing(),
