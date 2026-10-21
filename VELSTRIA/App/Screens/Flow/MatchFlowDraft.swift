@@ -471,7 +471,19 @@ private struct DraftEnemyColumn: View {
         .glass(cornerRadius: 12, tint: Theme.teamColor(.red, colorblind: app.profile.settings.colorblindMode).opacity(0.7))
     }
 
-    private func row(_ i: Int) -> some View {
+    @ViewBuilder private func row(_ i: Int) -> some View {
+        let picks = draft.picks(for: .red)
+        if i < picks.count {
+            EnemyHeroPreviewButton(heroID: picks[i].heroID) {
+                rowContent(i)
+            }
+            .accessibilityIdentifier("flow_enemy_draft_\(i)")
+        } else {
+            rowContent(i)
+        }
+    }
+
+    private func rowContent(_ i: Int) -> some View {
         let picks = draft.picks(for: .red)
         let active = draft.currentTurn?.team == .red && picks.count == i
         return HStack(spacing: 5) {
