@@ -138,205 +138,355 @@ struct NoticesView: View {
     }
 }
 
-// MARK: - UI009 メール
+// MARK: - UI009 メール（MLBB 2.2.16 の作り。docs/OUTGAME_GAP.md 10 章・委員会の調べ 2026-10-21）
+// 左のタブ: 重要なお知らせ／システム／通報の結果／受信箱／ギフト。未読は明るい青の行と閉じた封筒、既読は暗い色。
+// 添付つきは金のギフト箱の印と残り時間（「59d 9h」。保存は約 60 日）。赤い点は未読の重要メールと未読の添付つきだけ。
+// 本文はモーダルで開き、「受け取る」で添付を受け取る。右下に「すべて削除」「すべて既読にする」「すべて受け取る（金）」。
+
+/// メールのタブ分け（端末で作ったメールは、添付があればギフト、無ければシステム）。
+enum MailBox {
+    static func category(_ m: MailItem) -> MailCategory {
+        if let c = m.category { return c }
+        if m.important == true { return .important }
+        return m.attachments.isEmpty ? .system : .gift
+    }
+
+    static func title(_ c: MailCategory) -> String {
+        switch c {
+        case .important: return L("重要なお知らせ", "Important")
+        case .system: return L("システム", "System")
+        case .report: return L("通報の結果", "Reports")
+        case .inbox: return L("受信箱", "Inbox")
+        case .gift: return L("ギフト", "Gifts")
+        }
+    }
+
+    static func symbol(_ c: MailCategory) -> String {
+        switch c {
+        case .important: return "exclamationmark.circle.fill"
+        case .system: return "gearshape.fill"
+        case .report: return "flag.fill"
+        case .inbox: return "tray.fill"
+        case .gift: return "gift.fill"
+        }
+    }
+
+    /// タブの中の並び（重要な未読を先に、あとは新しい順）。
+    static func sorted(_ list: [MailItem]) -> [MailItem] {
+        list.sorted { a, b in
+            let ia = a.important == true && !a.read, ib = b.important == true && !b.read
+            if ia != ib { return ia }
+            return a.date > b.date
+        }
+    }
+
+    /// 添付の残り時間（「59d 9h」。期限が無ければ nil）。
+    static func remaining(_ m: MailItem, now: Date) -> String? {
+        guard let e = m.expiresAt, !m.attachments.isEmpty else { return nil }
+        let s = max(0, Int(e.timeIntervalSince(now)))
+        let d = s / 86_400, h = (s % 86_400) / 3600, mm = (s % 3600) / 60
+        return d > 0 ? "\(d)d \(h)h" : (h > 0 ? "\(h)h \(mm)m" : "\(mm)m")
+    }
+
+    /// すべて削除で消せるか（既読で、受け取れる添付が残っていない）。
+    static func isRemovable(_ m: MailItem, now: Date) -> Bool {
+        m.read && (m.claimed || m.attachments.isEmpty || HomeBadges.isExpired(m, now: now))
+    }
+}
 
 struct MailView: View {
     @Environment(AppModel.self) private var app
-    @State private var selectedID: UUID?
+    @State private var tab: MailCategory = .important
+    @State private var openedID: UUID?
     @State private var now = Date()
-    @State private var confirmCleanup = false
+    @State private var confirmDeleteAll = false
+    @State private var confirmDeleteOne: UUID?
+    @State private var chosenTab = false
 
-    private var mails: [MailItem] {
-        app.profile.mail.sorted { $0.date > $1.date }
+    private func list(_ c: MailCategory) -> [MailItem] {
+        MailBox.sorted(app.profile.mail.filter { MailBox.category($0) == c })
     }
 
     var body: some View {
         ScreenScaffold(title: L("メール", "Mail")) {
-            let list = mails
-            if list.isEmpty {
-                EmptyStateView(symbol: "envelope.open", title: L("メールはありません", "Your mailbox is empty"),
-                               message: L("運営からの報酬やお知らせが届くとここに表示されます。", "Rewards and messages will arrive here."))
-            } else {
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(spacing: 8) {
-                        toolbar(list)
+            HStack(alignment: .top, spacing: 12) {
+                tabs.frame(width: 150)
+                VStack(spacing: 8) {
+                    let items = list(tab)
+                    if items.isEmpty {
+                        EmptyStateView(symbol: "envelope.open", title: L("メールはありません", "No mail here"),
+                                       message: L("運営からの報酬やお知らせが届くとここに表示されます。", "Rewards and messages will arrive here."))
+                            .glass(cornerRadius: 14)
+                    } else {
                         ScrollView {
-                            LazyVStack(spacing: 8) {
-                                ForEach(list) { m in
-                                    Button {
-                                        open(m.id)
-                                    } label: {
-                                        mailRow(m)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .accessibilityIdentifier("mail_row_\(list.firstIndex(of: m) ?? 0)")
+                            LazyVStack(spacing: 6) {
+                                ForEach(items) { m in
+                                    Button { open(m.id) } label: { mailRow(m) }
+                                        .buttonStyle(.plain)
+                                        .accessibilityIdentifier("mail_row_\(items.firstIndex(of: m) ?? 0)")
                                 }
                             }
                             .padding(.vertical, 2)
                         }
                     }
-                    .frame(width: 290)
-
-                    if let m = list.first(where: { $0.id == selectedID }) ?? list.first {
-                        detail(m)
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 10)
-                .onAppear {
-                    now = Date()
-                    if selectedID == nil, let first = list.first { open(first.id, silent: true) }
+                    bottomButtons(items)
                 }
             }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 8)
         }
-        .alert(L("既読メールを削除", "Delete Read Mail"), isPresented: $confirmCleanup) {
-            Button(L("削除", "Delete"), role: .destructive) { cleanup() }
+        .overlay {
+            if let id = openedID, let m = app.profile.mail.first(where: { $0.id == id }) {
+                modal(m)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: openedID)
+        .onAppear {
+            now = Date()
+            // 最初は点のあるタブ（無ければ重要なお知らせ）を開く
+            if !chosenTab, let c = MailCategory.allCases.first(where: { c in list(c).contains { HomeBadges.mailNeedsDot($0, now: now) } }) {
+                tab = c
+            }
+            chosenTab = true
+        }
+        .alert(L("メールを削除", "Delete Mail"), isPresented: $confirmDeleteAll) {
+            Button(L("削除", "Delete"), role: .destructive) { deleteAll() }
             Button(L("キャンセル", "Cancel"), role: .cancel) {}
         } message: {
-            Text(L("既読で、受け取り済み（または添付なし）のメールを削除します。", "Deletes read mail that has no unclaimed attachments."))
+            Text(L("このタブの既読で、受け取り済み（または添付なし）のメールを削除します。", "Deletes read mail in this tab that has nothing left to claim."))
+        }
+        .alert(L("受け取っていない添付があります", "Unclaimed attachments"), isPresented: Binding(get: { confirmDeleteOne != nil }, set: { if !$0 { confirmDeleteOne = nil } })) {
+            Button(L("削除", "Delete"), role: .destructive) {
+                if let id = confirmDeleteOne { delete(id) }
+            }
+            Button(L("キャンセル", "Cancel"), role: .cancel) {}
+        } message: {
+            Text(L("削除すると添付は受け取れなくなります。", "If you delete it, you can't claim the attachments."))
         }
     }
 
-    private func toolbar(_ list: [MailItem]) -> some View {
-        let claimable = HomeBadges.claimableMail(app.profile, now: now)
-        let removable = list.contains { isRemovable($0) }
-        return HStack(spacing: 8) {
-            Button(action: claimAll) {
-                Label(L("一括受取", "Claim All"), systemImage: "tray.and.arrow.down.fill")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(PrimaryButtonStyle())
-            .disabled(claimable == 0)
-            .opacity(claimable == 0 ? 0.45 : 1)
-            .accessibilityIdentifier("mail_claim_all")
+    // MARK: 左のタブ
 
-            Button {
-                FlowFX.tap(app)
-                confirmCleanup = true
-            } label: {
-                Image(systemName: "trash")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
-                    .frame(width: 44, height: 44)
-                    .background(Circle().fill(Color.white.opacity(0.1)))
+    private var tabs: some View {
+        VStack(spacing: 6) {
+            ForEach(MailCategory.allCases, id: \.self) { c in
+                let selected = tab == c
+                let dot = list(c).contains { HomeBadges.mailNeedsDot($0, now: now) }
+                Button {
+                    guard tab != c else { return }
+                    app.audio.play(.uiTab)
+                    withAnimation(.easeInOut(duration: 0.2)) { tab = c }
+                } label: {
+                    Label(MailBox.title(c), systemImage: MailBox.symbol(c))
+                        .font(Celestial.heading(12))
+                        .foregroundStyle(selected ? Color(red: 0.16, green: 0.10, blue: 0.03) : Theme.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                        .padding(.horizontal, 10)
+                        .background(HomeChamfer(cut: 7).fill(selected ? AnyShapeStyle(LinearGradient(colors: [HomeStyle.goldLight, Theme.gold], startPoint: .top, endPoint: .bottom))
+                                                                      : AnyShapeStyle(Celestial.ink.opacity(0.8))))
+                        .overlay(HomeChamfer(cut: 7).stroke(selected ? HomeStyle.goldLight : Celestial.ice.opacity(0.4), lineWidth: selected ? 1 : 0.6))
+                        .overlay(alignment: .topTrailing) {
+                            if dot { Circle().fill(Color.red).frame(width: 8, height: 8).overlay(Circle().stroke(.white, lineWidth: 0.6)).offset(x: -4, y: 4) }
+                        }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("mail_tab_\(c.rawValue)")
+                .accessibilityAddTraits(selected ? .isSelected : [])
             }
-            .buttonStyle(.plain)
-            .disabled(!removable)
-            .opacity(removable ? 1 : 0.4)
-            .accessibilityLabel(L("既読メールを削除", "Delete read mail"))
-            .accessibilityIdentifier("mail_cleanup")
+            Spacer(minLength: 0)
         }
     }
 
-    private func isRemovable(_ m: MailItem) -> Bool {
-        m.read && (m.claimed || m.attachments.isEmpty || HomeBadges.isExpired(m, now: now))
-    }
+    // MARK: 一覧
 
     private func mailRow(_ m: MailItem) -> some View {
-        let selected = (selectedID ?? mails.first?.id) == m.id
         let expired = HomeBadges.isExpired(m, now: now)
+        let unread = !m.read
         return HStack(spacing: 10) {
-            Image(systemName: m.read ? "envelope.open.fill" : "envelope.fill")
+            Image(systemName: unread ? "envelope.fill" : "envelope.open.fill")
                 .font(.system(size: 18))
-                .foregroundStyle(m.read ? Theme.textSecondary : Theme.gold)
+                .foregroundStyle(unread ? Color(red: 0.75, green: 0.92, blue: 1) : Theme.textSecondary)
                 .frame(width: 26)
             VStack(alignment: .leading, spacing: 3) {
-                Text(m.title)
-                    .font(Theme.heading(13))
-                    .foregroundStyle(Theme.textPrimary)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    if m.important == true {
+                        Text(L("重要", "Important"))
+                            .font(.system(size: 10, weight: .heavy))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 5)
+                            .background(RoundedRectangle(cornerRadius: 3).fill(Theme.danger))
+                    }
+                    Text(m.title)
+                        .font(Theme.heading(13))
+                        .foregroundStyle(unread ? Theme.textPrimary : Theme.textSecondary)
+                        .lineLimit(1)
+                }
                 HStack(spacing: 6) {
                     Text(FlowText.date(m.date, time: false))
                         .font(Theme.mono(10))
                         .foregroundStyle(Theme.textSecondary)
-                    if !m.attachments.isEmpty {
-                        Image(systemName: "paperclip").font(.system(size: 10))
-                            .foregroundStyle(m.claimed ? Theme.textSecondary : Theme.cyan)
-                    }
                     if expired {
                         Text(L("期限切れ", "Expired")).font(Theme.body(10)).foregroundStyle(Theme.danger)
                     } else if m.claimed {
                         Text(L("受取済み", "Claimed")).font(Theme.body(10)).foregroundStyle(Theme.success)
+                    } else if let left = MailBox.remaining(m, now: now) {
+                        Label(left, systemImage: "clock").font(Theme.mono(10)).foregroundStyle(HomeStyle.goldLight)
                     }
                 }
             }
             Spacer(minLength: 0)
-            if !m.read { Circle().fill(Theme.danger).frame(width: 8, height: 8) }
+            if !m.attachments.isEmpty {
+                // 添付つき: 金のギフト箱（受け取った後は薄く）
+                Image(systemName: "gift.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(m.claimed || expired ? Theme.textSecondary.opacity(0.5) : Theme.gold)
+            }
+            if HomeBadges.mailNeedsDot(m, now: now) { Circle().fill(Color.red).frame(width: 8, height: 8) }
         }
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
-        .glass(cornerRadius: 12, tint: selected ? Theme.gold : Theme.panelStroke, highlighted: selected)
+        // 未読は明るい青、既読は暗い色（MLBB と同じ）
+        .background(HomeChamfer(cut: 8).fill(unread ? Color(red: 0.16, green: 0.38, blue: 0.68).opacity(0.75) : Celestial.ink.opacity(0.75)))
+        .overlay(HomeChamfer(cut: 8).stroke(unread ? Color(red: 0.55, green: 0.82, blue: 1).opacity(0.7) : Celestial.ice.opacity(0.2), lineWidth: 0.7))
         .opacity(expired ? 0.6 : 1)
         .accessibilityElement(children: .combine)
     }
 
-    private func detail(_ m: MailItem) -> some View {
+    /// 右下: すべて削除・すべて既読にする・すべて受け取る（金）。このタブの中だけ。
+    private func bottomButtons(_ items: [MailItem]) -> some View {
+        let removable = items.contains { MailBox.isRemovable($0, now: now) }
+        let unread = items.contains { !$0.read }
+        let claimable = items.contains { !$0.claimed && !$0.attachments.isEmpty && !HomeBadges.isExpired($0, now: now) }
+        return HStack(spacing: 8) {
+            Spacer(minLength: 0)
+            smallButton(L("すべて削除", "Delete All"), "trash", id: "mail_cleanup", enabled: removable) {
+                FlowFX.tap(app)
+                confirmDeleteAll = true
+            }
+            smallButton(L("すべて既読にする", "Read All"), "envelope.open", id: "mail_read_all", enabled: unread) { readAll(items) }
+            Button { claimAll(items) } label: {
+                Label(L("すべて受け取る", "Claim All"), systemImage: "gift.fill")
+                    .font(Celestial.heading(12))
+                    .foregroundStyle(Color(red: 0.25, green: 0.15, blue: 0.02))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 40)
+                    .background(HomeChamfer(cut: 7).fill(LinearGradient(colors: [HomeStyle.goldLight, Theme.gold], startPoint: .top, endPoint: .bottom)))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!claimable)
+            .opacity(claimable ? 1 : 0.45)
+            .accessibilityIdentifier("mail_claim_all")
+        }
+    }
+
+    private func smallButton(_ title: String, _ symbol: String, id: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: symbol)
+                .font(Celestial.heading(12))
+                .foregroundStyle(Theme.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .padding(.horizontal, 10)
+                .frame(minHeight: 40)
+                .background(HomeChamfer(cut: 7).fill(Celestial.ink.opacity(0.85)))
+                .overlay(HomeChamfer(cut: 7).stroke(Celestial.ice.opacity(0.45), lineWidth: 0.6))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .opacity(enabled ? 1 : 0.45)
+        .accessibilityIdentifier(id)
+    }
+
+    // MARK: 本文（モーダル）
+
+    private func modal(_ m: MailItem) -> some View {
         let expired = HomeBadges.isExpired(m, now: now)
         let canClaim = !m.attachments.isEmpty && !m.claimed && !expired
-        return VStack(alignment: .leading, spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Text(FlowText.date(m.date)).font(Theme.mono(11)).foregroundStyle(Theme.gold)
-                        Spacer()
-                        if let e = m.expiresAt {
-                            Label(L("期限 ", "Expires ") + FlowText.date(e), systemImage: "clock")
-                                .font(Theme.body(11))
-                                .foregroundStyle(expired ? Theme.danger : Theme.textSecondary)
-                        }
+        return ZStack {
+            Color.black.opacity(0.6).ignoresSafeArea()
+                .onTapGesture { openedID = nil }
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Text(FlowText.date(m.date)).font(Theme.mono(11)).foregroundStyle(Theme.gold)
+                    Spacer()
+                    if let left = MailBox.remaining(m, now: now), !m.claimed, !expired {
+                        Label(L("残り ", "Expires in ") + left, systemImage: "clock")
+                            .font(Theme.body(11))
+                            .foregroundStyle(Theme.textSecondary)
                     }
-                    Text(m.title)
-                        .font(Theme.title(20))
-                        .foregroundStyle(Theme.textPrimary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Rectangle().fill(Theme.panelStroke).frame(height: 1)
-                    Text(m.body)
-                        .font(Theme.body(14))
-                        .foregroundStyle(Theme.textPrimary.opacity(0.9))
-                        .fixedSize(horizontal: false, vertical: true)
-                        .textSelection(.enabled)
-                    if !m.attachments.isEmpty {
-                        SectionTitle(title: L("添付", "Attachments"), symbol: "paperclip")
-                            .padding(.top, 6)
-                        FlowWrapLayout(spacing: 6) {
-                            ForEach(m.attachments.indices, id: \.self) { i in
-                                RewardChip(attachment: m.attachments[i], claimed: m.claimed)
+                    Button { openedID = nil } label: {
+                        Image(systemName: "xmark").font(.system(size: 14, weight: .bold)).foregroundStyle(Theme.textPrimary)
+                            .frame(width: 44, height: 36)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(L("閉じる", "Close"))
+                    .accessibilityIdentifier("mail_close")
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(m.title)
+                            .font(Theme.title(19))
+                            .foregroundStyle(Theme.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Rectangle().fill(Theme.panelStroke).frame(height: 1)
+                        Text(m.body)
+                            .font(Theme.body(14))
+                            .foregroundStyle(Theme.textPrimary.opacity(0.9))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .textSelection(.enabled)
+                        if !m.attachments.isEmpty {
+                            SectionTitle(title: L("添付", "Attachments"), symbol: "gift.fill").padding(.top, 6)
+                            FlowWrapLayout(spacing: 6) {
+                                ForEach(m.attachments.indices, id: \.self) { i in
+                                    RewardChip(attachment: m.attachments[i], claimed: m.claimed)
+                                }
                             }
                         }
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(18)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            if !m.attachments.isEmpty {
-                HStack {
+                HStack(spacing: 10) {
+                    smallButton(L("削除", "Delete"), "trash", id: "mail_delete", enabled: true) { requestDelete(m) }
                     Spacer()
-                    Button {
-                        claim(m.id)
-                    } label: {
-                        Label(m.claimed ? L("受取済み", "Claimed") : (expired ? L("期限切れ", "Expired") : L("受け取る", "Claim")),
-                              systemImage: m.claimed ? "checkmark" : "gift.fill")
-                            .frame(minWidth: 150)
+                    if !m.attachments.isEmpty {
+                        Button { claim(m.id) } label: {
+                            Label(m.claimed ? L("受取済み", "Claimed") : (expired ? L("期限切れ", "Expired") : L("受け取る", "Claim")),
+                                  systemImage: m.claimed ? "checkmark" : "gift.fill")
+                                .frame(minWidth: 150)
+                        }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .disabled(!canClaim)
+                        .opacity(canClaim ? 1 : 0.45)
+                        .accessibilityIdentifier("mail_claim")
                     }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .disabled(!canClaim)
-                    .opacity(canClaim ? 1 : 0.45)
-                    .accessibilityIdentifier("mail_claim")
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
             }
+            .frame(maxWidth: 560, maxHeight: 320)
+            .background(HomeChamfer(cut: 14).fill(Celestial.inkRaised))
+            .overlay(HomeChamfer(cut: 14).stroke(Celestial.ice.opacity(0.5), lineWidth: 0.8))
+            .padding(20)
         }
-        .glass(cornerRadius: 16)
-        .id(m.id)
-        .transition(.opacity)
     }
 
     // MARK: 操作
 
-    private func open(_ id: UUID, silent: Bool = false) {
-        if !silent { FlowFX.tap(app) }
-        withAnimation(.spring(duration: 0.3)) { selectedID = id }
+    private func open(_ id: UUID) {
+        FlowFX.tap(app)
+        withAnimation { openedID = id }
         if let i = app.profile.mail.firstIndex(where: { $0.id == id }), !app.profile.mail[i].read {
             app.profile.mail[i].read = true
         }
@@ -349,11 +499,24 @@ struct MailView: View {
         report(granted)
     }
 
-    private func claimAll() {
+    /// このタブの受け取れる添付をすべて受け取る（既読にもなる）。
+    private func claimAll(_ items: [MailItem]) {
         var p = app.profile
-        let granted = LiveOpsService.claimAllMail(profile: &p)
+        var granted: [MailAttachment] = []
+        for m in items where !m.claimed && !m.attachments.isEmpty {
+            granted += LiveOpsService.claimMail(id: m.id, profile: &p)
+            if let i = p.mail.firstIndex(where: { $0.id == m.id }) { p.mail[i].read = true }
+        }
         app.profile = p
         report(granted)
+    }
+
+    private func readAll(_ items: [MailItem]) {
+        FlowFX.tap(app)
+        let ids = Set(items.map(\.id))
+        var p = app.profile
+        for i in p.mail.indices where ids.contains(p.mail[i].id) { p.mail[i].read = true }
+        app.profile = p
     }
 
     private func report(_ granted: [MailAttachment]) {
@@ -366,16 +529,30 @@ struct MailView: View {
         }
     }
 
-    private func cleanup() {
+    /// 1 通を消す（受け取っていない添付があれば確かめる）。
+    private func requestDelete(_ m: MailItem) {
+        FlowFX.tap(app)
+        if !m.attachments.isEmpty && !m.claimed && !HomeBadges.isExpired(m, now: now) {
+            confirmDeleteOne = m.id
+        } else {
+            delete(m.id)
+        }
+    }
+
+    private func delete(_ id: UUID) {
+        app.profile.mail.removeAll { $0.id == id }
+        if openedID == id { openedID = nil }
+        confirmDeleteOne = nil
+        app.showToast(L("メールを削除しました", "Mail deleted"))
+    }
+
+    /// このタブの既読で受け取る物の無いメールを消す。
+    private func deleteAll() {
         now = Date()
-        let removable = app.profile.mail.filter { isRemovable($0) }.map(\.id)
+        let removable = list(tab).filter { MailBox.isRemovable($0, now: now) }.map(\.id)
         guard !removable.isEmpty else { return }
         app.profile.mail.removeAll { removable.contains($0.id) }
-        if let s = selectedID, removable.contains(s) {
-            selectedID = nil
-            // 詳細に表示される先頭のメールを既読にする
-            if let first = mails.first { open(first.id, silent: true) }
-        }
+        if let o = openedID, removable.contains(o) { openedID = nil }
         FlowFX.tap(app)
         app.showToast(L("\(removable.count) 件のメールを削除しました", "Deleted \(removable.count) mail"))
     }

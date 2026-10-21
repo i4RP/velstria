@@ -132,9 +132,14 @@ enum HomeBadges {
         return false
     }
 
-    /// メールの点: 受け取っていない添付のあるメール（MLBB 2.2.16: 添付つきか重要な未読だけ。重要なメールは今は無い）。
+    /// メールの点（MLBB 2.2.16）: 未読の重要メールと、未読で受け取れる添付つきのメールだけ。
     static func mail(_ p: Profile, now: Date) -> Int {
-        claimableMail(p, now: now)
+        p.mail.filter { mailNeedsDot($0, now: now) }.count
+    }
+
+    /// 1 通のメールに点を付けるか（タブの点にも使う）。
+    static func mailNeedsDot(_ m: MailItem, now: Date) -> Bool {
+        !m.read && (m.important == true || (!m.attachments.isEmpty && !m.claimed && !isExpired(m, now: now)))
     }
 
     static func claimableMail(_ p: Profile, now: Date) -> Int {
