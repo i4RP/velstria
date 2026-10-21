@@ -111,7 +111,7 @@ struct FriendsView: View {
                     .font(Theme.heading(14))
                     .foregroundStyle(Theme.textPrimary)
                 HStack(spacing: 4) {
-                    Text(FriendCode.display(hub.myCode))
+                    Text(hub.shareableCode.map(FriendCode.display) ?? L("登録中…", "Registering…"))
                         .font(.system(size: 24, weight: .heavy, design: .monospaced))
                         .foregroundStyle(Theme.gold)
                         .minimumScaleFactor(0.7)
@@ -133,6 +133,7 @@ struct FriendsView: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .disabled(hub.shareableCode == nil)
                     .accessibilityLabel(L("フレンドコードをコピー", "Copy friend code"))
                     .accessibilityIdentifier("friends_copy")
                     ShareLink(item: FriendLink.shareText(code: hub.myCode, name: hub.myName)) {
@@ -142,6 +143,7 @@ struct FriendsView: View {
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
                     }
+                    .disabled(hub.shareableCode == nil)
                     .accessibilityLabel(L("フレンドコードを共有", "Share friend code"))
                     .accessibilityIdentifier("friends_share")
                 }

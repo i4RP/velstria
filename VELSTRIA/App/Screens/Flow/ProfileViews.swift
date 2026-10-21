@@ -95,7 +95,9 @@ struct ProfileView: View {
                 .accessibilityIdentifier("profile_rank")
                 VStack(alignment: .leading, spacing: 4) {
                     // ID はフレンドコード（フレンド申請・通報で使う番号と同じ。端末の UUID は見せない）
-                    infoRow("person.text.rectangle", "ID", FriendCode.display(p.friendCode))
+                    // 中継に登録を済ませるまでは見せない（知った他人に先に使われないように）
+                    infoRow("person.text.rectangle", "ID", p.inboxRegistered ? FriendCode.display(p.friendCode)
+                                                                             : L("オンラインに同意すると発行", "Issued after online consent"))
                     infoRow("calendar", L("開始日", "Since"), FlowText.date(p.createdAt, time: false))
                     infoRow("sun.max", L("ログイン日数", "Login days"), "\(p.totalLoginDays)")
                     infoRow("person.3", L("所持ヒーロー", "Heroes owned"), "\(p.ownedHeroIDs.filter(HeroRoster.isActive).count) / \(app.master.heroes.count)")
