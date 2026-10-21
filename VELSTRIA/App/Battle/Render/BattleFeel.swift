@@ -5,7 +5,7 @@ import VelstriaCore
 
 // 担当: battle-renderer。戦闘の手応え（全ヒーロー共通。描画だけ。判定・数値・sim・リプレイ・オンラインの同期は変えない）。
 // - ヒットストップ: 自分が撃った・受けた重い命中で、描画の時間（アニメーション・スキル演出・Effekseer・戦闘数値）を
-//   格で 40〜90 ms 止める。位置・カメラ・入力・sim は進める（再開した時に位置が跳ばない）。
+//   格で 40〜90 ms 止める。キットの強い通常攻撃（三連突き・円撃。SimEvent.empoweredAttack）も軽く 40 ms。位置・カメラ・入力・sim は進める（再開した時に位置が跳ばない）。
 // - 奥義: 自分が撃った・受けた奥義で、一瞬の画面の閃光と放射状のぼかし（後処理。低画質は後処理ごと無いので出ない）と
 //   カメラの押し込み。ほかの人の近くの奥義は弱い閃光だけ。「視差効果を減らす」の設定ではぼかし・押し込みを出さない。
 // 観戦・リプレイ・シーク・一時停止・読み込み中は何もしない（呼び出し側が enabled で渡す）。
@@ -53,6 +53,15 @@ final class BattleFeel {
         }
     }
 
+    /// キットの強い通常攻撃（三連突き・円撃）の止め（秒。nil = 止めない）。自分が撃った・受けた強い通常攻撃で、相手が英雄か
+    /// 練習場の人形の時だけ（ミニオン・モンスターの狩りでは止めない。会心の通常攻撃と同じ軽い格）。
+    nonisolated static let empoweredHold: Double = 0.04
+
+    nonisolated static func empoweredHoldSeconds(byMe: Bool, onMe: Bool, targetIsHero: Bool) -> Double? {
+        guard targetIsHero, byMe || onMe else { return nil }
+        return empoweredHold
+    }
+
     func reset() {
         holdUntil = 0
         nextHold = 0
@@ -85,6 +94,17 @@ final class BattleFeel {
                     nextUltHitPulse = now + BattleFeel.ultHitGap
                     out.pulse = BattleFeel.stronger(out.pulse, BattleFeel.pulse(heroID: heroID, flash: 0.16, blur: 0.28, now: now))
                     out.pushIn = max(out.pushIn ?? 0, 0.5)
+                }
+            case .empoweredAttack(let e):
+                let target = s.unit(e.targetID)
+                let isHero = target.map { $0.kind == .hero || $0.kind == .dummy } ?? false
+                // 円撃は周りも巻き込む: 主対象でなくても円の中に居れば受けた側
+                var onMe = e.targetID == me
+                if !onMe, e.radius > 0, let mine = s.unit(me), let caster = s.unit(e.sourceID), mine.team != caster.team {
+                    onMe = mine.pos.distance(to: e.origin) <= e.radius + mine.radius
+                }
+                if let h = BattleFeel.empoweredHoldSeconds(byMe: e.sourceID == me, onMe: onMe, targetIsHero: isHero || onMe) {
+                    hold = max(hold, h)
                 }
             case .skillCast(let c) where c.slot == .ultimate:
                 if c.casterID == me {
