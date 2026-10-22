@@ -1,6 +1,6 @@
 """H025 motion finishing, on the preserved production rig (Blender 4.5+).
 
-Reuses the shipped Meshy archery take for body/arm roll, then constrains hands
+Reuses Meshy prime archery for body/arm roll, then constrains hands
 and supporting feet to this character's proportions. No mesh or bind edits.
 Writes the runtime's 15 world segments plus sparse local shoulder/toe tracks.
 Run from VELSTRIA: blender -b -t 4 -P tools/blender/author_h025_motion.py
@@ -82,6 +82,8 @@ def solve(rig, qs, offset, details):
         p = rig.parent[j]
         if p >= 0:
             P[j] = P[p] + dR[p] @ (rig.P0[j]-rig.P0[p])
+        else:
+            P[j] = rig.P0[j].copy()
         if j == rig.index['hips']:
             P[j] += offset
         role = rig.roles[j]
@@ -121,22 +123,33 @@ def make_pose(rig, sources, state, t):
     draw = curve(t, [(0, 0), (.17, .18), (.43, 1), (.5556, 1), (.64, 1), (1, 0)]) if attack else 0
     lift = curve(t, [(0, 0), (.26, 1), (.68, 1), (1, 0)]) if attack else 0
     recoil = curve(t, [(0, 0), (.5556, 0), (.60, 1), (.74, .35), (1, 0)]) if attack else 0
-    src = sources['bow_shot'] if attack else sources.get('tripo_h025_'+state, sources['ready_idle'])
-    sf = (t * (src['frames']-1)) if attack else t*src['frames']
+    src = sources['meshy_h025_prime_bow'] if attack else sources.get('tripo_h025_'+state, sources['ready_idle'])
+    # Compress the generated 3s take to the game's 1.5s cycle. Its long aim
+    # is shortened and source follow-through (f66) meets authored release f25.
+    sf = curve(t, [(0,0),(.17,10),(.43,30),(.5556,65),(.64,74),(1,89)]) if attack else t*src['frames']
     sq, _ = cm.interp_clip(src, sf) if attack else sample_loop(src, t)
+    body_motion = [Quaternion() for _ in range(3)]
     if attack:
+        initial, _ = cm.interp_clip(src, 0)
+        aim = cm.ry(-73)
+        envelope = math.sin(math.pi*t)**2
+        for i, limit in enumerate((6, 12, 5)):
+            delta = aim @ (sq[i] @ initial[i].inverted()) @ aim.inverted()
+            weight = min(.7, math.radians(limit)/max(1e-6, delta.angle)) * envelope
+            body_motion[i] = cm.slerp(Quaternion(), delta, weight)
+        sq = [aim @ q for q in sq]
         ready, _ = cm.interp_clip(sources.get('tripo_h025_idle', sources['ready_idle']), 0)
-        sq = [cm.slerp(a, b, .65*math.sin(math.pi*t)**2) for a,b in zip(ready,sq)]
+        sq = [cm.slerp(a, b, .65*envelope) for a,b in zip(ready,sq)]
     qs = [q.copy() for q in sq]
     wave = math.sin(t*math.tau)
     breath = math.sin(t*math.tau) if not attack else math.sin(t*math.pi)
     yaw = -.15-.48*lift
-    qs[0] = axis((0, 1, 0), yaw*.26)
-    qs[1] = axis((0, 1, 0), yaw) @ axis((1, 0, 0), -.018*breath)
+    qs[0] = body_motion[0] @ axis((0, 1, 0), yaw*.26)
+    qs[1] = body_motion[1] @ axis((0, 1, 0), yaw) @ axis((1, 0, 0), -.018*breath)
     # Keep a little of the captured torso texture without disturbing aim.
-    qs[1] = cm.slerp(qs[1], sq[1], .025)
-    qs[2] = axis((0, 1, 0), -.035-.10*lift)
-    offset = V((.003*wave, -.035+.002*breath, 0))
+    qs[1] = cm.slerp(qs[1], ready[1] if attack else sq[1], .025)
+    qs[2] = body_motion[2] @ axis((0, 1, 0), -.035-.10*lift)
+    offset = V((.006*wave, -.070+.004*breath, 0))
     details = {r: Quaternion() for r in DETAILS if r in rig.index}
     for side, sign in [('left', -1), ('right', 1)]:
         details[side+'shoulder'] = local_delta(rig, side+'shoulder',
@@ -164,7 +177,7 @@ def make_pose(rig, sources, state, t):
     contact, duration, speed = (.60, 1.1, 1.0) if state != 'run' else (.49, .8, 2.1)
     if move:
         reach = speed*duration*contact/2
-        offset.y = (-.115 if state == 'run' else -.065) - (.020 if state == 'run' else .007)*(1-math.cos(t*math.tau*2))
+        offset.y = (-.230 if state == 'run' else -.130) - (.040 if state == 'run' else .014)*(1-math.cos(t*math.tau*2))
         qs[0] = axis((0, 1, 0), -.035*wave)
         qs[1] = axis((0, 1, 0), -.15+.035*wave) @ axis((1, 0, 0), -.04 if state == 'run' else -.015)
     errors = []
@@ -221,7 +234,7 @@ def author(rig, sources, out):
     clips, report = [], {}
     for state, frames, loop in [('idle', 90, True), ('walk', 33, True), ('run', 24, True), ('attack', 46, False)]:
         c = dict(name='h025_bow_attack' if state == 'attack' else 'h025_'+state,
-                 source='meshy:225+local:H025-contact-finish' if state == 'attack' else 'tripo:40f57d2f-640f-4c4a-899e-f4d15d50c52a:'+state+'+local:H025-contact-finish',
+                 source='meshy:prime:01a1640b-0d5b-7455-b14f-dfc020cdedee+local:H025-contact-finish' if state == 'attack' else 'tripo:40f57d2f-640f-4c4a-899e-f4d15d50c52a:'+state+'+local:H025-contact-finish',
                  frames=frames, loop=loop, rootXZ=0, melee=False, events={}, rot=[], root=[],
                  detailJoints=[r for r in DETAILS if r in rig.index], detailRot=[])
         if state == 'attack':
@@ -260,6 +273,7 @@ def main():
     if not tripo.is_file():
         raise SystemExit('Extract the saved Tripo motion task before authoring; see docs/H025_MOTION.md')
     sources.update(preview.load_clips(str(tripo)))
+    sources.update(preview.load_clips('tools/motion/h025-prime-source-clips.json'))
     clips, report = author(rig, sources, Path(args.out))
     report['model'] = dict(height=height, bones=len(rig.names), missingFingers='lefthandindex1' not in rig.index,
                            importedVsUSDJointAxesDegrees=axis_error, warnings=warnings)

@@ -3,6 +3,7 @@
 // No paid request is automatically retried; an uncertain submission requires inspection.
 // Run one command again to poll (honor retry_after_seconds); downloaded files stay in build/.
 // inventory: free service/library checks; attack: one 10-credit Meshy prime candidate.
+// attack --resume-after-upgrade: retry only a definitive uncharged HTTP402 after user confirms a plan change.
 // rigcheck [GLB]: free upload/check; rig: one 25-credit repair donor; basics: one 30-credit batch.
 // Paid operations obey build/h025-motion/api-state.json budgets, initially zero for Tripo.
 // `manifest` writes only sanitized provenance to docs/MOTION_H025_API.json.
@@ -99,6 +100,12 @@ async function inventory() {
 async function attack() {
   const name = 'moon_archer_attack_prime';
   let task = state.tasks[name];
+  if(task?.status==='REJECTED' && process.argv.includes('--resume-after-upgrade')) {
+    if(task.http_status!==402 || task.task_id || task.consumed_credits!==0) throw new Error('Upgrade retry requires a definitive HTTP402 with no task ID and zero charge');
+    state.rejected_attempts??=[];
+    state.rejected_attempts.push({...task,name,retry_authorization:'User confirmed subscription upgraded',archived_at:new Date().toISOString()});
+    delete state.tasks[name];task=undefined;save();
+  }
   if(task?.status==='REJECTED') throw new Error(`Prior prime candidate was rejected (HTTP ${task.http_status}): ${task.error}. No automatic resubmission.`);
   if (!task) {
     const spent = Object.values(state.tasks).filter(t=>t.provider==='meshy').reduce((n,t)=>n+(t.consumed_credits ?? t.estimate ?? 0),0);
@@ -176,11 +183,16 @@ async function manifest() {
     file:t.file?{...t.file,file:t.file.file.replaceAll('\\','/')}:null,error:t.error??null}));
   const reportFile=path.join(dir,'tripo-source-report.json');
   const report=fs.existsSync(reportFile)?JSON.parse(fs.readFileSync(reportFile,'utf8')):null;
+  const primeReportFile=path.join(dir,'meshy-prime-report.json');
+  const primeReport=fs.existsSync(primeReportFile)?JSON.parse(fs.readFileSync(primeReportFile,'utf8')):null;
   const result={version:1,hero:'H025',recorded_at:new Date().toISOString(),credit_cap:{meshy:state.budget.meshy,tripo:state.budget.tripo},
-    credits_consumed:state.api_credit_total,meshy_library:state.inventory.meshy_library,tasks,
+    credits_consumed:state.api_credit_total,meshy_library:state.inventory.meshy_library,tasks,rejected_attempts:state.rejected_attempts??[],
     retained_existing_model:true,rig_repair_reason:'Original H025 rig has 23 joints and no finger chains; v3 donor contains65joints including fingers. Original geometry and textures were reused, not regenerated.',
     source:{...state.inventory.tripo_source,file:state.inventory.tripo_source?.file?.replaceAll('\\','/')},
     extraction:report?{environment:'Windows / Blender4.5.10 LTS /30fps; offline source conversion, not iOS runtime validation',clips:report.clips.map(c=>({name:c.name,frames:c.frames,sourceFps:c.sourceFps,start:c.start,end:c.end,loopSeamDegrees:c.loopSeamDegrees,verify:c.verify})),warnings:report.warnings}:null,
+    prime_extraction:primeReport?{source:primeReport.source,sourceSkeleton:primeReport.sourceSkeleton,bones:primeReport.bones,frames:primeReport.frames,sourceFps:primeReport.sourceFps,actionFrameRange:primeReport.actionFrameRange,verify:primeReport.verify,rootRebase:primeReport.rootRebase,releaseEstimate:primeReport.releaseEstimate,
+      source_clips:'tools/motion/h025-prime-source-clips.json',source_details:'tools/motion/h025-prime-source-details.json',
+      adoption:'Prime body and arm-roll variation are fitted with local IK. Authored bow grip, string contact, finger release, planted feet and gameplay release synchronization remain explicit constraints; raw full-body motion is not played unchanged.'}:null,
     references:state.references,meshy_plan_url:'https://www.meshy.ai/settings/subscription'};
   const output=path.join(root,'docs','MOTION_H025_API.json');fs.writeFileSync(output,JSON.stringify(result,null,2)+'\n');console.log(path.relative(root,output));
 }

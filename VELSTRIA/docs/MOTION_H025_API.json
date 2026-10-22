@@ -1,13 +1,13 @@
 {
   "version": 1,
   "hero": "H025",
-  "recorded_at": "2026-10-22T14:11:13.120Z",
+  "recorded_at": "2026-10-22T14:41:59.468Z",
   "credit_cap": {
     "meshy": 10,
     "tripo": 55
   },
   "credits_consumed": {
-    "meshy": 0,
+    "meshy": 10,
     "tripo": 55
   },
   "meshy_library": {
@@ -87,23 +87,6 @@
     "checked_at": "2026-10-22T14:01:45.017Z"
   },
   "tasks": [
-    {
-      "name": "moon_archer_attack_prime",
-      "provider": "meshy",
-      "task_id": null,
-      "status": "REJECTED",
-      "http_status": 402,
-      "credits_consumed": 0,
-      "submitted_at": "2026-10-22T14:02:08.779Z",
-      "completed_at": "2026-10-22T14:02:36.372Z",
-      "request": {
-        "mode": "prime",
-        "duration": 3,
-        "prompt": "Graceful expert female elf archer, left foot forward, feet planted. Left hand holds bow steady. Raise bow; right hand nocks then draws string to right cheek, right elbow back. Brief precise aim, release fingers, right hand follows back, smoothly return to ready stance. Subtle breath, coordinated shoulders, wrists and torso. No steps or root travel. One complete shot."
-      },
-      "file": null,
-      "error": "Meshy requires a paid plan for new tasks; 133 credits exist but current account plan is free. No task created."
-    },
     {
       "name": "H025_rigcheck",
       "provider": "tripo",
@@ -187,6 +170,47 @@
         "sha256": "dff32a627aa781f34e5693728b025060e2bdb38ab6b50eb1a1db3e8117ef7d53"
       },
       "error": null
+    },
+    {
+      "name": "moon_archer_attack_prime",
+      "provider": "meshy",
+      "task_id": "01a1640b-0d5b-7455-b14f-dfc020cdedee",
+      "status": "SUCCEEDED",
+      "http_status": null,
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T14:36:48.652Z",
+      "completed_at": null,
+      "request": {
+        "mode": "prime",
+        "duration": 3,
+        "prompt": "Graceful expert female elf archer, left foot forward, feet planted. Left hand holds bow steady. Raise bow; right hand nocks then draws string to right cheek, right elbow back. Brief precise aim, release fingers, right hand follows back, smoothly return to ready stance. Subtle breath, coordinated shoulders, wrists and torso. No steps or root travel. One complete shot."
+      },
+      "file": {
+        "file": "build/h025-motion/moon_archer_attack_prime.fbx",
+        "bytes": 16768672,
+        "sha256": "44b2515a95dc77edfcf4bd5e07b7334b3426055f49ea3dea36baa7e78e6c4400"
+      },
+      "error": null
+    }
+  ],
+  "rejected_attempts": [
+    {
+      "provider": "meshy",
+      "status": "REJECTED",
+      "request": {
+        "mode": "prime",
+        "duration": 3,
+        "prompt": "Graceful expert female elf archer, left foot forward, feet planted. Left hand holds bow steady. Raise bow; right hand nocks then draws string to right cheek, right elbow back. Brief precise aim, release fingers, right hand follows back, smoothly return to ready stance. Subtle breath, coordinated shoulders, wrists and torso. No steps or root travel. One complete shot."
+      },
+      "estimate": 10,
+      "submitted_at": "2026-10-22T14:02:08.779Z",
+      "http_status": 402,
+      "consumed_credits": 0,
+      "rejected_at": "2026-10-22T14:02:36.372Z",
+      "error": "Meshy requires a paid plan for new tasks; 133 credits exist but current account plan is free. No task created.",
+      "name": "moon_archer_attack_prime",
+      "retry_authorization": "User confirmed subscription upgraded",
+      "archived_at": "2026-10-22T14:36:48.136Z"
     }
   ],
   "retained_existing_model": true,
@@ -336,6 +360,67 @@
     "warnings": [
       "tripo_h025_run: loop seam 50.1° (pose at end=38.0 differs from start=1.0); adjust start/end"
     ]
+  },
+  "prime_extraction": {
+    "source": "meshy:text-to-motion:01a1640b-0d5b-7455-b14f-dfc020cdedee",
+    "sourceSkeleton": "SMPL-H",
+    "bones": 52,
+    "frames": 90,
+    "sourceFps": 30,
+    "actionFrameRange": [
+      1,
+      90
+    ],
+    "verify": {
+      "passed": true,
+      "limbMaxDegrees": 0.0093,
+      "limbDegrees": {
+        "armR": 0.0086,
+        "foreArmR": 0.0086,
+        "handR": 0.0088,
+        "armL": 0.0082,
+        "foreArmL": 0.0093,
+        "handL": 0.0092,
+        "thighR": 0.0078,
+        "shinR": 0.0077,
+        "footR": 0.0083,
+        "thighL": 0.0075,
+        "shinL": 0.0079,
+        "footL": 0.0088
+      },
+      "segmentRotationDegrees": {
+        "hips": 0.0096,
+        "torso": 0.0084,
+        "head": 0.009,
+        "armR": 0.0098,
+        "foreArmR": 0.0098,
+        "handR": 0.009,
+        "armL": 0.0085,
+        "foreArmL": 0.0093,
+        "handL": 0.0097,
+        "thighR": 0.0089,
+        "shinR": 0.0089,
+        "footR": 0.0089,
+        "thighL": 0.0091,
+        "shinL": 0.0088,
+        "footL": 0.0093
+      },
+      "hipsPositionError": 0.000078
+    },
+    "rootRebase": {
+      "axis": "y",
+      "baselineLegUnits": 1.3448,
+      "verificationBeforeRebase": true,
+      "reason": "Remove fixed SMPL-H animation bind-origin lift; preserve relative motion."
+    },
+    "releaseEstimate": {
+      "sourceFrame": 66,
+      "uncertaintyFrames": 4,
+      "basis": "Visual aim-to-follow-through estimate, not a source animation event; generated fingers are static."
+    },
+    "source_clips": "tools/motion/h025-prime-source-clips.json",
+    "source_details": "tools/motion/h025-prime-source-details.json",
+    "adoption": "Prime body and arm-roll variation are fitted with local IK. Authored bow grip, string contact, finger release, planted feet and gameplay release synchronization remain explicit constraints; raw full-body motion is not played unchanged."
   },
   "references": {
     "meshy_motion": "https://docs.meshy.ai/en/api/text-to-motion",
