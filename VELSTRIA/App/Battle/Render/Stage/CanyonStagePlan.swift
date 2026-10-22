@@ -9,6 +9,9 @@ struct CanyonStagePlan: @unchecked Sendable {
     let atlases: [CGImage]
     let brushes: [Chunk]
     let structures: [Chunk]
+    let foliage: StageLayoutResult
+    let foliageAtlas: CGImage
+    let quality: GraphicsQuality
     let shaderURL: URL
 
     private struct Header: Decodable {
@@ -37,6 +40,8 @@ struct CanyonStagePlan: @unchecked Sendable {
                       $0.mesh.triangleCount <= (tower.isCore ? 8500 : 6000)
                   }.count == 1
               }),
+              let foliageAtlas = StageAssets.image(bundle, "StageBrushAtlas", "png"),
+              foliageAtlas.width <= 1024, foliageAtlas.height <= 512,
               let shader = bundle.url(forResource: StageAssets.shaderResourceName, withExtension: "metallib") else { return nil }
         var atlases: [CGImage] = []
         for i in 0..<parsed.atlasCount {
@@ -44,8 +49,14 @@ struct CanyonStagePlan: @unchecked Sendable {
                   image.width <= 2048, image.height <= 1024 else { return nil }
             atlases.append(image)
         }
+        var foliage = StageLayout(map: map, props: [:], density: 1, level: quality.level)
+        foliage.brushFields()
+        let foliageTriangles = foliage.out.brushes.reduce(0) { $0 + $1.triangleCount }
+        let solidTriangles = (parsed.chunks + parsed.structures).reduce(0) { $0 + $1.mesh.triangleCount }
+        guard foliageTriangles <= 90_000,
+              solidTriangles + foliageTriangles <= BattleWorkBudget.stagePropTriangles(quality.level) else { return nil }
         return CanyonStagePlan(chunks: parsed.chunks, atlases: atlases,
-                               brushes: parsed.brushes, structures: parsed.structures, shaderURL: shader)
+                               brushes: parsed.brushes, structures: parsed.structures, foliage: foliage.out, foliageAtlas: foliageAtlas, quality: quality.level, shaderURL: shader)
     }
 
     static func parse(_ data: Data, triangleBudget: Int) -> (chunks: [Chunk], brushes: [Chunk], structures: [Chunk], atlasCount: Int)? {

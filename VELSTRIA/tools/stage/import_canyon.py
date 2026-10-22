@@ -9,7 +9,7 @@ from zipfile import ZipFile
 from collections import defaultdict
 import numpy as np
 from PIL import Image,ImageDraw
-from shapely.geometry import Polygon,MultiPolygon,Point,box,LineString
+from shapely.geometry import Polygon,MultiPolygon,Point,box,LineString,MultiPoint
 from shapely.ops import unary_union,triangulate
 from shapely import contains_xy
 ROOT=Path(__file__).resolve().parents[2]
@@ -30,9 +30,44 @@ def footprint(p,z=None):
  shapes=[p for p in shapes if p.area>1e-5]
  return unary_union(shapes).buffer(.12).buffer(-.12).simplify(.18,preserve_topology=True)
 
-def is_wall_mesh(name):
- # Authored masonry walls are solid too; the rock-only filter omitted four walls.
- return any(token in name for token in ('RockGroup', 'RockWall', 'PropsWall'))
+def is_solid_mesh(row):
+ # The only walk-through scenery is the floor and designated concealment grass.
+ # Includes pillars, rails, statues, trees, camp props, base walls and rock groups.
+ name=row['name'];tex=row['texture']
+ return not ('Terrain' in name or ('Base' in name and 'Ground' in name)
+             or 'JungleGrassGroup' in name or tex.startswith(('PVPMonster','Mst_'))
+             or 'Tower' in tex or 'Station' in tex)
+
+def solid_footprint(p):
+ # Project the occupied body-height band, not just rock names or mesh origins.
+ # Thin upright faces still collide; fill closed shell interiors but retain open arches.
+ shapes=[]
+ for tri in p.reshape(-1,3,3):
+  if tri[:,2].max()<.18/SCALE or tri[:,2].min()>2.1/SCALE:continue
+  poly=list(tri)
+  for z,gt in [(.18/SCALE,True),(2.1/SCALE,False)]:poly=clip(poly,2,z,gt)
+  if len(poly)<2:continue
+  shapes.append(MultiPoint(np.array(poly)[:,:2]).convex_hull.buffer(.04/SCALE))
+ merged=unary_union(shapes).buffer(.08/SCALE)
+ return unary_union([Polygon(p.exterior) for p in polygons(merged)]).simplify(.025/SCALE,preserve_topology=True)
+
+def road_center(road, origin, normal):
+ # Infer both paving edges around the socket, ignoring its small notch in the floor.
+ # The inner tower sits just inside the base: extend the adjacent lane cross-section.
+ direction=np.array([-normal[1],normal[0]]);samples=[]
+ for along in [-12,-8,-4,0,4,8,12]:
+  p=origin+direction*along
+  cut=LineString([p-normal*35,p+normal*35]).intersection(road)
+  parts=[cut] if cut.geom_type=='LineString' else list(getattr(cut,'geoms',[]))
+  parts=[c for c in parts if c.geom_type=='LineString' and 1.5/SCALE<c.length<18/SCALE]
+  if not parts:continue
+  c=min(parts,key=lambda c:c.distance(Point(p)))
+  if c.distance(Point(p))>5/SCALE:continue
+  ends=np.array([c.coords[0],c.coords[-1]])-direction*along
+  samples.append((float(((ends.mean(0)-origin)*normal).sum()),ends))
+ assert samples,origin
+ _,edges=sorted(samples,key=lambda q:q[0])[len(samples)//2]
+ return edges.mean(0),edges
 
 def structure_anchor(row):
  # The authored placement origin is independent of asymmetric crowns/banners.
@@ -84,7 +119,7 @@ def main():
     name='map.fbx' if f.filename.lower().endswith('.fbx') else 'textures/'+Path(f.filename).name
     target=WORK/'source'/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(z.read(f))
   subprocess.run(['/Applications/Blender.app/Contents/MacOS/Blender','-b','--factory-startup','-t','4','--python-exit-code','1','--python',str(ROOT/'tools/stage/canyon_extract.py'),'--',str(WORK)],check=True)
- meta=json.loads((WORK/'meshes.json').read_text());objects=[];seen=set();markers=[];structures=[];walls=[];bushes=[];rivers=[];ground=[]
+ meta=json.loads((WORK/'meshes.json').read_text());objects=[];seen=set();markers=[];structures=[];walls=[];bushes=[];rivers=[];ground=[];roads=[];solidObjects=[]
  for row in meta:
   a=np.load(WORK/'meshes'/f"{row['id']}.npz");p=a['p'];uv=a['uv'];n=a['n'];name=row['name'];tex=row['texture']
   key=hashlib.sha256(np.round(np.column_stack([p,uv]),3).tobytes()+tex.encode()).hexdigest()
@@ -95,8 +130,12 @@ def main():
    row=dict(row,structureIndex=len(structures))
    structures.append((row,p,n,uv));continue
   if tex.startswith(('PVPMonster','Mst_')):continue
-  if is_wall_mesh(name):
-   walls.extend(polygons(footprint(p,z=.6)))
+  if is_solid_mesh(row):
+   shape=solid_footprint(p)
+   if not shape.is_empty:
+    walls.extend(polygons(shape))
+    solidObjects.append((name,shape))
+  if any(t in tex for t in ['TerrainRock_','TerrainCenter_']):roads.extend(polygons(footprint(p)))
   if 'JungleGrassGroup' in name:
    row=dict(row,brushIndex=len(bushes))
    bushes.append(bush_footprint(p)) # keep the original mesh and this same group's gameplay mask
@@ -118,14 +157,13 @@ def main():
   lo,bot,hi,top=poly.bounds
   return [p for part in [box(lo-1,bot-1,x,top+1),box(x,bot-1,hi+1,top+1)] for g in polygons(poly.intersection(part)) for p in simple_parts(g)]
  boundary=[q for p in polygons(outer) for q in simple_parts(p)]
- # Do not block the actual spawning platforms inside decorative base structures.
+ # Floors stay walkable; surrounding base props keep their own collision.
  fountains=[np.array([157,149]),np.array([-132,-140])]
- spawnClear=unary_union([Point(p).buffer(14) for p in fountains])
- wallUnion=unary_union(walls).difference(spawnClear)
+ wallUnion=unary_union(walls)
  finalWalls=[]
  for poly in polygons(wallUnion)+boundary:
-  poly=poly.simplify(.35,preserve_topology=True)
-  if poly.area<1.3:continue
+  poly=poly.simplify(.025/SCALE,preserve_topology=True)
+  if poly.area<.01:continue
   finalWalls.extend(simple_parts(poly))
  # Source cores/towers are exported separately for the living/destructible entities.
  def marker(team,token):return [m for m in markers if team in m['texture'] and token in m['texture']]
@@ -139,6 +177,15 @@ def main():
   for lane,indices in [('mid',mid),('top',sides[0]),('bot',sides[1])]:
    assert len(indices)==3,(team,lane,indices)
    for tier,i in enumerate(sorted(indices,key=lambda i:-np.linalg.norm(pts[i]-base))):towers.append(dict(team=team.lower(),lane=lane,tier=tier,point=pts[i].tolist(),sourceName=ts[i]['name']))
+ # Center every lane tower across the actual paving width. Retain FBX facing/scale.
+ road=unary_union(roads).buffer(1.5).buffer(-1.5)
+ road=unary_union([Polygon(p.exterior) for p in polygons(road)])
+ for tower in towers:
+  origin=ORIGIN-np.array(tower['point'])/(100*SCALE)
+  normal=np.array([1.,-1.])/2**.5 if tower['lane']=='mid' else np.array([1.,0.] if (tower['team']=='blue')==(tower['lane']=='top') else [0.,1.])
+  center,edges=road_center(road,origin,normal)
+  tower['point']=sim(center).tolist()
+  tower['roadEdges']=sim(edges).tolist()
  # Actual circular river arenas: northwest blue sigil, southeast violet sigil.
  camps=[]
  blueCamps=[('blueSentinel',[100,29]),('redSentinel',[13,94]),('hornLizard',[110,-9]),('emberBeetle',[-39,112]),('magmaGolem',[28,62])]
@@ -189,7 +236,7 @@ def main():
   rt=sorted([t for t in towers if t['lane']==name and t['team']=='red'],key=lambda t:t['tier'])
   corners=sim([[146,-100],[115,-130]] if name=='top' else [[-93,140],[-123,110]]).tolist()
   return [core[0]]+[t['point'] for t in bt]+([] if name=='mid' else corners)+[t['point'] for t in rt]+[core[1]]
- layout=dict(sourceSHA256=hashlib.sha256(source.read_bytes()).hexdigest() if source.exists() else json.loads((WORK/'layout.json').read_text())['sourceSHA256'],size=9720,cores=core,fountains=[sim(p).tolist() for p in fountains],towers=towers,camps=camps,lanes=[lane('top'),lane('mid'),lane('bot')],walls=[ring(p) for p in finalWalls],river=ring(river),bushRLE=base64.b64encode(encoded).decode())
+ layout=dict(sourceSHA256=hashlib.sha256(source.read_bytes()).hexdigest() if source.exists() else json.loads((WORK/'layout.json').read_text())['sourceSHA256'],size=9720,cores=core,fountains=[sim(p).tolist() for p in fountains],towers=towers,camps=camps,lanes=[lane('top'),lane('mid'),lane('bot')],solidObjects=[dict(name=name,footprints=[ring(q) for p in polygons(shape) for q in simple_parts(p)]) for name,shape in solidObjects],walls=[ring(p) for p in finalWalls],river=ring(river),bushRLE=base64.b64encode(encoded).decode())
  (ROOT/'Packages/VelstriaCore/Sources/VelstriaCore/Resources/CanyonLayout.json').write_text(json.dumps(layout,separators=(',',':')))
  (WORK/'layout.json').write_text(json.dumps(layout,indent=2))
  if '--layout-only' in sys.argv:
@@ -199,7 +246,9 @@ def main():
  for row,p,n,uv in structures:
   base=p[(p[:,2]>=-.5)&(p[:,2]<=4)]
   hull=Polygon(base[:,:2]).convex_hull
-  structureInfo.append(dict(point=structure_anchor(row),footprint=ring(hull)))
+  point=next((t['point'] for t in towers if t['sourceName']==row['name']),structure_anchor(row))
+  delta=np.array(point)-structure_anchor(row)
+  structureInfo.append(dict(point=point,footprint=(np.array(ring(hull))+delta).tolist()))
  (ROOT/'Packages/VelstriaCore/Sources/VelstriaCore/Resources/CanyonStructures.json').write_text(json.dumps(structureInfo,separators=(',',':')))
  objects+=structures
  # Sixteen extruded texels keep neighbouring atlas tiles apart through the useful mip levels.
@@ -219,7 +268,7 @@ def main():
   normal=np.column_stack([-n[:,0],n[:,2],n[:,1]])
   structure=row.get('structureIndex',-1)
   if structure>=0:
-   anchor=np.array(structureInfo[structure]['point'])/100
+   anchor=np.array(structure_anchor(row))/100
    pos-=np.array([anchor[0],0,-anchor[1]])
   v=np.column_stack([pos,normal,uv])
   for tri in v.reshape(-1,3,8):

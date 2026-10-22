@@ -15,6 +15,15 @@ public enum MovementSystem {
                 advanceDisplacement(&s, ctx, i)
                 continue
             }
+            // Imported scenery has solid footprints too. Recover from stale positions or
+            // external repositioning before idle/CC can leave a hero embedded indefinitely.
+            if kind == .hero, ctx.map.stageID == "canyon",
+               !ctx.nav.isWalkable(s.units[i].pos, radius: s.units[i].radius) {
+                let safe = ctx.nav.nearestWalkable(s.units[i].pos, radius: s.units[i].radius)
+                s.units[i].pos = safe
+                s.units[i].prevPos = safe
+                s.units[i].path.removeAll()
+            }
             // CC・前隙中・詠唱中は動かない
             guard s.units[i].canMove, s.units[i].windupRemaining == nil, s.units[i].hero?.channel == nil else { continue }
             let step = currentMoveSpeed(s, i) * Balance.dt

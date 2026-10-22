@@ -14,21 +14,32 @@ final class StageTests: XCTestCase {
         try XCTUnwrap(StageAssets.load(set: set), "App/Resources/Stage の素材（\(set.rawValue)）が読めない")
     }
 
-    func testCanyonStageFitsExistingBudgets() throws {
+    func testCanyonStageFitsExistingBudgets() async throws {
+        // Match StagePrep's background preparation; do not block the simulator UI
+        // watchdog while baking the full collision map in an unoptimized build.
+        let map = await Task.detached { MapDefinition.canyon }.value
         for quality in GraphicsQuality.allCases {
-            let plan = try XCTUnwrap(CanyonStagePlan.load(map: .canyon, quality: .preset(quality)))
-            let triangles = (plan.chunks + plan.brushes + plan.structures).reduce(0) { $0 + $1.mesh.triangleCount }
+            let loaded = await Task.detached { CanyonStagePlan.load(map: map, quality: .preset(quality)) }.value
+            let plan = try XCTUnwrap(loaded)
+            let triangles = (plan.chunks + plan.structures).reduce(0) { $0 + $1.mesh.triangleCount }
+                + plan.foliage.brushes.reduce(0) { $0 + $1.triangleCount }
             XCTAssertGreaterThan(triangles, 50_000)
             XCTAssertLessThanOrEqual(triangles, BattleWorkBudget.stagePropTriangles(quality))
-            XCTAssertLessThan(plan.brushes.reduce(0) { $0 + $1.mesh.triangleCount }, 90_000)
+            XCTAssertLessThan(plan.foliage.brushes.reduce(0) { $0 + $1.triangleCount }, 90_000)
+            XCTAssertEqual(plan.foliage.brushes.count, MapDefinition.canyon.brushes.count)
+            XCTAssertLessThan(plan.foliage.brushCards.reduce(0) { $0 + $1.triangleCount },
+                              plan.foliage.brushes.reduce(0) { $0 + $1.triangleCount } / 2)
             XCTAssertEqual(plan.brushes.count, MapDefinition.canyon.brushes.count)
-            for (i, brush) in plan.brushes.enumerated() {
-                let bounds = try XCTUnwrap(MapDefinition.canyon.bushMask?.bounds(of: i))
-                // Quantized concealment cells may extend one cell past the original leaves.
-                XCTAssertGreaterThanOrEqual(bounds.minX / 100, Double(brush.mesh.boundsMin.x) - 0.162)
-                XCTAssertLessThanOrEqual(bounds.maxX / 100, Double(brush.mesh.boundsMax.x) + 0.162)
-                XCTAssertGreaterThanOrEqual(bounds.minY / 100, Double(-brush.mesh.boundsMax.z) - 0.162)
-                XCTAssertLessThanOrEqual(bounds.maxY / 100, Double(-brush.mesh.boundsMin.z) + 0.162)
+            for (i, brush) in plan.foliage.brushes.enumerated() {
+                let center = plan.foliage.brushCenters[i]
+                // Curved leaf cards share a fixed root; every root must be in concealment.
+                for first in stride(from: 0, to: brush.vertexCount, by: 6) {
+                    let root = (brush.positions[first] + brush.positions[first + 1]) / 2 + center
+                    XCTAssertTrue(MapDefinition.canyon.brush(i, contains: Vec2(Double(root.x) * 100, Double(-root.z) * 100)))
+                    XCTAssertEqual(brush.colors[first].w, 0)
+                }
+                XCTAssertGreaterThan(brush.boundsMax.y, 1.1)
+                XCTAssertEqual(brush.boundsMax.y, plan.foliage.brushCards[i].boundsMax.y, accuracy: 0.001)
             }
             XCTAssertEqual(plan.structures.count, 20)
             for tower in MapDefinition.canyon.towers {
@@ -39,7 +50,9 @@ final class StageTests: XCTestCase {
             XCTAssertEqual(plan.atlases.count, 3)
             XCTAssertTrue(plan.atlases.allSatisfy { $0.width <= 2048 && $0.height <= 1024 })
         }
-        let scene = MapScene(map: .canyon, materials: RenderMaterials(colorblind: false), quality: .preset(.medium), groundImage: nil)
+        let prepared = await Task.detached { StagePrep.prepare(map: map, quality: .preset(.medium)) }.value
+        XCTAssertTrue(prepared)
+        let scene = MapScene(map: map, materials: RenderMaterials(colorblind: false), quality: .preset(.medium), groundImage: nil)
         let stage = try XCTUnwrap(scene.stage)
         XCTAssertNotNil(stage.root.findEntity(named: "canyon_0"))
         XCTAssertEqual(scene.brushEntities.count, MapDefinition.canyon.brushes.count)

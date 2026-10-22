@@ -152,7 +152,8 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     ///     祝福の進みにアシスト・2 段目 HP +100・序盤の規則・ロードの 18 分の進化と 150 秒・報酬 50 + 10/分・塔への突進・
     ///     ロード後の蟹なし・川の流れ・ロームの最初の 8 分 30%・隠蔽の解除・プランの靴の祝福）。docs/JUNGLE_ROAM_MLBB.md。
     /// 45: 塔・ベース・ミニオンの構成・復活・チーム賞金を MLBB 2.2.16 に（docs/TOWER_BASE_MLBB.md）。
-    public static let currentSimVersion = 45
+    /// 46: Canyon のタワーを道幅中央へ移動。全固体設置物の衝突と埋まり復帰を追加。
+    public static let currentSimVersion = 46
 
     public var simVersion: Int
     public var mode: MatchMode

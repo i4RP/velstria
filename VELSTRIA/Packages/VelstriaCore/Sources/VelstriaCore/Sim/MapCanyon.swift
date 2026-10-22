@@ -47,11 +47,16 @@ extension MapDefinition {
         // Lane markers in the FBX sit inside towers. Route the wave around their bases
         // once during map preparation, instead of repeatedly aiming into a collider.
         let nav = NavGrid(map: map)
+        // 75 cm fits heroes and the largest super minion, with clearance to spare.
+        // A 125 cm radius incorrectly seals the authored base gates and tower gaps.
+        let laneRadius = 75.0
         map.lanePaths = map.lanePaths.map { points in
-            let goals = points.map { nav.nearestWalkable($0, radius: 125) }
+            let goals = points.map { nav.nearestWalkable($0, radius: laneRadius) }
             var route = [goals[0]]
             for goal in goals.dropFirst() {
-                route += nav.findPath(from: route.last!, to: goal, radius: 125)
+                let segment = nav.findPath(from: route.last!, to: goal, radius: laneRadius)
+                precondition(!segment.isEmpty, "Canyon lane has an unreachable waypoint")
+                route += segment
             }
             return route
         }

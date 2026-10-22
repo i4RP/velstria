@@ -2,14 +2,30 @@
 import unittest
 import numpy as np
 from shapely.geometry import Point
-from import_canyon import ground_heights, structure_anchor, bush_footprint, sim, SCALE, is_wall_mesh
+from import_canyon import ground_heights, structure_anchor, bush_footprint, sim, SCALE, is_solid_mesh, solid_footprint, road_center
 
 class CanyonPlacementTests(unittest.TestCase):
     def test_authored_masonry_and_rocks_are_solid(self):
         for name in ('PGD_M_20PropsWall_01_0', 'PGD_M_20PropsWall_02_Low_0',
                      'PGD_M_20RockGroupBlue_01_0', 'PGD_M_20RockWall_01_0'):
-            self.assertTrue(is_wall_mesh(name))
-        self.assertFalse(is_wall_mesh('PGD_M_20JungleGrassGroup_01'))
+            self.assertTrue(is_solid_mesh(dict(name=name,texture='stone.png')))
+        for name in ['PGD_M_20JungleGrassGroup_01', 'PGD_M_20TerrainPart_01', 'PGD_M_20BaseBlueGround_01']:
+            self.assertFalse(is_solid_mesh(dict(name=name,texture='ground.png')))
+        for name in ['PGD_M_20BlockBossA_01', 'PGD_M_20railBlue_03', 'PGD_M_20TreeCorner_02', 'PGD_M_20BaseBluePart_05']:
+            self.assertTrue(is_solid_mesh(dict(name=name,texture='props.png')))
+
+    def test_thin_upright_faces_are_solid_but_floor_is_not(self):
+        upright=np.array([[0,0,0],[10,0,0],[0,0,10], [10,0,0],[10,0,10],[0,0,10]])
+        self.assertTrue(solid_footprint(upright).contains(Point(5,0)))
+        floor=upright.copy();floor[:,2]=0
+        self.assertTrue(solid_footprint(floor).is_empty)
+
+    def test_lane_centers_use_both_edges(self):
+        from shapely.geometry import box
+        road=box(0,-100,20,100)
+        center,edges=road_center(road,np.array([2.,10.]),np.array([1.,0.]))
+        np.testing.assert_allclose(center,[10,10])
+        np.testing.assert_allclose(center,edges.mean(0))
 
     def test_structure_uses_authored_origin_not_asymmetric_bounds(self):
         row=dict(origin=[46.07438659667969,30.687740325927734,-.089],
