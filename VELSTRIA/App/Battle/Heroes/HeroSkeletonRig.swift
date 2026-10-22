@@ -318,7 +318,6 @@ struct HeroSkeletonRig {
     enum Drive: Equatable {
         /// レストのローカル変換のまま（親に追従）。
         case rest
-        case detail(Int)
         case hips
         /// 背骨: 腰 → 胴の回転を t の割合で補間。
         case spine(Float)
@@ -341,6 +340,8 @@ struct HeroSkeletonRig {
     let restPosition: [V3]
     let restScale: [Float]
     let drive: [Drive]
+    /// Optional clip detail channel for each joint (-1 = none); the legacy Drive contract is unchanged.
+    let detailIndex: [Int]
     /// 四肢のレスト補正（レストの骨の向き → 手続きのレスト方向 -Y）。
     let correction: [simd_quatf]
     let index: [HeroJointRole: Int]
@@ -462,12 +463,8 @@ struct HeroSkeletonRig {
         setEnd(.handL, .foreArmL, .handL)
         setEnd(.footR, .legR, .footR)
         setEnd(.footL, .legL, .footL)
-        for (j, name) in jointNames.enumerated() where drive[j] == .rest {
-            if let detail = HeroDetailRotations.names.firstIndex(of: HeroJointRole.normalize(name)) {
-                drive[j] = .detail(detail)
-            }
-        }
         self.drive = drive
+        detailIndex = jointNames.map { HeroDetailRotations.names.firstIndex(of: HeroJointRole.normalize($0)) ?? -1 }
         self.correction = correction
 
         func grip(_ hand: HeroJointRole, _ finger: HeroJointRole) -> Float {
@@ -517,10 +514,10 @@ struct HeroSkeletonPoser {
 
             let rot: simd_quatf
             switch rig.drive[j] {
-            case .rest: rot = p < 0 ? rig.entityRotation * rest.rotation : rotation[p] * rest.rotation
-            case .detail(let d):
+            case .rest:
                 let base = p < 0 ? rig.entityRotation * rest.rotation : rotation[p] * rest.rotation
-                rot = q.details.contains(d) ? base * q.details[d] : base
+                let d = rig.detailIndex[j]
+                rot = d >= 0 && q.details.contains(d) ? base * q.details[d] : base
             case .hips: rot = q.hips * rig.restRotation[j]
             case .spine(let t): rot = simd_slerp(q.hips, q.torso, t) * rig.restRotation[j]
             case .neck: rot = simd_slerp(q.torso, q.head, 0.5) * rig.restRotation[j]

@@ -146,7 +146,7 @@ final class HeroMotionClipTests: XCTestCase {
             let c = rig.correction[j], r0 = rig.restRotation[j]
             let rot: simd_quatf
             switch rig.drive[j] {
-            case .rest, .detail, .handR, .handL, .footR, .footL:
+            case .rest, .handR, .handL, .footR, .footL:
                 rot = p < 0 ? rig.entityRotation * rest.rotation : rotation[p] * rest.rotation
             case .hips: rot = q.hips * r0
             case .spine(let t): rot = simd_slerp(q.hips, q.torso, t) * r0
@@ -547,6 +547,47 @@ final class HeroMotionClipTests: XCTestCase {
             for name in names where heroLib.index(of: name) == nil { missing.insert(name) }
         }
         print("HeroMotionClipTests: 同梱 \(lib.clips.count) クリップ / 暫定表で未収録 \(missing.sorted())")
+    }
+
+    func testBundledLuminaContactAndPreviewAttack() throws {
+        HeroMotionClips.setResolverForTesting(nil)
+        let lib = HeroMotionClips.library(heroID: "H025")
+        let url = try XCTUnwrap(HeroAssetLibrary.bundledURL("Hero_H025"))
+        let rig = try XCTUnwrap(HeroAssetLibrary.heroTemplate(url)?.rig)
+        let hips = try XCTUnwrap(rig.index[.hips])
+        let feet = try [HeroJointRole.footL, .footR].map { try XCTUnwrap(rig.index[$0]) }
+        let contacts = try [HeroJointRole.footL, .footR, .toeL, .toeR].map { try XCTUnwrap(rig.index[$0]) }
+        let restFoot = feet.map { rig.restPosition[$0].y }.reduce(0, +) / 2
+        let leg = max(0.1, rig.restPosition[hips].y - restFoot)
+        let restLowest = try XCTUnwrap(contacts.map { rig.restPosition[$0].y }.min())
+        var poser = HeroSkeletonPoser(rig: rig)
+        // Check the authored root contract directly, including the low running stance.
+        // Running has flight frames, but each loop must return to ground without sinking.
+        for name in ["h025_idle", "h025_walk", "h025_run"] {
+            let c = try XCTUnwrap(lib.index(of: name))
+            let clip = lib.clips[c]
+            var lowest = Float.infinity
+            for f in 0..<clip.frames {
+                var (q, root) = lib.sample(c, time: Float(f) / clip.fps)
+                root.x *= clip.rootXZ
+                root.z *= clip.rootXZ
+                poser.solve(q, hipsDrop: 0, hipsOffset: root * leg)
+                lowest = min(lowest, contacts.map { poser.position[$0].y }.min()!)
+            }
+            XCTAssertEqual(lowest, restLowest, accuracy: 0.02, "\(name): exported root offset must be applied exactly once")
+        }
+        let set = try XCTUnwrap(HeroMotionSets.set(heroID: "H025"))
+        let binding = try XCTUnwrap(HeroMotionBinding(set: set, library: lib))
+        var animator = HeroAnimator(profile: profile("H025"), defaultRunSpeed: 3.3, motion: binding)
+        animator.setState(.attack)
+        var releases = 0
+        for _ in 0..<180 {
+            let before = animator.clips.clipTime
+            _ = animator.advance(dt: 1.0 / 60, moveSpeed: 0)
+            if before < animator.clips.impactTime && animator.clips.clipTime >= animator.clips.impactTime { releases += 1 }
+            XCTAssertFalse(animator.clips.awaitingRelease, "Gallery attacks must continue without simulation events")
+        }
+        XCTAssertGreaterThanOrEqual(releases, 3, "The bundled gallery attack must keep drawing and releasing")
     }
 
     /// 同梱のクリップ（あれば）を同梱のヒーロー（あるだけ）に実行時と同じ計算で載せる。骨が有限で、ループは頭が腰より上。
