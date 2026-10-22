@@ -22,7 +22,7 @@
 
 ## 仕上げ（tools/blender/author_h030_motion.py）
 
-- 砲: 実行時は `handR × fistGrip` の向きに、砲の軸で `weaponOffset (0, 0, -0.16)` ずらして置く（右の掌を砲身の上に乗せる。
+- 砲: 実行時は `handR × fistGrip` の向きに、砲の軸で `weaponOffset (0, 0, -0.12)` ずらして置く（右の掌を砲身の上に乗せる。
   `HeroMotionSet.weaponOffset`）。仕上げは砲の芯の位置・砲口の向きを決め、右手首を IK で合わせる。砲口・発射位置は武器の
   先端（`weaponTip`）なので、砲の向きと弾の出る位置は常に一致する。
 - 待機 `idle_h030`（3.2 秒ループ）: 右手だけで砲を腰に支え、左手は腰に当てて指先を軽く叩く。呼吸・右脚への重心・
@@ -39,6 +39,6 @@
 
 Windows / Blender 4.5.10 LTS: 手足の目標への到達誤差 0 mm、ループ・攻撃の両端の差 0°、メッシュの最下点 -0.7〜+4.7 mm。
 比較動画（Blender の姿勢プレビュー、ゲームの描画ではない）: `build/h030-motion/H030_motion_comparison.mp4`。
-実際の RealityKit の再生は Actions の `H030 Motion Preview`（シミュレータの録画。実機 FPS の根拠にはしない）。
+武器 `Prop_starCannon.usdz` は Meshy で作り直した（text-to-image → image-to-3d、4,751 三角形・1024 px。2,500 三角形の旧版から）。持たせた姿の静止画: `blender -b -P tools/blender/render_h030_cannon.py`。実機・シミュレータでの描画は未確認。
 
 スキル（S1 遠星弾・S2 星爆弾・ULT 星砕の大砲）の詠唱は従来どおり FX_H030 の手続きモーション。

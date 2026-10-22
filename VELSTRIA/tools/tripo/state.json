@@ -6878,13 +6878,13 @@
         }
       ],
       "import": {
-        "at": "2026-10-11T18:46:43.414Z",
+        "at": "2026-10-22T16:40:27.815Z",
         "out": "App/Resources/Heroes/Prop_starCannon.usdz",
         "status": "success",
         "report": "build/tripo/props/starCannon/import_report.json",
-        "log": "build/tripo/props/starCannon/import_normalize.log",
         "verifyLog": "build/tripo/props/starCannon/import_verify.log",
-        "provider": "tripo"
+        "provider": "meshy",
+        "note": "Normalized on Windows; RealityKit verify step needs macOS (CI loads it)."
       }
     },
     "props/abyssRing": {
@@ -7142,5 +7142,5 @@
     }
   },
   "note": "tools/tripo.mjs が自動生成。task_id・状態・消費クレジット・ローカルパスのみ（秘密情報なし）",
-  "updated_at": "2026-10-11T18:46:48.489Z"
+  "updated_at": "2026-10-22T16:40:27.816Z"
 }

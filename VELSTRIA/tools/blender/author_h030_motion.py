@@ -39,7 +39,7 @@ def curve(t, points):
 # Runtime contract (HeroMotionSets "H030"): weapon = handR * GRIP, then shifted by
 # WEAPON_OFFSET along the cannon's own axes, so the palm rests on top of the barrel.
 GRIP = Quaternion((1, 0, 0), -math.pi/2)
-WEAPON_OFFSET = V((0, 0, -.16))
+WEAPON_OFFSET = V((0, 0, -.12))
 CANNON_SCALE = 1.08
 MUZZLE = 1.0*CANNON_SCALE
 # Attack: 36 frames, shot at frame 11 (runtime retimes pre/post to the simulation).

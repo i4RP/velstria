@@ -150,7 +150,7 @@ enum HeroMotionSets {
         s.dedicatedIdle = true
         s.walk = "walk_h030"
         s.run = "run_h030"
-        s.weaponOffset = V3(0, 0, -0.16)
+        s.weaponOffset = V3(0, 0, -0.12)
         // 遠星弾・星爆弾・星砕の大砲。発射はクリップの castWindup（= Kit_H030 の s1Windup / s2Windup / ultWindup）
         s.casts = ["cast_s1_h030", "cast_s2_h030", "cast_ult_h030"]
         return s

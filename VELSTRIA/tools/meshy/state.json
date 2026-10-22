@@ -2404,8 +2404,108 @@
           "at": "2026-10-05T00:36:11.094Z"
         }
       }
+    },
+    "props/starCannon": {
+      "stages": {
+        "concept": {
+          "status": "SUCCEEDED",
+          "task_id": "01a1647b-1f1a-715d-8cf3-2439d035ca5c",
+          "input": null,
+          "input_sha256": null,
+          "request": {
+            "ai_model": "nano-banana-2",
+            "prompt": "Single stylized fantasy MOBA game item, one object only, upright and perfectly vertical: a giant magic hand cannon carried like a bazooka, side profile view, standing upright with the muzzle at the top and the stock at the bottom, one long thick straight white cannon barrel of even width from bottom to top (its width about one quarter of its height) wrapped with three broad gold bands, a short navy-blue shoulder stock at the bottom end, two long golden blade-shaped horns attached to the left and right sides of the muzzle and pointing straight up beyond it, a large glowing cyan power orb in a gold ring mounted on the side of the barrel, the side with the orb facing the left side of the image. Polished premium hero weapon design (Layla style star cannon): crisp bevelled panels, engraved gold filigree, small star emblems, glowing cyan energy seams along the barrel, clean sharp silhouette. Orthographic view, centered with margin, whole object visible, plain light-gray background, even soft lighting, stylized hand-painted texture, chunky readable shapes for a top-down game camera, no hands, no text, no logo. Avoid: hand, person, character, multiple objects, duplicates, tilted, diagonal, cropped, perspective, cast shadow, floor, particles, smoke, sparks, background scenery, text, watermark, logo.",
+            "aspect_ratio": "3:4"
+          },
+          "estimate": 6,
+          "balance_before": 453,
+          "submitted_at": "2026-10-22T16:39:13.091Z",
+          "completed_at": "2026-10-22T16:39:22.792Z",
+          "progress": 100,
+          "credits_consumed": 6,
+          "outputs": [
+            "image_urls[0]"
+          ],
+          "files": {
+            "concept.png": {
+              "path": "build\\meshy\\props\\starCannon\\concept.png",
+              "bytes": 745181,
+              "sha256": "f3647dc1676cbb8eddfd84d235216e8cb0ef0eb9107663229627ba34c6372d7f"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-22T16:39:24.592Z",
+          "expires_at": "2026-10-25T16:39:22.792Z"
+        },
+        "model": {
+          "status": "SUCCEEDED",
+          "task_id": "01a1647b-683c-73ac-a700-78403bcab761",
+          "input": null,
+          "input_sha256": "f3647dc1676cbb8eddfd84d235216e8cb0ef0eb9107663229627ba34c6372d7f",
+          "request": {
+            "image_url": "data:image/png;base64,<build\\meshy\\props\\starCannon\\concept.png 745181 bytes sha256 f3647dc1676cbb8e…>",
+            "model_type": "smart-topology",
+            "ai_model": "meshy-t2",
+            "target_polycount": 4600,
+            "should_texture": true,
+            "enable_pbr": true,
+            "texture_resolution": "2k",
+            "target_formats": [
+              "glb"
+            ]
+          },
+          "estimate": 15,
+          "balance_before": 441,
+          "submitted_at": "2026-10-22T16:39:31.715Z",
+          "completed_at": "2026-10-22T16:39:51.611Z",
+          "progress": 100,
+          "credits_consumed": 15,
+          "outputs": [
+            "model_url",
+            "model_urls.glb",
+            "thumbnail_url",
+            "texture_urls[0].base_color",
+            "texture_urls[0].metallic",
+            "texture_urls[0].roughness",
+            "texture_urls[0].normal"
+          ],
+          "files": {
+            "model.glb": {
+              "path": "build\\meshy\\props\\starCannon\\model.glb",
+              "bytes": 7132552,
+              "sha256": "63c661717647c8172069dd8702a1a75c21a1fad1bb74d0ee7f61a8026c39caa8",
+              "info": {
+                "tris": 4751,
+                "joints": 0,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "preview.png": {
+              "path": "build\\meshy\\props\\starCannon\\preview.png",
+              "bytes": 43106,
+              "sha256": "a63198d3cbf4a100128c5690d371e29f716248d8ed8d56bf8ad130a8fe5579c2"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-22T16:39:54.463Z",
+          "expires_at": "2026-10-25T16:39:51.611Z"
+        }
+      },
+      "delivered": {
+        "glb": {
+          "path": "build\\tripo\\props\\starCannon\\model.glb",
+          "sha256": "63c661717647c8172069dd8702a1a75c21a1fad1bb74d0ee7f61a8026c39caa8",
+          "from": "build\\meshy\\props\\starCannon\\model.glb",
+          "front": "+z",
+          "at": "2026-10-22T16:39:54.490Z"
+        }
+      }
     }
   },
   "note": "tools/meshy.mjs が自動生成。task_id・状態・消費クレジット・ハッシュ・ローカルパスのみ（秘密情報なし）",
-  "updated_at": "2026-10-05T00:05:02.525Z"
+  "updated_at": "2026-10-22T16:39:54.490Z"
 }
