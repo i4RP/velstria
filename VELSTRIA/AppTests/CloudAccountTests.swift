@@ -1,5 +1,6 @@
 import XCTest
 @testable import VELSTRIA
+import VelstriaCore
 
 /// アカウント（パスワード・クラウド保存・Game Center の連携。CloudAccountService / AccountCenter）。中継とは代役の送り手で話す。
 @MainActor
@@ -253,12 +254,5 @@ final class CloudAccountTests: XCTestCase {
         let result = await app.account.setPassword("correct horse 1")
         XCTAssertEqual(result.failureValue, .notAllowed)
         XCTAssertTrue(rec.requests.isEmpty, "同意の前は中継へ何も送らない")
-    }
-}
-
-private extension Result {
-    var failureValue: Failure? {
-        if case .failure(let f) = self { return f }
-        return nil
     }
 }
