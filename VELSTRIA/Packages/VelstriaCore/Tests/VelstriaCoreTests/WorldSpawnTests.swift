@@ -67,25 +67,35 @@ enum WorldTestKit {
 
 /// ミニオンのウェーブ・中立キャンプ・練習用人形の出現（DESIGN §3・§4）。
 final class WorldSpawnTests: XCTestCase {
-    func testSideLaneMinionsAreTenPercentSlower() {
+    /// 種類によらず同じ速さ（ウェーブがまとまって進む）。側レーンは中央の 0.957 倍（MLBB: 側 −10%、中央 −6%）。
+    func testMinionSpeedBySideLaneAndTime() {
         for type in [MinionType.melee, .ranged, .siege] {
             let mid = UnitFactory.makeMinion(type: type, team: .blue, lane: .mid, pos: .zero, time: 0).stats.moveSpeed
+            XCTAssertEqual(mid, Balance.minionMoveSpeed, accuracy: 1e-9, "\(type)")
             for lane in [Lane.top, .bot] {
                 let side = UnitFactory.makeMinion(type: type, team: .blue, lane: lane, pos: .zero, time: 0).stats.moveSpeed
-                XCTAssertEqual(side, mid * 0.9, accuracy: 1e-9, "\(type) \(lane)")
+                XCTAssertEqual(side, mid * 0.957, accuracy: 1e-9, "\(type) \(lane)")
             }
         }
+        // 12:00 までは伸びない。12:00 から毎分 +30（× mapScale）、4 分で上限 +120（同）
+        let base = Balance.minionMoveSpeed
+        XCTAssertEqual(UnitFactory.minionMoveSpeed(lane: .mid, time: 11 * 60 + 59), base, accuracy: 1e-9)
+        XCTAssertEqual(UnitFactory.minionMoveSpeed(lane: .mid, time: 13 * 60), base + 30 * Balance.mapScale, accuracy: 1e-9)
+        XCTAssertEqual(UnitFactory.minionMoveSpeed(lane: .mid, time: 16 * 60), base + 120 * Balance.mapScale, accuracy: 1e-9)
+        XCTAssertEqual(UnitFactory.minionMoveSpeed(lane: .top, time: 25 * 60),
+                       base * 0.957 + 120 * Balance.mapScale, accuracy: 1e-9)
     }
 
-    func testWaveComposition() {
-        XCTAssertEqual(SpawnSystem.waveComposition(waveIndex: 0, time: 20), [.melee, .melee, .melee, .ranged, .ranged, .ranged])
-        XCTAssertEqual(SpawnSystem.waveComposition(waveIndex: 1, time: 50).filter { $0 == .siege }.count, 0)
-        XCTAssertEqual(SpawnSystem.waveComposition(waveIndex: 2, time: 80), [.melee, .melee, .melee, .siege, .ranged, .ranged, .ranged])
-        XCTAssertEqual(SpawnSystem.waveComposition(waveIndex: 5, time: 170).filter { $0 == .siege }.count, 1)
-        // 10:00 以降は近接 +1
-        XCTAssertEqual(SpawnSystem.waveComposition(waveIndex: 19, time: 590).filter { $0 == .melee }.count, 3)
-        XCTAssertEqual(SpawnSystem.waveComposition(waveIndex: 20, time: 620).filter { $0 == .melee }.count, 4)
-        XCTAssertEqual(SpawnSystem.waveComposition(waveIndex: 20, time: 620).filter { $0 == .siege }.count, 1)
+    /// MLBB: 側レーンは毎ウェーブ 近接・遠隔・攻城を 1 体ずつ（前列から）。中央は最初の 10 ウェーブが 近接 1 + 遠隔 3、以後は側と同じ。
+    func testWaveCompositionByLane() {
+        for lane in [Lane.top, .bot] {
+            for wave in [0, 1, 9, 10, 40] {
+                XCTAssertEqual(SpawnSystem.waveComposition(waveIndex: wave, lane: lane), [.melee, .ranged, .siege], "\(lane) \(wave)")
+            }
+        }
+        XCTAssertEqual(SpawnSystem.waveComposition(waveIndex: 0, lane: .mid), [.melee, .ranged, .ranged, .ranged])
+        XCTAssertEqual(SpawnSystem.waveComposition(waveIndex: 9, lane: .mid), [.melee, .ranged, .ranged, .ranged])
+        XCTAssertEqual(SpawnSystem.waveComposition(waveIndex: 10, lane: .mid), [.melee, .ranged, .siege])
     }
 
     func testWaveTimingAndCounts() {
@@ -109,52 +119,53 @@ final class WorldSpawnTests: XCTestCase {
         }
         // 初回は 0:00 から実時間で進め、以降はウェーブ直前まで時刻を飛ばす（ウェーブ予定は保持される）
         var sim = Simulation(config: WorldTestKit.emptyConfig())
-        run(sim, until: 21)
-        for next in [50.0, 80.0] {
+        run(sim, until: 12)
+        for next in [41.0, 281.0, 311.0] {
             var st = sim.state
+            // 4:41 へは途中のウェーブを飛ばす（予定を次の 1 回だけ進める）
+            if next == 281 { st.world.waveIndex = 9; st.world.nextWaveTime = 281 }
             WorldTestKit.setTime(&st, next - 1)
             sim = Simulation(snapshot: st)
             run(sim, until: next + 1)
         }
-        XCTAssertEqual(waves.map(\.index), [0, 1, 2])
-        XCTAssertEqual(waves[0].time, 20, accuracy: 1e-6)
-        XCTAssertEqual(waves[1].time, 50, accuracy: 1e-6)
-        XCTAssertEqual(waves[2].time, 80, accuracy: 1e-6)
-        // 2 チーム × 3 レーン × (6, 6, 7)
-        XCTAssertEqual(minionsPerWave, [36, 36, 42])
+        // 0:11 に初回、以後 30 秒毎（4:41 のウェーブ 9 が最後の序盤ウェーブ、5:11 のウェーブ 10 から中央も攻城入り）
+        XCTAssertEqual(waves.map(\.index), [0, 1, 9, 10])
+        for (w, t) in zip(waves, [11.0, 41, 281, 311]) { XCTAssertEqual(w.time, t, accuracy: 1e-6) }
+        // 2 チーム × (中央 4 + 側 3 × 2) = 20、中央も 3 体になると 18
+        XCTAssertEqual(minionsPerWave, [20, 20, 20, 18])
         XCTAssertEqual(announced, 1)
     }
 
     func testMinionsSpawnOnTheirLaneAtTheirBase() {
         var (s, ctx) = WorldTestKit.makeState(WorldTestKit.emptyConfig())
-        WorldTestKit.setTime(&s, 20)
+        WorldTestKit.setTime(&s, 11)
         SpawnSystem.update(&s, ctx)
         let minions = s.units.filter { $0.kind == .minion }
-        XCTAssertEqual(minions.count, 36)
+        XCTAssertEqual(minions.count, 20)
         for m in minions {
             let lane = m.minion!.lane
             XCTAssertLessThan(ctx.map.distanceToLane(m.pos, lane: lane), 60)
-            XCTAssertLessThan(m.pos.distance(to: ctx.map.core(m.team)), 800)
+            XCTAssertLessThan(m.pos.distance(to: ctx.map.core(m.team)), 1000)
             XCTAssertGreaterThan(m.pos.distance(to: ctx.map.core(m.team)), 250)
             XCTAssertEqual(m.minion!.waypointIndex, 1)
         }
-        // 基礎値（DESIGN §4、t = 20 秒の成長込み）
+        // 基礎値（DESIGN §4、t = 11 秒の成長込み）
         let melee = minions.first { $0.minion!.type == .melee }!
-        XCTAssertEqual(melee.stats.maxHP, 520 * (1 + 0.03 * 20 / 60), accuracy: 1e-6)
+        XCTAssertEqual(melee.stats.maxHP, 520 * (1 + 0.03 * 11 / 60), accuracy: 1e-6)
         XCTAssertEqual(melee.radius, 36)
     }
 
     func testPracticeRespectsSpawnMinions() {
         let off = WorldTestKit.emptyConfig(mode: .practice, practice: PracticeOptions(spawnMinions: false, spawnDummies: false))
         let sim = Simulation(config: off)
-        sim.runHeadless(maxTime: 21)
+        sim.runHeadless(maxTime: 12)
         XCTAssertEqual(sim.state.units.filter { $0.kind == .minion }.count, 0)
         XCTAssertEqual(sim.state.units.filter { $0.kind == .dummy }.count, 0)
 
         let tutorialOn = WorldTestKit.emptyConfig(mode: .tutorial, practice: PracticeOptions(spawnMinions: true))
         let sim2 = Simulation(config: tutorialOn)
-        sim2.runHeadless(maxTime: 21)
-        XCTAssertEqual(sim2.state.units.filter { $0.kind == .minion }.count, 36)
+        sim2.runHeadless(maxTime: 12)
+        XCTAssertEqual(sim2.state.units.filter { $0.kind == .minion }.count, 20)
     }
 
     func testCampsSpawnWithCompositionAndBossAnnouncements() {
@@ -172,9 +183,11 @@ final class WorldSpawnTests: XCTestCase {
         }
         XCTAssertTrue(monsters.allSatisfy { $0.team == .neutral })
         let sentinel = monsters.first { $0.monster!.kind == .redSentinel }!
-        XCTAssertEqual(sentinel.stats.maxHP, 2200)
+        // Fandom の紅焔の番人 × Patch 1.9.90（HP +30%）。0 分の値
+        XCTAssertEqual(sentinel.stats.maxHP, UnitFactory.monsterProfile(.redSentinel).maxHP(at: 0), accuracy: 1e-9)
+        XCTAssertEqual(sentinel.stats.maxHP, 4941 * 1.3, accuracy: 1e-9)
         XCTAssertEqual(sentinel.radius, 110)
-        XCTAssertEqual(sentinel.stats.armor, 25)
+        XCTAssertEqual(sentinel.stats.armor, 37)
         XCTAssertEqual(sentinel.stats.attackSpeed, 1 / 1.2, accuracy: 1e-9)
         // ボスの初回出現（時刻を直前まで飛ばして確認）
         var st = sim.state
@@ -198,11 +211,12 @@ final class WorldSpawnTests: XCTestCase {
         }
         XCTAssertEqual(colossusAnnounce ?? 0, 480, accuracy: 0.05)
         let wyrm = later.state.units.first { $0.monster?.kind == .astralWyrm }!
-        XCTAssertEqual(wyrm.stats.maxHP, 5500)
+        // 2:00 に出て、生きている間も毎分伸びる（8:00 の値）
+        XCTAssertEqual(wyrm.stats.maxHP, UnitFactory.monsterProfile(.astralWyrm).maxHP(at: 480), accuracy: 1e-9)
         XCTAssertEqual(wyrm.radius, 180)
         XCTAssertEqual(later.state.units.filter { $0.monster?.kind == .astralWyrm }.count, 1)
         let colossus = later.state.units.first { $0.monster?.kind == .ancientColossus }!
-        XCTAssertEqual(colossus.stats.maxHP, 9000)
+        XCTAssertEqual(colossus.stats.maxHP, UnitFactory.monsterProfile(.ancientColossus).maxHP(at: 480), accuracy: 1e-9)
         XCTAssertEqual(colossus.radius, 220)
         XCTAssertEqual(colossus.pos, Vec2(3740, 8410))
     }
@@ -357,17 +371,135 @@ final class WorldSpawnTests: XCTestCase {
         let (s, _) = WorldTestKit.makeState(WorldTestKit.emptyConfig())
         XCTAssertEqual(s.units.filter { $0.kind == .tower }.count, 18)
         XCTAssertEqual(s.units.filter { $0.kind == .core }.count, 2)
+        // MLBB 2.2.16 の通常の試合の値（Balance.Tower。docs/TOWER_BASE_MLBB.md）: 射程 5.3・視界 8（× 100）
         let outer = s.units[WorldTestKit.structureIndex(s, team: .red, lane: .bot, tier: .outer)]
-        XCTAssertEqual(outer.stats.maxHP, 4200 * Balance.structureHPScale, accuracy: 1e-9)
-        XCTAssertEqual(outer.stats.attack, 260)
-        XCTAssertEqual(outer.stats.attackRange, 750)
+        XCTAssertEqual(outer.stats.maxHP, 4500)
+        XCTAssertEqual(outer.stats.attack, 320)
+        XCTAssertEqual(outer.stats.armor, 20)
+        XCTAssertEqual(outer.stats.magicResist, 20)
+        XCTAssertEqual(outer.stats.attackRange, 530)
+        XCTAssertEqual(outer.stats.sightRange, 800)
+        XCTAssertEqual(outer.stats.attackSpeed, 1)
+        let inner = s.units[WorldTestKit.structureIndex(s, team: .blue, lane: .mid, tier: .inner)]
+        XCTAssertEqual(inner.stats.maxHP, 5700)
+        XCTAssertEqual(inner.stats.attack, 360)
+        XCTAssertEqual(inner.stats.armor, 20)
         let base = s.units[WorldTestKit.structureIndex(s, team: .blue, lane: .top, tier: .base)]
-        XCTAssertEqual(base.stats.maxHP, 5000 * Balance.structureHPScale, accuracy: 1e-9)
-        XCTAssertEqual(base.stats.armor, 100)
+        XCTAssertEqual(base.stats.maxHP, 7300)
+        XCTAssertEqual(base.stats.attack, 520)
+        XCTAssertEqual(base.stats.armor, 40)
         let core = s.units[WorldTestKit.structureIndex(s, team: .blue, lane: nil, tier: .base, core: true)]
-        XCTAssertEqual(core.stats.maxHP, 7000 * Balance.structureHPScale, accuracy: 1e-9)
-        XCTAssertEqual(core.stats.attack, 360)
-        XCTAssertEqual(core.stats.attackRange, 800)
+        XCTAssertEqual(core.stats.maxHP, 7900)
+        XCTAssertEqual(core.stats.attack, 539)
+        XCTAssertEqual(core.stats.armor, 40)
+        XCTAssertEqual(core.stats.attackRange, 530)
         XCTAssertEqual(core.radius, 250)
+    }
+}
+
+/// ミニオンのウェーブの進み方（MLBB の現行マップと同じ形になっているか）。
+final class MinionWaveTests: XCTestCase {
+    /// 経路の始点からの道のり（最寄り点まで）。
+    static func arcLength(_ p: Vec2, along path: [Vec2]) -> Double {
+        var best = (d: Double.infinity, s: 0.0)
+        var acc = 0.0
+        for k in 1..<path.count {
+            let a = path[k - 1], b = path[k]
+            let ab = b - a, len = ab.length
+            let t = len > 0 ? min(1, max(0, (p - a).dot(ab) / (len * len))) : 0
+            let d = p.distance(to: a + ab * t)
+            if d < best.d { best = (d, acc + len * t) }
+            acc += len
+        }
+        return best.s
+    }
+
+    static func length(_ path: [Vec2]) -> Double {
+        zip(path, path.dropFirst()).reduce(0) { $0 + $1.0.distance(to: $1.1) }
+    }
+
+    /// MLBB Wiki: 出てから中央レーンは約 15 秒、側レーンは約 25 秒で着く（両軍のウェーブが出会うレーンの中点まで）。
+    /// 実機のミニマップ（2026-10-10 のスクリーンショット）: 0:23 に側レーンの Blue のウェーブの中心は Core から道のり 約 5400、
+    /// 0:32 に 約 8850〜8950 で、0:32〜0:33 に左上・右下の角（中点）で Red と出会った。中央は 0:25 ごろに中心で出会う。
+    func testFirstWaveTravelMatchesTheMLBBMinimap() {
+        let sim = Simulation(config: WorldTestKit.emptyConfig())
+        let map = sim.ctx.map
+        var firstClash: [Lane: (time: Double, pos: Vec2)] = [:]
+        var centre: [Double: [Lane: Double]] = [:]
+        sim.runHeadless(maxTime: 45) { ev in
+            for e in ev {
+                guard case .damage(let d) = e, d.source == .minion, let t = sim.state.unit(d.targetID),
+                      t.kind == .minion, let lane = t.minion?.lane, firstClash[lane] == nil else { continue }
+                firstClash[lane] = (sim.state.time, d.pos)
+            }
+            for at in [23.0, 32.0] where abs(sim.state.time - at) < Balance.dt / 2 {
+                for lane in Lane.allCases {
+                    let path = map.lanePath(lane, for: .blue)
+                    let arcs = sim.state.units.filter { $0.kind == .minion && $0.team == .blue && $0.minion!.lane == lane }
+                        .map { Self.arcLength($0.pos, along: path) }
+                    centre[at, default: [:]][lane] = arcs.reduce(0, +) / Double(max(1, arcs.count))
+                }
+            }
+        }
+        for lane in [Lane.top, .bot] {
+            XCTAssertEqual(centre[23]?[lane] ?? 0, 5400, accuracy: 400, "\(lane) 0:23")
+            XCTAssertEqual(centre[32]?[lane] ?? 0, 8900, accuracy: 400, "\(lane) 0:32")
+            XCTAssertEqual(firstClash[lane]?.time ?? 0, 33, accuracy: 1.5, "\(lane)")
+        }
+        XCTAssertEqual(firstClash[.mid]?.time ?? 0, 25, accuracy: 1.5)
+        for lane in Lane.allCases {
+            guard let clash = firstClash[lane] else { XCTFail("\(lane) waves never met"); continue }
+            let path = map.lanePath(lane, for: .blue)
+            XCTAssertEqual(Self.arcLength(clash.pos, along: path), Self.length(path) / 2, accuracy: 500, "\(lane) meets off-centre")
+        }
+    }
+
+    /// 遊ぶ地図（canyon）でも、ウェーブは MLBB と同じ時刻にレーンの中点で出会う（中央 0:25・側 0:33）。
+    /// canyon のレーンは standard の 0.72〜0.74 倍の長さなので、速さと出る位置をレーンの長さの比で縮める（SpawnSystem.minionLaneScale）。
+    func testFirstWaveMeetsOnTimeOnTheCanyon() {
+        let sim = Simulation(config: WorldTestKit.emptyConfig(), map: .canyon)
+        let map = sim.ctx.map
+        var firstClash: [Lane: (time: Double, pos: Vec2)] = [:]
+        sim.runHeadless(maxTime: 45) { ev in
+            for e in ev {
+                guard case .damage(let d) = e, d.source == .minion, let t = sim.state.unit(d.targetID),
+                      t.kind == .minion, let lane = t.minion?.lane, firstClash[lane] == nil else { continue }
+                firstClash[lane] = (sim.state.time, d.pos)
+            }
+        }
+        XCTAssertEqual(firstClash[.mid]?.time ?? 0, 25, accuracy: 1.5)
+        for lane in [Lane.top, .bot] {
+            XCTAssertEqual(firstClash[lane]?.time ?? 0, 33, accuracy: 1.5, "\(lane)")
+        }
+        for lane in Lane.allCases {
+            guard let clash = firstClash[lane] else { XCTFail("\(lane) waves never met"); continue }
+            let path = map.lanePath(lane, for: .blue)
+            XCTAssertEqual(Self.arcLength(clash.pos, along: path), Self.length(path) / 2, accuracy: 400, "\(lane) meets off-centre")
+        }
+        XCTAssertEqual(SpawnSystem.minionLaneScale(.standard, .mid), 1, accuracy: 1e-9)
+        XCTAssertLessThan(SpawnSystem.minionLaneScale(.canyon, .mid), 0.8)
+    }
+
+    /// 敵の基部塔が壊れたレーンだけ、それ以後のウェーブがスーパーミニオンになる（MLBB の Call of Raging）。
+    func testSuperMinionsSpawnOnlyInTheLaneWhoseEnemyBaseTurretFell() {
+        var (s, ctx) = WorldTestKit.makeState(WorldTestKit.emptyConfig())
+        let redTopBase = s.units.indices.first {
+            s.units[$0].kind == .tower && s.units[$0].team == .red && s.units[$0].tower?.lane == .top && s.units[$0].tower?.tier == .base
+        }!
+        WorldTestKit.kill(&s, redTopBase)
+        WorldTestKit.setTime(&s, 11)
+        SpawnSystem.update(&s, ctx)
+        let minions = s.units.filter { $0.kind == .minion }
+        XCTAssertFalse(minions.isEmpty)
+        for m in minions {
+            let expected = m.team == .blue && m.minion!.lane == .top
+            XCTAssertEqual(m.minion!.isSuper, expected, "\(m.team) \(m.minion!.lane)")
+        }
+        let normal = UnitFactory.makeMinion(type: .siege, team: .blue, lane: .top, pos: .zero, time: 11)
+        let boosted = minions.first { $0.minion!.isSuper && $0.minion!.type == .siege }!
+        XCTAssertEqual(boosted.stats.maxHP, normal.stats.maxHP * Balance.superMinionHPMultiplier, accuracy: 1e-6)
+        XCTAssertEqual(boosted.stats.attack, normal.stats.attack * Balance.superMinionAttackMultiplier, accuracy: 1e-6)
+        XCTAssertEqual(boosted.stats.armor, normal.stats.armor + Balance.superMinionDefenseBonus, accuracy: 1e-6)
+        XCTAssertEqual(boosted.radius, normal.radius * Balance.superMinionRadiusMultiplier, accuracy: 1e-6)
     }
 }

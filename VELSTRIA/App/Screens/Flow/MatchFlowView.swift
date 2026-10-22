@@ -221,6 +221,8 @@ struct MatchFlowView: View {
                 case .draft: DraftStep(model: model)
                 }
             }
+            // 段の画面が画面より広くなっても、重ねる物（バトルスキルの選択・トースト）は画面の中に置く
+            .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
             .id(model.step)
             .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity),
                                     removal: .move(edge: .leading).combined(with: .opacity)))
@@ -243,10 +245,20 @@ struct MatchFlowView: View {
             case .heroSelect: app.audio.playMusic(.lobby)
             case .draft: app.audio.playMusic(.draft)
             }
+            // フレンドに今の状態を知らせる（MLBB: ランキングルーム中・マッチング中）
+            let mode = FriendActivityMode.code(model.kind == .ranked ? .ranked : (model.kind == .brawl ? .brawl : .standard))
+            switch step {
+            case .mode: app.friends.setMyActivity(app.idleActivity)
+            case .matching: app.friends.setMyActivity(FriendActivity(.matching, mode: mode))
+            case .lane, .heroSelect, .draft: app.friends.setMyActivity(FriendActivity(.room, mode: mode))
+            }
         }
         .onDisappear {
             // 試合へ進まずに閉じたらホームの曲へ戻す（試合へ進む時はロード画面が曲を変える）
-            if app.activeBattle == nil { app.audio.playMusic(.menu) }
+            if app.activeBattle == nil {
+                app.audio.playMusic(.menu)
+                app.friends.setMyActivity(app.idleActivity)
+            }
         }
         .onAppear {
             model.configure(profile: app.profile, master: app.master)

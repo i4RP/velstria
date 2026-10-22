@@ -66,7 +66,7 @@ extension MatchFactory {
             for pos in LanePosition.allCases {
                 if let h = bySeat[onlineSeatIndex(team: team, position: pos)] {
                     players.append(PlayerSlot(team: team, heroID: h.heroID, controller: .human, position: pos,
-                                              spells: h.spells ?? defaultSpells(for: pos),
+                                              spells: allowedSpells(h.spells ?? defaultSpells(for: pos), position: pos),
                                               emblem: h.emblem ?? humanDefaultEmblem(h.heroID, plan: h.buildPlan, master: master),
                                               skinID: h.skinID, displayName: h.displayName,
                                               autoLevelSkills: h.autoLevelSkills, buildPlan: h.buildPlan))

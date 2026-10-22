@@ -111,6 +111,8 @@ struct BotWorld {
     var structures: [BotStructureInfo] = []
     /// 生存中の中立モンスターの添字。
     var monsters: [Int] = []
+    /// 生存中の召喚されたロード（チームに付いた古環の巨像）の添字。MLBB では味方ヒーロー扱いで、塔・ミニオンが先に狙う。
+    var lords: [Int] = []
     /// レーン経路の全長（index = Lane.rawValue）。
     var laneLength: [Double]
     /// [team][lane] 味方ミニオンの最前線（自チーム視点の進行度、居なければ nil）。
@@ -161,6 +163,7 @@ struct BotWorld {
                                                    targetID: u.attackTargetID, hp: u.hp, maxHP: u.stats.maxHP))
             case .monster:
                 monsters.append(i)
+                if TowerSystem.isSummonedLord(s.units[i]) { lords.append(i) }
             case .dummy:
                 break
             }
@@ -181,6 +184,20 @@ struct BotWorld {
 
     func core(of team: Team) -> BotStructureInfo? {
         structures.first { $0.team == team && $0.isCore }
+    }
+
+    /// team の敵の召喚されたロードのうち、p から radius 以内で最も近いもの（添字）。
+    func enemyLord(near p: Vec2, team: Team, radius: Double, _ s: SimState) -> Int? {
+        var best: Int?
+        var bestD = radius * radius
+        for l in lords where s.units[l].team != team && s.units[l].isAlive {
+            let d = s.units[l].pos.distanceSquared(to: p)
+            if d <= bestD {
+                bestD = d
+                best = l
+            }
+        }
+        return best
     }
 
     /// team にとっての敵構造物のうち、p が攻撃範囲（+ margin）に入っているもの。

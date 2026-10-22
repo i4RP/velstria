@@ -24,7 +24,16 @@ struct DraftStep: View {
         let draft = model.draft ?? DraftEngine(seed: model.seed, master: app.master)
         VStack(spacing: 6) {
             PickPhaseHeader(phase: phaseText(draft), seconds: remaining, urgent: remaining <= 5) {
-                FlowCloseButton(identifier: "flow_close") { confirmLeave = true }
+                HStack(spacing: 10) {
+                    FlowCloseButton(identifier: "flow_close") { confirmLeave = true }
+                    // 先にピックする側（青 = 味方）の印
+                    Text("1st")
+                        .font(.system(size: 22, weight: .heavy, design: .serif))
+                        .italic()
+                        .foregroundStyle(Celestial.ice)
+                        .shadow(color: Celestial.ice.opacity(0.7), radius: 4)
+                        .accessibilityLabel(L("先手", "First pick"))
+                }
             } trailing: {
                 if model.adjusting {
                     Button { FlowFX.confirm(app); model.launch(app: app) } label: {
@@ -46,7 +55,7 @@ struct DraftStep: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 6)
-        .task(id: draft.turnIndex) { await runTurn() }
+        .task(id: "\(draft.turnIndex)-\(draft.playerSlot)") { await runTurn() }
         .task(id: model.adjusting) { await runAdjust() }
         .alert(L("ドラフトを抜けますか？", "Leave the draft?"), isPresented: $confirmLeave) {
             Button(L("抜ける", "Leave"), role: .destructive) {
@@ -66,7 +75,6 @@ struct DraftStep: View {
             let lane = d.playerPick.map { FlowText.position($0.position) } ?? ""
             return L("試合はまもなく始まります。進む：", "The match is about to begin. Go: ") + lane
         }
-        if t.isPlayer { return L("ヒーローPICK（あなた）", "Hero Pick (You)") }
         return t.team == .blue ? L("ヒーローPICK（味方）", "Hero Pick (Ally)") : L("ヒーローPICK（敵）", "Hero Pick (Enemy)")
     }
 
@@ -79,8 +87,9 @@ struct DraftStep: View {
     @ViewBuilder private func center(_ d: DraftEngine) -> some View {
         VStack(spacing: 6) {
             if tab == .heroes && !d.isComplete {
-                LaneFilterBar(selection: $lane)
+                LaneFilterBar(selection: $lane, only: d.plannedLane(blueIndex: d.playerSlot))
                 HeroPickerGrid(heroes: heroes, cell: { cell($0, d) }, onTap: { tap($0, d) })
+                if !(d.currentTurn?.isPlayer ?? true) { chips(d) }
                 lockBar(d)
             } else {
                 LoadoutPanel(model: model) { EmptyView() }
@@ -98,10 +107,42 @@ struct DraftStep: View {
 
     private func cell(_ h: HeroDef, _ d: DraftEngine) -> HeroGridCell {
         let picked = d.pickedHeroIDs.contains(h.heroID)
-        let turn = d.currentTurn
-        let hovered = (turn?.isPlayer == true && model.draftHover == h.heroID) || aiHover == h.heroID
+        // 自分の選択（自分の番の仮選択・手番の前の事前選択）と、今の番の AI の選択
+        let hovered = (d.playerPick == nil && model.draftHover == h.heroID) || aiHover == h.heroID
         return HeroGridCell(hero: h, selected: hovered, locked: false,
-                            unavailable: picked, unavailableLabel: picked ? "PICK" : nil)
+                            unavailable: picked, unavailableLabel: picked ? "PICK" : nil, name: MasterText.heroPickName(h))
+    }
+
+    /// 他の人の番: 「まずは事前選択」「ピックを手伝うよ」（定型文。手伝うとピック順を入れ替える）。
+    private func chips(_ d: DraftEngine) -> some View {
+        HStack(spacing: 8) {
+            chip(L("まずは事前選択", "Pre-select first"), id: "flow_chip_preselect", enabled: d.playerPick == nil) {
+                say(L("まずは事前選択", "Pre-select first"))
+            }
+            chip(L("ピックを手伝うよ", "I'll help you pick"), id: "flow_chip_help", enabled: d.canOfferPickHelp) {
+                offerPickHelp()
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func chip(_ title: String, id: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(Celestial.heading(12))
+                .foregroundStyle(Theme.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .padding(.horizontal, 10)
+                .frame(minHeight: 34)
+                .background(RoundedRectangle(cornerRadius: 4).fill(Celestial.inkRaised.opacity(0.85)))
+                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Celestial.ice.opacity(0.45), lineWidth: 0.7))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .opacity(enabled ? 1 : 0.4)
+        .accessibilityIdentifier(id)
     }
 
     private func lockBar(_ d: DraftEngine) -> some View {
@@ -112,8 +153,19 @@ struct DraftStep: View {
             if let c = candidate, playerTurn, let h = app.master.hero(c) {
                 HeroPortraitView(heroID: c, size: 34, showsRole: false)
                 Text(MasterText.hero(h)).font(Celestial.heading(13)).foregroundStyle(Theme.textPrimary).lineLimit(1).minimumScaleFactor(0.7)
+            } else if let t = turn, !t.isPlayer {
+                // 他の人の番: 紋章と「○○ PICK中」
+                Image(systemName: "shield.lefthalf.filled")
+                    .font(.system(size: 18))
+                    .foregroundStyle(Theme.teamColor(t.team, colorblind: app.profile.settings.colorblindMode))
+                Text(pickerName(t, d) + L(" PICK中", " picking"))
+                    .font(Celestial.heading(13))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .accessibilityIdentifier("flow_draft_picking")
             } else {
-                Text(playerTurn ? L("ヒーローを選んでください", "Select a hero") : L("相手の選択を待っています…", "Waiting for others…"))
+                Text(L("ヒーローを選んでください", "Select a hero"))
                     .font(Theme.body(12))
                     .foregroundStyle(Theme.textSecondary)
                     .lineLimit(1)
@@ -138,9 +190,22 @@ struct DraftStep: View {
 
     // MARK: 操作
 
+    /// 今の番の人の名前（味方は「味方 AI」、敵は伏せて「プレイヤーN」）。
+    private func pickerName(_ t: DraftTurn, _ d: DraftEngine) -> String {
+        if t.team == .blue { return L("味方 AI", "Ally AI") }
+        let n = d.picks(for: .red).count + 1
+        return L("プレイヤー\(n)", "Player \(n)")
+    }
+
     private func tap(_ h: HeroDef, _ d: DraftEngine) {
         guard let turn = d.currentTurn, turn.isPlayer else {
-            app.haptics.tap()
+            // 他の人の番: 事前選択（自分の番が来たら選んだ状態から始まる。MLBB と同じ）
+            if d.canPlayerPreselect(h.heroID) {
+                FlowFX.tap(app)
+                withAnimation(.spring(duration: 0.25)) { model.draftHover = h.heroID }
+            } else {
+                app.haptics.tap()
+            }
             return
         }
         if d.canPlayerSelect(h.heroID) {
@@ -149,6 +214,25 @@ struct DraftStep: View {
         } else {
             FlowFX.error(app)
         }
+    }
+
+    /// 定型文をチャット欄に出す（自分の発言）。
+    private func say(_ text: String) {
+        FlowFX.tap(app)
+        let me = app.profile.displayName.isEmpty ? L("あなた", "You") : app.profile.displayName
+        model.chat.append(FlowChatLine(speaker: me, text: text, isMine: true))
+    }
+
+    /// 「ピックを手伝うよ」: 今の番の味方 AI とピック順を入れ替える（AI は受ける）。
+    private func offerPickHelp() {
+        guard var d = model.draft, d.canOfferPickHelp else { return }
+        say(L("ピックを手伝うよ", "I'll help you pick"))
+        d.swapPickOrderWithCurrent()
+        model.aiPending = nil
+        aiHover = nil
+        withAnimation(.spring(duration: 0.3)) { model.draft = d }
+        if let lane = d.plannedLane(blueIndex: d.playerSlot) { model.position = lane }
+        app.showToast(L("ピック順を交換しました", "Positions have been swapped"))
     }
 
     /// 味方への交換の申請（選ぶ前ならレーン交換、両方が選んだ後ならヒーロー交換）。AI はロールで応じるかを決める。
@@ -244,7 +328,7 @@ struct DraftStep: View {
             model.draft = d
             aiHover = nil
         }
-        model.draftHover = nil
+        if turn.isPlayer || (model.draftHover.map { d.isTaken($0) } ?? false) { model.draftHover = nil }
         model.aiPending = nil
         if turn.isPlayer {
             app.haptics.impact(.heavy)
@@ -286,34 +370,41 @@ private struct DraftAllyColumn: View {
         let isMe = i == draft.playerSlot
         let active = draft.currentTurn?.team == .blue && picks.count == i
         let lane = i < picks.count ? picks[i].position : draft.plannedLane(blueIndex: i)
+        // 四角に出すヒーロー: 選んだ物、今の番の仮選択、自分の事前選択（薄く）
+        let shown: String? = i < picks.count ? picks[i].heroID : (active ? hover : (isMe ? model.draftHover : nil))
         HStack(spacing: 5) {
             CountryFlagBadge(code: app.profile.countryCode, size: 14)
             ZStack {
-                RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.white.opacity(0.06))
-                if i < picks.count {
-                    HeroPortraitView(heroID: picks[i].heroID, size: 32, showsRole: false)
+                RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.black.opacity(0.45))
+                if let shown {
+                    HeroPortraitView(heroID: shown, size: 36, showsRole: false)
+                        .opacity(i < picks.count ? 1 : 0.5)
                         .transition(.scale(scale: 1.5).combined(with: .opacity))
-                } else if active, let hover {
-                    HeroPortraitView(heroID: hover, size: 32, showsRole: false).opacity(0.5)
+                } else if let lane {
+                    // まだ選んでいない: 大きなレーンの四角（MLBB と同じ）
+                    Image(systemName: FlowText.positionSymbol(lane))
+                        .font(.system(size: 20, weight: .regular))
+                        .foregroundStyle(Celestial.ice)
+                } else {
+                    Image(systemName: "questionmark").font(.system(size: 14, weight: .bold)).foregroundStyle(Theme.textSecondary)
                 }
             }
-            .frame(width: 32, height: 32)
+            .frame(width: 36, height: 36)
             .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(active ? Theme.gold : .clear, lineWidth: 1.5))
-            VStack(alignment: .leading, spacing: 1) {
-                Text(isMe ? (app.profile.displayName.isEmpty ? L("あなた", "You") : app.profile.displayName) : L("味方 AI", "Ally AI"))
-                    .font(Celestial.heading(11))
-                    .foregroundStyle(isMe ? Theme.gold : Theme.textPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                if let lane {
-                    Text(FlowText.position(lane)).font(Theme.body(9)).foregroundStyle(Theme.textSecondary).lineLimit(1)
-                }
+            VStack(alignment: .leading, spacing: 2) {
                 if i >= picks.count {
                     // まだ選んでいない: 得意ヒーロー 3 体（MLBB の選択画面と同じ）
                     HStack(spacing: 2) {
-                        ForEach(favorites(i, lane: lane), id: \.self) { HeroPortraitView(heroID: $0, size: 13, showsRole: false) }
+                        ForEach(favorites(i, lane: lane), id: \.self) { HeroPortraitView(heroID: $0, size: 14, showsRole: false) }
                     }
+                } else if let lane {
+                    Text(FlowText.position(lane)).font(Theme.body(9)).foregroundStyle(Theme.textSecondary).lineLimit(1)
                 }
+                Text(isMe ? (app.profile.displayName.isEmpty ? L("あなた", "You") : app.profile.displayName) : L("味方 AI", "Ally AI"))
+                    .font(Celestial.heading(11))
+                    .foregroundStyle(isMe ? Color(red: 0.62, green: 0.92, blue: 1) : Theme.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
             }
             Spacer(minLength: 0)
             if isMe {
@@ -334,7 +425,14 @@ private struct DraftAllyColumn: View {
         }
         .padding(.horizontal, 4)
         .frame(height: 46)
-        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(isMe ? Theme.gold.opacity(0.12) : .clear))
+        // 自分の行は水色に光る（MLBB と同じ）
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(isMe ? AnyShapeStyle(LinearGradient(colors: [Color(red: 0.25, green: 0.70, blue: 0.95).opacity(0.45), .clear],
+                                                      startPoint: .leading, endPoint: .trailing))
+                       : AnyShapeStyle(Color.clear)))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .stroke(isMe ? Color(red: 0.45, green: 0.88, blue: 1).opacity(0.8) : .clear, lineWidth: 1))
+        .shadow(color: isMe ? Color(red: 0.4, green: 0.85, blue: 1).opacity(0.45) : .clear, radius: 6)
         .overlay(alignment: .trailing) {
             if isMe, let emote = model.myEmote { EmoteBubble(cosmeticID: emote, size: 40).offset(x: 34) }
         }
@@ -373,7 +471,19 @@ private struct DraftEnemyColumn: View {
         .glass(cornerRadius: 12, tint: Theme.teamColor(.red, colorblind: app.profile.settings.colorblindMode).opacity(0.7))
     }
 
-    private func row(_ i: Int) -> some View {
+    @ViewBuilder private func row(_ i: Int) -> some View {
+        let picks = draft.picks(for: .red)
+        if i < picks.count {
+            EnemyHeroPreviewButton(heroID: picks[i].heroID) {
+                rowContent(i)
+            }
+            .accessibilityIdentifier("flow_enemy_draft_\(i)")
+        } else {
+            rowContent(i)
+        }
+    }
+
+    private func rowContent(_ i: Int) -> some View {
         let picks = draft.picks(for: .red)
         let active = draft.currentTurn?.team == .red && picks.count == i
         return HStack(spacing: 5) {

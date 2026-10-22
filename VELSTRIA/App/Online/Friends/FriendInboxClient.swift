@@ -93,6 +93,8 @@ final class FriendInboxClient {
     var onStatus: ((Status) -> Void)?
     var onMessage: ((_ from: String, _ payload: InboxPayload) -> Void)?
     var onPresence: (([String]) -> Void)?
+    /// 在席の問い合わせの応答に載った、フレンドの今の状態（onPresence の直後に呼ぶ）。
+    var onActivity: (([String: FriendActivity]) -> Void)?
     /// 受信箱が消されていた（4014。本人が別の端末で消した・1 年繋がなかった）。このコードは二度と使えない。
     var onErased: (() -> Void)?
 
@@ -153,6 +155,12 @@ final class FriendInboxClient {
         socket.send(text: text)
     }
 
+    /// 自分の今の状態を知らせる（繋いでいない時は何もしない。繋ぎ直したら FriendHub が送り直す）。
+    func sendStatus(_ a: FriendActivity) {
+        guard status == .online, let socket, let text = InboxClientMessage.status(a) else { return }
+        socket.send(text: text)
+    }
+
     /// フレンドの在席を問い合わせる（結果は onPresence）。
     func requestPresence(_ codes: [String]) {
         guard status == .online, let socket, !codes.isEmpty, let text = InboxClientMessage.presence(codes: codes) else { return }
@@ -199,8 +207,9 @@ final class FriendInboxClient {
             onMessage?(from, payload)
         case .ack(let id, let result):
             pending.removeValue(forKey: id)?(result)
-        case .presence(let online):
+        case .presence(let online, let activity):
             onPresence?(online)
+            onActivity?(activity)
         }
     }
 

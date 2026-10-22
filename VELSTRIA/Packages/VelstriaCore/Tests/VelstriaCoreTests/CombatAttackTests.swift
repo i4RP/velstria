@@ -308,6 +308,9 @@ final class CombatAttackTests: XCTestCase {
 
     func testStructuresFirstAndLowestHealth() {
         var w = CombatWorld()
+        // アウタータワーは最初のミニオンから 15 秒（0:26）まで無敵で狙えない（Balance.Tower.outerWakeTime）
+        w.s.tick = 1800
+        w.s.time = 60
         let a = w.addHero(team: .blue, at: Vec2(5000, 5000))
         let tower = w.addUnit(.tower, team: .red, at: Vec2(5400, 5000), radius: 110, stats: CombatWorld.stats(hp: 4000))
         w.addUnit(.minion, team: .red, at: Vec2(5100, 5000), stats: CombatWorld.stats(hp: 300))

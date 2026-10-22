@@ -35,6 +35,8 @@ const TIMEOUT_MS = 15_000;
 let wsBase = process.env.RELAY_URL?.replace(/\/+$/, "");
 /** 手元の Worker でだけ、運営が利用を止めたコード（SUSPENDED_FRIEND_CODES）として渡すコード */
 const SUSPENDED_CODE = process.env.RELAY_URL ? null : randomFriendCode();
+/** 運営のメールの鍵（手元の Worker は乱数で渡す。配備済みの中継では環境変数 OPS_MAIL_KEY があれば使い、無ければ運営のテストを飛ばす） */
+const OPS_MAIL_KEY = process.env.RELAY_URL ? (process.env.OPS_MAIL_KEY ?? null) : randomKey();
 let devServer;
 let persistDir;
 
@@ -53,6 +55,7 @@ before(async () => {
     "--inspector-port", String(inspectorPort),
     "--persist-to", persistDir,
     "--var", `SUSPENDED_FRIEND_CODES:ZZZZZZZZ,${SUSPENDED_CODE}`,
+    "--var", `OPS_MAIL_KEY:${OPS_MAIL_KEY}`,
     "--show-interactive-dev-session=false",
     "--log-level", "warn",
   ];
@@ -659,6 +662,25 @@ describe("フレンドの受信箱", () => {
     assert.deepEqual(await nextJson(a), { t: "presence", online: [bCode] });
   });
 
+  test("在席の問い合わせに、相手が知らせた今の状態（ルーム中・試合中など）が載る（知らせていなければ載らない・知らない種類は捨てる）", async () => {
+    const aCode = randomFriendCode(), bCode = randomFriendCode(), cCode = randomFriendCode();
+    const a = await openInbox(aCode, randomKey(), "A");
+    const b = await openInbox(bCode, randomKey(), "B");
+    await openInbox(cCode, randomKey(), "C");
+    b.send(JSON.stringify({ t: "status", s: "match", m: "ranked", at: 1_800_000_000_000 }));
+    b.send(JSON.stringify({ t: "status", s: "bogus" }));
+    await delay(200);
+    a.send(JSON.stringify({ t: "presence", codes: [bCode, cCode] }));
+    assert.deepEqual(await nextJson(a), {
+      t: "presence", online: [bCode, cCode], status: { [bCode]: { s: "match", m: "ranked", at: 1_800_000_000_000 } },
+    });
+    // オンラインに戻ると status から外れる
+    b.send(JSON.stringify({ t: "status", s: "online" }));
+    await delay(200);
+    a.send(JSON.stringify({ t: "presence", codes: [bCode] }));
+    assert.deepEqual(await nextJson(a), { t: "presence", online: [bCode] });
+  });
+
   test("コードの持ち主は最初の鍵で決まり、別の鍵は 4012 で断られる", async () => {
     const code = randomFriendCode();
     const first = await openInbox(code, randomKey(), "first");
@@ -1240,9 +1262,9 @@ describe("ランク", () => {
     const again = await rankMatch(account, { matchId: "m_erase001", won: true, rating: 8, mvp: false });
     assert.deepEqual([again.json.result.before, again.json.state.wins], [rankState(local), 51]);
 
-    // 持ち主の鍵も残らない: 消した後は別の鍵でも使い始められる（アプリは消した後に新しいフレンドコードを作る）
+    // コードの持ち主（受信箱と同じ鍵）は残る: ランクを消しても別の鍵では使えない（他人にコードを渡さない）。同じ鍵ならまた使える
     assert.equal((await rankCall(account.code, "erase", { key: account.key })).status, 200);
-    account.key = randomKey();
+    assertError(await rankCall(account.code, "get", { key: randomKey() }), 403, "forbidden");
     assert.deepEqual(await rankGet(account), RANK_INITIAL);
   });
 
@@ -1572,5 +1594,152 @@ describe("ランクの規則とシーズン（rank.ts を直接）", () => {
     assert.deepEqual(await account.seed(OWNER_HASH, cloudRank()), { ok: true, state: initial });
     assert.deepEqual(await account.erase(OWNER_HASH), { ok: true, state: initial });
     assert.equal(kv.size, 0);
+  });
+});
+
+
+// ---- 名刺・ランキング・運営からのメール（Directory） ----
+
+/** 名刺の要求（POST /v1/profile/<code>/<op>） */
+function profileCall(code, op, body) {
+  return httpCall(`/v1/profile/${code}/${op}`, body);
+}
+
+/** 正しい名刺（一部を変えられる） */
+function card(overrides = {}) {
+  return {
+    name: "テスト", avatar: "H027", frame: null, level: 12, country: "JP",
+    heroes: [{ heroID: "H027", matches: 20, wins: 12 }], matches: 40, wins: 22, ...overrides,
+  };
+}
+
+describe("名刺・ランキング・運営からのメール", () => {
+  /** 試したアカウント（最後に名刺とランクを消す） */
+  const accounts = [];
+  after(async () => {
+    for (const { code, key } of accounts.splice(0)) {
+      await profileCall(code, "erase", { key }).catch(() => {});
+      await rankCall(code, "erase", { key }).catch(() => {});
+    }
+  });
+
+  /** ランクを預けて（seed）名刺を置いたアカウント */
+  async function newCardAccount(rank = cloudRank(), overrides = {}) {
+    const account = { code: randomFriendCode(), key: randomKey() };
+    accounts.push(account);
+    const seeded = await rankCall(account.code, "seed", { key: account.key, state: rank });
+    assert.equal(seeded.status, 200, seeded.text);
+    const put = await profileCall(account.code, "put", { key: account.key, profile: card(overrides) });
+    assert.equal(put.status, 200, put.text);
+    return account;
+  }
+
+  test("名刺を置いて、まとめて読める（ランクは中継の記録。自己申告のランクは受け取らない）。消すと読めない", async () => {
+    const account = { code: randomFriendCode(), key: randomKey() };
+    accounts.push(account);
+    const put = await profileCall(account.code, "put", { key: account.key, profile: { ...card(), rank: { tier: 6, division: 0, stars: 999 } } });
+    assert.equal(put.status, 200, put.text);
+    assert.equal(put.headers.get("cache-control"), "no-store");
+    const p = put.json.profile;
+    assert.equal(p.code, account.code);
+    assert.equal(p.name, "テスト");
+    assert.deepEqual(p.rank, { tier: 0, division: 3, stars: 0 }, "ランクは送った値でなく初期値");
+    assert.match(p.updatedAt, /^\d{4}-\d{2}-\d{2}T/);
+    const read = await httpCall("/v1/profiles", { codes: [account.code, randomFriendCode(), "bad"] });
+    assert.equal(read.status, 200, read.text);
+    assert.deepEqual(read.json.profiles.map((x) => x.code), [account.code], "名刺のあるコードだけ");
+    assert.ok(read.json.profiles[0].lastSeen, "最終ログイン（受信箱の最後の利用）");
+    const erased = await profileCall(account.code, "erase", { key: account.key });
+    assert.deepEqual(erased.json, { ok: true, result: "erased" });
+    assert.deepEqual((await httpCall("/v1/profiles", { codes: [account.code] })).json.profiles, []);
+  });
+
+  test("名刺の持ち主はランク・受信箱と同じ鍵（先に使った鍵）。違う鍵では置けず、消せない", async () => {
+    const account = await newCardAccount();
+    assertError(await profileCall(account.code, "put", { key: randomKey(), profile: card() }), 403, "forbidden");
+    assertError(await profileCall(account.code, "erase", { key: randomKey() }), 403, "forbidden");
+    // 名刺を先に置いたコードのランクも、同じ鍵でしか使えない
+    const fresh = { code: randomFriendCode(), key: randomKey() };
+    accounts.push(fresh);
+    assert.equal((await profileCall(fresh.code, "put", { key: fresh.key, profile: card() })).status, 200);
+    assertError(await rankCall(fresh.code, "seed", { key: randomKey(), state: cloudRank() }), 403, "forbidden");
+  });
+
+  test("名刺の中身を検める（名前 1〜12 文字・ヒーロー ID・国・勝ち数 ≤ 試合数・得意ヒーロー 3 体まで）", async () => {
+    const code = randomFriendCode(), key = randomKey();
+    accounts.push({ code, key });
+    for (const bad of [
+      card({ name: "" }), card({ name: "あ".repeat(13) }), card({ name: "a\u0007b" }), card({ avatar: "X1" }),
+      card({ country: "jp" }), card({ level: 0 }), card({ wins: 41 }),
+      card({ heroes: [1, 2, 3, 4].map(() => ({ heroID: "H027", matches: 1, wins: 1 })) }),
+      card({ heroes: [{ heroID: "H027", matches: 1, wins: 2 }] }), null, "x",
+    ]) {
+      assertError(await profileCall(code, "put", { key, profile: bad }), 400, "bad_profile");
+    }
+    assertError(await profileCall(code, "put", { profile: card() }), 400, "bad_key");
+    assertError(await httpCall("/v1/profiles", { codes: Array.from({ length: 101 }, randomFriendCode) }), 400, "bad_request");
+  });
+
+  test("ランキング: 今シーズンの最高ランクの順（フレンド・国の範囲、自分の順位、範囲の外は null = ランク外）", async () => {
+    const legend = await newCardAccount(cloudRank({ tier: "legend", division: 2, stars: 3, highestTier: "legend" }), { country: "JP" });
+    const mythic = await newCardAccount(cloudRank({ tier: "mythic", division: 1, stars: 30, highestTier: "mythic", highestMythicStars: 30 }), { country: "US" });
+    const epic = await newCardAccount(cloudRank({ tier: "epic", division: 1, stars: 4, highestTier: "epic" }), { country: "JP" });
+    const codes = [legend.code, mythic.code, epic.code];
+    const friends = await httpCall("/v1/ranking", { scope: "friends", codes, me: epic.code });
+    assert.equal(friends.status, 200, friends.text);
+    assert.deepEqual(friends.json.entries.map((e) => [e.position, e.profile.code]), [[1, mythic.code], [2, legend.code], [3, epic.code]]);
+    assert.deepEqual(friends.json.entries[0].profile.seasonBest, { tier: 6, division: 0, stars: 30 });
+    assert.deepEqual([friends.json.me.position, friends.json.me.profile.code], [3, epic.code]);
+    // 国の範囲（JP だけ）。自分が US なら範囲の外（ランク外）
+    const jp = await httpCall("/v1/ranking", { scope: "country", country: "JP", me: mythic.code });
+    const jpCodes = jp.json.entries.map((e) => e.profile.code);
+    assert.ok(jpCodes.includes(legend.code) && jpCodes.includes(epic.code) && !jpCodes.includes(mythic.code));
+    assert.equal(jp.json.me, null);
+    // 世界: 並びは最高ランクの順（ほかのテストの名刺も混ざる）
+    const world = await httpCall("/v1/ranking", { scope: "global", me: legend.code });
+    const scores = world.json.entries.map((e) => e.profile.seasonBest);
+    const score = (r) => r.tier * 100000 + (r.tier >= 6 ? r.stars : (10 - r.division) * 100 + r.stars);
+    for (let i = 1; i < scores.length; i++) assert.ok(score(scores[i - 1]) >= score(scores[i]), "最高ランクの順");
+    assert.equal(world.json.me.profile.code, legend.code);
+    assertError(await httpCall("/v1/ranking", { scope: "all" }), 400, "bad_scope");
+  });
+
+  test("ランク戦の結果で、今のランクと今シーズンの最高が名刺に反映される（下がっても最高はそのまま）", async () => {
+    const account = await newCardAccount(cloudRank({ tier: "legend", division: 1, stars: 5, highestTier: "legend" }));
+    const up = await rankMatch(account, { matchId: newMatchId(), won: true, rating: 8, mvp: false });
+    assert.equal(up.status, 200, up.text);
+    let p = (await httpCall("/v1/profiles", { codes: [account.code] })).json.profiles[0];
+    assert.deepEqual(p.rank, { tier: 6, division: 0, stars: 0 }, "ミシックへ上がった");
+    assert.deepEqual(p.seasonBest, { tier: 6, division: 0, stars: 0 });
+    assert.deepEqual([p.seasonWins, p.seasonLosses], [1, 0]);
+    const down = await rankMatch(account, { matchId: newMatchId(), won: false, rating: 2, mvp: false });
+    assert.equal(down.status, 200, down.text);
+    p = (await httpCall("/v1/profiles", { codes: [account.code] })).json.profiles[0];
+    assert.deepEqual(p.rank, { tier: 5, division: 1, stars: 4 }, "レジェンド I へ落ちた");
+    assert.deepEqual(p.seasonBest, { tier: 6, division: 0, stars: 0 }, "今シーズンの最高はミシックのまま");
+    // ランクを消すと名刺も消える
+    assert.equal((await rankCall(account.code, "erase", { key: account.key })).status, 200);
+    assert.deepEqual((await httpCall("/v1/profiles", { codes: [account.code] })).json.profiles, []);
+  });
+
+  test("運営のメール: 鍵が無い・違うと登録できず、登録した物は GET で配られ、消すと配られない", { skip: !OPS_MAIL_KEY }, async () => {
+    const id = `ops_${randomBytes(4).toString("hex")}`;
+    const mail = {
+      id, titleJa: "メンテナンスのお知らせ", titleEn: "Maintenance", bodyJa: "本文", bodyEn: "Body",
+      attachments: [{ kind: "coin", amount: 500 }], important: true,
+    };
+    assertError(await httpCall("/v1/mail/publish", { mail }), 403, "forbidden");
+    assertError(await httpCall("/v1/mail/publish", { key: randomKey(), mail }), 403, "forbidden");
+    assertError(await httpCall("/v1/mail/publish", { key: OPS_MAIL_KEY, mail: { ...mail, attachments: [{ kind: "bogus", amount: 1 }] } }), 400, "bad_mail");
+    const published = await httpCall("/v1/mail/publish", { key: OPS_MAIL_KEY, mail });
+    assert.deepEqual(published.json, { ok: true, id });
+    const list = await httpCall("/v1/mail", undefined, "GET");
+    assert.equal(list.status, 200, list.text);
+    const got = list.json.mail.find((m) => m.id === id);
+    assert.ok(got, "配られる");
+    assert.equal(got.category, "important", "重要の印があれば重要なお知らせ");
+    assert.ok(got.expiresAt - got.startsAt === 60 * 24 * 60 * 60 * 1000, "期間は既定で 60 日");
+    assert.deepEqual((await httpCall("/v1/mail/delete", { key: OPS_MAIL_KEY, id })).json, { ok: true, result: "deleted" });
+    assert.ok(!(await httpCall("/v1/mail", undefined, "GET")).json.mail.some((m) => m.id === id));
   });
 });

@@ -429,15 +429,21 @@ final class FlowResultTests: XCTestCase {
             MailItem(date: now, title: "c", body: "", attachments: [MailAttachment(kind: .gem, amount: 5)],
                      expiresAt: now.addingTimeInterval(-60)),
         ]
-        // 赤い点は受け取っていない添付のあるメールだけ（未読でも添付が無ければ付かない。MLBB 2.2.16）
+        // 赤い点は未読の重要メールと、未読で受け取れる添付つきのメールだけ（MLBB 2.2.16。委員会の調べ 2026-10-21）
         XCTAssertEqual(HomeBadges.mail(p, now: now), 1)
         XCTAssertEqual(HomeBadges.claimableMail(p, now: now), 1)
         p.mail[0].read = true
-        XCTAssertEqual(HomeBadges.mail(p, now: now), 1, "既読でも受け取るまで付く")
-        p.mail[0].claimed = true
-        XCTAssertEqual(HomeBadges.mail(p, now: now), 0)
+        XCTAssertEqual(HomeBadges.mail(p, now: now), 0, "既読にすると消える（受け取りの数は残る）")
+        XCTAssertEqual(HomeBadges.claimableMail(p, now: now), 1)
         p.mail.append(MailItem(date: now, title: "d", body: ""))
         XCTAssertEqual(HomeBadges.mail(p, now: now), 0, "添付の無い未読には付かない")
+        var important = MailItem(date: now, title: "e", body: "")
+        important.important = true
+        p.mail.append(important)
+        XCTAssertEqual(HomeBadges.mail(p, now: now), 1, "重要な未読には付く")
+        p.mail[p.mail.count - 1].read = true
+        p.mail[0].claimed = true
+        XCTAssertEqual(HomeBadges.mail(p, now: now), 0)
         // スターパス: 到達した段の未受取の報酬
         XCTAssertEqual(HomeBadges.starPass(p), 0)
         LiveOpsService.addPassXP(LiveOpsService.passXPPerLevel * 2, to: &p)
@@ -608,6 +614,58 @@ final class FlowLaneAndModeTests: XCTestCase {
                 XCTAssertGreaterThanOrEqual(d, a.spot.radius + b.spot.radius, "\(a) と \(b) が重なる")
             }
         }
+    }
+}
+
+/// ドラフトのピック順の交換（「ピックを手伝うよ」）と事前選択（MLBB 2.2.16）。
+final class FlowDraftHelpTests: XCTestCase {
+    func testPickHelpSwapsPickOrderWithTheAllyPickingNow() {
+        var d = DraftEngine(seed: 7, playerSlot: 2, playerLane: .mid)
+        XCTAssertEqual(d.currentTurn?.team, .blue)
+        XCTAssertEqual(d.currentTurn?.isPlayer, false)
+        XCTAssertTrue(d.canOfferPickHelp, "味方 AI の番で、プレイヤーはまだ後の番")
+        let allyLane = d.plannedLane(blueIndex: 0)
+        XCTAssertTrue(d.swapPickOrderWithCurrent())
+        XCTAssertEqual(d.playerSlot, 0)
+        XCTAssertEqual(d.currentTurn?.isPlayer, true, "今の番がプレイヤーになる")
+        XCTAssertEqual(d.plannedLane(blueIndex: 0), .mid, "レーンはプレイヤーに付いていく")
+        XCTAssertEqual(d.plannedLane(blueIndex: 2), allyLane)
+        XCTAssertFalse(d.canOfferPickHelp, "自分の番では出せない")
+        let first = d.autoChoiceForPlayer(preferred: [])
+        XCTAssertTrue(d.commit(first))
+        XCTAssertEqual(d.playerPick?.heroID, first)
+        XCTAssertEqual(d.playerPick?.position, .mid)
+        XCTAssertFalse(d.canOfferPickHelp, "選んだ後は出せない")
+        XCTAssertFalse(d.swapPickOrderWithCurrent())
+    }
+
+    func testPreselectIsOnlyForFreeHeroesBeforeYouPick() {
+        var d = DraftEngine(seed: 3, playerSlot: 1)
+        let h = d.heroIDs[0]
+        XCTAssertTrue(d.canPlayerPreselect(h))
+        XCTAssertFalse(d.canPlayerSelect(h), "B1 は味方 AI の番")
+        let ai = d.aiChoice()
+        XCTAssertTrue(d.commit(ai))
+        if let ai { XCTAssertFalse(d.canPlayerPreselect(ai), "取られたヒーローは事前選択できない") }
+        XCTAssertFalse(d.canPlayerPreselect("H999"))
+    }
+
+    func testPickNamesFollowTheJapaneseClient() throws {
+        let saved = Loc.current
+        defer { Loc.current = saved }
+        let hero = try XCTUnwrap(MasterData.shared.heroes.first)
+        Loc.current = .ja
+        let ja = MasterText.heroPickName(hero)
+        XCTAssertTrue(ja.hasSuffix(")"), ja)
+        XCTAssertTrue(hero.displayNameJa.hasSuffix(String(ja.prefix { $0 != "(" })), "二つ名を除いた名前: \(ja)")
+        XCTAssertFalse(ja.contains(","), "英語の二つ名は付けない: \(ja)")
+        for h in MasterData.shared.heroes {
+            XCTAssertLessThanOrEqual(MasterText.heroPickName(h).count, 16, "選択画面の名前が長すぎる: \(MasterText.heroPickName(h))")
+        }
+        Loc.current = .en
+        XCTAssertFalse(MasterText.heroPickName(hero).contains("("))
+        XCTAssertFalse(MasterText.heroPickName(hero).contains(","))
+        XCTAssertEqual(LaneFilterBar.order, [.top, .carry, .mid, .support, .jungle], "MLBB のドラフトのタブの並び")
     }
 }
 

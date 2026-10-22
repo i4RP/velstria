@@ -184,13 +184,13 @@ enum BotCombat {
             eH += st.ehp * max(1, full)
             enemies += 1
         }
-        // 構造物
+        // 構造物（MLBB の塔は確定ダメージで、同じヒーローに当てるたびに +75%。5 発の平均で攻撃の約 2.5 倍）
         if let st = w.alliedStructure(covering: center, team: a.team, margin: 150) {
-            aD += s.units[st.index].stats.attack * 1.5
+            aD += s.units[st.index].stats.attack * 2.5
             aH += 2500
         }
         if let st = w.enemyStructure(covering: center, team: a.team, margin: 150) {
-            eD += s.units[st.index].stats.attack * 1.5
+            eD += s.units[st.index].stats.attack * 2.5
             eH += 2500
         }
         // ミニオン: 敵ヒーローを殴ると自分の近くの敵ミニオンが一斉にこちらを狙う（救援要請）。
@@ -331,15 +331,20 @@ enum BotCombat {
     static func mustLeaveTower(_ s: SimState, _ w: BotWorld, _ a: BotAgent, _ mem: BotHeroMemory,
                                _ st: BotStructureInfo) -> Bool {
         let hp = s.units[a.i].hpRatio
-        let tower = s.units[st.index].tower
-        let ramp = tower?.rampTargetID == a.id ? (tower?.rampHits ?? 0) : 0
+        // 連続命中（1 発ごとに +75%、2 秒当たらなければ戻る）の回数
+        var ramp = 0
+        if let t = s.units[st.index].tower, t.rampTargetID == a.id, let last = t.rampLastAt,
+           s.time - last <= Balance.Tower.rampResetTime {
+            ramp = t.rampHits
+        }
         guard mem.goal == .push || mem.goal == .teamfight || mem.goal == .defend || mem.goal == .objective else { return true }
         var allies = 0
         for h in w.heroes where h != a.i && s.units[h].team == a.team && s.units[h].isAlive {
             if s.units[h].pos.distanceSquared(to: st.pos) < 1300 * 1300 { allies += 1 }
         }
         if st.hp < st.maxHP * 0.3 && allies >= 2 && hp > 0.25 { return false }
-        return !(allies >= 1 && hp > 0.55 && ramp < 3)
+        // 塔の弾は確定ダメージで 288 → 560 → 800 …と伸びるので、2 発受けたら一度出る
+        return !(allies >= 1 && hp > 0.55 && ramp < 2)
     }
 
     /// 敵タワーの射程外へ出る（レーンを自陣側へ戻る）。

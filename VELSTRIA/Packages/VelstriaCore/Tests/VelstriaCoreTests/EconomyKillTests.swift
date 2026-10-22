@@ -47,7 +47,8 @@ final class EconomyKillTests: XCTestCase {
         XCTAssertEqual(f.hero(a).killStreak, 1)
         XCTAssertEqual(f.hero(v).score.deaths, 1)
         XCTAssertEqual(f.hero(v).deathStreak, 1)
-        XCTAssertEqual(f.hero(v).respawnTimer, 10, accuracy: 1e-9)
+        // 復活: 3.2 + 2.1 × Lv3 + 5 分 = 14.5 秒（MLBB 1.4.86 の式）
+        XCTAssertEqual(f.hero(v).respawnTimer, 14.5, accuracy: 1e-9)
         XCTAssertFalse(f.s.units[v].isAlive)
         XCTAssertEqual(f.s.teams[Team.blue.rawValue].kills, 1)
         XCTAssertTrue(f.s.firstBloodTaken)
@@ -275,10 +276,38 @@ final class EconomyKillTests: XCTestCase {
         XCTAssertTrue(f.ctx.map.isInFountain(u.pos, team: .red))
     }
 
+    /// チーム賞金（MLBB の Team Bounty）: Gold で 1500 以上負けている側が、自分たちの平均より Gold の多い敵を倒すと、
+    /// 倒した側の全員に追加 Gold（差 × 25% を 5 人で等分。額の式は仮）。
+    func testTeamBountyForTheTeamBehind() {
+        var (f, blue, red) = setup()
+        let a = blue[0], v = red[0]
+        f.place(a, at: spot)
+        f.place(v, at: spot + Vec2(100, 0))
+        // 赤の v が 2000 稼いでいる（赤 3500・青 1500 で 2000 差）。v の Gold − 青の平均 = 2300 − 300 = 2000 → 2000 × 0.25 / 5 = 100
+        f.s.units[v].hero!.score.goldEarned = 2000
+        XCTAssertEqual(DeathSystem.teamBounty(f.s, victimIndex: v, killerTeam: .blue), 100)
+        let golds = blue.map { f.hero($0).gold }
+        f.kill(v, by: f.id(a))
+        XCTAssertEqual(f.hero(a).gold - golds[0], 300 + Balance.firstBloodBonus + 100)
+        for (n, i) in blue.enumerated().dropFirst() { XCTAssertEqual(f.hero(i).gold - golds[n], 100) }
+        // 差が 1500 未満なら付かない
+        var (g, blue2, red2) = setup()
+        g.s.units[red2[0]].hero!.score.goldEarned = 1400
+        XCTAssertEqual(DeathSystem.teamBounty(g.s, victimIndex: red2[0], killerTeam: .blue), 0)
+        // リードしている側が倒しても付かない
+        g.s.units[red2[0]].hero!.score.goldEarned = 3000
+        XCTAssertEqual(DeathSystem.teamBounty(g.s, victimIndex: blue2[0], killerTeam: .red), 0)
+    }
+
+    /// 復活までの秒数 = 3.2 + 2.1 × Lv + 試合時間（分、切り捨て）。18 分を越えた分は 1 分 2 秒。上限 90 秒（docs/TOWER_BASE_MLBB.md）。
     func testRespawnFormula() {
-        XCTAssertEqual(RespawnSystem.respawnTime(level: 1, time: 60), 6)
-        XCTAssertEqual(RespawnSystem.respawnTime(level: 10, time: 60), 24)
-        XCTAssertEqual(RespawnSystem.respawnTime(level: 10, time: 13 * 60), 30)
-        XCTAssertEqual(RespawnSystem.respawnTime(level: 15, time: 20 * 60), 40)
+        XCTAssertEqual(RespawnSystem.respawnTime(level: 1, time: 0), 5.3, accuracy: 1e-9)
+        XCTAssertEqual(RespawnSystem.respawnTime(level: 1, time: 60), 6.3, accuracy: 1e-9)
+        XCTAssertEqual(RespawnSystem.respawnTime(level: 1, time: 119), 6.3, accuracy: 1e-9)
+        XCTAssertEqual(RespawnSystem.respawnTime(level: 10, time: 60), 25.2, accuracy: 1e-9)
+        XCTAssertEqual(RespawnSystem.respawnTime(level: 10, time: 13 * 60), 37.2, accuracy: 1e-9)
+        XCTAssertEqual(RespawnSystem.respawnTime(level: 15, time: 18 * 60), 52.7, accuracy: 1e-9)
+        XCTAssertEqual(RespawnSystem.respawnTime(level: 15, time: 20 * 60), 56.7, accuracy: 1e-9)
+        XCTAssertEqual(RespawnSystem.respawnTime(level: 15, time: 40 * 60), 90, accuracy: 1e-9)
     }
 }

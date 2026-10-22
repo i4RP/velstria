@@ -56,6 +56,16 @@ enum MasterText {
         Loc.isEnglish ? (overlay[h.heroID] ?? h.codeName) : h.displayNameJa
     }
 
+    /// 選択画面のヒーロー名（日本語版 MLBB と同じく「アルゴス(Argus)」の形。二つ名は付けない: 「断空のザイル」→「ザイル(Zail)」。
+    /// 英語は英語名だけ）。
+    static func heroPickName(_ h: HeroDef) -> String {
+        let en = (overlay[h.heroID] ?? h.codeName).components(separatedBy: ",").first ?? h.codeName
+        guard !Loc.isEnglish else { return en }
+        // 表示名の末尾のカタカナ（無ければ表示名のまま）
+        let kana = String(h.displayNameJa.reversed().prefix { $0.unicodeScalars.allSatisfy { (0x30A0...0x30FF).contains($0.value) } }.reversed())
+        return "\(kana.isEmpty ? h.displayNameJa : kana)(\(en))"
+    }
+
     static func skill(_ s: SkillDef) -> String { name(id: s.skillID, ja: s.nameJa) }
     static func item(_ i: ItemDef) -> String { name(id: i.itemID, ja: i.nameJa) }
     static func spell(_ s: SpellDef) -> String { name(id: s.spellID, ja: s.nameJa) }

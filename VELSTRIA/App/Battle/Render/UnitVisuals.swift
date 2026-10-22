@@ -405,6 +405,8 @@ final class CreatureVisual {
     private(set) var isGenerated = false
     /// 動く生成モデルの動作（中立モンスター。無ければ手続きの揺れだけ）。
     private var animator: CreatureAnimator?
+    /// 個体ごとの大きさ（精鋭兵（スーパーミニオン）は当たりの半径と同じ倍率で大きく見せる）。
+    private var unitScale: Float = 1
 
     init(key: CreatureKey, meshes: UnitMeshLibrary, materials: RenderMaterials, text: TextMeshCache) {
         self.key = key
@@ -620,6 +622,7 @@ final class CreatureVisual {
         guard root.isEnabled else { return }
         yaw = approachAngle(yaw, yawForFacing(u.facing), rate: 9, dt: dt)
         yawNode.orientation = simd_quatf(angle: yaw, axis: [0, 1, 0])
+        unitScale = u.minion?.isSuper == true ? Float(Balance.superMinionRadiusMultiplier) : 1
         animate(time: f.time, dt: dt, speed: speed, moving: moving)
         // HP バー
         let maxHP = max(1, u.stats.maxHP)
@@ -695,7 +698,7 @@ final class CreatureVisual {
         body.position = offset
         body.orientation = simd_quatf(angle: roll, axis: [0, 0, 1]) * simd_quatf(angle: pitch, axis: [1, 0, 0])
         let hitScale: Float = hitT < 1 ? 1 + sin(hitT * .pi) * 0.07 : 1
-        body.scale = scale * hitScale
+        body.scale = scale * unitScale * hitScale
     }
 
     /// 死亡演出（沈み込み + 傾き + フェード）。終了で true。

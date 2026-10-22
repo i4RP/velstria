@@ -164,6 +164,8 @@ struct ActionClip {
 struct HeroMotionProfile {
     var rest = HeroPose()
     let gait: HeroGait?
+    /// 個別の待機。攻撃・武器の基準となる rest とは分離する。
+    let idle: HeroIdle?
     let gaitLegLength: Float
     let thighRatio: Float
     var runSwingR: Float = 1
@@ -194,6 +196,7 @@ struct HeroMotionProfile {
 
     init(blueprint bp: HeroBlueprint, metrics m: BodyMetrics, heroID: String? = nil) {
         gait = HeroGait.authored(for: heroID)
+        idle = HeroIdle.authored(for: heroID)
         gaitLegLength = m.thigh + m.shin
         thighRatio = m.thigh / max(0.001, m.thigh + m.shin)
         var r = HeroPose()
@@ -612,6 +615,8 @@ struct HeroAnimator {
     private(set) var state: HeroAnimState = .idle
     private(set) var stateTime: Float = 0
     private(set) var time: Float = 0
+    /// 立ち止まってからの時間。移動の直後に仕草の途中へ飛ばさず、静かな立ち姿から始める。
+    private(set) var idleTime: Float = 0
     private var runPhase: Float = 0
     private var speed: Float = 0
     private var snapshot = HeroPose()
@@ -654,8 +659,9 @@ struct HeroAnimator {
         self.profile = profile
         gaitThighRatio = profile.thighRatio
         self.defaultRunSpeed = defaultRunSpeed
-        current = profile.rest
-        snapshot = profile.rest
+        let initial = profile.idle?.pose(rest: profile.rest, time: 0) ?? profile.rest
+        current = initial
+        snapshot = initial
         clips = HeroClipLayer(binding: motion)
         // 最初の状態（待機）は setState が来ないので、ここで待機のクリップを始める（無ければ何もしない）
         enterClips(state, from: state, autoAttack: true)
@@ -830,6 +836,7 @@ struct HeroAnimator {
 
     private mutating func begin(_ s: HeroAnimState, blend: Float) {
         snapshot = current
+        idleTime = 0
         state = s
         stateTime = 0
         blendTime = 0
@@ -847,6 +854,7 @@ struct HeroAnimator {
         if state == .dead || state == .channel || state == .stunned || state == .victory { target = 0 }
         // 急な速度変化を平滑化
         speed += (max(0, target) - speed) * (1 - exp(-dt * 10))
+        if state == .idle && speed < 0.15 { idleTime += dt } else { idleTime = 0 }
         // 1 歩（半周期）で足が進む距離 = 2·L·sin(A) が、その間に体が進む距離と一致するように位相を進める
         if let gait = profile.gait {
             runPhase += dt * gait.cyclesPerSecond(speed: speed, legLength: legLength)
@@ -938,6 +946,8 @@ struct HeroAnimator {
 
     /// 状態のループ（待機・移動・勝利・行動不能・帰還）。非ループのクリップは最後のフレームで止める。
     private mutating func startStateClip(_ s: HeroAnimState) {
+        // 同梱/差し替えクリップの全身上書きで固有の立ち姿を失わない。
+        if s == .idle && profile.idle != nil { return clips.stop() }
         guard let b = clips.binding else { return }
         let c: Int?
         switch s {
@@ -1173,20 +1183,24 @@ struct HeroAnimator {
     private func locomotion() -> HeroPose {
         let r = profile.rest
         var p = r
-        let t = time
-        let breathe = sin(t * 2 * .pi / 2.8)
-        p.hipsDrop = 0.006 * (1 - breathe)
-        p.torsoPitch = 0.025 * breathe
-        p.headPitch = -0.02 * breathe + 0.03 * sin(t * 0.7)
-        p.headYaw = 0.2 * sin(t * 0.43) * sin(t * 0.17)
-        p.armR.out += 0.035 * breathe
-        p.armL.out += 0.035 * breathe
-        p.armR.pitch += 0.03 * sin(t * 2.2 + 0.5)
-        p.armL.pitch += 0.03 * sin(t * 2.2 + 1.3)
-        p.weaponR += 0.05 * sin(t * 1.3)
-        p.weaponL += 0.04 * sin(t * 1.1 + 0.8)
-        p.cape = r.cape + 0.035 * sin(t * 1.7)
-        p.wings = r.wings + 0.1 * sin(t * 1.1)
+        if let idle = profile.idle, state == .idle || state == .run {
+            p = idle.pose(rest: r, time: idleTime)
+        } else {
+            let t = time
+            let breathe = sin(t * 2 * .pi / 2.8)
+            p.hipsDrop = 0.006 * (1 - breathe)
+            p.torsoPitch = 0.025 * breathe
+            p.headPitch = -0.02 * breathe + 0.03 * sin(t * 0.7)
+            p.headYaw = 0.2 * sin(t * 0.43) * sin(t * 0.17)
+            p.armR.out += 0.035 * breathe
+            p.armL.out += 0.035 * breathe
+            p.armR.pitch += 0.03 * sin(t * 2.2 + 0.5)
+            p.armL.pitch += 0.03 * sin(t * 2.2 + 1.3)
+            p.weaponR += 0.05 * sin(t * 1.3)
+            p.weaponL += 0.04 * sin(t * 1.1 + 0.8)
+            p.cape = r.cape + 0.035 * sin(t * 1.7)
+            p.wings = r.wings + 0.1 * sin(t * 1.1)
+        }
 
         let w = smooth01((speed - 0.15) / 0.8)
         guard w > 0.001 else { return p }

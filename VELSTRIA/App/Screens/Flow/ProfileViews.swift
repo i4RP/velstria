@@ -8,6 +8,10 @@ import VelstriaCore
 struct ProfileView: View {
     @Environment(AppModel.self) private var app
     @State private var editingName = false
+    /// 対戦データの範囲（MLBB 2.2.16: 今シーズン／全シーズン）。
+    @State private var careerScope: CareerScope = .season
+
+    enum CareerScope: Hashable { case season, all }
 
     var body: some View {
         ScreenScaffold(title: L("プロフィール", "Profile")) {
@@ -95,7 +99,13 @@ struct ProfileView: View {
                 .accessibilityIdentifier("profile_rank")
                 VStack(alignment: .leading, spacing: 4) {
                     // ID はフレンドコード（フレンド申請・通報で使う番号と同じ。端末の UUID は見せない）
-                    infoRow("person.text.rectangle", "ID", FriendCode.display(p.friendCode))
+                    // 中継に登録を済ませるまでは見せない（知った他人に先に使われないように）
+                    infoRow("person.text.rectangle", "ID", p.inboxRegistered ? FriendCode.display(p.friendCode)
+                                                                             : L("オンラインに同意すると発行", "Issued after online consent"))
+                    infoRow("crown", L("最高ランク", "Highest rank"),
+                            p.rank.highestTier == .mythic ? RankService.mythicName(stars: p.rank.highestMythicStars) : RankService.tierName(p.rank.highestTier))
+                    infoRow("trophy", L("実績", "Achievements"),
+                            "\(p.achievements.values.filter { $0.unlockedAt != nil }.count) / \(LiveOpsService.achievements.count)")
                     infoRow("calendar", L("開始日", "Since"), FlowText.date(p.createdAt, time: false))
                     infoRow("sun.max", L("ログイン日数", "Login days"), "\(p.totalLoginDays)")
                     infoRow("person.3", L("所持ヒーロー", "Heroes owned"), "\(p.ownedHeroIDs.filter(HeroRoster.isActive).count) / \(app.master.heroes.count)")
@@ -149,8 +159,27 @@ struct ProfileView: View {
         let c = app.profile.career
         let winRate = c.matches > 0 ? Double(c.wins) / Double(c.matches) : 0
         let kda = Double(c.kills + c.assists) / Double(max(1, c.deaths))
+        let r = app.profile.rank
+        let seasonGames = r.seasonWins + r.seasonLosses
         return VStack(alignment: .leading, spacing: 8) {
-            SectionTitle(title: L("通算成績", "Career"), symbol: "chart.bar.fill")
+            HStack(spacing: 8) {
+                SectionTitle(title: L("対戦データ", "Match Data"), symbol: "chart.bar.fill")
+                CelestialTabs(options: [
+                    CelestialTab(value: CareerScope.season, title: L("今シーズン", "This Season"), symbol: nil, identifier: "profile_scope_season"),
+                    CelestialTab(value: CareerScope.all, title: L("全シーズン", "All Seasons"), symbol: nil, identifier: "profile_scope_all"),
+                ], selection: $careerScope, fills: false, onChange: { _ in app.audio.play(.uiTab) })
+            }
+            if careerScope == .season {
+                // 今シーズンのランク戦（MLBB の名刺の ID カードと同じ: 試合数・勝率・今シーズンの最高ランク）
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+                    FlowStatCell(title: L("ランク戦", "Ranked"), value: "\(seasonGames)")
+                    FlowStatCell(title: L("勝率", "Win rate"),
+                                 value: seasonGames > 0 ? "\(r.seasonWins * 100 / seasonGames)%" : "—",
+                                 tint: seasonGames > 0 && r.seasonWins * 2 >= seasonGames ? Theme.success : Theme.textPrimary)
+                    FlowStatCell(title: L("勝利", "Wins"), value: "\(r.seasonWins)", tint: Theme.success)
+                    FlowStatCell(title: L("今シーズンの最高", "Season best"), value: RankService.tierName(max(r.seasonHighestTier, r.tier)), tint: Theme.gold)
+                }
+            } else {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
                 FlowStatCell(title: L("試合", "Matches"), value: "\(c.matches)")
                 FlowStatCell(title: L("勝率", "Win rate"), value: c.matches > 0 ? "\(Int((winRate * 100).rounded()))%" : "—",
@@ -161,6 +190,7 @@ struct ProfileView: View {
                 FlowStatCell(title: L("現在の連勝", "Current streak"), value: "\(c.currentWinStreak)")
                 FlowStatCell(title: L("ペンタキル", "Penta kills"), value: "\(c.pentaKills)")
                 FlowStatCell(title: L("総ダメージ", "Total damage"), value: FlowText.compactNumber(c.totalDamage))
+            }
             }
         }
     }

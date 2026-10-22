@@ -49,17 +49,26 @@ struct PickPhaseHeader<Leading: View, Trailing: View>: View {
     }
 }
 
-/// ヒーロー一覧のレーン別のタブ（「全部」つき。MLBB と同じ）。レーンに合うロールのヒーローだけを出す。
+/// ヒーロー一覧のレーン別のタブ（「すべてのレーン」つき。MLBB のドラフトと同じ並び: Exp・ゴールド・ミドル・ローム・ジャングル）。
+/// レーンに合うロールのヒーローだけを出す。only を渡すと（ドラフトのピックの間）自分のレーンと「すべて」だけ。
 struct LaneFilterBar: View {
     @Binding var selection: LanePosition?
+    var only: LanePosition?
     @Environment(AppModel.self) private var app
 
+    /// MLBB のドラフトのタブの並び。
+    static let order: [LanePosition] = [.top, .carry, .mid, .support, .jungle]
+
     var body: some View {
-        CelestialTabs(options: [CelestialTab<LanePosition?>(value: nil, title: L("すべてのレーン", "All Lanes"), symbol: nil, identifier: "flow_lanetab_all")]
-                        + LanePosition.allCases.map {
-                            CelestialTab<LanePosition?>(value: $0, title: FlowText.position($0), symbol: nil, identifier: "flow_lanetab_\($0.rawValue)")
-                        },
-                      selection: $selection, fills: false, onChange: { _ in app.audio.play(.uiTab) })
+        // SE では 6 つのタブが横に収まらない。横にスクロールさせて、画面の幅を押し広げない
+        ScrollView(.horizontal, showsIndicators: false) {
+            CelestialTabs(options: [CelestialTab<LanePosition?>(value: nil, title: L("すべてのレーン", "All Lanes"), symbol: nil, identifier: "flow_lanetab_all")]
+                            + Self.order.filter { only == nil || $0 == only }.map {
+                                CelestialTab<LanePosition?>(value: $0, title: FlowText.position($0), symbol: nil, identifier: "flow_lanetab_\($0.rawValue)")
+                            },
+                          selection: $selection, fills: false, onChange: { _ in app.audio.play(.uiTab) })
+        }
+        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
     }
 
     /// タブの絞り込み。

@@ -132,9 +132,14 @@ enum HomeBadges {
         return false
     }
 
-    /// メールの点: 受け取っていない添付のあるメール（MLBB 2.2.16: 添付つきか重要な未読だけ。重要なメールは今は無い）。
+    /// メールの点（MLBB 2.2.16）: 未読の重要メールと、未読で受け取れる添付つきのメールだけ。
     static func mail(_ p: Profile, now: Date) -> Int {
-        claimableMail(p, now: now)
+        p.mail.filter { mailNeedsDot($0, now: now) }.count
+    }
+
+    /// 1 通のメールに点を付けるか（タブの点にも使う）。
+    static func mailNeedsDot(_ m: MailItem, now: Date) -> Bool {
+        !m.read && (m.important == true || (!m.attachments.isEmpty && !m.claimed && !isExpired(m, now: now)))
     }
 
     static func claimableMail(_ p: Profile, now: Date) -> Int {
@@ -239,10 +244,10 @@ struct DraftEngine: Equatable {
         }
     }
 
-    /// この試合の手番。
-    let turns: [DraftTurn]
-    /// プレイヤーの手番が青の何番目か（0〜4）。
-    let playerSlot: Int
+    /// この試合の手番（ピック順の交換で変わる）。
+    private(set) var turns: [DraftTurn]
+    /// プレイヤーの手番が青の何番目か（0〜4。ピック順の交換で変わる）。
+    private(set) var playerSlot: Int
     /// 青の各手番が受け持つレーン（レーンを選んだ時。nil = ロールに合う空きへ）。
     private(set) var bluePlan: [LanePosition]?
     /// 選べるヒーロー ID（ID 昇順）。
@@ -331,6 +336,34 @@ struct DraftEngine: Equatable {
     func plannedLane(blueIndex i: Int) -> LanePosition? {
         guard let plan = bluePlan, plan.indices.contains(i) else { return nil }
         return plan[i]
+    }
+
+    // MARK: ピック順の交換（MLBB: 後の番の人が「ピックを手伝うよ」→ 今の番の人が受けると入れ替わる）
+
+    /// 今が味方 AI の手番で、プレイヤーがまだ後の番か（「ピックを手伝うよ」を出せる）。
+    var canOfferPickHelp: Bool {
+        guard let t = currentTurn, t.team == .blue, !t.isPlayer else { return false }
+        return bluePicks.count < playerSlot
+    }
+
+    /// 今の番の味方 AI とピック順を入れ替える（AI は受ける）。プレイヤーが今の番になり、AI はプレイヤーの元の番へ。
+    /// 受け持つレーンはそれぞれの人に付いていく（bluePlan も入れ替える）。
+    @discardableResult
+    mutating func swapPickOrderWithCurrent() -> Bool {
+        guard canOfferPickHelp else { return false }
+        let current = bluePicks.count
+        if var plan = bluePlan {
+            plan.swapAt(current, playerSlot)
+            bluePlan = plan
+        }
+        playerSlot = current
+        turns = Self.turns(playerSlot: current)
+        return true
+    }
+
+    /// プレイヤーが手番の前に選んでおける（事前選択）か: まだ選んでいなくて、誰も選んでいないヒーロー。
+    func canPlayerPreselect(_ heroID: String) -> Bool {
+        playerPick == nil && heroIDs.contains(heroID) && !isTaken(heroID)
     }
 
     /// 現在の手番を確定する。成功で true。

@@ -23,8 +23,8 @@ protocol FriendProfileAccess: AnyObject {
     var profile: Profile { get set }
 }
 
-/// 承認待ちの申請（相手から届いた）。
-struct FriendRequest: Equatable, Identifiable {
+/// 承認待ちの申請（相手から届いた）。Profile.incomingFriendRequests に保存する（アプリを閉じても消えない）。
+struct FriendRequest: Codable, Equatable, Identifiable {
     var code: String
     var name: String
     var id: String { code }
@@ -56,8 +56,18 @@ final class FriendHub {
     private(set) var status: FriendInboxClient.Status = .offline
     /// いま繋がっているフレンドのコード。
     private(set) var onlineCodes: Set<String> = []
+    /// フレンドの今の状態（在席の問い合わせの応答。知らせていない相手は入らない = オンライン）。
+    private(set) var activities: [String: FriendActivity] = [:]
+    /// 自分の今の状態（繋ぐたび・変わるたびに知らせる。AppModel が試合・ルーム・マッチングで変える）。
+    @ObservationIgnored private var myActivity = FriendActivity(.online)
     /// 承認待ちの申請。
-    private(set) var incomingRequests: [FriendRequest] = []
+    private(set) var incomingRequests: [FriendRequest] = [] {
+        didSet {
+            // 保存する（前は記憶にしか無く、アプリを閉じると消えていた）
+            guard incomingRequests != oldValue, host?.profile.incomingFriendRequests != incomingRequests else { return }
+            mutate { $0.incomingFriendRequests = incomingRequests }
+        }
+    }
     /// 画面に出している招待（返事を待っている）。
     private(set) var pendingInvite: PartyInvite?
     /// 送った招待（フレンドコード → 状態）。返事が来ると更新する。
@@ -113,6 +123,11 @@ final class FriendHub {
 
     var friends: [Friend] { host?.profile.friends ?? [] }
     var myCode: String { host?.profile.friendCode ?? "" }
+    /// 人に見せてよい自分のコード（中継に登録を済ませた後だけ。登録の前に見せると、知った他人に先に使われるおそれがある）。
+    var shareableCode: String? {
+        guard let p = host?.profile, p.inboxRegistered, FriendCode.isValid(p.friendCode) else { return nil }
+        return p.friendCode
+    }
     var myName: String {
         let name = PlayerNameRules.normalized(host?.profile.displayName ?? "")
         return name.isEmpty ? L("プレイヤー", "Player") : PlayerNameRules.outgoing(name)
@@ -143,6 +158,8 @@ final class FriendHub {
     /// 受信箱へ繋ぐ（アプリが前面に来た時・オンボーディングを終えた時・オンラインのルールに同意した時）。
     /// 機能が無効・未設定・ルールに未同意（13 歳未満を含む）なら何もしない。
     func start() {
+        // 保存した申請を戻す（届いた申請の一覧はアプリを閉じても残る）
+        if incomingRequests.isEmpty, let saved = host?.profile.incomingFriendRequests, !saved.isEmpty { incomingRequests = saved }
         guard isEnabled(), let host, host.profile.onboardingCompleted,
               OnlineAccess.status(for: host.profile, enabled: true) == .available,
               FriendCode.isValid(host.profile.friendCode), FriendInboxKey.isValid(host.profile.inboxKey) else { return }
@@ -160,6 +177,7 @@ final class FriendHub {
         presenceToken += 1
         client?.stop()
         onlineCodes = []
+        activities = [:]
     }
 
     /// 切って、画面の状態（届いた申請・招待）も捨てる（全データの削除・オンラインの同意の取り消し）。
@@ -180,6 +198,7 @@ final class FriendHub {
         c.onStatus = { [weak self] status in self?.statusChanged(status) }
         c.onMessage = { [weak self] from, payload in self?.handle(from: from, payload: payload) }
         c.onPresence = { [weak self] online in self?.onlineCodes = Set(online) }
+        c.onActivity = { [weak self] activity in self?.activities = activity }
         c.onErased = { [weak self] in self?.inboxWasErased() }
         return c
     }
@@ -188,12 +207,20 @@ final class FriendHub {
         status = new
         if new == .online {
             if host?.profile.inboxRegistered == false { mutate { $0.inboxRegistered = true } }
+            if myActivity.kind != .online { client?.sendStatus(myActivity) }
             resendOutgoingRequests()
             refreshPresence()
             presenceLoop()
         } else {
             onlineCodes = []
         }
+    }
+
+    /// 自分の今の状態を変える（同じなら送らない）。繋いでいなければ、次に繋いだ時に送る。
+    func setMyActivity(_ a: FriendActivity) {
+        guard a != myActivity else { return }
+        myActivity = a
+        client?.sendStatus(a)
     }
 
     /// フレンドの在席を今すぐ問い合わせる。

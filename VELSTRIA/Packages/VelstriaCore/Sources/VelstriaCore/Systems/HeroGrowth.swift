@@ -77,11 +77,16 @@ public enum HeroGrowth {
 
     /// ミニオン・モンスターの XP を team の周囲ヒーローで分配する（DESIGN §8）。
     /// 1 人なら ×1.0、2 人以上なら合計 ×1.3 を等分。対象は pos から xpShareRadius 以内の生存ヒーロー。
-    /// isMonster = 中立モンスター由来（ローム靴の収入制限の対象。ミニオン由来はジャングル靴の制限も受ける）。
+    /// isMonster = 中立モンスター由来（狩猟持ちは +60%）。ミニオン由来は、狩猟持ちが最初の 2 分は分け合わない。
+    /// ローム持ちは最初の 8 分、単独ならどちらも 30%（GearEffects.monsterRewardMultiplier / sharesMinionRewards / roamSoloRewardMultiplier）。
     public static func shareXP(_ s: inout SimState, _ ctx: SimContext, team: Team, around pos: Vec2, amount: Double,
                                isMonster: Bool = false) {
         guard amount > 0, team != .neutral else { return }
         var receivers = nearbyHeroes(s, team: team, around: pos, radius: Balance.xpShareRadius)
+        // 狩猟持ちは最初の 2 分、ミニオンの XP を分け合わない（分け前を受けず、人数にも入らない）
+        if !isMonster {
+            receivers.removeAll { s.units[$0].hero.map { !GearEffects.sharesMinionRewards($0, time: s.time) } ?? false }
+        }
         guard !receivers.isEmpty else { return }
         // ロームの祝福（無私）: 味方がいればローム持ちは分け前を取らず、味方の取り分とは別に 30% を得る
         if receivers.count > 1, let r = GearEffects.activeRoamer(s, team: team, master: ctx.master),
@@ -95,8 +100,8 @@ public enum HeroGrowth {
         for i in receivers {
             var share = each
             if let h = s.units[i].hero {
-                share *= isMonster ? GearEffects.monsterRewardMultiplier(h, time: s.time, master: ctx.master)
-                                   : GearEffects.minionRewardMultiplier(h, time: s.time, master: ctx.master)
+                if isMonster { share *= GearEffects.monsterRewardMultiplier(h, time: s.time, master: ctx.master) }
+                share *= GearEffects.roamSoloRewardMultiplier(s, heroIndex: i, master: ctx.master)
             }
             grantXP(&s, ctx, heroIndex: i, amount: share)
         }

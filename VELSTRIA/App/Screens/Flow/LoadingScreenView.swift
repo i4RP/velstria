@@ -1,7 +1,9 @@
 import SwiftUI
 import VelstriaCore
 
-// 担当: ui-flow。UI026 ロード画面（5 vs 5 のプレイヤーカード・進捗・ヒント）。準備完了で onReady を呼ぶ。
+// 担当: ui-flow。UI026 ロード画面（MLBB 2.1.61 の後の作り: 縦長のカード 5 枚 × 2 段、全体がスキンの絵。左上に国旗、右上にスキンの種類の札、
+// 下にスキン名・「アウルス(Aulus)」・プレイヤー名（自分は金の名札）、最下段にスペル・エンブレム・読み込みの %・レーン。
+// 2 段の間に帯「⇄ ヒント：…」、左にエモートの丸ボタン）。準備完了で onReady を呼ぶ。
 
 /// UI026 ロード画面。準備完了で onReady を呼ぶ。
 struct LoadingScreenView: View {
@@ -62,7 +64,7 @@ struct LoadingScreenView: View {
                         duelBody(height: max(140, (geo.size.height - 110) / 2))
                     } else {
                         teamRow(blue, team: .blue, width: cardWidth, height: rowHeight)
-                        vsDivider
+                        tipBand
                         teamRow(red, team: .red, width: cardWidth, height: rowHeight)
                     }
                     footer
@@ -73,9 +75,9 @@ struct LoadingScreenView: View {
             .padding(.vertical, 6)
             if !launch.isSpectating {
                 EmoteMenuButton { id in EmoteTiming.show(id, in: $myEmote) }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                    .padding(.trailing, 16)
-                    .padding(.bottom, 10)
+                    .clipShape(Circle())
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                    .padding(.leading, 4)
             }
         }
         .persistentSystemOverlays(.hidden)
@@ -151,31 +153,37 @@ struct LoadingScreenView: View {
         .fixedSize()
     }
 
-    private var vsDivider: some View {
-        HStack(spacing: 12) {
+    /// 2 段の間の帯（MLBB 2.1.61: 「⇄ ヒント：…」）。左右にチームの印（色だけに頼らない）。
+    private var tipBand: some View {
+        HStack(spacing: 10) {
             teamTag(.blue)
-            Rectangle().fill(LinearGradient(colors: [.clear, Theme.teamColor(.blue, colorblind: app.profile.settings.colorblindMode)], startPoint: .leading, endPoint: .trailing))
-                .frame(height: 1.5)
-            Text("VS")
-                .font(.system(size: 22, weight: .black, design: .serif))
-                .foregroundStyle(LinearGradient(colors: [.white, Theme.gold], startPoint: .top, endPoint: .bottom))
-                .shadow(color: Theme.gold.opacity(0.7), radius: 8)
-                .scaleEffect(appeared ? 1 : 2)
-                .opacity(appeared ? 1 : 0)
-            Rectangle().fill(LinearGradient(colors: [Theme.teamColor(.red, colorblind: app.profile.settings.colorblindMode), .clear], startPoint: .leading, endPoint: .trailing))
-                .frame(height: 1.5)
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.left.arrow.right").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.gold)
+                Text(L("ヒント：", "Tip: ") + FlowTips.all[tipIndex % FlowTips.all.count].text)
+                    .font(Theme.body(11))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .id(tipIndex)
+                    .transition(.opacity)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 3)
+            .background(LinearGradient(colors: [.clear, Color.black.opacity(0.55), .clear], startPoint: .leading, endPoint: .trailing))
             teamTag(.red)
         }
         .frame(height: 24)
-        .accessibilityHidden(true)
     }
 
     private var footer: some View {
         HStack(spacing: 12) {
-            TipCard(tip: FlowTips.all[tipIndex % FlowTips.all.count])
-                .id(tipIndex)
-                .transition(.opacity)
-                .frame(maxWidth: 560)
+            // 1 人・1 対 1 の画面には段の間の帯が無いので、ヒントをここに出す
+            if red.isEmpty || (blue.count == 1 && red.count == 1) {
+                TipCard(tip: FlowTips.all[tipIndex % FlowTips.all.count])
+                    .id(tipIndex)
+                    .transition(.opacity)
+                    .frame(maxWidth: 560)
+            }
             Spacer(minLength: 0)
             VStack(alignment: .trailing, spacing: 4) {
                 Text("\(Int((overall * 100).rounded()))%")
@@ -332,8 +340,8 @@ private struct LoadingPlayerCard: View {
     let height: CGFloat
     @Environment(AppModel.self) private var app
 
-    /// 平行四辺形の傾き（幅に対する上辺のずれ）。
-    static let slant: CGFloat = 0.1
+    /// 平行四辺形の傾き（幅に対する上辺のずれ）。2.1.61 の後の MLBB は真っ直ぐな縦長のカード。
+    static let slant: CGFloat = 0
 
     var body: some View {
         let color = Theme.teamColor(slot.team, colorblind: app.profile.settings.colorblindMode)
@@ -355,17 +363,41 @@ private struct LoadingPlayerCard: View {
                         .font(.system(size: font * 0.9, weight: .medium))
                         .foregroundStyle(Theme.rarityColor(skin.rarity))
                 }
-                Text(hero.map { MasterText.hero($0) } ?? slot.heroID)
+                Text(hero.map { MasterText.heroPickName($0) } ?? slot.heroID)
                     .font(.system(size: font * 1.05, weight: .semibold))
                     .foregroundStyle(.white)
-                Text(human ? PlayerNameRules.shown(slot.displayName) : "CPU")
-                    .font(.system(size: font, weight: .medium))
-                    .foregroundStyle(highlight ? Color(red: 0.45, green: 0.95, blue: 0.5) : .white.opacity(0.9))
                 HStack(spacing: 3) {
-                    ForEach(slot.spells, id: \.self) { SpellIconView(spellID: $0, size: font * 1.7) }
+                    if highlight {
+                        RankCrest(tier: app.profile.rank.tier, size: font * 1.5)
+                    }
+                    // 自分は金の名札（MLBB と同じ）
+                    Text(human ? PlayerNameRules.shown(slot.displayName) : "CPU")
+                        .font(.system(size: font, weight: highlight ? .bold : .medium))
+                        .foregroundStyle(highlight ? Color(red: 0.25, green: 0.16, blue: 0.02) : .white.opacity(0.9))
+                        .padding(.horizontal, highlight ? 5 : 0)
+                        .background {
+                            if highlight {
+                                Capsule().fill(LinearGradient(colors: [HomeStyle.goldLight, Theme.gold], startPoint: .top, endPoint: .bottom))
+                            }
+                        }
+                }
+                // 最下段: スペル・エンブレム・読み込みの %・レーン
+                HStack(spacing: 3) {
+                    ForEach(slot.spells.prefix(1), id: \.self) { SpellIconView(spellID: $0, size: font * 1.6) }
+                    if let emblem = slot.emblem {
+                        Image(systemName: EmblemStyle.setSymbol(emblem.set))
+                            .font(.system(size: font * 0.95, weight: .semibold))
+                            .foregroundStyle(EmblemStyle.color(emblem.set))
+                            .frame(width: font * 1.6, height: font * 1.6)
+                            .background(Circle().fill(Color.black.opacity(0.5)))
+                    }
                     Text("\(Int((progress * 100).rounded()))%")
                         .font(.system(size: font * 0.9, weight: .semibold).monospacedDigit())
                         .foregroundStyle(progress >= 1 ? Theme.success : .white.opacity(0.85))
+                    Spacer(minLength: 0)
+                    Image(systemName: FlowText.positionSymbol(slot.position))
+                        .font(.system(size: font * 1.0))
+                        .foregroundStyle(Celestial.ice)
                 }
                 .padding(.top, 2)
             }
@@ -397,9 +429,14 @@ private struct LoadingPlayerCard: View {
             }
         }
         .overlay(alignment: .topTrailing) {
-            if highlight {
-                RankCrest(tier: app.profile.rank.tier, size: max(20, height * 0.13))
-                    .padding(.top, 4)
+            if let skin {
+                Text(CollectionStyle.rarityName(skin.rarity))
+                    .font(.system(size: font * 0.8, weight: .heavy))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(RoundedRectangle(cornerRadius: 3).fill(Theme.rarityColor(skin.rarity)))
+                    .padding(.top, 6)
                     .padding(.trailing, 6)
             }
         }

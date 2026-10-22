@@ -91,6 +91,12 @@ enum BotLaning {
                 }
             }
         } else if mode == .defend {
+            // 攻めてくる敵の召喚されたロードを先に削る（塔もロードを先に狙う）
+            if let lord = w.enemyLord(near: a.pos, team: team, radius: range + s.units[i].radius + 600, s),
+               w.alliedStructure(covering: s.units[lord].pos, team: team, margin: 600) != nil {
+                BotAI.attack(s, &a, &mem, lord)
+                return
+            }
             let minions = enemyMinionsNear(s, w, a, radius: range + 300, tower: enemyTower, tanked: tanked)
             if !lh.soon, let t = lowestHP(s, minions) {
                 BotAI.attack(s, &a, &mem, t)
@@ -141,8 +147,14 @@ enum BotLaning {
             waveComing = true
             break
         }
-        let window = BotAI.enemiesAway(s, team: a.team) >= 3 || w.aliveHeroes[a.team.opponent.rawValue] == 0
-        if shield >= 1 || window || (!waveComing && allies >= 3) || (d <= reach + 40 && allies >= 2 && st.hp < st.maxHP * 0.25) {
+        // ベースタワー・ベースは、泉・帰還の敵もすぐ守りに来るので死んでいる敵だけを数える（BotMacro.siegeWindow と同じ）
+        let deep = st.isCore || st.tier == .base
+        let absent = deep ? w.deadHeroes[a.team.opponent.rawValue] : BotAI.enemiesAway(s, team: a.team)
+        let window = absent >= 3 || w.aliveHeroes[a.team.opponent.rawValue] == 0
+        // ミニオンが来ない時に盾なしで叩くのは、守りの敵ヒーローが見えていない時だけ（盾が無いと被ダメ −50%・塔の連続命中）
+        let unguarded = !a.enemies.contains { $0.pos.distanceSquared(to: st.pos) < (st.reach + 900) * (st.reach + 900) }
+        if shield >= 1 || window || (!waveComing && allies >= 3 && unguarded)
+            || (d <= reach + 40 && allies >= 2 && st.hp < st.maxHP * 0.25) {
             BotAI.attack(s, &a, &mem, st.index)
             return true
         }

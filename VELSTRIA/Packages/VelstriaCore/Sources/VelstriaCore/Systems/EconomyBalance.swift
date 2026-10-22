@@ -37,32 +37,37 @@ extension Balance {
             return (range.start + (range.end - range.start) * min(1, max(0, time / minionGoldGrowthSeconds))).rounded()
         }
 
+        /// MLBB の値は非公開。1 ウェーブが MLBB と同じ 3〜4 体になったので、MLBB の目安
+        /// 「中央・EXP レーンは 4 ウェーブ目（約 2:00）で Lv4（累計 810）」に合わせた（中央 近接 + 遠隔 3 = 210、EXP レーン 238）。
         public static func minionXP(_ type: MinionType) -> Double {
             switch type {
             case .melee: return 60
-            case .ranged: return 32
+            case .ranged: return 50
             case .siege: return 95
             }
         }
 
         /// ラストヒット Gold（撃破者の monsterGoldBonus で増加）。ボスはチーム報酬のみ。
-        /// MLBB の値（棘角トカゲ 92・熾甲虫 85・熔岩の岩人 81・紅焔 120・蒼晶 100 + 仔 22）に近づけ、
-        /// 1 陣地を一巡したときの合計が旧マップ（番人 2 + 小キャンプ 5）と同じ程度になるよう丸めた。
-        /// 宝殻蟹は撃破時の Gold に加えて Gold バフ（Balance.Jungle）。
+        /// Fandom の撃破 Gold（蒼晶 100 + 仔 22・紅焔 120・棘角トカゲ 92・熔岩の岩人 81・苔甲の徘徊者 92）に、その後の公式の
+        /// 変更率を掛けた値（丸めない。docs/JUNGLE_ROAM_MLBB.md）: 2.1.18 全モンスター −7.5%、2.1.90 バフ +20%・小キャンプ +15%、
+        /// 2.2.16 小キャンプ −13%。熾甲虫・幼体は資料に無いので旧来の値。宝殻蟹は Gold レーン側だけ（DeathSystem）。
         public static func monsterGold(_ kind: MonsterKind) -> Double {
+            typealias J = Balance.Jungle
+            let buff = J.goldScale2118 * J.buffGoldScale2190
+            let camp = J.goldScale2118 * J.campGoldScale2190 * J.campGoldScale2216
             switch kind {
             case .campLarge: return 40
             case .campSmall: return 15
-            case .blueSentinel: return 90
-            case .azureWhelp: return 20
-            case .redSentinel: return 110
-            case .hornLizard: return 95
+            case .blueSentinel: return 100 * buff
+            case .azureWhelp: return 22 * buff
+            case .redSentinel: return 120 * buff
+            case .hornLizard: return 92 * camp
             case .emberBeetle: return 75
             case .emberGrub: return 15
-            case .magmaGolem: return 85
+            case .magmaGolem: return 81 * camp
             case .treasureCrab: return 40
             case .crablet: return 15
-            case .mossWanderer: return 90
+            case .mossWanderer: return 92 * J.goldScale2118
             case .astralWyrm, .ancientColossus: return 0
             }
         }
@@ -79,7 +84,8 @@ extension Balance {
             case .redSentinel: return 45
             case .hornLizard, .emberBeetle, .magmaGolem: return 240
             case .emberGrub: return 20
-            case .treasureCrab: return 60
+            // 宝殻蟹: EXP レーン側だけ。Gold レーン側の Gold 40 と同じ値（MLBB Patch 1.8.78。額は非公表）
+            case .treasureCrab: return 40
             case .crablet: return 30
             case .mossWanderer: return 100
             case .astralWyrm, .ancientColossus: return 0
@@ -87,21 +93,29 @@ extension Balance {
         }
 
         // MARK: Gold/EXP レーン補正（参照仕様 §3.1・§5.2）
-        /// 補正が続く試合時間（秒）。参照では側レーンの最初の 10 ウェーブ（〜5:00）。
-        public static let laneBonusEnd: Double = 300
-        /// Gold レーン（最初のボスから遠い側レーン）のミニオン Gold 倍率の上乗せ。
-        /// 参照は攻城ミニオンだけ +45% だが、VELSIA の攻城は 3 ウェーブに 1 体のため、ウェーブ全体へ換算した値。
-        public static let goldLaneGoldBonus: Double = 0.25
-        /// EXP レーン（最初のボスに近い側レーン）のミニオン XP 倍率の上乗せ（参照は攻城のみ +35%、同じく換算）。
-        public static let expLaneXPBonus: Double = 0.40
+        /// 最初の 10 ウェーブ（Balance.earlyWaveCount、〜4:41 に出る分）の攻城ミニオンだけに付く（MLBB と同じ）。
+        /// Gold レーン（最初のボスから遠い側レーン）の攻城ミニオンの Gold 倍率の上乗せ。
+        public static let goldLaneGoldBonus: Double = 0.45
+        /// EXP レーン（最初のボスに近い側レーン）の攻城ミニオンの XP 倍率の上乗せ。
+        public static let expLaneXPBonus: Double = 0.35
+
+        // MARK: チーム賞金（MLBB の Team Bounty。DeathSystem.teamBounty）
+        /// 発動に要るチームの Gold の差（MLBB 2.2.16: 2000 → 1500）。
+        public static let teamBountyDeficit: Double = 1500
+        /// 倒されたヒーローの Gold が倒した側の平均を上回る分のうち、倒した側の全員へ配る割合（等分）。
+        /// MLBB の式は資料に無い仮の値（docs/TOWER_BASE_MLBB.md）。
+        public static let teamBountyShare: Double = 0.25
 
         // MARK: オブジェクト
         /// 星喰竜のチーム XP（Gold・加護・シールドは Balance.Jungle）。
         public static let wyrmTeamXP: Double = 200
-        public static let colossusTeamGold: Double = 300
+        /// ロードのチーム全員への Gold = 50 + 10 × 試合時間（分）（MLBB Patch 2.1.40a）。
+        public static let colossusTeamGoldBase: Double = 50
+        public static let colossusTeamGoldPerMinute: Double = 10
+        public static func colossusTeamGold(at time: Double) -> Double {
+            colossusTeamGoldBase + colossusTeamGoldPerMinute * (max(0, time) / 60 + 1e-9).rounded(.down)
+        }
         public static let colossusTeamXP: Double = 300
-        public static let colossusBlessingDuration: Double = 180
-        public static let colossusBlessingDamageBonus: Double = 0.15
         /// 蒼晶/紅焔バフの持続。
         public static let sentinelBuffDuration: Double = 75
         /// Jungle 装備のモンスター Gold 補正。

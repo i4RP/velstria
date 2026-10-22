@@ -5,7 +5,7 @@ import Foundation
 // 1 ヒーロー 3 プラン（画面の上から順）。「有効」のプランが既定で、ボットと、プランを選んでいない人間が使う。
 // 人間はヒーロー詳細で別のプランを「使う」にでき、選んだ添字は PlayerSlot.buildPlan → HeroData.buildPlan で試合へ渡る。
 
-/// バトルプラン 1 つ（装備 6 個の購入順・エンブレムと、表示用の名前・タグ・バトルスキル）。
+/// バトルプラン 1 つ（装備 6 個の購入順・靴の祝福・エンブレムと、表示用の名前・タグ・バトルスキル）。
 public struct BuildPlan: Codable, Hashable, Sendable {
     /// プラン名（日本語クライアントの表記）。
     public var name: String
@@ -15,18 +15,22 @@ public struct BuildPlan: Codable, Hashable, Sendable {
     public var tags: [String]
     /// 装備 ID の購入順（靴を含む 6 個）。
     public var items: [String]
+    /// 靴に付ける祝福（画面の靴の右上のバッジ。無いプランは nil）。靴を買うと自動で付く（ジャングルは狩猟印を持つとき、
+    /// ロームはボットのロームのとき。GearSystem.didChangeItems）。
+    public var blessing: GearOption?
     /// 画面のバトルスキル（MLBB の日本語名）。表示用でシミュレーションには使わない。画面に写っていなければ nil。
     public var spellHint: String?
     /// 画面のエンブレム（セット + タレント 3 つ。Lv60）。ボットは「有効」のプランのものを使う。
     /// 人間は保存したヒーローのエンブレムがあればそれ、無ければ選んだプランのもの（docs/EMBLEMS.md）。
     public var emblem: EmblemLoadout
 
-    public init(name: String, nameEN: String, tags: [String] = [], items: [String], spellHint: String? = nil,
-                emblem: EmblemLoadout) {
+    public init(name: String, nameEN: String, tags: [String] = [], items: [String], blessing: GearOption? = nil,
+                spellHint: String? = nil, emblem: EmblemLoadout) {
         self.name = name
         self.nameEN = nameEN
         self.tags = tags
         self.items = items
+        self.blessing = blessing
         self.spellHint = spellHint
         self.emblem = emblem
     }
@@ -34,7 +38,8 @@ public struct BuildPlan: Codable, Hashable, Sendable {
 
 extension ItemSystem {
     /// ヒーロー別のバトルプラン（日本語クライアントの 2026-10-13 のスクショ。画面の上から順に 3 つ）。
-    /// 装備の並びは購入順。靴は画面どおりの位置（先頭とは限らない）。祝福のバッジは靴に付くので並びには入らない。
+    /// 装備の並びは購入順。靴は画面どおりの位置（先頭とは限らない）。靴の祝福のバッジは blessing（並びには入らない）。
+    /// バッジの色の読み: ジャングルの赤 = 炎撃・青 = 氷刺、ロームの赤 = 激励（フランコの画面で確認）・紫 = 隠蔽。
     /// エンブレムは画面のエンブレムの列（セットのアイコン + タレント 3 つ）を、エンブレム画面のタブと Fandom のタレントの画像で照合したもの
     /// （docs/EMBLEMS.md「バトルプランのエンブレム」）。
     public static let heroPlans: [String: [BuildPlan]] = [
@@ -77,25 +82,25 @@ extension ItemSystem {
         // ザイル（セイバー）。靴にジャングルの祝福。1 つ目は靴が 2 つ目。2 つ目と 3 つ目はバトルスキルだけが違う。
         "H028": [
             BuildPlan(name: "DPS", nameEN: "DPS",
-                      items: ["EQ105", "EQ405", "EQ116", "EQ109", "EQ112", "EQ106"], spellHint: "天罰",
+                      items: ["EQ105", "EQ405", "EQ116", "EQ109", "EQ112", "EQ106"], blessing: .flame, spellHint: "天罰",
                       emblem: EmblemLoadout(.assassin, .thrill, .seasonedHunter, .temporalReign)),
             BuildPlan(name: "爆発力", nameEN: "Burst",
-                      items: ["EQ407", "EQ115", "EQ107", "EQ105", "EQ106", "EQ104"], spellHint: "天罰",
+                      items: ["EQ407", "EQ115", "EQ107", "EQ105", "EQ106", "EQ104"], blessing: .flame, spellHint: "天罰",
                       emblem: EmblemLoadout(.assassin, .rupture, .masterAssassin, .lethalIgnition)),
             BuildPlan(name: "持続的ダメージ", nameEN: "Sustained Damage",
-                      items: ["EQ407", "EQ115", "EQ107", "EQ105", "EQ106", "EQ104"], spellHint: "処刑",
+                      items: ["EQ407", "EQ115", "EQ107", "EQ105", "EQ106", "EQ104"], blessing: .flame, spellHint: "処刑",
                       emblem: EmblemLoadout(.assassin, .rupture, .masterAssassin, .lethalIgnition)),
         ],
         // ボルグ（ティグリアル）。3 つとも「生存」。靴にロームの祝福。
         "H029": [
             BuildPlan(name: "生存", nameEN: "Survival",
-                      items: ["EQ402", "EQ305", "EQ308", "EQ114", "EQ301", "EQ304"], spellHint: "フリッカー",
+                      items: ["EQ402", "EQ305", "EQ308", "EQ114", "EQ301", "EQ304"], blessing: .encourage, spellHint: "フリッカー",
                       emblem: EmblemLoadout(.tank, .firmness, .pullYourselfTogether, .concussiveBlast)),
             BuildPlan(name: "生存", nameEN: "Survival", tags: ["ローム", "生存"],
-                      items: ["EQ406", "EQ114", "EQ305", "EQ308", "EQ306", "EQ304"], spellHint: "フリッカー",
+                      items: ["EQ406", "EQ114", "EQ305", "EQ308", "EQ306", "EQ304"], blessing: .conceal, spellHint: "フリッカー",
                       emblem: EmblemLoadout(.tank, .inspire, .pullYourselfTogether, .focusingMark)),
             BuildPlan(name: "生存", nameEN: "Survival",
-                      items: ["EQ406", "EQ305", "EQ306", "EQ308", "EQ304", "EQ301"], spellHint: "フリッカー",
+                      items: ["EQ406", "EQ305", "EQ306", "EQ308", "EQ304", "EQ301"], blessing: .conceal, spellHint: "フリッカー",
                       emblem: EmblemLoadout(.tank, .agility, .pullYourselfTogether, .focusingMark)),
         ],
         // ライナ（ライラ）
@@ -128,7 +133,7 @@ extension ItemSystem {
                       items: ["EQ406", "EQ105", "EQ116", "EQ302", "EQ301", "EQ308"], spellHint: "復讐",
                       emblem: EmblemLoadout(.fighter, .thrill, .festivalOfBlood, .impureRage)),
             BuildPlan(name: "継続ダメージ", nameEN: "Damage Over Time", tags: ["ジャングル", "攻防一体"],
-                      items: ["EQ406", "EQ103", "EQ116", "EQ312", "EQ307", "EQ104"], spellHint: "石化",
+                      items: ["EQ406", "EQ103", "EQ116", "EQ312", "EQ307", "EQ104"], blessing: .ice, spellHint: "石化",
                       emblem: EmblemLoadout(.fighter, .swift, .festivalOfBlood, .killingSpree)),
             BuildPlan(name: "ジャングル", nameEN: "Jungle", tags: ["バースト"],
                       items: ["EQ107", "EQ407", "EQ105", "EQ106", "EQ103", "EQ112"], spellHint: "石化",
@@ -137,26 +142,26 @@ extension ItemSystem {
         // ヴァルド（アルカード）。靴にジャングルの祝福。
         "H033": [
             BuildPlan(name: "持続的ダメージ", nameEN: "Sustained Damage", tags: ["ジャングル", "HP吸収"],
-                      items: ["EQ406", "EQ116", "EQ109", "EQ106", "EQ312", "EQ104"], spellHint: "復讐",
+                      items: ["EQ406", "EQ116", "EQ109", "EQ106", "EQ312", "EQ104"], blessing: .flame, spellHint: "復讐",
                       emblem: EmblemLoadout(.assassin, .thrill, .seasonedHunter, .temporalReign)),
             BuildPlan(name: "DPS", nameEN: "DPS", tags: ["ジャングル", "HP吸収"],
-                      items: ["EQ406", "EQ116", "EQ104", "EQ109", "EQ106", "EQ312"], spellHint: "天罰",
+                      items: ["EQ406", "EQ116", "EQ104", "EQ109", "EQ106", "EQ312"], blessing: .flame, spellHint: "天罰",
                       emblem: EmblemLoadout(.assassin, .thrill, .seasonedHunter, .temporalReign)),
             BuildPlan(name: "爆発力", nameEN: "Burst",
-                      items: ["EQ406", "EQ105", "EQ106", "EQ109", "EQ112", "EQ104"], spellHint: "天罰",
+                      items: ["EQ406", "EQ105", "EQ106", "EQ109", "EQ112", "EQ104"], blessing: .ice, spellHint: "天罰",
                       emblem: EmblemLoadout(.assassin, .rupture, .festivalOfBlood, .killingSpree)),
         ],
         // ゴルム（フランコ）。試合中のショップの「ビルド」画面なので、タグ・エンブレム・バトルスキルは写っていない。
         // エンブレムは仮（MLBB のフランコの定番のタンク構成。画面が届いたら差し替える）。
         "H034": [
             BuildPlan(name: "チームバフ", nameEN: "Team Buff",
-                      items: ["EQ402", "EQ113", "EQ114", "EQ308", "EQ306", "EQ304"],
+                      items: ["EQ402", "EQ113", "EQ114", "EQ308", "EQ306", "EQ304"], blessing: .encourage,
                       emblem: EmblemLoadout(.tank, .vitality, .pullYourselfTogether, .focusingMark)),
             BuildPlan(name: "生存", nameEN: "Survival",
-                      items: ["EQ402", "EQ113", "EQ114", "EQ305", "EQ306", "EQ308"],
+                      items: ["EQ402", "EQ113", "EQ114", "EQ305", "EQ306", "EQ308"], blessing: .encourage,
                       emblem: EmblemLoadout(.tank, .vitality, .tenacity, .concussiveBlast)),
             BuildPlan(name: "持続的ダメージ", nameEN: "Sustained Damage",
-                      items: ["EQ402", "EQ305", "EQ301", "EQ304", "EQ308", "EQ309"],
+                      items: ["EQ402", "EQ305", "EQ301", "EQ304", "EQ308", "EQ309"], blessing: .conceal,
                       emblem: EmblemLoadout(.tank, .firmness, .tenacity, .concussiveBlast)),
         ],
     ]

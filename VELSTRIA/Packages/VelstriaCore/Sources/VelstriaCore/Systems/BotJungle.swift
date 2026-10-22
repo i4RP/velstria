@@ -101,7 +101,7 @@ enum BotJungle {
     static func smite(_ s: inout SimState, _ ctx: SimContext, _ a: inout BotAgent, _ target: Int) -> Bool {
         guard let h = s.units[a.i].hero, let idx = h.spells.firstIndex(of: Balance.Economy.smiteSpellID),
               SpellSystem.canCast(s, ctx, heroIndex: a.i, spellIndex: idx) else { return false }
-        let damage = Balance.Bot.smiteBase + Balance.Bot.smitePerLevel * Double(h.level)
+        let damage = Balance.Spells.smiteDamage(level: h.level)
         let r = Balance.Bot.smiteRange + s.units[target].radius
         guard s.units[target].hp <= damage, s.units[target].pos.distanceSquared(to: a.pos) <= r * r else { return false }
         a.emit(.castSpell(index: idx, target: .unit(s.units[target].id)))

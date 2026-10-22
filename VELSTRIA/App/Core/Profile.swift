@@ -530,6 +530,32 @@ struct MailAttachment: Codable, Equatable {
     var refID: String?
 }
 
+/// 最近一緒に遊んだ人（MLBB のフレンドの「最近」。フレンド申請・名刺の入口）。
+struct RecentPlayer: Codable, Equatable, Identifiable {
+    var code: String
+    var name: String
+    var at: Date
+    var id: String { code }
+}
+
+enum RecentPlayers {
+    static let limit = 50
+
+    /// 一緒に遊んだ人を足す（自分・不正なコードは除く。同じ人は新しい日時と名前で先頭へ）。
+    static func record(_ players: [(code: String, name: String)], into list: inout [RecentPlayer], me: String, now: Date) {
+        for p in players where p.code != me && FriendCode.isValid(p.code) {
+            list.removeAll { $0.code == p.code }
+            list.insert(RecentPlayer(code: p.code, name: p.name, at: now), at: 0)
+        }
+        if list.count > limit { list.removeLast(list.count - limit) }
+    }
+}
+
+/// メールの種類（MLBB のメールの左のタブ: 重要なお知らせ・システム・通報の結果・受信箱・ギフト）。
+enum MailCategory: String, Codable, CaseIterable {
+    case important, system, report, inbox, gift
+}
+
 struct MailItem: Codable, Equatable, Identifiable {
     var id: UUID = UUID()
     var date: Date
@@ -539,6 +565,12 @@ struct MailItem: Codable, Equatable, Identifiable {
     var read = false
     var claimed = false
     var expiresAt: Date?
+    /// 重要（MLBB 2.2.16 の印。赤い点は未読の重要メールにも付く）。運営のメールだけ。古い保存データには無い。
+    var important: Bool?
+    /// 運営のメールの ID（重複を除く。端末で作ったメールは nil）。
+    var opsID: String?
+    /// 種類（nil = 端末で作ったメール。画面は添付があればギフト、無ければシステムとして扱う）。
+    var category: MailCategory?
 }
 
 /// 課金の付与台帳（Transaction.id で冪等化）。
@@ -657,6 +689,8 @@ struct Profile: Codable, Equatable {
     var totalLoginDays = 0
     var mail: [MailItem] = []
     var readNoticeIDs: [String] = []
+    /// 受け取った運営のメールの ID（OpsMailService。消したメールをもう一度入れない）。
+    var seenOpsMailIDs: [String] = []
 
     // 課金
     var purchaseLedger: [PurchaseRecord] = []
@@ -671,6 +705,10 @@ struct Profile: Codable, Equatable {
     /// フレンド受信箱の鍵（本人だけの秘密。中継は最初に繋いだ鍵でコードの持ち主を決める）。
     var inboxKey: String = FriendInboxKey.generate()
     var friends: [Friend] = []
+    /// 届いて、まだ答えていないフレンド申請（FriendHub.incomingRequests。最大 20）。
+    var incomingFriendRequests: [FriendRequest] = []
+    /// 最近一緒に遊んだ人（オンラインの試合の相手と味方。新しい順に最大 50。RecentPlayers）。
+    var recentPlayers: [RecentPlayer] = []
     /// 自分から申請して、承認を待っている相手のコード。
     var outgoingFriendRequests: [String] = []
     /// 申請した日時（outgoingFriendRequests のコード → 日時）。申請から 14 日を過ぎたら送り直さずに取り下げる
@@ -681,6 +719,9 @@ struct Profile: Codable, Equatable {
     var inboxRegistered = false
     /// ブロックしたプレイヤー（フレンドコード単位。申請・招待を受け取らず、自分の部屋に入れない。設定 > プライバシーで解除）。
     var blockedPlayers: [BlockedPlayer] = []
+    /// クラウドのランクが古い（同意を取り消した後に端末で進めた）。次に同意した時、預け直す前にクラウドのランクを消す
+    /// （残したままだと、預け直しで中継の古いランクに戻ってしまう。AppModel.pullCloudRank）。
+    var cloudRankStale = false
     /// 同意したオンライン機能のルール（コミュニティガイドライン・利用規約のオンラインの条項）の版。
     /// FeatureFlags.currentOnlineRulesVersion 未満の間はオンライン機能を使えず、フレンドの受信箱へも繋がない（OnlineAccess）。
     var acceptedOnlineRulesVersion = 0

@@ -43,13 +43,21 @@ final class WorldMatchTests: XCTestCase {
         let msPerTick = Double(DispatchTime.now().uptimeNanoseconds - t0) / 1e6 / Double(a.state.tick)
         b.runHeadless(maxTime: 1200)
 
-        XCTAssertEqual(a.state.tick, 36000)
+        // ミニオンだけでもベースタワーが落ちると精鋭兵が押し切ってベースまで落ちることがある（MLBB の Call of Raging）。
+        // その時は 20 分より前に終わる
+        XCTAssertTrue(a.state.tick == 36000 || a.state.endReason == .coreDestroyed, "tick \(a.state.tick)")
         XCTAssertEqual(digest(a.state), digest(b.state), "same config must give identical state")
-        XCTAssertEqual(waves, 40)
+        // 0:11 に初回、以後 30 秒ごと
+        XCTAssertEqual(waves, Int(((a.state.time - Balance.firstWaveTime) / Balance.waveInterval + 1e-9).rounded(.down)) + 1)
         XCTAssertEqual(campsKilled, 0, "nobody attacks neutral camps in a minions-only match")
         XCTAssertFalse(destroyed.isEmpty, "at least one tower should fall within 20 minutes")
-        // 外塔から順に落ちる（無敵の順序）
+        // 外塔から順に落ちる（無敵の順序）。ベースは、そのチームのベースタワーが 1 本落ちてから
         for d in destroyed where d.tier != .outer {
+            if d.lane == nil {
+                let baseDown = destroyed.contains { $0.team == d.team && $0.lane != nil && $0.tier == .base && $0.time <= d.time }
+                XCTAssertTrue(baseDown, "\(d) fell before any base turret")
+                continue
+            }
             let outerDown = destroyed.contains { $0.team == d.team && $0.lane == d.lane && $0.tier == .outer && $0.time <= d.time }
             XCTAssertTrue(outerDown, "\(d) fell before its outer tower")
         }

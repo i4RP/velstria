@@ -91,7 +91,9 @@ struct SkillWorld {
 
     @discardableResult
     mutating func addTower(team: Team, at pos: Vec2) -> Int {
-        let u = UnitFactory.makeStructure(TowerSpot(team: team, lane: .mid, tier: .outer, pos: pos, isCore: false))
+        var u = UnitFactory.makeStructure(TowerSpot(team: team, lane: .mid, tier: .outer, pos: pos, isCore: false))
+        // エネルギーシールドは外す（シールドがある間は近くの味方ヒーローの被ダメ −15% になり、スキルのダメージの検査がずれる）
+        u.shields.removeAll()
         let id = s.addUnit(u)
         return s.index(of: id)!
     }

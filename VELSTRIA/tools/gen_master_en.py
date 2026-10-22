@@ -344,18 +344,18 @@ SPELL_DESCS = {
     "BS02": "Cleanse except suppression. CC immunity and +15% speed for 1.2s.",
     "BS03": "Heal yourself and the lowest-health nearby ally for 15% max HP; +20% speed for 2s.",
     "BS04": "Shield yourself for 750 + 50 × level for 5s, and the lowest-health nearby ally for 70%.",
-    "BS05": "Deal 520 + 80 × level true damage to monsters/minions. +60% jungle rewards, −40% monster damage taken, −70% minion rewards.",
+    "BS05": "Deal 750 + 150 × level true damage to monsters/minions. +60% jungle rewards, −40% damage taken from monsters (except the Astral Wyrm and the Ancient Colossus). For the first 2 minutes, you don't share minion rewards with allies.",
     "BS06": "Gain +50% speed and slow immunity for 6s.",
     "BS07": ("Burns an enemy hero within 600 units for 70 + 20 × level true damage over 5 seconds "
              "and reduces their healing by 50%."),
     "BS08": "Become stealthed for 1.5 seconds and gain +25% move speed.",
-    "BS09": "Channel 3s to an allied tower, minion or fountain. +60% speed decays over 3s. Interrupted: cooldown −30s.",
+    "BS09": "Channel 3s to an allied tower, base, minion or trap. +60% speed decays over 3s. Interrupted: cooldown −30s.",
     "BS10": "Slows an enemy hero within 650 units by 40% and reduces their damage dealt by 30% for 2.5 seconds.",
     "BS11": "Deal 100 + 10 × level + 13% missing HP true damage, ignoring shields. Kill: cooldown reduced to 54s.",
     "BS12": "For 5s, empower 8 attacks: ×1.55 speed (500% cap), ignore 8 + level armor, heal 60 + 15% attack + 15% magic power per hit.",
     "BS13": "Deal 100 + 15 × level magic damage nearby. Petrify 0.8s, then slow 50% for 0.8s.",
     "BS14": "Long-range bolt deals 200–680 + 50–170% magic power with distance. Knock back nearby enemies on cast.",
-    "BS15": "For 3s reduce incoming damage by 35% and reflect 40% as magic damage.",
+    "BS15": "Gain 35% damage reduction for 3s. Whenever you take damage, deal 25% of it (before reduction) as magic damage to the attacker.",
     "BS16": "For 4s heal allies in the pool for 2.5% max HP every 0.4s; +25% healing and shields. Pools do not stack.",
 }
 

@@ -198,7 +198,7 @@ final class SpellSystemTests: XCTestCase {
         let farMonster = w.addMonster(.blueSentinel, at: skillArena + Vec2(0, -900))
         let hpBefore = w.s.units[monster].hp
         XCTAssertTrue(w.castSpell(h, 0))
-        XCTAssertEqual(hpBefore - w.s.units[monster].hp, min(hpBefore, 520 + 80 * 5), accuracy: 1e-6, "モンスター優先・確定ダメージ")
+        XCTAssertEqual(hpBefore - w.s.units[monster].hp, min(hpBefore, 750 + 150 * 5), accuracy: 1e-6, "モンスター優先・確定ダメージ")
         XCTAssertEqual(w.s.units[minion].hp, w.s.units[minion].stats.maxHP)
         XCTAssertEqual(w.s.units[farMonster].hp, w.s.units[farMonster].stats.maxHP)
         XCTAssertEqual(w.s.units[h].hero!.spellCooldowns[0], 35)
@@ -208,7 +208,7 @@ final class SpellSystemTests: XCTestCase {
         let m2 = u.addMinion(.siege, team: .red, at: skillArena + Vec2(0, 300))
         u.addMonster(.campLarge, at: skillArena + Vec2(-400, 0))
         XCTAssertTrue(u.castSpell(h2, 0, .unit(u.id(m2))))
-        XCTAssertEqual(u.damage(to: m2), 600, accuracy: 1e-6)
+        XCTAssertEqual(u.damage(to: m2), min(u.s.units[m2].stats.maxHP, 750 + 150 * 1), accuracy: 1e-6)
     }
 
     // MARK: - BS07 点火
@@ -475,7 +475,8 @@ final class SpellSystemTests: XCTestCase {
         XCTAssertEqual(before - w.s.units[h].hp, dealt, accuracy: 1e-6)
         let expected = w.mitigated(200, .physical, on: h) * (1 - 0.35)
         XCTAssertEqual(dealt, expected, accuracy: 1e-6, "被ダメ −30%")
-        XCTAssertEqual(attackerHP - w.s.units[e].hp, w.mitigated(dealt * 0.40, .magic, on: e), accuracy: 1e-6, "35% を確定ダメージで反射")
+        XCTAssertEqual(attackerHP - w.s.units[e].hp, w.mitigated(200 * 0.25, .magic, on: e), accuracy: 1e-6,
+                       "受けたダメージ（軽減前）の 25% を魔法ダメージで")
         // 継続ダメージも反射する（反射そのものは再反射しない）
         let hp2 = w.s.units[e].hp
         CombatSystem.applyDamage(&w.s, w.ctx, sourceID: w.id(e), targetIndex: h, amount: 100, type: .trueDamage, source: .dot)

@@ -119,6 +119,29 @@ final class MatchMedalTests: XCTestCase {
         XCTAssertEqual(MatchMedalResult(rating: 8.25, medal: .gold).ratingText, String(format: "%.1f", 8.25))
     }
 
+    /// チームの栄誉（2.2.16）: 1 人に 1 つ、まだ称号の無い人のうちその成績がいちばんの人へ。成績の無い人は「チームの力」。
+    func testTeamHonorGivesEachPlayerOneTitle() {
+        func p(_ id: EntityID, dmg: Double = 0, taken: Double = 0, kills: Int = 0, assists: Int = 0) -> PlayerSummary {
+            var sc = HeroScore()
+            sc.damageToHeroes = dmg
+            sc.damageTaken = taken
+            sc.kills = kills
+            sc.assists = assists
+            return PlayerSummary(entityID: id, team: .blue, heroID: "H027", displayName: "P\(id)", isHuman: id == 1, position: .mid,
+                                 level: 10, items: [], score: sc, mvpScore: Double(10 - id), grade: "B", isMVP: false)
+        }
+        let players = [p(1, dmg: 9000, kills: 9), p(2, taken: 12000), p(3, kills: 5), p(4, assists: 12), p(5)]
+        let s = MatchSummary(mode: .ranked, seed: 1, winner: .blue, endReason: .coreDestroyed, duration: 600, humanTeam: .blue,
+                             players: players, teamKills: [14, 3, 0], towersDestroyed: [5, 1, 0])
+        let t = TeamHonor.titles(team: .blue, in: s)
+        XCTAssertEqual(t.count, 5)
+        XCTAssertEqual(t[1]?.text, L("優れたダメージ", "Great Damage"))
+        XCTAssertEqual(t[2]?.text, L("優秀タンク", "Great Tank"))
+        XCTAssertEqual(t[3]?.text, L("即キル", "Swift Kills"), "1 人に 1 つ（キルが最多の P1 はもう称号がある）")
+        XCTAssertEqual(t[4]?.text, L("優れた封鎖", "Great Lockdown"))
+        XCTAssertEqual(t[5]?.text, L("チームの力", "Team Player"))
+    }
+
     func testQuickChatIsFixedPhrasesOnly() {
         let texts = ResultQuickChat.allCases.map(\.text)
         XCTAssertEqual(texts.count, 4)

@@ -38,6 +38,8 @@ struct HomeView: View {
         // イベントの残り時間などを前面にいる間だけ更新する
         .task(id: isFrontmost) {
             guard isFrontmost else { return }
+            // 前面に戻った: 運営からのメールを取りに行く（オンラインに同意している時だけ通信する）
+            await app.refreshOpsMail()
             now = Date()
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(30))
@@ -116,7 +118,12 @@ private struct HomeReferenceLobby: View {
                 .offset(x: layout.boardRect.minX, y: layout.boardRect.minY)
         }
         .clipped()
-        .task { app.friends.start(); app.friends.refreshPresence() }
+        .task {
+            app.friends.start()
+            app.friends.refreshPresence()
+            // フレンドの名刺（アバター・国旗・段位章と星。同意していなければ何もしない）
+            await app.publicProfiles.load(app.profile.friends.map(\.code))
+        }
     }
 
     private var canvas: some View {
@@ -326,24 +333,42 @@ private struct HomeReferenceLobby: View {
         .overlay(HomeChamfer(cut: 8).stroke(ice.opacity(0.6), lineWidth: 0.6))
     }
 
-    /// フレンドの行: 名前と状態（オンライン / チーム中 / 試合中 / 練習中 / オフライン）、右端に招待のボタン。
+    /// フレンドの行（MLBB のロビーの欄: 国旗・アバター・名前・段位章と星・状態）、右端に緑の「＋」（招待）。
     private func friendRow(_ friend: Friend) -> some View {
         let inMyTeam = app.online?.room.players.contains { $0.friendCode == friend.code } == true
-        let status = HomeFriendStatus.of(online: app.friends.isFriendOnline(friend.code), inMyTeam: inMyTeam)
+        let status = HomeFriendStatus.of(online: app.friends.isFriendOnline(friend.code), inMyTeam: inMyTeam,
+                                         activity: app.friends.activities[friend.code], now: now)
+        let card = app.publicProfiles.profiles[friend.code]
         return HStack(spacing: 9) {
             Button { app.router.push(.onlineLobby) } label: {
                 HStack(spacing: 9) {
-                    Image(systemName: "person.crop.circle").font(.system(size: 37, weight: .ultraLight))
-                    VStack(alignment: .leading, spacing: 6) {
+                    Group {
+                        if let avatar = card?.avatar {
+                            HeroPortraitView(heroID: avatar, size: 37, showsRole: false).clipShape(RoundedRectangle(cornerRadius: 5))
+                        } else {
+                            Image(systemName: "person.crop.circle").font(.system(size: 37, weight: .ultraLight))
+                        }
+                    }
+                    .overlay(alignment: .topLeading) { if let c = card?.country { CountryFlagBadge(code: c, size: 11).offset(x: -3, y: -3) } }
+                    VStack(alignment: .leading, spacing: 4) {
                         Text(FriendNames.display(friend.name)).font(.system(size: 13, design: .serif)).lineLimit(1)
-                        Label(status.title, systemImage: "circle.fill")
-                            .font(.system(size: 9)).foregroundStyle(status.isActive ? Color.mint : ice)
+                        if let rank = card?.rank {
+                            HStack(spacing: 3) {
+                                RankCrest(tier: PublicRankText.tier(rank), size: 13)
+                                Image(systemName: "star.fill").font(.system(size: 7))
+                                Text("\(rank.stars)").font(.system(size: 9, weight: .bold, design: .rounded))
+                            }
+                            .foregroundStyle(HomeStyle.goldLight)
+                        }
+                        Label(status.title, systemImage: status.symbol)
+                            .font(.system(size: 9)).lineLimit(1)
+                            .foregroundStyle(statusColor(status))
                     }
                     Spacer(minLength: 0)
                 }.contentShape(Rectangle())
             }.accessibilityIdentifier("home_friend_\(friend.code)")
             Button { invite(friend) } label: {
-                Image(systemName: "plus").font(.system(size: 20, weight: .ultraLight)).frame(width: 30, height: 40)
+                Image(systemName: "plus").font(.system(size: 20, weight: .regular)).foregroundStyle(Color.mint).frame(width: 30, height: 40)
             }
             .disabled(!status.canInvite)
             .opacity(status.canInvite ? 1 : 0.3)
@@ -351,6 +376,16 @@ private struct HomeReferenceLobby: View {
             .accessibilityIdentifier("home_friend_invite_\(friend.code)")
         }.padding(.horizontal, 12).frame(height: 64)
             .overlay(alignment: .bottom) { Rectangle().fill(ice.opacity(0.25)).frame(height: 0.5) }
+    }
+
+    /// 状態の色（MLBB: オンラインは緑、マッチング・試合などは橙、観戦は青、オフラインは灰）。
+    private func statusColor(_ s: HomeFriendStatus) -> Color {
+        switch s.tone {
+        case .available: return Color.mint
+        case .busy: return Color.orange
+        case .watching: return Color(red: 0.45, green: 0.75, blue: 1)
+        case .offline: return Color.gray
+        }
     }
 
     /// 招待: パーティ（部屋）が無ければ作って招待を送り、パーティの画面を開く（MLBB と同じくチームのルームへ）。

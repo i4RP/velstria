@@ -158,6 +158,26 @@ enum HUDShopLogic {
         return GearOption.options(for: category).first
     }
 
+    /// 戦闘画面（ショップの下）に出す祝福の進み。ジャングル = 狩りとキル（5 / 15）、ローム = 共栄ゴールド（1000）。
+    /// 祝福が無い・解放し終えたら nil。
+    static func blessingBadge(_ h: HeroData, master: MasterData) -> String? {
+        guard let option = GearEffects.option(of: h, master: master) else { return nil }
+        let k = Balance.Gear.self
+        switch option.category {
+        case .jungle:
+            let n = GearEffects.jungleProgress(h)
+            guard n < k.jungleSecondUnlockCount else { return nil }
+            let goal = n < k.jungleBlessingUnlockCount ? k.jungleBlessingUnlockCount : k.jungleSecondUnlockCount
+            return L("狩り \(n)/\(goal)", "Hunt \(n)/\(goal)")
+        case .roam:
+            guard !GearEffects.roamBlessingUnlocked(h) else { return nil }
+            let gold = Int(h.gear?.roamGold ?? 0), need = Int(k.blessingUnlockGold)
+            return L("共栄 \(gold)/\(need)", "Shared \(gold)/\(need)")
+        default:
+            return nil
+        }
+    }
+
     /// 祝福の進み具合（ジャングル: 狩りとキル、ローム: 共栄ゴールド）。祝福のタブ以外は nil。
     static func blessingProgressText(_ category: ItemCategory, shop: HUDShopState) -> String? {
         switch category {

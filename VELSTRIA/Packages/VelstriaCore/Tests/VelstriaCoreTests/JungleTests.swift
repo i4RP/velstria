@@ -56,7 +56,7 @@ final class JungleTests: XCTestCase {
 
     // MARK: - 出現
 
-    func testCrabletRespawnsEveryTwentySecondsThenCrabAtThreeMinutes() {
+    func testCrabSpawnsAt42AndRespawnsEvery45Seconds() {
         var (s, ctx) = Kit.makeState(Kit.emptyConfig())
         Kit.suppressWaves(&s)
         let camp = ctx.map.camps.first { $0.kind == .treasureCrab }!
@@ -70,43 +70,18 @@ final class JungleTests: XCTestCase {
         Kit.setTime(&s, 41.9)
         SpawnSystem.update(&s, ctx)
         XCTAssertEqual(alive(), [])
+        // 子は出ない（現行の MLBB）
         Kit.setTime(&s, 42)
         SpawnSystem.update(&s, ctx)
-        XCTAssertEqual(alive(), [.crablet])
-        // 子は倒されると 20 秒後に出直す
+        XCTAssertEqual(alive(), [.treasureCrab])
+        // 45 秒で出直す（MLBB Patch 1.9.90）
         Kit.setTime(&s, 60)
         killAll()
         SpawnSystem.update(&s, ctx)
-        XCTAssertEqual(s.world.campRespawnAt[camp.id] ?? 0, 80, accuracy: 1e-6)
-        Kit.setTime(&s, 80)
-        SpawnSystem.update(&s, ctx)
-        XCTAssertEqual(alive(), [.crablet])
-        // 3:00 を越える分は 3:00 に親が出る
-        Kit.setTime(&s, 170)
-        killAll()
-        SpawnSystem.update(&s, ctx)
-        XCTAssertEqual(s.world.campRespawnAt[camp.id] ?? 0, Balance.Jungle.crabUpgradeTime, accuracy: 1e-6)
-        Kit.setTime(&s, Balance.Jungle.crabUpgradeTime)
+        XCTAssertEqual(s.world.campRespawnAt[camp.id] ?? 0, 105, accuracy: 1e-6)
+        Kit.setTime(&s, 105)
         SpawnSystem.update(&s, ctx)
         XCTAssertEqual(alive(), [.treasureCrab])
-        // 親は 120 秒
-        Kit.setTime(&s, 200)
-        killAll()
-        SpawnSystem.update(&s, ctx)
-        XCTAssertEqual(s.world.campRespawnAt[camp.id] ?? 0, 320, accuracy: 1e-6)
-    }
-
-    func testLivingCrabletTurnsIntoCrabAtThreeMinutes() {
-        var (s, ctx) = Kit.makeState(Kit.emptyConfig())
-        Kit.suppressWaves(&s)
-        let camp = ctx.map.camps.first { $0.kind == .treasureCrab }!
-        Kit.setTime(&s, 42)
-        SpawnSystem.update(&s, ctx)
-        Kit.setTime(&s, Balance.Jungle.crabUpgradeTime)
-        SpawnSystem.update(&s, ctx)
-        let kinds = s.units.filter { $0.isAlive && $0.monster?.campID == camp.id }.map { $0.monster!.kind }
-        XCTAssertEqual(kinds, [.treasureCrab])
-        XCTAssertNil(s.world.campRespawnAt[camp.id])
     }
 
     func testEmberBeetleLeavesGrubThatExpiresWithoutReward() {
@@ -151,17 +126,19 @@ final class JungleTests: XCTestCase {
         CombatSystem.applyDamage(&s, ctx, sourceID: s.units[hero].id, targetIndex: lizard,
                                  amount: s.units[lizard].stats.maxHP * 0.4, type: .trueDamage, source: .basicAttack)
         MonsterSystem.update(&s, ctx)
-        XCTAssertFalse(s.units[lizard].has(.damageReduction), "半分までは硬くならない")
+        XCTAssertFalse(s.units[lizard].has(.flatDefenseMod), "半分までは硬くならない")
         CombatSystem.applyDamage(&s, ctx, sourceID: s.units[hero].id, targetIndex: lizard,
                                  amount: s.units[lizard].stats.maxHP * 0.2, type: .trueDamage, source: .basicAttack)
         MonsterSystem.update(&s, ctx)
-        XCTAssertEqual(s.units[lizard].status(.damageReduction)?.magnitude ?? 0, Balance.Jungle.lizardHardenReduction)
+        // HP が半分を切ると物理防御・魔法防御 +70（Fandom）
+        XCTAssertEqual(s.units[lizard].status(.flatDefenseMod)?.magnitude ?? 0, Balance.Jungle.lizardHardenDefense)
         StatCalculator.recompute(&s, lizard, ctx)
-        XCTAssertEqual(s.units[lizard].stats.damageReduction, Balance.Jungle.lizardHardenReduction, accuracy: 1e-9)
+        XCTAssertEqual(s.units[lizard].stats.armor, s.units[lizard].baseStats.armor + 70, accuracy: 1e-9)
+        XCTAssertEqual(s.units[lizard].stats.magicResist, s.units[lizard].baseStats.magicResist + 70, accuracy: 1e-9)
         // 全回復で解ける
         s.units[lizard].hp = s.units[lizard].stats.maxHP
         MonsterSystem.update(&s, ctx)
-        XCTAssertFalse(s.units[lizard].has(.damageReduction))
+        XCTAssertFalse(s.units[lizard].has(.flatDefenseMod))
     }
 
     func testMossWandererNeverFightsBackAndHealsWhenLeftAlone() {
@@ -198,8 +175,9 @@ final class JungleTests: XCTestCase {
         for i in [mana, energy] {
             CombatSystem.addStatus(&f.s, targetIndex: i, StatusEffect(kind: .blueBuff, duration: 75, tag: "sentinel"))
         }
-        XCTAssertEqual(JungleBuffs.skillCostMultiplier(f.s.units[mana]), 0.4, accuracy: 1e-9)
-        XCTAssertEqual(JungleBuffs.skillCostMultiplier(f.s.units[energy]), 0.75, accuracy: 1e-9)
+        // Mana −40%・Energy −20%（MLBB Patch 1.8.78）
+        XCTAssertEqual(JungleBuffs.skillCostMultiplier(f.s.units[mana]), 0.6, accuracy: 1e-9)
+        XCTAssertEqual(JungleBuffs.skillCostMultiplier(f.s.units[energy]), 0.8, accuracy: 1e-9)
         StatCalculator.recompute(&f.s, mana, f.ctx)
         XCTAssertEqual(f.s.units[mana].stats.cooldownReduction - cdrBefore, Balance.Jungle.purpleCooldownReduction, accuracy: 1e-9)
         // 敵を倒すと回復: ミニオン 3% / モンスター 12%
@@ -231,22 +209,32 @@ final class JungleTests: XCTestCase {
         XCTAssertEqual(after.resource, after.stats.maxResource * Balance.Jungle.healingBuffManaPct, accuracy: 1e-6)
     }
 
-    func testCrabGivesGoldOverTime() {
+    func testCrabGivesGoldOnTheGoldLaneSideAndEXPOnTheEXPLaneSide() {
+        // MLBB Patch 1.8.78: EXP レーン側の蟹は EXP、Gold レーン側の蟹は Gold。倒した瞬間に全額（時間で入る Gold は 1.8.44 で削除）
         var f = EconomyFixture.standard()
         f.parkHeroesAtFountains()
         let a = f.heroes(.blue)[0]
-        f.place(a, at: spot)
-        let gold = f.hero(a).gold
-        f.kill(f.addMonster(.treasureCrab, at: spot), by: f.id(a))
-        XCTAssertEqual(f.hero(a).gold - gold, Balance.Economy.monsterGold(.treasureCrab))
-        XCTAssertEqual(f.s.units[a].status(.goldBuff)?.magnitude ?? 0, 60.0 / 18, accuracy: 1e-9)
-        let g0 = f.hero(a).gold
-        for _ in 0..<(Int((18 / Balance.dt).rounded()) + 5) {
-            JungleBuffs.update(&f.s, f.ctx)
-            StatusSystem.update(&f.s, f.ctx)
+        f.s.units[a].hero!.spells = ["BS01", "BS03"]
+        let crabs = f.ctx.map.camps.filter { $0.kind == .treasureCrab }
+        XCTAssertEqual(crabs.count, 2)
+        var sides: Set<Bool> = []
+        for camp in crabs {
+            let expSide = DeathSystem.crabIsOnEXPSide(f.ctx, campID: camp.id)
+            sides.insert(expSide)
+            f.place(a, at: camp.pos + Vec2(150, 0))
+            let id = f.s.addUnit(UnitFactory.makeMonster(kind: .treasureCrab, campID: camp.id, pos: camp.pos, time: f.s.time))
+            let gold = f.hero(a).gold, xp = f.hero(a).xp, level = f.hero(a).level
+            f.kill(f.s.index(of: id)!, by: f.id(a))
+            if expSide {
+                XCTAssertEqual(f.hero(a).gold, gold, accuracy: 1e-9)
+                XCTAssertTrue(f.hero(a).xp > xp || f.hero(a).level > level, "EXP レーン側は EXP")
+            } else {
+                XCTAssertEqual(f.hero(a).gold - gold, Balance.Economy.monsterGold(.treasureCrab), accuracy: 1e-9)
+                XCTAssertEqual(f.hero(a).xp, xp, accuracy: 1e-9)
+            }
+            XCTAssertFalse(f.s.units[a].has(.goldBuff))
         }
-        XCTAssertFalse(f.s.units[a].has(.goldBuff))
-        XCTAssertEqual(f.hero(a).gold - g0, 60, accuracy: 0.5)
+        XCTAssertEqual(sides, [true, false], "片方ずつ")
     }
 
     func testMossWandererGrantsMossGrassAndAllyGold() {

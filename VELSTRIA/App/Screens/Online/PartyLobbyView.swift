@@ -10,7 +10,7 @@ import VelstriaCore
 
 /// パーティの右パネルのタブ。
 enum PartySideTab: String, CaseIterable, Identifiable {
-    case friends, requests, nearby, code
+    case friends, requests, recent, nearby, code
 
     var id: String { rawValue }
 
@@ -18,6 +18,7 @@ enum PartySideTab: String, CaseIterable, Identifiable {
         switch self {
         case .friends: return "person.2.fill"
         case .requests: return "person.badge.plus"
+        case .recent: return "clock.arrow.circlepath"
         case .nearby: return "wifi"
         case .code: return "number"
         }
@@ -27,6 +28,7 @@ enum PartySideTab: String, CaseIterable, Identifiable {
         switch self {
         case .friends: return L("フレンド", "Friends")
         case .requests: return L("フレンド申請", "Friend Requests")
+        case .recent: return L("最近一緒に遊んだ人", "Recently Played")
         case .nearby: return L("近くの部屋（同じ Wi-Fi）", "Nearby (Same Wi-Fi)")
         case .code: return L("部屋コードで参加", "Join by Room Code")
         }
@@ -44,6 +46,10 @@ struct PartyMember: Identifiable, Equatable {
     var rtt: Double?
     /// ブロックした相手（名前を出さない）。
     var isBlocked = false
+    /// 段位（自分はプロフィール、他の人は公開の名刺。分からなければ nil）。
+    var rank: PublicRank?
+    /// 希望レーン（自分だけ。レーン選択で前回選んだ最初のレーン）。
+    var lane: LanePosition?
 }
 
 struct PartyLobbyView: View {
@@ -210,11 +216,23 @@ struct PartyLobbyView: View {
 
     // MARK: メンバーの枠
 
+    /// 自分の段位（旗に出す）。
+    private var myRank: PublicRank {
+        let r = app.profile.rank
+        return PublicRank(tier: r.tier.rawValue, division: r.division, stars: r.stars)
+    }
+
+    /// 自分の希望レーン（レーン選択で前回選んだ最初のレーン。フレックスプロなら nil）。
+    private var myLane: LanePosition? {
+        LaneSelectRules.decode(UserDefaults.standard.string(forKey: "outgame.laneChoices") ?? "flex").lanes.first
+    }
+
     private var members: [PartyMember] {
         guard let session, !session.room.hostPeerID.isEmpty else {
             let name = app.profile.displayName.isEmpty ? L("プレイヤー", "Player") : app.profile.displayName
             return [PartyMember(id: app.profile.playerID, name: name, avatar: app.profile.avatarHeroID,
-                                friendCode: app.profile.friendCode, isHost: true, isMe: true, rtt: nil)]
+                                friendCode: app.profile.friendCode, isHost: true, isMe: true, rtt: nil,
+                                rank: myRank, lane: myLane)]
         }
         let room = session.room
         let players = room.players
@@ -225,7 +243,9 @@ struct PartyLobbyView: View {
             return PartyMember(id: p.id, name: blocked ? PlayerReportTarget.blockedName : p.name,
                                avatar: me ? app.profile.avatarHeroID : p.avatar,
                                friendCode: p.friendCode, isHost: p.id == room.hostPeerID, isMe: me,
-                               rtt: me && !session.isHost ? session.rtt : p.rtt, isBlocked: blocked)
+                               rtt: me && !session.isHost ? session.rtt : p.rtt, isBlocked: blocked,
+                               rank: me ? myRank : p.friendCode.flatMap { app.publicProfiles.profiles[$0]?.rank },
+                               lane: me ? myLane : nil)
         }
     }
 
@@ -470,6 +490,24 @@ struct PartySlotCard: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .padding(.horizontal, 4)
+            // 段位章と星・希望レーン（MLBB のルームの旗）
+            HStack(spacing: 4) {
+                if let rank = m.rank, let tier = RankTier(rawValue: rank.tier) {
+                    RankCrest(tier: tier, size: compact ? 14 : 20)
+                    Image(systemName: "star.fill")
+                        .font(.system(size: compact ? 7 : 9))
+                        .foregroundStyle(tier == .mythic ? Color(red: 0.86, green: 0.55, blue: 1) : Theme.gold)
+                    Text("\(rank.stars)")
+                        .font(.system(size: compact ? 9 : 11, weight: .bold, design: .rounded))
+                        .foregroundStyle(Theme.textPrimary)
+                }
+                if let lane = m.lane {
+                    Image(systemName: FlowText.positionSymbol(lane))
+                        .font(.system(size: compact ? 10 : 13))
+                        .foregroundStyle(Celestial.ice)
+                        .accessibilityLabel(FlowText.position(lane))
+                }
+            }
             tag(m)
             Spacer(minLength: 0)
         }
@@ -679,6 +717,8 @@ struct PartySidePanel: View {
             PartyFriendsTab(onAddFriend: { tab = .requests })
         case .requests:
             PartyRequestsTab()
+        case .recent:
+            PartyRecentTab()
         case .nearby:
             ScrollView {
                 OnlineLANSection().padding(.vertical, 10)
@@ -690,6 +730,78 @@ struct PartySidePanel: View {
             }
             .scrollBounceBehavior(.basedOnSize)
         }
+    }
+}
+
+// MARK: 最近一緒に遊んだ人（フレンド申請・名刺）
+
+struct PartyRecentTab: View {
+    @Environment(AppModel.self) private var app
+    @State private var card: PublicProfile?
+
+    var body: some View {
+        let list = app.profile.recentPlayers.filter { !app.friends.isBlocked($0.code) }
+        Group {
+            if list.isEmpty {
+                EmptyStateView(symbol: "clock.arrow.circlepath", title: L("まだいません", "No one yet"),
+                               message: L("オンラインの試合で一緒に遊んだ人がここに並びます。", "People you play online matches with appear here."))
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(list) { p in row(p) }
+                    }
+                }
+            }
+        }
+        .task { await app.publicProfiles.load(list.map(\.code)) }
+        .sheet(item: $card) { p in PublicNameCardView(profile: p).environment(app) }
+    }
+
+    private func row(_ p: RecentPlayer) -> some View {
+        let isFriend = app.friends.friend(code: p.code) != nil
+        let requested = app.friends.hasOutgoingRequest(to: p.code)
+        let profile = app.publicProfiles.profiles[p.code]
+        return HStack(spacing: 10) {
+            Button {
+                guard let profile else { return }
+                FlowFX.tap(app)
+                card = profile
+            } label: {
+                HStack(spacing: 10) {
+                    HeroPortraitView(heroID: profile?.avatar ?? HeroRoster.defaultHeroID, size: 36, showsRole: false)
+                        .clipShape(RoundedRectangle(cornerRadius: 5))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(FriendNames.display(p.name)).font(Theme.heading(13)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                        Text(FlowText.date(p.at)).font(Theme.mono(9)).foregroundStyle(Theme.textSecondary)
+                    }
+                    Spacer(minLength: 4)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            if isFriend {
+                Text(L("フレンド", "Friend")).font(Theme.body(10)).foregroundStyle(Theme.success)
+            } else if requested {
+                Text(L("申請中", "Requested")).font(Theme.body(10)).foregroundStyle(Theme.textSecondary)
+            } else {
+                Button {
+                    FlowFX.confirm(app)
+                    _ = app.friends.requestFriend(code: p.code)
+                } label: {
+                    Image(systemName: "person.badge.plus")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Color.mint)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L("フレンド申請", "Send friend request"))
+                .accessibilityIdentifier("recent_add_\(p.code)")
+            }
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 4)
+        .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1) }
     }
 }
 
@@ -733,6 +845,8 @@ struct PartyFriendsTab: View {
         }
         .scrollBounceBehavior(.basedOnSize)
         .refreshable { hub.refreshPresence() }
+        // フレンドの名刺（Lv・段位・最終ログイン。同意していなければ何もしない）
+        .task { await app.publicProfiles.load(hub.friends.map(\.code)) }
         .confirmationDialog(removing.map { L("\(FriendNames.display($0.name)) をフレンドから外しますか？", "Remove \(FriendNames.display($0.name)) from your friends?") } ?? "",
                             isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
                             titleVisibility: .visible) {
@@ -816,9 +930,18 @@ struct PartyFriendsTab: View {
                     .font(Theme.heading(14))
                     .foregroundStyle(online ? Theme.textPrimary : Theme.textSecondary)
                     .lineLimit(1)
-                Text(FriendCode.display(friend.code))
-                    .font(Theme.mono(9))
-                    .foregroundStyle(Theme.textSecondary.opacity(0.8))
+                // MLBB の一覧: Lv・段位（名刺から）と ID
+                HStack(spacing: 4) {
+                    if let card = app.publicProfiles.profiles[friend.code] {
+                        Text("Lv\(card.level)").font(.system(size: 9, weight: .bold, design: .rounded)).foregroundStyle(HomeStyle.goldLight)
+                        RankCrest(tier: PublicRankText.tier(card.rank), size: 12)
+                        Text(PublicRankText.name(card.rank)).font(Theme.body(9)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                    } else {
+                        Text(FriendCode.display(friend.code))
+                            .font(Theme.mono(9))
+                            .foregroundStyle(Theme.textSecondary.opacity(0.8))
+                    }
+                }
                 Label(status.text, systemImage: status.symbol)
                     .font(Theme.body(11))
                     .foregroundStyle(status.color)
@@ -864,8 +987,14 @@ struct PartyFriendsTab: View {
             case .busy: return (L("試合中", "In a match"), "gamecontroller.fill", Theme.gold)
             }
         }
-        return online ? (L("オンライン", "Online"), "circle.fill", Theme.success)
-                      : (L("オフライン", "Offline"), "xmark.square", Theme.textSecondary)
+        if online {
+            // 今の状態（ランキングルーム中・マッチング中・試合中など。HomeFriendStatus と同じ文）
+            let s = HomeFriendStatus.of(online: true, inMyTeam: false, activity: hub.activities[friend.code], now: Date())
+            return (s.title, s.symbol, s.tone == .available ? Theme.success : (s.tone == .watching ? Theme.cyan : Color.orange))
+        }
+        // オフライン: 最終ログイン（名刺から。MLBB の「最終ログイン 5 時間前」）
+        let seen = app.publicProfiles.profiles[friend.code].flatMap { LastSeenText.text($0.lastSeen) }
+        return (seen ?? "Offline", "xmark.square", Theme.textSecondary)
     }
 
     @ViewBuilder
@@ -970,7 +1099,7 @@ struct PartyRequestsTab: View {
                 .font(Theme.body(11))
                 .foregroundStyle(Theme.textSecondary)
             HStack(spacing: 2) {
-                Text(FriendCode.display(hub.myCode))
+                Text(hub.shareableCode.map(FriendCode.display) ?? L("登録中…", "Registering…"))
                     .font(.system(size: 22, weight: .heavy, design: .monospaced))
                     .foregroundStyle(Theme.gold)
                     .minimumScaleFactor(0.6)
@@ -990,6 +1119,7 @@ struct PartyRequestsTab: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .disabled(hub.shareableCode == nil)
                 .accessibilityLabel(L("フレンドコードをコピー", "Copy friend code"))
                 ShareLink(item: FriendLink.shareText(code: hub.myCode, name: hub.myName)) {
                     Image(systemName: "square.and.arrow.up")
@@ -998,6 +1128,7 @@ struct PartyRequestsTab: View {
                         .frame(width: 40, height: 44)
                         .contentShape(Rectangle())
                 }
+                .disabled(hub.shareableCode == nil)
                 .accessibilityLabel(L("フレンドコードを共有", "Share friend code"))
             }
         }

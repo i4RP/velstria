@@ -149,21 +149,76 @@ struct HomePassProgress: Equatable {
 // MARK: - フレンド欄: 状態
 
 /// フレンドの状態（MLBB のフレンド一覧と同じ並び）。試合中・練習中は在席の情報に状態が載ってから（第3段）。
+/// フレンドの状態（MLBB のフレンド一覧: オンライン・ランキングルーム中・マッチング中・試合中（「ランキング1分」）・集計中・ライブ観戦・Offline）。
 enum HomeFriendStatus: Equatable {
     case offline, online, inTeam, inMatch, practicing
+    /// ルーム中（モード。nil = 不明）。
+    case inRoom(MatchMode?)
+    case matching
+    /// 試合中（モードと経過の分）。
+    case playing(MatchMode?, minutes: Int)
+    case tallying, spectating
+
+    /// 色の分け方（緑 = 遊べる、橙 = マッチング・試合など、青 = 観戦、灰 = オフライン）。
+    enum Tone { case available, busy, watching, offline }
 
     static func of(online: Bool, inMyTeam: Bool) -> HomeFriendStatus {
         guard online else { return .offline }
         return inMyTeam ? .inTeam : .online
     }
 
+    /// 在席・自分のチームか・フレンドが知らせてきた今の状態から。
+    static func of(online: Bool, inMyTeam: Bool, activity: FriendActivity?, now: Date) -> HomeFriendStatus {
+        guard online else { return .offline }
+        if inMyTeam { return .inTeam }
+        guard let a = activity else { return .online }
+        let mode = FriendActivityMode.mode(a.m)
+        switch a.kind {
+        case .online: return .online
+        case .room: return .inRoom(mode)
+        case .matching: return .matching
+        case .match:
+            let minutes = a.at.map { max(0, Int(now.timeIntervalSince1970 - $0 / 1000) / 60) } ?? 0
+            return .playing(mode, minutes: minutes)
+        case .tally: return .tallying
+        case .watch: return .spectating
+        case .practice: return .practicing
+        }
+    }
+
     var title: String {
         switch self {
-        case .offline: return L("オフライン", "Offline")
+        case .offline: return "Offline"
         case .online: return L("オンライン", "Online")
         case .inTeam: return L("チーム中", "In team")
         case .inMatch: return L("試合中", "In match")
         case .practicing: return L("練習中", "Practicing")
+        case .inRoom(let m): return m.map { L("\(FlowText.mode($0))ルーム中", "In \(FlowText.mode($0)) room") } ?? L("ルーム中", "In a room")
+        case .matching: return L("マッチング中", "Matchmaking")
+        case .playing(let m, let minutes):
+            guard let m else { return L("試合中", "In match") }
+            return L("\(FlowText.mode(m))\(max(1, minutes))分", "\(FlowText.mode(m)) \(max(1, minutes))m")
+        case .tallying: return L("集計中", "Tallying")
+        case .spectating: return L("ライブ観戦", "Watching")
+        }
+    }
+
+    var tone: Tone {
+        switch self {
+        case .offline: return .offline
+        case .online, .inTeam: return .available
+        case .spectating: return .watching
+        default: return .busy
+        }
+    }
+
+    /// 印（オンラインは緑の ✓、観戦は青い ▶）。
+    var symbol: String {
+        switch tone {
+        case .available: return "checkmark.circle.fill"
+        case .busy: return "circle.fill"
+        case .watching: return "play.circle.fill"
+        case .offline: return "circle"
         }
     }
 
@@ -172,6 +227,17 @@ enum HomeFriendStatus: Equatable {
 
     /// 招待できるか（オンラインで、まだ自分のチームにいない）。
     var canInvite: Bool { self == .online }
+}
+
+/// 状態で知らせるモードの名前（relay は英小文字だけを通す）。
+enum FriendActivityMode {
+    private static let table: [(MatchMode, String)] = [
+        (.standard, "classic"), (.ranked, "ranked"), (.brawl, "brawl"), (.custom, "custom"), (.magicChess, "chess"),
+        (.online, "online"), (.practice, "practice"), (.tutorial, "tutorial"), (.spectate, "spectate"),
+    ]
+
+    static func code(_ m: MatchMode) -> String { table.first { $0.0 == m }?.1 ?? "classic" }
+    static func mode(_ code: String?) -> MatchMode? { table.first { $0.1 == code }?.0 }
 }
 
 // MARK: - 書式

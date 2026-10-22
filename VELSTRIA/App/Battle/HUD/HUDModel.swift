@@ -88,6 +88,8 @@ final class HUDModel {
     private(set) var vitals = HUDVitals()
     private(set) var skills: [HUDSkillSnapshot] = SkillSlot.actives.map { HUDSkillSnapshot(slot: $0) }
     private(set) var spells: [HUDSpellSnapshot] = [HUDSpellSnapshot(index: 0), HUDSpellSnapshot(index: 1)]
+    /// 祝福の進み（ショップの下に小さく出す。HUDShopLogic.blessingBadge）。
+    private(set) var blessingBadge: String?
     /// アクティブ装備・祝福のアクティブ（隠蔽）・効果中のポーション。
     private(set) var itemActives = HUDItemActiveSnapshot()
     private(set) var quickBuyItemID: String?
@@ -566,6 +568,8 @@ final class HUDModel {
         if b.spells != spells { spells = b.spells }
         let actives = HUDItemActiveLogic.snapshot(h, time: s.time, master: ctx.master)
         if actives != itemActives { itemActives = actives }
+        let badge = HUDShopLogic.blessingBadge(h, master: ctx.master)
+        if badge != blessingBadge { blessingBadge = badge }
 
         // おすすめ購入（Gold・所持品が変わった時だけ計算）
         let key = QuickBuyKey(gold: Int(h.gold), items: h.items, enabled: settings.showRecommendedItems)
@@ -749,8 +753,12 @@ final class HUDModel {
             minimap.camps.append(.init(pos: camp.pos, alive: alive,
                                        isBoss: isBoss,
                                        kind: isBoss && s.world.riverObjective != nil
-                                           ? (s.world.riverObjective!.lordEra ? .ancientColossus : .astralWyrm) : camp.kind,
-                                       respawnRemaining: nextSpawn.map { max(0, $0 - s.time) }))
+                                           ? (s.world.riverObjective!.lordEra || s.world.riverObjective!.nextIsLord == true
+                                              ? .ancientColossus : .astralWyrm) : camp.kind,
+                                       // もう出ないキャンプ（ロードが出た後の宝殻蟹。Double.greatestFiniteMagnitude）は時計を出さない
+                                       respawnRemaining: nextSpawn.flatMap {
+                                           $0 >= Double.greatestFiniteMagnitude / 2 ? nil : max(0, $0 - s.time)
+                                       }))
         }
         refreshMinimapCamera()
         minimapVersion &+= 1

@@ -60,19 +60,19 @@ enum BotMacro {
         }
         // 2b. 終盤の古環の巨像: 押し切りの前に取る（強化ミニオンと 2 秒帰還で守りを崩す）
         else if t >= Balance.Bot.lateSiege, t >= retryAt, let camp = bossCamp(s, ctx, .ancientColossus), campAlive(s, camp),
-                ourAlive >= enemyAlive, aliveBots.count >= 3, blessed(s, aliveBots, .colossusBlessing) == 0,
+                ourAlive >= enemyAlive, aliveBots.count >= 3, !alliedLordAlive(s, team: team),
                 enemiesSeenNear(s, intel, camp.pos, radius: 2500, within: 5) == 0 {
             plan.kind = .colossus
             plan.point = camp.pos
             plan.members = aliveBots.map { s.units[$0].id }
         }
-        // 3. 押し切り: 人数有利（敵が死亡・帰還で戦線に居ない）・巨像の加護・Core が露出・終盤
+        // 3. 押し切り: 人数有利（敵が死亡・帰還で戦線に居ない）・味方のロード・終盤。ベースが開いただけでは押し切らない
+        //    （MLBB の人間は集団戦に勝ってから押す）。ベースタワー・ベースは、泉・帰還で見えた敵もすぐ守りに来るので死んだ敵だけを数える
         else if ourAlive >= 3 || ourAlive > enemyAlive,
-                enemyAway >= 3 || (enemyAway >= 2 && groupPhase)
-                    || (blessed(s, aliveBots, .colossusBlessing) >= 3 && ourAlive >= enemyAlive)
-                    || (groupPhase && enemyAway >= 1 && w.core(of: team.opponent)?.invulnerable == false)
-                    || (t >= Balance.Bot.lateSiege && ourAlive >= enemyAlive),
-                let st = siegeTarget(s, w, team: team, preferred: old.lane) {
+                let st = siegeTarget(s, w, team: team, preferred: old.lane),
+                siegeWindow(s, ctx, st: st, team: team, enemyAway: enemyAway, enemyDead: enemyDead, ourAlive: ourAlive,
+                            enemyAlive: enemyAlive, groupPhase: groupPhase,
+                            alliedLord: alliedLordAlive(s, team: team)) {
             plan.kind = .siege
             plan.lane = approachLane(s, ctx, w, intel, team: team, target: st, old: old)
             plan.targetID = st.id
@@ -108,10 +108,12 @@ enum BotMacro {
             plan.point = camp.pos
             plan.members = members
         }
-        // 6. 集団で押し込み（敵の集団が居ないレーンを選び、今のレーンを少し優先。同条件なら mid）
-        else if groupPhase {
-            let lane = pushLane(s, ctx, w, intel, team: team, old: old, center: center,
-                                groupSize: min(profile.groupSize, aliveBots.count))
+        // 6. 集団で押し込み（敵の集団が居ないレーンを選び、今のレーンを少し優先。同条件なら mid）。
+        //    2 人以上少ない時は押しに出ない（塔の下で守る）。押せる塔が無ければ（ベースタワー・ベースしか残らず人数で勝っていない）出ない
+        else if groupPhase, ourAlive + 1 >= enemyAlive,
+                let lane = pushLane(s, ctx, w, intel, team: team, old: old, center: center,
+                                    groupSize: min(profile.groupSize, aliveBots.count), ourAlive: ourAlive,
+                                    enemyAlive: enemyAlive) {
             plan.kind = .push
             plan.lane = lane
             plan.members = pushMembers(s, ctx.map, aliveBots, count: profile.groupSize, lane: lane)
@@ -132,20 +134,29 @@ enum BotMacro {
 
     /// 攻められている自軍構造物と脅威の大きさ（Core > 基部 > 内 > 外の順）。
     /// 塔が実際に削られている時だけ（レーン戦の押し引きでは動かない）。集団期より前の外塔は敵ヒーロー 2 人以上。
+    /// ただし、敵の召喚されたロードが近づいている塔（単独でも塔を崩すのでヒーロー 2 人分）と、
+    /// 敵ヒーロー 2 人以上が近づいている攻撃できるベースタワー・ベース（MLBB の人間は奥まで来られたら全員で守る）は、削られる前から守る。
     static func threatenedStructure(_ s: SimState, _ w: BotWorld, _ intel: BotTeamIntel, team: Team,
                                     groupPhase: Bool) -> (structure: BotStructureInfo, heroes: Int, minions: Int)? {
         var best: (structure: BotStructureInfo, heroes: Int, minions: Int)?
         var bestRank = -1
         for st in w.structures where st.team == team {
-            guard s.time - s.units[st.index].lastDamagedTime < 4 else { continue }
-            let heroes = enemiesSeenNear(s, intel, st.pos, radius: st.reach + 600, within: 2)
+            let deep = st.isCore || st.tier == .base
+            let lord = st.invulnerable ? nil : w.enemyLord(near: st.pos, team: team, radius: st.reach + 1500, s)
+            let approaching = deep && !st.invulnerable
+                && enemiesSeenNear(s, intel, st.pos, radius: st.reach + 1500, within: 3) >= 2
+            guard lord != nil || approaching || s.time - s.units[st.index].lastDamagedTime < 4 else { continue }
+            var heroes = enemiesSeenNear(s, intel, st.pos, radius: st.reach + (approaching ? 1500 : 600), within: 2)
             var minions = 0
             for m in w.minions where m.team != team && m.isVisible(to: team) {
                 if m.pos.distanceSquared(to: st.pos) < (st.reach + 250) * (st.reach + 250) { minions += 1 }
             }
-            let deep = st.isCore || st.tier == .base
             var threatened = heroes >= 1 || (deep && minions >= 3)
             if !groupPhase && st.tier == .outer && !st.isCore { threatened = heroes >= 2 }
+            if lord != nil {
+                threatened = true
+                heroes += 2
+            }
             guard threatened else { continue }
             let rank = st.isCore ? 4 : 3 - st.tier.rawValue
             if rank > bestRank {
@@ -155,6 +166,26 @@ enum BotMacro {
         }
         return best
     }
+
+    /// 押し切りの時機（step 3）。ベースタワー・ベース・敵の泉の近くの構造物は、泉・帰還で見えた敵もすぐ守りに来るので、
+    /// 死んでいる敵だけを「戦線に居ない」と数える。
+    static func siegeWindow(_ s: SimState, _ ctx: SimContext, st: BotStructureInfo, team: Team, enemyAway: Int,
+                            enemyDead: Int, ourAlive: Int, enemyAlive: Int, groupPhase: Bool, alliedLord: Bool) -> Bool {
+        let nearHome = st.isCore || st.tier == .base
+            || st.pos.distanceSquared(to: ctx.map.fountain(team.opponent)) < 3500 * 3500
+        let away = nearHome ? enemyDead : enemyAway
+        if away >= 3 || (away >= 2 && groupPhase) { return true }
+        // 味方のロードが出ている（押し切りの合図）
+        if alliedLord && ourAlive >= enemyAlive { return true }
+        // 終盤（20:00〜）は人数が同じでも押す。奥（ベースタワー・ベース）は 1 人でも多い・死んでいる時だけ
+        if s.time >= Balance.Bot.lateSiege && ourAlive >= enemyAlive && (!nearHome || ourAlive > enemyAlive || away >= 1) {
+            return true
+        }
+        return false
+    }
+
+    /// 構造物の深さ（外 1・内 2・ベースタワー 3・ベース 4）。
+    static func depth(_ st: BotStructureInfo) -> Int { st.isCore ? 4 : st.tier.rawValue + 1 }
 
     /// 取り合い（ベースレース）を続けるべきか: 味方の集団が目標の構造物に取り付いていて、こちらの目標の方が削れている。
     /// 守る側が Core の場合は、こちらも Core を削っていて相手の Core の方が低い時だけ。
@@ -171,6 +202,8 @@ enum BotMacro {
         let target = w.structures.first { $0.id == old.targetID && $0.team != team }
             ?? old.lane.flatMap { w.frontTower(team: team.opponent, lane: $0) }
         guard let st = target, !st.invulnerable else { return false }
+        // 守る塔より浅い塔との交換はしない（外塔を取る間に内塔を落とされない）
+        guard depth(st) >= depth(threatened) else { return false }
         var near = 0
         for id in old.members {
             guard let h = s.index(of: id), s.units[h].isAlive, s.units[h].hero?.isDead != true else { continue }
@@ -178,7 +211,7 @@ enum BotMacro {
         }
         let ours = st.hp / max(1, st.maxHP)
         let theirs = threatened.hp / max(1, threatened.maxHP)
-        return near >= 2 && ours <= theirs + 0.2
+        return near >= 2 && ours <= theirs
     }
 
     /// 直前まで守っていた構造物（生存中・開始から 12 秒以内）。
@@ -192,6 +225,11 @@ enum BotMacro {
     /// kind のバフを持つ生存ボットの数。
     static func blessed(_ s: SimState, _ bots: [Int], _ kind: StatusKind) -> Int {
         bots.filter { s.units[$0].has(kind) }.count
+    }
+
+    /// 味方として出撃したロード（古環の巨像）が生きているか（押し切りの合図）。
+    static func alliedLordAlive(_ s: SimState, team: Team) -> Bool {
+        s.units.contains { $0.isAlive && $0.team == team && $0.kind == .monster && $0.monster?.kind == .ancientColossus }
     }
 
     /// 生存ボットの重心。
@@ -250,17 +288,19 @@ enum BotMacro {
     }
 
     /// 集団で押すレーン。敵の集団が見えているレーンを避け（空いている塔を取って守りに来させる）、
-    /// 本拠点に近い塔・削れている塔・味方ウェーブが前に出ているレーンを選ぶ。今のレーンを少し優先する。
+    /// 浅い塔・削れている塔・味方ウェーブが前に出ているレーンを選ぶ（MLBB の人間は 1 レーンを奥まで押し込まず、外塔・内塔を順に取る）。
+    /// ベースタワー・ベースは人数で勝っている時だけ。今のレーンを少し優先する。押せるレーンが無ければ nil。
     static func pushLane(_ s: SimState, _ ctx: SimContext, _ w: BotWorld, _ intel: BotTeamIntel, team: Team,
-                         old: BotTeamPlan, center: Vec2, groupSize: Int) -> Lane {
+                         old: BotTeamPlan, center: Vec2, groupSize: Int, ourAlive: Int, enemyAlive: Int) -> Lane? {
         let enemy = team.opponent
-        var best: Lane = .mid
+        var best: Lane?
         var bestScore = -Double.infinity
         for lane in ctx.map.lanes {
             // 目標: レーンの最前の敵塔（無ければ攻撃可能な Core）
             var target = w.frontTower(team: enemy, lane: lane)
             if target == nil, let core = w.core(of: enemy), !core.invulnerable { target = core }
             guard let st = target else { continue }
+            if (st.isCore || st.tier == .base) && ourAlive <= enemyAlive { continue }
             let len = w.laneLength[lane.rawValue]
             let front = w.front[team.rawValue][lane.rawValue] ?? len * 0.3
             let frontPos = BotLane.point(ctx.map, lane, team: team, progress: front)
@@ -269,7 +309,7 @@ enum BotMacro {
             // 敵の集団が見えているレーンは避ける（空いている塔を取り、守りに来させて塔の下で迎え撃つ）。
             // 大きく数で勝る時だけは狩りに行く
             var score = presence > 0 && presence <= groupSize - 2 ? 0.6 : -Double(presence) * 1.1
-            score += Double(st.tier.rawValue) * 0.5 + (st.isCore ? 2 : 0) + (1 - st.hp / max(1, st.maxHP)) * 1.5
+            score += -Double(depth(st)) * 0.6 + (1 - st.hp / max(1, st.maxHP)) * 1.5
             if front > len * 0.5 { score += 0.6 }
             score -= center.distance(to: frontPos) / 4000
             if old.kind == .push && old.lane == lane { score += 0.9 }
