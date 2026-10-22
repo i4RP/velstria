@@ -721,6 +721,20 @@ struct HeroAnimator {
     /// 強い通常攻撃の全身のモーション（profile.empoweredAttack）があれば、普段の通常攻撃の代わりにそれを 1 回振る
     /// （打撃 = windup 秒後 = sim の 1 発目の命中。打撃の後は等速: 2・3 発目のキーが sim の命中の時刻に来る）。無ければ playAttack と同じ。
     mutating func playAttack(windup: Float, interval: Float, empowered: Bool) {
+        if empowered, let e = clips.binding?.empowered {
+            // 専用のクリップ（H027 の三連突き）: 1 発目の打撃を windup 秒後に合わせ、打撃の後は等速（2・3 発目のキーが
+            // sim の命中の時刻に来る）。普段の通常攻撃と同じ層で再生するので、前の振りの姿勢から跳ねずにつながる
+            if motionAttack == HeroAnimator.empoweredMotion { motionAttack = -1 }
+            if state == .attack {
+                begin(.attack, blend: 0.06)
+            } else {
+                transition(.attack, autoAttack: false)
+            }
+            autoAttackPending = false
+            attackAuto = false
+            startAttackClip(e, windup: windup, interval: interval, uniformAfterImpact: true)
+            return
+        }
         guard empowered, let clip = profile.empoweredAttack else { return playAttack(windup: windup, interval: interval) }
         if state == .attack {
             begin(.attack, blend: 0.06)
@@ -809,8 +823,19 @@ struct HeroAnimator {
     /// 詠唱中のスロットのスキルが最初に当たった時（sim のダメージ）: 命中の後のモーション（profile.hitFollowUps）があれば
     /// 今の姿勢からつないで始め、その長さ（秒）を返す。1 回の詠唱で 1 度だけ。無ければ nil（何もしない）。
     mutating func playCastHit(_ slot: SkillSlot) -> Float? {
-        guard state == .cast(slot), !castHitPlayed,
-              let clip = profile.hitFollowUps[HeroAnimator.castIndex(slot)] else { return nil }
+        guard state == .cast(slot), !castHitPlayed else { return nil }
+        let k = HeroAnimator.castIndex(slot)
+        if profile.hitFollowUps[k] == nil, let b = clips.binding, let c = b.castHit(k) {
+            // 手続きの命中の後のモーションが無く、クリップだけがある（H027 竜牙突きの到着の突き）: 打撃を命中のすぐ後に置き、
+            // 今の姿勢からつなぐ（手続きの命中の後がある H034 は下の経路のまま）
+            let info = b.library.clips[c]
+            let from = max(0, info.impactTime - HeroAnimator.castHitLead)
+            clips.start(c, role: .cast, from: from, fullBody: true, speedMask: !b.locksLegs(k), hold: false,
+                        blendDuration: 0.05)
+            castHitPlayed = true
+            return max(0.1, info.endTime - from)
+        }
+        guard let clip = profile.hitFollowUps[k] else { return nil }
         begin(.cast(slot), blend: 0.06)
         beginCastMotion(clip)
         castHitPlayed = true
@@ -899,6 +924,8 @@ struct HeroAnimator {
     static let autoInterval: Float = 0.9
     /// 詠唱の呼び出しから打撃（効果の発生）までの秒数。
     static let castLead: Float = 0.12
+    /// 命中の後のクリップを始める位置（打撃の何秒前から）。命中の直後に打撃が来る。
+    static let castHitLead: Float = 0.03
 
     /// クリップの重み（上半身・下半身、0〜1）。下半身の重みの分だけ手続きの全身の傾き・浮き沈み・腰の沈みを止める。
     var clipUpperWeight: Float { clips.isActive ? clips.upperWeight : 0 }
@@ -987,13 +1014,19 @@ struct HeroAnimator {
         guard let b = clips.binding, !b.attacks.isEmpty else { return clips.stop() }
         let c = b.attacks[attackCursor % b.attacks.count]
         attackCursor = (attackCursor + 1) % b.attacks.count
+        startAttackClip(c, windup: windup, interval: interval)
+    }
+
+    /// クリップ c を通常攻撃として振る。uniformAfterImpact = 打撃の後を等速で再生する（連撃のキーを sim の時刻に保つ）。
+    private mutating func startAttackClip(_ c: Int, windup: Float, interval: Float, uniformAfterImpact: Bool = false) {
+        guard let b = clips.binding else { return clips.stop() }
         let info = b.library.clips[c]
         let w = max(0.02, windup.isFinite ? windup : HeroAnimator.autoWindup)
         let impact = info.impactTime
         let pre = min(4, max(0.5, impact / w))
         let recovery = max(0, info.endTime - impact)
         let available = max(info.release == nil ? 0.2 : 0.025, (interval.isFinite ? interval : HeroAnimator.autoInterval) - w)
-        let post = max(1, recovery / available)
+        let post = uniformAfterImpact ? 1 : max(1, recovery / available)
         clips.start(c, role: .attack, from: impact - pre * w, preRate: pre, postRate: post,
                     fullBody: b.attackMask == .full, speedMask: true, hold: false,
                     blendDuration: min(HeroClipLayer.fadeIn, w * 0.65))
@@ -1016,7 +1049,7 @@ struct HeroAnimator {
         guard let c = b.cast(HeroAnimator.castIndex(slot)) else { return clips.stop() }
         let info = b.library.clips[c]
         clips.start(c, role: .cast, from: b.castsFromStart ? 0 : max(0, info.impactTime - HeroAnimator.castLead),
-                    fullBody: true, speedMask: true, hold: false)
+                    fullBody: true, speedMask: !b.locksLegs(HeroAnimator.castIndex(slot)), hold: false)
     }
 
     /// 非ループのクリップが終わった時。

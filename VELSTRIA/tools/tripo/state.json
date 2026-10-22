@@ -5500,7 +5500,7 @@
         }
       },
       "import": {
-        "at": "2026-10-11T13:17:12.229Z",
+        "at": "2026-10-22T16:20:13.084Z",
         "out": "App/Resources/Heroes/Hero_H027.usdz",
         "status": "success",
         "report": "build/tripo/heroes/H027/import_report.json",
@@ -6461,6 +6461,80 @@
       "stages": {
         "concept": {
           "status": "success",
+          "task_id": "5786cf83-eb78-4efa-a896-d0772043a3f3",
+          "input": null,
+          "request": {
+            "prompt": "Single stylized fantasy MOBA game item, one object only, upright and perfectly vertical: a very long ornate dragon spear, front view, the dragon head facing the viewer: a long straight dark lacquered shaft wrapped with thin gold bands and a pointed gold butt spike at the bottom; near the top an intricately sculpted teal-green dragon head with clearly carved scales, sharp golden horns, a flowing golden mane and fins on both sides and glowing orange eyes; from the dragon's open jaws rises a large ornate golden flame-shaped spear blade pointing straight up, with engraved edges and a glowing orange core, the flat face of the blade toward the viewer. Crisp high-detail sculpting on the head and blade. Orthographic view, centered with margin, whole object visible, plain light-gray background, even soft lighting, stylized hand-painted texture, chunky readable shapes for a top-down game camera, no hands, no text, no logo. --no hand, person, character, multiple objects, duplicates, tilted, diagonal, cropped, perspective, cast shadow, floor, particles, smoke, sparks, background scenery, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-22T17:02:27.333Z",
+          "completed_at": "2026-10-22T17:02:58.830897Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/props/dragonSpear/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-22T17:02:59.732Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "5bed1352-6a64-458d-9ae8-b61ec80d1d60",
+          "input": "5786cf83-eb78-4efa-a896-d0772043a3f3",
+          "request": {
+            "input": "5786cf83-eb78-4efa-a896-d0772043a3f3",
+            "model": "P1-20260311",
+            "face_limit": 20000,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image",
+            "orientation": "align_image"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-22T17:03:16.981Z",
+          "completed_at": "2026-10-22T17:04:15.413940Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/props/dragonSpear/model.glb",
+            "preview": "build/tripo/props/dragonSpear/preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-22T17:04:22.248Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-22T17:12:09.004Z",
+        "out": "App/Resources/Heroes/Prop_dragonSpear.usdz",
+        "status": "success",
+        "report": "build/tripo/props/dragonSpear/import_report.json",
+        "log": "build/tripo/props/dragonSpear/import_normalize.log",
+        "verifyLog": "build/tripo/props/dragonSpear/import_verify.log",
+        "provider": "tripo"
+      },
+      "history": [
+        {
+          "stage": "concept",
+          "archived_at": "2026-10-22T17:02:26.118Z",
+          "status": "success",
           "task_id": "1e086b24-3c9d-4ecc-b63e-bc7ce3bd53a3",
           "input": null,
           "request": {
@@ -6486,7 +6560,9 @@
           "error": null,
           "updated_at": "2026-10-11T18:36:57.305Z"
         },
-        "model": {
+        {
+          "stage": "model",
+          "archived_at": "2026-10-22T17:02:26.119Z",
           "status": "success",
           "task_id": "8177f5ed-f6ff-46df-9708-56b2a6cd5212",
           "input": "1e086b24-3c9d-4ecc-b63e-bc7ce3bd53a3",
@@ -6520,16 +6596,7 @@
           "error": null,
           "updated_at": "2026-10-11T18:44:19.624Z"
         }
-      },
-      "import": {
-        "at": "2026-10-11T18:46:36.715Z",
-        "out": "App/Resources/Heroes/Prop_dragonSpear.usdz",
-        "status": "success",
-        "report": "build/tripo/props/dragonSpear/import_report.json",
-        "log": "build/tripo/props/dragonSpear/import_normalize.log",
-        "verifyLog": "build/tripo/props/dragonSpear/import_verify.log",
-        "provider": "tripo"
-      }
+      ]
     },
     "props/photonBlade": {
       "stages": {
@@ -7207,5 +7274,5 @@
     }
   },
   "note": "tools/tripo.mjs が自動生成。task_id・状態・消費クレジット・ローカルパスのみ（秘密情報なし）",
-  "updated_at": "2026-10-22T17:02:33.297Z"
+  "updated_at": "2026-10-22T17:12:09.006Z"
 }

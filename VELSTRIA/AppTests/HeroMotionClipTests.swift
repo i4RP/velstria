@@ -673,6 +673,94 @@ final class HeroMotionClipTests: XCTestCase {
         XCTAssertEqual(animator.clips.clip, binding.run, "通常の移動速度は走行クリップ")
     }
 
+    /// H027 ジャルドの専用クリップ（H027MotionClips.json）: 全部そろい、待機・歩行・走行は足が地面に着いたまま（腰のずれは
+    /// 1 回だけ）、通常攻撃の打撃は 10 フレーム目、三連突きは sim の 3 発（4 tick おき）に合う 34 フレーム、指の差分を持つ。
+    func testBundledJarldClipsKeepContactAndTiming() throws {
+        HeroMotionClips.setResolverForTesting(nil)
+        let lib = HeroMotionClips.library(heroID: "H027")
+        let set = try XCTUnwrap(HeroMotionSets.set(heroID: "H027"))
+        let names = set.attacks + set.casts.compactMap { $0 } + set.castHits.compactMap { $0 }
+            + [set.idle, set.walk, set.run, set.empowered].compactMap { $0 }
+        XCTAssertEqual(Set(names).count, 11)
+        for name in names {
+            let c = try XCTUnwrap(lib.index(of: name), "\(name) が H027MotionClips.json に無い")
+            XCTAssertNotNil(lib.clips[c].detailBase, "\(name): 肩・つま先・指の差分")
+        }
+        XCTAssertNotNil(set.idle, "専用の待機が HeroIdle に消されない")
+        for name in ["h027_thrust", "h027_sweep", "h027_rising", "h027_flurry"] {
+            let clip = lib.clips[try XCTUnwrap(lib.index(of: name))]
+            XCTAssertEqual(clip.impact, 10, name)
+            XCTAssertTrue(clip.melee, name)
+        }
+        let flurry = lib.clips[try XCTUnwrap(lib.index(of: "h027_flurry"))]
+        XCTAssertGreaterThan(flurry.endTime - flurry.impactTime, Float(8 * Balance.dt) + 0.2, "3 発目の後も戻りがある")
+        let url = try XCTUnwrap(HeroAssetLibrary.bundledURL("Hero_H027"))
+        let rig = try XCTUnwrap(HeroAssetLibrary.heroTemplate(url)?.rig)
+        XCTAssertNotNil(rig.index[.indexR], "握りの指の骨（Tripo v3 のリグ）")
+        let hips = try XCTUnwrap(rig.index[.hips])
+        let feet = try [HeroJointRole.footL, .footR].map { try XCTUnwrap(rig.index[$0]) }
+        let contacts = try [HeroJointRole.footL, .footR, .toeL, .toeR].map { try XCTUnwrap(rig.index[$0]) }
+        let leg = max(0.1, rig.restPosition[hips].y - feet.map { rig.restPosition[$0].y }.reduce(0, +) / 2)
+        let restLowest = try XCTUnwrap(contacts.map { rig.restPosition[$0].y }.min())
+        var poser = HeroSkeletonPoser(rig: rig)
+        for name in ["h027_idle", "h027_walk", "h027_run", "h027_thrust", "h027_sweep", "h027_rising"] {
+            let c = try XCTUnwrap(lib.index(of: name))
+            let clip = lib.clips[c]
+            var lowest = Float.infinity
+            for f in 0..<clip.frames {
+                var (q, root) = lib.sample(c, time: Float(f) / clip.fps)
+                root.x *= clip.rootXZ
+                root.z *= clip.rootXZ
+                poser.solve(q, hipsDrop: 0, hipsOffset: root * leg)
+                XCTAssertTrue(poser.position.allSatisfy { $0.x.isFinite && $0.y.isFinite && $0.z.isFinite }, name)
+                lowest = min(lowest, contacts.map { poser.position[$0].y }.min()!)
+            }
+            XCTAssertEqual(lowest, restLowest, accuracy: 0.03, "\(name): 足が浮く・めり込む")
+        }
+    }
+
+    /// 強い通常攻撃は専用クリップで振り（打撃 = windup 秒後、打撃の後は等速）、竜牙突きの命中で到着の突きへつなぐ。
+    /// 状態を 65 秒巡回しても有限で、移動中の通常攻撃は下半身を移動に譲る。
+    func testJarldEmpoweredCastHitAndLongCycle() throws {
+        HeroMotionClips.setResolverForTesting(nil)
+        let lib = HeroMotionClips.library(heroID: "H027")
+        let binding = try XCTUnwrap(HeroMotionBinding(set: try XCTUnwrap(HeroMotionSets.set(heroID: "H027")), library: lib))
+        var a = HeroAnimator(profile: profile("H027"), defaultRunSpeed: 2.65, motion: binding)
+        XCTAssertEqual(a.clips.clipName, "h027_idle")
+        a.playAttack(windup: 0.24, interval: 0.95, empowered: true)
+        XCTAssertEqual(a.clips.clipName, "h027_flurry")
+        var t: Float = 0
+        while a.clips.clipTime < a.clips.impactTime - 1e-4 && t < 1 {
+            _ = a.advance(dt: 1.0 / 120, moveSpeed: 0)
+            t += 1.0 / 120
+        }
+        XCTAssertEqual(t, 0.24, accuracy: 0.02, "1 発目 = sim の命中")
+        let impact = a.clips.clipTime
+        for _ in 0..<32 { _ = a.advance(dt: 1.0 / 120, moveSpeed: 0) }
+        XCTAssertEqual(a.clips.clipTime - impact, 32.0 / 120, accuracy: 1e-3, "打撃の後は等速（2・3 発目が sim の時刻）")
+        a.setState(.cast(.skill2))
+        XCTAssertEqual(a.clips.clipName, "h027_strike")
+        for _ in 0..<12 { _ = a.advance(dt: 1.0 / 60, moveSpeed: 15.2) }
+        XCTAssertGreaterThan(a.clipLowerWeight, 0.99, "突進中は脚もクリップ（足を回さない）")
+        let d = try XCTUnwrap(a.playCastHit(.skill2))
+        XCTAssertEqual(a.clips.clipName, "h027_strike_hit")
+        XCTAssertGreaterThan(d, 0.3)
+        XCTAssertNil(a.playCastHit(.skill2), "1 回の詠唱で 1 度だけ")
+        // 65 秒: 待機 → 歩き → 走り（奥義の移動速度）→ 移動しながらの連続攻撃（奥義の攻撃速度）→ 詠唱 → 停止
+        let plan: [(HeroAnimState, Float)] = [(.idle, 0), (.run, 1.2), (.run, 3.7), (.attack, 3.7), (.cast(.skill1), 0),
+                                             (.cast(.ultimate), 3.7), (.attack, 0), (.idle, 0)]
+        for step in 0..<3900 {
+            let (state, speed) = plan[(step / 160) % plan.count]
+            if step % 160 == 0 { a.setState(state) }
+            if state == .attack && step % 30 == 0 { a.playAttack(windup: 0.15, interval: 0.5) }
+            let pose = a.advance(dt: 1.0 / 60, moveSpeed: speed)
+            XCTAssertTrue(pose.yaw.isFinite && pose.offset.x.isFinite, "\(step)")
+            if state == .attack && speed > 1 && step % 160 > 40 {
+                XCTAssertLessThan(a.clipLowerWeight, 0.01, "移動中の通常攻撃は脚を移動へ")
+            }
+        }
+    }
+
     /// 同梱のクリップ（あれば）を同梱のヒーロー（あるだけ）に実行時と同じ計算で載せる。骨が有限で、ループは頭が腰より上。
     /// 立ったままのループ（待機・移動。腰の平均の沈みが脚の長さの 25% 未満）は脚のどこか（足首・つま先・膝）が地面の近く
     /// （抽出と実行時の約束 = docs/HERO_MOTION.md の区間回転・腰の位置が食い違うと、腰が浮く・沈む）。

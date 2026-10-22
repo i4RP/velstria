@@ -19,11 +19,15 @@ struct HeroMotionSet {
     /// 詠唱のクリップを発動の瞬間（先頭）から再生する。クリップの impact は KitTimes の判定の時刻に置いてある（H034）。
     /// false = 既定（打撃が呼び出しの castLead 秒後に来るよう、打撃の手前から始める）。
     var castsFromStart = false
+    /// 詠唱のクリップが移動中も脚を持つ（突進の間に足を回さない。H027 の竜牙突き）。Skill1, Skill2, Ultimate。
+    var castLocksLegs: [Bool] = [false, false, false]
     var idle: String?
     /// 待機のクリップが専用の収録（H025・H034）。HeroIdle の個別の待機より優先する。
     var dedicatedIdle = false
     /// 通常攻撃のクリップが専用の収録（H034）。HeroSkillMotions の全身の通常攻撃（Motion_H0xx.attacks）より優先する。
     var dedicatedAttack = false
+    /// キットの強い通常攻撃（三連突き）の専用クリップ。あれば手続きの全身のモーション（HeroSkillMotions）より優先する（H027）。
+    var empowered: String?
     var walk: String?
     var run: String?
     var death: String?
@@ -57,8 +61,10 @@ struct HeroMotionBinding {
     let casts: [Int?]
     let castHits: [Int?]
     let castsFromStart: Bool
+    let castLocksLegs: [Bool]
     let idle: Int?
     let dedicatedIdle: Bool
+    let empowered: Int?
     let walk: Int?
     let run: Int?
     let death: Int?
@@ -77,8 +83,10 @@ struct HeroMotionBinding {
         casts = (0..<3).map { $0 < set.casts.count ? find(set.casts[$0]) : nil }
         castHits = (0..<3).map { $0 < set.castHits.count ? find(set.castHits[$0]) : nil }
         castsFromStart = set.castsFromStart
+        castLocksLegs = (0..<3).map { $0 < set.castLocksLegs.count && set.castLocksLegs[$0] }
         idle = find(set.idle)
         dedicatedIdle = set.dedicatedIdle && idle != nil
+        empowered = find(set.empowered)
         walk = find(set.walk)
         run = find(set.run)
         death = find(set.death)
@@ -99,6 +107,7 @@ struct HeroMotionBinding {
     /// スキル枠 → casts の添字（パッシブは Skill1 と同じ。HeroAnimator.castIndex と同じ対応）。
     func cast(_ index: Int) -> Int? { index >= 0 && index < casts.count ? casts[index] : nil }
     func castHit(_ index: Int) -> Int? { index >= 0 && index < castHits.count ? castHits[index] : nil }
+    func locksLegs(_ index: Int) -> Bool { index >= 0 && index < castLocksLegs.count && castLocksLegs[index] }
 }
 
 enum HeroMotionSets {
@@ -140,6 +149,22 @@ enum HeroMotionSets {
     private static let spearIdle: Float = -0.22
     /// 待機のクリップ中の弓（上の弓先を前へ傾ける）。
     private static let bowIdle: Float = -0.38
+
+    /// H027 竜槍のジャルド: Meshy prime の体の動き + 槍の軌道・両手の握り・接地を Blender で仕上げた専用クリップ
+    /// （H027MotionClips.json、docs/H027_MOTION.md）。槍は右手の区間に追従させ（握りの向きは仕上げと同じ値）、
+    /// 左手は仕上げで柄の上に置いてある。詠唱もクリップ（打撃の時刻 = 呼び出しの castLead 後。演出の時刻は FX_H027 のまま）。
+    private static let jarld: HeroMotionSet = {
+        var s = make(["h027_thrust", "h027_sweep", "h027_rising"], idle: "h027_idle", death: "death_forward",
+                     weaponGrip: rx(-.pi / 2) * ry(-0.1658))
+        s.dedicatedIdle = true
+        s.walk = "h027_walk"
+        s.run = "h027_run"
+        s.empowered = "h027_flurry"
+        s.casts = ["h027_flip", "h027_strike", "h027_warrior"]
+        s.castHits = [nil, "h027_strike_hit", nil]
+        s.castLocksLegs = [false, true, false]
+        return s
+    }()
 
     private static let lumina: HeroMotionSet = {
         var s = make(["h025_bow_attack"], idle: "h025_idle", death: "death_forward",
@@ -239,7 +264,7 @@ enum HeroMotionSets {
         // 右手の上の球電（Arcanist・遠隔: 杖は持たず、指し示し・払い）
         "H026": make(["cast_a", "cast_point", "cast_throw"], idle: "ready_idle", victory: "victory_cheer", weaponGrip: held),
         // 竜牙の長槍（Duelist・近接の突き）
-        "H027": make(["thrust", "sword_slash_r", "sword_upward"], idle: "ready_idle", death: "death_forward", weaponGrip: held),
+        "H027": jarld,
         // 光刃の長剣（Assassin・近接の連斬り）
         "H028": make(["sword_slash_r", "sword_combo_2", "sword_combo2_b"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer"),
         // 聖槌 + 円盾（Support・近接の片手振り。盾は左手に構えたまま）。通常攻撃は全身のモーション（HeroSkillMotions の
