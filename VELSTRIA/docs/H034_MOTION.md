@@ -35,6 +35,13 @@
 
   元の `Motion_H034` の詠唱はクリップが無い時の代わりとして残す。鉤の発射位置（スキル弾の出どころ）は未調整。
 
+## 武器（Prop_hookChain）
+
+旧版（Tripo、face_limit 2500 → 2,562 面）は粗かったので、生成用の 2D 画像から作り直した: `tools/tripo/assets.json` の
+hookChain のプロンプトを詳細化（鋲の鉄帯・革巻きの柄・六角の口金・返しの付いた鉤・太い楕円の鎖）→ Tripo text-to-image
+（seedream_v5）→ image-to-model（face_limit 8000）→ `node tools/tripo.mjs import props hookChain --max-faces 8000`
+（7,728 面、検査 PASS、向きは旧版と同じ: 鉤が +X、棘が -X）。費用 65 credits。旧版は `build/h034-motion/Prop_hookChain_original.usdz`。
+
 ## 再現
 
 `VELSTRIA/` で:
@@ -49,5 +56,5 @@ tools/capture_h034_motion.sh <VELSTRIA.app> build/h034-preview after
 ```
 
 タスク ID・費用は [API 記録](MOTION_H034_API.json)（Meshy 70 = prime 7 本、Tripo 55 = v3 リグ 25 + idle/walk/run 30）。
-キー・署名 URL はコミットしない。比較動画は Actions「H034 Motion Preview」（before = 変更前の main、after = この版）。
+キー・署名 URL はコミットしない。録画は `tools/capture_h034_motion.sh`（手元のシミュレータ用。CI では回さない）。
 実機 FPS は計測していない。追加はクリップ 4 本（約 380 KB、参加時のみ読む）で、三角形・Entity・演出の予算は変えていない。

@@ -360,7 +360,7 @@
     },
     {
       "kind": "hookChain", "heroes": ["H034"], "grip": 0.24, "optional": false, "yaw": -90,
-      "prompt": "a heavy iron chain hook weapon, front view, short thick brown wooden handle wrapped with iron rings at the bottom, a thick iron rod above it, at the top a huge massive curved iron hook as wide as half the weapon's height, thick and broad like a meat hook, bending over to the right like a big question mark with a sharp barbed tip, a short iron claw on the left side, a loop of thick rusty iron chain hanging from the left side of the handle, the flat side of the hook toward the viewer.",
+      "prompt": "a massive iron chain hook weapon of a huge viking brute, stylized hand-painted game asset, front view, standing upright, high detail with chunky readable shapes and bevelled edges: at the bottom a thick dark wooden handle as long as a forearm, wrapped with three riveted iron bands and worn leather straps; above it a thick forged iron shaft with a hexagonal collar; at the top a huge heavy curved meat hook as wide as half the weapon's height, thick and broad, bending over to the right like a big question mark, with a sharp barbed inner tip, hammered metal with dents and scratches, and a short spike on the left side; a heavy rusty iron chain of large thick oval links coils once around the handle and hangs down on the left; the flat side of the hook faces the viewer, the whole weapon fully visible on a plain light grey background, no hands, no character.",
       "notes": "手続き版は鉤が XY 面（面 ±Z）で +X へ曲がる、鎖は -X。yaw -90 で画像の右 -> +X。"
     }
   ],

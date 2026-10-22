@@ -7039,6 +7039,100 @@
       "stages": {
         "concept": {
           "status": "success",
+          "task_id": "da807278-0367-4fe6-8aad-eecf7e61a208",
+          "input": null,
+          "request": {
+            "prompt": "Single stylized fantasy MOBA game item, one object only, upright and perfectly vertical: a massive iron chain hook weapon of a huge viking brute, stylized hand-painted game asset, front view, standing upright, high detail with chunky readable shapes and bevelled edges: at the bottom a thick dark wooden handle as long as a forearm, wrapped with three riveted iron bands and worn leather straps; above it a thick forged iron shaft with a hexagonal collar; at the top a huge heavy curved meat hook as wide as half the weapon's height, thick and broad, bending over to the right like a big question mark, with a sharp barbed inner tip, hammered metal with dents and scratches, and a short spike on the left side; a heavy rusty iron chain of large thick oval links coils once around the handle and hangs down on the left; the flat side of the hook faces the viewer, the whole weapon fully visible on a plain light grey background, no hands, no character. Orthographic view, centered with margin, whole object visible, plain light-gray background, even soft lighting, stylized hand-painted texture, chunky readable shapes for a top-down game camera, no hands, no text, no logo. --no hand, person, character, multiple objects, duplicates, tilted, diagonal, cropped, perspective, cast shadow, floor, particles, smoke, sparks, background scenery, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-22T17:00:07.832Z",
+          "completed_at": "2026-10-22T17:00:39.231430Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/props/hookChain/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-22T17:00:45.897Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "451a62fa-2295-45fa-8dec-d9257d83f593",
+          "input": "da807278-0367-4fe6-8aad-eecf7e61a208",
+          "request": {
+            "input": "da807278-0367-4fe6-8aad-eecf7e61a208",
+            "model": "P1-20260311",
+            "face_limit": 8000,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image",
+            "orientation": "align_image"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-22T17:00:52.133Z",
+          "completed_at": "2026-10-22T17:01:40.192991Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/props/hookChain/model.glb",
+            "preview": "build/tripo/props/hookChain/preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-22T17:01:48.456Z"
+        }
+      },
+      "history": [
+        {
+          "stage": "concept",
+          "archived_at": "2026-10-11T18:41:20.162Z",
+          "status": "success",
+          "task_id": "1991c0a3-f00e-4075-b846-44a5935c3dad",
+          "input": null,
+          "request": {
+            "prompt": "Single stylized fantasy MOBA game item, one object only, upright and perfectly vertical: a heavy iron chain hook weapon, front view, short brown wooden handle wrapped with iron rings at the bottom, a thick iron rod above it, at the top a huge curved iron hook bending over to the right like a big question mark with a barbed tip, a short iron claw on the left side, a loop of thick rusty iron chain hanging from the left side of the handle, the flat side of the hook toward the viewer. Orthographic view, centered with margin, whole object visible, plain light-gray background, even soft lighting, stylized hand-painted texture, chunky readable shapes for a top-down game camera, no hands, no text, no logo. --no hand, person, character, multiple objects, duplicates, tilted, diagonal, cropped, perspective, cast shadow, floor, particles, smoke, sparks, background scenery, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-11T18:40:13.369Z",
+          "completed_at": "2026-10-11T18:40:46.020435Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/props/hookChain/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-11T18:40:51.125Z"
+        },
+        {
+          "stage": "concept",
+          "archived_at": "2026-10-22T17:00:07.098Z",
+          "status": "success",
           "task_id": "efb8302a-3bd5-46c1-8f39-6b22a2db258a",
           "input": null,
           "request": {
@@ -7064,7 +7158,9 @@
           "error": null,
           "updated_at": "2026-10-11T18:42:29.337Z"
         },
-        "model": {
+        {
+          "stage": "model",
+          "archived_at": "2026-10-22T17:00:07.100Z",
           "status": "success",
           "task_id": "a12e2ae4-a09d-4bb9-bb2d-354fb86892c0",
           "input": "efb8302a-3bd5-46c1-8f39-6b22a2db258a",
@@ -7098,40 +7194,9 @@
           "error": null,
           "updated_at": "2026-10-11T18:46:23.898Z"
         }
-      },
-      "history": [
-        {
-          "stage": "concept",
-          "archived_at": "2026-10-11T18:41:20.162Z",
-          "status": "success",
-          "task_id": "1991c0a3-f00e-4075-b846-44a5935c3dad",
-          "input": null,
-          "request": {
-            "prompt": "Single stylized fantasy MOBA game item, one object only, upright and perfectly vertical: a heavy iron chain hook weapon, front view, short brown wooden handle wrapped with iron rings at the bottom, a thick iron rod above it, at the top a huge curved iron hook bending over to the right like a big question mark with a barbed tip, a short iron claw on the left side, a loop of thick rusty iron chain hanging from the left side of the handle, the flat side of the hook toward the viewer. Orthographic view, centered with margin, whole object visible, plain light-gray background, even soft lighting, stylized hand-painted texture, chunky readable shapes for a top-down game camera, no hands, no text, no logo. --no hand, person, character, multiple objects, duplicates, tilted, diagonal, cropped, perspective, cast shadow, floor, particles, smoke, sparks, background scenery, text, watermark, logo",
-            "model": "seedream_v5",
-            "size": "2048x2048",
-            "output_format": "png",
-            "watermark": false
-          },
-          "estimate": 5,
-          "submitted_at": "2026-10-11T18:40:13.369Z",
-          "completed_at": "2026-10-11T18:40:46.020435Z",
-          "progress": 100,
-          "credits_consumed": 5,
-          "output": {
-            "url_keys": [
-              "generated_image_url"
-            ]
-          },
-          "files": {
-            "image": "build/tripo/props/hookChain/concept.png"
-          },
-          "error": null,
-          "updated_at": "2026-10-11T18:40:51.125Z"
-        }
       ],
       "import": {
-        "at": "2026-10-11T18:46:48.489Z",
+        "at": "2026-10-22T17:02:33.295Z",
         "out": "App/Resources/Heroes/Prop_hookChain.usdz",
         "status": "success",
         "report": "build/tripo/props/hookChain/import_report.json",
@@ -7142,5 +7207,5 @@
     }
   },
   "note": "tools/tripo.mjs が自動生成。task_id・状態・消費クレジット・ローカルパスのみ（秘密情報なし）",
-  "updated_at": "2026-10-11T18:46:48.489Z"
+  "updated_at": "2026-10-22T17:02:33.297Z"
 }
