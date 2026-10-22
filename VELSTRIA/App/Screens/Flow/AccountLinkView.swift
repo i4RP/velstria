@@ -575,61 +575,60 @@ private struct AccountPasswordSheet: View {
     @State private var password = ""
     @State private var confirm = ""
     @State private var error: String?
-    @FocusState private var focused: Bool
 
     private var issue: AccountPassword.Issue? { AccountPassword.validate(password, confirm: confirm) }
 
     var body: some View {
         ZStack {
             HubBackdrop()
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text(app.profile.account.hasPassword ? L("パスワードの変更", "Change Password") : L("パスワードの設定", "Set a Password"))
-                        .font(Celestial.heading(18))
-                        .foregroundStyle(HubStyle.text)
-                    Spacer()
-                    FlowCloseButton(identifier: "account_password_close") { dismiss() }
-                }
-                Text(L("ほかの端末の「アカウント切替」で、アカウント ID（\(FriendCode.display(app.profile.friendCode))）とこのパスワードを入れるとログインできます。\(AccountPassword.minLength)〜\(AccountPassword.maxLength) 文字。パスワードはサーバーにも保存しません（照合用の値だけを送ります）。",
-                       "On another device, use Switch Account with your account ID (\(FriendCode.display(app.profile.friendCode))) and this password. \(AccountPassword.minLength)–\(AccountPassword.maxLength) characters. Your password isn't stored on our server (only a value to check it is sent)."))
-                    .font(.system(size: 12))
-                    .foregroundStyle(HubStyle.dim)
-                    .fixedSize(horizontal: false, vertical: true)
-                field(L("パスワード", "Password"), text: $password, id: "account_password_field")
-                    .focused($focused)
-                field(L("パスワード（確認）", "Confirm password"), text: $confirm, id: "account_password_confirm")
-                if let error {
-                    Text(error).font(.system(size: 12)).foregroundStyle(Theme.danger)
-                } else if !password.isEmpty, let issue {
-                    Text(AccountPassword.message(issue)).font(.system(size: 12)).foregroundStyle(Theme.danger)
-                }
-                HStack {
-                    Spacer()
-                    Button(L("キャンセル", "Cancel")) { dismiss() }
-                        .buttonStyle(SecondaryButtonStyle())
-                    Button {
-                        Task { await submit() }
-                    } label: {
-                        if app.account.busy == .password {
-                            ProgressView().tint(.black).frame(minWidth: 80)
-                        } else {
-                            Text(L("設定する", "Set Password"))
-                        }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text(app.profile.account.hasPassword ? L("パスワードの変更", "Change Password") : L("パスワードの設定", "Set a Password"))
+                            .font(Celestial.heading(18))
+                            .foregroundStyle(HubStyle.text)
+                        Spacer()
+                        FlowCloseButton(identifier: "account_password_close") { dismiss() }
                     }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .disabled(issue != nil || app.account.busy != nil)
-                    .opacity(issue == nil ? 1 : 0.5)
-                    .accessibilityIdentifier("account_password_submit")
+                    Text(L("ほかの端末の「アカウント切替」で、アカウント ID（\(FriendCode.display(app.profile.friendCode))）とこのパスワードを入れるとログインできます。\(AccountPassword.minLength)〜\(AccountPassword.maxLength) 文字。パスワードはサーバーにも保存しません（照合用の値だけを送ります）。",
+                           "On another device, use Switch Account with your account ID (\(FriendCode.display(app.profile.friendCode))) and this password. \(AccountPassword.minLength)–\(AccountPassword.maxLength) characters. Your password isn't stored on our server (only a value to check it is sent)."))
+                        .font(.system(size: 12))
+                        .foregroundStyle(HubStyle.dim)
+                        .fixedSize(horizontal: false, vertical: true)
+                    field(L("パスワード", "Password"), text: $password, id: "account_password_field")
+                    field(L("パスワード（確認）", "Confirm password"), text: $confirm, id: "account_password_confirm")
+                    if let error {
+                        Text(error).font(.system(size: 12)).foregroundStyle(Theme.danger)
+                    } else if !password.isEmpty, let issue {
+                        Text(AccountPassword.message(issue)).font(.system(size: 12)).foregroundStyle(Theme.danger)
+                    }
+                    HStack {
+                        Spacer()
+                        Button(L("キャンセル", "Cancel")) { dismiss() }
+                            .buttonStyle(SecondaryButtonStyle())
+                        Button {
+                            Task { await submit() }
+                        } label: {
+                            if app.account.busy == .password {
+                                ProgressView().tint(.black).frame(minWidth: 80)
+                            } else {
+                                Text(L("設定する", "Set Password"))
+                            }
+                        }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .disabled(issue != nil || app.account.busy != nil)
+                        .opacity(issue == nil ? 1 : 0.5)
+                        .accessibilityIdentifier("account_password_submit")
+                    }
                 }
+                .padding(18)
+                .frame(maxWidth: 520)
+                .background(HubPanel(fill: HubStyle.panelDeep))
+                .padding(16)
+                .frame(maxWidth: .infinity)
             }
-            .padding(18)
-            .frame(maxWidth: 520)
-            .background(HubPanel(fill: HubStyle.panelDeep))
-            .padding(16)
-            .frame(maxHeight: .infinity, alignment: .top)
         }
         .preferredColorScheme(.dark)
-        .onAppear { focused = true }
     }
 
     private func field(_ title: String, text: Binding<String>, id: String) -> some View {
@@ -674,66 +673,68 @@ private struct AccountLoginSheet: View {
     var body: some View {
         ZStack {
             HubBackdrop()
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text(L("アカウント切替", "Switch Account")).font(Celestial.heading(18)).foregroundStyle(HubStyle.text)
-                    Spacer()
-                    FlowCloseButton(identifier: "account_login_close") { dismiss() }
-                }
-                Text(L("切り替えたいアカウントの ID（フレンドコード）とパスワードを入れるか、連携した Game Center でログインします。この端末のデータは、切り替える前に確認します。",
-                       "Enter the account ID (friend code) and password, or log in with the linked Game Center. You'll confirm before this device's data is replaced."))
-                    .font(.system(size: 12))
-                    .foregroundStyle(HubStyle.dim)
-                    .fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 8) {
-                    TextField(L("アカウント ID（8 文字）", "Account ID (8 characters)"), text: $idText)
-                        .textInputAutocapitalization(.characters)
-                        .autocorrectionDisabled()
-                        .modifier(LoginFieldStyle())
-                        .accessibilityIdentifier("account_login_id")
-                    SecureField(L("パスワード", "Password"), text: $password)
-                        .textContentType(.password)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .modifier(LoginFieldStyle())
-                        .accessibilityIdentifier("account_login_password")
-                }
-                if let error {
-                    Text(error).font(.system(size: 12)).foregroundStyle(Theme.danger).fixedSize(horizontal: false, vertical: true)
-                }
-                HStack(spacing: 8) {
-                    Button {
-                        Task { await loginGameCenter() }
-                    } label: {
-                        HStack(spacing: 6) {
-                            GameCenterMark(size: 20)
-                            Text(L("Game Center でログイン", "Log In with Game Center")).lineLimit(1).minimumScaleFactor(0.7)
-                        }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text(L("アカウント切替", "Switch Account")).font(Celestial.heading(18)).foregroundStyle(HubStyle.text)
+                        Spacer()
+                        FlowCloseButton(identifier: "account_login_close") { dismiss() }
                     }
-                    .buttonStyle(SecondaryButtonStyle())
-                    .disabled(app.account.busy != nil)
-                    .accessibilityIdentifier("account_login_gamecenter")
-                    Spacer()
-                    Button {
-                        Task { await login() }
-                    } label: {
-                        if app.account.busy == .login {
-                            ProgressView().tint(.black).frame(minWidth: 80)
-                        } else {
-                            Text(L("ログイン", "Log In"))
-                        }
+                    Text(L("切り替えたいアカウントの ID（フレンドコード）とパスワードを入れるか、連携した Game Center でログインします。この端末のデータは、切り替える前に確認します。",
+                           "Enter the account ID (friend code) and password, or log in with the linked Game Center. You'll confirm before this device's data is replaced."))
+                        .font(.system(size: 12))
+                        .foregroundStyle(HubStyle.dim)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: 8) {
+                        TextField(L("アカウント ID（8 文字）", "Account ID (8 characters)"), text: $idText)
+                            .textInputAutocapitalization(.characters)
+                            .autocorrectionDisabled()
+                            .modifier(LoginFieldStyle())
+                            .accessibilityIdentifier("account_login_id")
+                        SecureField(L("パスワード", "Password"), text: $password)
+                            .textContentType(.password)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .modifier(LoginFieldStyle())
+                            .accessibilityIdentifier("account_login_password")
                     }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .disabled(idText.isEmpty || password.isEmpty || app.account.busy != nil)
-                    .opacity(idText.isEmpty || password.isEmpty ? 0.5 : 1)
-                    .accessibilityIdentifier("account_login_submit")
+                    if let error {
+                        Text(error).font(.system(size: 12)).foregroundStyle(Theme.danger).fixedSize(horizontal: false, vertical: true)
+                    }
+                    HStack(spacing: 8) {
+                        Button {
+                            Task { await loginGameCenter() }
+                        } label: {
+                            HStack(spacing: 6) {
+                                GameCenterMark(size: 20)
+                                Text(L("Game Center でログイン", "Log In with Game Center")).lineLimit(1).minimumScaleFactor(0.7)
+                            }
+                        }
+                        .buttonStyle(SecondaryButtonStyle())
+                        .disabled(app.account.busy != nil)
+                        .accessibilityIdentifier("account_login_gamecenter")
+                        Spacer()
+                        Button {
+                            Task { await login() }
+                        } label: {
+                            if app.account.busy == .login {
+                                ProgressView().tint(.black).frame(minWidth: 80)
+                            } else {
+                                Text(L("ログイン", "Log In"))
+                            }
+                        }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .disabled(idText.isEmpty || password.isEmpty || app.account.busy != nil)
+                        .opacity(idText.isEmpty || password.isEmpty ? 0.5 : 1)
+                        .accessibilityIdentifier("account_login_submit")
+                    }
                 }
+                .padding(18)
+                .frame(maxWidth: 560)
+                .background(HubPanel(fill: HubStyle.panelDeep))
+                .padding(16)
+                .frame(maxWidth: .infinity)
             }
-            .padding(18)
-            .frame(maxWidth: 560)
-            .background(HubPanel(fill: HubStyle.panelDeep))
-            .padding(16)
-            .frame(maxHeight: .infinity, alignment: .top)
         }
         .preferredColorScheme(.dark)
     }
