@@ -323,12 +323,70 @@ enum FXShape: String, CaseIterable, Hashable, Sendable {
     case sk034s2
     /// H034 狩猟鎖獄（tools/vfx_assets/skill_meshes.json の h034_ult: 参照画像 → Tripo のメッシュ）。
     case sk034ult
+    // 2 枚目（既存の模型と逆の段: 詠唱 ⇔ 着弾・命中。Tripo v3.1 か Meshy meshy-6 のメッシュ。provider は skill_meshes.json）
+    /// H025 月弦分矢 の 2 枚目（skill_meshes.json の h025_s1b）。
+    case sk025s1b
+    /// H025 月蝕の矢 の 2 枚目（skill_meshes.json の h025_s2b）。
+    case sk025s2b
+    /// H025 隠れ月光 の 2 枚目（skill_meshes.json の h025_ultb）。
+    case sk025ultb
+    /// H026 分岐雷 の 2 枚目（skill_meshes.json の h026_s1b）。
+    case sk026s1b
+    /// H026 雷球 の 2 枚目（skill_meshes.json の h026_s2b）。
+    case sk026s2b
+    /// H026 九天雷鳴 の 2 枚目（skill_meshes.json の h026_ultb）。
+    case sk026ultb
+    /// H027 跳槍撃 の 2 枚目（skill_meshes.json の h027_s1b）。
+    case sk027s1b
+    /// H027 竜牙突き の 2 枚目（skill_meshes.json の h027_s2b）。
+    case sk027s2b
+    /// H027 至高の武人 の 2 枚目（skill_meshes.json の h027_ultb）。
+    case sk027ultb
+    /// H028 環剣 の 2 枚目（skill_meshes.json の h028_s1b）。
+    case sk028s1b
+    /// H028 断空突進 の 2 枚目（skill_meshes.json の h028_s2b）。
+    case sk028s2b
+    /// H028 三連断空 の 2 枚目（skill_meshes.json の h028_ultb）。
+    case sk028ultb
+    /// H029 聖槌波 の 2 枚目（skill_meshes.json の h029_s1b）。
+    case sk029s1b
+    /// H029 聖槌突撃 の 2 枚目（skill_meshes.json の h029_s2b）。
+    case sk029s2b
+    /// H029 崩落聖域 の 2 枚目（skill_meshes.json の h029_ultb）。
+    case sk029ultb
+    /// H030 遠星弾 の 2 枚目（skill_meshes.json の h030_s1b）。
+    case sk030s1b
+    /// H030 星爆弾 の 2 枚目（skill_meshes.json の h030_s2b）。
+    case sk030s2b
+    /// H030 星砕の大砲 の 2 枚目（skill_meshes.json の h030_ultb）。
+    case sk030ultb
+    /// H032 赤拳連斬 の 2 枚目（skill_meshes.json の h032_s1b）。
+    case sk032s1b
+    /// H032 紅蓮の踏込 の 2 枚目（skill_meshes.json の h032_s2b）。
+    case sk032s2b
+    /// H032 奈落の一撃 の 2 枚目（skill_meshes.json の h032_ultb）。
+    case sk032ultb
+    /// H033 裂地撃 の 2 枚目（skill_meshes.json の h033_s1b）。
+    case sk033s1b
+    /// H033 旋回斬 の 2 枚目（skill_meshes.json の h033_s2b）。
+    case sk033s2b
+    /// H033 血牙の覚醒 の 2 枚目（skill_meshes.json の h033_ultb）。
+    case sk033ultb
+    /// H034 鎖鉤 の 2 枚目（skill_meshes.json の h034_s1b）。
+    case sk034s1b
+    /// H034 鉄鎖旋 の 2 枚目（skill_meshes.json の h034_s2b）。
+    case sk034s2b
+    /// H034 狩猟鎖獄 の 2 枚目（skill_meshes.json の h034_ultb）。
+    case sk034ultb
+
+    /// スキルの攻撃の模型（参照画像 → メッシュ。FXSkillMeshes）か。
+    var isSkillMesh: Bool { rawValue.hasPrefix("sk0") }
 
     /// Blender の模型（バンドルの fxm_<名前>.bin を読む）か。
     var isModel: Bool {
         switch self {
         case .crescent, .ringLip, .twister, .pillar2, .bladeRing, .burstDome, .starCross, .shardRing: return true
-        case .sk025s1, .sk025s2, .sk025ult, .sk026s1, .sk026s2, .sk026ult, .sk027s1, .sk027s2, .sk027ult, .sk028s1, .sk028s2, .sk028ult, .sk029s1, .sk029s2, .sk029ult, .sk030s1, .sk030s2, .sk030ult, .sk031s1, .sk031s2, .sk031ult, .sk032s1, .sk032s2, .sk032ult, .sk033s1, .sk033s2, .sk033ult, .sk034s1, .sk034s2, .sk034ult: return true
+        case .sk025s1, .sk025s2, .sk025ult, .sk026s1, .sk026s2, .sk026ult, .sk027s1, .sk027s2, .sk027ult, .sk028s1, .sk028s2, .sk028ult, .sk029s1, .sk029s2, .sk029ult, .sk030s1, .sk030s2, .sk030ult, .sk031s1, .sk031s2, .sk031ult, .sk032s1, .sk032s2, .sk032ult, .sk033s1, .sk033s2, .sk033ult, .sk034s1, .sk034s2, .sk034ult, .sk025s1b, .sk025s2b, .sk025ultb, .sk026s1b, .sk026s2b, .sk026ultb, .sk027s1b, .sk027s2b, .sk027ultb, .sk028s1b, .sk028s2b, .sk028ultb, .sk029s1b, .sk029s2b, .sk029ultb, .sk030s1b, .sk030s2b, .sk030ultb, .sk032s1b, .sk032s2b, .sk032ultb, .sk033s1b, .sk033s2b, .sk033ultb, .sk034s1b, .sk034s2b, .sk034ultb: return true
         default: return false
         }
     }

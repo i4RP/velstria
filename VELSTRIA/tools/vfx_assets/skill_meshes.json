@@ -216,6 +216,222 @@
    "skill": "狩猟鎖獄",
    "object": "a cage of heavy iron chains and shackles forming a dome-shaped prison",
    "orient": "asis"
+  },
+  {
+   "id": "h025_s1b",
+   "hero": "H025",
+   "skill": "月弦分矢",
+   "object": "three slender crystal moonlight arrows fanned out in a narrow spread, joined at the tails, flat arrangement",
+   "orient": "forward",
+   "provider": "tripo"
+  },
+  {
+   "id": "h025_s2b",
+   "hero": "H025",
+   "skill": "月蝕の矢",
+   "object": "a flat frost-moon impact flower of radiating sharp icy crystal shards around a small crescent center",
+   "orient": "ground",
+   "provider": "meshy"
+  },
+  {
+   "id": "h025_ultb",
+   "hero": "H025",
+   "skill": "隠れ月光",
+   "object": "a spiral vortex of drifting crescent moon feathers swirling upward around an empty center",
+   "orient": "upright",
+   "provider": "tripo"
+  },
+  {
+   "id": "h026_s1b",
+   "hero": "H026",
+   "skill": "分岐雷",
+   "object": "a crackling electric impact starburst, thick jagged lightning spikes radiating from a round center",
+   "orient": "asis",
+   "provider": "meshy"
+  },
+  {
+   "id": "h026_s2b",
+   "hero": "H026",
+   "skill": "雷球",
+   "object": "a flat electric shock ring with a jagged zigzag lightning rim and short sparks pointing outward",
+   "orient": "ground",
+   "provider": "tripo"
+  },
+  {
+   "id": "h026_ultb",
+   "hero": "H026",
+   "skill": "九天雷鳴",
+   "object": "a scorched circular thunder rune sigil disk with jagged lightning cracks branching to the edge",
+   "orient": "ground",
+   "provider": "meshy"
+  },
+  {
+   "id": "h027_s1b",
+   "hero": "H027",
+   "skill": "跳槍撃",
+   "object": "an ornate dragon spear with a small serpent dragon coiled around the shaft, spearhead at the front",
+   "orient": "forward",
+   "provider": "tripo"
+  },
+  {
+   "id": "h027_s2b",
+   "hero": "H027",
+   "skill": "竜牙突き",
+   "object": "a flat radial shockwave ring made of sharp overlapping dragon scale blades",
+   "orient": "ground",
+   "provider": "meshy"
+  },
+  {
+   "id": "h027_ultb",
+   "hero": "H027",
+   "skill": "至高の武人",
+   "object": "a tall pillar of swirling spiral aura flames rising upward like a dragon tail",
+   "orient": "upright",
+   "provider": "tripo"
+  },
+  {
+   "id": "h028_s1b",
+   "hero": "H028",
+   "skill": "環剣",
+   "object": "six slender floating sword blades arranged in a ring with tips pointing outward, flat formation",
+   "orient": "ground",
+   "provider": "meshy"
+  },
+  {
+   "id": "h028_s2b",
+   "hero": "H028",
+   "skill": "断空突進",
+   "object": "a single thin curved crescent slash cut standing upright, razor sharp edges tapering to points",
+   "orient": "facing",
+   "provider": "tripo"
+  },
+  {
+   "id": "h028_ultb",
+   "hero": "H028",
+   "skill": "三連断空",
+   "object": "a giant floating sword silhouette pointing straight down with radiant spiky edges, no hilt detail",
+   "orient": "upright",
+   "provider": "meshy"
+  },
+  {
+   "id": "h029_s1b",
+   "hero": "H029",
+   "skill": "聖槌波",
+   "object": "a giant holy war hammer head with radiant engraved runes and a short handle, blocky heavy head",
+   "orient": "upright",
+   "provider": "tripo"
+  },
+  {
+   "id": "h029_s2b",
+   "hero": "H029",
+   "skill": "聖槌突撃",
+   "object": "a radiant hemispherical light shell burst dome with short sharp spikes on its surface",
+   "orient": "asis",
+   "provider": "meshy"
+  },
+  {
+   "id": "h029_ultb",
+   "hero": "H029",
+   "skill": "崩落聖域",
+   "object": "a huge holy cross-shaped sword pointing straight down, ornate wide crossguard, broad blade",
+   "orient": "upright",
+   "provider": "tripo"
+  },
+  {
+   "id": "h030_s1b",
+   "hero": "H030",
+   "skill": "遠星弾",
+   "object": "a volumetric star-shaped explosion burst with long flaring sharp points in all directions",
+   "orient": "asis",
+   "provider": "meshy"
+  },
+  {
+   "id": "h030_s2b",
+   "hero": "H030",
+   "skill": "星爆弾",
+   "object": "a cannon muzzle flash flower, a ring of pointed flame petals around a hollow center, facing forward",
+   "orient": "facing",
+   "provider": "tripo"
+  },
+  {
+   "id": "h030_ultb",
+   "hero": "H030",
+   "skill": "星砕の大砲",
+   "object": "a long straight energy beam cylinder with spiral rings wrapped along its length",
+   "orient": "forward",
+   "provider": "meshy"
+  },
+  {
+   "id": "h032_s1b",
+   "hero": "H032",
+   "skill": "赤拳連斬",
+   "object": "a giant clenched armored fist gauntlet punching forward, knuckles at the front",
+   "orient": "forward",
+   "provider": "tripo"
+  },
+  {
+   "id": "h032_s2b",
+   "hero": "H032",
+   "skill": "紅蓮の踏込",
+   "object": "a flat swirling vortex ring of flame tongues spiraling around an empty center",
+   "orient": "ground",
+   "provider": "meshy"
+  },
+  {
+   "id": "h032_ultb",
+   "hero": "H032",
+   "skill": "奈落の一撃",
+   "object": "an abyssal explosion burst of long jagged dark crystal spikes erupting from a center",
+   "orient": "asis",
+   "provider": "tripo"
+  },
+  {
+   "id": "h033_s1b",
+   "hero": "H033",
+   "skill": "裂地撃",
+   "object": "a huge broad greatsword plunging point down, wide heavy blade with a simple crossguard",
+   "orient": "upright",
+   "provider": "meshy"
+  },
+  {
+   "id": "h033_s2b",
+   "hero": "H033",
+   "skill": "旋回斬",
+   "object": "a splash burst of sharp curved blood droplet spikes flying outward from a center",
+   "orient": "asis",
+   "provider": "tripo"
+  },
+  {
+   "id": "h033_ultb",
+   "hero": "H033",
+   "skill": "血牙の覚醒",
+   "object": "a howling wolf head sculpture with open jaws and sharp fangs, side profile, stylized",
+   "orient": "facing",
+   "provider": "meshy"
+  },
+  {
+   "id": "h034_s1b",
+   "hero": "H034",
+   "skill": "鎖鉤",
+   "object": "a straight taut heavy iron chain of large oval links extended in a line",
+   "orient": "forward",
+   "provider": "tripo"
+  },
+  {
+   "id": "h034_s2b",
+   "hero": "H034",
+   "skill": "鉄鎖旋",
+   "object": "a heavy iron spiked flail ball with thick conical spikes",
+   "orient": "asis",
+   "provider": "tripo"
+  },
+  {
+   "id": "h034_ultb",
+   "hero": "H034",
+   "skill": "狩猟鎖獄",
+   "object": "a pair of heavy iron shackle manacles joined by a short broken chain",
+   "orient": "asis",
+   "provider": "tripo"
   }
  ]
 }

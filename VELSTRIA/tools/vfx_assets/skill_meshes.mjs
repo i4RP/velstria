@@ -17,7 +17,15 @@ const OUT = path.join(ROOT, 'build/skill-meshes');
 const BASE = 'https://openapi.tripo3d.ai/v3';
 const spec = JSON.parse(fs.readFileSync(SPEC, 'utf8'));
 const state = fs.existsSync(STATE) ? JSON.parse(fs.readFileSync(STATE, 'utf8')) : { version: 1, assets: {} };
-const save = () => { state.updated_at = new Date().toISOString(); fs.writeFileSync(STATE + '.tmp', JSON.stringify(state, null, 2) + '\n'); fs.renameSync(STATE + '.tmp', STATE); };
+// 複数のプロセス（Tripo 担当と Meshy 担当）が同じ状態ファイルへ書くので、触った件だけを最新の内容へ重ねて書く
+const touched = new Set();
+const save = () => {
+  const cur = fs.existsSync(STATE) ? JSON.parse(fs.readFileSync(STATE, 'utf8')) : { version: 1, assets: {} };
+  for (const id of touched) cur.assets[id] = state.assets[id];
+  cur.updated_at = new Date().toISOString();
+  const tmp = `${STATE}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(cur, null, 2) + '\n'); fs.renameSync(tmp, STATE);
+};
 let apiKey;
 const key = () => apiKey ||= (process.env.TRIPO_API_KEY || fs.readFileSync(path.join(os.homedir(), '.config/tripo/api_key'), 'utf8')).trim();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -49,10 +57,75 @@ async function wait(taskId) {
     await sleep(5000);
   }
 }
+// Meshy（provider: "meshy" の件のモデル）。キーは env MESHY_API_KEY か ~/.config/meshy/api_key
+const MESHY = 'https://api.meshy.ai/openapi/v1';
+let meshyKey;
+const mkey = () => meshyKey ||= (process.env.MESHY_API_KEY || fs.readFileSync(path.join(os.homedir(), '.config/meshy/api_key'), 'utf8')).trim();
+async function mcall(method, route, body) {
+  const r = await fetch(MESHY + route, { method, headers: { Authorization: `Bearer ${mkey()}`, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(`meshy ${method} ${route}: HTTP ${r.status} ${scrub(JSON.stringify(d))}`); e.status = r.status; throw e; }
+  return d;
+}
+async function meshyImage(a, img, o) {
+  const st = (state.assets[a.id] ||= {});
+  touched.add(a.id);
+  let s = st.image;
+  if (s?.status === 'submitted' && !s.task_id) throw new Error(`${a.id}/image: 送信結果が不明（再送しない）`);
+  if (!s || s.status !== 'success') {
+    const body = { ai_model: 'nano-banana-2', prompt: `${spec.style.prefix} ${a.object}. ${spec.style.suffix} Avoid: ${spec.style.negative}.`, aspect_ratio: '1:1' };
+    s = st.image = { provider: 'meshy', status: 'submitted', request: body, submitted_at: new Date().toISOString() };
+    save();
+    for (let n = 0; ; n++) {
+      try { s.task_id = (await mcall('POST', '/text-to-image', body)).result; break; } catch (e) {
+        if (e.status === 429 && n < 60) { await sleep(30000); continue; }
+        s.status = 'rejected'; s.error = e.message; save(); throw e;
+      }
+    }
+    save();
+  }
+  let t;
+  for (;;) { t = await mcall('GET', `/text-to-image/${s.task_id}`); if (['SUCCEEDED', 'FAILED', 'CANCELED'].includes(t.status)) break; await sleep(5000); }
+  s.status = t.status === 'SUCCEEDED' ? 'success' : t.status; s.credits = t.status === 'SUCCEEDED' ? 6 : 0; s.completed_at = new Date().toISOString();
+  save();
+  if (t.status !== 'SUCCEEDED') throw new Error(`${a.id}/image: meshy ${t.status}`);
+  await download(t.image_urls[0], img);
+  console.log(`${a.id}: 画像（Meshy）`);
+}
+
+async function meshyModel(a, img, glb, o) {
+  const st = (state.assets[a.id] ||= {});
+  touched.add(a.id);
+  let s = st.model;
+  if (s?.status === 'submitted' && !s.task_id) throw new Error(`${a.id}/model: 送信結果が不明（再送しない）`);
+  if (!s || ['failed', 'rejected', 'FAILED', 'CANCELED'].includes(s.status)) {
+    if (o.maxCredits !== undefined && spent() >= o.maxCredits) throw new Error(`--max-credits ${o.maxCredits} に達した（使用 ${spent()}）`);
+    const body = { image_url: `data:image/png;base64,${fs.readFileSync(img).toString('base64')}`, ai_model: 'meshy-6', should_texture: false,
+      should_remesh: true, topology: 'triangle', target_polycount: a.faces || spec.faces };
+    s = st.model = { provider: 'meshy', status: 'submitted', request: { ...body, image_url: '<data uri>' }, submitted_at: new Date().toISOString() };
+    save();
+    for (let n = 0; ; n++) {
+      try { s.task_id = (await mcall('POST', '/image-to-3d', body)).result; break; } catch (e) {
+        if (e.status === 429 && n < 60) { await sleep(30000); continue; }
+        s.status = 'rejected'; s.error = e.message; save(); throw e;
+      }
+    }
+    save();
+  }
+  let t;
+  for (;;) { t = await mcall('GET', `/image-to-3d/${s.task_id}`); if (['SUCCEEDED', 'FAILED', 'CANCELED'].includes(t.status)) break; await sleep(8000); }
+  s.status = t.status === 'SUCCEEDED' ? 'success' : t.status; s.credits = t.status === 'SUCCEEDED' ? 20 : 0; s.completed_at = new Date().toISOString();
+  save();
+  if (t.status !== 'SUCCEEDED') throw new Error(`${a.id}/model: meshy ${t.status} ${scrub(JSON.stringify(t.task_error || ''))}`);
+  await download(t.model_urls.glb, glb);
+  console.log(`${a.id}: モデル（Meshy）`);
+}
+
 const spent = () => Object.values(state.assets).flatMap((a) => Object.values(a)).reduce((n, s) => n + (Number(s.credits) || 0), 0);
 
 async function stage(a, name, request, route, maxCredits) {
   const st = (state.assets[a.id] ||= {});
+  touched.add(a.id);
   let s = st[name];
   if (s?.status === 'success') return s;
   if (s?.status === 'submitted' && !s.task_id) throw new Error(`${a.id}/${name}: 送信結果が不明（再送しない）`);
@@ -82,7 +155,10 @@ async function run(a, o) {
   const dir = path.join(OUT, a.id);
   fs.mkdirSync(dir, { recursive: true });
   const img = path.join(dir, 'image.png');
-  if (!fs.existsSync(img)) {
+  if (!fs.existsSync(img) && a.provider === 'meshy') {
+    // Meshy 担当の件は参照画像も Meshy（text-to-image nano-banana-2、Tripo の同時実行の枠を空ける）
+    await meshyImage(a, img, o);
+  } else if (!fs.existsSync(img)) {
     const prompt = `${spec.style.prefix} ${a.object}. ${spec.style.suffix} --no ${spec.style.negative}`;
     const s = await stage(a, 'image', { model: 'seedream_v5', prompt, size: '2048x2048', output_format: 'png' }, '/generation/text-to-image', o.maxCredits);
     const url = s._output?.image_url || s._output?.generated_image || Object.values(s._output || {}).find((v) => typeof v === 'string' && v.startsWith('http'));
@@ -93,8 +169,9 @@ async function run(a, o) {
   if (o.until === 'image') return;
   const glb = path.join(dir, 'model.glb');
   if (fs.existsSync(glb)) return;
+  if (a.provider === 'meshy') return meshyModel(a, img, glb, o);
   const token = await upload(img);
-  const s = await stage(a, 'model', { input: token, model: 'P1-20260311', face_limit: a.faces || spec.faces, texture: false, pbr: false, export_uv: true },
+  const s = await stage(a, 'model', { input: token, model: a.provider === 'tripo' ? 'v3.1-20260211' : 'P1-20260311', face_limit: a.faces || spec.faces, texture: false, pbr: false, export_uv: true },
     '/generation/image-to-model', o.maxCredits);
   const url = s._output?.model_url || s._output?.pbr_model_url || s._output?.base_model_url;
   if (!url) throw new Error(`${a.id}: モデルの URL が無い`);
@@ -111,7 +188,8 @@ try {
     for (const a of spec.assets) { const s = state.assets[a.id] || {}; console.log(a.id.padEnd(10), (s.image?.status || '-').padEnd(9), (s.model?.status || '-').padEnd(9), (s.image?.credits ?? 0) + (s.model?.credits ?? 0)); }
     console.log('total', spent());
   } else if (cmd === 'run') {
-    const list = ids.includes('all') ? spec.assets : spec.assets.filter((a) => ids.includes(a.id));
+    const pick = (x) => (x === 'all' ? () => true : x === 'second' ? (a) => !!a.provider : x.startsWith('provider=') ? (a) => a.provider === x.slice(9) : (a) => a.id === x);
+    const list = spec.assets.filter((a) => ids.some((x) => pick(x)(a)));
     const par = Number(process.env.PAR || 2);
     let i = 0, failed = 0;
     await Promise.all(Array.from({ length: par }, async () => {

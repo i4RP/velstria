@@ -29,7 +29,7 @@ def main():
     a = fc.script_args()
     out = a[a.index("--out") + 1] if "--out" in a else "build/skill-meshes/sheet.png"
     fc.reset_scene()
-    files = sorted(glob.glob("App/Resources/FX/Meshes/fxm_sk*.bin"))
+    files = sorted(glob.glob(a[a.index("--glob") + 1] if "--glob" in a else "App/Resources/FX/Meshes/fxm_sk*.bin"))
     cols = 6
     for i, f in enumerate(files):
         verts, faces = read_fxm(f)
