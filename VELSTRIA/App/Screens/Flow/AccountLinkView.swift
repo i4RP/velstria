@@ -623,7 +623,7 @@ private struct AccountPasswordSheet: View {
                 }
                 .padding(18)
                 .frame(maxWidth: 520)
-                .background(HubPanel(fill: HubStyle.panelDeep))
+                .background(HubPanel(fill: HubStyle.panelSolid))
                 .padding(16)
                 .frame(maxWidth: .infinity)
             }
@@ -731,7 +731,7 @@ private struct AccountLoginSheet: View {
                 }
                 .padding(18)
                 .frame(maxWidth: 560)
-                .background(HubPanel(fill: HubStyle.panelDeep))
+                .background(HubPanel(fill: HubStyle.panelSolid))
                 .padding(16)
                 .frame(maxWidth: .infinity)
             }

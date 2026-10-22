@@ -10,6 +10,8 @@ import VelstriaCore
 enum HubStyle {
     static let panel = Color(red: 0.23, green: 0.33, blue: 0.49).opacity(0.55)
     static let panelDeep = Color(red: 0.08, green: 0.13, blue: 0.23).opacity(0.85)
+    /// 画面の上に重ねる面（下が透けない）。
+    static let panelSolid = Color(red: 0.07, green: 0.11, blue: 0.20)
     static let row = Color(red: 0.32, green: 0.43, blue: 0.59).opacity(0.62)
     static let stroke = Color(red: 0.62, green: 0.78, blue: 0.96).opacity(0.32)
     static let text = Color(red: 0.88, green: 0.93, blue: 1.0)
@@ -92,7 +94,7 @@ struct ProfileHubView: View {
         GeometryReader { geo in
             let sidebar = min(158, max(112, geo.size.width * 0.17))
             VStack(spacing: 0) {
-                topBar(sidebar: sidebar)
+                topBar(sidebar: sidebar, compact: geo.size.width < 720)
                 HStack(alignment: .top, spacing: 10) {
                     menu.frame(width: sidebar)
                     content
@@ -113,7 +115,7 @@ struct ProfileHubView: View {
 
     // MARK: 上の列
 
-    private func topBar(sidebar: CGFloat) -> some View {
+    private func topBar(sidebar: CGFloat, compact: Bool) -> some View {
         HStack(spacing: 10) {
             HubBackButton {
                 FlowFX.back(app)
@@ -128,30 +130,30 @@ struct ProfileHubView: View {
                 .minimumScaleFactor(0.6)
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 6)
-            tools
+            tools(compact: compact)
         }
         .frame(height: 46)
         .padding(.trailing, 12)
     }
 
-    @ViewBuilder private var tools: some View {
+    @ViewBuilder private func tools(compact: Bool) -> some View {
         switch section {
         case .profile:
             HStack(spacing: 6) {
-                HubToolButton(symbol: "person.text.rectangle", title: L("名刺", "Card"), id: "profile_namecard") {
+                HubToolButton(symbol: "person.text.rectangle", title: L("名刺", "Card"), id: "profile_namecard", showsTitle: !compact) {
                     FlowFX.tap(app)
                     showsNameCard = true
                 }
-                HubToolButton(symbol: "chart.bar.fill", title: L("データ", "Stats"), id: "profile_career") {
+                HubToolButton(symbol: "chart.bar.fill", title: L("データ", "Stats"), id: "profile_career", showsTitle: !compact) {
                     FlowFX.tap(app)
                     overlay = .career
                 }
                 HubToolButton(symbol: "trophy.fill", title: L("実績", "Awards"), id: "profile_achievements",
-                              dot: HomeBadges.claimableAchievements(app.profile) > 0) {
+                              dot: HomeBadges.claimableAchievements(app.profile) > 0, showsTitle: !compact) {
                     FlowFX.tap(app)
                     app.router.push(.achievements)
                 }
-                HubToolButton(symbol: "gearshape.fill", title: L("設定", "Settings"), id: "profile_settings") {
+                HubToolButton(symbol: "gearshape.fill", title: L("設定", "Settings"), id: "profile_settings", showsTitle: !compact) {
                     FlowFX.tap(app)
                     app.router.push(.settings)
                 }
@@ -388,14 +390,19 @@ struct HubToolButton: View {
     let title: String
     let id: String
     var dot = false
+    /// 文字も出す（狭い画面はアイコンだけ。読み上げは文字のまま）。
+    var showsTitle = true
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Image(systemName: symbol).font(.system(size: 13, weight: .semibold))
-                Text(title).font(.system(size: 12, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
+                if showsTitle {
+                    Text(title).font(.system(size: 12, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
+                }
             }
+            .frame(minWidth: showsTitle ? nil : 22)
             .foregroundStyle(HubStyle.text)
             .padding(.horizontal, 9)
             .frame(minHeight: 32)
@@ -411,6 +418,7 @@ struct HubToolButton: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(title)
         .accessibilityIdentifier(id)
     }
 }
@@ -431,7 +439,7 @@ private struct ProfileOverviewPane: View {
     var body: some View {
         GeometryReader { geo in
             HStack(alignment: .top, spacing: 10) {
-                mainPanel
+                mainPanel(compact: geo.size.height < 340)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 photoWall(height: geo.size.height)
                     .frame(width: min(300, geo.size.width * 0.36))
@@ -441,18 +449,18 @@ private struct ProfileOverviewPane: View {
 
     // MARK: 左の面
 
-    private var mainPanel: some View {
+    private func mainPanel(compact: Bool) -> some View {
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: compact ? 4 : 8) {
                 identity
                 infoLines
                 HubDivider()
-                medals
+                medals(compact: compact)
                 heroLine
                 HubDivider()
                 footer
             }
-            .padding(12)
+            .padding(compact ? 9 : 12)
         }
         .background(HubPanel())
     }
@@ -570,20 +578,21 @@ private struct ProfileOverviewPane: View {
 
     // MARK: 章（段位 3 つ・実績 3 つ）
 
-    private var medals: some View {
+    private func medals(compact: Bool) -> some View {
         let r = app.profile.rank
         let seasonBest = max(r.seasonHighestTier, r.tier)
         let latest = latestAchievements
-        return VStack(spacing: 6) {
+        return VStack(spacing: compact ? 3 : 6) {
             Button {
                 FlowFX.tap(app)
                 app.router.push(.rankOverview)
             } label: {
                 HStack(alignment: .top, spacing: 4) {
-                    rankMedal(r.tier, title: L("現在ランク", "Current Rank"), sub: RankInlineText.current(r))
+                    rankMedal(r.tier, title: L("現在ランク", "Current Rank"), sub: RankInlineText.current(r), size: compact ? 34 : 44)
                     rankMedal(r.highestTier, title: L("最高ランク", "Highest Rank"),
-                              sub: r.highestTier == .mythic ? RankService.mythicName(stars: r.highestMythicStars) : RankService.tierName(r.highestTier))
-                    rankMedal(seasonBest, title: L("今シーズン最高", "Season Best"), sub: RankService.tierName(seasonBest))
+                              sub: r.highestTier == .mythic ? RankService.mythicName(stars: r.highestMythicStars) : RankService.tierName(r.highestTier),
+                              size: compact ? 34 : 44)
+                    rankMedal(seasonBest, title: L("今シーズン最高", "Season Best"), sub: RankService.tierName(seasonBest), size: compact ? 34 : 44)
                 }
                 .contentShape(Rectangle())
             }
@@ -595,7 +604,7 @@ private struct ProfileOverviewPane: View {
             } label: {
                 HStack(alignment: .top, spacing: 4) {
                     ForEach(0..<3, id: \.self) { i in
-                        achievementMedal(i < latest.count ? latest[i] : nil)
+                        achievementMedal(i < latest.count ? latest[i] : nil, size: compact ? 30 : 40)
                     }
                 }
                 .contentShape(Rectangle())
@@ -605,9 +614,9 @@ private struct ProfileOverviewPane: View {
         }
     }
 
-    private func rankMedal(_ tier: RankTier, title: String, sub: String) -> some View {
+    private func rankMedal(_ tier: RankTier, title: String, sub: String, size: CGFloat) -> some View {
         VStack(spacing: 2) {
-            RankCrest(tier: tier, size: 44)
+            RankCrest(tier: tier, size: size)
                 .shadow(color: FlowText.tierColors(tier)[0].opacity(0.5), radius: 6)
             Text(title).font(.system(size: 11, weight: .semibold)).foregroundStyle(HubStyle.text).lineLimit(1).minimumScaleFactor(0.6)
             Text(sub).font(.system(size: 9, weight: .medium)).foregroundStyle(HubStyle.dim).lineLimit(1).minimumScaleFactor(0.6)
@@ -626,7 +635,7 @@ private struct ProfileOverviewPane: View {
             .map { $0 }
     }
 
-    private func achievementMedal(_ def: AchievementDef?) -> some View {
+    private func achievementMedal(_ def: AchievementDef?, size: CGFloat) -> some View {
         VStack(spacing: 2) {
             ZStack {
                 HexagonShape()
@@ -635,10 +644,10 @@ private struct ProfileOverviewPane: View {
                                      : AnyShapeStyle(Color.white.opacity(0.08)))
                 HexagonShape().stroke(def != nil ? Color.white.opacity(0.8) : HubStyle.stroke, lineWidth: 1)
                 Image(systemName: def != nil ? "trophy.fill" : "questionmark")
-                    .font(.system(size: 17, weight: .bold))
+                    .font(.system(size: size * 0.42, weight: .bold))
                     .foregroundStyle(def != nil ? Color(red: 0.30, green: 0.16, blue: 0.02) : HubStyle.dim)
             }
-            .frame(width: 40, height: 40)
+            .frame(width: size, height: size)
             Text(def?.title ?? L("未達成", "Locked"))
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(def != nil ? HubStyle.text : HubStyle.dim)
@@ -869,7 +878,7 @@ private struct AvatarPickerOverlay: View {
             }
             .padding(14)
             .frame(maxWidth: 620, maxHeight: 330)
-            .background(HubPanel(fill: HubStyle.panelDeep))
+            .background(HubPanel(fill: HubStyle.panelSolid))
             .padding(12)
         }
     }
@@ -905,7 +914,7 @@ private struct CareerDataOverlay: View {
             }
             .padding(14)
             .frame(maxWidth: 640, maxHeight: 340)
-            .background(HubPanel(fill: HubStyle.panelDeep))
+            .background(HubPanel(fill: HubStyle.panelSolid))
             .padding(12)
         }
     }
